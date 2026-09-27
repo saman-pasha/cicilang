@@ -1,4 +1,4 @@
-;;;; cicili-lang -- library(cicili): Prolog with objects and modules, as a
+;;;; cocolang -- library(cocolang): Prolog with objects and modules, as a
 ;;;; cocolog module.
 ;;;;
 ;;;; WHAT THIS IS. An object is a named scope with slots and methods; a
@@ -59,7 +59,7 @@
 ;;;;
 ;;;; BUILD: sh module/build.sh, with CICILI and COCOLOG naming the two
 ;;;; checkouts; then COCOLOG_LIBRARY=<this repo>/library and
-;;;; `use_module(library(cicili))'.
+;;;; `use_module(library(cocolang))'.
 
 (DEFPARAMETER *ccl-predicates*
   '(("ccl_version" 1 ccl_p_version)
@@ -72,24 +72,24 @@
   (FORMAT NIL "~{~A ~}"
           (LIST
            ;; ---- the reader: a C file, read whole, into an AST ----------------
-           ;; cicili_ast/2 acts like phrase/2 -- the whole file or a syntax error
-           ;; naming the line -- and cicili_ast/3 like phrase/3, answering the
+           ;; cocolang_ast/2 acts like phrase/2 -- the whole file or a syntax error
+           ;; naming the line -- and cocolang_ast/3 like phrase/3, answering the
            ;; tokens left unparsed. The grammars are library(ccl_syntax).
            ;; library(ccl_include) loads library(ccl_syntax); an #include met while
            ;; parsing is found on the inclusion path and read into the AST too
            ":- use_module(library(ccl_include))."
            ;; the error names the line the unread item begins on, and the farthest
            ;; line the grammar reached inside it -- where it actually gave up
-           "cicili_ast(File, AST) :- cicili_ast(File, AST, Rest), ( Rest == [] -> true ; Rest = [tok(_, _, L)|_], ccl_farthest(Far), throw(error(syntax_error(cicili_ast(File, line(L), near(Far))), cicili_ast(File, AST))) )."
-           "cicili_ast(File, AST, Rest) :- ccl_read_file(File, AST, Rest)."
+           "cocolang_ast(File, AST) :- cocolang_ast(File, AST, Rest), ( Rest == [] -> true ; Rest = [tok(_, _, L)|_], ccl_farthest(Far), throw(error(syntax_error(cocolang_ast(File, line(L), near(Far))), cocolang_ast(File, AST))) )."
+           "cocolang_ast(File, AST, Rest) :- ccl_read_file(File, AST, Rest)."
            ;; the rest of the compiler: the lowering (library(ccl_ir)), the object
            ;; and the link (library(ccl_build))
            ":- use_module(library(ccl_ir))."
            ":- use_module(library(ccl_build))."
            ":- use_module(library(ccl_driver))."
-           "cicili_ir(Units, IR) :- ccl_ir_units(Units, IR)."
-           "cicili_compile(IR, File, Flags) :- ccl_compile(IR, File, Flags)."
-           "cicili_link(Objects, Flags, Out) :- ccl_link(Objects, Flags, Out)."
+           "cocolang_ir(Units, IR) :- ccl_ir_units(Units, IR)."
+           "cocolang_compile(IR, File, Flags) :- ccl_compile(IR, File, Flags)."
+           "cocolang_link(Objects, Flags, Out) :- ccl_link(Objects, Flags, Out)."
 
            ;; ---- the two operators, and the tables ------------------------
            ":- op(200, xfy, ::)."
@@ -241,7 +241,7 @@
            "instances(Class, Is) :- '$ccl_resolve'(Class, C), findall(I, ( '$instance'(I, C0), '$ccl_ancestor'(C0, C) ), Is)."
            )))
 
-(source "cicili.c"
+(source "cocolang.c"
   (make :std #t :compile #f)
 
   (import "./sdk.cicili")
@@ -250,7 +250,7 @@
   ;; ccl_version(-Atom): THE VERSION. Every commit raises it (owner's rule),
   ;; one number per change; `cicili --version' prints it with LLVM's.
   (func ccl_p_version ((coco_engine * e) (size_t g)) (out int)
-        (return (coco_m_unify_atom e (coco_m_arg e g 0) "0.99")))
+        (return (coco_m_unify_atom e (coco_m_arg e g 0) "0.100")))
 
   ;; ccl_cocolog_version(-Atom): the engine's own version text, from the
   ;; running binary (coco_version_text is cocolog's, resolved at load like
@@ -870,4 +870,4 @@
         (@endif))
 
   (static) (coco-emit-module-dispatch ccl_dispatch *ccl-predicates*)
-  (coco-deflibrary "cicili" ccl_dispatch *ccl-prolog*))
+  (coco-deflibrary "cocolang" ccl_dispatch *ccl-prolog*))

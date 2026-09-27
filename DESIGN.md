@@ -1,19 +1,18 @@
-# cicili-lang — a Safe Modern C compiler to LLVM, written on cocolog
+# cocolang — a Safe Modern C compiler to LLVM, written on cocolog
 
-**Status: M0 (the LLVM path), M1 (the reader, with includes and the
-knowledge-base cache) and M1b (macros and the symbol table) are built and
-GREEN; M2, the first function lowered to a binary, is next.**
+**Status: the milestones M0 to M6 are built and GREEN -- C17 and C23 whole, C++17, C++20, C++23 and C++26 to their ends, libc++ compiled from its own headers, on macOS and Linux. `CLAUDE.md` carries every step; `README.md` says what runs.**
 
-cicili-lang is a compiler for Safe Modern C — C source, extended by macros
+
+cocolang is a compiler for Safe Modern C — C source, extended by macros
 written in Prolog — that lowers straight to **LLVM IR** and produces a
 native object. It is **not a transpiler**: it does not emit C. Cicili (the existing
-one) emits C text and hands it to a C compiler; cicili-lang does the
+one) emits C text and hands it to a C compiler; cocolang does the
 compiler's own work — parse, type, check ownership, lower to IR — and reaches
 a binary through LLVM. The C compiler, where it appears, is only the
 assembler and linker driver for the IR, the way Cicili drives `cc` for
 source.
 
-It is written on cocolog, and **uses cicili, ZiguratIP and cocolog without
+It is written on cocolog, and **uses Cicili, ZiguratIP and cocolog without
 touching any of them.**
 
 ## Why this shape
@@ -30,10 +29,10 @@ does the thing it is best at, and none is modified.
 
 | neighbour | its job here | how it is used, not touched |
 |---|---|---|
-| **cicili** | the LANGUAGE and its meaning: `func`, `struct`, `let`, `letin`, ownership, `maybe`/`either`, generics. Its `doc/DOC-C.md` and `doc/DOC-CPP.md` are the spec cicili-lang compiles to the same meaning. And it is the language any NATIVE piece of cicili-lang is written in — the LLVM binding and the driver are Cicili modules. | we read its docs and reuse its surface; we never edit its Common Lisp transpiler. cicili-lang is a second, independent back end for the same language: LLVM where the original is C. |
+| **cicili** | the LANGUAGE and its meaning: `func`, `struct`, `let`, `letin`, ownership, `maybe`/`either`, generics. Its `doc/DOC-C.md` and `doc/DOC-CPP.md` are the spec cocolang compiles to the same meaning. And it is the language any NATIVE piece of cocolang is written in — the LLVM binding and the driver are Cicili modules. | we read its docs and reuse its surface; we never edit its Common Lisp transpiler. cocolang is a second, independent back end for the same language: LLVM where the original is C. |
 | **cocolog** | the compiler's HOST. Every pass is cocolog clauses: the reader → an AST of terms, the type checker (unification), the ownership and lifetime checker (the "safe"), and the lowering to LLVM IR. Its DCG reads the surface; its store holds the symbol tables; the objects-and-modules module already here may structure the passes. | the compiler is a set of `.pl` files and, where a pass needs C speed, cocolog modules — all loaded through `COCOLOG_LIBRARY`, none of cocolog's own source changed. |
 | **ZiguratIP** | through cocolog's store: a PERSISTENT compilation cache. A module's checked AST and its emitted IR, keyed by the hash of its source, live in the store, so a rebuild recompiles only what changed — cocolog's suspend-to-store nature applied to compilation. | reached only as cocolog's backing store, never directly. A design proposal, not required for M0–M2. |
-| **LLVM** | the TARGET and the optimizer and the code generator. cicili-lang emits LLVM IR; LLVM lowers it to native code. | reached first as textual IR + `clang` as assembler/linker (PROVEN, see M0), since M2 as the in-memory `llvm-c` binding written as a Cicili cocolog module (`library(ccl_llvm)`: parse, verify, passes, object) -- and ONLY so: owner's rule (M5), no clang and no LLVM binary is run by anything here; the reader has its own preprocessor in cocolog, and the link through `cc` is the one system tool left, `llvm-c` having no linker. |
+| **LLVM** | the TARGET and the optimizer and the code generator. cocolang emits LLVM IR; LLVM lowers it to native code. | reached first as textual IR + `clang` as assembler/linker (PROVEN, see M0), since M2 as the in-memory `llvm-c` binding written as a Cicili cocolog module (`library(ccl_llvm)`: parse, verify, passes, object) -- and ONLY so: owner's rule (M5), no clang and no LLVM binary is run by anything here; the reader has its own preprocessor in cocolog, and the link through `cc` is the one system tool left, `llvm-c` having no linker. |
 
 ## The pipeline
 
@@ -64,9 +63,9 @@ compiler.
 
 ## The source surface: C, read by a DCG (decided)
 
-The input is a **C/C++ source file**, read whole. `cicili_ast(+File, -AST)`
+The input is a **C/C++ source file**, read whole. `cocolang_ast(+File, -AST)`
 acts like `phrase/2`: it reads the file entirely and, through a DCG, answers
-its AST; `cicili_ast/3` is the `phrase/3` form, answering what remained. The
+its AST; `cocolang_ast/3` is the `phrase/3` form, answering what remained. The
 grammars are `library/ccl_syntax.pl`: a lexer over character codes into
 tokens that carry their line, and a parser over tokens into terms. The
 preprocessor is cocolog's own (M5): the file and its headers go through
@@ -82,7 +81,7 @@ it is done (see below); the checker and the lowering take the AST from here.
   prints a line and exits 42. No LLVM install: Apple clang consumes textual
   IR and drives the backend. This proves the target end of the pipeline on
   this machine before any of the compiler exists.
-* **M1 — the reader. DONE.** `cicili_ast/2,3` over two DCGs (the lexer
+* **M1 — the reader. DONE.** `cocolang_ast/2,3` over two DCGs (the lexer
   since native, a cocolog module in Cicili, the DCG its specification): C11 plus the GNU
   forms Cicili's emitted C carries (`__attribute__`, `typeof`, `({…})`,
   compound literals), every `#include` found and read, the knowledge base
@@ -97,8 +96,8 @@ it is done (see below); the checker and the lowering take the AST from here.
   and layout over them. This is Cicili's macro philosophy -- the language
   extended in the language that compiles it -- with Prolog as the macro
   language and C as the surface.
-* **M2 — the lowering. DONE.** `cicili_ir/2` lowers the units to an LLVM
-  IR module, `cicili_compile/3` makes the object, `cicili_link/3` the
+* **M2 — the lowering. DONE.** `cocolang_ir/2` lowers the units to an LLVM
+  IR module, `cocolang_compile/3` makes the object, `cocolang_link/3` the
   binary: C11's core (every type but bitfields and unions, every statement
   and operator, variadic calls, structs by value and by pointer, `defer` as
   the static cleanup chain) built and run by `test/compile.sh`, which
@@ -110,7 +109,7 @@ it is done (see below); the checker and the lowering take the AST from here.
   lower (M2); the first ownership check is in: `own` pointers are linear,
   `move` hands them on, and use after move, the double free, a leak on any
   path, a move in a loop, an overwritten owner are compile errors naming
-  the form (`library(ccl_check)`, run first by `cicili_ir`); borrows -- a
+  the form (`library(ccl_check)`, run first by `cocolang_ir`); borrows -- a
   plain pointer copied from an owner -- dangle when the owner is consumed
   and may not escape; every statement carries its line, so the place is
   the statement's. Owners inside structs: an own field is an owner named by
@@ -167,7 +166,7 @@ it is done (see below); the checker and the lowering take the AST from here.
   header under it -- is in the store as `'$ccl_ast'(Path, key(MTime,
   ReaderVersion), …)` and loaded from there while the file's time is
   unchanged (`library(ccl_include)`); the store is the user's,
-  `~/.cicili/KB`, stamped with the reader's and the lowering's versions
+  `~/.cocolang/KB`, stamped with the reader's and the lowering's versions
   and started afresh when either changes. The IR of every file built joins
   it beside the unit, under a signature of everything it came from -- the
   file's key, the key of every header and macro file its AST reaches, the
@@ -182,7 +181,7 @@ it is done (see below); the checker and the lowering take the AST from here.
   never reclaimed -- hence one item predicate per file here, and
   compaction raised with cocolog.
 * **M5 — the C++ reader. IN PROGRESS: the first slice DONE**, as
-  `bin/cicili++`, a separate command: the reader in a C++ mode reads
+  `bin/cocolang++`, a separate command: the reader in a C++ mode reads
   namespaces, using, `extern "C"`, templates (declarations, template-id
   types, explicit arguments), classes with access labels, methods,
   constructors and their initializers, destructors, inheritance, operators,
@@ -198,7 +197,7 @@ it is done (see below); the checker and the lowering take the AST from here.
   places. The user's own file goes through it too, its macros and the
   headers' expanded, a header's macro table kept beside its unit in the
   store or in its summary. A library header is flattened by
-  it, read once, and SUMMARIZED to one file under `~/.cicili/cpp`
+  it, read once, and SUMMARIZED to one file under `~/.cocolang/cpp`
   -- its declarations, not its text -- which the next run loads instead:
   cocolog's store cannot hold units that size (the finding in
   `CLAUDE.md`), and the summary is what the passes need of a header
@@ -221,7 +220,7 @@ it is done (see below); the checker and the lowering take the AST from here.
   reference as a pointer bound once (a borrow to the check, an address
   loaded through by the lowering), `new` and `delete` as `malloc` and
   `free` under the ownership check; two programs built through
-  `cicili++`, run and checked in `test/cpp.sh`. Then classes, DESUGARED
+  `cocolang++`, run and checked in `test/cpp.sh`. Then classes, DESUGARED
   to that C before the check by one typed rewrite of the AST
   (`library/ccl_cpp.pl`): a class a struct of its data members with its
   base first, a method a function over `this`, a constructor called at
@@ -353,7 +352,7 @@ Nothing is claimed before its GREEN line, the same rule as the neighbours.
 ## What happens to the objects-and-modules module already here
 
 Deferred, by your call, until this design settles. It is a working
-objects-and-modules layer over cocolog (`module/cicili.cicili`,
+objects-and-modules layer over cocolog (`module/cocolang.cicili`,
 `test/objects.sh` GREEN). Two futures for it, to decide once M1 is real:
 
 * **The compiler's authoring layer** — each pass an object, the AST an

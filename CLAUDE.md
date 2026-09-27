@@ -1,6 +1,6 @@
-# cicili-lang -- how this repository is worked on
+# cocolang -- how this repository is worked on
 
-cicili-lang is a **Safe Modern C compiler to LLVM, written on cocolog**: a
+cocolang is a **Safe Modern C compiler to LLVM, written on cocolog**: a
 new implementation of Cicili's philosophy. It reads C, checks it, lowers it
 to LLVM IR; no C is ever emitted. Read `README.md` for what runs today and
 `DESIGN.md` for the architecture and the milestones.
@@ -23,10 +23,10 @@ reads them and puts this checkout's `library/` at the FRONT of
 ## Where things are
 
 ```
-module/cicili.cicili     the module: the C side (registration, ccl_version/1,
+module/cocolang.cicili     the module: the C side (registration, ccl_version/1,
                          ccl_cocolog_version/1 over the engine's coco_version_text, THE LEXER,
                          ccl_lex_native/6 in Cicili, and ccl_host_arch/1, the arch it was compiled
-                         on) and the Prolog half -- cicili_ast/2,3 (the reader's door) and the
+                         on) and the Prolog half -- cocolang_ast/2,3 (the reader's door) and the
                          objects layer
 library/ccl_syntax.pl    the lexer (the DCG: the specification and the fallback) and the parser;
                          COMMITTED (library/*.so is not)
@@ -42,17 +42,17 @@ library/include/         the compiler's own freestanding headers: stddef.h, stda
                          and C23's stdckdint.h and stdbit.h
 library/ccl_infer.pl     the macro facilities: ccl_type_of/2 and lookups over the symbol table
 library/ccl_format.pl    format, print, println: the global macros, Rust's holes
-library/ccl_ir.pl        cicili_ir/2: the lowering to LLVM IR text, one clause per construct
-library/ccl_build.pl     cicili_compile/3 (the embedded LLVM, nothing else), cicili_link/3 (cc)
-library/ccl_check.pl     the safe part: owners (own), move, the flow walk; run first by cicili_ir
+library/ccl_ir.pl        cocolang_ir/2: the lowering to LLVM IR text, one clause per construct
+library/ccl_build.pl     cocolang_compile/3 (the embedded LLVM, nothing else), cocolang_link/3 (cc)
+library/ccl_check.pl     the safe part: owners (own), move, the flow walk; run first by cocolang_ir
 library/ccl_cpp.pl       M6: the C++ forms desugared to that C before the check (ccl_cpp_units/2):
                          classes as structs, methods over this, constructors, destructors as defers
 test/c/safe/             programs the check must REFUSE, each with the error its .expect names
-bin/cicili               the command: clang's arguments, one cocolog run over ~/.cicili/KB (ccl_drive/2);
+bin/cocolang               the command: clang's arguments, one cocolog run over ~/.cocolang/KB (ccl_drive/2);
                          six forks, since each is a floor (the findings)
-bin/cicili++             cicili for C++ (M5): the same, every input read as C++, in memory, linked by c++
+bin/cocolang++             cocolang for C++ (M5): the same, every input read as C++, in memory, linked by c++
 test/cpp.pl, cpp.sh      the C++ reader's gate: 34 checks over test/cpp/*.cpp (the mangler's is c34), the six C++ files of Cicili's
-                         test suite read whole, hello.cpp built through cicili++, and again from the summaries
+                         test suite read whole, hello.cpp built through cocolang++, and again from the summaries
 test/libcxx.pl, libcxx.sh  the road to libc++: <vector>, <string>, <iostream>, <map>, <set>, <unordered_map>, <unordered_set>, <optional>, <memory>, <functional> and <tuple> flattened and read WHOLE, under a fresh HOME,
                          and at the levels: <set>, <map>, <unordered_map>, <unordered_set> at C++20, <optional>, <string> at C++23, <optional> at C++26;
                          test/cpp/run/std*.cpp are the standard streams built against libc++ and run: cout, endl, cin, getline, get, ws,
@@ -66,14 +66,14 @@ test/libcxx.pl, libcxx.sh  the road to libc++: <vector>, <string>, <iostream>, <
                          stdoptionalref (C++26);
                          a fixture's input is NAME.stdin
 test/census.pl, census.sh  a census of a header's constructs (test/census.sh '<vector>'), or of a flattened
-                         file (cicili++ -E ... -o flat.cpp; sh test/census.sh flat.cpp): where the reader stops, with tokens
+                         file (cocolang++ -E ... -o flat.cpp; sh test/census.sh flat.cpp): where the reader stops, with tokens
 library/ccl_driver.pl    ccl_drive(+Inputs, +Options): the steps, diagnostics in clang's shape,
                          and the IR cache (dr_ir/3: a file's IR beside its unit in the store)
 test/driver.sh           the command's gate; test/c/link and test/c/inc its fixtures
 test/compile.pl          the compiler's gate: ONE process builds every test/c/run/*.c to a binary
                          and checks every test/c/safe/*.c is refused, over the user's store
 test/compile.sh          runs it, then runs each binary and compares with NAME.expect
-module/build.sh          CICILI=… COCOLOG=… sh module/build.sh  ->  library/cicili.so
+module/build.sh          CICILI=… COCOLOG=… sh module/build.sh  ->  library/cocolang.so
 module/ccl_llvm.cicili   the embedded LLVM: a cocolog module in Cicili over llvm-c; parse,
                          verify, target, passes, object (ccl_llvm_compile/3, ccl_llvm_check/2)
 module/build-llvm.sh     LLVM=… sh module/build-llvm.sh  ->  library/ccl_llvm.so (Homebrew's LLVM)
@@ -85,9 +85,9 @@ test/reader.sh           runs it, and adds the check only a second process can m
 test/c/                  the gate's fixtures: hello.c, rich.c, the macro, :=, pattern,
                          format and shorthand samples, the bad ones
 test/objects.sh          the objects layer's gate
-bench/btree/run.sh       the B-tree benchmark: cicili -O3, clang -O3 on the same algorithm, Rust's BTreeSet
-bench/compile/run.sh     the compile-time benchmark: cicili++, clang++, rustc on a hello and the B-tree, at -O0
-                         and -O3; cicili++'s first run (the init phase, summaries into a fresh HOME) apart
+bench/btree/run.sh       the B-tree benchmark: cocolang -O3, clang -O3 on the same algorithm, Rust's BTreeSet
+bench/compile/run.sh     the compile-time benchmark: cocolang++, clang++, rustc on a hello and the B-tree, at -O0
+                         and -O3; cocolang++'s first run (the init phase, summaries into a fresh HOME) apart
 tutorials/NN-*.pl        the objects layer's lessons; goal `main', last line `done'
 DESIGN.md                the architecture, the neighbours' roles, M0..M4
 ```
@@ -102,34 +102,34 @@ sh test/driver.sh
 sh proof/run.sh
 ```
 
-**`bin/cicili` takes clang's arguments** (owner's rule: no new flags to
+**`bin/cocolang` takes clang's arguments** (owner's rule: no new flags to
 learn): `-c -S -emit-llvm -fsyntax-only -o -O0..-Oz -I -l -L -shared -v
 --version -ast-dump`; `-g -D -W -f` are accepted and ignored for now, and `-std` names the level of both languages (below).
 It builds one Prolog options list and runs `ccl_drive/2` in one cocolog
-process over `~/.cicili/KB` (`$CICILI_KB`, or `--no-kb` for `--local`); the run ends
-`cicili: ok` or `cicili: N error(s)`, which the shell turns into the exit
+process over `~/.cocolang/KB` (`$COCOLANG_KB`, or `--no-kb` for `--local`); the run ends
+`cocolang: ok` or `cocolang: N error(s)`, which the shell turns into the exit
 status. A diagnostic is `file:line: error: what` (`dr_diag/3`, one clause per
 error term; `once/1` around the report, since the callers' recovery fails
 after it). The command puts every diagnostic on stderr, as clang;
-`cicili: ...` and `unit(...)` lines on stdout.
+`cocolang: ...` and `unit(...)` lines on stdout.
 
-**The surface is four predicates** (owner's rule): `cicili_ast(+File, -AST)`
-(and `/3`), `cicili_ir(+Units, -IR)`, `cicili_compile(+IR, +ObjFile, +Flags)`,
-`cicili_link(+Objects, +Flags, +Out)`. Everything else is `ccl_`.
+**The surface is four predicates** (owner's rule): `cocolang_ast(+File, -AST)`
+(and `/3`), `cocolang_ir(+Units, -IR)`, `cocolang_compile(+IR, +ObjFile, +Flags)`,
+`cocolang_link(+Objects, +Flags, +Out)`. Everything else is `ccl_`.
 
 **Nothing is claimed before its GREEN line.** A rule is a `check` in a gate;
 a milestone has a proof that runs. Run the gate the change touches, not
 everything, every time. A change to `library/*.pl` needs no rebuild -- the
-`.so` only wraps it; a change to `module/cicili.cicili` does.
+`.so` only wraps it; a change to `module/cocolang.cicili` does.
 
 ## Names
 
 **Every predicate and function this library defines is `ccl_`-prefixed;
-only `cicili` itself keeps its own name.** cocolog has one namespace, and a
+only the four `cocolang_` doors keep the compiler's name.** cocolog has one namespace, and a
 grammar full of `expr` and `id` would collide with any program's. The AST's
 functors (`unit`, `function`, `id`, `expr` ...) are bare: they are data.
-Internals are `'$ccl_…'`. The repository is `cicili-lang`, the library
-`library(cicili)`, the language's C name in prose `cicili-lang`.
+Internals are `'$ccl_…'`. The repository is `cocolang`, the library
+`library(cocolang)`, the language's C name in prose `cocolang`.
 **A pattern is written once** (owner's rule, 2026-09-06, on the DCG
 predicates): where several predicates share a shape -- a level per
 operator class, an answer cache per table, a token match per alternative
@@ -138,13 +138,13 @@ case (`ccl_binary/2` + `ccl_binop/2`, `ccl_cached/4`, `ccl_unary_/3`).
 
 ## How the reader is implemented, and why that way
 
-`cicili_ast(+File, -AST)` mirrors `phrase/2`: the whole file or an error;
-`cicili_ast/3` mirrors `phrase/3`, answering the tokens left. Two DCGs in
+`cocolang_ast(+File, -AST)` mirrors `phrase/2`: the whole file or an error;
+`cocolang_ast/3` mirrors `phrase/3`, answering the tokens left. Two DCGs in
 `library(ccl_syntax)`: `ccl_lex//2` over character codes -> tokens
 `tok(Kind, Value, Line)`; `ccl_externals//2` over tokens -> the AST (its
 vocabulary is the file's header). **The lexer that RUNS is native:**
 `ccl_lex_native(+Text, +Line0, +Mode, +Lang, -Tokens, -Rest)` in
-`module/cicili.cicili`, C written in Cicili, the DCG token for token (the
+`module/cocolang.cicili`, C written in Cicili, the DCG token for token (the
 DCG ran at 0.15 ms a token, the floor of every read; the native one 600
 times faster, 4 ms for 10,000 tokens). `ccl_tokens/3` and `ccl_lex_atom/4`
 (an atom, from a line: the preprocessor's door) choose by `'$ccl_lexer'`,
@@ -190,12 +190,12 @@ compound literal `(T){…}` a `compound_lit/2`; and what Apple's SDK headers
 add: `__asm("…")` after a declarator, `_Nonnull` and kin as qualifiers,
 `(^block)` pointers, a `#define` inside a struct body or a declarator list
 (the preprocessor leaves a `#define` where it stood only when it is the
-reader's, in a raw read). C++ is read in cicili++'s mode (below).
+reader's, in a raw read). C++ is read in cocolang++'s mode (below).
 
 **An `#include` is read as it is met** (`library(ccl_include)`): the
 parser calls `ccl_include/2` at the directive, which resolves the name on
 the inclusion path (the including file's directory for a quoted name; then
-`ccl_include_dir/1`, `$CICILI_INCLUDE`, and the toolchain's directories
+`ccl_include_dir/1`, `$COCOLANG_INCLUDE`, and the toolchain's directories
 from where the conventions put them, `ccl_toolchain_dirs/1`, no tool run,
 cached in `'$ccl_incpath'`), reads the file raw with the same reader, and
 only if raw does not read whole runs THAT file through the preprocessor
@@ -341,10 +341,10 @@ and through a function to its result, and `ccl_tie_of/2` reads it back.
 Nothing in the lowering or the layout reads a qualifier, so a tie costs
 them nothing.
 
-**The C++ mode (M5, `bin/cicili++`):** `'$ccl_lang'` is c or cpp, set
+**The C++ mode (M5, `bin/cocolang++`):** `'$ccl_lang'` is c or cpp, set
 from the file's extension by `ccl_read_file` (`.cpp .cc .cxx .C .hpp .hh
 .hxx`) or forced by the driver's `lang(cpp)` (`'$ccl_lang_forced'`, which
-`cicili++` sets through `CICILI_LANG=cpp`). Every C++ rule in
+`cocolang++` sets through `COCOLANG_LANG=cpp`). Every C++ rule in
 `ccl_syntax.pl` is guarded by `ccl_cpp` (`{ ccl_lang(cpp) }`) and placed
 BEFORE the C clause it extends, so a .c reads as it did; the keywords are
 mode-dependent (`ccl_keyword/1`: C's, plus `ccl_cpp_keyword/1` in cpp;
@@ -374,7 +374,7 @@ kind kept in `'$ccl_inc_kind'`) is flattened by the preprocessor
 hundreds of headers each failed and got preprocessed in turn: ten
 minutes -- and `#include_next` looks past the including file's directory
 (`ccl_resolve_include(next(_), …)`). **The summary cache:** a flattened
-library header is summarized to `~/.cicili/cpp/<name>-<fold>.sum`
+library header is summarized to `~/.cocolang/cpp/<name>-<fold>.sum`
 (`ccl_sum_file/2`, two folds of the path), one term per line: `sum(Path,
 key(ReaderVersion, cpp))` and a `dep(File, Time)` per file the
 preprocessor pulled, then `decl(N, T)`, `typedef(N, T)`, `tag(Tag,
@@ -388,7 +388,7 @@ where it would walk a unit: `ccl_include_typedefs` (the Env),
 the global env), `ccl_collect_item` (the bulk rebuild before the check
 and the lowering), `dr_items_deps` (the IR signature). The driver reads
 `.cpp .cc .cxx .C` through `dr_c`, skips the check and the lowering under
-`-fsyntax-only` in cpp mode (M6's), and `ccl_link` uses `c++`. `cicili++`
+`-fsyntax-only` in cpp mode (M6's), and `ccl_link` uses `c++`. `cocolang++`
 runs `--no-kb`: see the findings.
 
 **C23 (`-std=c23`), the C side's own level (0.57).** C's level is not C++'s
@@ -482,7 +482,7 @@ declaration and where a variable has the type, `member_of_class(N)`,
 lowering's `not_lowered(F)` with its place); the noters skip a member
 defined out of its class (`Counter::made`, `Shape::scale`: a compound
 name), which crashed `atom_concat` before. Gated by `test/cpp.sh`:
-`test/cpp/run/names.cpp` and `loops.cpp` built through `cicili++`, run
+`test/cpp/run/names.cpp` and `loops.cpp` built through `cocolang++`, run
 against their `.expect`, and `control.cpp`, `classes.cpp`,
 `templates.cpp` refused with `try`, `virtual`, `template`. Not done: two
 namespaces with one name, a reference member, a reference to a class,
@@ -675,7 +675,7 @@ local's defer over `&c` -- takes the object's own fields as moved
 free that follows finds nothing leaked. `new T` of a struct without a
 constructor is malloc's bytes to the check (`ck_alloc_mode`: `new(_,
 [])`, `new_array`, and through a `cast`), `new C(args)` a complete
-object (its constructor was made to be). `bench/btree/btree_cicili.c`
+object (its constructor was made to be). `bench/btree/btree_cocolang.c`
 built with `-O1` at 20000 keys gives the expectation. Not done: a
 constructor that delegates, `this` handed out of a constructor, a
 destructor's effect on a struct member of class type, arrays of
@@ -792,7 +792,7 @@ initializer of class type (`std::string s = "x";` in a class body),
 an array member of objects, a union of objects.
 
 **M6's eleventh step (0.42): C++20.** THE LEVEL: `-std=c++17|20|23|26`
-(`bin/cicili`: `std(N)` in the options; older levels refused as
+(`bin/cocolang`: `std(N)` in the options; older levels refused as
 unsupported, C's `-std` ignored) sets `'$ccl_std'` (default 17;
 `ccl_std/1` reads it), and the preprocessor answers the level's macros
 first (`pp_predef_macro`: the tables `cpp26`, `cpp23`, `cpp20` by
@@ -924,12 +924,12 @@ before a line splice, `consteval` at compile time, modules; C++26's forms.
 FOUND FIRST: the reader had never read a libc++ header -- it stopped at
 `<vector>`'s first item (a conversion operator) and `ccl_read_unit`
 takes a PARTIAL read silently (`partial(U, line(L), near(F))`), so every
-library summary held nothing but macros. THE LOOP: `cicili++ -E f.cpp -o
+library summary held nothing but macros. THE LOOP: `cocolang++ -E f.cpp -o
 flat.cpp` (clang's flag; `dr_preprocess`: `ccl_pp_file/3` standalone,
 spelled back by `ccl_pp_spell/2` in ccl_pp -- a token a word, a string
 with `\NNN` escapes, a line per source line, an infinite float as
 `1e999`), then `sh test/census.sh flat.cpp` (test/census.pl: the read
-through `cicili_ast/3`, the stop line, the farthest line and the tokens
+through `cocolang_ast/3`, the stop line, the farthest line and the tokens
 around both, then a histogram of the AST's functors with the template
 shapes apart) -- a few seconds a turn where a flatten is twenty. THE
 READER (version 34 still; every rule guarded by `ccl_cpp`): a
@@ -1209,7 +1209,7 @@ name and has no members -- the allocator machinery is the next stretch.
 
 **M6's fifteenth step (0.46): the allocator machinery, and the memory
 that had to come first.** THE MEMORY: cocolog has no collector (the
-finding below): a `cicili++` run of `std::vector<int>` peaked at 4.5 GB
+finding below): a `cocolang++` run of `std::vector<int>` peaked at 4.5 GB
 and, with a runaway of mine on top, restarted the owner's machine. The
 preprocessor runs each file inside `\+ \+` (3.1 GB -> 564 MB for the
 flatten), the parser reads EACH ITEM inside `\+ \+` (`ccl_externals/4`:
@@ -1276,7 +1276,7 @@ each is a refusal now (`class_not_registered`, `class_not_emitted`,
 `member_types`), and the steps of a class's registration and emission
 trace under `'$cpp_trace'` (`item_member_fns`, `method_body_failed`,
 `instantiate_failed`, `want(Name)` ...), which is how each of these was
-found. FOUND ON THE WAY: a missing input file compiled to `cicili: ok`
+found. FOUND ON THE WAY: a missing input file compiled to `cocolang: ok`
 (`dr_input` refuses it now, `no such file or directory`).
 `std::vector<int>` now reaches 67 loads and instances (43 at 0.45, 26 at
 0.44) -- through the exception classes, the compressed pair, the
@@ -2020,7 +2020,7 @@ through is the compile's memory and not a budget. Also not done: `push_back`,
 weight.** 0.63 left `s += "def"` peaking past 2800 MB in 17 s on a 16 GB
 machine, and read it as the no-GC accumulation of a hundred library
 instantiations. MEASURED, it was nothing of the kind. THE PHASES, taken apart
-(`cicili++ -fsyntax-only` against the whole build, then `ccl_cpp_units` alone
+(`cocolang++ -fsyntax-only` against the whole build, then `ccl_cpp_units` alone
 under the guard): the READ is 48 MB and 0.9 s, and the DESUGARING is all 2900
 of the rest -- so the question was never the reader's. Two guesses failed
 before the measurement paid: scoping every class instantiation inside `\+ \+`
@@ -2046,7 +2046,7 @@ libc++'s containers is hundreds of members -- to recompute a name it had
 computed before, 267 times for `allocator_traits<allocator<char>>` alone. The
 asks fall from 550 to 51 and the peak by a further tenth. WHAT IT BOUGHT, all
 measured on this machine: the desugaring of `s += "def"` 2936 -> 495 MB;
-`test/cpp/run/stdstring.cpp` built through `cicili++` 557 -> 422 MB; THE C++
+`test/cpp/run/stdstring.cpp` built through `cocolang++` 557 -> 422 MB; THE C++
 GATE 1581 -> 752 MB. The libc++ gate stays at 1882 MB, the biggest number left
 and the READER's -- a flatten and a parse of `<vector>` and `<string>` under a
 fresh HOME, one-time per header and cached after. Lowering version 18. Seven
@@ -2368,7 +2368,7 @@ constructor, the slot filled by the derived class), clang++'s numbers; and
 of `<iostream>` alone 2009 MB, under the 2800 MB cap the owner set).
 
 **M6's fortieth step (0.72): THE CONSTEXPR FUNCTION, and the road to a running
-`std::cout` -- `cicili: ok` to the link, five symbols short.** THE STEP ASKED
+`std::cout` -- `cocolang: ok` to the link, five symbols short.** THE STEP ASKED
 FOR: a constexpr function of ONE `return' FOLDS where a constant is wanted
 (`cpp_const_value/2`, the door `cpp_targ_value` and `cpp_fold_static` now take
 constants through): the instance is emitted as any member template's is, its
@@ -2476,7 +2476,7 @@ sat at offset 0 until now, so `A *base = &x' copied the pointer unchanged and
 `base->twice()' read `b''s bytes, the gate's first RED of this step; a null
 pointer is not spared the offset (not done). Lowering version 27 (the
 table's shape, the conversion). WHERE `std::cout << "hello"' STANDS: it
-desugars, passes the safe part, lowers and reaches the LINK -- `cicili: ok' up
+desugars, passes the safe part, lowers and reaches the LINK -- `cocolang: ok' up
 to it -- FIVE SYMBOLS SHORT, each named: the constructor and the destructor of
 `basic_ostream<char>::sentry`, members of a nested class DEFINED OUT OF ITS
 CLASS TEMPLATE (the member-definition index keys them under the nested name
@@ -2496,7 +2496,7 @@ Gated by `test/cpp/run/constexprfn.cpp`, `aggcall.cpp`, `staticbase.cpp`,
 (the C++ one 1140 MB, the libc++ one 1811 MB).
 
 **M6's forty-first step (0.73): THE ITANIUM MANGLER'S SECOND HALF, and
-`std::cout << "hello, cicili++\n"` RUNS.** THE MANGLER (`cpp_ita_*`): what
+`std::cout << "hello, cocolang++\n"` RUNS.** THE MANGLER (`cpp_ita_*`): what
 0.61 spelled -- `_ZN', a namespace, a name, `E', builtin parameters, refusing
 any repeat -- is spelled with the ABI's SUBSTITUTION TABLE threaded through
 (`cpp_ita_sub`, `cpp_ita_note`: every prefix, nested name and non-builtin type
@@ -2582,7 +2582,7 @@ destructor, a copy or move constructor, a virtual function, or a base or a
 member that is such) and the lowering classifies them `indirect'
 (`ir_nontrivial_class` in `ir_abi_`); the program's own classes follow the
 same rule on both sides of every call. Lowering version 28. WHAT RUNS:
-`std::cout << "hello, cicili++\n"' -- the library's own object, written to
+`std::cout << "hello, cocolang++\n"' -- the library's own object, written to
 through libc++'s basic_ostream, its sentry, ostreambuf_iterator,
 `__pad_and_output', std::copy and the streambuf's virtuals into libc++'s
 `__stdoutbuf' -- and a chained `<< "one " << "two\n"'; 19 s and about 950 MB
@@ -3786,7 +3786,7 @@ thirds of the way through a header leaves a unit that simply lacks the rest. The
 that settled it is worth keeping: the declaration ALONE, `extern int printf(const char *
 __restrict, ...);`, compiles and runs, so the reader was stopping short and not reading
 and dropping. Those are different defects and only a measurement tells them apart.
-AND A TRAP THAT COST A WRONG CONCLUSION mid-chase: `cicili++ -fsyntax-only` PASSES on that
+AND A TRAP THAT COST A WRONG CONCLUSION mid-chase: `cocolang++ -fsyntax-only` PASSES on that
 same file on Linux, because in C++ mode the driver skips the check and the lowering under
 that flag. A flag that skips the stage under test passes for a reason that has nothing to
 do with the question, so it reads as evidence of health and is evidence of nothing; the
@@ -3796,7 +3796,7 @@ all four levels (21 summaries), since the reader's version moved and a cold firs
 far above the steady state: the reader's 94 checks, 39 s and 388 MB; the compile gate's 73 at
 370 MB; the driver's 23 at 68; the objects' 29; the proof; the C++ one 141 checks, 1995 s,
 1441 MB; the libc++ one's 16 reads, 859 s, 2278 MB.
-NOT DONE: the Linux gates. cicili-lang compiles and runs C and C++ there, and the C++ gate
+NOT DONE: the Linux gates. cocolang compiles and runs C and C++ there, and the C++ gate
 reaches 83 of its checks where before the three fixes it reached none, but six fail and each
 is its own glibc gap -- `stdcin.cpp' stops at `template_without_body(basic_string)', a
 template body that did not survive into the summary, which says `<iostream>''s closure is
@@ -4483,7 +4483,7 @@ quoted name beside the file and an angled one on the path, a code past 255 spell
 UTF-8 bytes), `__has_embed' (found 1, empty 2, nowhere 0), `__has_c_attribute' answering the standard
 attributes' dates and the `__x__' spellings (C only; `__has_cpp_attribute' keeps its 0, the plainest
 path through libc++), AND THE FILE'S OWN `#error' IS A DIAGNOSTIC -- it was listed in `'$pp_errors''
-and nobody read the list, so a program's #error compiled to `cicili: ok' -- with `#warning' printed
+and nobody read the list, so a program's #error compiled to `cocolang: ok' -- with `#warning' printed
 after the read in clang's shape (`dr_pp_warnings'; a header's stay what they were). (9) `_Alignof',
 `alignof' in C23, `_Alignas' read and dropped as C23's alignas is; `typeof_unqual' wraps its operand
 `unqual(X)' and the resolution strips the top-level qualifiers; the decimal floating types are read,
@@ -4577,7 +4577,7 @@ AND THE ROAD TO libc++ 18, WHICH THE LINUX GATES OPENED. The C++ gate's first ru
 standard library, and a snapshot run earlier in the day, which I had read as passing them, had never reached them -- it
 stopped at `stdcin' and its FAIL list was a TRUNCATED list, not a pass list (the eighth instrument in the findings: a gate
 that ends early reads exactly like a gate that passed the rest, and only the names it printed say which fixtures it ran).
-Measured one header at a time with the census on the FLATTENED header under both grammars (`cicili++ -E', then
+Measured one header at a time with the census on the FLATTENED header under both grammars (`cocolang++ -E', then
 `test/census.pl' with `COCOLOG_LIBRARY' set to HEAD's library and cocolog called directly, since `test/census.sh' sources
 `config.sh', which puts the working tree's library first whatever the caller had), HEAD's grammar and this tree's stopped at
 the same line of `<iostream>' (320 of 793 items) and of `<functional>', and the desugaring under HEAD's library -- with a
@@ -4602,7 +4602,7 @@ typename __base::type type;', and a class named `__base' elsewhere in the header
 scope and refused `no_member_type(__base, type)'; (28) THE C++ RUNTIME IS NAMED AT THE LINK ON LINUX (`ccl_link_libs',
 `-lc++'): `c++' is g++ there, whose library is libstdc++, and the one undefined symbol was libc++'s
 `std::__1::__libcpp_verbose_abort' -- the driver's link diagnostic keeps ld's first line only, which named the function
-and not the symbol, so the object was linked by hand. With them `stdvector' builds and runs through `cicili++' (398 s
+and not the symbol, so the object was linked by hand. With them `stdvector' builds and runs through `cocolang++' (398 s
 cold, the flatten of `<vector>' at reader 78 in it), and `test/cpp/run/tpbase.cpp' -- the bound base, a member reached
 through it, a destructor spelled with its arguments, on the program's own classes -- prints clang++'s numbers. Reader
 version 78, lowering version 40.
@@ -4635,7 +4635,7 @@ minutes cut to a file of ten lines that failed in a second, the trait ones print
 one that was not (the implicit move's lost definition) was found by the trace's `implicit_copy(Rec, move)' with no
 `lower(function(Rec.Rec.Rec_rr, ...))' after it -- a definition's absence read off a list that names every one made.
 (36) AND THE FLATTENED TEXT SPELLS THE PREFIXED LITERALS AND THE BIT-PRECISE SUFFIXES (`ccl_pp_spell_tok', `pp_spell'):
-`cicili++ -E' printed `L"true"' as a code list and `12wb' as `12', which no reader takes -- the census's road only, since
+`cocolang++ -E' printed `L"true"' as a code list and `12wb' as `12', which no reader takes -- the census's road only, since
 the gate reads the tokens, and exactly the kind of gap a step that adds token kinds leaves in the one instrument that
 spells them back; the third census of the C++20 `<set>' stopped on it at `__bool_strings<wchar_t>'.
 (37) A BRACED ARGUMENT TO A SCALAR PARAMETER is its one item or the type's zero, at the argument pass and where a
@@ -4705,7 +4705,7 @@ reference, which 0.55's `cpp_addressable' already took. AND TWO TRAITS libc++ 18
 against libc++ 18's own headers: of every `__is_*' and `__has_*' builtin they spell, those two were the ones the
 desugaring could not answer. AND A TIME CAP THAT KILLS THE SHELL AND NOT THE WORKER IS NO CAP -- 0.46's finding (a
 watchdog that kills only the direct child leaves cocolog, its grandchild, running), met again from the probe's side:
-`scratchpad/probe.sh' capped its build with a perl `alarm' around `bin/cicili++', the alarm killed that shell, and
+`scratchpad/probe.sh' capped its build with a perl `alarm' around `bin/cocolang++', the alarm killed that shell, and
 cocolog ran on for ten minutes beside the gate; the cap is coreutils' `timeout -s KILL' now, which signals the whole
 group it leads.
 (45) THE PACKS AN EXPANSION ZIPS ARE THE ONES NAMED OUTSIDE ITS NESTED EXPANSIONS ([temp.variadic]/5: a pattern
@@ -4778,9 +4778,9 @@ segfaulted (`stdmap', `stdset', `stdtuple' with its `tuple_cat', `stdvector', `s
 by the gate below). Every probe of this stretch ran through `scratchpad/probe.sh' (a time cap and a memory cap over
 the probe's OWN process group, so a probe may run beside a gate that `watch.sh' -- which sums every cocolog process --
 would otherwise kill), a traced build through `scratchpad/trace.sh' (cocolog called directly with `'$cpp_trace'' on,
-since `bin/cicili''s filter drops the trace lines), and a fixture through `scratchpad/fx.sh', which removes the
+since `bin/cocolang''s filter drops the trace lines), and a fixture through `scratchpad/fx.sh', which removes the
 binary before it builds (the finding on a stale binary, 0.89) and compares as the gate compares. THE INSTRUMENT THAT
-PAID: the emitted IR read function by function (`cicili++ -S -emit-llvm'), which named `tuple_cat''s defect in four
+PAID: the emitted IR read function by function (`cocolang++ -S -emit-llvm'), which named `tuple_cat''s defect in four
 reads where the trace named none -- a trace prints refusals, and the wrong constructor was CHOSEN without one.
 NOT DONE, libc++ 18's: the qualifier-less keys (55); `stdalgorithm2', `stdalgorithm3', `stdalgorithm6' and
 `stdalgorithm7' build past the gate's cap here (breadth in the two-range family, 0.92's finding, and libc++ 18's
@@ -4873,7 +4873,7 @@ that arrives with a reader version bump is a cold cache until a warm run says ot
 AND THE OLDER LIST: `stdoptionalref' is beyond libc++ 18 (its `<optional>' declares a reference type ill-formed)
 and A FIXTURE BEYOND THE BOX'S LIBRARY IS SKIPPED BY NAME -- `NAME.needs' holds a preprocessor condition over the
 library's own macros (`_LIBCPP_VERSION >= 210000'), `ccl_needs_met' in `test/cpp.sh' runs a four-line file
-including `<version>' through `cicili++ -E' and looks for the marker, and the gate prints the fixture as skipped,
+including `<version>' through `cocolang++ -E' and looks for the marker, and the gate prints the fixture as skipped,
 neither ok nor a failure (measured: libc++ 18's marker survives and 21's does not). `stdaggregate''s one crash in
 0.94's first gate WAS NO CRASH: the log holds the watchdog's kill line right above the verdict, at a 7040 MB sum
 with my probes beside the gate -- a misread of 0.94's own finding, recorded here so it is not chased again; its
@@ -5208,7 +5208,7 @@ in `)', is left alone) -- libc++'s `basic_format_string' writes `_Context{__type
 `using _Context = ...;' under `private:' after it, and read in order the braced temporary of an unknown name stopped the
 read 878 items in. `test/cpp/run/aliasahead.cpp' (an alias template, an alias and a typedef each used before they are
 declared), clang++'s number, a syntax error without the rule. (33) THE FLATTENED TEXT SPELLS A LITERAL PAST 2^60 as its
-digits (`pp_int_codes' at both spelling doors): `cicili++ -E' wrote `big(0xff00000000000000)ul', which no reader takes --
+digits (`pp_int_codes' at both spelling doors): `cocolang++ -E' wrote `big(0xff00000000000000)ul', which no reader takes --
 the census's road only (0.93's item 36 once more), and what stopped the first census 103 items in. (34) A HEADER'S MACRO
 TABLE IS PER LEVEL, in the process's memo (`ccl_hm_key': the path and the level, as `ccl_unit_key' keys the unit cache) and
 in the store (`ccl_kb_remember_macros' replaces THIS LEVEL's rows and meta, where it retracted the whole predicate): found
@@ -5259,6 +5259,187 @@ fresh HOME in 8422 s at 3835 MB: the eleven C++17 headers and the three C++23/26
 806 ... `<optional>' 397 at C++26), and at C++20 `<vector>' 898, `<string>' 846, `<iostream>' 884 (the three new reads,
 which are the 2900 s more than 0.98's 5518), `<set>' 859, `<map>' 859, `<unordered_map>' 843, `<unordered_set>' 925.
 
+**M6's sixty-seventh step (0.100): THE REPOSITORY IS `cocolang`.** The owner renamed the repository
+from `cicili-lang' to `cocolang', and this step carries the name through every file. WHAT IS RENAMED, the
+compiler's own names: the repository and the language's C name in prose, `cocolang'; the commands,
+`bin/cocolang' and `bin/cocolang++' (no `cicili' command remains); the module, `module/cocolang.cicili'
+built to `library/cocolang.so', loaded as `library(cocolang)'; the four surface predicates,
+`cocolang_ast/2,3', `cocolang_ir/2', `cocolang_compile/3', `cocolang_link/3'; the command's variables,
+`COCOLANG_KB', `COCOLANG_INCLUDE', `COCOLANG_LANG', `COCOLANG_ME'; the freestanding headers' guards,
+`_COCOLANG_*_H'; the user's cache, `~/.cocolang' (`KB' and `cpp' under it; an existing `~/.cicili' is
+moved, not rebuilt: a summary is keyed by the header's path and the reader's version, never by the
+cache's own directory, so every summary and the store stay valid); the run's answer lines, `cocolang: ok'
+and `cocolang: N error(s)', which `bin/cocolang' filters and the gates read; the benchmark's B-tree,
+`bench/btree/btree_cocolang.c'; the fixtures' strings and the proof's message (`proof/forty2.ll': three
+bytes shorter, so its array is `[19 x i8]' -- the proof gate said so first, the one RED of the rename).
+WHAT KEEPS ITS NAME, the neighbour's: Cicili the language and the philosophy, `$CICILI' its checkout,
+`cicili.lisp' its transpiler, `sdk.cicili' cocolog's SDK, the `.cicili' extension of the native pieces --
+and the `ccl_' prefix of every predicate the library defines, which is the library's own convention and
+collides with nothing; the naming rule reads `only the four cocolang_ doors keep the compiler's name'.
+A string literal a fixture prints or hashes (`fmt.c', `stdfunctional.cpp') is data and stays.
+THE README IS REWRITTEN: what cocolang is, its features, the commands, the four predicates, the
+additions, the safe part, the macros, the C++ levels and the library, the layout and the rules; the
+version log that had grown to 1800 lines is out of it (this file is the record). `DESIGN.md''s status
+line, stuck at M2 since 0.11, says where the milestones stand.
+AND THE NOT-DONE LISTS, TAKEN UP AGAIN in the same step (the owner asked for them all, and for no gate
+until the work was done): `std::atomic<T>' in C++, `enable_shared_from_this', `find_first_of' and kin,
+`std::erase_if' over an unordered container, `bind_front' and `not_fn', the escaping closure, two namespaces
+of one name, the ABI's pointer to member function, and C's complex types. Each was cut to a reduction of
+ten to twenty lines on the program's own classes that failed in a second before it was fixed, and each has
+a fixture; the rules, named:
+(1) `__has_extension(c_atomic)' IS 1, the one extension answered, so libc++ 18 configures its `<atomic>' on
+the `_Atomic(T)' and `__c11_atomic_*' road 0.99 built for C (`_LIBCPP_HAS_C_ATOMIC_IMP'); with it, three
+older defects: AN ENUMERATOR IS AN INT to the inference (the parser declares one in scope, the bulk noter
+keeps only its value, and after the passes' rebuild `o == release ? relaxed : o' typed its arm unknown --
+libc++'s `__to_failure_order'); a class with a WRITTEN constructor takes `{12}' as that constructor's
+arguments and never as an aggregate's items (`cpp_aggregate_class' guards the braced-aggregate clause of
+`cpp_decl_pieces'); and a constructor initializer naming a TEMPLATE PARAMETER, `_Base(__value)', is
+substituted like a base clause (`cpp_subst' on `init(P, As)'), where it was dropped silently -- a member
+initializer that names nothing the class has REFUSES now (`cpp_inits_known', `unknown_initializer'). And a
+STATIC MEMBER FUNCTION NAMED AS A VALUE is a plain function: a static method takes a null `this' here (0.36),
+so its address is no `bool (*)(char, char)'; a THUNK (`<Name>.fn', `cpp_static_thunk') without the `this'
+parameter is emitted where the name is taken, which is how libc++'s `find_first_of' hands `_Traits::eq' to
+its search. `test/cpp/run/stdatomic.cpp', `staticfn.cpp', `stdstringfind.cpp'.
+(2) `shared_from_this': A POINTER TO A DERIVED CLASS CONVERTS TO A POINTER TO ITS BASE in the convertibility
+the traits ask ([conv.ptr]/3; `cpp_pointer_to_base' in `cpp_convertible': `is_convertible<Node *, const
+enable_shared_from_this<Node> *>' answered 0, so `__enable_weak_this''s SFINAE never chose the template and
+the `(...)' fallback won, `bad_weak_ptr' at run time), and THE PROGRAM'S OWN `f(...)' KEEPS ITS ELLIPSIS in its
+origin (`own(V)'), where `own' alone let no call fall to it after the templates rightly refused.
+`test/cpp/run/stdsharedfromthis.cpp'.
+(3) THE ESCAPING CLOSURE (0.59's hole): the desugaring makes a lambda a compound literal of its captures, so
+A CLOSURE BORROWS WHAT ITS CAPTURES BORROW (`ck_borrows_from' on `compound_lit'), and the two places that make
+a value a borrow -- a declaration's initializer and a return -- ask a closure-aware test beside
+`ck_carries_type' (`ck_borrowing_type': a `ref' member is bound once and read through, and counting it as
+carrying refused every closure's construction as a borrow stored); `return f' of a closure holding `&x' of a
+local is `borrow_escapes' where a dangling reference compiled and ran; a `[this]' closure is a borrow of the
+parameter and may go; a by-value capture borrows nothing. FOUND WITH IT, three older ones: A LAMBDA'S RETURN
+IS THE LAMBDA'S (`cpp_first_return' walked into the lambda's body and took its `return x + k' for the
+enclosing function's first return, `k' undeclared there: `lambda_result_type'); A FUNCTION WITH AN `auto'
+RESULT IS DECLARED UNDER THE DEDUCED TYPE once its item is walked ([dcl.spec.auto]: defined before its type
+is used), where the table kept the raw `auto' and `auto f = make(3)' asked the initializer's type again
+WITHOUT END (1.5 GB in 15 s); and 0.99's null-copy rule is for POINTER locals only (`int x = n' had made x an
+owner in the null state). `test/cpp/run/closurescope.cpp'; `test/cpp/escape.cpp' refused, in the gate's
+list of refusals as a check's (`test/cpp.sh').
+(4) TWO NAMESPACES OF ONE NAME, in the program's own units (0.88's rule was a header's): the outermost keeps
+the bare name, a deeper namespace's item is renamed `<innermost named namespace>.<name>' before anything is
+registered (`cpp_ns_resolve', the units rewritten and the table built again from them), its bare uses inside
+that namespace go to the key (`cpp_qualify_body', `cpp_rename_names' -- unless the item declares a parameter,
+a local, a member, a METHOD or a capture of the name, which shadows it: vector's own `begin()' beside
+`std::begin'), a qualified use resolves to it wherever a name is read (`cpp_ns_key' through `'$cpp_ns_own''),
+a defined function and a namespace-scope object are renamed as a class is (a declared-only function keeps its
+name, the shipped library's symbol). THE SAME BODY REWRITE REACHES A HEADER'S DEEPER NAMESPACE (0.88's
+not-done). AN INLINE NAMESPACE IS MARKED by the reader (`namespace(L, inline(N), Items)'): its name stays in
+the mangler's path (`std::__1' is `St3__1', `cpp_hdr_ns' unwraps) and is skipped where the innermost NAMED
+namespace keys a name (`cpp_ns_named'), and TWO PATHS ARE ONE NAMESPACE BY THEIR NAMED SEGMENTS
+(`cpp_ns_named_path': libc++ declares `begin' in `namespace std' and in `namespace std { inline namespace
+__1', which is one namespace and was two). AND A NAMESPACE-SCOPE OBJECT CALLED goes to its class's
+`operator()' (`cpp_callable_global', `cpp_object_call'), qualified or bare: libc++'s customization point
+objects, `ranges::iter_move(x)' with `inline constexpr auto iter_move = __iter_move::__fn{}' in
+`std::ranges::inline __cpo', beside the hidden friends of the same bare name. `test/cpp/run/nscollide.cpp';
+`stderaseifuset.cpp' at C++20 (see below).
+(5) `bind_front': A METHOD'S QUALIFIERS ARE SUBSTITUTED TOO (`cpp_subst_quals'): a trailing return type,
+`-> decltype(Op()(std::get<Idx>(bound_)..., std::forward<Args>(args)...))', sits among them, and passed
+through unchanged it kept the class's pack `Idx' unsubstituted (`type_pack_index(id(_Idx))'); A TRAILING RETURN
+TYPE NAMES THE PARAMETERS AND `this' ([dcl.fct]/2), which are declared, substituted, while it is resolved --
+in the candidate check (`cpp_result_holds' with the parameters; a `decltype' result is part of the SFINAE, as
+a template-id result has been since 0.79) and where the member is emitted (`cpp_method_ret'). `bindfront.cpp'
+at C++20 (see below).
+(6) A POINTER TO MEMBER FUNCTION IS THE ITANIUM ABI'S `{ ptr, adj }', sixteen bytes (0.88's and 0.89's
+not-done): the function's address, or `1 + the slot's byte offset' in the table for a VIRTUAL member, and the
+this adjustment, 0 here (a base's address is made by the conversion at the call). The type is `{ ptr, i64 }'
+in the lowering, its two fields `pm.ptr' and `pm.adj' (`ccl_members_of', `ir_member_slot'), two INTEGER
+eightbytes across a call, a cast into it builds the aggregate (`ir_expr(cast)', `ir_gconst'), and the call
+`(obj.*pm)(args)' (`cpp_memptr_call') tests the bit: an odd `ptr' indexes the OBJECT'S OWN table, read
+through the object's address AS THE MEMBER'S CLASS (a derived object's table pointer sits in that base
+sub-object), so `&Shape::area' on a base pointer to a `Square' dispatches; an even one is the function. A
+pointer to member and a pointer to a FUNCTION are code, never memory the check follows (`ck_carries_',
+`ck_is_pointer_type': `int (*f)(int) = c ? a : b' was a loose pointer). `test/cpp/run/memfnptr.cpp' (sizeof
+16, the two forms, a virtual member through a base pointer, passed and returned by value), clang++'s numbers.
+(7) C'S COMPLEX TYPES (C11 6.2.5, Annex G; the last not-lowered type of M2's list): `_Complex double' and
+`_Complex float' are two components (`{ double, double }', `{ float, float }'; sized and aligned as the
+component, two SSE eightbytes across a call, so glibc's `creal', `cabs' and `conj' take and return them as
+clang's calls do), the usual arithmetic conversions make a complex of the common real type where either
+operand is complex (`ccl_complex_usual'), `+ - * /' are Annex G's formulas without the special cases
+(`ir_complex_op'; the division is the textbook one, not `__divdc3''s), `== !=' compare both components, the
+negation both, a real converts to a complex with a zero imaginary part and a complex to a real by its real
+part (`ir_complex_convert'), GNU's `__real__ z' and `__imag__ z' are read (`real_part', `imag_part') and
+C11's `CMPLX' and `I' come from THE COMPILER'S OWN `<complex.h>' (`library/include/complex.h': the C
+library's declarations first, then the two over `__builtin_complex', since glibc spells them with the
+imaginary literal `1.0iF', a GNU extension this compiler does not read -- and defines `CMPLX' for GCC only,
+so the fixture defines its own for clang). AND THE MATH LIBRARY IS NAMED AT THE LINK ON LINUX (`-lm',
+`ccl_link_libs'): glibc keeps `sqrt', `creal' and `cabs' apart from libc. `test/c/run/complex.c', clang's
+numbers.
+AND WHAT THE FIXTURES FOUND WHEN THEY RAN AGAIN, seven more, each cut to a file that failed in a second:
+(8) A DELEGATING CONSTRUCTOR'S NAME ARRIVES AS THE INSTANCE'S: rule (1) substitutes a constructor initializer's
+name where it is a bound parameter, and the INJECTED CLASS NAME is bound to the instance (0.44's `Self'), so
+libc++'s `__value_func(_Fp &&__f) : __value_func(std::forward<_Fp>(__f), allocator<_Fp>())' arrived as
+`init('__value_func.fn_int_int', ...)' -- `cpp_own_name' knew the template's name only, the initializer fell
+to `a class named as a base' (cpp_init_known) and was DROPPED: every `std::function' was constructed EMPTY
+and `bad_function_call' aborted the run (stdbind, and every std::function fixture). The instance's own name
+is its own name. (9) INHERITING CONSTRUCTORS THROUGH AN ALIAS TEMPLATE'S NAME: `using __perfect_forward<
+__bind_front_op, _Fn, _Args...>::__perfect_forward;' names the base by the ALIAS it was written as, not the
+class `__perfect_forward_impl' it is (`cpp_tmpl_head' of the base clause), and unrecognized the
+`__bind_front_t' had no constructors and its three arguments fell to an aggregate initializer of one member.
+(10) A FUNCTION BOUND TO A REFERENCE TO A POINTER CONVERTS FIRST ([conv.func]) and the reference binds the
+TEMPORARY pointer ([dcl.init.ref]/5; `ir_ref_to'): the function's address IS the value a reference to a
+function carries, and handed on as the pointer's address libc++'s `__tuple_leaf(_Tp &&)' over `int (*const
+&)(int, int, int)' loaded the CODE of `add3' as the pointer -- `std::bind_front' jumped into its callee's
+bytes (0xF8247489FC247C89, add3's prologue read as an address). Lowering version 46. `test/cpp/run/fnrefptr.cpp'.
+(11) A SCOPED NAME THAT IS A TYPE OF ITS CLASS IS A TYPE ARGUMENT in an EXPRESSION too (`cpp_targ_value' on
+`scoped(Path, N)'): `is_same<iterator_traits<int *>::iterator_category, random_access_iterator_tag>::value'
+is read as a value (the reader cannot know the member is a type), walked as an expression it became the
+static member's name `id('iterator_traits.int_p.iterator_category')', and keyed so `is_same' compared two
+spellings and answered 0 -- which is how libc++ 18's `move_iterator::iterator_category', an `_If' over that
+trait, came out wrong for `vector::insert'. `test/cpp/run/scopedtarg.cpp' (the same probe printed
+`1 0 1 1 1 0' against clang++'s `1 1 1 1 1 1' before, one number per link of the chain). (12) A MEMBER TEMPLATE'S
+DEFINITION IS PAIRED WITH THE DECLARATION WHOSE TEMPLATE PARAMETERS AGREE ([temp.mem]; `cpp_mdef_match' in
+two passes, `agree' then `any'): two member templates of one name and one parameter list, told apart by a
+SFINAE default alone -- libc++ 18's `__split_buffer::__construct_at_end' twice and `vector::insert(
+const_iterator, _It, _It)' twice -- KEY alike, and the first definition found served BOTH declarations: the
+second's kinds matched no default and refused `cannot_deduce($anon2)', so `vector::insert' had no
+`__construct_at_end' at all. The kinds are compared IN THE CLASS'S WORDS (`cpp_tparams_alike' over the member
+list's own typedefs, `cpp_mdef_types', since the merge runs before the instance is registered): libc++ writes
+the declaration's guard over `value_type' and the definition's over `_Tp', one type under two spellings. AND THE
+DEFAULTS COME FROM THE DECLARATION wherever the two lists are of one SHAPE, kind for kind
+(`cpp_keep_tdefaults'), which is C++'s rule ([temp.param]/12: a default on the declaration alone) -- lent
+only on structural equality, `value_type' against `_Tp' lent nothing. `test/cpp/run/sfinaedefs.cpp' (the two
+shapes, a bare call inside a method too), `stdvectorinsert.cpp' (0.62's not-done: the range insert through
+`__construct_at_end', the initializer-list insert, `erase' of one and of a range, `resize' up and down, a fill
+insert -- `4 4 2 3 | 4', clang++'s). (13) THE SUMMARY IS WRITTEN LAST, AND WHOLE (`ccl_read_unit',
+`ccl_write_whole': through a temporary name and a rename): a run the watchdog killed while it wrote the AST
+beside the summary -- the slow one, written second -- left a valid `.sum' beside no `.ast.pl', and every
+program over `<set>' then refused `template_without_body(set)' until the cache was wiped by hand
+(stdfunctional, 641 s cold). The summary is the validity key, so it is the last file a run writes, and a
+truncated one never reads as valid. (14) AND A REFUSAL A TRACE NEVER SHOWED: `cpp_bind_targs_' fell to the RAW
+argument silently where `cpp_targ_value' failed; it says `targ_raw(P, A)' under the trace now.
+Reader version 86 (85: `__has_extension(c_atomic)'; 86: the inline namespace's mark, the deeper namespace's
+bare uses rewritten in the AST beside the summary), lowering version 46 (the member pointer, the complex
+types, the function-to-pointer bind); the module rebuilt as 0.100.
+NOT DONE, NAMED: `std::strong_ordering' as `<compare>''s class (a scalar `<=>' and a defaulted one are an
+`int'); the imaginary literal `1.0i' (C11's `I' and `CMPLX' come from the compiler's own `<complex.h>'), the
+complex division as the textbook formula (Annex G's special cases, `__divdc3', are not modelled) and `__real__'
+as an lvalue; `_Complex long double'; a pointer to member function's `adj' is always 0 (a base at an offset is
+adjusted at the call by the conversion, never in the pointer), and a pointer to a VIRTUAL member of a class
+with several polymorphic bases would need the adjustment; the closure the safe part follows is the one made
+where it is declared -- a closure held in a `std::function' is the library's discipline (0.45); `[*this]'
+copies the object by the implicit copy, a class with a destructor refused as ever; an unqualified use of a
+colliding name from inside the deeper namespace resolves by the rewrite of the item's BODY, so a use inside a
+default argument or a base clause is not rewritten; `stderaseifuset.cpp' (C++20, the customization point
+objects through `ranges::iter_move') builds in about 750 s at 3.8 GB and stays one fixture; `\N{...}',
+coroutines, modules, `consteval' at compile time, `std::format' and the ranges as before.
+THE GATES, ON LINUX (Ubuntu 24.04, x86_64, four cores, 16 GB; clang 18, libc++ 18, cocolog 1.8.1, the module rebuilt
+as 0.100), one after another in one chain with nothing beside them, each under its own 7000 MB watchdog, the summaries
+warmed OUTSIDE them first at all four levels (`test/warm.sh': 44 headers cold at reader 86, 9282 s, none killed): the
+reader's 95 checks GREEN in 13 s at 107 MB; the compile gate's 85 (0.99's 84 and `complex.c') in 14 s at 332 MB; the
+driver's 25 in 9 s at 137 MB; the objects' 29; the proof; THE C++ GATE GREEN -- 225 checks ok (0.99's 211 and this
+step's fourteen: stdatomic, staticfn, stdstringfind, stdsharedfromthis, closurescope, nscollide, stdbindfront,
+stderaseifuset, memfnptr, fnrefptr, scopedtarg, sfinaedefs, stdvectorinsert, and `escape.cpp' refused by name),
+`stdoptionalref' skipped by name, NO failure -- in 5284 s at a 3791 MB peak (0.99: 4499 s for 211: the two C++20
+fixtures over `<functional>' and the unordered containers are most of the difference, `stderaseifuset' alone about
+750 s); THE LIBC++ GATE GREEN, its 21 reads whole under a fresh HOME in 8524 s at 3810 MB, every item count 0.99's
+(`<vector>' 806 ... `<optional>' 397 at C++26, `<vector>' 898 at C++20): the reader's version moved for the index
+and the marks, not for what an item is.
+
 **`format`, `print`, `println` are global macros** (owner's rule):
 `library/ccl_format.pl` is a macro file registered by `ccl_standard_macros/0`
 at the start of every unit (found on `$COCOLOG_LIBRARY`, which is also on
@@ -5282,12 +5463,12 @@ at every writing process (below) -- an include inside
 it stored as `ref(Path, How)` and re-linked on load through
 `ccl_include_read/2`; `ccl_kb_cached/3` checks `time_file/2`,
 `ccl_reader_version/1`, every dep's remembered key, and the item count.
-Both predicates are declared dynamic by `ccl_kb_ready/0`. **The store is the user's, `~/.cicili/KB`** (`$CICILI_KB`; owner's rule,
+Both predicates are declared dynamic by `ccl_kb_ready/0`. **The store is the user's, `~/.cocolang/KB`** (`$COCOLANG_KB`; owner's rule,
 final after two turns: not per working directory): the first call is the
 initialization phase, reading the C standard library, the OS's deep headers
 and POSIX once, ~40 s; every later call, in any project, is served from the
 store as static data, the gates included -- `test/config.sh` exports
-`CICILI_KB=$HOME/.cicili/KB` and every gate runs over it. BUMP `ccl_reader_version/1` whenever the
+`COCOLANG_KB=$HOME/.cocolang/KB` and every gate runs over it. BUMP `ccl_reader_version/1` whenever the
 grammar changes, or a partial read from an older grammar stays cached (and
 expect that one re-read). `test/reader.sh` runs the checks in one process,
 then asks a second process for what the first read.
@@ -5298,7 +5479,7 @@ keeps a built file's IR as `'$ccl_ir:<Path>'(Index, Chunk)` -- chunks of
 (`dr_fold/4`, two folds under 2^31 as a pair: cocolog's arithmetic is not
 exact past 2^52) the file's key, the key of every header and macro file
 its AST reaches (`dr_unit_deps/2`), `ccl_lowering_version/1` and the
-host's arch. A match is served (`cicili -v`: `served F from the store`),
+host's arch. A match is served (`cocolang -v`: `served F from the store`),
 the check having passed when the IR was made; a refused file stores
 nothing. BUMP `ccl_lowering_version/1` (in `ccl_ir.pl`) whenever the check
 or the lowering changes what it emits; `KB.version` is
@@ -5459,11 +5640,11 @@ Every address is `getelementptr inbounds` and signed integer arithmetic
 is `nsw` (C's undefined behaviours, past the object and signed overflow),
 so LLVM widens loop counters and drops the sign extensions before an
 index: a quarter of a B-tree's insert time, measured by
-`bench/btree/run.sh` (cicili -O3, clang -O3 on the same algorithm, Rust's
+`bench/btree/run.sh` (cocolang -O3, clang -O3 on the same algorithm, Rust's
 BTreeSet at its own fanout of eleven keys). With the node's children in a
 bounded own array -- a 56-byte leaf, no cast -- a branchless key scan
 where a key is placed, and deletion that fixes only a node left short on
-the way back up, cicili beats BTreeSet on insert and search and ties it
+the way back up, cocolang beats BTreeSet on insert and search and ties it
 on deletion (owner's goal, 2026-09-05, a million keys, min of 11:
 94/90/62/92/66 ms against 107/96/60/95/63 for insert, search, delete
 half, search again, delete the rest). Two throwaway experiments showed
@@ -5699,7 +5880,7 @@ module (a segfault that looked like the error path's). The build mirrors `module
   one 992 MB, thirty `assertz`+`retract` 2.2 GB -- and thirty inside
   `\+ \+ (...)` or a failure-driven loop 42 MB). A deterministic run keeps
   every term it ever built: the flatten of `<vector>`'s closure peaked at
-  3.1 GB, the parse of the flattened text at 1.5 GB, a `cicili++` run of
+  3.1 GB, the parse of the flattened text at 1.5 GB, a `cocolang++` run of
   `std::vector<int>` at 4.5 GB, on the owner's 16 GB machine. So: (1) the
   preprocessor runs EACH FILE inside `\+ \+`, keeping only its output
   under a key, spliced in by `pp_finish` (`pp_include_file`: 3.1 GB ->
@@ -5843,13 +6024,13 @@ module (a segfault that looked like the error path's). The build mirrors `module
   (`GUARD_LIB' with `git show HEAD:library/X.pl' in a scratch directory, under its own HOME so the
   reader's summaries are not disturbed) answered in 79 s and told me in one line that the regression
   was mine.
-* **A DEBUG `write/1' FROM INSIDE THE LIBRARY DOES NOT REACH THE SCREEN THROUGH `bin/cicili'**
+* **A DEBUG `write/1' FROM INSIDE THE LIBRARY DOES NOT REACH THE SCREEN THROUGH `bin/cocolang'**
   (2026-09-17, chasing the reference conversion at 0.90). The command's output filter keeps only
-  `: error: ', `: note: ', `cicili: ' and `unit(' lines (`bin/cicili', the one `awk' pass), so a
+  `: error: ', `: note: ', `cocolang: ' and `unit(' lines (`bin/cocolang', the one `awk' pass), so a
   `write(dbg(...))' put in a clause to see whether it is reached prints NOTHING -- and silence there
   reads exactly like a predicate that never ran. I instrumented `cpp_ref_args_', saw nothing, moved
   the instrument one predicate out, saw nothing again, and concluded the whole road was dead; it was
-  running all along. Prefix the term with `cicili: ' (`write('cicili: '), write(dbg(...)), nl') and
+  running all along. Prefix the term with `cocolang: ' (`write('cocolang: '), write(dbg(...)), nl') and
   it comes through, or run the query under `scratchpad/guard.sh', which has no filter. This is the
   fifth instrument in these findings that answers without measuring what was asked, and the first
   whose answer is silence -- the tell is that ABSENCE is not evidence unless the channel is known to
@@ -5961,7 +6142,7 @@ module (a segfault that looked like the error path's). The build mirrors `module
   file: first call 39 µs on an empty store, 0.06-0.16 s on a 119 MB one,
   0.4-1.1 s on a 1 GB one; a second call microseconds; `use_module/1`
   itself instant; the same under `--local`: microseconds). A parse touches
-  ~500 predicates, so every `cicili` command pays a floor: 13 s over the
+  ~500 predicates, so every `cocolang` command pays a floor: 13 s over the
   119 MB store, 83 s over the 1 GB one, 2 s with no store (6-11 s over the
   24-30 MB store the per-file layout leaves; 2.8 s under cocolog 1.2.2,
   against 2.2 s with no store). And **the store
@@ -5969,7 +6150,7 @@ module (a segfault that looked like the error path's). The build mirrors `module
   headers into ~120 MB of new rows beside the dead ones (eight generations
   made the 1 GB). So the store is stamped with the reader version
   (`KB.version` beside it) and started afresh when it changes (`kb_prepare`
-  in `bin/cicili`, `ccl_kb_prepare` in `test/config.sh`), and the gates run
+  in `bin/cocolang`, `ccl_kb_prepare` in `test/config.sh`), and the gates run
   their checks in one process. (An earlier note here read this as lazy
   compilation at ~1 s per predicate; it had been measured only under the
   fat store.) The probe is FIXED in cocolog 1.2.2 (7f6a1ac, 2026-09-05:
@@ -5990,7 +6171,7 @@ module (a segfault that looked like the error path's). The build mirrors `module
   a writing process pays by the written predicate's row count, dead rows
   never reclaimed: one `objects.cpp` read over a fresh `KB++` ran past five
   minutes and left a 187 MB store, and even without the writes the probes
-  of hundreds of new per-file predicates were minutes. So `cicili++` and
+  of hundreds of new per-file predicates were minutes. So `cocolang++` and
   `test/cpp.sh` run `--local`, a run reads its headers again (about two
   seconds each, flattened), and the C++ cache is a summary cache still to
   design. To raise with cocolog's owner beside compaction.
@@ -6101,12 +6282,12 @@ module (a segfault that looked like the error path's). The build mirrors `module
   module. The one spawn left in a build is the link.
 * **The command's shell is a floor of its own: a fork per `$(...)` and per
   pipe, 10 ms each on macOS (50 ms under this session's sandbox, where
-  `sh -c true` alone takes 0.11 s).** `bin/cicili` forked twenty times --
+  `sh -c true` alone takes 0.11 s).** `bin/cocolang` forked twenty times --
   `dirname`, `cd`, `sed | head` twice for the store's stamp, `cat` twice,
   `printf | sed` per argument, four `printf | grep` passes over the answer
   -- and forks six now: one `cd`, one `awk` for both versions, `read` for
   the stamp, `case` for the exit, one `awk` pass that splits diagnostics
-  from the `cicili:` lines. An empty file's syntax check: 0.62 -> 0.39 s in
+  from the `cocolang:` lines. An empty file's syntax check: 0.62 -> 0.39 s in
   C++ mode, 1.05 -> 0.1 s in C mode over the store; the B-tree's read
   1.89 -> 0.82 s, its build 3.45 -> 2.32 s. What is left of the C++ floor
   is cocolog's start (0.06 s), the libraries' consult (0.03 s), the
@@ -6179,14 +6360,14 @@ module (a segfault that looked like the error path's). The build mirrors `module
 
 Commit and push only when the owner asks. **Every commit raises the
 version** (owner's rule): the one string in `ccl_p_version` in
-`module/cicili.cicili`, `0.N` with N one more than the last commit's; then
-rebuild, since the `.so` carries it, and `bin/cicili --version` shows it.
+`module/cocolang.cicili`, `0.N` with N one more than the last commit's; then
+rebuild, since the `.so` carries it, and `bin/cocolang --version` shows it.
 Every commit ends with
 
     Co-Authored-By: Claude Opus 5 (1M context) <noreply@anthropic.com>
     Claude-Session: https://claude.ai/code/session_01FUuQ3oBiKs3XpXAEHLCL1F
 
-and the push is `git push git@github.com:saman-pasha/cicili-lang.git main:main`.
+and the push is `git push git@github.com:saman-pasha/cocolang.git main:main`.
 Never commit `library/*.so`, `module/*.c`, `module/sdk.cicili` or `proof/forty2`.
 
 **M6's sixty-first step (0.94): THE 64-BIT CONSTANT, and the stream and container fixtures on libc++ 18.** 0.93's C++
@@ -6250,7 +6431,7 @@ frame of `ccl_locals' declares): every enumerator is a global name here, a scope
 -- so `iterator __r(__ptr)' in the tree's `__remove_node_pointer' built its iterator from 14 where `__ptr' was the
 parameter, and every erase by iterator in a C++20 program over `<set>' walked a wild node (stdcontains). C and C++
 both let a local hide an enumerator; the reproduction on the program's own code is `test/cpp/run/enumshadow.cpp' and
-`test/c/run/enumshadow.c'. THE INSTRUMENT: the IR of the reduction, `cicili++ -emit-llvm', read function by function --
+`test/c/run/enumshadow.c'. THE INSTRUMENT: the IR of the reduction, `cocolang++ -emit-llvm', read function by function --
 `inttoptr i32 14 to ptr' where the parameter's slot should have been loaded said it in one line, where the backtrace
 named only the wild node. AND A QUALIFIED ENUMERATOR IS ITS VALUE WHATEVER A LOCAL IS NAMED (`cpp_expr' on
 `scoped(Path, N)' through `cpp_enum_scope', and `cpp_targ_value''s two clauses, all asking `ccl_enum_value' directly):

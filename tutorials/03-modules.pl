@@ -10,7 +10,7 @@
 %% method that touches no slot works that way, like a static member
 %% function.
 
-:- use_module(library(cicili)).
+:- use_module(library(cocolang)).
 
 :- module(geometry).
 

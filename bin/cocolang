@@ -1,15 +1,15 @@
 #!/bin/sh
-# cicili -- the cicili-lang compiler. Arguments as clang's, so nothing is new:
+# cocolang -- the cocolang compiler. Arguments as clang's, so nothing is new:
 #
-#   cicili prog.c -o prog            read, check, lower, compile, link -> prog (a.out without -o)
-#   cicili -c prog.c                 -> prog.o          cicili -S prog.c        -> prog.s
-#   cicili -emit-llvm -c prog.c      -> prog.ll         cicili -fsyntax-only prog.c
-#   cicili -E prog.c                 -> the preprocessed text (cocolog's preprocessor), -o FILE to a file
-#   cicili -O2 a.c b.c util.o -lm -o app               cicili -shared -O1 lib.c -o lib.dylib
-#   cicili -I include -I ../h prog.c                   cicili -ast-dump prog.c
-#   cicili --version                                   cicili -v ... (say each step)
+#   cocolang prog.c -o prog            read, check, lower, compile, link -> prog (a.out without -o)
+#   cocolang -c prog.c                 -> prog.o          cocolang -S prog.c        -> prog.s
+#   cocolang -emit-llvm -c prog.c      -> prog.ll         cocolang -fsyntax-only prog.c
+#   cocolang -E prog.c                 -> the preprocessed text (cocolog's preprocessor), -o FILE to a file
+#   cocolang -O2 a.c b.c util.o -lm -o app               cocolang -shared -O1 lib.c -o lib.dylib
+#   cocolang -I include -I ../h prog.c                   cocolang -ast-dump prog.c
+#   cocolang --version                                   cocolang -v ... (say each step)
 #
-# The knowledge base is ~/.cicili/KB, the user's (or $CICILI_KB): the first
+# The knowledge base is ~/.cocolang/KB, the user's (or $COCOLANG_KB): the first
 # call is the initialization phase, reading the C standard library, the OS's
 # and POSIX's headers once; every later call, in any project, the tests
 # included, is served from it as static data, until the SDK or the reader's
@@ -21,10 +21,10 @@
 case $0 in */*) HERE=$(cd "${0%/*}" && pwd) ;; *) HERE=$(cd "$(dirname "$(command -v "$0")")" && pwd) ;; esac
 ROOT=${HERE%/*}
 COCOLOG=${COCOLOG:-$HOME/Projects/GitHub/cocolog}
-if [ -x "$COCOLOG/cocolog" ]; then C="$COCOLOG/cocolog"; elif command -v cocolog >/dev/null 2>&1; then C=$(command -v cocolog); else echo "cicili: no cocolog (set COCOLOG)" >&2; exit 1; fi
+if [ -x "$COCOLOG/cocolog" ]; then C="$COCOLOG/cocolog"; elif command -v cocolog >/dev/null 2>&1; then C=$(command -v cocolog); else echo "cocolang: no cocolog (set COCOLOG)" >&2; exit 1; fi
 export COCOLOG_LIBRARY="$ROOT/library${COCOLOG_LIBRARY:+:$COCOLOG_LIBRARY}"
-KB=${CICILI_KB:-$HOME/.cicili/KB}
-me=${CICILI_ME:-cicili}                # cicili++ runs this script with CICILI_LANG=cpp, its own name, its own store
+KB=${COCOLANG_KB:-$HOME/.cocolang/KB}
+me=${COCOLANG_ME:-cocolang}                # cocolang++ runs this script with COCOLANG_LANG=cpp, its own name, its own store
 store="--embed $KB"
 # The store is stamped with the reader's grammar version (KB.version beside
 # it): a new version makes every row dead, and cocolog's store never reclaims
@@ -39,12 +39,12 @@ kb_prepare() {                        # one awk for both versions, read for the 
   [ "$have" = "$v" ] || echo "$v" > "$stamp"
 }
 inputs=""; opts=""; out=""; opt=""; verbose=""
-[ "${CICILI_LANG:-c}" = cpp ] && opts="$opts lang(cpp),"
+[ "${COCOLANG_LANG:-c}" = cpp ] && opts="$opts lang(cpp),"
 need() { [ $# -ge 2 ] || { echo "$me: error: argument to '$1' is missing" >&2; exit 1; }; }
 q() { case $1 in *\'*) printf "'%s'" "$(printf '%s' "$1" | sed "s/'/\\\\'/g")" ;; *) printf "'%s'" "$1" ;; esac; }
 while [ $# -gt 0 ]; do
   case "$1" in
-    --version) "$C" --local query "use_module(library(cicili)), ccl_version(V), ( catch(ccl_cocolog_version(CV), _, fail) -> true ; CV = '?' ), ( catch(use_module(library(ccl_llvm)), _, fail), catch(ccl_llvm_version(L), _, fail) -> true ; L = 'not built' ), write('cicili-lang '), write(V), write(' (cocolog '), write(CV), write('; LLVM '), write(L), write(')'), nl" 2>/dev/null | grep -a "^cicili-lang"; exit 0 ;;
+    --version) "$C" --local query "use_module(library(cocolang)), ccl_version(V), ( catch(ccl_cocolog_version(CV), _, fail) -> true ; CV = '?' ), ( catch(use_module(library(ccl_llvm)), _, fail), catch(ccl_llvm_version(L), _, fail) -> true ; L = 'not built' ), write('cocolang '), write(V), write(' (cocolog '), write(CV), write('; LLVM '), write(L), write(')'), nl" 2>/dev/null | grep -a "^cocolang"; exit 0 ;;
     -h|--help) sed -n '2,15p' "$0" | sed 's/^# \{0,1\}//'; exit 0 ;;
     -c) opts="$opts compile_only," ;;
     -S) opts="$opts assembly," ;;
@@ -81,15 +81,15 @@ done
 [ -n "$opt" ] && opts="$opts opt('$opt'),"
 inputs="[${inputs%,}]"; opts="[${opts%,}]"
 case "$store" in --embed*) kb_prepare "$KB" ;; esac
-res=$("$C" $store query "use_module(library(cicili)), ccl_drive($inputs, $opts)" 2>&1)
-# one pass over the answer: diagnostics on stderr, as clang; `cicili: ...' and `unit(...)' lines on stdout
+res=$("$C" $store query "use_module(library(cocolang)), ccl_drive($inputs, $opts)" 2>&1)
+# one pass over the answer: diagnostics on stderr, as clang; `cocolang: ...' and `unit(...)' lines on stdout
 case "$opts" in
-  *preprocess*) printf '%s\n' "$res" | awk '/: error: |: warning: |: note: / { print > "/dev/stderr"; next } /^cicili: |^ +[0-9]+\. use_module|answer\(s\)\.$/ { next } { print }' ;;   # -E: the text itself
-  *) printf '%s\n' "$res" | awk '/: error: |: warning: |: note: / { print > "/dev/stderr"; next } /^cicili: ok$/ { next } /^cicili: |^unit\(/ { print }' ;;
+  *preprocess*) printf '%s\n' "$res" | awk '/: error: |: warning: |: note: / { print > "/dev/stderr"; next } /^cocolang: |^ +[0-9]+\. use_module|answer\(s\)\.$/ { next } { print }' ;;   # -E: the text itself
+  *) printf '%s\n' "$res" | awk '/: error: |: warning: |: note: / { print > "/dev/stderr"; next } /^cocolang: ok$/ { next } /^cocolang: |^unit\(/ { print }' ;;
 esac
 case "$res" in
-  *"cicili: ok"*) exit 0 ;;
-  *"cicili: "[0-9]*" error"*) exit 1 ;;
+  *"cocolang: ok"*) exit 0 ;;
+  *"cocolang: "[0-9]*" error"*) exit 1 ;;
 esac
-printf '%s\n' "$res" | grep -a "ERROR\|error" | head -3 | sed 's/^/cicili: /'
+printf '%s\n' "$res" | grep -a "ERROR\|error" | head -3 | sed 's/^/cocolang: /'
 exit 1

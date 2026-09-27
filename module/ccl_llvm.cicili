@@ -1,6 +1,6 @@
-;;;; cicili-lang -- library(ccl_llvm): the embedded LLVM, as a cocolog module.
+;;;; cocolang -- library(ccl_llvm): the embedded LLVM, as a cocolog module.
 ;;;;
-;;;; cicili_compile/3 (library(ccl_build)) comes here when this module is
+;;;; cocolang_compile/3 (library(ccl_build)) comes here when this module is
 ;;;; built: the IR module text is parsed in an LLVM context, verified, given
 ;;;; the host's target and data layout, run through the pass pipeline the
 ;;;; flags ask for, and written as an object file -- all inside the process,

@@ -1,4 +1,4 @@
-%% cicili-lang -- library(ccl_syntax): C source, read as a DCG, into an AST.
+%% cocolang -- library(ccl_syntax): C source, read as a DCG, into an AST.
 %%
 %% Two grammars over two lists. `ccl_lex//2' is a DCG over CHARACTER CODES:
 %% it reads a whole C file into a list of tokens, each carrying the line it
@@ -12,7 +12,7 @@
 %% GNU forms Cicili's own emitted C carries: __attribute__((...)), which is
 %% read and dropped, and the statement expression ({ ... }). The C++ forms --
 %% classes, templates, namespaces, `::' -- are not read yet; a file that
-%% uses them parses up to the first of them, and cicili_ast/3 answers where.
+%% uses them parses up to the first of them, and cocolang_ast/3 answers where.
 %%
 %% Every predicate here is ccl_-prefixed: cocolog has one namespace, and a
 %% grammar full of `expr' and `id' would collide with any program's. Only the
@@ -70,18 +70,18 @@
 %%   ccl_line_of(+Codes, +RestCodes, -Line)      the line a lexical error is on
 %%   ccl_farthest(-Line)                          after ccl_unit: the last line the grammar reached
 %%
-%% library(cicili) wraps these as cicili_ast/2 and cicili_ast/3.
+%% library(cocolang) wraps these as cocolang_ast/2 and cocolang_ast/3.
 
 %% the reader's version, part of the knowledge base's cache key: bump it when
 %% the grammar changes, so what an older grammar left partial is read again
-ccl_reader_version(84).   % 84: the standard macros never fire inside a library header (libc++'s <format> reads whole at C++20); 83: `_Alignas' on an object kept as a qualifier, a wide string sizing the array it initializes; 82: a function's `constexpr' is no const on its result (every summary's get, and every constexpr function's type)
+ccl_reader_version(86).   % 86 (0.100): an inline namespace marked, a deeper namespace's bare uses rewritten in the AST beside the summary; 85: __has_extension(c_atomic)
 %% ccl_reader_version(81).   % 81: a literal past 2^60 is big(Atom) in every summary's item
 %% ccl_reader_version(80).   % 80: a template template parameter's name un-noted at its item's end, a tag or a typedef no concept (<variant>'s `template <_Trait X, ...>' read as a constrained type parameter); 79: a braced default argument, C++20's brace-designated initializer (libc++ 18 at C++20); 78: an unnamed parameter of an unknown type name in a C++ parameter list, a destructor called with its template arguments (libc++ 18); 77: _Generic chosen at the read, an unbounded array sized by its initializer, _BitInt in the table, the OS's predefined macros, <limits.h> and the C23 headers; 59: a method's ref-qualifier kept; 60: the C++20 stretch (a constrained parameter, a requires-clause on a member template, trailing, on a lambda; `::template f' alone; a braced subscript; a member variable template; a constrained auto); 61: a concept indexed by name; 62: a function template's explicit template-id is no type (`T &r(std::forward<U>(v))'), a bare concept's name bound; 63: explicit(cond) kept; 64: a pointer to member, typeid, a member class template noted ahead; 65: no RTTI predefined, so every header is flattened again; 66: only a pointer to member takes the trailing cv- and ref-qualifiers (a method's const is the method rule's); 67: a free name outside a template; 68: a nullability word with an argument list (glibc); 69: a pointer to member function's noexcept, a braced list assigned, and the AST's index keys a deeper namespace's name apart; 70: alignas kept on a class; 71: [[no_unique_address]] kept on a member; 72: the AST's index holds a header's inline variable with NO initializer (std::ignore); 73: a pack expansion is a dependent type, and a call of a function template's name is not the reader's `auto' to deduce; 74: `if constexpr' with an init-statement; 75: a member FUNCTION template's name is a template and no type; 76: __OPTIMIZE_SIZE__ predefined, so libc++'s algorithms are the scalar ones
 
 %% ---- the lexer: a DCG over codes ------------------------------------------
 
-%% the lexer runs native when library(cicili)'s module is loaded
-%% (ccl_lex_native/6 in module/cicili.cicili, the DCG token for token, C
+%% the lexer runs native when library(cocolang)'s module is loaded
+%% (ccl_lex_native/6 in module/cocolang.cicili, the DCG token for token, C
 %% speed); '$ccl_lexer' says which, decided once by ccl_ensure_globals
 ccl_tokens(Codes, Tokens, Rest) :-
     (   ccl_native_lexer -> atom_codes(A, Codes), ccl_lex_atom_(A, 1, Tokens, Rest)
@@ -282,9 +282,9 @@ ccl_c_keyword(K) :- memberchk(K, [auto, break, case, char, const, continue, defa
     enum, extern, float, for, goto, if, inline, int, long, register, restrict, return, short,
     signed, sizeof, static, struct, switch, typedef, union, unsigned, void, volatile, while,
     '_Bool', '_Complex', '_Noreturn', '_Atomic', '_Static_assert', '_Thread_local', '_Float16']).
-%% ---- C++ (M5, cicili++): the mode -------------------------------------------
+%% ---- C++ (M5, cocolang++): the mode -------------------------------------------
 %% '$ccl_lang' is c or cpp: from the file's extension (ccl_read_file: .cpp .cc
-%% .cxx .C .hpp .hh .hxx) or forced by the driver (cicili++ reads everything as
+%% .cxx .C .hpp .hh .hxx) or forced by the driver (cocolang++ reads everything as
 %% C++). Every C++ rule below is guarded by ccl_cpp, so a .c reads as it did.
 %% `override' and `final' stay identifiers, contextual as in C++.
 ccl_lang(L) :- nb_getval('$ccl_lang', L).
@@ -753,7 +753,9 @@ ccl_external(Env, Env, static_assert(L, E, Msg)) --> ccl_line(L), ccl_kw('_Stati
 %% C++ items: a namespace (its items inside), using, extern "C", a template
 %% (its type parameters are type names inside it), `auto' by inference, a
 %% constructor or destructor defined out of its class, static_assert
-ccl_external(Env, Env, namespace(L, N, Items)) --> ccl_cpp, ccl_line(L), ( ccl_kw(inline) ; [] ), ccl_kw(namespace), !, ccl_attrs, ( ccl_id(N), ! ; { N = anon } ), ccl_p('{'), ccl_externals(Env, Items), ccl_p('}').
+ccl_external(Env, Env, namespace(L, N1, Items)) --> ccl_cpp, ccl_line(L), ( ccl_kw(inline), { Inl = yes } ; { Inl = no } ), ccl_kw(namespace), !, ccl_attrs, ( ccl_id(N), ! ; { N = anon } ),
+    { ( Inl == yes, N \== anon -> N1 = inline(N) ; N1 = N ) },                          % AN INLINE NAMESPACE IS MARKED (0.100): its name stays in the mangler's path (`std::__1') and is skipped where the innermost NAMED namespace keys a colliding name (libc++'s `ranges::__cpo::iter_move' is `ranges.iter_move')
+    ccl_p('{'), ccl_externals(Env, Items), ccl_p('}').
 ccl_external(Env, Env, using(L, enum(Q))) --> ccl_cpp, ccl_line(L), ccl_kw(using), ccl_kw(enum), !, ccl_qname(Env, type, Q), ccl_p(';').      % C++20: using enum E
 ccl_external(Env, Env, using(L, namespace(Q))) --> ccl_cpp, ccl_line(L), ccl_kw(using), ccl_kw(namespace), !, ccl_qname(Env, type, Q), ccl_p(';').
 ccl_external(Env0, [T|Env0], typedef(L, [var(T, Type, none)])) --> ccl_cpp, ccl_line(L), ccl_kw(using), ccl_id(T), ccl_attrs, ccl_p('='), !, ccl_type_name(Env0, Type), ccl_p(';'),
@@ -1725,6 +1727,8 @@ ccl_cast_rest(T, cast(T, E)) --> ccl_cast_expr(E).
 %% clause is found by indexing, one try where each alternative was one)
 %% C++: new T, new T(args), new T{args}, new T[n]; delete p, delete[] p; throw e
 ccl_unary(E) --> ccl_peek(K, V), ccl_unary_(V, K, E).
+ccl_unary_('__real__', id, real_part(E)) --> ccl_id('__real__'), !, ccl_cast_expr(E).          % GNU's `__real__ z' and `__imag__ z' (0.100), the components of a complex
+ccl_unary_('__imag__', id, imag_part(E)) --> ccl_id('__imag__'), !, ccl_cast_expr(E).
 ccl_unary_(new, kw, E) --> ccl_cpp, !, ccl_kw(new), ccl_new_expr(E).
 ccl_unary_('::', p, E) --> ccl_cpp, ccl_p('::'), ( ccl_kw(new), !, ccl_new_expr(E) ; ccl_kw(delete), ( ccl_p('['), !, ccl_p(']'), ccl_cast_expr(X), { E = delete_array(X) } ; ccl_cast_expr(X), { E = delete(X) } ) ), !.   % ::new, ::delete
 ccl_unary_(delete, kw, E) --> ccl_cpp, !, ccl_kw(delete), ( ccl_p('['), !, ccl_p(']'), ccl_cast_expr(X), { E = delete_array(X) } ; ccl_cast_expr(X), { E = delete(X) } ).

@@ -10,12 +10,12 @@
 HERE=$(cd "$(dirname "$0")" && pwd)
 . "$HERE/config.sh"
 [ -x "$C" ] || { echo "SKIP (no cocolog binary at $C -- set COCOLOG)"; exit 0; }
-[ -f "$ROOT/library/cicili.so" ] || { echo "SKIP (no library/cicili.so -- sh module/build.sh)"; exit 0; }
-D=$(mktemp -d "${TMPDIR:-/tmp}/cicili-compile-XXXXXX")
+[ -f "$ROOT/library/cocolang.so" ] || { echo "SKIP (no library/cocolang.so -- sh module/build.sh)"; exit 0; }
+D=$(mktemp -d "${TMPDIR:-/tmp}/cocolang-compile-XXXXXX")
 trap 'rm -rf "$D"' EXIT
 export CCL_TEST_ROOT="$ROOT" CCL_TEST_TMP="$D"
 failures=0
-out=$("$C" --embed "$CICILI_KB" query "ensure_loaded('$ROOT/test/compile.pl'), compile_main" 2>&1)
+out=$("$C" --embed "$COCOLANG_KB" query "ensure_loaded('$ROOT/test/compile.pl'), compile_main" 2>&1)
 echo "$out" | grep -aq "^done$" || { echo "RED: the gate did not finish"; echo "$out" | grep -a "FAIL\|ERROR\|error" | head -5; exit 1; }
 
 echo "-- built, run, and checked"

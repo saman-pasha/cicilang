@@ -1,5 +1,5 @@
 /* structs by value of every ABI class, built and summed by clang (abi_helper.c),
-   bumped by cicili-lang (abi_main.c), each side calling the other */
+   bumped by cocolang (abi_main.c), each side calling the other */
 typedef struct { int a; } s4;
 typedef struct { int a, b; } s8;
 typedef struct { float x, y; } f8;

@@ -1,5 +1,5 @@
-%% cicili-lang -- library(ccl_check): the safe part. The ownership check,
-%% run by cicili_ir/2 before anything is lowered.
+%% cocolang -- library(ccl_check): the safe part. The ownership check,
+%% run by cocolang_ir/2 before anything is lowered.
 %%
 %% An OWNER is a pointer declared with the qualifier `own' -- a local, a
 %% parameter (the callee owns what it is given), or a FIELD of a struct held
@@ -238,11 +238,21 @@ ck_param_ties([param(T, N)|Ps], Seen, St0, St) :-
 %% is a pointer with own on itself or on what it points to
 ck_own_type(ptr(Q, B)) :- ( memberchk(own, Q) ; B = base(Q2, _), memberchk(own, Q2) ), !.
 ck_own_type(base(Q, _)) :- memberchk(own, Q), !.
-ck_is_pointer_type(T) :- ccl_resolve_type(T, T1), T1 = ptr(_, _), !.
+ck_is_pointer_type(T) :- ccl_resolve_type(T, T1), T1 = ptr(_, P), \+ ccl_resolve_type(P, fn(_, _, _)), !.   % a FUNCTION pointer is code, never memory the check follows (0.100): `int (*f)(int) = c ? a : b' was a loose pointer
 %% a type whose value carries a pointer: a pointer, an array of them, a struct
 %% holding one at any depth -- what a borrow, or a tie, travels in
 ck_carries_type(T) :- ccl_resolve_type(T, T1), ck_carries_(T1).
+ck_carries_(memptr(_, _, _)) :- !, fail.
+ck_carries_(ptr(_, F)) :- ccl_resolve_type(F, fn(_, _, _)), !, fail.                    % nor a pointer to a function                                            % a pointer to member is a code address or an offset, never an owner or a borrow (0.100: the ABI's `{ ptr, adj }' has a pointer field, which is not memory)
 ck_carries_(ptr(_, _)) :- !.
+%% A CLOSURE IS FOLLOWED AS A BORROW OF WHAT IT CAPTURES (0.100): its reference captures are `ref' members, which
+%% `ck_carries_' does not count (a reference member is bound once and read through, and counting it refused every
+%% closure's construction as a borrow stored), so the two places that make a value a borrow -- a declaration's
+%% initializer and a return -- ask this test beside it. A closure that holds `&x' of a local and leaves the function
+%% is borrow_escapes, where a dangling reference compiled and ran (the hole 0.59 named).
+ck_borrowing_type(T) :- ck_carries_type(T), !.
+ck_borrowing_type(T) :- ccl_lang(cpp), ck_closure_type(T).
+ck_closure_type(T) :- ccl_resolve_type(T, base(_, [struct(N, _)])), atom(N), atom_concat('lambda.', _, N), !.
 ck_carries_(block(_, _)) :- !.
 ck_carries_(arr(_, E)) :- !, ck_carries_type(E).
 ck_carries_(base(_, [struct(N, _)])) :- ccl_lang(cpp), ck_library_class(N), !, fail.   % A LIBRARY CLASS'S VALUE IS OPAQUE: its pointers are libc++'s own discipline, as its functions' bodies are (0.45) -- a map's iterator, `auto it = m.find(3)', holds a node pointer the safe part cannot follow and need not, since nothing here frees it
@@ -652,6 +662,11 @@ ck_borrows_from(deref(E), St, P) :- !, ck_borrows_from(E, St, P).
 ck_borrows_from(cond(_, A, B), St, P) :- !, ( ck_borrows_from(A, St, P) -> true ; ck_borrows_from(B, St, P) ).
 ck_borrows_from(comma(_, B), St, P) :- !, ck_borrows_from(B, St, P).
 ck_borrows_from(stmt_expr(block(Is)), St, P) :- append(_, [expr(_, E)], Is), !, ck_borrows_from(E, St, P).
+%% A CLOSURE BORROWS WHAT ITS CAPTURES BORROW (0.100): the desugaring makes a lambda a compound literal of the
+%% captures' values, `&x' for a reference capture and `this' for the object, so a closure local is a borrow of the
+%% captured local (an anchor) or of the parameter, and `return f' of one that holds `&x' is borrow_escapes where a
+%% dangling reference had compiled and run -- the hole 0.59 named. A by-value capture of a plain value borrows nothing.
+ck_borrows_from(compound_lit(_, init(Items)), St, P) :- member(item(_, V), Items), ck_borrows_from(V, St, P), !.
 %% a call whose result is tied to a parameter borrows from that argument (an
 %% own result is an owner instead: fresh, checked against the tie where it lands)
 %% A PLAIN POINTER A LIBRARY CLASS'S MEMBER ANSWERS IS A BORROW OF THE OBJECT, never fresh memory:
@@ -686,8 +701,8 @@ ck_no_escape(E, St) :-
     ;   E = id(N), ck_is_ref(N) -> true                                                % a value out of the referent
     ;   ck_owner_path(St, E, K) -> ( ck_tied_to(K, R) -> ck_ret_tied(St, R, RT, K, E) ; true )
     ;   E = id(N), ck_state(St, N, dangling(P)) -> ck_fail(borrow_after_move, N, borrowed_from(P))
-    ;   E = id(N), ck_state(St, N, borrow(P)) -> ( ck_local_type(N, T), ck_carries_type(T) -> ck_ret_borrow(St, P, RT, N, borrowed_from(P)) ; true )
-    ;   ccl_type_of(E, T), ck_carries_type(T), ck_borrows_from(E, St, P) -> ck_ret_borrow(St, P, RT, P, E)
+    ;   E = id(N), ck_state(St, N, borrow(P)) -> ( ck_local_type(N, T), ck_borrowing_type(T) -> ck_ret_borrow(St, P, RT, N, borrowed_from(P)) ; true )
+    ;   ccl_type_of(E, T), ck_borrowing_type(T), ck_borrows_from(E, St, P) -> ck_ret_borrow(St, P, RT, P, E)
     ;   true ).
 ck_ret_borrow(St, P, RT, N, Form) :-
     (   ck_state(St, P, loose) -> true                                  % the caller takes the memory over
@@ -820,8 +835,8 @@ ck_decls([var(N, T0, Init0)|Vs], St0, St) :-
         (   Init == none -> St6 = St5
         ;   Init = init(Items) -> ck_init_slots(Items, T, N, St5, St6)
         ;   ck_expr(Init, St5, St5a),
-            (   ck_carries_type(T), ck_borrows_from(Init, St5a, P) -> ck_bind_var(N, P, var(N, Init), St5a, St6)
-            ;   Init = id(P), ck_plain_copy(St5a, P) -> ck_declare(St5a, N, null, St6)                 % a COPY OF A NULL, OR OF A LOCAL WITH NO OWNERSHIP STATE, IS NULL TO THE CHECK (0.99): `int *q = p' with p null was a fresh value, and q `not consumed'
+            (   ck_borrowing_type(T), ck_borrows_from(Init, St5a, P) -> ck_bind_var(N, P, var(N, Init), St5a, St6)   % a closure of a reference capture is a borrow of the captured local (0.100)
+            ;   ck_is_pointer_type(T), Init = id(P), ck_plain_copy(St5a, P) -> ck_declare(St5a, N, null, St6)   % A POINTER only (0.100): `int x = n' had made x an owner in the null state, and a closure capturing x by value borrowed it                 % a COPY OF A NULL, OR OF A LOCAL WITH NO OWNERSHIP STATE, IS NULL TO THE CHECK (0.99): `int *q = p' with p null was a fresh value, and q `not consumed'
             ;   ck_is_pointer_type(T), \+ ck_declared_tie(N, _), ck_fresh_value(Init) -> ck_declare(St5a, N, loose, St6)
             ;   ck_no_owner_behind(N, T, Init, var(N, Init)), St6 = St5a ) ) ),
     ck_decls(Vs, St6, St).
@@ -1091,6 +1106,7 @@ ck_expr(E, St0, St) :- ck_unary_shape(E, A), !, ck_expr(A, St0, St).           %
 ck_unary_shape(neg(E), E). ck_unary_shape(not(E), E). ck_unary_shape(bitnot(E), E). ck_unary_shape(pos(E), E).
 ck_unary_shape(deref(E), E). ck_unary_shape(cast(_, E), E). ck_unary_shape(postinc(E), E). ck_unary_shape(postdec(E), E).
 ck_unary_shape(preinc(E), E). ck_unary_shape(predec(E), E).
+ck_unary_shape(real_part(E), E). ck_unary_shape(imag_part(E), E).   % a complex's components (0.100)
 ck_expr(move(E), St0, St) :- ck_own_elem(E, K), !, ck_expr(E, St0, St1), ck_dangle(St1, K, St).   % an element out: the array's borrows dangle
 ck_expr(move(E), St0, St) :- ck_path(E, K), ck_by_value(E), ck_own_under(St0, K, Fs), Fs \== [], !, ck_expr(E, St0, St1), ck_move_out(St1, Fs, move(E), St).   % a struct with owners moved whole: its fields go
 ck_expr(move(E), St0, St) :- !, ( ck_owner_path(St0, E, K) -> ck_base_use(E, St0, St1), ck_consume(K, move, move(E), St1, St, _) ; ck_moves_library(E) -> ck_expr(E, St0, St) ; ck_name(E, N), ck_fail(move_of_non_owner, N, move(E)) ).
