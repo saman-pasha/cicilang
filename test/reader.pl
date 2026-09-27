@@ -383,13 +383,13 @@ k91 :- check('C11 and C17: L"wide" is wstr, u"..." u16str, U"..." u32str, u8"...
       member(declaration(_, none, _, [var(s16, _, u16str([97, 98]))]), B),
       member(declaration(_, none, _, [var(s32, _, u32str([120, 121, 122, 195, 169]))]), B),
       member(expr(_, call(id(printf), [_, cast(_, sizeof(wchr(120)))|_])), B) )).
-k90 :- check('C23: _BitInt(N) a specifier, _Generic chosen at the read, _Alignof and alignof, _Alignas dropped, nullptr_t and unreachable() from <stddef.h>',
+k90 :- check('C23: _BitInt(N) a specifier, _Generic chosen at the read, _Alignof and alignof, _Alignas kept as the qualifier aligned(E), nullptr_t and unreachable() from <stddef.h>',
     ( unit_c('run/c23b.c', 23, unit(Is)),
       member(declaration(_, none, base(_, [bitint(int(7))]), [var(small, _, int(60))]), Is),
       member(declaration(_, none, base(_, S12), [var(twelve, _, int(4000))]), Is), memberchk(bitint(int(12)), S12), memberchk(unsigned, S12),
       member(function(_, _, _, main, _, _, block(B)), Is),
       member(declaration(_, none, _, [var(np, base([], [typedef(nullptr_t)]), nullptr)]), B),
-      member(declaration(_, none, base([], [int]), [var(aligned, _, int(5))]), B),
+      member(declaration(_, none, base(QA, [int]), [var(aligned, _, int(5))]), B), memberchk(aligned(int(16)), QA),
       member(expr(_, call(id('__builtin_unreachable'), [])), B),
       member(expr(_, call(id(printf), [_, int(1), int(2), int(3), int(4), int(9), cast(_, alignof_type(_)), id(mut)])), B) )).
 k88 :- check('C23: bool/true/false and nullptr are the language\'s, auto deduces, an array bound folds from a constexpr, 0b101010 and 1\'000\'000 are numbers',

@@ -172,10 +172,14 @@ pp_lines([P|Ps], N, out, Lines) :-
     ;   pp_join(Cs, P, Ps, N, Joined, Ps1, N1), pp_clean(Joined, Out, St1),
         atom_codes(OA, Out), Lines = [line(N, OA)|Lines1] ),
     pp_lines(Ps1, N1, St1, Lines1).
-pp_ends_backslash(P) :- atom_length(P, L), L > 0, L1 is L - 1, sub_atom(P, L1, 1, 0, '\\').
+pp_ends_backslash(P) :- atom_length(P, L), L > 0, L1 is L - 1, sub_atom(P, L1, 1, 0, Last),
+    ( Last == '\\' -> true ; atom_codes(Last, [C]), ( C == 32 ; C == 9 ), atom_codes(P, Cs), memberchk(92, Cs), pp_before_backslash(Cs, _) ).   % TRAILING WHITESPACE AFTER THE BACKSLASH still splices ([lex.phases]/2 as clang reads it, with a warning; 0.99): the last character asked first, since every line comes through here
+pp_before_backslash(Cs, C1) :- reverse(Cs, R), pp_skip_ws(R, [92|R1]), reverse(R1, C1).
+pp_skip_ws([C|R], R1) :- ( C == 32 ; C == 9 ), !, pp_skip_ws(R, R1).
+pp_skip_ws(R, R).
 %% a line ending in a backslash continues on the next
 pp_join(Cs, P, Ps, N, Joined, Ps1, N1) :-
-    (   pp_ends_backslash(P), Ps = [Q|Qs] -> append(C1, [92], Cs), !, N0 is N + 1, atom_codes(Q, QCs), pp_join(QCs, Q, Qs, N0, J1, Ps1, N1), append(C1, J1, Joined)
+    (   pp_ends_backslash(P), Ps = [Q|Qs] -> pp_before_backslash(Cs, C1), !, N0 is N + 1, atom_codes(Q, QCs), pp_join(QCs, Q, Qs, N0, J1, Ps1, N1), append(C1, J1, Joined)
     ;   Joined = Cs, Ps1 = Ps, N1 is N + 1 ).
 %% one line's codes without its comments; `in' when a block comment stays open
 pp_clean([], [], out).
@@ -342,7 +346,7 @@ pp_spell_all([T|Ts], Cs) :- pp_spell(T, C1), pp_spell_all(Ts, C2), append(C1, [0
 pp_spell(tok(id, N, _), Cs) :- !, atom_codes(N, Cs).
 pp_spell(tok(kw, N, _), Cs) :- !, atom_codes(N, Cs).
 pp_spell(tok(num, Cs, _), Cs) :- !.
-pp_spell(tok(int, N, _), Cs) :- !, number_codes(N, Cs).
+pp_spell(tok(int, N, _), Cs) :- !, pp_int_codes(N, Cs).
 pp_spell(tok(float, N, _), Cs) :- !, number_codes(N, Cs).
 pp_spell(tok(str, S, _), Cs) :- !, pp_escape(S, E), append([34|E], [34], Cs).
 pp_spell(tok(chr, C, _), [39, C, 39]) :- !.
@@ -1244,12 +1248,14 @@ ccl_pp_spell_tok(str, Cs, [34|Out], Rest) :- !, ccl_pp_spell_str(Cs, Out, [34|Re
 ccl_pp_spell_tok(chr, C, [39|Out], Rest) :- !, ccl_pp_spell_str([C], Out, [39|Rest]).
 ccl_pp_spell_tok(K, Cs, [P, 34|Out], Rest) :- pp_str_prefix(K, [P]), !, ccl_pp_spell_str(Cs, Out, [34|Rest]).   % THE PREFIXED LITERALS SPELL WITH THEIR PREFIX (0.93): `L"true"' came out as a code list in the flattened text, which no reader takes -- the census's road, not the gate's, which reads the tokens
 ccl_pp_spell_tok(K, C, [P, 39|Out], Rest) :- pp_chr_prefix(K, [P]), !, ccl_pp_spell_str([C], Out, [39|Rest]).
-ccl_pp_spell_tok(uint, N, Out, Rest) :- !, number_codes(N, Cs), append(Cs, [0'u|Rest], Out).
-ccl_pp_spell_tok(long, N, Out, Rest) :- !, number_codes(N, Cs), append(Cs, [0'l|Rest], Out).
-ccl_pp_spell_tok(ulong, N, Out, Rest) :- !, number_codes(N, Cs), append(Cs, [0'u, 0'l|Rest], Out).
-ccl_pp_spell_tok(bitint, N, Out, Rest) :- !, number_codes(N, Cs), append(Cs, [0'w, 0'b|Rest], Out).        % C23's `wb' and `uwb' (0.93): the suffix was lost in the flattened text
-ccl_pp_spell_tok(ubitint, N, Out, Rest) :- !, number_codes(N, Cs), append(Cs, [0'u, 0'w, 0'b|Rest], Out).
+ccl_pp_spell_tok(uint, N, Out, Rest) :- !, pp_int_codes(N, Cs), append(Cs, [0'u|Rest], Out).
+ccl_pp_spell_tok(long, N, Out, Rest) :- !, pp_int_codes(N, Cs), append(Cs, [0'l|Rest], Out).
+ccl_pp_spell_tok(ulong, N, Out, Rest) :- !, pp_int_codes(N, Cs), append(Cs, [0'u, 0'l|Rest], Out).
+ccl_pp_spell_tok(bitint, N, Out, Rest) :- !, pp_int_codes(N, Cs), append(Cs, [0'w, 0'b|Rest], Out).        % C23's `wb' and `uwb' (0.93): the suffix was lost in the flattened text
+ccl_pp_spell_tok(ubitint, N, Out, Rest) :- !, pp_int_codes(N, Cs), append(Cs, [0'u, 0'w, 0'b|Rest], Out).
 ccl_pp_spell_tok(pp, A, [35|Out], Rest) :- !, atom_codes(A, Cs), append(Cs, Rest, Out).
+pp_int_codes(big(A), Cs) :- !, atom_codes(A, Cs).                                    % a literal past 2^60 spells as its digits (0.94's big(Atom); 0.99: the flattened text had `big(0xff...)ul', which no reader takes -- the census's road only)
+pp_int_codes(N, Cs) :- number_codes(N, Cs).
 ccl_pp_spell_tok(cocolog, A, Out, Rest) :- !, atom_codes('#cocolog', H), atom_codes(A, Cs), atom_codes('#end', E), append(H, [10|Cs], O1), append(O1, [10|E], O2), append(O2, Rest, Out).
 ccl_pp_spell_tok(float, F, Out, Rest) :- F > 1.0e308, !, atom_codes('1e999', Cs), append(Cs, Rest, Out).       % past double (a long double literal): infinite again when read
 ccl_pp_spell_tok(float, F, Out, Rest) :- F < -1.0e308, !, atom_codes('-1e999', Cs), append(Cs, Rest, Out).

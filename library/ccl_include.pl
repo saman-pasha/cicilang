@@ -63,8 +63,12 @@
 %% A `:- dynamic' here PERSISTS under the store (see CLAUDE.md), so the units
 %% read in this process, the files being read (the cycle guard) and the macro
 %% files loaded are globals, not clauses: nb_setval/2 is the process's own.
-ccl_unit_cached(Path, How, Unit) :- ccl_global('$ccl_unit_paths', Ps, []), memberchk(Path, Ps), atom_concat('$ccl_unit:', Path, K), nb_getval(K, How-Unit).
-ccl_unit_cache(Path, How, Unit) :- atom_concat('$ccl_unit:', Path, K), nb_setval(K, How-Unit), ccl_global('$ccl_unit_paths', Ps, []), nb_setval('$ccl_unit_paths', [Path|Ps]).
+ccl_unit_cached(Path, How, Unit) :- ccl_unit_key(Path, K), ccl_global('$ccl_unit_paths', Ps, []), memberchk(K, Ps), nb_getval(K, How-Unit).
+ccl_unit_cache(Path, How, Unit) :- ccl_unit_key(Path, K), nb_setval(K, How-Unit), ccl_global('$ccl_unit_paths', Ps, []), nb_setval('$ccl_unit_paths', [K|Ps]).
+%% A UNIT IS READ ONCE PER PROCESS AT EACH LEVEL (0.99): the key carries the language's level, since a header's forms are the
+%% level's -- `<stddef.h>' read for a C17 fixture and served to a C23 one in the same process gave it `typeof(id(nullptr))' for
+%% `nullptr_t' (the compile gate builds every fixture in one process, and the new `atomic.c' put a C17 read of the header first)
+ccl_unit_key(Path, K) :- ( ccl_lang(cpp) -> ccl_std(Std) ; ccl_c_std(Std) ), atomic_list_concat(['$ccl_unit:', Path, '@', Std], K).
 ccl_reading(Path) :- ccl_global('$ccl_reading', L, []), memberchk(Path, L).
 ccl_reading_push(Path) :- ccl_global('$ccl_reading', L, []), nb_setval('$ccl_reading', [Path|L]).
 ccl_reading_pop(Path) :- ccl_global('$ccl_reading', L, []), ccl_delete_one(L, Path, L1), nb_setval('$ccl_reading', L1).
@@ -200,7 +204,7 @@ ccl_ensure_globals :-
       nb_setval('$ccl_scope', []), nb_setval('$ccl_gscope', []), nb_setval('$ccl_typedefs', []), nb_setval('$ccl_tags', []), nb_setval('$ccl_enums', []), ccl_tables_changed,
       nb_setval('$ccl_expansions', []), nb_setval('$ccl_incpath', none), nb_setval('$ccl_kb_ready', no), nb_setval('$ccl_reading', []),
       nb_setval('$ccl_macro_files', []), nb_setval('$ccl_std_macros', none), nb_setval('$ccl_gensym', 0), nb_setval('$ccl_unit_paths', []),
-      nb_setval('$ccl_lang', c), nb_setval('$ccl_lang_forced', none), ccl_fn_templates_put([]), nb_setval('$ccl_class', []), nb_setval('$ccl_inc_kind', local), nb_setval('$ccl_hash', line),
+      nb_setval('$ccl_lang', c), nb_setval('$ccl_lang_forced', none), ccl_fn_templates_put([]), nb_setval('$ccl_class', []), nb_setval('$ccl_inc_kind', local), nb_setval('$ccl_hash', line), nb_setval('$ccl_lib_unit', no),
       nb_setval('$ccl_targ', 0), nb_setval('$ccl_tmpl_depth', 0), nb_setval('$ccl_tt_pending', []), nb_setval('$ccl_tt_frames', []),
       ( catch(nb_getval('$ccl_std', _), _, fail) -> true ; nb_setval('$ccl_std', 17) ),
       ccl_templates_put([vector, map, set, unordered_map, unordered_set, list, deque, array, pair, tuple, optional, variant,
@@ -365,9 +369,17 @@ ccl_read_unit(Path, How, Unit) :-
     nb_setval('$ccl_inc_kind', local),
     ccl_sum_file(Path, F),
     (   ccl_sum_valid(F) -> How = summary, Unit = summary(F)
-    ;   ccl_pp_parse(Path, U1, Info1, Files), How = preprocessed, ccl_partial(U1, Info1, Unit),
+    ;   ccl_lib_unit(ccl_pp_parse(Path, U1, Info1, Files)), How = preprocessed, ccl_partial(U1, Info1, Unit),
         ( catch(ccl_sum_write(F, Path, Files, U1), _, fail) -> true ; true ),
         ( catch(ccl_ast_write(F, U1), E, ccl_ast_trace(ast_not_written(Path, E))) -> true ; ccl_ast_trace(ast_not_written(Path)) ) ).
+
+%% a LIBRARY header's read is the library's, not the program's: the standard macros (format, print, println, clone)
+%% are the program's global names and never fire inside it -- libc++'s <format> calls its own `format(c, ctx)'
+%% (0.99); '$ccl_lib_unit' is read by ccl_unit, restored on success, failure and a throw
+ccl_lib_unit(G) :-
+    ccl_global('$ccl_lib_unit', Old, no), nb_setval('$ccl_lib_unit', yes),
+    (   catch(G, E, ( nb_setval('$ccl_lib_unit', Old), throw(E) )) -> nb_setval('$ccl_lib_unit', Old)
+    ;   nb_setval('$ccl_lib_unit', Old), fail ).
 
 %% ---- the summary cache: a C++ library header, once ----------------------------
 %% What a header contributes downstream is its declarations -- the names and
@@ -598,10 +610,14 @@ ccl_header_macros_ready(Spec, From) :-
 %% the table's kind: indexed (every name in '$ccl_hml:<Name>', Path-Def) or
 %% store(Key) (answered by name from the rows); nothing of a header in neither
 ccl_header_macros(Path, Kind) :-
-    atom_concat('$ccl_hm:', Path, K),
+    ccl_hm_key(Path, K),
     (   catch(nb_getval(K, K0), _, fail), K0 \== none -> Kind = K0
     ;   ccl_header_macros_(Path, Kind), nb_setval(K, Kind) ).
-ccl_header_macros_known(Path, Kind) :- atom_concat('$ccl_hm:', Path, K), catch(nb_getval(K, Kind), _, fail), Kind \== none.
+ccl_header_macros_known(Path, Kind) :- ccl_hm_key(Path, K), catch(nb_getval(K, Kind), _, fail), Kind \== none.
+%% THE MEMO IS PER LEVEL, as the unit cache is (ccl_unit_key): a header's macros at -std=c23 are not its C17 ones (0.99;
+%% keyed by the path alone, a C17 fixture after a C23 one in one process was served the C23 rows' key, whose rows a later
+%% read had retracted -- `undeclared(EOF)' in the compile gate, never alone)
+ccl_hm_key(Path, K) :- ( ccl_lang(cpp) -> ccl_std(Std) ; ccl_c_std(Std) ), atomic_list_concat(['$ccl_hm:', Path, '@', Std], K).
 %% indexed: a summary's, as facts '$ccl_hml'(Name, Path, raw(Line)) -- an
 %% assert is 2 us and the lookup by name 3 us, where a global per name cost
 %% 25 us each for 1200 names; a fact is a store row under --embed, which the
@@ -629,7 +645,7 @@ ccl_kb_remember_macros(Path, Files, Ms) :-
     ccl_kb_ready,
     (   ccl_kb_key(Path, K)
     ->  findall(P-PK, ( member(P, Files), ccl_kb_key(P, PK) ), Deps),
-        retractall('$ccl_hmeta'(Path, _, _)), ccl_kb_hm(Path, F), T0 =.. [F, _, _, _], retractall(T0),
+        K = key(_, KV), retractall('$ccl_hmeta'(Path, key(_, KV), _)), ccl_kb_hm(Path, F), T0 =.. [F, _, key(_, KV), _], retractall(T0),   % THIS LEVEL's rows only (0.99): the C17 rows and the C23 rows of one header live side by side
         (   catch(( ccl_kb_store_macros(Ms, F, K, 0, N), ccl_kb_store_deps(Deps, F, K, 0, ND), assertz('$ccl_hmeta'(Path, K, meta(N, ND))) ),
                   error(resource_error(clause_length), _), fail)
         ->  true

@@ -74,7 +74,7 @@
 
 %% the reader's version, part of the knowledge base's cache key: bump it when
 %% the grammar changes, so what an older grammar left partial is read again
-ccl_reader_version(82).   % 82: a function's `constexpr' is no const on its result (every summary's get, and every constexpr function's type)
+ccl_reader_version(84).   % 84: the standard macros never fire inside a library header (libc++'s <format> reads whole at C++20); 83: `_Alignas' on an object kept as a qualifier, a wide string sizing the array it initializes; 82: a function's `constexpr' is no const on its result (every summary's get, and every constexpr function's type)
 %% ccl_reader_version(81).   % 81: a literal past 2^60 is big(Atom) in every summary's item
 %% ccl_reader_version(80).   % 80: a template template parameter's name un-noted at its item's end, a tag or a typedef no concept (<variant>'s `template <_Trait X, ...>' read as a constrained type parameter); 79: a braced default argument, C++20's brace-designated initializer (libc++ 18 at C++20); 78: an unnamed parameter of an unknown type name in a C++ parameter list, a destructor called with its template arguments (libc++ 18); 77: _Generic chosen at the read, an unbounded array sized by its initializer, _BitInt in the table, the OS's predefined macros, <limits.h> and the C23 headers; 59: a method's ref-qualifier kept; 60: the C++20 stretch (a constrained parameter, a requires-clause on a member template, trailing, on a lambda; `::template f' alone; a braced subscript; a member variable template; a constrained auto); 61: a concept indexed by name; 62: a function template's explicit template-id is no type (`T &r(std::forward<U>(v))'), a bare concept's name bound; 63: explicit(cond) kept; 64: a pointer to member, typeid, a member class template noted ahead; 65: no RTTI predefined, so every header is flattened again; 66: only a pointer to member takes the trailing cv- and ref-qualifiers (a method's const is the method rule's); 67: a free name outside a template; 68: a nullability word with an argument list (glibc); 69: a pointer to member function's noexcept, a braced list assigned, and the AST's index keys a deeper namespace's name apart; 70: alignas kept on a class; 71: [[no_unique_address]] kept on a member; 72: the AST's index holds a header's inline variable with NO initializer (std::ignore); 73: a pack expansion is a dependent type, and a call of a function template's name is not the reader's `auto' to deduce; 74: `if constexpr' with an init-statement; 75: a member FUNCTION template's name is a template and no type; 76: __OPTIMIZE_SIZE__ predefined, so libc++'s algorithms are the scalar ones
 
@@ -329,7 +329,7 @@ ccl_one_char(0':, ':').  ccl_one_char(0';, ';').  ccl_one_char(0'=, '=').  ccl_o
 
 ccl_unit(Tokens, unit(Items), Rest) :-
     ccl_ensure_globals, ccl_seed_typedefs(Env), ccl_env_put(Env), nb_setval('$ccl_far', 0), nb_setval('$ccl_macros', []), nb_setval('$ccl_expansions', []),
-    ccl_standard_macros, ccl_scope_init,
+    ( ccl_global('$ccl_lib_unit', yes, no) -> true ; ccl_standard_macros ), ccl_scope_init,   % a library header's read has no global macros (ccl_lib_unit, 0.99)
     phrase(ccl_externals(Env, Items0), Tokens, Rest),
     nb_getval('$ccl_expansions', Es0),
     ( Es0 == [] -> Items = Items0 ; reverse(Es0, Es), append(Items0, ['$expansions'(Es)], Items) ).
@@ -925,6 +925,8 @@ ccl_decl_specs(Env, Scope, Sto, base(Quals, Specs)) -->
     { Specs \== [], ( Sto0 == [] -> Sto = none ; ccl_sto_pick(Sto0, Sto) ) }.
 %% several storage words (`static inline constexpr'): the one that decides where the thing lives
 ccl_sto_pick(Ss, S) :- member(S, [typedef, static, extern, virtual, explicit, friend, mutable, register, auto, inline, '_Noreturn']), memberchk(S, Ss), !.
+ccl_atomic_spec(base(Q, Sp), S0, S1) :- Q == [], !, append(Sp, S0, S1).
+ccl_atomic_spec(T, S0, [typeof(T)|S0]).                                                        % a pointer or a qualified type: taken whole, as `typeof' takes one
 ccl_sto_pick([S|_], S).
 
 ccl_specs(Env, Sc, St0, Q0, [], St, Q, S) --> ccl_cpp, ccl_id(N), ccl_p('...'), ccl_p('['), !, ccl_expr(I), ccl_p(']'), ccl_specs(Env, Sc, St0, Q0, [pack_index(N, I)], St, Q, S).   % C++26's PACK INDEXING as a type, `Ts...[0]': the desugaring picks the element once the pack is bound
@@ -934,6 +936,8 @@ ccl_specs(Env, Sc, St0, Q0, S0, St, Q, S) --> ccl_cpp, ccl_kw(constexpr), !, ccl
 ccl_specs(Env, Sc, St0, Q0, S0, St, Q, S) --> ccl_kw('_Thread_local'), !, ccl_specs(Env, Sc, St0, [thread_local|Q0], S0, St, Q, S).          % C11's spelling
 ccl_specs(Env, Sc, St0, Q0, S0, St, Q, S) --> ccl_cpp, ccl_kw(thread_local), !, ccl_specs(Env, Sc, St0, [thread_local|Q0], S0, St, Q, S).   % C++11's
 ccl_specs(Env, Sc, St0, Q0, S0, St, Q, S) --> ccl_kw(K), { ccl_storage(K) }, !, ccl_specs(Env, Sc, [K|St0], Q0, S0, St, Q, S).
+ccl_specs(Env, Sc, St0, Q0, S0, St, Q, S) --> ccl_kw('_Atomic'), ccl_p('('), ccl_type_name(Env, T), ccl_p(')'), !,   % C11's `_Atomic(T)' (6.7.2.4): the type's specifiers under the qualifier (0.99; <stdatomic.h>'s typedefs are written so)
+    { ccl_atomic_spec(T, S0, S1) }, ccl_specs(Env, Sc, St0, ['_Atomic'|Q0], S1, St, Q, S).
 ccl_specs(Env, Sc, St0, Q0, S0, St, Q, S) --> ccl_kw(K), { ccl_qualifier(K) }, !, ccl_specs(Env, Sc, St0, [K|Q0], S0, St, Q, S).
 ccl_specs(Env, Sc, St0, Q0, S0, St, Q, S) --> ccl_id(own), !, ccl_specs(Env, Sc, St0, [own|Q0], S0, St, Q, S).   % the safe part's owner
 %% C23 SPELLS AS KEYWORDS what C17 left to <stdbool.h> and the underscores; the lexer's keyword tables are
@@ -962,6 +966,9 @@ ccl_gnu_word('__inline', inline).      ccl_gnu_word('__inline__', inline).
 ccl_specs(Env, Sc, St0, Q0, S0, St, Q, S) --> ccl_kw(K), { ccl_basic_type(K) }, !, ccl_specs(Env, Sc, St0, Q0, [K|S0], St, Q, S).
 ccl_specs(Env, Sc, St0, Q0, S0, St, Q, S) --> ccl_struct_spec(Env, T), !, ccl_specs(Env, Sc, St0, Q0, [T|S0], St, Q, S).
 ccl_specs(Env, Sc, St0, Q0, S0, St, Q, S) --> ccl_enum_spec(T), !, ccl_specs(Env, Sc, St0, Q0, [T|S0], St, Q, S).
+ccl_specs(Env, Sc, St0, Q0, S0, St, Q, S) --> ccl_id('_Alignas'), ccl_p('('), ccl_align_arg(E), ccl_p(')'), !, ccl_specs(Env, Sc, St0, [aligned(E)|Q0], S0, St, Q, S).   % `_Alignas(16) int x', `_Alignas(T)' ON AN OBJECT is KEPT as the qualifier aligned(E) (0.99; the layout, the alloca and the global read it), where it was dropped with the attributes
+ccl_specs(Env, Sc, St0, Q0, S0, St, Q, S) --> ccl_c23, ccl_id(alignas), ccl_p('('), ccl_align_arg(E), ccl_p(')'), !, ccl_specs(Env, Sc, St0, [aligned(E)|Q0], S0, St, Q, S).
+ccl_specs(Env, Sc, St0, Q0, S0, St, Q, S) --> ccl_cpp, ccl_kw(alignas), ccl_p('('), ccl_align_arg(E), ccl_p(')'), !, ccl_specs(Env, Sc, St0, [aligned(E)|Q0], S0, St, Q, S).
 ccl_specs(Env, Sc, St0, Q0, S0, St, Q, S) --> ccl_gnu_attr, !, ccl_specs(Env, Sc, St0, Q0, S0, St, Q, S).
 ccl_specs(Env, Sc, St0, Q0, S0, St, Q, S) --> ccl_typeof(T), !, ccl_specs(Env, Sc, St0, Q0, [T|S0], St, Q, S).
 ccl_specs(Env, Sc, St0, Q0, [], St, Q, S) --> ccl_cpp, ccl_cpp_type(Env, Sc, T), !, ccl_specs(Env, Sc, St0, Q0, [T], St, Q, S).
@@ -1211,8 +1218,19 @@ ccl_scan_mts(_, 0) :- !.
 ccl_scan_mts([tok(p, '{', _)|Ts], D) :- !, D1 is D + 1, ccl_scan_mts(Ts, D1).
 ccl_scan_mts([tok(p, '}', _)|Ts], D) :- !, D1 is D - 1, ccl_scan_mts(Ts, D1).
 ccl_scan_mts([tok(kw, template, _), tok(p, '<', _)|Ts], 1) :- !,
-    ( ccl_scan_close(Ts, 0, Rest), ccl_scan_did(Rest, 0, none, N-K) -> ccl_note_mt(K, N) ; true ), ccl_scan_mts(Ts, 1).
+    ( ccl_scan_close(Ts, 0, Rest), ccl_scan_did(Rest, 0, none, N-K) -> ccl_note_mt(K, N)
+    ; ccl_scan_close(Ts, 0, [tok(kw, using, _), tok(id, N, _), tok(p, '=', _)|_]) -> ccl_note_template(N)   % a member ALIAS template's name is a template ahead too (0.99)
+    ; true ), ccl_scan_mts(Ts, 1).
+%% AND A CLASS-SCOPE ALIAS IS A TYPE THROUGHOUT ITS CLASS'S BODY, by the same rule ([class.mem]/6; 0.99): libc++'s
+%% basic_format_string writes `_Context{__types_.data(), ...}' in its constructor and `using _Context = ...;' under
+%% `private:' after it, and read in order the braced temporary of an unknown name stopped the C++20 <iostream> at
+%% <format>; `using N =' notes N, and `typedef ... N;' the name right before its `;' (a function pointer's ends in `)')
+ccl_scan_mts([tok(kw, using, _), tok(id, N, _), tok(p, '=', _)|Ts], 1) :- !, ccl_add_env(N), ccl_scan_mts(Ts, 1).
+ccl_scan_mts([tok(kw, typedef, _)|Ts], 1) :- !, ( ccl_scan_semi(Ts, none, Last, Rest) -> ( Last = tok(id, N, _) -> ccl_add_env(N) ; true ), ccl_scan_mts(Rest, 1) ; true ).
 ccl_scan_mts([_|Ts], D) :- ccl_scan_mts(Ts, D).
+ccl_scan_semi([tok(p, ';', _)|Ts], Last, Last, Ts) :- !.
+ccl_scan_semi([tok(p, '{', _)|_], _, _, _) :- !, fail.                                          % a struct typedef'd with its body: not this scan's
+ccl_scan_semi([T|Ts], _, Last, Rest) :- ccl_scan_semi(Ts, T, Last, Rest).
 ccl_scan_close([tok(p, '>', _)|Ts], 0, Ts) :- !.
 ccl_scan_close([tok(p, '<', _)|Ts], D, R) :- !, D1 is D + 1, ccl_scan_close(Ts, D1, R).
 ccl_scan_close([tok(p, '>', _)|Ts], D, R) :- !, D1 is D - 1, ccl_scan_close(Ts, D1, R).
@@ -1369,6 +1387,9 @@ ccl_placeholder(N, N).
 %% into a nested array is not counted; a nested list is one item)
 ccl_sized_by_init(arr(none, E), init(Items), arr(int(K), E)) :- !, ccl_init_bound(Items, 0, 0, K).   % a designator `[i] =' moves the position (C 6.7.9/17): the bound is one past the highest
 ccl_sized_by_init(arr(none, E), str(S), arr(int(K), E)) :- !, length(S, K0), K is K0 + 1.
+ccl_sized_by_init(arr(none, E), W, arr(int(K), E)) :- ( W = wstr(S) ; W = u16str(S) ; W = u32str(S) ), !, ccl_utf8_count(S, K0), K is K0 + 1.   % `wchar_t a[] = L"..."': one element per code point (the body is UTF-8 bytes; 0.99)
+ccl_utf8_count([], 0).
+ccl_utf8_count([C|Cs], K) :- ccl_utf8_count(Cs, K0), ( ( C < 128 ; C >= 192 ) -> K is K0 + 1 ; K = K0 ).
 ccl_sized_by_init(T, _, T).
 ccl_init_bound([], _, K, K).
 ccl_init_bound([item(Ds, _)|Is], P0, K0, K) :-
@@ -1872,6 +1893,8 @@ ccl_lambda_cap(cap(default, '=')) --> ccl_p('='), !.
 ccl_lambda_cap(cap(init, N, E)) --> ccl_p('&'), ccl_id(N), ccl_p('='), !, ccl_assign_expr(E).
 ccl_lambda_cap(C) --> ccl_p('&'), !, ( ccl_id(N), !, { C = cap(ref, N) } ; { C = cap(default, '&') } ).
 ccl_lambda_cap(cap(this)) --> ccl_kw(this), !.
+ccl_lambda_cap(cap(star_this)) --> ccl_p('*'), ccl_kw(this), !.                          % C++17's `[*this]': the object captured BY VALUE (0.99)
+ccl_lambda_cap(cap(pack, N)) --> ccl_id(N), ccl_p('...'), !.                             % a pack captured, `[xs...]': expanded with the enclosing template's bindings (cpp_subst)
 ccl_lambda_cap(cap(init, N, E)) --> ccl_id(N), ccl_p('='), !, ccl_assign_expr(E).
 ccl_lambda_cap(cap(val, N)) --> ccl_id(N).
 %% C11's `_Generic(e, T1: x1, ..., default: xd)' IS CHOSEN AT THE READ (0.93): the controlling expression's type is

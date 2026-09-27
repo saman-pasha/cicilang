@@ -772,6 +772,41 @@ what runs today.
   and a conditional over two void arms (`voidcond.cpp`) beside them; a
   type's `const` and `volatile` are part of its instance key; a fixture
   beyond the box's library is skipped by name (`NAME.needs`).
+* **THE CONSTEXPR EVALUATOR OVER POINTERS AND `this`.** A constexpr
+  function may take and return an aggregate, walk a string literal or an
+  array through a pointer (`s[n]`, `*s++`, `p - s`), and be a `const`
+  member function over a constant object (`corner.scaled(3)`); a
+  file-scope `constexpr P origin = make(7);` folds into its initializer
+  (`constexprfn5.cpp`, clang++'s numbers). A template's value argument
+  that folds to no constant is refused by name.
+
+* **THE NOT-DONE LISTS, CLOSED WHERE A FORM CAN BE CLOSED (0.99).** The
+  constexpr evaluator has a MEMORY: every local lives in a cell and a pointer
+  names a cell and a path into it, so a store through a pointer, through
+  `this` in a non-const member function, through a reference parameter, `&x`
+  of a scalar, `sizeof` of a local array and a `constexpr` CONSTRUCTOR all
+  fold -- a global of a class with a constexpr constructor is constructed at
+  compile time, and one that cannot be is refused by name (this compiler runs
+  no dynamic initialization). C11's ATOMICS whole: the compiler's own
+  `<stdatomic.h>`, `_Atomic(T)`, the `__c11_atomic_*` builtins (`cmpxchg`
+  among them), and an `_Atomic` object read, written, incremented and
+  compound-assigned atomically. And thirty older items: `LONG_MAX` printed
+  right, a VLA's bounds evaluated once and a VLA of a VLA, `wchar_t a[] =
+  L"..."`, `_Alignas` on an object, a spliced line with trailing whitespace, a
+  copy of a null pointer no longer refused by the check, the defaulted
+  comparisons over a base and an array member, a const lvalue never binding
+  `T &` (and `T &` deducing `const T`), `S s = {7}` and `int a[9] = {}`,
+  pointers to data members and `std::invoke`/`mem_fn`/`bind` over them, a pack
+  parameter ranked below a fixed one, an overload set chosen by its target, an
+  abstract class refused where an object is made, a null pointer converted to
+  a base staying null, `consteval` folded, `[*this]` and `[xs...]` captures, a
+  lambda desugared once, `std::hash<optional>`, `std::erase_if` on an unordered
+  map, `unique_ptr`/`shared_ptr` comparisons; and `<iostream>` read WHOLE at
+  C++20, which asked that the global macros never fire inside a library header
+  (libc++'s `<format>` calls its own `format`) and that a class-scope alias be a
+  type throughout its class's body. Named and open: `vector::insert`,
+  `bind_front`/`not_fn`, `string::find_first_of`, `std::atomic<T>` in C++
+  (libc++'s `__has_extension(c_atomic)` road), `shared_from_this`.
 * **THE CONSTEXPR EVALUATOR OVER AGGREGATES, and the cost of `std::get`.**
   A constexpr body's arrays and structs are values -- built from braced
   initializers, read and written through `a[i]`, `p.x`, `g[1][2]`,
@@ -1717,7 +1752,9 @@ parameters. Diagnostics, errors and warnings alike, are on stderr, as clang's;
 
 ## `format`, `print`, `println`: global macros
 
-They are there in every file, without an include, like `:=`. The format
+They are there in every file, without an include, like `:=` -- the
+program's files: a library header is read without them, so libc++'s own
+`format(c, ctx)` stays a call. The format
 string has Rust's holes: `{}` is the next argument, `{0}` the argument at
 that index, `{name}` the variable of that name in scope; `{{` and `}}` are
 braces. Each hole becomes the `printf` conversion for the inferred type of
