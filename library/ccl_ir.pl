@@ -45,7 +45,7 @@
 %% the lowering's version: part of the key of every IR the driver keeps in the
 %% store (library(ccl_driver)); BUMP it whenever the check or the lowering
 %% changes what they emit, as ccl_reader_version/1 is bumped for the grammar
-ccl_lowering_version(43).   % 43: an empty `[[no_unique_address]]' member has no element and its address is the ABI's byte offset; 42: a conditional over two void arms has no phi
+ccl_lowering_version(44).   % 44: the VLA's bounds kept in its type, a VLA of a VLA flat, _Alignas on an object, a wide string into an array with the rest zero, a data-member pointer as an offset, a null pointer to a base at an offset, the C11 atomic builtins and _Atomic objects atomic (0.99); 43: an empty `[[no_unique_address]]' member has no element and its address is the ABI's byte offset; 42: a conditional over two void arms has no phi
 %% ccl_lowering_version(41).   % 41: a literal past 2^60 spelled whole; 40.   % 40: a base clause naming a bound type parameter takes its class, a scope name is the class's own typedef first (libc++ 18), -lc++ on Linux; 39: C23 (_BitInt as iN, the overflow builtins, unreachable), a VLA at run time, thread_local, the wide literals, [[assume]]; 38: a conditional over two lvalues is an lvalue, and its address the phi of theirs;  % 37: wchar_t, char16_t and char32_t have LLVM types, and a function template's shipped instance its Itanium symbol;  % 36: an rvalue prefers `T &&' where a TEMPLATE's candidate is judged (cpp_ref_rank), so std::get answers `int &&' and not `int &';  % 35: a CAST TO A REFERENCE converts from the operand's class to the cast's own target, so a reference or a pointer to a SECOND base is offset (ir_ref_to);  % 34: an empty class is one byte, an `alignas' one padded to its alignment, and a `[[no_unique_address]]' empty member a zero-sized element -- every struct's shape may move
 
 ccl_ir_units(Units0, IR) :-
@@ -165,7 +165,7 @@ ir_type_(rref(_, _), ptr) :- !.
 ir_type_(block(_, _), ptr) :- !.
 ir_type_(fn(_, _, _), ptr) :- !.
 ir_type_(memptr(_, _, fn(_, _, _)), ptr) :- !.                           % A POINTER TO MEMBER FUNCTION IS THE ADDRESS of the function this compiler emits for that method, whose first parameter is the object
-ir_type_(memptr(C, _, _), _) :- !, ir_fail(pointer_to_data_member(C)).
+ir_type_(memptr(_, _, _), i64) :- !.                                      % a pointer to a DATA member: its byte offset (0.99)
 ir_type_(arr(NE, E), LL) :- !, ir_type(E, EL), ( ccl_const_eval(NE, N) -> true ; N = 0 ), atomic_list_concat(['[', N, ' x ', EL, ']'], LL).   % a flexible member: [0 x T]
 ir_type_(T, _) :- ir_fail(type(T)).
 ir_base(S, void) :- memberchk(void, S), !.
@@ -302,6 +302,7 @@ ir_load_slot(bf(P, RunLL, Off, W, Signed), _, LL, V) :- !,
 %% is the net under every road that reaches a member slot.
 ir_load_slot(empty(_), _, LL, V) :- !, ir_zero(LL, V).
 ir_load_slot(_, T, LL, V) :- ir_empty_class(T), !, ir_zero(LL, V).                     % AN EMPTY CLASS VALUE MOVES NO BYTES (0.94): its one byte is padding as a complete object and, as an EMPTY BASE reached through a reference, somebody else's -- libc++ 18's compressed pair swaps its deleter, `swap(second(), __x.second())' over `static_cast<_Base2 &>(*this)', and the byte stored at the pair's address was the pointer's low byte (unique_ptr::swap left one pointer clobbered, and its destructor freed it)
+ir_load_slot(A, T, LL, V) :- atom(A), ir_atomic_q(T), ir_atomic_ll(LL), !, ir_atomic_align(T, Al), ir_fresh(V), ir_ins([V, ' = load atomic ', LL, ', ptr ', A, ' seq_cst, align ', Al]).   % an `_Atomic' object (0.99)
 ir_load_slot(A, T, LL, V) :- ir_load_or_decay(A, T, LL, V).
 %% a store to a slot; a bitfield's bits masked into its run
 ir_store_slot(Slot, T, V) :- ir_type(T, LL), ir_store_slot(Slot, T, LL, V).
@@ -318,6 +319,7 @@ ir_store_slot(bf(P, RunLL, Off, W, _), _, LL, V) :- !,
 ir_store_slot(empty(_), _, _, _) :- !.
 ir_store_slot(_, T, _, _) :- ir_empty_class(T), !.
 ir_empty_class(T) :- ccl_lang(cpp), ccl_resolve_type(T, RT), ccl_empty_layout(RT).
+ir_store_slot(A, T, LL, V) :- atom(A), ir_atomic_q(T), ir_atomic_ll(LL), !, ir_atomic_align(T, Al), ir_ins(['store atomic ', LL, ' ', V, ', ptr ', A, ' seq_cst, align ', Al]).   % an `_Atomic' object (0.99)
 ir_store_slot(A, _, LL, V) :- ir_ins(['store ', LL, ' ', V, ', ptr ', A]).
 %% an integer constant as LLVM writes it for iK: two's complement when the top bit is set
 ir_iconst(Val, K, Lit) :- ( K < 64, Val >= 1 << (K - 1) -> Lit is Val - (1 << K) ; Lit = Val ).
@@ -452,7 +454,8 @@ ir_convert(V, From, _, To, TL, V1) :- ( From = ref(_, RT) ; From = rref(_, RT) )
 %% = &x' copied the B * unchanged and base->twice() read b's bytes. The base sub-object is the `$base' member, or
 %% the `$base' of that, down to the one whose type is the target's (ir_base_path); a pointer to anything else, or
 %% to the class itself, converts as it did. A null pointer is not spared the offset (not done).
-ir_convert(V, From, ptr, To, ptr, V1) :- ir_class_pointee(From, D), ir_class_pointee(To, A), D \== A, ir_base_path(D, A), !, ir_base_hops(V, D, A, V1).
+ir_convert(V, From, ptr, To, ptr, V1) :- ir_class_pointee(From, D), ir_class_pointee(To, A), D \== A, ir_base_path(D, A), !, ir_base_hops(V, D, A, V0),
+    ( V == null -> V1 = null ; ir_fresh(Z), ir_ins([Z, ' = icmp eq ptr ', V, ', null']), ir_fresh(V1), ir_ins([V1, ' = select i1 ', Z, ', ptr null, ptr ', V0]) ).   % A NULL POINTER STAYS NULL ([conv.ptr]/3; 0.99): it was given the base's offset
 ir_convert(V, From, FL, To, TL, V1) :-
     (   ir_is_bool(To), \+ ir_is_bool(From) -> ir_to_bool(V, From, FL, V1)   % C++: a bool is 0 or 1, whatever came
     ;   FL == TL -> V1 = V
@@ -589,6 +592,9 @@ ir_expr(drain_free(E), V, RT, LL) :- !, ir_call(id(free), [E], V, RT), ir_type(R
 ir_expr(assign('=', L, R), V, LT, LL) :- ir_own_elem(L), !, ir_elem_assign(L, R, S), ir_expr(S, V, LT, LL).   % an own array's element: the old one freed
 ir_expr(assign('=', L, R), V, LT, LL) :- !,
     ir_lval(L, Slot, LT, LL), ir_expr(R, V0, RT, RL), ir_convert(V0, RT, RL, LT, LL, V), ir_store_slot(Slot, LT, LL, V).
+ir_expr(assign(Op, L, R), V, LT, LL) :- atom_concat(BinOp, '=', Op), ir_atomic_binop(BinOp, RmwOp), ir_lval(L, Slot, LT, LL), atom(Slot), ir_atomic_q(LT), ir_int_ll(LL), !,   % `x += n' on an `_Atomic' object: one atomicrmw (0.99)
+    ir_expr(R, RV0, RT, RL), ir_convert(RV0, RT, RL, LT, LL, RV), ir_fresh(Old), ir_ins([Old, ' = atomicrmw ', RmwOp, ' ptr ', Slot, ', ', LL, ' ', RV, ' seq_cst']),
+    ir_fresh(V), ir_ins([V, ' = ', RmwOp, ' ', LL, ' ', Old, ', ', RV]).
 ir_expr(assign(Op, L, R), V, LT, LL) :- !,
     atom_concat(BinOp, '=', Op), ir_lval(L, Slot, LT, LL),
     ir_load_slot(Slot, LT, LL, Cur),
@@ -622,6 +628,7 @@ ir_expr(postdec(E), V, T, LL) :- !, ir_step(E, sub, post, V, T, LL).
 %% a libc++ container constructed held the low half of an address. The value of a reference is its address.
 ir_expr(cast(T, E), P, T, ptr) :- ( T = ref(_, _) ; T = rref(_, _) ), !, ir_ref_to(E, T, P).
 ir_expr(cast(T, E), V, T, LL) :- !, ir_expr(E, V0, T0, L0), ( ccl_resolve_type(T, base(_, [void])) -> V = V0, LL = void ; ir_type(T, LL), ir_convert(V0, T0, L0, T, LL, V) ).
+ir_expr(sizeof(E), N, T, i64) :- ir_vla_expr_type(E, VT), ir_vla_bytes(VT, N), !, ccl_size_type(T).   % a VLA's, from the bounds it was made with (0.99)
 ir_expr(sizeof(E), N, T, i64) :- !, ccl_size_type(T), ccl_type_of(E, ET),
     (   ccl_resolve_type(ET, arr(NE, ElT)), \+ ccl_const_eval(NE, _), ccl_size_of(ElT, ES)                % sizeof a VLA, asked FIRST (the layout gives an unsized array no bytes, as a flexible member has none): its bound's value times the element, at run time (the bound read where sizeof is, not where the array was declared: named)
     ->  ir_expr(NE, NV0, NT, NL), ir_convert(NV0, NT, NL, base([], [long]), i64, NV), ir_fresh(N), ir_ins([N, ' = mul i64 ', NV, ', ', ES])
@@ -718,6 +725,8 @@ ir_arith_op('&', _, _, and). ir_arith_op('|', _, _, or). ir_arith_op('^', _, _, 
 ir_arith_op('>>', T, _, Ins) :- ( ir_signed(T) -> Ins = ashr ; Ins = lshr ).
 
 %% ++ and --, on integers, floats and pointers
+ir_step(E, Op, When, V, T, LL) :- ir_lval(E, Slot, T, LL), atom(Slot), ir_atomic_q(T), ir_int_ll(LL), !,   % `x++' on an `_Atomic' object: one atomicrmw (0.99)
+    ir_fresh(Old), ir_ins([Old, ' = atomicrmw ', Op, ' ptr ', Slot, ', ', LL, ' 1 seq_cst']), ( When == pre -> ir_fresh(V), ir_ins([V, ' = ', Op, ' ', LL, ' ', Old, ', 1']) ; V = Old ).
 ir_step(E, Op, When, V, T, LL) :-
     ir_lval(E, Slot, T, LL), ir_load_slot(Slot, T, LL, Cur),
     ir_fresh(New),
@@ -850,6 +859,35 @@ ir_call(id('__atomic_store_n'), [P, X, MO], none, base([], [void])) :- !,
     ir_atomic_order(MO, Ord), ir_atomic_align(ET, A),
     ir_ins(['store atomic ', EL, ' ', XV, ', ptr ', PV, ' ', Ord, ', align ', A]).
 ir_call(id('__atomic_thread_fence'), [MO], none, base([], [void])) :- !, ir_atomic_order(MO, Ord), ir_ins(['fence ', Ord]).
+%% THE C11 BUILTINS (0.99): what <stdatomic.h> -- the compiler's own, library/include -- and libc++'s <atomic> under
+%% `__has_extension(c_atomic)' are written on: the same instructions as the `__atomic_*' family's, and cmpxchg
+ir_call(id(B), [P, X, MO], V, ET) :- ir_c11_rmw(B, Op), !,
+    ir_atomic_place(B, P, PV, ET, EL), ir_expr(X, XV0, XT, XL), ir_convert(XV0, XT, XL, ET, EL, XV), ir_atomic_order(MO, Ord),
+    ir_fresh(V), ir_ins([V, ' = atomicrmw ', Op, ' ptr ', PV, ', ', EL, ' ', XV, ' ', Ord]).
+ir_c11_rmw('__c11_atomic_fetch_add', add). ir_c11_rmw('__c11_atomic_fetch_sub', sub). ir_c11_rmw('__c11_atomic_fetch_and', and).
+ir_c11_rmw('__c11_atomic_fetch_or', or).   ir_c11_rmw('__c11_atomic_fetch_xor', xor). ir_c11_rmw('__c11_atomic_exchange', xchg).
+ir_call(id('__c11_atomic_load'), [P, MO], V, ET) :- !, ir_call(id('__atomic_load_n'), [P, MO], V, ET).
+ir_call(id('__c11_atomic_store'), [P, X, MO], V, ET) :- !, ir_call(id('__atomic_store_n'), [P, X, MO], V, ET).
+ir_call(id('__c11_atomic_init'), [P, X], none, base([], [void])) :- !,
+    ir_atomic_place('__c11_atomic_init', P, PV, ET, EL), ir_expr(X, XV0, XT, XL), ir_convert(XV0, XT, XL, ET, EL, XV), ir_ins(['store ', EL, ' ', XV, ', ptr ', PV]).
+ir_call(id('__c11_atomic_thread_fence'), [MO], V, ET) :- !, ir_call(id('__atomic_thread_fence'), [MO], V, ET).
+ir_call(id('__c11_atomic_signal_fence'), [MO], V, ET) :- !, ir_call(id('__atomic_signal_fence'), [MO], V, ET).
+ir_call(id('__c11_atomic_is_lock_free'), [N], V, base([], [int])) :- !, ( ccl_const_eval(N, K), K =< 8 -> V = '1' ; V = '0' ).   % every scalar up to a word is lock-free on the two hosts
+ir_call(id(B), [P, E, D, SO, FO], V, base([], [int])) :- ( B == '__c11_atomic_compare_exchange_strong' -> W = '' ; B == '__c11_atomic_compare_exchange_weak' -> W = 'weak ' ), !,
+    ir_atomic_place(B, P, PV, ET, EL), ir_expr(E, EV, _, _), ir_fresh(Exp), ir_ins([Exp, ' = load ', EL, ', ptr ', EV]),
+    ir_expr(D, DV0, DT, DL), ir_convert(DV0, DT, DL, ET, EL, DV), ir_atomic_order(SO, Ord1), ir_atomic_order(FO, Ord2f), ir_cmpxchg_fail(Ord2f, Ord2),
+    ir_fresh(R), ir_ins([R, ' = cmpxchg ', W, 'ptr ', PV, ', ', EL, ' ', Exp, ', ', EL, ' ', DV, ' ', Ord1, ' ', Ord2]),
+    ir_fresh(Old), ir_ins([Old, ' = extractvalue { ', EL, ', i1 } ', R, ', 0']), ir_ins(['store ', EL, ' ', Old, ', ptr ', EV]),   % `*expected' takes the value found (on success it is the same value)
+    ir_fresh(Ok), ir_ins([Ok, ' = extractvalue { ', EL, ', i1 } ', R, ', 1']), ir_fresh(V), ir_ins([V, ' = zext i1 ', Ok, ' to i32']).
+ir_cmpxchg_fail(release, monotonic) :- !.                                                         % a failure ordering is never a release
+ir_cmpxchg_fail(acq_rel, acquire) :- !.
+ir_cmpxchg_fail(O, O).
+%% AN `_Atomic' OBJECT IS READ AND WRITTEN ATOMICALLY (C11 6.7.3, 7.17.7; 0.99: its loads and stores were plain): a
+%% load or a store through its slot is the sequentially consistent instruction, `x++', `x += n', `x |= m' an atomicrmw
+ir_atomic_q(T) :- ccl_resolve_type(T, base(Q, _)), memberchk('_Atomic', Q), !.
+ir_atomic_ll(LL) :- atom(LL), \+ sub_atom(LL, 0, 1, _, '['), \+ sub_atom(LL, 0, 1, _, '{'), \+ sub_atom(LL, 0, 1, _, '<').
+ir_int_ll(LL) :- atom(LL), atom_codes(LL, [0'i|Ds]), Ds \== [], catch(number_codes(_, Ds), _, fail).
+ir_atomic_binop('+', add). ir_atomic_binop('-', sub). ir_atomic_binop('&', and). ir_atomic_binop('|', or). ir_atomic_binop('^', xor).
 ir_call(id('__atomic_signal_fence'), [MO], none, base([], [void])) :- !, ir_atomic_order(MO, Ord), ir_ins(['fence syncscope("singlethread") ', Ord]).
 ir_atomic_rmw('__atomic_add_fetch', add, add).     ir_atomic_rmw('__atomic_fetch_add', add, none).
 ir_atomic_rmw('__atomic_sub_fetch', sub, sub).     ir_atomic_rmw('__atomic_fetch_sub', sub, none).
@@ -955,8 +993,10 @@ ir_lval(cond(C, A, B), Addr, T, LL) :- ir_lvalue_form(A), ir_lvalue_form(B), !,
     ir_block(LF), ir_lval(B, SB, _, _), ir_slot_addr(SB, VB), ir_cur_label(LF1), ir_end(['br label %', LE]),
     ir_block(LE), ir_fresh(Addr), ir_ins([Addr, ' = phi ptr [ ', VA, ', %', LT1, ' ], [ ', VB, ', %', LF1, ' ]']).
 ir_lval(index(A, I), Addr, T, LL) :- !,
-    ir_expr(A, P, PT, _), ir_elem(PT, T), ir_type(T, LL), ir_expr(I, IV, IT, IL), ir_convert(IV, IT, IL, base([], [long]), i64, I1),
-    ir_fresh(Addr), ir_ins([Addr, ' = getelementptr inbounds ', LL, ', ptr ', P, ', i64 ', I1]).
+    ir_expr(A, P, PT, _), ir_elem(PT, T), ir_expr(I, IV, IT, IL), ir_convert(IV, IT, IL, base([], [long]), i64, I1),
+    (   ir_vla_bytes(T, Bytes)                                                                     % a row of a VLA of a VLA: i * (the row's bytes) into the flat allocation
+    ->  ir_fresh(Off), ir_ins([Off, ' = mul i64 ', I1, ', ', Bytes]), ir_fresh(Addr), ir_ins([Addr, ' = getelementptr inbounds i8, ptr ', P, ', i64 ', Off]), LL = ptr
+    ;   ir_type(T, LL), ir_fresh(Addr), ir_ins([Addr, ' = getelementptr inbounds ', LL, ', ptr ', P, ', i64 ', I1]) ).
 ir_lval(member(E, N), Slot, T, LL) :- !,
     ( ir_lval(E, Base0, ST, _) -> ir_slot_addr(Base0, Base) ; ir_expr(E, SV, ST, SLL), ir_fresh(Base), ir_alloca_typed(Base, ST), ir_ins(['store ', SLL, ' ', SV, ', ptr ', Base]) ),
     ir_member_slot(Base, ST, N, Slot0, T0), ir_ref_member(Slot0, T0, Slot, T), ir_type(T, LL).
@@ -980,24 +1020,31 @@ ir_lval(E, _, _, _) :- ir_fail(lvalue(E)).
 %% an alloca for a value of a C type: a struct or a union aligned as C aligns it
 ir_alloca_typed(Addr, T) :-
     ir_type(T, LL), ccl_resolve_type(T, T1),
-    ( ( T1 = base(_, [struct(_, _)]) ; T1 = base(_, [union(_, _)]) ), ccl_size_align(T1, _, A) -> ir_alloca_aligned(Addr, LL, A) ; ir_alloca(Addr, LL) ).
+    (   ir_aligned_q(T1, A0) -> ( ccl_size_align(T1, _, A1) -> A is max(A0, A1) ; A = A0 ), ir_alloca_aligned(Addr, LL, A)   % `_Alignas(16) int x' ([dcl.align]; 0.99)
+    ;   ( T1 = base(_, [struct(_, _)]) ; T1 = base(_, [union(_, _)]) ), ccl_size_align(T1, _, A) -> ir_alloca_aligned(Addr, LL, A) ; ir_alloca(Addr, LL) ).
+ir_aligned_q(base(Q, _), A) :- memberchk(aligned(E), Q), ccl_const_eval(E, A), !.
+ir_aligned_q(ptr(_, T), A) :- ir_aligned_q(T, A).
+ir_aligned_q(arr(_, T), A) :- ir_aligned_q(T, A).
 
 %% ---- initializers -------------------------------------------------------------------------
 ir_init(_, _, none) :- !.
 %% A BRACED LIST ON A SCALAR is its one value, or the type's zero when empty ([dcl.init.list]/3: `int b{2}', `int n{}',
 %% and C++20's brace-designated `.b{2}' inside an aggregate, which libc++ 18's <format> writes; 0.93): walked as an
 %% aggregate's list it asked a scalar for its members and refused initializer(0, int)
-ir_init(Slot, T, init(Items)) :- ccl_resolve_type(T, T1), \+ T1 = arr(_, _), \+ ( T1 = base(_, S), ccl_members_of(base([], S), _) ), !,
+ir_init(Slot, T, init(Items)) :- once(ccl_resolve_type(T, T1)), \+ T1 = arr(_, _), \+ ( T1 = base(_, S), ccl_members_of(base([], S), _) ), !,   % the resolver's FIRST answer (0.99): on backtracking it answered the element, and `int arr[9] = {}' became `sext i32 0 to [9 x i32]'
     ( Items = [] -> ir_init(Slot, T, int(0)) ; Items = [item([], V)] -> ir_init(Slot, T, V) ; ir_fail(initializer_of_a_scalar(T)) ).
 ir_init(Slot, T, init(Items)) :- !,
     ir_slot_addr(Slot, Addr), ir_type(T, LL), ir_ins(['store ', LL, ' zeroinitializer, ptr ', Addr]), ir_init_items(Items, Addr, T, 0).
 ir_init(Slot, T, E) :-
     ccl_resolve_type(T, T1),
-    (   T1 = arr(_, El), E = str(S) -> ir_slot_addr(Slot, Addr), ir_type(El, _), ir_init_string(Addr, T1, S)
+    (   T1 = arr(_, El), E = str(S) -> ir_slot_addr(Slot, Addr), ir_type(El, _), ir_init_zero(Addr, T), ir_init_string(Addr, T1, S)
+    ;   T1 = arr(_, El), ( E = wstr(S) ; E = u16str(S) ; E = u32str(S) ) -> ir_slot_addr(Slot, Addr), ir_type(El, EL), ir_init_zero(Addr, T),   % `wchar_t a[6] = L"..."' (0.99): the code points, one element each, the rest zero
+        ir_utf8_decode(S, Us), append(Us, [0], Us1), ir_init_chars(Us1, EL, Addr, 0)
     ;   ir_expr(E, V0, ET, EL), ir_type(T, TL), ir_convert(V0, ET, EL, T, TL, V), ir_store_slot(Slot, T, TL, V) ).
-ir_init_string(Addr, arr(_, _), S) :- append(S, [0], Cs), ir_init_chars(Cs, Addr, 0).
-ir_init_chars([], _, _).
-ir_init_chars([C|Cs], Addr, I) :- ir_fresh(P), ir_ins([P, ' = getelementptr inbounds i8, ptr ', Addr, ', i64 ', I]), ir_ins(['store i8 ', C, ', ptr ', P]), I1 is I + 1, ir_init_chars(Cs, Addr, I1).
+ir_init_zero(Addr, T) :- ( ir_type(T, LL), \+ sub_atom(LL, 0, _, _, '[0 x') -> ir_ins(['store ', LL, ' zeroinitializer, ptr ', Addr]) ; true ).   % the elements past the literal are ZERO ([dcl.init.string], C 6.7.9/21): `char b[6] = "ab"' left them as the stack had them
+ir_init_string(Addr, arr(_, _), S) :- append(S, [0], Cs), ir_init_chars(Cs, i8, Addr, 0).
+ir_init_chars([], _, _, _).
+ir_init_chars([C|Cs], EL, Addr, I) :- ir_fresh(P), ir_ins([P, ' = getelementptr inbounds ', EL, ', ptr ', Addr, ', i64 ', I]), ir_ins(['store ', EL, ' ', C, ', ptr ', P]), I1 is I + 1, ir_init_chars(Cs, EL, Addr, I1).
 ir_init_items([], _, _, _).
 %% BRACE ELISION ([dcl.init.aggr]/15, and C's own rule): a STRUCT member that is an ARRAY, given an item
 %% that is no braced list of its own, takes as many of the items that FOLLOW as it has elements --
@@ -1104,15 +1151,35 @@ ir_locals([var(N, T, Init)|Vs], Sto) :-
         ( Init == none -> ir_fail(reference_unbound(N)) ; ir_ref_to(Init, T1, P), ir_ins(['store ptr ', P, ', ptr ', Addr]) )   % of the base sub-object, for a derived object over a base at an offset (ir_ref_to)
     ;   T1 = fn(_, _, _) -> ir_note_extern(N, T)                         % a local prototype
     ;   Sto == extern -> ir_note_extern(N, T)
-    ;   T1 = arr(NE, E), \+ ccl_const_eval(NE, _)                          % A VARIABLE LENGTH ARRAY (C99, mandatory in C17): allocated HERE, in the body, with the bound's value -- the entry block's allocas are fixed
+    ;   ir_has_vla(T1)                                                     % A VARIABLE LENGTH ARRAY (C99, mandatory in C17): allocated HERE, in the body, with the bound's value -- the entry block's allocas are fixed
     ->  ( Init == none -> true ; ir_fail(vla_initialized(N)) ),
-        ir_expr(NE, NV0, NT, NL), ir_convert(NV0, NT, NL, base([], [long]), i64, NV), ir_type(E, EL),
+        %% THE BOUNDS ARE EVALUATED ONCE, at the declaration ([dcl.array], C 6.7.6.2/5), and kept in the type the
+        %% lowering holds for the local, `arr(vla(Reg), E)' (0.99): `sizeof(a)' reads them back where it stands, so
+        %% `int v[n]; n = 10; sizeof(v)' is the size v was made with (it re-read n before); and a VLA OF A VLA is ONE
+        %% allocation of the flattened element count, `int a[n][m]' n*m ints, whose row `a[i]' lies i*m*4 bytes in
+        %% (ir_lval(index) over ir_vla_bytes) -- `[0 x i32]' had been the row's LLVM type and every row lay at a[0]
+        ir_vla_dims(T1, Dims, Inner), ir_vla_values(Dims, Vals), ir_vla_type(Vals, Inner, VT), ir_vla_product(Vals, Total), ir_type(Inner, EL),
         nb_getval('$ir_reg', K), K1 is K + 1, nb_setval('$ir_reg', K1), atomic_list_concat(['%', N, '.', K1], Addr),
-        ir_ins([Addr, ' = alloca ', EL, ', i64 ', NV, ', align 16']), ir_local(N, T1, Addr)
+        ir_ins([Addr, ' = alloca ', EL, ', i64 ', Total, ', align 16']), ir_local(N, VT, Addr)
     ;   ir_sized_type(T, T1, Init, ST),                                     % int xs[] = {...}: sized by its initializer
         nb_getval('$ir_reg', K), K1 is K + 1, nb_setval('$ir_reg', K1), atomic_list_concat(['%', N, '.', K1], Addr),
         ir_alloca_typed(Addr, ST), ir_local(N, ST, Addr), ir_init(Addr, ST, Init) ),
     ir_locals(Vs, Sto).
+ir_has_vla(arr(NE, E)) :- ( \+ ccl_const_eval(NE, _) -> true ; ir_has_vla(E) ).
+ir_vla_dims(arr(NE, E), [NE|Ds], Inner) :- ir_has_vla(arr(NE, E)), !, ir_vla_dims(E, Ds, Inner).
+ir_vla_dims(T, [], T).
+ir_vla_values([], []).
+ir_vla_values([NE|Ds], [NV|Vs]) :- ir_expr(NE, NV0, NT, NL), ir_convert(NV0, NT, NL, base([], [long]), i64, NV), ir_vla_values(Ds, Vs).
+ir_vla_type([], Inner, Inner).
+ir_vla_type([NV|Vs], Inner, arr(vla(NV), T)) :- ir_vla_type(Vs, Inner, T).
+ir_vla_product([V], V) :- !.
+ir_vla_product([V|Vs], P) :- ir_vla_product(Vs, P0), ir_fresh(P), ir_ins([P, ' = mul i64 ', V, ', ', P0]).
+ir_vla_dims_vals(arr(vla(V), E), [V|Vs], Inner) :- !, ir_vla_dims_vals(E, Vs, Inner).
+ir_vla_dims_vals(T, [], T).
+ir_vla_bytes(T, B) :- ir_vla_dims_vals(T, Vals, Inner), Vals \== [], ccl_size_of(Inner, IS), ir_vla_product([IS|Vals], B).   % the bytes of a type with runtime dims
+ir_vla_expr_type(id(N), T) :- ir_lookup(N, loc(_, T)), T = arr(vla(_), _).
+ir_vla_expr_type(index(E, _), ET) :- ir_vla_expr_type(E, arr(_, ET)).
+ir_vla_expr_type(deref(E), ET) :- ir_vla_expr_type(E, arr(_, ET)).
 %% a static local is a private global of the function's, initialized once, constant
 ir_static_locals([]).
 ir_static_locals([var(N, T, Init)|Vs]) :-
@@ -1292,7 +1359,9 @@ ir_gconst(E, _, _) :- ir_fail(global_init(E)).
 %% type of the member given, padded to the union's size
 ir_gconst_typed(init(Items), T, LL, C) :- ccl_resolve_type(T, T1), T1 = base(_, [union(_, _)]), !, ir_gunion(Items, T1, LL, C).
 ir_gconst_typed(Init, T, LL, C) :- ir_type(T, LL), ir_gconst(Init, T, C).
-ir_galign(T, Al) :- ccl_resolve_type(T, T1), ( ( T1 = base(_, [struct(_, _)]) ; T1 = base(_, [union(_, _)]) ), ccl_size_align(T1, _, A) -> atomic_list_concat([', align ', A], Al) ; Al = '' ).
+ir_galign(T, Al) :- ccl_resolve_type(T, T1),
+    (   ir_aligned_q(T1, A0) -> ( ccl_size_align(T1, _, A1) -> A is max(A0, A1) ; A = A0 ), atomic_list_concat([', align ', A], Al)
+    ;   ( T1 = base(_, [struct(_, _)]) ; T1 = base(_, [union(_, _)]) ), ccl_size_align(T1, _, A) -> atomic_list_concat([', align ', A], Al) ; Al = '' ).
 ir_gitems([], 0, _, _, []) :- !.
 ir_gitems([], K, E, EL, [Z|Zs]) :- ir_type(E, _), ir_zero(EL, Z0), atomic_list_concat([EL, ' ', Z0], Z), K1 is K - 1, ir_gitems([], K1, E, EL, Zs).
 ir_gitems([item(_, V)|Is], K, E, EL, [P|Ps]) :- ir_gconst(V, E, C), atomic_list_concat([EL, ' ', C], P), K1 is K - 1, ir_gitems(Is, K1, E, EL, Ps).

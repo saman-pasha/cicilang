@@ -8,7 +8,9 @@
 %% is not: run under a fresh HOME so the header is read flattened).
 :- use_module(library(cicili)).
 
-census_main :- os_env('CCL_CENSUS_FLAT', F), !, census_flat(F).
+census_main :- os_env('CCL_CENSUS_FLAT', F), !, census_std, ccl_lib_unit(census_flat(F)).   % a flattened library header is read as the library's (no global macros)
+%% CCL_CENSUS_STD=20 reads the flattened file at that level (the forms are read at the level, 0.42)
+census_std :- ( os_env('CCL_CENSUS_STD', A), atom_number(A, N) -> nb_setval('$ccl_std', N) ; true ).
 census_main :-
     os_env('CCL_CENSUS_FILE', F),
     cicili_ast(F, unit(Is)),

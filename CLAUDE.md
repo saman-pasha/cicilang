@@ -5067,6 +5067,198 @@ NOT DONE: a store through a pointer or through `this' in a constexpr body, a poi
 (the reason above); the candidate checks' first deductions and the instantiations are the work a build is made of now.
 
 
+**M6's sixty-sixth step (0.99): THE NOT-DONE LISTS, CLOSED WHERE A FORM CAN BE CLOSED -- the constexpr
+evaluator's memory, C11's atomics whole, and thirty older items from 0.42 to 0.98.** The owner asked for ALL the
+not-done works, so this step is the lists themselves, each item taken with a reproduction and a fixture, and the ones
+that stay open named at the end with the reason.
+THE CONSTEXPR EVALUATOR'S MEMORY (0.98's list): (1) EVERY LOCAL AND PARAMETER LIVES IN A CELL, a global of its own
+(`'$cpp_ec:K'`), the environment mapping the name to it (`N-'$cell'(K)`) beside its declared type (`'$t'(N)-T`), and a
+POINTER is `ptr(cell(K), Path)' -- the cell and the path into its value (`[]' the whole, `[2]' an element, `[x]' a
+member, `[1, y]' nested) -- so a STORE THROUGH ONE writes the cell the pointer names, whichever function holds it:
+`*p = v', `p[i] = v', `q->x = v', a callee's `a[i] = v' through its pointer parameter, `this->x *= k' in a NON-CONST
+member function (`p.scale(k)', `q->scale(2)' with q a pointer to a local), `&x' of a scalar (`swap_ints(&x, &y)'), a
+REFERENCE parameter or local as an ALIAS of an address (`inc_ref(x)'); an array's name DECAYS to a pointer to its first
+element, a string literal is a cell holding its codes, a temporary that is no place gets a cell (`cpp_eval_addr`,
+`cpp_eval_load`, `cpp_eval_store_ptr`, `cpp_eval_padd` over the path's last step). 0.98's read-only `ptr(Base, Off)' and
+its copy semantics are gone with it. (2) `sizeof(a)' OVER A LOCAL ARRAY, `sizeof(ps[1])', `sizeof(w)' from the declared
+types the environment keeps (`cpp_eval_sizeof`, an unbounded array's from its value). (3) A CONSTEXPR CONSTRUCTOR: a
+global of a class with one is CONSTRUCTED AT COMPILE TIME (`constexpr V g(3, 4);' -- the constructor runs in the
+evaluator over a cell holding the class's zero and the cell's value is the global's initializer, `@g = global %struct.V
+{ i32 3, i32 8 }'; `cpp_fold_ctor_init` on every global of a class with constructors, const or not, since this compiler
+runs no dynamic initialization: one the evaluator cannot run is REFUSED BY NAME, `dynamic_initialization_of_global(N,
+C)', where the lowering had met `global_init(ctor(...))'), a local `V v(1, 2); v.add(5);' and a temporary `V(7, 1).total()'
+inside a constexpr body through the same cells, and a void function falling off its end is its zero.
+`test/cpp/run/constexprfn6.cpp', clang++'s numbers; the five older constexpr fixtures unchanged.
+C11's ATOMICS, WHOLE (0.93's `_Atomic' objects, 0.86's compare-exchange): (4) `library/include/stdatomic.h' is the
+compiler's own freestanding header (as clang's, over the `__c11_atomic_*' builtins: the `atomic_*' typedefs through
+`_Atomic(T)', the `memory_order' enum over the predefined `__ATOMIC_*', `atomic_flag', every generic function and its
+`_explicit' form, `ATOMIC_VAR_INIT', `kill_dependency') -- glibc has none of its own and clang's lives in the resource
+directory this inclusion path does not visit, so `#include <stdatomic.h>' had expanded to NOTHING and every `atomic_*'
+call went out undeclared; (5) `_Atomic(T)' IS READ (6.7.2.4: the type's specifiers under the qualifier, a pointer or a
+qualified type taken whole as `typeof' takes one; `ccl_atomic_spec`); (6) THE `__c11_atomic_*' BUILTINS are the
+instructions the `__atomic_*' family already had (`fetch_add/sub/and/or/xor' and `exchange' an atomicrmw, `load',
+`store', `init', the two fences), plus `__c11_atomic_compare_exchange_strong/weak' as LLVM's `cmpxchg' (the expected
+value loaded, the old value stored back to `*expected', the success bit zero-extended; a failure ordering never a release,
+`ir_cmpxchg_fail`) and `__c11_atomic_is_lock_free' answering 1 up to a word; (7) AN `_Atomic' OBJECT IS READ AND WRITTEN
+ATOMICALLY (6.7.3, 7.17.7): a load or a store through its slot is the sequentially consistent instruction
+(`ir_load_slot`, `ir_store_slot` on `ir_atomic_q`), and `x++', `--x', `x += n', `x -= n', `x |= m', `x &= m', `x ^= m' are
+ONE atomicrmw each (`ir_step`, `ir_expr(assign(Op, ...))`), where they had been plain loads and stores. `test/c/run/atomic.c'
+(a global and a local `_Atomic', the increments and the compound assignments, `atomic_int', `atomic_fetch_add',
+`atomic_exchange', `atomic_compare_exchange_strong' with its `expected' written back, `atomic_load'), clang's numbers.
+THE OLDER LISTS, closed: (8) `LONG_MAX', `LONG_MIN', `ULONG_MAX', `LLONG_MAX' print as C prints them
+(`test/c/run/longmax.c'): 0.94's `big(Atom)' literal and the 64-bit constant evaluator had closed 0.93's item and nobody
+had measured it; (9) A VLA'S BOUNDS ARE EVALUATED ONCE, at the declaration (C 6.7.6.2/5), and kept in the type the
+lowering holds for the local (`arr(vla(Reg), E)'), so `int v[n]; n = 10; sizeof(v)' is the size v was made with (it
+re-read n), and A VLA OF A VLA is ONE allocation of the flattened element count, `int a[n][m]' n*m ints, whose row
+`a[i]' lies i*m*4 bytes in (`ir_lval(index)` over `ir_vla_bytes`) -- `[0 x i32]' had been the row's type and every row
+lay at a[0], a SEGFAULT; `test/c/run/vla_nested.c'; (10) `wchar_t a[] = L"hié"' is SIZED BY ITS INITIALIZER, one
+element per code point (`ccl_utf8_count`; the body is UTF-8 bytes), and A LOCAL ARRAY INITIALIZED FROM A STRING IS
+ZERO-FILLED PAST THE LITERAL (6.7.9/21: `char b[6] = "ab"' left b[5] as the stack had it -- older than the wide form,
+found by its fixture), the wide one stored element by element (`ir_init_zero`, `ir_init_chars` with the element's LLVM
+type); (11) `_Alignas(16) int x' ON AN OBJECT IS KEPT as the qualifier `aligned(E)' (the reader dropped it with the
+attributes; C23's `alignas' and C++'s alike) and read by the alloca (`ir_alloca_typed`), the global (`ir_galign`) and the
+layout (`ccl_size_align`: never below the natural alignment, the size rounded to it); `test/c/run/wstr_alignas.c';
+(12) TRAILING WHITESPACE AFTER A LINE'S BACKSLASH STILL SPLICES ([lex.phases]/2 as clang reads it, with a warning;
+`pp_ends_backslash` asks the last character first, since every line comes through it), and a `//' comment ending in a
+backslash swallows the next line as C says; `test/c/run/splice.c'; (13) A COPY OF A NULL POINTER, OR OF A LOCAL WITH NO
+OWNERSHIP STATE, IS NULL TO THE CHECK (`ck_plain_copy` in the declaration road and in `ck_kind`): `int *p = 0; int *q =
+p;' had made q a FRESH value and refused it `not consumed' at the scope's end, in C and in C++ alike, older than every
+step named here; `test/c/run/nullcopy.c'. IN C++: (14) THE DEFAULTED COMPARISONS COMPARE THE BASE SUB-OBJECT FIRST AND AN
+ARRAY MEMBER ELEMENT BY ELEMENT ([class.compare.default]/6; `cpp_cmp_pieces`, the bases handed to `cpp_norm_members`
+through `'$cpp_norm_bases'`; an empty base has no sub-object and nothing of its own to compare) --
+`test/cpp/run/defaultcmp2.cpp' at C++20; (15) A CONST LVALUE NEVER BINDS A NON-CONST `T &' ([dcl.init.ref]/5, 0.91's other
+half) in the template acceptance (`cpp_param_accepts`), AND `T &' GIVEN A CONST LVALUE DEDUCES T WITH ITS CONST
+([temp.deduct.call]/2: the top-level qualifiers decay only for a by-value parameter; `cpp_deduce_one`) -- the second is
+what made the first safe: `std::addressof(_Tp &)' over a `const int &' is `addressof<const int>', where `_Tp := int' had
+made a `T &' that no const lvalue binds, and `std::vector::insert' and `basic_string::find_first_of' both refused
+`argument_mismatch' on it -- AND THE PARTIAL ORDERING'S REFERENCE TIE-BREAK ([temp.deduct.partial]/9; `cpp_partial_cv_ok`):
+where `T &' and `const T &' deduce each other, the less cv-qualified one is not at least as specialized, so `kind(const T &)'
+beats `kind(T &)' for a const lvalue -- the gate found this one, since with the deduction both bound the const lvalue and
+the tie fell to the first declared, which writes through it; a first writing that refused a `const T' pattern any non-const
+type broke `kind(const T *)' over `kind(const T &)' (overloads.cpp): /7 strips the top-level qualifiers before the
+comparison, and /9 is the only place they count -- and the gate found a second one: the reference rule's test for a NON-CONST
+referent (`cpp_ref_lvalue_only`) read `int (*const &)(int)' as non-const, since it looked only at a base type's qualifiers, and
+refused forward_as_tuple's argument inside std::function (stdfunction.cpp, stdfunctional.cpp); a const pointer referent is
+const (`cpp_top_const`); `test/cpp/run/constref.cpp'; (16) A PLAIN ONE-MEMBER STRUCT BRACED, `S s = {7}', IS THE
+AGGREGATE IT LOOKS LIKE (`cpp_plain_init`, `cpp_braced_scalar_type`: a braced SCALAR is its one item, never a struct,
+a union, a class or an array; it had been `sext i32 7 to %struct.S'), and `int arr[9] = {}' VALUE-INITIALIZES the array
+(`ir_init`'s scalar clause takes the resolver's FIRST answer: on backtracking `ccl_resolve_type` had answered the
+element, and the array took `sext i32 0 to [9 x i32]'); `test/cpp/run/plaininit.cpp', `emptybrace.cpp'; (17) A POINTER TO
+A DATA MEMBER IS ITS BYTE OFFSET (the Itanium ABI's representation; `cpp_member_address` over `cpp_offsetof`, `ir_type_`
+i64, `ccl_size_align` 8) and `x.*pm', `p->*pm' AS VALUES read the object's bytes at the offset as the member's type
+(`cpp_memptr_read`: `*(T *) ((char *) &x + pm)'), where 0.88 had refused both by name; `test/cpp/run/memptrdata.cpp';
+(18) `std::invoke(&Pt::x, p)', `std::mem_fn(&Pt::y)(p)' and `std::bind(&Pt::plus, std::ref(p), 10)' run (0.88's list),
+which asked one more rule: (19) A FUNCTION PARAMETER PACK IS LESS SPECIALIZED THAN A PARAMETER THAT IS NONE
+([temp.deduct.partial]/8; `cpp_fn_more_special`, `cpp_has_pack_param`): `f(F &&, A0 &&)' beats `f(F &&, Args &&...)'
+for two arguments, where the pack's overload had won libc++'s `__invoke' for a pointer to data member --
+`test/cpp/run/packorder.cpp' (clang++'s `6 102 104 3'), `stdinvoke.cpp' at C++20; (20) `std::unique_ptr''s and
+`shared_ptr''s comparisons, `owner_before' (0.86's list) ran as they stood -- `test/cpp/run/stdptrcmp.cpp'; (21) AN
+OVERLOAD SET NAMED AS A VALUE IS CHOSEN BY ITS TARGET ([over.over]; `cpp_conv_to`'s clause on `id(F)' with
+`cpp_fn_overloaded`, the target's parameter keys against each definition's): `int (*pi)(int) = twice' beside `double
+twice(double)', and `apply_i(twice, 3)' (0.74's and 0.78's list); `test/cpp/run/overloadset.cpp'; (22) A CLASS WHOSE
+SLOT'S IMPLEMENTATION IS THE PURE DECLARATION ITSELF IS ABSTRACT (`cpp_slot_pure`; 0.72's `cpp_not_abstract' never fired,
+since `cpp_slot_impl' answered the pure declaration as an implementation, and `Shape x;' built an object and the link
+named its slot) -- and A BASE SUB-OBJECT OF AN ABSTRACT CLASS IS STILL CONSTRUCTED by every derived class
+([class.abstract]/6; `cpp_base_ctor` marks the base road, which the first writing did not and `make_shared' refused
+`pure_virtual(__shared_weak_count)'); `test/cpp/abstract.cpp' refused by name in the gate's list; (23) A NULL POINTER STAYS
+NULL WHEN IT CONVERTS TO A BASE AT AN OFFSET ([conv.ptr]/3; `ir_convert`'s class-pointer clause selects; 0.72's list);
+`test/cpp/run/nullbase.cpp'; (24) C++20's `consteval' IS AN IMMEDIATE FUNCTION ([dcl.constexpr]/13): every call is folded
+by the evaluator (`cpp_free_call`, `'$cpp_consteval'`) or refused `consteval_call_not_constant(F)', where it had run at
+run time like constexpr since 0.42; and AN ARRAY BOUND FOLDS THROUGH THE EVALUATOR TOO (`cpp_array_bound` through
+`cpp_const_value`: `int arr[sq(3)]' with sq the program's own constexpr function had been a VLA);
+`test/cpp/run/consteval.cpp' at C++20; (25) `[*this]' CAPTURES THE OBJECT BY VALUE ([expr.prim.lambda.capture]/10:
+the closure's `'$this'' member is the class itself, initialized `*this', reached through the same member as `[this]''s
+reference; the reader's `cap(star_this)'), A PACK CAPTURED, `[xs...]', expands with the enclosing template's bindings
+(`cap(pack, N)', `cpp_subst_caps`), a template's `auto' parameter constrained by a LIBRARY concept (`std::integral auto x')
+ran as it stood (0.93's list), AND A LAMBDA IS DESUGARED ONCE (`cpp_lambda` remembers the closure by its text, its context
+and the captured locals' types, `'$cpp_lambda_memo'`): an `auto' method's result was deduced from its first return
+DESUGARED and the body walk desugared the same lambda again, two closure classes, and `return [*this]() { ... }' stored
+the second into a slot of the first's type; `test/cpp/run/lambdas2.cpp' at C++20; (26) `std::hash<std::optional<int>>'
+(0.84's list): A TRANSPARENT ALIAS TEMPLATE, `template <class _Type, class> using __enable_hash_helper_imp = _Type;', IS
+ITS ARGUMENT to the pattern matcher, and an alias THROUGH one too (`cpp_alias_pattern`, `cpp_transparent_alias`): libc++'s
+`hash<__enable_hash_helper<optional<_Tp>, ...>>' is `hash<optional<_Tp>>' as C++ has it, where the specialization matched
+nothing and the primary's `__enum_hash' base was taken; `test/cpp/run/stdhashopt.cpp'; (27) A PACK NAMED INSIDE THE LAST
+SEGMENT'S TEMPLATE ARGUMENTS of a scoped name is seen by the expansion (`cpp_names_outside`, `cpp_names_in`: `std::get<
+_Idx>(__bound_args_)...'); (28) A MEMBER TEMPLATE DEFINED OUT OF CLASS MAY NAME ITS OWN PARAMETERS DIFFERENTLY from the
+declaration ([temp.mem]; `cpp_align_tparams` renames the definition's to the declaration's, position for position):
+libc++ 18 declares `template <class _Iterator> void __construct_at_end_with_size(_Iterator, size_type)' and defines it over
+`_ForwardIterator', so the keys never met, the instance stayed a declaration and the link named it; (29) `std::erase_if' on
+an `unordered_map' at C++20 runs (`test/cpp/run/stderaseif.cpp'; the map and the set had been ONE probe, killed at a 4 GB
+cap after 836 s -- 0.79's rule on a fixture near a gigabyte a half, met again). (30) A COMPARISON THAT FAILS UNDER `\+' EXHAUSTS EVERY ALTERNATIVE OF WHAT CAME
+BEFORE IT -- 0.95's exponential in the most-specialized ordering, from the other side: `cpp_fn_more_special`'s prefix
+(the opaque bindings, the substitution, the parameter types) left choicepoints, the ordering asks `\+ more(H, Y)', and
+`std::sort' over a vector's iterators -- a road the committed library could not take at all, `cannot_deduce(
+_RandomAccessIterator)' -- spent 484 of its 570 s choosing among the FOUR holding candidates of libc++'s
+`__uninitialized_allocator_copy_impl': 127,476 deductions for one choice (the CPU-time trace, `ms_deduce_begin' counted).
+The prefix is `once', and the same build is 28 s with 929 deductions; five variants that switched off the other new
+rules one at a time had each measured the same 570 s, which is how the guesses were retired before the instrument spoke.
+THE LIBC++ GATE reads `<vector>',
+`<string>' and `<iostream>' WHOLE AT C++20 too (0.84's list; `test/libcxx.pl'), beside the associative containers there --
+and `<iostream>' at C++20 was the one RED of the first full chain, whose read pulls libc++'s `<format>' in, and it asked
+for four rules, none of them `<format>''s own: (31) THE STANDARD MACROS ARE THE PROGRAM'S, NEVER A LIBRARY HEADER'S
+(`ccl_lib_unit/1' around the flattened read in `ccl_read_unit', read by `ccl_unit' before it registers `format', `print',
+`println' and `clone'; restored on success, failure and a throw): libc++'s `formatter<char, wchar_t>' writes `return
+format(static_cast<wchar_t>(...), __ctx);', a call of ITS OWN two-argument `format', and the global macro fired on it and
+refused `macro_failed(format, ...)' -- which the gate reported as `could not be read' and the census, reading the flattened
+text as a USER file, reproduced in one line; the census reads a flattened header as the library's now, and takes the level
+(`CCL_CENSUS_STD=20'). (32) A CLASS-SCOPE ALIAS IS A TYPE THROUGHOUT ITS CLASS'S BODY ([class.mem]/6, the rule 0.81 gave the
+member templates and 0.86 the member class templates): the body's ahead scan notes `using N =', a member ALIAS template's
+name after its `template <...>', and `typedef ... N;' (the name right before the `;', so a function pointer's, which ends
+in `)', is left alone) -- libc++'s `basic_format_string' writes `_Context{__types_.data(), ...}' in its constructor and
+`using _Context = ...;' under `private:' after it, and read in order the braced temporary of an unknown name stopped the
+read 878 items in. `test/cpp/run/aliasahead.cpp' (an alias template, an alias and a typedef each used before they are
+declared), clang++'s number, a syntax error without the rule. (33) THE FLATTENED TEXT SPELLS A LITERAL PAST 2^60 as its
+digits (`pp_int_codes' at both spelling doors): `cicili++ -E' wrote `big(0xff00000000000000)ul', which no reader takes --
+the census's road only (0.93's item 36 once more), and what stopped the first census 103 items in. (34) A HEADER'S MACRO
+TABLE IS PER LEVEL, in the process's memo (`ccl_hm_key': the path and the level, as `ccl_unit_key' keys the unit cache) and
+in the store (`ccl_kb_remember_macros' replaces THIS LEVEL's rows and meta, where it retracted the whole predicate): found
+by the reader gate's fresh store at 84 and the compile gate after it -- `atomic.c' at C17 memoized `<stdio.h>''s table as
+`store(K17)', `c23.c' at C23 read the header again (a store miss at that level), stored the C23 rows and RETRACTED the
+C17 ones, the memo kept naming K17, and `macros.c' at C17 met `undeclared(EOF)' -- a fixture that built alone in two
+seconds, since the order is the gate's, and a fixture that then FAILED ALONE too, since the read with the unexpanded `EOF'
+had been STORED as the file's AST (the AST cache does not see the macro table's state; a bad table poisons a cached read
+until the store restarts). Both the reproduction in one process (`c23.c' then `macros.c') and the store's own rows said
+so, where the gate's log and a standalone build each said something else.
+Reader version 84 (83: `_Alignas' kept, the wide string sizing, `[*this]', `[xs...]', `_Atomic(T)'; 84: no global macro
+inside a library header, a class-scope alias ahead); lowering version 44 (the VLA
+bounds in the type, the atomics, the member offset, the null base, the wide array). A NAME IS LOOKED UP BEFORE IT IS GIVEN, at its
+arity (0.93's rule, met again): the first spelling of the braced-scalar test was `cpp_scalar_type/1', which EXISTS -- and
+answers yes to an array -- so `int arr[9] = {}' kept failing under a fix that read right; the audit of every new name's
+definitions across the library is what found it.
+NOT DONE, NAMED, each measured on this box: `std::vector::insert', `erase' and `resize' (0.62's list) build past (28)
+and stop at `no_member(__construct_at_end, __split_buffer<int, allocator<int> &>)': libc++ 18's two `__construct_at_end'
+member templates are both refused, the forward-iterator one because `__has_forward_iterator_category<move_iterator<int
+*>>::value' comes out FALSE here (a trait chain through `move_iterator''s `_If<...>' iterator_category), the other
+`cannot_deduce($anon2)' -- the road to it is named; `std::bind_front' and `std::not_fn' (0.88's list) stop where
+`is_invocable_v<_Op, _BoundArgs &..., _Args...>' in `__perfect_forward_impl''s `operator()' default template argument does
+not fold (`variable_template_not_constant': the static behind it, `integral_constant<bool, __invokable_r<...>::value>::
+value', is keyed by an unfolded static, 0.98's named collision) -- `std::identity' ran; `basic_string::find_first_of'
+(0.84's list) stops at `cannot_deduce(_BinaryPredicate)': libc++ hands the STATIC MEMBER FUNCTION `_Traits::eq' as a
+predicate, and a static method here takes a null `this' (0.36), so its address is no plain `bool (*)(char, char)' --
+a static method without `this' is a change to every static call site and a step of its own; `std::erase_if' on an
+`unordered_set' at C++20 stops at `call(id(iter_move))', C++20's `ranges::iter_move' customization point;
+`std::enable_shared_from_this': `shared_from_this()' builds now (it refused `pure_virtual' before (22)'s base rule) and ABORTS
+at run time -- the object's `__weak_this_' is never set, so libc++'s `__enable_weak_this' detection (a conversion to
+`enable_shared_from_this<_Yp> *' in a SFINAE default) is what does not fire here; `std::atomic<T>'
+IN C++: libc++ 18 configures its `<atomic>' by `__has_extension(c_atomic)', which this preprocessor answers 0 (the plainest
+path), so the header defines neither implementation (`template_without_body(__cxx_atomic_base_impl)'); answering 1 for
+that one extension would put libc++ on the `_Atomic(T)' and `__c11_atomic_*' road this step built for C, and is the next
+step, measured against every stream and container fixture first; `_Complex', `\N{...}', `std::strong_ordering' as a class,
+coroutines, modules, `sizeof' a pointer to member function 8 against the ABI's 16, an unqualified use of a colliding name
+from inside the deeper namespace (0.88), the closure escaping its scope (0.59), `std::format' and the ranges.
+THE GATES, ON LINUX (Ubuntu 24.04, x86_64, four cores, 16 GB; clang 18, libc++ 18, cocolog 1.8.1, the module rebuilt
+as 0.99), one after another in one chain with nothing beside them, each under its own 7000 MB watchdog, the summaries
+warmed OUTSIDE them first at all four levels (`test/warm.sh': 43 headers cold at reader 84, 8732 s, none killed; the
+chain's first run was cut short by a container restart during that warm and the chain ran again whole): the reader's 95
+checks GREEN in 7 s at 107 MB; the compile gate's 84 (0.98's 78 and this step's six C fixtures) in 6 s at 248 MB; the
+driver's 25 in 9 s at 148 MB; the objects' 29; the proof; THE C++ GATE GREEN -- 211 checks ok (0.98's 194 and this
+step's seventeen), `stdoptionalref' skipped by name, NO failure -- in 4499 s at a 3779 MB peak (0.98: 6179 s for 194,
+and the 1680 s fewer are 0.99's rule 30, the `once' on the most-specialized ordering's prefix, on every fixture that
+sorts or copies through libc++'s uninitialized-memory algorithms); THE LIBC++ GATE GREEN, its 21 reads whole under a
+fresh HOME in 8422 s at 3835 MB: the eleven C++17 headers and the three C++23/26 reads at 0.98's item counts (`<vector>'
+806 ... `<optional>' 397 at C++26), and at C++20 `<vector>' 898, `<string>' 846, `<iostream>' 884 (the three new reads,
+which are the 2900 s more than 0.98's 5518), `<set>' 859, `<map>' 859, `<unordered_map>' 843, `<unordered_set>' 925.
+
 **`format`, `print`, `println` are global macros** (owner's rule):
 `library/ccl_format.pl` is a macro file registered by `ccl_standard_macros/0`
 at the start of every unit (found on `$COCOLOG_LIBRARY`, which is also on

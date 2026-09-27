@@ -821,12 +821,15 @@ ck_decls([var(N, T0, Init0)|Vs], St0, St) :-
         ;   Init = init(Items) -> ck_init_slots(Items, T, N, St5, St6)
         ;   ck_expr(Init, St5, St5a),
             (   ck_carries_type(T), ck_borrows_from(Init, St5a, P) -> ck_bind_var(N, P, var(N, Init), St5a, St6)
+            ;   Init = id(P), ck_plain_copy(St5a, P) -> ck_declare(St5a, N, null, St6)                 % a COPY OF A NULL, OR OF A LOCAL WITH NO OWNERSHIP STATE, IS NULL TO THE CHECK (0.99): `int *q = p' with p null was a fresh value, and q `not consumed'
             ;   ck_is_pointer_type(T), \+ ck_declared_tie(N, _), ck_fresh_value(Init) -> ck_declare(St5a, N, loose, St6)
             ;   ck_no_owner_behind(N, T, Init, var(N, Init)), St6 = St5a ) ) ),
     ck_decls(Vs, St6, St).
 
 %% what a right-hand side is to a slot: an owner (moved in), a null, a borrow, or a fresh value
 ck_kind(E, _, null) :- ck_null(E), !.
+ck_kind(id(P), St, null) :- ck_plain_copy(St, P), !.                   % a copy of a null pointer, or of a plain local with no state (0.99)
+ck_plain_copy(St, P) :- atom(P), ( ck_state(St, P, null) -> true ; ck_is_local(P), \+ ck_state(St, P, _) ).
 ck_kind(move(E), _, fresh) :- ck_own_elem(E, _), !.                  % an element moved out: an owner, complete
 ck_kind(move(E), St, K) :- ck_path(E, P), ck_by_value(E), ck_own_under(St, P, Fs), Fs \== [], !, ck_kind(E, St, K).   % a struct with owners moved whole: the value's kind, the fields going in ck_expr
 ck_kind(move(E), St, K) :- !, ( ck_owner_path(St, E, P) -> K = owner(P) ; ck_moves_library(E) -> ck_kind(E, St, K) ; ck_name(E, N), ck_fail(move_of_non_owner, N, move(E)) ).   % a library class's value: the kind its own form has (ck_moves_library)

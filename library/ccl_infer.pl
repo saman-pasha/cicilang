@@ -457,8 +457,9 @@ ccl_size_of(T, N) :- ccl_resolve_type(T, T1), ccl_size_align(T1, N, _).
 ccl_size_align(ptr(_, _), 8, 8) :- !.
 ccl_size_align(block(_, _), 8, 8) :- !.
 ccl_size_align(fn(_, _, _), 8, 8) :- !.
-ccl_size_align(memptr(_, _, fn(_, _, _)), 8, 8) :- !.                          % a pointer to member function: the address of the one function emitted for it
+ccl_size_align(memptr(_, _, _), 8, 8) :- !.                                    % a pointer to member: a function's is the address of the one function emitted for it, a data member's its byte offset (0.99)                          % a pointer to member function: the address of the one function emitted for it
 ccl_size_align(arr(NE, E), N, A) :- !, ( ccl_size_align(E, EN0, A0) -> EN = EN0, A = A0 ; ccl_resolve_type(E, E1), ccl_size_align(E1, EN, A) ), ( ccl_const_eval(NE, K) -> N is K * EN ; N = 0 ).   % a flexible member, `T a[]' or `own T *a[n]': no bytes of its own; the ELEMENT resolved (the resolver leaves an array as it is, and `std::string s[2]' had no size)
+ccl_size_align(base(Q, S), N, A) :- memberchk(aligned(E), Q), ccl_const_eval(E, A0), !, ccl_size_align(base([], S), N0, A1), A is max(A0, A1), ccl_round_up(N0, A, N).   % `_Alignas(E)' on a member or an object ([dcl.align]; 0.99): never below the natural alignment, the size rounded to it
 ccl_size_align(base(_, S), N, A) :- memberchk(bitint(E), S), !, ccl_bitint_width(E, W),     % _BitInt(N): the smallest integer type that holds it up to 64 bits; past that, whole eightbytes aligned 8 (the psABI)
     ( W =< 8 -> N = 1 ; W =< 16 -> N = 2 ; W =< 32 -> N = 4 ; N is ((W + 63) // 64) * 8 ), ( N > 8 -> A = 8 ; A = N ).
 ccl_size_align(base(_, S), N, A) :- ccl_basic_size(S, N), !, A = N.
