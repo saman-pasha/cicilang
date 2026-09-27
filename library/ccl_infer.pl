@@ -1,4 +1,4 @@
-%% cicili-lang -- library(ccl_infer): what a macro can ask, as the parser
+%% cocolang -- library(ccl_infer): what a macro can ask, as the parser
 %% stands at the call. The parser (library(ccl_syntax)) keeps the scope of
 %% declared names, the typedef definitions and the struct tags as it reads;
 %% a macro predicate from an included .pl runs at that point and may ask:
@@ -296,6 +296,7 @@ ccl_add_quals(_, T, T).
 ccl_members_of(T, Ms) :- ccl_members_of_(T, Ms0), ccl_data_members(Ms0, Ms).
 ccl_data_members([], []) :- !.
 ccl_data_members([M|Ms], Out) :- ( ccl_layout_marker(M) -> Out = Out1 ; Out = [M|Out1] ), ccl_data_members(Ms, Out1).
+ccl_members_of_(memptr(_, _, F), [member(ptr([], base([], [void])), ptr, none), member(base([], [long]), adj, none)]) :- ccl_resolve_type(F, fn(_, _, _)), !.   % the two fields of a pointer to member function (0.100), read as `pm.ptr' by the call the desugaring makes
 ccl_members_of_(base(_, [struct(_, Ms)]), Ms) :- Ms \== none, !.                 % resolved already: no resolution
 ccl_members_of_(base(_, [union(_, Ms)]), Ms) :- Ms \== none, !.
 ccl_members_of_(T, Ms) :- ccl_resolve_type(T, T1), ( T1 = base(_, [struct(_, Ms)]) ; T1 = base(_, [union(_, Ms)]) ), Ms \== none, !.
@@ -304,7 +305,15 @@ ccl_member_type(T, N, MT) :- ccl_members_of(T, Ms), memberchk(member(MT, N, _), 
 
 %% ---- classes ----------------------------------------------------------------------
 ccl_is_pointer(T) :- ccl_resolve_type(T, T1), ( T1 = ptr(_, _) ; T1 = arr(_, _) ; T1 = block(_, _) ), !.
-ccl_is_float(T) :- ccl_resolve_type(T, base(_, S)), ( memberchk(double, S) ; memberchk(float, S) ; memberchk('_Float16', S) ), !.
+ccl_is_float(T) :- ccl_resolve_type(T, base(_, S)), \+ memberchk('_Complex', S), ( memberchk(double, S) ; memberchk(float, S) ; memberchk('_Float16', S) ), !.   % a complex type is no real floating type
+%% C's COMPLEX TYPES (C11 6.2.5, Annex G; 0.100): `_Complex double' and `_Complex float', two components of the real type;
+%% the usual arithmetic conversions make a complex of the common real type where either operand is complex
+ccl_is_complex(T) :- ccl_resolve_type(T, base(_, S)), memberchk('_Complex', S), !.
+ccl_complex_real(T, R) :- ccl_resolve_type(T, base(_, S)), ( memberchk(float, S) -> R = base([], [float]) ; R = base([], [double]) ).
+ccl_complex_of(R, base([], ['_Complex', E])) :- ccl_resolve_type(R, base(_, S)), ( memberchk(float, S) -> E = float ; E = double ).
+ccl_complex_usual(A, B, T) :- ccl_real_of(A, RA), ccl_real_of(B, RB),
+    ( ccl_is_float(RA), ccl_is_float(RB) -> ccl_usual(RA, RB, R) ; ccl_is_float(RA) -> R = RA ; ccl_is_float(RB) -> R = RB ; R = base([], [double]) ), ccl_complex_of(R, T).
+ccl_real_of(T, R) :- ( ccl_is_complex(T) -> ccl_complex_real(T, R) ; R = T ).
 ccl_is_integer(T) :- ccl_resolve_type(T, base(_, S)), \+ memberchk(double, S), \+ memberchk(float, S), \+ memberchk(void, S),
     ( memberchk(int, S) ; memberchk(char, S) ; memberchk(short, S) ; memberchk(long, S) ; memberchk(signed, S)
     ; memberchk(unsigned, S) ; memberchk('_Bool', S) ; memberchk(bool, S) ; memberchk(char8_t, S) ; memberchk(wchar_t, S) ; memberchk(char16_t, S) ; memberchk(char32_t, S) ; S = [enum(_, _)] ; S = [enum_class(_, _)] ; memberchk(bitint(_), S) ), !.   % C23's _BitInt(N) is an integer
@@ -363,8 +372,9 @@ ccl_type_of(u32str(_), ptr([], base([], [char32_t]))) :- !.
 ccl_type_of(wchr(_), base([], [wchar_t])) :- !.
 ccl_type_of(u16chr(_), base([], [char16_t])) :- !.
 ccl_type_of(u32chr(_), base([], [char32_t])) :- !.
-ccl_type_of(id(N), T) :- !, ( ccl_declared(N, T0) -> ccl_unref(T0, T) ; T = unknown ).
-ccl_type_of(call(id(B), _), base([], [bool])) :- ccl_overflow_builtin(B, _), !.   % C23's <stdckdint.h> is written on them
+ccl_type_of(id(N), T) :- !, ( ccl_declared(N, T0) -> ccl_unref(T0, T) ; ccl_enum_value(N, _) -> T = base([], [int]) ; T = unknown ).   % AN ENUMERATOR IS AN INT (0.100): the parser declares one in scope, the bulk noter keeps only its VALUE, so after the passes' rebuild `o == release ? relaxed : o' typed its arm unknown (libc++'s __to_failure_order)
+ccl_type_of(call(id(B), _), base([], [bool])) :- ccl_overflow_builtin(B, _), !.
+ccl_type_of(call(id('__builtin_complex'), [A, _]), T) :- ccl_type_of(A, AT), AT \== unknown, !, ccl_complex_of(AT, T).   % C11's CMPLX and I, in the compiler's <complex.h> (0.100)   % C23's <stdckdint.h> is written on them
 ccl_type_of(call(F, _), T) :- !,
     (   F = id(N), ccl_declared(N, fn(R, _, _)) -> ccl_unref(R, T)
     ;   ccl_type_of(F, FT), ccl_resolve_type(FT, FT1),
@@ -384,6 +394,9 @@ ccl_type_of(new_array(T, _), ptr([], T)) :- !.
 ccl_type_of(delete(_), base([], [void])) :- !.
 ccl_type_of(delete_array(_), base([], [void])) :- !.
 ccl_type_of(addr(E), T) :- !, ccl_type_of(E, ET), ( ET == unknown -> T = unknown ; T = ptr([], ET) ).
+ccl_type_of(neg(E), T) :- ccl_type_of(E, ET), ccl_is_complex(ET), !, T = ET.
+ccl_type_of(real_part(E), T) :- !, ccl_type_of(E, ET), ( ccl_is_complex(ET) -> ccl_complex_real(ET, T) ; ccl_is_arith(ET) -> T = ET ; T = unknown ).   % GNU's `__real__ z', `__imag__ z' (0.100)
+ccl_type_of(imag_part(E), T) :- !, ccl_type_of(E, ET), ( ccl_is_complex(ET) -> ccl_complex_real(ET, T) ; ccl_is_arith(ET) -> T = ET ; T = unknown ).
 ccl_type_of(neg(E), T) :- !, ccl_type_of(E, ET), ccl_promoted_or_unknown(ET, T).
 ccl_type_of(pos(E), T) :- !, ccl_type_of(E, ET), ccl_promoted_or_unknown(ET, T).
 ccl_type_of(bitnot(E), T) :- !, ccl_type_of(E, ET), ccl_promoted_or_unknown(ET, T).
@@ -416,6 +429,7 @@ ccl_type_of(bin(Op, A, B), T) :- !,
     ;   memberchk(Op, ['+', '-']), ccl_is_pointer(AT), ccl_is_pointer(BT) -> T = base([], [long])
     ;   memberchk(Op, ['+', '-']), ccl_is_pointer(AT) -> ccl_decay(AT, T)
     ;   Op == '+', ccl_is_pointer(BT) -> ccl_decay(BT, T)
+    ;   memberchk(Op, ['+', '-', '*', '/']), ( ccl_is_complex(AT) ; ccl_is_complex(BT) ) -> ccl_complex_usual(AT, BT, T)   % complex arithmetic (0.100)
     ;   ccl_is_arith(AT), ccl_is_arith(BT) -> ccl_usual(AT, BT, T)
     ;   T = unknown ).
 ccl_type_of(_, unknown).
@@ -457,11 +471,13 @@ ccl_size_of(T, N) :- ccl_resolve_type(T, T1), ccl_size_align(T1, N, _).
 ccl_size_align(ptr(_, _), 8, 8) :- !.
 ccl_size_align(block(_, _), 8, 8) :- !.
 ccl_size_align(fn(_, _, _), 8, 8) :- !.
+ccl_size_align(memptr(_, _, F), 16, 8) :- ccl_resolve_type(F, fn(_, _, _)), !.   % A POINTER TO MEMBER FUNCTION IS THE ITANIUM ABI'S `{ ptr, adj }' (0.100): the function's address, or 1 + the slot's byte offset in the table for a virtual one, and the this adjustment (0 here: a base's address is made by the conversion at the call)
 ccl_size_align(memptr(_, _, _), 8, 8) :- !.                                    % a pointer to member: a function's is the address of the one function emitted for it, a data member's its byte offset (0.99)                          % a pointer to member function: the address of the one function emitted for it
 ccl_size_align(arr(NE, E), N, A) :- !, ( ccl_size_align(E, EN0, A0) -> EN = EN0, A = A0 ; ccl_resolve_type(E, E1), ccl_size_align(E1, EN, A) ), ( ccl_const_eval(NE, K) -> N is K * EN ; N = 0 ).   % a flexible member, `T a[]' or `own T *a[n]': no bytes of its own; the ELEMENT resolved (the resolver leaves an array as it is, and `std::string s[2]' had no size)
 ccl_size_align(base(Q, S), N, A) :- memberchk(aligned(E), Q), ccl_const_eval(E, A0), !, ccl_size_align(base([], S), N0, A1), A is max(A0, A1), ccl_round_up(N0, A, N).   % `_Alignas(E)' on a member or an object ([dcl.align]; 0.99): never below the natural alignment, the size rounded to it
 ccl_size_align(base(_, S), N, A) :- memberchk(bitint(E), S), !, ccl_bitint_width(E, W),     % _BitInt(N): the smallest integer type that holds it up to 64 bits; past that, whole eightbytes aligned 8 (the psABI)
     ( W =< 8 -> N = 1 ; W =< 16 -> N = 2 ; W =< 32 -> N = 4 ; N is ((W + 63) // 64) * 8 ), ( N > 8 -> A = 8 ; A = N ).
+ccl_size_align(base(_, S), N, A) :- memberchk('_Complex', S), !, ( memberchk(float, S) -> A = 4 ; A = 8 ), N is 2 * A.   % a complex: two components, aligned as one (0.100)
 ccl_size_align(base(_, S), N, A) :- ccl_basic_size(S, N), !, A = N.
 ccl_size_align(base(_, [struct(_, Ms)]), N, A) :- Ms \== none, !, ccl_struct_layout(Ms, 0, 1, N0, A0), ccl_tag_size(Ms, N0, A0, N, A).
 ccl_size_align(base(_, [union(_, Ms)]), N, A) :- Ms \== none, !, ccl_union_layout(Ms, 0, 1, N0, A0), ccl_tag_size(Ms, N0, A0, N, A).

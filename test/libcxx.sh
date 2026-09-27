@@ -7,8 +7,8 @@
 HERE=$(cd "$(dirname "$0")" && pwd)
 . "$HERE/config.sh"
 [ -x "$C" ] || { echo "SKIP (no cocolog binary at $C -- set COCOLOG)"; exit 0; }
-[ -f "$ROOT/library/cicili.so" ] || { echo "SKIP (no library/cicili.so -- sh module/build.sh)"; exit 0; }
-D=$(mktemp -d "${TMPDIR:-/tmp}/cicili-libcxx-XXXXXX")
+[ -f "$ROOT/library/cocolang.so" ] || { echo "SKIP (no library/cocolang.so -- sh module/build.sh)"; exit 0; }
+D=$(mktemp -d "${TMPDIR:-/tmp}/cocolang-libcxx-XXXXXX")
 trap 'rm -rf "$D"' EXIT
 export CCL_TEST_TMP="$D"
 out=$(HOME="$D" "$C" --local query "ensure_loaded('$ROOT/test/libcxx.pl'), libcxx_main" 2>&1); rc=$?

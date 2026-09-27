@@ -1,4 +1,4 @@
-/* cicili-lang's freestanding <stdatomic.h> (C11 7.17): written over the compiler's own `__c11_atomic_*'
+/* cocolang's freestanding <stdatomic.h> (C11 7.17): written over the compiler's own `__c11_atomic_*'
    builtins, as clang's is; `_Atomic(T)' is the reader's, and every builtin is one LLVM instruction. */
 #ifndef __CCL_STDATOMIC_H
 #define __CCL_STDATOMIC_H

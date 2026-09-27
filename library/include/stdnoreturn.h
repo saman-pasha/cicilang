@@ -1,5 +1,5 @@
-/* cicili-lang's own <stdnoreturn.h> */
-#ifndef _CICILI_STDNORETURN_H
-#define _CICILI_STDNORETURN_H
+/* cocolang's own <stdnoreturn.h> */
+#ifndef _COCOLANG_STDNORETURN_H
+#define _COCOLANG_STDNORETURN_H
 #define noreturn _Noreturn
 #endif

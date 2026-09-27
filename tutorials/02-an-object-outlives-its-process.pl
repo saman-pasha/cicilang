@@ -14,7 +14,7 @@
 %% The instance's name is what new/3 answered ('account#1'); a program that
 %% needs to find its objects again keeps that name, or asks instances/2.
 
-:- use_module(library(cicili)).
+:- use_module(library(cocolang)).
 
 :- object(account).
    state(owner = nobody).

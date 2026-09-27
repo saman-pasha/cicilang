@@ -1,4 +1,4 @@
-%% cicili-lang -- library(ccl_format): format, print and println, the global
+%% cocolang -- library(ccl_format): format, print and println, the global
 %% macros: in every file, without an include, like `:=' (the parser
 %% registers this file at the start of every unit, ccl_standard_macros/0).
 %%

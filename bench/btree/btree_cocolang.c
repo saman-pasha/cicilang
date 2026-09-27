@@ -1,7 +1,7 @@
 /* the B-tree of test/c/run/btree_del.c at minimum degree 6 (up to 11 keys,
    12 children per node -- BTreeSet's), as a benchmark: N distinct keys
    inserted in a pseudo-random order, N searched (half present), half of them
-   deleted, N searched again, the rest deleted. Built by cicili -O3. A node's
+   deleted, N searched again, the rest deleted. Built by cocolang -O3. A node's
    children are an own array bounded by its `nc', the last member: a leaf is
    allocated without it, 56 bytes, one cache line; an inner node has its slots
    in place. Every child is an own array element: a merge moves them out of
@@ -165,6 +165,6 @@ int main(int argc, char **argv) {
     long t5 = now_ms();
     int end = t.root->n + t.root->nc;
     free(t.root);
-    printf("cicili -O3   insert %ld  search %ld  del-half %ld  srch-half %ld  del-rest %ld ms  found %d left %d end %d\n", t1 - t0, t2 - t1, t3 - t2, t4 - t3, t5 - t4, found, left, end);
+    printf("cocolang -O3   insert %ld  search %ld  del-half %ld  srch-half %ld  del-rest %ld ms  found %d left %d end %d\n", t1 - t0, t2 - t1, t3 - t2, t4 - t3, t5 - t4, found, left, end);
     return 0;
 }

@@ -1,4 +1,4 @@
-%% cicili-lang -- library(ccl_pp): the preprocessor, in cocolog. Owner's rule:
+%% cocolang -- library(ccl_pp): the preprocessor, in cocolog. Owner's rule:
 %% no clang and no LLVM binary, the embedded LLVM alone -- so what `clang -E'
 %% did for a header the reader could not read raw is done here: the directives,
 %% the conditional groups (#if with its constant expression, #ifdef, #elif,
@@ -407,7 +407,7 @@ pp_directive_(else, _, _, _, Ls, Ls1, Out, Out) :- !, pp_skip_to_endif(Ls, Ls1).
 pp_directive_(endif, _, _, _, Ls, Ls, Out, Out) :- !.
 pp_directive_(pragma, Rest, _, _, Ls, Ls, Out, Out) :- !, pp_ws(Rest, R1), pp_word(R1, W, _), ( atom_codes(once, W) -> pp_current_file(F), nb_getval('$pp_once', O), nb_setval('$pp_once', [F|O]) ; true ).
 %% IN THE USER'S FILE `#error' IS A DIAGNOSTIC (before, it was listed in '$pp_errors' and nobody read the list, so a
-%% program's own #error compiled to `cicili: ok') and `#warning' is printed after the read, `file:line: warning: ...',
+%% program's own #error compiled to `cocolang: ok') and `#warning' is printed after the read, `file:line: warning: ...',
 %% by the driver (dr_pp_warnings); in a header both stay what they were, the file stopping at an #error (libc++'s
 %% other branch), a warning nothing.
 pp_directive_(error, Rest, _, L, _, [], Out, Out) :- nb_getval('$pp_top', yes), !, pp_ws(Rest, R1), atom_codes(M, R1), throw(pp_error(L, M)).
@@ -551,6 +551,12 @@ pp_builtin_answer('__has_embed', Args, V) :- !, pp_has_embed(Args, V).
 %% plainest path through libc++, the rule above)
 pp_builtin_answer('__has_c_attribute', Args, V) :- ccl_lang(c), !, ( pp_attr_name(Args, N), pp_c_attribute(N, V0) -> V = V0 ; V = 0 ).
 
+%% `__has_extension(c_atomic)' answers 1 (0.100): libc++ decides its <atomic> by `__has_feature(cxx_atomic) ||
+%% __has_extension(c_atomic) || __has_keyword(_Atomic)', and with all three 0 it defines NO implementation
+%% (`template_without_body(__cxx_atomic_base_impl)'); this compiler has C11's `_Atomic(T)' and the `__c11_atomic_*'
+%% builtins (0.99), which is exactly the road _LIBCPP_HAS_C_ATOMIC_IMP takes. The one extension answered; every other
+%% feature, extension and attribute keeps its 0 (the plainest path)
+pp_builtin_answer('__has_extension', [tok(_, c_atomic, _)], 1) :- !.
 pp_builtin_answer('__is_identifier', _, 1) :- !.
 pp_builtin_answer('__has_builtin', _, 1) :- !.                                    % LLVM's builtins are there (libc++'s other branch is an #error)
 pp_builtin_answer('__is_target_arch', [tok(_, A, _)], V) :- !, pp_arch(Arch), ( A == Arch -> V = 1 ; V = 0 ).

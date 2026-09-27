@@ -17,7 +17,7 @@ echo "warm: $(levels | wc -l | tr -d ' ') headers"
 levels | while read -r std h; do
   f="$W/w.cpp"; printf '#include <%s>\nint main() { return 0; }\n' "$h" > "$f"
   a=$(date +%s)
-  ( "$ROOT/bin/cicili++" -std=c++$std -fsyntax-only "$f" > "$W/out" 2>&1 < /dev/null & p=$!
+  ( "$ROOT/bin/cocolang++" -std=c++$std -fsyntax-only "$f" > "$W/out" 2>&1 < /dev/null & p=$!
     t=0; peak=0
     while kill -0 $p 2>/dev/null; do sleep 1; t=$((t + 1)); rss=$(ps -eo rss,args | awk '/[c]ocolog .*query/ { s += $1 } END { print int(s / 1024) }'); [ "$rss" -gt "$peak" ] && peak=$rss
       if [ "$rss" -gt "$MB" ] || [ "$t" -ge "$SECS" ]; then pkill -9 -f "[c]ocolog .*query"; echo "KILLED at ${rss} MB, ${t} s" >> "$W/out"; break; fi; done
