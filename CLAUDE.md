@@ -5524,9 +5524,12 @@ warmed OUTSIDE them first at all four levels (`test/warm.sh': 44 headers cold at
 reader's 95 checks GREEN in 15 s at 109 MB; the compile gate's 86 (0.100's 85 and `complex2.c') in 21 s at 366 MB; the
 driver's 25 in 10 s at 85 MB; the objects' 29; the proof; THE C++ GATE GREEN -- 228 checks ok (0.100's 225 and this
 step's three: stdcompare at C++20, closurecopy, nscollide2), `stdoptionalref' skipped by name, NO failure -- in 5935 s at
-a 3804 MB peak (0.100: 5284 s for 225). THE LIBC++ GATE, its 22 reads (0.100's 21 and `<compare>' at C++20), was RUNNING
-when this was committed: the container restarted 1212 s into its first run, which wrote nothing (the gate writes its
-log at its end), and it was started again ALONE; its numbers follow in the commit that carries them, as 0.93's did.
+a 3804 MB peak (0.100: 5284 s for 225). THE LIBC++ GATE GREEN, its 22 reads whole under a fresh HOME
+(0.100's 21 and `<compare>' at C++20, 348 items) in 8957 s at a 3879 MB peak, every other item count 0.100's (`<vector>'
+806 ... `<optional>' 397 at C++26, `<vector>' 898 at C++20; 0.100: 21 reads in 8524 s, the one read more being the
+difference) -- run ALONE and a second time: the container restarted 1212 s into its first run, which wrote nothing (the
+gate writes its log at its end), and 0.101 was committed with the gate still running, its numbers carried by 0.102, as
+0.93's were.
 
 **`format`, `print`, `println` are global macros** (owner's rule):
 `library/ccl_format.pl` is a macro file registered by `ccl_standard_macros/0`
