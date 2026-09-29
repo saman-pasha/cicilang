@@ -45,6 +45,9 @@ library/ccl_format.pl    format, print, println: the global macros, Rust's holes
 library/ccl_ir.pl        cocolang_ir/2: the lowering to LLVM IR text, one clause per construct
 library/ccl_build.pl     cocolang_compile/3 (the embedded LLVM, nothing else), cocolang_link/3 (cc)
 library/ccl_check.pl     the safe part: owners (own), move, the flow walk; run first by cocolang_ir
+library/ccl_uninames.pl  the Unicode name table for `\N{NAME}' (0.103): one fact per assigned character, GENERATED
+                         from python3's unicodedata (14.0.0), loaded on the first `\N{' a process meets; module/build.sh
+                         spells it into module/ccl_uninames.h for the native lexer (never committed), so it is written once
 library/ccl_cpp.pl       M6: the C++ forms desugared to that C before the check (ccl_cpp_units/2):
                          classes as structs, methods over this, constructors, destructors as defers
 test/c/safe/             programs the check must REFUSE, each with the error its .expect names
@@ -5530,6 +5533,86 @@ a 3804 MB peak (0.100: 5284 s for 225). THE LIBC++ GATE GREEN, its 22 reads whol
 difference) -- run ALONE and a second time: the container restarted 1212 s into its first run, which wrote nothing (the
 gate writes its log at its end), and 0.101 was committed with the gate still running, its numbers carried by 0.102, as
 0.93's were.
+
+**M6's sixty-ninth step (0.103): THE NOT-DONE LIST OF 0.101, closed where a form can be closed -- `_Complex int',
+a NaN member under a defaulted `<=>', `\N{NAME}', and two probes named.**
+(1) `_Complex int', GNU's INTEGER COMPLEX, which clang and gcc both take. THE INTEGER IMAGINARY LITERAL `3i' is its own
+token in BOTH lexers, `tok(imagi, N, L)' (`ccl_int_tok', `ccl_lx_emit_int'; k84 compares them on `test/c/lexer.c''s
+line), the parser's `imagi(N)', a `_Complex int' constant `{ 0, N }' -- 0.101 had made it the float 3.0 and a complex
+double; its `u' and `l' suffixes are DROPPED, so `2ui' and `3li' are `_Complex int' here where clang has `_Complex
+unsigned' and `_Complex long' (named). THE REAL TYPE OF A COMPLEX IS WHATEVER STANDS BESIDE `_Complex'
+(`ccl_complex_real' through `ccl_specs_without'; `_Complex' alone a complex double), and the usual arithmetic
+conversions over two complex integers are the integers' own (`ccl_complex_usual' through `ccl_usual': `3i + 2' a
+`_Complex int', `7u + 3i' a `_Complex unsigned', `5l + 6li' a `_Complex long'); a complex integer is NO integer to
+`ccl_is_integer', as a complex double has been no float since 0.100. THE LOWERING: `{ i32, i32 }' by the real's LLVM
+type (`ir_base', `ir_complex_elem' over i8 to i64 beside float and double), `+' and `-' by `add' and `sub', `*' and `/'
+by the TEXTBOOK FORMULAS as clang lowers them for an integer complex -- no runtime helper, no infinities to recover:
+(ac - bd) + (ad + bc)i, and the quotient's (ac + bd) / (cc + dd) and (bc - ad) / (cc + dd), each an integer division of
+the real's signedness (`ir_complex_op' takes the real type, `sdiv' or `udiv') -- `==' by `icmp eq', the negation by
+subtraction, the ABI's leaves two INTEGER leaves of the real's size (`ir_leaves' recursing on the real, where the
+floating ones were spelled out), a global's constant's components spelled as integers (`ir_complex_text'; a floating
+constant truncates as the conversion does), the conversions through `ir_complex_convert' as before -- which decides BY
+THE C TYPES now (`ccl_is_complex(From)', `ccl_is_complex(To)'): the LLVM-shape test would have taken an ABI piece
+`{ i64, i64 }' (`ir_pieces_type') for a complex once the integer shapes joined the table. `test/c/run/complex3.c',
+clang's numbers.
+(2) A NaN MEMBER UNDER A DEFAULTED `<=>' IS UNORDERED ([class.spaceship]/2: the member's own `<=>', a partial_ordering
+for a floating type; 0.101's not-done): a floating piece's sign is `a == a && b == b ? sign : -127' where the result is
+partial_ordering (`cpp_cmp_sign', the scalar `<=>''s own test since 0.101), and the pieces carry the member's TYPE now
+(`pc(A, B, T)' from `cpp_cmp_pieces', read alike by the defaulted `==', the friend `==' of <compare> and the category
+choice, `cpp_defaulted_ordering' over the pieces -- so an ARRAY of doubles makes the category partial too, where the
+member's own type was asked and an array is no float). `test/cpp/run/stdcompare.cpp' extended (a NaN member under
+`auto', and under a written `std::partial_ordering'), clang++'s lines. AND A LESSON, cheap once seen and an afternoon
+before: the first writing named the piece's type `PT' inside the findall -- THE VARIABLE THE CLAUSE'S HEAD ALREADY USED
+for the parameter's type -- so every piece was required to unify with `const P &', the if-chain came out EMPTY, every
+defaulted `<=>' answered equal, and five lines of stdcompare went RED. A name is looked up before it is given -- 0.93's
+rule for a predicate, 0.99's for its arity -- and in a clause of thirty lines, for a VARIABLE too. The instrument that
+found it was the `cocolang: '-prefixed write into the desugaring (the finding) under `-S -emit-llvm', since
+`-fsyntax-only' skips the desugaring in C++ mode: 0.87's trap, met again on the first try, an empty log read as `never
+reached'. A clause's helper predicates were also first written BETWEEN two clauses of the predicate they serve, which
+cocolog takes as it takes any discontiguous clauses; they sit after it now.
+(3) `\N{NAME}' ([lex.charset], C23 6.4.3; the not-done of every step since 0.43): the code point whose Unicode name
+that is, in a string (as UTF-8, `ccl_utf8'), a char and a wide char, in BOTH lexers. THE TABLE IS WRITTEN ONCE:
+`library/ccl_uninames.pl' holds one fact per assigned character, `ccl_uname(Name, Code)', the Name property of Unicode
+14.0.0 as python3's unicodedata gives it (43,819 facts, 2.0 MB, the Hangul syllables among them), and one
+`ccl_uname_range(Prefix, Lo, Hi)' per run of the five families named by their code point's hex digits (CJK UNIFIED
+IDEOGRAPH-4E00 and kin, 13 runs), which both lexers COMPUTE; `module/build.sh' spells the facts into
+`module/ccl_uninames.h' (the names sorted in strcmp's order under LC_ALL=C for the native lexer's binary search, the
+runs after them; never committed) and the module's `ccl_uname_code' is raw C over it -- Cicili names no C array, the
+numpy module's way -- called from `ccl_lx_ucn' beside `\u' and `\U'; the DCG's `ccl_ucn' takes `N{' and
+`ccl_uname_value' asks the ranges, then the table, LOADED ON THE FIRST `\N{' A PROCESS MEETS (`ccl_uninames_ready',
+`ensure_loaded' of the file found on `$COCOLOG_LIBRARY'; a global remembers it, never a clause, the finding on what
+persists). An EXACT match, as the standards have it; a name that is nobody's is a LEXICAL ERROR in both lexers
+(`ccl_escape' refuses `N{' so the escape never falls to the letter N, and `ccl_lx_escape' the same), as clang refuses
+it. `test/c/run/uniname.c' (a string of five names, one of the computed family, a Hangul syllable, a char, a wide
+char), clang's bytes; the build 2 s at 70 MB, the table's load inside it. Reader version 88. NOT READ: the name ALIASES
+(`NameAliases.txt': the egress proxy of this box refuses unicode.org, so the file could not be fetched; python's
+`unicodedata' takes an alias in `lookup' and enumerates none) -- a small file and a named road.
+(4) FOUND ON THE WAY, older than every step here: `sizeof("abc")' WAS 8. A string literal is typed as the pointer it
+decays to (`ccl_type_of(str(_))', 0.1's) and `sizeof' asked the type; a literal's size is its ARRAY's bytes now
+(`ccl_literal_bytes' at the two doors, the lowering's `ir_expr(sizeof)' and the evaluator's `ccl_const_eval(sizeof)':
+the narrow one its codes and the NUL, a wide one a code point per element, `wchar_t' and `char32_t' four bytes each,
+`char16_t' two), which the uniname fixture's own last line found, printing 2 for clang's 3 over
+`sizeof(L"...x") / sizeof(wchar_t)'. Lowering version 49 -- 48 for the complex integer, 49 after an IR made at 48 had
+reached a probe's store: the second fix's probe was SERVED the old emission in 0 s (`EXIT 0 0 s peak 0 MB', and a
+binary whose time was six minutes old), which is the store's rule (`dr_ir/3') working as written and the reason the
+lowering version moves with every change to what is emitted, however small.
+(5) PROBED AND NAMED, not fixed, each a road of its own: `std::compare_three_way' -- its `operator()' is a member
+template constrained by `three_way_comparable_with<_T1, _T2>', and `cmp(3, 5)' STAYS RAW (`not lowered yet:
+call(id(cmp))'): the member road finds no candidate, leaves the form and traces no refusal (the shape on the program's
+own class, a member template `operator()' with a trailing `decltype(t <=> u)', runs under `auto' and under a written
+result); `std::common_comparison_category_t' -- stops in `__get_comp_type' at `undeclared(bool(false))': its `bool
+_False = false' value parameter, substituted into the `static_assert(_False, ...)' of the branch that `if constexpr'
+should have discarded, arrives as an `id' holding its value.
+NOT DONE, NAMED: the integer imaginary literal's suffixes (`2ui', `3li'); `_Complex int' past 2^60 (`imagi(big(A))',
+refused by name); `\N{...}''s aliases; a pointer to member function's `adj' is always 0; a closure held in a
+`std::function' is the library's discipline (0.45); `stderaseifuset.cpp' (C++20) builds in about 750 s at 3.8 GB and
+stays one fixture; `std::compare_three_way' and `std::common_comparison_category' as above; coroutines, modules,
+`consteval' at compile time, `std::format' and the ranges as before.
+THE GATES: the reader's 95 checks GREEN on this tree at reader 88 (15 s at 266 MB, k84 comparing the two lexers on
+the new lines) and the compile gate's 87 (0.101's 86 and `uniname.c', `complex3.c' beside it) GREEN in 9 s, each under
+the watchdog; the chain of all seven -- the warming of 44 headers at reader 88 first, then the gates one after another
+with nothing beside them -- was RUNNING when this was committed, and its numbers are carried by the next commit, as
+0.102 carried 0.101's.
 
 **`format`, `print`, `println` are global macros** (owner's rule):
 `library/ccl_format.pl` is a macro file registered by `ccl_standard_macros/0`

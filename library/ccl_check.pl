@@ -1096,6 +1096,7 @@ ck_expr(uwb(_), St, St) :- !.
 ck_expr(float(_), St, St) :- !.
 ck_expr(imag(_), St, St) :- !.
 ck_expr(imagf(_), St, St) :- !.
+ck_expr(imagi(_), St, St) :- !.
 ck_expr(chr(_), St, St) :- !.
 ck_expr(str(_), St, St) :- !.
 ck_expr(member(E, F), St0, St) :- ck_path(member(E, F), K), ck_state(St0, K, S), !, ck_expr(E, St0, St), ck_read(K, S).

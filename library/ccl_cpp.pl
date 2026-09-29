@@ -1182,19 +1182,26 @@ cpp_defaulted_cmp(Op, L, Qs, Ret0, Ps, V, All, method(L, Qs, Ret, operator(Op), 
     %% element by element (a nested array through its rows) -- before, a base was not compared at all and an array
     %% member reached the lowering as `==' over two arrays
     ( catch(nb_getval('$cpp_norm_bases', Bases), _, fail) -> true ; Bases = [] ),
-    ( Bases = [B0|_], cpp_base_name_of(B0, BN), atom(BN), \+ cpp_empty_class(BN) -> P0 = [member(deref(id(this)), '$base')-member(id(O), '$base')] ; P0 = [] ),
+    ( Bases = [B0|_], cpp_base_name_of(B0, BN), atom(BN), \+ cpp_empty_class(BN) -> P0 = [pc(member(deref(id(this)), '$base'), member(id(O), '$base'), none)] ; P0 = [] ),
     findall(Pc, ( member(member(MT, N, _), All), atom(N), cpp_cmp_pieces(MT, id(N), member(id(O), N), Pcs), member(Pc, Pcs) ), P1), append(P0, P1, Pieces),
     (   Op == '=='
     ->  Ret = base([], [bool]), cpp_eq_conj(Pieces, Cond), Body = block([return(L, Cond)])
-    ;   cpp_defaulted_ordering(Ret0, All, Ret, RetC),                                                  % <compare>'s class where the header is in (0.101), the int of 0.42 without it
-        findall(if(L, bin('!=', assign('=', id('$c'), bin('-', bin('>', A, B), bin('<', A, B))), int(0)), return(L, RV), none), ( member(A-B, Pieces), cpp_ordering_ret(RetC, id('$c'), RV) ), Ifs),   % a piece's sign as `>' minus `<': a member of a class with its own `<=>' answers the class, whose `>' and `<' the rewritten candidates take
+    ;   cpp_defaulted_ordering(Ret0, Pieces, Ret, RetC),                                               % <compare>'s class where the header is in (0.101), the int of 0.42 without it
+        findall(if(L, bin('!=', assign('=', id('$c'), Sign), int(0)), return(L, RV), none), ( member(pc(A, B, PcT), Pieces), cpp_cmp_sign(RetC, PcT, A, B, Sign), cpp_ordering_ret(RetC, id('$c'), RV) ), Ifs),   % a piece's sign as `>' minus `<': a member of a class with its own `<=>' answers the class, whose `>' and `<' the rewritten candidates take
         D = declaration(L, none, base([], [int]), [var('$c', base([], [int]), int(0))]), cpp_ordering_ret(RetC, int(0), R0), append([D|Ifs], [return(L, R0)], B1), Body = block(B1) ).
 %% the result of a defaulted `<=>': the class WRITTEN (`std::strong_ordering operator<=>(...) const = default'), else
 %% the common comparison category of the members ([class.spaceship]/4: partial_ordering where one is floating, else
 %% strong_ordering) when <compare> is in, else an int
 cpp_defaulted_ordering(Ret0, _, Ret0, C) :- Ret0 \= base(_, [auto]), catch(cpp_type(Ret0, T), _, fail), cpp_class_of_type(T, C), memberchk(C, [strong_ordering, weak_ordering, partial_ordering]), !.
-cpp_defaulted_ordering(_, All, base([], [typedef(C)]), C) :- ( member(member(MT, _, _), All), ccl_is_float(MT) -> Kind = partial ; Kind = strong ), cpp_ordering_class(Kind, C), !.
+cpp_defaulted_ordering(_, Pieces, base([], [typedef(C)]), C) :- ( member(pc(_, _, PT), Pieces), cpp_float_piece(PT) -> Kind = partial ; Kind = strong ), cpp_ordering_class(Kind, C), !.
 cpp_defaulted_ordering(_, _, base([], [int]), none).
+cpp_float_piece(PT) :- PT \== none, ccl_is_float(PT).
+%% A FLOATING PIECE OF A DEFAULTED `<=>' THAT ANSWERS partial_ordering IS UNORDERED WHERE EITHER SIDE IS A NaN
+%% ([class.spaceship]/2: the member's own `<=>', which for a floating type is a partial_ordering; 0.103): its sign is
+%% -127 unless both compare equal to themselves, as the scalar `<=>' already had it (cpp_scalar_ordering) -- before,
+%% the lexicographic chain took `>' minus `<' and a NaN member read as equivalent
+cpp_cmp_sign(partial_ordering, PT, A, B, cond(bin('&&', bin('==', A, A), bin('==', B, B)), S, int(-127))) :- cpp_float_piece(PT), !, S = bin('-', bin('>', A, B), bin('<', A, B)).
+cpp_cmp_sign(_, _, A, B, bin('-', bin('>', A, B), bin('<', A, B))).
 cpp_ordering_ret(none, V, V) :- !.
 cpp_ordering_ret(C, V, E) :- cpp_ordering_value(C, V, E).
 cpp_base_name_of(base(_, N), N).
@@ -1202,12 +1209,12 @@ cpp_base_name_of(base(_, N, _), N).
 cpp_base_name_of(N, N) :- atom(N).
 cpp_cmp_pieces(T, A, B, Pieces) :- ccl_resolve_type(T, arr(Bound, ET)), ccl_const_eval(Bound, K), !, K1 is K - 1,
     findall(Pc, ( between(0, K1, I), cpp_cmp_pieces(ET, index(A, int(I)), index(B, int(I)), Pcs), member(Pc, Pcs) ), Pieces).
-cpp_cmp_pieces(_, A, B, [A-B]).
+cpp_cmp_pieces(T, A, B, [pc(A, B, T)]).   % a piece: the two operands and the member's type, for the floating test above
 cpp_cmp_self(_, ref([], base([const], [typedef(C)]))) :- once(catch(nb_getval('$cpp_class_ctx', C), _, fail)), atom(C), !.
 cpp_cmp_self(_, ref([], base([const], [auto]))).
 cpp_eq_conj([], bool(true)).
-cpp_eq_conj([A-B], bin('==', A, B)) :- !.
-cpp_eq_conj([A-B|Ps], bin('&&', bin('==', A, B), R)) :- cpp_eq_conj(Ps, R).
+cpp_eq_conj([pc(A, B, _)], bin('==', A, B)) :- !.
+cpp_eq_conj([pc(A, B, _)|Ps], bin('&&', bin('==', A, B), R)) :- cpp_eq_conj(Ps, R).
 cpp_member_body(method(_, _, _, _, _, _, B), B).
 cpp_member_body(ctor(_, _, _, _, B), B).
 cpp_member_body(dtor(_, _, B), B).

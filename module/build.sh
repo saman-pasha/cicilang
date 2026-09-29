@@ -22,6 +22,18 @@ ROOT=$ROOT_SAVED
 OUT=${OUT:-$ROOT/library}
 
 ln -sfn "$COCOLOG/lib/sdk.cicili" "$HERE/sdk.cicili"
+# the Unicode name table for `\N{NAME}', spelled ONCE from library/ccl_uninames.pl (0.103): the names sorted for the
+# native lexer's binary search (strcmp's order, LC_ALL=C), the hex-suffixed families' runs after them
+TAB=$(printf '\t')
+{
+  echo "static const struct ccl_uname_row { const char *n; unsigned c; } ccl_unames[] = {"
+  awk -F"'" '/^ccl_uname\(/ { v = $3; sub(/^, /, "", v); sub(/\)\.$/, "", v); print $2 "\t" v }' "$ROOT/library/ccl_uninames.pl" \
+    | LC_ALL=C sort -t "$TAB" -k1,1 | awk -F"\t" '{ printf "{\"%s\", %s},\n", $1, $2 }'
+  echo "};"
+  echo "static const struct ccl_uname_fam { const char *p; unsigned lo, hi; } ccl_uname_fams[] = {"
+  awk -F"'" '/^ccl_uname_range\(/ { v = $3; sub(/^, /, "", v); sub(/\)\.$/, "", v); printf "{\"%s\", %s},\n", $2, v }' "$ROOT/library/ccl_uninames.pl"
+  echo "};"
+} > "$HERE/ccl_uninames.h"
 mkdir -p "$OUT"
 ( cd "$CICILI" && sbcl --script cicili.lisp --release "$HERE/cocolang.cicili" )
 "$CC" -shared -fPIC -O2 -Wno-unused-function \

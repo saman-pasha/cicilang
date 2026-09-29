@@ -6,6 +6,7 @@
 struct P { int x; int y; auto operator<=>(const P &) const = default; };
 struct Q { double d; int k; auto operator<=>(const Q &) const = default; };
 struct R { P p; int z; std::strong_ordering operator<=>(const R &) const = default; };
+struct W { double a; std::partial_ordering operator<=>(const W &) const = default; };
 int main() {
     int a = 3, b = 5;
     std::strong_ordering o = a <=> b;
@@ -20,6 +21,10 @@ int main() {
     printf("%d %d %d\n", (int) (u < v), (int) ((v <=> u) == std::partial_ordering::greater), (int) ((u <=> u) == 0));
     R r{{1, 2}, 9}, t{{1, 3}, 0};
     printf("%d %d %d\n", (int) (r < t), (int) ((t <=> r) > 0), (int) (r == r));
+    Q n1{nan, 1}, n2{1.0, 1};                                                                   // a NaN member: the defaulted <=> is unordered (0.103)
+    printf("%d %d %d %d\n", (int) ((n1 <=> n2) == std::partial_ordering::unordered), (int) (n1 < n2), (int) (n1 >= n2), (int) ((n2 <=> n2) == 0));
+    W w1{nan}, w2{0.0};
+    printf("%d %d %d\n", (int) ((w1 <=> w2) == std::partial_ordering::unordered), (int) ((w2 <=> w2) == 0), (int) ((w2 <=> w1) < 0));
     int arr[2] = {0, 0}; int *s1 = arr, *s2 = arr + 1;
     std::strong_ordering ps = s1 <=> s2;
     printf("%d %d\n", (int) (ps < 0), (int) (std::weak_ordering::equivalent == 0));
