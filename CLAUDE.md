@@ -57,8 +57,16 @@ bin/cocolang               the command: clang's arguments, one cocolog run over 
                          six forks, since each is a floor (the findings)
 bin/cocolang++             cocolang for C++ (M5): the same, every input read as C++, in memory, linked by c++
 test/cpp.pl, cpp.sh      the C++ reader's gate: 34 checks over test/cpp/*.cpp (the mangler's is c34), the six C++ files of Cicili's
-                         test suite read whole, hello.cpp built through cocolang++, and again from the summaries
-test/libcxx.pl, libcxx.sh  the road to libc++: <vector>, <string>, <iostream>, <map>, <set>, <unordered_map>, <unordered_set>, <optional>, <memory>, <functional> and <tuple> flattened and read WHOLE, under a fresh HOME,
+                         test suite read whole, hello.cpp built through cocolang++, and again from the summaries; the
+                         test/cpp/run fixtures built IN PARALLEL through the pool, longest first (0.105)
+test/parlib.sh           the gates' parallel pool (0.105): ccl_pool runs N jobs at once while the summed RSS of every
+                         cocolog is under a launch budget, kills the pool past a hard cap; ccl_lpt_order puts the
+                         longest jobs first from a timings file (~/.cocolang/fixture-times, header-times)
+test/gates.sh            every gate in one chain (0.105): the four small gates and the proof, then libcxx.sh, then cpp.sh
+test/readhdr.pl          one library header read whole in its own process, its item count against a minimum (libcxx.sh's job)
+test/warm.sh             a shim since 0.105: the warm is libcxx.sh's own product now
+test/libcxx.pl, libcxx.sh  the road to libc++ AND the C++ summary cache's warm, ONE cold parallel pass since 0.105 (libcxx.pl is the
+                         old one-process form, kept): <vector>, <string>, <iostream>, <map>, <set>, <unordered_map>, <unordered_set>, <optional>, <memory>, <functional> and <tuple> flattened and read WHOLE, the cache wiped first,
                          and at the levels: <set>, <map>, <unordered_map>, <unordered_set> at C++20, <optional>, <string> at C++23, <optional> at C++26;
                          test/cpp/run/std*.cpp are the standard streams built against libc++ and run: cout, endl, cin, getline, get, ws,
                          the extractors and inserters (stdistream, stdistream2, stdostream), the manipulators (stdmanip), and the
@@ -106,6 +114,10 @@ sh test/compile.sh
 sh test/driver.sh
 sh proof/run.sh
 ```
+
+or all seven in one chain, `sh test/gates.sh` (0.105): the C gates and the proof one after another,
+then `test/libcxx.sh` (the library headers read cold in parallel, the C++ cache left warm), then
+`test/cpp.sh` (the fixtures built in parallel over that cache). `GATES_JOBS=N` narrows the lanes.
 
 **`bin/cocolang` takes clang's arguments** (owner's rule: no new flags to
 learn): `-c -S -emit-llvm -fsyntax-only -o -O0..-Oz -I -l -L -shared -v
@@ -5688,9 +5700,55 @@ as 0.104), on this tree at reader 90 and lowering 50: the reader's 95 checks GRE
 two lexers on the new lines of `test/c/lexer.c'); the compile gate's 88 GREEN in 20 s at 666 MB. The fixtures the
 rules touch were built ONE AT A TIME under the probe's caps before anything else: stdcompare2 (12 s, 294 MB),
 stdcompare, defaultcmp2, lambdas2, closurescope, stdoptional3 (239 s, 1764 MB) PASS, the rest of the loop running.
-The chain of all seven -- `test/warm.sh' at reader 90 first, then the gates one after another with nothing beside
-them -- follows this commit, and its numbers are carried by the next one, as 0.102 carried 0.101's: 0.103's own
-chain was stopped after the C gates on the owner's word, so 0.103's C++ and libc++ numbers are this chain's too.
+The chain of all seven that was to follow this commit was STOPPED ten minutes in, on the owner's word ("7 hours is
+ridiculous"), and replaced by 0.105's parallel gates; 0.103's and 0.104's C++ and libc++ numbers are 0.105's chain's.
+Before it stopped, sixteen fixtures the rules touch were built one at a time and PASSED (stdbindfront 840 s,
+stdtuple 631 s and stdmap 638 s among them; stdfunction killed once at the probe's 4000 MB cap during a cold flatten,
+then 226 s and 1518 MB warm).
+
+**M6's seventy-first step (0.105): THE GATES IN PARALLEL -- seven hours was a serial chain doing one piece of
+work twice.** The owner: "Refactor test cases and gates, 7 hours is ridiculous." MEASURED FIRST, from 0.101's
+chain on this box (four cores, 16 GB): the warm read 44 library headers cold, one a process, in 10155 s; the libc++
+gate read 22 of the SAME headers cold AGAIN, under a fresh HOME, in 8957 s; the C++ gate built its fixtures one at a
+time in 5935 s; the four small gates and the proof took under a minute. Two defects of design and no defect of the
+compiler: THE SAME COLD READ TWICE, and ONE CORE OF FOUR in use throughout. (1) THE POOL (`test/parlib.sh'):
+`ccl_pool NMAX LAUNCH_MB HARD_MB' runs job lines from its input, up to NMAX at once, and launches the next one only
+while the summed resident size of every cocolog is under LAUNCH_MB (9000), killing the whole pool past HARD_MB
+(14000) -- a build peaks in the gigabytes and cocolog has no collector (the finding), so a lane count alone would
+exhaust the box; the memory gate lets the light builds pack onto the cores while a heavy one holds the next launch
+back. POSIX: the running children are tracked by PID and `kill -0', since dash has no `jobs -r' -- the first
+writing used it, dash printed `Illegal option' once a second and the pool ran ONE job at a time, which looked like
+a slow pool rather than a broken one until the log was read. And a pool's wall clock is its LAST job's end, so the
+jobs go LONGEST FIRST (`ccl_lpt_order', the classic LPT rule): each job's seconds are appended to a timings file
+(`~/.cocolang/fixture-times', `header-times'; the last line per key wins, the unknown first), and the next run
+orders by them. Measured on twelve fixtures over a warm cache: 245 s in four lanes where their warm serial sum is
+420 s, every one PASS-identical, 3 GB summed at the peak. (2) THE LIBRARY READ IS THE WARM (`test/libcxx.sh',
+`test/readhdr.pl'): a summary is keyed by the reader's version and every dep's time (`ccl_sum_valid'), so after a
+version bump every summary is cold whatever HOME holds it, and the libc++ gate's fresh HOME bought nothing but a
+second cold read of what the warm had just read. The phase now WIPES the user's C++ cache, reads the UNION -- the
+22 library headers at their levels, each asserted to read whole to its minimum, and the 21 other headers the
+fixtures and Cicili's C++ files include, warmed by a syntax-only build -- ONE HEADER A PROCESS through the pool, each
+read capped by coreutils' `timeout -s KILL' (which kills the process group it leads, the cocolog grandchild
+included; the old warm's cap had been lost in the first writing and was put back before this commit), and leaves
+the summaries written: the C++ gate after it is fully warm, and `test/warm.sh' is a shim that runs it. Measured
+into a throwaway HOME: GREEN in 3277 s where the two serial phases took 19112 s -- every one of the 22 counts equal
+to 0.101's (<vector> 806 and 898 at C++20, <iostream> 792 and 884, <unordered_set> 833 and 925, <string> 754, 846
+and 522 at C++23, <optional> 602, 397 and 397 ...), the 21 others warmed and none failed -- and that run had the
+heavy headers in its first lanes by accident and <functional> at C++20 starting last, which the longest-first order
+now prevents. (3) THE C++ GATE BUILDS ITS FIXTURES IN PARALLEL (`test/cpp.sh'): each fixture is one self-contained
+job (`ccl_fixture': built under its own time cap, run with its .stdin, compared with its .expect) whose verdict goes
+to a file of its own, so four lanes never interleave on the output; the verdicts are collected in alphabetical
+order after the pool, so the report reads as it did; the reader's checks (`test/cpp.pl', one process), the
+refused-by-name builds and the summary-cache check stay serial, being seconds. `CPP_JOBS=1' is the old gate. (4)
+ONE CHAIN (`test/gates.sh'): reader, compile, driver, objects and the proof one after another, then the library
+read, then the C++ gate, each line `== NAME: GREEN in N s', a RED stopping it; `GATES_JOBS' sets the lanes of both
+parallel phases. THE TEST CASES THEMSELVES are unchanged: 176 fixtures, and no fixture was merged or dropped --
+each names what it proves, and a merged one would say less when it fails. A LESSON worth the line: a shell script
+is READ AS IT RUNS, so a gate script edited while that gate is running continues from its old byte offset into the
+new text; the longest-first libcxx.sh waited in a scratch file until the validating run had exited.
+WHAT IS MEASURED AND WHAT IS NOT: the pool on twelve fixtures and the library read whole, above; the full chain
+`sh test/gates.sh' over the user's cache follows this commit, and its numbers -- and 0.103's and 0.104's C++ and
+libc++ ones, whose serial chains were stopped -- are carried by the next commit.
 
 **`format`, `print`, `println` are global macros** (owner's rule):
 `library/ccl_format.pl` is a macro file registered by `ccl_standard_macros/0`
