@@ -22,7 +22,7 @@
 %% every member at its address), bitfields (a struct's shape follows its C
 %% layout, a run of bitfields one [K x i8] read and written through masks),
 %% static locals (a private global of the function's). Not yet: VLAs,
-%% long double, _Complex -- each throws error(not_lowered(What), where(F)).
+%% long double (as a double) -- each throws error(not_lowered(What), where(F)); the complex types are lowered since 0.100.
 %%
 %% A struct by value crosses a call the way the platform's C ABI says (M3):
 %% on x86-64 (SysV) a struct of 16 bytes or less is split into eightbytes,
@@ -45,7 +45,7 @@
 %% the lowering's version: part of the key of every IR the driver keeps in the
 %% store (library(ccl_driver)); BUMP it whenever the check or the lowering
 %% changes what they emit, as ccl_reader_version/1 is bumped for the grammar
-ccl_lowering_version(46).   % 46 (0.100): a function bound to a reference to a pointer converts into a materialized pointer temporary; 45 (0.100): a pointer to member function as the ABI's { ptr, adj }, C's complex types as two components; 44: the VLA's bounds kept in its type, a VLA of a VLA flat, _Alignas on an object, a wide string into an array with the rest zero, a data-member pointer as an offset, a null pointer to a base at an offset, the C11 atomic builtins and _Atomic objects atomic (0.99); 43: an empty `[[no_unique_address]]' member has no element and its address is the ABI's byte offset; 42: a conditional over two void arms has no phi
+ccl_lowering_version(50).   % 50 (0.104): the integer imaginary literal's real type from its suffix, a big one spelled whole; 49 (0.103): sizeof a string literal is its bytes; 48 (0.103): _Complex int, two integer components, the integer imaginary literal; 47 (0.101): the imaginary literal, Annex G's multiplication and division through the runtime's __muldc3 and __divdc3, the components as places; 46 (0.100): a function bound to a reference to a pointer converts into a materialized pointer temporary; 45 (0.100): a pointer to member function as the ABI's { ptr, adj }, C's complex types as two components; 44: the VLA's bounds kept in its type, a VLA of a VLA flat, _Alignas on an object, a wide string into an array with the rest zero, a data-member pointer as an offset, a null pointer to a base at an offset, the C11 atomic builtins and _Atomic objects atomic (0.99); 43: an empty `[[no_unique_address]]' member has no element and its address is the ABI's byte offset; 42: a conditional over two void arms has no phi
 %% ccl_lowering_version(41).   % 41: a literal past 2^60 spelled whole; 40.   % 40: a base clause naming a bound type parameter takes its class, a scope name is the class's own typedef first (libc++ 18), -lc++ on Linux; 39: C23 (_BitInt as iN, the overflow builtins, unreachable), a VLA at run time, thread_local, the wide literals, [[assume]]; 38: a conditional over two lvalues is an lvalue, and its address the phi of theirs;  % 37: wchar_t, char16_t and char32_t have LLVM types, and a function template's shipped instance its Itanium symbol;  % 36: an rvalue prefers `T &&' where a TEMPLATE's candidate is judged (cpp_ref_rank), so std::get answers `int &&' and not `int &';  % 35: a CAST TO A REFERENCE converts from the operand's class to the cast's own target, so a reference or a pointer to a SECOND base is offset (ir_ref_to);  % 34: an empty class is one byte, an `alignas' one padded to its alignment, and a `[[no_unique_address]]' empty member a zero-sized element -- every struct's shape may move
 
 ccl_ir_units(Units0, IR) :-
@@ -169,7 +169,7 @@ ir_type_(memptr(_, _, _), i64) :- !.                                      % a po
 ir_type_(arr(NE, E), LL) :- !, ir_type(E, EL), ( ccl_const_eval(NE, N) -> true ; N = 0 ), atomic_list_concat(['[', N, ' x ', EL, ']'], LL).   % a flexible member: [0 x T]
 ir_type_(T, _) :- ir_fail(type(T)).
 ir_base(S, void) :- memberchk(void, S), !.
-ir_base(S, LL) :- memberchk('_Complex', S), !, ( memberchk(float, S) -> LL = '{ float, float }' ; LL = '{ double, double }' ).   % C's complex types: two components (0.100)
+ir_base(S, LL) :- memberchk('_Complex', S), !, ccl_complex_real(base([], S), R), ir_type(R, E), atomic_list_concat(['{ ', E, ', ', E, ' }'], LL).   % C's complex types: two components (0.100); `{ i32, i32 }' for a `_Complex int' (0.103)
 ir_base(S, double) :- memberchk(double, S), !.
 ir_base(S, float) :- memberchk(float, S), !.
 ir_base(S, half) :- memberchk('_Float16', S), !.
@@ -386,7 +386,7 @@ ir_leaves(T, Off, Ls) :-
     ;   T1 = base(_, [union(_, Ms)]), Ms \== none -> ir_union_leaves(Ms, Off, Ls)
     ;   T1 = arr(int(K), E) -> ccl_size_align(E, ES, _), ir_array_leaves(K, E, ES, Off, Ls)
     ;   T1 = memptr(_, _, F), ccl_resolve_type(F, fn(_, _, _)) -> Off8 is Off + 8, Ls = [leaf(Off, int), leaf(Off8, int)]   % a pointer to member function: two INTEGER eightbytes (0.100)
-    ;   T1 = base(_, S), memberchk('_Complex', S) -> ( memberchk(float, S) -> Off4 is Off + 4, Ls = [leaf(Off, float), leaf(Off4, float)] ; Off8 is Off + 8, Ls = [leaf(Off, double), leaf(Off8, double)] )   % a complex crosses a call as its two components (SysV: SSE eightbytes; 0.100)
+    ;   T1 = base(_, S), memberchk('_Complex', S) -> ccl_complex_real(T1, R), ccl_size_align(R, ES, _), Off2 is Off + ES, ir_leaves(R, Off, L1), ir_leaves(R, Off2, L2), append(L1, L2, Ls)   % a complex crosses a call as its two components (SysV: SSE eightbytes for a floating one, INTEGER ones for a _Complex int; 0.100, 0.103)
     ;   ir_is_fp(T1) -> ( T1 = base(_, S), memberchk(float, S) -> Ls = [leaf(Off, float)] ; Ls = [leaf(Off, double)] )
     ;   Ls = [leaf(Off, int)] ).
 ir_member_leaves(Ms, Base, _, Ls) :- ccl_members_layout(Ms, Lays, _, _), ir_lay_leaves(Lays, Base, Ls).
@@ -469,7 +469,7 @@ ir_convert(V, From, _, To, TL, V1) :- ( From = ref(_, RT) ; From = rref(_, RT) )
 %% to the class itself, converts as it did. A null pointer is not spared the offset (not done).
 ir_convert(V, From, ptr, To, ptr, V1) :- ir_class_pointee(From, D), ir_class_pointee(To, A), D \== A, ir_base_path(D, A), !, ir_base_hops(V, D, A, V0),
     ( V == null -> V1 = null ; ir_fresh(Z), ir_ins([Z, ' = icmp eq ptr ', V, ', null']), ir_fresh(V1), ir_ins([V1, ' = select i1 ', Z, ', ptr null, ptr ', V0]) ).   % A NULL POINTER STAYS NULL ([conv.ptr]/3; 0.99): it was given the base's offset
-ir_convert(V, From, FL, To, TL, V1) :- ( ir_complex_ll(FL) ; ir_complex_ll(TL) ), !, ir_complex_convert(V, From, FL, To, TL, V1).   % a complex from a real (the imaginary part zero), a real from a complex (its real part), one complex to another (0.100)
+ir_convert(V, From, FL, To, TL, V1) :- ( ccl_is_complex(From) ; ccl_is_complex(To) ), !, ir_complex_convert(V, From, FL, To, TL, V1).   % by the C TYPES: an ABI piece `{ i64, i64 }' is no complex (0.103)   % a complex from a real (the imaginary part zero), a real from a complex (its real part), one complex to another (0.100)
 ir_convert(V, From, FL, To, TL, V1) :-
     (   ir_is_bool(To), \+ ir_is_bool(From) -> ir_to_bool(V, From, FL, V1)   % C++: a bool is 0 or 1, whatever came
     ;   FL == TL -> V1 = V
@@ -484,9 +484,9 @@ ir_convert(V, From, FL, To, TL, V1) :-
     ;   ir_op1(zext, FL, V, TL, V1) ).
 ir_isfn(T) :- ccl_resolve_type(T, fn(_, _, _)).
 ir_complex_convert(V, _, FL, _, TL, V) :- FL == TL, !.
-ir_complex_convert(V, From, FL, To, TL, V1) :- ir_complex_ll(FL), ir_complex_ll(TL), !, ir_complex_parts(V, FL, R, I), ir_complex_elem(FL, FE), ir_complex_elem(TL, TE),
+ir_complex_convert(V, From, FL, To, TL, V1) :- ccl_is_complex(From), ccl_is_complex(To), !, ir_complex_parts(V, FL, R, I), ir_complex_elem(FL, FE), ir_complex_elem(TL, TE),
     ccl_complex_real(From, FR), ccl_complex_real(To, TR), ir_convert(R, FR, FE, TR, TE, R1), ir_convert(I, FR, FE, TR, TE, I1), ir_complex_make(TL, R1, I1, V1).
-ir_complex_convert(V, From, FL, To, TL, V1) :- ir_complex_ll(TL), !, ir_complex_elem(TL, EL), ccl_complex_real(To, RT), ir_convert(V, From, FL, RT, EL, R), ir_zero(EL, Z), ir_complex_make(TL, R, Z, V1).
+ir_complex_convert(V, From, FL, To, TL, V1) :- ccl_is_complex(To), !, ir_complex_elem(TL, EL), ccl_complex_real(To, RT), ir_convert(V, From, FL, RT, EL, R), ir_zero(EL, Z), ir_complex_make(TL, R, Z, V1).
 ir_complex_convert(V, From, FL, To, TL, V1) :- ir_complex_parts(V, FL, R, _), ir_complex_elem(FL, EL), ccl_complex_real(From, RT), ir_convert(R, RT, EL, To, TL, V1).
 ir_is_bool(T) :- ccl_resolve_type(T, base(_, S)), memberchk(bool, S), !.
 ir_to_bool(V, From, FL, V1) :-
@@ -575,6 +575,9 @@ ir_expr(ulong(N), N, base([], [unsigned, long]), i64) :- !.
 ir_expr(wb(N), N, T, LL) :- !, ccl_type_of(wb(N), T), ir_type(T, LL).
 ir_expr(uwb(N), N, T, LL) :- !, ccl_type_of(uwb(N), T), ir_type(T, LL).
 ir_expr(float(F), A, base([], [double]), double) :- !, ir_double(F, A).
+ir_expr(imag(F), V, base([], ['_Complex', double]), LL) :- !, LL = '{ double, double }', ir_double(F, A), ir_complex_make(LL, '0.0', A, V).   % the imaginary literal `2.0i' (0.101): the constant { 0, F }
+ir_expr(imagf(F), V, T, LL) :- !, ir_expr(imag(F), V0, T0, L0), T = base([], ['_Complex', float]), LL = '{ float, float }', ir_complex_convert(V0, T0, L0, T, LL, V).
+ir_expr(imagi(Sp, N), V, T, LL) :- !, T = base([], ['_Complex'|Sp]), ir_type(T, LL), ( integer(N) -> Txt = N ; N = big(A), ir_big_text(A, Txt) ), ir_complex_make(LL, 0, Txt, V).   % `3i', `2ui', `3li': the constant { 0, N } of its kind (0.103; the kind from the suffix and a literal past 2^60 spelled as it is, 0.104)
 ir_expr(chr(C), C, base([], [char]), i8) :- ccl_lang(cpp), !.   % C++: a char, as the inference types it
 ir_expr(chr(C), C, T, i32) :- !, ir_int(T).
 ir_expr(str(S), Ref, ptr([], base([], [char])), ptr) :- !, ir_string(S, Ref).
@@ -594,6 +597,22 @@ ir_expr(id(N), V, T, LL) :- !,
     (   T1 = arr(_, E) -> V = Addr, T = ptr([], E), LL = ptr
     ;   T1 = fn(_, _, _) -> V = Addr, T = ptr([], T0), LL = ptr
     ;   ir_type(T1, LL), ir_fresh(V), ir_ins([V, ' = load ', LL, ', ptr ', Addr]), T = T1 ).
+%% THE FLOATING CONSTANTS' BUILTINS, which glibc's <math.h> writes INFINITY, NAN, HUGE_VAL and HUGE_VALF on (0.101):
+%% `__builtin_inf()', `__builtin_inff()', `__builtin_nan("")', `__builtin_nanf("")', `__builtin_huge_val()', `__builtin_huge_valf()'
+ir_expr(call(id(B), _), V, T, LL) :- ir_float_builtin(B, V, T, LL), !.
+%% ... AND THE CLASSIFICATION BUILTINS glibc's isnan, isinf, isfinite and signbit expand to under a clang-shaped compiler
+%% (0.101): `fcmp' over the value, an int answered
+ir_expr(call(id(B), [X]), V, T, i32) :- ir_fp_class(B), !, ir_int(T), ir_expr(X, V0, T0, L0), ( ir_fp_ll(L0) -> V1 = V0, L1 = L0 ; ir_convert(V0, T0, L0, base([], [double]), double, V1), L1 = double ), ir_fp_class_(B, V1, L1, V).
+ir_fp_class('__builtin_isnan'). ir_fp_class('__builtin_isinf'). ir_fp_class('__builtin_isinf_sign'). ir_fp_class('__builtin_isfinite'). ir_fp_class('__builtin_signbit'). ir_fp_class('__builtin_isnormal').
+ir_fp_class_('__builtin_isnan', X, L, V) :- ir_fresh(C), ir_ins([C, ' = fcmp uno ', L, ' ', X, ', ', X]), ir_fresh(V), ir_ins([V, ' = zext i1 ', C, ' to i32']).
+ir_fp_class_('__builtin_isinf', X, L, V) :- ir_fp_inf(X, L, P, N), ir_fresh(C), ir_ins([C, ' = or i1 ', P, ', ', N]), ir_fresh(V), ir_ins([V, ' = zext i1 ', C, ' to i32']).
+ir_fp_class_('__builtin_isinf_sign', X, L, V) :- ir_fp_inf(X, L, P, N), ir_fresh(A), ir_ins([A, ' = zext i1 ', P, ' to i32']), ir_fresh(B), ir_ins([B, ' = zext i1 ', N, ' to i32']), ir_fresh(V), ir_ins([V, ' = sub i32 ', A, ', ', B]).
+ir_fp_class_('__builtin_isfinite', X, L, V) :- ir_fp_inf(X, L, P, N), ir_fresh(O), ir_ins([O, ' = fcmp ord ', L, ' ', X, ', ', X]), ir_fresh(I), ir_ins([I, ' = or i1 ', P, ', ', N]), ir_fresh(NI), ir_ins([NI, ' = xor i1 ', I, ', true']), ir_fresh(C), ir_ins([C, ' = and i1 ', O, ', ', NI]), ir_fresh(V), ir_ins([V, ' = zext i1 ', C, ' to i32']).
+ir_fp_class_('__builtin_isnormal', X, L, V) :- ir_fp_class_('__builtin_isfinite', X, L, F), ( L == float -> Min = '0x3810000000000000' ; Min = '0x0010000000000000' ),   % finite, and no smaller than the least normal
+    ir_fresh(Ab), ir_ins([Ab, ' = call ', L, ' @llvm.fabs.', L, '(', L, ' ', X, ')']), atomic_list_concat(['declare ', L, ' @llvm.fabs.', L, '(', L, ')'], D), atomic_list_concat(['llvm.fabs.', L], IN), ir_note_extern(IN, raw(D)),
+    ir_fresh(G), ir_ins([G, ' = fcmp oge ', L, ' ', Ab, ', ', Min]), ir_fresh(Gi), ir_ins([Gi, ' = zext i1 ', G, ' to i32']), ir_fresh(V), ir_ins([V, ' = and i32 ', F, ', ', Gi]).
+ir_fp_class_('__builtin_signbit', X, L, V) :- ( L == float -> IL = i32, Sh = 31 ; IL = i64, Sh = 63 ), ir_fresh(B), ir_ins([B, ' = bitcast ', L, ' ', X, ' to ', IL]), ir_fresh(S), ir_ins([S, ' = lshr ', IL, ' ', B, ', ', Sh]), ( IL == i32 -> V = S ; ir_fresh(V), ir_ins([V, ' = trunc i64 ', S, ' to i32']) ).
+ir_fp_inf(X, L, P, N) :- ir_fresh(P), ir_ins([P, ' = fcmp oeq ', L, ' ', X, ', 0x7FF0000000000000']), ir_fresh(N), ir_ins([N, ' = fcmp oeq ', L, ' ', X, ', 0xFFF0000000000000']).
 ir_expr(call(id('__builtin_complex'), [A, B]), V, T, LL) :- !, ccl_type_of(A, TA0), ccl_complex_of(TA0, T), ir_type(T, LL), ir_complex_elem(LL, EL), ccl_complex_real(T, RT),   % C11's CMPLX(x, y), and I (0.100)
     ir_expr(A, VA, TA, LA), ir_expr(B, VB, TB, LB), ir_convert(VA, TA, LA, RT, EL, R), ir_convert(VB, TB, LB, RT, EL, I), ir_complex_make(LL, R, I, V).
 ir_expr(call(F, Args), V, RT, LL) :- !,
@@ -639,29 +658,48 @@ ir_expr(bin(Op, A, B), V, T, i32) :- memberchk(Op, ['==', '!=']), ccl_type_of(A,
     ir_int(T), ccl_complex_usual(TA0, TB0, CT), ir_type(CT, LL), ir_complex_elem(LL, EL),
     ir_expr(A, VA, TA, LA), ir_expr(B, VB, TB, LB), ir_convert(VA, TA, LA, CT, LL, A1), ir_convert(VB, TB, LB, CT, LL, B1),
     ir_complex_parts(A1, LL, Ar, Ai), ir_complex_parts(B1, LL, Br, Bi),
-    ir_fresh(C1), ir_ins([C1, ' = fcmp oeq ', EL, ' ', Ar, ', ', Br]), ir_fresh(C2), ir_ins([C2, ' = fcmp oeq ', EL, ' ', Ai, ', ', Bi]),
+    ( ir_fp_ll(EL) -> Cmp = 'fcmp oeq' ; Cmp = 'icmp eq' ),                                       % an integer complex compares its integer components (0.103)
+    ir_fresh(C1), ir_ins([C1, ' = ', Cmp, ' ', EL, ' ', Ar, ', ', Br]), ir_fresh(C2), ir_ins([C2, ' = ', Cmp, ' ', EL, ' ', Ai, ', ', Bi]),
     ir_fresh(C3), ir_ins([C3, ' = and i1 ', C1, ', ', C2]), ( Op == '==' -> C = C3 ; ir_fresh(C), ir_ins([C, ' = xor i1 ', C3, ', true']) ), ir_bool(C, V).
 ir_expr(bin(Op, A, B), V, T, i32) :- ir_cmp_op(bin(Op, A, B), _), !, ir_int(T), ir_expr_i1(bin(Op, A, B), C), ir_bool(C, V).
 ir_expr(bin(Op, A, B), V, T, LL) :- memberchk(Op, ['+', '-', '*', '/']), ccl_type_of(A, TA0), ccl_type_of(B, TB0), ( ccl_is_complex(TA0) ; ccl_is_complex(TB0) ), !,   % COMPLEX ARITHMETIC (Annex G's formulas without the special cases; 0.100)
     ccl_complex_usual(TA0, TB0, T), ir_type(T, LL), ir_complex_elem(LL, EL),
     ir_expr(A, VA, TA, LA), ir_expr(B, VB, TB, LB), ir_convert(VA, TA, LA, T, LL, A1), ir_convert(VB, TB, LB, T, LL, B1),
-    ir_complex_parts(A1, LL, Ar, Ai), ir_complex_parts(B1, LL, Br, Bi), ir_complex_op(Op, EL, Ar, Ai, Br, Bi, Rr, Ri), ir_complex_make(LL, Rr, Ri, V).
+    ir_complex_parts(A1, LL, Ar, Ai), ir_complex_parts(B1, LL, Br, Bi), ccl_complex_real(T, RT), ir_complex_op(Op, RT, EL, Ar, Ai, Br, Bi, Rr, Ri), ir_complex_make(LL, Rr, Ri, V).
 ir_expr(bin(Op, A, B), V, T, LL) :- !, ir_expr(A, VA, TA, LA), ir_binary(Op, VA, TA, LA, B, V, T, LL).
-ir_complex_ll('{ double, double }').
-ir_complex_ll('{ float, float }').
+ir_complex_ll(LL) :- ir_complex_elem(LL, _).
 ir_complex_elem('{ double, double }', double).
 ir_complex_elem('{ float, float }', float).
+ir_complex_elem('{ i64, i64 }', i64).   ir_complex_elem('{ i32, i32 }', i32).   % `_Complex long', `_Complex int' (0.103)
+ir_complex_elem('{ i16, i16 }', i16).   ir_complex_elem('{ i8, i8 }', i8).
 ir_complex_parts(V, LL, R, I) :- ir_fresh(R), ir_ins([R, ' = extractvalue ', LL, ' ', V, ', 0']), ir_fresh(I), ir_ins([I, ' = extractvalue ', LL, ' ', V, ', 1']).
 ir_complex_make(LL, R, I, V) :- ir_complex_elem(LL, EL), ir_fresh(V1), ir_ins([V1, ' = insertvalue ', LL, ' undef, ', EL, ' ', R, ', 0']), ir_fresh(V), ir_ins([V, ' = insertvalue ', LL, ' ', V1, ', ', EL, ' ', I, ', 1']).
 ir_fop(Op, EL, A, B, V) :- ir_fresh(V), ir_ins([V, ' = ', Op, ' ', EL, ' ', A, ', ', B]).
-ir_complex_op('+', EL, Ar, Ai, Br, Bi, Rr, Ri) :- ir_fop(fadd, EL, Ar, Br, Rr), ir_fop(fadd, EL, Ai, Bi, Ri).
-ir_complex_op('-', EL, Ar, Ai, Br, Bi, Rr, Ri) :- ir_fop(fsub, EL, Ar, Br, Rr), ir_fop(fsub, EL, Ai, Bi, Ri).
-ir_complex_op('*', EL, Ar, Ai, Br, Bi, Rr, Ri) :- ir_fop(fmul, EL, Ar, Br, AC), ir_fop(fmul, EL, Ai, Bi, BD), ir_fop(fsub, EL, AC, BD, Rr), ir_fop(fmul, EL, Ar, Bi, AD), ir_fop(fmul, EL, Ai, Br, BC), ir_fop(fadd, EL, AD, BC, Ri).
-ir_complex_op('/', EL, Ar, Ai, Br, Bi, Rr, Ri) :- ir_fop(fmul, EL, Br, Br, CC), ir_fop(fmul, EL, Bi, Bi, DD), ir_fop(fadd, EL, CC, DD, Den),
-    ir_fop(fmul, EL, Ar, Br, AC), ir_fop(fmul, EL, Ai, Bi, BD), ir_fop(fadd, EL, AC, BD, Nr), ir_fop(fdiv, EL, Nr, Den, Rr),
-    ir_fop(fmul, EL, Ai, Br, BC), ir_fop(fmul, EL, Ar, Bi, AD), ir_fop(fsub, EL, BC, AD, Ni), ir_fop(fdiv, EL, Ni, Den, Ri).
+ir_complex_op('+', _, EL, Ar, Ai, Br, Bi, Rr, Ri) :- ( ir_fp_ll(EL) -> Op = fadd ; Op = add ), ir_fop(Op, EL, Ar, Br, Rr), ir_fop(Op, EL, Ai, Bi, Ri).
+ir_complex_op('-', _, EL, Ar, Ai, Br, Bi, Rr, Ri) :- ( ir_fp_ll(EL) -> Op = fsub ; Op = sub ), ir_fop(Op, EL, Ar, Br, Rr), ir_fop(Op, EL, Ai, Bi, Ri).
+%% AN INTEGER COMPLEX MULTIPLIES AND DIVIDES BY THE TEXTBOOK FORMULAS (0.103), as clang does for `_Complex int' -- no
+%% runtime helper, no infinities to recover: (a + bi)(c + di) = (ac - bd) + (ad + bc)i, and the quotient's components
+%% are (ac + bd) / (cc + dd) and (bc - ad) / (cc + dd), each an integer division of the real type's signedness
+ir_complex_op('*', _, EL, Ar, Ai, Br, Bi, Rr, Ri) :- \+ ir_fp_ll(EL), !,
+    ir_fop(mul, EL, Ar, Br, AC), ir_fop(mul, EL, Ai, Bi, BD), ir_fop(sub, EL, AC, BD, Rr), ir_fop(mul, EL, Ar, Bi, AD), ir_fop(mul, EL, Ai, Br, BC), ir_fop(add, EL, AD, BC, Ri).
+ir_complex_op('/', RT, EL, Ar, Ai, Br, Bi, Rr, Ri) :- \+ ir_fp_ll(EL), !, ( ir_signed(RT) -> D = sdiv ; D = udiv ),
+    ir_fop(mul, EL, Br, Br, CC), ir_fop(mul, EL, Bi, Bi, DD), ir_fop(add, EL, CC, DD, Den),
+    ir_fop(mul, EL, Ar, Br, AC), ir_fop(mul, EL, Ai, Bi, BD), ir_fop(add, EL, AC, BD, Nr), ir_fop(D, EL, Nr, Den, Rr),
+    ir_fop(mul, EL, Ai, Br, BC), ir_fop(mul, EL, Ar, Bi, AD), ir_fop(sub, EL, BC, AD, Ni), ir_fop(D, EL, Ni, Den, Ri).
+%% ANNEX G's MULTIPLICATION AND DIVISION are the C runtime's own (0.101): `__muldc3' and `__divdc3' (`__mulsc3',
+%% `__divsc3' for a complex float), which recover the infinities the textbook formulas turn into NaNs and which
+%% clang calls at every `*' and `/' of two complex values -- libgcc's and compiler-rt's alike, linked by cc. A
+%% complex double comes back as two SSE eightbytes, `{ double, double }'; a complex float as one, `<2 x float>'.
+ir_complex_op('*', _, EL, Ar, Ai, Br, Bi, Rr, Ri) :- !, ir_complex_rt(mul, EL, Ar, Ai, Br, Bi, Rr, Ri).
+ir_complex_op('/', _, EL, Ar, Ai, Br, Bi, Rr, Ri) :- !, ir_complex_rt(div, EL, Ar, Ai, Br, Bi, Rr, Ri).
+ir_complex_rt(Op, double, Ar, Ai, Br, Bi, Rr, Ri) :- !, atomic_list_concat(['__', Op, 'dc3'], F), atomic_list_concat(['declare { double, double } @', F, '(double, double, double, double)'], D), ir_note_extern(F, raw(D)),
+    ir_fresh(V), ir_ins([V, ' = call { double, double } @', F, '(double ', Ar, ', double ', Ai, ', double ', Br, ', double ', Bi, ')']), ir_complex_parts(V, '{ double, double }', Rr, Ri).
+ir_complex_rt(Op, float, Ar, Ai, Br, Bi, Rr, Ri) :- atomic_list_concat(['__', Op, 'sc3'], F), atomic_list_concat(['declare <2 x float> @', F, '(float, float, float, float)'], D), ir_note_extern(F, raw(D)),
+    ir_fresh(V), ir_ins([V, ' = call <2 x float> @', F, '(float ', Ar, ', float ', Ai, ', float ', Br, ', float ', Bi, ')']),
+    ir_fresh(Rr), ir_ins([Rr, ' = extractelement <2 x float> ', V, ', i32 0']), ir_fresh(Ri), ir_ins([Ri, ' = extractelement <2 x float> ', V, ', i32 1']).
 ir_expr(neg(E), V, T, LL) :- ccl_type_of(E, T0), ccl_is_complex(T0), !, ir_expr(E, V0, T, LL), ir_complex_parts(V0, LL, R, I), ir_complex_elem(LL, EL),   % the negation of a complex: both components
-    ir_fresh(R1), ir_ins([R1, ' = fneg ', EL, ' ', R]), ir_fresh(I1), ir_ins([I1, ' = fneg ', EL, ' ', I]), ir_complex_make(LL, R1, I1, V).
+    ( ir_fp_ll(EL) -> ir_fresh(R1), ir_ins([R1, ' = fneg ', EL, ' ', R]), ir_fresh(I1), ir_ins([I1, ' = fneg ', EL, ' ', I])
+    ; ir_fop(sub, EL, 0, R, R1), ir_fop(sub, EL, 0, I, I1) ), ir_complex_make(LL, R1, I1, V).                    % an integer complex negates by subtraction (0.103)
 ir_expr(real_part(E), V, T, LL) :- !, ir_expr(E, V0, T0, L0), ( ir_complex_ll(L0) -> ir_complex_elem(L0, LL), ccl_complex_real(T0, T), ir_fresh(V), ir_ins([V, ' = extractvalue ', L0, ' ', V0, ', 0']) ; V = V0, T = T0, LL = L0 ).   % `__real__ z' (0.100)
 ir_expr(imag_part(E), V, T, LL) :- !, ir_expr(E, V0, T0, L0), ( ir_complex_ll(L0) -> ir_complex_elem(L0, LL), ccl_complex_real(T0, T), ir_fresh(V), ir_ins([V, ' = extractvalue ', L0, ' ', V0, ', 1']) ; T = T0, LL = L0, ir_zero(LL, V) ).   % `__imag__ x' of a real is its type's zero
 ir_expr(neg(E), V, T, LL) :- !, ir_expr(E, V0, T0, L0), ccl_promote(T0, T), ir_type(T, LL), ir_convert(V0, T0, L0, T, LL, V1),
@@ -690,6 +728,7 @@ ir_expr(cast(T, E), V, T, LL) :- ccl_resolve_type(T, memptr(_, _, F)), ccl_resol
         ir_fresh(V), ir_ins([V, ' = insertvalue { ptr, i64 } ', V1, ', i64 0, 1']) ).
 ir_expr(cast(T, E), V, T, LL) :- !, ir_expr(E, V0, T0, L0), ( ccl_resolve_type(T, base(_, [void])) -> V = V0, LL = void ; ir_type(T, LL), ir_convert(V0, T0, L0, T, LL, V) ).
 ir_expr(sizeof(E), N, T, i64) :- ir_vla_expr_type(E, VT), ir_vla_bytes(VT, N), !, ccl_size_type(T).   % a VLA's, from the bounds it was made with (0.99)
+ir_expr(sizeof(E), N, T, i64) :- ccl_literal_bytes(E, N), !, ccl_size_type(T).                             % sizeof a STRING LITERAL is its array's bytes (0.103): typed as the pointer it decays to, `sizeof("abc")' was 8
 ir_expr(sizeof(E), N, T, i64) :- !, ccl_size_type(T), ccl_type_of(E, ET),
     (   ccl_resolve_type(ET, arr(NE, ElT)), \+ ccl_const_eval(NE, _), ccl_size_of(ElT, ES)                % sizeof a VLA, asked FIRST (the layout gives an unsized array no bytes, as a flexible member has none): its bound's value times the element, at run time (the bound read where sizeof is, not where the array was declared: named)
     ->  ir_expr(NE, NV0, NT, NL), ir_convert(NV0, NT, NL, base([], [long]), i64, NV), ir_fresh(N), ir_ins([N, ' = mul i64 ', NV, ', ', ES])
@@ -1058,6 +1097,14 @@ ir_lval(index(A, I), Addr, T, LL) :- !,
     (   ir_vla_bytes(T, Bytes)                                                                     % a row of a VLA of a VLA: i * (the row's bytes) into the flat allocation
     ->  ir_fresh(Off), ir_ins([Off, ' = mul i64 ', I1, ', ', Bytes]), ir_fresh(Addr), ir_ins([Addr, ' = getelementptr inbounds i8, ptr ', P, ', i64 ', Off]), LL = ptr
     ;   ir_type(T, LL), ir_fresh(Addr), ir_ins([Addr, ' = getelementptr inbounds ', LL, ', ptr ', P, ', i64 ', I1]) ).
+%% `__real__ z' AND `__imag__ z' ARE PLACES (GNU's, as clang has them; 0.101): the component's own address inside the
+%% complex's slot, so `__real__ z = 5.0' and `__imag__ z += 1.0' write one component
+ir_lval(real_part(E), Slot, T, LL) :- !, ir_complex_slot(E, 0, Slot, T, LL).
+ir_lval(imag_part(E), Slot, T, LL) :- !, ir_complex_slot(E, 1, Slot, T, LL).
+ir_complex_slot(E, I, Slot, T, LL) :- ir_lval(E, Slot0, T0, L0), ir_slot_addr(Slot0, Base),
+    (   ir_complex_ll(L0) -> ccl_complex_real(T0, T), ir_type(T, LL), ir_fresh(Slot), ir_ins([Slot, ' = getelementptr inbounds ', L0, ', ptr ', Base, ', i32 0, i32 ', I])
+    ;   I =:= 0 -> Slot = Slot0, T = T0, LL = L0
+    ;   ir_fail(imaginary_part_of_a_real_as_a_place) ).
 ir_lval(member(E, N), Slot, T, LL) :- !,
     ( ir_lval(E, Base0, ST, _) -> ir_slot_addr(Base0, Base) ; ir_expr(E, SV, ST, SLL), ir_fresh(Base), ir_alloca_typed(Base, ST), ir_ins(['store ', SLL, ' ', SV, ', ptr ', Base]) ),
     ir_member_slot(Base, ST, N, Slot0, T0), ir_ref_member(Slot0, T0, Slot, T), ir_type(T, LL).
@@ -1374,9 +1421,26 @@ ir_globals([var(N, T, Init)|Vs], Sto) :-
 ir_sized_type(_, arr(none, E), init(Items), arr(int(K), E)) :- !, length(Items, K).
 ir_sized_type(_, arr(none, E), str(S), arr(int(K), E)) :- !, length(S, K0), K is K0 + 1.
 ir_sized_type(T, _, _, T).
+ir_float_builtin('__builtin_inf', '0x7FF0000000000000', base([], [double]), double).
+ir_float_builtin('__builtin_huge_val', '0x7FF0000000000000', base([], [double]), double).
+ir_float_builtin('__builtin_inff', '0x7FF0000000000000', base([], [float]), float).
+ir_float_builtin('__builtin_huge_valf', '0x7FF0000000000000', base([], [float]), float).
+ir_float_builtin('__builtin_nan', '0x7FF8000000000000', base([], [double]), double).
+ir_float_builtin('__builtin_nanf', '0x7FF8000000000000', base([], [float]), float).
+ir_imag_const(imag(F), F).
+ir_imag_const(imagf(F), F).
+ir_imag_const(imagi(_, N), N).   % `3i' (0.103); a `big(A)' spelled by ir_complex_text
+ir_imag_const(neg(X), F) :- ir_imag_const(X, F0), F is -F0.
 ir_gconst(E, T, Text) :- ccl_is_complex(T), !, ccl_complex_real(T, RT), ir_type(RT, EL),                          % a complex global's constant: `{ double R, double I }' (0.100)
-    ( E == none -> R = 0, I = 0 ; E = call(id('__builtin_complex'), [A, B]) -> ir_num_const(A, R), ir_num_const(B, I) ; ir_num_const(E, R), I = 0 ),
-    ir_fp_text(R, EL, RT1), ir_fp_text(I, EL, IT1), atomic_list_concat(['{ ', EL, ' ', RT1, ', ', EL, ' ', IT1, ' }'], Text).
+    (   E == none -> R = 0, I = 0 ; E = call(id('__builtin_complex'), [A, B]) -> ir_num_const(A, R), ir_num_const(B, I)
+    ;   ir_imag_const(E, I) -> R = 0                                                                       % `2.0i' (0.101)
+    ;   E = bin('+', A, Im), ir_imag_const(Im, I) -> ir_num_const(A, R)                                   % `1.0 + 2.0i'
+    ;   E = bin('+', Im, A), ir_imag_const(Im, I) -> ir_num_const(A, R)
+    ;   E = bin('-', A, Im), ir_imag_const(Im, I0) -> ir_num_const(A, R), I is -I0                        % `1.0 - 2.0i'
+    ;   ir_num_const(E, R), I = 0 ),
+    ir_complex_text(R, EL, RT1), ir_complex_text(I, EL, IT1), atomic_list_concat(['{ ', EL, ' ', RT1, ', ', EL, ' ', IT1, ' }'], Text).
+ir_complex_text(big(A), _, T) :- !, ir_big_text(A, T).
+ir_complex_text(V, EL, A) :- ( ir_fp_ll(EL) -> ir_fp_text(V, EL, A) ; A is truncate(V) ).   % an integer complex's components are integers (0.103); a floating constant truncates as a conversion does
 ir_gconst(none, T, Z) :- !, ir_type(T, LL), ir_zero(LL, Z).
 ir_gconst(int(big(A)), _, V) :- !, ir_big_text(A, V).
 ir_gconst(uint(big(A)), _, V) :- !, ir_big_text(A, V).

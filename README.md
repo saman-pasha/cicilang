@@ -77,7 +77,8 @@ for the link, and libc++ for the C++ side.
 CICILI=~/Projects/GitHub/cicili COCOLOG=~/Projects/GitHub/cocolog sh module/build.sh   # -> library/cocolang.so
 LLVM=/usr/local/opt/llvm sh module/build-llvm.sh                                     # -> library/ccl_llvm.so
 sh test/reader.sh; sh test/compile.sh; sh test/driver.sh; sh proof/run.sh            # the C gates
-sh test/cpp.sh; sh test/libcxx.sh                                                    # the C++ gates
+sh test/libcxx.sh; sh test/cpp.sh                                                    # the C++ gates: the library read warms the cache first
+sh test/gates.sh                                                                     # all seven in one chain, the C++ ones in parallel
 ```
 
 `module/build.sh` transpiles `module/cocolang.cicili` with Cicili and
@@ -293,7 +294,8 @@ library/ccl_build.pl           cocolang_compile and cocolang_link
 library/ccl_driver.pl          what the command does: the steps, the diagnostics, the IR cache
 library/include/               the compiler's own freestanding C headers
 test/reader.sh, compile.sh, driver.sh, objects.sh, proof/run.sh   the C gates
-test/cpp.sh, libcxx.sh, warm.sh, census.sh                        the C++ gates and their tools
+test/cpp.sh, libcxx.sh, readhdr.pl, census.sh                     the C++ gates and their tools
+test/gates.sh, parlib.sh       every gate in one chain; the memory-gated parallel pool the C++ gates run on
 test/c/, test/cpp/             the fixtures: what runs, what is refused, what is read whole
 bench/btree, bench/compile     the B-tree and the compile-time benchmarks
 tutorials/                     the objects layer's lessons
@@ -317,8 +319,6 @@ DESIGN.md, CLAUDE.md           the architecture; how the repository is worked on
 
 ## Not done
 
-Coroutines and modules; `\N{...}` and the imaginary literal (`1.0i`; C11's
-`I` and `CMPLX` come from the compiler's own `<complex.h>`); `std::format`
-and the ranges; `std::strong_ordering` as a class (`<=>` on scalars is an
-`int`); the arm64 ABI written and not proven. Each is named in `CLAUDE.md`
-with where it stops.
+Coroutines and modules; `std::format` and the ranges; a `\N{...}` abbreviation
+alias (`\N{NUL}`, which clang refuses too); the arm64 ABI written and not
+proven. Each is named in `CLAUDE.md` with where it stops.

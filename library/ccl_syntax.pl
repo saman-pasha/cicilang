@@ -74,7 +74,7 @@
 
 %% the reader's version, part of the knowledge base's cache key: bump it when
 %% the grammar changes, so what an older grammar left partial is read again
-ccl_reader_version(86).   % 86 (0.100): an inline namespace marked, a deeper namespace's bare uses rewritten in the AST beside the summary; 85: __has_extension(c_atomic)
+ccl_reader_version(90).   % 90 (0.104): an array initializer with a pack expansion sizes nothing at the read; 89 (0.104): the integer imaginary literal's suffix kinds, imagui, imagli, imaguli, and \N{NAME} over Unicode 15.0.0 with its aliases; 88 (0.103): the integer imaginary literal is its own token, imagi; 87 (0.101): a static data member defined out of its class indexed under the class; 86 (0.100): an inline namespace marked, a deeper namespace's bare uses rewritten in the AST beside the summary; 85: __has_extension(c_atomic)
 %% ccl_reader_version(81).   % 81: a literal past 2^60 is big(Atom) in every summary's item
 %% ccl_reader_version(80).   % 80: a template template parameter's name un-noted at its item's end, a tag or a typedef no concept (<variant>'s `template <_Trait X, ...>' read as a constrained type parameter); 79: a braced default argument, C++20's brace-designated initializer (libc++ 18 at C++20); 78: an unnamed parameter of an unknown type name in a C++ parameter list, a destructor called with its template arguments (libc++ 18); 77: _Generic chosen at the read, an unbounded array sized by its initializer, _BitInt in the table, the OS's predefined macros, <limits.h> and the C23 headers; 59: a method's ref-qualifier kept; 60: the C++20 stretch (a constrained parameter, a requires-clause on a member template, trailing, on a lambda; `::template f' alone; a braced subscript; a member variable template; a constrained auto); 61: a concept indexed by name; 62: a function template's explicit template-id is no type (`T &r(std::forward<U>(v))'), a bare concept's name bound; 63: explicit(cond) kept; 64: a pointer to member, typeid, a member class template noted ahead; 65: no RTTI predefined, so every header is flattened again; 66: only a pointer to member takes the trailing cv- and ref-qualifiers (a method's const is the method rule's); 67: a free name outside a template; 68: a nullability word with an argument list (glibc); 69: a pointer to member function's noexcept, a braced list assigned, and the AST's index keys a deeper namespace's name apart; 70: alignas kept on a class; 71: [[no_unique_address]] kept on a member; 72: the AST's index holds a header's inline variable with NO initializer (std::ignore); 73: a pack expansion is a dependent type, and a call of a function template's name is not the reader's `auto' to deduce; 74: `if constexpr' with an init-statement; 75: a member FUNCTION template's name is a template and no type; 76: __OPTIMIZE_SIZE__ predefined, so libc++'s algorithms are the scalar ones
 
@@ -171,11 +171,28 @@ ccl_escape_chr(C) --> ccl_ucn(C), !.
 ccl_escape_chr(C) --> ccl_escape(C).
 %% \uXXXX, \UXXXXXXXX, and C++23's \u{...}: the code point (the native lexer agrees)
 ccl_ucn(U) --> [C], { C =:= 0'u ; C =:= 0'U }, ( [123], !, ccl_hex_digits(Ds), { Ds \== [] }, [125] ; { ( C =:= 0'u -> N = 4 ; N = 8 ) }, ccl_hex_n(N, Ds) ), { ccl_hex_value(Ds, 0, U) }.
+%% `\N{NAME}' (C++23 [lex.charset], C23 6.4.3; 0.103): the code point whose Unicode NAME that is -- exact match, as the
+%% standards have it -- the families named by their code point's hex digits (CJK UNIFIED IDEOGRAPH-4E00 and kin)
+%% computed within the runs the table lists, every other name looked up in library/ccl_uninames.pl, the Name property
+%% of Unicode 14.0.0 loaded on the first `\N{' a process meets (ccl_uninames_ready). The native lexer agrees over the
+%% same facts, spelled into module/ccl_uninames.h by module/build.sh; a name that is nobody's is a lexical error in
+%% both (ccl_escape refuses `N{', so the escape never falls to the plain `N'), as clang refuses it. Name ALIASES are not
+%% read (named in CLAUDE.md).
+ccl_ucn(U) --> [0'N, 123], !, ccl_uname_chars(Cs), { Cs \== [] }, [125], { ccl_uname_value(Cs, U) }.
+ccl_uname_chars([C|Cs]) --> [C], { C =\= 125, C =\= 34, C =\= 39, C =\= 92, C >= 32 }, !, ccl_uname_chars(Cs).
+ccl_uname_chars([]) --> [].
+ccl_uname_value(Cs, U) :- ccl_uninames_ready, ccl_uname_range(P, Lo, Hi), atom_codes(P, Ps), append(Ps, Hs, Cs), Hs \== [], ccl_upper_hex(Hs), ccl_hex_value(Hs, 0, U), U >= Lo, U =< Hi, !.
+ccl_uname_value(Cs, U) :- atom_codes(A, Cs), ccl_uninames_ready, ccl_uname(A, U), !.
+ccl_upper_hex([]).
+ccl_upper_hex([D|Ds]) :- ( D >= 0'0, D =< 0'9 ; D >= 0'A, D =< 0'F ), ccl_upper_hex(Ds).
+ccl_uninames_ready :- once(catch(nb_getval('$ccl_uninames', yes), _, fail)), !.
+ccl_uninames_ready :- ccl_library_dirs(Ds), member(D, Ds), atomic_list_concat([D, '/ccl_uninames.pl'], P), exists_file(P), !, ensure_loaded(P), nb_setval('$ccl_uninames', yes).
 ccl_hex_n(0, []) --> !.
 ccl_hex_n(N, [D|Ds]) --> [D], { ccl_hexdigit(D), N1 is N - 1 }, ccl_hex_n(N1, Ds).
 ccl_escape(10) --> [0'n], !.     ccl_escape(9)  --> [0't], !.     ccl_escape(13) --> [0'r], !.
 ccl_escape(7)  --> [0'a], !.     ccl_escape(8)  --> [0'b], !.     ccl_escape(12) --> [0'f], !.
 ccl_escape(11) --> [0'v], !.     ccl_escape(27) --> [0'e], !.
+ccl_escape(_)  --> [0'N, 123], !, { fail }.                                                                                          % `\N{' that named nothing: a lexical error, never the letter N (0.103)
 ccl_escape(C)  --> [0'x], !, ( [123], !, ccl_hex_digits(Ds), { Ds \== [] }, [125] ; ccl_hex_digits(Ds), { Ds \== [] } ), { ccl_hex_value(Ds, 0, C) }.   % \xHH, C++23's \x{...}
 ccl_escape(C)  --> [0'o, 123], !, ccl_octal_upto(99, Ds), { Ds \== [] }, [125], { ccl_octal_value(Ds, 0, C) }.                       % C++23's \o{...}
 ccl_escape(C)  --> [D], { D >= 0'0, D =< 0'7 }, !, ccl_octal_upto(2, Ds), { ccl_octal_value([D|Ds], 0, C) }.                         % \0, \NNN: up to three octal digits
@@ -188,15 +205,25 @@ ccl_utf8(U, [A, B|T], T) :- U < 2048, !, A is 192 + U // 64, B is 128 + U mod 64
 ccl_utf8(U, [A, B, C|T], T) :- U < 65536, !, A is 224 + U // 4096, B is 128 + (U // 64) mod 64, C is 128 + U mod 64.
 ccl_utf8(U, [A, B, C, D|T], T) :- A is 240 + U // 262144, B is 128 + (U // 4096) mod 64, C is 128 + (U // 64) mod 64, D is 128 + U mod 64.
 
-ccl_number(L, T) --> [0'0, X], { X =:= 0'x ; X =:= 0'X }, !, ccl_hex_digits(Ds), { Ds \== [], ccl_hex_int(Ds, N) }, ccl_int_suffix(K), { T = tok(K, N, L) }.
-ccl_number(L, T) --> [0'0, X], { X =:= 0'b ; X =:= 0'B }, !, ccl_bin_digits(Ds), { Ds \== [], ccl_bin_int(Ds, N) }, ccl_int_suffix(K), { T = tok(K, N, L) }.   % C23 and C++14: 0b1011
+ccl_number(L, T) --> [0'0, X], { X =:= 0'x ; X =:= 0'X }, !, ccl_hex_digits(Ds), { Ds \== [], ccl_hex_int(Ds, N) }, ccl_int_suffix(K), ccl_int_tok(K, N, L, T).
+ccl_number(L, T) --> [0'0, X], { X =:= 0'b ; X =:= 0'B }, !, ccl_bin_digits(Ds), { Ds \== [], ccl_bin_int(Ds, N) }, ccl_int_suffix(K), ccl_int_tok(K, N, L, T).   % C23 and C++14: 0b1011
 ccl_number(L, T) --> ccl_digits(Is), { Is \== [] }, ccl_number_rest(Is, L, T).
-ccl_number_rest(Is, L, tok(float, F, L)) --> [0'.], ccl_digits(Fs), ccl_exponent(Es), !, ccl_float_suffix,
+ccl_number_rest(Is, L, tok(K, F, L)) --> [0'.], ccl_digits(Fs), ccl_exponent(Es), !, ccl_float_suffix(K),
     { ( Fs == [] -> Fs1 = [0'0] ; Fs1 = Fs ), append(Is, [0'.|Fs1], A), append(A, Es, B), number_codes(F, B) }.
-ccl_number_rest(Is, L, tok(float, F, L)) --> ccl_exponent(Es), { Es \== [] }, !, ccl_float_suffix,
+ccl_number_rest(Is, L, tok(K, F, L)) --> ccl_exponent(Es), { Es \== [] }, !, ccl_float_suffix(K),
     { append(Is, [0'., 0'0|Es], B), number_codes(F, B) }.
-ccl_number_rest([0'0|Os], L, tok(K, N, L)) --> { Os \== [], ccl_octal_digits(Os) }, !, ccl_int_suffix(K), { ccl_octal_int(Os, N) }.
-ccl_number_rest(Is, L, tok(K, N, L)) --> ccl_int_suffix(K), { ccl_int_value(Is, N) }.
+ccl_number_rest([0'0|Os], L, T) --> { Os \== [], ccl_octal_digits(Os) }, !, ccl_int_suffix(K), { ccl_octal_int(Os, N) }, ccl_int_tok(K, N, L, T).
+ccl_number_rest(Is, L, T) --> ccl_int_suffix(K), { ccl_int_value(Is, N) }, ccl_int_tok(K, N, L, T).
+%% THE IMAGINARY LITERAL (GNU's, which clang and gcc both read; 0.101): `2.0i', `1.5if', `3i', `1.0fi', `j' for `i' --
+%% `tok(imag, F, L)' a `_Complex double' constant, `tok(imagf, F, L)' a `_Complex float' one, the value the float
+%% imaginary part; AN INTEGER'S, `3i', IS `tok(imagi, N, L)', a `_Complex int' constant (GNU's, 0.103), and its
+%% suffix names the kind as a plain integer's does: `2ui' `tok(imagui, ...)' a `_Complex unsigned', `3li' `imagli' a
+%% `_Complex long', `4uli' `imaguli' a `_Complex unsigned long' (ccl_imag_kind; a _BitInt suffix keeps the int kinds);
+%% in BOTH lexers, k84 comparing
+ccl_int_tok(K, N, L, tok(IK, N, L)) --> ccl_imag_mark, !, { ccl_imag_kind(K, IK) }.
+ccl_imag_kind(int, imagi).   ccl_imag_kind(uint, imagui).   ccl_imag_kind(long, imagli).   ccl_imag_kind(ulong, imaguli).
+ccl_imag_kind(bitint, imagi).   ccl_imag_kind(ubitint, imagui).
+ccl_int_tok(K, N, L, tok(K, N, L)) --> [].
 %% A LITERAL PAST 2^60 IS `big(Atom)' (0.94): cocolog's integers are 61-bit (the finding), so `9223372036854775807LL' read
 %% as -1 -- and libc++ bounds a string read by `numeric_limits<streamsize>::max()', which then never looped. The atom is
 %% the value's decimal digits for a decimal literal, `0x' and its lowercase hex digits (no leading zeros) for a hex, binary
@@ -247,10 +274,13 @@ ccl_int_kind(no, yes, no, long).
 ccl_int_kind(yes, yes, no, ulong).
 %% f, l, and C++23's f16, f32, f64, f128 and bf16 ([lex.fcon]): the suffix is dropped and the literal is a double here,
 %% as `1.5f' always was -- the native lexer agrees (ccl_lx_float_suffix)
-ccl_float_suffix --> [C], { C =:= 0'f ; C =:= 0'F }, !, ccl_plain_digits.
-ccl_float_suffix --> [B, F], { ( B =:= 0'b ; B =:= 0'B ), ( F =:= 0'f ; F =:= 0'F ) }, !, ccl_plain_digits.
-ccl_float_suffix --> [C], { C =:= 0'l ; C =:= 0'L }, !.
-ccl_float_suffix --> [].
+ccl_float_suffix(K) --> ccl_imag_mark, !, ( ccl_float_suffix_f, !, { K = imagf } ; [C], { C =:= 0'l ; C =:= 0'L }, !, { K = imag } ; { K = imag } ).   % `1.0if', `1.0il', `1.0i'
+ccl_float_suffix(K) --> ccl_float_suffix_f, !, ( ccl_imag_mark, !, { K = imagf } ; { K = float } ).   % `1.0f', `1.0fi'
+ccl_float_suffix(K) --> [C], { C =:= 0'l ; C =:= 0'L }, !, ( ccl_imag_mark, !, { K = imag } ; { K = float } ).   % `1.0l', `1.0li'
+ccl_float_suffix(float) --> [].
+ccl_float_suffix_f --> [C], { C =:= 0'f ; C =:= 0'F }, !, ccl_plain_digits.
+ccl_float_suffix_f --> [B, F], { ( B =:= 0'b ; B =:= 0'B ), ( F =:= 0'f ; F =:= 0'F ) }, !, ccl_plain_digits.
+ccl_imag_mark --> [C], { C =:= 0'i ; C =:= 0'I ; C =:= 0'j ; C =:= 0'J }.
 ccl_plain_digits --> [D], { ccl_digit(D) }, !, ccl_plain_digits.
 ccl_plain_digits --> [].
 ccl_digit(D) :- D >= 0'0, D =< 0'9.
@@ -1122,7 +1152,8 @@ ccl_ptr_decl_rest([tok(id, _, _), tok(K, V, _)|_]) :- ( K == p, memberchk(V, ['=
 %% __int128, __darwin_size_t) are typedefs and types like any other
 ccl_gnu_word(W) :- memberchk(W, ['__attribute__', '__attribute', '__extension__', '__inline__', '__inline',
     '__restrict', '__restrict__', '__volatile__', '__const', '__asm', '__asm__', '__typeof__', '__typeof',
-    typeof, '_Nonnull', '_Nullable', '_Null_unspecified', '__nonnull', '__nullable', '__null_unspecified']).
+    typeof, '_Nonnull', '_Nullable', '_Null_unspecified', '__nonnull', '__nullable', '__null_unspecified',
+    '__real__', '__imag__']).   % GNU's component operators: `__real__ z = 5.0' is a statement, never `name x' (0.101)
 
 %% GNU's typeof(expr) or typeof(type), a type specifier; Cicili's `let' emits it
 ccl_typeof(typeof(X)) --> ccl_id(T), { memberchk(T, [typeof, typeof_unqual, '__typeof__', '__typeof']) }, ccl_p('('),   % C23 standardized typeof; typeof_unqual DROPS the qualifiers (its operand wrapped `unqual(X)', which the resolution reads)
@@ -1387,6 +1418,7 @@ ccl_placeholder(N, N).
 %% symbol table has it and `sizeof a' is right -- the lowering sized the emitted type this way (ir_sized_type) and
 %% the table kept `none', so a global's sizeof was 0; a braced list counts its top-level items (brace elision
 %% into a nested array is not counted; a nested list is one item)
+ccl_sized_by_init(arr(none, E), init(Items), arr(none, E)) :- member(item(_, pack(_)), Items), !.   % an initializer holding a PACK EXPANSION sizes nothing here (0.104): its length is the instantiation's, and the desugaring sizes the array once the pack is expanded (cpp_size_by_init) -- libc++'s `constexpr _CCC __type_kinds[] = {_StrongOrd, __type_to_enum<_Ts>()...};' had read as two elements whatever the pack held
 ccl_sized_by_init(arr(none, E), init(Items), arr(int(K), E)) :- !, ccl_init_bound(Items, 0, 0, K).   % a designator `[i] =' moves the position (C 6.7.9/17): the bound is one past the highest
 ccl_sized_by_init(arr(none, E), str(S), arr(int(K), E)) :- !, length(S, K0), K is K0 + 1.
 ccl_sized_by_init(arr(none, E), W, arr(int(K), E)) :- ( W = wstr(S) ; W = u16str(S) ; W = u32str(S) ), !, ccl_utf8_count(S, K0), K is K0 + 1.   % `wchar_t a[] = L"..."': one element per code point (the body is UTF-8 bytes; 0.99)
@@ -1830,6 +1862,20 @@ ccl_primary_(ulong, N, ulong(N)) --> !, [_].                              % 9ul
 ccl_primary_(bitint, N, wb(N)) --> !, [_].                                 % C23: 9wb, a _BitInt of the width the value needs
 ccl_primary_(ubitint, N, uwb(N)) --> !, [_].                               % 9uwb
 ccl_primary_(float, F, float(F1)) --> !, [_], { ccl_finite_float(F, F1) }.
+ccl_primary_(imag, F, imag(F1)) --> !, [_], { ccl_finite_float(F, F1) }.       % the imaginary literal `2.0i' (0.101): a `_Complex double' constant
+ccl_primary_(imagf, F, imagf(F1)) --> !, [_], { ccl_finite_float(F, F1) }.     % `1.5if': a `_Complex float' one
+%% an integer imaginary literal is `imagi(Specs, N)', the real type's specifiers from its suffix and its VALUE as C types
+%% a plain integer literal ([lex.icon], 6.4.4.1: the first of int and long that holds it, the unsigned kinds alike; a
+%% literal past 2^60, `big(A)', a long by ccl_big_type): `3i' a `_Complex int', `3000000000i' a `_Complex long'
+ccl_primary_(imagi, N, imagi(Sp, N))   --> !, [_], { ccl_imag_specs(imagi, N, Sp) }.
+ccl_primary_(imagui, N, imagi(Sp, N))  --> !, [_], { ccl_imag_specs(imagui, N, Sp) }.
+ccl_primary_(imagli, N, imagi(Sp, N))  --> !, [_], { ccl_imag_specs(imagli, N, Sp) }.
+ccl_primary_(imaguli, N, imagi(Sp, N)) --> !, [_], { ccl_imag_specs(imaguli, N, Sp) }.
+ccl_imag_specs(K, big(A), Sp) :- !, ccl_big_type(A, base(_, Sp0)), ( memberchk(K, [imagui, imaguli]), Sp0 = [long] -> Sp = [unsigned, long] ; Sp = Sp0 ).
+ccl_imag_specs(imagi, N, Sp) :- !, ( N =< 2147483647 -> Sp = [int] ; Sp = [long] ).
+ccl_imag_specs(imagui, N, Sp) :- !, ( N =< 4294967295 -> Sp = [unsigned] ; Sp = [unsigned, long] ).
+ccl_imag_specs(imagli, _, [long]) :- !.
+ccl_imag_specs(imaguli, _, [unsigned, long]).
 %% A LITERAL PAST A DOUBLE is the largest finite double: `__LDBL_MAX__', which every long double header
 %% writes and this compiler lowers as a double, read as an infinity -- and cocolog WRITES an infinity as
 %% `inf.0', which its own reader refuses, so the AST beside a summary would not consult and the header

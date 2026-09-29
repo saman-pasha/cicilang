@@ -45,6 +45,11 @@ library/ccl_format.pl    format, print, println: the global macros, Rust's holes
 library/ccl_ir.pl        cocolang_ir/2: the lowering to LLVM IR text, one clause per construct
 library/ccl_build.pl     cocolang_compile/3 (the embedded LLVM, nothing else), cocolang_link/3 (cc)
 library/ccl_check.pl     the safe part: owners (own), move, the flow walk; run first by cocolang_ir
+library/ccl_uninames.pl  the Unicode name table for `\N{NAME}' (0.103, 0.104): one fact per assigned character and per
+                         alias of the four kinds clang takes, GENERATED at Unicode 15.0.0 by module/gen-uninames.pl (Perl's
+                         Unicode::UCD; `perl module/gen-uninames.pl > library/ccl_uninames.pl'), loaded on the first `\N{' a
+                         process meets; module/build.sh spells it into module/ccl_uninames.h for the native lexer (never
+                         committed), so it is written once
 library/ccl_cpp.pl       M6: the C++ forms desugared to that C before the check (ccl_cpp_units/2):
                          classes as structs, methods over this, constructors, destructors as defers
 test/c/safe/             programs the check must REFUSE, each with the error its .expect names
@@ -52,8 +57,16 @@ bin/cocolang               the command: clang's arguments, one cocolog run over 
                          six forks, since each is a floor (the findings)
 bin/cocolang++             cocolang for C++ (M5): the same, every input read as C++, in memory, linked by c++
 test/cpp.pl, cpp.sh      the C++ reader's gate: 34 checks over test/cpp/*.cpp (the mangler's is c34), the six C++ files of Cicili's
-                         test suite read whole, hello.cpp built through cocolang++, and again from the summaries
-test/libcxx.pl, libcxx.sh  the road to libc++: <vector>, <string>, <iostream>, <map>, <set>, <unordered_map>, <unordered_set>, <optional>, <memory>, <functional> and <tuple> flattened and read WHOLE, under a fresh HOME,
+                         test suite read whole, hello.cpp built through cocolang++, and again from the summaries; the
+                         test/cpp/run fixtures built IN PARALLEL through the pool, longest first (0.105)
+test/parlib.sh           the gates' parallel pool (0.105): ccl_pool runs N jobs at once while the summed RSS of every
+                         cocolog is under a launch budget, kills the pool past a hard cap; ccl_lpt_order puts the
+                         longest jobs first from a timings file (~/.cocolang/fixture-times, header-times)
+test/gates.sh            every gate in one chain (0.105): the four small gates and the proof, then libcxx.sh, then cpp.sh
+test/readhdr.pl          one library header read whole in its own process, its item count against a minimum (libcxx.sh's job)
+test/warm.sh             a shim since 0.105: the warm is libcxx.sh's own product now
+test/libcxx.pl, libcxx.sh  the road to libc++ AND the C++ summary cache's warm, ONE cold parallel pass since 0.105 (libcxx.pl is the
+                         old one-process form, kept): <vector>, <string>, <iostream>, <map>, <set>, <unordered_map>, <unordered_set>, <optional>, <memory>, <functional> and <tuple> flattened and read WHOLE, the cache wiped first,
                          and at the levels: <set>, <map>, <unordered_map>, <unordered_set> at C++20, <optional>, <string> at C++23, <optional> at C++26;
                          test/cpp/run/std*.cpp are the standard streams built against libc++ and run: cout, endl, cin, getline, get, ws,
                          the extractors and inserters (stdistream, stdistream2, stdostream), the manipulators (stdmanip), and the
@@ -101,6 +114,10 @@ sh test/compile.sh
 sh test/driver.sh
 sh proof/run.sh
 ```
+
+or all seven in one chain, `sh test/gates.sh` (0.105): the C gates and the proof one after another,
+then `test/libcxx.sh` (the library headers read cold in parallel, the C++ cache left warm), then
+`test/cpp.sh` (the fixtures built in parallel over that cache). `GATES_JOBS=N` narrows the lanes.
 
 **`bin/cocolang` takes clang's arguments** (owner's rule: no new flags to
 learn): `-c -S -emit-llvm -fsyntax-only -o -O0..-Oz -I -l -L -shared -v
@@ -5439,6 +5456,332 @@ fixtures over `<functional>' and the unordered containers are most of the differ
 750 s); THE LIBC++ GATE GREEN, its 21 reads whole under a fresh HOME in 8524 s at 3810 MB, every item count 0.99's
 (`<vector>' 806 ... `<optional>' 397 at C++26, `<vector>' 898 at C++20): the reader's version moved for the index
 and the marks, not for what an item is.
+
+**M6's sixty-eighth step (0.101): THE NOT-DONE LIST OF 0.100, closed where a form can be closed.** The
+owner asked for the not-done works, and this step is 0.100's list taken item by item, each cut to a
+reproduction of a dozen lines before it was fixed and each gated.
+(1) `<compare>''S ORDERING CLASSES ARE libc++'S OWN ([cmp.categories]; 0.42's scalar `<=>' was an int and a
+defaulted one an int). A scalar `<=>' answers `std::strong_ordering' for integers and pointers and
+`std::partial_ordering' for floating operands (`cpp_scalar_ordering': the class's one `signed char' holding
+-1, 0, 1 and -127 for unordered, built as the aggregate its private constructor would build, `cpp_ordering_value'),
+a defaulted `<=>' the class written or the common category of its members (`cpp_defaulted_ordering'; its
+pieces compared as `>' minus `<', so a member of a class with its own `<=>' answers the class and the
+rewritten candidates take it), and the six comparisons with the literal 0 -- `o < 0', `o == 0', `std::is_lt(o)'
+-- go to the HIDDEN FRIENDS the header writes over `_CmpUnspecifiedParam'. Four things they asked: A POINTER TO
+MEMBER TAKES A NULL POINTER CONSTANT ([conv.mem]/1; `cpp_pointerish' knows `memptr', so the literal 0 fits
+`_CmpUnspecifiedParam(int _CmpUnspecifiedParam::*)' and converts through it); A DEFAULTED FRIEND `operator=='
+COMPARES THE DATA MEMBERS ([class.compare.default]; `cpp_friend_item' over the class's members, where
+`friend constexpr bool operator==(strong_ordering, strong_ordering) noexcept = default;' would have been emitted
+as the word `default'); A REWRITTEN COMPARISON WHOSE `<=>' ANSWERS A CLASS goes through the class's operator
+(`cpp_rewritten_cmp': `(a <=> b) < 0' is the friend over the literal); and A STATIC DATA MEMBER DEFINED OUT OF ITS
+CLASS IN A HEADER is the class's own definition (`inline constexpr strong_ordering strong_ordering::less(
+_OrdResult::__less);': indexed under the class, `cpp_index_name'; noted with its initializer at the class's
+registration; emitted `linkonce' with the value its constexpr constructor gives at compile time,
+`cpp_static_constructed' over 0.99's `cpp_fold_ctor_init'; skipped as an item at the lazy load), where it had
+been named by an Itanium symbol nothing ships. A program that writes `<=>' without `<compare>' keeps the int (C++
+calls it ill-formed; the older fixtures print that int). Reader version 87 (the index changed). Gated by
+`test/cpp/run/stdcompare.cpp' at C++20 (`strong_ordering', `partial_ordering' with an unordered NaN, a defaulted
+`<=>' over ints, over a double and over a member with its own, `std::is_lt' and kin, the static constants, two
+pointers) and `<compare>' read WHOLE at C++20 in the libc++ gate (348 items). Not done: `std::strong_ordering'
+as the result of a defaulted `<=>' whose members include a NaN double (the lexicographic int has no unordered;
+`partial_ordering::unordered' comes only from a scalar `<=>'), `std::compare_three_way', `std::common_comparison_category'.
+(2) THE IMAGINARY LITERAL, GNU's (clang's and gcc's), in BOTH LEXERS: `2.0i', `1.5if', `3i', `1.0fi', `1.0li',
+`0x10i', `j' for `i' -- `tok(imag, F, L)' a `_Complex double' constant, `tok(imagf, F, L)' a `_Complex float' one
+(`ccl_float_suffix//1', `ccl_int_tok//4', `ccl_imag_mark//0' in the DCG; `ccl_lx_imag_c', `x->imag' in the
+module), the value the float imaginary part (an integer's, `3i', is 3.0 here where clang has a `_Complex int',
+which nothing here lowers); the parser's `imag(F)' and `imagf(F)', typed, checked, lowered as the constant
+{ 0, F } and folded into a global's initializer (`1.0 + 2.0i', `1.0 - 2.0i'); k84 compares the two lexers on
+the new line of `test/c/lexer.c'; the flattened text spells them back (`ccl_pp_spell_tok', `pp_spell').
+(3) ANNEX G's MULTIPLICATION AND DIVISION ARE THE C RUNTIME'S OWN: `__muldc3' and `__divdc3' (`__mulsc3',
+`__divsc3' for a complex float), which recover the infinities the textbook formulas turn into NaNs and which
+clang calls at every `*' and `/' of two complex values -- libgcc's and compiler-rt's alike, linked by cc
+(`ir_complex_rt': a complex double comes back as two SSE eightbytes, `{ double, double }', a complex float as
+one, `<2 x float>'); `(1 + 1i) / 0' is two infinities and `(inf + 1i) * 2' keeps its infinity, as C has them.
+(4) `__real__ z' AND `__imag__ z' ARE PLACES (`ir_lval', the component's own address inside the complex's slot:
+`__real__ z = 5.0', `__imag__ z += 1.0'), and the two words are GNU words to the reader's typedef heuristic --
+`__real__ z = 5.0;' at a block's start had read as a declaration of `z' with the type `__real__'.
+(5) `_Complex long double' IS A COMPLEX DOUBLE here, as `long double' is a double: its arithmetic and its
+components run; glibc's `creall' and `cimagl' take the x87 pair and cannot be called on it, named.
+(6) THE FLOATING CONSTANTS' AND CLASSIFICATION BUILTINS, which glibc's `<math.h>' writes its macros on under a
+clang-shaped compiler (0.87's hazard once more, `__has_builtin' answering 1): `INFINITY' is `__builtin_inff()',
+`NAN' `__builtin_nanf("")', `HUGE_VAL' `__builtin_huge_val()' -- the constants (`ir_float_builtin') -- and
+`isnan', `isinf', `isfinite', `isnormal', `signbit' are `__builtin_isnan' and kin, `fcmp' over the value
+(`ir_fp_class'; `isinf_sign' the signed answer); every one was `undeclared' before, so a C program that tests a
+NaN did not compile. Lowering version 47. Gated by `test/c/run/complex2.c', clang's numbers.
+(7) A CLOSURE'S CAPTURE OF CLASS TYPE IS CONSTRUCTED BY COPY AND DESTROYED WITH THE CLOSURE
+([expr.prim.lambda.capture]/10, 0.36's not-done, a lambda's destructor): a by-value capture whose class has
+constructors -- a `std::string', a class with a destructor, the object itself under `[*this]' -- is copied
+through its copy constructor, so the closure is built MEMBER BY MEMBER as an aggregate whose member constructs
+is (`cpp_closure_value' over `cpp_aggregate_inits', 0.83's temporary road: the temporary registered with the
+statement, or ELIDED into the local it initializes, `cpp_temp_elide' on the plain road too), a reference
+capture BOUND to its object (`cpp_member_from''s `ref' clause, 0.61's rule for an aggregate's member); the
+closure's implicit destructor destroys the member (0.41's rule, which the closure class already had) -- bitwise,
+`[t]' of a class with a destructor held a copy no constructor made and destroyed it once more than it was made
+(`1 2' for clang's `2 2'). And a GENERATED body's `this->$this' is the closure's own member, never the enclosing
+object's (`cpp_expr''s first clause: the implicit destructor of a `[*this]' closure walked `arrow(this, '$this')'
+into `(&this->$this)->$this'). FOUND ON THE WAY, older: a declaration of SEVERAL declarators defining a class's
+members out of class, `int Tag::made = 0, Tag::gone = 0;', is one item per declarator (`cpp_item'; the raw item
+had reached the lowering, `member_of_class'). Gated by `test/cpp/run/closurecopy.cpp' (a string captured, a
+class with a destructor counted, `[*this]' of a class with a destructor inside a const method), clang++'s
+numbers, valgrind clean.
+(8) A COLLIDING NAME IN A BASE CLAUSE OF THE DEEPER NAMESPACE IS REWRITTEN (`cpp_rename_names' on
+`base(Access, Name)' and `virtual(Name)'): `struct D : Base' inside the inner namespace took the outer `Base';
+a default argument was rewritten already, and `test/cpp/run/nscollide2.cpp' has both.
+AND A LESSON, cheap: `cpp_lambda_''s HEAD still spelled the closure as `compound_lit(T, init(Items))', so the
+member-by-member value its body now built was unified away and the trace showed a temporary registered beside a
+bitwise closure -- a clause's head is part of its answer, and a body that computes a new result must reach it.
+NOT DONE, NAMED: a pointer to member function's `adj' is always 0 (a base at an offset is adjusted at the call by
+the conversion, never in the pointer); the closure the safe part follows is the one made where it is declared --
+a closure held in a `std::function' is the library's discipline (0.45); `stderaseifuset.cpp' (C++20) builds in
+about 750 s at 3.8 GB and stays one fixture; `_Complex int'; `\N{...}', coroutines, modules, `std::format' and
+the ranges as before.
+THE GATES, ON LINUX (Ubuntu 24.04, x86_64, four cores, 16 GB; clang 18, libc++ 18, cocolog 1.8.1, the module rebuilt
+as 0.101), one after another in one chain with nothing beside them, each under its own 7000 MB watchdog, the summaries
+warmed OUTSIDE them first at all four levels (`test/warm.sh': 44 headers cold at reader 87, 10155 s, none killed): the
+reader's 95 checks GREEN in 15 s at 109 MB; the compile gate's 86 (0.100's 85 and `complex2.c') in 21 s at 366 MB; the
+driver's 25 in 10 s at 85 MB; the objects' 29; the proof; THE C++ GATE GREEN -- 228 checks ok (0.100's 225 and this
+step's three: stdcompare at C++20, closurecopy, nscollide2), `stdoptionalref' skipped by name, NO failure -- in 5935 s at
+a 3804 MB peak (0.100: 5284 s for 225). THE LIBC++ GATE GREEN, its 22 reads whole under a fresh HOME
+(0.100's 21 and `<compare>' at C++20, 348 items) in 8957 s at a 3879 MB peak, every other item count 0.100's (`<vector>'
+806 ... `<optional>' 397 at C++26, `<vector>' 898 at C++20; 0.100: 21 reads in 8524 s, the one read more being the
+difference) -- run ALONE and a second time: the container restarted 1212 s into its first run, which wrote nothing (the
+gate writes its log at its end), and 0.101 was committed with the gate still running, its numbers carried by 0.102, as
+0.93's were.
+
+**M6's sixty-ninth step (0.103): THE NOT-DONE LIST OF 0.101, closed where a form can be closed -- `_Complex int',
+a NaN member under a defaulted `<=>', `\N{NAME}', and two probes named.**
+(1) `_Complex int', GNU's INTEGER COMPLEX, which clang and gcc both take. THE INTEGER IMAGINARY LITERAL `3i' is its own
+token in BOTH lexers, `tok(imagi, N, L)' (`ccl_int_tok', `ccl_lx_emit_int'; k84 compares them on `test/c/lexer.c''s
+line), the parser's `imagi(N)', a `_Complex int' constant `{ 0, N }' -- 0.101 had made it the float 3.0 and a complex
+double; its `u' and `l' suffixes are DROPPED, so `2ui' and `3li' are `_Complex int' here where clang has `_Complex
+unsigned' and `_Complex long' (named). THE REAL TYPE OF A COMPLEX IS WHATEVER STANDS BESIDE `_Complex'
+(`ccl_complex_real' through `ccl_specs_without'; `_Complex' alone a complex double), and the usual arithmetic
+conversions over two complex integers are the integers' own (`ccl_complex_usual' through `ccl_usual': `3i + 2' a
+`_Complex int', `7u + 3i' a `_Complex unsigned', `5l + 6li' a `_Complex long'); a complex integer is NO integer to
+`ccl_is_integer', as a complex double has been no float since 0.100. THE LOWERING: `{ i32, i32 }' by the real's LLVM
+type (`ir_base', `ir_complex_elem' over i8 to i64 beside float and double), `+' and `-' by `add' and `sub', `*' and `/'
+by the TEXTBOOK FORMULAS as clang lowers them for an integer complex -- no runtime helper, no infinities to recover:
+(ac - bd) + (ad + bc)i, and the quotient's (ac + bd) / (cc + dd) and (bc - ad) / (cc + dd), each an integer division of
+the real's signedness (`ir_complex_op' takes the real type, `sdiv' or `udiv') -- `==' by `icmp eq', the negation by
+subtraction, the ABI's leaves two INTEGER leaves of the real's size (`ir_leaves' recursing on the real, where the
+floating ones were spelled out), a global's constant's components spelled as integers (`ir_complex_text'; a floating
+constant truncates as the conversion does), the conversions through `ir_complex_convert' as before -- which decides BY
+THE C TYPES now (`ccl_is_complex(From)', `ccl_is_complex(To)'): the LLVM-shape test would have taken an ABI piece
+`{ i64, i64 }' (`ir_pieces_type') for a complex once the integer shapes joined the table. `test/c/run/complex3.c',
+clang's numbers.
+(2) A NaN MEMBER UNDER A DEFAULTED `<=>' IS UNORDERED ([class.spaceship]/2: the member's own `<=>', a partial_ordering
+for a floating type; 0.101's not-done): a floating piece's sign is `a == a && b == b ? sign : -127' where the result is
+partial_ordering (`cpp_cmp_sign', the scalar `<=>''s own test since 0.101), and the pieces carry the member's TYPE now
+(`pc(A, B, T)' from `cpp_cmp_pieces', read alike by the defaulted `==', the friend `==' of <compare> and the category
+choice, `cpp_defaulted_ordering' over the pieces -- so an ARRAY of doubles makes the category partial too, where the
+member's own type was asked and an array is no float). `test/cpp/run/stdcompare.cpp' extended (a NaN member under
+`auto', and under a written `std::partial_ordering'), clang++'s lines. AND A LESSON, cheap once seen and an afternoon
+before: the first writing named the piece's type `PT' inside the findall -- THE VARIABLE THE CLAUSE'S HEAD ALREADY USED
+for the parameter's type -- so every piece was required to unify with `const P &', the if-chain came out EMPTY, every
+defaulted `<=>' answered equal, and five lines of stdcompare went RED. A name is looked up before it is given -- 0.93's
+rule for a predicate, 0.99's for its arity -- and in a clause of thirty lines, for a VARIABLE too. The instrument that
+found it was the `cocolang: '-prefixed write into the desugaring (the finding) under `-S -emit-llvm', since
+`-fsyntax-only' skips the desugaring in C++ mode: 0.87's trap, met again on the first try, an empty log read as `never
+reached'. A clause's helper predicates were also first written BETWEEN two clauses of the predicate they serve, which
+cocolog takes as it takes any discontiguous clauses; they sit after it now.
+(3) `\N{NAME}' ([lex.charset], C23 6.4.3; the not-done of every step since 0.43): the code point whose Unicode name
+that is, in a string (as UTF-8, `ccl_utf8'), a char and a wide char, in BOTH lexers. THE TABLE IS WRITTEN ONCE:
+`library/ccl_uninames.pl' holds one fact per assigned character, `ccl_uname(Name, Code)', the Name property of Unicode
+14.0.0 as python3's unicodedata gives it (43,819 facts, 2.0 MB, the Hangul syllables among them), and one
+`ccl_uname_range(Prefix, Lo, Hi)' per run of the five families named by their code point's hex digits (CJK UNIFIED
+IDEOGRAPH-4E00 and kin, 13 runs), which both lexers COMPUTE; `module/build.sh' spells the facts into
+`module/ccl_uninames.h' (the names sorted in strcmp's order under LC_ALL=C for the native lexer's binary search, the
+runs after them; never committed) and the module's `ccl_uname_code' is raw C over it -- Cicili names no C array, the
+numpy module's way -- called from `ccl_lx_ucn' beside `\u' and `\U'; the DCG's `ccl_ucn' takes `N{' and
+`ccl_uname_value' asks the ranges, then the table, LOADED ON THE FIRST `\N{' A PROCESS MEETS (`ccl_uninames_ready',
+`ensure_loaded' of the file found on `$COCOLOG_LIBRARY'; a global remembers it, never a clause, the finding on what
+persists). An EXACT match, as the standards have it; a name that is nobody's is a LEXICAL ERROR in both lexers
+(`ccl_escape' refuses `N{' so the escape never falls to the letter N, and `ccl_lx_escape' the same), as clang refuses
+it. `test/c/run/uniname.c' (a string of five names, one of the computed family, a Hangul syllable, a char, a wide
+char), clang's bytes; the build 2 s at 70 MB, the table's load inside it. Reader version 88. NOT READ: the name ALIASES
+(`NameAliases.txt': the egress proxy of this box refuses unicode.org, so the file could not be fetched; python's
+`unicodedata' takes an alias in `lookup' and enumerates none) -- a small file and a named road.
+(4) FOUND ON THE WAY, older than every step here: `sizeof("abc")' WAS 8. A string literal is typed as the pointer it
+decays to (`ccl_type_of(str(_))', 0.1's) and `sizeof' asked the type; a literal's size is its ARRAY's bytes now
+(`ccl_literal_bytes' at the two doors, the lowering's `ir_expr(sizeof)' and the evaluator's `ccl_const_eval(sizeof)':
+the narrow one its codes and the NUL, a wide one a code point per element, `wchar_t' and `char32_t' four bytes each,
+`char16_t' two), which the uniname fixture's own last line found, printing 2 for clang's 3 over
+`sizeof(L"...x") / sizeof(wchar_t)'. Lowering version 49 -- 48 for the complex integer, 49 after an IR made at 48 had
+reached a probe's store: the second fix's probe was SERVED the old emission in 0 s (`EXIT 0 0 s peak 0 MB', and a
+binary whose time was six minutes old), which is the store's rule (`dr_ir/3') working as written and the reason the
+lowering version moves with every change to what is emitted, however small.
+(5) PROBED AND NAMED, not fixed, each a road of its own: `std::compare_three_way' -- its `operator()' is a member
+template constrained by `three_way_comparable_with<_T1, _T2>', and `cmp(3, 5)' STAYS RAW (`not lowered yet:
+call(id(cmp))'): the member road finds no candidate, leaves the form and traces no refusal (the shape on the program's
+own class, a member template `operator()' with a trailing `decltype(t <=> u)', runs under `auto' and under a written
+result); `std::common_comparison_category_t' -- stops in `__get_comp_type' at `undeclared(bool(false))': its `bool
+_False = false' value parameter, substituted into the `static_assert(_False, ...)' of the branch that `if constexpr'
+should have discarded, arrives as an `id' holding its value.
+NOT DONE, NAMED: the integer imaginary literal's suffixes (`2ui', `3li'); `_Complex int' past 2^60 (`imagi(big(A))',
+refused by name); `\N{...}''s aliases; a pointer to member function's `adj' is always 0; a closure held in a
+`std::function' is the library's discipline (0.45); `stderaseifuset.cpp' (C++20) builds in about 750 s at 3.8 GB and
+stays one fixture; `std::compare_three_way' and `std::common_comparison_category' as above; coroutines, modules,
+`consteval' at compile time, `std::format' and the ranges as before.
+THE GATES: the reader's 95 checks GREEN on this tree at reader 88 (15 s at 266 MB, k84 comparing the two lexers on
+the new lines) and the compile gate's 87 (0.101's 86 and `uniname.c', `complex3.c' beside it) GREEN in 9 s, each under
+the watchdog; the chain of all seven -- the warming of 44 headers at reader 88 first, then the gates one after another
+with nothing beside them -- was RUNNING when this was committed, and its numbers are carried by the next commit, as
+0.102 carried 0.101's.
+
+**M6's seventieth step (0.104): THE NOT-DONE LIST OF 0.103, closed -- the integer imaginary literal's suffixes,
+`\N{NAME}''s aliases at Unicode 15.0.0, `std::common_comparison_category' and `std::compare_three_way'.** The owner
+asked for the remaining not-done works before the C++ and libc++ gates, so 0.103's chain was stopped after the C
+gates and these four were taken first, each cut to a reduction of a dozen lines before it was fixed and each gated.
+(1) THE INTEGER IMAGINARY LITERAL'S SUFFIXES (0.103 dropped them: `2ui' was a `_Complex int'): BOTH lexers give
+four token kinds, `imagi', `imagui', `imagli', `imaguli' (`ccl_imag_kind' over the integer's kind in the DCG;
+`x->sfx' in the module, 1 and 5 for `u', 2 for `l', 3 for `ul', k84 comparing them on `test/c/lexer.c''s new line),
+and the parser's node CARRIES THE REAL TYPE, `imagi(Specs, N)': `2ui' a `_Complex unsigned', `3li' a `_Complex long',
+`4uli' a `_Complex unsigned long', an unsuffixed one `int' where it fits and `long' past INT_MAX (as C types a decimal
+literal), a `big(A)' past 2^60 typed by `ccl_big_type' and SPELLED WHOLE through `ir_big_text' (`ccl_imag_specs';
+0.103 refused `imagi(big(A))' by name); the flattened text spells the suffix back (`pp_imag_suffix'); the inference,
+the check and the lowering read the node (`ir_expr(imagi)': `{ 0, N }' of the real's LLVM type, `ir_imag_const',
+`ir_complex_text(big(A))'). `test/c/run/complex3.c' extended (`2ui', `3li', `4uli + 1', `9000000000000000000i',
+`3000000000i' as a long), clang's numbers. Lowering version 50.
+(2) `\N{NAME}''S ALIASES ([lex.charset], C23 6.4.3: a name OR an alias of the kinds clang takes -- control,
+correction, alternate, figment -- never an abbreviation: `\N{NUL}' is refused as clang refuses it). THE TABLE IS
+GENERATED by `module/gen-uninames.pl' (committed) from Perl's `Unicode::UCD': `prop_invmap("Name")' gives the names
+and the families' runs (a run per `<code point>' range, `TANGUT IDEOGRAPH SUPPLEMENT-' among the 16), the Hangul
+syllables' names are COMPUTED from the Jamo tables (`charprop' per syllable was 0.5 s each: killed after 600 s), and
+`prop_invmap("Name_Alias")' gives the aliases with their kinds -- at Unicode 15.0.0, where python's `unicodedata' is
+14.0.0 and enumerates no alias and the box's proxy refuses unicode.org's `NameAliases.txt': 44,115 names and 119
+aliases; `module/build.sh' keeps an alias's kind comment out of the header (`sub(/\).*$/, "", v)'), and the module's
+binary search takes the aliases as names. `test/c/run/uniname.c' extended (`\N{NULL}', `\N{LATIN CAPITAL LETTER GHA}'
+a correction, `\N{BYTE ORDER MARK}' an alternate, `\N{ALERT}'), clang's numbers. Reader version 89.
+(3) `std::common_comparison_category_t', FOUR RULES, and 0.103's diagnosis corrected: the stop at
+`undeclared(bool(false))' was the `static_assert(_False, ...)' of the branch `if constexpr' should have discarded,
+and the branch was REACHED because `__cat' never folded; once it folds, the branch is discarded before the assertion
+is walked, and `_False' is nobody's business. (a) AN ARRAY INITIALIZER WITH A PACK EXPANSION SIZES NOTHING AT THE
+READ (`ccl_sized_by_init', reader version 90): `constexpr _CCC __type_kinds[] = {_StrongOrd, __type_to_enum<_Ts>()...}'
+was sized TWO, one per item written, and the third kind was stored past the array; the desugaring sizes it once the
+pack expands (`cpp_size_by_init' at `cpp_decl_pieces'). (b) A `const' LOCAL AGGREGATE WITH A CONSTANT INITIALIZER IS A
+VALUE TO THE EVALUATOR (`cpp_note_const''s second clause, `'$cpp_gagg:N'' marked `local' -- `cpp_global_agg' tells a
+local's from a global's by `cpp_local' -- 0.97's rule for a file-scope one), AND A `const' SCALAR LOCAL INITIALIZED BY
+A CONSTEXPR CALL FOLDS THROUGH THE EVALUATOR (`cpp_const_value' in `cpp_note_const''s first clause; 0.63's rule took a
+literal constant only): `constexpr _CCC __cat = __comp_detail::__compute_comp_type(__type_kinds)' -- a reference-to-
+array parameter over the local array, its bound deduced (0.90) -- folds to the category and the `if constexpr' chain
+decides; a fold that fails is TRACED (`const_not_folded', `const_agg_not_folded' with each item's value, `agg_item'),
+which is how (a) was found. (c) A RETURN IN A DISCARDED `if constexpr' BRANCH DOES NOT DEDUCE ([stmt.if]/2):
+libc++'s `__get_comp_type' opens with `if constexpr (__cat == _None) return void();', and the first return taken
+textually made EVERY category type `void' (the emitted instance returned void with the right branch's value loaded
+and dropped); the first-return walk decides the condition with the declarations before it in scope and enters the
+kept branch only (`cpp_first_return_in', ONE walk where `cpp_first_return' then `cpp_declare_before' were two --
+the owner's rule -- at the method's door and the lambda's; a condition that does not fold leaves both branches, as the
+statement walk does). (d) A DEDUCED `auto' RESULT IS DECAYED at the free function's door as the method's already was
+(`cpp_decayed' in `cpp_lambda_ret'; [dcl.spec.auto]: `auto' deduces as a by-value parameter): `return
+partial_ordering::equivalent', a `static const' member, deduced `const partial_ordering', and `is_same_v' told it
+from the plain one -- the last `0' of the probe. AND A NAMESPACE-QUALIFIED VARIABLE TEMPLATE IN AN EXPRESSION,
+`std::is_same_v<A, B>', is its value (`cpp_expr' on `scoped(Path, tmpl(N, Args))' where the path names no class):
+flattened it had become `scoped([std], bool(false))'. The variable template's instantiation traces its arguments and
+its value (`vartmpl(N, Args, V)'), which is what named (d).
+(4) `std::compare_three_way' asked for NOTHING OF ITS OWN: its `operator()' is a member template constrained by
+`three_way_comparable_with<_T1, _T2>', whose `__compares_as' is `same_as<common_comparison_category_t<_Tp, _Cat>,
+_Cat>' -- false for everything while (3) answered void -- and with (3) the constraint holds and the member template is
+chosen as any is; 0.103 read the raw call as `the member road finds no candidate and traces no refusal', where the
+trace had `constraint_not_satisfied(operator(()))' and the refusal was the constraint's. THE REDUCTION that told the
+rules apart is `test/cpp/run/stdcompare2.cpp''s own `pick<Ts...>()' (an `if constexpr' chain whose first return is
+`void()', through a class's `decltype' and an alias template): it passed at every step while libc++'s shape still
+failed, and only the trace's `vartmpl' line with a `const' in it said why -- a reduction that passes says the probe is
+wrong, not the library (0.92's lesson, from the other side). Gated by `test/cpp/run/stdcompare2.cpp' at C++20
+(`compare_three_way' over ints, doubles, a class with a defaulted `<=>', `is_eq' of its answer;
+`common_comparison_category_t' of every pair of categories, of none, and of an `int', which is void; the reduction),
+clang++'s numbers.
+Reader version 90, lowering version 50; the module rebuilt as 0.104.
+NOT DONE, NAMED: a `\N{...}' abbreviation alias (clang refuses it too); a pointer to member function's `adj' is always
+0; a closure held in a `std::function' is the library's discipline (0.45); `stderaseifuset.cpp' (C++20) builds in
+about 750 s at 3.8 GB and stays one fixture; coroutines, modules, `consteval' at compile time, `std::format' and the
+ranges as before.
+THE GATES, ON LINUX (Ubuntu 24.04, x86_64, four cores, 16 GB; clang 18, libc++ 18, cocolog 1.8.1, the module rebuilt
+as 0.104), on this tree at reader 90 and lowering 50: the reader's 95 checks GREEN in 13 s at 284 MB (k84 comparing the
+two lexers on the new lines of `test/c/lexer.c'); the compile gate's 88 GREEN in 20 s at 666 MB. The fixtures the
+rules touch were built ONE AT A TIME under the probe's caps before anything else: stdcompare2 (12 s, 294 MB),
+stdcompare, defaultcmp2, lambdas2, closurescope, stdoptional3 (239 s, 1764 MB) PASS, the rest of the loop running.
+The chain of all seven that was to follow this commit was STOPPED ten minutes in, on the owner's word ("7 hours is
+ridiculous"), and replaced by 0.105's parallel gates; 0.103's and 0.104's C++ and libc++ numbers are 0.105's chain's.
+Before it stopped, sixteen fixtures the rules touch were built one at a time and PASSED (stdbindfront 840 s,
+stdtuple 631 s and stdmap 638 s among them; stdfunction killed once at the probe's 4000 MB cap during a cold flatten,
+then 226 s and 1518 MB warm).
+
+**M6's seventy-first step (0.105): THE GATES IN PARALLEL -- seven hours was a serial chain doing one piece of
+work twice.** The owner: "Refactor test cases and gates, 7 hours is ridiculous." MEASURED FIRST, from 0.101's
+chain on this box (four cores, 16 GB): the warm read 44 library headers cold, one a process, in 10155 s; the libc++
+gate read 22 of the SAME headers cold AGAIN, under a fresh HOME, in 8957 s; the C++ gate built its fixtures one at a
+time in 5935 s; the four small gates and the proof took under a minute. Two defects of design and no defect of the
+compiler: THE SAME COLD READ TWICE, and ONE CORE OF FOUR in use throughout. (1) THE POOL (`test/parlib.sh'):
+`ccl_pool NMAX LAUNCH_MB HARD_MB' runs job lines from its input, up to NMAX at once, and launches the next one only
+while the summed resident size of every cocolog is under LAUNCH_MB (9000), killing the whole pool past HARD_MB
+(14000) -- a build peaks in the gigabytes and cocolog has no collector (the finding), so a lane count alone would
+exhaust the box; the memory gate lets the light builds pack onto the cores while a heavy one holds the next launch
+back. POSIX: the running children are tracked by PID and `kill -0', since dash has no `jobs -r' -- the first
+writing used it, dash printed `Illegal option' once a second and the pool ran ONE job at a time, which looked like
+a slow pool rather than a broken one until the log was read. And a pool's wall clock is its LAST job's end, so the
+jobs go LONGEST FIRST (`ccl_lpt_order', the classic LPT rule): each job's seconds are appended to a timings file
+(`~/.cocolang/fixture-times', `header-times'; the last line per key wins, the unknown first), and the next run
+orders by them. Measured on twelve fixtures over a warm cache: 245 s in four lanes where their warm serial sum is
+420 s, every one PASS-identical, 3 GB summed at the peak. (2) THE LIBRARY READ IS THE WARM (`test/libcxx.sh',
+`test/readhdr.pl'): a summary is keyed by the reader's version and every dep's time (`ccl_sum_valid'), so after a
+version bump every summary is cold whatever HOME holds it, and the libc++ gate's fresh HOME bought nothing but a
+second cold read of what the warm had just read. The phase now WIPES the user's C++ cache, reads the UNION -- the
+22 library headers at their levels, each asserted to read whole to its minimum, and the 21 other headers the
+fixtures and Cicili's C++ files include, warmed by a syntax-only build -- ONE HEADER A PROCESS through the pool, each
+read capped by coreutils' `timeout -s KILL' (which kills the process group it leads, the cocolog grandchild
+included; the old warm's cap had been lost in the first writing and was put back before this commit), and leaves
+the summaries written: the C++ gate after it is fully warm, and `test/warm.sh' is a shim that runs it. Measured
+into a throwaway HOME: GREEN in 3277 s where the two serial phases took 19112 s -- every one of the 22 counts equal
+to 0.101's (<vector> 806 and 898 at C++20, <iostream> 792 and 884, <unordered_set> 833 and 925, <string> 754, 846
+and 522 at C++23, <optional> 602, 397 and 397 ...), the 21 others warmed and none failed -- and that run had the
+heavy headers in its first lanes by accident and <functional> at C++20 starting last, which the longest-first order
+now prevents. (3) THE C++ GATE BUILDS ITS FIXTURES IN PARALLEL (`test/cpp.sh'): each fixture is one self-contained
+job (`ccl_fixture': built under its own time cap, run with its .stdin, compared with its .expect) whose verdict goes
+to a file of its own, so four lanes never interleave on the output; the verdicts are collected in alphabetical
+order after the pool, so the report reads as it did; the reader's checks (`test/cpp.pl', one process), the
+refused-by-name builds and the summary-cache check stay serial, being seconds. `CPP_JOBS=1' is the old gate. (4)
+ONE CHAIN (`test/gates.sh'): reader, compile, driver, objects and the proof one after another, then the library
+read, then the C++ gate, each line `== NAME: GREEN in N s', a RED stopping it; `GATES_JOBS' sets the lanes of both
+parallel phases. THE TEST CASES THEMSELVES are unchanged: 176 fixtures, and no fixture was merged or dropped --
+each names what it proves, and a merged one would say less when it fails. A LESSON worth the line: a shell script
+is READ AS IT RUNS, so a gate script edited while that gate is running continues from its old byte offset into the
+new text; the longest-first libcxx.sh waited in a scratch file until the validating run had exited.
+WHAT IS MEASURED AND WHAT IS NOT: the pool on twelve fixtures and the library read whole, above; the full chain
+`sh test/gates.sh' over the user's cache follows this commit, and its numbers -- and 0.103's and 0.104's C++ and
+libc++ ones, whose serial chains were stopped -- are carried by the next commit.
+
+**M6's seventy-second step (0.106): WHAT THE PARALLEL GATES FOUND ON THEIR FIRST RUN -- a summary with no AST behind
+it, and a pool whose jobs could eat its queue.** 0.105's chain ran whole on this box for the first time: the five
+small gates GREEN in 49 s together, the library read GREEN in 3168 s with every count equal to 0.101's, and the C++
+gate RED in 3718 s with nine failures -- 6935 s for the chain where the serial one took about 25,000. The nine were
+TWO defects, and neither was the compiler's work on a program. (1) THE LOST AST, older than the refactor and exposed
+by it: 0.100 moved the summary's write AFTER the AST's (the summary is the validity key, so it must be the last file
+a run writes), but only the summary's write ran `mkdir -p' on the cache directory -- so in a cache whose directory
+did not exist, the FIRST header a process read met no directory, its AST write FAILED, and the summary written after
+it CREATED the directory and stood valid with no template bodies behind it. Every program instantiating that header's
+templates then refused `template_without_body' until the cache was wiped by hand. The old warm ran over an existing
+directory and never met it; the library read WIPES the directory on every run, so the headers that finished first
+lost their ASTs -- here <string> at C++17, and all eight C++17 fixtures over `std::string' failed on it. And the
+catch around the AST's write made it WORSE: its recovery traced the error and SUCCEEDED, so an exception read as a
+written AST. THREE RULES (`library/ccl_include.pl'): the directory is made before the AST is written
+(`ccl_sum_dir_ready', which the summary's write shares); a summary is written only when its AST was (the recovery
+fails now); and a summary is VALID only with its AST beside it (`ccl_sum_valid'), so a hollow summary already in
+someone's cache is read again and repaired rather than refusing programs for ever. Proven on <cstdio>: into an absent
+directory it had lost its AST, and has it now; with the AST removed by hand, the next read writes it again. (2) A
+JOB READ THE POOL'S INPUT: `ccl_pool' takes its jobs from standard input and `eval'ed each one with that input
+inherited, and cocolog's query loop reads its standard input -- so a build could swallow the job lines queued behind
+it. One did: `stdoptionalref' was never run, and the collector, which names every fixture that left no verdict, said
+so (`no verdict'); every job now runs with `/dev/null' as its input. AND a failed build's time is no measure of its
+cost -- the eight string fixtures failed in seconds and would have been ordered LAST next time, though they are heavy
+-- so only a passing build's seconds (and a good read's) are recorded for the longest-first order. HOW THE FIRST WAS
+FOUND, worth its line in the list of instruments that answer without measuring: the first probe into the write put
+its markers on `user_error', which cocolog does not have, so the FIRST marker failed and took the write down with it
+-- an instrument that broke the thing it measured, reading exactly like the defect; on standard output they named
+the failing step at once (the file write), and a ten-second test on a small header with the directory absent and
+then present named the cause. Library change only in what the summary cache writes and accepts; reader version 90,
+lowering version 50 unchanged; the module rebuilt as 0.106.
+THE GATES: the fixes are proven on the reductions above, and at this commit the whole chain `sh test/gates.sh' is
+running on them (reader 8 s, compile 7 s and driver 8 s GREEN so far); its numbers are carried by the next commit.
 
 **`format`, `print`, `println` are global macros** (owner's rule):
 `library/ccl_format.pl` is a macro file registered by `ccl_standard_macros/0`

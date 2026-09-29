@@ -348,6 +348,10 @@ pp_spell(tok(kw, N, _), Cs) :- !, atom_codes(N, Cs).
 pp_spell(tok(num, Cs, _), Cs) :- !.
 pp_spell(tok(int, N, _), Cs) :- !, pp_int_codes(N, Cs).
 pp_spell(tok(float, N, _), Cs) :- !, number_codes(N, Cs).
+pp_spell(tok(imag, N, _), Cs) :- !, number_codes(N, Cs0), append(Cs0, [0'i], Cs).
+pp_spell(tok(imagf, N, _), Cs) :- !, number_codes(N, Cs0), append(Cs0, [0'i, 0'f], Cs).
+pp_spell(tok(K, N, _), Cs) :- pp_imag_suffix(K, Sfx), !, pp_int_codes(N, Cs0), append(Cs0, Sfx, Cs).   % `3i', `2ui', `3li', `4uli' (0.104)
+pp_imag_suffix(imagi, [0'i]).   pp_imag_suffix(imagui, [0'u, 0'i]).   pp_imag_suffix(imagli, [0'l, 0'i]).   pp_imag_suffix(imaguli, [0'u, 0'l, 0'i]).
 pp_spell(tok(str, S, _), Cs) :- !, pp_escape(S, E), append([34|E], [34], Cs).
 pp_spell(tok(chr, C, _), [39, C, 39]) :- !.
 pp_spell(tok(K, S, _), Cs) :- pp_str_prefix(K, P), !, pp_escape(S, E), append(P, [34|E], Cs0), append(Cs0, [34], Cs).   % L"...", u"...", U"..." (0.93: the prefixed literals)
@@ -1263,6 +1267,9 @@ ccl_pp_spell_tok(pp, A, [35|Out], Rest) :- !, atom_codes(A, Cs), append(Cs, Rest
 pp_int_codes(big(A), Cs) :- !, atom_codes(A, Cs).                                    % a literal past 2^60 spells as its digits (0.94's big(Atom); 0.99: the flattened text had `big(0xff...)ul', which no reader takes -- the census's road only)
 pp_int_codes(N, Cs) :- number_codes(N, Cs).
 ccl_pp_spell_tok(cocolog, A, Out, Rest) :- !, atom_codes('#cocolog', H), atom_codes(A, Cs), atom_codes('#end', E), append(H, [10|Cs], O1), append(O1, [10|E], O2), append(O2, Rest, Out).
+ccl_pp_spell_tok(imag, F, Out, Rest) :- !, number_codes(F, Cs), append(Cs, [0'i|Rest], Out).                   % the imaginary literal spelled back, `2.0i' (0.101)
+ccl_pp_spell_tok(imagf, F, Out, Rest) :- !, number_codes(F, Cs), append(Cs, [0'i, 0'f|Rest], Out).
+ccl_pp_spell_tok(K, N, Out, Rest) :- pp_imag_suffix(K, Sfx), !, pp_int_codes(N, Cs), append(Sfx, Rest, Tail), append(Cs, Tail, Out).
 ccl_pp_spell_tok(float, F, Out, Rest) :- F > 1.0e308, !, atom_codes('1e999', Cs), append(Cs, Rest, Out).       % past double (a long double literal): infinite again when read
 ccl_pp_spell_tok(float, F, Out, Rest) :- F < -1.0e308, !, atom_codes('-1e999', Cs), append(Cs, Rest, Out).
 ccl_pp_spell_tok(_, V, Out, Rest) :- ( atom(V) -> atom_codes(V, Cs) ; number_codes(V, Cs) ), append(Cs, Rest, Out).

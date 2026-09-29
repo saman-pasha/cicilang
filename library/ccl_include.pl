@@ -370,8 +370,10 @@ ccl_read_unit(Path, How, Unit) :-
     ccl_sum_file(Path, F),
     (   ccl_sum_valid(F) -> How = summary, Unit = summary(F)
     ;   ccl_lib_unit(ccl_pp_parse(Path, U1, Info1, Files)), How = preprocessed, ccl_partial(U1, Info1, Unit),
-        ( catch(ccl_ast_write(F, U1), E, ccl_ast_trace(ast_not_written(Path, E))) -> true ; ccl_ast_trace(ast_not_written(Path)) ),
-        ( catch(ccl_sum_write(F, Path, Files, U1), _, fail) -> true ; true ) ).   % THE SUMMARY IS WRITTEN LAST (0.100): it is the validity key, so a run killed while it writes the AST (the slow one) leaves no summary and the next run flattens again -- written first, a killed run left a valid .sum beside no .ast.pl, and every program over that header refused template_without_body
+        ccl_sum_dir_ready,   % THE DIRECTORY FIRST (0.106): 0.100 put the AST's write before the summary's, whose mkdir made the directory, so in a fresh or wiped cache the first header's AST met no directory and was lost
+        (   catch(ccl_ast_write(F, U1), E, ( ccl_ast_trace(ast_not_written(Path, E)), fail ))   % NO SUMMARY WITHOUT ITS AST (0.106): the recovery
+        ->  ( catch(ccl_sum_write(F, Path, Files, U1), _, fail) -> true ; true )                   % used to SUCCEED, so an exception read as a written AST
+        ;   ccl_ast_trace(ast_not_written(Path)) ) ).                                              % and a valid summary stood with no template bodies behind it   % THE SUMMARY IS WRITTEN LAST (0.100): it is the validity key, so a run killed while it writes the AST (the slow one) leaves no summary and the next run flattens again -- written first, a killed run left a valid .sum beside no .ast.pl, and every program over that header refused template_without_body
 
 %% a LIBRARY header's read is the library's, not the program's: the standard macros (format, print, println, clone)
 %% are the program's global names and never fire inside it -- libc++'s <format> calls its own `format(c, ctx)'
@@ -403,12 +405,14 @@ ccl_sum_file(Path, F) :-
 ccl_fold([], S, _, S).
 ccl_fold([C|Cs], S0, M, S) :- S1 is (S0 * M + C) mod 2147483647, ccl_fold(Cs, S1, M, S).
 ccl_sum_valid(F) :-
-    exists_file(F), ccl_sum_terms(F, [sum(_, key(V, cpp(S)))|Terms]), ccl_reader_version(V), ccl_std(S),
+    exists_file(F), ccl_ast_file(F, A), exists_file(A),   % A SUMMARY IS VALID ONLY WITH ITS AST BESIDE IT (0.106): a hollow one, left by the lost-AST defect, refused every program over the header's templates until the cache was wiped by hand; now it is simply read again
+    ccl_sum_terms(F, [sum(_, key(V, cpp(S)))|Terms]), ccl_reader_version(V), ccl_std(S),
     findall(P-T, member(dep(P, T), Terms), Deps), Deps \== [], ccl_deps_hold(Deps).
 ccl_deps_hold([]).
 ccl_deps_hold([P-T|Ds]) :- once(catch(time_file(P, T1), _, fail)), T1 =:= T, ccl_deps_hold(Ds).
+ccl_sum_dir_ready :- ccl_sum_dir(D), atomic_list_concat(['mkdir -p \'', D, '\''], Mk), once(catch(proc_run(Mk, 10000, _, _), _, true)).
 ccl_sum_write(F, Path, Files, unit(Is)) :-
-    ccl_sum_dir(D), atomic_list_concat(['mkdir -p \'', D, '\''], Mk), once(catch(proc_run(Mk, 10000, _, _), _, true)),
+    ccl_sum_dir_ready,
     ( memberchk(Path, Files) -> Fs = Files ; Fs = [Path|Files] ), ccl_dep_times(Fs, Deps), ccl_reader_version(V),
     ccl_collect_items(Is, Ds, [], Ts, [], Gs, [], Es, []),
     ccl_items_typedefs(Is, Names0), ccl_tag_names(Gs, TagNames), append(Names0, TagNames, Names),
