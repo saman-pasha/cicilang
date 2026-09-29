@@ -258,7 +258,7 @@
   ;; ccl_version(-Atom): THE VERSION. Every commit raises it (owner's rule),
   ;; one number per change; `cicili --version' prints it with LLVM's.
   (func ccl_p_version ((coco_engine * e) (size_t g)) (out int)
-        (return (coco_m_unify_atom e (coco_m_arg e g 0) "0.103")))
+        (return (coco_m_unify_atom e (coco_m_arg e g 0) "0.104")))
 
   ;; ccl_cocolog_version(-Atom): the engine's own version text, from the
   ;; running binary (coco_version_text is cocolog's, resolved at load like
@@ -291,7 +291,7 @@
     (member char * buf) (member size_t bn) (member size_t bcap)
     (member size_t k_id) (member size_t k_kw) (member size_t k_int) (member size_t k_float) (member size_t k_str)
     (member size_t k_uint) (member size_t k_long) (member size_t k_ulong) (member size_t k_bitint) (member size_t k_ubitint) (member int sfx)
-    (member size_t k_imag) (member size_t k_imagf) (member size_t k_imagi) (member int imag)
+    (member size_t k_imag) (member size_t k_imagf) (member size_t k_imagi) (member size_t k_imagui) (member size_t k_imagli) (member size_t k_imaguli) (member int imag)
     (member size_t k_wstr) (member size_t k_u16str) (member size_t k_u32str) (member size_t k_wchr) (member size_t k_u16chr) (member size_t k_u32chr)
     (member size_t k_chr) (member size_t k_p) (member size_t k_pp) (member size_t k_cocolog) (member size_t k_num))
 
@@ -578,7 +578,8 @@
   (static) (func ccl_lx_emit_int ((ccl_lx * x) (u64 v) (size_t j) (i64 line) (int hex))
         (let ((size_t k . 0))
           (set k (? (== (-> x sfx) 5) (-> x k_ubitint) (? (== (-> x sfx) 4) (-> x k_bitint) (? (== (-> x sfx) 3) (-> x k_ulong) (? (== (-> x sfx) 2) (-> x k_long) (? (== (-> x sfx) 1) (-> x k_uint) (-> x k_int)))))))
-          (if (-> x imag) (set k (-> x k_imagi)))                                  ; `3i': an integer imaginary literal, a _Complex int (0.103; the u and l suffixes dropped)
+          (if (-> x imag)                                                          ; `3i': an integer imaginary literal, its suffix naming the kind (0.104): i, ui, li, uli; a _BitInt suffix the int kinds
+              (set k (? (== (-> x sfx) 3) (-> x k_imaguli) (? (== (-> x sfx) 2) (-> x k_imagli) (? (or (== (-> x sfx) 1) (== (-> x sfx) 5)) (-> x k_imagui) (-> x k_imagi))))))
           (if (>= v (cast u64 1152921504606846976))
               (ccl_lx_tok x k (ccl_lx_big x v hex) line)
               (ccl_lx_tok x k (coco_m_new_int (-> x e) (cast i64 v)) line))
@@ -865,6 +866,9 @@
           (set (-> x k_imag) (coco_m_new_atom e "imag"))
           (set (-> x k_imagf) (coco_m_new_atom e "imagf"))
           (set (-> x k_imagi) (coco_m_new_atom e "imagi"))
+          (set (-> x k_imagui) (coco_m_new_atom e "imagui"))
+          (set (-> x k_imagli) (coco_m_new_atom e "imagli"))
+          (set (-> x k_imaguli) (coco_m_new_atom e "imaguli"))
           (set (-> x imag) 0)
           (set (-> x k_str) (coco_m_new_atom e "str"))
           (set (-> x k_chr) (coco_m_new_atom e "chr"))

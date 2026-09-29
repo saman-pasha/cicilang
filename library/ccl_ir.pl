@@ -45,7 +45,7 @@
 %% the lowering's version: part of the key of every IR the driver keeps in the
 %% store (library(ccl_driver)); BUMP it whenever the check or the lowering
 %% changes what they emit, as ccl_reader_version/1 is bumped for the grammar
-ccl_lowering_version(49).   % 49 (0.103): sizeof a string literal is its bytes; 48 (0.103): _Complex int, two integer components, the integer imaginary literal; 47 (0.101): the imaginary literal, Annex G's multiplication and division through the runtime's __muldc3 and __divdc3, the components as places; 46 (0.100): a function bound to a reference to a pointer converts into a materialized pointer temporary; 45 (0.100): a pointer to member function as the ABI's { ptr, adj }, C's complex types as two components; 44: the VLA's bounds kept in its type, a VLA of a VLA flat, _Alignas on an object, a wide string into an array with the rest zero, a data-member pointer as an offset, a null pointer to a base at an offset, the C11 atomic builtins and _Atomic objects atomic (0.99); 43: an empty `[[no_unique_address]]' member has no element and its address is the ABI's byte offset; 42: a conditional over two void arms has no phi
+ccl_lowering_version(50).   % 50 (0.104): the integer imaginary literal's real type from its suffix, a big one spelled whole; 49 (0.103): sizeof a string literal is its bytes; 48 (0.103): _Complex int, two integer components, the integer imaginary literal; 47 (0.101): the imaginary literal, Annex G's multiplication and division through the runtime's __muldc3 and __divdc3, the components as places; 46 (0.100): a function bound to a reference to a pointer converts into a materialized pointer temporary; 45 (0.100): a pointer to member function as the ABI's { ptr, adj }, C's complex types as two components; 44: the VLA's bounds kept in its type, a VLA of a VLA flat, _Alignas on an object, a wide string into an array with the rest zero, a data-member pointer as an offset, a null pointer to a base at an offset, the C11 atomic builtins and _Atomic objects atomic (0.99); 43: an empty `[[no_unique_address]]' member has no element and its address is the ABI's byte offset; 42: a conditional over two void arms has no phi
 %% ccl_lowering_version(41).   % 41: a literal past 2^60 spelled whole; 40.   % 40: a base clause naming a bound type parameter takes its class, a scope name is the class's own typedef first (libc++ 18), -lc++ on Linux; 39: C23 (_BitInt as iN, the overflow builtins, unreachable), a VLA at run time, thread_local, the wide literals, [[assume]]; 38: a conditional over two lvalues is an lvalue, and its address the phi of theirs;  % 37: wchar_t, char16_t and char32_t have LLVM types, and a function template's shipped instance its Itanium symbol;  % 36: an rvalue prefers `T &&' where a TEMPLATE's candidate is judged (cpp_ref_rank), so std::get answers `int &&' and not `int &';  % 35: a CAST TO A REFERENCE converts from the operand's class to the cast's own target, so a reference or a pointer to a SECOND base is offset (ir_ref_to);  % 34: an empty class is one byte, an `alignas' one padded to its alignment, and a `[[no_unique_address]]' empty member a zero-sized element -- every struct's shape may move
 
 ccl_ir_units(Units0, IR) :-
@@ -577,7 +577,7 @@ ir_expr(uwb(N), N, T, LL) :- !, ccl_type_of(uwb(N), T), ir_type(T, LL).
 ir_expr(float(F), A, base([], [double]), double) :- !, ir_double(F, A).
 ir_expr(imag(F), V, base([], ['_Complex', double]), LL) :- !, LL = '{ double, double }', ir_double(F, A), ir_complex_make(LL, '0.0', A, V).   % the imaginary literal `2.0i' (0.101): the constant { 0, F }
 ir_expr(imagf(F), V, T, LL) :- !, ir_expr(imag(F), V0, T0, L0), T = base([], ['_Complex', float]), LL = '{ float, float }', ir_complex_convert(V0, T0, L0, T, LL, V).
-ir_expr(imagi(N), V, base([], ['_Complex', int]), '{ i32, i32 }') :- !, ( integer(N) -> ir_complex_make('{ i32, i32 }', 0, N, V) ; ir_fail(imaginary_literal_past_2_60) ).   % `3i': the constant { 0, N } (0.103)
+ir_expr(imagi(Sp, N), V, T, LL) :- !, T = base([], ['_Complex'|Sp]), ir_type(T, LL), ( integer(N) -> Txt = N ; N = big(A), ir_big_text(A, Txt) ), ir_complex_make(LL, 0, Txt, V).   % `3i', `2ui', `3li': the constant { 0, N } of its kind (0.103; the kind from the suffix and a literal past 2^60 spelled as it is, 0.104)
 ir_expr(chr(C), C, base([], [char]), i8) :- ccl_lang(cpp), !.   % C++: a char, as the inference types it
 ir_expr(chr(C), C, T, i32) :- !, ir_int(T).
 ir_expr(str(S), Ref, ptr([], base([], [char])), ptr) :- !, ir_string(S, Ref).
@@ -1429,7 +1429,7 @@ ir_float_builtin('__builtin_nan', '0x7FF8000000000000', base([], [double]), doub
 ir_float_builtin('__builtin_nanf', '0x7FF8000000000000', base([], [float]), float).
 ir_imag_const(imag(F), F).
 ir_imag_const(imagf(F), F).
-ir_imag_const(imagi(N), N) :- integer(N).   % `3i' (0.103)
+ir_imag_const(imagi(_, N), N).   % `3i' (0.103); a `big(A)' spelled by ir_complex_text
 ir_imag_const(neg(X), F) :- ir_imag_const(X, F0), F is -F0.
 ir_gconst(E, T, Text) :- ccl_is_complex(T), !, ccl_complex_real(T, RT), ir_type(RT, EL),                          % a complex global's constant: `{ double R, double I }' (0.100)
     (   E == none -> R = 0, I = 0 ; E = call(id('__builtin_complex'), [A, B]) -> ir_num_const(A, R), ir_num_const(B, I)
@@ -1439,6 +1439,7 @@ ir_gconst(E, T, Text) :- ccl_is_complex(T), !, ccl_complex_real(T, RT), ir_type(
     ;   E = bin('-', A, Im), ir_imag_const(Im, I0) -> ir_num_const(A, R), I is -I0                        % `1.0 - 2.0i'
     ;   ir_num_const(E, R), I = 0 ),
     ir_complex_text(R, EL, RT1), ir_complex_text(I, EL, IT1), atomic_list_concat(['{ ', EL, ' ', RT1, ', ', EL, ' ', IT1, ' }'], Text).
+ir_complex_text(big(A), _, T) :- !, ir_big_text(A, T).
 ir_complex_text(V, EL, A) :- ( ir_fp_ll(EL) -> ir_fp_text(V, EL, A) ; A is truncate(V) ).   % an integer complex's components are integers (0.103); a floating constant truncates as a conversion does
 ir_gconst(none, T, Z) :- !, ir_type(T, LL), ir_zero(LL, Z).
 ir_gconst(int(big(A)), _, V) :- !, ir_big_text(A, V).

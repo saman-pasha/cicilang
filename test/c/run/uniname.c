@@ -6,5 +6,6 @@ int main(void) {
     const char *s = "\N{LATIN SMALL LETTER A}\N{GREEK SMALL LETTER ALPHA}\N{CJK UNIFIED IDEOGRAPH-4E00}\N{HANGUL SYLLABLE GA}\N{SNOWMAN}";
     for (int i = 0; s[i]; i++) printf("%02x ", (unsigned char) s[i]);
     printf("\n%d %d %d\n", '\N{LATIN CAPITAL LETTER B}', (int) L'\N{SNOWMAN}', (int) sizeof(L"\N{HANGUL SYLLABLE GA}x") / (int) sizeof(wchar_t));
+    printf("%d %d %d %d\n", '\N{NULL}', (int) L'\N{LATIN CAPITAL LETTER GHA}', (int) L'\N{BYTE ORDER MARK}', '\N{ALERT}');   /* the name aliases: a control, a correction, an alternate, a figment-class one */
     return 0;
 }

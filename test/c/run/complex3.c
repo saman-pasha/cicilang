@@ -19,6 +19,9 @@ int main(void) {
     long _Complex L = 5l + 6li;
     L = L * L;
     printf("%d %d %u %u %ld %ld %d\n", __real__ n, __imag__ n, __real__ u, __imag__ u, __real__ L, __imag__ L, (int) sizeof(L));
+    unsigned _Complex su = 2ui; long _Complex sl = 3li; unsigned long _Complex sul = 4uli + 1;
+    long _Complex big = 9000000000000000000i, wide = 3000000000i;
+    printf("%u %ld %lu %d %d %d %ld %ld %d\n", __imag__ su, __imag__ sl, __imag__ sul, (int) sizeof(2ui), (int) sizeof(3li), (int) sizeof(3i), __imag__ big, __imag__ wide, (int) sizeof(3000000000i));
     int _Complex t = twice(z);
     __real__ t = 10; __imag__ t += 1;
     printf("%d %d %d\n", __real__ t, __imag__ t, (int) (t == (10 + 9i)));

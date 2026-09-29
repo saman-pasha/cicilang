@@ -373,7 +373,7 @@ ccl_float_builtin_type('__builtin_inf', base([], [double])).      ccl_float_buil
 ccl_float_builtin_type('__builtin_inff', base([], [float])).      ccl_float_builtin_type('__builtin_huge_valf', base([], [float])).
 ccl_float_builtin_type('__builtin_nan', base([], [double])).      ccl_float_builtin_type('__builtin_nanf', base([], [float])).    % the imaginary literal (0.101)
 ccl_type_of(imagf(_), base([], ['_Complex', float])) :- !.
-ccl_type_of(imagi(_), base([], ['_Complex', int])) :- !.   % `3i' (0.103)
+ccl_type_of(imagi(Sp, _), base([], ['_Complex'|Sp])) :- !.   % `3i', `2ui', `3li', `4uli' (0.104): the specifiers its suffix and its value give
 ccl_type_of(chr(_), base([], [char])) :- ccl_lang(cpp), !.   % C++: a character literal is a char (C's is an int): `cout << ' '' takes the char inserter, not operator<<(int)
 ccl_type_of(chr(_), base([], [int])) :- !.
 %% a string literal is an ARRAY whose bytes `sizeof' counts (6.5.3.4, [expr.sizeof]; 0.103): the narrow one its codes

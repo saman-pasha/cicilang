@@ -317,8 +317,6 @@ DESIGN.md, CLAUDE.md           the architecture; how the repository is worked on
 
 ## Not done
 
-Coroutines and modules; `std::format` and the ranges; `\N{...}`'s name
-aliases (the names themselves are read); an integer imaginary literal's
-suffixes (`2ui` is a `_Complex int` here); `std::compare_three_way` and
-`std::common_comparison_category`; the arm64 ABI written and not proven. Each
-is named in `CLAUDE.md` with where it stops.
+Coroutines and modules; `std::format` and the ranges; a `\N{...}` abbreviation
+alias (`\N{NUL}`, which clang refuses too); the arm64 ABI written and not
+proven. Each is named in `CLAUDE.md` with where it stops.

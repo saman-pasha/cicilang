@@ -1365,10 +1365,11 @@ cpp_declare_members([method(_, Qs, Ret0, M, Ps, V, Body)|Ms], C) :- !,
     ccl_declare(Name, fn(Ret, [param(ThisT, this)|Ps1], V)), cpp_note_defaults(Name, Ps), cpp_declare_members(Ms, C).
 %% `auto f()': the first return's expression, desugared (an instance's call has a type only then), typed
 cpp_method_ret(C, base(_, [auto]), Params, Body0, Ret) :- Body0 \== none, !, cpp_body_typedefs(Body0, Body),
-    (   cpp_first_return(Body, E)
-    ->  ccl_scope_push, ccl_declare_params(Params), cpp_declare_before(C, Body, E), cpp_expr(C, E, E1), ( cpp_deduced_ret(E1, T), T \== unknown -> cpp_decayed(T, Ret) ; Ret = none ), ccl_scope_pop,   % the locals before the return in scope (cpp_declare_before, the lambda's rule)
+    ccl_scope_push, ccl_declare_params(Params),
+    (   cpp_first_return_in(C, Body, E)   % the locals before the return declared on the way, a discarded `if constexpr' branch never entered (the lambda's rule)
+    ->  cpp_expr(C, E, E1), ( cpp_deduced_ret(E1, T), T \== unknown -> cpp_decayed(T, Ret) ; Ret = none ), ccl_scope_pop,
         ( Ret == none -> cpp_refuse(0, auto_result(C)) ; true )
-    ;   Ret = base([], [void]) ).
+    ;   ccl_scope_pop, Ret = base([], [void]) ).
 cpp_method_ret(_, Ret0, Params, _, Ret) :- ( cpp_has_decltype(Ret0) -> cpp_with_params(Params, [], cpp_type(Ret0, Ret)) ; cpp_type(Ret0, Ret) ).   % a trailing decltype over the parameters (0.100)
 cpp_has_decltype(base(_, [decltype(_)])) :- !.
 cpp_has_decltype(ref(_, T)) :- !, cpp_has_decltype(T).
@@ -1914,7 +1915,7 @@ cpp_fold_const_inits_([var(N, T, I)|Vs], [var(N, T, I1)|Ws]) :-
     (   atom(N), cpp_class_of_type(T, C), cpp_has_ctors(C), I \== none, \+ cpp_class_of_type_of(I, C) -> cpp_fold_ctor_init(N, T, C, I, I1)   % `constexpr V g(3, 4);' (0.99)
     ;   I = call(_, _), catch(cpp_eval_agg_kind(T, _), _, fail), catch(cpp_eval_init(T, I, [], _, AV), _, fail), cpp_eval_init_term(AV, I2) -> I1 = I2   % `constexpr P origin = make(7);': the aggregate the call answers, as its initializer (0.98)
     ;   I = call(_, _), \+ ccl_resolve_type(T, arr(_, _)), catch(cpp_const_value(I, K), _, fail) -> ( K = bool(_) -> I1 = K ; integer(K) -> I1 = int(K) ; I1 = I ) ; I1 = I ),
-    ( atom(N), I1 \== none, catch(cpp_eval_agg_kind(T, _), _, fail) -> atom_concat('$cpp_gagg:', N, GK), nb_setval(GK, agg(T, I1)) ; true ),   % a constant aggregate: a value for the constexpr evaluator (0.97)
+    ( atom(N), I1 \== none, catch(cpp_eval_agg_kind(T, _), _, fail) -> atom_concat('$cpp_gagg:', N, GK), nb_setval(GK, agg(T, I1, global)) ; true ),   % a constant aggregate: a value for the constexpr evaluator (0.97)
     cpp_fold_const_inits_(Vs, Ws).
 cpp_item(typedef(L, Vs), [typedef(L, Vs1)]) :- !, cpp_vars(none, Vs, Vs1), ccl_note_typedefs(Vs1).   % the table learns the instance's name at once
 cpp_item(template(_, _, _), []) :- !.
@@ -2433,7 +2434,7 @@ cpp_decl_pieces(Ctx, L, Sto, B, [var(N, T0, init(Items))|Vs], Pieces) :-
     ( cpp_dtor(C, DName) -> P2 = [defer(L, [], block([expr(L, call(id(DName), [addr(id(N))]))]))|P3] ; P2 = P3 ),
     cpp_decl_pieces(Ctx, L, Sto, B, Vs, P3).
 cpp_decl_pieces(Ctx, L, Sto, B, [var(N, T0, I)|Vs], Pieces) :-
-    cpp_type(T0, T),
+    cpp_type(T0, T1), cpp_size_by_init(T1, I, T),
     (   Sto \== static, Sto \== extern, cpp_class_of_type(T, C), cpp_has_ctors(C), cpp_ctor_args(Ctx, I, C, Args)
     ->  length(Args, NA), ccl_declare(N, T),
         %% C++17: A PRVALUE OF THE CLASS IS THE OBJECT, elided -- no constructor runs and none is looked for.
@@ -2461,9 +2462,26 @@ cpp_decl_pieces(Ctx, L, Sto, B, [var(N, T0, I)|Vs], Pieces) :-
 %% C++98 (C gained it at C23, ccl_note_constants): its name may stand where a template argument or an array's bound
 %% does. libc++'s `__recommend' writes `const size_type __boundary = ...;' and then `__align_it<__boundary>(...)'.
 %% Noted after the initializer is DESUGARED, since the class constants in it fold only then.
-cpp_note_const(N, T, I) :- ccl_resolve_type(T, R), R = base(Q, _), memberchk(const, Q), \+ ccl_is_float(R), ( ccl_const_eval(I, V) -> true ; cpp_trace(const_not_folded(N, I)), fail ), !,
+%% an unbounded array whose initializer held a pack expansion at the read is SIZED HERE, the pack expanded (0.104)
+cpp_size_by_init(arr(none, E), init(Items), arr(int(K), E)) :- \+ member(item(_, pack(_)), Items), !, length(Items, K).
+cpp_size_by_init(T, _, T).
+cpp_note_const(N, T, I) :- ccl_resolve_type(T, R), R = base(Q, _), memberchk(const, Q), \+ ccl_is_float(R),
+    (   ccl_const_eval(I, V) -> true
+    ;   I = call(_, _), catch(cpp_const_value(I, V0), _, fail) -> ( V0 = bool(B) -> ( B == true -> V = 1 ; V = 0 ) ; V = V0 )   % a CONSTEXPR CALL folds through the evaluator (0.104): libc++'s `constexpr _CCC __cat = __compute_comp_type(__type_kinds);'
+    ;   cpp_trace(const_not_folded(N, I)), fail ), !,
     nb_getval('$ccl_enums', L), nb_setval('$ccl_enums', [N-V|L]).
+%% A `const' LOCAL AGGREGATE WITH A CONSTANT INITIALIZER IS A VALUE TO THE CONSTEXPR EVALUATOR (0.104), as a file-scope
+%% one has been since 0.97 (`'$cpp_gagg:N'', marked `local': read only while the name IS a local of the walk, where a
+%% global's entry is read only while it is not): libc++'s `__get_comp_type' writes `constexpr _CCC __type_kinds[] =
+%% {_StrongOrd, __type_to_enum<_Ts>()...};' and hands it to a constexpr function by reference
+cpp_note_const(N, T, I) :- I \== none, atom(N), cpp_const_agg_type(T), !,
+    (   catch(cpp_eval_init(T, I, [], _, _), Err, ( cpp_trace(const_agg_error(N, Err)), fail ))
+    ->  atom_concat('$cpp_gagg:', N, K), nb_setval(K, agg(T, I, local)), cpp_trace(const_local_agg(N))
+    ;   cpp_trace(const_agg_not_folded(N, I)), cpp_agg_items_trace(I) ).
+cpp_agg_items_trace(init(Items)) :- !, forall(member(item(_, E), Items), ( catch(cpp_eval_effect(E, [], _, V), Err, ( V = error(Err) )) -> cpp_trace(agg_item(E, V)) ; cpp_trace(agg_item(E, failed)) )).   % under the trace: which item of a const aggregate the evaluator cannot take
+cpp_agg_items_trace(_).
 cpp_note_const(_, _, _).
+cpp_const_agg_type(T) :- catch(cpp_eval_agg_kind(T, _), _, fail), ccl_resolve_type(T, R), ( R = arr(_, ET) -> ccl_resolve_type(ET, base(Q, _)) ; R = base(Q, _) ), memberchk(const, Q).
 cpp_plain_init('$cpp_walked'(X), _, '$cpp_walked'(X)) :- !.
 cpp_plain_init(ctor([X]), _, X) :- !.
 cpp_plain_init(ctor([]), T, Z) :- !, ( cpp_braced_scalar_type(T) -> cpp_zero_of(T, Z) ; Z = init([]) ).   % `int arr[9] = {}', `S s{}': an aggregate's empty list is value-initialization of every element (0.99: it had been the scalar zero, `sext i32 0 to [9 x i32]')
@@ -2709,6 +2727,8 @@ cpp_expr(_, scoped(Path, N), _) :- memberchk(nonclass(A), Path), !, cpp_refuse(0
 cpp_expr(_, scoped(Path, N), int(V)) :- atom(N), cpp_enum_scope(Path), ccl_enum_value(N, V), !.   % A QUALIFIED ENUMERATOR IS ITS VALUE WHATEVER A LOCAL IS NAMED (0.94): `Kind::ptr' asks the enumerators' table directly, since flattened to `id(ptr)' it would meet the local that now shadows the bare name
 cpp_expr(_, scoped(Path, N), id(GName)) :- atom(N), ( cpp_ns_key(Path, N, K) -> true ; K = N ), cpp_global_var(K, GName), !.   % ... a deeper namespace's colliding object by its key (0.100)   % `std::cout': a library header's extern GLOBAL, by the symbol the shipped binary exports (a scoped name is flattened in the lowering, so it must be taken here)
 cpp_expr(_, scoped(Path, N), id(Name)) :- atom(N), \+ cpp_scope_class(Path, _), cpp_lazy_fn_value(N, Name), !.   % `std::hex' named as a value: the header's function, emitted (the bare name's road below)
+cpp_expr(_, scoped(Path, tmpl(N, Args0)), E) :- atom(N), \+ cpp_scope_class(Path, _), cpp_variable_template(N), !,   % A NAMESPACE-QUALIFIED VARIABLE TEMPLATE IS ITS VALUE (0.104): `std::is_same_v<A, B>' in an expression had its value put back INSIDE the scoped path, `scoped([std], bool(false))', which the lowering met as a name
+    cpp_targ_values(Args0, Args), cpp_instantiate_variable(N, Args, E).
 cpp_expr(_, scoped(Path, N), E) :- cpp_scope_class(Path, C), !,
     (   cpp_static_const(C, N, V) -> E = V                                                        % C::value, a static const with a constant: the constant
     ;   cpp_static_member(C, N, Name) -> E = id(Name)
@@ -3616,7 +3636,8 @@ cpp_eval_put(K, [X|L0], V, [X|L]) :- K > 0, K1 is K - 1, cpp_eval_put(K1, L0, V,
 cpp_eval_put_field(F, V, [F-_|Ps], [F-V|Ps]) :- !.
 cpp_eval_put_field(F, V, [X|Ps0], [X|Ps]) :- cpp_eval_put_field(F, V, Ps0, Ps).
 %% a file-scope `const' aggregate with a constant initializer, as a value (recorded by cpp_fold_const_inits_)
-cpp_global_agg(N, V) :- atom(N), \+ cpp_local(N), atom_concat('$cpp_gagg:', N, K), catch(nb_getval(K, agg(T, Init)), _, fail), cpp_eval_init(T, Init, [], _, V).
+cpp_global_agg(N, V) :- atom(N), atom_concat('$cpp_gagg:', N, K), catch(nb_getval(K, agg(T, Init, Where)), _, fail),
+    ( Where == global -> \+ cpp_local(N) ; cpp_local(N) ), cpp_eval_init(T, Init, [], _, V).   % a local's entry (0.104) only while it is the local in scope
 cpp_eval_stmt(switch(_, E, S), Env0, Env, R) :- !, cpp_eval_effect(E, Env0, Env1, V),
     ( S = block(Is) -> true ; Is = [S] ), cpp_eval_switch_flat(Is, Flat),
     (   append(_, [label(C)|Rest], Flat), C \== default, cpp_eval_expr(C, Env1, CV), CV == V -> true
@@ -4144,7 +4165,7 @@ cpp_instantiate_variable(N, Args, E) :-
     ( cpp_class_template(N, TPs, declaration(_, _, _, [var(_, _, Init)])) -> true ; cpp_refuse(0, template_without_body(N)) ),
     cpp_bind_targs(TPs, Args, B), cpp_full_args(TPs, B, FullArgs),
     ( cpp_pick_spec(N, FullArgs, SB, declaration(_, _, _, [var(_, _, SInit)])) -> cpp_subst(SInit, SB, I1) ; cpp_subst(Init, B, I1) ),
-    cpp_expr(none, I1, I2), ( I2 = bool(_) -> E = I2 ; ccl_const_eval(I2, V) -> E = int(V) ; cpp_trace(vartmpl_not_constant(I2)), cpp_refuse(0, variable_template_not_constant(N)) ).
+    cpp_expr(none, I1, I2), cpp_trace(vartmpl(N, Args, I2)), ( I2 = bool(_) -> E = I2 ; ccl_const_eval(I2, V) -> E = int(V) ; cpp_trace(vartmpl_not_constant(I2)), cpp_refuse(0, variable_template_not_constant(N)) ).
 %% a function template at a call: its type arguments explicit, then deduced from the arguments' types, then defaulted.
 %% The candidates are every DEFINITION of the name, in declaration order (a prototype is a declaration item, not a
 %% function); one whose signature does not hold -- the arity, a deduction, a default, a value parameter's type, a
@@ -5191,12 +5212,12 @@ cpp_lambda_ret(Ps, Body, Ret) :- cpp_lambda_ret(none, Ps, Body, Ret).
 %% once they are the calls and accesses the desugaring makes of them -- and here, where the lambda stands, the
 %% enclosing locals and `this' are still in scope
 cpp_lambda_ret(Ctx, Ps, Body0, Ret) :- cpp_body_typedefs(Body0, Body),
-    (   cpp_first_return(Body, E)
-    ->  ccl_scope_push, ccl_declare_params(Ps), cpp_declare_before(Ctx, Body, E),
-        ( catch(cpp_expr(Ctx, E, E1), error(not_lowered(W), _), ( cpp_trace(lambda_ret_refused(W)), fail )) -> true ; E1 = E ),   % traced: the refusal behind a `lambda_result_type' is otherwise silent
-        ( cpp_deduced_ret(E1, T), T \== unknown -> Ret = T ; Ret = none ), ccl_scope_pop,
+    ccl_scope_push, ccl_declare_params(Ps),
+    (   cpp_first_return_in(Ctx, Body, E)
+    ->  ( catch(cpp_expr(Ctx, E, E1), error(not_lowered(W), _), ( cpp_trace(lambda_ret_refused(W)), fail )) -> true ; E1 = E ),   % traced: the refusal behind a `lambda_result_type' is otherwise silent
+        ( cpp_deduced_ret(E1, T), T \== unknown -> cpp_decayed(T, Ret) ; Ret = none ), ccl_scope_pop,   % DECAYED, the top-level qualifiers dropped ([dcl.spec.auto]: `auto' deduces as a by-value parameter; 0.104): `return partial_ordering::equivalent', a static const, made `common_comparison_category_t' a `const partial_ordering' that `is_same_v' told from the plain one
         ( Ret == none -> cpp_refuse(0, lambda_result_type) ; true )
-    ;   Ret = base([], [void]) ).
+    ;   ccl_scope_pop, Ret = base([], [void]) ).
 %% THE BLOCK TYPEDEFS BEFORE THE FIRST RETURN are substituted into it before its type is asked (0.60's rule at walk
 %% time, beside 0.81's declarations before the return): libc++'s `transform' writes `using _Up = remove_cv_t<
 %% invoke_result_t<_Func, _Tp &>>; ... return optional<_Up>(...)', and the first return typed raw instantiated
@@ -5224,22 +5245,27 @@ cpp_first_return(T, E) :- compound(T), T =.. [_|As], member(A, As), cpp_first_re
 %% lambda, and with the parameters alone declared `__r' had no type (lambda_result_type). Every declaration before
 %% the return -- in its block and the blocks around it, a for's own -- is desugared for its DECLARATIONS only
 %% (cpp_stmt declares as it walks), the output dropped; a refusal there is nothing, the walk of the body says it.
-cpp_declare_before(Ctx, block(Ss), E) :- !, cpp_declare_before_(Ss, Ctx, E).
-cpp_declare_before(Ctx, if(_, _, T, Else), E) :- !, ( cpp_holds_return(T, E) -> cpp_declare_before(Ctx, T, E) ; cpp_declare_before(Ctx, Else, E) ).
-cpp_declare_before(Ctx, for(_, Init, _, _, S), E) :- !, ( Init = decl(B, Vs) -> cpp_declare_only(Ctx, declaration(0, none, B, Vs)) ; true ), cpp_declare_before(Ctx, S, E).
-cpp_declare_before(Ctx, while(_, _, S), E) :- !, cpp_declare_before(Ctx, S, E).
-cpp_declare_before(Ctx, do(_, S, _), E) :- !, cpp_declare_before(Ctx, S, E).
-cpp_declare_before(Ctx, switch(_, _, S), E) :- !, cpp_declare_before(Ctx, S, E).
-cpp_declare_before(Ctx, label(_, _, S), E) :- !, cpp_declare_before(Ctx, S, E).
-cpp_declare_before(Ctx, case(_, _, S), E) :- !, cpp_declare_before(Ctx, S, E).
-cpp_declare_before(Ctx, default(_, S), E) :- !, cpp_declare_before(Ctx, S, E).
-cpp_declare_before(_, _, _).
-cpp_declare_before_([], _, _).
-cpp_declare_before_([S|Ss], Ctx, E) :-
-    (   cpp_holds_return(S, E) -> cpp_declare_before(Ctx, S, E)
-    ;   ( S = declaration(_, _, _, _) ; S = bindings(_, _, _, _) ) -> cpp_declare_only(Ctx, S), cpp_declare_before_(Ss, Ctx, E)
-    ;   cpp_declare_before_(Ss, Ctx, E) ).
-cpp_holds_return(S, E) :- cpp_first_return(S, E0), E0 == E.
+%% AND A RETURN IN A DISCARDED `if constexpr' BRANCH DOES NOT DEDUCE ([stmt.if]/2; 0.104): the condition is decided
+%% here, with those locals in scope, and only the kept branch is entered -- libc++'s `__get_comp_type' opens with
+%% `if constexpr (__cat == _None) return void();', and the first return taken textually made every
+%% `common_comparison_category_t' void; a condition that does not fold leaves both branches, as the walk does.
+cpp_first_return_in(Ctx, block(Ss), E) :- !, cpp_first_return_in_(Ss, Ctx, E).
+cpp_first_return_in(Ctx, if_constexpr(_, C, T, Else), E) :- catch(( cpp_expr(Ctx, C, C1), cpp_const_bool(C1, V) ), _, fail), !,
+    ( V == true -> cpp_first_return_in(Ctx, T, E) ; cpp_first_return_in(Ctx, Else, E) ).
+cpp_first_return_in(Ctx, if_constexpr(_, _, T, Else), E) :- !, ( cpp_first_return_in(Ctx, T, E) -> true ; cpp_first_return_in(Ctx, Else, E) ).
+cpp_first_return_in(Ctx, if(_, _, T, Else), E) :- !, ( cpp_first_return_in(Ctx, T, E) -> true ; cpp_first_return_in(Ctx, Else, E) ).
+cpp_first_return_in(Ctx, for(_, Init, _, _, S), E) :- !, ( Init = decl(B, Vs) -> cpp_declare_only(Ctx, declaration(0, none, B, Vs)) ; true ), cpp_first_return_in(Ctx, S, E).
+cpp_first_return_in(Ctx, while(_, _, S), E) :- !, cpp_first_return_in(Ctx, S, E).
+cpp_first_return_in(Ctx, do(_, S, _), E) :- !, cpp_first_return_in(Ctx, S, E).
+cpp_first_return_in(Ctx, switch(_, _, S), E) :- !, cpp_first_return_in(Ctx, S, E).
+cpp_first_return_in(Ctx, label(_, _, S), E) :- !, cpp_first_return_in(Ctx, S, E).
+cpp_first_return_in(Ctx, case(_, _, S), E) :- !, cpp_first_return_in(Ctx, S, E).
+cpp_first_return_in(Ctx, default(_, S), E) :- !, cpp_first_return_in(Ctx, S, E).
+cpp_first_return_in(_, S, E) :- cpp_first_return(S, E).
+cpp_first_return_in_([S|Ss], Ctx, E) :-
+    (   ( S = declaration(_, _, _, _) ; S = bindings(_, _, _, _) ) -> cpp_declare_only(Ctx, S), cpp_first_return_in_(Ss, Ctx, E)
+    ;   cpp_first_return_in(Ctx, S, E) -> true
+    ;   cpp_first_return_in_(Ss, Ctx, E) ).
 cpp_declare_only(Ctx, S) :- ( catch(cpp_stmt(Ctx, S, _), error(not_lowered(_), _), fail) -> true ; true ).
 
 %% ---- C++20 concepts: satisfaction ----------------------------------------------------------
