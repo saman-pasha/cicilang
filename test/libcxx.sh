@@ -73,15 +73,14 @@ ccl_read() {   # ccl_read HEADER STD MIN
   timeout -s KILL "$LX_SECS" env CCL_HDR="$h" CCL_STD="$std" CCL_MIN="$min" CCL_TEST_TMP="$D" HOME="$WARMHOME" \
     "$C" --local query "ensure_loaded('$ROOT/test/readhdr.pl'), readhdr_main" > "$RES/a_${h}_${std}.res" 2>&1
   grep -aq "^ok\|^FAIL\|^warm" "$RES/a_${h}_${std}.res" || echo "FAIL <$h> at C++$std: the read did not finish" >> "$RES/a_${h}_${std}.res"
-  ccl_time_record "$LX_TIMES" "$h@$std" $(( $(date +%s) - t0 ))
+  grep -aq "^ok" "$RES/a_${h}_${std}.res" && ccl_time_record "$LX_TIMES" "$h@$std" $(( $(date +%s) - t0 ))   # a good read's seconds only
 }
 # ONE WARM-ONLY HEADER: a syntax-only build writes its summary; nothing is asserted
 ccl_warm() {   # ccl_warm HEADER STD
   h=$1; std=$2; t0=$(date +%s); f="$D/warm_${h}_${std}.cpp"; printf '#include <%s>\nint main() { return 0; }\n' "$h" > "$f"
   if timeout -s KILL "$LX_SECS" env HOME="$WARMHOME" "$ROOT/bin/cocolang++" -std=c++$std -fsyntax-only "$f" > "$RES/w_${h}_${std}.out" 2>&1; then
-    echo "warm <$h> C++$std" > "$RES/w_${h}_${std}.res"
+    echo "warm <$h> C++$std" > "$RES/w_${h}_${std}.res"; ccl_time_record "$LX_TIMES" "$h@$std" $(( $(date +%s) - t0 ))
   else echo "warm <$h> C++$std: FAILED to flatten (a fixture including it will cold-flatten in the gate)" > "$RES/w_${h}_${std}.res"; fi
-  ccl_time_record "$LX_TIMES" "$h@$std" $(( $(date +%s) - t0 ))
 }
 
 # the asserted (header@std) as a key set, so the union's warm-only jobs skip them (read once)

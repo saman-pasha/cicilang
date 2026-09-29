@@ -5750,6 +5750,39 @@ WHAT IS MEASURED AND WHAT IS NOT: the pool on twelve fixtures and the library re
 `sh test/gates.sh' over the user's cache follows this commit, and its numbers -- and 0.103's and 0.104's C++ and
 libc++ ones, whose serial chains were stopped -- are carried by the next commit.
 
+**M6's seventy-second step (0.106): WHAT THE PARALLEL GATES FOUND ON THEIR FIRST RUN -- a summary with no AST behind
+it, and a pool whose jobs could eat its queue.** 0.105's chain ran whole on this box for the first time: the five
+small gates GREEN in 49 s together, the library read GREEN in 3168 s with every count equal to 0.101's, and the C++
+gate RED in 3718 s with nine failures -- 6935 s for the chain where the serial one took about 25,000. The nine were
+TWO defects, and neither was the compiler's work on a program. (1) THE LOST AST, older than the refactor and exposed
+by it: 0.100 moved the summary's write AFTER the AST's (the summary is the validity key, so it must be the last file
+a run writes), but only the summary's write ran `mkdir -p' on the cache directory -- so in a cache whose directory
+did not exist, the FIRST header a process read met no directory, its AST write FAILED, and the summary written after
+it CREATED the directory and stood valid with no template bodies behind it. Every program instantiating that header's
+templates then refused `template_without_body' until the cache was wiped by hand. The old warm ran over an existing
+directory and never met it; the library read WIPES the directory on every run, so the headers that finished first
+lost their ASTs -- here <string> at C++17, and all eight C++17 fixtures over `std::string' failed on it. And the
+catch around the AST's write made it WORSE: its recovery traced the error and SUCCEEDED, so an exception read as a
+written AST. THREE RULES (`library/ccl_include.pl'): the directory is made before the AST is written
+(`ccl_sum_dir_ready', which the summary's write shares); a summary is written only when its AST was (the recovery
+fails now); and a summary is VALID only with its AST beside it (`ccl_sum_valid'), so a hollow summary already in
+someone's cache is read again and repaired rather than refusing programs for ever. Proven on <cstdio>: into an absent
+directory it had lost its AST, and has it now; with the AST removed by hand, the next read writes it again. (2) A
+JOB READ THE POOL'S INPUT: `ccl_pool' takes its jobs from standard input and `eval'ed each one with that input
+inherited, and cocolog's query loop reads its standard input -- so a build could swallow the job lines queued behind
+it. One did: `stdoptionalref' was never run, and the collector, which names every fixture that left no verdict, said
+so (`no verdict'); every job now runs with `/dev/null' as its input. AND a failed build's time is no measure of its
+cost -- the eight string fixtures failed in seconds and would have been ordered LAST next time, though they are heavy
+-- so only a passing build's seconds (and a good read's) are recorded for the longest-first order. HOW THE FIRST WAS
+FOUND, worth its line in the list of instruments that answer without measuring: the first probe into the write put
+its markers on `user_error', which cocolog does not have, so the FIRST marker failed and took the write down with it
+-- an instrument that broke the thing it measured, reading exactly like the defect; on standard output they named
+the failing step at once (the file write), and a ten-second test on a small header with the directory absent and
+then present named the cause. Library change only in what the summary cache writes and accepts; reader version 90,
+lowering version 50 unchanged; the module rebuilt as 0.106.
+THE GATES: the fixes are proven on the reductions above, and at this commit the whole chain `sh test/gates.sh' is
+running on them (reader 8 s, compile 7 s and driver 8 s GREEN so far); its numbers are carried by the next commit.
+
 **`format`, `print`, `println` are global macros** (owner's rule):
 `library/ccl_format.pl` is a macro file registered by `ccl_standard_macros/0`
 at the start of every unit (found on `$COCOLOG_LIBRARY`, which is also on

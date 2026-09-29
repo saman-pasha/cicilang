@@ -34,7 +34,7 @@ ccl_pool() {
       sleep 1
     done
     [ "$_killed" -eq 1 ] && break
-    eval "$_job" & _pids="$_pids $!"
+    eval "$_job" < /dev/null & _pids="$_pids $!"   # NO JOB READS THE POOL'S INPUT (0.106): that input IS the job list, and cocolog's query loop reads its stdin -- a build swallowed the lines queued behind it, and stdoptionalref ran never
   done
   for _p in $_pids; do wait "$_p" 2>/dev/null; done
   return $_killed
