@@ -317,8 +317,7 @@ DESIGN.md, CLAUDE.md           the architecture; how the repository is worked on
 
 ## Not done
 
-Coroutines and modules; `\N{...}` and the imaginary literal (`1.0i`; C11's
-`I` and `CMPLX` come from the compiler's own `<complex.h>`); `std::format`
-and the ranges; `std::strong_ordering` as a class (`<=>` on scalars is an
-`int`); the arm64 ABI written and not proven. Each is named in `CLAUDE.md`
-with where it stops.
+Coroutines and modules; `\N{...}`; `_Complex int` (an integer imaginary
+literal, `3i`, is a complex double here); `std::format` and the ranges; the
+arm64 ABI written and not proven. Each is named in `CLAUDE.md` with where it
+stops.

@@ -363,6 +363,11 @@ ccl_wb_width(N, W) :- ( N =:= 0 -> W = 1 ; W is msb(N) + 1 ).
 ccl_type_of(bool(_), base([], [bool])) :- !.                          % C++
 ccl_type_of(nullptr, ptr([], base([], [void]))) :- !.
 ccl_type_of(float(_), base([], [double])) :- !.
+ccl_type_of(imag(_), base([], ['_Complex', double])) :- !.
+ccl_float_builtin_type('__builtin_inf', base([], [double])).      ccl_float_builtin_type('__builtin_huge_val', base([], [double])).
+ccl_float_builtin_type('__builtin_inff', base([], [float])).      ccl_float_builtin_type('__builtin_huge_valf', base([], [float])).
+ccl_float_builtin_type('__builtin_nan', base([], [double])).      ccl_float_builtin_type('__builtin_nanf', base([], [float])).    % the imaginary literal (0.101)
+ccl_type_of(imagf(_), base([], ['_Complex', float])) :- !.
 ccl_type_of(chr(_), base([], [char])) :- ccl_lang(cpp), !.   % C++: a character literal is a char (C's is an int): `cout << ' '' takes the char inserter, not operator<<(int)
 ccl_type_of(chr(_), base([], [int])) :- !.
 ccl_type_of(str(_), ptr([], base([], [char]))) :- !.
@@ -374,6 +379,8 @@ ccl_type_of(u16chr(_), base([], [char16_t])) :- !.
 ccl_type_of(u32chr(_), base([], [char32_t])) :- !.
 ccl_type_of(id(N), T) :- !, ( ccl_declared(N, T0) -> ccl_unref(T0, T) ; ccl_enum_value(N, _) -> T = base([], [int]) ; T = unknown ).   % AN ENUMERATOR IS AN INT (0.100): the parser declares one in scope, the bulk noter keeps only its VALUE, so after the passes' rebuild `o == release ? relaxed : o' typed its arm unknown (libc++'s __to_failure_order)
 ccl_type_of(call(id(B), _), base([], [bool])) :- ccl_overflow_builtin(B, _), !.
+ccl_type_of(call(id(B), _), T) :- ccl_float_builtin_type(B, T), !.
+ccl_type_of(call(id(B), [_]), base([], [int])) :- memberchk(B, ['__builtin_isnan', '__builtin_isinf', '__builtin_isinf_sign', '__builtin_isfinite', '__builtin_signbit', '__builtin_isnormal']), !.   % glibc's classification macros (0.101)                                   % INFINITY, NAN, HUGE_VAL (0.101)
 ccl_type_of(call(id('__builtin_complex'), [A, _]), T) :- ccl_type_of(A, AT), AT \== unknown, !, ccl_complex_of(AT, T).   % C11's CMPLX and I, in the compiler's <complex.h> (0.100)   % C23's <stdckdint.h> is written on them
 ccl_type_of(call(F, _), T) :- !,
     (   F = id(N), ccl_declared(N, fn(R, _, _)) -> ccl_unref(R, T)

@@ -5440,6 +5440,94 @@ fixtures over `<functional>' and the unordered containers are most of the differ
 (`<vector>' 806 ... `<optional>' 397 at C++26, `<vector>' 898 at C++20): the reader's version moved for the index
 and the marks, not for what an item is.
 
+**M6's sixty-eighth step (0.101): THE NOT-DONE LIST OF 0.100, closed where a form can be closed.** The
+owner asked for the not-done works, and this step is 0.100's list taken item by item, each cut to a
+reproduction of a dozen lines before it was fixed and each gated.
+(1) `<compare>''S ORDERING CLASSES ARE libc++'S OWN ([cmp.categories]; 0.42's scalar `<=>' was an int and a
+defaulted one an int). A scalar `<=>' answers `std::strong_ordering' for integers and pointers and
+`std::partial_ordering' for floating operands (`cpp_scalar_ordering': the class's one `signed char' holding
+-1, 0, 1 and -127 for unordered, built as the aggregate its private constructor would build, `cpp_ordering_value'),
+a defaulted `<=>' the class written or the common category of its members (`cpp_defaulted_ordering'; its
+pieces compared as `>' minus `<', so a member of a class with its own `<=>' answers the class and the
+rewritten candidates take it), and the six comparisons with the literal 0 -- `o < 0', `o == 0', `std::is_lt(o)'
+-- go to the HIDDEN FRIENDS the header writes over `_CmpUnspecifiedParam'. Four things they asked: A POINTER TO
+MEMBER TAKES A NULL POINTER CONSTANT ([conv.mem]/1; `cpp_pointerish' knows `memptr', so the literal 0 fits
+`_CmpUnspecifiedParam(int _CmpUnspecifiedParam::*)' and converts through it); A DEFAULTED FRIEND `operator=='
+COMPARES THE DATA MEMBERS ([class.compare.default]; `cpp_friend_item' over the class's members, where
+`friend constexpr bool operator==(strong_ordering, strong_ordering) noexcept = default;' would have been emitted
+as the word `default'); A REWRITTEN COMPARISON WHOSE `<=>' ANSWERS A CLASS goes through the class's operator
+(`cpp_rewritten_cmp': `(a <=> b) < 0' is the friend over the literal); and A STATIC DATA MEMBER DEFINED OUT OF ITS
+CLASS IN A HEADER is the class's own definition (`inline constexpr strong_ordering strong_ordering::less(
+_OrdResult::__less);': indexed under the class, `cpp_index_name'; noted with its initializer at the class's
+registration; emitted `linkonce' with the value its constexpr constructor gives at compile time,
+`cpp_static_constructed' over 0.99's `cpp_fold_ctor_init'; skipped as an item at the lazy load), where it had
+been named by an Itanium symbol nothing ships. A program that writes `<=>' without `<compare>' keeps the int (C++
+calls it ill-formed; the older fixtures print that int). Reader version 87 (the index changed). Gated by
+`test/cpp/run/stdcompare.cpp' at C++20 (`strong_ordering', `partial_ordering' with an unordered NaN, a defaulted
+`<=>' over ints, over a double and over a member with its own, `std::is_lt' and kin, the static constants, two
+pointers) and `<compare>' read WHOLE at C++20 in the libc++ gate (348 items). Not done: `std::strong_ordering'
+as the result of a defaulted `<=>' whose members include a NaN double (the lexicographic int has no unordered;
+`partial_ordering::unordered' comes only from a scalar `<=>'), `std::compare_three_way', `std::common_comparison_category'.
+(2) THE IMAGINARY LITERAL, GNU's (clang's and gcc's), in BOTH LEXERS: `2.0i', `1.5if', `3i', `1.0fi', `1.0li',
+`0x10i', `j' for `i' -- `tok(imag, F, L)' a `_Complex double' constant, `tok(imagf, F, L)' a `_Complex float' one
+(`ccl_float_suffix//1', `ccl_int_tok//4', `ccl_imag_mark//0' in the DCG; `ccl_lx_imag_c', `x->imag' in the
+module), the value the float imaginary part (an integer's, `3i', is 3.0 here where clang has a `_Complex int',
+which nothing here lowers); the parser's `imag(F)' and `imagf(F)', typed, checked, lowered as the constant
+{ 0, F } and folded into a global's initializer (`1.0 + 2.0i', `1.0 - 2.0i'); k84 compares the two lexers on
+the new line of `test/c/lexer.c'; the flattened text spells them back (`ccl_pp_spell_tok', `pp_spell').
+(3) ANNEX G's MULTIPLICATION AND DIVISION ARE THE C RUNTIME'S OWN: `__muldc3' and `__divdc3' (`__mulsc3',
+`__divsc3' for a complex float), which recover the infinities the textbook formulas turn into NaNs and which
+clang calls at every `*' and `/' of two complex values -- libgcc's and compiler-rt's alike, linked by cc
+(`ir_complex_rt': a complex double comes back as two SSE eightbytes, `{ double, double }', a complex float as
+one, `<2 x float>'); `(1 + 1i) / 0' is two infinities and `(inf + 1i) * 2' keeps its infinity, as C has them.
+(4) `__real__ z' AND `__imag__ z' ARE PLACES (`ir_lval', the component's own address inside the complex's slot:
+`__real__ z = 5.0', `__imag__ z += 1.0'), and the two words are GNU words to the reader's typedef heuristic --
+`__real__ z = 5.0;' at a block's start had read as a declaration of `z' with the type `__real__'.
+(5) `_Complex long double' IS A COMPLEX DOUBLE here, as `long double' is a double: its arithmetic and its
+components run; glibc's `creall' and `cimagl' take the x87 pair and cannot be called on it, named.
+(6) THE FLOATING CONSTANTS' AND CLASSIFICATION BUILTINS, which glibc's `<math.h>' writes its macros on under a
+clang-shaped compiler (0.87's hazard once more, `__has_builtin' answering 1): `INFINITY' is `__builtin_inff()',
+`NAN' `__builtin_nanf("")', `HUGE_VAL' `__builtin_huge_val()' -- the constants (`ir_float_builtin') -- and
+`isnan', `isinf', `isfinite', `isnormal', `signbit' are `__builtin_isnan' and kin, `fcmp' over the value
+(`ir_fp_class'; `isinf_sign' the signed answer); every one was `undeclared' before, so a C program that tests a
+NaN did not compile. Lowering version 47. Gated by `test/c/run/complex2.c', clang's numbers.
+(7) A CLOSURE'S CAPTURE OF CLASS TYPE IS CONSTRUCTED BY COPY AND DESTROYED WITH THE CLOSURE
+([expr.prim.lambda.capture]/10, 0.36's not-done, a lambda's destructor): a by-value capture whose class has
+constructors -- a `std::string', a class with a destructor, the object itself under `[*this]' -- is copied
+through its copy constructor, so the closure is built MEMBER BY MEMBER as an aggregate whose member constructs
+is (`cpp_closure_value' over `cpp_aggregate_inits', 0.83's temporary road: the temporary registered with the
+statement, or ELIDED into the local it initializes, `cpp_temp_elide' on the plain road too), a reference
+capture BOUND to its object (`cpp_member_from''s `ref' clause, 0.61's rule for an aggregate's member); the
+closure's implicit destructor destroys the member (0.41's rule, which the closure class already had) -- bitwise,
+`[t]' of a class with a destructor held a copy no constructor made and destroyed it once more than it was made
+(`1 2' for clang's `2 2'). And a GENERATED body's `this->$this' is the closure's own member, never the enclosing
+object's (`cpp_expr''s first clause: the implicit destructor of a `[*this]' closure walked `arrow(this, '$this')'
+into `(&this->$this)->$this'). FOUND ON THE WAY, older: a declaration of SEVERAL declarators defining a class's
+members out of class, `int Tag::made = 0, Tag::gone = 0;', is one item per declarator (`cpp_item'; the raw item
+had reached the lowering, `member_of_class'). Gated by `test/cpp/run/closurecopy.cpp' (a string captured, a
+class with a destructor counted, `[*this]' of a class with a destructor inside a const method), clang++'s
+numbers, valgrind clean.
+(8) A COLLIDING NAME IN A BASE CLAUSE OF THE DEEPER NAMESPACE IS REWRITTEN (`cpp_rename_names' on
+`base(Access, Name)' and `virtual(Name)'): `struct D : Base' inside the inner namespace took the outer `Base';
+a default argument was rewritten already, and `test/cpp/run/nscollide2.cpp' has both.
+AND A LESSON, cheap: `cpp_lambda_''s HEAD still spelled the closure as `compound_lit(T, init(Items))', so the
+member-by-member value its body now built was unified away and the trace showed a temporary registered beside a
+bitwise closure -- a clause's head is part of its answer, and a body that computes a new result must reach it.
+NOT DONE, NAMED: a pointer to member function's `adj' is always 0 (a base at an offset is adjusted at the call by
+the conversion, never in the pointer); the closure the safe part follows is the one made where it is declared --
+a closure held in a `std::function' is the library's discipline (0.45); `stderaseifuset.cpp' (C++20) builds in
+about 750 s at 3.8 GB and stays one fixture; `_Complex int'; `\N{...}', coroutines, modules, `std::format' and
+the ranges as before.
+THE GATES, ON LINUX (Ubuntu 24.04, x86_64, four cores, 16 GB; clang 18, libc++ 18, cocolog 1.8.1, the module rebuilt
+as 0.101), one after another in one chain with nothing beside them, each under its own 7000 MB watchdog, the summaries
+warmed OUTSIDE them first at all four levels (`test/warm.sh': 44 headers cold at reader 87, 10155 s, none killed): the
+reader's 95 checks GREEN in 15 s at 109 MB; the compile gate's 86 (0.100's 85 and `complex2.c') in 21 s at 366 MB; the
+driver's 25 in 10 s at 85 MB; the objects' 29; the proof; THE C++ GATE GREEN -- 228 checks ok (0.100's 225 and this
+step's three: stdcompare at C++20, closurecopy, nscollide2), `stdoptionalref' skipped by name, NO failure -- in 5935 s at
+a 3804 MB peak (0.100: 5284 s for 225). THE LIBC++ GATE, its 22 reads (0.100's 21 and `<compare>' at C++20), was RUNNING
+when this was committed: the container restarted 1212 s into its first run, which wrote nothing (the gate writes its
+log at its end), and it was started again ALONE; its numbers follow in the commit that carries them, as 0.93's did.
+
 **`format`, `print`, `println` are global macros** (owner's rule):
 `library/ccl_format.pl` is a macro file registered by `ccl_standard_macros/0`
 at the start of every unit (found on `$COCOLOG_LIBRARY`, which is also on
