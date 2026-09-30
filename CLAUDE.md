@@ -5783,6 +5783,31 @@ lowering version 50 unchanged; the module rebuilt as 0.106.
 THE GATES: the fixes are proven on the reductions above, and at this commit the whole chain `sh test/gates.sh' is
 running on them (reader 8 s, compile 7 s and driver 8 s GREEN so far); its numbers are carried by the next commit.
 
+**M6's seventy-third step (0.107): THE PARALLEL CHAIN, measured whole -- and the last shell defect it had.** 0.106's
+chain was cut by a container restart after the small gates, and ran again whole on this box (Ubuntu 24.04, x86_64,
+four cores, 16 GB; clang 18, libc++ 18, cocolog 1.8.1): the reader's 95 checks GREEN in 10 s, the compile gate's 88
+in 11 s, the driver's 25 in 11 s, the objects' 29 in 3 s, the proof in 1 s; THE LIBRARY READ GREEN in 2705 s over four
+lanes, the 22 asserted headers at 0.101's counts to the item (<vector> 806 and 898 at C++20, <string> 754, 846 and 522
+at C++23, <iostream> 792 and 884, <map> 767 and 859, <set> 767 and 859, <unordered_map> 751 and 843, <unordered_set> 833
+and 925, <optional> 602, 397 and 397, <memory> 533, <functional> 831, <tuple> 441, <compare> 348 at C++20) and the 21
+other headers warmed, none failed -- 3168 s at 0.105's first run, the difference the longest-first order, which now had
+the last run's times to order by -- and every one of the 43 summaries written has its AST beside it (0.106's rule,
+proven on the whole cache: the directory was wiped at the phase's start and the headers that finished first are the
+ones that had lost theirs); THE C++ GATE in 1440 s over four lanes, 229 checks ok and ONE failure, `stdoptionalref':
+`no verdict'. THE CAUSE, and it is the shell's and not the compiler's: sh has no local variables, and the helper that
+decides whether a fixture is beyond the box's library (`ccl_needs_met', 0.95) kept its status in `r' -- the very name
+`ccl_fixture' keeps its RESULT FILE in. So the skip verdict was written to a file named `1' in the gate's scratch
+directory, which the gate's trap then removed, and the collector found nothing under the fixture's name. The serial
+gate before 0.105 printed its verdicts and had no path variable to lose, which is why the defect arrived with the pool.
+The helper's names are its own now (`_nd_cond', `_nd_f', `_nd_r'), and its preprocessor run reads `/dev/null' as its
+input as every pool job does (0.106). Proven on the fixture's job alone (`skip stdoptionalref.cpp: needs
+_LIBCPP_VERSION >= 210000'), then by the C++ gate run again alone: GREEN in 1395 s, 229 checks ok, `stdoptionalref' skipped by name, no failure. THE CHAIN: 4181 s where the serial one took
+about 25,000 (10155 s of warm, 8957 of libc++ read, 5935 of C++ builds at 0.101) -- the owner's seven hours are one
+hour and ten minutes. AND A RULE FOR THE GATE SCRIPTS: a
+shell function that sets a variable sets it for its CALLER, so every helper a pool job calls uses names that no job
+uses; the tell was a verdict that is missing where a wrong one would have been visible. Reader version 90, lowering
+version 50 unchanged; the module rebuilt as 0.107.
+
 **`format`, `print`, `println` are global macros** (owner's rule):
 `library/ccl_format.pl` is a macro file registered by `ccl_standard_macros/0`
 at the start of every unit (found on `$COCOLOG_LIBRARY`, which is also on

@@ -46,9 +46,9 @@ echo "-- M6, in steps: C++ that is C with names, classes, virtual, templates, la
 CPP_FIXTURE_SECS=${CPP_FIXTURE_SECS:-2400}
 CPP_JOBS=${CPP_JOBS:-4}; CPP_LAUNCH_MB=${CPP_LAUNCH_MB:-9000}; CPP_HARD_MB=${CPP_HARD_MB:-14000}
 ccl_needs_met() {   # ccl_needs_met COND [flags]: does the box's library meet a preprocessor condition? <version> is the library's smallest header, and the marker survives -E only where COND holds
-  cond=$1; shift; f=$(mktemp -t needs.XXXXXX.cpp)
-  printf '#include <version>\n#if %s\nccl_needs_met\n#endif\n' "$cond" > "$f"
-  "$ROOT/bin/cocolang++" "$@" -E "$f" 2>/dev/null | grep -q ccl_needs_met; r=$?; rm -f "$f"; return $r
+  _nd_cond=$1; shift; _nd_f=$(mktemp -t needs.XXXXXX.cpp)   # its OWN names: sh has no locals, and `r' here overwrote ccl_fixture's result path, so a skip verdict went to a file named 1 (0.107)
+  printf '#include <version>\n#if %s\nccl_needs_met\n#endif\n' "$_nd_cond" > "$_nd_f"
+  "$ROOT/bin/cocolang++" "$@" -E "$_nd_f" 2>/dev/null < /dev/null | grep -q ccl_needs_met; _nd_r=$?; rm -f "$_nd_f"; return $_nd_r
 }
 ccl_kill_tree() { for c in $(pgrep -P "$1" 2>/dev/null); do ccl_kill_tree "$c"; done; kill -9 "$1" 2>/dev/null; }
 ccl_capped() {   # ccl_capped SECS CMD...: the command's output on stdout, its exit status returned; past SECS the tree is killed, the output ends `TIMEOUT after SECS s' and the status is 124
