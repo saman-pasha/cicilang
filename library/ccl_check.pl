@@ -49,7 +49,7 @@
 %% points to -- is borrowed from the same. A callee's prototype is read the
 %% same way through a function pointer.
 %%
-%% A TIE is declared with the tie operator, `x <*> y': x lives within y. y is
+%% A TIE is declared with the word tie, `x tie y': x lives within y. y is
 %% declared before x -- in scope, an earlier parameter, an earlier member of
 %% the struct -- and x is dead the moment y is consumed or y's scope ends. A
 %% tied plain value is a BORROW of y (of y's root, when y is itself a borrow),
@@ -83,7 +83,7 @@
 %%   move_of_non_owner   move(x) of something that is not an owner
 %%   owner_overwritten   assignment to a live owner (what it held would leak)
 %%   goto_with_owners    a goto in a function that has owners (not followed yet)
-%%   tie_unknown         `<*> y' with no y declared before it (in scope, an earlier parameter or member)
+%%   tie_unknown         `tie y' with no y declared before it (in scope, an earlier parameter or member)
 %%   tie_outlived        an owner tied to y still live when y is consumed
 %%   tie_escapes         a tied owner moved beyond its tie: into an untied slot, to an untied own parameter, returned with no result tie
 %%   tie_mismatch        a value not within the tie of the slot, the parameter or the result it is given to
@@ -123,7 +123,7 @@
 %% loops to n. A wrong n is the developer's, as a wrong index is.
 %%
 %% A function's result may be tied to a static local of its own or to a global
-%% (`<*> table'): the caller's variable is then a borrow of static storage,
+%% (`tie table'): the caller's variable is then a borrow of static storage,
 %% static(Name), which nothing ends and nothing may free. `if (!p)' and
 %% `if (p == NULL)' make an owner null on the then path, `if (p)' and
 %% `if (p != NULL)' on the else path, its own fields with it.
@@ -138,9 +138,10 @@ ck_note_units([]).
 ck_note_units([unit(Is)|Us]) :- ccl_items_note(Is), ck_note_units(Us).
 ck_units([]).
 ck_units([unit(Is)|Us]) :- ck_items(Is), ck_units(Us).
+ck_trace(T) :- ( catch(nb_getval('$cpp_trace', yes), _, fail) -> print(T), nl ; true ).
 ck_items([]).
 ck_items([function(L, _, Ret, Name, Params, _, Body)|Is]) :- !,
-    ( ccl_lang(cpp), cpp_library_function(Name) -> true ; \+ \+ ck_function(L, Ret, Name, Params, Body) ),   % a library header's function: C++'s rules, not these (ccl_cpp); inside `\+ \+', so a function's walk is reclaimed
+    ( ccl_lang(cpp), cpp_library_function(Name) -> true ; \+ \+ ck_function(L, Ret, Name, Params, Body) -> true ; ck_trace(check_failed(Name)), fail ),   % a library header's function: C++'s rules, not these (ccl_cpp); inside `\+ \+', so a function's walk is reclaimed; one that merely FAILS says its name under the trace (0.108)
     ck_items(Is).
 ck_items([_|Is]) :- ck_items(Is).
 
@@ -525,7 +526,7 @@ ck_within(St, P, Y) :- ck_declared_tie(P, T), !, ck_within(St, T, Y).
 ck_within(St, P, Y) :- ck_state(St, P, S), ( S = borrow(R) ; S = dangling(R) ), R \== P, !, ck_within(St, R, Y).
 ck_within(St, P, Y) :- ck_base_path(P, B), ck_within(St, B, Y), !.
 ck_within(St, Y, P) :- ck_base_path(P, B), ck_within(St, Y, B).        % a value rooted at a field: its holder stands for it (a child of x, returned as x's)
-%% what `<*> y' refers to, for a local or a parameter: a key's root (its state
+%% what `tie y' refers to, for a local or a parameter: a key's root (its state
 %% borrow or dangling when y is a borrow); a plain local, anchored now; a
 %% global, which never ends; else nothing declared before, tie_unknown
 ck_tie_ref(St0, Y, Form, St, Kind, R) :-
@@ -563,7 +564,8 @@ ck_arrlocal(N) :- nb_getval('$ck_arrlocals', As), memberchk(N, As).
 ck_anchor_addrs(bin(_, A, B), St0, St) :- !, ck_anchor_addrs(A, St0, St1), ck_anchor_addrs(B, St1, St).      % the common shapes, without a univ
 ck_anchor_addrs(index(A, I), St0, St) :- !, ck_anchor_addrs(A, St0, St1), ck_anchor_addrs(I, St1, St).
 ck_anchor_addrs(arrow(E, _), St0, St) :- !, ck_anchor_addrs(E, St0, St).
-ck_anchor_addrs(member(E, _), St0, St) :- !, ck_anchor_addrs(E, St0, St).
+ck_anchor_addrs(member(E, F), St0, St) :- !, ( ck_storage_base(E, N), ck_is_local(N), \+ ck_is_ref(N), ck_array_member(E, F) -> ck_anchor_local(N, St0, St1) ; St1 = St0 ), ck_anchor_addrs(E, St1, St).   % an ARRAY member of a local struct used as a pointer anchors the struct (0.108)
+ck_array_member(E, F) :- ccl_type_of(member(E, F), MT), ccl_resolve_type(MT, arr(_, _)).
 ck_anchor_addrs(assign(_, L, R), St0, St) :- !, ck_anchor_addrs(L, St0, St1), ck_anchor_addrs(R, St1, St).
 ck_anchor_addrs(call(F, As), St0, St) :- !, ck_anchor_addrs(F, St0, St1), ck_anchor_addrs_list(As, St1, St).
 ck_anchor_addrs(E, St0, St) :- E =.. [_|As], ck_anchor_addrs_list(As, St0, St).
@@ -609,7 +611,16 @@ ck_tie_kept(St, P, Key, Form) :- ( ck_tied_to(P, T) -> ( Key \== none, ck_within
 ck_no_owner_behind(N, T, V, Form) :-
     (   ck_carries_type(T), \+ ck_is_pointer_type(T), \+ ck_declared_tie(N, _), ck_fresh_value(V) -> ck_fail(untied, N, Form)
     ;   true ).
-ck_fresh_value(V) :- V \== none, V \= init(_), \+ ck_null(V), \+ ck_static_value(V), \+ ck_ref_rooted(V).
+ck_fresh_value(V) :- V \== none, V \= init(_), \+ ck_null(V), \+ ck_static_value(V), \+ ck_ref_rooted(V), \+ ck_va_value(V).
+%% a value read by `va_arg' is the CALLER's argument, handed on and never this function's to consume (0.108)
+ck_va_value(va_arg(_, _)).
+ck_va_value(compound_lit(_, _)).   % C99's compound literal is an object of the enclosing block, never a fresh value to consume (0.108)
+ck_va_value(dyncast(_, _, _, _)).
+ck_va_value(eh_alloc(_)).
+ck_va_value(call(id(B), _)) :- memberchk(B, ['__builtin_coro_frame', '__builtin_coro_promise', '__builtin_coro_noop']).   % a coroutine's frame: the lowering's (0.108)
+ck_va_value(dyncast_ref(_, _, _, _)).
+ck_va_value(addr(deref(X))) :- ck_va_value(X).
+ck_va_value(cast(_, X)) :- ck_va_value(X).
 %% C++: THE ADDRESS OF A PATH UNDER A REFERENCE THE CHECK DOES NOT FOLLOW is no fresh value -- a reference bound to
 %% a call (a container's element, `*it') has no state, and `const auto &[k, v] = *it' binds v to a member of it:
 %% nothing here is to be consumed, so the binding is a plain value, never a loose pointer (0.79)
@@ -648,6 +659,8 @@ ck_borrows_from(member(E, F), St, P) :- ck_path(member(E, F), K), ck_state(St, K
 ck_borrows_from(arrow(E, F), St, P) :- ck_path(arrow(E, F), K), ck_state(St, K, S), !, ck_borrow_source(K, S, P).
 ck_borrows_from(bin(Op, A, _), St, P) :- memberchk(Op, ['+', '-']), !, ck_borrows_from(A, St, P).
 ck_borrows_from(cast(_, A), St, P) :- !, ck_borrows_from(A, St, P).
+ck_borrows_from(dyncast(A, _, _, _), St, P) :- !, ck_borrows_from(A, St, P).   % the object a dynamic_cast finds is the one it was given (0.108)
+ck_borrows_from(dyncast_ref(A, _, _, _), St, P) :- !, ck_borrows_from(A, St, P).
 ck_borrows_from(addr(index(A, _)), St, P) :- !, ck_borrows_from(addr(A), St, P).             % &a[i], &c.f: what &a, &c borrow (an anchor, an owner's slot)
 ck_borrows_from(addr(member(A, _)), St, P) :- !, ck_borrows_from(addr(A), St, P).
 ck_borrows_from(addr(arrow(A, _)), St, P) :- !, ck_borrows_from(A, St, P).
@@ -656,6 +669,7 @@ ck_borrows_from(id(N), St, P) :- ck_is_ref(N), !, ck_local_type(N, ptr(_, RT)), 
 ck_borrows_from(addr(id(N)), St, P) :- !, ck_state(St, N, S), ( S == anchor -> P = N ; ck_borrow_source(N, S, P) ).   % of an anchored local, an owner's slot
 %% what a borrowed pointer reaches -- a member, an element, what it points to -- is borrowed from the same
 ck_borrows_from(arrow(E, _), St, P) :- !, ck_borrows_from(E, St, P).
+ck_borrows_from(member(E, F), St, P) :- ck_storage_base(E, N), ck_state(St, N, anchor), ck_array_member(E, F), !, P = N.   % the array member of an anchored local struct: a borrow of the struct (0.108)
 ck_borrows_from(member(E, _), St, P) :- !, ck_borrows_from(E, St, P).
 ck_borrows_from(index(A, _), St, P) :- !, ck_borrows_from(A, St, P).
 ck_borrows_from(deref(E), St, P) :- !, ck_borrows_from(E, St, P).
@@ -756,6 +770,13 @@ ck_stmt(expr(_, bind_ref(_, E)), St0, St) :- !, ck_expr(E, St0, St).   % a REFER
 ck_stmt(empty, St, St) :- !.
 ck_stmt(expr(L, E), St0, St) :- !, ck_line(L), ck_anchor_addrs(E, St0, St1), ck_expr(E, St1, St).
 ck_stmt(defer(L, _, Body), St0, St) :- !, ck_line(L), ck_defer(St0, Body, St).
+ck_stmt(ifce(_, _, RT), St0, St) :- !, ck_stmt(RT, St0, St).                                % `if consteval': the run-time branch (0.108)
+%% a try (0.108): the body, then each handler from the state the try began in (what the body did before it threw is
+%% not known there), the states merged
+ck_stmt(try(L, Body, Catches), St0, St) :- !, ck_line(L), ck_stmt(Body, St0, StB), ck_catches(Catches, St0, StB, St).
+ck_catches([], _, St, St).
+ck_catches([catch(any, B)|Cs], St0, Acc, St) :- !, ck_stmt(B, St0, S1), ck_merge(Acc, S1, Acc1), ck_catches(Cs, St0, Acc1, St).
+ck_catches([catch(_, T, N, B)|Cs], St0, Acc, St) :- ccl_scope_push, ( N == anon -> true ; ccl_declare(N, T) ), ck_stmt(B, St0, S1), ccl_scope_pop, ck_merge(Acc, S1, Acc1), ck_catches(Cs, St0, Acc1, St).
 ck_stmt(if(L, C, T, E), St0, St) :- !, ck_line(L),
     ck_expr(C, St0, St1), ck_refine(C, St1, StThen, StElse),
     ck_stmt(T, StThen, StT), ( E == none -> StE = StElse ; ck_stmt(E, StElse, StE) ), ck_merge(StT, StE, St).
@@ -786,6 +807,14 @@ ck_stmt(for(L, Init, C, Step, S), St0, St) :- !, ck_line(L),
     ck_loop_with_step(S, Step, St3, St4),
     ck_scope_end(St4, St), ccl_scope_pop.
 ck_stmt(return(L), St0, dead) :- !, ck_line(L), ck_exit_all(St0, return).
+%% a coroutine's skeleton (0.108): co_return leaves every scope as a return does; the promise, the frame and the
+%% suspensions are the lowering's, their expressions read as any
+ck_stmt(coro_begin(L, _), St, St) :- !, ck_line(L).
+ck_stmt(coro_ret(L, E), St0, St) :- !, ck_line(L), ck_expr(E, St0, St).
+ck_stmt(coro_body(_, S), St0, St) :- !, ck_stmt(S, St0, St).
+ck_stmt(coro_return(L), St0, dead) :- !, ck_line(L), ck_exit_all(St0, return).
+ck_stmt(coro_suspend(L, _, E, _), St0, St) :- !, ck_line(L), ck_expr(E, St0, St).
+ck_stmt(coro_done(L), _, dead) :- !, ck_line(L).
 ck_stmt(return(L, E), St0, dead) :- !, ck_line(L), ck_anchor_addrs(E, St0, St1), ck_no_escape(E, St1), ck_consume_or_use(E, St1, St2), ck_exit_all(St2, return(E)).
 ck_stmt(break(L), St0, dead) :- !, ck_line(L), ck_exit_to_loop(St0, break).
 ck_stmt(continue(L), St0, dead) :- !, ck_line(L), ck_exit_to_loop(St0, continue).
@@ -1123,7 +1152,9 @@ ck_expr(ccast(_, _, E), St0, St) :- !, ck_expr(E, St0, St).
 ck_expr(new(_, Args), St0, St) :- !, ck_exprs(Args, St0, St).
 ck_expr(new_array(_, N), St0, St) :- !, ck_expr(N, St0, St).
 ck_expr(delete(E), St0, St) :- !, ck_expr(call(id(free), [E]), St0, St).
+ck_expr(delete_poly(E, D), St0, St) :- !, ck_expr(D, St0, St1), ck_expr(call(id(free), [E]), St1, St).   % the destructor, then the free of the complete object (0.108)
 ck_expr(delete_array(E), St0, St) :- !, ck_expr(call(id(free), [E]), St0, St).
+ck_expr(delete_cookie(E, _), St0, St) :- !, ck_expr(call(id(free), [E]), St0, St).   % `delete[]' past the array cookie: a free of the pointer (0.108)
 ck_expr(call(id(F), Args), St0, St) :- !, ck_args(Args, id(F), St0, St).
 ck_expr(call(F, Args), St0, St) :- !,
     ck_expr(F, St0, St1),
@@ -1164,6 +1195,16 @@ ck_expr(assign('=', L, R), St0, St) :- !,
 ck_expr(assign(_, L, R), St0, St) :- !, ck_expr(R, St0, St1), ck_lval_use(L, St1, St).
 ck_expr(sizeof(_), St, St) :- !.
 ck_expr(sizeof_type(_), St, St) :- !.
+ck_expr(offsetof(_, _), St, St) :- !.
+ck_expr(contract_violation(_, _, _), St, St) :- !.
+ck_expr(rtti(_), St, St) :- !.                                                     % RTTI's nodes (0.108)
+ck_expr(eh_alloc(_), St, St) :- !.                                                 % an exception's storage, handed to __cxa_throw (0.108)
+ck_expr(eh_throw(P, _, _), St0, St) :- !, ck_expr(P, St0, St).
+ck_expr(eh_rethrow, St, St) :- !.
+ck_expr(rtti_dyn(X), St0, St) :- !, ck_expr(X, St0, St).
+ck_expr(dyncast(X, _, _, _), St0, St) :- !, ck_expr(X, St0, St).
+ck_expr(dyncast_ref(X, _, _, _), St0, St) :- !, ck_expr(X, St0, St).
+ck_expr(va_arg(AP, _), St0, St) :- !, ck_expr(AP, St0, St).
 ck_expr(cond(C, A, B), St0, St) :- !, ck_expr(C, St0, St1), ck_expr(A, St1, StA), ck_expr(B, St1, StB), ck_merge(StA, StB, St).
 ck_expr(bin('&&', A, B), St0, St) :- !, ck_expr(A, St0, St1), ck_expr(B, St1, St2), ck_merge(St1, St2, St).
 ck_expr(bin('||', A, B), St0, St) :- !, ck_expr(A, St0, St1), ck_expr(B, St1, St2), ck_merge(St1, St2, St).

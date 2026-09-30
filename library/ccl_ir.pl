@@ -45,7 +45,7 @@
 %% the lowering's version: part of the key of every IR the driver keeps in the
 %% store (library(ccl_driver)); BUMP it whenever the check or the lowering
 %% changes what they emit, as ccl_reader_version/1 is bumped for the grammar
-ccl_lowering_version(50).   % 50 (0.104): the integer imaginary literal's real type from its suffix, a big one spelled whole; 49 (0.103): sizeof a string literal is its bytes; 48 (0.103): _Complex int, two integer components, the integer imaginary literal; 47 (0.101): the imaginary literal, Annex G's multiplication and division through the runtime's __muldc3 and __divdc3, the components as places; 46 (0.100): a function bound to a reference to a pointer converts into a materialized pointer temporary; 45 (0.100): a pointer to member function as the ABI's { ptr, adj }, C's complex types as two components; 44: the VLA's bounds kept in its type, a VLA of a VLA flat, _Alignas on an object, a wide string into an array with the rest zero, a data-member pointer as an offset, a null pointer to a base at an offset, the C11 atomic builtins and _Atomic objects atomic (0.99); 43: an empty `[[no_unique_address]]' member has no element and its address is the ABI's byte offset; 42: a conditional over two void arms has no phi
+ccl_lowering_version(52).   % 52 (0.108): the coroutines (LLVM's switch-resumed intrinsics), RTTI and the Itanium vtable prefix, exceptions (invoke, landingpad), secondary vtables and thunks, the array cookie, tentative definitions, _Bool; 51 (0.108): long double as x86_fp80, float and floating global constants folded, va_arg and the va intrinsics, offsetof, anonymous members, designated global initializers normalized; 50 (0.104): the integer imaginary literal's real type from its suffix, a big one spelled whole; 49 (0.103): sizeof a string literal is its bytes; 48 (0.103): _Complex int, two integer components, the integer imaginary literal; 47 (0.101): the imaginary literal, Annex G's multiplication and division through the runtime's __muldc3 and __divdc3, the components as places; 46 (0.100): a function bound to a reference to a pointer converts into a materialized pointer temporary; 45 (0.100): a pointer to member function as the ABI's { ptr, adj }, C's complex types as two components; 44: the VLA's bounds kept in its type, a VLA of a VLA flat, _Alignas on an object, a wide string into an array with the rest zero, a data-member pointer as an offset, a null pointer to a base at an offset, the C11 atomic builtins and _Atomic objects atomic (0.99); 43: an empty `[[no_unique_address]]' member has no element and its address is the ABI's byte offset; 42: a conditional over two void arms has no phi
 %% ccl_lowering_version(41).   % 41: a literal past 2^60 spelled whole; 40.   % 40: a base clause naming a bound type parameter takes its class, a scope name is the class's own typedef first (libc++ 18), -lc++ on Linux; 39: C23 (_BitInt as iN, the overflow builtins, unreachable), a VLA at run time, thread_local, the wide literals, [[assume]]; 38: a conditional over two lvalues is an lvalue, and its address the phi of theirs;  % 37: wchar_t, char16_t and char32_t have LLVM types, and a function template's shipped instance its Itanium symbol;  % 36: an rvalue prefers `T &&' where a TEMPLATE's candidate is judged (cpp_ref_rank), so std::get answers `int &&' and not `int &';  % 35: a CAST TO A REFERENCE converts from the operand's class to the cast's own target, so a reference or a pointer to a SECOND base is offset (ir_ref_to);  % 34: an empty class is one byte, an `alignas' one padded to its alignment, and a `[[no_unique_address]]' empty member a zero-sized element -- every struct's shape may move
 
 ccl_ir_units(Units0, IR) :-
@@ -54,14 +54,15 @@ ccl_ir_units(Units0, IR) :-
     ->  ( ccl_cpp_units(Units0, Units) -> true ; ir_fail(phase(desugaring)) ),   % each phase says its own name when it merely FAILS, or the driver can only say `without saying why'
         ccl_scope_init, ir_note_units(Units), ir_cpp_prelude              % then the table again from what came out; new and delete are malloc and free
     ;   Units = Units0 ),
+    ( ccl_lang(cpp), catch(nb_getval('$cpp_eh_used', yes), _, fail) -> nb_setval('$ir_eh', yes) ; nb_setval('$ir_eh', no) ),   % a program that throws or catches lowers its calls under the EH rules (0.108)
     ir_cpp_trace(phase(check)),
     ( ccl_check_noted(Units) -> true ; ir_fail(phase(check)) ),          % the safe part first: a violation is a compile error
-    nb_setval('$ir_fdefs', 0), nb_setval('$ir_gdefs', []),               % a function's text is a global of its own, `'$ir_fdef:K'' (below): a list of every text so far was COPIED at each addition
+    nb_setval('$ir_fdefs', 0), nb_setval('$ir_gdefs', []), nb_setval('$ir_tent', []),               % a function's text is a global of its own, `'$ir_fdef:K'' (below): a list of every text so far was COPIED at each addition
     ir_drain_functions(Drains), ccl_items_note(Drains),                 % one drain per struct with an own array (below)
     ir_cpp_trace(phase(lowering)),
     ( ( ir_units(Units), ir_items(Drains) ) -> true ; ir_fail(phase(lowering)) ),
     ir_cpp_trace(phase(assemble)),
-    ir_assemble(IR).
+    ir_flush_tentatives, ir_assemble(IR).
 
 %% C++ (M6): `new T' is malloc(sizeof(T)) and `delete p' free(p) -- declared
 %% here when the file did not, so the check consumes at a delete as at a free
@@ -170,6 +171,7 @@ ir_type_(arr(NE, E), LL) :- !, ir_type(E, EL), ( ccl_const_eval(NE, N) -> true ;
 ir_type_(T, _) :- ir_fail(type(T)).
 ir_base(S, void) :- memberchk(void, S), !.
 ir_base(S, LL) :- memberchk('_Complex', S), !, ccl_complex_real(base([], S), R), ir_type(R, E), atomic_list_concat(['{ ', E, ', ', E, ' }'], LL).   % C's complex types: two components (0.100); `{ i32, i32 }' for a `_Complex int' (0.103)
+ir_base(S, LL) :- memberchk(double, S), memberchk(long, S), !, ( ccl_long_double(x87) -> LL = x86_fp80 ; LL = double ).   % LONG DOUBLE IS x87's 80-BIT TYPE on x86-64 (0.108), sixteen bytes aligned sixteen, as the SysV ABI and glibc have it; a double elsewhere
 ir_base(S, double) :- memberchk(double, S), !.
 ir_base(S, float) :- memberchk(float, S), !.
 ir_base(S, half) :- memberchk('_Float16', S), !.
@@ -287,12 +289,13 @@ ir_member_slot(Base, ST, N, Slot, T) :- ccl_resolve_type(ST, memptr(_, _, F)), c
     ( N == ptr -> Idx = 0, T = ptr([], base([], [void])) ; N == adj -> Idx = 1, T = base([], [long]) ; ir_fail(no_member(N, ST)) ),
     ir_fresh(Slot), ir_ins([Slot, ' = getelementptr inbounds { ptr, i64 }, ptr ', Base, ', i32 0, i32 ', Idx]).
 ir_member_slot(Base, ST, N, Slot, T) :-
-    (   ir_is_union(ST) -> ( ccl_member_type(ST, N, T) -> Slot = Base ; ir_fail(no_member(N, ST)) )
+    (   ir_is_union(ST) -> ( ccl_members_of(ST, UMs), memberchk(member(T, N, _), UMs) -> Slot = Base ; ccl_anon_route(ST, N, A, AT) -> ir_member_slot(Base, AT, N, Slot, T), A = A ; ir_fail(no_member(N, ST)) )
     ;   ir_type(ST, SLL), nb_getval('$ir_maps', Maps), memberchk(SLL-shape(_, Map), Maps), memberchk(m(N, Idx, T, BF), Map)
     ->  ir_fresh(P),
         (   BF == empty -> Idx = empty(Off), ir_ins([P, ' = getelementptr inbounds i8, ptr ', Base, ', i64 ', Off]), Slot = empty(P)   % the marked empty member's address, by its byte offset (0.96)
         ;   ir_ins([P, ' = getelementptr inbounds ', SLL, ', ptr ', Base, ', i32 0, i32 ', Idx]),
             ( BF == none -> Slot = P ; BF = bf(RunLL, Off, W, Signed), Slot = bf(P, RunLL, Off, W, Signed) ) )
+    ;   ccl_anon_route(ST, N, A, AT) -> ir_member_slot(Base, ST, A, S1, _), ir_slot_addr(S1, B1), ir_member_slot(B1, AT, N, Slot, T)   % C11: a member of an anonymous struct or union (0.108)
     ;   ir_fail(no_member(N, ST)) ).
 ir_slot_addr(bf(_, _, _, _, _), _) :- !, ir_fail(address_of_bitfield).
 ir_slot_addr(empty(P), A) :- !, A = P.        % a `[[no_unique_address]]' member HAS an address (C++ gives it one, possibly shared); what it has not is bytes
@@ -373,7 +376,13 @@ ir_is_aggregate(base(_, [union(_, Ms)])) :- Ms \== none.
 ir_abi_(_, base(_, [struct(C, _)]), LL, _, A, indirect(LL, A)) :- ir_nontrivial_class(C), !.
 ir_nontrivial_class(C) :- atom(C), catch(nb_getval('$cpp_nontrivial', L), _, fail), memberchk(C, L).
 ir_abi_(_, _, _, 0, _, direct([piece(i8, 0)])) :- !.   % an EMPTY class (an allocator, a comparator, a tag): C++ gives it size one, and one byte crosses a call -- with no leaves it classified as no pieces at all, which has no type
-ir_abi_(sysv, T, LL, N, A, Abi) :- ( N > 16 -> Abi = memory(LL, A) ; ir_leaves(T, 0, Ls), ir_eightbytes(Ls, N, 0, Ps), Abi = direct(Ps) ).
+ir_abi_(sysv, T, LL, N, A, Abi) :- ( N > 16 -> Abi = memory(LL, A) ; ir_leaves(T, 0, Ls), ( memberchk(leaf(_, x87), Ls) -> Abi = memory(LL, A) ; ir_eightbytes(Ls, N, 0, Ps), Abi = direct(Ps) ) ).   % an X87 class goes in memory (0.108)
+%% A RESULT HOLDING X87 CLASSES COMES BACK ON THE x87 STACK (SysV 3.2.3, 0.108): a struct of one long double in %st0, a
+%% complex long double in %st0 and %st1 -- as LLVM's x86_fp80 and { x86_fp80, x86_fp80 } returned directly; any other
+%% result with an X87 class is returned in memory, as an argument always is
+ir_ret_abi(T, Abi) :- ir_abi(T, A0), ( A0 = memory(_, _), ir_arch(sysv), ir_x87_ret(T, RLL) -> Abi = direct([piece(RLL, 0)]) ; Abi = A0 ).
+ir_x87_ret(T, LL) :- ccl_resolve_type(T, T1), ir_leaves(T1, 0, Ls),
+    ( Ls = [leaf(0, x87), leaf(8, x87up)] -> LL = x86_fp80 ; Ls = [leaf(0, x87), leaf(8, x87up), leaf(16, x87), leaf(24, x87up)], T1 = base(_, S), memberchk('_Complex', S) -> LL = '{ x86_fp80, x86_fp80 }' ).
 ir_abi_(aapcs, T, LL, N, A, Abi) :-
     (   N > 16 -> Abi = indirect(LL, A)
     ;   ir_leaves(T, 0, Ls), ir_hfa(Ls, K, FT) -> atomic_list_concat(['[', K, ' x ', FT, ']'], P), Abi = direct([piece(P, 0)])
@@ -387,6 +396,7 @@ ir_leaves(T, Off, Ls) :-
     ;   T1 = arr(int(K), E) -> ccl_size_align(E, ES, _), ir_array_leaves(K, E, ES, Off, Ls)
     ;   T1 = memptr(_, _, F), ccl_resolve_type(F, fn(_, _, _)) -> Off8 is Off + 8, Ls = [leaf(Off, int), leaf(Off8, int)]   % a pointer to member function: two INTEGER eightbytes (0.100)
     ;   T1 = base(_, S), memberchk('_Complex', S) -> ccl_complex_real(T1, R), ccl_size_align(R, ES, _), Off2 is Off + ES, ir_leaves(R, Off, L1), ir_leaves(R, Off2, L2), append(L1, L2, Ls)   % a complex crosses a call as its two components (SysV: SSE eightbytes for a floating one, INTEGER ones for a _Complex int; 0.100, 0.103)
+    ;   ir_is_fp(T1), ir_type(T1, LLx), LLx == x86_fp80 -> Off8 is Off + 8, Ls = [leaf(Off, x87), leaf(Off8, x87up)]   % a long double: the X87 and X87UP classes (0.108)
     ;   ir_is_fp(T1) -> ( T1 = base(_, S), memberchk(float, S) -> Ls = [leaf(Off, float)] ; Ls = [leaf(Off, double)] )
     ;   Ls = [leaf(Off, int)] ).
 ir_member_leaves(Ms, Base, _, Ls) :- ccl_members_layout(Ms, Lays, _, _), ir_lay_leaves(Lays, Base, Ls).
@@ -433,7 +443,7 @@ ir_abi_lls(indirect(_, _), _, [ptr]).
 %% a function type's signature: the return LL (void, with an sret parameter
 %% first, when the struct is returned in memory) and the parameters' LLs
 ir_fn_sig(RT, Ps, Var, RetLL, RetAbi, ParamLLs) :-
-    ir_abi(RT, RetAbi),
+    ir_ret_abi(RT, RetAbi),
     (   RetAbi = scalar -> ir_type(RT, RetLL), Lead = []
     ;   RetAbi = direct(Pcs) -> ir_pieces_type(Pcs, RetLL), Lead = []
     ;   ir_sret_attr(RetAbi, Sret), RetLL = void, Lead = [Sret] ),
@@ -452,7 +462,7 @@ ir_elem(ptr(_, E), E) :- !.
 ir_elem(arr(_, E), E) :- !.
 ir_elem(T, E) :- ccl_resolve_type(T, T1), ( T1 = ptr(_, E) ; T1 = arr(_, E) ; T1 = block(_, E) ), !.
 ir_elem(T, _) :- ir_fail(not_a_pointer(T)).
-ir_zero(LL, Z) :- ( LL == ptr -> Z = null ; ( LL == double ; LL == float ) -> Z = '0.0' ; sub_atom(LL, 0, 1, _, 'i') -> Z = 0 ; Z = zeroinitializer ).
+ir_zero(LL, Z) :- ( LL == ptr -> Z = null ; ( LL == double ; LL == float ; LL == half ) -> Z = '0.0' ; LL == x86_fp80 -> Z = '0xK00000000000000000000' ; sub_atom(LL, 0, 1, _, 'i') -> Z = 0 ; Z = zeroinitializer ).
 
 %% ---- conversions -------------------------------------------------------------------
 ir_convert(V, From, To, V1) :- ir_type(From, FL), ir_type(To, TL), ir_convert(V, From, FL, To, TL, V1).
@@ -469,6 +479,16 @@ ir_convert(V, From, _, To, TL, V1) :- ( From = ref(_, RT) ; From = rref(_, RT) )
 %% to the class itself, converts as it did. A null pointer is not spared the offset (not done).
 ir_convert(V, From, ptr, To, ptr, V1) :- ir_class_pointee(From, D), ir_class_pointee(To, A), D \== A, ir_base_path(D, A), !, ir_base_hops(V, D, A, V0),
     ( V == null -> V1 = null ; ir_fresh(Z), ir_ins([Z, ' = icmp eq ptr ', V, ', null']), ir_fresh(V1), ir_ins([V1, ' = select i1 ', Z, ', ptr null, ptr ', V0]) ).   % A NULL POINTER STAYS NULL ([conv.ptr]/3; 0.99): it was given the base's offset
+%% A POINTER TO A BASE'S MEMBER FUNCTION CONVERTED TO THE DERIVED CLASS'S ([conv.mem]; 0.108): its `adj' grows by the
+%% base sub-object's offset, which the call adds to `this' (cpp_memptr_call)
+ir_convert(V, From, '{ ptr, i64 }', To, '{ ptr, i64 }', V1) :- ccl_resolve_type(From, memptr(B, _, _)), ccl_resolve_type(To, memptr(D, _, _)), B \== D,
+    ccl_resolve_type(base([], [typedef(D)]), base(_, [struct(DT, _)])), ccl_resolve_type(base([], [typedef(B)]), base(_, [struct(BT, _)])),
+    ir_base_route(DT, BT, Route), !, ir_route_desig(Route, Des), ccl_offsetof(base([], [typedef(D)]), Des, Off),
+    ir_fresh(A), ir_ins([A, ' = extractvalue { ptr, i64 } ', V, ', 1']), ir_fresh(A1), ir_ins([A1, ' = add i64 ', A, ', ', Off]),
+    ir_fresh(V1), ir_ins([V1, ' = insertvalue { ptr, i64 } ', V, ', i64 ', A1, ', 1']).
+ir_route_desig([N|Ns], D) :- ir_route_desig_(Ns, id(N), D).
+ir_route_desig_([], D, D).
+ir_route_desig_([N|Ns], D0, D) :- ir_route_desig_(Ns, member(D0, N), D).
 ir_convert(V, From, FL, To, TL, V1) :- ( ccl_is_complex(From) ; ccl_is_complex(To) ), !, ir_complex_convert(V, From, FL, To, TL, V1).   % by the C TYPES: an ABI piece `{ i64, i64 }' is no complex (0.103)   % a complex from a real (the imaginary part zero), a real from a complex (its real part), one complex to another (0.100)
 ir_convert(V, From, FL, To, TL, V1) :-
     (   ir_is_bool(To), \+ ir_is_bool(From) -> ir_to_bool(V, From, FL, V1)   % C++: a bool is 0 or 1, whatever came
@@ -488,11 +508,11 @@ ir_complex_convert(V, From, FL, To, TL, V1) :- ccl_is_complex(From), ccl_is_comp
     ccl_complex_real(From, FR), ccl_complex_real(To, TR), ir_convert(R, FR, FE, TR, TE, R1), ir_convert(I, FR, FE, TR, TE, I1), ir_complex_make(TL, R1, I1, V1).
 ir_complex_convert(V, From, FL, To, TL, V1) :- ccl_is_complex(To), !, ir_complex_elem(TL, EL), ccl_complex_real(To, RT), ir_convert(V, From, FL, RT, EL, R), ir_zero(EL, Z), ir_complex_make(TL, R, Z, V1).
 ir_complex_convert(V, From, FL, To, TL, V1) :- ir_complex_parts(V, FL, R, _), ir_complex_elem(FL, EL), ccl_complex_real(From, RT), ir_convert(R, RT, EL, To, TL, V1).
-ir_is_bool(T) :- ccl_resolve_type(T, base(_, S)), memberchk(bool, S), !.
+ir_is_bool(T) :- ccl_resolve_type(T, base(_, S)), ( memberchk(bool, S) ; memberchk('_Bool', S) ), !.   % C's _Bool too (0.108): `_Bool b = 42' is 1
 ir_to_bool(V, From, FL, V1) :-
     ir_fresh(C),
     (   FL == '{ ptr, i64 }' -> ir_fresh(P), ir_ins([P, ' = extractvalue { ptr, i64 } ', V, ', 0']), ir_ins([C, ' = icmp ne ptr ', P, ', null'])   % a pointer to member function is null when its `ptr' is (0.100): std::function's `__not_null(_Rp _Class::*)' tests it
-    ;   ir_fp_ll(FL) -> ir_ins([C, ' = fcmp une ', FL, ' ', V, ', 0.0'])
+    ;   ir_fp_ll(FL) -> ir_zero(FL, Z0), ir_ins([C, ' = fcmp une ', FL, ' ', V, ', ', Z0])   % the type's own zero: x86_fp80 takes no `0.0'
     ;   ( FL == ptr ; ir_isfn(From) ) -> ir_ins([C, ' = icmp ne ptr ', V, ', null'])
     ;   ir_ins([C, ' = icmp ne ', FL, ' ', V, ', 0']) ),
     ir_fresh(V1), ir_ins([V1, ' = zext i1 ', C, ' to i8']).
@@ -509,7 +529,7 @@ ir_cond(E, C) :- ir_cmp_op(E, _), !, ir_expr_i1(E, C).
 ir_cond(E, C) :-
     ir_expr(E, V, _, LL),
     ( LL == '{ ptr, i64 }' -> ir_fresh(P), ir_ins([P, ' = extractvalue { ptr, i64 } ', V, ', 0']), ir_fresh(C), ir_ins([C, ' = icmp ne ptr ', P, ', null'])   % `if (pm)' of a pointer to member function
-    ; ir_fp_ll(LL) -> ir_fresh(C), ir_ins([C, ' = fcmp une ', LL, ' ', V, ', 0.0'])
+    ; ir_fp_ll(LL) -> ir_fresh(C), ir_zero(LL, Z0), ir_ins([C, ' = fcmp une ', LL, ' ', V, ', ', Z0])
     ; LL == ptr -> ir_fresh(C), ir_ins([C, ' = icmp ne ptr ', V, ', null'])
     ; ir_fresh(C), ir_ins([C, ' = icmp ne ', LL, ' ', V, ', 0']) ).
 ir_cmp_op(bin(Op, _, _), Op) :- memberchk(Op, ['<', '>', '<=', '>=', '==', '!=']).
@@ -539,7 +559,7 @@ ir_escape([C|Cs], A) :- ir_escape(Cs, A1), ( ( C < 32 ; C > 126 ; C =:= 34 ; C =
 ir_hex2(C, H) :- Hi is C // 16, Lo is C mod 16, ir_hexd(Hi, A), ir_hexd(Lo, B), atom_concat(A, B, H).
 ir_hexd(D, A) :- ( D < 10 -> C is 0'0 + D ; C is 0'A + D - 10 ), atom_codes(A, [C]).
 %% a double as LLVM's hex literal: sign, 11 exponent bits, 52 fraction bits
-ir_fp_text(K, _, A) :- F is K * 1.0, ir_double(F, A).
+ir_fp_text(K, LL, A) :- ir_fp_const(K, LL, A).   % spelled for its LLVM type (0.108): a float rounded, an x86_fp80 in its 0xK form
 ir_num_const(float(F), F) :- !.
 ir_num_const(neg(float(F)), V) :- !, V is -F.
 ir_num_const(cast(_, E), V) :- !, ir_num_const(E, V).
@@ -552,6 +572,51 @@ ir_double(F, A) :-
       D1 is Sg + (Ex >> 8), D23 is Ex mod 256,
       ir_hexd(D1, H1), ir_hex2(D23, H23), ir_hexn(Frac, 13, HF),
       atomic_list_concat(['0x', H1, H23, HF], A) ).
+%% a floating constant for its LLVM type (0.108): a double's hex for a double; for a float the double's hex of the value
+%% ROUNDED TO A FLOAT's precision, since LLVM takes a float constant only where a float holds it exactly; for x86_fp80 its
+%% own `0xK' form -- sign and 15 exponent bits, then the 64-bit mantissa with its explicit integer bit
+%% an ARITHMETIC CONSTANT EXPRESSION's value (6.6/8), which a floating global's initializer is: floating literals, integer
+%% constants, casts, the four operations and a sign -- the integer constant evaluator (ccl_const_eval) takes none of the
+%% floating forms, as an array bound or a case label must not
+ir_fp_value(float(F), F) :- !.
+ir_fp_value(cast(_, E), V) :- !, ir_fp_value(E, V).
+ir_fp_value(ccast(_, _, E), V) :- !, ir_fp_value(E, V).
+ir_fp_value(neg(E), V) :- !, ir_fp_value(E, V0), V is -V0.
+ir_fp_value(pos(E), V) :- !, ir_fp_value(E, V).
+ir_fp_value(paren(E), V) :- !, ir_fp_value(E, V).
+ir_fp_value(bin(Op, A, B), V) :- memberchk(Op, ['+', '-', '*', '/']), !, ir_fp_value(A, VA), ir_fp_value(B, VB), ir_fp_op(Op, VA, VB, V).
+ir_fp_value(E, V) :- ccl_const_eval(E, V), number(V).
+ir_fp_op('+', A, B, V) :- V is A + B.
+ir_fp_op('-', A, B, V) :- V is A - B.
+ir_fp_op('*', A, B, V) :- V is A * B.
+ir_fp_op('/', A, B, V) :- B =\= 0, ( integer(A), integer(B) -> V is truncate(A / B) ; V is A / B ).
+ir_fp_global(T, LL) :- ccl_resolve_type(T, base(_, S)), \+ memberchk('_Complex', S), ( memberchk(double, S) ; memberchk(float, S) ; memberchk('_Float16', S) ), !, ir_type(T, LL).
+ir_fp_const(V, LL, A) :- F is V * 1.0, ir_fp_const_(LL, F, A).
+ir_fp_const_(x86_fp80, F, A) :- !, ir_x87(F, A).
+ir_fp_const_(float, F, A) :- abs(F) >= 3.4028235677973366e38, !, ( F < 0 -> A = '0xFFF0000000000000' ; A = '0x7FF0000000000000' ).   % past a float's range: its infinity
+ir_fp_const_(float, F, A) :- !, ir_float_round(F, R), ir_double(R, A).
+ir_fp_const_(half, F, A) :- abs(F) >= 65520.0, !, ( F < 0 -> A = '0xFFF0000000000000' ; A = '0x7FF0000000000000' ).
+ir_fp_const_(half, F, A) :- !, ir_half_round(F, R), ir_double(R, A).
+ir_fp_const_(_, F, A) :- ir_double(F, A).
+ir_float_round(F, R) :- ir_round_bits(F, 23, -126, 127, R).
+ir_half_round(F, R) :- ir_round_bits(F, 10, -14, 15, R).
+ir_round_bits(F, _, _, _, R) :- F =:= 0.0, !, R = F.
+ir_round_bits(F, MB, EMin, EMax, R) :-
+    X is abs(F), E0 is floor(log(X) / log(2)), ir_norm(X, E0, E, _),
+    (   E > EMax -> R0 = X
+    ;   E >= EMin -> K is MB - E, R0 is round(X * 2.0 ** K) * 2.0 ** (-K)
+    ;   K is MB - EMin, R0 is round(X * 2.0 ** K) * 2.0 ** (-K) ),
+    ( F < 0 -> R is -R0 ; R = R0 ).
+ir_x87(F, A) :- F =:= 0.0, !, A = '0xK00000000000000000000'.
+ir_x87(F, A) :-
+    X is abs(F), ( F < 0 -> Sg = 1 ; Sg = 0 ),
+    E0 is floor(log(X) / log(2)), ir_norm(X, E0, E, M),
+    Frac is round((M - 1) * 4503599627370496),                 % the double's 52 fraction bits, exact
+    SE is Sg * 32768 + E + 16383,
+    Sig is 4503599627370496 + Frac,                             % the 53 significant bits with the integer bit
+    Hi is Sig >> 21, Lo is (Sig /\ 2097151) << 11,               % shifted to 64 bits: the high and the low 32
+    ir_hexn(SE, 4, HE), ir_hexn(Hi, 8, HH), ir_hexn(Lo, 8, HL),
+    atomic_list_concat(['0xK', HE, HH, HL], A).
 ir_norm(X, E0, E, M) :- M0 is X / (2.0 ** E0), ( M0 >= 2.0 -> E1 is E0 + 1, ir_norm(X, E1, E, M) ; M0 < 1.0 -> E1 is E0 - 1, ir_norm(X, E1, E, M) ; E = E0, M = M0 ).
 ir_hexn(_, 0, '') :- !.
 ir_hexn(N, K, A) :- D is N mod 16, N1 is N // 16, K1 is K - 1, ir_hexn(N1, K1, A1), ir_hexd(D, H), atom_concat(A1, H, A).
@@ -590,6 +655,7 @@ ir_expr(wchr(C), C, base([], [wchar_t]), i32) :- !.
 ir_expr(u16chr(C), C, base([], [char16_t]), i16) :- !.
 ir_expr(u32chr(C), C, base([], [char32_t]), i32) :- !.
 ir_expr(id(N), V, T, i32) :- \+ ir_lookup(N, _), ccl_enum_value(N, V), !, ir_int(T).          % an enumerator is its value -- unless A LOCAL SHADOWS IT (0.94): libc++'s <format> has a scoped enum with an enumerator `__ptr' (14), every enumerator is a global name here, and `iterator __r(__ptr)' in the tree's node removal built its iterator from 14 where `__ptr' was the parameter (every erase by iterator in a C++20 program over <set> segfaulted)
+ir_expr(id(N), V, T, LL) :- \+ ir_lookup(N, _), ccl_func_name(N), !, nb_getval('$ir_fn', F), atom_codes(F, Cs), ir_expr(str(Cs), V, _, LL), T = ptr([], base([const], [char])).   % `__func__' (0.108)
 ir_expr(id(N), V, T, LL) :- !,
     ( ir_lookup(N, loc(Addr0, T00)) -> true ; ir_fail(undeclared(N)) ),
     ir_ref_slot(Addr0, T00, Addr, T0),
@@ -600,6 +666,8 @@ ir_expr(id(N), V, T, LL) :- !,
 %% THE FLOATING CONSTANTS' BUILTINS, which glibc's <math.h> writes INFINITY, NAN, HUGE_VAL and HUGE_VALF on (0.101):
 %% `__builtin_inf()', `__builtin_inff()', `__builtin_nan("")', `__builtin_nanf("")', `__builtin_huge_val()', `__builtin_huge_valf()'
 ir_expr(call(id(B), _), V, T, LL) :- ir_float_builtin(B, V, T, LL), !.
+ir_expr(coro_retval, V, T, LL) :- !, nb_getval('$ir_coro', coro(_, _, _, _, _, _, slot(Tmp, T, LL))), ir_fresh(V), ir_ins([V, ' = load ', LL, ', ptr ', Tmp]).   % the ramp's return object (0.108)
+ir_expr(call(id(B), Args), V, T, LL) :- ir_coro_builtin(B, Args, V, T, LL), !.   % libc++'s coroutine_handle: __builtin_coro_resume and kin (0.108)
 %% ... AND THE CLASSIFICATION BUILTINS glibc's isnan, isinf, isfinite and signbit expand to under a clang-shaped compiler
 %% (0.101): `fcmp' over the value, an int answered
 ir_expr(call(id(B), [X]), V, T, i32) :- ir_fp_class(B), !, ir_int(T), ir_expr(X, V0, T0, L0), ( ir_fp_ll(L0) -> V1 = V0, L1 = L0 ; ir_convert(V0, T0, L0, base([], [double]), double, V1), L1 = double ), ir_fp_class_(B, V1, L1, V).
@@ -608,11 +676,13 @@ ir_fp_class_('__builtin_isnan', X, L, V) :- ir_fresh(C), ir_ins([C, ' = fcmp uno
 ir_fp_class_('__builtin_isinf', X, L, V) :- ir_fp_inf(X, L, P, N), ir_fresh(C), ir_ins([C, ' = or i1 ', P, ', ', N]), ir_fresh(V), ir_ins([V, ' = zext i1 ', C, ' to i32']).
 ir_fp_class_('__builtin_isinf_sign', X, L, V) :- ir_fp_inf(X, L, P, N), ir_fresh(A), ir_ins([A, ' = zext i1 ', P, ' to i32']), ir_fresh(B), ir_ins([B, ' = zext i1 ', N, ' to i32']), ir_fresh(V), ir_ins([V, ' = sub i32 ', A, ', ', B]).
 ir_fp_class_('__builtin_isfinite', X, L, V) :- ir_fp_inf(X, L, P, N), ir_fresh(O), ir_ins([O, ' = fcmp ord ', L, ' ', X, ', ', X]), ir_fresh(I), ir_ins([I, ' = or i1 ', P, ', ', N]), ir_fresh(NI), ir_ins([NI, ' = xor i1 ', I, ', true']), ir_fresh(C), ir_ins([C, ' = and i1 ', O, ', ', NI]), ir_fresh(V), ir_ins([V, ' = zext i1 ', C, ' to i32']).
-ir_fp_class_('__builtin_isnormal', X, L, V) :- ir_fp_class_('__builtin_isfinite', X, L, F), ( L == float -> Min = '0x3810000000000000' ; Min = '0x0010000000000000' ),   % finite, and no smaller than the least normal
+ir_fp_class_('__builtin_isnormal', X, L, V) :- ir_fp_class_('__builtin_isfinite', X, L, F), ( L == float -> Min = '0x3810000000000000' ; L == x86_fp80 -> Min = '0xK00018000000000000000' ; Min = '0x0010000000000000' ),   % finite, and no smaller than the least normal
     ir_fresh(Ab), ir_ins([Ab, ' = call ', L, ' @llvm.fabs.', L, '(', L, ' ', X, ')']), atomic_list_concat(['declare ', L, ' @llvm.fabs.', L, '(', L, ')'], D), atomic_list_concat(['llvm.fabs.', L], IN), ir_note_extern(IN, raw(D)),
     ir_fresh(G), ir_ins([G, ' = fcmp oge ', L, ' ', Ab, ', ', Min]), ir_fresh(Gi), ir_ins([Gi, ' = zext i1 ', G, ' to i32']), ir_fresh(V), ir_ins([V, ' = and i32 ', F, ', ', Gi]).
-ir_fp_class_('__builtin_signbit', X, L, V) :- ( L == float -> IL = i32, Sh = 31 ; IL = i64, Sh = 63 ), ir_fresh(B), ir_ins([B, ' = bitcast ', L, ' ', X, ' to ', IL]), ir_fresh(S), ir_ins([S, ' = lshr ', IL, ' ', B, ', ', Sh]), ( IL == i32 -> V = S ; ir_fresh(V), ir_ins([V, ' = trunc i64 ', S, ' to i32']) ).
-ir_fp_inf(X, L, P, N) :- ir_fresh(P), ir_ins([P, ' = fcmp oeq ', L, ' ', X, ', 0x7FF0000000000000']), ir_fresh(N), ir_ins([N, ' = fcmp oeq ', L, ' ', X, ', 0xFFF0000000000000']).
+ir_fp_class_('__builtin_signbit', X, L, V) :- ( L == float -> IL = i32, Sh = 31 ; L == x86_fp80 -> IL = i80, Sh = 79 ; IL = i64, Sh = 63 ), ir_fresh(B), ir_ins([B, ' = bitcast ', L, ' ', X, ' to ', IL]), ir_fresh(S), ir_ins([S, ' = lshr ', IL, ' ', B, ', ', Sh]), ( IL == i32 -> V = S ; ir_fresh(V), ir_ins([V, ' = trunc ', IL, ' ', S, ' to i32']) ).
+ir_fp_inf(X, L, P, N) :- ir_fp_infs(L, PI, NI), ir_fresh(P), ir_ins([P, ' = fcmp oeq ', L, ' ', X, ', ', PI]), ir_fresh(N), ir_ins([N, ' = fcmp oeq ', L, ' ', X, ', ', NI]).
+ir_fp_infs(x86_fp80, '0xK7FFF8000000000000000', '0xKFFFF8000000000000000') :- !.   % x87's own spelling (0.108)
+ir_fp_infs(_, '0x7FF0000000000000', '0xFFF0000000000000').
 ir_expr(call(id('__builtin_complex'), [A, B]), V, T, LL) :- !, ccl_type_of(A, TA0), ccl_complex_of(TA0, T), ir_type(T, LL), ir_complex_elem(LL, EL), ccl_complex_real(T, RT),   % C11's CMPLX(x, y), and I (0.100)
     ir_expr(A, VA, TA, LA), ir_expr(B, VB, TB, LB), ir_convert(VA, TA, LA, RT, EL, R), ir_convert(VB, TB, LB, RT, EL, I), ir_complex_make(LL, R, I, V).
 ir_expr(call(F, Args), V, RT, LL) :- !,
@@ -632,9 +702,57 @@ ir_expr(new(T, Args), V, T1, LL) :- !, ir_new(T, Args, E), ir_expr(E, V, T1, LL)
 ir_expr(new_array(T, N), V, T1, LL) :- !,
     ir_expr(cast(ptr([], T), call(id(malloc), [bin('*', cast(base([], [unsigned, long]), N), sizeof_type(T))])), V, T1, LL).
 ir_expr(delete(E), V, T, LL) :- !, ir_expr(call(id(free), [E]), V, T, LL).
+ir_expr(delete_poly(E, D), none, base([], [void]), void) :- !, ir_expr(E, P, _, _),     % the complete object: `p + vptr[-2]', taken before the destructor runs
+    ir_fresh(VP), ir_ins([VP, ' = load ptr, ptr ', P]), ir_fresh(G), ir_ins([G, ' = getelementptr inbounds i64, ptr ', VP, ', i64 -2']),
+    ir_fresh(O), ir_ins([O, ' = load i64, ptr ', G]), ir_fresh(C), ir_ins([C, ' = getelementptr inbounds i8, ptr ', P, ', i64 ', O]),
+    ir_expr(D, _, _, _), ir_note_extern(free, raw('declare void @free(ptr)')), ir_ins(['call void @free(ptr ', C, ')']).
 ir_expr(delete_array(E), V, T, LL) :- !, ir_expr(call(id(free), [E]), V, T, LL).
+%% dynamic_cast through libc++abi's __dynamic_cast(sub, &src_type, &dst_type, hint), -1 the hint that says nothing;
+%% a null pointer stays null and is never handed to it; a reference that does not convert aborts
+ir_expr(dyncast(X, SC, DC, T), V, T, ptr) :- !, ir_expr(X, P, _, _), ir_rtti_emit(SC, SS), ir_rtti_emit(DC, DS), ir_dyncast_decl,
+    ir_tmp(ptr, Tmp), ir_ins(['store ptr null, ptr ', Tmp]), ir_fresh(NN), ir_ins([NN, ' = icmp ne ptr ', P, ', null']),
+    ir_label(LC), ir_label(LM), ir_end(['br i1 ', NN, ', label %', LC, ', label %', LM]), ir_block(LC),
+    ir_fresh(R), ir_ins([R, ' = call ptr @__dynamic_cast(ptr ', P, ', ptr @', SS, ', ptr @', DS, ', i64 -1)']), ir_ins(['store ptr ', R, ', ptr ', Tmp]),
+    ir_block(LM), ir_fresh(V), ir_ins([V, ' = load ptr, ptr ', Tmp]).
+ir_expr(dyncast_ref(X, SC, DC, T), V, T, ptr) :- !, ir_expr(X, P, _, _), ir_rtti_emit(SC, SS), ir_rtti_emit(DC, DS), ir_dyncast_decl,
+    ir_fresh(V), ir_ins([V, ' = call ptr @__dynamic_cast(ptr ', P, ', ptr @', SS, ', ptr @', DS, ', i64 -1)']),
+    ir_fresh(NN), ir_ins([NN, ' = icmp eq ptr ', V, ', null']), ir_label(LA), ir_label(LM), ir_end(['br i1 ', NN, ', label %', LA, ', label %', LM]),
+    ir_block(LA), ir_note_extern(abort, raw('declare void @abort()')), ir_ins(['call void @abort()']), ir_end(['unreachable']), ir_block(LM).
+ir_dyncast_decl :- ir_note_extern('__dynamic_cast', raw('declare ptr @__dynamic_cast(ptr, ptr, ptr, i64)')).
+%% the type_info objects of a chain, the class's first: `__class_type_info' at the root, `__si_class_type_info' over it
+ir_rtti_emit(ext(Sym), Sym) :- !, atomic_list_concat(['@', Sym, ' = external constant ptr'], D), ir_note_extern(Sym, raw(D)).
+ir_rtti_emit(vmi(N, C, Bs), Sym) :- !, atom_concat('_ZTI', N, Sym), atom_concat('_ZTS', N, SN),
+    atom_length(N, K), K1 is K + 1, atomic_list_concat(['@', SN, ' = linkonce_odr constant [', K1, ' x i8] c"', N, '\\00"'], DS), ir_note_extern(SN, raw(DS)),
+    findall(E, ( member(b(Ch, S), Bs), ir_rtti_emit(Ch, BS), ( S == none -> Off = 0 ; ccl_offsetof(base([], [typedef(C)]), id(S), Off) ), F is Off * 256 + 2,
+                 atomic_list_concat(['{ ptr, i64 } { ptr @', BS, ', i64 ', F, ' }'], E) ), Es),
+    length(Es, NB), atomic_list_concat(Es, ', ', EsT), V = '_ZTVN10__cxxabiv121__vmi_class_type_infoE',
+    atomic_list_concat(['@', Sym, ' = linkonce_odr constant { ptr, ptr, i32, i32, [', NB, ' x { ptr, i64 }] } { ptr getelementptr inbounds (ptr, ptr @', V, ', i64 2), ptr @', SN,
+                        ', i32 0, i32 ', NB, ', [', NB, ' x { ptr, i64 }] [', EsT, '] }'], D),
+    atomic_list_concat(['@', V, ' = external global [0 x ptr]'], DV), ir_note_extern(V, raw(DV)), ir_note_extern(Sym, raw(D)).
+ir_rtti_emit([N|Rest], Sym) :- atom_concat('_ZTI', N, Sym), atom_concat('_ZTS', N, SN),
+    atom_length(N, K), K1 is K + 1, atomic_list_concat(['@', SN, ' = linkonce_odr constant [', K1, ' x i8] c"', N, '\\00"'], DS), ir_note_extern(SN, raw(DS)),
+    (   Rest == [] -> V = '_ZTVN10__cxxabiv117__class_type_infoE',
+        atomic_list_concat(['@', Sym, ' = linkonce_odr constant { ptr, ptr } { ptr getelementptr inbounds (ptr, ptr @', V, ', i64 2), ptr @', SN, ' }'], D)
+    ;   ir_rtti_emit(Rest, BS), V = '_ZTVN10__cxxabiv120__si_class_type_infoE',
+        atomic_list_concat(['@', Sym, ' = linkonce_odr constant { ptr, ptr, ptr } { ptr getelementptr inbounds (ptr, ptr @', V, ', i64 2), ptr @', SN, ', ptr @', BS, ' }'], D) ),
+    atomic_list_concat(['@', V, ' = external global [0 x ptr]'], DV), ir_note_extern(V, raw(DV)), ir_note_extern(Sym, raw(D)).
+%% a C++26 CONTRACT VIOLATED (0.108): the `enforce' semantic -- what failed written on stderr, then abort
+ir_expr(contract_violation(K, F, L), none, base([], [void]), void) :- !,
+    ( F == none -> nb_getval('$ir_fn', Fn) ; Fn = F ), ( K == pre -> KW = precondition ; K == post -> KW = postcondition ; KW = assertion ),
+    atomic_list_concat(['contract violation: ', KW, ' of ', Fn, ' (line ', L, ')'], Msg), atom_codes(Msg, Cs0), append(Cs0, [10], Cs), length(Cs, Len),
+    ir_expr(str(Cs), SV, _, _),
+    ir_note_extern(write, raw('declare i64 @write(i32, ptr, i64)')), ir_note_extern(abort, raw('declare void @abort()')),
+    ir_ins(['call i64 @write(i32 2, ptr ', SV, ', i64 ', Len, ')']), ir_ins(['call void @abort()']).
+ir_expr(delete_cookie(E, Ck), V, T, LL) :- !, ir_expr(call(id(free), [bin('-', cast(ptr([], base([], [char])), E), int(Ck))]), V, T, LL).   % the block starts at the cookie (0.108)
 ir_expr(lambda(_, _, _, _), _, _, _) :- !, ir_fail(lambda).
 ir_expr(throw(_), _, _, _) :- !, ir_fail(throw).
+ir_expr(eh_alloc(S), V, ptr([], base([], [void])), ptr) :- !, ir_expr(S, SV, ST, SL), ir_convert(SV, ST, SL, base([], [unsigned, long]), i64, S1),
+    ir_note_extern('__cxa_allocate_exception', raw('declare ptr @__cxa_allocate_exception(i64)')), ir_fresh(V), ir_ins([V, ' = call ptr @__cxa_allocate_exception(i64 ', S1, ')']).
+ir_expr(eh_throw(P, rtti(Ch), D), none, base([], [void]), void) :- !, ir_expr(P, PV, _, _), ir_rtti_emit(Ch, Sym),
+    ( D == nullptr -> DV = null ; ir_expr(D, DV, _, _) ),
+    ir_note_extern('__cxa_throw', raw('declare void @__cxa_throw(ptr, ptr, ptr)')),
+    atomic_list_concat(['ptr ', PV, ', ptr @', Sym, ', ptr ', DV], Args), ir_emit_call(none, void, '@__cxa_throw', Args), ir_end(['unreachable']).
+ir_expr(eh_rethrow, none, base([], [void]), void) :- !, ir_note_extern('__cxa_rethrow', raw('declare void @__cxa_rethrow()')), ir_emit_call(none, void, '@__cxa_rethrow', ''), ir_end(['unreachable']).
 ir_expr(drain_free(E), V, RT, LL) :- !, ir_call(id(free), [E], V, RT), ir_type(RT, LL).          % the lowering's own free, past the drain
 ir_expr(assign('=', L, R), V, LT, LL) :- ir_own_elem(L), !, ir_elem_assign(L, R, S), ir_expr(S, V, LT, LL).   % an own array's element: the old one freed
 ir_expr(assign('=', L, R), V, LT, LL) :- !,
@@ -669,6 +787,7 @@ ir_expr(bin(Op, A, B), V, T, LL) :- memberchk(Op, ['+', '-', '*', '/']), ccl_typ
 ir_expr(bin(Op, A, B), V, T, LL) :- !, ir_expr(A, VA, TA, LA), ir_binary(Op, VA, TA, LA, B, V, T, LL).
 ir_complex_ll(LL) :- ir_complex_elem(LL, _).
 ir_complex_elem('{ double, double }', double).
+ir_complex_elem('{ x86_fp80, x86_fp80 }', x86_fp80).   % a complex long double (0.108)
 ir_complex_elem('{ float, float }', float).
 ir_complex_elem('{ i64, i64 }', i64).   ir_complex_elem('{ i32, i32 }', i32).   % `_Complex long', `_Complex int' (0.103)
 ir_complex_elem('{ i16, i16 }', i16).   ir_complex_elem('{ i8, i8 }', i8).
@@ -694,6 +813,8 @@ ir_complex_op('*', _, EL, Ar, Ai, Br, Bi, Rr, Ri) :- !, ir_complex_rt(mul, EL, A
 ir_complex_op('/', _, EL, Ar, Ai, Br, Bi, Rr, Ri) :- !, ir_complex_rt(div, EL, Ar, Ai, Br, Bi, Rr, Ri).
 ir_complex_rt(Op, double, Ar, Ai, Br, Bi, Rr, Ri) :- !, atomic_list_concat(['__', Op, 'dc3'], F), atomic_list_concat(['declare { double, double } @', F, '(double, double, double, double)'], D), ir_note_extern(F, raw(D)),
     ir_fresh(V), ir_ins([V, ' = call { double, double } @', F, '(double ', Ar, ', double ', Ai, ', double ', Br, ', double ', Bi, ')']), ir_complex_parts(V, '{ double, double }', Rr, Ri).
+ir_complex_rt(Op, x86_fp80, Ar, Ai, Br, Bi, Rr, Ri) :- !, atomic_list_concat(['__', Op, 'xc3'], F), atomic_list_concat(['declare { x86_fp80, x86_fp80 } @', F, '(x86_fp80, x86_fp80, x86_fp80, x86_fp80)'], D), ir_note_extern(F, raw(D)),   % a complex long double's product and quotient: __mulxc3, __divxc3, returned on the x87 stack (0.108)
+    ir_fresh(V), ir_ins([V, ' = call { x86_fp80, x86_fp80 } @', F, '(x86_fp80 ', Ar, ', x86_fp80 ', Ai, ', x86_fp80 ', Br, ', x86_fp80 ', Bi, ')']), ir_complex_parts(V, '{ x86_fp80, x86_fp80 }', Rr, Ri).
 ir_complex_rt(Op, float, Ar, Ai, Br, Bi, Rr, Ri) :- atomic_list_concat(['__', Op, 'sc3'], F), atomic_list_concat(['declare <2 x float> @', F, '(float, float, float, float)'], D), ir_note_extern(F, raw(D)),
     ir_fresh(V), ir_ins([V, ' = call <2 x float> @', F, '(float ', Ar, ', float ', Ai, ', float ', Br, ', float ', Bi, ')']),
     ir_fresh(Rr), ir_ins([Rr, ' = extractelement <2 x float> ', V, ', i32 0']), ir_fresh(Ri), ir_ins([Ri, ' = extractelement <2 x float> ', V, ', i32 1']).
@@ -734,6 +855,10 @@ ir_expr(sizeof(E), N, T, i64) :- !, ccl_size_type(T), ccl_type_of(E, ET),
     ->  ir_expr(NE, NV0, NT, NL), ir_convert(NV0, NT, NL, base([], [long]), i64, NV), ir_fresh(N), ir_ins([N, ' = mul i64 ', NV, ', ', ES])
     ;   ccl_size_of(ET, N) -> true
     ;   ir_fail(sizeof(E)) ).
+ir_expr(va_arg(AP, T0), V, T, LL) :- !, ccl_resolve_type(T0, T), ir_type(T, LL),
+    ( ( T = base(_, [struct(_, _)|_]) ; T = base(_, [union(_, _)|_]) ) -> ir_fail(va_arg_of_aggregate(T0)) ; true ),
+    ir_expr(AP, P, _, _), ir_fresh(V), ir_ins([V, ' = va_arg ptr ', P, ', ', LL]).
+ir_expr(offsetof(T0, D), N, T, i64) :- !, ccl_size_type(T), ( ccl_offsetof(T0, D, N) -> true ; ir_fail(offsetof(T0, D)) ).
 ir_expr(sizeof_type(ET), N, T, i64) :- !, ccl_size_type(T), ( ccl_size_of(ET, N) -> true ; ir_fail(sizeof_type(ET)) ).
 ir_expr(alignof_type(ET), N, T, i64) :- !, ccl_size_type(T), ( ccl_const_eval(alignof_type(ET), N) -> true ; ir_fail(alignof_type(ET)) ).
 %% A CONDITIONAL OVER TWO VOID ARMS IS VOID ([expr.cond]/2): both arms are evaluated for their effects and the form
@@ -770,8 +895,9 @@ ir_expr(stmt_expr(block(Is)), V, T, LL) :- !,
 ir_expr(E, _, _, _) :- ir_fail(expr(E)).
 %% the LLVM type of a loaded value: an array decays to its address
 ir_value_ll(LT, LL) :- ( sub_atom(LT, 0, 1, _, '[') -> LL = ptr ; LL = LT ).
-ir_fp_ll(double). ir_fp_ll(float). ir_fp_ll(half).
+ir_fp_ll(double). ir_fp_ll(float). ir_fp_ll(half). ir_fp_ll(x86_fp80).
 ir_fp_wider(double, float). ir_fp_wider(double, half). ir_fp_wider(float, half).
+ir_fp_wider(x86_fp80, double). ir_fp_wider(x86_fp80, float). ir_fp_wider(x86_fp80, half).
 
 %% the label of the block the last instruction went into (for phis)
 ir_cur_label(L) :- nb_getval('$ir_body', B), ir_last_label(B, L).
@@ -831,7 +957,7 @@ ir_step(E, Op, When, V, T, LL) :-
     ir_lval(E, Slot, T, LL), ir_load_slot(Slot, T, LL, Cur),
     ir_fresh(New),
     (   LL == ptr -> ir_elem(T, El), ir_type(El, ELL), ( Op == add -> D = 1 ; D = -1 ), ir_ins([New, ' = getelementptr inbounds ', ELL, ', ptr ', Cur, ', i64 ', D])
-    ;   ir_fp_ll(LL) -> ( Op == add -> F = fadd ; F = fsub ), ir_ins([New, ' = ', F, ' ', LL, ' ', Cur, ', 1.0'])
+    ;   ir_fp_ll(LL) -> ( Op == add -> F = fadd ; F = fsub ), ir_fp_const(1.0, LL, One), ir_ins([New, ' = ', F, ' ', LL, ' ', Cur, ', ', One])
     ;   ir_signed(T) -> ir_ins([New, ' = ', Op, ' nsw ', LL, ' ', Cur, ', 1'])
     ;   ir_ins([New, ' = ', Op, ' ', LL, ' ', Cur, ', 1']) ),
     ir_store_slot(Slot, T, LL, New),
@@ -940,6 +1066,16 @@ ir_call(id(B), [A, C, R], V, base([], [bool])) :- ccl_overflow_builtin(B, Op), !
 ir_widen128(V, T, LL, W) :- ( LL == i128 -> W = V ; ir_is_bool(T) -> ir_op1(zext, LL, V, i128, W) ; ir_signed(T) -> ir_op1(sext, LL, V, i128, W) ; ir_op1(zext, LL, V, i128, W) ).
 %% `__builtin_unreachable()' -- C23's `unreachable()' in <stddef.h> -- is LLVM's terminator of that name
 ir_call(id('__builtin_unreachable'), [], none, base([], [void])) :- !, ir_end(['unreachable']).
+%% THE VARIABLE ARGUMENT LIST (0.108): `va_start', `va_end' and `va_copy' are LLVM's intrinsics over the list's
+%% address -- a local va_list decays to it, a va_list parameter is it -- and `va_arg' LLVM's own instruction, which
+%% the x86-64 and AArch64 backends expand by the ABI's rules for a scalar or a pointer; a struct read by va_arg is
+%% refused by name (clang expands that one itself)
+ir_call(id(B), [AP|Rest], none, base([], [void])) :- ir_va_intrinsic(B, I, N), length([AP|Rest], K), K >= N, !,
+    ir_expr(AP, P, _, _), ( N == 2 -> Rest = [S|_], ir_expr(S, PS, _, _), As = ['ptr ', P, ', ptr ', PS], D = '(ptr, ptr)' ; As = ['ptr ', P], D = '(ptr)' ),
+    atomic_list_concat(['declare void @', I, D], Decl), ir_note_extern(I, raw(Decl)), append(['call void @', I, '(' | As], [')'], Ins), ir_ins(Ins).
+ir_va_intrinsic('__builtin_va_start', 'llvm.va_start', 1).
+ir_va_intrinsic('__builtin_va_end', 'llvm.va_end', 1).
+ir_va_intrinsic('__builtin_va_copy', 'llvm.va_copy', 2).
 %% THE ATOMIC BUILTINS ARE LLVM'S OWN INSTRUCTIONS, never a call to anything: `__atomic_add_fetch(p, -1,
 %% __ATOMIC_ACQ_REL)' is how libc++'s shared_ptr counts its owners (__libcpp_atomic_refcount_decrement), and the
 %% compiler is asked for it by name. An `atomicrmw' answers the OLD value, so a `*_fetch' form applies the
@@ -1017,18 +1153,76 @@ ir_call(F, _, _, _) :- ir_fail(call(F)).
 %% sret argument, one returned in pieces is stored to a temporary and loaded
 %% back as the struct; a struct argument is handed over the same way
 ir_call_(Callee, RT, Ps, Var, Args, V) :-
-    ir_abi(RT, RetAbi),
+    ir_ret_abi(RT, RetAbi),
     (   ( RetAbi = memory(_, _) ; RetAbi = indirect(_, _) )
     ->  ir_type(RT, RLL), ir_tmp(RLL, Sret), ir_sret_attr(RetAbi, SA), atomic_list_concat([SA, ' ', Sret], LeadPart), Lead = [LeadPart], LeadLL = [ptr], CL = void
     ;   Lead = [], LeadLL = [], ( RetAbi = direct(Pcs) -> ir_pieces_type(Pcs, CL) ; ir_type(RT, CL) ) ),
     ir_args_(Args, Ps, Parts0, PLLs0), append(Lead, Parts0, Parts), append(LeadLL, PLLs0, PLLs), ir_join(Parts, ', ', ArgTxt),
     ( Var == true -> ir_join(PLLs, ', ', PL), atomic_list_concat([CL, ' (', PL, ', ...)'], Sig) ; Sig = CL ),
     (   CL == void
-    ->  ir_ins(['call ', Sig, ' ', Callee, '(', ArgTxt, ')']),
+    ->  ir_emit_call(none, Sig, Callee, ArgTxt),
         ( RetAbi == scalar -> V = none ; ir_fresh(V), ir_ins([V, ' = load ', RLL, ', ptr ', Sret]) )
-    ;   ir_fresh(R), ir_ins([R, ' = call ', Sig, ' ', Callee, '(', ArgTxt, ')']),
+    ;   ir_fresh(R), ir_emit_call(R, Sig, Callee, ArgTxt),
         (   RetAbi = direct(_) -> ir_type(RT, RLL2), ir_tmp(RLL2, T2), ir_ins(['store ', CL, ' ', R, ', ptr ', T2]), ir_fresh(V), ir_ins([V, ' = load ', RLL2, ', ptr ', T2])
         ;   V = R ) ).
+%% ---- EXCEPTIONS (0.108): a call is an INVOKE where an exception it lets out has somewhere to go -- a try around it,
+%% or a scope with destructors or defers to run -- and its unwind edge is a landing pad made at the call: it lists
+%% every enclosing handler's type_info (innermost first) and `cleanup', runs the defers of the scopes it leaves up to
+%% the innermost try, tests the selector against that try's handlers, then the next try's, and else resumes. Code
+%% run while unwinding makes plain calls (an exception out of a destructor there is terminate's business).
+ir_emit_call(R, Sig, Callee, ArgTxt) :- ir_invoke_needed, !,
+    ( ir_terminated(yes) -> ir_label(Ld), ir_emit([Ld, ':']), ir_set_term(no) ; true ),
+    ir_label(Lok), ir_label(Llp),
+    ( R == none -> Pre = [] ; Pre = [R, ' = '] ),
+    append(Pre, ['invoke ', Sig, ' ', Callee, '(', ArgTxt, ') to label %', Lok, ' unwind label %', Llp], Ins), ir_end(Ins),
+    ir_landing_pad(Llp), ir_block(Lok).
+ir_emit_call(none, Sig, Callee, ArgTxt) :- !, ir_ins(['call ', Sig, ' ', Callee, '(', ArgTxt, ')']).
+ir_emit_call(R, Sig, Callee, ArgTxt) :- ir_ins([R, ' = call ', Sig, ' ', Callee, '(', ArgTxt, ')']).
+ir_invoke_needed :- catch(nb_getval('$ir_eh', yes), _, fail), nb_getval('$ir_unwinding', no),
+    ( nb_getval('$ir_tries', [_|_]) -> true ; nb_getval('$ir_defers', Fs), member(F, Fs), F \== [] ), !.
+ir_eh_slots(E, S) :- nb_getval('$ir_ehslots', X), ( X = slots(E, S) -> true ; ir_tmp(ptr, E), ir_tmp(i32, S), nb_setval('$ir_ehslots', slots(E, S)) ).
+ir_landing_pad(Llp) :-
+    ir_block(Llp), nb_setval('$ir_personality', yes),
+    nb_getval('$ir_tries', Tries), findall(C, ( member(t(_, Hs), Tries), member(h(K, _), Hs), ( K == any -> C = ' catch ptr null' ; atomic_list_concat([' catch ptr @', K], C) ) ), Cs),
+    ir_fresh(LP), atomic_list_concat(Cs, CsT), ir_ins([LP, ' = landingpad { ptr, i32 } cleanup', CsT]),
+    ir_eh_slots(ES, SS), ir_fresh(X), ir_ins([X, ' = extractvalue { ptr, i32 } ', LP, ', 0']), ir_ins(['store ptr ', X, ', ptr ', ES]),
+    ir_fresh(Y), ir_ins([Y, ' = extractvalue { ptr, i32 } ', LP, ', 1']), ir_ins(['store i32 ', Y, ', ptr ', SS]),
+    nb_getval('$ir_defers', Frames), length(Frames, Len),
+    nb_setval('$ir_unwinding', yes), ir_unwind_to(Tries, Frames, Len), nb_setval('$ir_unwinding', no).
+ir_unwind_to([], Frames, _) :- ir_run_frames(Frames), ir_eh_slots(ES, SS),
+    ir_fresh(X), ir_ins([X, ' = load ptr, ptr ', ES]), ir_fresh(Y), ir_ins([Y, ' = load i32, ptr ', SS]),
+    ir_fresh(A), ir_ins([A, ' = insertvalue { ptr, i32 } poison, ptr ', X, ', 0']), ir_fresh(B), ir_ins([B, ' = insertvalue { ptr, i32 } ', A, ', i32 ', Y, ', 1']),
+    ir_end(['resume { ptr, i32 } ', B]).
+ir_unwind_to([t(D, Hs)|Ts], Frames, Len) :- K is Len - D, ir_take(K, Frames, Fs), length(Fs, KF), length(Pre, KF), append(Pre, Rest, Frames),
+    ir_run_frames(Fs), ir_eh_dispatch(Hs), ( ir_terminated(yes) -> true ; ir_unwind_to(Ts, Rest, D) ).
+ir_eh_dispatch([]).
+ir_eh_dispatch([h(any, Lh)|_]) :- !, ir_end(['br label %', Lh]).
+ir_eh_dispatch([h(Sym, Lh)|Hs]) :- ir_eh_slots(_, SS), ir_fresh(S), ir_ins([S, ' = load i32, ptr ', SS]),
+    ir_note_extern('llvm.eh.typeid.for', raw('declare i32 @llvm.eh.typeid.for(ptr)')),
+    ir_fresh(T), ir_ins([T, ' = call i32 @llvm.eh.typeid.for(ptr @', Sym, ')']), ir_fresh(C), ir_ins([C, ' = icmp eq i32 ', S, ', ', T]),
+    ir_label(Ln), ir_end(['br i1 ', C, ', label %', Lh, ', label %', Ln]), ir_block(Ln), ir_eh_dispatch(Hs).
+%% the try: its handlers' labels made first, the body lowered with the try on the stack, then each handler --
+%% __cxa_begin_catch over the exception, the parameter bound to the object (a reference, or a scalar's value; a
+%% class caught by value is bound to the object itself), the body, and __cxa_end_catch as the handler scope's defer,
+%% so a return, a break or an exception out of the handler ends the catch too
+ir_try(L, Body, Catches) :- ir_line(L), nb_getval('$ir_defers', Fr), length(Fr, D), ir_label(La),
+    findall(h(K, Lh)-Cat, ( member(Cat, Catches), ir_label(Lh), ( Cat = catch(any, _) -> K = any ; Cat = catch(rtti(Ch), _, _, _), ir_rtti_emit(Ch, K) ) ), HCs),
+    findall(H, member(H-_, HCs), Hs),
+    nb_getval('$ir_tries', T0), nb_setval('$ir_tries', [t(D, Hs)|T0]),
+    ir_stmt(Body), nb_setval('$ir_tries', T0), ir_end(['br label %', La]),
+    forall(member(h(_, Lh)-Cat, HCs), ir_handler(Cat, Lh, La)),
+    ir_block(La).
+ir_handler(Cat, Lh, La) :- ir_block(Lh), ir_eh_slots(ES, _), ir_fresh(X), ir_ins([X, ' = load ptr, ptr ', ES]),
+    ir_note_extern('__cxa_begin_catch', raw('declare ptr @__cxa_begin_catch(ptr)')), ir_note_extern('__cxa_end_catch', raw('declare void @__cxa_end_catch()')),
+    ir_fresh(O), ir_ins([O, ' = call ptr @__cxa_begin_catch(ptr ', X, ')']),
+    ir_env_push, ir_defer_push(eh_end_catch),
+    (   Cat = catch(any, B) -> true
+    ;   Cat = catch(_, T, N, B), ( N == anon -> true ; ir_catch_bind(N, T, O) ) ),
+    ir_stmt(B), ir_run_defers(1), ir_env_pop, ir_end(['br label %', La]).
+ir_catch_bind(N, T, O) :- ccl_resolve_type(T, T1),
+    (   ( T1 = ref(_, _) ; T1 = rref(_, _) ; ccl_resolve_type(T1, base(_, [struct(_, _)])) ; ccl_resolve_type(T1, base(_, [union(_, _)])) )
+    ->  ( T1 = base(_, _) -> RT = ref([], T1) ; RT = T1 ), ir_fresh(A), ir_alloca_typed(A, ptr([], base([], [void]))), ir_ins(['store ptr ', O, ', ptr ', A]), ir_local(N, RT, A)
+    ;   ir_type(T1, LL), ir_fresh(A), ir_alloca_typed(A, T1), ir_fresh(V), ir_ins([V, ' = load ', LL, ', ptr ', O]), ir_ins(['store ', LL, ' ', V, ', ptr ', A]), ir_local(N, T1, A) ).
 %% the arguments: each as its parts (a struct in pieces is several), and the plain type of each part
 ir_args_([], _, [], []).
 ir_args_([A|As], [param(PT0, _)|Ps], Parts, PLLs) :- ( PT0 = ref(_, _) ; PT0 = rref(_, _) ), !,   % C++: a reference parameter takes the argument's address -- of the base sub-object, for a derived object over a base at an offset
@@ -1046,7 +1240,8 @@ ir_arg_parts(indirect(LL, _), _, V, [Part], [ptr]) :- ir_tmp(LL, Tmp), ir_ins(['
 ir_piece_loads([], _, [], []).
 ir_piece_loads([piece(P, Off)|Ps], Tmp, [Part|Parts], [P|LLs]) :- ir_load_at(P, Tmp, Off, V), atomic_list_concat([P, ' ', V], Part), ir_piece_loads(Ps, Tmp, Parts, LLs).
 ir_promote_arg(V0, T0, V, T) :-
-    ( ccl_resolve_type(T0, base(_, S)), memberchk(float, S) -> T = base([], [double]), ir_convert(V0, T0, T, V)
+    ( ccl_resolve_type(T0, arr(_, E)) -> V = V0, T = ptr([], E)                         % an array member or element passed on: its address (0.108; the value was, the type was not)
+    ; ccl_resolve_type(T0, base(_, S)), memberchk(float, S) -> T = base([], [double]), ir_convert(V0, T0, T, V)
     ; ir_is_int(T0), ccl_int_rank(T0, R, _), R < 3 -> ir_int(T), ir_convert(V0, T0, T, V)
     ; V = V0, T = T0 ).
 
@@ -1074,6 +1269,8 @@ ir_ref_of(call(F, Args), P) :- !, ir_call(F, Args, V, RT),
 ir_ref_of(E, P) :- ir_expr(E, V, T, LL), !,                                % a PRVALUE bound to a const reference: C++ materializes a temporary, and a reference needs an address
     ir_fresh(P), ir_alloca_typed(P, T), ir_ins(['store ', LL, ' ', V, ', ptr ', P]).
 ir_ref_of(E, _) :- ir_fail(reference_to_value(E)).
+ir_lvalue_form(rtti(_)).
+ir_lvalue_form(rtti_dyn(_)).
 ir_lvalue_form(id(_)).
 ir_lvalue_form(scoped(_, _)).
 ir_lvalue_form(index(_, _)).
@@ -1123,6 +1320,12 @@ ir_lval(cast(T, E), P, RT, LL) :- ( T = ref(_, RT0) ; T = rref(_, RT0) ), !, ir_
 %% as a prvalue instead, the temporary was copied and a class holding an owner had two holders, one of them freed.
 ir_lval(stmt_expr(block(Is)), Slot, T, LL) :- !,
     ir_env_push, append(Init, [expr(_, E)], Is), ir_stmts(Init), ir_lval(E, Slot, T, LL), ir_run_defers(1), ir_env_pop.
+%% RTTI (0.108): a type_info object is a place, the global of its name; a polymorphic object's is read off its table's
+%% prefix, the word before the slots
+ir_lval(rtti(Ch), Addr, T, LL) :- !, ir_rtti_emit(Ch, Sym), atom_concat('@', Sym, Addr), ccl_resolve_type(base([const], [typedef(type_info)]), T), ir_type(T, LL).
+ir_lval(rtti_dyn(X), Addr, T, LL) :- !, ir_lval(X, Slot, _, _), ir_slot_addr(Slot, P), ir_fresh(VP), ir_ins([VP, ' = load ptr, ptr ', P]),
+    ir_fresh(G), ir_ins([G, ' = getelementptr inbounds ptr, ptr ', VP, ', i64 -1']), ir_fresh(Addr), ir_ins([Addr, ' = load ptr, ptr ', G]),
+    ccl_resolve_type(base([const], [typedef(type_info)]), T), ir_type(T, LL).
 ir_lval(compound_lit(T, Init), Addr, T, LL) :- !, ir_fresh(Addr), ir_alloca_typed(Addr, T), ir_init(Addr, T, Init), ir_type(T, LL).
 ir_lval(E, _, _, _) :- ir_fail(lvalue(E)).
 %% an alloca for a value of a C type: a struct or a union aligned as C aligns it
@@ -1172,7 +1375,7 @@ ir_elide_take(K, [item(_, W)|Is], [W|More], Rest) :- K1 is K - 1, ir_elide_take(
 ir_init_items([item(Ds, V)|Is], Addr, T, I) :-
     ccl_resolve_type(T, T1),
     (   Ds = [at(int(K))|Rest] -> I0 = K, Ds1 = Rest
-    ;   Ds = [field(F)|Rest] -> ir_member_index(T1, F, I0, _), Ds1 = Rest
+    ;   Ds = [field(_)|_], ccl_init_route(T1, Ds, [field(F)|Rest]) -> ir_member_index(T1, F, I0, _), Ds1 = Rest   % through an anonymous member (0.108)
     ;   I0 = I, Ds1 = [] ),
     ir_init_slot(Addr, T1, I0, Ds1, V), I1 is I0 + 1, ir_init_items(Is, Addr, T, I1).
 ir_init_slot(Addr, arr(_, El), I, Ds, V) :- !,
@@ -1196,7 +1399,65 @@ ir_stmt(include(_, _, _)) :- !.
 ir_stmt(static_assert(_, _, _)) :- !.
 ir_stmt(expr(_, bind_ref(Slot, V))) :- !, ir_bind_ref(Slot, V).      % a reference member bound in a constructor
 ir_stmt(empty) :- !.
+ir_stmt(ifce(_, _, RT)) :- !, ir_stmt(RT).                                              % `if consteval': the run-time branch (0.108)
 ir_stmt(expr(L, E)) :- !, ir_line(L), ir_expr(E, _, _).
+%% C++20 COROUTINES (0.108), LLVM's switch-resumed lowering: the desugaring makes the body a skeleton of these nodes
+%% -- the promise declared, `coro_begin' (the frame allocated through operator new and begun over the promise),
+%% `coro_ret' (the return object kept for the ramp), the initial await, `coro_body' (the user's body, whose
+%% co_return is `coro_return': its scopes' defers run, then the final await), the final await and `coro_done'
+%% (every defer run, the frame freed, the ramp's return). A suspension is `coro_suspend': coro.save, the awaiter's
+%% await_suspend (void: suspend; bool: suspend when true; a handle: resume that coroutine), coro.suspend and the
+%% switch -- resumed goes on, destroyed runs every defer and frees the frame, suspended returns from the ramp.
+%% CoroSplit (in every pipeline, default<O0> included) cuts the function at the suspensions.
+ir_stmt(coro_begin(L, P)) :- !, ir_line(L), ir_lookup(P, loc(Addr, _)), ir_coro_decls,
+    ir_fresh(Id), ir_ins([Id, ' = call token @llvm.coro.id(i32 16, ptr ', Addr, ', ptr null, ptr null)']),
+    ir_fresh(Sz), ir_ins([Sz, ' = call i64 @llvm.coro.size.i64()']),
+    ir_fresh(M), ir_ins([M, ' = call ptr @_Znwm(i64 ', Sz, ')']),
+    ir_fresh(H), ir_ins([H, ' = call ptr @llvm.coro.begin(token ', Id, ', ptr ', M, ')']),
+    ir_label(Clean), ir_label(Susp), nb_setval('$ir_coro', coro(Id, H, Clean, Susp, none, 0, none)).
+ir_stmt(coro_ret(L, E)) :- !, ir_line(L), ir_expr(E, V, T, LL), ir_tmp(LL, Tmp), ir_ins(['store ', LL, ' ', V, ', ptr ', Tmp]),
+    nb_getval('$ir_coro', coro(Id, H, C, S, F, D, _)), nb_setval('$ir_coro', coro(Id, H, C, S, F, D, slot(Tmp, T, LL))).
+ir_stmt(coro_body(L, S)) :- !, ir_line(L), ir_label(Fin), ir_depth(D),
+    nb_getval('$ir_coro', coro(Id, H, C, Su, _, _, R)), nb_setval('$ir_coro', coro(Id, H, C, Su, Fin, D, R)),
+    ir_stmt(S), ir_block(Fin).
+ir_stmt(coro_return(L)) :- !, ir_line(L), nb_getval('$ir_coro', coro(_, _, _, _, Fin, D0, _)), ir_depth(D), K is D - D0, ir_run_defers(K), ir_end(['br label %', Fin]).
+ir_stmt(coro_suspend(L, Kind, E, SK)) :- !, ir_line(L), nb_getval('$ir_coro', coro(_, H, Clean, Susp, _, _, _)),
+    ir_fresh(Sv), ir_ins([Sv, ' = call token @llvm.coro.save(ptr ', H, ')']),
+    ir_label(Resume), ir_label(Destroy),
+    (   SK == bool -> ir_cond(E, Cn), ir_label(SL), ir_end(['br i1 ', Cn, ', label %', SL, ', label %', Resume]), ir_block(SL)
+    ;   SK == handle -> ir_expr(E, V, _, LL), ir_fresh(Pt), ir_ins([Pt, ' = extractvalue ', LL, ' ', V, ', 0']), ir_ins(['call void @llvm.coro.resume(ptr ', Pt, ')'])
+    ;   ir_expr(E, _, _, _) ),
+    ( Kind == final -> Fl = true, ir_label(R0) ; Fl = false, R0 = Resume ),
+    ir_fresh(Sw), ir_ins([Sw, ' = call i8 @llvm.coro.suspend(token ', Sv, ', i1 ', Fl, ')']),
+    ir_end(['switch i8 ', Sw, ', label %', Susp, ' [i8 0, label %', R0, ' i8 1, label %', Destroy, ']']),
+    ir_block(Destroy), ir_run_defers(all), ir_end(['br label %', Clean]),
+    ( Kind == final -> ir_block(R0), ir_end(['unreachable']) ; true ),
+    ir_block(Resume).
+ir_stmt(coro_done(L)) :- !, ir_line(L), nb_getval('$ir_coro', coro(Id, H, Clean, Susp, _, _, R)),
+    ir_run_defers(all), ir_end(['br label %', Clean]),
+    ir_block(Clean), ir_fresh(M), ir_ins([M, ' = call ptr @llvm.coro.free(token ', Id, ', ptr ', H, ')']),
+    ir_fresh(Nz), ir_ins([Nz, ' = icmp ne ptr ', M, ', null']), ir_label(Fr), ir_end(['br i1 ', Nz, ', label %', Fr, ', label %', Susp]),
+    ir_block(Fr), ir_ins(['call void @_ZdlPv(ptr ', M, ')']), ir_end(['br label %', Susp]),
+    ir_block(Susp), ir_fresh(En), ir_ins([En, ' = call i1 @llvm.coro.end(ptr ', H, ', i1 false, token none)']),
+    nb_getval('$ir_defers', D0), nb_setval('$ir_defers', [[]]),
+    ( R = slot(_, _, _) -> ir_stmt(return(L, coro_retval)) ; ir_stmt(return(L)) ),
+    nb_setval('$ir_defers', D0).
+ir_coro_decls :- forall(member(N-D, ['llvm.coro.id'-'declare token @llvm.coro.id(i32, ptr, ptr, ptr)', 'llvm.coro.size.i64'-'declare i64 @llvm.coro.size.i64()',
+        'llvm.coro.begin'-'declare ptr @llvm.coro.begin(token, ptr)', 'llvm.coro.save'-'declare token @llvm.coro.save(ptr)',
+        'llvm.coro.suspend'-'declare i8 @llvm.coro.suspend(token, i1)', 'llvm.coro.free'-'declare ptr @llvm.coro.free(token, ptr)',
+        'llvm.coro.end'-'declare i1 @llvm.coro.end(ptr, i1, token)', '_Znwm'-'declare ptr @_Znwm(i64)', '_ZdlPv'-'declare void @_ZdlPv(ptr)',
+        'llvm.coro.resume'-'declare void @llvm.coro.resume(ptr)']), ir_note_extern(N, raw(D))).
+%% the handle's builtins over a frame's address
+ir_coro_builtin('__builtin_coro_frame', [], V, ptr([], base([], [void])), ptr) :- ir_note_extern('llvm.coro.frame', raw('declare ptr @llvm.coro.frame()')), ir_fresh(V), ir_ins([V, ' = call ptr @llvm.coro.frame()']).
+ir_coro_builtin('__builtin_coro_noop', [], V, ptr([], base([], [void])), ptr) :- ir_note_extern('llvm.coro.noop', raw('declare ptr @llvm.coro.noop()')), ir_fresh(V), ir_ins([V, ' = call ptr @llvm.coro.noop()']).
+ir_coro_builtin('__builtin_coro_resume', [P], none, base([], [void]), void) :- ir_expr(P, V0, _, _), ir_note_extern('llvm.coro.resume', raw('declare void @llvm.coro.resume(ptr)')), ir_ins(['call void @llvm.coro.resume(ptr ', V0, ')']).
+ir_coro_builtin('__builtin_coro_destroy', [P], none, base([], [void]), void) :- ir_expr(P, V0, _, _), ir_note_extern('llvm.coro.destroy', raw('declare void @llvm.coro.destroy(ptr)')), ir_ins(['call void @llvm.coro.destroy(ptr ', V0, ')']).
+ir_coro_builtin('__builtin_coro_done', [P], V, base([], [bool]), i8) :- ir_expr(P, V0, _, _), ir_note_extern('llvm.coro.done', raw('declare i1 @llvm.coro.done(ptr)')),
+    ir_fresh(B), ir_ins([B, ' = call i1 @llvm.coro.done(ptr ', V0, ')']), ir_fresh(V), ir_ins([V, ' = zext i1 ', B, ' to i8']).
+ir_coro_builtin('__builtin_coro_promise', [P, A, F], V, ptr([], base([], [void])), ptr) :- ir_expr(P, V0, _, _),
+    ccl_const_eval(A, AV), ( ccl_const_eval(F, FV) -> true ; FV = 0 ), ( FV =:= 0 -> FB = false ; FB = true ),
+    ir_note_extern('llvm.coro.promise', raw('declare ptr @llvm.coro.promise(ptr, i32, i1)')),
+    ir_fresh(V), ir_ins([V, ' = call ptr @llvm.coro.promise(ptr ', V0, ', i32 ', AV, ', i1 ', FB, ')']).
 ir_stmt(assume(L, E)) :- !, ir_line(L), ir_cond(E, C), ir_note_extern('llvm.assume', raw('declare void @llvm.assume(i1)')), ir_ins(['call void @llvm.assume(i1 ', C, ')']).   % C++23's [[assume(e)]]: told to LLVM as its own intrinsic
 ir_stmt(defer(L, _, Body)) :- !, ir_line(L), ir_defer_push(Body).
 ir_stmt(if(L, C, T, E)) :- !, ir_line(L),
@@ -1213,7 +1474,8 @@ ir_stmt(do(L, S, C)) :- !, ir_line(L),
     ir_block(LC), ir_cond(C, CC), ir_end(['br i1 ', CC, ', label %', LB, ', label %', LE]), ir_block(LE).
 ir_stmt(for_each(L, D, R, S)) :- !, ( ccl_for_each_as_for(for_each(L, D, R, S), For) -> ir_stmt(For) ; ir_fail(range_for_over_non_array) ).   % C++ (M6)
 ir_stmt(using(_, _)) :- !.
-ir_stmt(try(_, _, _)) :- !, ir_fail(try).
+ir_stmt(try(L, Body, Catches)) :- !, ir_try(L, Body, Catches).
+ir_stmt(eh_end_catch) :- !, ir_ins(['call void @__cxa_end_catch()']).
 ir_stmt(for(L, Init, C, Step, S)) :- !, ir_line(L),
     ir_env_push,
     ( Init = decl(_, Vs) -> ir_locals(Vs, none) ; Init == none -> true ; ir_expr(Init, _, _) ),
@@ -1356,7 +1618,8 @@ ir_item(_).
 ir_function(Sto, Ret, Name, Params, Var, Body, Text) :-
     nb_setval('$ir_fn', Name), nb_setval('$ir_line', 0), nb_setval('$ir_body', []), nb_setval('$ir_allocas', []), nb_setval('$ir_term', no),
     nb_setval('$ir_env', [[]]), nb_setval('$ir_defers', [[]]), nb_setval('$ir_loops', []), nb_setval('$ir_ret', Ret), nb_setval('$ir_reg', 0),
-    ir_abi(Ret, RetAbi), nb_setval('$ir_ret_abi', RetAbi),
+    nb_setval('$ir_tries', []), nb_setval('$ir_personality', no), nb_setval('$ir_ehslots', none), nb_setval('$ir_unwinding', no), nb_setval('$ir_coro', none),
+    ir_ret_abi(Ret, RetAbi), nb_setval('$ir_ret_abi', RetAbi),
     ccl_scope_push,
     ir_params(Params, 0, Sigs0, Stores),
     (   RetAbi = scalar -> ir_type(Ret, RL), Sigs = Sigs0
@@ -1373,7 +1636,9 @@ ir_function(Sto, Ret, Name, Params, Var, Body, Text) :-
     ccl_scope_pop,
     ( Sto == static -> Link = 'define internal ' ; Sto == linkonce -> Link = 'define linkonce_odr ' ; Link = 'define ' ),   % linkonce: a header's class or a template's instance, the same in every unit
     nb_getval('$ir_allocas', As0), reverse(As0, As), nb_getval('$ir_body', B0), reverse(B0, B),
-    atomic_list_concat([Link, RL, ' @', Name, '(', Sig, ') {'], Head),
+    ( nb_getval('$ir_personality', yes) -> Pers = ' personality ptr @__gxx_personality_v0', ir_note_extern('__gxx_personality_v0', raw('declare i32 @__gxx_personality_v0(...)')) ; Pers = '' ),
+    ( nb_getval('$ir_coro', none) -> Coro = '' ; Coro = ' presplitcoroutine' ),
+    atomic_list_concat([Link, RL, ' @', Name, '(', Sig, ')', Coro, Pers, ' {'], Head),
     append([Head, 'entry:'|As], B, Lines0), append(Lines0, ['}', ''], Lines),
     ir_join(Lines, '\n', Text).
 %% the parameters: a scalar is stored to its alloca; a struct in pieces arrives
@@ -1409,14 +1674,20 @@ ir_globals([], _).
 ir_globals([var(N, T, Init)|Vs], Sto) :-
     ccl_resolve_type(T, T1),
     (   ( T1 = fn(_, _, _) ; Sto == extern ; Sto == typedef ) -> true
-    ;   ir_sized_type(T, T1, Init, GT), ir_gconst_typed(Init, GT, LL, C), ir_galign(GT, Al),
+    ;   ir_sized_type(T, T1, Init, GT), ( ir_gconst_typed(Init, GT, LL, C) -> true ; ir_cpp_trace(global_failed(N, GT, Init)), fail ), ir_galign(GT, Al),
         ( Sto == static -> Link0 = 'internal global' ; Sto == linkonce -> Link0 = 'linkonce_odr global' ; Link0 = 'global' ),   % linkonce: a class's static with its initializer, the same in every unit
         ( ir_tls(T) -> atom_concat(Link0, '', L0), ( L0 == global -> Link = 'thread_local global' ; sub_atom(L0, B, _, 0, ' global'), sub_atom(L0, 0, B, _, Pre), atomic_list_concat([Pre, ' thread_local global'], Link) ) ; Link = Link0 ),   % _Thread_local, thread_local: one per thread
         atomic_list_concat(['@', N, ' = ', Link, ' ', LL, ' ', C, Al], Def),
-        nb_getval('$ir_gdefs', Gs), nb_setval('$ir_gdefs', [Def|Gs]),
         nb_getval('$ir_gmap', M), nb_setval('$ir_gmap', [N-GT|M]),
-        nb_getval('$ir_defined', Ds), nb_setval('$ir_defined', [N|Ds]) ),
+        nb_getval('$ir_defined', Ds),
+        (   memberchk(N, Ds) -> true                                                     % defined already: a tentative one after it is nothing
+        ;   Init == none, \+ ccl_lang(cpp) -> nb_getval('$ir_tent', Ts), nb_setval('$ir_tent', [N-Def|Ts])   % A TENTATIVE DEFINITION (C 6.9.2): emitted at the unit's end, unless a definition with an initializer came
+        ;   nb_getval('$ir_gdefs', Gs), nb_setval('$ir_gdefs', [Def|Gs]), nb_setval('$ir_defined', [N|Ds]) ) ),
     ir_globals(Vs, Sto).
+ir_flush_tentatives :- nb_getval('$ir_tent', Ts), reverse(Ts, Ts1), ir_flush_tentatives(Ts1).
+ir_flush_tentatives([]).
+ir_flush_tentatives([N-Def|Ts]) :- nb_getval('$ir_defined', Ds),
+    ( memberchk(N, Ds) -> true ; nb_getval('$ir_gdefs', Gs), nb_setval('$ir_gdefs', [Def|Gs]), nb_setval('$ir_defined', [N|Ds]) ), ir_flush_tentatives(Ts).
 %% an unsized array, global or local, takes its size from its initializer
 ir_sized_type(_, arr(none, E), init(Items), arr(int(K), E)) :- !, length(Items, K).
 ir_sized_type(_, arr(none, E), str(S), arr(int(K), E)) :- !, length(S, K0), K is K0 + 1.
@@ -1427,6 +1698,12 @@ ir_float_builtin('__builtin_inff', '0x7FF0000000000000', base([], [float]), floa
 ir_float_builtin('__builtin_huge_valf', '0x7FF0000000000000', base([], [float]), float).
 ir_float_builtin('__builtin_nan', '0x7FF8000000000000', base([], [double]), double).
 ir_float_builtin('__builtin_nanf', '0x7FF8000000000000', base([], [float]), float).
+ir_float_builtin('__builtin_infl', '0xK7FFF8000000000000000', base([], [long, double]), x86_fp80) :- ccl_long_double(x87), !.   % the long double forms (0.108), x87's where a long double is
+ir_float_builtin('__builtin_huge_vall', '0xK7FFF8000000000000000', base([], [long, double]), x86_fp80) :- ccl_long_double(x87), !.
+ir_float_builtin('__builtin_nanl', '0xK7FFFC000000000000000', base([], [long, double]), x86_fp80) :- ccl_long_double(x87), !.
+ir_float_builtin('__builtin_infl', '0x7FF0000000000000', base([], [long, double]), double).
+ir_float_builtin('__builtin_huge_vall', '0x7FF0000000000000', base([], [long, double]), double).
+ir_float_builtin('__builtin_nanl', '0x7FF8000000000000', base([], [long, double]), double).
 ir_imag_const(imag(F), F).
 ir_imag_const(imagf(F), F).
 ir_imag_const(imagi(_, N), N).   % `3i' (0.103); a `big(A)' spelled by ir_complex_text
@@ -1442,6 +1719,7 @@ ir_gconst(E, T, Text) :- ccl_is_complex(T), !, ccl_complex_real(T, RT), ir_type(
 ir_complex_text(big(A), _, T) :- !, ir_big_text(A, T).
 ir_complex_text(V, EL, A) :- ( ir_fp_ll(EL) -> ir_fp_text(V, EL, A) ; A is truncate(V) ).   % an integer complex's components are integers (0.103); a floating constant truncates as a conversion does
 ir_gconst(none, T, Z) :- !, ir_type(T, LL), ir_zero(LL, Z).
+ir_gconst(E, T, Text) :- E \= init(_), ir_fp_global(T, LL), ir_fp_value(E, V), !, ir_fp_const(V, LL, Text).   % A FLOATING GLOBAL (0.108): its initializer folded and spelled for ITS type -- `float g = 1.5f', `float h = 2', `long double x = 3.5L'; LLVM takes a float only as a double's hex that a float holds exactly, and an x86_fp80 only as its own 0xK form
 ir_gconst(int(big(A)), _, V) :- !, ir_big_text(A, V).
 ir_gconst(uint(big(A)), _, V) :- !, ir_big_text(A, V).
 ir_gconst(long(big(A)), _, V) :- !, ir_big_text(A, V).
@@ -1466,7 +1744,7 @@ ir_gconst(cast(T, E), _, Text) :- ccl_resolve_type(T, memptr(_, _, F)), ccl_reso
     ; ccl_const_eval(E, K) -> atomic_list_concat(['{ ptr inttoptr (i64 ', K, ' to ptr), i64 0 }'], Text) ).
 ir_gconst(addr(id(N)), _, Ref) :- ccl_declared(N, _), !, atom_concat('@', N, Ref).
 ir_gconst(chr(C), _, C) :- !.
-ir_gconst(float(F), T, A) :- !, ( ccl_resolve_type(T, base(_, S)), memberchk(float, S) -> ir_fail(float_global) ; ir_double(F, A) ).
+ir_gconst(float(F), T, A) :- !, ( ir_fp_global(T, LL) -> ir_fp_const(F, LL, A) ; ir_double(F, A) ).
 ir_gconst(str(S), T, C) :- !,
     ccl_resolve_type(T, T1),
     ( T1 = arr(K, _) -> ir_escape(S, Esc), ir_str_tail(K, S, Tail), atomic_list_concat(['c"', Esc, Tail, '"'], C) ; ir_string(S, C) ).
@@ -1477,18 +1755,20 @@ ir_str_tail(int(K), S, Tail) :- length(S, L), Z is K - L, Z >= 0, !, ir_zeros(Z,
 ir_str_tail(_, _, '\\00').
 ir_zeros(0, '') :- !.
 ir_zeros(N, Z) :- N1 is N - 1, ir_zeros(N1, Z1), atom_concat('\\00', Z1, Z).
+ir_gconst(rtti(Ch), _, C) :- !, ir_rtti_emit(Ch, Sym), atom_concat('@', Sym, C).   % the table's prefix names its class's type_info (0.108)
 ir_gconst(compound_lit(_, init(Items)), T, C) :- !, ir_gconst(init(Items), T, C).   % C++: a global of an EMPTY class made by its type's name, `inline constexpr piecewise_construct_t piecewise_construct = piecewise_construct_t();' (the desugaring's temporary of a class with nothing to construct is a compound literal)
 ir_gconst(init([]), T, Z) :- ccl_resolve_type(T, T1), \+ T1 = base(_, [struct(_, _)]), \+ T1 = base(_, [union(_, _)]), \+ T1 = arr(_, _), !, ir_type(T, LL), ir_zero(LL, Z).   % `int{}': the type's zero
-ir_gconst(init(Items), T, C) :- !,
-    ccl_resolve_type(T, T1),
+ir_gconst(init(Items0), T, C) :- !,
+    ccl_resolve_type(T, T1), ccl_init_norm(T1, Items0, Items),   % a designated list made positional (0.108)
     (   T1 = arr(int(K), E) -> ir_type(E, EL), ir_gitems(Items, K, E, EL, Parts), ir_join(Parts, ', ', Body), atomic_list_concat(['[', Body, ']'], C)
     ;   T1 = base(_, [struct(_, _)]) -> ir_gstruct(Items, T1, C)                 % the type is written by whoever holds the constant
     ;   T1 = base(_, [union(_, _)]) -> ir_gunion(Items, T1, _, C)
     ;   ir_fail(global_init(T)) ).
+ir_gconst(E, T, C) :- E \= init(_), ccl_resolve_type(T, RT), ccl_is_integer(RT), catch(ccl_const_eval(E, V), _, fail), integer(V), !, atom_number(C, V).   % any integer constant expression: a secondary table's offset-to-top, `-offsetof(C, $base$2)' (0.108)
 ir_gconst(E, _, _) :- ir_fail(global_init(E)).
 %% a global's constant with its type: a union initialized takes the literal
 %% type of the member given, padded to the union's size
-ir_gconst_typed(init(Items), T, LL, C) :- ccl_resolve_type(T, T1), T1 = base(_, [union(_, _)]), !, ir_gunion(Items, T1, LL, C).
+ir_gconst_typed(init(Items0), T, LL, C) :- ccl_resolve_type(T, T1), T1 = base(_, [union(_, _)]), !, ccl_init_norm(T1, Items0, Items), ir_gunion(Items, T1, LL, C).
 ir_gconst_typed(Init, T, LL, C) :- ir_type(T, LL), ir_gconst(Init, T, C).
 ir_galign(T, Al) :- ccl_resolve_type(T, T1),
     (   ir_aligned_q(T1, A0) -> ( ccl_size_align(T1, _, A1) -> A is max(A0, A1) ; A = A0 ), atomic_list_concat([', align ', A], Al)

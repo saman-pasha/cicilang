@@ -68,7 +68,7 @@ ccl_unit_cache(Path, How, Unit) :- ccl_unit_key(Path, K), nb_setval(K, How-Unit)
 %% A UNIT IS READ ONCE PER PROCESS AT EACH LEVEL (0.99): the key carries the language's level, since a header's forms are the
 %% level's -- `<stddef.h>' read for a C17 fixture and served to a C23 one in the same process gave it `typeof(id(nullptr))' for
 %% `nullptr_t' (the compile gate builds every fixture in one process, and the new `atomic.c' put a C17 read of the header first)
-ccl_unit_key(Path, K) :- ( ccl_lang(cpp) -> ccl_std(Std) ; ccl_c_std(Std) ), atomic_list_concat(['$ccl_unit:', Path, '@', Std], K).
+ccl_unit_key(Path, K) :- ( ccl_lang(cpp) -> ccl_std(Std) ; catch(nb_getval('$ccl_trigraphs', yes), _, fail) -> ccl_c_std(S0), atom_concat(S0, t, Std) ; ccl_c_std(Std) ), atomic_list_concat(['$ccl_unit:', Path, '@', Std], K).
 ccl_reading(Path) :- ccl_global('$ccl_reading', L, []), memberchk(Path, L).
 ccl_reading_push(Path) :- ccl_global('$ccl_reading', L, []), nb_setval('$ccl_reading', [Path|L]).
 ccl_reading_pop(Path) :- ccl_global('$ccl_reading', L, []), ccl_delete_one(L, Path, L1), nb_setval('$ccl_reading', L1).
@@ -109,7 +109,7 @@ ccl_set_lang(File) :-
     (   nb_getval('$ccl_lang_forced', F), F \== none -> nb_setval('$ccl_lang', F)
     ;   ccl_lang_of_file(File, L) -> nb_setval('$ccl_lang', L)
     ;   true ).
-ccl_lang_of_file(F, cpp) :- member(E, ['.cpp', '.cc', '.cxx', '.C', '.hpp', '.hh', '.hxx']), sub_atom(F, _, _, 0, E), !.
+ccl_lang_of_file(F, cpp) :- member(E, ['.cpp', '.cc', '.cxx', '.C', '.hpp', '.hh', '.hxx', '.cppm', '.ccm', '.cxxm', '.ixx', '.mpp']), sub_atom(F, _, _, 0, E), !.   % a module interface unit's names too (0.108)
 ccl_lang_of_file(F, c) :- sub_atom(F, _, _, 0, '.c'), !.
 ccl_read_file_(File, AST, Rest) :-
     ccl_kb_cached(File, top, AST0), !, AST = AST0, Rest = [], nb_setval('$ccl_far', 0).
@@ -120,7 +120,7 @@ ccl_read_file_(File, AST, Rest) :-
     nb_setval('$ccl_far', F),
     ( Rest == [] -> ccl_kb_remember(File, top, AST) ; true ).
 
-ccl_kb_key(Path, key(T, V)) :- once(catch(time_file(Path, T), _, fail)), ccl_reader_version(V0), ( ccl_lang(cpp) -> ccl_std(S), V = cpp(V0, S) ; ccl_c_std(CS), CS =\= 17 -> V = c(V0, CS) ; V = V0 ).   % a C read at -std=c23 is not the C17 read: <stddef.h> declares nullptr_t and unreachable() at that level only, and the store serves a header's macros and items by this key
+ccl_kb_key(Path, key(T, V)) :- once(catch(time_file(Path, T), _, fail)), ccl_reader_version(V0), ( ccl_lang(cpp) -> ccl_std(S), V = cpp(V0, S) ; ccl_c_std(CS), catch(nb_getval('$ccl_trigraphs', yes), _, fail) -> V = c(V0, CS, trigraphs) ; ccl_c_std(CS), CS =\= 17 -> V = c(V0, CS) ; V = V0 ).   % a C read at -std=c23 is not the C17 read: <stddef.h> declares nullptr_t and unreachable() at that level only, and the store serves a header's macros and items by this key
 ccl_std(S) :- ( catch(nb_getval('$ccl_std', S0), _, fail) -> S = S0 ; S = 17 ).   % a C++ read is not the C read; the time asked every time (0.4 ms): the gate touches a file mid-process and expects the miss
 ccl_kb_forget :- ccl_kb_ready, findall(P, '$ccl_ast'(P, _, _), Ps), ccl_kb_forget_each(Ps), retractall('$ccl_ast'(_, _, _)).
 ccl_kb_forget_each([]).
@@ -624,7 +624,7 @@ ccl_header_macros_known(Path, Kind) :- ccl_hm_key(Path, K), catch(nb_getval(K, K
 %% THE MEMO IS PER LEVEL, as the unit cache is (ccl_unit_key): a header's macros at -std=c23 are not its C17 ones (0.99;
 %% keyed by the path alone, a C17 fixture after a C23 one in one process was served the C23 rows' key, whose rows a later
 %% read had retracted -- `undeclared(EOF)' in the compile gate, never alone)
-ccl_hm_key(Path, K) :- ( ccl_lang(cpp) -> ccl_std(Std) ; ccl_c_std(Std) ), atomic_list_concat(['$ccl_hm:', Path, '@', Std], K).
+ccl_hm_key(Path, K) :- ( ccl_lang(cpp) -> ccl_std(Std) ; catch(nb_getval('$ccl_trigraphs', yes), _, fail) -> ccl_c_std(S0), atom_concat(S0, t, Std) ; ccl_c_std(Std) ), atomic_list_concat(['$ccl_hm:', Path, '@', Std], K).
 %% indexed: a summary's, as facts '$ccl_hml'(Name, Path, raw(Line)) -- an
 %% assert is 2 us and the lookup by name 3 us, where a global per name cost
 %% 25 us each for 1200 names; a fact is a store row under --embed, which the
@@ -670,6 +670,12 @@ ccl_kb_macros_cached(Path, K) :-
     ccl_kb_hm(Path, F), TD =.. [F, '$dep', K, D], findall(D, TD, Deps), length(Deps, ND), ccl_kb_deps_fresh(Deps).
 
 %% ---- the path ----------------------------------------------------------------
+ccl_resolve_include(path(P), _, P) :- !, exists_file(P).                       % a module's interface unit, found by ccl_module_path (0.108)
+%% an imported module's interface: read earlier in this run, else NAME.cppm (and kin) beside the importer, then on the path
+ccl_module_path(N, Path) :- catch(nb_getval('$ccl_modules', M), _, fail), memberchk(N-Path, M), !.
+ccl_module_path(N, Path) :- atomic_list_concat(Parts, ':', N), atomic_list_concat(Parts, '-', Base), ccl_global('$ccl_file', From, none),
+    ( From == none -> Dirs0 = [] ; file_directory_name(From, D0), Dirs0 = [D0] ), ccl_include_path(Ds), append(Dirs0, Ds, Dirs),
+    member(D, Dirs), member(E, ['.cppm', '.ccm', '.cxxm', '.ixx', '.mpp']), atomic_list_concat([D, '/', Base, E], Path), exists_file(Path), !.
 ccl_resolve_include(local(N), From, Path) :-
     From \== none, file_directory_name(From, Dir), atomic_list_concat([Dir, '/', N], P0), exists_file(P0), !, Path = P0.
 ccl_resolve_include(Spec, _, Path) :-

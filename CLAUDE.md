@@ -67,7 +67,7 @@ test/readhdr.pl          one library header read whole in its own process, its i
 test/warm.sh             a shim since 0.105: the warm is libcxx.sh's own product now
 test/libcxx.pl, libcxx.sh  the road to libc++ AND the C++ summary cache's warm, ONE cold parallel pass since 0.105 (libcxx.pl is the
                          old one-process form, kept): <vector>, <string>, <iostream>, <map>, <set>, <unordered_map>, <unordered_set>, <optional>, <memory>, <functional> and <tuple> flattened and read WHOLE, the cache wiped first,
-                         and at the levels: <set>, <map>, <unordered_map>, <unordered_set> at C++20, <optional>, <string> at C++23, <optional> at C++26;
+                         and at the levels: <set>, <map>, <unordered_map>, <unordered_set>, <ranges> at C++20, <optional>, <string> at C++23, <optional> at C++26;
                          test/cpp/run/std*.cpp are the standard streams built against libc++ and run: cout, endl, cin, getline, get, ws,
                          the extractors and inserters (stdistream, stdistream2, stdostream), the manipulators (stdmanip), and the
                          containers: stdvector, stdvectorown, stdvectorstring, stdstring, stdmap, stdmapstring, stdmapstring2, stdmultimap,
@@ -75,7 +75,7 @@ test/libcxx.pl, libcxx.sh  the road to libc++ AND the C++ summary cache's warm, 
                          stdunorderedset, stdunorderedset2, stdoptional, stdoptionalstring, stdoptional2, stdnodehandle, stdmapinit, stdmapemplace, stdmapown,
                          stdsetlambda, stdunorderedhash, stdaggregate, stdstringops, stdctad, stdtuple, stdarray, refrank, the smart pointers (stduniqueptr, stdsharedptr, stdmemory),
                          the callables (stdfunction, stdbind, stdfunctional) with multibase and detectbase beside them,
-                         and at the levels stdcontains (C++20), stdoptional3 (C++23),
+                         and at the levels stdcontains and stdranges (C++20), stdoptional3 (C++23),
                          stdoptionalref (C++26);
                          a fixture's input is NAME.stdin
 test/census.pl, census.sh  a census of a header's constructs (test/census.sh '<vector>'), or of a flattened
@@ -347,9 +347,13 @@ uncached); on a cache hit nothing is re-loaded, the expansion having
 happened when the unit was read. Two `k72` clauses had hidden the tie
 check in `test/reader.pl` -- one clause per check, one NUMBER per check.
 
-**`x <*> y` is the tie operator** (owner's rule, and the spelling): x lives
-within y. The lexer has `<*>` as a punctuator (no C has it: `<*>` needs the
-`>` right after the `*`); `ccl_tie//2` reads it after a declarator in
+**`x tie y` is the tie** (owner's rule, and the spelling -- the word
+`tie` since 0.109, `<*>` before): x lives within y. `tie` is a CONTEXTUAL
+word, never a keyword: both lexers give it as an identifier, and the
+grammar reads it only where a tie can stand and only before a name
+(`ccl_id(tie), ccl_id(Y)`), so `std::tie` and a C variable named `tie`
+are what they always were; `<*>` is no punctuator in either lexer any
+more. `ccl_tie//2` reads it after a declarator in
 `ccl_init_declarator`, `ccl_member_declarator`, `ccl_param` and the
 function definition (before `{`), `ccl_tie_name//1` after the `:=` forms
 (`ccl_infer_decl/5`); `ccl_add_tie/3` (in `ccl_infer`) puts `tie(Y)` in
@@ -5808,6 +5812,181 @@ shell function that sets a variable sets it for its CALLER, so every helper a po
 uses; the tell was a verdict that is missing where a wrong one would have been visible. Reader version 90, lowering
 version 50 unchanged; the module rebuilt as 0.107.
 
+**M6's seventy-fourth step (0.108): THE MISSING PARTS OF C, AND THE MAIN GAPS OF C++ -- RTTI, exceptions, coroutines,
+modules, contracts, the array cookie, multiple polymorphic bases.** The owner asked for every C part and every main
+C++ gap named in the not-done lists, then the gates. Each form was cut to a probe of ten to forty lines, built by
+clang and by cocolang, run, and compared line for line (`one.sh'); each has a fixture.
+THE C SIDE, found by probing clang's behaviour over the whole language, twenty-odd forms: (1) TRIGRAPHS in the ISO
+modes before C23 (`-std=c17', `-std=c11', `-std=c99', `-trigraphs'; the GNU modes and C23 do not read them, clang's
+rule): replaced in the preprocessor's source lines before anything else, the store keyed by the mode (`ccl_kb_key'
+gives `c(V, CS, trigraphs)'), a fixture's `NAME.std' naming its level turns them on in the compile gate. (2) `long
+double' IS x86_fp80 on x86-64 (its own LLVM type, `0xK' constants, 16 bytes aligned 16, the `L' suffix its own token
+kind `floatl' in both lexers, `%Lf' through printf, libm's `l' functions, the `__builtin_*l' constants); arm64 keeps
+the double. (3) A VARIADIC DEFINITION: the compiler's own `<stdarg.h>' over `__builtin_va_start', `va_arg' LLVM's
+instruction, `va_end' and `va_copy' the intrinsics, `__builtin_va_list' the ABI's type (x86-64's array of one
+struct). (4) HEX FLOATS and a float with a leading dot in both lexers; `f' a `floatf' kind, so `1.5f' is a float.
+(5) DESIGNATED INITIALIZERS in arrays and nested (`[3] = x', `.a.b = y', a designator moving the position), a global's
+normalized to positional order. (6) A COMPOUND LITERAL of an unsized array sized by its items. (7) `offsetof', folded
+from the layout, through nested members, array elements and anonymous members. (8) `_Bool' a byte with the
+conversion rules. (9) K&R DEFINITIONS (`int f(a, b) int a; char *b; { ... }'), their parameters adjusted.
+(10) `[static N]', `[const N]' and `[*]' in a parameter. (11) C11's ANONYMOUS STRUCT AND UNION MEMBERS, their members
+the holder's own (a hidden `$anonK' member and a route through it). (12) `__func__', `__FUNCTION__',
+`__PRETTY_FUNCTION__'. (13) An enum or a tag declared in a block. (14) An array argument decayed to a pointer where
+a prototype is missing. (15) TENTATIVE DEFINITIONS (`int x; int x = 3;' one object). (16) `#line N "f"' and the GNU
+line markers, which `__LINE__', `__FILE__' and `assert' read.
+THE C++ SIDE. (17) `new T[n]' OF A CLASS, THE ABI's ARRAY COOKIE (0.86's `new_array_of_objects', refused by name
+since): the count written in the max(8, alignof(T)) bytes before the first element, each element constructed in
+place, `delete[]' reading the count back and destroying in reverse, the block freed from the cookie's address.
+(18) `if consteval' IN THE CONSTANT EVALUATOR: the compile-time branch where the evaluator folds, the run-time branch
+in the object (0.43 kept the run-time one everywhere). (19) C++26's CONTRACTS ENFORCED: `pre(e)' and `post(r: e)' on a
+function or a method and `contract_assert(e);' are checked at run time, a violation printing `contract violation:
+precondition of F (line L)' on stderr and aborting -- the standard's `enforce' semantic, where 0.93 read them and
+ignored them; a postcondition over every return, the returned value named. (20) RTTI OF THE PROGRAM'S OWN CLASSES:
+`typeid' of a type and of a polymorphic object (read from the vtable), `dynamic_cast' to a pointer and to a reference,
+over libc++abi's `__dynamic_cast' and `type_info' objects the lowering emits (`_ZTI', `_ZTS', with the
+`__class_type_info', `__si_class_type_info' and `__vmi_class_type_info' layouts), and THE VTABLE HAS THE ITANIUM
+PREFIX, offset-to-top and the type_info pointer before the slots, the vptr pointing at the slots; a library class's
+type_info is the shipped symbol. libc++ keeps its own no-RTTI configuration (0.86): only the program's `typeid' and
+`dynamic_cast' use it. (21) EXCEPTIONS OF THE PROGRAM'S OWN: `throw' over `__cxa_allocate_exception' and
+`__cxa_throw', `try'/`catch' by type and `catch (...)' through a landing pad, `__gxx_personality_v0',
+`llvm.eh.typeid.for', a rethrow, and every call inside a `try' an `invoke', so the defers of the frames it leaves run
+on the way out; libc++ keeps its no-exceptions configuration (0.50). (22) MULTIPLE POLYMORPHIC BASES: a second
+polymorphic base gets a SECONDARY VTABLE in the object, its slots THUNKS that adjust `this' by the base's offset and
+call the override; `delete' through the second base finds the whole object by offset-to-top; a pointer to member
+function carries the `adj' a conversion from a base adds. (23) C++20's MODULES: `export module M;',
+`module;' with its global fragment, `import M;', `export' before an item and `export { ... }', partitions
+(`M:P'), `import <header>;' and `import "header";' as includes, `import std;' as a fixed list of headers; an imported
+module is read from `M.cppm' (`.ccm', `.cxxm', `.ixx', `.mpp') beside the importer or on the inclusion path, its
+functions and initialized globals emitted `linkonce' into the importer. (24) C++20's COROUTINES, LLVM's switch-resumed
+lowering: the desugaring makes a body holding `co_await', `co_yield' or `co_return' a SKELETON -- the promise of
+`R::promise_type' declared, `coro_begin' (llvm.coro.id over the promise, the frame from operator new,
+llvm.coro.begin), `coro_ret' (get_return_object(), converted as a return is), the initial suspend's await,
+`coro_body' (the body, a fall-off `return_void()'), the final suspend's await and `coro_done' (every defer run, the
+frame freed through llvm.coro.free, llvm.coro.end, the ramp's return). A co_await is a statement expression over the
+awaiter -- `await_ready()', else `coro_suspend' (llvm.coro.save, `await_suspend(coroutine_handle<P>::from_address(
+frame))' whose void, bool or handle result decides, llvm.coro.suspend and the switch whose destroy edge runs every
+defer), then `await_resume()' -- through the promise's `await_transform' where it has one; co_yield is `yield_value';
+co_return the promise's `return_value' or `return_void' and a jump to the final await with its scopes' defers run.
+libc++'s coroutine_handle calls `__builtin_coro_resume', `destroy', `done', `promise', `noop' and the desugaring
+`__builtin_coro_frame': LLVM's intrinsics. THE EMBEDDED LLVM RUNS `default<O0>' AT -O0 TOO (`module/ccl_llvm.cicili',
+`level >= 0'): it ran no passes at all there, and CoroSplit is a pass -- `Cannot select: intrinsic %llvm.coro.begin'.
+FIVE MORE RULES THE COROUTINE PROBES FOUND, each older than coroutines: (25) A NESTED CLASS'S OWN SHORT NAME inside its
+body takes the nested type with no guard, the class made ready after (`std::coroutine_handle<promise_type>' inside
+`Gen::promise_type' met 0.86's per-(class, name) guard, still set while the name's resolution made the class ready,
+and keyed the instance by the free name); (26) `C() = default' beside other constructors makes a DEFAULT CONSTRUCTOR
+EXIST for a holder (`cpp_default_ctor_exists'): a promise holding a `std::coroutine_handle<>' was left uninitialized,
+`__handle_ = nullptr' never run, and a local `Outer::In y;' of a nested class with default initializers too --
+valgrind named it; (27) `T cur{};' and `int n{3};' as DEFAULT MEMBER INITIALIZERS value-initialize as `m()' does;
+(28) `Gen{h}' inside the class template Gen (a functional cast to the reader) is LIST-INITIALIZATION of the aggregate,
+also while the instance is still being registered; (29) a RETURN converts through the value's CONVERSION OPERATOR
+([class.conv.fct]), as it did through the result's converting constructor: `return h;' of a coroutine_handle<P>
+where coroutine_handle<> is the result.
+AND THE DEDUCTION RULES THE RANGES PROBE FOUND: (30) `std::pair{a, b}' -- a NAMESPACE-QUALIFIED CTAD, where only the
+bare name deduced; (31) THE WRITTEN DEDUCTION GUIDES first ([over.match.class.deduct]): a guide is indexed under
+`$guide.<class>' (reader version 94) and tried before the constructors, since libc++'s pair has template constructors
+only; (32) A PARAMETER WHOSE TEMPLATE PARAMETERS ALL STAND IN NON-DEDUCED CONTEXTS takes no part in deduction
+([temp.deduct.call]/1): `format(format_string<_Args...>, _Args &&...)' is `basic_format_string<char,
+type_identity_t<_Args>...>' against a string literal, which refused `deduction_failed'; (33) A POINTEE KEEPS ITS
+QUALIFIERS in deduction ([temp.deduct.call]/4): `T *' against `const int *' is T = const int, where the clause that
+decays a by-value argument took the pointee too and made it `int' -- libc++'s `__to_address(_Tp *)' answered
+`int *' for a `const int *'. Gated by `test/cpp/run/deduceguide.cpp'.
+Reader version 94, lowering version 52; the module and `library/ccl_llvm.so' rebuilt.
+Gated by `test/c/run/trigraphs.c', `varargs.c', `hexfloat.c', `ldouble.c', `designated.c', `cforms.c', and
+`test/cpp/run/arraycookie.cpp', `ifconsteval.cpp' (C++23), `contracts.cpp' (C++26, exit 134 after the violation),
+`rtti.cpp', `exceptions.cpp', `exceptions2.cpp', `multibase2.cpp', `multibase3.cpp', `memfnadj.cpp', `ldouble.cpp',
+`modules.cpp' (C++20, importing `mathm.cppm' which imports `basem.cppm'), `cogenerator.cpp', `cotask.cpp' (symmetric
+transfer, a bool await_suspend, a local with a destructor across a suspension, an infinite generator destroyed
+early), `coeager.cpp' (suspend_never at both ends), `coawait.cpp' (await_transform, an lvalue awaiter, a coroutine
+lambda), `cotemplate.cpp' (a class template generator), `nesteddefault.cpp' and `deduceguide.cpp', each clang's
+output; the coroutine probes valgrind clean.
+NOT DONE, NAMED: THE RANGES and `std::format'. `std::ranges::sort' over a vector stops in libc++ 18's
+`__unwrap_range', where `pair<const int *, const int *>' built from two calls of `__unwrap_iter' refuses both
+two-argument constructors (`__enable_implicit' false for the pair's own `const _T1 &' road, the forwarding one
+arity_mismatch), past rules (30) to (33); `std::format' passes its deduction by (32) and its build did not finish
+inside 1800 s cold. A coroutine: `std::coroutine_traits' specializations (the promise is always `R::promise_type'),
+`unhandled_exception' (no try around the body), `operator co_await' on an awaitable, the ramp's return object read
+from the frame when the frame is freed inside the ramp (the value is kept in an alloca spilled to the frame; the
+eager probe passes under valgrind, so LLVM keeps it out of the frame, but no rule here guarantees it). A module: the
+exported names are not enforced (a non-exported function is visible), a header unit's macros are not exported, module
+linkage is `linkonce'. RTTI: a class with virtual bases gets no `__vmi' layout for them. Exceptions: `noexcept' is not
+enforced, a class caught by value is bound, not copied. A thunk calls the primary chain's override.
+THE GATES, ON LINUX (Ubuntu 24.04, x86_64, four cores, 16 GB; clang 18, libc++ 18, cocolog 1.8.1, the module and
+`ccl_llvm.so' rebuilt as 0.108), `sh test/gates.sh' on a fresh store: the reader GREEN in 12 s; the compile gate
+GREEN in 19 s (51 C fixtures); the driver GREEN in 8 s; the objects' and the proof GREEN; THE LIBRARY READ GREEN in
+2828 s over four lanes, cold after the reader bump, every count 0.107's and the 26 other headers warmed; THE C++ GATE
+RED in 1437 s on two REFUSAL checks only -- `control.cpp' (a `try') now builds and gives clang's exit 39, and
+`coro.cpp' is refused as clang refuses it, for a promise with no `get_return_object' -- every run fixture ok; the
+list updated, the C++ gate alone GREEN in 1482 s, 246 checks, `stdoptionalref' skipped by name. TWO THINGS ON THE
+WAY, worth their lines: the driver gate's first run was RED on the ABI check, `specs([double])', and the cause was mine
+-- `ir_type(T1, x86_fp80)' as a TEST in the ABI's leaves, whose cached answer for a double is no unification but the
+last `ir_base' clause's throw; a type is asked, then compared (`LLx == x86_fp80'). And a compile gate was KILLED by
+the kernel's OOM killer at 14 GB while probes of mine ran beside the chain, in the middle of a write to the store:
+the next reader gate said `commit failed: the store refused it: hexmap ends inside the chunk'. A killed writer can
+leave the store damaged; it is a cache, and a fresh one (`rm -rf ~/.cocolang/KB ~/.cocolang/KB.version') is the
+repair -- and one guarded run at a time is the rule that would have kept it whole (0.46's, broken by me again).
+
+**M6's seventy-fifth step (0.109): C++20's CONSTRAINED ALGORITHMS on libc++ 18, `<ranges>' read whole, the tie spelled
+`tie', and a candidate's check inside `\+ \+'.** The owner asked for the ranges and `std::format'; the first run,
+the second is named with its stop. THE ALGORITHMS: `ranges::sort', `ranges::find' and `ranges::count_if' over a vector
+run and print clang++'s lines (`test/cpp/run/stdranges.cpp' at C++20). The road there, each rung its own rule and most
+of them reproduced in a dozen lines before they were fixed: (1) A PARAMETER'S TYPE MAY NAME AN EARLIER PARAMETER
+([dcl.fct]/9: `decltype(std::__unwrap_iter(__orig_iter)) __iter'), so the parameters are declared in order while
+their types are resolved and keyed (`cpp_plain_params_seq', `cpp_params_keys_seq'). (2) `noexcept(e)' is a bool
+constant (true unless the operand throws: the reader drops a function's `noexcept', so a call's own is not known --
+named). (3) A COMPOUND REQUIREMENT TAKES `decltype((e))' ([expr.prim.req.compound]: an lvalue is `T &';
+`cpp_decltype_paren'), and a failing concept or requirement says which (`concept_unsatisfied', `requirement_unmet').
+(4) CONSTRAINED PARTIAL SPECIALIZATIONS: a candidate whose constraints fail is none, and among those that hold the
+more constrained wins, counted by conjuncts (`cpp_by_constraints': `indirectly_readable_traits'). (5) `decltype' OF A
+CONDITIONAL over two glvalues of one type is the reference with both arms' qualifiers, and of a call through a
+function reference its declared result (`cpp_cond_glvalue', `cpp_fn_result': `common_reference'). (6) Two class types
+are the same by their keys where the spellings differ (`cpp_same_type'). (7) A MEMBER ALIAS TEMPLATE AS A TEMPLATE
+TEMPLATE ARGUMENT, `_Tester::template _Apply', keeps its class (`tname(mt(C, N))'), is substituted as a scoped
+template-id and found through the bases (`cpp_member_alias_of'): libc++'s `_ITER_CONCEPT'. (8) AN `auto' OBJECT
+TAKES ITS INITIALIZER'S TYPE -- a namespace-scope one (`cpp_vars', declared again at file scope) and a STATIC MEMBER
+(`cpp_static_auto', `cpp_declare_statics'); a CALL OF A STATIC OBJECT of class type goes to its `operator()', qualified
+or bare in its class; and a static of an EMPTY class initialized in the class is its zero bytes, `linkonce': libc++'s
+`_IterOps<_RangeAlgPolicy>' is `static constexpr auto __iter_move = ranges::iter_move;' and every ranges algorithm calls
+through it (`test/cpp/run/autoobject.cpp'). (9) AT `-O0' THE PIPELINE RUNS `globaldce' after `default<O0>'
+(`module/ccl_llvm.cicili'): the instances made for a `decltype' or a requires-clause -- `iter_move' over libc++'s
+`__projected_impl', whose `operator*' the library declares for unevaluated use and never defines -- are `linkonce_odr'
+and called by nothing, and kept they named a symbol the link could not find; every higher level drops them already.
+(10) A CANDIDATE'S CHECK RUNS INSIDE `\+ \+' where the call's arguments are ground (`cpp_candidate_check', on the free,
+member and constructor roads): what it makes that lasts (instances, facts, globals) survives, the deductions and
+substitutions of every candidate tried are reclaimed, and only the bindings come out through a global. THE MEASUREMENT
+that found it: the trace's heap stamps summed by the event before each growth put 9.7 GB after `candidates_remembered';
+the ranges probe went 7.9 GB -> 2.6 GB (958 s -> 858 s, warm). THE READER (versions 95 to 97): (11) C++17's NESTED
+NAMESPACE DEFINITION, `namespace ranges::views { ... }', and C++20's `A::inline B' (`ccl_ns_segs', `ccl_ns_nest') --
+the read of `<ranges>' stopped there, line 11,496 of 61,507, and no view was ever read; (12) a NAMESPACE ALIAS,
+`namespace views = ranges::views;', an item that does nothing, as `using' is (namespaces flatten); (13) THE FIRST NAME OF
+A CLASS HEAD IS THE CLASS'S OWN ONLY WHERE NO `::' FOLLOWS IT (`ccl_struct_body'): `template <class> friend struct
+std::__segmented_iterator_traits;' inside `join_view' made `std' a type name for the rest of the header, and the read
+stopped, silently, at `take''s functor 1,150 lines later -- found by a census bisect of the flattened header (four cuts
+read in parallel, then four inside the item, then four in the context: the failing text was identical to `drop''s,
+which read, and only the context told them apart), and the class body's look-ahead scan takes no qualified name for a
+member template either (`ccl_scan_did'). `<ranges>' reads WHOLE at C++20, 956 items, and joins the libc++ gate.
+(14) A NAMESPACE'S KEY BEFORE A CLASS OF THE SAME NAME in a qualified call (`cpp_call'): libc++ has both the namespace
+`ranges::views::__all' and a class template `__all', and `__all::__fn{}' was built as the class's member.
+THE TIE IS THE WORD `tie' (the owner's rule): `x tie y' where `x <*> y' stood, in both lexers (`<*>' is no punctuator
+any more), the grammar, the fixtures, the docs; a CONTEXTUAL word, read only after a declarator or a `:=' form and only
+before a name, so `std::tie' and a C name `tie' are what they were. AND THE README's `format' example declares the
+variables its holes name. NAMED, NOT DONE: THE VIEWS -- `views::filter(v, pred)' now reaches `filter_view''s deduction
+guide and `views::all' (a `ref_view' for an lvalue), and stops in `ref_view''s `empty()' under `requires { ranges::empty(
+*__range_); }', a member's trailing requires-clause over a DATA MEMBER checked with no class scope; the pipe
+`v | views::filter(...)' needs the adaptor closure's hidden friend `operator|' behind it. `std::FORMAT' -- `std::format("{}
+and {}", 2, 3)' reads, and its desugaring runs past 12 GB in three minutes inside `basic_format_string''s compile-time
+checks (`__determine_arg_t<_Context, ...>' with `_Context' the class's own alias unresolved), right after choosing
+`std::__declval<__arg_t *&>'; the same `declval' over the real `__arg_t' outside that context builds in 4 s, and a guard
+on the mangler tried there fixed nothing and was taken out. `noexcept(f())' of a function not declared noexcept answers
+true. Reader version 97, lowering version 52; the module rebuilt as 0.109.
+THE GATES, ON LINUX (Ubuntu 24.04, x86_64, four cores, 16 GB; clang 18, libc++ 18, cocolog 1.8.1), `sh test/gates.sh'
+in one chain with nothing beside it: the reader GREEN in 13 s (k84 comparing the two lexers on the `tie' line of
+`test/c/lexer.c'); the compile gate GREEN in 19 s (the tie fixtures and the eight refused ties); the driver GREEN in
+9 s; the objects in 4 s; the proof; THE LIBRARY READ GREEN in 3387 s, its 23 asserted headers whole -- 0.107's 22 and
+`<ranges>' at C++20, 956 items -- and the other headers the fixtures include warmed; THE C++ GATE GREEN in 1815 s, 251
+checks ok, `stdoptionalref' skipped by name, no failure, the five new fixtures among them (`stdranges', `autoobject',
+`concepttraits', `memberaliasttp', `nsforms'). Measured alone before the chain: `stdranges' 1169 s at 3.1 GB warm (858 s
+before `<ranges>' read whole, 958 s and 7.9 GB before the candidate checks were scoped).
+
 **`format`, `print`, `println` are global macros** (owner's rule):
 `library/ccl_format.pl` is a macro file registered by `ccl_standard_macros/0`
 at the start of every unit (found on `$COCOLOG_LIBRARY`, which is also on
@@ -6110,7 +6289,7 @@ leak check, and `ck_complete_owners/2` demands them live or null at every
 return (`borrow_incomplete`). `params.c` runs, five `safe/` programs are
 refused.
 
-**Ties (`<*>`):** `'$ck_ties'` holds Key-Root for every declared tie -- a
+**Ties (`x tie y`):** `'$ck_ties'` holds Key-Root for every declared tie -- a
 local's, a parameter's, a field's per instance (`ck_note_tie/2`; dropped
 when the key is declared again). A tied plain value is `borrow(Root)`
 whatever its type (`ck_var_tie/4`; `ck_field_ties/5` in member order, a

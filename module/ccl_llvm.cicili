@@ -122,7 +122,11 @@
       ((== level 3) (return "default<O3>"))
       ((== level 4) (return "default<Os>"))
       ((== level 5) (return "default<Oz>")))
-    (return "default<O0>"))
+    ;; at -O0 GLOBALDCE too (0.109): a linkonce_odr function nothing calls is dropped, as every higher level drops it
+    ;; -- the instances made for a decltype or a requires-clause (libc++'s ranges: iter_move over __projected_impl's
+    ;; `operator*', which the library declares and never defines) are emitted and never called, and kept they named a
+    ;; symbol the link cannot find
+    (return "default<O0>,globaldce"))
 
   ;; the IR text -> a verified module in a fresh context: 1, and the caller
   ;; disposes both; or 0 with the error raised and its result in rc (what
@@ -222,7 +226,7 @@
       (set dl (LLVMCreateTargetDataLayout tm))
       (LLVMSetModuleDataLayout mod dl)
       (LLVMDisposeTargetData dl)
-      (if (> level 0)
+      (if (>= level 0)   ; default<O0> at -O0 too: it holds the coroutine passes (CoroSplit), which a coroutine needs at every level (0.108)
         (block
           (set opts (LLVMCreatePassBuilderOptions))
           (set err (LLVMRunPasses mod (ccl_llvm_pipeline level) tm opts))

@@ -1,0 +1,11 @@
+make 1
+drop 1
+make 2
+drop 2
+result 37 done 1
+make 99
+first 0
+third 2
+drop 99
+end
+exit 0

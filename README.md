@@ -24,8 +24,11 @@ is how the repository is worked on, with the record of every step.
   digit separator, binary literals, `wb` suffixes, the checked arithmetic of
   `<stdckdint.h>` and the bit utilities of `<stdbit.h>`, C11's atomics
   through the compiler's own `<stdatomic.h>`, variable length arrays, thread
-  locals, wide and UTF-8 literals. `-std=c17` is the default, `-std=c23`
-  the level.
+  locals, wide and UTF-8 literals, variadic functions over the compiler's
+  own `<stdarg.h>`, `long double` as x87's 80-bit type on x86-64, hex
+  floats, designated initializers, anonymous members, K&R definitions,
+  `#line`, and trigraphs in the ISO modes. `-std=c17` is the default,
+  `-std=c23` the level.
 * **C++17, C++20, C++23 and C++26.** Classes, virtual dispatch, multiple
   and virtual inheritance, templates with partial specialization, SFINAE,
   concepts and `requires`, lambdas (generic, capturing `this` and `*this`),
@@ -33,8 +36,13 @@ is how the repository is worked on, with the record of every step.
   three-way comparison and the defaulted comparisons, pack indexing, the
   `_` placeholder, class template argument deduction, pointers to members,
   `constexpr` functions evaluated at compile time over locals, aggregates,
-  pointers and `this`, and the Itanium ABI's layout, name mangling and
-  calling convention, so cocolang's objects link with clang's.
+  pointers and `this`, RTTI (`typeid`, `dynamic_cast`), exceptions
+  (`throw`, `try`, `catch`), `new T[n]` of a class with the ABI's array
+  cookie, multiple polymorphic bases with their secondary vtables,
+  coroutines (`co_await`, `co_yield`, `co_return`, over LLVM's coroutine
+  intrinsics), modules (`export module`, `import`), contracts enforced at
+  run time, and the Itanium ABI's layout, name mangling and calling
+  convention, so cocolang's objects link with clang's.
 * **libc++ compiled from its own headers.** Nothing of the standard
   library is written here: `std::vector`, `std::string`, `std::map`,
   `std::set`, the unordered containers, `std::optional`, `std::tuple`,
@@ -45,7 +53,7 @@ is how the repository is worked on, with the record of every step.
 * **The safe part.** `own` pointers are linear and `move` hands them on. A
   borrow dangles when its owner is consumed and may not escape. A struct's
   own fields are owners that go with it. A plain pointer parameter is a
-  borrow of the caller's. `x <*> y` ties a lifetime. Every pointer has an
+  borrow of the caller's. `x tie y` ties a lifetime. Every pointer has an
   ownership path, or the program is refused, at compile time, with the
   statement's line.
 * **Macros in the compiler's own language.** A `.pl` file included, or a
@@ -164,7 +172,7 @@ returned, and may not be stored where the check cannot follow it. A plain
 pointer parameter is a borrow of the caller's: readable, passable,
 returnable, never stored, freed or moved. A struct's own fields are owners
 named by their path (`p->name`, `c.inner.name`) and go with the struct.
-`x <*> y` declares that `x` lives within `y`: a tied value is a borrow of
+`x tie y` declares that `x` lives within `y`: a tied value is a borrow of
 `y`, a tied owner must be consumed before `y` is, a result tie on a
 prototype is a contract the caller reads. An own array, `own node *C[4]`
 or `own node *C[nc]` bounded by an earlier member, holds owners the
@@ -224,9 +232,12 @@ int main(void) { printf("%d %d\n", twice(21), sum(1, 2, 3, 4)); return 0; }   /*
 `format`, `print`, `println` and `clone` are global macros, there in every
 program without an include (`library/ccl_format.pl`). The format string
 has Rust's holes, each becoming the `printf` conversion of its argument's
-inferred type, a struct printed by its members:
+inferred type, a struct printed by its members. An empty hole `{}` takes the
+next argument; a named hole `{name}` takes the variable of that name in scope:
 
 ```c
+n := 42;
+name := "ann";
 p := (point_t){ 1, 2.5 };
 println("n = {} name = {name} p = {p}", n);   // n = 42 name = ann p = point_t { x: 1, y: 2.5 }
 s := format("{} + {} = {}", 1, 2, 3);          // char *
@@ -238,9 +249,10 @@ s := format("{} + {} = {}", 1, 2, 3);          // char *
 the baseline**; `-std=c++20`, `-std=c++23` and `-std=c++26` set the
 level, whose predefined macros the preprocessor answers first, so a header
 flattens as clang would flatten it for that level. The compiler runs no
-exceptions, no RTTI and no vector extensions, and libc++ compiles its own
-configuration for that (`-fno-exceptions -fno-rtti`): a program's `throw`,
-`try`, `typeid` and `dynamic_cast` are refused by name.
+exceptions, no RTTI and no vector extensions inside libc++, which compiles
+its own configuration for that (`-fno-exceptions -fno-rtti`); the program's
+own `throw`, `try`, `typeid` and `dynamic_cast` run over libc++abi, which
+`-lc++` links.
 
 Every C++ form is a rewrite to the C the check and the lowering have
 (`library/ccl_cpp.pl`): a class a struct with its methods over `this`, a
@@ -261,12 +273,13 @@ the four unordered containers, node handles, `optional` with its C++23
 monadic operations, `tuple` with `tuple_cat`, `array`, `unique_ptr`,
 `shared_ptr` and `weak_ptr`, `function`, `bind`, `mem_fn`, `invoke`, the
 function objects and `reference_wrapper`, and the `<algorithm>` surface
-from `all_of` to the heap and permutation algorithms; at C++20 `contains`
-and `erase_if`, at C++26 `optional<T &>`. `test/libcxx.sh` reads
+from `all_of` to the heap and permutation algorithms; at C++20 `contains`,
+`erase_if` and the constrained algorithms `ranges::sort`, `ranges::find` and
+`ranges::count_if`, at C++26 `optional<T &>`. `test/libcxx.sh` reads
 `<vector>`, `<string>`, `<iostream>`, `<map>`, `<set>`,
 `<unordered_map>`, `<unordered_set>`, `<optional>`, `<memory>`,
 `<functional>`, `<tuple>` and `<algorithm>` whole, and the containers,
-`<string>` and `<iostream>` at C++20, `<optional>` and `<string>` at
+`<string>`, `<iostream>` and `<ranges>` at C++20, `<optional>` and `<string>` at
 C++23, `<optional>` at C++26.
 
 Where a macro goes past a template: a macro sees and rewrites the syntax
@@ -319,6 +332,10 @@ DESIGN.md, CLAUDE.md           the architecture; how the repository is worked on
 
 ## Not done
 
-Coroutines and modules; `std::format` and the ranges; a `\N{...}` abbreviation
+`std::format` (its desugaring runs past 12 GB inside `basic_format_string`'s
+compile-time checks) and the range views and adaptors (`views::filter` and
+the pipe stop at a member's trailing `requires` over a data member of
+`ref_view`); `std::coroutine_traits` and a coroutine's
+`unhandled_exception`; exported names enforced in a module; a `\N{...}` abbreviation
 alias (`\N{NUL}`, which clang refuses too); the arm64 ABI written and not
 proven. Each is named in `CLAUDE.md` with where it stops.

@@ -128,7 +128,7 @@ it is done (see below); the checker and the lowering take the AST from here.
   callee's prototype is read through a function pointer too. The C core's
   last gaps -- unions, bitfields, static locals -- lower as C lays them out,
   the bitfield struct and the union in the ABI check with clang.
-  **The tie operator, `x <*> y` (owner's):** x lives within y -- a local
+  **The tie, `x tie y` (owner's; spelled `<*>` before 0.109):** x lives within y -- a local
   within another, a member within an earlier member, a parameter within an
   earlier one, a function's result within a parameter -- and the check
   makes a tied value a borrow of y whatever its type, a tied owner one that
