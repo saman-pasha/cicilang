@@ -55,8 +55,14 @@ pp_prescan_lines([line(_, A)|Ls], Path) :-
     (   pp_directive_line(A, Body), pp_ws(Body, B1), pp_word(B1, W, Rest), atom_codes(D, W), ( D == include ; D == include_next ),
         pp_ws(Rest, R1), pp_inc_name(R1, Spec0)
     ->  ( D == include_next -> Spec = next(Spec0) ; Spec = Spec0 ), ( catch(ccl_header_macros_ready(Spec, Path), _, true) -> true ; true )
+    ;   pp_import_line(A, Spec) -> ( catch(ccl_header_macros_ready(Spec, Path), _, true) -> true ; true )
     ;   true ),
     pp_prescan_lines(Ls, Path).
+%% A HEADER UNIT'S MACROS ARE THE IMPORTER'S ([module.import]/5; 0.110): `import "h";' and `import <h>;' (and `export
+%% import') make the header's macros visible after the line, as an #include does -- the line itself is passed on for
+%% the reader, which reads the header as the include it amounts to
+pp_import_line(A, Spec) :- nb_getval('$ccl_lang', cpp), atom_codes(A, Cs), pp_ws(Cs, C1), pp_word(C1, W0, R0), atom_codes(W0A, W0),
+    ( W0A == export -> pp_ws(R0, R1), pp_word(R1, W1, R2), atom_codes(import, W1) ; W0A == import, R2 = R0 ), pp_ws(R2, R3), pp_inc_name(R3, Spec).
 %% the macros defined when the run ended, macro(Name, Params, text(Body)) --
 %% the run's own, not the predefined: what a header's summary or store keeps
 ccl_pp_macros(Macros) :-
@@ -258,6 +264,8 @@ pp_current_file(none).
 pp_run([], Out, Out).
 pp_run([line(N, A)|Ls], Out0, Out) :-
     (   pp_directive_line(A, Body) -> pp_directive(Body, N, Ls, Ls1, Out0, Out1), pp_run(Ls1, Out1, Out)
+    ;   nb_getval('$pp_top', yes), pp_import_line(A, Spec), pp_current_file(From), ccl_resolve_include(Spec, From, Path), ccl_header_macros_known(Path, _), nb_getval('$pp_hdrs', Hs), \+ memberchk(Path, Hs),
+        nb_setval('$pp_hdrs', [Path|Hs]), nb_getval('$pp_ninc', I0), I1 is I0 + 1, nb_setval('$pp_ninc', I1), fail
     ;   pp_lex_line(N, A, Toks), pp_toks(Toks, Ls, Ls1, Out0, Out1), pp_run(Ls1, Out1, Out) ).
 %% the stream: tokens, or h(Token, HideSet) from an expansion
 pp_unwrap(h(T, HS), T, HS) :- !.

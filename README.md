@@ -39,8 +39,11 @@ is how the repository is worked on, with the record of every step.
   pointers and `this`, RTTI (`typeid`, `dynamic_cast`), exceptions
   (`throw`, `try`, `catch`), `new T[n]` of a class with the ABI's array
   cookie, multiple polymorphic bases with their secondary vtables,
-  coroutines (`co_await`, `co_yield`, `co_return`, over LLVM's coroutine
-  intrinsics), modules (`export module`, `import`), contracts enforced at
+  virtual bases reached through the vtable, the diamond with one shared
+  base, `noexcept` enforced, trailing return types,
+  coroutines (`co_await`, `co_yield`, `co_return`, `operator co_await`,
+  `std::coroutine_traits`, over LLVM's coroutine intrinsics), modules
+  (`export module`, `import`, header units, exports enforced), contracts enforced at
   run time, and the Itanium ABI's layout, name mangling and calling
   convention, so cocolang's objects link with clang's.
 * **libc++ compiled from its own headers.** Nothing of the standard
@@ -332,10 +335,9 @@ DESIGN.md, CLAUDE.md           the architecture; how the repository is worked on
 
 ## Not done
 
-`std::format` (its desugaring runs past 12 GB inside `basic_format_string`'s
-compile-time checks) and the range views and adaptors (`views::filter` and
-the pipe stop at a member's trailing `requires` over a data member of
-`ref_view`); `std::coroutine_traits` and a coroutine's
-`unhandled_exception`; exported names enforced in a module; a `\N{...}` abbreviation
+`std::format` (its compile-time check is not made, and its run-time road
+is not proven to its end) and the range views and adaptors
+(`views::filter` stops in `filter_view`'s constructor, which copies a
+`ref_view`); construction vtables in a diamond; a `\N{...}` abbreviation
 alias (`\N{NUL}`, which clang refuses too); the arm64 ABI written and not
 proven. Each is named in `CLAUDE.md` with where it stops.

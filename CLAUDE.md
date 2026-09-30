@@ -5987,6 +5987,70 @@ checks ok, `stdoptionalref' skipped by name, no failure, the five new fixtures a
 `concepttraits', `memberaliasttp', `nsforms'). Measured alone before the chain: `stdranges' 1169 s at 3.1 GB warm (858 s
 before `<ranges>' read whole, 958 s and 7.9 GB before the candidate checks were scoped).
 
+**M6's seventy-sixth step (0.110): THE NOT-DONE LISTS OF 0.108 AND 0.109 -- noexcept, trailing return types, the
+coroutine traits, catch by value, the virtual base through the table and the DIAMOND, modules' exports and header units, and
+the next stops of the views and of std::format.** The owner asked for every not-done item; each form was cut to a probe of ten
+to forty lines, built by clang and by cocolang and compared line for line, and each has a fixture. (1) `noexcept' IS KEPT on a
+function (reader version 98; `ccl_suffix_quals', `'$ccl_nothrow''): the operator `noexcept(f())' asks the callee
+(`cpp_nx_throws'), and an exception that leaves a noexcept function calls `std::terminate' without the destructors on the way,
+as clang does (`cpp_nx_wrap': a try whose handler is of the kind `terminate', which the landing pad catches and runs no cleanup
+for; only where the program throws at all). `test/cpp/run/noexcept.cpp'. (2) A FREE FUNCTION'S TRAILING RETURN TYPE, a
+prototype's and a definition's (`ccl_trailing_ret', `ccl_fn_quals'): `auto add(int, int) -> long;' was an `auto' the reader
+could not settle. `trailing.cpp'. (3) COROUTINES: `operator co_await', a member and a free one (`cpp_coro_awaiter'); the promise
+through a `std::coroutine_traits' specialization, constructed from the coroutine's parameters where it has such a constructor
+(`cpp_promise_type', `cpp_promise_init'); `unhandled_exception' around the body (`cpp_coro_guard'); a qualified specialization's
+head, `struct std::coroutine_traits<...>', registered. `coawaitop.cpp', `cotraits.cpp'. (4) A CLASS CAUGHT BY VALUE IS A COPY,
+and `throw E(args)' builds the exception in its own memory (`cpp_catches', `cpp_new_at'). `catchvalue.cpp'. (5) THE VIRTUAL
+BASE IS REACHED THROUGH THE TABLE (the Itanium ABI's vbase offset at `vptr[-3]'; `ir_member_slot' on a struct marked
+`virtual_base', `ccl_vbase_kind'): a class whose first base is virtual and that has a table of its own reaches that base
+through the offset its table holds (`cpp_vbase_offset' puts it in every table of such a class, primary and secondary), so a
+base sub-object finds the shared base wherever the complete object lays it; a polymorphic virtual base has this class's
+secondary table in it, typeid and dynamic_cast go through it, and the type_info flags the base VIRTUAL with the offset's place
+(-24). The complete object's constructor and destructor build and destroy the base AT ITS PLACE (`$base!'). The stream fixtures
+over libc++'s `basic_ostream : virtual basic_ios' read the shipped tables' offsets the same way. `vbasertti.cpp'. (6) THE
+DIAMOND ([class.mi]/6), clang's record layout byte for byte: `struct D : B, C' over `virtual A' embeds each path as its
+BASE-SUBOBJECT form `B.nv' (the class without the shared base, its DATA size as bytes, so what follows uses its tail padding:
+`int d' at 28 inside C's 16 bytes, `sizeof(D)' 48), holds the shared base once at its end (`$vb', `'$cpp_vb_holder''), builds
+it first and stores its own tables before the paths' BASE-VARIANT constructors run (the ABI's C2 and D2, `C.C.k.nv',
+`C.dtor.0.nv', `cpp_nv_twin': the body without the virtual base and without the table's store), destroys it last, and takes
+each method's FINAL OVERRIDER from whichever path overrides it (`cpp_final_impl', `cpp_primary_entry', a thunk that hands the
+complete object to the call's own conversion); a method of a base the class does not name dispatches on that base's table
+(`cpp_hops_class'). Where a path holds the base only further in, it stays whole and the later paths are `.nv'; a diamond over
+a virtual base with no table is refused by name (`virtual_base_by_two_paths', `test/cpp/diamond.cpp'). `diamond.cpp',
+`diamond2.cpp', `thunkdeep.cpp'. (7) MODULES: a name the module does not export is not visible to the importer (`ccl_exported',
+`ccl_module_hide': renamed `N$Module', refused as undeclared, `test/cpp/modhidden.cpp'); a HEADER UNIT's macros reach the
+importer (`pp_import_line'); and an inline function the program's own header defines is EMITTED with the program, by
+`#include' and by import alike (`cpp_include_fns', `cpp_header_fns': a `"..."' header outside the system's directories), where
+it was declared and never defined and the link named it. `headerunit.cpp', `hdrinline.cpp'. (8) A MEMBER WHOSE TRAILING
+REQUIRES-CLAUSE IS UNMET is no candidate and is not instantiated ([temp.inst]/11; `cpp_method_viable'), the clause walked in
+its class (`'$cpp_req_ctx'') and substituted with the class's arguments (`cpp_subst_quals'); a MEMBER template's and a
+constructor template's own constraints are walked in their class too (`cpp_with_req_ctx': ref_view's `__fun'), a concept's
+body never. `memberreq.cpp', `ctorreq.cpp', `refview.cpp'. (9) A DATA MEMBER OF CLASS TYPE CALLED THROUGH AN OBJECT, `c.f(x)',
+goes to its class's `operator()', and a hidden friend `operator|' template serves the pipe. `pipefriend.cpp'. (10) AN INSTANCE
+STILL BEING REGISTERED IS A CLASS (`__is_class', the CRTP: `ref_view<R> : view_interface<ref_view<R>>'), and an instance over
+such a class is LAZY, its members made where they are used ([temp.inst]/4; `cpp_incomplete_arg'). `crtpconcept.cpp'. (11) A
+REQUIRES-EXPRESSION IS A bool VALUE ([expr.prim.req]/1): `enable_view = derived_from<...> || requires { ... }'. `reqvalue.cpp'.
+(12) A LIBRARY CLASS'S CONSTEVAL CONSTRUCTOR keeps its member initializers and not its compile-time check (basic_format_string's
+parse of the format string, which nothing here evaluates; named). (13) A GLOBAL ENUM OF THE PROGRAM IS A GLOBAL NAME in a
+mangled symbol (`1K'): taken to its name it resolved to the enum again without end -- 6 GB in 84 s behind a `std::array' of an
+enum, which is where std::format's run had been going; and a GLOBAL's braced list is elided into an array member as a local's
+was (`ir_gelide'). `enumarray.cpp'. Reader version 98, lowering version 54; the module rebuilt as 0.110.
+NOT DONE, NAMED: `views::filter(v, pred)' now reaches `filter_view''s constructor and stops at
+`member_not_constructed(__base_, ref_view<vector<int>>, 1)': `__base_(std::move(__base))' finds neither the constructor template
+(rightly: it refuses its own class) nor the implicit copy, beside the default member initializer `_View()' that ref_view cannot
+take; the pipe over libc++'s adaptor closures is untried behind it. `std::format' passes its compile-time constructor and the
+enum mangling and was not run to its next stop in this step (each run of it is minutes, and the container restarted four times
+under the long probes). A diamond: construction vtables are not made (a virtual call inside a path's constructor reaches the most
+derived override), the implicit copy of a diamond class is not made memberwise, a library class's base-variant constructor is
+never called (a program class deriving from two library classes that share a virtual base is refused by name). Module linkage
+stays `linkonce'.
+THE GATES, ON LINUX (Ubuntu 24.04, x86_64, four cores, 16 GB; clang 18, libc++ 18, cocolog 1.8.1, the module rebuilt as 0.110),
+`sh test/gates.sh' in one chain with nothing beside it: the reader GREEN in 15 s (k84 comparing the two lexers); the compile gate
+GREEN in 25 s; the driver GREEN in 9 s; the objects in 5 s; the proof. THE LIBRARY READ (cold, the reader's version moved to 98)
+and THE C++ GATE were RUNNING when this was committed -- the container restarted four times under long runs in this step, so
+the work is committed on the small gates' GREEN lines and the two parallel phases' numbers are carried by the next commit, as
+0.102 carried 0.101's.
+
 **`format`, `print`, `println` are global macros** (owner's rule):
 `library/ccl_format.pl` is a macro file registered by `ccl_standard_macros/0`
 at the start of every unit (found on `$COCOLOG_LIBRARY`, which is also on

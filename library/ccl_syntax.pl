@@ -74,7 +74,7 @@
 
 %% the reader's version, part of the knowledge base's cache key: bump it when
 %% the grammar changes, so what an older grammar left partial is read again
-ccl_reader_version(97).   % 97 (0.109): a namespace alias; a qualified name after `struct' in a class body's look-ahead scan is no member template; 96 (0.109): C++17's nested namespace definition, `namespace A::B { }'; 95 (0.109): the tie is the contextual word `tie', `x tie y', and `<*>' is no punctuator in either lexer; 94 (0.108): C++26's contracts on a function and contract_assert, C++20's modules (module, import, export), a deduction guide indexed under $guide.; 93 (0.108): a compound literal of an unsized array sized by its items; 92 (0.108): a C anonymous struct or union member named $anonK; 91 (0.108): hex floats, a float with a leading dot, the f and L suffixes as their own kinds (floatf, floatl), trigraphs in the ISO modes; 90 (0.104): an array initializer with a pack expansion sizes nothing at the read; 89 (0.104): the integer imaginary literal's suffix kinds, imagui, imagli, imaguli, and \N{NAME} over Unicode 15.0.0 with its aliases; 88 (0.103): the integer imaginary literal is its own token, imagi; 87 (0.101): a static data member defined out of its class indexed under the class; 86 (0.100): an inline namespace marked, a deeper namespace's bare uses rewritten in the AST beside the summary; 85: __has_extension(c_atomic)
+ccl_reader_version(98).   % 98 (0.110): a function's noexcept kept (a method's among its qualifiers, a free function's name noted), noexcept(false) and throw(X) no noexcept; 97 (0.109): a namespace alias; a qualified name after `struct' in a class body's look-ahead scan is no member template; 96 (0.109): C++17's nested namespace definition, `namespace A::B { }'; 95 (0.109): the tie is the contextual word `tie', `x tie y', and `<*>' is no punctuator in either lexer; 94 (0.108): C++26's contracts on a function and contract_assert, C++20's modules (module, import, export), a deduction guide indexed under $guide.; 93 (0.108): a compound literal of an unsized array sized by its items; 92 (0.108): a C anonymous struct or union member named $anonK; 91 (0.108): hex floats, a float with a leading dot, the f and L suffixes as their own kinds (floatf, floatl), trigraphs in the ISO modes; 90 (0.104): an array initializer with a pack expansion sizes nothing at the read; 89 (0.104): the integer imaginary literal's suffix kinds, imagui, imagli, imaguli, and \N{NAME} over Unicode 15.0.0 with its aliases; 88 (0.103): the integer imaginary literal is its own token, imagi; 87 (0.101): a static data member defined out of its class indexed under the class; 86 (0.100): an inline namespace marked, a deeper namespace's bare uses rewritten in the AST beside the summary; 85: __has_extension(c_atomic)
 %% ccl_reader_version(81).   % 81: a literal past 2^60 is big(Atom) in every summary's item
 %% ccl_reader_version(80).   % 80: a template template parameter's name un-noted at its item's end, a tag or a typedef no concept (<variant>'s `template <_Trait X, ...>' read as a constrained type parameter); 79: a braced default argument, C++20's brace-designated initializer (libc++ 18 at C++20); 78: an unnamed parameter of an unknown type name in a C++ parameter list, a destructor called with its template arguments (libc++ 18); 77: _Generic chosen at the read, an unbounded array sized by its initializer, _BitInt in the table, the OS's predefined macros, <limits.h> and the C23 headers; 59: a method's ref-qualifier kept; 60: the C++20 stretch (a constrained parameter, a requires-clause on a member template, trailing, on a lambda; `::template f' alone; a braced subscript; a member variable template; a constrained auto); 61: a concept indexed by name; 62: a function template's explicit template-id is no type (`T &r(std::forward<U>(v))'), a bare concept's name bound; 63: explicit(cond) kept; 64: a pointer to member, typeid, a member class template noted ahead; 65: no RTTI predefined, so every header is flattened again; 66: only a pointer to member takes the trailing cv- and ref-qualifiers (a method's const is the method rule's); 67: a free name outside a template; 68: a nullability word with an argument list (glibc); 69: a pointer to member function's noexcept, a braced list assigned, and the AST's index keys a deeper namespace's name apart; 70: alignas kept on a class; 71: [[no_unique_address]] kept on a member; 72: the AST's index holds a header's inline variable with NO initializer (std::ignore); 73: a pack expansion is a dependent type, and a call of a function template's name is not the reader's `auto' to deduce; 74: `if constexpr' with an init-statement; 75: a member FUNCTION template's name is a template and no type; 76: __OPTIMIZE_SIZE__ predefined, so libc++'s algorithms are the scalar ones
 
@@ -787,8 +787,8 @@ ccl_external(Env, Env, '$splice'([])) --> ccl_cpp, ccl_id(module), ccl_p(';'), !
 ccl_external(Env, Env, '$splice'([])) --> ccl_cpp, ccl_id(module), ccl_p(':'), ccl_id(private), ccl_p(';'), !.
 ccl_external(Env, Env, '$splice'([])) --> ccl_cpp, ccl_opt_export, ccl_id(module), ccl_module_name(N), ccl_p(';'), !, { ccl_note_module(N) }.
 ccl_external(Env0, Env, I) --> ccl_cpp, ccl_line(L), ccl_opt_export, ccl_id(import), ccl_import_target(T), ccl_p(';'), !, { ccl_import(L, T, Env0, Env, I) }.
-ccl_external(Env0, Env, '$splice'(Is)) --> ccl_cpp, ccl_id(export), ccl_p('{'), !, ccl_export_items(Env0, Env, Is), ccl_p('}').
-ccl_external(Env0, Env, I) --> ccl_cpp, ccl_id(export), !, ccl_external(Env0, Env, I).
+ccl_external(Env0, Env, '$splice'(Is)) --> ccl_cpp, ccl_id(export), ccl_p('{'), !, ccl_export_items(Env0, Env, Is), ccl_p('}'), { forall(member(I, Is), ccl_note_export(I)) }.
+ccl_external(Env0, Env, I) --> ccl_cpp, ccl_id(export), !, ccl_external(Env0, Env, I), { ccl_note_export(I) }.
 ccl_opt_export --> ccl_id(export), !.
 ccl_opt_export --> [].
 ccl_module_name(N) --> ccl_id(A), ccl_module_rest(A, N).
@@ -803,6 +803,15 @@ ccl_header_parts([V|Vs]) --> [tok(K, V, _)], { memberchk(K, [id, kw, p]), V \== 
 ccl_header_parts([]) --> [].
 ccl_export_items(Env0, Env, Is) --> ccl_peek(p, '}'), !, { Env = Env0, Is = [] }.
 ccl_export_items(Env0, Env, [I|Is]) --> ccl_external(Env0, Env1, I), ccl_export_items(Env1, Env, Is).
+%% WHAT A MODULE EXPORTS (0.110): the names of the items `export' marks, noted under the file being read -- an interface
+%% unit that imports another is read inside it, so the current module's name would not say whose export it is
+ccl_note_export(I) :- ccl_global('$ccl_file', F, none), findall(N, ccl_item_defines(I, N), Ns),
+    ( catch(nb_getval('$ccl_exports', E0), _, fail) -> true ; E0 = [] ), findall(F-N, member(N, Ns), New), append(New, E0, E1), nb_setval('$ccl_exports', E1).
+ccl_item_defines(function(_, _, _, N, _, _, _), N) :- atom(N).
+ccl_item_defines(declaration(_, _, _, Vs), N) :- member(var(N, _, _), Vs), atom(N).
+ccl_item_defines('$splice'(Is), N) :- member(I, Is), ccl_item_defines(I, N).
+ccl_item_defines(template(_, _, I), N) :- ccl_item_defines(I, N).
+ccl_exported(F, N) :- catch(nb_getval('$ccl_exports', E), _, fail), memberchk(F-N, E).
 ccl_note_module(N) :- ccl_global('$ccl_file', F, none), nb_setval('$ccl_cur_module', N),
     ( catch(nb_getval('$ccl_modules', M0), _, fail) -> true ; M0 = [] ), ( F == none -> true ; nb_setval('$ccl_modules', [N-F|M0]) ).
 ccl_import(L, header(Spec), Env0, Env, include(L, Spec, R)) :- !, ccl_include(Spec, R), ccl_include_typedefs(R, Env0, Env), ccl_include_macros(R), ccl_include_scope(R).
@@ -813,8 +822,19 @@ ccl_import(L, module(N), Env0, Env, '$splice'(Is)) :- memberchk(N, [std, 'std.co
 ccl_import(L, module(N), Env0, Env, '$splice'([include(L, local(N), R)|Defs])) :-
     ( ccl_module_path(N, Path) -> true ; throw(error(module_not_found(N), here(none, L))) ),
     ccl_include(path(Path), R0), ( R0 = file(P, How, unit(Is0)) -> true ; throw(error(module_not_read(N), here(none, L))) ),
-    ccl_module_split(Is0, Keep, Defs), R = file(P, How, unit(Keep)),
+    ccl_module_split(Is0, Keep0, Defs0), ccl_module_hide(N, P, Keep0, Defs0, Keep, Defs), R = file(P, How, unit(Keep)),
     ccl_include_typedefs(R, Env0, Env1), ccl_include_scope(R), ccl_items_note(Defs), ccl_items_typedefs_env(Defs, Env1, Env).
+%% A NAME THE MODULE DOES NOT EXPORT IS NOT THE IMPORTER'S ([module.interface]/7, [basic.lookup]; 0.110): its free
+%% functions and objects are still emitted -- the exported ones call them -- under a name no program can write,
+%% `hidden$mathm', rewritten in the module's own items where they are used (cpp_rename_names keeps a local or a
+%% parameter of the name), so `hidden(3)' in the importer is undeclared as C++ has it
+ccl_module_hide(M, P, Keep0, Defs0, Keep, Defs) :-
+    findall(N-K, ( member(D, Defs0), ccl_item_defines(D, N), \+ ccl_exported(P, N), atomic_list_concat([N, '$', M], K) ), Map0), sort(Map0, Map),
+    (   Map == [] -> Keep = Keep0, Defs = Defs0
+    ;   cpp_rename_names(Keep0, Map, Keep), findall(D1, ( member(D, Defs0), ccl_hide_def(D, Map, D1) ), Defs) ).
+ccl_hide_def(function(L, S, R, N, Ps, V, B), Map, function(L1, S1, R1, K, Ps1, V1, B1)) :- !, ( memberchk(N-K0, Map) -> K = K0 ; K = N ), cpp_rename_names(function(L, S, R, N, Ps, V, B), Map, function(L1, S1, R1, _, Ps1, V1, B1)).
+ccl_hide_def(declaration(L, S, T, Vs), Map, declaration(L, S, T, Vs1)) :- !, findall(var(K, VT, I1), ( member(var(N, VT, I), Vs), ( memberchk(N-K0, Map) -> K = K0 ; K = N ), cpp_rename_names(I, Map, I1) ), Vs1).
+ccl_hide_def(D, Map, D1) :- cpp_rename_names(D, Map, D1).
 ccl_import_headers([], _, Env, Env, []).
 ccl_import_headers([H|Hs], L, Env0, Env, [include(L, system(H), R)|Is]) :- ccl_include(system(H), R), ccl_include_typedefs(R, Env0, Env1), ccl_include_macros(R), ccl_include_scope(R), ccl_import_headers(Hs, L, Env1, Env, Is).
 ccl_std_module_headers([cstdio, cstdlib, cstring, iostream, string, vector, map, algorithm, memory, utility]).
@@ -1011,8 +1031,8 @@ ccl_free_name(typedef(N)) :- atom(N), \+ ccl_typedef_of(N, _), \+ ccl_tag(N, _),
 ccl_sto_quals(Sto, MQs, Sto1) :- ( memberchk(const, MQs) -> Sto1 = const(Sto) ; Sto1 = Sto ).
 
 ccl_external_rest(Env, Env, L, Sto, Base, function(L, Sto1, Ret, Name, Params, Var, Body)) -->
-    ccl_declarator(Env, Base, Name, Type0), { Type0 = fn(_, _, _) }, ccl_attrs, ccl_method_quals(MQs0), { ccl_contracts_apart(MQs0, MQs, Cs) }, ccl_tie(Type0, Type), { Type = fn(Ret, Params, Var) }, ccl_peek(p, '{'),   % C++'s const/override after the parameters; no cut here, a prototype falls through
-    { ccl_sto_quals(Sto, MQs, Sto1) },                                                                                        % `const' KEPT on a member defined out of its class (0.79): `const(Sto)' in the storage slot, which the desugaring reads (cpp_sto_quals) -- dropped, the const overload's body attached to the non-const declaration
+    ccl_declarator(Env, Base, Name, Type00), { Type00 = fn(_, _, _) }, ccl_attrs, ccl_method_quals(MQs0), { ccl_contracts_apart(MQs0, MQs, Cs), ccl_trailing_ret(plain, Type00, MQs, Type0) }, ccl_tie(Type0, Type), { Type = fn(Ret, Params, Var) }, ccl_peek(p, '{'),   % C++'s const/override after the parameters; no cut here, a prototype falls through
+    { ccl_sto_quals(Sto, MQs, Sto1), ( memberchk(noexcept, MQs0) -> nb_setval('$ccl_nx', yes) ; true ), ccl_note_nx(Name) },                                                                                        % `const' KEPT on a member defined out of its class (0.79): `const(Sto)' in the storage slot, which the desugaring reads (cpp_sto_quals) -- dropped, the const overload's body attached to the non-const declaration
     { ccl_note_if_template(Name), ccl_note_if_fn_template(Name) },
     { ccl_note_tags(Ret), ccl_note_params(Params), ccl_declare(Name, Type) },
     ccl_push_scope, { ccl_declare_params(Params) }, ccl_compound(Env, Body0), ccl_pop_scope, !, { ccl_contract_body(Cs, Name, L, Body0, Body) }.
@@ -1429,7 +1449,7 @@ ccl_member_decl(Env, [ctor(L, Qs, Ps, Inits, Body)]) --> ccl_cpp, ccl_line(L), c
     ccl_params(Env, Ps, _), ccl_p(')'), ccl_method_quals(Qs1), ccl_ctor_inits(Env, Inits), ccl_fn_body(Env, Ps, Body), { append(Qs0, Qs1, Qs) }.
 ccl_member_decl(Env, [dtor(L, Qs, Body)]) --> ccl_cpp, ccl_line(L), ccl_member_prefix(Qs0), ccl_p('~'), !, ccl_id(_), ccl_p('('), ccl_p(')'), ccl_method_quals(Qs1), ccl_fn_body(Env, [], Body), { append(Qs0, Qs1, Qs) }.
 ccl_member_decl(Env, [method(L, Qs, Ret, Name, Ps, Var, Body)]) --> ccl_cpp, ccl_line(L), ccl_member_prefix(Qs0), ccl_decl_specs(Env, member, Sto, Base), ccl_declarator(Env, Base, Name, Type), { Type = fn(Ret, Ps, Var) }, !,
-    ccl_method_quals(Qs10), { ccl_contracts_apart(Qs10, Qs1, Cs) }, ccl_fn_body(Env, Ps, Body0), { ccl_contract_body(Cs, Name, L, Body0, Body), ( Sto == none -> Qs2 = Qs0 ; Qs2 = [Sto|Qs0] ), append(Qs2, Qs1, Qs) }.
+    ccl_method_quals(Qs11), { ccl_nx_qual(Qs11, Qs10), ccl_contracts_apart(Qs10, Qs1, Cs) }, ccl_fn_body(Env, Ps, Body0), { ccl_contract_body(Cs, Name, L, Body0, Body), ( Sto == none -> Qs2 = Qs0 ; Qs2 = [Sto|Qs0] ), append(Qs2, Qs1, Qs) }.
 ccl_member_decl(Env, Ms) --> ccl_decl_specs(Env, member, Sto, Base0), { ccl_member_base(Sto, Base0, Base), ccl_take_nua(Nua) }, ccl_member_declarators(Env, Base, Nua, Ms0), ccl_p(';'),
     { Ms0 == [] -> ( \+ ccl_lang(cpp), ccl_anon_aggregate(Base) -> ccl_anon_name(A), Ms = [member(Base, A, none)] ; Ms = [nested(Base)] ) ; Ms = Ms0 }.   % `struct I { ... };' inside a class: a nested type, kept
 %% C11's ANONYMOUS STRUCT OR UNION MEMBER (6.7.2.1/13, 0.108): `struct { int a; union { int u; float f; }; }' -- a
@@ -1451,6 +1471,9 @@ ccl_method_quals([override|Qs]) --> ccl_id(override), !, ccl_method_quals(Qs).
 ccl_method_quals([final|Qs]) --> ccl_id(final), !, ccl_method_quals(Qs).
 ccl_method_quals([contract(pre, E)|Qs]) --> ccl_id(pre), ccl_p('('), !, ccl_expr(E), ccl_p(')'), ccl_method_quals(Qs).   % C++26's contract assertions, `pre(x > 0) post(r: r > x)': ENFORCED since 0.108 (ccl_contract_body)
 ccl_method_quals([contract(post(R), E)|Qs]) --> ccl_id(post), ccl_p('('), !, ccl_post_name(R), ccl_expr(E), ccl_p(')'), ccl_method_quals(Qs).
+ccl_nx_qual(Qs, Qs) :- memberchk(noexcept, Qs), !.
+ccl_nx_qual(Qs, [noexcept|Qs]) :- ccl_nx_flag(yes), !.   % `int m() noexcept': the declarator's suffix read the word, the flag says so (0.110)
+ccl_nx_qual(Qs, Qs).
 ccl_post_name(R) --> ccl_id(R), ccl_p(':'), !.
 ccl_post_name(none) --> [].
 %% C++26 CONTRACTS ENFORCED (0.108; read and ignored since 0.93): the standard's `enforce' evaluation semantic -- a
@@ -1484,8 +1507,8 @@ ccl_rename_id(T, R, V, T1) :- compound(T), !, T =.. [F|As], ccl_rename_ids(As, R
 ccl_rename_id(T, _, _, T).
 ccl_rename_ids([], _, _, []).
 ccl_rename_ids([A|As], R, V, [A1|As1]) :- ccl_rename_id(A, R, V, A1), ccl_rename_ids(As, R, V, As1).
-ccl_method_quals([noexcept|Qs]) --> ccl_kw(noexcept), !, ( ccl_p('('), ccl_balanced, ccl_p(')'), ! ; [] ), ccl_method_quals(Qs).
-ccl_method_quals(Qs) --> ccl_kw(throw), !, ccl_p('('), ccl_balanced, ccl_p(')'), ccl_method_quals(Qs).
+ccl_method_quals(Qs) --> ccl_kw(noexcept), !, ( ccl_p('('), ccl_nx_arg(Y), ccl_p(')'), ! ; { Y = yes } ), { nb_setval('$ccl_nx', Y), ( Y == yes -> Qs = [noexcept|Qs1] ; Qs = Qs1 ) }, ccl_method_quals(Qs1).   % `noexcept(false)' is no noexcept (0.110)
+ccl_method_quals(Qs) --> ccl_kw(throw), !, ccl_p('('), ( ccl_peek(p, ')'), { Qs = [noexcept|Qs1] } ; { Qs = Qs1 } ), ccl_balanced, ccl_p(')'), ccl_method_quals(Qs1).
 ccl_method_quals(Qs) --> ( ccl_p('&'), ! ; ccl_p('&&') ), !, ccl_method_quals(Qs).
 ccl_method_quals(Qs) --> ccl_gnu_attr, !, ccl_method_quals(Qs).
 ccl_method_quals([trailing(T)|Qs]) --> ccl_p('->'), !, { Env = genv }, ccl_type_name(Env, T), ccl_method_quals(Qs).
@@ -1537,7 +1560,7 @@ ccl_enumerator(enumerator(N, V)) --> ccl_id(N), ccl_attrs, ( ccl_p('='), !, ccl_
 %% then array and function suffixes; ccl_mk_type folds them onto the base.
 ccl_init_declarators(Env, Base, Ds) --> [tok(pp, _, _)], !, ccl_init_declarators(Env, Base, Ds).
 ccl_init_declarators(Env, Base, [D|Ds]) --> ccl_init_declarator(Env, Base, D), ( ccl_p(','), !, ccl_init_declarators(Env, Base, Ds) ; { Ds = [] } ).
-ccl_init_declarator(Env, Base, var(N, T, Init)) --> ccl_declarator(Env, Base, N0, T0), ccl_attrs, ccl_fn_quals(T0), ccl_tie(T0, T1), ccl_var_init_fn(T0, Init), { ccl_sized_by_init(T1, Init, T), ccl_placeholder(N0, N) }.
+ccl_init_declarator(Env, Base, var(N, T, Init)) --> ccl_declarator(Env, Base, N0, T00), ccl_attrs, ccl_fn_quals(T00, T0), { T0 = fn(_, _, _) -> ccl_note_nx(N0) ; true }, ccl_tie(T0, T1), ccl_var_init_fn(T0, Init), { ccl_sized_by_init(T1, Init, T), ccl_placeholder(N0, N) }.
 %% C++26's PLACEHOLDER `_' ([basic.scope.scope]/5, __cpp_placeholder_variables): a second `_' declared in the same
 %% block is a variable of its own and may not be named -- so it is renamed here (`_$2' ...), where the first keeps
 %% its name and a use of `_' finds it, as C++ allows only while there is one
@@ -1559,8 +1582,16 @@ ccl_init_bound([item(Ds, _)|Is], P0, K0, K) :-
     ( Ds = [at(E)|_], ccl_const_eval(E, I) -> P = I ; P = P0 ), P1 is P + 1, K1 is max(K0, P1), ccl_init_bound(Is, P1, K1, K).
 ccl_var_init_fn(T0, Init) --> ccl_cpp, { T0 = fn(_, _, _) }, ccl_p('='), ( ccl_kw(delete), !, ccl_delete_reason, { Init = delete } ; ccl_kw(default), { Init = default } ), !.   % f(...) = delete; f(...) = delete("why");
 ccl_var_init_fn(_, Init) --> ccl_var_init(Init).
-ccl_fn_quals(T0) --> ccl_cpp, { T0 = fn(_, _, _) }, !, ccl_method_quals(_).                % a prototype's noexcept, throw(), attributes
-ccl_fn_quals(_) --> [].
+ccl_fn_quals(T0, T) --> ccl_cpp, { T0 = fn(_, _, _) }, !, ccl_method_quals(Qs), { ccl_trailing_ret(any, T0, Qs, T) }.   % a prototype's noexcept, throw(), attributes, and its trailing return type
+ccl_fn_quals(T, T) --> [].
+%% A FREE FUNCTION'S TRAILING RETURN TYPE ([dcl.fct]/2; 0.110): `auto f(int) -> long' is a function returning long. A
+%% PROTOTYPE takes it whatever it is (nothing else says what the function returns); a DEFINITION takes it where it
+%% names no `decltype' (such a result is deduced from the first return, as before, and its operand's names are the
+%% parameters', which the desugaring's walk has in scope) -- `sizeof(add(1, 2))' needs the declared type
+ccl_trailing_ret(How, fn(R0, Ps, V), Qs, fn(R, Ps, V)) :- R0 = base(_, [auto]), memberchk(trailing(T), Qs),
+    ( How == any -> true ; \+ ccl_mentions_decltype(T) ), !, R = T.
+ccl_trailing_ret(_, T, _, T).
+ccl_mentions_decltype(T) :- compound(T), ( functor(T, decltype, _) -> true ; T = base(_, [auto]) -> true ; T =.. [_|As], member(A, As), ccl_mentions_decltype(A) ), !.
 %% static_assert(e, "msg") and static_assert(e): an item, a member, a statement -- static_assert(L, E, Msg | none)
 ccl_static_assert(L, E, M) --> ccl_p('('), ccl_assign_expr(E), ( ccl_p(','), !, ccl_assign_expr(M) ; { M = none } ), ccl_p(')'), ccl_p(';'), { ccl_assert_holds(L, E, M) }.
 %% A STATIC ASSERTION IS CHECKED WHERE IT FOLDS: the item was read and dropped by every pass, so a false one
@@ -1635,6 +1666,7 @@ ccl_op_name('[]') --> ccl_p('['), !, ccl_p(']').
 ccl_op_name('()') --> ccl_p('('), !, ccl_p(')').
 ccl_op_name(new) --> ccl_kw(new), !, ( ccl_p('['), ccl_p(']'), ! ; [] ).
 ccl_op_name(delete) --> ccl_kw(delete), !, ( ccl_p('['), ccl_p(']'), ! ; [] ).
+ccl_op_name(co_await) --> ccl_kw(co_await), !.                                     % C++20: operator co_await (0.110)
 ccl_op_name(Op) --> [tok(p, Op, _)], !.
 ccl_op_name(conv(T)) --> { Env = genv }, ccl_type_name(Env, T).
 ccl_direct(Env, paren(D)) --> ccl_p('('), ccl_decl_syntax(Env, D), ccl_p(')'), !.
@@ -1650,9 +1682,21 @@ ccl_arr_bound(none) --> ccl_p('*'), ccl_peek(p, ']'), !.
 ccl_arr_bound(N) --> ccl_cond_expr(N).
 ccl_suffix(Env, fn(Ps, Var)) --> ccl_p('('), ccl_params(Env, Ps, Var), ccl_p(')'), ccl_suffix_quals.
 %% a function type's exception specification, `void (*)(int) noexcept': dropped (const and the ref-qualifiers stay for the method rule)
-ccl_suffix_quals --> ccl_cpp, ccl_kw(noexcept), !, ( ccl_p('('), ccl_balanced, ccl_p(')'), ! ; [] ).
-ccl_suffix_quals --> ccl_cpp, ccl_kw(throw), ccl_p('('), !, ccl_balanced, ccl_p(')').
-ccl_suffix_quals --> [].
+%% ... and NOTED (0.110): the last function suffix read sets `'$ccl_nx'' to yes or no, so the rule that has just read a
+%% function's declarator knows whether THAT function is noexcept (its own suffix is read after its parameters'): a
+%% free function's name joins `'$ccl_nothrow'' (ccl_note_nx), a method's noexcept joins its qualifiers, and the
+%% operator `noexcept(f())' answers false for a function the program defines without it (cpp_nx_throws)
+ccl_suffix_quals --> ccl_cpp, ccl_kw(noexcept), !, ( ccl_p('('), ccl_nx_arg(Y), ccl_p(')'), ! ; { Y = yes } ), { nb_setval('$ccl_nx', Y) }.
+ccl_suffix_quals --> ccl_cpp, ccl_kw(throw), ccl_p('('), !, ( ccl_peek(p, ')'), { Y = yes } ; { Y = no } ), ccl_balanced, ccl_p(')'), { nb_setval('$ccl_nx', Y) }.   % `throw()' is noexcept(true) ([except.spec]), `throw(X)' is not
+ccl_suffix_quals --> { nb_setval('$ccl_nx', no) }.
+%% the argument of `noexcept(...)': `false' is no, anything else yes (a dependent condition is taken as holding)
+ccl_nx_arg(no) --> ccl_kw(false), ccl_peek(p, ')'), !.
+ccl_nx_arg(yes) --> ccl_balanced.
+ccl_nx_flag(Y) :- catch(nb_getval('$ccl_nx', Y0), _, fail), !, Y = Y0.
+ccl_nx_flag(no).
+ccl_note_nx(N) :- atom(N), ccl_nx_flag(yes), !, ( catch(nb_getval('$ccl_nothrow', L), _, fail) -> true ; L = [] ), ( memberchk(N, L) -> true ; nb_setval('$ccl_nothrow', [N|L]) ).
+ccl_note_nx(_).
+ccl_nothrow(N) :- catch(nb_getval('$ccl_nothrow', L), _, fail), memberchk(N, L).
 
 ccl_params(_, [], false) --> ccl_kw(void), ccl_peek(p, ')'), !.
 ccl_params(Env, Ps, Var) --> ccl_param_list(Env, Ps, Var), !.

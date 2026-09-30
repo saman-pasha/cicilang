@@ -775,7 +775,7 @@ ck_stmt(ifce(_, _, RT), St0, St) :- !, ck_stmt(RT, St0, St).                    
 %% not known there), the states merged
 ck_stmt(try(L, Body, Catches), St0, St) :- !, ck_line(L), ck_stmt(Body, St0, StB), ck_catches(Catches, St0, StB, St).
 ck_catches([], _, St, St).
-ck_catches([catch(any, B)|Cs], St0, Acc, St) :- !, ck_stmt(B, St0, S1), ck_merge(Acc, S1, Acc1), ck_catches(Cs, St0, Acc1, St).
+ck_catches([catch(K, B)|Cs], St0, Acc, St) :- ( K == any ; K == terminate ), !, ck_stmt(B, St0, S1), ck_merge(Acc, S1, Acc1), ck_catches(Cs, St0, Acc1, St).
 ck_catches([catch(_, T, N, B)|Cs], St0, Acc, St) :- ccl_scope_push, ( N == anon -> true ; ccl_declare(N, T) ), ck_stmt(B, St0, S1), ccl_scope_pop, ck_merge(Acc, S1, Acc1), ck_catches(Cs, St0, Acc1, St).
 ck_stmt(if(L, C, T, E), St0, St) :- !, ck_line(L),
     ck_expr(C, St0, St1), ck_refine(C, St1, StThen, StElse),
@@ -1201,6 +1201,7 @@ ck_expr(rtti(_), St, St) :- !.                                                  
 ck_expr(eh_alloc(_), St, St) :- !.                                                 % an exception's storage, handed to __cxa_throw (0.108)
 ck_expr(eh_throw(P, _, _), St0, St) :- !, ck_expr(P, St0, St).
 ck_expr(eh_rethrow, St, St) :- !.
+ck_expr(eh_terminate, St, St) :- !.
 ck_expr(rtti_dyn(X), St0, St) :- !, ck_expr(X, St0, St).
 ck_expr(dyncast(X, _, _, _), St0, St) :- !, ck_expr(X, St0, St).
 ck_expr(dyncast_ref(X, _, _, _), St0, St) :- !, ck_expr(X, St0, St).

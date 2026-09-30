@@ -45,7 +45,7 @@
 %% the lowering's version: part of the key of every IR the driver keeps in the
 %% store (library(ccl_driver)); BUMP it whenever the check or the lowering
 %% changes what they emit, as ccl_reader_version/1 is bumped for the grammar
-ccl_lowering_version(52).   % 52 (0.108): the coroutines (LLVM's switch-resumed intrinsics), RTTI and the Itanium vtable prefix, exceptions (invoke, landingpad), secondary vtables and thunks, the array cookie, tentative definitions, _Bool; 51 (0.108): long double as x86_fp80, float and floating global constants folded, va_arg and the va intrinsics, offsetof, anonymous members, designated global initializers normalized; 50 (0.104): the integer imaginary literal's real type from its suffix, a big one spelled whole; 49 (0.103): sizeof a string literal is its bytes; 48 (0.103): _Complex int, two integer components, the integer imaginary literal; 47 (0.101): the imaginary literal, Annex G's multiplication and division through the runtime's __muldc3 and __divdc3, the components as places; 46 (0.100): a function bound to a reference to a pointer converts into a materialized pointer temporary; 45 (0.100): a pointer to member function as the ABI's { ptr, adj }, C's complex types as two components; 44: the VLA's bounds kept in its type, a VLA of a VLA flat, _Alignas on an object, a wide string into an array with the rest zero, a data-member pointer as an offset, a null pointer to a base at an offset, the C11 atomic builtins and _Atomic objects atomic (0.99); 43: an empty `[[no_unique_address]]' member has no element and its address is the ABI's byte offset; 42: a conditional over two void arms has no phi
+ccl_lowering_version(54).   % 54 (0.110): a virtual base reached through the table's vbase offset, a diamond's `.nv' paths as their data size of bytes, a global's braced list elided, a virtual base flagged in the type_info; 53 (0.110): a noexcept function guarded by a terminate handler that runs no cleanup, std::terminate; 52 (0.108): the coroutines (LLVM's switch-resumed intrinsics), RTTI and the Itanium vtable prefix, exceptions (invoke, landingpad), secondary vtables and thunks, the array cookie, tentative definitions, _Bool; 51 (0.108): long double as x86_fp80, float and floating global constants folded, va_arg and the va intrinsics, offsetof, anonymous members, designated global initializers normalized; 50 (0.104): the integer imaginary literal's real type from its suffix, a big one spelled whole; 49 (0.103): sizeof a string literal is its bytes; 48 (0.103): _Complex int, two integer components, the integer imaginary literal; 47 (0.101): the imaginary literal, Annex G's multiplication and division through the runtime's __muldc3 and __divdc3, the components as places; 46 (0.100): a function bound to a reference to a pointer converts into a materialized pointer temporary; 45 (0.100): a pointer to member function as the ABI's { ptr, adj }, C's complex types as two components; 44: the VLA's bounds kept in its type, a VLA of a VLA flat, _Alignas on an object, a wide string into an array with the rest zero, a data-member pointer as an offset, a null pointer to a base at an offset, the C11 atomic builtins and _Atomic objects atomic (0.99); 43: an empty `[[no_unique_address]]' member has no element and its address is the ABI's byte offset; 42: a conditional over two void arms has no phi
 %% ccl_lowering_version(41).   % 41: a literal past 2^60 spelled whole; 40.   % 40: a base clause naming a bound type parameter takes its class, a scope name is the class's own typedef first (libc++ 18), -lc++ on Linux; 39: C23 (_BitInt as iN, the overflow builtins, unreachable), a VLA at run time, thread_local, the wide literals, [[assume]]; 38: a conditional over two lvalues is an lvalue, and its address the phi of theirs;  % 37: wchar_t, char16_t and char32_t have LLVM types, and a function template's shipped instance its Itanium symbol;  % 36: an rvalue prefers `T &&' where a TEMPLATE's candidate is judged (cpp_ref_rank), so std::get answers `int &&' and not `int &';  % 35: a CAST TO A REFERENCE converts from the operand's class to the cast's own target, so a reference or a pointer to a SECOND base is offset (ir_ref_to);  % 34: an empty class is one byte, an `alignas' one padded to its alignment, and a `[[no_unique_address]]' empty member a zero-sized element -- every struct's shape may move
 
 ccl_ir_units(Units0, IR) :-
@@ -227,7 +227,7 @@ ir_shape([lay(N, T, Off, empty)|Ls], Cur, Idx, Elems, Map, End) :- !,   % a `[[n
     Map = [m(N, empty(Off), T, empty)|Map1],
     ir_shape(Ls, Cur, Idx, Elems, Map1, End).
 ir_shape([lay(N, T, Off, none)|Ls], Cur, Idx, Elems, Map, End) :- !,
-    ccl_resolve_type(T, T1), ccl_size_align(T1, S, A), ccl_round_up(Cur, A, Nat), ir_type(T, LL),
+    ccl_resolve_type(T, T1), ccl_size_align(T1, S, A), ( ccl_vbase_kind(T1, nv(_)) -> atomic_list_concat(['[', S, ' x i8]'], LL), Nat = Cur ; ccl_round_up(Cur, A, Nat), ir_type(T, LL) ),   % a `.nv' base is its data size of bytes, so what follows may use its tail padding
     ir_pad_to(Off, Nat, Cur, Idx, Elems, Elems1, Idx1),
     Elems1 = [LL|Elems2], Cur1 is Off + S, Idx2 is Idx1 + 1,
     Map = [m(N, Idx1, T, none)|Map1],
@@ -259,8 +259,8 @@ ir_class_pointee(T, Name) :- ccl_resolve_type(T, ptr(_, PT)), ccl_resolve_type(P
 %% ... and a class may have SEVERAL base sub-objects since 0.88 (`$base', then `$base$2' ...: std::tuple's leaves),
 %% so the route is found once and walked, rather than each walk finding its own
 ir_base_path(D, A) :- ir_base_route(D, A, _), !.
-ir_base_route(D, A, [BN|Rest]) :- ccl_members_of(base([], [struct(D, none)]), Ms), member(member(MT, BN, _), Ms), ir_base_member(BN),
-    ccl_resolve_type(MT, base(_, [struct(B, _)])), ( B == A -> Rest = [] ; ir_base_route(B, A, Rest) ).
+ir_base_route(D, A, [BN|Rest]) :- ccl_members_of(base([], [struct(D, none)]), Ms0), ( ccl_vbase_kind(base([], [struct(D, none)]), nv(VT)) -> Ms = [member(VT, '$base', none)|Ms0] ; Ms = Ms0 ), member(member(MT, BN, _), Ms), ir_base_member(BN),
+    ccl_resolve_type(MT, base(_, [struct(B, _)])), ( ( B == A ; atom(A), atom_concat(A, '.nv', B) ) -> Rest = [] ; ir_base_route(B, A, Rest) ).   % a diamond's later path is the class's `.nv' form (0.110)
 ir_base_member('$base') :- !.
 ir_base_member(N) :- atom(N), sub_atom(N, 0, 6, _, '$base$').
 ir_base_hops(V, D, A, V1) :- ir_base_route(D, A, Route), !, ir_base_walk(V, D, Route, V1).
@@ -288,7 +288,17 @@ ir_ref_hops(P0, ET, RefT, P) :- ( ET \== unknown, ccl_unref(ET, ET1), ccl_resolv
 ir_member_slot(Base, ST, N, Slot, T) :- ccl_resolve_type(ST, memptr(_, _, F)), ccl_resolve_type(F, fn(_, _, _)), !,   % the two fields of a pointer to member function (0.100): `pm.ptr' and `pm.adj', which the call the desugaring builds reads
     ( N == ptr -> Idx = 0, T = ptr([], base([], [void])) ; N == adj -> Idx = 1, T = base([], [long]) ; ir_fail(no_member(N, ST)) ),
     ir_fresh(Slot), ir_ins([Slot, ' = getelementptr inbounds { ptr, i64 }, ptr ', Base, ', i32 0, i32 ', Idx]).
-ir_member_slot(Base, ST, N, Slot, T) :-
+ir_member_slot(Base, ST, '$base!', Slot, T) :- !, ir_member_slot_(Base, ST, '$base', Slot, T).   % the virtual base where the COMPLETE object lays it: its constructor and destructor, before and after the table is the object's
+%% A VIRTUAL BASE IS REACHED THROUGH THE VTABLE ([class.mi]; the Itanium ABI's vbase offset, 0.110): the object's
+%% table pointer, the offset at `vptr[-3]', the base at that many bytes from the object -- the same code whether the
+%% object is complete or a base sub-object of a diamond, where the shared base lies elsewhere
+ir_member_slot(Base, ST, '$base', Slot, T) :- ccl_vbase_kind(ST, K), !,
+    ( K = nv(T) -> true ; ccl_members_of(ST, Ms), memberchk(member(T, '$base', _), Ms) ),
+    ir_member_slot_(Base, ST, '$vptr', VS, _), ir_fresh(VP), ir_ins([VP, ' = load ptr, ptr ', VS]),
+    ir_fresh(Q), ir_ins([Q, ' = getelementptr inbounds i8, ptr ', VP, ', i64 -24']), ir_fresh(O), ir_ins([O, ' = load i64, ptr ', Q]),
+    ir_fresh(Slot), ir_ins([Slot, ' = getelementptr inbounds i8, ptr ', Base, ', i64 ', O]).
+ir_member_slot(Base, ST, N, Slot, T) :- ir_member_slot_(Base, ST, N, Slot, T).
+ir_member_slot_(Base, ST, N, Slot, T) :-
     (   ir_is_union(ST) -> ( ccl_members_of(ST, UMs), memberchk(member(T, N, _), UMs) -> Slot = Base ; ccl_anon_route(ST, N, A, AT) -> ir_member_slot(Base, AT, N, Slot, T), A = A ; ir_fail(no_member(N, ST)) )
     ;   ir_type(ST, SLL), nb_getval('$ir_maps', Maps), memberchk(SLL-shape(_, Map), Maps), memberchk(m(N, Idx, T, BF), Map)
     ->  ir_fresh(P),
@@ -723,11 +733,11 @@ ir_dyncast_decl :- ir_note_extern('__dynamic_cast', raw('declare ptr @__dynamic_
 ir_rtti_emit(ext(Sym), Sym) :- !, atomic_list_concat(['@', Sym, ' = external constant ptr'], D), ir_note_extern(Sym, raw(D)).
 ir_rtti_emit(vmi(N, C, Bs), Sym) :- !, atom_concat('_ZTI', N, Sym), atom_concat('_ZTS', N, SN),
     atom_length(N, K), K1 is K + 1, atomic_list_concat(['@', SN, ' = linkonce_odr constant [', K1, ' x i8] c"', N, '\\00"'], DS), ir_note_extern(SN, raw(DS)),
-    findall(E, ( member(b(Ch, S), Bs), ir_rtti_emit(Ch, BS), ( S == none -> Off = 0 ; ccl_offsetof(base([], [typedef(C)]), id(S), Off) ), F is Off * 256 + 2,
+    findall(E, ( member(b(Ch, S), Bs), ir_rtti_emit(Ch, BS), ( S == virtual -> F = -6141 ; ( S == none -> Off = 0 ; ccl_offsetof(base([], [typedef(C)]), id(S), Off) ), F is Off * 256 + 2 ),   % a VIRTUAL base (0.110): public and virtual, its offset the vbase offset's place in the table, -24 (-24 * 256 + 3)
                  atomic_list_concat(['{ ptr, i64 } { ptr @', BS, ', i64 ', F, ' }'], E) ), Es),
-    length(Es, NB), atomic_list_concat(Es, ', ', EsT), V = '_ZTVN10__cxxabiv121__vmi_class_type_infoE',
+    length(Es, NB), atomic_list_concat(Es, ', ', EsT), V = '_ZTVN10__cxxabiv121__vmi_class_type_infoE', ( catch('$cpp_nv_base'(C, _), _, fail) -> DF = 2 ; DF = 0 ),   % __diamond_shaped_mask
     atomic_list_concat(['@', Sym, ' = linkonce_odr constant { ptr, ptr, i32, i32, [', NB, ' x { ptr, i64 }] } { ptr getelementptr inbounds (ptr, ptr @', V, ', i64 2), ptr @', SN,
-                        ', i32 0, i32 ', NB, ', [', NB, ' x { ptr, i64 }] [', EsT, '] }'], D),
+                        ', i32 ', DF, ', i32 ', NB, ', [', NB, ' x { ptr, i64 }] [', EsT, '] }'], D),
     atomic_list_concat(['@', V, ' = external global [0 x ptr]'], DV), ir_note_extern(V, raw(DV)), ir_note_extern(Sym, raw(D)).
 ir_rtti_emit([N|Rest], Sym) :- atom_concat('_ZTI', N, Sym), atom_concat('_ZTS', N, SN),
     atom_length(N, K), K1 is K + 1, atomic_list_concat(['@', SN, ' = linkonce_odr constant [', K1, ' x i8] c"', N, '\\00"'], DS), ir_note_extern(SN, raw(DS)),
@@ -752,6 +762,7 @@ ir_expr(eh_throw(P, rtti(Ch), D), none, base([], [void]), void) :- !, ir_expr(P,
     ( D == nullptr -> DV = null ; ir_expr(D, DV, _, _) ),
     ir_note_extern('__cxa_throw', raw('declare void @__cxa_throw(ptr, ptr, ptr)')),
     atomic_list_concat(['ptr ', PV, ', ptr @', Sym, ', ptr ', DV], Args), ir_emit_call(none, void, '@__cxa_throw', Args), ir_end(['unreachable']).
+ir_expr(eh_terminate, none, base([], [void]), void) :- !, ir_note_extern('_ZSt9terminatev', raw('declare void @_ZSt9terminatev()')), ir_ins(['call void @_ZSt9terminatev()']), ir_end(['unreachable']).   % std::terminate, where an exception leaves a noexcept function (0.110)
 ir_expr(eh_rethrow, none, base([], [void]), void) :- !, ir_note_extern('__cxa_rethrow', raw('declare void @__cxa_rethrow()')), ir_emit_call(none, void, '@__cxa_rethrow', ''), ir_end(['unreachable']).
 ir_expr(drain_free(E), V, RT, LL) :- !, ir_call(id(free), [E], V, RT), ir_type(RT, LL).          % the lowering's own free, past the drain
 ir_expr(assign('=', L, R), V, LT, LL) :- ir_own_elem(L), !, ir_elem_assign(L, R, S), ir_expr(S, V, LT, LL).   % an own array's element: the old one freed
@@ -1183,7 +1194,7 @@ ir_invoke_needed :- catch(nb_getval('$ir_eh', yes), _, fail), nb_getval('$ir_unw
 ir_eh_slots(E, S) :- nb_getval('$ir_ehslots', X), ( X = slots(E, S) -> true ; ir_tmp(ptr, E), ir_tmp(i32, S), nb_setval('$ir_ehslots', slots(E, S)) ).
 ir_landing_pad(Llp) :-
     ir_block(Llp), nb_setval('$ir_personality', yes),
-    nb_getval('$ir_tries', Tries), findall(C, ( member(t(_, Hs), Tries), member(h(K, _), Hs), ( K == any -> C = ' catch ptr null' ; atomic_list_concat([' catch ptr @', K], C) ) ), Cs),
+    nb_getval('$ir_tries', Tries), findall(C, ( member(t(_, Hs), Tries), member(h(K, _), Hs), ( ( K == any ; K == terminate ) -> C = ' catch ptr null' ; atomic_list_concat([' catch ptr @', K], C) ) ), Cs),
     ir_fresh(LP), atomic_list_concat(Cs, CsT), ir_ins([LP, ' = landingpad { ptr, i32 } cleanup', CsT]),
     ir_eh_slots(ES, SS), ir_fresh(X), ir_ins([X, ' = extractvalue { ptr, i32 } ', LP, ', 0']), ir_ins(['store ptr ', X, ', ptr ', ES]),
     ir_fresh(Y), ir_ins([Y, ' = extractvalue { ptr, i32 } ', LP, ', 1']), ir_ins(['store i32 ', Y, ', ptr ', SS]),
@@ -1193,6 +1204,7 @@ ir_unwind_to([], Frames, _) :- ir_run_frames(Frames), ir_eh_slots(ES, SS),
     ir_fresh(X), ir_ins([X, ' = load ptr, ptr ', ES]), ir_fresh(Y), ir_ins([Y, ' = load i32, ptr ', SS]),
     ir_fresh(A), ir_ins([A, ' = insertvalue { ptr, i32 } poison, ptr ', X, ', 0']), ir_fresh(B), ir_ins([B, ' = insertvalue { ptr, i32 } ', A, ', i32 ', Y, ', 1']),
     ir_end(['resume { ptr, i32 } ', B]).
+ir_unwind_to([t(_, [h(terminate, Lh)])|_], _, _) :- !, ir_end(['br label %', Lh]).   % a noexcept function's boundary: terminate, running no destructor on the way (0.110)
 ir_unwind_to([t(D, Hs)|Ts], Frames, Len) :- K is Len - D, ir_take(K, Frames, Fs), length(Fs, KF), length(Pre, KF), append(Pre, Rest, Frames),
     ir_run_frames(Fs), ir_eh_dispatch(Hs), ( ir_terminated(yes) -> true ; ir_unwind_to(Ts, Rest, D) ).
 ir_eh_dispatch([]).
@@ -1206,7 +1218,7 @@ ir_eh_dispatch([h(Sym, Lh)|Hs]) :- ir_eh_slots(_, SS), ir_fresh(S), ir_ins([S, '
 %% class caught by value is bound to the object itself), the body, and __cxa_end_catch as the handler scope's defer,
 %% so a return, a break or an exception out of the handler ends the catch too
 ir_try(L, Body, Catches) :- ir_line(L), nb_getval('$ir_defers', Fr), length(Fr, D), ir_label(La),
-    findall(h(K, Lh)-Cat, ( member(Cat, Catches), ir_label(Lh), ( Cat = catch(any, _) -> K = any ; Cat = catch(rtti(Ch), _, _, _), ir_rtti_emit(Ch, K) ) ), HCs),
+    findall(h(K, Lh)-Cat, ( member(Cat, Catches), ir_label(Lh), ( Cat = catch(any, _) -> K = any ; Cat = catch(terminate, _) -> K = terminate ; Cat = catch(rtti(Ch), _, _, _), ir_rtti_emit(Ch, K) ) ), HCs),
     findall(H, member(H-_, HCs), Hs),
     nb_getval('$ir_tries', T0), nb_setval('$ir_tries', [t(D, Hs)|T0]),
     ir_stmt(Body), nb_setval('$ir_tries', T0), ir_end(['br label %', La]),
@@ -1216,7 +1228,7 @@ ir_handler(Cat, Lh, La) :- ir_block(Lh), ir_eh_slots(ES, _), ir_fresh(X), ir_ins
     ir_note_extern('__cxa_begin_catch', raw('declare ptr @__cxa_begin_catch(ptr)')), ir_note_extern('__cxa_end_catch', raw('declare void @__cxa_end_catch()')),
     ir_fresh(O), ir_ins([O, ' = call ptr @__cxa_begin_catch(ptr ', X, ')']),
     ir_env_push, ir_defer_push(eh_end_catch),
-    (   Cat = catch(any, B) -> true
+    (   ( Cat = catch(any, B) ; Cat = catch(terminate, B) ) -> true
     ;   Cat = catch(_, T, N, B), ( N == anon -> true ; ir_catch_bind(N, T, O) ) ),
     ir_stmt(B), ir_run_defers(1), ir_env_pop, ir_end(['br label %', La]).
 ir_catch_bind(N, T, O) :- ccl_resolve_type(T, T1),
@@ -1778,10 +1790,18 @@ ir_gitems([], K, E, EL, [Z|Zs]) :- ir_type(E, _), ir_zero(EL, Z0), atomic_list_c
 ir_gitems([item(_, V)|Is], K, E, EL, [P|Ps]) :- ir_gconst(V, E, C), atomic_list_concat([EL, ' ', C], P), K1 is K - 1, ir_gitems(Is, K1, E, EL, Ps).
 %% a struct constant over its shape: a plain member's constant, a run of
 %% bitfields packed into its bytes, padding zero
-ir_gstruct(Items, ST, C) :-
-    ccl_members_of(ST, Ms), ir_gvalues(Items, Ms, 0, Vals),
+ir_gstruct(Items0, ST, C) :-
+    ccl_members_of(ST, Ms), ir_gelide(Items0, Ms, 0, Items), ir_gvalues(Items, Ms, 0, Vals),
     ir_type(ST, SLL), nb_getval('$ir_maps', Maps), memberchk(SLL-shape(Elems, Map), Maps),
     ir_gelems(Elems, 0, Map, Vals, Parts), ir_join(Parts, ', ', Body), atomic_list_concat(['{ ', Body, ' }'], C).
+%% BRACE ELISION in a GLOBAL's constant too (0.91's rule for a local and the desugaring, 0.110): `static constexpr
+%% std::array<K, 2> ks{K::a, K::c}' -- the array member takes as many of the items that follow as it has elements
+ir_gelide([], _, _, []).
+ir_gelide([item([], V)|Is], Ms, I, [item([], init(Sub))|Out]) :- V \= init(_), I1 is I + 1,
+    ccl_nth(I1, Ms, member(MT, _, _)), ccl_resolve_type(MT, arr(B, _)), catch(ccl_const_eval(B, K), _, fail), K > 1,
+    length(Ms, NM), length(Is, NI), NI > NM - I1, !,
+    K1 is K - 1, ir_elide_take(K1, Is, More, Rest), findall(item([], W), member(W, [V|More]), Sub), ir_gelide(Rest, Ms, I1, Out).
+ir_gelide([It|Is], Ms, I, [It|Out]) :- I1 is I + 1, ir_gelide(Is, Ms, I1, Out).
 ir_gvalues([], _, _, []).
 ir_gvalues([item(Ds, V)|Is], Ms, I, [N-V|Vs]) :-
     (   Ds = [field(F)|_] -> N = F, ir_member_index_(Ms, F, 0, I0, _), I1 is I0 + 1

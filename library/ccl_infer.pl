@@ -294,6 +294,11 @@ ccl_tag_struct(N, Ms) :- ccl_cached_named('$ccl_ts:', N, Ms, ( nb_getval('$ccl_t
 %% nothing to lay out.
 ccl_class_shape(Ms) :- member(M, Ms), \+ ccl_layout_marker(M), M \= member(_, _, _), !.
 ccl_layout_marker(align_as(_)).
+ccl_layout_marker(virtual_base).                                   % a class whose FIRST base is VIRTUAL (0.110): its `$base' is reached through the vtable's vbase offset
+ccl_layout_marker(virtual_base_of(_)).                             % ... and its base-subobject form `C.nv', the shared base not laid out (a diamond's later path)
+%% which kind of virtual-base struct a type is: `complete' (the base laid LAST, at a place only the complete object knows)
+%% or `nv(T)' (the base elsewhere in the complete object); either is reached through the vtable, never statically
+ccl_vbase_kind(T, K) :- ccl_members_of_(T, Ms), ( memberchk(virtual_base, Ms) -> K = complete ; memberchk(virtual_base_of(VT), Ms) -> K = nv(VT) ).
 ccl_resolve_typedef(N, T) :- ccl_typedef_of(N, T0), ccl_resolve_type(T0, T).
 ccl_add_quals([], T, T) :- !.
 ccl_add_quals(Q, base(Q0, S), base(Q1, S)) :- !, append(Q, Q0, Q1).
@@ -340,6 +345,8 @@ ccl_init_route(T, [field(F)|Rest], Ds) :- ccl_members_of(T, Ms), \+ memberchk(me
 ccl_init_route(_, Ds, Ds).
 %% C99's `__func__' (6.4.2.2), and GNU's `__FUNCTION__' and `__PRETTY_FUNCTION__' beside it: the enclosing function's name (0.108)
 ccl_func_name(N) :- memberchk(N, ['__func__', '__FUNCTION__', '__PRETTY_FUNCTION__']), \+ ccl_declared(N, _), !.
+ccl_member_type(T, '$base!', MT) :- !, ccl_member_type(T, '$base', MT).   % the virtual base AT ITS PLACE in the complete object: a constructor's and a destructor's name for it
+ccl_member_type(T, '$base', MT) :- ccl_vbase_kind(T, nv(MT0)), !, MT = MT0.
 ccl_member_type(T, N, MT) :- ccl_members_of(T, Ms), ( memberchk(member(MT, N, _), Ms) -> true ; ccl_anon_route(T, N, A, AT), A \== N, ccl_member_type(AT, N, MT) ).
 %% the anonymous member of a C struct or union that holds a member N, directly or through another anonymous one
 ccl_anon_route(T, N, A, AT) :- ccl_members_of(T, Ms), member(member(AT, A, _), Ms), atom(A), sub_atom(A, 0, _, _, '$anon'), ccl_anon_has(AT, N), !.
@@ -485,6 +492,7 @@ ccl_coro_builtin_type('__builtin_coro_destroy', base([], [void])).
 ccl_coro_builtin_type('__builtin_coro_done', base([], [bool])).
 ccl_type_of(eh_throw(_, _, _), base([], [void])) :- !.
 ccl_type_of(eh_rethrow, base([], [void])) :- !.
+ccl_type_of(eh_terminate, base([], [void])) :- !.
 ccl_type_of(throw(_), base([], [void])) :- !.
 ccl_type_of(dyncast_ref(_, _, _, T), T) :- !.
 ccl_type_of(va_arg(_, T0), T) :- !, T = T0.
@@ -560,6 +568,8 @@ ccl_size_align(base(_, S), N, A) :- memberchk(bitint(E), S), !, ccl_bitint_width
     ( W =< 8 -> N = 1 ; W =< 16 -> N = 2 ; W =< 32 -> N = 4 ; N is ((W + 63) // 64) * 8 ), ( N > 8 -> A = 8 ; A = N ).
 ccl_size_align(base(_, S), N, A) :- memberchk('_Complex', S), !, ccl_complex_real(base([], S), R), ccl_size_align(R, A, _), N is 2 * A.   % a complex: two components, aligned as one (0.100; an integer's too, 0.103)
 ccl_size_align(base(_, S), N, A) :- ccl_basic_size(S, N), !, A = N.
+ccl_size_align(base(_, [struct(_, Ms)]), N, A) :- Ms \== none, memberchk(virtual_base_of(_), Ms), !, ccl_members_layout(Ms, Lays, _, A),   % A BASE-SUBOBJECT FORM takes its DATA size (the Itanium ABI's dsize, 0.110): what follows it in the complete object may lie in its tail padding, as clang lays `int d' of `struct D : B, C' at 28, inside C's 16 bytes
+    findall(E, ( member(lay(_, T, Off, _), Lays), ccl_resolve_type(T, T1), ccl_size_align(T1, S, _), E is Off + S ), Es), ( Es == [] -> N = 0 ; max_list(Es, N) ).
 ccl_size_align(base(_, [struct(_, Ms)]), N, A) :- Ms \== none, !, ccl_struct_layout(Ms, 0, 1, N0, A0), ccl_tag_size(Ms, N0, A0, N, A).
 ccl_size_align(base(_, [union(_, Ms)]), N, A) :- Ms \== none, !, ccl_union_layout(Ms, 0, 1, N0, A0), ccl_tag_size(Ms, N0, A0, N, A).
 %% a tag's size and alignment: the members' own, the empty class's byte, and `alignas' where the class
