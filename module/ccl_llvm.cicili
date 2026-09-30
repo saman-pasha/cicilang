@@ -222,7 +222,7 @@
       (set dl (LLVMCreateTargetDataLayout tm))
       (LLVMSetModuleDataLayout mod dl)
       (LLVMDisposeTargetData dl)
-      (if (> level 0)
+      (if (>= level 0)   ; default<O0> at -O0 too: it holds the coroutine passes (CoroSplit), which a coroutine needs at every level (0.108)
         (block
           (set opts (LLVMCreatePassBuilderOptions))
           (set err (LLVMRunPasses mod (ccl_llvm_pipeline level) tm opts))

@@ -32,8 +32,9 @@ build_one(N, Dir, D) :-
     ;   true ).
 
 c_level(Dir, N) :- atomic_list_concat([Dir, '/', N, '.std'], F),
-    (   exists_file(F), read_file_to_codes(F, Cs), atom_codes(A, Cs), atom_number_prefix(A, V) -> nb_setval('$ccl_c_std', V)
-    ;   nb_setval('$ccl_c_std', 17) ).
+    (   exists_file(F), read_file_to_codes(F, Cs), atom_codes(A, Cs), atom_number_prefix(A, V) -> nb_setval('$ccl_c_std', V),
+        ( V < 23, sub_atom(A, 0, 6, _, '-std=c') -> nb_setval('$ccl_trigraphs', yes) ; nb_setval('$ccl_trigraphs', no) )   % an ISO level before C23 reads trigraphs, as bin/cocolang's -std=c17 does
+    ;   nb_setval('$ccl_c_std', 17), nb_setval('$ccl_trigraphs', no) ).
 atom_number_prefix(A, V) :- atom_codes(A, Cs), findall(C, ( member(C, Cs), C >= 0'0, C =< 0'9 ), Ds), Ds \== [], number_codes(V, Ds).
 refuse_all([], _).
 refuse_all([N|Ns], Dir) :- refuse_one(N, Dir), refuse_all(Ns, Dir).

@@ -96,6 +96,7 @@ ccl_const_eval(not(E), V) :- !, ccl_const_eval(E, V0), ( V0 == 0 -> V = 1 ; V = 
 ccl_const_eval(cast(T, E), V) :- !, ccl_const_eval(E, V0), ccl_w_cast(T, V0, V).
 ccl_const_eval(ccast(_, T, E), V) :- !, ccl_const_eval(E, V0), ccl_w_cast(T, V0, V).      % C++'s own casts, a functional one among them: `type(~0)' folds as `(type) ~0' does
 ccl_const_eval(sizeof_type(T), V) :- !, ccl_size_of(T, V).
+ccl_const_eval(offsetof(T, D), V) :- !, ccl_offsetof(T, D, V).
 ccl_const_eval(alignof_type(T), V) :- !, ccl_resolve_type(T, T1), ccl_size_align(T1, _, V).   % `alignof(T)' ([expr.alignof]): the alignment the layout already computes
 ccl_const_eval(sizeof(E), V) :- !, ( ccl_literal_bytes(E, V) -> true ; ccl_type_of(E, T), ccl_size_of(T, V) ).   % a string literal's bytes (0.103)
 ccl_const_eval(cond(C, A, B), V) :- !, ccl_const_eval(C, CV), ( CV \== 0 -> ccl_const_eval(A, V) ; ccl_const_eval(B, V) ).
@@ -146,7 +147,9 @@ ccl_w_cmp(X, Y, O) :- ccl_wide(X, w(SA, MA)), ccl_wide(Y, w(SB, MB)),
     ( SA < SB -> O = (<) ; SA > SB -> O = (>) ; ccl_mag_cmp(MA, MB, O0), ( SA < 0 -> ccl_w_flip(O0, O) ; O = O0 ) ).
 ccl_w_flip(<, >). ccl_w_flip(>, <). ccl_w_flip(=, =).
 %% a cast to an integer type wraps to its width, then to its signedness; to bool it is the test; to anything else the value
+ccl_w_cast(T, X, V) :- float(X), ccl_resolve_type(T, RT), ccl_cast_shape(RT, Bits, Signed), !, ( Signed == bool -> ( X =:= 0.0 -> V = 0 ; V = 1 ) ; X1 is truncate(X), ccl_w_wrap(X1, Bits, Signed, V) ).   % a floating value to an integer type truncates toward zero (6.3.1.4), then wraps (0.108)
 ccl_w_cast(T, X, V) :- ccl_resolve_type(T, RT), ccl_cast_shape(RT, Bits, Signed), !, ccl_w_wrap(X, Bits, Signed, V).
+ccl_w_cast(T, X, V) :- integer(X), ccl_is_float(T), !, V is X * 1.0.   % an integer to a floating type is a floating value
 ccl_w_cast(_, X, X).
 ccl_cast_shape(base(_, S), 1, bool) :- ( memberchk(bool, S) ; memberchk('_Bool', S) ), !.
 ccl_cast_shape(RT, Bits, Signed) :- ccl_is_integer(RT), ccl_size_of(RT, Bytes), Bits is Bytes * 8, ( ccl_int_rank(RT, _, true) -> Signed = false ; Signed = true ).
@@ -248,6 +251,11 @@ ccl_resolve_type(base(Q, [S|Ss]), base(Q, [S|Ss])) :- atom(S), !.               
 ccl_resolve_type(base(Q, S), T) :- !, ccl_resolve_base(S, Q, T).
 ccl_resolve_type(T, T).
 ccl_resolve_base([S|Ss], Q, base(Q, [S|Ss])) :- atom(S), !.                      % a plain specifier list, the common case: one try
+%% THE VARIABLE ARGUMENT LIST, `__builtin_va_list' (0.108): the platform ABI's own type -- on x86-64 SysV a
+%% `struct __va_list_tag[1]' of 24 bytes (two 4-byte offsets and two pointers), on AAPCS64 Linux a 32-byte struct,
+%% on Apple's arm64 a `char *' -- kept here as an array of words of that size, since nothing reads its fields but
+%% LLVM's own `va_arg' instruction: a local is the object, a parameter the pointer it decays to, as C has it
+ccl_resolve_base([typedef('__builtin_va_list')], Q, T) :- !, ccl_va_list_type(Q, T).
 ccl_resolve_base([typedef(N)], Q, T) :- atom(N), ccl_cached_named('$ccl_r:', N, T1, ccl_resolve_typedef(N, T1)), !, ccl_add_quals(Q, T1, T).
 ccl_resolve_base([typedef(N)], Q, T) :- atom(N), ccl_lang(cpp), ccl_tag(N, Ms), !, ccl_tag_type(N, Ms, Q, T).   % C++: a tag's name is a type name; a template-id (a compound) stays as it is
 %% typeof(x): the TYPE when a type was written (GNU's, and C23's own), else the expression's -- nothing
@@ -301,7 +309,40 @@ ccl_members_of_(base(_, [struct(_, Ms)]), Ms) :- Ms \== none, !.                
 ccl_members_of_(base(_, [union(_, Ms)]), Ms) :- Ms \== none, !.
 ccl_members_of_(T, Ms) :- ccl_resolve_type(T, T1), ( T1 = base(_, [struct(_, Ms)]) ; T1 = base(_, [union(_, Ms)]) ), Ms \== none, !.
 ccl_members_of_(T, Ms) :- ccl_resolve_type(T, base(_, [class(_, _, _, Ms0)])), !, findall(member(MT, N, I), ( member(member(MT, N, I), Ms0), \+ ( MT = base(Q, _), memberchk(static, Q) ) ), Ms).   % C++: a class's data members, the statics apart
-ccl_member_type(T, N, MT) :- ccl_members_of(T, Ms), memberchk(member(MT, N, _), Ms).
+%% C 6.7.9: A DESIGNATED INITIALIZER LIST MADE POSITIONAL (0.108), for a global's constant, which is written
+%% member by member and element by element: `.f = v' and `[k] = v' move the cursor, a later designation of the
+%% same slot replaces it, `.a.b = v' and `[1].x = v' gather under their slot as a sub-list (itself normalized where
+%% it is emitted), a member of an anonymous struct or union goes through the member that holds it, a hole is
+%% `init([])', the type's zero; a union keeps the one member given last. A list with no designator is as written.
+ccl_init_norm(_, Items, Out) :- \+ ( member(item(Ds, _), Items), Ds \== [] ), !, Out = Items.
+ccl_init_norm(T, Items, Out) :- ccl_resolve_type(T, T1), ccl_init_place(Items, T1, 0, [], Slots),
+    (   T1 = base(_, [union(_, Ms)]) -> ( last(Items, _), Slots = [_|_] -> ccl_init_last(Slots, I-V), ccl_nth0_member(Ms, I, N), Out = [item([field(N)], V)] ; Out = [] )
+    ;   findall(I, member(I-_, Slots), Is), max_list(Is, Max), ccl_init_fill(0, Max, Slots, Out) ).
+ccl_init_last(Slots, S) :- last(Slots, S).
+ccl_nth0_member(Ms, I, N) :- I1 is I + 1, ccl_nth(I1, Ms, member(_, N, _)).
+ccl_init_fill(I, Max, _, []) :- I > Max, !.
+ccl_init_fill(I, Max, Slots, [item([], V)|Out]) :- ( memberchk(I-V0, Slots) -> V = V0 ; V = init([]) ), I1 is I + 1, ccl_init_fill(I1, Max, Slots, Out).
+ccl_init_place([], _, _, S, S).
+ccl_init_place([item(Ds0, V)|Is], T, Cur, S0, S) :-
+    ccl_init_route(T, Ds0, Ds),
+    (   Ds = [] -> I = Cur, Rest = []
+    ;   Ds = [at(K)|Rest] -> ccl_const_eval(K, I)
+    ;   Ds = [field(F)|Rest] -> ccl_members_of(T, Ms), ccl_member_pos(Ms, F, 0, I) ),
+    (   Rest == [] -> ccl_init_set(S0, I, V, S1)
+    ;   ( select(I-init(L), S0, S2) -> append(L, [item(Rest, V)], L1) ; S2 = S0, L1 = [item(Rest, V)] ), S1 = [I-init(L1)|S2] ),
+    Cur1 is I + 1, ccl_init_place(Is, T, Cur1, S1, S).
+ccl_init_set(S0, I, V, [I-V|S1]) :- ( select(I-_, S0, S1) -> true ; S1 = S0 ).
+ccl_member_pos([member(_, N, _)|_], N, I, I) :- !.
+ccl_member_pos([_|Ms], N, I0, I) :- I1 is I0 + 1, ccl_member_pos(Ms, N, I1, I).
+%% `.u' of a member of an anonymous struct or union is `.$anonK.u'
+ccl_init_route(T, [field(F)|Rest], Ds) :- ccl_members_of(T, Ms), \+ memberchk(member(_, F, _), Ms), ccl_anon_route(T, F, A, _), !, Ds = [field(A), field(F)|Rest].
+ccl_init_route(_, Ds, Ds).
+%% C99's `__func__' (6.4.2.2), and GNU's `__FUNCTION__' and `__PRETTY_FUNCTION__' beside it: the enclosing function's name (0.108)
+ccl_func_name(N) :- memberchk(N, ['__func__', '__FUNCTION__', '__PRETTY_FUNCTION__']), \+ ccl_declared(N, _), !.
+ccl_member_type(T, N, MT) :- ccl_members_of(T, Ms), ( memberchk(member(MT, N, _), Ms) -> true ; ccl_anon_route(T, N, A, AT), A \== N, ccl_member_type(AT, N, MT) ).
+%% the anonymous member of a C struct or union that holds a member N, directly or through another anonymous one
+ccl_anon_route(T, N, A, AT) :- ccl_members_of(T, Ms), member(member(AT, A, _), Ms), atom(A), sub_atom(A, 0, _, _, '$anon'), ccl_anon_has(AT, N), !.
+ccl_anon_has(T, N) :- ccl_members_of(T, Ms), ( memberchk(member(_, N, _), Ms) -> true ; member(member(AT, A, _), Ms), atom(A), sub_atom(A, 0, _, _, '$anon'), ccl_anon_has(AT, N) ), !.
 
 %% ---- classes ----------------------------------------------------------------------
 ccl_is_pointer(T) :- ccl_resolve_type(T, T1), ( T1 = ptr(_, _) ; T1 = arr(_, _) ; T1 = block(_, _) ), !.
@@ -337,8 +378,9 @@ ccl_is_bitint(T) :- ccl_resolve_type(T, base(_, S)), memberchk(bitint(_), S), !.
 ccl_count(_, [], 0).
 ccl_count(X, [Y|T], N) :- ccl_count(X, T, N0), ( X == Y -> N is N0 + 1 ; N = N0 ).
 ccl_promote(T, P) :- ( \+ ccl_is_bitint(T), ccl_int_rank(T, R, _), R < 3 -> P = base([], [int]) ; P = T ).   % a _BitInt is never promoted (C23 6.3.1.1/2)
+ccl_float_rank(T, R) :- ccl_resolve_type(T, base(_, S)), ( memberchk(double, S) -> ( memberchk(long, S) -> R = 3 ; R = 2 ) ; memberchk(float, S) -> R = 1 ; R = 0 ).
 ccl_usual(A, B, T) :-
-    (   ccl_is_float(A), ccl_is_float(B) -> ( ccl_resolve_type(A, base(_, SA)), memberchk(double, SA) -> T = A ; T = B )
+    (   ccl_is_float(A), ccl_is_float(B) -> ( ccl_float_rank(A, FA), ccl_float_rank(B, FB), FA >= FB -> T = A ; T = B )   % the wider of the two (6.3.1.8): long double, double, float, _Float16 (0.108: a double took a long double's place)
     ;   ccl_is_float(A) -> T = A
     ;   ccl_is_float(B) -> T = B
     ;   ccl_is_integer(A), ccl_is_integer(B) ->
@@ -390,11 +432,12 @@ ccl_type_of(u32str(_), ptr([], base([], [char32_t]))) :- !.
 ccl_type_of(wchr(_), base([], [wchar_t])) :- !.
 ccl_type_of(u16chr(_), base([], [char16_t])) :- !.
 ccl_type_of(u32chr(_), base([], [char32_t])) :- !.
-ccl_type_of(id(N), T) :- !, ( ccl_declared(N, T0) -> ccl_unref(T0, T) ; ccl_enum_value(N, _) -> T = base([], [int]) ; T = unknown ).   % AN ENUMERATOR IS AN INT (0.100): the parser declares one in scope, the bulk noter keeps only its VALUE, so after the passes' rebuild `o == release ? relaxed : o' typed its arm unknown (libc++'s __to_failure_order)
+ccl_type_of(id(N), T) :- !, ( ccl_declared(N, T0) -> ccl_unref(T0, T) ; ccl_enum_value(N, _) -> T = base([], [int]) ; ccl_func_name(N) -> T = ptr([], base([const], [char])) ; T = unknown ).   % AN ENUMERATOR IS AN INT (0.100): the parser declares one in scope, the bulk noter keeps only its VALUE, so after the passes' rebuild `o == release ? relaxed : o' typed its arm unknown (libc++'s __to_failure_order)
 ccl_type_of(call(id(B), _), base([], [bool])) :- ccl_overflow_builtin(B, _), !.
 ccl_type_of(call(id(B), _), T) :- ccl_float_builtin_type(B, T), !.
 ccl_type_of(call(id(B), [_]), base([], [int])) :- memberchk(B, ['__builtin_isnan', '__builtin_isinf', '__builtin_isinf_sign', '__builtin_isfinite', '__builtin_signbit', '__builtin_isnormal']), !.   % glibc's classification macros (0.101)                                   % INFINITY, NAN, HUGE_VAL (0.101)
 ccl_type_of(call(id('__builtin_complex'), [A, _]), T) :- ccl_type_of(A, AT), AT \== unknown, !, ccl_complex_of(AT, T).   % C11's CMPLX and I, in the compiler's <complex.h> (0.100)   % C23's <stdckdint.h> is written on them
+ccl_type_of(call(id(B), _), T) :- ccl_coro_builtin_type(B, T), !.   % C++20's coroutine builtins, libc++'s coroutine_handle (0.108)
 ccl_type_of(call(F, _), T) :- !,
     (   F = id(N), ccl_declared(N, fn(R, _, _)) -> ccl_unref(R, T)
     ;   ccl_type_of(F, FT), ccl_resolve_type(FT, FT1),
@@ -427,6 +470,22 @@ ccl_type_of(postinc(E), T) :- !, ccl_type_of(E, T).
 ccl_type_of(postdec(E), T) :- !, ccl_type_of(E, T).
 ccl_type_of(sizeof(_), T) :- !, ccl_size_type(T).
 ccl_type_of(sizeof_type(_), T) :- !, ccl_size_type(T).
+ccl_type_of(offsetof(_, _), T) :- !, ccl_size_type(T).
+ccl_type_of(rtti(_), base([const], [typedef(type_info)])) :- !.          % a type_info object (0.108)
+ccl_type_of(rtti_dyn(_), base([const], [typedef(type_info)])) :- !.
+ccl_type_of(dyncast(_, _, _, T), T) :- !.
+ccl_type_of(eh_alloc(_), ptr([], base([], [void]))) :- !.
+ccl_coro_builtin_type('__builtin_coro_frame', ptr([], base([], [void]))).
+ccl_coro_builtin_type('__builtin_coro_noop', ptr([], base([], [void]))).
+ccl_coro_builtin_type('__builtin_coro_promise', ptr([], base([], [void]))).
+ccl_coro_builtin_type('__builtin_coro_resume', base([], [void])).
+ccl_coro_builtin_type('__builtin_coro_destroy', base([], [void])).
+ccl_coro_builtin_type('__builtin_coro_done', base([], [bool])).
+ccl_type_of(eh_throw(_, _, _), base([], [void])) :- !.
+ccl_type_of(eh_rethrow, base([], [void])) :- !.
+ccl_type_of(throw(_), base([], [void])) :- !.
+ccl_type_of(dyncast_ref(_, _, _, T), T) :- !.
+ccl_type_of(va_arg(_, T0), T) :- !, T = T0.
 ccl_type_of(alignof_type(_), T) :- !, ccl_size_type(T).
 ccl_type_of(cast(T, _), T) :- !.
 ccl_type_of(move(E), T) :- !, ccl_type_of(E, T).
@@ -520,7 +579,29 @@ ccl_size_align(base(_, [enum(_, _)]), 4, 4) :- !.
 ccl_size_align(base(_, [enum_class(_, _)]), 4, 4) :- !.
 ccl_size_align(ref(_, _), 8, 8) :- !.                                            % C++: a reference is a pointer in memory
 ccl_size_align(rref(_, _), 8, 8) :- !.
-ccl_basic_size(S, N) :- ( memberchk(double, S) -> N = 8 ; memberchk(float, S) -> N = 4 ; memberchk('_Float16', S) -> N = 2 ; memberchk('_Decimal32', S) -> N = 4 ; memberchk('_Decimal64', S) -> N = 8 ; memberchk('_Decimal128', S) -> N = 16 ; ccl_count(long, S, 2) -> N = 8
+%% LONG DOUBLE (0.108): x87's 80 bits in sixteen bytes aligned sixteen on x86-64, as the SysV ABI has it; a double on
+%% arm64 as Apple has it (Linux on arm64 has an IEEE quad, which no gate here runs on)
+ccl_va_list_type(Q, T) :- ( once(catch(ccl_host_arch(A), _, fail)) -> true ; A = x86_64 ),
+    ( A == arm64, once(catch(ccl_host_os(darwin), _, fail)) -> T = ptr(Q, base([], [char]))
+    ; A == arm64 -> T = arr(int(4), base(Q, [unsigned, long]))
+    ; T = arr(int(3), base(Q, [unsigned, long])) ).
+%% offsetof(T, designator) (C 7.19/3, `__builtin_offsetof'): the byte offset the layout computes, a member name,
+%% `.m' and `[i]' along the path; an index is a constant expression times the element's size
+ccl_offsetof(T, D, Off) :- ccl_offset_steps(D, Steps), ccl_offset_walk(Steps, T, 0, Off).
+ccl_offset_steps(id(N), [m(N)]) :- !.
+ccl_offset_steps(member(X, N), S) :- !, ccl_offset_steps(X, S0), append(S0, [m(N)], S).
+ccl_offset_steps(index(X, I), S) :- !, ccl_offset_steps(X, S0), append(S0, [i(I)], S).
+ccl_offset_walk([], _, Off, Off).
+ccl_offset_walk([m(N)|Ss], T, Acc, Off) :- ccl_resolve_type(T, R), ccl_offset_member_of(R, N, MT, MO), !, Acc1 is Acc + MO, ccl_offset_walk(Ss, MT, Acc1, Off).
+ccl_offset_walk([i(I)|Ss], T, Acc, Off) :- ccl_resolve_type(T, arr(_, E)), ccl_const_eval(I, V), ccl_size_of(E, Sz), !, Acc1 is Acc + V * Sz, ccl_offset_walk(Ss, E, Acc1, Off).
+%% a member of an anonymous struct or union is the holder's own, at the anonymous member's offset plus its own
+ccl_offset_member_of(R, N, MT, MO) :- ccl_members_of(R, Ms), ( R = base(_, [union(_, _)]) -> findall(lay(M, T, 0, none), member(member(T, M, _), Ms), Lays) ; ccl_members_layout(Ms, Lays, _, _) ),
+    ( memberchk(lay(N, MT, MO, _), Lays) -> true
+    ; member(lay(A, AT, AO, _), Lays), ccl_anon_member(A), ccl_resolve_type(AT, AR), ccl_offset_member_of(AR, N, MT, O2), MO is AO + O2 ), !.
+ccl_anon_member(A) :- atom(A), sub_atom(A, 0, _, _, '$anon'), !.
+ccl_long_double(K) :- catch(nb_getval('$ccl_ldbl', K0), _, fail), !, K = K0.
+ccl_long_double(K) :- ( once(catch(ccl_host_arch(A), _, fail)) -> true ; A = x86_64 ), ( A == arm64 -> K0 = double ; K0 = x87 ), nb_setval('$ccl_ldbl', K0), K = K0.
+ccl_basic_size(S, N) :- ( memberchk(double, S) -> ( memberchk(long, S), ccl_long_double(x87) -> N = 16 ; N = 8 ) ; memberchk(float, S) -> N = 4 ; memberchk('_Float16', S) -> N = 2 ; memberchk('_Decimal32', S) -> N = 4 ; memberchk('_Decimal64', S) -> N = 8 ; memberchk('_Decimal128', S) -> N = 16 ; ccl_count(long, S, 2) -> N = 8
     ; memberchk(long, S) -> N = 8 ; memberchk(short, S) -> N = 2 ; memberchk(char, S) -> N = 1 ; memberchk('_Bool', S) -> N = 1 ; memberchk(bool, S) -> N = 1 ; memberchk(char8_t, S) -> N = 1 ; memberchk(char16_t, S) -> N = 2 ; memberchk(wchar_t, S) -> N = 4 ; memberchk(char32_t, S) -> N = 4
     ; memberchk(int, S) -> N = 4 ; memberchk(unsigned, S) -> N = 4 ; memberchk(signed, S) -> N = 4 ; memberchk(void, S) -> N = 1 ; fail ).
 ccl_struct_layout(Ms, _, _, N, Al) :- ccl_members_layout(Ms, _, N, Al).

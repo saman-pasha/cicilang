@@ -72,7 +72,7 @@ pp_macro_terms([N|Ns], G, Ms) :-
 %% one from an earlier run is simply not this run's -- no walk undefines them
 pp_reset :-
     ( catch(nb_getval('$pp_gen', G0), _, fail) -> G is G0 + 1 ; G = 1 ), nb_setval('$pp_gen', G),
-    nb_setval('$pp_names', []), nb_setval('$pp_files', []), nb_setval('$pp_once', []), nb_setval('$pp_stack', []),
+    nb_setval('$pp_names', []), nb_setval('$pp_files', []), nb_setval('$pp_once', []), nb_setval('$pp_stack', []), nb_setval('$pp_linemap', []),
     nb_setval('$pp_counter', 0), nb_setval('$pp_outs', 0), nb_setval('$pp_errors', []), nb_setval('$pp_paste', no), nb_setval('$pp_top', no), nb_setval('$pp_hdrs', []), nb_setval('$pp_ninc', 0).
 pp_key(N, K) :- atom_concat('$pp:', N, K).
 %% a macro: its parameters (obj for an object-like one; va(N) the variadic
@@ -158,10 +158,28 @@ pp_arch(A) :-                                                                   
 %% (sub_atom/5 with a free position enumerates, 150 us a call: a line is
 %% tested through atom_codes/2 and memberchk/2, builtins both.)
 pp_source(Path, Lines) :-
-    atom_concat('$pp_src:', Path, K),
+    ( catch(nb_getval('$ccl_trigraphs', yes), _, fail) -> Tri = yes, KP = '$pp_srct:' ; Tri = no, KP = '$pp_src:' ),
+    atom_concat(KP, Path, K),
     (   catch(nb_getval(K, L0), _, fail), L0 \== none -> Lines = L0
-    ;   ( catch(read_file_to_codes(Path, Codes), _, fail) -> atom_codes(A, Codes), atomic_list_concat(Phys, '\n', A), pp_lines(Phys, 1, out, Lines) ; Lines = [] ),
+    ;   ( catch(read_file_to_codes(Path, Codes0), _, fail) -> pp_trigraphs(Tri, Codes0, Codes), atom_codes(A, Codes), atomic_list_concat(Phys, '\n', A), pp_lines(Phys, 1, out, Lines) ; Lines = [] ),
         nb_setval(K, Lines) ).
+%% TRANSLATION PHASE 1's TRIGRAPHS (C17 5.2.1.1), before the lines are spliced, so `??/' at a line's end continues
+%% it: only in the ISO modes before C23, as clang (`-std=c17' reads them, `gnu17' and C23 do not), and only a file
+%% that holds a `??' is walked at all
+pp_trigraphs(yes, Cs0, Cs) :- append(_, [63, 63|_], Cs0), !, pp_tri(Cs0, Cs).
+pp_trigraphs(_, Cs, Cs).
+pp_tri([], []).
+pp_tri([63, 63, C|R], [M|Out]) :- pp_trigraph(C, M), !, pp_tri(R, Out).
+pp_tri([C|R], [C|Out]) :- pp_tri(R, Out).
+pp_trigraph(61, 35).     % ??=  #
+pp_trigraph(40, 91).     % ??(  [
+pp_trigraph(47, 92).     % ??/  backslash
+pp_trigraph(41, 93).     % ??)  ]
+pp_trigraph(39, 94).     % ??'  ^
+pp_trigraph(60, 123).    % ??<  {
+pp_trigraph(33, 124).    % ??!  |
+pp_trigraph(62, 125).    % ??>  }
+pp_trigraph(45, 126).    % ??-  ~
 pp_lines([], _, _, []).
 pp_lines([P|Ps], N, in, Lines) :- !,                                              % inside a block comment: to its end
     (   atom_codes(P, Cs), pp_close(Cs, R1) -> atom_codes(Rest, R1), pp_lines([Rest|Ps], N, out, Lines)
@@ -263,8 +281,11 @@ pp_expand(N, L, HS, Xs, Ls, Xs1, Ls1) :-
     pp_macro(N, Ps, Body),
     (   Ps == obj -> pp_wrap(Body, [N|HS], L, W), append(W, Xs, Xs1), Ls1 = Ls
     ;   pp_paren_next(Xs, Ls, Xs0, Ls0) -> pp_collect_args(Xs0, Ls0, Args0, Rest, Ls1), pp_fit_args(Ps, Args0, Args), pp_subst(Body, Ps, Args, Subst), pp_wrap(Subst, [N|HS], L, W), append(W, Rest, Xs1) ).
-pp_builtin_obj('__LINE__', L, [tok(int, L, L)]).
-pp_builtin_obj('__FILE__', L, [tok(str, Cs, L)]) :- pp_current_file(F), atom_codes(F, Cs).
+pp_builtin_obj('__LINE__', L, [tok(int, P, L)]) :- pp_presumed(L, P, _).
+pp_builtin_obj('__FILE__', L, [tok(str, Cs, L)]) :- pp_presumed(L, _, F), atom_codes(F, Cs).
+%% `#line N "file"' (C 6.10.4) and GNU's `# N "file"': the PRESUMED line and file from the next line on, per file --
+%% what __LINE__ and __FILE__ answer (0.108); a diagnostic still names the physical place
+pp_presumed(L, P, F) :- pp_current_file(F0), nb_getval('$pp_linemap', M), ( memberchk(F0-lm(D, F1), M) -> P is L + D, F = F1 ; P = L, F = F0 ).
 pp_builtin_obj('__COUNTER__', L, [tok(int, C, L)]) :- nb_getval('$pp_counter', C), C1 is C + 1, nb_setval('$pp_counter', C1).
 pp_builtin_obj('__DATE__', L, [tok(str, Cs, L)]) :- atom_codes('Jan  1 2026', Cs).
 pp_builtin_obj('__TIME__', L, [tok(str, Cs, L)]) :- atom_codes('00:00:00', Cs).
@@ -348,6 +369,8 @@ pp_spell(tok(kw, N, _), Cs) :- !, atom_codes(N, Cs).
 pp_spell(tok(num, Cs, _), Cs) :- !.
 pp_spell(tok(int, N, _), Cs) :- !, pp_int_codes(N, Cs).
 pp_spell(tok(float, N, _), Cs) :- !, number_codes(N, Cs).
+pp_spell(tok(floatf, N, _), Cs) :- !, number_codes(N, Cs0), append(Cs0, [0'f], Cs).     % `1.5f' and `1.5L' spelled with their suffixes (0.108)
+pp_spell(tok(floatl, N, _), Cs) :- !, number_codes(N, Cs0), append(Cs0, [0'L], Cs).
 pp_spell(tok(imag, N, _), Cs) :- !, number_codes(N, Cs0), append(Cs0, [0'i], Cs).
 pp_spell(tok(imagf, N, _), Cs) :- !, number_codes(N, Cs0), append(Cs0, [0'i, 0'f], Cs).
 pp_spell(tok(K, N, _), Cs) :- pp_imag_suffix(K, Sfx), !, pp_int_codes(N, Cs0), append(Cs0, Sfx, Cs).   % `3i', `2ui', `3li', `4uli' (0.104)
@@ -417,6 +440,14 @@ pp_directive_(pragma, Rest, _, _, Ls, Ls, Out, Out) :- !, pp_ws(Rest, R1), pp_wo
 pp_directive_(error, Rest, _, L, _, [], Out, Out) :- nb_getval('$pp_top', yes), !, pp_ws(Rest, R1), atom_codes(M, R1), throw(pp_error(L, M)).
 pp_directive_(warning, Rest, _, L, Ls, Ls, Out, Out) :- nb_getval('$pp_top', yes), !, pp_current_file(F), pp_ws(Rest, R1), atom_codes(M, R1), nb_getval('$pp_warnings', Ws), nb_setval('$pp_warnings', [warning(F, L, M)|Ws]).
 pp_directive_(embed, Rest, Body, L, Ls, Ls, Out0, Out) :- !, pp_do_embed(Rest, Body, L, Out0, Out).
+pp_directive_(line, Rest, _, L, Ls, Ls, Out, Out) :- !, pp_do_line(Rest, L).
+pp_directive_(D, Rest, _, L, Ls, Ls, Out, Out) :- atom_codes(D, [C|Cs]), C >= 0'0, C =< 0'9, !, pp_do_line([C|Cs], Rest, L).   % GNU's linemarker, `# 12 "f.c" 1'
+pp_do_line(Rest, L) :- pp_lex_body(Rest, Ts), pp_expand_all(Ts, Es), pp_spell_all(Es, Cs), pp_ws(Cs, C1), pp_word(C1, W, R), pp_do_line(W, R, L).
+pp_do_line(W, R, L) :- W \== [], number_codes(N, W), pp_current_file(F0), nb_getval('$pp_linemap', M0),
+    ( memberchk(F0-lm(_, FOld), M0) -> true ; FOld = F0 ),
+    pp_ws(R, R1), ( R1 = [34|R2], append(NCs, [34|_], R2) -> atom_codes(FN, NCs) ; FN = FOld ),
+    D is N - (L + 1), ( select(F0-_, M0, M1) -> true ; M1 = M0 ), nb_setval('$pp_linemap', [F0-lm(D, FN)|M1]), !.
+pp_do_line(_, _, _).
 pp_directive_(error, Rest, _, L, _, [], Out, Out) :- !, pp_current_file(F), atom_codes(M, Rest), nb_getval('$pp_errors', Es), nb_setval('$pp_errors', [error(F, L, M)|Es]).   % the file stops here
 pp_directive_(_, _, _, _, Ls, Ls, Out, Out).                                       % line, warning, ident, an empty #: nothing
 pp_ws([C|Cs], R) :- ( C =:= 32 ; C =:= 9 ), !, pp_ws(Cs, R).
@@ -1270,6 +1301,8 @@ ccl_pp_spell_tok(cocolog, A, Out, Rest) :- !, atom_codes('#cocolog', H), atom_co
 ccl_pp_spell_tok(imag, F, Out, Rest) :- !, number_codes(F, Cs), append(Cs, [0'i|Rest], Out).                   % the imaginary literal spelled back, `2.0i' (0.101)
 ccl_pp_spell_tok(imagf, F, Out, Rest) :- !, number_codes(F, Cs), append(Cs, [0'i, 0'f|Rest], Out).
 ccl_pp_spell_tok(K, N, Out, Rest) :- pp_imag_suffix(K, Sfx), !, pp_int_codes(N, Cs), append(Sfx, Rest, Tail), append(Cs, Tail, Out).
+ccl_pp_spell_tok(floatf, F, Out, Rest) :- !, number_codes(F, Cs), append(Cs, [0'f|Rest], Out).
+ccl_pp_spell_tok(floatl, F, Out, Rest) :- !, ( F > 1.0e308 -> atom_codes('1e999', Cs) ; F < -1.0e308 -> atom_codes('-1e999', Cs) ; number_codes(F, Cs) ), append(Cs, [0'L|Rest], Out).
 ccl_pp_spell_tok(float, F, Out, Rest) :- F > 1.0e308, !, atom_codes('1e999', Cs), append(Cs, Rest, Out).       % past double (a long double literal): infinite again when read
 ccl_pp_spell_tok(float, F, Out, Rest) :- F < -1.0e308, !, atom_codes('-1e999', Cs), append(Cs, Rest, Out).
 ccl_pp_spell_tok(_, V, Out, Rest) :- ( atom(V) -> atom_codes(V, Cs) ; number_codes(V, Cs) ), append(Cs, Rest, Out).

@@ -1,0 +1,14 @@
+no throw
+after 0
+int 7
+double 2.5
+base 2
+other
+~Noisy 0
+~Noisy 1
+~Noisy 2
+err 42
+inner 5
+outer 5
+total 21
+exit 0

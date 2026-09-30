@@ -24,8 +24,11 @@ is how the repository is worked on, with the record of every step.
   digit separator, binary literals, `wb` suffixes, the checked arithmetic of
   `<stdckdint.h>` and the bit utilities of `<stdbit.h>`, C11's atomics
   through the compiler's own `<stdatomic.h>`, variable length arrays, thread
-  locals, wide and UTF-8 literals. `-std=c17` is the default, `-std=c23`
-  the level.
+  locals, wide and UTF-8 literals, variadic functions over the compiler's
+  own `<stdarg.h>`, `long double` as x87's 80-bit type on x86-64, hex
+  floats, designated initializers, anonymous members, K&R definitions,
+  `#line`, and trigraphs in the ISO modes. `-std=c17` is the default,
+  `-std=c23` the level.
 * **C++17, C++20, C++23 and C++26.** Classes, virtual dispatch, multiple
   and virtual inheritance, templates with partial specialization, SFINAE,
   concepts and `requires`, lambdas (generic, capturing `this` and `*this`),
@@ -33,8 +36,13 @@ is how the repository is worked on, with the record of every step.
   three-way comparison and the defaulted comparisons, pack indexing, the
   `_` placeholder, class template argument deduction, pointers to members,
   `constexpr` functions evaluated at compile time over locals, aggregates,
-  pointers and `this`, and the Itanium ABI's layout, name mangling and
-  calling convention, so cocolang's objects link with clang's.
+  pointers and `this`, RTTI (`typeid`, `dynamic_cast`), exceptions
+  (`throw`, `try`, `catch`), `new T[n]` of a class with the ABI's array
+  cookie, multiple polymorphic bases with their secondary vtables,
+  coroutines (`co_await`, `co_yield`, `co_return`, over LLVM's coroutine
+  intrinsics), modules (`export module`, `import`), contracts enforced at
+  run time, and the Itanium ABI's layout, name mangling and calling
+  convention, so cocolang's objects link with clang's.
 * **libc++ compiled from its own headers.** Nothing of the standard
   library is written here: `std::vector`, `std::string`, `std::map`,
   `std::set`, the unordered containers, `std::optional`, `std::tuple`,
@@ -238,9 +246,10 @@ s := format("{} + {} = {}", 1, 2, 3);          // char *
 the baseline**; `-std=c++20`, `-std=c++23` and `-std=c++26` set the
 level, whose predefined macros the preprocessor answers first, so a header
 flattens as clang would flatten it for that level. The compiler runs no
-exceptions, no RTTI and no vector extensions, and libc++ compiles its own
-configuration for that (`-fno-exceptions -fno-rtti`): a program's `throw`,
-`try`, `typeid` and `dynamic_cast` are refused by name.
+exceptions, no RTTI and no vector extensions inside libc++, which compiles
+its own configuration for that (`-fno-exceptions -fno-rtti`); the program's
+own `throw`, `try`, `typeid` and `dynamic_cast` run over libc++abi, which
+`-lc++` links.
 
 Every C++ form is a rewrite to the C the check and the lowering have
 (`library/ccl_cpp.pl`): a class a struct with its methods over `this`, a
@@ -319,6 +328,7 @@ DESIGN.md, CLAUDE.md           the architecture; how the repository is worked on
 
 ## Not done
 
-Coroutines and modules; `std::format` and the ranges; a `\N{...}` abbreviation
+`std::format` and the ranges; `std::coroutine_traits` and a coroutine's
+`unhandled_exception`; exported names enforced in a module; a `\N{...}` abbreviation
 alias (`\N{NUL}`, which clang refuses too); the arm64 ABI written and not
 proven. Each is named in `CLAUDE.md` with where it stops.

@@ -23,6 +23,7 @@ dr_drive(Inputs, Options) :-
     ( memberchk(lang(cpp), Options) -> nb_setval('$ccl_lang_forced', cpp), nb_setval('$ccl_lang', cpp) ; nb_setval('$ccl_lang_forced', none) ),   % cocolang++: everything C++
     ( memberchk(std(Std), Options) -> nb_setval('$ccl_std', Std) ; nb_setval('$ccl_std', 17) ),                                       % -std=c++20: the level libc++ keys on
     ( memberchk(cstd(CStd), Options) -> nb_setval('$ccl_c_std', CStd) ; nb_setval('$ccl_c_std', 17) ),                                 % -std=c23: C's own level, the forms and __STDC_VERSION__
+    ( memberchk(trigraphs, Options) -> nb_setval('$ccl_trigraphs', yes) ; nb_setval('$ccl_trigraphs', no) ),                          % -std=c99/c11/c17 (ISO, not gnu) or -trigraphs: phase 1's nine sequences, as clang
     forall(member(include(D), Options), assertz(ccl_include_dir(D))),
     ( memberchk(opt(O), Options) -> Flags = [O] ; Flags = ['-O0'] ),
     ( memberchk(verbose, Options) -> nb_setval('$dr_verbose', yes) ; nb_setval('$dr_verbose', no) ),
@@ -49,7 +50,7 @@ dr_input(F, Options, Flags, Objs, Objs1) :-
     ;   ( dr_ext(F, o) ; dr_ext(F, a) ; dr_ext(F, so) ; dr_ext(F, dylib) ) -> Objs = [F|Objs1]
     ;   dr_error(F, 0, ['unknown kind of file']), Objs = Objs1 ).
 dr_ext(F, E) :- atom_concat('.', E, Dot), sub_atom(F, _, _, 0, Dot).
-dr_cpp_ext(F) :- member(E, [cpp, cc, cxx, 'C']), dr_ext(F, E), !.
+dr_cpp_ext(F) :- member(E, [cpp, cc, cxx, 'C', cppm, ccm, cxxm, ixx, mpp]), dr_ext(F, E), !.
 
 %% a .c: read (headers, macros, := ...), the safe part, the IR, then what the options ask
 dr_c(F, Options, _, Objs, Objs) :- memberchk(preprocess, Options), !,                   % -E: the flattened text, cocolog's preprocessor (no clang)

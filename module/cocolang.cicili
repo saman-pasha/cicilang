@@ -258,7 +258,7 @@
   ;; ccl_version(-Atom): THE VERSION. Every commit raises it (owner's rule),
   ;; one number per change; `cicili --version' prints it with LLVM's.
   (func ccl_p_version ((coco_engine * e) (size_t g)) (out int)
-        (return (coco_m_unify_atom e (coco_m_arg e g 0) "0.107")))
+        (return (coco_m_unify_atom e (coco_m_arg e g 0) "0.108")))
 
   ;; ccl_cocolog_version(-Atom): the engine's own version text, from the
   ;; running binary (coco_version_text is cocolog's, resolved at load like
@@ -289,7 +289,7 @@
     (member int punct) (member int cpp)
     (member size_t * toks) (member size_t ntoks) (member size_t cap)
     (member char * buf) (member size_t bn) (member size_t bcap)
-    (member size_t k_id) (member size_t k_kw) (member size_t k_int) (member size_t k_float) (member size_t k_str)
+    (member size_t k_id) (member size_t k_kw) (member size_t k_int) (member size_t k_float) (member size_t k_floatf) (member size_t k_floatl) (member int fsfx) (member size_t k_str)
     (member size_t k_uint) (member size_t k_long) (member size_t k_ulong) (member size_t k_bitint) (member size_t k_ubitint) (member int sfx)
     (member size_t k_imag) (member size_t k_imagf) (member size_t k_imagi) (member size_t k_imagui) (member size_t k_imagli) (member size_t k_imaguli) (member int imag)
     (member size_t k_wstr) (member size_t k_u16str) (member size_t k_u32str) (member size_t k_wchr) (member size_t k_u16chr) (member size_t k_u32chr)
@@ -526,18 +526,21 @@
           (if (ccl_lx_imag_c c) (block (set (-> x imag) 1) (set j (+ j 1))))
           (return j)))
   (static) (func ccl_lx_float_suffix ((ccl_lx * x) (size_t j)) (out size_t)
-        (let ((int c . 0) (int f . 0))
+        (let ((int c . 0) (int f . 0) (size_t j0 . 0))
           (set (-> x imag) 0)
+          (set (-> x fsfx) 0)
           (set c (ccl_lx_at x j))
           (if (ccl_lx_imag_c c) (block (set (-> x imag) 1) (set j (+ j 1)) (set c (ccl_lx_at x j))))   ; `1.0i', `1.0if', `1.0il' (0.101)
           (if (or (== c 108) (== c 76))
               (block (set j (+ j 1))
+                     (set (-> x fsfx) 2)                                              ; `1.0L': a long double (0.108)
                      (if (and (== (-> x imag) 0) (ccl_lx_imag_c (ccl_lx_at x j))) (block (set (-> x imag) 1) (set j (+ j 1))))   ; `1.0li'
                      (return j)))
           (if (and (or (== c 98) (== c 66)) (or (== (ccl_lx_at x (+ j 1)) 102) (== (ccl_lx_at x (+ j 1)) 70))) (block (set j (+ j 1)) (set c (ccl_lx_at x j))))   ; C++23's bf16: the f is read next
           (if (or (== c 102) (== c 70))
-              (block (set f 1) (set j (+ j 1))
+              (block (set f 1) (set j (+ j 1)) (set j0 j)
                      (while (ccl_lx_digit (ccl_lx_at x j)) (set j (+ j 1)))       ; f, and C++23's f16, f32, f64, f128: the digits are the suffix's, and the DCG drops them too
+                     (if (and (== j j0) (!= (ccl_lx_at x (- j0 2)) 98) (!= (ccl_lx_at x (- j0 2)) 66)) (set (-> x fsfx) 1))   ; a plain `f': a float (0.108); bf16 and the widths stay the double they were
                      (if (and (== (-> x imag) 0) (ccl_lx_imag_c (ccl_lx_at x j))) (block (set (-> x imag) 1) (set j (+ j 1))))))   ; `1.0fi'
           (if (and (== (-> x imag) 1) (== f 1)) (set (-> x imag) 2))
           (return j)))
@@ -586,7 +589,7 @@
           (set (-> x i) j)))
   (static) (func ccl_lx_emit_float ((ccl_lx * x) (size_t j) (i64 line))
         (let ((char * endp . nil))
-          (ccl_lx_tok x (? (== (-> x imag) 2) (-> x k_imagf) (? (== (-> x imag) 1) (-> x k_imag) (-> x k_float))) (coco_m_new_float (-> x e) (strtod (-> x buf) (aof endp))) line)
+          (ccl_lx_tok x (? (== (-> x imag) 2) (-> x k_imagf) (? (== (-> x imag) 1) (-> x k_imag) (? (== (-> x fsfx) 1) (-> x k_floatf) (? (== (-> x fsfx) 2) (-> x k_floatl) (-> x k_float))))) (coco_m_new_float (-> x e) (strtod (-> x buf) (aof endp))) line)
           (set (-> x i) j)))
   (static) (func ccl_lx_number ((ccl_lx * x) (i64 line)) (out int)
         (let ((size_t i0 . 0) (size_t j . 0) (size_t dend . 0) (size_t fstart . 0) (size_t fend . 0) (size_t k . 0) (size_t q . 0)
@@ -604,6 +607,26 @@
                                 (set k (+ k 1))))
                         ((and (== (ccl_lx_at x j) 39) (ccl_lx_hex (ccl_lx_at x (+ j 1)))) (set j (+ j 1)))
                         (#t break)))
+                (if (or (== (ccl_lx_at x j) 46) (or (== (ccl_lx_at x j) 112) (== (ccl_lx_at x j) 80)))   ; A HEX FLOAT (C99 6.4.4.2, 0.108): `0x1.8p1', `0x.8p-2', `0x1p3', read by strtod as spelled
+                    (block
+                      (set (-> x bn) 0)
+                      (ccl_lx_putc x 48) (ccl_lx_putc x 120)
+                      (set q (+ i0 2))
+                      (while (< q j) (if (!= (ccl_lx_at x q) 39) (ccl_lx_putc x (ccl_lx_at x q))) (set q (+ q 1)))
+                      (if (== (ccl_lx_at x j) 46)
+                          (block (ccl_lx_putc x 46) (set j (+ j 1))
+                                 (while (or (ccl_lx_hex (ccl_lx_at x j)) (and (== (ccl_lx_at x j) 39) (ccl_lx_hex (ccl_lx_at x (+ j 1)))))
+                                   (if (!= (ccl_lx_at x j) 39) (block (ccl_lx_putc x (ccl_lx_at x j)) (set k (+ k 1))))
+                                   (set j (+ j 1)))))
+                      (if (and (> k 0) (or (== (ccl_lx_at x j) 112) (== (ccl_lx_at x j) 80)))
+                          (block
+                            (ccl_lx_putc x 112) (set j (+ j 1))
+                            (if (or (== (ccl_lx_at x j) 43) (== (ccl_lx_at x j) 45)) (block (ccl_lx_putc x (ccl_lx_at x j)) (set j (+ j 1))))
+                            (if (not (ccl_lx_digit (ccl_lx_at x j))) (return 0))
+                            (while (ccl_lx_digit (ccl_lx_at x j)) (ccl_lx_putc x (ccl_lx_at x j)) (set j (+ j 1)))
+                            (ccl_lx_emit_float x (ccl_lx_float_suffix x j) line)
+                            (return 1)))
+                      (return 0)))
                 (if (== k 0) (return 0))
                 (ccl_lx_emit_int x v (ccl_lx_int_suffix x j) line 1)
                 (return 1)))
@@ -818,7 +841,9 @@
                  (return (ccl_lx_string_k x line (? (== c 76) (-> x k_wstr) (? (== c 117) (-> x k_u16str) (-> x k_u32str)))))
                  (return (ccl_lx_char_k x line (? (== c 76) (-> x k_wchr) (? (== c 117) (-> x k_u16chr) (-> x k_u32chr)))))))
             ((and (-> x punct) (ccl_lx_digit c)) (ccl_lx_pp_number x line) (return 1))
+            ((and (-> x punct) (and (== c 46) (ccl_lx_digit (ccl_lx_at x (+ (-> x i) 1))))) (ccl_lx_pp_number x line) (return 1))   ; `.5': a pp-number starts with a dot too
             ((ccl_lx_digit c) (return (ccl_lx_number x line)))
+            ((and (== c 46) (ccl_lx_digit (ccl_lx_at x (+ (-> x i) 1)))) (return (ccl_lx_number x line)))   ; `.5f': a float with no integer part (0.108)
             ((ccl_lx_alpha c) (ccl_lx_word x line) (return 1))
             (#t (return (ccl_lx_punct x line))))))
 
@@ -863,6 +888,9 @@
           (set (-> x k_u32chr) (coco_m_new_atom e "u32chr"))
           (set (-> x sfx) 0)
           (set (-> x k_float) (coco_m_new_atom e "float"))
+          (set (-> x k_floatf) (coco_m_new_atom e "floatf"))
+          (set (-> x k_floatl) (coco_m_new_atom e "floatl"))
+          (set (-> x fsfx) 0)
           (set (-> x k_imag) (coco_m_new_atom e "imag"))
           (set (-> x k_imagf) (coco_m_new_atom e "imagf"))
           (set (-> x k_imagi) (coco_m_new_atom e "imagi"))

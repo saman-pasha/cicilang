@@ -5808,6 +5808,119 @@ shell function that sets a variable sets it for its CALLER, so every helper a po
 uses; the tell was a verdict that is missing where a wrong one would have been visible. Reader version 90, lowering
 version 50 unchanged; the module rebuilt as 0.107.
 
+**M6's seventy-fourth step (0.108): THE MISSING PARTS OF C, AND THE MAIN GAPS OF C++ -- RTTI, exceptions, coroutines,
+modules, contracts, the array cookie, multiple polymorphic bases.** The owner asked for every C part and every main
+C++ gap named in the not-done lists, then the gates. Each form was cut to a probe of ten to forty lines, built by
+clang and by cocolang, run, and compared line for line (`one.sh'); each has a fixture.
+THE C SIDE, found by probing clang's behaviour over the whole language, twenty-odd forms: (1) TRIGRAPHS in the ISO
+modes before C23 (`-std=c17', `-std=c11', `-std=c99', `-trigraphs'; the GNU modes and C23 do not read them, clang's
+rule): replaced in the preprocessor's source lines before anything else, the store keyed by the mode (`ccl_kb_key'
+gives `c(V, CS, trigraphs)'), a fixture's `NAME.std' naming its level turns them on in the compile gate. (2) `long
+double' IS x86_fp80 on x86-64 (its own LLVM type, `0xK' constants, 16 bytes aligned 16, the `L' suffix its own token
+kind `floatl' in both lexers, `%Lf' through printf, libm's `l' functions, the `__builtin_*l' constants); arm64 keeps
+the double. (3) A VARIADIC DEFINITION: the compiler's own `<stdarg.h>' over `__builtin_va_start', `va_arg' LLVM's
+instruction, `va_end' and `va_copy' the intrinsics, `__builtin_va_list' the ABI's type (x86-64's array of one
+struct). (4) HEX FLOATS and a float with a leading dot in both lexers; `f' a `floatf' kind, so `1.5f' is a float.
+(5) DESIGNATED INITIALIZERS in arrays and nested (`[3] = x', `.a.b = y', a designator moving the position), a global's
+normalized to positional order. (6) A COMPOUND LITERAL of an unsized array sized by its items. (7) `offsetof', folded
+from the layout, through nested members, array elements and anonymous members. (8) `_Bool' a byte with the
+conversion rules. (9) K&R DEFINITIONS (`int f(a, b) int a; char *b; { ... }'), their parameters adjusted.
+(10) `[static N]', `[const N]' and `[*]' in a parameter. (11) C11's ANONYMOUS STRUCT AND UNION MEMBERS, their members
+the holder's own (a hidden `$anonK' member and a route through it). (12) `__func__', `__FUNCTION__',
+`__PRETTY_FUNCTION__'. (13) An enum or a tag declared in a block. (14) An array argument decayed to a pointer where
+a prototype is missing. (15) TENTATIVE DEFINITIONS (`int x; int x = 3;' one object). (16) `#line N "f"' and the GNU
+line markers, which `__LINE__', `__FILE__' and `assert' read.
+THE C++ SIDE. (17) `new T[n]' OF A CLASS, THE ABI's ARRAY COOKIE (0.86's `new_array_of_objects', refused by name
+since): the count written in the max(8, alignof(T)) bytes before the first element, each element constructed in
+place, `delete[]' reading the count back and destroying in reverse, the block freed from the cookie's address.
+(18) `if consteval' IN THE CONSTANT EVALUATOR: the compile-time branch where the evaluator folds, the run-time branch
+in the object (0.43 kept the run-time one everywhere). (19) C++26's CONTRACTS ENFORCED: `pre(e)' and `post(r: e)' on a
+function or a method and `contract_assert(e);' are checked at run time, a violation printing `contract violation:
+precondition of F (line L)' on stderr and aborting -- the standard's `enforce' semantic, where 0.93 read them and
+ignored them; a postcondition over every return, the returned value named. (20) RTTI OF THE PROGRAM'S OWN CLASSES:
+`typeid' of a type and of a polymorphic object (read from the vtable), `dynamic_cast' to a pointer and to a reference,
+over libc++abi's `__dynamic_cast' and `type_info' objects the lowering emits (`_ZTI', `_ZTS', with the
+`__class_type_info', `__si_class_type_info' and `__vmi_class_type_info' layouts), and THE VTABLE HAS THE ITANIUM
+PREFIX, offset-to-top and the type_info pointer before the slots, the vptr pointing at the slots; a library class's
+type_info is the shipped symbol. libc++ keeps its own no-RTTI configuration (0.86): only the program's `typeid' and
+`dynamic_cast' use it. (21) EXCEPTIONS OF THE PROGRAM'S OWN: `throw' over `__cxa_allocate_exception' and
+`__cxa_throw', `try'/`catch' by type and `catch (...)' through a landing pad, `__gxx_personality_v0',
+`llvm.eh.typeid.for', a rethrow, and every call inside a `try' an `invoke', so the defers of the frames it leaves run
+on the way out; libc++ keeps its no-exceptions configuration (0.50). (22) MULTIPLE POLYMORPHIC BASES: a second
+polymorphic base gets a SECONDARY VTABLE in the object, its slots THUNKS that adjust `this' by the base's offset and
+call the override; `delete' through the second base finds the whole object by offset-to-top; a pointer to member
+function carries the `adj' a conversion from a base adds. (23) C++20's MODULES: `export module M;',
+`module;' with its global fragment, `import M;', `export' before an item and `export { ... }', partitions
+(`M:P'), `import <header>;' and `import "header";' as includes, `import std;' as a fixed list of headers; an imported
+module is read from `M.cppm' (`.ccm', `.cxxm', `.ixx', `.mpp') beside the importer or on the inclusion path, its
+functions and initialized globals emitted `linkonce' into the importer. (24) C++20's COROUTINES, LLVM's switch-resumed
+lowering: the desugaring makes a body holding `co_await', `co_yield' or `co_return' a SKELETON -- the promise of
+`R::promise_type' declared, `coro_begin' (llvm.coro.id over the promise, the frame from operator new,
+llvm.coro.begin), `coro_ret' (get_return_object(), converted as a return is), the initial suspend's await,
+`coro_body' (the body, a fall-off `return_void()'), the final suspend's await and `coro_done' (every defer run, the
+frame freed through llvm.coro.free, llvm.coro.end, the ramp's return). A co_await is a statement expression over the
+awaiter -- `await_ready()', else `coro_suspend' (llvm.coro.save, `await_suspend(coroutine_handle<P>::from_address(
+frame))' whose void, bool or handle result decides, llvm.coro.suspend and the switch whose destroy edge runs every
+defer), then `await_resume()' -- through the promise's `await_transform' where it has one; co_yield is `yield_value';
+co_return the promise's `return_value' or `return_void' and a jump to the final await with its scopes' defers run.
+libc++'s coroutine_handle calls `__builtin_coro_resume', `destroy', `done', `promise', `noop' and the desugaring
+`__builtin_coro_frame': LLVM's intrinsics. THE EMBEDDED LLVM RUNS `default<O0>' AT -O0 TOO (`module/ccl_llvm.cicili',
+`level >= 0'): it ran no passes at all there, and CoroSplit is a pass -- `Cannot select: intrinsic %llvm.coro.begin'.
+FIVE MORE RULES THE COROUTINE PROBES FOUND, each older than coroutines: (25) A NESTED CLASS'S OWN SHORT NAME inside its
+body takes the nested type with no guard, the class made ready after (`std::coroutine_handle<promise_type>' inside
+`Gen::promise_type' met 0.86's per-(class, name) guard, still set while the name's resolution made the class ready,
+and keyed the instance by the free name); (26) `C() = default' beside other constructors makes a DEFAULT CONSTRUCTOR
+EXIST for a holder (`cpp_default_ctor_exists'): a promise holding a `std::coroutine_handle<>' was left uninitialized,
+`__handle_ = nullptr' never run, and a local `Outer::In y;' of a nested class with default initializers too --
+valgrind named it; (27) `T cur{};' and `int n{3};' as DEFAULT MEMBER INITIALIZERS value-initialize as `m()' does;
+(28) `Gen{h}' inside the class template Gen (a functional cast to the reader) is LIST-INITIALIZATION of the aggregate,
+also while the instance is still being registered; (29) a RETURN converts through the value's CONVERSION OPERATOR
+([class.conv.fct]), as it did through the result's converting constructor: `return h;' of a coroutine_handle<P>
+where coroutine_handle<> is the result.
+AND THE DEDUCTION RULES THE RANGES PROBE FOUND: (30) `std::pair{a, b}' -- a NAMESPACE-QUALIFIED CTAD, where only the
+bare name deduced; (31) THE WRITTEN DEDUCTION GUIDES first ([over.match.class.deduct]): a guide is indexed under
+`$guide.<class>' (reader version 94) and tried before the constructors, since libc++'s pair has template constructors
+only; (32) A PARAMETER WHOSE TEMPLATE PARAMETERS ALL STAND IN NON-DEDUCED CONTEXTS takes no part in deduction
+([temp.deduct.call]/1): `format(format_string<_Args...>, _Args &&...)' is `basic_format_string<char,
+type_identity_t<_Args>...>' against a string literal, which refused `deduction_failed'; (33) A POINTEE KEEPS ITS
+QUALIFIERS in deduction ([temp.deduct.call]/4): `T *' against `const int *' is T = const int, where the clause that
+decays a by-value argument took the pointee too and made it `int' -- libc++'s `__to_address(_Tp *)' answered
+`int *' for a `const int *'. Gated by `test/cpp/run/deduceguide.cpp'.
+Reader version 94, lowering version 52; the module and `library/ccl_llvm.so' rebuilt.
+Gated by `test/c/run/trigraphs.c', `varargs.c', `hexfloat.c', `ldouble.c', `designated.c', `cforms.c', and
+`test/cpp/run/arraycookie.cpp', `ifconsteval.cpp' (C++23), `contracts.cpp' (C++26, exit 134 after the violation),
+`rtti.cpp', `exceptions.cpp', `exceptions2.cpp', `multibase2.cpp', `multibase3.cpp', `memfnadj.cpp', `ldouble.cpp',
+`modules.cpp' (C++20, importing `mathm.cppm' which imports `basem.cppm'), `cogenerator.cpp', `cotask.cpp' (symmetric
+transfer, a bool await_suspend, a local with a destructor across a suspension, an infinite generator destroyed
+early), `coeager.cpp' (suspend_never at both ends), `coawait.cpp' (await_transform, an lvalue awaiter, a coroutine
+lambda), `cotemplate.cpp' (a class template generator), `nesteddefault.cpp' and `deduceguide.cpp', each clang's
+output; the coroutine probes valgrind clean.
+NOT DONE, NAMED: THE RANGES and `std::format'. `std::ranges::sort' over a vector stops in libc++ 18's
+`__unwrap_range', where `pair<const int *, const int *>' built from two calls of `__unwrap_iter' refuses both
+two-argument constructors (`__enable_implicit' false for the pair's own `const _T1 &' road, the forwarding one
+arity_mismatch), past rules (30) to (33); `std::format' passes its deduction by (32) and its build did not finish
+inside 1800 s cold. A coroutine: `std::coroutine_traits' specializations (the promise is always `R::promise_type'),
+`unhandled_exception' (no try around the body), `operator co_await' on an awaitable, the ramp's return object read
+from the frame when the frame is freed inside the ramp (the value is kept in an alloca spilled to the frame; the
+eager probe passes under valgrind, so LLVM keeps it out of the frame, but no rule here guarantees it). A module: the
+exported names are not enforced (a non-exported function is visible), a header unit's macros are not exported, module
+linkage is `linkonce'. RTTI: a class with virtual bases gets no `__vmi' layout for them. Exceptions: `noexcept' is not
+enforced, a class caught by value is bound, not copied. A thunk calls the primary chain's override.
+THE GATES, ON LINUX (Ubuntu 24.04, x86_64, four cores, 16 GB; clang 18, libc++ 18, cocolog 1.8.1, the module and
+`ccl_llvm.so' rebuilt as 0.108), `sh test/gates.sh' on a fresh store: the reader GREEN in 12 s; the compile gate
+GREEN in 19 s (51 C fixtures); the driver GREEN in 8 s; the objects' and the proof GREEN; THE LIBRARY READ GREEN in
+2828 s over four lanes, cold after the reader bump, every count 0.107's and the 26 other headers warmed; THE C++ GATE
+RED in 1437 s on two REFUSAL checks only -- `control.cpp' (a `try') now builds and gives clang's exit 39, and
+`coro.cpp' is refused as clang refuses it, for a promise with no `get_return_object' -- every run fixture ok; the
+list updated, the C++ gate alone GREEN in 1482 s, 246 checks, `stdoptionalref' skipped by name. TWO THINGS ON THE
+WAY, worth their lines: the driver gate's first run was RED on the ABI check, `specs([double])', and the cause was mine
+-- `ir_type(T1, x86_fp80)' as a TEST in the ABI's leaves, whose cached answer for a double is no unification but the
+last `ir_base' clause's throw; a type is asked, then compared (`LLx == x86_fp80'). And a compile gate was KILLED by
+the kernel's OOM killer at 14 GB while probes of mine ran beside the chain, in the middle of a write to the store:
+the next reader gate said `commit failed: the store refused it: hexmap ends inside the chunk'. A killed writer can
+leave the store damaged; it is a cache, and a fresh one (`rm -rf ~/.cocolang/KB ~/.cocolang/KB.version') is the
+repair -- and one guarded run at a time is the rule that would have kept it whole (0.46's, broken by me again).
+
 **`format`, `print`, `println` are global macros** (owner's rule):
 `library/ccl_format.pl` is a macro file registered by `ccl_standard_macros/0`
 at the start of every unit (found on `$COCOLOG_LIBRARY`, which is also on
