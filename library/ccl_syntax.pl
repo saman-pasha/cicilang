@@ -74,7 +74,7 @@
 
 %% the reader's version, part of the knowledge base's cache key: bump it when
 %% the grammar changes, so what an older grammar left partial is read again
-ccl_reader_version(94).   % 94 (0.108): C++26's contracts on a function and contract_assert, C++20's modules (module, import, export), a deduction guide indexed under $guide.; 93 (0.108): a compound literal of an unsized array sized by its items; 92 (0.108): a C anonymous struct or union member named $anonK; 91 (0.108): hex floats, a float with a leading dot, the f and L suffixes as their own kinds (floatf, floatl), trigraphs in the ISO modes; 90 (0.104): an array initializer with a pack expansion sizes nothing at the read; 89 (0.104): the integer imaginary literal's suffix kinds, imagui, imagli, imaguli, and \N{NAME} over Unicode 15.0.0 with its aliases; 88 (0.103): the integer imaginary literal is its own token, imagi; 87 (0.101): a static data member defined out of its class indexed under the class; 86 (0.100): an inline namespace marked, a deeper namespace's bare uses rewritten in the AST beside the summary; 85: __has_extension(c_atomic)
+ccl_reader_version(97).   % 97 (0.109): a namespace alias; a qualified name after `struct' in a class body's look-ahead scan is no member template; 96 (0.109): C++17's nested namespace definition, `namespace A::B { }'; 95 (0.109): the tie is the contextual word `tie', `x tie y', and `<*>' is no punctuator in either lexer; 94 (0.108): C++26's contracts on a function and contract_assert, C++20's modules (module, import, export), a deduction guide indexed under $guide.; 93 (0.108): a compound literal of an unsized array sized by its items; 92 (0.108): a C anonymous struct or union member named $anonK; 91 (0.108): hex floats, a float with a leading dot, the f and L suffixes as their own kinds (floatf, floatl), trigraphs in the ISO modes; 90 (0.104): an array initializer with a pack expansion sizes nothing at the read; 89 (0.104): the integer imaginary literal's suffix kinds, imagui, imagli, imaguli, and \N{NAME} over Unicode 15.0.0 with its aliases; 88 (0.103): the integer imaginary literal is its own token, imagi; 87 (0.101): a static data member defined out of its class indexed under the class; 86 (0.100): an inline namespace marked, a deeper namespace's bare uses rewritten in the AST beside the summary; 85: __has_extension(c_atomic)
 %% ccl_reader_version(81).   % 81: a literal past 2^60 is big(Atom) in every summary's item
 %% ccl_reader_version(80).   % 80: a template template parameter's name un-noted at its item's end, a tag or a typedef no concept (<variant>'s `template <_Trait X, ...>' read as a constrained type parameter); 79: a braced default argument, C++20's brace-designated initializer (libc++ 18 at C++20); 78: an unnamed parameter of an unknown type name in a C++ parameter list, a destructor called with its template arguments (libc++ 18); 77: _Generic chosen at the read, an unbounded array sized by its initializer, _BitInt in the table, the OS's predefined macros, <limits.h> and the C23 headers; 59: a method's ref-qualifier kept; 60: the C++20 stretch (a constrained parameter, a requires-clause on a member template, trailing, on a lambda; `::template f' alone; a braced subscript; a member variable template; a constrained auto); 61: a concept indexed by name; 62: a function template's explicit template-id is no type (`T &r(std::forward<U>(v))'), a bare concept's name bound; 63: explicit(cond) kept; 64: a pointer to member, typeid, a member class template noted ahead; 65: no RTTI predefined, so every header is flattened again; 66: only a pointer to member takes the trailing cv- and ref-qualifiers (a method's const is the method rule's); 67: a free name outside a template; 68: a nullability word with an argument list (glibc); 69: a pointer to member function's noexcept, a braced list assigned, and the AST's index keys a deeper namespace's name apart; 70: alignas kept on a class; 71: [[no_unique_address]] kept on a member; 72: the AST's index holds a header's inline variable with NO initializer (std::ignore); 73: a pack expansion is a dependent type, and a call of a function template's name is not the reader's `auto' to deduce; 74: `if constexpr' with an init-statement; 75: a member FUNCTION template's name is a template and no type; 76: __OPTIMIZE_SIZE__ predefined, so libc++'s algorithms are the scalar ones
 
@@ -350,8 +350,7 @@ ccl_punct(P) --> ">>=", !, { P = '>>=' }.
 ccl_punct(P) --> ":=", !, { P = ':=' }.
 ccl_punct(P) --> "<=>", !, { P = '<=>' }.                                      % C++20's three-way comparison
 ccl_punct(P) --> "<<=", !, { P = '<<=' }.
-ccl_punct(P) --> "<*>", !, { P = '<*>' }.
-ccl_punct(P) --> "::", { ccl_lang(cpp) }, !, { P = '::' }.      % C++'s scope, never in C        % the tie operator: x <*> y, x lives within y (no C reads <*>)
+ccl_punct(P) --> "::", { ccl_lang(cpp) }, !, { P = '::' }.      % C++'s scope, never in C
 ccl_punct(P) --> ccl_two_char(P), !.
 ccl_punct(P) --> [C], { ccl_one_char(C, P) }.
 ccl_two_char('->') --> "->".     ccl_two_char('++') --> "++".     ccl_two_char('--') --> "--".
@@ -383,7 +382,7 @@ ccl_unit(Tokens, unit(Items), Rest) :-
 %% (the new variable is its own), and a type that cannot be inferred is an
 %% error naming the variable, the expression and the place.
 ccl_infer_decl(L, N, E, D) :- ccl_infer_decl(L, N, E, none, D).
-ccl_infer_decl(L, N, E, Tie, declaration(L, none, Base, [var(N, T, E)])) :-        % Tie: none, or the name after <*>
+ccl_infer_decl(L, N, E, Tie, declaration(L, none, Base, [var(N, T, E)])) :-        % Tie: none, or the name after `tie'
     ccl_type_of(E, T0),
     ( T0 == unknown -> ccl_here(F, _), throw(error(cannot_infer(N, E), here(F, L))) ; true ),
     ccl_decay(T0, T1), ccl_strip_quals(T1, T2), ( Tie == none -> T = T2 ; ccl_add_tie(Tie, T2, T) ), ccl_base_of(T, Base).
@@ -850,9 +849,18 @@ ccl_external(Env, Env, static_assert(L, E, Msg)) --> ccl_line(L), ccl_kw('_Stati
 %% C++ items: a namespace (its items inside), using, extern "C", a template
 %% (its type parameters are type names inside it), `auto' by inference, a
 %% constructor or destructor defined out of its class, static_assert
+ccl_external(Env, Env, using(L, namespace_alias(N, Q))) --> ccl_cpp, ccl_line(L), ccl_kw(namespace), ccl_id(N), ccl_p('='), !, ccl_qname(Env, type, Q), ccl_p(';').   % A NAMESPACE ALIAS, `namespace views = ranges::views;' ([namespace.alias]; 0.109): namespaces flatten here, so it names nothing new and is an item that does nothing, as `using' is -- the last item of <ranges>
 ccl_external(Env, Env, namespace(L, N1, Items)) --> ccl_cpp, ccl_line(L), ( ccl_kw(inline), { Inl = yes } ; { Inl = no } ), ccl_kw(namespace), !, ccl_attrs, ( ccl_id(N), ! ; { N = anon } ),
     { ( Inl == yes, N \== anon -> N1 = inline(N) ; N1 = N ) },                          % AN INLINE NAMESPACE IS MARKED (0.100): its name stays in the mangler's path (`std::__1') and is skipped where the innermost NAMED namespace keys a colliding name (libc++'s `ranges::__cpo::iter_move' is `ranges.iter_move')
-    ccl_p('{'), ccl_externals(Env, Items), ccl_p('}').
+    ccl_ns_segs(Segs), ccl_p('{'), ccl_externals(Env, Items0), ccl_p('}'), { ccl_ns_nest(Segs, L, Items0, Items) }.
+%% C++17's NESTED NAMESPACE DEFINITION, `namespace A::B::C { ... }', and C++20's `namespace A::inline B { ... }'
+%% ([namespace.def]/5): the namespaces it abbreviates, one inside the other (0.109). libc++ 18 writes `namespace
+%% ranges::views { ... }' for every view, and the read of <ranges> stopped there, 11,496 lines into 61,507, without a
+%% word -- no view and no adaptor was ever read.
+ccl_ns_segs([S|Ss]) --> ccl_p('::'), !, ( ccl_kw(inline), ccl_id(N), !, { S = inline(N) } ; ccl_id(S) ), ccl_ns_segs(Ss).
+ccl_ns_segs([]) --> [].
+ccl_ns_nest([], _, Items, Items).
+ccl_ns_nest([S|Ss], L, Items0, [namespace(L, S, Items)]) :- ccl_ns_nest(Ss, L, Items0, Items).
 ccl_external(Env, Env, using(L, enum(Q))) --> ccl_cpp, ccl_line(L), ccl_kw(using), ccl_kw(enum), !, ccl_qname(Env, type, Q), ccl_p(';').      % C++20: using enum E
 ccl_external(Env, Env, using(L, namespace(Q))) --> ccl_cpp, ccl_line(L), ccl_kw(using), ccl_kw(namespace), !, ccl_qname(Env, type, Q), ccl_p(';').
 ccl_external(Env0, [T|Env0], typedef(L, [var(T, Type, none)])) --> ccl_cpp, ccl_line(L), ccl_kw(using), ccl_id(T), ccl_attrs, ccl_p('='), !, ccl_type_name(Env0, Type), ccl_p(';'),
@@ -1280,7 +1288,7 @@ ccl_balanced --> [tok(K, V, _)], { \+ ( K == p, ( V == '(' ; V == ')' ) ) }, !, 
 ccl_balanced --> [].
 
 ccl_struct_spec(Env, T) --> ccl_kw(K), { K == struct ; K == union ; K == class }, !, ccl_struct_body(Env, K, T).
-ccl_struct_body(Env, K, T) --> ccl_attrs_align(A), ccl_id(N), !, { ( ccl_lang(cpp) -> ccl_add_env(N), ccl_note_if_template(N) ; true ) }, ccl_class_targs(Env, N, Name),
+ccl_struct_body(Env, K, T) --> ccl_attrs_align(A), ccl_id(N), !, ( ccl_peek(p, '::') -> [] ; { ( ccl_lang(cpp) -> ccl_add_env(N), ccl_note_if_template(N) ; true ) } ), ccl_class_targs(Env, N, Name),   % the head's first name is the class's own only where no `::' follows it (0.109): `friend struct std::__segmented_iterator_traits;' made `std' a type name for the rest of the header
     ( ccl_cpp, ccl_class_tail(Env, K, Name, A, T), ! ; ccl_p('{'), !, ccl_members(Env, Ms0), ccl_p('}'), ccl_attrs, { ccl_align_members(A, Ms0, Ms), T =.. [K, N, Ms] } ; { T =.. [K, N, none] } ).
 ccl_struct_body(Env, K, T) --> ccl_attrs_align(A), ccl_p('{'), ccl_class_members(Env, anon, Ms), ccl_p('}'), ccl_attrs, { ccl_make_class(K, anon, [], Ms, A, T) }.
 %% `alignas' IS KEPT where it sits on a class, a struct or a union ([dcl.align]) -- every other attribute is
@@ -1354,7 +1362,7 @@ ccl_scan_close([tok(p, '>>', _)|Ts], D, R) :- !, D1 is D - 2, ccl_scan_close(Ts,
 ccl_scan_close([_|Ts], D, R) :- ccl_scan_close(Ts, D, R).
 ccl_scan_did([tok(p, '(', _)|Ts], 0, tok(_, W, _), N) :- ccl_scan_group_word(W), !, ccl_scan_parens(Ts, 0, Rest), ccl_scan_did(Rest, 0, none, N).   % `__attribute__((...))', `alignas(...)', `decltype(...)': a group, not the declarator; libc++ writes three attributes before every member's type
 ccl_scan_did([tok(p, '[', _), tok(p, '[', _)|Ts], D, _, N) :- !, ccl_scan_attr(Ts, Rest), ccl_scan_did(Rest, D, none, N).   % `[[...]]'
-ccl_scan_did([tok(kw, K, _), tok(id, N, _)|_], 0, _, N-type) :- memberchk(K, [struct, class, union]), !.   % a member CLASS template's name, `template <class, class _Yp> struct __shared_ptr_default_delete : ...': shared_ptr USES it two hundred lines before it declares it, which a complete-class context allows ([class.mem]/6), and read in order `__shared_ptr_default_delete < _Tp , _Yp > ( )' was a pair of comparisons
+ccl_scan_did([tok(kw, K, _), tok(id, N, _)|Ts], 0, _, N-type) :- memberchk(K, [struct, class, union]), \+ Ts = [tok(p, '::', _)|_], !.   % a member CLASS template's name, `template <class, class _Yp> struct __shared_ptr_default_delete : ...': shared_ptr USES it two hundred lines before it declares it, which a complete-class context allows ([class.mem]/6), and read in order `__shared_ptr_default_delete < _Tp , _Yp > ( )' was a pair of comparisons   % ... never a QUALIFIED name (0.109): `template <class> friend struct std::__segmented_iterator_traits;' in join_view names no member, and noted as one `std' became a class template for the rest of <ranges> -- `std::forward<_Range>(r)' no longer read and the header stopped, silently, at take's functor
 ccl_scan_did([tok(p, '(', _)|_], 0, tok(id, N, _), N-fn) :- !.
 ccl_scan_did([tok(p, '(', _)|_], 0, _, _) :- !, fail.
 ccl_scan_did([tok(p, P, _)|_], 0, _, _) :- memberchk(P, [';', '{', '}']), !, fail.
@@ -1570,13 +1578,16 @@ ccl_var_init(Init) --> ccl_cpp, ccl_peek(p, '{'), !, ccl_initializer(Init).     
 ccl_var_init(none) --> [].
 
 ccl_declarator(Env, Base, Name, Type) --> ccl_decl_syntax(Env, D), { ccl_mk_type(D, Base, Name, Type) }.
-%% the tie operator after a declarator: `x <*> y', x lives within y (owner's
-%% rule; the check's business, library(ccl_check)) -- on a variable, a struct
+%% the tie after a declarator: `x tie y', x lives within y (owner's rule;
+%% the check's business, library(ccl_check)) -- on a variable, a struct
 %% member (tied to an earlier member), a parameter (to an earlier parameter),
-%% a function (its result to a parameter), and after `name := expr'
-ccl_tie(T0, T) --> ccl_p('<*>'), !, ccl_id(Y), { ccl_add_tie(Y, T0, T) }.
+%% a function (its result to a parameter), and after `name := expr'. `tie' is
+%% a CONTEXTUAL word, read only here and only before a name: it is no keyword
+%% (the lexers give it as an identifier), so `std::tie' and any C name `tie'
+%% stay what they are. The owner's spelling since 0.109; it was `<*>' before.
+ccl_tie(T0, T) --> ccl_id(tie), ccl_id(Y), !, { ccl_add_tie(Y, T0, T) }.
 ccl_tie(T, T) --> [].
-ccl_tie_name(Y) --> ccl_p('<*>'), !, ccl_id(Y).
+ccl_tie_name(Y) --> ccl_id(tie), ccl_id(Y), !.
 ccl_tie_name(none) --> [].
 ccl_abstract_or_declarator(Env, Base, Name, Type) --> ccl_decl_syntax(Env, D), !, { ccl_mk_type(D, Base, Name, Type) }.
 ccl_abstract_or_declarator(_, Base, anon, Base) --> [].

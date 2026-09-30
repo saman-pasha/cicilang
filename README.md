@@ -53,7 +53,7 @@ is how the repository is worked on, with the record of every step.
 * **The safe part.** `own` pointers are linear and `move` hands them on. A
   borrow dangles when its owner is consumed and may not escape. A struct's
   own fields are owners that go with it. A plain pointer parameter is a
-  borrow of the caller's. `x <*> y` ties a lifetime. Every pointer has an
+  borrow of the caller's. `x tie y` ties a lifetime. Every pointer has an
   ownership path, or the program is refused, at compile time, with the
   statement's line.
 * **Macros in the compiler's own language.** A `.pl` file included, or a
@@ -172,7 +172,7 @@ returned, and may not be stored where the check cannot follow it. A plain
 pointer parameter is a borrow of the caller's: readable, passable,
 returnable, never stored, freed or moved. A struct's own fields are owners
 named by their path (`p->name`, `c.inner.name`) and go with the struct.
-`x <*> y` declares that `x` lives within `y`: a tied value is a borrow of
+`x tie y` declares that `x` lives within `y`: a tied value is a borrow of
 `y`, a tied owner must be consumed before `y` is, a result tie on a
 prototype is a contract the caller reads. An own array, `own node *C[4]`
 or `own node *C[nc]` bounded by an earlier member, holds owners the
@@ -232,9 +232,12 @@ int main(void) { printf("%d %d\n", twice(21), sum(1, 2, 3, 4)); return 0; }   /*
 `format`, `print`, `println` and `clone` are global macros, there in every
 program without an include (`library/ccl_format.pl`). The format string
 has Rust's holes, each becoming the `printf` conversion of its argument's
-inferred type, a struct printed by its members:
+inferred type, a struct printed by its members. An empty hole `{}` takes the
+next argument; a named hole `{name}` takes the variable of that name in scope:
 
 ```c
+n := 42;
+name := "ann";
 p := (point_t){ 1, 2.5 };
 println("n = {} name = {name} p = {p}", n);   // n = 42 name = ann p = point_t { x: 1, y: 2.5 }
 s := format("{} + {} = {}", 1, 2, 3);          // char *
@@ -270,12 +273,13 @@ the four unordered containers, node handles, `optional` with its C++23
 monadic operations, `tuple` with `tuple_cat`, `array`, `unique_ptr`,
 `shared_ptr` and `weak_ptr`, `function`, `bind`, `mem_fn`, `invoke`, the
 function objects and `reference_wrapper`, and the `<algorithm>` surface
-from `all_of` to the heap and permutation algorithms; at C++20 `contains`
-and `erase_if`, at C++26 `optional<T &>`. `test/libcxx.sh` reads
+from `all_of` to the heap and permutation algorithms; at C++20 `contains`,
+`erase_if` and the constrained algorithms `ranges::sort`, `ranges::find` and
+`ranges::count_if`, at C++26 `optional<T &>`. `test/libcxx.sh` reads
 `<vector>`, `<string>`, `<iostream>`, `<map>`, `<set>`,
 `<unordered_map>`, `<unordered_set>`, `<optional>`, `<memory>`,
 `<functional>`, `<tuple>` and `<algorithm>` whole, and the containers,
-`<string>` and `<iostream>` at C++20, `<optional>` and `<string>` at
+`<string>`, `<iostream>` and `<ranges>` at C++20, `<optional>` and `<string>` at
 C++23, `<optional>` at C++26.
 
 Where a macro goes past a template: a macro sees and rewrites the syntax
@@ -328,7 +332,10 @@ DESIGN.md, CLAUDE.md           the architecture; how the repository is worked on
 
 ## Not done
 
-`std::format` and the ranges; `std::coroutine_traits` and a coroutine's
+`std::format` (its desugaring runs past 12 GB inside `basic_format_string`'s
+compile-time checks) and the range views and adaptors (`views::filter` and
+the pipe stop at a member's trailing `requires` over a data member of
+`ref_view`); `std::coroutine_traits` and a coroutine's
 `unhandled_exception`; exported names enforced in a module; a `\N{...}` abbreviation
 alias (`\N{NUL}`, which clang refuses too); the arm64 ABI written and not
 proven. Each is named in `CLAUDE.md` with where it stops.

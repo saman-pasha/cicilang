@@ -48,6 +48,7 @@ set 20 450
 map 20 450
 unordered_map 20 350
 unordered_set 20 350
+ranges 20 900
 optional 23 250
 string 23 450
 optional 26 250"

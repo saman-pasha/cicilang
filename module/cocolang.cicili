@@ -258,7 +258,7 @@
   ;; ccl_version(-Atom): THE VERSION. Every commit raises it (owner's rule),
   ;; one number per change; `cicili --version' prints it with LLVM's.
   (func ccl_p_version ((coco_engine * e) (size_t g)) (out int)
-        (return (coco_m_unify_atom e (coco_m_arg e g 0) "0.108")))
+        (return (coco_m_unify_atom e (coco_m_arg e g 0) "0.109")))
 
   ;; ccl_cocolog_version(-Atom): the engine's own version text, from the
   ;; running binary (coco_version_text is cocolog's, resolved at load like
@@ -730,7 +730,7 @@
           (set (-> x i) j)))
 
   ;; punctuators, longest first, as ccl_punct//1 tries them; `::' in C++ only
-  (static) (var const char * ccl_lx_p3 [8] . '{ "..." ">>=" "<<=" "<*>" "<=>" nil })
+  (static) (var const char * ccl_lx_p3 [8] . '{ "..." ">>=" "<<=" "<=>" nil })
   (static) (var const char * ccl_lx_p2 [24] . '{ ":=" "->" "++" "--" "<<" ">>" "<=" ">=" "==" "!=" "&&" "||" "*=" "/=" "%=" "+=" "-=" "&=" "^=" "|=" nil })
   (static) (var const char * ccl_lx_p1 . "[](){}.&*+-~!/%<>^|?:;=,")
   (static) (func ccl_lx_punct ((ccl_lx * x) (i64 line)) (out int)

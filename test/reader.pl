@@ -315,7 +315,7 @@ k70 :- check('cocolang_ast/2 makes that a syntax error naming the line, and wher
 k71 :- check('a lexical error names its line too',
     ( c('lex.c', P), catch(cocolang_ast(P, _), error(syntax_error(cocolang_ast(_, lexical, line(L))), _), true), L =:= 2 )).
 
-k81 :- check('the tie operator <*>: on a member, a result, a parameter, a local, and after :=',
+k81 :- check('the tie, x tie y: on a member, a result, a parameter, a local, and after :=',
     ( unit('tie.c', unit(Is)),
       member(declare(_, base(_, [struct(list, Ms)])), Is), member(member(ptr([tie(head)|_], _), cur, none), Ms),
       member(declaration(_, _, _, [var(find, fn(ptr([tie(head)|_], _), _, _), none)]), Is),
@@ -499,7 +499,7 @@ t_checks :-
     k66,
     k67,
     k68,
-    section('the tie operator'),
+    section('the tie'),
     k81,
     section('a #cocolog block'),
     k82,

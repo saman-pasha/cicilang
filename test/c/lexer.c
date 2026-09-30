@@ -12,7 +12,7 @@ double fl = 1.5 + 1. + .5 + 1e5 + 1E-3 + 2.5e+2 + 1.5f + 1.F + 3.0L + 1e5f + 0. 
 unsigned long long big = 18446744073709551615ULL + 9223372036854775807 + 1152921504606846975 + 0xFFFFFFFFFFFFFFFF + 0x1000000000000000ul + 0x0FFFFFFFFFFFFFFF + 0b1000000000000000000000000000000000000000000000000000000000000 + 0100000000000000000000 + 1'152'921'504'606'846'976; /* past 2^60: big(Atom) in both lexers, decimal or 0x */
 char cs[] = "plain" "with \"quotes\" and \\ back" "\n\t\r\0\a\b\f\v\e\x41\x4a\x7Fz" "\q\'\"";
 char ch = 'a' + '\n' + '\'' + '\\' + '\x41' + '"';
-int ops = a ... b >>= c <<= d := e <*> f -> g ++ h -- i << j >> k <= l >= m == n != o && p || q *= r /= s %= t += u -= v &= w ^= x |= y;
+int ops = a ... b >>= c <<= d := e tie f -> g ++ h -- i << j >> k <= l >= m == n != o && p || q *= r /= s %= t += u -= v &= w ^= x |= y;
 int one = a[b](c){d}.e&f*g+h-i~j!k/l%m<n>o^p|q?r:s;t=u,v;
 int words = auto_ + _Bool + _Float16 + bool + class + new + delete + true + nullptr + int_ + inline;
 /* a block

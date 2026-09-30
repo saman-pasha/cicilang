@@ -49,7 +49,7 @@
 %% points to -- is borrowed from the same. A callee's prototype is read the
 %% same way through a function pointer.
 %%
-%% A TIE is declared with the tie operator, `x <*> y': x lives within y. y is
+%% A TIE is declared with the word tie, `x tie y': x lives within y. y is
 %% declared before x -- in scope, an earlier parameter, an earlier member of
 %% the struct -- and x is dead the moment y is consumed or y's scope ends. A
 %% tied plain value is a BORROW of y (of y's root, when y is itself a borrow),
@@ -83,7 +83,7 @@
 %%   move_of_non_owner   move(x) of something that is not an owner
 %%   owner_overwritten   assignment to a live owner (what it held would leak)
 %%   goto_with_owners    a goto in a function that has owners (not followed yet)
-%%   tie_unknown         `<*> y' with no y declared before it (in scope, an earlier parameter or member)
+%%   tie_unknown         `tie y' with no y declared before it (in scope, an earlier parameter or member)
 %%   tie_outlived        an owner tied to y still live when y is consumed
 %%   tie_escapes         a tied owner moved beyond its tie: into an untied slot, to an untied own parameter, returned with no result tie
 %%   tie_mismatch        a value not within the tie of the slot, the parameter or the result it is given to
@@ -123,7 +123,7 @@
 %% loops to n. A wrong n is the developer's, as a wrong index is.
 %%
 %% A function's result may be tied to a static local of its own or to a global
-%% (`<*> table'): the caller's variable is then a borrow of static storage,
+%% (`tie table'): the caller's variable is then a borrow of static storage,
 %% static(Name), which nothing ends and nothing may free. `if (!p)' and
 %% `if (p == NULL)' make an owner null on the then path, `if (p)' and
 %% `if (p != NULL)' on the else path, its own fields with it.
@@ -526,7 +526,7 @@ ck_within(St, P, Y) :- ck_declared_tie(P, T), !, ck_within(St, T, Y).
 ck_within(St, P, Y) :- ck_state(St, P, S), ( S = borrow(R) ; S = dangling(R) ), R \== P, !, ck_within(St, R, Y).
 ck_within(St, P, Y) :- ck_base_path(P, B), ck_within(St, B, Y), !.
 ck_within(St, Y, P) :- ck_base_path(P, B), ck_within(St, Y, B).        % a value rooted at a field: its holder stands for it (a child of x, returned as x's)
-%% what `<*> y' refers to, for a local or a parameter: a key's root (its state
+%% what `tie y' refers to, for a local or a parameter: a key's root (its state
 %% borrow or dangling when y is a borrow); a plain local, anchored now; a
 %% global, which never ends; else nothing declared before, tie_unknown
 ck_tie_ref(St0, Y, Form, St, Kind, R) :-

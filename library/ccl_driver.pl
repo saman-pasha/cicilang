@@ -187,7 +187,7 @@ dr_kind(borrow_stored, 'a borrow stored where it cannot be followed:') :- !.
 dr_kind(borrow_consumed, 'a borrow consumed:') :- !.
 dr_kind(borrow_incomplete, 'a borrowed struct''s own field not whole at the return:') :- !.
 dr_kind(owner_stored, 'an owner''s pointer stored into a plain slot:') :- !.
-dr_kind(tie_unknown, '<*> names nothing declared before it:') :- !.
+dr_kind(tie_unknown, 'the tie names nothing declared before it:') :- !.
 dr_kind(tie_outlived, 'owner outlives what it is tied to:') :- !.
 dr_kind(tie_escapes, 'tied owner moved beyond its tie:') :- !.
 dr_kind(tie_mismatch, 'value not within its tie:') :- !.

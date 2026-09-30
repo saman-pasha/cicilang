@@ -96,6 +96,7 @@ ccl_const_eval(not(E), V) :- !, ccl_const_eval(E, V0), ( V0 == 0 -> V = 1 ; V = 
 ccl_const_eval(cast(T, E), V) :- !, ccl_const_eval(E, V0), ccl_w_cast(T, V0, V).
 ccl_const_eval(ccast(_, T, E), V) :- !, ccl_const_eval(E, V0), ccl_w_cast(T, V0, V).      % C++'s own casts, a functional one among them: `type(~0)' folds as `(type) ~0' does
 ccl_const_eval(sizeof_type(T), V) :- !, ccl_size_of(T, V).
+ccl_const_eval(noexcept_expr(_), 1) :- !.   % no library function throws here (0.109; the desugaring folds a throwing operand to false first)
 ccl_const_eval(offsetof(T, D), V) :- !, ccl_offsetof(T, D, V).
 ccl_const_eval(alignof_type(T), V) :- !, ccl_resolve_type(T, T1), ccl_size_align(T1, _, V).   % `alignof(T)' ([expr.alignof]): the alignment the layout already computes
 ccl_const_eval(sizeof(E), V) :- !, ( ccl_literal_bytes(E, V) -> true ; ccl_type_of(E, T), ccl_size_of(T, V) ).   % a string literal's bytes (0.103)
@@ -471,6 +472,7 @@ ccl_type_of(postdec(E), T) :- !, ccl_type_of(E, T).
 ccl_type_of(sizeof(_), T) :- !, ccl_size_type(T).
 ccl_type_of(sizeof_type(_), T) :- !, ccl_size_type(T).
 ccl_type_of(offsetof(_, _), T) :- !, ccl_size_type(T).
+ccl_type_of(noexcept_expr(_), base([], [bool])) :- !.
 ccl_type_of(rtti(_), base([const], [typedef(type_info)])) :- !.          % a type_info object (0.108)
 ccl_type_of(rtti_dyn(_), base([const], [typedef(type_info)])) :- !.
 ccl_type_of(dyncast(_, _, _, T), T) :- !.
@@ -669,8 +671,8 @@ ccl_union_layout([member(T, _, _)|Ms], S0, Al0, N, Al) :-
 ccl_union_layout([_|Ms], S0, Al0, N, Al) :- ccl_union_layout(Ms, S0, Al0, N, Al).      % the data members alone, as above
 ccl_round_up(X, A, Y) :- Y is ((X + A - 1) // A) * A.
 
-%% ---- the tie operator, `<*>' --------------------------------------------------
-%% `x <*> y' declares x to live within y. The reader keeps it as the qualifier
+%% ---- the tie, `x tie y' -------------------------------------------------------
+%% `x tie y' declares x to live within y. The reader keeps it as the qualifier
 %% tie(Y) in the OUTERMOST qualifier list of x's type -- through an array to
 %% its element, through a function to its result, which is how a result is
 %% tied to a parameter. The check reads it (library(ccl_check)); the lowering

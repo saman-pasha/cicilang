@@ -67,7 +67,7 @@ test/readhdr.pl          one library header read whole in its own process, its i
 test/warm.sh             a shim since 0.105: the warm is libcxx.sh's own product now
 test/libcxx.pl, libcxx.sh  the road to libc++ AND the C++ summary cache's warm, ONE cold parallel pass since 0.105 (libcxx.pl is the
                          old one-process form, kept): <vector>, <string>, <iostream>, <map>, <set>, <unordered_map>, <unordered_set>, <optional>, <memory>, <functional> and <tuple> flattened and read WHOLE, the cache wiped first,
-                         and at the levels: <set>, <map>, <unordered_map>, <unordered_set> at C++20, <optional>, <string> at C++23, <optional> at C++26;
+                         and at the levels: <set>, <map>, <unordered_map>, <unordered_set>, <ranges> at C++20, <optional>, <string> at C++23, <optional> at C++26;
                          test/cpp/run/std*.cpp are the standard streams built against libc++ and run: cout, endl, cin, getline, get, ws,
                          the extractors and inserters (stdistream, stdistream2, stdostream), the manipulators (stdmanip), and the
                          containers: stdvector, stdvectorown, stdvectorstring, stdstring, stdmap, stdmapstring, stdmapstring2, stdmultimap,
@@ -75,7 +75,7 @@ test/libcxx.pl, libcxx.sh  the road to libc++ AND the C++ summary cache's warm, 
                          stdunorderedset, stdunorderedset2, stdoptional, stdoptionalstring, stdoptional2, stdnodehandle, stdmapinit, stdmapemplace, stdmapown,
                          stdsetlambda, stdunorderedhash, stdaggregate, stdstringops, stdctad, stdtuple, stdarray, refrank, the smart pointers (stduniqueptr, stdsharedptr, stdmemory),
                          the callables (stdfunction, stdbind, stdfunctional) with multibase and detectbase beside them,
-                         and at the levels stdcontains (C++20), stdoptional3 (C++23),
+                         and at the levels stdcontains and stdranges (C++20), stdoptional3 (C++23),
                          stdoptionalref (C++26);
                          a fixture's input is NAME.stdin
 test/census.pl, census.sh  a census of a header's constructs (test/census.sh '<vector>'), or of a flattened
@@ -347,9 +347,13 @@ uncached); on a cache hit nothing is re-loaded, the expansion having
 happened when the unit was read. Two `k72` clauses had hidden the tie
 check in `test/reader.pl` -- one clause per check, one NUMBER per check.
 
-**`x <*> y` is the tie operator** (owner's rule, and the spelling): x lives
-within y. The lexer has `<*>` as a punctuator (no C has it: `<*>` needs the
-`>` right after the `*`); `ccl_tie//2` reads it after a declarator in
+**`x tie y` is the tie** (owner's rule, and the spelling -- the word
+`tie` since 0.109, `<*>` before): x lives within y. `tie` is a CONTEXTUAL
+word, never a keyword: both lexers give it as an identifier, and the
+grammar reads it only where a tie can stand and only before a name
+(`ccl_id(tie), ccl_id(Y)`), so `std::tie` and a C variable named `tie`
+are what they always were; `<*>` is no punctuator in either lexer any
+more. `ccl_tie//2` reads it after a declarator in
 `ccl_init_declarator`, `ccl_member_declarator`, `ccl_param` and the
 function definition (before `{`), `ccl_tie_name//1` after the `:=` forms
 (`ccl_infer_decl/5`); `ccl_add_tie/3` (in `ccl_infer`) puts `tie(Y)` in
@@ -5921,6 +5925,68 @@ the next reader gate said `commit failed: the store refused it: hexmap ends insi
 leave the store damaged; it is a cache, and a fresh one (`rm -rf ~/.cocolang/KB ~/.cocolang/KB.version') is the
 repair -- and one guarded run at a time is the rule that would have kept it whole (0.46's, broken by me again).
 
+**M6's seventy-fifth step (0.109): C++20's CONSTRAINED ALGORITHMS on libc++ 18, `<ranges>' read whole, the tie spelled
+`tie', and a candidate's check inside `\+ \+'.** The owner asked for the ranges and `std::format'; the first run,
+the second is named with its stop. THE ALGORITHMS: `ranges::sort', `ranges::find' and `ranges::count_if' over a vector
+run and print clang++'s lines (`test/cpp/run/stdranges.cpp' at C++20). The road there, each rung its own rule and most
+of them reproduced in a dozen lines before they were fixed: (1) A PARAMETER'S TYPE MAY NAME AN EARLIER PARAMETER
+([dcl.fct]/9: `decltype(std::__unwrap_iter(__orig_iter)) __iter'), so the parameters are declared in order while
+their types are resolved and keyed (`cpp_plain_params_seq', `cpp_params_keys_seq'). (2) `noexcept(e)' is a bool
+constant (true unless the operand throws: the reader drops a function's `noexcept', so a call's own is not known --
+named). (3) A COMPOUND REQUIREMENT TAKES `decltype((e))' ([expr.prim.req.compound]: an lvalue is `T &';
+`cpp_decltype_paren'), and a failing concept or requirement says which (`concept_unsatisfied', `requirement_unmet').
+(4) CONSTRAINED PARTIAL SPECIALIZATIONS: a candidate whose constraints fail is none, and among those that hold the
+more constrained wins, counted by conjuncts (`cpp_by_constraints': `indirectly_readable_traits'). (5) `decltype' OF A
+CONDITIONAL over two glvalues of one type is the reference with both arms' qualifiers, and of a call through a
+function reference its declared result (`cpp_cond_glvalue', `cpp_fn_result': `common_reference'). (6) Two class types
+are the same by their keys where the spellings differ (`cpp_same_type'). (7) A MEMBER ALIAS TEMPLATE AS A TEMPLATE
+TEMPLATE ARGUMENT, `_Tester::template _Apply', keeps its class (`tname(mt(C, N))'), is substituted as a scoped
+template-id and found through the bases (`cpp_member_alias_of'): libc++'s `_ITER_CONCEPT'. (8) AN `auto' OBJECT
+TAKES ITS INITIALIZER'S TYPE -- a namespace-scope one (`cpp_vars', declared again at file scope) and a STATIC MEMBER
+(`cpp_static_auto', `cpp_declare_statics'); a CALL OF A STATIC OBJECT of class type goes to its `operator()', qualified
+or bare in its class; and a static of an EMPTY class initialized in the class is its zero bytes, `linkonce': libc++'s
+`_IterOps<_RangeAlgPolicy>' is `static constexpr auto __iter_move = ranges::iter_move;' and every ranges algorithm calls
+through it (`test/cpp/run/autoobject.cpp'). (9) AT `-O0' THE PIPELINE RUNS `globaldce' after `default<O0>'
+(`module/ccl_llvm.cicili'): the instances made for a `decltype' or a requires-clause -- `iter_move' over libc++'s
+`__projected_impl', whose `operator*' the library declares for unevaluated use and never defines -- are `linkonce_odr'
+and called by nothing, and kept they named a symbol the link could not find; every higher level drops them already.
+(10) A CANDIDATE'S CHECK RUNS INSIDE `\+ \+' where the call's arguments are ground (`cpp_candidate_check', on the free,
+member and constructor roads): what it makes that lasts (instances, facts, globals) survives, the deductions and
+substitutions of every candidate tried are reclaimed, and only the bindings come out through a global. THE MEASUREMENT
+that found it: the trace's heap stamps summed by the event before each growth put 9.7 GB after `candidates_remembered';
+the ranges probe went 7.9 GB -> 2.6 GB (958 s -> 858 s, warm). THE READER (versions 95 to 97): (11) C++17's NESTED
+NAMESPACE DEFINITION, `namespace ranges::views { ... }', and C++20's `A::inline B' (`ccl_ns_segs', `ccl_ns_nest') --
+the read of `<ranges>' stopped there, line 11,496 of 61,507, and no view was ever read; (12) a NAMESPACE ALIAS,
+`namespace views = ranges::views;', an item that does nothing, as `using' is (namespaces flatten); (13) THE FIRST NAME OF
+A CLASS HEAD IS THE CLASS'S OWN ONLY WHERE NO `::' FOLLOWS IT (`ccl_struct_body'): `template <class> friend struct
+std::__segmented_iterator_traits;' inside `join_view' made `std' a type name for the rest of the header, and the read
+stopped, silently, at `take''s functor 1,150 lines later -- found by a census bisect of the flattened header (four cuts
+read in parallel, then four inside the item, then four in the context: the failing text was identical to `drop''s,
+which read, and only the context told them apart), and the class body's look-ahead scan takes no qualified name for a
+member template either (`ccl_scan_did'). `<ranges>' reads WHOLE at C++20, 956 items, and joins the libc++ gate.
+(14) A NAMESPACE'S KEY BEFORE A CLASS OF THE SAME NAME in a qualified call (`cpp_call'): libc++ has both the namespace
+`ranges::views::__all' and a class template `__all', and `__all::__fn{}' was built as the class's member.
+THE TIE IS THE WORD `tie' (the owner's rule): `x tie y' where `x <*> y' stood, in both lexers (`<*>' is no punctuator
+any more), the grammar, the fixtures, the docs; a CONTEXTUAL word, read only after a declarator or a `:=' form and only
+before a name, so `std::tie' and a C name `tie' are what they were. AND THE README's `format' example declares the
+variables its holes name. NAMED, NOT DONE: THE VIEWS -- `views::filter(v, pred)' now reaches `filter_view''s deduction
+guide and `views::all' (a `ref_view' for an lvalue), and stops in `ref_view''s `empty()' under `requires { ranges::empty(
+*__range_); }', a member's trailing requires-clause over a DATA MEMBER checked with no class scope; the pipe
+`v | views::filter(...)' needs the adaptor closure's hidden friend `operator|' behind it. `std::FORMAT' -- `std::format("{}
+and {}", 2, 3)' reads, and its desugaring runs past 12 GB in three minutes inside `basic_format_string''s compile-time
+checks (`__determine_arg_t<_Context, ...>' with `_Context' the class's own alias unresolved), right after choosing
+`std::__declval<__arg_t *&>'; the same `declval' over the real `__arg_t' outside that context builds in 4 s, and a guard
+on the mangler tried there fixed nothing and was taken out. `noexcept(f())' of a function not declared noexcept answers
+true. Reader version 97, lowering version 52; the module rebuilt as 0.109.
+THE GATES, ON LINUX (Ubuntu 24.04, x86_64, four cores, 16 GB; clang 18, libc++ 18, cocolog 1.8.1), `sh test/gates.sh'
+in one chain with nothing beside it: the reader GREEN in 13 s (k84 comparing the two lexers on the `tie' line of
+`test/c/lexer.c'); the compile gate GREEN in 19 s (the tie fixtures and the eight refused ties); the driver GREEN in
+9 s; the objects in 4 s; the proof; THE LIBRARY READ GREEN in 3387 s, its 23 asserted headers whole -- 0.107's 22 and
+`<ranges>' at C++20, 956 items -- and the other headers the fixtures include warmed; THE C++ GATE GREEN in 1815 s, 251
+checks ok, `stdoptionalref' skipped by name, no failure, the five new fixtures among them (`stdranges', `autoobject',
+`concepttraits', `memberaliasttp', `nsforms'). Measured alone before the chain: `stdranges' 1169 s at 3.1 GB warm (858 s
+before `<ranges>' read whole, 958 s and 7.9 GB before the candidate checks were scoped).
+
 **`format`, `print`, `println` are global macros** (owner's rule):
 `library/ccl_format.pl` is a macro file registered by `ccl_standard_macros/0`
 at the start of every unit (found on `$COCOLOG_LIBRARY`, which is also on
@@ -6223,7 +6289,7 @@ leak check, and `ck_complete_owners/2` demands them live or null at every
 return (`borrow_incomplete`). `params.c` runs, five `safe/` programs are
 refused.
 
-**Ties (`<*>`):** `'$ck_ties'` holds Key-Root for every declared tie -- a
+**Ties (`x tie y`):** `'$ck_ties'` holds Key-Root for every declared tie -- a
 local's, a parameter's, a field's per instance (`ck_note_tie/2`; dropped
 when the key is declared again). A tied plain value is `borrow(Root)`
 whatever its type (`ck_var_tie/4`; `ck_field_ties/5` in member order, a

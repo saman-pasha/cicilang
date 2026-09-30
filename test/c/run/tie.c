@@ -1,28 +1,28 @@
-/* the tie operator <*>: x <*> y, x lives within y -- on a local, a struct
+/* the tie, x tie y: x lives within y -- on a local, a struct
    member, a parameter, a function's result, and after := */
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 
 typedef struct node { int v; } node;
-typedef struct list { own node *head; node *cur <*> head; int n; } list;   /* cur borrows head, in every list */
+typedef struct list { own node *head; node *cur tie head; int n; } list;   /* cur borrows head, in every list */
 typedef struct view { const char *s; int n; } view;
 
-static node *find(node *head, int n, int k) <*> head {      /* the result borrows head */
+static node *find(node *head, int n, int k) tie head {      /* the result borrows head */
     node *p = head;
     for (int i = 0; i < n; i++, p++) if (p->v == k) return p;
     return (node *) 0;
 }
-static int gap(node *head, node *cur <*> head) { return (int) (cur - head); }   /* cur within head, checked at every call */
+static int gap(node *head, node *cur tie head) { return (int) (cur - head); }   /* cur within head, checked at every call */
 static void show(view v) { printf("%.*s\n", v.n, v.s); }
 
 int main(void) {
     own char *buf = malloc(16);
     strcpy(buf, "hello, tie");
-    view v <*> buf = { buf + 7, 3 };            /* v, and what it holds, lives within buf */
+    view v tie buf = { buf + 7, 3 };            /* v, and what it holds, lives within buf */
     show(v);
     int a = 5;
-    double b <*> a = 2.5;                       /* b lives within a */
+    double b tie a = 2.5;                       /* b lives within a */
     printf("%d %g\n", a, b);
 
     list l;

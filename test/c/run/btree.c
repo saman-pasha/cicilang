@@ -65,14 +65,14 @@ static void insert(tree *t, int k) {
     }
     insert_nonfull(t->root, k);
 }
-static node *search(node *x, int k) <*> x {           /* the node holding k, or null: a borrow of x */
+static node *search(node *x, int k) tie x {           /* the node holding k, or null: a borrow of x */
     int i = 0;
     while (i < x->n && x->key[i] < k) i++;
     if (i < x->n && x->key[i] == k) return x;
     if (x->leaf) return (node *) 0;
     return search(x->C[i], k);
 }
-static int level(node *root, node *x <*> root) {      /* how deep x sits under root */
+static int level(node *root, node *x tie root) {      /* how deep x sits under root */
     int d = 0, k = x->key[0];
     node *c = root;
     while (c != x) {
