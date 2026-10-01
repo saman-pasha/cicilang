@@ -106,6 +106,7 @@ One row per step, in version order: the step's title, what it did and its gate n
 | 0.110 | not-done lists | noexcept, trailing returns, coroutine traits, catch-by-value, vbase, diamond, exports, header units | libcxx 3240 s cold; C++ 2010 s, 271 checks |
 | 0.111 | numbers | Recorded 0.110's numbers: all seven GREEN | — |
 | 0.112 | views, `std::format`'s road, `CLAUDE.md` by topic | `views::filter` and the pipe; the rules `std::format` asked for, each with its fixture; four suspected defects fixed; `CLAUDE.md` rewritten by topic, this file made | not run (a save point) |
+| 0.113 | the views one by one, `std::quoted` | `std::quoted` linked; transform, reverse, iota, take, drop, take_while, keys, values and a chain each run alone; eight rules with their fixtures; all views in one program still stop | not run (a save point) |
 
 ## M5 — the C++ mode
 
@@ -6363,3 +6364,59 @@ output in a probe, one at a time, and the rules above were each proven on a redu
 read every header cold at reader 107 -- have not run over it, and the views (`transform', `reverse', `keys', `values',
 `take_while', the chain) and `std::quoted' are not yet run through after the fixes they asked for. The next commit
 carries the gates' numbers.
+
+## 0.113 — M6's seventy-eighth step
+
+**M6's seventy-eighth step (0.113): the views of `<ranges>` run one by one, `std::quoted` linked, and the seven gates
+over the 0.112 save point.** 0.112 was committed as a save point with no gate run over it, and named what was still to
+run through: the views `transform`, `reverse`, `keys`, `values`, `take_while`, the chain, and `std::quoted`. This step
+runs each of them alone against clang++ with libc++ 18 at C++20, fixes what they ask for, and runs the gates.
+
+THE RULES, each cut to a reduction first: (1) THE HIDDEN MARK OF AN ATTRIBUTE THAT BEGINS AN ITEM is kept
+(`'$ccl_hidden_lead'`; reader version 108): 0.112 kept `__visibility__("hidden")' on a member defined out of its class,
+but where the attribute stands right after a template head, the rule that drops a leading attribute and reads the item
+again cleared the mark first -- libc++ 18 writes `template <...> _LIBCPP_HIDE_FROM_ABI void
+basic_stringbuf<...>::__init_buf_ptrs()', the extern template's instance called it by a symbol the library does not
+export, and the link named it. `stdquoted.cpp' (`std::quoted' on output and input). (2) AN UNNAMED TEMPLATE PARAMETER
+OF A DECLARATION TAKES THE DEFINITION'S NAME, never the reverse (`cpp_tparam_renames', `cpp_rename_tparams'): libc++
+declares `template <bool> class __iterator;' in transform_view and defines it `template <bool _Const> class
+transform_view<...>::__iterator', and `__iterator<!_Const>' was renamed to nobody's `anon'. `viewiter.cpp'.
+(3) A VARIABLE TEMPLATE WHOSE VALUE IS AN OBJECT OF CLASS TYPE answers that value, a compound literal of the class
+(`cpp_object_value/1'), and its instance called is the object's `operator()' (a `cpp_call' clause on `tmpl(N, As)',
+never for a function template's prototype, which is a declaration item too -- the first writing caught `__declval' and
+refused every `declval'): libc++ 18 writes `template <size_t _Np> inline constexpr auto elements =
+__elements::__fn<_Np>{};' and `keys = elements<0>', and an object that is no constant was refused. `vtobject.cpp'.
+(4) BOTH IMPLICIT MEMBERS OF A CLASS ARE MADE IN THE CLASS (`cpp_in_class' around `cpp_implicit_ctor' and
+`cpp_implicit_dtor' in `cpp_item'): transform_view's `__sentinel' default-initializes `sentinel_t<_Base> __end_ =
+sentinel_t<_Base>()', and made outside the class `_Base' did not resolve (`instance_not_emitted'). `sentbase.cpp'.
+(5) A HIDDEN FRIEND WITH AN UNMET REQUIRES-CLAUSE IS NOT REGISTERED ([temp.inst]/11; `cpp_friend_req/3',
+`cpp_friends_viable/3'): transform_view's iterator writes `friend auto operator<=>(...) requires random_access_range<
+_Base> && three_way_comparable<iterator_t<_Base>>', and deducing its `auto' over a `__wrap_iter', which has no `<=>',
+refused and left the view's `begin()' undeclared. With it: `a <=> b' takes a free `operator<=>' (a hidden friend among
+them), a plain struct with none refuses instead of taking the scalar rule, and an `auto' operator deduces its result
+as a plain function does. `friendreq.cpp'. (6) A MEMBER CLASS TEMPLATE OF A LIBRARY CLASS IS THE LIBRARY'S
+(`cpp_lib_origin/2'): transform_view's `__iterator<_Const>' was checked as the program's code, and the safe part
+refused `__parent_(std::addressof(__parent))'. (7) A MEMBER WHOSE CLAUSE IS UNMET IS NOT DECLARED where its declaration
+cannot be made -- an `auto' result that does not deduce, or a constrained constructor whose parameter types do not
+resolve (`cpp_unmet_member/4' in `cpp_declare_members', asked only after the failure): ref_view<map>'s `data() const
+requires contiguous_range<_Range>' refused `views::keys', and transform_view's iterator `__iterator(__iterator<!_Const>)
+requires _Const' instantiated an `__iterator<true>' over a const filter_view. The first writing caught the throw and
+left the failed deduction's scope frame open, so every later declaration of the registration went into that frame and
+vanished with it (`op.eq.2' of the transform iterator undeclared): the scope is restored now. `memberunmet.cpp'.
+(8) A NON-CONST MEMBER IS NO CANDIDATE ON A CONST OBJECT ([over.match.funcs]/5; `cpp_const_viable/1'), a static
+member, an explicit object parameter and a closure's `operator()' excepted (const unless `mutable', which is not
+marked; the first writing left the closure out, and `invocable<const lambda &, int &>' failed for take_while's
+predicate): it was only scored lower, so `range<const transform_view<filter_view<...>>>' held through the non-const
+`begin()', and take_view's `end() const' was walked. `constmember.cpp'.
+
+THE VIEWS, each alone against clang++: `transform', `reverse', `iota', `take', `drop', `take_while', `keys',
+`values', and the chain `filter | transform | take' give clang++'s output. All eight in one program
+(`views2.cpp' of the session) still stop: `auto_result' of the chained `take_view<transform_view<filter_view<...>>>'
+after the earlier statements; each piece alone passes, so a memo of an earlier statement is the suspect. Not yet
+found.
+
+Reader version 108, lowering version 59; the module rebuilt as 0.113, over cocolog 1.8.38. NO GATE HAS RUN ON THIS
+COMMIT either. It is a second save point: each fixture it adds (`stdquoted', `viewiter', `vtobject', `sentbase',
+`friendreq', `memberunmet', `constmember') matched clang++'s output in a probe, one at a time, but the seven gates --
+which read every header cold at reader 108 -- have not run over 0.112 or 0.113. The rule of (8) changes the member road
+for every const object, so the gates are the proof it still owes. The next commit carries their numbers.
