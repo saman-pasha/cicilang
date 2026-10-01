@@ -1,0 +1,17 @@
+make 1
+make 2
+make 3
+in 1 2 3
+drop 3
+drop 2
+drop 1
+make 10
+make 20
+make 6
+in 10 20 6
+drop 6
+drop 20
+drop 10
+ann bob cyd 3
+6 6 7 7
+exit 0

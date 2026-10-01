@@ -258,7 +258,7 @@
   ;; ccl_version(-Atom): THE VERSION. Every commit raises it (owner's rule),
   ;; one number per change; `cicili --version' prints it with LLVM's.
   (func ccl_p_version ((coco_engine * e) (size_t g)) (out int)
-        (return (coco_m_unify_atom e (coco_m_arg e g 0) "0.111")))
+        (return (coco_m_unify_atom e (coco_m_arg e g 0) "0.112")))
 
   ;; ccl_cocolog_version(-Atom): the engine's own version text, from the
   ;; running binary (coco_version_text is cocolog's, resolved at load like
@@ -291,7 +291,7 @@
     (member char * buf) (member size_t bn) (member size_t bcap)
     (member size_t k_id) (member size_t k_kw) (member size_t k_int) (member size_t k_float) (member size_t k_floatf) (member size_t k_floatl) (member int fsfx) (member size_t k_str)
     (member size_t k_uint) (member size_t k_long) (member size_t k_ulong) (member size_t k_bitint) (member size_t k_ubitint) (member int sfx)
-    (member size_t k_imag) (member size_t k_imagf) (member size_t k_imagi) (member size_t k_imagui) (member size_t k_imagli) (member size_t k_imaguli) (member int imag)
+    (member size_t k_imag) (member size_t k_imagf) (member size_t k_imagl) (member size_t k_imagi) (member size_t k_imagui) (member size_t k_imagli) (member size_t k_imaguli) (member int imag)
     (member size_t k_wstr) (member size_t k_u16str) (member size_t k_u32str) (member size_t k_wchr) (member size_t k_u16chr) (member size_t k_u32chr)
     (member size_t k_chr) (member size_t k_p) (member size_t k_pp) (member size_t k_cocolog) (member size_t k_num))
 
@@ -589,7 +589,7 @@
           (set (-> x i) j)))
   (static) (func ccl_lx_emit_float ((ccl_lx * x) (size_t j) (i64 line))
         (let ((char * endp . nil))
-          (ccl_lx_tok x (? (== (-> x imag) 2) (-> x k_imagf) (? (== (-> x imag) 1) (-> x k_imag) (? (== (-> x fsfx) 1) (-> x k_floatf) (? (== (-> x fsfx) 2) (-> x k_floatl) (-> x k_float))))) (coco_m_new_float (-> x e) (strtod (-> x buf) (aof endp))) line)
+          (ccl_lx_tok x (? (== (-> x imag) 2) (-> x k_imagf) (? (== (-> x imag) 1) (? (== (-> x fsfx) 2) (-> x k_imagl) (-> x k_imag)) (? (== (-> x fsfx) 1) (-> x k_floatf) (? (== (-> x fsfx) 2) (-> x k_floatl) (-> x k_float))))) (coco_m_new_float (-> x e) (strtod (-> x buf) (aof endp))) line)   ; `1.0li', `1.0il': imagl (0.112)
           (set (-> x i) j)))
   (static) (func ccl_lx_number ((ccl_lx * x) (i64 line)) (out int)
         (let ((size_t i0 . 0) (size_t j . 0) (size_t dend . 0) (size_t fstart . 0) (size_t fend . 0) (size_t k . 0) (size_t q . 0)
@@ -893,6 +893,7 @@
           (set (-> x fsfx) 0)
           (set (-> x k_imag) (coco_m_new_atom e "imag"))
           (set (-> x k_imagf) (coco_m_new_atom e "imagf"))
+          (set (-> x k_imagl) (coco_m_new_atom e "imagl"))
           (set (-> x k_imagi) (coco_m_new_atom e "imagi"))
           (set (-> x k_imagui) (coco_m_new_atom e "imagui"))
           (set (-> x k_imagli) (coco_m_new_atom e "imagli"))

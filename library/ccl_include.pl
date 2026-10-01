@@ -399,14 +399,15 @@ ccl_lib_unit(G) :-
 %% involved: it cannot hold units this size (CLAUDE.md's findings).
 ccl_sum_dir(D) :- ( catch(os_env('HOME', H), _, fail) -> true ; H = '/tmp' ), atom_concat(H, '/.cocolang/cpp', D).
 ccl_sum_file(Path, F) :-
-    ccl_sum_dir(D), ccl_std(Std), atomic_list_concat([Path, '@', Std], Keyed), atom_codes(Keyed, Cs), ccl_fold(Cs, 7, 131, S1), ccl_fold(Cs, 13, 137, S2),   % one summary per level
+    ccl_sum_dir(D), ccl_std(Std), ccl_cmdline_key(CK), atomic_list_concat([Path, '@', Std, CK], Keyed), atom_codes(Keyed, Cs), ccl_fold(Cs, 7, 131, S1), ccl_fold(Cs, 13, 137, S2),   % one summary per level, and per set of command-line macros (0.112): a header read under `-DNDEBUG' is another header
     ( sub_atom(Path, B, _, 0, Base), sub_atom(Path, B1, 1, _, '/'), B1 < B, \+ sub_atom(Base, _, _, _, '/') -> true ; Base = Path ),
     atomic_list_concat([D, '/', Base, '-', S1, '-', S2, '.sum'], F).
+ccl_cmdline_key(K) :- ( catch(nb_getval('$pp_cmdline', L), _, fail), L \== [] -> msort(L, L1), term_to_atom(L1, A), atom_concat('@', A, K) ; K = '' ).
 ccl_fold([], S, _, S).
 ccl_fold([C|Cs], S0, M, S) :- S1 is (S0 * M + C) mod 2147483647, ccl_fold(Cs, S1, M, S).
 ccl_sum_valid(F) :-
     exists_file(F), ccl_ast_file(F, A), exists_file(A),   % A SUMMARY IS VALID ONLY WITH ITS AST BESIDE IT (0.106): a hollow one, left by the lost-AST defect, refused every program over the header's templates until the cache was wiped by hand; now it is simply read again
-    ccl_sum_terms(F, [sum(_, key(V, cpp(S)))|Terms]), ccl_reader_version(V), ccl_std(S),
+    ccl_sum_terms(F, [sum(_, key(V, cpp(S)))|Terms]), ccl_reader_version(V), ccl_std(S), \+ memberchk(big(_), Terms),   % a long term whose clause file is gone: read the header again
     findall(P-T, member(dep(P, T), Terms), Deps), Deps \== [], ccl_deps_hold(Deps).
 ccl_deps_hold([]).
 ccl_deps_hold([P-T|Ds]) :- once(catch(time_file(P, T1), _, fail)), T1 =:= T, ccl_deps_hold(Ds).
@@ -422,7 +423,10 @@ ccl_sum_write(F, Path, Files, unit(Is)) :-
     ccl_concat_codes([[sum(Path, key(V, cpp(S)))], T1, T2, T3, T4, T5, T6, T7], Terms),
     ccl_pp_macros(Ms), ccl_sum_mnames(Ms, Out8), append(Out8, Ms, MTerms),   % the macros the run defined, for the user's file, beside it
     ccl_mac_file(F, M), ccl_sum_chunks(MTerms, 100, MCodes), write_file_from_codes(M, MCodes),
-    ccl_sum_chunks(Terms, 100, Codes), ccl_write_whole(F, Codes), ccl_sum_forget(F).   % the .sum last, and whole (a rename): a truncated one must never read as valid
+    nb_setval('$ccl_sum_bigs', big(F, 0, [])),
+    ccl_sum_chunks(Terms, 100, Codes), nb_getval('$ccl_sum_bigs', big(_, NB, BigCodes)), nb_setval('$ccl_sum_bigs', none),
+    ( NB > 0 -> ccl_big_file(F, BF), ccl_write_whole(BF, BigCodes) ; true ),
+    ccl_write_whole(F, Codes), ccl_sum_forget(F).   % the .sum last, and whole (a rename): a truncated one must never read as valid
 %% a file written through a temporary name and renamed into place, so a run killed mid-write leaves the old file or none
 ccl_write_whole(F, Codes) :- atom_concat(F, '.tmp', T), write_file_from_codes(T, Codes), rename_file(T, F).
 %% THE AST BESIDE THE SUMMARY: the flattened header's named items, one clause each -- '$cpp_hdr_ast'(Name, Item) in
@@ -451,11 +455,30 @@ ccl_ast_take(K, [I|Is], [I|Some], Rest) :- K1 is K - 1, ccl_ast_take(K1, Is, Som
 ccl_ast_trace(T) :- once(catch(cpp_trace(T), _, true)).
 %% each item with the NAMESPACE PATH it stood in, since a name the header only declares is called by its
 %% mangled symbol and a summary-served run must know the same path the index knew (cpp_mangled_name/3)
-ccl_flat_items(_, [], []).
-ccl_flat_items(Path, [namespace(_, N, Js)|Is], Flat) :- !, ( atom(N), N \== anon, Path \== c -> append(Path, [N], P1) ; N = inline(_), Path \== c -> append(Path, [N], P1) ; P1 = Path ),   % an inline namespace's segment is `inline(N)' (0.100): in the mangler's path, out of the collision key
-    ccl_flat_items(P1, Js, F1), ccl_flat_items(Path, Is, F2), append(F1, F2, Flat).
-ccl_flat_items(Path, [extern_c(_, Js)|Is], Flat) :- !, ccl_flat_items(c, Js, F1), ccl_flat_items(Path, Is, F2), append(F1, F2, Flat).
-ccl_flat_items(Path, [I|Is], [in(Path, I)|Flat]) :- ccl_flat_items(Path, Is, Flat).
+ccl_flat_items(Path, Is, Flat) :- ccl_flat_items_(Path, Is, F0), ccl_flat_quals(F0, Flat).
+ccl_flat_items_(_, [], []).
+ccl_flat_items_(Path, [namespace(_, rel_ops, _)|Is], Flat) :- !, ccl_flat_items_(Path, Is, Flat).   % std::rel_ops IS NOT INDEXED (0.112): its names are found only through a using-directive ([namespace.udir]), which this compiler does not model, and flattened its `template <class T> bool operator!=(const T &, const T &)' took every class -- filter_view's iterator in a range-for -- before C++20's rewritten candidate from `=='
+ccl_flat_items_(Path, [namespace(_, N, Js)|Is], Flat) :- !, ( atom(N), N \== anon, Path \== c -> append(Path, [N], P1) ; N = inline(_), Path \== c -> append(Path, [N], P1) ; P1 = Path ),   % an inline namespace's segment is `inline(N)' (0.100): in the mangler's path, out of the collision key
+    ccl_flat_items_(P1, Js, F1), ccl_flat_items_(Path, Is, F2), append(F1, F2, Flat).
+ccl_flat_items_(Path, [extern_c(_, Js)|Is], Flat) :- !, ccl_flat_items_(c, Js, F1), ccl_flat_items_(Path, Is, F2), append(F1, F2, Flat).
+ccl_flat_items_(Path, [I|Is], [in(Path, I)|Flat]) :- ccl_flat_items_(Path, Is, Flat).
+%% AN ITEM DECLARED BY A NAME QUALIFIED WITH A NAMESPACE BELONGS TO THAT NAMESPACE ([namespace.memdef]/2): libc++
+%% defines `template <class _CharT> inline constexpr bool __format::__enable_insertable<basic_string<_CharT>> = true;'
+%% in namespace std, and taken for std's own `__enable_insertable' it collided with __format's -- the primary was
+%% keyed `__format.__enable_insertable', the specialization belonged to nothing, no string was insertable and
+%% std::format wrote into a `__writer_container<void>' (test/cpp/run/qualspec.cpp). Only a qualifier whose every
+%% segment is a namespace of the same items counts: `ios_base::flags' defined out of its class stays where it is.
+ccl_flat_quals(F0, F) :- findall(S, ( member(in(P, _), F0), P \== c, member(S, P), atom(S) ), Ns0), sort(Ns0, Ns),
+    ( Ns == [] -> F = F0 ; ccl_flat_quals_(F0, Ns, F) ).
+ccl_flat_quals_([], _, []).
+ccl_flat_quals_([in(P, I)|Fs], Ns, [in(P1, I)|Gs]) :- ccl_item_ns_path(P, I, Ns, P1), ccl_flat_quals_(Fs, Ns, Gs).
+ccl_item_ns_path(P, I, Ns, P1) :- P \== c, ccl_item_ns_qual(I, Q), Q = [_|_], forall(member(S, Q), ( atom(S), memberchk(S, Ns) )), !, append(P, Q, P1).
+ccl_item_ns_path(P, _, _, P).
+ccl_item_ns_qual(template(_, _, I), Q) :- !, ccl_item_ns_qual(I, Q).
+ccl_item_ns_qual(declare(_, base(_, [class(_, scoped(Q, _), _, _)])), Q).
+ccl_item_ns_qual(declare(_, base(_, [struct(scoped(Q, _), _)])), Q).
+ccl_item_ns_qual(declaration(_, _, _, [var(scoped(Q, _), _, _)]), Q).
+ccl_item_ns_qual(function(_, _, _, scoped(Q, _), _, _, _), Q).
 ccl_ast_lines([], _, []).
 ccl_ast_lines([in(Path, I)|Is], Qs, Out) :-
     (   catch(cpp_index_name(I, N), _, fail)
@@ -463,6 +486,7 @@ ccl_ast_lines([in(Path, I)|Is], Qs, Out) :-
         ( Key0 == N -> Key = N, I0 = I ; cpp_qualify_item(N, Key0, I, Iq) -> Key = Key0, I0 = Iq ; Key = N, I0 = I ),
         cpp_qualify_body(Qs, Path, I0, I1),                                     % the deeper namespace's bare uses of a colliding name go to its key (0.100)
         ccl_ast_clause('$cpp_hdr_ast'(Key, I1), L1), ccl_ast_clause('$cpp_hdr_ast_ns'(Key, Path), L2), append(L1, L2, L0)
+    ;   catch(cpp_enum_ns_name(I, EN), _, fail) -> ccl_ast_clause('$cpp_hdr_ast_ns'(EN, Path), L0)   % a header's enum, its namespace path alone (0.112)
     ;   L0 = [] ),
     ccl_ast_lines(Is, Qs, O2), append(L0, O2, Out).
 ccl_ast_clause(T, Cs1) :- term_to_atom(T, A), atom_codes(A, Cs), append(Cs, [0'., 10], Cs1).
@@ -504,7 +528,18 @@ ccl_sum_slim([dtor(L, Q, _)|Ms], [dtor(L, Q, none)|Ms1]) :- !, ccl_sum_slim(Ms, 
 ccl_sum_slim([template(L, Ps, M)|Ms], [template(L, Ps, M1)|Ms1]) :- !, ccl_sum_slim([M], [M1]), ccl_sum_slim(Ms, Ms1).
 ccl_sum_slim([M|Ms], [M|Ms1]) :- ccl_sum_slim(Ms, Ms1).
 ccl_sum_terms_out([], []).
-ccl_sum_terms_out([T|Ts], Out) :- term_to_atom(T, A), atom_codes(A, Cs), append(Cs, [0'., 10], L1), ccl_sum_terms_out(Ts, O2), append(L1, O2, Out).
+ccl_sum_terms_out([T|Ts], Out) :- term_to_atom(T, A), ccl_sum_line(T, A, Cs), append(Cs, [0'., 10], L1), ccl_sum_terms_out(Ts, O2), append(L1, O2, Out).
+%% A TERM TOO LONG FOR A LINE goes to the clause file beside the summary, <name>-<fold>.big.pl, as
+%% '$ccl_sum_big'(F, I, T), and its line is `big(I)' (0.112): term_to_atom/2 READS through an 8 KB buffer in cocolog
+%% (`char buf [8192]' in coco_b_term_to_atom, the neighbour's), so the `tag(...)' lines of libc++'s large classes --
+%% basic_string 56 KB, tuple, vector, pair: twelve lines of <vector>'s summary -- were written whole and dropped
+%% SILENTLY at the read, and a summary-served run's tag table lacked them. ensure_loaded/1 has no such limit (the AST
+%% beside the summary is read so). Only while a .sum is written (`'$ccl_sum_bigs''); the .mac's lines stay as they were.
+ccl_sum_line(T, A, Cs) :- atom_length(A, N), N > 8000, catch(nb_getval('$ccl_sum_bigs', big(F, I, Bs)), _, fail), !,
+    term_to_atom('$ccl_sum_big'(F, I, T), C), atom_codes(C, CCs), append(CCs, [0'., 10], CL), append(Bs, CL, Bs1),
+    I1 is I + 1, nb_setval('$ccl_sum_bigs', big(F, I1, Bs1)), term_to_atom(big(I), BA), atom_codes(BA, Cs).
+ccl_sum_line(_, A, Cs) :- atom_codes(A, Cs).
+ccl_big_file(F, B) :- atom_length(F, N), N1 is N - 4, sub_atom(F, 0, N1, 4, Base), atom_concat(Base, '.big.pl', B).
 ccl_concat_codes([], []).
 ccl_concat_codes([C|Cs], Out) :- ccl_concat_codes(Cs, O2), append(C, O2, Out).
 ccl_tag_names([], []).
@@ -528,7 +563,15 @@ ccl_dep_times([F|Fs], Ds) :- ccl_dep_times(Fs, Ds1), ( once(catch(time_file(F, T
 ccl_sum_terms(F, Terms) :-
     atom_concat('$ccl_sum:', F, K),
     (   catch(nb_getval(K, T0), _, fail), T0 \== none -> Terms = T0
-    ;   read_file_to_codes(F, Codes), atom_codes(A, Codes), atomic_list_concat(Lines, '\n', A), ccl_sum_lines(Lines, Terms), nb_setval(K, Terms) ).
+    ;   read_file_to_codes(F, Codes), atom_codes(A, Codes), atomic_list_concat(Lines, '\n', A), ccl_sum_lines(Lines, Terms0),
+        ccl_sum_bigs_in(F, Terms0, Terms), nb_setval(K, Terms) ).
+%% the long terms back from the clause file beside the summary; a `big(I)' with no clause behind it stays, and makes
+%% the summary invalid (ccl_sum_valid), so the header is read again rather than served short
+ccl_sum_bigs_in(F, Ts0, Ts) :- memberchk(big(_), Ts0), !, ccl_big_file(F, B), ( exists_file(B) -> ensure_loaded(B) ; true ), ccl_sum_bigs_(Ts0, F, Ts).
+ccl_sum_bigs_in(_, Ts, Ts).
+ccl_sum_bigs_([], _, []).
+ccl_sum_bigs_([big(I)|Ts0], F, [T|Ts]) :- catch('$ccl_sum_big'(F, I, T0), _, fail), !, T = T0, ccl_sum_bigs_(Ts0, F, Ts).
+ccl_sum_bigs_([T|Ts0], F, [T|Ts]) :- ccl_sum_bigs_(Ts0, F, Ts).
 ccl_sum_forget(F) :- atom_concat('$ccl_sum:', F, K), nb_setval(K, none), nb_setval('$ccl_sumload:names', []).
 ccl_sum_lines([], []).
 ccl_sum_lines([L|Ls], Ts) :-                                                  % every position bound: a free one enumerates, 0.7 ms a line

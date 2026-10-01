@@ -1,0 +1,9 @@
+make 1
+bound 1
+make 2
+bound 1 12
+drop 12
+drop 1
+after 2 2
+hello, world abcdef 18
+exit 0

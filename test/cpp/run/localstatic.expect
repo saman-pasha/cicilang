@@ -1,0 +1,6 @@
+start 0
+make 7
+8 9 1
+name 1
+drop 9
+exit 0

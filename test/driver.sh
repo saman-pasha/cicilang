@@ -39,6 +39,25 @@ printf '#error not here\nint main(void) { return 0; }\n' > err.c
 errout=$("$CICILI" err.c -o err 2>&1 >/dev/null); errcode=$?
 check "#error in the file is a diagnostic, exit 1" "$(echo "$errout" | head -1; echo "exit $errcode")" "err.c:1: error: not here
 exit 1"
+cat > defs.c <<'EOF2'
+#include <stdio.h>
+#include <assert.h>
+int main(void) {
+#ifdef GREETING
+  printf("%s\n", GREETING);
+#endif
+#ifdef GONE
+  printf("gone is here\n");
+#endif
+  printf("%d %d\n", SQUARE(7), LEVEL);
+  assert(LEVEL == 0);
+  printf("after\n");
+  return 0;
+}
+EOF2
+check "-D and -U define and undefine before every file, <assert.h>'s NDEBUG among them" "$("$CICILI" -DGREETING='"hi"' '-DSQUARE(x)=((x)*(x))' -DLEVEL=3 -DNDEBUG -DGONE -UGONE defs.c -o defs && ./defs)" "hi
+49 3
+after"
 check "-ast-dump prints the unit" "$("$CICILI" -ast-dump "$R/run/forty2.c" | grep -c '^unit(\[function(')" "1"
 check "an unknown argument is an error, as clang says it" "$("$CICILI" --frobnicate x.c 2>&1)" "cocolang: error: unknown argument: '--frobnicate'"
 check "no input files is an error" "$("$CICILI" -c 2>&1)" "cocolang: error: no input files"

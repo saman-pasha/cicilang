@@ -14,7 +14,8 @@ native pieces are written in Cicili.
 
 It uses Cicili, cocolog and [ZiguratIP](https://github.com/saman-pasha/ziguratip)
 and **modifies none of them**. `DESIGN.md` is the architecture; `CLAUDE.md`
-is how the repository is worked on, with the record of every step.
+is how the repository is worked on, its rules by topic; `HISTORY.md` is the
+record of every step.
 
 ## Features
 
@@ -270,15 +271,16 @@ a call as the ABI has it, so cocolang's code calls libc++'s and clang's.
 What runs, each fixture matching clang++ line for line
 (`test/cpp/run/*.cpp`): the standard streams (`cout`, `cin`, `getline`,
 the extractors and inserters for every arithmetic type, the manipulators
-of `<iomanip>`); `vector` (of ints, of the program's own class, of
-strings), `string` and its operations, `map`, `multimap`, `set`, `multiset`,
+of `<iomanip>`); `vector` (of ints, of the program's own class, of a class
+that copies and does not move, of strings, of vectors), `string` and its operations, `map`, `multimap`, `set`, `multiset`,
 the four unordered containers, node handles, `optional` with its C++23
 monadic operations, `tuple` with `tuple_cat`, `array`, `unique_ptr`,
 `shared_ptr` and `weak_ptr`, `function`, `bind`, `mem_fn`, `invoke`, the
 function objects and `reference_wrapper`, and the `<algorithm>` surface
 from `all_of` to the heap and permutation algorithms; at C++20 `contains`,
-`erase_if` and the constrained algorithms `ranges::sort`, `ranges::find` and
-`ranges::count_if`, at C++26 `optional<T &>`. `test/libcxx.sh` reads
+`erase_if`, the constrained algorithms `ranges::sort`, `ranges::find` and
+`ranges::count_if`, `views::filter` called and through the pipe, and
+`std::format`, at C++26 `optional<T &>`. `test/libcxx.sh` reads
 `<vector>`, `<string>`, `<iostream>`, `<map>`, `<set>`,
 `<unordered_map>`, `<unordered_set>`, `<optional>`, `<memory>`,
 `<functional>`, `<tuple>` and `<algorithm>` whole, and the containers,
@@ -315,7 +317,8 @@ test/gates.sh, parlib.sh       every gate in one chain; the memory-gated paralle
 test/c/, test/cpp/             the fixtures: what runs, what is refused, what is read whole
 bench/btree, bench/compile     the B-tree and the compile-time benchmarks
 tutorials/                     the objects layer's lessons
-DESIGN.md, CLAUDE.md           the architecture; how the repository is worked on
+DESIGN.md, CLAUDE.md           the architecture; how the repository is worked on, by topic
+HISTORY.md                     the record of every step: what it did, what it found, its gate numbers
 ```
 
 ## Rules of the house
@@ -335,9 +338,10 @@ DESIGN.md, CLAUDE.md           the architecture; how the repository is worked on
 
 ## Not done
 
-`std::format` (its compile-time check is not made, and its run-time road
-is not proven to its end) and the range views and adaptors
-(`views::filter` stops in `filter_view`'s constructor, which copies a
-`ref_view`); construction vtables in a diamond; a `\N{...}` abbreviation
-alias (`\N{NUL}`, which clang refuses too); the arm64 ABI written and not
+`std::format`'s compile-time check of the format string (the library's own
+run-time parser catches a bad one); the range views and adaptors beyond the
+ones named above; the tail padding of a non-POD base, which is not reused
+(a class laid out here differs from clang's where code compiled by both
+shares it); construction vtables in a diamond; a `\N{...}` abbreviation
+alias (`\N{NUL}`, which clang refuses too); the arm64 ABI, written and not
 proven. Each is named in `CLAUDE.md` with where it stops.

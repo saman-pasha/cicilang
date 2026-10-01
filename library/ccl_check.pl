@@ -675,6 +675,8 @@ ck_borrows_from(index(A, _), St, P) :- !, ck_borrows_from(A, St, P).
 ck_borrows_from(deref(E), St, P) :- !, ck_borrows_from(E, St, P).
 ck_borrows_from(cond(_, A, B), St, P) :- !, ( ck_borrows_from(A, St, P) -> true ; ck_borrows_from(B, St, P) ).
 ck_borrows_from(comma(_, B), St, P) :- !, ck_borrows_from(B, St, P).
+ck_borrows_from(stmt_expr(block(Is)), St, P) :- append(_, [expr(_, id(N))], Is), atom(N), atom_concat('$at', _, N),   % A PLACEMENT NEW'S RESULT is the address it was given (0.112): the desugaring's `$at', declared in the block from that address and never assigned again, borrows what the address borrows -- `int *p = new (buf) int(7)' over a local buffer had read as a loose pointer, `plain pointer not consumed'
+    member(declaration(_, _, _, Vs), Is), memberchk(var(N, _, I), Vs), I \== none, !, ck_borrows_from(I, St, P).
 ck_borrows_from(stmt_expr(block(Is)), St, P) :- append(_, [expr(_, E)], Is), !, ck_borrows_from(E, St, P).
 %% A CLOSURE BORROWS WHAT ITS CAPTURES BORROW (0.100): the desugaring makes a lambda a compound literal of the
 %% captures' values, `&x' for a reference capture and `this' for the object, so a closure local is a borrow of the
@@ -1125,6 +1127,7 @@ ck_expr(uwb(_), St, St) :- !.
 ck_expr(float(_), St, St) :- !.
 ck_expr(imag(_), St, St) :- !.
 ck_expr(imagf(_), St, St) :- !.
+ck_expr(imagl(_), St, St) :- !.
 ck_expr(imagi(_, _), St, St) :- !.
 ck_expr(chr(_), St, St) :- !.
 ck_expr(str(_), St, St) :- !.

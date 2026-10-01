@@ -1,0 +1,6 @@
+make 1
+make 6
+drop 1
+t 6
+drop 6
+exit 0

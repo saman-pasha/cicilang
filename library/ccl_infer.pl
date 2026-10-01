@@ -42,8 +42,19 @@ ccl_cached(Cache, Key, Value, Goal) :-
 %% copies what it answers); the names found are an index of atoms
 ccl_cached_named(Prefix, Name, Value, Goal) :-
     atom_concat(Prefix, names, IK), nb_getval(IK, Names),
-    (   memberchk(Name, Names) -> atom_concat(Prefix, Name, K), nb_getval(K, Value)
-    ;   call(Goal), atom_concat(Prefix, Name, K), nb_setval(K, Value), nb_setval(IK, [Name|Names]) ).
+    (   memberchk(Name, Names), atom_concat(Prefix, Name, K), nb_getval(K, V0), V0 \== '$ccl_recheck' -> V0 \== '$ccl_miss', Value = V0
+    ;   atom(Name), var(Value), ccl_caches_misses(Prefix)
+    ->  atom_concat(Prefix, Name, K), ( memberchk(Name, Names) -> Names1 = Names ; Names1 = [Name|Names] ),
+        ( call(Goal) -> nb_setval(K, Value), nb_setval(IK, Names1) ; nb_setval(K, '$ccl_miss'), nb_setval(IK, Names1), fail )
+    ;   call(Goal), atom_concat(Prefix, Name, K), nb_setval(K, Value), ( memberchk(Name, Names) -> true ; nb_setval(IK, [Name|Names]) ) ).
+%% A MISS IS REMEMBERED TOO (0.112), where the table is written only through ccl_tables_changed, which forgets it with
+%% the answers: a name that is no tag copied the whole tags table at every ask -- `cpp_path_class(std, _)' asks
+%% `ccl_tag(std, _)' at every `std::' call, 3 ms each over libc++'s ranges, 17,000 times in a 150 s build. Only for a
+%% caller that asks with the value unbound, since a bound one fails for its value and not for the name.
+ccl_caches_misses('$ccl_tag:').
+ccl_caches_misses('$ccl_td:').
+ccl_caches_misses('$ccl_ts:').
+ccl_caches_misses('$ccl_g:').     % ... and the file scope's, whose writer marks a remembered miss of each name it declares for a new look (ccl_gdeclare)
 ccl_named_caches(['$ccl_td:', '$ccl_tag:', '$ccl_r:', '$ccl_g:', '$ck_oa:', '$ccl_ts:']).
 ccl_in_frames([F|Fs], N, T) :- ( memberchk(N-T0, F) -> T = T0 ; ccl_in_frames(Fs, N, T) ).
 %% nb_getval/2 COPIES the term it answers, 0.05 ms for the typedef table and
@@ -162,7 +173,8 @@ ccl_w_wrap(X, Bits, Signed, V) :- ccl_wide(X, w(S, M)), ccl_pow2_mag(Bits, P), c
     B1 is Bits - 1, ( Signed == true, ccl_mag_bit_set(L, B1) -> ccl_mag_sub(P, L, M1), ccl_narrow(w(-1, M1), V) ; ccl_narrow(w(1, L), V) ).
 %% a value between the engine's integers and the limbs: w(Sign, Limbs), little-endian base 2^30, no trailing zero limb
 ccl_wide(V, W) :- integer(V), !, ( V < 0 -> M is -V, S = -1 ; M = V, S = 1 ), ccl_limbs_of_int(M, Ls), ccl_w_norm(S, Ls, W).
-ccl_wide(big(A), W) :- atom_codes(A, Cs), ( Cs = [0'-|Ds] -> S = -1 ; Ds = Cs, S = 1 ), ccl_limbs_of_dec(Ds, [], Ls), ccl_w_norm(S, Ls, W).
+ccl_wide(big(A), W) :- atom_codes(A, Cs), ( Cs = [0'-|Ds] -> S = -1 ; Ds = Cs, S = 1 ),
+    ( Ds = [0'0, X|Hs], ( X == 0'x ; X == 0'X ) -> ccl_limbs_of_hex(Hs, [], Ls) ; ccl_limbs_of_dec(Ds, [], Ls) ), ccl_w_norm(S, Ls, W).   % a HEX, octal or binary literal past 2^60 is `big('0x...')' (0.94): read as decimal digits, `0xF000000000000000ull >> 60' folded to 0 and an array of that bound had no bytes (test/c/run/bighex.c)
 ccl_w_norm(S, Ls0, w(S1, Ls)) :- ccl_mag_norm(Ls0, Ls), ( Ls == [] -> S1 = 1 ; S1 = S ).
 ccl_narrow(w(S, M), V) :-
     (   M == [] -> V = 0
@@ -179,6 +191,8 @@ ccl_limbs_of_int(0, []) :- !.
 ccl_limbs_of_int(M, [L|Ls]) :- L is M mod 1073741824, M1 is M // 1073741824, ccl_limbs_of_int(M1, Ls).
 ccl_limbs_of_dec([], Ls, Ls).
 ccl_limbs_of_dec([D|Ds], Acc0, Ls) :- V is D - 0'0, ccl_mag_mul_small(Acc0, 10, V, Acc1), ccl_limbs_of_dec(Ds, Acc1, Ls).
+ccl_limbs_of_hex([], Ls, Ls).
+ccl_limbs_of_hex([D|Ds], Acc0, Ls) :- ( D >= 0'a -> V is D - 0'a + 10 ; D >= 0'A -> V is D - 0'A + 10 ; V is D - 0'0 ), ccl_mag_mul_small(Acc0, 16, V, Acc1), ccl_limbs_of_hex(Ds, Acc1, Ls).
 ccl_mag_norm(Ls, N) :- reverse(Ls, R0), ccl_drop_zeros(R0, R), reverse(R, N).
 ccl_drop_zeros([0|Xs], R) :- !, ccl_drop_zeros(Xs, R).
 ccl_drop_zeros(Xs, Xs).
@@ -385,9 +399,12 @@ ccl_bitint_rank(W, R) :- ( W =< 8 -> R = 0.5 ; W =< 16 -> R = 1.5 ; W =< 32 -> R
 ccl_is_bitint(T) :- ccl_resolve_type(T, base(_, S)), memberchk(bitint(_), S), !.
 ccl_count(_, [], 0).
 ccl_count(X, [Y|T], N) :- ccl_count(X, T, N0), ( X == Y -> N is N0 + 1 ; N = N0 ).
-ccl_promote(T, P) :- ( \+ ccl_is_bitint(T), ccl_int_rank(T, R, _), R < 3 -> P = base([], [int]) ; P = T ).   % a _BitInt is never promoted (C23 6.3.1.1/2)
+ccl_promote(T, P) :- ( ccl_resolve_type(T, base(_, S)), memberchk(char32_t, S) -> P = base([], [unsigned, int])   % C++'s char32_t and wchar_t PROMOTE TO THEIR UNDERLYING TYPES ([conv.prom]/8; 0.112): `false ? c32 : u' is an unsigned int, which libc++'s common_reference of `const char32_t &' and `const unsigned &' asks (ranges::less over the grapheme table)
+                     ; ccl_resolve_type(T, base(_, S)), memberchk(wchar_t, S) -> P = base([], [int])
+                     ; \+ ccl_is_bitint(T), ccl_int_rank(T, R, _), R < 3 -> P = base([], [int]) ; P = T ).   % a _BitInt is never promoted (C23 6.3.1.1/2)
 ccl_float_rank(T, R) :- ccl_resolve_type(T, base(_, S)), ( memberchk(double, S) -> ( memberchk(long, S) -> R = 3 ; R = 2 ) ; memberchk(float, S) -> R = 1 ; R = 0 ).
-ccl_usual(A, B, T) :-
+ccl_usual(A, B, T) :- ccl_usual_(A, B, T0), ( T0 = base(_, S) -> T = base([], S) ; T = T0 ).   % THE RESULT IS AN UNQUALIFIED VALUE (0.112): an operand's const stayed on it, and `false ? declval<const char32_t &>() : declval<const unsigned &>()' typed `const const char32_t'
+ccl_usual_(A, B, T) :-
     (   ccl_is_float(A), ccl_is_float(B) -> ( ccl_float_rank(A, FA), ccl_float_rank(B, FB), FA >= FB -> T = A ; T = B )   % the wider of the two (6.3.1.8): long double, double, float, _Float16 (0.108: a double took a long double's place)
     ;   ccl_is_float(A) -> T = A
     ;   ccl_is_float(B) -> T = B
@@ -423,6 +440,7 @@ ccl_float_builtin_type('__builtin_inf', base([], [double])).      ccl_float_buil
 ccl_float_builtin_type('__builtin_inff', base([], [float])).      ccl_float_builtin_type('__builtin_huge_valf', base([], [float])).
 ccl_float_builtin_type('__builtin_nan', base([], [double])).      ccl_float_builtin_type('__builtin_nanf', base([], [float])).    % the imaginary literal (0.101)
 ccl_type_of(imagf(_), base([], ['_Complex', float])) :- !.
+ccl_type_of(imagl(_), base([], ['_Complex', long, double])) :- !.
 ccl_type_of(imagi(Sp, _), base([], ['_Complex'|Sp])) :- !.   % `3i', `2ui', `3li', `4uli' (0.104): the specifiers its suffix and its value give
 ccl_type_of(chr(_), base([], [char])) :- ccl_lang(cpp), !.   % C++: a character literal is a char (C's is an int): `cout << ' '' takes the char inserter, not operator<<(int)
 ccl_type_of(chr(_), base([], [int])) :- !.
@@ -432,7 +450,7 @@ ccl_type_of(chr(_), base([], [int])) :- !.
 ccl_literal_bytes(str(S), N) :- length(S, L), N is L + 1.
 ccl_literal_bytes(wstr(S), N) :- ccl_utf8_count(S, K), N is (K + 1) * 4.
 ccl_literal_bytes(u32str(S), N) :- ccl_utf8_count(S, K), N is (K + 1) * 4.
-ccl_literal_bytes(u16str(S), N) :- ccl_utf8_count(S, K), N is (K + 1) * 2.
+ccl_literal_bytes(u16str(S), N) :- ccl_utf16_count(S, K), N is (K + 1) * 2.   % UTF-16 units, a code point past U+FFFF two (0.112)
 ccl_type_of(str(_), ptr([], base([], [char]))) :- !.
 ccl_type_of(wstr(_), ptr([], base([], [wchar_t]))) :- !.                          % L"...": wchar_t's, u"..." char16_t's, U"..." char32_t's
 ccl_type_of(u16str(_), ptr([], base([], [char16_t]))) :- !.
@@ -563,7 +581,7 @@ ccl_size_align(fn(_, _, _), 8, 8) :- !.
 ccl_size_align(memptr(_, _, F), 16, 8) :- ccl_resolve_type(F, fn(_, _, _)), !.   % A POINTER TO MEMBER FUNCTION IS THE ITANIUM ABI'S `{ ptr, adj }' (0.100): the function's address, or 1 + the slot's byte offset in the table for a virtual one, and the this adjustment (0 here: a base's address is made by the conversion at the call)
 ccl_size_align(memptr(_, _, _), 8, 8) :- !.                                    % a pointer to member: a function's is the address of the one function emitted for it, a data member's its byte offset (0.99)                          % a pointer to member function: the address of the one function emitted for it
 ccl_size_align(arr(NE, E), N, A) :- !, ( ccl_size_align(E, EN0, A0) -> EN = EN0, A = A0 ; ccl_resolve_type(E, E1), ccl_size_align(E1, EN, A) ), ( ccl_const_eval(NE, K) -> N is K * EN ; N = 0 ).   % a flexible member, `T a[]' or `own T *a[n]': no bytes of its own; the ELEMENT resolved (the resolver leaves an array as it is, and `std::string s[2]' had no size)
-ccl_size_align(base(Q, S), N, A) :- memberchk(aligned(E), Q), ccl_const_eval(E, A0), !, ccl_size_align(base([], S), N0, A1), A is max(A0, A1), ccl_round_up(N0, A, N).   % `_Alignas(E)' on a member or an object ([dcl.align]; 0.99): never below the natural alignment, the size rounded to it
+ccl_size_align(base(Q, S), N, A) :- memberchk(aligned(E), Q), ccl_const_eval(E, A0), !, ccl_size_align(base([], S), N, A1), A is max(A0, A1).   % `_Alignas(E)' on a member or an object ([dcl.align]; 0.99): never below the natural alignment -- and THE SIZE UNCHANGED (0.112): an alignment specifier moves where an object or a member lies, never how big it is; rounded, `_Alignas(16) int x' had `sizeof x' 16, the member after it lay 16 bytes on, and on an array, whose element carries the qualifier, every element counted at the alignment: `alignas(S) unsigned char buf[sizeof(S)]' was 192 bytes to sizeof for 24, and a loop over it wrote past the stack slot
 ccl_size_align(base(_, S), N, A) :- memberchk(bitint(E), S), !, ccl_bitint_width(E, W),     % _BitInt(N): the smallest integer type that holds it up to 64 bits; past that, whole eightbytes aligned 8 (the psABI)
     ( W =< 8 -> N = 1 ; W =< 16 -> N = 2 ; W =< 32 -> N = 4 ; N is ((W + 63) // 64) * 8 ), ( N > 8 -> A = 8 ; A = N ).
 ccl_size_align(base(_, S), N, A) :- memberchk('_Complex', S), !, ccl_complex_real(base([], S), R), ccl_size_align(R, A, _), N is 2 * A.   % a complex: two components, aligned as one (0.100; an integer's too, 0.103)
@@ -586,7 +604,7 @@ ccl_max_align([V|Vs], A0, A) :- ( V > A0 -> A1 = V ; A1 = A0 ), ccl_max_align(Vs
 %% leaves are empty bases everywhere.
 ccl_class_size(Ms, 0, N) :- ccl_lang(cpp), ccl_no_data_members(Ms), !, N = 1.   % NO DATA MEMBERS AT ALL is what [class]/4 asks: a class whose one member is a zero-length array (libc++'s compressed-pair padding, `char __padding_[sizeof(T) - __datasizeof_v<T>]') HAS a member and keeps the no bytes the GNU extension gives it
 ccl_class_size(_, N, N).
-ccl_size_align(base(_, [enum(_, [enum_base(T)|_])]), N, A) :- !, ccl_size_align(T, N, A).   % `enum E : size_t' is eight bytes
+ccl_size_align(base(_, [enum(_, [enum_base(T)|_])]), N, A) :- !, ( ccl_size_align(T, N, A) -> true ; ccl_resolve_type(T, T1), ccl_size_align(T1, N, A) ).   % `enum E : size_t' is eight bytes; a typedef'd underlying type is RESOLVED first (0.112): `enum class __alignment : uint8_t' had no size, so libc++ 18's format-spec parser lost its bitfields from the layout
 ccl_size_align(base(_, [enum(_, _)]), 4, 4) :- !.
 ccl_size_align(base(_, [enum_class(_, _)]), 4, 4) :- !.
 ccl_size_align(ref(_, _), 8, 8) :- !.                                            % C++: a reference is a pointer in memory

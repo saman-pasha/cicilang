@@ -13,5 +13,5 @@
 #undef CMPLXL
 #define CMPLX(x, y) __builtin_complex((double) (x), (double) (y))
 #define CMPLXF(x, y) __builtin_complex((float) (x), (float) (y))
-#define CMPLXL(x, y) __builtin_complex((double) (x), (double) (y))
+#define CMPLXL(x, y) __builtin_complex((long double) (x), (long double) (y))
 #endif

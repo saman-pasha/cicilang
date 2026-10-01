@@ -1,6 +1,6 @@
 # cocolang — a Safe Modern C compiler to LLVM, written on cocolog
 
-**Status: the milestones M0 to M6 are built and GREEN -- C17 and C23 whole, C++17, C++20, C++23 and C++26 to their ends, libc++ compiled from its own headers, on macOS and Linux. `CLAUDE.md` carries every step; `README.md` says what runs.**
+**Status: the milestones M0 to M6 are built and GREEN -- C17 and C23 whole, C++17, C++20, C++23 and C++26 to their ends, libc++ compiled from its own headers, on macOS and Linux. `CLAUDE.md` holds the rules by topic, `HISTORY.md` every step; `README.md` says what runs.**
 
 
 cocolang is a compiler for Safe Modern C — C source, extended by macros
