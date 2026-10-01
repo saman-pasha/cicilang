@@ -6046,10 +6046,12 @@ never called (a program class deriving from two library classes that share a vir
 stays `linkonce'.
 THE GATES, ON LINUX (Ubuntu 24.04, x86_64, four cores, 16 GB; clang 18, libc++ 18, cocolog 1.8.1, the module rebuilt as 0.110),
 `sh test/gates.sh' in one chain with nothing beside it: the reader GREEN in 15 s (k84 comparing the two lexers); the compile gate
-GREEN in 25 s; the driver GREEN in 9 s; the objects in 5 s; the proof. THE LIBRARY READ (cold, the reader's version moved to 98)
-and THE C++ GATE were RUNNING when this was committed -- the container restarted four times under long runs in this step, so
-the work is committed on the small gates' GREEN lines and the two parallel phases' numbers are carried by the next commit, as
-0.102 carried 0.101's.
+GREEN in 25 s; the driver GREEN in 9 s; the objects in 5 s; the proof; THE LIBRARY READ GREEN in 3240 s over four lanes, cold
+(the reader's version moved to 98), its 23 headers whole -- several one item more than 0.109's, the noexcept and trailing
+forms the reader keeps now (`<vector>' 807, `<iostream>' 793, `<functional>' 832; `<ranges>' 956 at C++20 as before) -- and
+29 other headers warmed; THE C++ GATE GREEN in 2010 s, 271 checks (0.109's 251 and this step's 20), `stdoptionalref' skipped
+by name, no failure. The 0.110 commit was made while the two parallel phases ran (the container restarted four times under
+long runs in this step); these are their numbers, carried by 0.111.
 
 **`format`, `print`, `println` are global macros** (owner's rule):
 `library/ccl_format.pl` is a macro file registered by `ccl_standard_macros/0`
