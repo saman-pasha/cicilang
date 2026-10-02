@@ -279,8 +279,11 @@ monadic operations, `tuple` with `tuple_cat`, `array`, `unique_ptr`,
 function objects and `reference_wrapper`, and the `<algorithm>` surface
 from `all_of` to the heap and permutation algorithms; at C++20 `contains`,
 `erase_if`, the constrained algorithms `ranges::sort`, `ranges::find` and
-`ranges::count_if`, `views::filter` called and through the pipe,
-`std::quoted`, and `std::format`, at C++26 `optional<T &>`. `test/libcxx.sh` reads
+`ranges::count_if`, the views `filter`, `transform`, `reverse`, `iota`,
+`take`, `drop`, `take_while`, `keys` and `values` alone, chained and all in
+one program, `std::quoted`, the wide streams, `seekg` and `seekp`,
+`std::format` with `vformat`, a formatter the program writes and the wide
+format, at C++23 `std::print` and `std::println`, at C++26 `optional<T &>`. `test/libcxx.sh` reads
 `<vector>`, `<string>`, `<iostream>`, `<map>`, `<set>`,
 `<unordered_map>`, `<unordered_set>`, `<optional>`, `<memory>`,
 `<functional>`, `<tuple>` and `<algorithm>` whole, and the containers,
@@ -339,10 +342,9 @@ HISTORY.md                     the record of every step: what it did, what it fo
 ## Not done
 
 `std::format`'s compile-time check of the format string (the library's own
-run-time parser catches a bad one); the range views beyond `filter` in one
-program (`transform`, `reverse`, `iota`, `take`, `drop`, `take_while`, `keys`,
-`values` and a chain of them each run alone, and together still stop), and the
-adaptors not named; the tail padding of a non-POD base, which is not reused
+run-time parser catches a bad one); the range adaptors not named;
+`std::stringstream` (`basic_iostream`, libc++'s own diamond, needs the
+base-variant constructors of library classes); the tail padding of a non-POD base, which is not reused
 (a class laid out here differs from clang's where code compiled by both
 shares it); construction vtables in a diamond; a `\N{...}` abbreviation
 alias (`\N{NUL}`, which clang refuses too); the arm64 ABI, written and not

@@ -74,7 +74,7 @@
 
 %% the reader's version, part of the knowledge base's cache key: bump it when
 %% the grammar changes, so what an older grammar left partial is read again
-ccl_reader_version(108).   % 108 (0.113): the hidden mark of an attribute that BEGINS an item (after a template head) kept; 107 (0.112): `__visibility__("hidden")' kept on a member defined out of its class, `hidden(Sto)'
+ccl_reader_version(110).   % 110 (0.115): an init-declarator names what it declares (`Loop()(1, 2);' is a call); a raw string literal R"d(...)d" and its prefixed forms in both lexers, C++ only (<format>'s escaped-string writer stopped the read at C++23); 109 (0.115): a type requirement reads its own `typename' (`requires { typename T::key_type; }' with `key_type' declared nowhere yet); 108 (0.113): the hidden mark of an attribute that BEGINS an item (after a template head) kept; 107 (0.112): `__visibility__("hidden")' kept on a member defined out of its class, `hidden(Sto)'
 %% ccl_reader_version(106).   % 106 (0.112): a member named through an object by its qualified name (`b.A::v', `p->A::f()'), the `1.0li' literal a `_Complex long double', a summary's long terms in the `.big.pl' beside it; 105 (0.112): a lambda's requires-clauses kept, `lreq(R)' among its captures; 104 (0.112): a header's enum keeps its namespace path in the AST beside the summary ('$cpp_hdr_ast_ns'); 103 (0.112): `__has_extension(datasizeof)' answers 1, so libc++'s `__libcpp_datasizeof' flattens on `__datasizeof(T)', a builtin trait whose argument is a type; 102 (0.112): a designated `T{.a = 1}' kept as a compound literal of T with its designators (ccl_braced_temp); 101 (0.112): `__SIZEOF_INT128__' no longer predefined, so every libc++ header flattens in its no-int128 configuration; 100 (0.112): an item declared by a namespace-qualified name stands in that namespace (ccl_flat_quals), so a summary's index keys change; 99 (0.112): std::rel_ops is not indexed (ccl_flat_items), so the AST beside a summary changes; 98 (0.110): a function's noexcept kept (a method's among its qualifiers, a free function's name noted), noexcept(false) and throw(X) no noexcept; 97 (0.109): a namespace alias; a qualified name after `struct' in a class body's look-ahead scan is no member template; 96 (0.109): C++17's nested namespace definition, `namespace A::B { }'; 95 (0.109): the tie is the contextual word `tie', `x tie y', and `<*>' is no punctuator in either lexer; 94 (0.108): C++26's contracts on a function and contract_assert, C++20's modules (module, import, export), a deduction guide indexed under $guide.; 93 (0.108): a compound literal of an unsized array sized by its items; 92 (0.108): a C anonymous struct or union member named $anonK; 91 (0.108): hex floats, a float with a leading dot, the f and L suffixes as their own kinds (floatf, floatl), trigraphs in the ISO modes; 90 (0.104): an array initializer with a pack expansion sizes nothing at the read; 89 (0.104): the integer imaginary literal's suffix kinds, imagui, imagli, imaguli, and \N{NAME} over Unicode 15.0.0 with its aliases; 88 (0.103): the integer imaginary literal is its own token, imagi; 87 (0.101): a static data member defined out of its class indexed under the class; 86 (0.100): an inline namespace marked, a deeper namespace's bare uses rewritten in the AST beside the summary; 85: __has_extension(c_atomic)
 %% ccl_reader_version(81).   % 81: a literal past 2^60 is big(Atom) in every summary's item
 %% ccl_reader_version(80).   % 80: a template template parameter's name un-noted at its item's end, a tag or a typedef no concept (<variant>'s `template <_Trait X, ...>' read as a constrained type parameter); 79: a braced default argument, C++20's brace-designated initializer (libc++ 18 at C++20); 78: an unnamed parameter of an unknown type name in a C++ parameter list, a destructor called with its template arguments (libc++ 18); 77: _Generic chosen at the read, an unbounded array sized by its initializer, _BitInt in the table, the OS's predefined macros, <limits.h> and the C23 headers; 59: a method's ref-qualifier kept; 60: the C++20 stretch (a constrained parameter, a requires-clause on a member template, trailing, on a lambda; `::template f' alone; a braced subscript; a member variable template; a constrained auto); 61: a concept indexed by name; 62: a function template's explicit template-id is no type (`T &r(std::forward<U>(v))'), a bare concept's name bound; 63: explicit(cond) kept; 64: a pointer to member, typeid, a member class template noted ahead; 65: no RTTI predefined, so every header is flattened again; 66: only a pointer to member takes the trailing cv- and ref-qualifiers (a method's const is the method rule's); 67: a free name outside a template; 68: a nullability word with an argument list (glibc); 69: a pointer to member function's noexcept, a braced list assigned, and the AST's index keys a deeper namespace's name apart; 70: alignas kept on a class; 71: [[no_unique_address]] kept on a member; 72: the AST's index holds a header's inline variable with NO initializer (std::ignore); 73: a pack expansion is a dependent type, and a call of a function template's name is not the reader's `auto' to deduce; 74: `if constexpr' with an init-statement; 75: a member FUNCTION template's name is a template and no type; 76: __OPTIMIZE_SIZE__ predefined, so libc++'s algorithms are the scalar ones
@@ -127,6 +127,12 @@ ccl_token(L0, L, tok(pp, Text, L0)) --> [35], !, ccl_pp_line(L0, L, Cs), { atom_
 %% the PREFIXED literals (C11 [lex.string], C++11): u8"..." is a byte string as "..." is (char8_t and char are one byte
 %% here), L"..." a wide one (wstr: wchar_t), u"..." u16str (char16_t), U"..." u32str (char32_t) -- the body is read as a
 %% plain string's, UTF-8 bytes, which the lowering DECODES into the wide elements; the chars alike (wchr, u16chr, u32chr)
+%% a RAW string (C++11 [lex.string]/1; C++ only, 0.115): R"d(...)d" after the prefix u8, L, u or U, the kinds a plain
+%% string's prefix gives; the body is the codes as they stand, no escape read, up to `)', the delimiter d, `"'; a
+%% newline in it is counted. Why: libc++ 18's <format> writes `_LIBCPP_STATICALLY_WIDEN(_CharT, R"(\')")' in its
+%% escaped-string writer, and the read of <format> stopped there at C++23 (std::print). The native lexer agrees
+%% (ccl_lx_raw_start, ccl_lx_raw).
+ccl_token(L0, L, tok(K, S, L0))     --> { ccl_lang(cpp) }, ccl_raw_prefix(K), [0'R, 34], ccl_raw_delim(D), [0'(], !, ccl_raw_body(D, S, L0, L).
 ccl_token(L, L, tok(K, S, L))       --> ccl_lit_prefix(K, WK), [34], !, { ( WK == chr -> K = str ; K = WK ) }, ccl_str_body(S).
 ccl_token(L, L, tok(K, C, L))       --> ccl_lit_prefix(K, WK), [39], !, { ( WK == chr -> K = chr ; ccl_wchr_kind(WK, K) ) }, ccl_chr_body(C), [39].
 ccl_token(L, L, tok(str, S, L))     --> [34], !, ccl_str_body(S).
@@ -161,6 +167,17 @@ ccl_lit_prefix(_, wstr) --> [0'L], !.
 ccl_lit_prefix(_, u16str) --> [0'u], !.
 ccl_lit_prefix(_, u32str) --> [0'U].
 ccl_wchr_kind(wstr, wchr).  ccl_wchr_kind(u16str, u16chr).  ccl_wchr_kind(u32str, u32chr).
+ccl_raw_prefix(str) --> [0'u, 0'8].
+ccl_raw_prefix(wstr) --> [0'L].
+ccl_raw_prefix(u16str) --> [0'u].
+ccl_raw_prefix(u32str) --> [0'U].
+ccl_raw_prefix(str) --> [].
+ccl_raw_delim([C|Cs]) --> [C], { C > 32, C =\= 0'(, C =\= 0'), C =\= 92 }, !, ccl_raw_delim(Cs).
+ccl_raw_delim([]) --> [].
+ccl_raw_body(D, [], L, L) --> [0')], ccl_raw_codes(D), [34], !.
+ccl_raw_body(D, [C|Cs], L0, L) --> [C], { ( C =:= 10 -> L1 is L0 + 1 ; L1 = L0 ) }, ccl_raw_body(D, Cs, L1, L).
+ccl_raw_codes([]) --> [].
+ccl_raw_codes([C|Cs]) --> [C], ccl_raw_codes(Cs).
 ccl_str_body([])     --> [34], !.
 ccl_str_body(Cs)     --> [92], !, ccl_escape_codes(Cs, Cs1), ccl_str_body(Cs1).
 ccl_str_body([C|Cs]) --> [C], ccl_str_body(Cs).
@@ -1571,9 +1588,13 @@ ccl_enumerator(enumerator(N, V)) --> ccl_id(N), ccl_attrs, ( ccl_p('='), !, ccl_
 %% ---- declarators ------------------------------------------------------------
 %% Parsed inside-out the way C means them: pointers, then the direct part,
 %% then array and function suffixes; ccl_mk_type folds them onto the base.
+%% AN INIT-DECLARATOR NAMES WHAT IT DECLARES ([dcl.decl]/1: a declarator-id; 0.115): an abstract declarator is a
+%% type-id's, never a declaration's. Why: `Loop()(1, 2);' read as `Loop anon()' initialized by `(1, 2)', a
+%% declaration of nothing, and the call of a temporary's operator() was DROPPED -- libc++ 18's ranges::copy calls its
+%% `__copy_loop<_AlgPolicy>()(first, last, result)' so, and nothing was copied. `tempcallstmt.cpp'.
 ccl_init_declarators(Env, Base, Ds) --> [tok(pp, _, _)], !, ccl_init_declarators(Env, Base, Ds).
 ccl_init_declarators(Env, Base, [D|Ds]) --> ccl_init_declarator(Env, Base, D), ( ccl_p(','), !, ccl_init_declarators(Env, Base, Ds) ; { Ds = [] } ).
-ccl_init_declarator(Env, Base, var(N, T, Init)) --> ccl_declarator(Env, Base, N0, T00), ccl_attrs, ccl_fn_quals(T00, T0), { T0 = fn(_, _, _) -> ccl_note_nx(N0) ; true }, ccl_tie(T0, T1), ccl_var_init_fn(T0, Init), { ccl_sized_by_init(T1, Init, T), ccl_placeholder(N0, N) }.
+ccl_init_declarator(Env, Base, var(N, T, Init)) --> ccl_declarator(Env, Base, N0, T00), { N0 \== anon }, ccl_attrs, ccl_fn_quals(T00, T0), { T0 = fn(_, _, _) -> ccl_note_nx(N0) ; true }, ccl_tie(T0, T1), ccl_var_init_fn(T0, Init), { ccl_sized_by_init(T1, Init, T), ccl_placeholder(N0, N) }.
 %% C++26's PLACEHOLDER `_' ([basic.scope.scope]/5, __cpp_placeholder_variables): a second `_' declared in the same
 %% block is a variable of its own and may not be named -- so it is renamed here (`_$2' ...), where the first keeps
 %% its name and a use of `_' finds it, as C++ allows only while there is one
@@ -2149,7 +2170,7 @@ ccl_primary_(id, '__null', cast(ptr([], base([], [void])), int(0))) --> ccl_cpp,
 %% the requirements of a requires-expression: typename T; { e } -> C; requires e; e;
 ccl_requirements(Env, [R|Rs]) --> ccl_requirement(Env, R), !, ccl_requirements(Env, Rs).
 ccl_requirements(_, []) --> [].
-ccl_requirement(Env, type(T)) --> ccl_kw(typename), !, ccl_type_name(Env, T), ccl_p(';').
+ccl_requirement(Env, type(T)) --> ccl_peek(kw, typename), !, ccl_type_name(Env, T), ccl_p(';').   % the specifiers read `typename' themselves (0.115; reader 109): eaten here, `typename _Rp::key_type;' with `key_type' declared nowhere yet was no type, and <print>'s `format_kind' stopped the read
 ccl_requirement(_, compound(E, C)) --> ccl_p('{'), !, ccl_expr(E), ccl_p('}'), ( ccl_p('->'), ccl_cond_expr(C) ; { C = none } ), ccl_p(';').
 ccl_requirement(_, nested(E)) --> ccl_kw(requires), !, ccl_cond_expr(E), ccl_p(';').
 ccl_requirement(_, expr(E)) --> ccl_expr(E), ccl_p(';').

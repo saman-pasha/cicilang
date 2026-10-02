@@ -108,6 +108,7 @@ One row per step, in version order: the step's title, what it did and its gate n
 | 0.112 | views, `std::format`'s road, `CLAUDE.md` by topic | `views::filter` and the pipe; the rules `std::format` asked for, each with its fixture; four suspected defects fixed; `CLAUDE.md` rewritten by topic, this file made | not run (a save point) |
 | 0.113 | the views one by one, `std::quoted` | `std::quoted` linked; transform, reverse, iota, take, drop, take_while, keys, values and a chain each run alone; eight rules with their fixtures; all views in one program still stop | not run (a save point) |
 | 0.114 | the gates over 0.113, cocolog 1.8.41 | `member.cpp` made valid C++; a member template's instance named from its substituted qualifiers (`.rq<fold>`); cocolog 1.8.41 reviewed | reader 5 s, compile 13 s, driver 6 s; libcxx 1241 s; C++ about 1300 s, 356 checks, 300 of 301 fixtures; all seven GREEN |
+| 0.115 | all the views in one program, `std::format` and the streams not tried | Views fixtures; raw strings; reversed `==`; a call statement on a temporary; the caller's object set aside in an emission; constructor templates and `is_convertible` by the argument's type; wide literals in constants | reader 11 s, compile 23 s, driver 11 s; libcxx 2211 s cold; C++ 3283 s, 384 checks, 328 of 329 fixtures; all seven GREEN |
 
 ## M5 — the C++ mode
 
@@ -6462,3 +6463,101 @@ not known; a module rebuilt while the run started is the suspect. The library re
 skip `stdoptionalref`; the two together 2539 s, peak 5415 MB. All seven gates are GREEN on 0.114 over cocolog 1.8.41.
 
 Reader version 108, lowering version 59; the module rebuilt as 0.114, over cocolog 1.8.41.
+
+## 0.115 — M6's eightieth step
+
+**M6's eightieth step (0.115): all the views in one program, and the parts of std::format and the streams that were
+not tried.** The owner asked for the work recommended after 0.114: first the views together and their fixtures, then
+`std::vformat`, a formatter the program writes, `std::print`, the wide format, the wide streams, `seekg` and `seekp`,
+and `cin >> long double`. Each stop was cut to a reduction, compared with clang++ (libc++ where libstdc++ has no such
+header), fixed and given a fixture.
+
+THE VIEWS. The single views of 0.113 got their fixtures (`viewiota`, `viewreverse`, `viewtransform`, `viewtakewhile`,
+`viewdrop`, `viewtake`, `viewkeys`, `viewchain`). All of them in one program (`viewsall.cpp`, 1627 s) stopped first at
+`auto_result` of the chained `take_view`, then at `!=` of `views::keys`. The defects:
+
+(1) A FUNCTION'S RESULT ROLE LEAKED. `cpp_method_body_` set `'$cpp_ret'` and did not restore it on failure or throw, so
+a later `return 0;` in `main` went through `vector(size_type)`. It is restored on every exit now.
+
+(2) `this` WAS NOT IN SCOPE in the implicit default constructor while its member initializers were built
+(`member_not_constructed('__output_buffer.char', 3)`). `cpp_implicit_ctor_` declares the parameters first now.
+`implicitthis.cpp`.
+
+(3) A PARAMETER WHOSE TEMPLATE PARAMETERS ARE ALL GIVEN EXPLICITLY was still deduced (`deduction_failed(
+basic_format_args)`). `cpp_explicit_skip` leaves it out of the deduction ([temp.deduct.call]/1 as 0.108 has it for a
+non-deduced parameter). `explicitarg.cpp`.
+
+(4) A TYPE REQUIREMENT ATE ITS OWN `typename` (`requires { typename T::key_type; }`), and the read of `<print>` stopped
+at `format_kind`. The rule peeks the word now. Reader version 109. `typereq.cpp`.
+
+(5) A REFERENCE PARAMETER OF A CLASS NEVER CLASHED in the arity-only resort: `iota`'s friend `operator-` took a
+`filter_view`'s iterator, and `filter_view` became a sized range. `cpp_args_no_clash` looks through the reference.
+`friendclash.cpp`.
+
+(6) A PROGRAM'S HIDDEN FRIEND kept the class's own names unresolved (`typedef('It')`): `cpp_friends_resolved` resolves
+its result and parameters in the class. A FRIEND TEMPLATE of a member class template is in the class's words
+(`cpp_friend_tmpl_words`: the short name of the member class template, the class's typedefs, the class's own short
+name), and its body is walked in the class (`'$in_class'`). `cpp_match` names a member class template by its registered
+name. A BARE CALL OF A STATIC MEMBER TEMPLATE passes no object (`cpp_static_bare`): the friend called `cur(i)` with a
+`this` that is not declared. `friendtmpl.cpp`, and `viewkeys.cpp` again.
+
+THE FORMAT AND THE STREAMS. The defects:
+
+(7) A CONVERTING CONSTRUCTOR TEMPLATE over a template-id matched any instance of the template: `cpp_match` lets an
+element that is no parameter pass, so `basic_format_args<wformat_context>` took `__format_arg_store<format_context,
+...>`, and `std::vformat` chose the wide overload. The substituted parameter must be the argument's class now.
+`ctorctx.cpp`.
+
+(8) RAW STRING LITERALS were read by neither lexer. libc++ 18's escaped-string writer writes `R"(\')"`, and the read of
+`<format>` stopped there at C++23 (`std::print`). Both lexers read `R"d(...)d"` and its prefixes `u8`, `L`, `u`, `U`
+in C++ (`ccl_raw_prefix//1`, `ccl_raw_body//4`; `ccl_lx_raw_start`, `ccl_lx_raw`); `test/c/lexer.c` has them, and
+reader check `k84` compares both lexers on them. A raw string that spans lines is read by the lexers; the
+preprocessor's line splitting does not know it. Reader version 110; the module rebuilt.
+
+(9) THE REVERSED `==` CANDIDATE (C++20, [over.match.oper]/3.4.4): `sentinel_for<__nul_terminator, const char *>` asks
+`__nul_terminator == p`, and libc++ writes only `operator==(const _CharT *, __nul_terminator)`. `cpp_rewritten_cmp`
+tries `operator==(y, x)` from C++20, once per pair; `!=` takes a class on either side. `reversedeq.cpp`.
+
+(10) `Loop()(1, 2);` WAS A DECLARATION OF NOTHING: an unnamed declarator with an initializer. The call was dropped, and
+libc++'s `ranges::copy` copied nothing. An init-declarator must name what it declares now ([dcl.decl]/1). Reader
+version 110. `tempcallstmt.cpp`.
+
+(11) THE CALLER'S OBJECT LEAKED INTO AN EMISSION. A member template emitted while a const object's call was chosen was
+walked with `'$cpp_obj_const'` still `const`, so `*__result = *__first` in `__copy_loop::operator() const` found no
+`back_insert_iterator::operator=` and stored a `char` into the iterator. `cpp_isolated` sets the object's constness
+and value category aside. `isolatedobj.cpp` (it fails on the library without the fix).
+
+(12) A C STRUCT REGISTERED AS A CLASS lost its linkage name in the mangler: glibc's `_IO_FILE` is a library class once
+a header load registers it, and `__is_posix_terminal(FILE *)` kept its plain name, an undefined symbol at the link of
+every `std::print`. A tag indexed under `c` (an `extern "C"` scope) is a C struct to the mangler (`cpp_ita_c_tag`).
+`stdprint.cpp`.
+
+(13) THE WIDE FORMAT took the narrow overload by three loose tests: a constructor template converted any argument
+(`cpp_converting/2` now deduces its parameter and checks its constraints, `cpp_ctor_tmpl_takes`); `is_convertible`
+asked `cpp_converting/1`, which ignores the source type (it asks `cpp_converting/2` with the source now); and a
+pointer to one arithmetic type converted to a pointer to another (`cpp_arith_pointee_differs`). `wideformat.cpp`.
+
+(14) A WIDE LITERAL IN A CONSTANT: the evaluator reads `L"..."`, `u"..."` and `U"..."` as their code units and
+`wcslen` over them, and a pointer into such a cell spells back as the literal; the lowering spells it in a global's
+constant (`ir_wide_lit`). `__bool_strings<wchar_t>::__true` was an undefined symbol. Lowering version 60. `widesv.cpp`.
+
+(15) A STATIC DATA MEMBER OF A LIBRARY CLASS TYPE in the program's class was declared under its written type, a struct
+with no class registered, and `Words::yes.size()` stayed a raw member call. `cpp_declare_statics` resolves the type
+through the template road for the program's classes (for every class it took std::format past 3.5 GB).
+`staticsv.cpp`.
+
+What runs now, with its fixture: `std::vformat`, `std::make_format_args`, `std::formatted_size` and
+`std::format_to_n` (`stdvformat`); a `std::formatter` the program specializes (`stdformatter`); `std::print` and
+`std::println` at C++23 (`stdprint`); `std::format(L"...")` (`stdwformat`); `std::wcout`, `std::wostringstream` and
+`std::wistringstream` (`stdwstream`); `seekg`, `tellg`, `seekp` and `tellp` on `istringstream` and `ostringstream`
+(`stdseek`); `cin >> long double` and the fail state after it (`stdcinld`). `std::stringstream` does not build:
+`basic_iostream` is libc++'s own diamond, and the base-variant constructors and destructors (C2, D2) of library
+classes are not made.
+
+THE GATES ON 0.115, over cocolog 1.8.41 (`test/gates.sh`, four lanes): reader GREEN in 11 s, compile 23 s, driver 11 s,
+objects 3 s, the proof 0 s. The library read GREEN in 2211 s, every header cold at reader 110 (23 asserted reads, 39 other
+headers warmed, `<print>` among them, 0 failed). The C++ gate GREEN in 3283 s: 384 checks ok, 328 of 329 fixtures (the
+one skip is `stdoptionalref`, which needs libc++ 21). The slowest fixture is `viewsall` (1759 s in the pool); the new
+format and stream fixtures take 199 s to 421 s. All seven gates are GREEN on 0.115.
+
+Reader version 110, lowering version 60; the module rebuilt as 0.115, over cocolog 1.8.41.

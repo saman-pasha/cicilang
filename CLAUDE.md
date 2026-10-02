@@ -10,8 +10,8 @@ it found, its measurements and its gate numbers. `README.md` tells a user what r
 architecture and the milestones. A step that changes a rule edits the rule here, in its topic, and writes its entry
 in `HISTORY.md`.
 
-At 0.114 the versions are: the module 0.114 (`ccl_p_version` in `module/cocolang.cicili`, `bin/cocolang --version`),
-the reader 108 (`ccl_reader_version/1`, `library/ccl_syntax.pl`) and the lowering 59 (`ccl_lowering_version/1`,
+At 0.115 the versions are: the module 0.115 (`ccl_p_version` in `module/cocolang.cicili`, `bin/cocolang --version`),
+the reader 110 (`ccl_reader_version/1`, `library/ccl_syntax.pl`) and the lowering 60 (`ccl_lowering_version/1`,
 `library/ccl_ir.pl`).
 
 Build and prove, always in this order (or all of it, `sh test/gates.sh`):
@@ -396,7 +396,7 @@ tutorials/01..03-*.pl       the objects layer's lessons; goal main, last line do
 ### The C++ gate: test/cpp.sh
 
 - `test/cpp.sh` runs in this order: `test/cpp.pl` in one `--local` process; three checks of the command; every
-  `test/cpp/run/*.cpp` as a pool job (301 at 0.114); `classes.cpp` and `templates.cpp` built and run; the refusals.
+  `test/cpp/run/*.cpp` as a pool job (329 at 0.115); `classes.cpp` and `templates.cpp` built and run; the refusals.
   (0.105)
 - `test/cpp.pl` runs 36 numbered checks, `c1` to `c36`, then reads Cicili's six C++ files whole
   (`test/cpp/objects.cpp`, `emit_report.cpp`, `specialise.cpp`, `syntax.cpp`, `torch.cpp`, `torch-fragment.cpp`).
@@ -457,8 +457,8 @@ tutorials/01..03-*.pl       the objects layer's lessons; goal main, last line do
 - `NAME.flags` gives a C++ fixture its level (`-std=c++20`, `-std=c++23`, `-std=c++26`); without one it builds at
   C++17. `NAME.std` gives a C fixture its level (`-std=c23`); an ISO level before C23 (`-std=c17`) turns trigraphs on,
   as `bin/cocolang` does. (0.42, 0.57, 0.108)
-- `NAME.stdin` is the input of a fixture that reads (`stdcin`, `stdget`, `stdgetline`, `stdistream`, `stdistream2`,
-  `stdws`); the others read `/dev/null`. (0.75)
+- `NAME.stdin` is the input of a fixture that reads (`stdcin`, `stdcinld`, `stdget`, `stdgetline`, `stdistream`,
+  `stdistream2`, `stdws`); the others read `/dev/null`. (0.75, 0.115)
 - `NAME.needs` holds a preprocessor condition over the library's own macros. `ccl_needs_met` runs a four-line file
   that includes `<version>` through `cocolang++ -E` with the fixture's flags, and looks for a marker. When the box's
   library fails it, the verdict is `skip NAME.cpp: needs ...`, never a RED. Only `stdoptionalref.needs` exists
@@ -648,6 +648,12 @@ tutorials/01..03-*.pl       the objects layer's lessons; goal main, last line do
   (`ir_wide_units/3`, `ir_utf16/2`), in the constant, in an array it initializes, in that array's bound
   (`ccl_utf16_count/2`) and in `sizeof` (`ccl_literal_bytes`); it was one unit that kept the low bits.
   `test/c/run/u16pairs.c`. (0.112)
+- A raw string literal ([lex.string]/1; C++ only) is read by both lexers: `R"d(...)d"` and its prefixes `u8`, `L`, `u`,
+  `U`, the body as it stands, no escape read, up to `)`, the delimiter, `"`; a newline in it is counted
+  (`ccl_raw_prefix//1`, `ccl_raw_delim//1`, `ccl_raw_body//4`; `ccl_lx_raw_start`, `ccl_lx_raw`). In C, `R` is a name
+  and a plain string follows. Reader `k84` over `test/c/lexer.c`. The preprocessor's line splitting does not know a
+  raw string that spans lines. Why: libc++ 18's escaped-string writer (`<format>` at C++23, `std::print`) writes
+  `R"(\')"`. (0.115)
 - The escapes are C's, GNU's `\e`, `\xHH`, `\x{...}`, `\o{...}`, `\u{...}`, `\uXXXX`, `\UXXXXXXXX`, and `\NNN` with up
   to three octal digits (`ccl_escape//1`, `ccl_ucn//1`; `ccl_lx_escape`, `ccl_lx_ucn`). A code point goes into a string
   as UTF-8 (`ccl_utf8/3`, `ccl_lx_put_utf8`), into a char as itself. Why: `\101` read as `\1` then `01`. (0.43)
@@ -880,6 +886,9 @@ tutorials/01..03-*.pl       the objects layer's lessons; goal main, last line do
 
 - Declarators are parsed inside out and folded onto the base by `ccl_mk_type/4`, which drops the `constexpr` marker
   (`ccl_constexpr_fold`; a function's result loses its `const` too). (0.95)
+- An init-declarator names what it declares ([dcl.decl]/1): `ccl_init_declarator` refuses an unnamed declarator, so
+  `Loop()(1, 2);` is a call. Why: it read as a declaration of nothing initialized by `(1, 2)`, the call was dropped, and
+  libc++'s `ranges::copy` copied nothing. `test/cpp/run/tempcallstmt.cpp`. (0.115)
 - `ccl_sto_pick/2` picks the deciding storage word. Why: `static inline constexpr` lost `static`. (0.44)
 - `__attribute__((...))` and `__asm("...")` are read and dropped (`ccl_gnu_attr`). `typeof`, `__typeof__`, `__typeof`
   and `typeof_unqual` are type specifiers at every level (`ccl_typeof//1`; `typeof_unqual(X)` is
@@ -1455,13 +1464,13 @@ tutorials/01..03-*.pl       the objects layer's lessons; goal main, last line do
 
 ### The versions
 
-- `ccl_reader_version/1` (`library/ccl_syntax.pl`, now 108): bump it for any grammar change to what a read gives, and
+- `ccl_reader_version/1` (`library/ccl_syntax.pl`, now 110): bump it for any grammar change to what a read gives, and
   for any change to what the AST beside a summary holds (item or member terms, `cpp_index_name/2`,
   `cpp_template_name/2`, `ccl_flat_items/3`, the namespace keys). Keep the reason in its comment. Why: the store and the
   summaries are keyed by it, and a stale read is served silently (`sizeof(std::string)` read 40). (M1, 0.89, 0.112)
 - A reader bump makes every summary cold; `test/libcxx.sh` rewrites them. `test/reader.pl`'s `k16` (a cached read is
   the same AST as a fresh one) goes RED on a grammar change without a bump. (0.93, 0.105)
-- `ccl_lowering_version/1` (`library/ccl_ir.pl`, now 59): bump it whenever the check or the lowering changes what it
+- `ccl_lowering_version/1` (`library/ccl_ir.pl`, now 60): bump it whenever the check or the lowering changes what it
   emits, however small. Why: `dr_ir/3` serves the old IR otherwise. Either bump starts the C store afresh. (M4, 0.103)
 
 ## Classes
@@ -1570,6 +1579,11 @@ free. A const method adds `.c`, a ref-qualified one `.r` or `.rr` after it: each
 - A static member function takes a null `this` (`cpp_static_method`). Named as a value it is a `this`-less thunk
   `<Name>.fn` (`cpp_static_thunk`), as libc++'s `find_first_of` takes `_Traits::eq`. `staticfn.cpp`,
   `stdstringfind.cpp`. (0.100)
+- A bare call of a static member, a static method or a static member TEMPLATE, passes no object (`cpp_static_bare`).
+  Why: a friend template walked in its class called `cur(i)` with an undeclared `this`. `friendtmpl.cpp`. (0.115)
+- A method's body restores the function's result role (`'$cpp_ret'`) on success, failure and throw
+  (`cpp_method_body_`). Why: a failed walk left it set, and `return 0;` in `main` went through `vector(size_type)`.
+  (0.115)
 - An explicit object parameter, `this Self &self`, becomes the qualifier `explicit_this(N, T)` (`cpp_norm_members/2`):
   the method takes `param(T, N)` first and its body has no implicit `this` (`cpp_declare_members`, `cpp_member_fns`).
   `this auto` on a class's method refuses `deduced_this(C)` (`cpp_self_param`; `test/cpp/deduced_this.cpp`). (0.43)
@@ -1701,6 +1715,8 @@ free. A const method adds `.c`, a ref-qualified one `.r` or `.rr` after it: each
   class's words ([class.mem]/7). Why: libc++ 18's view sentinels write `sentinel_t<_Base> __end_ =
   sentinel_t<_Base>();` over their own alias `_Base`; made outside the class, the implicit constructor named nothing
   and the instance was not emitted (`views::transform`, `take_while`, `keys`). `sentbase.cpp`. (0.113)
+- The implicit default constructor has `this` and its parameters in scope while its member initializers are built
+  (`cpp_implicit_ctor_`). Why: `member_not_constructed('__output_buffer.char', 3)`. `implicitthis.cpp`. (0.115)
 - A class whose only constructors are `= default` and a converting template, `std::allocator`, is default-initialized
   with nothing to call (`cpp_trivial_default/1`) and copied by the implicit copy, never the template (`cpp_ctor`).
   (0.46)
@@ -1971,6 +1987,11 @@ free. A const method adds `.c`, a ref-qualified one `.r` or `.rr` after it: each
   (`cpp_static_through_object`, in `cpp_expr`'s member and arrow clauses). (0.75)
 - An `auto` static takes its initializer's type, desugared in its class (`cpp_static_auto` in `cpp_declare_statics`),
   as a namespace-scope `auto` object does (`cpp_vars`). (0.109)
+- A static data member of the PROGRAM's class is declared under its type resolved through the template road in its
+  class (`cpp_declare_statics` over `cpp_type`), so `Words::yes.size()` over a `static constexpr std::string_view` is
+  the member call. Why: resolved by the table alone, it named the instance's struct with no class registered. A
+  library class keeps the table's type: resolving every library static at registration took std::format past 3.5 GB.
+  `staticsv.cpp`, `widesv.cpp`. (0.115)
 - A header's inline global of an empty class is its zero bytes, no constructor run (`cpp_lazy_inline_var`): `nullopt`,
   `in_place`, `piecewise_construct`. (0.82)
 
@@ -2055,6 +2076,11 @@ free. A const method adds `.c`, a ref-qualified one `.r` or `.rr` after it: each
   (`'$cpp_friends'`, `cpp_item`). One of a library class is a lazy header function emitted where it is called, its
   types resolved and its body walked in the class (`'$cpp_friend_in'`, 0.112). Why: filter_view's iterator
   `operator==` read `__iterator` in the caller's words. (0.78, 0.112)
+- The program's hidden friend has its result and parameters resolved in its class (`cpp_friends_resolved`). A friend
+  TEMPLATE, of the program or of a library class, is in its class's words (`cpp_friend_tmpl_words`: a member class
+  template's short name, the class's typedefs, the class's own short name), and its body is walked in the class
+  (`'$in_class'(C, Body)`, read by `cpp_stmt_`). Why: the friend `operator==` of a member class template named `It` and
+  `__iterator` unresolved, and took a sentinel by arity. `friendclash.cpp`, `friendtmpl.cpp`, `viewkeys.cpp`. (0.115)
 - A free operator is an overload set like a function's (`cpp_free_operator`): noted by word and arity, `op.eq.2`,
   always named by its parameters (`cpp_fn_overloaded`), chosen through the free-function road. Why: two classes'
   friend inserters took each other's arguments. (0.78, 0.79)
@@ -2118,6 +2144,11 @@ free. A const method adds `.c`, a ref-qualified one `.r` or `.rr` after it: each
 - It sets the CALLER aside too (`'$cpp_caller'`, which `cpp_arg_type` reads an argument's words from): an instance
   made while a call's arguments are typed is no part of that call. Why: `std::vector<std::vector<int>>`'s copy read
   the inner vector's arguments in the outer call's class. `stdvectorvector.cpp`. (0.112)
+- It sets the CALLER'S OBJECT aside too: the constness and the value category of the object a member call is chosen on
+  (`'$cpp_obj_const'`, `'$cpp_obj_cat'`) are `none` in an isolated walk. Why: an emission made while a const object's
+  call was chosen walked its body under `const`, and in `__copy_loop::operator() const` the non-const
+  `back_insert_iterator::operator=` was no candidate (0.113's rule): `*__result = *__first` stored a `char` into the
+  iterator. `isolatedobj.cpp`. (0.115)
 - `cpp_flush_instances/2` appends `'$cpp_out'` to the unit's items, and repeats while new items make more. (0.35)
 - An emission is IN PROGRESS while it runs (`'$cpp_making'`, `cpp_making/1`) and NOTED in `'$cpp_inst'` only when
   done; a throw clears the mark. This covers member, constructor and function template instances
@@ -2338,6 +2369,8 @@ free. A const method adds `.c`, a ref-qualified one `.r` or `.rr` after it: each
 - Deduction takes the explicit arguments, then the call's (`cpp_deduce_args`, `cpp_deduce_one`, `cpp_match/5`), then
   the defaults; an unbound parameter refuses `cannot_deduce(P)`. An argument's type is the inference's, else the
   DESUGARED form's (`cpp_deduce_type` over `cpp_arg_type`: `__index_sequence_for<_Args1...>()`). (0.35, 0.79)
+- A parameter whose template parameters are ALL given explicitly takes no part in the deduction (`cpp_explicit_skip`);
+  it is checked once bound. Why: `deduction_failed(basic_format_args)`. `explicitarg.cpp`. (0.115)
 - A type parameter takes the argument DECAYED only as a by-value parameter (`cpp_decayed`: arrays and functions to
   pointers, top-level cv dropped). A pointee keeps its qualifiers ([temp.deduct.call]/4; `cpp_match_pointee`: `T *`
   against `const int *` is `T = const int`), and so does an array's element (`_Tp (&)[_Np]` against `const
@@ -2566,6 +2599,8 @@ free. A const method adds `.c`, a ref-qualified one `.r` or `.rr` after it: each
 
 ### Requires-expressions and requirements
 
+- A type requirement keeps its `typename` (`requires { typename T::key_type; }`; `ccl_requirement` peeks the word). Why:
+  the rule ate the word, and the read of `<print>` stopped at `format_kind`. `typereq.cpp`. (0.115)
 - A requires-expression declares its parameters in its own scope, and each requirement must hold
   (`cpp_requirements_hold`, `cpp_requirement_holds`). A refusal inside a requirement makes it unmet (SFINAE), never a
   program error; unmet traces `requirement_unmet(R)`. (0.42, 0.109)
@@ -2730,6 +2765,9 @@ The desugaring (`library/ccl_cpp.pl`) chooses every C++ overload. A fixture name
   pointer meets an arithmetic type or a disagreeing pointer, a null pointer constant aside (`cpp_scalar_mismatch/2`); a
   class-taking parameter gets a scalar and no converting constructor. `stdvectorstring.cpp`. Why:
   `__rep_(__str.__rep_)` stored a union into a byte. (0.68, 0.78, 0.81)
+- A class-reference parameter clashes with another known class in the arity-only resort too (`cpp_args_no_clash` looks
+  through the reference). Why: `iota`'s friend `operator-` took a `filter_view` iterator, and `filter_view` became a
+  sized range. `friendclash.cpp`. (0.115)
 - The free road's resort is the same test (`cpp_fn_best/4`); an ellipsis takes any number past the named parameters
   (`cpp_fn_arity_fits/3`, `cpp_fn_variadic/1`). (0.56, 0.61, 0.100)
 
@@ -2783,6 +2821,13 @@ The desugaring (`library/ccl_cpp.pl`) chooses every C++ overload. A fixture name
   constructor template (`cpp_converting/2`). `cpp_converting/1` serves `is_convertible` only, and also takes no
   `explicit` constructor ([meta.rel]: an implicit conversion; it counted them until 0.112, `is_convertible<int, E>`
   true for `explicit E(int)`, `explicitconv.cpp`). Why: `const pair *` passed for a map's `const_iterator`. (0.83)
+- A constructor TEMPLATE converts an argument only where its one parameter deduces from the argument's type, the
+  defaults bind and the head's and trailing requires-clauses hold (`cpp_ctor_tmpl_takes`; a parameter pack keeps the
+  old answer). A constructor over a template-id converts an instance only where the substituted parameter IS the
+  argument's class (`cpp_class_converts`). A pointer to one arithmetic type takes no pointer to another
+  (`cpp_arith_pointee_differs`). Why: `std::format(L"...")` held the narrow overload through
+  `basic_format_string<char, ...>`, and `std::vformat` the wide one through `basic_format_args<wformat_context>`.
+  `wideformat.cpp`, `ctorctx.cpp`. (0.115)
 - A class argument converts to a non-class parameter only through a conversion operator whose result fits it
   ([over.ics.user]; `cpp_conv_result/3`; any one, `cpp_has_conversion/1`, only where the parameter does not resolve).
   Why: `operator basic_string_view()` let libc++ 18's char inserter take a string. (0.94)
@@ -2835,6 +2880,10 @@ The desugaring (`library/ccl_cpp.pl`) chooses every C++ overload. A fixture name
   `stdoptional2.cpp`. Why: raw, `int == nullopt_t` typed `int` in a constraint's `decltype`. (0.94)
 - Rewritten candidates ([over.match.oper]/3.4; `cpp_rewritten_cmp/4`): with `<=>` and no `<`, `a < b` (`>`, `<=`, `>=`)
   is `(a <=> b) < 0`, the `< 0` taken by the class `<=>` answers; `a != b` is `!(a == b)`. (0.93, 0.101)
+- The REVERSED `==` (C++20, [over.match.oper]/3.4.4; `cpp_rewritten_cmp/4`): where no candidate takes `x == y` in
+  order, `operator==(y, x)` is tried, once per pair (`'$cpp_reversing'`); `x != y` is then `!(y == x)`, a class on
+  either side. Why: libc++ 18 writes `operator==(const _CharT *, __nul_terminator)` alone, and `sentinel_for` asks
+  `__nul_terminator == p`. `reversedeq.cpp`. (0.115)
 - `a <=> b` of a class calls its `operator<=>`, member or free (a hidden friend among them, 0.113), else refuses
   `three_way_comparison_of_a_class(C)`; a plain struct with none refuses too, never the scalar rule. An `auto` operator
   deduces its result as a plain function does (`cpp_item`). `friendreq.cpp`. Of scalars it is
@@ -3104,6 +3153,9 @@ A lambda is a class of its captures (`library/ccl_cpp.pl`). A fixture named alon
   0 (`cpp_eval_value/2`), the null `this` of a static member function. Why: `basic_string_view(const char *)` counts
   its literal through `__builtin_strlen`, and `n(len(s))` in a constexpr constructor called a static `len`.
   `constsv.cpp`. (0.112)
+- A wide literal (`L"..."`, `u"..."`, `U"..."`) is its code units to the evaluator (`ir_utf8_decode`,
+  `ir_wide_units`), `wcslen` counts them, and a pointer into such a cell spells back as the literal (`cpp_ec_lit`). Why:
+  `__bool_strings<wchar_t>::__true{L"true"}` did not fold and was an undefined symbol. `widesv.cpp`. (0.115)
 - `if consteval` keeps both branches, `ifce(L, CT, RT)`: the evaluator takes CT (`cpp_eval_stmt(ifce)`), the check and
   the lowering RT (`ck_stmt(ifce)`, `ir_stmt(ifce)`). `ifconsteval.cpp`. (0.108)
 
@@ -3379,6 +3431,9 @@ A lambda is a class of its captures (`library/ccl_cpp.pl`). A fixture named alon
   (0.94, 0.110)
 - A C struct has its linkage name ([basic.link]): an unnamed one the first typedef that names it, asked before the type
   is resolved (`cpp_ita_c_struct`: glibc's `mbstate_t` is `__mbstate_t`), a named one its tag (`2tm`). (0.94)
+- A tag is a C struct to the mangler where no class of that name is registered, or where the one registered stands in
+  an `extern "C"` scope, `c` in the header index (`cpp_ita_c_tag`). Why: glibc's `_IO_FILE`, registered by a header
+  load, left `__is_posix_terminal(FILE *)` with its plain name, an undefined symbol at the link of `std::print`. (0.115)
 - The mangler works without the desugaring's registries (`cpp_class_known`): `test/cpp.pl`'s `c34` spells nine symbols
   as clang++ and the shipped library do. (0.73, 0.94)
 
@@ -3661,6 +3716,8 @@ A lambda is a class of its captures (`library/ccl_cpp.pl`). A fixture named alon
 - `cpp_convertible` passes top-level qualifiers (`cpp_same_unqualified`) and the qualification conversion ([conv.qual];
   `cpp_quals_added`; `qualconv.cpp`); a pointer to a derived class converts to its base ([conv.ptr]/3;
   `cpp_pointer_to_base`), and a function to a pointer to it ([conv.func]). (0.88, 0.93, 0.100)
+- A conversion to a class asks the source's type (`cpp_converting/2`): a constructor whose parameter takes its kind.
+  Why: any one-argument constructor counted, and `is_convertible<const wchar_t *, string_view>` was true. (0.115)
 - `__is_trivially_equality_comparable` (`cpp_trait_of`) is true for the integral types and pointers. It is false for a
   floating type (0.0 == -0.0 with other bits), a class, and an enum (`cpp_enum_type/1`), since a program may write its
   own `==` for an enum (`enumeq.cpp`). False for an int, `std::find` recursed; true for an enum, `std::find` used
@@ -4042,6 +4099,8 @@ A lambda is a class of its captures (`library/ccl_cpp.pl`). A fixture named alon
   braced scalar its one item (`test/c/run/bitdesig.c`). An empty class's temporary is its constant, and a scalar `T{}`
   is its zero. A char array from a shorter literal is zero-filled to its bound (`ir_str_tail/3`;
   `test/cpp/run/staticbase.cpp`). (M2b, 0.72, 0.79, 0.108, 0.112)
+- A wide literal, or a pointer into one, is a pointer's global constant (`ir_wide_lit`: `wstr` and `u32str` i32,
+  `u16str` i16, through `ir_wstring`); an array of wide characters is not taken here. (0.115)
 - Brace elision ([dcl.init.aggr]/15, and C's own rule): an array member given a non-braced item takes as many of the
   following items as it has elements, while more items than members remain (`ir_init_items/4`, `ir_elide_take/4`; a
   global's through `ir_gelide/4`). Every `std::array` initializer needs it. (0.91, 0.110)
@@ -4521,7 +4580,7 @@ A lambda is a class of its captures (`library/ccl_cpp.pl`). A fixture named alon
   0.90, all GREEN (cocolog 1.2.18). The fixtures added since 0.93 have run on Linux only.
 - Ubuntu 24.04 on x86_64 (clang and LLVM 18, glibc, libc++ 18) is a host since 0.87. Every gate but the C++ one is
   GREEN there since 0.93, and all seven since 0.95. Every step from 0.93 on is gated there, but the save points 0.112
-  and 0.113; the last full run is 0.114's, over cocolog 1.8.41.
+  and 0.113; the last full run is 0.115's, over cocolog 1.8.41.
 - The host sets the predefined macros (`ccl_host_os/1` and `ccl_host_arch/1` in the module), the inclusion path
   (Debian's `/usr/lib/llvm-NN`, the multiarch directory) and the link (`-lc++` and `-lm` on Linux) (0.87, 0.93, 0.100).
 - A struct passed or returned by value crosses a call as clang's x86-64 code expects, in both directions
@@ -4599,7 +4658,9 @@ A lambda is a class of its captures (`library/ccl_cpp.pl`). A fixture named alon
   each fixture `test/cpp/run/NAME.cpp` prints clang++'s output, `NAME.expect`.
 - Streams (`<iostream>`, `<istream>`, `<ostream>`, `<iomanip>`): `stdcout`, `stdendl`, `stdcin`, `stdgetline`,
   `stdget`, `stdws`, `stdistream`, `stdistream2`, `stdostream`, `stdmanip`. `cout`, `cin`, `cerr` and `clog` are the
-  shipped library's objects. A fixture reads its input from `NAME.stdin` (0.73-0.78).
+  shipped library's objects. A fixture reads its input from `NAME.stdin` (0.73-0.78). The wide streams `wcout`,
+  `wostringstream`, `wistringstream` (`stdwstream`); `seekg`, `tellg`, `seekp`, `tellp` (`stdseek`); `cin >> long
+  double` (`stdcinld`) (0.115).
 - Strings (`<string>`): `stdstring` (short and long, growth, copy, `==`), `stdstringops` (`+`, `substr`, `find`,
   `insert`, `erase`, `replace`, `compare`, `to_string`), `stdstringfind` (`find_first_of` and kin) (0.63-0.67, 0.84,
   0.100).
@@ -4629,11 +4690,15 @@ A lambda is a class of its captures (`library/ccl_cpp.pl`). A fixture named alon
 - `<atomic>`: `stdatomic` (0.100).
 - `<algorithm>`: `stdalgorithm`, `stdalgorithm2` to `stdalgorithm9`, `stdalgorithmstr` (0.92, 0.95).
 - `<ranges>` (C++20): `stdranges` (`ranges::sort`, `ranges::find`, `ranges::count_if`) (0.109), and `stdviews`:
-  `views::filter` called, through the pipe, chained, and its iterators walked (0.112).
+  `views::filter` called, through the pipe, chained, and its iterators walked (0.112). The views `iota`, `reverse`,
+  `transform`, `take_while`, `drop`, `take`, `keys` and the chain `filter | transform | take`, each alone (`viewiota`
+  ... `viewchain`) and all in one program (`viewsall`, about 1600 s) (0.115).
 - `std::format` (C++20): `stdformat` -- integers in every base, widths, alignment and fill, a double's precision, a
   char, a bool, a `std::string` argument, positional arguments, and `format_to` through a back inserter -- beside the
   fixtures of the program's own shapes it asked for (`lambdafp`, `ctortconv`, `qualspec`, `intspell`, `tmpldefaults`,
-  `autohead`, `constsv`, `implicitassign` and others) (0.112).
+  `autohead`, `constsv`, `implicitassign` and others) (0.112). `std::vformat`, `make_format_args`, `formatted_size`
+  and `format_to_n` (`stdvformat`); a formatter the program specializes (`stdformatter`); `std::format(L"...")`
+  (`stdwformat`); `std::print` and `std::println` at C++23 (`stdprint`) (0.115).
 
 ### Benchmarks
 
@@ -4693,14 +4758,11 @@ A lambda is a class of its captures (`library/ccl_cpp.pl`). A fixture named alon
 
 ### libc++ modules
 
-- Range views: `views::filter` runs, called and through the pipe (`stdviews.cpp`, 0.112). `views::transform`,
-  `reverse`, `iota`, `take`, `drop`, `take_while`, `keys`, `values` and the chain `filter | transform | take` each
-  give clang++'s output in a program of their own (0.113), and have no fixture yet. All of them in ONE program stop
-  at `auto_result` of the chained `take_view` after the earlier statements: a memo of an earlier statement is the
-  suspect, not yet found. Every other view and adaptor is untried (0.109, 0.112, 0.113).
+- Range views: `filter`, `transform`, `reverse`, `iota`, `take`, `drop`, `take_while`, `keys`, `values` and their chain
+  run, alone and in one program (0.115). Every other view and adaptor is untried.
 - `std::format` runs (`stdformat.cpp`, 0.112), its compile-time format-string check dropped (0.110): a bad format
-  string is caught at run time by the library's own parser. Untried: `std::print` (C++23), `vformat` with
-  `make_format_args`, a formatter the program specializes, chrono and range formatting, wide formats.
+  string is caught at run time by the library's own parser. `vformat`, a formatter the program specializes, the wide
+  format and `std::print` run (0.115). Untried: chrono and range formatting.
 - `optional<T &>` needs libc++ 21 (`stdoptionalref.needs`). `bad_optional_access` cannot be caught: libc++ keeps its
   no-exceptions configuration and aborts with the message (0.82).
 - libc++ keeps its no-RTTI configuration by design, so `shared_ptr::get_deleter`, `dynamic_pointer_cast`,
@@ -4709,8 +4771,10 @@ A lambda is a class of its captures (`library/ccl_cpp.pl`). A fixture named alon
 - Untried: `std::atomic<shared_ptr>`, `<atomic>`'s `wait` and `notify`, and a program's own calls of
   `std::uninitialized_copy` and the `destroy_*` algorithms (0.86).
 - The `less<void>` comparator's `operator()` is emitted where a program never calls it (0.79).
-- Streams, untried or ungated: wide streams (0.77), `seekg` and `seekp` (0.78), the rvalue-stream
-  `getline(basic_istream &&, ...)` overloads (0.76), and `cin >> long double` (0.75; insertion runs in `ldouble.cpp`).
+- `std::stringstream` (and every `basic_iostream`) does not build: it is libc++'s own diamond, and the base-variant
+  constructors and destructors (C2, D2) of a library class are not made (`undeclared(... .nv)`); some of them are
+  shipped symbols, and the shipped tables would have to match (0.115).
+- Streams, untried: the rvalue-stream `getline(basic_istream &&, ...)` overloads (0.76).
 - Streams, also untried: the money and time facets, `sync_with_stdio` and the exceptions mask (0.78). `std::quoted`
   runs (0.113, `stdquoted.cpp`).
   `cin`'s tie flushes `cout`, but only the printed lines check it (0.75).
@@ -4753,5 +4817,5 @@ A lambda is a class of its captures (`library/ccl_cpp.pl`). A fixture named alon
   header goes into the store (M5; measured at cocolog 1.2.16).
 - The check's cost is its expression walk. The next cut needs the state as a per-function table, or the lookups in C
   (2026-09-06).
-- A C++ build's time is its first deductions and its instantiations (0.98). The slowest fixture, `stdranges.cpp`, takes
-  about 1300 s of the C++ gate's 2400 s cap (`CPP_FIXTURE_SECS`).
+- A C++ build's time is its first deductions and its instantiations (0.98). The slowest fixture, `viewsall.cpp`, takes
+  about 1760 s of the C++ gate's 2400 s cap (`CPP_FIXTURE_SECS`) in the gate's pool (0.115).
