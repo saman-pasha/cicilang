@@ -107,6 +107,7 @@ One row per step, in version order: the step's title, what it did and its gate n
 | 0.111 | numbers | Recorded 0.110's numbers: all seven GREEN | — |
 | 0.112 | views, `std::format`'s road, `CLAUDE.md` by topic | `views::filter` and the pipe; the rules `std::format` asked for, each with its fixture; four suspected defects fixed; `CLAUDE.md` rewritten by topic, this file made | not run (a save point) |
 | 0.113 | the views one by one, `std::quoted` | `std::quoted` linked; transform, reverse, iota, take, drop, take_while, keys, values and a chain each run alone; eight rules with their fixtures; all views in one program still stop | not run (a save point) |
+| 0.114 | the gates over 0.113, cocolog 1.8.41 | `member.cpp` made valid C++; a member template's instance named from its substituted qualifiers (`.rq<fold>`); cocolog 1.8.41 reviewed | reader 5 s, compile 13 s, driver 6 s; libcxx 1241 s; C++ about 1300 s, 356 checks, 300 of 301 fixtures; all seven GREEN |
 
 ## M5 — the C++ mode
 
@@ -6420,3 +6421,44 @@ COMMIT either. It is a second save point: each fixture it adds (`stdquoted', `vi
 `friendreq', `memberunmet', `constmember') matched clang++'s output in a probe, one at a time, but the seven gates --
 which read every header cold at reader 108 -- have not run over 0.112 or 0.113. The rule of (8) changes the member road
 for every const object, so the gates are the proof it still owes. The next commit carries their numbers.
+
+## 0.114 — M6's seventy-ninth step
+
+**M6's seventy-ninth step (0.114): the seven gates over 0.113, two defects they found, and cocolog 1.8.41.** 0.112 and
+0.113 were save points, committed with no gate run over them. This step runs the seven gates, fixes what they find,
+pulls cocolog and runs them again on its new version.
+
+THE GATES ON 0.113, over cocolog 1.8.38: reader GREEN in 8 s, compile 12 s, driver 7 s, objects 2 s, the proof 0 s,
+the library read (`test/libcxx.sh`, every header cold at reader 108) 1293 s. The C++ gate was RED, with two failures:
+
+(1) `member.cpp` WAS NO VALID C++. `bag.h`'s `Bag<T>` had only a non-const `operator[]`, and `member.cpp` calls it on a
+`const Bag<T> &`. clang++ refuses that program; 0.113's rule (a non-const member is no candidate on a const object,
+`cpp_const_viable/1`) refused it too, as it must. The fixture is now valid: `bag.h` adds `const T &operator[](int i)
+const`. The output is unchanged.
+
+(2) A MEMBER TEMPLATE'S INSTANCE WAS NAMED FROM ITS UNSUBSTITUTED QUALIFIERS. `cpp_try_member` mangled the instance's
+name from the qualifiers as written (`Qs`), and made the instance from the substituted ones (`Qs1`). A member that
+carries a requires-clause has the fold of its clause in its name (`.rq<fold>`, 0.112), and the two folds differ, so the
+call named a function that was never defined, and the link refused it. `rangesarray.cpp` (ranges::begin over an
+array) and `stdformat.cpp` failed so. A worktree at 0.112 failed in the same way, so the defect is 0.112's, which no
+gate had run. The name now comes from `Qs1`. The emitted IR changes only where it was wrong; the lowering version
+stays 59.
+
+With both: the C++ gate GREEN in 1289 s, 356 checks ok, 300 of 301 fixtures (the one skip is `stdoptionalref`, which
+needs libc++ 21), peak 5376 MB.
+
+COCOLOG 1.8.38 TO 1.8.41, reviewed: 1.8.39 (`cff7a70`) makes a load directive that loads nothing print SWI's `ERROR`
+and `Warning` lines, then go on; the carried libraries keep `library(error)`, `dcg/basics` and `dcg/high_order`.
+1.8.40 and 1.8.41 add the translation library (`library/reasoning/`) and its reports, which cocolang does not use, and
+the Docker images and install scripts. The SDK's ABI is unchanged; cocolog and its `os` and `process` modules and both
+of cocolang's modules were rebuilt. Every load directive of cocolang names a library that exists, so no new line is
+printed. The refused allocation still gives a wrong answer at 1.8.41 (no `oom` check in the step loop).
+
+THE GATES ON 0.114, over cocolog 1.8.41: reader GREEN in 5 s (peak 122 MB), driver 6 s (116 MB), objects 2 s, the proof
+0 s. The compile gate's first run was killed by the watchdog at 6000 MB after 775 s, where 1.8.38 took 12 s. It did not
+occur again: GREEN in 13 s over the user's store (peak 164 MB), and in 13 s over a new store (peak 175 MB). The cause is
+not known; a module rebuilt while the run started is the suspect. The library read GREEN in 1241 s (23 asserted reads,
+36 other headers warmed, 0 failed), then the C++ gate GREEN in about 1300 s: 356 checks ok, 300 of 301 fixtures, the one
+skip `stdoptionalref`; the two together 2539 s, peak 5415 MB. All seven gates are GREEN on 0.114 over cocolog 1.8.41.
+
+Reader version 108, lowering version 59; the module rebuilt as 0.114, over cocolog 1.8.41.

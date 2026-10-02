@@ -10,7 +10,7 @@ it found, its measurements and its gate numbers. `README.md` tells a user what r
 architecture and the milestones. A step that changes a rule edits the rule here, in its topic, and writes its entry
 in `HISTORY.md`.
 
-At 0.113 the versions are: the module 0.113 (`ccl_p_version` in `module/cocolang.cicili`, `bin/cocolang --version`),
+At 0.114 the versions are: the module 0.114 (`ccl_p_version` in `module/cocolang.cicili`, `bin/cocolang --version`),
 the reader 108 (`ccl_reader_version/1`, `library/ccl_syntax.pl`) and the lowering 59 (`ccl_lowering_version/1`,
 `library/ccl_ir.pl`).
 
@@ -356,7 +356,7 @@ tutorials/01..03-*.pl       the objects layer's lessons; goal main, last line do
 - The compile gate. `test/compile.pl`, one process over the user's store, reads, checks, lowers, compiles at `-O1`
   and links every `test/c/run/*.c` at its `NAME.std` level (`c_level`). It expects every `test/c/safe/*.c` refused.
   `test/compile.sh` runs each binary as `NAME arg1 arg2` against `NAME.expect`, and compares each refusal with
-  `safe/NAME.expect`. There are 51 run and 43 safe fixtures at 0.111. (M2, M3, 0.57)
+  `safe/NAME.expect`. There are 58 run and 43 safe fixtures at 0.114. (M2, M3, 0.57)
 - The driver gate. `test/driver.sh` makes 25 checks of `bin/cocolang` over the user's store. They cover what `-o`,
   `-c`, `-S`, `-emit-llvm`, `-shared`, `-I`, `-ast-dump` and `-fsyntax-only` make, and the diagnostics in clang's
   shape (`#warning` printed, `#error` with exit 1). They find `@ccl_drain_node` in `btree.c`'s IR, and pass structs by
@@ -396,7 +396,7 @@ tutorials/01..03-*.pl       the objects layer's lessons; goal main, last line do
 ### The C++ gate: test/cpp.sh
 
 - `test/cpp.sh` runs in this order: `test/cpp.pl` in one `--local` process; three checks of the command; every
-  `test/cpp/run/*.cpp` as a pool job (217 at 0.111); `classes.cpp` and `templates.cpp` built and run; the refusals.
+  `test/cpp/run/*.cpp` as a pool job (301 at 0.114); `classes.cpp` and `templates.cpp` built and run; the refusals.
   (0.105)
 - `test/cpp.pl` runs 36 numbered checks, `c1` to `c36`, then reads Cicili's six C++ files whole
   (`test/cpp/objects.cpp`, `emit_report.cpp`, `specialise.cpp`, `syntax.cpp`, `torch.cpp`, `torch-fragment.cpp`).
@@ -2642,7 +2642,9 @@ The desugaring (`library/ccl_cpp.pl`) chooses every C++ overload. A fixture name
   `cpp_best_q` over `cpp_constraint_count`, the last key of the score); such a member is another function and carries
   `.rq<fold of the clause>` in its name (`cpp_mangle_q`, `cpp_req_key/2`). Why: libc++'s iota_view has `end() const`
   beside `end() const requires same_as<_Start, _BoundSentinel>`; the first declared answered a sentinel, and the
-  program's own class template emitted both under one name. `moreconstrained.cpp`. (0.112)
+  program's own class template emitted both under one name. `moreconstrained.cpp`. A member TEMPLATE's instance is
+  named from its SUBSTITUTED qualifiers, as it is declared (`cpp_try_member`); named from the raw clause, the call named
+  nothing (`rangesarray.cpp`, 0.114). (0.112, 0.114)
 - A derived object fits a base's reference or value parameter, a Conversion (2, `cpp_arg_fit_` through
   `cpp_derives/2`), and is no clash in the arity-only road ([over.ics.ref]/1). Why: libc++'s `__save_flags<_CharT,
   _Traits> __sf(__is)` over an istream took the private copy constructor, declared and never defined, where
@@ -4308,8 +4310,14 @@ A lambda is a class of its captures (`library/ccl_cpp.pl`). A fixture named alon
   million-integer lists built deterministically took 521 MB, and 42 MB inside `\+ \+`): hence the `\+ \+` scoping
   above, which still serves the work inside a `findall/3`. Measured on the `std::format` build, warm: 1.8.1 peaked
   at 2882 MB, 1.8.38 at 591 MB. After a cocolog update the modules are rebuilt (`module/build.sh`,
-  `module/build-llvm.sh`, and cocolog's `os` and `process` modules); 1.8.36 to 1.8.38 left the SDK's ABI unchanged.
-  (0.46, 0.112)
+  `module/build-llvm.sh`, and cocolog's `os` and `process` modules); 1.8.36 to 1.8.41 left the SDK's ABI unchanged.
+  (0.46, 0.112, 0.114)
+- Since cocolog 1.8.39 a load directive that loads nothing says so, in SWI's two lines (`ERROR: ... source_sink
+  `library(X)' does not exist`, then `Warning: ... Goal (directive) failed`), and the load goes on; it was silent
+  before. cocolang's directives name only libraries that exist (`process`, `os`, its own), and every `ensure_loaded/1`
+  of a cache file asks `exists_file/1` first, so no run prints them. A missing `os` or `process` module now prints them;
+  `bin/cocolang`'s filter drops the lines. 1.8.40 and 1.8.41 add the translation library (`library/reasoning/`), which
+  cocolang does not load. (0.114)
 - The store compacts itself since cocolog 1.2.13: once 32 MB or more of cells are dead and outnumber the live ones, a
   safe point copies the reachable terms to a fresh array (sized at the live length since 1.2.14). `garbage_collect/0`
   forces it; `statistics(store_used, B)` reads it. It is the process's array, not the disk. Before it, `nb_setval`
@@ -4323,7 +4331,7 @@ A lambda is a class of its captures (`library/ccl_cpp.pl`). A fixture named alon
   `rm -rf ~/.cocolang/KB ~/.cocolang/KB.version` repairs it. (0.108)
 - Integers are 61-bit and `is/2` wraps silently. So a literal past 2^60 is `big(Atom)` in both lexers, the constant
   evaluator computes 64 bits over base-2^30 limbs (`ccl_w_*`), and `dr_fold/4` keeps two folds under 2^31. (0.94)
-- A refused allocation is a WRONG ANSWER (unchanged at 1.8.38). The `oom` flag is set at eleven growth sites and read
+- A refused allocation is a WRONG ANSWER (unchanged at 1.8.41). The `oom` flag is set at eleven growth sites and read
   only by the compaction, which declines and keeps the store; new terms then alias cell 0. The query answers `false.`,
   prints `ERROR: ?-: Unknown message: _G0` and exits 1. A gate dies so when the MACHINE runs out, and runs clean
   alone; `test/cpp.sh` then prints `RED: the gate did not finish (query exit N)` and the raw tail. Request: an `oom`
@@ -4512,8 +4520,8 @@ A lambda is a class of its captures (`library/ccl_cpp.pl`). A fixture named alon
 - macOS on x86-64 (Apple's SDK, Homebrew's LLVM, libc++ 21) is the first host. The seven gates last ran there at
   0.90, all GREEN (cocolog 1.2.18). The fixtures added since 0.93 have run on Linux only.
 - Ubuntu 24.04 on x86_64 (clang and LLVM 18, glibc, libc++ 18) is a host since 0.87. Every gate but the C++ one is
-  GREEN there since 0.93, and all seven since 0.95. Every step from 0.93 on is gated there; the last full run is
-  0.110's, recorded at 0.111.
+  GREEN there since 0.93, and all seven since 0.95. Every step from 0.93 on is gated there, but the save points 0.112
+  and 0.113; the last full run is 0.114's, over cocolog 1.8.41.
 - The host sets the predefined macros (`ccl_host_os/1` and `ccl_host_arch/1` in the module), the inclusion path
   (Debian's `/usr/lib/llvm-NN`, the multiarch directory) and the link (`-lc++` and `-lm` on Linux) (0.87, 0.93, 0.100).
 - A struct passed or returned by value crosses a call as clang's x86-64 code expects, in both directions
@@ -4738,7 +4746,7 @@ A lambda is a class of its captures (`library/ccl_cpp.pl`). A fixture named alon
 - The C store's dead rows stay on disk: `cocolog vacuum` is not used, and the store starts afresh only when
   `KB.version` changes (`kb_prepare` in `bin/cocolang`, `ccl_kb_prepare` in `test/config.sh`) (named in the 0.112
   validation).
-- cocolog has no `oom` check in its step loop (1.8.38), so a refused allocation gives a wrong answer. Its heap
+- cocolog has no `oom` check in its step loop (1.8.41), so a refused allocation gives a wrong answer. Its heap
   collector (1.8.36) does not run inside a nested engine (`findall/3`, `forall/2`). These are requests to cocolog's
   owner, never changes here (owner's rule) (0.46, 0.112).
 - One cocolog process's store write grows quadratically past about 30,000 rows, undiagnosed. For this reason no C++
