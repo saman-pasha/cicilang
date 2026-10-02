@@ -1,0 +1,8 @@
+make 11
+make 92
+make 33
+main 11 92 33 global string 4
+drop 33
+drop 92
+drop 11
+exit 0

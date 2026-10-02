@@ -55,8 +55,14 @@ pp_prescan_lines([line(_, A)|Ls], Path) :-
     (   pp_directive_line(A, Body), pp_ws(Body, B1), pp_word(B1, W, Rest), atom_codes(D, W), ( D == include ; D == include_next ),
         pp_ws(Rest, R1), pp_inc_name(R1, Spec0)
     ->  ( D == include_next -> Spec = next(Spec0) ; Spec = Spec0 ), ( catch(ccl_header_macros_ready(Spec, Path), _, true) -> true ; true )
+    ;   pp_import_line(A, Spec) -> ( catch(ccl_header_macros_ready(Spec, Path), _, true) -> true ; true )
     ;   true ),
     pp_prescan_lines(Ls, Path).
+%% A HEADER UNIT'S MACROS ARE THE IMPORTER'S ([module.import]/5; 0.110): `import "h";' and `import <h>;' (and `export
+%% import') make the header's macros visible after the line, as an #include does -- the line itself is passed on for
+%% the reader, which reads the header as the include it amounts to
+pp_import_line(A, Spec) :- nb_getval('$ccl_lang', cpp), atom_codes(A, Cs), pp_ws(Cs, C1), pp_word(C1, W0, R0), atom_codes(W0A, W0),
+    ( W0A == export -> pp_ws(R0, R1), pp_word(R1, W1, R2), atom_codes(import, W1) ; W0A == import, R2 = R0 ), pp_ws(R2, R3), pp_inc_name(R3, Spec).
 %% the macros defined when the run ended, macro(Name, Params, text(Body)) --
 %% the run's own, not the predefined: what a header's summary or store keeps
 ccl_pp_macros(Macros) :-
@@ -99,8 +105,23 @@ pp_defined_(_, G, N) :- ( pp_outer_macro(N, _, _) -> true ; pp_key(N, K), pp_not
 %% name list takes it, as a #define would) or a predefined one (never listed:
 %% a header's table is the header's own)
 pp_outer_macro(N, Ps, Cs) :-                                                       % the predefined first: no header redefines one
-    (   pp_predef_macro(N, Ps, Cs) -> pp_set_macro(N, Ps, Cs)
+    (   pp_cmdline(N, D) -> ( D = def(Ps, Cs) -> pp_set_macro(N, Ps, Cs) ; pp_header_macro(N, Ps, Cs), pp_define(N, Ps, Cs) )   % THE COMMAND LINE'S FIRST (0.112): `-DN=v' defines N before every file, `-UN' takes away a predefined one (a header may still define it)
+    ;   pp_predef_macro(N, Ps, Cs) -> pp_set_macro(N, Ps, Cs)
     ;   pp_header_macro(N, Ps, Cs), pp_define(N, Ps, Cs) ).
+%% -D and -U, as clang reads them: `-DN' is N defined as 1, `-DN=v' as v, `-D"F(x)=x+1"' a function-like macro; `-UN'
+%% undefines N, the later of a -D and a -U of one name winning. The list is a process's own global, read where a
+%% name's macro is first looked for, so a header's table made in the same process is made under it too.
+ccl_pp_cmdline(Os) :- pp_cmdline_list(Os, [], L), nb_setval('$pp_cmdline', L).
+pp_cmdline_list([], L, L).
+pp_cmdline_list([define(T)|Os], L0, L) :- !, atom_codes(T, Cs), pp_cmd_define(Cs, N, D), pp_cmdline_put(N, D, L0, L1), pp_cmdline_list(Os, L1, L).
+pp_cmdline_list([undef(N)|Os], L0, L) :- !, pp_cmdline_put(N, undef, L0, L1), pp_cmdline_list(Os, L1, L).
+pp_cmdline_list([_|Os], L0, L) :- pp_cmdline_list(Os, L0, L).
+pp_cmdline_put(N, D, L0, [N-D|L1]) :- ( select(N-_, L0, L1) -> true ; L1 = L0 ).
+pp_cmd_define(Cs, N, def(Ps, Body)) :-
+    pp_word(Cs, W, R0), W \== [], atom_codes(N, W),
+    ( R0 = [0'(|R1] -> pp_upto_close(R1, PCs, R2), pp_param_names(PCs, Ps) ; Ps = obj, R2 = R0 ),
+    ( R2 = [0'=|Body] -> true ; R2 == [] -> Body = [0'1] ; Body = R2 ).
+pp_cmdline(N, D) :- catch(nb_getval('$pp_cmdline', L), _, fail), memberchk(N-D, L).
 pp_predef_macro(N, obj, Cs) :-
     (   ccl_lang(cpp), ccl_std(S), pp_std_table(S, Tab), pp_predef(N, Tab, T) -> true   % the level's own value first (__cplusplus, __cpp_constexpr ...)
     ;   ccl_lang(c), ccl_c_std(CS), pp_c_std_table(CS, CTab), pp_predef(N, CTab, T) -> true   % C's own level (-std=c23): __STDC_VERSION__ and what the forms answer
@@ -258,6 +279,8 @@ pp_current_file(none).
 pp_run([], Out, Out).
 pp_run([line(N, A)|Ls], Out0, Out) :-
     (   pp_directive_line(A, Body) -> pp_directive(Body, N, Ls, Ls1, Out0, Out1), pp_run(Ls1, Out1, Out)
+    ;   nb_getval('$pp_top', yes), pp_import_line(A, Spec), pp_current_file(From), ccl_resolve_include(Spec, From, Path), ccl_header_macros_known(Path, _), nb_getval('$pp_hdrs', Hs), \+ memberchk(Path, Hs),
+        nb_setval('$pp_hdrs', [Path|Hs]), nb_getval('$pp_ninc', I0), I1 is I0 + 1, nb_setval('$pp_ninc', I1), fail
     ;   pp_lex_line(N, A, Toks), pp_toks(Toks, Ls, Ls1, Out0, Out1), pp_run(Ls1, Out1, Out) ).
 %% the stream: tokens, or h(Token, HideSet) from an expansion
 pp_unwrap(h(T, HS), T, HS) :- !.
@@ -373,6 +396,7 @@ pp_spell(tok(floatf, N, _), Cs) :- !, number_codes(N, Cs0), append(Cs0, [0'f], C
 pp_spell(tok(floatl, N, _), Cs) :- !, number_codes(N, Cs0), append(Cs0, [0'L], Cs).
 pp_spell(tok(imag, N, _), Cs) :- !, number_codes(N, Cs0), append(Cs0, [0'i], Cs).
 pp_spell(tok(imagf, N, _), Cs) :- !, number_codes(N, Cs0), append(Cs0, [0'i, 0'f], Cs).
+pp_spell(tok(imagl, N, _), Cs) :- !, number_codes(N, Cs0), append(Cs0, [0'i, 0'l], Cs).
 pp_spell(tok(K, N, _), Cs) :- pp_imag_suffix(K, Sfx), !, pp_int_codes(N, Cs0), append(Cs0, Sfx, Cs).   % `3i', `2ui', `3li', `4uli' (0.104)
 pp_imag_suffix(imagi, [0'i]).   pp_imag_suffix(imagui, [0'u, 0'i]).   pp_imag_suffix(imagli, [0'l, 0'i]).   pp_imag_suffix(imaguli, [0'u, 0'l, 0'i]).
 pp_spell(tok(str, S, _), Cs) :- !, pp_escape(S, E), append([34|E], [34], Cs).
@@ -589,9 +613,14 @@ pp_builtin_answer('__has_c_attribute', Args, V) :- ccl_lang(c), !, ( pp_attr_nam
 %% `__has_extension(c_atomic)' answers 1 (0.100): libc++ decides its <atomic> by `__has_feature(cxx_atomic) ||
 %% __has_extension(c_atomic) || __has_keyword(_Atomic)', and with all three 0 it defines NO implementation
 %% (`template_without_body(__cxx_atomic_base_impl)'); this compiler has C11's `_Atomic(T)' and the `__c11_atomic_*'
-%% builtins (0.99), which is exactly the road _LIBCPP_HAS_C_ATOMIC_IMP takes. The one extension answered; every other
-%% feature, extension and attribute keeps its 0 (the plainest path)
+%% builtins (0.99), which is exactly the road _LIBCPP_HAS_C_ATOMIC_IMP takes. ... AND `datasizeof' answers 1 (0.112), as
+%% clang's does: libc++ 18 takes a type's size without its tail padding from `__datasizeof(T)' (folded by cpp_trait),
+%% where its fallback is a member template's explicit specialization the desugaring does not fold, and
+%% `__libcpp_datasizeof<T>::value' -- every trivially copyable range copied through `__constexpr_memmove' -- was an
+%% undefined symbol at the link. The two extensions answered; every other feature, extension and attribute keeps its 0
+%% (the plainest path)
 pp_builtin_answer('__has_extension', [tok(_, c_atomic, _)], 1) :- !.
+pp_builtin_answer('__has_extension', [tok(_, datasizeof, _)], 1) :- !.
 pp_builtin_answer('__is_identifier', _, 1) :- !.
 pp_builtin_answer('__has_builtin', _, 1) :- !.                                    % LLVM's builtins are there (libc++'s other branch is an #error)
 pp_builtin_answer('__is_target_arch', [tok(_, A, _)], V) :- !, pp_arch(Arch), ( A == Arch -> V = 1 ; V = 0 ).
@@ -882,7 +911,13 @@ pp_predef('__SIG_ATOMIC_TYPE__', any, 'int').
 pp_predef('__SIG_ATOMIC_WIDTH__', any, '32').
 pp_predef('__SIZEOF_DOUBLE__', any, '8').
 pp_predef('__SIZEOF_FLOAT__', any, '4').
-pp_predef('__SIZEOF_INT128__', any, '16').
+%% NO 128-BIT INTEGER, the fourth question of the kind below (0.112): libc++ decides `_LIBCPP_HAS_NO_INT128' by
+%% `!defined(__SIZEOF_INT128__)', the one place in libc++ 18 that reads the macro, and nothing here lowers an
+%% `__int128' (the reader knows `__int128_t' and `__uint128_t' as names; nothing gives them a type). Predefined,
+%% std::format's `__basic_format_arg_value' held an `__int128_t __i128_' member, its visitor was instantiated over
+%% that unknown type and `invoke_result<F, unknown>' refused kind_mismatch(_Tp). Left undefined, libc++ compiles its
+%% own no-int128 configuration, as it does under MSVC; glibc's headers do not read the macro.
+%% pp_predef('__SIZEOF_INT128__', any, '16').
 pp_predef('__SIZEOF_INT__', any, '4').
 pp_predef('__SIZEOF_LONG_LONG__', any, '8').
 pp_predef('__SIZEOF_LONG__', any, '8').
@@ -1158,7 +1193,7 @@ pp_predef('__DEPRECATED', cpp, '1').
 %% all). libc++ asks the COMPILER: `#if defined(__cpp_exceptions) && __cpp_exceptions >= 199711L' decides its
 %% _LIBCPP_HAS_EXCEPTIONS, so leaving both undefined compiles the library's own no-exceptions configuration, as it
 %% ships and as -fno-exceptions gives it: a thrower aborts with a message instead of throwing, and its try blocks are
-%% not there. Neither macro is predefined, and a program that writes `throw' or `try' is still refused by name.
+%% not there. Neither macro is predefined; a program's own `throw', `try' and `catch' run since 0.108.
 %% pp_predef('__EXCEPTIONS', cpp, '1').
 pp_predef('__GLIBCXX_BITSIZE_INT_N_0', cpp, '128').
 pp_predef('__GLIBCXX_TYPE_INT_N_0', cpp, '__int128').
@@ -1171,7 +1206,7 @@ pp_predef('__GXX_EXPERIMENTAL_CXX0X__', cpp, '1').
 %% `exception_ptr', `shared_ptr', `function'); the VTABLES do not -- `__shared_weak_count::__get_deleter' is
 %% declared unconditionally and only the derived override is guarded, so our control blocks still lay out as the
 %% shipped library's. `shared_ptr::get_deleter' and `dynamic_pointer_cast' are then not there, which is what
-%% -fno-rtti means, and a program that writes `typeid' or `dynamic_cast' is refused by name.
+%% -fno-rtti means. A program's own `typeid' and `dynamic_cast' run since 0.108, over type_info objects of its own.
 %% pp_predef('__GXX_RTTI', cpp, '1').
 %% AND NO VECTOR EXTENSIONS, the third question of the same kind. libc++ vectorizes its algorithms behind
 %% `_LIBCPP_HAS_ALGORITHM_VECTOR_UTILS && !defined(__OPTIMIZE_SIZE__)', and the first half is on because it asks
@@ -1300,6 +1335,7 @@ pp_int_codes(N, Cs) :- number_codes(N, Cs).
 ccl_pp_spell_tok(cocolog, A, Out, Rest) :- !, atom_codes('#cocolog', H), atom_codes(A, Cs), atom_codes('#end', E), append(H, [10|Cs], O1), append(O1, [10|E], O2), append(O2, Rest, Out).
 ccl_pp_spell_tok(imag, F, Out, Rest) :- !, number_codes(F, Cs), append(Cs, [0'i|Rest], Out).                   % the imaginary literal spelled back, `2.0i' (0.101)
 ccl_pp_spell_tok(imagf, F, Out, Rest) :- !, number_codes(F, Cs), append(Cs, [0'i, 0'f|Rest], Out).
+ccl_pp_spell_tok(imagl, F, Out, Rest) :- !, number_codes(F, Cs), append(Cs, [0'i, 0'l|Rest], Out).
 ccl_pp_spell_tok(K, N, Out, Rest) :- pp_imag_suffix(K, Sfx), !, pp_int_codes(N, Cs), append(Sfx, Rest, Tail), append(Cs, Tail, Out).
 ccl_pp_spell_tok(floatf, F, Out, Rest) :- !, number_codes(F, Cs), append(Cs, [0'f|Rest], Out).
 ccl_pp_spell_tok(floatl, F, Out, Rest) :- !, ( F > 1.0e308 -> atom_codes('1e999', Cs) ; F < -1.0e308 -> atom_codes('-1e999', Cs) ; number_codes(F, Cs) ), append(Cs, [0'L|Rest], Out).

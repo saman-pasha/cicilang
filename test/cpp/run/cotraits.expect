@@ -1,0 +1,8 @@
+promise(3, 4)
+body 3 4
+304
+promise(1, 2)
+boom
+unhandled in promise
+102
+exit 0

@@ -1,0 +1,10 @@
+E(1)
+copy E(101)
+caught 101
+~E(7)
+~E(1)
+E(2)
+caught ref 2
+~E(2)
+int 5
+exit 0

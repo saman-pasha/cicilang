@@ -675,6 +675,8 @@ ck_borrows_from(index(A, _), St, P) :- !, ck_borrows_from(A, St, P).
 ck_borrows_from(deref(E), St, P) :- !, ck_borrows_from(E, St, P).
 ck_borrows_from(cond(_, A, B), St, P) :- !, ( ck_borrows_from(A, St, P) -> true ; ck_borrows_from(B, St, P) ).
 ck_borrows_from(comma(_, B), St, P) :- !, ck_borrows_from(B, St, P).
+ck_borrows_from(stmt_expr(block(Is)), St, P) :- append(_, [expr(_, id(N))], Is), atom(N), atom_concat('$at', _, N),   % A PLACEMENT NEW'S RESULT is the address it was given (0.112): the desugaring's `$at', declared in the block from that address and never assigned again, borrows what the address borrows -- `int *p = new (buf) int(7)' over a local buffer had read as a loose pointer, `plain pointer not consumed'
+    member(declaration(_, _, _, Vs), Is), memberchk(var(N, _, I), Vs), I \== none, !, ck_borrows_from(I, St, P).
 ck_borrows_from(stmt_expr(block(Is)), St, P) :- append(_, [expr(_, E)], Is), !, ck_borrows_from(E, St, P).
 %% A CLOSURE BORROWS WHAT ITS CAPTURES BORROW (0.100): the desugaring makes a lambda a compound literal of the
 %% captures' values, `&x' for a reference capture and `this' for the object, so a closure local is a borrow of the
@@ -775,7 +777,7 @@ ck_stmt(ifce(_, _, RT), St0, St) :- !, ck_stmt(RT, St0, St).                    
 %% not known there), the states merged
 ck_stmt(try(L, Body, Catches), St0, St) :- !, ck_line(L), ck_stmt(Body, St0, StB), ck_catches(Catches, St0, StB, St).
 ck_catches([], _, St, St).
-ck_catches([catch(any, B)|Cs], St0, Acc, St) :- !, ck_stmt(B, St0, S1), ck_merge(Acc, S1, Acc1), ck_catches(Cs, St0, Acc1, St).
+ck_catches([catch(K, B)|Cs], St0, Acc, St) :- ( K == any ; K == terminate ), !, ck_stmt(B, St0, S1), ck_merge(Acc, S1, Acc1), ck_catches(Cs, St0, Acc1, St).
 ck_catches([catch(_, T, N, B)|Cs], St0, Acc, St) :- ccl_scope_push, ( N == anon -> true ; ccl_declare(N, T) ), ck_stmt(B, St0, S1), ccl_scope_pop, ck_merge(Acc, S1, Acc1), ck_catches(Cs, St0, Acc1, St).
 ck_stmt(if(L, C, T, E), St0, St) :- !, ck_line(L),
     ck_expr(C, St0, St1), ck_refine(C, St1, StThen, StElse),
@@ -1125,6 +1127,7 @@ ck_expr(uwb(_), St, St) :- !.
 ck_expr(float(_), St, St) :- !.
 ck_expr(imag(_), St, St) :- !.
 ck_expr(imagf(_), St, St) :- !.
+ck_expr(imagl(_), St, St) :- !.
 ck_expr(imagi(_, _), St, St) :- !.
 ck_expr(chr(_), St, St) :- !.
 ck_expr(str(_), St, St) :- !.
@@ -1201,6 +1204,7 @@ ck_expr(rtti(_), St, St) :- !.                                                  
 ck_expr(eh_alloc(_), St, St) :- !.                                                 % an exception's storage, handed to __cxa_throw (0.108)
 ck_expr(eh_throw(P, _, _), St0, St) :- !, ck_expr(P, St0, St).
 ck_expr(eh_rethrow, St, St) :- !.
+ck_expr(eh_terminate, St, St) :- !.
 ck_expr(rtti_dyn(X), St0, St) :- !, ck_expr(X, St0, St).
 ck_expr(dyncast(X, _, _, _), St0, St) :- !, ck_expr(X, St0, St).
 ck_expr(dyncast_ref(X, _, _, _), St0, St) :- !, ck_expr(X, St0, St).

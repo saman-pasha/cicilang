@@ -38,7 +38,7 @@ kb_prepare() {                        # one awk for both versions, read for the 
   [ -d "$1" ] || mkdir -p "$1"
   [ "$have" = "$v" ] || echo "$v" > "$stamp"
 }
-inputs=""; opts=""; out=""; opt=""; verbose=""
+inputs=""; opts=""; out=""; opt=""; verbose=""; defs=""
 [ "${COCOLANG_LANG:-c}" = cpp ] && opts="$opts lang(cpp),"
 need() { [ $# -ge 2 ] || { echo "$me: error: argument to '$1' is missing" >&2; exit 1; }; }
 q() { case $1 in *\'*) printf "'%s'" "$(printf '%s' "$1" | sed "s/'/\\\\'/g")" ;; *) printf "'%s'" "$1" ;; esac; }
@@ -74,7 +74,11 @@ while [ $# -gt 0 ]; do
     -std=gnu99) opts="$opts cstd(99)," ;;
     -trigraphs) opts="$opts trigraphs," ;;
     -std=c89|-std=c90|-std=gnu89|-std=gnu90|-std=iso9899:1990) echo "$me: error: unsupported C standard '$1' (C99 and later)" >&2; exit 1 ;;
-    -g|-D*|-U*|-W*|-f*|-std=*|-pedantic) ;;   # accepted for clang's sake, no debug info yet
+    -D) need "$@"; shift; opts="$opts define($(q "$1")),"; defs=1 ;;   # a macro on the command line (0.112): it changes what every header reads, so the run keeps no store
+    -D*) opts="$opts define($(q "${1#-D}")),"; defs=1 ;;
+    -U) need "$@"; shift; opts="$opts undef($(q "$1")),"; defs=1 ;;
+    -U*) opts="$opts undef($(q "${1#-U}")),"; defs=1 ;;
+    -g|-W*|-f*|-std=*|-pedantic) ;;   # accepted for clang's sake, no debug info yet
     -*) echo "$me: error: unknown argument: '$1'" >&2; exit 1 ;;
     *) inputs="$inputs $(q "$1"),";;
   esac
@@ -84,6 +88,7 @@ done
 [ -n "$out" ] && opts="$opts out($(q "$out")),"
 [ -n "$opt" ] && opts="$opts opt('$opt'),"
 inputs="[${inputs%,}]"; opts="[${opts%,}]"
+[ -n "$defs" ] && store="--local"   # the store keys a header by its path: under -D it would serve another header's read
 case "$store" in --embed*) kb_prepare "$KB" ;; esac
 res=$("$C" $store query "use_module(library(cocolang)), ccl_drive($inputs, $opts)" 2>&1)
 # one pass over the answer: diagnostics on stderr, as clang; `cocolang: ...' and `unit(...)' lines on stdout

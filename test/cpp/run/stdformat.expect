@@ -1,0 +1,10 @@
+2 and 3
+[42 ff FF 10 101]
+[     1|2     |  3   ]
+[****7 -0042]
+[3.14 2.5]
+[c true false]
+[hello, world!]
+[b a b]
+[10-x]
+exit 0

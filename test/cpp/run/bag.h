@@ -28,6 +28,7 @@ public:
     ~Bag() { for (int i = 0; i < n; i++) d[i].~T(); free(d); }
     int size() const { return n; }
     T &operator[](int i) { return d[i]; }
+    const T &operator[](int i) const { return d[i]; }
     void push(T x) {
         if (n == cap) { cap = cap ? cap * 2 : 4; d = (own T *) realloc(d, cap * sizeof(T)); }
         d[n] = move(x);

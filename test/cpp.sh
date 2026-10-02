@@ -91,7 +91,7 @@ if [ "$got" = "exit 34" ]; then echo "ok   classes.cpp, the reader's fixture (vi
 got=$("$ROOT/bin/cocolang++" "$ROOT/test/cpp/templates.cpp" -o templates 2>&1 && { ./templates; echo "exit $?"; })
 if [ "$got" = "exit 10" ]; then echo "ok   templates.cpp, the reader's fixture (a function and two class templates, an alias, a template in a namespace), builds and exits 10"; else echo "FAIL templates.cpp should build and exit 10"; echo "     got  $got" | head -3; failures=$((failures + 1)); fi
 echo "-- and the forms of the later steps are refused by name, not dropped"
-for pair in "coro:no_member(get_return_object" "concept_fail:constraint_not_satisfied" "deduced_this:deduced_this" "constrained_fail:constraint_not_satisfied" "abstract:pure_virtual"; do
+for pair in "coro:no_member(get_return_object" "concept_fail:constraint_not_satisfied" "deduced_this:deduced_this" "constrained_fail:constraint_not_satisfied" "abstract:pure_virtual" "modhidden:undeclared(hidden)" "diamond:virtual_base_by_two_paths" "basenodefault:base_constructor('B')"; do   # modhidden: a name the module does not export (0.110); basenodefault: a base with constructors and no default one, named by no initializer (0.112)
   n=${pair%%:*}; what=${pair#*:}
   got=$("$ROOT/bin/cocolang++" -c "$ROOT/test/cpp/$n.cpp" -o "$n.o" 2>&1; echo "exit $?")
   case "$got" in *"not lowered yet: $what"*"exit 1"*) echo "ok   $n.cpp is refused: not lowered yet: $what" ;; *) echo "FAIL $n.cpp should be refused with 'not lowered yet: $what'"; echo "     got  $got" | head -3; failures=$((failures + 1)) ;; esac

@@ -134,7 +134,7 @@
   (func ccl_llvm_load ((coco_engine * e) (const char * ir) (LLVMContextRef * ctx) (LLVMModuleRef * mod) (int * rc)) (out int)
     (let ((char * msg . nil) (LLVMMemoryBufferRef buf . nil))
       (set (cof ctx) (LLVMContextCreate))
-      (set buf (LLVMCreateMemoryBufferWithMemoryRangeCopy ir (strlen ir) "cicili"))
+      (set buf (LLVMCreateMemoryBufferWithMemoryRangeCopy ir (strlen ir) "cocolang"))
       ;; on a failure LLVM's objects go first and the error is raised last, with
       ;; a copy of the message: coco_m_error may not return to us
       (if (LLVMParseIRInContext (cof ctx) buf mod (aof msg))
@@ -180,7 +180,7 @@
           (char * msg . nil) (int rc . 0))
       (if (not ir) (return (coco_m_instantiation_error e)))
       (set ctx (LLVMContextCreate))
-      (set buf (LLVMCreateMemoryBufferWithMemoryRangeCopy ir (strlen ir) "cicili"))
+      (set buf (LLVMCreateMemoryBufferWithMemoryRangeCopy ir (strlen ir) "cocolang"))
       (if (LLVMParseIRInContext ctx buf (aof mod) (aof msg))
         (block
           (set rc (coco_m_unify_atom e (coco_m_arg e g 1) (? msg msg "parse failed")))
