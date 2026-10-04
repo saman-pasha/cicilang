@@ -6580,5 +6580,18 @@ included. What stays: `cocolog` and the SDK's `coco_*` names (the neighbour's), 
 The cache was moved by hand (`mv ~/.cocolang ~/.cicilang`); the reader and lowering versions did not move, so the
 summaries and the store stay valid. A user who keeps the old directory gets a cold cache.
 
-GATES. Committed before the chain finished, on the owner's word: only the reader gate (95 checks) and the proof had
-run GREEN at the commit. The next commit carries the other numbers. Reader version 110, lowering version 60; the module rebuilt as 0.116.
+GATES, all seven GREEN on 0.116, over cocolog 1.8.41: the reader 95 ok (2 skips: Cicili's two example files are not
+here); the compile gate 101 ok (58 run, 43 refused), 13 s; the driver gate 26 ok, 7 s; the objects gate 29 ok, 3 s; the
+proof exit 42; the library read GREEN in 1558 s (peak 1703 MB), cold, because the edited `library/include` headers
+changed their times; the C++ gate GREEN in 2542 s (peak 4593 MB), 384 checks ok, one skip (`stdoptionalref`, which needs
+libc++ 21). The commit b527c80 was made before they finished.
+
+THE FIRST COMPILE-GATE RUN WAS RED, and it was the store. The gate ran over the user's store at `~/.cicilang/KB`, which
+the earlier runs had written, and it grew to the 7000 MB cap and then to 9000 MB without an answer; three runs. Each of
+the 101 fixtures built alone through `bin/cicilang` in under 5 s; the commit before the rename (a worktree at 3332f98,
+built) went GREEN in 16 s over a fresh store, and so did this tree (17 s, 174 MB). The store was removed
+(`rm -rf ~/.cicilang/KB ~/.cicilang/KB.version`, the repair CLAUDE.md names) and the gate went GREEN in 13 s. The cause
+of the damage is not found: the store had been copied by `mv` from `~/.cocolang`, and a watchdog and a `pkill` had
+killed cocolog runs over it before. Named, not fixed. After a rename that moves the store, remove it too.
+
+Reader version 110, lowering version 60; the module rebuilt as 0.116.

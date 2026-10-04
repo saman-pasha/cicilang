@@ -93,7 +93,8 @@ sh test/cpp.sh
   `library(cicilang)`, the `CICILANG_KB`, `_INCLUDE`, `_LANG` and `_ME` variables, `~/.cicilang`, and the answer lines
   `cicilang: ok` and `cicilang: N error(s)`. The neighbour's names stay (Cicili, `$CICILI`, `cicili.lisp`,
   `sdk.cicili`, `.cicili`), and so does `ccl_`. A string that a fixture prints is data. The name was `cocolang`
-  until 0.115; the owner renamed the repository to `cicilang`, and `~/.cocolang` moves to `~/.cicilang` by hand. (0.100, 0.116)
+  until 0.115; the owner renamed the repository to `cicilang`, and `~/.cocolang` moves to `~/.cicilang` by hand, the C store `KB` removed (a moved store sent the compile gate
+  past 9 GB; a fresh one took 13 s). (0.100, 0.116)
 
 ### The owner's rules for the language and its passes
 
@@ -4581,7 +4582,7 @@ A lambda is a class of its captures (`library/ccl_cpp.pl`). A fixture named alon
   0.90, all GREEN (cocolog 1.2.18). The fixtures added since 0.93 have run on Linux only.
 - Ubuntu 24.04 on x86_64 (clang and LLVM 18, glibc, libc++ 18) is a host since 0.87. Every gate but the C++ one is
   GREEN there since 0.93, and all seven since 0.95. Every step from 0.93 on is gated there, but the save points 0.112
-  and 0.113; the last full run is 0.115's, over cocolog 1.8.41.
+  and 0.113; the last full run is 0.116's, over cocolog 1.8.41.
 - The host sets the predefined macros (`ccl_host_os/1` and `ccl_host_arch/1` in the module), the inclusion path
   (Debian's `/usr/lib/llvm-NN`, the multiarch directory) and the link (`-lc++` and `-lm` on Linux) (0.87, 0.93, 0.100).
 - A struct passed or returned by value crosses a call as clang's x86-64 code expects, in both directions
