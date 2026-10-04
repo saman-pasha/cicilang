@@ -1,6 +1,6 @@
-/* cocolang's own <float.h>: the target's limits, from the predefined macros */
-#ifndef _COCOLANG_FLOAT_H
-#define _COCOLANG_FLOAT_H
+/* cicilang's own <float.h>: the target's limits, from the predefined macros */
+#ifndef _CICILANG_FLOAT_H
+#define _CICILANG_FLOAT_H
 #define FLT_RADIX __FLT_RADIX__
 #define FLT_MANT_DIG __FLT_MANT_DIG__
 #define DBL_MANT_DIG __DBL_MANT_DIG__

@@ -1,5 +1,5 @@
-%% cocolang -- library(ccl_driver): what the `cocolang' command does, once
-%% bin/cocolang has read its arguments the way clang reads them.
+%% cicilang -- library(ccl_driver): what the `cicilang' command does, once
+%% bin/cicilang has read its arguments the way clang reads them.
 %%
 %%   ccl_drive(+Inputs, +Options)
 %%     Inputs   files: .c (read, checked, lowered), .ll (compiled as IR),
@@ -9,18 +9,18 @@
 %%              opt(Flag) ('-O2' ...), include(Dir) (-I), link(Flag) (-l -L
 %%              -shared -framework ...), verbose (-v)
 %%
-%% Every .c goes through cocolang_ast, cocolang_ir and cocolang_compile; then, unless
+%% Every .c goes through cicilang_ast, cicilang_ir and cicilang_compile; then, unless
 %% -c, -S, -emit-llvm or -fsyntax-only, everything links into one output
 %% (a.out when -o is not given), as clang does. A diagnostic is printed as
-%% clang prints one -- file:line: error: what -- and the run ends `cocolang: N
-%% error(s)'; a clean run ends `cocolang: ok'.
+%% clang prints one -- file:line: error: what -- and the run ends `cicilang: N
+%% error(s)'; a clean run ends `cicilang: ok'.
 
 :- use_module(library(process)).
 
 ccl_drive(Inputs, Options) :- once(dr_drive(Inputs, Options)).          % one answer: the query loop would re-run a second
 dr_drive(Inputs, Options) :-
     ccl_ensure_globals, nb_setval('$dr_errors', 0),
-    ( memberchk(lang(cpp), Options) -> nb_setval('$ccl_lang_forced', cpp), nb_setval('$ccl_lang', cpp) ; nb_setval('$ccl_lang_forced', none) ),   % cocolang++: everything C++
+    ( memberchk(lang(cpp), Options) -> nb_setval('$ccl_lang_forced', cpp), nb_setval('$ccl_lang', cpp) ; nb_setval('$ccl_lang_forced', none) ),   % cicilang++: everything C++
     ( memberchk(std(Std), Options) -> nb_setval('$ccl_std', Std) ; nb_setval('$ccl_std', 17) ),                                       % -std=c++20: the level libc++ keys on
     ( memberchk(cstd(CStd), Options) -> nb_setval('$ccl_c_std', CStd) ; nb_setval('$ccl_c_std', 17) ),                                 % -std=c23: C's own level, the forms and __STDC_VERSION__
     ( memberchk(trigraphs, Options) -> nb_setval('$ccl_trigraphs', yes) ; nb_setval('$ccl_trigraphs', no) ),                          % -std=c99/c11/c17 (ISO, not gnu) or -trigraphs: phase 1's nine sequences, as clang
@@ -35,16 +35,16 @@ dr_drive(Inputs, Options) :-
     ;   ( memberchk(out(Out), Options) -> true ; Out = 'a.out' ),
         findall(F, member(link(F), Options), LinkFlags),
         dr_say(['link ', Out]),
-        catch(cocolang_link(Objects, LinkFlags, Out), E, dr_report(Out, E)) ),
+        catch(cicilang_link(Objects, LinkFlags, Out), E, dr_report(Out, E)) ),
     nb_getval('$dr_errors', N1),
-    ( N1 =:= 0 -> write('cocolang: ok') ; write('cocolang: '), write(N1), write(' error(s)') ), nl.
+    ( N1 =:= 0 -> write('cicilang: ok') ; write('cicilang: '), write(N1), write(' error(s)') ), nl.
 dr_no_link(O) :- ( memberchk(compile_only, O) ; memberchk(assembly, O) ; memberchk(emit_llvm, O) ; memberchk(syntax_only, O) ; memberchk(ast, O) ; memberchk(preprocess, O) ), !.
 
 dr_inputs([], _, _, []).
 dr_inputs([F|Fs], Options, Flags, Objects) :-
     dr_input(F, Options, Flags, Objects, Objects1),
     dr_inputs(Fs, Options, Flags, Objects1).
-dr_input(F, _, _, Objs, Objs) :- \+ exists_file(F), !, dr_error(F, 0, ['no such file or directory']).   % as clang says it; a missing input compiled to `cocolang: ok' once
+dr_input(F, _, _, Objs, Objs) :- \+ exists_file(F), !, dr_error(F, 0, ['no such file or directory']).   % as clang says it; a missing input compiled to `cicilang: ok' once
 dr_input(F, Options, Flags, Objs, Objs1) :-
     (   ( dr_ext(F, c) ; dr_cpp_ext(F) ) -> dr_c(F, Options, Flags, Objs, Objs1)
     ;   dr_ext(F, ll) -> dr_ll(F, Options, Flags, Objs, Objs1)
@@ -59,7 +59,7 @@ dr_c(F, Options, _, Objs, Objs) :- memberchk(preprocess, Options), !,           
     (   catch(dr_preprocess(F, Options), E, (dr_report(F, E), fail)) -> true ; true ).
 dr_c(F, Options, Flags, Objs, Objs1) :-
     dr_say(['read ', F]), nb_setval('$dr_expansions', []),
-    (   catch(cocolang_ast(F, AST), E1, (dr_pp_warnings, dr_report(F, E1), fail))
+    (   catch(cicilang_ast(F, AST), E1, (dr_pp_warnings, dr_report(F, E1), fail))
     ->  dr_pp_warnings, dr_remember_expansions(AST),
         (   memberchk(ast, Options) -> writeq(AST), nl, Objs = Objs1
         ;   memberchk(syntax_only, Options), ccl_lang(cpp) -> Objs = Objs1      % M5 is the reader; C++'s check and lowering are M6
@@ -86,7 +86,7 @@ dr_preprocess(F, Options) :-
 dr_ir(F, AST, IR) :-
     dr_ir_ready, dr_ir_sig(F, AST, Sig),
     (   dr_ir_cached(F, Sig, IR0) -> dr_say(['served ', F, ' from the store']), IR = IR0
-    ;   dr_say(['check and lower ', F]), cocolang_ir([AST], IR), dr_ir_remember(F, Sig, IR) ).
+    ;   dr_say(['check and lower ', F]), cicilang_ir([AST], IR), dr_ir_remember(F, Sig, IR) ).
 dr_ir_ready :- ccl_kb_ready, dynamic('$ccl_irmeta'/3).                % cheap; an unset global would throw
 dr_ir_pred(F, P) :- atom_concat('$ccl_ir:', F, P), dynamic(P/2).
 dr_ir_sig(F, AST, Sig) :-
@@ -133,8 +133,8 @@ dr_emit(F, IR, Options, Flags, Objs, Objs1) :-
     ;   memberchk(emit_llvm, Options) -> dr_out(F, Options, ll, Out), dr_say(['write ', Out]), atom_codes(IR, Cs), write_file_from_codes(Out, Cs), Objs = Objs1
     ;   memberchk(assembly, Options) -> dr_out(F, Options, s, Out), dr_say(['assemble ', Out]), dr_compile(F, IR, Out, ['-S'|Flags]), Objs = Objs1
     ;   memberchk(compile_only, Options) -> dr_out(F, Options, o, Out), dr_say(['compile ', Out]), dr_compile(F, IR, Out, Flags), Objs = Objs1
-    ;   tmp_file(cocolang, T), atom_concat(T, '.o', Out), dr_say(['compile ', F]), ( dr_compile(F, IR, Out, Flags) -> Objs = [Out|Objs1] ; Objs = Objs1 ) ).
-dr_compile(F, IR, Out, Flags) :- catch(cocolang_compile(IR, Out, Flags), E, (dr_report(F, E), fail)).
+    ;   tmp_file(cicilang, T), atom_concat(T, '.o', Out), dr_say(['compile ', F]), ( dr_compile(F, IR, Out, Flags) -> Objs = [Out|Objs1] ; Objs = Objs1 ) ).
+dr_compile(F, IR, Out, Flags) :- catch(cicilang_compile(IR, Out, Flags), E, (dr_report(F, E), fail)).
 %% the output name: -o, else the input's basename with the new extension, in the working directory
 dr_out(_, Options, _, Out) :- memberchk(out(Out), Options), !.
 dr_out(F, _, Ext, Out) :-
@@ -159,8 +159,8 @@ dr_args([A|As]) :- writeq(A), write(', '), dr_args(As).
 %% once: the callers' recovery fails after reporting, and must not report twice
 dr_report(F, error(E, W)) :- !, once(dr_diag(F, E, W)).
 dr_report(F, E) :- once(dr_error(F, 0, [E])).
-dr_diag(_, syntax_error(cocolang_ast(File, line(L), near(N))), _) :- !, dr_error(File, L, ['syntax error: could not read this item (gave up near line ', N, ')']).
-dr_diag(_, syntax_error(cocolang_ast(File, lexical, line(L))), _) :- !, dr_error(File, L, ['lexical error']).
+dr_diag(_, syntax_error(cicilang_ast(File, line(L), near(N))), _) :- !, dr_error(File, L, ['syntax error: could not read this item (gave up near line ', N, ')']).
+dr_diag(_, syntax_error(cicilang_ast(File, lexical, line(L))), _) :- !, dr_error(File, L, ['lexical error']).
 dr_diag(F, cannot_infer(N, E), here(_, L)) :- !, dr_error(F, L, ['cannot infer the type of ', N, ' from ', E]).
 dr_diag(F, pp_error(M), here(_, L)) :- !, dr_error(F, L, [M]).                      % the file's own #error, its text; an #embed of nothing
 dr_diag(F, static_assert_failed(T), here(_, L)) :- !, ( T == '' -> dr_error(F, L, ['static assertion failed']) ; dr_error(F, L, ['static assertion failed: ', T]) ).
@@ -227,4 +227,4 @@ dr_join_codes([], []).
 dr_join_codes([P|Ps], Cs) :- ( atom(P) -> atom_codes(P, C) ; term_to_atom(P, A), atom_codes(A, C) ), dr_join_codes(Ps, Cs1), append(C, Cs1, Cs).
 dr_write([]).
 dr_write([P|Ps]) :- ( atomic(P) -> write(P) ; writeq(P) ), dr_write(Ps).
-dr_say(Parts) :- ( nb_getval('$dr_verbose', yes) -> write('cocolang: '), dr_write(Parts), nl ; true ).
+dr_say(Parts) :- ( nb_getval('$dr_verbose', yes) -> write('cicilang: '), dr_write(Parts), nl ; true ).

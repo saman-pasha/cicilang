@@ -16,7 +16,7 @@
 %%     Instance::Message           super::Message   Class::Message (a static call, Self unbound)
 %%     instance_of(?Instance, ?Class)   slot(+Instance, ?Slot, ?Value)
 
-:- use_module(library(cocolang)).
+:- use_module(library(cicilang)).
 
 :- object(counter).
    state(count = 0).

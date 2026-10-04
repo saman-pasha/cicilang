@@ -10,22 +10,22 @@
 # and LEAVES the summaries written -- so test/cpp.sh after it is fully warm and needs no
 # separate warm.sh. One cold read of each header per gate run, across the cores.
 #
-#   sh test/libcxx.sh                 # writes ~/.cocolang/cpp, asserts the counts
+#   sh test/libcxx.sh                 # writes ~/.cicilang/cpp, asserts the counts
 #   LX_HOME=/tmp/x sh test/libcxx.sh  # a throwaway cache instead of the user's
 HERE=$(cd "$(dirname "$0")" && pwd)
 . "$HERE/config.sh"
 . "$HERE/parlib.sh"
 [ -x "$C" ] || { echo "SKIP (no cocolog binary at $C -- set COCOLOG)"; exit 0; }
-[ -f "$ROOT/library/cocolang.so" ] || { echo "SKIP (no library/cocolang.so -- sh module/build.sh)"; exit 0; }
+[ -f "$ROOT/library/cicilang.so" ] || { echo "SKIP (no library/cicilang.so -- sh module/build.sh)"; exit 0; }
 LX_JOBS=${LX_JOBS:-4}; LX_LAUNCH_MB=${LX_LAUNCH_MB:-9000}; LX_HARD_MB=${LX_HARD_MB:-14000}
 LX_SECS=${LX_SECS:-2400}   # one read's cap: coreutils' timeout kills the process group it leads, the cocolog grandchild included
 WARMHOME=${LX_HOME:-$HOME}
-D=$(mktemp -d "${TMPDIR:-/tmp}/cocolang-libcxx-XXXXXX")
+D=$(mktemp -d "${TMPDIR:-/tmp}/cicilang-libcxx-XXXXXX")
 trap 'rm -rf "$D"' EXIT
 export CCL_TEST_TMP="$D"
 # COLD: wipe the target summary cache, so every read below is a genuine WHOLE read (the proof)
 # and a clean warm (the product). It is only a cache; the store is elsewhere.
-rm -rf "$WARMHOME/.cocolang/cpp"
+rm -rf "$WARMHOME/.cicilang/cpp"
 
 # THE LIBRARY-ASSERTED SET (header level min): each must read whole to at least Min items,
 # libc++ 18's counts, the proof this gate has always made. At C++17 unless a level is named.
@@ -67,7 +67,7 @@ ccl_union() {
 
 RES="$D/res"; mkdir -p "$RES"
 # each read's seconds, kept OUTSIDE the wiped cpp/ directory, so the next run starts the longest first
-LX_TIMES=${LX_TIMES:-$WARMHOME/.cocolang/header-times}
+LX_TIMES=${LX_TIMES:-$WARMHOME/.cicilang/header-times}
 # ONE ASSERTED HEADER: read whole in its own process (readhdr.pl), item count vs Min, summary written
 ccl_read() {   # ccl_read HEADER STD MIN
   h=$1; std=$2; min=$3; t0=$(date +%s)
@@ -79,7 +79,7 @@ ccl_read() {   # ccl_read HEADER STD MIN
 # ONE WARM-ONLY HEADER: a syntax-only build writes its summary; nothing is asserted
 ccl_warm() {   # ccl_warm HEADER STD
   h=$1; std=$2; t0=$(date +%s); f="$D/warm_${h}_${std}.cpp"; printf '#include <%s>\nint main() { return 0; }\n' "$h" > "$f"
-  if timeout -s KILL "$LX_SECS" env HOME="$WARMHOME" "$ROOT/bin/cocolang++" -std=c++$std -fsyntax-only "$f" > "$RES/w_${h}_${std}.out" 2>&1; then
+  if timeout -s KILL "$LX_SECS" env HOME="$WARMHOME" "$ROOT/bin/cicilang++" -std=c++$std -fsyntax-only "$f" > "$RES/w_${h}_${std}.out" 2>&1; then
     echo "warm <$h> C++$std" > "$RES/w_${h}_${std}.res"; ccl_time_record "$LX_TIMES" "$h@$std" $(( $(date +%s) - t0 ))
   else echo "warm <$h> C++$std: FAILED to flatten (a fixture including it will cold-flatten in the gate)" > "$RES/w_${h}_${std}.res"; fi
 }

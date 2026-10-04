@@ -1,6 +1,6 @@
-/* cocolang's own <stdbool.h> */
-#ifndef _COCOLANG_STDBOOL_H
-#define _COCOLANG_STDBOOL_H
+/* cicilang's own <stdbool.h> */
+#ifndef _CICILANG_STDBOOL_H
+#define _CICILANG_STDBOOL_H
 #ifndef __cplusplus
 #define bool _Bool
 #define true 1

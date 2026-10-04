@@ -1,10 +1,10 @@
-%% cocolang -- the road to libc++: the gate that says how far the compiler goes
+%% cicilang -- the road to libc++: the gate that says how far the compiler goes
 %% with the standard library as it ships. One check per header: flattened by
 %% cocolog's preprocessor and read WHOLE by the reader, under a fresh HOME so no
 %% summary stands in (the summaries it writes are this run's).
 %%
 %%   HOME=$D CCL_TEST_TMP=$D cocolog --local query "ensure_loaded('test/libcxx.pl'), libcxx_main"
-:- use_module(library(cocolang)).
+:- use_module(library(cicilang)).
 
 libcxx_main :-
     nb_setval('$lx_fail', 0),
@@ -21,7 +21,7 @@ libcxx_header(H, Min) :- libcxx_header_(H, 17, Min).
 libcxx_header_(H, Std, Min) :-
     os_env('CCL_TEST_TMP', D), atomic_list_concat([D, '/inc_', H, '_', Std, '.cpp'], F),
     atomic_list_concat(['#include <', H, '>\n'], Text), atom_codes(Text, Cs), write_file_from_codes(F, Cs),
-    (   catch(cocolang_ast(F, unit(Is)), E, (print_message(error, E), fail)),
+    (   catch(cicilang_ast(F, unit(Is)), E, (print_message(error, E), fail)),
         member(include(_, system(H), file(_, preprocessed, U)), Is)
     ->  (   U = unit(Items) -> length(Items, K),
             ( K >= Min -> format("ok   <~w> at C++~w flattened and read whole: ~w items~n", [H, Std, K]) ; format("FAIL <~w> at C++~w read whole but only ~w items~n", [H, Std, K]), libcxx_fail )

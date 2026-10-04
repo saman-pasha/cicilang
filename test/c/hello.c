@@ -3,6 +3,6 @@
 #include <stdlib.h>
 
 int main(void) {
-    printf("hello, %s\n", "cocolang");   // a line comment
+    printf("hello, %s\n", "cicilang");   // a line comment
     return 0;
 }

@@ -1,6 +1,6 @@
 ; a hand-written LLVM IR module: main() returns 42, after printing a line.
 
-@.msg = private unnamed_addr constant [19 x i8] c"cocolang reaches C\00"
+@.msg = private unnamed_addr constant [19 x i8] c"cicilang reaches C\00"
 
 declare i32 @puts(i8*)
 

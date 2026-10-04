@@ -1,4 +1,4 @@
-%% cocolang -- the compiler's gate, as one cocolog program: every
+%% cicilang -- the compiler's gate, as one cocolog program: every
 %% test/c/run/NAME.c read, checked, lowered, compiled and linked to
 %% $CCL_TEST_TMP/NAME in ONE process over the store, so the system headers
 %% are loaded once; every test/c/safe/NAME.c read and checked, expected to
@@ -8,7 +8,7 @@
 %%
 %%   CCL_TEST_ROOT=<repo> CCL_TEST_TMP=<dir> cocolog --embed <store> query "ensure_loaded('test/compile.pl'), compile_main"
 
-:- use_module(library(cocolang)).
+:- use_module(library(cicilang)).
 :- use_module(library(os)).
 
 compile_main :-
@@ -27,20 +27,20 @@ build_all([N|Ns], Dir, D) :- build_one(N, Dir, D), build_all(Ns, Dir, D).
 build_one(N, Dir, D) :-
     atomic_list_concat([Dir, '/', N, '.c'], Src), atomic_list_concat([D, '/', N, '.o'], Obj), atomic_list_concat([D, '/', N], Bin),
     c_level(Dir, N),                                                             % NAME.std holds C's level for the fixtures that need one (-std=c23)
-    (   catch(( cocolang_ast(Src, A), cocolang_ir([A], IR), cocolang_compile(IR, Obj, ['-O1']), cocolang_link([Obj], [], Bin) ), E, (write('FAIL '), write(N), write(': '), write(E), nl, fail))
+    (   catch(( cicilang_ast(Src, A), cicilang_ir([A], IR), cicilang_compile(IR, Obj, ['-O1']), cicilang_link([Obj], [], Bin) ), E, (write('FAIL '), write(N), write(': '), write(E), nl, fail))
     ->  write('built '), write(N), nl
     ;   true ).
 
 c_level(Dir, N) :- atomic_list_concat([Dir, '/', N, '.std'], F),
     (   exists_file(F), read_file_to_codes(F, Cs), atom_codes(A, Cs), atom_number_prefix(A, V) -> nb_setval('$ccl_c_std', V),
-        ( V < 23, sub_atom(A, 0, 6, _, '-std=c') -> nb_setval('$ccl_trigraphs', yes) ; nb_setval('$ccl_trigraphs', no) )   % an ISO level before C23 reads trigraphs, as bin/cocolang's -std=c17 does
+        ( V < 23, sub_atom(A, 0, 6, _, '-std=c') -> nb_setval('$ccl_trigraphs', yes) ; nb_setval('$ccl_trigraphs', no) )   % an ISO level before C23 reads trigraphs, as bin/cicilang's -std=c17 does
     ;   nb_setval('$ccl_c_std', 17), nb_setval('$ccl_trigraphs', no) ).
 atom_number_prefix(A, V) :- atom_codes(A, Cs), findall(C, ( member(C, Cs), C >= 0'0, C =< 0'9 ), Ds), Ds \== [], number_codes(V, Ds).
 refuse_all([], _).
 refuse_all([N|Ns], Dir) :- refuse_one(N, Dir), refuse_all(Ns, Dir).
 refuse_one(N, Dir) :-
     atomic_list_concat([Dir, '/', N, '.c'], Src),
-    (   catch(( cocolang_ast(Src, A), cocolang_ir([A], _) ), E, true)
+    (   catch(( cicilang_ast(Src, A), cicilang_ir([A], _) ), E, true)
     ->  (   var(E) -> write('compiled '), write(N), nl
         ;   E = error(ownership(K, V, _), _) -> write('refused '), write(N), write(' ownership('), write(K), write(','), write(V), write(')'), nl
         ;   write('FAIL '), write(N), write(': '), write(E), nl )

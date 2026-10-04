@@ -1,8 +1,8 @@
-/* cocolang's own <stdbit.h> (C23 7.18): the bit and byte utilities. The suffixed functions (_uc, _us, _ui,
+/* cicilang's own <stdbit.h> (C23 7.18): the bit and byte utilities. The suffixed functions (_uc, _us, _ui,
    _ul, _ull) are written over the bit builtins the lowering turns into LLVM's intrinsics at the argument's own
    width, and the type-generic forms choose one by _Generic, which the reader decides at the read. */
-#ifndef _COCOLANG_STDBIT_H
-#define _COCOLANG_STDBIT_H
+#ifndef _CICILANG_STDBIT_H
+#define _CICILANG_STDBIT_H
 #define __STDC_VERSION_STDBIT_H__ 202311L
 #define __STDC_ENDIAN_LITTLE__ __ORDER_LITTLE_ENDIAN__
 #define __STDC_ENDIAN_BIG__ __ORDER_BIG_ENDIAN__

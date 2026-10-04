@@ -1,6 +1,6 @@
-/* cocolang's own <stdalign.h> */
-#ifndef _COCOLANG_STDALIGN_H
-#define _COCOLANG_STDALIGN_H
+/* cicilang's own <stdalign.h> */
+#ifndef _CICILANG_STDALIGN_H
+#define _CICILANG_STDALIGN_H
 #define alignas _Alignas
 #define alignof _Alignof
 #define __alignas_is_defined 1

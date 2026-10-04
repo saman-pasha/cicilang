@@ -1,5 +1,5 @@
 %% ccl_cpp.pl -- M6's C++ forms desugared to the C the check and the lowering
-%% have, before either runs (cocolang_ir calls ccl_cpp_units/2 in cpp mode).
+%% have, before either runs (cicilang_ir calls ccl_cpp_units/2 in cpp mode).
 %%
 %% A class is a struct of its data members, its base (one) the first member,
 %% '$base'; every method is a function over `this' (C.m.k, k the arity, an

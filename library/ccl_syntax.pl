@@ -1,4 +1,4 @@
-%% cocolang -- library(ccl_syntax): C source, read as a DCG, into an AST.
+%% cicilang -- library(ccl_syntax): C source, read as a DCG, into an AST.
 %%
 %% Two grammars over two lists. `ccl_lex//2' is a DCG over CHARACTER CODES:
 %% it reads a whole C file into a list of tokens, each carrying the line it
@@ -12,7 +12,7 @@
 %% GNU forms Cicili's own emitted C carries: __attribute__((...)), which is
 %% read and dropped, and the statement expression ({ ... }). The C++ forms --
 %% classes, templates, namespaces, `::' -- are not read yet; a file that
-%% uses them parses up to the first of them, and cocolang_ast/3 answers where.
+%% uses them parses up to the first of them, and cicilang_ast/3 answers where.
 %%
 %% Every predicate here is ccl_-prefixed: cocolog has one namespace, and a
 %% grammar full of `expr' and `id' would collide with any program's. Only the
@@ -70,7 +70,7 @@
 %%   ccl_line_of(+Codes, +RestCodes, -Line)      the line a lexical error is on
 %%   ccl_farthest(-Line)                          after ccl_unit: the last line the grammar reached
 %%
-%% library(cocolang) wraps these as cocolang_ast/2 and cocolang_ast/3.
+%% library(cicilang) wraps these as cicilang_ast/2 and cicilang_ast/3.
 
 %% the reader's version, part of the knowledge base's cache key: bump it when
 %% the grammar changes, so what an older grammar left partial is read again
@@ -81,8 +81,8 @@ ccl_reader_version(110).   % 110 (0.115): an init-declarator names what it decla
 
 %% ---- the lexer: a DCG over codes ------------------------------------------
 
-%% the lexer runs native when library(cocolang)'s module is loaded
-%% (ccl_lex_native/6 in module/cocolang.cicili, the DCG token for token, C
+%% the lexer runs native when library(cicilang)'s module is loaded
+%% (ccl_lex_native/6 in module/cicilang.cicili, the DCG token for token, C
 %% speed); '$ccl_lexer' says which, decided once by ccl_ensure_globals
 ccl_tokens(Codes, Tokens, Rest) :-
     (   ccl_native_lexer -> atom_codes(A, Codes), ccl_lex_atom_(A, 1, Tokens, Rest)
@@ -343,9 +343,9 @@ ccl_c_keyword(K) :- memberchk(K, [auto, break, case, char, const, continue, defa
     enum, extern, float, for, goto, if, inline, int, long, register, restrict, return, short,
     signed, sizeof, static, struct, switch, typedef, union, unsigned, void, volatile, while,
     '_Bool', '_Complex', '_Noreturn', '_Atomic', '_Static_assert', '_Thread_local', '_Float16']).
-%% ---- C++ (M5, cocolang++): the mode -------------------------------------------
+%% ---- C++ (M5, cicilang++): the mode -------------------------------------------
 %% '$ccl_lang' is c or cpp: from the file's extension (ccl_read_file: .cpp .cc
-%% .cxx .C .hpp .hh .hxx) or forced by the driver (cocolang++ reads everything as
+%% .cxx .C .hpp .hh .hxx) or forced by the driver (cicilang++ reads everything as
 %% C++). Every C++ rule below is guarded by ccl_cpp, so a .c reads as it did.
 %% `override' and `final' stay identifiers, contextual as in C++.
 ccl_lang(L) :- nb_getval('$ccl_lang', L).

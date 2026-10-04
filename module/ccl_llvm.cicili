@@ -1,6 +1,6 @@
-;;;; cocolang -- library(ccl_llvm): the embedded LLVM, as a cocolog module.
+;;;; cicilang -- library(ccl_llvm): the embedded LLVM, as a cocolog module.
 ;;;;
-;;;; cocolang_compile/3 (library(ccl_build)) comes here when this module is
+;;;; cicilang_compile/3 (library(ccl_build)) comes here when this module is
 ;;;; built: the IR module text is parsed in an LLVM context, verified, given
 ;;;; the host's target and data layout, run through the pass pipeline the
 ;;;; flags ask for, and written as an object file -- all inside the process,
@@ -134,7 +134,7 @@
   (func ccl_llvm_load ((coco_engine * e) (const char * ir) (LLVMContextRef * ctx) (LLVMModuleRef * mod) (int * rc)) (out int)
     (let ((char * msg . nil) (LLVMMemoryBufferRef buf . nil))
       (set (cof ctx) (LLVMContextCreate))
-      (set buf (LLVMCreateMemoryBufferWithMemoryRangeCopy ir (strlen ir) "cocolang"))
+      (set buf (LLVMCreateMemoryBufferWithMemoryRangeCopy ir (strlen ir) "cicilang"))
       ;; on a failure LLVM's objects go first and the error is raised last, with
       ;; a copy of the message: coco_m_error may not return to us
       (if (LLVMParseIRInContext (cof ctx) buf mod (aof msg))
@@ -180,7 +180,7 @@
           (char * msg . nil) (int rc . 0))
       (if (not ir) (return (coco_m_instantiation_error e)))
       (set ctx (LLVMContextCreate))
-      (set buf (LLVMCreateMemoryBufferWithMemoryRangeCopy ir (strlen ir) "cocolang"))
+      (set buf (LLVMCreateMemoryBufferWithMemoryRangeCopy ir (strlen ir) "cicilang"))
       (if (LLVMParseIRInContext ctx buf (aof mod) (aof msg))
         (block
           (set rc (coco_m_unify_atom e (coco_m_arg e g 1) (? msg msg "parse failed")))

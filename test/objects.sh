@@ -1,5 +1,5 @@
 #!/bin/sh
-# The gate for library(cocolang): one check per rule of the language, over
+# The gate for library(cicilang): one check per rule of the language, over
 # cocolog as it is. GREEN or RED, exit 1 on RED. SKIPs when the module is
 # not built (sh module/build.sh says how).
 #
@@ -7,9 +7,9 @@
 HERE=$(cd "$(dirname "$0")" && pwd)
 . "$HERE/config.sh"
 [ -x "$C" ] || { echo "SKIP (no cocolog binary at $C -- set COCOLOG)"; exit 0; }
-[ -f "$ROOT/library/cocolang.so" ] || { echo "SKIP (no library/cocolang.so -- sh module/build.sh)"; exit 0; }
-if ! "$C" query "use_module(library(cocolang)), ccl_version(_)" >/dev/null 2>&1; then
-  echo "SKIP (library(cocolang) does not start)"; exit 0
+[ -f "$ROOT/library/cicilang.so" ] || { echo "SKIP (no library/cicilang.so -- sh module/build.sh)"; exit 0; }
+if ! "$C" query "use_module(library(cicilang)), ccl_version(_)" >/dev/null 2>&1; then
+  echo "SKIP (library(cicilang) does not start)"; exit 0
 fi
 failures=0
 check() {
@@ -21,12 +21,12 @@ check() {
   fi
 }
 answer() { grep -aoE 'answer\(.*\)' | head -1 | sed 's/^answer(//; s/)$//'; }
-D=$(mktemp -d "${TMPDIR:-/tmp}/cocolang-XXXXXX")
+D=$(mktemp -d "${TMPDIR:-/tmp}/cicilang-XXXXXX")
 trap 'rm -rf "$D"' EXIT
 
 # ---- the objects of tutorial 01, consulted from a file ---------------------
 cat > "$D/counters.pl" <<'EOF'
-:- use_module(library(cocolang)).
+:- use_module(library(cicilang)).
 :- object(counter).
    state(count = 0).
    next(N) :- count := count + 1, N = count.
@@ -104,7 +104,7 @@ check "a message to nothing" \
 
 # ---- modules ---------------------------------------------------------------
 cat > "$D/shapes.pl" <<'EOF'
-:- use_module(library(cocolang)).
+:- use_module(library(cicilang)).
 :- module(geometry).
 :- object(shape).
    state(name = shape).
@@ -141,4 +141,4 @@ check "process two finds it in the store and continues the count" \
   "$("$C" --embed "$S" run "$D/counters.pl" "instance_of('$made', named_counter), '$made'::next(N), '$made'::label(L), write(answer(N-L)), nl" 2>&1 | answer)" \
   "3-kept: 3"
 
-if [ "$failures" -eq 0 ]; then echo "GREEN: cocolang"; else echo "RED: $failures failure(s)"; exit 1; fi
+if [ "$failures" -eq 0 ]; then echo "GREEN: cicilang"; else echo "RED: $failures failure(s)"; exit 1; fi

@@ -1,4 +1,4 @@
-%% cocolang -- library(ccl_infer): what a macro can ask, as the parser
+%% cicilang -- library(ccl_infer): what a macro can ask, as the parser
 %% stands at the call. The parser (library(ccl_syntax)) keeps the scope of
 %% declared names, the typedef definitions and the struct tags as it reads;
 %% a macro predicate from an included .pl runs at that point and may ask:

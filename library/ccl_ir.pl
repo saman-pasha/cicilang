@@ -1,5 +1,5 @@
-%% cocolang -- library(ccl_ir): the lowering. cocolang_ir(+Units, -IR) takes
-%% the ASTs cocolang_ast/2 answers and gives an LLVM IR module as text.
+%% cicilang -- library(ccl_ir): the lowering. cicilang_ir(+Units, -IR) takes
+%% the ASTs cicilang_ast/2 answers and gives an LLVM IR module as text.
 %%
 %% The symbol table is rebuilt from the units the way the parser builds it
 %% (ccl_note_item/1, library(ccl_syntax)), so the lowering types every
@@ -1904,7 +1904,7 @@ ir_assemble(IR) :-
     nb_getval('$ir_gdefs', Gs0), reverse(Gs0, Gs),
     nb_getval('$ir_fdefs', NF), ir_fdef_texts(1, NF, Fs),
     nb_getval('$ir_externs', Es), nb_getval('$ir_defined', Ds), ir_declares(Es, Ds, Decls),
-    append(['; cocolang', ''|SDefs], Strings, L1), append(L1, Gs, L2), append(L2, [''|Fs], L3), append(L3, Decls, L4),
+    append(['; cicilang', ''|SDefs], Strings, L1), append(L1, Gs, L2), append(L2, [''|Fs], L3), append(L3, Decls, L4),
     ir_join(L4, '\n', IR).
 %% a function's text under its own key: `nb_getval/2' copies what it answers, and a list of every function's text
 %% so far, read and written once per function, was quadratic over libc++'s six hundred items

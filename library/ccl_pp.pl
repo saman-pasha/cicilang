@@ -1,4 +1,4 @@
-%% cocolang -- library(ccl_pp): the preprocessor, in cocolog. Owner's rule:
+%% cicilang -- library(ccl_pp): the preprocessor, in cocolog. Owner's rule:
 %% no clang and no LLVM binary, the embedded LLVM alone -- so what `clang -E'
 %% did for a header the reader could not read raw is done here: the directives,
 %% the conditional groups (#if with its constant expression, #ifdef, #elif,
@@ -458,7 +458,7 @@ pp_directive_(else, _, _, _, Ls, Ls1, Out, Out) :- !, pp_skip_to_endif(Ls, Ls1).
 pp_directive_(endif, _, _, _, Ls, Ls, Out, Out) :- !.
 pp_directive_(pragma, Rest, _, _, Ls, Ls, Out, Out) :- !, pp_ws(Rest, R1), pp_word(R1, W, _), ( atom_codes(once, W) -> pp_current_file(F), nb_getval('$pp_once', O), nb_setval('$pp_once', [F|O]) ; true ).
 %% IN THE USER'S FILE `#error' IS A DIAGNOSTIC (before, it was listed in '$pp_errors' and nobody read the list, so a
-%% program's own #error compiled to `cocolang: ok') and `#warning' is printed after the read, `file:line: warning: ...',
+%% program's own #error compiled to `cicilang: ok') and `#warning' is printed after the read, `file:line: warning: ...',
 %% by the driver (dr_pp_warnings); in a header both stay what they were, the file stopping at an #error (libc++'s
 %% other branch), a warning nothing.
 pp_directive_(error, Rest, _, L, _, [], Out, Out) :- nb_getval('$pp_top', yes), !, pp_ws(Rest, R1), atom_codes(M, R1), throw(pp_error(L, M)).
