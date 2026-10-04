@@ -2,14 +2,14 @@
 %% Run per header in its own process (for the parallel pool) with HOME set to the
 %% shared warm cache, the summary pre-deleted so the read is cold and writes a
 %% fresh summary as a side effect. Args by environment: CCL_HDR, CCL_STD, CCL_MIN.
-:- use_module(library(cocolang)).
+:- use_module(library(cicilang)).
 readhdr_main :-
     os_env('CCL_HDR', H), os_env('CCL_STD', StdA), os_env('CCL_MIN', MinA),
     atom_number(StdA, Std), atom_number(MinA, Min),
     nb_setval('$ccl_std', Std),
     os_env('CCL_TEST_TMP', D), atomic_list_concat([D, '/inc_', H, '_', Std, '.cpp'], F),
     atomic_list_concat(['#include <', H, '>\n'], Text), atom_codes(Text, Cs), write_file_from_codes(F, Cs),
-    (   catch(cocolang_ast(F, unit(Is)), E, (print_message(error, E), fail)),
+    (   catch(cicilang_ast(F, unit(Is)), E, (print_message(error, E), fail)),
         member(include(_, system(H), file(_, preprocessed, U)), Is)
     ->  (   U = unit(Items) -> length(Items, K),
             ( Min =:= 0 -> format("warm <~w> C++~w: ~w items~n", [H, Std, K])

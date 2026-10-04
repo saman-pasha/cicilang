@@ -1,3 +1,3 @@
-/* C++ that is C: the C++ headers' door to stdio, through cocolang++ to a binary */
+/* C++ that is C: the C++ headers' door to stdio, through cicilang++ to a binary */
 #include <stdio.h>
-int main() { printf("hello, cocolang++\n"); return 0; }
+int main() { printf("hello, cicilang++\n"); return 0; }

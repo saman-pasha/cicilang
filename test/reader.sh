@@ -9,21 +9,21 @@
 HERE=$(cd "$(dirname "$0")" && pwd)
 . "$HERE/config.sh"
 [ -x "$C" ] || { echo "SKIP (no cocolog binary at $C -- set COCOLOG)"; exit 0; }
-[ -f "$ROOT/library/cocolang.so" ] || { echo "SKIP (no library/cocolang.so -- sh module/build.sh)"; exit 0; }
-D=$(mktemp -d "${TMPDIR:-/tmp}/cocolang-reader-XXXXXX")
+[ -f "$ROOT/library/cicilang.so" ] || { echo "SKIP (no library/cicilang.so -- sh module/build.sh)"; exit 0; }
+D=$(mktemp -d "${TMPDIR:-/tmp}/cicilang-reader-XXXXXX")
 trap 'rm -rf "$D"' EXIT
 export CCL_TEST_ROOT="$ROOT" CCL_TEST_TMP="$D"
 
 # the store is the user's (test/config.sh): the headers were read once, by whoever came first
 # ensure_loaded from a query, never `run FILE goal': under a store `run' consults the program INTO it
-out=$("$C" --embed "$COCOLANG_KB" query "ensure_loaded('$ROOT/test/reader.pl'), reader_main" 2>&1)
+out=$("$C" --embed "$CICILANG_KB" query "ensure_loaded('$ROOT/test/reader.pl'), reader_main" 2>&1)
 echo "$out" | grep -a "^ok\|^FAIL\|^--\|^SKIP\|^     \|^GREEN\|^RED\|ERROR" || echo "$out" | tail -5
 failures=$(echo "$out" | grep -ac "^FAIL")
 echo "$out" | grep -aq "^GREEN\|^RED" || { echo "RED: the gate did not finish"; exit 1; }
 
 echo "-- a later process, the same store"
 s=$(date +%s)
-got=$("$C" --embed "$COCOLANG_KB" query "use_module(library(cocolang)), ccl_kb_ready, '\$ccl_ast'(P, _, meta(included(_), _, _)), sub_atom(P, _, _, 0, '/stdio.h'), cocolang_ast('$ROOT/test/c/hello.c', U), ccl_declares(U, printf, _), write(answer(yes)), nl" 2>&1 | grep -aoE 'answer\(.*\)' | head -1)
+got=$("$C" --embed "$CICILANG_KB" query "use_module(library(cicilang)), ccl_kb_ready, '\$ccl_ast'(P, _, meta(included(_), _, _)), sub_atom(P, _, _, 0, '/stdio.h'), cicilang_ast('$ROOT/test/c/hello.c', U), ccl_declares(U, printf, _), write(answer(yes)), nl" 2>&1 | grep -aoE 'answer\(.*\)' | head -1)
 t=$(( $(date +%s) - s ))
 # a fresh parse of hello.c and its 99 headers takes about 40 s; from the store, with the
 # symbol table rebuilt, a few seconds

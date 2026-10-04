@@ -1,12 +1,12 @@
-/* cocolang's own <limits.h>, the freestanding one C requires of the compiler (LP64 targets):
+/* cicilang's own <limits.h>, the freestanding one C requires of the compiler (LP64 targets):
    the values are the predefined macros' (__INT_MAX__ and kin, the reference compiler's), and
    the C library's own limits.h follows through #include_next where there is one -- glibc's
    defines nothing of these itself under a GNU-shaped compiler and asks the compiler's header
    for them (it tests _GCC_LIMITS_H_, which GCC's file defines and this one does too), so on
    Linux INT_MAX was undefined until this header existed; the SDK's on macOS defines them all
    itself, and a redefinition to the same value is nothing. */
-#ifndef _COCOLANG_LIMITS_H
-#define _COCOLANG_LIMITS_H
+#ifndef _CICILANG_LIMITS_H
+#define _CICILANG_LIMITS_H
 #define _GCC_LIMITS_H_
 
 #define CHAR_BIT __CHAR_BIT__

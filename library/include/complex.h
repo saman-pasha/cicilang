@@ -1,8 +1,8 @@
-/* cocolang's <complex.h> (0.100): the C library's own declarations first, then C11's I and CMPLX written over the
+/* cicilang's <complex.h> (0.100): the C library's own declarations first, then C11's I and CMPLX written over the
    compiler's __builtin_complex -- the C library spells them with the imaginary literal (`1.0iF', a GNU extension),
    which this compiler does not read; the complex types themselves are the language's (_Complex float, _Complex double). */
-#ifndef _COCOLANG_COMPLEX_H
-#define _COCOLANG_COMPLEX_H
+#ifndef _CICILANG_COMPLEX_H
+#define _CICILANG_COMPLEX_H
 #include_next <complex.h>
 #undef _Complex_I
 #define _Complex_I (__builtin_complex(0.0f, 1.0f))

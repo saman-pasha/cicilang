@@ -1,6 +1,6 @@
 #include <stdio.h>
 #include "abi.h"
-/* the cocolang side: bumps every field by one and hands the struct back */
+/* the cicilang side: bumps every field by one and hands the struct back */
 s8 bump_s8(s8 v) { v.a += 1; v.b += 1; return v; }
 d16 bump_d16(d16 v) { v.x += 1; v.y += 1; return v; }
 di bump_di(di v) { v.d += 1; v.i += 1; return v; }

@@ -1,4 +1,4 @@
-%% cocolang -- a census of a C++ header's flattened read: every construct
+%% cicilang -- a census of a C++ header's flattened read: every construct
 %% the reader gave, counted by functor, with the template shapes apart, so the
 %% road to compiling libc++ is measured, not guessed.
 %%
@@ -6,19 +6,19 @@
 %%
 %% inv.cpp is a file of #include lines; each include's unit is walked (a summary
 %% is not: run under a fresh HOME so the header is read flattened).
-:- use_module(library(cocolang)).
+:- use_module(library(cicilang)).
 
 census_main :- os_env('CCL_CENSUS_FLAT', F), !, census_std, ccl_lib_unit(census_flat(F)).   % a flattened library header is read as the library's (no global macros)
 %% CCL_CENSUS_STD=20 reads the flattened file at that level (the forms are read at the level, 0.42)
 census_std :- ( os_env('CCL_CENSUS_STD', A), atom_number(A, N) -> nb_setval('$ccl_std', N) ; true ).
 census_main :-
     os_env('CCL_CENSUS_FILE', F),
-    cocolang_ast(F, unit(Is)),
+    cicilang_ast(F, unit(Is)),
     forall(member(include(_, Spec, X), Is), census_include(Spec, X)).
 
-%% a flattened file (cocolang++ -E): read as far as it reads, the stop and the farthest point shown with their tokens
+%% a flattened file (cicilang++ -E): read as far as it reads, the stop and the farthest point shown with their tokens
 census_flat(F) :-
-    cocolang_ast(F, unit(Is), Rest), length(Is, K), ccl_farthest(Far),
+    cicilang_ast(F, unit(Is), Rest), length(Is, K), ccl_farthest(Far),
     (   Rest == [] -> format("== ~w: read WHOLE, ~w items~n", [F, K])
     ;   Rest = [tok(_, _, L)|_], format("== ~w: PARTIAL, ~w items; stopped at line ~w, farthest line ~w~n", [F, K, L, Far]),
         format("   from the stop: "), census_toks(Rest, 30), nl,

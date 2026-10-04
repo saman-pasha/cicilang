@@ -1,6 +1,6 @@
-/* cocolang's own <iso646.h> */
-#ifndef _COCOLANG_ISO646_H
-#define _COCOLANG_ISO646_H
+/* cicilang's own <iso646.h> */
+#ifndef _CICILANG_ISO646_H
+#define _CICILANG_ISO646_H
 #ifndef __cplusplus
 #define and &&
 #define and_eq &=

@@ -8,13 +8,13 @@ C="$COCOLOG/cocolog"
 COCOLOG_LIBRARY="$ROOT/library${COCOLOG_LIBRARY:+:$COCOLOG_LIBRARY}"
 export COCOLOG_LIBRARY CICILI COCOLOG
 
-# the knowledge base every gate uses: the user's, ~/.cocolang/KB, so the system
+# the knowledge base every gate uses: the user's, ~/.cicilang/KB, so the system
 # headers are read once, the first run being the initialization phase, and
 # served as static data to every later run (owner's rule); a gate that wants
-# a fresh one sets COCOLANG_KB itself
-export COCOLANG_KB="${COCOLANG_KB:-$HOME/.cocolang/KB}"
+# a fresh one sets CICILANG_KB itself
+export CICILANG_KB="${CICILANG_KB:-$HOME/.cicilang/KB}"
 # stamped with the reader's grammar version and started afresh when it
-# changes, as bin/cocolang does (its kb_prepare is this one's twin): cocolog's
+# changes, as bin/cicilang does (its kb_prepare is this one's twin): cocolog's
 # store never reclaims a retracted row, and a fat store slows every
 # predicate's first call
 ccl_kb_prepare() {
@@ -25,4 +25,4 @@ ccl_kb_prepare() {
   [ -d "$1" ] || mkdir -p "$1"
   [ "$have" = "$v" ] || echo "$v" > "$stamp"
 }
-ccl_kb_prepare "$COCOLANG_KB"
+ccl_kb_prepare "$CICILANG_KB"

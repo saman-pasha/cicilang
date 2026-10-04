@@ -1,4 +1,4 @@
-%% cocolang -- library(ccl_include): an #include, found on the inclusion
+%% cicilang -- library(ccl_include): an #include, found on the inclusion
 %% path and read into an AST of its own, as the including file is parsed.
 %%
 %% When the parser (library(ccl_syntax)) meets `#include <name>' or
@@ -22,14 +22,14 @@
 %% path) and never twice on one path (cyclic).
 %%
 %% THE INCLUSION PATH, in order: the including file's directory (for a
-%% quoted name only), then ccl_include_dir/1 facts, then $COCOLANG_INCLUDE
+%% quoted name only), then ccl_include_dir/1 facts, then $CICILANG_INCLUDE
 %% split on colons, then $COCOLOG_LIBRARY's directories (the macro files
 %% this repository ships), then the toolchain's directories from where the
 %% conventions put them (ccl_toolchain_dirs/1: the C++ library, this
 %% compiler's own library/include, /usr/local/include, the SDK -- no tool
 %% is run), cached; ccl_include_path_reset/0 forgets it.
 %%
-%% THE CACHE: a file read whole -- the one cocolang_ast/2 was given, and every
+%% THE CACHE: a file read whole -- the one cicilang_ast/2 was given, and every
 %% include -- is remembered in the knowledge base keyed by its modification
 %% time and the reader's version, one clause per top-level item, so under
 %% --embed it is in the store for the next process and is loaded from there
@@ -39,7 +39,7 @@
 %% directory and each system header is parsed once per project.
 %%
 %% THE SURFACE:
-%%   ccl_read_file(+File, -AST, -Rest)      the top of cocolang_ast/3
+%%   ccl_read_file(+File, -AST, -Rest)      the top of cicilang_ast/3
 %%   ccl_kb_forget                          drop every remembered file
 %%   ccl_kb_forget_file(+Path)              drop one
 %%   ccl_include(+Spec, -Resolved)          one include, from the current file
@@ -104,7 +104,7 @@ ccl_kb_forget_items(Path) :- ccl_kb_items_goal(Path, _, _, _, T), retractall(T).
 ccl_kb_forget_file(Path) :- ccl_kb_ready, retractall('$ccl_ast'(Path, _, _)), ccl_kb_forget_items(Path), retractall('$ccl_hmeta'(Path, _, _)), ccl_kb_hm(Path, F), T =.. [F, _, _, _], retractall(T).
 
 ccl_read_file(File, AST, Rest) :- ccl_ensure_globals, ccl_set_lang(File), ccl_read_file_(File, AST, Rest).
-%% the language of the file read: C++ by its extension (or forced, cocolang++), C by .c
+%% the language of the file read: C++ by its extension (or forced, cicilang++), C by .c
 ccl_set_lang(File) :-
     (   nb_getval('$ccl_lang_forced', F), F \== none -> nb_setval('$ccl_lang', F)
     ;   ccl_lang_of_file(File, L) -> nb_setval('$ccl_lang', L)
@@ -114,7 +114,7 @@ ccl_lang_of_file(F, c) :- sub_atom(F, _, _, 0, '.c'), !.
 ccl_read_file_(File, AST, Rest) :-
     ccl_kb_cached(File, top, AST0), !, AST = AST0, Rest = [], nb_setval('$ccl_far', 0).
 ccl_read_file_(File, AST, Rest) :-
-    catch(catch(ccl_pp_top(File, Tokens, _), lexical(L), throw(error(syntax_error(cocolang_ast(File, lexical, line(L))), cocolang_ast(File)))),   % the user's file through the preprocessor
+    catch(catch(ccl_pp_top(File, Tokens, _), lexical(L), throw(error(syntax_error(cicilang_ast(File, lexical, line(L))), cicilang_ast(File)))),   % the user's file through the preprocessor
           pp_error(PL, PM), throw(error(pp_error(PM), here(File, PL)))),                                                                     % its own #error, an #embed of nothing
     ccl_with_file(File, ( ccl_unit(Tokens, AST, Rest), ccl_farthest(F) )),
     nb_setval('$ccl_far', F),
@@ -388,7 +388,7 @@ ccl_lib_unit(G) :-
 %% types the noter collects: functions and globals, typedefs, tags with their
 %% members (method bodies dropped), enumerators, template names, type names --
 %% not its text. So a flattened library header is summarized to ONE FILE,
-%% ~/.cocolang/cpp/<name>-<fold>.sum, a term per line, keyed by the reader's
+%% ~/.cicilang/cpp/<name>-<fold>.sum, a term per line, keyed by the reader's
 %% version and the time of every file the preprocessor pulled (a dep per
 %% line, since a line past some tens of KB does not read back); the next run
 %% loads the summary instead of preprocessing and reading forty thousand
@@ -397,7 +397,7 @@ ccl_lib_unit(G) :-
 %% parser's Env, the symbol table, the bulk noter, the driver's deps -- reads
 %% the summary where it would have walked the unit. cocolog's store is not
 %% involved: it cannot hold units this size (CLAUDE.md's findings).
-ccl_sum_dir(D) :- ( catch(os_env('HOME', H), _, fail) -> true ; H = '/tmp' ), atom_concat(H, '/.cocolang/cpp', D).
+ccl_sum_dir(D) :- ( catch(os_env('HOME', H), _, fail) -> true ; H = '/tmp' ), atom_concat(H, '/.cicilang/cpp', D).
 ccl_sum_file(Path, F) :-
     ccl_sum_dir(D), ccl_std(Std), ccl_cmdline_key(CK), atomic_list_concat([Path, '@', Std, CK], Keyed), atom_codes(Keyed, Cs), ccl_fold(Cs, 7, 131, S1), ccl_fold(Cs, 13, 137, S2),   % one summary per level, and per set of command-line macros (0.112): a header read under `-DNDEBUG' is another header
     ( sub_atom(Path, B, _, 0, Base), sub_atom(Path, B1, 1, _, '/'), B1 < B, \+ sub_atom(Base, _, _, _, '/') -> true ; Base = Path ),
@@ -434,7 +434,7 @@ ccl_write_whole(F, Codes) :- atom_concat(F, '.tmp', T), write_file_from_codes(T,
 %% instantiates a library template needs no second flatten (two minutes for <vector>): what the summary keeps for the
 %% parser and the tables, this keeps for the templates. A clause file, not a term a line: ensure_loaded/1 takes a
 %% two-megabyte clause in a fraction of a second under --local, where term_to_atom/2 fails past tens of KB a line
-%% (cocolang++ never runs over a store, where such a clause would be refused). The names are the desugaring's index
+%% (cicilang++ never runs over a store, where such a clause would be refused). The names are the desugaring's index
 %% names (cpp_index_name/2); an item with none is never asked for by name and is left out.
 ccl_ast_file(F, A) :- atom_length(F, N), N1 is N - 4, sub_atom(F, 0, N1, 4, B), atom_concat(B, '.ast.pl', A).
 ccl_ast_write(F, unit(Is)) :- ccl_ast_file(F, A), ccl_flat_items([], Is, Flat), cpp_ns_quals(Flat, Qs), ccl_ast_chunks(Flat, Qs, 100, Codes), ccl_write_whole(A, Codes).
@@ -671,7 +671,7 @@ ccl_hm_key(Path, K) :- ( ccl_lang(cpp) -> ccl_std(Std) ; catch(nb_getval('$ccl_t
 %% indexed: a summary's, as facts '$ccl_hml'(Name, Path, raw(Line)) -- an
 %% assert is 2 us and the lookup by name 3 us, where a global per name cost
 %% 25 us each for 1200 names; a fact is a store row under --embed, which the
-%% C++ mode never runs over (cocolang++ is --no-kb). store(Key): the rows.
+%% C++ mode never runs over (cicilang++ is --no-kb). store(Key): the rows.
 %% list: a header the store would not take, its macros in a global, searched.
 ccl_header_macros_(Path, indexed) :- ccl_lang(cpp), ccl_sum_file(Path, F), ccl_sum_valid(F), ccl_mac_file(F, M), exists_file(M), !, ccl_mac_lines(M, Names, Raws), dynamic('$ccl_hml'/3), ccl_hml_assert(Names, Raws, Path).
 ccl_header_macros_(Path, store(K)) :- ccl_kb_macros_cached(Path, K), !.
@@ -741,7 +741,7 @@ ccl_library_dirs(Ds) :-
 ccl_include_path_reset :- nb_setval('$ccl_incpath', none).
 ccl_user_dirs(Ds) :-
     findall(D, ccl_include_dir(D), Ds0),
-    ( catch(os_env('COCOLANG_INCLUDE', V), _, fail), V \== '' -> atom_codes(V, Cs), ccl_split(Cs, 0':, Parts), ccl_atoms(Parts, Es), append(Ds0, Es, Ds) ; Ds = Ds0 ).
+    ( catch(os_env('CICILANG_INCLUDE', V), _, fail), V \== '' -> atom_codes(V, Cs), ccl_split(Cs, 0':, Parts), ccl_atoms(Parts, Es), append(Ds0, Es, Ds) ; Ds = Ds0 ).
 %% the toolchain's directories, in the order a compiler searches them, from
 %% where the conventions put them -- no tool is run (owner's rule: the
 %% embedded LLVM is the whole toolchain): the C++ library's headers first in

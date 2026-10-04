@@ -1,4 +1,4 @@
-;;;; cocolang -- library(cocolang): Prolog with objects and modules, as a
+;;;; cicilang -- library(cicilang): Prolog with objects and modules, as a
 ;;;; cocolog module.
 ;;;;
 ;;;; WHAT THIS IS. An object is a named scope with slots and methods; a
@@ -59,7 +59,7 @@
 ;;;;
 ;;;; BUILD: sh module/build.sh, with CICILI and COCOLOG naming the two
 ;;;; checkouts; then COCOLOG_LIBRARY=<this repo>/library and
-;;;; `use_module(library(cocolang))'.
+;;;; `use_module(library(cicilang))'.
 
 (DEFPARAMETER *ccl-predicates*
   '(("ccl_version" 1 ccl_p_version)
@@ -72,24 +72,24 @@
   (FORMAT NIL "~{~A ~}"
           (LIST
            ;; ---- the reader: a C file, read whole, into an AST ----------------
-           ;; cocolang_ast/2 acts like phrase/2 -- the whole file or a syntax error
-           ;; naming the line -- and cocolang_ast/3 like phrase/3, answering the
+           ;; cicilang_ast/2 acts like phrase/2 -- the whole file or a syntax error
+           ;; naming the line -- and cicilang_ast/3 like phrase/3, answering the
            ;; tokens left unparsed. The grammars are library(ccl_syntax).
            ;; library(ccl_include) loads library(ccl_syntax); an #include met while
            ;; parsing is found on the inclusion path and read into the AST too
            ":- use_module(library(ccl_include))."
            ;; the error names the line the unread item begins on, and the farthest
            ;; line the grammar reached inside it -- where it actually gave up
-           "cocolang_ast(File, AST) :- cocolang_ast(File, AST, Rest), ( Rest == [] -> true ; Rest = [tok(_, _, L)|_], ccl_farthest(Far), throw(error(syntax_error(cocolang_ast(File, line(L), near(Far))), cocolang_ast(File, AST))) )."
-           "cocolang_ast(File, AST, Rest) :- ccl_read_file(File, AST, Rest)."
+           "cicilang_ast(File, AST) :- cicilang_ast(File, AST, Rest), ( Rest == [] -> true ; Rest = [tok(_, _, L)|_], ccl_farthest(Far), throw(error(syntax_error(cicilang_ast(File, line(L), near(Far))), cicilang_ast(File, AST))) )."
+           "cicilang_ast(File, AST, Rest) :- ccl_read_file(File, AST, Rest)."
            ;; the rest of the compiler: the lowering (library(ccl_ir)), the object
            ;; and the link (library(ccl_build))
            ":- use_module(library(ccl_ir))."
            ":- use_module(library(ccl_build))."
            ":- use_module(library(ccl_driver))."
-           "cocolang_ir(Units, IR) :- ccl_ir_units(Units, IR)."
-           "cocolang_compile(IR, File, Flags) :- ccl_compile(IR, File, Flags)."
-           "cocolang_link(Objects, Flags, Out) :- ccl_link(Objects, Flags, Out)."
+           "cicilang_ir(Units, IR) :- ccl_ir_units(Units, IR)."
+           "cicilang_compile(IR, File, Flags) :- ccl_compile(IR, File, Flags)."
+           "cicilang_link(Objects, Flags, Out) :- ccl_link(Objects, Flags, Out)."
 
            ;; ---- the two operators, and the tables ------------------------
            ":- op(200, xfy, ::)."
@@ -241,7 +241,7 @@
            "instances(Class, Is) :- '$ccl_resolve'(Class, C), findall(I, ( '$instance'(I, C0), '$ccl_ancestor'(C0, C) ), Is)."
            )))
 
-(source "cocolang.c"
+(source "cicilang.c"
   (make :std #t :compile #f)
 
   (import "./sdk.cicili")
@@ -258,7 +258,7 @@
   ;; ccl_version(-Atom): THE VERSION. Every commit raises it (owner's rule),
   ;; one number per change; `cicili --version' prints it with LLVM's.
   (func ccl_p_version ((coco_engine * e) (size_t g)) (out int)
-        (return (coco_m_unify_atom e (coco_m_arg e g 0) "0.114")))
+        (return (coco_m_unify_atom e (coco_m_arg e g 0) "0.116")))
 
   ;; ccl_cocolog_version(-Atom): the engine's own version text, from the
   ;; running binary (coco_version_text is cocolog's, resolved at load like
@@ -813,6 +813,47 @@
           (ccl_lx_tok x (-> x k_pp) (coco_m_new_atom (-> x e) (-> x buf)) line)
           (set (-> x i) j)))
 
+  ;; a RAW string (C++ only, [lex.string]; 0.115): the prefix u8, L, u or U, then R"d( -- the offset past `(' where one
+  ;; starts at i, else 0 (the DCG's ccl_raw_prefix, ccl_raw_delim: d is codes above 32 but ( ) \)
+  (static) (func ccl_lx_raw_start ((ccl_lx * x)) (out size_t)
+        (let ((size_t j . 0) (int c . 0))
+          (set j (-> x i))
+          (cond ((and (== (ccl_lx_at x j) 117) (== (ccl_lx_at x (+ j 1)) 56)) (set j (+ j 2)))
+                ((or (== (ccl_lx_at x j) 76) (or (== (ccl_lx_at x j) 117) (== (ccl_lx_at x j) 85))) (set j (+ j 1))))
+          (if (or (!= (ccl_lx_at x j) 82) (!= (ccl_lx_at x (+ j 1)) 34)) (return 0))
+          (set j (+ j 2))
+          (while 1
+            (set c (ccl_lx_at x j))
+            (if (or (< c 33) (or (== c 40) (or (== c 41) (== c 92)))) break)
+            (set j (+ j 1)))
+          (if (!= (ccl_lx_at x j) 40) (return 0))
+          (return (+ j 1))))
+  ;; ... and the string: the body as it stands up to `)d"', its newlines counted; 0 when it never closes (ccl_raw_body)
+  (static) (func ccl_lx_raw ((ccl_lx * x) (i64 line) (size_t j)) (out int)
+        (let ((size_t kind . 0) (size_t d . 0) (size_t dn . 0) (size_t k . 0) (int c . 0) (int ok . 0) (int c0 . 0))
+          (set c0 (ccl_lx_at x (-> x i)))
+          (set kind (? (== c0 76) (-> x k_wstr) (? (and (== c0 117) (!= (ccl_lx_at x (+ (-> x i) 1)) 56)) (-> x k_u16str) (? (== c0 85) (-> x k_u32str) (-> x k_str)))))
+          (set d (-> x i))
+          (while (!= (ccl_lx_at x d) 34) (set d (+ d 1)))
+          (set d (+ d 1))
+          (set dn (- (- j d) 1))
+          (set (-> x bn) 0)
+          (while 1
+            (set c (ccl_lx_at x j))
+            (if (< c 0) (return 0))
+            (if (== c 41)
+                (block (set ok 1) (set k 0)
+                       (while (< k dn)
+                         (if (!= (ccl_lx_at x (+ (+ j 1) k)) (ccl_lx_at x (+ d k))) (block (set ok 0) break))
+                         (set k (+ k 1)))
+                       (if (and ok (== (ccl_lx_at x (+ (+ j 1) dn)) 34))
+                           (block (set j (+ (+ j 2) dn)) break))))
+            (if (== c 10) (set (-> x line) (+ (-> x line) 1)))
+            (ccl_lx_putc x c)
+            (set j (+ j 1)))
+          (ccl_lx_tok x kind (ccl_lx_codes x (-> x buf) (-> x bn)) line)
+          (set (-> x i) j)
+          (return 1)))
   ;; the plain forms, under their own kinds (a Cicili function is named after it is defined, so these follow the _k ones)
   (static) (func ccl_lx_string ((ccl_lx * x) (i64 line)) (out int)
         (return (ccl_lx_string_k x line (-> x k_str))))
@@ -832,6 +873,7 @@
             ((== c 35) (ccl_lx_hash x line) (return 1))
             ((== c 34) (return (ccl_lx_string x line)))
             ((== c 39) (return (ccl_lx_char x line)))
+            ((and (-> x cpp) (> (ccl_lx_raw_start x) 0)) (return (ccl_lx_raw x line (ccl_lx_raw_start x))))   ; R"d(...)d" and its prefixed forms, C++ only (0.115)
             ((and (== c 117) (== (ccl_lx_at x (+ (-> x i) 1)) 56) (or (== (ccl_lx_at x (+ (-> x i) 2)) 34) (== (ccl_lx_at x (+ (-> x i) 2)) 39)))   ; u8"..." and u8'.': a byte string, a char
              (set (-> x i) (+ (-> x i) 2))
              (if (== (ccl_lx_at x (-> x i)) 34) (return (ccl_lx_string_k x line (-> x k_str))) (return (ccl_lx_char_k x line (-> x k_chr)))))
@@ -939,4 +981,4 @@
         (@endif))
 
   (static) (coco-emit-module-dispatch ccl_dispatch *ccl-predicates*)
-  (coco-deflibrary "cocolang" ccl_dispatch *ccl-prolog*))
+  (coco-deflibrary "cicilang" ccl_dispatch *ccl-prolog*))

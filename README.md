@@ -1,15 +1,15 @@
-# cocolang
+# cicilang
 
 **A Safe Modern C and C++ compiler to LLVM, written on cocolog.**
 
-cocolang reads C and C++, checks it, and lowers it straight to **LLVM IR**.
+cicilang reads C and C++, checks it, and lowers it straight to **LLVM IR**.
 It is not a transpiler: no C is ever emitted. Every pass -- the preprocessor,
 the reader, the type inference, the ownership check, the C++ desugaring and
 the lowering -- is [cocolog](https://github.com/saman-pasha/cocolog) clauses,
 and the embedded LLVM turns the IR into a native binary. The philosophy is
 [Cicili](https://github.com/saman-pasha/cicili)'s Safe Modern C: memory
 safe, ownership checked at compile time, zero runtime overhead, no garbage
-collector. cocolang is a new implementation of that philosophy, and its
+collector. cicilang is a new implementation of that philosophy, and its
 native pieces are written in Cicili.
 
 It uses Cicili, cocolog and [ZiguratIP](https://github.com/saman-pasha/ziguratip)
@@ -46,7 +46,7 @@ record of every step.
   `std::coroutine_traits`, over LLVM's coroutine intrinsics), modules
   (`export module`, `import`, header units, exports enforced), contracts enforced at
   run time, and the Itanium ABI's layout, name mangling and calling
-  convention, so cocolang's objects link with clang's.
+  convention, so cicilang's objects link with clang's.
 * **libc++ compiled from its own headers.** Nothing of the standard
   library is written here: `std::vector`, `std::string`, `std::map`,
   `std::set`, the unordered containers, `std::optional`, `std::tuple`,
@@ -67,81 +67,81 @@ record of every step.
 * **The small additions.** `name := expr;` declares by inference, its left
   side a pattern; `name { members }` declares a struct type; `defer(a, b)
   { body }` is a scope-bound cleanup with no runtime.
-* **clang's arguments.** `cocolang` and `cocolang++` take what `clang` and
+* **clang's arguments.** `cicilang` and `cicilang++` take what `clang` and
   `clang++` take: `-c -S -E -emit-llvm -fsyntax-only -o -O0..-Oz -I -l -L
   -shared -std= --version`. Diagnostics are `file:line: error: what`.
 * **Fast, once warm.** The C headers a program includes are read once into
-  the user's knowledge base, `~/.cocolang/KB`, and served from it in every
+  the user's knowledge base, `~/.cicilang/KB`, and served from it in every
   later run; a C++ library header is flattened once and summarized to
-  `~/.cocolang/cpp`. A built file's IR is cached beside its unit. The
+  `~/.cicilang/cpp`. A built file's IR is cached beside its unit. The
   B-tree benchmark matches clang `-O3` and beats Rust's `BTreeSet` on
   insert and search.
 
 ## Install and build
 
-cocolang needs the three neighbours checked out beside it (the paths are
+cicilang needs the three neighbours checked out beside it (the paths are
 the `CICILI`, `COCOLOG` and `ZIGURATIP` variables, defaulting to
 `~/Projects/GitHub/<name>`), an LLVM with its C API (Homebrew's `llvm` on
 macOS, `llvm-18-dev` or newer on Debian and Ubuntu), a `cc` and a `c++`
 for the link, and libc++ for the C++ side.
 
 ```sh
-CICILI=~/Projects/GitHub/cicili COCOLOG=~/Projects/GitHub/cocolog sh module/build.sh   # -> library/cocolang.so
+CICILI=~/Projects/GitHub/cicili COCOLOG=~/Projects/GitHub/cocolog sh module/build.sh   # -> library/cicilang.so
 LLVM=/usr/local/opt/llvm sh module/build-llvm.sh                                     # -> library/ccl_llvm.so
 sh test/reader.sh; sh test/compile.sh; sh test/driver.sh; sh proof/run.sh            # the C gates
 sh test/libcxx.sh; sh test/cpp.sh                                                    # the C++ gates: the library read warms the cache first
 sh test/gates.sh                                                                     # all seven in one chain, the C++ ones in parallel
 ```
 
-`module/build.sh` transpiles `module/cocolang.cicili` with Cicili and
+`module/build.sh` transpiles `module/cicilang.cicili` with Cicili and
 compiles it against cocolog's module SDK. `library/*.pl` needs no build.
 
 ## The commands
 
 ```sh
-cocolang prog.c -o prog              # read, check, lower, compile, link
-cocolang -c prog.c                   # prog.o        cocolang -S prog.c   # prog.s
-cocolang -emit-llvm -c prog.c        # prog.ll       cocolang -fsyntax-only prog.c
-cocolang -E prog.c -o flat.c         # the preprocessed text, from cocolog's preprocessor
-cocolang -O2 a.c b.c util.o -lm -o app
-cocolang -std=c23 prog.c -o prog     # C23's forms
-cocolang++ -std=c++20 prog.cpp -o prog
-cocolang -I include prog.c           cocolang -ast-dump prog.c           cocolang --version
+cicilang prog.c -o prog              # read, check, lower, compile, link
+cicilang -c prog.c                   # prog.o        cicilang -S prog.c   # prog.s
+cicilang -emit-llvm -c prog.c        # prog.ll       cicilang -fsyntax-only prog.c
+cicilang -E prog.c -o flat.c         # the preprocessed text, from cocolog's preprocessor
+cicilang -O2 a.c b.c util.o -lm -o app
+cicilang -std=c23 prog.c -o prog     # C23's forms
+cicilang++ -std=c++20 prog.cpp -o prog
+cicilang -I include prog.c           cicilang -ast-dump prog.c           cicilang --version
 ```
 
-`cocolang++` is `cocolang` for C++: the same arguments, every input read as
+`cicilang++` is `cicilang` for C++: the same arguments, every input read as
 C++, C++17 the default level and `-std=c++20`, `-std=c++23`, `-std=c++26`
 the others, the link through `c++`. The exit status is 1 when there is a
-diagnostic. `cocolang -v` says each step, and `served main.c from the
+diagnostic. `cicilang -v` says each step, and `served main.c from the
 store` when a file's IR came from the cache.
 
-The knowledge base is the user's, `~/.cocolang/KB` (or `$COCOLANG_KB`;
+The knowledge base is the user's, `~/.cicilang/KB` (or `$CICILANG_KB`;
 `--no-kb` keeps everything in memory). The first call is the initialization
 phase, reading the C standard library's headers once. It is stamped with
 the reader's and the lowering's versions and starts afresh when either
-changes. `cocolang++` keeps its headers as summaries under
-`~/.cocolang/cpp`, one per header and level.
+changes. `cicilang++` keeps its headers as summaries under
+`~/.cicilang/cpp`, one per header and level.
 
 ## The compiler, in four predicates
 
 ```prolog
-?- use_module(library(cocolang)).
-?- cocolang_ast('prog.c', AST),                     % the file, read whole, headers and all
-   cocolang_ir([AST], IR),                          % the units lowered to one LLVM IR module (text)
-   cocolang_compile(IR, 'prog.o', ['-O1']),          % the object file, through the embedded LLVM
-   cocolang_link(['prog.o'], [], 'prog').           % the binary (or a library: ['-shared'])
+?- use_module(library(cicilang)).
+?- cicilang_ast('prog.c', AST),                     % the file, read whole, headers and all
+   cicilang_ir([AST], IR),                          % the units lowered to one LLVM IR module (text)
+   cicilang_compile(IR, 'prog.o', ['-O1']),          % the object file, through the embedded LLVM
+   cicilang_link(['prog.o'], [], 'prog').           % the binary (or a library: ['-shared'])
 ```
 
-`cocolang_ast(+File, -AST)` mirrors `phrase/2`: the whole file or a syntax
+`cicilang_ast(+File, -AST)` mirrors `phrase/2`: the whole file or a syntax
 error naming the line the unread item begins on and the line the grammar
-gave up at; `cocolang_ast/3` mirrors `phrase/3` and answers the tokens
+gave up at; `cicilang_ast/3` mirrors `phrase/3` and answers the tokens
 left. Every statement carries its line as its first argument. An
 `#include` is read as it is met, raw when the header reads whole, through
 the preprocessor otherwise, and becomes `include(Line, Spec, file(Path,
-How, Unit))`. `cocolang_ir` runs the C++ desugaring (in C++ mode), the
-ownership check, then the lowering; `cocolang_compile` parses, verifies,
+How, Unit))`. `cicilang_ir` runs the C++ desugaring (in C++ mode), the
+ownership check, then the lowering; `cicilang_compile` parses, verifies,
 optimizes and emits through `library(ccl_llvm)`, a cocolog module over
-`llvm-c`; `cocolang_link` drives the system linker, the one tool the
+`llvm-c`; `cicilang_link` drives the system linker, the one tool the
 compiler runs. Everything else the library defines is `ccl_`-prefixed.
 
 ## `:=`, patterns, `name { }`, `defer`
@@ -249,7 +249,7 @@ s := format("{} + {} = {}", 1, 2, 3);          // char *
 
 ## C++: the levels and the library
 
-`cocolang++` compiles against libc++ as the system ships it. **C++17 is
+`cicilang++` compiles against libc++ as the system ships it. **C++17 is
 the baseline**; `-std=c++20`, `-std=c++23` and `-std=c++26` set the
 level, whose predefined macros the preprocessor answers first, so a header
 flattens as clang would flatten it for that level. The compiler runs no
@@ -266,7 +266,7 @@ its captures, a temporary destroyed at the end of its statement, a
 `constexpr` call folded by an evaluator with cells for its locals. A
 member a library header declares and the shipped library defines is called
 by its Itanium symbol, and a class that is not trivially copyable crosses
-a call as the ABI has it, so cocolang's code calls libc++'s and clang's.
+a call as the ABI has it, so cicilang's code calls libc++'s and clang's.
 
 What runs, each fixture matching clang++ line for line
 (`test/cpp/run/*.cpp`): the standard streams (`cout`, `cin`, `getline`,
@@ -279,8 +279,11 @@ monadic operations, `tuple` with `tuple_cat`, `array`, `unique_ptr`,
 function objects and `reference_wrapper`, and the `<algorithm>` surface
 from `all_of` to the heap and permutation algorithms; at C++20 `contains`,
 `erase_if`, the constrained algorithms `ranges::sort`, `ranges::find` and
-`ranges::count_if`, `views::filter` called and through the pipe,
-`std::quoted`, and `std::format`, at C++26 `optional<T &>`. `test/libcxx.sh` reads
+`ranges::count_if`, the views `filter`, `transform`, `reverse`, `iota`,
+`take`, `drop`, `take_while`, `keys` and `values` alone, chained and all in
+one program, `std::quoted`, the wide streams, `seekg` and `seekp`,
+`std::format` with `vformat`, a formatter the program writes and the wide
+format, at C++23 `std::print` and `std::println`, at C++26 `optional<T &>`. `test/libcxx.sh` reads
 `<vector>`, `<string>`, `<iostream>`, `<map>`, `<set>`,
 `<unordered_map>`, `<unordered_set>`, `<optional>`, `<memory>`,
 `<functional>`, `<tuple>` and `<algorithm>` whole, and the containers,
@@ -296,8 +299,8 @@ the programmer wrote.
 ## What lives here
 
 ```
-bin/cocolang, bin/cocolang++   the commands: clang's arguments, one cocolog run over ~/.cocolang/KB
-module/cocolang.cicili         the module: registration, the native lexer (C, in Cicili), cocolang_ast/2,3,
+bin/cicilang, bin/cicilang++   the commands: clang's arguments, one cocolog run over ~/.cicilang/KB
+module/cicilang.cicili         the module: registration, the native lexer (C, in Cicili), cicilang_ast/2,3,
                                the objects-and-modules layer
 module/ccl_llvm.cicili         the embedded LLVM, a cocolog module over llvm-c (module/build-llvm.sh)
 library/ccl_syntax.pl          the lexer (the DCG the native one follows) and the parser; the symbol table
@@ -308,7 +311,7 @@ library/ccl_format.pl          format, print, println, clone
 library/ccl_check.pl           the safe part: the ownership check
 library/ccl_cpp.pl             the C++ desugaring to that C
 library/ccl_ir.pl              the lowering to LLVM IR text
-library/ccl_build.pl           cocolang_compile and cocolang_link
+library/ccl_build.pl           cicilang_compile and cicilang_link
 library/ccl_driver.pl          what the command does: the steps, the diagnostics, the IR cache
 library/include/               the compiler's own freestanding C headers
 test/reader.sh, compile.sh, driver.sh, objects.sh, proof/run.sh   the C gates
@@ -326,7 +329,7 @@ HISTORY.md                     the record of every step: what it did, what it fo
 * **The three neighbours are used, never edited.** A limitation met in
   one of them is worked around here and raised with its owner.
 * **Every predicate and function this library defines is `ccl_`-prefixed;
-  only the four `cocolang_` doors keep the compiler's name.** cocolog has
+  only the four `cicilang_` doors keep the compiler's name.** cocolog has
   one namespace.
 * **No transpiler.** The compiler lowers to LLVM IR; C is read, never
   written. No clang and no LLVM binary is run: the preprocessor is
@@ -339,10 +342,9 @@ HISTORY.md                     the record of every step: what it did, what it fo
 ## Not done
 
 `std::format`'s compile-time check of the format string (the library's own
-run-time parser catches a bad one); the range views beyond `filter` in one
-program (`transform`, `reverse`, `iota`, `take`, `drop`, `take_while`, `keys`,
-`values` and a chain of them each run alone, and together still stop), and the
-adaptors not named; the tail padding of a non-POD base, which is not reused
+run-time parser catches a bad one); the range adaptors not named;
+`std::stringstream` (`basic_iostream`, libc++'s own diamond, needs the
+base-variant constructors of library classes); the tail padding of a non-POD base, which is not reused
 (a class laid out here differs from clang's where code compiled by both
 shares it); construction vtables in a diamond; a `\N{...}` abbreviation
 alias (`\N{NUL}`, which clang refuses too); the arm64 ABI, written and not

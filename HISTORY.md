@@ -1,10 +1,10 @@
-# cocolang -- the record of the steps
+# cicilang -- the record of the steps
 
-This is the chronological record of how cocolang was built, one entry per step, as `CLAUDE.md` carried it up to
+This is the chronological record of how cicilang was built, one entry per step, as `CLAUDE.md` carried it up to
 0.111: the rules each step added, the defects it found, its measurements and its gate numbers, kept VERBATIM.
 `CLAUDE.md` states the rules as they hold now, by topic; this file is the history behind them. A statement here can
 be superseded by a later step -- the later entry says so, and `CLAUDE.md` has the current rule. The version of an
-entry is the module's (`bin/cocolang --version`); the entries are in version order (0.94's, which sat after
+entry is the module's (`bin/cicilang --version`); the entries are in version order (0.94's, which sat after
 `CLAUDE.md`'s commit rules, is in its place). The whole `CLAUDE.md` as it stood at 0.111, with its reference sections
 on the preprocessor, the lowering, the check and the findings, is `git show 5ddd0b0:CLAUDE.md`. From 0.112 on, each
 step writes its entry here and its rules into `CLAUDE.md`'s topics.
@@ -19,7 +19,7 @@ One row per step, in version order: the step's title, what it did and its gate n
 | M2b | unions, bitfields, static locals | shape from the C layout | -- |
 | M3 | structs by value; owners in structs | `ir_abi/2`; path keys | x86-64 both ways |
 | M4 | IR in the store | `dr_ir/3`, folded signature | -- |
-| M5 (before 0.32) | the C++ reader, `cocolang++` | C++ mode behind `ccl_cpp`, qualified names and template-ids, C++ library headers flattened once and summarized to `~/.cocolang/cpp`, linked by c++ | test/cpp.pl; hello.cpp served from the summaries |
+| M5 (before 0.32) | the C++ reader, `cicilang++` | C++ mode behind `ccl_cpp`, qualified names and template-ids, C++ library headers flattened once and summarized to `~/.cicilang/cpp`, linked by c++ | test/cpp.pl; hello.cpp served from the summaries |
 | -- (2026-09-06) | one expression rule (owner's rule) | the binary levels as one precedence-climbing rule, one-look unary/primary/postfix | 30 -> 8 token matches a token; 2000 tokens 0.3 -> 0.1 s |
 | 2026-09-05 | B-tree benchmark | gep inbounds, nsw, bounded own array | 94/90/62/92/66 vs 107/96/60/95/63 ms |
 | 2026-09-06 | LLVM type with the value | `ir_expr/4` and kin | lowering 0.21 -> 0.19 s |
@@ -93,7 +93,7 @@ One row per step, in version order: the step's title, what it did and its gate n
 | 0.97 | constexpr aggregates; the cost of `std::get` | aggregates, switch, range-for, global aggregates, one budget; candidate-set and holding-set memos | stdtuple 235 -> 134 s; C++ GREEN 192 6108 s; libc++ GREEN 5533 s |
 | 0.98 | constexpr pointers, aggregate results, `this` | reduction, read-only pointers, aggregate answers, const members; local value args refused; counter defaults to 0 | C++ GREEN 194 6179 s, 3766 MB; libc++ GREEN 5518 s |
 | 0.99 | The not-done lists closed | Evaluator cells and constructors, C11 atomics, and 34 older items | reader 95, compile 84, driver 25, objects 29, proof; C++ 211 ok, 4499 s, 3779 MB; libc++ 21 reads, 8422 s (C++20 vector 898, string 846, iostream 884) |
-| 0.100 | The repository is cocolang | The rename, then fourteen not-done items | reader 95, compile 85, driver 25, objects 29, proof; C++ 225 ok, 5284 s, 3791 MB; libc++ 21 reads, 8524 s |
+| 0.100 | The repository is cicilang | The rename, then fourteen not-done items | reader 95, compile 85, driver 25, objects 29, proof; C++ 225 ok, 5284 s, 3791 MB; libc++ 21 reads, 8524 s |
 | 0.101 | `<compare>`, imaginaries, Annex G, closures | Closed 0.100's list: libc++ orderings, imaginary literals, `__muldc3`, `__real__` places, float builtins, copied captures, base renames | reader 95 in 15 s; compile 86 in 21 s; C++ 228 ok in 5935 s, 3804 MB; libc++ 22 reads in 8957 s |
 | 0.102 | numbers | Recorded 0.101's libc++ numbers | — |
 | 0.103 | `_Complex int`, NaN, `\N{NAME}` | Integer complex; NaN members unordered; `\N` in both lexers; `sizeof` of a literal | reader 95 in 15 s at reader 88; compile 87 in 9 s |
@@ -108,13 +108,14 @@ One row per step, in version order: the step's title, what it did and its gate n
 | 0.112 | views, `std::format`'s road, `CLAUDE.md` by topic | `views::filter` and the pipe; the rules `std::format` asked for, each with its fixture; four suspected defects fixed; `CLAUDE.md` rewritten by topic, this file made | not run (a save point) |
 | 0.113 | the views one by one, `std::quoted` | `std::quoted` linked; transform, reverse, iota, take, drop, take_while, keys, values and a chain each run alone; eight rules with their fixtures; all views in one program still stop | not run (a save point) |
 | 0.114 | the gates over 0.113, cocolog 1.8.41 | `member.cpp` made valid C++; a member template's instance named from its substituted qualifiers (`.rq<fold>`); cocolog 1.8.41 reviewed | reader 5 s, compile 13 s, driver 6 s; libcxx 1241 s; C++ about 1300 s, 356 checks, 300 of 301 fixtures; all seven GREEN |
+| 0.115 | all the views in one program, `std::format` and the streams not tried | Views fixtures; raw strings; reversed `==`; a call statement on a temporary; the caller's object set aside in an emission; constructor templates and `is_convertible` by the argument's type; wide literals in constants | reader 11 s, compile 23 s, driver 11 s; libcxx 2211 s cold; C++ 3283 s, 384 checks, 328 of 329 fixtures; all seven GREEN |
 
 ## M5 — the C++ mode
 
-**The C++ mode (M5, `bin/cocolang++`):** `'$ccl_lang'` is c or cpp, set
+**The C++ mode (M5, `bin/cicilang++`):** `'$ccl_lang'` is c or cpp, set
 from the file's extension by `ccl_read_file` (`.cpp .cc .cxx .C .hpp .hh
 .hxx`) or forced by the driver's `lang(cpp)` (`'$ccl_lang_forced'`, which
-`cocolang++` sets through `COCOLANG_LANG=cpp`). Every C++ rule in
+`cicilang++` sets through `CICILANG_LANG=cpp`). Every C++ rule in
 `ccl_syntax.pl` is guarded by `ccl_cpp` (`{ ccl_lang(cpp) }`) and placed
 BEFORE the C clause it extends, so a .c reads as it did; the keywords are
 mode-dependent (`ccl_keyword/1`: C's, plus `ccl_cpp_keyword/1` in cpp;
@@ -144,7 +145,7 @@ kind kept in `'$ccl_inc_kind'`) is flattened by the preprocessor
 hundreds of headers each failed and got preprocessed in turn: ten
 minutes -- and `#include_next` looks past the including file's directory
 (`ccl_resolve_include(next(_), …)`). **The summary cache:** a flattened
-library header is summarized to `~/.cocolang/cpp/<name>-<fold>.sum`
+library header is summarized to `~/.cicilang/cpp/<name>-<fold>.sum`
 (`ccl_sum_file/2`, two folds of the path), one term per line: `sum(Path,
 key(ReaderVersion, cpp))` and a `dep(File, Time)` per file the
 preprocessor pulled, then `decl(N, T)`, `typedef(N, T)`, `tag(Tag,
@@ -158,7 +159,7 @@ where it would walk a unit: `ccl_include_typedefs` (the Env),
 the global env), `ccl_collect_item` (the bulk rebuild before the check
 and the lowering), `dr_items_deps` (the IR signature). The driver reads
 `.cpp .cc .cxx .C` through `dr_c`, skips the check and the lowering under
-`-fsyntax-only` in cpp mode (M6's), and `ccl_link` uses `c++`. `cocolang++`
+`-fsyntax-only` in cpp mode (M6's), and `ccl_link` uses `c++`. `cicilang++`
 runs `--no-kb`: see the findings.
 
 ## 0.32 — M6's first step
@@ -212,7 +213,7 @@ declaration and where a variable has the type, `member_of_class(N)`,
 lowering's `not_lowered(F)` with its place); the noters skip a member
 defined out of its class (`Counter::made`, `Shape::scale`: a compound
 name), which crashed `atom_concat` before. Gated by `test/cpp.sh`:
-`test/cpp/run/names.cpp` and `loops.cpp` built through `cocolang++`, run
+`test/cpp/run/names.cpp` and `loops.cpp` built through `cicilang++`, run
 against their `.expect`, and `control.cpp`, `classes.cpp`,
 `templates.cpp` refused with `try`, `virtual`, `template`. Not done: two
 namespaces with one name, a reference member, a reference to a class,
@@ -415,7 +416,7 @@ local's defer over `&c` -- takes the object's own fields as moved
 free that follows finds nothing leaked. `new T` of a struct without a
 constructor is malloc's bytes to the check (`ck_alloc_mode`: `new(_,
 [])`, `new_array`, and through a `cast`), `new C(args)` a complete
-object (its constructor was made to be). `bench/btree/btree_cocolang.c`
+object (its constructor was made to be). `bench/btree/btree_cicilang.c`
 built with `-O1` at 20000 keys gives the expectation. Not done: a
 constructor that delegates, `this` handed out of a constructor, a
 destructor's effect on a struct member of class type, arrays of
@@ -538,7 +539,7 @@ an array member of objects, a union of objects.
 ## 0.42 — M6's eleventh step
 
 **M6's eleventh step (0.42): C++20.** THE LEVEL: `-std=c++17|20|23|26`
-(`bin/cocolang`: `std(N)` in the options; older levels refused as
+(`bin/cicilang`: `std(N)` in the options; older levels refused as
 unsupported, C's `-std` ignored) sets `'$ccl_std'` (default 17;
 `ccl_std/1` reads it), and the preprocessor answers the level's macros
 first (`pp_predef_macro`: the tables `cpp26`, `cpp23`, `cpp20` by
@@ -674,12 +675,12 @@ before a line splice, `consteval` at compile time, modules; C++26's forms.
 FOUND FIRST: the reader had never read a libc++ header -- it stopped at
 `<vector>`'s first item (a conversion operator) and `ccl_read_unit`
 takes a PARTIAL read silently (`partial(U, line(L), near(F))`), so every
-library summary held nothing but macros. THE LOOP: `cocolang++ -E f.cpp -o
+library summary held nothing but macros. THE LOOP: `cicilang++ -E f.cpp -o
 flat.cpp` (clang's flag; `dr_preprocess`: `ccl_pp_file/3` standalone,
 spelled back by `ccl_pp_spell/2` in ccl_pp -- a token a word, a string
 with `\NNN` escapes, a line per source line, an infinite float as
 `1e999`), then `sh test/census.sh flat.cpp` (test/census.pl: the read
-through `cocolang_ast/3`, the stop line, the farthest line and the tokens
+through `cicilang_ast/3`, the stop line, the farthest line and the tokens
 around both, then a histogram of the AST's functors with the template
 shapes apart) -- a few seconds a turn where a flatten is twenty. THE
 READER (version 34 still; every rule guarded by `ccl_cpp`): a
@@ -963,7 +964,7 @@ name and has no members -- the allocator machinery is the next stretch.
 
 **M6's fifteenth step (0.46): the allocator machinery, and the memory
 that had to come first.** THE MEMORY: cocolog has no collector (the
-finding below): a `cocolang++` run of `std::vector<int>` peaked at 4.5 GB
+finding below): a `cicilang++` run of `std::vector<int>` peaked at 4.5 GB
 and, with a runaway of mine on top, restarted the owner's machine. The
 preprocessor runs each file inside `\+ \+` (3.1 GB -> 564 MB for the
 flatten), the parser reads EACH ITEM inside `\+ \+` (`ccl_externals/4`:
@@ -1030,7 +1031,7 @@ each is a refusal now (`class_not_registered`, `class_not_emitted`,
 `member_types`), and the steps of a class's registration and emission
 trace under `'$cpp_trace'` (`item_member_fns`, `method_body_failed`,
 `instantiate_failed`, `want(Name)` ...), which is how each of these was
-found. FOUND ON THE WAY: a missing input file compiled to `cocolang: ok`
+found. FOUND ON THE WAY: a missing input file compiled to `cicilang: ok`
 (`dr_input` refuses it now, `no such file or directory`).
 `std::vector<int>` now reaches 67 loads and instances (43 at 0.45, 26 at
 0.44) -- through the exception classes, the compressed pair, the
@@ -1852,7 +1853,7 @@ through is the compile's memory and not a budget. Also not done: `push_back`,
 weight.** 0.63 left `s += "def"` peaking past 2800 MB in 17 s on a 16 GB
 machine, and read it as the no-GC accumulation of a hundred library
 instantiations. MEASURED, it was nothing of the kind. THE PHASES, taken apart
-(`cocolang++ -fsyntax-only` against the whole build, then `ccl_cpp_units` alone
+(`cicilang++ -fsyntax-only` against the whole build, then `ccl_cpp_units` alone
 under the guard): the READ is 48 MB and 0.9 s, and the DESUGARING is all 2900
 of the rest -- so the question was never the reader's. Two guesses failed
 before the measurement paid: scoping every class instantiation inside `\+ \+`
@@ -1878,7 +1879,7 @@ libc++'s containers is hundreds of members -- to recompute a name it had
 computed before, 267 times for `allocator_traits<allocator<char>>` alone. The
 asks fall from 550 to 51 and the peak by a further tenth. WHAT IT BOUGHT, all
 measured on this machine: the desugaring of `s += "def"` 2936 -> 495 MB;
-`test/cpp/run/stdstring.cpp` built through `cocolang++` 557 -> 422 MB; THE C++
+`test/cpp/run/stdstring.cpp` built through `cicilang++` 557 -> 422 MB; THE C++
 GATE 1581 -> 752 MB. The libc++ gate stays at 1882 MB, the biggest number left
 and the READER's -- a flatten and a parse of `<vector>` and `<string>` under a
 fresh HOME, one-time per header and cached after. Lowering version 18. Seven
@@ -2216,7 +2217,7 @@ of `<iostream>` alone 2009 MB, under the 2800 MB cap the owner set).
 ## 0.72 — M6's fortieth step
 
 **M6's fortieth step (0.72): THE CONSTEXPR FUNCTION, and the road to a running
-`std::cout` -- `cocolang: ok` to the link, five symbols short.** THE STEP ASKED
+`std::cout` -- `cicilang: ok` to the link, five symbols short.** THE STEP ASKED
 FOR: a constexpr function of ONE `return' FOLDS where a constant is wanted
 (`cpp_const_value/2`, the door `cpp_targ_value` and `cpp_fold_static` now take
 constants through): the instance is emitted as any member template's is, its
@@ -2324,7 +2325,7 @@ sat at offset 0 until now, so `A *base = &x' copied the pointer unchanged and
 `base->twice()' read `b''s bytes, the gate's first RED of this step; a null
 pointer is not spared the offset (not done). Lowering version 27 (the
 table's shape, the conversion). WHERE `std::cout << "hello"' STANDS: it
-desugars, passes the safe part, lowers and reaches the LINK -- `cocolang: ok' up
+desugars, passes the safe part, lowers and reaches the LINK -- `cicilang: ok' up
 to it -- FIVE SYMBOLS SHORT, each named: the constructor and the destructor of
 `basic_ostream<char>::sentry`, members of a nested class DEFINED OUT OF ITS
 CLASS TEMPLATE (the member-definition index keys them under the nested name
@@ -2346,7 +2347,7 @@ Gated by `test/cpp/run/constexprfn.cpp`, `aggcall.cpp`, `staticbase.cpp`,
 ## 0.73 — M6's forty-first step
 
 **M6's forty-first step (0.73): THE ITANIUM MANGLER'S SECOND HALF, and
-`std::cout << "hello, cocolang++\n"` RUNS.** THE MANGLER (`cpp_ita_*`): what
+`std::cout << "hello, cicilang++\n"` RUNS.** THE MANGLER (`cpp_ita_*`): what
 0.61 spelled -- `_ZN', a namespace, a name, `E', builtin parameters, refusing
 any repeat -- is spelled with the ABI's SUBSTITUTION TABLE threaded through
 (`cpp_ita_sub`, `cpp_ita_note`: every prefix, nested name and non-builtin type
@@ -2432,7 +2433,7 @@ destructor, a copy or move constructor, a virtual function, or a base or a
 member that is such) and the lowering classifies them `indirect'
 (`ir_nontrivial_class` in `ir_abi_`); the program's own classes follow the
 same rule on both sides of every call. Lowering version 28. WHAT RUNS:
-`std::cout << "hello, cocolang++\n"' -- the library's own object, written to
+`std::cout << "hello, cicilang++\n"' -- the library's own object, written to
 through libc++'s basic_ostream, its sentry, ostreambuf_iterator,
 `__pad_and_output', std::copy and the streambuf's virtuals into libc++'s
 `__stdoutbuf' -- and a chained `<< "one " << "two\n"'; 19 s and about 950 MB
@@ -3662,7 +3663,7 @@ thirds of the way through a header leaves a unit that simply lacks the rest. The
 that settled it is worth keeping: the declaration ALONE, `extern int printf(const char *
 __restrict, ...);`, compiles and runs, so the reader was stopping short and not reading
 and dropping. Those are different defects and only a measurement tells them apart.
-AND A TRAP THAT COST A WRONG CONCLUSION mid-chase: `cocolang++ -fsyntax-only` PASSES on that
+AND A TRAP THAT COST A WRONG CONCLUSION mid-chase: `cicilang++ -fsyntax-only` PASSES on that
 same file on Linux, because in C++ mode the driver skips the check and the lowering under
 that flag. A flag that skips the stage under test passes for a reason that has nothing to
 do with the question, so it reads as evidence of health and is evidence of nothing; the
@@ -3672,7 +3673,7 @@ all four levels (21 summaries), since the reader's version moved and a cold firs
 far above the steady state: the reader's 94 checks, 39 s and 388 MB; the compile gate's 73 at
 370 MB; the driver's 23 at 68; the objects' 29; the proof; the C++ one 141 checks, 1995 s,
 1441 MB; the libc++ one's 16 reads, 859 s, 2278 MB.
-NOT DONE: the Linux gates. cocolang compiles and runs C and C++ there, and the C++ gate
+NOT DONE: the Linux gates. cicilang compiles and runs C and C++ there, and the C++ gate
 reaches 83 of its checks where before the three fixes it reached none, but six fail and each
 is its own glibc gap -- `stdcin.cpp' stops at `template_without_body(basic_string)', a
 template body that did not survive into the summary, which says `<iostream>''s closure is
@@ -4371,7 +4372,7 @@ quoted name beside the file and an angled one on the path, a code past 255 spell
 UTF-8 bytes), `__has_embed' (found 1, empty 2, nowhere 0), `__has_c_attribute' answering the standard
 attributes' dates and the `__x__' spellings (C only; `__has_cpp_attribute' keeps its 0, the plainest
 path through libc++), AND THE FILE'S OWN `#error' IS A DIAGNOSTIC -- it was listed in `'$pp_errors''
-and nobody read the list, so a program's #error compiled to `cocolang: ok' -- with `#warning' printed
+and nobody read the list, so a program's #error compiled to `cicilang: ok' -- with `#warning' printed
 after the read in clang's shape (`dr_pp_warnings'; a header's stay what they were). (9) `_Alignof',
 `alignof' in C23, `_Alignas' read and dropped as C23's alignas is; `typeof_unqual' wraps its operand
 `unqual(X)' and the resolution strips the top-level qualifiers; the decimal floating types are read,
@@ -4465,7 +4466,7 @@ AND THE ROAD TO libc++ 18, WHICH THE LINUX GATES OPENED. The C++ gate's first ru
 standard library, and a snapshot run earlier in the day, which I had read as passing them, had never reached them -- it
 stopped at `stdcin' and its FAIL list was a TRUNCATED list, not a pass list (the eighth instrument in the findings: a gate
 that ends early reads exactly like a gate that passed the rest, and only the names it printed say which fixtures it ran).
-Measured one header at a time with the census on the FLATTENED header under both grammars (`cocolang++ -E', then
+Measured one header at a time with the census on the FLATTENED header under both grammars (`cicilang++ -E', then
 `test/census.pl' with `COCOLOG_LIBRARY' set to HEAD's library and cocolog called directly, since `test/census.sh' sources
 `config.sh', which puts the working tree's library first whatever the caller had), HEAD's grammar and this tree's stopped at
 the same line of `<iostream>' (320 of 793 items) and of `<functional>', and the desugaring under HEAD's library -- with a
@@ -4490,7 +4491,7 @@ typename __base::type type;', and a class named `__base' elsewhere in the header
 scope and refused `no_member_type(__base, type)'; (28) THE C++ RUNTIME IS NAMED AT THE LINK ON LINUX (`ccl_link_libs',
 `-lc++'): `c++' is g++ there, whose library is libstdc++, and the one undefined symbol was libc++'s
 `std::__1::__libcpp_verbose_abort' -- the driver's link diagnostic keeps ld's first line only, which named the function
-and not the symbol, so the object was linked by hand. With them `stdvector' builds and runs through `cocolang++' (398 s
+and not the symbol, so the object was linked by hand. With them `stdvector' builds and runs through `cicilang++' (398 s
 cold, the flatten of `<vector>' at reader 78 in it), and `test/cpp/run/tpbase.cpp' -- the bound base, a member reached
 through it, a destructor spelled with its arguments, on the program's own classes -- prints clang++'s numbers. Reader
 version 78, lowering version 40.
@@ -4523,7 +4524,7 @@ minutes cut to a file of ten lines that failed in a second, the trait ones print
 one that was not (the implicit move's lost definition) was found by the trace's `implicit_copy(Rec, move)' with no
 `lower(function(Rec.Rec.Rec_rr, ...))' after it -- a definition's absence read off a list that names every one made.
 (36) AND THE FLATTENED TEXT SPELLS THE PREFIXED LITERALS AND THE BIT-PRECISE SUFFIXES (`ccl_pp_spell_tok', `pp_spell'):
-`cocolang++ -E' printed `L"true"' as a code list and `12wb' as `12', which no reader takes -- the census's road only, since
+`cicilang++ -E' printed `L"true"' as a code list and `12wb' as `12', which no reader takes -- the census's road only, since
 the gate reads the tokens, and exactly the kind of gap a step that adds token kinds leaves in the one instrument that
 spells them back; the third census of the C++20 `<set>' stopped on it at `__bool_strings<wchar_t>'.
 (37) A BRACED ARGUMENT TO A SCALAR PARAMETER is its one item or the type's zero, at the argument pass and where a
@@ -4593,7 +4594,7 @@ reference, which 0.55's `cpp_addressable' already took. AND TWO TRAITS libc++ 18
 against libc++ 18's own headers: of every `__is_*' and `__has_*' builtin they spell, those two were the ones the
 desugaring could not answer. AND A TIME CAP THAT KILLS THE SHELL AND NOT THE WORKER IS NO CAP -- 0.46's finding (a
 watchdog that kills only the direct child leaves cocolog, its grandchild, running), met again from the probe's side:
-`scratchpad/probe.sh' capped its build with a perl `alarm' around `bin/cocolang++', the alarm killed that shell, and
+`scratchpad/probe.sh' capped its build with a perl `alarm' around `bin/cicilang++', the alarm killed that shell, and
 cocolog ran on for ten minutes beside the gate; the cap is coreutils' `timeout -s KILL' now, which signals the whole
 group it leads.
 (45) THE PACKS AN EXPANSION ZIPS ARE THE ONES NAMED OUTSIDE ITS NESTED EXPANSIONS ([temp.variadic]/5: a pattern
@@ -4666,9 +4667,9 @@ segfaulted (`stdmap', `stdset', `stdtuple' with its `tuple_cat', `stdvector', `s
 by the gate below). Every probe of this stretch ran through `scratchpad/probe.sh' (a time cap and a memory cap over
 the probe's OWN process group, so a probe may run beside a gate that `watch.sh' -- which sums every cocolog process --
 would otherwise kill), a traced build through `scratchpad/trace.sh' (cocolog called directly with `'$cpp_trace'' on,
-since `bin/cocolang''s filter drops the trace lines), and a fixture through `scratchpad/fx.sh', which removes the
+since `bin/cicilang''s filter drops the trace lines), and a fixture through `scratchpad/fx.sh', which removes the
 binary before it builds (the finding on a stale binary, 0.89) and compares as the gate compares. THE INSTRUMENT THAT
-PAID: the emitted IR read function by function (`cocolang++ -S -emit-llvm'), which named `tuple_cat''s defect in four
+PAID: the emitted IR read function by function (`cicilang++ -S -emit-llvm'), which named `tuple_cat''s defect in four
 reads where the trace named none -- a trace prints refusals, and the wrong constructor was CHOSEN without one.
 NOT DONE, libc++ 18's: the qualifier-less keys (55); `stdalgorithm2', `stdalgorithm3', `stdalgorithm6' and
 `stdalgorithm7' build past the gate's cap here (breadth in the two-range family, 0.92's finding, and libc++ 18's
@@ -4763,7 +4764,7 @@ frame of `ccl_locals' declares): every enumerator is a global name here, a scope
 -- so `iterator __r(__ptr)' in the tree's `__remove_node_pointer' built its iterator from 14 where `__ptr' was the
 parameter, and every erase by iterator in a C++20 program over `<set>' walked a wild node (stdcontains). C and C++
 both let a local hide an enumerator; the reproduction on the program's own code is `test/cpp/run/enumshadow.cpp' and
-`test/c/run/enumshadow.c'. THE INSTRUMENT: the IR of the reduction, `cocolang++ -emit-llvm', read function by function --
+`test/c/run/enumshadow.c'. THE INSTRUMENT: the IR of the reduction, `cicilang++ -emit-llvm', read function by function --
 `inttoptr i32 14 to ptr' where the parameter's slot should have been loaded said it in one line, where the backtrace
 named only the wild node. AND A QUALIFIED ENUMERATOR IS ITS VALUE WHATEVER A LOCAL IS NAMED (`cpp_expr' on
 `scoped(Path, N)' through `cpp_enum_scope', and `cpp_targ_value''s two clauses, all asking `ccl_enum_value' directly):
@@ -4916,7 +4917,7 @@ that arrives with a reader version bump is a cold cache until a warm run says ot
 AND THE OLDER LIST: `stdoptionalref' is beyond libc++ 18 (its `<optional>' declares a reference type ill-formed)
 and A FIXTURE BEYOND THE BOX'S LIBRARY IS SKIPPED BY NAME -- `NAME.needs' holds a preprocessor condition over the
 library's own macros (`_LIBCPP_VERSION >= 210000'), `ccl_needs_met' in `test/cpp.sh' runs a four-line file
-including `<version>' through `cocolang++ -E' and looks for the marker, and the gate prints the fixture as skipped,
+including `<version>' through `cicilang++ -E' and looks for the marker, and the gate prints the fixture as skipped,
 neither ok nor a failure (measured: libc++ 18's marker survives and 21's does not). `stdaggregate''s one crash in
 0.94's first gate WAS NO CRASH: the log holds the watchdog's kill line right above the verdict, at a 7040 MB sum
 with my probes beside the gate -- a misread of 0.94's own finding, recorded here so it is not chased again; its
@@ -5259,7 +5260,7 @@ in `)', is left alone) -- libc++'s `basic_format_string' writes `_Context{__type
 `using _Context = ...;' under `private:' after it, and read in order the braced temporary of an unknown name stopped the
 read 878 items in. `test/cpp/run/aliasahead.cpp' (an alias template, an alias and a typedef each used before they are
 declared), clang++'s number, a syntax error without the rule. (33) THE FLATTENED TEXT SPELLS A LITERAL PAST 2^60 as its
-digits (`pp_int_codes' at both spelling doors): `cocolang++ -E' wrote `big(0xff00000000000000)ul', which no reader takes --
+digits (`pp_int_codes' at both spelling doors): `cicilang++ -E' wrote `big(0xff00000000000000)ul', which no reader takes --
 the census's road only (0.93's item 36 once more), and what stopped the first census 103 items in. (34) A HEADER'S MACRO
 TABLE IS PER LEVEL, in the process's memo (`ccl_hm_key': the path and the level, as `ccl_unit_key' keys the unit cache) and
 in the store (`ccl_kb_remember_macros' replaces THIS LEVEL's rows and meta, where it retracted the whole predicate): found
@@ -5312,25 +5313,25 @@ which are the 2900 s more than 0.98's 5518), `<set>' 859, `<map>' 859, `<unorder
 
 ## 0.100 — M6's sixty-seventh step
 
-**M6's sixty-seventh step (0.100): THE REPOSITORY IS `cocolang`.** The owner renamed the repository
-from `cicili-lang' to `cocolang', and this step carries the name through every file. WHAT IS RENAMED, the
-compiler's own names: the repository and the language's C name in prose, `cocolang'; the commands,
-`bin/cocolang' and `bin/cocolang++' (no `cicili' command remains); the module, `module/cocolang.cicili'
-built to `library/cocolang.so', loaded as `library(cocolang)'; the four surface predicates,
-`cocolang_ast/2,3', `cocolang_ir/2', `cocolang_compile/3', `cocolang_link/3'; the command's variables,
-`COCOLANG_KB', `COCOLANG_INCLUDE', `COCOLANG_LANG', `COCOLANG_ME'; the freestanding headers' guards,
-`_COCOLANG_*_H'; the user's cache, `~/.cocolang' (`KB' and `cpp' under it; an existing `~/.cicili' is
+**M6's sixty-seventh step (0.100): THE REPOSITORY IS `cicilang`.** The owner renamed the repository
+from `cicili-lang' to `cicilang', and this step carries the name through every file. WHAT IS RENAMED, the
+compiler's own names: the repository and the language's C name in prose, `cicilang'; the commands,
+`bin/cicilang' and `bin/cicilang++' (no `cicili' command remains); the module, `module/cicilang.cicili'
+built to `library/cicilang.so', loaded as `library(cicilang)'; the four surface predicates,
+`cicilang_ast/2,3', `cicilang_ir/2', `cicilang_compile/3', `cicilang_link/3'; the command's variables,
+`CICILANG_KB', `CICILANG_INCLUDE', `CICILANG_LANG', `CICILANG_ME'; the freestanding headers' guards,
+`_CICILANG_*_H'; the user's cache, `~/.cicilang' (`KB' and `cpp' under it; an existing `~/.cicili' is
 moved, not rebuilt: a summary is keyed by the header's path and the reader's version, never by the
-cache's own directory, so every summary and the store stay valid); the run's answer lines, `cocolang: ok'
-and `cocolang: N error(s)', which `bin/cocolang' filters and the gates read; the benchmark's B-tree,
-`bench/btree/btree_cocolang.c'; the fixtures' strings and the proof's message (`proof/forty2.ll': three
+cache's own directory, so every summary and the store stay valid); the run's answer lines, `cicilang: ok'
+and `cicilang: N error(s)', which `bin/cicilang' filters and the gates read; the benchmark's B-tree,
+`bench/btree/btree_cicilang.c'; the fixtures' strings and the proof's message (`proof/forty2.ll': three
 bytes shorter, so its array is `[19 x i8]' -- the proof gate said so first, the one RED of the rename).
 WHAT KEEPS ITS NAME, the neighbour's: Cicili the language and the philosophy, `$CICILI' its checkout,
 `cicili.lisp' its transpiler, `sdk.cicili' cocolog's SDK, the `.cicili' extension of the native pieces --
 and the `ccl_' prefix of every predicate the library defines, which is the library's own convention and
-collides with nothing; the naming rule reads `only the four cocolang_ doors keep the compiler's name'.
+collides with nothing; the naming rule reads `only the four cicilang_ doors keep the compiler's name'.
 A string literal a fixture prints or hashes (`fmt.c', `stdfunctional.cpp') is data and stays.
-THE README IS REWRITTEN: what cocolang is, its features, the commands, the four predicates, the
+THE README IS REWRITTEN: what cicilang is, its features, the commands, the four predicates, the
 additions, the safe part, the macros, the C++ levels and the library, the layout and the rules; the
 version log that had grown to 1800 lines is out of it (this file is the record). `DESIGN.md''s status
 line, stuck at M2 since 0.11, says where the milestones stand.
@@ -5620,7 +5621,7 @@ before: the first writing named the piece's type `PT' inside the findall -- THE 
 for the parameter's type -- so every piece was required to unify with `const P &', the if-chain came out EMPTY, every
 defaulted `<=>' answered equal, and five lines of stdcompare went RED. A name is looked up before it is given -- 0.93's
 rule for a predicate, 0.99's for its arity -- and in a clause of thirty lines, for a VARIABLE too. The instrument that
-found it was the `cocolang: '-prefixed write into the desugaring (the finding) under `-S -emit-llvm', since
+found it was the `cicilang: '-prefixed write into the desugaring (the finding) under `-S -emit-llvm', since
 `-fsyntax-only' skips the desugaring in C++ mode: 0.87's trap, met again on the first try, an empty log read as `never
 reached'. A clause's helper predicates were also first written BETWEEN two clauses of the predicate they serve, which
 cocolog takes as it takes any discontiguous clauses; they sit after it now.
@@ -5764,7 +5765,7 @@ back. POSIX: the running children are tracked by PID and `kill -0', since dash h
 writing used it, dash printed `Illegal option' once a second and the pool ran ONE job at a time, which looked like
 a slow pool rather than a broken one until the log was read. And a pool's wall clock is its LAST job's end, so the
 jobs go LONGEST FIRST (`ccl_lpt_order', the classic LPT rule): each job's seconds are appended to a timings file
-(`~/.cocolang/fixture-times', `header-times'; the last line per key wins, the unknown first), and the next run
+(`~/.cicilang/fixture-times', `header-times'; the last line per key wins, the unknown first), and the next run
 orders by them. Measured on twelve fixtures over a warm cache: 245 s in four lanes where their warm serial sum is
 420 s, every one PASS-identical, 3 GB summed at the peak. (2) THE LIBRARY READ IS THE WARM (`test/libcxx.sh',
 `test/readhdr.pl'): a summary is keyed by the reader's version and every dep's time (`ccl_sum_valid'), so after a
@@ -5861,7 +5862,7 @@ version 50 unchanged; the module rebuilt as 0.107.
 **M6's seventy-fourth step (0.108): THE MISSING PARTS OF C, AND THE MAIN GAPS OF C++ -- RTTI, exceptions, coroutines,
 modules, contracts, the array cookie, multiple polymorphic bases.** The owner asked for every C part and every main
 C++ gap named in the not-done lists, then the gates. Each form was cut to a probe of ten to forty lines, built by
-clang and by cocolang, run, and compared line for line (`one.sh'); each has a fixture.
+clang and by cicilang, run, and compared line for line (`one.sh'); each has a fixture.
 THE C SIDE, found by probing clang's behaviour over the whole language, twenty-odd forms: (1) TRIGRAPHS in the ISO
 modes before C23 (`-std=c17', `-std=c11', `-std=c99', `-trigraphs'; the GNU modes and C23 do not read them, clang's
 rule): replaced in the preprocessor's source lines before anything else, the store keyed by the mode (`ccl_kb_key'
@@ -5968,7 +5969,7 @@ WAY, worth their lines: the driver gate's first run was RED on the ABI check, `s
 last `ir_base' clause's throw; a type is asked, then compared (`LLx == x86_fp80'). And a compile gate was KILLED by
 the kernel's OOM killer at 14 GB while probes of mine ran beside the chain, in the middle of a write to the store:
 the next reader gate said `commit failed: the store refused it: hexmap ends inside the chunk'. A killed writer can
-leave the store damaged; it is a cache, and a fresh one (`rm -rf ~/.cocolang/KB ~/.cocolang/KB.version') is the
+leave the store damaged; it is a cache, and a fresh one (`rm -rf ~/.cicilang/KB ~/.cicilang/KB.version') is the
 repair -- and one guarded run at a time is the rule that would have kept it whole (0.46's, broken by me again).
 
 ## 0.109 — M6's seventy-fifth step
@@ -6040,7 +6041,7 @@ before `<ranges>' read whole, 958 s and 7.9 GB before the candidate checks were 
 **M6's seventy-sixth step (0.110): THE NOT-DONE LISTS OF 0.108 AND 0.109 -- noexcept, trailing return types, the
 coroutine traits, catch by value, the virtual base through the table and the DIAMOND, modules' exports and header units, and
 the next stops of the views and of std::format.** The owner asked for every not-done item; each form was cut to a probe of ten
-to forty lines, built by clang and by cocolang and compared line for line, and each has a fixture. (1) `noexcept' IS KEPT on a
+to forty lines, built by clang and by cicilang and compared line for line, and each has a fixture. (1) `noexcept' IS KEPT on a
 function (reader version 98; `ccl_suffix_quals', `'$ccl_nothrow''): the operator `noexcept(f())' asks the callee
 (`cpp_nx_throws'), and an exception that leaves a noexcept function calls `std::terminate' without the destructors on the way,
 as clang does (`cpp_nx_wrap': a try whose handler is of the kind `terminate', which the landing pad catches and runs no cleanup
@@ -6449,9 +6450,9 @@ needs libc++ 21), peak 5376 MB.
 
 COCOLOG 1.8.38 TO 1.8.41, reviewed: 1.8.39 (`cff7a70`) makes a load directive that loads nothing print SWI's `ERROR`
 and `Warning` lines, then go on; the carried libraries keep `library(error)`, `dcg/basics` and `dcg/high_order`.
-1.8.40 and 1.8.41 add the translation library (`library/reasoning/`) and its reports, which cocolang does not use, and
+1.8.40 and 1.8.41 add the translation library (`library/reasoning/`) and its reports, which cicilang does not use, and
 the Docker images and install scripts. The SDK's ABI is unchanged; cocolog and its `os` and `process` modules and both
-of cocolang's modules were rebuilt. Every load directive of cocolang names a library that exists, so no new line is
+of cicilang's modules were rebuilt. Every load directive of cicilang names a library that exists, so no new line is
 printed. The refused allocation still gives a wrong answer at 1.8.41 (no `oom` check in the step loop).
 
 THE GATES ON 0.114, over cocolog 1.8.41: reader GREEN in 5 s (peak 122 MB), driver 6 s (116 MB), objects 2 s, the proof
@@ -6462,3 +6463,135 @@ not known; a module rebuilt while the run started is the suspect. The library re
 skip `stdoptionalref`; the two together 2539 s, peak 5415 MB. All seven gates are GREEN on 0.114 over cocolog 1.8.41.
 
 Reader version 108, lowering version 59; the module rebuilt as 0.114, over cocolog 1.8.41.
+
+## 0.115 — M6's eightieth step
+
+**M6's eightieth step (0.115): all the views in one program, and the parts of std::format and the streams that were
+not tried.** The owner asked for the work recommended after 0.114: first the views together and their fixtures, then
+`std::vformat`, a formatter the program writes, `std::print`, the wide format, the wide streams, `seekg` and `seekp`,
+and `cin >> long double`. Each stop was cut to a reduction, compared with clang++ (libc++ where libstdc++ has no such
+header), fixed and given a fixture.
+
+THE VIEWS. The single views of 0.113 got their fixtures (`viewiota`, `viewreverse`, `viewtransform`, `viewtakewhile`,
+`viewdrop`, `viewtake`, `viewkeys`, `viewchain`). All of them in one program (`viewsall.cpp`, 1627 s) stopped first at
+`auto_result` of the chained `take_view`, then at `!=` of `views::keys`. The defects:
+
+(1) A FUNCTION'S RESULT ROLE LEAKED. `cpp_method_body_` set `'$cpp_ret'` and did not restore it on failure or throw, so
+a later `return 0;` in `main` went through `vector(size_type)`. It is restored on every exit now.
+
+(2) `this` WAS NOT IN SCOPE in the implicit default constructor while its member initializers were built
+(`member_not_constructed('__output_buffer.char', 3)`). `cpp_implicit_ctor_` declares the parameters first now.
+`implicitthis.cpp`.
+
+(3) A PARAMETER WHOSE TEMPLATE PARAMETERS ARE ALL GIVEN EXPLICITLY was still deduced (`deduction_failed(
+basic_format_args)`). `cpp_explicit_skip` leaves it out of the deduction ([temp.deduct.call]/1 as 0.108 has it for a
+non-deduced parameter). `explicitarg.cpp`.
+
+(4) A TYPE REQUIREMENT ATE ITS OWN `typename` (`requires { typename T::key_type; }`), and the read of `<print>` stopped
+at `format_kind`. The rule peeks the word now. Reader version 109. `typereq.cpp`.
+
+(5) A REFERENCE PARAMETER OF A CLASS NEVER CLASHED in the arity-only resort: `iota`'s friend `operator-` took a
+`filter_view`'s iterator, and `filter_view` became a sized range. `cpp_args_no_clash` looks through the reference.
+`friendclash.cpp`.
+
+(6) A PROGRAM'S HIDDEN FRIEND kept the class's own names unresolved (`typedef('It')`): `cpp_friends_resolved` resolves
+its result and parameters in the class. A FRIEND TEMPLATE of a member class template is in the class's words
+(`cpp_friend_tmpl_words`: the short name of the member class template, the class's typedefs, the class's own short
+name), and its body is walked in the class (`'$in_class'`). `cpp_match` names a member class template by its registered
+name. A BARE CALL OF A STATIC MEMBER TEMPLATE passes no object (`cpp_static_bare`): the friend called `cur(i)` with a
+`this` that is not declared. `friendtmpl.cpp`, and `viewkeys.cpp` again.
+
+THE FORMAT AND THE STREAMS. The defects:
+
+(7) A CONVERTING CONSTRUCTOR TEMPLATE over a template-id matched any instance of the template: `cpp_match` lets an
+element that is no parameter pass, so `basic_format_args<wformat_context>` took `__format_arg_store<format_context,
+...>`, and `std::vformat` chose the wide overload. The substituted parameter must be the argument's class now.
+`ctorctx.cpp`.
+
+(8) RAW STRING LITERALS were read by neither lexer. libc++ 18's escaped-string writer writes `R"(\')"`, and the read of
+`<format>` stopped there at C++23 (`std::print`). Both lexers read `R"d(...)d"` and its prefixes `u8`, `L`, `u`, `U`
+in C++ (`ccl_raw_prefix//1`, `ccl_raw_body//4`; `ccl_lx_raw_start`, `ccl_lx_raw`); `test/c/lexer.c` has them, and
+reader check `k84` compares both lexers on them. A raw string that spans lines is read by the lexers; the
+preprocessor's line splitting does not know it. Reader version 110; the module rebuilt.
+
+(9) THE REVERSED `==` CANDIDATE (C++20, [over.match.oper]/3.4.4): `sentinel_for<__nul_terminator, const char *>` asks
+`__nul_terminator == p`, and libc++ writes only `operator==(const _CharT *, __nul_terminator)`. `cpp_rewritten_cmp`
+tries `operator==(y, x)` from C++20, once per pair; `!=` takes a class on either side. `reversedeq.cpp`.
+
+(10) `Loop()(1, 2);` WAS A DECLARATION OF NOTHING: an unnamed declarator with an initializer. The call was dropped, and
+libc++'s `ranges::copy` copied nothing. An init-declarator must name what it declares now ([dcl.decl]/1). Reader
+version 110. `tempcallstmt.cpp`.
+
+(11) THE CALLER'S OBJECT LEAKED INTO AN EMISSION. A member template emitted while a const object's call was chosen was
+walked with `'$cpp_obj_const'` still `const`, so `*__result = *__first` in `__copy_loop::operator() const` found no
+`back_insert_iterator::operator=` and stored a `char` into the iterator. `cpp_isolated` sets the object's constness
+and value category aside. `isolatedobj.cpp` (it fails on the library without the fix).
+
+(12) A C STRUCT REGISTERED AS A CLASS lost its linkage name in the mangler: glibc's `_IO_FILE` is a library class once
+a header load registers it, and `__is_posix_terminal(FILE *)` kept its plain name, an undefined symbol at the link of
+every `std::print`. A tag indexed under `c` (an `extern "C"` scope) is a C struct to the mangler (`cpp_ita_c_tag`).
+`stdprint.cpp`.
+
+(13) THE WIDE FORMAT took the narrow overload by three loose tests: a constructor template converted any argument
+(`cpp_converting/2` now deduces its parameter and checks its constraints, `cpp_ctor_tmpl_takes`); `is_convertible`
+asked `cpp_converting/1`, which ignores the source type (it asks `cpp_converting/2` with the source now); and a
+pointer to one arithmetic type converted to a pointer to another (`cpp_arith_pointee_differs`). `wideformat.cpp`.
+
+(14) A WIDE LITERAL IN A CONSTANT: the evaluator reads `L"..."`, `u"..."` and `U"..."` as their code units and
+`wcslen` over them, and a pointer into such a cell spells back as the literal; the lowering spells it in a global's
+constant (`ir_wide_lit`). `__bool_strings<wchar_t>::__true` was an undefined symbol. Lowering version 60. `widesv.cpp`.
+
+(15) A STATIC DATA MEMBER OF A LIBRARY CLASS TYPE in the program's class was declared under its written type, a struct
+with no class registered, and `Words::yes.size()` stayed a raw member call. `cpp_declare_statics` resolves the type
+through the template road for the program's classes (for every class it took std::format past 3.5 GB).
+`staticsv.cpp`.
+
+What runs now, with its fixture: `std::vformat`, `std::make_format_args`, `std::formatted_size` and
+`std::format_to_n` (`stdvformat`); a `std::formatter` the program specializes (`stdformatter`); `std::print` and
+`std::println` at C++23 (`stdprint`); `std::format(L"...")` (`stdwformat`); `std::wcout`, `std::wostringstream` and
+`std::wistringstream` (`stdwstream`); `seekg`, `tellg`, `seekp` and `tellp` on `istringstream` and `ostringstream`
+(`stdseek`); `cin >> long double` and the fail state after it (`stdcinld`). `std::stringstream` does not build:
+`basic_iostream` is libc++'s own diamond, and the base-variant constructors and destructors (C2, D2) of library
+classes are not made.
+
+THE GATES ON 0.115, over cocolog 1.8.41 (`test/gates.sh`, four lanes): reader GREEN in 11 s, compile 23 s, driver 11 s,
+objects 3 s, the proof 0 s. The library read GREEN in 2211 s, every header cold at reader 110 (23 asserted reads, 39 other
+headers warmed, `<print>` among them, 0 failed). The C++ gate GREEN in 3283 s: 384 checks ok, 328 of 329 fixtures (the
+one skip is `stdoptionalref`, which needs libc++ 21). The slowest fixture is `viewsall` (1759 s in the pool); the new
+format and stream fixtures take 199 s to 421 s. All seven gates are GREEN on 0.115.
+
+Reader version 110, lowering version 60; the module rebuilt as 0.115, over cocolog 1.8.41.
+
+## 0.116 — the rename
+
+**The rename (0.116): cocolang is cicilang.** The owner renamed the repository from `cocolang` to `cicilang` and asked
+for every `cocolang` in the tree to follow. Both names have eight letters, so no string length moved (`proof/forty2.ll`
+keeps its `[19 x i8]`).
+
+What changed: the files `bin/cicilang`, `bin/cicilang++`, `module/cicilang.cicili` and `bench/btree/btree_cicilang.c`
+(`git mv`); the library `library(cicilang)` and `library/cicilang.so` (the module's `coco-deflibrary` name and its
+`(source "cicilang.c")`); the four doors `cicilang_ast/2,3`, `cicilang_ir/2`, `cicilang_compile/3` and
+`cicilang_link/3`; the variables `CICILANG_KB`, `_INCLUDE`, `_LANG` and `_ME`; the user's cache `~/.cicilang`; the answer
+lines `cicilang: ok` and `cicilang: N error(s)` and the filter in `bin/cicilang` that keeps them; the header guards
+`_CICILANG_<NAME>_H`; the temporary names of the gates; the push URL; and the words in the documents, this record
+included. What stays: `cocolog` and the SDK's `coco_*` names (the neighbour's), the `ccl_` prefix, and `.cicili`,
+`sdk.cicili` and `$CICILI`.
+
+The cache was moved by hand (`mv ~/.cocolang ~/.cicilang`); the reader and lowering versions did not move, so the
+summaries and the store stay valid. A user who keeps the old directory gets a cold cache.
+
+GATES, all seven GREEN on 0.116, over cocolog 1.8.41: the reader 95 ok (2 skips: Cicili's two example files are not
+here); the compile gate 101 ok (58 run, 43 refused), 13 s; the driver gate 26 ok, 7 s; the objects gate 29 ok, 3 s; the
+proof exit 42; the library read GREEN in 1558 s (peak 1703 MB), cold, because the edited `library/include` headers
+changed their times; the C++ gate GREEN in 2542 s (peak 4593 MB), 384 checks ok, one skip (`stdoptionalref`, which needs
+libc++ 21). The commit b527c80 was made before they finished.
+
+THE FIRST COMPILE-GATE RUN WAS RED, and it was the store. The gate ran over the user's store at `~/.cicilang/KB`, which
+the earlier runs had written, and it grew to the 7000 MB cap and then to 9000 MB without an answer; three runs. Each of
+the 101 fixtures built alone through `bin/cicilang` in under 5 s; the commit before the rename (a worktree at 3332f98,
+built) went GREEN in 16 s over a fresh store, and so did this tree (17 s, 174 MB). The store was removed
+(`rm -rf ~/.cicilang/KB ~/.cicilang/KB.version`, the repair CLAUDE.md names) and the gate went GREEN in 13 s. The cause
+of the damage is not found: the store had been copied by `mv` from `~/.cocolang`, and a watchdog and a `pkill` had
+killed cocolog runs over it before. Named, not fixed. After a rename that moves the store, remove it too.
+
+Reader version 110, lowering version 60; the module rebuilt as 0.116.

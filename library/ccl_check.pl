@@ -1,5 +1,5 @@
-%% cocolang -- library(ccl_check): the safe part. The ownership check,
-%% run by cocolang_ir/2 before anything is lowered.
+%% cicilang -- library(ccl_check): the safe part. The ownership check,
+%% run by cicilang_ir/2 before anything is lowered.
 %%
 %% An OWNER is a pointer declared with the qualifier `own' -- a local, a
 %% parameter (the callee owns what it is given), or a FIELD of a struct held

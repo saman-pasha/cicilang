@@ -1,21 +1,21 @@
 #!/bin/sh
-# The driver's gate: bin/cocolang with clang's arguments. GREEN or RED.
+# The driver's gate: bin/cicilang with clang's arguments. GREEN or RED.
 #
 #   sh test/driver.sh
 HERE=$(cd "$(dirname "$0")" && pwd)
 . "$HERE/config.sh"
 [ -x "$C" ] || { echo "SKIP (no cocolog binary at $C -- set COCOLOG)"; exit 0; }
-[ -f "$ROOT/library/cocolang.so" ] || { echo "SKIP (no library/cocolang.so -- sh module/build.sh)"; exit 0; }
-D=$(mktemp -d "${TMPDIR:-/tmp}/cocolang-driver-XXXXXX")
+[ -f "$ROOT/library/cicilang.so" ] || { echo "SKIP (no library/cicilang.so -- sh module/build.sh)"; exit 0; }
+D=$(mktemp -d "${TMPDIR:-/tmp}/cicilang-driver-XXXXXX")
 trap 'rm -rf "$D"' EXIT
 failures=0
 check() { if [ "$2" = "$3" ]; then printf 'ok   %-56s %s\n' "$1" "$(echo "$2" | head -1 | cut -c1-40)"; else printf 'FAIL %-56s\n     got  %s\n     want %s\n' "$1" "$2" "$3"; failures=$((failures + 1)); fi; }
 cd "$D"    # the store is the user's, from test/config.sh
-CICILI="$ROOT/bin/cocolang"; R="$ROOT/test/c"
+CICILI="$ROOT/bin/cicilang"; R="$ROOT/test/c"
 
-check "--version names cocolang, its version, cocolog's and LLVM's" "$("$CICILI" --version | sed 's/^cocolang 0\.[0-9][0-9]* (cocolog [0-9][0-9.]*; LLVM [0-9.]*)$/shape ok/')" "shape ok"
+check "--version names cicilang, its version, cocolog's and LLVM's" "$("$CICILI" --version | sed 's/^cicilang 0\.[0-9][0-9]* (cocolog [0-9][0-9.]*; LLVM [0-9.]*)$/shape ok/')" "shape ok"
 s0=$(date +%s); first=$("$CICILI" "$R/run/hello.c" -o hello && ./hello); t_first=$(( $(date +%s) - s0 ))
-check "cocolang hello.c -o hello: a binary that runs" "$first" "hello, cocolang"
+check "cicilang hello.c -o hello: a binary that runs" "$first" "hello, cicilang"
 check "and with no -o, a.out, as clang" "$("$CICILI" "$R/run/forty2.c"; ./a.out; echo "exit $?")" "exit 42"
 check "-c makes NAME.o in the working directory" "$("$CICILI" -c "$R/run/forty2.c" && ls forty2.o)" "forty2.o"
 case $(uname -s) in Darwin) MAIN='^_main:'; SO=dylib; SOTEXT='dynamically linked shared library' ;; *) MAIN='^main:'; SO=so; SOTEXT='shared object' ;; esac   # Mach-O prefixes a C name with `_'; ELF does not
@@ -59,8 +59,8 @@ check "-D and -U define and undefine before every file, <assert.h>'s NDEBUG amon
 49 3
 after"
 check "-ast-dump prints the unit" "$("$CICILI" -ast-dump "$R/run/forty2.c" | grep -c '^unit(\[function(')" "1"
-check "an unknown argument is an error, as clang says it" "$("$CICILI" --frobnicate x.c 2>&1)" "cocolang: error: unknown argument: '--frobnicate'"
-check "no input files is an error" "$("$CICILI" -c 2>&1)" "cocolang: error: no input files"
+check "an unknown argument is an error, as clang says it" "$("$CICILI" --frobnicate x.c 2>&1)" "cicilang: error: unknown argument: '--frobnicate'"
+check "no input files is an error" "$("$CICILI" -c 2>&1)" "cicilang: error: no input files"
 check "the tie: a broken tie is refused in clang's shape" "$("$CICILI" -fsyntax-only "$R/safe/tie_arg.c" 2>&1 | head -1 | sed "s|$R/||")" "safe/tie_arg.c:4: error: value not within its tie: 'b' in call(id(gap),[id(a),id(b)]) (function main)"
 check "a slot with no owner behind it is refused, in clang's shape" "$(printf '#include <stdlib.h>\nstruct s { char *q; } g;\nint main(void) { char *p = malloc(8); g.q = malloc(8); free(p); return 0; }\n' > untied.c; "$CICILI" -fsyntax-only untied.c 2>&1 | head -1)" "untied.c:3: error: no owner behind: 'g.q' in assign(=,member(id(g),q),call(id(malloc),[int(8)])) (function main)"
 check "a plain pointer never consumed is refused; one freed is not" "$(printf '#include <stdlib.h>\nint main(void) { char *p = malloc(8); char *r = malloc(8); free(p); return 0; }\n' > loose.c; "$CICILI" -fsyntax-only loose.c 2>&1 | head -1)" "loose.c:2: error: plain pointer not consumed: 'r' in return(int(0)) (function main)"

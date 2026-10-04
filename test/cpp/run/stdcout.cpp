@@ -5,7 +5,7 @@
 // compiler's to speak to the standard library's runtime.
 #include <iostream>
 int main() {
-  std::cout << "hello, cocolang++\n";
+  std::cout << "hello, cicilang++\n";
   std::cout << "one " << "two\n";
   return 0;
 }

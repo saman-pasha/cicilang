@@ -1,10 +1,10 @@
-%% cocolang -- the C++ reader's gate (M5, cocolang++), as a cocolog program:
+%% cicilang -- the C++ reader's gate (M5, cicilang++), as a cocolog program:
 %% one process over the C++ knowledge base, every check a goal over the AST of
 %% a sample in test/cpp/. Run by test/cpp.sh, which adds the command's checks.
 %%
 %%   CCL_TEST_ROOT=<this repo> cocolog --embed <the store> query "ensure_loaded('test/cpp.pl'), cpp_main"
 
-:- use_module(library(cocolang)).
+:- use_module(library(cicilang)).
 :- use_module(library(os)).
 :- use_module(library(process)).
 
@@ -12,7 +12,7 @@ cpp_main :-
     setup,
     c_checks, c_real,
     nb_getval('$t_fails', N),
-    ( N =:= 0 -> write('GREEN: cocolang++ (one process)') ; write('RED: '), write(N), write(' failure(s)') ), nl.
+    ( N =:= 0 -> write('GREEN: cicilang++ (one process)') ; write('RED: '), write(N), write(' failure(s)') ), nl.
 
 setup :-
     nb_setval('$t_fails', 0), nb_setval('$t_err', none),
@@ -30,7 +30,7 @@ c(Name, Path) :- nb_getval('$t_cdir', C), atom_concat(C, Name, Path).
 unit(Name, U) :-
     c(Name, P), atom_concat('$t_unit:', P, K),
     (   once(catch(nb_getval(K, U0), _, fail)) -> U = U0
-    ;   cocolang_ast(P, U0), nb_setval(K, U0), U = U0 ).
+    ;   cicilang_ast(P, U0), nb_setval(K, U0), U = U0 ).
 fn_body(Name, F, B) :- unit(Name, unit(Is)), member(function(_, _, _, F, _, _, block(B)), Is).
 %% a fixture read at a language level (-std=c++NN): the level set for the read, 17 again after
 unit_at(Std, Name, U) :- nb_setval('$ccl_std', Std), ( unit(Name, U) -> nb_setval('$ccl_std', 17) ; nb_setval('$ccl_std', 17), fail ).
@@ -242,5 +242,5 @@ c_real :-
 real_file(Cicili, Rel) :-
     atomic_list_concat([Cicili, '/', Rel], P),
     (   exists_file(P)
-    ->  check(Rel, ( cocolang_ast(P, unit(_), Rest), ( Rest == [] -> true ; Rest = [tok(_, _, L)|_], ccl_farthest(F), write('     stopped at '), write(L), write(' near '), write(F), nl, fail ) ))
+    ->  check(Rel, ( cicilang_ast(P, unit(_), Rest), ( Rest == [] -> true ; Rest = [tok(_, _, L)|_], ccl_farthest(F), write('     stopped at '), write(L), write(' near '), write(F), nl, fail ) ))
     ;   write('SKIP '), write(Rel), write(' (not here)'), nl ).
