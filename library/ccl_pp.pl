@@ -631,12 +631,21 @@ pp_builtin_answer('__has_c_attribute', Args, V) :- ccl_lang(c), !, ( pp_attr_nam
 pp_builtin_answer('__has_extension', [tok(_, c_atomic, _)], 1) :- !.
 pp_builtin_answer('__has_extension', [tok(_, datasizeof, _)], 1) :- !.
 pp_builtin_answer('__is_identifier', _, 1) :- !.
+pp_builtin_answer('__has_builtin', [tok(_, B, _)], 0) :- pp_no_builtin(B), !.        % A BUILTIN THIS COMPILER DOES NOT PROVIDE answers 0, and libc++ takes the branch it writes for a compiler without it (0.126)
 pp_builtin_answer('__has_builtin', _, 1) :- !.                                    % LLVM's builtins are there (libc++'s other branch is an #error)
 pp_builtin_answer('__is_target_arch', [tok(_, A, _)], V) :- !, pp_arch(Arch), ( A == Arch -> V = 1 ; V = 0 ).
 pp_builtin_answer('__is_target_vendor', [tok(_, V0, _)], V) :- !, pp_os(O), ( O == darwin, V0 == apple -> V = 1 ; O == linux, V0 == pc -> V = 1 ; V = 0 ).
 pp_builtin_answer('__is_target_environment', [tok(_, E, _)], V) :- !, pp_os(O), ( O == linux, E == gnu -> V = 1 ; V = 0 ).
 pp_builtin_answer('__is_target_os', [tok(_, OS, _)], V) :- !, pp_os(O), ( O == darwin, memberchk(OS, [macos, darwin, macosx]) -> V = 1 ; O == linux, OS == linux -> V = 1 ; V = 0 ).
 pp_builtin_answer(_, _, 0).                                                       % features, attributes, warnings, modules: the plainest path
+%% THE BUILTINS LIBC++ HAS A FALLBACK FOR AND THIS COMPILER DOES NOT PROVIDE (0.126). Every other `__has_builtin' is 1 (the
+%% lowering and the desugaring answer them, and libc++'s other branch is often an #error). libc++ 21 writes
+%% `common_type' on clang's template `__builtin_common_type<__common_type_t, __type_identity, __empty, _Args...>' where it
+%% is there, and on the `decltype(true ? declval<_Tp>() : declval<_Up>())' specializations of libc++ 18 where it is not:
+%% the second is the one this desugaring runs: clang's template has no body here, and `common_type_t<_Tp, _Up>' refused
+%% `template_without_body' -- `std::accumulate' and the rest of <numeric>, the comparisons of `unique_ptr', the `std::atomic'
+%% operations of C++20 and the visitation table of `std::variant' (stdnumeric, stdptrcmp, stdatomic20, stdvariant).
+pp_no_builtin('__builtin_common_type').
 pp_attr_name([tok(_, N0, _)], N) :- pp_attr_plain(N0, N).
 pp_attr_name([tok(_, S0, _), tok(p, ':', _), tok(p, ':', _), tok(_, N0, _)], scoped(S, N)) :- pp_attr_plain(S0, S), pp_attr_plain(N0, N).   % `::' is two colons to C's lexer
 pp_attr_name([tok(_, S0, _), tok(p, '::', _), tok(_, N0, _)], scoped(S, N)) :- pp_attr_plain(S0, S), pp_attr_plain(N0, N).

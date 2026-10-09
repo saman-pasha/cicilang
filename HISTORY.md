@@ -7444,3 +7444,89 @@ pointers took the overload `mismatch(I1, I1, I2, BinaryPredicate)` and called a 
 `lexicographical_compare` of pointers calls it, so `stdalgorithm3`, `stdarray` and others failed. The cause: the comparison of two function templates deduced each
 way, since a parameter that stands twice (`I2, I2`) bound at its first occurrence and the second went unseen. Fixtures `partialorder2.cpp`, `mismatch4.cpp`.
 
+
+
+## 0.126 — libc++ 21: the failures that were left
+
+**0.126: libc++ 21 on Linux, the failures that were left.** Gated on one tree: the seven gates GREEN over libc++ 18, and the library read and the C++ gate GREEN over libc++ 21 (the numbers are at the end). The box has libc++ 18, 21 and 22 side by side (`LLVM=/usr/lib/llvm-NN` chooses the tree
+that is read and linked); 0.123 to 0.125 ran the fixtures over 21 and left a list. Each failure was cut down to a reduction of ten to forty lines, built with
+clang++ and with cicilang and compared line by line, then given its rule in `CLAUDE.md` and a fixture; a negative control, the rule reverted in a scratch copy of
+the library, showed that each fixture earns its line. In the order the program met them:
+
+(1) `__has_builtin(__builtin_common_type)` answers 0 (`pp_no_builtin/1`, reader 118): libc++ 21 then flattens `common_type` on its own specializations, as libc++ 18
+does, and not on clang's builtin class template (`stdnumeric`, `stdptrcmp`, `stdatomic20`). Fixture `commontype.cpp`.
+(2) `std::addressof(f)` of a FUNCTION: `T &` and `const T &` given a function deduce the function type ([temp.deduct.call]/2), not a pointer to it; libc++ 21's
+`std::thread` hands `std::addressof(__thread_proxy<_Gp>)` to `__libcpp_thread_create`, and every thread program failed at the link. `addressfn.cpp`.
+(3) The constant evaluator folds `__builtin_clz*`, `ctz*` and `popcount*` over an argument it holds (libc++ 21's `__countl_zero` is `__builtin_clzg(__t, digits)` of a
+parameter, so `stable_sort`'s radix size stayed an unfolded static and an undefined symbol), and keeps a pointer through a named cast
+(`reinterpret_cast<const char *>(__str)` in `__constexpr_strlen`: `std::string_view s{"true"}` of a constant did not fold, `constsv`, `staticsv`). `bitcount.cpp`,
+`strlencast.cpp`.
+(4) An enum's underlying type named through an ALIAS TEMPLATE-id (`using __memory_order_underlying_t = __underlying_type_t<__legacy_memory_order>;`) is settled as a
+dependent typedef is (`stdatomic20`).
+(5) A free OPERATOR template's declaration is registered and indexed as its definition is, and lends its default (`template <class _Tp, __enable_if_t<...> = 0>
+complex<_Tp> operator*(...);` declared, defined later without the `= 0`): `a * b` of two `complex<double>` had no operator (reader 119). `enabledecl.cpp`. And a
+template parameter that two function parameters deduce deduces ONE type: the second occurrence had been unseen, and a converting constructor then rescued
+`operator*(const _Tp &, const complex<_Tp> &)` over two complexes with `_Tp = complex<double>`. `deduceagree.cpp`.
+(6) A pointer to a data member of a PLAIN struct (`&Pt::x`), and `__builtin_invoke` of one on an object, a `const` object, an rvalue and a pointer
+(`std::invoke(&Pt::x, p)`, `is_invocable`, `invoke_result`). `invokedata.cpp`.
+(7) The poison pills: libc++ 21 writes `void iter_move() = delete;` where libc++ 18 wrote `void iter_move();`, and a deleted nullary function was not indexed, so the
+unqualified call in `__unqualified_iter_move` went to the object `ranges::iter_move`, whose `operator()` asks the same concept: an endless recursion at the first
+`std::reverse_iterator` of C++20 and in every `std::print` (reader 120). `reverseiter.cpp`.
+(8) A requires-expression's own parameter pack expands with the bindings as a function's does (`cpp_subst` on `requires_expr`). Its parameters had become `__args$1`,
+`__args$2` while the requirement kept `__args`, found nowhere, so the variable of that name in `__try_constant_folding(..., basic_format_args __args)` was found, and
+`invocable<equal_to &, char &, char &>` was unmet in every `std::format` and `std::print`. `reqpack.cpp`.
+(9) A static member function named BARE as a value is its thunk (`fn = prep;`, `Buf{16, prep}`); several static functions of the name wait for the target that
+chooses ([over.over]), and a non-static member of the name is no candidate: libc++ 21's `__allocating_buffer` has a member `__prepare_write(size_t)` beside the
+static `__prepare_write(__output_buffer &, size_t)`. `staticfnval.cpp`.
+(10) A qualified enumerator is the value ITS OWN ENUM gives it. The enumerators' table is keyed by the bare name, so `B::X` beside `A::X` printed A::X's value, and
+a `case state::Consonant:` naming an enum nested in the class being walked reached the lowering raw -- libc++ 21's grapheme-cluster rules, `std::print` and
+`std::format` of a string. A silent wrong answer in the program's own code since the first enum class; found by the library. `enumscope.cpp`.
+(11) A plain struct or union member initialized by parentheses from a value of another type is aggregate initialization (C++20): libc++ 21's `basic_string() :
+__rep_(__short())` was assigned as `sext %struct.__short to %struct.__rep` and LLVM refused it in every `std::string` of a `-std=c++20` program. `unionparen.cpp`.
+
+(12) libc++ 18's `__invoke` for a data member, found by `invokedata.cpp` (itself written for (6)): a plain struct is its own base to `__is_base_of`
+(`std::invoke(&Pt::x, p)` took the pointer overload), `*e` of an arithmetic value is refused by name (`deref_of_arithmetic`: the detection of `__invoke`'s
+dereference overloads read `*int` as an lvalue), `x.*pm` carries the object's const and its xvalue (`cpp_memptr_qualify`, so `invoke_result_t<int Pt::*, const Pt &>` is
+`const int &` and the one over `Pt &&` an `int &&`), and a pointer operand that is a reference to a pointer is read through in the lowering (`*static_cast<A0 &&>(a0)`:
+`ir_ptr_operand`).
+(13) The views of libc++ 21 (`viewdrop`, `viewkeys`, `viewreverse`, `viewtake`, `viewtakewhile`, `viewtransform`, `viewchain`, `stdviews`, `viewsall` -- nine
+fixtures that had failed since the first run over 21): `__pipeable<_Fn> : _Fn, __range_adaptor_closure<__pipeable<_Fn>>` is asked for `ranges::
+__derived_from_range_adaptor_closure(__range_adaptor_closure<_Tp> *)`, and a LATER EMPTY base is a base to the template-id deduction and to `cpp_class_fits`
+(`'$cpp_extra'`: no sub-object, no slot, [temp.deduct.call]/4.3); and `struct __fn : __range_adaptor_closure<__fn>` of a header asks `requires is_class_v<_Tp>` of its
+CRTP base while `__fn` is registering, so a header's plain class being loaded is a class to `__is_class` (`cpp_class_in_progress`). Fixture `crtpclass.cpp` (the
+first; the second is the views' own).
+(14) `stdvformat` (`formatted_size`, `format_to_n`): two rules, found one under the other. (a) `std::addressof(__max_output_size_)` in the base initializer of
+libc++ 21's `__formatted_size_buffer` was typed `_Tp *` by the summary's signature and `_Tp` is a KNOWN name -- libc++'s `__format_char` opens with `using _Tp =
+decltype(__value);` and a typedef in a block joins the unit's one table -- so the argument came out `int *` and fitted no constructor: the type of a call of a function
+template that names the template's own parameter is raw (`cpp_callee_param_type/2`; `rawparam.cpp`, a program with a block typedef `_Tp` and `std::addressof` in a base's
+initializer). (b) With `<string>` read before `<format>`, `back_inserter` stood TWICE under its name (each header's summary holds the file): the first candidate's check
+refused and left `back_insert_iterator<void>` half made -- its name recorded, no struct made -- and the second was answered the name, held, and emitted a constructor of
+a class that was never made (`typedef(back_insert_iterator.void)` at the lowering). One function template declared by two summaries is one candidate
+(`cpp_dedupe_candidates/2`: alike in head, storage, result, parameters and body once the line of each statement is set aside). Two ways of mending (b) at its root
+were tried first and are not in the tree: a registration that refuses FORGETS its name (a second ask refuses again), which broke `viewchain` and `viewsall` -- the
+views at libc++ 21 lean on the name being answered after a refusal, a refusal of the not-yet-mended trailing-`decltype` SFINAE of `std::size` -- and a library member
+whose `auto` result does not deduce left undeclared. `formatton.cpp` (C++20, libc++ 21 only), `stdvformat.cpp`; negative controls for both rules: the rule reverted in a
+scratch copy of the library, two different refusals.
+(15) `stringcmp20` (`std::three_way_comparable<std::vector<int>>` was false): libc++ 21's vector `<=>` is `__synth_three_way_result<_Tp>` over the lambda
+`[]<class _Tp, class _Up>(const _Tp &, const _Up &)`, and the tables carry `_Up` as a block typedef of another function (`using _Up =
+__libcpp_remove_reference_t<_Tp>;`), which `cpp_type` resolved in the lambda's second parameter: `const _Tp &`, `_Up` undeducible. A generic lambda's parameters that
+name its own template parameters stay as written where the tables know the name (`cpp_lambda_params/3`). `lambdatparam.cpp` (C++20), a program of its own.
+
+Found and not fixed (they are in "Not done"): a comparison, `!`, `&&` and `||` are an `int` in C++ (`decltype(x < y)`, `sizeof(auto b = x < y)`, `boolalpha`, the
+overload on `bool`); the block-typedef leak behind (14a) and (15) is worked round where it bit, not scoped.
+
+Fixtures added: `addressfn`, `bitcount`, `commontype`, `deduceagree`, `enabledecl`, `enumscope`, `invokedata`, `memptrqual` (C++20), `reqpack` (C++20), `reverseiter`
+(C++20), `staticfnval`, `strlencast`, `unionparen` (C++20), `crtpclass` (C++20), `formatton` (C++20), `lambdatparam` (C++20), `rawparam`: 17 in all, 425 in the
+directory. The 0.123 fixture `stdoptionalref` is skipped below libc++ 22 (`__cpp_lib_optional >= 202506L`).
+
+**The numbers.** One tree (`snapY`: its `library/`, `test/`, `module/`, `bin/` and `proof/` are the commit's, byte for byte), cocolog 1.9.1, fresh HOMEs. Over
+libc++ 18 (`LLVM=/usr/lib/llvm-18`): the reader gate GREEN in 5 s, compile in 9 s, driver in 7 s, objects in 2 s, the proof; the library read GREEN in 771 s (62 other
+headers warmed, none failed to flatten; peak 1045 MB); the C++ gate GREEN in 836 s (peak 1516 MB): 424 of 425 fixtures ok, the 14 refusals, 1 skipped
+(`stdoptionalref`, `__cpp_lib_optional >= 202506L`, which libc++ 21.1.8 does not meet). Over libc++ 21 (`LLVM=/usr/lib/llvm-21`, the C gates do not read libc++): the library
+read GREEN in 750 s (peak 1039 MB), the C++ gate GREEN in 667 s (peak 1540 MB), 424 of 425, the same skip. Before the chains, a net of the fixtures that reach the rules
+everything walks -- overloads, deduction, containers, streams, lambdas, the library's detections: 77 over libc++ 18, 95 over libc++ 21 with the views, the format
+family and the new fixtures -- ran SAME. It is the net that showed the first mending of (14b) wrong: 93 of 95 over libc++ 21, `viewchain` and `viewsall` RED, until the
+mending was taken out and the candidates de-duplicated instead (77 of 77 and 95 of 95, then the chains above).
+
+Reader version 120, lowering version 67; the module rebuilt as 0.126, over cocolog 1.9.1.
+

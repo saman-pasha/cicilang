@@ -59,7 +59,8 @@ record of every step.
   `std::bind`, `<algorithm>`, `std::cout`, `std::cin`, `std::getline`,
   `std::stringstream`, `std::fstream`, `std::bitset`, `std::complex`,
   `std::span`, `std::byte` and the manipulators all compile from libc++'s
-  own bodies and run, on macOS (libc++ 21) and on Linux (libc++ 18).
+  own bodies and run, on Linux with libc++ 18 and with libc++ 21 (the gates run both, `LLVM=/usr/lib/llvm-18` and
+  `LLVM=/usr/lib/llvm-21` choose the tree) and, as of 0.90, on macOS (libc++ 21).
 * **The safe part.** `own` pointers are linear and `move` hands them on. A
   borrow dangles when its owner is consumed and may not escape. A struct's
   own fields are owners that go with it. A plain pointer parameter is a
@@ -262,7 +263,9 @@ flattens as clang would flatten it for that level. The compiler runs no
 exceptions, no RTTI and no vector extensions inside libc++, which compiles
 its own configuration for that (`-fno-exceptions -fno-rtti`); the program's
 own `throw`, `try`, `typeid` and `dynamic_cast` run over libc++abi, which
-`-lc++` links.
+`-lc++` links. Where several libc++ are installed side by side (Debian's and
+Ubuntu's `/usr/lib/llvm-18` and `/usr/lib/llvm-21`, say), `$LLVM` names the tree
+whose headers are read and whose library is linked; without it the newest is read.
 
 Every C++ form is a rewrite to the C the check and the lowering have
 (`library/ccl_cpp.pl`): a class a struct with its methods over `this`, a
