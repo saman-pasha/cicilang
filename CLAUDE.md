@@ -10,8 +10,8 @@ it found, its measurements and its gate numbers. `README.md` tells a user what r
 architecture and the milestones. A step that changes a rule edits the rule here, in its topic, and writes its entry
 in `HISTORY.md`.
 
-At 0.122 the versions are: the module 0.122 (`ccl_p_version` in `module/cicilang.cicili`, `bin/cicilang --version`),
-the reader 115 (`ccl_reader_version/1`, `library/ccl_syntax.pl`) and the lowering 64 (`ccl_lowering_version/1`,
+At 0.123 the versions are: the module 0.123 (`ccl_p_version` in `module/cicilang.cicili`, `bin/cicilang --version`),
+the reader 116 (`ccl_reader_version/1`, `library/ccl_syntax.pl`) and the lowering 65 (`ccl_lowering_version/1`,
 `library/ccl_ir.pl`).
 
 Build and prove, always in this order (or all of it, `sh test/gates.sh`):
@@ -5602,14 +5602,6 @@ A lambda is a class of its captures (`library/ccl_cpp.pl`). A fixture named alon
   program's instances (a library template's instance is lazy, 0.52). A member that nothing calls and that names what the
   argument lacks is refused (`D<Q>::sum()` with `this->x` over a `Q` without `x`: `no_member`), where C++ instantiates a
   member only where it is used ([temp.inst]/3). Found by `baseparam.cpp`'s reduction (0.117).
-- A member initializer from a prvalue of the member's own class, `H() : m_(S(5)) {}`, still moves the temporary into
-  the member: C++17 constructs it in place ([class.copy.elision]/1, [dcl.init]/17.6.1). The aggregate form
-  `Wrap<S>{S(9)}` elides since 0.121; the constructor road (`cpp_member_inits`) does not. A program that counts its
-  moves prints one more than clang++ does (0.121 probe `mv2`: `ctor`, `move`; clang++ prints `ctor`).
-- An overload set on `const S &` and `S &&` over a PLAIN struct (no constructor, destructor or owner) chooses the
-  first declared for a prvalue and for `std::move(s)`: the move of such a value is the value (`cpp_expr(move(X))`,
-  0.83), and the two candidates tie. A class takes the rvalue overload. `f(S{2})`, `f(std::move(s))` and `f(s)` print
-  `copy copy copy` where clang++ prints `move move copy` (0.121 probe `mv1`).
 - A namespace-scope `using` declaration does nothing, since namespaces flatten. A using-directive's scope is not
   modelled, so `std::rel_ops` is left out of the index (`ccl_flat_items_`) (0.44, 0.112).
 - An unfolded call or class static as a template VALUE argument keys its instance by its spelling (`targ_raw`). A

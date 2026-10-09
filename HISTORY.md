@@ -7410,3 +7410,22 @@ Reader version 115, lowering version 64; the module rebuilt as 0.121, over cocol
 ## 0.122 — the numbers of 0.121
 
 A save point: the gate numbers of 0.121 (above) and the last-run note in `CLAUDE.md`. No code changed; the module version moved to 0.122.
+
+## 0.123 — the leftovers of 0.121, and libc++ 21 begun
+
+**0.123: a member built from a prvalue in place, the move of a plain struct, libc++ 21 and 22 side by side.** Committed while the
+gates run (a chain over libc++ 18 on a snapshot of this tree; nothing is claimed GREEN yet; the next commit carries the numbers).
+
+(1) `H() : m_(S(5)) {}` is `m_(5)` (`cpp_member_inits`): the S is constructed once, in the member; the 0.121 probe `mv2` printed `ctor`, `move`,
+and clang++ `ctor`. Fixture `memberinplace.cpp` (a struct that counts, a `std::function`, a list, a map, a string member).
+(2) `f(const S &)` beside `f(S &&)` over a PLAIN struct (probe `mv1`): `std::move(s)` of a plain struct is `static_cast<S &&>(s)`
+(`cpp_plain_xvalue`), the exact-match road takes an rvalue reference for an rvalue argument and no rvalue reference for an lvalue
+(`cpp_fn_exact`, `cpp_prefer_rvalue`, `cpp_category_mismatch`), and a return reads a reference value through (`ir_stmt(return)`). Found on the
+way, and a defect since 0.45: `std::vector<S>::push_back(const S &)` of a plain struct stored a struct into an int (`cpp_same_record`
+took a `const S` for another type than `S` and the argument, a call, had none). Fixture `moveplain.cpp`.
+(3) libc++ 21: the box has 18 (`/usr/lib/llvm-18`), 21 (`libc++-21-dev` from apt.llvm.org) and 22 (unpacked) side by side, chosen by
+`$LLVM`; the link names the chosen tree's library (`-L<root>/lib -Wl,-rpath`, `ccl_link_libs`). Reader 116: a variable template names
+itself in its own initializer (`__static_gcd`), and a value-initialized plain struct or union is zero (`__rep_ = __rep();`). `<string>`
+reads whole and `stdstring.cpp` runs at 21. libc++ 21.1.8 has NO `optional<T &>`: it came with libc++ 22 (`__cpp_lib_optional >= 202506L`),
+and `stdoptionalref.cpp` passes at 22; its `.needs` is that macro now.
+

@@ -1,0 +1,25 @@
+copy 1
+move 1
+move 2
+move 3
+lref 1
+rref 1
+rref 4
+value 1
+value 1
+value 5
+copy 6
+copy 6
+u 1
+w 7
+copy 1
+move 1
+move 8
+box copy 1
+box move 1
+box move 9
+kc 1
+kc 1
+kc 3
+3
+exit 0

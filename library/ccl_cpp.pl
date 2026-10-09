@@ -464,7 +464,14 @@ cpp_fn_overloaded(F) :- atom(F), atomic_list_concat([op, _, K], '.', F), atom_nu
 cpp_fn_overloaded(F) :- '$cpp_fn'(F, K1, _, yes, _), '$cpp_fn'(F, K2, _, yes, _), K1 \== K2, !.
 %% the overload an argument list names: one whose parameters take it EXACTLY (C++ prefers such a non-template
 %% to any template), else the one whose parameters fit best (cpp_pick, the methods')
-cpp_fn_exact(F, As, Ps, D) :- cpp_fn_ready(F), length(As, N), '$cpp_fn'(F, _, Ps, _, _), length(Ps, N), cpp_exact_params(Ps, As), !, cpp_fn_defined(F, Ps, D).
+cpp_fn_exact(F, As, Ps, D) :- cpp_fn_ready(F), length(As, N),
+    findall(Ps0, ( '$cpp_fn'(F, _, Ps0, _, _), length(Ps0, N), cpp_exact_params(Ps0, As) ), Cs), Cs = [C1|Cs1],   % AMONG THE EXACT OVERLOADS an rvalue argument takes the `T &&' one (0.122; [over.ics.rank]/3.2.3): `f(const S &)' beside `f(S &&)' for `f(S{2})' and `f(std::move(s))' -- the first declared won
+    cpp_prefer_rvalue(Cs1, C1, As, Ps), cpp_fn_defined(F, Ps, D), !.
+cpp_prefer_rvalue([], Best, _, Best).
+cpp_prefer_rvalue([C|Cs], Best, As, Out) :- ( cpp_rvalue_binds(C, As, K1), cpp_rvalue_binds(Best, As, K0), K1 > K0 -> cpp_prefer_rvalue(Cs, C, As, Out) ; cpp_prefer_rvalue(Cs, Best, As, Out) ).
+cpp_rvalue_binds([], [], 0).
+cpp_rvalue_binds([P|Ps], [A|As], K) :- ( P = param(T, _) ; P = param(T, _, _) ), !, ( T = rref(_, _), \+ cpp_arg_lvalue(A) -> K1 = 1 ; K1 = 0 ), cpp_rvalue_binds(Ps, As, K0), K is K0 + K1.
+cpp_rvalue_binds(_, _, 0).
 cpp_fn_best(F, As, Ps, D) :- cpp_fn_ready(F), length(As, N),
     findall(Ps0, ( '$cpp_fn'(F, _, Ps0, _, O), cpp_fn_arity_fits(Ps0, O, N), cpp_args_no_clash(Ps0, As) ), Cands), Cands \== [],   % the arity alone is the last resort, never a clash (as the members' is)
     cpp_pick(Cands, As, Ps), cpp_fn_defined(F, Ps, D).
@@ -487,7 +494,8 @@ cpp_arg_exact(PT, A) :- ccl_type_of(A, AT), ccl_resolve_type(AT, fn(R2, Ps2, V2)
 cpp_arg_exact(PT0, A) :- ccl_type_of(A, AT), AT \== unknown,
     cpp_type_or_self(PT0, PT),                                                              % the parameter as WRITTEN, resolved: a program's `operator<<(std::ostream &, const P &)' is noted raw, and `std::ostream' is nothing to the inference
     ccl_unref(PT, PT1), ccl_unref(AT, AT1), ccl_resolve_type(PT1, R1), ccl_resolve_type(AT1, R2),
-    cpp_bare_type(R1, B1), cpp_bare_type(R2, B2), B1 == B2.
+    cpp_bare_type(R1, B1), cpp_bare_type(R2, B2), B1 == B2,
+    \+ cpp_category_mismatch(PT, A).                                                          % an rvalue reference takes no lvalue ([dcl.init.ref]/5; 0.122)
 cpp_bare_type(base(_, S), base([], S1)) :- !, cpp_canon_specs(S, S1).   % `unsigned' IS `unsigned int', `long' `long int': one spelling, or the member `operator<<(unsigned int)' was no exact match for an `unsigned' and the free `unsigned char' template took it
 cpp_bare_type(T, T).
 cpp_canon_specs(S, S1) :- ( cpp_int_spelling(S, S0) -> S1 = S0 ; msort(S, S1) ).
@@ -2176,7 +2184,7 @@ cpp_arg_fit_(PT, A, S) :-
         (   cpp_class_of_type(PT1, C), cpp_class_of_type(AT1, C) -> ( PT = rref(_, _), \+ cpp_arg_lvalue(A) -> S = 4 ; S = 3 )   % an rvalue takes the move constructor first; so does a member of an xvalue (0.121)
         ;   cpp_class_of_type(PT1, C), cpp_class_of_type(AT1, AC), AC \== C, cpp_derives(AC, C) -> S = 2                % A DERIVED OBJECT for a base's reference or value ([over.ics.ref]/1, [over.best.ics]/6; 0.112): a derived-to-base Conversion, worse than the class itself. Scored 0, libc++'s `__save_flags<_CharT, _Traits> __sf(__is)' over an istream took the PRIVATE copy constructor, declared and never defined, where `explicit __save_flags(basic_ios &)' is meant -- the link named it
         ;   cpp_class_of_type(PT1, C), cpp_class_of_type(AT1, AC), AC \== C, cpp_conv_result(AC, PT1, _) -> S = 2                % a class with a conversion operator to the parameter's class
-        ;   ccl_resolve_type(PT1, RT1), ccl_resolve_type(AT1, RT2), cpp_bare_type(RT1, BT), cpp_bare_type(RT2, BT) -> S = 3   % the SAME type, registered class or not, in one spelling (`unsigned' is `unsigned int'): two plain structs alike fit each other
+        ;   ccl_resolve_type(PT1, RT1), ccl_resolve_type(AT1, RT2), cpp_bare_type(RT1, BT), cpp_bare_type(RT2, BT) -> ( PT = rref(_, _), \+ cpp_arg_lvalue(A) -> S = 4 ; S = 3 )   % the SAME type, registered class or not, in one spelling (`unsigned' is `unsigned int'): two plain structs alike fit each other
         ;   cpp_class_of_type(AT1, AC), \+ cpp_class_of_type(PT1, _), cpp_conv_result(AC, PT1, RCT)   % a class with a conversion operator to the parameter's kind
         ->  ( ccl_resolve_type(PT1, RP), cpp_bare_type(RP, B1), cpp_bare_type(RCT, B2), B1 == B2 -> S = 2 ; S = 1 )
         ;   cpp_pointerish(PT1), cpp_null_constant(A) -> S = 2                        % a literal 0 IS a pointer's value
@@ -3109,7 +3117,8 @@ cpp_member_inits([member(MT, N, _)|Ds], Inits, Defaults, L, Pre, Body) :- ( MT =
 cpp_member_inits([member(MT, N, _)|Ds], Inits, Defaults, L, Pre, Body) :- \+ memberchk(init(N, _), Inits), memberchk(N-init(Items), Defaults), cpp_class_of_type(MT, _), !,   % A BRACED DEFAULT MEMBER INITIALIZER OF A CLASS MEMBER IS LIST-INITIALIZATION (0.112): an aggregate from its items, its own default member initializers for the rest; a class with constructors through them. Handed over as ONE argument, the braced list itself, libc++'s `__code_point<_CharT> __fill_{}' left std::format's spec parser unregistered (member_not_constructed)
     cpp_member_from(MT, arrow(this, N), init(Items), L, Pre, Pre1), cpp_member_inits(Ds, Inits, Defaults, L, Pre1, Body).
 cpp_member_inits([member(MT, N, _)|Ds], Inits, Defaults, L, Pre, Body) :- cpp_class_of_type(MT, MC), cpp_has_ctors(MC), !,   % a member of a class with constructors: constructed
-    ( memberchk(init(N, Args), Inits) -> true ; memberchk(N-E, Defaults) -> Args = [E] ; Args = [] ),
+    ( memberchk(init(N, Args0), Inits) -> true ; memberchk(N-E, Defaults) -> Args0 = [E] ; Args0 = [] ),
+    ( Args0 = [call(id(TN), TArgs)], atom(TN), cpp_class_of_type(base([], [typedef(TN)]), MC) -> Args = TArgs ; Args = Args0 ),   % A PRVALUE OF THE MEMBER'S OWN CLASS INITIALIZES THE MEMBER IN PLACE ([class.copy.elision]/1; 0.122): `H() : m_(S(5))' is `m_(5)', the S constructed once in the member -- no move constructor runs, and a class that holds its own address stays whole
     length(Args, NA),
     (   cpp_ctor(MC, Args, CName) -> cpp_fill_defaults(CName, Args, Args1), Pre = [expr(L, call(id(CName), [addr(arrow(this, N))|Args1]))|Pre1]
     ;   Args == [], cpp_trivial_default(MC)                                                        % nothing to construct: libc++'s allocator, `allocator() = default' and a converting template
@@ -4436,7 +4445,10 @@ cpp_expr(Ctx, ccast(functional, T0, X), E) :- cpp_type(T0, T), ( cpp_class_of_ty
     cpp_expr(Ctx, X, X1), cpp_class_of_type_of(X1, XC), XC \== C, !, cpp_expr(Ctx, compound_lit(T, init([item([], '$cpp_walked'(X1))])), E).
 cpp_expr(Ctx, ccast(functional, base(Q, [typedef(C)]), X), E) :- cpp_class_l(C, _), !, cpp_expr(Ctx, X, X1), cpp_temporary(base(Q, [typedef(C)]), C, [X1], E).
 cpp_expr(Ctx, ccast(K, T0, X), ccast(K, T, X2)) :- !, cpp_type(T0, T), cpp_expr(Ctx, X, X1), cpp_cast_to(X1, T, X2).
-cpp_expr(Ctx, move(X), E) :- !, cpp_expr(Ctx, X, X1), ( ccl_type_of(X1, T), T \== unknown, ( cpp_holds_owners(T) ; ccl_unref(T, T1), cpp_class_of_type(T1, _) ) -> E = move(X1) ; E = X1 ).   % move of an int is the int (a template's T); OF A CLASS VALUE IT STAYS ([expr.xvalue]): the value category is what overload resolution reads, and dropped here `t.insert(std::move(nh))' found no `insert(node_type &&)' and took `insert(const value_type &)' through the handle's `operator bool'
+cpp_expr(Ctx, move(X), E) :- !, cpp_expr(Ctx, X, X1),
+    (   ccl_type_of(X1, T), T \== unknown, ( cpp_holds_owners(T) ; ccl_unref(T, T1), cpp_class_of_type(T1, _) ) -> E = move(X1)
+    ;   cpp_plain_xvalue(X1, RT) -> E = ccast(static, RT, X1)                                                  % THE MOVE OF A PLAIN STRUCT (a C struct: no constructor, destructor or owner) IS AN XVALUE TOO (0.122): `static_cast<S &&>(s)', so `f(const S &)' beside `f(S &&)' chooses the second for `f(std::move(s))' as it does for a class; it was the value, an lvalue, and the first declared won
+    ;   E = X1 ).   % move of an int is the int (a template's T); OF A CLASS VALUE IT STAYS ([expr.xvalue]): the value category is what overload resolution reads, and dropped here `t.insert(std::move(nh))' found no `insert(node_type &&)' and took `insert(const value_type &)' through the handle's `operator bool'
 cpp_expr(Ctx, stmt_expr(block(Is)), stmt_expr(block(Js))) :- !, ccl_scope_push, cpp_stmts(Ctx, Is, Js), ccl_scope_pop.
 cpp_expr(Ctx, lambda(Caps, Ps, Ret, Body), E) :- !, cpp_lambda(Ctx, Caps, Ps, Ret, Body, E).
 cpp_expr(_, str(S), str(S)) :- !.
@@ -4794,6 +4806,7 @@ cpp_call(_, id(N), As, E) :- \+ cpp_local(N), \+ ccl_declared(N, fn(_, _, _)), c
 cpp_type_call(T, As, E) :-
     (   cpp_class_of_type(T, C1)
     ->  ( cpp_has_ctors(C1) -> cpp_temporary(T, C1, As, E) ; findall(item([], A), member(A, As), Items), E = compound_lit(T, init(Items)) )
+    ;   As == [], cpp_record_type(T) -> E = compound_lit(T, init([]))                                  % VALUE-INITIALIZATION OF A PLAIN STRUCT OR UNION is every byte zero (0.122): libc++ 21's `__rep_ = __rep();' over `union __rep { __short __s; __long __l; }' was the scalar zero, an int stored into a union
     ;   As = [X] -> E = cast(T, X)
     ;   As == [] -> cpp_zero_of(T, E)
     ;   fail ).
@@ -5023,7 +5036,7 @@ cpp_placed_value(T, [], V) :- !, \+ ccl_resolve_type(T, arr(_, _)), ( cpp_record
 cpp_placed_value(T, [V0], V) :- ( \+ cpp_record_type(T) ; cpp_same_record(T, V0) ), !, V = V0.
 cpp_placed_value(T, As, compound_lit(T, init(Is))) :- cpp_record_type(T), \+ ccl_resolve_type(T, arr(_, _)), findall(item([], A), member(A, As), Is).
 cpp_record_type(T) :- catch(ccl_resolve_type(T, base(_, Sp)), _, fail), ( memberchk(struct(_, _), Sp) ; memberchk(union(_, _), Sp) ; memberchk(class(_, _, _, _), Sp) ), !.
-cpp_same_record(T, V) :- ccl_type_of(V, VT0), VT0 \== unknown, ccl_unref(VT0, VT), catch(cpp_same_type(VT, T), _, fail), !.
+cpp_same_record(T, V) :- ( ccl_type_of(V, VT0), VT0 \== unknown -> true ; catch(cpp_arg_type(V, VT0), _, fail) ), VT0 \== unknown, ccl_unref(VT0, VT), catch(( cpp_same_type(VT, T) ; cpp_same_unqualified(VT, T) ), _, fail), !.   % a CONST value of the class is the class's value too (its cv is no other type); the value's type read off its DESUGARED form where the inference has none (0.122): `std::construct_at(p, std::forward<const S &>(x))' of a plain struct had a call for its argument, took it for the first item of a braced list, and stored a struct into an int
 cpp_new_at(Ps, T, As, _) :- length(Ps, NP), length(As, NA), cpp_refuse(0, placement_new(T, NP, NA)).
 %% A VALUE OF THE CLASS ITSELF placed where the class writes no copy or move constructor of its own (`= default', or
 %% none) and holds nothing that needs one is the IMPLICIT one, a copy of the bytes ([class.copy.ctor]/14): a map's
@@ -7662,3 +7675,5 @@ cpp_const_bool(E, V) :- ccl_const_eval(E, N), !, ( N =\= 0 -> V = true ; V = fal
 cpp_const_bool(bool(B), B) :- !.
 cpp_const_bool(tmpl(C, Args), V) :- atom(C), '$cpp_concept'(C, _), !, ( cpp_concept_holds(C, Args) -> V = true ; V = false ).
 cpp_const_bool(E, V) :- E = call(_, _), catch(cpp_const_value(E, K), _, fail), !, ( K = bool(V0) -> V = V0 ; integer(K), K =\= 0 -> V = true ; V = false ).   % A CONSTEXPR CALL decides it too, through the evaluator (0.112): libc++ 18's `if constexpr (__format::__use_packed_format_arg_store(sizeof...(_Args)))' kept both branches, and the other one named a member the store does not have
+%% a plain struct or union (no registered class) value that an lvalue names: the type of `std::move(x)'s cast, `S &&'
+cpp_plain_xvalue(X, rref([], T)) :- cpp_lvalue(X), ccl_type_of(X, T0), T0 \== unknown, ccl_unref(T0, T), ccl_resolve_type(T, R), R = base(RQ, [Tag]), \+ memberchk(const, RQ), T = base(TQ, _), \+ memberchk(const, TQ), ( Tag = struct(_, _) ; Tag = union(_, _) ), \+ cpp_class_of_type(T, _), \+ cpp_holds_owners(T).
