@@ -113,6 +113,7 @@ One row per step, in version order: the step's title, what it did and its gate n
 | 0.117 | the "not done" list, worked; a library sweep | Mangler, placement `new[]`, arrays of arrays, VLA `{}`, `va_arg` of a struct, the SysV register budget, `__int128`; access control, `mutable`, deducing `this`; the streams over files and strings; user-defined literals; `<complex>`, `<bitset>`, `std::span`, `std::list`, `std::deque`, `<thread>`, `<charconv>`, `<atomic>` at C++20, `<bit>`; the defects those programs found (the reference binding, the conversion functions that yield a reference, the calls through a pointer or a reference to function, the SFINAE of a scalar typedef and of the parameters a call leaves out) | not run (a save point) |
 | 0.118 | the gates over 0.117, two defects found | The C++ gate refused `sentinelpair.cpp` (`friend class S<!C>;` of a member class template) and `rangesarray.cpp` ran away at 8.7 GB (the alias clause of `cpp_type` followed a typedef naming a template parameter); both fixed, each fixture seen to pass | reader 5 s, compile 8 s, driver 7 s, objects 3 s, proof, libcxx 958 s: GREEN over 0.117; the C++ gate was running over the corrected tree (a save point) |
 | 0.119 | the C++ gate over 0.118 | One stale check of `test/cpp.pl` (c20: `throw Err{t}` is a `braced_temp` since 0.117) edited; the library is 0.118's | C++ gate over 0.118's tree: 388 of 389 fixtures ok (the skip is `stdoptionalref`), 2989 s over four lanes, peak 9034 MB, RED by the one stale check; `test/cpp.pl` alone GREEN, 48 ok in 15 s |
+| 0.120 | the desugaring four times faster | The class record split in two (a light one for the lookups that do not want the members), seven registries made facts, the file scope, the typedefs and the tags in 128 buckets each; found by a flat profile | reader 5 s, compile 9 s, driver 7 s, objects 2 s; libcxx 1001 s; C++ 908 s (2989 s at 0.118), 388 of 389 fixtures, the pool's peak 1675 MB (9034 MB); all seven GREEN |
 
 ## M5 — the C++ mode
 
@@ -7215,3 +7216,72 @@ reads the newest directory now, and the dead one is removed. (2) A reader change
 that reads nodes by shape has seen it.
 
 Reader version 114, lowering version 62; the module rebuilt as 0.119, over cocolog 1.9.1.
+
+## 0.120 — M6's eighty-fourth step
+
+**M6's eighty-fourth step (0.120): the desugaring four times faster.** The gates of 0.118 took 958 s for the library read and
+2989 s for the C++ gate, and the builds that the owner's memory rule forbids -- `rangesarray.cpp` at 8.7 GB, `viewsall.cpp` at 3.5
+GB -- were the symptom of one cause: cocolog's `nb_getval/2` COPIES what it answers, and a build asked the same few large
+terms thousands of times. A flat profile found where. No predicate of the desugaring was slow in itself.
+
+THE INSTRUMENT. cocolog has no profiler, so a scratch copy of the library was made by a script (not in the repository, as the other
+session tools are not): every clause of `ccl_cpp.pl` and `ccl_infer.pl` begins with a goal that stamps `statistics(cputime, T)` and
+adds the time since the last stamp to the clause entered before it. That is a flat profile in which a clause is charged for what runs
+after it is entered and before the next clause is -- its own goals, the builtins it calls, and the callees that are not instrumented --
+and the stamp is taken again when the goal ends, so the instrument's own cost is not charged. Its overhead is a factor of three, its
+ranking is the work's. On `stdvector.cpp` (9.6 s of CPU on the loaded box, 7.3 s alone): `cpp_class/2` 19% and `cpp_class_typedef/4` 12%, the
+rest flat. In-situ timers around the suspected reads then measured the copies themselves, not the smear: the retrieval of the class
+record, 68,075 times, 2.61 s; the copy of the list of class typedefs, 38,777 times, 1.23 s (and the `memberchk` on it 0.25 s); the copy of
+the enclosing classes, 29,700 times, 0.06 s; the cache index, 61,193 times, 0.14 s; `ccl_tables_changed/0`, 202 times, 0.002 s. A count of
+`cpp_class/2` per call site: `cpp_base_scope/2` alone asked 44,764 times, for the BASE.
+
+THE CHANGES, each by what it copied.
+
+(1) THE LIGHT CLASS RECORD. A class's record, `cls(Base, Data, Members, Statics, Defaults, Slots)`, is 97% its members -- every
+method with its body -- and a lookup that wanted only the base, the data or the slots copied the class. `cpp_class_put/2` now writes
+`'$cpp_clsl'(C, cls(Base, Data, Statics, Defaults, Slots))` beside it, a hundredth of the size, `cpp_class_l/2` answers it (a class not
+registered yet is asked of `cpp_class/2`, which loads it, and the light fact is there after), and 95 calls whose members field was `_` ask
+it (45 others want the members and are left alone). The script that rewrote the calls checked each by its pattern.
+
+(2) SEVEN REGISTRIES THAT WERE LISTS IN A GLOBAL ARE FACTS: the class typedefs `'$cpp_ctype'(Class, Name, Type)`, the enclosing classes
+`'$cpp_encl'`, the static initializers `'$cpp_sinit'`, the lazy library classes `'$cpp_lazy_c'`, the destructors defined out of their class
+`'$cpp_dtor_def'`, the names that keep C linkage `'$cpp_cname'` and the default arguments `'$cpp_dflt'`. A fact is found by its first
+argument and copies only what it answers. They are written newest first (`asserta`) and a lookup takes the first match, as `memberchk/2`
+did; `test/cpp.pl`'s mangler check, which set one by `nb_setval/2`, asserts it. 48 replacements, each counted by a script that refuses to
+run if the text it finds is not the text it expects.
+
+(3) THE FILE SCOPE, THE TYPEDEFS AND THE TAGS ARE BUCKETED. 800 file-scope declarations into a table of 3,000 names and 6,000 lookups were 6 of
+the 15 CPU seconds of a `std::vector` build; one write was 40 ms at 20,000 names, because `nb_setval/2` copies what it takes and every
+lookup the answer caches missed read the whole table. A table is now 128 globals (`P_0` .. `P_127`), an entry lives in the bucket its key's
+characters hash to, and a write or a lookup copies one bucket (`ccl_tab_*` in `library/ccl_syntax.pl`): 15 microseconds a lookup, 25 a write,
+48 ms for a bulk of 20,000. Inside a bucket the order is the old list's, so the first entry that unifies is the one the single list gave.
+`ck_declare_at/4`, which built every frame to find the one that holds a name, asks the open frames and then the file scope. The only
+reader of a whole table in order is the drain functions' loop (`ir_drain_functions/1`), which now takes the buckets in turn: the same
+functions in another order, which is why the lowering version is 63.
+
+A fourth idea was measured and left out: the cache index, 61,193 lookups, 0.14 s -- the answer caches are not the cost.
+
+
+MEASUREMENTS. One build each on a quiet box, CPU seconds, the same HOME (its summaries valid for both trees), output compared with the
+fixture's `.expect`, 0.118 then 0.120: `stdvector.cpp` 17.2 -> 4.0, `stdmapstring.cpp` 58.0 -> 10.1, `stdalgorithm3.cpp` 21.6 -> 5.1; all three SAME.
+The gate's recorded build times (`~/.cicilang/fixture-times`), 388 fixtures in both runs: the sum 11,775 s -> 2,936 s (4.0 times);
+`viewsall` 1357 -> 211 s, `viewchain` 438 -> 57, `tempinitlist` 429 -> 41, `stdwformat` 375 -> 78, `stdviews` 371 -> 69, `stdcontains` 368 -> 42,
+`stdformat` 328 -> 103, `stdvformat` 322 -> 73, `viewkeys` 318 -> 28, `stdstringstream` 291 -> 91. The one that gained nothing is
+`stdatomic20` (279 -> 277 s), which is the reader's cold flatten of the headers of `<atomic>`'s wait, not the desugaring.
+
+GATES over a snapshot of this commit's tree (the repository was left alone while they ran), cocolog 1.9.1, a HOME of its own, every cache
+cold: the reader gate GREEN (96 ok, 2 skips, 5 s), the compile gate GREEN (106 ok, 9 s), the driver gate GREEN (26 ok, 7 s), the objects gate
+GREEN (29 ok, 2 s), the proof exit 42; the library read GREEN in 1001 s (958 s at 0.118: the reads are the reader's, not the
+desugaring's, and other work shared the box), peak 1173 MB; THE C++ GATE GREEN IN 908 s (2989 s at 0.118), `test/cpp.pl` 48 ok, 388
+of 389 fixtures ok and the skip `stdoptionalref`, the pool's peak 1675 MB (9034 MB at 0.118). Before the chain: the four small gates
+and the proof over the working tree, the same numbers.
+
+Two things the step did not do: reader version 114 stays (a summary's content is the same), and `<random>` -- a `std::mt19937` with
+`uniform_int_distribution`, killed at its 1500 s cap since 0.117 -- was tried over these tables (the build was killed at 900 s, no
+binary): the cost of its instances is not the tables'.
+
+The method, for the next cost: a flat profile (`CLAUDE.md`, "Finding a cost"), then timers in situ around the suspected reads, then a
+count per call site. The profile ranked `cpp_class/2` 19% and `cpp_class_typedef/4` 12% and nothing else above 3%; the timers said
+which reads. A profile of a build that does not end needs only a CPU limit.
+
+Reader version 114, lowering version 63; the module rebuilt as 0.120, over cocolog 1.9.1.

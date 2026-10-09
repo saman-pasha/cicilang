@@ -25,10 +25,10 @@
 %% no catch on a read of a global here: the keys are set once per process
 %% (ccl_ensure_globals/0, library(ccl_include)), and a catch costs in
 %% proportion to the terms bound inside it (a cocolog finding, in CLAUDE.md)
-ccl_scope(Fs) :- nb_getval('$ccl_scope', Ls), nb_getval('$ccl_gscope', G), append(Ls, [G], Fs).   % every frame, the file scope's last
+ccl_scope(Fs) :- nb_getval('$ccl_scope', Ls), ccl_tab_list('$ccl_gscope', G), append(Ls, [G], Fs).   % every frame, the file scope's last
 ccl_locals(Ls) :- nb_getval('$ccl_scope', Ls).                                                   % the open frames alone, innermost first
 ccl_declared(N, T) :- nb_getval('$ccl_scope', Ls), ( ccl_in_frames(Ls, N, T0) -> T = T0 ; ccl_gdeclared(N, T) ).
-ccl_gdeclared(N, T) :- ccl_cached_named('$ccl_g:', N, T, ( nb_getval('$ccl_gscope', G), memberchk(N-T, G) )).
+ccl_gdeclared(N, T) :- ccl_cached_named('$ccl_g:', N, T, ccl_tab_find('$ccl_gscope', N, T)).
 %% a small answer cache in a global -- the Key-Value pairs found so far; a
 %% copy of a dozen pairs is microseconds where the table's is a millisecond.
 %% For keys that are terms (a type, a member list) whose values are small.
@@ -65,8 +65,8 @@ ccl_in_frames([F|Fs], N, T) :- ( memberchk(N-T0, F) -> T = T0 ; ccl_in_frames(Fs
 ccl_typedef_of(N, T) :- atom(N), ccl_builtin_typedef(N, T0), !, T = T0.
 ccl_builtin_typedef('__int128_t', base([], ['__int128'])).                   % the compiler's own 128-bit typedefs, which clang predefines (0.117)
 ccl_builtin_typedef('__uint128_t', base([], [unsigned, '__int128'])).
-ccl_typedef_of(N, T) :- ccl_cached_named('$ccl_td:', N, T, ( nb_getval('$ccl_typedefs', L), memberchk(N-T, L) )).
-ccl_tag(Tag, Ms) :- ccl_cached_named('$ccl_tag:', Tag, Ms, ( nb_getval('$ccl_tags', L), memberchk(Tag-Ms, L) )).
+ccl_typedef_of(N, T) :- ccl_cached_named('$ccl_td:', N, T, ccl_tab_find('$ccl_typedefs', N, T)).
+ccl_tag(Tag, Ms) :- ccl_cached_named('$ccl_tag:', Tag, Ms, ccl_tab_find('$ccl_tags', Tag, Ms)).
 
 %% ---- constants ---------------------------------------------------------------------
 ccl_enum_value(N, V) :- nb_getval('$ccl_enums', L), memberchk(N-V, L).
@@ -310,7 +310,7 @@ ccl_tag_type(N, Ms, Q, base(Q, [struct(N, Ms)])).
 ccl_is_union_tag([union_tag|_]).
 ccl_is_enum_tag([enumerator(_, _)|_]).
 ccl_is_enum_tag([enum_base(_)|_]).
-ccl_tag_struct(N, Ms) :- ccl_cached_named('$ccl_ts:', N, Ms, ( nb_getval('$ccl_tags', L), member(N-Ms, L), \+ ccl_class_shape(Ms) )).
+ccl_tag_struct(N, Ms) :- ccl_cached_named('$ccl_ts:', N, Ms, ( ccl_tab_member('$ccl_tags', N, Ms), \+ ccl_class_shape(Ms) )).
 %% a member list that is a CLASS's and not a plain struct's: something in it is no data member. The
 %% `align_as' a class states is LAYOUT and not a member, so it counts for neither shape -- read as one,
 %% an `alignas' struct answered its raw class where its desugared struct was meant and `sizeof' had

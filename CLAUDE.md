@@ -10,8 +10,8 @@ it found, its measurements and its gate numbers. `README.md` tells a user what r
 architecture and the milestones. A step that changes a rule edits the rule here, in its topic, and writes its entry
 in `HISTORY.md`.
 
-At 0.119 the versions are: the module 0.119 (`ccl_p_version` in `module/cicilang.cicili`, `bin/cicilang --version`),
-the reader 114 (`ccl_reader_version/1`, `library/ccl_syntax.pl`) and the lowering 62 (`ccl_lowering_version/1`,
+At 0.120 the versions are: the module 0.120 (`ccl_p_version` in `module/cicilang.cicili`, `bin/cicilang --version`),
+the reader 114 (`ccl_reader_version/1`, `library/ccl_syntax.pl`) and the lowering 63 (`ccl_lowering_version/1`,
 `library/ccl_ir.pl`).
 
 Build and prove, always in this order (or all of it, `sh test/gates.sh`):
@@ -992,9 +992,9 @@ tutorials/01..03-*.pl       the objects layer's lessons; goal main, last line do
   (0.44, 0.46)
 - The table kept while parsing: `'$ccl_scope'` the OPEN frames of Name-Type, innermost first, `[]` at file scope
   (pushed by `ccl_compound`, and at a function's parameters only when `{` is next); `'$ccl_gscope'` the file scope;
-  `'$ccl_typedefs'`; `'$ccl_tags'` (a C++ class without its bodies, `ccl_slim_members`); `'$ccl_enums'`.
-  `library(ccl_infer)` answers over it (`ccl_type_of/2`, `ccl_resolve_type/2`, `ccl_size_of/2`, LP64). Reader `k25`.
-  (M1b)
+  `'$ccl_typedefs'`; `'$ccl_tags'` (a C++ class without its bodies, `ccl_slim_members`) -- these three in 128 buckets
+  each since 0.120 (the Tables topic of Time and memory); `'$ccl_enums'`. `library(ccl_infer)` answers over it
+  (`ccl_type_of/2`, `ccl_resolve_type/2`, `ccl_size_of/2`, LP64). Reader `k25`. (M1b, 0.120)
 - `ccl_declare/2` puts a name in the innermost open frame, else `ccl_gdeclare/1`; `ccl_declared/2` asks the open frames,
   then `ccl_gdeclared/2`; `ccl_scope/1` answers all frames, file scope last; `ccl_locals/1` the open ones;
   `ccl_scope_add/1` adds a list. Why: `nb_getval/2` copies, and a local must not copy the file scope. (M1b)
@@ -1433,7 +1433,8 @@ tutorials/01..03-*.pl       the objects layer's lessons; goal main, last line do
   hold what was read. `test/census.sh` on the flattened header (`cicilang++ -E`) names the stop. (0.44)
 - `ccl_with_file/2` saves and restores around a nested read, on success, failure and a throw: `'$ccl_file'`,
   `'$ccl_env'`, `'$ccl_far'`, `'$ccl_macros'`, the tables (`'$ccl_scope'`, `'$ccl_gscope'`, `'$ccl_typedefs'`,
-  `'$ccl_tags'`), `'$ccl_enums'` and `'$ccl_expansions'`. `ccl_tables_changed` follows the restore. (M1b)
+  `'$ccl_tags'`; the last three bucket by bucket, `ccl_tab_save/2` and `ccl_tab_restore/2`), `'$ccl_enums'` and
+  `'$ccl_expansions'`. `ccl_tables_changed` follows the restore. (M1b, 0.120)
 - A `.pl` include is a macro file (owner's rule): `ccl_load_macros/2` loads it, and the node is
   `macros(Path, [macro(CName, Pred, Arity | dcg) ...])`. (M1b)
 - The program's own C++ header read whole gives its classes and templates to every includer (`cpp_register_header/1`),
@@ -1568,8 +1569,9 @@ tutorials/01..03-*.pl       the objects layer's lessons; goal main, last line do
   0.117)
 - A reader bump makes every summary cold; `test/libcxx.sh` rewrites them. `test/reader.pl`'s `k16` (a cached read is
   the same AST as a fresh one) goes RED on a grammar change without a bump. (0.93, 0.105)
-- `ccl_lowering_version/1` (`library/ccl_ir.pl`, now 62): bump it whenever the check or the lowering changes what it
-  emits, however small. Why: `dr_ir/3` serves the old IR otherwise. Either bump starts the C store afresh. (M4, 0.103)
+- `ccl_lowering_version/1` (`library/ccl_ir.pl`, now 63): bump it whenever the check or the lowering changes what it
+  emits, however small -- 0.120 bumped it for the ORDER of the drain functions alone. Why: `dr_ir/3` serves the old IR
+  otherwise. Either bump starts the C store afresh. (M4, 0.103, 0.120)
 
 ## Classes
 
@@ -1588,15 +1590,17 @@ free. A const method adds `.c`, a ref-qualified one `.r` or `.rr` after it: each
 
 - `cpp_register_units/1` registers every class before any body is walked, after noting the free functions
   (`cpp_note_fns`) and the structs named as bases (`cpp_note_bases`). A class is the fact
-  `'$cpp_cls'(C, cls(Base, Data, Ms, Statics, Defaults, Slots))` (`cpp_class_put`). Its methods, constructors,
+  `'$cpp_cls'(C, cls(Base, Data, Ms, Statics, Defaults, Slots))` (`cpp_class_put`, which writes the light record
+  `'$cpp_clsl'(C, cls(Base, Data, Statics, Defaults, Slots))` beside it: `cpp_class_l/2`, for a lookup that does not want the
+  members, Time and memory). Its methods, constructors,
   destructor, statics and free operators are declared under their mangled names at once (`cpp_declare_members`,
-  `cpp_declare_statics`), so a rewritten call has a type while the walk goes on. (0.33, 0.44)
+  `cpp_declare_statics`), so a rewritten call has a type while the walk goes on. (0.33, 0.44, 0.120)
 - `cpp_register_class` splits out the hidden friends (`cpp_split_friends`) and registers them after the class.
   `cpp_register_class__` adds the inherited constructors, normalizes the members (`cpp_norm_members`), records
   `C() = default`, notes the nested names (`cpp_nested_names/3`) and the extras, registers the class in its own words
   (`cpp_in_class`), and the nested classes last (`cpp_nested_classes/3`). The extras (`cpp_register_class_extras`) are
-  the member templates (`'$cpp_mt'`), member class templates, typedefs (`'$cpp_class_types'`), static initializers
-  (`'$cpp_static_inits'`) and class enumerators. (0.48, 0.79)
+  the member templates (`'$cpp_mt'`), member class templates, typedefs (`'$cpp_ctype'`), static initializers
+  (`'$cpp_sinit'`) and class enumerators. (0.48, 0.79)
 - A class item becomes `declare(L, base(Q, [struct(C, Data)]))` and functions (`cpp_item`). `Data` starts with
   `'$base'` (none for an empty base, which has no sub-object), then `'$vptr'` where the class introduces a table, then
   the data members. The statics follow, then a function per method with `this` first (`const C *` for a const method,
@@ -1666,7 +1670,7 @@ free. A const method adds `.c`, a ref-qualified one `.r` or `.rr` after it: each
   qualified name after `.` and `->` (`ccl_member_qseg`). The qualifier names the object's class or a base of it, else
   it is refused by name. `qualobject.cpp`. (0.112)
 - `o.m(a)` is `C.m.<keys>(&o, a)`, `p->m(a)` is `C.m.<keys>(p, a)`, and a bare `m(a)` in a method passes `this`. An
-  inherited method takes the base's address. The defaults are filled (`'$cpp_defaults'`, `cpp_fill_defaults/3`). A
+  inherited method takes the base's address. The defaults are filled (`'$cpp_dflt'`, `cpp_fill_defaults/3`). A
   method with a slot dispatches through the table, unless the object is a named value or its member
   (`cpp_static_object/1`). (0.33, 0.34)
 - A default argument is kept raw and desugared where it is filled in, which is where C++ evaluates it
@@ -2140,7 +2144,7 @@ free. A const method adds `.c`, a ref-qualified one `.r` or `.rr` after it: each
   pulled the whole `wchar_t` format road and `numpunct<wchar_t>` into a `char` program. (0.112)
 - The word `static` sits in the innermost base's qualifiers, so a static pointer or array member is a static
   (`cpp_static_type`); else a class of statics was no empty base. `staticbase.cpp`. (0.72)
-- `cpp_register_class_extras` records the static initializers in `'$cpp_static_inits'`, also one defined out of the
+- `cpp_register_class_extras` records the static initializers in `'$cpp_sinit'`, also one defined out of the
   class in its header (`inline constexpr strong_ordering strong_ordering::less(...)`). Such a class-typed static is the
   class's own `linkonce` definition, never an Itanium symbol that nothing ships. (0.101)
 - A library class's static that the header declares and does not define is named by its Itanium symbol
@@ -2154,8 +2158,8 @@ free. A const method adds `.c`, a ref-qualified one `.r` or `.rr` after it: each
   was an int. `staticconsttype.cpp`. (0.117)
 - A static const named bare in its class folds to its value (`cpp_expr(id)` via `cpp_static_const/3`,
   `cpp_fold_static`), as `C::value` does. The fold looks through the bases, and a nested class sees its holder's
-  statics (`'$cpp_enclosing'`): `__long` divides by `__endian_factor`. (0.60, 0.63)
-- A class-scope enumerator is a constant of the class (`cpp_class_enums/2`), kept raw in `'$cpp_static_inits'` and
+  statics (`'$cpp_encl'`): `__long` divides by `__endian_factor`. (0.60, 0.63)
+- A class-scope enumerator is a constant of the class (`cpp_class_enums/2`), kept raw in `'$cpp_sinit'` and
   folded in the class's words: `__min_cap` in members and array bounds. An enum that types a data member declares its
   enumerators so too (`cpp_member_enum/2`): libc++ 18's `__consume_result` writes `enum : char32_t { __ok, __error }
   __status : 1 {__ok};`. `memberenum.cpp`. (0.63, 0.112)
@@ -2209,7 +2213,7 @@ free. A const method adds `.c`, a ref-qualified one `.r` or `.rr` after it: each
 ### Nested classes
 
 - A nested class is a type of its holder and a class of its own, `Enclosing.Nested`. `cpp_nested_names/3` notes its
-  name first (`'$cpp_class_types'`, `'$cpp_nested'/5`), so a member of that type resolves before the class exists. It
+  name first (`'$cpp_ctype'`, `'$cpp_nested'/5`), so a member of that type resolves before the class exists. It
   registers after its holder (`cpp_nested_classes/3`), or on the first ask through `cpp_class/2`
   (`cpp_nested_ready/1`). It is `Plain::Nested` outside, bare inside, and a temporary by either name
   (`Plain::Nested(7)`, `__destroy_vector(*this)`). `nested.cpp`. (0.48, 0.58)
@@ -2217,9 +2221,9 @@ free. A const method adds `.c`, a ref-qualified one `.r` or `.rr` after it: each
   success, failure and throw; a mark left behind fails every later ask. The holder's own registration can ask for it:
   vector's members name `_ConstructTransaction`. (0.58, 0.72)
 - A nested class sees its holder's types, inherited ones included, and its statics: `cpp_encloses` records
-  `'$cpp_enclosing'`, which `cpp_class_typedef/4` and `cpp_static_const/3` fall back to. (0.52, 0.63)
+  `'$cpp_encl'`, which `cpp_class_typedef/4` and `cpp_static_const/3` fall back to. (0.52, 0.63)
 - A non-const static of the holder is found by name too, in the nested class's methods and in a lambda made there
-  (`cpp_static_member/3` and `cpp_static_owner/3` walk `'$cpp_enclosing'`; [class.nest]/4). Why: only a static const
+  (`cpp_static_member/3` and `cpp_static_owner/3` walk `'$cpp_encl'`; [class.nest]/4). Why: only a static const
   was looked up there, so `scale` in `Outer::Inner`'s lambda was undeclared and the lambda's result could not be
   deduced, `lambda_result_type`. `nestedlambda.cpp`. (0.112)
 - A nested class calls a STATIC member FUNCTION of its holder by its bare name ([class.nest]/1; `cpp_call`'s clause over
@@ -2291,7 +2295,7 @@ free. A const method adds `.c`, a ref-qualified one `.r` or `.rr` after it: each
   refuses by name, `access(Kind, Owner, Member)`, with the statement's line (`'$cpp_line'`, set in `cpp_stmt/3`). The
   owner is the class on the way down through the bases that declares the name (`cpp_acc_owner/4`). The code may name a
   member when its scopes (`cpp_access_scopes/2`: the class it is a member of, the classes that class is nested in
-  through `'$cpp_enclosing'`, a lambda's through the class it was made in) include the owner, or -- for a protected
+  through `'$cpp_encl'`, a lambda's through the class it was made in) include the owner, or -- for a protected
   member -- derive from it, or a friend matches (`cpp_friend_match/2`: a class by name or instance, a function by
   `'$cpp_cur_fn'`, which `cpp_with_fn/2` sets around a function's body). A static member's initializer defined out of
   its class is in the class's scope (`cpp_with_access_scope/2`). Refusals: `test/cpp/access_data.cpp`,
@@ -2511,7 +2515,7 @@ free. A const method adds `.c`, a ref-qualified one `.r` or `.rr` after it: each
 
 ### Dependent names and scopes
 
-- A class's typedefs are `'$cpp_class_types'`; `cpp_scope_class/2` answers `C::N` from them, skipping namespace
+- A class's typedefs are `'$cpp_ctype'`; `cpp_scope_class/2` answers `C::N` from them, skipping namespace
   prefixes, and refuses `no_member_type(C, N)` where the class has no such type. (0.44)
 - A path of two or more segments is WALKED first, each segment named inside the one before (`cpp_scope_walk/3`); one
   segment goes to `cpp_path_class`. Fixture: `scopewalk.cpp`. Why: in a class with its own `type`, `_ITER_CONCEPT`'s
@@ -3169,7 +3173,7 @@ The desugaring (`library/ccl_cpp.pl`) chooses every C++ overload. A fixture name
   (`cpp_note_fns/1`; a header's through `cpp_note_hdr_fns/1`). The origin is `decl(Ret, V)`, `own(V)` or `lazy(Item)`;
   `own(V)` keeps the program's ellipsis, so a call falls to `f(...)` (`cpp_fn_origin/4`). (0.56, 0.58, 0.100)
 - `cpp_fn_name/4` names a free function in the table, the emission and the call (`cpp_free_call/5`): an `extern "C"`
-  name keeps it (`'$cpp_cnames'`); a library declaration with a namespace path takes its Itanium symbol; a definition
+  name keeps it (`'$cpp_cname'`); a library declaration with a namespace path takes its Itanium symbol; a definition
   of an overloaded name is `F.<keys>` (`cpp_fn_overloaded/1`); else the plain name. `freeoverloads.cpp`. (0.56, 0.61)
 - An EXACT overload has as many parameters as arguments, each one, resolved (`cpp_type_or_self/2`), unreffed and bare,
   equal to its argument's type (`cpp_arg_exact/2`); a function is exact for a function pointer of its type. (0.56, 0.78)
@@ -3294,7 +3298,7 @@ A lambda is a class of its captures (`library/ccl_cpp.pl`). A fixture named alon
   `cpp_isolated/1`, so a local that is not captured is undeclared in the body. `lambdas.cpp`. (0.36)
 - A lambda is desugared ONCE, memoized by its text, context and captured types (`'$cpp_lambda_memo'`,
   `cpp_lambda_key/6`). `lambdas2.cpp`. Why: an `auto` method's result made a second closure class. (0.99)
-- A closure is enclosed by the class it is made in (`cpp_lambda_scope/2` -> `'$cpp_enclosing'`): that class's types,
+- A closure is enclosed by the class it is made in (`cpp_lambda_scope/2` -> `'$cpp_encl'`): that class's types,
   statics and enumerators are in scope, `this` captured or not. Why: a string lambda's `__rep __new_rep = __short()`.
   (0.76)
 - A closure has no implicit constructor (`cpp_closure_class/1` in `cpp_implicit_ctor_needed/1`). Why: `[this, __p]`
@@ -3456,7 +3460,7 @@ A lambda is a class of its captures (`library/ccl_cpp.pl`). A fixture named alon
   through the evaluator); else it is a plain `if`. Why: libc++ 18's `if constexpr
   (__format::__use_packed_format_arg_store(sizeof...(_Args)))` kept both branches, and the other named a member the
   store does not have. `ifconstexprcall.cpp`. (0.42, 0.112)
-- A static const folds from `'$cpp_static_inits'`, also through the bases and the enclosing class
+- A static const folds from `'$cpp_sinit'`, also through the bases and the enclosing class
   (`cpp_static_const/3`), raw or else desugared in its class under `'$cpp_folding:C.N'` (`cpp_fold_static/4`). Named
   bare in its class it folds in an expression and as a template argument. Why: libc++'s `__str_find<..., npos>`. (0.47,
   0.60, 0.84)
@@ -3865,7 +3869,7 @@ A lambda is a class of its captures (`library/ccl_cpp.pl`). A fixture named alon
   candidate, its own arguments never), the return type first, and a template parameter as `T_`, `T0_` ... (decimal),
   each a candidate: `_ZNSt3__16__sortIRNS_6__lessIiiEEPiEEvT0_S5_T_`. (0.92)
 - A nested enum is a nested name of its holder (`cpp_ita_type_`; `cpp_class_scope_` finds the holder in
-  `'$cpp_class_types'`): `..7seekoffExNS_8ios_base7seekdirEj`; else the stream fixtures failed to link. A program's
+  `'$cpp_ctype'`): `..7seekoffExNS_8ios_base7seekdirEj`; else the stream fixtures failed to link. A program's
   global enum is a global name, `1K` (`cpp_ita_global`); else it resolved to itself without end. `enumarray.cpp`.
   (0.94, 0.110)
 - The holder's type must carry the enum's OWN last name (`cpp_class_scope_`, `cpp_last_segment`): an ALIAS of the enum
@@ -4027,7 +4031,7 @@ A lambda is a class of its captures (`library/ccl_cpp.pl`). A fixture named alon
 
 ### Lazy classes, instances and functions
 
-- A header's class is lazy (`'$cpp_lazy'`, `cpp_lazy_class`): registered, its struct emitted, and a member emitted when
+- A header's class is lazy (`'$cpp_lazy_c'`, `cpp_lazy_class`): registered, its struct emitted, and a member emitted when
   `cpp_method`, `cpp_ctor` or `cpp_own_dtor` first names it (`cpp_use_member/2`, `cpp_make_lazy/5`, trace
   `make_lazy(Name)`). The member is in progress while it emits (`'$cpp_making'`) and noted after; a failure refuses
   `member_not_emitted`. A class with no body (`class bad_alloc;`) registers nothing. (0.44, 0.69)
@@ -4054,7 +4058,7 @@ A lambda is a class of its captures (`library/ccl_cpp.pl`). A fixture named alon
   (`ranges::iter_move`). A global of an empty class is its zero bytes, with no constructor run (`nullopt`,
   `piecewise_construct`); with no initializer it is value-initialized ([dcl.init]/8): `std::ignore`. (0.73, 0.82, 0.90,
   0.109)
-- A nested class of a library class is the library's (`cpp_lib_class` via `'$cpp_enclosing'`). A library class's
+- A nested class of a library class is the library's (`cpp_lib_class` via `'$cpp_encl'`). A library class's
   `consteval` constructor keeps its member initializers and drops its body, a compile-time check that nothing here
   evaluates (`cpp_member_fns`, trace `consteval_ctor_unchecked`): `basic_format_string`'s format parse. (0.84, 0.110)
 
@@ -4387,7 +4391,8 @@ A lambda is a class of its captures (`library/ccl_cpp.pl`). A fixture named alon
   It is a flexible member of no bytes, `[0 x T]`. The developer allocates `sizeof(s) + k * sizeof(T *)` and sets `n`.
   A bound is any constant expression (`ccl_const_eval/2`), alike in the layout, the LLVM type and the check. (M3)
 - The drains keep every element null or owned. `ir_drain_functions/1` makes `function(0, static, void,
-  ccl_drain_<tag>, [x], ...)` for each tagged struct in `'$ccl_tags'` with an own array (`ck_has_own_array/1`). Its
+  ccl_drain_<tag>, [x], ...)` for each tagged struct in `'$ccl_tags'` with an own array (`ck_has_own_array/1`; in the
+  buckets' order, `ccl_tab_list/2`, so a program with two such structs has the two functions in that order). Its
   body is a `for` per array path (`ir_drain_loop/4`: `if (a[i]) { ccl_drain_T(a[i]); drain_free(a[i]); }`), recursive
   through the element's struct. The drains are noted (`ccl_items_note/1`) and lowered after the units. A flexible
   member's drain loops to `arrow(x, n)` (`ir_array_bound/4`). (M3)
@@ -4748,8 +4753,8 @@ A lambda is a class of its captures (`library/ccl_cpp.pl`). A fixture named alon
 ### Tables: a global is copied, a fact is indexed
 
 - `nb_getval/2` and `nb_setval/2` copy the whole term. So `ccl_items_note/1` sets each table once per unit tree
-  (per-item writes were quadratic), and the file scope is its own global (`'$ccl_gscope'`): `'$ccl_scope'` holds only
-  the open frames, and `ccl_declare/2` and `ccl_declared/2` never copy the headers' names.
+  (per-item writes were quadratic), and the file scope is its own table (`'$ccl_gscope'`, in buckets since 0.120, below):
+  `'$ccl_scope'` holds only the open frames, and `ccl_declare/2` and `ccl_declared/2` never copy the headers' names.
 - The globals are set once per process (`ccl_ensure_globals/0`) and read bare. `ccl_global/3` calls it first, so code
   that the initialization reaches reads with a bare `catch(nb_getval(K, V), _, fail)` (`ccl_set_new_bucket/2`); else
   the initialization re-enters itself. A `catch/3` stays only where a call can throw (`time_file/2`, `proc_run/4`, a
@@ -4759,10 +4764,36 @@ A lambda is a class of its captures (`library/ccl_cpp.pl`). A fixture named alon
   buckets and the list (`ccl_env_put/1`, `ccl_add_env(s)/1`, `ccl_note_template(s)/1`, `ccl_tparams_leave/1`). A deep
   grammar rule passes `genv` for the global env (`ccl_env_member/2`). A C++ tag is noted without its bodies
   (`ccl_slim_members/2`, `ccl_sum_slim/2`). (0.46)
-- The C++ registries that hold bodies are facts, cleared in `cpp_register_units/1`: `'$cpp_cls'`, `'$cpp_tmpl'`,
-  `'$cpp_spec'`, `'$cpp_mt'`, `'$cpp_inst'`, `'$cpp_out'`, `'$cpp_hdr'`, and the concepts,
+- THREE TABLES ARE BUCKETED (0.120): the file scope `'$ccl_gscope'`, the typedefs `'$ccl_typedefs'` and the tags
+  `'$ccl_tags'` are 128 globals each, `P_0` to `P_127` (`ccl_tab_g/3`), and an entry lives in the bucket its key's
+  characters hash to (`ccl_tab_bucket/2`; a key that is no atom, a method defined out of its class, is in bucket 0). A
+  write or a lookup copies ONE bucket, 150 entries at 20,000 names: `ccl_tab_add/2` (one entry, or a bulk grouped by
+  bucket), `ccl_tab_find/3` (by key), `ccl_tab_member/3`, `ccl_tab_list/2` (every entry, the buckets concatenated, for a
+  reader that wants them all), `ccl_tab_reset/1`, and `ccl_tab_save/2` with `ccl_tab_restore/2` (a nested read's save and
+  restore keep the buckets, `ccl_with_file/2`). Inside a bucket the order is the old list's, newest first, so the first
+  entry that unifies is the one the single list gave; ACROSS buckets there is no order, and a caller with an UNBOUND key
+  gets the first bucket's (every caller asks with the name). The drain functions follow `ccl_tab_list`, which is why the
+  lowering version moved. `ck_declare_at/4` asks the open frames and the file scope apart for the same reason (the file
+  scope is the LAST frame). Why: 800 file-scope declarations into 3,000 names and 6,000 lookups were 6 of the 15 CPU
+  seconds of a `std::vector` build, and one write was 40 ms at 20,000 names. (0.120)
+- SEVEN OF THE DESUGARING'S REGISTRIES, lists in a global until 0.119, are facts (0.120): the class typedefs
+  `'$cpp_ctype'(Class, Name, Type)`, the enclosing classes `'$cpp_encl'(Nested, Enclosing)`, the static initializers
+  `'$cpp_sinit'(Class, Name, Init)`, the lazy library classes `'$cpp_lazy_c'(Class)`, the destructors defined out of their
+  class `'$cpp_dtor_def'(Class)`, the names that keep C linkage `'$cpp_cname'(Name)` and the functions' default arguments
+  `'$cpp_dflt'(Name, Defaults)`. A fact is found by its first argument and copies only what it answers. They are written
+  NEWEST FIRST (`asserta`) and a lookup takes the first match (the cut), as `memberchk/2` did on the lists. The class
+  typedefs alone were copied 38,777 times in a `std::vector` build (1.5 of its 9.6 s), and the heap those copies leave is
+  what a nested engine does not collect. `test/cpp.pl` sets `'$cpp_encl'` for its mangler check. (0.120)
+- The C++ registries that hold bodies are facts, cleared in `cpp_register_units/1`: `'$cpp_cls'`, `'$cpp_clsl'`,
+  `'$cpp_tmpl'`, `'$cpp_spec'`, `'$cpp_mt'`, `'$cpp_inst'`, `'$cpp_out'`, `'$cpp_hdr'`, and the concepts,
   `'$cpp_concept'(N, concept(TPs, E))`. C's tables stay globals (a clause is a store row under `--embed`); C++ runs
-  `--local`. (0.44, 0.112)
+  `--local`. (0.44, 0.112, 0.120)
+- THE LIGHT CLASS RECORD (0.120): a class's record `'$cpp_cls'(C, cls(Base, Data, Members, Statics, Defaults, Slots))` is
+  97% its members (every method with its body), so a lookup that wanted only the base copied the whole class:
+  `cpp_base_scope/2` alone asked 44,764 times in a `std::vector` build, 2.6 of its 9.6 s. `cpp_class_put/2` writes beside
+  the record `'$cpp_clsl'(C, cls(Base, Data, Statics, Defaults, Slots))` (a hundredth of the size), `cpp_class_l/2` answers
+  it (a class not registered yet is asked of `cpp_class/2`, which loads it), and every caller whose members field was `_`
+  asks that one. A caller that wants the members still asks `cpp_class/2`.
 - Per-process state is a global, never a dynamic clause (`'$ccl_reading'`, `'$ccl_macro_files'`, `'$ccl_unit_paths'`):
   a dynamic predicate persists under `--embed`.
 - No header's macro table is parsed whole: a macro reaches a preprocessor run by name, on first use
@@ -4849,6 +4880,18 @@ A lambda is a class of its captures (`library/ccl_cpp.pl`). A fixture named alon
 - Rank time by CPU per trace line: a scratch copy stamps `statistics(cputime, T)` on each line, and a script sums the
   gap after each line by its functor. A count of one event (per comparison, per deduction) then names an exponential
   that switching rules off one at a time could not. (0.95, 0.99)
+- A FLAT PROFILE, made by a script (0.120; cocolog has no profiler, and the script is session scratch, not in the
+  repository): a scratch copy of `ccl_cpp.pl` and `ccl_infer.pl` in which every rule and fact begins with a goal that stamps
+  `statistics(cputime, T)` and adds the time since the last stamp to the clause entered BEFORE it, the stamp taken again as
+  the goal ends so that the instrument's own cost is not charged, and a dump after a CPU limit. A clause is charged for what
+  runs after it is entered and before the next one is -- its own goals, the builtins it calls, the callees that are not
+  instrumented -- so a builtin's copying (`nb_getval/2`) is its CALLER's. The overhead is a factor of three; the ranking is
+  the work's. On a `std::vector` build, `cpp_class/2` was 19% and `cpp_class_typedef/4` 12%, the rest flat. A smear names a
+  region, not a line: timers in situ around the suspected reads (`statistics(cputime)` before and after, summed in a
+  global) then measured the copies themselves -- the class record 68,075 times, 2.61 s; the class typedefs 38,777 times,
+  1.23 s; the enclosing classes 29,700 times, 0.06 s -- and a count of one predicate per CALL SITE (`cpp_base_scope/2`
+  alone, 44,764 times) named who asked. The dump comes at the CPU limit whatever the program is doing, so it serves a build
+  that does not end as well as one that does.
 - Rank memory by event: sum the heap stamps by the event before each growth. Trace at a LOW cap to see what is in
   flight when the memory goes; spends against distinct instances tell breadth from a loop. A loop grows to the cap and
   raises nothing, so each failing candidate step traces itself (`ctor_candidate`, `ctor_no`, `member_refused`,
@@ -5103,10 +5146,9 @@ A lambda is a class of its captures (`library/ccl_cpp.pl`). A fixture named alon
   0.90, all GREEN (cocolog 1.2.18). The fixtures added since 0.93 have run on Linux only.
 - Ubuntu 24.04 on x86_64 (clang and LLVM 18, glibc, libc++ 18) is a host since 0.87. Every gate but the C++ one is
   GREEN there since 0.93, and all seven since 0.95. Every step from 0.93 on is gated there, but the save points 0.112,
-  0.113 and 0.117; the last full run is 0.118's, over cocolog 1.9.1 (0.119): the six gates but the C++ one over a
-  snapshot of 0.117 (0.118 changed none of what they run), and the C++ gate over 0.118's own tree -- 388 of 389 fixtures
-  ok, the skip `stdoptionalref`, and one stale check of `test/cpp.pl` that 0.119 fixed (c20, below). Its first run, over
-  0.117, found two defects (fixed in 0.118).
+  0.113 and 0.117 (gated by the steps after them); the last full run is 0.120's, over cocolog 1.9.1: all seven GREEN, the
+  library read in 1001 s, the C++ gate in 908 s with 388 of 389 fixtures ok (the skip is `stdoptionalref`). The run before it
+  (0.118, 0.119) found, over 0.117, two defects and one stale check of `test/cpp.pl` (c20, above).
 - The host sets the predefined macros (`ccl_host_os/1` and `ccl_host_arch/1` in the module), the inclusion path
   (Debian's `/usr/lib/llvm-NN`, the multiarch directory) and the link (`-lc++` and `-lm` on Linux) (0.87, 0.93, 0.100).
 - A struct passed or returned by value crosses a call as clang's x86-64 code expects, in both directions, with the
@@ -5431,5 +5473,9 @@ A lambda is a class of its captures (`library/ccl_cpp.pl`). A fixture named alon
   header goes into the store (M5; measured at cocolog 1.2.16).
 - The check's cost is its expression walk. The next cut needs the state as a per-function table, or the lookups in C
   (2026-09-06).
-- A C++ build's time is its first deductions and its instantiations (0.98). The slowest fixture, `viewsall.cpp`, takes
-  about 1760 s of the C++ gate's 2400 s cap (`CPP_FIXTURE_SECS`) in the gate's pool (0.115).
+- A C++ build's time was its first deductions and its instantiations (0.98), and, found at 0.120, the COPIES of the
+  desugaring's own tables and class records (the Time and memory topic): the slowest fixture, `viewsall.cpp`, took 1760 s
+  of the C++ gate's 2400 s cap in the gate's pool at 0.115 and 1357 s at 0.118, and takes 211 s now; the sum of the 388
+  fixtures' builds went from 11,775 s to 2,936 s, the gate from 2989 s to 908 s over four lanes, its pool's peak from 9034
+  MB to 1675 MB (0.120). What is left is mostly the reader's own cold flattening of a header (`stdatomic20.cpp`, 277 s,
+  gained nothing).

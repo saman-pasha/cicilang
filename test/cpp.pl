@@ -186,7 +186,7 @@ c33 :- check('auto(k) is decay_copy(k); if (using T = long; true) is a block of 
 %% cleared after, so no later check meets them.
 ita_facts :-
     ccl_ensure_globals, ita_clear,
-    nb_setval('$cpp_enclosing', ['loc2.fac'-loc2, 'bis.sentry'-bis, 'bos.sentry'-bos]),
+    assertz('$cpp_encl'('loc2.fac', loc2)), assertz('$cpp_encl'('bis.sentry', bis)), assertz('$cpp_encl'('bos.sentry', bos)),
     ita_ns([ios_base, ct2, loc2, basic_string, char_traits, allocator, tw, basic_istream, basic_ostream]),
     assertz('$cpp_inst'(bis, inst(basic_istream, [base([], [char]), base([], [typedef(ctc)])]))),
     assertz('$cpp_inst'(bos, inst(basic_ostream, [base([], [char]), base([], [typedef(ctc)])]))),
@@ -197,8 +197,8 @@ ita_facts :-
 ita_ns([]).
 ita_ns([N|Ns]) :- assertz('$cpp_hdr_ns'(N, [std, '__1'])), ita_ns(Ns).
 ita_clear :-
-    dynamic('$cpp_hdr_ns'/2), dynamic('$cpp_hdr_ast_ns'/2), dynamic('$cpp_inst'/2),
-    retractall('$cpp_hdr_ns'(_, _)), retractall('$cpp_inst'(_, _)), nb_setval('$cpp_enclosing', []).
+    dynamic('$cpp_hdr_ns'/2), dynamic('$cpp_hdr_ast_ns'/2), dynamic('$cpp_inst'/2), dynamic('$cpp_encl'/2),
+    retractall('$cpp_hdr_ns'(_, _)), retractall('$cpp_inst'(_, _)), retractall('$cpp_encl'(_, _)).
 ita_name(Chain, F, Qs, Ps, Want) :-
     cpp_ita_function([std, '__1'], Chain, F, Qs, Ps, false, Got),
     (   Got == Want -> true

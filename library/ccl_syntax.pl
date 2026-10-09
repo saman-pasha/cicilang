@@ -465,7 +465,7 @@ ccl_nth(I, [_|T], X) :- I > 1, I1 is I - 1, ccl_nth(I1, T, X).
 %% '$ccl_scope' is a list of frames, innermost first, each [Name-Type ...];
 %% '$ccl_typedefs' is [Name-Type ...]; '$ccl_tags' is [Tag-Members ...].
 %% Enumerators are declared as int. Filled here, read by library(ccl_infer).
-ccl_scope_init :- ccl_tables_changed, nb_setval('$ccl_scope', []), nb_setval('$ccl_gscope', []), nb_setval('$ccl_typedefs', []), nb_setval('$ccl_tags', []), nb_setval('$ccl_enums', []).
+ccl_scope_init :- ccl_tables_changed, nb_setval('$ccl_scope', []), ccl_tabs_reset, nb_setval('$ccl_enums', []).
 ccl_push_scope --> { ccl_scope_push }.
 ccl_pop_scope --> { ccl_scope_pop }.
 ccl_scope_push :- nb_getval('$ccl_scope', S), nb_setval('$ccl_scope', [[]|S]).
@@ -477,16 +477,50 @@ ccl_note_items([I|Is]) :- ccl_note_item(I), ccl_note_items(Is).
 %% declared or looked up must not copy them (the check declared 250 locals
 %% and asked 600 names of the B-tree: 0.14 ms each)
 ccl_declare(N, T) :- nb_getval('$ccl_scope', S), ( S = [F|S1] -> nb_setval('$ccl_scope', [[N-T|F]|S1]) ; ccl_gdeclare([N-T]) ).
-ccl_gdeclare(Ds) :- nb_getval('$ccl_gscope', G), append(Ds, G, G1), nb_setval('$ccl_gscope', G1), nb_setval('$ccl_gcache', []), ccl_gdeclare_recheck(Ds).
+ccl_gdeclare(Ds) :- ccl_tab_add('$ccl_gscope', Ds), nb_setval('$ccl_gcache', []), ccl_gdeclare_recheck(Ds).
+%% ---- THE THREE TABLES ARE BUCKETED (0.119) -----------------------------------------------------------------------------------------
+%% The file scope, the typedefs and the tags are written one entry at a time by the desugaring -- an instance declares its members, notes its
+%% tag and its typedefs -- and every write read the whole table (nb_getval/2 copies what it answers) and wrote it back (nb_setval/2 copies what
+%% it takes); every lookup the answer caches missed (and each write empties them) read it whole again. 800 file-scope declarations into a table
+%% of 3,000 names, and 6,000 lookups, were 6 of the 15 CPU seconds of a std::vector build; one write is 40 ms at 20,000 names. A table is 128
+%% BUCKETS, a global each (`P_0' .. `P_127', P the table's name), and an entry lives in the bucket its key's characters hash to: a write or a
+%% lookup copies one bucket, 150 entries at 20,000 names (15 microseconds a lookup, 25 a write, 48 ms for a bulk of 20,000). Inside a bucket
+%% the order is the old list's, newest first, so the first entry that unifies is the one the one list gave. A key that is no atom (a method
+%% defined out of its class) is in bucket 0. A reader that wants every entry concatenates the buckets (`ccl_tab_list'); a nested read's
+%% save and restore keep the buckets themselves (`ccl_tab_save', `ccl_tab_restore').
+ccl_tab_bucket(K, I) :- ( atom(K) -> atom_codes(K, Cs), ccl_tab_hash(Cs, 0, H), I is H mod 128 ; I = 0 ).
+ccl_tab_hash([], H, H).
+ccl_tab_hash([C|Cs], H0, H) :- H1 is (H0 * 31 + C) mod 1000003, ccl_tab_hash(Cs, H1, H).
+ccl_tab_g(P, I, G) :- atom_concat(P, '_', P1), atom_concat(P1, I, G).
+ccl_tab_add(_, []) :- !.
+ccl_tab_add(P, [E]) :- !, ccl_tab_add1(P, E).
+ccl_tab_add(P, Es) :- findall(I-E, ( member(E, Es), E = K-_, ccl_tab_bucket(K, I) ), IEs), keysort(IEs, Sorted), ccl_tab_runs(Sorted, P).
+ccl_tab_add1(P, E) :- E = K-_, ccl_tab_bucket(K, I), ccl_tab_g(P, I, G), nb_getval(G, B), nb_setval(G, [E|B]).
+ccl_tab_runs([], _).
+ccl_tab_runs([I-E|IEs], P) :- ccl_tab_run(IEs, I, Es, Rest), ccl_tab_g(P, I, G), nb_getval(G, B0), append([E|Es], B0, B1), nb_setval(G, B1), ccl_tab_runs(Rest, P).
+ccl_tab_run([I-E|IEs], I, [E|Es], Rest) :- !, ccl_tab_run(IEs, I, Es, Rest).
+ccl_tab_run(Rest, _, [], Rest).
+ccl_tab_find(P, K, V) :- ( var(K) -> ccl_tab_member(P, K, V), ! ; ccl_tab_bucket(K, I), ccl_tab_g(P, I, G), nb_getval(G, B), memberchk(K-V, B) ).
+ccl_tab_member(P, K, V) :- ( nonvar(K) -> ccl_tab_bucket(K, I), ccl_tab_g(P, I, G), nb_getval(G, B), member(K-V, B) ; ccl_tab_between(0, I), ccl_tab_g(P, I, G), nb_getval(G, B), member(K-V, B) ).
+ccl_tab_between(L, I) :- L < 128, ( I = L ; L1 is L + 1, ccl_tab_between(L1, I) ).
+ccl_tab_list(P, L) :- ccl_tab_cat(P, 0, L).
+ccl_tab_cat(P, I, L) :- ( I >= 128 -> L = [] ; ccl_tab_g(P, I, G), nb_getval(G, B), I1 is I + 1, ccl_tab_cat(P, I1, R), append(B, R, L) ).
+ccl_tab_reset(P) :- ccl_tab_reset(P, 0).
+ccl_tab_reset(P, I) :- ( I >= 128 -> true ; ccl_tab_g(P, I, G), nb_setval(G, []), I1 is I + 1, ccl_tab_reset(P, I1) ).
+ccl_tab_save(P, bk(Bs)) :- ccl_tab_save_(P, 0, Bs).
+ccl_tab_save_(P, I, Bs) :- ( I >= 128 -> Bs = [] ; ccl_tab_g(P, I, G), nb_getval(G, B), Bs = [B|Bs1], I1 is I + 1, ccl_tab_save_(P, I1, Bs1) ).
+ccl_tab_restore(P, bk(Bs)) :- ccl_tab_restore_(P, 0, Bs).
+ccl_tab_restore_(P, I, Bs) :- ( Bs = [B|Bs1] -> ccl_tab_g(P, I, G), nb_setval(G, B), I1 is I + 1, ccl_tab_restore_(P, I1, Bs1) ; true ).
+ccl_tabs_reset :- ccl_tab_reset('$ccl_gscope'), ccl_tab_reset('$ccl_typedefs'), ccl_tab_reset('$ccl_tags').
 %% a name the file scope's cache remembers -- found or MISSING (0.112: ccl_cached_named) -- is looked up again once it is
 %% declared: as a miss it hid the declaration, as an answer it kept the type of an older one
 ccl_gdeclare_recheck([]).
 ccl_gdeclare_recheck([N-_|Ds]) :- ( atom(N), atom_concat('$ccl_g:', N, K), catch(nb_getval(K, _), _, fail) -> nb_setval(K, '$ccl_recheck') ; true ), ccl_gdeclare_recheck(Ds).
 %% a list of declarations into the innermost frame -- the file scope's when no frame is open
 ccl_scope_add(Ds) :- nb_getval('$ccl_scope', S), ( S = [F|S1] -> append(Ds, F, F1), nb_setval('$ccl_scope', [F1|S1]) ; ccl_gdeclare(Ds) ).
-ccl_note_typedef(N, T) :- nb_getval('$ccl_typedefs', L), nb_setval('$ccl_typedefs', [N-T|L]), ccl_tables_changed.
+ccl_note_typedef(N, T) :- ccl_tab_add('$ccl_typedefs', [N-T]), ccl_tables_changed.
 ccl_note_tag(Tag, Ms0) :- ( ccl_lang(cpp) -> ccl_slim_members(Ms0, Ms) ; Ms = Ms0 ),     % C++: a class's tag without its bodies -- the table is copied whole at every lookup, and cocolog reclaims nothing
-    nb_getval('$ccl_tags', L), nb_setval('$ccl_tags', [Tag-Ms|L]), ccl_tables_changed.
+    ccl_tab_add('$ccl_tags', [Tag-Ms]), ccl_tables_changed.
 %% a class's members with the bodies dropped: what the tables need (the shapes, the data members, the typedefs)
 ccl_slim_members(none, none) :- !.
 ccl_slim_members([], []).
@@ -511,8 +545,8 @@ ccl_items_note(Is) :-
     ccl_own_first(Is, Own, Incs), append(Own, Incs, Ordered),                              % THE UNIT'S OWN ITEMS FIRST, its includes' after: a name the unit DEFINES shadows a header's declaration of it (the lookup takes the first), and the C++ desugaring emits a header's inline function with its types resolved where the summary declares it raw
     ccl_collect_items(Ordered, D, [], T, [], G, [], E, []),
     ccl_scope_add(D),
-    nb_getval('$ccl_typedefs', T0), append(T, T0, T1), nb_setval('$ccl_typedefs', T1),
-    nb_getval('$ccl_tags', G0), append(G, G0, G1), nb_setval('$ccl_tags', G1), ccl_tables_changed,
+    ccl_tab_add('$ccl_typedefs', T),
+    ccl_tab_add('$ccl_tags', G), ccl_tables_changed,
     nb_getval('$ccl_enums', E0), append(E, E0, E1), nb_setval('$ccl_enums', E1).
 ccl_own_first([], [], []).
 ccl_own_first([I|Is], Own, [I|Incs]) :- I = include(_, _, _), !, ccl_own_first(Is, Own, Incs).
