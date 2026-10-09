@@ -1,0 +1,12 @@
+line one|line two|7|2.5
+[ff]
+line one 9
+5 lines
+LINE one 9
+line two
+7 2.5
+ff
+appended
+01
+10
+exit 0

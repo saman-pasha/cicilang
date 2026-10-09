@@ -39,3 +39,14 @@ typedef union { int i; double d; } un;
 bf mk_bf(int a, int b, short s, int c);  double sum_bf(bf v);
 un mk_un(double d);                       double sum_un(un v);
 bf bump_bf(bf v); double via_bf(bf v);   un bump_un(un v); double via_un(un v);
+/* THE REGISTER BUDGET (SysV 3.2.3): a struct that does not fit the registers still free goes WHOLLY on the stack, and
+   the registers it was offered stay free for the arguments after it. budget_* are clang's, bud_* cicilang's */
+double budget_l16(int a, int b, int c, int d, int e, l16 v);
+double budget_di(long a, long b, long c, long d, long e, long f, di v);
+double budget_d16(double a, double b, double c, double d, double e, double f, double g, d16 v);
+double budget_next(long a, long b, long c, long d, long e, l16 v, long f, di w);
+double bud_l16(int a, int b, int c, int d, int e, l16 v);
+double bud_di(long a, long b, long c, long d, long e, long f, di v);
+double bud_d16(double a, double b, double c, double d, double e, double f, double g, d16 v);
+double bud_next(long a, long b, long c, long d, long e, l16 v, long f, di w);
+double via_bud(void);

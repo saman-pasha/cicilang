@@ -692,6 +692,15 @@ ck_borrows_from(compound_lit(_, init(Items)), St, P) :- member(item(_, V), Items
 %% (0.45's decision), and what its member hands back points INTO the object -- which is what a borrow says,
 %% so the lifetime rules still hold rather than the pointer being merely exempted.
 ck_borrows_from(call(id(F), [addr(E)|_]), St, P) :- ccl_lang(cpp), atom(F), cpp_library_function(F), ck_path_root(E, R), !, ck_borrow_of(R, St, P).
+%% ... AND SO IS WHAT A LIBRARY STATIC FUNCTION ANSWERS OVER AN OBJECT IT TAKES BY REFERENCE (0.117): a static member takes a null
+%% `this' first, and the object is the first argument whose parameter is a reference -- `std::allocator_traits<A>::allocate(a, n)'
+%% hands back memory the allocator `a' manages, so the pointer is a borrow of `a' and not loose memory that nothing consumes
+ck_borrows_from(call(id(F), [nullptr|As]), St, P) :- ccl_lang(cpp), atom(F), cpp_library_function(F), ccl_declared(F, fn(_, [_|Ps], _)), ck_ref_object(As, Ps, E), ck_path_root(E, R), !, ck_borrow_of(R, St, P).
+ck_ref_object([A|_], [param(T, _)|_], A) :- ccl_resolve_type(T, ref(_, _)), !.
+ck_ref_object([_|As], [_|Ps], E) :- ck_ref_object(As, Ps, E).
+%% ... AND A LIBRARY FUNCTION'S POINTER RESULT BORROWS WHAT ITS POINTER ARGUMENTS BORROW (0.117), the first that borrows anything:
+%% `std::construct_at(p + 2, 42)' hands back its first argument, `std::find' a place in its range -- not fresh memory
+ck_borrows_from(call(id(F), Args), St, P) :- ccl_lang(cpp), atom(F), cpp_library_function(F), member(A, Args), A \== nullptr, ck_borrows_from(A, St, P), !.
 ck_borrow_of(R, St, P) :- ck_state(St, R, S), !, ( ck_borrow_source(R, S, P) -> true ; P = R ).
 ck_borrow_of(R, _, R).
 ck_borrows_from(call(F, Args), St, P) :- ck_callee_sig(F, fn(R, _, _)), \+ ck_own_type(R), ck_call_tie(call(F, Args), St, P0), !, P = P0.

@@ -62,6 +62,9 @@ ccl_in_frames([F|Fs], N, T) :- ( memberchk(N-T0, F) -> T = T0 ; ccl_in_frames(Fs
 %% and 1100 tags; the names a file uses are a dozen, so each answer is kept
 %% in a small cache (a copy of a dozen pairs is microseconds), emptied by
 %% ccl_tables_changed/0 wherever a table is written
+ccl_typedef_of(N, T) :- atom(N), ccl_builtin_typedef(N, T0), !, T = T0.
+ccl_builtin_typedef('__int128_t', base([], ['__int128'])).                   % the compiler's own 128-bit typedefs, which clang predefines (0.117)
+ccl_builtin_typedef('__uint128_t', base([], [unsigned, '__int128'])).
 ccl_typedef_of(N, T) :- ccl_cached_named('$ccl_td:', N, T, ( nb_getval('$ccl_typedefs', L), memberchk(N-T, L) )).
 ccl_tag(Tag, Ms) :- ccl_cached_named('$ccl_tag:', Tag, Ms, ( nb_getval('$ccl_tags', L), memberchk(Tag-Ms, L) )).
 
@@ -106,13 +109,19 @@ ccl_const_eval(bitnot(E), V) :- !, ccl_const_eval(E, V0), ccl_w_sub(-1, V0, V).
 ccl_const_eval(not(E), V) :- !, ccl_const_eval(E, V0), ( V0 == 0 -> V = 1 ; V = 0 ).
 ccl_const_eval(cast(T, E), V) :- !, ccl_const_eval(E, V0), ccl_w_cast(T, V0, V).
 ccl_const_eval(ccast(_, T, E), V) :- !, ccl_const_eval(E, V0), ccl_w_cast(T, V0, V).      % C++'s own casts, a functional one among them: `type(~0)' folds as `(type) ~0' does
-ccl_const_eval(sizeof_type(T), V) :- !, ccl_size_of(T, V).
+ccl_const_eval(sizeof_type(T), V) :- !, once(ccl_size_of(T, V)).   % A SIZE IS ONE ANSWER (0.117): the resolver leaves alternatives, and a test that backtracked into the fold (a static assertion) met a 0 after the right 16
 ccl_const_eval(noexcept_expr(_), 1) :- !.   % no library function throws here (0.109; the desugaring folds a throwing operand to false first)
 ccl_const_eval(offsetof(T, D), V) :- !, ccl_offsetof(T, D, V).
-ccl_const_eval(alignof_type(T), V) :- !, ccl_resolve_type(T, T1), ccl_size_align(T1, _, V).   % `alignof(T)' ([expr.alignof]): the alignment the layout already computes
-ccl_const_eval(sizeof(E), V) :- !, ( ccl_literal_bytes(E, V) -> true ; ccl_type_of(E, T), ccl_size_of(T, V) ).   % a string literal's bytes (0.103)
+ccl_const_eval(alignof_type(T), V) :- !, once(( ccl_resolve_type(T, T1), ccl_size_align(T1, _, V) )).   % `alignof(T)' ([expr.alignof]): the alignment the layout already computes
+ccl_const_eval(sizeof(E), V) :- !, ( ccl_literal_bytes(E, V) -> true ; once(( ccl_type_of(E, T), ccl_size_of(T, V) )) ).   % a string literal's bytes (0.103)
 ccl_const_eval(cond(C, A, B), V) :- !, ccl_const_eval(C, CV), ( CV \== 0 -> ccl_const_eval(A, V) ; ccl_const_eval(B, V) ).
+%% A LEFT SHIFT WRAPS IN THE PROMOTED TYPE OF ITS LEFT OPERAND ([expr.shift]/1, [expr.const]; 0.117): `intmax_t(1) << 63' is -2^63, which clang folds so,
+%% and libc++'s `-((intmax_t(1) << (sizeof(intmax_t) * CHAR_BIT - 1)) + 1)' is INTMAX_MAX -- it was +2^63 here, the sum 2^63 + 1, the negation
+%% -2^63 - 1, and every `__no_overflow<...>::value' of <chrono> false, so no duration converted to another. An operand with no type
+%% (a name the tables lack) keeps the mathematical shift.
+ccl_const_eval(bin('<<', A, B), V) :- !, ccl_const_eval(A, X), ccl_const_eval(B, Y), ccl_const_op('<<', X, Y, V0), ccl_shl_wrap(A, V0, V).
 ccl_const_eval(bin(Op, A, B), V) :- ccl_const_eval(A, X), ccl_const_eval(B, Y), ccl_const_op(Op, X, Y, V).
+ccl_shl_wrap(A, V0, V) :- ( catch(( ccl_type_of(A, AT), AT \== unknown, ccl_promoted_or_unknown(AT, T), T \== unknown ), _, fail) -> ccl_w_cast(T, V0, V) ; V = V0 ).
 ccl_const_op('+', X, Y, V) :- ccl_w_add(X, Y, V).
 ccl_const_op('-', X, Y, V) :- ccl_w_sub(X, Y, V).
 ccl_const_op('*', X, Y, V) :- ccl_w_mul(X, Y, V).
@@ -367,6 +376,8 @@ ccl_anon_route(T, N, A, AT) :- ccl_members_of(T, Ms), member(member(AT, A, _), M
 ccl_anon_has(T, N) :- ccl_members_of(T, Ms), ( memberchk(member(_, N, _), Ms) -> true ; member(member(AT, A, _), Ms), atom(A), sub_atom(A, 0, _, _, '$anon'), ccl_anon_has(AT, N) ), !.
 
 %% ---- classes ----------------------------------------------------------------------
+%% the literal zero, a null pointer constant ([conv.ptr]/1)
+ccl_null_constant(int(0)). ccl_null_constant(uint(0)). ccl_null_constant(long(0)). ccl_null_constant(ulong(0)).
 ccl_is_pointer(T) :- ccl_resolve_type(T, T1), ( T1 = ptr(_, _) ; T1 = arr(_, _) ; T1 = block(_, _) ), !.
 ccl_is_float(T) :- ccl_resolve_type(T, base(_, S)), \+ memberchk('_Complex', S), ( memberchk(double, S) ; memberchk(float, S) ; memberchk('_Float16', S) ), !.   % a complex type is no real floating type
 %% C's COMPLEX TYPES (C11 6.2.5, Annex G; 0.100): `_Complex double' and `_Complex float', two components of the real type;
@@ -383,7 +394,7 @@ ccl_specs_without([X|Xs], X, Ys) :- !, ccl_specs_without(Xs, X, Ys).
 ccl_specs_without([Y|Xs], X, [Y|Ys]) :- ccl_specs_without(Xs, X, Ys).
 ccl_real_of(T, R) :- ( ccl_is_complex(T) -> ccl_complex_real(T, R) ; R = T ).
 ccl_is_integer(T) :- ccl_resolve_type(T, base(_, S)), \+ memberchk(double, S), \+ memberchk(float, S), \+ memberchk(void, S), \+ memberchk('_Complex', S),   % a complex integer is no integer (0.103)
-    ( memberchk(int, S) ; memberchk(char, S) ; memberchk(short, S) ; memberchk(long, S) ; memberchk(signed, S)
+    ( memberchk(int, S) ; memberchk(char, S) ; memberchk(short, S) ; memberchk(long, S) ; memberchk('__int128', S) ; memberchk(signed, S)
     ; memberchk(unsigned, S) ; memberchk('_Bool', S) ; memberchk(bool, S) ; memberchk(char8_t, S) ; memberchk(wchar_t, S) ; memberchk(char16_t, S) ; memberchk(char32_t, S) ; S = [enum(_, _)] ; S = [enum_class(_, _)] ; memberchk(bitint(_), S) ), !.   % C23's _BitInt(N) is an integer
 ccl_is_arith(T) :- ( ccl_is_integer(T) ; ccl_is_float(T) ), !.
 
@@ -392,6 +403,7 @@ ccl_int_rank(T, Rank, Unsigned) :-
     ccl_resolve_type(T, base(_, S)),
     ( memberchk(unsigned, S) -> Unsigned = true ; memberchk(char16_t, S) -> Unsigned = true ; memberchk(char32_t, S) -> Unsigned = true ; memberchk(char8_t, S) -> Unsigned = true ; Unsigned = false ),   % C++'s char16_t, char32_t and char8_t are UNSIGNED; wchar_t is signed on this ABI
     (   memberchk(bitint(E), S) -> ccl_bitint_width(E, W), ccl_bitint_rank(W, Rank)           % C23: below the standard type of its width, above every narrower one (6.3.1.1)
+    ; memberchk('__int128', S) -> Rank = 6                                                                      % GNU's __int128 (0.117): above long long
     ; ccl_count(long, S, 2) -> Rank = 5 ; memberchk(long, S) -> Rank = 4 ; memberchk(short, S) -> Rank = 2 ; memberchk(char16_t, S) -> Rank = 2
     ; memberchk(char, S) -> Rank = 1 ; memberchk(char8_t, S) -> Rank = 1 ; memberchk('_Bool', S) -> Rank = 0 ; memberchk(bool, S) -> Rank = 0 ; Rank = 3 ).
 ccl_bitint_width(E, W) :- ( ccl_const_eval(E, W0) -> W = W0 ; W = 32 ).
@@ -464,6 +476,7 @@ ccl_type_of(call(id(B), _), T) :- ccl_float_builtin_type(B, T), !.
 ccl_type_of(call(id(B), [_]), base([], [int])) :- memberchk(B, ['__builtin_isnan', '__builtin_isinf', '__builtin_isinf_sign', '__builtin_isfinite', '__builtin_signbit', '__builtin_isnormal']), !.   % glibc's classification macros (0.101)                                   % INFINITY, NAN, HUGE_VAL (0.101)
 ccl_type_of(call(id('__builtin_complex'), [A, _]), T) :- ccl_type_of(A, AT), AT \== unknown, !, ccl_complex_of(AT, T).   % C11's CMPLX and I, in the compiler's <complex.h> (0.100)   % C23's <stdckdint.h> is written on them
 ccl_type_of(call(id(B), _), T) :- ccl_coro_builtin_type(B, T), !.   % C++20's coroutine builtins, libc++'s coroutine_handle (0.108)
+ccl_type_of(braced_temp(E), T) :- !, ccl_type_of(E, T).   % `T{a, b}' (reader version 113): the call it was before
 ccl_type_of(call(F, _), T) :- !,
     (   F = id(N), ccl_declared(N, fn(R, _, _)) -> ccl_unref(R, T)
     ;   ccl_type_of(F, FT), ccl_resolve_type(FT, FT1),
@@ -524,6 +537,8 @@ ccl_type_of(cond(_, A, B), T) :- !, ccl_type_of(A, AT), ccl_type_of(B, BT),
     (   ccl_is_arith(AT), ccl_is_arith(BT) -> ccl_usual(AT, BT, T)
     ;   A == nullptr -> T = BT          % a null pointer constant takes the OTHER arm's type ([expr.cond]), unknown included: typed `void *' by its
     ;   B == nullptr -> T = AT          % nullptr while the other arm was still unknown, `__nbc > 0 ? allocate(...) : nullptr' chose unique_ptr's `reset(nullptr_t)' and dropped the buckets
+    ;   ccl_null_constant(A), ccl_is_pointer(BT) -> T = BT      % `c ? 0 : p': the literal zero is a null pointer constant and takes the pointer's type ([expr.cond]/7), where the arm `0' made it an int (0.117): libc++'s `deque::begin()' passes `__map_.empty() ? 0 : *__mp + __start_ % __block_size' to an iterator taking a pointer, and no constructor fit
+    ;   ccl_null_constant(B), ccl_is_pointer(AT) -> T = AT
     ;   AT \== unknown -> T = AT ; T = BT ).
 ccl_type_of(stmt_expr(block(Is)), T) :- !,            % its declarations are in scope for its last expression
     ccl_scope_push, ccl_note_items(Is),
@@ -632,6 +647,7 @@ ccl_anon_member(A) :- atom(A), sub_atom(A, 0, _, _, '$anon'), !.
 ccl_long_double(K) :- catch(nb_getval('$ccl_ldbl', K0), _, fail), !, K = K0.
 ccl_long_double(K) :- ( once(catch(ccl_host_arch(A), _, fail)) -> true ; A = x86_64 ), ( A == arm64 -> K0 = double ; K0 = x87 ), nb_setval('$ccl_ldbl', K0), K = K0.
 ccl_basic_size(S, N) :- ( memberchk(double, S) -> ( memberchk(long, S), ccl_long_double(x87) -> N = 16 ; N = 8 ) ; memberchk(float, S) -> N = 4 ; memberchk('_Float16', S) -> N = 2 ; memberchk('_Decimal32', S) -> N = 4 ; memberchk('_Decimal64', S) -> N = 8 ; memberchk('_Decimal128', S) -> N = 16 ; ccl_count(long, S, 2) -> N = 8
+    ; memberchk('__int128', S) -> N = 16
     ; memberchk(long, S) -> N = 8 ; memberchk(short, S) -> N = 2 ; memberchk(char, S) -> N = 1 ; memberchk('_Bool', S) -> N = 1 ; memberchk(bool, S) -> N = 1 ; memberchk(char8_t, S) -> N = 1 ; memberchk(char16_t, S) -> N = 2 ; memberchk(wchar_t, S) -> N = 4 ; memberchk(char32_t, S) -> N = 4
     ; memberchk(int, S) -> N = 4 ; memberchk(unsigned, S) -> N = 4 ; memberchk(signed, S) -> N = 4 ; memberchk(void, S) -> N = 1 ; fail ).
 ccl_struct_layout(Ms, _, _, N, Al) :- ccl_members_layout(Ms, _, N, Al).

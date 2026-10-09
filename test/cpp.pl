@@ -53,7 +53,8 @@ c_checks :-
     section('the Itanium mangler (0.73, 0.75): nine symbols of clang++ and the shipped library, spelled from the desugaring own terms -- substitutions, nested names, template instances, K, C1/D1, an operator, a prefix as a type'),
     c34,
     c35,
-    c36.
+    c36,
+    c37, c38, c39, c40, c41, c42.
 
 c1 :- check('namespace N { ... } is namespace(L, N, Items), nested, and anonymous',
     ( unit('names.cpp', unit(Is)), member(namespace(2, geo, Gs), Is), member(function(_, _, _, twice, _, _, _), Gs), member(namespace(_, inner, _), Gs), member(namespace(_, anon, _), Is) )).
@@ -129,12 +130,12 @@ c18 :- check('for (int x : xs) and for (auto &x : xs) are for_each(L, Decl, Rang
 c19 :- check('lambdas: [](int a, int b) { ... }, [k, &t](int a) mutable -> int, [=], [&]',
     ( fn_body('control.cpp', main, B),
       member(declaration(_, _, _, [var(add, base([], [auto]), lambda([], [param(base([], [int]), a), param(_, b)], none, block([return(_, bin('+', id(a), id(b)))])))]), B),
-      member(declaration(_, _, _, [var(addk, _, lambda([cap(val, k), cap(ref, t)], [param(_, a)], base([], [int]), _))]), B),
+      member(declaration(_, _, _, [var(addk, _, lambda([cap(val, k), cap(ref, t), mutable], [param(_, a)], base([], [int]), _))]), B),   % `mutable' is kept, last among the captures (0.117)
       member(declaration(_, _, _, [var(all, _, lambda([cap(default, '=')], [], none, _))]), B),
       member(declaration(_, _, _, [var(refs, _, lambda([cap(default, '&')], [], none, _))]), B) )).
 c20 :- check('try { ... } catch (Err e) { ... } catch (...) { ... }, throw Err{t}, throw 3',
     ( fn_body('control.cpp', main, B), member(try(_, block(Ts), [catch(param(base([], [typedef('Err')]), e), block(_)), catch(any, block(_))]), B),
-      member(if(_, _, expr(_, throw(call(id('Err'), [id(t)]))), none), Ts), member(expr(_, throw(int(3))), Ts) )).
+      member(if(_, _, expr(_, throw(braced_temp(call(id('Err'), [id(t)])))), none), Ts), member(expr(_, throw(int(3))), Ts) )).   % `Err{t}' is a braced_temp since 0.117 (a class with an initializer_list constructor takes the list first)
 c21 :- check('Color::Green, static_cast<long>(t), unsigned(k)',
     ( fn_body('control.cpp', main, B), member(declaration(_, _, _, [var(c, base([], [typedef('Color')]), scoped(['Color'], 'Green'))]), B),
       member(declaration(_, _, _, [var(big, base([], [long]), ccast(static, base([], [long]), id(t)))]), B),
@@ -174,7 +175,7 @@ c31 :- check('g[1, 2] = 5 is index(g, args([1, 2])) at -std=c++23; 4uz is ulong(
       member(declaration(_, _, _, [var(n, _, ulong(4))]), B), member(declaration(_, _, _, [var(s, _, str([65, 67]))]), B) )).
 c32 :- check('[](this auto self, int n) -> int has the closure as its explicit object parameter; [] mutable -> int { } reads without parentheses',
     ( fn_body('cxx23.cpp', main, B), member(declaration(_, _, _, [var(fact, _, lambda([], [param(this(base([], [auto])), self), param(base([], [int]), n)], base([], [int]), _))]), B),
-      member(declaration(_, _, _, [var(sq, _, lambda([], [], base([], [int]), block([return(_, int(49))])))]), B) )).
+      member(declaration(_, _, _, [var(sq, _, lambda([mutable], [], base([], [int]), block([return(_, int(49))])))]), B) )).   % ... `mutable' kept (0.117)
 c33 :- check('auto(k) is decay_copy(k); if (using T = long; true) is a block of the alias and the if; { copy = 1; done: } ends with label(L, done, empty)',
     ( fn_body('cxx23.cpp', main, B), member(declaration(_, _, _, [var(copy, _, decay_copy(id(k)))]), B),
       member(block([typedef(_, [var('T', base([], [long]), none)]), if(_, bool(true), block([declaration(_, _, base(_, [typedef('T')]), [var(x, _, int(40))]), _]), none)]), B),
@@ -231,6 +232,50 @@ c34 :- check('the Itanium mangler spells clang++ and the shipped library nine sy
       ita_name([inst(basic_ostream, [base([], [char]), base([], [typedef(ctc)])]), plain(sentry)], '$ctor', [], [param(ref([], base([], [typedef(bos)])), a)], '_ZNSt3__113basic_ostreamIcNS_11char_traitsIcEEE6sentryC1ERS3_'),
       ita_name([inst(basic_istream, [base([], [char]), base([], [typedef(ctc)])])], operator('>>'), [], [param(ref([], base([], [int])), a)], '_ZNSt3__113basic_istreamIcNS_11char_traitsIcEEErsERi'),
       ita_clear )).
+
+c37 :- check('the Itanium mangler spells a function type, an array and the substitutions among them (0.117): void (*)(int, ...) is PFvizE, int (&)[4] is RA4_i, and two void (*)() are PFvvE and S1_ -- the symbols std::set_terminate(void (*)()) is shipped under; volatile is V before K, the group one candidate: const volatile void * is PVKv and its second use S1_ (libc++\'s __cxx_atomic_notify_one)',
+    ( ita_facts,
+      ita_name([], hh, [], [param(ptr([], fn(base([], [void]), [param(base([], [int]), a)], true)), f)], '_ZNSt3__12hhEPFvizE'),
+      ita_name([], ii, [], [param(ref([], arr(int(4), base([], [int]))), a)], '_ZNSt3__12iiERA4_i'),
+      ita_name([], jj, [], [param(ptr([], fn(base([], [void]), [], false)), a), param(ptr([], fn(base([], [void]), [], false)), b)], '_ZNSt3__12jjEPFvvES1_'),
+      ita_name([], kk, [], [param(ptr([], base([const, volatile], [void])), p)], '_ZNSt3__12kkEPVKv'),
+      ita_name([], ll, [], [param(ptr([], base([const, volatile], [void])), a), param(ptr([], base([const, volatile], [void])), b)], '_ZNSt3__12llEPVKvS1_'),
+      ita_name([], mm, [], [param(ptr([], base([volatile], [int])), a), param(ptr([], base([const], [int])), b), param(ptr([], base([volatile], [int])), c)], '_ZNSt3__12mmEPViPKiS1_'),
+      ita_clear )).
+
+c38 :- check('the access control\'s reader forms (0.117): friend class Auditor; is friend(L, [friend_class(Auditor)]), a lambda\'s mutable stays among its captures, and the access markers stay among a class\'s members',
+    ( unit('run/accessctl.cpp', unit(Is)),
+      in(class(class, 'Account', _, AMs), Is), member(friend(_, [friend_class('Auditor')]), AMs), member(access(protected), AMs), member(access(public), AMs),
+      unit('run/lambdamutable.cpp', unit(Js)),
+      in(lambda(Caps, _, _, _), Js), memberchk(mutable, Caps) )).
+
+c39 :- check('a range-for over a braced list is a local array of the items and a for_each over it (0.117): int v : {4, 9, 1, 7} declares an int[4]',
+    ( unit('run/rangeforbraced.cpp', unit(Is)), member(function(_, _, _, main, _, _, block(B)), Is),
+      member(block([declaration(_, none, base(_, [int]), [var(_, arr(int(4), _), init([_, _, _, _]))]), for_each(_, _, id(_), _)]), B) )).
+
+c40 :- check('a user-defined literal is udl(Suffix, Literal) (0.117): 5_km, 1.5_twice, "hello"_len and \'a\'_up read as the literal and its suffix, and operator"" _km is a function named operator(literal(_km))',
+    ( unit('run/userliteral.cpp', unit(Is)), member(function(_, _, _, main, _, _, block(B)), Is),
+      member(declaration(_, _, _, [var(a, _, udl('_km', int(5)))]), B),
+      member(declaration(_, _, _, [var(b, _, udl('_twice', float(1.5)))]), B),
+      member(declaration(_, _, _, [var(s, _, udl('_len', str(_)))]), B),
+      member(declaration(_, _, _, [var(c, _, udl('_up', chr(97)))]), B),
+      member(function(_, _, _, operator(literal('_km')), [param(_, v)], false, _), Is) )).
+
+c41 :- check('a conversion function defined out of its class is a function named scoped(Path, operator(conv(T))) with T as its result, for a class and a class template (0.117); constexpr friend reads as a friend; a value parameter hides the typedef _Size',
+    ( unit('run/convout.cpp', unit(Is)),
+      member(function(_, const(none), base([], [long]), scoped(['P'], operator(conv(base([], [long])))), [], false, _), Is),
+      member(template(_, _, function(_, const(none), base([], [typedef('T')]), scoped([tmpl('S', [base([], [typedef('T')])])], operator(conv(base([], [typedef('T')])))), [], false, _)), Is),
+      unit('run/friendprefix.cpp', unit(Js)), in(class(struct, 'A', _, AMs), Js), member(friend(_, [method(_, Qs, _, operator('-'), _, _, _)]), AMs), memberchk(constexpr, Qs),
+      unit('run/valueparam.cpp', unit(Ks)),
+      member(template(_, [tparam(_, '_Size', none)], function(_, _, _, scoped([tmpl(bs, [id('_Size')])], count), _, _, _)), Ks) )).
+
+c42 :- check('a parenthesized functional cast is the call of the temporary, not a cast to a type (0.117, reader 114): (std::vector<int>(n)) and (T()) read as calls; using typename Base<T>::type; in a class is its typedef type',
+    ( unit('run/parencast.cpp', unit(Is)),
+      member(function(_, _, _, main, _, _, block(B)), Is),
+      member(declaration(_, _, _, [var(v, _, call(scoped([std], tmpl(vector, [base([], [int])])), [id(n)]))]), B),
+      member(function(_, _, _, f, _, _, block(FB)), Is), member(declaration(_, _, _, [var(a, _, call(id('T'), []))]), FB),
+      unit('run/usingtypename.cpp', unit(Js)),
+      in(class(struct, 'Derived', _, DMs), Js), member(typedef(_, [var(type, base([], [typedef(scoped([tmpl('Base', _)], type))]), none)]), DMs) )).
 
 %% ---- real C++ from the neighbours: Cicili's emitted C++, read entirely ----------------------
 c_real :-

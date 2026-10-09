@@ -128,7 +128,8 @@ pp_predef_macro(N, obj, Cs) :-
     ;   pp_predef(N, any, T) -> true
     ;   pp_os(O), pp_predef(N, O, T) -> true                                          % the host's own: __APPLE__ and __MACH__, or __linux__ and __ELF__
     ;   pp_arch(A), pp_predef(N, A, T) -> true
-    ;   ccl_lang(cpp), pp_predef(N, cpp, T) ),
+    ;   ccl_lang(cpp), pp_predef(N, cpp, T)
+    ;   ccl_lang(c), pp_predef(N, c, T) ),                                            % C's own beyond the levels' (0.117): __SIZEOF_INT128__
     atom_codes(T, Cs).
 %% C's levels, the newest first: what -std=c23 answers where C17's table would
 pp_c_std_table(S, c23) :- S >= 23.
@@ -417,7 +418,15 @@ pp_escape([C|Cs], [C|Es]) :- pp_escape(Cs, Es).
 pp_finish(Out, Tokens) :- pp_finish_(Out, Tokens, []).
 pp_finish_([], T, T).
 pp_finish_([pp_out(K)|Xs], T0, T) :- !, nb_getval(K, Sub), nb_setval(K, none), pp_finish_(Sub, T0, T1), pp_finish_(Xs, T1, T).   % a file's output, spliced (its global freed of it)
-pp_finish_([X|Xs], [T|Ts], Tail) :- pp_unwrap(X, T0, _), pp_norm(T0, T), pp_finish_(Xs, Ts, Tail).
+pp_finish_([X|Xs], Out, Tail) :- pp_unwrap(X, T0, _), pp_norm_toks(T0, Ts), append(Ts, Mid, Out), pp_finish_(Xs, Mid, Tail).
+%% A USER-DEFINED LITERAL is a pp-number with its suffix in it, `5_km' or `1500ms' (0.117): the lexer cuts it in two, the number
+%% and the suffix's identifier, which the reader reads as one literal (ccl_udl). It was `tok(int, 0)' -- the lexer's answer was not
+%% ONE token -- and every user-defined literal read as zero.
+pp_norm_toks(tok(num, Cs, L), Ts) :- \+ pp_plain_int(Cs), nb_getval('$ccl_hash', M), nb_setval('$ccl_hash', line), atom_codes(A, Cs),
+    ( ccl_lex_atom(A, 0, Ts0, []), Ts0 = [_, _|_] -> pp_relined(Ts0, L, Ts), nb_setval('$ccl_hash', M) ; nb_setval('$ccl_hash', M), fail ), !.
+pp_norm_toks(T0, [T]) :- pp_norm(T0, T).
+pp_relined([], _, []).
+pp_relined([tok(K, V, _)|Ts], L, [tok(K, V, L)|Us]) :- pp_relined(Ts, L, Us).
 pp_norm(tok(num, Cs, L), tok(int, V, L)) :- pp_plain_int(Cs), !, ccl_int_value(Cs, V).   % ... through the reader's one door, so a literal past 2^60 is big(Atom) here too (0.94)   % a plain decimal, most of them: no lexer run
 pp_norm(tok(num, Cs, L), T) :- !, nb_getval('$ccl_hash', M), nb_setval('$ccl_hash', line), atom_codes(A, Cs), ( ccl_lex_atom(A, 0, [tok(K, V, _)], []) -> T = tok(K, V, L) ; T = tok(int, 0, L) ), nb_setval('$ccl_hash', M).
 pp_norm(T, T).
@@ -918,6 +927,9 @@ pp_predef('__SIZEOF_FLOAT__', any, '4').
 %% that unknown type and `invoke_result<F, unknown>' refused kind_mismatch(_Tp). Left undefined, libc++ compiles its
 %% own no-int128 configuration, as it does under MSVC; glibc's headers do not read the macro.
 %% pp_predef('__SIZEOF_INT128__', any, '16').
+%% 0.117: `__int128' lowers (LLVM's i128), and C asks the macro (`#ifdef __SIZEOF_INT128__'; glibc's headers do not), so C
+%% has it; C++ stays without it, libc++'s own no-int128 configuration by design, while a C++ program's `__int128' runs.
+pp_predef('__SIZEOF_INT128__', c, '16').
 pp_predef('__SIZEOF_INT__', any, '4').
 pp_predef('__SIZEOF_LONG_LONG__', any, '8').
 pp_predef('__SIZEOF_LONG__', any, '8').

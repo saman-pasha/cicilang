@@ -260,7 +260,8 @@ it is done (see below); the checker and the lowering take the AST from here.
   function's first, the object passed as declared; a lambda's is the
   closure, so a lambda recurses), `a[i, j]`, `auto(x)`, the delimited
   escapes, `#elifdef`; deducing `this` with a deduced type on a class's
-  method refused, a member template. THE ROAD TO libc++ (the thirteenth
+  method refused, a member template (it runs since 0.117: the object is the
+  first argument of the member template's deduction). THE ROAD TO libc++ (the thirteenth
   step): the reader reads `<vector>` and `<string>` whole -- packs,
   specializations, member templates, dependent names, decltype, the
   compiler's traits, conversion and literal operators, deduction

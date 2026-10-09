@@ -383,6 +383,12 @@ k91 :- check('C11 and C17: L"wide" is wstr, u"..." u16str, U"..." u32str, u8"...
       member(declaration(_, none, _, [var(s16, _, u16str([97, 98]))]), B),
       member(declaration(_, none, _, [var(s32, _, u32str([120, 121, 122, 195, 169]))]), B),
       member(expr(_, call(id(printf), [_, cast(_, sizeof(wchr(120)))|_])), B) )).
+k92 :- check('GNU\'s __int128 is a type word: typedef __int128 i128 and typedef unsigned __int128 u128 read, struct W holds one, and a cast to it reads',
+    ( unit('run/int128.c', unit(Is)),
+      member(typedef(_, [var(i128, base(_, S1), none)]), Is), memberchk('__int128', S1), \+ memberchk(unsigned, S1),
+      member(typedef(_, [var(u128, base(_, S2), none)]), Is), memberchk('__int128', S2), memberchk(unsigned, S2),
+      member(declare(_, base(_, [struct('W', Ms)])), Is), member(member(base(_, S3), v, none), Ms), memberchk('__int128', S3),
+      member(function(_, _, _, mul, _, _, _), Is) )).
 k90 :- check('C23: _BitInt(N) a specifier, _Generic chosen at the read, _Alignof and alignof, _Alignas kept as the qualifier aligned(E), nullptr_t and unreachable() from <stddef.h>',
     ( unit_c('run/c23b.c', 23, unit(Is)),
       member(declaration(_, none, base(_, [bitint(int(7))]), [var(small, _, int(60))]), Is),
@@ -515,6 +521,7 @@ t_checks :-
     k89,
     k90,
     k91,
+    k92,
     section('where it stops'),
     k69,
     k70,

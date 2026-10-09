@@ -45,7 +45,7 @@
 %% the lowering's version: part of the key of every IR the driver keeps in the
 %% store (library(ccl_driver)); BUMP it whenever the check or the lowering
 %% changes what they emit, as ccl_reader_version/1 is bumped for the grammar
-ccl_lowering_version(60).   % 60 (0.115): a wide literal, or a pointer into one, as a global's constant (ir_wide_lit); 59 (0.112): a compound assignment's and an increment's place taken once, a reference result bound through a statement expression; 58 (0.112): a u"..." literal's surrogate pairs, the `imagl' constant, `dynamic_cast<void *>' through offset-to-top, `@llvm.global_ctors' for `$cpp_ginit', a pointer into a literal as a global's constant; 57 (0.112): a bitfield in a union read and written through its bits (ir_union_slot), a reference handed to a by-value aggregate parameter read through; 56 (0.112): a type's sign written once (a bool bitfield read unsigned, a scoped enum by its underlying type), a qualified data member through the base hops; 55 (0.112): an instance keyed by one spelling per integer type, a hex literal past 2^60 folded as hex, an enum no arithmetic type to the traits and its operators the program's, a captureless lambda's invoker, an init-capture a member; 54 (0.110): a virtual base reached through the table's vbase offset, a diamond's `.nv' paths as their data size of bytes, a global's braced list elided, a virtual base flagged in the type_info; 53 (0.110): a noexcept function guarded by a terminate handler that runs no cleanup, std::terminate; 52 (0.108): the coroutines (LLVM's switch-resumed intrinsics), RTTI and the Itanium vtable prefix, exceptions (invoke, landingpad), secondary vtables and thunks, the array cookie, tentative definitions, _Bool; 51 (0.108): long double as x86_fp80, float and floating global constants folded, va_arg and the va intrinsics, offsetof, anonymous members, designated global initializers normalized; 50 (0.104): the integer imaginary literal's real type from its suffix, a big one spelled whole; 49 (0.103): sizeof a string literal is its bytes; 48 (0.103): _Complex int, two integer components, the integer imaginary literal; 47 (0.101): the imaginary literal, Annex G's multiplication and division through the runtime's __muldc3 and __divdc3, the components as places; 46 (0.100): a function bound to a reference to a pointer converts into a materialized pointer temporary; 45 (0.100): a pointer to member function as the ABI's { ptr, adj }, C's complex types as two components; 44: the VLA's bounds kept in its type, a VLA of a VLA flat, _Alignas on an object, a wide string into an array with the rest zero, a data-member pointer as an offset, a null pointer to a base at an offset, the C11 atomic builtins and _Atomic objects atomic (0.99); 43: an empty `[[no_unique_address]]' member has no element and its address is the ABI's byte offset; 42: a conditional over two void arms has no phi
+ccl_lowering_version(62).   % 62 (0.117): an arithmetic value bound to a reference to ANOTHER arithmetic type (`const size_t &' handed an int: std::max<size_t>(2 * n, 1), every std::deque that grew) converted into a temporary of the referent's type (ir_ref_converts), a call whose result is a reference to an array is the array's address (it decays), a function template-id named as a value (`&__thread_proxy<_Gp>') is the address of its instance, an enum's underlying type named through a dependent typedef is settled and the typedef OUTPUT (the lowering reads the enum's size through it; every `-std=c++20' program that stored into a std::atomic), a plain aggregate member from a braced default initializer built by a compound literal (std::mutex), a member template of a plain class defined out of its class emitted, a deferred instance whose base is still registering; 61 (0.117): the SysV register budget (a struct that does not fit the free registers goes wholly on the stack, declare, define and call alike), va_arg of a struct, a union, a complex and an __int128 expanded by the ABI, a VLA zeroed by `= {}', __int128 as i128, a folded wide constant as a global's initializer, a library function's pointer result a borrow of what its arguments borrow, `c ? 0 : p' a pointer (it was an int and truncated the address), an array member's element type resolved before its leaves are taken (`ir_leaves_': a struct with a `size_t __first_[2]' passed or assigned by value), `sizeof' and `_Static_assert' folded to one answer, the dynamic initialization of a scalar global and of a static local array in `$cpp_ginit'; 60 (0.115): a wide literal, or a pointer into one, as a global's constant (ir_wide_lit); 59 (0.112): a compound assignment's and an increment's place taken once, a reference result bound through a statement expression; 58 (0.112): a u"..." literal's surrogate pairs, the `imagl' constant, `dynamic_cast<void *>' through offset-to-top, `@llvm.global_ctors' for `$cpp_ginit', a pointer into a literal as a global's constant; 57 (0.112): a bitfield in a union read and written through its bits (ir_union_slot), a reference handed to a by-value aggregate parameter read through; 56 (0.112): a type's sign written once (a bool bitfield read unsigned, a scoped enum by its underlying type), a qualified data member through the base hops; 55 (0.112): an instance keyed by one spelling per integer type, a hex literal past 2^60 folded as hex, an enum no arithmetic type to the traits and its operators the program's, a captureless lambda's invoker, an init-capture a member; 54 (0.110): a virtual base reached through the table's vbase offset, a diamond's `.nv' paths as their data size of bytes, a global's braced list elided, a virtual base flagged in the type_info; 53 (0.110): a noexcept function guarded by a terminate handler that runs no cleanup, std::terminate; 52 (0.108): the coroutines (LLVM's switch-resumed intrinsics), RTTI and the Itanium vtable prefix, exceptions (invoke, landingpad), secondary vtables and thunks, the array cookie, tentative definitions, _Bool; 51 (0.108): long double as x86_fp80, float and floating global constants folded, va_arg and the va intrinsics, offsetof, anonymous members, designated global initializers normalized; 50 (0.104): the integer imaginary literal's real type from its suffix, a big one spelled whole; 49 (0.103): sizeof a string literal is its bytes; 48 (0.103): _Complex int, two integer components, the integer imaginary literal; 47 (0.101): the imaginary literal, Annex G's multiplication and division through the runtime's __muldc3 and __divdc3, the components as places; 46 (0.100): a function bound to a reference to a pointer converts into a materialized pointer temporary; 45 (0.100): a pointer to member function as the ABI's { ptr, adj }, C's complex types as two components; 44: the VLA's bounds kept in its type, a VLA of a VLA flat, _Alignas on an object, a wide string into an array with the rest zero, a data-member pointer as an offset, a null pointer to a base at an offset, the C11 atomic builtins and _Atomic objects atomic (0.99); 43: an empty `[[no_unique_address]]' member has no element and its address is the ABI's byte offset; 42: a conditional over two void arms has no phi
 %% ccl_lowering_version(41).   % 41: a literal past 2^60 spelled whole; 40.   % 40: a base clause naming a bound type parameter takes its class, a scope name is the class's own typedef first (libc++ 18), -lc++ on Linux; 39: C23 (_BitInt as iN, the overflow builtins, unreachable), a VLA at run time, thread_local, the wide literals, [[assume]]; 38: a conditional over two lvalues is an lvalue, and its address the phi of theirs;  % 37: wchar_t, char16_t and char32_t have LLVM types, and a function template's shipped instance its Itanium symbol;  % 36: an rvalue prefers `T &&' where a TEMPLATE's candidate is judged (cpp_ref_rank), so std::get answers `int &&' and not `int &';  % 35: a CAST TO A REFERENCE converts from the operand's class to the cast's own target, so a reference or a pointer to a SECOND base is offset (ir_ref_to);  % 34: an empty class is one byte, an `alignas' one padded to its alignment, and a `[[no_unique_address]]' empty member a zero-sized element -- every struct's shape may move
 
 ccl_ir_units(Units0, IR) :-
@@ -177,6 +177,7 @@ ir_base(S, float) :- memberchk(float, S), !.
 ir_base(S, half) :- memberchk('_Float16', S), !.
 ir_base(S, LL) :- memberchk(bitint(E), S), !, ccl_bitint_width(E, W), atom_concat(i, W, LL).   % C23's _BitInt(N) is LLVM's iN, exactly
 ir_base(S, _) :- member(D, ['_Decimal32', '_Decimal64', '_Decimal128']), memberchk(D, S), !, ir_fail(decimal_floating_type(D)).   % C23's decimal floating types: read and sized, refused by name (LLVM has no arithmetic for them)
+ir_base(S, i128) :- memberchk('__int128', S), !.   % GNU's 128-bit integer (0.117): LLVM's own i128, sixteen bytes aligned sixteen
 ir_base(S, i8) :- ( memberchk(char, S) ; memberchk('_Bool', S) ; memberchk(bool, S) ; memberchk(char8_t, S) ), !.   % C++'s bool: a byte in memory, as clang has it; char8_t too
 ir_base(S, i16) :- ( memberchk(short, S) ; memberchk(char16_t, S) ), !.
 ir_base(S, i32) :- ( memberchk(wchar_t, S) ; memberchk(char32_t, S) ), !.   % LP64: wchar_t is four bytes and signed, char32_t four and unsigned -- libc++'s __find of an int goes through __constexpr_wmemchr
@@ -275,6 +276,7 @@ ir_base_walk(V, D, [BN|Rest], V1) :- ir_member_slot(V, base([], [struct(D, none)
 %% second leaf of `this' with the FIRST of the argument. The cast's own conversion is made here, and
 %% whatever the binding still needs after it (a base of the target) follows on the result.
 ir_ref_to(E0, RefT, P) :- ir_ref_cast(E0, T, E), !, ir_ref_to(E, T, P0), ir_ref_hops(P0, T, RefT, P).
+ir_ref_to(E, RefT, P) :- ir_ref_converts(E, RefT, RT), !, ir_ref_convert(E, RT, P).
 ir_ref_to(E, RefT, P) :- ir_ref_of(E, P0), ( ccl_type_of(E, ET) -> true ; ET = unknown ),
     (   ir_fn_designator(ET), ir_ref_pointee(RefT, PT), ccl_resolve_type(PT, ptr(_, _))
     ->  ir_fresh(P), ir_alloca_typed(P, ptr([], base([], [void]))), ir_ins(['store ptr ', P0, ', ptr ', P])   % A FUNCTION BOUND TO A REFERENCE TO A POINTER converts first ([conv.func]) and the reference binds the TEMPORARY pointer ([dcl.init.ref]/5): the function's address IS the value a reference to a function carries, and handed on as the pointer's address libc++'s `__tuple_leaf(_Tp &&)' over `int (*const &)(int, int, int)' loaded the CODE of `add3' as the pointer -- std::bind_front jumped into its own callee's bytes
@@ -284,6 +286,22 @@ ir_ref_pointee(ref(_, T), T).
 ir_ref_pointee(rref(_, T), T).
 ir_ref_cast(cast(T, E), T, E) :- ( T = ref(_, _) ; T = rref(_, _) ).
 ir_ref_cast(ccast(_, T, E), T, E) :- ( T = ref(_, _) ; T = rref(_, _) ).   % a C++ cast keeps its word to here
+%% A REFERENCE TO AN ARITHMETIC TYPE BOUND TO AN EXPRESSION OF ANOTHER ARITHMETIC TYPE binds a TEMPORARY of the referent's
+%% type, initialized from the expression ([dcl.init.ref]/5.4; 0.117). `std::max<size_t>(2 * n, 1)' hands the int `1' to a
+%% `const size_t &', and the temporary was made as wide as the int -- four bytes read as eight, the upper four whatever the
+%% stack held -- so `std::deque' asked for a map of 8589934593 pointers and crashed; `const size_t &r = 3' alike. The two
+%% types are compared by their LLVM types (an int and a `const unsigned &' share their bits and need no copy), and a `bool'
+%% by its own rule: whatever is not 0 becomes 1. A reference MEMBER bound in a constructor is bound so too (ir_bind_into).
+ir_ref_converts(E, RefT, RT) :-
+    (   RefT = rref(_, PT) -> true ; RefT = ref(_, PT) ), ccl_resolve_type(PT, RT), ir_arith_value(RT),
+    (   RefT = rref(_, _) -> true ; RT = base(Qs, _), memberchk(const, Qs) ),   % only a reference that may bind a temporary: a `T &&', a `const T &' -- a non-const lvalue reference binds a reference-related lvalue and nothing else, so it keeps the lvalue's address whatever the inference says of its type
+    catch(ccl_type_of(E, ET0), _, fail), ET0 \== unknown, ccl_unref(ET0, ET1), ccl_resolve_type(ET1, ET), ir_arith_value(ET),
+    ir_type(RT, RL), ir_type(ET, EL),
+    (   RL \== EL -> true ; ir_is_bool(RT), \+ ir_is_bool(ET) ).
+ir_ref_convert(E, RT, P) :-
+    ir_type(RT, RL), ir_expr(E, V0, T0, L0), ir_convert(V0, T0, L0, RT, RL, V),
+    ir_fresh(P), ir_alloca_typed(P, RT), ir_ins(['store ', RL, ' ', V, ', ptr ', P]).
+ir_arith_value(T) :- ccl_is_arith(T), \+ ccl_is_complex(T).
 ir_ref_hops(P0, ET, RefT, P) :- ( ET \== unknown, ccl_unref(ET, ET1), ccl_resolve_type(ET1, base(_, [struct(D, _)])), ccl_unref(RefT, RT), ccl_resolve_type(RT, base(_, [struct(A, _)])), D \== A, ir_base_path(D, A) -> ir_base_hops(P0, D, A, P) ; P = P0 ).
 ir_member_slot(Base, ST, N, Slot, T) :- ccl_resolve_type(ST, memptr(_, _, F)), ccl_resolve_type(F, fn(_, _, _)), !,   % the two fields of a pointer to member function (0.100): `pm.ptr' and `pm.adj', which the call the desugaring builds reads
     ( N == ptr -> Idx = 0, T = ptr([], base([], [void])) ; N == adj -> Idx = 1, T = base([], [long]) ; ir_fail(no_member(N, ST)) ),
@@ -410,7 +428,7 @@ ir_leaves(T, Off, Ls) :-
     ccl_resolve_type(T, T1),
     (   T1 = base(_, [struct(_, Ms)]), Ms \== none -> ir_member_leaves(Ms, Off, 0, Ls)
     ;   T1 = base(_, [union(_, Ms)]), Ms \== none -> ir_union_leaves(Ms, Off, Ls)
-    ;   T1 = arr(int(K), E) -> ccl_size_align(E, ES, _), ir_array_leaves(K, E, ES, Off, Ls)
+    ;   T1 = arr(int(K), E0) -> once(ccl_resolve_type(E0, E)), ccl_size_align(E, ES, _), ir_array_leaves(K, E, ES, Off, Ls)   % the ELEMENT resolved first (0.117): `unsigned long __first_[2]' of a bitset's base holds `typedef(size_t)' here, which has no size, and the failure backtracked into the resolver and every statement before it -- the body was lowered twice
     ;   T1 = memptr(_, _, F), ccl_resolve_type(F, fn(_, _, _)) -> Off8 is Off + 8, Ls = [leaf(Off, int), leaf(Off8, int)]   % a pointer to member function: two INTEGER eightbytes (0.100)
     ;   T1 = base(_, S), memberchk('_Complex', S) -> ccl_complex_real(T1, R), ccl_size_align(R, ES, _), Off2 is Off + ES, ir_leaves(R, Off, L1), ir_leaves(R, Off2, L2), append(L1, L2, Ls)   % a complex crosses a call as its two components (SysV: SSE eightbytes for a floating one, INTEGER ones for a _Complex int; 0.100, 0.103)
     ;   ir_is_fp(T1), ir_type(T1, LLx), LLx == x86_fp80 -> Off8 is Off + 8, Ls = [leaf(Off, x87), leaf(Off8, x87up)]   % a long double: the X87 and X87UP classes (0.108)
@@ -464,10 +482,36 @@ ir_fn_sig(RT, Ps, Var, RetLL, RetAbi, ParamLLs) :-
     (   RetAbi = scalar -> ir_type(RT, RetLL), Lead = []
     ;   RetAbi = direct(Pcs) -> ir_pieces_type(Pcs, RetLL), Lead = []
     ;   ir_sret_attr(RetAbi, Sret), RetLL = void, Lead = [Sret] ),
-    ir_params_lls(Ps, PLs), append(Lead, PLs, ParamLLs0),
+    ir_regs_start(RetAbi, R0), ir_params_lls(Ps, R0, PLs), append(Lead, PLs, ParamLLs0),
     ( Var == true -> append(ParamLLs0, ['...'], ParamLLs) ; ParamLLs = ParamLLs0 ).
-ir_params_lls([], []).
-ir_params_lls([param(T, _)|Ps], LLs) :- ir_param_abi(T, PT, Abi), ir_abi_lls(Abi, PT, L1), ir_params_lls(Ps, L2), append(L1, L2, LLs).
+ir_params_lls([], _, []).
+ir_params_lls([param(T, _)|Ps], R0, LLs) :- ir_param_abi(T, PT, Abi, R0, R1), ir_abi_lls(Abi, PT, L1), ir_params_lls(Ps, R1, L2), append(L1, L2, LLs).
+%% THE REGISTER BUDGET (SysV 3.2.3, 0.117). A struct is passed in registers only when the registers still FREE hold every
+%% one of its eightbytes: "if there are no registers available for any eightbyte of an argument, the whole argument is
+%% passed on the stack", and the registers taken for it are given back. ir_abi/2 classifies a type alone, so the
+%% parameter list is walked here, in order, with `regs(Integer, SSE)' left -- six and eight, the first less when the
+%% result comes back through a hidden pointer -- and a `direct' struct that does not fit becomes `memory' (byval). A
+%% scalar takes one register of its class when one is free (an `x86_fp80' none: it is always in memory), a by-invisible-
+%% reference class its pointer's. One walk serves the declaration (ir_params_lls), the definition (ir_params) and the
+%% call (ir_args_), the variadic tail of a call included, so the three agree and agree with clang-built code. Else
+%% `f(a, b, c, d, e, struct { long x, y; })' put x in the last register and y on the stack, and a `va_arg' that
+%% reads the area by the ABI's rule read the wrong place. AAPCS64's rule differs and is not modelled.
+ir_regs_start(RetAbi, regs(I, 8)) :- ( ( RetAbi = memory(_, _) ; RetAbi = indirect(_, _) ) -> I = 5 ; I = 6 ).
+ir_param_abi(T, PT, Abi, R0, R) :- ir_param_abi(T, PT, Abi0), ir_regs_take(R0, PT, Abi0, Abi, R).
+ir_regs_take(R0, PT, Abi0, Abi, R) :- ir_arch(sysv), !, ir_regs_take_(Abi0, PT, R0, Abi, R).
+ir_regs_take(R, _, Abi, Abi, R).
+ir_regs_take_(direct(Pcs), PT, regs(I0, S0), Abi, regs(I, S)) :- !,
+    ir_piece_classes(Pcs, 0, 0, NG, NS),
+    (   NG =< I0, NS =< S0 -> Abi = direct(Pcs), I is I0 - NG, S is S0 - NS
+    ;   ccl_resolve_type(PT, PT1), ir_type(PT1, LL), ccl_size_align(PT1, _, A), Abi = memory(LL, A), I = I0, S = S0 ).
+ir_regs_take_(scalar, PT, regs(I0, S0), scalar, regs(I, S)) :- !,
+    ir_type(PT, LL),
+    (   memberchk(LL, [float, double, half]) -> I = I0, ( S0 > 0 -> S is S0 - 1 ; S = S0 )
+    ;   LL == x86_fp80 -> I = I0, S = S0
+    ;   LL == i128 -> S = S0, ( I0 >= 2 -> I is I0 - 2 ; I = I0 )
+    ;   S = S0, ( I0 > 0 -> I is I0 - 1 ; I = I0 ) ).
+ir_regs_take_(indirect(LL, A), _, regs(I0, S0), indirect(LL, A), regs(I, S0)) :- !, ( I0 > 0 -> I is I0 - 1 ; I = I0 ).
+ir_regs_take_(Abi, _, R, Abi, R).
 
 ir_signed(T) :- ccl_resolve_type(T, T1), ir_signed_(T1).
 %% A TYPE'S SIGN, written once (0.112): an enum with a written underlying type has ITS sign ([dcl.enum]/5), so
@@ -721,6 +765,7 @@ ir_expr(call(F, Args), V, RT, LL) :- !,
     (   F = id(free), Args1 = [E], ir_drain_free(E, S) -> ir_expr(S, V, RT, LL)
     ;   ir_call(F, Args1, V0, RT0),
         (   ( RT0 = ref(_, RT1) ; RT0 = rref(_, RT1) ), ccl_resolve_type(RT1, RT2), RT2 = fn(_, _, _) -> V = V0, RT = RT2, ir_type(ptr([], RT2), LL)   % a reference TO A FUNCTION is the function's address, nothing to load ([conv.func]): `std::forward<_Func>(__f)' of a function name, which C++23's `and_then' calls -- the load took the first eight bytes of the code
+        ;   ( RT0 = ref(_, RT1) ; RT0 = rref(_, RT1) ), ccl_resolve_type(RT1, RT2), RT2 = arr(_, _) -> V = V0, RT = RT2, LL = ptr   % a reference TO AN ARRAY is the array's address, which decays: nothing to load (0.117) -- libc++'s charconv `__pow()' returns `const uint32_t (&)[10]', and `__pow() + 1' added to a loaded [10 x i32]
         ;   ( RT0 = ref(_, RT1) ; RT0 = rref(_, RT1) ) -> ccl_resolve_type(RT1, RT), ir_type(RT, LL), ir_fresh(V), ir_ins([V, ' = load ', LL, ', ptr ', V0])   % C++: a reference result is what it refers to
         ;   V = V0, RT = RT0, ir_type(RT, LL) ) ).
 %% C++ (M6): the forms that are C with names
@@ -897,9 +942,10 @@ ir_expr(sizeof(E), N, T, i64) :- !, ccl_size_type(T), ccl_type_of(E, ET),
     ->  ir_expr(NE, NV0, NT, NL), ir_convert(NV0, NT, NL, base([], [long]), i64, NV), ir_fresh(N), ir_ins([N, ' = mul i64 ', NV, ', ', ES])
     ;   ccl_size_of(ET, N) -> true
     ;   ir_fail(sizeof(E)) ).
-ir_expr(va_arg(AP, T0), V, T, LL) :- !, ccl_resolve_type(T0, T), ir_type(T, LL),
-    ( ( T = base(_, [struct(_, _)|_]) ; T = base(_, [union(_, _)|_]) ) -> ir_fail(va_arg_of_aggregate(T0)) ; true ),
-    ir_expr(AP, P, _, _), ir_fresh(V), ir_ins([V, ' = va_arg ptr ', P, ', ', LL]).
+ir_expr(va_arg(AP, T0), V, T, LL) :- !, ccl_resolve_type(T0, T), ir_type(T, LL), ir_expr(AP, P, _, _),
+    (   ( ir_is_aggregate(T) ; LL == i128 )
+    ->  ( ir_arch(sysv), ir_va_arg_aggregate(P, T, LL, V0) -> V = V0 ; ir_fail(va_arg_of_aggregate(T0)) )   % a struct, a union, a complex, or an __int128 (two INTEGER eightbytes, 16-aligned in the overflow area) (0.117: x86-64's expansion below; AAPCS64's stays refused)
+    ;   ir_fresh(V), ir_ins([V, ' = va_arg ptr ', P, ', ', LL]) ).
 ir_expr(offsetof(T0, D), N, T, i64) :- !, ccl_size_type(T), ( ccl_offsetof(T0, D, N) -> true ; ir_fail(offsetof(T0, D)) ).
 ir_expr(sizeof_type(ET), N, T, i64) :- !, ccl_size_type(T), ( ccl_size_of(ET, N) -> true ; ir_fail(sizeof_type(ET)) ).
 ir_expr(alignof_type(ET), N, T, i64) :- !, ccl_size_type(T), ( ccl_const_eval(alignof_type(ET), N) -> true ; ir_fail(alignof_type(ET)) ).
@@ -912,7 +958,9 @@ ir_expr(cond(C, A, B), none, base([], [void]), void) :- ccl_type_of(A, TA), ccl_
     ir_block(LF), ir_expr(B, _, _, _), ir_end(['br label %', LE]),
     ir_block(LE).
 ir_expr(cond(C, A, B), V, T, LL) :- !,
-    ccl_type_of(A, TA), ccl_type_of(B, TB), ( ccl_is_arith(TA), ccl_is_arith(TB) -> ccl_usual(TA, TB, T) ; T = TA ), ir_type(T, LL),
+    ccl_type_of(A, TA), ccl_type_of(B, TB), ( ccl_is_arith(TA), ccl_is_arith(TB) -> ccl_usual(TA, TB, T)
+    ; ccl_null_constant(A), ccl_is_pointer(TB) -> T = TB      % `c ? 0 : p' is a POINTER, the literal zero a null pointer constant ([expr.cond]/7, C 6.5.15/6): it was an int, the pointer arm went through `ptrtoint ... to i32' and back, and a heap address lost its high half (libc++'s `deque::end()': `__map_.empty() ? 0 : *__mp + ...', a crash at the first push_back)
+    ; T = TA ), ir_type(T, LL),
     ir_label(LT), ir_label(LF), ir_label(LE), ir_cond(C, CC), ir_end(['br i1 ', CC, ', label %', LT, ', label %', LF]),
     ir_block(LT), ir_expr(A, VA0, TA1, LA), ir_convert(VA0, TA1, LA, T, LL, VA), ir_cur_label(LT1), ir_end(['br label %', LE]),
     ir_block(LF), ir_expr(B, VB0, TB1, LB), ir_convert(VB0, TB1, LB, T, LL, VB), ir_cur_label(LF1), ir_end(['br label %', LE]),
@@ -1119,6 +1167,61 @@ ir_call(id(B), [AP|Rest], none, base([], [void])) :- ir_va_intrinsic(B, I, N), l
 ir_va_intrinsic('__builtin_va_start', 'llvm.va_start', 1).
 ir_va_intrinsic('__builtin_va_end', 'llvm.va_end', 1).
 ir_va_intrinsic('__builtin_va_copy', 'llvm.va_copy', 2).
+%% `va_arg' OF A STRUCT, A UNION OR A COMPLEX ON x86-64 (SysV 3.5.7, 0.117). LLVM's `va_arg' instruction cannot expand an
+%% aggregate -- clang writes that expansion itself, and so does this lowering -- over the list's four fields: gp_offset
+%% (i32 at 0), fp_offset (i32 at 4), overflow_arg_area (ptr at 8) and reg_save_area (ptr at 16). A value that ir_abi
+%% passes in registers (`direct') takes them when the saved registers still hold all its eightbytes -- gp_offset
+%% <= 48 - 8 * INTEGER eightbytes and fp_offset <= 176 - 16 * SSE eightbytes -- and then each eightbyte is read from
+%% the slot of its own class (an INTEGER one 8 bytes on from the last, an SSE one 16) into a temporary, and the two
+%% offsets move on; otherwise, and always for a value that goes in memory, it lies in the overflow area, which is
+%% aligned to 16 for a type that needs more than 8, and moves on by the size rounded up to 8. The value is then
+%% loaded from the temporary or from the area.
+ir_va_arg_aggregate(P, T, LL, V) :-
+    ( LL == i128 -> Abi = direct([piece(i64, 0), piece(i64, 8)]) ; ir_abi(T, Abi) ), ccl_size_align(T, Size, Align),
+    ir_label(LM), ir_label(LJ),
+    (   Abi = direct(Pcs), Size > 0
+    ->  ir_piece_classes(Pcs, 0, 0, NG, NS), ir_label(LR), ir_tmp(LL, Tmp),
+        ir_fresh(FpP), ir_ins([FpP, ' = getelementptr i8, ptr ', P, ', i64 4']),
+        ir_fresh(RsP), ir_ins([RsP, ' = getelementptr i8, ptr ', P, ', i64 16']),
+        ir_fresh(Gp), ir_ins([Gp, ' = load i32, ptr ', P]), ir_fresh(Fp), ir_ins([Fp, ' = load i32, ptr ', FpP]),
+        GpMax is 48 - NG * 8, FpMax is 176 - NS * 16,
+        ir_fresh(C1), ir_ins([C1, ' = icmp ule i32 ', Gp, ', ', GpMax]), ir_fresh(C2), ir_ins([C2, ' = icmp ule i32 ', Fp, ', ', FpMax]),
+        ir_fresh(C), ir_ins([C, ' = and i1 ', C1, ', ', C2]), ir_end(['br i1 ', C, ', label %', LR, ', label %', LM]),
+        ir_block(LR), ir_fresh(Rs), ir_ins([Rs, ' = load ptr, ptr ', RsP]),
+        ir_va_fetch(Pcs, Rs, Gp, Fp, 0, 0, Tmp),
+        ( NG > 0 -> GpN is NG * 8, ir_fresh(Gp2), ir_ins([Gp2, ' = add i32 ', Gp, ', ', GpN]), ir_ins(['store i32 ', Gp2, ', ptr ', P]) ; true ),
+        ( NS > 0 -> FpN is NS * 16, ir_fresh(Fp2), ir_ins([Fp2, ' = add i32 ', Fp, ', ', FpN]), ir_ins(['store i32 ', Fp2, ', ptr ', FpP]) ; true ),
+        ir_cur_label(LR1), ir_end(['br label %', LJ]),
+        ir_block(LM), ir_va_overflow(P, Size, Align, Oa), ir_cur_label(LM1), ir_end(['br label %', LJ]),
+        ir_block(LJ), ir_fresh(Addr), ir_ins([Addr, ' = phi ptr [ ', Tmp, ', %', LR1, ' ], [ ', Oa, ', %', LM1, ' ]'])
+    ;   Abi = memory(_, _)
+    ->  ir_end(['br label %', LM]), ir_block(LM), ir_va_overflow(P, Size, Align, Addr), ir_end(['br label %', LJ]), ir_block(LJ)
+    ),
+    ir_fresh(V), ir_ins([V, ' = load ', LL, ', ptr ', Addr]).
+%% the INTEGER and the SSE eightbytes of a direct value: an integer piece is INTEGER, a floating one SSE
+ir_piece_classes([], G, S, G, S).
+ir_piece_classes([piece(PLL, _)|Ps], G0, S0, G, S) :-
+    ( memberchk(PLL, [double, float, '<2 x float>']) -> G1 = G0, S1 is S0 + 1 ; G1 is G0 + 1, S1 = S0 ), ir_piece_classes(Ps, G1, S1, G, S).
+%% each piece from the saved registers into the temporary: the INTEGER ones from gp_offset on, 8 bytes apart, the SSE ones from fp_offset on, 16 apart
+ir_va_fetch([], _, _, _, _, _, _).
+ir_va_fetch([piece(PLL, Off)|Ps], Rs, Gp, Fp, GA, FA, Tmp) :-
+    (   memberchk(PLL, [double, float, '<2 x float>']) -> Base = Fp, Add = FA, GA1 = GA, FA1 is FA + 16
+    ;   Base = Gp, Add = GA, GA1 is GA + 8, FA1 = FA ),
+    ( Add == 0 -> Ix = Base ; ir_fresh(Ix), ir_ins([Ix, ' = add i32 ', Base, ', ', Add]) ),
+    ir_fresh(Ix64), ir_ins([Ix64, ' = zext i32 ', Ix, ' to i64']),
+    ir_fresh(Src), ir_ins([Src, ' = getelementptr i8, ptr ', Rs, ', i64 ', Ix64]),
+    ir_fresh(Val), ir_ins([Val, ' = load ', PLL, ', ptr ', Src]),
+    ir_fresh(Dst), ir_ins([Dst, ' = getelementptr i8, ptr ', Tmp, ', i64 ', Off]), ir_ins(['store ', PLL, ' ', Val, ', ptr ', Dst]),
+    ir_va_fetch(Ps, Rs, Gp, Fp, GA1, FA1, Tmp).
+%% the overflow area: the argument's address (aligned to 16 when its type needs more than 8) and the area moved on by its size rounded up to 8
+ir_va_overflow(P, Size, Align, Addr) :-
+    ir_fresh(OvP), ir_ins([OvP, ' = getelementptr i8, ptr ', P, ', i64 8']), ir_fresh(Oa), ir_ins([Oa, ' = load ptr, ptr ', OvP]),
+    (   Align > 8
+    ->  ir_fresh(I0), ir_ins([I0, ' = ptrtoint ptr ', Oa, ' to i64']), ir_fresh(I1), ir_ins([I1, ' = add i64 ', I0, ', 15']),
+        ir_fresh(I2), ir_ins([I2, ' = and i64 ', I1, ', -16']), ir_fresh(Addr), ir_ins([Addr, ' = inttoptr i64 ', I2, ' to ptr'])
+    ;   Addr = Oa ),
+    Step is (Size + 7) // 8 * 8,
+    ir_fresh(Next), ir_ins([Next, ' = getelementptr i8, ptr ', Addr, ', i64 ', Step]), ir_ins(['store ptr ', Next, ', ptr ', OvP]).
 %% THE ATOMIC BUILTINS ARE LLVM'S OWN INSTRUCTIONS, never a call to anything: `__atomic_add_fetch(p, -1,
 %% __ATOMIC_ACQ_REL)' is how libc++'s shared_ptr counts its owners (__libcpp_atomic_refcount_decrement), and the
 %% compiler is asked for it by name. An `atomicrmw' answers the OLD value, so a `*_fetch' form applies the
@@ -1200,7 +1303,7 @@ ir_call_(Callee, RT, Ps, Var, Args, V) :-
     (   ( RetAbi = memory(_, _) ; RetAbi = indirect(_, _) )
     ->  ir_type(RT, RLL), ir_tmp(RLL, Sret), ir_sret_attr(RetAbi, SA), atomic_list_concat([SA, ' ', Sret], LeadPart), Lead = [LeadPart], LeadLL = [ptr], CL = void
     ;   Lead = [], LeadLL = [], ( RetAbi = direct(Pcs) -> ir_pieces_type(Pcs, CL) ; ir_type(RT, CL) ) ),
-    ir_args_(Args, Ps, Parts0, PLLs0), append(Lead, Parts0, Parts), append(LeadLL, PLLs0, PLLs), ir_join(Parts, ', ', ArgTxt),
+    ir_regs_start(RetAbi, R0), ir_args_(Args, Ps, R0, Parts0, PLLs0), append(Lead, Parts0, Parts), append(LeadLL, PLLs0, PLLs), ir_join(Parts, ', ', ArgTxt),
     ( Var == true -> ir_join(PLLs, ', ', PL), atomic_list_concat([CL, ' (', PL, ', ...)'], Sig) ; Sig = CL ),
     (   CL == void
     ->  ir_emit_call(none, Sig, Callee, ArgTxt),
@@ -1268,18 +1371,18 @@ ir_catch_bind(N, T, O) :- ccl_resolve_type(T, T1),
     ->  ( T1 = base(_, _) -> RT = ref([], T1) ; RT = T1 ), ir_fresh(A), ir_alloca_typed(A, ptr([], base([], [void]))), ir_ins(['store ptr ', O, ', ptr ', A]), ir_local(N, RT, A)
     ;   ir_type(T1, LL), ir_fresh(A), ir_alloca_typed(A, T1), ir_fresh(V), ir_ins([V, ' = load ', LL, ', ptr ', O]), ir_ins(['store ', LL, ' ', V, ', ptr ', A]), ir_local(N, T1, A) ).
 %% the arguments: each as its parts (a struct in pieces is several), and the plain type of each part
-ir_args_([], _, [], []).
-ir_args_([A|As], [param(PT0, _)|Ps], Parts, PLLs) :- ( PT0 = ref(_, _) ; PT0 = rref(_, _) ), !,   % C++: a reference parameter takes the argument's address -- of the base sub-object, for a derived object over a base at an offset
-    ir_ref_to(A, PT0, V), atomic_list_concat(['ptr ', V], P1), ir_args_(As, Ps, P2, PLLs2), Parts = [P1|P2], PLLs = [ptr|PLLs2].
-ir_args_([A|As], [param(PT0, _)|Ps], Parts, PLLs) :- !,
-    ir_param_abi(PT0, PT, Abi), ir_expr(A, V0, T0, L0),
+ir_args_([], _, _, [], []).
+ir_args_([A|As], [param(PT0, _)|Ps], R0, Parts, PLLs) :- ( PT0 = ref(_, _) ; PT0 = rref(_, _) ), !,   % C++: a reference parameter takes the argument's address -- of the base sub-object, for a derived object over a base at an offset
+    ir_ref_to(A, PT0, V), atomic_list_concat(['ptr ', V], P1), ir_regs_take(R0, PT0, scalar, _, R1), ir_args_(As, Ps, R1, P2, PLLs2), Parts = [P1|P2], PLLs = [ptr|PLLs2].
+ir_args_([A|As], [param(PT0, _)|Ps], R0, Parts, PLLs) :- !,
+    ir_param_abi(PT0, PT, Abi, R0, R1), ir_expr(A, V0, T0, L0),
     (   Abi == scalar -> ir_type(PT, PL), ir_convert(V0, T0, L0, PT, PL, V)
-    ;   ir_ref_value_type(T0, R0) -> ir_type(PT, PL), ir_convert(V0, R0, L0, PT, PL, V)   % A REFERENCE HANDED TO A BY-VALUE AGGREGATE PARAMETER IS READ THROUGH (0.112): its value is the address, and `std::invoke' of a generic lambda forwards `_Args &&' to an `auto' parameter -- stored as the struct, LLVM refused `store %struct.monostate ptr'
+    ;   ir_ref_value_type(T0, RV) -> ir_type(PT, PL), ir_convert(V0, RV, L0, PT, PL, V)   % A REFERENCE HANDED TO A BY-VALUE AGGREGATE PARAMETER IS READ THROUGH (0.112): its value is the address, and `std::invoke' of a generic lambda forwards `_Args &&' to an `auto' parameter -- stored as the struct, LLVM refused `store %struct.monostate ptr'
     ;   V = V0 ),
-    ir_arg_parts(Abi, PT, V, P1, L1), ir_args_(As, Ps, P2, L2), append(P1, P2, Parts), append(L1, L2, PLLs).
-ir_args_([A|As], [], Parts, PLLs) :-                    % the variadic tail: default promotions
-    ir_expr(A, V0, T0), ir_promote_arg(V0, T0, V, T), ir_abi(T, Abi),
-    ir_arg_parts(Abi, T, V, P1, L1), ir_args_(As, [], P2, L2), append(P1, P2, Parts), append(L1, L2, PLLs).
+    ir_arg_parts(Abi, PT, V, P1, L1), ir_args_(As, Ps, R1, P2, L2), append(P1, P2, Parts), append(L1, L2, PLLs).
+ir_args_([A|As], [], R0, Parts, PLLs) :-                    % the variadic tail: default promotions
+    ir_expr(A, V0, T0), ir_promote_arg(V0, T0, V, T), ir_abi(T, Abi0), ir_regs_take(R0, T, Abi0, Abi, R1),
+    ir_arg_parts(Abi, T, V, P1, L1), ir_args_(As, [], R1, P2, L2), append(P1, P2, Parts), append(L1, L2, PLLs).
 ir_arg_parts(scalar, T, V, [Part], [LL]) :- ir_type(T, LL), atomic_list_concat([LL, ' ', V], Part).
 ir_arg_parts(direct(Pcs), T, V, Parts, LLs) :- ir_type(T, LL), ir_tmp(LL, Tmp), ir_ins(['store ', LL, ' ', V, ', ptr ', Tmp]), ir_piece_loads(Pcs, Tmp, Parts, LLs).
 ir_arg_parts(memory(LL, A), _, V, [Part], [ptr]) :- ir_tmp(LL, Tmp), ir_ins(['store ', LL, ' ', V, ', ptr ', Tmp]), atomic_list_concat(['ptr byval(', LL, ') align ', A, ' ', Tmp], Part).
@@ -1368,9 +1471,9 @@ ir_lval(arrow(E, N), Slot, T, LL) :- !, ir_expr(E, P, PT, _), ir_elem(PT, ST), i
 ir_ref_member(Slot0, T0, Slot, T) :- ( T0 = ref(_, _) ; T0 = rref(_, _) ), !, ir_slot_addr(Slot0, A0), ir_ref_slot(A0, T0, Slot, T).
 ir_ref_member(Slot, T, Slot, T).
 %% BINDING a reference member: the address goes into the SLOT, where every use of that member reads through it
-ir_bind_ref(arrow(E, N), V) :- !, ir_expr(E, P, PT, _), ir_elem(PT, ST), ir_member_slot(P, ST, N, Slot, _), ir_bind_into(Slot, V).
-ir_bind_ref(member(E, N), V) :- !, ir_lval(E, Base, BT, _), ccl_resolve_type(BT, ST), ir_member_slot(Base, ST, N, Slot, _), ir_bind_into(Slot, V).
-ir_bind_into(Slot, V) :- ir_slot_addr(Slot, A), ir_ref_of(V, R), ir_ins(['store ptr ', R, ', ptr ', A]).
+ir_bind_ref(arrow(E, N), V) :- !, ir_expr(E, P, PT, _), ir_elem(PT, ST), ir_member_slot(P, ST, N, Slot, MT), ir_bind_into(Slot, MT, V).
+ir_bind_ref(member(E, N), V) :- !, ir_lval(E, Base, BT, _), ccl_resolve_type(BT, ST), ir_member_slot(Base, ST, N, Slot, MT), ir_bind_into(Slot, MT, V).
+ir_bind_into(Slot, MT, V) :- ir_slot_addr(Slot, A), ( ir_ref_converts(V, MT, RT) -> ir_ref_convert(V, RT, R) ; ir_ref_of(V, R) ), ir_ins(['store ptr ', R, ', ptr ', A]).
 ir_lval(ccast(_, T, E), S, T1, LL) :- !, ir_lval(cast(T, E), S, T1, LL).
 ir_lval(cast(T, E), P, RT, LL) :- ( T = ref(_, RT0) ; T = rref(_, RT0) ), !, ir_ref_to(E, T, P), ccl_resolve_type(RT0, RT), ir_type(RT, LL).   % the bind as a place
 %% A STATEMENT EXPRESSION IS A PLACE when the expression it ends with is one -- which is what every temporary this
@@ -1580,7 +1683,7 @@ ir_locals([var(N, T, Init)|Vs], Sto) :-
     ;   T1 = fn(_, _, _) -> ir_note_extern(N, T)                         % a local prototype
     ;   Sto == extern -> ir_note_extern(N, T)
     ;   ir_has_vla(T1)                                                     % A VARIABLE LENGTH ARRAY (C99, mandatory in C17): allocated HERE, in the body, with the bound's value -- the entry block's allocas are fixed
-    ->  ( Init == none -> true ; ir_fail(vla_initialized(N)) ),
+    ->  ( Init == none -> true ; Init == init([]) -> true ; ir_fail(vla_initialized(N)) ),   % C23 6.7.10: `{}' is the one initializer a VLA takes (0.117)
         %% THE BOUNDS ARE EVALUATED ONCE, at the declaration ([dcl.array], C 6.7.6.2/5), and kept in the type the
         %% lowering holds for the local, `arr(vla(Reg), E)' (0.99): `sizeof(a)' reads them back where it stands, so
         %% `int v[n]; n = 10; sizeof(v)' is the size v was made with (it re-read n before); and a VLA OF A VLA is ONE
@@ -1588,7 +1691,14 @@ ir_locals([var(N, T, Init)|Vs], Sto) :-
         %% (ir_lval(index) over ir_vla_bytes) -- `[0 x i32]' had been the row's LLVM type and every row lay at a[0]
         ir_vla_dims(T1, Dims, Inner), ir_vla_values(Dims, Vals), ir_vla_type(Vals, Inner, VT), ir_vla_product(Vals, Total), ir_type(Inner, EL),
         nb_getval('$ir_reg', K), K1 is K + 1, nb_setval('$ir_reg', K1), atomic_list_concat(['%', N, '.', K1], Addr),
-        ir_ins([Addr, ' = alloca ', EL, ', i64 ', Total, ', align 16']), ir_local(N, VT, Addr)
+        ir_ins([Addr, ' = alloca ', EL, ', i64 ', Total, ', align 16']), ir_local(N, VT, Addr),
+        %% `= {}' (C23 6.7.10) zeroes every element: the bytes are the element count times the element's size, and the
+        %% fill is LLVM's own `llvm.memset' (it vanishes for a VLA that is never read)
+        (   Init == init([])
+        ->  ccl_size_of(Inner, IS), ir_fresh(Bytes), ir_ins([Bytes, ' = mul i64 ', Total, ', ', IS]),
+            ir_note_extern('llvm.memset.p0.i64', raw('declare void @llvm.memset.p0.i64(ptr, i8, i64, i1)')),
+            ir_ins(['call void @llvm.memset.p0.i64(ptr ', Addr, ', i8 0, i64 ', Bytes, ', i1 false)'])
+        ;   true )
     ;   ir_sized_type(T, T1, Init, ST),                                     % int xs[] = {...}: sized by its initializer
         nb_getval('$ir_reg', K), K1 is K + 1, nb_setval('$ir_reg', K1), atomic_list_concat(['%', N, '.', K1], Addr),
         ir_alloca_typed(Addr, ST), ir_local(N, ST, Addr), ir_init(Addr, ST, Init) ),
@@ -1680,7 +1790,7 @@ ir_function(Sto, Ret, Name, Params, Var, Body, Text) :-
     nb_setval('$ir_tries', []), nb_setval('$ir_personality', no), nb_setval('$ir_ehslots', none), nb_setval('$ir_unwinding', no), nb_setval('$ir_coro', none),
     ir_ret_abi(Ret, RetAbi), nb_setval('$ir_ret_abi', RetAbi),
     ccl_scope_push,
-    ir_params(Params, 0, Sigs0, Stores),
+    ir_regs_start(RetAbi, R0), ir_params(Params, 0, R0, Sigs0, Stores),
     (   RetAbi = scalar -> ir_type(Ret, RL), Sigs = Sigs0
     ;   RetAbi = direct(Pcs) -> ir_pieces_type(Pcs, RL), Sigs = Sigs0
     ;   ir_sret_attr(RetAbi, SA), atom_concat(SA, ' %agg.result', S0), RL = void, Sigs = [S0|Sigs0] ),
@@ -1703,12 +1813,12 @@ ir_function(Sto, Ret, Name, Params, Var, Body, Text) :-
 %% the parameters: a scalar is stored to its alloca; a struct in pieces arrives
 %% as one register per piece, stored into an alloca of the struct; a struct
 %% in memory (byval) or by a pointer to a copy is used where it is
-ir_params([], _, [], []).
-ir_params([param(T, N)|Ps], I, Sigs, Stores) :-
-    ir_param_abi(T, PT, Abi),
+ir_params([], _, _, [], []).
+ir_params([param(T, N)|Ps], I, R0, Sigs, Stores) :-
+    ir_param_abi(T, PT, Abi, R0, R1),
     ( N == anon -> atomic_list_concat(['%p', I], R) ; atomic_list_concat(['%', N], R) ),
     ir_param_sig(Abi, PT, N, R, Sigs0, Stores0),
-    I1 is I + 1, ir_params(Ps, I1, Sigs1, Stores1), append(Sigs0, Sigs1, Sigs), append(Stores0, Stores1, Stores).
+    I1 is I + 1, ir_params(Ps, I1, R1, Sigs1, Stores1), append(Sigs0, Sigs1, Sigs), append(Stores0, Stores1, Stores).
 ir_param_sig(scalar, PT, N, R, [Sig], Stores) :-
     ir_type(PT, LL), atomic_list_concat([LL, ' ', R], Sig),
     ( N == anon -> Stores = [] ; atom_concat(R, '.addr', Addr), Stores = [alloca(Addr, LL), store(LL, R, Addr), local(N, PT, Addr)] ).
@@ -1832,7 +1942,7 @@ ir_gconst(init(Items0), T, C) :- !,
     ;   T1 = base(_, [struct(_, _)]) -> ir_gstruct(Items, T1, C)                 % the type is written by whoever holds the constant
     ;   T1 = base(_, [union(_, _)]) -> ir_gunion(Items, T1, _, C)
     ;   ir_fail(global_init(T)) ).
-ir_gconst(E, T, C) :- E \= init(_), ccl_resolve_type(T, RT), ccl_is_integer(RT), catch(ccl_const_eval(E, V), _, fail), integer(V), !, atom_number(C, V).   % any integer constant expression: a secondary table's offset-to-top, `-offsetof(C, $base$2)' (0.108)
+ir_gconst(E, T, C) :- E \= init(_), ccl_resolve_type(T, RT), ccl_is_integer(RT), catch(ccl_const_eval(E, V), _, fail), ( integer(V) -> atom_number(C, V) ; V = big(A), ir_big_text(A, C) ), !.   % any integer constant expression: a secondary table's offset-to-top, `-offsetof(C, $base$2)' (0.108)
 ir_gconst(E, _, _) :- ir_fail(global_init(E)).
 %% a global's constant with its type: a union initialized takes the literal
 %% type of the member given, padded to the union's size
