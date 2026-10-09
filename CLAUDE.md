@@ -10,8 +10,8 @@ it found, its measurements and its gate numbers. `README.md` tells a user what r
 architecture and the milestones. A step that changes a rule edits the rule here, in its topic, and writes its entry
 in `HISTORY.md`.
 
-At 0.124 the versions are: the module 0.124 (`ccl_p_version` in `module/cicilang.cicili`, `bin/cicilang --version`),
-the reader 117 (`ccl_reader_version/1`, `library/ccl_syntax.pl`) and the lowering 65 (`ccl_lowering_version/1`,
+At 0.125 the versions are: the module 0.125 (`ccl_p_version` in `module/cicilang.cicili`, `bin/cicilang --version`),
+the reader 117 (`ccl_reader_version/1`, `library/ccl_syntax.pl`) and the lowering 66 (`ccl_lowering_version/1`,
 `library/ccl_ir.pl`).
 
 Build and prove, always in this order (or all of it, `sh test/gates.sh`):
@@ -2791,6 +2791,7 @@ free. A const method adds `.c`, a ref-qualified one `.r` or `.rr` after it: each
 - `cpp_fn_more_special(X, Y)` holds when Y's parameter types deduce from X's, X's parameters opaque (`$opaque.P`,
   `cpp_opaque_bindings`). A template-id over opaque names is an incomplete instance, never instantiated
   (`cpp_opaque_types`: `__pad_and_output`'s ostreambuf overload). (0.45, 0.72)
+- A parameter that STANDS TWICE deduces ONE type in the comparison ([temp.deduct.partial]/10; `cpp_params_consistent/3`, `cpp_bare_param/5`): `f(I1, I1, I2, I2)` is more specialized than `f(I1, I1, I2, P)`. `cpp_match` takes the second occurrence unseen, so both directions deduced and the first declared won; libc++ 21's `__lexicographical_compare` calls `std::mismatch(a, a + n, b, b + n)` of four pointers, which took the predicate overload (also at libc++ 18 under C++20). `partialorder2.cpp`, `mismatch4.cpp`. (0.125)
 - A function parameter pack is less specialized ([temp.deduct.partial]/8; `cpp_has_pack_param`). Fixtures:
   `packorder.cpp`, `stdinvoke.cpp` (libc++'s `__invoke` for a data-member pointer). (0.99)
 - Of `T &` and `const T &` deducing each other, the less cv-qualified loses ([temp.deduct.partial]/9;

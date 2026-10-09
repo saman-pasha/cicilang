@@ -6342,7 +6342,8 @@ cpp_fn_more_special(h(_, TPsX, function(_, _, _, _, PsX, _, _), _, _), h(_, TPsY
     \+ ( cpp_has_pack_param(PsX), \+ cpp_has_pack_param(PsY) ),   % A FUNCTION PARAMETER PACK IS LESS SPECIALIZED than a parameter that is none ([temp.deduct.partial]/8; 0.99): `f(F &&, A0 &&)' beats `f(F &&, Args &&...)' for two arguments, where the pack's overload had won libc++'s `__invoke' for a pointer to data member
     once(( cpp_opaque_bindings(TPsX, BX), cpp_subst(PsX, BX, PsX1), cpp_param_types(PsX1, TsX0), cpp_opaque_types(TsX0, TsX), cpp_param_types(PsY, TsY) )),   % ONE way of spelling the opaque types: a comparison that FAILS is asked under `\+', which exhausts every alternative of what came before -- 127,000 deductions for one choice among four candidates (0.99, the sort probe: 484 s of a 570 s build)
     length(TsX, N), length(TsY, N), cpp_param_types(PsX, TsXr), cpp_partial_cv_ok(TsXr, TsY, TPsX),   % X's types as WRITTEN, the parameters still named
-    once(catch(cpp_deduce_types(TsY, TsX, TPsY, [], B), error(not_lowered(_), _), fail)), cpp_all_bound(TPsY, TsY, B).
+    once(catch(cpp_deduce_types(TsY, TsX, TPsY, [], B), error(not_lowered(_), _), fail)), cpp_all_bound(TPsY, TsY, B),
+    cpp_params_consistent(TsY, TsX, TPsY).   % A PARAMETER THAT STANDS TWICE deduces ONE type ([temp.deduct.partial]/10; 0.122): `f(I1, I1, I2, I2)' is more special than `f(I1, I1, I2, P)' -- cpp_match took the second occurrence unseen, both directions deduced, and the first declared won (`std::mismatch(a, a + 3, b, b + 3)' called the predicate overload with an int *)
 %% ... AND THE REFERENCE TIE-BREAK ([temp.deduct.partial]/9; 0.99): where two reference parameters deduce each other
 %% (`T &' and `const T &': the types are identical once the reference and the top-level qualifiers are stripped, /5 and
 %% /7), the LESS cv-qualified one is not at least as specialized -- `kind(const T &)' beats `kind(T &)' for a const lvalue,
@@ -6353,6 +6354,9 @@ cpp_partial_cv_ok([PX|Xs], [PY|Ys], TPs) :-
     \+ ( PX = ref(_, base(QX, [typedef(P)])), atom(P), memberchk(tparam(type, P, _), TPs), \+ memberchk(const, QX),
           PY = ref(_, base(QY, _)), memberchk(const, QY) ),
     cpp_partial_cv_ok(Xs, Ys, TPs).
+cpp_params_consistent(TsY, TsX, TPs) :- findall(P-T, ( nth1(I, TsY, PY), nth1(I, TsX, TX), cpp_bare_param(PY, TX, TPs, P, T) ), Bs), \+ ( member(P-T1, Bs), member(P-T2, Bs), \+ catch(cpp_same_type(T1, T2), _, fail) ).
+cpp_bare_param(PY, TX, TPs, P, T) :- ( PY = ref(_, PY1), TX = ref(_, TX1) ; PY = rref(_, PY1), TX = rref(_, TX1) ; PY = ptr(_, PY1), TX = ptr(_, TX1) ), !, cpp_bare_param(PY1, TX1, TPs, P, T).
+cpp_bare_param(base(_, [typedef(P)]), TX, TPs, P, TX) :- atom(P), memberchk(tparam(type, P, _), TPs).
 cpp_has_pack_param(Ps) :- member(P, Ps), ( P = param(pack(_), _) ; P = param(pack(_), _, _) ), !.
 %% ... and a TEMPLATE-ID OVER OPAQUE NAMES among X's parameter types is an INCOMPLETE INSTANCE (0.58's: a name and
 %% its arguments, recorded, no body), never instantiated: `ostreambuf_iterator<$opaque._CharT, $opaque._Traits>'

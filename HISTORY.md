@@ -7437,3 +7437,10 @@ and `<optional>` at C++26 read whole to fewer items than libc++ 18's floors (lib
 `__allocating_buffer`, which uses a class-scope alias declared after its use with an attribute before the `=`
 (`using _Alloc [[__gnu__::__nodebug__]] = allocator<_CharT>;`): the scan that notes such aliases ahead takes the attribute (reader 117).
 
+## 0.125 — libc++ 21: the partial ordering
+
+Committed while the batch over libc++ 21's failing fixtures runs (nothing claimed GREEN). The first failure met: `std::mismatch(a, a + 3, b, b + 3)` of four
+pointers took the overload `mismatch(I1, I1, I2, BinaryPredicate)` and called a pointer (`call(id('__pred'))`), at libc++ 18 under C++20 as well; libc++ 21's
+`lexicographical_compare` of pointers calls it, so `stdalgorithm3`, `stdarray` and others failed. The cause: the comparison of two function templates deduced each
+way, since a parameter that stands twice (`I2, I2`) bound at its first occurrence and the second went unseen. Fixtures `partialorder2.cpp`, `mismatch4.cpp`.
+
