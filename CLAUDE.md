@@ -10,7 +10,7 @@ it found, its measurements and its gate numbers. `README.md` tells a user what r
 architecture and the milestones. A step that changes a rule edits the rule here, in its topic, and writes its entry
 in `HISTORY.md`.
 
-At 0.118 the versions are: the module 0.118 (`ccl_p_version` in `module/cicilang.cicili`, `bin/cicilang --version`),
+At 0.119 the versions are: the module 0.119 (`ccl_p_version` in `module/cicilang.cicili`, `bin/cicilang --version`),
 the reader 114 (`ccl_reader_version/1`, `library/ccl_syntax.pl`) and the lowering 62 (`ccl_lowering_version/1`,
 `library/ccl_ir.pl`).
 
@@ -407,7 +407,7 @@ tutorials/01..03-*.pl       the objects layer's lessons; goal main, last line do
 ### The C++ gate: test/cpp.sh
 
 - `test/cpp.sh` runs in this order: `test/cpp.pl` in one `--local` process; three checks of the command; every
-  `test/cpp/run/*.cpp` as a pool job (389 at 0.118); `classes.cpp` and `templates.cpp` built and run; the refusals.
+  `test/cpp/run/*.cpp` as a pool job (389 at 0.119); `classes.cpp` and `templates.cpp` built and run; the refusals.
   (0.105)
 - `test/cpp.pl` runs 42 numbered checks, `c1` to `c42`, then reads Cicili's six C++ files whole (`test/cpp/objects.cpp`,
   `emit_report.cpp`, `specialise.cpp`, `syntax.cpp`, `torch.cpp`, `torch-fragment.cpp`). `c34` checks the Itanium
@@ -418,6 +418,11 @@ tutorials/01..03-*.pl       the objects layer's lessons; goal main, last line do
   range-for (`rangeforbraced.cpp`), `c40` the user-defined literal (`userliteral.cpp`), `c41` the conversion function
   defined out of its class (`convout.cpp`) and `c42` the parenthesized functional cast and `using typename`
   (`parencast.cpp`, `usingtypename.cpp`). `c37` also spells three symbols with `volatile`. (0.93, 0.117)
+- A numbered check reads the AST by its SHAPE, so a reader node that moves moves its check in the same step: `throw Err{t}`
+  has read `throw(braced_temp(call(id('Err'), [id(t)])))` since 0.117 and `c20` expected the plain call until 0.119 -- a
+  RED that only this gate can show, so a step that does not run it leaves the check stale. `test/cpp.pl` alone runs in 15
+  s over a warm HOME: `CCL_TEST_ROOT` and `CCL_TEST_TMP` set, `cocolog --local query "ensure_loaded('test/cpp.pl'),
+  cpp_main"`; without the two variables it answers `false.` and names no line. (0.119)
 - The command's checks: `hello.cpp` built through `cicilang++` prints `hello, cicilang++`; a second build is served
   from the summaries in under 8 s; `cicilang++ -fsyntax-only classes.cpp` says nothing and exits 0. After the
   fixtures, `classes.cpp` builds and exits 34, and `templates.cpp` exits 10. (M5, 0.34, 0.35)
@@ -5011,6 +5016,10 @@ A lambda is a class of its captures (`library/ccl_cpp.pl`). A fixture named alon
   gate's process, never "any cocolog"; a probe watches its own process group. (0.93, 0.94)
 - A waiter whose pattern matches its own shell waits for ever (`pgrep -f "cocolog ..."`): write `[c]ocolog`, or watch
   the RESULT file. (0.92)
+- A KILLED GATE LEAVES ITS TEMPORARY DIRECTORY (`mktemp -d`: the `trap` does not run on SIGKILL), and a watcher that takes
+  the last of `ls -d /tmp/cicilang-cpp-*/res` reads the dead run's verdicts as the live one's: it reported eight FAIL
+  lines, all of the stopped first run of 0.118, while the live run had none. Take the newest (`ls -dt`), or remove the
+  dead directory first; the gate's own log is the verdict. (0.119)
 - After a reader-version bump every summary is cold: the next run flattens its headers in-process and peaks far above
   the steady state, and a run killed then writes no summary. A RED or a "regression" that comes with a bump is a cold
   cache until a warm run says otherwise; warm outside the gates (`test/libcxx.sh`). A mixed-age cache inflates a
@@ -5094,9 +5103,10 @@ A lambda is a class of its captures (`library/ccl_cpp.pl`). A fixture named alon
   0.90, all GREEN (cocolog 1.2.18). The fixtures added since 0.93 have run on Linux only.
 - Ubuntu 24.04 on x86_64 (clang and LLVM 18, glibc, libc++ 18) is a host since 0.87. Every gate but the C++ one is
   GREEN there since 0.93, and all seven since 0.95. Every step from 0.93 on is gated there, but the save points 0.112,
-  0.113, 0.117 and 0.118; the last full run is 0.116's, over cocolog 1.9.1. The six gates but the C++ one were GREEN over
-  0.117 (0.118); its C++ gate found two defects (fixed in 0.118) and ran again over the corrected tree when 0.118 was
-  committed.
+  0.113 and 0.117; the last full run is 0.118's, over cocolog 1.9.1 (0.119): the six gates but the C++ one over a
+  snapshot of 0.117 (0.118 changed none of what they run), and the C++ gate over 0.118's own tree -- 388 of 389 fixtures
+  ok, the skip `stdoptionalref`, and one stale check of `test/cpp.pl` that 0.119 fixed (c20, below). Its first run, over
+  0.117, found two defects (fixed in 0.118).
 - The host sets the predefined macros (`ccl_host_os/1` and `ccl_host_arch/1` in the module), the inclusion path
   (Debian's `/usr/lib/llvm-NN`, the multiarch directory) and the link (`-lc++` and `-lm` on Linux) (0.87, 0.93, 0.100).
 - A struct passed or returned by value crosses a call as clang's x86-64 code expects, in both directions, with the

@@ -135,7 +135,7 @@ c19 :- check('lambdas: [](int a, int b) { ... }, [k, &t](int a) mutable -> int, 
       member(declaration(_, _, _, [var(refs, _, lambda([cap(default, '&')], [], none, _))]), B) )).
 c20 :- check('try { ... } catch (Err e) { ... } catch (...) { ... }, throw Err{t}, throw 3',
     ( fn_body('control.cpp', main, B), member(try(_, block(Ts), [catch(param(base([], [typedef('Err')]), e), block(_)), catch(any, block(_))]), B),
-      member(if(_, _, expr(_, throw(call(id('Err'), [id(t)]))), none), Ts), member(expr(_, throw(int(3))), Ts) )).
+      member(if(_, _, expr(_, throw(braced_temp(call(id('Err'), [id(t)])))), none), Ts), member(expr(_, throw(int(3))), Ts) )).   % `Err{t}' is a braced_temp since 0.117 (a class with an initializer_list constructor takes the list first)
 c21 :- check('Color::Green, static_cast<long>(t), unsigned(k)',
     ( fn_body('control.cpp', main, B), member(declaration(_, _, _, [var(c, base([], [typedef('Color')]), scoped(['Color'], 'Green'))]), B),
       member(declaration(_, _, _, [var(big, base([], [long]), ccast(static, base([], [long]), id(t)))]), B),

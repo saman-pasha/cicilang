@@ -112,6 +112,7 @@ One row per step, in version order: the step's title, what it did and its gate n
 | 0.116 | the rename | `cocolang` is `cicilang`: files, library, doors, variables, cache, answer lines, header guards | reader 95, compile 101 in 13 s, driver 26, objects 29; libcxx 1558 s cold; C++ 2542 s, 384 checks ok and one skip; all seven GREEN |
 | 0.117 | the "not done" list, worked; a library sweep | Mangler, placement `new[]`, arrays of arrays, VLA `{}`, `va_arg` of a struct, the SysV register budget, `__int128`; access control, `mutable`, deducing `this`; the streams over files and strings; user-defined literals; `<complex>`, `<bitset>`, `std::span`, `std::list`, `std::deque`, `<thread>`, `<charconv>`, `<atomic>` at C++20, `<bit>`; the defects those programs found (the reference binding, the conversion functions that yield a reference, the calls through a pointer or a reference to function, the SFINAE of a scalar typedef and of the parameters a call leaves out) | not run (a save point) |
 | 0.118 | the gates over 0.117, two defects found | The C++ gate refused `sentinelpair.cpp` (`friend class S<!C>;` of a member class template) and `rangesarray.cpp` ran away at 8.7 GB (the alias clause of `cpp_type` followed a typedef naming a template parameter); both fixed, each fixture seen to pass | reader 5 s, compile 8 s, driver 7 s, objects 3 s, proof, libcxx 958 s: GREEN over 0.117; the C++ gate was running over the corrected tree (a save point) |
+| 0.119 | the C++ gate over 0.118 | One stale check of `test/cpp.pl` (c20: `throw Err{t}` is a `braced_temp` since 0.117) edited; the library is 0.118's | C++ gate over 0.118's tree: 388 of 389 fixtures ok (the skip is `stdoptionalref`), 2989 s over four lanes, peak 9034 MB, RED by the one stale check; `test/cpp.pl` alone GREEN, 48 ok in 15 s |
 
 ## M5 — the C++ mode
 
@@ -7184,3 +7185,33 @@ change to `library/ccl_cpp.pl` and the module's version string leave their verdi
 carries the C++ gate's numbers.
 
 Reader version 114, lowering version 62; the module rebuilt as 0.118, over cocolog 1.9.1.
+
+## 0.119 — M6's eighty-third step
+
+**M6's eighty-third step (0.119): the C++ gate over 0.118's tree.** 0.118 was committed while its C++ gate ran. The gate ran to its end,
+alone on the box (the other work on it was one-second reductions under a cap of their own), over a snapshot of 0.118's tree and the
+HOME of the library read, its 84 summaries warm: 388 fixtures built, ran and printed what clang++ prints, the one skip is
+`stdoptionalref` (it needs libc++ 21), none failed, in 2989 s over four lanes, the pool's peak 9034 MB (the sum of its cocolog
+processes). The slowest were `viewsall` 1357 s (1759 s at 0.115), `viewchain` 438 s, `tempinitlist` 429 s, `stdwformat` 375 s, `stdviews`
+371 s and `stdcontains` 368 s. The three fixtures behind 0.118's fixes -- `sentinelpair`, `rangesarray` and `stdranges` -- passed in the pool.
+
+THE GATE WAS RED BY ONE CHECK, not by a fixture: `c20` of `test/cpp.pl`. `throw Err{t}` has read `throw(braced_temp(call(id('Err'),
+[id(t)])))` since 0.117 -- a class with an `initializer_list` constructor takes the list first, and the reader keeps the braced
+temporary as its own node -- and the check still expected the plain call. The rule was right and its check was not edited with it: the
+checks of `test/cpp.pl` read the AST by its shape, only this gate runs them, and 0.117 was a save point. The check says what the
+reader gives now. `test/cpp.pl` alone, over 0.118's library, is GREEN: 48 ok (the 42 checks and Cicili's six C++ files), 15 s,
+237 MB. The pool and the command's checks around the red one were green. The chain was not run again over this tree, which differs
+from 0.118's by that check, the module's version string and the documents.
+
+So all seven gates have run on cocolog 1.9.1 over the tree of 0.117/0.118: the six that run no C++ desugaring over a snapshot of
+0.117 (0.118 changed none of what they run), the C++ one over 0.118's own.
+
+TWO LESSONS OF THE INSTRUMENTS. (1) The watch of this run reported eight FAIL verdicts in its first minutes (`refbyvalue`,
+`stdformat`, `stdformatter`, `stdprint`, `stdvformat`, `stdwformat`, `stdwstream`, `streamderived`). They were not this run's: a
+gate that is killed leaves its `mktemp -d` directory (the `trap` does not run on SIGKILL), and the watcher took the last of
+`ls -d /tmp/cicilang-cpp-*/res`, which was the stopped first run's, with the verdicts of the 0.117 tree. The gate's own log had one FAIL
+line, the check. An instrument that answers about a thing other than the one asked answers confidently and wrongly: the watcher
+reads the newest directory now, and the dead one is removed. (2) A reader change that moves a node is not finished until the one gate
+that reads nodes by shape has seen it.
+
+Reader version 114, lowering version 62; the module rebuilt as 0.119, over cocolog 1.9.1.
