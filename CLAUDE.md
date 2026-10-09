@@ -10,7 +10,7 @@ it found, its measurements and its gate numbers. `README.md` tells a user what r
 architecture and the milestones. A step that changes a rule edits the rule here, in its topic, and writes its entry
 in `HISTORY.md`.
 
-At 0.121 the versions are: the module 0.121 (`ccl_p_version` in `module/cicilang.cicili`, `bin/cicilang --version`),
+At 0.122 the versions are: the module 0.122 (`ccl_p_version` in `module/cicilang.cicili`, `bin/cicilang --version`),
 the reader 115 (`ccl_reader_version/1`, `library/ccl_syntax.pl`) and the lowering 64 (`ccl_lowering_version/1`,
 `library/ccl_ir.pl`).
 
@@ -5340,8 +5340,8 @@ A lambda is a class of its captures (`library/ccl_cpp.pl`). A fixture named alon
   0.90, all GREEN (cocolog 1.2.18). The fixtures added since 0.93 have run on Linux only.
 - Ubuntu 24.04 on x86_64 (clang and LLVM 18, glibc, libc++ 18) is a host since 0.87. Every gate but the C++ one is
   GREEN there since 0.93, and all seven since 0.95. Every step from 0.93 on is gated there, but the save points 0.112,
-  0.113 and 0.117 (gated by the steps after them); the last full run is 0.120's, over cocolog 1.9.1: all seven GREEN, the
-  library read in 1001 s, the C++ gate in 908 s with 388 of 389 fixtures ok (the skip is `stdoptionalref`). The run before it
+  0.113 and 0.117 (gated by the steps after them); the last full run is 0.121's, over cocolog 1.9.1: all seven GREEN, the
+  library read in 836 s, the C++ gate in 938 s with 403 of 404 fixtures ok (the skip is `stdoptionalref`). The run before it
   (0.118, 0.119) found, over 0.117, two defects and one stale check of `test/cpp.pl` (c20, above).
 - The host sets the predefined macros (`ccl_host_os/1` and `ccl_host_arch/1` in the module), the inclusion path
   (Debian's `/usr/lib/llvm-NN`, the multiarch directory) and the link (`-lc++` and `-lm` on Linux) (0.87, 0.93, 0.100).

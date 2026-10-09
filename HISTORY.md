@@ -114,7 +114,7 @@ One row per step, in version order: the step's title, what it did and its gate n
 | 0.118 | the gates over 0.117, two defects found | The C++ gate refused `sentinelpair.cpp` (`friend class S<!C>;` of a member class template) and `rangesarray.cpp` ran away at 8.7 GB (the alias clause of `cpp_type` followed a typedef naming a template parameter); both fixed, each fixture seen to pass | reader 5 s, compile 8 s, driver 7 s, objects 3 s, proof, libcxx 958 s: GREEN over 0.117; the C++ gate was running over the corrected tree (a save point) |
 | 0.119 | the C++ gate over 0.118 | One stale check of `test/cpp.pl` (c20: `throw Err{t}` is a `braced_temp` since 0.117) edited; the library is 0.118's | C++ gate over 0.118's tree: 388 of 389 fixtures ok (the skip is `stdoptionalref`), 2989 s over four lanes, peak 9034 MB, RED by the one stale check; `test/cpp.pl` alone GREEN, 48 ok in 15 s |
 | 0.120 | the desugaring four times faster | The class record split in two (a light one for the lookups that do not want the members), seven registries made facts, the file scope, the typedefs and the tags in 128 buckets each; found by a flat profile | reader 5 s, compile 9 s, driver 7 s, objects 2 s; libcxx 1001 s; C++ 908 s (2989 s at 0.118), 388 of 389 fixtures, the pool's peak 1675 MB (9034 MB); all seven GREEN |
-| 0.121 | std::variant and std::visit, and what they needed | Union templates, base packs and using-declared methods, local classes, member templates through pointers, value categories, narrowing, `<=>` rewritten through free operators, objects built in place; twenty defects met in turn | reader 6 s, compile 10 s, driver 7 s, objects 3 s, proof GREEN; libcxx and C++ gate (404 fixtures) running at the commit |
+| 0.121 | std::variant and std::visit, and what they needed | Union templates, base packs and using-declared methods, local classes, member templates through pointers, value categories, narrowing, `<=>` rewritten through free operators, objects built in place; twenty defects met in turn | reader 6 s, compile 10 s, driver 7 s, objects 3 s, proof GREEN; libcxx 836 s, C++ gate 938 s (404 fixtures, no FAIL, 1 skip); all seven GREEN |
 
 ## M5 — the C++ mode
 
@@ -7403,6 +7403,10 @@ aggregate form elides); an overload set on `const S &` and `S &&` over a plain s
 `f(std::move(s))`: `copy copy copy` where clang++ prints `move move copy`). Also found: `own` is a keyword of the language, and a
 fixture's member named `own` did not read.
 
-GATES. Committed before the last two gates finished, so it claims them GREEN no more than the numbers allow. Over the final snapshot: reader 6 s, compile 10 s, driver 7 s, objects 3 s, proof 0 s, all GREEN (the reader's two skips are Cicili's example files, not here). The library read and the C++ gate (404 fixtures) were running; the next commit carries their numbers. The first chain of this step, over an earlier snapshot, was RED on five `std::format` fixtures (16).
+GATES, over the final snapshot of 0.121 (committed before the last two finished; numbers carried by 0.122): reader 6 s, compile 10 s, driver 7 s, objects 3 s, proof 0 s, library read 836 s (peak 1019 MB), C++ gate 938 s (peak 1578 MB, 404 fixtures, no FAIL, the one skip `stdoptionalref`); all seven GREEN. The first chain of this step, over an earlier snapshot, was RED on five `std::format` fixtures (16).
 
 Reader version 115, lowering version 64; the module rebuilt as 0.121, over cocolog 1.9.1.
+
+## 0.122 — the numbers of 0.121
+
+A save point: the gate numbers of 0.121 (above) and the last-run note in `CLAUDE.md`. No code changed; the module version moved to 0.122.
