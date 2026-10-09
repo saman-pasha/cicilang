@@ -299,7 +299,15 @@ program's own literal operators, `<memory>`'s `construct_at`,
 `std::stack`, `std::priority_queue`, `<numeric>`, `std::from_chars` and
 `std::to_chars`, `std::thread` and `std::mutex` (with `std::ref` arguments),
 and at C++20 `std::atomic`'s `wait`, `notify_one` and `notify_all` and `<bit>`
-with `std::bit_cast`. `test/libcxx.sh` reads `<vector>`, `<string>`,
+with `std::bit_cast`; since 0.121 also `std::variant` with `std::visit` (a
+function object, a generic lambda, C++17's `overloaded` idiom, two variants),
+and the forms it needed: classes defined in a function, `using Base::f;` and
+`using Bs::operator()...;`, aggregates with bases, a member template called
+through a pointer, unions with a constructor, a destructor or a method, and
+objects that hold their own address (a map, a list, a `std::function`)
+constructed in place when a temporary or a call initializes them; at C++20 also
+`variant <=> variant` and `std::string` compared with `const char *`.
+`test/libcxx.sh` reads `<vector>`, `<string>`,
 `<iostream>`, `<map>`, `<set>`, `<unordered_map>`, `<unordered_set>`,
 `<optional>`, `<memory>`, `<functional>`, `<tuple>` and `<algorithm>` whole,
 and the containers, `<string>`, `<iostream>` and `<ranges>` at C++20,
@@ -358,7 +366,7 @@ HISTORY.md                     the record of every step: what it did, what it fo
 
 `std::format`'s compile-time check of the format string (the library's own
 run-time parser catches a bad one); the range adaptors not named;
-`std::filesystem`, `<random>`, `std::variant`'s `visit`, `std::valarray`;
+`std::filesystem`, `<random>`, `std::valarray`;
 access control of an inheritance; the tail padding of a non-POD base, which is
 not reused (a class laid out here differs from clang's where code compiled by
 both shares it); construction vtables in a diamond; a `\N{...}` abbreviation

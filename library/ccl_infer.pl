@@ -332,7 +332,7 @@ ccl_add_quals(_, T, T).
 %% where a member/3 is expected fails a walk without a word (`phase(check)')
 ccl_members_of(T, Ms) :- ccl_members_of_(T, Ms0), ccl_data_members(Ms0, Ms).
 ccl_data_members([], []) :- !.
-ccl_data_members([M|Ms], Out) :- ( ccl_layout_marker(M) -> Out = Out1 ; Out = [M|Out1] ), ccl_data_members(Ms, Out1).
+ccl_data_members([M|Ms], Out) :- ( ( ccl_layout_marker(M) ; M == union_tag ) -> Out = Out1 ; Out = [M|Out1] ), ccl_data_members(Ms, Out1).   % ... and a UNION CLASS's tag mark (0.121): `U u = {5}' initializes the first MEMBER, which the mark stood in front of
 ccl_members_of_(memptr(_, _, F), [member(ptr([], base([], [void])), ptr, none), member(base([], [long]), adj, none)]) :- ccl_resolve_type(F, fn(_, _, _)), !.   % the two fields of a pointer to member function (0.100), read as `pm.ptr' by the call the desugaring makes
 ccl_members_of_(base(_, [struct(_, Ms)]), Ms) :- Ms \== none, !.                 % resolved already: no resolution
 ccl_members_of_(base(_, [union(_, Ms)]), Ms) :- Ms \== none, !.

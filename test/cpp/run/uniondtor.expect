@@ -1,0 +1,10 @@
+ctor 1
+union gone
+after
+ctor 2
+dtor 2
+ctor 3
+dtor 3
+end
+union gone
+exit 0

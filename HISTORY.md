@@ -114,6 +114,7 @@ One row per step, in version order: the step's title, what it did and its gate n
 | 0.118 | the gates over 0.117, two defects found | The C++ gate refused `sentinelpair.cpp` (`friend class S<!C>;` of a member class template) and `rangesarray.cpp` ran away at 8.7 GB (the alias clause of `cpp_type` followed a typedef naming a template parameter); both fixed, each fixture seen to pass | reader 5 s, compile 8 s, driver 7 s, objects 3 s, proof, libcxx 958 s: GREEN over 0.117; the C++ gate was running over the corrected tree (a save point) |
 | 0.119 | the C++ gate over 0.118 | One stale check of `test/cpp.pl` (c20: `throw Err{t}` is a `braced_temp` since 0.117) edited; the library is 0.118's | C++ gate over 0.118's tree: 388 of 389 fixtures ok (the skip is `stdoptionalref`), 2989 s over four lanes, peak 9034 MB, RED by the one stale check; `test/cpp.pl` alone GREEN, 48 ok in 15 s |
 | 0.120 | the desugaring four times faster | The class record split in two (a light one for the lookups that do not want the members), seven registries made facts, the file scope, the typedefs and the tags in 128 buckets each; found by a flat profile | reader 5 s, compile 9 s, driver 7 s, objects 2 s; libcxx 1001 s; C++ 908 s (2989 s at 0.118), 388 of 389 fixtures, the pool's peak 1675 MB (9034 MB); all seven GREEN |
+| 0.121 | std::variant and std::visit, and what they needed | Union templates, base packs and using-declared methods, local classes, member templates through pointers, value categories, narrowing, `<=>` rewritten through free operators, objects built in place; twenty defects met in turn | reader 6 s, compile 10 s, driver 7 s, objects 3 s, proof GREEN; libcxx and C++ gate (404 fixtures) running at the commit |
 
 ## M5 — the C++ mode
 
@@ -7285,3 +7286,123 @@ count per call site. The profile ranked `cpp_class/2` 19% and `cpp_class_typedef
 which reads. A profile of a build that does not end needs only a CPU limit.
 
 Reader version 114, lowering version 63; the module rebuilt as 0.120, over cocolog 1.9.1.
+
+## 0.121 — M6's eighty-fifth step
+
+**M6's eighty-fifth step (0.121): `std::variant` and `std::visit`, and what they needed.** The "not done" list held one sentence
+about `<variant>`: `std::visit` was refused, `no_member('__base', '__visit_alt', 2)`. Behind that sentence stood about twenty
+defects, and each was met in turn, only when the one before it was cured: a union template, three classes of one name in three
+namespaces, a base clause that is a pack, a using-declaration over a pack, a class defined in a function body, a member template
+called through a pointer, a table of function pointers made of static member template-ids. Each was cut down to a reduction of ten
+to forty lines, built with clang++ and with cicilang, and compared line by line before it became a rule. `std::variant<int,
+double> v = 7;` builds now, and so does every form of the twelve new fixtures. The rules are in `CLAUDE.md`'s topics, each with its
+fixture; this entry keeps the order in which the program met them.
+
+THE DEFECTS, in the order met.
+
+(1) UNION TEMPLATES. libc++ 18 keeps the alternatives of a variant in `union __union<_Trait::_TriviallyAvailable, _Index, _Tp,
+_Types...>`, a template and its specializations of a union. Only `class` and `struct` items were class templates, so no instance
+existed. `cpp_template_defined`, `cpp_template_class_def`, `cpp_instance_class` and `cpp_spec_name` take a union item, and the
+instance is a union class (`'$cpp_union'`, asserted in `cpp_instance_body_`).
+
+(2) THE UNION'S DESTRUCTOR. A union class's destructor destroyed every member, and the members share their storage: a variant
+holding a long string freed it twice at its end. [class.dtor]/16: the union's destructor destroys no member (`cpp_dtor_body`).
+
+(3) CLASSES OF ONE NAME IN SEVERAL NAMESPACES. `__base` is declared by `__variant_detail`, by `__variant_detail::__access` and by
+`__variant_detail::__visitation`, and `__variant` by the last two; the flattened index keeps them apart by the suffix of their
+namespaces (0.112). A qualified
+name's first segment is looked up in the item's own scope (`cpp_rename_qualifier`), a class segment that follows namespace
+segments is its key (`cpp_path_keys`), and a block's `using __variant_detail::__visitation::__variant;` makes the short name that
+class for the statements after it (`cpp_stmts`, `cpp_body_typedefs_`).
+
+(4) THE OVERLOAD SET OF A PACK OF BASES. `__all_overloads : _Bases... { using _Bases::operator()...; }` and C++17's `overloaded` idiom.
+The reader skipped the `using` to its semicolon (reader version 115 reads `using(L, pack(Q))`); the base clause that is a bare pack
+was an atom the expansion did not take; and the call road took the first base that had a method that fits, where C++ ranks the
+union of their overloads. `cpp_inherit_methods/5` gives the class a forwarder for each method of the named base, so that the
+overload rules see one set (`using Base::f;` too, with the hiding rule of [namespace.udecl]/15); a later empty base has no hop
+(`cpp_base_hops`); an operator is a name after a qualifier (`cpp_qual_name`, `cpp_using_last`).
+
+(5) AN AGGREGATE WITH BASES. `overloaded o{ [](int) {...}, [](double) {...} }` is an aggregate of C++17 ([dcl.init.aggr]/4.2): the
+items go to the bases first. A closure that captures nothing is an empty base and keeps nothing, so its item is dropped
+(`cpp_agg_skip_bases/3`); `cpp_class_takes/2` counts them.
+
+(6) THE CONVERSION THAT NARROWS. The converting constructor of a variant chooses its alternative by `__overload<T, I>::operator()
+(T, U &&) -> __check_for_narrowing<T, U>`, i.e. by whether `T (&&)[1]` accepts `{declval<U>()}`. A braced list for an array
+parameter now holds only without narrowing ([dcl.init.list]/7; `cpp_narrows/2` and kin), so `variant<std::string, bool> v =
+"text";` holds the string. And of two templates that tie on the class conversions, the one that takes an arithmetic argument as it
+is beats the one that converts it (`cpp_scalar_rank/2`, [over.ics.rank]/3): `variant<long, int> v = 5;` holds the int.
+
+(7) LOCAL CLASSES. `__assign_alt` assigns through `struct { void operator()(true_type) const ...; ... } __impl{this, ...};`, a class
+with no name defined in a function. A local class is a class of the unit under a name of its own (`cpp_local_class/6`), registered
+where the walk meets it, memoized by its text, named by the statements after it, and met by the first-return walk of an `auto`
+result.
+
+(8) MEMBER TEMPLATES. `__this->__emplace<_Ip>(...)` had no clause (the arrow took the template-id for a method name), and
+`__impl_.__emplace<_Ip>(...)` found only the class's own templates, not a base's (`cpp_member_tmpl_via/7`). A nested class calls
+a static member template of its holder bare (`__std_visit_exhaustive_visitor_check<...>();`). A static member template-id named
+as a value is the thunk of its instance (`cpp_member_explicit_instance/4`, `cpp_instance_thunk/3`): `std::visit` stores
+`dispatcher<Is...>::template dispatch<F, Vs...>` in an array of function pointers.
+
+(9) A COMPILE THAT DID NOT END. `const bool v = as(b).vl();` over a derived class's object and a template that returns its argument's
+reference: the constant evaluator reduced the member to the same term and `cpp_const_value` asked again, for ever -- twenty
+minutes in the prologue of `std::visit`. A reduction that changed nothing is no value (`cpp_const_fold`).
+
+(10) THE REST OF THE SURFACE. A variable template whose value is a braced object of the declared class (`in_place_index<I>`,
+`cpp_braced_object/4`); an `inline` function template's instance is `linkonce` (`__invoke` over the overload set was a plain
+definition, called but never defined: a link error); a reference member of an aggregate binds its item
+(`__value_visitor<_Visitor>{std::forward<_Visitor>(__visitor)}`; `ir_init_sub/4`), a closure's own reference captures excepted.
+
+(11) THE CATEGORIES, which made the copy of a variant move the string of its source. Four defects, one symptom (`stdvariant`:
+the source string of a COPY was empty): `decltype(x)` of an unparenthesized name is its declared type, the reference kept; a
+member initializer's `std::forward<A>(a)` was judged on its raw form and took the move constructor for every argument
+(`cpp_arg_lvalue/1`); a member of an xvalue is an xvalue, and `std::move(x).m` is `std::move(x.m)` (`cpp_xvalue_member/2`); a
+member of a const object is const, for an argument and for a deduced result. And `auto &&` as a result is `T &` for an lvalue
+return and `T &&` for the rest.
+
+(12) `hash<variant>`: the parameters of a function are declared before its block typedefs are resolved (`using alt_type =
+remove_cvref_t<decltype(__alt)>;`), a class bound as its tag names its class in a path, and the call of a temporary object
+takes the copy pass (`std::hash<std::string>{}("hello")` handed the literal's address to a `const string &`).
+
+(13) THE EXTRA MOVE, AND THE DEFECT BEHIND IT. `Wrap<S>{S(9)}` moved the temporary into the member; C++17 constructs it in place. The first
+cure copied the temporary into the member bitwise, and the fixtures that hold a class with its own address broke:
+`Wrap<std::list<int>>{std::list<int>{7, 8}}` and a `std::function` member crashed at their first use (`free(): invalid pointer`),
+the sentinel pointing into the dead temporary. The cure is C++17's own: the temporary is constructed IN the member
+(`cpp_prvalue_in_place/3` retargets the statement expression to the member's address). Reduced (`reloc1`, `reloc2`), the same
+defect stood in 0.120 for three more forms that the old code copied bitwise: a local initialized from a prvalue
+(`std::function<int(int)> f = std::function<int(int)>(g);`), a `return` of a prvalue (`return std::list<int>{1, 2, 3};`,
+`std::map<int, int> mk() { return std::map<int, int>{{1, 2}}; }`) and a local from a call that returns through the hidden pointer
+(`std::map<int, int> m = build();`, which iterated for ever after `m[5] = 6`). The lowering builds each in the object
+(`ir_prvalue_block`, `ir_in_place`, `ir_sret_call` and `'$ir_sret_into'`, the Lowering topic). The last form needed one more
+step, found by the reduction `r4a`: `return m;` of a LOCAL map moves it into a `$ret` temporary and the temporary was copied into
+the result -- the same block, named `$ret` instead of `$tmp`. `prvalueinplace.cpp` holds all of them.
+
+(14) THE LAST ONE, found by the fixture that tests (2): a union at NAMESPACE scope with a constructor, a destructor or a method was
+refused at its first use (`class('U')`), at 0.120 as well. It is a union class like the nested one (`cpp_union_class_members/1`,
+`cpp_register_`, `cpp_item`), and `ccl_data_members/2` leaves the tag's `union_tag` out of the members so that `U u = {5}` names the
+first one.
+
+A REGRESSION OF THIS STEP, found by the closure fixtures before the chain: (10)'s first form bound every reference member of an
+aggregate through the item's value, and a closure's reference capture, whose item is the address already, was bound through a
+second indirection (garbage, `-1292736359`). The rule is by type now: an item whose type is a pointer to the referent is the
+address (`ir_address_item/2`).
+
+(15) THE COMPARISONS OF C++20. `variant <=> variant` was refused because `std::three_way_comparable<std::string>` was false. The
+cause was not the concept: a rewritten comparison ([over.match.oper]/3.4) looked only at a member `operator<=>`, and libc++ 18
+declares `operator<=>(const basic_string &, const _CharT *)` free. A free `operator<=>` and its reverse (`b <=> a`, the
+comparison mirrored, `cpp_cmp_mirror/2`) are candidates now; `cpp_convertible` knows a class-to-class conversion (a derived
+class, the target's converting constructor, the source's conversion function). `stringcmp20.cpp`, `stdvariantcmp.cpp`.
+
+(16) THE FIRST CHAIN, RED. Five `std::format` fixtures failed (`stdformat`, `stdvformat`, `stdwformat`, `stdformatter`, `stdprint`):
+the const member of (11) typed a `const char *const` argument, and the deduction of a by-value `T` kept the pointer's own
+`const`, so no `__determine_arg_t` specialization matched. `cpp_decayed` drops it ([temp.deduct.call]/2). The bisect over the
+hunks of the step (a group "leave-out" bisect, `bisminus.sh`; a prefix bisect failed because the hunks depend on each other) found
+the two hunks; all five fixtures pass.
+
+FOUND AND NOT DONE (in `CLAUDE.md`'s "Not done"): a member initializer `m_(S(5))` still moves the temporary into the member (the
+aggregate form elides); an overload set on `const S &` and `S &&` over a plain struct chooses the first declared (`f(S{2})`,
+`f(std::move(s))`: `copy copy copy` where clang++ prints `move move copy`). Also found: `own` is a keyword of the language, and a
+fixture's member named `own` did not read.
+
+GATES. Committed before the last two gates finished, so it claims them GREEN no more than the numbers allow. Over the final snapshot: reader 6 s, compile 10 s, driver 7 s, objects 3 s, proof 0 s, all GREEN (the reader's two skips are Cicili's example files, not here). The library read and the C++ gate (404 fixtures) were running; the next commit carries their numbers. The first chain of this step, over an earlier snapshot, was RED on five `std::format` fixtures (16).
+
+Reader version 115, lowering version 64; the module rebuilt as 0.121, over cocolog 1.9.1.

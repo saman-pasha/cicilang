@@ -54,7 +54,7 @@ c_checks :-
     c34,
     c35,
     c36,
-    c37, c38, c39, c40, c41, c42.
+    c37, c38, c39, c40, c41, c42, c43.
 
 c1 :- check('namespace N { ... } is namespace(L, N, Items), nested, and anonymous',
     ( unit('names.cpp', unit(Is)), member(namespace(2, geo, Gs), Is), member(function(_, _, _, twice, _, _, _), Gs), member(namespace(_, inner, _), Gs), member(namespace(_, anon, _), Is) )).
@@ -276,6 +276,11 @@ c42 :- check('a parenthesized functional cast is the call of the temporary, not 
       member(function(_, _, _, f, _, _, block(FB)), Is), member(declaration(_, _, _, [var(a, _, call(id('T'), []))]), FB),
       unit('run/usingtypename.cpp', unit(Js)),
       in(class(struct, 'Derived', _, DMs), Js), member(typedef(_, [var(type, base([], [typedef(scoped([tmpl('Base', _)], type))]), none)]), DMs) )).
+
+c43 :- check('a using-declaration over a pack is using(L, pack(Q)) (0.121, reader 115): `using Ts::operator()...;\' in a class template that derives from a pack, as C++17\'s overloaded idiom writes it',
+    ( unit('run/overloaded.cpp', unit(Is)),
+      member(template(_, [tparam(pack, 'Ts', none)], declare(_, base(_, [class(struct, overloaded, [base(_, pack('Ts'))], Ms)]))), Is),
+      member(using(_, pack(scoped(['Ts'], operator('()')))), Ms) )).
 
 %% ---- real C++ from the neighbours: Cicili's emitted C++, read entirely ----------------------
 c_real :-
