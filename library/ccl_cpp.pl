@@ -1025,8 +1025,11 @@ cpp_may_access(Ctx, Owner, A) :-
     ;   A == protected, member(S, Scopes), cpp_derives(S, Owner) -> true
     ;   '$cpp_afriend'(Owner, F), cpp_friend_match(F, Scopes) -> true ).
 cpp_friend_match(any, _) :- !.
-cpp_friend_match(class(F), Scopes) :- !, member(S, Scopes), ( S == F -> true ; '$cpp_inst'(S, inst(F, _)) ).
+cpp_friend_match(class(F), Scopes) :- !, member(S, Scopes), cpp_friend_is(F, S).
 cpp_friend_match(fn(F), _) :- catch(nb_getval('$cpp_cur_fn', N), _, fail), cpp_fn_is(F, N).
+%% the friend `S<!C>' of a MEMBER class template (V<T>::S) is named by its SHORT name, and its instances are those of the template `V.S' (0.118; sentinelpair.cpp, which 0.117's gate refused: `friend class S<!C>;' did not open S<false>'s members to S<true>)
+cpp_friend_is(F, F) :- !.
+cpp_friend_is(F, S) :- '$cpp_inst'(S, inst(T, _)), ( T == F -> true ; '$cpp_nested_tmpl'(_, F, T) ), !.
 %% a friend FUNCTION TEMPLATE's instance is the friend: `peekg.G' (an instance is `F.<keys>') for `friend int peekg(T &, const G &)', `op.shl.2.c1...' for an operator
 cpp_fn_is(F, F) :- !.
 cpp_fn_is(operator(Op), N) :- !, atom(N), cpp_op_word(Op, W), atomic_list_concat(['op.', W, '.'], Pfx), sub_atom(N, 0, _, _, Pfx).
@@ -5376,7 +5379,7 @@ cpp_ctd_key(Def, N, K) :- ( atom(Def) -> D = Def ; D = '$c' ), atomic_list_conca
 %% name road never asked for the class, and `locale::id' reached the lowering as a tag nothing had noted
 cpp_touch_nested(base(_, [typedef(N)])) :- atom(N), '$cpp_nested'(N, _, _, _, _), \+ '$cpp_cls'(N, _), !, ( catch(cpp_class(N, _), _, fail) -> true ; true ).
 cpp_touch_nested(_).   % value_type inside its class: class scope before namespace scope, as C++ looks names up; a base's typedef in the base's words
-cpp_type(base(Q, [typedef(N)]), T) :- atom(N), ccl_typedef_of(N, base(_, [typedef(X)])), ( cpp_template_id(X, _, _) ; X = scoped(P, _), member(tmpl(_, _), P) ), !,   % `typedef integral_constant<bool, false> false_type', a LIBRARY header's alias -- or `typedef underlying_type<E>::type __memory_order_underlying_t' (0.117), a member type of an instance
+cpp_type(base(Q, [typedef(N)]), T) :- atom(N), ccl_typedef_of(N, base(_, [typedef(X)])), ( cpp_template_id(X, _, _) ; X = scoped(P, _), member(tmpl(_, _), P), \+ cpp_raw_type(base([], [typedef(X)])) ), !,   % `typedef integral_constant<bool, false> false_type', a LIBRARY header's alias -- or `typedef underlying_type<E>::type __memory_order_underlying_t' (0.117), a member type of an instance -- BUT NEVER A DEFINITION THAT NAMES A TEMPLATE PARAMETER (0.118; `cpp_raw_type'): the table holds block-local and class-scope typedefs too, `typedef typename iterator_traits<_Iter>::difference_type difference_type', and followed with its free name it instantiated `iterator_traits<_Iter>' for ever (rangesarray.cpp, 12 seconds at 0.116, 8.7 GB and no end at 0.117)
     ( catch(cpp_type(base([], [typedef(X)]), T1), error(not_lowered(W), _), ( cpp_trace(alias_refused(N, W)), fail )) -> cpp_merge_quals(Q, T1, T) ; T = base(Q, [typedef(N)]) ).   % of a template-id: the INSTANCE, not the name -- the passes rebuild the table from the summary, where the alias is raw, so a note behind the name does not survive to the lowering (the program's own typedef item is walked and does). Only an alias whose WHOLE definition is a template-id: a name like `type' is a class's, and the global table's entry for it is some other class's
 %% AN ENUM'S UNDERLYING TYPE NAMED THROUGH A DEPENDENT TYPEDEF IS SETTLED WHERE THE ENUM IS FIRST NAMED (0.117): libc++ 18's
 %% `enum class memory_order : __memory_order_underlying_t' over `typedef underlying_type<__legacy_memory_order>::type

@@ -111,6 +111,7 @@ One row per step, in version order: the step's title, what it did and its gate n
 | 0.115 | all the views in one program, `std::format` and the streams not tried | Views fixtures; raw strings; reversed `==`; a call statement on a temporary; the caller's object set aside in an emission; constructor templates and `is_convertible` by the argument's type; wide literals in constants | reader 11 s, compile 23 s, driver 11 s; libcxx 2211 s cold; C++ 3283 s, 384 checks, 328 of 329 fixtures; all seven GREEN |
 | 0.116 | the rename | `cocolang` is `cicilang`: files, library, doors, variables, cache, answer lines, header guards | reader 95, compile 101 in 13 s, driver 26, objects 29; libcxx 1558 s cold; C++ 2542 s, 384 checks ok and one skip; all seven GREEN |
 | 0.117 | the "not done" list, worked; a library sweep | Mangler, placement `new[]`, arrays of arrays, VLA `{}`, `va_arg` of a struct, the SysV register budget, `__int128`; access control, `mutable`, deducing `this`; the streams over files and strings; user-defined literals; `<complex>`, `<bitset>`, `std::span`, `std::list`, `std::deque`, `<thread>`, `<charconv>`, `<atomic>` at C++20, `<bit>`; the defects those programs found (the reference binding, the conversion functions that yield a reference, the calls through a pointer or a reference to function, the SFINAE of a scalar typedef and of the parameters a call leaves out) | not run (a save point) |
+| 0.118 | the gates over 0.117, two defects found | The C++ gate refused `sentinelpair.cpp` (`friend class S<!C>;` of a member class template) and `rangesarray.cpp` ran away at 8.7 GB (the alias clause of `cpp_type` followed a typedef naming a template parameter); both fixed, each fixture seen to pass | reader 5 s, compile 8 s, driver 7 s, objects 3 s, proof, libcxx 958 s: GREEN over 0.117; the C++ gate was running over the corrected tree (a save point) |
 
 ## M5 — the C++ mode
 
@@ -7101,13 +7102,13 @@ bytes from the one to the other, the local of T last ([bit.cast]; libc++ 18 writ
 
 WHAT THE SWEEP DID NOT FINISH, named in "Not done": `<random>` (a `std::mt19937` with `uniform_int_distribution`: killed at the 1500 s cap and
 again at ten minutes after 65 and 66, refusing nothing. A trace of two minutes is 74 `spend`s and no flood: the desugaring descends
-`__log2_imp<unsigned long long, 4294967296, N>` from N = 63, one instance in two seconds, 5.6 MB of the store written for each, where the same
-recursion written in a ten-line program without the header builds in one second altogether -- the cost of an instance grows with the environment
-the header loads, and one `__log2` is 32 instances; the next step to take is the CPU attribution by stubs, as CLAUDE.md's "Finding a cost"
-has it); `std::valarray` (`instantiation_depth(121, '__slice_expr')`); `std::filesystem::path` (`_PathCVT::__append_range` meets
-`typedef(tmpl(basic_string, ...))`); `std::variant` with `std::visit` (`no_member('__base', '__visit_alt', 2)`: `__make_fmatrix` fills a `constexpr`
-array with function-template instances named as values, and the call goes through an element of it); `<chrono>`, whose durations and clocks run
-but build in 8 to 14 minutes.
+`__log2_imp<unsigned long long, 4294967296, N>` from N = 63, one instance in two seconds, 5.6 MB of the store written for each. libc++'s recursion
+with its two partial specializations, written out in a program of its own, builds in one second altogether, and in three with `<random>`
+included: the instances are slow only when they are made from inside the instantiation of the engines, and one `__log2` is 32 of them; the cause
+is not found, and the next step to take is the CPU attribution by stubs, as CLAUDE.md's "Finding a cost" has it); `std::valarray`
+(`instantiation_depth(121, '__slice_expr')`); `std::filesystem::path` (`_PathCVT::__append_range` meets `typedef(tmpl(basic_string, ...))`);
+`std::variant` with `std::visit` (`no_member('__base', '__visit_alt', 2)`: `__make_fmatrix` fills a `constexpr` array with function-template
+instances named as values, and the call goes through an element of it); `<chrono>`, whose durations and clocks run but build in 8 to 14 minutes.
 
 
 Reader version 114, lowering version 62; the module rebuilt as 0.117, over cocolog 1.9.1. NO GATE HAS RUN ON THIS COMMIT. It is a save point of
@@ -7119,3 +7120,67 @@ function, the SFINAE of every function template (a scalar typedef has no member 
 reference binding of the lowering and the mangler (`volatile`) for every program. Two pools of existing fixtures (41 and 50, three and two at a time)
 were run as a net over the late rules; the first found the defect of (67), and the second's verdicts are in the next commit's entry. The next commit
 carries the gates' numbers.
+
+## 0.118 — M6's eighty-second step
+
+**M6's eighty-second step (0.118): the seven gates over 0.117, and the two defects they found.** 0.117 was a save point,
+committed with no gate run over it (as 0.112 and 0.113 were). This step ran the gates over a snapshot of it, in a HOME
+of its own with every cache cold, alone on the box. The reader, compile, driver and objects gates, the proof and the
+library read were GREEN at once. THE C++ GATE WAS NOT: it found two defects of 0.117, both in rules that the step's
+own pools of fixtures had not met, and one of them was a build that held 8.7 GB, which the owner's rule on memory
+forbids by itself.
+
+THE POOLS, before the chain. A change to the rules every program reaches -- the call passes, the overload acceptance, the
+reference binding -- was tried first on pools of existing fixtures, built over a warm cache and compared with their `.expect`
+(`runfx.sh`, three lanes then two): 41 fixtures in 1730 s and 50 in 1792 s. The first found the defect of (67), `refbyvalue.cpp`,
+fixed before the commit; its only other line was `stdranges`, which was killed by hand at 4.2 GB after 21 minutes of CPU, and the
+chain builds it. That line was the second defect below, seen and not believed: "slow, the chain will say". The second pool was
+green throughout: the SFINAE and trait fixtures (`detect`, `detect2`, `detect3`, `sfinaedefs`, `ndpath`, `tmpldefaults`, `targkeys`,
+`autohead`, `automember`, `ctorreq`, `memberreq`, `concepttraits`, `stdtraits`), the algorithms, the containers and the streams, and
+every fixture of this step's library sweep. Their builds took 0 to 440 s; the longest were the cold flattens of `<sstream>` and
+`<fstream>` (440 s and 346 s), `<span>` (290 s), and `stdatomic20.cpp` (432 s, which builds the `<chrono>` instances of the atomic
+wait).
+
+THE FIRST C++ GATE RUN was stopped at 328 of 389 verdicts. It had two failures and one build still running:
+
+(1) `sentinelpair.cpp` was refused by the safe part of 0.117, the access check: `access(private, 'V.int.S.0', end_)` at
+`S(S<!C> s) requires C : end_(s.end_)`. The class `S` is a member class template of `V`, defined out of it, and it says
+`friend class S<!C>;`. The friend was noted under the bare name `S`, the check compared that name with the template of the
+asking instance, which is `V.S` (a member class template is named `Class.Name`, as a nested class is), and they never matched.
+`cpp_friend_is/2` now takes a friend named by the SHORT name of a member class template (`'$cpp_nested_tmpl'`) for an instance of
+that template. The fixture had passed at 0.112 and 0.113 and was not in a pool: access control was written after it.
+
+(2) `rangesarray.cpp` and `stdranges.cpp` RAN AWAY. `rangesarray.cpp` is `ranges::upper_bound` over a constant array of six lines;
+its recorded builds were 12, 20 and 14 s and 173 MB at 0.116. At 0.117 it held 7.8 GB after 11 minutes and grew 12 MB a second, and
+the sum of the gate's cocolog processes was 100 seconds from the watchdog's 12,000 MB, which would have killed all four lanes. The
+build was killed by hand at 8.7 GB (and `stdranges.cpp`, the same defect, at 2.3 GB after 7 minutes, when its record is 87 to 112 s)
+so that the gate could go on. A trace of 60 seconds of the build showed 134,232 `flatten(...)` lines, against 6 at 0.116, and
+`free_name_instance(iterator_traits, _InputIterator, ...)`: an instance made on a FREE name, which grows to the cap. Three of
+0.117's rules were reverted one at a time on a runnable copy of the tree (the types of the unsupplied parameters, the scalar
+typedefs, and the alias clause of `cpp_type`); only the last one ended it, in 10 seconds with the right output. The clause
+had been given a second case in 0.117 -- an alias whose definition is a MEMBER type of an instance, `typedef
+underlying_type<__legacy_memory_order>::type __memory_order_underlying_t`, for `std::atomic` at C++20. But the table of typedefs holds
+the block-local and class-scope typedefs of the headers too, and libc++ writes `typedef typename
+iterator_traits<_ForwardIterator>::value_type value_type;` in function templates: a scope that did not resolve (the 0.116 trace has
+the same two flattens, harmlessly) left the bare name `value_type`, the table gave that typedef, and the rule followed it with
+`_ForwardIterator` free -- 48,279 times in 25 seconds, each an instance of `iterator_traits` on the free name whose own class
+resolved `value_type` again. A definition that names a template parameter is now never followed (`\+ cpp_raw_type(...)`);
+`stdatomic20.cpp`, the reason for the rule, is still the same as clang++'s output. The two builds killed by hand are the
+only lines of the first run that are not a verdict: it was stopped, its processes with it, and the gate run again from the
+start over the corrected tree.
+
+The lesson is the one of 0.112: a rule that the pools did not meet is not tested, and a pool line that is "slow" is a result.
+`stdranges` at 4.2 GB after 21 minutes was the defect, hours before it had a name.
+
+GATES over the 0.117 snapshot, cocolog 1.9.1, a HOME of its own, alone on the box: the reader gate GREEN, 96 ok and 2 skips
+(Cicili's two example files are not here), 5 s; the compile gate GREEN, 106 ok (63 run, 43 refused), 8 s; the driver gate
+GREEN, 26 ok, 7 s; the objects gate GREEN, 29 ok, 3 s; the proof exit 42; the library read GREEN in 958 s over four lanes, cold
+(the 23 asserted reads and 60 other headers warmed, none failed to flatten; peak 1179 MB). The C++ gate over the 0.117 snapshot
+was stopped as told above. THIS COMMIT IS A SAVE POINT, as 0.117 was: the C++ gate over the CORRECTED tree -- a snapshot
+of this commit's tree, the summaries of the library read warm -- was running when it was made, and NOTHING about it is claimed.
+The six gates above run no C++ desugaring (the reader, the C driver, the objects layer, the proof and the header reads), so 0.118's
+change to `library/ccl_cpp.pl` and the module's version string leave their verdicts as they are. Each fix was seen to pass alone:
+`sentinelpair.cpp` and `rangesarray.cpp` (10 s, 166 MB) match clang++, and so does `stdatomic20.cpp` (274 s). The next commit
+carries the C++ gate's numbers.
+
+Reader version 114, lowering version 62; the module rebuilt as 0.118, over cocolog 1.9.1.

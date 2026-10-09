@@ -10,7 +10,7 @@ it found, its measurements and its gate numbers. `README.md` tells a user what r
 architecture and the milestones. A step that changes a rule edits the rule here, in its topic, and writes its entry
 in `HISTORY.md`.
 
-At 0.117 the versions are: the module 0.117 (`ccl_p_version` in `module/cicilang.cicili`, `bin/cicilang --version`),
+At 0.118 the versions are: the module 0.118 (`ccl_p_version` in `module/cicilang.cicili`, `bin/cicilang --version`),
 the reader 114 (`ccl_reader_version/1`, `library/ccl_syntax.pl`) and the lowering 62 (`ccl_lowering_version/1`,
 `library/ccl_ir.pl`).
 
@@ -407,7 +407,7 @@ tutorials/01..03-*.pl       the objects layer's lessons; goal main, last line do
 ### The C++ gate: test/cpp.sh
 
 - `test/cpp.sh` runs in this order: `test/cpp.pl` in one `--local` process; three checks of the command; every
-  `test/cpp/run/*.cpp` as a pool job (387 at 0.117); `classes.cpp` and `templates.cpp` built and run; the refusals.
+  `test/cpp/run/*.cpp` as a pool job (389 at 0.118); `classes.cpp` and `templates.cpp` built and run; the refusals.
   (0.105)
 - `test/cpp.pl` runs 42 numbered checks, `c1` to `c42`, then reads Cicili's six C++ files whole (`test/cpp/objects.cpp`,
   `emit_report.cpp`, `specialise.cpp`, `syntax.cpp`, `torch.cpp`, `torch-fragment.cpp`). `c34` checks the Itanium
@@ -2277,8 +2277,9 @@ free. A const method adds `.c`, a ref-qualified one `.r` or `.rr` after it: each
   move it on, a `using Base::m;` puts `m` under the access it stands at, an anonymous aggregate's members are the
   holder's, `'$ctor'` and `'$dtor'` stand for the special members, and an overload set is as open as its most open
   member (`cpp_acc_put/3`: a name is refused only where every overload is). `'$cpp_afriend'(Class, class(F) | fn(F) |
-  any)` holds the friends: `friend class F;` (`friend_class(Q)`, a template-id by its template's name), a friend
-  function by its name -- a friend function TEMPLATE's instance is the friend, named `F.<keys>` (`cpp_fn_is/2`) -- and
+  any)` holds the friends: `friend class F;` (`friend_class(Q)`, a template-id by its template's name; the name of a MEMBER class
+  template's friend is its short name, and every instance of that template is the friend, `cpp_friend_is/2`: `friend class
+  S<!C>;` inside `V<T>::S`, 0.118), a friend function by its name -- a friend function TEMPLATE's instance is the friend, named `F.<keys>` (`cpp_fn_is/2`) -- and
   `any` for a friend class template or anything the note cannot name, which opens the class to everyone. (0.117)
 - `cpp_check_access(Ctx, C, N)` asks it where the walk of the program NAMES a member: `x.m`, `p->m`, a bare `m` in a
   member function or a derived class's, `C::f()`, a method call, the constructor chosen for a local and for a `new`. It
@@ -2731,7 +2732,12 @@ free. A const method adds `.c`, a ref-qualified one `.r` or `.rr` after it: each
   (`ccl_collect_item`). (0.44)
 - An alias whose WHOLE definition is a template-id resolves to the INSTANCE (`cpp_type` on `ccl_typedef_of`:
   `false_type`), a refusal traced `alias_refused(N, W)`; a bare name such as `type` never resolves through the global
-  table. Fixture: `aliastype.cpp`. Why: a summary keeps a header's aliases raw. (0.58, 0.63)
+  table. Fixture: `aliastype.cpp`. Why: a summary keeps a header's aliases raw. So does an alias whose definition is a
+  MEMBER type of an instance, `typedef underlying_type<E>::type __memory_order_underlying_t` (0.117). Never a definition
+  that names a template parameter (`cpp_raw_type`, 0.118): the table holds the block-local and class-scope typedefs of the
+  headers too, and `typedef typename iterator_traits<_ForwardIterator>::value_type value_type` followed with its free
+  name instantiated `iterator_traits` on it for ever (`rangesarray.cpp`: 12 s at 0.116, 8.7 GB and no end at 0.117; the
+  trace read `alias_followed`, 48,279 times in 25 s). (0.58, 0.63, 0.117, 0.118)
 - Clang's builtin templates resolve in `cpp_instantiate_type`: `__make_integer_seq<S, T, N>` is `S<T, 0, ..., N-1>`,
   `__type_pack_element<I, Ts...>` the I-th of `Ts`. (0.79)
 - A variable template's instance is its VALUE: the initializer, or the picked specialization's (`cpp_pick_spec`),
@@ -5088,7 +5094,9 @@ A lambda is a class of its captures (`library/ccl_cpp.pl`). A fixture named alon
   0.90, all GREEN (cocolog 1.2.18). The fixtures added since 0.93 have run on Linux only.
 - Ubuntu 24.04 on x86_64 (clang and LLVM 18, glibc, libc++ 18) is a host since 0.87. Every gate but the C++ one is
   GREEN there since 0.93, and all seven since 0.95. Every step from 0.93 on is gated there, but the save points 0.112,
-  0.113 and 0.117; the last full run is 0.116's, over cocolog 1.9.1 (0.117's baseline).
+  0.113, 0.117 and 0.118; the last full run is 0.116's, over cocolog 1.9.1. The six gates but the C++ one were GREEN over
+  0.117 (0.118); its C++ gate found two defects (fixed in 0.118) and ran again over the corrected tree when 0.118 was
+  committed.
 - The host sets the predefined macros (`ccl_host_os/1` and `ccl_host_arch/1` in the module), the inclusion path
   (Debian's `/usr/lib/llvm-NN`, the multiarch directory) and the link (`-lc++` and `-lm` on Linux) (0.87, 0.93, 0.100).
 - A struct passed or returned by value crosses a call as clang's x86-64 code expects, in both directions, with the
@@ -5359,8 +5367,9 @@ A lambda is a class of its captures (`library/ccl_cpp.pl`). A fixture named alon
 - Tried in the library sweep of 0.117 and NOT finished: `<random>` (a `std::mt19937` with `uniform_int_distribution` is
   killed at its 1500 s cap, about 660 MB, and refuses nothing. A trace of two minutes shows the desugaring descending
   `__log2_imp<unsigned long long, 4294967296, N>` from 63, one instance in two seconds, 5.6 MB of the store written for
-  each; the same recursion in a program without the header takes one second in all (a ten-line reduction): the cost of an instance
-  grows with the environment `<random>` loads, and one `__log2` is 32 instances); `std::valarray`
+  each; libc++'s recursion with its two partial specializations, written out in a program of its own, builds in one
+  second in all, and in three with `<random>` included: the instances are slow only when they are made from inside the
+  instantiation of the engines, and one `__log2` is 32 of them. The cause is not found); `std::valarray`
   (`instantiation_depth(121, '__slice_expr')`: the expression templates nest past the depth cap); `std::variant` with
   `std::visit` (`no_member('__base', '__visit_alt', 2)`: `__make_fmatrix` builds an array of function-template instances
   named as values inside a `constexpr` variable, and the call goes through an element of it). `std::bit_cast` runs since
