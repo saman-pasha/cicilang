@@ -27,3 +27,11 @@ un mk_un(double d) { un v; v.d = d; return v; }
 double sum_un(un v) { return v.d; }
 double via_bf(bf v) { return sum_bf(bump_bf(v)); }
 double via_un(un v) { return sum_un(bump_un(v)); }
+double budget_l16(int a, int b, int c, int d, int e, l16 v) { return a + 10.0 * b + 100.0 * c + 1000.0 * d + 10000.0 * e + 100000.0 * v.a + 1000000.0 * v.b; }
+double budget_di(long a, long b, long c, long d, long e, long f, di v) { return a + 10.0 * b + 100.0 * c + 1000.0 * d + 10000.0 * e + 100000.0 * f + 1000000.0 * v.d + 10000000.0 * v.i; }
+double budget_d16(double a, double b, double c, double d, double e, double f, double g, d16 v) { return a + 10 * b + 100 * c + 1000 * d + 10000 * e + 100000 * f + 1000000 * g + 10000000 * v.x + 100000000 * v.y; }
+double budget_next(long a, long b, long c, long d, long e, l16 v, long f, di w) { return a + 10.0 * b + 100.0 * c + 1000.0 * d + 10000.0 * e + 100000.0 * v.a + 1000000.0 * v.b + 10000000.0 * f + 100000000.0 * w.d + 1000000000.0 * w.i; }
+double via_bud(void) {
+    l16 v = { 6, 7 }; di w = { 8, 9 }; d16 x = { 8, 9 };
+    return bud_l16(1, 2, 3, 4, 5, v) + 1e10 * bud_di(1, 2, 3, 4, 5, 6, w) + 1e20 * bud_d16(1, 2, 3, 4, 5, 6, 7, x) + 1e5 * bud_next(1, 2, 3, 4, 5, v, 6, w);
+}

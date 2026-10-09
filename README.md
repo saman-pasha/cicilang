@@ -28,8 +28,9 @@ record of every step.
   locals, wide and UTF-8 literals, variadic functions over the compiler's
   own `<stdarg.h>`, `long double` as x87's 80-bit type on x86-64, hex
   floats, designated initializers, anonymous members, K&R definitions,
-  `#line`, and trigraphs in the ISO modes. `-std=c17` is the default,
-  `-std=c23` the level.
+  `#line`, `__int128`, `va_arg` of a struct on x86-64, the SysV argument
+  register budget, and trigraphs in the ISO modes. `-std=c17` is the
+  default, `-std=c23` the level.
 * **C++17, C++20, C++23 and C++26.** Classes, virtual dispatch, multiple
   and virtual inheritance, templates with partial specialization, SFINAE,
   concepts and `requires`, lambdas (generic, capturing `this` and `*this`),
@@ -41,7 +42,11 @@ record of every step.
   (`throw`, `try`, `catch`), `new T[n]` of a class with the ABI's array
   cookie, multiple polymorphic bases with their secondary vtables,
   virtual bases reached through the vtable, the diamond with one shared
-  base, `noexcept` enforced, trailing return types,
+  base, `noexcept` enforced, trailing return types, access control for
+  the program's own classes, deducing `this` on a class's methods, user-defined
+  literals, `mutable` lambdas checked, placement `new[]`, arrays of arrays of
+  objects, scalar globals initialized before `main`, braced temporaries through
+  an `initializer_list` constructor,
   coroutines (`co_await`, `co_yield`, `co_return`, `operator co_await`,
   `std::coroutine_traits`, over LLVM's coroutine intrinsics), modules
   (`export module`, `import`, header units, exports enforced), contracts enforced at
@@ -51,9 +56,10 @@ record of every step.
   library is written here: `std::vector`, `std::string`, `std::map`,
   `std::set`, the unordered containers, `std::optional`, `std::tuple`,
   `std::array`, `std::unique_ptr` and `std::shared_ptr`, `std::function`,
-  `std::bind`, `<algorithm>`, `std::cout`, `std::cin`, `std::getline` and
-  the manipulators all compile from libc++'s own bodies and run, on macOS
-  (libc++ 21) and on Linux (libc++ 18).
+  `std::bind`, `<algorithm>`, `std::cout`, `std::cin`, `std::getline`,
+  `std::stringstream`, `std::fstream`, `std::bitset`, `std::complex`,
+  `std::span`, `std::byte` and the manipulators all compile from libc++'s
+  own bodies and run, on macOS (libc++ 21) and on Linux (libc++ 18).
 * **The safe part.** `own` pointers are linear and `move` hands them on. A
   borrow dangles when its owner is consumed and may not escape. A struct's
   own fields are owners that go with it. A plain pointer parameter is a
@@ -268,27 +274,36 @@ member a library header declares and the shipped library defines is called
 by its Itanium symbol, and a class that is not trivially copyable crosses
 a call as the ABI has it, so cicilang's code calls libc++'s and clang's.
 
-What runs, each fixture matching clang++ line for line
-(`test/cpp/run/*.cpp`): the standard streams (`cout`, `cin`, `getline`,
-the extractors and inserters for every arithmetic type, the manipulators
-of `<iomanip>`); `vector` (of ints, of the program's own class, of a class
-that copies and does not move, of strings, of vectors), `string` and its operations, `map`, `multimap`, `set`, `multiset`,
-the four unordered containers, node handles, `optional` with its C++23
-monadic operations, `tuple` with `tuple_cat`, `array`, `unique_ptr`,
+What runs, each fixture matching clang++ line for line (`test/cpp/run/*.cpp`):
+the standard streams (`cout`, `cin`, `getline`, the extractors and inserters
+for every arithmetic type, the manipulators of `<iomanip>`); `vector` (of
+ints, of the program's own class, of a class that copies and does not move, of
+strings, of vectors), `string` and its operations, `map`, `multimap`, `set`,
+`multiset`, the four unordered containers, node handles, `optional` with its
+C++23 monadic operations, `tuple` with `tuple_cat`, `array`, `unique_ptr`,
 `shared_ptr` and `weak_ptr`, `function`, `bind`, `mem_fn`, `invoke`, the
-function objects and `reference_wrapper`, and the `<algorithm>` surface
-from `all_of` to the heap and permutation algorithms; at C++20 `contains`,
+function objects and `reference_wrapper`, and the `<algorithm>` surface from
+`all_of` to the heap and permutation algorithms; at C++20 `contains`,
 `erase_if`, the constrained algorithms `ranges::sort`, `ranges::find` and
 `ranges::count_if`, the views `filter`, `transform`, `reverse`, `iota`,
 `take`, `drop`, `take_while`, `keys` and `values` alone, chained and all in
 one program, `std::quoted`, the wide streams, `seekg` and `seekp`,
 `std::format` with `vformat`, a formatter the program writes and the wide
-format, at C++23 `std::print` and `std::println`, at C++26 `optional<T &>`. `test/libcxx.sh` reads
-`<vector>`, `<string>`, `<iostream>`, `<map>`, `<set>`,
-`<unordered_map>`, `<unordered_set>`, `<optional>`, `<memory>`,
-`<functional>`, `<tuple>` and `<algorithm>` whole, and the containers,
-`<string>`, `<iostream>` and `<ranges>` at C++20, `<optional>` and `<string>` at
-C++23, `<optional>` at C++26.
+format, at C++23 `std::print` and `std::println`, at C++26 `optional<T &>`;
+since 0.117 also `std::stringstream`, `std::ofstream`, `std::ifstream` and
+`std::fstream`, a class derived from `std::ostream` over its own streambuf,
+`std::span`, `std::bitset`, `std::vector<bool>`, `std::byte`, `std::complex`
+with the `<cmath>` functions, the `"x"s` and `"x"sv` literals and the
+program's own literal operators, `<memory>`'s `construct_at`,
+`uninitialized_*` and `destroy_*`, `std::list`, `std::deque`, `std::queue`,
+`std::stack`, `std::priority_queue`, `<numeric>`, `std::from_chars` and
+`std::to_chars`, `std::thread` and `std::mutex` (with `std::ref` arguments),
+and at C++20 `std::atomic`'s `wait`, `notify_one` and `notify_all` and `<bit>`
+with `std::bit_cast`. `test/libcxx.sh` reads `<vector>`, `<string>`,
+`<iostream>`, `<map>`, `<set>`, `<unordered_map>`, `<unordered_set>`,
+`<optional>`, `<memory>`, `<functional>`, `<tuple>` and `<algorithm>` whole,
+and the containers, `<string>`, `<iostream>` and `<ranges>` at C++20,
+`<optional>` and `<string>` at C++23, `<optional>` at C++26.
 
 Where a macro goes past a template: a macro sees and rewrites the syntax
 tree itself, reads the symbol table as it stands, produces statements and
@@ -343,9 +358,9 @@ HISTORY.md                     the record of every step: what it did, what it fo
 
 `std::format`'s compile-time check of the format string (the library's own
 run-time parser catches a bad one); the range adaptors not named;
-`std::stringstream` (`basic_iostream`, libc++'s own diamond, needs the
-base-variant constructors of library classes); the tail padding of a non-POD base, which is not reused
-(a class laid out here differs from clang's where code compiled by both
-shares it); construction vtables in a diamond; a `\N{...}` abbreviation
+`std::filesystem`, `<random>`, `std::variant`'s `visit`, `std::valarray`;
+access control of an inheritance; the tail padding of a non-POD base, which is
+not reused (a class laid out here differs from clang's where code compiled by
+both shares it); construction vtables in a diamond; a `\N{...}` abbreviation
 alias (`\N{NUL}`, which clang refuses too); the arm64 ABI, written and not
 proven. Each is named in `CLAUDE.md` with where it stops.

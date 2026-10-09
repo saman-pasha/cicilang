@@ -1,0 +1,13 @@
+6
+16
+6
+22
+10
+copy 1
+take 101
+~Tag 101
+takeref 1
+42
+end
+~Tag 1
+exit 0

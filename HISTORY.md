@@ -109,6 +109,8 @@ One row per step, in version order: the step's title, what it did and its gate n
 | 0.113 | the views one by one, `std::quoted` | `std::quoted` linked; transform, reverse, iota, take, drop, take_while, keys, values and a chain each run alone; eight rules with their fixtures; all views in one program still stop | not run (a save point) |
 | 0.114 | the gates over 0.113, cocolog 1.8.41 | `member.cpp` made valid C++; a member template's instance named from its substituted qualifiers (`.rq<fold>`); cocolog 1.8.41 reviewed | reader 5 s, compile 13 s, driver 6 s; libcxx 1241 s; C++ about 1300 s, 356 checks, 300 of 301 fixtures; all seven GREEN |
 | 0.115 | all the views in one program, `std::format` and the streams not tried | Views fixtures; raw strings; reversed `==`; a call statement on a temporary; the caller's object set aside in an emission; constructor templates and `is_convertible` by the argument's type; wide literals in constants | reader 11 s, compile 23 s, driver 11 s; libcxx 2211 s cold; C++ 3283 s, 384 checks, 328 of 329 fixtures; all seven GREEN |
+| 0.116 | the rename | `cocolang` is `cicilang`: files, library, doors, variables, cache, answer lines, header guards | reader 95, compile 101 in 13 s, driver 26, objects 29; libcxx 1558 s cold; C++ 2542 s, 384 checks ok and one skip; all seven GREEN |
+| 0.117 | the "not done" list, worked; a library sweep | Mangler, placement `new[]`, arrays of arrays, VLA `{}`, `va_arg` of a struct, the SysV register budget, `__int128`; access control, `mutable`, deducing `this`; the streams over files and strings; user-defined literals; `<complex>`, `<bitset>`, `std::span`, `std::list`, `std::deque`, `<thread>`, `<charconv>`, `<atomic>` at C++20, `<bit>`; the defects those programs found (the reference binding, the conversion functions that yield a reference, the calls through a pointer or a reference to function, the SFINAE of a scalar typedef and of the parameters a call leaves out) | not run (a save point) |
 
 ## M5 — the C++ mode
 
@@ -6595,3 +6597,525 @@ of the damage is not found: the store had been copied by `mv` from `~/.cocolang`
 killed cocolog runs over it before. Named, not fixed. After a rename that moves the store, remove it too.
 
 Reader version 110, lowering version 60; the module rebuilt as 0.116.
+
+## 0.117 — M6's eighty-first step
+
+**M6's eighty-first step (0.117): the "not done" list, worked.** The owner asked to pull the neighbours and finish the
+"not done" works. ZiguratIP was rebuilt and cocolog moved from 1.8.41 to 1.9.1 (a header of the SDK moved; both
+modules were rebuilt). The baseline came first: the seven gates of 0.116 over cocolog 1.9.1, in a worktree and a HOME of
+their own, were all GREEN (reader 95 ok, compile 101 ok, driver 26 ok, objects 29 ok, the proof, the library read 542 s
+over 23 asserted reads, the C++ gate 2588 s, 384 checks ok and one skip, peak 5676 MB). Then each entry of CLAUDE.md's
+"Not done" section was cut down to a reduction of 10 to 40 lines, built with clang or clang++ (`-stdlib=libc++`, to
+match the libc++ 18 that cicilang reads) and with cicilang, compared line by line, fixed and given a fixture. What was
+a limit of the language, or by design, stays and is said so.
+
+This commit is a SAVE POINT, as 0.112 and 0.113 were: the baseline above is the only gate run of the step, and NO GATE HAS RUN ON THE CODE
+BELOW. Each fixture it adds matched clang++ in a probe, alone, over a cache of its own; the seven gates -- which read every header cold at
+reader 114 -- run in the next commit and carry their numbers.
+
+BATCH A: C, the ABI and the mangler.
+
+(1) THE ITANIUM MANGLER spells a function type (`F<ret><params>E`), an array (`A<n>_<elem>`) and a pointer to member
+(`M<class><type>`) as a parameter (`cpp_ita_type_`, `cpp_ita_fparams/6`: an array or function parameter is a pointer,
+the top-level `const` goes; `cpp_ita_whole/5`: the whole type is a substitution candidate). `c37`
+checks `PFvizE`, `RA4_i` and `PFvvE` with `S1_`, the symbols `std::set_terminate(void (*)())` is shipped under.
+
+(2) PLACEMENT NEW OF AN ARRAY: `new (p) T[n]`, `T[n](...)` and `T[n]{...}` are a loop of placement news over the address,
+with no cookie, and the result borrows the placement address (`cpp_new_at_array`; the `$at` gensym prefix is what
+`ck_borrows_from` reads). `placearray.cpp`.
+
+(3) A LOCAL ARRAY OF ARRAYS OF OBJECTS is constructed and destroyed element by element (`cpp_elem_class` peels the
+array layers), and so is a `static` local array of objects: the Itanium guard (`__cxa_guard_acquire`/`release`), the
+construction once, and a wrapper `$cpp_sdtor.N` registered with `__cxa_atexit` (appended through `'$cpp_ginit_fns'`,
+`cpp_ginit_items`). Nested braced items that are prvalues of the element class are the elements. `localarray2.cpp`.
+
+(4) A VLA INITIALIZED BY `= {}` (C23 6.7.10) zeroes with `llvm.memset` in `ir_locals`; any other VLA initializer is still
+refused, `vla_initialized(N)`. `test/c/run/vlaempty.c` (`-std=c23`).
+
+(5) `va_arg` OF A STRUCT, A UNION, A COMPLEX AND AN `__int128` on x86-64 (SysV 3.5.7): `ir_va_arg_aggregate` reads the
+register save area by the class of each eightbyte, else the overflow area, 16-aligned where the type is. AAPCS64 stays
+refused, `va_arg_of_aggregate`. `test/c/run/vaaggregate.c`.
+
+(6) THE SysV REGISTER BUDGET (3.2.3). A struct that classifies `direct` goes in registers only if all its eightbytes
+find a free register of their class; else the whole struct goes in memory (`byval`), though a later argument may still
+take the registers. `ir_regs_start/ir_regs_take` are threaded through the declare (`ir_params_lls`), the define
+(`ir_params`) and the call (`ir_args_`, the variadic tail too); an sret result takes one INTEGER register, a scalar one
+of its class, an `__int128` two. The link fixture grew two lines (`budget_*` built by clang, `bud_*` by cicilang;
+`test/c/link/abi.h`, `abi_helper.c`, `abi_main.c`) and the driver gate's expected line count moved from 5 to 7. The old
+library fails the new lines (checked).
+
+(7) `__int128` AND `unsigned __int128` are types: the reader (`ccl_gnu_word('__int128')`, `ccl_basic_type`), the typedef
+names `__int128_t` and `__uint128_t` (`ccl_builtin_typedef/2`), a rank above `long long`, size and alignment 16, LLVM's
+`i128` (`ir_base`), the mangler's `n` and `o`. A constant of the type that folds is spelled in a global
+(`ir_gconst`, `big(A)` through `ir_big_text`). `__SIZEOF_INT128__` is predefined for C only: C++ keeps libc++'s
+no-int128 configuration by design. Reader check `k92`; `test/c/run/int128.c`, `test/cpp/run/int128.cpp`.
+
+(8) A BUG FOUND BY (7): `_Static_assert(sizeof(T) == 16)` over a struct failed in C since 0.57. `ccl_assert_holds` did
+`ccl_const_eval(E, V), V =:= 0`, backtracked into the evaluator, and `sizeof` had four answers (16, 0, 0, 0). The
+assertion asks `once/1` now and `sizeof`, `sizeof_type` and `alignof_type` fold to one answer. `test/c/run/sizeofassert.c`.
+Also found, not chased: `ir_type` asked of an UNRESOLVED typedef of an anonymous struct, before the resolved form,
+broke a later member lookup (`no_member(b, struct(anon...))`); `ir_regs_take_` resolves first.
+
+BATCH B: the language.
+
+(9) DEDUCING `this` ON A CLASS'S METHODS (C++23): `this auto &&self`, `template <class Self> ... this Self &&self`, `this
+const Node &self`, `this Node &self`, `this Node self`. The object of the call is the FIRST ARGUMENT of the candidate
+(`'$cpp_obj_expr'`, set by `cpp_method_on` and `cpp_method_on_ptr`, set aside by `cpp_isolated`; `cpp_member_holding`
+makes it the first argument of a candidate with `explicit_this(N, T)`), so `Self` is deduced from the object like any
+argument: an lvalue gives `D &`, a prvalue `D`, a derived object the DERIVED class, which is the CRTP's replacement.
+`cpp_this_auto` invents `$A1` first among the member template's parameters; `cpp_subst_quals` substitutes
+`explicit_this`; an `auto` result is the first return with the object parameter in scope (`cpp_method_ret`).
+`operator()`, `[]`, `==` and `+=` work. `deducethis.cpp` (C++23). `test/cpp/deduced_this.cpp`, the refusal that stood
+since 0.43, is removed with its entry in `test/cpp.sh`.
+
+(10) NOT A LIMIT: a captureless lambda with an explicit object parameter has no conversion to a function pointer
+([expr.prim.lambda.closure]/8). clang++ 18 refuses it too. The entry is gone from "Not done".
+
+(11) `mutable` LAMBDAS. The reader keeps `mutable` among the captures (`ccl_lambda_specs/1`; reader check `c38`).
+`cpp_lambda_const_check/3` refuses `assign_to_capture(N)` for an assignment, an increment or a decrement whose left side
+is a by-value capture, or a member of one, in a lambda that is not mutable. A name declared inside (a nested lambda's
+parameter, a local) hides the capture (`cpp_declared_names/2`), and a write through a copied pointer is the pointee's.
+The closure's `operator()` is still never `const`. `lambdamutable.cpp`; `test/cpp/lambda_const.cpp` is refused.
+
+(12) ACCESS CONTROL for the program's own classes. A `class` starts private, a `struct` and a `union` public;
+`public:` and kin move it on; `using Base::m;` puts `m` under the access it stands at; an overload set is as open as
+its most open member. `cpp_register_class/5` takes the class kind and notes `'$cpp_acc'(Class, Name, Access)`
+(`cpp_note_access`), with `'$ctor'` and `'$dtor'` for the special members and `'$cpp_afriend'(Class, class(F) | fn(F) |
+any)` for the friends. `cpp_check_access/3` asks where the walk NAMES a member: `x.m`, `p->m`, a bare member in a member
+function or a derived class, a method call (`.`, `->`, bare, `C::f()`), the constructor chosen for a local and for a
+`new`. The code may name a private member from its own class and the classes it is nested in (`cpp_access_scopes/2`
+through `'$cpp_enclosing'`, a closure's through the class it was made in), a protected one from a derived class, and a
+friend's: a class by name or instance, a function by `'$cpp_cur_fn'` (set by `cpp_with_fn/2`; a friend function
+template's instance is `F.<keys>`, `cpp_fn_is/2`). The refusal is `access(Kind, Owner, Member)` with the statement's
+line (`'$cpp_line'`). The reader keeps `friend class X;` as `friend(L, [friend_class(Q)])`, and that clause stands
+BEFORE the one that reads a friend declaration as a member; behind it `friend class X;` was `nested(class(X, none))` and
+no friend was noted (the first run of `c38` found it, and the permissive `any` that had hidden it). Not asked: an
+inheritance's own access, a pointer to member, a nested type, a destructor, an operator used as an operator, and
+[class.protected]'s rule on the object's type. `accessctl.cpp`, `accessctl2.cpp` (the allowed forms); `test/cpp/access_data.cpp`,
+`access_method.cpp`, `access_protected.cpp`, `access_ctor.cpp` and `access_base.cpp` are refused.
+
+(13) LIBRARY CALLS THE SAFE PART REFUSED. A library static function's pointer result is a borrow of the object it takes
+by reference (`allocator_traits<A>::allocate(a, n)`: `ck_borrows_from` with the leading null `this`), and a library
+function's pointer result borrows what its pointer arguments borrow (`std::construct_at(p + 2, 42)`). `stdallocator.cpp`,
+`stduninit.cpp` (C++20: `construct_at`, `destroy_at`, `destroy`, `destroy_n`, `uninitialized_copy`, `_fill`, `_move`,
+`_default_construct`, `_value_construct` and their `_n` forms).
+
+(14) SCALAR DYNAMIC INITIALIZATION (C++): `int g = f() * 2;`, `static int h = g + 4;`, `const int k = f();`, `double d =
+f() / 2.0;`, `Color c = pick();`, `int br{f(3)};`, `int *p = &arr[2];`, and a static member defined out of its class
+(`int A::v = A::compute() * 2;`, in the class's words through `'$in_class'`). The global stays zero and the RAW
+initializer is assigned in `$cpp_ginit`, in declaration order, in the list that holds the class-typed globals
+(`cpp_dynamic_scalars/7` after `cpp_fold_const_inits` and in the scoped-static clause; `cpp_runtime_init/1` decides: a
+call that did not fold, a read of a variable, a dereference, a member, an index, an assignment, `new`, the address of
+anything but a name). Constants stay what they were. Never `thread_local`, `extern`, a class, an array or a reference.
+`globalscalar.cpp`. A file-scope `int *p = new int(7);` is still refused, `no owner behind`: the safe part's rule.
+
+(15) A NESTED CLASS CALLS A STATIC MEMBER FUNCTION OF ITS ENCLOSING CLASS BY NAME (`compute()` inside `A::N::get`): a
+`cpp_call` clause over `cpp_encl_chain` and `cpp_static_bare`. It was `undeclared(compute)`; the data statics had it
+since 0.112. `accessctl2.cpp`.
+
+(16) NESTED LAMBDAS. `cpp_capturable/3` accepts a local or a capture of the enclosing closure, in the explicit and the
+default captures: `[a]{ return [a]{ ... }(); }` sees the outer closure's members. `[this]` inside a lambda that
+captured `this` captures THE OBJECT (`cpp_captures_this` returns the object's class, `cpp_this_item/3` its address
+`addr(arrow(this, '$this'))`). `lambdanest.cpp`.
+
+BATCH C: the streams.
+
+(17) `std::stringstream`, `std::wstringstream`, `std::ofstream`, `std::ifstream` and `std::fstream` build and run, and a
+program class derived from `std::ostream` and from `std::iostream` over its own streambuf. The defects, each cut to a
+reduction:
+
+- `cpp_nv_twin` no longer refuses a library class: libc++'s `basic_iostream`, a diamond over `basic_ios`, gets its
+  path bases' base-variant constructors (`C.C.k.nv`) compiled; `basic_istream(sb)` and `basic_ostream(sb)` are inline in
+  the class.
+- A derived class fits a LATER base (`cpp_class_fits/2` through `'$cpp_base_slot'`; `cpp_class_base_instance/4` for the
+  deduction of `basic_ostream<_CharT, _Traits> &` from a stringstream, whose `basic_ostream` is the SECOND base of
+  `basic_iostream`).
+- A member `operator<<(long long)` over an `fpos`'s `operator streamoff()` is as good as an exact match
+  (`cpp_arg_conv_exact`): `cout << os.tellp()` printed the byte 6.
+- A constructor or destructor defined out of its class keeps `inline` and the hidden mark (reader 112: `ctor_def` and
+  `dtor_def` carry their prefix qualifiers, `ccl_prefix_quals/2`; `cpp_mdef_inline` reads them): `inline
+  basic_ofstream<...>::basic_ofstream(const char *, ...)` is compiled, not called by a symbol no library exports.
+- A member of an instance whose class is NOT laid out as the ABI lays it is compiled, never called by its shipped
+  symbol (`cpp_nonabi_bases`, `'$cpp_nonabi'`): the program keeps `__sb_` of an `ofstream` at offset 160 (the virtual base
+  last, as the Itanium ABI has the complete object), libc++'s exported `basic_ofstream<char>::open` wrote it at 8. A
+  diamond's holder (`basic_iostream`) keeps its layout and its shipped members (`\+ cpp_shared_vbase`); a first version
+  of the rule broke `<iostream>` (`undeclared('..D1Ev.nv')`).
+- CONVERSION COUNTS SURVIVE NESTED CANDIDATE CHECKS (`cpp_conv_enter/1`, `cpp_conv_leave/1` on the free, member and
+  constructor roads): a candidate whose signature asks a trait ran nested holding sets that reset the counter, and
+  `out << "x"` on an `ofstream` chose the filesystem path's friend inserter (1 conversion) over `const char *` (3).
+- A derived-class pointer to a base-class pointer outranks the conversion to `void *` (`cpp_void_for_class`):
+  `cout << is.rdbuf()` printed the address.
+- A path base's shipped destructor with an EMPTY header definition is left out of the diamond (`cpp_nv_dtor`):
+  `std::wstringstream` (libc++ ships `basic_iostream<char>` only).
+- C FUNCTIONS THAT SHARE A NAME WITH A LIBRARY TEMPLATE: `cpp_mangled_name` never mangles a name the C library declares
+  (`cpp_header_c_name`), and `cpp_c_decl_current/2` emits the C prototype as an item when the table's entry for the name
+  is another overload's. `std::remove(path)` after `<fstream>` had met the algorithm's `_ForwardIterator`.
+- READER: a local variable hides a typedef name (`ccl_local_variable/1`, reader 112). `const char *path` beside the
+  filesystem's `path` made `std::ofstream out(path);` a function declaration.
+
+`stdstringstream.cpp`, `stdfstream.cpp`, `streamderived.cpp`. Not done: `std::filesystem` itself (a `path` method meets
+`_PathCVT::__append_range`, which refuses `typedef(tmpl(basic_string, ...))`), and the wide file streams.
+
+(18) A RANGE-FOR OVER A BRACED LIST (reader 112): `for (int v : {4, 9, 1, 7})` was a syntax error (found by a
+`std::deque` probe). The list is the backing array of the `initializer_list` it would make: a local array of the first
+item's type (decayed and unqualified as `:=` has it) in a block of its own, iterated as any array is
+(`ccl_range_expr//1`, `ccl_range_stmt/5`). An untypable first item keeps the braced range, which the desugaring refuses
+by name. `rangeforbraced.cpp` (C++20), reader check `c39`.
+
+(19) A MEMBER OF A NESTED CLASS BUILT FROM A PRVALUE OF ITS OWN CLASS: `class udist { class param_type {...}; param_type
+p_; udist(int a, int b) : p_(param_type(a, b)) {} };` was `member_not_constructed(p_, 'udist.param_type', 1)`.
+`cpp_init_arg_class/2` desugared the argument with no context, where the nested class's short name `param_type` is no
+name; it uses the class being built now (`cpp_class_ctx`). Found by `<random>`'s `uniform_int_distribution`. `nestedinit.cpp`.
+
+BATCH D: the library pieces nobody had tried (`<complex>`, `<random>`, `<bitset>`, `<chrono>`, `<string>` literals, `<valarray>`,
+`<span>`, `<charconv>`, `<thread>`, the views, `std::format` of ranges). Thirteen probes of 10 to 30 lines were compared
+with clang++/libc++ one by one; each stop was cut to a reduction, and the ones below were fixed. The cause was in the
+reader or the desugaring, not in the library, every time (reader version 113).
+
+(20) A KEYWORD AS A LITERAL OPERATOR'S SUFFIX: libc++'s `<complex>` defines `operator"" if` (for `1.5if`), and the item
+loop stopped there with the whole `namespace std { ... }` unread (`template_without_body(complex)`). The suffix of
+`operator""` is an identifier or a keyword now (`ccl_op_name`).
+
+(21) A CONVERSION FUNCTION DEFINED OUT OF ITS CLASS was a syntax error for a class template and a function returning the
+class for a class (`S::operator int() const { ... }` read with `S` as its result, named `::operator int`). The name's type
+is `ccl_conv_type` (specifiers and pointers; `int ()` was a function type), and an explicit rule reads the definition
+(`X<E>::operator valarray<R>() const`) as a function whose result is the conversion type. `<valarray>` stopped at it.
+`convout.cpp`, reader check `c41`.
+
+(22) A VALUE TEMPLATE PARAMETER HIDES A TYPEDEF OR A TEMPLATE OF ITS NAME. The class-scope names of every class read before
+stay in the env (an out-of-class member's body needs them), and a `typedef ... _Size;` in one of libc++'s classes made
+`bitset<_Size>` of `template <size_t _Size>` a TYPE argument: none of std::bitset's members defined out of the class
+matched `bitset<16>`, and they were undefined at the link. `template <size_t __count, __enable_if_t<__count < _Dt, int> =
+0>` of `<random>` read `__count <` as the algorithm `std::__count`'s template-id. `'$ccl_vparams'` frames and `'$ccl_vhead'`.
+`valueparam.cpp`.
+
+(23) A DECLARATION-SPECIFIER BEFORE `friend`: `constexpr friend difference_type operator-(...)` (libc++ at C++20) was no
+friend, and `std::bitset::count()` met `no_operator(-)`. `friendprefix.cpp`.
+
+(24) USER-DEFINED LITERALS, which no one had written down as missing: `5_km` was a syntax error, and `1500ms` of `<chrono>`
+read as `0`. The reader makes a literal followed by an identifier `udl(Suffix, Literal)`; the preprocessor kept the
+pp-number `5_km` as one token the lexer cuts in two and `pp_norm` turned into zero (`pp_norm_toks`); the desugaring calls the
+free operator `op.literal_<suffix>.<arity>` over the literal as the standard hands it over; a header's literal operators
+are indexed, noted and emitted lazily (`cpp_index_name`, `cpp_note_hdr_fns`, `cpp_register_lazy`). `"hello"s` and `"world"sv`
+run against libc++. `userliteral.cpp`, `stdliterals.cpp`, reader check `c40`.
+
+(25) THE CONSTANT FOLDING OF A LEFT SHIFT did not wrap: `intmax_t(1) << 63` was +2^63 where clang folds -2^63, so libc++'s
+`-((intmax_t(1) << (sizeof(intmax_t) * CHAR_BIT - 1)) + 1)` (`INTMAX_MAX`, `duration::__no_overflow`) was -2^63 - 1 and every
+`__no_overflow<...>::value` false: no duration converted to a coarser or finer one, `seconds` to `milliseconds` included. The
+shift wraps in the promoted type of its left operand (`ccl_shl_wrap`). `shiftwrap.cpp`.
+
+(26) A FOLDED STATIC CONST LOST ITS TYPE: `static const long long v = -3;` named `A::v` was the int literal -3, and
+`printf("%lld", A::v)` printed 4294967293 (libc++'s `ratio<-1, 2>::num`). It keeps the member's arithmetic type as a cast
+(`cpp_static_value`). `staticconsttype.cpp`.
+
+(27) THE CONVERSION FUNCTION WHOSE RESULT IS THE TARGET comes first, and a conversion function's NAME is substituted with the
+class's arguments (`operator T()` of `S<long>` is `operator long()`; it stayed `operator T()`, and `long t = s;` took the first
+arithmetic conversion function declared); a definition out of the class is found by kind and compared once substituted.
+`convin.cpp`.
+
+(28) A CLASS VALUE RETURNED WHERE A SCALAR IS WANTED converts through its conversion function: libc++'s `bitset::test` returns
+its `__bit_const_reference` as a `bool` and was compared with zero as a struct (an LLVM error). `returnconv.cpp`.
+
+(29) A HIDDEN FRIEND OF A LIBRARY CLASS SEES THE CLASS'S STATICS: `__bit_iterator::__bits_per_word` in the friend `operator-`
+was `undeclared`.
+
+(30) AN ARRAY MEMBER'S BRACED INITIALIZER: `: __first_{0}` (the reader's one-item `init`) and `: n_{5, 6}` (several items) were
+`lvalue(int(0))` or ignored; libc++'s `__bitset` left its words uninitialized. `arraybrace.cpp`.
+
+(31) THE MEMBERS OF A PARTIAL SPECIALIZATION DEFINED OUT OF ITS CLASS (a SILENT WRONG ANSWER, found by the bitset probe printing
+`count()` 8 for an empty set). An out-of-class constructor or destructor lost its class's template-id, so `__bitset<1, _Size>::
+__bitset()` and the primary's `__bitset<_N_words, _Size>::__bitset()` and the explicit `__bitset<0, 0>::__bitset() {}` were all
+`ctor_def(L, __bitset, ...)`, every definition applied to every instance, and the first registered won: `bitset<16>` ran the
+constructor of `__bitset<0, 0>`, an empty body, and the primary's loops over a one-word class. The reader keeps the pattern as the
+qualifier `pattern(Args)`, and a specialization's definitions are tried before the primary's (`cpp_special_pattern`).
+`specmember.cpp`.
+
+(32) BRACED TEMPORARIES AND THE initializer_list CONSTRUCTOR ([over.match.list]/1; found by a `std::vector<std::string>{"a",
+"b"}` argument): `T{a, b}` was the call `T(a, b)`, so a class with an `initializer_list` constructor took the items as
+constructor arguments -- the iterator-range constructor for two `const char *` (`instance_refused(...)`), the (count, value)
+one for `std::vector<int>{5, 1}`, five elements for `std::vector<int>{5}`. The reader marks a non-empty braced temporary
+`braced_temp(call(T, Values))` (the empty list stays the call, value-initialization), the inference types it as the call, and
+`cpp_expr` asks `cpp_braced_class/3` (the type hook, never a name over an unbound parameter) and `cpp_il_braced/3`: a
+non-empty list that is not one item of the class itself or a class derived from it ([dcl.init.list]/3.2: `std::vector<int>{v}`
+copies) whose items a class element type takes (`cpp_il_class_items_fit/2`) goes through `cpp_init_list/4` and the list
+constructor; any other form is the call it was. The same rule serves `return {"a", "b"}`, a braced argument to a class
+parameter and a nested braced item (`std::vector<std::vector<int>> v = {{1, 2}, {3}}`). `cpp_init_list` takes the caller's
+context: a local `std::vector<int> v{n_, m_}` in a method named its members with no `this`. `tempinitlist.cpp`.
+
+(33) A BRACED LIST CONVERTS TO AN `initializer_list<T>` PARAMETER when each item fits T or T's converting constructor takes it:
+`std::vector<std::string>({"x", "y", "zz"})` scored 0 for the list constructor (a `const char *` is no `std::string` to the
+fit), so the arity alone chose `explicit vector(const allocator_type &)` and handed the allocator three strings
+(`no_constructor(allocator<string>, 3)`). `cpp_il_elem_fits/2`.
+
+(34) A RANGE-FOR OVER A PRVALUE OF A CLASS WITH A DESTRUCTOR DESTROYED IT TWICE (a double free, since the range-for of 0.41):
+`for (auto x : std::vector<int>(3, 7))`. The range's temporary was registered with the loop statement, and the `auto &&`
+declaration the loop makes is a statement of its own whose elision looked in its own register and found nothing; the loop's
+statement takes the temporary out first (`cpp_temp_elide` before the declaration). A call returning the vector by value was
+never registered and always worked. `tempinitlist.cpp`.
+
+(35) MORE THAN ONE `auto` DECLARATOR (reader 113; found by `<complex>`'s `auto q = a / b, s = a - b;`): the declaration read
+its first initializer as an EXPRESSION, so the comma took `s = a - b` for a comma expression and the declaration named `q`
+alone (`not lowered yet: auto(q)`) -- in a block and at file scope, and so for the idiom `auto it = v.begin(), e = v.end();`
+outside a `for`. Each declarator is read with an ASSIGNMENT-expression and deduced alone (`ccl_auto_more//3`,
+`ccl_auto_next//3`, a `'$splice'/1`). `autodecl.cpp`.
+
+(36) `std::span` (found by the bitset probe, which also used one): `span<int>` instantiated the PRIMARY with the extent
+2^64 - 1 and its members' `_Extent * sizeof(element_type)` ran past 4 GB. `span<_Tp, dynamic_extent>` is a partial
+specialization on a NAME (`inline constexpr size_t dynamic_extent = numeric_limits<size_t>::max()`) whose value is past
+what cocolog's integers hold: three defects stood between the pattern and the argument. The pattern's value was evaluated
+by `ccl_const_eval` alone, which knows no name that a constexpr call defines (`cpp_value_of` asks the template argument's
+own road); two values past 2^60 are `big(Atom)`, a decimal atom when computed and a hex one when written, and were compared
+with `=:=` (`ccl_w_cmp`); and a file-scope `constexpr` initialized by a call was folded once, the first attempt only
+emitting the library instances the call runs through (twice now). `span<int>` passed where a `span<const int>` is wanted is
+item (42). `stdspan.cpp` (C++20).
+
+(37) THE MATH BUILTINS WITH AN int OR A POINTER AMONG THEIR PARAMETERS: `<complex>`'s division calls `std::scalbn` and
+`std::logb`, `__builtin_scalbn` was `undeclared`. `scalbn` and `ldexp` take (T, int), `frexp` (T, int *), `modf` (T, T *),
+`ilogb` answers an int (`cpp_math_odd/4`).
+
+(38) A FAILED STATEMENT IN THE LOWERING RE-EMITS THE ONES BEFORE IT (found by `std::bitset<70>`'s `w2 = w << 2;`; a latent
+defect of the lowering since the start): nothing undoes an emitted line, and `ir_stmts` leaves the choice points of every
+statement, so a failure in a late statement backtracked into the resolver of an earlier one and the body was lowered AGAIN
+-- the first copy's allocas stayed, LLVM refused `multiple definition of local value named 'w.101'`. The failure itself was
+`ir_leaves` of an array member whose element type is the unresolved `typedef(size_t)` (`__bitset<2, 70>`'s `unsigned long
+__first_[2]`): no size, no ABI. The element is resolved first. Named, not fixed: a statement that fails and succeeds the
+second time would run twice when the statements before it have no declaration to give them away. `bs71`, `stdbitset.cpp`.
+
+(39) THE MANGLER LOOPED ON `std::byte` (found by `std::vector<std::byte>`, 4 GB in ten seconds; a defect since 0.94, hidden because
+no library function had a `byte` among its template arguments): a nested enum is a type of its holder (`Enclosing.Name` in
+`'$cpp_class_types'`), and `cpp_class_scope_` took ANY class typedef whose target was the enum for its holder -- `typedef _Tp
+value_type` of `__split_buffer<std::byte, ...>` made `std::byte` a member of that buffer, and the chain of names it built named
+itself. The typedef must carry the enum's own last name. `stdbyte.cpp`.
+
+(40) A BUILT-IN OPERATOR OVER A CLASS WITH A CONVERSION FUNCTION (found by `std::vector<bool>`'s `count += v[i]`, `no_operator(+=)`):
+C++ applies a non-explicit conversion function to an operand of a built-in operator ([over.match.oper]/3.3), and this refused the
+form. After the class's own operators, the free ones, the enumeration ones and the rewritten comparisons have answered nothing, the
+operator is the built-in one on what the function gives (`cpp_builtin_via_conv/4`); `m * 2` over `operator double`, `-c`, `~c`.
+`convarith.cpp`.
+
+(41) THE INTEGER ABSOLUTE VALUES AND A KEYED QUALIFIED CALL: `std::abs(-4L)` met `undeclared('__builtin_labs')` (libc++'s
+`<stdlib.h>`), now `__builtin_abs`, `labs`, `llabs`. With `<complex>` included `std::abs` is the KEY `std.abs` (complex's template: two
+namespaces declare the name, and the deeper one is keyed), so `std::abs(x)` of a double was `deduction_failed(complex)` and
+`std::norm(z)`, which calls it, too: the plain overloads in the outer namespace, which `using ::abs` brings into std, are tried when the
+key's refuse (`cpp_bare_fn/1`). `stdcomplex.cpp`.
+
+
+(42) THE QUALIFICATION CONVERSION THROUGH AN ARRAY (found by `stdspan.cpp`: `sum(sp)` of a `span<int>` over `void sum(std::span<const
+int>)`): the argument was stored into the parameter's struct BITWISE, and LLVM refused the module (`'%t8' defined with type
+'%struct.span.int...' but expected '%struct.span.const_int...'`). libc++ 18's converting constructor `span(const span<_OtherElementType,
+_OtherExtent> &)` requires `__span_array_convertible<int, const int>`, that is `is_convertible_v<int (*)[], const int (*)[]>`, and
+`cpp_quals_added` had no clause for an array: an array's element carries the array's qualifiers ([basic.type.qualifier]/3), so
+`int (*)[]` converts to `const int (*)[]`. Named, not fixed: a class passed to a parameter of ANOTHER class that no constructor takes
+reaches the lowering as a bitwise store of two different structs, an LLVM error where a refusal by name would say more.
+
+(43) THE CHOSEN FUNCTION DECIDES THE OBJECT OF A BARE CALL, NEVER THE NAME (found by `std::vector<bool>`: its first `reserve` was a
+segmentation fault; a defect since 0.47): the class declares `void swap(vector &)` and `static void swap(reference, reference)`, and
+`swap(__v)` in `reserve` went out with a null `this` because `cpp_static_bare/2` asks whether the NAME has a static overload.
+`cpp_static_bare/3` asks with the mangled name the member road chose (`cpp_method_on_ptr`); a static function still takes its unused
+`this`, so a wrong answer costs nothing. gdb named the frame (`swap.c3.size_t_p` called from `vector<bool>::swap` with a null
+object) and the IR showed `call void @...swap...(ptr null, ptr %__v.16)`. `vectorbool.cpp` (`push_back`, `reserve`, `resize`, `flip`, `assign`,
+`insert`, `erase`, the proxy, the static `swap` of two proxies, a copy, a comparison).
+
+(44) A BASE NAMED BY A TYPE PARAMETER OR BY AN ALIAS (the "Not done" entry of 0.93, cut to a reduction): `template <class B> struct D : B
+{ int y; }` over `struct P { int x; }` refused `base_not_registered(P, D.P)`. The structs named as bases are collected before anything
+registers (`cpp_note_bases`), and the base clause of the template names the parameter `B`; the instance now promotes a plain struct
+that its bases name before it registers (`cpp_promote_plain_bases/1` in `cpp_instance_body`). The reduction showed a second, older
+defect on the way: a base named through an ALIAS of a class (`using ZA = Z; struct Y : ZA`, `typedef Z ZT; struct X : ZT`) was refused
+`base_not_registered('ZA', 'Y')` with no template in sight, since `cpp_type` leaves an alias as it is; `cpp_alias_class/2` resolves it in
+`cpp_base_name` and in `cpp_note_bases_`. Named, found on the way: the program's own class templates are instantiated EAGERLY, members
+included, so `D<Q>::sum()` that names a member `Q` lacks is refused though nothing calls it -- C++ instantiates a member where it is used
+([temp.inst]/3). The reason is the safe part (the program's instances are checked), and it is in "Not done" now. `baseparam.cpp`.
+
+BATCH E: the library sweep (what a program asks of libc++ once the language is whole).
+
+The sweep took the headers a program reaches for first and had not been tried -- `<list>`, `<deque>`, `<queue>`, `<stack>`, `<numeric>`,
+`<cstdlib>`, `<iterator>`, `<thread>`, `<mutex>`, `<charconv>`, `<atomic>` at C++20 -- wrote a program of 20 to 50 lines for each, built it with
+clang++ (`-stdlib=libc++`) and with cicilang++, and followed each difference to its cause. Every defect below was found that way; each has a
+reduction of its own where the library's shape could be cut out of the library.
+
+(45) PARENTHESIZED FUNCTIONAL CASTS (reader 114; found by `<thread>`: `thread() : __t_((__libcpp_thread_t())) {}`, and by the idiom
+`std::vector<int> r((std::istream_iterator<int>(in)), std::istream_iterator<int>())`): `(T())` was read as a cast to the function type `T ()`
+and `(std::vector<int>(n))` as a type-id with the named declarator `(n)`; both then looked for an operand after the `)` and the read stopped.
+`ccl_cast_expr` refuses a `fn(_, _, _)` type, and a type-id's declarator is abstract (`ccl_type_name//2` demands `N == anon`). The reader and
+compile gates were run again over a fresh HOME at once (reader 96 ok and two skips, compile 105 ok). `parencast.cpp`.
+
+(46) A BRACED DEFAULT INITIALIZER OF A PLAIN STRUCT OR UNION MEMBER reached the lowering as a bare braced expression (found by `std::mutex`:
+`__libcpp_mutex_t __m_ = _LIBCPP_MUTEX_INITIALIZER;`, glibc's `{ { 0, 0, 0, 0, 0, 0, 0, { 0, 0 } } }` over a union). `cpp_member_from/6` assigns
+a compound literal of the member's type (`cpp_plain_aggregate/1`), and the plain-member clause of `cpp_member_inits` asks it for the default.
+`aggmemberinit.cpp`.
+
+(47) A MEMBER TEMPLATE OF A PLAIN CLASS DEFINED OUT OF IT was never emitted (found by `std::mutex` and `std::thread`, whose constructors are
+`template <class _Fp, ...> thread::thread(_Fp &&, _Args &&...)`): the definition went to `'$cpp_mdef'` with no pattern, where only an instance
+of a class template looks, so the call named a symbol nothing defined and the link failed. `cpp_register_` keeps it (`cpp_mdef_put/4`) and
+`cpp_refresh_mts/1` gives the bodyless declaration, registered with the class as a member template, the body of its definition through the merge an
+instance makes (`cpp_member_def/5`). The first version missed the constructors: the row's key is `ctor` and the shape key `$ctor`; the rows are
+found by `cpp_member_shape(M, _, _, none)`. `membertmpl.cpp`.
+
+(48) AN INSTANCE WHOSE BASE IS STILL BEING REGISTERED (found by `std::list`: `base_not_registered(...)`): libc++'s `__list_imp` names
+`__list_node_base<int, void *>` and, through its pointer traits, `__list_node<int, void *>` as the pointee of a typedef, which instantiates the node
+-- whose base is the class whose registration asked for the typedef. C++ asks no definition of a pointee. The registration of the derived instance
+is deferred (`'$cpp_deferred'`, `cpp_instance_body/4`, trace `deferred`) and runs when the class is first looked up (`cpp_class/2`,
+`cpp_run_deferred/1`), by which time the base is a class. The first version tested atoms only and missed a base named by a template-id;
+`cpp_base_in_progress/1` resolves the template-id to the instance in progress (`'$cpp_iname'`). `stdlist.cpp`.
+
+(49) TWO CLASS TEMPLATES OF ONE FLATTENED NAME (found by `std::vector<int> v = {1, 2, 3}` after `#include <iterator>`, which pulls in `<variant>`):
+`std::copy` of trivially copyable ints found the wrong `__overload` -- `<variant>` defines `template <class _Tp, size_t _Idx> struct __overload`
+in `std::__variant_detail`, the algorithms `template <class _F1, class _F2> struct __overload : _F1, _F2` in `std`; the flattening lost the namespaces
+that told them apart (`arity_mismatch`). Where the name has class templates of DIFFERENT parameter kinds the first whose parameters take the
+arguments is the one (`cpp_class_template/4`, `cpp_tparam_kinds/2`, `cpp_kinds_fit/2`). The first attempt compared no kinds and chose the one with a
+value parameter for a type argument; the kinds are compared now. A name with one kind is untouched.
+
+(50) A CONDITIONAL WITH THE LITERAL ZERO AND A POINTER (found by `std::deque`: a crash at the first `push_back`; a defect from the start, in the inference
+and in the lowering): `__map_.empty() ? 0 : *__mp + ...` was typed `int`, so the overload taking a pointer lost to the one taking a
+`long` (`no_constructor`), and the lowering's phi was `i32`: the pointer went through `ptrtoint ... to i32` and lost its high half. [expr.cond]/7:
+the null pointer constant converts to the pointer's type. `ccl_type_of(cond)` and `ir_expr(cond)` give the pointer when one arm is a null
+constant (`ccl_null_constant/1`) and the other a pointer, in both orders and both languages. The lowering's half is a C defect too, so the C program is a
+fixture (`test/c/run/condnull.c`; the safe part refuses a plain pointer stored in a struct, so the program keeps its pointers in locals).
+`condzero.cpp`, `stddeque.cpp`.
+
+(51) A STATIC DATA MEMBER OF A CLASS TEMPLATE DEFINED OUT OF ITS CLASS (reader 114; found by `std::deque`: `begin()` read the undefined symbol of
+`__deque_iterator::__block_size`): `template <...> const _DiffType __deque_iterator<...>::__block_size = ...;` was kept by nothing. The class's
+`'$cpp_mdef'` rows now hold it as `static_def(N, Init)` (`cpp_mdef_item/4`; the header's index keys it under the class), and the instance takes
+the initializer as the member's own default (`cpp_static_defs/5`), so it folds as one written in the class does. `tmplstatic.cpp`.
+
+(52) `__underlying_type` AND AN ENUM WHOSE UNDERLYING TYPE IS A DEPENDENT TYPEDEF (found by `-std=c++20` programs that stored into a `std::atomic`:
+`typedef(scoped([tmpl(underlying_type, ...)], type))` reached `main`): libc++ 18 writes `enum class memory_order : __memory_order_underlying_t`
+over `typedef underlying_type<__legacy_memory_order>::type __memory_order_underlying_t`. `__underlying_type(E)` is answered
+(`cpp_underlying_of/2`: the written base, else `int` when an enumerator is negative, else `unsigned`; `underlyingtype.cpp`). The enum's base is
+SETTLED where the enum is first named (`cpp_enum_unsettled/4` in a `cpp_type` clause) and the typedef is OUTPUT as an item
+(`cpp_settle_typedef/2`), since the passes build the table again from the output's items and a note made during the desugaring is gone by
+then. THE LESSON IS CLAUDE.md's OLD ONE: three attempts failed the same way before the cause was seen -- the clause had been edited with a comment
+in the middle of a line, `% the tag asked with its members UNBOUND ... ccl_typedef_of(A, D), D = ...`, and the comment ended the line, so the
+goals after it were never part of the clause and it failed on every call. A probe around `cpp_type` showed the typedef resolving to `unsigned`,
+which made the cause look elsewhere. `enumsettle.cpp`, `stdatomic20.cpp`.
+
+(53) A FUNCTION TEMPLATE-ID NAMED AS A VALUE (found by `std::thread`: `pthread_create(&__t_, 0, &__thread_proxy<_Gp>, __p.get())`,
+`lvalue(tmpl('__thread_proxy', ...))` at the lowering): `f<int>` and `&f<int>` need no target when the explicit arguments settle every
+template parameter. `cpp_explicit_instance/3` takes the first candidate of the name whose explicit arguments bind (`cpp_bind_explicit`), whose
+defaults fill the rest, whose parameters are all bound and whose constraints hold, names and emits the instance as any instance is, and
+`cpp_expr` makes the id its name, the address under `&`. The same rule serves `std::from_chars` of a SIGNED type, which hands
+`__from_chars_atoi<__t>` to `__sign_combinator` as its by-value `_Fn` (it was `cannot_deduce('_Fn')`).
+
+(54) A FREE OPERATOR FUNCTION THAT A HEADER DEFINES (reader 114; found by `std::thread::id() == std::thread::id()`: `no_operator(==)`): the header
+index, the noting of a header's functions and their lazy registration had one clause each for a LITERAL operator and none for any other operator
+function, because the templates (`cpp_template_name`) were the only free operators libc++ had written until `<thread>` and `<system_error>`
+defined `inline bool operator==(__thread_id, __thread_id)` for a class. `cpp_index_name/2`, `cpp_note_hdr_fns/1` and `cpp_register_lazy/1` take any
+free operator the header DEFINES (a declaration alone is not indexed) under its free operator name `op.<word>.<arity>`.
+
+(55) A SHIPPED FUNCTION'S PROTOTYPE DECLARED IN THE FRAME OF THE FIRST CALLER (found by a program with two kinds of thread: the first `std::thread` made
+`__thread_proxy<A>`, the second `__thread_proxy<B>`, and `__thread_local_data().set_pointer(...)` in the second was `no_member(set_pointer, ...)`):
+`cpp_use_mangled/3` noted the Itanium-named function done and declared its type with `ccl_declare/2`, which writes into the INNERMOST OPEN FRAME --
+the first instance's body scope, popped when it ended -- so the second function that called it met a call of no type (`unknown`), and a member call on
+an unknown type refuses. `ccl_gdeclare/1` declares it at file scope. A defect since 0.61 that nothing had called twice with a member call on the
+result. `stdthread.cpp`.
+
+(56) `volatile` IN THE MANGLER (found by `-std=c++20` `notify_one`, `notify_all` and `wait` of a `std::atomic`, which linked to nothing): the
+parameters of libc++'s `__cxx_atomic_notify_one(void const volatile *)` and its siblings were spelled `PKv`; the ABI says `PVKv`. `cpp_ita_cv/2`
+spells `V` before `K`, the group is ONE substitution candidate with its type (`cpp_ita_wrap_cv/6`; `VKv` is `S0_`, `PVKv` `S1_`), and a by-value
+parameter loses both qualifiers. The first version took `cpp_ita_wrap/5`'s first letter for the group and wrote `PVv`. The three symbols of clang++
+are in `c37`. `stdatomic20.cpp`.
+
+(57) `using typename Base<T>::name;` IN A CLASS (reader 114; found by `std::from_chars`: `type(unknown)` at the lowering): libc++ 18's `<charconv>`
+`__traits` writes `using typename __traits_base<_Tp>::type;` and its members take `type &`, and the member was skipped as an unknown using
+declaration. It is the class-scope typedef `name` of `typename Base<T>::name` now.
+
+(58) AN ENUM VALUE-INITIALIZED BY `E()` AND `E{}` was `undeclared(E)` (found by `std::errc()` in `r.ec == std::errc()` of `<charconv>`):
+the tag-called clause took an enum only with one argument. With none it is the enum's zero ([dcl.init]/8). `enumvalue.cpp`.
+
+(59) A CALL THAT RETURNS A REFERENCE TO AN ARRAY was loaded whole (`%t = load [10 x i32]`), and the pointer arithmetic on it died as `type(unknown)`
+(found by `std::from_chars`: libc++'s `static auto &__pow() { return __table<>::__pow10_32; }` is added to): the array is the address, which decays.
+And `auto &gr() { return g; }`, a plain function with a deduced REFERENCE result, was `not lowered yet: auto` at its first call, though the
+method road had it since 0.113: `cpp_auto_result/1` and `cpp_fn_auto_ret/4` deduce the type under the reference, undecayed
+(`cpp_lambda_ret_mode/5`). `autoref.cpp`.
+
+(60) A NON-CONST REFERENCE BOUND AN ARITHMETIC LVALUE OF ANOTHER TYPE (a SILENT WRONG ANSWER, found by `std::from_chars`, which stored 0 for "12345" and
+garbage for "-77"): libc++'s `__mul_overflowed(unsigned char, _Tp, unsigned char &)` was chosen for `(uint32_t, uint32_t, uint32_t &)`, and its
+`__r = ...` wrote ONE BYTE of the caller's variable. [dcl.init.ref]/5.1: `unsigned char &` binds only an lvalue of a reference-related type. The
+acceptance of a template candidate refuses an arithmetic lvalue of another arithmetic type for a non-const lvalue reference (`cpp_param_accepts/2`, the
+types compared by `cpp_type_key` without their qualifiers). What showed it was the IR of the caller: the call passed `i8 %t71` where the
+variable lay. `stdcharconv.cpp` (`from_chars` of int, long and unsigned in two bases, an invalid string, a value out of range; `to_chars`).
+
+(61) SMALLER FINDS OF THE SWEEP, each with a fixture or inside one: `std::span<int>` converts to `std::span<const int>` (the qualification
+conversion through an array, `cpp_quals_added`; `stdspan.cpp`); `vector<bool>::reserve` ran with a null `this` because the NAME `swap` has a static
+overload (`cpp_static_bare/3`; `vectorbool.cpp`, a defect since 0.47); a plain struct bound to a base-clause type parameter and a base named through an
+alias (`baseparam.cpp`); `<numeric>` (`stdnumeric.cpp`), the C library through `<cstdlib>`, `<cstring>`, `<cctype>` (`stdcstdlib.cpp`), the
+rvalue-stream `getline` and `sync_with_stdio` (`stdstreammisc.cpp`), `std::queue`, `std::stack` and `std::priority_queue` (`stdqueue.cpp`),
+`std::bitset`, `std::complex`, `std::byte` (above).
+
+(62) AN ARITHMETIC VALUE BOUND TO A REFERENCE TO ANOTHER ARITHMETIC TYPE (found by `std::deque`: a segmentation fault at the 3000th `push_back`; gdb on the
+binary showed `__split_buffer`'s constructor receiving the capacity 8589934593 = 0x200000001 from `std::max<size_type>(2 * __map_.capacity(), 1)`):
+the temporary a `const size_t &` binds to the int `1` was made as wide as the int -- four bytes, read as eight, the upper four whatever the stack
+held. Reductions of ten lines: `const size_t &r = 3;`, `id(3)` over `size_t id(const size_t &)`, `pick<size_t>(3, 2)`, `std::max<size_t>(0, 1)`.
+`ir_ref_to/3` takes the arithmetic case first (`ir_ref_converts/3`: the referent's LLVM type differs from the expression's, or a `bool` is bound to a
+non-`bool`) and binds a temporary of the REFERENT's type, converted from the value (`ir_ref_convert/3`); a reference member bound in a constructor
+goes through the same door (`ir_bind_into/3`). Two types of one LLVM type still share the lvalue's address -- an `int` and a `const unsigned &` --
+which differs from the standard only where the variable is written while the reference lives. The defect is as old as the lowering of references.
+`refwiden.cpp` (an int literal, an int lvalue copied and not aliased, an int to a double, a double to an int, a float widened, `-1` to `unsigned long
+long`, an `unsigned char` to an `int`, a `bool` from 5 and from 0.0, an rvalue reference to a converted copy), `stddeque.cpp`.
+
+(63) A CONVERSION FUNCTION THAT YIELDS A REFERENCE (found by `std::thread`, below): libc++'s `reference_wrapper<T>::operator T &()` was no
+candidate where a `T &` or a `T` is wanted, because the result's reference was kept and neither `cpp_bare_type/2` nor `cpp_conv_fits/2` looks through
+one. `bump(r, 3)` with `r` a `std::reference_wrapper<Counter>` and `void bump(Counter &, int)` passed the WRAPPER's address as the Counter, in 0.116
+too (the baseline worktree prints `0 0 1 4` for the reduction where clang++ prints `6 16 6 20`). `cpp_conv_result_type/2` strips the reference in
+`cpp_conv_member_/6` ([over.match.ref]/1.1). `fnptrargs.cpp`.
+
+(64) CALLS THROUGH A POINTER OR A REFERENCE TO FUNCTION took none of the passes a call by name gives (found by `stdthread.cpp`, whose binary hung: gdb
+showed four threads, each in `lock_guard`'s `mutex::lock()` on a DIFFERENT mutex, at addresses 0x1e0 apart inside the thread blocks -- the callee
+had run on the `std::ref` wrapper's address as its `Counter`): libc++'s `__invoke` writes `static_cast<_Fp &&>(__f)(static_cast<_Args &&>(__args)...)`
+with `_Fp` a function REFERENCE, and `cpp_call/4` met an `id` that is no declared function, so `cpp_ref_args/3` and `cpp_copies/2` (which look up
+`fn(_, Ps, _)` of the NAME) did nothing. `cpp_callee_params/2` reads the parameters off the callee's FUNCTION TYPE -- a pointer to function, a
+reference to one, a member or an element of such a type -- and the three places that take the passes use it: `cpp_ref_args/3` on a name,
+`cpp_call/4`'s last clause on any callee expression, `cpp_copies/2` on any `call(F, Args)`. A class taken by value through a function pointer is now
+copied for the callee, which destroys its own (it was the caller's object, destroyed twice). `fnptrargs.cpp` (a reference_wrapper to `Counter &` and
+to `int &`, directly, through `std::invoke`, a function pointer and a reference to function; a `Tag` with a printing copy constructor and destructor
+through `void (*)(Tag)`; an int to a `const long &` through a pointer), `stdthread.cpp`.
+
+(65) A TYPEDEF THAT NAMES A SCALAR HAS NO MEMBER TYPES (found by `std::list::assign(3, 4)`, which ran past 28 minutes and 2.6 GB and never finished -- the
+sweep's one PERFORMANCE finding; a trace of four minutes was 420,029 lines of `flatten([size_t], iterator_category, in(sig(__test)))` and
+`free_name_instance(iterator_traits, _InputIterator, ...)`): `typename U::iterator_category` with `U = size_t` is a SFINAE failure, and was not. The
+argument `size_t` is a typedef NAME, and `cpp_subst_path/3` made a path segment `nonclass(A)` only for a scalar written as a builtin type; the typedef
+kept its name, flattened as a namespace, and found `iterator_category` in some other class, so libc++'s `__has_iterator_typedefs<size_t>` held, and
+`iterator_traits<size_t>` was walked as an iterator. A ten-line reduction prints 1 for `has_ic<size_t>` where clang++ prints 0 and `has_ic<unsigned
+long>` was right. `cpp_typedef_scalar/1` resolves the typedef first. `sfinaetypedef.cpp`.
+
+(66) THE TYPES OF THE PARAMETERS A CALL LEAVES OUT (the other half of 65, which the first fix exposed: `no_member_type('enable_if.0.void', type)` at
+the call, uncaught): libc++ 18 writes the SFINAE of `list::insert` and `list::assign` as a trailing PARAMETER, `__enable_if_t<__has_input_iterator_category
+<_InpIter>::value> * = 0`, which no call supplies. `cpp_params_accept/3` stopped when the arguments ran out, so the template with `_InpIter = size_t`
+held whatever the trait said and the walk of 65 ran before the ranking dropped it; with 65 fixed the trait said false and the type was never
+resolved, so the candidate was chosen and its emission refused. [temp.deduct]/7: the type of every function parameter, supplied or defaulted, is
+substituted. `cpp_params_resolve/2` does it for the rest of the list. `std::list<int>::assign(3, 4)` builds in 8 seconds and matches clang++
+(`stdlist.cpp` has it back). `sfinaetypedef.cpp` has a `pick(T, enable_if<...>::type * = nullptr)` pair that only this rule can tell apart.
+
+(67) A VARIABLE THE SWEEP'S OWN EARLIER STEP SHADOWED, found by the first POOL of fixtures run before the chain (40 fixtures through `runfx.sh` over a warm
+cache, three at a time, ten minutes -- a net for a step that changes rules every fixture uses): `refbyvalue.cpp` was refused by LLVM, `store
+%struct.Two %t1, ptr %t2` with `%t1` a `ptr`. The SysV register budget of batch A gave `ir_args_/5` a register state named `R0`, and the older clause
+for a reference handed to a by-value aggregate parameter used `R0` for the resolved reference type in `ir_ref_value_type(T0, R0)`, which could
+never unify with `regs(I, S)`: the clause failed, silently, for every such argument. Renamed `RV`. (CLAUDE.md's old lesson, "look a variable up
+before giving it", a second time.)
+
+(68) `__builtin_bit_cast(T, e)` (the items the sweep had left, tried again after 65 and 66): `std::bit_cast` was `trait_unknown('__builtin_bit_cast')`.
+`cpp_trait/3` answers it with a statement expression: a local of T, a local copy of e (its type unref'd and unqualified), a `memcpy` of `sizeof(T)`
+bytes from the one to the other, the local of T last ([bit.cast]; libc++ 18 writes `return __builtin_bit_cast(_ToType, __from);`). `stdbitcast.cpp`
+(C++20: a float and an integer both ways, a double, a struct, a `std::array` of bytes, and the rest of `<bit>`: `popcount`, `countl_zero`,
+`countr_zero`, `has_single_bit`, `bit_ceil`, `bit_floor`, `rotl`, `rotr`, `bit_width`).
+
+WHAT THE SWEEP DID NOT FINISH, named in "Not done": `<random>` (a `std::mt19937` with `uniform_int_distribution`: killed at the 1500 s cap and
+again at ten minutes after 65 and 66, refusing nothing. A trace of two minutes is 74 `spend`s and no flood: the desugaring descends
+`__log2_imp<unsigned long long, 4294967296, N>` from N = 63, one instance in two seconds, 5.6 MB of the store written for each, where the same
+recursion written in a ten-line program without the header builds in one second altogether -- the cost of an instance grows with the environment
+the header loads, and one `__log2` is 32 instances; the next step to take is the CPU attribution by stubs, as CLAUDE.md's "Finding a cost"
+has it); `std::valarray` (`instantiation_depth(121, '__slice_expr')`); `std::filesystem::path` (`_PathCVT::__append_range` meets
+`typedef(tmpl(basic_string, ...))`); `std::variant` with `std::visit` (`no_member('__base', '__visit_alt', 2)`: `__make_fmatrix` fills a `constexpr`
+array with function-template instances named as values, and the call goes through an element of it); `<chrono>`, whose durations and clocks run
+but build in 8 to 14 minutes.
+
+
+Reader version 114, lowering version 62; the module rebuilt as 0.117, over cocolog 1.9.1. NO GATE HAS RUN ON THIS COMMIT. It is a save point of
+the work in progress, as 0.112 and 0.113 were: every fixture it adds (the list is the diff of `test/cpp/run/` and `test/c/run/`) matched
+clang++'s output in a probe, one at a time, over a cache of its own, but the seven gates have not run over it, and the rules of this step change
+the reader (reader version 114: the parenthesized cast, the block declarators, `using typename`, the static_def index, the header's free operators),
+the free-function road, the overload acceptance (the arithmetic reference), the argument passes of every call through a pointer or a reference to
+function, the SFINAE of every function template (a scalar typedef has no member types; the types of the parameters a call leaves out), the
+reference binding of the lowering and the mangler (`volatile`) for every program. Two pools of existing fixtures (41 and 50, three and two at a time)
+were run as a net over the late rules; the first found the defect of (67), and the second's verdicts are in the next commit's entry. The next commit
+carries the gates' numbers.

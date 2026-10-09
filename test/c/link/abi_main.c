@@ -11,6 +11,10 @@ d24 bump_d24(d24 v) { v.x += 1; v.y += 1; v.z += 1; return v; }
 csi bump_csi(csi v) { v.c += 1; v.s += 1; v.i += 1; return v; }
 bf bump_bf(bf v) { v.a += 1; v.b += 1; v.s += 1; v.c += 1; return v; }
 un bump_un(un v) { v.d += 1; return v; }
+double bud_l16(int a, int b, int c, int d, int e, l16 v) { return a + 10.0 * b + 100.0 * c + 1000.0 * d + 10000.0 * e + 100000.0 * v.a + 1000000.0 * v.b; }
+double bud_di(long a, long b, long c, long d, long e, long f, di v) { return a + 10.0 * b + 100.0 * c + 1000.0 * d + 10000.0 * e + 100000.0 * f + 1000000.0 * v.d + 10000000.0 * v.i; }
+double bud_d16(double a, double b, double c, double d, double e, double f, double g, d16 v) { return a + 10 * b + 100 * c + 1000 * d + 10000 * e + 100000 * f + 1000000 * g + 10000000 * v.x + 100000000 * v.y; }
+double bud_next(long a, long b, long c, long d, long e, l16 v, long f, di w) { return a + 10.0 * b + 100.0 * c + 1000.0 * d + 10000.0 * e + 100000.0 * v.a + 1000000.0 * v.b + 10000000.0 * f + 100000000.0 * w.d + 1000000000.0 * w.i; }
 int main(void) {
     char text[] = "AB";
     printf("%g %g %g %g %g %g %g\n", sum_s4(mk_s4(1)), sum_s8(mk_s8(1, 2)), sum_f8(mk_f8(1.5f, 2)), sum_s12(mk_s12(1, 2, 3)),
@@ -23,5 +27,8 @@ int main(void) {
     s12 s = mk_s12(4, 5, 6);
     d24 d = mk_d24(4, 5, 6);
     printf("%d %d %d %g %g %g\n", s.a, s.b, s.c, d.x, d.y, d.z);
+    l16 v = { 6, 7 }; di w = { 8, 9 }; d16 x = { 8, 9 };
+    printf("%.0f %.0f %.0f %.0f\n", budget_l16(1, 2, 3, 4, 5, v), budget_di(1, 2, 3, 4, 5, 6, w), budget_d16(1, 2, 3, 4, 5, 6, 7, x), budget_next(1, 2, 3, 4, 5, v, 6, w));
+    printf("%.0f %.0f %.0f %.0f %.0f\n", bud_l16(1, 2, 3, 4, 5, v), bud_di(1, 2, 3, 4, 5, 6, w), bud_d16(1, 2, 3, 4, 5, 6, 7, x), bud_next(1, 2, 3, 4, 5, v, 6, w), via_bud());
     return 0;
 }

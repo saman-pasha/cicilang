@@ -1,0 +1,43 @@
+Tr(1)
+Tr(2)
+Tr(3)
+-- copy
+copy 1
+copy 2
+copy 3
+-- fill
+Tr(9)
+copy 9
+~Tr 9
+-- values 101 102 103 109
+~Tr 101
+~Tr 102
+~Tr 103
+~Tr 109
+-- fill_n
+Tr(5)
+copy 5
+copy 5
+~Tr 5
+~Tr 105
+~Tr 105
+-- default
+Tr()
+Tr()
+~Tr 1
+~Tr 1
+-- value
+Tr()
+Tr()
+~Tr 1
+~Tr 1
+-- construct_at
+Tr(42)
+42
+~Tr 42
+alpha | a rather longer string, beyond the short buffer of libc++ | []
+-- end
+~Tr 3
+~Tr 2
+~Tr 1
+exit 0
