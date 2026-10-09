@@ -7429,3 +7429,11 @@ itself in its own initializer (`__static_gcd`), and a value-initialized plain st
 reads whole and `stdstring.cpp` runs at 21. libc++ 21.1.8 has NO `optional<T &>`: it came with libc++ 22 (`__cpp_lib_optional >= 202506L`),
 and `stdoptionalref.cpp` passes at 22; its `.needs` is that macro now.
 
+## 0.124 — libc++ 21, the first failures
+
+Committed while the chain over libc++ 21 runs (nothing claimed GREEN). Its library read had four failures: `<optional>` and `<string>` at C++23
+and `<optional>` at C++26 read whole to fewer items than libc++ 18's floors (libc++ 21 includes less at C++23: `<optional>` 397 -> 222 items,
+`<string>` 522 -> 410), so the floors in `test/libcxx.sh` are under both now (200, 380, 200); and `<iostream>` at C++20 stopped at libc++ 21's
+`__allocating_buffer`, which uses a class-scope alias declared after its use with an attribute before the `=`
+(`using _Alloc [[__gnu__::__nodebug__]] = allocator<_CharT>;`): the scan that notes such aliases ahead takes the attribute (reader 117).
+

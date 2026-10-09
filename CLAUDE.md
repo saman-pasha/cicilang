@@ -10,8 +10,8 @@ it found, its measurements and its gate numbers. `README.md` tells a user what r
 architecture and the milestones. A step that changes a rule edits the rule here, in its topic, and writes its entry
 in `HISTORY.md`.
 
-At 0.123 the versions are: the module 0.123 (`ccl_p_version` in `module/cicilang.cicili`, `bin/cicilang --version`),
-the reader 116 (`ccl_reader_version/1`, `library/ccl_syntax.pl`) and the lowering 65 (`ccl_lowering_version/1`,
+At 0.124 the versions are: the module 0.124 (`ccl_p_version` in `module/cicilang.cicili`, `bin/cicilang --version`),
+the reader 117 (`ccl_reader_version/1`, `library/ccl_syntax.pl`) and the lowering 65 (`ccl_lowering_version/1`,
 `library/ccl_ir.pl`).
 
 Build and prove, always in this order (or all of it, `sh test/gates.sh`):
