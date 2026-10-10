@@ -1,0 +1,7 @@
+ctor 6
+ctor 8
+dtor 8
+dtor 6
+14 2 21 30
+1524 6 114 64
+exit 0

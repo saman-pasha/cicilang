@@ -59,7 +59,8 @@ record of every step.
   `std::bind`, `<algorithm>`, `std::cout`, `std::cin`, `std::getline`,
   `std::stringstream`, `std::fstream`, `std::bitset`, `std::complex`,
   `std::span`, `std::byte` and the manipulators all compile from libc++'s
-  own bodies and run, on macOS (libc++ 21) and on Linux (libc++ 18).
+  own bodies and run, on Linux with libc++ 18 and with libc++ 21 (the gates run both, `LLVM=/usr/lib/llvm-18` and
+  `LLVM=/usr/lib/llvm-21` choose the tree) and, as of 0.90, on macOS (libc++ 21).
 * **The safe part.** `own` pointers are linear and `move` hands them on. A
   borrow dangles when its owner is consumed and may not escape. A struct's
   own fields are owners that go with it. A plain pointer parameter is a
@@ -262,7 +263,9 @@ flattens as clang would flatten it for that level. The compiler runs no
 exceptions, no RTTI and no vector extensions inside libc++, which compiles
 its own configuration for that (`-fno-exceptions -fno-rtti`); the program's
 own `throw`, `try`, `typeid` and `dynamic_cast` run over libc++abi, which
-`-lc++` links.
+`-lc++` links. Where several libc++ are installed side by side (Debian's and
+Ubuntu's `/usr/lib/llvm-18` and `/usr/lib/llvm-21`, say), `$LLVM` names the tree
+whose headers are read and whose library is linked; without it the newest is read.
 
 Every C++ form is a rewrite to the C the check and the lowering have
 (`library/ccl_cpp.pl`): a class a struct with its methods over `this`, a
@@ -299,7 +302,15 @@ program's own literal operators, `<memory>`'s `construct_at`,
 `std::stack`, `std::priority_queue`, `<numeric>`, `std::from_chars` and
 `std::to_chars`, `std::thread` and `std::mutex` (with `std::ref` arguments),
 and at C++20 `std::atomic`'s `wait`, `notify_one` and `notify_all` and `<bit>`
-with `std::bit_cast`. `test/libcxx.sh` reads `<vector>`, `<string>`,
+with `std::bit_cast`; since 0.121 also `std::variant` with `std::visit` (a
+function object, a generic lambda, C++17's `overloaded` idiom, two variants),
+and the forms it needed: classes defined in a function, `using Base::f;` and
+`using Bs::operator()...;`, aggregates with bases, a member template called
+through a pointer, unions with a constructor, a destructor or a method, and
+objects that hold their own address (a map, a list, a `std::function`)
+constructed in place when a temporary or a call initializes them; at C++20 also
+`variant <=> variant` and `std::string` compared with `const char *`.
+`test/libcxx.sh` reads `<vector>`, `<string>`,
 `<iostream>`, `<map>`, `<set>`, `<unordered_map>`, `<unordered_set>`,
 `<optional>`, `<memory>`, `<functional>`, `<tuple>` and `<algorithm>` whole,
 and the containers, `<string>`, `<iostream>` and `<ranges>` at C++20,
@@ -358,7 +369,7 @@ HISTORY.md                     the record of every step: what it did, what it fo
 
 `std::format`'s compile-time check of the format string (the library's own
 run-time parser catches a bad one); the range adaptors not named;
-`std::filesystem`, `<random>`, `std::variant`'s `visit`, `std::valarray`;
+`std::filesystem`, `<random>`, `std::valarray`;
 access control of an inheritance; the tail padding of a non-POD base, which is
 not reused (a class laid out here differs from clang's where code compiled by
 both shares it); construction vtables in a diamond; a `\N{...}` abbreviation

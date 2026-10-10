@@ -74,7 +74,7 @@
 
 %% the reader's version, part of the knowledge base's cache key: bump it when
 %% the grammar changes, so what an older grammar left partial is read again
-ccl_reader_version(114).   % 114 (0.117): in a block, `std::lock_guard<std::mutex> g(m);' with `m' a member declared later in the class is an object with an argument, not a function declaration of a parameter of the type `m' (the unnamed-parameter rule is for a prototype); `using typename Base<T>::type;' in a class is the class-scope typedef `type' (libc++ 18's <charconv> `__traits'); a free operator function that a header DEFINES (`inline bool operator==(__thread_id, __thread_id)') is indexed under its free operator name, as a literal operator was; a static data member of a class TEMPLATE defined out of its class (`template <class T> const size_t deque<T>::__block_size = ...') is indexed under the class and merged into its instances (static_def; <deque>'s `begin()' met an undefined symbol), and a type-id takes an ABSTRACT declarator only (`(std::vector<int>(n))' is a parenthesized functional cast, never a cast to the type `vector<int> (n)'); 113 (0.117): a conversion function defined out of its class (`S::operator int() const { ... }', `X<E>::operator valarray<R>() const { ... }') is a function with the conversion type as its result, and its name's type is specifiers and pointers only (<valarray> stopped the read at `__val_expr<_ValExpr>::operator valarray<...>()'); the suffix of a literal operator may spell a keyword (`operator"" if' of <complex>); a VALUE template parameter's name hides a typedef of the same name for its item (`bitset<_Size>' read as a type when an earlier class had a typedef `_Size', and no out-of-class member of std::bitset matched); a user-defined literal is `udl(Suffix, Literal)' (`5_km', `1500ms', `"x"s'); an out-of-class constructor or destructor of a partial specialization keeps its class's template-id as the qualifier `pattern(Args)' (`__bitset<1, _Size>::__bitset()' was every instance's constructor); `(T())' and `(T(n))' are parenthesized functional casts, not a cast to the function type `T ()' nor a type-id with the declarator `(n)' (<thread>'s `thread() : __t_((__libcpp_thread_t())) {}' and `vector<int> r((istream_iterator<int>(in)), ...)' stopped the read); a non-empty braced temporary `T{a, b}' is `braced_temp(call(T, Values))' and goes through an `initializer_list' constructor; `auto a = x, b = y;' is a splice of one inferred declaration per declarator, each read with an assignment-expression (the comma took `b = y' for an expression); 112 (0.117): a local variable hides a typedef name of the same name (`const char *path' beside the filesystem's `path', the vexing parse); a constructor or destructor defined out of its class keeps `inline', `constexpr', `consteval' and the hidden mark in its qualifiers (ctor_def, dtor_def), so libc++ 18's `inline basic_ofstream<...>::basic_ofstream(const char *, ...)' is compiled, not called by a symbol no library exports; 111 (0.117): `__int128' a type word of its own (ccl_gnu_word, ccl_basic_type), a lambda's `mutable' kept among its captures, `friend class X;' kept as friend_class(Q) for the access control; 110 (0.115): an init-declarator names what it declares (`Loop()(1, 2);' is a call); a raw string literal R"d(...)d" and its prefixed forms in both lexers, C++ only (<format>'s escaped-string writer stopped the read at C++23); 109 (0.115): a type requirement reads its own `typename' (`requires { typename T::key_type; }' with `key_type' declared nowhere yet); 108 (0.113): the hidden mark of an attribute that BEGINS an item (after a template head) kept; 107 (0.112): `__visibility__("hidden")' kept on a member defined out of its class, `hidden(Sto)'
+ccl_reader_version(123).   % 123 (0.128): an enum's values in the bulk noter are ccl_const_eval/2's (ccl_const_eval_in), a cast wrapping and an unsigned operation typed, so a summary's `enum/2' values change; 122 (0.127): `new T' and `new (p) T' with no initializer are `new_default(T)', default-initialized, apart from `new T()' and `new T{}', value-initialized (the summaries hold library bodies that write both); 121 (0.127): in C++ an enumerator's ENUM is kept beside its value in the table of values (`'$t'(Name)-Tag', a scoped enum's tag as `'$s'(Tag)-1'), so a summary's `enum/2' lines carry it, and the parser declares an enumerator of a named enum with the enum's type; a free function DEFINITION keeps a trailing return type that names `decltype' as its result (ccl_trailing_ret); 120 (0.126): a function with NO parameter DELETED where it is declared (`void iter_move() = delete;', libc++ 21's poison pill of a customization point; `begin', `end', `size', `rbegin', `rend', `weak_order' alike) is indexed as the prototype it stood for in libc++ 18 (cpp_index_name), so the namespace collision with the object `ranges::iter_move' is seen and the unqualified call inside the concept no longer goes to the object; 119 (0.126): the DECLARATION of a free operator template is indexed and registered as its definition is (cpp_template_name, cpp_fn_item), so the default of a template parameter that only the declaration gives -- libc++ 21's `template <class _Tp, __enable_if_t<is_floating_point<_Tp>::value, int> = 0> complex<_Tp> operator*(const complex<_Tp> &, const complex<_Tp> &);', defined later without it -- reaches the definition, and the AST beside <complex>'s summary holds the declaration; 118 (0.126): `__has_builtin(__builtin_common_type)' answers 0 (pp_no_builtin), so libc++ 21 flattens <type_traits>'s common_type on its own specializations, the ones libc++ 18 flattens, not on clang's builtin template; 117 (0.124): a class-scope alias with an attribute before its `=' (`using _Alloc [[__gnu__::__nodebug__]] = allocator<_CharT>;', libc++ 21) is a type ahead of its declaration too; a VARIABLE TEMPLATE's name is a template before its own initializer (libc++ 21's `template <intmax_t _Xp, intmax_t _Yp> inline const intmax_t __static_gcd = __static_gcd<_Yp, _Xp % _Yp>;' read `__static_gcd <' as less-than and stopped <string>); 115 (0.121): `using Bs::operator()...;' in a class is `using(L, pack(Q))', the pack form of a using-declaration; it was skipped to the `;' with the other `using' forms (libc++ 18's `__all_overloads' of std::variant, and C++17's `overloaded' idiom, `template <class... Fs> struct overloaded : Fs... { using Fs::operator()...; };'); 114 (0.117): in a block, `std::lock_guard<std::mutex> g(m);' with `m' a member declared later in the class is an object with an argument, not a function declaration of a parameter of the type `m' (the unnamed-parameter rule is for a prototype); `using typename Base<T>::type;' in a class is the class-scope typedef `type' (libc++ 18's <charconv> `__traits'); a free operator function that a header DEFINES (`inline bool operator==(__thread_id, __thread_id)') is indexed under its free operator name, as a literal operator was; a static data member of a class TEMPLATE defined out of its class (`template <class T> const size_t deque<T>::__block_size = ...') is indexed under the class and merged into its instances (static_def; <deque>'s `begin()' met an undefined symbol), and a type-id takes an ABSTRACT declarator only (`(std::vector<int>(n))' is a parenthesized functional cast, never a cast to the type `vector<int> (n)'); 113 (0.117): a conversion function defined out of its class (`S::operator int() const { ... }', `X<E>::operator valarray<R>() const { ... }') is a function with the conversion type as its result, and its name's type is specifiers and pointers only (<valarray> stopped the read at `__val_expr<_ValExpr>::operator valarray<...>()'); the suffix of a literal operator may spell a keyword (`operator"" if' of <complex>); a VALUE template parameter's name hides a typedef of the same name for its item (`bitset<_Size>' read as a type when an earlier class had a typedef `_Size', and no out-of-class member of std::bitset matched); a user-defined literal is `udl(Suffix, Literal)' (`5_km', `1500ms', `"x"s'); an out-of-class constructor or destructor of a partial specialization keeps its class's template-id as the qualifier `pattern(Args)' (`__bitset<1, _Size>::__bitset()' was every instance's constructor); `(T())' and `(T(n))' are parenthesized functional casts, not a cast to the function type `T ()' nor a type-id with the declarator `(n)' (<thread>'s `thread() : __t_((__libcpp_thread_t())) {}' and `vector<int> r((istream_iterator<int>(in)), ...)' stopped the read); a non-empty braced temporary `T{a, b}' is `braced_temp(call(T, Values))' and goes through an `initializer_list' constructor; `auto a = x, b = y;' is a splice of one inferred declaration per declarator, each read with an assignment-expression (the comma took `b = y' for an expression); 112 (0.117): a local variable hides a typedef name of the same name (`const char *path' beside the filesystem's `path', the vexing parse); a constructor or destructor defined out of its class keeps `inline', `constexpr', `consteval' and the hidden mark in its qualifiers (ctor_def, dtor_def), so libc++ 18's `inline basic_ofstream<...>::basic_ofstream(const char *, ...)' is compiled, not called by a symbol no library exports; 111 (0.117): `__int128' a type word of its own (ccl_gnu_word, ccl_basic_type), a lambda's `mutable' kept among its captures, `friend class X;' kept as friend_class(Q) for the access control; 110 (0.115): an init-declarator names what it declares (`Loop()(1, 2);' is a call); a raw string literal R"d(...)d" and its prefixed forms in both lexers, C++ only (<format>'s escaped-string writer stopped the read at C++23); 109 (0.115): a type requirement reads its own `typename' (`requires { typename T::key_type; }' with `key_type' declared nowhere yet); 108 (0.113): the hidden mark of an attribute that BEGINS an item (after a template head) kept; 107 (0.112): `__visibility__("hidden")' kept on a member defined out of its class, `hidden(Sto)'
 %% ccl_reader_version(106).   % 106 (0.112): a member named through an object by its qualified name (`b.A::v', `p->A::f()'), the `1.0li' literal a `_Complex long double', a summary's long terms in the `.big.pl' beside it; 105 (0.112): a lambda's requires-clauses kept, `lreq(R)' among its captures; 104 (0.112): a header's enum keeps its namespace path in the AST beside the summary ('$cpp_hdr_ast_ns'); 103 (0.112): `__has_extension(datasizeof)' answers 1, so libc++'s `__libcpp_datasizeof' flattens on `__datasizeof(T)', a builtin trait whose argument is a type; 102 (0.112): a designated `T{.a = 1}' kept as a compound literal of T with its designators (ccl_braced_temp); 101 (0.112): `__SIZEOF_INT128__' no longer predefined, so every libc++ header flattens in its no-int128 configuration; 100 (0.112): an item declared by a namespace-qualified name stands in that namespace (ccl_flat_quals), so a summary's index keys change; 99 (0.112): std::rel_ops is not indexed (ccl_flat_items), so the AST beside a summary changes; 98 (0.110): a function's noexcept kept (a method's among its qualifiers, a free function's name noted), noexcept(false) and throw(X) no noexcept; 97 (0.109): a namespace alias; a qualified name after `struct' in a class body's look-ahead scan is no member template; 96 (0.109): C++17's nested namespace definition, `namespace A::B { }'; 95 (0.109): the tie is the contextual word `tie', `x tie y', and `<*>' is no punctuator in either lexer; 94 (0.108): C++26's contracts on a function and contract_assert, C++20's modules (module, import, export), a deduction guide indexed under $guide.; 93 (0.108): a compound literal of an unsized array sized by its items; 92 (0.108): a C anonymous struct or union member named $anonK; 91 (0.108): hex floats, a float with a leading dot, the f and L suffixes as their own kinds (floatf, floatl), trigraphs in the ISO modes; 90 (0.104): an array initializer with a pack expansion sizes nothing at the read; 89 (0.104): the integer imaginary literal's suffix kinds, imagui, imagli, imaguli, and \N{NAME} over Unicode 15.0.0 with its aliases; 88 (0.103): the integer imaginary literal is its own token, imagi; 87 (0.101): a static data member defined out of its class indexed under the class; 86 (0.100): an inline namespace marked, a deeper namespace's bare uses rewritten in the AST beside the summary; 85: __has_extension(c_atomic)
 %% ccl_reader_version(81).   % 81: a literal past 2^60 is big(Atom) in every summary's item
 %% ccl_reader_version(80).   % 80: a template template parameter's name un-noted at its item's end, a tag or a typedef no concept (<variant>'s `template <_Trait X, ...>' read as a constrained type parameter); 79: a braced default argument, C++20's brace-designated initializer (libc++ 18 at C++20); 78: an unnamed parameter of an unknown type name in a C++ parameter list, a destructor called with its template arguments (libc++ 18); 77: _Generic chosen at the read, an unbounded array sized by its initializer, _BitInt in the table, the OS's predefined macros, <limits.h> and the C23 headers; 59: a method's ref-qualifier kept; 60: the C++20 stretch (a constrained parameter, a requires-clause on a member template, trailing, on a lambda; `::template f' alone; a braced subscript; a member variable template; a constrained auto); 61: a concept indexed by name; 62: a function template's explicit template-id is no type (`T &r(std::forward<U>(v))'), a bare concept's name bound; 63: explicit(cond) kept; 64: a pointer to member, typeid, a member class template noted ahead; 65: no RTTI predefined, so every header is flattened again; 66: only a pointer to member takes the trailing cv- and ref-qualifiers (a method's const is the method rule's); 67: a free name outside a template; 68: a nullability word with an argument list (glibc); 69: a pointer to member function's noexcept, a braced list assigned, and the AST's index keys a deeper namespace's name apart; 70: alignas kept on a class; 71: [[no_unique_address]] kept on a member; 72: the AST's index holds a header's inline variable with NO initializer (std::ignore); 73: a pack expansion is a dependent type, and a call of a function template's name is not the reader's `auto' to deduce; 74: `if constexpr' with an init-statement; 75: a member FUNCTION template's name is a template and no type; 76: __OPTIMIZE_SIZE__ predefined, so libc++'s algorithms are the scalar ones
@@ -465,7 +465,7 @@ ccl_nth(I, [_|T], X) :- I > 1, I1 is I - 1, ccl_nth(I1, T, X).
 %% '$ccl_scope' is a list of frames, innermost first, each [Name-Type ...];
 %% '$ccl_typedefs' is [Name-Type ...]; '$ccl_tags' is [Tag-Members ...].
 %% Enumerators are declared as int. Filled here, read by library(ccl_infer).
-ccl_scope_init :- ccl_tables_changed, nb_setval('$ccl_scope', []), nb_setval('$ccl_gscope', []), nb_setval('$ccl_typedefs', []), nb_setval('$ccl_tags', []), nb_setval('$ccl_enums', []).
+ccl_scope_init :- ccl_tables_changed, nb_setval('$ccl_scope', []), ccl_tabs_reset, nb_setval('$ccl_enums', []).
 ccl_push_scope --> { ccl_scope_push }.
 ccl_pop_scope --> { ccl_scope_pop }.
 ccl_scope_push :- nb_getval('$ccl_scope', S), nb_setval('$ccl_scope', [[]|S]).
@@ -477,16 +477,54 @@ ccl_note_items([I|Is]) :- ccl_note_item(I), ccl_note_items(Is).
 %% declared or looked up must not copy them (the check declared 250 locals
 %% and asked 600 names of the B-tree: 0.14 ms each)
 ccl_declare(N, T) :- nb_getval('$ccl_scope', S), ( S = [F|S1] -> nb_setval('$ccl_scope', [[N-T|F]|S1]) ; ccl_gdeclare([N-T]) ).
-ccl_gdeclare(Ds) :- nb_getval('$ccl_gscope', G), append(Ds, G, G1), nb_setval('$ccl_gscope', G1), nb_setval('$ccl_gcache', []), ccl_gdeclare_recheck(Ds).
+ccl_gdeclare(Ds) :- ccl_tab_add('$ccl_gscope', Ds), nb_setval('$ccl_gcache', []), ccl_gdeclare_recheck(Ds).
+%% ---- THE THREE TABLES ARE BUCKETED (0.119) -----------------------------------------------------------------------------------------
+%% The file scope, the typedefs and the tags are written one entry at a time by the desugaring -- an instance declares its members, notes its
+%% tag and its typedefs -- and every write read the whole table (nb_getval/2 copies what it answers) and wrote it back (nb_setval/2 copies what
+%% it takes); every lookup the answer caches missed (and each write empties them) read it whole again. 800 file-scope declarations into a table
+%% of 3,000 names, and 6,000 lookups, were 6 of the 15 CPU seconds of a std::vector build; one write is 40 ms at 20,000 names. A table is 128
+%% BUCKETS, a global each (`P_0' .. `P_127', P the table's name), and an entry lives in the bucket its key's characters hash to: a write or a
+%% lookup copies one bucket, 150 entries at 20,000 names (15 microseconds a lookup, 25 a write, 48 ms for a bulk of 20,000). Inside a bucket
+%% the order is the old list's, newest first, so the first entry that unifies is the one the one list gave. A key that is no atom (a method
+%% defined out of its class) is in bucket 0. A reader that wants every entry concatenates the buckets (`ccl_tab_list'); a nested read's
+%% save and restore keep the buckets themselves (`ccl_tab_save', `ccl_tab_restore').
+ccl_tab_bucket(K, I) :- ( atom(K) -> atom_codes(K, Cs), ccl_tab_hash(Cs, 0, H), I is H mod 128 ; I = 0 ).
+ccl_tab_hash([], H, H).
+ccl_tab_hash([C|Cs], H0, H) :- H1 is (H0 * 31 + C) mod 1000003, ccl_tab_hash(Cs, H1, H).
+ccl_tab_g(P, I, G) :- atom_concat(P, '_', P1), atom_concat(P1, I, G).
+ccl_tab_add(_, []) :- !.
+ccl_tab_add(P, [E]) :- !, ccl_tab_add1(P, E).
+ccl_tab_add(P, Es) :- findall(I-E, ( member(E, Es), E = K-_, ccl_tab_bucket(K, I) ), IEs), keysort(IEs, Sorted), ccl_tab_runs(Sorted, P).
+ccl_tab_add1(P, E) :- E = K-_, ccl_tab_bucket(K, I), ccl_tab_g(P, I, G), nb_getval(G, B), nb_setval(G, [E|B]).
+ccl_tab_runs([], _).
+ccl_tab_runs([I-E|IEs], P) :- ccl_tab_run(IEs, I, Es, Rest), ccl_tab_g(P, I, G), nb_getval(G, B0), append([E|Es], B0, B1), nb_setval(G, B1), ccl_tab_runs(Rest, P).
+ccl_tab_run([I-E|IEs], I, [E|Es], Rest) :- !, ccl_tab_run(IEs, I, Es, Rest).
+ccl_tab_run(Rest, _, [], Rest).
+ccl_tab_find(P, K, V) :- ( var(K) -> ccl_tab_member(P, K, V), ! ; ccl_tab_bucket(K, I), ccl_tab_g(P, I, G), nb_getval(G, B), memberchk(K-V, B) ).
+ccl_tab_member(P, K, V) :- ( nonvar(K) -> ccl_tab_bucket(K, I), ccl_tab_g(P, I, G), nb_getval(G, B), member(K-V, B) ; ccl_tab_between(0, I), ccl_tab_g(P, I, G), nb_getval(G, B), member(K-V, B) ).
+ccl_tab_between(L, I) :- L < 128, ( I = L ; L1 is L + 1, ccl_tab_between(L1, I) ).
+ccl_tab_list(P, L) :- ccl_tab_cat(P, 0, L).
+ccl_tab_cat(P, I, L) :- ( I >= 128 -> L = [] ; ccl_tab_g(P, I, G), nb_getval(G, B), I1 is I + 1, ccl_tab_cat(P, I1, R), append(B, R, L) ).
+ccl_tab_reset(P) :- ccl_tab_reset(P, 0).
+ccl_tab_reset(P, I) :- ( I >= 128 -> true ; ccl_tab_g(P, I, G), nb_setval(G, []), I1 is I + 1, ccl_tab_reset(P, I1) ).
+ccl_tab_save(P, bk(Bs)) :- ccl_tab_save_(P, 0, Bs).
+ccl_tab_save_(P, I, Bs) :- ( I >= 128 -> Bs = [] ; ccl_tab_g(P, I, G), nb_getval(G, B), Bs = [B|Bs1], I1 is I + 1, ccl_tab_save_(P, I1, Bs1) ).
+ccl_tab_restore(P, bk(Bs)) :- ccl_tab_restore_(P, 0, Bs).
+ccl_tab_restore_(P, I, Bs) :- ( Bs = [B|Bs1] -> ccl_tab_g(P, I, G), nb_setval(G, B), I1 is I + 1, ccl_tab_restore_(P, I1, Bs1) ; true ).
+%% the NEWEST entry of a key taken out of its bucket, so the entry it shadowed answers again (0.127: a typedef in a block, ended)
+ccl_tab_del(P, K) :- ccl_tab_bucket(K, I), ccl_tab_g(P, I, G), nb_getval(G, B), ( ccl_tab_del_first(B, K, B1) -> nb_setval(G, B1) ; true ).
+ccl_tab_del_first([K0-_|B], K, B) :- K0 == K, !.
+ccl_tab_del_first([E|B], K, [E|B1]) :- ccl_tab_del_first(B, K, B1).
+ccl_tabs_reset :- ccl_tab_reset('$ccl_gscope'), ccl_tab_reset('$ccl_typedefs'), ccl_tab_reset('$ccl_tags').
 %% a name the file scope's cache remembers -- found or MISSING (0.112: ccl_cached_named) -- is looked up again once it is
 %% declared: as a miss it hid the declaration, as an answer it kept the type of an older one
 ccl_gdeclare_recheck([]).
 ccl_gdeclare_recheck([N-_|Ds]) :- ( atom(N), atom_concat('$ccl_g:', N, K), catch(nb_getval(K, _), _, fail) -> nb_setval(K, '$ccl_recheck') ; true ), ccl_gdeclare_recheck(Ds).
 %% a list of declarations into the innermost frame -- the file scope's when no frame is open
 ccl_scope_add(Ds) :- nb_getval('$ccl_scope', S), ( S = [F|S1] -> append(Ds, F, F1), nb_setval('$ccl_scope', [F1|S1]) ; ccl_gdeclare(Ds) ).
-ccl_note_typedef(N, T) :- nb_getval('$ccl_typedefs', L), nb_setval('$ccl_typedefs', [N-T|L]), ccl_tables_changed.
+ccl_note_typedef(N, T) :- ccl_tab_add('$ccl_typedefs', [N-T]), ccl_tables_changed.
 ccl_note_tag(Tag, Ms0) :- ( ccl_lang(cpp) -> ccl_slim_members(Ms0, Ms) ; Ms = Ms0 ),     % C++: a class's tag without its bodies -- the table is copied whole at every lookup, and cocolog reclaims nothing
-    nb_getval('$ccl_tags', L), nb_setval('$ccl_tags', [Tag-Ms|L]), ccl_tables_changed.
+    ccl_tab_add('$ccl_tags', [Tag-Ms]), ccl_tables_changed.
 %% a class's members with the bodies dropped: what the tables need (the shapes, the data members, the typedefs)
 ccl_slim_members(none, none) :- !.
 ccl_slim_members([], []).
@@ -511,8 +549,8 @@ ccl_items_note(Is) :-
     ccl_own_first(Is, Own, Incs), append(Own, Incs, Ordered),                              % THE UNIT'S OWN ITEMS FIRST, its includes' after: a name the unit DEFINES shadows a header's declaration of it (the lookup takes the first), and the C++ desugaring emits a header's inline function with its types resolved where the summary declares it raw
     ccl_collect_items(Ordered, D, [], T, [], G, [], E, []),
     ccl_scope_add(D),
-    nb_getval('$ccl_typedefs', T0), append(T, T0, T1), nb_setval('$ccl_typedefs', T1),
-    nb_getval('$ccl_tags', G0), append(G, G0, G1), nb_setval('$ccl_tags', G1), ccl_tables_changed,
+    ccl_tab_add('$ccl_typedefs', T),
+    ccl_tab_add('$ccl_tags', G), ccl_tables_changed,
     nb_getval('$ccl_enums', E0), append(E, E0, E1), nb_setval('$ccl_enums', E1).
 ccl_own_first([], [], []).
 ccl_own_first([I|Is], Own, [I|Incs]) :- I = include(_, _, _), !, ccl_own_first(Is, Own, Incs).
@@ -531,8 +569,12 @@ ccl_collect_item(declare(_, Base), D, D, T, T, G0, G, E0, E) :- !, ccl_collect_t
 ccl_collect_item(function(_, _, _, Name, _, _, _), D, D, T, T, G, G, E, E) :- \+ atom(Name), !.   % C++: a method defined out of its class
 ccl_collect_item(function(_, _, Ret, Name, Ps, V, Body), [Name-fn(Ret, Ps, V)|D], D, T0, T, G0, G, E0, E) :- !,
     ccl_collect_type(Ret, G0, G1, E0, E1), ccl_collect_params(Ps, G1, G2, E1, E2), ccl_stmt_typedefs(Body, T0, T, G2, G, E2, E).
-%% a typedef inside a function's body joins the table too (one table: a name typedef'd in two blocks must agree)
-ccl_stmt_typedefs(typedef(_, Vs), T0, T, G0, G, E0, E) :- !, ccl_collect_typedefs(Vs, T0, T, G0, G, E0, E).
+%% a typedef inside a function's body joins the table too in C (one table: a name typedef'd in two blocks must agree) -- and
+%% NOT IN C++ (0.127), where the desugaring substitutes it into the statements of its block and notes it only for them
+%% (cpp_scoped_typedefs): one table holding every block's `using _Tp = ...;' made `_Tp' a KNOWN name to every rule that
+%% tells a template's own parameter by the tables not knowing it (0.126 worked round it twice, cpp_callee_param_type and
+%% cpp_lambda_params). Its types' tags and enumerators are still the unit's.
+ccl_stmt_typedefs(typedef(_, Vs), T0, T, G0, G, E0, E) :- !, ( ccl_lang(cpp) -> T = T0, ccl_collect_typedef_types(Vs, G0, G, E0, E) ; ccl_collect_typedefs(Vs, T0, T, G0, G, E0, E) ).
 ccl_stmt_typedefs(block(Is), T0, T, G0, G, E0, E) :- !, ccl_stmts_typedefs(Is, T0, T, G0, G, E0, E).
 ccl_stmt_typedefs(declare(_, B), T, T, G0, G, E0, E) :- !, ccl_collect_type(B, G0, G, E0, E).                   % a tag or an ENUM declared in a block: its enumerators are names the passes look up (0.108)
 ccl_stmt_typedefs(declaration(_, _, B, _), T, T, G0, G, E0, E) :- !, ccl_collect_type(B, G0, G, E0, E).
@@ -561,6 +603,8 @@ ccl_collect_vars([var(N, _, _)|Vs], D0, D, G0, G, E0, E) :- \+ atom(N), !, ccl_c
 ccl_collect_vars([var(N, Ty, _)|Vs], [N-Ty|D0], D, G0, G, E0, E) :- ccl_collect_type(Ty, G0, G1, E0, E1), ccl_collect_vars(Vs, D0, D, G1, G, E1, E).
 ccl_collect_typedefs([], T, T, G, G, E, E).
 ccl_collect_typedefs([var(N, Ty, _)|Vs], [N-Ty|T0], T, G0, G, E0, E) :- ccl_collect_type(Ty, G0, G1, E0, E1), ccl_collect_typedefs(Vs, T0, T, G1, G, E1, E).
+ccl_collect_typedef_types([], G, G, E, E).
+ccl_collect_typedef_types([var(_, Ty, _)|Vs], G0, G, E0, E) :- ccl_collect_type(Ty, G0, G1, E0, E1), ccl_collect_typedef_types(Vs, G1, G, E1, E).
 ccl_collect_params([], G, G, E, E).
 ccl_collect_params([param(Ty, _)|Ps], G0, G, E0, E) :- ccl_collect_type(Ty, G0, G1, E0, E1), ccl_collect_params(Ps, G1, G, E1, E).
 ccl_collect_params([param(Ty, _, _)|Ps], G0, G, E0, E) :- ccl_collect_type(Ty, G0, G1, E0, E1), ccl_collect_params(Ps, G1, G, E1, E).   % C++: a default argument
@@ -577,8 +621,8 @@ ccl_collect_specs([S|Ss], G0, G, E0, E) :- ccl_collect_spec(S, G0, G1, E0, E1), 
 ccl_collect_spec(class(_, Tag, _, Ms), G0, G, E0, E) :- !, ( \+ atom(Tag) -> G1 = G0 ; Tag == anon -> G1 = G0 ; G0 = [Tag-Ms|G1] ), ccl_collect_members(Ms, G1, G, E0, E).   % C++: a class is a tag too (a specialization's template-id name is the desugaring's)
 ccl_collect_spec(struct(Tag, Ms), G0, G, E0, E) :- Ms \== none, !, ( \+ atom(Tag) -> G1 = G0 ; Tag == anon -> G1 = G0 ; G0 = [Tag-Ms|G1] ), ccl_collect_members(Ms, G1, G, E0, E).
 ccl_collect_spec(union(Tag, Ms), G0, G, E0, E) :- Ms \== none, !, ( Tag == anon -> G1 = G0 ; G0 = [Tag-Ms|G1] ), ccl_collect_members(Ms, G1, G, E0, E).
-ccl_collect_spec(enum(Tag, Es), G0, G, E0, E) :- Es \== none, !, ( Tag == anon -> G = G0 ; G0 = [Tag-Es|G] ), ccl_collect_enumerators(Es, 0, [], E0, E).
-ccl_collect_spec(enum_class(Tag, Es), [Tag-Es|G], G, E0, E) :- Es \== none, !, ccl_collect_enumerators(Es, 0, [], E0, E).   % C++
+ccl_collect_spec(enum(Tag, Es), G0, G, E0, E) :- Es \== none, !, ( Tag == anon -> G = G0 ; G0 = [Tag-Es|G] ), ccl_collect_enumerators(Es, 0, [], E0, E1), ccl_collect_enum_tags(Tag, Es, E1, E).
+ccl_collect_spec(enum_class(Tag, Es), [Tag-Es|G], G, E0, E) :- Es \== none, !, ccl_collect_enumerators(Es, 0, [], E0, E1), ccl_collect_enum_tags(Tag, Es, E1, E2), ( atom(Tag) -> E2 = ['$s'(Tag)-1|E] ; E2 = E ).   % C++: a scoped enum, marked as one (0.127)
 ccl_collect_spec(_, G, G, E, E).
 ccl_collect_members([], G, G, E, E).
 ccl_collect_members([member(Ty, _, _)|Ms], G0, G, E0, E) :- !, ccl_collect_type(Ty, G0, G1, E0, E1), ccl_collect_members(Ms, G1, G, E1, E).
@@ -591,11 +635,20 @@ ccl_collect_enumerators([enum_base(_)|Es], Next, Sofar, E0, E) :- !, ccl_collect
 ccl_collect_enumerators([enumerator(N, Ex)|Es], Next, Sofar, [N-V|E0], E) :-
     ( Ex == none -> V = Next ; ccl_const_eval_in(Ex, Sofar, V0) -> V = V0 ; V = Next ),
     Next1 is V + 1, ccl_collect_enumerators(Es, Next1, [N-V|Sofar], E0, E).
-ccl_const_eval_in(id(N), Sofar, V) :- !, ( memberchk(N-V0, Sofar) -> V = V0 ; ccl_enum_value(N, V) ).
-ccl_const_eval_in(neg(Ex), Sofar, V) :- !, ccl_const_eval_in(Ex, Sofar, V0), V is -V0.
-ccl_const_eval_in(bin(Op, A, B), Sofar, V) :- !, ccl_const_eval_in(A, Sofar, X), ccl_const_eval_in(B, Sofar, Y), ccl_const_op(Op, X, Y, V).
-ccl_const_eval_in(cast(_, Ex), Sofar, V) :- !, ccl_const_eval_in(Ex, Sofar, V).
-ccl_const_eval_in(Ex, _, V) :- ccl_const_eval(Ex, V).
+%% ONE EVALUATOR (0.128): the enumerators before are put in as their values, and the expression goes to ccl_const_eval/2 -- this
+%% one had an arithmetic of its own, which read `(unsigned char) 300' as 300 and `-1 < 0u' as 1 where the parser's read gave 44 and 0
+ccl_const_eval_in(Ex, Sofar, V) :- ccl_enum_ids_in(Ex, Sofar, Ex1), ccl_const_eval(Ex1, V).
+ccl_enum_ids_in(id(N), Sofar, E) :- atom(N), memberchk(N-V, Sofar), !, ( integer(V) -> E = int(V) ; E = long(V) ).
+ccl_enum_ids_in(T, _, T) :- \+ compound(T), !.
+ccl_enum_ids_in(T, Sofar, T1) :- T =.. [F|As], ccl_enum_ids_in_l(As, Sofar, As1), T1 =.. [F|As1].
+ccl_enum_ids_in_l([], _, []).
+ccl_enum_ids_in_l([A|As], Sofar, [B|Bs]) :- ccl_enum_ids_in(A, Sofar, B), ccl_enum_ids_in_l(As, Sofar, Bs).
+%% ... and in C++ each enumerator's ENUM beside its value, `'$t'(Name)-Tag' (0.127; ccl_enumerator_type/3 in ccl_infer): a named
+%% enum's enumerator is of the enum's type ([dcl.enum]/5), an unnamed one's an int as in C
+ccl_collect_enum_tags(Tag, Es, E0, E) :- ( ccl_lang(cpp), atom(Tag), Tag \== anon -> ccl_enum_tag_entries(Es, Tag, E0, E) ; E0 = E ).
+ccl_enum_tag_entries([], _, E, E).
+ccl_enum_tag_entries([enumerator(N, _)|Es], Tag, ['$t'(N)-Tag|E0], E) :- !, ccl_enum_tag_entries(Es, Tag, E0, E).
+ccl_enum_tag_entries([_|Es], Tag, E0, E) :- ccl_enum_tag_entries(Es, Tag, E0, E).
 
 ccl_note_item(declaration(_, _, Base, Ds)) :- !, ccl_note_tags(Base), ccl_note_constants(Base, Ds), ccl_declare_vars(Ds).
 %% C23's `constexpr int K = 7;' is a CONSTANT, not merely a const object: its name folds where an enumerator
@@ -638,23 +691,24 @@ ccl_note_specs([]).
 ccl_note_specs([S|Ss]) :- ccl_note_spec(S), ccl_note_specs(Ss).
 ccl_note_spec(struct(Tag, Ms)) :- Ms \== none, !, ( Tag == anon -> true ; \+ atom(Tag) -> true ; ccl_note_tag(Tag, Ms) ), ccl_note_members(Ms).
 ccl_note_spec(union(Tag, Ms)) :- Ms \== none, !, ( Tag == anon -> true ; ccl_note_tag(Tag, Ms) ), ccl_note_members(Ms).
-ccl_note_spec(enum(Tag, Es)) :- Es \== none, !, ( Tag == anon -> true ; ccl_note_tag(Tag, Es) ), ccl_declare_enumerators(Es).
+ccl_note_spec(enum(Tag, Es)) :- Es \== none, !, ( Tag == anon -> true ; ccl_note_tag(Tag, Es) ), ccl_declare_enumerators(Tag, Es).
 ccl_note_spec(class(_, Tag, _, Ms)) :- !, ( Tag == anon -> true ; \+ atom(Tag) -> true ; ccl_note_tag(Tag, Ms) ), ccl_note_members(Ms).
-ccl_note_spec(enum_class(Tag, Es)) :- Es \== none, !, ccl_note_tag(Tag, Es), ccl_declare_enumerators(Es).
+ccl_note_spec(enum_class(Tag, Es)) :- Es \== none, !, ccl_note_tag(Tag, Es), ( atom(Tag) -> nb_getval('$ccl_enums', L0), nb_setval('$ccl_enums', ['$s'(Tag)-1|L0]) ; true ), ccl_declare_enumerators(Tag, Es).   % a scoped enum, marked (0.127)
 ccl_note_spec(_).
 ccl_note_members([]).
 ccl_note_members([member(T, _, _)|Ms]) :- !, ccl_note_tags(T), ccl_note_members(Ms).
 ccl_note_members([_|Ms]) :- ccl_note_members(Ms).
-%% an enumerator is an int in scope, and its value is kept ('$ccl_enums',
-%% Name-Value) for the lowering and for constant expressions
-ccl_declare_enumerators(Es) :- ccl_declare_enumerators(Es, 0).
-ccl_declare_enumerators([], _).
-ccl_declare_enumerators([enum_base(_)|Es], Next) :- !, ccl_declare_enumerators(Es, Next).
-ccl_declare_enumerators([enumerator(N, E)|Es], Next) :-
+%% an enumerator is declared in scope with its type -- an int in C and for an unnamed enum, the ENUM in C++ (0.127,
+%% [dcl.enum]/5) -- and its value is kept ('$ccl_enums', Name-Value) for the lowering and for constant expressions,
+%% with its enum beside it in C++ ('$t'(Name)-Tag, which the passes' rebuild finds where nothing declares it)
+ccl_declare_enumerators(Tag, Es) :- ( ccl_lang(cpp), atom(Tag), Tag \== anon -> Ty = base([], [typedef(Tag)]), K = Tag ; Ty = base([], [int]), K = none ), ccl_declare_enumerators(Es, 0, Ty, K).
+ccl_declare_enumerators([], _, _, _).
+ccl_declare_enumerators([enum_base(_)|Es], Next, Ty, K) :- !, ccl_declare_enumerators(Es, Next, Ty, K).
+ccl_declare_enumerators([enumerator(N, E)|Es], Next, Ty, K) :-
     ( E == none -> V = Next ; ccl_const_eval(E, V0) -> V = V0 ; V = Next ),
-    ccl_declare(N, base([], [int])),
-    nb_getval('$ccl_enums', L), nb_setval('$ccl_enums', [N-V|L]),
-    Next1 is V + 1, ccl_declare_enumerators(Es, Next1).
+    ccl_declare(N, Ty),
+    nb_getval('$ccl_enums', L), ( K == none -> L1 = [N-V|L] ; L1 = ['$t'(N)-K, N-V|L] ), nb_setval('$ccl_enums', L1),
+    Next1 is V + 1, ccl_declare_enumerators(Es, Next1, Ty, K).
 
 %% ---- macros: the predicates of an included .pl (library(ccl_include)) ---------
 %% name(a, b) with name/3 registered runs name(ASTa, ASTb, R) now; R replaces
@@ -924,8 +978,16 @@ ccl_external(Env, Env, extern_template(L, Item)) --> ccl_cpp, ccl_line(L), ccl_k
 ccl_external(Env, Env, explicit_instantiation(L, Item)) --> ccl_cpp, ccl_line(L), ccl_kw(template), ccl_peek(K, V), { \+ ( K == p, V == '<' ) }, !, ccl_external(Env, _, Item).
 ccl_external(Env0, Env0, template(L, Ps, Item)) --> ccl_cpp, ccl_line(L), ccl_kw(template), !, { nb_getval('$ccl_env', G0) }, ccl_tparams(Env0, Ps0, Env1),
     ( ccl_kw(requires), ccl_constraint(R), { ccl_add_requires(Ps0, R, Ps) } ; { Ps = Ps0 } ),        % C++20: a requires-clause on the head, kept with the parameters (conjoined with a constrained parameter's)
-    { ccl_tparams_enter(G0, Ps0, New) }, ( ccl_external(Env1, _, Item), !, { ccl_tparams_leave(New) } ; { ccl_tparams_leave(New), fail } ),
+    { ccl_tparams_enter(G0, Ps0, New) }, ccl_vartmpl_ahead, ( ccl_external(Env1, _, Item), !, { ccl_tparams_leave(New) } ; { ccl_tparams_leave(New), fail } ),
     { ccl_template_name(Item, N), ccl_note_template(N) }.
+%% A VARIABLE TEMPLATE NAMES ITSELF IN ITS OWN INITIALIZER (reader 116, 0.122): libc++ 21 writes `template <intmax_t _Xp, intmax_t _Yp> inline const intmax_t
+%% __static_gcd = __static_gcd<_Yp, _Xp % _Yp>;', and the name was noted a template only AFTER its item, so `__static_gcd <' was a less-than and the read of <string> stopped there. The
+%% name -- the identifier before the `=' of a head that has no `(' or `{' before it -- is noted before the item is read.
+ccl_vartmpl_ahead(S, S) :- ( ccl_vt_scan(S, none) -> true ; true ).
+ccl_vt_scan([tok(p, '=', _)|_], tok(id, N, _)) :- !, ccl_note_template(N).
+ccl_vt_scan([tok(p, P, _)|_], _) :- memberchk(P, [';', '{', '(', '}']), !, fail.
+ccl_vt_scan([tok(kw, K, _)|_], _) :- memberchk(K, [struct, class, union, enum, using, typedef, concept, namespace, operator, template, requires]), !, fail.
+ccl_vt_scan([T|Ts], _) :- ccl_vt_scan(Ts, T).
 %% the parameters' names are types for the item's whole text -- the global env, which the expressions deep
 %% inside (a cast, a template argument in a decltype) consult -- and gone after it
 ccl_tparams_enter(G0, Ps, New) :- findall(N, ( member(tparam(K, N, _), Ps), atom(N), ( K == type ; K == pack ; K == template ) ), Ns), ccl_new_names(Ns, G0, New),   % added as each was read (ccl_tparam)
@@ -1446,6 +1508,9 @@ ccl_scan_mts([tok(kw, template, _), tok(p, '<', _)|Ts], 1) :- !,
 %% `private:' after it, and read in order the braced temporary of an unknown name stopped the C++20 <iostream> at
 %% <format>; `using N =' notes N, and `typedef ... N;' the name right before its `;' (a function pointer's ends in `)')
 ccl_scan_mts([tok(kw, using, _), tok(id, N, _), tok(p, '=', _)|Ts], 1) :- !, ccl_add_env(N), ccl_scan_mts(Ts, 1).
+ccl_scan_mts([tok(kw, using, _), tok(id, N, _), tok(p, '[', _), tok(p, '[', _)|Ts], 1) :- ccl_scan_attr_end(Ts, Rest), Rest = [tok(p, '=', _)|Ts1], !, ccl_add_env(N), ccl_scan_mts(Ts1, 1).   % `using _Alloc [[__gnu__::__nodebug__]] = allocator<_CharT>;' (libc++ 21's _LIBCPP_NODEBUG; 0.122): the attribute stands between the name and the `='
+ccl_scan_attr_end([tok(p, ']', _), tok(p, ']', _)|Ts], Ts) :- !.
+ccl_scan_attr_end([_|Ts], R) :- ccl_scan_attr_end(Ts, R).
 ccl_scan_mts([tok(kw, typedef, _)|Ts], 1) :- !, ( ccl_scan_semi(Ts, none, Last, Rest) -> ( Last = tok(id, N, _) -> ccl_add_env(N) ; true ), ccl_scan_mts(Rest, 1) ; true ).
 ccl_scan_mts([_|Ts], D) :- ccl_scan_mts(Ts, D).
 ccl_scan_semi([tok(p, ';', _)|Ts], Last, Last, Ts) :- !.
@@ -1522,6 +1587,7 @@ ccl_member_decl(Env, [typedef(L, [var(N, T, none)])]) --> ccl_cpp, ccl_line(L), 
 %% writes it for the base's `using type = uint32_t;', and the `type &' of its members stayed a name nothing declared (`type(unknown)' at the lowering)
 ccl_member_decl(Env, [typedef(L, [var(N, base([], [typedef(Q)]), none)])]) --> ccl_cpp, ccl_line(L), ccl_kw(using), ccl_kw(typename), ccl_qname(Env, type, Q), ccl_p(';'), { Q = scoped(_, N), atom(N) }, !, { ccl_add_env(N) }.
 ccl_member_decl(Env, [using(L, name(Q))]) --> ccl_cpp, ccl_line(L), ccl_kw(using), ccl_qname(Env, type, Q), ccl_p(';'), !.   % `using Base::Base;' -- an INHERITING CONSTRUCTOR, kept with its name for the desugaring (cpp_inherit_ctors); `using Base::f;' alike
+ccl_member_decl(Env, [using(L, pack(Q))]) --> ccl_cpp, ccl_line(L), ccl_kw(using), ccl_qname(Env, type, Q), ccl_p('...'), ccl_p(';'), !.   % `using Bs::operator()...;' -- the pack form of the same declaration (reader version 115): the desugaring expands it over the bound pack, one using-declaration per base (libc++'s __all_overloads, and the `overloaded' idiom of C++17)
 ccl_member_decl(_, [using(L)]) --> ccl_cpp, ccl_line(L), ccl_kw(using), !, ccl_skip_to_semi.
 ccl_member_decl(Env, [template(L, Ps, M)]) --> ccl_cpp, ccl_line(L), ccl_kw(template), !, { nb_getval('$ccl_env', G0) }, ccl_tparams(Env, Ps0, Env1),
     ( ccl_kw(requires), ccl_constraint(R), { ccl_add_requires(Ps0, R, Ps) } ; { Ps = Ps0 } ),        % C++20: a requires-clause on a member template's head too (ranges::swap's `__fn')
@@ -1679,13 +1745,16 @@ ccl_var_init_fn(_, Init) --> ccl_var_init(Init).
 ccl_fn_quals(T0, T) --> ccl_cpp, { T0 = fn(_, _, _) }, !, ccl_method_quals(Qs), { ccl_trailing_ret(any, T0, Qs, T) }.   % a prototype's noexcept, throw(), attributes, and its trailing return type
 ccl_fn_quals(T, T) --> [].
 %% A FREE FUNCTION'S TRAILING RETURN TYPE ([dcl.fct]/2; 0.110): `auto f(int) -> long' is a function returning long. A
-%% PROTOTYPE takes it whatever it is (nothing else says what the function returns); a DEFINITION takes it where it
-%% names no `decltype' (such a result is deduced from the first return, as before, and its operand's names are the
-%% parameters', which the desugaring's walk has in scope) -- `sizeof(add(1, 2))' needs the declared type
+%% PROTOTYPE takes it whatever it is (nothing else says what the function returns); a DEFINITION takes it too, a
+%% `decltype' over the parameters among them (0.127), unless it names `auto' (`decltype(auto)', deduced from the first
+%% return as before). The definition took a decltype result for the first return's type, DECAYED: `auto first(V &v) ->
+%% decltype(v[0])' returned an int, and `first(v) = 10' wrote into a temporary; and its SFINAE was lost -- `template
+%% <class T> auto call(const T &t, int) -> decltype(t.foo())' stayed a candidate for an int and its body was refused. The
+%% desugaring resolves such a result with the parameters declared, as a member's (cpp_with_params, cpp_decltype_ret/3)
 ccl_trailing_ret(How, fn(R0, Ps, V), Qs, fn(R, Ps, V)) :- R0 = base(_, [auto]), memberchk(trailing(T), Qs),
-    ( How == any -> true ; \+ ccl_mentions_decltype(T) ), !, R = T.
+    ( How == any -> true ; \+ ccl_mentions_auto(T) ), !, R = T.
 ccl_trailing_ret(_, T, _, T).
-ccl_mentions_decltype(T) :- compound(T), ( functor(T, decltype, _) -> true ; T = base(_, [auto]) -> true ; T =.. [_|As], member(A, As), ccl_mentions_decltype(A) ), !.
+ccl_mentions_auto(T) :- compound(T), ( T = base(_, [auto]) -> true ; T =.. [_|As], member(A, As), ccl_mentions_auto(A) ), !.
 %% static_assert(e, "msg") and static_assert(e): an item, a member, a statement -- static_assert(L, E, Msg | none)
 ccl_static_assert(L, E, M) --> ccl_p('('), ccl_assign_expr(E), ( ccl_p(','), !, ccl_assign_expr(M) ; { M = none } ), ccl_p(')'), ccl_p(';'), { ccl_assert_holds(L, E, M) }.
 %% A STATIC ASSERTION IS CHECKED WHERE IT FOLDS: the item was read and dropped by every pass, so a false one
@@ -2075,7 +2144,7 @@ ccl_new_expr(E) --> { Env = genv }, ( ccl_p('('), ccl_args(Ps), ccl_p(')'), ! ; 
         { ( I == none -> A = new_array(T, N) ; A = new_array_init(T, N, I) ), ccl_new_node(Ps, A, E) }
     ; ccl_p('('), !, ccl_args(As), ccl_p(')'), { ccl_new_node(Ps, new(T, As), E) }
     ; ccl_p('{'), !, ccl_args(As), ccl_p('}'), { ccl_new_node(Ps, new(T, As), E) }
-    ; { ccl_new_node(Ps, new(T, []), E) } ).
+    ; { ccl_new_node(Ps, new_default(T), E) } ).   % `new T' with NO initializer is default-initialized, `new T()' value-initialized (0.127)
 ccl_new_array_init(As) --> ccl_p('('), !, ccl_args(As), ccl_p(')').
 ccl_new_array_init(As) --> ccl_p('{'), !, ccl_args(As), ccl_p('}').
 ccl_new_array_init(none) --> [].

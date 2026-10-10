@@ -24,5 +24,8 @@ ccl_kb_prepare() {
   if [ -f "$1/data.bin" ] && [ "$have" != "$v" ]; then rm -rf "$1"; have=""; fi
   [ -d "$1" ] || mkdir -p "$1"
   [ "$have" = "$v" ] || echo "$v" > "$stamp"
+  # vacuumed before each gate (0.128): a gate's numbers measure the change, never the store's history
+  [ -f "$1/data.bin" ] && [ -x "$COCOLOG/cocolog" ] && "$COCOLOG/cocolog" --embed "$1" vacuum > /dev/null 2>&1 < /dev/null
+  :
 }
 ccl_kb_prepare "$CICILANG_KB"

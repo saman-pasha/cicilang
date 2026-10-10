@@ -1,0 +1,23 @@
+-- members
+copy
+copy
+move
+move
+copy
+copy
+-- forward
+copy
+7
+copy
+7
+move
+8
+-- decltype
+lref 1 rref 0
+fwd lref 1 rref 0
+lref 0 rref 1
+fwd lref 0 rref 1
+-- temporaries
+5104 5104 5104 5104
+1 1 1
+exit 0

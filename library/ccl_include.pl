@@ -188,11 +188,11 @@ ccl_with_file(File, Goal) :-
     ;  ccl_restore_globals(Saved), fail ).
 ccl_save_globals(g(F, E, Far, M, Sc, Gs, Td, Tg, En, Ex)) :-
     ccl_global('$ccl_file', F, none), ccl_global('$ccl_env', E, []), ccl_global('$ccl_far', Far, 0), ccl_global('$ccl_macros', M, []),
-    ccl_global('$ccl_scope', Sc, []), ccl_global('$ccl_gscope', Gs, []), ccl_global('$ccl_typedefs', Td, []), ccl_global('$ccl_tags', Tg, []),
+    ccl_global('$ccl_scope', Sc, []), ccl_tab_save('$ccl_gscope', Gs), ccl_tab_save('$ccl_typedefs', Td), ccl_tab_save('$ccl_tags', Tg),
     ccl_global('$ccl_enums', En, []), ccl_global('$ccl_expansions', Ex, []).
 ccl_restore_globals(g(F, E, Far, M, Sc, Gs, Td, Tg, En, Ex)) :-
     nb_setval('$ccl_file', F), ccl_env_put(E), nb_setval('$ccl_far', Far), nb_setval('$ccl_macros', M),
-    nb_setval('$ccl_scope', Sc), nb_setval('$ccl_gscope', Gs), nb_setval('$ccl_typedefs', Td), nb_setval('$ccl_tags', Tg), nb_setval('$ccl_enums', En),
+    nb_setval('$ccl_scope', Sc), ccl_tab_restore('$ccl_gscope', Gs), ccl_tab_restore('$ccl_typedefs', Td), ccl_tab_restore('$ccl_tags', Tg), nb_setval('$ccl_enums', En),
     ccl_tables_changed, nb_setval('$ccl_expansions', Ex).
 %% every global is set once per process (ccl_ensure_globals/0), so reads are
 %% bare nb_getval/2: a catch/3 costs in proportion to the terms bound inside
@@ -201,7 +201,7 @@ ccl_global(K, V, _) :- ccl_ensure_globals, nb_getval(K, V).
 ccl_ensure_globals :-
     ( catch(nb_getval('$ccl_inited', yes), _, fail) -> true
     ; nb_setval('$ccl_file', none), ccl_env_put([]), nb_setval('$ccl_far', 0), nb_setval('$ccl_macros', []),
-      nb_setval('$ccl_scope', []), nb_setval('$ccl_gscope', []), nb_setval('$ccl_typedefs', []), nb_setval('$ccl_tags', []), nb_setval('$ccl_enums', []), ccl_tables_changed,
+      nb_setval('$ccl_scope', []), ccl_tabs_reset, nb_setval('$ccl_enums', []), ccl_tables_changed,
       nb_setval('$ccl_expansions', []), nb_setval('$ccl_incpath', none), nb_setval('$ccl_kb_ready', no), nb_setval('$ccl_reading', []),
       nb_setval('$ccl_macro_files', []), nb_setval('$ccl_std_macros', none), nb_setval('$ccl_gensym', 0), nb_setval('$ccl_unit_paths', []),
       nb_setval('$ccl_lang', c), nb_setval('$ccl_lang_forced', none), ccl_fn_templates_put([]), nb_setval('$ccl_class', []), nb_setval('$ccl_inc_kind', local), nb_setval('$ccl_hash', line), nb_setval('$ccl_lib_unit', no),
@@ -604,8 +604,8 @@ ccl_sum_load_nocache(F, D, T, G, E, Tmpls, Names) :-
 ccl_sum_note(F) :-
     ccl_sum_load(F, D, T, G, E, Tmpls, Names),
     ccl_scope_add(D),
-    nb_getval('$ccl_typedefs', T0), append(T, T0, T1), nb_setval('$ccl_typedefs', T1),
-    nb_getval('$ccl_tags', G0), append(G, G0, G1), nb_setval('$ccl_tags', G1), ccl_tables_changed,
+    ccl_tab_add('$ccl_typedefs', T),
+    ccl_tab_add('$ccl_tags', G), ccl_tables_changed,
     nb_getval('$ccl_enums', E0), append(E, E0, E1), nb_setval('$ccl_enums', E1),
     ccl_note_templates(Tmpls), ccl_add_envs(Names).
 %% a summary's names into the templates and the Env in ONE read and one write

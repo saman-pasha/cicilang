@@ -28,7 +28,7 @@ export CCL_TEST_TMP="$D"
 rm -rf "$WARMHOME/.cicilang/cpp"
 
 # THE LIBRARY-ASSERTED SET (header level min): each must read whole to at least Min items,
-# libc++ 18's counts, the proof this gate has always made. At C++17 unless a level is named.
+# a floor under the counts of libc++ 18 and of libc++ 21 (which includes less at C++23: <optional> 397 -> 222 items, <string> 522 -> 410), the proof this gate has always made. At C++17 unless a level is named.
 asserted="vector 17 400
 string 17 400
 iostream 17 600
@@ -49,9 +49,9 @@ map 20 450
 unordered_map 20 350
 unordered_set 20 350
 ranges 20 900
-optional 23 250
-string 23 450
-optional 26 250"
+optional 23 200
+string 23 380
+optional 26 200"
 
 # THE FIXTURES' HEADER-LEVEL UNION (warm only): every header test/cpp/*.cpp and
 # test/cpp/run/*.cpp include, at the level its .flags gives and at C++17, plus Cicili's own

@@ -1,1 +1,1 @@
-_LIBCPP_VERSION >= 210000
+__cpp_lib_optional >= 202506L

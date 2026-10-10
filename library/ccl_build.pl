@@ -30,7 +30,10 @@ ccl_link(Objects, Flags, Out) :-
 %% THE C++ RUNTIME IS NAMED ON LINUX (0.93): a program is compiled against libc++'s headers (the one tree this compiler reads,
 %% ccl_toolchain_dirs), and on macOS `c++' is clang, whose C++ library is libc++; on Debian and Ubuntu `c++' is g++, whose is
 %% libstdc++, so the link found no `std::__1::__libcpp_verbose_abort' -- libc++'s runtime, `-lc++', is asked for by name there.
-ccl_link_libs(' -lc++') :- ccl_lang(cpp), ccl_host_os(linux), !.
+ccl_link_libs(Libs) :- ccl_lang(cpp), ccl_host_os(linux), !,
+    (   ccl_cxx_dirs([D]), atom_concat(Root, '/include/c++/v1', D), atom_concat(Root, '/lib', Lib), exists_directory(Lib)   % THE LIBRARY OF THE TREE THE PROGRAM WAS READ FROM (0.122): two libc++ are often installed side by side (/usr/lib/llvm-18 and llvm-21), and the system's `libc++.so' is one of them -- the headers of one and the runtime of the other do not agree (std::print, optional<T &>, __hash_memory)
+    ->  atomic_list_concat([' -L\'', Lib, '\' -Wl,-rpath,\'', Lib, '\' -lc++'], Libs)
+    ;   Libs = ' -lc++' ).
 ccl_link_libs(' -lm') :- ccl_host_os(linux), !.   % THE MATH LIBRARY IS NAMED AT THE LINK ON LINUX (0.100): glibc keeps `sqrt', `creal' and `cabs' in libm, apart from libc (macOS has them in libSystem), and a C program that uses them is otherwise `undefined reference' -- the fixtures' clang builds pass `-lm' by hand
 ccl_link_libs('').
 ccl_sh(Cmd, Out, Exit) :- ( once(catch(proc_run(Cmd, 300000, Out, Exit), _, fail)) -> true ; Out = "could not run", Exit = 1 ).

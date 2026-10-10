@@ -1,0 +1,9 @@
+prep 7
+member prep 5
+member prep 6
+2
+int 3
+double 2.5
+42
+42
+exit 0

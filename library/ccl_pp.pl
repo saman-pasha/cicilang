@@ -600,7 +600,7 @@ pp_skip_to_endif(Ls, Ls1) :- pp_skip_group(Ls, 0, Found, Rest), ( Found = elif(_
 pp_eval(Ts) :- once(catch(pp_eval_(Ts), _, fail)).
 pp_eval_(Ts) :-
     pp_defined_pass(Ts, T1), pp_expand_all(T1, T2), pp_defined_pass(T2, T3), pp_normalize(T3, T4),   % a built-in a macro expanded to is answered too
-    phrase(ccl_cond_expr(E), T4, _), ccl_const_eval(E, V), V =\= 0.
+    phrase(ccl_cond_expr(E), T4, _), nb_setval('$ccl_cv_pp', yes), ( catch(ccl_const_eval(E, V), Err, ( nb_setval('$ccl_cv_pp', no), throw(Err) )) -> nb_setval('$ccl_cv_pp', no) ; nb_setval('$ccl_cv_pp', no), fail ), V =\= 0.   % C's intmax arithmetic, untyped (0.128: the evaluator types the program's constants)
 pp_defined_pass([], []).
 pp_defined_pass([tok(id, defined, L), tok(p, '(', _), tok(K, N, _), tok(p, ')', _)|Ts], [tok(int, V, L)|Os]) :- ( K == id ; K == kw ), !, ( pp_defined(N) -> V = 1 ; V = 0 ), pp_defined_pass(Ts, Os).
 pp_defined_pass([tok(id, defined, L), tok(K, N, _)|Ts], [tok(int, V, L)|Os]) :- ( K == id ; K == kw ), !, ( pp_defined(N) -> V = 1 ; V = 0 ), pp_defined_pass(Ts, Os).
@@ -631,12 +631,21 @@ pp_builtin_answer('__has_c_attribute', Args, V) :- ccl_lang(c), !, ( pp_attr_nam
 pp_builtin_answer('__has_extension', [tok(_, c_atomic, _)], 1) :- !.
 pp_builtin_answer('__has_extension', [tok(_, datasizeof, _)], 1) :- !.
 pp_builtin_answer('__is_identifier', _, 1) :- !.
+pp_builtin_answer('__has_builtin', [tok(_, B, _)], 0) :- pp_no_builtin(B), !.        % A BUILTIN THIS COMPILER DOES NOT PROVIDE answers 0, and libc++ takes the branch it writes for a compiler without it (0.126)
 pp_builtin_answer('__has_builtin', _, 1) :- !.                                    % LLVM's builtins are there (libc++'s other branch is an #error)
 pp_builtin_answer('__is_target_arch', [tok(_, A, _)], V) :- !, pp_arch(Arch), ( A == Arch -> V = 1 ; V = 0 ).
 pp_builtin_answer('__is_target_vendor', [tok(_, V0, _)], V) :- !, pp_os(O), ( O == darwin, V0 == apple -> V = 1 ; O == linux, V0 == pc -> V = 1 ; V = 0 ).
 pp_builtin_answer('__is_target_environment', [tok(_, E, _)], V) :- !, pp_os(O), ( O == linux, E == gnu -> V = 1 ; V = 0 ).
 pp_builtin_answer('__is_target_os', [tok(_, OS, _)], V) :- !, pp_os(O), ( O == darwin, memberchk(OS, [macos, darwin, macosx]) -> V = 1 ; O == linux, OS == linux -> V = 1 ; V = 0 ).
 pp_builtin_answer(_, _, 0).                                                       % features, attributes, warnings, modules: the plainest path
+%% THE BUILTINS LIBC++ HAS A FALLBACK FOR AND THIS COMPILER DOES NOT PROVIDE (0.126). Every other `__has_builtin' is 1 (the
+%% lowering and the desugaring answer them, and libc++'s other branch is often an #error). libc++ 21 writes
+%% `common_type' on clang's template `__builtin_common_type<__common_type_t, __type_identity, __empty, _Args...>' where it
+%% is there, and on the `decltype(true ? declval<_Tp>() : declval<_Up>())' specializations of libc++ 18 where it is not:
+%% the second is the one this desugaring runs: clang's template has no body here, and `common_type_t<_Tp, _Up>' refused
+%% `template_without_body' -- `std::accumulate' and the rest of <numeric>, the comparisons of `unique_ptr', the `std::atomic'
+%% operations of C++20 and the visitation table of `std::variant' (stdnumeric, stdptrcmp, stdatomic20, stdvariant).
+pp_no_builtin('__builtin_common_type').
 pp_attr_name([tok(_, N0, _)], N) :- pp_attr_plain(N0, N).
 pp_attr_name([tok(_, S0, _), tok(p, ':', _), tok(p, ':', _), tok(_, N0, _)], scoped(S, N)) :- pp_attr_plain(S0, S), pp_attr_plain(N0, N).   % `::' is two colons to C's lexer
 pp_attr_name([tok(_, S0, _), tok(p, '::', _), tok(_, N0, _)], scoped(S, N)) :- pp_attr_plain(S0, S), pp_attr_plain(N0, N).

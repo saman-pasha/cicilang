@@ -113,6 +113,15 @@ One row per step, in version order: the step's title, what it did and its gate n
 | 0.117 | the "not done" list, worked; a library sweep | Mangler, placement `new[]`, arrays of arrays, VLA `{}`, `va_arg` of a struct, the SysV register budget, `__int128`; access control, `mutable`, deducing `this`; the streams over files and strings; user-defined literals; `<complex>`, `<bitset>`, `std::span`, `std::list`, `std::deque`, `<thread>`, `<charconv>`, `<atomic>` at C++20, `<bit>`; the defects those programs found (the reference binding, the conversion functions that yield a reference, the calls through a pointer or a reference to function, the SFINAE of a scalar typedef and of the parameters a call leaves out) | not run (a save point) |
 | 0.118 | the gates over 0.117, two defects found | The C++ gate refused `sentinelpair.cpp` (`friend class S<!C>;` of a member class template) and `rangesarray.cpp` ran away at 8.7 GB (the alias clause of `cpp_type` followed a typedef naming a template parameter); both fixed, each fixture seen to pass | reader 5 s, compile 8 s, driver 7 s, objects 3 s, proof, libcxx 958 s: GREEN over 0.117; the C++ gate was running over the corrected tree (a save point) |
 | 0.119 | the C++ gate over 0.118 | One stale check of `test/cpp.pl` (c20: `throw Err{t}` is a `braced_temp` since 0.117) edited; the library is 0.118's | C++ gate over 0.118's tree: 388 of 389 fixtures ok (the skip is `stdoptionalref`), 2989 s over four lanes, peak 9034 MB, RED by the one stale check; `test/cpp.pl` alone GREEN, 48 ok in 15 s |
+| 0.120 | the desugaring four times faster | The class record split in two (a light one for the lookups that do not want the members), seven registries made facts, the file scope, the typedefs and the tags in 128 buckets each; found by a flat profile | reader 5 s, compile 9 s, driver 7 s, objects 2 s; libcxx 1001 s; C++ 908 s (2989 s at 0.118), 388 of 389 fixtures, the pool's peak 1675 MB (9034 MB); all seven GREEN |
+| 0.121 | std::variant and std::visit, and what they needed | Union templates, base packs and using-declared methods, local classes, member templates through pointers, value categories, narrowing, `<=>` rewritten through free operators, objects built in place; twenty defects met in turn | reader 6 s, compile 10 s, driver 7 s, objects 3 s, proof GREEN; libcxx 836 s, C++ gate 938 s (404 fixtures, no FAIL, 1 skip); all seven GREEN |
+| 0.122 | the numbers of 0.121 | A save point: 0.121's gate numbers recorded | — |
+| 0.123 | a member built in place, libc++ 21 begun | A member from a prvalue of its class constructed in it; the move of a plain struct an xvalue; libc++ 18, 21 and 22 side by side, the link names the tree read | not run (committed while the chain ran) |
+| 0.124 | libc++ 21, the first failures | The library read's floors under both trees; a class-scope alias with an attribute noted ahead | not run (committed while the chain ran) |
+| 0.125 | libc++ 21, the partial ordering | A parameter that stands twice deduces one type in the partial ordering of function templates | not run (committed while the batch ran) |
+| 0.126 | libc++ 21, the failures that were left | Fifteen rules, each with a reduction and a fixture: `common_type`, `addressof` of a function, the bit builtins in the evaluator, the poison pills, a requires-expression's pack, static functions as values, qualified enumerators, the views' CRTP bases, duplicate candidates, a generic lambda's own parameters | 18: reader 5 s, compile 9 s, driver 7 s, objects 2 s, libcxx 771 s, C++ 836 s (424 of 425); 21: libcxx 750 s, C++ 667 s; all GREEN |
+| 0.127 | the C++ language items of "Not done" | `bool` comparisons, enumerators of their enum, promotions ranked, trailing `decltype`, block typedefs scoped, lazy program instances, the rest of access control, const closures, value-initialization, aggregate bases, shipped static functions | 18: reader 5 s, compile 10 s, driver 7 s, objects 3 s, libcxx 1055 s, C++ 820 s (438 of 439); 21: libcxx 1031 s, C++ 740 s; all GREEN |
+| 0.128 | line tables, the vacuum, unsigned constants | `-g` gives DWARF line tables; the C store vacuumed every 64th run and before each gate; an unsigned constant operation done in its type, `#if` in `uintmax_t`, one evaluator for an enumerator's value | see the entry |
 
 ## M5 — the C++ mode
 
@@ -7215,3 +7224,429 @@ reads the newest directory now, and the dead one is removed. (2) A reader change
 that reads nodes by shape has seen it.
 
 Reader version 114, lowering version 62; the module rebuilt as 0.119, over cocolog 1.9.1.
+
+## 0.120 — M6's eighty-fourth step
+
+**M6's eighty-fourth step (0.120): the desugaring four times faster.** The gates of 0.118 took 958 s for the library read and
+2989 s for the C++ gate, and the builds that the owner's memory rule forbids -- `rangesarray.cpp` at 8.7 GB, `viewsall.cpp` at 3.5
+GB -- were the symptom of one cause: cocolog's `nb_getval/2` COPIES what it answers, and a build asked the same few large
+terms thousands of times. A flat profile found where. No predicate of the desugaring was slow in itself.
+
+THE INSTRUMENT. cocolog has no profiler, so a scratch copy of the library was made by a script (not in the repository, as the other
+session tools are not): every clause of `ccl_cpp.pl` and `ccl_infer.pl` begins with a goal that stamps `statistics(cputime, T)` and
+adds the time since the last stamp to the clause entered before it. That is a flat profile in which a clause is charged for what runs
+after it is entered and before the next clause is -- its own goals, the builtins it calls, and the callees that are not instrumented --
+and the stamp is taken again when the goal ends, so the instrument's own cost is not charged. Its overhead is a factor of three, its
+ranking is the work's. On `stdvector.cpp` (9.6 s of CPU on the loaded box, 7.3 s alone): `cpp_class/2` 19% and `cpp_class_typedef/4` 12%, the
+rest flat. In-situ timers around the suspected reads then measured the copies themselves, not the smear: the retrieval of the class
+record, 68,075 times, 2.61 s; the copy of the list of class typedefs, 38,777 times, 1.23 s (and the `memberchk` on it 0.25 s); the copy of
+the enclosing classes, 29,700 times, 0.06 s; the cache index, 61,193 times, 0.14 s; `ccl_tables_changed/0`, 202 times, 0.002 s. A count of
+`cpp_class/2` per call site: `cpp_base_scope/2` alone asked 44,764 times, for the BASE.
+
+THE CHANGES, each by what it copied.
+
+(1) THE LIGHT CLASS RECORD. A class's record, `cls(Base, Data, Members, Statics, Defaults, Slots)`, is 97% its members -- every
+method with its body -- and a lookup that wanted only the base, the data or the slots copied the class. `cpp_class_put/2` now writes
+`'$cpp_clsl'(C, cls(Base, Data, Statics, Defaults, Slots))` beside it, a hundredth of the size, `cpp_class_l/2` answers it (a class not
+registered yet is asked of `cpp_class/2`, which loads it, and the light fact is there after), and 95 calls whose members field was `_` ask
+it (45 others want the members and are left alone). The script that rewrote the calls checked each by its pattern.
+
+(2) SEVEN REGISTRIES THAT WERE LISTS IN A GLOBAL ARE FACTS: the class typedefs `'$cpp_ctype'(Class, Name, Type)`, the enclosing classes
+`'$cpp_encl'`, the static initializers `'$cpp_sinit'`, the lazy library classes `'$cpp_lazy_c'`, the destructors defined out of their class
+`'$cpp_dtor_def'`, the names that keep C linkage `'$cpp_cname'` and the default arguments `'$cpp_dflt'`. A fact is found by its first
+argument and copies only what it answers. They are written newest first (`asserta`) and a lookup takes the first match, as `memberchk/2`
+did; `test/cpp.pl`'s mangler check, which set one by `nb_setval/2`, asserts it. 48 replacements, each counted by a script that refuses to
+run if the text it finds is not the text it expects.
+
+(3) THE FILE SCOPE, THE TYPEDEFS AND THE TAGS ARE BUCKETED. 800 file-scope declarations into a table of 3,000 names and 6,000 lookups were 6 of
+the 15 CPU seconds of a `std::vector` build; one write was 40 ms at 20,000 names, because `nb_setval/2` copies what it takes and every
+lookup the answer caches missed read the whole table. A table is now 128 globals (`P_0` .. `P_127`), an entry lives in the bucket its key's
+characters hash to, and a write or a lookup copies one bucket (`ccl_tab_*` in `library/ccl_syntax.pl`): 15 microseconds a lookup, 25 a write,
+48 ms for a bulk of 20,000. Inside a bucket the order is the old list's, so the first entry that unifies is the one the single list gave.
+`ck_declare_at/4`, which built every frame to find the one that holds a name, asks the open frames and then the file scope. The only
+reader of a whole table in order is the drain functions' loop (`ir_drain_functions/1`), which now takes the buckets in turn: the same
+functions in another order, which is why the lowering version is 63.
+
+A fourth idea was measured and left out: the cache index, 61,193 lookups, 0.14 s -- the answer caches are not the cost.
+
+
+MEASUREMENTS. One build each on a quiet box, CPU seconds, the same HOME (its summaries valid for both trees), output compared with the
+fixture's `.expect`, 0.118 then 0.120: `stdvector.cpp` 17.2 -> 4.0, `stdmapstring.cpp` 58.0 -> 10.1, `stdalgorithm3.cpp` 21.6 -> 5.1; all three SAME.
+The gate's recorded build times (`~/.cicilang/fixture-times`), 388 fixtures in both runs: the sum 11,775 s -> 2,936 s (4.0 times);
+`viewsall` 1357 -> 211 s, `viewchain` 438 -> 57, `tempinitlist` 429 -> 41, `stdwformat` 375 -> 78, `stdviews` 371 -> 69, `stdcontains` 368 -> 42,
+`stdformat` 328 -> 103, `stdvformat` 322 -> 73, `viewkeys` 318 -> 28, `stdstringstream` 291 -> 91. The one that gained nothing is
+`stdatomic20` (279 -> 277 s), which is the reader's cold flatten of the headers of `<atomic>`'s wait, not the desugaring.
+
+GATES over a snapshot of this commit's tree (the repository was left alone while they ran), cocolog 1.9.1, a HOME of its own, every cache
+cold: the reader gate GREEN (96 ok, 2 skips, 5 s), the compile gate GREEN (106 ok, 9 s), the driver gate GREEN (26 ok, 7 s), the objects gate
+GREEN (29 ok, 2 s), the proof exit 42; the library read GREEN in 1001 s (958 s at 0.118: the reads are the reader's, not the
+desugaring's, and other work shared the box), peak 1173 MB; THE C++ GATE GREEN IN 908 s (2989 s at 0.118), `test/cpp.pl` 48 ok, 388
+of 389 fixtures ok and the skip `stdoptionalref`, the pool's peak 1675 MB (9034 MB at 0.118). Before the chain: the four small gates
+and the proof over the working tree, the same numbers.
+
+Two things the step did not do: reader version 114 stays (a summary's content is the same), and `<random>` -- a `std::mt19937` with
+`uniform_int_distribution`, killed at its 1500 s cap since 0.117 -- was tried over these tables (the build was killed at 900 s, no
+binary): the cost of its instances is not the tables'.
+
+The method, for the next cost: a flat profile (`CLAUDE.md`, "Finding a cost"), then timers in situ around the suspected reads, then a
+count per call site. The profile ranked `cpp_class/2` 19% and `cpp_class_typedef/4` 12% and nothing else above 3%; the timers said
+which reads. A profile of a build that does not end needs only a CPU limit.
+
+Reader version 114, lowering version 63; the module rebuilt as 0.120, over cocolog 1.9.1.
+
+## 0.121 — M6's eighty-fifth step
+
+**M6's eighty-fifth step (0.121): `std::variant` and `std::visit`, and what they needed.** The "not done" list held one sentence
+about `<variant>`: `std::visit` was refused, `no_member('__base', '__visit_alt', 2)`. Behind that sentence stood about twenty
+defects, and each was met in turn, only when the one before it was cured: a union template, three classes of one name in three
+namespaces, a base clause that is a pack, a using-declaration over a pack, a class defined in a function body, a member template
+called through a pointer, a table of function pointers made of static member template-ids. Each was cut down to a reduction of ten
+to forty lines, built with clang++ and with cicilang, and compared line by line before it became a rule. `std::variant<int,
+double> v = 7;` builds now, and so does every form of the twelve new fixtures. The rules are in `CLAUDE.md`'s topics, each with its
+fixture; this entry keeps the order in which the program met them.
+
+THE DEFECTS, in the order met.
+
+(1) UNION TEMPLATES. libc++ 18 keeps the alternatives of a variant in `union __union<_Trait::_TriviallyAvailable, _Index, _Tp,
+_Types...>`, a template and its specializations of a union. Only `class` and `struct` items were class templates, so no instance
+existed. `cpp_template_defined`, `cpp_template_class_def`, `cpp_instance_class` and `cpp_spec_name` take a union item, and the
+instance is a union class (`'$cpp_union'`, asserted in `cpp_instance_body_`).
+
+(2) THE UNION'S DESTRUCTOR. A union class's destructor destroyed every member, and the members share their storage: a variant
+holding a long string freed it twice at its end. [class.dtor]/16: the union's destructor destroys no member (`cpp_dtor_body`).
+
+(3) CLASSES OF ONE NAME IN SEVERAL NAMESPACES. `__base` is declared by `__variant_detail`, by `__variant_detail::__access` and by
+`__variant_detail::__visitation`, and `__variant` by the last two; the flattened index keeps them apart by the suffix of their
+namespaces (0.112). A qualified
+name's first segment is looked up in the item's own scope (`cpp_rename_qualifier`), a class segment that follows namespace
+segments is its key (`cpp_path_keys`), and a block's `using __variant_detail::__visitation::__variant;` makes the short name that
+class for the statements after it (`cpp_stmts`, `cpp_body_typedefs_`).
+
+(4) THE OVERLOAD SET OF A PACK OF BASES. `__all_overloads : _Bases... { using _Bases::operator()...; }` and C++17's `overloaded` idiom.
+The reader skipped the `using` to its semicolon (reader version 115 reads `using(L, pack(Q))`); the base clause that is a bare pack
+was an atom the expansion did not take; and the call road took the first base that had a method that fits, where C++ ranks the
+union of their overloads. `cpp_inherit_methods/5` gives the class a forwarder for each method of the named base, so that the
+overload rules see one set (`using Base::f;` too, with the hiding rule of [namespace.udecl]/15); a later empty base has no hop
+(`cpp_base_hops`); an operator is a name after a qualifier (`cpp_qual_name`, `cpp_using_last`).
+
+(5) AN AGGREGATE WITH BASES. `overloaded o{ [](int) {...}, [](double) {...} }` is an aggregate of C++17 ([dcl.init.aggr]/4.2): the
+items go to the bases first. A closure that captures nothing is an empty base and keeps nothing, so its item is dropped
+(`cpp_agg_skip_bases/3`); `cpp_class_takes/2` counts them.
+
+(6) THE CONVERSION THAT NARROWS. The converting constructor of a variant chooses its alternative by `__overload<T, I>::operator()
+(T, U &&) -> __check_for_narrowing<T, U>`, i.e. by whether `T (&&)[1]` accepts `{declval<U>()}`. A braced list for an array
+parameter now holds only without narrowing ([dcl.init.list]/7; `cpp_narrows/2` and kin), so `variant<std::string, bool> v =
+"text";` holds the string. And of two templates that tie on the class conversions, the one that takes an arithmetic argument as it
+is beats the one that converts it (`cpp_scalar_rank/2`, [over.ics.rank]/3): `variant<long, int> v = 5;` holds the int.
+
+(7) LOCAL CLASSES. `__assign_alt` assigns through `struct { void operator()(true_type) const ...; ... } __impl{this, ...};`, a class
+with no name defined in a function. A local class is a class of the unit under a name of its own (`cpp_local_class/6`), registered
+where the walk meets it, memoized by its text, named by the statements after it, and met by the first-return walk of an `auto`
+result.
+
+(8) MEMBER TEMPLATES. `__this->__emplace<_Ip>(...)` had no clause (the arrow took the template-id for a method name), and
+`__impl_.__emplace<_Ip>(...)` found only the class's own templates, not a base's (`cpp_member_tmpl_via/7`). A nested class calls
+a static member template of its holder bare (`__std_visit_exhaustive_visitor_check<...>();`). A static member template-id named
+as a value is the thunk of its instance (`cpp_member_explicit_instance/4`, `cpp_instance_thunk/3`): `std::visit` stores
+`dispatcher<Is...>::template dispatch<F, Vs...>` in an array of function pointers.
+
+(9) A COMPILE THAT DID NOT END. `const bool v = as(b).vl();` over a derived class's object and a template that returns its argument's
+reference: the constant evaluator reduced the member to the same term and `cpp_const_value` asked again, for ever -- twenty
+minutes in the prologue of `std::visit`. A reduction that changed nothing is no value (`cpp_const_fold`).
+
+(10) THE REST OF THE SURFACE. A variable template whose value is a braced object of the declared class (`in_place_index<I>`,
+`cpp_braced_object/4`); an `inline` function template's instance is `linkonce` (`__invoke` over the overload set was a plain
+definition, called but never defined: a link error); a reference member of an aggregate binds its item
+(`__value_visitor<_Visitor>{std::forward<_Visitor>(__visitor)}`; `ir_init_sub/4`), a closure's own reference captures excepted.
+
+(11) THE CATEGORIES, which made the copy of a variant move the string of its source. Four defects, one symptom (`stdvariant`:
+the source string of a COPY was empty): `decltype(x)` of an unparenthesized name is its declared type, the reference kept; a
+member initializer's `std::forward<A>(a)` was judged on its raw form and took the move constructor for every argument
+(`cpp_arg_lvalue/1`); a member of an xvalue is an xvalue, and `std::move(x).m` is `std::move(x.m)` (`cpp_xvalue_member/2`); a
+member of a const object is const, for an argument and for a deduced result. And `auto &&` as a result is `T &` for an lvalue
+return and `T &&` for the rest.
+
+(12) `hash<variant>`: the parameters of a function are declared before its block typedefs are resolved (`using alt_type =
+remove_cvref_t<decltype(__alt)>;`), a class bound as its tag names its class in a path, and the call of a temporary object
+takes the copy pass (`std::hash<std::string>{}("hello")` handed the literal's address to a `const string &`).
+
+(13) THE EXTRA MOVE, AND THE DEFECT BEHIND IT. `Wrap<S>{S(9)}` moved the temporary into the member; C++17 constructs it in place. The first
+cure copied the temporary into the member bitwise, and the fixtures that hold a class with its own address broke:
+`Wrap<std::list<int>>{std::list<int>{7, 8}}` and a `std::function` member crashed at their first use (`free(): invalid pointer`),
+the sentinel pointing into the dead temporary. The cure is C++17's own: the temporary is constructed IN the member
+(`cpp_prvalue_in_place/3` retargets the statement expression to the member's address). Reduced (`reloc1`, `reloc2`), the same
+defect stood in 0.120 for three more forms that the old code copied bitwise: a local initialized from a prvalue
+(`std::function<int(int)> f = std::function<int(int)>(g);`), a `return` of a prvalue (`return std::list<int>{1, 2, 3};`,
+`std::map<int, int> mk() { return std::map<int, int>{{1, 2}}; }`) and a local from a call that returns through the hidden pointer
+(`std::map<int, int> m = build();`, which iterated for ever after `m[5] = 6`). The lowering builds each in the object
+(`ir_prvalue_block`, `ir_in_place`, `ir_sret_call` and `'$ir_sret_into'`, the Lowering topic). The last form needed one more
+step, found by the reduction `r4a`: `return m;` of a LOCAL map moves it into a `$ret` temporary and the temporary was copied into
+the result -- the same block, named `$ret` instead of `$tmp`. `prvalueinplace.cpp` holds all of them.
+
+(14) THE LAST ONE, found by the fixture that tests (2): a union at NAMESPACE scope with a constructor, a destructor or a method was
+refused at its first use (`class('U')`), at 0.120 as well. It is a union class like the nested one (`cpp_union_class_members/1`,
+`cpp_register_`, `cpp_item`), and `ccl_data_members/2` leaves the tag's `union_tag` out of the members so that `U u = {5}` names the
+first one.
+
+A REGRESSION OF THIS STEP, found by the closure fixtures before the chain: (10)'s first form bound every reference member of an
+aggregate through the item's value, and a closure's reference capture, whose item is the address already, was bound through a
+second indirection (garbage, `-1292736359`). The rule is by type now: an item whose type is a pointer to the referent is the
+address (`ir_address_item/2`).
+
+(15) THE COMPARISONS OF C++20. `variant <=> variant` was refused because `std::three_way_comparable<std::string>` was false. The
+cause was not the concept: a rewritten comparison ([over.match.oper]/3.4) looked only at a member `operator<=>`, and libc++ 18
+declares `operator<=>(const basic_string &, const _CharT *)` free. A free `operator<=>` and its reverse (`b <=> a`, the
+comparison mirrored, `cpp_cmp_mirror/2`) are candidates now; `cpp_convertible` knows a class-to-class conversion (a derived
+class, the target's converting constructor, the source's conversion function). `stringcmp20.cpp`, `stdvariantcmp.cpp`.
+
+(16) THE FIRST CHAIN, RED. Five `std::format` fixtures failed (`stdformat`, `stdvformat`, `stdwformat`, `stdformatter`, `stdprint`):
+the const member of (11) typed a `const char *const` argument, and the deduction of a by-value `T` kept the pointer's own
+`const`, so no `__determine_arg_t` specialization matched. `cpp_decayed` drops it ([temp.deduct.call]/2). The bisect over the
+hunks of the step (a group "leave-out" bisect, `bisminus.sh`; a prefix bisect failed because the hunks depend on each other) found
+the two hunks; all five fixtures pass.
+
+FOUND AND NOT DONE (in `CLAUDE.md`'s "Not done"): a member initializer `m_(S(5))` still moves the temporary into the member (the
+aggregate form elides); an overload set on `const S &` and `S &&` over a plain struct chooses the first declared (`f(S{2})`,
+`f(std::move(s))`: `copy copy copy` where clang++ prints `move move copy`). Also found: `own` is a keyword of the language, and a
+fixture's member named `own` did not read.
+
+GATES, over the final snapshot of 0.121 (committed before the last two finished; numbers carried by 0.122): reader 6 s, compile 10 s, driver 7 s, objects 3 s, proof 0 s, library read 836 s (peak 1019 MB), C++ gate 938 s (peak 1578 MB, 404 fixtures, no FAIL, the one skip `stdoptionalref`); all seven GREEN. The first chain of this step, over an earlier snapshot, was RED on five `std::format` fixtures (16).
+
+Reader version 115, lowering version 64; the module rebuilt as 0.121, over cocolog 1.9.1.
+
+## 0.122 — the numbers of 0.121
+
+A save point: the gate numbers of 0.121 (above) and the last-run note in `CLAUDE.md`. No code changed; the module version moved to 0.122.
+
+## 0.123 — the leftovers of 0.121, and libc++ 21 begun
+
+**0.123: a member built from a prvalue in place, the move of a plain struct, libc++ 21 and 22 side by side.** Committed while the
+gates run (a chain over libc++ 18 on a snapshot of this tree; nothing is claimed GREEN yet; the next commit carries the numbers).
+
+(1) `H() : m_(S(5)) {}` is `m_(5)` (`cpp_member_inits`): the S is constructed once, in the member; the 0.121 probe `mv2` printed `ctor`, `move`,
+and clang++ `ctor`. Fixture `memberinplace.cpp` (a struct that counts, a `std::function`, a list, a map, a string member).
+(2) `f(const S &)` beside `f(S &&)` over a PLAIN struct (probe `mv1`): `std::move(s)` of a plain struct is `static_cast<S &&>(s)`
+(`cpp_plain_xvalue`), the exact-match road takes an rvalue reference for an rvalue argument and no rvalue reference for an lvalue
+(`cpp_fn_exact`, `cpp_prefer_rvalue`, `cpp_category_mismatch`), and a return reads a reference value through (`ir_stmt(return)`). Found on the
+way, and a defect since 0.45: `std::vector<S>::push_back(const S &)` of a plain struct stored a struct into an int (`cpp_same_record`
+took a `const S` for another type than `S` and the argument, a call, had none). Fixture `moveplain.cpp`.
+(3) libc++ 21: the box has 18 (`/usr/lib/llvm-18`), 21 (`libc++-21-dev` from apt.llvm.org) and 22 (unpacked) side by side, chosen by
+`$LLVM`; the link names the chosen tree's library (`-L<root>/lib -Wl,-rpath`, `ccl_link_libs`). Reader 116: a variable template names
+itself in its own initializer (`__static_gcd`), and a value-initialized plain struct or union is zero (`__rep_ = __rep();`). `<string>`
+reads whole and `stdstring.cpp` runs at 21. libc++ 21.1.8 has NO `optional<T &>`: it came with libc++ 22 (`__cpp_lib_optional >= 202506L`),
+and `stdoptionalref.cpp` passes at 22; its `.needs` is that macro now.
+
+## 0.124 — libc++ 21, the first failures
+
+Committed while the chain over libc++ 21 runs (nothing claimed GREEN). Its library read had four failures: `<optional>` and `<string>` at C++23
+and `<optional>` at C++26 read whole to fewer items than libc++ 18's floors (libc++ 21 includes less at C++23: `<optional>` 397 -> 222 items,
+`<string>` 522 -> 410), so the floors in `test/libcxx.sh` are under both now (200, 380, 200); and `<iostream>` at C++20 stopped at libc++ 21's
+`__allocating_buffer`, which uses a class-scope alias declared after its use with an attribute before the `=`
+(`using _Alloc [[__gnu__::__nodebug__]] = allocator<_CharT>;`): the scan that notes such aliases ahead takes the attribute (reader 117).
+
+## 0.125 — libc++ 21: the partial ordering
+
+Committed while the batch over libc++ 21's failing fixtures runs (nothing claimed GREEN). The first failure met: `std::mismatch(a, a + 3, b, b + 3)` of four
+pointers took the overload `mismatch(I1, I1, I2, BinaryPredicate)` and called a pointer (`call(id('__pred'))`), at libc++ 18 under C++20 as well; libc++ 21's
+`lexicographical_compare` of pointers calls it, so `stdalgorithm3`, `stdarray` and others failed. The cause: the comparison of two function templates deduced each
+way, since a parameter that stands twice (`I2, I2`) bound at its first occurrence and the second went unseen. Fixtures `partialorder2.cpp`, `mismatch4.cpp`.
+
+
+
+## 0.126 — libc++ 21: the failures that were left
+
+**0.126: libc++ 21 on Linux, the failures that were left.** Gated on one tree: the seven gates GREEN over libc++ 18, and the library read and the C++ gate GREEN over libc++ 21 (the numbers are at the end). The box has libc++ 18, 21 and 22 side by side (`LLVM=/usr/lib/llvm-NN` chooses the tree
+that is read and linked); 0.123 to 0.125 ran the fixtures over 21 and left a list. Each failure was cut down to a reduction of ten to forty lines, built with
+clang++ and with cicilang and compared line by line, then given its rule in `CLAUDE.md` and a fixture; a negative control, the rule reverted in a scratch copy of
+the library, showed that each fixture earns its line. In the order the program met them:
+
+(1) `__has_builtin(__builtin_common_type)` answers 0 (`pp_no_builtin/1`, reader 118): libc++ 21 then flattens `common_type` on its own specializations, as libc++ 18
+does, and not on clang's builtin class template (`stdnumeric`, `stdptrcmp`, `stdatomic20`). Fixture `commontype.cpp`.
+(2) `std::addressof(f)` of a FUNCTION: `T &` and `const T &` given a function deduce the function type ([temp.deduct.call]/2), not a pointer to it; libc++ 21's
+`std::thread` hands `std::addressof(__thread_proxy<_Gp>)` to `__libcpp_thread_create`, and every thread program failed at the link. `addressfn.cpp`.
+(3) The constant evaluator folds `__builtin_clz*`, `ctz*` and `popcount*` over an argument it holds (libc++ 21's `__countl_zero` is `__builtin_clzg(__t, digits)` of a
+parameter, so `stable_sort`'s radix size stayed an unfolded static and an undefined symbol), and keeps a pointer through a named cast
+(`reinterpret_cast<const char *>(__str)` in `__constexpr_strlen`: `std::string_view s{"true"}` of a constant did not fold, `constsv`, `staticsv`). `bitcount.cpp`,
+`strlencast.cpp`.
+(4) An enum's underlying type named through an ALIAS TEMPLATE-id (`using __memory_order_underlying_t = __underlying_type_t<__legacy_memory_order>;`) is settled as a
+dependent typedef is (`stdatomic20`).
+(5) A free OPERATOR template's declaration is registered and indexed as its definition is, and lends its default (`template <class _Tp, __enable_if_t<...> = 0>
+complex<_Tp> operator*(...);` declared, defined later without the `= 0`): `a * b` of two `complex<double>` had no operator (reader 119). `enabledecl.cpp`. And a
+template parameter that two function parameters deduce deduces ONE type: the second occurrence had been unseen, and a converting constructor then rescued
+`operator*(const _Tp &, const complex<_Tp> &)` over two complexes with `_Tp = complex<double>`. `deduceagree.cpp`.
+(6) A pointer to a data member of a PLAIN struct (`&Pt::x`), and `__builtin_invoke` of one on an object, a `const` object, an rvalue and a pointer
+(`std::invoke(&Pt::x, p)`, `is_invocable`, `invoke_result`). `invokedata.cpp`.
+(7) The poison pills: libc++ 21 writes `void iter_move() = delete;` where libc++ 18 wrote `void iter_move();`, and a deleted nullary function was not indexed, so the
+unqualified call in `__unqualified_iter_move` went to the object `ranges::iter_move`, whose `operator()` asks the same concept: an endless recursion at the first
+`std::reverse_iterator` of C++20 and in every `std::print` (reader 120). `reverseiter.cpp`.
+(8) A requires-expression's own parameter pack expands with the bindings as a function's does (`cpp_subst` on `requires_expr`). Its parameters had become `__args$1`,
+`__args$2` while the requirement kept `__args`, found nowhere, so the variable of that name in `__try_constant_folding(..., basic_format_args __args)` was found, and
+`invocable<equal_to &, char &, char &>` was unmet in every `std::format` and `std::print`. `reqpack.cpp`.
+(9) A static member function named BARE as a value is its thunk (`fn = prep;`, `Buf{16, prep}`); several static functions of the name wait for the target that
+chooses ([over.over]), and a non-static member of the name is no candidate: libc++ 21's `__allocating_buffer` has a member `__prepare_write(size_t)` beside the
+static `__prepare_write(__output_buffer &, size_t)`. `staticfnval.cpp`.
+(10) A qualified enumerator is the value ITS OWN ENUM gives it. The enumerators' table is keyed by the bare name, so `B::X` beside `A::X` printed A::X's value, and
+a `case state::Consonant:` naming an enum nested in the class being walked reached the lowering raw -- libc++ 21's grapheme-cluster rules, `std::print` and
+`std::format` of a string. A silent wrong answer in the program's own code since the first enum class; found by the library. `enumscope.cpp`.
+(11) A plain struct or union member initialized by parentheses from a value of another type is aggregate initialization (C++20): libc++ 21's `basic_string() :
+__rep_(__short())` was assigned as `sext %struct.__short to %struct.__rep` and LLVM refused it in every `std::string` of a `-std=c++20` program. `unionparen.cpp`.
+
+(12) libc++ 18's `__invoke` for a data member, found by `invokedata.cpp` (itself written for (6)): a plain struct is its own base to `__is_base_of`
+(`std::invoke(&Pt::x, p)` took the pointer overload), `*e` of an arithmetic value is refused by name (`deref_of_arithmetic`: the detection of `__invoke`'s
+dereference overloads read `*int` as an lvalue), `x.*pm` carries the object's const and its xvalue (`cpp_memptr_qualify`, so `invoke_result_t<int Pt::*, const Pt &>` is
+`const int &` and the one over `Pt &&` an `int &&`), and a pointer operand that is a reference to a pointer is read through in the lowering (`*static_cast<A0 &&>(a0)`:
+`ir_ptr_operand`).
+(13) The views of libc++ 21 (`viewdrop`, `viewkeys`, `viewreverse`, `viewtake`, `viewtakewhile`, `viewtransform`, `viewchain`, `stdviews`, `viewsall` -- nine
+fixtures that had failed since the first run over 21): `__pipeable<_Fn> : _Fn, __range_adaptor_closure<__pipeable<_Fn>>` is asked for `ranges::
+__derived_from_range_adaptor_closure(__range_adaptor_closure<_Tp> *)`, and a LATER EMPTY base is a base to the template-id deduction and to `cpp_class_fits`
+(`'$cpp_extra'`: no sub-object, no slot, [temp.deduct.call]/4.3); and `struct __fn : __range_adaptor_closure<__fn>` of a header asks `requires is_class_v<_Tp>` of its
+CRTP base while `__fn` is registering, so a header's plain class being loaded is a class to `__is_class` (`cpp_class_in_progress`). Fixture `crtpclass.cpp` (the
+first; the second is the views' own).
+(14) `stdvformat` (`formatted_size`, `format_to_n`): two rules, found one under the other. (a) `std::addressof(__max_output_size_)` in the base initializer of
+libc++ 21's `__formatted_size_buffer` was typed `_Tp *` by the summary's signature and `_Tp` is a KNOWN name -- libc++'s `__format_char` opens with `using _Tp =
+decltype(__value);` and a typedef in a block joins the unit's one table -- so the argument came out `int *` and fitted no constructor: the type of a call of a function
+template that names the template's own parameter is raw (`cpp_callee_param_type/2`; `rawparam.cpp`, a program with a block typedef `_Tp` and `std::addressof` in a base's
+initializer). (b) With `<string>` read before `<format>`, `back_inserter` stood TWICE under its name (each header's summary holds the file): the first candidate's check
+refused and left `back_insert_iterator<void>` half made -- its name recorded, no struct made -- and the second was answered the name, held, and emitted a constructor of
+a class that was never made (`typedef(back_insert_iterator.void)` at the lowering). One function template declared by two summaries is one candidate
+(`cpp_dedupe_candidates/2`: alike in head, storage, result, parameters and body once the line of each statement is set aside). Two ways of mending (b) at its root
+were tried first and are not in the tree: a registration that refuses FORGETS its name (a second ask refuses again), which broke `viewchain` and `viewsall` -- the
+views at libc++ 21 lean on the name being answered after a refusal, a refusal of the not-yet-mended trailing-`decltype` SFINAE of `std::size` -- and a library member
+whose `auto` result does not deduce left undeclared. `formatton.cpp` (C++20, libc++ 21 only), `stdvformat.cpp`; negative controls for both rules: the rule reverted in a
+scratch copy of the library, two different refusals.
+(15) `stringcmp20` (`std::three_way_comparable<std::vector<int>>` was false): libc++ 21's vector `<=>` is `__synth_three_way_result<_Tp>` over the lambda
+`[]<class _Tp, class _Up>(const _Tp &, const _Up &)`, and the tables carry `_Up` as a block typedef of another function (`using _Up =
+__libcpp_remove_reference_t<_Tp>;`), which `cpp_type` resolved in the lambda's second parameter: `const _Tp &`, `_Up` undeducible. A generic lambda's parameters that
+name its own template parameters stay as written where the tables know the name (`cpp_lambda_params/3`). `lambdatparam.cpp` (C++20), a program of its own.
+
+Found and not fixed (they are in "Not done"): a comparison, `!`, `&&` and `||` are an `int` in C++ (`decltype(x < y)`, `sizeof(auto b = x < y)`, `boolalpha`, the
+overload on `bool`); the block-typedef leak behind (14a) and (15) is worked round where it bit, not scoped.
+
+Fixtures added: `addressfn`, `bitcount`, `commontype`, `deduceagree`, `enabledecl`, `enumscope`, `invokedata`, `memptrqual` (C++20), `reqpack` (C++20), `reverseiter`
+(C++20), `staticfnval`, `strlencast`, `unionparen` (C++20), `crtpclass` (C++20), `formatton` (C++20), `lambdatparam` (C++20), `rawparam`: 17 in all, 425 in the
+directory. The 0.123 fixture `stdoptionalref` is skipped below libc++ 22 (`__cpp_lib_optional >= 202506L`).
+
+**The numbers.** One tree (`snapY`: its `library/`, `test/`, `module/`, `bin/` and `proof/` are the commit's, byte for byte), cocolog 1.9.1, fresh HOMEs. Over
+libc++ 18 (`LLVM=/usr/lib/llvm-18`): the reader gate GREEN in 5 s, compile in 9 s, driver in 7 s, objects in 2 s, the proof; the library read GREEN in 771 s (62 other
+headers warmed, none failed to flatten; peak 1045 MB); the C++ gate GREEN in 836 s (peak 1516 MB): 424 of 425 fixtures ok, the 14 refusals, 1 skipped
+(`stdoptionalref`, `__cpp_lib_optional >= 202506L`, which libc++ 21.1.8 does not meet). Over libc++ 21 (`LLVM=/usr/lib/llvm-21`, the C gates do not read libc++): the library
+read GREEN in 750 s (peak 1039 MB), the C++ gate GREEN in 667 s (peak 1540 MB), 424 of 425, the same skip. Before the chains, a net of the fixtures that reach the rules
+everything walks -- overloads, deduction, containers, streams, lambdas, the library's detections: 77 over libc++ 18, 95 over libc++ 21 with the views, the format
+family and the new fixtures -- ran SAME. It is the net that showed the first mending of (14b) wrong: 93 of 95 over libc++ 21, `viewchain` and `viewsall` RED, until the
+mending was taken out and the candidates de-duplicated instead (77 of 77 and 95 of 95, then the chains above).
+
+Reader version 120, lowering version 67; the module rebuilt as 0.126, over cocolog 1.9.1.
+
+
+## 0.127 — the "Not done" list of 0.126 taken up
+
+**0.127: the C++ language items of "Not done".** The owner's word: finish the works that "Not done" lists. This step takes the
+C++ language items whose fix the box can prove; the ABI layout, the decimal floating types, the untried libc++ modules, the
+safe part's flow and the debug info are later steps. Each item was cut down to a reduction, built with clang++ and with
+cicilang and compared line by line, given its rule in `CLAUDE.md` and a fixture; a negative control, the fixtures built on a
+worktree of 0.126, shows each fixture of a defect failing there (`boolresult`, `promotion`, `plainclash`, `nsenum`, `aggbase`
+DIFFERENT; `enumtype`, `trailret`, `lazymember`, `valueinit` refused) while `accessctl3`, `lambdaconst` and `byteops`, which guard
+what stays allowed, pass there too. In the order they were taken:
+
+(1) A comparison, `!`, `&&` and `||` are `bool` in C++ (`ccl_truth_type/1`; the lowering's `ir_truth/4` makes an `i8`): `decltype(x
+< y)` was `int`, `auto b = x < y` four bytes, `boolalpha` printed `1`, `f(x < y)` took `f(int)`. With it, three neighbours that the
+same programs met: an enumerator is of its ENUM's type (`'$t'(Name)-Tag` and `'$s'(Tag)-1` beside the values, reader 121;
+`h(Red)` called `h(int)`, `v.push_back(Green)` was `undeclared`), an enum promotes as its underlying type, and a PROMOTION is a
+better conversion than any other (2.5 against 2, an enum to its fixed underlying type 2.75; `p(short)` beside `p(long)` and
+`p(int)` took the first declared). A member operator and a free one are weighed together (`cpp_prefer_free/3`): `cout << c` of an
+enum is the member `operator<<(int)`. A conditional over two arms of one arithmetic type keeps it (`(c ? 'Y' : 'N')` printed 89).
+Fixtures `boolresult`, `enumtype`, `promotion`.
+(2) A free function DEFINITION keeps a trailing `decltype` as its result (reader 121, `cpp_decltype_ret/3`), so `auto first(V &v)
+-> decltype(v[0])` returns a reference and the SFINAE of `-> decltype(t.foo())` drops the candidate; the result type is substituted
+under the packs' bindings; a member named through a scalar refuses `no_member(M, T)`. Fixture `trailret`.
+(3) A block's typedef is the block's in C++ (`cpp_scoped_typedefs/2`, `ccl_tab_del/2`; the bulk noter keeps out of the unit's table
+all but the tags and enumerators of its type). Fixture `blocktypedef` (HEAD prints a wrong value).
+(4) The program's own class template instances are lazy, their members made where used and still checked (`'$cpp_lazy_p'`).
+Fixture `lazymember`.
+(5) Access control: the access of an inheritance, [class.protected]'s rule on the object, a pointer to member, a nested type's name,
+a destructor and an operator used as one. Six refusals, `access_inherit` ... `access_operator`, and `accessctl3` for the allowed forms.
+(6) A closure's `operator()` is const unless `mutable` (or an explicit object parameter): `non_const_member_on_const(M, C)` and
+`binds_const(N)` refuse what clang++ refuses (`lambda_method`, `bind_const`); `lambdaconst` for what stays allowed.
+(7) The small defects: a plain struct handed to a scalar parameter clashes in the arity-only resort and in a call through a
+function pointer (`plainclash`, C++20); two namespaces' enums and enumerators of one name are keyed as functions and classes are
+(`nsenum`); value-initialization zeroes a class whose default constructor is not user-provided -- `R()`, `R r = R();`, `T t{}`, a
+member's `r()`, `new R()`, `new (p) R()`, `new int()` -- while `new T` and `new (p) T` with no initializer default-initialize (reader
+122's `new_default(T)`; `valueinit`); an aggregate's base with storage takes its item (`aggbase`: `D d{}` never ran the base's
+constructor); a class's table pointer is no pointer the check follows (`V v = V();` was `untied`).
+
+Found on the way and fixed: a SHIPPED static member function was called with the desugaring's null `this` first, so
+`ios_base::sync_with_stdio(true)` passed a null where the bool goes and `locale::global(loc)` a null for its locale (`shipstatic`; the
+lowering drops the null, `'$cpp_static_abi'`). A regression of (1) that the net caught: with the enum promoted, `~b` of a `std::byte`
+was the built-in on an int, -16; a scoped enum's operators are now the header's, loaded by name, templates among them
+(`byteops`) -- and the first form of that rule resolved every header operator template's parameter types, which instantiated
+`duration<_Rep1, _Period1>` over its free names and recursed in `<ratio>`'s `__static_gcd` until the cap (a program with `<locale>`).
+A bare-named parameter alone is asked now.
+
+The first chain over libc++ 18 was RED on one fixture, `enumtype`, which had gone into the directory unseen -- against the rule that a
+fixture goes in only once seen to pass; the net that was to show it had stopped at the `'$cpp_bacc'` defect. Two defects stood behind it:
+`Shape::Circle`, an enumerator of an unscoped enum nested in a class, was folded by the class road as an `int` static
+(`cpp_enum_class_tag/3` gives it its enum's type), and `std::cout << Hi` of an `enum : unsigned char` printed 72: the template road
+ranked a promotion as a conversion, one demerit each, so the free `char` inserter tied with the `unsigned char` one, came first, and lost
+to the member `operator<<(int)`; a promotion costs one demerit now and a conversion two. The C++ gate over 18 and the chain over 21 then
+ran on the mended tree.
+
+Moved out of "Not done" as rules: `\N{NUL}` refused, a VLA initializer other than `= {}` refused and `__imag__` of a real as a place
+refused, each as clang refuses it; a recursive lambda through `this auto self`; a file-scope `new int` without an owner; module
+linkage.
+
+Fixtures added: `boolresult`, `enumtype`, `promotion`, `byteops`, `trailret`, `blocktypedef`, `lazymember`, `accessctl3`,
+`lambdaconst`, `plainclash` (C++20), `nsenum`, `valueinit`, `aggbase`, `shipstatic`: 14, 439 in the directory; refusals added:
+`access_inherit`, `access_protobj`, `access_memptr`, `access_nested`, `access_dtor`, `access_operator`, `lambda_method`,
+`bind_const`: 21 in `test/cpp.sh`.
+
+**The numbers.** cocolog 1.9.1, fresh HOMEs, two snapshots that differ in `library/ccl_cpp.pl` alone (the two `enumtype` rules),
+which no C gate and no library read walks. Over libc++ 18 (`LLVM=/usr/lib/llvm-18`): the reader gate GREEN in 5 s, compile in
+10 s, driver in 7 s, objects in 3 s, the proof; the library read GREEN in 1055 s (64 other headers warmed, none failed to
+flatten; peak 1464 MB; the reader bump made every summary cold); the C++ gate on the committed tree GREEN in 820 s (peak
+1669 MB): 438 of 439 fixtures ok, 1 skipped (`stdoptionalref`), the 21 refusals and the safe part's. Over libc++ 21
+(`LLVM=/usr/lib/llvm-21`): the library read GREEN in 1031 s (peak 1286 MB), the C++ gate GREEN in 740 s (peak 1531 MB), 438 of
+439, the same skip.
+
+Reader version 122, lowering version 68; the module rebuilt as 0.127, over cocolog 1.9.1.
+
+## 0.128 — line tables, the store's vacuum, unsigned constants
+
+**0.128: `-g`, the vacuum and the unsigned constants.** Two items of "Not done" (Tools and performance) and four defects of the
+constant evaluator that the probes of 64-bit and 128-bit global constants found, before the `__int128` step they were written for.
+
+(1) `-g` gives LINE TABLES, DWARF 5 (`ir_dbg_*` in `library/ccl_ir.pl`): a function the program defines gets a `DISubprogram`, every
+instruction of its body the `DILocation` of the statement's line, and the module the compile unit, the file and the two flags LLVM
+asks. `bin/cicilang` maps every `-g` form but `-g0` and `-ggdb0` to the option `debug`; the driver hands the lowering the file's
+absolute path; the IR cache's signature folds the option. A library function gets none. Checked by hand with gdb over
+`dbg1.c` (`break twice` stops at `dbg1.c:3`, `bt` shows `main () at dbg1.c:9`, `next` steps to lines 4 and 5, `finish` returns
+to line 9) and over a C++ program with a class, a template, a lambda and libc++ containers (`dbg2.cpp`: `break dbg2.cpp:15`
+stops in the instance of `sum`, and `bt` names `main () at dbg2.cpp:24`); the driver gate's new check reads the line table back
+with `llvm-dwarfdump` (the lines 3 4 5 8 9 10 11 and the file's name). No variable, type or scope is described: `print x` has
+nothing to read; and a C++ function is known to the debugger by this compiler's own name (`break 'Counter.bump.int'` stops,
+`break Counter::bump` finds nothing). Both stay in "Not done".
+(2) The C store is vacuumed: `bin/cicilang` counts its runs in `KB.runs` and runs `cocolog --embed KB vacuum` every 64th one,
+and each gate vacuums the store it starts from (`ccl_kb_prepare`). A vacuum of a 25 MB store takes 0.4 s.
+(3) An unsigned constant operation is done in its type (`ccl_cv_binary/7`, `ccl_cv_unary/3`): the evaluator's values are
+untyped mathematical integers, so `~0u` was -1, `~0u / 3` folded to 0 (clang: 0x55555555), `0u - 1` was -1 and `-1 < 0u` held;
+`_Static_assert(~0UL / 3 == 0x5555555555555555UL)` failed and `unsigned g = ~0u / 3;` was 0. Where both operands and the result
+are small and not negative the answer is the same in every type and comes at once; else the operands' common type decides.
+(4) `#if` computes in `uintmax_t` (C 6.10.1/4; `'$ccl_cv_pp'`): `#if ~0u == 0xFFFFFFFFFFFFFFFF` was false.
+(5) The bulk noter had an evaluator of its own for an enumerator's value (`ccl_const_eval_in/3`), which read `(unsigned char) 300`
+as 300 and `-1 < 0u` as 1; it asks `ccl_const_eval/2` now, the enumerators before put in as their values. Reader 123: a
+summary's `enum/2` values come from it.
+
+Moved out of "Not done": `-g` (line tables; the variables stay), the store's dead rows, and `std::atomic<shared_ptr>`, which
+neither libc++ 18 nor libc++ 21 has (clang++ refuses it over both trees).
+
+Fixture added: `test/c/run/unsignedconst.c` (globals, enum values, an array bound and ten `_Static_assert`s, against clang).
+
+**The numbers.** cocolog 1.9.1, fresh HOMEs, one snapshot of the tree. Over libc++ 18 (`LLVM=/usr/lib/llvm-18`): the reader
+gate GREEN in 5 s, compile in 10 s, driver in 7 s (27 checks, the line table's among them), objects in 4 s, the proof; the
+library read GREEN in 1123 s (64 other headers warmed, none failed to flatten; peak 1824 MB; the reader bump made every summary
+cold); the C++ gate GREEN in 929 s (peak 1665 MB): 438 of 439 fixtures ok, 1 skipped (`stdoptionalref`), the 21 refusals and
+the safe part's. Over libc++ 21 (`LLVM=/usr/lib/llvm-21`): the library read GREEN in 940 s (peak 1130 MB), the C++ gate GREEN in
+644 s (peak 1660 MB), 438 of 439, the same skip. Probes of the next step ran beside the two long gates, so their times are no
+measure.
+
+Reader version 123, lowering version 69; the module rebuilt as 0.128, over cocolog 1.9.1.
+

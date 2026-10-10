@@ -54,7 +54,7 @@ c_checks :-
     c34,
     c35,
     c36,
-    c37, c38, c39, c40, c41, c42.
+    c37, c38, c39, c40, c41, c42, c43.
 
 c1 :- check('namespace N { ... } is namespace(L, N, Items), nested, and anonymous',
     ( unit('names.cpp', unit(Is)), member(namespace(2, geo, Gs), Is), member(function(_, _, _, twice, _, _, _), Gs), member(namespace(_, inner, _), Gs), member(namespace(_, anon, _), Is) )).
@@ -186,7 +186,7 @@ c33 :- check('auto(k) is decay_copy(k); if (using T = long; true) is a block of 
 %% cleared after, so no later check meets them.
 ita_facts :-
     ccl_ensure_globals, ita_clear,
-    nb_setval('$cpp_enclosing', ['loc2.fac'-loc2, 'bis.sentry'-bis, 'bos.sentry'-bos]),
+    assertz('$cpp_encl'('loc2.fac', loc2)), assertz('$cpp_encl'('bis.sentry', bis)), assertz('$cpp_encl'('bos.sentry', bos)),
     ita_ns([ios_base, ct2, loc2, basic_string, char_traits, allocator, tw, basic_istream, basic_ostream]),
     assertz('$cpp_inst'(bis, inst(basic_istream, [base([], [char]), base([], [typedef(ctc)])]))),
     assertz('$cpp_inst'(bos, inst(basic_ostream, [base([], [char]), base([], [typedef(ctc)])]))),
@@ -197,8 +197,8 @@ ita_facts :-
 ita_ns([]).
 ita_ns([N|Ns]) :- assertz('$cpp_hdr_ns'(N, [std, '__1'])), ita_ns(Ns).
 ita_clear :-
-    dynamic('$cpp_hdr_ns'/2), dynamic('$cpp_hdr_ast_ns'/2), dynamic('$cpp_inst'/2),
-    retractall('$cpp_hdr_ns'(_, _)), retractall('$cpp_inst'(_, _)), nb_setval('$cpp_enclosing', []).
+    dynamic('$cpp_hdr_ns'/2), dynamic('$cpp_hdr_ast_ns'/2), dynamic('$cpp_inst'/2), dynamic('$cpp_encl'/2),
+    retractall('$cpp_hdr_ns'(_, _)), retractall('$cpp_inst'(_, _)), retractall('$cpp_encl'(_, _)).
 ita_name(Chain, F, Qs, Ps, Want) :-
     cpp_ita_function([std, '__1'], Chain, F, Qs, Ps, false, Got),
     (   Got == Want -> true
@@ -276,6 +276,11 @@ c42 :- check('a parenthesized functional cast is the call of the temporary, not 
       member(function(_, _, _, f, _, _, block(FB)), Is), member(declaration(_, _, _, [var(a, _, call(id('T'), []))]), FB),
       unit('run/usingtypename.cpp', unit(Js)),
       in(class(struct, 'Derived', _, DMs), Js), member(typedef(_, [var(type, base([], [typedef(scoped([tmpl('Base', _)], type))]), none)]), DMs) )).
+
+c43 :- check('a using-declaration over a pack is using(L, pack(Q)) (0.121, reader 115): `using Ts::operator()...;\' in a class template that derives from a pack, as C++17\'s overloaded idiom writes it',
+    ( unit('run/overloaded.cpp', unit(Is)),
+      member(template(_, [tparam(pack, 'Ts', none)], declare(_, base(_, [class(struct, overloaded, [base(_, pack('Ts'))], Ms)]))), Is),
+      member(using(_, pack(scoped(['Ts'], operator('()')))), Ms) )).
 
 %% ---- real C++ from the neighbours: Cicili's emitted C++, read entirely ----------------------
 c_real :-

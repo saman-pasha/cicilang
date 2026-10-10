@@ -257,7 +257,7 @@ ck_closure_type(T) :- ccl_resolve_type(T, base(_, [struct(N, _)])), atom(N), ato
 ck_carries_(block(_, _)) :- !.
 ck_carries_(arr(_, E)) :- !, ck_carries_type(E).
 ck_carries_(base(_, [struct(N, _)])) :- ccl_lang(cpp), ck_library_class(N), !, fail.   % A LIBRARY CLASS'S VALUE IS OPAQUE: its pointers are libc++'s own discipline, as its functions' bodies are (0.45) -- a map's iterator, `auto it = m.find(3)', holds a node pointer the safe part cannot follow and need not, since nothing here frees it
-ck_carries_(T) :- ccl_members_of(T, Ms), member(member(MT, _, _), Ms), ck_carries_type(MT), !.
+ck_carries_(T) :- ccl_members_of(T, Ms), member(member(MT, MN, _), Ms), MN \== '$vptr', ck_carries_type(MT), !.   % a class's TABLE POINTER is static storage, never memory the check follows (0.127): `V v = V();' of a polymorphic class was refused `untied'
 ck_library_class(N) :- atom(N), catch(cpp_lib_class(N), _, fail).
 ck_library_root(P) :- ccl_lang(cpp), atom(P), ccl_type_of(id(P), T), T \== unknown, catch(ccl_resolve_type(T, base(_, [struct(N, _)])), _, fail), ck_library_class(N).   % a borrow rooted at a local of a library class's type
 
@@ -544,7 +544,7 @@ ck_field_tie_ref(St0, YK, St, Kind, R) :-
 %% an anchor for a plain local: a root in the frame where the local was
 %% declared (the state's frames and the symbol table's are pushed together)
 ck_anchor(St, Y, St1) :- ck_declare_at(St, Y, anchor, St1).
-ck_declare_at(st(Frs), N, S, st(Frs1)) :- ccl_scope(SFs), ck_frame_index(SFs, N, 0, I), ck_insert_at(Frs, I, N-S, Frs1).
+ck_declare_at(st(Frs), N, S, st(Frs1)) :- ccl_locals(Ls), ( ck_frame_index(Ls, N, 0, I) -> true ; ccl_gdeclared(N, _), length(Ls, I) ), ck_insert_at(Frs, I, N-S, Frs1).   % the file scope is the LAST frame: a name in no open frame is there if it is declared at all -- asked of the table, the list of all its names no longer copied (0.119)
 ck_frame_index([F|Fs], Y, I0, I) :- ( memberchk(Y-_, F) -> I = I0 ; I1 is I0 + 1, ck_frame_index(Fs, Y, I1, I) ).
 ck_insert_at([fr(Os, Ds)|Frs], 0, P, [fr(Os1, Ds)|Frs]) :- !, append(Os, [P], Os1).
 ck_insert_at([F|Frs], I, P, [F|Frs1]) :- I1 is I - 1, ck_insert_at(Frs, I1, P, Frs1).

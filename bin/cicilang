@@ -37,6 +37,14 @@ kb_prepare() {                        # one awk for both versions, read for the 
   if [ -f "$1/data.bin" ] && [ "$have" != "$v" ]; then rm -rf "$1"; have=""; fi
   [ -d "$1" ] || mkdir -p "$1"
   [ "$have" = "$v" ] || echo "$v" > "$stamp"
+  # THE STORE IS VACUUMED every 64th run (0.128): a process that writes a predicate rewrites all of it, and the dead rows of
+  # every edited file's read and IR stay until cocolog's vacuum takes them (0.4 s over a 25 MB store); KB.runs counts, read
+  # and written without a fork
+  runs=0; [ -f "$1.runs" ] && read -r runs < "$1.runs"
+  case "$runs" in ''|*[!0-9]*) runs=0 ;; esac
+  runs=$((runs + 1))
+  if [ "$runs" -ge 64 ]; then [ -f "$1/data.bin" ] && "$C" --embed "$1" vacuum > /dev/null 2>&1 < /dev/null; runs=0; fi
+  echo "$runs" > "$1.runs"
 }
 inputs=""; opts=""; out=""; opt=""; verbose=""; defs=""
 [ "${CICILANG_LANG:-c}" = cpp ] && opts="$opts lang(cpp),"
@@ -78,7 +86,9 @@ while [ $# -gt 0 ]; do
     -D*) opts="$opts define($(q "${1#-D}")),"; defs=1 ;;
     -U) need "$@"; shift; opts="$opts undef($(q "$1")),"; defs=1 ;;
     -U*) opts="$opts undef($(q "${1#-U}")),"; defs=1 ;;
-    -g|-W*|-f*|-std=*|-pedantic) ;;   # accepted for clang's sake, no debug info yet
+    -g0|-ggdb0) ;;   # no debug information, as clang
+    -g|-g[123]|-ggdb|-ggdb[123]|-gline-tables-only|-gline-directives-only|-gdwarf*|-gfull|-glldb|-gsce) opts="$opts debug," ;;   # -g (0.128): line tables, what every level gives here
+    -W*|-f*|-std=*|-pedantic|-g*) ;;   # accepted for clang's sake
     -*) echo "$me: error: unknown argument: '$1'" >&2; exit 1 ;;
     *) inputs="$inputs $(q "$1"),";;
   esac
