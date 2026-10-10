@@ -114,6 +114,11 @@ ccl_const_eval(neg(E), V) :- !, ccl_const_eval(E, V0), ccl_w_neg(V0, V1), ccl_cv
 ccl_const_eval(pos(E), V) :- !, ccl_const_eval(E, V).
 ccl_const_eval(bitnot(E), V) :- !, ccl_const_eval(E, V0), ccl_w_sub(-1, V0, V1), ccl_cv_unary(E, V1, V).
 ccl_const_eval(not(E), V) :- !, ccl_const_eval(E, V0), ( V0 == 0 -> V = 1 ; V = 0 ).
+%% A FLOATING CONSTANT THAT IS THE OPERAND OF A CAST TO AN INTEGER TYPE is part of an integer constant expression (C 6.6/6,
+%% [expr.const]; 0.129): `(int) 2.5', `(__int128) 1e30' and `(long) -3.75' fold, truncated toward zero and wrapped; a
+%% floating literal alone still folds nowhere (a folded floating static would become an integer)
+ccl_const_eval(cast(T, F), V) :- ccl_float_operand(F, X), ccl_resolve_type(T, RT), ccl_cast_shape(RT, _, _), !, ccl_w_cast(T, X, V).
+ccl_const_eval(ccast(_, T, F), V) :- ccl_float_operand(F, X), ccl_resolve_type(T, RT), ccl_cast_shape(RT, _, _), !, ccl_w_cast(T, X, V).
 ccl_const_eval(cast(T, E), V) :- !, ccl_const_eval(E, V0), ccl_w_cast(T, V0, V).
 ccl_const_eval(ccast(_, T, E), V) :- !, ccl_const_eval(E, V0), ccl_w_cast(T, V0, V).      % C++'s own casts, a functional one among them: `type(~0)' folds as `(type) ~0' does
 ccl_const_eval(sizeof_type(T), V) :- !, once(ccl_size_of(T, V)).   % A SIZE IS ONE ANSWER (0.117): the resolver leaves alternatives, and a test that backtracked into the fold (a static assertion) met a 0 after the right 16
@@ -202,10 +207,33 @@ ccl_w_cmp(X, Y, O) :- ccl_wide(X, w(SA, MA)), ccl_wide(Y, w(SB, MB)),
     ( SA < SB -> O = (<) ; SA > SB -> O = (>) ; ccl_mag_cmp(MA, MB, O0), ( SA < 0 -> ccl_w_flip(O0, O) ; O = O0 ) ).
 ccl_w_flip(<, >). ccl_w_flip(>, <). ccl_w_flip(=, =).
 %% a cast to an integer type wraps to its width, then to its signedness; to bool it is the test; to anything else the value
-ccl_w_cast(T, X, V) :- float(X), ccl_resolve_type(T, RT), ccl_cast_shape(RT, Bits, Signed), !, ( Signed == bool -> ( X =:= 0.0 -> V = 0 ; V = 1 ) ; X1 is truncate(X), ccl_w_wrap(X1, Bits, Signed, V) ).   % a floating value to an integer type truncates toward zero (6.3.1.4), then wraps (0.108)
+ccl_w_cast(T, X, V) :- float(X), ccl_resolve_type(T, RT), ccl_cast_shape(RT, Bits, Signed), !, ( Signed == bool -> ( X =:= 0.0 -> V = 0 ; V = 1 ) ; ccl_float_int(X, X1), ccl_w_wrap(X1, Bits, Signed, V) ).   % a floating value to an integer type truncates toward zero (6.3.1.4), then wraps (0.108)
 ccl_w_cast(T, X, V) :- ccl_resolve_type(T, RT), ccl_cast_shape(RT, Bits, Signed), !, ccl_w_wrap(X, Bits, Signed, V).
 ccl_w_cast(T, X, V) :- integer(X), ccl_is_float(T), !, V is X * 1.0.   % an integer to a floating type is a floating value
+ccl_w_cast(T, X, V) :- X = big(_), ccl_is_float(T), !, ccl_w_float(X, V).   % ... a wide one too (0.129)
 ccl_w_cast(_, X, X).
+%% FLOATING VALUES AND WIDE INTEGERS (0.129): `truncate/1' and `* 1.0' have the engine's 61 bits, so `(__int128) 1e30' did not
+%% fold (a global's initializer refused, global_init) and `(double) ((__int128) 1 << 100)' kept the integer as a double's value.
+%% A double past 2^59 is an integer m * 2^e with m below 2^53 -- halving it is exact -- and the wide value is m shifted; a wide
+%% integer is a double rounded to nearest, ties to even, from its top 53 bits, the next one and whether any lower bit is set.
+%% An infinity or a NaN converts to no integer, and does not fold.
+ccl_float_operand(float(X), X) :- float(X).
+ccl_float_operand(neg(float(X)), Y) :- float(X), Y is -X.
+ccl_float_operand(pos(float(X)), X) :- float(X).
+ccl_float_int(X, V) :- A is abs(X), A =< 1.7976931348623157e308,
+    (   A < 576460752303423488.0 -> V is truncate(X)
+    ;   ccl_float_halve(A, 0, M, E), ccl_w_shl(M, E, V0), ( X < 0.0 -> ccl_w_neg(V0, V) ; V = V0 ) ).
+ccl_float_halve(A, E0, M, E) :- ( A < 9007199254740992.0 -> M is truncate(A), E = E0 ; A1 is A / 2.0, E1 is E0 + 1, ccl_float_halve(A1, E1, M, E) ).
+ccl_w_float(X, F) :- ccl_wide(X, w(S, M)), ccl_mag_bits_be(M, Bits), length(Bits, N),
+    (   N =< 53 -> ccl_bits_int(Bits, 0, I), F0 is I * 1.0
+    ;   length(Hi, 53), append(Hi, [R|Lo], Bits), ccl_bits_int(Hi, 0, H0),
+        ( R =:= 1, ( memberchk(1, Lo) ; H0 /\ 1 =:= 1 ) -> H is H0 + 1 ; H = H0 ),
+        E is N - 53, F1 is H * 1.0, ccl_float_scale2(E, F1, F0) ),
+    ( S < 0 -> F is -F0 ; F = F0 ).
+ccl_bits_int([], I, I).
+ccl_bits_int([B|Bs], I0, I) :- I1 is I0 * 2 + B, ccl_bits_int(Bs, I1, I).
+ccl_float_scale2(0, F, F) :- !.
+ccl_float_scale2(E, F0, F) :- F1 is F0 * 2.0, E1 is E - 1, ccl_float_scale2(E1, F1, F).
 ccl_cast_shape(base(_, S), 1, bool) :- ( memberchk(bool, S) ; memberchk('_Bool', S) ), !.
 ccl_cast_shape(RT, Bits, Signed) :- ccl_is_integer(RT), ccl_size_of(RT, Bytes), Bits is Bytes * 8, ( ccl_int_rank(RT, _, true) -> Signed = false ; Signed = true ).
 ccl_w_wrap(X, 1, bool, V) :- !, ( X == 0 -> V = 0 ; V = 1 ).
@@ -430,7 +458,13 @@ ccl_real_of(T, R) :- ( ccl_is_complex(T) -> ccl_complex_real(T, R) ; R = T ).
 ccl_is_integer(T) :- ccl_resolve_type(T, base(_, S)), \+ memberchk(double, S), \+ memberchk(float, S), \+ memberchk(void, S), \+ memberchk('_Complex', S),   % a complex integer is no integer (0.103)
     ( memberchk(int, S) ; memberchk(char, S) ; memberchk(short, S) ; memberchk(long, S) ; memberchk('__int128', S) ; memberchk(signed, S)
     ; memberchk(unsigned, S) ; memberchk('_Bool', S) ; memberchk(bool, S) ; memberchk(char8_t, S) ; memberchk(wchar_t, S) ; memberchk(char16_t, S) ; memberchk(char32_t, S) ; S = [enum(_, _)] ; S = [enum_class(_, _)] ; memberchk(bitint(_), S) ), !.   % C23's _BitInt(N) is an integer
-ccl_is_arith(T) :- ( ccl_is_integer(T) ; ccl_is_float(T) ), !.
+ccl_is_arith(T) :- ( ccl_is_integer(T) ; ccl_is_float(T) ; ccl_is_decimal(T) ), !.
+%% C23'S DECIMAL FLOATING TYPES (6.2.5/11; 0.129): `_Decimal32', `_Decimal64' and `_Decimal128', real floating types of their own,
+%% kept apart from the standard ones (ccl_is_float/1 is false for them): their arithmetic is libgcc's BID routines (the lowering)
+ccl_is_decimal(T) :- ccl_resolve_type(T, base(_, S)), ccl_decimal_spec(S, _), !.
+ccl_decimal_kind(T, K) :- ccl_resolve_type(T, base(_, S)), ccl_decimal_spec(S, K), !.
+ccl_decimal_spec(S, K) :- ( memberchk('_Decimal32', S) -> K = 32 ; memberchk('_Decimal64', S) -> K = 64 ; memberchk('_Decimal128', S) -> K = 128 ).
+ccl_decimal_type(32, base([], ['_Decimal32'])).  ccl_decimal_type(64, base([], ['_Decimal64'])).  ccl_decimal_type(128, base([], ['_Decimal128'])).
 
 %% integer rank and signedness, for the usual arithmetic conversions
 ccl_int_rank(T, Rank, Unsigned) :- ccl_resolve_type(T, base(_, [E])), compound(E), ccl_enum_spec_members(E, Ms), !, ccl_enum_underlying(Ms, U), ccl_int_rank(U, Rank, Unsigned).   % AN ENUM RANKS AS ITS UNDERLYING TYPE (0.127): an int unless one is written
@@ -456,7 +490,8 @@ ccl_enum_underlying(Ms, U) :- ( is_list(Ms), memberchk(enum_base(B), Ms) -> U = 
 ccl_float_rank(T, R) :- ccl_resolve_type(T, base(_, S)), ( memberchk(double, S) -> ( memberchk(long, S) -> R = 3 ; R = 2 ) ; memberchk(float, S) -> R = 1 ; R = 0 ).
 ccl_usual(A, B, T) :- ccl_usual_(A, B, T0), ( T0 = base(_, S) -> T = base([], S) ; T = T0 ).   % THE RESULT IS AN UNQUALIFIED VALUE (0.112): an operand's const stayed on it, and `false ? declval<const char32_t &>() : declval<const unsigned &>()' typed `const const char32_t'
 ccl_usual_(A, B, T) :-
-    (   ccl_is_float(A), ccl_is_float(B) -> ( ccl_float_rank(A, FA), ccl_float_rank(B, FB), FA >= FB -> T = A ; T = B )   % the wider of the two (6.3.1.8): long double, double, float, _Float16 (0.108: a double took a long double's place)
+    (   ( ccl_is_decimal(A) ; ccl_is_decimal(B) ) -> ccl_decimal_usual(A, B, T)   % a DECIMAL operand decides (C23 6.3.1.8/1): the wider decimal type, an integer converted to it (0.129)
+    ;   ccl_is_float(A), ccl_is_float(B) -> ( ccl_float_rank(A, FA), ccl_float_rank(B, FB), FA >= FB -> T = A ; T = B )   % the wider of the two (6.3.1.8): long double, double, float, _Float16 (0.108: a double took a long double's place)
     ;   ccl_is_float(A) -> T = A
     ;   ccl_is_float(B) -> T = B
     ;   ccl_is_integer(A), ccl_is_integer(B) ->
@@ -464,7 +499,12 @@ ccl_usual_(A, B, T) :-
             ( RA > RB -> T = PA ; RB > RA -> T = PB ; UA == true -> T = PA ; UB == true -> T = PB ; T = PA )
     ;   T = unknown ).
 %% `__builtin_add_overflow(a, b, &r)' and kin, the lowering's exact arithmetic with a bool for `did not fit'
+ccl_decimal_usual(A, B, T) :- ( ccl_decimal_kind(A, KA) -> true ; KA = 0 ), ( ccl_decimal_kind(B, KB) -> true ; KB = 0 ), K is max(KA, KB), ccl_decimal_type(K, T).
 ccl_overflow_builtin('__builtin_add_overflow', add).  ccl_overflow_builtin('__builtin_sub_overflow', sub).  ccl_overflow_builtin('__builtin_mul_overflow', mul).
+%% the bit builtins and the LLVM intrinsic each one is (the lowering's ir_bit_builtin/2 reads this table): every one answers an int
+ccl_bit_builtin('__builtin_clzg', ctlz).  ccl_bit_builtin('__builtin_clz', ctlz).  ccl_bit_builtin('__builtin_clzl', ctlz).  ccl_bit_builtin('__builtin_clzll', ctlz).
+ccl_bit_builtin('__builtin_ctzg', cttz).  ccl_bit_builtin('__builtin_ctz', cttz).  ccl_bit_builtin('__builtin_ctzl', cttz).  ccl_bit_builtin('__builtin_ctzll', cttz).
+ccl_bit_builtin('__builtin_popcountg', ctpop).  ccl_bit_builtin('__builtin_popcount', ctpop).  ccl_bit_builtin('__builtin_popcountl', ctpop).  ccl_bit_builtin('__builtin_popcountll', ctpop).
 ccl_size_type(T) :- ( ccl_typedef_of(size_t, _) -> T = base([], [typedef(size_t)]) ; T = base([], [unsigned, long]) ).
 ccl_sizeof_expr(sizeof(_)).
 ccl_sizeof_expr(sizeof_type(_)).
@@ -475,10 +515,16 @@ ccl_type_of(uint(big(_)), base([], [unsigned, long])) :- !.
 ccl_type_of(int(_), base([], [int])) :- !.
 ccl_type_of(uint(_), base([], [unsigned])) :- !.
 ccl_type_of(long(_), base([], [long])) :- !.
-ccl_big_type(A, T) :- ( ccl_big_signed(A) -> T = base([], [long]) ; T = base([], [unsigned, long]) ).
-ccl_big_signed(A) :- atom_codes(A, Cs),
-    (   Cs = [0'0, 0'x|Hs] -> length(Hs, N), ( N < 16 -> true ; N =:= 16, Hs = [D|_], D =< 0'7 )
-    ;   length(Cs, N), ( N < 19 -> true ; N =:= 19, atom_codes('9223372036854775807', M), Cs @=< M ) ).
+%% ... and a value past 64 bits, which only a fold makes (a 128-bit type's constant: libc++'s numeric_limits<__int128>), the
+%% first of __int128 and unsigned __int128 that holds it (0.129: it was an unsigned long, lowered as an i64 and cut to its low
+%% half); a negative value is a long where it fits one (it was an unsigned long)
+ccl_big_type(A, T) :-
+    (   ccl_big_fits(A, '-9223372036854775808', '9223372036854775807') -> T = base([], [long])
+    ;   ccl_big_fits(A, 0, '18446744073709551615') -> T = base([], [unsigned, long])
+    ;   ccl_big_fits(A, '-170141183460469231731687303715884105728', '170141183460469231731687303715884105727') -> T = base([], ['__int128'])
+    ;   T = base([], [unsigned, '__int128']) ).
+ccl_big_fits(A, Lo, Hi) :- ccl_big_bound(Lo, L), ccl_big_bound(Hi, H), ccl_w_cmp(big(A), L, O1), O1 \== (<), ccl_w_cmp(big(A), H, O2), O2 \== (>).
+ccl_big_bound(B, V) :- ( integer(B) -> V = B ; V = big(B) ).
 ccl_type_of(ulong(_), base([], [unsigned, long])) :- !.
 ccl_type_of(wb(N), base([], [bitint(int(W))])) :- !, ccl_wb_width(N, W0), W is W0 + 1.   % C23's 9wb: a _BitInt of the width the value needs, plus the sign
 ccl_type_of(uwb(N), base([], [unsigned, bitint(int(W))])) :- !, ccl_wb_width(N, W).
@@ -491,6 +537,9 @@ ccl_float_builtin_type('__builtin_inf', base([], [double])).      ccl_float_buil
 ccl_float_builtin_type('__builtin_inff', base([], [float])).      ccl_float_builtin_type('__builtin_huge_valf', base([], [float])).
 ccl_float_builtin_type('__builtin_nan', base([], [double])).      ccl_float_builtin_type('__builtin_nanf', base([], [float])).    % the imaginary literal (0.101)
 ccl_type_of(imagf(_), base([], ['_Complex', float])) :- !.
+ccl_type_of(dec32(_), base([], ['_Decimal32'])) :- !.     % C23's decimal floating literals (0.129)
+ccl_type_of(dec64(_), base([], ['_Decimal64'])) :- !.
+ccl_type_of(dec128(_), base([], ['_Decimal128'])) :- !.
 ccl_type_of(imagl(_), base([], ['_Complex', long, double])) :- !.
 ccl_type_of(imagi(Sp, _), base([], ['_Complex'|Sp])) :- !.   % `3i', `2ui', `3li', `4uli' (0.104): the specifiers its suffix and its value give
 ccl_type_of(chr(_), base([], [char])) :- ccl_lang(cpp), !.   % C++: a character literal is a char (C's is an int): `cout << ' '' takes the char inserter, not operator<<(int)
@@ -511,6 +560,7 @@ ccl_type_of(u16chr(_), base([], [char16_t])) :- !.
 ccl_type_of(u32chr(_), base([], [char32_t])) :- !.
 ccl_type_of(id(N), T) :- !, ( ccl_declared(N, T0) -> ccl_unref(T0, T) ; atom(N), nb_getval('$ccl_enums', L), memberchk(N-_, L) -> ccl_enumerator_type(N, L, T) ; ccl_func_name(N) -> T = ptr([], base([const], [char])) ; T = unknown ).   % AN ENUMERATOR is an int in C, its ENUM in C++ (0.127; ccl_enumerator_type): the parser declares one in scope, the bulk noter keeps its value and its enum in the table of values, so after the passes' rebuild it is found there (0.100: it was `unknown' when the table held only the value -- libc++'s __to_failure_order)
 ccl_type_of(call(id(B), _), base([], [bool])) :- ccl_overflow_builtin(B, _), !.
+ccl_type_of(call(id(B), _), base([], [int])) :- ccl_bit_builtin(B, _), !.   % the bit counts answer an int (0.129): `c ? 64 + __builtin_clzll(x) : __builtin_clzll(y)' had no type, in C as in C++ (libc++'s `__libcpp_clz(__uint128_t)')
 ccl_type_of(call(id(B), _), T) :- ccl_float_builtin_type(B, T), !.
 ccl_type_of(call(id(B), [_]), base([], [int])) :- memberchk(B, ['__builtin_isnan', '__builtin_isinf', '__builtin_isinf_sign', '__builtin_isfinite', '__builtin_signbit', '__builtin_isnormal']), !.   % glibc's classification macros (0.101)                                   % INFINITY, NAN, HUGE_VAL (0.101)
 ccl_type_of(call(id('__builtin_complex'), [A, _]), T) :- ccl_type_of(A, AT), AT \== unknown, !, ccl_complex_of(AT, T).   % C11's CMPLX and I, in the compiler's <complex.h> (0.100)   % C23's <stdckdint.h> is written on them
@@ -628,7 +678,7 @@ ccl_range_var_type(ref(Q, base(_, [auto])), ET, ref(Q, ET)) :- !.
 ccl_range_var_type(rref(Q, base(_, [auto])), ET, ref(Q, ET)) :- !.
 ccl_range_var_type(ptr(Q, base(_, [auto])), ET, T) :- !, ( ccl_resolve_type(ET, ptr(_, _)) -> T = ET ; T = ptr(Q, ET) ).
 ccl_range_var_type(T, _, T).
-ccl_promoted_or_unknown(ET, T) :- ( ccl_is_integer(ET) -> ccl_promote(ET, T) ; ccl_is_float(ET) -> T = ET ; T = unknown ).
+ccl_promoted_or_unknown(ET, T) :- ( ccl_is_integer(ET) -> ccl_promote(ET, T) ; ccl_is_float(ET) -> T = ET ; ccl_is_decimal(ET) -> T = ET ; T = unknown ).
 %% an array decays to a pointer to its element, a function to a pointer to
 %% itself; anything else keeps its name (a typedef stays a typedef)
 %% the canonical form of a resolved type, for `_Generic' (the reader) -- every typedef resolved through the pointers,

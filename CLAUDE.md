@@ -10,8 +10,8 @@ it found, its measurements and its gate numbers. `README.md` tells a user what r
 architecture and the milestones. A step that changes a rule edits the rule here, in its topic, and writes its entry
 in `HISTORY.md`.
 
-At 0.128 the versions are: the module 0.128 (`ccl_p_version` in `module/cicilang.cicili`, `bin/cicilang --version`),
-the reader 123 (`ccl_reader_version/1`, `library/ccl_syntax.pl`) and the lowering 69 (`ccl_lowering_version/1`,
+At 0.129 the versions are: the module 0.129 (`ccl_p_version` in `module/cicilang.cicili`, `bin/cicilang --version`),
+the reader 124 (`ccl_reader_version/1`, `library/ccl_syntax.pl`) and the lowering 70 (`ccl_lowering_version/1`,
 `library/ccl_ir.pl`).
 
 Build and prove, always in this order (or all of it, `sh test/gates.sh`):
@@ -371,15 +371,18 @@ tutorials/01..03-*.pl       the objects layer's lessons; goal main, last line do
 - The compile gate. `test/compile.pl`, one process over the user's store, reads, checks, lowers, compiles at `-O1`
   and links every `test/c/run/*.c` at its `NAME.std` level (`c_level`). It expects every `test/c/safe/*.c` refused.
   `test/compile.sh` runs each binary as `NAME arg1 arg2` against `NAME.expect`, and compares each refusal with
-  `safe/NAME.expect`. There are 64 run and 43 safe fixtures at 0.128. (M2, M3, 0.57)
-- The driver gate. `test/driver.sh` makes 27 checks of `bin/cicilang` over the user's store. They cover what `-o`,
+  `safe/NAME.expect`. There are 67 run and 43 safe fixtures at 0.129. (M2, M3, 0.57)
+- The driver gate. `test/driver.sh` makes 28 checks of `bin/cicilang` over the user's store (the decimal ABI check is
+  skipped where no gcc with decimal floating types is installed). They cover what `-o`,
   `-c`, `-S`, `-emit-llvm`, `-shared`, `-I`, `-ast-dump`, `-fsyntax-only` and `-g` make (the line table read back by
   `llvm-dwarfdump`, from `$PATH` or `$LLVM/bin`: the statements' lines and the file's name), and the diagnostics in
   clang's shape (`#warning` printed, `#error` with exit 1). They find `@ccl_drain_node` in `btree.c`'s IR, and pass
   structs by value both ways against clang-built code (`test/c/link/abi_main.c`, `abi_helper.c`; seven lines at 0.117,
   the last two for the SysV register budget, `budget_*` built by clang and `bud_*` by cicilang). The store must serve
   `hello.c` in under 10 s and redo only the changed one of two files. The gate follows the host: `_main:` and `.dylib`
-  on Darwin, `main:` and `.so` elsewhere. (M4, 0.93, 0.128)
+  on Darwin, `main:` and `.so` elsewhere. The decimal floating types cross the ABI against gcc-built code both ways
+  (`test/c/link/dec_main.c`, `dec_helper.c`: values, structs by value, a variadic call; clang has no decimal types).
+  (M4, 0.93, 0.128, 0.129)
 - The objects gate. `test/objects.sh` makes 29 checks of the objects layer, an instance that outlives its process
   among them. (from the start)
 - The proof. `proof/run.sh` has clang turn `proof/forty2.ll` into a binary that prints `cicilang reaches C` and exits
@@ -413,7 +416,7 @@ tutorials/01..03-*.pl       the objects layer's lessons; goal main, last line do
 ### The C++ gate: test/cpp.sh
 
 - `test/cpp.sh` runs in this order: `test/cpp.pl` in one `--local` process; three checks of the command; every
-  `test/cpp/run/*.cpp` as a pool job (439 at 0.127); `classes.cpp` and `templates.cpp` built and run; the refusals.
+  `test/cpp/run/*.cpp` as a pool job (443 at 0.129); `classes.cpp` and `templates.cpp` built and run; the refusals.
   (0.105)
 - `test/cpp.pl` runs 43 numbered checks, `c1` to `c43`, then reads Cicili's six C++ files whole (`test/cpp/objects.cpp`,
   `emit_report.cpp`, `specialise.cpp`, `syntax.cpp`, `torch.cpp`, `torch-fragment.cpp`). `c34` checks the Itanium
@@ -666,8 +669,11 @@ tutorials/01..03-*.pl       the objects layer's lessons; goal main, last line do
   decimal literal, else `0x` and the lowercase hex digits, no leading zeros. `pp_norm` uses the same door. A reader of
   the atom takes it by its base, the constant evaluator too (`ccl_wide/2`). `test/c/run/bigint.c`, `bighex.c`. Why:
   cocolog's integers are 61-bit, and `9223372036854775807LL` was -1. (0.94, 0.112)
-- A `big` literal is the first of `long` and `unsigned long` that holds it (`ccl_big_type/2`, `ccl_big_signed/1`), and
-  it keys a template instance by its atom (`cpp_type_key`). (0.94)
+- A `big` literal is the first of `long` and `unsigned long` that holds it (`ccl_big_type/2` over `ccl_big_fits/3`), and
+  it keys a template instance by its atom (`cpp_type_key`). A value past 64 bits, which only a fold makes (a 128-bit
+  type's constant: `numeric_limits<__int128>::max()`), is the first of `__int128` and `unsigned __int128` that holds it,
+  and a negative value is a `long` where it fits one; the lowering spells `int(big(A))` in that type (`ir_expr`). Before
+  0.129 such a value was an `unsigned long`, lowered as an `i64` and cut to its low half. (0.94, 0.129)
 
 ### Floating literals
 
@@ -680,6 +686,12 @@ tutorials/01..03-*.pl       the objects layer's lessons; goal main, last line do
 - A float past the largest finite double is that double, at the parser's one float door (`ccl_primary_` through
   `ccl_finite_float/2`). Why: cocolog writes an infinity as `inf.0`, which its own reader refuses, so a summary's AST
   holding `__LDBL_MAX__` did not consult. (0.55)
+- A DECIMAL FLOATING LITERAL (C23 6.4.4.2; 0.129) ends in `df`, `dd` or `dl` (or `DF`, `DD`, `DL`; `ccl_dec_suffix/3`, the
+  native `ccl_lx_float_suffix` with `fsfx` 3 to 5) and is `tok(dec32 | dec64 | dec128, Text, L)`: its TEXT, as the lexers
+  spell it for strtod (`0.1`, `1.0e5`, `.5`, the separators dropped; `ccl_float_value/3`), since no double holds 0.1. The
+  parser makes `dec32(Text)`, `dec64(Text)`, `dec128(Text)`, and the lowering encodes the text exactly (the Lowering
+  topic). `-E` spells it back with its suffix (`pp_dec_suffix/2`). Reader `k84` reads a line of them in both lexers.
+  (0.129)
 
 ### Imaginary literals
 
@@ -820,11 +832,14 @@ tutorials/01..03-*.pl       the objects layer's lessons; goal main, last line do
 - `__OPTIMIZE_SIZE__` is predefined in C++, so libc++ 21 compiles its scalar algorithms, not the vectorized ones
   behind `_LIBCPP_HAS_ALGORITHM_VECTOR_UTILS && !defined(__OPTIMIZE_SIZE__)` (vector types, generic lambdas, vector
   builtins). libc++ 18 reads it nowhere. (0.92)
-- NO 128-BIT INTEGER IN C++: `__SIZEOF_INT128__` is predefined in C (16; `pp_predef(..., c, '16')`, a `c` table that
-  `pp_predef_macro/3` asks) and NOT in C++, so libc++ builds its `_LIBCPP_HAS_NO_INT128` configuration (libc++ 18 reads
-  the macro in `__config` only; glibc not at all). The type itself lowers in both languages (below), so a program's own
-  `__int128` runs in C++ too. Why: `std::format`'s `__basic_format_arg_value` held an `__int128_t` member, and its
-  visitor met `invoke_result<F, unknown>`. (0.112, 0.117)
+- 128-BIT INTEGERS IN BOTH LANGUAGES: `__SIZEOF_INT128__` is predefined in C and in C++ (16; `pp_predef(..., any,
+  '16')`, 0.129), so libc++ builds its int128 configuration: `is_integral<__int128>`, `make_unsigned`,
+  `numeric_limits<__int128>`, `to_chars` and `from_chars` in 128 bits, `std::hash<__int128>`, `std::format` of one.
+  From 0.112 to 0.128 C++ went without the macro, and libc++ in its `_LIBCPP_HAS_NO_INT128` configuration: its
+  `__basic_format_arg_value` holds an `__int128_t` member, which nothing typed before `__int128` lowered (0.117). The
+  configuration found three defects, mended in 0.129: a conditional over bit builtins had no type, a folded constant past
+  64 bits was cut to 64, and every explicit specialization of a function template was ignored (each in its topic).
+  Reader 124. `int128lib.cpp`, `int128fmt.cpp` (C++20). (0.112, 0.117, 0.129)
 - `__has_extension(c_atomic)` and `__has_extension(datasizeof)` (0.112) answer 1, the two extensions answered
   (`pp_builtin_answer`; the second makes libc++ 18 take `__datasizeof(T)`, folded by the desugaring);
   `__has_feature(cxx_atomic)` and `__has_keyword(_Atomic)` stay 0. libc++ 18 then defines `_LIBCPP_HAS_C_ATOMIC_IMP`,
@@ -974,11 +989,13 @@ tutorials/01..03-*.pl       the objects layer's lessons; goal main, last line do
 - An ENUM ranks and promotes as its underlying type, the written base or `int` ([conv.prom]/3-4, C23 6.3.1.1; `ccl_int_rank`,
   `ccl_promote` over `ccl_enum_underlying/2`): `e + 1` and `~e` are that type's arithmetic. Fixture: `promotion.cpp`. Why: an
   enum stayed itself through the conversions, so a promotion could not be told from a conversion (below). (0.127)
+- `_Decimal32`, `_Decimal64` and `_Decimal128` are type words of the grammar's table, as `__int128` is
+  (`ccl_gnu_word/2`; the lexers' keyword tables are the language's, and C23's new keywords arrive as identifiers), at
+  every level as gcc reads them; they were read as typedef names (0.129).
 - `__int128` is a type word (`ccl_gnu_word('__int128', '__int128')`, `ccl_basic_type`; `signed`/`unsigned` with it,
   `long` never): `ccl_builtin_typedef/2` gives `__int128_t` and `__uint128_t` their types, integer rank 6 above `long
   long`, size and alignment 16, LLVM `i128` (`ir_base`), Itanium `n` and `o`. Reader `k92` over `test/c/run/int128.c`.
-  The decimal floating types `_Decimal32`, `_Decimal64`, `_Decimal128` are read and sized; nothing lowers them. (0.71,
-  0.93, 0.117)
+  The decimal floating types are the Lowering's topic (0.129). (0.71, 0.93, 0.117)
 - `_Thread_local` and `thread_local` (C++, C23) are the QUALIFIER `thread_local`, not storage; their clauses precede
   the storage clause, so `static _Thread_local` keeps both. Reader `k91`. (0.93)
 - `_Alignas(E)`, and C23's and C++'s `alignas(E)`, on an object are the qualifier `aligned(E)`; in an attribute
@@ -1632,14 +1649,14 @@ tutorials/01..03-*.pl       the objects layer's lessons; goal main, last line do
 
 ### The versions
 
-- `ccl_reader_version/1` (`library/ccl_syntax.pl`, now 123): bump it for any grammar change to what a read gives, and
+- `ccl_reader_version/1` (`library/ccl_syntax.pl`, now 124): bump it for any grammar change to what a read gives, and
   for any change to what the AST beside a summary holds (item or member terms, `cpp_index_name/2`,
   `cpp_template_name/2`, `ccl_flat_items/3`, the namespace keys). Keep the reason in its comment. Why: the store and the
   summaries are keyed by it, and a stale read is served silently (`sizeof(std::string)` read 40). (M1, 0.89, 0.112,
   0.117)
 - A reader bump makes every summary cold; `test/libcxx.sh` rewrites them. `test/reader.pl`'s `k16` (a cached read is
   the same AST as a fresh one) goes RED on a grammar change without a bump. (0.93, 0.105)
-- `ccl_lowering_version/1` (`library/ccl_ir.pl`, now 69): bump it whenever the check or the lowering changes what it
+- `ccl_lowering_version/1` (`library/ccl_ir.pl`, now 70): bump it whenever the check or the lowering changes what it
   emits, however small -- 0.120 bumped it for the ORDER of the drain functions alone. Why: `dr_ir/3` serves the old IR
   otherwise. Either bump starts the C store afresh. (M4, 0.103, 0.120)
 
@@ -2818,6 +2835,20 @@ free. A const method adds `.c`, a ref-qualified one `.r` or `.rr` after it: each
   0.94)
 - A function template declared and never defined still instantiates, as a declaration: a decltype wants only its type
   (`declval`). (0.51)
+- AN EXPLICIT SPECIALIZATION OF A FUNCTION TEMPLATE IS NO CANDIDATE ([temp.expl.spec], [over.match.funcs]/7; 0.129):
+  overload resolution chooses among the templates, and the chosen one's instance for those arguments IS the
+  specialization. `cpp_register_` keeps a `template(L, [], Function)` apart, `'$cpp_fspec'(Template, Args | none, Item)`
+  (`cpp_fspec_item/3`: a function or a declaration, named by an atom, by `tmpl(N, Args)` or as a free operator), and
+  `cpp_instantiate_function_emit` takes the body of the DEFINED specialization whose parameter types are the instance's
+  (resolved, by-value top-level cv dropped), whose explicit arguments are the instance's bindings and whose result is
+  the instance's unless either is deduced (`cpp_fspec_for/6`; [temp.deduct.decl]: a specialization deduces its arguments
+  from its function type, the result included); trace `explicit_specialization(F, Name)`. Before 0.129 `template <> int
+  f(unsigned long, int)` was one more template with no parameter, tied with the primary and lost to it, the first
+  declared, and `template <> int f<char>(char, int)` went to the class specializations, which nothing reads for a
+  function: every one was silently ignored -- libc++'s `__to_chars_itoa(char *, char *, __uint128_t, false_type)`
+  printed `42` as twenty digits, and `<locale>`'s `__do_strtod<double>` is one too. A specialization declared and not
+  defined here leaves the primary's body. `fnspec.cpp` (two templates of one name, a result-only parameter, a
+  specialization defined after its use, a namespace). (0.129)
 - A refusal in a HELD candidate's body is the call's, `instance_refused(Name, W)` (`cpp_instantiate_function__`); the
   template roads of `cpp_call` and `cpp_free_operator_call` never fall to plain overloads on it (else C's `getline`
   won by arity). (0.76)
@@ -3822,6 +3853,14 @@ A lambda is a class of its captures (`library/ccl_cpp.pl`). A fixture named alon
   as hex (`ccl_wide/2`, `ccl_limbs_of_hex/3`). `test/c/run/bighex.c`. (0.94, 0.112)
 - A wide result runs on base-2^30 limbs (`ccl_w_*` over `ccl_mag_*`; `ccl_w_fits/1` the fast path). `/` and `%` truncate
   toward zero, `>>` of a negative is arithmetic, bitwise operators are two's complement (`~0` is -1). (0.94)
+- A FLOATING CONSTANT THAT IS THE OPERAND OF A CAST TO AN INTEGER TYPE folds (C 6.6/6, [expr.const]; 0.129):
+  `(int) 2.5`, `(__int128) 1e30` and `(long) -3.75` (`ccl_float_operand/2`, the two cast clauses of `ccl_const_eval/2`
+  before the general ones). A floating literal alone still folds nowhere, since a folded floating static would become an
+  integer. A double past 2^59 converts to an integer exactly: it is m * 2^e with m below 2^53, halving it is exact, and
+  the wide value is m shifted (`ccl_float_int/2`; `truncate/1` has the engine's 61 bits); an integer past 2^60 converts
+  to a double rounded to nearest, ties to even, from its top 53 bits, the next one and the sticky rest (`ccl_w_float/2`;
+  it had stayed an integer for a double). An infinity or a NaN converts to no integer. `test/c/run/floatglobal.c`.
+  (0.129)
 - A cast to an integer type WRAPS to its width and signedness ([conv.integral]; `ccl_w_cast/3`, `ccl_w_wrap/4`):
   `(long long) (1ULL << 63)` is -2^63; a floating value truncates, then wraps. `test/c/run/bigint.c`. Why: libc++'s
   `numeric_limits<T>::max()` folded to -1 and the string extractor never looped. (0.94, 0.108)
@@ -5113,6 +5152,11 @@ A lambda is a class of its captures (`library/ccl_cpp.pl`). A fixture named alon
   `test/cpp/run/staticbase.cpp`). (M2b, 0.72, 0.79, 0.108, 0.112)
 - A wide literal, or a pointer into one, is a pointer's global constant (`ir_wide_lit`: `wstr` and `u32str` i32,
   `u16str` i16, through `ir_wstring`); an array of wide characters is not taken here. (0.115)
+- A FLOATING global's fold (`ir_fp_value/2`) takes a cast to an integer type as the truncation and the wrap it is
+  (`ir_fp_cast/3`: `(double) (int) 2.5` was 2.5, the cast passed over) and an integer past 2^60 as a double
+  (`ccl_w_float/2`: `double d = (double) ((__int128) 1 << 100)` was refused); an INTEGER global from a floating initializer
+  converts (C 6.3.1.4; `ir_int_of_float/3`): `int g = 2.5;` and `unsigned __int128 g = 3e38;` were spelled as a double's hex,
+  which LLVM refuses for an integer, and `int g = -2.5;` was refused, `global_init`. `test/c/run/floatglobal.c`. (0.129)
 - Brace elision ([dcl.init.aggr]/15, and C's own rule): an array member given a non-braced item takes as many of the
   following items as it has elements, while more items than members remain (`ir_init_items/4`, `ir_elide_take/4`; a
   global's through `ir_gelide/4`). Every `std::array` initializer needs it. (0.91, 0.110)
@@ -5122,6 +5166,38 @@ A lambda is a class of its captures (`library/ccl_cpp.pl`). A fixture named alon
   An unsized array takes its size from its initializer (`ir_sized_type/4`). (0.54, 0.93, 0.99)
 - A char array from a string is zero-filled past the literal (C11 6.7.9/21; `ir_init_zero/2`). A wide one stores its
   decoded code points (`ir_init_chars/4`). `test/c/run/wstr_alignas.c`. (0.99)
+
+### Decimal floating types
+
+- C23's `_Decimal32`, `_Decimal64` and `_Decimal128` run as gcc builds them (0.129; read and sized since 0.93, refused by
+  name until 0.129). A value is its BID encoding (IEEE 754-2008's binary integer decimal) CARRIED in LLVM as a `float`, a
+  `double` and an `fp128` (`ir_base` through `ir_dec_ll/2`) -- never computed on as one -- so the SysV ABI passes it
+  where gcc does, in an SSE register, the `fp128` in one. Every operation is a call of libgcc's decimal runtime, which `cc`
+  links (`ir_dec_call/5` declares each): `+ - * /` are `__bid_add<k>3` ... (k `sd`, `dd` or `td`; `ir_dec_arith/6`,
+  another operator refused, `decimal_operator(Op)`); a comparison is `__bid_<eq|ne|lt|le|gt|ge><k>2`, whose long answer's
+  sign tells (`ir_dec_cmp/6`); a truth test is the `ne` against the carrier's zero, whose all-zero bits are a decimal zero
+  (`ir_dec_nonzero/4`, in `ir_cond/2` and `ir_to_bool/4`); `++` and `--` add the kind's one (`ir_step_`); a negation flips
+  the sign bit, as gcc does (`ir_dec_negate/4`). (0.129)
+- The conversions (`ir_dec_convert/6`, a clause of `ir_convert/6`): between decimal kinds `__bid_extend<f><t>2` and
+  `__bid_trunc<f><t>2`; to and from an integer the width's routine, `si` for 32 bits and below (`__bid_floatsidd`,
+  `__bid_fixunsddsi` ...) and `di` for 64, a 128-bit integer refused (`decimal_conversion(From, To)`); to and from a
+  standard floating type `sf`, `df`, `xf` (a `_Float16` through a float), named `extend` or `trunc` by the formats' widths
+  -- between formats of one width a decimal truncates to binary and a binary extends to decimal, as libgcc names them;
+  to a bool the test. (0.129)
+- A literal is encoded here, exactly (`ir_dec_literal/3`): its text's digits and exponent (`ir_dec_parse/3`), rounded half
+  to even past the kind's precision (7, 16, 34 digits; `ir_dec_round_to/5`), an exponent past the greatest clamped by
+  padding with zeros where the coefficient holds them, else an infinity, one past the least rounded away (`ir_dec_fit/3`),
+  then the short form (the biased exponent above the coefficient) or the long one (`11`, the exponent, the coefficient's
+  low bits under an implied `100`; `ir_dec_bits/3`), spelled `bitcast (i64 N to double)` with N the pattern read signed.
+  A decimal GLOBAL's constant is a literal of any decimal kind re-encoded in its own, its negation or an integer constant
+  (`ir_dec_fold/3`); anything else is refused by name, `decimal_constant(E)`. (0.129)
+- The inference (`library/ccl_infer.pl`): `ccl_is_decimal/1`, `ccl_decimal_kind/2`; a decimal is arithmetic and no
+  standard floating type (`ccl_is_float/1` stays false); the usual arithmetic conversions take the wider decimal type
+  where either operand is decimal, an integer converted to it (C23 6.3.1.8; `ccl_decimal_usual/3`); a decimal is never
+  promoted. A decimal member of an aggregate is an SSE leaf, a `_Decimal128` SSE and SSEUP, one `fp128` piece in one
+  register (`ir_leaves/3`, `ir_eightbytes/4`, the register budget and `va_arg`'s register area): the driver gate passes
+  values, structs and a variadic call both ways against gcc-built code. `test/c/run/decimal.c` (gcc's output; clang has no
+  decimal types). (0.129)
 
 ### long double, _Complex, _BitInt and wide characters
 
@@ -5154,8 +5230,7 @@ A lambda is a class of its captures (`library/ccl_cpp.pl`). A fixture named alon
   components (`ir_leaves/3`): SSE leaves for a floating one, INTEGER for an integer one, X87 and X87UP for a long
   double one. (0.100, 0.101, 0.108)
 - `_BitInt(N)` is exactly `iN` (`ir_base`), sized by the psABI: the smallest of 1, 2, 4 or 8 bytes up to 64 bits, and
-  whole eightbytes aligned 8 past that. The decimal floating types are refused by name, `decimal_floating_type(D)`.
-  (0.93)
+  whole eightbytes aligned 8 past that. (0.93)
 - `wchar_t` is a signed `i32`, `char16_t` an unsigned `i16` and `char32_t` an unsigned `i32` (LP64). A wide string
   literal is a constant of its decoded code points (`ir_wstring/3`, `ir_utf8_decode/2`). `sizeof` of a string literal
   is its array's bytes, one element per code point for a wide one (`ccl_literal_bytes/2`). (0.92, 0.93, 0.103)
@@ -5193,9 +5268,15 @@ A lambda is a class of its captures (`library/ccl_cpp.pl`). A fixture named alon
 
 ### Builtins
 
+- The bit builtins answer an `int` to the inference too (`ccl_bit_builtin/2`, the one table, which the lowering's
+  `ir_bit_builtin/2` reads; 0.129): `c ? 64 + __builtin_clzll(x) : __builtin_clzll(y)` had no type, in C as in C++, and the
+  lowering refused it, `type(unknown)` -- libc++'s `__libcpp_clz(__uint128_t)` is written so. `test/c/run/bitcond.c`.
 - The bit builtins are LLVM's intrinsics at the argument's own width (`ir_bit_builtin/2`): `__builtin_clz*`, `ctz*`,
   `popcount*`, and the generic `g` forms with their value for zero. A zero argument is defined, and the result is an
-  `int`. The intrinsic's `declare` is a raw line, since `i1` has no C spelling. (0.73)
+  `int`. The intrinsic's `declare` is a raw line, since `i1` has no C spelling. Every integer width is one
+  (`ir_bit_width/2`): an `unsigned __int128` is `i128` and an `unsigned _BitInt(N)` its own `iN` -- libc++ 21's
+  `__countl_zero` calls `__builtin_clzg` on an `unsigned __int128` (libc++ 18 splits it into two 64-bit calls), and the
+  gate over libc++ 21 found the widths 8 to 64 only, eight fixtures RED. `bitwide.c`, `bit128.cpp`. (0.73, 0.129)
 - The overflow builtins (`__builtin_add_overflow` and kin, `ccl_overflow_builtin/2`) compute the exact result in
   `i128` over operands widened by their own signedness (`ir_widen128/4`). They store the truncated result and answer
   whether it lost anything. C23's `<stdckdint.h>` is written on them. (0.93)
@@ -5688,10 +5769,10 @@ A lambda is a class of its captures (`library/ccl_cpp.pl`). A fixture named alon
   0.90, all GREEN (cocolog 1.2.18). The fixtures added since 0.93 have run on Linux only.
 - Ubuntu 24.04 on x86_64 (clang and LLVM 18, glibc, libc++ 18 and 21) is a host since 0.87. Every gate but the C++ one is
   GREEN there since 0.93, and all seven since 0.95. Every step from 0.93 on is gated there, but the save points 0.112,
-  0.113, 0.117, 0.122 to 0.125 (gated by the steps after them); the last full run is 0.128's, over cocolog 1.9.1, on one
-  tree: over libc++ 18 all seven GREEN (reader 5 s, compile 10 s, driver 7 s, objects 4 s, proof, the library read in 1123 s,
-  the C++ gate in 929 s with 438 of 439 fixtures ok, the skip is `stdoptionalref`, and the 21 refusals); over libc++ 21 the
-  library read (940 s) and the C++ gate (644 s, 438 of 439 ok, the same skip) GREEN -- the C gates do not read libc++. Two libc++ passes are one
+  0.113, 0.117, 0.122 to 0.125 (gated by the steps after them); the last full run is 0.129's, over cocolog 1.9.1, on one
+  tree: over libc++ 18 all seven GREEN (reader 5 s, compile 10 s, driver 7 s, objects 3 s, proof, the library read in 1327 s,
+  the C++ gate in 1128 s with 442 of 443 fixtures ok, the skip is `stdoptionalref`, and the 21 refusals); over libc++ 21 the
+  library read (1141 s) and the C++ gate (794 s, 442 of 443 ok, the same skip) GREEN -- the C gates do not read libc++. Two libc++ passes are one
   gate: `LLVM=/usr/lib/llvm-18` and `LLVM=/usr/lib/llvm-21` choose the tree the chain reads and links. libc++ 22 (the
   newest tree, which a run without `$LLVM` reads) is untried but for `stdoptionalref`, which passes there. The run before
   0.121's (0.118, 0.119) found, over 0.117, two defects and one stale check of `test/cpp.pl` (c20, above).
@@ -5938,14 +6019,11 @@ A lambda is a class of its captures (`library/ccl_cpp.pl`). A fixture named alon
 
 ### C
 
-- `_Decimal32`, `_Decimal64` and `_Decimal128` (C23) are read and sized, then refused by name,
-  `decimal_floating_type(D)` in `ir_base`: LLVM has no arithmetic for them (0.93).
 - The lowering refuses by name `va_arg` of a struct, a union, a complex or an `__int128` on AAPCS64
   (`va_arg_of_aggregate`; x86-64 expands them, 0.117): no arm64 host or emulator is on this box.
-- `__int128` runs in C and C++ (LLVM's `i128`, 0.117), but C++ has no `__SIZEOF_INT128__`: libc++ keeps its no-int128
-  configuration by design, so `std::numeric_limits<__int128>`, `to_chars` and `std::format` of one are the library's
-  fallback (untried); a constant of the type that does not fold is refused where a global needs it,
-  `global_init(E)` (0.112, 0.117).
+- A decimal floating value converts to and from a 128-bit integer nowhere (`decimal_conversion`): gcc calls
+  `__bid_floattidd` and `__bid_fixddti`, which this box's libgcc does not have, and its own link fails. A decimal global's initializer is a literal, its negation or an integer constant; an
+  operation in it is refused, `decimal_constant(E)` (gcc folds it) (0.129).
 
 ### C++ language
 
@@ -6048,6 +6126,11 @@ A lambda is a class of its captures (`library/ccl_cpp.pl`). A fixture named alon
   and undefine (0.112); a run with either keeps no C store.
 - A C++ read never uses the store: `cicilang++` runs `--no-kb` (M5). The C++ cache is the summary and the AST beside it
   (0.35, 0.45).
+- A READ SERVED FROM A STORE HOLDS ITS FLOATS WITH 15 DIGITS: cocolog writes a float with `%.15g` (its `lib/term.cicili`, whose
+  comment says 15 digits read every double back, which is not so), so a literal that needs 16 or 17 digits comes back another
+  double from the C store or from a C++ summary -- a silent wrong answer -- and the largest double comes back an infinity, on
+  which the lowering's normalization recurses without end (`hexfloat.c` built a second time over one store: 7.3 GB). Found by
+  0.129's re-gate; a request to cocolog's owner, and a workaround here, are the next step's.
 - cocolog has no `oom` check in its step loop (1.8.41), so a refused allocation gives a wrong answer. Its heap
   collector (1.8.36) does not run inside a nested engine (`findall/3`, `forall/2`). These are requests to cocolog's
   owner, never changes here (owner's rule) (0.46, 0.112).

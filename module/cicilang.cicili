@@ -258,7 +258,7 @@
   ;; ccl_version(-Atom): THE VERSION. Every commit raises it (owner's rule),
   ;; one number per change; `cicili --version' prints it with LLVM's.
   (func ccl_p_version ((coco_engine * e) (size_t g)) (out int)
-        (return (coco_m_unify_atom e (coco_m_arg e g 0) "0.128")))
+        (return (coco_m_unify_atom e (coco_m_arg e g 0) "0.129")))
 
   ;; ccl_cocolog_version(-Atom): the engine's own version text, from the
   ;; running binary (coco_version_text is cocolog's, resolved at load like
@@ -289,7 +289,7 @@
     (member int punct) (member int cpp)
     (member size_t * toks) (member size_t ntoks) (member size_t cap)
     (member char * buf) (member size_t bn) (member size_t bcap)
-    (member size_t k_id) (member size_t k_kw) (member size_t k_int) (member size_t k_float) (member size_t k_floatf) (member size_t k_floatl) (member int fsfx) (member size_t k_str)
+    (member size_t k_id) (member size_t k_kw) (member size_t k_int) (member size_t k_float) (member size_t k_floatf) (member size_t k_floatl) (member size_t k_dec32) (member size_t k_dec64) (member size_t k_dec128) (member int fsfx) (member size_t k_str)
     (member size_t k_uint) (member size_t k_long) (member size_t k_ulong) (member size_t k_bitint) (member size_t k_ubitint) (member int sfx)
     (member size_t k_imag) (member size_t k_imagf) (member size_t k_imagl) (member size_t k_imagi) (member size_t k_imagui) (member size_t k_imagli) (member size_t k_imaguli) (member int imag)
     (member size_t k_wstr) (member size_t k_u16str) (member size_t k_u32str) (member size_t k_wchr) (member size_t k_u16chr) (member size_t k_u32chr)
@@ -531,6 +531,12 @@
           (set (-> x fsfx) 0)
           (set c (ccl_lx_at x j))
           (if (ccl_lx_imag_c c) (block (set (-> x imag) 1) (set j (+ j 1)) (set c (ccl_lx_at x j))))   ; `1.0i', `1.0if', `1.0il' (0.101)
+          (if (and (== (-> x imag) 0)
+                   (or (and (== c 100) (or (== (ccl_lx_at x (+ j 1)) 102) (or (== (ccl_lx_at x (+ j 1)) 100) (== (ccl_lx_at x (+ j 1)) 108))))
+                       (and (== c 68) (or (== (ccl_lx_at x (+ j 1)) 70) (or (== (ccl_lx_at x (+ j 1)) 68) (== (ccl_lx_at x (+ j 1)) 76))))))
+              (block (set c (ccl_lx_at x (+ j 1)))                                ; C23's df, dd, dl and DF, DD, DL (0.129): a decimal floating literal
+                     (set (-> x fsfx) (? (or (== c 102) (== c 70)) 3 (? (or (== c 100) (== c 68)) 4 5)))
+                     (return (+ j 2))))
           (if (or (== c 108) (== c 76))
               (block (set j (+ j 1))
                      (set (-> x fsfx) 2)                                              ; `1.0L': a long double (0.108)
@@ -589,7 +595,9 @@
           (set (-> x i) j)))
   (static) (func ccl_lx_emit_float ((ccl_lx * x) (size_t j) (i64 line))
         (let ((char * endp . nil))
-          (ccl_lx_tok x (? (== (-> x imag) 2) (-> x k_imagf) (? (== (-> x imag) 1) (? (== (-> x fsfx) 2) (-> x k_imagl) (-> x k_imag)) (? (== (-> x fsfx) 1) (-> x k_floatf) (? (== (-> x fsfx) 2) (-> x k_floatl) (-> x k_float))))) (coco_m_new_float (-> x e) (strtod (-> x buf) (aof endp))) line)   ; `1.0li', `1.0il': imagl (0.112)
+          (if (>= (-> x fsfx) 3)                                                   ; a decimal literal is its TEXT (0.129): `0.1', `1.0e5', `.5', which the lowering encodes exactly
+              (ccl_lx_tok x (? (== (-> x fsfx) 3) (-> x k_dec32) (? (== (-> x fsfx) 4) (-> x k_dec64) (-> x k_dec128))) (coco_m_new_atom (-> x e) (-> x buf)) line)
+              (ccl_lx_tok x (? (== (-> x imag) 2) (-> x k_imagf) (? (== (-> x imag) 1) (? (== (-> x fsfx) 2) (-> x k_imagl) (-> x k_imag)) (? (== (-> x fsfx) 1) (-> x k_floatf) (? (== (-> x fsfx) 2) (-> x k_floatl) (-> x k_float))))) (coco_m_new_float (-> x e) (strtod (-> x buf) (aof endp))) line))   ; `1.0li', `1.0il': imagl (0.112)
           (set (-> x i) j)))
   (static) (func ccl_lx_number ((ccl_lx * x) (i64 line)) (out int)
         (let ((size_t i0 . 0) (size_t j . 0) (size_t dend . 0) (size_t fstart . 0) (size_t fend . 0) (size_t k . 0) (size_t q . 0)
@@ -932,6 +940,9 @@
           (set (-> x k_float) (coco_m_new_atom e "float"))
           (set (-> x k_floatf) (coco_m_new_atom e "floatf"))
           (set (-> x k_floatl) (coco_m_new_atom e "floatl"))
+          (set (-> x k_dec32) (coco_m_new_atom e "dec32"))
+          (set (-> x k_dec64) (coco_m_new_atom e "dec64"))
+          (set (-> x k_dec128) (coco_m_new_atom e "dec128"))
           (set (-> x fsfx) 0)
           (set (-> x k_imag) (coco_m_new_atom e "imag"))
           (set (-> x k_imagf) (coco_m_new_atom e "imagf"))

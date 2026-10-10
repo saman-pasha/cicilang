@@ -30,6 +30,11 @@ check "a .o from -c links with a .c" "$("$CICILI" -c "$R/link/lib.c" -o lib.o &&
 # and the program prints what the same program built by clang alone prints
 check "structs by value cross the ABI both ways, as clang has it" "$(clang -c "$R/link/abi_helper.c" -o abi_helper.o && "$CICILI" "$R/link/abi_main.c" abi_helper.o -o abi && ./abi > abi.out && clang "$R/link/abi_main.c" "$R/link/abi_helper.c" -o abi_ref && ./abi_ref > abi_ref.out && cmp -s abi.out abi_ref.out && echo same && wc -l < abi.out | tr -d ' ')" "same
 7"
+# the decimal floating types (0.129) as gcc passes them -- clang has none: values, structs and a variadic call, both ways
+if printf '_Decimal64 x = 1.0dd;\n' | gcc -x c -c -o /dev/null - 2>/dev/null; then
+check "decimal values cross the ABI both ways, as gcc has it" "$(gcc -c "$R/link/dec_helper.c" -o dec_helper.o && "$CICILI" "$R/link/dec_main.c" dec_helper.o -o dec && ./dec > dec.out && "$CICILI" -c "$R/link/dec_helper.c" -o dec_helper_ours.o && gcc "$R/link/dec_main.c" dec_helper_ours.o -o dec_rev && ./dec_rev > dec_rev.out && gcc "$R/link/dec_main.c" "$R/link/dec_helper.c" -o dec_ref && ./dec_ref > dec_ref.out && cmp -s dec.out dec_ref.out && cmp -s dec_rev.out dec_ref.out && echo same && wc -l < dec.out | tr -d ' ')" "same
+2"
+else echo "skip  decimal values across the ABI: no gcc with decimal floating types"; fi
 check "-I adds to the inclusion path (a typedef from box.h)" "$("$CICILI" -I "$R/inc" "$R/inc/uses_box.c" -o boxed && ./boxed)" "42"
 check "-shared -O1 makes a library" "$("$CICILI" -shared -O1 "$R/link/lib.c" -o libtwice.$SO && file libtwice.$SO | grep -c "$SOTEXT")" "1"
 printf '#warning mind the gap\nint main(void) { return 3; }\n' > warn.c

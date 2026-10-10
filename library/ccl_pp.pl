@@ -395,6 +395,8 @@ pp_spell(tok(int, N, _), Cs) :- !, pp_int_codes(N, Cs).
 pp_spell(tok(float, N, _), Cs) :- !, number_codes(N, Cs).
 pp_spell(tok(floatf, N, _), Cs) :- !, number_codes(N, Cs0), append(Cs0, [0'f], Cs).     % `1.5f' and `1.5L' spelled with their suffixes (0.108)
 pp_spell(tok(floatl, N, _), Cs) :- !, number_codes(N, Cs0), append(Cs0, [0'L], Cs).
+pp_spell(tok(K, A, _), Cs) :- pp_dec_suffix(K, Sfx), !, atom_codes(A, Cs0), append(Cs0, Sfx, Cs).   % a decimal literal: its text and its suffix (0.129)
+pp_dec_suffix(dec32, [0'd, 0'f]).  pp_dec_suffix(dec64, [0'd, 0'd]).  pp_dec_suffix(dec128, [0'd, 0'l]).
 pp_spell(tok(imag, N, _), Cs) :- !, number_codes(N, Cs0), append(Cs0, [0'i], Cs).
 pp_spell(tok(imagf, N, _), Cs) :- !, number_codes(N, Cs0), append(Cs0, [0'i, 0'f], Cs).
 pp_spell(tok(imagl, N, _), Cs) :- !, number_codes(N, Cs0), append(Cs0, [0'i, 0'l], Cs).
@@ -938,7 +940,7 @@ pp_predef('__SIZEOF_FLOAT__', any, '4').
 %% pp_predef('__SIZEOF_INT128__', any, '16').
 %% 0.117: `__int128' lowers (LLVM's i128), and C asks the macro (`#ifdef __SIZEOF_INT128__'; glibc's headers do not), so C
 %% has it; C++ stays without it, libc++'s own no-int128 configuration by design, while a C++ program's `__int128' runs.
-pp_predef('__SIZEOF_INT128__', c, '16').
+pp_predef('__SIZEOF_INT128__', any, '16').
 pp_predef('__SIZEOF_INT__', any, '4').
 pp_predef('__SIZEOF_LONG_LONG__', any, '8').
 pp_predef('__SIZEOF_LONG__', any, '8').
@@ -1359,6 +1361,7 @@ ccl_pp_spell_tok(imagf, F, Out, Rest) :- !, number_codes(F, Cs), append(Cs, [0'i
 ccl_pp_spell_tok(imagl, F, Out, Rest) :- !, number_codes(F, Cs), append(Cs, [0'i, 0'l|Rest], Out).
 ccl_pp_spell_tok(K, N, Out, Rest) :- pp_imag_suffix(K, Sfx), !, pp_int_codes(N, Cs), append(Sfx, Rest, Tail), append(Cs, Tail, Out).
 ccl_pp_spell_tok(floatf, F, Out, Rest) :- !, number_codes(F, Cs), append(Cs, [0'f|Rest], Out).
+ccl_pp_spell_tok(K, A, Out, Rest) :- pp_dec_suffix(K, Sfx), !, atom_codes(A, Cs), append(Sfx, Rest, R1), append(Cs, R1, Out).
 ccl_pp_spell_tok(floatl, F, Out, Rest) :- !, ( F > 1.0e308 -> atom_codes('1e999', Cs) ; F < -1.0e308 -> atom_codes('-1e999', Cs) ; number_codes(F, Cs) ), append(Cs, [0'L|Rest], Out).
 ccl_pp_spell_tok(float, F, Out, Rest) :- F > 1.0e308, !, atom_codes('1e999', Cs), append(Cs, Rest, Out).       % past double (a long double literal): infinite again when read
 ccl_pp_spell_tok(float, F, Out, Rest) :- F < -1.0e308, !, atom_codes('-1e999', Cs), append(Cs, Rest, Out).

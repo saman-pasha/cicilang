@@ -32,6 +32,7 @@ double _Complex imag = 1.0i + 2.5if + 3i + 4.0I + 5.0J + 6e2i + 7.0fi + 0x10i + 
 unsigned _Complex cu = 2ui + 3ULi + 4uwbi; long _Complex cl = 4li + 5LLi + 0x7Fuli + 9000000000000000000i; /* the suffix kinds (0.104) */
 char *uname = "\N{LATIN SMALL LETTER A}\N{SNOWMAN}\N{CJK UNIFIED IDEOGRAPH-4E00}\N{HANGUL SYLLABLE GA}"; int unc = '\N{DIGIT ONE}'; /* \N{NAME} (0.103), both lexers over one table */
 double efl = 1.5f16 + 2.5F32 + 3.0f64 + 4.0f128 + 0.5bf16 + 0.25BF16 + 1e2f32; /* C++23: the extended floating-point suffixes, dropped as f is */
+_Decimal64 dec = 0.1dd + .5DD + 1e3df + 2.5E-3DL + 1'000.25dd + 7.dd + 3e+2DF; /* C23's decimal floating literals (0.129): the text kept, in both lexers */
 const char *raw = R"(a\b"c)" R"xy(1)2)x")xy" LR"(w)" u8R"(u)" uR"(16)" UR"(32)"; /* C++11's raw strings (0.115): in C++ the body as it stands; in C an R and a plain string, in both lexers */
 const char *rawnl = R"(line one
 line two)"; int after_raw = 2;

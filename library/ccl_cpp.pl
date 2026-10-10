@@ -169,7 +169,7 @@ cpp_instance_note(Name, What) :- assertz('$cpp_inst'(Name, What)).
 
 %% ---- the classes of the units: '$cpp_classes' = [C-cls(Base, Data, Members, Statics, Defaults) ...] --------
 cpp_register_units(Units) :-
-    cpp_reset('$cpp_cls'/2), cpp_reset('$cpp_clsl'/2), cpp_reset('$cpp_sfn'/2), cpp_reset('$cpp_nenum'/1), cpp_reset('$cpp_enumv'/3), cpp_reset('$cpp_tmpl'/3), cpp_reset('$cpp_spec'/4), cpp_reset('$cpp_mt'/4), cpp_reset('$cpp_inst'/2), cpp_reset('$cpp_out'/1), cpp_reset('$cpp_ownfn'/1), cpp_reset('$cpp_consteval'/1), cpp_reset('$cpp_mdef'/5), cpp_reset('$cpp_extern'/3), cpp_reset('$cpp_friends'/2), cpp_reset('$cpp_extra'/2), cpp_reset('$cpp_base_slot'/3), cpp_reset('$cpp_primary_moved'/2), cpp_reset('$cpp_vbase'/1), cpp_reset('$cpp_poly_extra'/3), cpp_reset('$cpp_poly_path'/3), cpp_reset('$cpp_hdrfn'/1), cpp_reset('$cpp_nv_base'/2), cpp_reset('$cpp_vb_holder'/2),
+    cpp_reset('$cpp_cls'/2), cpp_reset('$cpp_clsl'/2), cpp_reset('$cpp_sfn'/2), cpp_reset('$cpp_nenum'/1), cpp_reset('$cpp_enumv'/3), cpp_reset('$cpp_tmpl'/3), cpp_reset('$cpp_fspec'/3), cpp_reset('$cpp_spec'/4), cpp_reset('$cpp_mt'/4), cpp_reset('$cpp_inst'/2), cpp_reset('$cpp_out'/1), cpp_reset('$cpp_ownfn'/1), cpp_reset('$cpp_consteval'/1), cpp_reset('$cpp_mdef'/5), cpp_reset('$cpp_extern'/3), cpp_reset('$cpp_friends'/2), cpp_reset('$cpp_extra'/2), cpp_reset('$cpp_base_slot'/3), cpp_reset('$cpp_primary_moved'/2), cpp_reset('$cpp_vbase'/1), cpp_reset('$cpp_poly_extra'/3), cpp_reset('$cpp_poly_path'/3), cpp_reset('$cpp_hdrfn'/1), cpp_reset('$cpp_nv_base'/2), cpp_reset('$cpp_vb_holder'/2),
     cpp_reset('$cpp_dflt'/2), cpp_reset('$cpp_localcls'/2), nb_setval('$cpp_lambda_memo', []), cpp_reset('$cpp_dtor_def'/1), nb_setval('$cpp_lambdas', 0), nb_setval('$cpp_gen_invs', []), nb_setval('$cpp_caller', none), nb_setval('$cpp_obj_cat', none), nb_setval('$cpp_closure_this', []), nb_setval('$cpp_temps', none), nb_setval('$cpp_making', []), nb_setval('$cpp_obj_const', none),
     nb_setval('$cpp_nontrivial', []), nb_setval('$cpp_req_ctx', none), nb_setval('$cpp_nv', none),
     cpp_reset('$cpp_acc'/3), cpp_reset('$cpp_afriend'/2), cpp_reset('$cpp_bacc'/3), cpp_reset('$cpp_static_abi'/1), nb_setval('$cpp_body_ctx', none), nb_setval('$cpp_cur_fn', none), nb_setval('$cpp_acc_scope', none), nb_setval('$cpp_obj_expr', none),   % the access of a program class's members and its friends (0.117)
@@ -602,6 +602,7 @@ cpp_register_([template(L, TPs0, function(FL, Sto, Ret, N, Ps, V, Body))|Is]) :-
 cpp_register_([template(L, TPs, Item)|Is]) :- !,
     (   TPs = [_|_], cpp_mdef_item(Item, C, none, Member) -> cpp_mdef_put(C, [], none, template(L, TPs, Member)), cpp_refresh_mts(C)   % a MEMBER TEMPLATE of a PLAIN class, defined out of it (0.117): `template <class F> T::T(F f, int x) : v(f(x)) {}' -- kept as a member template of the class, its body given to the declaration already registered
     ;   cpp_mdef_item(Item, C, Pattern, Member) -> cpp_mdef_put(C, TPs, Pattern, Member)                                           % a member DEFINED out of its class, by the class's name
+    ;   TPs == [], cpp_fspec_item(Item, FN, FArgs) -> assertz('$cpp_fspec'(FN, FArgs, Item))                                      % an EXPLICIT SPECIALIZATION of a function template (0.129): no candidate, the body of the instance it matches (cpp_fspec_for)
     ;   cpp_spec_name(Item, N, Pattern) -> cpp_spec_put(N, TPs, Pattern, Item)                                                     % a partial or full specialization, by its pattern
     ;   cpp_template_name(Item, N) -> cpp_template_put(N, TPs, Item)
     ;   true ),
@@ -613,6 +614,40 @@ cpp_refresh_mts(C) :-
     nb_setval('$cpp_mdef_types', []),
     forall(( member(K-TPs-M, Rows), catch(cpp_member_def(C, C, [], template(0, TPs, M), template(_, TPs1, M1)), error(not_lowered(_), _), fail), M1 \== M ),
            ( retract('$cpp_mt'(C, K, TPs, M)), assertz('$cpp_mt'(C, K, TPs1, M1)) )).
+%% AN EXPLICIT SPECIALIZATION OF A FUNCTION TEMPLATE IS NO CANDIDATE ([temp.expl.spec], [over.match.funcs]/7: overload resolution
+%% sees the templates; the chosen one's instance for those arguments IS the specialization; 0.129). `template <> int f(unsigned
+%% long, int)' was registered as one more template with no parameter, it tied with the primary (both exact), and the first
+%% declared -- the primary -- won; `template <> int f<char>(char, int)' went to the class specializations and was read by
+%% nothing. Every explicit specialization of a function was silently ignored: libc++'s `__to_chars_itoa(char *, char *,
+%% __uint128_t, false_type)', its 128-bit road, printed `42' as twenty digits. Kept apart, '$cpp_fspec'(Template, Args | none,
+%% Item), by the name it specializes, its explicit template arguments where it writes them.
+cpp_fspec_item(function(_, _, _, N, _, _, _), N, none) :- atom(N), !.
+cpp_fspec_item(function(_, _, _, tmpl(N, Args), _, _, _), N, Args) :- atom(N), !.
+cpp_fspec_item(function(_, _, _, operator(Op), Ps, _, _), N, none) :- cpp_free_operator(Op, Ps, N), !.
+cpp_fspec_item(declaration(_, _, _, [var(N, fn(_, _, _), none)]), N, none) :- atom(N), !.
+cpp_fspec_item(declaration(_, _, _, [var(tmpl(N, Args), fn(_, _, _), none)]), N, Args) :- atom(N), !.
+%% ... and an instance of the template takes the body of the DEFINED specialization whose parameter types are the instance's,
+%% resolved, by-value top-level cv dropped ([dcl.fct]/5), whose explicit arguments are the instance's bindings, and whose result
+%% is the instance's unless either is deduced ([temp.deduct.decl]: a specialization's own arguments are deduced from its function
+%% type, the result included). A specialization declared and not defined here leaves the primary's body, as before.
+cpp_fspec_for(F, TPs, B, Ret1, Ps1, function(L, Sto, Ret, N, Ps, V, Body)) :-
+    \+ \+ '$cpp_fspec'(F, _, _), length(Ps1, NP),
+    '$cpp_fspec'(F, Args, function(L, Sto, Ret, N, Ps, V, Body)), Body \== none, length(Ps, NP),
+    catch(cpp_fspec_args_match(Args, TPs, B), _, fail),
+    catch(cpp_fspec_params_match(Ps1, Ps), _, fail),
+    catch(cpp_fspec_ret_match(Ret1, Ret), _, fail), !.
+cpp_fspec_args_match(none, _, _) :- !.
+cpp_fspec_args_match(Args, TPs, B) :- findall(P, member(tparam(_, P, _), TPs), Names), cpp_fspec_args_(Args, Names, B).
+cpp_fspec_args_([], _, _).
+cpp_fspec_args_([A|As], [P|Ps], B) :- memberchk(P-V, B), cpp_fspec_arg_same(A, V), cpp_fspec_args_(As, Ps, B).
+cpp_fspec_arg_same(A, V) :- ( cpp_targ_value(A, AV) -> true ; AV = A ), ( AV == V -> true ; cpp_fspec_same(AV, V) ), !.
+cpp_fspec_params_match([], []).
+cpp_fspec_params_match([P|Ps], [Q|Qs]) :- cpp_param_t(P, T0), cpp_param_t(Q, U0), cpp_param_fn_type(T0, T1), cpp_param_fn_type(U0, U1),
+    cpp_type(T1, T), cpp_type(U1, U), cpp_fspec_same(T, U), cpp_fspec_params_match(Ps, Qs).
+cpp_fspec_ret_match(R1, R) :- ( ( R1 = base(_, [auto]) ; R = base(_, [auto]) ) -> true ; cpp_type(R1, T), cpp_type(R, U), cpp_fspec_same(T, U) ).
+cpp_fspec_same(T, U) :- T == U, !.
+cpp_fspec_same(T, U) :- cpp_type_key(T, K), cpp_type_key(U, K), !.
+cpp_fspec_same(T, U) :- ccl_resolve_type(T, RT), ccl_resolve_type(U, RU), RT == RU, !.
 cpp_spec_name(declare(_, base(_, [class(_, tmpl(N, P), _, _)])), N, P).
 cpp_spec_name(declare(_, base(_, [class(_, scoped(_, tmpl(N, P)), _, _)])), N, P).   % a specialization named with its namespace, `template <class... A> struct std::coroutine_traits<R, A...>' (0.110; the namespaces flatten)
 cpp_spec_name(declare(_, base(_, [struct(scoped(_, tmpl(N, P)), _)])), N, P).
@@ -6905,16 +6940,18 @@ cpp_ctor_tmpl_takes(C, TPs, Qs, [P|_], AT) :- ( P = param(PT0, _) ; P = param(PT
 %% candidate's check (SFINAE throws and catches by design) left it behind, and the next ask found the instance
 %% "done" with no body anywhere -- `__to_chars_integral' declared and never defined, the last symbol between
 %% `std::cout << "hello"' and a binary. In progress while it emits (its own recursive call finds it declared).
-cpp_instantiate_function_(F, _, B, L, Sto, Ret, Ps, V, Body, Name) :-
+cpp_instantiate_function_(F, TPs, B, L, Sto, Ret, Ps, V, Body, Name) :-
     (   cpp_instance_done(Name) -> true
     ;   cpp_making(Name) -> true
     ;   nb_getval('$cpp_making', M0), nb_setval('$cpp_making', [Name|M0]),
-        (   catch(\+ \+ cpp_instantiate_function_emit(F, B, L, Sto, Ret, Ps, V, Body, Name), E, ( nb_setval('$cpp_making', M0), throw(E) ))   % inside `\+ \+': the instance's items go to the facts, its walk is reclaimed
+        (   catch(\+ \+ cpp_instantiate_function_emit(F, TPs, B, L, Sto, Ret, Ps, V, Body, Name), E, ( nb_setval('$cpp_making', M0), throw(E) ))   % inside `\+ \+': the instance's items go to the facts, its walk is reclaimed
         ->  nb_setval('$cpp_making', M0), cpp_instance_note(Name, F)
         ;   nb_setval('$cpp_making', M0), cpp_refuse(0, function_not_emitted(Name)) ) ).
-cpp_instantiate_function_emit(F, B, L, Sto, Ret, Ps, V, Body, Name) :-
+cpp_instantiate_function_emit(F, TPs, B, L0, Sto0, Ret, Ps, V0, Body, Name) :-
     cpp_lib_origin(F, Lib),
-    cpp_where(subst(F), cpp_subst(fn(Ret, Ps, Body), B, fn(Ret1, Ps1, Body1))),
+    cpp_where(subst(F), cpp_subst(fn(Ret, Ps, Body), B, fn(Ret10, Ps10, Body10))),
+    (   cpp_fspec_for(F, TPs, B, Ret10, Ps10, function(L, Sto, Ret1, _, Ps1, V, Body1)) -> cpp_trace(explicit_specialization(F, Name))   % the instance IS the explicit specialization (0.129)
+    ;   L = L0, Sto = Sto0, Ret1 = Ret10, Ps1 = Ps10, V = V0, Body1 = Body10 ),
     cpp_as_lib(Lib, ( cpp_isolated(( cpp_plain_params(Ps1, Ps2), ( Ret1 = base(_, [auto]) -> cpp_lambda_ret(Ps2, Body1, Ret2) ; cpp_decltype_ret(Ret1, Ps1, Ret2) -> true ; cpp_type(Ret1, Ret2) ),
                                      ccl_declare(Name, fn(Ret2, Ps2, V)), cpp_note_defaults(Name, Ps1),
                                      ( Body1 == none -> Items = [declaration(L, Sto, Ret2, [var(Name, fn(Ret2, Ps2, V), none)])]   % declared, not defined: a declaration, never a bodyless function

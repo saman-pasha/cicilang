@@ -121,7 +121,8 @@ One row per step, in version order: the step's title, what it did and its gate n
 | 0.125 | libc++ 21, the partial ordering | A parameter that stands twice deduces one type in the partial ordering of function templates | not run (committed while the batch ran) |
 | 0.126 | libc++ 21, the failures that were left | Fifteen rules, each with a reduction and a fixture: `common_type`, `addressof` of a function, the bit builtins in the evaluator, the poison pills, a requires-expression's pack, static functions as values, qualified enumerators, the views' CRTP bases, duplicate candidates, a generic lambda's own parameters | 18: reader 5 s, compile 9 s, driver 7 s, objects 2 s, libcxx 771 s, C++ 836 s (424 of 425); 21: libcxx 750 s, C++ 667 s; all GREEN |
 | 0.127 | the C++ language items of "Not done" | `bool` comparisons, enumerators of their enum, promotions ranked, trailing `decltype`, block typedefs scoped, lazy program instances, the rest of access control, const closures, value-initialization, aggregate bases, shipped static functions | 18: reader 5 s, compile 10 s, driver 7 s, objects 3 s, libcxx 1055 s, C++ 820 s (438 of 439); 21: libcxx 1031 s, C++ 740 s; all GREEN |
-| 0.128 | line tables, the vacuum, unsigned constants | `-g` gives DWARF line tables; the C store vacuumed every 64th run and before each gate; an unsigned constant operation done in its type, `#if` in `uintmax_t`, one evaluator for an enumerator's value | see the entry |
+| 0.128 | line tables, the vacuum, unsigned constants | `-g` gives DWARF line tables; the C store vacuumed every 64th run and before each gate; an unsigned constant operation done in its type, `#if` in `uintmax_t`, one evaluator for an enumerator's value | 18: reader 5 s, compile 10 s, driver 7 s, objects 4 s, libcxx 1123 s, C++ 929 s (438 of 439); 21: libcxx 940 s, C++ 644 s; all GREEN |
+| 0.129 | `__int128` in C++, the decimal floating types | `__SIZEOF_INT128__` in C++ too; a 128-bit constant typed; explicit specializations of function templates; floating constants folded under integer casts; C23's `_Decimal32`, `_Decimal64`, `_Decimal128` over libgcc's BID runtime, with gcc's ABI | 18: reader 5 s, compile 10 s, driver 7 s, objects 3 s, libcxx 1327 s, C++ 1128 s (442 of 443); 21: libcxx 1141 s, C++ 794 s; all GREEN after the width fix |
 
 ## M5 — the C++ mode
 
@@ -7649,4 +7650,65 @@ the safe part's. Over libc++ 21 (`LLVM=/usr/lib/llvm-21`): the library read GREE
 measure.
 
 Reader version 123, lowering version 69; the module rebuilt as 0.128, over cocolog 1.9.1.
+
+
+## 0.129 — `__int128` in C++, the decimal floating types, and what they found
+
+**0.129: two items of "Not done" (C), and the defects they found.** Each defect was cut down to a reduction, built with clang
+(gcc for the decimal types, which clang does not have) and with cicilang, compared line by line, given its rule and a
+fixture; a negative control built each fixture on 0.128.
+
+(1) `__SIZEOF_INT128__` is predefined in C++ as in C, so libc++ builds its int128 configuration: `numeric_limits<__int128>`,
+`to_chars` and `from_chars` in 128 bits, `std::hash<__int128>` and `std::format` of one run (`int128lib.cpp`, `int128fmt.cpp`).
+That configuration met three defects in turn:
+(a) the bit builtins had no type to the inference, so a conditional over two calls of `__builtin_clzll` had none and the
+lowering refused it, `type(unknown)` -- in C as well (`bitcond.c`); libc++'s `__libcpp_clz(__uint128_t)` is written so;
+(b) a folded constant past 64 bits was typed `unsigned long` and lowered as an `i64`, cut to its low half:
+`numeric_limits<__int128>::max()` printed 2^64 - 1;
+(c) EVERY EXPLICIT SPECIALIZATION OF A FUNCTION TEMPLATE WAS IGNORED: `template <> int f(unsigned long, int)` was one more
+candidate with no template parameter, tied with the primary, and lost to it, the first declared; `template <> int f<char>(...)`
+went to the class specializations, which nothing reads for a function. A silent wrong answer in the program's own code since the
+first function template; libc++'s `__to_chars_itoa(char *, char *, __uint128_t, false_type)` printed `42` as twenty digits. A
+specialization is no candidate now: the chosen template's instance takes its body (`fnspec.cpp`; on 0.128 every line of it differs).
+(2) The `global_init` refusal that "Not done" named: a floating constant under a cast to an integer type folds (`(__int128) 1e30`,
+`(int) 2.5`), a double past 2^59 converts to a wide integer exactly and a wide integer to a double rounded to nearest, a floating
+global's fold reads a cast to an integer type, and an integer global from a floating initializer converts -- `int g = 2.5;` was
+spelled as a double's hex, which LLVM refuses (`floatglobal.c`).
+(3) C23's decimal floating types, `_Decimal32`, `_Decimal64`, `_Decimal128`, run as gcc builds them: the literal's text kept by
+both lexers and encoded exactly (BID, rounded half to even), the value carried as a float, a double or an fp128 so that the ABI
+passes it where gcc does, every operation a call of libgcc's decimal runtime (`decimal.c`, against gcc's output). The type words
+were read as typedef names. A decimal member of a struct is an SSE leaf, a `_Decimal128` one fp128 piece: until that rule, a
+struct of decimals went in integer registers, and the call from gcc-built code read garbage while the call into it only looked
+right (the values were still in the xmm registers); the driver gate now passes values, structs and a variadic call both ways
+against gcc-built code.
+
+Moved out of "Not done": the decimal floating types and `__int128` in C++. Left there: a decimal from or to a 128-bit integer
+(gcc calls `__bid_floattidd` and `__bid_fixddti`, which this libgcc does not have) and an operation in a decimal global's
+initializer.
+
+(4) Found by the gate over libc++ 21: the bit builtins knew the widths 8, 16, 32 and 64 only, and the lowering failed with no
+word, `item(function('__countl_zero.unsigned___int128', ...))`. Once `__int128` was C++'s, libc++ 21's `__countl_zero` calls
+`__builtin_clzg` on an `unsigned __int128` (libc++ 18 splits it into two 64-bit calls), and every program that formats an
+integer reaches it: `std::format`, `std::print`, `std::formatter`, `format_to_n` and the two `__int128` fixtures, eight RED. Every
+integer width is one now, an `_BitInt(N)`'s too (`bitwide.c`, `bit128.cpp`).
+
+Fixtures added: `test/c/run/decimal.c`, `floatglobal.c`, `bitcond.c`, `bitwide.c`; `test/cpp/run/fnspec.cpp`, `int128lib.cpp`,
+`int128fmt.cpp` (C++20), `bit128.cpp` (C++20); the link files `test/c/link/dec_main.c`, `dec_helper.c`.
+
+**The numbers.** cocolog 1.9.1, fresh HOMEs, one snapshot of the tree. Over libc++ 18 (`LLVM=/usr/lib/llvm-18`): the reader
+gate GREEN in 5 s, compile in 10 s, driver in 7 s (28 checks, the decimal ABI's among them), objects in 3 s, the proof; the
+library read GREEN in 1327 s (peak 2890 MB: the reader bump made every summary cold, and probes ran beside it); the C++ gate
+GREEN in 954 s. Over libc++ 21 (`LLVM=/usr/lib/llvm-21`): the library read GREEN in 1141 s (peak 1313 MB), the C++ gate RED in
+701 s, eight fixtures, (4) above. After the fix, on the same snapshot with its two fixtures: the three C gates over a fresh
+store (reader 5 s, compile 10 s with 111 run fixtures ok, driver 7 s), the C++ gate over libc++ 18 GREEN in 1128 s and over 21
+GREEN in 794 s, 442 of 443 fixtures each, 1 skipped (`stdoptionalref`), the 21 refusals and the safe part's. Probes of the next
+steps ran beside the long gates, so their times are no measure.
+
+A defect found while the fix was gated: the compile gate run a second time over the store its first run had filled RAN AWAY,
+7.3 GB in eight minutes. A read the store serves holds its floats as cocolog writes them, with 15 digits (`%.15g`): every
+literal that needs more came back another double, a silent wrong answer, and `0x1.fffffffffffffp1023` of `hexfloat.c` came
+back past the largest double, an infinity, on which the lowering's normalization recursed without end. A defect of the store
+since M4 that no gate met, because each version bump starts a fresh store; "Not done" names it until its fix.
+
+Reader version 124, lowering version 70; the module rebuilt as 0.129, over cocolog 1.9.1.
 
