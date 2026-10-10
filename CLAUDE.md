@@ -10,8 +10,8 @@ it found, its measurements and its gate numbers. `README.md` tells a user what r
 architecture and the milestones. A step that changes a rule edits the rule here, in its topic, and writes its entry
 in `HISTORY.md`.
 
-At 0.133 the versions are: the module 0.133 (`ccl_p_version` in `module/cicilang.cicili`, `bin/cicilang --version`),
-the reader 125 (`ccl_reader_version/1`, `library/ccl_syntax.pl`) and the lowering 74 (`ccl_lowering_version/1`,
+At 0.134 the versions are: the module 0.134 (`ccl_p_version` in `module/cicilang.cicili`, `bin/cicilang --version`),
+the reader 125 (`ccl_reader_version/1`, `library/ccl_syntax.pl`) and the lowering 75 (`ccl_lowering_version/1`,
 `library/ccl_ir.pl`).
 
 Build and prove, always in this order (or all of it, `sh test/gates.sh`):
@@ -375,13 +375,15 @@ tutorials/01..03-*.pl       the objects layer's lessons; goal main, last line do
   and links every `test/c/run/*.c` at its `NAME.std` level (`c_level`). It expects every `test/c/safe/*.c` refused.
   `test/compile.sh` runs each binary as `NAME arg1 arg2` against `NAME.expect`, and compares each refusal with
   `safe/NAME.expect`. There are 72 run and 45 safe fixtures at 0.133. (M2, M3, 0.57)
-- The driver gate. `test/driver.sh` makes 32 checks of `bin/cicilang` over the user's store (the decimal ABI check is
+- The driver gate. `test/driver.sh` makes 33 checks of `bin/cicilang` over the user's store (the decimal ABI check is
   skipped where no gcc with decimal floating types is installed), the variadic calls of every kind both ways against
   clang among them (`test/c/link/va_*.c`, 0.131). They cover what `-o`,
   `-c`, `-S`, `-emit-llvm`, `-shared`, `-I`, `-ast-dump`, `-fsyntax-only`, `-g` and `-gline-tables-only` make (read
   back by `llvm-dwarfdump`, from `$PATH` or `$LLVM/bin`: the statements' lines and the file's name; the variables, a
   struct's members and an enum's enumerators, their names sorted; no variable under `-gline-tables-only`; a C++ static
-  data member declared in its class, its definition naming that declaration, through `cicilang++ -g -c`, 0.133), and the diagnostics in
+  data member declared in its class, its definition naming that declaration, through `cicilang++ -g -c`, 0.133; under
+  `-fdebug-macro` a file's and its header's macros at their lines, as clang's object has them, and the predefined ones at
+  line 0, 0.134), and the diagnostics in
   clang's shape (`#warning` printed, `#error` with exit 1). They find `@ccl_drain_node` in `btree.c`'s IR, and pass
   structs by value both ways against clang-built code (`test/c/link/abi_main.c`, `abi_helper.c`; seven lines at 0.117,
   the last two for the SysV register budget, `budget_*` built by clang and `bud_*` by cicilang). The store must serve
@@ -432,7 +434,7 @@ tutorials/01..03-*.pl       the objects layer's lessons; goal main, last line do
 ### The C++ gate: test/cpp.sh
 
 - `test/cpp.sh` runs in this order: `test/cpp.pl` in one `--local` process; three checks of the command; every
-  `test/cpp/run/*.cpp` as a pool job (465 at 0.133); `classes.cpp` and `templates.cpp` built and run; the refusals.
+  `test/cpp/run/*.cpp` as a pool job (477 at 0.134); `classes.cpp` and `templates.cpp` built and run; the refusals.
   (0.105)
 - `test/cpp.pl` runs 43 numbered checks, `c1` to `c43`, then reads Cicili's six C++ files whole (`test/cpp/objects.cpp`,
   `emit_report.cpp`, `specialise.cpp`, `syntax.cpp`, `torch.cpp`, `torch-fragment.cpp`). `c34` checks the Itanium
@@ -578,6 +580,11 @@ tutorials/01..03-*.pl       the objects layer's lessons; goal main, last line do
   IR with debug information is another IR. The lowering's side is in The lowering topic. gdb reads it: `break
   Counter::bump`, `info args`, `info locals`, `print p`, `ptype p`, `print ns::Outer::made`, `finish`'s value. The
   driver gate's two `-g` checks read it back with LLVM's own `llvm-dwarfdump`. (0.128, 0.130)
+- `-fdebug-macro` with a FULL `-g` is the option `debug_macro` (0.134; `-fno-debug-macro` takes it back; alone, or with
+  `-gline-tables-only`, it does nothing, as clang): the macros go into the debug information. `dr_c` records them first
+  (`dr_macro_trace/2` -> `ccl_pp_macro_trace/2`, a standalone run of the preprocessor over the file BEFORE the read, whose
+  own run starts the preprocessor afresh) into `'$ccl_debug_macros'` (`events(Es)`, else `none`), and the IR cache's
+  signature folds it (`dr_ir_sig/3`). The lowering's side is in the Debug information topic. (0.134)
 - `-D N`, `-DN=v`, `-D'F(x)=...'` and `-U N` are `define(Text)` and `undef(N)` options (0.112): the driver makes the
   list `'$pp_cmdline'` (`ccl_pp_cmdline/1`, the later of a -D and a -U of one name winning), and `pp_outer_macro/3`
   asks it before the predefined macros, so every file and every header's macro table made in the process reads them
@@ -1705,7 +1712,7 @@ tutorials/01..03-*.pl       the objects layer's lessons; goal main, last line do
   0.117)
 - A reader bump makes every summary cold; `test/libcxx.sh` rewrites them. `test/reader.pl`'s `k16` (a cached read is
   the same AST as a fresh one) goes RED on a grammar change without a bump. (0.93, 0.105)
-- `ccl_lowering_version/1` (`library/ccl_ir.pl`, now 74): bump it whenever the check or the lowering changes what it
+- `ccl_lowering_version/1` (`library/ccl_ir.pl`, now 75): bump it whenever the check or the lowering changes what it
   emits, however small -- 0.120 bumped it for the ORDER of the drain functions alone. Why: `dr_ir/3` serves the old IR
   otherwise. Either bump starts the C store afresh. (M4, 0.103, 0.120)
 
@@ -2194,8 +2201,12 @@ free. A const method adds `.c`, a ref-qualified one `.r` or `.rr` after it: each
   (`cpp_expr(assign('=', ...))`): `__f = erase(__f)`. An array assigned is its bytes (`memcpy`). (0.44, 0.80)
 - A by-value parameter of a class with a destructor takes a temporary (`cpp_copies_`): the move constructor's for
   `std::move(x)` (`cpp_move_temp`), else the copy constructor's (`cpp_copy_temp`), else
-  `class_with_destructor_by_value(C)`. The callee destroys it through a defer (`cpp_param_defers`). A class with
-  neither constructor keeps the lowering's move, which nulls the source's owners. (0.44, 0.83)
+  `class_with_destructor_by_value(C)`. The callee destroys it through a defer (`cpp_param_defers`), an UNNAMED one too
+  (0.134), named by its position, `$argK`, in the defer and in the function's own parameter list (`cpp_param_defers/3`,
+  `cpp_name_anon_items/2` over the unit's output): libc++'s `end(directory_iterator) noexcept { return
+  directory_iterator(); }` holds a shared_ptr in its unnamed parameter, and the defer named `anon`, which nothing declares
+  (`undeclared(anon)`). `anonparam.cpp`. A class with neither constructor keeps the lowering's move, which nulls the
+  source's owners. (0.44, 0.83, 0.134)
 - `return x` of a local of a class with a destructor moves out through the move constructor, else copies; `return
   std::move(x)` alike (`cpp_stmt_(return)`). A prvalue moves bitwise, as C++17 elides that copy. (0.44, 0.83)
 - `move(X)` of a class value stays `move(X)` ([expr.xvalue]; `cpp_expr(move)`), since overload resolution reads its
@@ -2610,6 +2621,13 @@ free. A const method adds `.c`, a ref-qualified one `.r` or `.rr` after it: each
   `$end`, the iterator's own `!=`, `++` and `*`; a prvalue range binds to `auto &&` (`$range`); a structured binding
   as the declaration becomes `bindings/4`. It comes before the `size()` and `operator[]` rewrite, which needs an lvalue
   range (`range_for_over_a_value(C)`). Why: indexed by position, a map inserted the keys 0, 1, 2. (0.41, 0.79)
+- THE BEGIN AND END OF A RANGE ([stmt.ranged]/1.3; 0.134; `cpp_range_ends/2`, `cpp_range_call/4`): the class's members
+  where it declares both, else the free `begin(range)` and `end(range)` that ARGUMENT-DEPENDENT LOOKUP finds in the
+  namespace of the range's class, a plain struct included (`cpp_range_class/2`). `cpp_adl_fn/3` is the lookup: the class's
+  namespace from the header index or, for the program's own, from `'$cpp_own_ns'` (noted by `cpp_ns_resolve/2`), and the
+  flattening's key where the name collides (`filesystem.begin`, `shop.begin`), else the bare name; the structured binding's
+  `get` asks it too (`cpp_binding_get/2`). Why: `for (const auto &e : fs::directory_iterator(d))` fell to the raw
+  range-for, which the safe part refused (`not_checked`). `rangeadl.cpp`, `stdfsops.cpp`.
 - A PRVALUE range of a class with a destructor is taken out of the loop statement's register of temporaries before the
   `auto &&` declaration is made (`cpp_temp_elide` in `cpp_stmt_(for_each)`): the declaration is a statement of its own,
   whose elision looks in its own register, so `for (auto x : std::vector<int>(3, 7))` destroyed the vector twice, the
@@ -3098,7 +3116,11 @@ free. A const method adds `.c`, a ref-qualified one `.r` or `.rr` after it: each
 - `cpp_fn_more_special(X, Y)` holds when Y's parameter types deduce from X's, X's parameters opaque (`$opaque.P`,
   `cpp_opaque_bindings`). A template-id over opaque names is an incomplete instance, never instantiated
   (`cpp_opaque_types`: `__pad_and_output`'s ostreambuf overload). (0.45, 0.72)
-- A parameter that STANDS TWICE deduces ONE type in the comparison ([temp.deduct.partial]/10; `cpp_params_consistent/3`, `cpp_bare_param/5`): `f(I1, I1, I2, I2)` is more specialized than `f(I1, I1, I2, P)`. `cpp_match` takes the second occurrence unseen, so both directions deduced and the first declared won; libc++ 21's `__lexicographical_compare` calls `std::mismatch(a, a + n, b, b + n)` of four pointers, which took the predicate overload (also at libc++ 18 under C++20). `partialorder2.cpp`, `mismatch4.cpp`. (0.125)
+- A parameter that STANDS TWICE deduces ONE type in the comparison ([temp.deduct.partial]/10; `cpp_params_consistent/3`, `cpp_bare_param/5`): `f(I1, I1, I2, I2)` is more specialized than `f(I1, I1, I2, P)`. `cpp_match` takes the second occurrence unseen, so both directions deduced and the first declared won; libc++ 21's `__lexicographical_compare` calls `std::mismatch(a, a + n, b, b + n)` of four pointers, which took the predicate overload (also at libc++ 18 under C++20). `partialorder2.cpp`, `mismatch4.cpp`. The PATTERN'S OWN
+  QUALIFIERS are no part of what it deduces (0.134; `cpp_bare_param/5` strips them, as the deduction does): `const C *`
+  against `const X *` is C = X -- with the `const` kept, `pad(obi<C, T>, const C *, ..., C)` had C both `const X` and `X`,
+  and libc++'s ostreambuf_iterator overload of `__pad_and_output` lost to the generic one again. `partialorder3.cpp`,
+  `stdpadout.cpp`. (0.125, 0.134)
 - A function parameter pack is less specialized ([temp.deduct.partial]/8; `cpp_has_pack_param`). Fixtures:
   `packorder.cpp`, `stdinvoke.cpp` (libc++'s `__invoke` for a data-member pointer). (0.99)
 - Of `T &` and `const T &` deducing each other, the less cv-qualified loses ([temp.deduct.partial]/9;
@@ -3185,6 +3207,11 @@ free. A const method adds `.c`, a ref-qualified one `.r` or `.rr` after it: each
   headers too, and `typedef typename iterator_traits<_ForwardIterator>::value_type value_type` followed with its free
   name instantiated `iterator_traits` on it for ever (`rangesarray.cpp`: 12 s at 0.116, 8.7 GB and no end at 0.117; the
   trace read `alias_followed`, 48,279 times in 25 s). (0.58, 0.63, 0.117, 0.118)
+- An alias whose definition is the BARE NAME of such an alias resolves the same way, a chain of up to four bare names that
+  ends in an alias of a template-id (0.134; `cpp_alias_chain/2`): libc++'s <filesystem> writes `typedef string
+  __path_string;`, `__path_string &` stayed a name, the lowering followed the table to the raw `basic_string<char>` and
+  refused every `std::filesystem::path` (`_PathCVT<char>::__append_range`). A name of the class being walked is asked
+  first, by the class typedef clause. `stdfspath.cpp`.
 - Clang's builtin templates resolve in `cpp_instantiate_type`: `__make_integer_seq<S, T, N>` is `S<T, 0, ..., N-1>`,
   `__type_pack_element<I, Ts...>` the I-th of `Ts`. (0.79)
 - A variable template's instance is its VALUE: the initializer, or the picked specialization's (`cpp_pick_spec`),
@@ -4408,16 +4435,32 @@ A lambda is a class of its captures (`library/ccl_cpp.pl`). A fixture named alon
 - A pointer to a derived class converts to its base by the base's offset (`ir_convert`; `ir_base_path`,
   `ir_base_route`, `ir_base_hops`), and a null pointer stays null ([conv.ptr]/3; `nullbase.cpp`). A reference binds the
   same way at a local, a parameter and a cast (`ir_ref_to`, `ir_ref_hops`). (0.72, 0.99)
+- A POINTER OR A REFERENCE TO A BASE CONVERTS DOWN to the derived class by the same offset, subtracted
+  ([expr.static.cast]/2, /11; 0.134; `ir_down_offset/3` along a route of non-virtual bases, `ir_ref_hops_down/4` for the
+  cast to a reference): `static_cast<D *>(pb)` over the second base of `struct D : A, B` kept pb and read D's members
+  four bytes off -- a silent wrong answer since a later base had a sub-object of its own (0.88). No static_cast goes down
+  from a virtual base, and none is converted here. A null pointer stays null. `downcast.cpp`.
 - A cast to a reference is a conversion of its own ([expr.static.cast]): `ir_ref_to` makes the operand-to-target
   conversion (`ir_ref_cast`), then the binding's (`ir_ref_hops`). `basecast.cpp`. Else tuple's
   `L1::sw(static_cast<L1 &>(o))` swapped the wrong leaf. (0.90)
 
 ### Virtual functions and vtables
 
-- A class's slots (`cpp_slots/4`, in `cls/6`) are the base's, then each own virtual method by name and arity. A method
-  that overrides a base slot, or a later base's virtual (`cpp_overrides_extra`), is virtual without the word. A slot is
+- A class's slots (`cpp_slots/4`, in `cls/6`) are the base's, then each own virtual method in declaration order. A method
+  that overrides a base slot, or a later base's virtual (`cpp_overrides_extra/4`), is virtual without the word. A slot is
   named `M.K` or `op.<word>.K` (`cpp_slot_name`): `__base::__clone()` and `__clone(__base *)` are two slots. Its result
   type is resolved in its class (`cpp_slot_ret`). (0.72, 0.88, 0.110)
+- TWO VIRTUAL OVERLOADS OF ONE NAME AND ONE ARITY ARE TWO SLOTS (0.134), in declaration order as the Itanium table has
+  them: K is the arity for the first virtual of a name and arity and `A_I` for the I-th (`cpp_slot_key/4`,
+  `cpp_slot_arity/2`). A method overrides the one slot of its name and arity, unless it is marked `virtual` and its
+  parameter types surely differ (a new overload), and where several slots share them, the one whose parameter types are
+  its own (`cpp_overridden_slot/3`, `cpp_params_agree/2`; a type that cannot be compared agrees, so only a sure
+  difference makes an overload). The implementation a slot names is found the same way (`cpp_slot_method/6` in
+  `cpp_slot_impl`, `cpp_slot_def`, `cpp_slot_pure`), and so is the slot of a member's address (`cpp_method_slot_key/4`).
+  Why: libc++'s `money_put` has `do_put(..., long double)` and `do_put(..., const string_type &)`, `num_put` eight
+  `do_put` of four parameters and `num_get` eleven `do_get` of five; keyed by the arity, the second overload took the
+  first's slot, the table had one slot too few, and `std::put_money` of a string dispatched to the `long double` one --
+  LLVM refused the `sitofp` of a struct. `virtualoverload.cpp`, `stdmoney.cpp`.
 - A virtual destructor, by `virtual` or `override`, takes two slots, `'$dtor'` and `'$dtor_del'` (`cpp_own_slots`):
   Itanium's complete and deleting destructors, both the one destructor here. A virtual call into an object that the
   shipped library made indexes that object's own table. (0.72)
@@ -4437,7 +4480,11 @@ A lambda is a class of its captures (`library/ccl_cpp.pl`). A fixture named alon
 - `p->m(a)` of a slot dispatches through the vptr, cast to the object's own `struct C.vt` (`cpp_dispatch/5`); the tables
   are laid out base first. `o.m(a)` dispatches only for a reference or `*p` (`cpp_static_object/1`). A bare `m(a)` and a
   virtual `operator()` dispatch too. A virtual of a base that the class does not name uses that base's table
-  (`cpp_hops_class`). `delete` goes through a virtual destructor's slot (`cpp_destroy`). (0.34, 0.72, 0.88, 0.110)
+  (`cpp_hops_class`). `delete` goes through a virtual destructor's slot (`cpp_destroy`). A call dispatches through the
+  slot of the method it CHOSE (`cpp_slot_call/5`, 0.134): its name and its own arity -- a call that leaves a defaulted
+  argument out has fewer arguments, and `p->f(3)` over `virtual int f(int a, int b = 2)` found no slot of one parameter
+  and called the base's f statically -- and, where several slots share them, the one whose parameter types are the
+  method's, as declared under its mangled name. `virtualdefault.cpp`. (0.34, 0.72, 0.88, 0.110, 0.134)
 - `cpp_abstract_class/1` is the one test for an abstract class: a slot with no implementation or a pure one
   (`cpp_slot_pure`). A complete object of it refuses `pure_virtual` (`cpp_not_abstract`; `test/cpp/abstract.cpp`); a
   base sub-object is still built ([class.abstract]/6; `'$cpp_base_ctor'`), as libc++'s `__shared_weak_count` needs.
@@ -4564,10 +4611,15 @@ A lambda is a class of its captures (`library/ccl_cpp.pl`). A fixture named alon
   `__cxx_atomic_notify_one(void const volatile *)` was called by `..EPKv`, a symbol no library exports (every
   `-std=c++20` `notify_one`, `notify_all` and `wait` of a `std::atomic` failed at the link). `stdatomic20.cpp`.
 - A C struct has its linkage name ([basic.link]): an unnamed one the first typedef that names it, asked before the type
-  is resolved (`cpp_ita_c_struct`: glibc's `mbstate_t` is `__mbstate_t`), a named one its tag (`2tm`). (0.94)
+  is resolved (`cpp_ita_c_struct`: glibc's `mbstate_t` is `__mbstate_t`), a named one its tag (`2tm`), a tag that no
+  typedef names too (0.134: <time.h>'s `struct tm` -- `time_put<char>::put(iter_type, ios_base &, char_type, const tm *,
+  const char_type *, const char_type *)` is shipped as `...PK2tmPKcSC_`, and the call kept this compiler's own name, an
+  undefined symbol at the link of `std::put_time` and `std::get_time`). (0.94, 0.134)
 - A tag is a C struct to the mangler where no class of that name is registered, or where the one registered stands in
-  an `extern "C"` scope, `c` in the header index (`cpp_ita_c_tag`). Why: glibc's `_IO_FILE`, registered by a header
-  load, left `__is_posix_terminal(FILE *)` with its plain name, an undefined symbol at the link of `std::print`. (0.115)
+  an `extern "C"` scope, `c` in the header index, or in the GLOBAL namespace, `[]` (0.134: `struct tm` stands before
+  <time.h>'s `extern "C"`, and a header load registers it as a library class) (`cpp_ita_c_tag`). Why: glibc's
+  `_IO_FILE`, registered by a header load, left `__is_posix_terminal(FILE *)` with its plain name, an undefined symbol
+  at the link of `std::print`. (0.115, 0.134)
 - The mangler works without the desugaring's registries (`cpp_class_known`): `test/cpp.pl`'s `c34` spells nine symbols
   as clang++ and the shipped library do. (0.73, 0.94)
 - A FUNCTION TYPE, an ARRAY and a POINTER TO MEMBER are parameter types now (`cpp_ita_type_`; 0.117): a function type is
@@ -5636,6 +5688,22 @@ A lambda is a class of its captures (`library/ccl_cpp.pl`). A fixture named alon
   and every subprogram has under `debug(lines)`, then the rest from `!5` on (`'$ir_dbg_md'`, `'$ir_dbg_n'`). A name or a
   path is escaped for a metadata string (`ir_dbg_escape/2`). Under `debug(lines)` (`ir_dbg_full/0` false) nothing but
   the subprograms, the blocks and the locations is made. (0.128, 0.130)
+- THE MACROS (0.134; `-fdebug-macro`): `ccl_pp_macro_trace/2` preprocesses the file standalone, its includes in place
+  as `-E` runs them, and records each `#define` and `#undef` at its line and each file it enters and leaves, entered at
+  the line of the `#include` (`pp_mt_note/1`, a global per event, `'$pp_mt:N'`, since a list would be copied whole at
+  each one; a guarded header included again is not entered, as clang's is not; a run that stops keeps what it saw). The
+  lowering makes clang's tree (`ir_dbg_macros/3`): the compile unit's `macros:` holds the main file's `DIMacroFile` --
+  its definitions and, at each `#include`'s line, the `DIMacroFile` of the header it enters, a `DIFile` per header by
+  its path (`ir_dbg_mfile/6`, `ir_dbg_mfile_ref/5`) -- then every predefined macro this run answers and every `-D` at
+  line 0 (`ir_dbg_predef_macros/3` over `pp_predef_macro/3`, the names sorted). A name is spelled as clang spells it
+  (`F(a,b)`, `F(fmt,...)`, `F(x,rest...)`, `pp_mt_define/2`) and a body with one space for each run of blanks, none at
+  its ends, a literal's own blanks kept (`pp_mt_squash/2`); a macro's string escapes `"`, `\` and every code outside
+  printable ASCII as LLVM's two hex digits (`ir_dbg_mesc/2`). The lines are made in one list and added at once: a libc++
+  header brings thousands, and `ir_dbg_md/1` copies the whole list at each line. gdb reads them (`info macro EOF`: defined
+  at `/usr/include/stdio.h:105`, included at the file's line 1; `macro expand SQ(3)`); the driver gate compares a file's
+  and its header's lines with clang's object (`llvm-dwarfdump --debug-macro`). The headers' and the predefined macros are
+  this compiler's own (`library/include`'s headers, its predefined table), so their counts differ a little from clang's:
+  765 and 741 definitions for a program over `<stdio.h>`. (0.134)
 
 ### The embedded LLVM
 
@@ -6100,11 +6168,11 @@ A lambda is a class of its captures (`library/ccl_cpp.pl`). A fixture named alon
   0.90, all GREEN (cocolog 1.2.18). The fixtures added since 0.93 have run on Linux only.
 - Ubuntu 24.04 on x86_64 (clang and LLVM 18, glibc, libc++ 18 and 21) is a host since 0.87. Every gate but the C++ one is
   GREEN there since 0.93, and all seven since 0.95. Every step from 0.93 on is gated there, but the save points 0.112,
-  0.113, 0.117, 0.122 to 0.125, 0.130 and 0.131 (gated by the steps after them); the last full run is 0.133's, over cocolog 1.10.0, on one
-  tree: over libc++ 18 all eight GREEN (reader 5 s, compile 12 s, driver 10 s, objects 3 s, proof, the cross gate in
-  51 s, the library read in 1090 s, the C++ gate in 1359 s with 463 of 465 fixtures ok, the skips are `stdoptionalref` and
-  `joinwith`, the 21 refusals and the two of the safe part); over libc++ 21 the library read (1069 s) and the C++ gate (863 s,
-  464 of 465 ok, the skip `stdoptionalref`) GREEN -- the C gates do not read libc++. Two libc++ passes are one
+  0.113, 0.117, 0.122 to 0.125, 0.130 and 0.131 (gated by the steps after them); the last full run is 0.134's, over cocolog 1.10.0, on one
+  tree: over libc++ 18 all eight GREEN (reader 5 s, compile 13 s, driver 11 s, objects 4 s, proof, the cross gate in
+  52 s, the library read in 1211 s, the C++ gate in 1287 s with 475 of 477 fixtures ok, the skips are `stdoptionalref` and `joinwith`,
+  the 21 refusals and the two of the safe part); over libc++ 21 the library read (1087 s) and the C++ gate (1224 s,
+  476 of 477 ok, the skip `stdoptionalref`) GREEN -- the C gates do not read libc++. Two libc++ passes are one
   gate: `LLVM=/usr/lib/llvm-18` and `LLVM=/usr/lib/llvm-21` choose the tree the chain reads and links. libc++ 22 (the
   newest tree, which a run without `$LLVM` reads) is untried but for `stdoptionalref`, which passes there. The run before
   0.121's (0.118, 0.119) found, over 0.117, two defects and one stale check of `test/cpp.pl` (c20, above).
@@ -6186,6 +6254,10 @@ A lambda is a class of its captures (`library/ccl_cpp.pl`). A fixture named alon
   temporaries; members of xvalues), `unionclass` and `uniondtor` (a union at namespace scope with a constructor, a
   destructor or a method; a union's destructor destroys no member), `varvisit` (the first surface of `std::variant`
   and `std::visit`: a function object, a generic lambda, `std::get`, `index`, `holds_alternative`).
+- Forms that 0.134 asked for: `partialorder3` (a parameter that stands twice under a pattern's `const`), `virtualoverload`
+  (two virtual overloads of one name and arity, one overridden), `virtualdefault` (a virtual call that leaves a defaulted
+  argument out), `anonparam` (an unnamed by-value parameter destroyed), `rangeadl` (a range-for by the free `begin` and
+  `end` of two namespaces), `downcast` (`static_cast` from a second base to the derived class, a pointer and a reference).
 - Forms that 0.133 asked for: `packnested` (C++20: a nested expansion of the pack being expanded), `vtlambda` (C++20: a
   variable template whose value is a lambda called in place, chosen by `if constexpr`), `tupleholder` (a class holding a
   `std::tuple`, default-constructed), `gotodtor` (a `goto` out of blocks with destructors, forward and back past a
@@ -6272,7 +6344,13 @@ A lambda is a class of its captures (`library/ccl_cpp.pl`). A fixture named alon
   shipped library's objects. A fixture reads its input from `NAME.stdin` (0.73-0.78). The wide streams `wcout`,
   `wostringstream`, `wistringstream` (`stdwstream`); `seekg`, `tellg`, `seekp`, `tellp` (`stdseek`); `cin >> long
   double` (`stdcinld`) (0.115); the rvalue-stream `getline`, `getline` with a delimiter and `sync_with_stdio(false)`
-  (`stdstreammisc`) (0.117).
+  (`stdstreammisc`) (0.117). Since 0.134: the money and time facets, `put_money` and `get_money` of a `long double` and of
+  a string, `put_time` and `get_time` (`stdmoney`); the exceptions mask set and read back (`stdiosexc`); the padding of
+  an inserter through the ostreambuf_iterator overload of `__pad_and_output` (`stdpadout`).
+- `std::wofstream`, `std::wifstream` and `std::wfstream` (`stdwfstream`, 0.134); `std::filesystem`'s `path`
+  (`stdfspath`: decomposition, `/`, `replace_extension`, comparison) and its operations (`stdfsops`:
+  `temp_directory_path`, `create_directories`, `exists`, `is_directory`, `file_size`, a range-for over a
+  `directory_iterator`, `remove_all`) (0.134).
 - `std::stringstream` and `std::wstringstream` (`stdstringstream`: libc++'s basic_iostream is a diamond over basic_ios;
   extraction and insertion through the one object, the `istream &`, `ostream &`, `iostream &` and `ios &` references,
   `getline` with a delimiter, `std::ws`, `tellp`, `rdbuf()` inserted); `std::ofstream`, `std::ifstream` and
@@ -6426,10 +6504,9 @@ A lambda is a class of its captures (`library/ccl_cpp.pl`). A fixture named alon
   `<atomic>`'s `wait`, `notify_one` and `notify_all` run at C++20 (`stdatomic20.cpp`, 0.117). A program's own calls
   of `std::uninitialized_copy`, `std::construct_at`, the `destroy_*` algorithms and `allocator_traits` run
   (`stduninit.cpp`, `stdallocator.cpp`, 0.117).
-- The `less<void>` comparator's `operator()` is emitted where a program never calls it (0.79).
-- `std::stringstream`, `std::wstringstream`, `std::ofstream`, `std::ifstream` and `std::fstream` run (0.117). Not tried:
-  `std::filesystem` (its `path` methods refuse: `_PathCVT::__append_range` meets `typedef(tmpl(basic_string, ...))`),
-  and the wide file streams.
+- `std::stringstream`, `std::wstringstream`, `std::ofstream`, `std::ifstream` and `std::fstream` run (0.117), and since
+  0.134 the wide file streams and `std::filesystem`'s `path` and operations. Not tried: the rest of `<filesystem>`
+  (`recursive_directory_iterator`, permissions, `last_write_time`, `space`).
 - Tried in the library sweep of 0.117 and NOT finished: `<random>` (a `std::mt19937` with `uniform_int_distribution` is
   killed at its 1500 s cap, about 660 MB, and refuses nothing. A trace of two minutes shows the desugaring descending
   `__log2_imp<unsigned long long, 4294967296, N>` from 63, one instance in two seconds, 5.6 MB of the store written for
@@ -6447,12 +6524,11 @@ A lambda is a class of its captures (`library/ccl_cpp.pl`). A fixture named alon
   and an explicit result type, and at C++20 `variant <=> variant` and the relational operators of a variant of strings
   (`stdvariantcmp.cpp`); a failed access (`std::get` of the wrong alternative) aborts with the library's message, as
   `bad_optional_access` does (the no-exceptions configuration).
-- Streams, untried: the money and time facets and the exceptions mask (0.78). `std::quoted` runs (0.113,
+- Streams: the money and time facets and the exceptions mask run (0.134); a failure whose bit the mask holds aborts with
+  the library's message, the no-exceptions configuration. `std::quoted` runs (0.113,
   `stdquoted.cpp`), and so do the rvalue-stream `getline`, `getline` with a delimiter and `sync_with_stdio`
   (`stdstreammisc.cpp`, 0.117).
   `cin`'s tie flushes `cout`, but only the printed lines check it (0.75).
-- libc++'s ostreambuf `__pad_and_output` overload loses to the generic one, and output still runs through `std::copy`
-  (0.73; not checked since).
 - `__builtin_reduce_and` and `__builtin_reduce_or` have no answer. They are latent: only libc++'s vector-utils road
   calls them, and the predefined `__OPTIMIZE_SIZE__` keeps that road off (0.92).
 
@@ -6484,8 +6560,7 @@ A lambda is a class of its captures (`library/ccl_cpp.pl`). A fixture named alon
   `-D` and `-U` define and undefine (0.112); a run with either keeps no C store.
 - `-g` (0.130) leaves out what clang's has beyond the variables, the types and the scopes: a destructor run at a scope's end
   has the line of its object's declaration, not the closing brace's; there are no columns (every location is column
-  1); the macros that clang describes under `-fdebug-macro` are not (the flag is accepted and ignored; `-g3` alone
-  describes none in either compiler, 0.133).
+  1). The macros are described under `-fdebug-macro` (0.134; `-g3` alone describes none in either compiler).
 - A C++ read never uses the store: `cicilang++` runs `--no-kb` (M5). The C++ cache is the summary and the AST beside it
   (0.35, 0.45).
 - cocolog has no `oom` check in its step loop (1.8.41), so a refused allocation gives a wrong answer. Its heap

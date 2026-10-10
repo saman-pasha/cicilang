@@ -29,6 +29,35 @@
 
 %% ---- a run --------------------------------------------------------------------
 ccl_pp_file(Path, Tokens, Files) :- ccl_pp_run(Path, no, Tokens, Files).
+%% -fdebug-macro (0.134): A RUN THAT RECORDS THE MACROS as the files define them, for the debug information -- the user's
+%% file preprocessed standalone, its includes in place (as `-E' runs it), each `#define' and `#undef' an event at its line,
+%% each file entered an event at the line of the `#include' that enters it and left another (clang's `DIMacroFile' tree;
+%% a guarded header included again is not entered, as clang's is not). An event is a global of its own, numbered: a list
+%% would be copied whole at each one. A run that stops (a header's `#error', a line that does not lex) keeps what it saw.
+ccl_pp_macro_trace(Path, Events) :-
+    nb_setval('$pp_mt_n', 0), nb_setval('$pp_mt_line', 0), nb_setval('$pp_mtrace', on),
+    ( catch(ccl_pp_file(Path, _, _), _, true) -> true ; true ),
+    nb_setval('$pp_mtrace', off), nb_getval('$pp_mt_n', N),
+    findall(E, ( between(1, N, I), atom_concat('$pp_mt:', I, K), nb_getval(K, E) ), Events).
+pp_mt_on :- catch(nb_getval('$pp_mtrace', on), _, fail).
+pp_mt_note(E) :- nb_getval('$pp_mt_n', N0), N is N0 + 1, nb_setval('$pp_mt_n', N), atom_concat('$pp_mt:', N, K), nb_setval(K, E).
+%% a definition as clang's debug information spells it: `F(a,b)', `F(fmt,...)', `F(x,rest...)'; the body's blanks one
+%% space each, none at its ends, a literal's own kept (`"a  b"')
+pp_mt_define(Rest, L) :- pp_ws(Rest, R1), pp_word(R1, W, R2), W \== [], !, atom_codes(N, W),
+    (   R2 = [0'(|R3] -> pp_upto_close(R3, PCs, R4), pp_param_names(PCs, Ps), pp_mt_params(Ps, PT), atomic_list_concat([N, '(', PT, ')'], Name)
+    ;   Name = N, R4 = R2 ),
+    pp_mt_squash(R4, V), pp_mt_note(def(L, Name, V)).
+pp_mt_define(_, _).
+pp_mt_params(Ps, T) :- findall(A, ( member(P, Ps), ( P = va('__VA_ARGS__') -> A = '...' ; P = va(X) -> atom_concat(X, '...', A) ; A = P ) ), As), atomic_list_concat(As, ',', T).
+pp_mt_squash(Cs0, V) :- pp_ws(Cs0, Cs1), pp_mt_sq(Cs1, Out), reverse(Out, ROut), pp_ws(ROut, ROut1), reverse(ROut1, Out1), atom_codes(V, Out1).
+pp_mt_sq([], []).
+pp_mt_sq([Q|Cs], [Q|Out]) :- ( Q =:= 34 ; Q =:= 39 ), !, pp_mt_quoted(Cs, Q, Out0, Rest), append(Out0, Out1, Out), pp_mt_sq(Rest, Out1).
+pp_mt_sq([C|Cs], [32|Out]) :- ( C =:= 32 ; C =:= 9 ), !, pp_ws(Cs, Cs1), pp_mt_sq(Cs1, Out).
+pp_mt_sq([C|Cs], [C|Out]) :- pp_mt_sq(Cs, Out).
+pp_mt_quoted([], _, [], []).
+pp_mt_quoted([92, C|Cs], Q, [92, C|Out], R) :- !, pp_mt_quoted(Cs, Q, Out, R).
+pp_mt_quoted([Q|Cs], Q, [Q], Cs) :- !.
+pp_mt_quoted([C|Cs], Q, [C|Out], R) :- pp_mt_quoted(Cs, Q, Out, R).
 %% THE USER'S OWN FILE (Top = yes): its directives run and its macros expanded
 %% like a header's, but an #include is passed on as the directive token for
 %% the reader to resolve and read (the declarations come from the reader's
@@ -257,7 +286,9 @@ pp_include_file(Path, Out0, Out) :-
     (   Depth > 120 -> Out0 = Out
     ;   pp_guarded(Path) -> Out0 = Out
     ;   nb_setval('$pp_stack', [Path|St]), pp_out_key(K),
+        ( pp_mt_on -> nb_getval('$pp_mt_line', IL), pp_mt_note(enter(IL, Path)) ; true ),
         \+ \+ ( pp_source(Path, Lines), pp_run(Lines, OutF, []), nb_setval(K, OutF), pp_note_guard(Path, Lines) ),   % EACH FILE IN A SCOPE THAT BACKTRACKS (below)
+        ( pp_mt_on -> pp_mt_note(leave) ; true ),
         nb_getval('$pp_stack', [_|St1]), nb_setval('$pp_stack', St1),
         Out0 = [pp_out(K)|Out] ).
 %% cocolog reclaims the heap on backtracking and by nothing else (its DESIGN-compiling.md: no collector), so a
@@ -439,8 +470,8 @@ pp_norm(T, T).
 pp_directive(Body, L, Ls, Ls1, Out0, Out) :-
     pp_ws(Body, B1), pp_word(B1, W, Rest), atom_codes(D, W),
     pp_directive_(D, Rest, Body, L, Ls, Ls1, Out0, Out).
-pp_directive_(define, Rest, Body, L, Ls, Ls, Out0, Out) :- !, ( pp_do_define(Rest) -> true ; true ), pp_pass(Body, L, Out0, Out).
-pp_directive_(undef, Rest, Body, L, Ls, Ls, Out0, Out) :- !, pp_ws(Rest, R1), pp_word(R1, W, _), atom_codes(N, W), pp_undefine(N), pp_pass(Body, L, Out0, Out).
+pp_directive_(define, Rest, Body, L, Ls, Ls, Out0, Out) :- !, ( pp_do_define(Rest) -> true ; true ), ( pp_mt_on -> pp_mt_define(Rest, L) ; true ), pp_pass(Body, L, Out0, Out).
+pp_directive_(undef, Rest, Body, L, Ls, Ls, Out0, Out) :- !, pp_ws(Rest, R1), pp_word(R1, W, _), atom_codes(N, W), pp_undefine(N), ( pp_mt_on -> pp_mt_note(undef(L, N)) ; true ), pp_pass(Body, L, Out0, Out).
 pp_directive_(include, Rest, Body, L, Ls, Ls, Out0, Out) :- !, pp_do_include(Rest, plain, Body, L, Out0, Out).
 pp_directive_(include_next, Rest, Body, L, Ls, Ls, Out0, Out) :- !, pp_do_include(Rest, next, Body, L, Out0, Out).
 pp_directive_(cocolog, _, _, L, Ls, Ls1, Out0, Out) :- nb_getval('$pp_top', yes), !, pp_cocolog_block(Ls, L, Ls1, Out0, Out).
@@ -522,7 +553,7 @@ pp_do_include(Rest, How, Body, L, Out0, Out) :-
         ;   nb_getval('$pp_top', yes) -> atom_codes(Text, [35|Body]), Out0 = [tok(pp, Text, L)|Out],
                                         ( ccl_header_macros_known(Path, _) -> nb_getval('$pp_hdrs', Hs), nb_setval('$pp_hdrs', [Path|Hs]), nb_getval('$pp_ninc', I0), I1 is I0 + 1, nb_setval('$pp_ninc', I1) ; true )
         ;   nb_getval('$pp_once', O), memberchk(Path, O) -> Out0 = Out
-        ;   pp_include_file(Path, Out0, Out) )
+        ;   nb_setval('$pp_mt_line', L), pp_include_file(Path, Out0, Out) )
     ;   nb_getval('$pp_top', yes) -> atom_codes(Text, [35|Body]), Out0 = [tok(pp, Text, L)|Out]      % nowhere: the reader says `missing'
     ;   Out0 = Out ).
 pp_do_include(_, _, _, _, Out, Out).

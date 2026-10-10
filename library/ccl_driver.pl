@@ -79,7 +79,7 @@ dr_c(F, Options, _, Objs, Objs) :- memberchk(preprocess, Options), !,           
     dr_say(['preprocess ', F]),
     (   catch(dr_preprocess(F, Options), E, (dr_report(F, E), fail)) -> true ; true ).
 dr_c(F, Options, Flags, Objs, Objs1) :-
-    dr_say(['read ', F]), nb_setval('$dr_expansions', []),
+    dr_say(['read ', F]), nb_setval('$dr_expansions', []), dr_macro_trace(F, Options),
     (   catch(cicilang_ast(F, AST), E1, (dr_pp_warnings, dr_report(F, E1), fail))
     ->  dr_pp_warnings, dr_remember_expansions(AST),
         (   memberchk(ast, Options) -> writeq(AST), nl, Objs = Objs1
@@ -92,6 +92,13 @@ dr_c(F, Options, Flags, Objs, Objs1) :-
             ;   ( nb_getval('$dr_errors', NE), NE =:= 0 -> dr_error(F, 0, ['the check or the lowering failed without saying why']) ; true ), Objs = Objs1 ) )
     ;   Objs = Objs1 ).
 
+%% -g -fdebug-macro (0.134): THE MACROS AS THE FILE AND ITS HEADERS DEFINE THEM, recorded by a standalone run of the
+%% preprocessor (ccl_pp_macro_trace/2) BEFORE the read, whose own run starts the preprocessor afresh; the lowering's
+%% compile unit describes them (ir_dbg_macros/3). Without the two options, nothing is recorded.
+dr_macro_trace(F, Options) :-
+    (   memberchk(debug, Options), memberchk(debug_macro, Options)
+    ->  ccl_ensure_globals, ccl_set_lang(F), ( catch(ccl_pp_macro_trace(F, Es), _, fail) -> true ; Es = [] ), nb_setval('$ccl_debug_macros', events(Es))
+    ;   nb_setval('$ccl_debug_macros', none) ).
 %% the file through the preprocessor standalone -- its includes pulled in, every macro
 %% expanded -- spelled back as text (ccl_pp_spell/2): to -o FILE, else the answer itself
 dr_preprocess(F, Options) :-
@@ -118,7 +125,8 @@ dr_ir_sig(F, AST, Sig) :-
     dr_unit_deps(AST, Ds0), sort(Ds0, Ds),
     findall(P-K, ( member(P, [F|Ds]), ( ccl_kb_key(P, K) -> true ; K = none ) ), Keys),
     ( catch(nb_getval('$ccl_debug', Dbg0), _, fail) -> true ; Dbg0 = none ), ( catch(nb_getval('$ccl_debug_kind', DK), _, fail) -> true ; DK = none ), Dbg = Dbg0-DK,   % -g's IR is another IR (0.128), and the line tables alone a third (0.130)
-    term_to_atom(sig(LV, Arch, Keys, Dbg), A), atom_codes(A, Cs), dr_fold(Cs, 7, 131, S1), dr_fold(Cs, 13, 137, S2), Sig = S1-S2.
+    ( catch(nb_getval('$ccl_debug_macros', events(_)), _, fail) -> DM = macros ; DM = none ),   % -fdebug-macro's IR is another again (0.134)
+    term_to_atom(sig(LV, Arch, Keys, Dbg, DM), A), atom_codes(A, Cs), dr_fold(Cs, 7, 131, S1), dr_fold(Cs, 13, 137, S2), Sig = S1-S2.
 %% two folds under 2^31 (cocolog's arithmetic is not exact past 2^52), a pair for 62 bits
 dr_fold([], S, _, S).
 dr_fold([C|Cs], S0, M, S) :- S1 is (S0 * M + C) mod 2147483647, dr_fold(Cs, S1, M, S).

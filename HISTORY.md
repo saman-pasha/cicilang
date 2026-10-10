@@ -127,6 +127,7 @@ One row per step, in version order: the step's title, what it did and its gate n
 | 0.131 | another machine: Linux on aarch64 | `--target=TRIPLE`; the target's macros, sysroot, types (unsigned char, an fp128 long double) and back end; AAPCS64 proven under qemu (an HFA before the size, a 16-aligned composite, `va_arg` expanded); x86-64's `va_arg` of a long double | a save point: reader 5 s, compile 9 s, driver 10 s (31 checks), objects 3 s, proof, cross 47 s; the C++ gates are 0.132's |
 | 0.132 | floats kept exactly, decimal constants folded, the views of C++23 | A stored read's floats frozen to integers and thawed (reader 125); decimal and binary constants folded as gcc folds them; `decltype(auto)`, `auto &&`, CTAD through a template template parameter and the rules the C++23 views asked for; `empty` to `ranges::to` at libc++ 18 | 18: reader 5 s, compile 11 s, driver 9 s, objects 4 s, cross 49 s, libcxx 1030 s, C++ 1064 s (456 of 457); 21: libcxx 974 s, C++ 700 s; all GREEN |
 | 0.133 | `goto` followed, `this` handed out, range and tuple formatting | A goto runs the defers it leaves and the check follows it; `this` handed out of a constructor checked; a constructor defined out of its class built; a C++ static data member described in its class under `-g`; range and tuple formatting, `views::join_with` at libc++ 21; frames popped on every exit; the budget 6000 | 18: reader 5 s, compile 12 s, driver 10 s, objects 3 s, cross 51 s, libcxx 1090 s, C++ 1359 s (463 of 465); 21: libcxx 1069 s, C++ 863 s; all GREEN |
+| 0.134 | the macros under `-fdebug-macro`, virtual overloads' slots, the money facets and `<filesystem>` | `-fdebug-macro` writes the macros as clang does; two virtual overloads of one name and arity are two slots, a call dispatches through the slot it chose; a parameter that stands twice under a pattern's `const`; a downcast from a base not at offset 0; `struct tm` mangled; a range-for by argument-dependent `begin`; the money and time facets, the exceptions mask, the wide file streams, `std::filesystem` | 18: reader 5 s, compile 13 s, driver 11 s, objects 4 s, cross 52 s, libcxx 1211 s, C++ 1287 s (475 of 477); 21: libcxx 1087 s, C++ 1224 s; all GREEN |
 
 ## M5 — the C++ mode
 
@@ -7940,3 +7941,66 @@ the safe part); over libc++ 21 the library read (1069 s) and the C++ gate (863 s
 profile of `<random>` and a few probes ran beside the libc++ 21 phase.
 
 Lowering version 74 (the reader's stays 125); the module rebuilt as 0.133, over cocolog 1.10.0.
+
+## 0.134 — the macros under `-fdebug-macro`, virtual overloads' slots, the money facets and `<filesystem>`
+
+**0.134: the items of "Not done" that a probe each could settle** -- `-g`'s macros (Tools), and the libc++ parts that
+were untried or known to lose (the money and time facets, the exceptions mask, the wide file streams, `std::filesystem`,
+`__pad_and_output`, `less<void>`) -- and the defects their probes met, each cut down to a reduction of its own.
+
+(1) THE MACROS IN THE DEBUG INFORMATION. `-fdebug-macro` with a full `-g` (clang's flag; `-g3` alone describes no macro in
+either compiler) records the file's macros by a standalone run of the preprocessor before the read, each `#define` and
+`#undef` at its line and each file it enters and leaves, and the lowering writes clang's tree: the compile unit's
+`macros:` holds the main file's `DIMacroFile`, a header's own at the line of its `#include`, then the predefined macros
+and each `-D` at line 0. gdb reads them (`info macro EOF`: defined at `/usr/include/stdio.h:105`; `macro expand`). The
+driver gate compares a file's and its header's macros with clang's object, line by line, through `llvm-dwarfdump
+--debug-macro` (33 checks).
+
+(2) TWO VIRTUAL OVERLOADS OF ONE NAME AND ONE ARITY ARE TWO SLOTS. A slot was keyed by the method's name and its arity, so
+the second of libc++'s `money_put::do_put(..., long double)` and `do_put(..., const string_type &)` overrode the first:
+the table had one slot too few, and `std::put_money` of a string dispatched to the `long double` one (LLVM refused the
+`sitofp` of a struct). A slot's key is now its arity for the first virtual of a name and arity and `A_I` for the I-th; a
+method overrides the slot whose parameter types are its own where several share a name and an arity, and a method
+marked `virtual` whose types surely differ from the one slot is an overload of its own. The same libc++ classes have
+`num_put`'s eight `do_put` of four parameters and `num_get`'s eleven `do_get` of five, which the program's code reaches
+only through `use_facet` (the stream inserters are shipped). `virtualoverload.cpp` (20 lines).
+
+(3) A CALL DISPATCHES THROUGH THE SLOT OF THE METHOD IT CHOSE: the slot was asked by the call's own number of arguments,
+so `p->f(3)` over `virtual int f(int a, int b = 2)` found no slot of one parameter and called the base's f statically --
+`5` where clang++ gives `60`. A defect since virtual calls came (0.34). `virtualdefault.cpp`.
+
+(4) THE PARTIAL ORDERING COMPARED A PARAMETER THAT STANDS TWICE WITH ITS PATTERN'S `const` KEPT (since 0.125):
+`pad(obi<C, T>, const C *, ..., C)` against `pad(O, const C *, ..., C)` saw C as both `const X` and `X`, so the more
+specialized overload was no more specialized, and libc++'s ostreambuf_iterator overload of `__pad_and_output` lost to the
+generic one again (the output was right; the road was `std::copy`). `partialorder3.cpp`, `stdpadout.cpp`.
+
+(5) THE LIBRARY'S PROBES: `time_put<char>::put` and `time_get<char>::get` with a pattern are shipped members of an extern
+template, and their `const tm *` had no mangling -- `struct tm` is a tag that no typedef names, and a class the header load
+registers in the global namespace; both are now the tag, `PK2tm` (`std::put_time`, `std::get_time` linked to nothing).
+`typedef string __path_string;` is an alias of an alias of a template-id, which the lowering met raw (every
+`std::filesystem::path`); a chain of bare names that ends in such an alias resolves to the instance now. A range-for over
+a class with no member `begin` and `end` takes the free ones that argument-dependent lookup finds in the class's namespace
+(`std::filesystem::begin(directory_iterator)`, a program's `geo::begin(const Path &)`; `rangeadl.cpp`), and an unnamed
+by-value parameter of a class with a destructor -- `end(directory_iterator)` -- is destroyed by the callee under a name of
+its position (`anonparam.cpp`). With these: `stdmoney.cpp` (`put_money`, `get_money`, `put_time`, `get_time`),
+`stdiosexc.cpp` (the exceptions mask), `stdwfstream.cpp` (the wide file streams), `stdfspath.cpp` and `stdfsops.cpp`
+(`path`, `create_directories`, `file_size`, a `directory_iterator`, `remove_all`). `less<void>`'s call operator is not
+emitted where nothing calls it (the 0.79 fixtures' IR, read again: no such function), so the item is gone.
+
+(6) A DOWNCAST FROM A BASE THAT IS NOT AT OFFSET ZERO kept the pointer: `static_cast<D *>(pb)` over the second base of
+`struct D : A, B` read D's members four bytes off -- a silent wrong answer since a later base had a sub-object of its own
+(0.88), found while the layout of the next step was measured. The lowering converted only upward; a pointer and a
+reference to a base now convert down by the base's offset, subtracted, a null pointer kept null, never through a
+virtual base. `downcast.cpp`.
+
+(7) `<random>` WAS TRIED AGAIN over the step's tree: `std::mt19937` through `uniform_int_distribution` was killed at the
+probe's 1500 s cap, its peak 526 MB, and refused nothing -- as at 0.117. It stays in "Not done", with the cause unknown.
+
+THE GATES. The live checkout ran the chain, fresh HOMEs: over libc++ 18 all eight GREEN (reader 5 s, compile 13 s with 72
+run and 45 safe fixtures, driver 11 s with 33 checks, objects 4 s, proof, cross 52 s, the library read in 1211 s, the C++
+gate in 1287 s with 475 of 477 fixtures ok, the skips are `stdoptionalref` and `joinwith`, the 21 refusals and the two of
+the safe part); over libc++ 21 the library read (1087 s) and the C++ gate (1224 s, 476 of 477 ok, the skip
+`stdoptionalref`) GREEN. A first run of the chain was killed by a restart of the container in its C++ phase and claims
+nothing; this one ran from the start. Probes of the next steps (`hh_mm_ss`, `std::valarray`) ran beside its C++ phases.
+
+Lowering version 75 (the reader's stays 125); the module rebuilt as 0.134, over cocolog 1.10.0.

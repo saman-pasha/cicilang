@@ -319,7 +319,10 @@ constructed in place when a temporary or a call initializes them; at C++20 also
 `chunk_by`, `common`, `zip`, `elements`, `drop_while`, `as_rvalue`, `repeat`,
 `join`, `split`, `lazy_split`) and `ranges::to`; since 0.133 range and tuple
 formatting (`std::format` of a vector, a map, a pair, a tuple, strings in the
-debug form) and, over libc++ 21, `views::join_with`.
+debug form) and, over libc++ 21, `views::join_with`; since 0.134 the money and
+time facets (`put_money`, `get_money`, `put_time`, `get_time`), a stream's
+exceptions mask, the wide file streams and `std::filesystem` (`path` and the
+operations, a range-for over a `directory_iterator`).
 `test/libcxx.sh` reads `<vector>`, `<string>`,
 `<iostream>`, `<map>`, `<set>`, `<unordered_map>`, `<unordered_set>`,
 `<optional>`, `<memory>`, `<functional>`, `<tuple>` and `<algorithm>` whole,
@@ -379,7 +382,7 @@ HISTORY.md                     the record of every step: what it did, what it fo
 
 `std::format`'s compile-time check of the format string (the library's own
 run-time parser catches a bad one); the range adaptors not named;
-`std::filesystem`, `<random>`, `std::valarray`;
+the rest of `<filesystem>`, `<random>`, `std::valarray`;
 chrono formatting; the tail padding of a non-POD base, which is
 not reused (a class laid out here differs from clang's where code compiled by
 both shares it); construction vtables in a diamond; a `\N{...}` abbreviation

@@ -92,6 +92,8 @@ while [ $# -gt 0 ]; do
     -g|-g[23]|-ggdb|-ggdb[23]|-gdwarf*|-gfull|-glldb|-gsce) gdbg="debug," ;;   # -g: the line tables (0.128), the variables, their types and the blocks (0.130)
     --target=*) opts="$opts target($(q "${1#--target=}")),"; tgt=1 ;;   # another machine (0.131): clang's spelling, both of them
     -target) need "$@"; shift; opts="$opts target($(q "$1")),"; tgt=1 ;;
+    -fdebug-macro) dmac="debug_macro," ;;   # the macros in the debug information (0.134): with -g only, as clang
+    -fno-debug-macro) dmac="" ;;
     -W*|-f*|-std=*|-pedantic|-g*) ;;   # accepted for clang's sake
     -*) echo "$me: error: unknown argument: '$1'" >&2; exit 1 ;;
     *) inputs="$inputs $(q "$1"),";;
@@ -100,6 +102,7 @@ while [ $# -gt 0 ]; do
 done
 [ -n "$inputs" ] || { echo "$me: error: no input files" >&2; exit 1; }
 [ -n "$gdbg" ] && opts="$opts $gdbg"
+[ "$gdbg" = "debug," ] && [ -n "$dmac" ] && opts="$opts $dmac"
 [ -n "$out" ] && opts="$opts out($(q "$out")),"
 [ -n "$opt" ] && opts="$opts opt('$opt'),"
 inputs="[${inputs%,}]"; opts="[${opts%,}]"
