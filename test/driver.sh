@@ -59,6 +59,10 @@ check "-D and -U define and undefine before every file, <assert.h>'s NDEBUG amon
 49 3
 after"
 check "-ast-dump prints the unit" "$("$CICILI" -ast-dump "$R/run/forty2.c" | grep -c '^unit(\[function(')" "1"
+DD=$(command -v llvm-dwarfdump || echo "${LLVM:-/usr/lib/llvm-18}/bin/llvm-dwarfdump")   # -g (0.128): the line table, read by LLVM's own reader
+check "-g: line tables, a line per statement, the file named" "$(printf '#include <stdio.h>\n\nstatic int twice(int x) {\n  int y = x * 2;\n  return y;\n}\n\nint main(void) {\n  int a = twice(21);\n  printf("%%d\\n", a);\n  return 0;\n}\n' > dbg.c; "$CICILI" -g dbg.c -o dbg && ./dbg && "$DD" --debug-line dbg | grep -c 'name: "dbg.c"' && "$DD" --debug-line dbg | awk '/^0x/ { print $2 }' | sort -n -u | tr '\n' ' ')" "42
+1
+3 4 5 8 9 10 11 "
 check "an unknown argument is an error, as clang says it" "$("$CICILI" --frobnicate x.c 2>&1)" "cicilang: error: unknown argument: '--frobnicate'"
 check "no input files is an error" "$("$CICILI" -c 2>&1)" "cicilang: error: no input files"
 check "the tie: a broken tie is refused in clang's shape" "$("$CICILI" -fsyntax-only "$R/safe/tie_arg.c" 2>&1 | head -1 | sed "s|$R/||")" "safe/tie_arg.c:4: error: value not within its tie: 'b' in call(id(gap),[id(a),id(b)]) (function main)"

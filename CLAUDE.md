@@ -10,8 +10,8 @@ it found, its measurements and its gate numbers. `README.md` tells a user what r
 architecture and the milestones. A step that changes a rule edits the rule here, in its topic, and writes its entry
 in `HISTORY.md`.
 
-At 0.127 the versions are: the module 0.127 (`ccl_p_version` in `module/cicilang.cicili`, `bin/cicilang --version`),
-the reader 122 (`ccl_reader_version/1`, `library/ccl_syntax.pl`) and the lowering 68 (`ccl_lowering_version/1`,
+At 0.128 the versions are: the module 0.128 (`ccl_p_version` in `module/cicilang.cicili`, `bin/cicilang --version`),
+the reader 123 (`ccl_reader_version/1`, `library/ccl_syntax.pl`) and the lowering 69 (`ccl_lowering_version/1`,
 `library/ccl_ir.pl`).
 
 Build and prove, always in this order (or all of it, `sh test/gates.sh`):
@@ -79,8 +79,8 @@ sh test/cpp.sh
 - The surface is four predicates (owner's rule): `cicilang_ast/2,3`, `cicilang_ir/2`, `cicilang_compile/3` and
   `cicilang_link/3`. They are defined over `ccl_read_file/3`, `ccl_ir_units/2`, `ccl_compile/3` and `ccl_link/3`. (M2)
 - `bin/cicilang` takes clang's arguments: there are no new flags to learn (owner's rule). `-std` names the level of
-  both languages. A flag it does not act on yet (`-g`, `-W`, `-f`, `-pedantic`) is accepted and ignored.
-  (from the start; `-D` and `-U` act since 0.112)
+  both languages. A flag it does not act on (`-W`, `-f`, `-pedantic`) is accepted and ignored.
+  (from the start; `-D` and `-U` act since 0.112, `-g` since 0.128)
 - cocolog has one namespace, so every predicate of the library has a prefix. `ccl_` is for the reader, the include
   layer, the inference, the global macros and the build. `pp_`, `cpp_`, `ck_`, `ir_` and `dr_` are for the
   preprocessor, the desugaring, the check, the lowering and the driver. Only the four doors are `cicilang_`. The C
@@ -371,14 +371,15 @@ tutorials/01..03-*.pl       the objects layer's lessons; goal main, last line do
 - The compile gate. `test/compile.pl`, one process over the user's store, reads, checks, lowers, compiles at `-O1`
   and links every `test/c/run/*.c` at its `NAME.std` level (`c_level`). It expects every `test/c/safe/*.c` refused.
   `test/compile.sh` runs each binary as `NAME arg1 arg2` against `NAME.expect`, and compares each refusal with
-  `safe/NAME.expect`. There are 63 run and 43 safe fixtures at 0.117. (M2, M3, 0.57)
-- The driver gate. `test/driver.sh` makes 26 checks of `bin/cicilang` over the user's store. They cover what `-o`,
-  `-c`, `-S`, `-emit-llvm`, `-shared`, `-I`, `-ast-dump` and `-fsyntax-only` make, and the diagnostics in clang's
-  shape (`#warning` printed, `#error` with exit 1). They find `@ccl_drain_node` in `btree.c`'s IR, and pass structs by
-  value both ways against clang-built code (`test/c/link/abi_main.c`, `abi_helper.c`; seven lines at 0.117, the last
-  two for the SysV register budget, `budget_*` built by clang and `bud_*` by cicilang). The store must serve `hello.c`
-  in under 10 s and redo only the changed one of two files. The gate follows the host: `_main:` and `.dylib` on
-  Darwin, `main:` and `.so` elsewhere. (M4, 0.93)
+  `safe/NAME.expect`. There are 64 run and 43 safe fixtures at 0.128. (M2, M3, 0.57)
+- The driver gate. `test/driver.sh` makes 27 checks of `bin/cicilang` over the user's store. They cover what `-o`,
+  `-c`, `-S`, `-emit-llvm`, `-shared`, `-I`, `-ast-dump`, `-fsyntax-only` and `-g` make (the line table read back by
+  `llvm-dwarfdump`, from `$PATH` or `$LLVM/bin`: the statements' lines and the file's name), and the diagnostics in
+  clang's shape (`#warning` printed, `#error` with exit 1). They find `@ccl_drain_node` in `btree.c`'s IR, and pass
+  structs by value both ways against clang-built code (`test/c/link/abi_main.c`, `abi_helper.c`; seven lines at 0.117,
+  the last two for the SysV register budget, `budget_*` built by clang and `bud_*` by cicilang). The store must serve
+  `hello.c` in under 10 s and redo only the changed one of two files. The gate follows the host: `_main:` and `.dylib`
+  on Darwin, `main:` and `.so` elsewhere. (M4, 0.93, 0.128)
 - The objects gate. `test/objects.sh` makes 29 checks of the objects layer, an instance that outlives its process
   among them. (from the start)
 - The proof. `proof/run.sh` has clang turn `proof/forty2.ll` into a binary that prints `cicilang reaches C` and exits
@@ -541,8 +542,15 @@ tutorials/01..03-*.pl       the objects layer's lessons; goal main, last line do
 - `-c -S -emit-llvm -fsyntax-only -E -ast-dump -v -o -O0..-Oz -I` become `compile_only`, `assembly`, `emit_llvm`,
   `syntax_only`, `preprocess`, `ast`, `verbose`, `out(F)`, `opt(F)` (default `-O0`) and `include(D)`. Link flags pass as
   `link(F)`: `-l -L -shared -Wl, -framework -static -rdynamic -fPIC -pthread -m*`. (M4, 0.44)
-- `-g -W -f* -pedantic` and an unknown `-std=` are accepted and ignored. Any other dash argument is `unknown argument`.
-  `--version` prints the versions of cicilang, cocolog and LLVM; `-h` prints the help. (M4, 0.108)
+- `-W -f* -pedantic`, an unknown `-std=` and an unknown `-g` form are accepted and ignored. Any other dash argument is
+  `unknown argument`. `--version` prints the versions of cicilang, cocolog and LLVM; `-h` prints the help. (M4, 0.108)
+- `-g` is the option `debug` (0.128): `-g`, `-g1` to `-g3`, `-ggdb` and its levels, `-gline-tables-only`,
+  `-gline-directives-only`, `-gdwarf*`, `-gfull`, `-glldb` and `-gsce` all give LINE TABLES, the one level the lowering
+  makes; `-g0` and `-ggdb0` give none, as clang. `dr_c` sets `'$ccl_debug'` to `file(AbsolutePath)` for the file
+  (`dr_abs_path/2`, `absolute_file_name/2`), else `none`, and the IR cache's signature folds it (`dr_ir_sig/3`): an IR
+  with line tables is another IR. The lowering's side is in The lowering topic. A debugger stops at a line and steps
+  by statements (gdb: `main () at dbg1.c:9`); there are no variables, no types and no scopes below the function. The
+  driver gate's `-g` check reads the line table back with LLVM's own `llvm-dwarfdump`. (0.128)
 - `-D N`, `-DN=v`, `-D'F(x)=...'` and `-U N` are `define(Text)` and `undef(N)` options (0.112): the driver makes the
   list `'$pp_cmdline'` (`ccl_pp_cmdline/1`, the later of a -D and a -U of one name winning), and `pp_outer_macro/3`
   asks it before the predefined macros, so every file and every header's macro table made in the process reads them
@@ -777,7 +785,9 @@ tutorials/01..03-*.pl       the objects layer's lessons; goal main, last line do
   so a macro never expands inside itself. A body is lexed on first use (`pp_macro/3`). Reader `k83`. (0.93)
 - `#if` (`pp_eval/1`): `defined` and the built-ins (`pp_defined_pass/2`), the expansion, the built-ins again; a name
   left is 0 and `true` 1 (`pp_normalize`); then `ccl_cond_expr//1` and `ccl_const_eval/2`. What does not evaluate is
-  false. (M5)
+  false. The evaluation is C's `#if` arithmetic (C 6.10.1/4): `pp_eval_/1` sets `'$ccl_cv_pp'` around it, and every
+  unsigned operation is done in `uintmax_t`, 64 bits (`ccl_cv_width/2`), so `#if ~0u == 0xFFFFFFFFFFFFFFFF` holds; the
+  global is put back on success, failure and throw. `test/c/run/unsignedconst.c`. (M5, 0.128)
 - Built-ins (`pp_builtin_answer/3`): `__has_include(_next)` resolve for real (`ccl_resolve_include/3`);
   `__has_builtin` and `__is_identifier` 1 (libc++'s other branch is an `#error`), but `__has_builtin(__builtin_common_type)`
   0 (`pp_no_builtin/1`, a table of the builtins this compiler does not model: libc++ 21 then flattens `common_type` on its own
@@ -1603,27 +1613,33 @@ tutorials/01..03-*.pl       the objects layer's lessons; goal main, last line do
 - Per-process state is a global, never a clause: the units read, the cycle guard, the macro files loaded. Why: a dynamic
   predicate persists under `--embed`. (M4)
 - `kb_prepare` (`bin/cicilang`) and its twin `ccl_kb_prepare` (`test/config.sh`) stamp `KB.version` as
-  `Reader.Lowering`. A new stamp deletes the store; this is how its dead rows go (no `cocolog vacuum` runs). A store
-  that a killed writer damaged is a cache: remove `~/.cicilang/KB` and `KB.version`. (M4, 0.108)
+  `Reader.Lowering`. A new stamp deletes the store. A store that a killed writer damaged is a cache: remove
+  `~/.cicilang/KB` and `KB.version`. (M4, 0.108)
+- THE STORE IS VACUUMED (0.128): `kb_prepare` counts the runs in `KB.runs` (read and written by the shell, no fork) and
+  runs `cocolog --embed KB vacuum` every 64th run; `ccl_kb_prepare` vacuums before each gate, so a gate's numbers
+  measure the change and not the store's history. Why: a process that writes a predicate rewrites all of it, and the
+  dead rows of every edited file's read and IR stayed on disk until a version moved. A vacuum of a 25 MB store takes
+  0.4 s. A missing or damaged store is not vacuumed (`data.bin` is asked first). (0.128)
 
 ### The IR cache
 
 - `dr_ir/3` keeps a built file's IR as `'$ccl_ir:<Path>'(Index, Chunk)` (3500 characters, under the clause budget when
   quoted), indexed by `'$ccl_irmeta'(Path, Signature, Count)`. (M4)
 - The signature folds the file's key, every header, macro file and summary its AST reaches (`dr_unit_deps/2`),
-  `ccl_lowering_version/1` and the arch. `dr_fold/4` makes two folds under 2^31, since cocolog is inexact past 2^52. A
-  match is served (`-v`: `served F from the store`); a refused file stores nothing. (M4)
+  `ccl_lowering_version/1`, the arch and the debug option (`'$ccl_debug'`: an IR with line tables is another IR,
+  0.128). `dr_fold/4` makes two folds under 2^31, since cocolog is inexact past 2^52. A match is served (`-v`: `served
+  F from the store`); a refused file stores nothing. (M4, 0.128)
 
 ### The versions
 
-- `ccl_reader_version/1` (`library/ccl_syntax.pl`, now 122): bump it for any grammar change to what a read gives, and
+- `ccl_reader_version/1` (`library/ccl_syntax.pl`, now 123): bump it for any grammar change to what a read gives, and
   for any change to what the AST beside a summary holds (item or member terms, `cpp_index_name/2`,
   `cpp_template_name/2`, `ccl_flat_items/3`, the namespace keys). Keep the reason in its comment. Why: the store and the
   summaries are keyed by it, and a stale read is served silently (`sizeof(std::string)` read 40). (M1, 0.89, 0.112,
   0.117)
 - A reader bump makes every summary cold; `test/libcxx.sh` rewrites them. `test/reader.pl`'s `k16` (a cached read is
   the same AST as a fresh one) goes RED on a grammar change without a bump. (0.93, 0.105)
-- `ccl_lowering_version/1` (`library/ccl_ir.pl`, now 68): bump it whenever the check or the lowering changes what it
+- `ccl_lowering_version/1` (`library/ccl_ir.pl`, now 69): bump it whenever the check or the lowering changes what it
   emits, however small -- 0.120 bumped it for the ORDER of the drain functions alone. Why: `dr_ir/3` serves the old IR
   otherwise. Either bump starts the C store afresh. (M4, 0.103, 0.120)
 
@@ -3809,6 +3825,21 @@ A lambda is a class of its captures (`library/ccl_cpp.pl`). A fixture named alon
 - A cast to an integer type WRAPS to its width and signedness ([conv.integral]; `ccl_w_cast/3`, `ccl_w_wrap/4`):
   `(long long) (1ULL << 63)` is -2^63; a floating value truncates, then wraps. `test/c/run/bigint.c`. Why: libc++'s
   `numeric_limits<T>::max()` folded to -1 and the string extractor never looped. (0.94, 0.108)
+- AN UNSIGNED OPERATION IS DONE IN ITS TYPE (C 6.3.1.8, 6.2.5/9; [expr.arith.conv]; 0.128): the values stay untyped
+  mathematical integers, so `~0u` was -1, `~0u / 3` folded to 0 (it is 0x55555555), `0u - 1` was -1 and `-1 < 0u` held.
+  `ccl_cv_binary/7` (after `ccl_const_op/4` in `ccl_const_eval/2`'s `bin` clause) answers at once where both operands
+  and the result are small and not negative (`ccl_cv_small/1`: the same in every type); else it asks the operands'
+  types, and where their usual arithmetic conversion is an unsigned type (`ccl_cv_unsigned/1`: an integer type of
+  unsigned rank, `bool` excepted) both operands are converted to it, the operation is done again, and the result
+  wraps to it (a comparison answers its 0 or 1; `ccl_cv_typed_op/2` names the operators). A `>>` of an unsigned left
+  operand shifts its converted value. `ccl_cv_unary/3` wraps `-x` and `~x` of an unsigned promoted type
+  (`-1u == 4294967295u`). An operand that the inference cannot type keeps the mathematical answer. In `#if` the type is
+  `uintmax_t` (the Preprocessor topic). `test/c/run/unsignedconst.c`, which prints clang's values for globals, enum
+  values, array bounds and `_Static_assert`s. (0.128)
+- ONE EVALUATOR FOR AN ENUMERATOR'S VALUE (0.128): the bulk noter's `ccl_const_eval_in/3` had an arithmetic of its own
+  (it read `(unsigned char) 300` as 300 and `-1 < 0u` as 1, where the parser's read gave 44 and 0); it now puts the
+  enumerators before as their values (`ccl_enum_ids_in/3`: `int(V)`, `long(V)` past 2^31) and asks
+  `ccl_const_eval/2`. Reader 123, since a summary's `enum/2` values come from it. (0.128)
 - A LEFT SHIFT WRAPS in the promoted type of its left operand (`ccl_shl_wrap/3`; [expr.shift]/1): `intmax_t(1) << 63` is
   -2^63, as clang folds it, and libc++'s `-((intmax_t(1) << (sizeof(intmax_t) * CHAR_BIT - 1)) + 1)` is `INTMAX_MAX`. It
   was +2^63 and its negation -2^63 - 1, every `duration::__no_overflow<...>::value` false, and no `<chrono>` duration
@@ -5182,6 +5213,28 @@ A lambda is a class of its captures (`library/ccl_cpp.pl`). A fixture named alon
 - libc++'s memory builtins become the C library's `memcpy`, `memmove` and `memset` in the desugaring;
   `ir_cpp_prelude/0` declares them when the file did not. (0.60)
 
+### Line tables (`-g`)
+
+- Under the driver's `debug` option (`'$ccl_debug'` = `file(Path)`, the Driver topic) the lowering writes LINE TABLES,
+  DWARF 5 (0.128). A function the program defines gets a `distinct !DISubprogram` with its name, its line and the one
+  file (`ir_dbg_begin/3`, from `ir_function/7`; the line from the item, `'$ir_fn_line'`), and EVERY instruction of its
+  body a `!DILocation` of the line of the statement being lowered (`'$ir_line'`; the function's own line before the
+  first statement): `ir_ins/1`, `ir_end/1` and the fall-through branch of `ir_block/1` append `, !dbg !N`
+  (`ir_dbg_parts/2`). LLVM's verifier asks a location of every call in a function that has a subprogram, and of an
+  inlinable call in particular, so no instruction is left without one. A location is made once per line and function
+  (`'$ir_dbg_locs'`). A declaration sets the line too (`ir_stmt(declaration(L, ...))`): its initializer's calls are its
+  own. (0.128)
+- A LIBRARY function (`cpp_library_function/1`) gets no subprogram: its lines are a header's, and the table names one
+  file. A function without a subprogram has no location on any instruction. (0.128)
+- `ir_assemble/1` appends the module's own metadata (`ir_dbg_module/1`): `!0` the `DICompileUnit` (language
+  `DW_LANG_C11` or `DW_LANG_C_plus_plus_14`, producer `cicilang <version>`, `emissionKind: LineTablesOnly`), `!1` and
+  `!2` the two module flags LLVM asks (`Dwarf Version` 5, `Debug Info Version` 3), `!3` the `DIFile` (the base name and
+  the directory of the absolute path), `!4` the one `DISubroutineType` every subprogram shares, then the subprograms and
+  the locations from `!5` on (`'$ir_dbg_md'`, `'$ir_dbg_n'`). A name or a path is escaped for a metadata string
+  (`ir_dbg_escape/2`). No variable, type or lexical scope is described: `-g1` to `-g3` give what `-gline-tables-only`
+  gives. A subprogram's name is the function's LLVM name, so a C++ function is known to a debugger by this compiler's
+  own name (gdb: `break 'Counter.bump.int'`; a breakpoint by `file:line` works in both languages). (0.128)
+
 ### The embedded LLVM
 
 - `module/ccl_llvm.cicili` is the whole back end, a cocolog module over llvm-c (owner's rule: no clang, no LLVM
@@ -5426,10 +5479,11 @@ A lambda is a class of its captures (`library/ccl_cpp.pl`). A fixture named alon
   forces it; `statistics(store_used, B)` reads it. It is the process's array, not the disk. Before it, `nb_setval`
   overwrites left most of a build's store dead. (0.79, 0.84)
 - On disk a process that writes a predicate rewrites all of it, about 360 bytes per row it holds (500 measured here);
-  a read-only process adds nothing. Dead rows stay until `cocolog vacuum`, and a write is quadratic past about 30,000
-  rows (undiagnosed). So the AST cache is one predicate per file (`'$ccl_items:<Path>'`), no C++ header enters the
-  store (`cicilang++` runs `--no-kb`), and the store is stamped `Reader.Lowering` and started afresh when a version
-  moves (`kb_prepare`, `ccl_kb_prepare`).
+  a read-only process adds nothing. Dead rows stay until `cocolog vacuum` (since 0.128 every 64th run of
+  `bin/cicilang` and each gate vacuum the store), and a write is quadratic past about 30,000 rows (undiagnosed). So
+  the AST cache is one predicate per file (`'$ccl_items:<Path>'`), no C++ header enters the store (`cicilang++` runs
+  `--no-kb`), and the store is stamped `Reader.Lowering` and started afresh when a version moves (`kb_prepare`,
+  `ccl_kb_prepare`).
 - A writer killed mid-write can damage the store (`hexmap ends inside the chunk`). It is a cache:
   `rm -rf ~/.cicilang/KB ~/.cicilang/KB.version` repairs it. (0.108)
 - Integers are 61-bit and `is/2` wraps silently. So a literal past 2^60 is `big(Atom)` in both lexers, the constant
@@ -5634,10 +5688,10 @@ A lambda is a class of its captures (`library/ccl_cpp.pl`). A fixture named alon
   0.90, all GREEN (cocolog 1.2.18). The fixtures added since 0.93 have run on Linux only.
 - Ubuntu 24.04 on x86_64 (clang and LLVM 18, glibc, libc++ 18 and 21) is a host since 0.87. Every gate but the C++ one is
   GREEN there since 0.93, and all seven since 0.95. Every step from 0.93 on is gated there, but the save points 0.112,
-  0.113, 0.117, 0.122 to 0.125 (gated by the steps after them); the last full run is 0.127's, over cocolog 1.9.1, on one
-  tree: over libc++ 18 all seven GREEN (reader 5 s, compile 10 s, driver 7 s, objects 3 s, proof, the library read in 1055 s,
-  the C++ gate in 820 s with 438 of 439 fixtures ok, the skip is `stdoptionalref`, and the 21 refusals); over libc++ 21 the
-  library read (1031 s) and the C++ gate (740 s, 438 of 439 ok, the same skip) GREEN -- the C gates do not read libc++. Two libc++ passes are one
+  0.113, 0.117, 0.122 to 0.125 (gated by the steps after them); the last full run is 0.128's, over cocolog 1.9.1, on one
+  tree: over libc++ 18 all seven GREEN (reader 5 s, compile 10 s, driver 7 s, objects 4 s, proof, the library read in 1123 s,
+  the C++ gate in 929 s with 438 of 439 fixtures ok, the skip is `stdoptionalref`, and the 21 refusals); over libc++ 21 the
+  library read (940 s) and the C++ gate (644 s, 438 of 439 ok, the same skip) GREEN -- the C gates do not read libc++. Two libc++ passes are one
   gate: `LLVM=/usr/lib/llvm-18` and `LLVM=/usr/lib/llvm-21` choose the tree the chain reads and links. libc++ 22 (the
   newest tree, which a run without `$LLVM` reads) is untried but for `stdoptionalref`, which passes there. The run before
   0.121's (0.118, 0.119) found, over 0.117, two defects and one stale check of `test/cpp.pl` (c20, above).
@@ -5930,9 +5984,11 @@ A lambda is a class of its captures (`library/ccl_cpp.pl`). A fixture named alon
 - libc++ keeps its no-RTTI configuration by design, so `shared_ptr::get_deleter`, `dynamic_pointer_cast`,
   `std::function::target` and `target_type` are absent (0.86, 0.88). The program's own `typeid` and `dynamic_cast` run
   (0.108).
-- Untried: `std::atomic<shared_ptr>` (0.86). `<atomic>`'s `wait`, `notify_one` and `notify_all` run at C++20
-  (`stdatomic20.cpp`, 0.117). A program's own calls of `std::uninitialized_copy`, `std::construct_at`, the `destroy_*`
-  algorithms and `allocator_traits` run (`stduninit.cpp`, `stdallocator.cpp`, 0.117).
+- `std::atomic<shared_ptr<T>>` (C++20, P0718) is in neither libc++ 18 nor libc++ 21: clang++ refuses
+  `std::atomic<std::shared_ptr<int>>` over both trees, so there is nothing of the library to compile (0.86, 0.128).
+  `<atomic>`'s `wait`, `notify_one` and `notify_all` run at C++20 (`stdatomic20.cpp`, 0.117). A program's own calls
+  of `std::uninitialized_copy`, `std::construct_at`, the `destroy_*` algorithms and `allocator_traits` run
+  (`stduninit.cpp`, `stdallocator.cpp`, 0.117).
 - The `less<void>` comparator's `operator()` is emitted where a program never calls it (0.79).
 - `std::stringstream`, `std::wstringstream`, `std::ofstream`, `std::ifstream` and `std::fstream` run (0.117). Not tried:
   `std::filesystem` (its `path` methods refuse: `_PathCVT::__append_range` meets `typedef(tmpl(basic_string, ...))`),
@@ -5985,13 +6041,13 @@ A lambda is a class of its captures (`library/ccl_cpp.pl`). A fixture named alon
 
 ### Tools and performance
 
-- `bin/cicilang` accepts and ignores `-g`, `-W`, `-f...` and `-pedantic` (owner's rule: clang's arguments, no new
-  flags): there is no debug info. `-D` and `-U` define and undefine (0.112); a run with either keeps no C store.
+- `bin/cicilang` accepts and ignores `-W`, `-f...` and `-pedantic` (owner's rule: clang's arguments, no new flags).
+  `-g` gives line tables only (0.128): no variable, type or lexical scope is described, so a debugger stops at a line
+  and steps, and `print x` has nothing to read; a C++ function's subprogram carries this compiler's name
+  (`Counter.bump.int`), not the source's qualified name, so `break Counter::bump` finds nothing. `-D` and `-U` define
+  and undefine (0.112); a run with either keeps no C store.
 - A C++ read never uses the store: `cicilang++` runs `--no-kb` (M5). The C++ cache is the summary and the AST beside it
   (0.35, 0.45).
-- The C store's dead rows stay on disk: `cocolog vacuum` is not used, and the store starts afresh only when
-  `KB.version` changes (`kb_prepare` in `bin/cicilang`, `ccl_kb_prepare` in `test/config.sh`) (named in the 0.112
-  validation).
 - cocolog has no `oom` check in its step loop (1.8.41), so a refused allocation gives a wrong answer. Its heap
   collector (1.8.36) does not run inside a nested engine (`findall/3`, `forall/2`). These are requests to cocolog's
   owner, never changes here (owner's rule) (0.46, 0.112).

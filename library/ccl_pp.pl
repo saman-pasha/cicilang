@@ -600,7 +600,7 @@ pp_skip_to_endif(Ls, Ls1) :- pp_skip_group(Ls, 0, Found, Rest), ( Found = elif(_
 pp_eval(Ts) :- once(catch(pp_eval_(Ts), _, fail)).
 pp_eval_(Ts) :-
     pp_defined_pass(Ts, T1), pp_expand_all(T1, T2), pp_defined_pass(T2, T3), pp_normalize(T3, T4),   % a built-in a macro expanded to is answered too
-    phrase(ccl_cond_expr(E), T4, _), ccl_const_eval(E, V), V =\= 0.
+    phrase(ccl_cond_expr(E), T4, _), nb_setval('$ccl_cv_pp', yes), ( catch(ccl_const_eval(E, V), Err, ( nb_setval('$ccl_cv_pp', no), throw(Err) )) -> nb_setval('$ccl_cv_pp', no) ; nb_setval('$ccl_cv_pp', no), fail ), V =\= 0.   % C's intmax arithmetic, untyped (0.128: the evaluator types the program's constants)
 pp_defined_pass([], []).
 pp_defined_pass([tok(id, defined, L), tok(p, '(', _), tok(K, N, _), tok(p, ')', _)|Ts], [tok(int, V, L)|Os]) :- ( K == id ; K == kw ), !, ( pp_defined(N) -> V = 1 ; V = 0 ), pp_defined_pass(Ts, Os).
 pp_defined_pass([tok(id, defined, L), tok(K, N, _)|Ts], [tok(int, V, L)|Os]) :- ( K == id ; K == kw ), !, ( pp_defined(N) -> V = 1 ; V = 0 ), pp_defined_pass(Ts, Os).

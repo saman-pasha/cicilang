@@ -28,6 +28,7 @@ dr_drive(Inputs, Options) :-
     forall(member(include(D), Options), assertz(ccl_include_dir(D))),
     ( memberchk(opt(O), Options) -> Flags = [O] ; Flags = ['-O0'] ),
     ( memberchk(verbose, Options) -> nb_setval('$dr_verbose', yes) ; nb_setval('$dr_verbose', no) ),
+    nb_setval('$ccl_debug', none),
     dr_inputs(Inputs, Options, Flags, Objects),
     nb_getval('$dr_errors', N),
     (   N > 0 -> true
@@ -51,6 +52,7 @@ dr_input(F, Options, Flags, Objs, Objs1) :-
     ;   ( dr_ext(F, o) ; dr_ext(F, a) ; dr_ext(F, so) ; dr_ext(F, dylib) ) -> Objs = [F|Objs1]
     ;   dr_error(F, 0, ['unknown kind of file']), Objs = Objs1 ).
 dr_ext(F, E) :- atom_concat('.', E, Dot), sub_atom(F, _, _, 0, Dot).
+dr_abs_path(F, A) :- ( catch(absolute_file_name(F, A0), _, fail) -> A = A0 ; A = F ).
 dr_cpp_ext(F) :- member(E, [cpp, cc, cxx, 'C', cppm, ccm, cxxm, ixx, mpp]), dr_ext(F, E), !.
 
 %% a .c: read (headers, macros, := ...), the safe part, the IR, then what the options ask
@@ -63,7 +65,8 @@ dr_c(F, Options, Flags, Objs, Objs1) :-
     ->  dr_pp_warnings, dr_remember_expansions(AST),
         (   memberchk(ast, Options) -> writeq(AST), nl, Objs = Objs1
         ;   memberchk(syntax_only, Options), ccl_lang(cpp) -> Objs = Objs1      % M5 is the reader; C++'s check and lowering are M6
-        ;   (   catch(dr_ir(F, AST, IR), E2, (dr_report(F, E2), fail))
+        ;   ( memberchk(debug, Options) -> dr_abs_path(F, AF), nb_setval('$ccl_debug', file(AF)) ; nb_setval('$ccl_debug', none) ),   % -g (0.128): the lowering's line tables name the file
+            (   catch(dr_ir(F, AST, IR), E2, (dr_report(F, E2), fail))
             ->  dr_emit(F, IR, Options, Flags, Objs, Objs1)
             ;   ( nb_getval('$dr_errors', NE), NE =:= 0 -> dr_error(F, 0, ['the check or the lowering failed without saying why']) ; true ), Objs = Objs1 ) )
     ;   Objs = Objs1 ).
@@ -93,7 +96,8 @@ dr_ir_sig(F, AST, Sig) :-
     ccl_lowering_version(LV), ir_arch_init, ir_arch(Arch),
     dr_unit_deps(AST, Ds0), sort(Ds0, Ds),
     findall(P-K, ( member(P, [F|Ds]), ( ccl_kb_key(P, K) -> true ; K = none ) ), Keys),
-    term_to_atom(sig(LV, Arch, Keys), A), atom_codes(A, Cs), dr_fold(Cs, 7, 131, S1), dr_fold(Cs, 13, 137, S2), Sig = S1-S2.
+    ( catch(nb_getval('$ccl_debug', Dbg), _, fail) -> true ; Dbg = none ),   % -g's IR is another IR (0.128)
+    term_to_atom(sig(LV, Arch, Keys, Dbg), A), atom_codes(A, Cs), dr_fold(Cs, 7, 131, S1), dr_fold(Cs, 13, 137, S2), Sig = S1-S2.
 %% two folds under 2^31 (cocolog's arithmetic is not exact past 2^52), a pair for 62 bits
 dr_fold([], S, _, S).
 dr_fold([C|Cs], S0, M, S) :- S1 is (S0 * M + C) mod 2147483647, dr_fold(Cs, S1, M, S).

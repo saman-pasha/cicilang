@@ -110,9 +110,9 @@ ccl_shadowed_constant(N) :- ccl_locals(Ls), ccl_in_frames(Ls, N, T), \+ ( ccl_re
 %% and signedness ([conv.integral]), which is where a 64-bit two's complement pattern is made: `(long long) (1ULL <<
 %% 63)' is -2^63. The bitwise operators are the mathematical two's complement (`~0' is -1, as cocolog and C have it),
 %% which with the casts gives C's answer; `/' and `%' truncate toward zero as C does, `>>' of a negative is arithmetic.
-ccl_const_eval(neg(E), V) :- !, ccl_const_eval(E, V0), ccl_w_neg(V0, V).
+ccl_const_eval(neg(E), V) :- !, ccl_const_eval(E, V0), ccl_w_neg(V0, V1), ccl_cv_unary(E, V1, V).
 ccl_const_eval(pos(E), V) :- !, ccl_const_eval(E, V).
-ccl_const_eval(bitnot(E), V) :- !, ccl_const_eval(E, V0), ccl_w_sub(-1, V0, V).
+ccl_const_eval(bitnot(E), V) :- !, ccl_const_eval(E, V0), ccl_w_sub(-1, V0, V1), ccl_cv_unary(E, V1, V).
 ccl_const_eval(not(E), V) :- !, ccl_const_eval(E, V0), ( V0 == 0 -> V = 1 ; V = 0 ).
 ccl_const_eval(cast(T, E), V) :- !, ccl_const_eval(E, V0), ccl_w_cast(T, V0, V).
 ccl_const_eval(ccast(_, T, E), V) :- !, ccl_const_eval(E, V0), ccl_w_cast(T, V0, V).      % C++'s own casts, a functional one among them: `type(~0)' folds as `(type) ~0' does
@@ -127,7 +127,34 @@ ccl_const_eval(cond(C, A, B), V) :- !, ccl_const_eval(C, CV), ( CV \== 0 -> ccl_
 %% -2^63 - 1, and every `__no_overflow<...>::value' of <chrono> false, so no duration converted to another. An operand with no type
 %% (a name the tables lack) keeps the mathematical shift.
 ccl_const_eval(bin('<<', A, B), V) :- !, ccl_const_eval(A, X), ccl_const_eval(B, Y), ccl_const_op('<<', X, Y, V0), ccl_shl_wrap(A, V0, V).
-ccl_const_eval(bin(Op, A, B), V) :- ccl_const_eval(A, X), ccl_const_eval(B, Y), ccl_const_op(Op, X, Y, V).
+ccl_const_eval(bin(Op, A, B), V) :- ccl_const_eval(A, X), ccl_const_eval(B, Y), ccl_const_op(Op, X, Y, V0), ccl_cv_binary(Op, A, B, X, Y, V0, V).
+%% UNSIGNED ARITHMETIC WRAPS, AND A NEGATIVE OPERAND OF AN UNSIGNED OPERATION IS CONVERTED FIRST (0.128; C 6.3.1.8, 6.2.5/9,
+%% [expr.arith.conv], [basic.fundamental]/2): `~0u / 3' folded to 0 -- `~0u' was -1 and -1 / 3 is 0 -- where it is 0x55555555, `0u - 1' was
+%% -1, `-1 < 0u' held, and `_Static_assert(~0UL / 3 == 0x5555555555555555UL)' failed. The values themselves stay untyped mathematical
+%% integers; an operation whose operands and result are all small and not negative is the same in every type and is answered at once,
+%% and only the rest asks the operands' types: where their common type is unsigned, the operands are converted to it, the operation is
+%% done, and the result wraps to it (a comparison answers 0 or 1). In `#if' every unsigned type is uintmax_t ('$ccl_cv_pp', C 6.10.1/4):
+%% `#if ~0u == 0xFFFFFFFFFFFFFFFF' holds, which it did not.
+ccl_cv_unary(E, V1, V) :-
+    (   ccl_cv_small(V1) -> V = V1
+    ;   catch(( ccl_type_of(E, T0), T0 \== unknown, ccl_promoted_or_unknown(T0, T1), T1 \== unknown, ccl_cv_unsigned(T1) ), _, fail) -> ccl_cv_width(T1, T), ccl_w_cast(T, V1, V)
+    ;   V = V1 ).
+ccl_cv_binary(Op, A, B, X, Y, V0, V) :-
+    (   ccl_cv_small(X), ccl_cv_small(Y), ccl_cv_small(V0) -> V = V0
+    ;   ccl_cv_typed_op(Op, Rel),
+        catch(( ccl_type_of(A, TA), ccl_type_of(B, TB), TA \== unknown, TB \== unknown, ccl_is_integer(TA), ccl_is_integer(TB), ccl_usual(TA, TB, T0), ccl_cv_unsigned(T0) ), _, fail)
+    ->  ccl_cv_width(T0, T), ccl_w_cast(T, X, X1), ccl_w_cast(T, Y, Y1), ccl_const_op(Op, X1, Y1, V1), ( Rel == yes -> V = V1 ; ccl_w_cast(T, V1, V) )
+    ;   Op == '>>', \+ ccl_cv_small(X), catch(( ccl_type_of(A, TA0), TA0 \== unknown, ccl_promoted_or_unknown(TA0, TL0), TL0 \== unknown, ccl_cv_unsigned(TL0) ), _, fail)
+    ->  ccl_cv_width(TL0, TL), ccl_w_cast(TL, X, X1), ccl_const_op('>>', X1, Y, V)
+    ;   V = V0 ).
+ccl_cv_small(X) :- integer(X), X >= 0, X < 2147483648.
+ccl_cv_pp :- catch(nb_getval('$ccl_cv_pp', yes), _, fail).
+ccl_cv_width(T0, T) :- ( ccl_cv_pp -> T = base([], [unsigned, long]) ; T = T0 ).   % `#if' computes in uintmax_t (C 6.10.1/4): an unsigned operation is 64 bits wide there
+ccl_cv_unsigned(T) :- ccl_is_integer(T), \+ ccl_is_bool_type(T), ccl_int_rank(T, _, true), !.
+ccl_is_bool_type(T) :- ccl_resolve_type(T, base(_, S)), ( memberchk(bool, S) ; memberchk('_Bool', S) ), !.
+ccl_cv_typed_op('+', no). ccl_cv_typed_op('-', no). ccl_cv_typed_op('*', no). ccl_cv_typed_op('/', no). ccl_cv_typed_op('%', no).
+ccl_cv_typed_op('&', no). ccl_cv_typed_op('|', no). ccl_cv_typed_op('^', no).
+ccl_cv_typed_op('<', yes). ccl_cv_typed_op('>', yes). ccl_cv_typed_op('<=', yes). ccl_cv_typed_op('>=', yes). ccl_cv_typed_op('==', yes). ccl_cv_typed_op('!=', yes).
 ccl_shl_wrap(A, V0, V) :- ( catch(( ccl_type_of(A, AT), AT \== unknown, ccl_promoted_or_unknown(AT, T), T \== unknown ), _, fail) -> ccl_w_cast(T, V0, V) ; V = V0 ).
 ccl_const_op('+', X, Y, V) :- ccl_w_add(X, Y, V).
 ccl_const_op('-', X, Y, V) :- ccl_w_sub(X, Y, V).

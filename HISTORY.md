@@ -115,6 +115,13 @@ One row per step, in version order: the step's title, what it did and its gate n
 | 0.119 | the C++ gate over 0.118 | One stale check of `test/cpp.pl` (c20: `throw Err{t}` is a `braced_temp` since 0.117) edited; the library is 0.118's | C++ gate over 0.118's tree: 388 of 389 fixtures ok (the skip is `stdoptionalref`), 2989 s over four lanes, peak 9034 MB, RED by the one stale check; `test/cpp.pl` alone GREEN, 48 ok in 15 s |
 | 0.120 | the desugaring four times faster | The class record split in two (a light one for the lookups that do not want the members), seven registries made facts, the file scope, the typedefs and the tags in 128 buckets each; found by a flat profile | reader 5 s, compile 9 s, driver 7 s, objects 2 s; libcxx 1001 s; C++ 908 s (2989 s at 0.118), 388 of 389 fixtures, the pool's peak 1675 MB (9034 MB); all seven GREEN |
 | 0.121 | std::variant and std::visit, and what they needed | Union templates, base packs and using-declared methods, local classes, member templates through pointers, value categories, narrowing, `<=>` rewritten through free operators, objects built in place; twenty defects met in turn | reader 6 s, compile 10 s, driver 7 s, objects 3 s, proof GREEN; libcxx 836 s, C++ gate 938 s (404 fixtures, no FAIL, 1 skip); all seven GREEN |
+| 0.122 | the numbers of 0.121 | A save point: 0.121's gate numbers recorded | — |
+| 0.123 | a member built in place, libc++ 21 begun | A member from a prvalue of its class constructed in it; the move of a plain struct an xvalue; libc++ 18, 21 and 22 side by side, the link names the tree read | not run (committed while the chain ran) |
+| 0.124 | libc++ 21, the first failures | The library read's floors under both trees; a class-scope alias with an attribute noted ahead | not run (committed while the chain ran) |
+| 0.125 | libc++ 21, the partial ordering | A parameter that stands twice deduces one type in the partial ordering of function templates | not run (committed while the batch ran) |
+| 0.126 | libc++ 21, the failures that were left | Fifteen rules, each with a reduction and a fixture: `common_type`, `addressof` of a function, the bit builtins in the evaluator, the poison pills, a requires-expression's pack, static functions as values, qualified enumerators, the views' CRTP bases, duplicate candidates, a generic lambda's own parameters | 18: reader 5 s, compile 9 s, driver 7 s, objects 2 s, libcxx 771 s, C++ 836 s (424 of 425); 21: libcxx 750 s, C++ 667 s; all GREEN |
+| 0.127 | the C++ language items of "Not done" | `bool` comparisons, enumerators of their enum, promotions ranked, trailing `decltype`, block typedefs scoped, lazy program instances, the rest of access control, const closures, value-initialization, aggregate bases, shipped static functions | 18: reader 5 s, compile 10 s, driver 7 s, objects 3 s, libcxx 1055 s, C++ 820 s (438 of 439); 21: libcxx 1031 s, C++ 740 s; all GREEN |
+| 0.128 | line tables, the vacuum, unsigned constants | `-g` gives DWARF line tables; the C store vacuumed every 64th run and before each gate; an unsigned constant operation done in its type, `#if` in `uintmax_t`, one evaluator for an enumerator's value | see the entry |
 
 ## M5 — the C++ mode
 
@@ -7601,3 +7608,45 @@ flatten; peak 1464 MB; the reader bump made every summary cold); the C++ gate on
 439, the same skip.
 
 Reader version 122, lowering version 68; the module rebuilt as 0.127, over cocolog 1.9.1.
+
+## 0.128 — line tables, the store's vacuum, unsigned constants
+
+**0.128: `-g`, the vacuum and the unsigned constants.** Two items of "Not done" (Tools and performance) and four defects of the
+constant evaluator that the probes of 64-bit and 128-bit global constants found, before the `__int128` step they were written for.
+
+(1) `-g` gives LINE TABLES, DWARF 5 (`ir_dbg_*` in `library/ccl_ir.pl`): a function the program defines gets a `DISubprogram`, every
+instruction of its body the `DILocation` of the statement's line, and the module the compile unit, the file and the two flags LLVM
+asks. `bin/cicilang` maps every `-g` form but `-g0` and `-ggdb0` to the option `debug`; the driver hands the lowering the file's
+absolute path; the IR cache's signature folds the option. A library function gets none. Checked by hand with gdb over
+`dbg1.c` (`break twice` stops at `dbg1.c:3`, `bt` shows `main () at dbg1.c:9`, `next` steps to lines 4 and 5, `finish` returns
+to line 9) and over a C++ program with a class, a template, a lambda and libc++ containers (`dbg2.cpp`: `break dbg2.cpp:15`
+stops in the instance of `sum`, and `bt` names `main () at dbg2.cpp:24`); the driver gate's new check reads the line table back
+with `llvm-dwarfdump` (the lines 3 4 5 8 9 10 11 and the file's name). No variable, type or scope is described: `print x` has
+nothing to read; and a C++ function is known to the debugger by this compiler's own name (`break 'Counter.bump.int'` stops,
+`break Counter::bump` finds nothing). Both stay in "Not done".
+(2) The C store is vacuumed: `bin/cicilang` counts its runs in `KB.runs` and runs `cocolog --embed KB vacuum` every 64th one,
+and each gate vacuums the store it starts from (`ccl_kb_prepare`). A vacuum of a 25 MB store takes 0.4 s.
+(3) An unsigned constant operation is done in its type (`ccl_cv_binary/7`, `ccl_cv_unary/3`): the evaluator's values are
+untyped mathematical integers, so `~0u` was -1, `~0u / 3` folded to 0 (clang: 0x55555555), `0u - 1` was -1 and `-1 < 0u` held;
+`_Static_assert(~0UL / 3 == 0x5555555555555555UL)` failed and `unsigned g = ~0u / 3;` was 0. Where both operands and the result
+are small and not negative the answer is the same in every type and comes at once; else the operands' common type decides.
+(4) `#if` computes in `uintmax_t` (C 6.10.1/4; `'$ccl_cv_pp'`): `#if ~0u == 0xFFFFFFFFFFFFFFFF` was false.
+(5) The bulk noter had an evaluator of its own for an enumerator's value (`ccl_const_eval_in/3`), which read `(unsigned char) 300`
+as 300 and `-1 < 0u` as 1; it asks `ccl_const_eval/2` now, the enumerators before put in as their values. Reader 123: a
+summary's `enum/2` values come from it.
+
+Moved out of "Not done": `-g` (line tables; the variables stay), the store's dead rows, and `std::atomic<shared_ptr>`, which
+neither libc++ 18 nor libc++ 21 has (clang++ refuses it over both trees).
+
+Fixture added: `test/c/run/unsignedconst.c` (globals, enum values, an array bound and ten `_Static_assert`s, against clang).
+
+**The numbers.** cocolog 1.9.1, fresh HOMEs, one snapshot of the tree. Over libc++ 18 (`LLVM=/usr/lib/llvm-18`): the reader
+gate GREEN in 5 s, compile in 10 s, driver in 7 s (27 checks, the line table's among them), objects in 4 s, the proof; the
+library read GREEN in 1123 s (64 other headers warmed, none failed to flatten; peak 1824 MB; the reader bump made every summary
+cold); the C++ gate GREEN in 929 s (peak 1665 MB): 438 of 439 fixtures ok, 1 skipped (`stdoptionalref`), the 21 refusals and
+the safe part's. Over libc++ 21 (`LLVM=/usr/lib/llvm-21`): the library read GREEN in 940 s (peak 1130 MB), the C++ gate GREEN in
+644 s (peak 1660 MB), 438 of 439, the same skip. Probes of the next step ran beside the two long gates, so their times are no
+measure.
+
+Reader version 123, lowering version 69; the module rebuilt as 0.128, over cocolog 1.9.1.
+
