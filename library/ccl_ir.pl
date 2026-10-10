@@ -45,7 +45,7 @@
 %% the lowering's version: part of the key of every IR the driver keeps in the
 %% store (library(ccl_driver)); BUMP it whenever the check or the lowering
 %% changes what they emit, as ccl_reader_version/1 is bumped for the grammar
-ccl_lowering_version(70).   % 70 (0.129): the decimal floating types (BID values in float, double and fp128 carriers, libgcc's runtime, an SSE class in an aggregate), an explicit specialization of a function template as the body of the instance it matches, a bit builtin's call an int, a folded constant past 64 bits a 128-bit integer, a floating constant under a cast to an integer folded, a floating global's fold through a cast to an integer type and a wide integer, an integer global from a floating initializer converted; 69 (0.128): -g's line tables (a function's subprogram, an instruction's location; the IR's signature folds the option) and the unsigned constants typed; 68 (0.127): the C++ types of expressions -- a comparison, `!', `&&' and `||' are a bool (an i8), a conditional over two arms of one arithmetic type has that type, an enumerator is of its enum and a prvalue (bound to a reference through a temporary), an enum promotes to its underlying type, and an integral or floating promotion ranks above a conversion in overload resolution; 67 (0.126): what the desugaring emits for libc++ 21 -- a bare static member function named as a value is its thunk (or waits for its target when several share the name: `'$staticfn'(C, N)`); a qualified enumerator is the value its OWN enum gives it (`B::X` beside `A::X` took the first of the table; a nested enum named bare in a `case` label folds); a plain struct or union member initialized by parentheses from a value of another type is aggregate initialization (`basic_string() : __rep_(__short())`); a requires-expression's parameter pack expands with the bindings; a pointer to a data member of a plain struct (`&Pt::x`) and `__builtin_invoke` of one; `__builtin_clz*`, `ctz*` and `popcount*` and a pointer cast fold in the constexpr evaluator; a free operator template's declaration is registered (its default lends to the definition); a template parameter that two function parameters deduce deduces one type; a function given to `T &` deduces the function type; a deleted nullary function is indexed (the poison pills); `__builtin_common_type` is not a builtin here; a pointer operand that is a reference to a pointer is read through (`*static_cast<A0 &&>(a0)`, ir_ptr_operand); `*` of an arithmetic value is refused, `x.*pm` carries the object's const and xvalue, and a plain struct is its own base (libc++ 18's `__invoke` for a data member); a later EMPTY base is a base to the deduction (`__pipeable<_Fn> : _Fn, __range_adaptor_closure<__pipeable<_Fn>>') and a header's class being loaded is a class to `__is_class' (the views); the type of a call of a function template that names the template's own parameter is raw whatever a typedef of that name says (`std::addressof(m)' in a base initializer), one function template declared by two headers' summaries is one candidate (`back_inserter' under `<string>' and `<format>'), and a generic lambda's parameter that names its own template parameter stays as written where the tables know the name (`__synth_three_way', a vector's `<=>'); 66 (0.125): a parameter that stands twice deduces one type in the partial ordering of function templates (`f(I1, I1, I2, I2)' beats `f(I1, I1, I2, P)'); 65 (0.122): the move of a plain struct is an xvalue (`static_cast<S &&>(s)', so `f(const S &)' beside `f(S &&)' chooses by the value category) and a return reads a reference value through; a member initialized from a prvalue of its own class is constructed in place; a value-initialized plain struct or union is every byte zero; 64 (0.121): what the desugaring and the lowering emit for std::variant and std::visit -- a method a class brings in from a base by `using Base::f;' is a forwarder, a pack of bases (`struct X : Ts...') and `using Ts::operator()...;' expand over the bound pack, an aggregate with (empty) bases is built from its own items, a local class is a class of its own, `p->f<T>()' reaches a member template through a base, the value category of a forwarded object decides a copy or a move (a member of an xvalue, `decltype(name)' of a reference, a member of a const object is const), a braced list handed to an array reference is checked for narrowing, a scalar conversion ranks among templates, a union class's destructor destroys no member, an aggregate member built from a prvalue of its own class is elided, a call through a temporary callee takes the copy pass; a reference member of an aggregate binds its item (ir_init_sub), a union at namespace scope with a constructor, a destructor or a method is a union class and `U u = {5}' names its first member (ccl_data_members); a prvalue (a temporary's block, a returned local moved into its result, a call that returns through the hidden pointer) is constructed IN the object it initializes -- a local, a returned result, an aggregate member -- never copied bitwise (ir_prvalue_block, ir_in_place, ir_sret_call, '$ir_sret_into'): a std::function, a list or a map holds its own address; the top-level const of a pointer is dropped by the deduction, a class converts to another class through the target's constructor in the traits, and a comparison is rewritten through a free or a reversed `operator<=>' (std::string and std::variant at C++20); 63 (0.120): the drain functions of the tagged structs follow the tags' BUCKETS (the tags table is 128 globals now, and the functions come bucket by bucket, newest first within one: the same functions, in another order); 62 (0.117): an arithmetic value bound to a reference to ANOTHER arithmetic type (`const size_t &' handed an int: std::max<size_t>(2 * n, 1), every std::deque that grew) converted into a temporary of the referent's type (ir_ref_converts), a call whose result is a reference to an array is the array's address (it decays), a function template-id named as a value (`&__thread_proxy<_Gp>') is the address of its instance, an enum's underlying type named through a dependent typedef is settled and the typedef OUTPUT (the lowering reads the enum's size through it; every `-std=c++20' program that stored into a std::atomic), a plain aggregate member from a braced default initializer built by a compound literal (std::mutex), a member template of a plain class defined out of its class emitted, a deferred instance whose base is still registering; 61 (0.117): the SysV register budget (a struct that does not fit the free registers goes wholly on the stack, declare, define and call alike), va_arg of a struct, a union, a complex and an __int128 expanded by the ABI, a VLA zeroed by `= {}', __int128 as i128, a folded wide constant as a global's initializer, a library function's pointer result a borrow of what its arguments borrow, `c ? 0 : p' a pointer (it was an int and truncated the address), an array member's element type resolved before its leaves are taken (`ir_leaves_': a struct with a `size_t __first_[2]' passed or assigned by value), `sizeof' and `_Static_assert' folded to one answer, the dynamic initialization of a scalar global and of a static local array in `$cpp_ginit'; 60 (0.115): a wide literal, or a pointer into one, as a global's constant (ir_wide_lit); 59 (0.112): a compound assignment's and an increment's place taken once, a reference result bound through a statement expression; 58 (0.112): a u"..." literal's surrogate pairs, the `imagl' constant, `dynamic_cast<void *>' through offset-to-top, `@llvm.global_ctors' for `$cpp_ginit', a pointer into a literal as a global's constant; 57 (0.112): a bitfield in a union read and written through its bits (ir_union_slot), a reference handed to a by-value aggregate parameter read through; 56 (0.112): a type's sign written once (a bool bitfield read unsigned, a scoped enum by its underlying type), a qualified data member through the base hops; 55 (0.112): an instance keyed by one spelling per integer type, a hex literal past 2^60 folded as hex, an enum no arithmetic type to the traits and its operators the program's, a captureless lambda's invoker, an init-capture a member; 54 (0.110): a virtual base reached through the table's vbase offset, a diamond's `.nv' paths as their data size of bytes, a global's braced list elided, a virtual base flagged in the type_info; 53 (0.110): a noexcept function guarded by a terminate handler that runs no cleanup, std::terminate; 52 (0.108): the coroutines (LLVM's switch-resumed intrinsics), RTTI and the Itanium vtable prefix, exceptions (invoke, landingpad), secondary vtables and thunks, the array cookie, tentative definitions, _Bool; 51 (0.108): long double as x86_fp80, float and floating global constants folded, va_arg and the va intrinsics, offsetof, anonymous members, designated global initializers normalized; 50 (0.104): the integer imaginary literal's real type from its suffix, a big one spelled whole; 49 (0.103): sizeof a string literal is its bytes; 48 (0.103): _Complex int, two integer components, the integer imaginary literal; 47 (0.101): the imaginary literal, Annex G's multiplication and division through the runtime's __muldc3 and __divdc3, the components as places; 46 (0.100): a function bound to a reference to a pointer converts into a materialized pointer temporary; 45 (0.100): a pointer to member function as the ABI's { ptr, adj }, C's complex types as two components; 44: the VLA's bounds kept in its type, a VLA of a VLA flat, _Alignas on an object, a wide string into an array with the rest zero, a data-member pointer as an offset, a null pointer to a base at an offset, the C11 atomic builtins and _Atomic objects atomic (0.99); 43: an empty `[[no_unique_address]]' member has no element and its address is the ABI's byte offset; 42: a conditional over two void arms has no phi
+ccl_lowering_version(71).   % 71 (0.130): -g's variables (llvm.dbg.declare), types, lexical blocks, each function's type and C++'s names and scopes, no location in the prologue, and -gline-tables-only's kind; 70 (0.129): the decimal floating types (BID values in float, double and fp128 carriers, libgcc's runtime, an SSE class in an aggregate), an explicit specialization of a function template as the body of the instance it matches, a bit builtin's call an int, a folded constant past 64 bits a 128-bit integer, a floating constant under a cast to an integer folded, a floating global's fold through a cast to an integer type and a wide integer, an integer global from a floating initializer converted; 69 (0.128): -g's line tables (a function's subprogram, an instruction's location; the IR's signature folds the option) and the unsigned constants typed; 68 (0.127): the C++ types of expressions -- a comparison, `!', `&&' and `||' are a bool (an i8), a conditional over two arms of one arithmetic type has that type, an enumerator is of its enum and a prvalue (bound to a reference through a temporary), an enum promotes to its underlying type, and an integral or floating promotion ranks above a conversion in overload resolution; 67 (0.126): what the desugaring emits for libc++ 21 -- a bare static member function named as a value is its thunk (or waits for its target when several share the name: `'$staticfn'(C, N)`); a qualified enumerator is the value its OWN enum gives it (`B::X` beside `A::X` took the first of the table; a nested enum named bare in a `case` label folds); a plain struct or union member initialized by parentheses from a value of another type is aggregate initialization (`basic_string() : __rep_(__short())`); a requires-expression's parameter pack expands with the bindings; a pointer to a data member of a plain struct (`&Pt::x`) and `__builtin_invoke` of one; `__builtin_clz*`, `ctz*` and `popcount*` and a pointer cast fold in the constexpr evaluator; a free operator template's declaration is registered (its default lends to the definition); a template parameter that two function parameters deduce deduces one type; a function given to `T &` deduces the function type; a deleted nullary function is indexed (the poison pills); `__builtin_common_type` is not a builtin here; a pointer operand that is a reference to a pointer is read through (`*static_cast<A0 &&>(a0)`, ir_ptr_operand); `*` of an arithmetic value is refused, `x.*pm` carries the object's const and xvalue, and a plain struct is its own base (libc++ 18's `__invoke` for a data member); a later EMPTY base is a base to the deduction (`__pipeable<_Fn> : _Fn, __range_adaptor_closure<__pipeable<_Fn>>') and a header's class being loaded is a class to `__is_class' (the views); the type of a call of a function template that names the template's own parameter is raw whatever a typedef of that name says (`std::addressof(m)' in a base initializer), one function template declared by two headers' summaries is one candidate (`back_inserter' under `<string>' and `<format>'), and a generic lambda's parameter that names its own template parameter stays as written where the tables know the name (`__synth_three_way', a vector's `<=>'); 66 (0.125): a parameter that stands twice deduces one type in the partial ordering of function templates (`f(I1, I1, I2, I2)' beats `f(I1, I1, I2, P)'); 65 (0.122): the move of a plain struct is an xvalue (`static_cast<S &&>(s)', so `f(const S &)' beside `f(S &&)' chooses by the value category) and a return reads a reference value through; a member initialized from a prvalue of its own class is constructed in place; a value-initialized plain struct or union is every byte zero; 64 (0.121): what the desugaring and the lowering emit for std::variant and std::visit -- a method a class brings in from a base by `using Base::f;' is a forwarder, a pack of bases (`struct X : Ts...') and `using Ts::operator()...;' expand over the bound pack, an aggregate with (empty) bases is built from its own items, a local class is a class of its own, `p->f<T>()' reaches a member template through a base, the value category of a forwarded object decides a copy or a move (a member of an xvalue, `decltype(name)' of a reference, a member of a const object is const), a braced list handed to an array reference is checked for narrowing, a scalar conversion ranks among templates, a union class's destructor destroys no member, an aggregate member built from a prvalue of its own class is elided, a call through a temporary callee takes the copy pass; a reference member of an aggregate binds its item (ir_init_sub), a union at namespace scope with a constructor, a destructor or a method is a union class and `U u = {5}' names its first member (ccl_data_members); a prvalue (a temporary's block, a returned local moved into its result, a call that returns through the hidden pointer) is constructed IN the object it initializes -- a local, a returned result, an aggregate member -- never copied bitwise (ir_prvalue_block, ir_in_place, ir_sret_call, '$ir_sret_into'): a std::function, a list or a map holds its own address; the top-level const of a pointer is dropped by the deduction, a class converts to another class through the target's constructor in the traits, and a comparison is rewritten through a free or a reversed `operator<=>' (std::string and std::variant at C++20); 63 (0.120): the drain functions of the tagged structs follow the tags' BUCKETS (the tags table is 128 globals now, and the functions come bucket by bucket, newest first within one: the same functions, in another order); 62 (0.117): an arithmetic value bound to a reference to ANOTHER arithmetic type (`const size_t &' handed an int: std::max<size_t>(2 * n, 1), every std::deque that grew) converted into a temporary of the referent's type (ir_ref_converts), a call whose result is a reference to an array is the array's address (it decays), a function template-id named as a value (`&__thread_proxy<_Gp>') is the address of its instance, an enum's underlying type named through a dependent typedef is settled and the typedef OUTPUT (the lowering reads the enum's size through it; every `-std=c++20' program that stored into a std::atomic), a plain aggregate member from a braced default initializer built by a compound literal (std::mutex), a member template of a plain class defined out of its class emitted, a deferred instance whose base is still registering; 61 (0.117): the SysV register budget (a struct that does not fit the free registers goes wholly on the stack, declare, define and call alike), va_arg of a struct, a union, a complex and an __int128 expanded by the ABI, a VLA zeroed by `= {}', __int128 as i128, a folded wide constant as a global's initializer, a library function's pointer result a borrow of what its arguments borrow, `c ? 0 : p' a pointer (it was an int and truncated the address), an array member's element type resolved before its leaves are taken (`ir_leaves_': a struct with a `size_t __first_[2]' passed or assigned by value), `sizeof' and `_Static_assert' folded to one answer, the dynamic initialization of a scalar global and of a static local array in `$cpp_ginit'; 60 (0.115): a wide literal, or a pointer into one, as a global's constant (ir_wide_lit); 59 (0.112): a compound assignment's and an increment's place taken once, a reference result bound through a statement expression; 58 (0.112): a u"..." literal's surrogate pairs, the `imagl' constant, `dynamic_cast<void *>' through offset-to-top, `@llvm.global_ctors' for `$cpp_ginit', a pointer into a literal as a global's constant; 57 (0.112): a bitfield in a union read and written through its bits (ir_union_slot), a reference handed to a by-value aggregate parameter read through; 56 (0.112): a type's sign written once (a bool bitfield read unsigned, a scoped enum by its underlying type), a qualified data member through the base hops; 55 (0.112): an instance keyed by one spelling per integer type, a hex literal past 2^60 folded as hex, an enum no arithmetic type to the traits and its operators the program's, a captureless lambda's invoker, an init-capture a member; 54 (0.110): a virtual base reached through the table's vbase offset, a diamond's `.nv' paths as their data size of bytes, a global's braced list elided, a virtual base flagged in the type_info; 53 (0.110): a noexcept function guarded by a terminate handler that runs no cleanup, std::terminate; 52 (0.108): the coroutines (LLVM's switch-resumed intrinsics), RTTI and the Itanium vtable prefix, exceptions (invoke, landingpad), secondary vtables and thunks, the array cookie, tentative definitions, _Bool; 51 (0.108): long double as x86_fp80, float and floating global constants folded, va_arg and the va intrinsics, offsetof, anonymous members, designated global initializers normalized; 50 (0.104): the integer imaginary literal's real type from its suffix, a big one spelled whole; 49 (0.103): sizeof a string literal is its bytes; 48 (0.103): _Complex int, two integer components, the integer imaginary literal; 47 (0.101): the imaginary literal, Annex G's multiplication and division through the runtime's __muldc3 and __divdc3, the components as places; 46 (0.100): a function bound to a reference to a pointer converts into a materialized pointer temporary; 45 (0.100): a pointer to member function as the ABI's { ptr, adj }, C's complex types as two components; 44: the VLA's bounds kept in its type, a VLA of a VLA flat, _Alignas on an object, a wide string into an array with the rest zero, a data-member pointer as an offset, a null pointer to a base at an offset, the C11 atomic builtins and _Atomic objects atomic (0.99); 43: an empty `[[no_unique_address]]' member has no element and its address is the ABI's byte offset; 42: a conditional over two void arms has no phi
 %% ccl_lowering_version(41).   % 41: a literal past 2^60 spelled whole; 40.   % 40: a base clause naming a bound type parameter takes its class, a scope name is the class's own typedef first (libc++ 18), -lc++ on Linux; 39: C23 (_BitInt as iN, the overflow builtins, unreachable), a VLA at run time, thread_local, the wide literals, [[assume]]; 38: a conditional over two lvalues is an lvalue, and its address the phi of theirs;  % 37: wchar_t, char16_t and char32_t have LLVM types, and a function template's shipped instance its Itanium symbol;  % 36: an rvalue prefers `T &&' where a TEMPLATE's candidate is judged (cpp_ref_rank), so std::get answers `int &&' and not `int &';  % 35: a CAST TO A REFERENCE converts from the operand's class to the cast's own target, so a reference or a pointer to a SECOND base is offset (ir_ref_to);  % 34: an empty class is one byte, an `alignas' one padded to its alignment, and a `[[no_unique_address]]' empty member a zero-sized element -- every struct's shape may move
 
 ccl_ir_units(Units0, IR) :-
@@ -100,6 +100,8 @@ ir_reset :-
     nb_setval('$ir_externs', []), nb_setval('$ir_defined', []), nb_setval('$ir_gmap', []), nb_setval('$ir_ret_abi', scalar),
     nb_setval('$ir_maps', []), nb_setval('$ir_statics', 0),
     nb_setval('$ir_dbg_md', []), nb_setval('$ir_dbg_n', 5), nb_setval('$ir_dbg_sp', none), nb_setval('$ir_dbg_locs', []), nb_setval('$ir_fn_line', 0),
+    nb_setval('$ir_dbg_types', []), nb_setval('$ir_dbg_globals', []), nb_setval('$ir_dbg_gvars', []), nb_setval('$ir_dbg_args', []), nb_setval('$ir_gline', 0), nb_setval('$ir_dbg_nss', []),
+    nb_setval('$ir_dbg_prologue', no), nb_setval('$ir_dbg_scopes', []), nb_setval('$ir_dbg_top', no),
     ir_arch_init.
 ir_get(K, V) :- nb_getval(K, V).                                       % every '$ir_*' key is set by ir_reset / ir_function
 %% the host's architecture, once per process: sysv (x86-64) or aapcs (arm64)
@@ -130,31 +132,219 @@ ir_block(L) :- ( ir_terminated(yes) -> true ; ir_dbg_parts(['br label %', L], Br
 %% one per line and function ('$ir_dbg_locs'). LLVM asks a location of every call in a function that has a
 %% subprogram; every instruction here gets one.
 ir_dbg_on(F) :- catch(nb_getval('$ccl_debug', file(F)), _, fail).
-ir_dbg_parts(Parts, Parts1) :- ( nb_getval('$ir_dbg_sp', sp(SP, L0)) -> ir_dbg_loc(SP, L0, M), atom_concat(', !dbg !', M, D), append(Parts, [D], Parts1) ; Parts1 = Parts ).
-ir_dbg_loc(SP, L0, M) :- nb_getval('$ir_line', L1), ( integer(L1), L1 > 0 -> L = L1 ; L = L0 ), nb_getval('$ir_dbg_locs', Ls),
-    ( memberchk(L-M0, Ls) -> M = M0 ; ir_dbg_next(M), atomic_list_concat(['!', M, ' = !DILocation(line: ', L, ', column: 1, scope: !', SP, ')'], T), ir_dbg_md(T), nb_setval('$ir_dbg_locs', [L-M|Ls]) ).
+ir_dbg_full :- catch(nb_getval('$ccl_debug_kind', K), _, fail), K \== lines.                % the variables and the types (0.130): not under -gline-tables-only and -g1
+%% ... but NO LOCATION IN THE PROLOGUE, where the parameters are stored (0.130), as clang has it: LLVM puts the prologue's end,
+%% where a debugger stops at a breakpoint on the function, at the first instruction with a location, and a parameter read
+%% there was not stored yet
+ir_dbg_parts(Parts, Parts1) :- ( nb_getval('$ir_dbg_sp', sp(SP, L0)), \+ nb_getval('$ir_dbg_prologue', yes) -> ir_dbg_loc(SP, L0, M), atom_concat(', !dbg !', M, D), append(Parts, [D], Parts1) ; Parts1 = Parts ).
+ir_dbg_loc(SP, L0, M) :- nb_getval('$ir_line', L1), ( integer(L1), L1 > 0 -> L = L1 ; L = L0 ), ir_dbg_scope(SP, Sc), ir_dbg_loc_at(L, Sc, M).
+ir_dbg_loc_at(L, Sc, M) :- nb_getval('$ir_dbg_locs', Ls),
+    ( memberchk(at(L, Sc, M0), Ls) -> M = M0 ; ir_dbg_next(M), atomic_list_concat(['!', M, ' = !DILocation(line: ', L, ', column: 1, scope: !', Sc, ')'], T), ir_dbg_md(T), nb_setval('$ir_dbg_locs', [at(L, Sc, M)|Ls]) ).
 ir_dbg_next(N) :- nb_getval('$ir_dbg_n', N), N1 is N + 1, nb_setval('$ir_dbg_n', N1).
 ir_dbg_md(T) :- nb_getval('$ir_dbg_md', Ms), nb_setval('$ir_dbg_md', [T|Ms]).
-%% a function's subprogram: its name as LLVM spells it, its line, the one file
-ir_dbg_begin(Name, Line, Att) :-
+%% a function's subprogram: its name as the source spells it (C++'s qualified name, cpp_dbg_fn_name/2; this compiler's own
+%% symbol is the ELF symbol's), its line, its type (the result and the parameters' types), the one file
+ir_dbg_begin(Name, Line, Ret, Params, Att) :-
     (   ir_dbg_on(_), \+ catch(cpp_library_function(Name), _, fail)
-    ->  ( integer(Line), Line > 0 -> L = Line ; L = 0 ), ir_dbg_next(SP), ir_dbg_escape(Name, EN),
-        atomic_list_concat(['!', SP, ' = distinct !DISubprogram(name: "', EN, '", scope: !3, file: !3, line: ', L, ', type: !4, scopeLine: ', L, ', spFlags: DISPFlagDefinition, unit: !0)'], T),
-        ir_dbg_md(T), nb_setval('$ir_dbg_sp', sp(SP, L)), nb_setval('$ir_dbg_locs', []), atom_concat(' !dbg !', SP, Att)
+    ->  ( integer(Line), Line > 0 -> L = Line ; L = 0 ),
+        ir_dbg_fn_scope(Name, Src, Scope), ir_dbg_escape(Src, EN),
+        ( ir_dbg_full -> ir_dbg_fn_type(Ret, Params, FT) ; FT = '!4' ), ir_dbg_next(SP),
+        atomic_list_concat(['!', SP, ' = distinct !DISubprogram(name: "', EN, '", scope: ', Scope, ', file: !3, line: ', L, ', type: ', FT, ', scopeLine: ', L, ', flags: DIFlagPrototyped, spFlags: DISPFlagDefinition, unit: !0)'], T),
+        ir_dbg_md(T), nb_setval('$ir_dbg_sp', sp(SP, L)), nb_setval('$ir_dbg_locs', []), nb_setval('$ir_dbg_scopes', []), nb_setval('$ir_dbg_top', yes), atom_concat(' !dbg !', SP, Att)
     ;   nb_setval('$ir_dbg_sp', none), Att = '' ).
+%% ... in C++ a method's scope is its class and its name the member's, a free function's scope its namespace (cpp_dbg_fn/2)
+ir_dbg_fn_scope(Name, Src, Scope) :-
+    (   ccl_lang(cpp), catch(cpp_dbg_fn(Name, D), _, fail)
+    ->  (   D = member(C, Src), ir_dbg_class_ref(C, Scope) -> true
+        ;   D = free(P, Src) -> ir_dbg_ns_ref(P, '!3', Scope)
+        ;   Src = Name, Scope = '!3' )
+    ;   Src = Name, Scope = '!3' ).
+%% the type of a function: its result (`null' for void) and its parameters' types
+ir_dbg_fn_type(Ret, Params, FT) :-
+    findall(R, ( member(P, [param(Ret, '$ret')|Params]), arg(1, P, PT), ( catch(ir_dbg_type(PT, R0), _, fail) -> R = R0 ; R = null ) ), Rs0),
+    ( Rs0 = [_|_] -> Rs = Rs0 ; Rs = [null] ), atomic_list_concat(Rs, ', ', RJ), ir_dbg_next(K),
+    atomic_list_concat(['!', K, ' = !DISubroutineType(types: !{', RJ, '})'], T), ir_dbg_md(T), atom_concat('!', K, FT).
+%% THE LEXICAL BLOCKS (0.130): a block of statements is a `DILexicalBlock' inside the scope around it, which its variables and
+%% its instructions' locations name -- but the function's own body, whose scope is the subprogram ('$ir_dbg_top')
+ir_dbg_scope(SP, Sc) :- ( nb_getval('$ir_dbg_scopes', [Sc0|_]) -> Sc = Sc0 ; Sc = SP ).
+ir_dbg_block_enter(Is) :-
+    (   nb_getval('$ir_dbg_sp', sp(SP, L0))
+    ->  nb_getval('$ir_dbg_scopes', Ss),
+        (   nb_getval('$ir_dbg_top', yes) -> nb_setval('$ir_dbg_top', no), nb_setval('$ir_dbg_scopes', [SP|Ss])
+        ;   ( ir_dbg_first_line(Is, L) -> true ; nb_getval('$ir_line', L1), ( integer(L1), L1 > 0 -> L = L1 ; L = L0 ) ),
+            ir_dbg_scope(SP, P), ir_dbg_next(B),
+            atomic_list_concat(['!', B, ' = distinct !DILexicalBlock(scope: !', P, ', file: !3, line: ', L, ', column: 1)'], T), ir_dbg_md(T),
+            nb_setval('$ir_dbg_scopes', [B|Ss]) )
+    ;   true ).
+ir_dbg_block_leave :- ( nb_getval('$ir_dbg_sp', sp(_, _)), nb_getval('$ir_dbg_scopes', [_|Ss]) -> nb_setval('$ir_dbg_scopes', Ss) ; true ).
+ir_dbg_first_line([S|_], L) :- compound(S), arg(1, S, L), integer(L), L > 0, !.
+ir_dbg_first_line([_|Ss], L) :- ir_dbg_first_line(Ss, L).
 ir_dbg_escape(N, E) :- atom_codes(N, Cs), ir_dbg_esc(Cs, Es), atom_codes(E, Es).
 ir_dbg_esc([], []).
 ir_dbg_esc([C|Cs], Es) :- ( ( C =:= 34 ; C =:= 92 ) -> Es = [92, C|Es1] ; Es = [C|Es1] ), ir_dbg_esc(Cs, Es1).
+%% THE VARIABLES (0.130): every named local and parameter of a function with a subprogram is a `DILocalVariable' of the scope it
+%% is declared in, declared at its place by `llvm.dbg.declare' (ir_local/3, which every local and parameter passes through; a
+%% parameter carries its number, `this' the flags of the object pointer); every global the program defines is a
+%% `DIGlobalVariableExpression' on its definition, which the compile unit lists, and a static local one in its function's
+%% scope. A name the compiler made (`$tmp1', `$ret') is not described. The declaration has the variable's line (a parameter's,
+%% the function's), its own location even in the prologue.
+ir_dbg_var(_, _, Addr) :- sub_atom(Addr, 0, 1, _, '@'), !.                  % a static local: described as a global (ir_dbg_static_local)
+ir_dbg_var(N, T, Addr) :-
+    (   nb_getval('$ir_dbg_sp', sp(SP, L0)), ir_dbg_full, atom(N), \+ sub_atom(N, 0, 1, _, '$'), catch(ir_dbg_type(T, TI), _, fail)
+    ->  nb_getval('$ir_line', L1), ( integer(L1), L1 > 0 -> L = L1 ; L = L0 ),
+        ( nb_getval('$ir_dbg_args', As), memberchk(N-K, As) -> atomic_list_concat([', arg: ', K], ArgT) ; ArgT = '' ),
+        ( N == this -> FlT = ', flags: DIFlagArtificial | DIFlagObjectPointer' ; FlT = '' ),
+        ir_dbg_scope(SP, Sc), ir_dbg_next(V), ir_dbg_escape(N, EN),
+        atomic_list_concat(['!', V, ' = !DILocalVariable(name: "', EN, '"', ArgT, ', scope: !', Sc, ', file: !3, line: ', L, ', type: ', TI, FlT, ')'], Text), ir_dbg_md(Text),
+        ir_dbg_loc_at(L, Sc, M),
+        ir_note_extern('llvm.dbg.declare', raw('declare void @llvm.dbg.declare(metadata, metadata, metadata)')),
+        ( ir_terminated(yes) -> ir_label(Lb), ir_emit([Lb, ':']), ir_set_term(no) ; true ),
+        ir_emit(['  call void @llvm.dbg.declare(metadata ptr ', Addr, ', metadata !', V, ', metadata !DIExpression()), !dbg !', M])
+    ;   true ).
+ir_dbg_global(N, T, Att) :-
+    (   ir_dbg_on(_), ir_dbg_full, atom(N), \+ sub_atom(N, 0, 1, _, '$'), ir_dbg_global_scope(N, Src, Scope), catch(ir_dbg_type(T, TI), _, fail)
+    ->  (   nb_getval('$ir_dbg_gvars', Gv), memberchk(N-E0, Gv) -> E = E0             % a tentative definition and the definition: one variable
+        ;   nb_getval('$ir_gline', L),
+            ir_dbg_next(G), ir_dbg_next(E), ir_dbg_escape(Src, EN),
+            atomic_list_concat(['!', G, ' = distinct !DIGlobalVariable(name: "', EN, '", scope: ', Scope, ', file: !3, line: ', L, ', type: ', TI, ', isLocal: false, isDefinition: true)'], GT), ir_dbg_md(GT),
+            atomic_list_concat(['!', E, ' = !DIGlobalVariableExpression(var: !', G, ', expr: !DIExpression())'], ET), ir_dbg_md(ET),
+            nb_getval('$ir_dbg_globals', Gs), nb_setval('$ir_dbg_globals', [E|Gs]), nb_getval('$ir_dbg_gvars', Gv1), nb_setval('$ir_dbg_gvars', [N-E|Gv1]) ),
+        atom_concat(', !dbg !', E, Att)
+    ;   Att = '' ).
+%% ... in C++ a static data member is `Class::name' in its class's namespace (gdb reads `ns::Class::name' so), a namespace's
+%% global its name in its namespace, and a global no rule answers (a table, a type's information) is not described
+ir_dbg_global_scope(N, N, '!0') :- \+ ccl_lang(cpp), !.
+ir_dbg_global_scope(N, Src, Scope) :- catch(cpp_dbg_global(N, D), _, fail),
+    (   D = member(C, M) -> catch(cpp_dbg_class_path(C, P, Chain), _, fail), append(Chain, [M], Ss), atomic_list_concat(Ss, '::', Src), ir_dbg_ns_ref(P, '!0', Scope)
+    ;   D = free(P, Src), ir_dbg_ns_ref(P, '!0', Scope) ).
+%% a namespace's `DINamespace', made once per path
+ir_dbg_ns_ref([], D, D) :- !.
+ir_dbg_ns_ref(P, _, Ref) :- nb_getval('$ir_dbg_nss', Ns),
+    (   memberchk(P-Ref0, Ns) -> Ref = Ref0
+    ;   append(P0, [Last], P), ir_dbg_ns_ref(P0, null, Parent), ir_dbg_next(K), atom_concat('!', K, Ref), ir_dbg_escape(Last, EL),
+        atomic_list_concat([Ref, ' = !DINamespace(name: "', EL, '", scope: ', Parent, ')'], T), ir_dbg_md(T),
+        nb_getval('$ir_dbg_nss', Ns1), nb_setval('$ir_dbg_nss', [P-Ref|Ns1]) ).
+%% a class's type, by its name
+ir_dbg_class_ref(C, Ref) :- atom(C), catch(ccl_resolve_type(base([], [typedef(C)]), R), _, fail), R = base(_, [X]), compound(X), functor(X, F, _), memberchk(F, [struct, union]),
+    ir_dbg_type(R, Ref), Ref \== null.
+ir_dbg_static_local(N, T, Att) :-
+    (   nb_getval('$ir_dbg_sp', sp(SP, L0)), ir_dbg_full, atom(N), \+ sub_atom(N, 0, 1, _, '$'), catch(ir_dbg_type(T, TI), _, fail)
+    ->  nb_getval('$ir_line', L1), ( integer(L1), L1 > 0 -> L = L1 ; L = L0 ), ir_dbg_scope(SP, Sc), ir_dbg_next(G), ir_dbg_next(E), ir_dbg_escape(N, EN),
+        atomic_list_concat(['!', G, ' = distinct !DIGlobalVariable(name: "', EN, '", scope: !', Sc, ', file: !3, line: ', L, ', type: ', TI, ', isLocal: true, isDefinition: true)'], GT), ir_dbg_md(GT),
+        atomic_list_concat(['!', E, ' = !DIGlobalVariableExpression(var: !', G, ', expr: !DIExpression())'], ET), ir_dbg_md(ET),
+        nb_getval('$ir_dbg_globals', Gs), nb_setval('$ir_dbg_globals', [E|Gs]), atom_concat(', !dbg !', E, Att)
+    ;   Att = '' ).
+%% THE TYPES (0.130), DWARF's from the C types, each described once per module ('$ir_dbg_types', keyed by the type, a tag by
+%% its kind and name, so `struct point' named through a pointer and through a typedef is one type): the base types by their
+%% encoding, pointers, references, cv, typedefs, arrays, structs, unions and classes with their members at their bit offsets
+%% (a bitfield flagged, a base sub-object an inheritance, an anonymous member unnamed), enums with their enumerators. A
+%% type's number is taken BEFORE its members are described, so a struct that points to itself names its own number; a type
+%% with no description here is described by its size alone.
+ir_dbg_type(T, Ref) :- ir_dbg_key(T, K), nb_getval('$ir_dbg_types', Ts), ( memberchk(K-Ref0, Ts) -> Ref = Ref0 ; ir_dbg_type_new(T, K, Ref) ).
+ir_dbg_key(base(Q, [S]), tag(F, N, Cv)) :- compound(S), functor(S, F, _), memberchk(F, [struct, union, enum, enum_class]), arg(1, S, N), atom(N), N \== anon, !, ir_dbg_cv(Q, Cv).
+ir_dbg_key(base(Q, [typedef(N)]), K) :- atom(N), !, ir_dbg_cv(Q, Cv),   % C++'s class name: its tag, one type
+    ( catch(ccl_resolve_type(base([], [typedef(N)]), base(_, [X])), _, fail), compound(X), functor(X, F, _), memberchk(F, [struct, union, enum, enum_class]), arg(1, X, N) -> K = tag(F, N, Cv) ; K = typedef(N, Cv) ).
+ir_dbg_key(T, T).
+ir_dbg_cv(Q, Cv) :- findall(X, ( member(X, [const, volatile]), memberchk(X, Q) ), Cv).
+ir_dbg_type_new(T, K, Ref) :-
+    (   ccl_resolve_type(T, base(Q, [void])), ir_dbg_cv(Q, []) -> Ref = null, ir_dbg_type_keep(K, Ref)
+    ;   ir_dbg_next(N), atom_concat('!', N, Ref), ir_dbg_type_keep(K, Ref),
+        ( catch(ir_dbg_type_text(T, Ref, Text), _, fail) -> true ; ir_dbg_sized(T, Ref, Text) ), ir_dbg_md(Text) ).
+ir_dbg_type_keep(K, Ref) :- nb_getval('$ir_dbg_types', Ts), nb_setval('$ir_dbg_types', [K-Ref|Ts]).
+ir_dbg_sized(T, Ref, Text) :- ( catch(ccl_size_of(T, B), _, fail), integer(B) -> Bits is B * 8 ; Bits = 0 ),
+    atomic_list_concat([Ref, ' = !DIBasicType(name: "?", size: ', Bits, ', encoding: DW_ATE_unsigned)'], Text).
+ir_dbg_type_text(base(Q, S), Ref, Text) :- ( memberchk(const, Q) ; memberchk(volatile, Q) ), !,
+    ( memberchk(const, Q) -> Tag = 'DW_TAG_const_type', ir_dbg_drop(Q, const, Q1) ; Tag = 'DW_TAG_volatile_type', ir_dbg_drop(Q, volatile, Q1) ),
+    ir_dbg_type(base(Q1, S), B), atomic_list_concat([Ref, ' = !DIDerivedType(tag: ', Tag, ', baseType: ', B, ')'], Text).
+ir_dbg_type_text(base(_, [typedef(N)]), Ref, Text) :- atom(N), ccl_resolve_type(base([], [typedef(N)]), R), R \= base(_, [typedef(_)]),
+    \+ ( R = base(_, [X]), compound(X), arg(1, X, N) ), !,                                         % C++'s class name is its class, never a typedef of it
+    ir_dbg_type(R, B), ir_dbg_escape(N, EN), atomic_list_concat([Ref, ' = !DIDerivedType(tag: DW_TAG_typedef, name: "', EN, '", file: !3, baseType: ', B, ')'], Text).
+ir_dbg_type_text(ptr(_, E), Ref, Text) :- !, ( ccl_resolve_type(E, fn(_, _, _)) -> B = '!4' ; ir_dbg_type(E, B) ),
+    atomic_list_concat([Ref, ' = !DIDerivedType(tag: DW_TAG_pointer_type, baseType: ', B, ', size: 64)'], Text).
+ir_dbg_type_text(ref(_, E), Ref, Text) :- !, ir_dbg_type(E, B), atomic_list_concat([Ref, ' = !DIDerivedType(tag: DW_TAG_reference_type, baseType: ', B, ', size: 64)'], Text).
+ir_dbg_type_text(rref(_, E), Ref, Text) :- !, ir_dbg_type(E, B), atomic_list_concat([Ref, ' = !DIDerivedType(tag: DW_TAG_rvalue_reference_type, baseType: ', B, ', size: 64)'], Text).
+ir_dbg_type_text(arr(int(K), E), Ref, Text) :- integer(K), !, ir_dbg_type(E, B), ( catch(ccl_size_of(E, ES), _, fail), integer(ES) -> Bits is K * ES * 8 ; Bits = 0 ),
+    ir_dbg_next(SR), atomic_list_concat(['!', SR, ' = !DISubrange(count: ', K, ')'], ST), ir_dbg_md(ST),
+    atomic_list_concat([Ref, ' = !DICompositeType(tag: DW_TAG_array_type, baseType: ', B, ', size: ', Bits, ', elements: !{!', SR, '})'], Text).
+ir_dbg_type_text(base(_, [struct(Tag, Ms0)]), Ref, Text) :- ir_dbg_tag_members(Tag, Ms0, Ms), !, ir_dbg_composite(struct, Tag, Ms, Ref, Text).
+ir_dbg_type_text(base(_, [union(Tag, Ms0)]), Ref, Text) :- ir_dbg_tag_members(Tag, Ms0, Ms), !, ir_dbg_composite(union, Tag, Ms, Ref, Text).
+ir_dbg_type_text(base(_, [E]), Ref, Text) :- compound(E), ccl_enum_spec_members(E, Ms0), arg(1, E, Tag), ir_dbg_tag_members(Tag, Ms0, Ms), !,
+    ( atom(Tag), Tag \== anon -> ir_dbg_tag_scope(Tag, TN, ScT), ir_dbg_escape(TN, EN), atomic_list_concat([', name: "', EN, '"', ScT], NameT0) ; NameT0 = '' ),
+    ( ( functor(E, enum_class, _) ; catch(ccl_scoped_enum(Tag), _, fail) ) -> atom_concat(NameT0, ', flags: DIFlagEnumClass', NameT) ; NameT = NameT0 ),
+    findall(I, ( member(enumerator(EN0, _), Ms), atom(EN0), catch(ccl_enum_value(EN0, V0), _, fail), integer(V0), ir_dbg_next(I), ir_dbg_escape(EN0, EE), atomic_list_concat(['!', I, ' = !DIEnumerator(name: "', EE, '", value: ', V0, ')'], IT), ir_dbg_md(IT) ), Is),
+    ( Is == [] -> Els = '!{}' ; atomic_list_concat(Is, ', !', IJ), atomic_list_concat(['!{!', IJ, '}'], Els) ),
+    ( memberchk(enum_base(UT), Ms) -> true ; UT = base([], [int]) ), ir_dbg_type(UT, IB), ( catch(ccl_size_of(UT, UB), _, fail), integer(UB) -> UBits is UB * 8 ; UBits = 32 ),
+    atomic_list_concat([Ref, ' = !DICompositeType(tag: DW_TAG_enumeration_type', NameT, ', file: !3, size: ', UBits, ', baseType: ', IB, ', elements: ', Els, ')'], Text).
+ir_dbg_type_text(T, Ref, Text) :- ccl_resolve_type(T, R), R \== T, !, ir_dbg_type_text(R, Ref, Text).   % a typedef that names no type of its own, a template-id's instance: the type it is
+ir_dbg_type_text(base(_, S), Ref, Text) :- ccl_size_of(base([], S), B), integer(B), Bits is B * 8, ir_dbg_encoding(base([], S), Enc), ir_dbg_base_name(S, Name),
+    atomic_list_concat([Ref, ' = !DIBasicType(name: "', Name, '", size: ', Bits, ', encoding: ', Enc, ')'], Text).
+ir_dbg_drop(Q, X, Q1) :- findall(Y, ( member(Y, Q), Y \== X ), Q1).
+%% a tag's members: the ones written in the type term, else the tag table's (a struct named by its tag alone: `struct point *')
+ir_dbg_tag_members(_, Ms, Ms) :- is_list(Ms), !.
+ir_dbg_tag_members(Tag, _, Ms) :- atom(Tag), Tag \== anon, catch(( ccl_tag(Tag, Ms0), ccl_tag_type(Tag, Ms0, [], base(_, [X])), functor(X, _, 2), arg(2, X, Ms) ), _, fail), is_list(Ms).
+%% a tag's name and scope: in C++ its own name in its namespace or in the class that holds it (cpp_dbg_class_path/3)
+ir_dbg_tag_scope(Tag, Name, ScT) :-
+    (   ccl_lang(cpp), catch(cpp_dbg_class_path(Tag, P, Chain), _, fail), ccl_last(Chain, Name0)
+    ->  Name = Name0,
+        (   Chain = [_, _|_], catch(cpp_dbg_holder_tag(Tag, E), _, fail), ir_dbg_class_ref(E, ER) -> atom_concat(', scope: ', ER, ScT)
+        ;   ir_dbg_ns_ref(P, none, NR), NR \== none -> atom_concat(', scope: ', NR, ScT)
+        ;   ScT = '' )
+    ;   Name = Tag, ScT = '' ).
+ir_dbg_composite(Kind, Tag, Ms, Ref, Text) :-
+    ( Kind == union -> TagKind = 'DW_TAG_union_type' ; TagKind = 'DW_TAG_structure_type' ),
+    ( atom(Tag), Tag \== anon, \+ sub_atom(Tag, 0, 1, _, '$') -> ir_dbg_tag_scope(Tag, TN, ScT), ir_dbg_escape(TN, EN), atomic_list_concat([', name: "', EN, '"', ScT], NameT) ; NameT = '' ),
+    Spec =.. [Kind, Tag, Ms], ( catch(ccl_size_of(base([], [Spec]), B), _, fail), integer(B) -> Bits is B * 8 ; Bits = 0 ),
+    (   Kind == union -> ir_dbg_union_members(Ms, Ref, Is)
+    ;   catch(ccl_members_layout(Ms, Lays, _, _), _, fail) -> ir_dbg_members(Lays, Ref, Is)
+    ;   Is = [] ),
+    ( Is == [] -> Els = '!{}' ; atomic_list_concat(Is, ', !', IJ), atomic_list_concat(['!{!', IJ, '}'], Els) ),
+    atomic_list_concat([Ref, ' = distinct !DICompositeType(tag: ', TagKind, NameT, ', file: !3, size: ', Bits, ', elements: ', Els, ')'], Text).
+%% a member's kind: a base sub-object (`$base', `$base$2' ...) is an inheritance, an anonymous member (`$anonK') a member with no
+%% name, the table pointer and the other names the compiler made are not described
+ir_dbg_member_kind(N, base) :- sub_atom(N, 0, 5, _, '$base'), !.
+ir_dbg_member_kind(N, anon) :- ( sub_atom(N, 0, 5, _, '$anon') ; N == anon ), !.
+ir_dbg_member_kind(N, named) :- \+ sub_atom(N, 0, 1, _, '$').
+ir_dbg_members([], _, []).
+ir_dbg_members([lay(N, T, Off, Bits)|Ls], Scope, Is) :-
+    (   atom(N), Bits \== empty, ir_dbg_member_kind(N, Kind), catch(ir_dbg_type(T, TI), _, fail)
+    ->  ir_dbg_next(I), ir_dbg_member_text(Kind, I, N, T, TI, Off, Bits, Scope, MT), ir_dbg_md(MT), Is = [I|Is1]
+    ;   Is = Is1 ),
+    ir_dbg_members(Ls, Scope, Is1).
+ir_dbg_member_text(base, I, _, _, TI, Off, _, Scope, MT) :- !, OffBits is Off * 8,
+    atomic_list_concat(['!', I, ' = !DIDerivedType(tag: DW_TAG_inheritance, scope: ', Scope, ', baseType: ', TI, ', offset: ', OffBits, ', flags: DIFlagPublic)'], MT).
+ir_dbg_member_text(Kind, I, N, T, TI, Off, Bits, Scope, MT) :-
+    ( Kind == named -> ir_dbg_escape(N, EN), atomic_list_concat([' name: "', EN, '",'], NameT) ; NameT = '' ),
+    (   Bits = bits(BO, W, _) -> OffBits is Off * 8 + BO, Store is Off * 8, atomic_list_concat([', size: ', W, ', offset: ', OffBits, ', flags: DIFlagBitField, extraData: i64 ', Store], SzT)
+    ;   ( catch(ccl_size_of(T, SB), _, fail), integer(SB) -> S8 is SB * 8 ; S8 = 0 ), OffBits is Off * 8, atomic_list_concat([', size: ', S8, ', offset: ', OffBits], SzT) ),
+    atomic_list_concat(['!', I, ' = !DIDerivedType(tag: DW_TAG_member,', NameT, ' scope: ', Scope, ', file: !3, baseType: ', TI, SzT, ')'], MT).
+ir_dbg_union_members([], _, []).
+ir_dbg_union_members([M|Ms], Scope, Is) :-
+    (   M = member(T, N, _), atom(N), ir_dbg_member_kind(N, Kind), Kind \== base, catch(ir_dbg_type(T, TI), _, fail)
+    ->  ir_dbg_next(I), ir_dbg_member_text(Kind, I, N, T, TI, 0, none, Scope, MT), ir_dbg_md(MT), Is = [I|Is1]
+    ;   Is = Is1 ),
+    ir_dbg_union_members(Ms, Scope, Is1).
+ir_dbg_encoding(T, E) :- ccl_resolve_type(T, base(_, S)),
+    (   ( memberchk(bool, S) ; memberchk('_Bool', S) ) -> E = 'DW_ATE_boolean'
+    ;   memberchk('_Complex', S) -> E = 'DW_ATE_complex_float'
+    ;   catch(ccl_decimal_spec(S, _), _, fail) -> E = 'DW_ATE_decimal_float'
+    ;   ( memberchk(double, S) ; memberchk(float, S) ; memberchk('_Float16', S) ) -> E = 'DW_ATE_float'
+    ;   ( memberchk(char8_t, S) ; memberchk(char16_t, S) ; memberchk(char32_t, S) ) -> E = 'DW_ATE_UTF'
+    ;   memberchk(char, S) -> ( memberchk(unsigned, S) -> E = 'DW_ATE_unsigned_char' ; E = 'DW_ATE_signed_char' )
+    ;   ir_signed(T) -> E = 'DW_ATE_signed'
+    ;   E = 'DW_ATE_unsigned' ).
+ir_dbg_base_name(S, Name) :- findall(W, ( member(X, S), ( atom(X) -> W = X ; X = bitint(int(K)) -> atomic_list_concat(['_BitInt(', K, ')'], W) ; fail ) ), Ws), ( Ws == [] -> Name = '?' ; atomic_list_concat(Ws, ' ', Name) ).
 %% the module's own: the compile unit over the one file, the two flags LLVM asks, the type every subprogram shares
 ir_dbg_module(Lines) :-
     (   ir_dbg_on(F)
     ->  ( ccl_lang(cpp) -> Lang = 'DW_LANG_C_plus_plus_14' ; Lang = 'DW_LANG_C11' ), ( catch(ccl_version(V0), _, fail) -> V = V0 ; V = '' ),
         ( sub_atom(F, B, 1, _, '/'), \+ ( sub_atom(F, B2, 1, _, '/'), B2 > B ) -> sub_atom(F, 0, B, _, Dir0), B1 is B + 1, sub_atom(F, B1, _, 0, Base) ; Dir0 = '.', Base = F ),
         ( Dir0 == '' -> Dir = '/' ; Dir = Dir0 ), ir_dbg_escape(Base, EBase), ir_dbg_escape(Dir, EDir),
-        atomic_list_concat(['!0 = distinct !DICompileUnit(language: ', Lang, ', file: !3, producer: "cicilang ', V, '", isOptimized: false, runtimeVersion: 0, emissionKind: LineTablesOnly)'], CU),
+        nb_getval('$ir_dbg_globals', GVs0), reverse(GVs0, GVs), ( GVs == [] -> GT = '' ; atomic_list_concat(GVs, ', !', GJ), atomic_list_concat([', globals: !{!', GJ, '}'], GT) ),
+        ( ir_dbg_full -> EK = 'FullDebug' ; EK = 'LineTablesOnly' ),
+        atomic_list_concat(['!0 = distinct !DICompileUnit(language: ', Lang, ', file: !3, producer: "cicilang ', V, '", isOptimized: false, runtimeVersion: 0, emissionKind: ', EK, GT, ', nameTableKind: None)'], CU),
         atomic_list_concat(['!3 = !DIFile(filename: "', EBase, '", directory: "', EDir, '")'], FL),
         nb_getval('$ir_dbg_md', Ms0), reverse(Ms0, Ms),
-        Lines = ['', '!llvm.dbg.cu = !{!0}', '!llvm.module.flags = !{!1, !2}', CU, '!1 = !{i32 7, !"Dwarf Version", i32 5}', '!2 = !{i32 2, !"Debug Info Version", i32 3}', FL, '!4 = !DISubroutineType(types: !{})'|Ms]
+        Lines = ['', '!llvm.dbg.cu = !{!0}', '!llvm.module.flags = !{!1, !2}', CU, '!1 = !{i32 7, !"Dwarf Version", i32 5}', '!2 = !{i32 2, !"Debug Info Version", i32 3}', FL, '!4 = !DISubroutineType(types: !{null})'|Ms]
     ;   Lines = [] ).
 ir_alloca(R, LL) :- nb_getval('$ir_allocas', A), atomic_list_concat(['  ', R, ' = alloca ', LL], Line), nb_setval('$ir_allocas', [Line|A]).
 ir_alloca_aligned(R, LL, Al) :- nb_getval('$ir_allocas', A), atomic_list_concat(['  ', R, ' = alloca ', LL, ', align ', Al], Line), nb_setval('$ir_allocas', [Line|A]).
@@ -171,7 +361,7 @@ ir_fail(What) :- ir_where(W), throw(error(not_lowered(What), W)).
 %% ---- the environment: locals in frames, then the globals, then the table ------------
 ir_env_push :- nb_getval('$ir_env', E), nb_setval('$ir_env', [[]|E]), nb_getval('$ir_defers', D), nb_setval('$ir_defers', [[]|D]), ccl_scope_push.
 ir_env_pop :- nb_getval('$ir_env', [_|E]), nb_setval('$ir_env', E), nb_getval('$ir_defers', [_|D]), nb_setval('$ir_defers', D), ccl_scope_pop.
-ir_local(N, T, Addr) :- nb_getval('$ir_env', [F|E]), nb_setval('$ir_env', [[N-loc(Addr, T)|F]|E]), ccl_declare(N, T).
+ir_local(N, T, Addr) :- nb_getval('$ir_env', [F|E]), nb_setval('$ir_env', [[N-loc(Addr, T)|F]|E]), ccl_declare(N, T), ir_dbg_var(N, T, Addr).
 ir_lookup(N, loc(Addr, T)) :- nb_getval('$ir_env', E), ir_in_frames(E, N, loc(Addr, T)), !.
 ir_lookup(N, loc(Addr, T)) :- nb_getval('$ir_gmap', G), memberchk(N-T, G), !, atom_concat('@', N, Addr).
 ir_lookup(N, loc(Addr, T)) :- ccl_declared(N, T), !, atom_concat('@', N, Addr), ir_note_extern(N, T).
@@ -1749,7 +1939,7 @@ ir_canon_core(K, K).
 %% ---- statements ---------------------------------------------------------------------------
 ir_stmts([]).
 ir_stmts([S|Ss]) :- ir_stmt(S), ir_stmts(Ss).
-ir_stmt(block(Is)) :- !, ir_env_push, ir_stmts(Is), ir_run_defers(1), ir_env_pop.
+ir_stmt(block(Is)) :- !, ir_dbg_block_enter(Is), ir_env_push, ir_stmts(Is), ir_run_defers(1), ir_env_pop, ir_dbg_block_leave.
 ir_stmt('$splice'(Is)) :- !, ir_stmts(Is).
 ir_stmt(declaration(L, Sto, _, Vs)) :- !, ( integer(L), L > 0 -> ir_line(L) ; true ), ( Sto == static -> ir_static_locals(Vs) ; ir_locals(Vs, Sto), ir_array_defers(Vs, Sto) ).   % the line of a declaration too: its initializer's calls are its own (0.128, -g)
 ir_stmt(typedef(_, _)) :- !.
@@ -1931,7 +2121,7 @@ ir_static_locals([var(N, T, Init)|Vs]) :-
     nb_getval('$ir_fn', F), nb_getval('$ir_statics', K), K1 is K + 1, nb_setval('$ir_statics', K1),
     atomic_list_concat(['@', F, '.', N, '.', K1], Addr),
     ( ir_tls(T) -> TL = 'internal thread_local global ' ; TL = 'internal global ' ),
-    atomic_list_concat([Addr, ' = ', TL, LL, ' ', C, Al], Def),
+    ir_dbg_static_local(N, GT, SDbg), atomic_list_concat([Addr, ' = ', TL, LL, ' ', C, Al, SDbg], Def),
     nb_getval('$ir_gdefs', Gs), nb_setval('$ir_gdefs', [Def|Gs]),
     ir_local(N, GT, Addr), ir_static_locals(Vs).
 %% the `thread_local' qualifier sits in the innermost base's list, whatever the declarator wrapped around it
@@ -1983,7 +2173,7 @@ ir_item(function(FL, Sto, Ret, Name, Params, Var, Body)) :- !, nb_setval('$ir_fn
     ir_function(Sto, Ret, Name, Params, Var, Body, Text),
     ir_add_fdef(Text),
     nb_getval('$ir_defined', Ds), nb_setval('$ir_defined', [Name|Ds]).
-ir_item(declaration(_, Sto, _, Vs)) :- !, ir_globals(Vs, Sto).
+ir_item(declaration(GL, Sto, _, Vs)) :- !, ( integer(GL) -> nb_setval('$ir_gline', GL) ; true ), ir_globals(Vs, Sto).
 ir_item(extern_c(_, Is)) :- !, ir_items(Is).                              % C++ (M6): C linkage is what every name has
 ir_item(namespace(_, _, Is)) :- !, ir_items(Is).                          % a namespace flattens to bare names (the symbol table's view too)
 ir_item(using(_, _)) :- !.
@@ -1992,7 +2182,7 @@ ir_item(_).
 
 ir_function(Sto, Ret, Name, Params, Var, Body, Text) :-
     nb_setval('$ir_fn', Name), nb_setval('$ir_line', 0), nb_setval('$ir_body', []), nb_setval('$ir_allocas', []), nb_setval('$ir_term', no),
-    nb_getval('$ir_fn_line', FL), ir_dbg_begin(Name, FL, DbgAtt),
+    nb_getval('$ir_fn_line', FL), ir_dbg_begin(Name, FL, Ret, Params, DbgAtt),
     nb_setval('$ir_env', [[]]), nb_setval('$ir_defers', [[]]), nb_setval('$ir_loops', []), nb_setval('$ir_ret', Ret), nb_setval('$ir_reg', 0),
     nb_setval('$ir_tries', []), nb_setval('$ir_personality', no), nb_setval('$ir_ehslots', none), nb_setval('$ir_unwinding', no), nb_setval('$ir_coro', none),
     ir_ret_abi(Ret, RetAbi), nb_setval('$ir_ret_abi', RetAbi),
@@ -2003,7 +2193,8 @@ ir_function(Sto, Ret, Name, Params, Var, Body, Text) :-
     ;   ir_sret_attr(RetAbi, SA), atom_concat(SA, ' %agg.result', S0), RL = void, Sigs = [S0|Sigs0] ),
     ir_join(Sigs, ', ', SigTxt),
     ( Var == true -> ( Sigs == [] -> Sig = '...' ; atom_concat(SigTxt, ', ...', Sig) ) ; Sig = SigTxt ),
-    ir_run_lines(Stores),
+    findall(PN-K, ( nth1(K, Params, P), ( P = param(_, PN) ; P = param(_, PN, _) ), atom(PN), PN \== anon ), PArgs), nb_setval('$ir_dbg_args', PArgs),   % -g: the parameters' numbers, and no location in the prologue (0.130)
+    nb_setval('$ir_dbg_prologue', yes), ir_run_lines(Stores), nb_setval('$ir_dbg_prologue', no), nb_setval('$ir_dbg_args', []),
     ir_stmt(Body),
     ( ir_terminated(yes) -> true
     ; RL == void -> ir_end(['ret void'])
@@ -2053,7 +2244,7 @@ ir_globals([var(N, T, Init)|Vs], Sto) :-
     ;   ir_sized_type(T, T1, Init, GT), ( ir_gconst_typed(Init, GT, LL, C) -> true ; ir_cpp_trace(global_failed(N, GT, Init)), fail ), ir_galign(GT, Al),
         ( Sto == static -> Link0 = 'internal global' ; Sto == linkonce -> Link0 = 'linkonce_odr global' ; Link0 = 'global' ),   % linkonce: a class's static with its initializer, the same in every unit
         ( ir_tls(T) -> atom_concat(Link0, '', L0), ( L0 == global -> Link = 'thread_local global' ; sub_atom(L0, B, _, 0, ' global'), sub_atom(L0, 0, B, _, Pre), atomic_list_concat([Pre, ' thread_local global'], Link) ) ; Link = Link0 ),   % _Thread_local, thread_local: one per thread
-        atomic_list_concat(['@', N, ' = ', Link, ' ', LL, ' ', C, Al], Def),
+        ir_dbg_global(N, GT, GDbg), atomic_list_concat(['@', N, ' = ', Link, ' ', LL, ' ', C, Al, GDbg], Def),
         nb_getval('$ir_gmap', M), nb_setval('$ir_gmap', [N-GT|M]),
         nb_getval('$ir_defined', Ds),
         (   memberchk(N, Ds) -> true                                                     % defined already: a tentative one after it is nothing

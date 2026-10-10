@@ -46,7 +46,7 @@ kb_prepare() {                        # one awk for both versions, read for the 
   if [ "$runs" -ge 64 ]; then [ -f "$1/data.bin" ] && "$C" --embed "$1" vacuum > /dev/null 2>&1 < /dev/null; runs=0; fi
   echo "$runs" > "$1.runs"
 }
-inputs=""; opts=""; out=""; opt=""; verbose=""; defs=""
+inputs=""; opts=""; out=""; opt=""; verbose=""; defs=""; gdbg=""
 [ "${CICILANG_LANG:-c}" = cpp ] && opts="$opts lang(cpp),"
 need() { [ $# -ge 2 ] || { echo "$me: error: argument to '$1' is missing" >&2; exit 1; }; }
 q() { case $1 in *\'*) printf "'%s'" "$(printf '%s' "$1" | sed "s/'/\\\\'/g")" ;; *) printf "'%s'" "$1" ;; esac; }
@@ -86,8 +86,9 @@ while [ $# -gt 0 ]; do
     -D*) opts="$opts define($(q "${1#-D}")),"; defs=1 ;;
     -U) need "$@"; shift; opts="$opts undef($(q "$1")),"; defs=1 ;;
     -U*) opts="$opts undef($(q "${1#-U}")),"; defs=1 ;;
-    -g0|-ggdb0) ;;   # no debug information, as clang
-    -g|-g[123]|-ggdb|-ggdb[123]|-gline-tables-only|-gline-directives-only|-gdwarf*|-gfull|-glldb|-gsce) opts="$opts debug," ;;   # -g (0.128): line tables, what every level gives here
+    -g0|-ggdb0) gdbg="" ;;   # no debug information, as clang; the last -g form wins
+    -g1|-ggdb1|-gline-tables-only|-gline-directives-only) gdbg="debug(lines)," ;;   # the line tables alone (0.130)
+    -g|-g[23]|-ggdb|-ggdb[23]|-gdwarf*|-gfull|-glldb|-gsce) gdbg="debug," ;;   # -g: the line tables (0.128), the variables, their types and the blocks (0.130)
     -W*|-f*|-std=*|-pedantic|-g*) ;;   # accepted for clang's sake
     -*) echo "$me: error: unknown argument: '$1'" >&2; exit 1 ;;
     *) inputs="$inputs $(q "$1"),";;
@@ -95,6 +96,7 @@ while [ $# -gt 0 ]; do
   shift
 done
 [ -n "$inputs" ] || { echo "$me: error: no input files" >&2; exit 1; }
+[ -n "$gdbg" ] && opts="$opts $gdbg"
 [ -n "$out" ] && opts="$opts out($(q "$out")),"
 [ -n "$opt" ] && opts="$opts opt('$opt'),"
 inputs="[${inputs%,}]"; opts="[${opts%,}]"

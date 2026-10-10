@@ -123,6 +123,7 @@ One row per step, in version order: the step's title, what it did and its gate n
 | 0.127 | the C++ language items of "Not done" | `bool` comparisons, enumerators of their enum, promotions ranked, trailing `decltype`, block typedefs scoped, lazy program instances, the rest of access control, const closures, value-initialization, aggregate bases, shipped static functions | 18: reader 5 s, compile 10 s, driver 7 s, objects 3 s, libcxx 1055 s, C++ 820 s (438 of 439); 21: libcxx 1031 s, C++ 740 s; all GREEN |
 | 0.128 | line tables, the vacuum, unsigned constants | `-g` gives DWARF line tables; the C store vacuumed every 64th run and before each gate; an unsigned constant operation done in its type, `#if` in `uintmax_t`, one evaluator for an enumerator's value | 18: reader 5 s, compile 10 s, driver 7 s, objects 4 s, libcxx 1123 s, C++ 929 s (438 of 439); 21: libcxx 940 s, C++ 644 s; all GREEN |
 | 0.129 | `__int128` in C++, the decimal floating types | `__SIZEOF_INT128__` in C++ too; a 128-bit constant typed; explicit specializations of function templates; floating constants folded under integer casts; C23's `_Decimal32`, `_Decimal64`, `_Decimal128` over libgcc's BID runtime, with gcc's ABI | 18: reader 5 s, compile 10 s, driver 7 s, objects 3 s, libcxx 1327 s, C++ 1128 s (442 of 443); 21: libcxx 1141 s, C++ 794 s; all GREEN after the width fix |
+| 0.130 | `-g`: the variables, their types, the blocks, C++'s names | Every named local, parameter and global a DWARF variable of its described type; lexical blocks; each function's type; C++'s methods, namespaces, template instances and statics by their names; no location in the prologue; `-gline-tables-only` and kin | a save point: reader 5 s, compile 11 s, driver 11 s (30 checks), objects 5 s, proof; the C++ gates are 0.132's |
 
 ## M5 — the C++ mode
 
@@ -7712,3 +7713,46 @@ since M4 that no gate met, because each version bump starts a fresh store; "Not 
 
 Reader version 124, lowering version 70; the module rebuilt as 0.129, over cocolog 1.9.1.
 
+## 0.130 — `-g`: the variables, their types, the blocks and C++'s names
+
+A SAVE POINT: the four C gates and the proof ran on this commit, GREEN (reader 5 s, compile 11 s, driver 11 s with 30
+checks, objects 5 s), beside the net chain of the series 0.130 to 0.132, so their times are no measure; the library read and
+the C++ gate ran on the whole series, and their numbers are 0.132's. Nothing else is claimed GREEN.
+
+**0.130: the rest of `-g`, an item of "Not done" (Tools).** 0.128 gave line tables alone: a debugger stopped at a line, and
+`print x` had nothing to read, and a C++ function was known by this compiler's own name. Each piece was read back with gdb
+over a C program (`v1.c`: parameters, locals, an array, a struct with a bitfield and a pointer to itself, an enum, globals),
+a C++ program without the library (`c2.cpp`: a namespace, a base with a virtual function, a class template's instance, a
+nested class, a static data member, an `enum class`) and one over libc++ (`dbg2.cpp`: `std::vector<int>`, `std::string`, a
+lambda), and against clang's own output for the same programs.
+
+(1) THE VARIABLES. Every named local and parameter of a function the program defines is a `DILocalVariable`, declared by
+`llvm.dbg.declare` over its slot where `ir_local/3` makes it; a parameter has its number and `this` the object pointer's
+flags; every global the program defines is a `DIGlobalVariableExpression` that the compile unit lists, and a static local
+one in its function's scope.
+(2) THE TYPES, described once per module and keyed so that one struct named three ways is one type: base types by their
+encoding, pointers, references, cv, typedefs, arrays, structs, unions and classes with their members at their bit offsets
+(a bitfield flagged, a base sub-object an inheritance), enums with their enumerators (a scoped one flagged). gdb prints a
+`std::vector<int>` and a `std::string` member by member.
+(3) THE BLOCKS: a block of statements is a `DILexicalBlock`, so two variables of one name in two blocks are two.
+(4) EACH FUNCTION'S TYPE: `ptype twice` is `int (int, const char *)`, and `finish` prints the value returned.
+(5) C++'S NAMES AND SCOPES: a method is its member's name in its class's description (so `ptype` lists the methods), a free
+function its name in its namespace's `DINamespace`, a function template's instance its name and arguments (`twice<int>`), a
+class its own name (`Buf<int, 4>`) in its namespace or its holder, a static data member `Class::name` in its class's
+namespace. `break geo::Counter::bump` stops in both overloads, `bt` names `geo::Counter::bump`, `print shapes::Outer::made`
+reads the static, `print k` is `shapes::Kind::square`. The symbols stay this compiler's own.
+(6) THE PROLOGUE: the parameters' stores have no location, as clang's have none. With the function's line on them, LLVM
+put the prologue's end before them, and gdb's breakpoint on a function read the parameters before they were stored
+(`n=32767`). The line table is clang's row for row.
+(7) THE KINDS: `-g1`, `-ggdb1`, `-gline-tables-only` and `-gline-directives-only` give the line tables alone (`debug(lines)`,
+`emissionKind: LineTablesOnly`, no variable and no type); the other forms the full information; the last form on the line
+wins, as clang. The compile unit says `nameTableKind: None`, as clang's does on Linux: gdb had warned that it ignores LLVM's
+`.debug_names`.
+
+What is left in "Not done": a destructor at a scope's end has its object's declaration's line, no location has a column,
+`-g3`'s macros are not described, and a static data member is a global with a qualified name, not a member declared in its
+class.
+
+Checks: the driver gate's two new checks read the variables and the types back with `llvm-dwarfdump`, and the line table
+with no variable under `-gline-tables-only` (30 checks). By hand: every `test/c/run/*.c` built with `-g` and run against its
+expect (67 of 67), and 35 C++ fixtures built with `-g` and run against theirs.

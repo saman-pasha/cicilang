@@ -10,8 +10,8 @@ it found, its measurements and its gate numbers. `README.md` tells a user what r
 architecture and the milestones. A step that changes a rule edits the rule here, in its topic, and writes its entry
 in `HISTORY.md`.
 
-At 0.129 the versions are: the module 0.129 (`ccl_p_version` in `module/cicilang.cicili`, `bin/cicilang --version`),
-the reader 124 (`ccl_reader_version/1`, `library/ccl_syntax.pl`) and the lowering 70 (`ccl_lowering_version/1`,
+At 0.130 the versions are: the module 0.130 (`ccl_p_version` in `module/cicilang.cicili`, `bin/cicilang --version`),
+the reader 124 (`ccl_reader_version/1`, `library/ccl_syntax.pl`) and the lowering 71 (`ccl_lowering_version/1`,
 `library/ccl_ir.pl`).
 
 Build and prove, always in this order (or all of it, `sh test/gates.sh`):
@@ -372,10 +372,11 @@ tutorials/01..03-*.pl       the objects layer's lessons; goal main, last line do
   and links every `test/c/run/*.c` at its `NAME.std` level (`c_level`). It expects every `test/c/safe/*.c` refused.
   `test/compile.sh` runs each binary as `NAME arg1 arg2` against `NAME.expect`, and compares each refusal with
   `safe/NAME.expect`. There are 67 run and 43 safe fixtures at 0.129. (M2, M3, 0.57)
-- The driver gate. `test/driver.sh` makes 28 checks of `bin/cicilang` over the user's store (the decimal ABI check is
+- The driver gate. `test/driver.sh` makes 30 checks of `bin/cicilang` over the user's store (the decimal ABI check is
   skipped where no gcc with decimal floating types is installed). They cover what `-o`,
-  `-c`, `-S`, `-emit-llvm`, `-shared`, `-I`, `-ast-dump`, `-fsyntax-only` and `-g` make (the line table read back by
-  `llvm-dwarfdump`, from `$PATH` or `$LLVM/bin`: the statements' lines and the file's name), and the diagnostics in
+  `-c`, `-S`, `-emit-llvm`, `-shared`, `-I`, `-ast-dump`, `-fsyntax-only`, `-g` and `-gline-tables-only` make (read
+  back by `llvm-dwarfdump`, from `$PATH` or `$LLVM/bin`: the statements' lines and the file's name; the variables, a
+  struct's members and an enum's enumerators, their names sorted; no variable under `-gline-tables-only`), and the diagnostics in
   clang's shape (`#warning` printed, `#error` with exit 1). They find `@ccl_drain_node` in `btree.c`'s IR, and pass
   structs by value both ways against clang-built code (`test/c/link/abi_main.c`, `abi_helper.c`; seven lines at 0.117,
   the last two for the SysV register budget, `budget_*` built by clang and `bud_*` by cicilang). The store must serve
@@ -547,13 +548,15 @@ tutorials/01..03-*.pl       the objects layer's lessons; goal main, last line do
   `link(F)`: `-l -L -shared -Wl, -framework -static -rdynamic -fPIC -pthread -m*`. (M4, 0.44)
 - `-W -f* -pedantic`, an unknown `-std=` and an unknown `-g` form are accepted and ignored. Any other dash argument is
   `unknown argument`. `--version` prints the versions of cicilang, cocolog and LLVM; `-h` prints the help. (M4, 0.108)
-- `-g` is the option `debug` (0.128): `-g`, `-g1` to `-g3`, `-ggdb` and its levels, `-gline-tables-only`,
-  `-gline-directives-only`, `-gdwarf*`, `-gfull`, `-glldb` and `-gsce` all give LINE TABLES, the one level the lowering
-  makes; `-g0` and `-ggdb0` give none, as clang. `dr_c` sets `'$ccl_debug'` to `file(AbsolutePath)` for the file
-  (`dr_abs_path/2`, `absolute_file_name/2`), else `none`, and the IR cache's signature folds it (`dr_ir_sig/3`): an IR
-  with line tables is another IR. The lowering's side is in The lowering topic. A debugger stops at a line and steps
-  by statements (gdb: `main () at dbg1.c:9`); there are no variables, no types and no scopes below the function. The
-  driver gate's `-g` check reads the line table back with LLVM's own `llvm-dwarfdump`. (0.128)
+- `-g` is the option `debug` (0.128, 0.130): `-g`, `-g2`, `-g3`, `-ggdb`, `-ggdb2`, `-ggdb3`, `-gdwarf*`, `-gfull`, `-glldb`
+  and `-gsce` give the FULL debug information (the line tables, the variables, their types, the lexical blocks, C++'s
+  names and scopes); `-g1`, `-ggdb1`, `-gline-tables-only` and `-gline-directives-only` give `debug(lines)`, the line
+  tables alone; `-g0` and `-ggdb0` give none, and the last form on the line wins, as clang (`bin/cicilang`'s `gdbg`).
+  `dr_c` sets `'$ccl_debug'` to `file(AbsolutePath)` for the file (`dr_abs_path/2`, `absolute_file_name/2`), else
+  `none`, and `'$ccl_debug_kind'` to `full`, `lines` or `none`; the IR cache's signature folds both (`dr_ir_sig/3`): an
+  IR with debug information is another IR. The lowering's side is in The lowering topic. gdb reads it: `break
+  Counter::bump`, `info args`, `info locals`, `print p`, `ptype p`, `print ns::Outer::made`, `finish`'s value. The
+  driver gate's two `-g` checks read it back with LLVM's own `llvm-dwarfdump`. (0.128, 0.130)
 - `-D N`, `-DN=v`, `-D'F(x)=...'` and `-U N` are `define(Text)` and `undef(N)` options (0.112): the driver makes the
   list `'$pp_cmdline'` (`ccl_pp_cmdline/1`, the later of a -D and a -U of one name winning), and `pp_outer_macro/3`
   asks it before the predefined macros, so every file and every header's macro table made in the process reads them
@@ -5294,27 +5297,72 @@ A lambda is a class of its captures (`library/ccl_cpp.pl`). A fixture named alon
 - libc++'s memory builtins become the C library's `memcpy`, `memmove` and `memset` in the desugaring;
   `ir_cpp_prelude/0` declares them when the file did not. (0.60)
 
-### Line tables (`-g`)
+### Debug information (`-g`)
 
-- Under the driver's `debug` option (`'$ccl_debug'` = `file(Path)`, the Driver topic) the lowering writes LINE TABLES,
-  DWARF 5 (0.128). A function the program defines gets a `distinct !DISubprogram` with its name, its line and the one
-  file (`ir_dbg_begin/3`, from `ir_function/7`; the line from the item, `'$ir_fn_line'`), and EVERY instruction of its
-  body a `!DILocation` of the line of the statement being lowered (`'$ir_line'`; the function's own line before the
-  first statement): `ir_ins/1`, `ir_end/1` and the fall-through branch of `ir_block/1` append `, !dbg !N`
-  (`ir_dbg_parts/2`). LLVM's verifier asks a location of every call in a function that has a subprogram, and of an
-  inlinable call in particular, so no instruction is left without one. A location is made once per line and function
-  (`'$ir_dbg_locs'`). A declaration sets the line too (`ir_stmt(declaration(L, ...))`): its initializer's calls are its
-  own. (0.128)
+- Under the driver's `debug` option (`'$ccl_debug'` = `file(Path)`, `'$ccl_debug_kind'`, the Driver topic) the lowering
+  writes DWARF 5 (0.128, 0.130). A function the program defines gets a `distinct !DISubprogram` with its name, its scope,
+  its line, its type and the one file (`ir_dbg_begin/5`, from `ir_function/7`; the line from the item, `'$ir_fn_line'`),
+  and EVERY instruction of its body a `!DILocation` of the line of the statement being lowered (`'$ir_line'`; the
+  function's own line before the first statement) in the current scope: `ir_ins/1`, `ir_end/1` and the fall-through
+  branch of `ir_block/1` append `, !dbg !N` (`ir_dbg_parts/2`). LLVM's verifier asks a location of every call in a
+  function that has a subprogram, and of an inlinable call in particular, so no instruction of the body is left without
+  one. A location is made once per line, scope and function (`'$ir_dbg_locs'`, `at(Line, Scope, Ref)`). A declaration
+  sets the line too (`ir_stmt(declaration(L, ...))`): its initializer's calls are its own. (0.128)
+- THE PROLOGUE HAS NO LOCATION (0.130): the parameters' stores (`ir_run_lines/1` under `'$ir_dbg_prologue'`) carry no
+  `!dbg`, as clang's have none, since LLVM puts the prologue's end, where a debugger stops at a breakpoint on the
+  function, at the first instruction with a location: with the function's line on the stores, gdb stopped before them
+  and `info args` read garbage. The line table is clang's, row for row (the driver gate: 3 4 5 8 9 10 11). (0.130)
+- THE VARIABLES (0.130): every named local and parameter of a function with a subprogram is a `DILocalVariable` of the
+  scope it is declared in, declared at its place by `llvm.dbg.declare` over its slot (`ir_dbg_var/3`, from `ir_local/3`,
+  which every local and parameter passes through; the call has the variable's own location, the prologue's included): a
+  parameter carries its number (`arg: K`, `'$ir_dbg_args'`), `this` the flags `DIFlagArtificial | DIFlagObjectPointer`.
+  Every global the program defines is a `DIGlobalVariableExpression` on its definition, listed by the compile unit's
+  `globals:` (`ir_dbg_global/3`; a tentative definition and its definition one variable, `'$ir_dbg_gvars'`), and a
+  static local one in its function's scope (`ir_dbg_static_local/3`; `ir_dbg_var/3` leaves an `@` slot to it). A name
+  the compiler made (`$tmp1`, `$ret`) is not described. (0.130)
+- THE TYPES (0.130), DWARF's from the C types, each described once per module (`ir_dbg_type/2` over `'$ir_dbg_types'`,
+  keyed by `ir_dbg_key/2`: a tag by its kind and name and a C++ class name by its tag, so `struct point` named through a
+  pointer, a typedef and itself is one type): the base types by their encoding (`ir_dbg_encoding/2`: boolean, complex,
+  decimal, float, UTF, signed or unsigned char, signed, unsigned), pointers (a pointer to a function points to the shared
+  `!4`), references, rvalue references, `const` and `volatile`, typedefs (not a C++ class name, which is its class),
+  arrays with their `DISubrange`, structs, unions and classes with their members at their bit offsets (a bitfield
+  `DIFlagBitField` with its storage offset, a base sub-object `$base`, `$base$2` ... a `DW_TAG_inheritance`, an anonymous
+  member unnamed, the table pointer and the compiler's other names left out; `ir_dbg_composite/5` over
+  `ccl_members_layout/4`), enums with their enumerators and their underlying type (`DIFlagEnumClass` for a scoped one,
+  `ccl_scoped_enum/1`). A tag named alone takes its members from the tag table (`ir_dbg_tag_members/3`). A type's number
+  is taken BEFORE its members are described, so a struct that points to itself names its own number; a type with no
+  description is described by its size alone (`ir_dbg_sized/3`). (0.130)
+- THE LEXICAL BLOCKS (0.130): a block of statements is a `distinct !DILexicalBlock` inside the scope around it
+  (`ir_dbg_block_enter/1`, `ir_dbg_block_leave/0` around `ir_stmt(block(Is))`; its line the first statement's), which its
+  variables and its instructions' locations name; the function's own body is the subprogram's scope (`'$ir_dbg_top'`).
+  (0.130)
+- EACH FUNCTION HAS ITS TYPE (0.130): a `DISubroutineType` of its result (`null` for void) and its parameters' types
+  (`ir_dbg_fn_type/3`), `flags: DIFlagPrototyped`; gdb's `ptype twice` is `int (int, const char *)` and `finish` prints
+  the value returned. (0.130)
+- C++'S NAMES AND SCOPES (0.130; `cpp_dbg_fn/2`, `cpp_dbg_global/2`, `cpp_dbg_class_path/3` in the desugaring, asked by
+  `ir_dbg_fn_scope/3`, `ir_dbg_global_scope/3` and `ir_dbg_tag_scope/3`): this compiler's own names stay the symbols,
+  and the debug information says what the source says. A method's subprogram is named as the member (a constructor the
+  class's own name, the destructor `~` and it, an operator `operator+`) in its class's scope, and LLVM puts it in the
+  class's description, so `ptype` lists the methods; a free function its name in its namespace's `DINamespace`
+  (`ir_dbg_ns_ref/3`, one per path), a function template's instance its name and its arguments (`sum<int>`, from
+  `'$cpp_dbg_targs'`, noted where the instance is emitted, `cpp_dbg_note_targs/3`); a free operator `operator<<`; a class its own name -- an
+  instance `Buf<int, 4>` -- in its namespace or the class that holds it (`cpp_dbg_holder_tag/2`); a static data member
+  `Class::name` in its class's namespace, which gdb reads as `ns::Class::name`; a namespace's global its name in its
+  namespace. A compiler-made global (a table, a type's information) is not described. The program's own namespaces are
+  `'$cpp_dbg_ns'(Name, Path)`, noted by `cpp_ns_resolve/2` under `-g`; a header's come from `cpp_hdr_ns/2`. gdb:
+  `break shapes::Buf<int, 4>::get`, `break Counter::bump` (both overloads), `bt` with the qualified names, `print *this`,
+  `ptype sq` with its base and its methods, `print k` as `shapes::Kind::square`, a `std::vector<int>` and a
+  `std::string` printed member by member. (0.130)
 - A LIBRARY function (`cpp_library_function/1`) gets no subprogram: its lines are a header's, and the table names one
-  file. A function without a subprogram has no location on any instruction. (0.128)
+  file. A function without a subprogram has no location on any instruction and no variable. (0.128)
 - `ir_assemble/1` appends the module's own metadata (`ir_dbg_module/1`): `!0` the `DICompileUnit` (language
-  `DW_LANG_C11` or `DW_LANG_C_plus_plus_14`, producer `cicilang <version>`, `emissionKind: LineTablesOnly`), `!1` and
-  `!2` the two module flags LLVM asks (`Dwarf Version` 5, `Debug Info Version` 3), `!3` the `DIFile` (the base name and
-  the directory of the absolute path), `!4` the one `DISubroutineType` every subprogram shares, then the subprograms and
-  the locations from `!5` on (`'$ir_dbg_md'`, `'$ir_dbg_n'`). A name or a path is escaped for a metadata string
-  (`ir_dbg_escape/2`). No variable, type or lexical scope is described: `-g1` to `-g3` give what `-gline-tables-only`
-  gives. A subprogram's name is the function's LLVM name, so a C++ function is known to a debugger by this compiler's
-  own name (gdb: `break 'Counter.bump.int'`; a breakpoint by `file:line` works in both languages). (0.128)
+  `DW_LANG_C11` or `DW_LANG_C_plus_plus_14`, producer `cicilang <version>`, `emissionKind: FullDebug` or, under
+  `debug(lines)`, `LineTablesOnly`, the globals, `nameTableKind: None` as clang has it on Linux, so gdb meets no
+  `.debug_names` it ignores), `!1` and `!2` the two module flags LLVM asks (`Dwarf Version` 5, `Debug Info Version` 3),
+  `!3` the `DIFile` (the base name and the directory of the absolute path), `!4` the type a function pointer points to
+  and every subprogram has under `debug(lines)`, then the rest from `!5` on (`'$ir_dbg_md'`, `'$ir_dbg_n'`). A name or a
+  path is escaped for a metadata string (`ir_dbg_escape/2`). Under `debug(lines)` (`ir_dbg_full/0` false) nothing but
+  the subprograms, the blocks and the locations is made. (0.128, 0.130)
 
 ### The embedded LLVM
 
@@ -6120,10 +6168,11 @@ A lambda is a class of its captures (`library/ccl_cpp.pl`). A fixture named alon
 ### Tools and performance
 
 - `bin/cicilang` accepts and ignores `-W`, `-f...` and `-pedantic` (owner's rule: clang's arguments, no new flags).
-  `-g` gives line tables only (0.128): no variable, type or lexical scope is described, so a debugger stops at a line
-  and steps, and `print x` has nothing to read; a C++ function's subprogram carries this compiler's name
-  (`Counter.bump.int`), not the source's qualified name, so `break Counter::bump` finds nothing. `-D` and `-U` define
-  and undefine (0.112); a run with either keeps no C store.
+  `-D` and `-U` define and undefine (0.112); a run with either keeps no C store.
+- `-g` (0.130) leaves out what clang's has beyond the variables, the types and the scopes: a destructor run at a scope's end
+  has the line of its object's declaration, not the closing brace's; there are no columns (every location is column
+  1); `-g3`'s macros are not described; a static data member is a global named `Class::name` in its namespace, not a
+  member declared in its class.
 - A C++ read never uses the store: `cicilang++` runs `--no-kb` (M5). The C++ cache is the summary and the AST beside it
   (0.35, 0.45).
 - A READ SERVED FROM A STORE HOLDS ITS FLOATS WITH 15 DIGITS: cocolog writes a float with `%.15g` (its `lib/term.cicili`, whose

@@ -81,6 +81,8 @@ cpp_ns_resolve(Units0, Units) :-
     findall(S, ( member(in(P0, _), Flat0), P0 \== c, member(S, P0), atom(S) ), NsL0), sort(NsL0, NsL), cpp_reset('$cpp_ns_names'/1), assertz('$cpp_ns_names'(NsL)),
     findall(N-NP, ( member(in(Path, I), Flat), ( catch(once(cpp_index_name(I, N)), _, fail) ; cpp_ns_enum_name(I, N) ), atom(N), cpp_ns_named_path(Path, NP) ), Pairs0),   % an ENUM's tag and an unscoped enum's enumerators are names of the namespace too (0.127)
     sort(Pairs0, Pairs), cpp_ns_quals_(Pairs, Qs),
+    cpp_reset('$cpp_dbg_ns'/2), cpp_reset('$cpp_dbg_targs'/2),                                       % -g: the namespaces of the program's own names, a function template instance's arguments (0.130)
+    ( catch(nb_getval('$ccl_debug', file(_)), _, fail) -> forall(( member(N-NP, Pairs), NP \== [], \+ '$cpp_dbg_ns'(N, _) ), assertz('$cpp_dbg_ns'(N, NP))) ; true ),
     (   Qs == []
     ->  Units = Units0
     ;   ( catch(nb_getval('$cpp_trace', yes), _, fail) -> cpp_trace(ns_collisions(Qs)) ; true ),   % before cpp_register_units has set the trace global
@@ -6945,7 +6947,7 @@ cpp_instantiate_function_(F, TPs, B, L, Sto, Ret, Ps, V, Body, Name) :-
     ;   cpp_making(Name) -> true
     ;   nb_getval('$cpp_making', M0), nb_setval('$cpp_making', [Name|M0]),
         (   catch(\+ \+ cpp_instantiate_function_emit(F, TPs, B, L, Sto, Ret, Ps, V, Body, Name), E, ( nb_setval('$cpp_making', M0), throw(E) ))   % inside `\+ \+': the instance's items go to the facts, its walk is reclaimed
-        ->  nb_setval('$cpp_making', M0), cpp_instance_note(Name, F)
+        ->  nb_setval('$cpp_making', M0), cpp_instance_note(Name, F), cpp_dbg_note_targs(Name, TPs, B)
         ;   nb_setval('$cpp_making', M0), cpp_refuse(0, function_not_emitted(Name)) ) ).
 cpp_instantiate_function_emit(F, TPs, B, L0, Sto0, Ret, Ps, V0, Body, Name) :-
     cpp_lib_origin(F, Lib),
@@ -8111,3 +8113,68 @@ cpp_const_bool(tmpl(C, Args), V) :- atom(C), '$cpp_concept'(C, _), !, ( cpp_conc
 cpp_const_bool(E, V) :- E = call(_, _), catch(cpp_const_value(E, K), _, fail), !, ( K = bool(V0) -> V = V0 ; integer(K), K =\= 0 -> V = true ; V = false ).   % A CONSTEXPR CALL decides it too, through the evaluator (0.112): libc++ 18's `if constexpr (__format::__use_packed_format_arg_store(sizeof...(_Args)))' kept both branches, and the other one named a member the store does not have
 %% a plain struct or union (no registered class) value that an lvalue names: the type of `std::move(x)'s cast, `S &&'
 cpp_plain_xvalue(X, rref([], T)) :- cpp_lvalue(X), ccl_type_of(X, T0), T0 \== unknown, ccl_unref(T0, T), ccl_resolve_type(T, R), R = base(RQ, [Tag]), \+ memberchk(const, RQ), T = base(TQ, _), \+ memberchk(const, TQ), ( Tag = struct(_, _) ; Tag = union(_, _) ), \+ cpp_class_of_type(T, _), \+ cpp_holds_owners(T).
+%% -g'S NAMES AND SCOPES (0.130): what the lowering's debug information says of a C++ function, class or global, as the
+%% source spells it; this compiler's own names (`Counter.bump.int') stay the symbols. A class is its namespaces and its chain
+%% of classes (cpp_dbg_class_path/3: `ns::Outer::Inner', a template's instance `Buf<int, 4>'; the program's own namespaces from
+%% '$cpp_dbg_ns', noted by cpp_ns_resolve under -g, a header's from cpp_hdr_ns/2). A method is `member(Class, Name)' -- a
+%% constructor the class's own name, the destructor `~' and it, an operator `operator+' --, a free function or a function
+%% template's instance `free(NsPath, Name)', a free operator `free([], operator<<)', a static data member `member(Class,
+%% Name)' and a namespace-scope global `free(NsPath, Name)'. A name that no rule spells keeps its own (a thunk, an
+%% invoker, `$cpp_ginit'), and so does a table or a type's information (`C.vtable'), which no rule answers.
+cpp_dbg_fn(Name, Src) :- atom(Name), cpp_dbg_fn_(Name, Src), !.
+cpp_dbg_fn_(Name, free([], Op)) :- atomic_list_concat([op, W|_], '.', Name), !, cpp_dbg_op_spell(W, Op).
+cpp_dbg_fn_(Name, free(P, F2)) :- catch('$cpp_inst'(Name, F), _, fail), atom(F), \+ memberchk(F, [mangled, hdr, cdecl, thunk, inline_var]), \+ catch('$cpp_clsl'(F, _), _, fail), !,
+    cpp_dbg_ns_of(F, P, F1),                                                                       % a function template's instance, with its arguments
+    ( catch('$cpp_dbg_targs'(Name, As), _, fail), As \== [] -> cpp_dbg_args(As, AS), ( sub_atom(AS, _, 1, 0, '>') -> Sp = ' >' ; Sp = '>' ), atomic_list_concat([F1, '<', AS, Sp], F2) ; F2 = F1 ).
+cpp_dbg_fn_(Name, member(C, M)) :- atomic_list_concat(Segs, '.', Name), cpp_dbg_class_prefix(Segs, C, Rest), !, cpp_dbg_member(C, Rest, M).
+cpp_dbg_fn_(Name, free(P, F1)) :- atomic_list_concat([F|_], '.', Name), catch('$cpp_fn'(F, _, _, _, _), _, fail), !, cpp_dbg_ns_of(F, P, F1).   % a free function, an overload `F.<keys>'
+cpp_dbg_global(N, member(C, M)) :- atom(N), atomic_list_concat(Segs, '.', N), Segs = [_, _|_], cpp_dbg_class_prefix(Segs, C, [M]),
+    cpp_class_l(C, cls(_, _, Ss, _, _)), memberchk(M-_, Ss), !.                                 % a static data member: no table, no type's information
+cpp_dbg_global(N, free(P, N1)) :- atom(N), \+ sub_atom(N, _, _, _, '.'), !, cpp_dbg_ns_of(N, P, N1).
+cpp_dbg_note_targs(Name, TPs, B) :-
+    (   catch(nb_getval('$ccl_debug', file(_)), _, fail), \+ catch('$cpp_dbg_targs'(Name, _), _, fail)
+    ->  findall(A, ( member(TP, TPs), TP = tparam(_, P, _), memberchk(P-A, B) ), As), assertz('$cpp_dbg_targs'(Name, As))
+    ;   true ).
+%% a name's namespaces: the program's own, else a header's; a key of a deeper namespace's name (`inner.f') is that name
+cpp_dbg_ns_of(F, P, F) :- catch('$cpp_dbg_ns'(F, P), _, fail), !.
+cpp_dbg_ns_of(F, P, F) :- catch(cpp_hdr_ns(F, P0), _, fail), is_list(P0), !, findall(X, ( member(X, P0), atom(X) ), P).
+cpp_dbg_ns_of(F, [], F).
+%% the longest leading segments that name a registered class, and the rest
+cpp_dbg_class_prefix(Segs, C, Rest) :- length(Segs, N), K is N - 1, K >= 1, cpp_dbg_split(Segs, K, C, Rest).
+cpp_dbg_split(Segs, K, C, Rest) :- length(Pre, K), append(Pre, Rest, Segs), atomic_list_concat(Pre, '.', C), catch('$cpp_clsl'(C, _), _, fail), !.
+cpp_dbg_split(Segs, K, C, Rest) :- K > 1, K1 is K - 1, cpp_dbg_split(Segs, K1, C, Rest).
+cpp_dbg_member(C, [dtor|_], M) :- !, cpp_dbg_last(C, L), atom_concat('~', L, M).
+cpp_dbg_member(_, [op, W|_], M) :- !, cpp_dbg_op_spell(W, M).
+cpp_dbg_member(C, Rest, M) :- atomic_list_concat(CSegs, '.', C), append(CSegs, _, Rest), !, cpp_dbg_last(C, M).   % the constructor, `C.C.<keys>'
+cpp_dbg_member(_, [M|_], M).
+cpp_dbg_last(C, L) :- ( catch('$cpp_inst'(C, inst(N, _)), _, fail), atom(N) -> true ; N = C ), atomic_list_concat(Ss, '.', N), ccl_last(Ss, L).
+%% a class's namespaces and its chain of classes, the outermost first: `Outer.Inner' is [Outer, Inner], an instance's own
+%% name spelled with its arguments
+cpp_dbg_class_path(C, P, Chain) :- atom(C), cpp_dbg_class_path_(C, P, Chain), !.
+cpp_dbg_class_path_(C, P, Chain) :- catch('$cpp_inst'(C, inst(N, Args)), _, fail), atom(N), is_list(Args), !,
+    cpp_dbg_args(Args, AS), ( sub_atom(AS, _, 1, 0, '>') -> Sp = ' >' ; Sp = '>' ),
+    (   cpp_dbg_holder(N, E, Last) -> cpp_dbg_class_path(E, P, ChainE), atomic_list_concat([Last, '<', AS, Sp], Own), append(ChainE, [Own], Chain)
+    ;   cpp_dbg_ns_of(N, P, N1), atomic_list_concat([N1, '<', AS, Sp], Own), Chain = [Own] ).
+cpp_dbg_class_path_(C, P, Chain) :- cpp_dbg_holder(C, E, Last), !, cpp_dbg_class_path(E, P, ChainE), append(ChainE, [Last], Chain).
+cpp_dbg_class_path_(C, P, [C1]) :- cpp_dbg_ns_of(C, P, C1).
+cpp_dbg_holder(C, E, Last) :- atomic_list_concat(Segs, '.', C), Segs = [_, _|_], cpp_dbg_class_prefix(Segs, E, Rest), atomic_list_concat(Rest, '.', Last).
+cpp_dbg_holder_tag(C, E) :- catch('$cpp_inst'(C, inst(N, _)), _, fail), atom(N), cpp_dbg_holder(N, E, _), !.
+cpp_dbg_holder_tag(C, E) :- cpp_dbg_holder(C, E, _).
+cpp_dbg_args(Args, AS) :- findall(S, ( member(A, Args), ( catch(cpp_dbg_spell(A, S0), _, fail) -> S = S0 ; S = '?' ) ), Ss), atomic_list_concat(Ss, ', ', AS).
+cpp_dbg_spell(A, A) :- integer(A), !.
+cpp_dbg_spell(V, K) :- compound(V), functor(V, F, 1), memberchk(F, [int, uint, long, ulong, chr]), arg(1, V, K), integer(K), !.
+cpp_dbg_spell(bool(B), B) :- !.
+cpp_dbg_spell(pack(L), S) :- !, is_list(L), cpp_dbg_args(L, S).
+cpp_dbg_spell(tname(X), S) :- !, atom(X), cpp_dbg_class_spelled(X, S).
+cpp_dbg_spell(ptr(Q, E), S) :- !, cpp_dbg_spell(E, ES), ( memberchk(const, Q) -> atom_concat(ES, ' *const', S) ; atom_concat(ES, ' *', S) ).
+cpp_dbg_spell(ref(_, E), S) :- !, cpp_dbg_spell(E, ES), atom_concat(ES, ' &', S).
+cpp_dbg_spell(rref(_, E), S) :- !, cpp_dbg_spell(E, ES), atom_concat(ES, ' &&', S).
+cpp_dbg_spell(base(Q, Sp), S) :- !, cpp_dbg_specs(Sp, S0), ( memberchk(const, Q) -> atom_concat('const ', S0, S1) ; S1 = S0 ), ( memberchk(volatile, Q) -> atom_concat('volatile ', S1, S) ; S = S1 ).
+cpp_dbg_specs([typedef(N)], S) :- !, atom(N), ( catch('$cpp_clsl'(N, _), _, fail) -> cpp_dbg_class_spelled(N, S) ; S = N ).
+cpp_dbg_specs([X], S) :- compound(X), functor(X, F, _), memberchk(F, [struct, union, enum, enum_class]), arg(1, X, N), atom(N), !, cpp_dbg_class_spelled(N, S).
+cpp_dbg_specs(Sp, S) :- forall(member(X, Sp), atom(X)), atomic_list_concat(Sp, ' ', S).
+cpp_dbg_class_spelled(C, S) :- cpp_dbg_class_path(C, P, Chain), append(P, Chain, All), atomic_list_concat(All, '::', S).
+cpp_dbg_op_spell(W, S) :- atom_concat(conv_, K, W), !, atom_concat('operator ', K, S).
+cpp_dbg_op_spell(W, S) :- member(Op, ['+', '-', '*', '/', '%', '==', '!=', '<', '>', '<=', '>=', '+=', '-=', '*=', '/=', '%=', '[]', '()', '<<', '>>', '!', '&&', '||', '&', '|', '^', '~', '++', '--', '=', '->', '<<=', '>>=', '&=', '|=', '^=', '<=>', ',', '->*']),
+    catch(cpp_op_word(Op, W0), _, fail), W0 == W, !, atom_concat(operator, Op, S).
+cpp_dbg_op_spell(W, S) :- atom_concat('operator_', W, S).

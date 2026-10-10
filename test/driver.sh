@@ -68,6 +68,8 @@ DD=$(command -v llvm-dwarfdump || echo "${LLVM:-/usr/lib/llvm-18}/bin/llvm-dwarf
 check "-g: line tables, a line per statement, the file named" "$(printf '#include <stdio.h>\n\nstatic int twice(int x) {\n  int y = x * 2;\n  return y;\n}\n\nint main(void) {\n  int a = twice(21);\n  printf("%%d\\n", a);\n  return 0;\n}\n' > dbg.c; "$CICILI" -g dbg.c -o dbg && ./dbg && "$DD" --debug-line dbg | grep -c 'name: "dbg.c"' && "$DD" --debug-line dbg | awk '/^0x/ { print $2 }' | sort -n -u | tr '\n' ' ')" "42
 1
 3 4 5 8 9 10 11 "
+check "-g: the variables and their types, as DWARF describes them" "$(printf 'enum color { RED, GREEN = 5 };\nstruct point { int x; double y; };\nint g = 3;\nint main(void) {\n  struct point p = {1, 2.5};\n  enum color c = GREEN;\n  return p.x + c - 6 + g - 3;\n}\n' > dbgv.c; "$CICILI" -g dbgv.c -o dbgv && ./dbgv && "$DD" --debug-info dbgv | awk '/DW_AT_name/ { gsub(/[()"]/, "", $2); print $2 }' | LC_ALL=C sort -u | tr '\n' ' ')" "GREEN RED c color dbgv.c double g int main p point x y "
+check "-gline-tables-only: the lines and no variable" "$("$CICILI" -gline-tables-only dbgv.c -o dbgl && ./dbgl && "$DD" --debug-info dbgl | grep -c 'DW_TAG_variable')" "0"
 check "an unknown argument is an error, as clang says it" "$("$CICILI" --frobnicate x.c 2>&1)" "cicilang: error: unknown argument: '--frobnicate'"
 check "no input files is an error" "$("$CICILI" -c 2>&1)" "cicilang: error: no input files"
 check "the tie: a broken tie is refused in clang's shape" "$("$CICILI" -fsyntax-only "$R/safe/tie_arg.c" 2>&1 | head -1 | sed "s|$R/||")" "safe/tie_arg.c:4: error: value not within its tie: 'b' in call(id(gap),[id(a),id(b)]) (function main)"
