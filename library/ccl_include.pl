@@ -771,12 +771,16 @@ ccl_debian_llvm_roots(Ds) :-
         msort(Ps, Ss), reverse(Ss, Rs), findall(D, member(_-D, Rs), Ds)
     ;   Ds = [] ).
 ccl_own_include_dirs(Ds) :- ccl_library_dirs(Ls), findall(D, ( member(L, Ls), atom_concat(L, '/include', D) ), Ds).
+ccl_sdk_dirs(Ds) :- ccl_cross_sysroot(R), !, atom_concat(R, '/include', D), Ds = [D, '/usr/include'].   % ANOTHER MACHINE'S C LIBRARY (0.131): the cross sysroot's headers, as clang --target searches them, and never this host's multiarch directory
 ccl_sdk_dirs(Ds) :-
     ( catch(os_env('SDKROOT', S), _, fail), S \== '' -> atom_concat(S, '/usr/include', D0), Ds = [D0|Ds1] ; Ds = Ds1 ),
     ccl_multiarch_dirs(M),
     append(['/Library/Developer/CommandLineTools/SDKs/MacOSX.sdk/usr/include',
             '/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX.sdk/usr/include'], M, D2),
     append(D2, ['/usr/include'], Ds1).
+%% a target of another machine (dr_set_target/1) on Debian and Ubuntu: the cross toolchain's sysroot, /usr/<triplet>
+ccl_cross_sysroot(R) :- catch(nb_getval('$ccl_target', target(A, linux, _)), _, fail), \+ catch(ccl_host_arch(A), _, fail),
+    ( A == arm64 -> R = '/usr/aarch64-linux-gnu' ; A == x86_64 -> R = '/usr/x86_64-linux-gnu' ), atom_concat(R, '/include', D), exists_directory(D).
 %% DEBIAN AND UBUNTU SPLIT THE C LIBRARY'S HEADERS, and the split half comes FIRST: <bits/...>
 %% and <sys/cdefs.h> live in /usr/include/<triplet>, which clang searches before /usr/include
 %% (`clang -E -v' lists it there). Without it the closure of <stdio.h> stops at 146 lines against

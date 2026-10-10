@@ -124,6 +124,7 @@ One row per step, in version order: the step's title, what it did and its gate n
 | 0.128 | line tables, the vacuum, unsigned constants | `-g` gives DWARF line tables; the C store vacuumed every 64th run and before each gate; an unsigned constant operation done in its type, `#if` in `uintmax_t`, one evaluator for an enumerator's value | 18: reader 5 s, compile 10 s, driver 7 s, objects 4 s, libcxx 1123 s, C++ 929 s (438 of 439); 21: libcxx 940 s, C++ 644 s; all GREEN |
 | 0.129 | `__int128` in C++, the decimal floating types | `__SIZEOF_INT128__` in C++ too; a 128-bit constant typed; explicit specializations of function templates; floating constants folded under integer casts; C23's `_Decimal32`, `_Decimal64`, `_Decimal128` over libgcc's BID runtime, with gcc's ABI | 18: reader 5 s, compile 10 s, driver 7 s, objects 3 s, libcxx 1327 s, C++ 1128 s (442 of 443); 21: libcxx 1141 s, C++ 794 s; all GREEN after the width fix |
 | 0.130 | `-g`: the variables, their types, the blocks, C++'s names | Every named local, parameter and global a DWARF variable of its described type; lexical blocks; each function's type; C++'s methods, namespaces, template instances and statics by their names; no location in the prologue; `-gline-tables-only` and kin | a save point: reader 5 s, compile 11 s, driver 11 s (30 checks), objects 5 s, proof; the C++ gates are 0.132's |
+| 0.131 | another machine: Linux on aarch64 | `--target=TRIPLE`; the target's macros, sysroot, types (unsigned char, an fp128 long double) and back end; AAPCS64 proven under qemu (an HFA before the size, a 16-aligned composite, `va_arg` expanded); x86-64's `va_arg` of a long double | a save point: reader 5 s, compile 9 s, driver 10 s (31 checks), objects 3 s, proof, cross 47 s; the C++ gates are 0.132's |
 
 ## M5 — the C++ mode
 
@@ -7756,3 +7757,43 @@ class.
 Checks: the driver gate's two new checks read the variables and the types back with `llvm-dwarfdump`, and the line table
 with no variable under `-gline-tables-only` (30 checks). By hand: every `test/c/run/*.c` built with `-g` and run against its
 expect (67 of 67), and 35 C++ fixtures built with `-g` and run against theirs.
+
+## 0.131 — another machine: Linux on aarch64, AAPCS64 proven under qemu
+
+A SAVE POINT: the four C gates, the proof and the new cross gate ran on this commit, GREEN (reader 5 s, compile 9 s,
+driver 10 s with 31 checks, objects 3 s, cross 47 s), beside the net chain of the series 0.130 to 0.132, so their times are
+no measure; the library read and the C++ gate ran on the whole series, and their numbers are 0.132's. Nothing else is
+claimed GREEN.
+
+**0.131: an item of "Not done" (ABI and hosts): "the arm64 (AAPCS64) ABI is written and not proven".** There is no arm64
+machine here, and there was no emulator: `qemu-user`, `gcc-aarch64-linux-gnu` and `libc6-dev-arm64-cross` are installed
+now (Ubuntu's packages), and cicilang builds for that machine from this one.
+
+(1) `--target=TRIPLE` and `-target TRIPLE`, clang's own spellings, so nothing is new for the user: the driver sets the
+arch, the OS, the ABI, long double and the triple before anything reads them (`dr_set_target/1`), the inclusion path is
+the cross sysroot (`/usr/aarch64-linux-gnu/include`, then `/usr/include`, as clang searches them), the embedded LLVM
+initializes every target and compiles for the triple with the `generic` CPU (the module rebuilt), and the link is the
+cross gcc. A run with a target keeps no C store. `hello.c` prints under qemu at once.
+(2) THE PREDEFINED MACROS of Linux on aarch64: a table of the target's own, asked before `any`, from clang 18's `-dM -E`
+where it differs from what the other tables answered -- the arm64 table was Apple's (`__arm64__`, the M1's features, a
+double long double, a signed `wchar_t`); `$undef` is no macro.
+(3) THE TYPES: plain char and `wchar_t` unsigned (`(char) 200` is 200, a fold and a comparison alike); long double an IEEE
+quad, `fp128`, its constants in `0xL` hex, its conversions, its complex runtime (`__multc3`), a decimal's `tf` conversions.
+(4) THE ABI: an HFA is taken before the size -- `struct { double x, y, z; }` is three SIMD registers, never by reference;
+the test of the size came first and the first build of the ABI test crashed -- a 16-aligned composite is an `i128` (an
+even register pair), an HFA of quads is in the SIMD registers, and a complex float comes back as an HFA.
+(5) VA_ARG: Linux's va_list is a struct, which LLVM's own `va_arg` does not read (it takes Apple's `char *`), so every
+`va_arg` is expanded by AAPCS64's rules, as clang does: the general and the SIMD registers' save areas by their offsets,
+an HFA gathered from its slots, a composite past 16 bytes by its pointer, the stack aligned and moved on.
+(6) THE CROSS GATE, `test/cross.sh` (in the chain after the proof): every C run fixture built by cicilang and by clang for
+aarch64, both run under qemu and compared -- that machine's output is the reference, not this one's `.expect` -- and a
+fixture in the language's own forms, which clang does not read, against its `.expect`; then structs by value both ways
+against gcc (the existing `abi_*.c`) and variadic calls of every kind both ways (new: `test/c/link/va.h`, `va_func.c`,
+`va_main.c`). 68 fixtures and 3 checks GREEN in about a minute; it SKIPs without the cross tools.
+(7) A DEFECT OF THIS HOST found by the new variadic test: `va_arg(ap, long double)` on x86-64 went through LLVM's own
+instruction, which read the X87 value wrong, and every argument after it. A long double is X87, always in the overflow
+area aligned 16, and the expansion of 0.117 takes it now. The driver gate runs the variadic test both ways against
+clang (31 checks).
+
+Left in "Not done": Apple's arm64 (its variadic calls go on the stack, its long double is a double; no Apple machine is
+here), and C++ for another machine, which compiles and does not link (no aarch64 libc++ is installed).

@@ -125,12 +125,14 @@ pp_cmdline(N, D) :- catch(nb_getval('$pp_cmdline', L), _, fail), memberchk(N-D, 
 pp_predef_macro(N, obj, Cs) :-
     (   ccl_lang(cpp), ccl_std(S), pp_std_table(S, Tab), pp_predef(N, Tab, T) -> true   % the level's own value first (__cplusplus, __cpp_constexpr ...)
     ;   ccl_lang(c), ccl_c_std(CS), pp_c_std_table(CS, CTab), pp_predef(N, CTab, T) -> true   % C's own level (-std=c23): __STDC_VERSION__ and what the forms answer
+    ;   pp_target_table(TT), pp_predef(N, TT, T) -> T \== '$undef'                     % THE TARGET'S OWN, before the rest (0.131): Linux aarch64's long double, char and wchar_t; `$undef' is no macro
     ;   pp_predef(N, any, T) -> true
     ;   pp_os(O), pp_predef(N, O, T) -> true                                          % the host's own: __APPLE__ and __MACH__, or __linux__ and __ELF__
     ;   pp_arch(A), pp_predef(N, A, T) -> true
     ;   ccl_lang(cpp), pp_predef(N, cpp, T)
     ;   ccl_lang(c), pp_predef(N, c, T) ),                                            % C's own beyond the levels' (0.117): __SIZEOF_INT128__
     atom_codes(T, Cs).
+pp_target_table(TT) :- pp_os(O), pp_arch(A), atomic_list_concat([O, '_', A], TT).
 %% C's levels, the newest first: what -std=c23 answers where C17's table would
 pp_c_std_table(S, c23) :- S >= 23.
 %% the tables a level sees beyond cpp's (C++17's): the newest first
@@ -1211,6 +1213,56 @@ pp_predef('__SIZEOF_LONG_DOUBLE__', arm64, '8').
 pp_predef('__aarch64__', arm64, '1').
 pp_predef('__arm64', arm64, '1').
 pp_predef('__arm64__', arm64, '1').
+%% LINUX ON AARCH64 (0.131), asked before `any' for --target=aarch64-linux-gnu (pp_target_table/1): clang 18's own
+%% `-dM -E' where it differs from what the tables answer -- an IEEE quad long double, an unsigned char and wchar_t, the
+%% generic armv8's features, none of Apple's names. `$undef' is no macro. A difference that x86-64 Linux keeps as the
+%% tables have it (the 64-bit types spelled `long long', `__USER_LABEL_PREFIX__') is kept the same way here.
+pp_predef('__AARCH64_SIMD__', linux_arm64, '$undef').
+pp_predef('__ARM64_ARCH_8__', linux_arm64, '$undef').
+pp_predef('__ARM_ACLE', linux_arm64, '200').
+pp_predef('__ARM_FEATURE_AES', linux_arm64, '$undef').
+pp_predef('__ARM_FEATURE_ATOMICS', linux_arm64, '$undef').
+pp_predef('__ARM_FEATURE_COMPLEX', linux_arm64, '$undef').
+pp_predef('__ARM_FEATURE_CRC32', linux_arm64, '$undef').
+pp_predef('__ARM_FEATURE_CRYPTO', linux_arm64, '$undef').
+pp_predef('__ARM_FEATURE_DOTPROD', linux_arm64, '$undef').
+pp_predef('__ARM_FEATURE_FP16_FML', linux_arm64, '$undef').
+pp_predef('__ARM_FEATURE_FP16_SCALAR_ARITHMETIC', linux_arm64, '$undef').
+pp_predef('__ARM_FEATURE_FP16_VECTOR_ARITHMETIC', linux_arm64, '$undef').
+pp_predef('__ARM_FEATURE_JCVT', linux_arm64, '$undef').
+pp_predef('__ARM_FEATURE_PAUTH', linux_arm64, '$undef').
+pp_predef('__ARM_FEATURE_QRDMX', linux_arm64, '$undef').
+pp_predef('__ARM_FEATURE_RCPC', linux_arm64, '$undef').
+pp_predef('__ARM_FEATURE_SHA2', linux_arm64, '$undef').
+pp_predef('__ARM_FEATURE_SHA3', linux_arm64, '$undef').
+pp_predef('__ARM_FEATURE_SHA512', linux_arm64, '$undef').
+pp_predef('__ARM_NEON_SVE_BRIDGE', linux_arm64, '$undef').
+pp_predef('__ARM_NEON__', linux_arm64, '$undef').
+pp_predef('__ARM_PREFETCH_RANGE', linux_arm64, '$undef').
+pp_predef('__BIGGEST_ALIGNMENT__', linux_arm64, '16').
+pp_predef('__CHAR_UNSIGNED__', linux_arm64, '1').
+pp_predef('__FUNCTION_MULTI_VERSIONING_SUPPORT_LEVEL', linux_arm64, '$undef').
+pp_predef('__HAVE_FUNCTION_MULTI_VERSIONING', linux_arm64, '$undef').
+pp_predef('__LDBL_DECIMAL_DIG__', linux_arm64, '36').
+pp_predef('__LDBL_DENORM_MIN__', linux_arm64, '6.47517511943802511092443895822764655e-4966L').
+pp_predef('__LDBL_DIG__', linux_arm64, '33').
+pp_predef('__LDBL_EPSILON__', linux_arm64, '1.92592994438723585305597794258492732e-34L').
+pp_predef('__LDBL_MANT_DIG__', linux_arm64, '113').
+pp_predef('__LDBL_MAX_10_EXP__', linux_arm64, '4932').
+pp_predef('__LDBL_MAX_EXP__', linux_arm64, '16384').
+pp_predef('__LDBL_MAX__', linux_arm64, '1.18973149535723176508575932662800702e+4932L').
+pp_predef('__LDBL_MIN_10_EXP__', linux_arm64, '(-4931)').
+pp_predef('__LDBL_MIN_EXP__', linux_arm64, '(-16381)').
+pp_predef('__LDBL_MIN__', linux_arm64, '3.36210314311209350626267781732175260e-4932L').
+pp_predef('__LDBL_NORM_MAX__', linux_arm64, '1.18973149535723176508575932662800702e+4932L').
+pp_predef('__OBJC_BOOL_IS_BOOL', linux_arm64, '0').
+pp_predef('__REGISTER_PREFIX__', linux_arm64, '$undef').
+pp_predef('__SIZEOF_LONG_DOUBLE__', linux_arm64, '16').
+pp_predef('__WCHAR_MAX__', linux_arm64, '4294967295U').
+pp_predef('__WCHAR_TYPE__', linux_arm64, 'unsigned int').
+pp_predef('__WCHAR_UNSIGNED__', linux_arm64, '1').
+pp_predef('__arm64', linux_arm64, '$undef').
+pp_predef('__arm64__', linux_arm64, '$undef').
 pp_predef('__DEPRECATED', cpp, '1').
 %% NO EXCEPTIONS (owner's design: the safe part has no unwinding to offer, and DESIGN.md puts exceptions last if at
 %% all). libc++ asks the COMPILER: `#if defined(__cpp_exceptions) && __cpp_exceptions >= 199711L' decides its

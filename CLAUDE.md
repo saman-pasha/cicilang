@@ -10,8 +10,8 @@ it found, its measurements and its gate numbers. `README.md` tells a user what r
 architecture and the milestones. A step that changes a rule edits the rule here, in its topic, and writes its entry
 in `HISTORY.md`.
 
-At 0.130 the versions are: the module 0.130 (`ccl_p_version` in `module/cicilang.cicili`, `bin/cicilang --version`),
-the reader 124 (`ccl_reader_version/1`, `library/ccl_syntax.pl`) and the lowering 71 (`ccl_lowering_version/1`,
+At 0.131 the versions are: the module 0.131 (`ccl_p_version` in `module/cicilang.cicili`, `bin/cicilang --version`),
+the reader 124 (`ccl_reader_version/1`, `library/ccl_syntax.pl`) and the lowering 72 (`ccl_lowering_version/1`,
 `library/ccl_ir.pl`).
 
 Build and prove, always in this order (or all of it, `sh test/gates.sh`):
@@ -23,6 +23,7 @@ sh test/compile.sh
 sh test/driver.sh
 sh test/objects.sh
 sh proof/run.sh
+sh test/cross.sh
 sh test/libcxx.sh
 sh test/cpp.sh
 ```
@@ -279,6 +280,7 @@ test/reader.pl, reader.sh   the reader's gate
 test/compile.pl, compile.sh the compiler's gate
 test/driver.sh              the command's gate
 test/objects.sh             the objects layer's gate
+test/cross.sh               another machine's gate: every C run fixture and the ABI on aarch64 Linux, under qemu
 test/cpp.pl, cpp.sh         the C++ gate
 test/libcxx.sh              the library read: the asserted headers read whole, and the C++ cache's warm
 test/readhdr.pl             one asserted header read whole at a level, in its own process
@@ -288,7 +290,7 @@ test/census.pl, census.sh   where the reader stops in a header or in a flattened
 test/c/                     the reader's fixtures: hello.c, rich.c, lexer.c, macros.c with macros.pl, pp.c ...
 test/c/inc/                 the -I fixture: uses_box.c over box.h
 test/c/link/                two files linked into one program; the ABI against clang-built code (abi_main.c,
-                            abi_helper.c)
+                            abi_helper.c), variadic calls (va_main.c, va_func.c, va.h), the decimal ABI against gcc
 test/c/run/                 C programs built and run: NAME.c, NAME.expect, NAME.std; pp_defs.h, embed.txt, empty.txt
 test/c/safe/                C programs the safe part refuses: NAME.c, NAME.expect
 test/cpp/                   the C++ reader's fixtures and the refusals; hidem.cppm for modhidden.cpp
@@ -331,8 +333,8 @@ tutorials/01..03-*.pl       the objects layer's lessons; goal main, last line do
 
 ### The chain
 
-- `sh test/gates.sh` runs the reader, compile, driver and objects gates and the proof one after another, then the
-  library read (`test/libcxx.sh`), then the C++ gate (`test/cpp.sh`). Each prints `== NAME: GREEN in N s` or
+- `sh test/gates.sh` runs the reader, compile, driver and objects gates, the proof and the cross gate one after
+  another, then the library read (`test/libcxx.sh`), then the C++ gate (`test/cpp.sh`). Each prints `== NAME: GREEN in N s` or
   `== NAME: RED (exit N) in N s`. The first RED stops the chain, by its exit status, never by a log read. A full pass
   prints `ALL GREEN`. (0.105)
 - THE CHAIN RUNS OVER A LIBC++: `LLVM=/usr/lib/llvm-18 sh test/gates.sh` and `LLVM=/usr/lib/llvm-21 sh test/gates.sh` (or the
@@ -372,8 +374,9 @@ tutorials/01..03-*.pl       the objects layer's lessons; goal main, last line do
   and links every `test/c/run/*.c` at its `NAME.std` level (`c_level`). It expects every `test/c/safe/*.c` refused.
   `test/compile.sh` runs each binary as `NAME arg1 arg2` against `NAME.expect`, and compares each refusal with
   `safe/NAME.expect`. There are 67 run and 43 safe fixtures at 0.129. (M2, M3, 0.57)
-- The driver gate. `test/driver.sh` makes 30 checks of `bin/cicilang` over the user's store (the decimal ABI check is
-  skipped where no gcc with decimal floating types is installed). They cover what `-o`,
+- The driver gate. `test/driver.sh` makes 31 checks of `bin/cicilang` over the user's store (the decimal ABI check is
+  skipped where no gcc with decimal floating types is installed), the variadic calls of every kind both ways against
+  clang among them (`test/c/link/va_*.c`, 0.131). They cover what `-o`,
   `-c`, `-S`, `-emit-llvm`, `-shared`, `-I`, `-ast-dump`, `-fsyntax-only`, `-g` and `-gline-tables-only` make (read
   back by `llvm-dwarfdump`, from `$PATH` or `$LLVM/bin`: the statements' lines and the file's name; the variables, a
   struct's members and an enum's enumerators, their names sorted; no variable under `-gline-tables-only`), and the diagnostics in
@@ -386,6 +389,16 @@ tutorials/01..03-*.pl       the objects layer's lessons; goal main, last line do
   (M4, 0.93, 0.128, 0.129)
 - The objects gate. `test/objects.sh` makes 29 checks of the objects layer, an instance that outlives its process
   among them. (from the start)
+- The cross gate (0.131). `test/cross.sh` builds every `test/c/run/*.c` with `cicilang --target=aarch64-linux-gnu`
+  and with `clang --target=aarch64-linux-gnu`, runs both under `qemu-aarch64 -L /usr/aarch64-linux-gnu` and compares
+  them: that machine's output is the reference, not this one's `.expect` (plain char and `wchar_t` are unsigned there,
+  `long double` an IEEE quad). A fixture in the language's own forms, which clang does not read, is held to its
+  `.expect`. Then three checks against `aarch64-linux-gnu-gcc`: structs by value both ways (`test/c/link/abi_*.c`) and
+  variadic calls of every AAPCS64 kind both ways (`test/c/link/va_*.c`: an int, a long, a double, a long double, an HFA
+  of doubles and of floats, a struct past 16 bytes, an eight-byte struct, a 16-aligned `__int128` struct, the general
+  and the SIMD registers run out). It SKIPs without `qemu-aarch64`, `aarch64-linux-gnu-gcc` and the sysroot (Debian
+  and Ubuntu: `qemu-user`, `gcc-aarch64-linux-gnu`, `libc6-dev-arm64-cross`) or without clang. 68 fixtures and 3
+  checks at 0.131, about a minute. (0.131)
 - The proof. `proof/run.sh` has clang turn `proof/forty2.ll` into a binary that prints `cicilang reaches C` and exits
   42. (M0)
 
@@ -546,6 +559,9 @@ tutorials/01..03-*.pl       the objects layer's lessons; goal main, last line do
 - `-c -S -emit-llvm -fsyntax-only -E -ast-dump -v -o -O0..-Oz -I` become `compile_only`, `assembly`, `emit_llvm`,
   `syntax_only`, `preprocess`, `ast`, `verbose`, `out(F)`, `opt(F)` (default `-O0`) and `include(D)`. Link flags pass as
   `link(F)`: `-l -L -shared -Wl, -framework -static -rdynamic -fPIC -pthread -m*`. (M4, 0.44)
+- `--target=TRIPLE` and `-target TRIPLE`, clang's spellings, are `target(T)` (0.131): another machine (`dr_set_target/1`,
+  the Driver topic below). A run with one keeps no C store (`--local`): another machine reads this compiler's own
+  headers (`float.h`, `limits.h`) under its own macros, and the store keys a header by its path.
 - `-W -f* -pedantic`, an unknown `-std=` and an unknown `-g` form are accepted and ignored. Any other dash argument is
   `unknown argument`. `--version` prints the versions of cicilang, cocolog and LLVM; `-h` prints the help. (M4, 0.108)
 - `-g` is the option `debug` (0.128, 0.130): `-g`, `-g2`, `-g3`, `-ggdb`, `-ggdb2`, `-ggdb3`, `-gdwarf*`, `-gfull`, `-glldb`
@@ -581,6 +597,16 @@ tutorials/01..03-*.pl       the objects layer's lessons; goal main, last line do
 - `ccl_drive/2` is `once(dr_drive(Inputs, Options))`. Why: cocolog's query loop asks for a second answer, and a stray
   choicepoint prints everything again. It sets `'$ccl_lang_forced'` and `'$ccl_lang'`, `'$ccl_std'` (default 17),
   `'$ccl_c_std'` (default 17) and `'$ccl_trigraphs'`, and asserts a `ccl_include_dir/1` per `-I`. (M4, 0.108)
+- ANOTHER MACHINE (0.131): `target(T)` sets it before anything reads it (`dr_set_target/1`): the arch from the triple's
+  first word (`aarch64` or `arm64` is `arm64`, `x86_64`), the OS from a word in it (`linux`; `apple`, `darwin`, `macos`
+  are `darwin`); `'$ccl_target'` = `target(Arch, OS, Triple)`, and the globals every machine question reads --
+  `'$pp_arch'` and `'$pp_os'` (the predefined macros and the target's table), `'$ir_arch'` (`aapcs` or `sysv`),
+  `'$ccl_ldbl'` (`quad` on Linux aarch64, `double` on Apple's arm64, `x87`). The compile's flags get `--target=T` for
+  the embedded LLVM, the inclusion path the cross sysroot (`ccl_sdk_dirs/1` over `ccl_cross_sysroot/1`:
+  `/usr/aarch64-linux-gnu/include`, then `/usr/include`, as clang searches them, never this host's multiarch
+  directory), and the link the cross gcc (`ccl_linker/1`: `aarch64-linux-gnu-gcc`, with ` -lm`). An unknown triple is
+  `unknown target triple`. C only: no libc++ of another machine is on this box, so `cicilang++ --target` compiles and
+  does not link. (0.131)
 - `.c` and the C++ extensions (`dr_cpp_ext`) go to `dr_c`; `.ll` compiles as IR; `.o`, `.a`, `.so` and `.dylib` go to
   the link. A missing input is `no such file or directory` (`dr_input`); it once compiled to `cicilang: ok`. (0.46,
   0.108)
@@ -816,11 +842,17 @@ tutorials/01..03-*.pl       the objects layer's lessons; goal main, last line do
 - The predefined macros are `pp_predef(Name, Table, Text)` facts, from the reference compiler's `-dM -E` per level,
   answered BY NAME on a miss (`pp_predef_macro/3`), never defined in bulk. Why: defining them cost 25 ms a run. (M5)
 - The order: the level's table (C++ `pp_std_table/2`: `cpp26`, `cpp23`, `cpp20`, newest first; C `pp_c_std_table/2`:
-  `c23`), `any`, the OS (`pp_os/1`), the arch (`pp_arch/1`), `cpp`. `__cplusplus` is 201703L, 202002L, 202302L or
+  `c23`), the TARGET's own (`pp_target_table/1`, `<os>_<arch>`, 0.131), `any`, the OS (`pp_os/1`), the arch
+  (`pp_arch/1`), `cpp`. The target's own table is `linux_arm64` alone: clang 18's `-dM -E` for aarch64 Linux where it
+  differs from what the other tables answer -- `__CHAR_UNSIGNED__`, `__WCHAR_UNSIGNED__` and `unsigned int`, the quad's
+  `__LDBL_*`, `__SIZEOF_LONG_DOUBLE__` 16, `__BIGGEST_ALIGNMENT__` 16, the generic armv8's features -- and `'$undef'`,
+  no macro, for Apple's names (`__arm64__`, `__ARM_NEON__`, the M1's `__ARM_FEATURE_*`). A difference that x86-64 Linux
+  keeps as the tables have it (the 64-bit types spelled `long long`, `__USER_LABEL_PREFIX__` `_`) is kept the same way
+  there. `__cplusplus` is 201703L, 202002L, 202302L or
   202400L. `__STDC_VERSION__` is 201710L (C11, C99 too), 202311L at C23 with the `__STDC_VERSION_*_H__` macros.
   (0.57, 0.93)
-- The OS and the arch are the HOST's: the module's compile-time `ccl_host_os/1`, `ccl_host_arch/1` (`uname` only
-  without it), cached in `'$pp_os'`, `'$pp_arch'`. `darwin` holds the Apple rows (`__APPLE__`, `__MACH__`,
+- The OS and the arch are the HOST's -- the module's compile-time `ccl_host_os/1`, `ccl_host_arch/1` (`uname` only
+  without it), cached in `'$pp_os'`, `'$pp_arch'` -- or the target's, which `--target` puts there first (0.131). `darwin` holds the Apple rows (`__APPLE__`, `__MACH__`,
   `TARGET_OS_*`); `linux` holds `__linux__`, `__gnu_linux__`, `__unix__`, `__ELF__`, `__PIE__` and kin. Why: Linux
   compiled as a Mac. (0.93)
 
@@ -4116,8 +4148,10 @@ A lambda is a class of its captures (`library/ccl_cpp.pl`). A fixture named alon
 - A struct by value crosses a call as the platform ABI says (`ir_abi/2`, cached in `'$ir_abicache'`): `scalar`,
   `direct([piece(LL, Off)...])`, `memory(LL, Align)` (SysV byval and sret) or `indirect(LL, Align)` (AAPCS64's copy).
   SysV: over 16 bytes in memory, else each eightbyte `iN` when an integer or pointer lies in it, else `double`, `float`
-  or `<2 x float>`. AAPCS64: over 16 bytes indirect, else an HFA `[k x float|double]` (k up to 4), else `i64` or
-  `[2 x i64]`. (M3)
+  or `<2 x float>`. AAPCS64: an HFA `[k x float|double|fp128]` (k up to 4) FIRST, whatever its size (three doubles go
+  in v0-v2, never by reference: the order was the other way round and `d24` crashed), else over 16 bytes indirect,
+  else `i64`, `i128` for a 16-aligned value (an even register pair), or `[2 x i64]` (`ir_abi_/6`). Proven against
+  aarch64-linux-gnu-gcc under qemu both ways by the cross gate (0.131). (M3, 0.131)
 - `ir_leaves/3` gives the leaves from the same layout. A pointer to member function is two INTEGER eightbytes, and a
   complex its two components. On SysV an aggregate with a long double (`x87`) leaf goes in memory; a result of one long
   double or one complex long double comes back on the x87 stack, `%st0` or `%st0` and `%st1` (`ir_ret_abi/2`,
@@ -4136,9 +4170,10 @@ A lambda is a class of its captures (`library/ccl_cpp.pl`). A fixture named alon
 - `ir_fn_sig/6` spells a define, a call and a declare alike. A define stores the pieces in an alloca aligned 16 and uses
   byval and indirect parameters in place (`ir_params/4`). A call goes through a temporary, sret first, and reloads a
   direct return (`ir_call_/6`, `ir_arg_parts/5`). Variadic arguments take the default promotions
-  (`ir_promote_arg/4`). `ir_arch_init` sets `'$ir_arch'`: `aapcs` on arm64 (`ccl_host_arch/1`), else `sysv`; the arm64
-  side is written and not proven. `test/driver.sh` checks both directions against clang (`test/c/link/abi_main.c`,
-  `abi_helper.c`), and `test/c/run/abi_libc.c` goes through `div` and `ldiv`. (M3)
+  (`ir_promote_arg/4`). `ir_arch_init` sets `'$ir_arch'`: `aapcs` on arm64 (`ccl_host_arch/1`, or `--target`'s), else
+  `sysv`. `test/driver.sh` checks both directions against clang (`test/c/link/abi_main.c`, `abi_helper.c`, and the
+  variadic `va_main.c`, `va_func.c`), `test/cross.sh` the same files on aarch64 against gcc, and `test/c/run/abi_libc.c`
+  goes through `div` and `ldiv`. (M3, 0.131)
 - A reference handed to a by-value aggregate parameter is read through before the argument is split into its parts
   (`ir_args_`, `ir_ref_value_type/2`): the value of a cast to a reference and of a forwarding reference is the
   referent's address. `test/cpp/run/refbyvalue.cpp`. Else `std::invoke` of a generic lambda `[](auto a)` stored
@@ -5205,7 +5240,13 @@ A lambda is a class of its captures (`library/ccl_cpp.pl`). A fixture named alon
 ### long double, _Complex, _BitInt and wide characters
 
 - `long double` on x86-64 is `x86_fp80` (`ccl_long_double(x87)`), 16 bytes aligned 16, its constants in `0xK` hex.
-  On arm64 it is a `double`. `test/c/run/ldouble.c`, `test/cpp/run/ldouble.cpp`. (0.108)
+  On Linux aarch64 it is an IEEE quad (`ccl_long_double(quad)`, 0.131): `fp128`, 16 bytes aligned 16, its constants in
+  `0xL` hex (`ir_quad/2`: the low 64 bits, then the sign, the 15 exponent bits and the fraction's top 48; a literal holds
+  a double's value, so the quad's lower bits are zero), its arithmetic libgcc's soft quad routines, its complex runtime
+  `__multc3` and `__divtc3`, a decimal's conversions `tf` (`__bid_extendddtf`); on Apple's arm64 a `double`. An HFA of
+  quads is in the SIMD registers. `test/c/run/ldouble.c`, `test/cpp/run/ldouble.cpp`. (0.108, 0.131)
+- PLAIN `char` AND `wchar_t` ARE UNSIGNED ON LINUX AARCH64 (0.131; `ccl_char_unsigned/0`, `ccl_plain_char_unsigned/1`,
+  asked by `ccl_int_rank/3` and `ir_signed_/1`): `(char) 200` is 200 there, a comparison and a constant fold alike.
 - `_Complex T` is `{ E, E }` over its real type (`ccl_complex_real/2`; a bare `_Complex` is a double), twice the real's
   size and aligned as one. `ir_complex_elem/2` covers `double`, `x86_fp80`, `float`, `i64`, `i32`, `i16` and `i8`. The
   usual arithmetic conversions give the complex of the common real type (`ccl_complex_usual/3`). (0.100, 0.103)
@@ -5284,14 +5325,22 @@ A lambda is a class of its captures (`library/ccl_cpp.pl`). A fixture named alon
   `i128` over operands widened by their own signedness (`ir_widen128/4`). They store the truncated result and answer
   whether it lost anything. C23's `<stdckdint.h>` is written on them. (0.93)
 - `__builtin_unreachable()` is `unreachable`, and `[[assume(e)]]` calls `llvm.assume`. (0.93)
-- `va_start`, `va_end` and `va_copy` are the `llvm.va_*` intrinsics (`ir_va_intrinsic/3`); `va_arg` of a scalar is
-  LLVM's own instruction. `va_arg` of a struct, a union, a complex or an `__int128` is expanded here on x86-64 (psABI
-  3.5.7; `ir_va_arg_aggregate/4`, `ir_piece_classes/5`, `ir_va_fetch/7`, `ir_va_overflow/4`): every eightbyte of the
-  type comes from the register save area by its class (`gp_offset` / `fp_offset`) when they all fit, else the whole
-  value from `overflow_arg_area`, aligned to 8 or 16 and advanced; AAPCS64 refuses `va_arg_of_aggregate`.
+- `va_start`, `va_end` and `va_copy` are the `llvm.va_*` intrinsics (`ir_va_intrinsic/3`); on x86-64 `va_arg` of a
+  scalar is LLVM's own instruction. `va_arg` of a struct, a union, a complex, an `__int128` or an x87 `long double` is
+  expanded here on x86-64 (psABI 3.5.7; `ir_va_arg_aggregate/4`, `ir_piece_classes/5`, `ir_va_fetch/7`,
+  `ir_va_overflow/4`): every eightbyte of the type comes from the register save area by its class (`gp_offset` /
+  `fp_offset`) when they all fit, else the whole value from `overflow_arg_area`, aligned to 8 or 16 and advanced; a
+  long double is X87, always the overflow area (0.131: LLVM's own `va_arg` read it wrong, and every argument after it).
+- ON LINUX AARCH64 `va_arg` OF EVERY TYPE IS EXPANDED HERE (AAPCS64 B.4, as clang does; `ir_va_arg_aapcs/4`, 0.131):
+  the va_list is `{ __stack, __gr_top, __vr_top, __gr_offs, __vr_offs }`, and LLVM's own `va_arg` takes Apple's `char *`.
+  A floating scalar or an HFA comes from the SIMD registers' save area (`__vr_offs`, 16 bytes a register, an HFA's
+  members one register each, gathered into a temporary, `ir_va_hfa_copy/6`), anything else from the general registers'
+  (`__gr_offs`, 8 a register, a 16-aligned value from an even one), a composite past 16 bytes as the pointer it came by;
+  an offset already 0 or more, or taken past 0, sends it to `__stack` (aligned 16 where the type needs it, moved on by
+  its size rounded up to 8), and the registers it took are not given back. Apple's arm64 refuses an aggregate by name.
   `__builtin_va_list` is the ABI's type (`ccl_va_list_type/2`): `unsigned long[3]` on x86-64, `[4]` on AAPCS64, `char *`
   on Apple's arm64. `test/c/run/varargs.c`, `vaaggregate.c`. (0.108, 0.117)
-- `__builtin_inf`, `huge_val` and `nan`, in double, float and long double forms, are constants (`ir_float_builtin/4`),
+- `__builtin_inf`, `huge_val` and `nan`, in double, float and long double forms (a quad's too, 0.131), are constants (`ir_float_builtin/4`),
   as glibc's `INFINITY`, `NAN` and `HUGE_VAL` need. `__builtin_isnan`, `isinf`, `isinf_sign`, `isfinite`, `isnormal`
   and `signbit` are `fcmp` or bit tests that answer an `int` (`ir_fp_class/1`). (0.101, 0.108)
 - libc++'s memory builtins become the C library's `memcpy`, `memmove` and `memset` in the desugaring;
@@ -5367,7 +5416,9 @@ A lambda is a class of its captures (`library/ccl_cpp.pl`). A fixture named alon
 ### The embedded LLVM
 
 - `module/ccl_llvm.cicili` is the whole back end, a cocolog module over llvm-c (owner's rule: no clang, no LLVM
-  binary). Its surface: `ccl_llvm_version/1`, `ccl_llvm_triple/1`, `ccl_llvm_check/2` (parse and verify) and
+  binary). It initializes every target LLVM was built with (`ccl_ll_all`, 0.131), and a `--target=TRIPLE` flag makes
+  the target machine that triple's, its CPU `generic` and its features the default ones (`ccl_ll_target_flag`,
+  `ccl_ll_target_triple`); without one the host's triple, CPU and features. Its surface: `ccl_llvm_version/1`, `ccl_llvm_triple/1`, `ccl_llvm_check/2` (parse and verify) and
   `ccl_llvm_compile/3`. `cicilang_compile/3` calls it through `ccl_compile/3` (`library/ccl_build.pl`); without the
   module it is `no_embedded_llvm`. (M2, M5)
 - `ccl_llvm_compile/3` parses and verifies the IR in a fresh context. It sets the host's triple, CPU, features and data
@@ -5828,8 +5879,11 @@ A lambda is a class of its captures (`library/ccl_cpp.pl`). A fixture named alon
   (Debian's `/usr/lib/llvm-NN`, the multiarch directory) and the link (`-lc++` and `-lm` on Linux) (0.87, 0.93, 0.100).
 - A struct passed or returned by value crosses a call as clang's x86-64 code expects, in both directions, with the
   register budget of SysV 3.2.3 (`test/driver.sh` over `test/c/link/abi_main.c` and `abi_helper.c`) (M3, 0.117).
-- `long double` is x87's 80-bit type on x86-64 and a double on arm64 (`ccl_long_double/1`; `test/c/run/ldouble.c`,
-  `test/cpp/run/ldouble.cpp`) (0.108).
+- `long double` is x87's 80-bit type on x86-64, an IEEE quad on Linux aarch64 and a double on Apple's arm64
+  (`ccl_long_double/1`; `test/c/run/ldouble.c`, `test/cpp/run/ldouble.cpp`) (0.108, 0.131).
+- LINUX ON AARCH64 IS A TARGET (0.131): `cicilang --target=aarch64-linux-gnu` builds C for it on this x86-64 box, and
+  the cross gate runs every C fixture and the ABI checks under qemu against clang's and gcc's builds. C only: no libc++
+  of that machine is installed.
 
 ### C
 
@@ -6067,8 +6121,9 @@ A lambda is a class of its captures (`library/ccl_cpp.pl`). A fixture named alon
 
 ### C
 
-- The lowering refuses by name `va_arg` of a struct, a union, a complex or an `__int128` on AAPCS64
-  (`va_arg_of_aggregate`; x86-64 expands them, 0.117): no arm64 host or emulator is on this box.
+- The lowering refuses by name `va_arg` of a struct, a union, a complex or an `__int128` on APPLE's arm64, whose
+  va_list is a `char *` and whose variadic arguments all go on the stack (`va_arg_of_aggregate`): no Apple machine is
+  on this box. Linux aarch64 expands them (0.131).
 - A decimal floating value converts to and from a 128-bit integer nowhere (`decimal_conversion`): gcc calls
   `__bid_floattidd` and `__bid_fixddti`, which this box's libgcc does not have, and its own link fails. A decimal global's initializer is a literal, its negation or an integer constant; an
   operation in it is refused, `decimal_constant(E)` (gcc folds it) (0.129).
@@ -6147,8 +6202,9 @@ A lambda is a class of its captures (`library/ccl_cpp.pl`). A fixture named alon
 
 ### ABI and hosts
 
-- The arm64 (AAPCS64) ABI is written and not proven: no gate has run on arm64 (M3). `ccl_long_double/1` makes
-  `long double` a double on any arm64 host, which is Apple's ABI and not Linux aarch64's (0.108).
+- AAPCS64 is proven on Linux (the cross gate under qemu, 0.131), not on Apple's arm64, whose variadic calls and long
+  double differ: no Apple machine is on this box. C++ for another machine compiles and does not link: no libc++ of
+  aarch64 is installed here.
 - The Itanium mangler spells a function type, a pointer to one, an array and a pointer to member as a parameter
   (`cpp_ita_type_`, 0.117; `c37` checks `PFvizE`, `RA4_i`, `PFvvE`). A type that none of its clauses names keeps this
   compiler's own name, and the link names it.

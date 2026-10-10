@@ -24,9 +24,11 @@ dr_drive(Inputs, Options) :-
     ( memberchk(std(Std), Options) -> nb_setval('$ccl_std', Std) ; nb_setval('$ccl_std', 17) ),                                       % -std=c++20: the level libc++ keys on
     ( memberchk(cstd(CStd), Options) -> nb_setval('$ccl_c_std', CStd) ; nb_setval('$ccl_c_std', 17) ),                                 % -std=c23: C's own level, the forms and __STDC_VERSION__
     ( memberchk(trigraphs, Options) -> nb_setval('$ccl_trigraphs', yes) ; nb_setval('$ccl_trigraphs', no) ),                          % -std=c99/c11/c17 (ISO, not gnu) or -trigraphs: phase 1's nine sequences, as clang
+    ( memberchk(target(Tg), Options) -> dr_set_target(Tg) ; true ),                % --target=TRIPLE (0.131): another machine's macros, headers, types, ABI, back end and linker
     findall(D, ( member(O, Options), ( O = define(_) ; O = undef(_) ), D = O ), Ds), ccl_pp_cmdline(Ds),                       % -D and -U (0.112): the macros the command line defines and undefines, before every file's own
     forall(member(include(D), Options), assertz(ccl_include_dir(D))),
-    ( memberchk(opt(O), Options) -> Flags = [O] ; Flags = ['-O0'] ),
+    ( memberchk(opt(O), Options) -> Flags0 = [O] ; Flags0 = ['-O0'] ),
+    ( memberchk(target(Tg1), Options) -> atom_concat('--target=', Tg1, TF), append(Flags0, [TF], Flags) ; Flags = Flags0 ),   % the embedded LLVM's target
     ( memberchk(verbose, Options) -> nb_setval('$dr_verbose', yes) ; nb_setval('$dr_verbose', no) ),
     nb_setval('$ccl_debug', none), nb_setval('$ccl_debug_kind', none),
     dr_inputs(Inputs, Options, Flags, Objects),
@@ -41,6 +43,23 @@ dr_drive(Inputs, Options) :-
     ( N1 =:= 0 -> write('cicilang: ok') ; write('cicilang: '), write(N1), write(' error(s)') ), nl.
 dr_no_link(O) :- ( memberchk(compile_only, O) ; memberchk(assembly, O) ; memberchk(emit_llvm, O) ; memberchk(syntax_only, O) ; memberchk(ast, O) ; memberchk(preprocess, O) ), !.
 
+%% ANOTHER MACHINE (0.131): clang's `--target=TRIPLE' names the arch and the OS -- `aarch64-linux-gnu', `arm64-apple-darwin',
+%% `x86_64-linux-gnu' -- and every question of the machine that asked the host asks it now: the predefined macros
+%% ('$pp_arch', '$pp_os', and the target's own table), the headers (ccl_sdk_dirs/1: the cross sysroot), long double
+%% ('$ccl_ldbl': an IEEE quad on Linux aarch64), the ABI ('$ir_arch': aapcs), the embedded LLVM's triple (the compile's
+%% `--target=' flag) and the linker (ccl_linker/1: the cross gcc). Each is set before anything reads it.
+dr_set_target(T) :-
+    (   ( sub_atom(T, 0, _, _, aarch64) ; sub_atom(T, 0, _, _, arm64) ) -> A = arm64
+    ;   sub_atom(T, 0, _, _, x86_64) -> A = x86_64
+    ;   A = unknown ),
+    (   sub_atom(T, _, _, _, linux) -> O = linux
+    ;   ( sub_atom(T, _, _, _, apple) ; sub_atom(T, _, _, _, darwin) ; sub_atom(T, _, _, _, macos) ) -> O = darwin
+    ;   O = unknown ),
+    (   A \== unknown, O \== unknown
+    ->  nb_setval('$ccl_target', target(A, O, T)), nb_setval('$pp_arch', A), nb_setval('$pp_os', O),
+        ( A == arm64 -> nb_setval('$ir_arch', aapcs) ; nb_setval('$ir_arch', sysv) ),
+        ( A == arm64, O == linux -> K = quad ; A == arm64 -> K = double ; K = x87 ), nb_setval('$ccl_ldbl', K)
+    ;   dr_report(T, error(unknown_target(T), cicilang)) ).
 dr_inputs([], _, _, []).
 dr_inputs([F|Fs], Options, Flags, Objects) :-
     dr_input(F, Options, Flags, Objects, Objects1),
@@ -182,6 +201,7 @@ dr_diag(F, macro_failed(N, As), _) :- !, dr_error(F, 0, ['macro \'', N, '\' fail
 dr_diag(F, ownership(Kind, N, Form), where(Fn, line(L))) :- !, dr_kind(Kind, Text), dr_error(F, L, [Text, ' ''', N, ''' in ', Form, ' (function ', Fn, ')']).
 dr_diag(F, not_lowered(What), where(Fn, line(L))) :- !, dr_error(F, L, ['not lowered yet: ', What, ' (function ', Fn, ')']).
 dr_diag(F, compile_failed(Msg), _) :- !, dr_error(F, 0, ['LLVM: ', Msg]).
+dr_diag(F, unknown_target(T), _) :- !, dr_error(F, 0, ['unknown target triple \'', T, '\'']).
 dr_diag(F, no_embedded_llvm, _) :- !, dr_error(F, 0, ['the embedded LLVM is not built: LLVM=... sh module/build-llvm.sh']).
 dr_diag(F, cocolog_error(Msg), _) :- !, dr_error(F, 0, ['LLVM: ', Msg]).            % the embedded LLVM's refusal
 dr_diag(F, link_failed(Msg), _) :- !, dr_error(F, 0, ['link: ', Msg]).

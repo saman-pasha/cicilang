@@ -470,7 +470,7 @@ ccl_decimal_type(32, base([], ['_Decimal32'])).  ccl_decimal_type(64, base([], [
 ccl_int_rank(T, Rank, Unsigned) :- ccl_resolve_type(T, base(_, [E])), compound(E), ccl_enum_spec_members(E, Ms), !, ccl_enum_underlying(Ms, U), ccl_int_rank(U, Rank, Unsigned).   % AN ENUM RANKS AS ITS UNDERLYING TYPE (0.127): an int unless one is written
 ccl_int_rank(T, Rank, Unsigned) :-
     ccl_resolve_type(T, base(_, S)),
-    ( memberchk(unsigned, S) -> Unsigned = true ; memberchk(char16_t, S) -> Unsigned = true ; memberchk(char32_t, S) -> Unsigned = true ; memberchk(char8_t, S) -> Unsigned = true ; Unsigned = false ),   % C++'s char16_t, char32_t and char8_t are UNSIGNED; wchar_t is signed on this ABI
+    ( memberchk(unsigned, S) -> Unsigned = true ; memberchk(char16_t, S) -> Unsigned = true ; memberchk(char32_t, S) -> Unsigned = true ; memberchk(char8_t, S) -> Unsigned = true ; ccl_plain_char_unsigned(S) -> Unsigned = true ; Unsigned = false ),   % C++'s char16_t, char32_t and char8_t are UNSIGNED; wchar_t is signed on this ABI
     (   memberchk(bitint(E), S) -> ccl_bitint_width(E, W), ccl_bitint_rank(W, Rank)           % C23: below the standard type of its width, above every narrower one (6.3.1.1)
     ; memberchk('__int128', S) -> Rank = 6                                                                      % GNU's __int128 (0.117): above long long
     ; ccl_count(long, S, 2) -> Rank = 5 ; memberchk(long, S) -> Rank = 4 ; memberchk(short, S) -> Rank = 2 ; memberchk(char16_t, S) -> Rank = 2
@@ -733,8 +733,8 @@ ccl_size_align(ref(_, _), 8, 8) :- !.                                           
 ccl_size_align(rref(_, _), 8, 8) :- !.
 %% LONG DOUBLE (0.108): x87's 80 bits in sixteen bytes aligned sixteen on x86-64, as the SysV ABI has it; a double on
 %% arm64 as Apple has it (Linux on arm64 has an IEEE quad, which no gate here runs on)
-ccl_va_list_type(Q, T) :- ( once(catch(ccl_host_arch(A), _, fail)) -> true ; A = x86_64 ),
-    ( A == arm64, once(catch(ccl_host_os(darwin), _, fail)) -> T = ptr(Q, base([], [char]))
+ccl_va_list_type(Q, T) :- ( once(catch(pp_arch(A), _, fail)) -> true ; A = x86_64 ),     % the target's (0.131)
+    ( A == arm64, once(catch(pp_os(darwin), _, fail)) -> T = ptr(Q, base([], [char]))
     ; A == arm64 -> T = arr(int(4), base(Q, [unsigned, long]))
     ; T = arr(int(3), base(Q, [unsigned, long])) ).
 %% offsetof(T, designator) (C 7.19/3, `__builtin_offsetof'): the byte offset the layout computes, a member name,
@@ -752,8 +752,12 @@ ccl_offset_member_of(R, N, MT, MO) :- ccl_members_of(R, Ms), ( R = base(_, [unio
     ; member(lay(A, AT, AO, _), Lays), ccl_anon_member(A), ccl_resolve_type(AT, AR), ccl_offset_member_of(AR, N, MT, O2), MO is AO + O2 ), !.
 ccl_anon_member(A) :- atom(A), sub_atom(A, 0, _, _, '$anon'), !.
 ccl_long_double(K) :- catch(nb_getval('$ccl_ldbl', K0), _, fail), !, K = K0.
-ccl_long_double(K) :- ( once(catch(ccl_host_arch(A), _, fail)) -> true ; A = x86_64 ), ( A == arm64 -> K0 = double ; K0 = x87 ), nb_setval('$ccl_ldbl', K0), K = K0.
-ccl_basic_size(S, N) :- ( memberchk(double, S) -> ( memberchk(long, S), ccl_long_double(x87) -> N = 16 ; N = 8 ) ; memberchk(float, S) -> N = 4 ; memberchk('_Float16', S) -> N = 2 ; memberchk('_Decimal32', S) -> N = 4 ; memberchk('_Decimal64', S) -> N = 8 ; memberchk('_Decimal128', S) -> N = 16 ; ccl_count(long, S, 2) -> N = 8
+ccl_long_double(K) :- ( once(catch(pp_arch(A), _, fail)) -> true ; A = x86_64 ),   % the target's (0.131): an IEEE quad on Linux aarch64, a double on Apple's arm64, x87's on x86-64
+    ( A == arm64, once(catch(pp_os(linux), _, fail)) -> K0 = quad ; A == arm64 -> K0 = double ; K0 = x87 ), nb_setval('$ccl_ldbl', K0), K = K0.
+%% PLAIN CHAR AND wchar_t ARE UNSIGNED ON LINUX AARCH64 (AAPCS64; 0.131), as clang has them (`__CHAR_UNSIGNED__', `__WCHAR_UNSIGNED__')
+ccl_char_unsigned :- once(catch(pp_arch(arm64), _, fail)), once(catch(pp_os(linux), _, fail)).
+ccl_plain_char_unsigned(S) :- ( memberchk(char, S) ; memberchk(wchar_t, S) ), \+ memberchk(signed, S), ccl_char_unsigned.
+ccl_basic_size(S, N) :- ( memberchk(double, S) -> ( memberchk(long, S), ( ccl_long_double(x87) ; ccl_long_double(quad) ) -> N = 16 ; N = 8 ) ; memberchk(float, S) -> N = 4 ; memberchk('_Float16', S) -> N = 2 ; memberchk('_Decimal32', S) -> N = 4 ; memberchk('_Decimal64', S) -> N = 8 ; memberchk('_Decimal128', S) -> N = 16 ; ccl_count(long, S, 2) -> N = 8
     ; memberchk('__int128', S) -> N = 16
     ; memberchk(long, S) -> N = 8 ; memberchk(short, S) -> N = 2 ; memberchk(char, S) -> N = 1 ; memberchk('_Bool', S) -> N = 1 ; memberchk(bool, S) -> N = 1 ; memberchk(char8_t, S) -> N = 1 ; memberchk(char16_t, S) -> N = 2 ; memberchk(wchar_t, S) -> N = 4 ; memberchk(char32_t, S) -> N = 4
     ; memberchk(int, S) -> N = 4 ; memberchk(unsigned, S) -> N = 4 ; memberchk(signed, S) -> N = 4 ; memberchk(void, S) -> N = 1 ; fail ).

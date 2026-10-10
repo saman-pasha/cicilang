@@ -45,7 +45,7 @@
 %% the lowering's version: part of the key of every IR the driver keeps in the
 %% store (library(ccl_driver)); BUMP it whenever the check or the lowering
 %% changes what they emit, as ccl_reader_version/1 is bumped for the grammar
-ccl_lowering_version(71).   % 71 (0.130): -g's variables (llvm.dbg.declare), types, lexical blocks, each function's type and C++'s names and scopes, no location in the prologue, and -gline-tables-only's kind; 70 (0.129): the decimal floating types (BID values in float, double and fp128 carriers, libgcc's runtime, an SSE class in an aggregate), an explicit specialization of a function template as the body of the instance it matches, a bit builtin's call an int, a folded constant past 64 bits a 128-bit integer, a floating constant under a cast to an integer folded, a floating global's fold through a cast to an integer type and a wide integer, an integer global from a floating initializer converted; 69 (0.128): -g's line tables (a function's subprogram, an instruction's location; the IR's signature folds the option) and the unsigned constants typed; 68 (0.127): the C++ types of expressions -- a comparison, `!', `&&' and `||' are a bool (an i8), a conditional over two arms of one arithmetic type has that type, an enumerator is of its enum and a prvalue (bound to a reference through a temporary), an enum promotes to its underlying type, and an integral or floating promotion ranks above a conversion in overload resolution; 67 (0.126): what the desugaring emits for libc++ 21 -- a bare static member function named as a value is its thunk (or waits for its target when several share the name: `'$staticfn'(C, N)`); a qualified enumerator is the value its OWN enum gives it (`B::X` beside `A::X` took the first of the table; a nested enum named bare in a `case` label folds); a plain struct or union member initialized by parentheses from a value of another type is aggregate initialization (`basic_string() : __rep_(__short())`); a requires-expression's parameter pack expands with the bindings; a pointer to a data member of a plain struct (`&Pt::x`) and `__builtin_invoke` of one; `__builtin_clz*`, `ctz*` and `popcount*` and a pointer cast fold in the constexpr evaluator; a free operator template's declaration is registered (its default lends to the definition); a template parameter that two function parameters deduce deduces one type; a function given to `T &` deduces the function type; a deleted nullary function is indexed (the poison pills); `__builtin_common_type` is not a builtin here; a pointer operand that is a reference to a pointer is read through (`*static_cast<A0 &&>(a0)`, ir_ptr_operand); `*` of an arithmetic value is refused, `x.*pm` carries the object's const and xvalue, and a plain struct is its own base (libc++ 18's `__invoke` for a data member); a later EMPTY base is a base to the deduction (`__pipeable<_Fn> : _Fn, __range_adaptor_closure<__pipeable<_Fn>>') and a header's class being loaded is a class to `__is_class' (the views); the type of a call of a function template that names the template's own parameter is raw whatever a typedef of that name says (`std::addressof(m)' in a base initializer), one function template declared by two headers' summaries is one candidate (`back_inserter' under `<string>' and `<format>'), and a generic lambda's parameter that names its own template parameter stays as written where the tables know the name (`__synth_three_way', a vector's `<=>'); 66 (0.125): a parameter that stands twice deduces one type in the partial ordering of function templates (`f(I1, I1, I2, I2)' beats `f(I1, I1, I2, P)'); 65 (0.122): the move of a plain struct is an xvalue (`static_cast<S &&>(s)', so `f(const S &)' beside `f(S &&)' chooses by the value category) and a return reads a reference value through; a member initialized from a prvalue of its own class is constructed in place; a value-initialized plain struct or union is every byte zero; 64 (0.121): what the desugaring and the lowering emit for std::variant and std::visit -- a method a class brings in from a base by `using Base::f;' is a forwarder, a pack of bases (`struct X : Ts...') and `using Ts::operator()...;' expand over the bound pack, an aggregate with (empty) bases is built from its own items, a local class is a class of its own, `p->f<T>()' reaches a member template through a base, the value category of a forwarded object decides a copy or a move (a member of an xvalue, `decltype(name)' of a reference, a member of a const object is const), a braced list handed to an array reference is checked for narrowing, a scalar conversion ranks among templates, a union class's destructor destroys no member, an aggregate member built from a prvalue of its own class is elided, a call through a temporary callee takes the copy pass; a reference member of an aggregate binds its item (ir_init_sub), a union at namespace scope with a constructor, a destructor or a method is a union class and `U u = {5}' names its first member (ccl_data_members); a prvalue (a temporary's block, a returned local moved into its result, a call that returns through the hidden pointer) is constructed IN the object it initializes -- a local, a returned result, an aggregate member -- never copied bitwise (ir_prvalue_block, ir_in_place, ir_sret_call, '$ir_sret_into'): a std::function, a list or a map holds its own address; the top-level const of a pointer is dropped by the deduction, a class converts to another class through the target's constructor in the traits, and a comparison is rewritten through a free or a reversed `operator<=>' (std::string and std::variant at C++20); 63 (0.120): the drain functions of the tagged structs follow the tags' BUCKETS (the tags table is 128 globals now, and the functions come bucket by bucket, newest first within one: the same functions, in another order); 62 (0.117): an arithmetic value bound to a reference to ANOTHER arithmetic type (`const size_t &' handed an int: std::max<size_t>(2 * n, 1), every std::deque that grew) converted into a temporary of the referent's type (ir_ref_converts), a call whose result is a reference to an array is the array's address (it decays), a function template-id named as a value (`&__thread_proxy<_Gp>') is the address of its instance, an enum's underlying type named through a dependent typedef is settled and the typedef OUTPUT (the lowering reads the enum's size through it; every `-std=c++20' program that stored into a std::atomic), a plain aggregate member from a braced default initializer built by a compound literal (std::mutex), a member template of a plain class defined out of its class emitted, a deferred instance whose base is still registering; 61 (0.117): the SysV register budget (a struct that does not fit the free registers goes wholly on the stack, declare, define and call alike), va_arg of a struct, a union, a complex and an __int128 expanded by the ABI, a VLA zeroed by `= {}', __int128 as i128, a folded wide constant as a global's initializer, a library function's pointer result a borrow of what its arguments borrow, `c ? 0 : p' a pointer (it was an int and truncated the address), an array member's element type resolved before its leaves are taken (`ir_leaves_': a struct with a `size_t __first_[2]' passed or assigned by value), `sizeof' and `_Static_assert' folded to one answer, the dynamic initialization of a scalar global and of a static local array in `$cpp_ginit'; 60 (0.115): a wide literal, or a pointer into one, as a global's constant (ir_wide_lit); 59 (0.112): a compound assignment's and an increment's place taken once, a reference result bound through a statement expression; 58 (0.112): a u"..." literal's surrogate pairs, the `imagl' constant, `dynamic_cast<void *>' through offset-to-top, `@llvm.global_ctors' for `$cpp_ginit', a pointer into a literal as a global's constant; 57 (0.112): a bitfield in a union read and written through its bits (ir_union_slot), a reference handed to a by-value aggregate parameter read through; 56 (0.112): a type's sign written once (a bool bitfield read unsigned, a scoped enum by its underlying type), a qualified data member through the base hops; 55 (0.112): an instance keyed by one spelling per integer type, a hex literal past 2^60 folded as hex, an enum no arithmetic type to the traits and its operators the program's, a captureless lambda's invoker, an init-capture a member; 54 (0.110): a virtual base reached through the table's vbase offset, a diamond's `.nv' paths as their data size of bytes, a global's braced list elided, a virtual base flagged in the type_info; 53 (0.110): a noexcept function guarded by a terminate handler that runs no cleanup, std::terminate; 52 (0.108): the coroutines (LLVM's switch-resumed intrinsics), RTTI and the Itanium vtable prefix, exceptions (invoke, landingpad), secondary vtables and thunks, the array cookie, tentative definitions, _Bool; 51 (0.108): long double as x86_fp80, float and floating global constants folded, va_arg and the va intrinsics, offsetof, anonymous members, designated global initializers normalized; 50 (0.104): the integer imaginary literal's real type from its suffix, a big one spelled whole; 49 (0.103): sizeof a string literal is its bytes; 48 (0.103): _Complex int, two integer components, the integer imaginary literal; 47 (0.101): the imaginary literal, Annex G's multiplication and division through the runtime's __muldc3 and __divdc3, the components as places; 46 (0.100): a function bound to a reference to a pointer converts into a materialized pointer temporary; 45 (0.100): a pointer to member function as the ABI's { ptr, adj }, C's complex types as two components; 44: the VLA's bounds kept in its type, a VLA of a VLA flat, _Alignas on an object, a wide string into an array with the rest zero, a data-member pointer as an offset, a null pointer to a base at an offset, the C11 atomic builtins and _Atomic objects atomic (0.99); 43: an empty `[[no_unique_address]]' member has no element and its address is the ABI's byte offset; 42: a conditional over two void arms has no phi
+ccl_lowering_version(72).   % 72 (0.131): another machine -- AAPCS64's HFA before the size, a 16-aligned composite as an i128, Linux aarch64's long double an fp128 (constants, conversions, its complex runtime), plain char and wchar_t unsigned there, va_arg of every type expanded by AAPCS64's rules; x86-64's va_arg of an x87 long double from the overflow area; 71 (0.130): -g's variables (llvm.dbg.declare), types, lexical blocks, each function's type and C++'s names and scopes, no location in the prologue, and -gline-tables-only's kind; 70 (0.129): the decimal floating types (BID values in float, double and fp128 carriers, libgcc's runtime, an SSE class in an aggregate), an explicit specialization of a function template as the body of the instance it matches, a bit builtin's call an int, a folded constant past 64 bits a 128-bit integer, a floating constant under a cast to an integer folded, a floating global's fold through a cast to an integer type and a wide integer, an integer global from a floating initializer converted; 69 (0.128): -g's line tables (a function's subprogram, an instruction's location; the IR's signature folds the option) and the unsigned constants typed; 68 (0.127): the C++ types of expressions -- a comparison, `!', `&&' and `||' are a bool (an i8), a conditional over two arms of one arithmetic type has that type, an enumerator is of its enum and a prvalue (bound to a reference through a temporary), an enum promotes to its underlying type, and an integral or floating promotion ranks above a conversion in overload resolution; 67 (0.126): what the desugaring emits for libc++ 21 -- a bare static member function named as a value is its thunk (or waits for its target when several share the name: `'$staticfn'(C, N)`); a qualified enumerator is the value its OWN enum gives it (`B::X` beside `A::X` took the first of the table; a nested enum named bare in a `case` label folds); a plain struct or union member initialized by parentheses from a value of another type is aggregate initialization (`basic_string() : __rep_(__short())`); a requires-expression's parameter pack expands with the bindings; a pointer to a data member of a plain struct (`&Pt::x`) and `__builtin_invoke` of one; `__builtin_clz*`, `ctz*` and `popcount*` and a pointer cast fold in the constexpr evaluator; a free operator template's declaration is registered (its default lends to the definition); a template parameter that two function parameters deduce deduces one type; a function given to `T &` deduces the function type; a deleted nullary function is indexed (the poison pills); `__builtin_common_type` is not a builtin here; a pointer operand that is a reference to a pointer is read through (`*static_cast<A0 &&>(a0)`, ir_ptr_operand); `*` of an arithmetic value is refused, `x.*pm` carries the object's const and xvalue, and a plain struct is its own base (libc++ 18's `__invoke` for a data member); a later EMPTY base is a base to the deduction (`__pipeable<_Fn> : _Fn, __range_adaptor_closure<__pipeable<_Fn>>') and a header's class being loaded is a class to `__is_class' (the views); the type of a call of a function template that names the template's own parameter is raw whatever a typedef of that name says (`std::addressof(m)' in a base initializer), one function template declared by two headers' summaries is one candidate (`back_inserter' under `<string>' and `<format>'), and a generic lambda's parameter that names its own template parameter stays as written where the tables know the name (`__synth_three_way', a vector's `<=>'); 66 (0.125): a parameter that stands twice deduces one type in the partial ordering of function templates (`f(I1, I1, I2, I2)' beats `f(I1, I1, I2, P)'); 65 (0.122): the move of a plain struct is an xvalue (`static_cast<S &&>(s)', so `f(const S &)' beside `f(S &&)' chooses by the value category) and a return reads a reference value through; a member initialized from a prvalue of its own class is constructed in place; a value-initialized plain struct or union is every byte zero; 64 (0.121): what the desugaring and the lowering emit for std::variant and std::visit -- a method a class brings in from a base by `using Base::f;' is a forwarder, a pack of bases (`struct X : Ts...') and `using Ts::operator()...;' expand over the bound pack, an aggregate with (empty) bases is built from its own items, a local class is a class of its own, `p->f<T>()' reaches a member template through a base, the value category of a forwarded object decides a copy or a move (a member of an xvalue, `decltype(name)' of a reference, a member of a const object is const), a braced list handed to an array reference is checked for narrowing, a scalar conversion ranks among templates, a union class's destructor destroys no member, an aggregate member built from a prvalue of its own class is elided, a call through a temporary callee takes the copy pass; a reference member of an aggregate binds its item (ir_init_sub), a union at namespace scope with a constructor, a destructor or a method is a union class and `U u = {5}' names its first member (ccl_data_members); a prvalue (a temporary's block, a returned local moved into its result, a call that returns through the hidden pointer) is constructed IN the object it initializes -- a local, a returned result, an aggregate member -- never copied bitwise (ir_prvalue_block, ir_in_place, ir_sret_call, '$ir_sret_into'): a std::function, a list or a map holds its own address; the top-level const of a pointer is dropped by the deduction, a class converts to another class through the target's constructor in the traits, and a comparison is rewritten through a free or a reversed `operator<=>' (std::string and std::variant at C++20); 63 (0.120): the drain functions of the tagged structs follow the tags' BUCKETS (the tags table is 128 globals now, and the functions come bucket by bucket, newest first within one: the same functions, in another order); 62 (0.117): an arithmetic value bound to a reference to ANOTHER arithmetic type (`const size_t &' handed an int: std::max<size_t>(2 * n, 1), every std::deque that grew) converted into a temporary of the referent's type (ir_ref_converts), a call whose result is a reference to an array is the array's address (it decays), a function template-id named as a value (`&__thread_proxy<_Gp>') is the address of its instance, an enum's underlying type named through a dependent typedef is settled and the typedef OUTPUT (the lowering reads the enum's size through it; every `-std=c++20' program that stored into a std::atomic), a plain aggregate member from a braced default initializer built by a compound literal (std::mutex), a member template of a plain class defined out of its class emitted, a deferred instance whose base is still registering; 61 (0.117): the SysV register budget (a struct that does not fit the free registers goes wholly on the stack, declare, define and call alike), va_arg of a struct, a union, a complex and an __int128 expanded by the ABI, a VLA zeroed by `= {}', __int128 as i128, a folded wide constant as a global's initializer, a library function's pointer result a borrow of what its arguments borrow, `c ? 0 : p' a pointer (it was an int and truncated the address), an array member's element type resolved before its leaves are taken (`ir_leaves_': a struct with a `size_t __first_[2]' passed or assigned by value), `sizeof' and `_Static_assert' folded to one answer, the dynamic initialization of a scalar global and of a static local array in `$cpp_ginit'; 60 (0.115): a wide literal, or a pointer into one, as a global's constant (ir_wide_lit); 59 (0.112): a compound assignment's and an increment's place taken once, a reference result bound through a statement expression; 58 (0.112): a u"..." literal's surrogate pairs, the `imagl' constant, `dynamic_cast<void *>' through offset-to-top, `@llvm.global_ctors' for `$cpp_ginit', a pointer into a literal as a global's constant; 57 (0.112): a bitfield in a union read and written through its bits (ir_union_slot), a reference handed to a by-value aggregate parameter read through; 56 (0.112): a type's sign written once (a bool bitfield read unsigned, a scoped enum by its underlying type), a qualified data member through the base hops; 55 (0.112): an instance keyed by one spelling per integer type, a hex literal past 2^60 folded as hex, an enum no arithmetic type to the traits and its operators the program's, a captureless lambda's invoker, an init-capture a member; 54 (0.110): a virtual base reached through the table's vbase offset, a diamond's `.nv' paths as their data size of bytes, a global's braced list elided, a virtual base flagged in the type_info; 53 (0.110): a noexcept function guarded by a terminate handler that runs no cleanup, std::terminate; 52 (0.108): the coroutines (LLVM's switch-resumed intrinsics), RTTI and the Itanium vtable prefix, exceptions (invoke, landingpad), secondary vtables and thunks, the array cookie, tentative definitions, _Bool; 51 (0.108): long double as x86_fp80, float and floating global constants folded, va_arg and the va intrinsics, offsetof, anonymous members, designated global initializers normalized; 50 (0.104): the integer imaginary literal's real type from its suffix, a big one spelled whole; 49 (0.103): sizeof a string literal is its bytes; 48 (0.103): _Complex int, two integer components, the integer imaginary literal; 47 (0.101): the imaginary literal, Annex G's multiplication and division through the runtime's __muldc3 and __divdc3, the components as places; 46 (0.100): a function bound to a reference to a pointer converts into a materialized pointer temporary; 45 (0.100): a pointer to member function as the ABI's { ptr, adj }, C's complex types as two components; 44: the VLA's bounds kept in its type, a VLA of a VLA flat, _Alignas on an object, a wide string into an array with the rest zero, a data-member pointer as an offset, a null pointer to a base at an offset, the C11 atomic builtins and _Atomic objects atomic (0.99); 43: an empty `[[no_unique_address]]' member has no element and its address is the ABI's byte offset; 42: a conditional over two void arms has no phi
 %% ccl_lowering_version(41).   % 41: a literal past 2^60 spelled whole; 40.   % 40: a base clause naming a bound type parameter takes its class, a scope name is the class's own typedef first (libc++ 18), -lc++ on Linux; 39: C23 (_BitInt as iN, the overflow builtins, unreachable), a VLA at run time, thread_local, the wide literals, [[assume]]; 38: a conditional over two lvalues is an lvalue, and its address the phi of theirs;  % 37: wchar_t, char16_t and char32_t have LLVM types, and a function template's shipped instance its Itanium symbol;  % 36: an rvalue prefers `T &&' where a TEMPLATE's candidate is judged (cpp_ref_rank), so std::get answers `int &&' and not `int &';  % 35: a CAST TO A REFERENCE converts from the operand's class to the cast's own target, so a reference or a pointer to a SECOND base is offset (ir_ref_to);  % 34: an empty class is one byte, an `alignas' one padded to its alignment, and a `[[no_unique_address]]' empty member a zero-sized element -- every struct's shape may move
 
 ccl_ir_units(Units0, IR) :-
@@ -395,7 +395,7 @@ ir_type_(arr(NE, E), LL) :- !, ir_type(E, EL), ( ccl_const_eval(NE, N) -> true ;
 ir_type_(T, _) :- ir_fail(type(T)).
 ir_base(S, void) :- memberchk(void, S), !.
 ir_base(S, LL) :- memberchk('_Complex', S), !, ccl_complex_real(base([], S), R), ir_type(R, E), atomic_list_concat(['{ ', E, ', ', E, ' }'], LL).   % C's complex types: two components (0.100); `{ i32, i32 }' for a `_Complex int' (0.103)
-ir_base(S, LL) :- memberchk(double, S), memberchk(long, S), !, ( ccl_long_double(x87) -> LL = x86_fp80 ; LL = double ).   % LONG DOUBLE IS x87's 80-BIT TYPE on x86-64 (0.108), sixteen bytes aligned sixteen, as the SysV ABI and glibc have it; a double elsewhere
+ir_base(S, LL) :- memberchk(double, S), memberchk(long, S), !, ( ccl_long_double(x87) -> LL = x86_fp80 ; ccl_long_double(quad) -> LL = fp128 ; LL = double ).   % an IEEE quad on Linux aarch64 (0.131)   % LONG DOUBLE IS x87's 80-BIT TYPE on x86-64 (0.108), sixteen bytes aligned sixteen, as the SysV ABI and glibc have it; a double elsewhere
 ir_base(S, double) :- memberchk(double, S), !.
 ir_base(S, float) :- memberchk(float, S), !.
 ir_base(S, half) :- memberchk('_Float16', S), !.
@@ -642,10 +642,11 @@ ir_abi_(sysv, T, LL, N, A, Abi) :- ( N > 16 -> Abi = memory(LL, A) ; ir_leaves(T
 ir_ret_abi(T, Abi) :- ir_abi(T, A0), ( A0 = memory(_, _), ir_arch(sysv), ir_x87_ret(T, RLL) -> Abi = direct([piece(RLL, 0)]) ; Abi = A0 ).
 ir_x87_ret(T, LL) :- ccl_resolve_type(T, T1), ir_leaves(T1, 0, Ls),
     ( Ls = [leaf(0, x87), leaf(8, x87up)] -> LL = x86_fp80 ; Ls = [leaf(0, x87), leaf(8, x87up), leaf(16, x87), leaf(24, x87up)], T1 = base(_, S), memberchk('_Complex', S) -> LL = '{ x86_fp80, x86_fp80 }' ).
-ir_abi_(aapcs, T, LL, N, A, Abi) :-
-    (   N > 16 -> Abi = indirect(LL, A)
-    ;   ir_leaves(T, 0, Ls), ir_hfa(Ls, K, FT) -> atomic_list_concat(['[', K, ' x ', FT, ']'], P), Abi = direct([piece(P, 0)])
+ir_abi_(aapcs, T, LL, N, A, Abi) :-                                                 % AAPCS64 (proven under qemu, 0.131)
+    (   ir_leaves(T, 0, Ls), ir_hfa(Ls, K, FT) -> atomic_list_concat(['[', K, ' x ', FT, ']'], P), Abi = direct([piece(P, 0)])   % AN HFA FIRST, whatever its size: three doubles go in v0-v2, never by reference
+    ;   N > 16 -> Abi = indirect(LL, A)
     ;   N =< 8 -> Abi = direct([piece(i64, 0)])
+    ;   A >= 16 -> Abi = direct([piece(i128, 0)])                                          % aligned 16: an even register pair, as clang passes it
     ;   Abi = direct([piece('[2 x i64]', 0)]) ).
 %% the scalar leaves of a type, each at its byte offset: int | float | double
 ir_leaves(T, Off, Ls) :-
@@ -656,6 +657,7 @@ ir_leaves(T, Off, Ls) :-
     ;   T1 = memptr(_, _, F), ccl_resolve_type(F, fn(_, _, _)) -> Off8 is Off + 8, Ls = [leaf(Off, int), leaf(Off8, int)]   % a pointer to member function: two INTEGER eightbytes (0.100)
     ;   T1 = base(_, S), memberchk('_Complex', S) -> ccl_complex_real(T1, R), ccl_size_align(R, ES, _), Off2 is Off + ES, ir_leaves(R, Off, L1), ir_leaves(R, Off2, L2), append(L1, L2, Ls)   % a complex crosses a call as its two components (SysV: SSE eightbytes for a floating one, INTEGER ones for a _Complex int; 0.100, 0.103)
     ;   ir_is_fp(T1), ir_type(T1, LLx), LLx == x86_fp80 -> Off8 is Off + 8, Ls = [leaf(Off, x87), leaf(Off8, x87up)]   % a long double: the X87 and X87UP classes (0.108)
+    ;   ir_is_fp(T1), ir_type(T1, LLq), LLq == fp128 -> Ls = [leaf(Off, fp128)]          % ... an IEEE quad on Linux aarch64 (0.131)
     ;   ccl_decimal_kind(T1, DK) -> ( DK =:= 32 -> Ls = [leaf(Off, float)] ; DK =:= 64 -> Ls = [leaf(Off, double)] ; Off8 is Off + 8, Ls = [leaf(Off, fp128), leaf(Off8, sseup)] )   % A DECIMAL is SSE, as gcc classes it (0.129): a _Decimal128 SSE and SSEUP, one register
     ;   ir_is_fp(T1) -> ( T1 = base(_, S), memberchk(float, S) -> Ls = [leaf(Off, float)] ; Ls = [leaf(Off, double)] )
     ;   Ls = [leaf(Off, int)] ).
@@ -683,7 +685,7 @@ ir_eightbytes(Ls, N, Off, [piece(P, Off)|Ps]) :-
 ir_leaves_in([], _, _, []).
 ir_leaves_in([leaf(O, C)|Ls], Off, End, Cs) :- ( O >= Off, O < End -> Cs = [C|Cs1] ; Cs = Cs1 ), ir_leaves_in(Ls, Off, End, Cs1).
 %% AAPCS64: a homogeneous floating-point aggregate, up to four of one kind
-ir_hfa([leaf(_, FT)|Ls], K, FT) :- memberchk(FT, [float, double]), ir_all_leaves(Ls, FT), length(Ls, K0), K is K0 + 1, K =< 4.
+ir_hfa([leaf(_, FT)|Ls], K, FT) :- memberchk(FT, [float, double, fp128]), ir_all_leaves(Ls, FT), length(Ls, K0), K is K0 + 1, K =< 4.   % an fp128: Linux aarch64's long double (0.131)
 ir_all_leaves([], _).
 ir_all_leaves([leaf(_, C)|Ls], C) :- ir_all_leaves(Ls, C).
 %% the LLVM type a direct struct is passed or returned as
@@ -745,7 +747,7 @@ ir_signed(T) :- ccl_resolve_type(T, T1), ir_signed_(T1).
 %% are unsigned ([basic.fundamental]). A bitfield is read by it -- a `bool f : 1' holding true read as -1 before.
 ir_signed_(base(_, [enum(_, [enum_base(B)|_])])) :- !, ir_signed(B).
 ir_signed_(base(_, S)) :- \+ memberchk(unsigned, S), \+ memberchk(bool, S), \+ memberchk('_Bool', S),
-    \+ memberchk(char8_t, S), \+ memberchk(char16_t, S), \+ memberchk(char32_t, S).
+    \+ memberchk(char8_t, S), \+ memberchk(char16_t, S), \+ memberchk(char32_t, S), \+ ccl_plain_char_unsigned(S).
 ir_is_ptr(T) :- ccl_is_pointer(T).
 ir_is_fp(T) :- ccl_is_float(T).
 ir_is_int(T) :- ccl_is_integer(T).
@@ -921,10 +923,10 @@ ir_dec_convert(V, From, FL, To, TL, V1) :- ccl_decimal_kind(From, KF), ir_dec_sf
             atomic_list_concat(['__bid_fix', U, SF, IW], F), ir_dec_call(F, IL, [FL], [V], V0),
             ( TL == IL -> V1 = V0 ; ir_op1(trunc, IL, V0, TL, V1) ) )
     ;   ir_fail(decimal_conversion(From, To)) ).
-ir_dec_fpname(float, sf).  ir_dec_fpname(double, df).  ir_dec_fpname(x86_fp80, xf).
+ir_dec_fpname(float, sf).  ir_dec_fpname(double, df).  ir_dec_fpname(x86_fp80, xf).  ir_dec_fpname(fp128, tf).
 %% libgcc names a conversion `extend' or `trunc' by the formats' widths (the kind is the decimal's): a 32-bit decimal to a double
 %% extends, a 64-bit one truncates, and between formats of one width a decimal truncates to binary and a binary extends to decimal
-ir_dec_fp_width(float, 32).  ir_dec_fp_width(double, 64).  ir_dec_fp_width(x86_fp80, 80).
+ir_dec_fp_width(float, 32).  ir_dec_fp_width(double, 64).  ir_dec_fp_width(x86_fp80, 80).  ir_dec_fp_width(fp128, 128).
 %% a value as a condition (i1)
 %% `new T' is malloc(sizeof(T)); `new T(v)' for a scalar T stores v into it; a
 %% class with a constructor is the next step
@@ -1013,6 +1015,7 @@ ir_fp_op('/', A, B, V) :- B =\= 0, ( integer(A), integer(B) -> V is truncate(A /
 ir_fp_global(T, LL) :- ccl_resolve_type(T, base(_, S)), \+ memberchk('_Complex', S), ( memberchk(double, S) ; memberchk(float, S) ; memberchk('_Float16', S) ), !, ir_type(T, LL).
 ir_fp_const(V, LL, A) :- F is V * 1.0, ir_fp_const_(LL, F, A).
 ir_fp_const_(x86_fp80, F, A) :- !, ir_x87(F, A).
+ir_fp_const_(fp128, F, A) :- !, ir_quad(F, A).                                     % an IEEE quad (0.131)
 ir_fp_const_(float, F, A) :- abs(F) >= 3.4028235677973366e38, !, ( F < 0 -> A = '0xFFF0000000000000' ; A = '0x7FF0000000000000' ).   % past a float's range: its infinity
 ir_fp_const_(float, F, A) :- !, ir_float_round(F, R), ir_double(R, A).
 ir_fp_const_(half, F, A) :- abs(F) >= 65520.0, !, ( F < 0 -> A = '0xFFF0000000000000' ; A = '0x7FF0000000000000' ).
@@ -1037,6 +1040,16 @@ ir_x87(F, A) :-
     Hi is Sig >> 21, Lo is (Sig /\ 2097151) << 11,               % shifted to 64 bits: the high and the low 32
     ir_hexn(SE, 4, HE), ir_hexn(Hi, 8, HH), ir_hexn(Lo, 8, HL),
     atomic_list_concat(['0xK', HE, HH, HL], A).
+%% AN IEEE QUAD's 0xL form (0.131): the low 64 bits, then the high 64 (sign, 15 exponent bits biased 16383, the fraction's
+%% top 48); the double's 52 fraction bits fill the top of the quad's 112, exactly
+ir_quad(F, A) :- F =:= 0.0, !, A = '0xL00000000000000000000000000000000'.
+ir_quad(F, A) :-
+    X is abs(F), ( F < 0 -> Sg = 1 ; Sg = 0 ),
+    E0 is floor(log(X) / log(2)), ir_norm(X, E0, E, M),
+    Frac is round((M - 1) * 4503599627370496),
+    SE is Sg * 32768 + E + 16383, FH is Frac >> 4, D is Frac /\ 15,
+    ir_hexn(SE, 4, HE), ir_hexn(FH, 12, HF), ir_hexd(D, HD),
+    atomic_list_concat(['0xL', HD, '000000000000000', HE, HF], A).
 ir_norm(X, E0, E, M) :- M0 is X / (2.0 ** E0), ( M0 >= 2.0 -> E1 is E0 + 1, ir_norm(X, E1, E, M) ; M0 < 1.0 -> E1 is E0 - 1, ir_norm(X, E1, E, M) ; E = E0, M = M0 ).
 ir_hexn(_, 0, '') :- !.
 ir_hexn(N, K, A) :- D is N mod 16, N1 is N // 16, K1 is K - 1, ir_hexn(N1, K1, A1), ir_hexd(D, H), atom_concat(A1, H, A).
@@ -1100,12 +1113,13 @@ ir_fp_class_('__builtin_isnan', X, L, V) :- ir_fresh(C), ir_ins([C, ' = fcmp uno
 ir_fp_class_('__builtin_isinf', X, L, V) :- ir_fp_inf(X, L, P, N), ir_fresh(C), ir_ins([C, ' = or i1 ', P, ', ', N]), ir_fresh(V), ir_ins([V, ' = zext i1 ', C, ' to i32']).
 ir_fp_class_('__builtin_isinf_sign', X, L, V) :- ir_fp_inf(X, L, P, N), ir_fresh(A), ir_ins([A, ' = zext i1 ', P, ' to i32']), ir_fresh(B), ir_ins([B, ' = zext i1 ', N, ' to i32']), ir_fresh(V), ir_ins([V, ' = sub i32 ', A, ', ', B]).
 ir_fp_class_('__builtin_isfinite', X, L, V) :- ir_fp_inf(X, L, P, N), ir_fresh(O), ir_ins([O, ' = fcmp ord ', L, ' ', X, ', ', X]), ir_fresh(I), ir_ins([I, ' = or i1 ', P, ', ', N]), ir_fresh(NI), ir_ins([NI, ' = xor i1 ', I, ', true']), ir_fresh(C), ir_ins([C, ' = and i1 ', O, ', ', NI]), ir_fresh(V), ir_ins([V, ' = zext i1 ', C, ' to i32']).
-ir_fp_class_('__builtin_isnormal', X, L, V) :- ir_fp_class_('__builtin_isfinite', X, L, F), ( L == float -> Min = '0x3810000000000000' ; L == x86_fp80 -> Min = '0xK00018000000000000000' ; Min = '0x0010000000000000' ),   % finite, and no smaller than the least normal
+ir_fp_class_('__builtin_isnormal', X, L, V) :- ir_fp_class_('__builtin_isfinite', X, L, F), ( L == float -> Min = '0x3810000000000000' ; L == x86_fp80 -> Min = '0xK00018000000000000000' ; L == fp128 -> Min = '0xL00000000000000000001000000000000' ; Min = '0x0010000000000000' ),   % finite, and no smaller than the least normal
     ir_fresh(Ab), ir_ins([Ab, ' = call ', L, ' @llvm.fabs.', L, '(', L, ' ', X, ')']), atomic_list_concat(['declare ', L, ' @llvm.fabs.', L, '(', L, ')'], D), atomic_list_concat(['llvm.fabs.', L], IN), ir_note_extern(IN, raw(D)),
     ir_fresh(G), ir_ins([G, ' = fcmp oge ', L, ' ', Ab, ', ', Min]), ir_fresh(Gi), ir_ins([Gi, ' = zext i1 ', G, ' to i32']), ir_fresh(V), ir_ins([V, ' = and i32 ', F, ', ', Gi]).
-ir_fp_class_('__builtin_signbit', X, L, V) :- ( L == float -> IL = i32, Sh = 31 ; L == x86_fp80 -> IL = i80, Sh = 79 ; IL = i64, Sh = 63 ), ir_fresh(B), ir_ins([B, ' = bitcast ', L, ' ', X, ' to ', IL]), ir_fresh(S), ir_ins([S, ' = lshr ', IL, ' ', B, ', ', Sh]), ( IL == i32 -> V = S ; ir_fresh(V), ir_ins([V, ' = trunc ', IL, ' ', S, ' to i32']) ).
+ir_fp_class_('__builtin_signbit', X, L, V) :- ( L == float -> IL = i32, Sh = 31 ; L == x86_fp80 -> IL = i80, Sh = 79 ; L == fp128 -> IL = i128, Sh = 127 ; IL = i64, Sh = 63 ), ir_fresh(B), ir_ins([B, ' = bitcast ', L, ' ', X, ' to ', IL]), ir_fresh(S), ir_ins([S, ' = lshr ', IL, ' ', B, ', ', Sh]), ( IL == i32 -> V = S ; ir_fresh(V), ir_ins([V, ' = trunc ', IL, ' ', S, ' to i32']) ).
 ir_fp_inf(X, L, P, N) :- ir_fp_infs(L, PI, NI), ir_fresh(P), ir_ins([P, ' = fcmp oeq ', L, ' ', X, ', ', PI]), ir_fresh(N), ir_ins([N, ' = fcmp oeq ', L, ' ', X, ', ', NI]).
 ir_fp_infs(x86_fp80, '0xK7FFF8000000000000000', '0xKFFFF8000000000000000') :- !.   % x87's own spelling (0.108)
+ir_fp_infs(fp128, '0xL00000000000000007FFF000000000000', '0xL0000000000000000FFFF000000000000') :- !.   % a quad's (0.131)
 ir_fp_infs(_, '0x7FF0000000000000', '0xFFF0000000000000').
 ir_expr(call(id('__builtin_complex'), [A, B]), V, T, LL) :- !, ccl_type_of(A, TA0), ccl_complex_of(TA0, T), ir_type(T, LL), ir_complex_elem(LL, EL), ccl_complex_real(T, RT),   % C11's CMPLX(x, y), and I (0.100)
     ir_expr(A, VA, TA, LA), ir_expr(B, VB, TB, LB), ir_convert(VA, TA, LA, RT, EL, R), ir_convert(VB, TB, LB, RT, EL, I), ir_complex_make(LL, R, I, V).
@@ -1224,6 +1238,7 @@ ir_expr(bin(Op, A, B), V, T, LL) :- !, ir_expr(A, VA, TA, LA), ir_binary(Op, VA,
 ir_complex_ll(LL) :- ir_complex_elem(LL, _).
 ir_complex_elem('{ double, double }', double).
 ir_complex_elem('{ x86_fp80, x86_fp80 }', x86_fp80).   % a complex long double (0.108)
+ir_complex_elem('{ fp128, fp128 }', fp128).           % ... a quad's (0.131)
 ir_complex_elem('{ float, float }', float).
 ir_complex_elem('{ i64, i64 }', i64).   ir_complex_elem('{ i32, i32 }', i32).   % `_Complex long', `_Complex int' (0.103)
 ir_complex_elem('{ i16, i16 }', i16).   ir_complex_elem('{ i8, i8 }', i8).
@@ -1251,6 +1266,10 @@ ir_complex_rt(Op, double, Ar, Ai, Br, Bi, Rr, Ri) :- !, atomic_list_concat(['__'
     ir_fresh(V), ir_ins([V, ' = call { double, double } @', F, '(double ', Ar, ', double ', Ai, ', double ', Br, ', double ', Bi, ')']), ir_complex_parts(V, '{ double, double }', Rr, Ri).
 ir_complex_rt(Op, x86_fp80, Ar, Ai, Br, Bi, Rr, Ri) :- !, atomic_list_concat(['__', Op, 'xc3'], F), atomic_list_concat(['declare { x86_fp80, x86_fp80 } @', F, '(x86_fp80, x86_fp80, x86_fp80, x86_fp80)'], D), ir_note_extern(F, raw(D)),   % a complex long double's product and quotient: __mulxc3, __divxc3, returned on the x87 stack (0.108)
     ir_fresh(V), ir_ins([V, ' = call { x86_fp80, x86_fp80 } @', F, '(x86_fp80 ', Ar, ', x86_fp80 ', Ai, ', x86_fp80 ', Br, ', x86_fp80 ', Bi, ')']), ir_complex_parts(V, '{ x86_fp80, x86_fp80 }', Rr, Ri).
+ir_complex_rt(Op, fp128, Ar, Ai, Br, Bi, Rr, Ri) :- !, atomic_list_concat(['__', Op, 'tc3'], F), atomic_list_concat(['declare { fp128, fp128 } @', F, '(fp128, fp128, fp128, fp128)'], D), ir_note_extern(F, raw(D)),   % a quad complex: libgcc's __multc3, __divtc3 (0.131)
+    ir_fresh(V), ir_ins([V, ' = call { fp128, fp128 } @', F, '(fp128 ', Ar, ', fp128 ', Ai, ', fp128 ', Br, ', fp128 ', Bi, ')']), ir_complex_parts(V, '{ fp128, fp128 }', Rr, Ri).
+ir_complex_rt(Op, float, Ar, Ai, Br, Bi, Rr, Ri) :- ir_arch(aapcs), !, atomic_list_concat(['__', Op, 'sc3'], F), atomic_list_concat(['declare { float, float } @', F, '(float, float, float, float)'], D), ir_note_extern(F, raw(D)),   % AAPCS64 returns a complex float as an HFA, s0 and s1 (0.131)
+    ir_fresh(V), ir_ins([V, ' = call { float, float } @', F, '(float ', Ar, ', float ', Ai, ', float ', Br, ', float ', Bi, ')']), ir_complex_parts(V, '{ float, float }', Rr, Ri).
 ir_complex_rt(Op, float, Ar, Ai, Br, Bi, Rr, Ri) :- atomic_list_concat(['__', Op, 'sc3'], F), atomic_list_concat(['declare <2 x float> @', F, '(float, float, float, float)'], D), ir_note_extern(F, raw(D)),
     ir_fresh(V), ir_ins([V, ' = call <2 x float> @', F, '(float ', Ar, ', float ', Ai, ', float ', Br, ', float ', Bi, ')']),
     ir_fresh(Rr), ir_ins([Rr, ' = extractelement <2 x float> ', V, ', i32 0']), ir_fresh(Ri), ir_ins([Ri, ' = extractelement <2 x float> ', V, ', i32 1']).
@@ -1293,7 +1312,8 @@ ir_expr(sizeof(E), N, T, i64) :- !, ccl_size_type(T), ccl_type_of(E, ET),
     ;   ccl_size_of(ET, N) -> true
     ;   ir_fail(sizeof(E)) ).
 ir_expr(va_arg(AP, T0), V, T, LL) :- !, ccl_resolve_type(T0, T), ir_type(T, LL), ir_expr(AP, P, _, _),
-    (   ( ir_is_aggregate(T) ; LL == i128 )
+    (   ir_arch(aapcs), \+ catch(pp_os(darwin), _, fail) -> ir_va_arg_aapcs(P, T, LL, V)   % Linux aarch64: every type expanded by AAPCS64's own rules (0.131)
+    ;   ( ir_is_aggregate(T) ; LL == i128 ; LL == x86_fp80 )
     ->  ( ir_arch(sysv), ir_va_arg_aggregate(P, T, LL, V0) -> V = V0 ; ir_fail(va_arg_of_aggregate(T0)) )   % a struct, a union, a complex, or an __int128 (two INTEGER eightbytes, 16-aligned in the overflow area) (0.117: x86-64's expansion below; AAPCS64's stays refused)
     ;   ir_fresh(V), ir_ins([V, ' = va_arg ptr ', P, ', ', LL]) ).
 ir_expr(offsetof(T0, D), N, T, i64) :- !, ccl_size_type(T), ( ccl_offsetof(T0, D, N) -> true ; ir_fail(offsetof(T0, D)) ).
@@ -1335,9 +1355,10 @@ ir_expr(stmt_expr(block(Is)), V, T, LL) :- !,
 ir_expr(E, _, _, _) :- ir_fail(expr(E)).
 %% the LLVM type of a loaded value: an array decays to its address
 ir_value_ll(LT, LL) :- ( sub_atom(LT, 0, 1, _, '[') -> LL = ptr ; LL = LT ).
-ir_fp_ll(double). ir_fp_ll(float). ir_fp_ll(half). ir_fp_ll(x86_fp80).
+ir_fp_ll(double). ir_fp_ll(float). ir_fp_ll(half). ir_fp_ll(x86_fp80). ir_fp_ll(fp128).   % fp128: Linux aarch64's long double (0.131); a decimal's carrier is taken apart by its C type first
 ir_fp_wider(double, float). ir_fp_wider(double, half). ir_fp_wider(float, half).
 ir_fp_wider(x86_fp80, double). ir_fp_wider(x86_fp80, float). ir_fp_wider(x86_fp80, half).
+ir_fp_wider(fp128, double). ir_fp_wider(fp128, float). ir_fp_wider(fp128, half).
 
 %% the label of the block the last instruction went into (for phis)
 ir_cur_label(L) :- nb_getval('$ir_body', B), ir_last_label(B, L).
@@ -1528,7 +1549,7 @@ ir_va_intrinsic('__builtin_va_copy', 'llvm.va_copy', 2).
 %% aligned to 16 for a type that needs more than 8, and moves on by the size rounded up to 8. The value is then
 %% loaded from the temporary or from the area.
 ir_va_arg_aggregate(P, T, LL, V) :-
-    ( LL == i128 -> Abi = direct([piece(i64, 0), piece(i64, 8)]) ; ir_abi(T, Abi) ), ccl_size_align(T, Size, Align),
+    ( LL == i128 -> Abi = direct([piece(i64, 0), piece(i64, 8)]) ; LL == x86_fp80 -> Abi = memory(LL, 16) ; ir_abi(T, Abi) ), ccl_size_align(T, Size, Align),   % a long double is X87: always the overflow area, aligned 16 (0.131: LLVM's own va_arg read it wrong)
     ir_label(LM), ir_label(LJ),
     (   Abi = direct(Pcs), Size > 0
     ->  ir_piece_classes(Pcs, 0, 0, NG, NS), ir_label(LR), ir_tmp(LL, Tmp),
@@ -1549,6 +1570,54 @@ ir_va_arg_aggregate(P, T, LL, V) :-
     ->  ir_end(['br label %', LM]), ir_block(LM), ir_va_overflow(P, Size, Align, Addr), ir_end(['br label %', LJ]), ir_block(LJ)
     ),
     ir_fresh(V), ir_ins([V, ' = load ', LL, ', ptr ', Addr]).
+%% `va_arg' ON LINUX AARCH64 (AAPCS64 B.4, as clang expands it; 0.131). The va_list is { ptr __stack, ptr __gr_top, ptr
+%% __vr_top, i32 __gr_offs, i32 __vr_offs }; LLVM's own `va_arg' takes it for Apple's `char *', and read a scalar wrong
+%% here. A floating scalar or an HFA is read from the SIMD registers' save area (__vr_offs, 16 bytes a register, an HFA's
+%% members one register each, gathered into a temporary), anything else from the general registers' (__gr_offs, 8 bytes a
+%% register, a 16-aligned value from an even one), a composite past 16 bytes as the pointer it was passed by. An offset
+%% that is already 0 or more, or that the value takes past 0, sends it to the stack (__stack: aligned 16 for a type that
+%% needs it, moved on by the size rounded up to 8), and the registers it took are not given back (AAPCS64's rule).
+ir_va_arg_aapcs(P, T, LL, V) :-
+    ccl_size_align(T, Size, Align), ( ir_is_aggregate(T) -> ir_abi(T, Abi) ; Abi = scalar ),
+    (   Abi = indirect(_, _) -> Ind = yes, Fpr = no, RegSize = 8, NElt = 0
+    ;   ir_va_fpr(LL, Abi, NElt, EltLL, EltSize) -> Ind = no, Fpr = yes, RegSize is 16 * NElt
+    ;   Ind = no, Fpr = no, NElt = 0, RegSize is (Size + 7) // 8 * 8 ),
+    ( Fpr == yes -> OffsAt = 28, TopAt = 16 ; OffsAt = 24, TopAt = 8 ),
+    ir_label(LMaybe), ir_label(LReg), ir_label(LStack), ir_label(LEnd),
+    ir_fresh(OffsP), ir_ins([OffsP, ' = getelementptr i8, ptr ', P, ', i64 ', OffsAt]),
+    ir_fresh(Offs0), ir_ins([Offs0, ' = load i32, ptr ', OffsP]),
+    ir_fresh(C0), ir_ins([C0, ' = icmp sge i32 ', Offs0, ', 0']), ir_end(['br i1 ', C0, ', label %', LStack, ', label %', LMaybe]),
+    ir_block(LMaybe),
+    (   Fpr == no, Ind == no, Align > 8 -> ir_fresh(O1), ir_ins([O1, ' = add i32 ', Offs0, ', 15']), ir_fresh(Offs), ir_ins([Offs, ' = and i32 ', O1, ', -16'])
+    ;   Offs = Offs0 ),
+    ir_fresh(New), ir_ins([New, ' = add i32 ', Offs, ', ', RegSize]), ir_ins(['store i32 ', New, ', ptr ', OffsP]),
+    ir_fresh(C1), ir_ins([C1, ' = icmp sle i32 ', New, ', 0']), ir_end(['br i1 ', C1, ', label %', LReg, ', label %', LStack]),
+    ir_block(LReg),
+    ir_fresh(TopP), ir_ins([TopP, ' = getelementptr i8, ptr ', P, ', i64 ', TopAt]), ir_fresh(Top), ir_ins([Top, ' = load ptr, ptr ', TopP]),
+    ir_fresh(O64), ir_ins([O64, ' = sext i32 ', Offs, ' to i64']), ir_fresh(RA), ir_ins([RA, ' = getelementptr i8, ptr ', Top, ', i64 ', O64]),
+    ( Fpr == yes, NElt > 1 -> ir_tmp(LL, Tmp), ir_va_hfa_copy(0, NElt, EltLL, EltSize, RA, Tmp), RegAddr = Tmp ; RegAddr = RA ),
+    ir_cur_label(LR1), ir_end(['br label %', LEnd]),
+    ir_block(LStack), ir_fresh(SP0), ir_ins([SP0, ' = load ptr, ptr ', P]),
+    (   Ind == no, Align > 8
+    ->  ir_fresh(I0), ir_ins([I0, ' = ptrtoint ptr ', SP0, ' to i64']), ir_fresh(I1), ir_ins([I1, ' = add i64 ', I0, ', 15']),
+        ir_fresh(I2), ir_ins([I2, ' = and i64 ', I1, ', -16']), ir_fresh(SP), ir_ins([SP, ' = inttoptr i64 ', I2, ' to ptr'])
+    ;   SP = SP0 ),
+    ( Ind == yes -> Step = 8 ; Step is (Size + 7) // 8 * 8 ),
+    ir_fresh(SN), ir_ins([SN, ' = getelementptr i8, ptr ', SP, ', i64 ', Step]), ir_ins(['store ptr ', SN, ', ptr ', P]),
+    ir_cur_label(LS1), ir_end(['br label %', LEnd]),
+    ir_block(LEnd), ir_fresh(A0), ir_ins([A0, ' = phi ptr [ ', RegAddr, ', %', LR1, ' ], [ ', SP, ', %', LS1, ' ]']),
+    ( Ind == yes -> ir_fresh(A), ir_ins([A, ' = load ptr, ptr ', A0]) ; A = A0 ),
+    ir_fresh(V), ir_ins([V, ' = load ', LL, ', ptr ', A]).
+%% the SIMD registers' kind: a floating scalar one register, an HFA (`[K x T]', ir_abi_/6) K registers of its member's type
+ir_va_fpr(LL, scalar, 1, LL, Sz) :- memberchk(LL-Sz, [float-4, double-8, half-2, fp128-16]), !.
+ir_va_fpr(_, direct([piece(P, 0)]), K, ET, Sz) :- atom(P), atom_concat('[', R0, P), atomic_list_concat([KA, Rest], ' x ', R0), atom_concat(ET, ']', Rest),
+    memberchk(ET-Sz, [float-4, double-8, fp128-16]), atom_number(KA, K).
+%% an HFA's members, each from its own 16-byte register slot into the temporary, one after the other
+ir_va_hfa_copy(I, N, _, _, _, _) :- I >= N, !.
+ir_va_hfa_copy(I, N, ET, Sz, RA, Tmp) :- SO is I * 16, DO is I * Sz,
+    ir_fresh(S), ir_ins([S, ' = getelementptr i8, ptr ', RA, ', i64 ', SO]), ir_fresh(X), ir_ins([X, ' = load ', ET, ', ptr ', S]),
+    ir_fresh(D), ir_ins([D, ' = getelementptr i8, ptr ', Tmp, ', i64 ', DO]), ir_ins(['store ', ET, ' ', X, ', ptr ', D]),
+    I1 is I + 1, ir_va_hfa_copy(I1, N, ET, Sz, RA, Tmp).
 %% the INTEGER and the SSE eightbytes of a direct value: an integer piece is INTEGER, a floating one SSE
 ir_piece_classes([], G, S, G, S).
 ir_piece_classes([piece(PLL, _)|Ps], G0, S0, G, S) :-
@@ -2268,6 +2337,9 @@ ir_float_builtin('__builtin_nanf', '0x7FF8000000000000', base([], [float]), floa
 ir_float_builtin('__builtin_infl', '0xK7FFF8000000000000000', base([], [long, double]), x86_fp80) :- ccl_long_double(x87), !.   % the long double forms (0.108), x87's where a long double is
 ir_float_builtin('__builtin_huge_vall', '0xK7FFF8000000000000000', base([], [long, double]), x86_fp80) :- ccl_long_double(x87), !.
 ir_float_builtin('__builtin_nanl', '0xK7FFFC000000000000000', base([], [long, double]), x86_fp80) :- ccl_long_double(x87), !.
+ir_float_builtin('__builtin_infl', '0xL00000000000000007FFF000000000000', base([], [long, double]), fp128) :- ccl_long_double(quad), !.   % ... a quad's where a long double is one (0.131)
+ir_float_builtin('__builtin_huge_vall', '0xL00000000000000007FFF000000000000', base([], [long, double]), fp128) :- ccl_long_double(quad), !.
+ir_float_builtin('__builtin_nanl', '0xL00000000000000007FFF800000000000', base([], [long, double]), fp128) :- ccl_long_double(quad), !.
 ir_float_builtin('__builtin_infl', '0x7FF0000000000000', base([], [long, double]), double).
 ir_float_builtin('__builtin_huge_vall', '0x7FF0000000000000', base([], [long, double]), double).
 ir_float_builtin('__builtin_nanl', '0x7FF8000000000000', base([], [long, double]), double).

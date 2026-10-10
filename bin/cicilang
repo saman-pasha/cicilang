@@ -8,6 +8,7 @@
 #   cicilang -O2 a.c b.c util.o -lm -o app               cicilang -shared -O1 lib.c -o lib.dylib
 #   cicilang -I include -I ../h prog.c                   cicilang -ast-dump prog.c
 #   cicilang --version                                   cicilang -v ... (say each step)
+#   cicilang --target=aarch64-linux-gnu prog.c -o prog   another machine: its headers, ABI and back end, its cross gcc
 #
 # The knowledge base is ~/.cicilang/KB, the user's (or $CICILANG_KB): the first
 # call is the initialization phase, reading the C standard library, the OS's
@@ -46,7 +47,7 @@ kb_prepare() {                        # one awk for both versions, read for the 
   if [ "$runs" -ge 64 ]; then [ -f "$1/data.bin" ] && "$C" --embed "$1" vacuum > /dev/null 2>&1 < /dev/null; runs=0; fi
   echo "$runs" > "$1.runs"
 }
-inputs=""; opts=""; out=""; opt=""; verbose=""; defs=""; gdbg=""
+inputs=""; opts=""; out=""; opt=""; verbose=""; defs=""; gdbg=""; tgt=""
 [ "${CICILANG_LANG:-c}" = cpp ] && opts="$opts lang(cpp),"
 need() { [ $# -ge 2 ] || { echo "$me: error: argument to '$1' is missing" >&2; exit 1; }; }
 q() { case $1 in *\'*) printf "'%s'" "$(printf '%s' "$1" | sed "s/'/\\\\'/g")" ;; *) printf "'%s'" "$1" ;; esac; }
@@ -89,6 +90,8 @@ while [ $# -gt 0 ]; do
     -g0|-ggdb0) gdbg="" ;;   # no debug information, as clang; the last -g form wins
     -g1|-ggdb1|-gline-tables-only|-gline-directives-only) gdbg="debug(lines)," ;;   # the line tables alone (0.130)
     -g|-g[23]|-ggdb|-ggdb[23]|-gdwarf*|-gfull|-glldb|-gsce) gdbg="debug," ;;   # -g: the line tables (0.128), the variables, their types and the blocks (0.130)
+    --target=*) opts="$opts target($(q "${1#--target=}")),"; tgt=1 ;;   # another machine (0.131): clang's spelling, both of them
+    -target) need "$@"; shift; opts="$opts target($(q "$1")),"; tgt=1 ;;
     -W*|-f*|-std=*|-pedantic|-g*) ;;   # accepted for clang's sake
     -*) echo "$me: error: unknown argument: '$1'" >&2; exit 1 ;;
     *) inputs="$inputs $(q "$1"),";;
@@ -101,6 +104,7 @@ done
 [ -n "$opt" ] && opts="$opts opt('$opt'),"
 inputs="[${inputs%,}]"; opts="[${opts%,}]"
 [ -n "$defs" ] && store="--local"   # the store keys a header by its path: under -D it would serve another header's read
+[ -n "$tgt" ] && store="--local"    # ... and another machine reads our own headers (float.h, limits.h) under its own macros
 case "$store" in --embed*) kb_prepare "$KB" ;; esac
 res=$("$C" $store query "use_module(library(cicilang)), ccl_drive($inputs, $opts)" 2>&1)
 # one pass over the answer: diagnostics on stderr, as clang; `cicilang: ...' and `unit(...)' lines on stdout

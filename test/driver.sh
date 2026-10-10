@@ -28,6 +28,8 @@ check "two .c files and -O2 link into one program" "$("$CICILI" -O2 "$R/link/mai
 check "a .o from -c links with a .c" "$("$CICILI" -c "$R/link/lib.c" -o lib.o && "$CICILI" "$R/link/main.c" lib.o -o app2 && ./app2)" "42"
 # the ABI: structs by value of every class cross between clang-built code and ours, both ways,
 # and the program prints what the same program built by clang alone prints
+check "variadic calls of every kind cross the ABI both ways, as clang has it" "$(clang -c "$R/link/va_main.c" -o va_main.o && clang -c "$R/link/va_func.c" -o va_func.o && "$CICILI" "$R/link/va_func.c" va_main.o -o va1 && ./va1 > va1.out && "$CICILI" "$R/link/va_main.c" va_func.o -o va2 && ./va2 > va2.out && clang "$R/link/va_main.c" "$R/link/va_func.c" -o va_ref && ./va_ref > va_ref.out && cmp -s va1.out va_ref.out && cmp -s va2.out va_ref.out && echo same && wc -l < va1.out | tr -d ' ')" "same
+12"   # va_arg of a long double, an HFA, a big struct, an __int128 (0.131: an x87 long double came wrong out of LLVM's own va_arg)
 check "structs by value cross the ABI both ways, as clang has it" "$(clang -c "$R/link/abi_helper.c" -o abi_helper.o && "$CICILI" "$R/link/abi_main.c" abi_helper.o -o abi && ./abi > abi.out && clang "$R/link/abi_main.c" "$R/link/abi_helper.c" -o abi_ref && ./abi_ref > abi_ref.out && cmp -s abi.out abi_ref.out && echo same && wc -l < abi.out | tr -d ' ')" "same
 7"
 # the decimal floating types (0.129) as gcc passes them -- clang has none: values, structs and a variadic call, both ways

@@ -26,6 +26,7 @@ run compile  sh "$HERE/compile.sh" || exit 1
 run driver   sh "$HERE/driver.sh"  || exit 1
 run objects  sh "$HERE/objects.sh" || exit 1
 run proof    sh "$HERE/../proof/run.sh" || exit 1
+run cross    sh "$HERE/cross.sh"   || exit 1   # another machine (0.131): aarch64 Linux under qemu, a SKIP without the cross tools
 run libcxx   sh "$HERE/libcxx.sh"  || exit 1
 run cpp      sh "$HERE/cpp.sh"     || exit 1
 [ "$fail" -eq 0 ] && echo "ALL GREEN" || echo "SOME RED"
