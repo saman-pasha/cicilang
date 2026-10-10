@@ -70,6 +70,13 @@ ccl_tag(Tag, Ms) :- ccl_cached_named('$ccl_tag:', Tag, Ms, ccl_tab_find('$ccl_ta
 
 %% ---- constants ---------------------------------------------------------------------
 ccl_enum_value(N, V) :- nb_getval('$ccl_enums', L), memberchk(N-V, L).
+%% AN ENUMERATOR'S TYPE IS ITS ENUM IN C++ ([dcl.enum]/5; 0.127), and the enum's name is a type. The table that keeps
+%% the values ('$ccl_enums', Name-Value) keeps the enum too, as an entry of its own, `'$t'(Name)-Tag', beside the value;
+%% and a SCOPED enum's tag as `'$s'(Tag)-1' (C++ asks it: a scoped enum converts to nothing implicitly). An entry of
+%% that shape never answers a lookup of a value by name -- the key is a compound, a name is an atom -- so every writer,
+%% save and restore of the table carries the two kinds of entry without a word, and a summary's `enum/2' lines too
+ccl_enumerator_tag(N, L, Tag) :- atom(N), memberchk('$t'(N)-Tag0, L), !, Tag = Tag0.
+ccl_scoped_enum(Tag) :- atom(Tag), nb_getval('$ccl_enums', L), memberchk('$s'(Tag)-_, L), !.
 %% an integer constant expression, as C folds it
 ccl_const_eval(int(big(A)), big(A)) :- !.     % A LITERAL PAST 2^60 (big(Atom), the lexers' term; 0.94) IS ITS OWN VALUE: the 64-bit arithmetic below takes it
 ccl_const_eval(uint(big(A)), big(A)) :- !.
@@ -399,6 +406,7 @@ ccl_is_integer(T) :- ccl_resolve_type(T, base(_, S)), \+ memberchk(double, S), \
 ccl_is_arith(T) :- ( ccl_is_integer(T) ; ccl_is_float(T) ), !.
 
 %% integer rank and signedness, for the usual arithmetic conversions
+ccl_int_rank(T, Rank, Unsigned) :- ccl_resolve_type(T, base(_, [E])), compound(E), ccl_enum_spec_members(E, Ms), !, ccl_enum_underlying(Ms, U), ccl_int_rank(U, Rank, Unsigned).   % AN ENUM RANKS AS ITS UNDERLYING TYPE (0.127): an int unless one is written
 ccl_int_rank(T, Rank, Unsigned) :-
     ccl_resolve_type(T, base(_, S)),
     ( memberchk(unsigned, S) -> Unsigned = true ; memberchk(char16_t, S) -> Unsigned = true ; memberchk(char32_t, S) -> Unsigned = true ; memberchk(char8_t, S) -> Unsigned = true ; Unsigned = false ),   % C++'s char16_t, char32_t and char8_t are UNSIGNED; wchar_t is signed on this ABI
@@ -413,7 +421,11 @@ ccl_count(_, [], 0).
 ccl_count(X, [Y|T], N) :- ccl_count(X, T, N0), ( X == Y -> N is N0 + 1 ; N = N0 ).
 ccl_promote(T, P) :- ( ccl_resolve_type(T, base(_, S)), memberchk(char32_t, S) -> P = base([], [unsigned, int])   % C++'s char32_t and wchar_t PROMOTE TO THEIR UNDERLYING TYPES ([conv.prom]/8; 0.112): `false ? c32 : u' is an unsigned int, which libc++'s common_reference of `const char32_t &' and `const unsigned &' asks (ranges::less over the grapheme table)
                      ; ccl_resolve_type(T, base(_, S)), memberchk(wchar_t, S) -> P = base([], [int])
+                     ; ccl_resolve_type(T, base(_, [E])), compound(E), ccl_enum_spec_members(E, Ms) -> ccl_enum_underlying(Ms, U), ccl_promote(U, P)   % AN ENUM PROMOTES TO ITS UNDERLYING TYPE, promoted ([conv.prom]/3-4, C23 6.3.1.1; 0.127): it stayed itself, so `c + 1' of a Color was a Color
                      ; \+ ccl_is_bitint(T), ccl_int_rank(T, R, _), R < 3 -> P = base([], [int]) ; P = T ).   % a _BitInt is never promoted (C23 6.3.1.1/2)
+ccl_enum_spec_members(enum(_, Ms), Ms).
+ccl_enum_spec_members(enum_class(_, Ms), Ms).
+ccl_enum_underlying(Ms, U) :- ( is_list(Ms), memberchk(enum_base(B), Ms) -> U = B ; U = base([], [int]) ).
 ccl_float_rank(T, R) :- ccl_resolve_type(T, base(_, S)), ( memberchk(double, S) -> ( memberchk(long, S) -> R = 3 ; R = 2 ) ; memberchk(float, S) -> R = 1 ; R = 0 ).
 ccl_usual(A, B, T) :- ccl_usual_(A, B, T0), ( T0 = base(_, S) -> T = base([], S) ; T = T0 ).   % THE RESULT IS AN UNQUALIFIED VALUE (0.112): an operand's const stayed on it, and `false ? declval<const char32_t &>() : declval<const unsigned &>()' typed `const const char32_t'
 ccl_usual_(A, B, T) :-
@@ -470,7 +482,7 @@ ccl_type_of(u32str(_), ptr([], base([], [char32_t]))) :- !.
 ccl_type_of(wchr(_), base([], [wchar_t])) :- !.
 ccl_type_of(u16chr(_), base([], [char16_t])) :- !.
 ccl_type_of(u32chr(_), base([], [char32_t])) :- !.
-ccl_type_of(id(N), T) :- !, ( ccl_declared(N, T0) -> ccl_unref(T0, T) ; ccl_enum_value(N, _) -> T = base([], [int]) ; ccl_func_name(N) -> T = ptr([], base([const], [char])) ; T = unknown ).   % AN ENUMERATOR IS AN INT (0.100): the parser declares one in scope, the bulk noter keeps only its VALUE, so after the passes' rebuild `o == release ? relaxed : o' typed its arm unknown (libc++'s __to_failure_order)
+ccl_type_of(id(N), T) :- !, ( ccl_declared(N, T0) -> ccl_unref(T0, T) ; atom(N), nb_getval('$ccl_enums', L), memberchk(N-_, L) -> ccl_enumerator_type(N, L, T) ; ccl_func_name(N) -> T = ptr([], base([const], [char])) ; T = unknown ).   % AN ENUMERATOR is an int in C, its ENUM in C++ (0.127; ccl_enumerator_type): the parser declares one in scope, the bulk noter keeps its value and its enum in the table of values, so after the passes' rebuild it is found there (0.100: it was `unknown' when the table held only the value -- libc++'s __to_failure_order)
 ccl_type_of(call(id(B), _), base([], [bool])) :- ccl_overflow_builtin(B, _), !.
 ccl_type_of(call(id(B), _), T) :- ccl_float_builtin_type(B, T), !.
 ccl_type_of(call(id(B), [_]), base([], [int])) :- memberchk(B, ['__builtin_isnan', '__builtin_isinf', '__builtin_isinf_sign', '__builtin_isfinite', '__builtin_signbit', '__builtin_isnormal']), !.   % glibc's classification macros (0.101)                                   % INFINITY, NAN, HUGE_VAL (0.101)
@@ -491,6 +503,7 @@ ccl_type_of(deref(E), T) :- !, ccl_type_of(E, ET), ccl_resolve_type(ET, ET1), ( 
 ccl_type_of(scoped(_, N), T) :- !, ccl_type_of(id(N), T).
 ccl_type_of(ccast(_, T0, _), T) :- !, ccl_unref(T0, T).   % a C++ cast to a REFERENCE type names the object, as every other lvalue does: `const_cast<value_type &>(*p)' has the value's type here (deduction took the reference as the argument's type and addressof's `_Tp &' became a reference to a reference)
 ccl_type_of(new(T, _), ptr([], T)) :- !.
+ccl_type_of(new_default(T), ptr([], T)) :- !.
 ccl_type_of(new_at(_, N), T) :- !, ccl_type_of(N, T).                              % placement new: the type the plain one has
 ccl_type_of(new_array(T, _), ptr([], T)) :- !.
 ccl_type_of(delete(_), base([], [void])) :- !.
@@ -502,7 +515,7 @@ ccl_type_of(imag_part(E), T) :- !, ccl_type_of(E, ET), ( ccl_is_complex(ET) -> c
 ccl_type_of(neg(E), T) :- !, ccl_type_of(E, ET), ccl_promoted_or_unknown(ET, T).
 ccl_type_of(pos(E), T) :- !, ccl_type_of(E, ET), ccl_promoted_or_unknown(ET, T).
 ccl_type_of(bitnot(E), T) :- !, ccl_type_of(E, ET), ccl_promoted_or_unknown(ET, T).
-ccl_type_of(not(_), base([], [int])) :- !.
+ccl_type_of(not(_), T) :- !, ccl_truth_type(T).
 ccl_type_of(preinc(E), T) :- !, ccl_type_of(E, T).
 ccl_type_of(predec(E), T) :- !, ccl_type_of(E, T).
 ccl_type_of(postinc(E), T) :- !, ccl_type_of(E, T).
@@ -534,7 +547,7 @@ ccl_type_of(compound_lit(T, _), T) :- !.
 ccl_type_of(assign(_, L, _), T) :- !, ccl_type_of(L, T).
 ccl_type_of(comma(_, B), T) :- !, ccl_type_of(B, T).
 ccl_type_of(cond(_, A, B), T) :- !, ccl_type_of(A, AT), ccl_type_of(B, BT),
-    (   ccl_is_arith(AT), ccl_is_arith(BT) -> ccl_usual(AT, BT, T)
+    (   ccl_is_arith(AT), ccl_is_arith(BT) -> ccl_cond_arith(AT, BT, T)
     ;   A == nullptr -> T = BT          % a null pointer constant takes the OTHER arm's type ([expr.cond]), unknown included: typed `void *' by its
     ;   B == nullptr -> T = AT          % nullptr while the other arm was still unknown, `__nbc > 0 ? allocate(...) : nullptr' chose unique_ptr's `reset(nullptr_t)' and dropped the buckets
     ;   ccl_null_constant(A), ccl_is_pointer(BT) -> T = BT      % `c ? 0 : p': the literal zero is a null pointer constant and takes the pointer's type ([expr.cond]/7), where the arm `0' made it an int (0.117): libc++'s `deque::begin()' passes `__map_.empty() ? 0 : *__mp + __start_ % __block_size' to an iterator taking a pointer, and no constructor fit
@@ -546,7 +559,8 @@ ccl_type_of(stmt_expr(block(Is)), T) :- !,            % its declarations are in 
     ccl_scope_pop.
 ccl_type_of(bin(Op, A, B), T) :- !,
     ccl_type_of(A, AT), ccl_type_of(B, BT),
-    (   memberchk(Op, ['<', '>', '<=', '>=', '==', '!=', '&&', '||']) -> T = base([], [int])
+    (   memberchk(Op, ['&&', '||']) -> ccl_truth_type(T)
+    ;   memberchk(Op, ['<', '>', '<=', '>=', '==', '!=']) -> ( ccl_lang(cpp), ( ccl_class_operand(AT) ; ccl_class_operand(BT) ) -> T = unknown ; ccl_truth_type(T) )   % a CLASS operand: the operator the desugaring chooses decides (its declared result), never the built-in's
     ;   memberchk(Op, ['<<', '>>']) -> ccl_promoted_or_unknown(AT, T)
     ;   memberchk(Op, ['+', '-']), ccl_is_pointer(AT), ccl_is_pointer(BT) -> T = base([], [long])
     ;   memberchk(Op, ['+', '-']), ccl_is_pointer(AT) -> ccl_decay(AT, T)
@@ -558,6 +572,22 @@ ccl_type_of(_, unknown).
 ccl_unref(ref(_, T), T) :- !.
 ccl_unref(rref(_, T), T) :- !.
 ccl_unref(T, T).
+%% THE TYPE OF A COMPARISON, `!', `&&' AND `||': an int in C (6.5.8/6, 6.5.9/3, 6.5.13/3, 6.5.3.3/5), a BOOL in C++
+%% ([expr.rel]/1, [expr.eq]/1, [expr.log.and]/1, [expr.unary.op]/9; 0.127). It was an int in both: `decltype(x < y)',
+%% `auto b = x < y' (sizeof 4), `std::cout << std::boolalpha << (x < y)' (`1') and `f(x < y)' beside `f(int)' and
+%% `f(bool)' (the int overload) all said so. The lowering makes the value the type says (ir_truth/4).
+ccl_truth_type(T) :- ( ccl_lang(cpp) -> T = base([], [bool]) ; T = base([], [int]) ).
+ccl_class_operand(T) :- T \== unknown, ccl_resolve_type(T, base(_, [S])), compound(S), ( S = struct(_, _) ; S = class(_, _, _, _) ; S = union(_, _) ), !.
+%% an enumerator's type: its enum in C++ where the table names a named enum still in the tag table, else an int
+%% (C's, and an unnamed enum's)
+ccl_enumerator_type(N, L, T) :- ccl_lang(cpp), ccl_enumerator_tag(N, L, Tag), ccl_tag(Tag, Ms), Ms \== none, !, T = base([], [typedef(Tag)]).
+ccl_enumerator_type(_, _, base([], [int])).
+%% THE CONDITIONAL OVER TWO ARMS OF ONE ARITHMETIC TYPE HAS THAT TYPE in C++ ([expr.cond]/7.1: the usual arithmetic
+%% conversions only bring two DIFFERENT types to one; 0.127), where C converts them always (6.5.15/5): `std::cout <<
+%% (c ? 'Y' : 'N')' printed 89, the char inserter passed over for the int one, and `c ? Red : Green' was no Color
+ccl_cond_arith(AT, BT, T) :- ccl_lang(cpp), ccl_resolve_type(AT, base(_, SA)), ccl_resolve_type(BT, base(_, SB)),
+    ccl_type_canon(base([], SA), K), ccl_type_canon(base([], SB), K), !, ( AT = base(_, S0) -> T = base([], S0) ; T = base([], SA) ).
+ccl_cond_arith(AT, BT, T) :- ccl_usual(AT, BT, T).
 %% a range-for over an array as the for it is: `for (T x : xs) S' is
 %% `for (int i = 0; i < N; i++) { T x = xs[i]; S }', an `auto &' binding a
 %% reference to the element; the check and the lowering both walk the for

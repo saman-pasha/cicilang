@@ -257,7 +257,7 @@ ck_closure_type(T) :- ccl_resolve_type(T, base(_, [struct(N, _)])), atom(N), ato
 ck_carries_(block(_, _)) :- !.
 ck_carries_(arr(_, E)) :- !, ck_carries_type(E).
 ck_carries_(base(_, [struct(N, _)])) :- ccl_lang(cpp), ck_library_class(N), !, fail.   % A LIBRARY CLASS'S VALUE IS OPAQUE: its pointers are libc++'s own discipline, as its functions' bodies are (0.45) -- a map's iterator, `auto it = m.find(3)', holds a node pointer the safe part cannot follow and need not, since nothing here frees it
-ck_carries_(T) :- ccl_members_of(T, Ms), member(member(MT, _, _), Ms), ck_carries_type(MT), !.
+ck_carries_(T) :- ccl_members_of(T, Ms), member(member(MT, MN, _), Ms), MN \== '$vptr', ck_carries_type(MT), !.   % a class's TABLE POINTER is static storage, never memory the check follows (0.127): `V v = V();' of a polymorphic class was refused `untied'
 ck_library_class(N) :- atom(N), catch(cpp_lib_class(N), _, fail).
 ck_library_root(P) :- ccl_lang(cpp), atom(P), ccl_type_of(id(P), T), T \== unknown, catch(ccl_resolve_type(T, base(_, [struct(N, _)])), _, fail), ck_library_class(N).   % a borrow rooted at a local of a library class's type
 

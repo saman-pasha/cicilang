@@ -7530,3 +7530,74 @@ mending was taken out and the candidates de-duplicated instead (77 of 77 and 95 
 
 Reader version 120, lowering version 67; the module rebuilt as 0.126, over cocolog 1.9.1.
 
+
+## 0.127 — the "Not done" list of 0.126 taken up
+
+**0.127: the C++ language items of "Not done".** The owner's word: finish the works that "Not done" lists. This step takes the
+C++ language items whose fix the box can prove; the ABI layout, the decimal floating types, the untried libc++ modules, the
+safe part's flow and the debug info are later steps. Each item was cut down to a reduction, built with clang++ and with
+cicilang and compared line by line, given its rule in `CLAUDE.md` and a fixture; a negative control, the fixtures built on a
+worktree of 0.126, shows each fixture of a defect failing there (`boolresult`, `promotion`, `plainclash`, `nsenum`, `aggbase`
+DIFFERENT; `enumtype`, `trailret`, `lazymember`, `valueinit` refused) while `accessctl3`, `lambdaconst` and `byteops`, which guard
+what stays allowed, pass there too. In the order they were taken:
+
+(1) A comparison, `!`, `&&` and `||` are `bool` in C++ (`ccl_truth_type/1`; the lowering's `ir_truth/4` makes an `i8`): `decltype(x
+< y)` was `int`, `auto b = x < y` four bytes, `boolalpha` printed `1`, `f(x < y)` took `f(int)`. With it, three neighbours that the
+same programs met: an enumerator is of its ENUM's type (`'$t'(Name)-Tag` and `'$s'(Tag)-1` beside the values, reader 121;
+`h(Red)` called `h(int)`, `v.push_back(Green)` was `undeclared`), an enum promotes as its underlying type, and a PROMOTION is a
+better conversion than any other (2.5 against 2, an enum to its fixed underlying type 2.75; `p(short)` beside `p(long)` and
+`p(int)` took the first declared). A member operator and a free one are weighed together (`cpp_prefer_free/3`): `cout << c` of an
+enum is the member `operator<<(int)`. A conditional over two arms of one arithmetic type keeps it (`(c ? 'Y' : 'N')` printed 89).
+Fixtures `boolresult`, `enumtype`, `promotion`.
+(2) A free function DEFINITION keeps a trailing `decltype` as its result (reader 121, `cpp_decltype_ret/3`), so `auto first(V &v)
+-> decltype(v[0])` returns a reference and the SFINAE of `-> decltype(t.foo())` drops the candidate; the result type is substituted
+under the packs' bindings; a member named through a scalar refuses `no_member(M, T)`. Fixture `trailret`.
+(3) A block's typedef is the block's in C++ (`cpp_scoped_typedefs/2`, `ccl_tab_del/2`; the bulk noter keeps out of the unit's table
+all but the tags and enumerators of its type). Fixture `blocktypedef` (HEAD prints a wrong value).
+(4) The program's own class template instances are lazy, their members made where used and still checked (`'$cpp_lazy_p'`).
+Fixture `lazymember`.
+(5) Access control: the access of an inheritance, [class.protected]'s rule on the object, a pointer to member, a nested type's name,
+a destructor and an operator used as one. Six refusals, `access_inherit` ... `access_operator`, and `accessctl3` for the allowed forms.
+(6) A closure's `operator()` is const unless `mutable` (or an explicit object parameter): `non_const_member_on_const(M, C)` and
+`binds_const(N)` refuse what clang++ refuses (`lambda_method`, `bind_const`); `lambdaconst` for what stays allowed.
+(7) The small defects: a plain struct handed to a scalar parameter clashes in the arity-only resort and in a call through a
+function pointer (`plainclash`, C++20); two namespaces' enums and enumerators of one name are keyed as functions and classes are
+(`nsenum`); value-initialization zeroes a class whose default constructor is not user-provided -- `R()`, `R r = R();`, `T t{}`, a
+member's `r()`, `new R()`, `new (p) R()`, `new int()` -- while `new T` and `new (p) T` with no initializer default-initialize (reader
+122's `new_default(T)`; `valueinit`); an aggregate's base with storage takes its item (`aggbase`: `D d{}` never ran the base's
+constructor); a class's table pointer is no pointer the check follows (`V v = V();` was `untied`).
+
+Found on the way and fixed: a SHIPPED static member function was called with the desugaring's null `this` first, so
+`ios_base::sync_with_stdio(true)` passed a null where the bool goes and `locale::global(loc)` a null for its locale (`shipstatic`; the
+lowering drops the null, `'$cpp_static_abi'`). A regression of (1) that the net caught: with the enum promoted, `~b` of a `std::byte`
+was the built-in on an int, -16; a scoped enum's operators are now the header's, loaded by name, templates among them
+(`byteops`) -- and the first form of that rule resolved every header operator template's parameter types, which instantiated
+`duration<_Rep1, _Period1>` over its free names and recursed in `<ratio>`'s `__static_gcd` until the cap (a program with `<locale>`).
+A bare-named parameter alone is asked now.
+
+The first chain over libc++ 18 was RED on one fixture, `enumtype`, which had gone into the directory unseen -- against the rule that a
+fixture goes in only once seen to pass; the net that was to show it had stopped at the `'$cpp_bacc'` defect. Two defects stood behind it:
+`Shape::Circle`, an enumerator of an unscoped enum nested in a class, was folded by the class road as an `int` static
+(`cpp_enum_class_tag/3` gives it its enum's type), and `std::cout << Hi` of an `enum : unsigned char` printed 72: the template road
+ranked a promotion as a conversion, one demerit each, so the free `char` inserter tied with the `unsigned char` one, came first, and lost
+to the member `operator<<(int)`; a promotion costs one demerit now and a conversion two. The C++ gate over 18 and the chain over 21 then
+ran on the mended tree.
+
+Moved out of "Not done" as rules: `\N{NUL}` refused, a VLA initializer other than `= {}` refused and `__imag__` of a real as a place
+refused, each as clang refuses it; a recursive lambda through `this auto self`; a file-scope `new int` without an owner; module
+linkage.
+
+Fixtures added: `boolresult`, `enumtype`, `promotion`, `byteops`, `trailret`, `blocktypedef`, `lazymember`, `accessctl3`,
+`lambdaconst`, `plainclash` (C++20), `nsenum`, `valueinit`, `aggbase`, `shipstatic`: 14, 439 in the directory; refusals added:
+`access_inherit`, `access_protobj`, `access_memptr`, `access_nested`, `access_dtor`, `access_operator`, `lambda_method`,
+`bind_const`: 21 in `test/cpp.sh`.
+
+**The numbers.** cocolog 1.9.1, fresh HOMEs, two snapshots that differ in `library/ccl_cpp.pl` alone (the two `enumtype` rules),
+which no C gate and no library read walks. Over libc++ 18 (`LLVM=/usr/lib/llvm-18`): the reader gate GREEN in 5 s, compile in
+10 s, driver in 7 s, objects in 3 s, the proof; the library read GREEN in 1055 s (64 other headers warmed, none failed to
+flatten; peak 1464 MB; the reader bump made every summary cold); the C++ gate on the committed tree GREEN in 820 s (peak
+1669 MB): 438 of 439 fixtures ok, 1 skipped (`stdoptionalref`), the 21 refusals and the safe part's. Over libc++ 21
+(`LLVM=/usr/lib/llvm-21`): the library read GREEN in 1031 s (peak 1286 MB), the C++ gate GREEN in 740 s (peak 1531 MB), 438 of
+439, the same skip.
+
+Reader version 122, lowering version 68; the module rebuilt as 0.127, over cocolog 1.9.1.
