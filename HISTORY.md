@@ -125,6 +125,7 @@ One row per step, in version order: the step's title, what it did and its gate n
 | 0.129 | `__int128` in C++, the decimal floating types | `__SIZEOF_INT128__` in C++ too; a 128-bit constant typed; explicit specializations of function templates; floating constants folded under integer casts; C23's `_Decimal32`, `_Decimal64`, `_Decimal128` over libgcc's BID runtime, with gcc's ABI | 18: reader 5 s, compile 10 s, driver 7 s, objects 3 s, libcxx 1327 s, C++ 1128 s (442 of 443); 21: libcxx 1141 s, C++ 794 s; all GREEN after the width fix |
 | 0.130 | `-g`: the variables, their types, the blocks, C++'s names | Every named local, parameter and global a DWARF variable of its described type; lexical blocks; each function's type; C++'s methods, namespaces, template instances and statics by their names; no location in the prologue; `-gline-tables-only` and kin | a save point: reader 5 s, compile 11 s, driver 11 s (30 checks), objects 5 s, proof; the C++ gates are 0.132's |
 | 0.131 | another machine: Linux on aarch64 | `--target=TRIPLE`; the target's macros, sysroot, types (unsigned char, an fp128 long double) and back end; AAPCS64 proven under qemu (an HFA before the size, a 16-aligned composite, `va_arg` expanded); x86-64's `va_arg` of a long double | a save point: reader 5 s, compile 9 s, driver 10 s (31 checks), objects 3 s, proof, cross 47 s; the C++ gates are 0.132's |
+| 0.132 | floats kept exactly, decimal constants folded, the views of C++23 | A stored read's floats frozen to integers and thawed (reader 125); decimal and binary constants folded as gcc folds them; `decltype(auto)`, `auto &&`, CTAD through a template template parameter and the rules the C++23 views asked for; `empty` to `ranges::to` at libc++ 18 | 18: reader 5 s, compile 11 s, driver 9 s, objects 4 s, cross 49 s, libcxx 1030 s, C++ 1064 s (456 of 457); 21: libcxx 974 s, C++ 700 s; all GREEN |
 
 ## M5 — the C++ mode
 
@@ -7797,3 +7798,66 @@ clang (31 checks).
 
 Left in "Not done": Apple's arm64 (its variadic calls go on the stack, its long double is a double; no Apple machine is
 here), and C++ for another machine, which compiles and does not link (no aarch64 libc++ is installed).
+
+## 0.132 — floats kept exactly, decimal constants folded, the views of C++23 at libc++ 18
+
+**0.132: three items of "Not done", and the series 0.130 to 0.132 gated as one.** The neighbours were pulled first:
+cocolog 1.10.0, ZiguratIP 1.0.0 and Cicili 1.0.1, rebuilt in that order with cocolog's `os` and `process` modules and both
+modules here; 0.129 over them was the baseline, all seven gates GREEN over libc++ 18 (the library read in 977 s, the C++
+gate in 1082 s) and the two libc++ gates GREEN over libc++ 21 (1030 s, 705 s).
+
+(1) FLOATS KEPT EXACTLY IN THE STORES. cocolog still writes a float with `%.15g` at 1.10.0, so a read served from the C
+store or a C++ summary held another double for every literal that needs 16 or 17 digits, and the largest double came back
+an infinity (0.129's re-gate: `hexfloat.c` built a second time over one store ran to 7.3 GB). Every write of a read now
+freezes its floats to integers, `'$fz'(Item)` with each float `'$fl'(M, E)`, M x 2^E exactly, and the read thaws them
+(`ccl_float_freeze/2`, `ccl_float_thaw/2` in `library/ccl_infer.pl`). The reader gate's new `k93` reads `test/c/floats.c` (the largest double, a
+subnormal, 17-digit values) fresh and from the store and compares them.
+
+(2) DECIMAL AND BINARY CONSTANTS FOLDED, as gcc folds them. A decimal global's initializer folds its arithmetic in its
+operation's type (IEEE 754-2008, the result rounded half to even to its digits; a quotient exact where it can be); a binary
+floating constant folds into a decimal global and a decimal one into a binary global (both conversions correctly rounded,
+through a long division started from the dividend's top bits); a cast to `float` rounds a floating initializer; a
+subnormal double is spelled on the 2^-1074 grid (`double x = 1e-310;` was spelled wrong). `decfold.c` and `fpconst.c`, built
+by gcc and run against their `.expect`; `fpconst.c` also for aarch64 under qemu.
+
+(3) THE VIEWS OF C++23 THAT LIBC++ 18 HAS: `empty`, `single`, `counted`, `chunk_by`, `common`, `zip`, `elements`,
+`drop_while`, `as_rvalue`, `repeat`, `join`, `split`, `lazy_split` and `ranges::to`, each built at `-std=c++23` and run
+against clang++'s output. What they asked for, each with a reduction:
+- `decltype(auto)` is no plain `auto` ([dcl.type.auto.deduct]/5): the reader keeps the mark (`decltype_auto`, reader 125),
+  and a function's, a method's, a lambda's and a variable's result is the first return's decltype -- `join_view`'s
+  iterator returned its inner range by value and the walk over it read freed memory;
+- `auto &&` given an lvalue is `T &`, and a call made in a statement expression (a lambda called where it is made) has the
+  call's value category; a lambda's written `-> auto &&` deduces as a function's does;
+- a template template parameter called, `_Container(args)`, deduces its template's arguments (`ranges::to<std::vector>`);
+  a deduction guide whose result does not substitute is no candidate; a deduced class template specialization satisfies
+  its constraints or the deduction refuses; an explicit template argument's kind is checked (a template's bare name is no
+  type);
+- an unevaluated operand (a `decltype`, a requirement) registers no temporary, so no destructor runs for one;
+- `auto...` invents a parameter PACK; a constructor with an `auto` parameter is a constructor template;
+- a braced list against `initializer_list<P>` deduces P from its items (`ranges::min({a, b})`); a braced list assigned to a
+  class is a temporary of the class unless its own `operator=` takes the list;
+- the tuple protocol's `get` is looked up in the namespace of the class (`subrange`'s structured binding); a namespace-scope
+  object called (a customization point) is typed by its desugared call; a namespace-qualified variable template is found
+  by its namespace key first (`views::empty<int>`);
+- a member class template with a plain struct body is registered; `__is_class` of a nested class being registered is
+  true; a lambda in a member of a nested class is enclosed by that class; a class-scope type called in a hidden friend is
+  its class's; a block typedef of a nested block is substituted in the first-return walk; a free function is declared under
+  its resolved result type;
+- the safe part: `&*p` borrows what `p` borrows (a reference bound to `*it` of a raw-pointer iterator), and `return
+  std::move(x)` in a function returning a reference is a cast, no move.
+
+Fixtures: `decltypeauto`, `refresult`, `ctadtmpl`, `ctadcheck`, `nestedtmplbase`, `delegcpo`, `bindsubrange`,
+`braceassign`, `autopack`, `lambdaglv`, `iotadiff`, `arrayfwd`, `viewsmore` and `viewsmore2` (the views at C++23), each
+seen to pass over libc++ 18 and 21; `test/c/run/decfold.c`, `fpconst.c`; `test/c/floats.c`.
+
+THE NET. The series 0.130 to 0.132 ran on one probe tree before it was committed: all seven gates GREEN over libc++ 18
+(reader 4 s, compile 11 s, driver 9 s, objects 4 s, the library read in 1096 s, the C++ gate in 887 s with 442 of 443
+fixtures) and the two libc++ gates over libc++ 21 (1260 s, 757 s), probes running beside them.
+
+THE GATES. The live checkout ran the chain, fresh HOMEs: over libc++ 18 all eight GREEN (reader 5 s, compile 11 s with 69
+run and 43 safe fixtures, driver 9 s with 31 checks, objects 4 s, proof, cross 49 s, the library read in 1030 s, the C++
+gate in 1064 s with 456 of 457 fixtures ok, the skip is `stdoptionalref`, and the 21 refusals); over libc++ 21 the library
+read (974 s) and the C++ gate (700 s, 456 of 457 ok, the same skip) GREEN. A batch of probes ran beside the first minutes
+of the libc++ 21 library read.
+
+Reader version 125, lowering version 73; the module rebuilt as 0.132, over cocolog 1.10.0.

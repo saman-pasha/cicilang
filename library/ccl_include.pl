@@ -145,7 +145,7 @@ ccl_kb_what(included(How), unit(Is), included(How), Is) :- !.
 ccl_kb_what(included(How), partial(unit(Is), line(L), near(F)), included_partial(How, L, F), Is).
 ccl_kb_store_items([], _, _, N, N, Deps, Deps).
 ccl_kb_store_items([I|Is], F, K, N0, N, D0, Deps) :-
-    ccl_kb_flatten(I, I1, D0, D1),
+    ccl_kb_flatten(I, I0, D0, D1), ccl_float_freeze(I0, I1),   % a float kept exactly (0.132; ccl_float_freeze/2)
     T =.. [F, K, N0, I1], assertz(T),
     N1 is N0 + 1,
     ccl_kb_store_items(Is, F, K, N1, N, D1, Deps).
@@ -169,7 +169,7 @@ ccl_kb_cached(Path, What, Unit) :-
 ccl_kb_deps_fresh([]).
 ccl_kb_deps_fresh([P-PK|Ds]) :- ccl_kb_key(P, PK), ccl_kb_deps_fresh(Ds).
 ccl_kb_values([], []).
-ccl_kb_values([_-V|T], [V|Vs]) :- ccl_kb_values(T, Vs).
+ccl_kb_values([_-V0|T], [V|Vs]) :- ccl_float_thaw(V0, V), ccl_kb_values(T, Vs).
 ccl_kb_link([], []).
 ccl_kb_link([include(L, S, ref(P, _))|T], [include(L, S, R)|Ls]) :- !, ccl_include_read(P, R), ccl_kb_link(T, Ls).
 ccl_kb_link([I|T], [I|Ls]) :- ccl_kb_link(T, Ls).
@@ -485,7 +485,7 @@ ccl_ast_lines([in(Path, I)|Is], Qs, Out) :-
     ->  cpp_index_key(Qs, Path, N, Key0),                                   % the same qualified key the index gives a deeper namespace's item (cpp_ns_quals)
         ( Key0 == N -> Key = N, I0 = I ; cpp_qualify_item(N, Key0, I, Iq) -> Key = Key0, I0 = Iq ; Key = N, I0 = I ),
         cpp_qualify_body(Qs, Path, I0, I1),                                     % the deeper namespace's bare uses of a colliding name go to its key (0.100)
-        ccl_ast_clause('$cpp_hdr_ast'(Key, I1), L1), ccl_ast_clause('$cpp_hdr_ast_ns'(Key, Path), L2), append(L1, L2, L0)
+        ccl_float_freeze(I1, I2), ccl_ast_clause('$cpp_hdr_ast'(Key, I2), L1), ccl_ast_clause('$cpp_hdr_ast_ns'(Key, Path), L2), append(L1, L2, L0)   % a float kept exactly (0.132)
     ;   catch(cpp_enum_ns_name(I, EN), _, fail) -> ccl_ast_clause('$cpp_hdr_ast_ns'(EN, Path), L0)   % a header's enum, its namespace path alone (0.112)
     ;   L0 = [] ),
     ccl_ast_lines(Is, Qs, O2), append(L0, O2, Out).
@@ -528,7 +528,7 @@ ccl_sum_slim([dtor(L, Q, _)|Ms], [dtor(L, Q, none)|Ms1]) :- !, ccl_sum_slim(Ms, 
 ccl_sum_slim([template(L, Ps, M)|Ms], [template(L, Ps, M1)|Ms1]) :- !, ccl_sum_slim([M], [M1]), ccl_sum_slim(Ms, Ms1).
 ccl_sum_slim([M|Ms], [M|Ms1]) :- ccl_sum_slim(Ms, Ms1).
 ccl_sum_terms_out([], []).
-ccl_sum_terms_out([T|Ts], Out) :- term_to_atom(T, A), ccl_sum_line(T, A, Cs), append(Cs, [0'., 10], L1), ccl_sum_terms_out(Ts, O2), append(L1, O2, Out).
+ccl_sum_terms_out([T0|Ts], Out) :- ccl_float_freeze(T0, T), term_to_atom(T, A), ccl_sum_line(T, A, Cs), append(Cs, [0'., 10], L1), ccl_sum_terms_out(Ts, O2), append(L1, O2, Out).   % a float kept exactly (0.132)
 %% A TERM TOO LONG FOR A LINE goes to the clause file beside the summary, <name>-<fold>.big.pl, as
 %% '$ccl_sum_big'(F, I, T), and its line is `big(I)' (0.112): term_to_atom/2 READS through an 8 KB buffer in cocolog
 %% (`char buf [8192]' in coco_b_term_to_atom, the neighbour's), so the `tag(...)' lines of libc++'s large classes --
@@ -564,7 +564,7 @@ ccl_sum_terms(F, Terms) :-
     atom_concat('$ccl_sum:', F, K),
     (   catch(nb_getval(K, T0), _, fail), T0 \== none -> Terms = T0
     ;   read_file_to_codes(F, Codes), atom_codes(A, Codes), atomic_list_concat(Lines, '\n', A), ccl_sum_lines(Lines, Terms0),
-        ccl_sum_bigs_in(F, Terms0, Terms), nb_setval(K, Terms) ).
+        ccl_sum_bigs_in(F, Terms0, Terms1), ccl_float_thaw_list(Terms1, Terms), nb_setval(K, Terms) ).
 %% the long terms back from the clause file beside the summary; a `big(I)' with no clause behind it stays, and makes
 %% the summary invalid (ccl_sum_valid), so the header is read again rather than served short
 ccl_sum_bigs_in(F, Ts0, Ts) :- memberchk(big(_), Ts0), !, ccl_big_file(F, B), ( exists_file(B) -> ensure_loaded(B) ; true ), ccl_sum_bigs_(Ts0, F, Ts).

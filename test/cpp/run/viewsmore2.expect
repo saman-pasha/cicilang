@@ -1,0 +1,15 @@
+join 1
+join 2
+join 3
+join 4
+join 5
+split [ab]
+split [cd]
+split []
+split [ef]
+lazy_split [ab]
+lazy_split [cd]
+lazy_split []
+lazy_split [ef]
+to 2 5 2 1
+exit 0

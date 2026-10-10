@@ -189,6 +189,8 @@ ccl_w_sub(X, Y, V) :- ccl_w_fits(X), ccl_w_fits(Y), !, V is X - Y.
 ccl_w_sub(X, Y, V) :- ccl_wide(X, A), ccl_wide(Y, w(S, M)), S1 is -S, ccl_w_add_(A, w(S1, M), C), ccl_narrow(C, V).
 ccl_w_mul(X, Y, V) :- integer(X), integer(Y), X < 1073741824, X > -1073741824, Y < 1073741824, Y > -1073741824, !, V is X * Y.
 ccl_w_mul(X, Y, V) :- ccl_wide(X, w(SA, MA)), ccl_wide(Y, w(SB, MB)), S is SA * SB, ccl_mag_mul(MA, MB, M), ccl_narrow(w(S, M), V).
+ccl_w_divmod(X, Y, Q, R) :- integer(X), integer(Y), !, Q is X // Y, R is X - Q * Y.   % the quotient and the remainder of one division (0.132), truncated as C has them
+ccl_w_divmod(X, Y, Q, R) :- ccl_wide(X, w(SA, MA)), ccl_wide(Y, w(SB, MB)), ccl_mag_divmod(MA, MB, Q0, R0), S is SA * SB, ccl_narrow(w(S, Q0), Q), ccl_narrow(w(SA, R0), R).
 ccl_w_div(X, Y, V) :- integer(X), integer(Y), !, V is X // Y.                            % `//' truncates, as C does
 ccl_w_div(X, Y, V) :- ccl_wide(X, w(SA, MA)), ccl_wide(Y, w(SB, MB)), ccl_mag_divmod(MA, MB, Q, _), S is SA * SB, ccl_narrow(w(S, Q), V).
 ccl_w_mod(X, Y, V) :- integer(X), integer(Y), !, V is X - (X // Y) * Y.                 % the remainder takes the dividend's sign, as C has it
@@ -224,6 +226,39 @@ ccl_float_int(X, V) :- A is abs(X), A =< 1.7976931348623157e308,
     (   A < 576460752303423488.0 -> V is truncate(X)
     ;   ccl_float_halve(A, 0, M, E), ccl_w_shl(M, E, V0), ( X < 0.0 -> ccl_w_neg(V0, V) ; V = V0 ) ).
 ccl_float_halve(A, E0, M, E) :- ( A < 9007199254740992.0 -> M is truncate(A), E = E0 ; A1 is A / 2.0, E1 is E0 + 1, ccl_float_halve(A1, E1, M, E) ).
+%% A DOUBLE AS M x 2^E EXACTLY, M odd (0 for a zero; `inf' and the sign for an infinity): one normalization for the
+%% library (0.132), the lowering's constants (ccl_float_norm/4) and the stored reads below
+ccl_float_parts(F, inf, S) :- F =\= 0.0, F =:= F * 2, !, ( F > 0 -> S = 1 ; S = -1 ).
+ccl_float_parts(F, 0, 0) :- F =:= 0.0, !.
+ccl_float_parts(F, M, E) :- A is abs(F), E0 is floor(log(A) / log(2)), ccl_float_norm(A, E0, BE, Mant), N0 is round(Mant * 4503599627370496),
+    BE1 is BE - 52, ccl_float_odd(N0, BE1, N, E), ( F < 0 -> M is -N ; M = N ).
+ccl_float_norm(X, E0, E, M) :- M0 is X / (2.0 ** E0), ( M0 >= 2.0 -> E1 is E0 + 1, ccl_float_norm(X, E1, E, M) ; M0 < 1.0 -> E1 is E0 - 1, ccl_float_norm(X, E1, E, M) ; E = E0, M = M0 ).
+ccl_float_odd(N, E, N, E) :- N mod 2 =:= 1, !.
+ccl_float_odd(N0, E0, N, E) :- N1 is N0 // 2, E1 is E0 + 1, ccl_float_odd(N1, E1, N, E).
+ccl_float_of(inf, S, F) :- !, F is S * (1.0e308 * 10.0).
+ccl_float_of(M, E, F) :- F is M * 2.0 ** E.
+%% A FLOAT KEPT EXACTLY WHERE A READ IS STORED (0.132): cocolog writes a float with 15 digits (`%.15g' in its
+%% lib/term.cicili), which reads back as ANOTHER double for most values -- `0.1 + 0.2' writes `0.3', and the largest
+%% double writes past itself and reads back as an infinity -- so a read served from the C store or from a C++ summary
+%% held other literals than a fresh read, a silent wrong answer, and `0x1.fffffffffffffp1023' served from the store made
+%% the lowering recurse without end (test/c/run/hexfloat.c, a second compile gate over one store: 7 GB). An item that
+%% holds a float is stored as '$fz'(Item), each float in it as '$fl'(M, E) (ccl_float_parts/3); an item without one is
+%% stored as it is, so a served read walks only the items that need it.
+ccl_float_freeze(T0, T) :- ccl_ff(T0, T1, no, F), ( F == yes -> T = '$fz'(T1) ; T = T0 ).
+ccl_ff(X, Y, _, yes) :- float(X), !, ccl_float_parts(X, M, E), Y = '$fl'(M, E).
+ccl_ff(X, X, F, F) :- \+ compound(X), !.
+ccl_ff(X, Y, F0, F) :- functor(X, N, A), functor(Y, N, A), ccl_ff_args(1, A, X, Y, F0, F).
+ccl_ff_args(I, A, _, _, F, F) :- I > A, !.
+ccl_ff_args(I, A, X, Y, F0, F) :- arg(I, X, XI), arg(I, Y, YI), ccl_ff(XI, YI, F0, F1), I1 is I + 1, ccl_ff_args(I1, A, X, Y, F1, F).
+ccl_float_thaw('$fz'(X), Y) :- !, ccl_ft(X, Y).
+ccl_float_thaw(X, X).
+ccl_ft('$fl'(M, E), F) :- !, ccl_float_of(M, E, F).
+ccl_ft(X, X) :- \+ compound(X), !.
+ccl_ft(X, Y) :- functor(X, N, A), functor(Y, N, A), ccl_ft_args(1, A, X, Y).
+ccl_ft_args(I, A, _, _) :- I > A, !.
+ccl_ft_args(I, A, X, Y) :- arg(I, X, XI), arg(I, Y, YI), ccl_ft(XI, YI), I1 is I + 1, ccl_ft_args(I1, A, X, Y).
+ccl_float_thaw_list([], []).
+ccl_float_thaw_list([X|Xs], [Y|Ys]) :- ccl_float_thaw(X, Y), ccl_float_thaw_list(Xs, Ys).
 ccl_w_float(X, F) :- ccl_wide(X, w(S, M)), ccl_mag_bits_be(M, Bits), length(Bits, N),
     (   N =< 53 -> ccl_bits_int(Bits, 0, I), F0 is I * 1.0
     ;   length(Hi, 53), append(Hi, [R|Lo], Bits), ccl_bits_int(Hi, 0, H0),
@@ -283,7 +318,10 @@ ccl_mag_mul_small([L|Ls], K, Cy, [R|Rs]) :- T is L * K + Cy, R is T mod 10737418
 ccl_mag_mul([], _, []) :- !.
 ccl_mag_mul([A|As], B, C) :- ccl_mag_mul_small(B, A, 0, P), ccl_mag_mul(As, B, C1), ( C1 == [] -> ccl_mag_norm(P, C) ; ccl_mag_add(P, [0|C1], C) ).
 ccl_mag_divmod(A, [K], Q, R) :- !, ccl_mag_divmod_small(A, K, Q, R0), ( R0 =:= 0 -> R = [] ; R = [R0] ).
-ccl_mag_divmod(A, B, Q, R) :- ccl_mag_bits_be(A, Bits), ccl_mag_ldiv(Bits, B, [], QBits, R), ccl_mag_of_bits_be(QBits, Q).
+ccl_mag_divmod(A, B, Q, R) :- ccl_mag_bits_be(A, Bits), ccl_mag_bits_be(B, BB), length(Bits, NA), length(BB, NB),   % THE DIVIDEND'S TOP NB-1 BITS ARE BELOW THE DIVISOR (0.132): they are the first remainder, one shift; the bits below are divided one at a time -- from the first bit, 10^4940's quotient was 16,400 steps over 550 limbs, 9 s for `long double x = 1e-4940dl;'
+    (   NA < NB -> Q = [], R = A
+    ;   Top is NB - 1, Low is NA - Top, ccl_mag_shr(A, Low, R0, _), length(Pre, Top), append(Pre, LowBits, Bits),
+        ccl_mag_ldiv(LowBits, B, R0, QBits, R), ccl_mag_of_bits_be(QBits, Q) ).
 ccl_mag_divmod_small(A, K, Q, R) :- reverse(A, BE), ccl_mag_dms_(BE, K, 0, QBE, R), reverse(QBE, Q0), ccl_mag_norm(Q0, Q).
 ccl_mag_dms_([], _, R, [], R).
 ccl_mag_dms_([L|Ls], K, R0, [Q|Qs], R) :- T is R0 * 1073741824 + L, Q is T // K, R1 is T mod K, ccl_mag_dms_(Ls, K, R1, Qs, R).

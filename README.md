@@ -309,7 +309,10 @@ and the forms it needed: classes defined in a function, `using Base::f;` and
 through a pointer, unions with a constructor, a destructor or a method, and
 objects that hold their own address (a map, a list, a `std::function`)
 constructed in place when a temporary or a call initializes them; at C++20 also
-`variant <=> variant` and `std::string` compared with `const char *`.
+`variant <=> variant` and `std::string` compared with `const char *`; since
+0.132 the C++23 views that libc++ 18 has (`empty`, `single`, `counted`,
+`chunk_by`, `common`, `zip`, `elements`, `drop_while`, `as_rvalue`, `repeat`,
+`join`, `split`, `lazy_split`) and `ranges::to`.
 `test/libcxx.sh` reads `<vector>`, `<string>`,
 `<iostream>`, `<map>`, `<set>`, `<unordered_map>`, `<unordered_set>`,
 `<optional>`, `<memory>`, `<functional>`, `<tuple>` and `<algorithm>` whole,

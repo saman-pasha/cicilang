@@ -664,6 +664,7 @@ ck_borrows_from(dyncast_ref(A, _, _, _), St, P) :- !, ck_borrows_from(A, St, P).
 ck_borrows_from(addr(index(A, _)), St, P) :- !, ck_borrows_from(addr(A), St, P).             % &a[i], &c.f: what &a, &c borrow (an anchor, an owner's slot)
 ck_borrows_from(addr(member(A, _)), St, P) :- !, ck_borrows_from(addr(A), St, P).
 ck_borrows_from(addr(arrow(A, _)), St, P) :- !, ck_borrows_from(A, St, P).
+ck_borrows_from(addr(deref(A)), St, P) :- !, ck_borrows_from(A, St, P).                       % &*p: what p borrows (0.132) -- a reference bound to `*it', which every `for (auto&& x : r)' over raw-pointer iterators makes (std::array, std::string_view, the empty and single views), was fresh memory, `plain pointer not consumed'
 ck_borrows_from(addr(id(N)), St, P) :- ck_is_ref(N), !, ck_state(St, N, S), ck_borrow_source(N, S, P).   % C++: &x of a reference is the pointer held
 ck_borrows_from(id(N), St, P) :- ck_is_ref(N), !, ck_local_type(N, ptr(_, RT)), ck_carries_type(RT), ck_state(St, N, S), ck_borrow_source(N, S, P).   % its value: what it refers to
 ck_borrows_from(addr(id(N)), St, P) :- !, ck_state(St, N, S), ( S == anchor -> P = N ; ck_borrow_source(N, S, P) ).   % of an anchored local, an owner's slot
@@ -826,6 +827,7 @@ ck_stmt(coro_body(_, S), St0, St) :- !, ck_stmt(S, St0, St).
 ck_stmt(coro_return(L), St0, dead) :- !, ck_line(L), ck_exit_all(St0, return).
 ck_stmt(coro_suspend(L, _, E, _), St0, St) :- !, ck_line(L), ck_expr(E, St0, St).
 ck_stmt(coro_done(L), _, dead) :- !, ck_line(L).
+ck_stmt(return(L, move(E)), St0, St) :- nb_getval('$ck_ret', Ret), ck_ref_as_ptr(Ret, RP), RP \== Ret, !, ck_stmt(return(L, E), St0, St).   % `return std::move(x);' WITH A REFERENCE RESULT IS A CAST ([expr.static.cast]; 0.132): `T &&' bound to x, which stays the caller's -- nothing moves, and the reference leaves as any other does (a parameter's referent, never a local's); it was refused `move_of_non_owner' for a reference parameter
 ck_stmt(return(L, E), St0, dead) :- !, ck_line(L), ck_anchor_addrs(E, St0, St1), ck_no_escape(E, St1), ck_consume_or_use(E, St1, St2), ck_exit_all(St2, return(E)).
 ck_stmt(break(L), St0, dead) :- !, ck_line(L), ck_exit_to_loop(St0, break).
 ck_stmt(continue(L), St0, dead) :- !, ck_line(L), ck_exit_to_loop(St0, continue).
