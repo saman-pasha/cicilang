@@ -187,7 +187,10 @@ named by their path (`p->name`, `c.inner.name`) and go with the struct.
 `y`, a tied owner must be consumed before `y` is, a result tie on a
 prototype is a contract the caller reads. An own array, `own node *C[4]`
 or `own node *C[nc]` bounded by an earlier member, holds owners the
-lowering drains when the holder goes.
+lowering drains when the holder goes. A `goto` is an edge of the flow: the
+state at a label is the join of the state that falls through and of each
+`goto` that reaches it, the scopes a jump leaves closed as a `break` closes
+them, and the jump runs their `defer` blocks (and, in C++, their destructors).
 
 Refused, each naming the statement's line:
 
@@ -203,6 +206,7 @@ Refused, each naming the statement's line:
 | `tie_unknown`, `tie_outlived`, `tie_escapes`, `tie_mismatch` | a tie to nothing declared, an owner outliving its tie, a tied owner moved beyond it, a value outside the slot's tie |
 | `unconsumed`, `untied` | a plain pointer holding fresh memory never consumed; a slot the check cannot follow given a value with no owner behind it |
 | `own_unbounded`, `own_array_by_value`, `own_array_untagged`, `array_unset` | an own pointer with no owner to name; an own array copied by value, untagged, or not zeroed at birth |
+| `goto_with_owners` | a `goto` into a block that does not hold it, or over an owner's declaration, where an owner lives |
 
 `clone(p)` hands a function a fresh copy of what an own pointer points to,
 so `p` is not consumed. `test/c/run/owners.c`, `own_fields.c`,
@@ -213,7 +217,8 @@ every program under `test/c/safe/` is refused with the error its
 In C++ the same check reads the desugared program: a class with a
 destructor is never copied, a temporary dies at the end of its statement,
 a constructor's `this` starts with unset own fields and must complete
-them, a destructor's caller takes the fields as moved. libc++'s own
+them before it is handed to a function, a destructor's caller takes the
+fields as moved. libc++'s own
 bodies keep raw pointers by their own discipline and are not checked;
 the program's are, wherever they are instantiated from.
 
@@ -312,7 +317,9 @@ constructed in place when a temporary or a call initializes them; at C++20 also
 `variant <=> variant` and `std::string` compared with `const char *`; since
 0.132 the C++23 views that libc++ 18 has (`empty`, `single`, `counted`,
 `chunk_by`, `common`, `zip`, `elements`, `drop_while`, `as_rvalue`, `repeat`,
-`join`, `split`, `lazy_split`) and `ranges::to`.
+`join`, `split`, `lazy_split`) and `ranges::to`; since 0.133 range and tuple
+formatting (`std::format` of a vector, a map, a pair, a tuple, strings in the
+debug form) and, over libc++ 21, `views::join_with`.
 `test/libcxx.sh` reads `<vector>`, `<string>`,
 `<iostream>`, `<map>`, `<set>`, `<unordered_map>`, `<unordered_set>`,
 `<optional>`, `<memory>`, `<functional>`, `<tuple>` and `<algorithm>` whole,
@@ -373,8 +380,8 @@ HISTORY.md                     the record of every step: what it did, what it fo
 `std::format`'s compile-time check of the format string (the library's own
 run-time parser catches a bad one); the range adaptors not named;
 `std::filesystem`, `<random>`, `std::valarray`;
-access control of an inheritance; the tail padding of a non-POD base, which is
+chrono formatting; the tail padding of a non-POD base, which is
 not reused (a class laid out here differs from clang's where code compiled by
 both shares it); construction vtables in a diamond; a `\N{...}` abbreviation
-alias (`\N{NUL}`, which clang refuses too); the arm64 ABI, written and not
-proven. Each is named in `CLAUDE.md` with where it stops.
+alias (`\N{NUL}`, which clang refuses too); the arm64 ABI on Apple's machines
+(Linux on aarch64 is proven under qemu). Each is named in `CLAUDE.md` with where it stops.

@@ -126,6 +126,7 @@ One row per step, in version order: the step's title, what it did and its gate n
 | 0.130 | `-g`: the variables, their types, the blocks, C++'s names | Every named local, parameter and global a DWARF variable of its described type; lexical blocks; each function's type; C++'s methods, namespaces, template instances and statics by their names; no location in the prologue; `-gline-tables-only` and kin | a save point: reader 5 s, compile 11 s, driver 11 s (30 checks), objects 5 s, proof; the C++ gates are 0.132's |
 | 0.131 | another machine: Linux on aarch64 | `--target=TRIPLE`; the target's macros, sysroot, types (unsigned char, an fp128 long double) and back end; AAPCS64 proven under qemu (an HFA before the size, a 16-aligned composite, `va_arg` expanded); x86-64's `va_arg` of a long double | a save point: reader 5 s, compile 9 s, driver 10 s (31 checks), objects 3 s, proof, cross 47 s; the C++ gates are 0.132's |
 | 0.132 | floats kept exactly, decimal constants folded, the views of C++23 | A stored read's floats frozen to integers and thawed (reader 125); decimal and binary constants folded as gcc folds them; `decltype(auto)`, `auto &&`, CTAD through a template template parameter and the rules the C++23 views asked for; `empty` to `ranges::to` at libc++ 18 | 18: reader 5 s, compile 11 s, driver 9 s, objects 4 s, cross 49 s, libcxx 1030 s, C++ 1064 s (456 of 457); 21: libcxx 974 s, C++ 700 s; all GREEN |
+| 0.133 | `goto` followed, `this` handed out, range and tuple formatting | A goto runs the defers it leaves and the check follows it; `this` handed out of a constructor checked; a constructor defined out of its class built; a C++ static data member described in its class under `-g`; range and tuple formatting, `views::join_with` at libc++ 21; frames popped on every exit; the budget 6000 | 18: reader 5 s, compile 12 s, driver 10 s, objects 3 s, cross 51 s, libcxx 1090 s, C++ 1359 s (463 of 465); 21: libcxx 1069 s, C++ 863 s; all GREEN |
 
 ## M5 — the C++ mode
 
@@ -7861,3 +7862,81 @@ read (974 s) and the C++ gate (700 s, 456 of 457 ok, the same skip) GREEN. A bat
 of the libc++ 21 library read.
 
 Reader version 125, lowering version 73; the module rebuilt as 0.132, over cocolog 1.10.0.
+
+## 0.133 — `goto` followed, `this` handed out, range and tuple formatting
+
+**0.133: four items of "Not done"** -- the safe part's `goto` and `this` (The safe part), `-g`'s static data members
+(Tools), and range formatting and `views::join_with` (libc++ modules) -- and two defects that their fixtures met.
+
+(1) A `goto` RUNS THE DEFERS OF THE SCOPES IT LEAVES (the lowering). It was a bare branch: `goto out;` from a block skipped
+a C++ local's destructor and the language's `defer`, which [stmt.jump]/2 and the owner's rule for `defer` (every exit of
+its scope) both forbid. Each frame the lowering pushes has an id now, and a label records its path and how many defers
+its own frame holds. A goto to a label already lowered runs the frames it leaves down to the one it shares with the label,
+and, jumping back past a declaration in the label's own frame, the defers registered since the label; a goto to a label
+still ahead branches to a block of its own, emitted where the label is lowered, which runs those frames under the goto's
+own scope and branches on. `test/c/run/gotodefer.c` (out of a block and a loop's body, back past a `defer`), and
+`test/cpp/run/gotodtor.cpp` (destructors, forward and back past a declaration; a `std::string` grown by a loop of gotos)
+-- its `.expect` is clang++'s, so clang's destruction order is the one checked.
+
+(2) THE CHECK FOLLOWS A `goto` as an edge of the flow. A goto was refused wherever an owner lived (`goto_with_owners`,
+M3), and the code after a label that only a goto reaches was never walked. Now a label is where a goto's state -- the
+frames it leaves closed, as a `break` closes them -- joins the state that falls through; a forward goto's state waits for
+its label, and a backward one's joins the label's on the next walk, the function walked again until no label's state
+changes (at most eight times), as a loop settles. `goto out;` to a cleanup label that frees, a retry that frees and takes
+again, and labels reached by gotos alone pass (`test/c/run/gotoown.c`); an owner left live on the jump leaks
+(`test/c/safe/gotoleak.c`, `owner_leaked`), and one taken again at a backward label while live is overwritten
+(`gotooverwrite.c`, `owner_overwritten`). A goto into a block that does not enclose it, or over an owner's declaration,
+is still `goto_with_owners` where an owner lives: the walk would have to give the skipped declarations a state.
+
+(3) `this` HANDED OUT OF A CONSTRUCTOR was not followed (0.37): a callee given `this` while an own field was still unset
+took the object as complete. `Q::Q() { look(this); buf = (char *) malloc(4); }`, with `look` reading `q->buf`, was
+accepted and wrote through garbage. Where an argument is `this` or a member of it in a constructor, and the callee's
+parameter is no constructor's or destructor's `this`, every own field under it must hold a value: `owner_unset`.
+`test/cpp/thisunset.cpp`, refused by the C++ gate's safe-part loop.
+
+(4) A CONSTRUCTOR DEFINED OUT OF ITS CLASS WAS DROPPED -- found by (3)'s fixture, whose constructor is written so: the
+catch-all clause of `cpp_item` passed `P::P() { ... }` through raw, the lowering made nothing of it, and the link named
+`P.P.0`. No fixture had one. It is built as one written in the class is, a nested class's by its dotted
+name (`Outer::Inner::Inner()`), its destructor too. `ctorout.cpp`.
+
+(5) `-g`: A STATIC DATA MEMBER IS A MEMBER OF ITS CLASS, a `DW_TAG_variable` with `DIFlagStaticMember`, and its definition's
+global names it (`declaration:`): llvm-dwarfdump reads the member inside the structure and the definition's
+`DW_AT_specification`, as in clang++'s object (clang keeps the declaration order; the statics come after the data
+members here). The driver gate reads it back (`cicilang++ -g -c`, 32 checks). And `-g3`: clang 18's `-g3` alone describes no macro either (`DIMacro` 0; 391 with
+`-fdebug-macro`, which is accepted and ignored here), so the item is clang's own behaviour; it stays in "Not done" under
+`-fdebug-macro`.
+
+(6) RANGE AND TUPLE FORMATTING (C++23 [format.range], [format.tuple]) and `views::join_with`. Each was cut down to a
+reduction and built over libc++ 18 and 21:
+- a NESTED expansion of the pack being expanded sees the whole pack ([temp.variadic]/5): libc++ 21's
+  `__concat_indirectly_readable` writes `(__impl<__concat_reference_t<_Rs...>, ..., iterator_t<_Rs>> && ...)`, and the
+  nested `_Rs...` saw one range -- `views::join_with` refused its constraints (`packnested.cpp`);
+- a variable template whose value is a LAMBDA CALLED IN PLACE folds through the evaluator: libc++ 21's `format_kind<_Rp> =
+  [] { if constexpr (...) return range_format::map; ... }()`, the range formatter's constraint (`vtlambda.cpp`);
+- a frame pushed for a walk is popped however the walk ends: a refusal caught by SFINAE inside a statement expression
+  left its frame open, and the instance `visit_format_arg<...>`, declared a moment later, went into it and was lost --
+  every `std::format` of a range refused `lambda_result_type`;
+- a scoped enumerator READ AS A TYPE (`range_format::map`, whose last name is the template `std::map`) matches a value
+  argument by its value: the map's formatter specialization never matched;
+- a constructor TEMPLATE callable with no argument is a default constructor ([class.default.ctor]/1): std::tuple's is
+  one, and every class holding a tuple lost its implicit default constructor -- libc++ 21's `__formatter_tuple` was left
+  as the stack had it and `std::format("{}", std::pair{1, 2})` parsed garbage (`tupleholder.cpp`) -- but ONLY WHERE ITS
+  TEMPLATE PARAMETERS' DEFAULTS BIND and its constraints hold, the SFINAE of `__enable_if_t<_And<is_default_constructible<
+  _Tp>...>::value, int> = 0`: counted unchecked, a tuple of `ref_view`s had a default constructor, `views::zip` over two
+  vectors made zip_view's implicit one, and the C++ gate's first run over libc++ 18 went RED on `viewsmore.cpp`
+  (`member_not_constructed(__views_, ...)`), the one failure of 465;
+- THE INSTANTIATION BUDGET IS 6000 (`cpp_spend/1`; 3000 since 0.44): range formatting over libc++ 18 makes 3105 instances
+  and header loads and stopped at the old limit, `instantiation_budget`. Twice the largest need measured.
+`fmtrange.cpp` (a vector, a map, strings debug-formatted, a nested spec) and `fmttuple.cpp` (a pair and a tuple) at
+C++23; `joinwith.cpp`,
+which its `.needs` (`__cpp_lib_ranges_join_with`) skips over libc++ 18. NOT FINISHED: chrono formatting, whose build of
+`std::format("{}", std::chrono::seconds(5))` passed its 1500 s cap and was killed; where the time goes is not found.
+
+THE GATES. The live checkout ran the chain, fresh HOMEs: over libc++ 18 all eight GREEN (reader 5 s, compile 12 s with 72
+run and 45 safe fixtures, driver 10 s with 32 checks, objects 3 s, proof, cross 51 s, the library read in 1090 s, the C++
+gate in 1359 s with 463 of 465 fixtures ok, the skips are `stdoptionalref` and `joinwith`, the 21 refusals and the two of
+the safe part); over libc++ 21 the library read (1069 s) and the C++ gate (863 s, 464 of 465 ok, the skip
+`stdoptionalref`) GREEN. The C++ gate's first run over libc++ 18 was the RED of (6) above; it ran again after the fix. A
+profile of `<random>` and a few probes ran beside the libc++ 21 phase.
+
+Lowering version 74 (the reader's stays 125); the module rebuilt as 0.133, over cocolog 1.10.0.

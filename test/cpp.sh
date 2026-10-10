@@ -97,7 +97,7 @@ for pair in "coro:no_member(get_return_object" "concept_fail:constraint_not_sati
   case "$got" in *"not lowered yet: $what"*"exit 1"*) echo "ok   $n.cpp is refused: not lowered yet: $what" ;; *) echo "FAIL $n.cpp should be refused with 'not lowered yet: $what'"; echo "     got  $got" | head -3; failures=$((failures + 1)) ;; esac
 done
 echo "-- and the safe part refuses what leaves its scope"
-for pair in "escape:a borrow leaves the function"; do   # a closure holding a reference to a local returned (0.100)
+for pair in "escape:a borrow leaves the function" "thisunset:owner used before it was given anything"; do   # a closure holding a reference to a local returned (0.100); `this' handed out of a constructor while an own field is unset (0.133)
   n=${pair%%:*}; what=${pair#*:}
   got=$("$ROOT/bin/cicilang++" -c "$ROOT/test/cpp/$n.cpp" -o "$n.o" 2>&1; echo "exit $?")
   case "$got" in *"$what"*"exit 1"*) echo "ok   $n.cpp is refused: $what" ;; *) echo "FAIL $n.cpp should be refused with '$what'"; echo "     got  $got" | head -3; failures=$((failures + 1)) ;; esac

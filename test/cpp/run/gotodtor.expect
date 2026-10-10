@@ -1,0 +1,16 @@
+make 1
+make 10
+drop 10
+make 11
+drop 11
+drop 1
+out
+make 100
+drop 100
+make 101
+drop 101
+make 102
+drop 102
+3
+xyyy
+exit 0

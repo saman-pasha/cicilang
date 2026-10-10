@@ -163,7 +163,7 @@ ck_function(L, Ret, Name, Params0, Body) :-
     ck_dying_fields(Params, Dying), nb_setval('$ck_dying_fields', Dying),
     ck_param_owners(Params, Owners),
     ck_param_ties(Params, [], st([fr(Owners, [])]), St0),
-    ck_stmt(Body, St0, St1),
+    ck_walk_body(Body, St0, St1),
     ( St1 == dead -> true ; St1 = st([fr(Os, _)]), ck_complete_owners(Os, function_end), ck_leaks_all(St1, function_end) ),
     ccl_scope_pop.
 %% the own fields of the structs the plain pointer parameters point to: the
@@ -769,8 +769,8 @@ ck_merge_state(null, unset, unset) :- !.
 ck_merge_state(_, _, partial).
 
 %% ---- statements: ck_stmt(+S, +St0, -St), St dead when the path ends here --------------
-ck_stmt(_, dead, dead) :- !.
-ck_stmt(block(Is), St0, St) :- !, ccl_scope_push, ck_push(St0, St1), ck_stmts(Is, St1, St2), ck_scope_end(St2, St), ccl_scope_pop.
+ck_stmt(S, dead, dead) :- S \= label(_, _, _), !.   % dead code is not walked -- but a LABEL is, the gotos to it may bring a state (0.133)
+ck_stmt(block(Is), St0, St) :- !, ccl_scope_push, ck_bpath_push, ck_push(St0, St1), ck_stmts(Is, St1, St2), ck_scope_end(St2, St), ck_bpath_pop, ccl_scope_pop.
 ck_stmt('$splice'(Is), St0, St) :- !, ck_stmts(Is, St0, St).
 ck_stmt(declaration(L, Sto, _, Vs), St0, St) :- !, ck_line(L), ( Sto == static -> ck_note_statics(Vs) ; true ), ck_decls(Vs, St0, St).
 ck_stmt(typedef(_, _), St, St) :- !.
@@ -813,11 +813,11 @@ ck_stmt(for_each(L, D, R, S), St0, St) :- !, ck_line(L),                        
     ( ccl_for_each_as_for(for_each(L, D, R, S), For) -> ck_stmt(For, St0, St) ; ck_fail(not_checked, range_for, for_each(L, D, R, S)) ).
 ck_stmt(using(_, _), St, St) :- !.
 ck_stmt(for(L, Init, C, Step, S), St0, St) :- !, ck_line(L),
-    ccl_scope_push, ck_push(St0, St1),
+    ccl_scope_push, ck_bpath_push, ck_push(St0, St1),
     ( Init = decl(_, Vs) -> ck_decls(Vs, St1, St2) ; Init == none -> St2 = St1 ; ck_anchor_addrs(Init, St1, St1a), ck_expr(Init, St1a, St2) ),
     ( C == none -> St3 = St2 ; ck_expr(C, St2, St3) ),
     ck_loop_with_step(S, Step, St3, St4),
-    ck_scope_end(St4, St), ccl_scope_pop.
+    ck_scope_end(St4, St), ck_bpath_pop, ccl_scope_pop.
 ck_stmt(return(L), St0, dead) :- !, ck_line(L), ck_exit_all(St0, return).
 %% a coroutine's skeleton (0.108): co_return leaves every scope as a return does; the promise, the frame and the
 %% suspensions are the lowering's, their expressions read as any
@@ -831,14 +831,14 @@ ck_stmt(return(L, move(E)), St0, St) :- nb_getval('$ck_ret', Ret), ck_ref_as_ptr
 ck_stmt(return(L, E), St0, dead) :- !, ck_line(L), ck_anchor_addrs(E, St0, St1), ck_no_escape(E, St1), ck_consume_or_use(E, St1, St2), ck_exit_all(St2, return(E)).
 ck_stmt(break(L), St0, dead) :- !, ck_line(L), ck_exit_to_loop(St0, break).
 ck_stmt(continue(L), St0, dead) :- !, ck_line(L), ck_exit_to_loop(St0, continue).
-ck_stmt(goto(Ln, L), St, dead) :- !, ck_line(Ln), ( ck_any_owner(St) -> ck_fail(goto_with_owners, L, goto(L)) ; true ).
-ck_stmt(label(_, _, S), St0, St) :- !, ck_stmt(S, St0, St).
+ck_stmt(goto(Ln, L), St, dead) :- !, ck_line(Ln), ck_goto(L, Ln, St).
+ck_stmt(label(Ln, L, S), St0, St) :- !, ck_label_in(L, Ln, St0, StL), ck_stmt(S, StL, St).
 ck_stmt(switch(L, E, S), St0, St) :- !, ck_line(L),
     ck_expr(E, St0, St1),
     ( S = block(Is) -> true ; Is = [S] ),
-    ccl_scope_push, ck_push(St1, St2), ck_loop_enter(St2, switch), ck_switch_items(Is, St2, St2, St3), ck_loop_leave(Brk),
+    ccl_scope_push, ck_bpath_push, ck_push(St1, St2), ck_loop_enter(St2, switch), ck_switch_items(Is, St2, St2, St3), ck_loop_leave(Brk),
     ck_merge_all([St3|Brk], St4), ( ck_has_default(Is) -> St5 = St4 ; ck_merge(St4, St2, St5) ),
-    ck_scope_end(St5, St), ccl_scope_pop.
+    ck_scope_end(St5, St), ck_bpath_pop, ccl_scope_pop.
 ck_stmt(assume(L, E), St0, St) :- !, ck_line(L), ck_expr(E, St0, St).   % C++23's [[assume(e)]]: its expression is read, nothing else
 ck_stmt(case(_, _, S), St0, St) :- !, ck_stmt(S, St0, St).
 ck_stmt(default(_, S), St0, St) :- !, ck_stmt(S, St0, St).
@@ -1038,6 +1038,83 @@ ck_exit_to_loop_outer(_, [], _) :- ck_fail(not_checked, continue, continue).
 ck_close_to(St, Depth, St) :- st(Frs) = St, length(Frs, Depth), !.
 ck_close_to(St0, Depth, St) :- ck_scope_end(St0, St1), ck_close_to(St1, Depth, St).
 
+%% ---- goto (0.133): the walk follows it ------------------------------------------------------
+%% A goto was refused wherever an owner lived (`goto_with_owners', M3) and the code after a label that only a goto
+%% reaches was never walked (a dead state skips statements). Now the goto is an edge of the flow: every frame the check
+%% pushes has an id, `'$ck_bpath'' the open ones' (innermost first), and a label is where a goto's state, the frames
+%% it leaves closed -- their defers run, their owners consumed or leaked, their borrows dangling, as a `break' closes
+%% them -- joins the state that falls through. A FORWARD goto's state waits for its label (`'$ck_fwd''); a BACKWARD
+%% one, the label walked already, is closed down to the label's frames and, where the label's frame is one of its own,
+%% that frame loses what was declared since the label (jumping back past a declaration ends it: its owner must be
+%% consumed, its defers run); its state joins the label's on the NEXT walk (`'$ck_seed''): the function is walked again
+%% until no label's state changes, as a loop's state settles -- an owner freed and taken again (`retry:') settles, one
+%% left live and taken again is `owner_overwritten'. A goto INTO a block that does not enclose it is still refused where
+%% an owner lives on either side (`goto_with_owners'): it would skip the declarations before the label. A goto whose
+%% label no walk reached (a label in dead code inside a statement) is `not_checked'. The lowering runs the same defers
+%% on the jump (ir_goto, 0.133).
+ck_bpath_push :- ( catch(nb_getval('$ck_bpath', P), _, fail) -> true ; P = [] ), ( catch(nb_getval('$ck_bid', N0), _, fail) -> true ; N0 = 0 ),
+    N is N0 + 1, nb_setval('$ck_bid', N), nb_setval('$ck_bpath', [N|P]).
+ck_bpath_pop :- ( catch(nb_getval('$ck_bpath', [_|P]), _, fail) -> nb_setval('$ck_bpath', P) ; true ).
+ck_bpath_root(P) :- ( catch(nb_getval('$ck_bpath', P0), _, fail) -> true ; P0 = [] ), reverse(P0, P).
+ck_common_prefix([X|Xs], [Y|Ys], [X|Zs]) :- X == Y, !, ck_common_prefix(Xs, Ys, Zs).
+ck_common_prefix(_, _, []).
+ck_goto(L, Ln, St) :- ck_bpath_root(GP), nb_getval('$ck_labels', Ls),
+    (   memberchk(L-lab(LP, LKeys, LDefs), Ls)
+    ->  ck_edge_state(GP, LP, St, L, StC0),
+        ( ck_common_prefix(GP, LP, CP), CP == LP, StC0 \== dead -> ck_close_since_label(StC0, LKeys, LDefs, StC) ; StC = StC0 ),
+        nb_getval('$ck_back', B0), ck_add_edge(L, StC, B0, B1), nb_setval('$ck_back', B1)
+    ;   nb_getval('$ck_fwd', F0), nb_setval('$ck_fwd', [g(L, St, GP, Ln)|F0]) ).
+%% the state an edge brings to a label at the path LP: the frames the goto leaves closed, those it enters (a jump into
+%% a block) new and empty -- where no owner lives
+ck_edge_state(GP, LP, St0, L, St) :- ck_common_prefix(GP, LP, CP), length(CP, NC), D is NC + 1, ck_close_to(St0, D, St1),
+    length(LP, NL), Enter is NL - NC,
+    (   Enter =:= 0 -> St = St1
+    ;   St1 == dead -> St = dead
+    ;   ck_any_owner(St1) -> ck_fail(goto_with_owners, L, goto(L))
+    ;   St1 = st(Frs), length(New, Enter), ck_fresh_frames(New), append(New, Frs, Frs2), St = st(Frs2) ).
+ck_fresh_frames([]).
+ck_fresh_frames([fr([], [])|Fs]) :- ck_fresh_frames(Fs).
+%% back past declarations in the label's own frame: the defers registered since the label run, the keys declared
+%% since it end (consumed or leaked, their borrows dangling), as at the frame's end
+ck_close_since_label(st([fr(Os, Ds)|Frs]), LKeys, LDefs, St) :-
+    length(Ds, ND), New is ND - LDefs,
+    ( New > 0 -> length(NewDs, New), append(NewDs, OldDs, Ds) ; NewDs = [], OldDs = Ds ),
+    ck_run_defers(NewDs, st([fr(Os, OldDs)|Frs]), St1),
+    (   St1 == dead -> St = dead
+    ;   St1 = st([fr(Os1, Ds1)|Frs1]),
+        findall(K-S, ( member(K-S, Os1), \+ memberchk(K, LKeys) ), Gone), findall(K-S, ( member(K-S, Os1), memberchk(K, LKeys) ), Kept),
+        ck_leaks(Gone, scope_end), ck_keys(Gone, GKs), ck_dangle_all(st([fr(Kept, Ds1)|Frs1]), GKs, St) ).
+ck_add_edge(L, St, B0, [L-St2|B1]) :- ( select(L-St1, B0, B1) -> ck_merge(St1, St, St2) ; B1 = B0, St2 = St ).
+%% a label: the state that falls through, then every forward goto's, then the back edges of the last walk
+ck_label_in(L, _, St0, StL) :- ck_bpath_root(LP),
+    nb_getval('$ck_fwd', F0), findall(G, ( member(G, F0), G = g(L, _, _, _) ), Mine), findall(G, ( member(G, F0), \+ G = g(L, _, _, _) ), Rest), nb_setval('$ck_fwd', Rest),
+    ck_label_edges(Mine, LP, L, Es),
+    ( St0 = st([fr(O0, _)|_]), member(K-S0, O0), ck_owner_state(S0), member(st([fr(OE, _)|_]), Es), \+ memberchk(K-_, OE) -> ck_fail(goto_with_owners, K, goto(L)) ; true ),   % a goto that jumps OVER an owner's declaration to its label: on its way the owner was never set
+    nb_getval('$ck_seed', Seed), ( memberchk(L-SS, Seed) -> Es1 = [SS|Es] ; Es1 = Es ),
+    ck_merge_all([St0|Es1], StL),
+    ( StL = st([fr(Os, Ds)|_]) -> ck_keys(Os, LKeys), length(Ds, LDefs) ; LKeys = [], LDefs = 0 ),
+    nb_getval('$ck_labels', Ls), nb_setval('$ck_labels', [L-lab(LP, LKeys, LDefs)|Ls]).
+ck_label_edges([], _, _, []).
+ck_label_edges([g(_, St, GP, GLn)|Gs], LP, L, [StC|Es]) :- nb_getval('$ck_line', L0), ck_line(GLn), ck_edge_state(GP, LP, St, L, StC), nb_setval('$ck_line', L0), ck_label_edges(Gs, LP, L, Es).
+%% the walk of a function's body, again while a back edge changes a label's state
+ck_walk_body(Body, St0, St) :- ck_walk_snapshot(Snap), nb_setval('$ck_seed', []), ck_walk_iter(Body, St0, Snap, 1, St).
+ck_walk_iter(Body, St0, Snap, I, St) :-
+    ck_walk_restore(Snap), nb_setval('$ck_bpath', []), nb_setval('$ck_labels', []), nb_setval('$ck_fwd', []), nb_setval('$ck_back', []),
+    ck_stmt(Body, St0, St1),
+    nb_getval('$ck_fwd', Pend), ( Pend = [g(PL, _, _, PLn)|_] -> ck_line(PLn), ck_fail(not_checked, goto, goto(PL)) ; true ),
+    nb_getval('$ck_back', Back), nb_getval('$ck_seed', Seed0), ck_seed_merge(Back, Seed0, Seed1),
+    (   Seed1 == Seed0 -> St = St1
+    ;   I >= 8 -> ck_fail(not_checked, goto, goto)
+    ;   nb_setval('$ck_seed', Seed1), I1 is I + 1, ck_walk_iter(Body, St0, Snap, I1, St) ).
+ck_seed_merge([], S, S).
+ck_seed_merge([L-St|Bs], S0, S) :- ( select(L-Old, S0, S1) -> ck_merge(Old, St, New), ck_seed_put(S1, L, New, Old, S0, S2) ; S2 = [L-St|S0] ), ck_seed_merge(Bs, S2, S).
+ck_seed_put(S1, L, New, Old, S0, S) :- ( New == Old -> S = S0 ; S = [L-New|S1] ).
+%% what a walk writes and a second walk must start from as the first did
+ck_walk_snapshot(snap(Ti, Sa, Ar, Al, Rf)) :- nb_getval('$ck_ties', Ti), nb_getval('$ck_statics', Sa), nb_getval('$ck_arrays', Ar), nb_getval('$ck_arrlocals', Al),
+    ( catch(nb_getval('$ck_refs', Rf), _, fail) -> true ; Rf = '$none' ).
+ck_walk_restore(snap(Ti, Sa, Ar, Al, Rf)) :- nb_setval('$ck_ties', Ti), nb_setval('$ck_statics', Sa), nb_setval('$ck_arrays', Ar), nb_setval('$ck_arrlocals', Al),
+    ( Rf == '$none' -> true ; nb_setval('$ck_refs', Rf) ).
+
 %% ---- scope ends and returns -----------------------------------------------------------------
 %% the frame's defers run, last first; then its owners must be consumed; then
 %% whatever borrowed one of its keys -- an anchor, an owner -- dangles
@@ -1226,9 +1303,9 @@ ck_expr(bin('||', A, B), St0, St) :- !, ck_expr(A, St0, St1), ck_expr(B, St1, St
 %% a statement expression: its last expression is its value, consumed when it
 %% is an owner (clone's fresh copy leaves this way), else used
 ck_expr(stmt_expr(block(Is)), St0, St) :- append(Init, [expr(L, E)], Is), !,
-    ccl_scope_push, ck_push(St0, St1), ck_stmts(Init, St1, St2), ck_line(L),
+    ccl_scope_push, ck_bpath_push, ck_push(St0, St1), ck_stmts(Init, St1, St2), ck_line(L),
     ( St2 == dead -> St3 = dead ; ck_anchor_addrs(E, St2, St2a), ck_consume_or_use(E, St2a, St3) ),
-    ck_scope_end(St3, St), ccl_scope_pop.
+    ck_scope_end(St3, St), ck_bpath_pop, ccl_scope_pop.
 ck_expr(stmt_expr(B), St0, St) :- !, ck_stmt(B, St0, St).
 ck_expr(compound_lit(T, init(Items)), St0, St) :- !, ck_init_slots(Items, T, none, St0, St).
 ck_expr(E, St0, St) :- compound(E), !, E =.. [_|Args], ck_exprs(Args, St0, St).
@@ -1281,7 +1358,18 @@ ck_args_([A|As], Callee, I, St0, St) :-
     ;   ck_fresh_param(Callee, I), ck_arg_base(A, K), ck_own_under(St1, K, Fs), Fs \== []               % a constructor ran: the object's own fields are live (or null, as good)
     ->  ck_set_all(St1, Fs, live, St1d)
     ;   St1d = St1 ),
+    ( ck_this_handed_unset(A, Callee, I, St1d, F) -> ck_fail(owner_unset, F, call(Callee, [A|As])) ; true ),
     I1 is I + 1, ck_args_(As, Callee, I1, St1d, St).
+%% `this' HANDED OUT OF A CONSTRUCTOR (0.133; "not followed" since 0.37): a constructor's own fields start unset (the
+%% `fresh' mark), and a function given `this' -- a method called in the body, a helper, `register(this)' -- takes the
+%% object as complete, its owners live or null, and may read or free one that holds garbage: `Q::Q() { look(this); buf
+%% = malloc(4); }' was accepted and crashed. Where an argument is `this' or a member of it, in a constructor, and the
+%% callee's parameter is no constructor's or destructor's `this' (a base's or a member's constructor initializes what it
+%% is given), every own field under it must hold a value already: an unset one is `owner_unset'.
+ck_this_handed_unset(A, Callee, I, St, F) :- ck_arg_base(A, K), atom(K), ( K == this -> true ; sub_atom(K, 0, _, _, 'this->') ),
+    \+ ck_fresh_param(Callee, I), \+ ck_dying_param(Callee, I),
+    catch(ccl_declared(this, TT), _, fail), ck_this_marker(TT, fresh),
+    ck_own_under(St, K, Fs), member(F, Fs), ck_state(St, F, unset), !.
 ck_consumes(id(free), 1) :- !.
 ck_consumes(id(fclose), 1) :- !.
 ck_consumes(id(realloc), 1) :- !.                                    % the old block goes; the result is the new owner

@@ -10,8 +10,8 @@ it found, its measurements and its gate numbers. `README.md` tells a user what r
 architecture and the milestones. A step that changes a rule edits the rule here, in its topic, and writes its entry
 in `HISTORY.md`.
 
-At 0.132 the versions are: the module 0.132 (`ccl_p_version` in `module/cicilang.cicili`, `bin/cicilang --version`),
-the reader 125 (`ccl_reader_version/1`, `library/ccl_syntax.pl`) and the lowering 73 (`ccl_lowering_version/1`,
+At 0.133 the versions are: the module 0.133 (`ccl_p_version` in `module/cicilang.cicili`, `bin/cicilang --version`),
+the reader 125 (`ccl_reader_version/1`, `library/ccl_syntax.pl`) and the lowering 74 (`ccl_lowering_version/1`,
 `library/ccl_ir.pl`).
 
 Build and prove, always in this order (or all of it, `sh test/gates.sh`):
@@ -374,13 +374,14 @@ tutorials/01..03-*.pl       the objects layer's lessons; goal main, last line do
 - The compile gate. `test/compile.pl`, one process over the user's store, reads, checks, lowers, compiles at `-O1`
   and links every `test/c/run/*.c` at its `NAME.std` level (`c_level`). It expects every `test/c/safe/*.c` refused.
   `test/compile.sh` runs each binary as `NAME arg1 arg2` against `NAME.expect`, and compares each refusal with
-  `safe/NAME.expect`. There are 69 run and 43 safe fixtures at 0.132. (M2, M3, 0.57)
-- The driver gate. `test/driver.sh` makes 31 checks of `bin/cicilang` over the user's store (the decimal ABI check is
+  `safe/NAME.expect`. There are 72 run and 45 safe fixtures at 0.133. (M2, M3, 0.57)
+- The driver gate. `test/driver.sh` makes 32 checks of `bin/cicilang` over the user's store (the decimal ABI check is
   skipped where no gcc with decimal floating types is installed), the variadic calls of every kind both ways against
   clang among them (`test/c/link/va_*.c`, 0.131). They cover what `-o`,
   `-c`, `-S`, `-emit-llvm`, `-shared`, `-I`, `-ast-dump`, `-fsyntax-only`, `-g` and `-gline-tables-only` make (read
   back by `llvm-dwarfdump`, from `$PATH` or `$LLVM/bin`: the statements' lines and the file's name; the variables, a
-  struct's members and an enum's enumerators, their names sorted; no variable under `-gline-tables-only`), and the diagnostics in
+  struct's members and an enum's enumerators, their names sorted; no variable under `-gline-tables-only`; a C++ static
+  data member declared in its class, its definition naming that declaration, through `cicilang++ -g -c`, 0.133), and the diagnostics in
   clang's shape (`#warning` printed, `#error` with exit 1). They find `@ccl_drain_node` in `btree.c`'s IR, and pass
   structs by value both ways against clang-built code (`test/c/link/abi_main.c`, `abi_helper.c`; seven lines at 0.117,
   the last two for the SysV register budget, `budget_*` built by clang and `bud_*` by cicilang). The store must serve
@@ -431,7 +432,7 @@ tutorials/01..03-*.pl       the objects layer's lessons; goal main, last line do
 ### The C++ gate: test/cpp.sh
 
 - `test/cpp.sh` runs in this order: `test/cpp.pl` in one `--local` process; three checks of the command; every
-  `test/cpp/run/*.cpp` as a pool job (457 at 0.132); `classes.cpp` and `templates.cpp` built and run; the refusals.
+  `test/cpp/run/*.cpp` as a pool job (465 at 0.133); `classes.cpp` and `templates.cpp` built and run; the refusals.
   (0.105)
 - `test/cpp.pl` runs 43 numbered checks, `c1` to `c43`, then reads Cicili's six C++ files whole (`test/cpp/objects.cpp`,
   `emit_report.cpp`, `specialise.cpp`, `syntax.cpp`, `torch.cpp`, `torch-fragment.cpp`). `c34` checks the Itanium
@@ -487,7 +488,8 @@ tutorials/01..03-*.pl       the objects layer's lessons; goal main, last line do
 
   `deduced_this.cpp` (0.43) is gone: a class's `this auto` method builds since 0.117 (`deducethis.cpp`).
 
-- `test/cpp/escape.cpp` must be refused by the safe part with `a borrow leaves the function`.
+- `test/cpp/escape.cpp` must be refused by the safe part with `a borrow leaves the function`, and
+  `test/cpp/thisunset.cpp` with `owner used before it was given anything` (0.133).
   `test/cpp/control.cpp` (a `try`) builds now, and only `test/cpp.pl` reads it. (0.100, 0.108)
 - A gate that dies says so. Without a GREEN or RED line from `test/cpp.pl`, `test/cpp.sh` prints
   `RED: the gate did not finish (query exit N)` and the last 20 raw lines. `test/reader.sh` and `test/compile.sh`
@@ -522,8 +524,10 @@ tutorials/01..03-*.pl       the objects layer's lessons; goal main, last line do
   `stdistream2`, `stdws`); the others read `/dev/null`. (0.75, 0.115)
 - `NAME.needs` holds a preprocessor condition over the library's own macros. `ccl_needs_met` runs a four-line file
   that includes `<version>` through `cicilang++ -E` with the fixture's flags, and looks for a marker. When the box's
-  library fails it, the verdict is `skip NAME.cpp: needs ...`, never a RED. Only `stdoptionalref.needs` exists
-  (`__cpp_lib_optional >= 202506L`, since 0.123: libc++ 21.1.8 has no `optional<T &>`, it came with libc++ 22). (0.95, 0.107, 0.123)
+  library fails it, the verdict is `skip NAME.cpp: needs ...`, never a RED. Two exist: `stdoptionalref.needs`
+  (`__cpp_lib_optional >= 202506L`, since 0.123: libc++ 21.1.8 has no `optional<T &>`, it came with libc++ 22) and
+  `joinwith.needs` (`__cpp_lib_ranges_join_with >= 202202L`, since 0.133: libc++ 18 has no `views::join_with`). (0.95,
+  0.107, 0.123, 0.133)
 - `test/c/safe/NAME.expect` holds the refusal, `ownership(Kind,Name)`. (M3)
 - Inputs beside the fixtures are no fixtures: `test/c/run/pp_defs.h`, `embed.txt`, `empty.txt`; `test/cpp/run/bag.h`
   (`bag.cpp`, `member.cpp`), `hunit.h` (`headerunit.cpp`, `hdrinline.cpp`), `basem.cppm` and `mathm.cppm`
@@ -1701,7 +1705,7 @@ tutorials/01..03-*.pl       the objects layer's lessons; goal main, last line do
   0.117)
 - A reader bump makes every summary cold; `test/libcxx.sh` rewrites them. `test/reader.pl`'s `k16` (a cached read is
   the same AST as a fresh one) goes RED on a grammar change without a bump. (0.93, 0.105)
-- `ccl_lowering_version/1` (`library/ccl_ir.pl`, now 73): bump it whenever the check or the lowering changes what it
+- `ccl_lowering_version/1` (`library/ccl_ir.pl`, now 74): bump it whenever the check or the lowering changes what it
   emits, however small -- 0.120 bumped it for the ORDER of the drain functions alone. Why: `dr_ir/3` serves the old IR
   otherwise. Either bump starts the C store afresh. (M4, 0.103, 0.120)
 
@@ -1772,6 +1776,13 @@ free. A const method adds `.c`, a ref-qualified one `.r` or `.rr` after it: each
   and a destructor are. (0.46)
 - Out of its class, `Shape::scale` and `Counter::~Counter` (`dtor_def/4`) are the class's own functions (`cpp_item`);
   a method's `const` comes from the storage slot (`cpp_sto_quals`). (0.33, 0.79)
+- A CONSTRUCTOR DEFINED OUT OF ITS CLASS (0.133; `P::P() { v = 3; }`, `P::P(int k) : v(k) {}`, `Outer::Inner::Inner()`)
+  is built as one written in the class is (`cpp_item(ctor_def(...))` over `cpp_ctor_fn`: the bases, the table pointer, the
+  member initializers, the body; a diamond's `.nv` twin; a `consteval` one noted), and its declaration in the class stays
+  a declaration; a nested class's constructor and destructor are named by the class's dotted name
+  (`cpp_class_item_name/2`). Why: the catch-all clause of `cpp_item` passed the item through raw, the lowering made
+  nothing of it, and every call named `P.P.0`, defined nowhere -- a link error, met first by `thisunset.cpp`; no fixture
+  had one. `ctorout.cpp`. (0.133)
 - A plain library class's member bodies written out of the class (`inline ios_base::fmtflags ios_base::flags() const`)
   are indexed by the class's name, noted before the header's batch registers (`cpp_note_hdr_mdefs`) and merged by
   `cpp_lazy_class` (`cpp_member_defs`). Why: unindexed, they took the mangled road to a symbol libc++ hides. (0.73)
@@ -2029,6 +2040,16 @@ free. A const method adds `.c`, a ref-qualified one `.r` or `.rr` after it: each
 - C++ deletes the implicit default constructor where a member's class has constructors but no default one
   (`cpp_members_default`, `cpp_default_ctor_exists`); the class stays the aggregate it was written as:
   `__in_out_result` over an `ostreambuf_iterator`. (0.71)
+- A CONSTRUCTOR TEMPLATE CALLABLE WITH NO ARGUMENT IS A DEFAULT CONSTRUCTOR ([class.default.ctor]/1; 0.133;
+  `cpp_default_ctor_exists/1` over `'$cpp_mt'`, `cpp_params_no_args`, `cpp_tparams_defaulted/1`: no parameter without a
+  default, every template parameter defaulted or a pack), WHERE THOSE DEFAULTS BIND AND ITS CONSTRAINTS HOLD in the class
+  (`cpp_bind_defaults/3`, `cpp_constraints_hold/3`, `cpp_member_tmpl_req/4`; the default's resolution is the SFINAE).
+  `std::tuple`'s is `template <template <class...> class _And = _And, __enable_if_t<_And<is_default_constructible<_Tp>...>
+  ::value, int> = 0> tuple()`; counted as none, it deleted the implicit default constructor of every class holding a tuple,
+  and a local of such a class was left as the stack had it: libc++ 21's `__formatter_tuple` holds its elements' formatters
+  in a tuple, and `std::format("{}", std::pair{1, 2})` parsed an int formatter of garbage. Counted without its defaults, a
+  tuple of `ref_view`s had one, and `views::zip` over two vectors was `member_not_constructed(__views_, ...)`.
+  `tupleholder.cpp`, `fmttuple.cpp`, `viewsmore.cpp`. (0.133)
 - `C() = default;` beside other constructors records `'$cpp_default_ctor'(C)`: the default constructor EXISTS
   (`cpp_default_ctor_exists`) and builds the bases and members, or does nothing where nothing needs it
   (`cpp_trivial_default`). A constrained one counts only where its constraints hold in the class's words
@@ -2629,6 +2650,15 @@ free. A const method adds `.c`, a ref-qualified one `.r` or `.rr` after it: each
 - `cpp_isolated/1` sets the caller's open scopes aside, so an instance sees no caller local and declares at file
   scope. It restores them on success, failure and throw, as `cpp_in_class/2` and `cpp_as_lib/2` do: SFINAE throws by
   design (`__to_address`). (0.47)
+- A FRAME PUSHED FOR A WALK IS GONE WHEN THE WALK ENDS, HOWEVER IT ENDS (0.133; `cpp_in_frame/1`): the scope is a global,
+  which neither a throw nor a failure restores, and a block, a statement expression, a handler, a `for` and a range-for, a
+  function's parameters (`cpp_params_in_scope`, `cpp_with_params`), a lambda's written result, a requires-expression and
+  the deduction of an `auto` or `decltype(auto)` result each pushed a frame and popped it on success only. A refusal
+  inside one, caught by a candidate check or by `cpp_lvalue_deep` (SFINAE), left the frame open, and an instance declared
+  a moment later went into it and was lost when it closed: libc++ 21's `visit_format_arg` holds a block whose return
+  walked a temporary again and refused `no_constructor(handle, 0)`, and the retargeted format context's lambda then
+  refused `lambda_result_type` -- every `std::format` of a range. The scope comes back as it was on every exit.
+  `fmtrange.cpp`. (0.133)
 - It sets the CALLER aside too (`'$cpp_caller'`, which `cpp_arg_type` reads an argument's words from): an instance
   made while a call's arguments are typed is no part of that call. Why: `std::vector<std::vector<int>>`'s copy read
   the inner vector's arguments in the outer call's class. `stdvectorvector.cpp`. (0.112)
@@ -2677,9 +2707,12 @@ free. A const method adds `.c`, a ref-qualified one `.r` or `.rr` after it: each
   `template <class _F1, class _F2> struct __overload : _F1, _F2` in `std`, and `<iterator>` pulls `<variant>` in, so
   `std::copy` of trivially copyable ints, reached from `std::vector<int> v = {1, 2, 3}`, met the wrong one
   (`arity_mismatch`). A name with one kind is untouched. (0.117)
-- THE BUDGET: `cpp_spend/1` counts instances and header loads, and refuses `instantiation_budget(K, What)` past 3000;
+- THE BUDGET: `cpp_spend/1` counts instances and header loads, and refuses `instantiation_budget(K, What)` past 6000;
   `cpp_deeper/1` counts nested class instantiations, and refuses `instantiation_depth(D, What)` past 120. Why: an
-  unbounded `std::vector<int>` took the machine's memory. (0.44)
+  unbounded `std::vector<int>` took the machine's memory (0.44). The limit was 3000 until 0.133: range formatting over
+  libc++ 18 (`fmtrange.cpp`) makes 3105 instances and loads, in 775 MB, since an instance costs little memory with
+  cocolog's collector (1.8.36) and the light class records (0.120), and the memory and time caps stop a runaway too; 6000
+  is twice the largest need measured. (0.44, 0.133)
 
 - An `inline` function template's instance is `linkonce` like a plain one (`cpp_linkonce/2` takes the storage `none`
   or `inline`; 0.121): libc++'s `__invoke` instances were plain definitions, never dropped, and the one over
@@ -2782,6 +2815,13 @@ free. A const method adds `.c`, a ref-qualified one `.r` or `.rr` after it: each
   `sizeof...` ([temp.variadic]/5; `cpp_names_outside`), path segments (`cpp_names_in`:
   `__enable_if_t<_Pred::value>...`) and last-segment arguments (`std::get<_Idx>(__bound_args_)...`) included.
   Fixture: `packzip.cpp`. (0.93, 0.99)
+- A NESTED EXPANSION OF THE PACK BEING EXPANDED SEES THE WHOLE PACK ([temp.variadic]/5; 0.133; `cpp_whole_packs/5` in
+  `cpp_expand_pack`): each element's substitution binds the pack to ONE element, so the pack's name inside every nested
+  expansion -- `pack(Y)`, `sizeof...(P)`, a nested fold, never a deferred `pack_zip` -- is renamed `P$all` and bound to the
+  whole pack beside the element (`cpp_rename_nested/5`). libc++ 21's `__concat_indirectly_readable` writes
+  `(__concat_indirectly_readable_impl<__concat_reference_t<_Rs...>, __concat_rvalue_reference_t<_Rs...>, iterator_t<_Rs>>
+  && ...)`: the nested `_Rs...` saw one range, and `views::join_with` refused its class's constraints. `packnested.cpp`
+  (C++20). (0.133)
 - Packs of different lengths refuse `pack_lengths_differ(Ns)`, an expansion with no bound pack
   `pack_expansion_without_pack`, and a pack named outside an expansion `pack_unexpanded(P)`. (0.79)
 - An expansion naming a class pack AND a member template's own waits for the member's instantiation
@@ -2860,6 +2900,10 @@ free. A const method adds `.c`, a ref-qualified one `.r` or `.rr` after it: each
     2^60 is `big(Atom)`, no number to `=:=` -- compared by `ccl_w_cmp/3`, a decimal atom against a hex one alike. Else
     `span<_Tp, dynamic_extent>` matched nothing, the primary was instantiated with that extent and its members' `_Extent
     * sizeof(element_type)` ran past memory (0.44, 0.117).
+  - A SCOPED ENUMERATOR READ AS A TYPE compares as the value it names (0.133; a `cpp_match_one` clause before the type
+    clause, over `cpp_enumerator/4`): the reader takes `range_format::map` for a type, its last name a known template
+    (`std::map`), so libc++ 21's `__range_default_formatter<range_format::map, _Rp, _CharT>` never matched
+    `format_kind<map<...>>` and `std::format` of a map met the primary, declared and not defined. `fmtrange.cpp`.
   - A template-id matches an instance by its recorded arguments (`cpp_instance_of`, also via its struct spec) and
     deduces a template template parameter (`cpp_match_tmpl`) (0.46, 0.93).
   - A trailing pack takes the rest (`cpp_match_targs`) (0.79).
@@ -3161,6 +3205,13 @@ free. A const method adds `.c`, a ref-qualified one `.r` or `.rr` after it: each
   declared type (`cpp_braced_object/4` in `cpp_instantiate_variable_`; an empty or trivially constructible class, any
   other being run-time). The declaration's type is substituted with the picked specialization's bindings.
   `stdvariant2.cpp`. (0.121)
+- A variable template whose value is a LAMBDA CALLED IN PLACE folds through the evaluator (0.133; `cpp_eval_constant/2`
+  in `cpp_instantiate_variable_`): desugared, the value is a statement expression -- the closure, a temporary, the call
+  of its `operator()` over the temporary's address -- which `cpp_eval_reduce` runs as it runs a constexpr function's
+  body, with a step budget of its own when it is the outermost fold. libc++ 21 writes `template <class _Rp> constexpr
+  range_format format_kind = [] { if constexpr (...) return range_format::map; ... }();` -- the constraint of the range
+  formatter, so `std::format("{}", v)` of a vector met the primary `formatter`, which has no `parse`. `vtlambda.cpp`
+  (C++20). (0.133)
 - A variable template's specialization named with its namespace registers like any other (`cpp_spec_name`:
   `__format::__enable_insertable<basic_string<_CharT>>`). (0.112)
 
@@ -4654,7 +4705,7 @@ A lambda is a class of its captures (`library/ccl_cpp.pl`). A fixture named alon
   overload set, so a call resolves all four signatures (each `basic_string` instance is registered). (0.117)
 - `cpp_hdr_load/1` loads a name's items once (`'$cpp_hdr_loaded'`): on the first miss of `cpp_class` or
   `cpp_class_template`, and on the first ask of `cpp_template` or the overload road (`cpp_hdr_join`, `cpp_fn_ready`), so
-  a header's templates and functions join the program's. A load spends the instantiation budget (`cpp_spend/1`, 3000)
+  a header's templates and functions join the program's. A load spends the instantiation budget (`cpp_spend/1`, 6000)
   and records `'$cpp_lib'(N)`. (0.44, 0.78)
 - A load notes the out-of-class definitions first (`cpp_note_hdr_mdefs`), and runs inside `\+ \+`, at file scope
   (`cpp_isolated` around `cpp_register_lazy`), under `cpp_as_lib(yes, ...)`. A load that refuses throws through, since
@@ -4935,6 +4986,19 @@ A lambda is a class of its captures (`library/ccl_cpp.pl`). A fixture named alon
 - A loop may not consume an owner from outside it, unless the iteration owns it again by its end
   (`ck_no_moves_across/3`, `move_in_loop`). `break` and `continue` close the frames inside the loop and join its exits
   (`'$ck_loops'`). A `switch` merges its entry state at each case label. (M3)
+- A `goto` IS AN EDGE OF THE FLOW (0.133; `ck_walk_body`, `'$ck_bpath'`, `'$ck_fwd'`, `'$ck_back'`, `'$ck_seed'`): every
+  frame the check pushes has an id, and a label is where a goto's state -- the frames it leaves closed, their defers run,
+  their owners consumed or leaked, their borrows dangling, as a `break` closes them -- joins the state that falls
+  through. A FORWARD goto's state waits for its label; a BACKWARD one, the label walked already, is closed down to the
+  label's frames, and where the label's frame is one of its own, that frame loses what was declared since the label
+  (jumping back past a declaration ends it: its owner must be consumed, its defers run); its state joins the label's on
+  the NEXT walk: the function is walked again until no label's state changes, at most eight times (else `not_checked`),
+  as a loop's state settles. An owner freed and taken again (`retry:`) settles; one left live and taken again is
+  `owner_overwritten`; one live where a goto leaves its scope is `owner_leaked`. The code after a label that only a goto
+  reaches is walked now (a dead state had skipped it). A goto INTO a block that does not enclose it, or over an owner's
+  declaration, is refused where an owner lives (`goto_with_owners`): it would skip the declarations before the label. A
+  goto whose label no walk reached is `not_checked`. Fixtures: `test/c/run/gotoown.c`; refused, `test/c/safe/gotoleak.c`
+  and `gotooverwrite.c`. Until 0.133 any goto in a function with owners was `goto_with_owners`. (M3, 0.133)
 - `ck_consume/6` consumes by its `How`. `free` needs the own fields consumed first (`owner_leaked` names the field).
   `move` needs them live or null (`owner_unset`, `use_after_move`) and moves them along. Then the owner's borrows
   dangle (`ck_dangle/3`). (M3)
@@ -5084,6 +5148,14 @@ A lambda is a class of its captures (`library/ccl_cpp.pl`). A fixture named alon
   `ck_this_marker/2` reads the marks. Under `fresh` the own fields start `unset` (`ck_param_owners/2`) and must be live
   or null at each return (`ck_complete_owners/2`). Under `dying` they are exempt (`'$ck_dying_fields'`).
   `test/cpp/run/btree.cpp`. (0.37)
+- `this` HANDED OUT OF A CONSTRUCTOR (0.133; `ck_this_handed_unset/5` in `ck_args_`): a function given `this` -- a method
+  called in the body, a helper, `register(this)` -- takes the object as complete, its owners live or null, and may read
+  or free one that holds garbage. Where an argument is `this` or a member of it, in a constructor (the `fresh` mark), and
+  the callee's parameter is no constructor's or destructor's `this` (a base's or a member's constructor initializes what
+  it is given), every own field under it must hold a value already: an unset one is `owner_unset`. What the callee does
+  with the pointer is its own check's: there `this` is a borrow, as any plain pointer parameter is. `Q::Q() {
+  look(this); buf = (char *) malloc(4); }` was accepted and wrote through garbage: `test/cpp/thisunset.cpp`, refused.
+  (0.37, 0.133)
 - The caller of a destructor takes the object's own fields as moved; the caller of a constructor takes them as live
   (`ck_args_/5`: `ck_dying_param/2`, `ck_fresh_param/2`, `ck_own_under/3`). `ck_arg_base/2` takes any path, and
   `ck_pointee_fields/3` recurses into members held by value, so a member's constructor and destructor update its
@@ -5138,8 +5210,9 @@ A lambda is a class of its captures (`library/ccl_cpp.pl`). A fixture named alon
   `own_array_untagged`, `array_unset`, `unconsumed`, `untied`, `not_checked`. (M3)
 - The kinds not met above: `use_after_move` is a consumed owner used, freed or passed again, the double free.
   `owner_unset` is an owner used before it got a value. `move_of_non_owner` is `move` of no owner and no library value.
-  `goto_with_owners` is a `goto` in a function with owners, which the check does not follow. `not_checked` is a form
-  the walk cannot follow: a range-for over a non-array, a `continue` in a switch with no loop. (M3)
+  `goto_with_owners` is a `goto` into a block that does not enclose it, or over an owner's declaration, where an owner
+  lives (0.133). `not_checked` is a form the walk cannot follow: a range-for over a non-array, a `continue` in a switch
+  with no loop, a goto whose label no walk reached, a body whose labels' states do not settle in eight walks. (M3, 0.133)
 - A statement form the check does not know throws `not_lowered(F)` from the last `ck_stmt` clause. Every
   `test/c/safe/NAME.c` is refused with the error its `.expect` names (`test/compile.pl`). (M3, 0.32)
 
@@ -5213,7 +5286,17 @@ A lambda is a class of its captures (`library/ccl_cpp.pl`). A fixture named alon
 - `defer` is scope-bound and static, with no runtime (owner's rule). `ir_defer_push/1` registers a body in its scope's
   frame. `ir_run_defers/1` inlines the bodies last first: at a block's end, at `break` and `continue` (the frames inside
   the loop), and at `return` (every frame, after the value is computed). A statement expression runs its own block's
-  defers. A `goto` runs none. (M2)
+  defers. A `goto` runs the defers of the scopes it leaves (0.133, below). (M2)
+- A GOTO RUNS THE DEFERS OF THE SCOPES IT LEAVES (0.133; [stmt.jump]/2: leaving a block by any jump destroys its
+  objects; the language's `defer` runs at every exit of its scope; `ir_goto/3`, `ir_label_here/2`): each frame the
+  lowering pushes has an id (`ir_bpath_push`, `'$ir_bpath'`), and a label records its path and how many defers its own
+  frame holds (`'$ir_labels'`). A goto to a label already lowered (backward) runs the frames from its own down to the one
+  it shares with the label and, where the label's frame is one of its own, the defers that frame gained since the label
+  (`retry: std::string s = f(); ... goto retry;` jumps back past s, which dies; `ir_run_since_label/2`). A goto to a label
+  still ahead branches to a block of its own (`'$ir_fwd'`), emitted where the label is lowered, which runs those frames
+  under the goto's own scope -- its locals, its defers -- then branches on (`ir_trampolines/3`). A goto from scopes with
+  no defer branches straight to its label. It was a bare branch: `goto out;` from a block skipped a C++ local's
+  destructor and a `defer`. `test/c/run/gotodefer.c`, `test/cpp/run/gotodtor.cpp`. (0.133)
 - A conditional is a `phi` of its arms in their usual type -- in C++ the arms' own type where both are of ONE arithmetic
   type (`ccl_cond_arith/3`, 0.127) -- and void arms have no phi ([expr.cond]/2; `ir_expr(cond)`'s first clause, which
   tests the first arm). Else LLVM refused `phi void` in libc++ 18's string algorithms. `test/cpp/run/voidcond.cpp`.
@@ -5534,9 +5617,11 @@ A lambda is a class of its captures (`library/ccl_cpp.pl`). A fixture named alon
   class's description, so `ptype` lists the methods; a free function its name in its namespace's `DINamespace`
   (`ir_dbg_ns_ref/3`, one per path), a function template's instance its name and its arguments (`sum<int>`, from
   `'$cpp_dbg_targs'`, noted where the instance is emitted, `cpp_dbg_note_targs/3`); a free operator `operator<<`; a class its own name -- an
-  instance `Buf<int, 4>` -- in its namespace or the class that holds it (`cpp_dbg_holder_tag/2`); a static data member
-  `Class::name` in its class's namespace, which gdb reads as `ns::Class::name`; a namespace's global its name in its
-  namespace. A compiler-made global (a table, a type's information) is not described. The program's own namespaces are
+  instance `Buf<int, 4>` -- in its namespace or the class that holds it (`cpp_dbg_holder_tag/2`); a static data member a
+  member of its class (0.133; `ir_dbg_static_members/4`: a `DW_TAG_variable` with `DIFlagStaticMember`, after the data
+  members, where clang keeps the declaration order), its definition's global named as the member in the class's
+  namespace and pointing at it (`declaration:`, `ir_dbg_global_scope/4`), as clang's -- it was a global named
+  `Class::name`, which `ptype` did not list; a namespace's global its name in its namespace. A compiler-made global (a table, a type's information) is not described. The program's own namespaces are
   `'$cpp_dbg_ns'(Name, Path)`, noted by `cpp_ns_resolve/2` under `-g`; a header's come from `cpp_hdr_ns/2`. gdb:
   `break shapes::Buf<int, 4>::get`, `break Counter::bump` (both overloads), `bt` with the qualified names, `print *this`,
   `ptype sq` with its base and its methods, `print k` as `shapes::Kind::square`, a `std::vector<int>` and a
@@ -5594,8 +5679,8 @@ A lambda is a class of its captures (`library/ccl_cpp.pl`). A fixture named alon
   `'$cpp_cand_out'`. (0.109)
 - A goal that writes a global runs under `once/1` where a search can ask it again: `nb_setval/2` survives
   backtracking, and a `findall` once registered one temporary twice. (0.80)
-- `cpp_spend/1` refuses `instantiation_budget` past 3000 loads and instances; `cpp_deeper/1` refuses
-  `instantiation_depth` past a nesting of 120. Why: a runaway instantiation took the machine's memory. (0.44)
+- `cpp_spend/1` refuses `instantiation_budget` past 6000 loads and instances (3000 until 0.133); `cpp_deeper/1` refuses
+  `instantiation_depth` past a nesting of 120. Why: a runaway instantiation took the machine's memory. (0.44, 0.133)
 
 ### Tables: a global is copied, a fact is indexed
 
@@ -6015,11 +6100,11 @@ A lambda is a class of its captures (`library/ccl_cpp.pl`). A fixture named alon
   0.90, all GREEN (cocolog 1.2.18). The fixtures added since 0.93 have run on Linux only.
 - Ubuntu 24.04 on x86_64 (clang and LLVM 18, glibc, libc++ 18 and 21) is a host since 0.87. Every gate but the C++ one is
   GREEN there since 0.93, and all seven since 0.95. Every step from 0.93 on is gated there, but the save points 0.112,
-  0.113, 0.117, 0.122 to 0.125, 0.130 and 0.131 (gated by the steps after them); the last full run is 0.132's, over cocolog 1.10.0, on one
-  tree: over libc++ 18 all eight GREEN (reader 5 s, compile 11 s, driver 9 s, objects 4 s, proof, the cross gate in
-  49 s, the library read in 1030 s, the C++ gate in 1064 s with 456 of 457 fixtures ok, the skip is `stdoptionalref`, and the 21
-  refusals); over libc++ 21 the library read (974 s) and the C++ gate (700 s, 456 of 457 ok, the same skip) GREEN -- the C
-  gates do not read libc++. Two libc++ passes are one
+  0.113, 0.117, 0.122 to 0.125, 0.130 and 0.131 (gated by the steps after them); the last full run is 0.133's, over cocolog 1.10.0, on one
+  tree: over libc++ 18 all eight GREEN (reader 5 s, compile 12 s, driver 10 s, objects 3 s, proof, the cross gate in
+  51 s, the library read in 1090 s, the C++ gate in 1359 s with 463 of 465 fixtures ok, the skips are `stdoptionalref` and
+  `joinwith`, the 21 refusals and the two of the safe part); over libc++ 21 the library read (1069 s) and the C++ gate (863 s,
+  464 of 465 ok, the skip `stdoptionalref`) GREEN -- the C gates do not read libc++. Two libc++ passes are one
   gate: `LLVM=/usr/lib/llvm-18` and `LLVM=/usr/lib/llvm-21` choose the tree the chain reads and links. libc++ 22 (the
   newest tree, which a run without `$LLVM` reads) is untried but for `stdoptionalref`, which passes there. The run before
   0.121's (0.118, 0.119) found, over 0.117, two defects and one stale check of `test/cpp.pl` (c20, above).
@@ -6047,13 +6132,14 @@ A lambda is a class of its captures (`library/ccl_cpp.pl`). A fixture named alon
   splices (`splice.c`), the size of an aligned object (`alignsize.c`). Since 0.117: a VLA initialized by `= {}`
   (`vlaempty.c`, C23), `va_arg` of a struct, a union and a complex (`vaaggregate.c`), `__int128` (`int128.c`) and a
   `_Static_assert` over the `sizeof` of a struct (`sizeofassert.c`) and a conditional of a pointer and the literal zero
-  (`condnull.c`).
+  (`condnull.c`). Since 0.133: a `goto` out of scopes with `defer`s, forward and backward (`gotodefer.c`), and over owners
+  (`gotoown.c`).
 - The C library is the host's. The compiler's own freestanding headers are in `library/include/` (`<stdarg.h>`,
   `<stdatomic.h>`, `<complex.h>`, `<stdckdint.h>`, `<stdbit.h>`, `<limits.h>` and six more).
 - The language's own additions run: `:=`, patterns, `name { }` structs and `format`, `print`, `println`
   (`surface.c`), `defer` (`defers.c`), `#cocolog` (`cocolog.c`), `tie` (`tie.c`), `clone` (`clone.c`), `own` and
   `move` (`owners.c`, `own_fields.c`, `btree.c`, `btree_del.c`).
-- The safe part refuses each of the 43 programs in `test/c/safe/` with the error that its `.expect` names.
+- The safe part refuses each of the 45 programs in `test/c/safe/` with the error that its `.expect` names.
 
 ### C++ levels
 
@@ -6100,6 +6186,10 @@ A lambda is a class of its captures (`library/ccl_cpp.pl`). A fixture named alon
   temporaries; members of xvalues), `unionclass` and `uniondtor` (a union at namespace scope with a constructor, a
   destructor or a method; a union's destructor destroys no member), `varvisit` (the first surface of `std::variant`
   and `std::visit`: a function object, a generic lambda, `std::get`, `index`, `holds_alternative`).
+- Forms that 0.133 asked for: `packnested` (C++20: a nested expansion of the pack being expanded), `vtlambda` (C++20: a
+  variable template whose value is a lambda called in place, chosen by `if constexpr`), `tupleholder` (a class holding a
+  `std::tuple`, default-constructed), `gotodtor` (a `goto` out of blocks with destructors, forward and back past a
+  declaration), `ctorout` (constructors defined out of their class, a nested class's among them).
 - Forms that the views of 0.132 asked for: `decltypeauto` (`decltype(auto)` results of a function, a method, a lambda and
   a variable; `auto &&` and `std::forward<decltype(r)>`), `refresult` (free functions returning `T &` and `T &&`),
   `ctadtmpl` and `ctadcheck` (a template template parameter called; a guide whose result does not substitute; a deduced
@@ -6158,7 +6248,8 @@ A lambda is a class of its captures (`library/ccl_cpp.pl`). A fixture named alon
   (`arraycookie`), trailing return types (`trailing`) and CTAD (`stdctad`, `deduceguide`) (0.108, 0.110).
 - `test/cpp.sh` checks that twenty-one programs are refused by name (`coro.cpp`, `concept_fail.cpp`,
   `constrained_fail.cpp`, `lambda_const.cpp`, `lambda_method.cpp`, `bind_const.cpp`, the eleven `access_*.cpp`,
-  `abstract.cpp`, `modhidden.cpp`, `diamond.cpp`, `basenodefault.cpp`) and that the safe part refuses `escape.cpp`.
+  `abstract.cpp`, `modhidden.cpp`, `diamond.cpp`, `basenodefault.cpp`) and that the safe part refuses `escape.cpp` and
+  `thisunset.cpp`.
 
 ### libc++ headers read whole
 
@@ -6260,13 +6351,15 @@ A lambda is a class of its captures (`library/ccl_cpp.pl`). A fixture named alon
   ... `viewchain`) and all in one program (`viewsall`, about 1600 s) (0.115). At C++23 (0.132): `empty`, `single`,
   `counted`, `chunk_by`, `common` over `iota`, `zip` (its size too), `elements`, `drop_while`, `as_rvalue` and `repeat`
   (`viewsmore`), and `join`, `split`, `lazy_split` and `ranges::to` with a container's template and with a class
-  (`viewsmore2`).
+  (`viewsmore2`). `views::join_with` over libc++ 21 (`joinwith`, which its `.needs` skips over libc++ 18; 0.133).
 - `std::format` (C++20): `stdformat` -- integers in every base, widths, alignment and fill, a double's precision, a
   char, a bool, a `std::string` argument, positional arguments, and `format_to` through a back inserter -- beside the
   fixtures of the program's own shapes it asked for (`lambdafp`, `ctortconv`, `qualspec`, `intspell`, `tmpldefaults`,
   `autohead`, `constsv`, `implicitassign` and others) (0.112). `std::vformat`, `make_format_args`, `formatted_size`
   and `format_to_n` (`stdvformat`); a formatter the program specializes (`stdformatter`); `std::format(L"...")`
-  (`stdwformat`); `std::print` and `std::println` at C++23 (`stdprint`) (0.115).
+  (`stdwformat`); `std::print` and `std::println` at C++23 (`stdprint`) (0.115). Range and tuple formatting at C++23
+  (0.133): a vector, a map, a vector of strings debug-formatted and a nested spec, `{::02}` (`fmtrange`); a pair and a
+  tuple (`fmttuple`).
 
 ### Benchmarks
 
@@ -6315,12 +6408,14 @@ A lambda is a class of its captures (`library/ccl_cpp.pl`). A fixture named alon
 
 - Range views: `filter`, `transform`, `reverse`, `iota`, `take`, `drop`, `take_while`, `keys`, `values` and their chain
   run, alone and in one program (0.115), and since 0.132 `empty`, `single`, `counted`, `chunk_by`, `common`, `zip`,
-  `elements`, `drop_while`, `as_rvalue`, `repeat`, `join`, `split`, `lazy_split` and `ranges::to`. Untried: the C++23 views
-  libc++ 18 does not have (`adjacent`, `cartesian_product`, `chunk`, `enumerate`, `join_with`, `slide`, `stride`,
-  `zip_transform`, `as_const`), at libc++ 21.
+  `elements`, `drop_while`, `as_rvalue`, `repeat`, `join`, `split`, `lazy_split` and `ranges::to`, and since 0.133 `join_with`
+  at libc++ 21. Untried: the other C++23 views libc++ 18 does not have (`adjacent`, `cartesian_product`, `chunk`,
+  `enumerate`, `slide`, `stride`, `zip_transform`, `as_const`), at libc++ 21.
 - `std::format` runs (`stdformat.cpp`, 0.112), its compile-time format-string check dropped (0.110): a bad format
   string is caught at run time by the library's own parser. `vformat`, a formatter the program specializes, the wide
-  format and `std::print` run (0.115). Untried: chrono and range formatting.
+  format and `std::print` run (0.115), and range and tuple formatting (0.133). Not finished: chrono formatting -- a build
+  of `std::format("{}", std::chrono::seconds(5))` passed its 1500 s cap and was killed (0.133), where the time goes not
+  found.
 - `optional<T &>` needs libc++ 22 (`stdoptionalref.needs`; 21.1.8 has none). `bad_optional_access` cannot be caught: libc++ keeps its
   no-exceptions configuration and aborts with the message (0.82).
 - libc++ keeps its no-RTTI configuration by design, so `shared_ptr::get_deleter`, `dynamic_pointer_cast`,
@@ -6376,8 +6471,9 @@ A lambda is a class of its captures (`library/ccl_cpp.pl`). A fixture named alon
 - A library header's functions are not checked (`cpp_library_function/1`, `'$cpp_libfn'`). This is 0.45's decision,
   and it waits for the owner to confirm or reverse it.
 - A closure held in a `std::function` is not followed: it is the library's discipline (0.100).
-- `this` handed out of a constructor is not followed (0.37).
-- A `goto` in a function that has owners is refused, `goto_with_owners`: the flow walk does not follow it (M3).
+- A `goto` into a block that does not enclose it, or over an owner's declaration, is refused where an owner lives
+  (`goto_with_owners`): C allows both, and the walk would have to give the skipped declarations a state (0.133; any goto
+  in a function with owners was refused before).
 - A direct `std::allocator::allocate` and `allocator_traits<A>::allocate(a, n)` are accepted: a library member's or
   static function's plain pointer result borrows the object it takes by reference (`ck_borrows_from`, 0.91, 0.117;
   `stdallocator.cpp`).
@@ -6388,8 +6484,8 @@ A lambda is a class of its captures (`library/ccl_cpp.pl`). A fixture named alon
   `-D` and `-U` define and undefine (0.112); a run with either keeps no C store.
 - `-g` (0.130) leaves out what clang's has beyond the variables, the types and the scopes: a destructor run at a scope's end
   has the line of its object's declaration, not the closing brace's; there are no columns (every location is column
-  1); `-g3`'s macros are not described; a static data member is a global named `Class::name` in its namespace, not a
-  member declared in its class.
+  1); the macros that clang describes under `-fdebug-macro` are not (the flag is accepted and ignored; `-g3` alone
+  describes none in either compiler, 0.133).
 - A C++ read never uses the store: `cicilang++` runs `--no-kb` (M5). The C++ cache is the summary and the AST beside it
   (0.35, 0.45).
 - cocolog has no `oom` check in its step loop (1.8.41), so a refused allocation gives a wrong answer. Its heap
