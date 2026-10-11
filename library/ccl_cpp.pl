@@ -102,12 +102,38 @@ cpp_ns_rewrite_units([unit(Is)|Us], Qs, [unit(Is1)|Us1]) :- cpp_ns_rewrite_items
 cpp_ns_rewrite_items([], _, _, []).
 cpp_ns_rewrite_items([namespace(L, N, Js)|Is], P, Qs, [namespace(L, N, Js1)|Is1]) :- !, cpp_ns_path(P, N, P1), cpp_ns_rewrite_items(Js, P1, Qs, Js1), cpp_ns_rewrite_items(Is, P, Qs, Is1).
 cpp_ns_rewrite_items([include(L, S, file(F, raw, unit(Js)))|Is], P, Qs, [include(L, S, file(F, raw, unit(Js1)))|Is1]) :- !, cpp_ns_rewrite_items(Js, P, Qs, Js1), cpp_ns_rewrite_items(Is, P, Qs, Is1).
-cpp_ns_rewrite_items([I|Is], P, Qs, [I2|Is1]) :-
+cpp_ns_rewrite_items([using(L, U)|Is], P, Qs, [using(L, U)|Is1]) :- cpp_ns_named_path(P, NP), cpp_using_map(U, NP, Qs, Map), Map \== [], !,
+    cpp_rename_names(Is, Map, Is0), cpp_ns_rewrite_items(Is0, P, Qs, Is1).   % a using-declaration or -directive at file or namespace scope: the items after it (0.139)
+cpp_ns_rewrite_items([I|Is], P, Qs, [I3|Is1]) :-
     (   catch(once(cpp_index_name(I, N)), _, fail), cpp_ns_item_path(P, I, PI), cpp_index_key(Qs, PI, N, K), K \== N, cpp_qualify_item(N, K, I, I1) -> true
     ;   cpp_ns_enum_name(I, _), cpp_ns_item_path(P, I, PI), cpp_qualify_enum(Qs, PI, I, I1) -> true
     ;   I1 = I ),
     cpp_qualify_body(Qs, P, I1, I2),
+    ( cpp_ns_named_path(P, NP0) -> cpp_using_blocks(I2, NP0, Qs, I3) ; I3 = I2 ),   % ... and in a block, the statements after it (0.139)
     cpp_ns_rewrite_items(Is, P, Qs, Is1).
+%% A USING-DECLARATION OR A USING-DIRECTIVE OVER COLLIDED NAMES (0.139; [namespace.udecl], [namespace.udir]): two namespaces of
+%% the program declare one name, the outermost keeps it bare and the other's is keyed `<ns>.<name>' (above), so a bare use is the
+%% bare one's. `using b::f;' and `using namespace b;' make b's names the ones a bare use finds in the rest of their scope: the
+%% names they bring that were keyed are renamed to their keys in the items or statements that follow (cpp_using_map/4: the
+%% declaration's or the directive's namespace found from the scope's own outwards, as a qualified name is, cpp_abs_ns_path).
+%% `using b::f; ... f()' called a::f, and `using namespace b; S s; g(2)' was a's S and a's g, silent wrong answers.
+cpp_using_map(name(scoped(Path, N)), NP, Qs, [N-K]) :- atom(N), cpp_abs_ns_path(Path, N, NP, Qs, Cand), memberchk(q(Ns, N, Cand), Qs), Ns \== bare, !, atomic_list_concat([Ns, '.', N], K).
+cpp_using_map(namespace(Q), NP, Qs, Map) :- cpp_using_ns_segs(Q, Segs), Segs \== [],
+    (   Segs = [global|Abs] -> Cand = Abs
+    ;   length(NP, Len), between(0, Len, J), K0 is Len - J, length(Pre, K0), append(Pre, _, NP), append(Pre, Segs, Cand), memberchk(q(_, _, Cand), Qs) -> true ),
+    findall(N-K, ( member(q(Ns, N, Cand), Qs), Ns \== bare, atomic_list_concat([Ns, '.', N], K) ), Map), !.
+cpp_using_map(_, _, _, []).
+cpp_using_ns_segs(Q, [Q]) :- atom(Q), !.
+cpp_using_ns_segs(scoped(P, X), Segs) :- atom(X), is_list(P), forall(member(S, P), atom(S)), append(P, [X], Segs).
+cpp_using_blocks(T, _, _, T) :- \+ compound(T), !.
+cpp_using_blocks(block(Ss), NP, Qs, block(Ss1)) :- is_list(Ss), !, cpp_using_stmts(Ss, NP, Qs, Ss1).
+cpp_using_blocks(T, NP, Qs, T1) :- T =.. [F|As], cpp_using_blocks_l(As, NP, Qs, As1), T1 =.. [F|As1].
+cpp_using_blocks_l([], _, _, []).
+cpp_using_blocks_l([A|As], NP, Qs, [A1|As1]) :- cpp_using_blocks(A, NP, Qs, A1), cpp_using_blocks_l(As, NP, Qs, As1).
+cpp_using_stmts([], _, _, []).
+cpp_using_stmts([S|Ss], NP, Qs, [S1|Ss1]) :-
+    ( S = using(_, U), cpp_using_map(U, NP, Qs, Map), Map \== [] -> cpp_rename_names(Ss, Map, Ss0) ; Ss0 = Ss ),
+    cpp_using_blocks(S, NP, Qs, S1), cpp_using_stmts(Ss0, NP, Qs, Ss1).
 %% TWO NAMESPACES' ENUMS OF ONE NAME, OR OF ONE ENUMERATOR NAME (0.127): `namespace n1 { enum { x = 7 }; }' beside `namespace n2 { enum { x = 8 }; }'
 %% read n1's 7 inside n2 and through `n2::x', and two enums `Mode' were one tag. The tag and an unscoped enum's enumerators are keyed and renamed as a
 %% function's or a class's name is (the uses inside the namespace by cpp_qualify_body, a qualified one by cpp_ns_key)
@@ -2002,6 +2028,10 @@ cpp_slot_call(C, M, N, Name, Slot) :- cpp_class_l(C, cls(_, _, _, _, Slots)),
     (   Same = [slot(_, K, _, _, _)] -> true
     ;   Same = [_, _|_], Ps \== none, member(slot(_, K, _, SPs, _), Same), cpp_params_agree(Ps, SPs) -> true ), !,
     cpp_slot_name(M, K, Slot).
+%% ... AND A VIRTUAL BASE'S SLOT that the method overrides (0.139): a class over a virtual base has a table of its own for its own
+%% new virtual functions, and an override of the virtual base's is no slot of it, so the call goes through the virtual base's
+%% sub-object and its table, whose entry is the final overrider (a thunk moving `this' to it)
+cpp_vbase_slot_call(C, M, N, Name, V, Slot) :- \+ cpp_slot_call(C, M, N, Name, _), cpp_vbases_of(C, Vs), member(V, Vs), cpp_slot_call(V, M, N, Name, Slot), !.
 %% ... and the slot of a method named by its address, `&C::f' (cpp_method_address)
 cpp_method_slot_key(C, M, Ps, K) :- length(Ps, A), cpp_class_l(C, cls(_, _, _, _, Slots)), cpp_slots_of(Slots, M, A, Same),
     (   Same = [slot(_, K, _, _, _)] -> true
@@ -2778,7 +2808,7 @@ cpp_item(declare(L, base(Q, [class(_, C0, _, _)])), Items) :- !, ( cpp_class_ite
     ( '$cpp_union'(C) -> Spec = union(C, [union_tag|Data2]) ; Spec = struct(C, Data2) ),   % a union-class shares its members' storage, and its tag says so wherever it is noted from (ccl_is_union_tag)
     ( cpp_vbase_dynamic(C) -> cpp_nv_data(C, Data2, NVData), cpp_nv_tag(C, NV), Fns = [declare(L, base([], [struct(NV, NVData)]))|FnsA] ; Fns = FnsA ),   % the base-subobject form beside the class (0.110)
     (   Slots == [] -> Items = [declare(L, base(Q, [Spec]))|Fns]
-    ;   cpp_vt_struct(L, C, Slots, VtDecl), cpp_vtable(L, C, Slots, Tables00), nb_getval('$cpp_pthunks', PTh), append(PTh, Tables00, Tables0), cpp_secondary_tables(L, C, Secs), append(Tables0, Secs, Tables),
+    ;   cpp_vt_struct(L, C, Slots, VtDecl), cpp_vtable(L, C, Slots, Tables00), nb_getval('$cpp_pthunks', PTh), append(PTh, Tables00, Tables0), cpp_secondary_tables(L, C, Secs0), cpp_ctor_tables(L, C, CTs), append(Secs0, CTs, Secs), append(Tables0, Secs, Tables),
         Items = [VtDecl, declare(L, base(Q, [Spec]))|Fns1x], append(Fns, Tables, Fns1x) ).
 %% A LAZY POLYMORPHIC CLASS emitted EVERY member, where only the ones its table names need a body: libc++'s
 %% basic_ostream, basic_ios, ios_base, basic_streambuf and every facet carry a virtual destructor, and
@@ -2902,6 +2932,66 @@ cpp_poly_access([H|Hs], A) :- cpp_poly_access_(Hs, arrow(this, H), A).
 cpp_poly_access_([], A, A).
 cpp_poly_access_([H|Hs], A0, A) :- cpp_poly_access_(Hs, member(A0, H), A).
 cpp_secondary_tables(L, C, Items) :- findall(I, ( '$cpp_poly_extra'(C, N, S), cpp_secondary_table(L, C, N, S, Is), member(I, Is) ), Items).
+%% CONSTRUCTION VTABLES (0.139; the Itanium ABI's, without the VTT: the holder stores them itself). While a DIAMOND's path P
+%% is built or destroyed by its base-variant constructor or destructor (`.nv', which store no table), the object is a P
+%% ([class.cdtor]/4), so the path's table pointer holds `D.ctvtable<S>' -- P's own implementations, laid out for D: the
+%% virtual base's offset from the path's sub-object in D's layout, minus the sub-object's offset as the offset to top, P's
+%% type_info -- and the shared base's holds `D.ctvtable$vb<S>' -- the shared base's slots with P's final overriders, reached
+%% by thunks that move `this' from the shared base to the path in D's layout (`D.ctthunk$vb<S>.<slot>'). The holder stores
+%% a path's two tables right before its constructor and right after its destructor (whose calls are reversed after), its own
+%% tables once the paths are built and before they are destroyed. A virtual call through the shared base in a path's
+%% constructor reached the HOLDER's override, which reads members not yet built. The program's diamonds only.
+cpp_ctor_tables(L, C, Items) :- \+ cpp_lib_class(C), '$cpp_vb_holder'(C, _), !,
+    findall(I, ( cpp_ctor_path(C, P, S), ( cpp_ctor_table(L, C, P, S, Is) ; cpp_ctor_vb_table(L, C, P, S, Is) ), member(I, Is) ), Items).
+cpp_ctor_tables(_, _, []).
+cpp_ctor_path(C, P, '$base') :- cpp_class_l(C, cls(P, _, _, _, _)), P \== none, '$cpp_nv_base'(C, P), cpp_polymorphic(P).
+cpp_ctor_path(C, P, S) :- '$cpp_base_slot'(C, P, S), '$cpp_nv_base'(C, P), cpp_polymorphic(P).
+cpp_ctor_table(L, C, P, S, [declare(L, base([], [struct(VTP, VMs)])), declaration(L, static, base([], [struct(VTP, none)]), [var(TName, base([], [struct(VTP, none)]), init(VItems))])]) :-
+    cpp_vt_owner(P, Owner), cpp_vt_tag(Owner, VT), atomic_list_concat([C, '.ctvtp', S], VTP), atomic_list_concat([C, '.ctvtable', S], TName),
+    cpp_class_l(P, cls(_, _, _, _, PSlots)), CT = base([], [typedef(C)]), Off = offsetof(CT, id(S)),
+    findall(item([], E), ( member(slot(M, K, _, _, _), PSlots), cpp_ct_entry(P, M, K, E) ), SlotItems),
+    ( catch(cpp_rtti_chain(P, Ch), _, fail) -> TI = rtti(Ch) ; TI = nullptr ),
+    PMs = [member(base([], [long]), '$off', none), member(ptr([], base([const], [void])), '$ti', none), member(base([], [struct(VT, none)]), '$vt', none)],
+    PItems = [item([], neg(Off)), item([], TI), item([], init(SlotItems))],
+    ( cpp_vbase_offset(C, P, Off, VBO) -> VMs = [member(base([], [long]), '$vbo', none)|PMs], VItems = [item([], VBO)|PItems] ; VMs = PMs, VItems = PItems ).
+cpp_ct_entry(P, M, K, E) :- ( memberchk(M, ['$dtor', '$dtor_del']) -> cpp_dtor(P, Impl) ; cpp_slot_def(P, M, K, Impl) ), !, E = id(Impl).
+cpp_ct_entry(_, _, _, nullptr).
+cpp_ctor_vb_table(L, C, P, S, Items) :- '$cpp_vb_holder'(C, V), cpp_polymorphic(V), '$cpp_poly_extra'(C, V, '$vb'),
+    cpp_vt_owner(V, VO), cpp_vt_tag(VO, VT), atomic_list_concat([C, '.ctvtp$vb', S], VTP), atomic_list_concat([C, '.ctvtable$vb', S], TName),
+    cpp_class_l(V, cls(_, _, _, _, VSlots)), CT = base([], [typedef(C)]), Delta = bin('-', offsetof(CT, id('$vb')), offsetof(CT, id(S))),
+    cpp_this_type(VO, [], ThisT),
+    findall(E-Fs, ( member(slot(M, K, Ret, Ps, Var), VSlots), once(cpp_ct_vb_entry(L, C, P, V, S, M, K, Ret, Ps, Var, Delta, ThisT, E, Fs)) ), EFs),
+    findall(item([], E), member(E-_, EFs), SlotItems), findall(F, ( member(_-Fs, EFs), member(F, Fs) ), Thunks),
+    ( catch(cpp_rtti_chain(P, Ch), _, fail) -> TI = rtti(Ch) ; TI = nullptr ),
+    VMs = [member(base([], [long]), '$off', none), member(ptr([], base([const], [void])), '$ti', none), member(base([], [struct(VT, none)]), '$vt', none)],
+    VItems = [item([], neg(Delta)), item([], TI), item([], init(SlotItems))],
+    append(Thunks, [declare(L, base([], [struct(VTP, VMs)])), declaration(L, static, base([], [struct(VTP, none)]), [var(TName, base([], [struct(VTP, none)]), init(VItems))])], Items).
+cpp_ct_vb_entry(_, _, _, V, _, M, K, _, _, _, _, _, E, []) :- memberchk(M, ['$dtor', '$dtor_del']), !, ( cpp_slot_def(V, M, K, Impl) -> E = id(Impl) ; E = nullptr ).
+cpp_ct_vb_entry(L, C, P, V, S, M, K, Ret, Ps, Var, Delta, ThisT, id(TN), [Fn]) :- cpp_slot_impl(P, M, K, Impl), \+ cpp_slot_impl(V, M, K, Impl), !,
+    cpp_slot_name(M, K, SN), atomic_list_concat([C, '.ctthunk$vb', S, '.', SN], TN),
+    Adj = cast(ptr([], base([], [typedef(P)])), bin('-', cast(ptr([], base([], [char])), id(this)), Delta)),
+    cpp_mk_thunk(L, TN, Impl, Ret, Ps, Var, ThisT, Adj, Fn).
+cpp_ct_vb_entry(_, _, _, V, _, M, K, _, _, _, _, _, E, []) :- ( cpp_slot_def(V, M, K, Impl) -> E = id(Impl) ; E = nullptr ).
+cpp_ct_stores(L, C, P, S, Stores) :-
+    cpp_poly_access([S], Acc), cpp_vt_owner(P, Owner), cpp_vt_tag(Owner, VT), atomic_list_concat([C, '.ctvtable', S], TName),
+    St1 = expr(L, assign('=', member(Acc, '$vptr'), cast(ptr([], base([], [struct(VT, none)])), addr(member(id(TName), '$vt'))))),
+    (   '$cpp_vb_holder'(C, V), cpp_polymorphic(V), '$cpp_poly_extra'(C, V, '$vb')
+    ->  cpp_vt_owner(V, VO), cpp_vt_tag(VO, VVT), atomic_list_concat([C, '.ctvtable$vb', S], VName), cpp_poly_access(['$vb'], VAcc),
+        Stores = [St1, expr(L, assign('=', member(VAcc, '$vptr'), cast(ptr([], base([], [struct(VVT, none)])), addr(member(id(VName), '$vt')))))]
+    ;   Stores = [St1] ).
+%% a path's construction tables around its base-variant call: stored before a constructor's call, after a destructor's (the
+%% destructor's calls are reversed afterwards); the groups of the later bases are in their slots' order
+cpp_ct_wrap(Kind, L, C, F0, G0, F, G) :- \+ cpp_lib_class(C), '$cpp_vb_holder'(C, _), \+ cpp_nv_body(C), !,
+    ( F0 \== [], cpp_ctor_path(C, P, '$base') -> cpp_ct_stores(L, C, P, '$base', St), cpp_ct_around(Kind, St, F0, F) ; F = F0 ),
+    findall(B-Slot, '$cpp_base_slot'(C, B, Slot), BSs), cpp_ct_groups(BSs, G0, Kind, L, C, G).
+cpp_ct_wrap(_, _, _, F, G, F, G).
+cpp_ct_groups([], Gs, _, _, _, Gs) :- !.
+cpp_ct_groups(_, [], _, _, _, []) :- !.
+cpp_ct_groups([B-S|BSs], [G0|Gs0], Kind, L, C, [G|Gs]) :-
+    ( G0 \== [], cpp_ctor_path(C, B, S) -> cpp_ct_stores(L, C, B, S, St), cpp_ct_around(Kind, St, G0, G) ; G = G0 ),
+    cpp_ct_groups(BSs, Gs0, Kind, L, C, Gs).
+cpp_ct_around(ctor, St, Calls, Out) :- append(St, Calls, Out).
+cpp_ct_around(dtor, St, Calls, Out) :- append(Calls, St, Out).
 cpp_secondary_table(L, C, N, S, Items) :-
     cpp_vt_owner(N, Owner), cpp_vt_tag(Owner, VT), atomic_list_concat([C, '.vtp', S], VTP), atomic_list_concat([C, '.vtable', S], TName),
     cpp_class_l(N, cls(_, _, _, _, NSlots)), CT = base([], [typedef(C)]), cpp_poly_hops(C, S, Hops), cpp_poly_designator(Hops, Des), Off = offsetof(CT, Des),
@@ -2969,7 +3059,7 @@ cpp_dtor_body(L, C, block(Body), block(Body1)) :-
     ;   findall(S, ( member(member(MT, N, _), RData), cpp_member_dtor(MT, arrow(this, N), L, Ss), member(S, Ss) ), MemberDtors) ),
     findall(G, ( '$cpp_base_slot'(C, E, Slot), findall(expr(L, call(id(EName), [addr(arrow(this, Slot))])), ( cpp_dtor(E, EName0), cpp_nv_dtor(C, E, EName0, EName), EName \== '$no_dtor' ), G) ), ExtraDtors0),   % one group per later base, empty where it has no destructor
     ( B \== none, \+ ( cpp_nv_body(C), '$cpp_vbase'(C) ), cpp_dtor(B, BName0), cpp_nv_dtor(C, B, BName0, BName), BName \== '$no_dtor' -> cpp_class_base_place(C, B, BPlace), BaseDtor0 = [expr(L, call(id(BName), [BPlace]))] ; BaseDtor0 = [] ),
-    cpp_bases_in_order(C, BaseDtor0, ExtraDtors0, Written), reverse(Written, BasesDtors),     % the bases in the reverse of the order WRITTEN (a moved primary base among them; one call per base, so the reverse of the calls is the reverse of the bases)
+    cpp_ct_wrap(dtor, L, C, BaseDtor0, ExtraDtors0, BaseDtor00, ExtraDtors00), cpp_bases_in_order(C, BaseDtor00, ExtraDtors00, Written), reverse(Written, BasesDtors),   % ... and destroyed under them (0.139)     % the bases in the reverse of the order WRITTEN (a moved primary base among them; one call per base, so the reverse of the calls is the reverse of the bases)
     ( '$cpp_vb_holder'(C, V), cpp_dtor(V, VName) -> append(BasesDtors, [expr(L, call(id(VName), [addr(arrow(this, '$vb'))]))], BaseDtor) ; BaseDtor = BasesDtors ),   % the shared virtual base last
     ( \+ cpp_nv_body(C), cpp_vptr_store(L, C, Store) -> true ; Store = [] ),
     append(Store, Body, BodyS), append(BodyS, MemberDtors, Body0), append(Body0, BaseDtor, Body1).
@@ -3369,7 +3459,7 @@ cpp_ctor_body(L, C, B, Defaults, Inits0, block(Body), block(Pre)) :-
         ; BArgs == [], \+ cpp_no_default_ctor(B) -> FirstCall = []
         ; cpp_refuse(L, base_constructor(B)) )
     ;   FirstCall = [] ),
-    cpp_extra_init_groups(L, C, Inits, ExGs), cpp_bases_in_order(C, FirstCall, ExGs, BaseCalls), append(BaseCalls, Pre1, Pre00),   % each base WITH storage of its own, in declaration order
+    cpp_extra_init_groups(L, C, Inits, ExGs0), cpp_ct_wrap(ctor, L, C, FirstCall, ExGs0, FirstCall1, ExGs), cpp_bases_in_order(C, FirstCall1, ExGs, BaseCalls), append(BaseCalls, Pre1, Pre00),   % each path of a diamond built under its construction tables (0.139)   % each base WITH storage of its own, in declaration order
     ( cpp_nv_body(C) -> Store = [] ; cpp_vptr_store(L, C, Store) ), append(Store, Pre2, Pre1),   % the base variant leaves the table to the complete object, which stored its own for this sub-object
     cpp_class_l(C, cls(_, Data0, _, _, _)),
     ( '$cpp_union'(C) -> cpp_union_inits(Data0, Inits, Defaults, Data) ; Data = Data0 ),
@@ -3588,16 +3678,23 @@ cpp_method_body_(Ctx, Ret, Params, Body, Body1) :-
               Err, ( nb_setval('$cpp_ret', R0), nb_setval('$cpp_body_ctx', BC0), throw(Err) ))
     ->  nb_setval('$cpp_ret', R0), nb_setval('$cpp_body_ctx', BC0)
     ;   nb_setval('$cpp_ret', R0), nb_setval('$cpp_body_ctx', BC0), fail ),   % THE RESULT TYPE IS RESTORED ON EVERY EXIT (0.115): a body whose walk threw (a refusal inside an instance that a candidate check catches) left its own result type behind, and `return 0;' in main converted through `vector(size_type)' after `v | views::reverse'
-    cpp_param_defers(Params, Defers), ( Defers == [], ! ; Body0 = block(Ss), Body1 = block(Ss1), append(Defers, Ss, Ss1) ), ( Defers == [] -> Body1 = Body0 ; true ).
+    cpp_body_end(Body, LE), cpp_param_defers(Params, LE, Defers), ( Defers == [], ! ; Body0 = block(Ss), Body1 = block(Ss1), append(Defers, Ss, Ss1) ), ( Defers == [] -> Body1 = Body0 ; true ).
+%% UNDER -g A DESTRUCTOR RUN AT A SCOPE'S END HAS THE LINE OF THE SCOPE'S CLOSING BRACE, on every exit (0.139), as clang's
+%% has: the reader recorded it against the declaration's line and name (ccl_note_scope_end/2), and a function's against its
+%% body's first statement; without the record (no -g, or a library's code) the declaration's own line, as before
+cpp_scope_end(L, N, LE) :- ( catch(nb_getval('$ccl_scope_ends', Es), _, fail), Es \== [], memberchk(v(L, N, E), Es) -> LE = E ; LE = L ).
+cpp_body_end(block(Is), LE) :- member(I, Is), compound(I), arg(1, I, L), integer(L), !, ( catch(nb_getval('$ccl_scope_ends', Es), _, fail), memberchk(b(L, E), Es) -> LE = E ; LE = 0 ).
+cpp_body_end(_, 0).
 %% a by-value parameter of a class with a destructor is the callee's to destroy, at every exit
-cpp_param_defers(Ps, Ds) :- cpp_param_defers(Ps, 1, Ds).
+cpp_param_defers(Ps, Ds) :- cpp_param_defers(Ps, 0, Ds).
+cpp_param_defers(Ps, LE, Ds) :- cpp_param_defers(Ps, LE, 1, Ds).
 %% ... AN UNNAMED ONE TOO (0.134), named by its position, `$argK' -- here and in the function's own parameter list
 %% (cpp_name_anon_items): libc++'s `end(directory_iterator) noexcept { return directory_iterator(); }' holds a shared_ptr
 %% in its unnamed parameter, and the defer named `anon', which nothing declares (`undeclared(anon)')
-cpp_param_defers([], _, []).
-cpp_param_defers([param(T, N0)|Ps], K, Ds) :- ( N0 == anon -> atom_concat('$arg', K, N) ; N = N0 ), atom(N), N \== this, cpp_class_of_type(T, C), cpp_dtor(C, DName), !,
-    Ds = [defer(0, [], block([expr(0, call(id(DName), [addr(id(N))]))]))|Ds1], K1 is K + 1, cpp_param_defers(Ps, K1, Ds1).
-cpp_param_defers([_|Ps], K, Ds) :- K1 is K + 1, cpp_param_defers(Ps, K1, Ds).
+cpp_param_defers([], _, _, []).
+cpp_param_defers([param(T, N0)|Ps], LE, K, Ds) :- ( N0 == anon -> atom_concat('$arg', K, N) ; N = N0 ), atom(N), N \== this, cpp_class_of_type(T, C), cpp_dtor(C, DName), !,
+    Ds = [defer(0, [], block([expr(LE, call(id(DName), [addr(id(N))]))]))|Ds1], K1 is K + 1, cpp_param_defers(Ps, LE, K1, Ds1).
+cpp_param_defers([_|Ps], LE, K, Ds) :- K1 is K + 1, cpp_param_defers(Ps, LE, K1, Ds).
 %% the unnamed parameters a body names by position (cpp_param_defers) take that name in the function's own list, every
 %% function of the unit's output, in a namespace or an `extern "C"' block too
 cpp_name_anon_items([], []).
@@ -4127,7 +4224,7 @@ cpp_decl_pieces(Ctx, L, Sto, B, [var(N, T0, init(Items))|Vs], Pieces) :-
     ccl_declare(N, T), cpp_class_l(C, cls(_, Data, _, _, _)),
     cpp_agg_values(Data, Items, Es), cpp_exprs(Ctx, Es, Es1), cpp_aggregate_inits(Data, Es1, id(N), L, Inits),
     Pieces = [declaration(L, Sto, B, [var(N, T, none)])|P1], append(Inits, P2, P1),
-    ( cpp_dtor(C, DName) -> cpp_check_access(Ctx, C, '$dtor'), P2 = [defer(L, [], block([expr(L, call(id(DName), [addr(id(N))]))]))|P3] ; P2 = P3 ),
+    ( cpp_dtor(C, DName) -> cpp_check_access(Ctx, C, '$dtor'), cpp_scope_end(L, N, LE), P2 = [defer(L, [], block([expr(LE, call(id(DName), [addr(id(N))]))]))|P3] ; P2 = P3 ),
     cpp_decl_pieces(Ctx, L, Sto, B, Vs, P3).
 %% A FUNCTION-LOCAL STATIC OBJECT IS INITIALIZED THE FIRST TIME CONTROL PASSES ITS DECLARATION ([stmt.dcl]/3; 0.112):
 %% at compile time where the evaluator constructs it, else under the Itanium ABI's guard -- `__cxa_guard_acquire'
@@ -4229,10 +4326,10 @@ cpp_decl_pieces(Ctx, L, Sto, B, [var(N, T0, I)|Vs], Pieces) :-
         (   Sto \== static, Sto \== extern, cpp_ext_temp(T, I1, X, XT, XD)   % A TEMPORARY BOUND TO A NAMED REFERENCE LIVES AS LONG AS THE REFERENCE ([class.temporary]/6; 0.112): it is a hidden local `$ext_K', the prvalue elided into it, destroyed by a defer at the scope's end where the statement's end had destroyed it (`const Tag &a = Tag(1)' dangled) or nothing had (`Tag &&b = make(2)')
         ->  cpp_temp_elide(I1, I2), ccl_declare(X, XT),
             Pieces = [declaration(L, none, XT, [var(X, XT, I2)])|P0],
-            ( XD \== none -> P0 = [defer(L, [], block([expr(L, call(id(XD), [addr(id(X))]))])), declaration(L, Sto, B, [var(N, T, id(X))])|P1] ; P0 = [declaration(L, Sto, B, [var(N, T, id(X))])|P1] )
+            ( XD \== none -> cpp_scope_end(L, N, LX), P0 = [defer(L, [], block([expr(LX, call(id(XD), [addr(id(X))]))])), declaration(L, Sto, B, [var(N, T, id(X))])|P1] ; P0 = [declaration(L, Sto, B, [var(N, T, id(X))])|P1] )
         ;   ( cpp_class_of_type(T, C1), cpp_dtor(C1, _) -> cpp_temp_elide(I1, I2) ; I2 = I1 ),   % a temporary of a class without constructors -- a closure built member by member -- IS the local ([class.copy.elision]), destroyed once, by the local's defer
             Pieces = [declaration(L, Sto, B, [var(N, T, I2)])|P1] ) ),
-    ( Sto \== static, Sto \== extern, cpp_class_of_type(T, C2), cpp_dtor(C2, DName) -> cpp_check_access(Ctx, C2, '$dtor'), P1 = [defer(L, [], block([expr(L, call(id(DName), [addr(id(N))]))]))|P2] ; P1 = P2 ),   % THE DESTRUCTOR'S ACCESS where a local of the class ends (0.127; [class.dtor]/15)
+    ( Sto \== static, Sto \== extern, cpp_class_of_type(T, C2), cpp_dtor(C2, DName) -> cpp_check_access(Ctx, C2, '$dtor'), cpp_scope_end(L, N, LE), P1 = [defer(L, [], block([expr(LE, call(id(DName), [addr(id(N))]))]))|P2] ; P1 = P2 ),   % THE DESTRUCTOR'S ACCESS where a local of the class ends (0.127; [class.dtor]/15)
     cpp_decl_pieces(Ctx, L, Sto, B, Vs, P2).
 %% a type with no constructor direct-initialized, `_Tp __t(std::move(__x))', `int n{}', `S s(t)': the value itself, or
 %% the type's zero for an empty one
@@ -5222,6 +5319,7 @@ cpp_call(Ctx, member(X0, M), As, E) :- !,
     ->  cpp_check_access_obj(Ctx, C, M), cpp_fill_defaults(Name, As, As1),
         (   cpp_slot_call(C, M, N, Name, Slot), \+ cpp_static_object(X) -> cpp_dispatch(Name, addr(X), C, Slot, As1, E)   % a reference, *p: the dynamic type's
         ;   Hops \== [], \+ cpp_static_object(X), cpp_hops_class(C, Hops, HC), cpp_slot_call(HC, M, N, Name, Slot) -> cpp_hops(X, Hops, B), cpp_dispatch(Name, addr(B), HC, Slot, As1, E)
+        ;   \+ cpp_static_object(X), cpp_hops_class(C, Hops, HC), cpp_vbase_slot_call(HC, M, N, Name, V, Slot) -> cpp_hops(X, Hops, B), cpp_dispatch(Name, cast(ptr([], base([], [typedef(V)])), addr(B)), V, Slot, As1, E)   % an override of a VIRTUAL base's slot: through that base's table (0.139)
         ;   cpp_hops(X, Hops, B), cpp_object_arg(Name, addr(B), Obj), cpp_ref_args_of(Name, As1, As2), E = call(id(Name), [Obj|As2]) )
     ;   atom(M), cpp_class_of_type_of(X, C), cpp_data_member(C, M, DH), cpp_hops(X, DH, B), XM = member(B, M),   % A DATA MEMBER OF CLASS TYPE CALLED THROUGH AN OBJECT, `c.f(x)': its class's operator() -- the closure a range adaptor holds (0.66's rule named bare, one object further out)
         cpp_class_of_type_of(XM, FC), cpp_method(FC, operator('()'), As, Name, _)
@@ -5238,6 +5336,7 @@ cpp_call(Ctx, arrow(X0, M), As, E) :- !,
     (   cpp_pointee_class_of(X, C), length(As, N), cpp_method_on_ptr(X, C, M, As, Name, Hops)
     ->  cpp_check_access_obj(Ctx, C, M), cpp_fill_defaults(Name, As, As1),
         (   cpp_slot_call(C, M, N, Name, Slot) -> cpp_dispatch(Name, X, C, Slot, As1, E)
+        ;   cpp_hops_class(C, Hops, HC), cpp_vbase_slot_call(HC, M, N, Name, V, Slot) -> ( Hops == [] -> P0 = X ; cpp_hops(deref(X), Hops, B0), P0 = addr(B0) ), cpp_dispatch(Name, cast(ptr([], base([], [typedef(V)])), P0), V, Slot, As1, E)   % an override of a VIRTUAL base's slot (0.139)
         ;   Hops \== [], cpp_hops_class(C, Hops, HC), cpp_slot_call(HC, M, N, Name, Slot) -> cpp_hops(deref(X), Hops, B), cpp_dispatch(Name, addr(B), HC, Slot, As1, E)   % a virtual method of a BASE the class does not name: that base's table (a virtual base's, the diamond's final overrider behind it)
         ;   ( Hops == [] -> P = X ; cpp_hops(deref(X), Hops, B), P = addr(B) ), cpp_object_arg(Name, P, Obj), cpp_ref_args_of(Name, As1, As2), E = call(id(Name), [Obj|As2]) )
     ;   atom(M), cpp_scalar_arrow(X, XT) -> cpp_refuse(0, no_member(M, XT))   % `p->f()' over a pointer to a scalar, or over no pointer at all (0.127)
@@ -5257,6 +5356,7 @@ cpp_call(Ctx, id(M), As, E) :- Ctx \== none, \+ cpp_local(M), length(As, N), cpp
     cpp_check_access(Ctx, Ctx, M), cpp_fill_defaults(Name, As, As1),
     (   cpp_slot_call(Ctx, M, N, Name, Slot) -> cpp_dispatch(Name, id(this), Ctx, Slot, As1, E)
     ;   Hops \== [], cpp_hops_class(Ctx, Hops, HC), cpp_slot_call(HC, M, N, Name, Slot), \+ cpp_static_bare(Ctx, M, Name) -> cpp_hops(deref(id(this)), Hops, B), cpp_dispatch(Name, addr(B), HC, Slot, As1, E)
+    ;   cpp_hops_class(Ctx, Hops, HC), cpp_vbase_slot_call(HC, M, N, Name, V, Slot), \+ cpp_static_bare(Ctx, M, Name) -> ( Hops == [] -> P0 = id(this) ; cpp_hops(deref(id(this)), Hops, B0), P0 = addr(B0) ), cpp_dispatch(Name, cast(ptr([], base([], [typedef(V)])), P0), V, Slot, As1, E)   % an override of a VIRTUAL base's slot (0.139)
     ;   cpp_static_bare(Ctx, M, Name) -> cpp_object_arg(Name, nullptr, Obj), cpp_ref_args_of(Name, As1, As2), E = call(id(Name), [Obj|As2])   % a STATIC method: no object, as a static member template already had it (0.47) -- libc++'s detections call one from a class-scope decltype, where there is no `this' at all
     ;   ( Hops == [] -> P = id(this) ; cpp_hops(deref(id(this)), Hops, B), P = addr(B) ), cpp_object_arg(Name, P, Obj), cpp_ref_args_of(Name, As1, As2), E = call(id(Name), [Obj|As2]) ).
 %% A NESTED CLASS CALLS A STATIC MEMBER FUNCTION OF ITS ENCLOSING CLASS BY NAME ([class.nest]/1, [expr.prim.id]/2; 0.117): the

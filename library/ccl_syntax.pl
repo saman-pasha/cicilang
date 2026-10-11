@@ -1949,7 +1949,20 @@ ccl_designator(field(N)) --> ccl_p('.'), ccl_id(N).
 ccl_designator(at(E)) --> ccl_p('['), ccl_cond_expr(E), ccl_p(']').
 
 %% ---- statements -------------------------------------------------------------
-ccl_compound(Env, block(Items)) --> ccl_p('{'), ccl_push_scope, ccl_block_items(Env, Items), ccl_p('}'), ccl_pop_scope.
+ccl_compound(Env, block(Items)) --> ccl_p('{'), ccl_push_scope, ccl_block_items(Env, Items), ccl_line(E), ccl_p('}'), ccl_pop_scope, { ccl_note_scope_end(Items, E) }.
+%% WHERE A SCOPE CLOSES, for -g (0.139): the driver names the file it compiles under -g ('$ccl_scope_ends_for'), and the read
+%% of THAT file records the line of each compound's `}' against the block's declarations, v(Line, Name, Close), and its
+%% first statement, b(First, Close) ('$ccl_scope_ends'): the desugaring gives a destructor run at the scope's end that line,
+%% as clang does. No AST changes; without -g nothing is recorded.
+ccl_note_scope_end(Items, E) :-
+    (   catch(nb_getval('$ccl_scope_ends_for', F), _, fail), F \== none, catch(nb_getval('$ccl_file', F1), _, fail), F1 == F, integer(E)
+    ->  findall(V, ( ccl_scope_decl(Items, L, N), V = v(L, N, E) ), Vs0),
+        ( member(I, Items), compound(I), arg(1, I, L1), integer(L1) -> Vs = [b(L1, E)|Vs0] ; Vs = Vs0 ),
+        ( catch(nb_getval('$ccl_scope_ends', Es0), _, fail) -> true ; Es0 = [] ), append(Vs, Es0, Es), nb_setval('$ccl_scope_ends', Es)
+    ;   true ).
+ccl_scope_decl(Items, L, N) :- member(I, Items), ccl_scope_decl_(I, L, N).
+ccl_scope_decl_(declaration(L, _, _, Vs), L, N) :- member(var(N, _, _), Vs), atom(N).
+ccl_scope_decl_('$splice'(Is), L, N) :- member(I, Is), ccl_scope_decl_(I, L, N).
 ccl_block_items(Env0, Items) --> ccl_block_item(Env0, Env1, I), !, { ccl_env_sync(Env0, Env1) }, ccl_block_items(Env1, More), { ccl_splice(I, More, Items) }.
 ccl_block_items(_, []) --> [].
 ccl_block_item(Env, Env, directive(L, Text)) --> [tok(pp, Text, L)], !.

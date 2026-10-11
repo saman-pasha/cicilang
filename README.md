@@ -390,6 +390,6 @@ HISTORY.md                     the record of every step: what it did, what it fo
 
 `std::format`'s compile-time check of the format string (the library's own
 run-time parser catches a bad one); the range adaptors not named;
-construction vtables in a diamond; a `\N{...}` abbreviation
+a `\N{...}` abbreviation
 alias (`\N{NUL}`, which clang refuses too); the arm64 ABI on Apple's machines
 (Linux on aarch64 is proven under qemu). Each is named in `CLAUDE.md` with where it stops.

@@ -132,6 +132,7 @@ One row per step, in version order: the step's title, what it did and its gate n
 | 0.136 | `<random>`, `std::valarray`, chrono formatting, `std::rel_ops`, the tie of a stream, the mangler's last builtins, the coroutine ramp | `<random>` and `std::valarray` run; chrono durations format; `std::rel_ops` through a using-directive; `cin`'s tie checked; every builtin type mangled; a lazy member chosen among overloads of one name | 487 of 489 C++ fixtures over libc++ 18, 488 over 21; all gates GREEN |
 | 0.137 | a decimal to and from a 128-bit integer; a decimal constant's infinity, NaN and division by zero; chrono formatting of the calendar; the rest of <filesystem> | the compiler's own decimal helpers in C (module/bidrt.c, library/ccl_bidrt.pl); decimal specials folded as gcc; a conditional's condition through operator bool; a class argument through a constructor template; value template arguments mangled | 491 of 493 C++ fixtures over libc++ 18, 492 over 21; all gates GREEN |
 | 0.138 | a goto into a block and over a declaration; a goto over a defer refused; -fexperimental-library and time zones; a raw string over lines | the check follows a goto into a block (skipped owners unset); goto_over_defer and goto_into_vla refused; libc++'s experimental part under -fexperimental-library; an alias's right side read again; a raw string joined over lines; pointees compared as types; a library's const pointer static | 493 of 496 C++ fixtures over libc++ 18, 495 over 21 (tzone); all gates GREEN |
+| 0.139 | under -g a destructor at its scope's closing brace; an override of a virtual base's slot dispatched; construction vtables; a using-declaration or -directive over collided names | the read records where a scope closes under -g; a call through a class that overrides a virtual base's function dispatches through that base; a diamond's paths built and destroyed under construction tables; using b::f and using namespace b find b's keyed names | 496 of 499 C++ fixtures over libc++ 18, 498 over 21; all gates GREEN |
 
 ## M5 — the C++ mode
 
@@ -8305,3 +8306,60 @@ read in 1007 s, the C++ gate in 1039 s with its four checks of the command, 493 
 (991 s) and the C++ gate (1092 s, 495 of 496 ok, `tzone` among them, the skip `stdoptionalref`) GREEN.
 
 Reader version 128, lowering version 79; the module rebuilt as 0.138, over cocolog 1.10.0.
+
+## 0.139 — under -g a destructor at its scope's closing brace; an override of a virtual base's slot dispatched; construction vtables; a using-declaration or -directive over collided names
+
+**0.139: the `-g` item, the construction vtables and the namespace-scope `using` of "Not done", and a silent wrong answer found on the way.**
+
+(1) UNDER `-g` A DESTRUCTOR RUN AT A SCOPE'S END HAS THE LINE OF THE SCOPE'S CLOSING BRACE, on every exit, as clang's has. A
+probe compiled by clang++ 18 with `-g` shows the rule: in a function with a local `a`, a block holding `b` that returns, a
+block holding `c` that ends, and a loop body holding `d` that breaks, every call of a destructor carries the line of its own
+scope's `}` -- `b`'s on the `return` path, `d`'s on the `break` path, `a`'s on both of the function's exits. cicilang gave each
+call the line of its object's declaration, since the defer the desugaring makes for a local holds the declaration's line, and
+the read keeps no line for a `}`. The read now records it, for the file compiled under `-g` alone: the driver names that file
+(`'$ccl_scope_ends_for'`), and the compound statement's rule notes the line of its `}` against each declaration of the block
+and against its first statement (`ccl_note_scope_end/2`, `v(Line, Name, Close)` and `b(First, Close)` in
+`'$ccl_scope_ends'`). The desugaring gives the destructor call of a local, of a temporary bound to a named reference and of
+a by-value parameter that line (`cpp_scope_end/3`, `cpp_body_end/2`); the lowering then names it as it names any statement's.
+The AST does not change, so the reader's version stays, and without `-g` nothing is recorded and the IR is the one 0.138
+made. The probe's calls carried the lines 10, 8, 14 and 18 (the declarations), and carry 12, 16, 20 and 22 now, as clang's.
+The driver gate's new check reads the line table back with `llvm-dwarfdump --debug-line` (`- -` on 0.138, `10 12` on 0.139
+and on clang's object).
+
+(2) AN OVERRIDE OF A VIRTUAL BASE'S SLOT IS DISPATCHED THROUGH THAT BASE. The construction tables' probe called a virtual
+function through `const L *` inside L's constructor, and the IR showed the call STATIC: a class over a virtual base has a table
+of its own for its own new virtual functions, and an override of the virtual base's function is no slot of it, so the call
+roads (`o.m()` on a reference, `p->m()`, a bare `m()` in a method) found no slot and called the class's own function. With
+`struct L : virtual V` overriding V's `f`, and `struct M : L` overriding it again, `const L *p = &m; p->f()` called `L::f` --
+a silent wrong answer, there since the virtual base got a table of its own (0.72). Now such a call converts the object to
+the virtual base and dispatches through its table (`cpp_vbase_slot_call/6`), whose entry is the final overrider, a thunk
+moving `this` to it. `vbcall.cpp` prints `3 30 331` and `541 542 211`, as clang's build does; 0.138 printed `2 30 231` and
+`241 542 211`.
+
+(3) CONSTRUCTION VTABLES. "Not done" said that a virtual call in a diamond path's constructor or destructor reached the
+most-derived override. Measured, a call through the path's own pointer reached the path's function, by the static road of
+(2), and a call through the shared virtual base reached the HOLDER's, which reads members not yet built; with (2) a bare call
+did too (`D D D` where clang prints `L L L`). The holder now stores, right before a path's base-variant constructor and right
+after its base-variant destructor, two construction tables, the Itanium ABI's without the VTT (the holder stores them itself):
+the path's own (`D.ctvtable<S>`: its implementations, the virtual base's offset and the offset to top of D's layout, its
+type_info) and the shared base's (`D.ctvtable$vb<S>`: the shared base's slots with the path's final overriders, through
+thunks moving `this` from the shared base to the path in D's layout); its own tables come back once the paths are built and
+before they are destroyed (`cpp_ctor_tables/3`, `cpp_ct_wrap/7`). The program's diamonds only. `ctorvt.cpp`: a diamond whose
+paths call `who()` bare, through their own pointer and through the shared base, in their constructors and destructors.
+
+(4) A USING-DECLARATION OR A USING-DIRECTIVE OVER NAMES TWO NAMESPACES DECLARE. "Not done" said a namespace-scope `using` did
+nothing, since namespaces flatten. Probed: where two of the program's namespaces declare one name, the outermost keeps it bare
+and the other's is keyed, and a bare use found the bare one whatever the program said -- `using b::f; ... f()` called a::f,
+and `using namespace b; S s; g(2)` in a function used a's S and a's g: silent wrong answers. In the pass that keys them
+(`cpp_ns_resolve`), a using-declaration or -directive at file scope, in a namespace or in a block now renames the names it
+brings that were keyed to their keys, in the items or statements that follow it in its scope (`cpp_using_map/4`,
+`cpp_using_blocks/4`). `nsusing.cpp`: ten values over file scope, a namespace, a block and a nested namespace, three of which
+were wrong on 0.138.
+
+THE GATES. The live checkout ran the chain, fresh HOMEs: over libc++ 18 all eight GREEN (reader 4 s, compile 11 s with 75
+run and 47 safe fixtures, driver 10 s with 34 checks, objects 3 s, proof, cross 58 s, the library read in 1051 s, the C++ gate
+in 1025 s with its four checks of the command, 496 of 499 fixtures ok, the skips are `stdoptionalref`, `joinwith` and
+`tzone`, the 21 refusals and the three of the safe part); over libc++ 21 the library read (992 s) and the C++ gate (1098 s,
+498 of 499 ok, the skip `stdoptionalref`) GREEN. A net of 32 fixtures over tables, virtual bases and diamonds ran first.
+
+Lowering version 80; the module rebuilt as 0.139, over cocolog 1.10.0.

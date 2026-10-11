@@ -1,0 +1,11 @@
+L() sees L L L, tag 7
+R() sees R R R, tag 7
+D() sees D
+through V: D, 1 2 3 7
+~D() sees D
+~R() sees R R R, tag 7
+~L() sees L L L, tag 7
+L() sees L L L, tag 7
+alone: L
+~L() sees L L L, tag 7
+exit 0

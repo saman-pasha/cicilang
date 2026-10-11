@@ -10,8 +10,8 @@ it found, its measurements and its gate numbers. `README.md` tells a user what r
 architecture and the milestones. A step that changes a rule edits the rule here, in its topic, and writes its entry
 in `HISTORY.md`.
 
-At 0.138 the versions are: the module 0.138 (`ccl_p_version` in `module/cicilang.cicili`, `bin/cicilang --version`),
-the reader 128 (`ccl_reader_version/1`, `library/ccl_syntax.pl`) and the lowering 79 (`ccl_lowering_version/1`,
+At 0.139 the versions are: the module 0.139 (`ccl_p_version` in `module/cicilang.cicili`, `bin/cicilang --version`),
+the reader 128 (`ccl_reader_version/1`, `library/ccl_syntax.pl`) and the lowering 80 (`ccl_lowering_version/1`,
 `library/ccl_ir.pl`).
 
 Build and prove, always in this order (or all of it, `sh test/gates.sh`):
@@ -384,7 +384,7 @@ tutorials/01..03-*.pl       the objects layer's lessons; goal main, last line do
   and links every `test/c/run/*.c` at its `NAME.std` level (`c_level`). It expects every `test/c/safe/*.c` refused.
   `test/compile.sh` runs each binary as `NAME arg1 arg2` against `NAME.expect`, and compares each refusal with
   `safe/NAME.expect`. There are 75 run and 47 safe fixtures at 0.138. (M2, M3, 0.57)
-- The driver gate. `test/driver.sh` makes 33 checks of `bin/cicilang` over the user's store (the decimal ABI check is
+- The driver gate. `test/driver.sh` makes 34 checks of `bin/cicilang` over the user's store (the decimal ABI check is
   skipped where no gcc with decimal floating types is installed), the variadic calls of every kind both ways against
   clang among them (`test/c/link/va_*.c`, 0.131). They cover what `-o`,
   `-c`, `-S`, `-emit-llvm`, `-shared`, `-I`, `-ast-dump`, `-fsyntax-only`, `-g` and `-gline-tables-only` make (read
@@ -392,7 +392,7 @@ tutorials/01..03-*.pl       the objects layer's lessons; goal main, last line do
   struct's members and an enum's enumerators, their names sorted; no variable under `-gline-tables-only`; a C++ static
   data member declared in its class, its definition naming that declaration, through `cicilang++ -g -c`, 0.133; under
   `-fdebug-macro` a file's and its header's macros at their lines, as clang's object has them, and the predefined ones at
-  line 0, 0.134), and the diagnostics in
+  line 0, 0.134; a destructor at its scope's closing brace, on a return and at the end, 0.139), and the diagnostics in
   clang's shape (`#warning` printed, `#error` with exit 1). They find `@ccl_drain_node` in `btree.c`'s IR, and pass
   structs by value both ways against clang-built code (`test/c/link/abi_main.c`, `abi_helper.c`; seven lines at 0.117,
   the last two for the SysV register budget, `budget_*` built by clang and `bud_*` by cicilang). The store must serve
@@ -443,7 +443,7 @@ tutorials/01..03-*.pl       the objects layer's lessons; goal main, last line do
 ### The C++ gate: test/cpp.sh
 
 - `test/cpp.sh` runs in this order: `test/cpp.pl` in one `--local` process; four checks of the command; every
-  `test/cpp/run/*.cpp` as a pool job (496 at 0.138); `classes.cpp` and `templates.cpp` built and run; the refusals.
+  `test/cpp/run/*.cpp` as a pool job (499 at 0.139); `classes.cpp` and `templates.cpp` built and run; the refusals.
   (0.105)
 - `test/cpp.pl` runs 45 numbered checks, `c1` to `c45`, then reads Cicili's six C++ files whole (`test/cpp/objects.cpp`,
   `emit_report.cpp`, `specialise.cpp`, `syntax.cpp`, `torch.cpp`, `torch-fragment.cpp`). `c34` checks the Itanium
@@ -4612,6 +4612,12 @@ A lambda is a class of its captures (`library/ccl_cpp.pl`). A fixture named alon
   argument out has fewer arguments, and `p->f(3)` over `virtual int f(int a, int b = 2)` found no slot of one parameter
   and called the base's f statically -- and, where several slots share them, the one whose parameter types are the
   method's, as declared under its mangled name. `virtualdefault.cpp`. (0.34, 0.72, 0.88, 0.110, 0.134)
+- AN OVERRIDE OF A VIRTUAL BASE'S SLOT DISPATCHES THROUGH THAT BASE (0.139; `cpp_vbase_slot_call/6`, on the three roads: `o.m()`,
+  `p->m()`, a bare `m()`): a class over a virtual base has a table of its own for its own NEW virtual functions, and an
+  override of the virtual base's is no slot of it, so `p->f()` with `const L *p` to an `M` -- `struct L : virtual V`
+  overriding V's `f`, M overriding it again -- took the static road and called `L::f`, a silent wrong answer since 0.72. The
+  object is converted to the virtual base and the call goes through its table, whose entry is the final overrider (a
+  thunk moving `this` to it). `vbcall.cpp`. (0.139)
 - `cpp_abstract_class/1` is the one test for an abstract class: a slot with no implementation or a pure one
   (`cpp_slot_pure`). A complete object of it refuses `pure_virtual` (`cpp_not_abstract`; `test/cpp/abstract.cpp`); a
   base sub-object is still built ([class.abstract]/6; `'$cpp_base_ctor'`), as libc++'s `__shared_weak_count` needs.
@@ -4668,6 +4674,16 @@ A lambda is a class of its captures (`library/ccl_cpp.pl`). A fixture named alon
   diamond over a virtual base with no table refuses `virtual_base_by_two_paths` (`test/cpp/diamond.cpp`), and so does a
   program class over two library classes sharing a virtual base (`cpp_direct_nv`). `diamond.cpp`, `diamond2.cpp`.
   (0.110)
+- CONSTRUCTION VTABLES (0.139; the Itanium ABI's, without the VTT: the holder stores them itself): while a diamond's path P is
+  built or destroyed by its base-variant constructor or destructor, the object is a P ([class.cdtor]/4), so the path's table
+  pointer holds `D.ctvtable<S>` (P's own implementations, the virtual base's offset and the offset to top of D's layout,
+  P's type_info) and the shared base's holds `D.ctvtable$vb<S>` (the shared base's slots with P's final overriders, reached
+  by thunks `D.ctthunk$vb<S>.<slot>` that move `this` from the shared base to the path in D's layout; `cpp_ctor_tables/3`).
+  The holder stores a path's two tables right before its constructor and right after its destructor (`cpp_ct_wrap/7`; the
+  destructor's calls are reversed afterwards), and its own once the paths are built and before they are destroyed. A
+  virtual call through the shared base in a path's constructor reached the HOLDER's override, which reads members not yet
+  built (with 0.139's dispatch above, a bare call too). The program's diamonds only: a library diamond (`basic_iostream`)
+  calls no virtual function in its paths' constructors. `ctorvt.cpp`. (0.139)
 - A DIAMOND'S IMPLICIT COPY AND ASSIGNMENT ARE MEMBERWISE (0.135): the copy builds the shared base from the source's `$vb`
   first, then each path from the source cast to the path's class (`cpp_memberwise_base_src/6`: a path's slot is its
   base-variant struct `B.nv`, which the path's copy constructor does not take -- `base_constructor(B)` refused the implicit
@@ -4976,6 +4992,12 @@ A lambda is a class of its captures (`library/ccl_cpp.pl`). A fixture named alon
   name (`cpp_declared_names`: vector's own `begin()`). `nscollide2.cpp`. (0.100, 0.101)
 - The program's own collisions follow the same rule before registration (`cpp_ns_resolve`, `'$cpp_ns_own'`): the units
   are rewritten and the table built again; a declared-only function keeps its shipped name. `nscollide.cpp`. (0.100)
+- A USING-DECLARATION OR A USING-DIRECTIVE OF THE PROGRAM over such names ([namespace.udecl], [namespace.udir]; 0.139),
+  at file scope, in a namespace or in a block, makes the names it brings the ones a bare use finds in the rest of its
+  scope: the keyed ones are renamed to their keys in the items or statements that follow (`cpp_using_map/4`,
+  `cpp_using_blocks/4`, in the same pass; the namespace it names found from the scope's own outwards, `cpp_abs_ns_path`).
+  `using b::f; ... f()` called a::f, and `using namespace b; S s; g(2)` was a's S and a's g: silent wrong answers.
+  `nsusing.cpp`. (0.139)
 - An inline namespace is in the mangler's path (`cpp_hdr_ns`, `cpp_ns_plain`: `St3__1`) and out of the keys:
   two paths are one namespace by their named segments (`cpp_ns_named_path`). (0.100, 0.112)
 - An item declared by a namespace-qualified name stands in that namespace ([namespace.memdef]/2; `ccl_flat_quals`,
@@ -5860,6 +5882,14 @@ A lambda is a class of its captures (`library/ccl_cpp.pl`). A fixture named alon
   (`ir_dbg_block_enter/1`, `ir_dbg_block_leave/0` around `ir_stmt(block(Is))`; its line the first statement's), which its
   variables and its instructions' locations name; the function's own body is the subprogram's scope (`'$ir_dbg_top'`).
   (0.130)
+- A DESTRUCTOR RUN AT A SCOPE'S END HAS THE LINE OF THE SCOPE'S CLOSING BRACE, on every exit -- the end, a `return`, a
+  `break`, a `goto` -- as clang's has (0.139): the driver names the file it compiles under `-g` (`'$ccl_scope_ends_for'`),
+  and the read of that file records the line of each compound's `}` against the block's declarations and its first
+  statement (`ccl_note_scope_end/2`, `'$ccl_scope_ends'`: `v(Line, Name, Close)`, `b(First, Close)`); the desugaring
+  gives a local's, a lifetime-extended temporary's and a by-value parameter's destructor call that line
+  (`cpp_scope_end/3`, `cpp_body_end/2`). The AST does not change, and without `-g` nothing is recorded. It had the line
+  of its object's declaration, and a debugger stopped at the declaration on the way out of the scope. The driver gate's
+  check, read back by `llvm-dwarfdump --debug-line`. (0.139)
 - EACH FUNCTION HAS ITS TYPE (0.130): a `DISubroutineType` of its result (`null` for void) and its parameters' types
   (`ir_dbg_fn_type/3`), `flags: DIFlagPrototyped`; gdb's `ptype twice` is `int (int, const char *)` and `finish` prints
   the value returned. (0.130)
@@ -6369,11 +6399,11 @@ A lambda is a class of its captures (`library/ccl_cpp.pl`). A fixture named alon
   0.90, all GREEN (cocolog 1.2.18). The fixtures added since 0.93 have run on Linux only.
 - Ubuntu 24.04 on x86_64 (clang and LLVM 18, glibc, libc++ 18 and 21) is a host since 0.87. Every gate but the C++ one is
   GREEN there since 0.93, and all seven since 0.95. Every step from 0.93 on is gated there, but the save points 0.112,
-  0.113, 0.117, 0.122 to 0.125, 0.130 and 0.131 (gated by the steps after them); the last full run is 0.138's, over cocolog 1.10.0, on one
-  tree: over libc++ 18 all eight GREEN (reader 5 s, compile 12 s, driver 10 s, objects 3 s, proof, the cross gate in
-  54 s, the library read in 1007 s, the C++ gate in 1039 s with 493 of 496 fixtures ok, the skips are `stdoptionalref`, `joinwith` and `tzone`,
-  the 21 refusals and the three of the safe part); over libc++ 21 the library read (991 s) and the C++ gate (1092 s,
-  495 of 496 ok, the skip `stdoptionalref`) GREEN -- the C gates do not read libc++. Two libc++ passes are one
+  0.113, 0.117, 0.122 to 0.125, 0.130 and 0.131 (gated by the steps after them); the last full run is 0.139's, over cocolog 1.10.0, on one
+  tree: over libc++ 18 all eight GREEN (reader 4 s, compile 11 s, driver 10 s, objects 3 s, proof, the cross gate in
+  58 s, the library read in 1051 s, the C++ gate in 1025 s with 496 of 499 fixtures ok, the skips are `stdoptionalref`, `joinwith` and `tzone`,
+  the 21 refusals and the three of the safe part); over libc++ 21 the library read (992 s) and the C++ gate (1098 s,
+  498 of 499 ok, the skip `stdoptionalref`) GREEN -- the C gates do not read libc++. Two libc++ passes are one
   gate: `LLVM=/usr/lib/llvm-18` and `LLVM=/usr/lib/llvm-21` choose the tree the chain reads and links. libc++ 22 (the
   newest tree, which a run without `$LLVM` reads) is untried but for `stdoptionalref`, which passes there. The run before
   0.121's (0.118, 0.119) found, over 0.117, two defects and one stale check of `test/cpp.pl` (c20, above).
@@ -6679,14 +6709,13 @@ A lambda is a class of its captures (`library/ccl_cpp.pl`). A fixture named alon
   the shipped library defines is declared and called by its ABI's signature since 0.127 (`'$cpp_static_abi'`).
 - A library class's consteval constructor or member keeps its member initializers and runs at run time, its
   compile-time check dropped, as `basic_format_string`'s (0.110); the program's own fold (0.99, 0.112).
-- The diamond has no construction vtables, so a virtual call in a path's constructor or destructor reaches the
-  most-derived override (a single chain's and a virtual base's own reach their class's, `dtorvt.cpp`, 0.112).
 - A LIBRARY diamond is built here (libc++'s `basic_iostream`, 0.117: the path bases' `.nv` twins are compiled), but a
   PROGRAM class over two library classes that share a virtual base (`struct X : std::istream, std::ostream`) is
   refused, and so is a diamond over a virtual base with no table: `virtual_base_by_two_paths`
   (`test/cpp/diamond.cpp`) (0.110, 0.117).
-- A namespace-scope `using` declaration does nothing, since namespaces flatten, and a using-directive's scope is
-  modelled for `std::rel_ops` alone (0.136) (0.44, 0.112).
+- Namespaces flatten, so a `using` declaration or directive matters only where two namespaces declare one name. The
+  program's own are followed since 0.139 (`nsusing.cpp`); of a header's keyed names, `std::rel_ops` (0.136) and a block's
+  using-declaration of a class (0.121) are (0.44, 0.112).
 - An unfolded call or class static as a template VALUE argument keys its instance by its spelling (`targ_raw`). A
   static that it feeds may be emitted `extern` and fail at the link, not be refused by name (0.97, 0.98).
 
@@ -6761,9 +6790,8 @@ A lambda is a class of its captures (`library/ccl_cpp.pl`). A fixture named alon
 - `bin/cicilang` accepts and ignores `-W`, `-f...` and `-pedantic` (owner's rule: clang's arguments, no new flags).
   `-D` and `-U` define and undefine (0.112), and `-fexperimental-library` turns libc++'s experimental part on (0.138); a
   run with any of them keeps no C store.
-- `-g` (0.130) leaves out what clang's has beyond the variables, the types and the scopes: a destructor run at a scope's end
-  has the line of its object's declaration, not the closing brace's; there are no columns (every location is column
-  1). The macros are described under `-fdebug-macro` (0.134; `-g3` alone describes none in either compiler).
+- `-g` (0.130) leaves out what clang's has beyond the variables, the types and the scopes: there are no columns (every
+  location is column 1); a destructor at a scope's end has the closing brace's line since 0.139. The macros are described under `-fdebug-macro` (0.134; `-g3` alone describes none in either compiler).
 - A C++ read never uses the store: `cicilang++` runs `--no-kb` (M5). The C++ cache is the summary and the AST beside it
   (0.35, 0.45).
 - cocolog has no `oom` check in its step loop (1.8.41), so a refused allocation gives a wrong answer. Its heap
