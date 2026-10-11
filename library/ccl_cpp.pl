@@ -8049,9 +8049,10 @@ cpp_convertible(F, T) :- ccl_unref(F, F1), ccl_unref(T, T1), ccl_resolve_type(F1
 %% and `shared_from_this()' aborted on bad_weak_ptr.
 cpp_pointer_to_base(base(QF, SF), base(QT, ST)) :- forall(member(Q, QF), memberchk(Q, QT)),
     cpp_class_of_type(base([], SF), CF), cpp_class_of_type(base([], ST), CT), CF \== CT, cpp_derives(CF, CT), !.   % any base, as the traits have it (0.112)
-cpp_same_unqualified(base(_, S1), base(_, S2)) :- !, cpp_canon_specs(S1, C1), cpp_canon_specs(S2, C2), C1 == C2.
+cpp_same_unqualified(base(_, S1), base(_, S2)) :- !, cpp_canon_specs(S1, C1), cpp_canon_specs(S2, C2), ( C1 == C2 -> true ; cpp_same_type(base([], S1), base([], S2)) ).
 %% the pointee gains qualifiers and loses none: `char' to `const char', `int *' to `int *const' one level down
-cpp_quals_added(base(QF, S1), base(QT, S2)) :- !, cpp_canon_specs(S1, C1), cpp_canon_specs(S2, C2), C1 == C2, forall(member(Q, QF), memberchk(Q, QT)).
+cpp_quals_added(base(QF, S1), base(QT, S2)) :- !, forall(member(Q, QF), memberchk(Q, QT)),
+    cpp_canon_specs(S1, C1), cpp_canon_specs(S2, C2), ( C1 == C2 -> true ; cpp_same_type(base([], S1), base([], S2)) ).   % the spellings differ, the types may not: a program's alias of a class and the class's resolved struct (0.138)
 cpp_quals_added(ptr(QF, A), ptr(QT, B)) :- !, forall(member(Q, QF), memberchk(Q, QT)), cpp_quals_added(A, B).
 cpp_quals_added(arr(N1, A), arr(N2, B)) :- !, N1 == N2, cpp_quals_added(A, B).   % an array's element carries the array's qualifiers ([basic.type.qualifier]/3): `int (*)[]' converts to `const int (*)[]' -- libc++ 18's `__span_array_convertible', which `span<const int>(span<int>)' asks (0.117)
 cpp_quals_added(A, B) :- cpp_same_type(A, B).

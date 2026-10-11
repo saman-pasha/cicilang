@@ -10,8 +10,8 @@ it found, its measurements and its gate numbers. `README.md` tells a user what r
 architecture and the milestones. A step that changes a rule edits the rule here, in its topic, and writes its entry
 in `HISTORY.md`.
 
-At 0.137 the versions are: the module 0.137 (`ccl_p_version` in `module/cicilang.cicili`, `bin/cicilang --version`),
-the reader 127 (`ccl_reader_version/1`, `library/ccl_syntax.pl`) and the lowering 78 (`ccl_lowering_version/1`,
+At 0.138 the versions are: the module 0.138 (`ccl_p_version` in `module/cicilang.cicili`, `bin/cicilang --version`),
+the reader 128 (`ccl_reader_version/1`, `library/ccl_syntax.pl`) and the lowering 79 (`ccl_lowering_version/1`,
 `library/ccl_ir.pl`).
 
 Build and prove, always in this order (or all of it, `sh test/gates.sh`):
@@ -218,7 +218,7 @@ sh test/cpp.sh
 
   and the push is `git push git@github.com:saman-pasha/cicilang.git main:main`; a session given another branch pushes
   there. (from the start, 0.101)
-- Never commit build output or scratch: `library/*.so`, `module/*.c`, `module/*.o`, `module/sdk.cicili`,
+- Never commit build output or scratch: `library/*.so`, `module/*.c` (but `module/bidrt.c`, a source: `.gitignore` excepts it, 0.138), `module/*.o`, `module/sdk.cicili`,
   `module/ccl_uninames.h`, `proof/forty2`, `proof/*.o`, `KB/`, `*.log` (`.gitignore`). (from the start, 0.103)
 
 ## Where things are
@@ -383,7 +383,7 @@ tutorials/01..03-*.pl       the objects layer's lessons; goal main, last line do
 - The compile gate. `test/compile.pl`, one process over the user's store, reads, checks, lowers, compiles at `-O1`
   and links every `test/c/run/*.c` at its `NAME.std` level (`c_level`). It expects every `test/c/safe/*.c` refused.
   `test/compile.sh` runs each binary as `NAME arg1 arg2` against `NAME.expect`, and compares each refusal with
-  `safe/NAME.expect`. There are 74 run and 45 safe fixtures at 0.137. (M2, M3, 0.57)
+  `safe/NAME.expect`. There are 75 run and 47 safe fixtures at 0.138. (M2, M3, 0.57)
 - The driver gate. `test/driver.sh` makes 33 checks of `bin/cicilang` over the user's store (the decimal ABI check is
   skipped where no gcc with decimal floating types is installed), the variadic calls of every kind both ways against
   clang among them (`test/c/link/va_*.c`, 0.131). They cover what `-o`,
@@ -410,8 +410,8 @@ tutorials/01..03-*.pl       the objects layer's lessons; goal main, last line do
   variadic calls of every AAPCS64 kind both ways (`test/c/link/va_*.c`: an int, a long, a double, a long double, an HFA
   of doubles and of floats, a struct past 16 bytes, an eight-byte struct, a 16-aligned `__int128` struct, the general
   and the SIMD registers run out). It SKIPs without `qemu-aarch64`, `aarch64-linux-gnu-gcc` and the sysroot (Debian
-  and Ubuntu: `qemu-user`, `gcc-aarch64-linux-gnu`, `libc6-dev-arm64-cross`) or without clang. 74 fixtures and 3
-  checks at 0.137, about a minute. (0.131)
+  and Ubuntu: `qemu-user`, `gcc-aarch64-linux-gnu`, `libc6-dev-arm64-cross`) or without clang. 75 fixtures and 3
+  checks at 0.138, about a minute. (0.131)
 - The proof. `proof/run.sh` has clang turn `proof/forty2.ll` into a binary that prints `cicilang reaches C` and exits
   42. (M0)
 
@@ -443,7 +443,7 @@ tutorials/01..03-*.pl       the objects layer's lessons; goal main, last line do
 ### The C++ gate: test/cpp.sh
 
 - `test/cpp.sh` runs in this order: `test/cpp.pl` in one `--local` process; four checks of the command; every
-  `test/cpp/run/*.cpp` as a pool job (493 at 0.137); `classes.cpp` and `templates.cpp` built and run; the refusals.
+  `test/cpp/run/*.cpp` as a pool job (496 at 0.138); `classes.cpp` and `templates.cpp` built and run; the refusals.
   (0.105)
 - `test/cpp.pl` runs 45 numbered checks, `c1` to `c45`, then reads Cicili's six C++ files whole (`test/cpp/objects.cpp`,
   `emit_report.cpp`, `specialise.cpp`, `syntax.cpp`, `torch.cpp`, `torch-fragment.cpp`). `c34` checks the Itanium
@@ -502,8 +502,9 @@ tutorials/01..03-*.pl       the objects layer's lessons; goal main, last line do
 
   `deduced_this.cpp` (0.43) is gone: a class's `this auto` method builds since 0.117 (`deducethis.cpp`).
 
-- `test/cpp/escape.cpp` must be refused by the safe part with `a borrow leaves the function`, and
-  `test/cpp/thisunset.cpp` with `owner used before it was given anything` (0.133).
+- `test/cpp/escape.cpp` must be refused by the safe part with `a borrow leaves the function`,
+  `test/cpp/thisunset.cpp` with `owner used before it was given anything` (0.133), and `test/cpp/gotopastdtor.cpp` with
+  `goto over a defer` (0.138).
   `test/cpp/control.cpp` (a `try`) builds now, and only `test/cpp.pl` reads it. (0.100, 0.108)
 - A gate that dies says so. Without a GREEN or RED line from `test/cpp.pl`, `test/cpp.sh` prints
   `RED: the gate did not finish (query exit N)` and the last 20 raw lines. `test/reader.sh` and `test/compile.sh`
@@ -582,7 +583,11 @@ tutorials/01..03-*.pl       the objects layer's lessons; goal main, last line do
   the Driver topic below). A run with one keeps no C store (`--local`): another machine reads this compiler's own
   headers (`float.h`, `limits.h`) under its own macros, and the store keys a header by its path.
 - `-W -f* -pedantic`, an unknown `-std=` and an unknown `-g` form are accepted and ignored. Any other dash argument is
-  `unknown argument`. `--version` prints the versions of cicilang, cocolog and LLVM; `-h` prints the help. (M4, 0.108)
+  `unknown argument`. `-fexperimental-library` acts (0.138), as clang++'s does: libc++ asks
+  `__has_feature(experimental_library)`, which answers 0 here, so the command defines what that answer defines,
+  `define('_LIBCPP_ENABLE_EXPERIMENTAL')`, and links `-lc++experimental` and `-lc++abi` (the archive names libc++abi's
+  symbols directly); a run with it keeps no C store, as with `-D`. libc++'s time zones (`tzone.cpp`, libc++ 21; libc++
+  18 has none, `tzone.needs`), syncstream and the rest of its experimental part. `--version` prints the versions of cicilang, cocolog and LLVM; `-h` prints the help. (M4, 0.108)
 - `-g` is the option `debug` (0.128, 0.130): `-g`, `-g2`, `-g3`, `-ggdb`, `-ggdb2`, `-ggdb3`, `-gdwarf*`, `-gfull`, `-glldb`
   and `-gsce` give the FULL debug information (the line tables, the variables, their types, the lexical blocks, C++'s
   names and scopes); `-g1`, `-ggdb1`, `-gline-tables-only` and `-gline-directives-only` give `debug(lines)`, the line
@@ -770,9 +775,13 @@ tutorials/01..03-*.pl       the objects layer's lessons; goal main, last line do
 - A raw string literal ([lex.string]/1; C++ only) is read by both lexers: `R"d(...)d"` and its prefixes `u8`, `L`, `u`,
   `U`, the body as it stands, no escape read, up to `)`, the delimiter, `"`; a newline in it is counted
   (`ccl_raw_prefix//1`, `ccl_raw_delim//1`, `ccl_raw_body//4`; `ccl_lx_raw_start`, `ccl_lx_raw`). In C, `R` is a name
-  and a plain string follows. Reader `k84` over `test/c/lexer.c`. The preprocessor's line splitting does not know a
-  raw string that spans lines. Why: libc++ 18's escaped-string writer (`<format>` at C++23, `std::print`) writes
-  `R"(\')"`. (0.115)
+  and a plain string follows. Reader `k84` over `test/c/lexer.c`. Why: libc++ 18's escaped-string writer (`<format>` at
+  C++23, `std::print`) writes `R"(\')"`. (0.115)
+- A RAW STRING THAT SPANS LINES is one line to the preprocessor (0.138; C++ only; `pp_raw_join/5`, `pp_raw_open/2`): a line
+  that opens `R"d(` and leaves it open is joined with the next lines, a newline between, up to `)d"`, before the line is
+  lexed; the scanner steps over comments, strings, character literals, whole identifiers and numbers, so `uR"`, `u8R"` and
+  `LR"` open one and `xR"` does not, and `__LINE__` after it counts the lines it took. libc++ 21's `__chrono/exception.h`
+  builds a message so, and the read of `<chrono>` met a `lexical error`. `rawlines.cpp`. (0.138)
 - The escapes are C's, GNU's `\e`, `\xHH`, `\x{...}`, `\o{...}`, `\u{...}`, `\uXXXX`, `\UXXXXXXXX`, and `\NNN` with up
   to three octal digits (`ccl_escape//1`, `ccl_ucn//1`; `ccl_lx_escape`, `ccl_lx_ucn`). A code point goes into a string
   as UTF-8 (`ccl_utf8/3`, `ccl_lx_put_utf8`), into a char as itself. Why: `\101` read as `\1` then `01`. (0.43)
@@ -1437,7 +1446,10 @@ tutorials/01..03-*.pl       the objects layer's lessons; goal main, last line do
   namespaces flatten. (0.100, 0.109)
 - `using enum E` is `using(L, enum(Q))`; `using namespace N`, `using(L, namespace(Q))`; `using N::f;`,
   `using(L, name(Q))`. `using T = type;` is a `typedef` at file scope, in a class, in a block and in an init-statement.
-  (0.42, 0.43, 0.79)
+  An alias's right side whose normal read fails is read again with a function template's template-id taken as a type
+  (`ccl_alias_rhs//2`, `'$ccl_alias_rhs'`; 0.138, reader 128): a name is flattened, and libc++ 21's experimental
+  `<__pstl>` writes `using _FindIf = __dispatch<__find_if, ...>;` where `<variant>`'s dispatcher has a member function
+  template `__dispatch`. (0.42, 0.43, 0.79, 0.138)
 - `extern template ...;` is `extern_template(L, I)`, and `template class X<char>;` is `explicit_instantiation(L, I)`. A
   deduction guide is `deduction_guide(L, N, Ps, T)`, indexed as `$guide.<class>`, which class template argument
   deduction reads first. A function may end `= delete`, `= default` or `= delete("why")` (`ccl_var_init_fn`;
@@ -1721,7 +1733,7 @@ tutorials/01..03-*.pl       the objects layer's lessons; goal main, last line do
 
 ### The versions
 
-- `ccl_reader_version/1` (`library/ccl_syntax.pl`, now 127): bump it for any grammar change to what a read gives, and
+- `ccl_reader_version/1` (`library/ccl_syntax.pl`, now 128): bump it for any grammar change to what a read gives, and
   for any change to what the AST beside a summary holds (item or member terms, `cpp_index_name/2`,
   `cpp_template_name/2`, `ccl_flat_items/3`, the namespace keys). Keep the reason in its comment. Why: the store and the
   summaries are keyed by it, and a stale read is served silently (`sizeof(std::string)` read 40). (M1, 0.89, 0.112,
@@ -5108,8 +5120,12 @@ A lambda is a class of its captures (`library/ccl_cpp.pl`). A fixture named alon
   ([conv.ptr]/3; `cpp_pointer_to_base`), and a function to a pointer to it ([conv.func]). A class converts to another
   class when it is derived from it (`cpp_class_fits`), when the target's converting constructor takes it
   (`cpp_converting`) or when its conversion function gives the target (`cpp_conv_result`): the class-to-class case of
-  `is_convertible`, which `three_way_comparable_with` and `std::variant`'s selection ask. (0.88, 0.93, 0.100, 0.117,
-  0.121)
+  `is_convertible`, which `three_way_comparable_with` and `std::variant`'s selection ask. Where the pointees' SPELLINGS
+  differ they are compared as types (`cpp_same_type/2` in `cpp_quals_added/2` and `cpp_same_unqualified/2`; 0.138): `SV *`
+  to `const std::string_view *` with `SV` a program's alias, and `B2 *` to `const Box *` with `using B2 = Box;`, were no
+  conversion -- libc++ 21's `common_reference` asks it in its first bullet, and `ranges::lower_bound` over a projection
+  that returns a `string_view` had no candidate (tzdb's `__find_in_zone`). `aliasptr.cpp`. (0.88, 0.93, 0.100, 0.117,
+  0.121, 0.138)
 - A conversion to a class asks the source's type (`cpp_converting/2`): a constructor whose parameter takes its kind.
   Why: any one-argument constructor counted, and `is_convertible<const wchar_t *, string_view>` was true. (0.115)
 - `__is_trivially_equality_comparable` (`cpp_trait_of`) is true for the integral types and pointers. It is false for a
@@ -5194,10 +5210,21 @@ A lambda is a class of its captures (`library/ccl_cpp.pl`). A fixture named alon
   the NEXT walk: the function is walked again until no label's state changes, at most eight times (else `not_checked`),
   as a loop's state settles. An owner freed and taken again (`retry:`) settles; one left live and taken again is
   `owner_overwritten`; one live where a goto leaves its scope is `owner_leaked`. The code after a label that only a goto
-  reaches is walked now (a dead state had skipped it). A goto INTO a block that does not enclose it, or over an owner's
-  declaration, is refused where an owner lives (`goto_with_owners`): it would skip the declarations before the label. A
-  goto whose label no walk reached is `not_checked`. Fixtures: `test/c/run/gotoown.c`; refused, `test/c/safe/gotoleak.c`
-  and `gotooverwrite.c`. Until 0.133 any goto in a function with owners was `goto_with_owners`. (M3, 0.133)
+  reaches is walked now (a dead state had skipped it). A goto whose label no walk reached is `not_checked`. Fixtures:
+  `test/c/run/gotoown.c`; refused, `test/c/safe/gotoleak.c` and `gotooverwrite.c`. Until 0.133 any goto in a function
+  with owners was `goto_with_owners`. (M3, 0.133)
+- A GOTO INTO A BLOCK, OR OVER A DECLARATION, IS FOLLOWED (0.138; C 6.8.6.1 allows both but into a VLA's scope;
+  `ck_skipped/4`, `ck_defers_agree/2`): the frames it enters are new to it, and at the label every owner the
+  fall-through holds and the edge does not -- its declaration skipped -- is `unset` on that edge, so a merge with a live
+  owner is `partial` (refused on use, as `use_after_move`, and at the scope's end), one with null `unset`, and the code
+  after the label must give it a value before it frees it. A skipped plain pointer that holds fresh memory, and a skipped
+  own array, would be garbage to free: `goto_with_owners`. Every path to a label has run the same defers of each frame
+  it shares with the label, else `goto_over_defer`: the defer (or a C++ local's destructor, a defer of the desugaring)
+  runs at its scope's end on every path, the skipped one too -- `{ if (k) goto out; std::string s = "x"; out:; }`
+  destroyed a string never built, where clang++ refuses the jump. A backward goto into a block ends what the frame it
+  shares with the label declared since the label (the label keeps the keys and defers of each frame, `lab(LP, KDs)`).
+  Until 0.138 a goto into a block or over an owner's declaration was `goto_with_owners` where an owner lived.
+  `test/c/run/gotoin.c`; refused, `test/c/safe/gotoskip.c` and `gotoskipdefer.c`, `test/cpp/gotopastdtor.cpp`. (0.138)
 - `ck_consume/6` consumes by its `How`. `free` needs the own fields consumed first (`owner_leaked` names the field).
   `move` needs them live or null (`owner_unset`, `use_after_move`) and moves them along. Then the owner's borrows
   dangle (`ck_dangle/3`). (M3)
@@ -5366,6 +5393,10 @@ A lambda is a class of its captures (`library/ccl_cpp.pl`). A fixture named alon
 - A library class's VALUE is opaque (`ck_carries_/1` via `ck_library_class/1` -> `cpp_lib_class/1`). A nested class of
   a library class is the library's. So a map iterator's node pointer is not followed. Such a value may be moved
   (`ck_moves_library/1`): `auto r = std::move(q)` over a `unique_ptr`. (0.79, 0.84, 0.86)
+- A POINTER TO CONST THAT A C++ LIBRARY FUNCTION RETURNS FROM NO POINTER ARGUMENT is the library's own storage, static to
+  the check (`ck_static_value/1`, `ck_pointer_arg/1`; 0.138): `const time_zone *ny = locate_zone("America/New_York");`
+  was fresh memory, `plain pointer not consumed`, where the zone lives in the database libc++ keeps for the whole run. A
+  pointer to const cannot be freed, and what the function does is the library's discipline. `tzone.cpp`.
 - A class's TABLE POINTER, `$vptr`, is static storage, never memory the check follows (`ck_carries_/1`; 0.127). Why: `V v
   = V();` of a polymorphic class was refused `untied`, a struct by value carrying a pointer given a fresh value.
 - A plain pointer that a library function returns over an object's address (`call(id(F), [addr(E)|_])`) is a borrow of
@@ -5405,12 +5436,13 @@ A lambda is a class of its captures (`library/ccl_cpp.pl`). A fixture named alon
   `unconsumed` reads "plain pointer not consumed", `untied` "no owner behind". The kinds: `use_after_move`,
   `owner_unset`, `borrow_after_move`, `borrow_escapes`, `borrow_stored`, `borrow_consumed`, `borrow_incomplete`,
   `owner_stored`, `owner_leaked`, `owner_overwritten`, `move_in_loop`, `move_of_non_owner`, `goto_with_owners`,
-  `tie_unknown`, `tie_outlived`, `tie_escapes`, `tie_mismatch`, `own_unbounded`, `own_array_by_value`,
+  `goto_over_defer`, `tie_unknown`, `tie_outlived`, `tie_escapes`, `tie_mismatch`, `own_unbounded`, `own_array_by_value`,
   `own_array_untagged`, `array_unset`, `unconsumed`, `untied`, `not_checked`. (M3)
 - The kinds not met above: `use_after_move` is a consumed owner used, freed or passed again, the double free.
   `owner_unset` is an owner used before it got a value. `move_of_non_owner` is `move` of no owner and no library value.
-  `goto_with_owners` is a `goto` into a block that does not enclose it, or over an owner's declaration, where an owner
-  lives (0.133). `not_checked` is a form the walk cannot follow: a range-for over a non-array, a `continue` in a switch
+  `goto_with_owners` is a `goto` over the declaration of a plain pointer that holds fresh memory or of an own array
+  (0.138; until then, into a block or over any owner's declaration where an owner lived, 0.133). `goto_over_defer` is a
+  `goto` over a `defer` or a C++ local with a destructor (0.138). `not_checked` is a form the walk cannot follow: a range-for over a non-array, a `continue` in a switch
   with no loop, a goto whose label no walk reached, a body whose labels' states do not settle in eight walks. (M3, 0.133)
 - A statement form the check does not know throws `not_lowered(F)` from the last `ck_stmt` clause. Every
   `test/c/safe/NAME.c` is refused with the error its `.expect` names (`test/compile.pl`). (M3, 0.32)
@@ -5496,6 +5528,12 @@ A lambda is a class of its captures (`library/ccl_cpp.pl`). A fixture named alon
   under the goto's own scope -- its locals, its defers -- then branches on (`ir_trampolines/3`). A goto from scopes with
   no defer branches straight to its label. It was a bare branch: `goto out;` from a block skipped a C++ local's
   destructor and a `defer`. `test/c/run/gotodefer.c`, `test/cpp/run/gotodtor.cpp`. (0.133)
+- A GOTO INTO A BLOCK (0.138): a label records the defers and the VLAs of each of its frames (`lab(LP, Counts, Vlas)`), a
+  forward goto the same of its own (`'$ir_fwdk'`); a jump over a defer of the frame it shares with the label, or into a
+  frame that holds one before the label, is `goto_over_defer(L)` (the check refuses it where it walks; this covers a
+  defer in code only a goto skips), and a jump into the scope of a VLA `goto_into_vla(L)` (C 6.8.6.1/1, as clang
+  refuses it: the array's size was never computed; `ir_skip_check/5`). A backward goto into a block runs the defers its
+  shared frame gained since the label, as one in the label's own frame does. (0.138)
 - A conditional is a `phi` of its arms in their usual type -- in C++ the arms' own type where both are of ONE arithmetic
   type (`ccl_cond_arith/3`, 0.127) -- and void arms have no phi ([expr.cond]/2; `ir_expr(cond)`'s first clause, which
   tests the first arm). Else LLVM refused `phi void` in libc++ 18's string algorithms. `test/cpp/run/voidcond.cpp`.
@@ -6331,11 +6369,11 @@ A lambda is a class of its captures (`library/ccl_cpp.pl`). A fixture named alon
   0.90, all GREEN (cocolog 1.2.18). The fixtures added since 0.93 have run on Linux only.
 - Ubuntu 24.04 on x86_64 (clang and LLVM 18, glibc, libc++ 18 and 21) is a host since 0.87. Every gate but the C++ one is
   GREEN there since 0.93, and all seven since 0.95. Every step from 0.93 on is gated there, but the save points 0.112,
-  0.113, 0.117, 0.122 to 0.125, 0.130 and 0.131 (gated by the steps after them); the last full run is 0.137's, over cocolog 1.10.0, on one
-  tree: over libc++ 18 all eight GREEN (reader 4 s, compile 11 s, driver 9 s, objects 4 s, proof, the cross gate in
-  50 s, the library read in 939 s, the C++ gate in 997 s with 491 of 493 fixtures ok, the skips are `stdoptionalref` and `joinwith`,
-  the 21 refusals and the two of the safe part); over libc++ 21 the library read (986 s) and the C++ gate (947 s,
-  492 of 493 ok, the skip `stdoptionalref`) GREEN -- the C gates do not read libc++. Two libc++ passes are one
+  0.113, 0.117, 0.122 to 0.125, 0.130 and 0.131 (gated by the steps after them); the last full run is 0.138's, over cocolog 1.10.0, on one
+  tree: over libc++ 18 all eight GREEN (reader 5 s, compile 12 s, driver 10 s, objects 3 s, proof, the cross gate in
+  54 s, the library read in 1007 s, the C++ gate in 1039 s with 493 of 496 fixtures ok, the skips are `stdoptionalref`, `joinwith` and `tzone`,
+  the 21 refusals and the three of the safe part); over libc++ 21 the library read (991 s) and the C++ gate (1092 s,
+  495 of 496 ok, the skip `stdoptionalref`) GREEN -- the C gates do not read libc++. Two libc++ passes are one
   gate: `LLVM=/usr/lib/llvm-18` and `LLVM=/usr/lib/llvm-21` choose the tree the chain reads and links. libc++ 22 (the
   newest tree, which a run without `$LLVM` reads) is untried but for `stdoptionalref`, which passes there. The run before
   0.121's (0.118, 0.119) found, over 0.117, two defects and one stale check of `test/cpp.pl` (c20, above).
@@ -6371,7 +6409,7 @@ A lambda is a class of its captures (`library/ccl_cpp.pl`). A fixture named alon
 - The language's own additions run: `:=`, patterns, `name { }` structs and `format`, `print`, `println`
   (`surface.c`), `defer` (`defers.c`), `#cocolog` (`cocolog.c`), `tie` (`tie.c`), `clone` (`clone.c`), `own` and
   `move` (`owners.c`, `own_fields.c`, `btree.c`, `btree_del.c`).
-- The safe part refuses each of the 45 programs in `test/c/safe/` with the error that its `.expect` names.
+- The safe part refuses each of the 47 programs in `test/c/safe/` with the error that its `.expect` names.
 
 ### C++ levels
 
@@ -6492,8 +6530,8 @@ A lambda is a class of its captures (`library/ccl_cpp.pl`). A fixture named alon
   (`arraycookie`), trailing return types (`trailing`) and CTAD (`stdctad`, `deduceguide`) (0.108, 0.110).
 - `test/cpp.sh` checks that twenty-one programs are refused by name (`coro.cpp`, `concept_fail.cpp`,
   `constrained_fail.cpp`, `lambda_const.cpp`, `lambda_method.cpp`, `bind_const.cpp`, the eleven `access_*.cpp`,
-  `abstract.cpp`, `modhidden.cpp`, `diamond.cpp`, `basenodefault.cpp`) and that the safe part refuses `escape.cpp` and
-  `thisunset.cpp`.
+  `abstract.cpp`, `modhidden.cpp`, `diamond.cpp`, `basenodefault.cpp`) and that the safe part refuses `escape.cpp`,
+  `thisunset.cpp` and `gotopastdtor.cpp`.
 
 ### libc++ headers read whole
 
@@ -6663,9 +6701,10 @@ A lambda is a class of its captures (`library/ccl_cpp.pl`). A fixture named alon
 - `std::format` runs (`stdformat.cpp`, 0.112), its compile-time format-string check dropped (0.110): a bad format
   string is caught at run time by the library's own parser. `vformat`, a formatter the program specializes, the wide
   format and `std::print` run (0.115), range and tuple formatting (0.133) and chrono formatting (0.136, `fmtchrono.cpp`).
-  Time points, the calendar types and `hh_mm_ss` format since 0.137 (`fmtchrono2.cpp`). Time zones are libc++'s
-  experimental part: clang++ finds `time_zone` only under `-fexperimental-library` (libc++ 21 and 22), a flag `bin/cicilang`
-  accepts and ignores as every `-f` flag.
+  Time points, the calendar types and `hh_mm_ss` format since 0.137 (`fmtchrono2.cpp`), and time zones, libc++'s
+  experimental part, run under `-fexperimental-library` since 0.138 (`tzone.cpp`: a zone by name, its offsets and
+  abbreviations in winter and in summer, a local time; libc++ 21, whose database reads the box's
+  `/usr/share/zoneinfo/tzdata.zi`).
 - `optional<T &>` needs libc++ 22 (`stdoptionalref.needs`; 21.1.8 has none). `bad_optional_access` cannot be caught: libc++ keeps its
   no-exceptions configuration and aborts with the message (0.82).
 - libc++ keeps its no-RTTI configuration by design, so `shared_ptr::get_deleter`, `dynamic_pointer_cast`,
@@ -6713,9 +6752,6 @@ A lambda is a class of its captures (`library/ccl_cpp.pl`). A fixture named alon
 - A library header's functions are not checked (`cpp_library_function/1`, `'$cpp_libfn'`). This is 0.45's decision,
   and it waits for the owner to confirm or reverse it.
 - A closure held in a `std::function` is not followed: it is the library's discipline (0.100).
-- A `goto` into a block that does not enclose it, or over an owner's declaration, is refused where an owner lives
-  (`goto_with_owners`): C allows both, and the walk would have to give the skipped declarations a state (0.133; any goto
-  in a function with owners was refused before).
 - A direct `std::allocator::allocate` and `allocator_traits<A>::allocate(a, n)` are accepted: a library member's or
   static function's plain pointer result borrows the object it takes by reference (`ck_borrows_from`, 0.91, 0.117;
   `stdallocator.cpp`).
@@ -6723,7 +6759,8 @@ A lambda is a class of its captures (`library/ccl_cpp.pl`). A fixture named alon
 ### Tools and performance
 
 - `bin/cicilang` accepts and ignores `-W`, `-f...` and `-pedantic` (owner's rule: clang's arguments, no new flags).
-  `-D` and `-U` define and undefine (0.112); a run with either keeps no C store.
+  `-D` and `-U` define and undefine (0.112), and `-fexperimental-library` turns libc++'s experimental part on (0.138); a
+  run with any of them keeps no C store.
 - `-g` (0.130) leaves out what clang's has beyond the variables, the types and the scopes: a destructor run at a scope's end
   has the line of its object's declaration, not the closing brace's; there are no columns (every location is column
   1). The macros are described under `-fdebug-macro` (0.134; `-g3` alone describes none in either compiler).

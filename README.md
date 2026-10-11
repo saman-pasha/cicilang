@@ -193,6 +193,8 @@ lowering drains when the holder goes. A `goto` is an edge of the flow: the
 state at a label is the join of the state that falls through and of each
 `goto` that reaches it, the scopes a jump leaves closed as a `break` closes
 them, and the jump runs their `defer` blocks (and, in C++, their destructors).
+A jump into a block, or over a declaration, leaves each owner it skipped
+unset on its path (0.138).
 
 Refused, each naming the statement's line:
 
@@ -208,7 +210,8 @@ Refused, each naming the statement's line:
 | `tie_unknown`, `tie_outlived`, `tie_escapes`, `tie_mismatch` | a tie to nothing declared, an owner outliving its tie, a tied owner moved beyond it, a value outside the slot's tie |
 | `unconsumed`, `untied` | a plain pointer holding fresh memory never consumed; a slot the check cannot follow given a value with no owner behind it |
 | `own_unbounded`, `own_array_by_value`, `own_array_untagged`, `array_unset` | an own pointer with no owner to name; an own array copied by value, untagged, or not zeroed at birth |
-| `goto_with_owners` | a `goto` into a block that does not hold it, or over an owner's declaration, where an owner lives |
+| `goto_with_owners` | a `goto` over the declaration of a plain pointer holding fresh memory, or of an own array |
+| `goto_over_defer` | a `goto` over a `defer` (or, in C++, a local with a destructor) to a label in its scope |
 
 `clone(p)` hands a function a fresh copy of what an own pointer points to,
 so `p` is not consumed. `test/c/run/owners.c`, `own_fields.c`,
@@ -326,7 +329,8 @@ time facets (`put_money`, `get_money`, `put_time`, `get_time`), a stream's
 exceptions mask, the wide file streams and `std::filesystem` (`path` and the
 operations, a range-for over a `directory_iterator`); since 0.136 `<random>`
 (the engines through the distributions, `std::shuffle`), `std::valarray`,
-chrono formatting and `std::rel_ops` through a using-directive.
+chrono formatting and `std::rel_ops` through a using-directive; since 0.138
+libc++'s time zones under `-fexperimental-library`, as clang++ takes it.
 `test/libcxx.sh` reads `<vector>`, `<string>`,
 `<iostream>`, `<map>`, `<set>`, `<unordered_map>`, `<unordered_set>`,
 `<optional>`, `<memory>`, `<functional>`, `<tuple>` and `<algorithm>` whole,

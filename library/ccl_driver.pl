@@ -236,7 +236,8 @@ dr_kind(owner_leaked, 'owner leaked:') :- !.
 dr_kind(move_in_loop, 'owner consumed inside a loop:') :- !.
 dr_kind(move_of_non_owner, 'move of a non-owner:') :- !.
 dr_kind(owner_overwritten, 'owner overwritten while live:') :- !.
-dr_kind(goto_with_owners, 'goto in a function with owners, at label') :- !.
+dr_kind(goto_with_owners, 'goto over the declaration of fresh memory or of an own array:') :- !.
+dr_kind(goto_over_defer, 'goto over a defer (or a local with a destructor) to label') :- !.
 dr_kind(K, K).
 %% the user's file's `#warning' lines, printed after its read in clang's shape (they count as no error)
 dr_pp_warnings :-

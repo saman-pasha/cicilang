@@ -94,6 +94,7 @@ while [ $# -gt 0 ]; do
     -target) need "$@"; shift; opts="$opts target($(q "$1")),"; tgt=1 ;;
     -fdebug-macro) dmac="debug_macro," ;;   # the macros in the debug information (0.134): with -g only, as clang
     -fno-debug-macro) dmac="" ;;
+    -fexperimental-library) opts="$opts define('_LIBCPP_ENABLE_EXPERIMENTAL'), link('-lc++experimental'), link('-lc++abi'),"; defs=1 ;;   # libc++'s experimental part, as clang++ (0.138)
     -W*|-f*|-std=*|-pedantic|-g*) ;;   # accepted for clang's sake
     -*) echo "$me: error: unknown argument: '$1'" >&2; exit 1 ;;
     *) inputs="$inputs $(q "$1"),";;

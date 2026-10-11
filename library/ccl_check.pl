@@ -82,7 +82,8 @@
 %%   move_in_loop        an owner from outside a loop consumed inside it (and not re-assigned)
 %%   move_of_non_owner   move(x) of something that is not an owner
 %%   owner_overwritten   assignment to a live owner (what it held would leak)
-%%   goto_with_owners    a goto in a function that has owners (not followed yet)
+%%   goto_with_owners    a goto over a plain pointer's fresh memory or an own array's declaration (it would be garbage)
+%%   goto_over_defer     a goto over a `defer' (or a C++ local with a destructor) to a label in its scope
 %%   tie_unknown         `tie y' with no y declared before it (in scope, an earlier parameter or member)
 %%   tie_outlived        an owner tied to y still live when y is consumed
 %%   tie_escapes         a tied owner moved beyond its tie: into an untied slot, to an untied own parameter, returned with no result tie
@@ -457,6 +458,11 @@ ck_static_value(id(N)) :- !, ck_is_global(N), ccl_declared(N, T), ccl_resolve_ty
 ck_static_value(bin(Op, A, _)) :- memberchk(Op, ['+', '-']), !, ck_static_value(A).
 ck_static_value(cond(_, A, B)) :- !, ck_static_value(A), ck_static_value(B).
 ck_static_value(comma(_, B)) :- !, ck_static_value(B).
+ck_static_value(call(id(F), As)) :- ccl_lang(cpp), atom(F), cpp_library_function(F),   % A POINTER TO CONST THAT A C++ LIBRARY FUNCTION RETURNS FROM NO POINTER ARGUMENT is the library's storage (0.138): libc++'s `locate_zone' answers a zone of the database it keeps for the whole run; a pointer to const cannot be freed, and what the function does is the library's discipline (its functions are not checked)
+    catch(ccl_declared(F, fn(R, _, _)), _, fail), catch(ccl_resolve_type(R, ptr(_, base(Q, _))), _, fail), memberchk(const, Q),
+    \+ ( member(A, As), A \== nullptr, ck_pointer_arg(A) ), !.
+ck_pointer_arg(addr(_)) :- !.
+ck_pointer_arg(A) :- catch(ccl_type_of(A, T), _, fail), T \== unknown, catch(ccl_resolve_type(T, T1), _, fail), ( T1 = ptr(_, _) ; T1 = arr(_, _) ), !.
 
 ck_line(L) :- ( integer(L), L > 0 -> nb_setval('$ck_line', L) ; true ).
 ck_fail(Kind, Name, Form) :- nb_getval('$ck_fn', F), nb_getval('$ck_line', L), ck_short(Form, Short0), ck_squash(Short0, Short), throw(error(ownership(Kind, Name, Short), where(F, line(L)))).
@@ -1048,10 +1054,17 @@ ck_close_to(St0, Depth, St) :- ck_scope_end(St0, St1), ck_close_to(St1, Depth, S
 %% that frame loses what was declared since the label (jumping back past a declaration ends it: its owner must be
 %% consumed, its defers run); its state joins the label's on the NEXT walk (`'$ck_seed''): the function is walked again
 %% until no label's state changes, as a loop's state settles -- an owner freed and taken again (`retry:') settles, one
-%% left live and taken again is `owner_overwritten'. A goto INTO a block that does not enclose it is still refused where
-%% an owner lives on either side (`goto_with_owners'): it would skip the declarations before the label. A goto whose
-%% label no walk reached (a label in dead code inside a statement) is `not_checked'. The lowering runs the same defers
-%% on the jump (ir_goto, 0.133).
+%% left live and taken again is `owner_overwritten'. A goto whose label no walk reached (a label in dead code inside a
+%% statement) is `not_checked'. The lowering runs the same defers on the jump (ir_goto, 0.133).
+%% A GOTO INTO A BLOCK, OR OVER A DECLARATION, IS FOLLOWED (0.138; C 6.8.6.1 allows both but for a VLA): the frames it
+%% enters are new to it, and at the label every owner the fall-through holds and the edge does not -- its declaration
+%% skipped -- is `unset' on that edge (`ck_skipped/4'): a merge with a live owner is `partial', refused on use and at
+%% the scope's end, one with null is `unset', and the code after the label must give it a value before it frees it.
+%% A plain pointer holding fresh memory and an own array, skipped, would be garbage that must be freed: refused,
+%% `goto_with_owners'. A goto over a `defer' (or a C++ local with a destructor, a defer of the desugaring) is refused,
+%% `goto_over_defer' (`ck_defers_agree/2'): the defer runs at its scope's end on every path, the skipped one too. A
+%% backward goto into a block closes its frames to the one it shares with the label and ends what that frame declared
+%% since the label, as a goto in the label's own frame does (`lab(LP, KDs)': the keys and defers of each frame).
 ck_bpath_push :- ( catch(nb_getval('$ck_bpath', P), _, fail) -> true ; P = [] ), ( catch(nb_getval('$ck_bid', N0), _, fail) -> true ; N0 = 0 ),
     N is N0 + 1, nb_setval('$ck_bid', N), nb_setval('$ck_bpath', [N|P]).
 ck_bpath_pop :- ( catch(nb_getval('$ck_bpath', [_|P]), _, fail) -> nb_setval('$ck_bpath', P) ; true ).
@@ -1059,19 +1072,19 @@ ck_bpath_root(P) :- ( catch(nb_getval('$ck_bpath', P0), _, fail) -> true ; P0 = 
 ck_common_prefix([X|Xs], [Y|Ys], [X|Zs]) :- X == Y, !, ck_common_prefix(Xs, Ys, Zs).
 ck_common_prefix(_, _, []).
 ck_goto(L, Ln, St) :- ck_bpath_root(GP), nb_getval('$ck_labels', Ls),
-    (   memberchk(L-lab(LP, LKeys, LDefs), Ls)
-    ->  ck_edge_state(GP, LP, St, L, StC0),
-        ( ck_common_prefix(GP, LP, CP), CP == LP, StC0 \== dead -> ck_close_since_label(StC0, LKeys, LDefs, StC) ; StC = StC0 ),
+    (   memberchk(L-lab(LP, KDs), Ls)
+    ->  ck_edge_state(GP, LP, St, KDs, StC),
         nb_getval('$ck_back', B0), ck_add_edge(L, StC, B0, B1), nb_setval('$ck_back', B1)
     ;   nb_getval('$ck_fwd', F0), nb_setval('$ck_fwd', [g(L, St, GP, Ln)|F0]) ).
-%% the state an edge brings to a label at the path LP: the frames the goto leaves closed, those it enters (a jump into
-%% a block) new and empty -- where no owner lives
-ck_edge_state(GP, LP, St0, L, St) :- ck_common_prefix(GP, LP, CP), length(CP, NC), D is NC + 1, ck_close_to(St0, D, St1),
+%% the state an edge brings to a label at the path LP: the frames the goto leaves closed; for a backward goto (KDs, the
+%% label's keys and defers per frame, innermost first) the frame it shares with the label without what that frame
+%% declared since the label; the frames it enters (a jump into a block) new and empty
+ck_edge_state(GP, LP, St0, KDs, St) :- ck_common_prefix(GP, LP, CP), length(CP, NC), D is NC + 1, ck_close_to(St0, D, St1),
     length(LP, NL), Enter is NL - NC,
-    (   Enter =:= 0 -> St = St1
-    ;   St1 == dead -> St = dead
-    ;   ck_any_owner(St1) -> ck_fail(goto_with_owners, L, goto(L))
-    ;   St1 = st(Frs), length(New, Enter), ck_fresh_frames(New), append(New, Frs, Frs2), St = st(Frs2) ).
+    (   St1 \== dead, KDs \== none, nth0(Enter, KDs, LKeys-LDefs) -> ck_close_since_label(St1, LKeys, LDefs, St2) ; St2 = St1 ),
+    (   Enter =:= 0 -> St = St2
+    ;   St2 == dead -> St = dead
+    ;   St2 = st(Frs), length(New, Enter), ck_fresh_frames(New), append(New, Frs, Frs2), St = st(Frs2) ).
 ck_fresh_frames([]).
 ck_fresh_frames([fr([], [])|Fs]) :- ck_fresh_frames(Fs).
 %% back past declarations in the label's own frame: the defers registered since the label run, the keys declared
@@ -1089,13 +1102,28 @@ ck_add_edge(L, St, B0, [L-St2|B1]) :- ( select(L-St1, B0, B1) -> ck_merge(St1, S
 ck_label_in(L, _, St0, StL) :- ck_bpath_root(LP),
     nb_getval('$ck_fwd', F0), findall(G, ( member(G, F0), G = g(L, _, _, _) ), Mine), findall(G, ( member(G, F0), \+ G = g(L, _, _, _) ), Rest), nb_setval('$ck_fwd', Rest),
     ck_label_edges(Mine, LP, L, Es),
-    ( St0 = st([fr(O0, _)|_]), member(K-S0, O0), ck_owner_state(S0), member(st([fr(OE, _)|_]), Es), \+ memberchk(K-_, OE) -> ck_fail(goto_with_owners, K, goto(L)) ; true ),   % a goto that jumps OVER an owner's declaration to its label: on its way the owner was never set
     nb_getval('$ck_seed', Seed), ( memberchk(L-SS, Seed) -> Es1 = [SS|Es] ; Es1 = Es ),
-    ck_merge_all([St0|Es1], StL),
-    ( StL = st([fr(Os, Ds)|_]) -> ck_keys(Os, LKeys), length(Ds, LDefs) ; LKeys = [], LDefs = 0 ),
-    nb_getval('$ck_labels', Ls), nb_setval('$ck_labels', [L-lab(LP, LKeys, LDefs)|Ls]).
+    ck_defers_agree([St0|Es1], L),
+    ck_skipped_all(Es1, St0, L, Es2),
+    ck_merge_all([St0|Es2], StL),
+    ( StL = st(Frs) -> findall(Ks-ND, ( member(fr(Os, Ds), Frs), ck_keys(Os, Ks), length(Ds, ND) ), KDs) ; KDs = none ),
+    nb_getval('$ck_labels', Ls), nb_setval('$ck_labels', [L-lab(LP, KDs)|Ls]).
 ck_label_edges([], _, _, []).
-ck_label_edges([g(_, St, GP, GLn)|Gs], LP, L, [StC|Es]) :- nb_getval('$ck_line', L0), ck_line(GLn), ck_edge_state(GP, LP, St, L, StC), nb_setval('$ck_line', L0), ck_label_edges(Gs, LP, L, Es).
+ck_label_edges([g(_, St, GP, GLn)|Gs], LP, L, [StC|Es]) :- nb_getval('$ck_line', L0), ck_line(GLn), ck_edge_state(GP, LP, St, none, StC), nb_setval('$ck_line', L0), ck_label_edges(Gs, LP, L, Es).
+%% every path to a label has run the same defers of each frame it shares with the label: one that jumped over a defer
+%% would have it run at the scope's end with its operands never set (`goto_over_defer')
+ck_defers_agree(Sts, L) :- findall(Ns, ( member(st(Frs), Sts), findall(N, ( member(fr(_, Ds), Frs), length(Ds, N) ), Ns) ), All),
+    ( All = [N0|Rest], member(N1, Rest), N1 \== N0 -> ck_fail(goto_over_defer, L, goto(L)) ; true ).
+%% the owners the fall-through holds and an edge does not: their declarations skipped, `unset' on that edge
+ck_skipped_all([], _, _, []).
+ck_skipped_all([E|Es], St0, L, [E2|Es2]) :- ck_skipped(E, St0, L, E2), ck_skipped_all(Es, St0, L, Es2).
+ck_skipped(E, St0, L, E2) :- E = st(FE), St0 = st(F0), length(FE, N), length(F0, N), !, ck_skipped_frames(FE, F0, L, FE2), E2 = st(FE2).
+ck_skipped(E, _, _, E).
+ck_skipped_frames([], [], _, []).
+ck_skipped_frames([fr(OE, DE)|Fs], [fr(O0, _)|F0s], L, [fr(OE2, DE)|Fs2]) :-
+    findall(K-unset, ( member(K-S0, O0), \+ memberchk(K-_, OE), ck_skipped_owner(S0, K, L) ), Add), append(OE, Add, OE2),
+    ck_skipped_frames(Fs, F0s, L, Fs2).
+ck_skipped_owner(S0, K, L) :- ( memberchk(S0, [loose, array]) -> ck_fail(goto_with_owners, K, goto(L)) ; ck_owner_state(S0) ).
 %% the walk of a function's body, again while a back edge changes a label's state
 ck_walk_body(Body, St0, St) :- ck_walk_snapshot(Snap), nb_setval('$ck_seed', []), ck_walk_iter(Body, St0, Snap, 1, St).
 ck_walk_iter(Body, St0, Snap, I, St) :-

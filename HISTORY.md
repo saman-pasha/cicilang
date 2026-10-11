@@ -131,6 +131,7 @@ One row per step, in version order: the step's title, what it did and its gate n
 | 0.135 | classes laid out as the Itanium ABI lays them, and the assignment of a class with a table | A non-POD base lends its tail padding; the table pointer first; packed base shapes; a class with a table assigns memberwise; the memberwise assignment assigns its bases; the slicing copy; the implicit copy of a diamond | 18: reader 5 s, compile 13 s, driver 11 s, objects 4 s, cross 50 s, libcxx 1313 s, C++ 1256 s (478 of 480); 21: libcxx 1055 s, C++ 947 s; all GREEN |
 | 0.136 | `<random>`, `std::valarray`, chrono formatting, `std::rel_ops`, the tie of a stream, the mangler's last builtins, the coroutine ramp | `<random>` and `std::valarray` run; chrono durations format; `std::rel_ops` through a using-directive; `cin`'s tie checked; every builtin type mangled; a lazy member chosen among overloads of one name | 487 of 489 C++ fixtures over libc++ 18, 488 over 21; all gates GREEN |
 | 0.137 | a decimal to and from a 128-bit integer; a decimal constant's infinity, NaN and division by zero; chrono formatting of the calendar; the rest of <filesystem> | the compiler's own decimal helpers in C (module/bidrt.c, library/ccl_bidrt.pl); decimal specials folded as gcc; a conditional's condition through operator bool; a class argument through a constructor template; value template arguments mangled | 491 of 493 C++ fixtures over libc++ 18, 492 over 21; all gates GREEN |
+| 0.138 | a goto into a block and over a declaration; a goto over a defer refused; -fexperimental-library and time zones; a raw string over lines | the check follows a goto into a block (skipped owners unset); goto_over_defer and goto_into_vla refused; libc++'s experimental part under -fexperimental-library; an alias's right side read again; a raw string joined over lines; pointees compared as types; a library's const pointer static | 493 of 496 C++ fixtures over libc++ 18, 495 over 21 (tzone); all gates GREEN |
 
 ## M5 — the C++ mode
 
@@ -8239,3 +8240,68 @@ read in 939 s, the C++ gate in 997 s with its four checks of the command, 491 of
 the C++ gate (947 s, 492 of 493 ok, the skip `stdoptionalref`) GREEN.
 
 Lowering version 78; the module rebuilt as 0.137, over cocolog 1.10.0.
+
+## 0.138 — a goto into a block and over a declaration; a goto over a defer refused; -fexperimental-library and time zones; a raw string over lines
+
+**0.138: the safe part's goto item of "Not done", and the time zones 0.137 left to libc++'s experimental part.**
+
+(1) A GOTO INTO A BLOCK, OR OVER A DECLARATION, IS FOLLOWED BY THE CHECK. C allows both (6.8.6.1, but for a jump into a
+VLA's scope), and since 0.133 the check refused them where an owner lived, `goto_with_owners`, since the walk would have
+to give the skipped declarations a state. It gives them one now: the frames a goto enters are new to it, and at the
+label every owner that the fall-through holds and the edge does not is `unset` on that edge (`ck_skipped/4`). The merge
+does the rest: with a live owner it is `partial`, refused on use and at the scope's end (the fall-through's memory must be
+freed, the goto's garbage must not); with null it is `unset`, and the code after the label must give the owner a value
+before it frees it. A skipped plain pointer that holds fresh memory, and a skipped own array, would be garbage to free:
+`goto_with_owners`, worded for that now. A backward goto into a block ends what the frame it shares with the label
+declared since the label, as a goto in the label's own frame did (a label keeps the keys and defers of each frame).
+
+(2) A GOTO OVER A DEFER IS REFUSED, `goto_over_defer`. The lowering runs a scope's defers at its end, statically, on
+every path, so a jump over a `defer` -- or over a C++ local with a destructor, a defer of the desugaring -- ran it with
+its operands never set: `{ if (k) goto out; std::string s = "x"; out:; }` destroyed a string never built, where clang++
+refuses the jump (`cannot jump from this goto statement to its label`). The check asks that every path to a label has run
+the same defers of each frame it shares with the label (`ck_defers_agree/2`); the lowering asks the same of a defer in
+code that only a goto skips, which the check does not walk (`ir_skip_check/5` over the counts a label and a forward goto
+record), and refuses a jump into a VLA's scope, `goto_into_vla(L)`, as clang does: the array's size was never computed.
+
+(3) `-fexperimental-library` ACTS. libc++'s time zones, syncstream and the rest of its experimental part come only under
+that flag, and clang++ turns them on through `__has_feature(experimental_library)`, which answers 0 here. The command
+defines what that answer defines, `_LIBCPP_ENABLE_EXPERIMENTAL`, and links `libc++experimental` and `libc++abi` (clang++'s
+own link of the archive needs libc++abi named: `DSO missing from command line`). The run keeps no C store, as with `-D`,
+and a C++ summary's fold takes the definition. `tzone.cpp` (C++20, libc++ 21; `tzone.needs` skips it over libc++ 18,
+which has no `time_zone`): a zone by name, its offset and abbreviation in winter and in summer, a local time.
+
+(4) WHAT THE TIME ZONES MET, four defects, each cut to a reduction. (a) THE READER: the experimental `<__pstl>` writes
+`using _FindIf = __dispatch<__find_if, ...>;`, and `__dispatch` is also a member function template of `<variant>`'s
+dispatcher, so the flattened name was a function template's and its template-id no type: the read of `<chrono>` stopped
+there, and the census named it. An alias declaration's right side whose normal read fails is read again with a function
+template's template-id taken as a type (`ccl_alias_rhs//2`, `'$ccl_alias_rhs'`; reader 128). (b) THE PREPROCESSOR:
+`__chrono/exception.h` builds a message in a raw string that spans lines, and the preprocessor split the lines first, so
+the reader met an unterminated literal (`lexical error`); CLAUDE.md named the gap ("the preprocessor's line splitting
+does not know a raw string that spans lines"). In C++ a line that opens a raw string `R"d(` and leaves it open is joined
+with the next lines, a newline between, up to `)d"` (`pp_raw_join/5`; the scanner steps over comments, strings, character
+literals, whole identifiers and numbers, so `uR"`, `u8R"` and `LR"` open one and `xR"` does not), and `__LINE__` after it
+counts the lines it took (`rawlines.cpp`). (c) THE QUALIFICATION CONVERSION compared the pointees by their SPELLING: `SV *`
+to `const std::string_view *`, with `SV` a program's alias of the class, was no conversion, nor `B2 *` to `const Box *`
+with `using B2 = Box;` -- `is_convertible` was false over libc++ 18 too. libc++ 21's `common_reference` asks it in its
+first bullet, and with it `indirectly_readable<projected<It, &time_zone::name>>`, so `ranges::lower_bound(zones, __name,
+{}, &time_zone::name)` of tzdb's `__find_in_zone` had no candidate. The failure depended on the order: asked first inside
+the concept, the instance was keyed with the alias on one side and the resolved struct on the other. Where the spellings
+differ the pointees are compared as types (`cpp_quals_added/2`, `cpp_same_unqualified/2` over `cpp_same_type/2`;
+`aliasptr.cpp`, C++20, which prints `0 0 0` on 0.137). (d) THE SAFE PART took `const time_zone *ny =
+locate_zone("America/New_York");` for fresh memory, `plain pointer not consumed`: a pointer to CONST that a C++ library
+function returns from no pointer argument is the library's own storage, static to the check (`ck_static_value/1`), as the
+zone lives in the database libc++ keeps for the whole run; a pointer to const cannot be freed, and what the function does
+is the library's discipline.
+
+Fixtures: `test/c/run/gotoin.c` (a goto into a block where an owner lives outside it, over an owner's declaration to a
+label that gives it a value, back into a block); refused, `test/c/safe/gotoskip.c` (`use_after_move` of the skipped,
+partial owner) and `gotoskipdefer.c` (`goto_over_defer`), and `test/cpp/gotopastdtor.cpp` by the C++ gate's safe-part
+refusals; `test/cpp/run/tzone.cpp`, `rawlines.cpp`, `aliasptr.cpp`.
+
+THE GATES. The live checkout ran the chain, fresh HOMEs: over libc++ 18 all eight GREEN (reader 5 s, compile 12 s with 75
+run and 47 safe fixtures, driver 10 s with 33 checks, objects 3 s, proof, cross 54 s with 75 fixtures and 3 checks, the library
+read in 1007 s, the C++ gate in 1039 s with its four checks of the command, 493 of 496 fixtures ok, the skips are
+`stdoptionalref`, `joinwith` and `tzone`, the 21 refusals and the three of the safe part); over libc++ 21 the library read
+(991 s) and the C++ gate (1092 s, 495 of 496 ok, `tzone` among them, the skip `stdoptionalref`) GREEN.
+
+Reader version 128, lowering version 79; the module rebuilt as 0.138, over cocolog 1.10.0.

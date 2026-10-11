@@ -1,0 +1,6 @@
+one
+two "q" // not a comment
+three|a)" b
+c|1000|R"(|e
+f
+exit 12

@@ -237,12 +237,48 @@ pp_lines([], _, _, []).
 pp_lines([P|Ps], N, in, Lines) :- !,                                              % inside a block comment: to its end
     (   atom_codes(P, Cs), pp_close(Cs, R1) -> atom_codes(Rest, R1), pp_lines([Rest|Ps], N, out, Lines)
     ;   N1 is N + 1, pp_lines(Ps, N1, in, Lines) ).
+pp_lines([P|Ps], N, out, Lines) :- pp_raw_join(P, Ps, P1, Ps1, K), !, N1 is N + K, pp_lines_raw(P1, Ps1, N, N1, Lines).
 pp_lines([P|Ps], N, out, Lines) :-
     atom_codes(P, Cs),
     (   \+ memberchk(47, Cs), \+ pp_ends_backslash(P) -> Lines = [line(N, P)|Lines1], N1 is N + 1, St1 = out, Ps1 = Ps
     ;   pp_join(Cs, P, Ps, N, Joined, Ps1, N1), pp_clean(Joined, Out, St1),
         atom_codes(OA, Out), Lines = [line(N, OA)|Lines1] ),
     pp_lines(Ps1, N1, St1, Lines1).
+%% A RAW STRING LITERAL THAT SPANS LINES (C++ only, 0.138): a line that opens `R"d(' and does not close it with `)d"'
+%% takes the next lines, newlines kept, up to the line that closes it, and the whole is one line of the first one's
+%% number; the lexers count the newlines inside the literal, and the lines after it keep their numbers
+pp_raw_join(P, Ps, P1, Ps1, K) :- sub_atom(P, _, _, _, 'R"'), catch(nb_getval('$ccl_lang', cpp), _, fail), atom_codes(P, Cs), pp_raw_open(Cs, D), !,
+    pp_raw_more(Ps, D, Qs, Ps1), length(Qs, K), atomic_list_concat([P|Qs], '\n', P1).
+pp_raw_more([Q|Qs], D, [Q|Rs], Rest) :- atom_codes(Q, QCs), append([41|D], [34], Close),
+    (   append(_, Tail, QCs), append(Close, After, Tail) -> ( pp_raw_open(After, D2) -> pp_raw_more(Qs, D2, Rs, Rest) ; Rs = [], Rest = Qs )
+    ;   pp_raw_more(Qs, D, Rs, Rest) ).
+%% the joined line goes on as any other: one that holds a `/' or ends in a backslash through the cleaning
+pp_lines_raw(P1, Ps1, N, N1, [line(N, OA)|Lines1]) :- atom_codes(P1, Cs),
+    (   \+ memberchk(47, Cs), \+ pp_ends_backslash(P1) -> OA = P1, N2 is N1 + 1, Ps2 = Ps1, St1 = out
+    ;   pp_join(Cs, P1, Ps1, N1, Joined, Ps2, N2), pp_clean(Joined, Out, St1), atom_codes(OA, Out) ),
+    pp_lines(Ps2, N2, St1, Lines1).
+%% does the line open a raw string it leaves open? Its delimiter: a walk over ordinary strings, character literals and
+%% comments, so a `R"' inside them is no literal
+pp_raw_open([], _) :- !, fail.
+pp_raw_open([47, 47|_], _) :- !, fail.
+pp_raw_open([47, 42|R], D) :- !, append(_, [42, 47|R1], R), !, pp_raw_open(R1, D).
+pp_raw_open([34|R], D) :- !, pp_skip_quoted(R, 34, R1), pp_raw_open(R1, D).
+pp_raw_open([39|R], D) :- !, pp_skip_quoted(R, 39, R1), pp_raw_open(R1, D).
+pp_raw_open([C|R], D) :- pp_ident_start(C), !, pp_take_ident(R, Id, R1),
+    ( R1 = [34|R2], memberchk([C|Id], ["R", "u8R", "uR", "UR", "LR"]) -> pp_raw_lit(R2, D) ; pp_raw_open(R1, D) ).
+pp_raw_open([C|R], D) :- C >= 0'0, C =< 0'9, !, pp_take_number(R, R1), pp_raw_open(R1, D).   % a pp-number with its separators, `1'000'
+pp_raw_open([_|R], D) :- pp_raw_open(R, D).
+pp_raw_lit(R, D) :- append(D0, [40|Body], R), length(D0, ND), ND =< 16, \+ ( member(X, D0), memberchk(X, [32, 41, 92, 9, 34]) ), !, append([41|D0], [34], Close),
+    ( append(_, Tail, Body), append(Close, After, Tail) -> pp_raw_open(After, D) ; D = D0 ).
+pp_skip_quoted([], _, []).
+pp_skip_quoted([92, _|R], Q, R1) :- !, pp_skip_quoted(R, Q, R1).
+pp_skip_quoted([Q|R], Q, R) :- !.
+pp_skip_quoted([_|R], Q, R1) :- pp_skip_quoted(R, Q, R1).
+pp_ident_start(C) :- ( C >= 0'a, C =< 0'z ; C >= 0'A, C =< 0'Z ; C == 0'_ ), !.
+pp_take_ident([C|R], [C|Id], R1) :- ( pp_ident_start(C) ; C >= 0'0, C =< 0'9 ), !, pp_take_ident(R, Id, R1).
+pp_take_ident(R, [], R).
+pp_take_number([C|R], R1) :- ( pp_ident_start(C) ; C >= 0'0, C =< 0'9 ; C == 39 ; C == 0'. ), !, pp_take_number(R, R1).
+pp_take_number(R, R).
 pp_ends_backslash(P) :- atom_length(P, L), L > 0, L1 is L - 1, sub_atom(P, L1, 1, 0, Last),
     ( Last == '\\' -> true ; atom_codes(Last, [C]), ( C == 32 ; C == 9 ), atom_codes(P, Cs), memberchk(92, Cs), pp_before_backslash(Cs, _) ).   % TRAILING WHITESPACE AFTER THE BACKSLASH still splices ([lex.phases]/2 as clang reads it, with a warning; 0.99): the last character asked first, since every line comes through here
 pp_before_backslash(Cs, C1) :- reverse(Cs, R), pp_skip_ws(R, [92|R1]), reverse(R1, C1).
