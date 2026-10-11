@@ -419,6 +419,7 @@ ccl_class_shape(Ms) :- member(M, Ms), \+ ccl_layout_marker(M), M \= member(_, _,
 ccl_layout_marker(align_as(_)).
 ccl_layout_marker(virtual_base).                                   % a class whose FIRST base is VIRTUAL (0.110): its `$base' is reached through the vtable's vbase offset
 ccl_layout_marker(virtual_base_of(_)).                             % ... and its base-subobject form `C.nv', the shared base not laid out (a diamond's later path)
+ccl_layout_marker('$nonpod').                                      % A CLASS THAT IS NOT A POD FOR THE PURPOSE OF LAYOUT (the Itanium ABI's term, as clang decides it; 0.135): as a base or a `[[no_unique_address]]' member it takes its DATA size and lends its tail padding (ccl_data_size/2)
 %% which kind of virtual-base struct a type is: `complete' (the base laid LAST, at a place only the complete object knows)
 %% or `nv(T)' (the base elsewhere in the complete object); either is reached through the vtable, never statically
 ccl_vbase_kind(T, K) :- ccl_members_of_(T, Ms), ( memberchk(virtual_base, Ms) -> K = complete ; memberchk(virtual_base_of(VT), Ms) -> K = nv(VT) ).
@@ -808,8 +809,9 @@ ccl_struct_layout(Ms, _, _, N, Al) :- ccl_members_layout(Ms, _, N, Al).
 %% width closes the unit; a plain member is aligned as usual; the struct's
 %% alignment counts every member's, a bitfield's declared type included.
 %% a struct's layout is asked at every member access: kept per member list
-ccl_members_layout(Ms, Lays, Size, Align) :- ccl_cached('$ccl_laycache', Ms, lay(Lays, Size, Align), ccl_members_layout_nocache(Ms, Lays, Size, Align)).
-ccl_members_layout_nocache(Ms, Lays, Size, Align) :- ccl_members_layout_(Ms, 0, 1, acc([], 0), Lays, Bits, Align, EE), Bytes0 is (Bits + 7) // 8, Bytes is max(Bytes0, EE), ccl_round_up(Bytes, Align, Size).
+ccl_members_layout(Ms, Lays, Size, Align) :- ccl_members_layout(Ms, Lays, Size, Align, _).
+ccl_members_layout(Ms, Lays, Size, Align, DSize) :- ccl_cached('$ccl_laycache', Ms, lay(Lays, Size, Align, DSize), ccl_members_layout_nocache(Ms, Lays, Size, Align, DSize)).   % ... and the DATA SIZE beside them (0.135): the bytes up to the end of the last data member, the tail padding left out
+ccl_members_layout_nocache(Ms, Lays, Size, Align, DSize) :- ccl_members_layout_(Ms, 0, 1, acc([], 0), Lays, Bits, Align, EE), DSize is (Bits + 7) // 8, Bytes is max(DSize, EE), ccl_round_up(Bytes, Align, Size).
 %% THE EMPTY SUBOBJECTS PLACED SO FAR travel with the walk (acc(Seen, EmptyEnd): the empty subobjects' tags and offsets,
 %% and the byte past the last of them), since an EMPTY `[[no_unique_address]]' MEMBER IS PLACED BY THE ABI'S RULE
 %% (Itanium 2.4 II.3, measured against clang++, 0.96): at offset ZERO, whatever lies there, unless an empty subobject of
@@ -825,7 +827,8 @@ ccl_members_layout_([member(T, N, W0)|Ms], Bit0, Al0, acc(Seen, EE0), Lays, Bits
         EE1 is max(EE0, Off + S), Seen1 = [Tag-Off|Seen],
         Lays = [lay(N, T, Off, empty)|Lays1]
     ;   ccl_plain_width(W0)
-    ->  ccl_round_up(Bit0, ABits, B1), Off is B1 // 8, Bit1 is B1 + S * 8, Al1 is max(Al0, A), EE1 = EE0,
+    ->  ccl_round_up(Bit0, ABits, B1), Off is B1 // 8, Al1 is max(Al0, A),
+        ( ccl_overlapping(N, W0), ccl_overlap_size(T1, S, DS) -> Bit1 is B1 + DS * 8, EE1 is max(EE0, Off + S) ; Bit1 is B1 + S * 8, EE1 = EE0 ),   % a base or a `[[no_unique_address]]' member of a class that is no POD takes its DATA size (0.135, below)
         ( ccl_empty_layout(T1), ccl_empty_tag(T1, Tag) -> Seen1 = [Tag-Off|Seen] ; Seen1 = Seen ),   % a plain member of an empty class is an empty subobject too, and its byte is in the way of a marked one of its type
         Lays = [lay(N, T, Off, none)|Lays1]
     ;   ccl_bit_width(W0, W), Seen1 = Seen, EE1 = EE0,
@@ -847,6 +850,21 @@ ccl_empty_offset(Tag, A, Bit0, Seen, Off) :-
 ccl_empty_step(Tag, A, Seen, C, Off) :- ( memberchk(Tag-C, Seen) -> C1 is C + A, ccl_empty_step(Tag, A, Seen, C1, Off) ; Off = C ).
 ccl_plain_width(none).
 ccl_plain_width(no_unique_address).                                              % the mark is no bitfield width: a member carrying it over a type with bytes lies where it always did
+%% A POTENTIALLY-OVERLAPPING SUBOBJECT ([intro.object]/7: a base sub-object, `$base' and `$base$K', or a `[[no_unique_address]]'
+%% member) of a class that is NOT A POD FOR THE PURPOSE OF LAYOUT takes only its DATA SIZE, the bytes up to the end of its last data
+%% member, and what follows lies in its TAIL PADDING (the Itanium ABI 2.4 II.2, measured against clang 18 and 21; 0.135): `struct D :
+%% B { int y; }' over `struct B { virtual int f(); int x; }' lays y at 12 and is sixteen bytes, where it lay at 16 in twenty-four;
+%% `struct B { B() {} int a; char c; }; struct D : B { char d; }' lays d at 5. A POD keeps its whole size (the desugaring decides
+%% which class is one and marks the other `$nonpod', cpp_layout_pod/7); the class's own size still covers the sub-object's.
+ccl_overlapping(_, no_unique_address) :- !.
+ccl_overlapping(N, _) :- atom(N), ( N == '$base' -> true ; sub_atom(N, 0, 6, _, '$base$') ), !.
+ccl_overlap_size(T1, S, DS) :- ccl_data_size(T1, DS), DS > 0, DS < S.
+%% THE DATA SIZE of a type (the ABI's dsize; clang's `__datasizeof'): a class that is no POD, its bytes up to the end of its last
+%% data member (an empty one's 0); any other type, and a diamond path's base-subobject form (its size is its data size already),
+%% its whole size
+ccl_data_size(T, DS) :- ccl_resolve_type(T, T1),
+    (   T1 = base(_, [struct(_, Ms)]), Ms \== none, memberchk('$nonpod', Ms), \+ memberchk(virtual_base_of(_), Ms) -> ccl_members_layout(Ms, _, _, _, DS)
+    ;   ccl_size_align(T1, DS, _) ).
 %% AN EMPTY CLASS IS ONE WITH NO DATA MEMBERS AT ALL ([class]/4) -- the same test `ccl_class_size' asks, and
 %% written once. NOT "lays out to zero": `ccl_members_layout_' SKIPS a member whose type it cannot size yet (its
 %% last clause takes anything), so a class whose members are not resolvable at the moment of asking lays out to

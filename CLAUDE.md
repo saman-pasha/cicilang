@@ -10,8 +10,8 @@ it found, its measurements and its gate numbers. `README.md` tells a user what r
 architecture and the milestones. A step that changes a rule edits the rule here, in its topic, and writes its entry
 in `HISTORY.md`.
 
-At 0.134 the versions are: the module 0.134 (`ccl_p_version` in `module/cicilang.cicili`, `bin/cicilang --version`),
-the reader 125 (`ccl_reader_version/1`, `library/ccl_syntax.pl`) and the lowering 75 (`ccl_lowering_version/1`,
+At 0.135 the versions are: the module 0.135 (`ccl_p_version` in `module/cicilang.cicili`, `bin/cicilang --version`),
+the reader 125 (`ccl_reader_version/1`, `library/ccl_syntax.pl`) and the lowering 76 (`ccl_lowering_version/1`,
 `library/ccl_ir.pl`).
 
 Build and prove, always in this order (or all of it, `sh test/gates.sh`):
@@ -294,6 +294,7 @@ test/c/link/                two files linked into one program; the ABI against c
 test/c/run/                 C programs built and run: NAME.c, NAME.expect, NAME.std; pp_defs.h, embed.txt, empty.txt
 test/c/safe/                C programs the safe part refuses: NAME.c, NAME.expect
 test/cpp/                   the C++ reader's fixtures and the refusals; hidem.cppm for modhidden.cpp
+test/cpp/link/              the C++ gate's ABI check: abi_helper.cpp built by clang++, abi_main.cpp by cicilang++, abi.h
 test/cpp/run/               C++ programs built and run: NAME.cpp, .expect, .flags, .stdin, .needs; bag.h, hunit.h,
                             basem.cppm and mathm.cppm (for modules.cpp), embed26.txt
 
@@ -433,8 +434,8 @@ tutorials/01..03-*.pl       the objects layer's lessons; goal main, last line do
 
 ### The C++ gate: test/cpp.sh
 
-- `test/cpp.sh` runs in this order: `test/cpp.pl` in one `--local` process; three checks of the command; every
-  `test/cpp/run/*.cpp` as a pool job (477 at 0.134); `classes.cpp` and `templates.cpp` built and run; the refusals.
+- `test/cpp.sh` runs in this order: `test/cpp.pl` in one `--local` process; four checks of the command; every
+  `test/cpp/run/*.cpp` as a pool job (480 at 0.135); `classes.cpp` and `templates.cpp` built and run; the refusals.
   (0.105)
 - `test/cpp.pl` runs 43 numbered checks, `c1` to `c43`, then reads Cicili's six C++ files whole (`test/cpp/objects.cpp`,
   `emit_report.cpp`, `specialise.cpp`, `syntax.cpp`, `torch.cpp`, `torch-fragment.cpp`). `c34` checks the Itanium
@@ -452,8 +453,11 @@ tutorials/01..03-*.pl       the objects layer's lessons; goal main, last line do
   s over a warm HOME: `CCL_TEST_ROOT` and `CCL_TEST_TMP` set, `cocolog --local query "ensure_loaded('test/cpp.pl'),
   cpp_main"`; without the two variables it answers `false.` and names no line. (0.119)
 - The command's checks: `hello.cpp` built through `cicilang++` prints `hello, cicilang++`; a second build is served
-  from the summaries in under 8 s; `cicilang++ -fsyntax-only classes.cpp` says nothing and exits 0. After the
-  fixtures, `classes.cpp` builds and exits 34, and `templates.cpp` exits 10. (M5, 0.34, 0.35)
+  from the summaries in under 8 s; `cicilang++ -fsyntax-only classes.cpp` says nothing and exits 0; and (0.135) classes
+  cross a call between code that clang++ built and code that cicilang++ built as the Itanium ABI lays them
+  (`test/cpp/link/`: `abi_helper.cpp` built by `$LLVM`'s clang++, else the one on the path, linked with `abi_main.cpp`; a
+  base's tail padding reused, the table pointer first; no clang++ is a SKIP line). After the fixtures, `classes.cpp`
+  builds and exits 34, and `templates.cpp` exits 10. (M5, 0.34, 0.35, 0.135)
 - The fixture builds assume a warm cache: a build that only reads summaries is safe in parallel, and a cold flatten
   under load is not. `CPP_JOBS=1` makes the gate serial. (0.105)
 - `ccl_fixture NAME` builds with `NAME.flags`, capped at `CPP_FIXTURE_SECS` (2400 s) by `ccl_capped`. Past the cap,
@@ -1712,7 +1716,7 @@ tutorials/01..03-*.pl       the objects layer's lessons; goal main, last line do
   0.117)
 - A reader bump makes every summary cold; `test/libcxx.sh` rewrites them. `test/reader.pl`'s `k16` (a cached read is
   the same AST as a fresh one) goes RED on a grammar change without a bump. (0.93, 0.105)
-- `ccl_lowering_version/1` (`library/ccl_ir.pl`, now 75): bump it whenever the check or the lowering changes what it
+- `ccl_lowering_version/1` (`library/ccl_ir.pl`, now 76): bump it whenever the check or the lowering changes what it
   emits, however small -- 0.120 bumped it for the ORDER of the drain functions alone. Why: `dr_ir/3` serves the old IR
   otherwise. Either bump starts the C store afresh. (M4, 0.103, 0.120)
 
@@ -2082,8 +2086,9 @@ free. A const method adds `.c`, a ref-qualified one `.r` or `.rr` after it: each
   after its construction (`cpp_decl_pieces`); it runs at every exit of the scope, the last declared first. (0.33)
 - `cpp_dtor_body` builds a destructor's body: the class's own table stores, the written body, each member's destructor
   in reverse order (an array's elements in reverse), the later bases' destructors in reverse, then the first base's. A
-  class with no destructor of its own runs its base's on itself (`cpp_dtor/2`), the base lying at offset 0. (0.34, 0.41,
-  0.88)
+  class with no destructor of its own runs its base's on itself (`cpp_dtor/2`), the base lying at offset 0 -- but a class
+  with a table pointer of its own over a base with a destructor, whose base lies behind the pointer (0.135), gets an
+  implicit destructor (`cpp_implicit_dtor_needed/1`), which destroys the base where it lies. (0.34, 0.41, 0.88, 0.135)
 - An implicit destructor `C.dtor.0` is made where a member or array element has a destructor, or a virtual or diamond's
   shared base must be destroyed (`cpp_implicit_dtor_needed/1`, `cpp_implicit_dtor/3`). `cpp_own_dtor` counts it, so
   `delete`, a scope's defer and a table's slot find it. (0.41)
@@ -2183,17 +2188,24 @@ free. A const method adds `.c`, a ref-qualified one `.r` or `.rr` after it: each
   constructor taking the derived class was sought. `cpp_user_ctor` keeps the marker out of `cpp_trivial_class` and
   `cpp_note_nontrivial`. Why: `set(const set &)` was refused. (0.80, 0.89)
 - The implicit copy and move constructors are made on demand, memberwise, by the constructor road for any class
-  (`cpp_implicit_copy_ctor`, `'$cpp_implicit_copy'`). The name is noted when emitted, never before: a walk abandoned by
+  (`cpp_implicit_copy_ctor`, `'$cpp_implicit_copy'`), and an object of a DERIVED class copies its base sub-object through
+  them ([dcl.init]/17.6.2; 0.135: `B b = d;` over a B that writes no copy constructor was `no_constructor(B, 1)`, the
+  implicit copy asking the argument to be of the class itself; `assignbase.cpp`). The name is noted when emitted, never before: a walk abandoned by
   a throw left `Rec.Rec.Rec_rr` undefined. A local's initializer makes one only for the program's own class without
   owners (`cpp_ctor_args`); a library class's special members come through its lazy road. (0.82, 0.84, 0.93)
 - The implicit memberwise assignment ([class.copy.assign]; `cpp_implicit_assign`, `'$cpp_implicit_assign'`) serves a
-  class with a destructor and no written `operator=`: each member through its own, a string through basic_string's,
-  an array as bytes, the move form moving each. It is made once per class and kind, never for a class holding owners.
-  (0.84)
+  class with a destructor, or with a table pointer or a virtual base (`cpp_dynamic_class/1`, 0.135), and no written
+  `operator=`: the BASE SUB-OBJECTS first, each through its own assignment (`cpp_assign_base_slot/3`, 0.135), then each
+  member through its own, a string through basic_string's, an array as bytes, the move form moving each; the table pointer
+  is never copied. It is made once per class and kind, never for a class holding owners. Why (0.135): the bases were left
+  out, so `a = b` of `struct SD : SB { std::string t; }` copied `t` and never the base's string; and a class with a table
+  assigned as its bytes, so `B &r = d; r = b;` gave d B's table and `r.f()` called B::f, defects since 0.84 and 0.34.
+  `assignbase.cpp`. (0.84, 0.135)
 - The implicit copy and move assignment exist unless a COPY or MOVE `operator=` is written ([class.copy.assign]/1;
   `cpp_written_copy_assign/1`): an `operator=` from another type does not suppress them. A value of the class itself
   assigned (`cpp_assign_from_own/3`, through a `move`) takes that road first, the exact match: memberwise for a class
-  with a destructor, its bytes for one without. Why: libc++'s `back_insert_iterator` writes only `operator=(const
+  with a destructor or a table (0.135), its bytes for one without (by its data size where it lends its tail padding, the
+  Object layout topic). Why: libc++'s `back_insert_iterator` writes only `operator=(const
   value_type &)`, and `__out_it_ = std::move(__it)` (`basic_format_context::advance_to`) pushed a byte where it should
   copy the iterator: `std::format` printed `0200 and 0300`. `implicitassign.cpp`. (0.112)
 - `a = b` on a class calls its `operator=`, copy or move by the value category. A value of another type assigned to a
@@ -4395,6 +4407,29 @@ A lambda is a class of its captures (`library/ccl_cpp.pl`). A fixture named alon
 - A base's names are found through `cpp_base_scope/2`, the first base, then each later one (`'$cpp_extra'`): typedefs,
   static constants, statics, `cpp_has_member` and methods. `cpp_extra_method` takes the object's address for an empty
   base, `'$cpp_base_slot'` for one with storage. `ctype<char> : locale::facet, ctype_base`. (0.71, 0.88)
+- POD FOR THE PURPOSE OF LAYOUT (the Itanium ABI 2.2's term, C++03's POD; 0.135), as clang 18 and 21 decide it, measured
+  shape by shape: no base, no virtual function, no non-static data member that is not public, no reference member, no
+  member (or array element) of a class that is no POD, no user-provided constructor (a constructor template counts; `=
+  default` and `= delete` in the class do not, one defaulted out of it does), no default member initializer, no
+  user-provided COPY assignment (a move assignment and an `operator=` from another type do not count), no user-provided
+  destructor, and no lambda's closure (`cpp_layout_pod/7`, at registration, with the class's kind for the default access).
+  A class that is not one is noted `'$cpp_nonpod'(C)` and its tag carries the layout marker `'$nonpod'`
+  (`cpp_pod_mark/3`, at registration and at the struct's emission, since the passes note the tags again from the items).
+- A BASE OR A `[[no_unique_address]]` MEMBER OF A CLASS THAT IS NO POD TAKES ITS DATA SIZE, and what follows lies in its
+  TAIL PADDING ([intro.object]/7, the Itanium ABI 2.4 II.2; 0.135): `ccl_members_layout/5` advances past such a member
+  (`ccl_overlapping/2`: `$base`, `$base$K`, the `[[no_unique_address]]` mark) by `ccl_data_size/2` -- a non-POD class's
+  bytes up to the end of its last data member (the walk's own data size, `DSize`), any other type's whole size -- and the
+  class's size still covers the sub-object's. `struct D : B { int y; }` over `struct B { virtual int f(); int x; }` lays y
+  at 12 in sixteen bytes, as clang does, where it lay at 16 in twenty-four; `struct B { B() {} int a; char c; }; struct D :
+  B { char d; }` lays d at 5. `itaniumlayout.cpp`, and the C++ gate's ABI check against clang++.
+- Its LLVM element is a PACKED struct of the base's own elements up to its data size (`ir_packed_base/3`,
+  `ir_packed_shape/4` over `ir_shape/8` in the mode `packed`), `<{ ptr, i32 }>`; its members are reached through the base's
+  own type from its address, as any base's are. A struct holding one ends with `[0 x i64]` (`ir_align_forcer/2`, the
+  class's alignment), which keeps the alignment LLVM would otherwise take from it. A global's constant spells the base in
+  its packed shape (`ir_gpacked/3`).
+- A WHOLE STORE OF A CLASS THAT LENDS ITS TAIL PADDING WRITES ITS DATA SIZE ALONE (`ir_overlap_store/2`, `ir_store_data/5`;
+  0.135), as clang copies an object that may be a base sub-object: through a temporary and `llvm.memcpy`, a zero through
+  `llvm.memset` (an aggregate's zero first, `ir_init/3`). `NP &r = nd; r = NP(5, 'z');` keeps nd's own member in NP's tail.
 - An empty class value moves no bytes. A store to an `empty(_)` slot or of an empty class value writes nothing, and a
   load gives zero (`ir_store_slot`, `ir_load_slot`, `ir_empty_class`). `emptyassign.cpp`. Else libc++ 18's compressed
   pair wrote over a pointer's low byte when it swapped its empty deleter. (0.89, 0.94)
@@ -4420,7 +4455,12 @@ A lambda is a class of its captures (`library/ccl_cpp.pl`). A fixture named alon
 ### Base sub-objects
 
 - A first base that is neither virtual nor empty is the `$base` member at offset 0; `this` is never adjusted for it.
-  (0.34)
+  (0.34) THE TABLE POINTER COMES FIRST, though (the Itanium ABI 2.4 I; 0.135): a class that introduces its table has no
+  primary base -- none of its bases has a table, or `cpp_primary_first/3` would have moved that one to the front -- and its
+  own pointer lies at offset 0, its bases after it (`cpp_vptr_first/3` in `cpp_base_layout/4`; a class over a virtual base
+  keeps its order). `struct D : B { virtual void f(); int x; }` over `struct B { int b; }` lays B at 8 and x at 12 in
+  sixteen bytes, as clang does; B lay at 0, the pointer at 8 and x at 16 in twenty-four. Its base is then no longer at
+  offset 0: the type information is a vmi one, and an implicit destructor destroys the base where it lies.
 - A later base with storage is its own sub-object, `$base$2`, `$base$3` ... (`cpp_extra_bases_`, `'$cpp_base_slot'`),
   after the first base and before the own members ([class.derived]). It is built and destroyed with the first base
   (`cpp_extra_inits`, `cpp_dtor_body`) and found by `cpp_base_scope` and `ir_base_route`. `std::tuple` and `std::bind`
@@ -4465,8 +4505,8 @@ A lambda is a class of its captures (`library/ccl_cpp.pl`). A fixture named alon
   Itanium's complete and deleting destructors, both the one destructor here. A virtual call into an object that the
   shipped library made indexes that object's own table. (0.72)
 - The class that introduces the slots has a `'$vptr'` to `struct C.vt` (`cpp_vt_struct`): a function pointer per slot
-  over the owner's `this` (`cpp_vt_owner/2`), a `dying` `this` for the destructor slots. The vptr follows the base
-  sub-objects, and comes first in a class with a virtual base. (0.34, 0.72)
+  over the owner's `this` (`cpp_vt_owner/2`), a `dying` `this` for the destructor slots. The vptr comes first, ahead of
+  the base sub-objects (0.135, the Base sub-objects topic). (0.34, 0.72, 0.135)
 - The table `C.vtable` has the Itanium shape `{ [$vbo,] $off, $ti, $vt }` (`cpp_vtable`): the virtual base offset where
   needed (`vptr[-3]`), the offset to top (`vptr[-2]`), the type_info (`vptr[-1]`), and the slots, where the vptr points.
   Each slot holds the most derived implementation (`cpp_primary_entry`, `cpp_slot_def`, `cpp_slot_impl/4`,
@@ -4541,6 +4581,11 @@ A lambda is a class of its captures (`library/ccl_cpp.pl`). A fixture named alon
   diamond over a virtual base with no table refuses `virtual_base_by_two_paths` (`test/cpp/diamond.cpp`), and so does a
   program class over two library classes sharing a virtual base (`cpp_direct_nv`). `diamond.cpp`, `diamond2.cpp`.
   (0.110)
+- A DIAMOND'S IMPLICIT COPY AND ASSIGNMENT ARE MEMBERWISE (0.135): the copy builds the shared base from the source's `$vb`
+  first, then each path from the source cast to the path's class (`cpp_memberwise_base_src/6`: a path's slot is its
+  base-variant struct `B.nv`, which the path's copy constructor does not take -- `base_constructor(B)` refused the implicit
+  copy of every diamond), and the assignment assigns each path through the object cast to it (`cpp_assign_base_dst/4`), the
+  shared base through the paths, as C++ allows ([class.copy.assign]/12). `diamondcopy.cpp`.
 
 ### Pointers to members
 
@@ -4663,8 +4708,9 @@ A lambda is a class of its captures (`library/ccl_cpp.pl`). A fixture named alon
 - `typeid` of a type is its type_info (`cpp_rtti_of_type`); of a polymorphic object it reads `vptr[-1]` (`rtti_dyn`);
   anything else refuses `typeid_of`. (0.108)
 - A class's type_info is `_ZTI<name>` with the string `_ZTS<name>`, both `linkonce_odr` (`cpp_rtti_chain`,
-  `ir_rtti_emit`): `__class_type_info` for a root, `__si_class_type_info` for one base, `__vmi_class_type_info` for
-  several bases or a virtual base. A vmi entry is the base's offset x 256 + 2; a table-reached virtual base is flagged
+  `ir_rtti_emit`): `__class_type_info` for a root, `__si_class_type_info` for one base at offset 0, `__vmi_class_type_info`
+  for several bases, a virtual base, or one base behind the class's own table pointer (0.135: the first base's entry
+  names its slot, `$base`, so libc++abi adjusts a pointer to it -- a `catch (P &)` of a thrown class whose base P lies at 8). A vmi entry is the base's offset x 256 + 2; a table-reached virtual base is flagged
   virtual at -24, and a diamond sets `__diamond_shaped_mask`. (0.108, 0.110)
 - A program class at file scope is named `<len><name>` (`cpp_rtti_name`). A library class's type_info is the shipped
   symbol (`_ZTISt13runtime_error`), a builtin's libc++abi's (`_ZTIi`, `_ZTIPKi`); a plain struct is a root. (0.108)
@@ -4945,8 +4991,10 @@ A lambda is a class of its captures (`library/ccl_cpp.pl`). A fixture named alon
   libc++ 18's `decltype((*std::declval<_A0>()).*std::declval<_Fp>())` with `_A0` `int` is a substitution failure, and the
   dereference had stayed in the tree, the candidate held and its body failed in the lowering (`is_invocable<int Pt::*,
   int>`). A type the inference could not settle is let through. `memptrqual.cpp`. (0.126)
-- `__datasizeof(T)`, clang's builtin, is the Itanium dsize (`cpp_trait`): a POD's whole size (no base, no table,
-  trivial; `cpp_pod_layout`), else the byte where its last data member ends (`cpp_lays_end`). The preprocessor answers
+- `__datasizeof(T)`, clang's builtin, is the Itanium dsize (`cpp_trait`): the LAYOUT's own data size since 0.135
+  (`ccl_data_size/2`): a POD's whole size, else the byte where its last data member ends, an empty class that is no POD 0,
+  as clang has it -- the POD test is the layout's (`cpp_layout_pod/7`), so what libc++ copies by it and what libc++ 21 pads
+  a compressed pair with are the bytes the layout lends. The preprocessor answers
   `__has_extension(datasizeof)` with 1, as clang does, so libc++ 18's `__libcpp_datasizeof<T>::value` is that builtin.
   `datasizeof.cpp`. Why: the fallback libc++ writes for other compilers, a member template's explicit specialization,
   did not fold, and the static was an undefined symbol wherever `__constexpr_memmove` copied a range. (0.112)
@@ -6168,11 +6216,11 @@ A lambda is a class of its captures (`library/ccl_cpp.pl`). A fixture named alon
   0.90, all GREEN (cocolog 1.2.18). The fixtures added since 0.93 have run on Linux only.
 - Ubuntu 24.04 on x86_64 (clang and LLVM 18, glibc, libc++ 18 and 21) is a host since 0.87. Every gate but the C++ one is
   GREEN there since 0.93, and all seven since 0.95. Every step from 0.93 on is gated there, but the save points 0.112,
-  0.113, 0.117, 0.122 to 0.125, 0.130 and 0.131 (gated by the steps after them); the last full run is 0.134's, over cocolog 1.10.0, on one
+  0.113, 0.117, 0.122 to 0.125, 0.130 and 0.131 (gated by the steps after them); the last full run is 0.135's, over cocolog 1.10.0, on one
   tree: over libc++ 18 all eight GREEN (reader 5 s, compile 13 s, driver 11 s, objects 4 s, proof, the cross gate in
-  52 s, the library read in 1211 s, the C++ gate in 1287 s with 475 of 477 fixtures ok, the skips are `stdoptionalref` and `joinwith`,
-  the 21 refusals and the two of the safe part); over libc++ 21 the library read (1087 s) and the C++ gate (1224 s,
-  476 of 477 ok, the skip `stdoptionalref`) GREEN -- the C gates do not read libc++. Two libc++ passes are one
+  50 s, the library read in 1313 s, the C++ gate in 1256 s with 478 of 480 fixtures ok, the skips are `stdoptionalref` and `joinwith`,
+  the 21 refusals and the two of the safe part); over libc++ 21 the library read (1055 s) and the C++ gate (947 s,
+  479 of 480 ok, the skip `stdoptionalref`) GREEN -- the C gates do not read libc++. Two libc++ passes are one
   gate: `LLVM=/usr/lib/llvm-18` and `LLVM=/usr/lib/llvm-21` choose the tree the chain reads and links. libc++ 22 (the
   newest tree, which a run without `$LLVM` reads) is untried but for `stdoptionalref`, which passes there. The run before
   0.121's (0.118, 0.119) found, over 0.117, two defects and one stale check of `test/cpp.pl` (c20, above).
@@ -6258,6 +6306,10 @@ A lambda is a class of its captures (`library/ccl_cpp.pl`). A fixture named alon
   (two virtual overloads of one name and arity, one overridden), `virtualdefault` (a virtual call that leaves a defaulted
   argument out), `anonparam` (an unnamed by-value parameter destroyed), `rangeadl` (a range-for by the free `begin` and
   `end` of two namespaces), `downcast` (`static_cast` from a second base to the derived class, a pointer and a reference).
+- Forms of 0.135: `itaniumlayout` (the Itanium layout: the table pointer first, a base's tail padding reused, a
+  `[[no_unique_address]]` member of a class that is no POD, a constant over a packed base, an exception caught through a
+  base behind the table pointer, the data size), `assignbase` (the implicit assignment of a class with a table and of a
+  base sub-object, the slicing copy), `diamondcopy` (the implicit copy and assignment of a diamond).
 - Forms that 0.133 asked for: `packnested` (C++20: a nested expansion of the pack being expanded), `vtlambda` (C++20: a
   variable template whose value is a lambda called in place, chosen by `if constexpr`), `tupleholder` (a class holding a
   `std::tuple`, default-constructed), `gotodtor` (a `goto` out of blocks with destructors, forward and back past a
@@ -6466,12 +6518,8 @@ A lambda is a class of its captures (`library/ccl_cpp.pl`). A fixture named alon
 - A library lambda's requires-clause is kept and not checked (libc++'s `__synth_three_way`); the program's is (0.112).
 - A library class's consteval constructor or member keeps its member initializers and runs at run time, its
   compile-time check dropped, as `basic_format_string`'s (0.110); the program's own fold (0.99, 0.112).
-- The tail padding of a non-POD base is not reused (the Itanium ABI lays what follows a base at its data size):
-  `struct D : B { int y; }` over `struct B { virtual int f(); int x; }` is 24 bytes here and 16 under clang. The
-  layout is self-consistent; a class shared with clang-compiled code differs (0.112).
 - The diamond has no construction vtables, so a virtual call in a path's constructor or destructor reaches the
-  most-derived override (a single chain's and a virtual base's own reach their class's, `dtorvt.cpp`, 0.112). The
-  implicit copy of a diamond class is not memberwise (0.110).
+  most-derived override (a single chain's and a virtual base's own reach their class's, `dtorvt.cpp`, 0.112).
 - A LIBRARY diamond is built here (libc++'s `basic_iostream`, 0.117: the path bases' `.nv` twins are compiled), but a
   PROGRAM class over two library classes that share a virtual base (`struct X : std::istream, std::ostream`) is
   refused, and so is a diamond over a virtual base with no table: `virtual_base_by_two_paths`

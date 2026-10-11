@@ -1,0 +1,7 @@
+f=2 x=77 y=20
+sliced f=1 x=77
+base-part own-part
+base-part own-part
+named 3
+p.a=5
+exit 0

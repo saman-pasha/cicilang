@@ -128,6 +128,7 @@ One row per step, in version order: the step's title, what it did and its gate n
 | 0.132 | floats kept exactly, decimal constants folded, the views of C++23 | A stored read's floats frozen to integers and thawed (reader 125); decimal and binary constants folded as gcc folds them; `decltype(auto)`, `auto &&`, CTAD through a template template parameter and the rules the C++23 views asked for; `empty` to `ranges::to` at libc++ 18 | 18: reader 5 s, compile 11 s, driver 9 s, objects 4 s, cross 49 s, libcxx 1030 s, C++ 1064 s (456 of 457); 21: libcxx 974 s, C++ 700 s; all GREEN |
 | 0.133 | `goto` followed, `this` handed out, range and tuple formatting | A goto runs the defers it leaves and the check follows it; `this` handed out of a constructor checked; a constructor defined out of its class built; a C++ static data member described in its class under `-g`; range and tuple formatting, `views::join_with` at libc++ 21; frames popped on every exit; the budget 6000 | 18: reader 5 s, compile 12 s, driver 10 s, objects 3 s, cross 51 s, libcxx 1090 s, C++ 1359 s (463 of 465); 21: libcxx 1069 s, C++ 863 s; all GREEN |
 | 0.134 | the macros under `-fdebug-macro`, virtual overloads' slots, the money facets and `<filesystem>` | `-fdebug-macro` writes the macros as clang does; two virtual overloads of one name and arity are two slots, a call dispatches through the slot it chose; a parameter that stands twice under a pattern's `const`; a downcast from a base not at offset 0; `struct tm` mangled; a range-for by argument-dependent `begin`; the money and time facets, the exceptions mask, the wide file streams, `std::filesystem` | 18: reader 5 s, compile 13 s, driver 11 s, objects 4 s, cross 52 s, libcxx 1211 s, C++ 1287 s (475 of 477); 21: libcxx 1087 s, C++ 1224 s; all GREEN |
+| 0.135 | classes laid out as the Itanium ABI lays them, and the assignment of a class with a table | A non-POD base lends its tail padding; the table pointer first; packed base shapes; a class with a table assigns memberwise; the memberwise assignment assigns its bases; the slicing copy; the implicit copy of a diamond | 18: reader 5 s, compile 13 s, driver 11 s, objects 4 s, cross 50 s, libcxx 1313 s, C++ 1256 s (478 of 480); 21: libcxx 1055 s, C++ 947 s; all GREEN |
 
 ## M5 — the C++ mode
 
@@ -8004,3 +8005,69 @@ the safe part); over libc++ 21 the library read (1087 s) and the C++ gate (1224 
 nothing; this one ran from the start. Probes of the next steps (`hh_mm_ss`, `std::valarray`) ran beside its C++ phases.
 
 Lowering version 75 (the reader's stays 125); the module rebuilt as 0.134, over cocolog 1.10.0.
+
+## 0.135 — classes laid out as the Itanium ABI lays them, and the assignment of a class with a table
+
+**0.135: the item of "Not done" that said a class laid out here differs from clang's** -- the tail padding of a non-POD
+base, not reused -- and, measured beside it, the table pointer's place, then four defects of copying that the layout's
+tests met (one of them the diamond's copy, another item of the list): each cut down to a reduction and compared with clang 18 and 21, which agree on every line.
+
+(1) POD FOR THE PURPOSE OF LAYOUT. The Itanium ABI lets what follows a base (or a `[[no_unique_address]]` member) lie in the
+base's TAIL PADDING when the base is not a POD in C++03's sense. The test is clang's, measured shape by shape with
+`offsetof` of a `char` after the class (`tailpad2/pod3.cpp`): a base, a virtual function, a non-public data member, a
+reference member, a member of a class that is no POD, a user-provided constructor (a template too; `= default` and `=
+delete` in the class do not count, a constructor defaulted out of it does), a default member initializer, a user-provided
+COPY assignment (a move assignment and `operator=(int)` do not count), a user-provided destructor, and a lambda's closure
+each make a class no POD. `cpp_layout_pod/7` decides it at registration (the class's kind passed down for the default
+access), and the tag of a class that is no POD carries the marker `'$nonpod'`, at registration and in the struct the
+desugaring emits (the passes note the tags again from the items). `ccl_members_layout/5` advances past such a base by its
+DATA SIZE, `ccl_data_size/2` (the bytes up to the end of its last data member), and `__datasizeof` is that same number now.
+`struct D : B { int y; }` over `struct B { virtual int f(); int x; }` is sixteen bytes, as clang has it; it was twenty-four.
+
+(2) THE TABLE POINTER FIRST. A class that introduces its table over bases that have none (`cpp_primary_first/3` moves a
+base with a table to the front, where it shares the pointer) lays its pointer at offset 0 and its bases after it, as the
+ABI's 2.4 I has it: `struct D : B { virtual void f(); int x; }` over `struct B { int b; }` lays B at 8 and x at 12 in
+sixteen bytes; B lay at 0, the pointer at 8 and x at 16 in twenty-four. Two things assumed the first base at offset 0: the
+type information (`__si_class_type_info` is for a base at 0; such a class has a vmi one, its base's entry naming `$base`,
+and a thrown D caught as `B &` is adjusted by libc++abi), and a class with no destructor of its own, which ran its base's
+destructor on itself (it gets an implicit one now, which destroys the base where it lies).
+
+(3) THE LLVM SHAPE. A base that lends its tail padding is a PACKED struct of its own elements up to its data size, `<{ ptr,
+i32 }>`, inside the derived class's struct; its members are reached through the base's own type from its address, as
+before. A packed element would give its struct LLVM's alignment 1, and an element of that struct in another one would lie
+where LLVM puts it rather than where C does, so the struct ends with `[0 x i64]` (its own alignment). A global's constant
+spells the base in its packed shape: `constexpr ND gnd;` over a packed base. A whole store of a class that lends its tail
+padding writes its data size alone, through `llvm.memcpy` (and a zero through `llvm.memset`), as clang copies an object that
+may be a base sub-object: `NP &r = nd; r = NP(5, 'z');` keeps nd's own member in NP's tail.
+
+(4) THE ASSIGNMENT OF A CLASS WITH A TABLE (a defect since 0.34): an assignment of a class without a destructor was its
+bytes, the table pointer among them, so `B &r = d; r = b;` gave d the table of B and `r.f()` called `B::f` (1, where clang
+gives 2). A class with a table pointer or a virtual base has no trivial assignment ([class.copy.assign]/9); it takes the
+implicit memberwise assignment now (`cpp_dynamic_class/1`), which never copies the pointer.
+
+(5) THE MEMBERWISE ASSIGNMENT LEFT THE BASES OUT (a defect since 0.84, silent): `a = b` of `struct SD : SB { std::string t;
+}` assigned `t` and never the base's string, and `v1 = v2` of a class over a polymorphic base lost the base's name. The
+base sub-objects are assigned first now, each through its own assignment (`cpp_assign_base_slot/3`).
+
+(6) THE SLICING COPY: `B b = d;` over a B that writes no copy constructor was `no_constructor(B, 1)` -- the implicit copy
+asked the argument to be of the class itself. A derived object copies its base sub-object through it now ([dcl.init]/17.6.2).
+
+(7) THE IMPLICIT COPY OF A DIAMOND ("not memberwise", Not done since 0.110): it was refused, `base_constructor(B)` -- a
+path's slot is its base-variant struct `B.nv`, which B's copy constructor does not take -- and its shared base would have
+been default-built. The copy builds the shared base from the source's, then each path from the source cast to the path's
+class; the assignment assigns each path through the object cast to it, and the shared base through the paths. `D d2 = d1;`
+and `d3 = d1;` over `struct D : B, C` with `B` and `C` virtually over a class holding a string. `diamondcopy.cpp`.
+
+The C++ gate gains a fourth check of the command (`test/cpp/link/`): `abi_helper.cpp` built by clang++ (the tree's own,
+`$LLVM/bin/clang++`), linked with `abi_main.cpp` built by cicilang++, values and sizes of a class with a reused tail and of a
+class with its table pointer first crossing the call both ways -- `1 2 3 60 | 245 | 8 8 | 16 16`, where 0.134 printed `1 2
+2 30 | 240 | 8 8 | 16 24`. The fixtures: `itaniumlayout.cpp`, `assignbase.cpp`, `diamondcopy.cpp`. A net of 81 fixtures of classes, bases,
+tables, exceptions and libc++ containers ran over the scratch tree first.
+
+THE GATES. The live checkout ran the chain, fresh HOMEs: over libc++ 18 all eight GREEN (reader 5 s, compile 13 s with 72
+run and 45 safe fixtures, driver 11 s with 33 checks, objects 4 s, proof, cross 50 s, the library read in 1313 s, the C++
+gate in 1256 s with its four checks of the command, 478 of 480 fixtures ok, the skips are `stdoptionalref` and `joinwith`,
+the 21 refusals and the two of the safe part); over libc++ 21 the library read (1055 s) and the C++ gate (947 s, 479 of 480
+ok, the skip `stdoptionalref`) GREEN. Probes of the next step ran beside it.
+
+Lowering version 76 (the reader's stays 125: the marker is the desugaring's, never read); the module rebuilt as 0.135.

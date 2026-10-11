@@ -37,6 +37,15 @@ s1=$(date +%s); "$ROOT/bin/cicilang++" "$ROOT/test/cpp/hello.cpp" -o hello2 >/de
 if [ "$t1" -lt 8 ] && [ "$n" -ge 1 ]; then echo "ok   a second build reads stdio.h's summary from ~/.cicilang/cpp, no preprocessing ($t1 s, $n summaries)"; else echo "FAIL a second build is served from the summary cache"; echo "     got  $t1 s, $n summaries"; failures=$((failures + 1)); fi
 got=$("$ROOT/bin/cicilang++" -fsyntax-only "$ROOT/test/cpp/classes.cpp" 2>&1; echo "exit $?")
 if [ "$got" = "exit 0" ]; then echo "ok   cicilang++ -fsyntax-only reads a file of classes, and says nothing"; else echo "FAIL cicilang++ -fsyntax-only classes.cpp"; echo "     got  $got"; failures=$((failures + 1)); fi
+# THE CLASS LAYOUT AGAINST CLANG++'S (0.135): test/cpp/link/abi_helper.cpp built by the reference compiler of the tree read
+# ($LLVM's clang++, else the one on the path), linked with abi_main.cpp built by cicilang++ -- a base's tail padding reused
+# and the table pointer first, values and sizes crossing the call both ways. No clang++: a SKIP, named.
+CXXREF=clang++; [ -n "$LLVM" ] && [ -x "$LLVM/bin/clang++" ] && CXXREF="$LLVM/bin/clang++"
+if command -v "$CXXREF" > /dev/null 2>&1; then
+  "$CXXREF" -std=c++17 -w -c "$ROOT/test/cpp/link/abi_helper.cpp" -o abi_helper.o 2>/dev/null
+  got=$("$ROOT/bin/cicilang++" "$ROOT/test/cpp/link/abi_main.cpp" abi_helper.o -o abi 2>&1 && ./abi)
+  if [ "$got" = "1 2 3 60 | 245 | 8 8 | 16 16" ]; then echo "ok   classes cross a call to clang++'s code as the Itanium ABI lays them (a base's tail padding, the table pointer first)"; else echo "FAIL the class layout against clang++'s (test/cpp/link)"; echo "     got  $got"; failures=$((failures + 1)); fi
+else echo "SKIP the class layout against clang++'s: no clang++"; fi
 echo "-- M6, in steps: C++ that is C with names, classes, virtual, templates, lambdas, the B-tree the C++ way, a bag of names, members of class type, C++20, C++23, template template parameters, overloads as C++ chooses, libc++'s std::swap -- built and run (test/cpp/run/NAME.cpp against NAME.expect), in parallel over the pool"
 # A FIXTURE'S BUILD HAS A TIME CAP (0.93): on libc++ 18 two <algorithm> fixtures ran past thirty minutes, and a gate with no
 # cap hangs for the owner (0.92 kept a fixture out of the tree for exactly that). The cap is CPP_FIXTURE_SECS (2400: the

@@ -383,8 +383,6 @@ HISTORY.md                     the record of every step: what it did, what it fo
 `std::format`'s compile-time check of the format string (the library's own
 run-time parser catches a bad one); the range adaptors not named;
 the rest of `<filesystem>`, `<random>`, `std::valarray`;
-chrono formatting; the tail padding of a non-POD base, which is
-not reused (a class laid out here differs from clang's where code compiled by
-both shares it); construction vtables in a diamond; a `\N{...}` abbreviation
+chrono formatting; construction vtables in a diamond; a `\N{...}` abbreviation
 alias (`\N{NUL}`, which clang refuses too); the arm64 ABI on Apple's machines
 (Linux on aarch64 is proven under qemu). Each is named in `CLAUDE.md` with where it stops.
