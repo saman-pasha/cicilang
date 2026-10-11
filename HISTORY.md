@@ -129,6 +129,7 @@ One row per step, in version order: the step's title, what it did and its gate n
 | 0.133 | `goto` followed, `this` handed out, range and tuple formatting | A goto runs the defers it leaves and the check follows it; `this` handed out of a constructor checked; a constructor defined out of its class built; a C++ static data member described in its class under `-g`; range and tuple formatting, `views::join_with` at libc++ 21; frames popped on every exit; the budget 6000 | 18: reader 5 s, compile 12 s, driver 10 s, objects 3 s, cross 51 s, libcxx 1090 s, C++ 1359 s (463 of 465); 21: libcxx 1069 s, C++ 863 s; all GREEN |
 | 0.134 | the macros under `-fdebug-macro`, virtual overloads' slots, the money facets and `<filesystem>` | `-fdebug-macro` writes the macros as clang does; two virtual overloads of one name and arity are two slots, a call dispatches through the slot it chose; a parameter that stands twice under a pattern's `const`; a downcast from a base not at offset 0; `struct tm` mangled; a range-for by argument-dependent `begin`; the money and time facets, the exceptions mask, the wide file streams, `std::filesystem` | 18: reader 5 s, compile 13 s, driver 11 s, objects 4 s, cross 52 s, libcxx 1211 s, C++ 1287 s (475 of 477); 21: libcxx 1087 s, C++ 1224 s; all GREEN |
 | 0.135 | classes laid out as the Itanium ABI lays them, and the assignment of a class with a table | A non-POD base lends its tail padding; the table pointer first; packed base shapes; a class with a table assigns memberwise; the memberwise assignment assigns its bases; the slicing copy; the implicit copy of a diamond | 18: reader 5 s, compile 13 s, driver 11 s, objects 4 s, cross 50 s, libcxx 1313 s, C++ 1256 s (478 of 480); 21: libcxx 1055 s, C++ 947 s; all GREEN |
+| 0.136 | `<random>`, `std::valarray`, chrono formatting, `std::rel_ops`, the tie of a stream, the mangler's last builtins, the coroutine ramp | `<random>` and `std::valarray` run; chrono durations format; `std::rel_ops` through a using-directive; `cin`'s tie checked; every builtin type mangled; a lazy member chosen among overloads of one name | 487 of 489 C++ fixtures over libc++ 18, 488 over 21; all gates GREEN |
 
 ## M5 — the C++ mode
 
@@ -8071,3 +8072,113 @@ the 21 refusals and the two of the safe part); over libc++ 21 the library read (
 ok, the skip `stdoptionalref`) GREEN. Probes of the next step ran beside it.
 
 Lowering version 76 (the reader's stays 125: the marker is the desugaring's, never read); the module rebuilt as 0.135.
+
+## 0.136 — `<random>`, `std::valarray`, chrono formatting, `std::rel_ops`, the tie of a stream, the mangler's last builtins, the coroutine ramp
+
+**0.136: items of "Not done" in the libc++ modules, the C++ language and the ABI** -- `<random>` and `std::valarray`
+(tried at 0.117 and not finished), chrono formatting (killed at its cap since 0.133), `std::rel_ops` (left out of the index since 0.112), a stream's tie checked by more than
+the printed lines, a library lambda's requires-clause, the coroutine ramp's return object, the mangler's types -- and the
+defects that their probes met, each cut down to a reduction of its own.
+
+(1) `<random>`: A STATIC CONSTANT IS FOLDED ONCE. The fold of a class's static constant asked each static its
+initializer names, twice (the typed constant's road asks it again), and no answer was kept: libc++'s
+`__log2_imp<_Xp, _Rp>::value = _Xp & (1ULL << _Rp) ? _Rp : __log2_imp<_Xp, _Rp - 1>::value`, 32 levels for a 32-bit
+engine, was 2^32 folds. A success is remembered per class and name (`'$cpp_sfold'/3`, reset with the unit's registries;
+a failure is not, since a class still registering may answer later). `stdrandom.cpp` (`mt19937`, `mt19937_64`,
+`minstd_rand` through the uniform and Bernoulli distributions and `std::shuffle`) builds in 160 s; it was killed at
+1500 s since 0.117. The durations of `<chrono>` build three times as fast with it.
+
+(2) THE ENUMERATION OPERATOR ROAD looks for candidates only where an operand is of an enumeration type or an enumerator
+(`cpp_enum_operand_any/1`): it collected the parameters of every overload of the operator's name first -- every stream
+inserter for each `<<` of two integers.
+
+(3) `std::valarray`, THREE DEFECTS. (a) A SIGNATURE NAMES A CLASS AND DOES NOT COMPLETE IT ([temp.inst]/2): while an
+instance of a class template declares its member functions, a further instance of the SAME template that a signature names
+waits (`'$cpp_deferred'`, as an instance over a base in progress waits since 0.117) until it is first looked up;
+`__val_expr<_ValExpr>` declares `__val_expr<__slice_expr<_ValExpr>> operator[](slice) const`, and each instance declared
+the next until `instantiation_depth(121, '__slice_expr')`. (b) A conversion function defined out of its class may spell
+its type through the class (`operator valarray<__val_expr::__result_type>()` for the declaration's
+`operator valarray<__result_type>()`): the two are one member when they agree with the class's own qualifier dropped,
+under the declaration's name; compared as written, the definition was no one's and the link named the symbol. (c) A
+pseudo-destructor call evaluates its object expression ([expr.call]/5): `(--__end_)->~value_type()` over an int was dropped
+with its decrement, and `__clear` never ended. `stdvalarray.cpp` builds in 87 s; reductions `sigrecur.cpp`,
+`convspell.cpp`, `pseudodtor.cpp`, each RED on 0.135.
+
+(4) `hh_mm_ss` AND A MEMBER WHOSE TYPE NAMES A CALL: `precision __f_;` over `using precision = duration<rep,
+ratio<1, __pow10(fractional_width)>>;` was resolved while the class registered (in `cpp_split_members`), before its
+static member function could be evaluated; the argument stayed the call, keyed by its spelling, and ratio's
+`__static_gcd` of unfolded terms made instances without end. Such a member is left as written in a first record, the
+class's functions and statics are declared, the member resolved, and the record REPLACED (`cpp_member_types_now/4`);
+`memtypecall.cpp` (RED on 0.135: `undeclared(pow10)`).
+
+(5) CHRONO FORMATTING RUNS: `std::format("{}", std::chrono::seconds(5))` ran past its 1500 s cap since 0.133, and three
+more defects stood behind the two above. (a) A FREE RESERVED NAME IS NO TEMPLATE ARGUMENT: an instance asked over `_Rep` or
+`_Tp` -- a library template's own parameter outside its template, a name no table holds -- is refused,
+`template_argument_free(N)`, where it had been made and run without end (`duration<_Rep, _Period>`); the plain overload roads
+and the argument pass read no template's raw signature among a name's noted overloads (`cpp_raw_params/1`). With it the
+build ended in two minutes, refused by name. (b) Where the free name came from took two traces to find, since a ring of the
+last clauses entered named the alias road and the class lookups, not the caller: the breadcrumb and a probe line in
+`cpp_use_fn` showed the table's type of `abs` in the formatter's walk to be chrono::abs's raw `duration<_Rep, _Period>
+abs(duration<_Rep, _Period>)`. A C function that shares its name with a library template is declared again for a walk
+whose table holds the other overload (0.117's `cpp_c_decl_current`), but the mark that keeps its prototype item to one also
+kept the declaration -- which lives in the walk's frame -- to the FIRST walk; it is declared in every such walk now.
+(c) Then `std::format_to` over an `ostreambuf_iterator` stopped: libc++'s `__writer_selector` is `conditional_t<!same_as<
+_Container, void>, __writer_container<_Container>, ...>`, C++ completes no class that a template argument only names, and
+this compiler made `__writer_container<void>`, whose body refused (`no_member_type(void, value_type)`). `conditional_t` and
+libc++'s `__conditional_t` resolve the arm their condition takes and only that one now (`cpp_conditional_alias/1`). A
+wider rule was measured first and dropped: any class a template argument names made where it is looked up, its body's
+refusal deferred; it built `fmtchrono.cpp` and broke `stdformatter.cpp`. (d) Both rules let `__format_buffer<char *, char>`
+register, which the old refusal had kept out, and it then had no constructor: libc++ writes two of one signature,
+`explicit __format_buffer(_OutIt) requires(same_as<_Storage, __internal_storage<_CharT>>)` and the `__direct_storage` one,
+and a lazy member was the FIRST of its name -- its clause unmet, nothing emitted, the name noted done. The member made is
+the one whose requires-clause holds, asked only where members share the name (`cpp_lazy_pick/4`; asked of every
+member, the second chain found it resolving a member class template's constructor parameter `S<!C>` outside the class,
+`template_without_body`, in `sentinelpair`, `viewiter` and `viewsmore2`). `fmtchrono.cpp` (C++20: seconds, milliseconds, minutes and a
+`%H:%M:%S` spec) builds in about three minutes and prints clang++'s output over both libraries. Time points format too (a
+probe); `hh_mm_ss` and the calendar types stop in `__vformat_to` (`argument_mismatch`), below.
+
+(6) `std::rel_ops` IS INDEXED: its items under the keys `rel_ops.<name>` (never bare, so its `operator!=` takes no class
+by itself), and the operator road takes them after the free operators while a `using namespace std::rel_ops;` (or a
+using-declaration of one of them) is in force -- at namespace scope to the unit's end, in a block to the block's end;
+only in the program's own code. `relops.cpp`. Reader version 126.
+
+(7) A LIBRARY LAMBDA'S REQUIRES-CLAUSE IS CHECKED: it is the trailing clause of the closure's call operator, checked as a
+member template's is, with the parameters declared (`cpp_lib_lambda_req/4`); a program's lambda kept its head entry
+(0.112). A reduction over a library header's `[](auto x) requires (sizeof(x) <= 4)`: the detection over a `long` was true,
+as clang's is false.
+
+(8) THE COROUTINE RAMP'S RETURN OBJECT lies outside the frame by a rule: its alloca carries `!coro.outside.frame`, as
+clang marks its `coro.gro`, and no longer by LLVM's choice.
+
+(9) THE MANGLER spells the remaining builtin types: `_Complex T` (`C`, a substitution candidate), `_Float16` (`DF16_`),
+`_BitInt(N)` (`DB<N>_`, `DU<N>_`), the decimal floating types (`Df`, `Dd`, `De`). `test/cpp.pl`'s `c44`.
+
+(10) A STREAM'S TIE: `stdtie.cpp` checks with a buffer that counts its syncs that a read of `cin` flushes `cout` first, and
+that `sync_with_stdio` changes nothing of it.
+
+(11) THE FIRST CHAIN OF THIS STEP WAS RED, two fixtures of 488 over libc++ 18 and three over libc++ 21. `viewchain.cpp` and
+`viewsall.cpp` met `not lowered yet: auto('$end_391')`: a bisection over the step's patches named the signature deferral of
+(3a), which made EVERY further instance of the declaring template wait -- transform_view's `__iterator<false>` names
+`__iterator<true>` in its converting constructor, and the waiting instance was read by a road that never looks it up. Only
+an instance that GROWS waits now: its first argument holds the declaring instance's first argument as a proper part
+(`cpp_proper_part/2`, an instance named by its name read through its own arguments), `__val_expr<__slice_expr<E>>` while
+`__val_expr<E>` declares. `stdrandom.cpp` over libc++ 21 met `cannot_deduce('_UniformRandomNumberGenerator')`: `g` had no
+type, since the read of `<random>` was PARTIAL there -- the census stopped at `__extension__ using __calc_type = unsigned
+__int128;` in a function body of libc++ 21's linear_congruential_engine. The word before a block's alias declaration is
+dropped now (reader version 127). Nets of the view, format, valarray and template fixtures passed before the chain ran
+again.
+
+(12) FOUND AND LEFT FOR A LATER STEP: `std::format` of `hh_mm_ss` and of the calendar types stops in `__vformat_to`,
+`argument_mismatch`: `__format_context_create(_OutIt, basic_format_args<...>, optional<locale> &&)` takes no `locale`, and
+a reduction shows two defects of their own -- a conditional's condition is not converted through a class's `operator bool`
+(`l ? 1 : 0` over an `optional`), and a template's parameter `const optional<locale> &` takes no `locale`.
+
+THE GATES. The live checkout ran the chain, fresh HOMEs: over libc++ 18 all eight GREEN (reader 5 s, compile 11 s with 72
+run and 45 safe fixtures, driver 10 s with 33 checks, objects 3 s, proof, cross 49 s, the library read in 1114 s, the C++
+gate in 988 s with its four checks of the command, 487 of 489 fixtures ok, the skips are `stdoptionalref` and `joinwith`,
+the 21 refusals and the two of the safe part); over libc++ 21 the library read (1026 s) and the C++ gate (875 s, 488 of 489
+ok, the skip `stdoptionalref`) GREEN. The chain before it (without `cpp_lazy_pick/4`) was RED at `sentinelpair`, `viewiter` and
+`viewsmore2`.
+
+Lowering version 77 (the coroutine ramp's alloca, the pseudo-destructor's operand); reader version 126; the module rebuilt
+as 0.136, over cocolog 1.10.0.

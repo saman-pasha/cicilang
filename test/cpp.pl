@@ -54,7 +54,7 @@ c_checks :-
     c34,
     c35,
     c36,
-    c37, c38, c39, c40, c41, c42, c43.
+    c37, c38, c39, c40, c41, c42, c43, c44.
 
 c1 :- check('namespace N { ... } is namespace(L, N, Items), nested, and anonymous',
     ( unit('names.cpp', unit(Is)), member(namespace(2, geo, Gs), Is), member(function(_, _, _, twice, _, _, _), Gs), member(namespace(_, inner, _), Gs), member(namespace(_, anon, _), Is) )).
@@ -241,6 +241,14 @@ c37 :- check('the Itanium mangler spells a function type, an array and the subst
       ita_name([], kk, [], [param(ptr([], base([const, volatile], [void])), p)], '_ZNSt3__12kkEPVKv'),
       ita_name([], ll, [], [param(ptr([], base([const, volatile], [void])), a), param(ptr([], base([const, volatile], [void])), b)], '_ZNSt3__12llEPVKvS1_'),
       ita_name([], mm, [], [param(ptr([], base([volatile], [int])), a), param(ptr([], base([const], [int])), b), param(ptr([], base([volatile], [int])), c)], '_ZNSt3__12mmEPViPKiS1_'),
+      ita_clear )).
+
+c44 :- check('the Itanium mangler spells the rest of the builtin types (0.136): _Complex double is Cd and a substitution candidate (S0_), _Float16 DF16_, _BitInt(37) DB37_ and unsigned _BitInt(7) DU7_, const _Complex float * PKCf, _Complex long double Ce -- as clang++ 18 spells them',
+    ( ita_facts,
+      ita_name([], nn, [], [param(base([], ['_Complex', double]), a), param(base([], ['_Complex', double]), b)], '_ZNSt3__12nnECdS0_'),
+      ita_name([], oo, [], [param(base([], ['_Float16']), a)], '_ZNSt3__12ooEDF16_'),
+      ita_name([], pp, [], [param(base([], [bitint(int(37))]), a), param(base([], [unsigned, bitint(int(7))]), b)], '_ZNSt3__12ppEDB37_DU7_'),
+      ita_name([], qq, [], [param(ptr([], base([const], ['_Complex', float])), a), param(base([], ['_Complex', long, double]), b)], '_ZNSt3__12qqEPKCfCe'),
       ita_clear )).
 
 c38 :- check('the access control\'s reader forms (0.117): friend class Auditor; is friend(L, [friend_class(Auditor)]), a lambda\'s mutable stays among its captures, and the access markers stay among a class\'s members',

@@ -457,7 +457,6 @@ ccl_ast_trace(T) :- once(catch(cpp_trace(T), _, true)).
 %% mangled symbol and a summary-served run must know the same path the index knew (cpp_mangled_name/3)
 ccl_flat_items(Path, Is, Flat) :- ccl_flat_items_(Path, Is, F0), ccl_flat_quals(F0, Flat).
 ccl_flat_items_(_, [], []).
-ccl_flat_items_(Path, [namespace(_, rel_ops, _)|Is], Flat) :- !, ccl_flat_items_(Path, Is, Flat).   % std::rel_ops IS NOT INDEXED (0.112): its names are found only through a using-directive ([namespace.udir]), which this compiler does not model, and flattened its `template <class T> bool operator!=(const T &, const T &)' took every class -- filter_view's iterator in a range-for -- before C++20's rewritten candidate from `=='
 ccl_flat_items_(Path, [namespace(_, N, Js)|Is], Flat) :- !, ( atom(N), N \== anon, Path \== c -> append(Path, [N], P1) ; N = inline(_), Path \== c -> append(Path, [N], P1) ; P1 = Path ),   % an inline namespace's segment is `inline(N)' (0.100): in the mangler's path, out of the collision key
     ccl_flat_items_(P1, Js, F1), ccl_flat_items_(Path, Is, F2), append(F1, F2, Flat).
 ccl_flat_items_(Path, [extern_c(_, Js)|Is], Flat) :- !, ccl_flat_items_(c, Js, F1), ccl_flat_items_(Path, Is, F2), append(F1, F2, Flat).

@@ -322,7 +322,9 @@ formatting (`std::format` of a vector, a map, a pair, a tuple, strings in the
 debug form) and, over libc++ 21, `views::join_with`; since 0.134 the money and
 time facets (`put_money`, `get_money`, `put_time`, `get_time`), a stream's
 exceptions mask, the wide file streams and `std::filesystem` (`path` and the
-operations, a range-for over a `directory_iterator`).
+operations, a range-for over a `directory_iterator`); since 0.136 `<random>`
+(the engines through the distributions, `std::shuffle`), `std::valarray`,
+chrono formatting and `std::rel_ops` through a using-directive.
 `test/libcxx.sh` reads `<vector>`, `<string>`,
 `<iostream>`, `<map>`, `<set>`, `<unordered_map>`, `<unordered_set>`,
 `<optional>`, `<memory>`, `<functional>`, `<tuple>` and `<algorithm>` whole,
@@ -382,7 +384,6 @@ HISTORY.md                     the record of every step: what it did, what it fo
 
 `std::format`'s compile-time check of the format string (the library's own
 run-time parser catches a bad one); the range adaptors not named;
-the rest of `<filesystem>`, `<random>`, `std::valarray`;
-chrono formatting; construction vtables in a diamond; a `\N{...}` abbreviation
+the rest of `<filesystem>`; construction vtables in a diamond; a `\N{...}` abbreviation
 alias (`\N{NUL}`, which clang refuses too); the arm64 ABI on Apple's machines
 (Linux on aarch64 is proven under qemu). Each is named in `CLAUDE.md` with where it stops.
