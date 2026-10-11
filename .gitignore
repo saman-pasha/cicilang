@@ -1,6 +1,7 @@
 # build output: the emitted C and the loadable library are made, never committed
 library/*.so
 module/*.c
+!module/bidrt.c
 module/*.o
 module/sdk.cicili
 module/ccl_uninames.h

@@ -29,7 +29,9 @@ record of every step.
   own `<stdarg.h>`, `long double` as x87's 80-bit type on x86-64, hex
   floats, designated initializers, anonymous members, K&R definitions,
   `#line`, `__int128`, `va_arg` of a struct on x86-64, the SysV argument
-  register budget, and trigraphs in the ISO modes. `-std=c17` is the
+  register budget, the decimal floating types as gcc builds them (to and
+  from a 128-bit integer through the compiler's own helpers, their constants
+  folded with infinities and NaNs), and trigraphs in the ISO modes. `-std=c17` is the
   default, `-std=c23` the level.
 * **C++17, C++20, C++23 and C++26.** Classes, virtual dispatch, multiple
   and virtual inheritance, templates with partial specialization, SFINAE,
@@ -384,6 +386,6 @@ HISTORY.md                     the record of every step: what it did, what it fo
 
 `std::format`'s compile-time check of the format string (the library's own
 run-time parser catches a bad one); the range adaptors not named;
-the rest of `<filesystem>`; construction vtables in a diamond; a `\N{...}` abbreviation
+construction vtables in a diamond; a `\N{...}` abbreviation
 alias (`\N{NUL}`, which clang refuses too); the arm64 ABI on Apple's machines
 (Linux on aarch64 is proven under qemu). Each is named in `CLAUDE.md` with where it stops.

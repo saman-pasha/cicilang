@@ -10,8 +10,8 @@ it found, its measurements and its gate numbers. `README.md` tells a user what r
 architecture and the milestones. A step that changes a rule edits the rule here, in its topic, and writes its entry
 in `HISTORY.md`.
 
-At 0.136 the versions are: the module 0.136 (`ccl_p_version` in `module/cicilang.cicili`, `bin/cicilang --version`),
-the reader 127 (`ccl_reader_version/1`, `library/ccl_syntax.pl`) and the lowering 77 (`ccl_lowering_version/1`,
+At 0.137 the versions are: the module 0.137 (`ccl_p_version` in `module/cicilang.cicili`, `bin/cicilang --version`),
+the reader 127 (`ccl_reader_version/1`, `library/ccl_syntax.pl`) and the lowering 78 (`ccl_lowering_version/1`,
 `library/ccl_ir.pl`).
 
 Build and prove, always in this order (or all of it, `sh test/gates.sh`):
@@ -241,6 +241,9 @@ module/ccl_llvm.cicili      library(ccl_llvm), the embedded LLVM over llvm-c: cc
 module/build.sh             writes ccl_uninames.h, transpiles cicilang.cicili, compiles library/cicilang.so
 module/build-llvm.sh        transpiles ccl_llvm.cicili, compiles library/ccl_llvm.so against LLVM's C API
 module/gen-uninames.pl      writes library/ccl_uninames.pl from Perl's Unicode::UCD
+module/bidrt.c              a decimal floating value to and from a 128-bit integer, in C (0.137)
+module/gen-bidrt.sh, gen-bidrt.pl
+                            compile bidrt.c with cicilang and write library/ccl_bidrt.pl
 module/cicilang.c, ccl_llvm.c, ccl_uninames.h, sdk.cicili
                             made by the builds, never committed (sdk.cicili links to cocolog's lib/sdk.cicili)
 
@@ -256,6 +259,7 @@ library/ccl_check.pl        the safe part: owners, moves, borrows, ties, loose p
 library/ccl_ir.pl           the lowering to LLVM IR text, ccl_ir_units/2; ccl_lowering_version/1
 library/ccl_build.pl        ccl_compile/3 through the embedded LLVM, ccl_link/3 through cc or c++
 library/ccl_driver.pl       ccl_drive/2: the command's steps, the diagnostics in clang's shape, the IR cache dr_ir/3
+library/ccl_bidrt.pl        the decimal conversions of a 128-bit integer as IR text, generated from module/bidrt.c
 library/ccl_uninames.pl     the \N{NAME} table, generated: Unicode 15.0.0's names and aliases, loaded on the first \N{
 library/cicilang.so, ccl_llvm.so
                             built by the two module scripts, never committed
@@ -331,6 +335,10 @@ tutorials/01..03-*.pl       the objects layer's lessons; goal main, last line do
   `-lLLVM`, with an rpath to that directory: the library's name is read off the disk, never assumed. (0.87)
 - `perl module/gen-uninames.pl > library/ccl_uninames.pl` makes the `\N{NAME}` table from Perl's `Unicode::UCD`.
   Never edit the table by hand. (0.104)
+- `sh module/gen-bidrt.sh` makes `library/ccl_bidrt.pl`, the decimal conversions of a 128-bit integer: cicilang
+  compiles `module/bidrt.c` (C23, `-O1`, the IR text) and `module/gen-bidrt.pl` writes one fact per function and per
+  declaration. Run it after a change to `bidrt.c` or to what the lowering emits for it; never edit the table by hand.
+  (0.137)
 
 ### The chain
 
@@ -375,7 +383,7 @@ tutorials/01..03-*.pl       the objects layer's lessons; goal main, last line do
 - The compile gate. `test/compile.pl`, one process over the user's store, reads, checks, lowers, compiles at `-O1`
   and links every `test/c/run/*.c` at its `NAME.std` level (`c_level`). It expects every `test/c/safe/*.c` refused.
   `test/compile.sh` runs each binary as `NAME arg1 arg2` against `NAME.expect`, and compares each refusal with
-  `safe/NAME.expect`. There are 72 run and 45 safe fixtures at 0.133. (M2, M3, 0.57)
+  `safe/NAME.expect`. There are 74 run and 45 safe fixtures at 0.137. (M2, M3, 0.57)
 - The driver gate. `test/driver.sh` makes 33 checks of `bin/cicilang` over the user's store (the decimal ABI check is
   skipped where no gcc with decimal floating types is installed), the variadic calls of every kind both ways against
   clang among them (`test/c/link/va_*.c`, 0.131). They cover what `-o`,
@@ -402,8 +410,8 @@ tutorials/01..03-*.pl       the objects layer's lessons; goal main, last line do
   variadic calls of every AAPCS64 kind both ways (`test/c/link/va_*.c`: an int, a long, a double, a long double, an HFA
   of doubles and of floats, a struct past 16 bytes, an eight-byte struct, a 16-aligned `__int128` struct, the general
   and the SIMD registers run out). It SKIPs without `qemu-aarch64`, `aarch64-linux-gnu-gcc` and the sysroot (Debian
-  and Ubuntu: `qemu-user`, `gcc-aarch64-linux-gnu`, `libc6-dev-arm64-cross`) or without clang. 68 fixtures and 3
-  checks at 0.131, about a minute. (0.131)
+  and Ubuntu: `qemu-user`, `gcc-aarch64-linux-gnu`, `libc6-dev-arm64-cross`) or without clang. 74 fixtures and 3
+  checks at 0.137, about a minute. (0.131)
 - The proof. `proof/run.sh` has clang turn `proof/forty2.ll` into a binary that prints `cicilang reaches C` and exits
   42. (M0)
 
@@ -435,9 +443,9 @@ tutorials/01..03-*.pl       the objects layer's lessons; goal main, last line do
 ### The C++ gate: test/cpp.sh
 
 - `test/cpp.sh` runs in this order: `test/cpp.pl` in one `--local` process; four checks of the command; every
-  `test/cpp/run/*.cpp` as a pool job (489 at 0.136); `classes.cpp` and `templates.cpp` built and run; the refusals.
+  `test/cpp/run/*.cpp` as a pool job (493 at 0.137); `classes.cpp` and `templates.cpp` built and run; the refusals.
   (0.105)
-- `test/cpp.pl` runs 44 numbered checks, `c1` to `c44`, then reads Cicili's six C++ files whole (`test/cpp/objects.cpp`,
+- `test/cpp.pl` runs 45 numbered checks, `c1` to `c45`, then reads Cicili's six C++ files whole (`test/cpp/objects.cpp`,
   `emit_report.cpp`, `specialise.cpp`, `syntax.cpp`, `torch.cpp`, `torch-fragment.cpp`). `c34` checks the Itanium
   mangler on nine symbols, with no class registered. `unit_at(Std, Name, U)` sets `'$ccl_std'` for one read: `c22` to
   `c28` read `cxx20.cpp`, `c29` to `c33` `cxx23.cpp`, and `c35`, `c36` the run fixtures `cxx20cmp.cpp`, `cxx23b.cpp`,
@@ -2381,7 +2389,8 @@ free. A const method adds `.c`, a ref-qualified one `.r` or `.rr` after it: each
   looks through one, so `bump(std::ref(c), 3)` over `void bump(Counter &, int)` passed the WRAPPER's address as the
   Counter. `fnptrargs.cpp`. (0.117)
 - A class value where `bool` is wanted converts through its `operator bool`, explicit included (`cpp_to_bool`): `if`,
-  `while`, `do`, `for`, `!`, `&&`, `||` and a cast to `bool`, as a stream's sentry is tested. (0.72, 0.78)
+  `while`, `do`, `for`, `!`, `&&`, `||`, a cast to `bool` and a conditional's condition (0.137, [expr.cond]/1: `l ? 1 : 0`
+  over an `optional` compared the struct with zero), as a stream's sentry is tested. `condbool.cpp`. (0.72, 0.78, 0.137)
 - A conversion function whose result IS the target comes first (`cpp_conv_member_/6` in the mode `exact`, then `fits`;
   [over.match.conv], [over.ics.rank]/3.3): `operator int()` beside `operator long()` (or `operator T()` of `S<long>`)
   converts to a `long` through the second, where the first declared served every arithmetic target. Its NAME holds its
@@ -2779,7 +2788,8 @@ free. A const method adds `.c`, a ref-qualified one `.r` or `.rr` after it: each
   library template's own parameter met outside its template; the instance is refused, `template_argument_free(N)`, and
   the road that asked takes it as any substitution failure. The chrono formatter's walk asked `duration<_Rep, _Period>`
   (the table's type of `abs`, below), and ratio's `__static_gcd` over `_Period::num` and its unfolded remainders made
-  instances without end.
+  instances without end. A name that a header INDEXES is none (0.137): `_FilesystemClock` is a class of `<filesystem>`
+  that is loaded where it is named.
 - THE BUDGET: `cpp_spend/1` counts instances and header loads, and refuses `instantiation_budget(K, What)` past 6000;
   `cpp_deeper/1` counts nested class instantiations, and refuses `instantiation_depth(D, What)` past 120. Why: an
   unbounded `std::vector<int>` took the machine's memory (0.44). The limit was 3000 until 0.133: range formatting over
@@ -3784,11 +3794,19 @@ The desugaring (`library/ccl_cpp.pl`) chooses every C++ overload. A fixture name
 - A class parameter accepts its class, a class derived through first bases (`cpp_class_fits/2`), a class with a
   conversion operator to it (`cpp_conv_result/3`), or a class its constructor takes ([over.ics.user];
   `cpp_class_converts/2`, in `cpp_type_accepts/2`). A non-explicit constructor TEMPLATE over a template-id that the
-  argument's class instantiates converts too. `ctortconv.cpp`. Why: libc++'s `basic_format_args`. (0.80, 0.112)
+  argument's class instantiates converts too. `ctortconv.cpp`. Why: libc++'s `basic_format_args`. So does, last, a
+  constructor template whose one parameter deduces from the argument's class, its defaults and constraints checked
+  (`cpp_converting_tmpl/2` over `cpp_ctor_tmpl_takes`, never a pack; 0.137): `const optional<locale> &` took no `locale`,
+  `optional(_Up &&)` being no template-id's constructor, and libc++'s `__format_context_create(..., optional<locale> &&)`
+  had no candidate (std::format of `hh_mm_ss` and the calendar types). `optparam.cpp`. (0.80, 0.112, 0.137)
 - A non-class argument converts to a class only through a non-explicit constructor whose parameter takes its kind, or a
   constructor template (`cpp_converting/2`). `cpp_converting/1` serves `is_convertible` only, and also takes no
   `explicit` constructor ([meta.rel]: an implicit conversion; it counted them until 0.112, `is_convertible<int, E>`
-  true for `explicit E(int)`, `explicitconv.cpp`). Why: `const pair *` passed for a map's `const_iterator`. (0.83)
+  true for `explicit E(int)`, `explicitconv.cpp`). Why: `const pair *` passed for a map's `const_iterator`. A CLASS
+  argument reaches such a non-class parameter only through its own conversion function (`cpp_conv_result/3`; 0.137): any
+  argument passed before, so `is_convertible<const locale &, string_view>` held through string_view's `const char *`
+  constructor, and `std::format(__os.getloc(), fmt, hms)` chose the overload whose format string the locale converted to.
+  (0.83, 0.137)
 - A constructor TEMPLATE converts an argument only where its one parameter deduces from the argument's type, the
   defaults bind and the head's and trailing requires-clauses hold (`cpp_ctor_tmpl_takes`; a parameter pack keeps the
   old answer). A constructor over a template-id converts an instance only where the substituted parameter IS the
@@ -4693,7 +4711,11 @@ A lambda is a class of its captures (`library/ccl_cpp.pl`). A fixture named alon
   is none; each layer (`P`, `R`, `O`, `K`) is one of its own, inner first. (0.73)
 - A class type is `N <prefix> <chain> E` (`cpp_ita_class` over `cpp_class_scope`), or `St<len>name` directly in std. Its
   key is the chain's own, so the type and the same prefix level are one entity (`RS3_`). An instance is
-  `<len>name I <args> E`, its template-name prefix and its template-id each a candidate. (0.73, 0.75)
+  `<len>name I <args> E`, its template-name prefix and its template-id each a candidate. A VALUE argument is `L`, the
+  template parameter's type (else the literal's), the number (`n` before a negative one), `E` (`cpp_ita_targs_t/6`; 0.137,
+  Itanium 5.1.5.4): `ratio<1, 1000000000>` is `5ratioILl1ELl1000000000EE`, a bool `Lb1E`. Only types were spelled before,
+  so the shipped `__last_write_time(const path &, file_time_type, error_code *)` kept its plain name and the lowering met
+  its raw alias (`fsrest.cpp`; `test/cpp.pl`'s `c45` spells two symbols as clang++ 18 does). (0.73, 0.75, 0.137)
 - A member is `_ZN [K] <class chain> <member> E <parameters>`, `K` for a const method; a constructor is `C1`, a
   destructor `D1` (`cpp_ita_member_name`). An operator has the ABI's code (`cpp_ita_op`: `rs`, `ls`, `pL` ...), the
   unary one with no parameter (`cpp_ita_unary`). (0.73, 0.75)
@@ -5606,10 +5628,21 @@ A lambda is a class of its captures (`library/ccl_cpp.pl`). A fixture named alon
   the sign bit, as gcc does (`ir_dec_negate/4`). (0.129)
 - The conversions (`ir_dec_convert/6`, a clause of `ir_convert/6`): between decimal kinds `__bid_extend<f><t>2` and
   `__bid_trunc<f><t>2`; to and from an integer the width's routine, `si` for 32 bits and below (`__bid_floatsidd`,
-  `__bid_fixunsddsi` ...) and `di` for 64, a 128-bit integer refused (`decimal_conversion(From, To)`); to and from a
+  `__bid_fixunsddsi` ...) and `di` for 64, a 128-bit integer through the compiler's own helpers (below); to and from a
   standard floating type `sf`, `df`, `xf` (a `_Float16` through a float), named `extend` or `trunc` by the formats' widths
   -- between formats of one width a decimal truncates to binary and a binary extends to decimal, as libgcc names them;
   to a bool the test. (0.129)
+- A 128-BIT INTEGER CONVERTS TO AND FROM A DECIMAL (0.137): libgcc has no `__bid_floattidd` nor `__bid_fixddti`, and gcc's
+  own link of such a conversion fails. The routines are the compiler's, written in C (`module/bidrt.c`) and compiled by
+  cicilang itself into IR text (`library/ccl_bidrt.pl`, generated, `ccl_bidrt_text(Name, Text)`); the first such
+  conversion of a module notes every function of it, internal, and the declarations of the libgcc routines they call
+  (`ir_dec_rt128/0`, loaded once by `ir_bidrt_ready/0` as the Unicode table is), so two objects that convert link.
+  `__ccl_bid_float[uns]ti<k>` rounds the integer's magnitude ONCE, half to even, to the kind's digits in integer
+  arithmetic, then builds the value from a 64-bit conversion and exact products by ten; `__ccl_bid_fix[uns]<k>ti` decodes
+  the BID coefficient and exponent and scales toward zero. A `_BitInt` of 65 to 128 bits widens to `i128` first, one past
+  128 is refused, `decimal_conversion(From, To)`. They are a runtime of the compiler, as libgcc's, and no part of the
+  standard library. `test/c/run/dec128.c` (gcc's build over the same helpers, the values checked against Python's
+  `decimal`; on aarch64 under qemu too). (0.137)
 - A literal is encoded here, exactly (`ir_dec_literal/3`): its text's digits and exponent (`ir_dec_parse/3`), rounded half
   to even past the kind's precision (7, 16, 34 digits; `ir_dec_round_to/5`), an exponent past the greatest clamped by
   padding with zeros where the coefficient holds them, else an infinity, one past the least rounded away (`ir_dec_fit/3`),
@@ -5623,8 +5656,13 @@ A lambda is a class of its captures (`library/ccl_cpp.pl`). A fixture named alon
   constant converted to a decimal type by gcc's own steps (its text of the value to 57 digits with the trailing zeros
   cropped to `d.d`, then a `_Decimal128`, then the type's digits; `ir_dec_exact/2`); a decimal constant as a binary
   floating global, the nearest value on the format's grid, ties to even, a subnormal one included (`ir_dec_binary/2`:
-  `float`, `double`, `half`, the x87 and the quad formats by their bits). An infinity, a division by zero and a long
-  double's literal (which holds a double's value here) are not folded: `decimal_constant(E)`, refused by name. A
+  `float`, `double`, `half`, the x87 and the quad formats by their bits). AN INFINITY, A NaN AND A DIVISION BY ZERO fold
+  as gcc folds them (0.137; IEEE 754-2008 7.2, 7.3; `ir_dec_special/9`, the fourth field of `d/4` `yes` for an infinity and
+  `nan` for a NaN): a NaN of a NaN, `inf - inf`, `inf x 0`, `0 / 0` and `inf / inf`, positive, `0x7c` in its top byte; an
+  infinity of an infinity with a finite value and of a nonzero value divided by zero, its sign the operands'; a finite
+  value divided by an infinity a zero at the least exponent; a negation flips the sign of either; as a binary global the
+  format's own infinity or quiet NaN (`ir_dec_special_value/3`, `ir_fp_nan_text/3`). `test/c/run/decspecial.c`. A long
+  double's literal (which holds a double's value here) is not folded: `decimal_constant(E)`, refused by name. A
   quotient's bits are divided past the divisor's top bits in one shift and a value far past a format's range is told by
   its exponent alone, so `long double x = 1e-4940dl;` folds in milliseconds. `test/c/run/decfold.c` (gcc's output).
   (0.129, 0.132)
@@ -6293,11 +6331,11 @@ A lambda is a class of its captures (`library/ccl_cpp.pl`). A fixture named alon
   0.90, all GREEN (cocolog 1.2.18). The fixtures added since 0.93 have run on Linux only.
 - Ubuntu 24.04 on x86_64 (clang and LLVM 18, glibc, libc++ 18 and 21) is a host since 0.87. Every gate but the C++ one is
   GREEN there since 0.93, and all seven since 0.95. Every step from 0.93 on is gated there, but the save points 0.112,
-  0.113, 0.117, 0.122 to 0.125, 0.130 and 0.131 (gated by the steps after them); the last full run is 0.136's, over cocolog 1.10.0, on one
-  tree: over libc++ 18 all eight GREEN (reader 5 s, compile 11 s, driver 10 s, objects 3 s, proof, the cross gate in
-  49 s, the library read in 1114 s, the C++ gate in 988 s with 487 of 489 fixtures ok, the skips are `stdoptionalref` and `joinwith`,
-  the 21 refusals and the two of the safe part); over libc++ 21 the library read (1026 s) and the C++ gate (875 s,
-  488 of 489 ok, the skip `stdoptionalref`) GREEN -- the C gates do not read libc++. Two libc++ passes are one
+  0.113, 0.117, 0.122 to 0.125, 0.130 and 0.131 (gated by the steps after them); the last full run is 0.137's, over cocolog 1.10.0, on one
+  tree: over libc++ 18 all eight GREEN (reader 4 s, compile 11 s, driver 9 s, objects 4 s, proof, the cross gate in
+  50 s, the library read in 939 s, the C++ gate in 997 s with 491 of 493 fixtures ok, the skips are `stdoptionalref` and `joinwith`,
+  the 21 refusals and the two of the safe part); over libc++ 21 the library read (986 s) and the C++ gate (947 s,
+  492 of 493 ok, the skip `stdoptionalref`) GREEN -- the C gates do not read libc++. Two libc++ passes are one
   gate: `LLVM=/usr/lib/llvm-18` and `LLVM=/usr/lib/llvm-21` choose the tree the chain reads and links. libc++ 22 (the
   newest tree, which a run without `$LLVM` reads) is untried but for `stdoptionalref`, which passes there. The run before
   0.121's (0.118, 0.119) found, over 0.117, two defects and one stale check of `test/cpp.pl` (c20, above).
@@ -6326,7 +6364,8 @@ A lambda is a class of its captures (`library/ccl_cpp.pl`). A fixture named alon
   (`vlaempty.c`, C23), `va_arg` of a struct, a union and a complex (`vaaggregate.c`), `__int128` (`int128.c`) and a
   `_Static_assert` over the `sizeof` of a struct (`sizeofassert.c`) and a conditional of a pointer and the literal zero
   (`condnull.c`). Since 0.133: a `goto` out of scopes with `defer`s, forward and backward (`gotodefer.c`), and over owners
-  (`gotoown.c`).
+  (`gotoown.c`). Since 0.137: a decimal to and from a 128-bit integer (`dec128.c`), a decimal constant's infinity, NaN and
+  division by zero (`decspecial.c`).
 - The C library is the host's. The compiler's own freestanding headers are in `library/include/` (`<stdarg.h>`,
   `<stdatomic.h>`, `<complex.h>`, `<stdckdint.h>`, `<stdbit.h>`, `<limits.h>` and six more).
 - The language's own additions run: `:=`, patterns, `name { }` structs and `format`, `print`, `println`
@@ -6574,7 +6613,8 @@ A lambda is a class of its captures (`library/ccl_cpp.pl`). A fixture named alon
   (`stdwformat`); `std::print` and `std::println` at C++23 (`stdprint`) (0.115). Range and tuple formatting at C++23
   (0.133): a vector, a map, a vector of strings debug-formatted and a nested spec, `{::02}` (`fmtrange`); a pair and a
   tuple (`fmttuple`). Chrono formatting at C++20 (0.136): `seconds`, `milliseconds` and `minutes` with their suffixes and
-  a `%H:%M:%S` spec (`fmtchrono`, about three minutes).
+  a `%H:%M:%S` spec (`fmtchrono`, about three minutes); time points, `year_month_day`, `weekday`, `month` and `hh_mm_ss`
+  (`fmtchrono2`, 0.137).
 
 ### Benchmarks
 
@@ -6589,10 +6629,9 @@ A lambda is a class of its captures (`library/ccl_cpp.pl`). A fixture named alon
 - The lowering refuses by name `va_arg` of a struct, a union, a complex or an `__int128` on APPLE's arm64, whose
   va_list is a `char *` and whose variadic arguments all go on the stack (`va_arg_of_aggregate`): no Apple machine is
   on this box. Linux aarch64 expands them (0.131).
-- A decimal floating value converts to and from a 128-bit integer nowhere (`decimal_conversion`): gcc calls
-  `__bid_floattidd` and `__bid_fixddti`, which this box's libgcc does not have, and its own link fails (0.129). A decimal
-  global's initializer folds as gcc's does (0.132) but for an infinity, a division by zero and a long double's literal,
-  which holds a double's value here: those are refused, `decimal_constant(E)`.
+- A decimal global's initializer folds as gcc's does (0.132, 0.137) but for a long double's literal, which holds a
+  double's value here: it is refused, `decimal_constant(E)`. A decimal converts to and from a `_BitInt` past 128 bits
+  nowhere (`decimal_conversion`).
 
 ### C++ language
 
@@ -6624,10 +6663,9 @@ A lambda is a class of its captures (`library/ccl_cpp.pl`). A fixture named alon
 - `std::format` runs (`stdformat.cpp`, 0.112), its compile-time format-string check dropped (0.110): a bad format
   string is caught at run time by the library's own parser. `vformat`, a formatter the program specializes, the wide
   format and `std::print` run (0.115), range and tuple formatting (0.133) and chrono formatting (0.136, `fmtchrono.cpp`).
-  Time points format too (a probe). Not finished: `hh_mm_ss` and the calendar types stop in `__vformat_to`,
-  `argument_mismatch` -- a conditional's condition is not converted through a class's `operator bool` (`l ? 1 : 0` over an
-  `optional`), and a template's parameter `const optional<locale> &` takes no `locale` (0.136's HISTORY entry). Time zones
-  are untried.
+  Time points, the calendar types and `hh_mm_ss` format since 0.137 (`fmtchrono2.cpp`). Time zones are libc++'s
+  experimental part: clang++ finds `time_zone` only under `-fexperimental-library` (libc++ 21 and 22), a flag `bin/cicilang`
+  accepts and ignores as every `-f` flag.
 - `optional<T &>` needs libc++ 22 (`stdoptionalref.needs`; 21.1.8 has none). `bad_optional_access` cannot be caught: libc++ keeps its
   no-exceptions configuration and aborts with the message (0.82).
 - libc++ keeps its no-RTTI configuration by design, so `shared_ptr::get_deleter`, `dynamic_pointer_cast`,
@@ -6639,8 +6677,9 @@ A lambda is a class of its captures (`library/ccl_cpp.pl`). A fixture named alon
   of `std::uninitialized_copy`, `std::construct_at`, the `destroy_*` algorithms and `allocator_traits` run
   (`stduninit.cpp`, `stdallocator.cpp`, 0.117).
 - `std::stringstream`, `std::wstringstream`, `std::ofstream`, `std::ifstream` and `std::fstream` run (0.117), and since
-  0.134 the wide file streams and `std::filesystem`'s `path` and operations. Not tried: the rest of `<filesystem>`
-  (`recursive_directory_iterator`, permissions, `last_write_time`, `space`).
+  0.134 the wide file streams and `std::filesystem`'s `path` and operations, and since 0.137 the rest of it that a program
+  uses most: `recursive_directory_iterator`, permissions, `last_write_time` read and set, `space`, `copy_file`, `rename`,
+  `remove_all` (`fsrest.cpp`).
 - `<random>` and `std::valarray` run since 0.136 (`stdrandom.cpp`, `stdvalarray.cpp`). `std::bit_cast` runs since the
   builtin is answered (`stdbitcast.cpp`, C++20). `<chrono>`: durations and clocks run, a build of three to five minutes
   since 0.136, too slow for a fixture of its own. `std::thread` and

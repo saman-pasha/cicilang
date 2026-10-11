@@ -328,11 +328,27 @@ cpp_ita_chain([], C, T, Subs, C, T, Subs).
 cpp_ita_chain([plain(N)|Ls], C0, T0, Subs0, C, T, Subs) :- atom_length(N, L), atomic_list_concat([C0, L, N], C1), cpp_ita_level(C1, T0, L, N, Subs0, T1, Subs1), cpp_ita_chain(Ls, C1, T1, Subs1, C, T, Subs).
 cpp_ita_chain([inst(N, Args)|Ls], C0, T0, Subs0, C, T, Subs) :-
     atom_length(N, L), atomic_list_concat([C0, L, N], C1), cpp_ita_level(C1, T0, L, N, Subs0, T1, Subs1),   % the template-name prefix, a candidate
-    cpp_ita_targs(Args, Subs1, ACanon, AText, Subs2),
+    cpp_ita_targs_t(N, Args, Subs1, ACanon, AText, Subs2),
     atomic_list_concat([C1, 'I', ACanon, 'E'], C2),
     (   cpp_ita_sub(C2, Subs2, Code) -> T2 = Code, Subs3 = Subs2
     ;   atomic_list_concat([T1, 'I', AText, 'E'], T2), cpp_ita_note(C2, Subs2, Subs3) ),                 % the template-id, a candidate
     cpp_ita_chain(Ls, C2, T2, Subs3, C, T, Subs).
+%% A VALUE TEMPLATE ARGUMENT (0.137; Itanium 5.1.5.4): `L', the template parameter's type (else the literal's), the number
+%% (`n' before a negative one), `E' -- `ratio<1, 1000000000>' is `5ratioILl1ELl1000000000EE', a bool `Lb1E'
+cpp_ita_targs_t(N, Args, Subs0, Canon, Text, Subs) :- ( atom(N), catch('$cpp_tmpl'(N, TPs, _), _, fail) -> cpp_ita_vtypes(TPs, VTs) ; VTs = [] ), cpp_ita_targs_v(Args, VTs, Subs0, Canon, Text, Subs).
+cpp_ita_vtypes([], []).
+cpp_ita_vtypes([requires(_)|TPs], VTs) :- !, cpp_ita_vtypes(TPs, VTs).
+cpp_ita_vtypes([tparam(K, _, _)|TPs], [VT|VTs]) :- ( memberchk(K, [type, pack, template]) -> VT = none ; K = vpack(_) -> VT = vpack ; VT = K ), cpp_ita_vtypes(TPs, VTs).
+cpp_ita_targs_v([], _, Subs, '', '', Subs).
+cpp_ita_targs_v([A|As], VTs, Subs0, Canon, Text, Subs) :- ( VTs = [VT|VTs1] -> true ; VT = none, VTs1 = [] ),
+    ( cpp_ita_value(A, VT, C1) -> T1 = C1, Subs1 = Subs0 ; cpp_ita_type(A, Subs0, C1, T1, Subs1) ),
+    ( VT == vpack -> VTs2 = VTs ; VTs2 = VTs1 ), cpp_ita_targs_v(As, VTs2, Subs1, C2, T2, Subs), atom_concat(C1, C2, Canon), atom_concat(T1, T2, Text).
+cpp_ita_value(bool(B), _, Text) :- !, ( B == true -> Text = 'Lb1E' ; Text = 'Lb0E' ).
+cpp_ita_value(A, VT, Text) :- cpp_ita_literal(A, Kind, V), integer(V), !,
+    ( VT \== none, VT \== vpack, catch(cpp_ita_type(VT, [], _, TC0, _), _, fail) -> TC = TC0 ; TC = Kind ),
+    ( V < 0 -> V1 is -V, atomic_list_concat(['L', TC, n, V1, 'E'], Text) ; atomic_list_concat(['L', TC, V, 'E'], Text) ).
+cpp_ita_literal(int(V), i, V).  cpp_ita_literal(uint(V), j, V).  cpp_ita_literal(long(V), l, V).  cpp_ita_literal(ulong(V), m, V).
+cpp_ita_literal(V, i, V) :- integer(V).
 cpp_ita_targs([], Subs, '', '', Subs).
 cpp_ita_targs([A|As], Subs0, Canon, Text, Subs) :- cpp_ita_type(A, Subs0, C1, T1, Subs1), cpp_ita_targs(As, Subs1, C2, T2, Subs), atom_concat(C1, C2, Canon), atom_concat(T1, T2, Text).
 %% the parameters: `v' for none, `z' for the ellipsis
@@ -449,7 +465,7 @@ cpp_ita_chain_type([L|Ls], C0, T0, Subs0, C, T, Subs) :- cpp_ita_chain([L], C0, 
 cpp_ita_last_level(plain(N), C0, T0, Subs, C, T, Subs) :- atom_length(N, L), atomic_list_concat([C0, L, N], C), atomic_list_concat([T0, L, N], T).
 cpp_ita_last_level(inst(N, Args), C0, T0, Subs0, C, T, Subs) :-
     atom_length(N, L), atomic_list_concat([C0, L, N], C1), cpp_ita_level(C1, T0, L, N, Subs0, T1, Subs1),   % the template-name prefix IS a candidate
-    cpp_ita_targs(Args, Subs1, ACanon, AText, Subs), atomic_list_concat([C1, 'I', ACanon, 'E'], C), atomic_list_concat([T1, 'I', AText, 'E'], T).
+    cpp_ita_targs_t(N, Args, Subs1, ACanon, AText, Subs), atomic_list_concat([C1, 'I', ACanon, 'E'], C), atomic_list_concat([T1, 'I', AText, 'E'], T).
 %% the substitution table: a key's code by its position, S_ then S0_ S1_ ... in base 36
 cpp_ita_sub(Key, Subs, Code) :- cpp_ita_index(Subs, Key, 0, I), cpp_ita_code(I, Code).
 cpp_ita_index([K|_], K, I, I) :- !.
@@ -4983,6 +4999,7 @@ cpp_expr(Ctx, move(X), E) :- !, cpp_expr(Ctx, X, X1),
 cpp_expr(Ctx, stmt_expr(block(Is)), stmt_expr(block(Js))) :- !, cpp_in_frame(cpp_stmts(Ctx, Is, Js)).
 cpp_expr(Ctx, lambda(Caps, Ps, Ret, Body), E) :- !, cpp_lambda(Ctx, Caps, Ps, Ret, Body, E).
 cpp_expr(_, str(S), str(S)) :- !.
+cpp_expr(Ctx, cond(C, A, B), cond(C2, A1, B1)) :- !, cpp_expr(Ctx, C, C1), cpp_to_bool(C1, C2), cpp_exprs(Ctx, [A, B], [A1, B1]).   % THE CONDITION CONTEXTUALLY CONVERTED TO BOOL ([expr.cond]/1; 0.137), through a class's `operator bool' as `if' and `!' have it: `l ? 1 : 0' over an `optional' compared the struct with zero
 cpp_expr(Ctx, E, E1) :- E =.. [F|As], cpp_exprs(Ctx, As, Bs), E1 =.. [F|Bs].
 cpp_local(N) :- ccl_locals(Fs), member(F, Fs), memberchk(N-_, F), !.
 %% the way to a member: o.$base...n by value, p->n or p->$base...n through a pointer
@@ -6407,7 +6424,8 @@ cpp_instantiate_class_(N, Args, Name) :- '$cpp_iname'(N, A, Name0), A == Args, !
 %% template, never a type. Instantiated, `duration<_Rep, _Period>' (the chrono formatter's walk) made ratio's
 %% `__static_gcd' over `_Period::num' and its unfolded remainders, an instance chain without end. Refused, the road that
 %% asked takes the refusal as any substitution failure. A program's own name is never reserved.
-cpp_free_reserved(A, N) :- cpp_free_arg(A), A = base(_, [typedef(N)]), atom(N), sub_atom(N, 0, 1, _, '_'), sub_atom(N, 1, 1, _, C), char_code(C, K), K >= 0'A, K =< 0'Z, !.
+cpp_free_reserved(A, N) :- cpp_free_arg(A), A = base(_, [typedef(N)]), atom(N), sub_atom(N, 0, 1, _, '_'), sub_atom(N, 1, 1, _, C), char_code(C, K), K >= 0'A, K =< 0'Z,
+    \+ ( '$cpp_hdr'(N, _) ; '$cpp_hdr_ast'(N, _) ), !.   % ... AND NO HEADER INDEXES IT (0.137): `_FilesystemClock' is a class of <filesystem> not loaded yet
 cpp_instantiate_class_(N, Args, Name) :-
     ( member(A, Args), cpp_free_arg(A) -> cpp_wstack(W), ( catch(nb_getval('$cpp_class_ctx', Cx), _, Cx = none) -> true ; Cx = none ), ( catch(nb_getval('$cpp_making', Mk), _, Mk = none) -> true ; Mk = none ), cpp_trace(free_name_instance(N, A, ctx(Cx), making(Mk), from(W))) ; true ),   % an instance asked on a name the tables do not know is TRACED with its breadcrumb (0.49's, 0.60's and 0.64's defect, from the other side); refusing it took an instance name still being registered for a free name (`__tree<__value_type<int, int>>'), 37 fixtures RED
     ( member(A, Args), cpp_free_reserved(A, FN) -> cpp_refuse(0, template_argument_free(FN)) ; true ),   % never over a library template's own parameter (below)
@@ -7257,7 +7275,7 @@ cpp_unref_all(T, T1) :-                                                  % EVERY
     ;   ccl_resolve_type(T, R), ( R = ref(_, _) ; R = rref(_, _) )       % typedef and stopped there, so a REFERENCE reached the class test, which must not
     ->  cpp_unref_all(R, T1)                                             % unref (0.51), and unique_ptr's `(pointer, const deleter_type &)' was refused
     ;   T1 = T ).   % EVERY reference layer: a forwarding `_Tp &&' bound to an lvalue is `T & &&' before it collapses, and one layer off it was a reference to a class and no class -- libc++'s piecewise key extraction refused argument_mismatch on its piecewise_construct_t
-cpp_type_accepts(PT, AT) :- cpp_type(PT, PT2), cpp_class_of_type(PT2, C), !, ( cpp_class_of_type(AT, D) -> ( D == C -> true ; cpp_class_fits(D, C) -> cpp_converted ; cpp_conv_result(D, PT2, _) -> cpp_converted ; cpp_class_converts(C, D), cpp_converted ) ; cpp_converting(C, AT), cpp_converted ).
+cpp_type_accepts(PT, AT) :- cpp_type(PT, PT2), cpp_class_of_type(PT2, C), !, ( cpp_class_of_type(AT, D) -> ( D == C -> true ; cpp_class_fits(D, C) -> cpp_converted ; cpp_conv_result(D, PT2, _) -> cpp_converted ; cpp_class_converts(C, D) -> cpp_converted ; cpp_converting_tmpl(C, AT), cpp_converted ) ; cpp_converting(C, AT), cpp_converted ).
 %% ... or the parameter's class has a constructor that takes the argument's class ([over.ics.user]): libc++'s tree
 %% copies itself through `unique_ptr<__node, __tree_deleter>(node, __node_alloc_)', the deleter made of the allocator
 cpp_class_converts(C, D) :- cpp_class(C, cls(_, _, Ms, _, _, _)), member(ctor(_, Qs, Ps, _, _), Ms), \+ memberchk(explicit, Qs), cpp_arity_fits(Ps, 1), Ps = [P|_],
@@ -7289,8 +7307,16 @@ cpp_class_fits(D, C) :- '$cpp_extra'(D, Bs), member(B, Bs), \+ '$cpp_base_slot'(
 %% over the range template, and a node was constructed from a pointer to a pair
 cpp_converting(C, AT) :- cpp_class(C, cls(_, _, Ms, _, _, _)), member(ctor(_, Qs, [P|Rest], _, _), Ms), \+ memberchk(explicit, Qs), cpp_arity_fits([P|Rest], 1),
     ( P = param(PT0, _) ; P = param(PT0, _, _) ), catch(cpp_in_class(C, cpp_param_ref(PT0, PT)), _, fail), ccl_unref(PT, PT1),
-    \+ cpp_class_of_type(PT1, _), \+ ( ccl_resolve_type(PT1, RP), ( cpp_scalar_mismatch(RP, AT) ; cpp_arith_pointee_differs(RP, AT) ) ), !.
+    \+ cpp_class_of_type(PT1, _), \+ ( ccl_resolve_type(PT1, RP), ( cpp_scalar_mismatch(RP, AT) ; cpp_arith_pointee_differs(RP, AT) ) ),
+    ( cpp_class_of_type(AT, D) -> ccl_resolve_type(PT1, RP1), cpp_conv_result(D, RP1, _) ; true ), !.   % A CLASS ARGUMENT only through its own conversion function (0.137): `is_convertible<const locale &, string_view>' held through string_view's `const char *' constructor
 cpp_converting(C, AT) :- '$cpp_mt'(C, ctor, TPs, ctor(_, Qs, Ps, _, _)), \+ memberchk(explicit, Qs), cpp_arity_fits(Ps, 1), cpp_ctor_tmpl_takes(C, TPs, Qs, Ps, AT), !.   % a constructor template takes what deduces
+%% ... AND A CLASS ARGUMENT THROUGH A CONSTRUCTOR TEMPLATE whose one parameter deduces from it (0.137; [over.match.copy]),
+%% its defaults and constraints checked as for a non-class argument (cpp_ctor_tmpl_takes), a pack never: `const
+%% optional<locale> &' took no `locale', `optional(_Up &&)' being no template-id's constructor (cpp_class_converts) -- libc++'s
+%% `__format_context_create(..., optional<locale> &&)' had no candidate, and std::format of hh_mm_ss stopped there
+cpp_converting_tmpl(C, AT) :- '$cpp_mt'(C, ctor, TPs, ctor(_, Qs, Ps, _, _)), \+ memberchk(explicit, Qs), cpp_arity_fits(Ps, 1),
+    Ps = [P|_], ( P = param(PT0, _) ; P = param(PT0, _, _) ), ccl_unref(PT0, base(_, [typedef(TP)])), atom(TP), memberchk(tparam(type, TP, _), TPs),   % ONLY A BARE TEMPLATE PARAMETER (`_Up &&', `const _Up &'): a template-id's is cpp_class_converts's, which checks the deduced class (`ctorctx.cpp')
+    cpp_ctor_tmpl_takes(C, TPs, Qs, Ps, AT), !.
 cpp_converting(C) :- cpp_class(C, cls(_, _, Ms, _, _, _)), member(ctor(_, Qs, [_], _, _), Ms), \+ memberchk(explicit, Qs), !.   % the type-only question (a trait's `is_convertible' with no argument in hand): any one-argument constructor that is not `explicit' -- the implicit conversion [meta.rel] asks for, which an explicit one never makes (0.112: it counted them, so `is_convertible<int, E>' was true for `explicit E(int)')
 cpp_has_conversion(D) :- cpp_class(D, cls(_, _, Ms, _, _, _)), member(method(_, _, _, operator(conv(_)), _, _, _), Ms), !.
 %% ... AND A POINTER TO AN ARITHMETIC TYPE TAKES ONLY THAT TYPE, its qualifiers aside (0.115; [conv.ptr], [conv.qual]):
