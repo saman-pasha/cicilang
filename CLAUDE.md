@@ -10,8 +10,8 @@ it found, its measurements and its gate numbers. `README.md` tells a user what r
 architecture and the milestones. A step that changes a rule edits the rule here, in its topic, and writes its entry
 in `HISTORY.md`.
 
-At 0.142 the versions are: the module 0.142 (`ccl_p_version` in `module/cicilang.cicili`, `bin/cicilang --version`),
-the reader 128 (`ccl_reader_version/1`, `library/ccl_syntax.pl`) and the lowering 81 (`ccl_lowering_version/1`,
+At 0.143 the versions are: the module 0.143 (`ccl_p_version` in `module/cicilang.cicili`, `bin/cicilang --version`),
+the reader 129 (`ccl_reader_version/1`, `library/ccl_syntax.pl`) and the lowering 82 (`ccl_lowering_version/1`,
 `library/ccl_ir.pl`).
 
 Build and prove, always in this order (or all of it, `sh test/gates.sh`):
@@ -130,7 +130,7 @@ sh test/cpp.sh
   on backtracking, with an error that names no line (`ccl_init_items//1` is `ccl_init_items/3`; `cpp_scalar_type/1`
   already existed). (0.93, 0.99)
 - A predicate's helpers come after its last clause, never between its clauses: cocolog takes discontiguous clauses
-  without a word. At 0.141, 126 predicates break it, listed from each clause's line (the flow tools, Measurement and the
+  without a word. At 0.143, 124 predicates break it, listed from each clause's line (the flow tools, Measurement and the
   instruments). A second DEFINITION of a name hides among such splits, joined to the first: `cpp_derives/2` until 0.112,
   and `cpp_thunk_params/4` and `cpp_param_types/2` until 0.141 -- the secondary-table thunks and the instance thunks
   each wrote their own `cpp_thunk_params/4`, the first answered every call, and each pair gave a second answer on
@@ -388,8 +388,8 @@ tutorials/01..03-*.pl       the objects layer's lessons; goal main, last line do
 - The compile gate. `test/compile.pl`, one process over the user's store, reads, checks, lowers, compiles at `-O1`
   and links every `test/c/run/*.c` at its `NAME.std` level (`c_level`). It expects every `test/c/safe/*.c` refused.
   `test/compile.sh` runs each binary as `NAME arg1 arg2` against `NAME.expect`, and compares each refusal with
-  `safe/NAME.expect`. There are 75 run and 47 safe fixtures at 0.138. (M2, M3, 0.57)
-- The driver gate. `test/driver.sh` makes 34 checks of `bin/cicilang` over the user's store (the decimal ABI check is
+  `safe/NAME.expect`. There are 77 run and 47 safe fixtures at 0.143. (M2, M3, 0.57)
+- The driver gate. `test/driver.sh` makes 35 checks of `bin/cicilang` over the user's store (the decimal ABI check is
   skipped where no gcc with decimal floating types is installed), the variadic calls of every kind both ways against
   clang among them (`test/c/link/va_*.c`, 0.131). They cover what `-o`,
   `-c`, `-S`, `-emit-llvm`, `-shared`, `-I`, `-ast-dump`, `-fsyntax-only`, `-g` and `-gline-tables-only` make (read
@@ -398,7 +398,8 @@ tutorials/01..03-*.pl       the objects layer's lessons; goal main, last line do
   data member declared in its class, its definition naming that declaration, through `cicilang++ -g -c`, 0.133; under
   `-fdebug-macro` a file's and its header's macros at their lines, as clang's object has them, and the predefined ones at
   line 0, 0.134; a destructor at its scope's closing brace, on a return and at the end, 0.139), and the diagnostics in
-  clang's shape (`#warning` printed, `#error` with exit 1). They find `@ccl_drain_node` in `btree.c`'s IR, and pass
+  clang's shape (`#warning` printed, `#error` with exit 1). The text of `-E` compiled by clang makes the program the source
+  makes, its floats exact (0.143: `__DBL_MAX__`, `1.5e308`, 17 digits, a subnormal, an infinity). They find `@ccl_drain_node` in `btree.c`'s IR, and pass
   structs by value both ways against clang-built code (`test/c/link/abi_main.c`, `abi_helper.c`; seven lines at 0.117,
   the last two for the SysV register budget, `budget_*` built by clang and `bud_*` by cicilang). The store must serve
   `hello.c` in under 10 s and redo only the changed one of two files. The gate follows the host: `_main:` and `.dylib`
@@ -415,8 +416,8 @@ tutorials/01..03-*.pl       the objects layer's lessons; goal main, last line do
   variadic calls of every AAPCS64 kind both ways (`test/c/link/va_*.c`: an int, a long, a double, a long double, an HFA
   of doubles and of floats, a struct past 16 bytes, an eight-byte struct, a 16-aligned `__int128` struct, the general
   and the SIMD registers run out). It SKIPs without `qemu-aarch64`, `aarch64-linux-gnu-gcc` and the sysroot (Debian
-  and Ubuntu: `qemu-user`, `gcc-aarch64-linux-gnu`, `libc6-dev-arm64-cross`) or without clang. 75 fixtures and 3
-  checks at 0.138, about a minute. (0.131)
+  and Ubuntu: `qemu-user`, `gcc-aarch64-linux-gnu`, `libc6-dev-arm64-cross`) or without clang. 77 fixtures and 3
+  checks at 0.143, about a minute. (0.131)
 - The proof. `proof/run.sh` has clang turn `proof/forty2.ll` into a binary that prints `cicilang reaches C` and exits
   42. (M0)
 
@@ -448,7 +449,7 @@ tutorials/01..03-*.pl       the objects layer's lessons; goal main, last line do
 ### The C++ gate: test/cpp.sh
 
 - `test/cpp.sh` runs in this order: `test/cpp.pl` in one `--local` process; four checks of the command; every
-  `test/cpp/run/*.cpp` as a pool job (499 at 0.139); `classes.cpp` and `templates.cpp` built and run; the refusals.
+  `test/cpp/run/*.cpp` as a pool job (500 at 0.143); `classes.cpp` and `templates.cpp` built and run; the refusals.
   (0.105)
 - `test/cpp.pl` runs 45 numbered checks, `c1` to `c45`, then reads Cicili's six C++ files whole (`test/cpp/objects.cpp`,
   `emit_report.cpp`, `specialise.cpp`, `syntax.cpp`, `torch.cpp`, `torch-fragment.cpp`). `c34` checks the Itanium
@@ -646,7 +647,8 @@ tutorials/01..03-*.pl       the objects layer's lessons; goal main, last line do
   0.108)
 - `-E` runs `dr_preprocess`: cocolog's own preprocessor standalone (`ccl_pp_file/3`; owner's rule: no clang), the tokens
   spelled back as text (`ccl_pp_spell/2`), into `-o`'s file or the answer. The text breaks its lines where the source's
-  do, escapes a string's codes (`\NNN`), keeps every suffix, and spells a float past a double as `1e999`. (0.44, 0.99)
+  do, escapes a string's codes (`\NNN`), keeps every suffix, and spells a float exactly and an infinite one as `1e999`.
+  (0.44, 0.99, 0.143)
 - Otherwise `dr_c` reads the file (`cicilang_ast/2`), and `-ast-dump` writes the AST. In C++ mode, `-fsyntax-only` only
   reads: no desugaring, check or lowering, so its success says nothing about them. In C it still checks and lowers
   (`dr_ir/3`). Then `dr_emit` writes the `.ll`, the assembly, the object, or a temporary object to link. (M5, 0.87)
@@ -746,9 +748,12 @@ tutorials/01..03-*.pl       the objects layer's lessons; goal main, last line do
 - Both lexers read hex floats (`0x1.8p1`, the binary exponent required) and a leading dot (`.5f`). (0.108)
 - `f16`, `f32`, `f64`, `f128` and `bf16` (any case) are read in both lexers, and the literal stays a double. The
   native lexer reads the character after `b` again. (0.93)
-- A float past the largest finite double is that double, at the parser's one float door (`ccl_primary_` through
-  `ccl_finite_float/2`). Why: cocolog writes an infinity as `inf.0`, which its own reader refuses, so a summary's AST
-  holding `__LDBL_MAX__` did not consult. (0.55)
+- A DOUBLE OR A FLOAT LITERAL PAST THE LARGEST DOUBLE IS AN INFINITY, as clang reads it (0.143; `1e999`, `1e999f`, `2e400i`).
+  A long double literal past it is the largest double, at the parser's one float door (`ccl_primary_` through
+  `ccl_finite_float/2`): its value is a double's here, and the largest double is nearer the long double it names
+  (`__LDBL_MAX__`) than an infinity is. Every literal was so clamped from 0.55 to 0.142, while cocolog wrote an infinity
+  `inf.0`, which its own reader refused, and a summary's AST holding one did not consult; 1.10.28 reads `1.0Inf` back,
+  and a stored read freezes its floats (0.132). `test/c/run/fpspecial.c`. Reader 129. (0.55, 0.143)
 - A DECIMAL FLOATING LITERAL (C23 6.4.4.2; 0.129) ends in `df`, `dd` or `dl` (or `DF`, `DD`, `DL`; `ccl_dec_suffix/3`, the
   native `ccl_lx_float_suffix` with `fsfx` 3 to 5) and is `tok(dec32 | dec64 | dec128, Text, L)`: its TEXT, as the lexers
   spell it for strtod (`0.1`, `1.0e5`, `.5`, the separators dropped; `ccl_float_value/3`), since no double holds 0.1. The
@@ -963,8 +968,11 @@ tutorials/01..03-*.pl       the objects layer's lessons; goal main, last line do
   Why: the census reads the flattened text. (0.44)
 - Every token spells back as the reader takes it (`ccl_pp_spell_tok/4`, `pp_spell/2`). The suffixes stay: `u`, `l`,
   `ul`, `wb`, `uwb`, `f`, `L`, and the imaginary `i`, `if`, `ui`, `li`, `uli` (`pp_imag_suffix/2`). A literal keeps
-  its prefix (`pp_str_prefix/2`). A literal past 2^60 spells as its digits (`pp_int_codes/2`), and a float past a
-  double as `1e999`. A `#cocolog` block spells whole. (0.108)
+  its prefix (`pp_str_prefix/2`). A literal past 2^60 spells as its digits (`pp_int_codes/2`). A float spells as the
+  fewest digits that read back as the same double, cocolog 1.10.28's writer, and an infinite one as `1e999`
+  (`pp_float_codes/2`; 0.143): every float past 1.0e308 was `1e999`, so `__DBL_MAX__` and `1.5e308` became infinities,
+  and a float of 16 or 17 digits came back another double. A `#cocolog` block spells whole. The driver gate compiles the
+  text with clang. (0.108, 0.143)
 
 ### The compiler's own headers
 
@@ -1686,8 +1694,8 @@ tutorials/01..03-*.pl       the objects layer's lessons; goal main, last line do
   `'$ccl_hidden'` is set as the attribute goes past and cleared at each item's start; an attribute that BEGINS an item,
   right after a template head, is dropped by the rule that re-enters `ccl_external`, which carries the mark in
   (`'$ccl_hidden_lead'`; reader version 108, 0.113). Reader version 107. (0.112)
-- A float literal past a double is the largest finite double (`ccl_finite_float/2`). Why: cocolog writes an infinity as
-  `inf.0`, which its reader refuses, and the whole `.ast.pl` would not consult. (0.55)
+- A float in a stored read is frozen to integers, an infinity among them (0.132), so the AST beside a summary holds a
+  double or a float literal past the largest double, an infinity since 0.143 (the Floating literals topic). (0.55, 0.143)
 
 ### The C store, `~/.cicilang/KB`
 
@@ -1738,14 +1746,14 @@ tutorials/01..03-*.pl       the objects layer's lessons; goal main, last line do
 
 ### The versions
 
-- `ccl_reader_version/1` (`library/ccl_syntax.pl`, now 128): bump it for any grammar change to what a read gives, and
+- `ccl_reader_version/1` (`library/ccl_syntax.pl`, now 129): bump it for any grammar change to what a read gives, and
   for any change to what the AST beside a summary holds (item or member terms, `cpp_index_name/2`,
   `cpp_template_name/2`, `ccl_flat_items/3`, the namespace keys). Keep the reason in its comment. Why: the store and the
   summaries are keyed by it, and a stale read is served silently (`sizeof(std::string)` read 40). (M1, 0.89, 0.112,
   0.117)
 - A reader bump makes every summary cold; `test/libcxx.sh` rewrites them. `test/reader.pl`'s `k16` (a cached read is
   the same AST as a fresh one) goes RED on a grammar change without a bump. (0.93, 0.105)
-- `ccl_lowering_version/1` (`library/ccl_ir.pl`, now 81): bump it whenever the check or the lowering changes what it
+- `ccl_lowering_version/1` (`library/ccl_ir.pl`, now 82): bump it whenever the check or the lowering changes what it
   emits, however small -- 0.120 bumped it for the ORDER of the drain functions alone. Why: `dr_ir/3` serves the old IR
   otherwise. Either bump starts the C store afresh. (M4, 0.103, 0.120)
 
@@ -2433,8 +2441,14 @@ free. A const method adds `.c`, a ref-qualified one `.r` or `.rr` after it: each
 - `cpp_static_decls/4` emits a constant initializer as a folded `linkonce` definition, an aggregate one as its own
   `linkonce` definition (`cpp_static_aggregate`: libc++'s `__matches`), and a class-typed one constructed at compile
   time (`cpp_static_constructed` over `cpp_fold_ctor_init`). An empty class initialized in its class is its zero bytes,
-  `linkonce`. Any other static is an `extern` declaration, which the link names when nothing defines it.
-  (0.45, 0.90, 0.101, 0.109)
+  `linkonce`. A FLOATING static initialized in its class is its own `linkonce` definition (0.143; `cpp_static_floating/4`)
+  where the lowering folds its initializer, desugared in the class's words (`ir_fp_global/2`, `ir_fp_value/2`: `static
+  constexpr double a = 1.5;`, `static inline double c = 3.5;`, `static constexpr T v = T(0.25);`), else its zero, assigned
+  before main by the unit's `$cpp_ginit` in the class's words (`cpp_static_floating_late/4` over `cpp_dynamic_assign/4`,
+  0.117's road for a namespace-scope scalar: `static constexpr double tau = 2 * pi;`, a constexpr call, since the
+  evaluator holds no floating value); it was an `extern` declaration that nothing defined, and every use named it at the
+  link. `floatconst.cpp`. Any other static is an `extern` declaration, which the link names when nothing defines it.
+  (0.45, 0.90, 0.101, 0.109, 0.143)
 - A braced initializer of a class WITH constructors is the constructor's, never the aggregate road
   (`cpp_ctor_class_type/1` guards `cpp_static_aggregate`). Why: libc++'s `__bool_strings<char>::__true{"true"}`, a
   `basic_string_view`, took the literal as its pointer and 0 as its size, and `std::format("{}", true)` printed
@@ -5530,6 +5544,17 @@ A lambda is a class of its captures (`library/ccl_cpp.pl`). A fixture named alon
   a cast to `float` or `_Float16` in an initializer rounds to that type before the value goes on (`ir_fp_to/3`: `double d =
   (float) 0.1;` is 0.100000001490116, as clang has it; past the type's range its infinity), and a division by zero is the
   signed infinity. `test/c/run/fpconst.c`.
+- A NEGATIVE ZERO, AN INFINITY AND A NaN IN A FLOATING CONSTANT are folded as clang folds them (0.143). A negative zero keeps
+  its sign (`ir_double`, `ir_x87`, `ir_quad` over `ir_neg_zero/1`, the sign read off the text cocolog writes, `-0.0`, since
+  it has no `copysign/2`): `double g = -0.0;`, a static's, an array's item, `0.0 * -1.0`, a float and a long double were
+  +0.0. A constant divided by a negative zero is the infinity of the other sign. `INFINITY`, `HUGE_VAL` and `NAN`, the
+  builtins behind them, fold in a global's initializer (`ir_fp_builtin_value/3`), which refused them
+  (`global_init(call(id('__builtin_nanf'), ...))`). An invalid operation -- `0.0 / 0.0`, `1e999 - 1e999`, `0.0 * INFINITY`
+  -- is the positive quiet NaN, a NaN operand gives itself, a negation flips a NaN's sign; the fold carries a NaN as
+  `nan(S)`, since cocolog writes no NaN's sign, and spells it by `ir_fp_nan_text/3` (`ir_fp_nan/1`, `ir_fp_op/4` over
+  `ir_fp_op_/4`). No NaN reaches `ir_double/2`, whose first test, `F =:= 0.0`, would take it for a zero: cocolog's `=:=`
+  holds for a NaN against any number.
+  `test/c/run/negzero.c`, `fpspecial.c` (both on aarch64 too). Lowering 82.
 - A local shadows an enumerator: `ir_expr(id(N))` asks `ir_lookup/2` before `ccl_enum_value/2`. Else an enumerator of
   libc++'s `<format>`, `__ptr`, replaced a parameter. `test/c/run/enumshadow.c`, `test/cpp/run/enumshadow.cpp`. (0.94)
 - `ir_convert/6` tries, in order: a reference read through, where a reference to a function is its address
@@ -6446,7 +6471,8 @@ A lambda is a class of its captures (`library/ccl_cpp.pl`). A fixture named alon
   0.90, all GREEN (cocolog 1.2.18). The fixtures added since 0.93 have run on Linux only.
 - Ubuntu 24.04 on x86_64 (clang and LLVM 18, glibc, libc++ 18 and 21) is a host since 0.87. Every gate but the C++ one is
   GREEN there since 0.93, and all seven since 0.95. Every step from 0.93 on is gated there, but the save points 0.112,
-  0.113, 0.117, 0.122 to 0.125, 0.130 and 0.131 (gated by the steps after them); the last full run is 0.142's, over cocolog 1.10.28, on one
+  0.113, 0.117, 0.122 to 0.125, 0.130, 0.131 and 0.143 (0.143's C gates and cross gate ran, its libc++ gates did not;
+  the others were gated by the steps after them); the last full run is 0.142's, over cocolog 1.10.28, on one
   tree: over libc++ 18 all eight GREEN (reader 5 s, compile 16 s, driver 11 s, objects 3 s, proof, the cross gate in
   64 s, the library read in 1158 s, the C++ gate in 1076 s with 496 of 499 fixtures ok, the skips are `stdoptionalref`, `joinwith` and `tzone`,
   the 21 refusals and the three of the safe part); over libc++ 21 the library read (1006 s) and the C++ gate (1137 s,
@@ -6470,6 +6496,9 @@ A lambda is a class of its captures (`library/ccl_cpp.pl`). A fixture named alon
   C89 and C90 are refused (`bin/cicilang`, `cstd(N)`) (0.57, 0.108).
 - C17 and C23 are whole (0.93). `test/c/run/*.c` gates them, at C17 unless a fixture's `NAME.std` names a level:
   `c17rest.c` and `cforms.c` at C17, `trigraphs.c` at `-std=c17`, `c23.c`, `c23b.c` and `c23pp.c` at C23.
+- Since 0.143: a negative zero in every floating constant (`negzero.c`), and infinities and NaNs folded as clang folds
+  them, the literals past the largest double and the builtins behind `INFINITY`, `HUGE_VAL` and `NAN` among them
+  (`fpspecial.c`).
 - These forms have fixtures of their own: complex types and every imaginary literal (`complex.c`, `complex2.c`,
   `complex3.c`), `\N{NAME}` with its aliases (`uniname.c`), C11's atomics (`atomic.c`), literals past 2^60 and
   `LONG_MAX` (`bigint.c`, `bighex.c`, `longmax.c`), a VLA of a VLA (`vla_nested.c`), wide strings and `_Alignas`
@@ -6537,6 +6566,8 @@ A lambda is a class of its captures (`library/ccl_cpp.pl`). A fixture named alon
   (two virtual overloads of one name and arity, one overridden), `virtualdefault` (a virtual call that leaves a defaulted
   argument out), `anonparam` (an unnamed by-value parameter destroyed), `rangeadl` (a range-for by the free `begin` and
   `end` of two namespaces), `downcast` (`static_cast` from a second base to the derived class, a pointer and a reference).
+- Forms of 0.143: `floatconst` (floating static data members defined in their class, folded or assigned before main; a
+  negative zero in a constant).
 - Forms of 0.136: `pseudodtor` (a trivial destructor's call evaluates its object), `memtypecall` (a data member whose type
   names the class's own static constexpr function), `sigrecur` (a signature that names a further instance of its own
   template), `convspell` (a conversion function defined out of its class through the class's name), `relops` (`std::rel_ops`
@@ -6744,6 +6775,8 @@ A lambda is a class of its captures (`library/ccl_cpp.pl`). A fixture named alon
 - The lowering refuses by name `va_arg` of a struct, a union, a complex or an `__int128` on APPLE's arm64, whose
   va_list is a `char *` and whose variadic arguments all go on the stack (`va_arg_of_aggregate`): no Apple machine is
   on this box. Linux aarch64 expands them (0.131).
+- A long double literal holds a double's value: `LDBL_MAX` is the largest double here (clang: 1.18973e+4932), and so is
+  `1e999L`, where clang has a finite long double. Keeping the literal's text, as a decimal literal does, would mend it.
 - A decimal global's initializer folds as gcc's does (0.132, 0.137) but for a long double's literal, which holds a
   double's value here: it is refused, `decimal_constant(E)`. A decimal converts to and from a `_BitInt` past 128 bits
   nowhere (`decimal_conversion`).

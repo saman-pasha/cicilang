@@ -136,6 +136,7 @@ One row per step, in version order: the step's title, what it did and its gate n
 | 0.140 | the neighbours at cocolog 1.10.22 and Cicili 3.0.0; the library checked by the flow tools | cocolog, Cicili and ZiguratIP pulled and rebuilt (SBCL's heap given 4 GB for cocolog's build); the flow chart and a clause reader find no call to an undefined predicate, 128 split predicates and two names written twice | 496 of 499 C++ fixtures over libc++ 18, 498 over 21; all gates GREEN |
 | 0.141 | two predicates written once | `cpp_thunk_params/4` and `cpp_param_types/2`, each written twice in `ccl_cpp.pl` and joined by cocolog, written once (the first definition answered every call; each gave duplicate answers on backtracking) | 496 of 499 C++ fixtures over libc++ 18, 498 over 21; all gates GREEN |
 | 0.142 | the neighbours at cocolog 1.10.28 | cocolog pulled and built with a plain make; its float writer, its refused allocation, current_predicate/1 and predicate_property/2 recorded; the macro file's comment mended | 496 of 499 C++ fixtures over libc++ 18, 498 over 21; all gates GREEN |
+| 0.143 | floating constants folded as clang folds them | a negative zero keeps its sign; a double or float literal past the largest double is an infinity; NAN, INFINITY, HUGE_VAL and an invalid operation fold, a NaN's sign kept; the text of -E spells a float exactly; a floating static data member defined in its class | the C gates and the cross gate GREEN (77 run fixtures, 35 driver checks); the libc++ gates not run |
 
 ## M5 — the C++ mode
 
@@ -8476,3 +8477,44 @@ THE GATES. The baseline: 0.141's code over 1.10.28, fresh HOMEs, on the live che
 refusals and the three of the safe part); over libc++ 21 the library read (1006 s) and the C++ gate (1137 s, 498 of 499
 ok, the skip `stdoptionalref`) GREEN. A scratch copy's C gates ran beside the library read over libc++ 18 for about
 five minutes, so its time is a little high (0.141: 1105 s).
+
+## 0.143 — floating constants folded as clang folds them
+
+**0.143: a negative zero, an infinity and a NaN in a floating constant, the text of `-E`, and the floating static data
+members, each as clang has it.** cocolog 1.10.28 (0.142) keeps the sign of `-0.0`, reads an infinity back and writes a
+float exactly, and four defects that its old writer hid, or that probes of the new one found, are mended:
+
+- A NEGATIVE ZERO in a floating constant was +0.0: `ir_double/2` and its x87 and quad twins tested `F =:= 0.0` first, so
+  `double g = -0.0;`, a static's, an array's item, `0.0 * -1.0`, a float and a long double printed `0` where clang prints
+  `-0`. The sign is read off the text cocolog writes, `-0.0` (`ir_neg_zero/1`; cocolog has no `copysign/2`), and a
+  constant divided by a negative zero is the infinity of the other sign. `test/c/run/negzero.c`.
+- A LITERAL PAST THE LARGEST DOUBLE was the largest double, the clamp of 0.55, made while cocolog wrote an infinity
+  `inf.0` and refused to read it: `double l = 1e999;` printed 1.79769e+308 where clang prints `inf`. A double or a float
+  literal is an infinity now; a long double literal keeps the clamp, since its value is a double's here and the largest
+  double is nearer `LDBL_MAX` than an infinity (Not done). Reader 129. With infinities in constants a NaN can be folded,
+  and it would have been a wrong answer: cocolog's `=:=` holds for a NaN against any number, 0.0 among them, so
+  `ir_double/2`'s first test took a NaN for a zero, and `1e999 - 1e999` would have been spelled +0.0. `NAN`, `INFINITY` and `HUGE_VAL` in a global's
+  initializer were refused (`global_init(call(id('__builtin_nanf'), [str([])]))`). The fold carries a NaN as `nan(S)`,
+  since cocolog writes no NaN's sign; an invalid operation (`0.0 / 0.0`, `1e999 - 1e999`, `0.0 * INFINITY`) is the
+  positive quiet NaN, as clang's constant folder makes it, a NaN operand gives itself, a negation flips its sign, and the
+  builtins fold. `test/c/run/fpspecial.c`. Both fixtures run on aarch64 under qemu too (a quad long double).
+- THE TEXT OF `-E` spelled every float past 1.0e308 as `1e999`, so `__DBL_MAX__` and `1.5e308` became infinities, and
+  before 1.10.28 a float of 16 or 17 digits came back another double. A float is spelled by cocolog's writer now, the
+  fewest digits that read back, and only an infinite one as `1e999` (`pp_float_codes/2`, for `-E`, `#` and `##`). The
+  driver gate's 35th check compiles the text with clang and compares the program's output with the source's.
+- A FLOATING STATIC DATA MEMBER initialized in its class was declared `extern` and defined nowhere: `static constexpr
+  double a = 1.5;`, `static inline double c = 3.5;` and `static constexpr T v = T(0.25);` linked only where nothing used
+  them (found by a C++ probe of the negative zero). Such a member is its own `linkonce` definition where the lowering
+  folds its initializer (`cpp_static_floating/4`), else its zero, assigned before main by the unit's `$cpp_ginit` in the
+  class's words, as a namespace-scope scalar is since 0.117 (`cpp_static_floating_late/4`: `static constexpr double tau =
+  2 * pi;`, a constexpr call -- the constexpr evaluator holds no floating value). `test/cpp/run/floatconst.cpp`.
+
+Two splits of the placement rule close where the code is edited: `pp_int_codes/2` stood among `ccl_pp_spell_tok/4`'s
+clauses and `ir_fp_infinite/1` among `ir_x87/2`'s; 124 predicates are still split. Lowering 82.
+
+THE GATES. Committed on the owner's word ("just do commit and push") without its libc++ gates: on the live checkout,
+fresh HOMEs, over cocolog 1.10.28, the reader, compile, driver and objects gates, the proof and the cross gate GREEN
+(reader 5 s, compile 12 s with the 77 run fixtures, driver 10 s with its 35 checks, objects 4 s, the cross gate
+in 58 s); the library read and the C++ gate, over libc++ 18 and 21, were not run -- the reader version moved, so
+every summary is cold -- and `floatconst.cpp` was built and run by hand against clang++'s output. The next step's chain
+carries them.

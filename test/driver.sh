@@ -65,6 +65,7 @@ EOF2
 check "-D and -U define and undefine before every file, <assert.h>'s NDEBUG among them" "$("$CICILI" -DGREETING='"hi"' '-DSQUARE(x)=((x)*(x))' -DLEVEL=3 -DNDEBUG -DGONE -UGONE defs.c -o defs && ./defs)" "hi
 49 3
 after"
+check "-E: a floating literal's text reads back as the same value, as clang reads the source" "$(printf 'int printf(const char *, ...);\nint main(void) {\n  double a = __DBL_MAX__, b = 1.5e308, c = 0.30000000000000004, d = 2.2250738585072014e-308, e = 4.9406564584124654e-324, f = 1e999;\n  float g = __FLT_MAX__, h = 1.17549435e-38f;\n  printf("%%a %%a %%a %%a %%a %%a %%a %%a\\n", a, b, c, d, e, f, (double) g, (double) h);\n  return 0;\n}\n' > et.c; "$CICILI" -E et.c -o et.e.c && clang -w et.e.c -o ete && ./ete > ete.out && clang -w et.c -o etr && ./etr > etr.out && cmp -s ete.out etr.out && echo same)" "same"
 check "-ast-dump prints the unit" "$("$CICILI" -ast-dump "$R/run/forty2.c" | grep -c '^unit(\[function(')" "1"
 DD=$(command -v llvm-dwarfdump || echo "${LLVM:-/usr/lib/llvm-18}/bin/llvm-dwarfdump")   # -g (0.128): the line table, read by LLVM's own reader
 check "-g: line tables, a line per statement, the file named" "$(printf '#include <stdio.h>\n\nstatic int twice(int x) {\n  int y = x * 2;\n  return y;\n}\n\nint main(void) {\n  int a = twice(21);\n  printf("%%d\\n", a);\n  return 0;\n}\n' > dbg.c; "$CICILI" -g dbg.c -o dbg && ./dbg && "$DD" --debug-line dbg | grep -c 'name: "dbg.c"' && "$DD" --debug-line dbg | awk '/^0x/ { print $2 }' | sort -n -u | tr '\n' ' ')" "42

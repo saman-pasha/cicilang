@@ -461,9 +461,9 @@ pp_spell(tok(id, N, _), Cs) :- !, atom_codes(N, Cs).
 pp_spell(tok(kw, N, _), Cs) :- !, atom_codes(N, Cs).
 pp_spell(tok(num, Cs, _), Cs) :- !.
 pp_spell(tok(int, N, _), Cs) :- !, pp_int_codes(N, Cs).
-pp_spell(tok(float, N, _), Cs) :- !, number_codes(N, Cs).
-pp_spell(tok(floatf, N, _), Cs) :- !, number_codes(N, Cs0), append(Cs0, [0'f], Cs).     % `1.5f' and `1.5L' spelled with their suffixes (0.108)
-pp_spell(tok(floatl, N, _), Cs) :- !, number_codes(N, Cs0), append(Cs0, [0'L], Cs).
+pp_spell(tok(float, N, _), Cs) :- !, pp_float_codes(N, Cs).
+pp_spell(tok(floatf, N, _), Cs) :- !, pp_float_codes(N, Cs0), append(Cs0, [0'f], Cs).     % `1.5f' and `1.5L' spelled with their suffixes (0.108)
+pp_spell(tok(floatl, N, _), Cs) :- !, pp_float_codes(N, Cs0), append(Cs0, [0'L], Cs).
 pp_spell(tok(K, A, _), Cs) :- pp_dec_suffix(K, Sfx), !, atom_codes(A, Cs0), append(Cs0, Sfx, Cs).   % a decimal literal: its text and its suffix (0.129)
 pp_dec_suffix(dec32, [0'd, 0'f]).  pp_dec_suffix(dec64, [0'd, 0'd]).  pp_dec_suffix(dec128, [0'd, 0'l]).
 pp_spell(tok(imag, N, _), Cs) :- !, number_codes(N, Cs0), append(Cs0, [0'i], Cs).
@@ -1472,19 +1472,25 @@ ccl_pp_spell_tok(ulong, N, Out, Rest) :- !, pp_int_codes(N, Cs), append(Cs, [0'u
 ccl_pp_spell_tok(bitint, N, Out, Rest) :- !, pp_int_codes(N, Cs), append(Cs, [0'w, 0'b|Rest], Out).        % C23's `wb' and `uwb' (0.93): the suffix was lost in the flattened text
 ccl_pp_spell_tok(ubitint, N, Out, Rest) :- !, pp_int_codes(N, Cs), append(Cs, [0'u, 0'w, 0'b|Rest], Out).
 ccl_pp_spell_tok(pp, A, [35|Out], Rest) :- !, atom_codes(A, Cs), append(Cs, Rest, Out).
-pp_int_codes(big(A), Cs) :- !, atom_codes(A, Cs).                                    % a literal past 2^60 spells as its digits (0.94's big(Atom); 0.99: the flattened text had `big(0xff...)ul', which no reader takes -- the census's road only)
-pp_int_codes(N, Cs) :- number_codes(N, Cs).
 ccl_pp_spell_tok(cocolog, A, Out, Rest) :- !, atom_codes('#cocolog', H), atom_codes(A, Cs), atom_codes('#end', E), append(H, [10|Cs], O1), append(O1, [10|E], O2), append(O2, Rest, Out).
 ccl_pp_spell_tok(imag, F, Out, Rest) :- !, number_codes(F, Cs), append(Cs, [0'i|Rest], Out).                   % the imaginary literal spelled back, `2.0i' (0.101)
 ccl_pp_spell_tok(imagf, F, Out, Rest) :- !, number_codes(F, Cs), append(Cs, [0'i, 0'f|Rest], Out).
 ccl_pp_spell_tok(imagl, F, Out, Rest) :- !, number_codes(F, Cs), append(Cs, [0'i, 0'l|Rest], Out).
 ccl_pp_spell_tok(K, N, Out, Rest) :- pp_imag_suffix(K, Sfx), !, pp_int_codes(N, Cs), append(Sfx, Rest, Tail), append(Cs, Tail, Out).
-ccl_pp_spell_tok(floatf, F, Out, Rest) :- !, number_codes(F, Cs), append(Cs, [0'f|Rest], Out).
+ccl_pp_spell_tok(floatf, F, Out, Rest) :- !, pp_float_codes(F, Cs), append(Cs, [0'f|Rest], Out).
 ccl_pp_spell_tok(K, A, Out, Rest) :- pp_dec_suffix(K, Sfx), !, atom_codes(A, Cs), append(Sfx, Rest, R1), append(Cs, R1, Out).
-ccl_pp_spell_tok(floatl, F, Out, Rest) :- !, ( F > 1.0e308 -> atom_codes('1e999', Cs) ; F < -1.0e308 -> atom_codes('-1e999', Cs) ; number_codes(F, Cs) ), append(Cs, [0'L|Rest], Out).
-ccl_pp_spell_tok(float, F, Out, Rest) :- F > 1.0e308, !, atom_codes('1e999', Cs), append(Cs, Rest, Out).       % past double (a long double literal): infinite again when read
-ccl_pp_spell_tok(float, F, Out, Rest) :- F < -1.0e308, !, atom_codes('-1e999', Cs), append(Cs, Rest, Out).
+ccl_pp_spell_tok(floatl, F, Out, Rest) :- !, pp_float_codes(F, Cs), append(Cs, [0'L|Rest], Out).
+ccl_pp_spell_tok(float, F, Out, Rest) :- !, pp_float_codes(F, Cs), append(Cs, Rest, Out).
 ccl_pp_spell_tok(_, V, Out, Rest) :- ( atom(V) -> atom_codes(V, Cs) ; number_codes(V, Cs) ), append(Cs, Rest, Out).
+pp_int_codes(big(A), Cs) :- !, atom_codes(A, Cs).                                    % a literal past 2^60 spells as its digits (0.94's big(Atom); 0.99: the flattened text had `big(0xff...)ul', which no reader takes -- the census's road only)
+pp_int_codes(N, Cs) :- number_codes(N, Cs).
+%% A FLOAT'S TEXT (0.143): cocolog writes the fewest digits that read back as the same double since 1.10.28, so a finite
+%% value is spelled exactly; an infinity -- a literal past the largest double, which the lexer made infinite -- is
+%% `1e999', which a C reader makes infinite again. Every value past 1.0e308 was spelled so before, against the 15 digits
+%% cocolog wrote, and `__DBL_MAX__' and `1.5e308' became infinities in the text of `-E'
+pp_float_codes(F, Cs) :- F > 1.7976931348623157e308, !, atom_codes('1e999', Cs).
+pp_float_codes(F, Cs) :- F < -1.7976931348623157e308, !, atom_codes('-1e999', Cs).
+pp_float_codes(F, Cs) :- number_codes(F, Cs).
 ccl_pp_spell_str([], R, R).
 ccl_pp_spell_str([C|Cs], Out, R) :- ccl_pp_spell_chr(C, Out, O1), ccl_pp_spell_str(Cs, O1, R).
 ccl_pp_spell_chr(34, [92, 34|R], R) :- !.

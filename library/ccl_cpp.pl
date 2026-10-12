@@ -3334,6 +3334,8 @@ cpp_static_decls(L, C, [N-T0|Ss], [D|Ds]) :- cpp_static_name(C, N, Name), cpp_re
     ;   \+ cpp_ctor_class_type(T), cpp_static_aggregate(C, N, I) -> D = declaration(L, linkonce, T, [var(Name, T, I)])   % never a class with constructors (0.112): `static constexpr basic_string_view<_CharT> __true{"true"}' is the constructor's, and as an aggregate its pointer took the literal and its size 0 -- std::format printed `true' as nothing
     ;   cpp_static_constructed(C, N, T, I) -> D = declaration(L, linkonce, T, [var(Name, T, I)])
     ;   cpp_sinit(C, N, _), cpp_class_of_type(T, TC), cpp_empty_class(TC) -> D = declaration(L, linkonce, T, [var(Name, T, init([]))])   % a static of an EMPTY class initialized in its class -- a customization point object copied, `static constexpr auto __iter_move = ranges::iter_move;' -- is its zero bytes, as a header's inline global of one is (0.82)   % a static of CLASS type constructed at compile time by its constexpr constructor (0.99's rule for a global; 0.101 for a member): `strong_ordering::less(_OrdResult::__less)'
+    ;   cpp_static_floating(C, N, T, I) -> D = declaration(L, linkonce, T, [var(Name, T, I)])
+    ;   cpp_static_floating_late(C, N, T, E) -> D = declaration(L, linkonce, T, [var(Name, T, none)]), cpp_dynamic_assign(L, C, Name, E)
     ;   D = declaration(L, extern, T, [var(Name, T, none)]) ),
     cpp_static_decls(L, C, Ss, Ds).
 %% A STATIC MEMBER DECLARED `auto' TAKES THE TYPE OF ITS INITIALIZER ([dcl.spec.auto]), desugared in its class's words:
@@ -3352,6 +3354,18 @@ cpp_static_constructed(C, N, T, I) :- cpp_sinit(C, N, E), cpp_class_of_type(T, T
     once(catch(cpp_in_class(C, ( cpp_fold_ctor_init(N, T, TC, E, I0), cpp_eval_init_term_ok(I0) )), error(not_lowered(_), _), fail)), I = I0.
 cpp_eval_init_term_ok(I) :- I \== none.
 cpp_ctor_class_type(T) :- cpp_class_of_type(T, TC), cpp_has_ctors(TC), !.
+%% A FLOATING STATIC MEMBER INITIALIZED IN ITS CLASS IS ITS OWN DEFINITION (0.143), linkonce as an integral one is, where
+%% its initializer, desugared in the class's words, is a floating constant the lowering folds (ir_fp_global/2,
+%% ir_fp_value/2: a literal, an integer constant, a cast, a sign, the four operations). `static constexpr double half =
+%% 0.5;', `static inline double c = 3.5;' and `static constexpr T v = T(0.25);' were declared `extern' and defined
+%% nowhere, so every use named them at the link; an initializer the lowering cannot fold keeps that road
+cpp_static_floating(C, N, T, I) :- catch(ir_fp_global(T, _), _, fail), cpp_sinit(C, N, E), E \= init(_),
+    once(catch(cpp_in_class(C, cpp_init_expr(E, I)), error(not_lowered(_), _), fail)),
+    catch(ir_fp_value(I, _), _, fail), !.
+%% ... and one whose initializer does not fold -- another floating static (`static constexpr double tau = 2 * pi;'), a
+%% call of a constexpr function -- is its zero, assigned before main by the unit's `$cpp_ginit' in the class's words, as
+%% a namespace-scope scalar is (0.117): the constexpr evaluator holds no floating value
+cpp_static_floating_late(C, N, T, E) :- catch(ir_fp_global(T, _), _, fail), cpp_sinit(C, N, E), E \= init(_), !.
 cpp_static_aggregate(C, N, I) :- cpp_sinit(C, N, E), E = init(_),
     once(catch(cpp_in_class(C, ( cpp_init_expr(E, I0), cpp_fold_items(I0, I) )), error(not_lowered(_), _), fail)),
     \+ cpp_has_call(I).   % an item that does not fold is no constant: the static is DECLARED (cpp_static_decls' last road) -- libc++ 18's

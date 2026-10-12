@@ -31,7 +31,9 @@ record of every step.
   `#line`, `__int128`, `va_arg` of a struct on x86-64, the SysV argument
   register budget, the decimal floating types as gcc builds them (to and
   from a 128-bit integer through the compiler's own helpers, their constants
-  folded with infinities and NaNs), and trigraphs in the ISO modes. `-std=c17` is the
+  folded with infinities and NaNs), the binary floating constants folded as
+  clang folds them (a negative zero, an infinity, a NaN), and trigraphs in
+  the ISO modes. `-std=c17` is the
   default, `-std=c23` the level.
 * **C++17, C++20, C++23 and C++26.** Classes, virtual dispatch, multiple
   and virtual inheritance, templates with partial specialization, SFINAE,
