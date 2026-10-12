@@ -133,6 +133,7 @@ One row per step, in version order: the step's title, what it did and its gate n
 | 0.137 | a decimal to and from a 128-bit integer; a decimal constant's infinity, NaN and division by zero; chrono formatting of the calendar; the rest of <filesystem> | the compiler's own decimal helpers in C (module/bidrt.c, library/ccl_bidrt.pl); decimal specials folded as gcc; a conditional's condition through operator bool; a class argument through a constructor template; value template arguments mangled | 491 of 493 C++ fixtures over libc++ 18, 492 over 21; all gates GREEN |
 | 0.138 | a goto into a block and over a declaration; a goto over a defer refused; -fexperimental-library and time zones; a raw string over lines | the check follows a goto into a block (skipped owners unset); goto_over_defer and goto_into_vla refused; libc++'s experimental part under -fexperimental-library; an alias's right side read again; a raw string joined over lines; pointees compared as types; a library's const pointer static | 493 of 496 C++ fixtures over libc++ 18, 495 over 21 (tzone); all gates GREEN |
 | 0.139 | under -g a destructor at its scope's closing brace; an override of a virtual base's slot dispatched; construction vtables; a using-declaration or -directive over collided names | the read records where a scope closes under -g; a call through a class that overrides a virtual base's function dispatches through that base; a diamond's paths built and destroyed under construction tables; using b::f and using namespace b find b's keyed names | 496 of 499 C++ fixtures over libc++ 18, 498 over 21; all gates GREEN |
+| 0.140 | the neighbours at cocolog 1.10.22 and Cicili 3.0.0; the library checked by the flow tools | cocolog, Cicili and ZiguratIP pulled and rebuilt (SBCL's heap given 4 GB for cocolog's build); the flow chart and a clause reader find no call to an undefined predicate, 128 split predicates and two names written twice | 496 of 499 C++ fixtures over libc++ 18, 498 over 21; all gates GREEN |
 
 ## M5 — the C++ mode
 
@@ -8363,3 +8364,58 @@ in 1025 s with its four checks of the command, 496 of 499 fixtures ok, the skips
 498 of 499 ok, the skip `stdoptionalref`) GREEN. A net of 32 fixtures over tables, virtual bases and diamonds ran first.
 
 Lowering version 80; the module rebuilt as 0.139, over cocolog 1.10.0.
+
+## 0.140 — the neighbours at cocolog 1.10.22 and Cicili 3.0.0; the library checked by the flow tools
+
+**0.140: the neighbours pulled at the owner's word, the baseline gated, and the library read by cocolog's new flow
+tools, which "The Coco" (cocolog's session) described to this one in a guide at the owner's request.**
+
+(1) THE NEIGHBOURS. cocolog 1.10.22 (`6b5d0cc`; 37 commits past 1.10.0), Cicili 3.0.0 (`9d74a5e`) and ZiguratIP
+`01251f4`, rebuilt in order: ZiguratIP (`make MODE=Release`, 380 s), cocolog (`make`, `make schema`, `make modules`), then
+`module/build.sh` and `module/build-llvm.sh` here. cocolog's `make` stopped the first time: Cicili's transpile of
+`cocolog.cicili` ran out of the 1 GB heap that Debian's SBCL 2.2.9 starts with (`Heap exhausted during garbage collection`,
+`GC invariant lost`), and `make SBCL="sbcl --dynamic-space-size 4096"`, as cocolog's README says, built it in 125 s; the
+`make modules` that had run after the failed `make` had skipped the flow tables with no word of why, and ran again.
+`bin/cicilang --version` then said `cicilang 0.139 (cocolog 1.10.22; LLVM 18.1.3)`. Cicili 3.0.0 reads a float literal
+as a double: every float-like number in our two modules is in a comment, and they use no `(inline)` or `(weak)` (Cicili
+2.0.0), so their C does not change.
+
+(2) WHAT 1.10.22 CHANGES FOR US, measured: `term_to_atom/2` reads text of any length since 1.10.6 (an atom of 13,897
+characters read back; the `.big.pl` beside a summary, 0.112's cure for the old 8191-character limit, stays); a float is
+still written with `%.15g` (only the new journal writes the shortest exact form), and a refused allocation still raises
+no `resource_error(memory)`; `current_predicate/1` is still false for a predicate of a file loaded by `ensure_loaded/1`,
+and `predicate_property/2` is still absent; `open/3` and `stream_position/2` are `library(stream)`'s, and `read_term/3`
+answers `term_position`; an uncaught error is followed on stderr by where it was raised (1.10.17), which
+`bin/cicilang`'s filter drops. 1.10.6's builtins that raise where they failed (`arg/3` on an atomic term, `=..`,
+`assert`) broke nothing: the baseline is GREEN.
+
+(3) THE FLOW TOOLS ON THE LIBRARY. `tools/flow/chart.pl` charts a predicate statically: the modes and determinism of
+every call, and findings as a compiler writes them. It reads one file, so every library file was charted from a root
+appended to a copy -- a clause that calls each of the file's predicates -- and the findings were filtered against every
+predicate the library defines (a list read with `read_term/3`), our modules' predicates and the names asserted at run
+time. A chart of `ccl_cpp.pl` (8,764 lines, 1,521 predicates) did not end in 30 minutes, so a lighter check read every
+clause of every file with its `term_position` and walked its body, the chart's own tables telling the builtins (9,476
+clauses, 35,320 calls). What they found:
+- no call names a predicate that nothing defines, in any file;
+- 128 predicates have clauses split by other predicates' clauses -- `ccl_cpp.pl` 71, `ccl_syntax.pl` 29, `ccl_ir.pl` 10,
+  `ccl_check.pl` 7, `ccl_infer.pl` 5, `ccl_pp.pl` 4, `ccl_include.pl` 2 -- against the rule of 0.103;
+- among them two names WRITTEN TWICE, each pair joined by cocolog into one predicate: `cpp_thunk_params/4` (lines 3021
+  and 4815, two jobs: the secondary-table thunks named an unnamed parameter `$t<I>`, the instance thunks `$a<K>`) and
+  `cpp_param_types/2` (lines 6945 and 7253, one without cuts and one with), so the second definition never answered
+  first and each gave a second answer on backtracking, up to 2^n of them -- the defect 0.112 met in `cpp_derives/2`;
+- two `instantiation` findings in `dr_error/3`, false: the chart takes the catcher of `catch/3` for a free variable inside
+  the recovery (three lines show it).
+The chart ran in 1 to 129 s a file (at most 1.1 GB) but for `ccl_cpp.pl`. The scripts are session scratch.
+
+(4) THE COCO. At the owner's request the defects and the feedback went back to The Coco by a one-shot routine (no
+message route joins the two sessions): the SBCL heap, the catcher's mode, the chart's size on `ccl_cpp.pl`, the two old
+requests still open, `current_predicate/1`, and requests for a finding of split and of doubly written predicates and for
+a program of several files.
+
+THE GATES. 0.139 over the new neighbours is the baseline (0.140 changes the documents and the module's version only),
+fresh HOMEs, on the live checkout: over libc++ 18 all eight GREEN (reader 6 s, compile 15 s, driver 12 s, objects 4 s,
+proof, the cross gate in 62 s, the library read in 1365 s, the C++ gate in 1185 s with 496 of 499 fixtures ok, the skips
+`stdoptionalref`, `joinwith` and `tzone`, the 21 refusals and the three of the safe part); over libc++ 21 the library
+read (1037 s) and the C++ gate (1148 s, 498 of 499 ok, the skip `stdoptionalref`) GREEN. The flow-chart runs went
+beside both libc++ 18 phases, and the watchdog sums every cocolog process: those phases' times and peaks (2266 MB and
+3290 MB) include the charts.
