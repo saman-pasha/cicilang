@@ -134,6 +134,7 @@ One row per step, in version order: the step's title, what it did and its gate n
 | 0.138 | a goto into a block and over a declaration; a goto over a defer refused; -fexperimental-library and time zones; a raw string over lines | the check follows a goto into a block (skipped owners unset); goto_over_defer and goto_into_vla refused; libc++'s experimental part under -fexperimental-library; an alias's right side read again; a raw string joined over lines; pointees compared as types; a library's const pointer static | 493 of 496 C++ fixtures over libc++ 18, 495 over 21 (tzone); all gates GREEN |
 | 0.139 | under -g a destructor at its scope's closing brace; an override of a virtual base's slot dispatched; construction vtables; a using-declaration or -directive over collided names | the read records where a scope closes under -g; a call through a class that overrides a virtual base's function dispatches through that base; a diamond's paths built and destroyed under construction tables; using b::f and using namespace b find b's keyed names | 496 of 499 C++ fixtures over libc++ 18, 498 over 21; all gates GREEN |
 | 0.140 | the neighbours at cocolog 1.10.22 and Cicili 3.0.0; the library checked by the flow tools | cocolog, Cicili and ZiguratIP pulled and rebuilt (SBCL's heap given 4 GB for cocolog's build); the flow chart and a clause reader find no call to an undefined predicate, 128 split predicates and two names written twice | 496 of 499 C++ fixtures over libc++ 18, 498 over 21; all gates GREEN |
+| 0.141 | two predicates written once | `cpp_thunk_params/4` and `cpp_param_types/2`, each written twice in `ccl_cpp.pl` and joined by cocolog, written once (the first definition answered every call; each gave duplicate answers on backtracking) | 496 of 499 C++ fixtures over libc++ 18, 498 over 21; all gates GREEN |
 
 ## M5 — the C++ mode
 
@@ -8419,3 +8420,24 @@ proof, the cross gate in 62 s, the library read in 1365 s, the C++ gate in 1185 
 read (1037 s) and the C++ gate (1148 s, 498 of 499 ok, the skip `stdoptionalref`) GREEN. The flow-chart runs went
 beside both libc++ 18 phases, and the watchdog sums every cocolog process: those phases' times and peaks (2266 MB and
 3290 MB) include the charts.
+
+## 0.141 — two predicates written once
+
+**0.141: the two names that 0.140's flow-tool sweep found written twice, each written once.** `ccl_cpp.pl` held two
+definitions of `cpp_thunk_params/4` -- the secondary-table thunks' (line 3021, an unnamed parameter named `$t<I>`) and the
+instance thunks' (line 4815, an unnamed parameter, or one whose name is no atom, named `$a<K>`) -- and two of
+`cpp_param_types/2` (line 6945 without cuts, line 7253 with cuts and a clause for `param/3`). cocolog joins the clauses of
+one name in file order without a word (the defect 0.112 met in `cpp_derives/2`), so the first definition answered every
+call, the second never answered first, and on backtracking each gave a second answer for each parameter: up to 2^n
+identical answers, where the partial ordering of function templates backtracks through `cpp_param_types/2`
+(`cpp_fn_more_special/2`, outside the `once/1` that guards its other goals). One definition of each stays:
+`cpp_thunk_params/4` keeps the names it gave (an atom name as it is, any other `$t<I>`), and `cpp_param_types/2` the
+clauses with cuts, whose first answer is the one the joined predicate gave. The lowering version is 81, since what the
+desugaring emits could differ where a backtracking had reached the second definition. A clause reader over the patched
+library finds each name in one run and no call it cannot place; 126 predicates still have split clauses.
+
+THE GATES. Fresh HOMEs, on the live checkout, nothing beside them: over libc++ 18 all eight GREEN (reader 5 s,
+compile 13 s, driver 11 s, objects 4 s, proof, the cross gate in 58 s, the library read in 1105 s,
+the C++ gate in 1093 s with 496 of 499 fixtures ok, the skips `stdoptionalref`, `joinwith` and `tzone`, the 21
+refusals and the three of the safe part); over libc++ 21 the library read (1101 s) and the C++ gate (1200 s, 498 of
+499 ok, the skip `stdoptionalref`) GREEN.

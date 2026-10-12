@@ -10,8 +10,8 @@ it found, its measurements and its gate numbers. `README.md` tells a user what r
 architecture and the milestones. A step that changes a rule edits the rule here, in its topic, and writes its entry
 in `HISTORY.md`.
 
-At 0.140 the versions are: the module 0.140 (`ccl_p_version` in `module/cicilang.cicili`, `bin/cicilang --version`),
-the reader 128 (`ccl_reader_version/1`, `library/ccl_syntax.pl`) and the lowering 80 (`ccl_lowering_version/1`,
+At 0.141 the versions are: the module 0.141 (`ccl_p_version` in `module/cicilang.cicili`, `bin/cicilang --version`),
+the reader 128 (`ccl_reader_version/1`, `library/ccl_syntax.pl`) and the lowering 81 (`ccl_lowering_version/1`,
 `library/ccl_ir.pl`).
 
 Build and prove, always in this order (or all of it, `sh test/gates.sh`):
@@ -130,9 +130,12 @@ sh test/cpp.sh
   on backtracking, with an error that names no line (`ccl_init_items//1` is `ccl_init_items/3`; `cpp_scalar_type/1`
   already existed). (0.93, 0.99)
 - A predicate's helpers come after its last clause, never between its clauses: cocolog takes discontiguous clauses
-  without a word. At 0.140, 128 predicates break it, listed from each clause's line (the flow tools, Measurement and the
-  instruments), and two of them are a second DEFINITION of a name joined to the first, as `cpp_derives/2` was before
-  0.112: `cpp_thunk_params/4` and `cpp_param_types/2`. (0.103, 0.140)
+  without a word. At 0.141, 126 predicates break it, listed from each clause's line (the flow tools, Measurement and the
+  instruments). A second DEFINITION of a name hides among such splits, joined to the first: `cpp_derives/2` until 0.112,
+  and `cpp_thunk_params/4` and `cpp_param_types/2` until 0.141 -- the secondary-table thunks and the instance thunks
+  each wrote their own `cpp_thunk_params/4`, the first answered every call, and each pair gave a second answer on
+  backtracking, up to 2^n of them; each is written once now, the thunks' parameters named as the first one named them.
+  (0.103, 0.140, 0.141)
 - Base clauses are exclusive: they cut. Two that both match `[]` make `findall/3` answer twice, and a constructor is
   emitted twice (`cpp_keep_defaults/3`, `cpp_args_fit/2`, `cpp_args_no_clash/2`). (0.66, 0.69)
 - A comment ends the LINE: `%` in a cocolog clause, `#` in sh. Never rewrite a line that has a comment in its middle;
@@ -1742,7 +1745,7 @@ tutorials/01..03-*.pl       the objects layer's lessons; goal main, last line do
   0.117)
 - A reader bump makes every summary cold; `test/libcxx.sh` rewrites them. `test/reader.pl`'s `k16` (a cached read is
   the same AST as a fresh one) goes RED on a grammar change without a bump. (0.93, 0.105)
-- `ccl_lowering_version/1` (`library/ccl_ir.pl`, now 77): bump it whenever the check or the lowering changes what it
+- `ccl_lowering_version/1` (`library/ccl_ir.pl`, now 81): bump it whenever the check or the lowering changes what it
   emits, however small -- 0.120 bumped it for the ORDER of the drain functions alone. Why: `dr_ir/3` serves the old IR
   otherwise. Either bump starts the C store afresh. (M4, 0.103, 0.120)
 
@@ -6413,7 +6416,7 @@ A lambda is a class of its captures (`library/ccl_cpp.pl`). A fixture named alon
   filter its findings against every file's predicates. 0.140 charted every library file from a root that calls all of
   the file's predicates, and read every clause with `read_term/3`'s `term_position` (9,476 clauses, 35,320 calls; the
   scripts are session scratch): no call names a predicate that nothing defines; 128 predicates have split clauses, two
-  of them written twice (the code topic's placement rule). Limits met: `ccl_cpp.pl` charted from all its 1,521
+  of them written twice (the code topic's placement rule; written once since 0.141). Limits met: `ccl_cpp.pl` charted from all its 1,521
   predicates does not end in 30 min (the other files take 1 to 129 s, at most 1.1 GB); the catcher of `catch/3` is free
   to the chart inside the recovery, which makes a false `instantiation` finding (`dr_error/3` through `dr_report/2`;
   reported to cocolog's owner). The debugger, `tools/flow/debug.pl`, records the end of a failed run of an entry goal
@@ -6431,11 +6434,10 @@ A lambda is a class of its captures (`library/ccl_cpp.pl`). A fixture named alon
   0.90, all GREEN (cocolog 1.2.18). The fixtures added since 0.93 have run on Linux only.
 - Ubuntu 24.04 on x86_64 (clang and LLVM 18, glibc, libc++ 18 and 21) is a host since 0.87. Every gate but the C++ one is
   GREEN there since 0.93, and all seven since 0.95. Every step from 0.93 on is gated there, but the save points 0.112,
-  0.113, 0.117, 0.122 to 0.125, 0.130 and 0.131 (gated by the steps after them); the last full run is 0.140's, over cocolog 1.10.22, on one
-  tree: over libc++ 18 all eight GREEN (reader 6 s, compile 15 s, driver 12 s, objects 4 s, proof, the cross gate in
-  62 s, the library read in 1365 s, the C++ gate in 1185 s with 496 of 499 fixtures ok, the skips are `stdoptionalref`, `joinwith` and `tzone`,
-  the 21 refusals and the three of the safe part; flow-chart probes ran beside both libc++ 18 phases, so their times
-  and peaks are higher); over libc++ 21 the library read (1037 s) and the C++ gate (1148 s,
+  0.113, 0.117, 0.122 to 0.125, 0.130 and 0.131 (gated by the steps after them); the last full run is 0.141's, over cocolog 1.10.22, on one
+  tree: over libc++ 18 all eight GREEN (reader 5 s, compile 13 s, driver 11 s, objects 4 s, proof, the cross gate in
+  58 s, the library read in 1105 s, the C++ gate in 1093 s with 496 of 499 fixtures ok, the skips are `stdoptionalref`, `joinwith` and `tzone`,
+  the 21 refusals and the three of the safe part); over libc++ 21 the library read (1101 s) and the C++ gate (1200 s,
   498 of 499 ok, the skip `stdoptionalref`) GREEN -- the C gates do not read libc++. Two libc++ passes are one
   gate: `LLVM=/usr/lib/llvm-18` and `LLVM=/usr/lib/llvm-21` choose the tree the chain reads and links. libc++ 22 (the
   newest tree, which a run without `$LLVM` reads) is untried but for `stdoptionalref`, which passes there. The run before
