@@ -264,10 +264,11 @@ ccl_load_macros(Path, Preds) :-
     ccl_macro_note(Path, Preds),
     ccl_register_macros(Preds).
 
-%% the heads a Prolog file defines -- current_predicate/1 does not list
-%% consulted clauses here, so the text is split into clauses (a `.' followed
-%% by layout, outside quotes, comments and 0'c) and each is read with
-%% term_to_atom/2: name/Arity for a fact or a rule, dcg(name) for `-->'
+%% the heads a Prolog file defines -- current_predicate/1 names no file (and,
+%% before cocolog 1.10.28, listed no consulted clause), so the text is split
+%% into clauses (a `.' followed by layout, outside quotes, comments and 0'c)
+%% and each is read with term_to_atom/2: name/Arity for a fact or a rule,
+%% dcg(name) for `-->'
 ccl_pl_clauses(Codes, Texts) :- phrase(ccl_pl_split(Texts), Codes, _).
 ccl_pl_split(Ts) --> ccl_pl_layout, ccl_pl_split_(Ts).
 ccl_pl_split_([T|Ts]) --> ccl_pl_clause(Cs), { Cs \== [] }, !, { atom_codes(T, Cs) }, ccl_pl_layout, ccl_pl_split_(Ts).

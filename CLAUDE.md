@@ -10,7 +10,7 @@ it found, its measurements and its gate numbers. `README.md` tells a user what r
 architecture and the milestones. A step that changes a rule edits the rule here, in its topic, and writes its entry
 in `HISTORY.md`.
 
-At 0.141 the versions are: the module 0.141 (`ccl_p_version` in `module/cicilang.cicili`, `bin/cicilang --version`),
+At 0.142 the versions are: the module 0.142 (`ccl_p_version` in `module/cicilang.cicili`, `bin/cicilang --version`),
 the reader 128 (`ccl_reader_version/1`, `library/ccl_syntax.pl`) and the lowering 81 (`ccl_lowering_version/1`,
 `library/ccl_ir.pl`).
 
@@ -6170,28 +6170,35 @@ A lambda is a class of its captures (`library/ccl_cpp.pl`). A fixture named alon
   at 2882 MB, 1.8.38 at 591 MB. After a cocolog update the modules are rebuilt (`module/build.sh`,
   `module/build-llvm.sh`, and cocolog's `os` and `process` modules); 1.8.36 to 1.8.41 left the SDK's ABI unchanged.
   (0.46, 0.112, 0.114)
-- cocolog is at 1.10.22 (`6b5d0cc`) since 0.140, over ZiguratIP 1.0.0 (`01251f4`, its store pages 64 KiB) and beside
+- cocolog is at 1.10.28 (`67b102c`) since 0.142, over ZiguratIP 1.0.0 (`01251f4`, its store pages 64 KiB) and beside
   Cicili 3.0.0 (`9d74a5e`), where a float literal is a double: every float-like number in our two modules is in a
   comment, and they use no `(inline)` or `(weak)` (Cicili 2.0.0's change), so their C does not change. The neighbours
-  are rebuilt in this order: ZiguratIP (`make MODE=Release`), cocolog (`make SBCL="sbcl --dynamic-space-size 4096"`,
-  `make schema`, `make modules`, which builds its `os`, `process` and `stream` modules and the flow tables), then both
-  modules here. The baseline of that step was 0.139 over them, fresh HOMEs: all eight gates GREEN over libc++ 18 (the
-  library read in 1365 s, the C++ gate in 1185 s with 496 of 499 fixtures; flow-chart probes ran beside both) and the
-  two libc++ gates GREEN over libc++ 21 (1037 s, 1148 s). cocolog 1.10.6's builtins that raise where they failed (`arg/3` on an
-  atomic term, `=..`, `assert` of what is no clause) broke nothing here. 1.10.0 (0.132) was the step before.
-  (0.132, 0.140)
-- cocolog's build exhausts the 1 GB heap that Debian's and Ubuntu's SBCL 2.2.9 starts with, while Cicili transpiles
-  `cocolog.cicili` (`Heap exhausted during garbage collection`, then `GC invariant lost, file "gencgc.c"`): build it with
-  `make SBCL="sbcl --dynamic-space-size 4096"`, as cocolog's README says. A failed `make` leaves no binary, and a
-  `make modules` after it skips the flow tables with no word of why. Reported to cocolog's owner. Our own
-  `module/build.sh` still fits the default heap. (0.140)
+  are rebuilt in this order: ZiguratIP (`make MODE=Release`), cocolog (`make`, `make schema`, `make modules`, which
+  builds its `os`, `process` and `stream` modules and the flow tables), then both modules here; 1.10.28 adds one SDK
+  call (`coco_m_resource_error`) and changes no struct. 1.10.28 is The Coco's answer to the report of 0.140 -- the
+  build's heap, the float writer, the refused allocation, `current_predicate/1` and `predicate_property/2`, the flow
+  tools, each in its bullet below -- and its owner ran its suites one by one, not the whole. The baseline of that step
+  was 0.141 over 1.10.28, fresh HOMEs: all eight gates GREEN over libc++ 18 (reader 5 s, compile 16 s, driver
+  11 s, objects 3 s, the cross gate in 64 s, the library read in 1158 s, the C++ gate in 1076 s with 496 of
+  499 fixtures) and the two libc++ gates GREEN over libc++ 21 (1006 s, 1137 s, 498 of 499). 1.10.22 (0.140) and 1.10.0
+  (0.132) were the steps before; cocolog 1.10.6's builtins that raise where they failed (`arg/3` on an atomic term,
+  `=..`, `assert` of what is no clause) broke nothing here. (0.132, 0.140, 0.142)
+- Through 1.10.27 cocolog's build exhausted the 1 GB heap that Debian's and Ubuntu's SBCL 2.2.9 starts with, while
+  Cicili transpiled `cocolog.cicili` (`Heap exhausted during garbage collection`, then `GC invariant lost, file
+  "gencgc.c"`), and a `make modules` after the failed `make` skipped the flow tables with no word of why. Since 1.10.28
+  a plain `make` gives SBCL 4096 MB (`tools/cc/sbcl`; `COCO_SBCL_HEAP=N` for another size), and `make modules` names
+  why it skips anything. Our own `module/build.sh` fits the default heap. (0.140, 0.142)
 - Since cocolog 1.10.17 an error nothing caught is followed, on stderr, by where it was raised; `bin/cicilang`'s filter
   drops those lines, so call cocolog directly to read them (`--no-backtrace` turns them off). (0.140)
-- cocolog WRITES A FLOAT WITH 15 DIGITS, `%.15g` (`lib/term.cicili`'s `coco_sb_put_double`, whose comment says 15 digits
-  read every double back, which is not so), still at 1.10.22 -- only the journal of 1.10.15 writes the shortest form that
-  reads back: a 16- or 17-digit double written and read is another double,
-  and the largest double reads back as an infinity. Every store write here freezes its floats to integers (the store
-  topic, 0.132). A request to cocolog's owner.
+- Through 1.10.27 cocolog WROTE A FLOAT WITH 15 DIGITS, `%.15g`: a 16- or 17-digit double written and read was another
+  double, the largest double read back as an infinity, and an infinity was `inf.0`, which its own reader refused. Since
+  1.10.28 it writes a float as SWI 9 does, the fewest digits that read back as the same double (`0.30000000000000004`,
+  `1.0e+22`, `5.0e-324`, `100000000000000.0`, `1.0Inf`, `1.5NaN`; a NaN's sign is never written), reads `1.0Inf` and
+  `1.5NaN` back, and keeps the sign of `-0.0` in its reader and in `-/1`; `copysign/2` and `atan2/2` are no functions,
+  `sign(-0.0)` is `0.0`, a float divided by zero is an infinity, and `=:=` holds for a NaN against any number, 0.0
+  among them (`<` and `>` hold for none). Every store
+  write here still freezes its floats to integers (the store topic, 0.132), exact under either writer and over a store
+  written before. (0.132, 0.142)
 - cocolog was at 1.9.1 from 0.117 (it was 1.8.41; ZiguratIP is rebuilt first, then cocolog, then both modules here). The
   baseline of that step was 0.116 over 1.9.1, all seven gates GREEN, so the engine's compiled-control stages (1.8.55,
   1.8.57, 1.9.1: one dispatch per functor, an index on any argument) changed nothing cicilang relies on. cocolog's own
@@ -6218,11 +6225,14 @@ A lambda is a class of its captures (`library/ccl_cpp.pl`). A fixture named alon
   `rm -rf ~/.cicilang/KB ~/.cicilang/KB.version` repairs it. (0.108)
 - Integers are 61-bit and `is/2` wraps silently. So a literal past 2^60 is `big(Atom)` in both lexers, the constant
   evaluator computes 64 bits over base-2^30 limbs (`ccl_w_*`), and `dr_fold/4` keeps two folds under 2^31. (0.94)
-- A refused allocation is a WRONG ANSWER (unchanged at 1.10.22: nothing in cocolog's `lib/` raises `resource_error(memory)`). The `oom` flag is set at eleven growth sites and read
-  only by the compaction, which declines and keeps the store; new terms then alias cell 0. The query answers `false.`,
-  prints `ERROR: ?-: Unknown message: _G0` and exits 1. A gate dies so when the MACHINE runs out, and runs clean
-  alone; `test/cpp.sh` then prints `RED: the gate did not finish (query exit N)` and the raw tail. Request: an `oom`
-  check that answers `resource_error(memory)`. (0.84)
+- Through 1.10.27 a refused allocation was a WRONG ANSWER: the `oom` flag was set at eleven growth sites and read only
+  by the compaction, which declined and kept the store; new terms then aliased cell 0, the query answered `false.`,
+  printed `ERROR: ?-: Unknown message: _G0` and exited 1, and the heap and the choice stack ended the run with an `out
+  of memory` that nothing could catch. Since 1.10.28 a refused allocation raises `error(resource_error(memory), _)`
+  (SWI's `Not enough resources: memory`), which `catch/3` takes: a catch-all here (`catch(G, _, fail)`) takes it as it
+  takes any error, and the run goes on. No run here has met it: the caps kill a run first (a watchdog over the RSS,
+  never `ulimit -v`). A gate that dies of the MACHINE's memory runs clean alone; `test/cpp.sh` then prints `RED: the gate
+  did not finish (query exit N)` and the raw tail. (0.84, 0.142)
 - Fixed in cocolog 1.1.0: a `catch/3` whose goal succeeded stayed live for a later `throw/1`; a throw in
   `findall/forall/aggregate_all` escaped its catch; `atomic_list_concat` segfaulted on an unbound element and failed
   past 8 KB. Kept as habit: every `catch/3` under `once/1` or as a condition, a raising loop written as recursion,
@@ -6239,8 +6249,8 @@ A lambda is a class of its captures (`library/ccl_cpp.pl`). A fixture named alon
   `tuple`, `optional`, `variant`, `basic_string`, `vector` ...) was dropped silently, until 0.112 wrote such a term to
   the `.big.pl` beside the summary. Since 1.10.6 it reads text of any length (an atom of 13,897 characters read back at
   1.10.22, 0.140); the `.big.pl` stays as it is.
-- cocolog writes a float with `%.15g` (no exact round-trip) and an infinity as `inf.0`, which its reader refuses
-  (`its clauses would not consult`, no line). `ccl_finite_float/2` clamps a literal past a double. (0.55)
+- Through 1.10.27 an infinity was written `inf.0`, which cocolog's reader refused (`its clauses would not consult`, no
+  line), so every literal past a double was clamped to the largest double (`ccl_finite_float/2`). (0.55, 0.142)
 - The reader refuses, naming no line, `is` as a plain atom argument, a quoted atom holding `"` and
   `append([declaration(...)] , Ifs, B0)`. Bisect by splitting the file into clauses, or by each hunk alone onto HEAD
   (a library file consulted alone fails for its own reasons). (0.93)
@@ -6250,10 +6260,12 @@ A lambda is a class of its captures (`library/ccl_cpp.pl`). A fixture named alon
   clauses, which stay in the process, unstored.
 - Seventy goal-carrying facts consulted into a store segfaulted once, and cocolog cannot reproduce it: the gate checks
   are clauses (`k1 :- check(Name, Goal).`).
-- Builtins at 1.8.1, and again at 1.10.22 (0.140). `current_predicate/1` lists the program's predicates only, not a
-  file's loaded by `ensure_loaded/1` (an alias of `use_module/1`): macro heads come from `ccl_pl_clauses/2`. Absent:
-  `consult/1` as a goal, `load_files/2`, `predicate_property/2`, `flag/3`, `recorda/2`, `prolog_load_context/2`,
-  `term_expansion`. `open/3` and `stream_position/2` are `library(stream)`'s (a module `make modules` builds), and
+- Builtins at 1.8.1, again at 1.10.22 (0.140) and at 1.10.28 (0.142). `current_predicate/1` answers for a file the
+  program loads by its path (`-s FILE`, `ensure_loaded/1`, `use_module/1` of a file) since 1.10.28, and for no
+  library's (`library(X)`) nor a builtin; it names no file, so a macro file's heads still come from `ccl_pl_clauses/2`.
+  `predicate_property/2` is new at 1.10.28 (a control construct, `built_in`, `foreign`, `dynamic`,
+  `number_of_clauses/1`; nothing for a `.so` module's predicates). Absent: `consult/1` as a goal, `load_files/2`,
+  `flag/3`, `recorda/2`, `prolog_load_context/2`, `term_expansion`. `open/3` and `stream_position/2` are `library(stream)`'s (a module `make modules` builds), and
   `read_term/3` answers `term_position` since 1.10.7. Present: `abolish/1`, `clause/2`, `retract/1`, `nb_setval/2`, `b_getval/2`, `dynamic/1`,
   `read_file_to_codes/2`, `phrase/2,3`, `number_codes/2`, `statistics/2` (cputime, inferences, globalused, trailused,
   atoms, functors, store_used), `get_time/1` (microseconds). `time_file/2` answers whole seconds.
@@ -6434,10 +6446,10 @@ A lambda is a class of its captures (`library/ccl_cpp.pl`). A fixture named alon
   0.90, all GREEN (cocolog 1.2.18). The fixtures added since 0.93 have run on Linux only.
 - Ubuntu 24.04 on x86_64 (clang and LLVM 18, glibc, libc++ 18 and 21) is a host since 0.87. Every gate but the C++ one is
   GREEN there since 0.93, and all seven since 0.95. Every step from 0.93 on is gated there, but the save points 0.112,
-  0.113, 0.117, 0.122 to 0.125, 0.130 and 0.131 (gated by the steps after them); the last full run is 0.141's, over cocolog 1.10.22, on one
-  tree: over libc++ 18 all eight GREEN (reader 5 s, compile 13 s, driver 11 s, objects 4 s, proof, the cross gate in
-  58 s, the library read in 1105 s, the C++ gate in 1093 s with 496 of 499 fixtures ok, the skips are `stdoptionalref`, `joinwith` and `tzone`,
-  the 21 refusals and the three of the safe part); over libc++ 21 the library read (1101 s) and the C++ gate (1200 s,
+  0.113, 0.117, 0.122 to 0.125, 0.130 and 0.131 (gated by the steps after them); the last full run is 0.142's, over cocolog 1.10.28, on one
+  tree: over libc++ 18 all eight GREEN (reader 5 s, compile 16 s, driver 11 s, objects 3 s, proof, the cross gate in
+  64 s, the library read in 1158 s, the C++ gate in 1076 s with 496 of 499 fixtures ok, the skips are `stdoptionalref`, `joinwith` and `tzone`,
+  the 21 refusals and the three of the safe part); over libc++ 21 the library read (1006 s) and the C++ gate (1137 s,
   498 of 499 ok, the skip `stdoptionalref`) GREEN -- the C gates do not read libc++. Two libc++ passes are one
   gate: `LLVM=/usr/lib/llvm-18` and `LLVM=/usr/lib/llvm-21` choose the tree the chain reads and links. libc++ 22 (the
   newest tree, which a run without `$LLVM` reads) is untried but for `stdoptionalref`, which passes there. The run before
@@ -6829,9 +6841,9 @@ A lambda is a class of its captures (`library/ccl_cpp.pl`). A fixture named alon
   location is column 1); a destructor at a scope's end has the closing brace's line since 0.139. The macros are described under `-fdebug-macro` (0.134; `-g3` alone describes none in either compiler).
 - A C++ read never uses the store: `cicilang++` runs `--no-kb` (M5). The C++ cache is the summary and the AST beside it
   (0.35, 0.45).
-- cocolog has no `oom` check in its step loop (1.10.22), so a refused allocation gives a wrong answer. Its heap
-  collector (1.8.36) does not run inside a nested engine (`findall/3`, `forall/2`). These are requests to cocolog's
-  owner, never changes here (owner's rule) (0.46, 0.112).
+- cocolog's heap collector (1.8.36) does not run inside a nested engine (`findall/3`, `forall/2`): a request to
+  cocolog's owner, never a change here (owner's rule). A refused allocation raises `resource_error(memory)` since
+  1.10.28; through 1.10.27 it gave a wrong answer (0.46, 0.112, 0.142).
 - One cocolog process's store write grows quadratically past about 30,000 rows, undiagnosed. For this reason no C++
   header goes into the store (M5; measured at cocolog 1.2.16).
 - The check's cost is its expression walk. The next cut needs the state as a per-function table, or the lookups in C

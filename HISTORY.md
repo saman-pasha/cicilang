@@ -135,6 +135,7 @@ One row per step, in version order: the step's title, what it did and its gate n
 | 0.139 | under -g a destructor at its scope's closing brace; an override of a virtual base's slot dispatched; construction vtables; a using-declaration or -directive over collided names | the read records where a scope closes under -g; a call through a class that overrides a virtual base's function dispatches through that base; a diamond's paths built and destroyed under construction tables; using b::f and using namespace b find b's keyed names | 496 of 499 C++ fixtures over libc++ 18, 498 over 21; all gates GREEN |
 | 0.140 | the neighbours at cocolog 1.10.22 and Cicili 3.0.0; the library checked by the flow tools | cocolog, Cicili and ZiguratIP pulled and rebuilt (SBCL's heap given 4 GB for cocolog's build); the flow chart and a clause reader find no call to an undefined predicate, 128 split predicates and two names written twice | 496 of 499 C++ fixtures over libc++ 18, 498 over 21; all gates GREEN |
 | 0.141 | two predicates written once | `cpp_thunk_params/4` and `cpp_param_types/2`, each written twice in `ccl_cpp.pl` and joined by cocolog, written once (the first definition answered every call; each gave duplicate answers on backtracking) | 496 of 499 C++ fixtures over libc++ 18, 498 over 21; all gates GREEN |
+| 0.142 | the neighbours at cocolog 1.10.28 | cocolog pulled and built with a plain make; its float writer, its refused allocation, current_predicate/1 and predicate_property/2 recorded; the macro file's comment mended | 496 of 499 C++ fixtures over libc++ 18, 498 over 21; all gates GREEN |
 
 ## M5 — the C++ mode
 
@@ -8441,3 +8442,37 @@ compile 13 s, driver 11 s, objects 4 s, proof, the cross gate in 58 s, the libra
 the C++ gate in 1093 s with 496 of 499 fixtures ok, the skips `stdoptionalref`, `joinwith` and `tzone`, the 21
 refusals and the three of the safe part); over libc++ 21 the library read (1101 s) and the C++ gate (1200 s, 498 of
 499 ok, the skip `stdoptionalref`) GREEN.
+
+## 0.142 — the neighbours at cocolog 1.10.28
+
+**0.142: cocolog 1.10.28, The Coco's answer to the report of 0.140.** cocolog went from 1.10.22 (`6b5d0cc`) to 1.10.28
+(`67b102c`), the last of six commits answering 0.140's report point by point; Cicili and ZiguratIP had no new commit. A
+plain `make` built cocolog in 155 s (`tools/cc/sbcl` hands SBCL 4096 MB), then `make schema` and `make modules` (its
+`os`, `process` and `stream` modules and the flow tables; 261 s in all), then both modules here, in 5 s and 3 s: 1.10.28
+adds one SDK call, `coco_m_resource_error`, and changes no struct. What it changes for cicilang, each seen here:
+
+- A float is written as SWI 9 writes it, the fewest digits that read back as the same double (`0.30000000000000004`,
+  `5.0e-324`, `1.0e+22`, `100000000000000.0`, `1.0Inf`, `1.5NaN`; no NaN's sign), and the reader takes `1.0Inf` and
+  `1.5NaN` back; `-0.0` keeps its sign in the reader, in `-/1` and in a product. `copysign/2` and `atan2/2` are no
+  functions, `sign(-0.0)` is `0.0`, a float divided by zero is an infinity, and `=:=` holds for a NaN against any
+  number, 0.0 among them. The store's freeze of 0.132 stays, exact under either writer and over a store written before.
+  The text of `-E` is exact for a finite float now, but for the threshold of 1.0e308, which 0.143 replaces.
+- A refused allocation raises `error(resource_error(memory), _)`, which a catch-all here takes as any error; no run met
+  it, since the caps kill first (an RSS watchdog, never `ulimit -v`).
+- `current_predicate/1` answers for a file loaded by its path, and `predicate_property/2` is new. The objects gate,
+  which asks `current_predicate/1`, is GREEN. `ccl_pl_clauses/2` stays, since `current_predicate/1` names no file; its
+  comment says so now.
+- The flow tools' changes (the catcher of `catch/3` bound in the chart's modes, a whole file charted from one root,
+  `defined_twice`, `load=`) are not measured here yet.
+
+cocolog 1.11.0 (`81bdfaa`) was relayed while the chain ran: the same engine, with `proc_run/4`'s deadline taken from the
+clock (a child that printed more than about 20 bytes per millisecond of its timeout was killed with 124). cicilang's
+link runs through it with a 300 s timeout, so a link would have had to print about 6 MB; none did. It is not taken in
+this step.
+
+THE GATES. The baseline: 0.141's code over 1.10.28, fresh HOMEs, on the live checkout. Over libc++ 18 all eight GREEN
+(reader 5 s, compile 16 s, driver 11 s, objects 3 s, proof, the cross gate in 64 s, the library read in
+1158 s, the C++ gate in 1076 s with 496 of 499 fixtures ok, the skips `stdoptionalref`, `joinwith` and `tzone`, the 21
+refusals and the three of the safe part); over libc++ 21 the library read (1006 s) and the C++ gate (1137 s, 498 of 499
+ok, the skip `stdoptionalref`) GREEN. A scratch copy's C gates ran beside the library read over libc++ 18 for about
+five minutes, so its time is a little high (0.141: 1105 s).
