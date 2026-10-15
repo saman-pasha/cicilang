@@ -139,7 +139,7 @@ ck_note_units([]).
 ck_note_units([unit(Is)|Us]) :- ccl_items_note(Is), ck_note_units(Us).
 ck_units([]).
 ck_units([unit(Is)|Us]) :- ck_items(Is), ck_units(Us).
-ck_trace(T) :- ( catch(nb_getval('$cpp_trace', yes), _, fail) -> print(T), nl ; true ).
+ck_trace(T) :- ( nb_current('$cpp_trace', yes) -> print(T), nl ; true ).
 ck_items([]).
 ck_items([function(L, _, Ret, Name, Params, _, Body)|Is]) :- !,
     ( ccl_lang(cpp), cpp_library_function(Name) -> true ; \+ \+ ck_function(L, Ret, Name, Params, Body) -> true ; ck_trace(check_failed(Name)), fail ),   % a library header's function: C++'s rules, not these (ccl_cpp); inside `\+ \+', so a function's walk is reclaimed; one that merely FAILS says its name under the trace (0.108)
@@ -1065,10 +1065,10 @@ ck_close_to(St0, Depth, St) :- ck_scope_end(St0, St1), ck_close_to(St1, Depth, S
 %% `goto_over_defer' (`ck_defers_agree/2'): the defer runs at its scope's end on every path, the skipped one too. A
 %% backward goto into a block closes its frames to the one it shares with the label and ends what that frame declared
 %% since the label, as a goto in the label's own frame does (`lab(LP, KDs)': the keys and defers of each frame).
-ck_bpath_push :- ( catch(nb_getval('$ck_bpath', P), _, fail) -> true ; P = [] ), ( catch(nb_getval('$ck_bid', N0), _, fail) -> true ; N0 = 0 ),
+ck_bpath_push :- ( nb_current('$ck_bpath', P) -> true ; P = [] ), ( nb_current('$ck_bid', N0) -> true ; N0 = 0 ),
     N is N0 + 1, nb_setval('$ck_bid', N), nb_setval('$ck_bpath', [N|P]).
-ck_bpath_pop :- ( catch(nb_getval('$ck_bpath', [_|P]), _, fail) -> nb_setval('$ck_bpath', P) ; true ).
-ck_bpath_root(P) :- ( catch(nb_getval('$ck_bpath', P0), _, fail) -> true ; P0 = [] ), reverse(P0, P).
+ck_bpath_pop :- ( nb_current('$ck_bpath', [_|P]) -> nb_setval('$ck_bpath', P) ; true ).
+ck_bpath_root(P) :- ( nb_current('$ck_bpath', P0) -> true ; P0 = [] ), reverse(P0, P).
 ck_common_prefix([X|Xs], [Y|Ys], [X|Zs]) :- X == Y, !, ck_common_prefix(Xs, Ys, Zs).
 ck_common_prefix(_, _, []).
 ck_goto(L, Ln, St) :- ck_bpath_root(GP), nb_getval('$ck_labels', Ls),
@@ -1139,7 +1139,7 @@ ck_seed_merge([L-St|Bs], S0, S) :- ( select(L-Old, S0, S1) -> ck_merge(Old, St, 
 ck_seed_put(S1, L, New, Old, S0, S) :- ( New == Old -> S = S0 ; S = [L-New|S1] ).
 %% what a walk writes and a second walk must start from as the first did
 ck_walk_snapshot(snap(Ti, Sa, Ar, Al, Rf)) :- nb_getval('$ck_ties', Ti), nb_getval('$ck_statics', Sa), nb_getval('$ck_arrays', Ar), nb_getval('$ck_arrlocals', Al),
-    ( catch(nb_getval('$ck_refs', Rf), _, fail) -> true ; Rf = '$none' ).
+    ( nb_current('$ck_refs', Rf) -> true ; Rf = '$none' ).
 ck_walk_restore(snap(Ti, Sa, Ar, Al, Rf)) :- nb_setval('$ck_ties', Ti), nb_setval('$ck_statics', Sa), nb_setval('$ck_arrays', Ar), nb_setval('$ck_arrlocals', Al),
     ( Rf == '$none' -> true ; nb_setval('$ck_refs', Rf) ).
 

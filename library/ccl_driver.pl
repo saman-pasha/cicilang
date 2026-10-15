@@ -125,8 +125,8 @@ dr_ir_sig(F, AST, Sig) :-
     ccl_lowering_version(LV), ir_arch_init, ir_arch(Arch),
     dr_unit_deps(AST, Ds0), sort(Ds0, Ds),
     findall(P-K, ( member(P, [F|Ds]), ( ccl_kb_key(P, K) -> true ; K = none ) ), Keys),
-    ( catch(nb_getval('$ccl_debug', Dbg0), _, fail) -> true ; Dbg0 = none ), ( catch(nb_getval('$ccl_debug_kind', DK), _, fail) -> true ; DK = none ), Dbg = Dbg0-DK,   % -g's IR is another IR (0.128), and the line tables alone a third (0.130)
-    ( catch(nb_getval('$ccl_debug_macros', events(_)), _, fail) -> DM = macros ; DM = none ),   % -fdebug-macro's IR is another again (0.134)
+    ( nb_current('$ccl_debug', Dbg0) -> true ; Dbg0 = none ), ( nb_current('$ccl_debug_kind', DK) -> true ; DK = none ), Dbg = Dbg0-DK,   % -g's IR is another IR (0.128), and the line tables alone a third (0.130)
+    ( nb_current('$ccl_debug_macros', events(_)) -> DM = macros ; DM = none ),   % -fdebug-macro's IR is another again (0.134)
     term_to_atom(sig(LV, Arch, Keys, Dbg, DM), A), atom_codes(A, Cs), dr_fold(Cs, 7, 131, S1), dr_fold(Cs, 13, 137, S2), Sig = S1-S2.
 %% two folds under 2^31 (cocolog's arithmetic is not exact past 2^52), a pair for 62 bits
 dr_fold([], S, _, S).
@@ -242,7 +242,7 @@ dr_kind(goto_over_defer, 'goto over a defer (or a local with a destructor) to la
 dr_kind(K, K).
 %% the user's file's `#warning' lines, printed after its read in clang's shape (they count as no error)
 dr_pp_warnings :-
-    (   catch(nb_getval('$pp_warnings', Ws), _, fail) -> nb_setval('$pp_warnings', []), reverse(Ws, Ws1), dr_pp_warnings_(Ws1) ; true ).
+    (   nb_current('$pp_warnings', Ws) -> nb_setval('$pp_warnings', []), reverse(Ws, Ws1), dr_pp_warnings_(Ws1) ; true ).
 dr_pp_warnings_([]).
 dr_pp_warnings_([warning(F, L, M)|Ws]) :- write(F), write(':'), write(L), write(': warning: '), write(M), nl, dr_pp_warnings_(Ws).
 dr_error(F, L, Parts) :-
@@ -259,8 +259,8 @@ dr_error(F, L, Parts) :-
 %% before the window: over plain catch/3 here, no case found the compiler's error (0.148). An error the driver says
 %% after a FAILURE (`the check or the lowering failed without saying why') throws past every recovery here. Nothing
 %% else sets the global, and a build reads it once per report site and once per error it reports.
-dr_why_stop(F, L, Parts) :- ( catch(nb_getval('$ccl_why', yes), _, fail) -> throw(ccl_why(F, L, Parts)) ; true ).
-dr_catch(G, E, R) :- ( catch(nb_getval('$ccl_why', yes), _, fail) -> call(G) ; catch(G, E, R) ).
+dr_why_stop(F, L, Parts) :- ( nb_current('$ccl_why', yes) -> throw(ccl_why(F, L, Parts)) ; true ).
+dr_catch(G, E, R) :- ( nb_current('$ccl_why', yes) -> call(G) ; catch(G, E, R) ).
 dr_note_macro(F, L, P, MF, As) :-
     write(F), write(':'), write(L), write(': note: the macro is '), write(P), write(' in '), write(MF), write(', called on '), dr_args(As), nl.
 %% a Prolog error, said plainly

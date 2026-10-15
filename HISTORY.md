@@ -142,6 +142,7 @@ One row per step, in version order: the step's title, what it did and its gate n
 | 0.146 | the flow gate and test/why.sh on cocolog 1.11.4 | cocolog 1.11.4; the chart's modules(Files) and run-time declarations replace the gate's generated files, its findings keyed once with their severity (125: 124 splits, 1 warning); test/why.sh on own(all) and flow_why_raised/3, the driver taking no error under the why flag; the deciding builtin our own rule | the flow gate, the C gates, the proof and the cross gate GREEN; the libc++ gates running at the commit |
 | 0.147 | the numbers of 0.146's chain | 0.146's chain recorded: all nine gates over libc++ 18, the two libc++ gates over 21, on cocolog 1.11.4; three flow points sent to cocolog's owner | 497 of 500 C++ fixtures over libc++ 18, 499 over 21; all gates GREEN, 4276 s |
 | 0.148 | the flow debugger's choices and catches, and a profile of a build, on cocolog 1.11.10 | cocolog 1.11.10; test/why.sh on chose(C) and caught(K), the compiler's files named for the debugger's scan, dr_catch/3 kept (measured), no documents unless WHY_KEEP; both tools capped over the whole process tree, the pool counting a cocolog run; test/prof.sh over windows along a build; the work on main | all nine gates GREEN over libc++ 18, the two libc++ gates over 21, 4254 s; 497 of 500 C++ fixtures over 18, 499 over 21 |
+| 0.149 | cocolog 1.12.1, and a global that may be unset read with nb_current/2 | cocolog 1.12.1 (`nb_current/2`, `setarg/3`, `nb_setarg/3`; a global read as one block, a ground value's copy shared); the 156 reads `catch(nb_getval(K, V), _, R)` of the library and the gates made `nb_current(K, V)`; committed before the chain, on the stop hook's request | the flow gate GREEN (125 findings); test/why.sh names the new read; the chain and the measurements running at the commit |
 
 ## M5 — the C++ mode
 
@@ -8756,3 +8757,41 @@ the C++ gate in 1124 s (peak 2148 MB), 499 of 500 ok, the skip `stdoptionalref`.
 the documents changed (`test/why.pl`, `test/why.sh`, `test/prof.sh`, `test/parlib.sh`), and the two tools ran again
 from the checkout: `abstract.cpp` explained in 11 s at 293 MB, `hello.c` profiled over three windows in 31 s at 565
 MB.
+
+## 0.149 — cocolog 1.12.1, and a global that may be unset read with nb_current/2
+
+**0.149: cocolog 1.12.1, as the owner asked ("pull cocolog 1.12.1 and do step 0.149"), and the reads of a global
+that may be unset moved to its new `nb_current/2`. Committed before the chain, on the stop hook's request: the flow
+gate and `test/why.sh` ran; the other gates and the measurements of the build's time run at the commit, and 0.150
+carries their numbers.** cocolog went from 1.11.10 (`62f10e3`) to master `2fef28e`: 1.12.0 (`2f22043`) `nb_current/2`,
+and `setarg/3` and `nb_setarg/3` over a trail that carries values (each writes the argument's own cell), their modes in
+the flow chart's table (eight lines of `library/flow/modes.pl`); 1.12.1 a global's value read as one block by
+`nb_getval/2`, `b_getval/2` and `nb_current/2` (`coco_store_read_block`, `lib/kb.cicili`), the copy of a ground value
+shared while it lives, and the trail's pair words carrying their cell under bit 40. cocolog was rebuilt (`make`,
+`make schema`, `make modules`), then both modules here; `lib/sdk.cicili` is the file 1.11.4 had, and ZiguratIP and
+Cicili had nothing new. The 1.11.10 build is kept in a scratch copy, for the measurements.
+
+- WHAT THE TWO RELEASES TOUCH HERE: no file of cicilang calls `setarg/3` or `nb_setarg/3` (on a value that a ground
+  read shares, they change the global itself), and neither module reads the trail. 1.12.1's block copy serves every
+  read of a global the compiler makes.
+- `nb_current/2` FOR A GLOBAL THAT MAY BE UNSET: 156 reads were `catch(nb_getval(K, V), _, R)`, a catch frame a read.
+  149 had `fail` as the recovery and are `nb_current(K, V)`, made by a script that changes code only (it stops at a
+  `%` outside a quoted atom, a string and a `0'c`, and finds the call's end by balanced parentheses); 7 had a default in
+  the recovery (`Cx = none`, `Mk = none`, `W1 = top`, `Map0 = []`, `C = 0`, `R = 0`, and the bucket of a name set made
+  and the ask failed) and are `( nb_current(K, V) -> true ; Default )`, made by hand. By file: ccl_build 1, ccl_check
+  6, ccl_cpp 60, ccl_driver 6, ccl_include 13, ccl_infer 2, ccl_ir 22, ccl_pp 13, ccl_syntax 30, and three in the
+  gates' Prolog (test/cpp.pl 1, test/reader.pl 2). The answers are the same: the 27 reads whose key is a variable make
+  it with `atom_concat/3`, `atomic_list_concat/2,3`, or `term_to_atom/2` then `atom_concat/3`, so every key is a bound
+  atom, where `nb_current/2` fails as the catch did (a key that is no atom raises `type_error(atom, K)`, and an unbound
+  one enumerates the globals). A second script read the diff back: 149 changed lines, each line's comment as it was,
+  no `catch(nb_getval(` left in code. The comment over the name sets' buckets (`ccl_syntax.pl`) says what a read costs
+  now.
+- `test/why.sh` NAMES THE NEW READ: `abstract.cpp`'s refusal is then(2) of `cpp_not_abstract('Shape')`, after
+  `nb_current('$cpp_base_ctor', yes)` failed and `cpp_abstract_class('Shape')` held, its path the same 19 calls, 298
+  MB; `test/why.pl`'s comment and `CLAUDE.md` quote it.
+
+Nothing the compiler emits changed: reader 129, lowering 82.
+
+THE GATES AT THE COMMIT. The flow gate GREEN over the changed library: 125 findings, all of them `test/flow.expect`'s
+(1.12.0's modes changed none), in 51 s. The chain over libc++ 18 and 21, and the build's time measured three ways -- the 0.148
+library on 1.11.10, the same on 1.12.1, this library on 1.12.1 -- run at the commit; 0.150 records them.

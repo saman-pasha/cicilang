@@ -10,7 +10,7 @@ it found, its measurements and its gate numbers. `README.md` tells a user what r
 architecture and the milestones. A step that changes a rule edits the rule here, in its topic, and writes its entry
 in `HISTORY.md`.
 
-At 0.148 the versions are: the module 0.148 (`ccl_p_version` in `module/cicilang.cicili`, `bin/cicilang --version`),
+At 0.149 the versions are: the module 0.149 (`ccl_p_version` in `module/cicilang.cicili`, `bin/cicilang --version`),
 the reader 129 (`ccl_reader_version/1`, `library/ccl_syntax.pl`) and the lowering 82 (`ccl_lowering_version/1`,
 `library/ccl_ir.pl`).
 
@@ -684,12 +684,12 @@ tutorials/01..03-*.pl       the objects layer's lessons; goal main, last line do
   `cpp_method_body_/5`) are levels of one path (`abstract.cpp`: 19 calls, from `cpp_items` through the declaration at
   line 5 to `cpp_ctor('Shape', [])`, `cpp_not_abstract('Shape')` and `cpp_refuse/2`); THE BRANCH IT WAS RAISED IN, the
   call whose if-then-else or disjunction took it and every condition it ran, builtins included (`abstract.cpp`:
-  then(2) of `cpp_not_abstract('Shape')`, after `nb_getval('$cpp_base_ctor', yes)` failed and
+  then(2) of `cpp_not_abstract('Shape')`, after `nb_current('$cpp_base_ctor', yes)` failed and
   `cpp_abstract_class('Shape')` held); and THE FAILURE IT ANSWERED, a condition that failed having tried a clause, down
   the path where it got furthest (`flow_why_furthest/2`: at each failed call the clause whose body got the most calls
   done, then the most inferences spent, then the earlier, past an explicit `fail`). The rule of 0.146 -- a failed
   call that tried no clause just before the raise, since 1.11.4's answered failure passed a refusal's deciding builtin
-  over -- is gone: `chose(C)` names it among the conditions. (0.144, 0.146, 0.148)
+  over -- is gone: `chose(C)` names it among the conditions. (0.144, 0.146, 0.148, 0.149)
 - `WHY_WINDOW` (20000 inferences: a desugaring failure 10,000 inferences before the end, behind backtracking, was
   outside a window of 4000), `WHY_KEEP=DIR` (the debugger's files, made only then: `why.txt`, the run a call a line;
   `why.svg` and `why.xml`, the run over its chart), `WHY_SECS` (2400 s) and `WHY_MB` (2800 MB), both caps on the run's
@@ -6171,13 +6171,19 @@ A lambda is a class of its captures (`library/ccl_cpp.pl`). A fixture named alon
 
 ### Tables: a global is copied, a fact is indexed
 
-- `nb_getval/2` and `nb_setval/2` copy the whole term. So `ccl_items_note/1` sets each table once per unit tree
-  (per-item writes were quadratic), and the file scope is its own table (`'$ccl_gscope'`, in buckets since 0.120, below):
-  `'$ccl_scope'` holds only the open frames, and `ccl_declare/2` and `ccl_declared/2` never copy the headers' names.
+- `nb_getval/2` and `nb_setval/2` copy the whole term (a read as one block since cocolog 1.12.1, and the copy of a
+  GROUND value shared until a backtrack past its first read: the Findings' costs). So `ccl_items_note/1` sets each table
+  once per unit tree (per-item writes were quadratic), and the file scope is its own table (`'$ccl_gscope'`, in buckets
+  since 0.120, below): `'$ccl_scope'` holds only the open frames, and `ccl_declare/2` and `ccl_declared/2` never copy
+  the headers' names.
 - The globals are set once per process (`ccl_ensure_globals/0`) and read bare. `ccl_global/3` calls it first, so code
-  that the initialization reaches reads with a bare `catch(nb_getval(K, V), _, fail)` (`ccl_set_new_bucket/2`); else
-  the initialization re-enters itself. A `catch/3` stays only where a call can throw (`time_file/2`, `proc_run/4`, a
-  macro call, a candidate check), never around a hot read. (0.46)
+  that the initialization reaches reads with a bare `nb_current(K, V)` (`ccl_set_has/2`, `ccl_set_new_bucket/2`); else
+  the initialization re-enters itself. A global that may be unset is read with `nb_current/2` (cocolog 1.12.0), which
+  fails there in one inference, never with `catch(nb_getval(K, V), _, fail)`, a catch frame a read: 0.149 changed the
+  156 such reads of the library and the gates (7 of them with a default in the recovery, now in an else), the answers
+  the same, since every key the library makes is an atom (a key that is no atom raises `type_error(atom, K)` where the
+  catch failed). A `catch/3` stays only where a call can
+  throw (`time_file/2`, `proc_run/4`, a macro call, a candidate check), never around a hot read. (0.46, 0.149)
 - A name set that the parser asks at every identifier is held in buckets, a global each (`ccl_set_has/2`,
   `ccl_set_add/2`, `ccl_set_new/3` over `'$ccl_envs'`, `'$ccl_tmpls'`, `'$ccl_ftmpls'`). Every writer keeps the
   buckets and the list (`ccl_env_put/1`, `ccl_add_env(s)/1`, `ccl_note_template(s)/1`, `ccl_tparams_leave/1`). A deep
@@ -6356,15 +6362,19 @@ A lambda is a class of its captures (`library/ccl_cpp.pl`). A fixture named alon
   at 2882 MB, 1.8.38 at 591 MB. After a cocolog update the modules are rebuilt (`module/build.sh`,
   `module/build-llvm.sh`, and cocolog's `os` and `process` modules); 1.8.36 to 1.8.41 left the SDK's ABI unchanged.
   (0.46, 0.112, 0.114)
-- cocolog is at 1.11.10 since 0.148 -- master `62f10e3`: 1.11.5 and 1.11.6 the reasoning line's translator
-  (`library/reasoning/`, which cicilang does not load); 1.11.7 the flow debugger's answer to the points of 0.146; 1.11.8
-  the crash of `atom_chars/2` and `number_chars/2` (below); 1.11.9 a syntax error's place in a load (below), the
-  engine's load, module, solve and syntax code changed; 1.11.10 the profile's views and windows along one run (the flow
-  tools bullet below) -- over ZiguratIP 1.0.0 (`01251f4`, its store pages 64 KiB) and beside Cicili 3.0.0 (`9d74a5e`),
+- cocolog is at 1.12.1 since 0.149 -- master `2fef28e`: 1.12.0 (`2f22043`) `nb_current/2`, and `setarg/3` and
+  `nb_setarg/3` over a trail that carries values (each writes the argument's own cell), their modes in the flow chart's
+  table; 1.12.1 a global's value read as one block by `nb_getval/2`, `b_getval/2` and `nb_current/2`, the copy of a
+  ground value shared while it lives (the costs below), and the trail's pair words carrying their cell under bit 40,
+  which no module here reads. It was at 1.11.10 from 0.148 (`62f10e3`): 1.11.5 and 1.11.6 the reasoning line's
+  translator (`library/reasoning/`, which cicilang does not load); 1.11.7 the flow debugger's answer to the points of
+  0.146; 1.11.8 the crash of `atom_chars/2` and `number_chars/2` (below); 1.11.9 a syntax error's place in a load
+  (below), the engine's load, module, solve and syntax code changed; 1.11.10 the profile's views and windows along one
+  run (the flow tools bullet below) -- over ZiguratIP 1.0.0 (`01251f4`, its store pages 64 KiB) and beside Cicili 3.0.0 (`9d74a5e`),
   where a float literal is a double: every float-like number in our two modules is in a comment, and they use no
   `(inline)` or `(weak)` (Cicili 2.0.0's change), so their C does not change. The neighbours are rebuilt in this order:
   ZiguratIP (`make MODE=Release`), cocolog (`make`, `make schema`, `make modules`, which builds its `os`, `process` and
-  `stream` modules and the flow tables), then both modules here. 1.11.0 to 1.11.10 add no SDK call and change no struct
+  `stream` modules and the flow tables), then both modules here. 1.11.0 to 1.12.1 add no SDK call and change no struct
   (`lib/sdk.cicili` is the file 1.11.4 had): 1.11.0 takes `proc_run/4`'s deadline from the monotonic clock (each poll
   was charged its whole 200 ms step, so a child that printed more than about 20 bytes a millisecond of its budget was
   killed early, status 124) and mends three faults of the flow debugger; 1.11.2 has a debugger's window record only the
@@ -6471,9 +6481,13 @@ A lambda is a class of its captures (`library/ccl_cpp.pl`). A fixture named alon
   `flag/3`, `recorda/2`, `prolog_load_context/2`, `term_expansion`. `open/3` and `stream_position/2` are `library(stream)`'s (a module `make modules` builds), and
   `read_term/3` answers `term_position` since 1.10.7. Present: `abolish/1`, `clause/2`, `retract/1`, `nb_setval/2`, `b_getval/2`, `dynamic/1`,
   `read_file_to_codes/2`, `phrase/2,3`, `number_codes/2`, `statistics/2` (cputime, inferences, globalused, trailused,
-  atoms, functors, store_used), `get_time/1` (microseconds). `time_file/2` answers whole seconds.
-- An unset global throws an existence error: read it through `ccl_global/3`, or by a catch as a condition or under
-  `once/1`.
+  atoms, functors, store_used), `get_time/1` (microseconds); since 1.12.0 `nb_current/2`, `setarg/3` and
+  `nb_setarg/3` (which no file of cicilang calls; on a value that a ground read shares, since 1.12.1, they change the
+  global itself, so a term read from a global is copied first). `time_file/2` answers whole seconds.
+- `nb_getval/2` of an unset global throws an existence error. `nb_current(K, V)` (1.12.0) fails there in one inference;
+  a bound K that is no atom raises `type_error(atom, K)`, and an unbound K enumerates the globals, so a key is made
+  bound before the read. A global that may be unset is read through `ccl_global/3` (with a default) or `nb_current/2`
+  (0.149), never through a `catch/3` around `nb_getval/2`.
 - The query loop asks for a second answer, so an entry point is under `once/1` (`ccl_drive/2`). It reads standard
   input, so a background run gets `< /dev/null` and a pool job runs with `/dev/null` (`test/parlib.sh`): one job
   swallowed the queued job lines. (0.46, 0.106)

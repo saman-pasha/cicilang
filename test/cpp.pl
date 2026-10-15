@@ -29,7 +29,7 @@ check(Name, Goal) :-
 c(Name, Path) :- nb_getval('$t_cdir', C), atom_concat(C, Name, Path).
 unit(Name, U) :-
     c(Name, P), atom_concat('$t_unit:', P, K),
-    (   once(catch(nb_getval(K, U0), _, fail)) -> U = U0
+    (   once(nb_current(K, U0)) -> U = U0
     ;   cicilang_ast(P, U0), nb_setval(K, U0), U = U0 ).
 fn_body(Name, F, B) :- unit(Name, unit(Is)), member(function(_, _, _, F, _, _, block(B)), Is).
 %% a fixture read at a language level (-std=c++NN): the level set for the read, 17 again after

@@ -54,7 +54,7 @@ ccl_ir_units(Units0, IR) :-
     ->  ( ccl_cpp_units(Units0, Units) -> true ; ir_fail(phase(desugaring)) ),   % each phase says its own name when it merely FAILS, or the driver can only say `without saying why'
         ccl_scope_init, ir_note_units(Units), ir_cpp_prelude              % then the table again from what came out; new and delete are malloc and free
     ;   Units = Units0 ),
-    ( ccl_lang(cpp), catch(nb_getval('$cpp_eh_used', yes), _, fail) -> nb_setval('$ir_eh', yes) ; nb_setval('$ir_eh', no) ),   % a program that throws or catches lowers its calls under the EH rules (0.108)
+    ( ccl_lang(cpp), nb_current('$cpp_eh_used', yes) -> nb_setval('$ir_eh', yes) ; nb_setval('$ir_eh', no) ),   % a program that throws or catches lowers its calls under the EH rules (0.108)
     ir_cpp_trace(phase(check)),
     ( ccl_check_noted(Units) -> true ; ir_fail(phase(check)) ),          % the safe part first: a violation is a compile error
     nb_setval('$ir_fdefs', 0), nb_setval('$ir_gdefs', []), nb_setval('$ir_tent', []),               % a function's text is a global of its own, `'$ir_fdef:K'' (below): a list of every text so far was COPIED at each addition
@@ -79,13 +79,13 @@ ir_note_units([unit(Is)|Us]) :- ccl_items_note(Is), ir_note_units(Us).
 ir_units([]).
 ir_units([unit(Is)|Us]) :- ir_items(Is), ir_units(Us).
 ir_items([]).
-ir_items([I|Is]) :- ( catch(nb_getval('$cpp_trace', yes), _, fail) -> ir_item_name(I, W0), ir_mem(M), write(lower(W0, M)), nl, flush_output ; true ),   % under the C++ trace, each item as it is taken, with the heap and the store in KB: which one a silent runaway is in
+ir_items([I|Is]) :- ( nb_current('$cpp_trace', yes) -> ir_item_name(I, W0), ir_mem(M), write(lower(W0, M)), nl, flush_output ; true ),   % under the C++ trace, each item as it is taken, with the heap and the store in KB: which one a silent runaway is in
     ( catch(\+ \+ ir_item(I), E, ir_item_error(I, E)) -> true ; ir_item_name(I, W), ir_fail(item(W)) ), ir_items(Is).   % INSIDE `\+ \+': an item's text goes to the globals, and every intermediate of its lowering is reclaimed (cocolog reclaims on backtracking and by nothing else)
 %% the phases named under the C++ trace, so a run killed for its memory says which pass it was in
-ir_cpp_trace(T) :- ( catch(nb_getval('$cpp_trace', yes), _, fail) -> ir_mem(M), write(T-M), nl, flush_output ; true ).
+ir_cpp_trace(T) :- ( nb_current('$cpp_trace', yes) -> ir_mem(M), write(T-M), nl, flush_output ; true ).
 ir_mem(kb(G, S)) :- ( catch(( statistics(globalused, G0), statistics(store_used, S0) ), _, fail) -> G is G0 // 1024, S is S0 // 1024 ; G = 0, S = 0 ).   % cocolog 1.2.13's honest instrument (the process's RSS reads low on Darwin after a remap)
 %% an error out of an item carries the ITEM with it, so a raw type_error says which one raised it
-ir_item_error(I, error(not_lowered(X), Y)) :- !, ( catch(nb_getval('$cpp_trace', yes), _, fail) -> write(item_failed(X, I)), nl, flush_output ; true ), throw(error(not_lowered(X), Y)).   % under the C++ trace, the whole item: which local, which cast carried the type it could not take
+ir_item_error(I, error(not_lowered(X), Y)) :- !, ( nb_current('$cpp_trace', yes) -> write(item_failed(X, I)), nl, flush_output ; true ), throw(error(not_lowered(X), Y)).   % under the C++ trace, the whole item: which local, which cast carried the type it could not take
 ir_item_error(I, E) :- ir_item_name(I, W), ir_fail(item(W, raised(E))).
 %% which item the lowering could not take, when it merely FAILS: its shape and its name, not the whole term
 ir_item_name(function(_, _, _, N, _, _, B), function(N, BS)) :- !, ( B == none -> BS = none ; compound(B) -> functor(B, BF, BA), BS = BF/BA ; BS = B ).
@@ -106,7 +106,7 @@ ir_reset :-
 ir_get(K, V) :- nb_getval(K, V).                                       % every '$ir_*' key is set by ir_reset / ir_function
 %% the host's architecture, once per process: sysv (x86-64) or aapcs (arm64)
 ir_arch_init :-                                                                  % the module's compile-time arch (ccl_host_arch/1); uname only without it
-    (   once(catch(nb_getval('$ir_arch', _), _, fail)) -> true
+    (   once(nb_current('$ir_arch', _)) -> true
     ;   once(catch(ccl_host_arch(M0), _, fail)) -> ( M0 == arm64 -> A = aapcs ; A = sysv ), nb_setval('$ir_arch', A)
     ;   ( once(catch(proc_run('uname -m', 5000, Out, 0), _, fail)), ir_text_atom(Out, M), ( sub_atom(M, _, _, _, arm64) ; sub_atom(M, _, _, _, aarch64) ) -> A = aapcs ; A = sysv ),
         nb_setval('$ir_arch', A) ).
@@ -131,8 +131,8 @@ ir_block(L) :- ( ir_terminated(yes) -> true ; ir_dbg_parts(['br label %', L], Br
 %% library function gets none: its lines are a header's, and the line table names one file. The locations are
 %% one per line and function ('$ir_dbg_locs'). LLVM asks a location of every call in a function that has a
 %% subprogram; every instruction here gets one.
-ir_dbg_on(F) :- catch(nb_getval('$ccl_debug', file(F)), _, fail).
-ir_dbg_full :- catch(nb_getval('$ccl_debug_kind', K), _, fail), K \== lines.                % the variables and the types (0.130): not under -gline-tables-only and -g1
+ir_dbg_on(F) :- nb_current('$ccl_debug', file(F)).
+ir_dbg_full :- nb_current('$ccl_debug_kind', K), K \== lines.                % the variables and the types (0.130): not under -gline-tables-only and -g1
 %% ... but NO LOCATION IN THE PROLOGUE, where the parameters are stored (0.130), as clang has it: LLVM puts the prologue's end,
 %% where a debugger stops at a breakpoint on the function, at the first instruction with a location, and a parameter read
 %% there was not stored yet
@@ -356,7 +356,7 @@ ir_dbg_module(Lines) :-
         ( Dir0 == '' -> Dir = '/' ; Dir = Dir0 ), ir_dbg_escape(Base, EBase), ir_dbg_escape(Dir, EDir),
         nb_getval('$ir_dbg_globals', GVs0), reverse(GVs0, GVs), ( GVs == [] -> GT = '' ; atomic_list_concat(GVs, ', !', GJ), atomic_list_concat([', globals: !{!', GJ, '}'], GT) ),
         ( ir_dbg_full -> EK = 'FullDebug' ; EK = 'LineTablesOnly' ),
-        ( ir_dbg_full, catch(nb_getval('$ccl_debug_macros', events(MEs)), _, fail), MEs \== [] -> ir_dbg_macros(MEs, EDir, MacT) ; MacT = '' ),
+        ( ir_dbg_full, nb_current('$ccl_debug_macros', events(MEs)), MEs \== [] -> ir_dbg_macros(MEs, EDir, MacT) ; MacT = '' ),
         atomic_list_concat(['!0 = distinct !DICompileUnit(language: ', Lang, ', file: !3, producer: "cicilang ', V, '", isOptimized: false, runtimeVersion: 0, emissionKind: ', EK, GT, MacT, ', nameTableKind: None)'], CU),
         atomic_list_concat(['!3 = !DIFile(filename: "', EBase, '", directory: "', EDir, '")'], FL),
         nb_getval('$ir_dbg_md', Ms0), reverse(Ms0, Ms),
@@ -399,7 +399,7 @@ ir_dbg_ids(Ids, T) :- findall(A, ( member(I, Ids), atom_concat('!', I, A) ), As)
 ir_dbg_predef_macros(Ids, Md0, Md) :-
     findall(N, pp_predef(N, _, _), Ns0), sort(Ns0, Ns),
     findall(N-V, ( member(N, Ns), \+ pp_cmdline(N, _), catch(pp_predef_macro(N, obj, Cs), _, fail), pp_mt_squash(Cs, V) ), Ps),
-    ( catch(nb_getval('$pp_cmdline', CL), _, fail) -> true ; CL = [] ),
+    ( nb_current('$pp_cmdline', CL) -> true ; CL = [] ),
     findall(Nm-V, ( member(N-def(Prm, Cs), CL), ( Prm == obj -> Nm = N ; pp_mt_params(Prm, PT), atomic_list_concat([N, '(', PT, ')'], Nm) ), pp_mt_squash(Cs, V) ), Ds),
     append(Ps, Ds, All), ir_dbg_predef_lines(All, Ids, Md0, Md).
 ir_dbg_predef_lines([], [], Md, Md).
@@ -467,11 +467,11 @@ ir_depth(K) :- nb_getval('$ir_defers', D), length(D, K).
 %% where it walks; this covers a defer in code only a goto skips). A backward goto into a block runs, as one in the
 %% label's own frame does, the defers its shared frame gained since the label. A goto into the scope of a VLA is
 %% refused, `goto_into_vla(L)' (C 6.8.6.1/1): the array's size was never computed.
-ir_bpath_push :- ( catch(nb_getval('$ir_bpath', P), _, fail) -> true ; P = [] ), ( catch(nb_getval('$ir_bid', N0), _, fail) -> true ; N0 = 0 ),
+ir_bpath_push :- ( nb_current('$ir_bpath', P) -> true ; P = [] ), ( nb_current('$ir_bid', N0) -> true ; N0 = 0 ),
     N is N0 + 1, nb_setval('$ir_bid', N), nb_setval('$ir_bpath', [N|P]).
-ir_bpath_pop :- ( catch(nb_getval('$ir_bpath', [_|P]), _, fail) -> nb_setval('$ir_bpath', P) ; true ).
-ir_bpath_root(P) :- ( catch(nb_getval('$ir_bpath', P0), _, fail) -> true ; P0 = [] ), reverse(P0, P).
-ir_goto(L, Ln, LL) :- ir_bpath_root(GP), ( catch(nb_getval('$ir_labels', Ls), _, fail) -> true ; Ls = [] ),
+ir_bpath_pop :- ( nb_current('$ir_bpath', [_|P]) -> nb_setval('$ir_bpath', P) ; true ).
+ir_bpath_root(P) :- ( nb_current('$ir_bpath', P0) -> true ; P0 = [] ), reverse(P0, P).
+ir_goto(L, Ln, LL) :- ir_bpath_root(GP), ( nb_current('$ir_labels', Ls) -> true ; Ls = [] ),
     (   memberchk(L-lab(LP, Counts, Vlas), Ls)
     ->  ir_common_prefix(GP, LP, CP), length(GP, NG), length(LP, NL), length(CP, NC), K is NG - NC, Enter is NL - NC,
         ir_skip_check(L, Enter, Counts, Vlas, none),
@@ -481,14 +481,14 @@ ir_goto(L, Ln, LL) :- ir_bpath_root(GP), ( catch(nb_getval('$ir_labels', Ls), _,
     ;   nb_getval('$ir_defers', D), forall(member(F, D), F == [])
     ->  ir_end(['br label %', LL])
     ;   ir_label(G), ir_end(['br label %', G]), nb_getval('$ir_defers', D), nb_getval('$ir_env', E), nb_getval('$ccl_scope', Sc),
-        ( catch(nb_getval('$ir_fwd', Fw), _, fail) -> true ; Fw = [] ), nb_setval('$ir_fwd', [fwd(L, G, Ln, GP, D, E, Sc)|Fw]) ).
+        ( nb_current('$ir_fwd', Fw) -> true ; Fw = [] ), nb_setval('$ir_fwd', [fwd(L, G, Ln, GP, D, E, Sc)|Fw]) ).
 ir_run_since_label(K, LCount) :- nb_getval('$ir_defers', D), length(Skip, K), append(Skip, [F|_], D), !, length(F, N), New is N - LCount,
     ( New > 0 -> length(Bs, New), append(Bs, _, F), ir_run_bodies(Bs) ; true ).
 ir_run_since_label(_, _).
 ir_label_here(L, LL) :- ir_bpath_root(LP), nb_getval('$ir_defers', D0), findall(N, ( member(F, D0), length(F, N) ), Counts),
     ir_vla_counts(Vlas), ir_fwd_check(L, LP, Counts, Vlas),
-    ( catch(nb_getval('$ir_labels', Ls), _, fail) -> true ; Ls = [] ), nb_setval('$ir_labels', [L-lab(LP, Counts, Vlas)|Ls]),
-    ( catch(nb_getval('$ir_fwd', Fw), _, fail) -> true ; Fw = [] ),
+    ( nb_current('$ir_labels', Ls) -> true ; Ls = [] ), nb_setval('$ir_labels', [L-lab(LP, Counts, Vlas)|Ls]),
+    ( nb_current('$ir_fwd', Fw) -> true ; Fw = [] ),
     findall(X, ( member(X, Fw), X = fwd(L, _, _, _, _, _, _) ), Mine),
     (   Mine == [] -> ir_block(LL)
     ;   findall(X, ( member(X, Fw), \+ X = fwd(L, _, _, _, _, _, _) ), Rest), nb_setval('$ir_fwd', Rest),
@@ -497,8 +497,8 @@ ir_label_here(L, LL) :- ir_bpath_root(LP), nb_getval('$ir_defers', D0), findall(
         ir_block(LL) ).
 %% a forward goto notes its path and the defers and VLAs of its frames; its label checks what the jump skips
 ir_fwd_note(L, GP) :- nb_getval('$ir_defers', D), findall(N, ( member(F, D), length(F, N) ), Counts), ir_vla_counts(Vlas),
-    ( catch(nb_getval('$ir_fwdk', K0), _, fail) -> true ; K0 = [] ), nb_setval('$ir_fwdk', [k(L, GP, Counts, Vlas)|K0]).
-ir_fwd_check(L, LP, Counts, Vlas) :- ( catch(nb_getval('$ir_fwdk', K0), _, fail) -> true ; K0 = [] ),
+    ( nb_current('$ir_fwdk', K0) -> true ; K0 = [] ), nb_setval('$ir_fwdk', [k(L, GP, Counts, Vlas)|K0]).
+ir_fwd_check(L, LP, Counts, Vlas) :- ( nb_current('$ir_fwdk', K0) -> true ; K0 = [] ),
     forall(member(k(L, GP, GC, GV), K0),
            ( ir_common_prefix(GP, LP, CP), length(GP, NG), length(LP, NL), length(CP, NC), Enter is NL - NC, GI is NG - NC,
              nth0(GI, GC, GN), nth0(GI, GV, GVN), ir_skip_check(L, Enter, Counts, Vlas, GN-GVN) )).
@@ -807,7 +807,7 @@ ir_is_aggregate(base(_, [union(_, Ms)])) :- Ms \== none.
 %% desugaring marks such classes ('$cpp_nontrivial', 0.73), and the program's own follow the same rule on both
 %% sides of every call.
 ir_abi_(_, base(_, [struct(C, _)]), LL, _, A, indirect(LL, A)) :- ir_nontrivial_class(C), !.
-ir_nontrivial_class(C) :- atom(C), catch(nb_getval('$cpp_nontrivial', L), _, fail), memberchk(C, L).
+ir_nontrivial_class(C) :- atom(C), nb_current('$cpp_nontrivial', L), memberchk(C, L).
 ir_abi_(_, _, _, 0, _, direct([piece(i8, 0)])) :- !.   % an EMPTY class (an allocator, a comparator, a tag): C++ gives it size one, and one byte crosses a call -- with no leaves it classified as no pieces at all, which has no type
 ir_abi_(sysv, T, LL, N, A, Abi) :- ( N > 16 -> Abi = memory(LL, A) ; ir_leaves(T, 0, Ls), ( memberchk(leaf(_, x87), Ls) -> Abi = memory(LL, A) ; ir_eightbytes(Ls, N, 0, Ps), Abi = direct(Ps) ) ).   % an X87 class goes in memory (0.108)
 %% A RESULT HOLDING X87 CLASSES COMES BACK ON THE x87 STACK (SysV 3.2.3, 0.108): a struct of one long double in %st0, a
@@ -1255,7 +1255,7 @@ ir_dec_convert(V, From, FL, To, TL, V1) :- ccl_decimal_kind(From, KF), ir_dec_sf
 %% functions of module/bidrt.c, which cicilang compiles into library/ccl_bidrt.pl (module/gen-bidrt.sh), go into the module,
 %% internal, every one noted at the first such conversion -- before the call notes its own declaration, which then is none
 ir_dec_rt128 :- ir_bidrt_ready, forall(ccl_bidrt_text(N, T), ir_note_extern(N, raw(T))).
-ir_bidrt_ready :- once(catch(nb_getval('$ccl_bidrt', yes), _, fail)), !.
+ir_bidrt_ready :- once(nb_current('$ccl_bidrt', yes)), !.
 ir_bidrt_ready :- ccl_library_dirs(Ds), member(D, Ds), atomic_list_concat([D, '/ccl_bidrt.pl'], P), exists_file(P), !, ensure_loaded(P), nb_setval('$ccl_bidrt', yes).
 ir_bidrt_ready :- ir_fail(decimal_conversion_helpers_missing).
 ir_dec_fpname(float, sf).  ir_dec_fpname(double, df).  ir_dec_fpname(x86_fp80, xf).  ir_dec_fpname(fp128, tf).
@@ -2123,7 +2123,7 @@ ir_emit_call(R, Sig, Callee, ArgTxt) :- ir_invoke_needed, !,
     ir_landing_pad(Llp), ir_block(Lok).
 ir_emit_call(none, Sig, Callee, ArgTxt) :- !, ir_ins(['call ', Sig, ' ', Callee, '(', ArgTxt, ')']).
 ir_emit_call(R, Sig, Callee, ArgTxt) :- ir_ins([R, ' = call ', Sig, ' ', Callee, '(', ArgTxt, ')']).
-ir_invoke_needed :- catch(nb_getval('$ir_eh', yes), _, fail), nb_getval('$ir_unwinding', no),
+ir_invoke_needed :- nb_current('$ir_eh', yes), nb_getval('$ir_unwinding', no),
     ( nb_getval('$ir_tries', [_|_]) -> true ; nb_getval('$ir_defers', Fs), member(F, Fs), F \== [] ), !.
 ir_eh_slots(E, S) :- nb_getval('$ir_ehslots', X), ( X = slots(E, S) -> true ; ir_tmp(ptr, E), ir_tmp(i32, S), nb_setval('$ir_ehslots', slots(E, S)) ).
 ir_landing_pad(Llp) :-

@@ -30,7 +30,7 @@ ccl_link(Objects, Flags, Out) :-
 %% THE LINKER: cc, or c++ for cicilang++; for another machine (dr_set_target/1) its cross gcc, `aarch64-linux-gnu-gcc' (0.131)
 ccl_linker(Ld) :- ccl_cross_target(A, O), ccl_cross_prefix(A, O, P), !, ( ccl_lang(cpp) -> atom_concat(P, '-g++', Ld) ; atom_concat(P, '-gcc', Ld) ).
 ccl_linker(Ld) :- ( ccl_lang(cpp) -> Ld = 'c++' ; Ld = cc ).
-ccl_cross_target(A, O) :- catch(nb_getval('$ccl_target', target(A, O, _)), _, fail), \+ ( catch(ccl_host_arch(A), _, fail), catch(ccl_host_os(O), _, fail) ).
+ccl_cross_target(A, O) :- nb_current('$ccl_target', target(A, O, _)), \+ ( catch(ccl_host_arch(A), _, fail), catch(ccl_host_os(O), _, fail) ).
 ccl_cross_prefix(arm64, linux, 'aarch64-linux-gnu').
 ccl_cross_prefix(x86_64, linux, 'x86_64-linux-gnu').
 %% THE C++ RUNTIME IS NAMED ON LINUX (0.93): a program is compiled against libc++'s headers (the one tree this compiler reads,

@@ -153,7 +153,7 @@ ccl_cv_binary(Op, A, B, X, Y, V0, V) :-
     ->  ccl_cv_width(TL0, TL), ccl_w_cast(TL, X, X1), ccl_const_op('>>', X1, Y, V)
     ;   V = V0 ).
 ccl_cv_small(X) :- integer(X), X >= 0, X < 2147483648.
-ccl_cv_pp :- catch(nb_getval('$ccl_cv_pp', yes), _, fail).
+ccl_cv_pp :- nb_current('$ccl_cv_pp', yes).
 ccl_cv_width(T0, T) :- ( ccl_cv_pp -> T = base([], [unsigned, long]) ; T = T0 ).   % `#if' computes in uintmax_t (C 6.10.1/4): an unsigned operation is 64 bits wide there
 ccl_cv_unsigned(T) :- ccl_is_integer(T), \+ ccl_is_bool_type(T), ccl_int_rank(T, _, true), !.
 ccl_is_bool_type(T) :- ccl_resolve_type(T, base(_, S)), ( memberchk(bool, S) ; memberchk('_Bool', S) ), !.
@@ -790,7 +790,7 @@ ccl_offset_member_of(R, N, MT, MO) :- ccl_members_of(R, Ms), ( R = base(_, [unio
     ( memberchk(lay(N, MT, MO, _), Lays) -> true
     ; member(lay(A, AT, AO, _), Lays), ccl_anon_member(A), ccl_resolve_type(AT, AR), ccl_offset_member_of(AR, N, MT, O2), MO is AO + O2 ), !.
 ccl_anon_member(A) :- atom(A), sub_atom(A, 0, _, _, '$anon'), !.
-ccl_long_double(K) :- catch(nb_getval('$ccl_ldbl', K0), _, fail), !, K = K0.
+ccl_long_double(K) :- nb_current('$ccl_ldbl', K0), !, K = K0.
 ccl_long_double(K) :- ( once(catch(pp_arch(A), _, fail)) -> true ; A = x86_64 ),   % the target's (0.131): an IEEE quad on Linux aarch64, a double on Apple's arm64, x87's on x86-64
     ( A == arm64, once(catch(pp_os(linux), _, fail)) -> K0 = quad ; A == arm64 -> K0 = double ; K0 = x87 ), nb_setval('$ccl_ldbl', K0), K = K0.
 %% PLAIN CHAR AND wchar_t ARE UNSIGNED ON LINUX AARCH64 (AAPCS64; 0.131), as clang has them (`__CHAR_UNSIGNED__', `__WCHAR_UNSIGNED__')

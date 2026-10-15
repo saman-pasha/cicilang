@@ -204,7 +204,7 @@ ccl_uname_value(Cs, U) :- ccl_uninames_ready, ccl_uname_range(P, Lo, Hi), atom_c
 ccl_uname_value(Cs, U) :- atom_codes(A, Cs), ccl_uninames_ready, ccl_uname(A, U), !.
 ccl_upper_hex([]).
 ccl_upper_hex([D|Ds]) :- ( D >= 0'0, D =< 0'9 ; D >= 0'A, D =< 0'F ), ccl_upper_hex(Ds).
-ccl_uninames_ready :- once(catch(nb_getval('$ccl_uninames', yes), _, fail)), !.
+ccl_uninames_ready :- once(nb_current('$ccl_uninames', yes)), !.
 ccl_uninames_ready :- ccl_library_dirs(Ds), member(D, Ds), atomic_list_concat([D, '/ccl_uninames.pl'], P), exists_file(P), !, ensure_loaded(P), nb_setval('$ccl_uninames', yes).
 ccl_hex_n(0, []) --> !.
 ccl_hex_n(N, [D|Ds]) --> [D], { ccl_hexdigit(D), N1 is N - 1 }, ccl_hex_n(N1, Ds).
@@ -359,7 +359,7 @@ ccl_c_keyword(K) :- memberchk(K, [auto, break, case, char, const, continue, defa
 ccl_lang(L) :- nb_getval('$ccl_lang', L).
 ccl_std_at_least(N) :- ccl_std(S), S >= N.                                          % the language level asked (-std=c++NN; 17 without)
 %% C's OWN level (-std=c23; C17 without), which is not C++'s: the numbers 17 and 23 are both languages'
-ccl_c_std(S) :- ( catch(nb_getval('$ccl_c_std', S0), _, fail) -> S = S0 ; S = 17 ).
+ccl_c_std(S) :- ( nb_current('$ccl_c_std', S0) -> S = S0 ; S = 17 ).
 ccl_c23_ :- ccl_lang(c), ccl_c_std(S), S >= 23.
 ccl_c23 --> { ccl_c23_ }.
 ccl_c_or_cpp --> { ( ccl_c23_ -> true ; ccl_lang(cpp) ) }.                          % a form C23 took from C++: read in C++ at every level, in C from C23
@@ -527,7 +527,7 @@ ccl_tabs_reset :- ccl_tab_reset('$ccl_gscope'), ccl_tab_reset('$ccl_typedefs'), 
 %% a name the file scope's cache remembers -- found or MISSING (0.112: ccl_cached_named) -- is looked up again once it is
 %% declared: as a miss it hid the declaration, as an answer it kept the type of an older one
 ccl_gdeclare_recheck([]).
-ccl_gdeclare_recheck([N-_|Ds]) :- ( atom(N), atom_concat('$ccl_g:', N, K), catch(nb_getval(K, _), _, fail) -> nb_setval(K, '$ccl_recheck') ; true ), ccl_gdeclare_recheck(Ds).
+ccl_gdeclare_recheck([N-_|Ds]) :- ( atom(N), atom_concat('$ccl_g:', N, K), nb_current(K, _) -> nb_setval(K, '$ccl_recheck') ; true ), ccl_gdeclare_recheck(Ds).
 %% a list of declarations into the innermost frame -- the file scope's when no frame is open
 ccl_scope_add(Ds) :- nb_getval('$ccl_scope', S), ( S = [F|S1] -> append(Ds, F, F1), nb_setval('$ccl_scope', [F1|S1]) ; ccl_gdeclare(Ds) ).
 ccl_note_typedef(N, T) :- ccl_tab_add('$ccl_typedefs', [N-T]), ccl_tables_changed.
@@ -805,21 +805,22 @@ ccl_env_member(Env, N) :- var(Env), !, ccl_set_has('$ccl_envs', N).             
 ccl_env_member([H|T], N) :- !, ( H == N -> true ; ccl_env_member(T, N) ).
 ccl_env_member(_, N) :- ccl_set_has('$ccl_envs', N).
 %% ---- a SET of names in BUCKETS, a global each: membership without a copy of the set --------------------------------
-%% cocolog copies a global whole at every nb_getval and reclaims the heap on backtracking only (its DESIGN-compiling.md:
-%% no collector), so a deterministic run keeps every copy. A name's bucket is its first and last character and its
-%% length modulo 7, a dozen names; the list of all names stays beside the set for the enumerations and the snapshots
-%% (ccl_save_globals), and every write of such a list goes through the set as well: ccl_env_put/1, ccl_add_env/1,
-%% ccl_add_envs/1, ccl_tparams_leave/1, ccl_note_template/1, ccl_note_templates/1.
+%% cocolog copies a global at every nb_setval and at a read (as one block since 1.12.1, a ground value's copy shared
+%% while it lives), so one list of every name would be copied whole at each add and at the asks after it. A name's
+%% bucket is its first and last character and its length modulo 7, a dozen names; the list of all names stays beside
+%% the set for the enumerations and the snapshots (ccl_save_globals), and every write of such a list goes through the
+%% set as well: ccl_env_put/1, ccl_add_env/1, ccl_add_envs/1, ccl_tparams_leave/1, ccl_note_template/1,
+%% ccl_note_templates/1. A bucket that may not exist yet is read with nb_current/2 (0.149).
 ccl_set_bucket(Set, N, K) :- atom_length(N, Len), M is Len mod 7, sub_atom(N, 0, 1, _, F), sub_atom(N, _, 1, 0, L), atomic_list_concat([Set, F, L, M], K).
-ccl_set_has(Set, N) :- atom(N), ccl_set_bucket(Set, N, K), catch(nb_getval(K, B), _, ( ccl_set_new_bucket(Set, K), fail )), memberchk(N, B).
-ccl_set_add(Set, N) :- atom(N), ccl_set_bucket(Set, N, K), ( catch(nb_getval(K, B), _, fail) -> true ; ccl_set_new_bucket(Set, K), B = [] ), ( memberchk(N, B) -> true ; nb_setval(K, [N|B]) ).
-ccl_set_del(Set, N) :- atom(N), ccl_set_bucket(Set, N, K), ( catch(nb_getval(K, B), _, fail) -> ccl_delete_one(B, N, B1), nb_setval(K, B1) ; true ).
-ccl_set_new_bucket(Set, K) :- nb_setval(K, []), atom_concat(Set, ':keys', KK), ( catch(nb_getval(KK, Ks), _, fail) -> true ; Ks = [] ), nb_setval(KK, [K|Ks]).   % a bucket once made stays, so a miss never throws again (a bare catch, NOT ccl_global/3: that one runs ccl_ensure_globals first, which is where these sets are first filled -- an endless re-entry that took the machine down)
+ccl_set_has(Set, N) :- atom(N), ccl_set_bucket(Set, N, K), ( nb_current(K, B) -> true ; ccl_set_new_bucket(Set, K), fail ), memberchk(N, B).
+ccl_set_add(Set, N) :- atom(N), ccl_set_bucket(Set, N, K), ( nb_current(K, B) -> true ; ccl_set_new_bucket(Set, K), B = [] ), ( memberchk(N, B) -> true ; nb_setval(K, [N|B]) ).
+ccl_set_del(Set, N) :- atom(N), ccl_set_bucket(Set, N, K), ( nb_current(K, B) -> ccl_delete_one(B, N, B1), nb_setval(K, B1) ; true ).
+ccl_set_new_bucket(Set, K) :- nb_setval(K, []), atom_concat(Set, ':keys', KK), ( nb_current(KK, Ks) -> true ; Ks = [] ), nb_setval(KK, [K|Ks]).   % a bucket once made stays (a bare nb_current/2, NOT ccl_global/3: that one runs ccl_ensure_globals first, which is where these sets are first filled -- an endless re-entry that took the machine down)
 ccl_set_adds(_, []).
 ccl_set_adds(Set, [N|Ns]) :- ( atom(N) -> ccl_set_add(Set, N) ; true ), ccl_set_adds(Set, Ns).
 ccl_set_dels(_, []).
 ccl_set_dels(Set, [N|Ns]) :- ( atom(N) -> ccl_set_del(Set, N) ; true ), ccl_set_dels(Set, Ns).
-ccl_set_clear(Set) :- atom_concat(Set, ':keys', KK), ( catch(nb_getval(KK, Ks), _, fail) -> true ; Ks = [] ), ccl_set_clear_(Ks).
+ccl_set_clear(Set) :- atom_concat(Set, ':keys', KK), ( nb_current(KK, Ks) -> true ; Ks = [] ), ccl_set_clear_(Ks).
 ccl_set_clear_([]).
 ccl_set_clear_([K|Ks]) :- nb_setval(K, []), ccl_set_clear_(Ks).
 ccl_set_rebuild(Set, Ns) :- ccl_set_clear(Set), ccl_set_adds(Set, Ns).
@@ -890,16 +891,16 @@ ccl_export_items(Env0, Env, [I|Is]) --> ccl_external(Env0, Env1, I), ccl_export_
 %% WHAT A MODULE EXPORTS (0.110): the names of the items `export' marks, noted under the file being read -- an interface
 %% unit that imports another is read inside it, so the current module's name would not say whose export it is
 ccl_note_export(I) :- ccl_global('$ccl_file', F, none), findall(N, ccl_item_defines(I, N), Ns),
-    ( catch(nb_getval('$ccl_exports', E0), _, fail) -> true ; E0 = [] ), findall(F-N, member(N, Ns), New), append(New, E0, E1), nb_setval('$ccl_exports', E1).
+    ( nb_current('$ccl_exports', E0) -> true ; E0 = [] ), findall(F-N, member(N, Ns), New), append(New, E0, E1), nb_setval('$ccl_exports', E1).
 ccl_item_defines(function(_, _, _, N, _, _, _), N) :- atom(N).
 ccl_item_defines(declaration(_, _, _, Vs), N) :- member(var(N, _, _), Vs), atom(N).
 ccl_item_defines('$splice'(Is), N) :- member(I, Is), ccl_item_defines(I, N).
 ccl_item_defines(template(_, _, I), N) :- ccl_item_defines(I, N).
-ccl_exported(F, N) :- catch(nb_getval('$ccl_exports', E), _, fail), memberchk(F-N, E).
+ccl_exported(F, N) :- nb_current('$ccl_exports', E), memberchk(F-N, E).
 ccl_note_module(N) :- ccl_global('$ccl_file', F, none), nb_setval('$ccl_cur_module', N),
-    ( catch(nb_getval('$ccl_modules', M0), _, fail) -> true ; M0 = [] ), ( F == none -> true ; nb_setval('$ccl_modules', [N-F|M0]) ).
+    ( nb_current('$ccl_modules', M0) -> true ; M0 = [] ), ( F == none -> true ; nb_setval('$ccl_modules', [N-F|M0]) ).
 ccl_import(L, header(Spec), Env0, Env, include(L, Spec, R)) :- !, ccl_include(Spec, R), ccl_include_typedefs(R, Env0, Env), ccl_include_macros(R), ccl_include_scope(R).
-ccl_import(L, partition(P), Env0, Env, I) :- !, ( catch(nb_getval('$ccl_cur_module', M), _, fail) -> true ; M = '' ), ( sub_atom(M, B, _, _, ':') -> sub_atom(M, 0, B, _, M1) ; M1 = M ),
+ccl_import(L, partition(P), Env0, Env, I) :- !, ( nb_current('$ccl_cur_module', M) -> true ; M = '' ), ( sub_atom(M, B, _, _, ':') -> sub_atom(M, 0, B, _, M1) ; M1 = M ),
     atomic_list_concat([M1, ':', P], N), ccl_import(L, module(N), Env0, Env, I).
 ccl_import(L, module(N), Env0, Env, '$splice'(Is)) :- memberchk(N, [std, 'std.compat']), !,
     ccl_std_module_headers(Hs), ccl_import_headers(Hs, L, Env0, Env, Is).
@@ -1000,11 +1001,11 @@ ccl_vt_scan([T|Ts], _) :- ccl_vt_scan(Ts, T).
 %% inside (a cast, a template argument in a decltype) consult -- and gone after it
 ccl_tparams_enter(G0, Ps, New) :- findall(N, ( member(tparam(K, N, _), Ps), atom(N), ( K == type ; K == pack ; K == template ) ), Ns), ccl_new_names(Ns, G0, New),   % added as each was read (ccl_tparam)
     findall(V, ( member(tparam(K, V, _), Ps), atom(V), V \== anon, K \== type, K \== pack, K \== template ), Vs),   % ... and a VALUE parameter's name, which hides a typedef of that name for the item (ccl_value_param)
-    ( catch(nb_getval('$ccl_vparams', VF), _, fail) -> true ; VF = [] ), nb_setval('$ccl_vparams', [Vs|VF]), nb_setval('$ccl_vhead', []),
+    ( nb_current('$ccl_vparams', VF) -> true ; VF = [] ), nb_setval('$ccl_vparams', [Vs|VF]), nb_setval('$ccl_vhead', []),
     nb_getval('$ccl_tmpl_depth', D), D1 is D + 1, nb_setval('$ccl_tmpl_depth', D1),
     nb_getval('$ccl_tt_pending', TT), nb_setval('$ccl_tt_pending', []), nb_getval('$ccl_tt_frames', Fs), nb_setval('$ccl_tt_frames', [TT|Fs]).   % the template template parameters noted while the head was read: this item's, un-noted at its end
 ccl_tparams_leave(New) :- nb_getval('$ccl_tmpl_depth', D), D1 is D - 1, nb_setval('$ccl_tmpl_depth', D1),
-    ( catch(nb_getval('$ccl_vparams', [_|VF]), _, fail) -> nb_setval('$ccl_vparams', VF) ; true ),
+    ( nb_current('$ccl_vparams', [_|VF]) -> nb_setval('$ccl_vparams', VF) ; true ),
     ( New == [] -> true ; nb_getval('$ccl_env', G), findall(X, ( member(X, G), \+ memberchk(X, New) ), G1), nb_setval('$ccl_env', G1), ccl_set_dels('$ccl_envs', New) ),
     ( nb_getval('$ccl_tt_frames', [TT|Fs]) -> nb_setval('$ccl_tt_frames', Fs), ccl_unnote_templates(TT) ; true ).
 %% A TEMPLATE TEMPLATE PARAMETER'S NAME IS A TEMPLATE INSIDE ITS ITEM AND NOWHERE ELSE (0.93): noted so that
@@ -1290,7 +1291,7 @@ ccl_cpp_type(Env, Sc, typedef(Q)) --> ccl_qname(Env, type, Q), { compound(Q) }, 
 %% an unknown qualified name is a type where a declarator follows it (`ns::what &w', `ns::T x'), an expression where `(' does (`std::move(a)')
 ccl_declarator_follows(S, S) :- S = [tok(K, V, _)|_], ( K == id ; K == p, memberchk(V, ['*', '&', '&&']) ; K == kw, ccl_qualifier(V) ), !.
 %% a qualified name is a type when its last name is one: `S b(std::move(a))' declares no function taking a std::move
-ccl_qname_typish(_, tmpl(N, _)) :- !, ( \+ ccl_fn_template(N) -> true ; catch(nb_getval('$ccl_alias_rhs', yes), _, fail) ).                  % a template-id is a type unless the template is a FUNCTION's: `T &r(std::forward<U>(v))' declared a function taking a `std::forward<U>' (0.45's rule, which had covered the bare name `std::move' and not the explicit form)
+ccl_qname_typish(_, tmpl(N, _)) :- !, ( \+ ccl_fn_template(N) -> true ; nb_current('$ccl_alias_rhs', yes) ).                  % a template-id is a type unless the template is a FUNCTION's: `T &r(std::forward<U>(v))' declared a function taking a `std::forward<U>' (0.45's rule, which had covered the bare name `std::move' and not the explicit form)
 ccl_qname_typish(Env, scoped(_, Last)) :- !, ccl_qname_typish(Env, Last).
 ccl_qname_typish(Env, N) :- atom(N), ( ccl_known_typedef(Env, N) ; ccl_known_template(N), \+ ccl_fn_template(N) ; memberchk(N, [string, wstring, size_t, ptrdiff_t, nullptr_t, byte, type, value_type, pointer, reference, const_reference, iterator, const_iterator, size_type, difference_type, element_type]) ), !.
 ccl_type_follows(Sc) --> { memberchk(Sc, [file, param, member, typename]) }, !.
@@ -1368,9 +1369,9 @@ ccl_local_variable(N) :- ccl_value_param(N).
 %% of libc++'s classes made `bitset<_Size>' of `template <size_t _Size>' a TYPE argument, so none of std::bitset's members
 %% defined out of the class matched the instance bitset<16> (`_Size' bound no value) and its `set', `flip', `count' and `test'
 %% stayed declarations -- an undefined reference at the link
-ccl_value_param(N) :- catch(nb_getval('$ccl_vhead', H), _, fail), memberchk(N, H), !.
-ccl_value_param(N) :- catch(nb_getval('$ccl_vparams', Fs), _, fail), member(F, Fs), memberchk(N, F), !.
-ccl_vhead_add(N) :- ( atom(N), N \== anon -> ( catch(nb_getval('$ccl_vhead', H), _, fail) -> true ; H = [] ), nb_setval('$ccl_vhead', [N|H]) ; true ).
+ccl_value_param(N) :- nb_current('$ccl_vhead', H), memberchk(N, H), !.
+ccl_value_param(N) :- nb_current('$ccl_vparams', Fs), member(F, Fs), memberchk(N, F), !.
+ccl_vhead_add(N) :- ( atom(N), N \== anon -> ( nb_current('$ccl_vhead', H) -> true ; H = [] ), nb_setval('$ccl_vhead', [N|H]) ; true ).
 ccl_typedef_name(_, _, N) --> ccl_id(N), { \+ ccl_gnu_word(N) }, ccl_peek(id, M), { \+ ccl_gnu_word(M) }, !.   % name x
 ccl_typedef_name(_, Sc, N) --> { memberchk(Sc, [file, param, member]) }, ccl_id(N), { \+ ccl_gnu_word(N) }, ccl_peek(p, '*'), !.   % name * x
 %% in a C++ parameter list a lone name before `,' or `)' is an UNNAMED PARAMETER of that type -- nothing else can stand there --
@@ -1439,7 +1440,7 @@ ccl_skip_attr --> [tok(id, W, _)], { ccl_nua_word(W) }, !, { nb_setval('$ccl_nua
 ccl_skip_attr --> [_], ccl_skip_attr.
 ccl_nua_word(no_unique_address).
 ccl_nua_word('__no_unique_address__').
-ccl_take_nua(Nua) :- ( catch(nb_getval('$ccl_nua', yes), _, fail) -> Nua = no_unique_address ; Nua = none ), nb_setval('$ccl_nua', no).
+ccl_take_nua(Nua) :- ( nb_current('$ccl_nua', yes) -> Nua = no_unique_address ; Nua = none ), nb_setval('$ccl_nua', no).
 ccl_gnu_attr --> ccl_id(A), { memberchk(A, ['__attribute__', '__attribute']) }, !, ccl_p('('), ccl_p('('), ccl_hidden_note, ccl_balanced, ccl_p(')'), ccl_p(')').
 %% ... and ONE GNU ATTRIBUTE IS NOTED as it goes past (0.112): `__visibility__("hidden")', which is how libc++ marks a member
 %% it never exports (`_LIBCPP_HIDE_FROM_ABI'). On a member defined out of its class it becomes `hidden(Sto)' in the storage
@@ -1447,8 +1448,8 @@ ccl_gnu_attr --> ccl_id(A), { memberchk(A, ['__attribute__', '__attribute']) }, 
 %% `_LIBCPP_HIDE_FROM_ABI void basic_stringbuf<...>::__init_buf_ptrs() { ... }' without the `inline' 0.75's rule reads,
 %% and the link named the symbol
 ccl_hidden_note(S, S) :- ( S = [tok(id, V, _), tok(p, '(', _), tok(str, [104, 105, 100, 100, 101, 110], _)|_], memberchk(V, ['__visibility__', visibility]) -> nb_setval('$ccl_hidden', yes) ; true ).
-ccl_hidden_now :- catch(nb_getval('$ccl_hidden', yes), _, fail).
-ccl_hidden_lead :- catch(nb_getval('$ccl_hidden_lead', yes), _, fail).   % a leading attribute's mark, carried past the item rule that dropped it
+ccl_hidden_now :- nb_current('$ccl_hidden', yes).
+ccl_hidden_lead :- nb_current('$ccl_hidden_lead', yes).   % a leading attribute's mark, carried past the item rule that dropped it
 ccl_gnu_attr --> ccl_id(A), { memberchk(A, ['__asm', '__asm__']) }, !, ccl_p('('), ccl_balanced, ccl_p(')').   % int f(void) __asm("_f")
 %% ... AND A NULLABILITY WORD MAY CARRY AN ARGUMENT LIST: glibc's `__nonnull(params)' reaches this
 %% reader as `_Nonnull ( ( 1 ) )' -- a spelling no compiler emits on purpose. It is ours: the
@@ -1628,7 +1629,7 @@ ccl_member_decl(Env, Ms) --> ccl_decl_specs(Env, member, Sto, Base0), { ccl_memb
 %% member of its own, named `$anonK' so the layout lays it out, whose members are the holder's own: a use of `u' is
 %% routed through it (ccl_anon_route) by the inference, the lowering and a designated initializer alike
 ccl_anon_aggregate(base(_, [S])) :- ( S = struct(anon, Ms) ; S = union(anon, Ms) ), Ms \== none, !.
-ccl_anon_name(A) :- ( catch(nb_getval('$ccl_anonk', K0), _, fail) -> true ; K0 = 0 ), K is K0 + 1, nb_setval('$ccl_anonk', K), atom_concat('$anon', K, A).
+ccl_anon_name(A) :- ( nb_current('$ccl_anonk', K0) -> true ; K0 = 0 ), K is K0 + 1, nb_setval('$ccl_anonk', K), atom_concat('$anon', K, A).
 ccl_member_base(static, base(Q, S), base([static|Q], S)) :- ccl_lang(cpp), !.      % a static member: the word kept as a qualifier
 ccl_member_base(_, B, B).
 ccl_member_prefix([Q1|Qs]) --> ccl_kw(K), { memberchk(K, [virtual, static, explicit, inline, constexpr, consteval]) }, !,
@@ -1877,11 +1878,11 @@ ccl_suffix_quals --> { nb_setval('$ccl_nx', no) }.
 %% the argument of `noexcept(...)': `false' is no, anything else yes (a dependent condition is taken as holding)
 ccl_nx_arg(no) --> ccl_kw(false), ccl_peek(p, ')'), !.
 ccl_nx_arg(yes) --> ccl_balanced.
-ccl_nx_flag(Y) :- catch(nb_getval('$ccl_nx', Y0), _, fail), !, Y = Y0.
+ccl_nx_flag(Y) :- nb_current('$ccl_nx', Y0), !, Y = Y0.
 ccl_nx_flag(no).
-ccl_note_nx(N) :- atom(N), ccl_nx_flag(yes), !, ( catch(nb_getval('$ccl_nothrow', L), _, fail) -> true ; L = [] ), ( memberchk(N, L) -> true ; nb_setval('$ccl_nothrow', [N|L]) ).
+ccl_note_nx(N) :- atom(N), ccl_nx_flag(yes), !, ( nb_current('$ccl_nothrow', L) -> true ; L = [] ), ( memberchk(N, L) -> true ; nb_setval('$ccl_nothrow', [N|L]) ).
 ccl_note_nx(_).
-ccl_nothrow(N) :- catch(nb_getval('$ccl_nothrow', L), _, fail), memberchk(N, L).
+ccl_nothrow(N) :- nb_current('$ccl_nothrow', L), memberchk(N, L).
 
 ccl_params(_, [], false) --> ccl_kw(void), ccl_peek(p, ')'), !.
 ccl_params(Env, Ps, Var) --> ccl_param_list(Env, Ps, Var), !.
@@ -1955,10 +1956,10 @@ ccl_compound(Env, block(Items)) --> ccl_p('{'), ccl_push_scope, ccl_block_items(
 %% first statement, b(First, Close) ('$ccl_scope_ends'): the desugaring gives a destructor run at the scope's end that line,
 %% as clang does. No AST changes; without -g nothing is recorded.
 ccl_note_scope_end(Items, E) :-
-    (   catch(nb_getval('$ccl_scope_ends_for', F), _, fail), F \== none, catch(nb_getval('$ccl_file', F1), _, fail), F1 == F, integer(E)
+    (   nb_current('$ccl_scope_ends_for', F), F \== none, nb_current('$ccl_file', F1), F1 == F, integer(E)
     ->  findall(V, ( ccl_scope_decl(Items, L, N), V = v(L, N, E) ), Vs0),
         ( member(I, Items), compound(I), arg(1, I, L1), integer(L1) -> Vs = [b(L1, E)|Vs0] ; Vs = Vs0 ),
-        ( catch(nb_getval('$ccl_scope_ends', Es0), _, fail) -> true ; Es0 = [] ), append(Vs, Es0, Es), nb_setval('$ccl_scope_ends', Es)
+        ( nb_current('$ccl_scope_ends', Es0) -> true ; Es0 = [] ), append(Vs, Es0, Es), nb_setval('$ccl_scope_ends', Es)
     ;   true ).
 ccl_scope_decl(Items, L, N) :- member(I, Items), ccl_scope_decl_(I, L, N).
 ccl_scope_decl_(declaration(L, _, _, Vs), L, N) :- member(var(N, _, _), Vs), atom(N).
@@ -1998,10 +1999,10 @@ ccl_block_item(Env0, Env, I) --> ccl_line(L), ccl_decl_specs(Env0, block, Sto, B
 %% function `g' taking an unnamed parameter of the type `m' (ccl_typedef_name's param rule below, which exists for a header's prototype that names a
 %% type no included header declares). In a body the undeclared lone name is an argument. The flag is restored on success and on failure.
 ccl_block_declarators(Env, Base, Ds, S0, S) :-
-    ( catch(nb_getval('$ccl_blockdecl', Old), _, fail) -> true ; Old = no ), nb_setval('$ccl_blockdecl', yes),
+    ( nb_current('$ccl_blockdecl', Old) -> true ; Old = no ), nb_setval('$ccl_blockdecl', yes),
     (   ccl_init_declarators(Env, Base, Ds, S0, S), nb_setval('$ccl_blockdecl', Old)
     ;   nb_setval('$ccl_blockdecl', Old), fail ).
-ccl_blockdecl :- catch(nb_getval('$ccl_blockdecl', yes), _, fail).
+ccl_blockdecl :- nb_current('$ccl_blockdecl', yes).
 ccl_block_item(Env, Env, declare(L, Base)) --> ccl_line(L), ccl_decl_specs(Env, block, _, Base), ccl_p(';'), !, { ccl_note_item(declare(L, Base)) }.
 ccl_block_item(Env, Env, S) --> ccl_statement(Env, S).
 

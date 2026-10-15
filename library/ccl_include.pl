@@ -68,7 +68,7 @@ ccl_unit_cache(Path, How, Unit) :- ccl_unit_key(Path, K), nb_setval(K, How-Unit)
 %% A UNIT IS READ ONCE PER PROCESS AT EACH LEVEL (0.99): the key carries the language's level, since a header's forms are the
 %% level's -- `<stddef.h>' read for a C17 fixture and served to a C23 one in the same process gave it `typeof(id(nullptr))' for
 %% `nullptr_t' (the compile gate builds every fixture in one process, and the new `atomic.c' put a C17 read of the header first)
-ccl_unit_key(Path, K) :- ( ccl_lang(cpp) -> ccl_std(Std) ; catch(nb_getval('$ccl_trigraphs', yes), _, fail) -> ccl_c_std(S0), atom_concat(S0, t, Std) ; ccl_c_std(Std) ), atomic_list_concat(['$ccl_unit:', Path, '@', Std], K).
+ccl_unit_key(Path, K) :- ( ccl_lang(cpp) -> ccl_std(Std) ; nb_current('$ccl_trigraphs', yes) -> ccl_c_std(S0), atom_concat(S0, t, Std) ; ccl_c_std(Std) ), atomic_list_concat(['$ccl_unit:', Path, '@', Std], K).
 ccl_reading(Path) :- ccl_global('$ccl_reading', L, []), memberchk(Path, L).
 ccl_reading_push(Path) :- ccl_global('$ccl_reading', L, []), nb_setval('$ccl_reading', [Path|L]).
 ccl_reading_pop(Path) :- ccl_global('$ccl_reading', L, []), ccl_delete_one(L, Path, L1), nb_setval('$ccl_reading', L1).
@@ -120,8 +120,8 @@ ccl_read_file_(File, AST, Rest) :-
     nb_setval('$ccl_far', F),
     ( Rest == [] -> ccl_kb_remember(File, top, AST) ; true ).
 
-ccl_kb_key(Path, key(T, V)) :- once(catch(time_file(Path, T), _, fail)), ccl_reader_version(V0), ( ccl_lang(cpp) -> ccl_std(S), V = cpp(V0, S) ; ccl_c_std(CS), catch(nb_getval('$ccl_trigraphs', yes), _, fail) -> V = c(V0, CS, trigraphs) ; ccl_c_std(CS), CS =\= 17 -> V = c(V0, CS) ; V = V0 ).   % a C read at -std=c23 is not the C17 read: <stddef.h> declares nullptr_t and unreachable() at that level only, and the store serves a header's macros and items by this key
-ccl_std(S) :- ( catch(nb_getval('$ccl_std', S0), _, fail) -> S = S0 ; S = 17 ).   % a C++ read is not the C read; the time asked every time (0.4 ms): the gate touches a file mid-process and expects the miss
+ccl_kb_key(Path, key(T, V)) :- once(catch(time_file(Path, T), _, fail)), ccl_reader_version(V0), ( ccl_lang(cpp) -> ccl_std(S), V = cpp(V0, S) ; ccl_c_std(CS), nb_current('$ccl_trigraphs', yes) -> V = c(V0, CS, trigraphs) ; ccl_c_std(CS), CS =\= 17 -> V = c(V0, CS) ; V = V0 ).   % a C read at -std=c23 is not the C17 read: <stddef.h> declares nullptr_t and unreachable() at that level only, and the store serves a header's macros and items by this key
+ccl_std(S) :- ( nb_current('$ccl_std', S0) -> S = S0 ; S = 17 ).   % a C++ read is not the C read; the time asked every time (0.4 ms): the gate touches a file mid-process and expects the miss
 ccl_kb_forget :- ccl_kb_ready, findall(P, '$ccl_ast'(P, _, _), Ps), ccl_kb_forget_each(Ps), retractall('$ccl_ast'(_, _, _)).
 ccl_kb_forget_each([]).
 ccl_kb_forget_each([P|Ps]) :- ccl_kb_forget_items(P), ccl_kb_forget_each(Ps).
@@ -199,14 +199,14 @@ ccl_restore_globals(g(F, E, Far, M, Sc, Gs, Td, Tg, En, Ex)) :-
 %% it, 37 ms with the symbol table -- a finding, in CLAUDE.md
 ccl_global(K, V, _) :- ccl_ensure_globals, nb_getval(K, V).
 ccl_ensure_globals :-
-    ( catch(nb_getval('$ccl_inited', yes), _, fail) -> true
+    ( nb_current('$ccl_inited', yes) -> true
     ; nb_setval('$ccl_file', none), ccl_env_put([]), nb_setval('$ccl_far', 0), nb_setval('$ccl_macros', []),
       nb_setval('$ccl_scope', []), ccl_tabs_reset, nb_setval('$ccl_enums', []), ccl_tables_changed,
       nb_setval('$ccl_expansions', []), nb_setval('$ccl_incpath', none), nb_setval('$ccl_kb_ready', no), nb_setval('$ccl_reading', []),
       nb_setval('$ccl_macro_files', []), nb_setval('$ccl_std_macros', none), nb_setval('$ccl_gensym', 0), nb_setval('$ccl_unit_paths', []),
       nb_setval('$ccl_lang', c), nb_setval('$ccl_lang_forced', none), ccl_fn_templates_put([]), nb_setval('$ccl_class', []), nb_setval('$ccl_inc_kind', local), nb_setval('$ccl_hash', line), nb_setval('$ccl_lib_unit', no),
       nb_setval('$ccl_targ', 0), nb_setval('$ccl_tmpl_depth', 0), nb_setval('$ccl_tt_pending', []), nb_setval('$ccl_tt_frames', []), nb_setval('$ccl_vparams', []), nb_setval('$ccl_vhead', []),
-      ( catch(nb_getval('$ccl_std', _), _, fail) -> true ; nb_setval('$ccl_std', 17) ),
+      ( nb_current('$ccl_std', _) -> true ; nb_setval('$ccl_std', 17) ),
       ccl_templates_put([vector, map, set, unordered_map, unordered_set, list, deque, array, pair, tuple, optional, variant,
                                    unique_ptr, shared_ptr, weak_ptr, function, basic_string, initializer_list, allocator, less, greater, hash,
                                    numeric_limits, is_same, enable_if, remove_reference, decay, queue, stack, priority_queue, span,
@@ -403,7 +403,7 @@ ccl_sum_file(Path, F) :-
     ccl_sum_dir(D), ccl_std(Std), ccl_cmdline_key(CK), atomic_list_concat([Path, '@', Std, CK], Keyed), atom_codes(Keyed, Cs), ccl_fold(Cs, 7, 131, S1), ccl_fold(Cs, 13, 137, S2),   % one summary per level, and per set of command-line macros (0.112): a header read under `-DNDEBUG' is another header
     ( sub_atom(Path, B, _, 0, Base), sub_atom(Path, B1, 1, _, '/'), B1 < B, \+ sub_atom(Base, _, _, _, '/') -> true ; Base = Path ),
     atomic_list_concat([D, '/', Base, '-', S1, '-', S2, '.sum'], F).
-ccl_cmdline_key(K) :- ( catch(nb_getval('$pp_cmdline', L), _, fail), L \== [] -> msort(L, L1), term_to_atom(L1, A), atom_concat('@', A, K) ; K = '' ).
+ccl_cmdline_key(K) :- ( nb_current('$pp_cmdline', L), L \== [] -> msort(L, L1), term_to_atom(L1, A), atom_concat('@', A, K) ; K = '' ).
 ccl_fold([], S, _, S).
 ccl_fold([C|Cs], S0, M, S) :- S1 is (S0 * M + C) mod 2147483647, ccl_fold(Cs, S1, M, S).
 ccl_sum_valid(F) :-
@@ -535,7 +535,7 @@ ccl_sum_terms_out([T0|Ts], Out) :- ccl_float_freeze(T0, T), term_to_atom(T, A), 
 %% basic_string 56 KB, tuple, vector, pair: twelve lines of <vector>'s summary -- were written whole and dropped
 %% SILENTLY at the read, and a summary-served run's tag table lacked them. ensure_loaded/1 has no such limit (the AST
 %% beside the summary is read so). Only while a .sum is written (`'$ccl_sum_bigs''); the .mac's lines stay as they were.
-ccl_sum_line(T, A, Cs) :- atom_length(A, N), N > 8000, catch(nb_getval('$ccl_sum_bigs', big(F, I, Bs)), _, fail), !,
+ccl_sum_line(T, A, Cs) :- atom_length(A, N), N > 8000, nb_current('$ccl_sum_bigs', big(F, I, Bs)), !,
     term_to_atom('$ccl_sum_big'(F, I, T), C), atom_codes(C, CCs), append(CCs, [0'., 10], CL), append(Bs, CL, Bs1),
     I1 is I + 1, nb_setval('$ccl_sum_bigs', big(F, I1, Bs1)), term_to_atom(big(I), BA), atom_codes(BA, Cs).
 ccl_sum_line(_, A, Cs) :- atom_codes(A, Cs).
@@ -562,7 +562,7 @@ ccl_dep_times([F|Fs], Ds) :- ccl_dep_times(Fs, Ds1), ( once(catch(time_file(F, T
 %% the codes took 0.26 s by itself)
 ccl_sum_terms(F, Terms) :-
     atom_concat('$ccl_sum:', F, K),
-    (   catch(nb_getval(K, T0), _, fail), T0 \== none -> Terms = T0
+    (   nb_current(K, T0), T0 \== none -> Terms = T0
     ;   read_file_to_codes(F, Codes), atom_codes(A, Codes), atomic_list_concat(Lines, '\n', A), ccl_sum_lines(Lines, Terms0),
         ccl_sum_bigs_in(F, Terms0, Terms1), ccl_float_thaw_list(Terms1, Terms), nb_setval(K, Terms) ).
 %% the long terms back from the clause file beside the summary; a `big(I)' with no clause behind it stays, and makes
@@ -661,13 +661,13 @@ ccl_header_macros_ready(Spec, From) :-
 %% store(Key) (answered by name from the rows); nothing of a header in neither
 ccl_header_macros(Path, Kind) :-
     ccl_hm_key(Path, K),
-    (   catch(nb_getval(K, K0), _, fail), K0 \== none -> Kind = K0
+    (   nb_current(K, K0), K0 \== none -> Kind = K0
     ;   ccl_header_macros_(Path, Kind), nb_setval(K, Kind) ).
-ccl_header_macros_known(Path, Kind) :- ccl_hm_key(Path, K), catch(nb_getval(K, Kind), _, fail), Kind \== none.
+ccl_header_macros_known(Path, Kind) :- ccl_hm_key(Path, K), nb_current(K, Kind), Kind \== none.
 %% THE MEMO IS PER LEVEL, as the unit cache is (ccl_unit_key): a header's macros at -std=c23 are not its C17 ones (0.99;
 %% keyed by the path alone, a C17 fixture after a C23 one in one process was served the C23 rows' key, whose rows a later
 %% read had retracted -- `undeclared(EOF)' in the compile gate, never alone)
-ccl_hm_key(Path, K) :- ( ccl_lang(cpp) -> ccl_std(Std) ; catch(nb_getval('$ccl_trigraphs', yes), _, fail) -> ccl_c_std(S0), atom_concat(S0, t, Std) ; ccl_c_std(Std) ), atomic_list_concat(['$ccl_hm:', Path, '@', Std], K).
+ccl_hm_key(Path, K) :- ( ccl_lang(cpp) -> ccl_std(Std) ; nb_current('$ccl_trigraphs', yes) -> ccl_c_std(S0), atom_concat(S0, t, Std) ; ccl_c_std(Std) ), atomic_list_concat(['$ccl_hm:', Path, '@', Std], K).
 %% indexed: a summary's, as facts '$ccl_hml'(Name, Path, raw(Line)) -- an
 %% assert is 2 us and the lookup by name 3 us, where a global per name cost
 %% 25 us each for 1200 names; a fact is a store row under --embed, which the
@@ -715,7 +715,7 @@ ccl_kb_macros_cached(Path, K) :-
 %% ---- the path ----------------------------------------------------------------
 ccl_resolve_include(path(P), _, P) :- !, exists_file(P).                       % a module's interface unit, found by ccl_module_path (0.108)
 %% an imported module's interface: read earlier in this run, else NAME.cppm (and kin) beside the importer, then on the path
-ccl_module_path(N, Path) :- catch(nb_getval('$ccl_modules', M), _, fail), memberchk(N-Path, M), !.
+ccl_module_path(N, Path) :- nb_current('$ccl_modules', M), memberchk(N-Path, M), !.
 ccl_module_path(N, Path) :- atomic_list_concat(Parts, ':', N), atomic_list_concat(Parts, '-', Base), ccl_global('$ccl_file', From, none),
     ( From == none -> Dirs0 = [] ; file_directory_name(From, D0), Dirs0 = [D0] ), ccl_include_path(Ds), append(Dirs0, Ds, Dirs),
     member(D, Dirs), member(E, ['.cppm', '.ccm', '.cxxm', '.ixx', '.mpp']), atomic_list_concat([D, '/', Base, E], Path), exists_file(Path), !.
@@ -779,7 +779,7 @@ ccl_sdk_dirs(Ds) :-
             '/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX.sdk/usr/include'], M, D2),
     append(D2, ['/usr/include'], Ds1).
 %% a target of another machine (dr_set_target/1) on Debian and Ubuntu: the cross toolchain's sysroot, /usr/<triplet>
-ccl_cross_sysroot(R) :- catch(nb_getval('$ccl_target', target(A, linux, _)), _, fail), \+ catch(ccl_host_arch(A), _, fail),
+ccl_cross_sysroot(R) :- nb_current('$ccl_target', target(A, linux, _)), \+ catch(ccl_host_arch(A), _, fail),
     ( A == arm64 -> R = '/usr/aarch64-linux-gnu' ; A == x86_64 -> R = '/usr/x86_64-linux-gnu' ), atom_concat(R, '/include', D), exists_directory(D).
 %% DEBIAN AND UBUNTU SPLIT THE C LIBRARY'S HEADERS, and the split half comes FIRST: <bits/...>
 %% and <sys/cdefs.h> live in /usr/include/<triplet>, which clang searches before /usr/include

@@ -47,11 +47,11 @@ sh_line([A|As], L) :- sh_line(As, L0), atomic_list_concat(['\'', A, '\' ', L0], 
 %% a fixture read at C's own level (-std=c23), the read kept apart from the C17 one
 unit_c(Name, Std, U) :-
     c(Name, P), atomic_list_concat(['$t_unit_c', Std, ':', P], K),
-    (   once(catch(nb_getval(K, U0), _, fail)) -> U = U0
+    (   once(nb_current(K, U0)) -> U = U0
     ;   nb_setval('$ccl_c_std', Std), cicilang_ast(P, U0), nb_setval('$ccl_c_std', 17), nb_setval(K, U0), U = U0 ).
 unit(Name, U) :-
     c(Name, P), atom_concat('$t_unit:', P, K),
-    (   once(catch(nb_getval(K, U0), _, fail)) -> U = U0
+    (   once(nb_current(K, U0)) -> U = U0
     ;   cicilang_ast(P, U0), nb_setval(K, U0), U = U0 ).
 fn_body(Name, F, B) :- unit(Name, unit(Is)), member(function(_, _, _, F, _, _, block(B)), Is).
 codes_atom(S, A) :- atom_codes(A, S).

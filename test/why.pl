@@ -17,7 +17,7 @@
 %%       raise; THE BRANCH IT WAS RAISED IN (chose(C)), the call whose if-then-else or
 %%       disjunction took the branch that raised, and every condition that choice ran, builtins
 %%       included -- abstract.cpp's refusal is then(2) of cpp_not_abstract('Shape'), after
-%%       `nb_getval('$cpp_base_ctor', yes)' failed and `cpp_abstract_class('Shape')' held, the
+%%       `nb_current('$cpp_base_ctor', yes)' failed and `cpp_abstract_class('Shape')' held, the
 %%       test 0.144 found by hand; and THE FAILURE IT ANSWERED, a condition that
 %%       failed having tried a clause, down the path that got furthest (flow_why_furthest/2). An
 %%       error raised in a catch/3's recovery is followed by the error that catch took, raised

@@ -39,7 +39,7 @@ ccl_pp_macro_trace(Path, Events) :-
     ( catch(ccl_pp_file(Path, _, _), _, true) -> true ; true ),
     nb_setval('$pp_mtrace', off), nb_getval('$pp_mt_n', N),
     findall(E, ( between(1, N, I), atom_concat('$pp_mt:', I, K), nb_getval(K, E) ), Events).
-pp_mt_on :- catch(nb_getval('$pp_mtrace', on), _, fail).
+pp_mt_on :- nb_current('$pp_mtrace', on).
 pp_mt_note(E) :- nb_getval('$pp_mt_n', N0), N is N0 + 1, nb_setval('$pp_mt_n', N), atom_concat('$pp_mt:', N, K), nb_setval(K, E).
 %% a definition as clang's debug information spells it: `F(a,b)', `F(fmt,...)', `F(x,rest...)'; the body's blanks one
 %% space each, none at its ends, a literal's own kept (`"a  b"')
@@ -99,14 +99,14 @@ ccl_pp_macros(Macros) :-
 pp_macro_terms([], _, []).
 pp_macro_terms([N|Ns], G, Ms) :-
     pp_macro_terms(Ns, G, Ms1),
-    ( pp_key(N, K), catch(nb_getval(K, V), _, fail), V = mac(G, Ps, codes(Cs), _) -> atom_codes(A, Cs), Ms = [macro(N, Ps, text(A))|Ms1] ; Ms = Ms1 ).
+    ( pp_key(N, K), nb_current(K, V), V = mac(G, Ps, codes(Cs), _) -> atom_codes(A, Cs), Ms = [macro(N, Ps, text(A))|Ms1] ; Ms = Ms1 ).
 %% a header's macros reach the run on their first use (pp_header_macro/3):
 %% <stdio.h> brings 1200 and a file names a dozen
 
 %% a run is a GENERATION: a macro is mac(Gen, Params, codes(Cs), Tokens), and
 %% one from an earlier run is simply not this run's -- no walk undefines them
 pp_reset :-
-    ( catch(nb_getval('$pp_gen', G0), _, fail) -> G is G0 + 1 ; G = 1 ), nb_setval('$pp_gen', G),
+    ( nb_current('$pp_gen', G0) -> G is G0 + 1 ; G = 1 ), nb_setval('$pp_gen', G),
     nb_setval('$pp_names', []), nb_setval('$pp_files', []), nb_setval('$pp_once', []), nb_setval('$pp_stack', []), nb_setval('$pp_linemap', []),
     nb_setval('$pp_counter', 0), nb_setval('$pp_outs', 0), nb_setval('$pp_errors', []), nb_setval('$pp_paste', no), nb_setval('$pp_top', no), nb_setval('$pp_hdrs', []), nb_setval('$pp_ninc', 0).
 pp_key(N, K) :- atom_concat('$pp:', N, K).
@@ -119,13 +119,13 @@ pp_undefine(N) :- nb_getval('$pp_gen', G), pp_key(N, K), nb_setval(K, undef(G)).
 %% (the tables made ready before the run; '$pp_hdrs' the headers passed
 %% through, the last first), defined into the run on that first use; one
 %% undefined in this run stays so
-pp_macro(N, Ps, Body) :- pp_key(N, K), nb_getval('$pp_gen', G), ( catch(nb_getval(K, V), _, fail) -> true ; V = none ), pp_macro_(V, G, N, K, Ps, Body).
+pp_macro(N, Ps, Body) :- pp_key(N, K), nb_getval('$pp_gen', G), ( nb_current(K, V) -> true ; V = none ), pp_macro_(V, G, N, K, Ps, Body).
 pp_macro_(mac(G, Ps, C, T0), G, _, K, Ps, Body) :- !, ( T0 == none -> C = codes(Cs), pp_lex_body(Cs, Body), nb_setval(K, mac(G, Ps, C, Body)) ; Body = T0 ).
 pp_macro_(undef(G), G, _, _, _, _) :- !, fail.
 pp_macro_(nomac(G, I), G, _, _, _, _) :- nb_getval('$pp_ninc', I), !, fail.                 % a miss remembered, good until the next include
 pp_macro_(_, G, N, K, Ps, Body) :- ( pp_outer_macro(N, Ps, Cs) -> pp_macro_(mac(G, Ps, codes(Cs), none), G, N, K, Ps, Body) ; pp_note_miss(K, G), fail ).
 pp_note_miss(K, G) :- nb_getval('$pp_ninc', I), nb_setval(K, nomac(G, I)).
-pp_defined(N) :- ( pp_builtin_name(N) -> true ; pp_key(N, K), nb_getval('$pp_gen', G), ( catch(nb_getval(K, V), _, fail) -> true ; V = none ), pp_defined_(V, G, N) ).
+pp_defined(N) :- ( pp_builtin_name(N) -> true ; pp_key(N, K), nb_getval('$pp_gen', G), ( nb_current(K, V) -> true ; V = none ), pp_defined_(V, G, N) ).
 pp_defined_(mac(G, _, _, _), G, _) :- !.
 pp_defined_(undef(G), G, _) :- !, fail.
 pp_defined_(nomac(G, I), G, _) :- nb_getval('$pp_ninc', I), !, fail.
@@ -150,7 +150,7 @@ pp_cmd_define(Cs, N, def(Ps, Body)) :-
     pp_word(Cs, W, R0), W \== [], atom_codes(N, W),
     ( R0 = [0'(|R1] -> pp_upto_close(R1, PCs, R2), pp_param_names(PCs, Ps) ; Ps = obj, R2 = R0 ),
     ( R2 = [0'=|Body] -> true ; R2 == [] -> Body = [0'1] ; Body = R2 ).
-pp_cmdline(N, D) :- catch(nb_getval('$pp_cmdline', L), _, fail), memberchk(N-D, L).
+pp_cmdline(N, D) :- nb_current('$pp_cmdline', L), memberchk(N-D, L).
 pp_predef_macro(N, obj, Cs) :-
     (   ccl_lang(cpp), ccl_std(S), pp_std_table(S, Tab), pp_predef(N, Tab, T) -> true   % the level's own value first (__cplusplus, __cpp_constexpr ...)
     ;   ccl_lang(c), ccl_c_std(CS), pp_c_std_table(CS, CTab), pp_predef(N, CTab, T) -> true   % C's own level (-std=c23): __STDC_VERSION__ and what the forms answer
@@ -191,12 +191,12 @@ pp_builtin_name(N) :- memberchk(N, ['__has_include', '__has_include_next', '__ha
 %% headers under it -- glibc's and libc++'s __config each branch on the platform's macros. darwin or linux, from the
 %% module's compile-time answer (ccl_host_os/1), `uname -s' only without the module.
 pp_os(O) :-
-    (   catch(nb_getval('$pp_os', O0), _, fail) -> O = O0
+    (   nb_current('$pp_os', O0) -> O = O0
     ;   once(catch(ccl_host_os(O1), _, fail)) -> O = O1, nb_setval('$pp_os', O)
     ;   ( once(catch(proc_run('uname -s', 5000, Out, _), _, fail)), atom_codes(A1, Out), sub_atom(A1, 0, _, _, 'Linux') -> O = linux ; O = darwin ),
         nb_setval('$pp_os', O) ).
 pp_arch(A) :-                                                                    % the module's compile-time arch; uname only without the module
-    (   catch(nb_getval('$pp_arch', A0), _, fail) -> A = A0
+    (   nb_current('$pp_arch', A0) -> A = A0
     ;   once(catch(ccl_host_arch(A1), _, fail)) -> A = A1, nb_setval('$pp_arch', A)
     ;   ( once(catch(proc_run('uname -m', 5000, Out, _), _, fail)), atom_codes(A1, Out), sub_atom(A1, 0, _, _, arm) -> A = arm64 ; A = x86_64 ),
         nb_setval('$pp_arch', A) ).
@@ -211,9 +211,9 @@ pp_arch(A) :-                                                                   
 %% (sub_atom/5 with a free position enumerates, 150 us a call: a line is
 %% tested through atom_codes/2 and memberchk/2, builtins both.)
 pp_source(Path, Lines) :-
-    ( catch(nb_getval('$ccl_trigraphs', yes), _, fail) -> Tri = yes, KP = '$pp_srct:' ; Tri = no, KP = '$pp_src:' ),
+    ( nb_current('$ccl_trigraphs', yes) -> Tri = yes, KP = '$pp_srct:' ; Tri = no, KP = '$pp_src:' ),
     atom_concat(KP, Path, K),
-    (   catch(nb_getval(K, L0), _, fail), L0 \== none -> Lines = L0
+    (   nb_current(K, L0), L0 \== none -> Lines = L0
     ;   ( catch(read_file_to_codes(Path, Codes0), _, fail) -> pp_trigraphs(Tri, Codes0, Codes), atom_codes(A, Codes), atomic_list_concat(Phys, '\n', A), pp_lines(Phys, 1, out, Lines) ; Lines = [] ),
         nb_setval(K, Lines) ).
 %% TRANSLATION PHASE 1's TRIGRAPHS (C17 5.2.1.1), before the lines are spliced, so `??/' at a line's end continues
@@ -247,7 +247,7 @@ pp_lines([P|Ps], N, out, Lines) :-
 %% A RAW STRING LITERAL THAT SPANS LINES (C++ only, 0.138): a line that opens `R"d(' and does not close it with `)d"'
 %% takes the next lines, newlines kept, up to the line that closes it, and the whole is one line of the first one's
 %% number; the lexers count the newlines inside the literal, and the lines after it keep their numbers
-pp_raw_join(P, Ps, P1, Ps1, K) :- sub_atom(P, _, _, _, 'R"'), catch(nb_getval('$ccl_lang', cpp), _, fail), atom_codes(P, Cs), pp_raw_open(Cs, D), !,
+pp_raw_join(P, Ps, P1, Ps1, K) :- sub_atom(P, _, _, _, 'R"'), nb_current('$ccl_lang', cpp), atom_codes(P, Cs), pp_raw_open(Cs, D), !,
     pp_raw_more(Ps, D, Qs, Ps1), length(Qs, K), atomic_list_concat([P|Qs], '\n', P1).
 pp_raw_more([Q|Qs], D, [Q|Rs], Rest) :- atom_codes(Q, QCs), append([41|D], [34], Close),
     (   append(_, Tail, QCs), append(Close, After, Tail) -> ( pp_raw_open(After, D2) -> pp_raw_more(Qs, D2, Rs, Rest) ; Rs = [], Rest = Qs )
@@ -333,10 +333,10 @@ pp_include_file(Path, Out0, Out) :-
 %% its output survives, copied once into a global under a fresh key; the stream carries pp_out(K) where the file's
 %% tokens go, and pp_finish splices them in. The macro table, the guards, the file list are globals and survive alike.
 pp_out_key(K) :- nb_getval('$pp_outs', N), N1 is N + 1, nb_setval('$pp_outs', N1), atom_concat('$pp_out:', N1, K).
-pp_guarded(Path) :- atom_concat('$pp_guard:', Path, K), catch(nb_getval(K, G), _, fail), G \== none, pp_defined(G).
+pp_guarded(Path) :- atom_concat('$pp_guard:', Path, K), nb_current(K, G), G \== none, pp_defined(G).
 pp_note_guard(Path, Lines) :-
     atom_concat('$pp_guard:', Path, K),
-    (   catch(nb_getval(K, _), _, fail) -> true
+    (   nb_current(K, _) -> true
     ;   Lines = [line(_, First)|_], pp_directive_line(First, B), pp_ws(B, B1), pp_word(B1, W, R), atom_codes(ifndef, W),
         pp_ws(R, R1), pp_word(R1, GW, _), GW \== [], atom_codes(G, GW), pp_defined(G),
         pp_last(Lines, line(_, Last)), pp_directive_line(Last, LB), pp_ws(LB, LB1), pp_word(LB1, LW, _), atom_codes(endif, LW)
