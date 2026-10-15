@@ -144,6 +144,7 @@ One row per step, in version order: the step's title, what it did and its gate n
 | 0.148 | the flow debugger's choices and catches, and a profile of a build, on cocolog 1.11.10 | cocolog 1.11.10; test/why.sh on chose(C) and caught(K), the compiler's files named for the debugger's scan, dr_catch/3 kept (measured), no documents unless WHY_KEEP; both tools capped over the whole process tree, the pool counting a cocolog run; test/prof.sh over windows along a build; the work on main | all nine gates GREEN over libc++ 18, the two libc++ gates over 21, 4254 s; 497 of 500 C++ fixtures over 18, 499 over 21 |
 | 0.149 | cocolog 1.12.1, and a global that may be unset read with nb_current/2 | cocolog 1.12.1 (`nb_current/2`, `setarg/3`, `nb_setarg/3`; a global read as one block, a ground value's copy shared); the 156 reads `catch(nb_getval(K, V), _, R)` of the library and the gates made `nb_current(K, V)`; committed before the chain, on the stop hook's request | the flow gate GREEN (125 findings); test/why.sh names the new read; the chain and the measurements running at the commit |
 | 0.150 | the numbers of 0.149's chain, and the build's time on cocolog 1.12.1 | 0.149's chain recorded; the build's time measured three ways (0.148 on 1.11.10, 0.148 on 1.12.1, 0.149 on 1.12.1), a global's read alone, and the choice point a bare `catch/3` leaves | all nine gates GREEN over libc++ 18, the two libc++ gates over 21, 3836 s (0.148: 4254 s); 497 of 500 C++ fixtures over 18, 499 over 21; five fixtures' CPU time 77.2 s on 1.11.10, 55.7 s on 1.12.1 |
+| 0.151 | cocolog 1.13.0: the small builtins in one step, two clocks, and text in bytes or characters | cocolog 1.12.2 and 1.13.0 taken and rebuilt; a warm build, the two clocks, the text units, a cold read (12 to 16 % slower from 1.12.2, an `=/2` goal slower) and a bare `catch/3` measured; feedback to The Coco | all nine gates GREEN over libc++ 18, the two libc++ gates over 21, 3891 s (0.149: 3836 s); 497 of 500 C++ fixtures over 18, 499 over 21; five warm builds 54.8 s on 1.13.0, 55.1 s on 1.12.1; the census of `<iomanip>` 59.5 s, 66.4 s and 68.9 s on 1.12.1, 1.12.2 and 1.13.0 |
 
 ## M5 — the C++ mode
 
@@ -8858,3 +8859,92 @@ Nothing the compiler emits changed: reader 129, lowering 82.
 
 THE GATES. The chain above; on this tree, its module rebuilt for 0.150, the flow gate again GREEN (125 findings, 46 s)
 and the reader gate GREEN.
+
+## 0.151 — cocolog 1.13.0: the small builtins in one step, two clocks, and text in bytes or characters
+
+**0.151: cocolog 1.13.0 (with 1.12.2) taken and gated -- all nine gates GREEN over libc++ 18 and the two libc++ gates
+GREEN over libc++ 21, in 3891 s; a warm build's time the same and its count of inferences 5 to 6 % lower, a cold read of
+a header 12 to 33 % slower (from 1.12.2), and cicilang's answers the same when cocolog counts text in characters.** The
+Coco's message announced 1.13.0; the owner asked for one task from it ("Read The Coco message, do one task, feedbak to
+it"), and the task is the engine's update.
+
+- THE NEIGHBOUR. cocolog `2fef28e` (1.12.1) to `7871d5e` (1.13.0), through `88388f7` (1.12.2). 1.12.2 answers
+  `length/2`, `nth0/3`, `nth1/3`, `last/2`, `reverse/2` and `atomic_list_concat/2,3` in one step each (C rows, where a
+  clause took 2 to 13; five calls of `length/2` that went round for ever now fail) and keeps two clocks:
+  `statistics/2`'s inferences leave out each `true` and `=/2`, and the debugger's windows and its `at inference I`
+  count every goal. 1.13.0 adds the flag `text_units` (bytes unless a program asks for characters), four SDK
+  declarations for a module that hands text back as codes, and `upcase_atom/2` and `downcase_atom/2` of any length.
+  ZiguratIP (`01251f4`) and Cicili (`9d74a5e`) have no new commit. Rebuilt in order: cocolog's `make`, `make schema`
+  (it stops with `cocolog: set ZIGURATIP_HOME to a built ZiguratIP home directory` unless `ZIGURATIP_HOME` names
+  ZiguratIP's `home`; its `parsi/` did not change), `make modules` (every module this box can build, and the flow
+  tables), then `module/build.sh` and `module/build-llvm.sh` (LLVM 18): `cicilang 0.150 (cocolog 1.13.0; LLVM 18.1.3)`
+  before the bump. Neither module calls the new SDK functions, and no struct of the SDK changed. The 1.12.1 build was
+  kept in a scratch copy for the measurements below.
+- TEXT IN BYTES OR CHARACTERS. Under `COCOLOG_TEXT_UNITS=characters` a directive in a `#cocolog` block saw
+  `text_units` answer `characters` and `atom_length('dé', L)` answer 2 (3 in bytes): the variable reaches a cicilang
+  run. A program of narrow and wide strings with `\u` and `\N{LATIN SMALL LETTER E WITH ACUTE}` printed clang's answers
+  in both units (`sizeof` 8, `strlen` 7, the bytes 195 169, `L"hé"` of three elements, the second 233), `-E` wrote the
+  same text byte for byte, and the reader gate and the compile gate, over a fresh store and in characters, were GREEN
+  (4 s and 10 s). The native lexer takes a line as its bytes (`coco_m_text`) and hands back atoms (`coco_m_new_atom`)
+  and lists of byte codes it makes itself (`coco_m_new_int`, `coco_m_list`), so no pass sees a code point of the
+  source; where a pass turns an atom into codes and back (`pp_clean/3`), the round trip keeps the bytes. Nothing is
+  changed: cocolog 2.0.0 is to make characters the default, and a run of the gates under it will say whether the
+  library must ask for bytes.
+- THE BUILD'S TIME, two ways, as 0.150 measured it: `cicilang++ -c` over one warm HOME, one build at a time, three
+  rounds with the order turned each round; A the 0.150 library on 1.12.1 (its modules built over 1.12.1), B the same
+  library on 1.13.0. The least CPU time of three, in seconds:
+
+  | Fixture | A (1.12.1) | B (1.13.0) |
+  |---|---|---|
+  | `counter.cpp` | 0.19 | 0.17 |
+  | `stdvector.cpp` | 3.72 | 3.61 |
+  | `stdmap.cpp` | 4.68 | 4.54 |
+  | `stdtuple.cpp` | 12.68 | 12.18 |
+  | `stdformat.cpp` (C++20) | 33.87 | 34.31 |
+  | the sum | 55.14 | 54.82 |
+
+  0.6 % apart, inside the 4 % by which two runs of one way differ. A plain loop of five million `atom(a)` calls took
+  the same on both (the least of five: 0.468 s on 1.12.1, 0.475 s on 1.13.0).
+- THE CLOCKS. One build's goal run in a query, `statistics/2`'s inferences around it: `stdvector.cpp` 18,129,844 on
+  1.12.1 and 17,236,363 on 1.13.0 (4.9 % fewer), `stdformat.cpp` 135,309,167 and 127,130,329 (6.0 %). `test/prof.sh`
+  on 1.13.0 put the end of `stdvector.cpp`'s build at 17,943,914 on the debugger's clock, which counts every goal: so
+  about 0.7 million of the build's goals are a `true` or an `=/2`, and the one-step builtins took about 0.2 million
+  steps off (18.13 to 17.94 million). The profile took 79 s at 829 MB (0.148, on 1.11.10: 18.2 million, 82 s, 847
+  MB). The windows and their numbers stay on the debugger's clock, so `WHY_WINDOW` and `PROF_WINDOW` keep their
+  meaning.
+- A COLD READ IS SLOWER, from 1.12.2. The chain's library read over libc++ 18 took 1114 s where 0.149's took 1008 s
+  (the headers' read times summed 4259 s against 3867, spread over many headers), and over libc++ 21 971 s against
+  970. Measured one at a time, the CPU of a cold `cicilang++ -std=c++17 -fsyntax-only` of a file that includes
+  `<iomanip>`, over a fresh HOME: 75.0 and 75.4 s on 1.12.1, 100.0 and 90.6 s on 1.13.0 over libc++ 18; 75.9 and 76.2
+  s against 86.3 and 84.9 s over libc++ 21. Its parts: `-E` alone (the preprocessor) 9.9 s on both, the same text byte
+  for byte; the census of that text (the reader alone) 62.2 and 62.6 s against 72.3 and 81.9 s. A third engine, 1.12.2
+  built in a scratch clone, tells which step: the census took 59.5, 60.4 and 59.9 s on 1.12.1, 68.8, 69.8 and 66.4 s
+  on 1.12.2, and 68.9, 69.4 and 70.4 s on 1.13.0. Under a per-clause CPU profiler (every clause of `ccl_syntax.pl`
+  stamped) the two engines take the same 297 s, and `ccl_env_sync/2`, which merges an item's names into the global
+  env, gains most (38.7 s to 43.4 s over the same 20,382 calls). The text builtins (`atom_codes/2`, `atom_length/2`,
+  `sub_atom/5`, `atomic_list_concat/3`, `atom_chars/2`), the writer (`term_to_atom/2`, `format/2`'s `~q`,
+  `write_file_from_codes/2`) and the list builtins of 1.12.2 take the same time or less on 1.13.0 (`length(L,
+  100000)` twenty times faster). A loop of `X = f(N, a), X = f(_, Y), Y = a` ten million times took 1.460 s on
+  1.12.1, 1.592 s on 1.12.2 and 1.706 s on 1.13.0 (the least of five), where a loop of calls and a grammar of 10.5
+  million terminals took the same or 3 to 5 % less: an `=/2` goal costs more since the clocks were split. Warm builds
+  read no header text and do not change (the build's time above). Told to The Coco.
+- A BARE `catch/3` STILL KEEPS A CHOICE POINT: a million bare `catch(atom(a), _, fail)` in a deterministic recursion
+  kept 208 MB of heap and 8 MB of trail in 0.8 s on 1.13.0, and the same on 1.12.1; under `once/1` 10 MB in 0.19 s,
+  followed by a cut 24 MB in 0.25 s, a plain `atom(a)` nothing. 0.150 measured it around `nb_getval/2`; this is the
+  catch alone. Told to The Coco with the gate results.
+- cocolog 1.13.1 (`9da534a`) reached master while the chain ran (The Coco's message at 21:04 UTC): `split_string/4`
+  by SWI's `pl-string.c`, so that a pad that holds a separator is skipped with the separators before each field
+  (`split_string("a  b", " ", " ", L)` is `["a","b"]`, where it was `["a","","b"]`). cicilang calls no
+  `split_string/4`, and it is not taken here: a `make` under the running chain would have replaced its engine.
+
+Nothing the compiler emits changed: reader 129, lowering 82. The module rebuilt for 0.151 differs from the gated one in
+its version string alone.
+
+THE GATES. The chain on the live checkout, its module built from 0.150's source over 1.13.0, fresh HOMEs, 3891 s in all.
+Over libc++ 18: the flow gate (125 findings, all of them `test/flow.expect`'s, 53 s; the chart draws `length/2` and its
+kin as builtins now, and no key moved), reader 5 s, compile 11 s, driver 10 s, objects 4 s, the proof, the cross gate in
+49 s, the library read in 1114 s, the C++ gate in 750 s with 497 of 500 fixtures ok (the skips `stdoptionalref`,
+`joinwith` and `tzone`), the 21 refusals and the three of the safe part. Over libc++ 21: the library read in 971 s and
+the C++ gate in 920 s, 499 of 500 ok (the skip `stdoptionalref`). The fixtures' builds summed 2687 s over libc++ 18
+(0.149: 2790 s) and 2949 s over libc++ 21 (0.149: 3001 s). After the bump to 0.151: the flow gate again GREEN (125
+findings, 46 s) and the reader gate GREEN (4 s).
