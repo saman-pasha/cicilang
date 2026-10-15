@@ -10,7 +10,7 @@ it found, its measurements and its gate numbers. `README.md` tells a user what r
 architecture and the milestones. A step that changes a rule edits the rule here, in its topic, and writes its entry
 in `HISTORY.md`.
 
-At 0.149 the versions are: the module 0.149 (`ccl_p_version` in `module/cicilang.cicili`, `bin/cicilang --version`),
+At 0.150 the versions are: the module 0.150 (`ccl_p_version` in `module/cicilang.cicili`, `bin/cicilang --version`),
 the reader 129 (`ccl_reader_version/1`, `library/ccl_syntax.pl`) and the lowering 82 (`ccl_lowering_version/1`,
 `library/ccl_ir.pl`).
 
@@ -6366,29 +6366,33 @@ A lambda is a class of its captures (`library/ccl_cpp.pl`). A fixture named alon
   `nb_setarg/3` over a trail that carries values (each writes the argument's own cell), their modes in the flow chart's
   table; 1.12.1 a global's value read as one block by `nb_getval/2`, `b_getval/2` and `nb_current/2`, the copy of a
   ground value shared while it lives (the costs below), and the trail's pair words carrying their cell under bit 40,
-  which no module here reads. It was at 1.11.10 from 0.148 (`62f10e3`): 1.11.5 and 1.11.6 the reasoning line's
+  which no module here reads. Measured at 0.149 (five C++ fixtures built over a warm cache, one build at a time, the
+  least CPU time of three runs each): the 0.148 library builds them in 55.7 s on 1.12.1 where it took 77.2 s on 1.11.10
+  -- `stdformat.cpp` 34.3 s where 53.8 s, `stdtuple.cpp` 12.7 where 13.8, `stdmap.cpp` 4.9 where 5.3, `stdvector.cpp`
+  3.7 where 4.1 --, and the reads of 0.149 (`nb_current/2`) change nothing measurable, 56.7 s, inside the 4 % that
+  separates two runs of one way. It was at 1.11.10 from 0.148 (`62f10e3`): 1.11.5 and 1.11.6 the reasoning line's
   translator (`library/reasoning/`, which cicilang does not load); 1.11.7 the flow debugger's answer to the points of
   0.146; 1.11.8 the crash of `atom_chars/2` and `number_chars/2` (below); 1.11.9 a syntax error's place in a load
   (below), the engine's load, module, solve and syntax code changed; 1.11.10 the profile's views and windows along one
-  run (the flow tools bullet below) -- over ZiguratIP 1.0.0 (`01251f4`, its store pages 64 KiB) and beside Cicili 3.0.0 (`9d74a5e`),
-  where a float literal is a double: every float-like number in our two modules is in a comment, and they use no
-  `(inline)` or `(weak)` (Cicili 2.0.0's change), so their C does not change. The neighbours are rebuilt in this order:
-  ZiguratIP (`make MODE=Release`), cocolog (`make`, `make schema`, `make modules`, which builds its `os`, `process` and
-  `stream` modules and the flow tables), then both modules here. 1.11.0 to 1.12.1 add no SDK call and change no struct
-  (`lib/sdk.cicili` is the file 1.11.4 had): 1.11.0 takes `proc_run/4`'s deadline from the monotonic clock (each poll
-  was charged its whole 200 ms step, so a child that printed more than about 20 bytes a millisecond of its budget was
-  killed early, status 124) and mends three faults of the flow debugger; 1.11.2 has a debugger's window record only the
-  clause heads that a call TRIED (one failed call of a fact table listed every head) and match them in linear time;
-  1.11.3 changes the translator (`library/reasoning/translate.pl`) alone; 1.11.4 (`0da59f4`), The Coco's answer to the
-  flow feedback of 0.144, changes `library/flow` alone (the flow tools bullet below), and its whole suite ran with 0 red
-  (64 green, 5 skipped for no CUDA); `7708de9` after it passes each compiler flag of `tools/cc` once. The flow gate and
-  `test/why.sh` were written on 1.11.3 (0.144) and moved to 1.11.4's options (0.146) and 1.11.10's (0.148, with
-  `test/prof.sh`), and the whole chain of 0.148 ran GREEN over 1.11.10 (the Hosts topic). 1.10.28 (0.142) was The Coco's
-  answer to the report of 0.140 -- the build's heap, the float writer, the refused allocation, `current_predicate/1` and
-  `predicate_property/2`, the flow tools, each in its bullet below -- and added one SDK call (`coco_m_resource_error`).
-  1.10.22 (0.140) and 1.10.0 (0.132) were the steps before; cocolog 1.10.6's builtins that raise where they failed
-  (`arg/3` on an atomic term, `=..`, `assert` of what is no clause) broke nothing here. (0.132, 0.140, 0.142, 0.144,
-  0.146, 0.148)
+  run (the flow tools bullet below) -- over ZiguratIP 1.0.0 (`01251f4`, its store pages 64 KiB) and beside Cicili 3.0.0
+  (`9d74a5e`), where a float literal is a double: every float-like number in our two modules is in a comment, and they
+  use no `(inline)` or `(weak)` (Cicili 2.0.0's change), so their C does not change. The neighbours are rebuilt in this
+  order: ZiguratIP (`make MODE=Release`), cocolog (`make`, `make schema`, `make modules`, which builds its `os`,
+  `process` and `stream` modules and the flow tables), then both modules here. 1.11.0 to 1.12.1 add no SDK call and
+  change no struct (`lib/sdk.cicili` is the file 1.11.4 had): 1.11.0 takes `proc_run/4`'s deadline from the monotonic
+  clock (each poll was charged its whole 200 ms step, so a child that printed more than about 20 bytes a millisecond of
+  its budget was killed early, status 124) and mends three faults of the flow debugger; 1.11.2 has a debugger's window
+  record only the clause heads that a call TRIED (one failed call of a fact table listed every head) and match them in
+  linear time; 1.11.3 changes the translator (`library/reasoning/translate.pl`) alone; 1.11.4 (`0da59f4`), The Coco's
+  answer to the flow feedback of 0.144, changes `library/flow` alone (the flow tools bullet below), and its whole suite
+  ran with 0 red (64 green, 5 skipped for no CUDA); `7708de9` after it passes each compiler flag of `tools/cc` once. The
+  flow gate and `test/why.sh` were written on 1.11.3 (0.144) and moved to 1.11.4's options (0.146) and 1.11.10's (0.148,
+  with `test/prof.sh`), the whole chain of 0.148 ran GREEN over 1.11.10, and 0.149's over 1.12.1, 10 % faster (the Hosts
+  topic). 1.10.28 (0.142) was The Coco's answer to the report of 0.140 -- the build's heap, the float writer, the
+  refused allocation, `current_predicate/1` and `predicate_property/2`, the flow tools, each in its bullet below -- and
+  added one SDK call (`coco_m_resource_error`). 1.10.22 (0.140) and 1.10.0 (0.132) were the steps before; cocolog
+  1.10.6's builtins that raise where they failed (`arg/3` on an atomic term, `=..`, `assert` of what is no clause) broke
+  nothing here. (0.132, 0.140, 0.142, 0.144, 0.146, 0.148, 0.149, 0.150)
 - Through 1.10.27 cocolog's build exhausted the 1 GB heap that Debian's and Ubuntu's SBCL 2.2.9 starts with, while
   Cicili transpiled `cocolog.cicili` (`Heap exhausted during garbage collection`, then `GC invariant lost, file
   "gencgc.c"`), and a `make modules` after the failed `make` skipped the flow tables with no word of why. Since 1.10.28
@@ -6442,7 +6446,13 @@ A lambda is a class of its captures (`library/ccl_cpp.pl`). A fixture named alon
 - Fixed in cocolog 1.1.0: a `catch/3` whose goal succeeded stayed live for a later `throw/1`; a throw in
   `findall/forall/aggregate_all` escaped its catch; `atomic_list_concat` segfaulted on an unbound element and failed
   past 8 KB. Kept as habit: every `catch/3` under `once/1` or as a condition, a raising loop written as recursion,
-  `new/3` checking its initial values first.
+  `new/3` checking its initial values first. The first habit still pays (measured at 0.149, on 1.11.10 and 1.12.1): a
+  `catch/3` whose goal succeeded leaves a choice point, so a deterministic recursion of a million bare
+  `catch(nb_getval(K, V), _, fail)` took 1.0 s and kept 295 MB of heap and 24 MB of trail, under `once/1` 0.21 s and
+  32 MB, where `nb_current(K, V)` and a bare `nb_getval/2` took 0.2 s and kept 13 MB. 37 of the library's 153 reads
+  that 0.149 replaced stood bare in a clause body (`ccl_set_has/2`'s, asked at every identifier, among them), the rest
+  in a condition, under `\+` or under `once/1`; the builds measured at 0.149 show no change, since a cut or a caller's
+  condition soon drops such a choice point.
 - Fixed in cocolog 1.2.0: a clause over a store row (about 8 KB; no limit under `--local`) silently lost every clause
   of its predicate. It now raises `resource_error(clause_length)`, which the writers catch to leave the file uncached
   (`ccl_kb_store_items`, `dr_ir_store`). Nothing large goes in one clause: a row per item, IR chunks of 3500
@@ -6491,12 +6501,16 @@ A lambda is a class of its captures (`library/ccl_cpp.pl`). A fixture named alon
 - The query loop asks for a second answer, so an entry point is under `once/1` (`ccl_drive/2`). It reads standard
   input, so a background run gets `< /dev/null` and a pool job runs with `/dev/null` (`test/parlib.sh`): one job
   swallowed the queued job lines. (0.46, 0.106)
-- Costs: `nb_getval/2` and `nb_setval/2` copy the whole term (0.63 ms for 5,000 pairs), and so does a clause
-  retrieval; `memberchk/2` 0.15 µs a step; a fact among 5,000 found by its first argument 3 µs, asserted 2 µs (under
-  `--embed` a store row, indexed by an ATOM first argument, not `dep(I)`), where a global per name costs 25 µs; a
-  predicate call about 5 µs; `catch/3` grows with the terms bound in it (37 ms against 0.3 ms bare); a code walk about
-  1 µs a code; `sub_atom/5` with a free position about 150 µs; a spawn 0.14 s and a shell fork 10 ms on macOS; the DCG
-  lexer 0.15 ms a token whatever its clauses.
+- Costs: `nb_getval/2` and `nb_setval/2` copy the whole term (0.63 ms for 5,000 pairs at 1.8.1), and so does a clause
+  retrieval. Since 1.12.1 a read copies the value as one block, and a ground value read again with no backtrack between
+  is the copy already made; measured at 0.149 over a global of 3,000 pairs `k(N)-v(N, abc)`: 25 µs a read after a
+  backtrack where 1.11.10 took 163 µs, 0.4 µs a read again where it took 189 µs, and a value with a variable 23 µs a
+  read after a backtrack. A global that is not there costs `nb_current/2` 0.04 µs and a `catch/3` around `nb_getval/2`
+  0.36 µs (each over the 0.15 µs a step of an empty failure-driven loop). `memberchk/2` 0.15 µs a step; a fact among
+  5,000 found by its first argument 3 µs, asserted 2 µs (under `--embed` a store row, indexed by an ATOM first argument,
+  not `dep(I)`), where a global per name costs 25 µs; a predicate call about 5 µs; `catch/3` grows with the terms bound
+  in it (37 ms against 0.3 ms bare); a code walk about 1 µs a code; `sub_atom/5` with a free position about 150 µs; a
+  spawn 0.14 s and a shell fork 10 ms on macOS; the DCG lexer 0.15 ms a token whatever its clauses.
 - The module SDK builds no compound: `coco_make/4` (lib/term.cicili, behind `coco_m_machine`) does. `coco_m_error/3`
   returns the predicate's ANSWER, not a status: a raising helper hands it back through an out parameter and returns 0,
   else its caller walks on into LLVM with a null module.
@@ -6692,12 +6706,13 @@ A lambda is a class of its captures (`library/ccl_cpp.pl`). A fixture named alon
 - Ubuntu 24.04 on x86_64 (clang and LLVM 18, glibc, libc++ 18 and 21) is a host since 0.87. Every gate but the C++ one is
   GREEN there since 0.93, and all seven since 0.95. Every step from 0.93 on is gated there, but the save points 0.112,
   0.113, 0.117, 0.122 to 0.125, 0.130, 0.131 and 0.143 (0.143's C gates and cross gate ran, its libc++ gates did not;
-  the others were gated by the steps after them). The last full run is 0.148's, over cocolog 1.11.10, on one tree,
-  4254 s in all: over libc++ 18 all nine GREEN (the flow gate's 125 findings in 55 s, reader 4 s, compile 12 s, driver
-  11 s, objects 3 s, proof, the cross gate in 61 s, the library read in 1023 s, the C++ gate in 984 s with 497 of 500
-  fixtures ok, the skips are `stdoptionalref`, `joinwith` and `tzone`, the 21 refusals and the three of the safe part);
-  over libc++ 21 the library read (968 s) and the C++ gate (1124 s, 499 of 500 ok, the skip `stdoptionalref`) GREEN --
-  the C gates do not read libc++. Two libc++ passes are one
+  the others were gated by the steps after them). The last full run is 0.149's, over cocolog 1.12.1, on one tree,
+  3836 s in all (0.148's, over 1.11.10, 4254 s): over libc++ 18 all nine GREEN (the flow gate's 125 findings in 52 s,
+  reader 4 s, compile 11 s, driver 11 s, objects 4 s, proof, the cross gate in 60 s, the library read in 1008 s, the
+  C++ gate in 783 s with 497 of 500 fixtures ok, the skips are `stdoptionalref`, `joinwith` and `tzone`, the 21
+  refusals and the three of the safe part); over libc++ 21 the library read (970 s) and the C++ gate (927 s, 499 of
+  500 ok, the skip `stdoptionalref`) GREEN -- the C gates do not read libc++. The fixtures' builds, summed, took 2790 s
+  over libc++ 18 where 0.148's took 3532 s, and 3001 s over libc++ 21 where they took 3672 s. Two libc++ passes are one
   gate: `LLVM=/usr/lib/llvm-18` and `LLVM=/usr/lib/llvm-21` choose the tree the chain reads and links. libc++ 22 (the
   newest tree, which a run without `$LLVM` reads) is untried but for `stdoptionalref`, which passes there. The run before
   0.121's (0.118, 0.119) found, over 0.117, two defects and one stale check of `test/cpp.pl` (c20, above).

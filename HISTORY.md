@@ -143,6 +143,7 @@ One row per step, in version order: the step's title, what it did and its gate n
 | 0.147 | the numbers of 0.146's chain | 0.146's chain recorded: all nine gates over libc++ 18, the two libc++ gates over 21, on cocolog 1.11.4; three flow points sent to cocolog's owner | 497 of 500 C++ fixtures over libc++ 18, 499 over 21; all gates GREEN, 4276 s |
 | 0.148 | the flow debugger's choices and catches, and a profile of a build, on cocolog 1.11.10 | cocolog 1.11.10; test/why.sh on chose(C) and caught(K), the compiler's files named for the debugger's scan, dr_catch/3 kept (measured), no documents unless WHY_KEEP; both tools capped over the whole process tree, the pool counting a cocolog run; test/prof.sh over windows along a build; the work on main | all nine gates GREEN over libc++ 18, the two libc++ gates over 21, 4254 s; 497 of 500 C++ fixtures over 18, 499 over 21 |
 | 0.149 | cocolog 1.12.1, and a global that may be unset read with nb_current/2 | cocolog 1.12.1 (`nb_current/2`, `setarg/3`, `nb_setarg/3`; a global read as one block, a ground value's copy shared); the 156 reads `catch(nb_getval(K, V), _, R)` of the library and the gates made `nb_current(K, V)`; committed before the chain, on the stop hook's request | the flow gate GREEN (125 findings); test/why.sh names the new read; the chain and the measurements running at the commit |
+| 0.150 | the numbers of 0.149's chain, and the build's time on cocolog 1.12.1 | 0.149's chain recorded; the build's time measured three ways (0.148 on 1.11.10, 0.148 on 1.12.1, 0.149 on 1.12.1), a global's read alone, and the choice point a bare `catch/3` leaves | all nine gates GREEN over libc++ 18, the two libc++ gates over 21, 3836 s (0.148: 4254 s); 497 of 500 C++ fixtures over 18, 499 over 21; five fixtures' CPU time 77.2 s on 1.11.10, 55.7 s on 1.12.1 |
 
 ## M5 — the C++ mode
 
@@ -8795,3 +8796,65 @@ Nothing the compiler emits changed: reader 129, lowering 82.
 THE GATES AT THE COMMIT. The flow gate GREEN over the changed library: 125 findings, all of them `test/flow.expect`'s
 (1.12.0's modes changed none), in 51 s. The chain over libc++ 18 and 21, and the build's time measured three ways -- the 0.148
 library on 1.11.10, the same on 1.12.1, this library on 1.12.1 -- run at the commit; 0.150 records them.
+
+## 0.150 — the numbers of 0.149's chain, and the build's time on cocolog 1.12.1
+
+**0.150: 0.149's chain, ended: all nine gates GREEN over libc++ 18, and the two libc++ gates GREEN over libc++ 21, on
+cocolog 1.12.1, in 3836 s where 0.148's took 4254 s on 1.11.10; and the build's time measured on the two engines.**
+0.149 was committed before its chain, on the stop hook's request; this step records the chain and the measurements, as
+the owner asked ("after bg tasks done, commit and push the numbers").
+
+- THE CHAIN on the live checkout, fresh HOMEs, 3836 s in all. Over libc++ 18: the flow gate (125 findings, all of
+  them `test/flow.expect`'s, 52 s, 2564 MB summed over its four lanes), reader 4 s, compile 11 s (77 run and 47 safe
+  fixtures), driver 11 s (35 checks), objects 4 s, the proof, the cross gate in 60 s (77 fixtures and 3 checks), the
+  library read in 1008 s (peak 1084 MB), the C++ gate in 783 s (peak 2723 MB) with 497 of its 500 fixtures ok -- the
+  skips `stdoptionalref`, `joinwith` and `tzone`, which their `.needs` keep from libc++ 18 -- and the 21 refusals and
+  the three of the safe part. Over libc++ 21: the library read in 970 s (peak 1018 MB) and the C++ gate in 927 s (peak
+  2355 MB), 499 of 500 ok, the skip `stdoptionalref`. Against 0.148's chain the C++ gate took 20 % and 18 % less, and
+  the library read the same (1008 s against 1023, 970 against 968): it flattens and reads headers, where few globals
+  are read. The fixtures' builds, as `fixture-times` records them (whole seconds, four builds at a time), summed 2790 s
+  over libc++ 18 where 0.148's summed 3532 s, and 3001 s over libc++ 21 where they summed 3672 s; the format fixtures
+  gained most (`fmtrange.cpp` 236 s to 110, `fmttuple.cpp` 141 to 72, `stdformat.cpp` 59 to 35 over libc++ 18;
+  `tzone.cpp` 284 to 232 over libc++ 21). The C++ gate's peak over libc++ 18, 2723 MB summed over its four lanes,
+  passes 0.148's 2234 MB: which fixtures run together changes from run to run, and the five fixtures measured below
+  kept their own peaks (180 to 560 MB on both engines).
+- THE BUILD'S TIME, three ways, one build at a time on the box: `cicilang++ -c` over one warm HOME, the CPU time of the
+  build's process tree, three rounds with the order of the three ways turned each round. A is the 0.148 library and its
+  modules on cocolog 1.11.10 (the build kept in a scratch copy), B the same library on 1.12.1 (its modules built over
+  1.12.1), C the 0.149 library on 1.12.1. The least of the three runs, in CPU seconds:
+
+  | Fixture | A | B | C |
+  |---|---|---|---|
+  | `counter.cpp` | 0.19 | 0.19 | 0.17 |
+  | `stdvector.cpp` | 4.13 | 3.69 | 3.81 |
+  | `stdmap.cpp` | 5.29 | 4.89 | 4.87 |
+  | `stdtuple.cpp` | 13.80 | 12.72 | 12.84 |
+  | `stdformat.cpp` (C++20) | 53.81 | 34.26 | 34.96 |
+  | the sum | 77.22 | 55.74 | 56.65 |
+
+  The engine takes 28 % off the sum, 36 % off `stdformat.cpp`, whose build reads the largest globals. The reads of
+  0.149 change nothing a build can show: C against B is 1.6 % more on the sum, by round 2.3, 0.5 and 0.9 %, where two
+  runs of one way differ by up to 4 % on the sum (B: 56.4, 56.4, 58.5 s) and 12 % on one fixture (`stdvector.cpp`
+  under B: 3.69, 3.73, 4.14 s).
+- A GLOBAL'S READ ALONE, a query on each engine over a global of 3,000 pairs `k(N)-v(N, abc)`: read after a backtrack
+  163 µs on 1.11.10 and 25 µs on 1.12.1 (the block copy); read again with no backtrack between 189 µs and 0.4 µs (the
+  ground copy shared); a value with a variable 137 µs and 23 µs after a backtrack. A global that is not there, each
+  over the 0.15 µs a step of an empty failure-driven loop: `catch(nb_getval(K, V), _, fail)` 0.32 µs on 1.11.10 and
+  0.36 µs on 1.12.1, `nb_current(K, V)` 0.04 µs.
+- A BARE `catch/3` LEAVES A CHOICE POINT, on both engines: a deterministic recursion of a million calls, each form
+  alone in its own process, took 1.0 s and kept 295 MB of heap and 24 MB of trail with `catch(nb_getval(K, V), _,
+  fail)` as a bare goal (1.1 s and 322 MB on 1.11.10), 0.21 s and 32 MB with the catch under `once/1`, and 0.2 s and
+  13 MB with `nb_current(K, V)` -- bare, under `once/1` or in a condition alike -- as with a bare `nb_getval/2`. So a
+  catch whose goal succeeded stays on the choice stack until a cut or a backtrack, which is why `CLAUDE.md` keeps every
+  `catch/3` under `once/1` or as a condition. 37 of the library's 153 reads that 0.149 replaced stood bare in a clause
+  body (`ccl_set_has/2`'s, asked at every identifier, among them), 107 in a condition, 4 under `\+`, 5 under
+  `once/1`; the builds above show no change, since a cut or a caller's condition soon drops such a choice point.
+- cocolog 1.12.2 (`88388f7`) reached master while the chain ran (the cocolog session's message at 19:22 UTC):
+  `length/2`, `nth0/3`, `nth1/3`, `last/2`, `reverse/2` and `atomic_list_concat/2,3` in one step, five calls of
+  `length/2` that looped now failing, and `true` and `=/2` no longer counted as inferences. It is not taken here: a
+  `make` under the running chain would have replaced its engine.
+
+Nothing the compiler emits changed: reader 129, lowering 82.
+
+THE GATES. The chain above; on this tree, its module rebuilt for 0.150, the flow gate again GREEN (125 findings, 46 s)
+and the reader gate GREEN.
