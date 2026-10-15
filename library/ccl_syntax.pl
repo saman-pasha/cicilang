@@ -74,7 +74,7 @@
 
 %% the reader's version, part of the knowledge base's cache key: bump it when
 %% the grammar changes, so what an older grammar left partial is read again
-ccl_reader_version(123).   % 123 (0.128): an enum's values in the bulk noter are ccl_const_eval/2's (ccl_const_eval_in), a cast wrapping and an unsigned operation typed, so a summary's `enum/2' values change; 122 (0.127): `new T' and `new (p) T' with no initializer are `new_default(T)', default-initialized, apart from `new T()' and `new T{}', value-initialized (the summaries hold library bodies that write both); 121 (0.127): in C++ an enumerator's ENUM is kept beside its value in the table of values (`'$t'(Name)-Tag', a scoped enum's tag as `'$s'(Tag)-1'), so a summary's `enum/2' lines carry it, and the parser declares an enumerator of a named enum with the enum's type; a free function DEFINITION keeps a trailing return type that names `decltype' as its result (ccl_trailing_ret); 120 (0.126): a function with NO parameter DELETED where it is declared (`void iter_move() = delete;', libc++ 21's poison pill of a customization point; `begin', `end', `size', `rbegin', `rend', `weak_order' alike) is indexed as the prototype it stood for in libc++ 18 (cpp_index_name), so the namespace collision with the object `ranges::iter_move' is seen and the unqualified call inside the concept no longer goes to the object; 119 (0.126): the DECLARATION of a free operator template is indexed and registered as its definition is (cpp_template_name, cpp_fn_item), so the default of a template parameter that only the declaration gives -- libc++ 21's `template <class _Tp, __enable_if_t<is_floating_point<_Tp>::value, int> = 0> complex<_Tp> operator*(const complex<_Tp> &, const complex<_Tp> &);', defined later without it -- reaches the definition, and the AST beside <complex>'s summary holds the declaration; 118 (0.126): `__has_builtin(__builtin_common_type)' answers 0 (pp_no_builtin), so libc++ 21 flattens <type_traits>'s common_type on its own specializations, the ones libc++ 18 flattens, not on clang's builtin template; 117 (0.124): a class-scope alias with an attribute before its `=' (`using _Alloc [[__gnu__::__nodebug__]] = allocator<_CharT>;', libc++ 21) is a type ahead of its declaration too; a VARIABLE TEMPLATE's name is a template before its own initializer (libc++ 21's `template <intmax_t _Xp, intmax_t _Yp> inline const intmax_t __static_gcd = __static_gcd<_Yp, _Xp % _Yp>;' read `__static_gcd <' as less-than and stopped <string>); 115 (0.121): `using Bs::operator()...;' in a class is `using(L, pack(Q))', the pack form of a using-declaration; it was skipped to the `;' with the other `using' forms (libc++ 18's `__all_overloads' of std::variant, and C++17's `overloaded' idiom, `template <class... Fs> struct overloaded : Fs... { using Fs::operator()...; };'); 114 (0.117): in a block, `std::lock_guard<std::mutex> g(m);' with `m' a member declared later in the class is an object with an argument, not a function declaration of a parameter of the type `m' (the unnamed-parameter rule is for a prototype); `using typename Base<T>::type;' in a class is the class-scope typedef `type' (libc++ 18's <charconv> `__traits'); a free operator function that a header DEFINES (`inline bool operator==(__thread_id, __thread_id)') is indexed under its free operator name, as a literal operator was; a static data member of a class TEMPLATE defined out of its class (`template <class T> const size_t deque<T>::__block_size = ...') is indexed under the class and merged into its instances (static_def; <deque>'s `begin()' met an undefined symbol), and a type-id takes an ABSTRACT declarator only (`(std::vector<int>(n))' is a parenthesized functional cast, never a cast to the type `vector<int> (n)'); 113 (0.117): a conversion function defined out of its class (`S::operator int() const { ... }', `X<E>::operator valarray<R>() const { ... }') is a function with the conversion type as its result, and its name's type is specifiers and pointers only (<valarray> stopped the read at `__val_expr<_ValExpr>::operator valarray<...>()'); the suffix of a literal operator may spell a keyword (`operator"" if' of <complex>); a VALUE template parameter's name hides a typedef of the same name for its item (`bitset<_Size>' read as a type when an earlier class had a typedef `_Size', and no out-of-class member of std::bitset matched); a user-defined literal is `udl(Suffix, Literal)' (`5_km', `1500ms', `"x"s'); an out-of-class constructor or destructor of a partial specialization keeps its class's template-id as the qualifier `pattern(Args)' (`__bitset<1, _Size>::__bitset()' was every instance's constructor); `(T())' and `(T(n))' are parenthesized functional casts, not a cast to the function type `T ()' nor a type-id with the declarator `(n)' (<thread>'s `thread() : __t_((__libcpp_thread_t())) {}' and `vector<int> r((istream_iterator<int>(in)), ...)' stopped the read); a non-empty braced temporary `T{a, b}' is `braced_temp(call(T, Values))' and goes through an `initializer_list' constructor; `auto a = x, b = y;' is a splice of one inferred declaration per declarator, each read with an assignment-expression (the comma took `b = y' for an expression); 112 (0.117): a local variable hides a typedef name of the same name (`const char *path' beside the filesystem's `path', the vexing parse); a constructor or destructor defined out of its class keeps `inline', `constexpr', `consteval' and the hidden mark in its qualifiers (ctor_def, dtor_def), so libc++ 18's `inline basic_ofstream<...>::basic_ofstream(const char *, ...)' is compiled, not called by a symbol no library exports; 111 (0.117): `__int128' a type word of its own (ccl_gnu_word, ccl_basic_type), a lambda's `mutable' kept among its captures, `friend class X;' kept as friend_class(Q) for the access control; 110 (0.115): an init-declarator names what it declares (`Loop()(1, 2);' is a call); a raw string literal R"d(...)d" and its prefixed forms in both lexers, C++ only (<format>'s escaped-string writer stopped the read at C++23); 109 (0.115): a type requirement reads its own `typename' (`requires { typename T::key_type; }' with `key_type' declared nowhere yet); 108 (0.113): the hidden mark of an attribute that BEGINS an item (after a template head) kept; 107 (0.112): `__visibility__("hidden")' kept on a member defined out of its class, `hidden(Sto)'
+ccl_reader_version(129).   % 129 (0.143): a double or a float literal past the largest double is an infinity, as clang reads it (it was the largest double, ccl_finite_float/2, while cocolog could not read an infinity back; a long double literal keeps that clamp); 128 (0.138): an alias declaration's right side, where its normal read fails, is read again with a function template's template-id taken as a type (libc++ 21's experimental <__pstl>, `using _FindIf = __dispatch<...>;' beside <variant>'s member `__dispatcher::__dispatch'); 127 (0.136): `__extension__' before a block's alias declaration (libc++ 21's <random> stopped there); 126 (0.136): std::rel_ops is indexed, its items under the keys `rel_ops.<name>' (cpp_ns_quals); 125 (0.132): a stored read's floats come back exactly (the store wrote them with 15 digits), and `decltype(auto)' is read as `auto' with the qualifier decltype_auto, no plain `auto'; 124 (0.129): `__SIZEOF_INT128__' predefined in C++ too, so every libc++ header flattens in its int128 configuration; C23's decimal floating literals, tok(dec32 | dec64 | dec128, Text, L) in both lexers and dec32(Text) ... to the parser, and `_Decimal32', `_Decimal64', `_Decimal128' type words of the grammar's table (they were typedef names); 123 (0.128): an enum's values in the bulk noter are ccl_const_eval/2's (ccl_const_eval_in), a cast wrapping and an unsigned operation typed, so a summary's `enum/2' values change; 122 (0.127): `new T' and `new (p) T' with no initializer are `new_default(T)', default-initialized, apart from `new T()' and `new T{}', value-initialized (the summaries hold library bodies that write both); 121 (0.127): in C++ an enumerator's ENUM is kept beside its value in the table of values (`'$t'(Name)-Tag', a scoped enum's tag as `'$s'(Tag)-1'), so a summary's `enum/2' lines carry it, and the parser declares an enumerator of a named enum with the enum's type; a free function DEFINITION keeps a trailing return type that names `decltype' as its result (ccl_trailing_ret); 120 (0.126): a function with NO parameter DELETED where it is declared (`void iter_move() = delete;', libc++ 21's poison pill of a customization point; `begin', `end', `size', `rbegin', `rend', `weak_order' alike) is indexed as the prototype it stood for in libc++ 18 (cpp_index_name), so the namespace collision with the object `ranges::iter_move' is seen and the unqualified call inside the concept no longer goes to the object; 119 (0.126): the DECLARATION of a free operator template is indexed and registered as its definition is (cpp_template_name, cpp_fn_item), so the default of a template parameter that only the declaration gives -- libc++ 21's `template <class _Tp, __enable_if_t<is_floating_point<_Tp>::value, int> = 0> complex<_Tp> operator*(const complex<_Tp> &, const complex<_Tp> &);', defined later without it -- reaches the definition, and the AST beside <complex>'s summary holds the declaration; 118 (0.126): `__has_builtin(__builtin_common_type)' answers 0 (pp_no_builtin), so libc++ 21 flattens <type_traits>'s common_type on its own specializations, the ones libc++ 18 flattens, not on clang's builtin template; 117 (0.124): a class-scope alias with an attribute before its `=' (`using _Alloc [[__gnu__::__nodebug__]] = allocator<_CharT>;', libc++ 21) is a type ahead of its declaration too; a VARIABLE TEMPLATE's name is a template before its own initializer (libc++ 21's `template <intmax_t _Xp, intmax_t _Yp> inline const intmax_t __static_gcd = __static_gcd<_Yp, _Xp % _Yp>;' read `__static_gcd <' as less-than and stopped <string>); 115 (0.121): `using Bs::operator()...;' in a class is `using(L, pack(Q))', the pack form of a using-declaration; it was skipped to the `;' with the other `using' forms (libc++ 18's `__all_overloads' of std::variant, and C++17's `overloaded' idiom, `template <class... Fs> struct overloaded : Fs... { using Fs::operator()...; };'); 114 (0.117): in a block, `std::lock_guard<std::mutex> g(m);' with `m' a member declared later in the class is an object with an argument, not a function declaration of a parameter of the type `m' (the unnamed-parameter rule is for a prototype); `using typename Base<T>::type;' in a class is the class-scope typedef `type' (libc++ 18's <charconv> `__traits'); a free operator function that a header DEFINES (`inline bool operator==(__thread_id, __thread_id)') is indexed under its free operator name, as a literal operator was; a static data member of a class TEMPLATE defined out of its class (`template <class T> const size_t deque<T>::__block_size = ...') is indexed under the class and merged into its instances (static_def; <deque>'s `begin()' met an undefined symbol), and a type-id takes an ABSTRACT declarator only (`(std::vector<int>(n))' is a parenthesized functional cast, never a cast to the type `vector<int> (n)'); 113 (0.117): a conversion function defined out of its class (`S::operator int() const { ... }', `X<E>::operator valarray<R>() const { ... }') is a function with the conversion type as its result, and its name's type is specifiers and pointers only (<valarray> stopped the read at `__val_expr<_ValExpr>::operator valarray<...>()'); the suffix of a literal operator may spell a keyword (`operator"" if' of <complex>); a VALUE template parameter's name hides a typedef of the same name for its item (`bitset<_Size>' read as a type when an earlier class had a typedef `_Size', and no out-of-class member of std::bitset matched); a user-defined literal is `udl(Suffix, Literal)' (`5_km', `1500ms', `"x"s'); an out-of-class constructor or destructor of a partial specialization keeps its class's template-id as the qualifier `pattern(Args)' (`__bitset<1, _Size>::__bitset()' was every instance's constructor); `(T())' and `(T(n))' are parenthesized functional casts, not a cast to the function type `T ()' nor a type-id with the declarator `(n)' (<thread>'s `thread() : __t_((__libcpp_thread_t())) {}' and `vector<int> r((istream_iterator<int>(in)), ...)' stopped the read); a non-empty braced temporary `T{a, b}' is `braced_temp(call(T, Values))' and goes through an `initializer_list' constructor; `auto a = x, b = y;' is a splice of one inferred declaration per declarator, each read with an assignment-expression (the comma took `b = y' for an expression); 112 (0.117): a local variable hides a typedef name of the same name (`const char *path' beside the filesystem's `path', the vexing parse); a constructor or destructor defined out of its class keeps `inline', `constexpr', `consteval' and the hidden mark in its qualifiers (ctor_def, dtor_def), so libc++ 18's `inline basic_ofstream<...>::basic_ofstream(const char *, ...)' is compiled, not called by a symbol no library exports; 111 (0.117): `__int128' a type word of its own (ccl_gnu_word, ccl_basic_type), a lambda's `mutable' kept among its captures, `friend class X;' kept as friend_class(Q) for the access control; 110 (0.115): an init-declarator names what it declares (`Loop()(1, 2);' is a call); a raw string literal R"d(...)d" and its prefixed forms in both lexers, C++ only (<format>'s escaped-string writer stopped the read at C++23); 109 (0.115): a type requirement reads its own `typename' (`requires { typename T::key_type; }' with `key_type' declared nowhere yet); 108 (0.113): the hidden mark of an attribute that BEGINS an item (after a template head) kept; 107 (0.112): `__visibility__("hidden")' kept on a member defined out of its class, `hidden(Sto)'
 %% ccl_reader_version(106).   % 106 (0.112): a member named through an object by its qualified name (`b.A::v', `p->A::f()'), the `1.0li' literal a `_Complex long double', a summary's long terms in the `.big.pl' beside it; 105 (0.112): a lambda's requires-clauses kept, `lreq(R)' among its captures; 104 (0.112): a header's enum keeps its namespace path in the AST beside the summary ('$cpp_hdr_ast_ns'); 103 (0.112): `__has_extension(datasizeof)' answers 1, so libc++'s `__libcpp_datasizeof' flattens on `__datasizeof(T)', a builtin trait whose argument is a type; 102 (0.112): a designated `T{.a = 1}' kept as a compound literal of T with its designators (ccl_braced_temp); 101 (0.112): `__SIZEOF_INT128__' no longer predefined, so every libc++ header flattens in its no-int128 configuration; 100 (0.112): an item declared by a namespace-qualified name stands in that namespace (ccl_flat_quals), so a summary's index keys change; 99 (0.112): std::rel_ops is not indexed (ccl_flat_items), so the AST beside a summary changes; 98 (0.110): a function's noexcept kept (a method's among its qualifiers, a free function's name noted), noexcept(false) and throw(X) no noexcept; 97 (0.109): a namespace alias; a qualified name after `struct' in a class body's look-ahead scan is no member template; 96 (0.109): C++17's nested namespace definition, `namespace A::B { }'; 95 (0.109): the tie is the contextual word `tie', `x tie y', and `<*>' is no punctuator in either lexer; 94 (0.108): C++26's contracts on a function and contract_assert, C++20's modules (module, import, export), a deduction guide indexed under $guide.; 93 (0.108): a compound literal of an unsized array sized by its items; 92 (0.108): a C anonymous struct or union member named $anonK; 91 (0.108): hex floats, a float with a leading dot, the f and L suffixes as their own kinds (floatf, floatl), trigraphs in the ISO modes; 90 (0.104): an array initializer with a pack expansion sizes nothing at the read; 89 (0.104): the integer imaginary literal's suffix kinds, imagui, imagli, imaguli, and \N{NAME} over Unicode 15.0.0 with its aliases; 88 (0.103): the integer imaginary literal is its own token, imagi; 87 (0.101): a static data member defined out of its class indexed under the class; 86 (0.100): an inline namespace marked, a deeper namespace's bare uses rewritten in the AST beside the summary; 85: __has_extension(c_atomic)
 %% ccl_reader_version(81).   % 81: a literal past 2^60 is big(Atom) in every summary's item
 %% ccl_reader_version(80).   % 80: a template template parameter's name un-noted at its item's end, a tag or a typedef no concept (<variant>'s `template <_Trait X, ...>' read as a constrained type parameter); 79: a braced default argument, C++20's brace-designated initializer (libc++ 18 at C++20); 78: an unnamed parameter of an unknown type name in a C++ parameter list, a destructor called with its template arguments (libc++ 18); 77: _Generic chosen at the read, an unbounded array sized by its initializer, _BitInt in the table, the OS's predefined macros, <limits.h> and the C23 headers; 59: a method's ref-qualifier kept; 60: the C++20 stretch (a constrained parameter, a requires-clause on a member template, trailing, on a lambda; `::template f' alone; a braced subscript; a member variable template; a constrained auto); 61: a concept indexed by name; 62: a function template's explicit template-id is no type (`T &r(std::forward<U>(v))'), a bare concept's name bound; 63: explicit(cond) kept; 64: a pointer to member, typeid, a member class template noted ahead; 65: no RTTI predefined, so every header is flattened again; 66: only a pointer to member takes the trailing cv- and ref-qualifiers (a method's const is the method rule's); 67: a free name outside a template; 68: a nullability word with an argument list (glibc); 69: a pointer to member function's noexcept, a braced list assigned, and the AST's index keys a deeper namespace's name apart; 70: alignas kept on a class; 71: [[no_unique_address]] kept on a member; 72: the AST's index holds a header's inline variable with NO initializer (std::ignore); 73: a pack expansion is a dependent type, and a call of a function template's name is not the reader's `auto' to deduce; 74: `if constexpr' with an init-statement; 75: a member FUNCTION template's name is a template and no type; 76: __OPTIMIZE_SIZE__ predefined, so libc++'s algorithms are the scalar ones
@@ -233,15 +233,20 @@ ccl_number(L, T) --> [0'0, X], { X =:= 0'x ; X =:= 0'X }, !, ccl_hex_digits(Ds),
 ccl_number(L, T) --> [0'0, X], { X =:= 0'b ; X =:= 0'B }, !, ccl_bin_digits(Ds), { Ds \== [], ccl_bin_int(Ds, N) }, ccl_int_suffix(K), ccl_int_tok(K, N, L, T).   % C23 and C++14: 0b1011
 ccl_number(L, T) --> ccl_digits(Is), { Is \== [] }, ccl_number_rest(Is, L, T).
 ccl_number(L, tok(K, F, L)) --> [0'., D], { ccl_digit(D) }, !, ccl_digits(Ds), ccl_exponent(Es), ccl_float_suffix(K),   % `.5f': no integer part (0.108)
-    { append([0'0, 0'., D|Ds], Es, B), number_codes(F, B) }.
+    { ( ccl_dec_kind(K) -> append([0'., D|Ds], Es, T), atom_codes(F, T) ; append([0'0, 0'., D|Ds], Es, B), number_codes(F, B) ) }.   % a decimal one keeps its text as the native lexer spells it, `.5' (0.129)
 ccl_hex_frac(Fs) --> [0'.], !, ccl_hex_digits(Fs).
 ccl_hex_frac([]) --> [].
 ccl_hex_fvalue([], M, M).
 ccl_hex_fvalue([D|Ds], M0, M) :- ccl_hex_value([D], 0, V), M1 is M0 * 16.0 + V, ccl_hex_fvalue(Ds, M1, M).
 ccl_number_rest(Is, L, tok(K, F, L)) --> [0'.], ccl_digits(Fs), ccl_exponent(Es), !, ccl_float_suffix(K),
-    { ( Fs == [] -> Fs1 = [0'0] ; Fs1 = Fs ), append(Is, [0'.|Fs1], A), append(A, Es, B), number_codes(F, B) }.
+    { ( Fs == [] -> Fs1 = [0'0] ; Fs1 = Fs ), append(Is, [0'.|Fs1], A), append(A, Es, B), ccl_float_value(K, B, F) }.
 ccl_number_rest(Is, L, tok(K, F, L)) --> ccl_exponent(Es), { Es \== [] }, !, ccl_float_suffix(K),
-    { append(Is, [0'., 0'0|Es], B), number_codes(F, B) }.
+    { append(Is, [0'., 0'0|Es], B), ccl_float_value(K, B, F) }.
+%% A DECIMAL FLOATING LITERAL'S VALUE IS ITS TEXT (C23 6.4.4.2; 0.129): `0.1dd' is exactly one tenth, which no double holds, so the
+%% token carries the digits as the lexers spell them for strtod (`0.1', `1.0e5', the digit separators dropped) and the lowering
+%% encodes them (ir_dec_encode)
+ccl_float_value(K, B, F) :- ( ccl_dec_kind(K) -> atom_codes(F, B) ; number_codes(F, B) ).
+ccl_dec_kind(dec32). ccl_dec_kind(dec64). ccl_dec_kind(dec128).
 ccl_number_rest([0'0|Os], L, T) --> { Os \== [], ccl_octal_digits(Os) }, !, ccl_int_suffix(K), { ccl_octal_int(Os, N) }, ccl_int_tok(K, N, L, T).
 ccl_number_rest(Is, L, T) --> ccl_int_suffix(K), { ccl_int_value(Is, N) }, ccl_int_tok(K, N, L, T).
 %% THE IMAGINARY LITERAL (GNU's, which clang and gcc both read; 0.101): `2.0i', `1.5if', `3i', `1.0fi', `j' for `i' --
@@ -308,7 +313,10 @@ ccl_int_kind(yes, yes, no, ulong).
 ccl_float_suffix(K) --> ccl_imag_mark, !, ( ccl_float_suffix_f(_), !, { K = imagf } ; [C], { C =:= 0'l ; C =:= 0'L }, !, { K = imagl } ; { K = imag } ).   % `1.0if', `1.0il' (a `_Complex long double', 0.112), `1.0i'
 ccl_float_suffix(K) --> ccl_float_suffix_f(P), !, ( ccl_imag_mark, !, { K = imagf } ; { P == plain -> K = floatf ; K = float } ).   % `1.0f', `1.0fi'
 ccl_float_suffix(K) --> [C], { C =:= 0'l ; C =:= 0'L }, !, ( ccl_imag_mark, !, { K = imagl } ; { K = floatl } ).   % `1.0l', `1.0li' (a `_Complex long double', 0.112, as clang has it)
+ccl_float_suffix(K) --> [D, C], { ccl_dec_suffix(D, C, K) }, !.   % C23's `df', `dd', `dl' and `DF', `DD', `DL' (0.129): _Decimal32, _Decimal64, _Decimal128
 ccl_float_suffix(float) --> [].
+ccl_dec_suffix(0'd, 0'f, dec32).  ccl_dec_suffix(0'd, 0'd, dec64).  ccl_dec_suffix(0'd, 0'l, dec128).
+ccl_dec_suffix(0'D, 0'F, dec32).  ccl_dec_suffix(0'D, 0'D, dec64).  ccl_dec_suffix(0'D, 0'L, dec128).
 ccl_float_suffix_f(P) --> [C], { C =:= 0'f ; C =:= 0'F }, !, ccl_digits(Ds), { Ds == [] -> P = plain ; P = width }.
 ccl_float_suffix_f(width) --> [B, F], { ( B =:= 0'b ; B =:= 0'B ), ( F =:= 0'f ; F =:= 0'F ) }, !, ccl_plain_digits.
 ccl_imag_mark --> [C], { C =:= 0'i ; C =:= 0'I ; C =:= 0'j ; C =:= 0'J }.
@@ -959,7 +967,7 @@ ccl_ns_nest([], _, Items, Items).
 ccl_ns_nest([S|Ss], L, Items0, [namespace(L, S, Items)]) :- ccl_ns_nest(Ss, L, Items0, Items).
 ccl_external(Env, Env, using(L, enum(Q))) --> ccl_cpp, ccl_line(L), ccl_kw(using), ccl_kw(enum), !, ccl_qname(Env, type, Q), ccl_p(';').      % C++20: using enum E
 ccl_external(Env, Env, using(L, namespace(Q))) --> ccl_cpp, ccl_line(L), ccl_kw(using), ccl_kw(namespace), !, ccl_qname(Env, type, Q), ccl_p(';').
-ccl_external(Env0, [T|Env0], typedef(L, [var(T, Type, none)])) --> ccl_cpp, ccl_line(L), ccl_kw(using), ccl_id(T), ccl_attrs, ccl_p('='), !, ccl_type_name(Env0, Type), ccl_p(';'),
+ccl_external(Env0, [T|Env0], typedef(L, [var(T, Type, none)])) --> ccl_cpp, ccl_line(L), ccl_kw(using), ccl_id(T), ccl_attrs, ccl_p('='), !, ccl_alias_rhs(Env0, Type),
     { ccl_add_env(T), ccl_note_item(typedef(L, [var(T, Type, none)])) }.
 ccl_external(Env, Env, using(L, name(Q))) --> ccl_cpp, ccl_line(L), ccl_kw(using), !, ccl_qname(Env, type, Q), ccl_p(';').
 %% `extern "C"' gives its block C LINKAGE: the item keeps the block, and nothing inside it is mangled.
@@ -1017,6 +1025,16 @@ ccl_note_if_fn_template(N) :- ( atom(N), nb_getval('$ccl_tmpl_depth', D), D > 0 
 ccl_note_fn_template(N) :- atom(N), N \== none, ( ccl_set_has('$ccl_ftmpls', N) -> true ; nb_getval('$ccl_fn_templates', Ts), nb_setval('$ccl_fn_templates', [N|Ts]), ccl_set_add('$ccl_ftmpls', N) ).
 ccl_note_fn_template(_).
 ccl_fn_template(N) :- ccl_set_has('$ccl_ftmpls', N).
+%% AN ALIAS DECLARATION'S RIGHT SIDE IS A TYPE (0.138): read as any type-id first; where that fails, read again with a
+%% function template's template-id taken as a type's (ccl_qname_typish), since one flattened name can be a class or
+%% alias template of one namespace and a function template of another (libc++ 21's experimental <__pstl>: `using _FindIf
+%% = __dispatch<...>;' beside <variant>'s member `__dispatcher::__dispatch', `__pstl::__any_of<...>' beside std's
+%% `__any_of'). The global is put back on success, failure and throw.
+ccl_alias_rhs(Env, T, S0, S) :- ccl_alias_rhs_(Env, T, S0, S), !.
+ccl_alias_rhs(Env, T, S0, S) :- nb_setval('$ccl_alias_rhs', yes),
+    (   catch(ccl_alias_rhs_(Env, T, S0, S), E, ( nb_setval('$ccl_alias_rhs', no), throw(E) ))
+    ->  nb_setval('$ccl_alias_rhs', no) ; nb_setval('$ccl_alias_rhs', no), fail ).
+ccl_alias_rhs_(Env, T) --> ccl_type_name(Env, T), ccl_p(';').
 ccl_external(Env, Env, concept(L, N, E)) --> ccl_cpp, ccl_line(L), ccl_kw(concept), !, ccl_id(N), { ccl_note_template(N) }, ccl_p('='), ccl_cond_expr(E), ccl_p(';').   % C++20: concept N = constraint
 ccl_external(Env, Env, D) --> ccl_c_or_cpp, ccl_line(L), ccl_kw(auto), ccl_id(N), ccl_p('='), ccl_assign_expr(E), { ccl_auto_decl(L, N, E, none, D1) }, ccl_auto_more(L, D1, D), ccl_p(';'), !.   % C23: auto deduces, where C17 had a storage class
 %% C++17: a deduction guide, `Guard(Args...) -> Guard<Ts...>;' (nothing to lower: the reader reads it, the desugaring passes it over)
@@ -1222,6 +1240,7 @@ ccl_gnu_word('__const', const).        ccl_gnu_word('__const__', const).
 ccl_gnu_word('__volatile', volatile).  ccl_gnu_word('__volatile__', volatile).
 ccl_gnu_word('__restrict', restrict).  ccl_gnu_word('__restrict__', restrict).
 ccl_gnu_word('__inline', inline).      ccl_gnu_word('__inline__', inline).
+ccl_gnu_word('_Decimal32', '_Decimal32').   ccl_gnu_word('_Decimal64', '_Decimal64').   ccl_gnu_word('_Decimal128', '_Decimal128').   % C23's decimal floating types (0.129): type words, read here as C23's other new keywords are (the lexers' tables are the language's), at every level as gcc reads them
 ccl_gnu_word('__int128', '__int128').   % GNU's and clang's 128-bit integer (0.117): a type word like `long', so `unsigned __int128' and `(__int128) x' read; the lowering gives it LLVM's i128
 ccl_specs(Env, Sc, St0, Q0, S0, St, Q, S) --> ccl_kw(K), { ccl_basic_type(K) }, !, ccl_specs(Env, Sc, St0, Q0, [K|S0], St, Q, S).
 ccl_specs(Env, Sc, St0, Q0, S0, St, Q, S) --> ccl_struct_spec(Env, T), !, ccl_specs(Env, Sc, St0, Q0, [T|S0], St, Q, S).
@@ -1231,6 +1250,7 @@ ccl_specs(Env, Sc, St0, Q0, S0, St, Q, S) --> ccl_c23, ccl_id(alignas), ccl_p('(
 ccl_specs(Env, Sc, St0, Q0, S0, St, Q, S) --> ccl_cpp, ccl_kw(alignas), ccl_p('('), ccl_align_arg(E), ccl_p(')'), !, ccl_specs(Env, Sc, St0, [aligned(E)|Q0], S0, St, Q, S).
 ccl_specs(Env, Sc, St0, Q0, S0, St, Q, S) --> ccl_gnu_attr, !, ccl_specs(Env, Sc, St0, Q0, S0, St, Q, S).
 ccl_specs(Env, Sc, St0, Q0, S0, St, Q, S) --> ccl_typeof(T), !, ccl_specs(Env, Sc, St0, Q0, [T|S0], St, Q, S).
+ccl_specs(Env, Sc, St0, Q0, [], St, Q, S) --> ccl_cpp, ccl_kw(decltype), ccl_p('('), ccl_kw(auto), !, ccl_p(')'), ccl_specs(Env, Sc, St0, [decltype_auto|Q0], [auto], St, Q, S).   % `decltype(auto)' IS `auto' MARKED (0.132): deduced as the first return's or the initializer's decltype ([dcl.type.auto.deduct]/5), never decayed -- read as a plain `auto', join_view's `[&]() -> decltype(auto) { return *__get_outer(); }' returned a COPY of the inner vector, and the iterator's end test compared with the copy's end for ever
 ccl_specs(Env, Sc, St0, Q0, [], St, Q, S) --> ccl_cpp, ccl_cpp_type(Env, Sc, T), !, ccl_specs(Env, Sc, St0, Q0, [T], St, Q, S).
 ccl_specs(Env, Sc, St0, Q0, [], St, Q, S) --> ccl_typedef_name(Env, Sc, N), !, ccl_specs(Env, Sc, St0, Q0, [typedef(N)], St, Q, S).
 %% a C++ type name: `typename Q', `decltype(e)', or a qualified or template
@@ -1238,7 +1258,6 @@ ccl_specs(Env, Sc, St0, Q0, [], St, Q, S) --> ccl_typedef_name(Env, Sc, N), !, c
 %% left to the C heuristics, and in a block the name must be followed by what
 %% a declarator starts with (`std::cout << x' is an expression)
 ccl_cpp_type(Env, _, typedef(Q)) --> ccl_kw(typename), !, ccl_qname(Env, type, Q).
-ccl_cpp_type(_, _, auto) --> ccl_kw(decltype), ccl_p('('), ccl_kw(auto), !, ccl_p(')').        % decltype(auto): deduced, as auto is
 ccl_cpp_type(_, _, decltype(E)) --> ccl_kw(decltype), !, ccl_p('('), ccl_expr(E), ccl_p(')').
 ccl_cpp_type(Env, Sc, builtin_type(N, As)) --> ccl_id(N), { ccl_builtin_type_name(N) }, ccl_p('('), ccl_builtin_args(Env, As), ccl_p(')'), ccl_type_follows(Sc), !.   % __remove_cv(T): a type from the compiler's trait
 %% the compiler's builtins that name a TYPE (any other `__x(...)' is a call: the SDK's `(__istype(c, m))')
@@ -1271,7 +1290,7 @@ ccl_cpp_type(Env, Sc, typedef(Q)) --> ccl_qname(Env, type, Q), { compound(Q) }, 
 %% an unknown qualified name is a type where a declarator follows it (`ns::what &w', `ns::T x'), an expression where `(' does (`std::move(a)')
 ccl_declarator_follows(S, S) :- S = [tok(K, V, _)|_], ( K == id ; K == p, memberchk(V, ['*', '&', '&&']) ; K == kw, ccl_qualifier(V) ), !.
 %% a qualified name is a type when its last name is one: `S b(std::move(a))' declares no function taking a std::move
-ccl_qname_typish(_, tmpl(N, _)) :- !, \+ ccl_fn_template(N).                  % a template-id is a type unless the template is a FUNCTION's: `T &r(std::forward<U>(v))' declared a function taking a `std::forward<U>' (0.45's rule, which had covered the bare name `std::move' and not the explicit form)
+ccl_qname_typish(_, tmpl(N, _)) :- !, ( \+ ccl_fn_template(N) -> true ; catch(nb_getval('$ccl_alias_rhs', yes), _, fail) ).                  % a template-id is a type unless the template is a FUNCTION's: `T &r(std::forward<U>(v))' declared a function taking a `std::forward<U>' (0.45's rule, which had covered the bare name `std::move' and not the explicit form)
 ccl_qname_typish(Env, scoped(_, Last)) :- !, ccl_qname_typish(Env, Last).
 ccl_qname_typish(Env, N) :- atom(N), ( ccl_known_typedef(Env, N) ; ccl_known_template(N), \+ ccl_fn_template(N) ; memberchk(N, [string, wstring, size_t, ptrdiff_t, nullptr_t, byte, type, value_type, pointer, reference, const_reference, iterator, const_iterator, size_type, difference_type, element_type]) ), !.
 ccl_type_follows(Sc) --> { memberchk(Sc, [file, param, member, typename]) }, !.
@@ -1372,7 +1391,7 @@ ccl_stars_end([tok(p, V, _)|_]) :- memberchk(V, [')', '[', ',']).
 %% followed by a name or a literal is a cast -- neither can be an expression
 %% in parentheses, so the name is a type from a header the reader has not seen
 ccl_typedef_name(_, typename, N) --> ccl_id(N), { \+ ccl_gnu_word(N) }, ccl_cast_ahead, !.
-ccl_cast_ahead(S, S) :- S = [tok(p, ')', _), tok(K, V, _)|_], ( K == p, V == '{' ; memberchk(K, [id, int, float, floatf, floatl, str, chr, uint, long, ulong]) ).
+ccl_cast_ahead(S, S) :- S = [tok(p, ')', _), tok(K, V, _)|_], ( K == p, V == '{' ; memberchk(K, [id, int, float, floatf, floatl, dec32, dec64, dec128, str, chr, uint, long, ulong]) ).
 %% `(name[' with an empty pair, or with the brackets closed and then `) {',
 %% is an array type in a compound literal: an index would need an expression
 ccl_typedef_name(_, typename, N) --> ccl_id(N), { \+ ccl_gnu_word(N) }, ccl_array_type_ahead, !.
@@ -1582,7 +1601,7 @@ ccl_member_decl(_, [friend(L, [])]) --> ccl_cpp, ccl_line(L), ccl_kw(friend), !,
 %% a class-scope typedef, `typedef T value_type;' and `using value_type = T;': a typedef member, its names
 %% known to the members after it (the global env; a class's typedefs are C++'s, no struct of C has one)
 ccl_member_decl(Env, [typedef(L, Vs)]) --> ccl_cpp, ccl_line(L), ccl_kw(typedef), !, ccl_decl_specs(Env, member, _, Base), ccl_init_declarators(Env, Base, Vs), ccl_p(';'), { ccl_declared_names(Vs, Ns), ccl_add_envs(Ns) }.
-ccl_member_decl(Env, [typedef(L, [var(N, T, none)])]) --> ccl_cpp, ccl_line(L), ccl_kw(using), ccl_id(N), ccl_attrs, ccl_p('='), !, ccl_type_name(Env, T), ccl_p(';'), { ccl_add_env(N) }.
+ccl_member_decl(Env, [typedef(L, [var(N, T, none)])]) --> ccl_cpp, ccl_line(L), ccl_kw(using), ccl_id(N), ccl_attrs, ccl_p('='), !, ccl_alias_rhs(Env, T), { ccl_add_env(N) }.
 %% `using typename Base<T>::type;' -- A TYPE BROUGHT FROM A BASE: the class-scope typedef `type' of the same name (reader version 114). libc++ 18's <charconv> `__traits'
 %% writes it for the base's `using type = uint32_t;', and the `type &' of its members stayed a name nothing declared (`type(unknown)' at the lowering)
 ccl_member_decl(Env, [typedef(L, [var(N, base([], [typedef(Q)]), none)])]) --> ccl_cpp, ccl_line(L), ccl_kw(using), ccl_kw(typename), ccl_qname(Env, type, Q), ccl_p(';'), { Q = scoped(_, N), atom(N) }, !, { ccl_add_env(N) }.
@@ -1752,9 +1771,12 @@ ccl_fn_quals(T, T) --> [].
 %% <class T> auto call(const T &t, int) -> decltype(t.foo())' stayed a candidate for an int and its body was refused. The
 %% desugaring resolves such a result with the parameters declared, as a member's (cpp_with_params, cpp_decltype_ret/3)
 ccl_trailing_ret(How, fn(R0, Ps, V), Qs, fn(R, Ps, V)) :- R0 = base(_, [auto]), memberchk(trailing(T), Qs),
-    ( How == any -> true ; \+ ccl_mentions_auto(T) ), !, R = T.
+    ( How == any -> true ; \+ ccl_mentions_auto(T) -> true ; ccl_auto_shape(T) ), !, R = T.   % ... and a trailing `decltype(auto)', `auto &' or `auto &&' (0.132): the deduction its form says, where the definition kept the plain `auto' before it
 ccl_trailing_ret(_, T, _, T).
 ccl_mentions_auto(T) :- compound(T), ( T = base(_, [auto]) -> true ; T =.. [_|As], member(A, As), ccl_mentions_auto(A) ), !.
+ccl_auto_shape(base(_, [auto])).
+ccl_auto_shape(ref(_, base(_, [auto]))).
+ccl_auto_shape(rref(_, base(_, [auto]))).
 %% static_assert(e, "msg") and static_assert(e): an item, a member, a statement -- static_assert(L, E, Msg | none)
 ccl_static_assert(L, E, M) --> ccl_p('('), ccl_assign_expr(E), ( ccl_p(','), !, ccl_assign_expr(M) ; { M = none } ), ccl_p(')'), ccl_p(';'), { ccl_assert_holds(L, E, M) }.
 %% A STATIC ASSERTION IS CHECKED WHERE IT FOLDS: the item was read and dropped by every pass, so a false one
@@ -1927,10 +1949,24 @@ ccl_designator(field(N)) --> ccl_p('.'), ccl_id(N).
 ccl_designator(at(E)) --> ccl_p('['), ccl_cond_expr(E), ccl_p(']').
 
 %% ---- statements -------------------------------------------------------------
-ccl_compound(Env, block(Items)) --> ccl_p('{'), ccl_push_scope, ccl_block_items(Env, Items), ccl_p('}'), ccl_pop_scope.
+ccl_compound(Env, block(Items)) --> ccl_p('{'), ccl_push_scope, ccl_block_items(Env, Items), ccl_line(E), ccl_p('}'), ccl_pop_scope, { ccl_note_scope_end(Items, E) }.
+%% WHERE A SCOPE CLOSES, for -g (0.139): the driver names the file it compiles under -g ('$ccl_scope_ends_for'), and the read
+%% of THAT file records the line of each compound's `}' against the block's declarations, v(Line, Name, Close), and its
+%% first statement, b(First, Close) ('$ccl_scope_ends'): the desugaring gives a destructor run at the scope's end that line,
+%% as clang does. No AST changes; without -g nothing is recorded.
+ccl_note_scope_end(Items, E) :-
+    (   catch(nb_getval('$ccl_scope_ends_for', F), _, fail), F \== none, catch(nb_getval('$ccl_file', F1), _, fail), F1 == F, integer(E)
+    ->  findall(V, ( ccl_scope_decl(Items, L, N), V = v(L, N, E) ), Vs0),
+        ( member(I, Items), compound(I), arg(1, I, L1), integer(L1) -> Vs = [b(L1, E)|Vs0] ; Vs = Vs0 ),
+        ( catch(nb_getval('$ccl_scope_ends', Es0), _, fail) -> true ; Es0 = [] ), append(Vs, Es0, Es), nb_setval('$ccl_scope_ends', Es)
+    ;   true ).
+ccl_scope_decl(Items, L, N) :- member(I, Items), ccl_scope_decl_(I, L, N).
+ccl_scope_decl_(declaration(L, _, _, Vs), L, N) :- member(var(N, _, _), Vs), atom(N).
+ccl_scope_decl_('$splice'(Is), L, N) :- member(I, Is), ccl_scope_decl_(I, L, N).
 ccl_block_items(Env0, Items) --> ccl_block_item(Env0, Env1, I), !, { ccl_env_sync(Env0, Env1) }, ccl_block_items(Env1, More), { ccl_splice(I, More, Items) }.
 ccl_block_items(_, []) --> [].
 ccl_block_item(Env, Env, directive(L, Text)) --> [tok(pp, Text, L)], !.
+ccl_block_item(Env0, Env, I) --> ccl_cpp, ccl_id('__extension__'), ccl_peek(kw, using), !, ccl_block_item(Env0, Env, I).   % `__extension__ using T = ...;' (0.136): the word before a declaration is dropped, as before an expression (libc++ 21's linear_congruential_engine)
 ccl_block_item(Env, Env, '$splice'(Ds)) --> ccl_line(L), ccl_p('{'), ccl_pattern(P), ccl_p('}'), ccl_p(':='), !, ccl_expr(E), ccl_p(';'), { ccl_destructure(L, P, E, Ds) }.
 ccl_block_item(Env, Env, D) --> ccl_line(L), ccl_id(N), ccl_p(':='), !, ccl_expr(E), ccl_tie_name(Y), ccl_p(';'), { ccl_infer_decl(L, N, E, Y, D), ccl_note_item(D) }.
 ccl_block_item(Env, Env, static_assert(L, E, M)) --> ccl_c_or_cpp, ccl_line(L), ccl_word(static_assert), ccl_peek(p, '('), !, ccl_static_assert(L, E, M).   % in a block as well as at file scope
@@ -1951,7 +1987,7 @@ ccl_bind_names([skip|Ps], ['_'|Ns]) :- !, ccl_bind_names(Ps, Ns).
 ccl_bind_names([_|Ps], Ns) :- ccl_bind_names(Ps, Ns).
 ccl_declare_autos([]).
 ccl_declare_autos([N|Ns]) :- ( N == '_' -> true ; ccl_declare(N, base([], [auto])) ), ccl_declare_autos(Ns).
-ccl_block_item(Env0, [N|Env0], typedef(L, [var(N, T, none)])) --> ccl_cpp, ccl_line(L), ccl_kw(using), ccl_id(N), ccl_attrs, ccl_p('='), !, ccl_type_name(Env0, T), ccl_p(';'),   % C++11: using T = type; in a block
+ccl_block_item(Env0, [N|Env0], typedef(L, [var(N, T, none)])) --> ccl_cpp, ccl_line(L), ccl_kw(using), ccl_id(N), ccl_attrs, ccl_p('='), !, ccl_alias_rhs(Env0, T),   % C++11: using T = type; in a block
     { ccl_add_env(N), ccl_note_item(typedef(L, [var(N, T, none)])) }.
 ccl_block_item(Env, Env, using(L, U)) --> ccl_cpp, ccl_line(L), ccl_kw(using), !, ( ccl_kw(namespace), !, ccl_qname(Env, type, Q), { U = namespace(Q) } ; ccl_kw(enum), !, ccl_qname(Env, type, Q), { U = enum(Q) } ; ccl_qname(Env, type, Q), { U = name(Q) } ), ccl_p(';').
 ccl_block_item(Env0, Env, I) --> ccl_line(L), ccl_decl_specs(Env0, block, Sto, Base), ccl_block_declarators(Env0, Base, Ds), ccl_p(';'), !,
@@ -2054,7 +2090,7 @@ ccl_defer_vars([id(V)|Vs]) --> ccl_id(V), ( ccl_p(','), !, ccl_defer_vars(Vs) ; 
 ccl_defer_vars([]) --> [].
 ccl_for_init(_, bindings(Ds)) --> ccl_cpp, ccl_line(L), ( ccl_kw(const) ; [] ), ccl_kw(auto), ( ccl_p('&&'), { Ref = yes } ; ccl_p('&'), { Ref = yes } ; { Ref = no } ),   % C++17: `if (auto [a, b] = f(); c)', the binding as the init-statement
     ccl_p('['), ccl_pattern(Ps), ccl_p(']'), ccl_p('='), !, ccl_expr(E), ccl_p(';'), { ccl_bindings_decl(L, Ref, Ps, E, Ds) }.
-ccl_for_init(Env, alias(N, T)) --> ccl_cpp, ccl_kw(using), !, ccl_id(N), ccl_p('='), ccl_type_name(Env, T), ccl_p(';'), { ccl_add_env(N), ccl_note_item(typedef(0, [var(N, T, none)])) }.   % C++23: an alias in an init-statement
+ccl_for_init(Env, alias(N, T)) --> ccl_cpp, ccl_kw(using), !, ccl_id(N), ccl_p('='), ccl_alias_rhs(Env, T), { ccl_add_env(N), ccl_note_item(typedef(0, [var(N, T, none)])) }.   % C++23: an alias in an init-statement
 ccl_for_init(_, decl(Base, Ds)) --> ccl_line(L), ccl_id(N), ccl_p(':='), !, ccl_expr(E), ccl_tie_name(Y), ccl_p(';'), { ccl_infer_decl(L, N, E, Y, D), D = declaration(_, _, Base, Ds), ccl_note_item(D) }.
 ccl_for_init(Env, decl(Base, Ds)) --> ccl_decl_specs(Env, block, _, Base), ccl_init_declarators(Env, Base, Ds), ccl_p(';'), !, { ccl_note_item(declaration(0, none, Base, Ds)) }.
 ccl_for_init(_, E) --> ccl_opt_expr(E), ccl_p(';').
@@ -2253,11 +2289,14 @@ ccl_primary_(long, N, long(N))   --> !, [_].                              % 9L, 
 ccl_primary_(ulong, N, ulong(N)) --> !, [_].                              % 9ul
 ccl_primary_(bitint, N, wb(N)) --> !, [_].                                 % C23: 9wb, a _BitInt of the width the value needs
 ccl_primary_(ubitint, N, uwb(N)) --> !, [_].                               % 9uwb
-ccl_primary_(float, F, float(F1)) --> !, [_], { ccl_finite_float(F, F1) }.
-ccl_primary_(floatf, F, cast(base([], [float]), float(F1))) --> !, [_], { ccl_finite_float(F, F1) }.            % `1.5f' IS A FLOAT (0.108): typed as the cast it amounts to, so sizeof, _Generic and a template deduce float
+ccl_primary_(float, F, float(F)) --> !, [_].                                 % past the largest double an infinity, as clang reads it (0.143)
+ccl_primary_(floatf, F, cast(base([], [float]), float(F))) --> !, [_].            % `1.5f' IS A FLOAT (0.108): typed as the cast it amounts to, so sizeof, _Generic and a template deduce float
 ccl_primary_(floatl, F, cast(base([], [long, double]), float(F1))) --> !, [_], { ccl_finite_float(F, F1) }.     % `1.5L' a long double, its value a double's (cocolog's floats are doubles)
-ccl_primary_(imag, F, imag(F1)) --> !, [_], { ccl_finite_float(F, F1) }.       % the imaginary literal `2.0i' (0.101): a `_Complex double' constant
-ccl_primary_(imagf, F, imagf(F1)) --> !, [_], { ccl_finite_float(F, F1) }.     % `1.5if': a `_Complex float' one
+ccl_primary_(dec32, A, dec32(A)) --> !, [_].      % C23's decimal floating literals (0.129): `1.25df', `0.1dd', `10.0dl', the text kept
+ccl_primary_(dec64, A, dec64(A)) --> !, [_].
+ccl_primary_(dec128, A, dec128(A)) --> !, [_].
+ccl_primary_(imag, F, imag(F)) --> !, [_].       % the imaginary literal `2.0i' (0.101): a `_Complex double' constant
+ccl_primary_(imagf, F, imagf(F)) --> !, [_].     % `1.5if': a `_Complex float' one
 ccl_primary_(imagl, F, imagl(F1)) --> !, [_], { ccl_finite_float(F, F1) }.     % `1.0li', `1.0il': a `_Complex long double' one (0.112)
 %% an integer imaginary literal is `imagi(Specs, N)', the real type's specifiers from its suffix and its VALUE as C types
 %% a plain integer literal ([lex.icon], 6.4.4.1: the first of int and long that holds it, the unsigned kinds alike; a
@@ -2271,10 +2310,12 @@ ccl_imag_specs(imagi, N, Sp) :- !, ( N =< 2147483647 -> Sp = [int] ; Sp = [long]
 ccl_imag_specs(imagui, N, Sp) :- !, ( N =< 4294967295 -> Sp = [unsigned] ; Sp = [unsigned, long] ).
 ccl_imag_specs(imagli, _, [long]) :- !.
 ccl_imag_specs(imaguli, _, [unsigned, long]).
-%% A LITERAL PAST A DOUBLE is the largest finite double: `__LDBL_MAX__', which every long double header
-%% writes and this compiler lowers as a double, read as an infinity -- and cocolog WRITES an infinity as
-%% `inf.0', which its own reader refuses, so the AST beside a summary would not consult and the header
-%% would be read again, silently, at every run. The preprocessor spells such a token back as `1e999'.
+%% A LONG DOUBLE LITERAL PAST A DOUBLE is the largest finite double: `__LDBL_MAX__', which every long double header
+%% writes, holds a double's value here (cocolog's floats are doubles), and the largest double is nearer the long
+%% double it names than an infinity is. A double or a float literal past it is an infinity, as clang reads it (0.143):
+%% every literal was clamped while cocolog wrote an infinity `inf.0', which its own reader refused, so the AST beside a
+%% summary would not consult; 1.10.28 writes `1.0Inf' and reads it back, and a stored read freezes its floats (0.132).
+%% The preprocessor spells an infinite token back as `1e999'.
 ccl_finite_float(F, 1.7976931348623157e308) :- F > 1.7976931348623157e308, !.
 ccl_finite_float(F, -1.7976931348623157e308) :- F < -1.7976931348623157e308, !.
 ccl_finite_float(F, F).

@@ -1,0 +1,6 @@
+D str x
+B ld 2.5
+B str y
+B ld 1.5
+20 1 2 1
+exit 0

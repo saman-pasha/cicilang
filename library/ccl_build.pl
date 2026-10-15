@@ -21,15 +21,22 @@ ccl_llvm_ready :- once(catch(use_module(library(ccl_llvm)), _, fail)), once(catc
 
 ccl_link(Objects, Flags, Out) :-
     ccl_words(Objects, Os), ccl_words(Flags, F),
-    ( ccl_lang(cpp) -> Ld = 'c++' ; Ld = cc ),                                % cicilang++ links through c++
+    ccl_linker(Ld),
     ccl_link_libs(Libs),
     atomic_list_concat([Ld, ' ', Os, ' ', F, Libs, ' -o \'', Out, '\' 2>&1'], Cmd),
     ccl_sh(Cmd, O, Exit),
     ( Exit =:= 0 -> true ; atom_codes(Msg, O), throw(error(link_failed(Msg), cicilang_link(Out))) ).
 
+%% THE LINKER: cc, or c++ for cicilang++; for another machine (dr_set_target/1) its cross gcc, `aarch64-linux-gnu-gcc' (0.131)
+ccl_linker(Ld) :- ccl_cross_target(A, O), ccl_cross_prefix(A, O, P), !, ( ccl_lang(cpp) -> atom_concat(P, '-g++', Ld) ; atom_concat(P, '-gcc', Ld) ).
+ccl_linker(Ld) :- ( ccl_lang(cpp) -> Ld = 'c++' ; Ld = cc ).
+ccl_cross_target(A, O) :- catch(nb_getval('$ccl_target', target(A, O, _)), _, fail), \+ ( catch(ccl_host_arch(A), _, fail), catch(ccl_host_os(O), _, fail) ).
+ccl_cross_prefix(arm64, linux, 'aarch64-linux-gnu').
+ccl_cross_prefix(x86_64, linux, 'x86_64-linux-gnu').
 %% THE C++ RUNTIME IS NAMED ON LINUX (0.93): a program is compiled against libc++'s headers (the one tree this compiler reads,
 %% ccl_toolchain_dirs), and on macOS `c++' is clang, whose C++ library is libc++; on Debian and Ubuntu `c++' is g++, whose is
 %% libstdc++, so the link found no `std::__1::__libcpp_verbose_abort' -- libc++'s runtime, `-lc++', is asked for by name there.
+ccl_link_libs(' -lm') :- ccl_cross_target(_, _), !.   % another machine (0.131): its own C library's libm; no libc++ of it here
 ccl_link_libs(Libs) :- ccl_lang(cpp), ccl_host_os(linux), !,
     (   ccl_cxx_dirs([D]), atom_concat(Root, '/include/c++/v1', D), atom_concat(Root, '/lib', Lib), exists_directory(Lib)   % THE LIBRARY OF THE TREE THE PROGRAM WAS READ FROM (0.122): two libc++ are often installed side by side (/usr/lib/llvm-18 and llvm-21), and the system's `libc++.so' is one of them -- the headers of one and the runtime of the other do not agree (std::print, optional<T &>, __hash_memory)
     ->  atomic_list_concat([' -L\'', Lib, '\' -Wl,-rpath,\'', Lib, '\' -lc++'], Libs)

@@ -1,0 +1,11 @@
+make 1
+drop 1
+r 7
+make 2
+copy 12
+make 3
+drop 3
+drop 12
+s 16
+drop 2
+exit 0

@@ -29,6 +29,35 @@
 
 %% ---- a run --------------------------------------------------------------------
 ccl_pp_file(Path, Tokens, Files) :- ccl_pp_run(Path, no, Tokens, Files).
+%% -fdebug-macro (0.134): A RUN THAT RECORDS THE MACROS as the files define them, for the debug information -- the user's
+%% file preprocessed standalone, its includes in place (as `-E' runs it), each `#define' and `#undef' an event at its line,
+%% each file entered an event at the line of the `#include' that enters it and left another (clang's `DIMacroFile' tree;
+%% a guarded header included again is not entered, as clang's is not). An event is a global of its own, numbered: a list
+%% would be copied whole at each one. A run that stops (a header's `#error', a line that does not lex) keeps what it saw.
+ccl_pp_macro_trace(Path, Events) :-
+    nb_setval('$pp_mt_n', 0), nb_setval('$pp_mt_line', 0), nb_setval('$pp_mtrace', on),
+    ( catch(ccl_pp_file(Path, _, _), _, true) -> true ; true ),
+    nb_setval('$pp_mtrace', off), nb_getval('$pp_mt_n', N),
+    findall(E, ( between(1, N, I), atom_concat('$pp_mt:', I, K), nb_getval(K, E) ), Events).
+pp_mt_on :- catch(nb_getval('$pp_mtrace', on), _, fail).
+pp_mt_note(E) :- nb_getval('$pp_mt_n', N0), N is N0 + 1, nb_setval('$pp_mt_n', N), atom_concat('$pp_mt:', N, K), nb_setval(K, E).
+%% a definition as clang's debug information spells it: `F(a,b)', `F(fmt,...)', `F(x,rest...)'; the body's blanks one
+%% space each, none at its ends, a literal's own kept (`"a  b"')
+pp_mt_define(Rest, L) :- pp_ws(Rest, R1), pp_word(R1, W, R2), W \== [], !, atom_codes(N, W),
+    (   R2 = [0'(|R3] -> pp_upto_close(R3, PCs, R4), pp_param_names(PCs, Ps), pp_mt_params(Ps, PT), atomic_list_concat([N, '(', PT, ')'], Name)
+    ;   Name = N, R4 = R2 ),
+    pp_mt_squash(R4, V), pp_mt_note(def(L, Name, V)).
+pp_mt_define(_, _).
+pp_mt_params(Ps, T) :- findall(A, ( member(P, Ps), ( P = va('__VA_ARGS__') -> A = '...' ; P = va(X) -> atom_concat(X, '...', A) ; A = P ) ), As), atomic_list_concat(As, ',', T).
+pp_mt_squash(Cs0, V) :- pp_ws(Cs0, Cs1), pp_mt_sq(Cs1, Out), reverse(Out, ROut), pp_ws(ROut, ROut1), reverse(ROut1, Out1), atom_codes(V, Out1).
+pp_mt_sq([], []).
+pp_mt_sq([Q|Cs], [Q|Out]) :- ( Q =:= 34 ; Q =:= 39 ), !, pp_mt_quoted(Cs, Q, Out0, Rest), append(Out0, Out1, Out), pp_mt_sq(Rest, Out1).
+pp_mt_sq([C|Cs], [32|Out]) :- ( C =:= 32 ; C =:= 9 ), !, pp_ws(Cs, Cs1), pp_mt_sq(Cs1, Out).
+pp_mt_sq([C|Cs], [C|Out]) :- pp_mt_sq(Cs, Out).
+pp_mt_quoted([], _, [], []).
+pp_mt_quoted([92, C|Cs], Q, [92, C|Out], R) :- !, pp_mt_quoted(Cs, Q, Out, R).
+pp_mt_quoted([Q|Cs], Q, [Q], Cs) :- !.
+pp_mt_quoted([C|Cs], Q, [C|Out], R) :- pp_mt_quoted(Cs, Q, Out, R).
 %% THE USER'S OWN FILE (Top = yes): its directives run and its macros expanded
 %% like a header's, but an #include is passed on as the directive token for
 %% the reader to resolve and read (the declarations come from the reader's
@@ -125,12 +154,14 @@ pp_cmdline(N, D) :- catch(nb_getval('$pp_cmdline', L), _, fail), memberchk(N-D, 
 pp_predef_macro(N, obj, Cs) :-
     (   ccl_lang(cpp), ccl_std(S), pp_std_table(S, Tab), pp_predef(N, Tab, T) -> true   % the level's own value first (__cplusplus, __cpp_constexpr ...)
     ;   ccl_lang(c), ccl_c_std(CS), pp_c_std_table(CS, CTab), pp_predef(N, CTab, T) -> true   % C's own level (-std=c23): __STDC_VERSION__ and what the forms answer
+    ;   pp_target_table(TT), pp_predef(N, TT, T) -> T \== '$undef'                     % THE TARGET'S OWN, before the rest (0.131): Linux aarch64's long double, char and wchar_t; `$undef' is no macro
     ;   pp_predef(N, any, T) -> true
     ;   pp_os(O), pp_predef(N, O, T) -> true                                          % the host's own: __APPLE__ and __MACH__, or __linux__ and __ELF__
     ;   pp_arch(A), pp_predef(N, A, T) -> true
     ;   ccl_lang(cpp), pp_predef(N, cpp, T)
     ;   ccl_lang(c), pp_predef(N, c, T) ),                                            % C's own beyond the levels' (0.117): __SIZEOF_INT128__
     atom_codes(T, Cs).
+pp_target_table(TT) :- pp_os(O), pp_arch(A), atomic_list_concat([O, '_', A], TT).
 %% C's levels, the newest first: what -std=c23 answers where C17's table would
 pp_c_std_table(S, c23) :- S >= 23.
 %% the tables a level sees beyond cpp's (C++17's): the newest first
@@ -206,12 +237,48 @@ pp_lines([], _, _, []).
 pp_lines([P|Ps], N, in, Lines) :- !,                                              % inside a block comment: to its end
     (   atom_codes(P, Cs), pp_close(Cs, R1) -> atom_codes(Rest, R1), pp_lines([Rest|Ps], N, out, Lines)
     ;   N1 is N + 1, pp_lines(Ps, N1, in, Lines) ).
+pp_lines([P|Ps], N, out, Lines) :- pp_raw_join(P, Ps, P1, Ps1, K), !, N1 is N + K, pp_lines_raw(P1, Ps1, N, N1, Lines).
 pp_lines([P|Ps], N, out, Lines) :-
     atom_codes(P, Cs),
     (   \+ memberchk(47, Cs), \+ pp_ends_backslash(P) -> Lines = [line(N, P)|Lines1], N1 is N + 1, St1 = out, Ps1 = Ps
     ;   pp_join(Cs, P, Ps, N, Joined, Ps1, N1), pp_clean(Joined, Out, St1),
         atom_codes(OA, Out), Lines = [line(N, OA)|Lines1] ),
     pp_lines(Ps1, N1, St1, Lines1).
+%% A RAW STRING LITERAL THAT SPANS LINES (C++ only, 0.138): a line that opens `R"d(' and does not close it with `)d"'
+%% takes the next lines, newlines kept, up to the line that closes it, and the whole is one line of the first one's
+%% number; the lexers count the newlines inside the literal, and the lines after it keep their numbers
+pp_raw_join(P, Ps, P1, Ps1, K) :- sub_atom(P, _, _, _, 'R"'), catch(nb_getval('$ccl_lang', cpp), _, fail), atom_codes(P, Cs), pp_raw_open(Cs, D), !,
+    pp_raw_more(Ps, D, Qs, Ps1), length(Qs, K), atomic_list_concat([P|Qs], '\n', P1).
+pp_raw_more([Q|Qs], D, [Q|Rs], Rest) :- atom_codes(Q, QCs), append([41|D], [34], Close),
+    (   append(_, Tail, QCs), append(Close, After, Tail) -> ( pp_raw_open(After, D2) -> pp_raw_more(Qs, D2, Rs, Rest) ; Rs = [], Rest = Qs )
+    ;   pp_raw_more(Qs, D, Rs, Rest) ).
+%% the joined line goes on as any other: one that holds a `/' or ends in a backslash through the cleaning
+pp_lines_raw(P1, Ps1, N, N1, [line(N, OA)|Lines1]) :- atom_codes(P1, Cs),
+    (   \+ memberchk(47, Cs), \+ pp_ends_backslash(P1) -> OA = P1, N2 is N1 + 1, Ps2 = Ps1, St1 = out
+    ;   pp_join(Cs, P1, Ps1, N1, Joined, Ps2, N2), pp_clean(Joined, Out, St1), atom_codes(OA, Out) ),
+    pp_lines(Ps2, N2, St1, Lines1).
+%% does the line open a raw string it leaves open? Its delimiter: a walk over ordinary strings, character literals and
+%% comments, so a `R"' inside them is no literal
+pp_raw_open([], _) :- !, fail.
+pp_raw_open([47, 47|_], _) :- !, fail.
+pp_raw_open([47, 42|R], D) :- !, append(_, [42, 47|R1], R), !, pp_raw_open(R1, D).
+pp_raw_open([34|R], D) :- !, pp_skip_quoted(R, 34, R1), pp_raw_open(R1, D).
+pp_raw_open([39|R], D) :- !, pp_skip_quoted(R, 39, R1), pp_raw_open(R1, D).
+pp_raw_open([C|R], D) :- pp_ident_start(C), !, pp_take_ident(R, Id, R1),
+    ( R1 = [34|R2], memberchk([C|Id], ["R", "u8R", "uR", "UR", "LR"]) -> pp_raw_lit(R2, D) ; pp_raw_open(R1, D) ).
+pp_raw_open([C|R], D) :- C >= 0'0, C =< 0'9, !, pp_take_number(R, R1), pp_raw_open(R1, D).   % a pp-number with its separators, `1'000'
+pp_raw_open([_|R], D) :- pp_raw_open(R, D).
+pp_raw_lit(R, D) :- append(D0, [40|Body], R), length(D0, ND), ND =< 16, \+ ( member(X, D0), memberchk(X, [32, 41, 92, 9, 34]) ), !, append([41|D0], [34], Close),
+    ( append(_, Tail, Body), append(Close, After, Tail) -> pp_raw_open(After, D) ; D = D0 ).
+pp_skip_quoted([], _, []).
+pp_skip_quoted([92, _|R], Q, R1) :- !, pp_skip_quoted(R, Q, R1).
+pp_skip_quoted([Q|R], Q, R) :- !.
+pp_skip_quoted([_|R], Q, R1) :- pp_skip_quoted(R, Q, R1).
+pp_ident_start(C) :- ( C >= 0'a, C =< 0'z ; C >= 0'A, C =< 0'Z ; C == 0'_ ), !.
+pp_take_ident([C|R], [C|Id], R1) :- ( pp_ident_start(C) ; C >= 0'0, C =< 0'9 ), !, pp_take_ident(R, Id, R1).
+pp_take_ident(R, [], R).
+pp_take_number([C|R], R1) :- ( pp_ident_start(C) ; C >= 0'0, C =< 0'9 ; C == 39 ; C == 0'. ), !, pp_take_number(R, R1).
+pp_take_number(R, R).
 pp_ends_backslash(P) :- atom_length(P, L), L > 0, L1 is L - 1, sub_atom(P, L1, 1, 0, Last),
     ( Last == '\\' -> true ; atom_codes(Last, [C]), ( C == 32 ; C == 9 ), atom_codes(P, Cs), memberchk(92, Cs), pp_before_backslash(Cs, _) ).   % TRAILING WHITESPACE AFTER THE BACKSLASH still splices ([lex.phases]/2 as clang reads it, with a warning; 0.99): the last character asked first, since every line comes through here
 pp_before_backslash(Cs, C1) :- reverse(Cs, R), pp_skip_ws(R, [92|R1]), reverse(R1, C1).
@@ -255,7 +322,9 @@ pp_include_file(Path, Out0, Out) :-
     (   Depth > 120 -> Out0 = Out
     ;   pp_guarded(Path) -> Out0 = Out
     ;   nb_setval('$pp_stack', [Path|St]), pp_out_key(K),
+        ( pp_mt_on -> nb_getval('$pp_mt_line', IL), pp_mt_note(enter(IL, Path)) ; true ),
         \+ \+ ( pp_source(Path, Lines), pp_run(Lines, OutF, []), nb_setval(K, OutF), pp_note_guard(Path, Lines) ),   % EACH FILE IN A SCOPE THAT BACKTRACKS (below)
+        ( pp_mt_on -> pp_mt_note(leave) ; true ),
         nb_getval('$pp_stack', [_|St1]), nb_setval('$pp_stack', St1),
         Out0 = [pp_out(K)|Out] ).
 %% cocolog reclaims the heap on backtracking and by nothing else (its DESIGN-compiling.md: no collector), so a
@@ -392,9 +461,11 @@ pp_spell(tok(id, N, _), Cs) :- !, atom_codes(N, Cs).
 pp_spell(tok(kw, N, _), Cs) :- !, atom_codes(N, Cs).
 pp_spell(tok(num, Cs, _), Cs) :- !.
 pp_spell(tok(int, N, _), Cs) :- !, pp_int_codes(N, Cs).
-pp_spell(tok(float, N, _), Cs) :- !, number_codes(N, Cs).
-pp_spell(tok(floatf, N, _), Cs) :- !, number_codes(N, Cs0), append(Cs0, [0'f], Cs).     % `1.5f' and `1.5L' spelled with their suffixes (0.108)
-pp_spell(tok(floatl, N, _), Cs) :- !, number_codes(N, Cs0), append(Cs0, [0'L], Cs).
+pp_spell(tok(float, N, _), Cs) :- !, pp_float_codes(N, Cs).
+pp_spell(tok(floatf, N, _), Cs) :- !, pp_float_codes(N, Cs0), append(Cs0, [0'f], Cs).     % `1.5f' and `1.5L' spelled with their suffixes (0.108)
+pp_spell(tok(floatl, N, _), Cs) :- !, pp_float_codes(N, Cs0), append(Cs0, [0'L], Cs).
+pp_spell(tok(K, A, _), Cs) :- pp_dec_suffix(K, Sfx), !, atom_codes(A, Cs0), append(Cs0, Sfx, Cs).   % a decimal literal: its text and its suffix (0.129)
+pp_dec_suffix(dec32, [0'd, 0'f]).  pp_dec_suffix(dec64, [0'd, 0'd]).  pp_dec_suffix(dec128, [0'd, 0'l]).
 pp_spell(tok(imag, N, _), Cs) :- !, number_codes(N, Cs0), append(Cs0, [0'i], Cs).
 pp_spell(tok(imagf, N, _), Cs) :- !, number_codes(N, Cs0), append(Cs0, [0'i, 0'f], Cs).
 pp_spell(tok(imagl, N, _), Cs) :- !, number_codes(N, Cs0), append(Cs0, [0'i, 0'l], Cs).
@@ -435,8 +506,8 @@ pp_norm(T, T).
 pp_directive(Body, L, Ls, Ls1, Out0, Out) :-
     pp_ws(Body, B1), pp_word(B1, W, Rest), atom_codes(D, W),
     pp_directive_(D, Rest, Body, L, Ls, Ls1, Out0, Out).
-pp_directive_(define, Rest, Body, L, Ls, Ls, Out0, Out) :- !, ( pp_do_define(Rest) -> true ; true ), pp_pass(Body, L, Out0, Out).
-pp_directive_(undef, Rest, Body, L, Ls, Ls, Out0, Out) :- !, pp_ws(Rest, R1), pp_word(R1, W, _), atom_codes(N, W), pp_undefine(N), pp_pass(Body, L, Out0, Out).
+pp_directive_(define, Rest, Body, L, Ls, Ls, Out0, Out) :- !, ( pp_do_define(Rest) -> true ; true ), ( pp_mt_on -> pp_mt_define(Rest, L) ; true ), pp_pass(Body, L, Out0, Out).
+pp_directive_(undef, Rest, Body, L, Ls, Ls, Out0, Out) :- !, pp_ws(Rest, R1), pp_word(R1, W, _), atom_codes(N, W), pp_undefine(N), ( pp_mt_on -> pp_mt_note(undef(L, N)) ; true ), pp_pass(Body, L, Out0, Out).
 pp_directive_(include, Rest, Body, L, Ls, Ls, Out0, Out) :- !, pp_do_include(Rest, plain, Body, L, Out0, Out).
 pp_directive_(include_next, Rest, Body, L, Ls, Ls, Out0, Out) :- !, pp_do_include(Rest, next, Body, L, Out0, Out).
 pp_directive_(cocolog, _, _, L, Ls, Ls1, Out0, Out) :- nb_getval('$pp_top', yes), !, pp_cocolog_block(Ls, L, Ls1, Out0, Out).
@@ -518,7 +589,7 @@ pp_do_include(Rest, How, Body, L, Out0, Out) :-
         ;   nb_getval('$pp_top', yes) -> atom_codes(Text, [35|Body]), Out0 = [tok(pp, Text, L)|Out],
                                         ( ccl_header_macros_known(Path, _) -> nb_getval('$pp_hdrs', Hs), nb_setval('$pp_hdrs', [Path|Hs]), nb_getval('$pp_ninc', I0), I1 is I0 + 1, nb_setval('$pp_ninc', I1) ; true )
         ;   nb_getval('$pp_once', O), memberchk(Path, O) -> Out0 = Out
-        ;   pp_include_file(Path, Out0, Out) )
+        ;   nb_setval('$pp_mt_line', L), pp_include_file(Path, Out0, Out) )
     ;   nb_getval('$pp_top', yes) -> atom_codes(Text, [35|Body]), Out0 = [tok(pp, Text, L)|Out]      % nowhere: the reader says `missing'
     ;   Out0 = Out ).
 pp_do_include(_, _, _, _, Out, Out).
@@ -938,7 +1009,7 @@ pp_predef('__SIZEOF_FLOAT__', any, '4').
 %% pp_predef('__SIZEOF_INT128__', any, '16').
 %% 0.117: `__int128' lowers (LLVM's i128), and C asks the macro (`#ifdef __SIZEOF_INT128__'; glibc's headers do not), so C
 %% has it; C++ stays without it, libc++'s own no-int128 configuration by design, while a C++ program's `__int128' runs.
-pp_predef('__SIZEOF_INT128__', c, '16').
+pp_predef('__SIZEOF_INT128__', any, '16').
 pp_predef('__SIZEOF_INT__', any, '4').
 pp_predef('__SIZEOF_LONG_LONG__', any, '8').
 pp_predef('__SIZEOF_LONG__', any, '8').
@@ -1209,6 +1280,56 @@ pp_predef('__SIZEOF_LONG_DOUBLE__', arm64, '8').
 pp_predef('__aarch64__', arm64, '1').
 pp_predef('__arm64', arm64, '1').
 pp_predef('__arm64__', arm64, '1').
+%% LINUX ON AARCH64 (0.131), asked before `any' for --target=aarch64-linux-gnu (pp_target_table/1): clang 18's own
+%% `-dM -E' where it differs from what the tables answer -- an IEEE quad long double, an unsigned char and wchar_t, the
+%% generic armv8's features, none of Apple's names. `$undef' is no macro. A difference that x86-64 Linux keeps as the
+%% tables have it (the 64-bit types spelled `long long', `__USER_LABEL_PREFIX__') is kept the same way here.
+pp_predef('__AARCH64_SIMD__', linux_arm64, '$undef').
+pp_predef('__ARM64_ARCH_8__', linux_arm64, '$undef').
+pp_predef('__ARM_ACLE', linux_arm64, '200').
+pp_predef('__ARM_FEATURE_AES', linux_arm64, '$undef').
+pp_predef('__ARM_FEATURE_ATOMICS', linux_arm64, '$undef').
+pp_predef('__ARM_FEATURE_COMPLEX', linux_arm64, '$undef').
+pp_predef('__ARM_FEATURE_CRC32', linux_arm64, '$undef').
+pp_predef('__ARM_FEATURE_CRYPTO', linux_arm64, '$undef').
+pp_predef('__ARM_FEATURE_DOTPROD', linux_arm64, '$undef').
+pp_predef('__ARM_FEATURE_FP16_FML', linux_arm64, '$undef').
+pp_predef('__ARM_FEATURE_FP16_SCALAR_ARITHMETIC', linux_arm64, '$undef').
+pp_predef('__ARM_FEATURE_FP16_VECTOR_ARITHMETIC', linux_arm64, '$undef').
+pp_predef('__ARM_FEATURE_JCVT', linux_arm64, '$undef').
+pp_predef('__ARM_FEATURE_PAUTH', linux_arm64, '$undef').
+pp_predef('__ARM_FEATURE_QRDMX', linux_arm64, '$undef').
+pp_predef('__ARM_FEATURE_RCPC', linux_arm64, '$undef').
+pp_predef('__ARM_FEATURE_SHA2', linux_arm64, '$undef').
+pp_predef('__ARM_FEATURE_SHA3', linux_arm64, '$undef').
+pp_predef('__ARM_FEATURE_SHA512', linux_arm64, '$undef').
+pp_predef('__ARM_NEON_SVE_BRIDGE', linux_arm64, '$undef').
+pp_predef('__ARM_NEON__', linux_arm64, '$undef').
+pp_predef('__ARM_PREFETCH_RANGE', linux_arm64, '$undef').
+pp_predef('__BIGGEST_ALIGNMENT__', linux_arm64, '16').
+pp_predef('__CHAR_UNSIGNED__', linux_arm64, '1').
+pp_predef('__FUNCTION_MULTI_VERSIONING_SUPPORT_LEVEL', linux_arm64, '$undef').
+pp_predef('__HAVE_FUNCTION_MULTI_VERSIONING', linux_arm64, '$undef').
+pp_predef('__LDBL_DECIMAL_DIG__', linux_arm64, '36').
+pp_predef('__LDBL_DENORM_MIN__', linux_arm64, '6.47517511943802511092443895822764655e-4966L').
+pp_predef('__LDBL_DIG__', linux_arm64, '33').
+pp_predef('__LDBL_EPSILON__', linux_arm64, '1.92592994438723585305597794258492732e-34L').
+pp_predef('__LDBL_MANT_DIG__', linux_arm64, '113').
+pp_predef('__LDBL_MAX_10_EXP__', linux_arm64, '4932').
+pp_predef('__LDBL_MAX_EXP__', linux_arm64, '16384').
+pp_predef('__LDBL_MAX__', linux_arm64, '1.18973149535723176508575932662800702e+4932L').
+pp_predef('__LDBL_MIN_10_EXP__', linux_arm64, '(-4931)').
+pp_predef('__LDBL_MIN_EXP__', linux_arm64, '(-16381)').
+pp_predef('__LDBL_MIN__', linux_arm64, '3.36210314311209350626267781732175260e-4932L').
+pp_predef('__LDBL_NORM_MAX__', linux_arm64, '1.18973149535723176508575932662800702e+4932L').
+pp_predef('__OBJC_BOOL_IS_BOOL', linux_arm64, '0').
+pp_predef('__REGISTER_PREFIX__', linux_arm64, '$undef').
+pp_predef('__SIZEOF_LONG_DOUBLE__', linux_arm64, '16').
+pp_predef('__WCHAR_MAX__', linux_arm64, '4294967295U').
+pp_predef('__WCHAR_TYPE__', linux_arm64, 'unsigned int').
+pp_predef('__WCHAR_UNSIGNED__', linux_arm64, '1').
+pp_predef('__arm64', linux_arm64, '$undef').
+pp_predef('__arm64__', linux_arm64, '$undef').
 pp_predef('__DEPRECATED', cpp, '1').
 %% NO EXCEPTIONS (owner's design: the safe part has no unwinding to offer, and DESIGN.md puts exceptions last if at
 %% all). libc++ asks the COMPILER: `#if defined(__cpp_exceptions) && __cpp_exceptions >= 199711L' decides its
@@ -1351,18 +1472,25 @@ ccl_pp_spell_tok(ulong, N, Out, Rest) :- !, pp_int_codes(N, Cs), append(Cs, [0'u
 ccl_pp_spell_tok(bitint, N, Out, Rest) :- !, pp_int_codes(N, Cs), append(Cs, [0'w, 0'b|Rest], Out).        % C23's `wb' and `uwb' (0.93): the suffix was lost in the flattened text
 ccl_pp_spell_tok(ubitint, N, Out, Rest) :- !, pp_int_codes(N, Cs), append(Cs, [0'u, 0'w, 0'b|Rest], Out).
 ccl_pp_spell_tok(pp, A, [35|Out], Rest) :- !, atom_codes(A, Cs), append(Cs, Rest, Out).
-pp_int_codes(big(A), Cs) :- !, atom_codes(A, Cs).                                    % a literal past 2^60 spells as its digits (0.94's big(Atom); 0.99: the flattened text had `big(0xff...)ul', which no reader takes -- the census's road only)
-pp_int_codes(N, Cs) :- number_codes(N, Cs).
 ccl_pp_spell_tok(cocolog, A, Out, Rest) :- !, atom_codes('#cocolog', H), atom_codes(A, Cs), atom_codes('#end', E), append(H, [10|Cs], O1), append(O1, [10|E], O2), append(O2, Rest, Out).
 ccl_pp_spell_tok(imag, F, Out, Rest) :- !, number_codes(F, Cs), append(Cs, [0'i|Rest], Out).                   % the imaginary literal spelled back, `2.0i' (0.101)
 ccl_pp_spell_tok(imagf, F, Out, Rest) :- !, number_codes(F, Cs), append(Cs, [0'i, 0'f|Rest], Out).
 ccl_pp_spell_tok(imagl, F, Out, Rest) :- !, number_codes(F, Cs), append(Cs, [0'i, 0'l|Rest], Out).
 ccl_pp_spell_tok(K, N, Out, Rest) :- pp_imag_suffix(K, Sfx), !, pp_int_codes(N, Cs), append(Sfx, Rest, Tail), append(Cs, Tail, Out).
-ccl_pp_spell_tok(floatf, F, Out, Rest) :- !, number_codes(F, Cs), append(Cs, [0'f|Rest], Out).
-ccl_pp_spell_tok(floatl, F, Out, Rest) :- !, ( F > 1.0e308 -> atom_codes('1e999', Cs) ; F < -1.0e308 -> atom_codes('-1e999', Cs) ; number_codes(F, Cs) ), append(Cs, [0'L|Rest], Out).
-ccl_pp_spell_tok(float, F, Out, Rest) :- F > 1.0e308, !, atom_codes('1e999', Cs), append(Cs, Rest, Out).       % past double (a long double literal): infinite again when read
-ccl_pp_spell_tok(float, F, Out, Rest) :- F < -1.0e308, !, atom_codes('-1e999', Cs), append(Cs, Rest, Out).
+ccl_pp_spell_tok(floatf, F, Out, Rest) :- !, pp_float_codes(F, Cs), append(Cs, [0'f|Rest], Out).
+ccl_pp_spell_tok(K, A, Out, Rest) :- pp_dec_suffix(K, Sfx), !, atom_codes(A, Cs), append(Sfx, Rest, R1), append(Cs, R1, Out).
+ccl_pp_spell_tok(floatl, F, Out, Rest) :- !, pp_float_codes(F, Cs), append(Cs, [0'L|Rest], Out).
+ccl_pp_spell_tok(float, F, Out, Rest) :- !, pp_float_codes(F, Cs), append(Cs, Rest, Out).
 ccl_pp_spell_tok(_, V, Out, Rest) :- ( atom(V) -> atom_codes(V, Cs) ; number_codes(V, Cs) ), append(Cs, Rest, Out).
+pp_int_codes(big(A), Cs) :- !, atom_codes(A, Cs).                                    % a literal past 2^60 spells as its digits (0.94's big(Atom); 0.99: the flattened text had `big(0xff...)ul', which no reader takes -- the census's road only)
+pp_int_codes(N, Cs) :- number_codes(N, Cs).
+%% A FLOAT'S TEXT (0.143): cocolog writes the fewest digits that read back as the same double since 1.10.28, so a finite
+%% value is spelled exactly; an infinity -- a literal past the largest double, which the lexer made infinite -- is
+%% `1e999', which a C reader makes infinite again. Every value past 1.0e308 was spelled so before, against the 15 digits
+%% cocolog wrote, and `__DBL_MAX__' and `1.5e308' became infinities in the text of `-E'
+pp_float_codes(F, Cs) :- F > 1.7976931348623157e308, !, atom_codes('1e999', Cs).
+pp_float_codes(F, Cs) :- F < -1.7976931348623157e308, !, atom_codes('-1e999', Cs).
+pp_float_codes(F, Cs) :- number_codes(F, Cs).
 ccl_pp_spell_str([], R, R).
 ccl_pp_spell_str([C|Cs], Out, R) :- ccl_pp_spell_chr(C, Out, O1), ccl_pp_spell_str(Cs, O1, R).
 ccl_pp_spell_chr(34, [92, 34|R], R) :- !.

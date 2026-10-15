@@ -54,7 +54,7 @@ c_checks :-
     c34,
     c35,
     c36,
-    c37, c38, c39, c40, c41, c42, c43.
+    c37, c38, c39, c40, c41, c42, c43, c44, c45.
 
 c1 :- check('namespace N { ... } is namespace(L, N, Items), nested, and anonymous',
     ( unit('names.cpp', unit(Is)), member(namespace(2, geo, Gs), Is), member(function(_, _, _, twice, _, _, _), Gs), member(namespace(_, inner, _), Gs), member(namespace(_, anon, _), Is) )).
@@ -242,6 +242,24 @@ c37 :- check('the Itanium mangler spells a function type, an array and the subst
       ita_name([], ll, [], [param(ptr([], base([const, volatile], [void])), a), param(ptr([], base([const, volatile], [void])), b)], '_ZNSt3__12llEPVKvS1_'),
       ita_name([], mm, [], [param(ptr([], base([volatile], [int])), a), param(ptr([], base([const], [int])), b), param(ptr([], base([volatile], [int])), c)], '_ZNSt3__12mmEPViPKiS1_'),
       ita_clear )).
+
+c44 :- check('the Itanium mangler spells the rest of the builtin types (0.136): _Complex double is Cd and a substitution candidate (S0_), _Float16 DF16_, _BitInt(37) DB37_ and unsigned _BitInt(7) DU7_, const _Complex float * PKCf, _Complex long double Ce -- as clang++ 18 spells them',
+    ( ita_facts,
+      ita_name([], nn, [], [param(base([], ['_Complex', double]), a), param(base([], ['_Complex', double]), b)], '_ZNSt3__12nnECdS0_'),
+      ita_name([], oo, [], [param(base([], ['_Float16']), a)], '_ZNSt3__12ooEDF16_'),
+      ita_name([], pp, [], [param(base([], [bitint(int(37))]), a), param(base([], [unsigned, bitint(int(7))]), b)], '_ZNSt3__12ppEDB37_DU7_'),
+      ita_name([], qq, [], [param(ptr([], base([const], ['_Complex', float])), a), param(base([], ['_Complex', long, double]), b)], '_ZNSt3__12qqEPKCfCe'),
+      ita_clear )).
+
+c45 :- check('the Itanium mangler spells a VALUE template argument (0.137): L, the parameter\'s type, the number (n before a negative one), E -- ratio<1, 1000000000> is 5ratioILl1ELl1000000000EE, the template name a substitution candidate, a bool Lb1E -- as clang++ 18 spells them',
+    ( ita_facts, dynamic('$cpp_tmpl'/3), ita_ns([ratio, flag]),
+      assertz('$cpp_tmpl'(ratio, [tparam(base([], [long]), '_Num', none), tparam(base([], [long]), '_Den', none)], none)),
+      assertz('$cpp_inst'('ratio.1.1000000000', inst(ratio, [int(1), int(1000000000)]))), assertz('$cpp_inst'('ratio.m1.2', inst(ratio, [int(-1), int(2)]))),
+      assertz('$cpp_inst'('flag.1', inst(flag, [bool(true)]))), assertz('$cpp_inst'('flag.0', inst(flag, [bool(false)]))),
+      (   ita_name([], rr, [], [param(base([], [typedef('ratio.1.1000000000')]), a), param(base([], [typedef('ratio.m1.2')]), b)], '_ZNSt3__12rrENS_5ratioILl1ELl1000000000EEENS0_ILln1ELl2EEE'),
+          ita_name([], ss, [], [param(base([], [typedef('flag.1')]), a), param(base([], [typedef('flag.0')]), b)], '_ZNSt3__12ssENS_4flagILb1EEENS0_ILb0EEE')
+      ->  R = true ; R = false ),
+      retractall('$cpp_tmpl'(ratio, _, _)), ita_clear, R == true )).
 
 c38 :- check('the access control\'s reader forms (0.117): friend class Auditor; is friend(L, [friend_class(Auditor)]), a lambda\'s mutable stays among its captures, and the access markers stay among a class\'s members',
     ( unit('run/accessctl.cpp', unit(Is)),

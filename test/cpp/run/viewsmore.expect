@@ -1,0 +1,23 @@
+empty 0
+single 7
+counted 1
+counted 2
+counted 3
+chunk 1 2
+chunk 3 4 5
+common 1
+common 2
+common 3
+zip size 3
+zip 1 10
+zip 2 20
+zip 3 30
+elements 2
+elements 4
+drop_while 4
+drop_while 5
+as_rvalue x
+as_rvalue yy
+repeat 9
+repeat 9
+exit 0

@@ -1,0 +1,6 @@
+make inner
+make outer 9 5
+3 7 4 inner 9
+drop inner inner
+drop r 4
+exit 0

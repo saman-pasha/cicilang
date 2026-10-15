@@ -1,0 +1,15 @@
+iter 0
+iter 1
+leave block 1
+done 1
+iter 0
+iter 1
+iter 2
+loop ended
+leave block 7
+done 7
+back 1
+back 2
+back 3
+11
+exit 0

@@ -14,6 +14,7 @@
 # only READS a summary, which is parallel-safe; a cold flatten under load is not.
 #
 #   sh test/cpp.sh
+#   CPP_WHY=1 sh test/cpp.sh    # a fixture whose BUILD fails gets test/why.sh's account in its verdict (two more builds each)
 HERE=$(cd "$(dirname "$0")" && pwd)
 . "$HERE/config.sh"
 . "$HERE/parlib.sh"
@@ -37,6 +38,15 @@ s1=$(date +%s); "$ROOT/bin/cicilang++" "$ROOT/test/cpp/hello.cpp" -o hello2 >/de
 if [ "$t1" -lt 8 ] && [ "$n" -ge 1 ]; then echo "ok   a second build reads stdio.h's summary from ~/.cicilang/cpp, no preprocessing ($t1 s, $n summaries)"; else echo "FAIL a second build is served from the summary cache"; echo "     got  $t1 s, $n summaries"; failures=$((failures + 1)); fi
 got=$("$ROOT/bin/cicilang++" -fsyntax-only "$ROOT/test/cpp/classes.cpp" 2>&1; echo "exit $?")
 if [ "$got" = "exit 0" ]; then echo "ok   cicilang++ -fsyntax-only reads a file of classes, and says nothing"; else echo "FAIL cicilang++ -fsyntax-only classes.cpp"; echo "     got  $got"; failures=$((failures + 1)); fi
+# THE CLASS LAYOUT AGAINST CLANG++'S (0.135): test/cpp/link/abi_helper.cpp built by the reference compiler of the tree read
+# ($LLVM's clang++, else the one on the path), linked with abi_main.cpp built by cicilang++ -- a base's tail padding reused
+# and the table pointer first, values and sizes crossing the call both ways. No clang++: a SKIP, named.
+CXXREF=clang++; [ -n "$LLVM" ] && [ -x "$LLVM/bin/clang++" ] && CXXREF="$LLVM/bin/clang++"
+if command -v "$CXXREF" > /dev/null 2>&1; then
+  "$CXXREF" -std=c++17 -w -c "$ROOT/test/cpp/link/abi_helper.cpp" -o abi_helper.o 2>/dev/null
+  got=$("$ROOT/bin/cicilang++" "$ROOT/test/cpp/link/abi_main.cpp" abi_helper.o -o abi 2>&1 && ./abi)
+  if [ "$got" = "1 2 3 60 | 245 | 8 8 | 16 16" ]; then echo "ok   classes cross a call to clang++'s code as the Itanium ABI lays them (a base's tail padding, the table pointer first)"; else echo "FAIL the class layout against clang++'s (test/cpp/link)"; echo "     got  $got"; failures=$((failures + 1)); fi
+else echo "SKIP the class layout against clang++'s: no clang++"; fi
 echo "-- M6, in steps: C++ that is C with names, classes, virtual, templates, lambdas, the B-tree the C++ way, a bag of names, members of class type, C++20, C++23, template template parameters, overloads as C++ chooses, libc++'s std::swap -- built and run (test/cpp/run/NAME.cpp against NAME.expect), in parallel over the pool"
 # A FIXTURE'S BUILD HAS A TIME CAP (0.93): on libc++ 18 two <algorithm> fixtures ran past thirty minutes, and a gate with no
 # cap hangs for the owner (0.92 kept a fixture out of the tree for exactly that). The cap is CPP_FIXTURE_SECS (2400: the
@@ -71,7 +81,10 @@ ccl_fixture() {
   case "$got" in *"TIMEOUT after"*) echo "FAIL $n.cpp: $(printf '%s' "$got" | tail -1), the build never finished (the environment's cost, named rather than hidden)" > "$r"; return ;; esac
   if [ "$got" = "$(cat "$ROOT/test/cpp/run/$n.expect")" ]; then echo "ok   $n.cpp: built through cicilang++, runs, and prints what it should" > "$r"
     ccl_time_record "$CPP_TIMES" "$n" "$secs"   # a PASSING build's seconds only, for the next run's longest-first order: a failure's time says nothing of the cost
-  else { echo "FAIL $n.cpp"; echo "$got" | diff "$ROOT/test/cpp/run/$n.expect" - 2>&1 | head -6 | sed 's/^/     /'; } > "$r"; fi
+  else { echo "FAIL $n.cpp"; echo "$got" | diff "$ROOT/test/cpp/run/$n.expect" - 2>&1 | head -6 | sed 's/^/     /'
+         # CPP_WHY=1 (0.144): a BUILD that failed is built again under library(flow/debug) by test/why.sh, and its account --
+         # the calls the error was raised through, the failed call down the path that got furthest -- joins the verdict
+         if [ -n "$CPP_WHY" ] && [ "$bst" -ne 0 ]; then sh "$HERE/why.sh" $flags "$src" 2>&1 | sed -n '/^-- the error was raised\|^-- the run did not raise/,$p' | grep -v '^-- every call\|^-- peak' | sed 's/^/     /'; fi; } > "$r"; fi
 }
 # LONGEST FIRST: the fixtures ordered by their last recorded build time, heaviest first (the unknown
 # ones before them), so a heavy fixture never starts last and holds the gate alone at its end
@@ -97,7 +110,7 @@ for pair in "coro:no_member(get_return_object" "concept_fail:constraint_not_sati
   case "$got" in *"not lowered yet: $what"*"exit 1"*) echo "ok   $n.cpp is refused: not lowered yet: $what" ;; *) echo "FAIL $n.cpp should be refused with 'not lowered yet: $what'"; echo "     got  $got" | head -3; failures=$((failures + 1)) ;; esac
 done
 echo "-- and the safe part refuses what leaves its scope"
-for pair in "escape:a borrow leaves the function"; do   # a closure holding a reference to a local returned (0.100)
+for pair in "escape:a borrow leaves the function" "thisunset:owner used before it was given anything" "gotopastdtor:goto over a defer"; do   # a closure holding a reference to a local returned (0.100); `this' handed out of a constructor while an own field is unset (0.133); a goto over a local with a destructor (0.138)
   n=${pair%%:*}; what=${pair#*:}
   got=$("$ROOT/bin/cicilang++" -c "$ROOT/test/cpp/$n.cpp" -o "$n.o" 2>&1; echo "exit $?")
   case "$got" in *"$what"*"exit 1"*) echo "ok   $n.cpp is refused: $what" ;; *) echo "FAIL $n.cpp should be refused with '$what'"; echo "     got  $got" | head -3; failures=$((failures + 1)) ;; esac

@@ -389,6 +389,10 @@ k92 :- check('GNU\'s __int128 is a type word: typedef __int128 i128 and typedef 
       member(typedef(_, [var(u128, base(_, S2), none)]), Is), memberchk('__int128', S2), memberchk(unsigned, S2),
       member(declare(_, base(_, [struct('W', Ms)])), Is), member(member(base(_, S3), v, none), Ms), memberchk('__int128', S3),
       member(function(_, _, _, mul, _, _, _), Is) )).
+k93 :- check('a float in a stored read comes back exactly, 17 digits and the largest double: cocolog writes a float with 15 (0.132)',
+    ( c('floats.c', P), ccl_kb_forget_file(P), cicilang_ast(P, A), ccl_kb_cached(P, top, B), A == B,
+      A = unit(Is), member(declaration(_, _, _, [var(b, _, float(F))]), Is), F =:= 1.7976931348623157e308,
+      member(declaration(_, _, _, [var(a, _, float(G))]), Is), G =\= 0.3 )).
 k90 :- check('C23: _BitInt(N) a specifier, _Generic chosen at the read, _Alignof and alignof, _Alignas kept as the qualifier aligned(E), nullptr_t and unreachable() from <stddef.h>',
     ( unit_c('run/c23b.c', 23, unit(Is)),
       member(declaration(_, none, base(_, [bitint(int(7))]), [var(small, _, int(60))]), Is),
@@ -522,6 +526,7 @@ t_checks :-
     k90,
     k91,
     k92,
+    k93,
     section('where it stops'),
     k69,
     k70,

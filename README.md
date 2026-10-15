@@ -29,7 +29,11 @@ record of every step.
   own `<stdarg.h>`, `long double` as x87's 80-bit type on x86-64, hex
   floats, designated initializers, anonymous members, K&R definitions,
   `#line`, `__int128`, `va_arg` of a struct on x86-64, the SysV argument
-  register budget, and trigraphs in the ISO modes. `-std=c17` is the
+  register budget, the decimal floating types as gcc builds them (to and
+  from a 128-bit integer through the compiler's own helpers, their constants
+  folded with infinities and NaNs), the binary floating constants folded as
+  clang folds them (a negative zero, an infinity, a NaN), and trigraphs in
+  the ISO modes. `-std=c17` is the
   default, `-std=c23` the level.
 * **C++17, C++20, C++23 and C++26.** Classes, virtual dispatch, multiple
   and virtual inheritance, templates with partial specialization, SFINAE,
@@ -95,9 +99,12 @@ for the link, and libc++ for the C++ side.
 ```sh
 CICILI=~/Projects/GitHub/cicili COCOLOG=~/Projects/GitHub/cocolog sh module/build.sh   # -> library/cicilang.so
 LLVM=/usr/local/opt/llvm sh module/build-llvm.sh                                     # -> library/ccl_llvm.so
-sh test/reader.sh; sh test/compile.sh; sh test/driver.sh; sh proof/run.sh            # the C gates
+sh test/flow.sh                                                                      # the flow gate: the library charted, nothing run (a minute)
+sh test/reader.sh; sh test/compile.sh; sh test/driver.sh; sh test/objects.sh         # the C gates
+sh proof/run.sh; sh test/cross.sh                                                    # the proof, and aarch64 Linux under qemu
 sh test/libcxx.sh; sh test/cpp.sh                                                    # the C++ gates: the library read warms the cache first
-sh test/gates.sh                                                                     # all seven in one chain, the C++ ones in parallel
+sh test/gates.sh                                                                     # all nine in one chain, the flow gate first
+sh test/why.sh prog.cpp                                                              # a failed build: the call where it gave up
 ```
 
 `module/build.sh` transpiles `module/cicilang.cicili` with Cicili and
@@ -187,7 +194,12 @@ named by their path (`p->name`, `c.inner.name`) and go with the struct.
 `y`, a tied owner must be consumed before `y` is, a result tie on a
 prototype is a contract the caller reads. An own array, `own node *C[4]`
 or `own node *C[nc]` bounded by an earlier member, holds owners the
-lowering drains when the holder goes.
+lowering drains when the holder goes. A `goto` is an edge of the flow: the
+state at a label is the join of the state that falls through and of each
+`goto` that reaches it, the scopes a jump leaves closed as a `break` closes
+them, and the jump runs their `defer` blocks (and, in C++, their destructors).
+A jump into a block, or over a declaration, leaves each owner it skipped
+unset on its path (0.138).
 
 Refused, each naming the statement's line:
 
@@ -203,6 +215,8 @@ Refused, each naming the statement's line:
 | `tie_unknown`, `tie_outlived`, `tie_escapes`, `tie_mismatch` | a tie to nothing declared, an owner outliving its tie, a tied owner moved beyond it, a value outside the slot's tie |
 | `unconsumed`, `untied` | a plain pointer holding fresh memory never consumed; a slot the check cannot follow given a value with no owner behind it |
 | `own_unbounded`, `own_array_by_value`, `own_array_untagged`, `array_unset` | an own pointer with no owner to name; an own array copied by value, untagged, or not zeroed at birth |
+| `goto_with_owners` | a `goto` over the declaration of a plain pointer holding fresh memory, or of an own array |
+| `goto_over_defer` | a `goto` over a `defer` (or, in C++, a local with a destructor) to a label in its scope |
 
 `clone(p)` hands a function a fresh copy of what an own pointer points to,
 so `p` is not consumed. `test/c/run/owners.c`, `own_fields.c`,
@@ -213,7 +227,8 @@ every program under `test/c/safe/` is refused with the error its
 In C++ the same check reads the desugared program: a class with a
 destructor is never copied, a temporary dies at the end of its statement,
 a constructor's `this` starts with unset own fields and must complete
-them, a destructor's caller takes the fields as moved. libc++'s own
+them before it is handed to a function, a destructor's caller takes the
+fields as moved. libc++'s own
 bodies keep raw pointers by their own discipline and are not checked;
 the program's are, wherever they are instantiated from.
 
@@ -309,7 +324,18 @@ and the forms it needed: classes defined in a function, `using Base::f;` and
 through a pointer, unions with a constructor, a destructor or a method, and
 objects that hold their own address (a map, a list, a `std::function`)
 constructed in place when a temporary or a call initializes them; at C++20 also
-`variant <=> variant` and `std::string` compared with `const char *`.
+`variant <=> variant` and `std::string` compared with `const char *`; since
+0.132 the C++23 views that libc++ 18 has (`empty`, `single`, `counted`,
+`chunk_by`, `common`, `zip`, `elements`, `drop_while`, `as_rvalue`, `repeat`,
+`join`, `split`, `lazy_split`) and `ranges::to`; since 0.133 range and tuple
+formatting (`std::format` of a vector, a map, a pair, a tuple, strings in the
+debug form) and, over libc++ 21, `views::join_with`; since 0.134 the money and
+time facets (`put_money`, `get_money`, `put_time`, `get_time`), a stream's
+exceptions mask, the wide file streams and `std::filesystem` (`path` and the
+operations, a range-for over a `directory_iterator`); since 0.136 `<random>`
+(the engines through the distributions, `std::shuffle`), `std::valarray`,
+chrono formatting and `std::rel_ops` through a using-directive; since 0.138
+libc++'s time zones under `-fexperimental-library`, as clang++ takes it.
 `test/libcxx.sh` reads `<vector>`, `<string>`,
 `<iostream>`, `<map>`, `<set>`, `<unordered_map>`, `<unordered_set>`,
 `<optional>`, `<memory>`, `<functional>`, `<tuple>` and `<algorithm>` whole,
@@ -343,6 +369,9 @@ library/include/               the compiler's own freestanding C headers
 test/reader.sh, compile.sh, driver.sh, objects.sh, proof/run.sh   the C gates
 test/cpp.sh, libcxx.sh, readhdr.pl, census.sh                     the C++ gates and their tools
 test/gates.sh, parlib.sh       every gate in one chain; the memory-gated parallel pool the C++ gates run on
+test/flow.sh, flow.pl, flow.expect   the flow gate: cocolog's library(flow/chart) over the library, nothing run,
+                               its findings held to the expect file
+test/why.sh, why.pl            where a failed build gave up: the build under library(flow/debug), the failed call named
 test/c/, test/cpp/             the fixtures: what runs, what is refused, what is read whole
 bench/btree, bench/compile     the B-tree and the compile-time benchmarks
 tutorials/                     the objects layer's lessons
@@ -363,15 +392,12 @@ HISTORY.md                     the record of every step: what it did, what it fo
 * **Nothing of the standard library is the compiler's own.** The C
   freestanding headers are the one exception; libc++ compiles as it is.
 * **Nothing is claimed before its GREEN line.** A rule is a check in a
-  gate; every commit runs the seven gates and raises the version.
+  gate; every commit runs the nine gates and raises the version.
 
 ## Not done
 
 `std::format`'s compile-time check of the format string (the library's own
 run-time parser catches a bad one); the range adaptors not named;
-`std::filesystem`, `<random>`, `std::valarray`;
-access control of an inheritance; the tail padding of a non-POD base, which is
-not reused (a class laid out here differs from clang's where code compiled by
-both shares it); construction vtables in a diamond; a `\N{...}` abbreviation
-alias (`\N{NUL}`, which clang refuses too); the arm64 ABI, written and not
-proven. Each is named in `CLAUDE.md` with where it stops.
+a `\N{...}` abbreviation
+alias (`\N{NUL}`, which clang refuses too); the arm64 ABI on Apple's machines
+(Linux on aarch64 is proven under qemu). Each is named in `CLAUDE.md` with where it stops.

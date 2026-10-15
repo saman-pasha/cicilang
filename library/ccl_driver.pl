@@ -24,11 +24,13 @@ dr_drive(Inputs, Options) :-
     ( memberchk(std(Std), Options) -> nb_setval('$ccl_std', Std) ; nb_setval('$ccl_std', 17) ),                                       % -std=c++20: the level libc++ keys on
     ( memberchk(cstd(CStd), Options) -> nb_setval('$ccl_c_std', CStd) ; nb_setval('$ccl_c_std', 17) ),                                 % -std=c23: C's own level, the forms and __STDC_VERSION__
     ( memberchk(trigraphs, Options) -> nb_setval('$ccl_trigraphs', yes) ; nb_setval('$ccl_trigraphs', no) ),                          % -std=c99/c11/c17 (ISO, not gnu) or -trigraphs: phase 1's nine sequences, as clang
+    ( memberchk(target(Tg), Options) -> dr_set_target(Tg) ; true ),                % --target=TRIPLE (0.131): another machine's macros, headers, types, ABI, back end and linker
     findall(D, ( member(O, Options), ( O = define(_) ; O = undef(_) ), D = O ), Ds), ccl_pp_cmdline(Ds),                       % -D and -U (0.112): the macros the command line defines and undefines, before every file's own
     forall(member(include(D), Options), assertz(ccl_include_dir(D))),
-    ( memberchk(opt(O), Options) -> Flags = [O] ; Flags = ['-O0'] ),
+    ( memberchk(opt(O), Options) -> Flags0 = [O] ; Flags0 = ['-O0'] ),
+    ( memberchk(target(Tg1), Options) -> atom_concat('--target=', Tg1, TF), append(Flags0, [TF], Flags) ; Flags = Flags0 ),   % the embedded LLVM's target
     ( memberchk(verbose, Options) -> nb_setval('$dr_verbose', yes) ; nb_setval('$dr_verbose', no) ),
-    nb_setval('$ccl_debug', none),
+    nb_setval('$ccl_debug', none), nb_setval('$ccl_debug_kind', none),
     dr_inputs(Inputs, Options, Flags, Objects),
     nb_getval('$dr_errors', N),
     (   N > 0 -> true
@@ -36,11 +38,28 @@ dr_drive(Inputs, Options) :-
     ;   ( memberchk(out(Out), Options) -> true ; Out = 'a.out' ),
         findall(F, member(link(F), Options), LinkFlags),
         dr_say(['link ', Out]),
-        catch(cicilang_link(Objects, LinkFlags, Out), E, dr_report(Out, E)) ),
+        dr_catch(cicilang_link(Objects, LinkFlags, Out), E, dr_report(Out, E)) ),
     nb_getval('$dr_errors', N1),
     ( N1 =:= 0 -> write('cicilang: ok') ; write('cicilang: '), write(N1), write(' error(s)') ), nl.
 dr_no_link(O) :- ( memberchk(compile_only, O) ; memberchk(assembly, O) ; memberchk(emit_llvm, O) ; memberchk(syntax_only, O) ; memberchk(ast, O) ; memberchk(preprocess, O) ), !.
 
+%% ANOTHER MACHINE (0.131): clang's `--target=TRIPLE' names the arch and the OS -- `aarch64-linux-gnu', `arm64-apple-darwin',
+%% `x86_64-linux-gnu' -- and every question of the machine that asked the host asks it now: the predefined macros
+%% ('$pp_arch', '$pp_os', and the target's own table), the headers (ccl_sdk_dirs/1: the cross sysroot), long double
+%% ('$ccl_ldbl': an IEEE quad on Linux aarch64), the ABI ('$ir_arch': aapcs), the embedded LLVM's triple (the compile's
+%% `--target=' flag) and the linker (ccl_linker/1: the cross gcc). Each is set before anything reads it.
+dr_set_target(T) :-
+    (   ( sub_atom(T, 0, _, _, aarch64) ; sub_atom(T, 0, _, _, arm64) ) -> A = arm64
+    ;   sub_atom(T, 0, _, _, x86_64) -> A = x86_64
+    ;   A = unknown ),
+    (   sub_atom(T, _, _, _, linux) -> O = linux
+    ;   ( sub_atom(T, _, _, _, apple) ; sub_atom(T, _, _, _, darwin) ; sub_atom(T, _, _, _, macos) ) -> O = darwin
+    ;   O = unknown ),
+    (   A \== unknown, O \== unknown
+    ->  nb_setval('$ccl_target', target(A, O, T)), nb_setval('$pp_arch', A), nb_setval('$pp_os', O),
+        ( A == arm64 -> nb_setval('$ir_arch', aapcs) ; nb_setval('$ir_arch', sysv) ),
+        ( A == arm64, O == linux -> K = quad ; A == arm64 -> K = double ; K = x87 ), nb_setval('$ccl_ldbl', K)
+    ;   dr_report(T, error(unknown_target(T), cicilang)) ).
 dr_inputs([], _, _, []).
 dr_inputs([F|Fs], Options, Flags, Objects) :-
     dr_input(F, Options, Flags, Objects, Objects1),
@@ -58,19 +77,29 @@ dr_cpp_ext(F) :- member(E, [cpp, cc, cxx, 'C', cppm, ccm, cxxm, ixx, mpp]), dr_e
 %% a .c: read (headers, macros, := ...), the safe part, the IR, then what the options ask
 dr_c(F, Options, _, Objs, Objs) :- memberchk(preprocess, Options), !,                   % -E: the flattened text, cocolog's preprocessor (no clang)
     dr_say(['preprocess ', F]),
-    (   catch(dr_preprocess(F, Options), E, (dr_report(F, E), fail)) -> true ; true ).
+    (   dr_catch(dr_preprocess(F, Options), E, (dr_report(F, E), fail)) -> true ; true ).
 dr_c(F, Options, Flags, Objs, Objs1) :-
-    dr_say(['read ', F]), nb_setval('$dr_expansions', []),
-    (   catch(cicilang_ast(F, AST), E1, (dr_pp_warnings, dr_report(F, E1), fail))
+    dr_say(['read ', F]), nb_setval('$dr_expansions', []), dr_macro_trace(F, Options),
+    nb_setval('$ccl_scope_ends', []), ( ( memberchk(debug, Options) ; memberchk(debug(lines), Options) ) -> nb_setval('$ccl_scope_ends_for', F) ; nb_setval('$ccl_scope_ends_for', none) ),   % -g: the read records where each scope closes (0.139)
+    (   dr_catch(cicilang_ast(F, AST), E1, (dr_pp_warnings, dr_report(F, E1), fail))
     ->  dr_pp_warnings, dr_remember_expansions(AST),
         (   memberchk(ast, Options) -> writeq(AST), nl, Objs = Objs1
         ;   memberchk(syntax_only, Options), ccl_lang(cpp) -> Objs = Objs1      % M5 is the reader; C++'s check and lowering are M6
-        ;   ( memberchk(debug, Options) -> dr_abs_path(F, AF), nb_setval('$ccl_debug', file(AF)) ; nb_setval('$ccl_debug', none) ),   % -g (0.128): the lowering's line tables name the file
-            (   catch(dr_ir(F, AST, IR), E2, (dr_report(F, E2), fail))
+        ;   (   memberchk(debug, Options) -> dr_abs_path(F, AF), nb_setval('$ccl_debug', file(AF)), nb_setval('$ccl_debug_kind', full)   % -g (0.128): the lowering's line tables name the file
+            ;   memberchk(debug(lines), Options) -> dr_abs_path(F, AF), nb_setval('$ccl_debug', file(AF)), nb_setval('$ccl_debug_kind', lines)   % -gline-tables-only, -g1 (0.130): no variable and no type
+            ;   nb_setval('$ccl_debug', none), nb_setval('$ccl_debug_kind', none) ),
+            (   dr_catch(dr_ir(F, AST, IR), E2, (dr_report(F, E2), fail))
             ->  dr_emit(F, IR, Options, Flags, Objs, Objs1)
             ;   ( nb_getval('$dr_errors', NE), NE =:= 0 -> dr_error(F, 0, ['the check or the lowering failed without saying why']) ; true ), Objs = Objs1 ) )
     ;   Objs = Objs1 ).
 
+%% -g -fdebug-macro (0.134): THE MACROS AS THE FILE AND ITS HEADERS DEFINE THEM, recorded by a standalone run of the
+%% preprocessor (ccl_pp_macro_trace/2) BEFORE the read, whose own run starts the preprocessor afresh; the lowering's
+%% compile unit describes them (ir_dbg_macros/3). Without the two options, nothing is recorded.
+dr_macro_trace(F, Options) :-
+    (   memberchk(debug, Options), memberchk(debug_macro, Options)
+    ->  ccl_ensure_globals, ccl_set_lang(F), ( catch(ccl_pp_macro_trace(F, Es), _, fail) -> true ; Es = [] ), nb_setval('$ccl_debug_macros', events(Es))
+    ;   nb_setval('$ccl_debug_macros', none) ).
 %% the file through the preprocessor standalone -- its includes pulled in, every macro
 %% expanded -- spelled back as text (ccl_pp_spell/2): to -o FILE, else the answer itself
 dr_preprocess(F, Options) :-
@@ -96,8 +125,9 @@ dr_ir_sig(F, AST, Sig) :-
     ccl_lowering_version(LV), ir_arch_init, ir_arch(Arch),
     dr_unit_deps(AST, Ds0), sort(Ds0, Ds),
     findall(P-K, ( member(P, [F|Ds]), ( ccl_kb_key(P, K) -> true ; K = none ) ), Keys),
-    ( catch(nb_getval('$ccl_debug', Dbg), _, fail) -> true ; Dbg = none ),   % -g's IR is another IR (0.128)
-    term_to_atom(sig(LV, Arch, Keys, Dbg), A), atom_codes(A, Cs), dr_fold(Cs, 7, 131, S1), dr_fold(Cs, 13, 137, S2), Sig = S1-S2.
+    ( catch(nb_getval('$ccl_debug', Dbg0), _, fail) -> true ; Dbg0 = none ), ( catch(nb_getval('$ccl_debug_kind', DK), _, fail) -> true ; DK = none ), Dbg = Dbg0-DK,   % -g's IR is another IR (0.128), and the line tables alone a third (0.130)
+    ( catch(nb_getval('$ccl_debug_macros', events(_)), _, fail) -> DM = macros ; DM = none ),   % -fdebug-macro's IR is another again (0.134)
+    term_to_atom(sig(LV, Arch, Keys, Dbg, DM), A), atom_codes(A, Cs), dr_fold(Cs, 7, 131, S1), dr_fold(Cs, 13, 137, S2), Sig = S1-S2.
 %% two folds under 2^31 (cocolog's arithmetic is not exact past 2^52), a pair for 62 bits
 dr_fold([], S, _, S).
 dr_fold([C|Cs], S0, M, S) :- S1 is (S0 * M + C) mod 2147483647, dr_fold(Cs, S1, M, S).
@@ -138,7 +168,7 @@ dr_emit(F, IR, Options, Flags, Objs, Objs1) :-
     ;   memberchk(assembly, Options) -> dr_out(F, Options, s, Out), dr_say(['assemble ', Out]), dr_compile(F, IR, Out, ['-S'|Flags]), Objs = Objs1
     ;   memberchk(compile_only, Options) -> dr_out(F, Options, o, Out), dr_say(['compile ', Out]), dr_compile(F, IR, Out, Flags), Objs = Objs1
     ;   tmp_file(cicilang, T), atom_concat(T, '.o', Out), dr_say(['compile ', F]), ( dr_compile(F, IR, Out, Flags) -> Objs = [Out|Objs1] ; Objs = Objs1 ) ).
-dr_compile(F, IR, Out, Flags) :- catch(cicilang_compile(IR, Out, Flags), E, (dr_report(F, E), fail)).
+dr_compile(F, IR, Out, Flags) :- dr_catch(cicilang_compile(IR, Out, Flags), E, (dr_report(F, E), fail)).
 %% the output name: -o, else the input's basename with the new extension, in the working directory
 dr_out(_, Options, _, Out) :- memberchk(out(Out), Options), !.
 dr_out(F, _, Ext, Out) :-
@@ -180,6 +210,7 @@ dr_diag(F, macro_failed(N, As), _) :- !, dr_error(F, 0, ['macro \'', N, '\' fail
 dr_diag(F, ownership(Kind, N, Form), where(Fn, line(L))) :- !, dr_kind(Kind, Text), dr_error(F, L, [Text, ' ''', N, ''' in ', Form, ' (function ', Fn, ')']).
 dr_diag(F, not_lowered(What), where(Fn, line(L))) :- !, dr_error(F, L, ['not lowered yet: ', What, ' (function ', Fn, ')']).
 dr_diag(F, compile_failed(Msg), _) :- !, dr_error(F, 0, ['LLVM: ', Msg]).
+dr_diag(F, unknown_target(T), _) :- !, dr_error(F, 0, ['unknown target triple \'', T, '\'']).
 dr_diag(F, no_embedded_llvm, _) :- !, dr_error(F, 0, ['the embedded LLVM is not built: LLVM=... sh module/build-llvm.sh']).
 dr_diag(F, cocolog_error(Msg), _) :- !, dr_error(F, 0, ['LLVM: ', Msg]).            % the embedded LLVM's refusal
 dr_diag(F, link_failed(Msg), _) :- !, dr_error(F, 0, ['link: ', Msg]).
@@ -206,7 +237,8 @@ dr_kind(owner_leaked, 'owner leaked:') :- !.
 dr_kind(move_in_loop, 'owner consumed inside a loop:') :- !.
 dr_kind(move_of_non_owner, 'move of a non-owner:') :- !.
 dr_kind(owner_overwritten, 'owner overwritten while live:') :- !.
-dr_kind(goto_with_owners, 'goto in a function with owners, at label') :- !.
+dr_kind(goto_with_owners, 'goto over the declaration of fresh memory or of an own array:') :- !.
+dr_kind(goto_over_defer, 'goto over a defer (or a local with a destructor) to label') :- !.
 dr_kind(K, K).
 %% the user's file's `#warning' lines, printed after its read in clang's shape (they count as no error)
 dr_pp_warnings :-
@@ -216,7 +248,17 @@ dr_pp_warnings_([warning(F, L, M)|Ws]) :- write(F), write(':'), write(L), write(
 dr_error(F, L, Parts) :-
     nb_getval('$dr_errors', N), N1 is N + 1, nb_setval('$dr_errors', N1),
     write(F), ( L > 0 -> write(':'), write(L) ; true ), write(': error: '), dr_write(Parts), nl,
-    ( L > 0 -> dr_note_expansion(F, L) ; true ).
+    ( L > 0 -> dr_note_expansion(F, L) ; true ),
+    dr_why_stop(F, L, Parts).
+%% THE RUN ENDS AT ITS FIRST ERROR under test/why.sh (0.144), which sets '$ccl_why': library(flow/debug) records the
+%% last inferences before a run's end, so the end must be where the compiler gave up. An error the compiler RAISES
+%% passes the driver's report sites untaken (dr_catch/3, 0.146), and the run ends with the compiler's own exception,
+%% whose path and the failure it answered the debugger reads back (flow_why_raised/2); caught and reported, it ended
+%% with the driver's own throw below, whose path is the report's. An error the driver says after a FAILURE (`the check
+%% or the lowering failed without saying why') throws past every recovery here. Nothing else sets the global, and a
+%% build reads it once per report site and once per error it reports.
+dr_why_stop(F, L, Parts) :- ( catch(nb_getval('$ccl_why', yes), _, fail) -> throw(ccl_why(F, L, Parts)) ; true ).
+dr_catch(G, E, R) :- ( catch(nb_getval('$ccl_why', yes), _, fail) -> call(G) ; catch(G, E, R) ).
 dr_note_macro(F, L, P, MF, As) :-
     write(F), write(':'), write(L), write(': note: the macro is '), write(P), write(' in '), write(MF), write(', called on '), dr_args(As), nl.
 %% a Prolog error, said plainly
