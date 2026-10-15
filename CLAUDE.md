@@ -10,7 +10,7 @@ it found, its measurements and its gate numbers. `README.md` tells a user what r
 architecture and the milestones. A step that changes a rule edits the rule here, in its topic, and writes its entry
 in `HISTORY.md`.
 
-At 0.143 the versions are: the module 0.143 (`ccl_p_version` in `module/cicilang.cicili`, `bin/cicilang --version`),
+At 0.144 the versions are: the module 0.144 (`ccl_p_version` in `module/cicilang.cicili`, `bin/cicilang --version`),
 the reader 129 (`ccl_reader_version/1`, `library/ccl_syntax.pl`) and the lowering 82 (`ccl_lowering_version/1`,
 `library/ccl_ir.pl`).
 
@@ -18,6 +18,7 @@ Build and prove, always in this order (or all of it, `sh test/gates.sh`):
 
 ```sh
 CICILI=~/Projects/GitHub/cicili COCOLOG=~/Projects/GitHub/cocolog sh module/build.sh
+sh test/flow.sh
 sh test/reader.sh
 sh test/compile.sh
 sh test/driver.sh
@@ -130,12 +131,14 @@ sh test/cpp.sh
   on backtracking, with an error that names no line (`ccl_init_items//1` is `ccl_init_items/3`; `cpp_scalar_type/1`
   already existed). (0.93, 0.99)
 - A predicate's helpers come after its last clause, never between its clauses: cocolog takes discontiguous clauses
-  without a word. At 0.143, 124 predicates break it, listed from each clause's line (the flow tools, Measurement and the
-  instruments). A second DEFINITION of a name hides among such splits, joined to the first: `cpp_derives/2` until 0.112,
-  and `cpp_thunk_params/4` and `cpp_param_types/2` until 0.141 -- the secondary-table thunks and the instance thunks
-  each wrote their own `cpp_thunk_params/4`, the first answered every call, and each pair gave a second answer on
-  backtracking, up to 2^n of them; each is written once now, the thunks' parameters named as the first one named them.
-  (0.103, 0.140, 0.141)
+  without a word. At 0.144, 124 predicates break it, each a `discontiguous` line of `test/flow.expect`, which the flow
+  gate holds the library to: a NEW split is RED (The flow gate, below). A second DEFINITION of a name hides among such
+  splits, joined to the first: `cpp_derives/2` until 0.112, and `cpp_thunk_params/4` and `cpp_param_types/2` until
+  0.141 -- the secondary-table thunks and the instance thunks each wrote their own `cpp_thunk_params/4`, the first
+  answered every call, and each pair gave a second answer on backtracking, up to 2^n of them; each is written once now,
+  the thunks' parameters named as the first one named them. The chart names such a pair `defined_twice` (a later place
+  of the clauses repeats an earlier clause, or an earlier fact covers it) and every other split `discontiguous`.
+  (0.103, 0.140, 0.141, 0.144)
 - Base clauses are exclusive: they cut. Two that both match `[]` make `findall/3` answer twice, and a constructor is
   emitted twice (`cpp_keep_defaults/3`, `cpp_args_fit/2`, `cpp_args_no_clash/2`). (0.66, 0.69)
 - A comment ends the LINE: `%` in a cocolog clause, `#` in sh. Never rewrite a line that has a comment in its middle;
@@ -155,6 +158,10 @@ sh test/cpp.sh
   runs a pool of 40 to 50 fixtures that it can reach before the chain: `test/cpp/run/NAME.cpp` built over a warm
   cache and compared with `NAME.expect`, three at a time, ten to thirty minutes. It found 0.117's variable clash in
   `ir_args_/5` an hour before the chain would have. It is a net, not a gate: it claims nothing. (0.117)
+- Every edit to the library is followed by `sh test/flow.sh`, a minute, before anything longer runs: a call to a name
+  that a rename left behind, a helper given a name already taken, a clause that a cut above it makes dead -- each
+  named at its line, where the chain met it an hour later or never. A fixture that fails is asked `sh test/why.sh
+  FILE` before any trace is written: it names the call that gave up. (0.144)
 - A step committed without its gates (on the owner's word), or before they finish, says so and claims nothing GREEN.
   The next commit carries the numbers. (0.91, 0.92, 0.110)
 - Each form is cut down to a reduction of 10 to 40 lines. The reduction is built with clang or clang++ and with
@@ -285,6 +292,9 @@ library/include/            the compiler's own freestanding headers: each COCOLO
 test/config.sh              sourced by every gate: the neighbours, this library first on COCOLOG_LIBRARY, the store
 test/gates.sh               every gate in one chain
 test/parlib.sh              the memory-gated pool: ccl_pool, ccl_cocolog_rss, ccl_lpt_order, ccl_time_record
+test/flow.pl, flow.sh       the flow gate: every library file charted by cocolog's library(flow/chart), nothing run
+test/flow.expect            the findings the flow gate holds the library to, a key a line
+test/why.pl, why.sh         where a build gave up: the build run under library(flow/debug), the failed call named
 test/reader.pl, reader.sh   the reader's gate
 test/compile.pl, compile.sh the compiler's gate
 test/driver.sh              the command's gate
@@ -321,7 +331,8 @@ tutorials/01..03-*.pl       the objects layer's lessons; goal main, last line do
 - `~/.cicilang/` is the user's cache. `KB` is the C store (`$CICILANG_KB` names another) and `KB.version` its stamp,
   `Reader.Lowering`. `cpp/` holds the C++ summaries, one `<name>-<fold>-<fold>.sum` per header and level, with
   `.ast.pl` (one `'$cpp_hdr_ast'(Name, Item)` clause per named item) and `.mac` (the header's macros) beside it.
-  `fixture-times` and `header-times` keep the pool's timings, outside the `cpp/` that the library read wipes. (0.105)
+  `fixture-times`, `header-times` and `flow-times` keep the pools' timings, outside the `cpp/` that the library read
+  wipes. (0.105, 0.144)
 - The neighbours' checkouts are `$CICILI` and `$COCOLOG`, by default `~/Projects/GitHub/<name>`. Nothing names
   ZiguratIP's checkout: it is reached only as cocolog's store. (from the start)
 - The guard, watchdog, probe and trace scripts that `HISTORY.md` names (`scratchpad/guard.sh`, `watch.sh`, `gate.sh`,
@@ -347,31 +358,77 @@ tutorials/01..03-*.pl       the objects layer's lessons; goal main, last line do
 
 ### The chain
 
-- `sh test/gates.sh` runs the reader, compile, driver and objects gates, the proof and the cross gate one after
-  another, then the library read (`test/libcxx.sh`), then the C++ gate (`test/cpp.sh`). Each prints `== NAME: GREEN in N s` or
-  `== NAME: RED (exit N) in N s`. The first RED stops the chain, by its exit status, never by a log read. A full pass
-  prints `ALL GREEN`. (0.105)
+- `sh test/gates.sh` runs the flow gate (`test/flow.sh`) FIRST, then the reader, compile, driver and objects gates,
+  the proof and the cross gate one after another, then the library read (`test/libcxx.sh`), then the C++ gate
+  (`test/cpp.sh`): nine gates. Each prints `== NAME: GREEN in N s` or `== NAME: RED (exit N) in N s`. The first RED
+  stops the chain, by its exit status, never by a log read. A full pass prints `ALL GREEN`. The flow gate is first
+  because it runs nothing and takes a minute: a mis-edit that it can see (a call that nothing answers, a name given
+  twice) stops the chain there, where the C++ gate met it after an hour. (0.105, 0.144)
 - THE CHAIN RUNS OVER A LIBC++: `LLVM=/usr/lib/llvm-18 sh test/gates.sh` and `LLVM=/usr/lib/llvm-21 sh test/gates.sh` (or the
   last two gates alone at 21: `test/libcxx.sh`, `test/cpp.sh`; the C gates do not read libc++). The tree is read and linked
   (`ccl_cxx_dirs`); without `$LLVM` the newest installed one is, libc++ 22 on the Ubuntu box, which no gate has run. The
   library read wipes the HOME's summaries (`LX_HOME`), so give each pass a HOME of its own to keep both warm (the summaries
   are keyed by the header's path, so two trees never clash). (0.122, 0.126)
-- `GATES_JOBS` (default 4) sets `LX_JOBS` and `CPP_JOBS`, the lanes of the two parallel phases. (0.105)
-- By hand: build, then `test/reader.sh`, `test/compile.sh`, `test/driver.sh`, `test/objects.sh`, `proof/run.sh`; then
-  `test/libcxx.sh` before `test/cpp.sh`. (0.105)
+- `GATES_JOBS` (default 4) sets `FLOW_JOBS`, `LX_JOBS` and `CPP_JOBS`, the lanes of the three parallel phases. (0.105,
+  0.144)
+- By hand: build, then `test/flow.sh`, `test/reader.sh`, `test/compile.sh`, `test/driver.sh`, `test/objects.sh`,
+  `proof/run.sh`, `test/cross.sh`; then `test/libcxx.sh` before `test/cpp.sh`. (0.105, 0.144)
 - A gate prints `SKIP` and exits 0 when it finds no `$COCOLOG/cocolog` or no `library/cicilang.so`, and the chain
-  prints GREEN for it. A SKIP is no GREEN line: build first. (from the start)
-- Only the two parallel phases have caps of their own. The four small gates and the proof run under an outside cap,
-  as every cocolog run does. (0.105)
+  prints GREEN for it; the flow gate also without cocolog's `library/flow/chart.pl` and `tables.pl` (`make modules`
+  writes the tables). A SKIP is no GREEN line: build first. (from the start, 0.144)
+- Only the three parallel phases have caps of their own. The four small gates and the proof run under an outside cap,
+  as every cocolog run does. (0.105, 0.144)
 - `test/config.sh`, sourced by every gate, puts this checkout's `library/` at the front of `COCOLOG_LIBRARY` and keeps
   the caller's path behind it. It sets `CICILANG_KB` to `~/.cicilang/KB` unless the caller set it, and stamps that
   store (`ccl_kb_prepare`). (M4)
 - The reader and compile gates run over `--embed "$CICILANG_KB"`, and the driver gate over it through `bin/cicilang`.
-  The C++ gate, the library read and the census run `--local`. The objects gate runs `--local`, with a store of its
-  own for an instance that outlives its process. (M4, M5)
+  The C++ gate, the library read, the census, the flow gate and `test/why.sh` run `--local`. The objects gate runs
+  `--local`, with a store of its own for an instance that outlives its process. (M4, M5, 0.144)
 - A gate program is loaded by `ensure_loaded/1` from a `query` (`reader_main`, `compile_main`, `cpp_main`,
-  `readhdr_main`, `census_main`), never by `cocolog --embed ... run FILE goal`, which consults FILE into the store.
-  (from the start)
+  `readhdr_main`, `census_main`, `fg_findings_main`, `cw_main`), never by `cocolog --embed ... run FILE goal`, which
+  consults FILE into the store. (from the start)
+
+### The flow gate: test/flow.sh
+
+- `test/flow.sh` (0.144) reads every file of the library with cocolog's `library(flow/chart)` and RUNS NOTHING. A chart
+  starts at one call pattern, so `test/flow.pl`'s `fg_roots_main/2` writes a copy of each file with a root,
+  `'$fg_all'/N`, that calls each predicate the file defines with free arguments: 3449 predicates in the ten files at
+  0.144. Each copy is charted with the rest of the compiler loaded (`flow_graph/3`'s `load(Files)`), and the file
+  itself is stubbed out of the library path (an empty file of its name first on `COCOLOG_LIBRARY`), so that its
+  clauses are read once. A helper of the gate takes the prefix `fg_`: cocolog has one namespace, and a helper named
+  `flow_trim/2` joined `library/flow/read.pl`'s own and failed the chart far from the cause. (0.144)
+- The chart's tables hold cocolog's modules only. `fg_modules_main/2` writes `flow_t_portal/8` rows for cicilang's own
+  C predicates, from each module's dispatch rows (`("name" N cfun)`) and the modes in its header comment (`;;;;
+  name(+A, -B)`; `module/cicilang.cicili` names five, `module/ccl_llvm.cicili` four). `fg_dynamic_main/2` writes a
+  `:- dynamic(N/A).` for each predicate the compiler declares or asserts as it runs -- `dynamic/1`, `cpp_reset/1` and
+  `asserta/1`, `assertz/1`, `assert/1` of a literal head, met anywhere in a clause: 73 at 0.144. Without them a call
+  of the desugaring's registries (`'$cpp_cls'/2` ...) is an unknown procedure, 1221 of the 1291 findings of
+  `ccl_cpp.pl`. (0.144)
+- One job a file in the memory-gated pool (`ccl_pool`; `FLOW_JOBS` 4, `FLOW_LAUNCH_MB` 9000, `FLOW_HARD_MB` 14000),
+  the longest first by `~/.cicilang/flow-times`, each under `FLOW_SECS` (900 s): `ccl_cpp.pl` 46 s and 980 MB,
+  `ccl_ir.pl` 39 s and 860 MB, `ccl_driver.pl` 30 s, `ccl_syntax.pl` 26 s and 600 MB, the six others under 15 s; the
+  gate about 55 s. A file that is not charted is RED. (0.144)
+- `fg_findings_main/4` writes `flow_findings/2`'s findings but the root's, a line each: the kind, the severity, the
+  predicate, the line, the column and the text. The kinds: `unknown_procedure` (a call that nothing answers, with the
+  nearest name: `ir_inz/1 is defined nowhere ... did you mean ir_ins/1?`), `instantiation` (a variable free on every
+  path into a builtin that needs it bound), `left_recursion`, `unreachable_clause` (a clause that a cut or a fact
+  before it makes dead, for the call pattern), `det_promise`, `discontiguous`, `defined_twice` (the code topic's split
+  rule). Five defects seeded in a copy of the library -- a misspelled call, a second definition, a dead clause, a free
+  variable into `is/2`, a left recursion -- were each named at their file, line and column in 47 s. (0.144)
+- THE VERDICT: a finding is keyed without its line, since it moves with every edit above it: `KIND FILE PREDICATE` for
+  `discontiguous` and `defined_twice`, the callee added for an unknown procedure, the text with every number made `N`
+  for the rest. The keys must be `test/flow.expect`'s: a NEW one is RED and printed at its place (`FILE:LINE:COL:
+  SEVERITY: PREDICATE: TEXT`, each place once, since one predicate charted for two call patterns says one thing
+  twice); one that the expect file holds and the run did not meet is RED too, so that a finding fixed leaves the file
+  in the same step and a later edit cannot bring it back unseen. `FLOW_UPDATE=1` writes the expect file from the run,
+  after every new line is read; `FLOW_KEEP=DIR` keeps the copies, the logs and each file's findings. (0.144)
+- `test/flow.expect` at 0.144 holds 131 keys: the 124 `discontiguous` splits, all true, and seven FALSE findings,
+  which stay until the chart learns what it lacks (reported to cocolog's owner): `cpp_dbg_op_spell/2`'s
+  `atom_concat(conv_, K, W)` (both callers bind W, through `atomic_list_concat/3`'s split mode); `ir_fp_nan/1` and
+  `ir_neg_zero/1`, two call patterns each, whose `sub_atom/5` reads the A that `format(atom(A), ...)` binds (the
+  chart's mode for `format/3` has no output); and `ccl_sum_bigs_/3`'s call of `'$ccl_sum_big'/3`, twice, a table
+  that the summary's `.big.pl` file defines when `ensure_loaded/1` loads it at run time, called under a `catch/3`.
+  (0.144)
 
 ### The C gates
 
@@ -478,6 +535,12 @@ tutorials/01..03-*.pl       the objects layer's lessons; goal main, last line do
   `ccl_kill_tree` kills the tree, and the verdict line itself reads `FAIL NAME.cpp: TIMEOUT after N s`, so no diff
   hides it. It runs the binary on `NAME.stdin` or `/dev/null`, compares with `NAME.expect`, and writes its verdict to
   `$RES/NAME.res`. (0.93, 0.94, 0.105)
+- `CPP_WHY=1 sh test/cpp.sh` (0.144): a fixture whose BUILD failed is built again by `test/why.sh` (Where a build gave
+  up, below), and its account -- the calls the error was raised through, then the failed call down the path that got
+  furthest -- joins the verdict, under the diff. It costs two more builds of each such fixture, and none for a fixture
+  that built and printed a wrong output. Over a copy of the library with one defect seeded in the `return` clause of
+  `cpp_stmt_/3`, the verdict of a four-line `sum.cpp` named the `\=/2` that failed, twenty calls down from
+  `ccl_cpp_units/2`, where the build said `not lowered yet: phase(desugaring)`. (0.144)
 - The verdicts are collected in alphabetical order. A missing one is `FAIL NAME.cpp: no verdict`. A skip is counted,
   neither ok nor failure. A pool killed at its hard cap is RED. (0.95, 0.105)
 - Each refusal is built with `-c` and must fail with `not lowered yet: What`:
@@ -522,15 +585,15 @@ tutorials/01..03-*.pl       the objects layer's lessons; goal main, last line do
   fewer than NMAX run and the summed RSS of every `cocolog … query` on the box (`ccl_cocolog_rss`) is under
   LAUNCH_MB. It gates on memory because cocolog has no garbage collector and a build peaks in gigabytes. (0.105)
 - Past HARD_MB the pool kills every cocolog query on the box with `pkill -9` and returns 1, a RED. The defaults are 4
-  jobs, 9000 MB and 14000 MB: `CPP_JOBS`, `CPP_LAUNCH_MB`, `CPP_HARD_MB` in `test/cpp.sh`, and the `LX_` ones in
-  `test/libcxx.sh`. (0.105)
+  jobs, 9000 MB and 14000 MB: `CPP_JOBS`, `CPP_LAUNCH_MB`, `CPP_HARD_MB` in `test/cpp.sh`, the `LX_` ones in
+  `test/libcxx.sh` and the `FLOW_` ones in `test/flow.sh`. (0.105, 0.144)
 - The pool tracks its children by PID with `kill -0`, because dash has no `jobs -r`. It matches `[c]ocolog`, never
   its own shell. Every job runs with `< /dev/null`: the pool's input is the job list, and a build once swallowed the
   lines queued behind it. (0.105, 0.106)
 - The jobs run longest first. `ccl_lpt_order FILE` sorts lines by the recorded seconds of their first word, the
   unknown keys first. `ccl_time_record FILE KEY SECS` appends a line, and the last line per key wins. Only a passing
-  build's or a good read's seconds are recorded, in `~/.cicilang/fixture-times` (`CPP_TIMES`) and
-  `~/.cicilang/header-times` (`LX_TIMES`). (0.105, 0.106)
+  build's, a good read's or a good chart's seconds are recorded, in `~/.cicilang/fixture-times` (`CPP_TIMES`),
+  `~/.cicilang/header-times` (`LX_TIMES`) and `~/.cicilang/flow-times` (`FLOW_TIMES`). (0.105, 0.106, 0.144)
 
 ### Fixtures and their companion files
 
@@ -570,6 +633,44 @@ tutorials/01..03-*.pl       the objects layer's lessons; goal main, last line do
   one peaks far above the steady state, and a run killed at its cap writes no summary, so the next run is cold too.
   Re-run before believing a RED that comes with a bump. (0.61, 0.67, 0.105)
 
+### Where a build gave up: test/why.sh
+
+- `sh test/why.sh [cicilang's arguments] FILE` (0.144) builds FILE under cocolog's `library(flow/debug)` and says
+  where the compiler gave up. A refusal names a function (`not lowered yet: item(function(pick, block/1))`) or a phase
+  (`phase(desugaring)`), and `the check or the lowering failed without saying why` names nothing; the tool names the
+  call that failed, its arguments, the clause it failed in and that clause's last call, in two builds at full speed,
+  where finding it by hand took probes and traces. A C file goes through `bin/cicilang`, a C++ one through
+  `bin/cicilang++`, built with `-c` and no store. It is no gate. (0.144)
+- The goal is the command's own: `bin/cicilang` under `CICILANG_GOAL=FILE` writes the `ccl_drive(Inputs, Options)` its
+  arguments make into FILE and runs nothing. The tool then builds once as the command would and prints what it says (a
+  build that succeeds has nothing to explain: exit 0). The build also writes the C++ summaries it reads BEFORE the
+  debugger's two runs: else the probe flattened a header and wrote its summary, the replay read the summary, and the
+  two took different roads (`abstract.cpp`'s probe spent 4.4 million inferences, its replay 181 thousand). (0.144)
+- The program under the debugger is a top file of two lines, `:- use_module(library(cicilang)).` and `cw_goal :-
+  nb_setval('$ccl_why', yes), ccl_drive(...).` Under `'$ccl_why'`, `dr_error/3` throws `ccl_why(File, Line, Parts)`
+  after it writes the error (`dr_why_stop/3`), past every recovery, so the run ENDS at its first error and the window
+  that the debugger records -- the last `WHY_WINDOW` inferences -- holds the code that gave up. (0.144)
+- `test/why.pl`'s `cw_main/3` runs `flow_debug/4` (a probe at full speed learns at which inference the run ends, a
+  replay records the window, each in a child cocolog) and reads the record. cocolog's why tree counts only a call with
+  a panel on the chart, and the chart is of the top file, whose every call into the compiler is a library's: so every
+  recorded call is given a panel (`cw_own_all/2`), and the tree of one call is cocolog's internal `flow_dbg_why_node/4`.
+  It prints how the run ended; THE ERROR'S PATH, the call that raised it (the last call an exception ended before the
+  driver's first `dr_report/2` or `dr_error/3`) and every call it was made in, the window's top first; and WHAT FAILED
+  BEFORE IT: the last call that failed among the raising call's siblings -- a refusal's deciding test, a builtin as
+  often as not (`cpp_not_abstract/1` refuses where `nb_getval('$cpp_base_ctor', yes)` fails) -- else, a level up, the
+  last that tried a clause, never `fail/0` or `false/0`, which is how a body says no; then down the path that got
+  furthest, at each failed call the clause whose body got the most calls done (`flow_why_furthest/2`'s order: then the
+  most inferences spent, then the earlier) and its last call that did not exit. An explicit `fail` there sends the path
+  to the last call before it that failed after trying a clause (`( Cond -> ... ; cpp_trace(...), fail )`), and a call
+  that tried no clause of its own goes into the goal it was handed (`forall/2`, `call/N`). (0.144)
+- `WHY_WINDOW` (20000 inferences: a desugaring failure 10,000 inferences before the end, behind backtracking, was
+  outside a window of 4000), `WHY_KEEP=DIR` (the debugger's files: `why.txt`, the run a call a line; `why.svg` and
+  `why.xml`, the run over its chart), `WHY_SECS` (2400 s) and `WHY_MB` (2800 MB, summed over the run's process group,
+  which is killed whole past it). Measured: a defect seeded in the lowering of a conditional, where the build said only
+  `not lowered yet: item(function(pick, ...))`, was named -- `\==(i32, i32)` failed in clause 97 of `ir_expr/4`, under
+  `ir_locals/2` and `ir_init/3` -- in 29 to 37 s at 640 to 860 MB; one in the desugaring in 36 s; `abstract.cpp`'s
+  refusal with its deciding test. A window of 4000 took 28 s and 593 MB, one of 40000 52 s and 1095 MB. (0.144)
+
 ## The driver and the commands
 
 ### The commands
@@ -579,6 +680,8 @@ tutorials/01..03-*.pl       the objects layer's lessons; goal main, last line do
   `--local` under `--no-kb`. (M4, 0.108)
 - `bin/cicilang++` is `bin/cicilang` with `CICILANG_LANG=cpp` (`lang(cpp)`), `CICILANG_ME=cicilang++` and `--no-kb`.
   (M5)
+- Under `CICILANG_GOAL=FILE` the command writes the goal its arguments make, `ccl_drive(Inputs, Options)`, into FILE
+  and runs nothing (0.144): `test/why.sh` runs that goal under the debugger. No flag is added (owner's rule).
 
 ### Arguments
 
@@ -674,6 +777,9 @@ tutorials/01..03-*.pl       the objects layer's lessons; goal main, last line do
   `error` lines prefixed `cicilang: `. (M4)
 - So a library debug `write` must start its line with `cicilang: `. A trace (`nb_setval('$cpp_trace', yes)`, or
   `CCL_IR_TRACE=1` for each emitted IR line) needs cocolog called directly. (0.90)
+- Under `'$ccl_why'`, which only `test/why.sh`'s program sets, `dr_error/3` throws `ccl_why(File, Line, Parts)` after
+  it writes the error (`dr_why_stop/3`), so the run ends at its first error, past every recovery; a build reads the
+  global once per error it reports. (0.144)
 
 ### Compile and link
 
@@ -6195,19 +6301,22 @@ A lambda is a class of its captures (`library/ccl_cpp.pl`). A fixture named alon
   at 2882 MB, 1.8.38 at 591 MB. After a cocolog update the modules are rebuilt (`module/build.sh`,
   `module/build-llvm.sh`, and cocolog's `os` and `process` modules); 1.8.36 to 1.8.41 left the SDK's ABI unchanged.
   (0.46, 0.112, 0.114)
-- cocolog is at 1.10.28 (`67b102c`) since 0.142, over ZiguratIP 1.0.0 (`01251f4`, its store pages 64 KiB) and beside
+- cocolog is at 1.11.3 (`4545145`) since 0.144, over ZiguratIP 1.0.0 (`01251f4`, its store pages 64 KiB) and beside
   Cicili 3.0.0 (`9d74a5e`), where a float literal is a double: every float-like number in our two modules is in a
   comment, and they use no `(inline)` or `(weak)` (Cicili 2.0.0's change), so their C does not change. The neighbours
   are rebuilt in this order: ZiguratIP (`make MODE=Release`), cocolog (`make`, `make schema`, `make modules`, which
-  builds its `os`, `process` and `stream` modules and the flow tables), then both modules here; 1.10.28 adds one SDK
-  call (`coco_m_resource_error`) and changes no struct. 1.10.28 is The Coco's answer to the report of 0.140 -- the
-  build's heap, the float writer, the refused allocation, `current_predicate/1` and `predicate_property/2`, the flow
-  tools, each in its bullet below -- and its owner ran its suites one by one, not the whole. The baseline of that step
-  was 0.141 over 1.10.28, fresh HOMEs: all eight gates GREEN over libc++ 18 (reader 5 s, compile 16 s, driver
-  11 s, objects 3 s, the cross gate in 64 s, the library read in 1158 s, the C++ gate in 1076 s with 496 of
-  499 fixtures) and the two libc++ gates GREEN over libc++ 21 (1006 s, 1137 s, 498 of 499). 1.10.22 (0.140) and 1.10.0
-  (0.132) were the steps before; cocolog 1.10.6's builtins that raise where they failed (`arg/3` on an atomic term,
-  `=..`, `assert` of what is no clause) broke nothing here. (0.132, 0.140, 0.142)
+  builds its `os`, `process` and `stream` modules and the flow tables), then both modules here. 1.11.0 to 1.11.3 add no
+  SDK call and change no struct: 1.11.0 takes `proc_run/4`'s deadline from the monotonic clock (each poll was charged
+  its whole 200 ms step, so a child that printed more than about 20 bytes a millisecond of its budget was killed early,
+  status 124) and mends three faults of the flow debugger; 1.11.2 has a debugger's window record only the clause heads
+  that a call TRIED (one failed call of a fact table listed every head) and match them in linear time; 1.11.3 changes
+  the translator (`library/reasoning/translate.pl`) alone. The flow gate and `test/why.sh` (0.144) are written on that
+  flow library, and its flow gate, C gates, proof and cross gate ran GREEN over 1.11.3 (the Hosts topic). 1.10.28
+  (0.142) was The Coco's answer to the report of 0.140 -- the build's heap, the
+  float writer, the refused allocation, `current_predicate/1` and `predicate_property/2`, the flow tools, each in its
+  bullet below -- and added one SDK call (`coco_m_resource_error`). 1.10.22 (0.140) and 1.10.0 (0.132) were the steps
+  before; cocolog 1.10.6's builtins that raise where they failed (`arg/3` on an atomic term, `=..`, `assert` of what
+  is no clause) broke nothing here. (0.132, 0.140, 0.142, 0.144)
 - Through 1.10.27 cocolog's build exhausted the 1 GB heap that Debian's and Ubuntu's SBCL 2.2.9 starts with, while
   Cicili transpiled `cocolog.cicili` (`Heap exhausted during garbage collection`, then `GC invariant lost, file
   "gencgc.c"`), and a `make modules` after the failed `make` skipped the flow tables with no word of why. Since 1.10.28
@@ -6445,23 +6554,35 @@ A lambda is a class of its captures (`library/ccl_cpp.pl`). A fixture named alon
 - An instrument can break what it measures: markers on `user_error`, which cocolog lacks, failed the write they
   watched. (0.106)
 - A string in an `.ll` file carries its length in its type (`[19 x i8]` in `proof/forty2.ll`): edit both. (0.100)
-- THE FLOW TOOLS (cocolog 1.10.14 and later; `make modules` writes their tables). `cocolog -s $COCOLOG/tools/flow/chart.pl
-  -- SPEC FILE BASE` reads a predicate statically and writes BASE.svg and BASE.xml (one element a line: each goal's
-  modes, `can_fail`, `choice`, line and column) and its findings as a compiler writes them, `FILE:LINE:COL: error:
-  ...`: a call that nothing answers (with the nearest name), a variable free on every path into `is/2`, an unreachable
-  clause, a broken `%! ... is det`. It reads ONE file, so a call into a sibling file of the library is unknown to it:
-  filter its findings against every file's predicates. 0.140 charted every library file from a root that calls all of
-  the file's predicates, and read every clause with `read_term/3`'s `term_position` (9,476 clauses, 35,320 calls; the
-  scripts are session scratch): no call names a predicate that nothing defines; 128 predicates have split clauses, two
-  of them written twice (the code topic's placement rule; written once since 0.141). Limits met: `ccl_cpp.pl` charted from all its 1,521
-  predicates does not end in 30 min (the other files take 1 to 129 s, at most 1.1 GB); the catcher of `catch/3` is free
-  to the chart inside the recovery, which makes a false `instantiation` finding (`dr_error/3` through `dr_report/2`;
-  reported to cocolog's owner). The debugger, `tools/flow/debug.pl`, records the end of a failed run of an entry goal
-  (`ccl_drive/2`, never a goal from the middle of a pass) and its `<why>` names each call that failed; a call that
-  failed after its cut reads `fate="open"`. Not used here yet. (0.140)
+- THE FLOW TOOLS (cocolog 1.10.14 and later; `make modules` writes their tables). `library(flow/chart)` reads a
+  program from one call pattern, runs nothing, and gives its findings at file, line and column (`flow_graph/3`,
+  `flow_findings/2`; `cocolog -s $COCOLOG/tools/flow/chart.pl -- SPEC FILE BASE` also writes BASE.svg and BASE.xml).
+  `library(flow/debug)` records the last inferences of a run (`flow_debug/4`: a probe, then a replay, each a child
+  cocolog) and reads back why a call failed (`flow_why/2`, `flow_why_furthest/2`). 0.140 used them by hand and found
+  the two predicates written twice (written once since 0.141); since 0.144 they are two instruments of this
+  repository, the flow gate (`test/flow.sh`) and `test/why.sh`, each in its topic. What they need here, all of it
+  reported to cocolog's owner (0.144):
+  - The chart reads ONE file and is given the rest as `load(Files)`; the charted file is stubbed out of the library
+    path, else its clauses are read twice. Its tables hold cocolog's modules only: this repository's C predicates are
+    rows that the gate writes (`flow_t_portal/8`), and so are the tables the compiler declares as it runs (`:-
+    dynamic`). A helper of ours never takes the prefix `flow_`: `flow_trim/2` joined the library's own, and the chart
+    failed with a type error far from it.
+  - Its false findings at 1.11.3, which `test/flow.expect` holds: `format(atom(A), ...)` is no output to it (its mode
+    of `format/3` is all inputs), a variable bound by `atomic_list_concat/3`'s split mode is free to it, and a table
+    that a generated file defines when it is loaded at run time is an unknown procedure. The false `instantiation` of
+    a `catch/3`'s catcher inside its recovery (0.140) is gone since 1.10.28, and `ccl_cpp.pl`, which did not end in
+    30 min at 1.10.22, is charted in 46 s.
+  - The debugger's why tree counts only a call with a panel on the chart; for a program loaded from a top file every
+    call is a library's, so `test/why.pl` gives each recorded call one. A run that ends in an exception has no why of
+    its own: `test/why.pl` finds the raise and the failure before it. A cache on disk that the probe writes and the
+    replay reads makes the two runs diverge (`diverged yes`, `0 calls`): build once first. `flow_why_furthest/2` can
+    end at an explicit `fail/0`, the way a body says no. A window of 20000 inferences costs about 35 s and 860 MB on
+    a C++ build. (0.140, 0.144)
 - The session's tools are not in the repository: `probe.sh` (time and memory caps over its own process group),
   `trace.sh` (cocolog with `'$cpp_trace'` on), `fx.sh` (removes the binary, builds, compares as the gate does),
-  `guard.sh` and `watch.sh` (a query or a gate under the summing watchdog). A new session writes them again. (0.93)
+  `guard.sh` and `watch.sh` (a query or a gate under the summing watchdog). A new session writes them again. The first
+  question a trace of a failed build answered, which call gave up, is `test/why.sh`'s since 0.144, in the repository.
+  (0.93, 0.144)
 
 ## What runs
 
@@ -6471,8 +6592,11 @@ A lambda is a class of its captures (`library/ccl_cpp.pl`). A fixture named alon
   0.90, all GREEN (cocolog 1.2.18). The fixtures added since 0.93 have run on Linux only.
 - Ubuntu 24.04 on x86_64 (clang and LLVM 18, glibc, libc++ 18 and 21) is a host since 0.87. Every gate but the C++ one is
   GREEN there since 0.93, and all seven since 0.95. Every step from 0.93 on is gated there, but the save points 0.112,
-  0.113, 0.117, 0.122 to 0.125, 0.130, 0.131 and 0.143 (0.143's C gates and cross gate ran, its libc++ gates did not;
-  the others were gated by the steps after them); the last full run is 0.142's, over cocolog 1.10.28, on one
+  0.113, 0.117, 0.122 to 0.125, 0.130, 0.131, 0.143 and 0.144 (0.143's C gates and cross gate ran, its libc++ gates did
+  not; 0.144's flow gate, C gates, proof and cross gate ran GREEN over cocolog 1.11.3 -- the flow gate's 131 findings
+  in 54 s, reader 5 s, compile 13 s, driver 10 s, objects 4 s, the cross gate in 63 s -- and its libc++ gates were
+  running when it was committed; the others were gated by the steps after them); the last full run is 0.142's, over
+  cocolog 1.10.28, on one
   tree: over libc++ 18 all eight GREEN (reader 5 s, compile 16 s, driver 11 s, objects 3 s, proof, the cross gate in
   64 s, the library read in 1158 s, the C++ gate in 1076 s with 496 of 499 fixtures ok, the skips are `stdoptionalref`, `joinwith` and `tzone`,
   the 21 refusals and the three of the safe part); over libc++ 21 the library read (1006 s) and the C++ gate (1137 s,
@@ -6887,3 +7011,8 @@ A lambda is a class of its captures (`library/ccl_cpp.pl`). A fixture named alon
   fixtures' builds went from 11,775 s to 2,936 s, the gate from 2989 s to 908 s over four lanes, its pool's peak from 9034
   MB to 1675 MB (0.120). What is left is mostly the reader's own cold flattening of a header (`stdatomic20.cpp`, 277 s,
   gained nothing).
+- The 124 predicates that the placement rule's splits name (`test/flow.expect`) are not regrouped. Each move is
+  mechanical and the flow gate proves it (its key leaves the expect file), but the moves touch every large file of the
+  library, and no step has taken them (0.144). The flow gate charts the ten hand-written files of `library/`: the two
+  generated tables (`ccl_bidrt.pl`, `ccl_uninames.pl`) are loaded, not charted, and the gates' own Prolog
+  (`test/*.pl`) is not read. `test/why.sh` is no gate.

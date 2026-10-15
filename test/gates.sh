@@ -1,5 +1,8 @@
 #!/bin/sh
 # test/gates.sh -- run every gate, in the order and the parallelism that suits it (0.105).
+# The FLOW gate comes first (0.144): cocolog's library(flow/chart) reads the library without
+# running it and names a call nothing answers, a predicate defined twice, a clause never tried,
+# in about a minute, its files charted in parallel (test/flow.sh).
 # The four small gates and the proof are one cocolog process each and fast, so they run one
 # after another. Then the LIBRARY READ (test/libcxx.sh) reads every library header cold in
 # parallel and leaves the C++ summary cache warm -- it replaces the old separate warm.sh.
@@ -8,12 +11,12 @@
 # of the same headers -- are one parallel read, and the C++ gate's 176 builds run four at a
 # time instead of one. Each phase names its checks, seconds and peak; a RED stops the chain.
 #
-#   sh test/gates.sh                     # all seven, in one chain
+#   sh test/gates.sh                     # all nine, in one chain
 #   GATES_JOBS=3 sh test/gates.sh        # narrower parallelism (a smaller box)
 HERE=$(cd "$(dirname "$0")" && pwd)
 . "$HERE/config.sh"
 J=${GATES_JOBS:-4}
-export LX_JOBS="$J" CPP_JOBS="$J"
+export LX_JOBS="$J" CPP_JOBS="$J" FLOW_JOBS="$J"
 fail=0
 run() {   # run NAME SCRIPT...: time it, print its GREEN/RED line and elapsed, stop the chain on RED
   name=$1; shift; s=$(date +%s)
@@ -21,6 +24,7 @@ run() {   # run NAME SCRIPT...: time it, print its GREEN/RED line and elapsed, s
   if [ "$rc" -eq 0 ]; then echo "== $name: GREEN in ${e} s"; else echo "== $name: RED (exit $rc) in ${e} s"; fail=1; fi
   return "$rc"
 }
+run flow     sh "$HERE/flow.sh"    || exit 1   # first (0.144): the library read by library(flow/chart), nothing run -- a minute, where a mis-edit cost the chain's hour
 run reader   sh "$HERE/reader.sh"  || exit 1
 run compile  sh "$HERE/compile.sh" || exit 1
 run driver   sh "$HERE/driver.sh"  || exit 1

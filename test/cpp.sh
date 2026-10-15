@@ -14,6 +14,7 @@
 # only READS a summary, which is parallel-safe; a cold flatten under load is not.
 #
 #   sh test/cpp.sh
+#   CPP_WHY=1 sh test/cpp.sh    # a fixture whose BUILD fails gets test/why.sh's account in its verdict (two more builds each)
 HERE=$(cd "$(dirname "$0")" && pwd)
 . "$HERE/config.sh"
 . "$HERE/parlib.sh"
@@ -80,7 +81,10 @@ ccl_fixture() {
   case "$got" in *"TIMEOUT after"*) echo "FAIL $n.cpp: $(printf '%s' "$got" | tail -1), the build never finished (the environment's cost, named rather than hidden)" > "$r"; return ;; esac
   if [ "$got" = "$(cat "$ROOT/test/cpp/run/$n.expect")" ]; then echo "ok   $n.cpp: built through cicilang++, runs, and prints what it should" > "$r"
     ccl_time_record "$CPP_TIMES" "$n" "$secs"   # a PASSING build's seconds only, for the next run's longest-first order: a failure's time says nothing of the cost
-  else { echo "FAIL $n.cpp"; echo "$got" | diff "$ROOT/test/cpp/run/$n.expect" - 2>&1 | head -6 | sed 's/^/     /'; } > "$r"; fi
+  else { echo "FAIL $n.cpp"; echo "$got" | diff "$ROOT/test/cpp/run/$n.expect" - 2>&1 | head -6 | sed 's/^/     /'
+         # CPP_WHY=1 (0.144): a BUILD that failed is built again under library(flow/debug) by test/why.sh, and its account --
+         # the calls the error was raised through, the failed call down the path that got furthest -- joins the verdict
+         if [ -n "$CPP_WHY" ] && [ "$bst" -ne 0 ]; then sh "$HERE/why.sh" $flags "$src" 2>&1 | sed -n '/^-- the error was raised\|^-- what failed\|^-- no failure/,$p' | grep -v '^-- every call\|^-- peak' | sed 's/^/     /'; fi; } > "$r"; fi
 }
 # LONGEST FIRST: the fixtures ordered by their last recorded build time, heaviest first (the unknown
 # ones before them), so a heavy fixture never starts last and holds the gate alone at its end

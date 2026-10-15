@@ -109,6 +109,7 @@ done
 inputs="[${inputs%,}]"; opts="[${opts%,}]"
 [ -n "$defs" ] && store="--local"   # the store keys a header by its path: under -D it would serve another header's read
 [ -n "$tgt" ] && store="--local"    # ... and another machine reads our own headers (float.h, limits.h) under its own macros
+[ -n "$CICILANG_GOAL" ] && { printf 'ccl_drive(%s, %s)\n' "$inputs" "$opts" > "$CICILANG_GOAL"; exit 0; }   # test/why.sh (0.144): the goal these arguments make, written and not run
 case "$store" in --embed*) kb_prepare "$KB" ;; esac
 res=$("$C" $store query "use_module(library(cicilang)), ccl_drive($inputs, $opts)" 2>&1)
 # one pass over the answer: diagnostics on stderr, as clang; `cicilang: ...' and `unit(...)' lines on stdout

@@ -248,7 +248,12 @@ dr_pp_warnings_([warning(F, L, M)|Ws]) :- write(F), write(':'), write(L), write(
 dr_error(F, L, Parts) :-
     nb_getval('$dr_errors', N), N1 is N + 1, nb_setval('$dr_errors', N1),
     write(F), ( L > 0 -> write(':'), write(L) ; true ), write(': error: '), dr_write(Parts), nl,
-    ( L > 0 -> dr_note_expansion(F, L) ; true ).
+    ( L > 0 -> dr_note_expansion(F, L) ; true ),
+    dr_why_stop(F, L, Parts).
+%% THE RUN ENDS AT ITS FIRST ERROR under test/why.sh (0.144), which sets '$ccl_why': library(flow/debug) records the
+%% last inferences before a run's end, so the end must be where the compiler gave up, and the ball goes past every
+%% recovery. Nothing else sets the global, and a build reads it once per error it reports.
+dr_why_stop(F, L, Parts) :- ( catch(nb_getval('$ccl_why', yes), _, fail) -> throw(ccl_why(F, L, Parts)) ; true ).
 dr_note_macro(F, L, P, MF, As) :-
     write(F), write(':'), write(L), write(': note: the macro is '), write(P), write(' in '), write(MF), write(', called on '), dr_args(As), nl.
 %% a Prolog error, said plainly

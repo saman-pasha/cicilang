@@ -99,9 +99,12 @@ for the link, and libc++ for the C++ side.
 ```sh
 CICILI=~/Projects/GitHub/cicili COCOLOG=~/Projects/GitHub/cocolog sh module/build.sh   # -> library/cicilang.so
 LLVM=/usr/local/opt/llvm sh module/build-llvm.sh                                     # -> library/ccl_llvm.so
-sh test/reader.sh; sh test/compile.sh; sh test/driver.sh; sh proof/run.sh            # the C gates
+sh test/flow.sh                                                                      # the flow gate: the library charted, nothing run (a minute)
+sh test/reader.sh; sh test/compile.sh; sh test/driver.sh; sh test/objects.sh         # the C gates
+sh proof/run.sh; sh test/cross.sh                                                    # the proof, and aarch64 Linux under qemu
 sh test/libcxx.sh; sh test/cpp.sh                                                    # the C++ gates: the library read warms the cache first
-sh test/gates.sh                                                                     # all seven in one chain, the C++ ones in parallel
+sh test/gates.sh                                                                     # all nine in one chain, the flow gate first
+sh test/why.sh prog.cpp                                                              # a failed build: the call where it gave up
 ```
 
 `module/build.sh` transpiles `module/cicilang.cicili` with Cicili and
@@ -366,6 +369,9 @@ library/include/               the compiler's own freestanding C headers
 test/reader.sh, compile.sh, driver.sh, objects.sh, proof/run.sh   the C gates
 test/cpp.sh, libcxx.sh, readhdr.pl, census.sh                     the C++ gates and their tools
 test/gates.sh, parlib.sh       every gate in one chain; the memory-gated parallel pool the C++ gates run on
+test/flow.sh, flow.pl, flow.expect   the flow gate: cocolog's library(flow/chart) over the library, nothing run,
+                               its findings held to the expect file
+test/why.sh, why.pl            where a failed build gave up: the build under library(flow/debug), the failed call named
 test/c/, test/cpp/             the fixtures: what runs, what is refused, what is read whole
 bench/btree, bench/compile     the B-tree and the compile-time benchmarks
 tutorials/                     the objects layer's lessons
@@ -386,7 +392,7 @@ HISTORY.md                     the record of every step: what it did, what it fo
 * **Nothing of the standard library is the compiler's own.** The C
   freestanding headers are the one exception; libc++ compiles as it is.
 * **Nothing is claimed before its GREEN line.** A rule is a check in a
-  gate; every commit runs the seven gates and raises the version.
+  gate; every commit runs the nine gates and raises the version.
 
 ## Not done
 
