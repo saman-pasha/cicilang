@@ -139,6 +139,7 @@ One row per step, in version order: the step's title, what it did and its gate n
 | 0.143 | floating constants folded as clang folds them | a negative zero keeps its sign; a double or float literal past the largest double is an infinity; NAN, INFINITY, HUGE_VAL and an invalid operation fold, a NaN's sign kept; the text of -E spells a float exactly; a floating static data member defined in its class | the C gates and the cross gate GREEN (77 run fixtures, 35 driver checks); the libc++ gates not run |
 | 0.144 | the flow gate and test/why.sh | cocolog 1.11.3; library(flow/chart) reads the library in a minute, first in the chain, its findings held to test/flow.expect (124 splits, 7 false); test/why.sh names the call where a failed build gave up, under library(flow/debug); CPP_WHY=1 for the C++ gate | the flow gate, the C gates, the proof and the cross gate GREEN; the libc++ gates running at the commit |
 | 0.145 | the numbers of 0.144's chain | 0.144's chain recorded: all nine gates over libc++ 18, the two libc++ gates over 21, on cocolog 1.11.3; 0.143's libc++ gates with them; test/flow.pl's header | 497 of 500 C++ fixtures over libc++ 18, 499 over 21; all gates GREEN, 4431 s |
+| 0.146 | the flow gate and test/why.sh on cocolog 1.11.4 | cocolog 1.11.4; the chart's modules(Files) and run-time declarations replace the gate's generated files, its findings keyed once with their severity (125: 124 splits, 1 warning); test/why.sh on own(all) and flow_why_raised/3, the driver taking no error under the why flag; the deciding builtin our own rule | the flow gate, the C gates, the proof and the cross gate GREEN; the libc++ gates running at the commit |
 
 ## M5 — the C++ mode
 
@@ -8609,3 +8610,51 @@ bg tasks done, commit and push the numbers"). They carry 0.143's libc++ gates to
 Nothing the compiler emits changed: reader 129, lowering 82.
 
 THE GATES. The chain above; on this tree, the flow gate again GREEN (131 findings, 49 s, 2247 MB over its lanes).
+
+## 0.146 — the flow gate and test/why.sh on cocolog 1.11.4
+
+**0.146: cocolog 1.11.4, The Coco's answer to the flow feedback of 0.144, and the two instruments moved to its
+options, as the owner asked ("after 0.145, pull cocolog 1.11.4 and use the new flow options").** cocolog went from
+1.11.3 (`4545145`) to master `d1869a0`: 1.11.4 is `0da59f4`, which changes `library/flow` alone, then a fix of
+`tools/cc` that passes each compiler flag once (`7708de9`) and the owner's C++20 for the torch module's build; no
+binary or library change but the flow library's and the version text. cocolog was rebuilt (`make`, `make schema`, `make
+modules`), then both modules here.
+
+- THE FLOW GATE ON 1.11.4, unchanged, was RED, as it should be: five of its seven false findings were gone
+  (`ir_fp_nan/1` and `ir_neg_zero/1`, two call patterns each, now that `format(atom(A), ...)` binds A;
+  `cpp_dbg_op_spell/2`, now that text made from text binds every argument), and the call of `'$ccl_sum_big'/3` under
+  its `catch/3` was a warning, met for a third call pattern.
+- THE CHART'S OWN OPTIONS replace the gate's two generated files: `modules([module/cicilang.cicili,
+  module/ccl_llvm.cicili])` gives it the nine C predicates and leads it, through the modules' Prolog halves, to the 73
+  tables the compiler declares as it runs. Charted both ways on 1.11.4, the findings are the same, key for key, at the
+  same speed; `fg_modules_main/2`, `fg_dynamic_main/2` and their helpers are gone (test/flow.pl, 256 lines to 122).
+- THE VERDICT keys each finding once and with its severity: a predicate charted for more call patterns says one thing
+  again, and the count changes with the chart; a call that nothing answers is a warning under a catch that takes its
+  error and an error again without the catch. `test/flow.expect` holds 125 keys: the 124 splits and that one warning.
+- THE FIVE SEEDED DEFECTS of 0.144 (a misspelled call, a second definition, a dead clause, a free variable into
+  `is/2`, a left recursion) are each found by the new gate, once each, in 52 s.
+- `test/why.sh` ON 1.11.4: `own(all)` makes every recorded call one the why explains, and `flow_why_raised/3` reads
+  the path of the exception that ended the run and the failure it answered. Over the driver of 0.144 it explained the
+  driver's own throw after the report (`dr_report` -> `dr_diag` -> `dr_error` -> `dr_why_stop`), and the failure it
+  answered was an unrelated one, or none. So, under `'$ccl_why'` alone, the driver's five report sites take no error
+  (`dr_catch/3`: `call(G)` there, `catch(G, E, Report)` in every other build), and an error the compiler raises ends
+  the run as it was raised. Then the path is the raise's own -- `abstract.cpp`: 19 calls from `cpp_items` through
+  the declaration at line 5 to `cpp_ctor('Shape', [])`, `cpp_not_abstract('Shape')` and `cpp_refuse/2`, where 0.144's
+  tool showed the last two -- and the failure it answered is the one 0.144 found by hand for the seeded lowering and
+  desugaring defects (`\==(i32, i32)` in clause 97 of `ir_expr/4`; the `\=/2` of `cpp_stmt_/3`).
+- ONE RULE STAYS OURS: 1.11.4's answered failure is a call that TRIED A CLAUSE, and the builtin that decides a refusal
+  tried none -- for `abstract.cpp` it passed over `nb_getval('$cpp_base_ctor', yes)` for an array-type test of the
+  declaration further out. `test/why.pl` prints first a failed call that tried no clause just before the raise in the
+  raising call's own body (by `flow_why_call/4`), else 1.11.4's answered failure and where it got furthest.
+- MEASURED: the three cases in 58 s, at 403 to 445 MB, where 0.144's tool, run on 1.11.4 over the same windows,
+  peaked at 812 to 894 MB: it copied every recorded call to give it a panel, which `own(all)` does inside the
+  debugger. test/why.pl is 212 lines to 100. `CPP_WHY`'s filter in `test/cpp.sh` takes the new headings.
+
+Nothing the compiler emits changed: reader 129, lowering 82.
+
+THE GATES. Committed before its libc++ gates finished, at the session's request to commit and push its changes: on the
+live checkout, fresh HOMEs, over cocolog 1.11.4, the flow gate GREEN (125 findings, all of them `test/flow.expect`'s,
+in 54 s, 2575 MB summed over its four lanes), then the reader, compile, driver and objects gates, the proof and the
+cross gate GREEN (reader 4 s, compile 11 s with the 77 run and 47 safe fixtures, driver 9 s with its 35 checks,
+objects 3 s, the cross gate in 52 s with its 77 fixtures and 3 checks). The library read and the C++ gate over libc++
+18, then over libc++ 21, were running; the next step carries their numbers.

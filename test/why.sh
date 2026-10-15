@@ -10,13 +10,15 @@
 #   WHY_KEEP=DIR    the debugger's files kept in DIR: why.txt (the run, a call a line), why.svg, why.xml
 #   WHY_SECS=S WHY_MB=M   the caps: S seconds (2400) and M MB summed over the run's process group (2800)
 #
-# The build is made to end at its first error: the program the debugger runs sets '$ccl_why', and dr_error/3 then
-# throws past every recovery (library/ccl_driver.pl), so the recording ends where the compiler gave up. The goal is
-# the command's own (bin/cicilang writes it under CICILANG_GOAL), compiled with -c and no store.
+# The build is made to end at its first error: the program the debugger runs sets '$ccl_why', under which the driver
+# takes no error the compiler raises (dr_catch/3) and throws after one it says (dr_why_stop/3; library/ccl_driver.pl),
+# so the recording ends where the compiler gave up, and cocolog 1.11.4's flow_why_raised/3 reads the error's path
+# back (test/why.pl). The goal is the command's own (bin/cicilang writes it under CICILANG_GOAL), compiled with -c
+# and no store.
 HERE=$(cd "$(dirname "$0")" && pwd)
 . "$HERE/config.sh"
 [ -x "$C" ] || { echo "SKIP (no cocolog binary at $C -- set COCOLOG)"; exit 0; }
-[ -f "$COCOLOG/library/flow/debug.pl" ] || { echo "SKIP (cocolog has no library(flow/debug): 1.10.13 or later)"; exit 0; }
+grep -q 'flow_why_raised' "$COCOLOG/library/flow/dbgwhy.pl" 2>/dev/null || { echo "SKIP (cocolog's library(flow/debug) has no flow_why_raised/3: 1.11.4 or later)"; exit 0; }
 [ $# -ge 1 ] || { echo "usage: sh test/why.sh [cicilang's arguments] FILE" >&2; exit 2; }
 WHY_WINDOW=${WHY_WINDOW:-20000}; WHY_SECS=${WHY_SECS:-2400}; WHY_MB=${WHY_MB:-2800}
 if [ -n "$WHY_KEEP" ]; then D=$WHY_KEEP; mkdir -p "$D"; else D=$(mktemp -d "${TMPDIR:-/tmp}/cicilang-why-XXXXXX"); trap 'rm -rf "$D"' EXIT; fi

@@ -15,117 +15,27 @@
 %%       predicates the root calls. The root comes after the text, so every
 %%       line keeps its number.
 %%
-%%   fg_modules_main(+Files, +Out)
-%%       cicilang's own C predicates, which the chart's generated tables do
-%%       not hold (they are cocolog's modules'), written to Out as rows of
-%%       the same shape, flow_t_portal(Module, Name, Arity, CFunction, File,
-%%       Line, Modes, Names): each `("name" N c_function)' dispatch row of a
-%%       module's source, its modes and names from the `;;;;   name(+A, -B)'
-%%       line of the module's header (each `?' without one). Loaded with the
-%%       chart, the rows join its own, and a call of ccl_lex_native/6 is a C
-%%       portal with its modes, never an unknown procedure.
-%%
-%%   fg_dynamic_main(+Files, +Out)
-%%       the predicates the compiler declares or asserts AS IT RUNS --
-%%       dynamic(N/A) and cpp_reset(N/A) with a written name, asserta/1,
-%%       assertz/1 and assert/1 of a written head -- each declared in Out by
-%%       `:- dynamic(N/A).' The desugaring's tables ('$cpp_cls'/2 and some
-%%       seventy more) are declared when a unit is desugared, never by a
-%%       directive, and the chart, which runs nothing, took each call of one
-%%       for an unknown procedure (1221 of ccl_cpp.pl's first 1291
-%%       findings). A predicate the chart is told is dynamic may bind any
-%%       argument, fail or answer again, which is what such a table does.
-%%
-%%   fg_findings_main(+Src, +N, +Loads, +Out)
+%%   fg_findings_main(+Src, +N, +Loads, +Mods, +Out)
 %%       Src charted from '$fg_all'/N, the files in Loads loaded first
 %%       (the rest of the compiler: a call into it is then no unknown
-%%       procedure), and each finding written to Out, a line each, its fields
+%%       procedure) and the modules' Cicili sources in Mods read for their C
+%%       predicates, and each finding written to Out, a line each, its fields
 %%       apart by a tab: KIND SEVERITY IN LINE COL TEXT. A finding in the
 %%       root itself is the gate's own making and is left out.
+%%
+%% WHAT THE CHART IS TOLD (cocolog 1.11.4, 0.146): modules(Mods) gives it
+%% cicilang's own C predicates (ccl_lex_native/6 ...), each ("name" N
+%% c_function) row of a module's source with the modes its header's `;;;;
+%% name(+A, -B)' line gives; and the predicates the compiler declares AS IT
+%% RUNS -- dynamic/1 of a written name, an assert of a written head,
+%% cpp_reset/1, a declarer of its own, called with one -- count as declared,
+%% which the chart finds in the source, in the files Loads names and in the
+%% libraries the modules' Prolog halves load. Before 1.11.4 this file wrote
+%% both itself (0.144): the rows from the modules' sources, and a `:-
+%% dynamic' line for each of 73 tables, without which 1221 of ccl_cpp.pl's
+%% 1291 findings were unknown procedures.
 
 :- use_module(library(stream)).
-
-fg_modules_main(Files, Out) :-
-    open(Out, write, S),
-    format(S, "%% cicilang's C predicates, for library(flow/chart): written by test/flow.pl~n", []),
-    forall(member(F, Files), fg_module_rows(F, S)),
-    close(S).
-
-fg_module_rows(F, S) :-
-    fg_base_name(F, Base),
-    (   atom_concat(Module, '.cicili', Base) -> true ; Module = Base ),
-    read_file_to_codes(F, Cs),
-    atom_codes(Text, Cs),
-    atomic_list_concat(Lines, '\n', Text),
-    findall(Name-Sig, ( member(L, Lines), fg_sig_line(L, Name, Sig) ), Sigs),
-    forall(( nth1(I, Lines, L), fg_row_line(L, Name, Arity, CFun) ),
-           ( fg_row_modes(Name, Arity, Sigs, Modes, Names),
-             format(S, "~q.~n", [flow_t_portal(Module, Name, Arity, CFun, F, I, Modes, Names)]) )).
-
-%% a dispatch row: ... ("name" N c_function) ...
-fg_row_line(L, Name, Arity, CFun) :-
-    sub_atom(L, B, 2, _, '("'),
-    B1 is B + 2,
-    sub_atom(L, B1, _, 0, R1),
-    sub_atom(R1, E, 1, _, '"'), !,
-    sub_atom(R1, 0, E, _, Name),
-    E1 is E + 1,
-    sub_atom(R1, E1, _, 0, R2),
-    atomic_list_concat(Ws0, ' ', R2),
-    exclude(==(''), Ws0, [AT, CF0|_]),
-    atom_number(AT, Arity), integer(Arity),
-    fg_strip_parens(CF0, CFun),
-    CFun \== ''.
-
-fg_strip_parens(A, B) :-
-    (   atom_concat(A1, ')', A) -> fg_strip_parens(A1, B) ; B = A ).
-
-%% a header line ;;;;   name(+A, -B) ...
-fg_sig_line(L, Name, Sig) :-
-    atom_concat(';;;;', R, L),
-    atomic_list_concat(Ws, ' ', R),
-    member(W, Ws), W \== '',
-    sub_atom(W, P, 1, _, '('), P > 0, !,
-    sub_atom(W, 0, P, _, Name),
-    sub_atom(L, S0, _, _, W), !,
-    sub_atom(L, S0, _, 0, From),
-    sub_atom(From, Open, 1, _, '('),
-    sub_atom(From, Close, 1, _, ')'), Close > Open, !,
-    A0 is Open + 1, Len is Close - A0,
-    sub_atom(From, A0, Len, _, Sig).
-
-fg_row_modes(Name, Arity, Sigs, Modes, Names) :-
-    (   memberchk(Name-Sig, Sigs),
-        atomic_list_concat(Parts, ',', Sig),
-        length(Parts, Arity)
-    ->  fg_sig_parts(Parts, Modes, Names)
-    ;   length(Modes, Arity), fg_all_q(Modes),
-        fg_root_args(1, Arity, Names)
-    ).
-
-fg_sig_parts([], [], []).
-fg_sig_parts([P0|Ps], [M|Ms], [N|Ns]) :-
-    fg_trim(P0, P),
-    (   sub_atom(P, 0, 1, _, M0), memberchk(M0, ['+', '-', '?'])
-    ->  M = M0, sub_atom(P, 1, _, 0, N)
-    ;   M = '?', N = P
-    ),
-    fg_sig_parts(Ps, Ms, Ns).
-
-fg_all_q([]).
-fg_all_q(['?'|Ms]) :- fg_all_q(Ms).
-
-%% an atom without its leading and trailing blanks
-fg_trim(A0, A) :-
-    atom_codes(A0, Cs0),
-    fg_drop_blanks(Cs0, Cs1),
-    reverse(Cs1, Rs0),
-    fg_drop_blanks(Rs0, Rs),
-    reverse(Rs, Cs),
-    atom_codes(A, Cs).
-
-fg_drop_blanks([C|Cs], Out) :- memberchk(C, [0' , 0'\t]), !, fg_drop_blanks(Cs, Out).
-fg_drop_blanks(Cs, Cs).
 
 fg_roots_main(Files, Dir) :-
     atom_concat(Dir, '/roots.txt', RF),
@@ -198,52 +108,8 @@ fg_root_calls([Name/A|Ps], S, Pos) :-
     ),
     fg_root_calls(Ps, S, next).
 
-fg_dynamic_main(Files, Out) :-
-    findall(PI, ( member(F, Files), fg_file_terms(F, Ts), member(T, Ts), fg_runtime_dynamic(T, PI) ), PIs0),
-    sort(PIs0, PIs),
-    open(Out, write, S),
-    format(S, "%% what the compiler declares as it runs, for library(flow/chart): written by test/flow.pl~n", []),
-    forall(member(PI, PIs), format(S, ":- ~q.~n", [dynamic(PI)])),
-    close(S).
-
-fg_file_terms(F, Ts) :-
-    open(F, read, S),
-    fg_read_all(S, Ts),
-    close(S).
-
-fg_read_all(S, Ts) :-
-    read_term(S, T, []),
-    (   T == end_of_file -> Ts = [] ; Ts = [T|Ts1], fg_read_all(S, Ts1) ).
-
-%% each N/A a term declares as it runs, wherever it stands in the term
-fg_runtime_dynamic(T, PI) :-
-    fg_subterm(T, X),
-    fg_declares(X, PI).
-
-fg_subterm(T, T).
-fg_subterm(T, X) :-
-    compound(T),
-    T =.. [_|As],
-    member(A, As),
-    fg_subterm(A, X).
-
-fg_declares(X, PI) :-
-    compound(X),
-    (   X = dynamic(D) -> fg_pi_list(D, PI)
-    ;   X = cpp_reset(D) -> fg_pi_list(D, PI)
-    ;   ( X = asserta(H0) ; X = assertz(H0) ; X = assert(H0) )
-    ->  nonvar(H0),
-        ( H0 = (H :- _) -> true ; H = H0 ),
-        nonvar(H), callable(H), functor(H, N, A), PI = N/A
-    ).
-
-fg_pi_list(D, _) :- var(D), !, fail.
-fg_pi_list((A, B), PI) :- !, ( fg_pi_list(A, PI) ; fg_pi_list(B, PI) ).
-fg_pi_list([D|Ds], PI) :- !, ( fg_pi_list(D, PI) ; fg_pi_list(Ds, PI) ).
-fg_pi_list(N/A, N/A) :- atom(N), integer(A).
-
-fg_findings_main(Src, N, Loads, Out) :-
-    flow_graph('$fg_all'/N, G, [source(Src), load(Loads)]),
+fg_findings_main(Src, N, Loads, Mods, Out) :-
+    flow_graph('$fg_all'/N, G, [source(Src), load(Loads), modules(Mods)]),
     flow_findings(G, Fs),
     open(Out, write, S),
     forall(( member(F, Fs), F = finding(_, _, _, _, In, _, _, _), In \== '$fg_all'/N ),

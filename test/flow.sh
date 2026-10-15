@@ -7,15 +7,19 @@
 # name already taken (0.141's two definitions of one predicate), a clause a cut above it makes dead.
 #
 # HOW: test/flow.pl writes, for each library file, a copy with a ROOT that calls every predicate the file defines
-# (a chart starts at one call pattern), the rows of cicilang's own C predicates (the chart's tables hold cocolog's
-# modules only) and the predicates the compiler declares as it runs (the desugaring's tables, declared when a unit
-# is desugared). Each copy is charted with the rest of the compiler loaded -- the file itself stubbed out of the
-# library path, so it is read once -- as a job of the memory-gated pool (test/parlib.sh), longest first.
+# (a chart starts at one call pattern). Each copy is charted with the rest of the compiler loaded -- the file itself
+# stubbed out of the library path, so it is read once -- and the two modules' Cicili sources given as modules(Files),
+# whence the chart takes cicilang's own C predicates and follows the libraries their Prolog halves load for the tables
+# the compiler declares as it runs (cocolog 1.11.4; 0.144 wrote both itself). One job a file in the memory-gated pool
+# (test/parlib.sh), longest first.
 #
 # THE VERDICT: the findings must be test/flow.expect's, a line each, keyed without line numbers (a finding moves
-# with every edit above it): `KIND FILE IN', and the callee for an unknown procedure, the text for the rest. A
-# finding that is not there is RED, and so is one that is gone: fixing one updates the expect file in the same
-# step, so it never holds a finding that a later edit could bring back unseen.
+# with every edit above it): `KIND SEVERITY FILE IN', and the callee for an unknown procedure, the text for the rest;
+# each key once, since one predicate charted for two call patterns says one thing twice, and how many patterns the
+# chart sees changes with the chart (0.146). A finding that is not there is RED, and so is one that is gone: fixing
+# one updates the expect file in the same step, so it never holds a finding that a later edit could bring back
+# unseen. The severity is part of the key: a call nothing answers is a warning where a catch/3 takes its error, and
+# the same call without the catch is an error again.
 #
 #   sh test/flow.sh                      # the gate
 #   FLOW_UPDATE=1 sh test/flow.sh        # the expect file written from this run (after reading every new line)
@@ -27,6 +31,7 @@ HERE=$(cd "$(dirname "$0")" && pwd)
 [ -f "$ROOT/library/cicilang.so" ] || { echo "SKIP (no library/cicilang.so -- sh module/build.sh)"; exit 0; }
 [ -f "$COCOLOG/library/flow/chart.pl" ] || { echo "SKIP (cocolog has no library(flow/chart): 1.10.8 or later)"; exit 0; }
 [ -f "$COCOLOG/library/flow/tables.pl" ] || { echo "SKIP (no library/flow/tables.pl in cocolog -- make modules writes it)"; exit 0; }
+grep -q 'flow_module_portals' "$COCOLOG/library/flow/read.pl" 2>/dev/null || { echo "SKIP (cocolog's library(flow/chart) has no modules(Files): 1.11.4 or later)"; exit 0; }
 FLOW_SECS=${FLOW_SECS:-900}
 FLOW_JOBS=${FLOW_JOBS:-4}; FLOW_LAUNCH_MB=${FLOW_LAUNCH_MB:-9000}; FLOW_HARD_MB=${FLOW_HARD_MB:-14000}
 FLOW_TIMES=${FLOW_TIMES:-$HOME/.cicilang/flow-times}
@@ -35,14 +40,15 @@ if [ -n "$FLOW_KEEP" ]; then D=$FLOW_KEEP; rm -rf "$D"; mkdir -p "$D"; else D=$(
 mkdir -p "$D/src" "$D/out" "$D/res" "$D/stub"
 start=$(date +%s)
 
-# the copies with their roots, the C predicates' rows, the predicates declared as the compiler runs
+# the copies with their roots
 list=""; for f in $FILES; do list="$list${list:+,}'$ROOT/library/$f.pl'"; done
-out=$(cd "$ROOT" && timeout -s KILL 300 "$C" --local query "use_module(library(cicilang)), ensure_loaded('$ROOT/test/flow.pl'), fg_roots_main([$list], '$D/src'), fg_modules_main(['$ROOT/module/cicilang.cicili', '$ROOT/module/ccl_llvm.cicili'], '$D/modules.pl'), fg_dynamic_main([$list], '$D/dynamic.pl')" 2>&1 < /dev/null)
-[ -f "$D/src/roots.txt" ] && [ -f "$D/dynamic.pl" ] || { echo "RED: the roots were not written"; printf '%s\n' "$out" | tail -10; exit 1; }
-echo "-- every library file charted from a root that calls each predicate it defines ($(awk '{ s += $3 } END { print s }' "$D/src/roots.txt") predicates; $(grep -c '^:- dynamic' "$D/dynamic.pl") declared as the compiler runs)"
+out=$(cd "$ROOT" && timeout -s KILL 300 "$C" --local query "use_module(library(cicilang)), ensure_loaded('$ROOT/test/flow.pl'), fg_roots_main([$list], '$D/src')" 2>&1 < /dev/null)
+[ -f "$D/src/roots.txt" ] || { echo "RED: the roots were not written"; printf '%s\n' "$out" | tail -10; exit 1; }
+echo "-- every library file charted from a root that calls each predicate it defines ($(awk '{ s += $3 } END { print s }' "$D/src/roots.txt") predicates)"
 
 # one job a file, the heaviest first
-loads="['$D/modules.pl', '$D/dynamic.pl', library(cicilang), library(ccl_llvm), library(ccl_bidrt), library(ccl_uninames), library(ccl_format)]"
+loads="[library(cicilang), library(ccl_llvm), library(ccl_bidrt), library(ccl_uninames), library(ccl_format)]"
+mods="['$ROOT/module/cicilang.cicili', '$ROOT/module/ccl_llvm.cicili']"
 for f in $FILES; do
   n=$(awk -v b="$f.pl" '$1 == b { print $2 }' "$D/src/roots.txt")
   mkdir -p "$D/stub/$f"; : > "$D/stub/$f/$f.pl"
@@ -50,7 +56,7 @@ for f in $FILES; do
 done | ccl_lpt_order "$FLOW_TIMES" | sed 's/^[^ ]* //' > "$D/jobs"
 fg_job() {   # fg_job FILE ARITY: chart the copy, write the verdict line; its own variable names (sh has no locals, 0.107)
   _fj_s=$(date +%s)
-  timeout -s KILL "$FLOW_SECS" "$C" --local query "use_module(library(flow/chart)), ensure_loaded('$ROOT/test/flow.pl'), fg_findings_main('$D/src/$1.pl', $2, $loads, '$D/out/$1.txt')" > "$D/out/$1.log" 2>&1 < /dev/null
+  timeout -s KILL "$FLOW_SECS" "$C" --local query "use_module(library(flow/chart)), ensure_loaded('$ROOT/test/flow.pl'), fg_findings_main('$D/src/$1.pl', $2, $loads, $mods, '$D/out/$1.txt')" > "$D/out/$1.log" 2>&1 < /dev/null
   _fj_rc=$?; _fj_t=$(( $(date +%s) - _fj_s ))
   if [ "$_fj_rc" -eq 0 ] && [ -f "$D/out/$1.txt" ] && grep -aq '^1 answer' "$D/out/$1.log"; then
     echo "ok $1 $_fj_t" > "$D/res/$1"; ccl_time_record "$FLOW_TIMES" "$1" "$_fj_t"
@@ -73,15 +79,15 @@ done
 for f in $FILES; do
   awk -F '\t' -v file="library/$f.pl" '{
       kind = $1; sev = $2; in_ = $3; text = $6
-      if (kind == "discontiguous" || kind == "defined_twice") key = kind " " file " " in_
-      else if (kind == "unknown_procedure") { c = text; sub(/ is defined nowhere.*/, "", c); key = kind " " file " " in_ " " c }
-      else { t = text; gsub(/[0-9]+/, "N", t); key = kind " " file " " in_ " " t }
+      if (kind == "discontiguous" || kind == "defined_twice") key = kind " " sev " " file " " in_
+      else if (kind == "unknown_procedure") { c = text; sub(/ is defined nowhere.*/, "", c); key = kind " " sev " " file " " in_ " " c }
+      else { t = text; gsub(/[0-9]+/, "N", t); key = kind " " sev " " file " " in_ " " t }
       print key "\t" file ":" $4 ":" $5 ": " sev ": " in_ ": " text
   }' "$D/out/$f.txt"
 done | LC_ALL=C sort > "$D/found"
-cut -f1 "$D/found" | LC_ALL=C sort > "$D/keys"
+cut -f1 "$D/found" | LC_ALL=C sort -u > "$D/keys"
 if [ -n "$FLOW_UPDATE" ]; then cp "$D/keys" "$HERE/flow.expect"; echo "-- test/flow.expect written: $(wc -l < "$D/keys" | tr -d ' ') findings"; fi
-grep -v '^#' "$HERE/flow.expect" 2>/dev/null | LC_ALL=C sort > "$D/expect"
+grep -v '^#' "$HERE/flow.expect" 2>/dev/null | LC_ALL=C sort -u > "$D/expect"
 LC_ALL=C comm -23 "$D/keys" "$D/expect" > "$D/new"
 LC_ALL=C comm -13 "$D/keys" "$D/expect" > "$D/gone"
 e=$(( $(date +%s) - start ))

@@ -38,7 +38,7 @@ dr_drive(Inputs, Options) :-
     ;   ( memberchk(out(Out), Options) -> true ; Out = 'a.out' ),
         findall(F, member(link(F), Options), LinkFlags),
         dr_say(['link ', Out]),
-        catch(cicilang_link(Objects, LinkFlags, Out), E, dr_report(Out, E)) ),
+        dr_catch(cicilang_link(Objects, LinkFlags, Out), E, dr_report(Out, E)) ),
     nb_getval('$dr_errors', N1),
     ( N1 =:= 0 -> write('cicilang: ok') ; write('cicilang: '), write(N1), write(' error(s)') ), nl.
 dr_no_link(O) :- ( memberchk(compile_only, O) ; memberchk(assembly, O) ; memberchk(emit_llvm, O) ; memberchk(syntax_only, O) ; memberchk(ast, O) ; memberchk(preprocess, O) ), !.
@@ -77,18 +77,18 @@ dr_cpp_ext(F) :- member(E, [cpp, cc, cxx, 'C', cppm, ccm, cxxm, ixx, mpp]), dr_e
 %% a .c: read (headers, macros, := ...), the safe part, the IR, then what the options ask
 dr_c(F, Options, _, Objs, Objs) :- memberchk(preprocess, Options), !,                   % -E: the flattened text, cocolog's preprocessor (no clang)
     dr_say(['preprocess ', F]),
-    (   catch(dr_preprocess(F, Options), E, (dr_report(F, E), fail)) -> true ; true ).
+    (   dr_catch(dr_preprocess(F, Options), E, (dr_report(F, E), fail)) -> true ; true ).
 dr_c(F, Options, Flags, Objs, Objs1) :-
     dr_say(['read ', F]), nb_setval('$dr_expansions', []), dr_macro_trace(F, Options),
     nb_setval('$ccl_scope_ends', []), ( ( memberchk(debug, Options) ; memberchk(debug(lines), Options) ) -> nb_setval('$ccl_scope_ends_for', F) ; nb_setval('$ccl_scope_ends_for', none) ),   % -g: the read records where each scope closes (0.139)
-    (   catch(cicilang_ast(F, AST), E1, (dr_pp_warnings, dr_report(F, E1), fail))
+    (   dr_catch(cicilang_ast(F, AST), E1, (dr_pp_warnings, dr_report(F, E1), fail))
     ->  dr_pp_warnings, dr_remember_expansions(AST),
         (   memberchk(ast, Options) -> writeq(AST), nl, Objs = Objs1
         ;   memberchk(syntax_only, Options), ccl_lang(cpp) -> Objs = Objs1      % M5 is the reader; C++'s check and lowering are M6
         ;   (   memberchk(debug, Options) -> dr_abs_path(F, AF), nb_setval('$ccl_debug', file(AF)), nb_setval('$ccl_debug_kind', full)   % -g (0.128): the lowering's line tables name the file
             ;   memberchk(debug(lines), Options) -> dr_abs_path(F, AF), nb_setval('$ccl_debug', file(AF)), nb_setval('$ccl_debug_kind', lines)   % -gline-tables-only, -g1 (0.130): no variable and no type
             ;   nb_setval('$ccl_debug', none), nb_setval('$ccl_debug_kind', none) ),
-            (   catch(dr_ir(F, AST, IR), E2, (dr_report(F, E2), fail))
+            (   dr_catch(dr_ir(F, AST, IR), E2, (dr_report(F, E2), fail))
             ->  dr_emit(F, IR, Options, Flags, Objs, Objs1)
             ;   ( nb_getval('$dr_errors', NE), NE =:= 0 -> dr_error(F, 0, ['the check or the lowering failed without saying why']) ; true ), Objs = Objs1 ) )
     ;   Objs = Objs1 ).
@@ -168,7 +168,7 @@ dr_emit(F, IR, Options, Flags, Objs, Objs1) :-
     ;   memberchk(assembly, Options) -> dr_out(F, Options, s, Out), dr_say(['assemble ', Out]), dr_compile(F, IR, Out, ['-S'|Flags]), Objs = Objs1
     ;   memberchk(compile_only, Options) -> dr_out(F, Options, o, Out), dr_say(['compile ', Out]), dr_compile(F, IR, Out, Flags), Objs = Objs1
     ;   tmp_file(cicilang, T), atom_concat(T, '.o', Out), dr_say(['compile ', F]), ( dr_compile(F, IR, Out, Flags) -> Objs = [Out|Objs1] ; Objs = Objs1 ) ).
-dr_compile(F, IR, Out, Flags) :- catch(cicilang_compile(IR, Out, Flags), E, (dr_report(F, E), fail)).
+dr_compile(F, IR, Out, Flags) :- dr_catch(cicilang_compile(IR, Out, Flags), E, (dr_report(F, E), fail)).
 %% the output name: -o, else the input's basename with the new extension, in the working directory
 dr_out(_, Options, _, Out) :- memberchk(out(Out), Options), !.
 dr_out(F, _, Ext, Out) :-
@@ -251,9 +251,14 @@ dr_error(F, L, Parts) :-
     ( L > 0 -> dr_note_expansion(F, L) ; true ),
     dr_why_stop(F, L, Parts).
 %% THE RUN ENDS AT ITS FIRST ERROR under test/why.sh (0.144), which sets '$ccl_why': library(flow/debug) records the
-%% last inferences before a run's end, so the end must be where the compiler gave up, and the ball goes past every
-%% recovery. Nothing else sets the global, and a build reads it once per error it reports.
+%% last inferences before a run's end, so the end must be where the compiler gave up. An error the compiler RAISES
+%% passes the driver's report sites untaken (dr_catch/3, 0.146), and the run ends with the compiler's own exception,
+%% whose path and the failure it answered the debugger reads back (flow_why_raised/2); caught and reported, it ended
+%% with the driver's own throw below, whose path is the report's. An error the driver says after a FAILURE (`the check
+%% or the lowering failed without saying why') throws past every recovery here. Nothing else sets the global, and a
+%% build reads it once per report site and once per error it reports.
 dr_why_stop(F, L, Parts) :- ( catch(nb_getval('$ccl_why', yes), _, fail) -> throw(ccl_why(F, L, Parts)) ; true ).
+dr_catch(G, E, R) :- ( catch(nb_getval('$ccl_why', yes), _, fail) -> call(G) ; catch(G, E, R) ).
 dr_note_macro(F, L, P, MF, As) :-
     write(F), write(':'), write(L), write(': note: the macro is '), write(P), write(' in '), write(MF), write(', called on '), dr_args(As), nl.
 %% a Prolog error, said plainly
