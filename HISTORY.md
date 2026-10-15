@@ -141,6 +141,7 @@ One row per step, in version order: the step's title, what it did and its gate n
 | 0.145 | the numbers of 0.144's chain | 0.144's chain recorded: all nine gates over libc++ 18, the two libc++ gates over 21, on cocolog 1.11.3; 0.143's libc++ gates with them; test/flow.pl's header | 497 of 500 C++ fixtures over libc++ 18, 499 over 21; all gates GREEN, 4431 s |
 | 0.146 | the flow gate and test/why.sh on cocolog 1.11.4 | cocolog 1.11.4; the chart's modules(Files) and run-time declarations replace the gate's generated files, its findings keyed once with their severity (125: 124 splits, 1 warning); test/why.sh on own(all) and flow_why_raised/3, the driver taking no error under the why flag; the deciding builtin our own rule | the flow gate, the C gates, the proof and the cross gate GREEN; the libc++ gates running at the commit |
 | 0.147 | the numbers of 0.146's chain | 0.146's chain recorded: all nine gates over libc++ 18, the two libc++ gates over 21, on cocolog 1.11.4; three flow points sent to cocolog's owner | 497 of 500 C++ fixtures over libc++ 18, 499 over 21; all gates GREEN, 4276 s |
+| 0.148 | the flow debugger's choices and catches, and a profile of a build, on cocolog 1.11.10 | cocolog 1.11.10; test/why.sh on chose(C) and caught(K), the compiler's files named for the debugger's scan, dr_catch/3 kept (measured), no documents unless WHY_KEEP; both tools capped over the whole process tree, the pool counting a cocolog run; test/prof.sh over windows along a build; the work on main | all nine gates GREEN over libc++ 18, the two libc++ gates over 21, 4254 s; 497 of 500 C++ fixtures over 18, 499 over 21 |
 
 ## M5 — the C++ mode
 
@@ -8682,3 +8683,76 @@ bg tasks done, commit and push the numbers").
 Nothing the compiler emits changed: reader 129, lowering 82.
 
 THE GATES. The chain above; on this tree, the flow gate again GREEN (125 findings, 51 s, 2489 MB over its lanes).
+
+## 0.148 — the flow debugger's choices and catches, and a profile of a build, on cocolog 1.11.10
+
+**0.148: cocolog 1.11.10, test/why.sh moved to its answers, and a new tool, test/prof.sh, over its profile, as the
+owner asked ("pull cocolog 1.11.10 and use the new flow options"). The work is on `main` from this step, as the owner
+asked ("from now work on main branch directly and dismiss this branch"): the merge of the last pull request had taken
+every commit of the old branch.** cocolog went from 1.11.4 (`d1869a0`) to master `62f10e3`: 1.11.5 and 1.11.6 the
+reasoning line's translator; 1.11.7 the answer to the three flow points of 0.146 (`flow_why_raised/3`'s `chose(C)` and
+`caught(K)`, a `throw/1` placed on its box, the clash check held to the library in every loaded file); 1.11.8 a crash
+of `atom_chars/2` and `number_chars/2` (SIGSEGV, a bad element first or second in a list they join); 1.11.9 a syntax
+error in a load said at FILE:LINE:COL; 1.11.10 the profile's callers, repeats and steps views, `windows(N)` along one
+run, `svg(false)` and `xml(false)`, and a large window recorded about three times faster. cocolog was rebuilt (`make`
+136 s, `make schema`, `make modules` with the flow tables, 227 s in all), then both modules here; `lib/sdk.cicili` is
+the file 1.11.4 had, and ZiguratIP and Cicili had nothing new.
+
+- THE FLOW GATE ON 1.11.10, the tree unchanged: GREEN, the same 125 findings, in 55 s.
+- `test/why.sh` ON 1.11.10, FIRST AS IT WAS: `chose(C)` was `none` in the three cases of 0.146, and the answered
+  failure the same unrelated one (`abstract.cpp`: an array-type test of the declaration). The debugger reads the
+  clauses an exception ended from the program's files, the source and what its directives load; our top file loads
+  `library(cicilang)`, a compiled module, and the scan does not reach its Prolog half's files. So the top file names
+  them, `library/ccl_*.pl` but the two generated tables, in a block the engine skips -- `:- if(fail).`,
+  `:- ensure_loaded([...]).`, `:- endif.`: the scan reads every term, the run loads nothing again (a probe of the
+  block: the engine skipped it and its missing file). Then each case names its branch. `abstract.cpp`: then(2) of
+  `cpp_not_abstract('Shape')`, after `nb_getval('$cpp_base_ctor', yes)` failed and `cpp_abstract_class('Shape')`
+  held -- the test 0.144 found by hand --, its path of 19 calls the same, through three `caught(K)` levels: the
+  compiler's own catches that restore a state and throw again (`cpp_method_body_/5`, `cpp_stmt/3` twice), printed as
+  one path. The seeded lowering defect: the else of `ir_items/1` after `ir_item/1` failed, down to `\==(i32, i32)` in
+  clause 97 of `ir_expr/4`. The seeded desugaring defect: the else of `ccl_ir_units/2` after `ccl_cpp_units/2` failed,
+  down to the `\=/2` of `cpp_stmt_/3`. The rule 0.146 kept (a failed call that tried no clause just before the raise)
+  is gone, and `test/why.pl` prints the branch and its conditions.
+- THE DRIVER'S `dr_catch/3` STAYS, measured: over the driver with plain `catch/3` at its five report sites (0.144's),
+  `caught(K)` was `none` in all three cases -- it names a catch whose call the window recorded, and a report site's is
+  entered when the build starts --, each run ended in the report's own throw and explained it, and each took 30 to 31
+  s and 736 to 751 MB (the debugger alone) where it takes 12 s and 300 MB. Over `dr_catch/3` defined as a plain
+  `catch/3`, whose call the window did record, `caught(K)` was `none` too: its recovery is a variable, with no box for
+  the report's calls. The driver's comment says why; nothing it does changed.
+- `svg(false)` and `xml(false)` UNLESS `WHY_KEEP`: 12 s and 300 MB a case, where the documents cost 16 s and 452 MB
+  (`abstract.cpp`), the explanation the same, line for line; `txt(true)` only under `WHY_KEEP`.
+- THE CAPS NOW COVER THE DEBUGGER'S CHILDREN. cocolog's process module starts every child in a process group or a
+  session of its own (`posix_spawn` with `SETPGROUP` or `SETSID`), so the debugger's probe and replay, and a window's
+  cocologs, were out of the process group that `test/why.sh` summed and killed: 0.144 to 0.147 capped the debugger
+  alone. Seen first in the profile, whose peak read 17 MB while its windows' cocologs ran in sessions of their own.
+  Both tools sum the RSS of the whole process TREE, found by the children's parents, and kill the tree past either
+  cap; `ccl_cocolog_rss` (`test/parlib.sh`) counts a `cocolog … run` too, the debugger's probes and replays under
+  `CPP_WHY=1`, and its hard cap kills them. The three cases read 300 to 308 MB summed over the tree: the children's
+  builds are small and do not overlap the debugger's matching.
+- `test/prof.sh`, NEW: where a build's inferences go. The build runs once as it is, once at full speed under the
+  debugger to learn its length, then `PROF_WINDOWS` windows (6) of `PROF_WINDOW` inferences (20000) spread along it
+  are recorded, each by a cocolog of its own, `PROF_JOBS` at a time (2) (`flow_debug_windows/4`, `svg(false)`,
+  `xml(false)`), and their rows added up (`flow_profile_merge/4`); printed, the first `PROF_TOP` lines (20) of four
+  views -- inclusive, steps, callers, repeats -- and `PROF_KEEP=DIR` keeps them whole. `stdvector.cpp` (18.2 million
+  inferences) in 82 s at 847 MB, `counter.cpp` (0.5 million) in 44 s at 567 MB. Its first readings of
+  `stdvector.cpp`, by windows: `member/2` 18.6 % of the steps (a class's member list walked for `ccl_class_shape/1`
+  and `cpp_params_key/2`), the control constructs 18.4 %, `is/2` 11.3 %, and `dr_take/4` 8.2 %: the driver takes the
+  IR text a code at a time into chunks of 3500 at the end of every build; in another sampling `ccl_tab_hash/3`
+  hashed a table's key a code at a time, the same `is/2` goals asked hundreds of times. Counts of inferences, not of
+  time: not taken up (CLAUDE.md, Not done).
+- FINDINGS recorded: a syntax error in a load said at its place (1.11.9: `ERROR: bad.pl:2:15: Syntax error: expected
+  a term` from `run`, and from a query's load with the path); the crash of `atom_chars/2` (no file of cicilang calls it
+  or `number_chars/2`); the two limits of the debugger above, each worked round here.
+
+Nothing the compiler emits changed: reader 129, lowering 82.
+
+THE GATES. The chain on the live checkout, fresh HOMEs, over cocolog 1.11.10, 4254 s in all. Over libc++ 18: the
+flow gate (125 findings, all of them `test/flow.expect`'s, 55 s, 2658 MB summed over its four lanes), reader 4 s,
+compile 12 s (77 run and 47 safe fixtures), driver 11 s (35 checks), objects 3 s, the proof, the cross gate in 61 s
+(77 fixtures and 3 checks), the library read in 1023 s (peak 1080 MB), the C++ gate in 984 s (peak 2234 MB) with 497
+of its 500 fixtures ok -- the skips `stdoptionalref`, `joinwith` and `tzone`, which their `.needs` keep from libc++ 18
+-- and the 21 refusals and the three of the safe part. Over libc++ 21: the library read in 968 s (peak 1315 MB) and
+the C++ gate in 1124 s (peak 2148 MB), 499 of 500 ok, the skip `stdoptionalref`. After the chain only comments and
+the documents changed (`test/why.pl`, `test/why.sh`, `test/prof.sh`, `test/parlib.sh`), and the two tools ran again
+from the checkout: `abstract.cpp` explained in 11 s at 293 MB, `hello.c` profiled over three windows in 31 s at 565
+MB.

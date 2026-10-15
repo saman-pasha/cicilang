@@ -10,7 +10,7 @@ it found, its measurements and its gate numbers. `README.md` tells a user what r
 architecture and the milestones. A step that changes a rule edits the rule here, in its topic, and writes its entry
 in `HISTORY.md`.
 
-At 0.147 the versions are: the module 0.147 (`ccl_p_version` in `module/cicilang.cicili`, `bin/cicilang --version`),
+At 0.148 the versions are: the module 0.148 (`ccl_p_version` in `module/cicilang.cicili`, `bin/cicilang --version`),
 the reader 129 (`ccl_reader_version/1`, `library/ccl_syntax.pl`) and the lowering 82 (`ccl_lowering_version/1`,
 `library/ccl_ir.pl`).
 
@@ -295,6 +295,7 @@ test/parlib.sh              the memory-gated pool: ccl_pool, ccl_cocolog_rss, cc
 test/flow.pl, flow.sh       the flow gate: every library file charted by cocolog's library(flow/chart), nothing run
 test/flow.expect            the findings the flow gate holds the library to, a key a line
 test/why.pl, why.sh         where a build gave up: the build run under library(flow/debug), the failed call named
+test/prof.pl, prof.sh       where a build's inferences go: windows along its run, profiled by library(flow/debug)
 test/reader.pl, reader.sh   the reader's gate
 test/compile.pl, compile.sh the compiler's gate
 test/driver.sh              the command's gate
@@ -545,11 +546,11 @@ tutorials/01..03-*.pl       the objects layer's lessons; goal main, last line do
   hides it. It runs the binary on `NAME.stdin` or `/dev/null`, compares with `NAME.expect`, and writes its verdict to
   `$RES/NAME.res`. (0.93, 0.94, 0.105)
 - `CPP_WHY=1 sh test/cpp.sh` (0.144): a fixture whose BUILD failed is built again by `test/why.sh` (Where a build gave
-  up, below), and its account -- the calls the error was raised through, then the failed call down the path that got
-  furthest -- joins the verdict, under the diff. It costs two more builds of each such fixture, and none for a fixture
-  that built and printed a wrong output. Over a copy of the library with one defect seeded in the `return` clause of
-  `cpp_stmt_/3`, the verdict of a four-line `sum.cpp` named the `\=/2` that failed, twenty calls down from
-  `ccl_cpp_units/2`, where the build said `not lowered yet: phase(desugaring)`. (0.144)
+  up, below), and its account -- the calls the error was raised through, the branch that raised it, then the failed
+  call down the path that got furthest -- joins the verdict, under the diff. It costs two more builds of each such
+  fixture, and none for a fixture that built and printed a wrong output. Over a copy of the library with one defect
+  seeded in the `return` clause of `cpp_stmt_/3`, the verdict of a four-line `sum.cpp` named the `\=/2` that failed,
+  twenty calls down from `ccl_cpp_units/2`, where the build said `not lowered yet: phase(desugaring)`. (0.144, 0.148)
 - The verdicts are collected in alphabetical order. A missing one is `FAIL NAME.cpp: no verdict`. A skip is counted,
   neither ok nor failure. A pool killed at its hard cap is RED. (0.95, 0.105)
 - Each refusal is built with `-c` and must fail with `not lowered yet: What`:
@@ -591,11 +592,13 @@ tutorials/01..03-*.pl       the objects layer's lessons; goal main, last line do
 ### The pool: test/parlib.sh
 
 - `ccl_pool NMAX LAUNCH_MB HARD_MB` reads one shell line per job from its standard input. It starts a job only while
-  fewer than NMAX run and the summed RSS of every `cocolog … query` on the box (`ccl_cocolog_rss`) is under
-  LAUNCH_MB. It gates on memory because cocolog has no garbage collector and a build peaks in gigabytes. (0.105)
-- Past HARD_MB the pool kills every cocolog query on the box with `pkill -9` and returns 1, a RED. The defaults are 4
-  jobs, 9000 MB and 14000 MB: `CPP_JOBS`, `CPP_LAUNCH_MB`, `CPP_HARD_MB` in `test/cpp.sh`, the `LX_` ones in
-  `test/libcxx.sh` and the `FLOW_` ones in `test/flow.sh`. (0.105, 0.144)
+  fewer than NMAX run and the summed RSS of every `cocolog … query` and `cocolog … run` on the box (`ccl_cocolog_rss`)
+  is under LAUNCH_MB. It gates on memory because cocolog has no garbage collector and a build peaks in gigabytes. A
+  run is counted since 0.148: `library(flow/debug)`'s probes and replays under `CPP_WHY=1` are `cocolog run`s, in
+  process groups of their own. (0.105, 0.148)
+- Past HARD_MB the pool kills every cocolog query and run on the box with `pkill -9` and returns 1, a RED. The
+  defaults are 4 jobs, 9000 MB and 14000 MB: `CPP_JOBS`, `CPP_LAUNCH_MB`, `CPP_HARD_MB` in `test/cpp.sh`, the `LX_`
+  ones in `test/libcxx.sh` and the `FLOW_` ones in `test/flow.sh`. (0.105, 0.144, 0.148)
 - The pool tracks its children by PID with `kill -0`, because dash has no `jobs -r`. It matches `[c]ocolog`, never
   its own shell. Every job runs with `< /dev/null`: the pool's input is the job list, and a build once swallowed the
   lines queued behind it. (0.105, 0.106)
@@ -655,38 +658,68 @@ tutorials/01..03-*.pl       the objects layer's lessons; goal main, last line do
   build that succeeds has nothing to explain: exit 0). The build also writes the C++ summaries it reads BEFORE the
   debugger's two runs: else the probe flattened a header and wrote its summary, the replay read the summary, and the
   two took different roads (`abstract.cpp`'s probe spent 4.4 million inferences, its replay 181 thousand). (0.144)
-- The program under the debugger is a top file of two lines, `:- use_module(library(cicilang)).` and `cw_goal :-
-  nb_setval('$ccl_why', yes), ccl_drive(...).` Under `'$ccl_why'` the run ENDS at its first error, so the window that
-  the debugger records -- the last `WHY_WINDOW` inferences -- holds the code that gave up: an error the compiler RAISES
-  passes the driver's five report sites untaken (`dr_catch/3`, 0.146) and ends the run as the compiler raised it, and
-  an error the driver says after a FAILURE is thrown after it is written (`dr_why_stop/3`, `ccl_why(File, Line,
-  Parts)`). Caught and reported, as at 0.144, an error ended the run with the driver's own throw, whose path is the
-  report's, and the debugger's why of a raise explained that throw. (0.144, 0.146)
-- `test/why.pl`'s `cw_main/3` runs `flow_debug/4` (a probe at full speed learns at which inference the run ends, a
-  replay records the window, each in a child cocolog) with `own(all)`: cocolog's why explains a call with a panel on
-  the chart, and the chart is of the top file, whose every call into the compiler is a library's (cocolog 1.11.4). It
-  reads the record back with 1.11.4's `flow_why_raised/3` and prints how the run ended; THE ERROR'S PATH, the calls the
-  exception ended from the window's top down to the raise (`abstract.cpp`: 19 calls, from `cpp_items` through the
-  declaration at line 5 to `cpp_ctor('Shape', [])`, `cpp_not_abstract('Shape')` and `cpp_refuse/2`); and WHAT THE
-  RAISE ANSWERED. That is first a failed call that tried no clause, just before the raise in the raising call's own
-  body: a refusal's deciding test, a builtin as often as not (`cpp_not_abstract/1` refuses where
-  `nb_getval('$cpp_base_ctor', yes)` fails), printed by `flow_why_call/4`. Else it is 1.11.4's answered failure, the
-  last call that failed having tried a clause, from the deepest body outwards, and the path where it got furthest
-  (`flow_why_furthest/2`: at each failed call the clause whose body got the most calls done, then the most inferences
-  spent, then the earlier, and its last call that did not exit, past an explicit `fail`). The first rule is ours alone:
-  the builtin that decides a refusal tried no clause, and 1.11.4's answered failure passed it over for an older one
-  further out (for `abstract.cpp`, an array-type test of the declaration). 0.144 did the rest by hand: a panel given to
-  every recorded call, the raising call found as the last that an exception ended before the report, an explicit fail
-  stepped past; cocolog 1.11.4 took each in from its report. (0.144, 0.146)
+- The program under the debugger is a top file: `:- use_module(library(cicilang)).`; the compiler's own files, named in
+  a block the engine skips (`:- if(fail).`, an `ensure_loaded/1` of every `library/ccl_*.pl` but the two generated
+  tables, `:- endif.`); and `cw_goal :- nb_setval('$ccl_why', yes), ccl_drive(...).` The debugger reads the clauses an
+  exception ended from the program's files as the source's directives load them (cocolog 1.11.7), and
+  `library(cicilang)` is a compiled module whose Prolog half's files it does not reach: without them named it found no
+  branch and no catch, and its answered failure was an older one further out (`abstract.cpp`: an array-type test of the
+  declaration); named, they are read, and the run loads nothing again (0.148). Under `'$ccl_why'` the run ENDS at its
+  first error, so the window that the debugger records -- the last `WHY_WINDOW` inferences -- holds the code that gave
+  up: an error the compiler RAISES passes the driver's five report sites untaken (`dr_catch/3`, 0.146) and ends the run
+  as the compiler raised it, and an error the driver says after a FAILURE is thrown after it is written
+  (`dr_why_stop/3`, `ccl_why(File, Line, Parts)`). `dr_catch/3` stays, measured at 0.148: cocolog 1.11.7's `caught(K)`
+  explains a catch's recovery only where the window recorded the catch's call, and a report site's catch is entered when
+  the build starts -- over plain `catch/3` at the five sites no case found the compiler's error, the run ended in the
+  report's own throw, and each case took 30 to 31 s and 736 to 751 MB where it takes 12 s and 300 MB. (0.144, 0.146,
+  0.148)
+- `test/why.pl`'s `cw_main/4` runs `flow_debug/4` (a probe at full speed learns at which inference the run ends, a
+  replay records the window, each in a child cocolog) with `own(all)`, the chart being of the top file, whose every
+  call into the compiler is a library's (cocolog 1.11.4), and with `svg(false)` and `xml(false)` unless `WHY_KEEP`
+  (1.11.10: no document drawn or written; the same explanation, line for line, in 12 s and 300 MB a case where the
+  documents cost 16 s and 450 MB). It reads the record back with `flow_why_raised/3` and its answers `chose(C)` and
+  `caught(K)` (1.11.7) and prints how the run ended; THE ERROR'S PATH, the calls the exception ended from the window's
+  top down to the raise, where a raise in a catch/3's recovery is followed by the error that catch took, raised
+  further down -- the compiler's own catches that restore a state and throw again (`cpp_stmt/3`,
+  `cpp_method_body_/5`) are levels of one path (`abstract.cpp`: 19 calls, from `cpp_items` through the declaration at
+  line 5 to `cpp_ctor('Shape', [])`, `cpp_not_abstract('Shape')` and `cpp_refuse/2`); THE BRANCH IT WAS RAISED IN, the
+  call whose if-then-else or disjunction took it and every condition it ran, builtins included (`abstract.cpp`:
+  then(2) of `cpp_not_abstract('Shape')`, after `nb_getval('$cpp_base_ctor', yes)` failed and
+  `cpp_abstract_class('Shape')` held); and THE FAILURE IT ANSWERED, a condition that failed having tried a clause, down
+  the path where it got furthest (`flow_why_furthest/2`: at each failed call the clause whose body got the most calls
+  done, then the most inferences spent, then the earlier, past an explicit `fail`). The rule of 0.146 -- a failed
+  call that tried no clause just before the raise, since 1.11.4's answered failure passed a refusal's deciding builtin
+  over -- is gone: `chose(C)` names it among the conditions. (0.144, 0.146, 0.148)
 - `WHY_WINDOW` (20000 inferences: a desugaring failure 10,000 inferences before the end, behind backtracking, was
-  outside a window of 4000), `WHY_KEEP=DIR` (the debugger's files: `why.txt`, the run a call a line; `why.svg` and
-  `why.xml`, the run over its chart), `WHY_SECS` (2400 s) and `WHY_MB` (2800 MB, summed over the run's process group,
-  which is killed whole past it). Measured at 0.146 on 1.11.4: a defect seeded in the lowering of a conditional, where
-  the build said only `not lowered yet: item(function(pick, ...))`, was named -- `\==(i32, i32)` failed in clause 97 of
-  `ir_expr/4`, under `ir_locals/2` and `ir_init/3` --, one seeded in the desugaring's `return` -- the failed `\=/2`
-  twenty calls down from `ccl_cpp_units/2` --, and `abstract.cpp`'s refusal with its deciding test: the three in 58 s
-  at 403 to 445 MB, where 0.144's tool peaked at 812 to 894 MB over the same windows, since it copied every recorded
-  call to give it a panel. (0.144, 0.146)
+  outside a window of 4000), `WHY_KEEP=DIR` (the debugger's files, made only then: `why.txt`, the run a call a line;
+  `why.svg` and `why.xml`, the run over its chart), `WHY_SECS` (2400 s) and `WHY_MB` (2800 MB), both caps on the run's
+  whole process TREE, killed whole past either: cocolog's process module starts every child in a process group or a
+  session of its own, so the debugger's probe and replay were out of the group that 0.144 to 0.147 summed and killed,
+  the debugger alone (0.148; `ccl_cocolog_rss` counts a `cocolog … run` too, the Pool topic). Measured at 0.148 on
+  1.11.10: the defect seeded in the lowering of a conditional, where the build said only `not lowered yet:
+  item(function(pick, ...))`, is the else of `ir_items/1` after `ir_item/1` failed, down to `\==(i32, i32)` failed in
+  clause 97 of `ir_expr/4`; the one seeded in the desugaring's `return` the else of `ccl_ir_units/2` after
+  `ccl_cpp_units/2` failed, down to the `\=/2` of `cpp_stmt_/3`; and `abstract.cpp`'s refusal as above: 12 to 13 s and
+  300 to 308 MB each, the tree summed. (0.144, 0.146, 0.148)
+
+### Where a build's inferences go: test/prof.sh
+
+- `sh test/prof.sh [cicilang's arguments] FILE` (0.148) profiles the build of FILE with cocolog 1.11.10's
+  `library(flow/debug)`. The build runs once as it is (the C++ summaries it reads written), then once at full speed
+  under the debugger to learn its length; then `PROF_WINDOWS` windows (6) of `PROF_WINDOW` inferences (20000) spread
+  along the run, the last ending where it ends, are each recorded by a cocolog of its own that runs the build twice to
+  its window's end, `PROF_JOBS` at a time (2) (`flow_debug_windows/4`, with `svg(false)` and `xml(false)`), and their
+  rows are added up (`flow_profile_merge/4`). It prints the first `PROF_TOP` lines (20) of four views: INCLUSIVE, each
+  predicate's calls and the inferences spent inside them, a call charged from its Call to its first Exit or Fail;
+  STEPS, the windows' inferences by what took them, a call one each and the control constructs the rest; CALLERS, who
+  made each predicate's calls; REPEATS, the goals asked more than once, where a memo would serve. `PROF_KEEP=DIR` keeps
+  them whole (`DIR/prof.prof`). A C file goes through `bin/cicilang`, a C++ one through `bin/cicilang++`, built with
+  `-c` and no store, as `test/why.sh` builds. It is no gate. (0.148)
+- A count of inferences is no count of time: a copy of a global (`nb_getval/2`), a unification of big terms or an assert
+  is one inference whatever it costs. The profile says where the CALLS go; the timers of Finding a cost say what they
+  cost. `PROF_SECS` (2400 s) and `PROF_MB` (2800 MB) cap the whole process tree: the windows' cocologs run in sessions
+  of their own, each window's probe and replay in process groups of their own. Measured: `stdvector.cpp` (18.2 million
+  inferences) in 82 s at 847 MB, `counter.cpp` in 44 s at 567 MB. (0.148)
 
 ## The driver and the commands
 
@@ -6268,6 +6301,9 @@ A lambda is a class of its captures (`library/ccl_cpp.pl`). A fixture named alon
 
 ### Finding a cost
 
+- `test/prof.sh` (0.148) says where a build's inferences go, from windows of its run recorded under
+  `library(flow/debug)` (its topic): the calls by predicate, the steps, the callers, the goals asked more than once. It
+  needs no scratch copy of the library; it counts no time and no copy, which the timers below measure. (0.148)
 - The memory trace is in the code: `cpp_mem/1` and `ir_mem/1` give `kb(Heap, Store)`
   (`statistics(globalused | store_used)`) on every `'$cpp_trace'` line (`cpp_trace_mem/1`, each spend), at each phase
   (`phase(check | lowering | assemble)`) and per lowered item (`lower(Item, Mem)`); `stmt_out(S)` shows the program's
@@ -6320,26 +6356,29 @@ A lambda is a class of its captures (`library/ccl_cpp.pl`). A fixture named alon
   at 2882 MB, 1.8.38 at 591 MB. After a cocolog update the modules are rebuilt (`module/build.sh`,
   `module/build-llvm.sh`, and cocolog's `os` and `process` modules); 1.8.36 to 1.8.41 left the SDK's ABI unchanged.
   (0.46, 0.112, 0.114)
-- cocolog is at 1.11.4 since 0.146 -- master `d1869a0`: 1.11.4 is `0da59f4`, then two commits that change no binary
-  and no library, a fix of `tools/cc` (`7708de9`: each compiler flag passed once) and the owner's C++20 for the torch
-  module's build, which this box does not build -- over ZiguratIP 1.0.0 (`01251f4`, its store pages 64 KiB) and beside
-  Cicili 3.0.0 (`9d74a5e`), where a float literal is a double: every float-like number in our two modules is in a
-  comment, and they use no `(inline)` or `(weak)` (Cicili 2.0.0's change), so their C does not change. The neighbours
-  are rebuilt in this order: ZiguratIP (`make MODE=Release`), cocolog (`make`, `make schema`, `make modules`, which
-  builds its `os`, `process` and `stream` modules and the flow tables), then both modules here. 1.11.0 to 1.11.4 add no
-  SDK call and change no struct: 1.11.0 takes `proc_run/4`'s deadline from the monotonic clock (each poll was charged
-  its whole 200 ms step, so a child that printed more than about 20 bytes a millisecond of its budget was killed early,
-  status 124) and mends three faults of the flow debugger; 1.11.2 has a debugger's window record only the clause heads
-  that a call TRIED (one failed call of a fact table listed every head) and match them in linear time; 1.11.3 changes
-  the translator (`library/reasoning/translate.pl`) alone; 1.11.4, The Coco's answer to the flow feedback of 0.144,
-  changes `library/flow` alone (the flow tools bullet below), and its whole suite ran with 0 red (64 green, 5 skipped
-  for no CUDA). The flow gate and `test/why.sh` were written on 1.11.3 (0.144) and moved to 1.11.4's options (0.146),
-  and the whole chain of 0.146 ran GREEN over 1.11.4 (the Hosts topic).
-  1.10.28 (0.142) was The Coco's answer to the report of 0.140 -- the build's heap, the float writer, the refused
-  allocation, `current_predicate/1` and `predicate_property/2`, the flow tools, each in its bullet below -- and added
-  one SDK call (`coco_m_resource_error`). 1.10.22 (0.140) and 1.10.0 (0.132) were the steps before; cocolog 1.10.6's
-  builtins that raise where they failed (`arg/3` on an atomic term, `=..`, `assert` of what is no clause) broke
-  nothing here. (0.132, 0.140, 0.142, 0.144, 0.146)
+- cocolog is at 1.11.10 since 0.148 -- master `62f10e3`: 1.11.5 and 1.11.6 the reasoning line's translator
+  (`library/reasoning/`, which cicilang does not load); 1.11.7 the flow debugger's answer to the points of 0.146; 1.11.8
+  the crash of `atom_chars/2` and `number_chars/2` (below); 1.11.9 a syntax error's place in a load (below), the
+  engine's load, module, solve and syntax code changed; 1.11.10 the profile's views and windows along one run (the flow
+  tools bullet below) -- over ZiguratIP 1.0.0 (`01251f4`, its store pages 64 KiB) and beside Cicili 3.0.0 (`9d74a5e`),
+  where a float literal is a double: every float-like number in our two modules is in a comment, and they use no
+  `(inline)` or `(weak)` (Cicili 2.0.0's change), so their C does not change. The neighbours are rebuilt in this order:
+  ZiguratIP (`make MODE=Release`), cocolog (`make`, `make schema`, `make modules`, which builds its `os`, `process` and
+  `stream` modules and the flow tables), then both modules here. 1.11.0 to 1.11.10 add no SDK call and change no struct
+  (`lib/sdk.cicili` is the file 1.11.4 had): 1.11.0 takes `proc_run/4`'s deadline from the monotonic clock (each poll
+  was charged its whole 200 ms step, so a child that printed more than about 20 bytes a millisecond of its budget was
+  killed early, status 124) and mends three faults of the flow debugger; 1.11.2 has a debugger's window record only the
+  clause heads that a call TRIED (one failed call of a fact table listed every head) and match them in linear time;
+  1.11.3 changes the translator (`library/reasoning/translate.pl`) alone; 1.11.4 (`0da59f4`), The Coco's answer to the
+  flow feedback of 0.144, changes `library/flow` alone (the flow tools bullet below), and its whole suite ran with 0 red
+  (64 green, 5 skipped for no CUDA); `7708de9` after it passes each compiler flag of `tools/cc` once. The flow gate and
+  `test/why.sh` were written on 1.11.3 (0.144) and moved to 1.11.4's options (0.146) and 1.11.10's (0.148, with
+  `test/prof.sh`), and the whole chain of 0.148 ran GREEN over 1.11.10 (the Hosts topic). 1.10.28 (0.142) was The Coco's
+  answer to the report of 0.140 -- the build's heap, the float writer, the refused allocation, `current_predicate/1` and
+  `predicate_property/2`, the flow tools, each in its bullet below -- and added one SDK call (`coco_m_resource_error`).
+  1.10.22 (0.140) and 1.10.0 (0.132) were the steps before; cocolog 1.10.6's builtins that raise where they failed
+  (`arg/3` on an atomic term, `=..`, `assert` of what is no clause) broke nothing here. (0.132, 0.140, 0.142, 0.144,
+  0.146, 0.148)
 - Through 1.10.27 cocolog's build exhausted the 1 GB heap that Debian's and Ubuntu's SBCL 2.2.9 starts with, while
   Cicili transpiled `cocolog.cicili` (`Heap exhausted during garbage collection`, then `GC invariant lost, file
   "gencgc.c"`), and a `make modules` after the failed `make` skipped the flow tables with no word of why. Since 1.10.28
@@ -6408,9 +6447,16 @@ A lambda is a class of its captures (`library/ccl_cpp.pl`). A fixture named alon
   1.10.22, 0.140); the `.big.pl` stays as it is.
 - Through 1.10.27 an infinity was written `inf.0`, which cocolog's reader refused (`its clauses would not consult`, no
   line), so every literal past a double was clamped to the largest double (`ccl_finite_float/2`). (0.55, 0.142)
-- The reader refuses, naming no line, `is` as a plain atom argument, a quoted atom holding `"` and
-  `append([declaration(...)] , Ifs, B0)`. Bisect by splitting the file into clauses, or by each hunk alone onto HEAD
-  (a library file consulted alone fails for its own reasons). (0.93)
+- The reader refused, naming no line, `is` as a plain atom argument, a quoted atom holding `"` and
+  `append([declaration(...)] , Ifs, B0)`, and through 1.11.8 a load named no place (`run` said a byte offset, `-s` `its
+  clauses would not consult`): such a file was bisected by its clauses, or by each hunk alone onto HEAD. Since 1.11.9 a
+  syntax error in a load says where and why, in SWI's shape, from `run` and from a query's load alike: `ERROR:
+  bad.pl:2:15: Syntax error: expected a term` (the column from 0, in bytes), `ERROR: ?-: use_module:
+  /path/bad.pl:2:15: Syntax error: ...`. (0.93, 0.148)
+- Through 1.11.7 `atom_chars/2` and `number_chars/2`, joining a list, crashed the process (SIGSEGV, exit 139) where
+  its first or second element was no one-byte character, and failed silently on a list of 4096 or more; since 1.11.8
+  they raise `type_error(character, X)` or `instantiation_error` and join any length. A character is one byte: a
+  non-ASCII letter in such a list is an error, where SWI takes it. No file of cicilang calls either. (0.148)
 - `cocolog --embed run FILE goal` consults FILE into the store, and a module's clauses do not reach the knowledge base
   (1.2.18): a gate program is loaded by `ensure_loaded/1` from a `query` (`reader_main`, `compile_main`, `cpp_main`).
   Every dynamic predicate asserted at run time persists under `--embed`. A second `ensure_loaded/1` replaces a file's
@@ -6599,10 +6645,24 @@ A lambda is a class of its captures (`library/ccl_cpp.pl`). A fixture named alon
   - The debugger explains every call of a predicate with clauses under `own(all)` (the default explains a call with a
     panel on the chart, and for a program loaded from a top file every call is a library's); `flow_why_raised/3` gives
     the path of the exception that ended a run and the failure it answered, and `flow_why_furthest/2` steps past an
-    explicit `fail/0`. The failure it answered is a call that tried a clause, so a refusal's deciding builtin is
-    `test/why.pl`'s own rule (its topic). A cache on disk that the probe writes and the replay reads makes the two runs
-    diverge, which 1.11.4 says with both ends: build once first. A window of 20000 inferences costs about 20 s and 450
-    MB on a C++ build at 1.11.4. (0.140, 0.144, 0.146)
+    explicit `fail/0`. A cache on disk that the probe writes and the replay reads makes the two runs diverge, which
+    1.11.4 says with both ends: build once first.
+  - 1.11.7 answered the three points of 0.146: `flow_why_raised/3`'s answers `chose(C)` -- the branch a choice took to
+    the raise and every condition it ran, builtins included, so a refusal's deciding builtin is named and the rule
+    0.146 kept for it went -- and `caught(K)` -- the error a catch took where the raise is in its recovery --, a
+    `throw/1` placed on its box, and the clash check held to the library in every loaded file. Two limits met at 0.148,
+    each worked round in `test/why.sh` (its topic): the clauses an exception ended are read from the program's files as
+    the source's directives load them, and a compiled module's Prolog half (`library(cicilang)`'s) is not reached, so
+    the top file names our files in a skipped `:- if(fail).` block; and `caught(K)` names only a catch whose call the
+    window recorded, so the driver's report sites keep taking no error under the why flag (`dr_catch/3`).
+  - 1.11.10: `svg(false)` and `xml(false)` (no document; a window costs its matching), the profile's views
+    (`callers(C)`, `repeats(R)`, `flow_steps_text/2`), `flow_debug_windows/4` (windows along one run, each in a
+    cocolog of its own, J at a time; `flow_profile_merge/4` adds them up), and a large window recorded about three
+    times faster; `test/prof.sh` is built on them (its topic). The debugger's children -- the probe, the replay, a
+    window's cocolog -- run in a process group or a session of their own (cocolog's process module: `posix_spawn` with
+    `SETPGROUP` or `SETSID`), so a cap that sums or kills a process group misses them; ours sum and kill the process
+    tree (0.148). A window of 20000 inferences costs about 12 s and 300 MB a C++ build at 1.11.10, the documents left
+    out. (0.140, 0.144, 0.146, 0.148)
 - The session's tools are not in the repository: `probe.sh` (time and memory caps over its own process group),
   `trace.sh` (cocolog with `'$cpp_trace'` on), `fx.sh` (removes the binary, builds, compares as the gate does),
   `guard.sh` and `watch.sh` (a query or a gate under the summing watchdog). A new session writes them again. The first
@@ -6618,12 +6678,12 @@ A lambda is a class of its captures (`library/ccl_cpp.pl`). A fixture named alon
 - Ubuntu 24.04 on x86_64 (clang and LLVM 18, glibc, libc++ 18 and 21) is a host since 0.87. Every gate but the C++ one is
   GREEN there since 0.93, and all seven since 0.95. Every step from 0.93 on is gated there, but the save points 0.112,
   0.113, 0.117, 0.122 to 0.125, 0.130, 0.131 and 0.143 (0.143's C gates and cross gate ran, its libc++ gates did not;
-  the others were gated by the steps after them). The last full run is 0.146's, over cocolog 1.11.4, on one tree,
-  4276 s in all, committed as 0.147: over libc++ 18 all nine GREEN (the flow gate's 125 findings in 54 s, reader 4 s,
-  compile 11 s, driver 9 s, objects 3 s, proof, the cross gate in 52 s, the library read in 1151 s, the C++ gate in
-  965 s with 497 of 500 fixtures ok, the skips are `stdoptionalref`, `joinwith` and `tzone`, the 21 refusals and the
-  three of the safe part); over libc++ 21 the library read (980 s) and the C++ gate (1041 s, 499 of 500 ok, the skip
-  `stdoptionalref`) GREEN -- the C gates do not read libc++. Two libc++ passes are one
+  the others were gated by the steps after them). The last full run is 0.148's, over cocolog 1.11.10, on one tree,
+  4254 s in all: over libc++ 18 all nine GREEN (the flow gate's 125 findings in 55 s, reader 4 s, compile 12 s, driver
+  11 s, objects 3 s, proof, the cross gate in 61 s, the library read in 1023 s, the C++ gate in 984 s with 497 of 500
+  fixtures ok, the skips are `stdoptionalref`, `joinwith` and `tzone`, the 21 refusals and the three of the safe part);
+  over libc++ 21 the library read (968 s) and the C++ gate (1124 s, 499 of 500 ok, the skip `stdoptionalref`) GREEN --
+  the C gates do not read libc++. Two libc++ passes are one
   gate: `LLVM=/usr/lib/llvm-18` and `LLVM=/usr/lib/llvm-21` choose the tree the chain reads and links. libc++ 22 (the
   newest tree, which a run without `$LLVM` reads) is untried but for `stdoptionalref`, which passes there. The run before
   0.121's (0.118, 0.119) found, over 0.117, two defects and one stale check of `test/cpp.pl` (c20, above).
@@ -7034,6 +7094,10 @@ A lambda is a class of its captures (`library/ccl_cpp.pl`). A fixture named alon
   fixtures' builds went from 11,775 s to 2,936 s, the gate from 2989 s to 908 s over four lanes, its pool's peak from 9034
   MB to 1675 MB (0.120). What is left is mostly the reader's own cold flattening of a header (`stdatomic20.cpp`, 277 s,
   gained nothing).
+- `test/prof.sh`'s first readings of `stdvector.cpp` are not taken up (0.148): `member/2` walking a class's member
+  list (`ccl_class_shape/1`), the IR text taken a code at a time into chunks of 3500 at the end of every build
+  (`dr_take/4`), a table's key hashed a code at a time (`ccl_tab_hash/3`) -- costs counted in inferences, not yet
+  measured in time.
 - The 124 predicates that the placement rule's splits name (`test/flow.expect`) are not regrouped. Each move is
   mechanical and the flow gate proves it (its key leaves the expect file), but the moves touch every large file of the
   library, and no step has taken them (0.144). The flow gate charts the ten hand-written files of `library/`: the two

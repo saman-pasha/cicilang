@@ -7,10 +7,11 @@
 # onto the cores and a heavy one holds the next launch back until it is done.
 # POSIX: the running children are tracked by PID (dash has no `jobs -r').
 #
-#   ccl_cocolog_rss           -> summed RSS of every cocolog query, in MB
+#   ccl_cocolog_rss           -> summed RSS of every cocolog query or run, in MB (a run: the probes and replays
+#                                that library(flow/debug) starts under CPP_WHY=1, in process groups of their own; 0.148)
 #   ccl_pool NMAX LAUNCH_MB HARD_MB < jobfile   (one shell command a line)
 
-ccl_cocolog_rss() { ps -eo rss,args 2>/dev/null | awk '/[c]ocolog .*query/ { s += $1 } END { print int(s / 1024) }'; }
+ccl_cocolog_rss() { ps -eo rss,args 2>/dev/null | awk '/[c]ocolog .*(query|run )/ { s += $1 } END { print int(s / 1024) }'; }
 
 ccl_pool_alive() {   # keep only still-running PIDs in $_pids, set _running to the count
   _live=""; _running=0
@@ -28,7 +29,7 @@ ccl_pool() {
       _rss=$(ccl_cocolog_rss)
       if [ "$_rss" -gt "$_hard" ]; then
         echo "POOL: summed cocolog RSS ${_rss} MB over hard cap ${_hard} -- killing the pool" >&2
-        pkill -9 -f "[c]ocolog .*query" 2>/dev/null; _killed=1; break
+        pkill -9 -f "[c]ocolog .*(query|run )" 2>/dev/null; _killed=1; break
       fi
       if [ "$_running" -lt "$_nmax" ] && [ "$_rss" -lt "$_launch" ]; then break; fi
       sleep 1

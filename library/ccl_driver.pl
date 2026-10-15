@@ -253,10 +253,12 @@ dr_error(F, L, Parts) :-
 %% THE RUN ENDS AT ITS FIRST ERROR under test/why.sh (0.144), which sets '$ccl_why': library(flow/debug) records the
 %% last inferences before a run's end, so the end must be where the compiler gave up. An error the compiler RAISES
 %% passes the driver's report sites untaken (dr_catch/3, 0.146), and the run ends with the compiler's own exception,
-%% whose path and the failure it answered the debugger reads back (flow_why_raised/2); caught and reported, it ended
-%% with the driver's own throw below, whose path is the report's. An error the driver says after a FAILURE (`the check
-%% or the lowering failed without saying why') throws past every recovery here. Nothing else sets the global, and a
-%% build reads it once per report site and once per error it reports.
+%% whose path and the failure it answered the debugger reads back (flow_why_raised/3); caught and reported, it ended
+%% with the driver's own throw below, whose path is the report's. cocolog 1.11.7's caught(K) explains a catch's
+%% recovery only where the window recorded the catch's call, and a report site's is made when the build starts, long
+%% before the window: over plain catch/3 here, no case found the compiler's error (0.148). An error the driver says
+%% after a FAILURE (`the check or the lowering failed without saying why') throws past every recovery here. Nothing
+%% else sets the global, and a build reads it once per report site and once per error it reports.
 dr_why_stop(F, L, Parts) :- ( catch(nb_getval('$ccl_why', yes), _, fail) -> throw(ccl_why(F, L, Parts)) ; true ).
 dr_catch(G, E, R) :- ( catch(nb_getval('$ccl_why', yes), _, fail) -> call(G) ; catch(G, E, R) ).
 dr_note_macro(F, L, P, MF, As) :-
