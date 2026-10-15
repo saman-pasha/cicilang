@@ -10,7 +10,7 @@ it found, its measurements and its gate numbers. `README.md` tells a user what r
 architecture and the milestones. A step that changes a rule edits the rule here, in its topic, and writes its entry
 in `HISTORY.md`.
 
-At 0.144 the versions are: the module 0.144 (`ccl_p_version` in `module/cicilang.cicili`, `bin/cicilang --version`),
+At 0.145 the versions are: the module 0.145 (`ccl_p_version` in `module/cicilang.cicili`, `bin/cicilang --version`),
 the reader 129 (`ccl_reader_version/1`, `library/ccl_syntax.pl`) and the lowering 82 (`ccl_lowering_version/1`,
 `library/ccl_ir.pl`).
 
@@ -392,8 +392,8 @@ tutorials/01..03-*.pl       the objects layer's lessons; goal main, last line do
 
 - `test/flow.sh` (0.144) reads every file of the library with cocolog's `library(flow/chart)` and RUNS NOTHING. A chart
   starts at one call pattern, so `test/flow.pl`'s `fg_roots_main/2` writes a copy of each file with a root,
-  `'$fg_all'/N`, that calls each predicate the file defines with free arguments: 3449 predicates in the ten files at
-  0.144. Each copy is charted with the rest of the compiler loaded (`flow_graph/3`'s `load(Files)`), and the file
+  `'$fg_all'/N`, that calls each predicate the file defines with free arguments: 3450 predicates in the ten files at
+  0.145. Each copy is charted with the rest of the compiler loaded (`flow_graph/3`'s `load(Files)`), and the file
   itself is stubbed out of the library path (an empty file of its name first on `COCOLOG_LIBRARY`), so that its
   clauses are read once. A helper of the gate takes the prefix `fg_`: cocolog has one namespace, and a helper named
   `flow_trim/2` joined `library/flow/read.pl`'s own and failed the chart far from the cause. (0.144)
@@ -6311,7 +6311,7 @@ A lambda is a class of its captures (`library/ccl_cpp.pl`). A fixture named alon
   status 124) and mends three faults of the flow debugger; 1.11.2 has a debugger's window record only the clause heads
   that a call TRIED (one failed call of a fact table listed every head) and match them in linear time; 1.11.3 changes
   the translator (`library/reasoning/translate.pl`) alone. The flow gate and `test/why.sh` (0.144) are written on that
-  flow library, and its flow gate, C gates, proof and cross gate ran GREEN over 1.11.3 (the Hosts topic). 1.10.28
+  flow library, and the whole chain of 0.144 ran GREEN over 1.11.3 (the Hosts topic). 1.10.28
   (0.142) was The Coco's answer to the report of 0.140 -- the build's heap, the
   float writer, the refused allocation, `current_predicate/1` and `predicate_property/2`, the flow tools, each in its
   bullet below -- and added one SDK call (`coco_m_resource_error`). 1.10.22 (0.140) and 1.10.0 (0.132) were the steps
@@ -6592,15 +6592,13 @@ A lambda is a class of its captures (`library/ccl_cpp.pl`). A fixture named alon
   0.90, all GREEN (cocolog 1.2.18). The fixtures added since 0.93 have run on Linux only.
 - Ubuntu 24.04 on x86_64 (clang and LLVM 18, glibc, libc++ 18 and 21) is a host since 0.87. Every gate but the C++ one is
   GREEN there since 0.93, and all seven since 0.95. Every step from 0.93 on is gated there, but the save points 0.112,
-  0.113, 0.117, 0.122 to 0.125, 0.130, 0.131, 0.143 and 0.144 (0.143's C gates and cross gate ran, its libc++ gates did
-  not; 0.144's flow gate, C gates, proof and cross gate ran GREEN over cocolog 1.11.3 -- the flow gate's 131 findings
-  in 54 s, reader 5 s, compile 13 s, driver 10 s, objects 4 s, the cross gate in 63 s -- and its libc++ gates were
-  running when it was committed; the others were gated by the steps after them); the last full run is 0.142's, over
-  cocolog 1.10.28, on one
-  tree: over libc++ 18 all eight GREEN (reader 5 s, compile 16 s, driver 11 s, objects 3 s, proof, the cross gate in
-  64 s, the library read in 1158 s, the C++ gate in 1076 s with 496 of 499 fixtures ok, the skips are `stdoptionalref`, `joinwith` and `tzone`,
-  the 21 refusals and the three of the safe part); over libc++ 21 the library read (1006 s) and the C++ gate (1137 s,
-  498 of 499 ok, the skip `stdoptionalref`) GREEN -- the C gates do not read libc++. Two libc++ passes are one
+  0.113, 0.117, 0.122 to 0.125, 0.130, 0.131 and 0.143 (0.143's C gates and cross gate ran, its libc++ gates did not;
+  the others were gated by the steps after them). The last full run is 0.144's, over cocolog 1.11.3, on one tree,
+  4431 s in all, committed as 0.145: over libc++ 18 all nine GREEN (the flow gate's 131 findings in 54 s, reader 5 s,
+  compile 13 s, driver 10 s, objects 4 s, proof, the cross gate in 63 s, the library read in 1114 s, the C++ gate in
+  1020 s with 497 of 500 fixtures ok, the skips are `stdoptionalref`, `joinwith` and `tzone`, the 21 refusals and the
+  three of the safe part); over libc++ 21 the library read (1020 s) and the C++ gate (1123 s, 499 of 500 ok, the skip
+  `stdoptionalref`) GREEN -- the C gates do not read libc++. Two libc++ passes are one
   gate: `LLVM=/usr/lib/llvm-18` and `LLVM=/usr/lib/llvm-21` choose the tree the chain reads and links. libc++ 22 (the
   newest tree, which a run without `$LLVM` reads) is untried but for `stdoptionalref`, which passes there. The run before
   0.121's (0.118, 0.119) found, over 0.117, two defects and one stale check of `test/cpp.pl` (c20, above).

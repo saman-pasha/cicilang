@@ -11,8 +11,9 @@
 %%   fg_roots_main(+Files, +Dir)
 %%       for each file F, Dir/<F's base name> holds F's text and, after it,
 %%       the root '$fg_all'(A1, ..., AN) :- ( p1(A1, ...) ; ... ), N the
-%%       file's largest arity, and Dir/roots.txt a line `BASE N'. The root
-%%       comes after the text, so every line keeps its number.
+%%       file's largest arity, and Dir/roots.txt a line `BASE N K', K the
+%%       predicates the root calls. The root comes after the text, so every
+%%       line keeps its number.
 %%
 %%   fg_modules_main(+Files, +Out)
 %%       cicilang's own C predicates, which the chart's generated tables do

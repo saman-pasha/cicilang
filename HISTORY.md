@@ -138,6 +138,7 @@ One row per step, in version order: the step's title, what it did and its gate n
 | 0.142 | the neighbours at cocolog 1.10.28 | cocolog pulled and built with a plain make; its float writer, its refused allocation, current_predicate/1 and predicate_property/2 recorded; the macro file's comment mended | 496 of 499 C++ fixtures over libc++ 18, 498 over 21; all gates GREEN |
 | 0.143 | floating constants folded as clang folds them | a negative zero keeps its sign; a double or float literal past the largest double is an infinity; NAN, INFINITY, HUGE_VAL and an invalid operation fold, a NaN's sign kept; the text of -E spells a float exactly; a floating static data member defined in its class | the C gates and the cross gate GREEN (77 run fixtures, 35 driver checks); the libc++ gates not run |
 | 0.144 | the flow gate and test/why.sh | cocolog 1.11.3; library(flow/chart) reads the library in a minute, first in the chain, its findings held to test/flow.expect (124 splits, 7 false); test/why.sh names the call where a failed build gave up, under library(flow/debug); CPP_WHY=1 for the C++ gate | the flow gate, the C gates, the proof and the cross gate GREEN; the libc++ gates running at the commit |
+| 0.145 | the numbers of 0.144's chain | 0.144's chain recorded: all nine gates over libc++ 18, the two libc++ gates over 21, on cocolog 1.11.3; 0.143's libc++ gates with them; test/flow.pl's header | 497 of 500 C++ fixtures over libc++ 18, 499 over 21; all gates GREEN, 4431 s |
 
 ## M5 — the C++ mode
 
@@ -8587,3 +8588,24 @@ cross gate GREEN (reader 5 s, compile 13 s with the 77 run and 47 safe fixtures,
 objects 4 s, the cross gate in 63 s with its 77 fixtures and 3 checks). The library read and the C++ gate over libc++
 18, then over libc++ 21, were running; they carry 0.143's libc++ gates too, which 0.143 did not run
 (`floatconst.cpp` is among the C++ fixtures for the first time). The next step carries their numbers.
+
+## 0.145 — the numbers of 0.144's chain
+
+**0.145: 0.144's chain, ended: all nine gates GREEN over libc++ 18, and the two libc++ gates GREEN over libc++ 21, on
+cocolog 1.11.3.** 0.144 was committed while its libc++ gates ran; this step records them, as the owner asked ("after
+bg tasks done, commit and push the numbers"). They carry 0.143's libc++ gates too, which 0.143 did not run:
+`floatconst.cpp` built and ran as clang++ prints it over both trees.
+
+- The chain on the live checkout, fresh HOMEs, 4431 s in all. Over libc++ 18: the flow gate (131 findings, all of them
+  `test/flow.expect`'s, 54 s, 2260 MB summed over its four lanes), reader 5 s, compile 13 s (77 run and 47 safe
+  fixtures), driver 10 s (35 checks), objects 4 s, the proof, the cross gate in 63 s (77 fixtures and 3 checks), the
+  library read in 1114 s (peak 1076 MB), the C++ gate in 1020 s (peak 2299 MB) with 497 of its 500 fixtures ok -- the
+  skips `stdoptionalref`, `joinwith` and `tzone`, which their `.needs` keep from libc++ 18 -- and the 21 refusals and the
+  three of the safe part. Over libc++ 21: the library read in 1020 s (peak 1035 MB) and the C++ gate in 1123 s (peak
+  2049 MB), 499 of 500 ok, the skip `stdoptionalref`.
+- The chain charted 3450 predicates, not the 3449 that 0.144's entry counts: 0.144's own `dr_why_stop/3` is the one
+  more. `test/flow.pl`'s header names the third field of `roots.txt`, the predicates a root calls.
+
+Nothing the compiler emits changed: reader 129, lowering 82.
+
+THE GATES. The chain above; on this tree, the flow gate again GREEN (131 findings, 49 s, 2247 MB over its lanes).
