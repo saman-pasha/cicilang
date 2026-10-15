@@ -10,7 +10,7 @@ it found, its measurements and its gate numbers. `README.md` tells a user what r
 architecture and the milestones. A step that changes a rule edits the rule here, in its topic, and writes its entry
 in `HISTORY.md`.
 
-At 0.146 the versions are: the module 0.146 (`ccl_p_version` in `module/cicilang.cicili`, `bin/cicilang --version`),
+At 0.147 the versions are: the module 0.147 (`ccl_p_version` in `module/cicilang.cicili`, `bin/cicilang --version`),
 the reader 129 (`ccl_reader_version/1`, `library/ccl_syntax.pl`) and the lowering 82 (`ccl_lowering_version/1`,
 `library/ccl_ir.pl`).
 
@@ -6333,7 +6333,8 @@ A lambda is a class of its captures (`library/ccl_cpp.pl`). A fixture named alon
   that a call TRIED (one failed call of a fact table listed every head) and match them in linear time; 1.11.3 changes
   the translator (`library/reasoning/translate.pl`) alone; 1.11.4, The Coco's answer to the flow feedback of 0.144,
   changes `library/flow` alone (the flow tools bullet below), and its whole suite ran with 0 red (64 green, 5 skipped
-  for no CUDA). The flow gate and `test/why.sh` were written on 1.11.3 (0.144) and moved to 1.11.4's options (0.146).
+  for no CUDA). The flow gate and `test/why.sh` were written on 1.11.3 (0.144) and moved to 1.11.4's options (0.146),
+  and the whole chain of 0.146 ran GREEN over 1.11.4 (the Hosts topic).
   1.10.28 (0.142) was The Coco's answer to the report of 0.140 -- the build's heap, the float writer, the refused
   allocation, `current_predicate/1` and `predicate_property/2`, the flow tools, each in its bullet below -- and added
   one SDK call (`coco_m_resource_error`). 1.10.22 (0.140) and 1.10.0 (0.132) were the steps before; cocolog 1.10.6's
@@ -6616,15 +6617,12 @@ A lambda is a class of its captures (`library/ccl_cpp.pl`). A fixture named alon
   0.90, all GREEN (cocolog 1.2.18). The fixtures added since 0.93 have run on Linux only.
 - Ubuntu 24.04 on x86_64 (clang and LLVM 18, glibc, libc++ 18 and 21) is a host since 0.87. Every gate but the C++ one is
   GREEN there since 0.93, and all seven since 0.95. Every step from 0.93 on is gated there, but the save points 0.112,
-  0.113, 0.117, 0.122 to 0.125, 0.130, 0.131, 0.143 and 0.146 (0.143's C gates and cross gate ran, its libc++ gates
-  did not; 0.146's flow gate, C gates, proof and cross gate ran GREEN over cocolog 1.11.4 -- the flow gate's 125
-  findings in 54 s, reader 4 s, compile 11 s, driver 9 s, objects 3 s, the cross gate in 52 s -- and its libc++ gates
-  were running when it was committed; the others were gated by the steps after them). The last full run is 0.144's,
-  over cocolog 1.11.3, on one tree,
-  4431 s in all, committed as 0.145: over libc++ 18 all nine GREEN (the flow gate's 131 findings in 54 s, reader 5 s,
-  compile 13 s, driver 10 s, objects 4 s, proof, the cross gate in 63 s, the library read in 1114 s, the C++ gate in
-  1020 s with 497 of 500 fixtures ok, the skips are `stdoptionalref`, `joinwith` and `tzone`, the 21 refusals and the
-  three of the safe part); over libc++ 21 the library read (1020 s) and the C++ gate (1123 s, 499 of 500 ok, the skip
+  0.113, 0.117, 0.122 to 0.125, 0.130, 0.131 and 0.143 (0.143's C gates and cross gate ran, its libc++ gates did not;
+  the others were gated by the steps after them). The last full run is 0.146's, over cocolog 1.11.4, on one tree,
+  4276 s in all, committed as 0.147: over libc++ 18 all nine GREEN (the flow gate's 125 findings in 54 s, reader 4 s,
+  compile 11 s, driver 9 s, objects 3 s, proof, the cross gate in 52 s, the library read in 1151 s, the C++ gate in
+  965 s with 497 of 500 fixtures ok, the skips are `stdoptionalref`, `joinwith` and `tzone`, the 21 refusals and the
+  three of the safe part); over libc++ 21 the library read (980 s) and the C++ gate (1041 s, 499 of 500 ok, the skip
   `stdoptionalref`) GREEN -- the C gates do not read libc++. Two libc++ passes are one
   gate: `LLVM=/usr/lib/llvm-18` and `LLVM=/usr/lib/llvm-21` choose the tree the chain reads and links. libc++ 22 (the
   newest tree, which a run without `$LLVM` reads) is untried but for `stdoptionalref`, which passes there. The run before

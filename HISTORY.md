@@ -140,6 +140,7 @@ One row per step, in version order: the step's title, what it did and its gate n
 | 0.144 | the flow gate and test/why.sh | cocolog 1.11.3; library(flow/chart) reads the library in a minute, first in the chain, its findings held to test/flow.expect (124 splits, 7 false); test/why.sh names the call where a failed build gave up, under library(flow/debug); CPP_WHY=1 for the C++ gate | the flow gate, the C gates, the proof and the cross gate GREEN; the libc++ gates running at the commit |
 | 0.145 | the numbers of 0.144's chain | 0.144's chain recorded: all nine gates over libc++ 18, the two libc++ gates over 21, on cocolog 1.11.3; 0.143's libc++ gates with them; test/flow.pl's header | 497 of 500 C++ fixtures over libc++ 18, 499 over 21; all gates GREEN, 4431 s |
 | 0.146 | the flow gate and test/why.sh on cocolog 1.11.4 | cocolog 1.11.4; the chart's modules(Files) and run-time declarations replace the gate's generated files, its findings keyed once with their severity (125: 124 splits, 1 warning); test/why.sh on own(all) and flow_why_raised/3, the driver taking no error under the why flag; the deciding builtin our own rule | the flow gate, the C gates, the proof and the cross gate GREEN; the libc++ gates running at the commit |
+| 0.147 | the numbers of 0.146's chain | 0.146's chain recorded: all nine gates over libc++ 18, the two libc++ gates over 21, on cocolog 1.11.4; three flow points sent to cocolog's owner | 497 of 500 C++ fixtures over libc++ 18, 499 over 21; all gates GREEN, 4276 s |
 
 ## M5 — the C++ mode
 
@@ -8658,3 +8659,26 @@ in 54 s, 2575 MB summed over its four lanes), then the reader, compile, driver a
 cross gate GREEN (reader 4 s, compile 11 s with the 77 run and 47 safe fixtures, driver 9 s with its 35 checks,
 objects 3 s, the cross gate in 52 s with its 77 fixtures and 3 checks). The library read and the C++ gate over libc++
 18, then over libc++ 21, were running; the next step carries their numbers.
+
+## 0.147 — the numbers of 0.146's chain
+
+**0.147: 0.146's chain, ended: all nine gates GREEN over libc++ 18, and the two libc++ gates GREEN over libc++ 21, on
+cocolog 1.11.4.** 0.146 was committed while its libc++ gates ran; this step records them, as the owner asked ("after
+bg tasks done, commit and push the numbers").
+
+- The chain on the live checkout, fresh HOMEs, 4276 s in all. Over libc++ 18: the flow gate (125 findings, all of them
+  `test/flow.expect`'s, 54 s, 2575 MB summed over its four lanes), reader 4 s, compile 11 s (77 run and 47 safe
+  fixtures), driver 9 s (35 checks), objects 3 s, the proof, the cross gate in 52 s (77 fixtures and 3 checks), the
+  library read in 1151 s (peak 1075 MB), the C++ gate in 965 s (peak 2339 MB) with 497 of its 500 fixtures ok -- the
+  skips `stdoptionalref`, `joinwith` and `tzone`, which their `.needs` keep from libc++ 18 -- and the 21 refusals and
+  the three of the safe part. Over libc++ 21: the library read in 980 s (peak 1077 MB) and the C++ gate in 1041 s (peak
+  2120 MB), 499 of 500 ok, the skip `stdoptionalref`.
+- The three points that 0.146 found on the flow debugger went to cocolog's owner, at the owner's request, before the
+  chain ended: `flow_why_raised/3` misses a raise that a SUCCEEDING condition chose (`cpp_not_abstract/1`'s `(
+  nb_getval(...) -> true ; cpp_abstract_class(C) -> cpp_refuse(...) ; true )`: the condition that succeeded is read off
+  the code, not checked in the record); an error raised in a `catch/3` recovery explains the recovery, not the error the
+  catch took; and the check against a helper that reuses a flow predicate's name covers only the files the chart reads.
+
+Nothing the compiler emits changed: reader 129, lowering 82.
+
+THE GATES. The chain above; on this tree, the flow gate again GREEN (125 findings, 51 s, 2489 MB over its lanes).
