@@ -15,6 +15,7 @@ _Static_assert(sizeof(__int128) == 16, "size");
 _Static_assert(_Alignof(__int128) == 16, "align");
 _Static_assert(sizeof(struct W) == 32, "struct");
 _Static_assert(sizeof(__uint128_t) == 16 && sizeof(__int128_t) == 16, "typedefs");
+_Static_assert(((u128)5 >> 64) == 0 && ((u128)255 >> 70) == 0 && ((i128)-8 >> 70) == -1, "a shift past 64 bits folds");   /* 0.154: cocolog's >> takes its count modulo 64, and 5 >> 64 folded to 5 */
 
 static void show(u128 v) {
     char b[48];

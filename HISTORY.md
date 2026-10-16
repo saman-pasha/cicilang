@@ -147,6 +147,7 @@ One row per step, in version order: the step's title, what it did and its gate n
 | 0.151 | cocolog 1.13.0: the small builtins in one step, two clocks, and text in bytes or characters | cocolog 1.12.2 and 1.13.0 taken and rebuilt; a warm build, the two clocks, the text units, a cold read (12 to 16 % slower from 1.12.2, an `=/2` goal slower) and a bare `catch/3` measured; feedback to The Coco | all nine gates GREEN over libc++ 18, the two libc++ gates over 21, 3891 s (0.149: 3836 s); 497 of 500 C++ fixtures over 18, 499 over 21; five warm builds 54.8 s on 1.13.0, 55.1 s on 1.12.1; the census of `<iomanip>` 59.5 s, 66.4 s and 68.9 s on 1.12.1, 1.12.2 and 1.13.0 |
 | 0.152 | cocolog 1.13.3: where a build's time goes, a TIME view in `test/prof.sh` | cocolog 1.13.1 to 1.13.3 taken and rebuilt; `test/prof.sh` prints each predicate's inclusive and self time (`time(T)`); its first reading names `cpp_shipped_member/5`, 16 % of four builds' CPU, timed over the whole builds; a warm build's time the same on both engines | all nine gates GREEN over libc++ 18, the two libc++ gates over 21, 3690 s (0.151: 3891 s); 497 of 500 C++ fixtures over 18, 499 over 21; five warm builds 52.00 s on 1.13.3, 52.07 s on 1.13.0; `stdvector.cpp`'s profile 80 s at 792 MB with the TIME view |
 | 0.153 | the members a class only declares: the mangler's question answered by facts | `cpp_shipped_member/5` asks `'$cpp_decl'/4`, a fact for each constructor and method a class only declares, written beside the light record, where it copied the class's whole record (0.152's finding); the IR of 34 C++ fixtures the same, byte for byte | all nine gates GREEN over libc++ 18, the two libc++ gates over 21, 4569 s on a slower machine (0.152: 3690 s); 497 of 500 C++ fixtures over 18, 499 over 21; the predicate 0.71 s of four library builds where it took 8.93 s; five warm builds 50.09 s where 58.02 s; 34 fixtures 275.7 s where 385.1 s |
+| 0.154 | a long double literal keeps its exact value | the literal's text in both lexers (`ldbl(Text)`, reader 130), rounded once to the x87's or the quad's format (`ir_ld_value/2`, lowering 83); a global's long double fold exact, then rounded (`bv/3`); a decimal from one as gcc folds it; `float.h`'s C11 limits; cocolog's `>>` past 64 bits answered; far sums, an integer operand converted first, an integer operation in a floating global exact, a float's tie to even; two gaps measured and left | committed before the chain ended, on the stop hook's request: the flow gate, the C gates, the proof and the cross gate GREEN (79 run and 47 safe C fixtures, 37 driver checks, 79 fixtures on aarch64); the libc++ gates running |
 
 ## M5 — the C++ mode
 
@@ -9119,3 +9120,109 @@ skips `joinwith`, `stdoptionalref` and `tzone`), the 21 refusals and the three o
 library read in 1366 s (0.152: 954 s) and the C++ gate in 895 s (0.152: 887 s), 499 of 500 ok (the skip
 `stdoptionalref`). The fixtures' builds summed 2298 s over libc++ 18 (0.152: 2590 s) and 2659 s over libc++ 21
 (0.152: 2860 s): less, on a machine where the reader alone took 43 to 49 % more time.
+
+## 0.154 — a long double literal keeps its exact value
+
+**0.154: a long double literal keeps its text in both lexers, and the lowering rounds the text once to the long double's
+own format, as clang reads it: `LDBL_MAX`, `LDBL_MIN`, `LDBL_TRUE_MIN`, `1e999L` and `0.1L` are clang's values, on
+x86-64's x87 and on aarch64's quad. A global's fold computes a long double exactly and rounds once, a decimal global
+folds from one as gcc's does, and four defects of the floating fold met on the way are mended: cocolog's `>>` past 64
+bits, a sum of far operands that took seconds, an integer operation done in doubles and in 61 bits, and a float's tie
+rounded away from zero. Committed before the chain ended, on the stop hook's request: the flow gate, the C gates, the
+proof and the cross gate GREEN; the libc++ read and the C++ gate over libc++ 18 and 21 run at the commit, and 0.155
+carries their numbers.** The owner asked for one more item of the Not done list ("Do one more item from not done
+tasks"). This one was the first of the C list: "A long double literal holds a double's value ... Keeping the literal's
+text, as a decimal literal does, would mend it", with its consequence in the decimal list, a decimal global from a long
+double refused, `decimal_constant(E)`.
+
+- THE READ. `1.5L` was `tok(floatl, F, L)` with F the double nearest the text, clamped to the largest double
+  (`ccl_finite_float/2`), so `LDBL_MAX` and `1e999L` were the largest double, `LDBL_MIN` and `LDBL_TRUE_MIN` zeros, and
+  `0.1L` a double's 0.1. `floatl` and `imagl` are text kinds now, as the decimal kinds are (`ccl_text_kind/1` in
+  `ccl_float_value/3`; the native `ccl_lx_emit_float` makes an atom of its strtod text for `fsfx` 2): the text the
+  lexers spell for strtod (the separators dropped, a hex text by `ccl_hex_text/6`), and `ldbl(Text)` or `imagl(Text)` to
+  the parser. A new line of `test/c/lexer.c` holds eighteen long double literals, decimal, hex, separated, imaginary,
+  and reader check `k84` reads it alike in both lexers. `-E` spells the text and its suffix (`pp_spell/2`,
+  `ccl_pp_spell_tok/4`), where it spelled the double (`__LDBL_MAX__` was `1.7976931348623157e308L`); the driver gate
+  compiles such a text with clang and compares the values. Reader 130.
+- THE VALUE. `ir_ld_value/2` rounds the text once to the format's grid, to nearest, ties to even: an x87's 64 bits, a
+  quad's 113, their subnormals and infinity. A decimal text is its digits times 5^E times 2^E, or divided by 5^-E and
+  2^-E, made exactly and rounded on the magnitude's base-2^30 limbs (`ir_dec_binary_bits/7` over `ir_mag_round/8`); a
+  hex text its digits times two to its exponent (`ir_ld_hex/3`). A first form over `ccl_w_*/3`, which spell each value
+  past 2^60 as its decimal digits, took 3.4 s for `LDBL_MAX` and 1.3 s for `LDBL_MIN`; on the limbs they take 0.03 s and
+  0.05 s of CPU, and `ldconst.c` builds in about 1.2 s where it took 22 s over the first form. In a function the value
+  is the code's constant (`ir_expr(ldbl(A))`; `imagl(A)` the `{ 0, value }` of a complex long double). A probe of five
+  literals printed `1.79769e+308 0 1.0842e-19 1.79769e+308 0` and `0.100000000000000005551`; it prints clang's
+  `1.18973e+4932 3.3621e-4932 1.0842e-19 1e+999 3.6452e-4951` and `0.100000000000000000001`.
+- THE FOLD. In a global's initializer a long double is `bv(Sign, T, Lsb)`, exactly T x 2^Lsb on its format's grid.
+  `ir_fp_exact/2` takes any value apart (x(Sign, M, E), `inf(S)`, `nan(S)`), `ir_fp_round_to/3` rounds to an LLVM type's
+  format, and `ir_ld_op/4` over `ir_x_op/4` does the four operations exactly (a quotient to 116 bits and a sticky rest)
+  and rounds once, with IEEE's infinities, NaNs and signed zeros: `1.0L / 3.0L`, `0.1L * 3`, `LDBL_MAX * 2`. A cast to
+  an integer type truncates the exact value (`ir_fp_int/3`: `unsigned long long g = 18446744073709551615.0L;`), a cast
+  to a double, a float or a half rounds from it, and `ir_fp_const/3` spells it for the global's type. Found on the way:
+  `double g = (double) 1 / 3;` folded to 0 -- the cast kept the integer 1 and the division was an integer one; a cast to
+  a double or a long double makes a value of that type now.
+- THE DECIMAL. A long double constant converted to a decimal type takes gcc's steps from its own exact value
+  (`ir_dec_fold_/2` over `ir_long_double_type/1`, `ir_dec_exact/2` on `bv/3`), where it was refused. gcc's 57 digits
+  come from the value's top 60 to 62 digits and a sticky digit (`ir_dec_binary_digits/4`), since an x87's `LDBL_MIN`
+  expands to 11,500 digits. `test/c/link/decld.c`, twelve such globals, prints gcc's bits, 12 of 12, and the driver gate
+  compares them (a skip line where no gcc has decimal types).
+- `float.h` holds C11's `FLT_TRUE_MIN`, `DBL_TRUE_MIN`, `LDBL_TRUE_MIN`, the three `_DECIMAL_DIG` and `_HAS_SUBNORM`,
+  and C99's `DECIMAL_DIG`, under clang's guards: the first probe met `LDBL_TRUE_MIN` undefined.
+- COCOLOG'S SHIFT. The cross gate went RED on `ldconst.c` under qemu: the quad's `LDBL_TRUE_MIN`, an integer converted,
+  a tiny literal, a tie, the value above it and a function's subnormal were wrong. cocolog's `X >> N` takes N modulo 64,
+  as the machine's shift does: `1 >> 64` is 1, `1 >> 128` 1, `255 >> 64` 255, where SWI answers 0 (measured on 1.13.3).
+  The quad's text shifts its 113 bits by 64 (`ir_dec_binary_bits_text/5`). `ccl_w_shr/3` answers an integer's sign past
+  60 bits; `int128.c`'s new static assertion, `((unsigned __int128) 5 >> 64) == 0`, fails without it, since the constant
+  evaluator shifted the same way. Not yet raised with cocolog's owner.
+- A SUM OF FAR OPERANDS. The chain's first run was stopped after the libc++ 18 read, GREEN to there (the flow gate 51 s,
+  reader 4 s, compile 9 s, driver 10 s, objects 3 s, the proof, the cross gate 51 s, the library read 1586 s), when a
+  probe of 25 constants, far sums and integer operands (`LDBL_MAX + LDBL_TRUE_MIN`, `1.0L + 1e-4900L` ...), took 33 s to
+  build beside the chain: the exact sum aligned 32,000 bits through `ccl_w_*/3`, 3.7 s and 0.97 s of CPU each. Where the
+  smaller operand lies wholly below the unit u = 2^(E - G) of the larger, G making the larger's bits 120 -- more than
+  any format keeps -- the sum is the larger plus or minus u/2 (`ir_x_far/5`): every rounding boundary of a format of at
+  most 113 bits near the sum is a multiple of u, the larger is one, so the exact sum and this one lie strictly between
+  the same two multiples and round alike. The probe builds in 1.4 s, each sum under a millisecond, and prints clang's
+  values on x86-64 and on aarch64.
+- AN OPERAND CONVERTED FIRST. An integer operand of a long double's operation was taken exactly and the result rounded
+  once; C converts it to the long double first (6.3.1.8), so `(((__int128) 1 << 64) + 1) * 3.0L` is 3 x 2^64, never the
+  exact product rounded (`ir_ld_operand/3`).
+- AN INTEGER OPERATION IN A FLOATING GLOBAL, older than this step: the fold did `+`, `-`, `*` and `/` in doubles and in
+  cocolog's 61-bit integers whatever the operands' type, so `double g = 0x0FFFFFFFFFFFFFFFLL + 0x0FFFFFFFFFFFFFFFLL;`
+  was -2.0, `-1u` was -1.0, `(1ULL << 63) + (1ULL << 63)` 2^64 where C wraps it to 0, and `((__int128) 1 << 64) + 2048 +
+  1` rounded twice -- silent wrong answers, twelve of the twenty-three values of the new `fpintexpr.c` (one of them the
+  tie below). An operand whose type is an integer type is now the integer evaluator's value of the whole operand
+  (`ccl_const_eval/2`), exact, converted once where a floating operand or the global's type takes it; `ir_fp_cast/3`
+  rounds an integer to a float or a half once, never through a double.
+- A FLOAT'S TIE, older too (0.132): `ir_round_bits/5` rounded with `round/1`, which takes a tie away from zero, so
+  `float g = 16777217.0;` was 16777218 and `_Float16 h = 2049.0;` 2050 at file scope, where clang has 16777216 and 2048
+  (a local was right: its constant is an `fptrunc` LLVM rounds). `ir_round_even/2` takes a tie to the even value;
+  `fpconst.c` has five ties now.
+- THE SAME OUTPUT ELSEWHERE. The IR (`-S -emit-llvm`) of every C run fixture, built over the library before the last
+  four fixes and after them, for x86-64 and for aarch64: 153 of 158 builds the same, byte for byte, and the five others
+  those of the three fixtures with the new cases, where the earlier library gives wrong values (`fpconst.c` and
+  `fpintexpr.c` on both machines, `ldconst.c` on aarch64). The IR of the eight C++ fixtures with floating constants
+  (`ldlimits`, `ldouble`, `floatconst`, `userliteral`, `virtualoverload`, `stdcinld`, `stdmoney`, `stdcomplex`): the
+  same.
+- THE FIXTURES. `test/c/run/ldconst.c` (the limits, the literals decimal and hex, the fold's arithmetic, casts, far sums
+  and integer operands, a double, a float, an integer and a complex from long doubles, the constants of a function, the
+  machine's own arithmetic over them; on aarch64 against clang's quad), `test/c/run/fpintexpr.c`, five ties in
+  `test/c/run/fpconst.c`, the static assertion in `int128.c`, `test/cpp/run/ldlimits.cpp` (`numeric_limits<long
+  double>`, a class's `static constexpr` long doubles, a function's), `test/c/link/decld.c` and two driver checks.
+- TWO GAPS, MEASURED AND LEFT (Not done): an enumerator initialized by `(int) 2.5L` or `(int) 9.5f` is not folded and
+  silently takes the next value (`enum { A = 7, B = (int) 2.5L, C, D = (int) 9.5f }` is 7 8 9 10 where clang has 7 2 3
+  9), and a false static assertion over one passes -- since 0.108 made those literals casts, measured at 0.153 in a
+  worktree and at 0.154; its fix changes an enum's values in a summary, a reader bump, and the chain's libc++ read was
+  running. A user-defined floating literal reaches its literal operator as the double nearest its text (`0.1_v`,
+  `1e999_v` an infinity), since the lexers keep the text of an `L` literal alone.
+- `CLAUDE.md`: the Floating literals and Imaginary literals topics, `-E`'s spelling, `float.h`, the 64-bit arithmetic,
+  the long double bullets of the Lowering, the fold's bullets in its Statics topic (the long double, the integer
+  operation), the decimal fold, the float's tie, the Findings' `>>`, What runs, the gates' counts; the Not done bullet
+  of the long double literal taken out, the decimal one's long double half, and the two gaps above added.
+
+Reader 130, lowering 83. The gated module is the committed one, its version bumped before it was built.
+
+THE GATES. The second chain on the live checkout, fresh HOMEs, started at 10:45 UTC. Over libc++ 18, GREEN at the
+commit: the flow gate (125 findings, all of them `test/flow.expect`'s, 56 s), reader 5 s, compile 11 s (79 run and 47
+safe fixtures), driver 10 s (37 checks, the two decimal ones among them), objects 3 s, the proof, the cross gate in 51 s
+(79 fixtures and 3 checks). Running at the commit: the library read and the C++ gate (501 fixtures) over libc++ 18, then
+the two libc++ gates over libc++ 21; 0.155 records them.

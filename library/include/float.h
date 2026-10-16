@@ -31,4 +31,19 @@
 #define LDBL_MAX_10_EXP __LDBL_MAX_10_EXP__
 #define FLT_EVAL_METHOD 0
 #define FLT_ROUNDS 1
+/* C11 5.2.4.2.2's, under clang's guard: the least subnormal, the digits that read a value back, the subnormals' presence (0.154) */
+#if (defined(__STDC_VERSION__) && __STDC_VERSION__ >= 201112L) || !defined(__STRICT_ANSI__) || (defined(__cplusplus) && __cplusplus >= 201703L)
+#define FLT_TRUE_MIN __FLT_DENORM_MIN__
+#define DBL_TRUE_MIN __DBL_DENORM_MIN__
+#define LDBL_TRUE_MIN __LDBL_DENORM_MIN__
+#define FLT_DECIMAL_DIG __FLT_DECIMAL_DIG__
+#define DBL_DECIMAL_DIG __DBL_DECIMAL_DIG__
+#define LDBL_DECIMAL_DIG __LDBL_DECIMAL_DIG__
+#define FLT_HAS_SUBNORM __FLT_HAS_DENORM__
+#define DBL_HAS_SUBNORM __DBL_HAS_DENORM__
+#define LDBL_HAS_SUBNORM __LDBL_HAS_DENORM__
+#endif
+#if (defined(__STDC_VERSION__) && __STDC_VERSION__ >= 199901L) || !defined(__STRICT_ANSI__) || (defined(__cplusplus) && __cplusplus >= 201103L)
+#define DECIMAL_DIG __DECIMAL_DIG__
+#endif
 #endif

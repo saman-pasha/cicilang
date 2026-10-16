@@ -261,7 +261,7 @@
   ;; ccl_version(-Atom): THE VERSION. Every commit raises it (owner's rule),
   ;; one number per change; `cicili --version' prints it with LLVM's.
   (func ccl_p_version ((coco_engine * e) (size_t g)) (out int)
-        (return (coco_m_unify_atom e (coco_m_arg e g 0) "0.153")))
+        (return (coco_m_unify_atom e (coco_m_arg e g 0) "0.154")))
 
   ;; ccl_cocolog_version(-Atom): the engine's own version text, from the
   ;; running binary (coco_version_text is cocolog's, resolved at load like
@@ -598,9 +598,9 @@
           (set (-> x i) j)))
   (static) (func ccl_lx_emit_float ((ccl_lx * x) (size_t j) (i64 line))
         (let ((char * endp . nil))
-          (if (>= (-> x fsfx) 3)                                                   ; a decimal literal is its TEXT (0.129): `0.1', `1.0e5', `.5', which the lowering encodes exactly
-              (ccl_lx_tok x (? (== (-> x fsfx) 3) (-> x k_dec32) (? (== (-> x fsfx) 4) (-> x k_dec64) (-> x k_dec128))) (coco_m_new_atom (-> x e) (-> x buf)) line)
-              (ccl_lx_tok x (? (== (-> x imag) 2) (-> x k_imagf) (? (== (-> x imag) 1) (? (== (-> x fsfx) 2) (-> x k_imagl) (-> x k_imag)) (? (== (-> x fsfx) 1) (-> x k_floatf) (? (== (-> x fsfx) 2) (-> x k_floatl) (-> x k_float))))) (coco_m_new_float (-> x e) (strtod (-> x buf) (aof endp))) line))   ; `1.0li', `1.0il': imagl (0.112)
+          (if (>= (-> x fsfx) 2)                                                   ; a decimal literal is its TEXT (0.129): `0.1', `1.0e5', `.5', which the lowering encodes exactly; a long double one too (0.154), `floatl' and `imagl'
+              (ccl_lx_tok x (? (== (-> x fsfx) 2) (? (== (-> x imag) 1) (-> x k_imagl) (-> x k_floatl)) (? (== (-> x fsfx) 3) (-> x k_dec32) (? (== (-> x fsfx) 4) (-> x k_dec64) (-> x k_dec128)))) (coco_m_new_atom (-> x e) (-> x buf)) line)
+              (ccl_lx_tok x (? (== (-> x imag) 2) (-> x k_imagf) (? (== (-> x imag) 1) (-> x k_imag) (? (== (-> x fsfx) 1) (-> x k_floatf) (-> x k_float)))) (coco_m_new_float (-> x e) (strtod (-> x buf) (aof endp))) line))
           (set (-> x i) j)))
   (static) (func ccl_lx_number ((ccl_lx * x) (i64 line)) (out int)
         (let ((size_t i0 . 0) (size_t j . 0) (size_t dend . 0) (size_t fstart . 0) (size_t fend . 0) (size_t k . 0) (size_t q . 0)

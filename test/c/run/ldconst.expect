@@ -1,0 +1,57 @@
+max     0xf.fffffffffffffffp+16380
+min     0x8p-16385
+true    0x0.000000000000001p-16385
+eps     0x8p-66
+tenth   0xc.ccccccccccccccdp-7
+pi      0xc.90fdaa22168c235p-2
+third   0xa.aaaaaaaaaaaaaabp-5
+sum     0x9.99999999999999ap-5
+prod    0x9.99999999999999ap-5
+neg     -0xf.fffffffffffffffp+16380
+over    inf
+int     0x8.0000000000004p+50
+cast    0x8.0000000000004p+50
+div     0xa.aaaaaaaaaaaaaabp-5
+hex     0xcp-2
+hex2    0xa.bp-1
+hex3    0x8p-6
+hex4    0x8p+0
+hex5    0xa.bcp+5
+tiny    0x0.000000000000001p-16385
+big     0xc.2d7c194b0fe2338p+3315
+inf     inf
+zero    0x0p+0
+nz      -0x0p+0
+pz      0x0p+0
+sub     0x2p-16385
+nan     nan
+tie     0x8p-3
+above   0x8.000000000000001p-3
+double  0x1.999999999999ap-4 0x1.5555555555555p-2 0x0.00000000007e8p-1022 0x0p+0
+float   0x1.99999ap-4 0x0p+0
+integer 2 -2 18446744073709551615 -9007199254740993 1
+complex 0xcp-3 0xap-2 0x0p+0 0xc.ccccccccccccccdp-7
+far     0x8p-3
+far2    0x8p-3
+maxtiny 0xf.fffffffffffffffp+16380
+nmax    -0xf.fffffffffffffffp+16380
+tinybig -0xd.1ba8323fe558c61p+13284
+minus   0x7.fffffffffffffffp-16385
+maxone  0xf.fffffffffffffffp+16380
+eps2    0x8p-3
+i1      0x8p+61
+i2      0xcp+62
+i3      0xcp+118
+i4      0x8p+97
+i5      0x8p-67
+dfar    0x1p+0 inf
+fmax    0xf.fffffffffffffffp+16380
+ftenth  0xc.ccccccccccccccdp-7
+fhex    0xf.fffffffffffffffp+16380
+finf    inf
+fsub    0x0.000000000000001p-16385
+fdot    0x8.3126e978d4fdf3bp-14
+fcmp    1 1 1
+v*3     0x9.99999999999999ap-5
+v/3     0x8.888888888888889p-8
+exit 0
