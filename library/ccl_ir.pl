@@ -1102,7 +1102,7 @@ ir_dec_fold_(bin(Op, A, B), D) :- memberchk(Op, ['+', '-', '*', '/']), catch(ccl
 %% type's digits (ir_dec_fit/3), each rounded half to even. A LONG DOUBLE takes the same steps from its own exact value
 %% (0.154; bv/3): it was refused, `decimal_constant(E)', while its literal held a double's value.
 ir_dec_fold_(X, D) :- ir_binary_fp_type(X, F), catch(ir_fp_value(X, V0), _, fail), number(V0), !,
-    V1 is V0 * 1.0, ( F == float -> ir_float_round(V1, V) ; F == half -> ir_half_round(V1, V) ; V = V1 ), ir_dec_exact(V, D).
+    ir_fp_float(V0, V1), ( F == float -> ir_float_round(V1, V) ; F == half -> ir_half_round(V1, V) ; V = V1 ), ir_dec_exact(V, D).
 ir_dec_fold_(X, D) :- ir_long_double_type(X), catch(ir_fp_value(X, V0), _, fail), ( V0 = bv(_, _, _) ; float(V0) ), !, ir_dec_exact(V0, D).
 ir_dec_fold_(X, d(S, Ds, 0, no)) :- catch(ccl_const_eval(X, N), _, fail), ( integer(N) ; N = big(_) ), !,
     ( ccl_w_cmp(N, 0, <) -> S = 1, ccl_w_neg(N, M) ; S = 0, M = N ), ( integer(M) -> number_codes(M, Cs) ; M = big(A), atom_codes(A, Cs) ), ir_dec_strip(Cs, Ds).
@@ -1146,7 +1146,7 @@ ir_binary_fp_type(X, F) :- catch(ccl_type_of(X, T), _, fail), ccl_resolve_type(T
     ( memberchk(float, S) -> F = float ; memberchk('_Float16', S) -> F = half ; memberchk(double, S), \+ memberchk(long, S) -> F = double ), !.
 ir_long_double_type(X) :- catch(ccl_type_of(X, T), _, fail), ccl_resolve_type(T, base(_, S)), \+ memberchk('_Complex', S), memberchk(long, S), memberchk(double, S), !.
 ir_dec_exact(bv(S, M, BE), d(S, Ds, E, no)) :- !, ( M == 0 -> Ds = [], E = -1 ; ir_dec_binary_digits(M, BE, Ds, E) ).   % a long double's T x 2^Lsb (0.154)
-ir_dec_exact(V, d(S, [], 0, yes)) :- ir_fp_infinite(V), !, ( V < 0 -> S = 1 ; S = 0 ).
+ir_dec_exact(V, d(S, [], 0, yes)) :- ccl_float_infinite(V), !, ( V < 0 -> S = 1 ; S = 0 ).
 ir_dec_exact(V, d(S, Ds, E, no)) :- ( V < 0 -> S = 1 ; S = 0 ), X is abs(V),
     ( X =:= 0 -> Ds = [], E = -1 ; ccl_float_parts(X, N, BE), ir_dec_binary_digits(N, BE, Ds, E) ).   % gcc's "0.0" for a zero
 %% GCC'S TEXT OF N x 2^BE (real_to_decimal): its digits to 57, then 34, as below. Only its top 60 to 62 digits are made, on
@@ -1168,7 +1168,7 @@ ir_dec_crop(Ds, E, Ds, E).
 %% significant bits and the exponents EMin to EMax: the exact quotient C x 10^E taken to MB + 2 bits and more, the rest
 %% a sticky part, rounded on the format's grid -- the normal one, or 2^(EMin - MB + 1) below the normal range. The answer is
 %% the sign, the integer T and its scale, T x 2^Lsb; an infinity or a value past the range is not folded.
-ir_dec_binary(D, V) :- ir_dec_binary_bits(D, 53, -1022, 1023, S, T, Lsb), T \== inf, V0 is T * 2.0 ** Lsb, ( S =:= 1 -> V is -V0 ; V = V0 ).
+ir_dec_binary(D, V) :- ir_dec_binary_bits(D, 53, -1022, 1023, S, T, Lsb), T \== inf, V0 is float(T) * 2.0 ** Lsb, ( S =:= 1 -> V is -V0 ; V = V0 ).
 ir_dec_binary_bits(d(S, _, _, yes), _, _, _, S, inf, 0) :- !.
 ir_dec_binary_bits(d(_, _, _, nan), _, _, _, _, _, _) :- !, fail.                  % a NaN has no value (ir_dec_binary_text spells it, 0.137)
 ir_dec_binary_bits(d(S, [], _, _), _, EMin, _, S, 0, EMin) :- !.
@@ -1216,7 +1216,7 @@ ir_dec_binary_bits_text(fp128, S, T, Lsb, Text) :- !, ccl_w_shl(1, 112, Imp),
     ( ccl_w_cmp(T, Imp, O), O \== (<) -> BE is Lsb + 112 + 16383, ccl_w_sub(T, Imp, F) ; BE = 0, F = T ),
     ccl_w_shr(F, 64, FH0), ccl_w_shl(FH0, 64, FHB), ccl_w_sub(F, FHB, FL), SE is S * 32768 + BE, ccl_w_shl(SE, 48, SEH), ccl_w_add(SEH, FH0, H),
     ir_w_hex(H, 16, HH), ir_w_hex(FL, 16, HL), atomic_list_concat(['0xL', HL, HH], Text).
-ir_dec_binary_bits_text(LL, S, T, Lsb, Text) :- V0 is T * 2.0 ** Lsb, ( S =:= 1 -> V is -V0 ; V = V0 ), ir_fp_const(V, LL, Text).
+ir_dec_binary_bits_text(LL, S, T, Lsb, Text) :- V0 is float(T) * 2.0 ** Lsb, ( S =:= 1 -> V is -V0 ; V = V0 ), ir_fp_const(V, LL, Text).
 %% a decimal constant that folds to an infinity or a NaN, under casts to a floating type and negations (0.137)
 ir_dec_special_value(neg(X), S, I) :- !, ir_dec_special_value(X, S0, I), S is 1 - S0.
 ir_dec_special_value(pos(X), S, I) :- !, ir_dec_special_value(X, S, I).
@@ -1347,7 +1347,7 @@ ir_num_const(neg(float(F)), V) :- !, V is -F.
 ir_num_const(neg(cast(T, ldbl(A))), V) :- !, ir_num_const(cast(T, ldbl(A)), V0), ir_fp_neg(V0, V).
 ir_num_const(cast(_, E), V) :- !, ir_num_const(E, V).
 ir_num_const(E, V) :- ccl_const_eval(E, V).   % a component's constant: a double's hex; for a float element LLVM takes the same spelling where the value is exact in a float
-ir_double(F, A) :- ir_fp_infinite(F), !, ( F > 0 -> A = '0x7FF0000000000000' ; A = '0xFFF0000000000000' ).   % an infinity (0.132): a constant expression's overflow
+ir_double(F, A) :- ccl_float_infinite(F), !, ( F > 0 -> A = '0x7FF0000000000000' ; A = '0xFFF0000000000000' ).   % an infinity (0.132): a constant expression's overflow
 ir_double(F, A) :-
     ( F =:= 0.0 -> ( ir_neg_zero(F) -> A = '0x8000000000000000' ; A = '0x0000000000000000' )
     ; X is abs(F), ( F < 0 -> Sg = 8 ; Sg = 0 ),
@@ -1369,7 +1369,7 @@ ir_fp_value(call(id(B), As), V) :- ir_fp_builtin_value(B, As, V), !.   % `INFINI
 ir_fp_value(E, V) :- catch(ccl_type_of(E, T), _, fail), ccl_decimal_kind(T, K), !, ir_dec_fold(E, K, D), ir_dec_binary(D, V).   % a decimal constant, rounded to the nearest double (0.132)
 ir_fp_value(E, V) :- E \= float(_), catch(ccl_type_of(E, T), _, fail), ccl_is_integer(T), catch(ccl_const_eval(E, V0), _, fail), ( integer(V0) ; V0 = big(_) ), !, V = V0.   % AN INTEGER-TYPED OPERAND IS THE INTEGER IT IS, exactly (0.154): its operations the integer evaluator's in its type, then converted once where it is used; `double g = 0x0FFFFFFFFFFFFFFFLL + 0x0FFFFFFFFFFFFFFFLL;' was -2.0 (the sum wrapped at cocolog's 61 bits), and `((__int128) 1 << 64) + 2048 + 1' rounded twice
 ir_fp_value(cast(T, E), V) :- ir_fp_global(T, LL), memberchk(LL, [float, half]), catch(ccl_type_of(E, ET), _, fail), ccl_decimal_kind(ET, K), !,
-    ir_dec_fold(E, K, D), ir_fp_target_ll(LL, MB, EMin, EMax), ir_dec_binary_bits(D, MB, EMin, EMax, S, T1, Lsb), T1 \== inf, V0 is T1 * 2.0 ** Lsb, ( S =:= 1 -> V is -V0 ; V = V0 ).   % to a float once, never through a double
+    ir_dec_fold(E, K, D), ir_fp_target_ll(LL, MB, EMin, EMax), ir_dec_binary_bits(D, MB, EMin, EMax, S, T1, Lsb), T1 \== inf, V0 is float(T1) * 2.0 ** Lsb, ( S =:= 1 -> V is -V0 ; V = V0 ).   % to a float once, never through a double
 ir_fp_value(cast(T, E), V) :- !, ir_fp_value(E, V0), ir_fp_cast(T, V0, V).
 ir_fp_value(ccast(_, T, E), V) :- !, ir_fp_value(E, V0), ir_fp_cast(T, V0, V).
 ir_fp_value(neg(E), V) :- !, ir_fp_value(E, V0), ir_fp_neg(V0, V).
@@ -1388,7 +1388,7 @@ ir_fp_cast(T, V0, V) :- ir_fp_global(T, LL), ( ir_fp_wide_ll(LL) ; LL == double 
 ir_fp_cast(T, V0, V) :- ir_fp_narrow(T, V0, V).
 %% A CAST TO `float' OR `_Float16' ROUNDS to that type's precision (0.132): `double d = (float) 0.1;' was 0.1, clang has
 %% 0.100000001490116; a value past the type's range is left to the spelling, which makes it the infinity
-ir_fp_narrow(T, V0, V) :- ccl_resolve_type(T, base(_, S)), \+ memberchk('_Complex', S), F is V0 * 1.0,
+ir_fp_narrow(T, V0, V) :- ccl_resolve_type(T, base(_, S)), \+ memberchk('_Complex', S), ir_fp_float(V0, F),
     (   memberchk(float, S), abs(F) < 3.4028235677973366e38 -> ir_float_round(F, V)
     ;   memberchk('_Float16', S), abs(F) < 65520.0 -> ir_half_round(F, V) ), !.
 ir_fp_narrow(_, V, V).
@@ -1411,7 +1411,7 @@ ir_fp_exact(bv(S, M, E), x(S, M, E)) :- !.
 ir_fp_exact(nan(S), nan(S)) :- !.
 ir_fp_exact(X, x(S, M, 0)) :- ( integer(X) ; X = big(_) ), !, ( ccl_w_cmp(X, 0, <) -> S = 1, ccl_w_neg(X, M) ; S = 0, M = X ).
 ir_fp_exact(F, nan(0)) :- ir_fp_nan(F), !.
-ir_fp_exact(F, inf(S)) :- ir_fp_infinite(F), !, ( F > 0 -> S = 0 ; S = 1 ).
+ir_fp_exact(F, inf(S)) :- ccl_float_infinite(F), !, ( F > 0 -> S = 0 ; S = 1 ).
 ir_fp_exact(F, x(S, 0, 0)) :- F =:= 0.0, !, ( ir_neg_zero(F) -> S = 1 ; S = 0 ).
 ir_fp_exact(F, x(S, M, E)) :- ccl_float_parts(F, M0, E), ( M0 < 0 -> S = 1, M is -M0 ; S = 0, M = M0 ).
 %% ... rounded once to the format of an LLVM floating type: r(Sign, Q, Sh, R) is Q x 2^-Sh with R the sticky rest of a quotient
@@ -1419,9 +1419,9 @@ ir_fp_round_to(_, nan(S), nan(S)) :- !.
 ir_fp_round_to(LL, inf(S), V) :- !, ir_fp_bits_value(LL, S, inf, 0, V).
 ir_fp_round_to(LL, x(S, M, E), V) :- !, Sh is -E, ir_fp_round_to(LL, r(S, M, Sh, 0), V).
 ir_fp_round_to(LL, r(S, Q, Sh, R), V) :- ir_fp_inf_bits(LL, MB, EMin, EMax, _, _), ( Q == 0 -> T = 0, L = 0 ; ir_bin_round(Q, Sh, R, MB, EMin, EMax, T, L) ), ir_fp_bits_value(LL, S, T, L, V).
-ir_fp_bits_value(_, S, inf, _, V) :- !, ( S =:= 1 -> V is -1.0e308 * 10.0 ; V is 1.0e308 * 10.0 ).
+ir_fp_bits_value(_, S, inf, _, V) :- !, ccl_float_infinity(I), ( S =:= 1 -> V is -I ; V = I ).
 ir_fp_bits_value(LL, S, T, L, bv(S, T, L)) :- ir_fp_wide_ll(LL), !.
-ir_fp_bits_value(_, S, T, L, V) :- V0 is T * 2.0 ** L, ( S =:= 1 -> V is -V0 ; V = V0 ).   % a double's, a float's or a half's value is a float
+ir_fp_bits_value(_, S, T, L, V) :- V0 is float(T) * 2.0 ** L, ( S =:= 1 -> V is -V0 ; V = V0 ).   % a double's, a float's or a half's value is a float, a zero's sign kept (float(T): 2.0 ** 0 is the integer 1 since cocolog 2.2.0)
 ir_fp_wide_ll(x86_fp80).
 ir_fp_wide_ll(fp128).
 ir_fp_neg(nan(S0), nan(S)) :- !, S is 1 - S0.
@@ -1486,28 +1486,29 @@ ir_x_far(A, B, Big, Ss, G) :- A = x(Sa, Ma, Ea), B = x(Sb, Mb, Eb), Ma \== 0, Mb
 %% A NaN IN A FLOATING CONSTANT (0.143) is nan(S), S its sign, since cocolog writes no NaN's sign and has no copysign/2:
 %% an operand that is a NaN gives itself, the first of two, and an invalid operation -- `0.0 / 0.0', `1e999 - 1e999',
 %% `0.0 * INFINITY' -- the quiet NaN, positive, as clang's constant folder makes it. An operand that is a long double
-%% makes it a long double's operation (0.154), and an integer past 2^60 converts to the nearest double
+%% makes it a long double's operation (0.154). A DOUBLE'S OPERATION TAKES THE SAME EXACT ROAD (0.158): each operand
+%% converted to a double first (an integer, one past 2^60 too, rounded to nearest), the exact result rounded once, as IEEE
+%% 754 has + - * / -- the infinities, NaNs and signed zeros ir_x_op/4's. It was the engine's own float arithmetic, which
+%% raises at an infinity, at a NaN and at a division by a float zero since cocolog 2.2.0, where it answered IEEE's value;
+%% two integers keep the integer arithmetic the fold had where the integer evaluator gave up
 ir_fp_op(_, nan(S), _, nan(S)) :- !.
 ir_fp_op(_, _, nan(S), nan(S)) :- !.
 ir_fp_op(Op, A, B, V) :- ( A = bv(_, _, _) ; B = bv(_, _, _) ), !, ir_ld_op(Op, A, B, V).
-ir_fp_op(Op, A0, B0, V) :- ir_fp_num(A0, A), ir_fp_num(B0, B), ir_fp_op_(Op, A, B, V0), ( ir_fp_nan(V0) -> V = nan(0) ; V = V0 ).
+ir_fp_op(Op, A, B, V) :- integer(A), integer(B), !, ir_fp_op_(Op, A, B, V).
+ir_fp_op(Op, A, B, V) :- ir_ld_operand(double, A, XA), ir_ld_operand(double, B, XB), ir_x_op(Op, XA, XB, X), ir_fp_round_to(double, X, V).
 ir_fp_op_('+', A, B, V) :- V is A + B.
 ir_fp_op_('-', A, B, V) :- V is A - B.
 ir_fp_op_('*', A, B, V) :- V is A * B.
-ir_fp_op_('/', A, B, V) :- B =\= 0, !, ( integer(A), integer(B) -> V is truncate(A / B) ; V is A / B ).
-ir_fp_op_('/', A, B, nan(0)) :- \+ ( integer(A), integer(B) ), A =:= 0, !.
-ir_fp_op_('/', A, B, V) :- \+ ( integer(A), integer(B) ), A =\= 0, ( A > 0 -> S0 = 1.0 ; S0 = -1.0 ), ( ir_neg_zero(B) -> S is -S0 ; S = S0 ), V is S * 1.0e308 * 10.0.   % a floating division by zero: an infinity, its sign the dividend's times the zero's (0.132; the zero's sign since 0.143)
-ir_fp_num(X, F) :- X = big(_), !, ccl_w_float(X, F).
-ir_fp_num(X, X).
+ir_fp_op_('/', A, B, V) :- B =\= 0, V is truncate(A / B).
 %% a value rounded to a float or a half, an overflow its infinity
 ir_fp_to(_, nan(S), nan(S)) :- !.
-ir_fp_to(float, V0, V) :- F is V0 * 1.0, ( abs(F) >= 3.4028235677973366e38 -> ( F > 0 -> V is 1.0e308 * 10.0 ; V is -1.0e308 * 10.0 ) ; ir_float_round(F, V) ).
-ir_fp_to(half, V0, V) :- F is V0 * 1.0, ( abs(F) >= 65520.0 -> ( F > 0 -> V is 1.0e308 * 10.0 ; V is -1.0e308 * 10.0 ) ; ir_half_round(F, V) ).
+ir_fp_to(float, V0, V) :- ir_fp_float(V0, F), ( abs(F) >= 3.4028235677973366e38 -> ccl_float_infinity(I), ( F > 0 -> V = I ; V is -I ) ; ir_float_round(F, V) ).
+ir_fp_to(half, V0, V) :- ir_fp_float(V0, F), ( abs(F) >= 65520.0 -> ccl_float_infinity(I), ( F > 0 -> V = I ; V is -I ) ; ir_half_round(F, V) ).
 ir_fp_global(T, LL) :- ccl_resolve_type(T, base(_, S)), \+ memberchk('_Complex', S), ( memberchk(double, S) ; memberchk(float, S) ; memberchk('_Float16', S) ), !, ir_type(T, LL).
 ir_fp_const(nan(S), LL, A) :- !, ir_fp_nan_text(LL, S, A).   % a NaN (0.143): the format's quiet NaN, its sign kept
 ir_fp_const(bv(S, T, L), LL, A) :- !, ir_fp_round_to(LL, x(S, T, L), V), ( V = bv(S1, T1, L1) -> ir_dec_binary_bits_text(LL, S1, T1, L1, A) ; ir_fp_const(V, LL, A) ).   % a long double's bits (0.154), rounded once to a narrower type
 ir_fp_const(X, LL, A) :- ( integer(X) ; X = big(_) ), !, ir_fp_exact(X, E), ir_fp_round_to(LL, E, V), ir_fp_const(V, LL, A).   % an integer rounded once to the type: `long double g = 9007199254740993;' keeps its last bit (0.154)
-ir_fp_const(V, LL, A) :- F is V * 1.0, ir_fp_const_(LL, F, A).
+ir_fp_const(V, LL, A) :- ir_fp_float(V, F), ir_fp_const_(LL, F, A).
 ir_fp_const_(x86_fp80, F, A) :- !, ir_x87(F, A).
 ir_fp_const_(fp128, F, A) :- !, ir_quad(F, A).                                     % an IEEE quad (0.131)
 ir_fp_const_(float, F, A) :- abs(F) >= 3.4028235677973366e38, !, ( F < 0 -> A = '0xFFF0000000000000' ; A = '0x7FF0000000000000' ).   % past a float's range: its infinity
@@ -1517,18 +1518,18 @@ ir_fp_const_(half, F, A) :- !, ir_half_round(F, R), ir_double(R, A).
 ir_fp_const_(_, F, A) :- ir_double(F, A).
 ir_float_round(F, R) :- ir_round_bits(F, 23, -126, 127, R).
 ir_half_round(F, R) :- ir_round_bits(F, 10, -14, 15, R).
-ir_round_bits(F, _, _, _, R) :- F =:= 0.0, !, R = F.
+ir_round_bits(F, _, _, _, R) :- ( F =:= 0.0 ; ccl_float_infinite(F) ), !, R = F.
 ir_round_bits(F, MB, EMin, EMax, R) :-
     X is abs(F), E0 is floor(log(X) / log(2)), ccl_float_norm(X, E0, E, _),
     (   E > EMax -> R0 = X
-    ;   ( E >= EMin -> K is MB - E ; K is MB - EMin ), Y is X * 2.0 ** K, ir_round_even(Y, N), R0 is N * 2.0 ** (-K) ),
+    ;   ( E >= EMin -> K is MB - E ; K is MB - EMin ), Y is X * 2.0 ** K, ir_round_even(Y, N), R0 is float(N) * 2.0 ** (-K) ),
     ( F < 0 -> R is -R0 ; R = R0 ).
 %% to the nearest integer, a tie to the even one, as IEEE 754 rounds (0.154): round/1 takes a tie away from zero, so `float
 %% g = 16777217.0;' was 16777218 and `_Float16 h = 2049.0;' 2050, where clang has 16777216 and 2048. Y is exact: a double
 %% times a power of two
 ir_round_even(Y, N) :- T is truncate(Y), D is Y - T, ( D > 0.5 -> N is T + 1 ; D < 0.5 -> N = T ; T mod 2 =:= 0 -> N = T ; N is T + 1 ).
 ir_x87(F, A) :- F =:= 0.0, !, ( ir_neg_zero(F) -> A = '0xK80000000000000000000' ; A = '0xK00000000000000000000' ).
-ir_x87(F, A) :- ir_fp_infinite(F), !, ( F > 0 -> A = '0xK7FFF8000000000000000' ; A = '0xKFFFF8000000000000000' ).
+ir_x87(F, A) :- ccl_float_infinite(F), !, ( F > 0 -> A = '0xK7FFF8000000000000000' ; A = '0xKFFFF8000000000000000' ).
 ir_x87(F, A) :-
     X is abs(F), ( F < 0 -> Sg = 1 ; Sg = 0 ),
     E0 is floor(log(X) / log(2)), ccl_float_norm(X, E0, E, M),
@@ -1538,22 +1539,24 @@ ir_x87(F, A) :-
     Hi is Sig >> 21, Lo is (Sig /\ 2097151) << 11,               % shifted to 64 bits: the high and the low 32
     ir_hexn(SE, 4, HE), ir_hexn(Hi, 8, HH), ir_hexn(Lo, 8, HL),
     atomic_list_concat(['0xK', HE, HH, HL], A).
-ir_fp_infinite(F) :- float(F), F =\= 0.0, F =:= F * 2.
-%% A NaN (0.143): neither `<' nor `>' holds for it, and cocolog writes it `1.5NaN', as SWI does -- its `=:=' holds for a NaN
-%% against ANY number, 0.0 among them, so a NaN that reached ir_double/2 would be spelled +0.0; the fold keeps it as nan(S)
+%% A NaN (0.143): neither `<' nor `>' holds for it, and cocolog writes it `1.5NaN', as SWI does -- through 2.1.1 its `=:='
+%% held for a NaN against ANY number, 0.0 among them (since 2.1.2 only `=\=' holds), so a NaN that reached ir_double/2
+%% was spelled +0.0; the fold keeps it as nan(S)
 ir_fp_nan(F) :- float(F), \+ F > 0.0, \+ F < 0.0, format(atom(A), '~w', [F]), sub_atom(A, _, 3, 0, 'NaN').
 %% the builtins' constants in a global's initializer, as ir_float_builtin/4 spells them in a function: an infinity, and a
 %% NaN with no payload, `__builtin_nan("")' (glibc's `NAN')
-ir_fp_builtin_value(B, [], V) :- memberchk(B, ['__builtin_inf', '__builtin_inff', '__builtin_infl', '__builtin_huge_val', '__builtin_huge_valf', '__builtin_huge_vall']), !, V is 1.0e308 * 10.0.
+ir_fp_builtin_value(B, [], V) :- memberchk(B, ['__builtin_inf', '__builtin_inff', '__builtin_infl', '__builtin_huge_val', '__builtin_huge_valf', '__builtin_huge_vall']), !, ccl_float_infinity(V).
 ir_fp_builtin_value(B, [str([])], nan(0)) :- memberchk(B, ['__builtin_nan', '__builtin_nanf', '__builtin_nanl']).
 %% A NEGATIVE ZERO (0.143): a float equal to zero that is written with its sign. cocolog keeps the sign of `-0.0' in its
 %% reader and in -/1 since 1.10.28, writes it `-0.0' as SWI does, and has no copysign/2; the sign was lost before, and a
 %% floating constant `-0.0' -- a global's, a static's, an array's item, `0.0 * -1.0' -- was spelled +0.0
 ir_neg_zero(F) :- float(F), F =:= 0.0, format(atom(A), '~w', [F]), sub_atom(A, 0, 1, _, '-').
+%% a value as a float with no arithmetic on a float (0.158): `X * 1.0' raises at an infinity since cocolog 2.2.0
+ir_fp_float(X, F) :- ( float(X) -> F = X ; F is float(X) ).
 %% AN IEEE QUAD's 0xL form (0.131): the low 64 bits, then the high 64 (sign, 15 exponent bits biased 16383, the fraction's
 %% top 48); the double's 52 fraction bits fill the top of the quad's 112, exactly
 ir_quad(F, A) :- F =:= 0.0, !, ( ir_neg_zero(F) -> A = '0xL00000000000000008000000000000000' ; A = '0xL00000000000000000000000000000000' ).
-ir_quad(F, A) :- ir_fp_infinite(F), !, ( F > 0 -> A = '0xL00000000000000007FFF000000000000' ; A = '0xL0000000000000000FFFF000000000000' ).
+ir_quad(F, A) :- ccl_float_infinite(F), !, ( F > 0 -> A = '0xL00000000000000007FFF000000000000' ; A = '0xL0000000000000000FFFF000000000000' ).
 ir_quad(F, A) :-
     X is abs(F), ( F < 0 -> Sg = 1 ; Sg = 0 ),
     E0 is floor(log(X) / log(2)), ccl_float_norm(X, E0, E, M),

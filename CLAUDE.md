@@ -10,7 +10,7 @@ it found, its measurements and its gate numbers. `README.md` tells a user what r
 architecture and the milestones. A step that changes a rule edits the rule here, in its topic, and writes its entry
 in `HISTORY.md`.
 
-At 0.157 the versions are: the module 0.157 (`ccl_p_version` in `module/cicilang.cicili`, `bin/cicilang --version`),
+At 0.158 the versions are: the module 0.158 (`ccl_p_version` in `module/cicilang.cicili`, `bin/cicilang --version`),
 the reader 130 (`ccl_reader_version/1`, `library/ccl_syntax.pl`) and the lowering 84 (`ccl_lowering_version/1`,
 `library/ccl_ir.pl`).
 
@@ -1926,12 +1926,15 @@ tutorials/01..03-*.pl       the objects layer's lessons; goal main, last line do
 
 - A FLOAT IS STORED EXACTLY (0.132): cocolog writes a float with 15 digits (the Findings), so every float of a stored
   read is frozen to integers before the write, `'$fz'(Item)` with each float `'$fl'(M, E)`, M x 2^E exactly, M odd
-  (`ccl_float_freeze/2` over `ccl_float_parts/3`: `0` for a zero, `inf` and the sign for an infinity), and thawed when it
-  is read (`ccl_float_thaw/2`): the C store's items (`ccl_kb_store_items`, `ccl_kb_values`), a C++ summary's terms
+  (`ccl_float_freeze/2` over `ccl_float_parts/3`: `0` for a zero, `inf` and the sign for an infinity), and thawed when
+  it is read (`ccl_float_thaw/2`): the C store's items (`ccl_kb_store_items`, `ccl_kb_values`), a C++ summary's terms
   (`ccl_sum_terms_out`, `ccl_sum_terms`) and the AST beside it (`ccl_ast_lines`, `cpp_hdr_item/2`). A term with no float
   is written as before. Why: a literal of 16 or 17 digits came back another double -- a silent wrong answer -- and the
   largest double came back an infinity, on which the lowering's normalization recursed without end (`hexfloat.c` built a
-  second time over one store took 7.3 GB). Reader check `k93`; reader version 125.
+  second time over one store took 7.3 GB). Reader check `k93`; reader version 125. No float arithmetic of the freeze or
+  the thaw meets an infinity since 0.158 (the Findings' bullet of cocolog 2.2.0, which raises at one): an infinity is
+  told by a comparison and made from its text (`ccl_float_infinite/1`, `ccl_float_infinity/1`), the exponent's estimate
+  is held to a double's (`ccl_float_norm/4`), and a thawed value is `float(M) * 2.0 ** E`. (0.132, 0.158)
 
 ### The IR cache
 
@@ -5761,23 +5764,28 @@ A lambda is a class of its captures (`library/ccl_cpp.pl`). A fixture named alon
   float as the double hex of its value rounded to a float, `x86_fp80` in the `0xK` form, `_Float16` as `half`. (M2,
   0.108)
 - A floating constant folds as the target computes it (0.132): a subnormal double is spelled on the 2^-1074 grid
-  (`ir_double/2`; the exponent was taken past -1022 and the bits lost), an infinity as the format's own (`ir_fp_infinite/1`),
-  a cast to `float` or `_Float16` in an initializer rounds to that type before the value goes on (`ir_fp_to/3`: `double d =
-  (float) 0.1;` is 0.100000001490116, as clang has it; past the type's range its infinity), and a division by zero is the
-  signed infinity. A tie rounds to the even value (0.154; `ir_round_even/2` in `ir_round_bits/5`): `round/1` takes a tie
-  away from zero, so `float g = 16777217.0;` was 16777218 and `_Float16 h = 2049.0;` 2050 at file scope, where clang has
-  16777216 and 2048 (a local was right: its constant is LLVM's to round). `test/c/run/fpconst.c`. (0.132, 0.154)
-- A NEGATIVE ZERO, AN INFINITY AND A NaN IN A FLOATING CONSTANT are folded as clang folds them (0.143). A negative zero keeps
-  its sign (`ir_double`, `ir_x87`, `ir_quad` over `ir_neg_zero/1`, the sign read off the text cocolog writes, `-0.0`, since
-  it has no `copysign/2`): `double g = -0.0;`, a static's, an array's item, `0.0 * -1.0`, a float and a long double were
-  +0.0. A constant divided by a negative zero is the infinity of the other sign. `INFINITY`, `HUGE_VAL` and `NAN`, the
-  builtins behind them, fold in a global's initializer (`ir_fp_builtin_value/3`), which refused them
-  (`global_init(call(id('__builtin_nanf'), ...))`). An invalid operation -- `0.0 / 0.0`, `1e999 - 1e999`, `0.0 * INFINITY`
-  -- is the positive quiet NaN, a NaN operand gives itself, a negation flips a NaN's sign; the fold carries a NaN as
-  `nan(S)`, since cocolog writes no NaN's sign, and spells it by `ir_fp_nan_text/3` (`ir_fp_nan/1`, `ir_fp_op/4` over
-  `ir_fp_op_/4`). No NaN reaches `ir_double/2`, whose first test, `F =:= 0.0`, would take it for a zero: cocolog's `=:=`
-  holds for a NaN against any number.
-  `test/c/run/negzero.c`, `fpspecial.c` (both on aarch64 too). Lowering 82.
+  (`ir_double/2`; the exponent was taken past -1022 and the bits lost), an infinity as the format's own
+  (`ccl_float_infinite/1`), a cast to `float` or `_Float16` in an initializer rounds to that type before the value goes
+  on (`ir_fp_to/3`: `double d = (float) 0.1;` is 0.100000001490116, as clang has it; past the type's range its
+  infinity), and a division by zero is the signed infinity. A tie rounds to the even value (0.154; `ir_round_even/2` in
+  `ir_round_bits/5`): `round/1` takes a tie away from zero, so `float g = 16777217.0;` was 16777218 and `_Float16 h =
+  2049.0;` 2050 at file scope, where clang has 16777216 and 2048 (a local was right: its constant is LLVM's to round).
+  `test/c/run/fpconst.c`. (0.132, 0.154)
+- A NEGATIVE ZERO, AN INFINITY AND A NaN IN A FLOATING CONSTANT are folded as clang folds them (0.143). A negative zero
+  keeps its sign (`ir_double`, `ir_x87`, `ir_quad` over `ir_neg_zero/1`, the sign read off the text cocolog writes,
+  `-0.0`, since it has no `copysign/2`): `double g = -0.0;`, a static's, an array's item, `0.0 * -1.0`, a float and a
+  long double were +0.0. A constant divided by a negative zero is the infinity of the other sign. `INFINITY`, `HUGE_VAL`
+  and `NAN`, the builtins behind them, fold in a global's initializer (`ir_fp_builtin_value/3`), which refused them
+  (`global_init(call(id('__builtin_nanf'), ...))`). An invalid operation -- `0.0 / 0.0`, `1e999 - 1e999`, `0.0 *
+  INFINITY` -- is the positive quiet NaN, a NaN operand gives itself, a negation flips a NaN's sign; the fold carries a
+  NaN as `nan(S)`, since cocolog writes no NaN's sign, and spells it by `ir_fp_nan_text/3` (`ir_fp_nan/1`). No NaN
+  reaches `ir_double/2`, whose first test, `F =:= 0.0`, took one for a zero through cocolog 2.1.1, whose `=:=` held for
+  a NaN against any number. `test/c/run/negzero.c`, `fpspecial.c` (both on aarch64 too). Lowering 82. A DOUBLE'S `+ - *
+  /` IS FOLDED ON THE LONG DOUBLE'S EXACT ROAD since 0.158 (`ir_fp_op/4` over `ir_x_op/4` and `ir_fp_round_to/3`): each
+  operand converted to a double first, the exact result rounded once, as IEEE 754 has it, its infinities, NaNs and
+  signed zeros `ir_x_op/4`'s; it was the engine's own float arithmetic, which raises at an infinity, at a NaN and at a
+  division by a float zero since cocolog 2.2.0. Two integers keep the integer arithmetic the fold had where the integer
+  evaluator gave up (`ir_fp_op_/4`). On 2.1.0 the two roads give the same IR for the 80 C run fixtures. (0.143, 0.158)
 - A local shadows an enumerator: `ir_expr(id(N))` asks `ir_lookup/2` before `ccl_enum_value/2`. Else an enumerator of
   libc++'s `<format>`, `__ptr`, replaced a parameter. `test/c/run/enumshadow.c`, `test/cpp/run/enumshadow.cpp`. (0.94)
 - `ir_convert/6` tries, in order: a reference read through, where a reference to a function is its address
@@ -6491,84 +6499,99 @@ A lambda is a class of its captures (`library/ccl_cpp.pl`). A fixture named alon
   at 2882 MB, 1.8.38 at 591 MB. After a cocolog update the modules are rebuilt (`module/build.sh`,
   `module/build-llvm.sh`, and cocolog's `os` and `process` modules); 1.8.36 to 1.8.41 left the SDK's ABI unchanged.
   (0.46, 0.112, 0.114)
-- cocolog is at 2.1.0 since 0.157 -- master `a01aa24`, over ZiguratIP 1.0.1 (`90d99b8`); Cicili stays 3.0.0 (`9d74a5e`).
-  2.0.0 (`d17fef4`), a major, makes integers 64 bits (the Integers bullet below), orders two integers exactly (the
-  `compare/3` bullet), counts text in characters by default (the text units bullet), and adds `string_bytes/3` and the
-  flags `bounded`, `max_integer`, `min_integer`, `max_tagged_integer` and `min_tagged_integer`; 2.1.0, a minor, adds
-  `=@=/2`, `\=@=/2` and `subsumes_term/2`, makes `term_variables/2` linear (200,000 variables in 0.027 s, where they
-  took 6.8 s), and names a defect it leaves for the next change (the bullet of `0.0` and `-0.0` below). The SDK adds
-  `coco_m_evaluation_error`, and `coco_m_int` reads either kind of integer; neither module here calls them, and both
-  were built again with no change. The update took `make` 146 s, `make schema` 177 s and `make modules` 231 s, which
-  built the modules 1.15.0's did, curl among them as 2.0.0 asks (torch, tensorflow, ray and numpy skipped, as before).
-  Measured at 0.157, one run at a time, the same library on each engine (0.156's over 1.15.0, 0.157's over 2.1.0): five
-  warm C++ builds 47.20 s on 1.15.0 and 46.92 s on 2.1.0 (the least CPU time of three runs each), so the checks 2.0.0
-  adds to `+`, `-` and `*` cost nothing measurable here; the cold census of the flattened `<iomanip>` 101.0 s on 1.15.0
-  and 102.1 s on 2.1.0 (the least of two runs each, interleaved). The same engine and reader took 119.6 s in 0.156's
-  series, and the whole chain ran 6 % faster than 0.156's: a census is compared within one series only, and the 18 %
-  that 0.155 read between 1.12.1 and 1.14.0 waits for a series with 1.12.1 in it. It was at 1.15.0 from 0.156 -- master
-  `b576087`: 1.15.0 names what is not an integer by its value in an integer-only function (the Integers bullet below:
-  `1.5 >> 1` raises `type_error(integer, 1.5)`, where 1.14.0 named heap cell 0, the loaded file's path), and answers our
-  two wishes of 0.152: each time-view row's largest call at ` @W:S`, and `flow_run_time/3`, the whole run's self time by
-  predicate (the flow tools bullet; `test/prof.sh`'s RUN view). The SDK did not change, and both modules here were built
-  again with no change. Measured at 0.156, one run at a time, the 0.155 library on each engine: five warm C++ builds
-  50.07 s on 1.14.0 and 49.72 s on 1.15.0 (the least CPU time of three runs each); the cold census of the flattened
-  `<iomanip>` 118.6 s on 1.14.0 and 119.6 s on 1.15.0 (the least of two runs each), still some 18 % past 1.12.1's 100.7
-  s. It was at 1.14.0 from 0.155 -- master `52abc90`: 1.13.4 (`c75dbfe`) a `catch/3` whose goal exited with nothing
-  above it to retry takes its frame with it, as SWI's `I_EXITCATCH` does (0.151's report; the bullet of `catch/3`'s
-  habit below); `39ad572` `make schema` takes `$ZIGURATIP/home` where `ZIGURATIP_HOME` is not set (0.151's note); 1.13.5
-  (`5303e09`) `=/2` inline in the builtin switch again; 1.13.6 (`bde07b1`) the flow debugger's clock counts steps and
-  says so (the flow tools bullet); 1.13.7 (`eb90ec6`) the time view's retries and loads, `flow_why_furthest/2`'s rule,
-  and with ZiguratIP 1.0.1 a store that opens in a tenth of the CPU (a page's hexmap read once) and a first call that
-  fetches a big predicate's clauses with 21 % fewer instructions; 1.14.0 `>>` and `<<` by any count (0.155's report; the
-  Integers bullet below). The SDK did not change, and both modules here were built again with no change. Measured at
-  0.155, one run at a time, the 0.154 library on each engine: five warm C++ builds 50.49 s on 1.13.3 and 50.09 s on
-  1.14.0 (the least CPU time of three runs each); the `=/2` loop of 0.151 1.897 s and 1.890 s, inside this box's noise;
-  the compile gate's store of 20 MB opens in 24 ms of CPU and 13 ms. A COLD READ IS STILL SLOWER than on 1.12.1: the
-  census of the flattened `<iomanip>` (C++17, the parse alone) takes 100.7 s on 1.12.1, 119.5 s on 1.13.3 and 118.7 s on
-  1.14.0, 18 % more (0.151: 16 % between 1.12.1 and 1.13.0, on a faster box); 1.13.5's `=/2` took back cocolog's own
-  loop and not our parse; not yet told to cocolog's owner. It was at 1.13.3 from 0.152 -- master `2ae4351`: 1.13.1
-  (`9da534a`) `split_string/4` by SWI's rule where the pad holds a separator, which cicilang does not call; 1.13.2
-  (`72f6465`) the translator's accents and marks in both text units (`library/reasoning/`, which cicilang does not
-  load); 1.13.3 the TIME a window's inferences took (the flow tools bullet), a probe under a clock read at every
-  inference, which a run pays for only where it asks: the five fixtures of 0.149, one build at a time over a warm cache,
-  the least CPU time of three runs each, took 52.00 s on 1.13.3 and 52.07 s on 1.13.0 (0.152). 1.13.3 changes no SDK
-  declaration (`lib/sdk.cicili`), and both modules here were built again with no change. It was at 1.13.0 from 0.151
-  (`7871d5e`): 1.12.2 (`88388f7`) answers `length/2`, `nth0/3`, `nth1/3`, `last/2`, `reverse/2` and
-  `atomic_list_concat/2,3` in one step each where a clause took 2 to 13 (five calls of `length/2` that went round for
-  ever now fail, `length([a,b,c|T], 2)` among them; the flow chart draws them as builtins) and keeps two clocks:
-  `statistics/2`'s inferences leave out each `true` and `=/2`, as SWI counts none, and the clock that the debugger
-  numbers its calls by counts every goal (the `test/prof.sh` topic); 1.13.0 the flag `text_units` (the next bullet),
-  four SDK functions for a module that hands text back as codes, and `upcase_atom/2` and `downcase_atom/2` of any
-  length. Measured at 0.151 (the five fixtures of 0.149 over a warm cache, one build at a time, the least CPU time of
-  three runs each): the 0.150 library builds them in 54.8 s on 1.13.0 where it took 55.1 s on 1.12.1, inside the 4 %
-  that separates two runs of one way, and a build's inferences by `statistics/2` are 5 to 6 % fewer (`stdvector.cpp`
-  17.2 million where 18.1, `stdformat.cpp` 127.1 million where 135.3). A COLD READ IS SLOWER: the census of the
-  flattened `<iomanip>` (C++17, the parse alone) takes 59.5 s of CPU on 1.12.1, 66.4 s on 1.12.2 and 68.9 s on 1.13.0
-  (the least of three), and the preprocessor alone (`-E`) the same 10 s on each, so a cold `cicilang++ -fsyntax-only` of
-  it takes 75 s on 1.12.1 and 85 to 100 s on 1.13.0, over libc++ 18 and 21 alike; a loop of `=/2` goals is 9 % slower on
-  1.12.2 and 17 % on 1.13.0, where a loop of calls or a grammar of terminals is not; told to cocolog's owner at 0.151.
-  It was at 1.12.1 from 0.149 (`2fef28e`): 1.12.0 (`2f22043`) `nb_current/2`, and `setarg/3` and `nb_setarg/3` over a
-  trail that carries values (each writes the argument's own cell), their modes in the flow chart's table; 1.12.1 a
-  global's value read as one block by `nb_getval/2`, `b_getval/2` and `nb_current/2`, the copy of a ground value shared
-  while it lives (the costs below), and the trail's pair words carrying their cell under bit 40, which no module here
-  reads. Measured at 0.149: the 0.148 library built the five fixtures in 55.7 s on 1.12.1 where it took 77.2 s on
-  1.11.10 -- `stdformat.cpp` 34.3 s where 53.8 s, `stdtuple.cpp` 12.7 where 13.8, `stdmap.cpp` 4.9 where 5.3,
-  `stdvector.cpp` 3.7 where 4.1 --, and the reads of 0.149 (`nb_current/2`) changed nothing measurable, 56.7 s. It was
-  at 1.11.10 from 0.148 (`62f10e3`): 1.11.5 and 1.11.6 the reasoning line's translator (`library/reasoning/`, which
-  cicilang does not load); 1.11.7 the flow debugger's answer to the points of 0.146; 1.11.8 the crash of `atom_chars/2`
-  and `number_chars/2` (below); 1.11.9 a syntax error's place in a load (below), the engine's load, module, solve and
-  syntax code changed; 1.11.10 the profile's views and windows along one run (the flow tools bullet below) -- over
-  ZiguratIP 1.0.0 (`01251f4`, its store pages 64 KiB) and beside Cicili 3.0.0 (`9d74a5e`), where a float literal is a
-  double: every float-like number in our two modules is in a comment, and they use no `(inline)` or `(weak)` (Cicili
-  2.0.0's change), so their C does not change. The neighbours are rebuilt in this order: ZiguratIP (`make
-  MODE=Release`), cocolog (`make`, `make schema` with `ZIGURATIP_HOME` set to ZiguratIP's `home`, `make modules`, which
-  builds its `os`, `process` and `stream` modules and the flow tables), then both modules here. 1.13.0 adds four SDK
-  declarations (`coco_m_text_chars`, `coco_m_codes_of`, `coco_m_utf8_get`, `coco_m_utf8_enc`), which neither module here
-  calls, and 1.11.0 to 1.12.2 add no SDK call and change no struct (`lib/sdk.cicili` was the file 1.11.4 had): 1.11.0
-  takes `proc_run/4`'s deadline from the monotonic clock (each poll was charged its whole 200 ms step, so a child that
-  printed more than about 20 bytes a millisecond of its budget was killed early, status 124) and mends three faults of
-  the flow debugger; 1.11.2 has a debugger's window record only the clause heads that a call TRIED (one failed call of a
-  fact table listed every head) and match them in linear time; 1.11.3 changes the translator
+- cocolog is at 2.2.0 since 0.158 -- master `2b7df28`, over ZiguratIP 1.0.1 (`90d99b8`); Cicili stays 3.0.0 (`9d74a5e`).
+  2.1.1 (`a7a5841`) tells floats apart by their bits, as swipl 9.0.4 does (the bullet of `0.0` and `-0.0` below); 2.1.2
+  (`5829f02`) makes a NaN unordered, only `=\=` holding of it, makes `max/2` and `min/2` SWI's (`max(2, 1.5)` is the
+  integer 2) and sums integers exactly in `aggregate_all/3`; 2.2.0, a minor, raises at a float result that is a NaN or
+  an infinity and at such an operand first, and makes `**` and `^` SWI's (the bullet of a float that is no number
+  below): 0.157's library failed on it, and 0.158 is the repair. The SDK did not change, and both modules here were
+  built again with no change. The update took `make` 124 s, `make schema` 30 s and `make modules` 52 s, the modules
+  2.1.0's build made (torch, tensorflow, ray and numpy skipped). 2.2.1 (`fd155de`) and 2.2.2 (`46c2807`), out while this
+  step's comparisons and measurements ran, are not taken: 2.2.1 changes no engine source but its version line (its
+  change is the linter, `tools/cocolint`, the translation library and the lessons), and 2.2.2 adds swipl's four float
+  flags (`float_overflow`, `float_zero_div`, `float_undefined`, `float_underflow`), `set_prolog_flag/2` as a goal, and
+  `inf`, `nan` and `epsilon` as evaluable functions, no arithmetic answer changed at the default flags. Measured at
+  0.158, one run at a time, the 0.158 library on each engine: five warm C++ builds 45.31 s on 2.1.0 and 45.62 s on 2.2.0
+  (the least CPU time of three runs each), so the checks 2.2.0 adds to a float result cost nothing measurable here; the
+  cold census of the flattened `<iomanip>` 72.7 s on 2.1.0 and 69.8 s on 2.2.0 (the least of two runs each,
+  interleaved), where 0.157's series read it in 101.0 s on 2.1.0, the box slower then: a census is compared within one
+  series. It was at 2.1.0 from 0.157 -- master `a01aa24`: 2.0.0 (`d17fef4`), a major, makes integers 64 bits (the
+  Integers bullet below), orders two integers exactly (the `compare/3` bullet), counts text in characters by default
+  (the text units bullet), and adds `string_bytes/3` and the flags `bounded`, `max_integer`, `min_integer`,
+  `max_tagged_integer` and `min_tagged_integer`; 2.1.0, a minor, adds `=@=/2`, `\=@=/2` and `subsumes_term/2`, makes
+  `term_variables/2` linear (200,000 variables in 0.027 s, where they took 6.8 s), and names a defect it leaves for the
+  next change (the bullet of `0.0` and `-0.0` below). The SDK adds `coco_m_evaluation_error`, and `coco_m_int` reads
+  either kind of integer; neither module here calls them, and both were built again with no change. The update took
+  `make` 136 s, `make schema` 31 s and `make modules` 54 s, which built the modules 1.15.0's did, curl among them as
+  2.0.0 asks (torch, tensorflow, ray and numpy skipped, as before). Measured at 0.157, one run at a time, the same
+  library on each engine (0.156's over 1.15.0, 0.157's over 2.1.0): five warm C++ builds 47.20 s on 1.15.0 and 46.92 s
+  on 2.1.0 (the least CPU time of three runs each), so the checks 2.0.0 adds to `+`, `-` and `*` cost nothing measurable
+  here; the cold census of the flattened `<iomanip>` 101.0 s on 1.15.0 and 102.1 s on 2.1.0 (the least of two runs each,
+  interleaved). The same engine and reader took 119.6 s in 0.156's series, and the whole chain ran 6 % faster than
+  0.156's: a census is compared within one series only, and the 18 % that 0.155 read between 1.12.1 and 1.14.0 waits for
+  a series with 1.12.1 in it. It was at 1.15.0 from 0.156 -- master `b576087`: 1.15.0 names what is not an integer by
+  its value in an integer-only function (the Integers bullet below: `1.5 >> 1` raises `type_error(integer, 1.5)`, where
+  1.14.0 named heap cell 0, the loaded file's path), and answers our two wishes of 0.152: each time-view row's largest
+  call at ` @W:S`, and `flow_run_time/3`, the whole run's self time by predicate (the flow tools bullet;
+  `test/prof.sh`'s RUN view). The SDK did not change, and both modules here were built again with no change. Measured at
+  0.156, one run at a time, the 0.155 library on each engine: five warm C++ builds 50.07 s on 1.14.0 and 49.72 s on
+  1.15.0 (the least CPU time of three runs each); the cold census of the flattened `<iomanip>` 118.6 s on 1.14.0 and
+  119.6 s on 1.15.0 (the least of two runs each), still some 18 % past 1.12.1's 100.7 s. It was at 1.14.0 from 0.155 --
+  master `52abc90`: 1.13.4 (`c75dbfe`) a `catch/3` whose goal exited with nothing above it to retry takes its frame with
+  it, as SWI's `I_EXITCATCH` does (0.151's report; the bullet of `catch/3`'s habit below); `39ad572` `make schema` takes
+  `$ZIGURATIP/home` where `ZIGURATIP_HOME` is not set (0.151's note); 1.13.5 (`5303e09`) `=/2` inline in the builtin
+  switch again; 1.13.6 (`bde07b1`) the flow debugger's clock counts steps and says so (the flow tools bullet); 1.13.7
+  (`eb90ec6`) the time view's retries and loads, `flow_why_furthest/2`'s rule, and with ZiguratIP 1.0.1 a store that
+  opens in a tenth of the CPU (a page's hexmap read once) and a first call that fetches a big predicate's clauses with
+  21 % fewer instructions; 1.14.0 `>>` and `<<` by any count (0.155's report; the Integers bullet below). The SDK did
+  not change, and both modules here were built again with no change. Measured at 0.155, one run at a time, the 0.154
+  library on each engine: five warm C++ builds 50.49 s on 1.13.3 and 50.09 s on 1.14.0 (the least CPU time of three runs
+  each); the `=/2` loop of 0.151 1.897 s and 1.890 s, inside this box's noise; the compile gate's store of 20 MB opens
+  in 24 ms of CPU and 13 ms. A COLD READ IS STILL SLOWER than on 1.12.1: the census of the flattened `<iomanip>` (C++17,
+  the parse alone) takes 100.7 s on 1.12.1, 119.5 s on 1.13.3 and 118.7 s on 1.14.0, 18 % more (0.151: 16 % between
+  1.12.1 and 1.13.0, on a faster box); 1.13.5's `=/2` took back cocolog's own loop and not our parse; not yet told to
+  cocolog's owner. It was at 1.13.3 from 0.152 -- master `2ae4351`: 1.13.1 (`9da534a`) `split_string/4` by SWI's rule
+  where the pad holds a separator, which cicilang does not call; 1.13.2 (`72f6465`) the translator's accents and marks
+  in both text units (`library/reasoning/`, which cicilang does not load); 1.13.3 the TIME a window's inferences took
+  (the flow tools bullet), a probe under a clock read at every inference, which a run pays for only where it asks: the
+  five fixtures of 0.149, one build at a time over a warm cache, the least CPU time of three runs each, took 52.00 s on
+  1.13.3 and 52.07 s on 1.13.0 (0.152). 1.13.3 changes no SDK declaration (`lib/sdk.cicili`), and both modules here were
+  built again with no change. It was at 1.13.0 from 0.151 (`7871d5e`): 1.12.2 (`88388f7`) answers `length/2`, `nth0/3`,
+  `nth1/3`, `last/2`, `reverse/2` and `atomic_list_concat/2,3` in one step each where a clause took 2 to 13 (five calls
+  of `length/2` that went round for ever now fail, `length([a,b,c|T], 2)` among them; the flow chart draws them as
+  builtins) and keeps two clocks: `statistics/2`'s inferences leave out each `true` and `=/2`, as SWI counts none, and
+  the clock that the debugger numbers its calls by counts every goal (the `test/prof.sh` topic); 1.13.0 the flag
+  `text_units` (the next bullet), four SDK functions for a module that hands text back as codes, and `upcase_atom/2` and
+  `downcase_atom/2` of any length. Measured at 0.151 (the five fixtures of 0.149 over a warm cache, one build at a time,
+  the least CPU time of three runs each): the 0.150 library builds them in 54.8 s on 1.13.0 where it took 55.1 s on
+  1.12.1, inside the 4 % that separates two runs of one way, and a build's inferences by `statistics/2` are 5 to 6 %
+  fewer (`stdvector.cpp` 17.2 million where 18.1, `stdformat.cpp` 127.1 million where 135.3). A COLD READ IS SLOWER: the
+  census of the flattened `<iomanip>` (C++17, the parse alone) takes 59.5 s of CPU on 1.12.1, 66.4 s on 1.12.2 and 68.9
+  s on 1.13.0 (the least of three), and the preprocessor alone (`-E`) the same 10 s on each, so a cold `cicilang++
+  -fsyntax-only` of it takes 75 s on 1.12.1 and 85 to 100 s on 1.13.0, over libc++ 18 and 21 alike; a loop of `=/2`
+  goals is 9 % slower on 1.12.2 and 17 % on 1.13.0, where a loop of calls or a grammar of terminals is not; told to
+  cocolog's owner at 0.151. It was at 1.12.1 from 0.149 (`2fef28e`): 1.12.0 (`2f22043`) `nb_current/2`, and `setarg/3`
+  and `nb_setarg/3` over a trail that carries values (each writes the argument's own cell), their modes in the flow
+  chart's table; 1.12.1 a global's value read as one block by `nb_getval/2`, `b_getval/2` and `nb_current/2`, the copy
+  of a ground value shared while it lives (the costs below), and the trail's pair words carrying their cell under bit
+  40, which no module here reads. Measured at 0.149: the 0.148 library built the five fixtures in 55.7 s on 1.12.1 where
+  it took 77.2 s on 1.11.10 -- `stdformat.cpp` 34.3 s where 53.8 s, `stdtuple.cpp` 12.7 where 13.8, `stdmap.cpp` 4.9
+  where 5.3, `stdvector.cpp` 3.7 where 4.1 --, and the reads of 0.149 (`nb_current/2`) changed nothing measurable, 56.7
+  s. It was at 1.11.10 from 0.148 (`62f10e3`): 1.11.5 and 1.11.6 the reasoning line's translator (`library/reasoning/`,
+  which cicilang does not load); 1.11.7 the flow debugger's answer to the points of 0.146; 1.11.8 the crash of
+  `atom_chars/2` and `number_chars/2` (below); 1.11.9 a syntax error's place in a load (below), the engine's load,
+  module, solve and syntax code changed; 1.11.10 the profile's views and windows along one run (the flow tools bullet
+  below) -- over ZiguratIP 1.0.0 (`01251f4`, its store pages 64 KiB) and beside Cicili 3.0.0 (`9d74a5e`), where a float
+  literal is a double: every float-like number in our two modules is in a comment, and they use no `(inline)` or
+  `(weak)` (Cicili 2.0.0's change), so their C does not change. The neighbours are rebuilt in this order: ZiguratIP
+  (`make MODE=Release`), cocolog (`make`, `make schema` with `ZIGURATIP_HOME` set to ZiguratIP's `home`, `make modules`,
+  which builds its `os`, `process` and `stream` modules and the flow tables), then both modules here. 1.13.0 adds four
+  SDK declarations (`coco_m_text_chars`, `coco_m_codes_of`, `coco_m_utf8_get`, `coco_m_utf8_enc`), which neither module
+  here calls, and 1.11.0 to 1.12.2 add no SDK call and change no struct (`lib/sdk.cicili` was the file 1.11.4 had):
+  1.11.0 takes `proc_run/4`'s deadline from the monotonic clock (each poll was charged its whole 200 ms step, so a child
+  that printed more than about 20 bytes a millisecond of its budget was killed early, status 124) and mends three faults
+  of the flow debugger; 1.11.2 has a debugger's window record only the clause heads that a call TRIED (one failed call
+  of a fact table listed every head) and match them in linear time; 1.11.3 changes the translator
   (`library/reasoning/translate.pl`) alone; 1.11.4 (`0da59f4`), The Coco's answer to the flow feedback of 0.144, changes
   `library/flow` alone (the flow tools bullet below), and its whole suite ran with 0 red (64 green, 5 skipped for no
   CUDA); `7708de9` after it passes each compiler flag of `tools/cc` once. The flow gate and `test/why.sh` were written
@@ -6578,7 +6601,7 @@ A lambda is a class of its captures (`library/ccl_cpp.pl`). A fixture named alon
   refused allocation, `current_predicate/1` and `predicate_property/2`, the flow tools, each in its bullet below -- and
   added one SDK call (`coco_m_resource_error`). 1.10.22 (0.140) and 1.10.0 (0.132) were the steps before; cocolog
   1.10.6's builtins that raise where they failed (`arg/3` on an atomic term, `=..`, `assert` of what is no clause) broke
-  nothing here. (0.132, 0.140, 0.142, 0.144, 0.146, 0.148, 0.149, 0.150, 0.151, 0.152, 0.155, 0.156, 0.157)
+  nothing here. (0.132, 0.140, 0.142, 0.144, 0.146, 0.148, 0.149, 0.150, 0.151, 0.152, 0.155, 0.156, 0.157, 0.158)
 - cocolog counts text in CHARACTERS since 2.0.0, as SWI does, where 1.13.0 to 1.15.0 counted bytes unless a program
   asked for characters (the flag `text_units`, 1.13.0): bytes are asked for by `:- set_prolog_flag(text_units,
   bytes).`, or `COCOLOG_TEXT_UNITS=bytes` for a whole run, and give 1.x's answers. In characters `atom_length/2`,
@@ -6603,10 +6626,10 @@ A lambda is a class of its captures (`library/ccl_cpp.pl`). A fixture named alon
   1.10.28 it writes a float as SWI 9 does, the fewest digits that read back as the same double (`0.30000000000000004`,
   `1.0e+22`, `5.0e-324`, `100000000000000.0`, `1.0Inf`, `1.5NaN`; a NaN's sign is never written), reads `1.0Inf` and
   `1.5NaN` back, and keeps the sign of `-0.0` in its reader and in `-/1`; `copysign/2` and `atan2/2` are no functions,
-  `sign(-0.0)` is `0.0`, a float divided by zero is an infinity, and `=:=` holds for a NaN against any number, 0.0
-  among them (`<` and `>` hold for none). Every store
-  write here still freezes its floats to integers (the store topic, 0.132), exact under either writer and over a store
-  written before. (0.132, 0.142)
+  `sign(-0.0)` is `0.0`, a float divided by zero was an infinity (it raises `zero_divisor` since 2.2.0), and through
+  2.1.1 `=:=` held for a NaN against any number, 0.0 among them (`<` and `>` held for none), where since 2.1.2 a NaN is
+  unordered, only `=\=` holding of it, as SWI's. Every store write here still freezes its floats to integers (the store
+  topic, 0.132), exact under either writer and over a store written before. (0.132, 0.142, 0.158)
 - cocolog was at 1.9.1 from 0.117 (it was 1.8.41; ZiguratIP is rebuilt first, then cocolog, then both modules here). The
   baseline of that step was 0.116 over 1.9.1, all seven gates GREEN, so the engine's compiled-control stages (1.8.55,
   1.8.57, 1.9.1: one dispatch per functor, an index on any argument) changed nothing cicilang relies on. cocolog's own
@@ -6668,19 +6691,46 @@ A lambda is a class of its captures (`library/ccl_cpp.pl`). A fixture named alon
   probes print clang's answers, the library unchanged (0.157). Since 2.1.0 `=@=/2`, `\=@=/2` and `subsumes_term/2` are
   SWI's (`=@=` and `\=@=` operators at 700 xfx); the memos' keys hold no variable, so `==` and `=@=` answer alike
   there. (0.156, 0.157)
-- UNIFICATION, `==/2` AND `compare/3` TAKE `0.0` AND `-0.0` AS EQUAL (cocolog's owner found it at 2.1.0 and chose to
-  mend it next; measured at 0.157, alike on 1.15.0 and 2.1.0): `0.0 = -0.0` and `0.0 == -0.0` hold, `compare/3` gives
-  `=`, `sort/2` keeps one of the two, and a fact whose first argument is `0.0` answers a call with `-0.0` and the
-  reverse; two NaNs computed apart do not unify, while `==` holds and `compare/3` gives `=`, and a fact keyed by a NaN
-  answers nothing. SWI tells floats apart by their bits. cicilang leans on neither: the lowering tests a zero with `=:=`
-  and reads its sign off the text cocolog writes (`ir_neg_zero/1`), a folded value keeps its sign in a field of its own
-  (`x/3`, `bv/3`), and a NaN travels as `nan(S)`, never as a float. One place waits on it: the store's freeze writes
-  every zero `'$fl'(0, 0)` (`ccl_float_parts/3`), so a stored `-0.0` would come back `0.0`; no read holds one, since a
-  literal has no sign and a minus is a node of its own. 2.1.1 (`a7a5841`), out while the chain of 0.157 ran and not
-  taken in it, tells floats apart by their bits, as swipl 9.0.4 does: `0.0 = -0.0`, `0.0 == -0.0` and a head's `p(0.0)`
-  against `p(-0.0)` fail, a NaN unifies with itself, and in the standard order a NaN comes first and two zeros or two
-  NaNs go by their bits; arithmetic over a NaN stays as it was (`X =:= X` holds), the next change. No clause head of the
-  library holds a float constant and no float is compared as a term, so nothing here should move. (0.157)
+- THROUGH 2.1.0 UNIFICATION, `==/2` AND `compare/3` TOOK `0.0` AND `-0.0` AS EQUAL (measured at 0.157, alike on 1.15.0
+  and 2.1.0): `0.0 = -0.0` and `0.0 == -0.0` held, `compare/3` gave `=`, `sort/2` kept one of the two, and a fact whose
+  first argument is `0.0` answered a call with `-0.0` and the reverse; two NaNs computed apart did not unify, while `==`
+  held and `compare/3` gave `=`, and a fact keyed by a NaN answered nothing. Since 2.1.1 (`a7a5841`) floats are told
+  apart by their bits, as swipl 9.0.4's are: `0.0 = -0.0` and `0.0 == -0.0` fail (measured at 0.158 on 2.2.0), a head's
+  `p(0.0)` takes no `p(-0.0)`, a NaN unifies with itself, and in the standard order a NaN comes first and two zeros or
+  two NaNs go by their bits; arithmetic still compares numbers (`0.0 =:= -0.0` holds). cicilang leans on neither: the
+  lowering tests a zero with `=:=` and reads its sign off the text cocolog writes (`ir_neg_zero/1`), a folded value
+  keeps its sign in a field of its own (`x/3`, `bv/3`), and a NaN travels as `nan(S)`, never as a float. One place
+  waits: the store's freeze writes every zero `'$fl'(0, 0)` (`ccl_float_parts/3`), so a stored `-0.0` would come back
+  `0.0`; no read holds one, since a literal has no sign and a minus is a node of its own. Two clause heads of the
+  library hold a float constant, each asked with that argument free: `ccl_binop('<=>', 7.5)`, a precedence the grammar
+  compares by arithmetic (0.157 said no head held one), and `ccl_float_infinity(1.0Inf)` (0.158); no float is compared
+  as a term. (0.157, 0.158)
+- SINCE 2.2.0 (`2b7df28`) A FLOAT THAT IS NO NUMBER RAISES, as swipl 9.0.4's `check_float()` does at its float flags'
+  defaults (cocolog has no flags): an arithmetic function -- `+`, `-`, `*`, `/`, `**`, `^`, `sqrt/1`, the
+  transcendentals, `exp/1`, `log/1`, `float/1` -- whose float result is a NaN raises `evaluation_error(undefined)` and
+  an infinity `float_overflow`, and each float OPERAND is checked first, so arithmetic on an infinity raises (`1.0Inf *
+  1.0`, `float(1.0Inf)`); a number divided by a float zero raises `zero_divisor` (`0.0 / 0.0` `undefined`); `log(0.0)`
+  raises `float_overflow`; `X ** 0` is the integer 1, `2.0 ** 0` too; `truncate/1` and its kin hand a NaN or an infinity
+  back; a comparison, `abs/1`, `sign/1` and unary `-` and `+` are not checked, and an underflow is a number (`1.0e-300 *
+  1.0e-300` is `0.0`). 0.157's library failed on it in three ways, measured: the freeze of the largest double raised
+  (`ccl_float_parts/3` told an infinity by `F =:= F * 2`), so reader check `k93` failed and no C++ summary of a header
+  whose AST holds `__DBL_MAX__` -- `<vector>`, through `<limits>` -- was written, and every build read it cold
+  (`stdvector.cpp` 71 s a build, where 0.158 takes 63 s cold and 2.7 s warm); six C run fixtures stopped at `not lowered
+  yet: item(declaration(G), raised(error(evaluation_error(float_overflow), _)))` (`decfold`, `fpconst`, `fpspecial`,
+  `hexfloat`, `ldconst`, `negzero`: an infinity made by `1.0e308 * 10.0`, tested by `F * 2`, or met by the fold's own
+  arithmetic); and three ran until their cap (`complex`, `complex2`, `fpintexpr`): `ir_fp_const/3` takes an integer by
+  rounding it to the format and asking itself again, and `0 * 2.0 ** 0` is the integer 0, so a floating global's integer
+  zero -- `double g = 0;`, the imaginary part of `double _Complex g = 2.0;` -- went round for ever. cicilang leans on
+  none of it since 0.158: an infinity is told by a comparison with the largest double (`ccl_float_infinite/1`), never by
+  `F =:= F * 2`, and made from its text, the fact `ccl_float_infinity(1.0Inf)`, never by `1.0e308 * 10.0`, and unary
+  minus negates it; a double's exponent estimate is held to -1074 to 1023 (`ccl_float_norm/4`: `floor(log(X) / log(2))`
+  is 1024 for the largest double, and `2.0 ** 1024` raises); a power of two that scales an integer takes the integer as
+  a float (`float(T) * 2.0 ** L`: the store's thaw, `ir_fp_bits_value/5`, `ir_round_bits/5` and the three decimal
+  conversions); a value that may be a float is made one with no arithmetic on it, itself where it is one, else
+  `float(X)` of the integer (`ir_fp_float/2`), never `X * 1.0`; the fold of a double's `+ - * /` takes the long double's
+  exact road (the Lowering's bullet of a negative zero); and the DCG lexer's hex float takes an overflow as the infinity
+  (`ccl_hex_scale/3`). On 2.1.0 the repaired library gives the old one's IR, byte for byte, for the 80 C run fixtures
+  and 13 C++ ones, and on 2.2.0 the IR it gives on 2.1.0 for the 80. (0.158)
 - Through 1.10.27 a refused allocation was a WRONG ANSWER: the `oom` flag was set at eleven growth sites and read only
   by the compaction, which declined and kept the store; new terms then aliased cell 0, the query answered `false.`,
   printed `ERROR: ?-: Unknown message: _G0` and exited 1, and the heap and the choice stack ended the run with an `out
@@ -6991,13 +7041,13 @@ A lambda is a class of its captures (`library/ccl_cpp.pl`). A fixture named alon
 - Ubuntu 24.04 on x86_64 (clang and LLVM 18, glibc, libc++ 18 and 21) is a host since 0.87. Every gate but the C++ one
   is GREEN there since 0.93, and all seven since 0.95. Every step from 0.93 on is gated there, but the save points
   0.112, 0.113, 0.117, 0.122 to 0.125, 0.130, 0.131 and 0.143 (0.143's C gates and cross gate ran, its libc++ gates did
-  not; the others were gated by the steps after them). The last full run is 0.157's, over cocolog 2.1.0, on one tree,
-  4185 s in all (0.156's 4469 s, on 1.15.0): over libc++ 18 all nine GREEN (the flow gate's 125 findings in 53 s, reader
-  4 s, compile 10 s, driver 9 s, objects 3 s, proof, the cross gate in 52 s, the library read in 1337 s (0.156's 1462
-  s), the C++ gate in 631 s with 498 of 501 fixtures ok, the skips are `joinwith`, `stdoptionalref` and `tzone`, the 21
-  refusals and the three of the safe part); over libc++ 21 the library read (1228 s; 0.156's 1322 s) and the C++ gate
-  (851 s, 500 of 501 ok, the skip `stdoptionalref`) GREEN -- the C gates do not read libc++. The fixtures' builds,
-  summed, took 2230 s over libc++ 18 where 0.156's took 2305 s, and 2534 s over libc++ 21 where they took 2633 s. Two
+  not; the others were gated by the steps after them). The last full run is 0.158's, over cocolog 2.2.0, on one tree,
+  3890 s in all (0.157's 4185 s, on 2.1.0): over libc++ 18 all nine GREEN (the flow gate's 125 findings in 50 s, reader
+  4 s, compile 9 s, driver 9 s, objects 3 s, proof, the cross gate in 49 s, the library read in 1231 s (0.157's 1337 s),
+  the C++ gate in 619 s with 498 of 501 fixtures ok, the skips are `joinwith`, `stdoptionalref` and `tzone`, the 21
+  refusals and the three of the safe part); over libc++ 21 the library read (1092 s; 0.157's 1228 s) and the C++ gate
+  (818 s, 500 of 501 ok, the skip `stdoptionalref`) GREEN -- the C gates do not read libc++. The fixtures' builds,
+  summed, took 2163 s over libc++ 18 where 0.157's took 2230 s, and 2497 s over libc++ 21 where they took 2534 s. Two
   libc++ passes are one gate: `LLVM=/usr/lib/llvm-18` and `LLVM=/usr/lib/llvm-21` choose the tree the chain reads and
   links. libc++ 22 (the newest tree, which a run without `$LLVM` reads) is untried but for `stdoptionalref`, which
   passes there. The run before 0.121's (0.118, 0.119) found, over 0.117, two defects and one stale check of

@@ -230,7 +230,7 @@ ccl_utf8(U, [A, B, C, D|T], T) :- A is 240 + U // 262144, B is 128 + (U // 4096)
 ccl_number(L, tok(K, F, L)) --> [0'0, X], { X =:= 0'x ; X =:= 0'X }, ccl_hex_digits(Ds), ccl_hex_frac(Dot, Fs), [P], { P =:= 0'p ; P =:= 0'P }, { ( Ds \== [] ; Fs \== [] ) }, !,
     ccl_sign(S), ccl_digits(Es), { Es \== [] }, ccl_float_suffix(K),
     {   ccl_text_kind(K) -> ccl_hex_text(Ds, Dot, Fs, S, Es, T), atom_codes(F, T)
-    ;   append(Ds, Fs, Ms), ccl_hex_fvalue(Ms, 0.0, M), number_codes(E0, Es), ( S == [0'-] -> E1 is -E0 ; E1 = E0 ), length(Fs, NF), E is E1 - 4 * NF, F is M * 2.0 ** E }.
+    ;   append(Ds, Fs, Ms), ccl_hex_fvalue(Ms, 0.0, M), number_codes(E0, Es), ( S == [0'-] -> E1 is -E0 ; E1 = E0 ), length(Fs, NF), E is E1 - 4 * NF, ccl_hex_scale(M, E, F) }.
 ccl_number(L, T) --> [0'0, X], { X =:= 0'x ; X =:= 0'X }, !, ccl_hex_digits(Ds), { Ds \== [], ccl_hex_int(Ds, N) }, ccl_int_suffix(K), ccl_int_tok(K, N, L, T).
 ccl_number(L, T) --> [0'0, X], { X =:= 0'b ; X =:= 0'B }, !, ccl_bin_digits(Ds), { Ds \== [], ccl_bin_int(Ds, N) }, ccl_int_suffix(K), ccl_int_tok(K, N, L, T).   % C23 and C++14: 0b1011
 ccl_number(L, T) --> ccl_digits(Is), { Is \== [] }, ccl_number_rest(Is, L, T).
@@ -241,6 +241,10 @@ ccl_hex_frac(no, []) --> [].
 ccl_hex_text(Ds, Dot, Fs, S, Es, [0'0, 0'x|T]) :- append(S, Es, Ex), ( Dot == yes -> append([0'.|Fs], [0'p|Ex], After) ; After = [0'p|Ex] ), append(Ds, After, T).
 ccl_hex_fvalue([], M, M).
 ccl_hex_fvalue([D|Ds], M0, M) :- ccl_hex_value([D], 0, V), M1 is M0 * 16.0 + V, ccl_hex_fvalue(Ds, M1, M).
+%% M x 2^E, M the hex digits' value, as strtod makes it: past the largest double an infinity (0.158; cocolog 2.2.0 raises
+%% at a float result that is one, float_overflow, where it answered 1.0Inf)
+ccl_hex_scale(M, _, F) :- M =:= 0.0, !, F = M.
+ccl_hex_scale(M, E, F) :- catch(F is M * 2.0 ** E, error(evaluation_error(float_overflow), _), ccl_float_infinity(F)).
 ccl_number_rest(Is, L, tok(K, F, L)) --> [0'.], ccl_digits(Fs), ccl_exponent(Es), !, ccl_float_suffix(K),
     { ( Fs == [] -> Fs1 = [0'0] ; Fs1 = Fs ), append(Is, [0'.|Fs1], A), append(A, Es, B), ccl_float_value(K, B, F) }.
 ccl_number_rest(Is, L, tok(K, F, L)) --> ccl_exponent(Es), { Es \== [] }, !, ccl_float_suffix(K),

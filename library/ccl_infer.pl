@@ -228,15 +228,24 @@ ccl_float_int(X, V) :- A is abs(X), A =< 1.7976931348623157e308,
 ccl_float_halve(A, E0, M, E) :- ( A < 9007199254740992.0 -> M is truncate(A), E = E0 ; A1 is A / 2.0, E1 is E0 + 1, ccl_float_halve(A1, E1, M, E) ).
 %% A DOUBLE AS M x 2^E EXACTLY, M odd (0 for a zero; `inf' and the sign for an infinity): one normalization for the
 %% library (0.132), the lowering's constants (ccl_float_norm/4) and the stored reads below
-ccl_float_parts(F, inf, S) :- F =\= 0.0, F =:= F * 2, !, ( F > 0 -> S = 1 ; S = -1 ).
+ccl_float_parts(F, inf, S) :- ccl_float_infinite(F), !, ( F > 0 -> S = 1 ; S = -1 ).
 ccl_float_parts(F, 0, 0) :- F =:= 0.0, !.
 ccl_float_parts(F, M, E) :- A is abs(F), E0 is floor(log(A) / log(2)), ccl_float_norm(A, E0, BE, Mant), N0 is round(Mant * 4503599627370496),
     BE1 is BE - 52, ccl_float_odd(N0, BE1, N, E), ( F < 0 -> M is -N ; M = N ).
-ccl_float_norm(X, E0, E, M) :- M0 is X / (2.0 ** E0), ( M0 >= 2.0 -> E1 is E0 + 1, ccl_float_norm(X, E1, E, M) ; M0 < 1.0 -> E1 is E0 - 1, ccl_float_norm(X, E1, E, M) ; E = E0, M = M0 ).
+%% X = M x 2^E, M in [1, 2), from the estimate E0 held to a double's exponents, -1074 to 1023 (0.158): the estimate
+%% `floor(log(X) / log(2))' is 1024 for the largest double, and 2.0 ** 1024 is an infinity, which cocolog 2.2.0 raises at
+ccl_float_norm(X, E0, E, M) :- E1 is max(-1074, min(1023, E0)), ccl_float_norm_(X, E1, E, M).
+ccl_float_norm_(X, E0, E, M) :- M0 is X / (2.0 ** E0), ( M0 >= 2.0 -> E1 is E0 + 1, ccl_float_norm_(X, E1, E, M) ; M0 < 1.0 -> E1 is E0 - 1, ccl_float_norm_(X, E1, E, M) ; E = E0, M = M0 ).
 ccl_float_odd(N, E, N, E) :- N mod 2 =:= 1, !.
 ccl_float_odd(N0, E0, N, E) :- N1 is N0 // 2, E1 is E0 + 1, ccl_float_odd(N1, E1, N, E).
-ccl_float_of(inf, S, F) :- !, F is S * (1.0e308 * 10.0).
-ccl_float_of(M, E, F) :- F is M * 2.0 ** E.
+ccl_float_of(inf, S, F) :- !, ccl_float_infinity(I), ( S > 0 -> F = I ; F is -I ).
+ccl_float_of(M, E, F) :- F is float(M) * 2.0 ** E.   % float(M): since cocolog 2.2.0 `2.0 ** 0' is the integer 1, and 3.0 came back the integer 3 (0.158)
+%% AN INFINITY WITHOUT ARITHMETIC (0.158): since cocolog 2.2.0 an arithmetic function raises at a float result that is an
+%% infinity or a NaN (float_overflow, undefined), and at such an operand first, as swipl's check_float() does at its
+%% float flags' defaults; a comparison, abs/1 and unary minus are not checked. So an infinity is told by comparing it with
+%% the largest double, never by `F =:= F * 2', and made from its text, never by `1.0e308 * 10.0'; unary minus negates it
+ccl_float_infinite(F) :- float(F), ( F > 1.7976931348623157e308 ; F < -1.7976931348623157e308 ), !.
+ccl_float_infinity(1.0Inf).
 %% A FLOAT KEPT EXACTLY WHERE A READ IS STORED (0.132): cocolog writes a float with 15 digits (`%.15g' in its
 %% lib/term.cicili), which reads back as ANOTHER double for most values -- `0.1 + 0.2' writes `0.3', and the largest
 %% double writes past itself and reads back as an infinity -- so a read served from the C store or from a C++ summary
