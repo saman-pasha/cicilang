@@ -149,6 +149,7 @@ One row per step, in version order: the step's title, what it did and its gate n
 | 0.153 | the members a class only declares: the mangler's question answered by facts | `cpp_shipped_member/5` asks `'$cpp_decl'/4`, a fact for each constructor and method a class only declares, written beside the light record, where it copied the class's whole record (0.152's finding); the IR of 34 C++ fixtures the same, byte for byte | all nine gates GREEN over libc++ 18, the two libc++ gates over 21, 4569 s on a slower machine (0.152: 3690 s); 497 of 500 C++ fixtures over 18, 499 over 21; the predicate 0.71 s of four library builds where it took 8.93 s; five warm builds 50.09 s where 58.02 s; 34 fixtures 275.7 s where 385.1 s |
 | 0.154 | a long double literal keeps its exact value | the literal's text in both lexers (`ldbl(Text)`, reader 130), rounded once to the x87's or the quad's format (`ir_ld_value/2`, lowering 83); a global's long double fold exact, then rounded (`bv/3`); a decimal from one as gcc folds it; `float.h`'s C11 limits; cocolog's `>>` past 64 bits answered; far sums, an integer operand converted first, an integer operation in a floating global exact, a float's tie to even; two gaps measured and left | committed before the chain ended, on the stop hook's request: the flow gate, the C gates, the proof and the cross gate GREEN (79 run and 47 safe C fixtures, 37 driver checks, 79 fixtures on aarch64); the libc++ gates running |
 | 0.155 | cocolog 1.14.0, and a bitfield stored exactly at any width | cocolog 1.13.4 to 1.14.0 over ZiguratIP 1.0.1 taken and rebuilt; `>>` and `<<` take any count (1.14.0's answer to our report), `ccl_w_shr/3`'s work-round gone; a bitfield of 61 to 64 bits and a 100-bit one stored exactly, a global's field packed exactly (`bitfield64.c`, lowering 84); the debugger's clock read as steps in `test/why.sh` and `test/prof.sh`; the engine measured; 0.154's chain recorded | all nine gates GREEN over libc++ 18, the two libc++ gates over 21, 4509 s (0.154: 4509 s on 1.13.3); 498 of 501 C++ fixtures over 18, 500 over 21; 80 run and 47 safe C fixtures; five warm builds 50.09 s on 1.14.0, 50.49 s on 1.13.3; a bare `catch/3` keeps no choice point; the census of `<iomanip>` 100.7 s, 119.5 s and 118.7 s on 1.12.1, 1.13.3 and 1.14.0 |
+| 0.156 | cocolog 1.15.0: a whole run's time by predicate, and `compare/3` measured | cocolog 1.15.0 taken and rebuilt; `test/prof.sh`'s sixth view, RUN, the whole build's self time by predicate (`flow_run_time/3`), and the TIME view's ` @W:S`; `compare/3` orders two integers as doubles (every kept engine back to 1.10.22), and cicilang's constant folds and C++ memos give wrong answers through it (four probes against clang), told to cocolog's owner and left in Not done; a copied HOME is no warm HOME | all nine gates GREEN over libc++ 18, the two libc++ gates over 21, 4469 s (0.155: 4509 s); 498 of 501 C++ fixtures over 18, 500 over 21; five warm builds 49.72 s on 1.15.0, 50.07 s on 1.14.0; the census of `<iomanip>` 119.6 s and 118.6 s; `stdvector.cpp`'s whole run 2.816 s untraced |
 
 ## M5 — the C++ mode
 
@@ -9344,3 +9345,93 @@ fixtures' builds summed 2332 s over libc++ 18 (0.154: 2394 s, with the compariso
 libc++ 21 (0.154: 2666 s). Then the live checkout took the same changes, and its two modules were built again over
 1.14.0 (`cicilang 0.155 (cocolog 1.14.0; LLVM 18.1.3)`): on it the reader gate is GREEN (4 s) and `bitfield64.c`
 prints its `.expect`.
+
+## 0.156 — cocolog 1.15.0: a whole run's time by predicate, and `compare/3` measured
+
+**0.156: cocolog 1.15.0 taken and gated -- all nine gates GREEN over libc++ 18 and the two libc++ gates GREEN over
+libc++ 21, in 4469 s -- and its two answers to our wishes used: `test/prof.sh` prints a sixth view, RUN, the WHOLE
+build's self time by predicate (`flow_run_time/3`), and its TIME view's rows name the window and the step of their
+largest call. And a defect of cocolog measured, as the owner asked ("After the push, measure the compare/3 bug";
+"Tell The Coco what the compare/3 measure finds"): `compare/3` orders two integers as doubles, and cicilang's constant
+folds and C++ memos give wrong answers through it, with no message.** The Coco's message of 13:38 UTC announced 1.15.0
+and the bug; the owner asked to take 1.15.0 ("Then take cocolog 1.15.0"; "Commit 0.156 when green too").
+
+- `compare/3`, MEASURED (on 1.14.0 after 0.155's push, then on 1.15.0; `cmpb.pl`, a `--local query`, and the same file
+  on every kept engine: 1.10.22, 1.10.28, 1.11.10, 1.12.1, 1.13.3). With X = 2^53 + 1 and Y = 2^53: `X == Y` holds,
+  `X \== Y` fails, `compare(O, X, Y)` and `compare(O, Y, X)` both give `=`, `@<` and `@>` both fail, `f(X) == f(Y)`
+  and `[X] == [Y]` hold, a global set to f(X) and read back is `==` to f(Y), `sort([X, Y])` is `[X]` and `sort([Y, X])`
+  `[Y]` (`setof/3` and `list_to_ord_set/2` keep one too), `sort(0, @>=, [Y, X, Y])` gives `[Y, X, Y]`, `min_member/2`
+  of `[X, Y]` gives X, and `atom_number('9007199254740993', N), N == Y` holds. Right: unification (`X = Y`,
+  `unify_with_occurs_check/2`), `memberchk/2`, `=:=`, `=\=`, `<` and `>`, a clause's selection by its first argument,
+  `retract/1`, `term_to_atom/2`, `msort/2` and `keysort/2` (both kept, in input order). Alike for 2^60 - 1 against 2^60
+  - 2 and for -(2^53 + 1) against -2^53; right for 2^53 - 1 against 2^53, an integer against a float and 1 against 1.0.
+  Every kept engine gives the same lines (1.10.22 writes its floats with 15 digits), and 1.15.0 too: the bug is old.
+  `=@=/2` and `subsumes_term/2` are not defined.
+- WHAT IT DOES TO cicilang. `ccl_w_cmp/3` answers by `compare/3` for two integers, and every comparison of the constant
+  folder goes through it (`ccl_const_op/4`); the C++ desugaring compares argument lists with `==` (`'$cpp_iname'`,
+  `'$cpp_vtm'`, `'$cpp_ccm'`, `cpp_same_value/2`). Four probes (`cmp1.c` to `cmp4.cpp`, scratch), built by 0.155 on
+  1.14.0 and on 1.15.0 and compared with clang's builds, with A = 9007199254740993LL and B = 9007199254740992LL: the
+  enum values `(B < A)`, `(A > B)`, `(A == B)`, `(A != B)`, `(A <= B)` and `(B >= A)` came out 0 0 1 0 1 1 where clang
+  has 1 1 0 1 0 0, and the same near 2^60; `char bound[(A > B) + 1]` had 1 byte, the globals `(A > B)` and `(A == B)` 0
+  and 1, `(A > B) ? A : B` was B; `_Static_assert(A != B, ...)` was refused and `#if A == B` took its `#error`. In C++,
+  `V<B>::get()` answered A (the instance of `V<A>`), `S<B>::f()` took the specialization written for A, `vt<B>` was A,
+  and `if constexpr (A == B)` took its first branch. A comparison at run time is LLVM's and was right. In a scratch copy
+  (the 0.155 worktree, then put back), `ccl_w_cmp/3` by `<` and `>` gave clang's output for the three C probes; the C++
+  memos need an exact equality of their own. The library stays as it is: the owner decides, and cocolog's 2.0.0 mends
+  the cause (below). `CLAUDE.md` holds it in the Findings and in Not done.
+- TOLD. The measure went to cocolog's owner at 14:35 UTC, as the owner asked: the builtins, right and wrong, the
+  engines back to 1.10.22, the four probes, the C side's work-round, and that the library waits for the owner's word.
+- 2.0.0 ARRIVED while the chain ran. At 16:00 UTC cocolog's owner announced 2.0.0 (`d17fef4`): integers of 64 bits, a
+  value past 61 bits boxed as a float is, a result past 64 bits and a `<<` that loses a bit (`1 << 63`)
+  `evaluation_error(int_overflow)`, a literal past the range a syntax error, the flags `bounded`, `max_integer` and
+  `min_integer`, text in characters by default, `string_bytes/3`, and two integers ordered exactly; at 16:04 its run of
+  our list on 2.0.0: every wrong case gives SWI's answer, the boxed pairs 2^62 against 2^62 + 1 and 2^60 against
+  2^60 - 1 too, and the right ones stay right. Not taken in this step: the owner asked for 1.15.0, and 2.0.0 changes
+  what cicilang's integers rest on (61 bits, `big(Atom)` past 2^60, a wrap where a result passes them) and the text's
+  default units; the SDK changed (`coco_m_int` reads either kind of integer).
+- THE NEIGHBOURS. cocolog `52abc90` (1.14.0) to `b576087` (1.15.0); ZiguratIP (`90d99b8`, 1.0.1) and Cicili (`9d74a5e`,
+  3.0.0) unchanged. 1.15.0: what is not an integer is named by its value (`X is 1.5 >> 1` raises `type_error(integer,
+  1.5)`; through 1.14.0 the culprit was heap cell 0, the loaded file's path under `-s`), `msb/1` of an integer under 1
+  is `domain_error(not_less_than_one, N)`; each time-view row carries `at(From-To, Step)`, written ` @W:S`, and the load
+  mark counts a predicate's outermost calls; `flow_run_time/3` and `flow_run_time_text/2` (`profile=run`). The SDK did
+  not change. The 1.14.0 tree was kept (`coco1140`) with a worktree of 0.155 whose modules were built over it
+  (`wt155a`), then `make` (125 s), `make schema` (158 s), `make modules` (214 s) and both modules here (LLVM 18):
+  `cicilang 0.155 (cocolog 1.15.0; LLVM 18.1.3)` in the live checkout, `cicilang 0.156 (...)` in the step's worktree.
+- THE RUN VIEW. `test/prof.pl`'s `cp_main/9` takes `Run` and `Secs`: with Run yes it asks `flow_run_time(cp_goal,
+  [source(Top), timeout(Ms)], RT)`, prints how the whole run ended, how many steps the clock read and the run's seconds
+  untraced, and adds `flow_run_time_text/2`'s text as a sixth view; `test/prof.sh` passes `PR=yes` where cocolog's
+  `library(flow/debug)` defines `flow_run_time/3`, and `PROF_SECS` as the cap, and says so where it does not. Over
+  `stdvector.cpp` (17.09 million steps): 155 s at 760 MB in all, its first build cold (88 s, below); the whole run 2.816
+  s untraced, the clock read at 14.2 million steps, 38.5 ns a reading, taken off; 1,934 rows. Its first reading:
+  `findall/3` 381 ms (13.5 %), `nb_setval/2` 210 ms (7.4 %, 148,385 calls), `ensure_loaded/1` 125 ms (4 calls),
+  `nb_getval/2` 91 ms, `member/2` 72 ms and 26 ms of retries, `between/3` 57 and 28, `memberchk/2` 75 ms, `cpp_type/2`
+  5 ms and 72 ms of retries, `'$cpp_cls'/2` 62 ms, `atom_concat/3` 56 ms, the embedded LLVM's compile 35 ms. The copies
+  of terms lead; nothing is taken up in this step. The TIME view's rows end ` @W:S` (`dr_emit/6 @6:17091773`).
+- A COPIED HOME IS NO WARM HOME. The profile's HOME was a copy of the A/B's warm HOME, and its first build read
+  `<vector>` again, 88 s: a summary's `.big.pl` names its `.sum` by the absolute path, so a summary that holds a big
+  term is not valid in a HOME at another path. `CLAUDE.md`'s instruments' list holds it.
+- THE ENGINE, MEASURED, one run at a time, the 0.155 library on each engine: five warm C++ builds, the least CPU time of
+  three runs each, 50.07 s on 1.14.0 and 49.72 s on 1.15.0 (`stdvector.cpp` 2.84 s and 2.81 s, `stdformat.cpp` 31.07 s
+  and 30.46 s): a run that asks for no clock pays nothing. The cold census of the flattened `<iomanip>` (C++17, the
+  parse alone), the least of two runs interleaved: 118.6 s on 1.14.0 and 119.6 s on 1.15.0, still some 18 % past
+  1.12.1's 100.7 s (0.155); not yet told to cocolog's owner. The flow gate on 1.15.0: 125 findings, all of them
+  `test/flow.expect`'s, 52 s. `test/why.sh` over `abstract.cpp`: the account of 0.155, the run ended at step 181,200,
+  the branch then(2) of `cpp_not_abstract('Shape')`, in 12 s at 257 MB.
+- `CLAUDE.md`: the versions; the `test/prof.sh` topic (six views, ` @W:S`, the RUN view) and Finding a cost (the RUN
+  view's first reading); the neighbours' versions (1.15.0; 2.0.0 out, not taken); the Integers bullet (the float named);
+  the new bullet `compare/3` ORDERS TWO INTEGERS AS DOUBLES; the flow tools bullet (1.15.0); the instruments' A COPIED
+  HOME; Not done's C topic (the comparison past 2^53); the Hosts bullet (the chain below).
+
+Reader 130, lowering 84. The gated module is the committed one, its version bumped before it was built.
+
+THE GATES. The chain on a worktree of 0.155 that holds this step's changes (detached at `ba729a0`), over cocolog 1.15.0,
+fresh HOMEs, started at 14:57 UTC: 4469 s in all (0.155: 4509 s on 1.14.0). Over libc++ 18: the flow gate (125 findings,
+all of them `test/flow.expect`'s, 53 s, 2070 MB summed over its four lanes), reader 4 s, compile 10 s (80 run and 47
+safe fixtures), driver 11 s (37 checks), objects 4 s (29 checks), the proof, the cross gate in 55 s (80 fixtures and 3
+checks), the library read in 1462 s (peak 1131 MB; 0.155: 1447 s), the C++ gate in 652 s (peak 2295 MB; 0.155: 664 s)
+with 498 of its 501 fixtures ok -- the skips `joinwith`, `stdoptionalref` and `tzone` -- and the 21 refusals and the
+three of the safe part. Over libc++ 21: the library read in 1322 s (peak 1236 MB; 0.155: 1359 s) and the C++ gate in 890
+s (peak 2158 MB; 0.155: 898 s), 500 of 501 ok, the skip `stdoptionalref`. The fixtures' builds summed 2305 s over libc++
+18 (0.155: 2332 s) and 2633 s over libc++ 21 (0.155: 2670 s). Then the live checkout took the same changes, and its two
+modules were built again over 1.15.0 (`cicilang 0.156 (cocolog 1.15.0; LLVM 18.1.3)`): on it the reader gate is GREEN (4
+s).
