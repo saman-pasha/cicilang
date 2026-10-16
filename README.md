@@ -105,7 +105,7 @@ sh proof/run.sh; sh test/cross.sh                                               
 sh test/libcxx.sh; sh test/cpp.sh                                                    # the C++ gates: the library read warms the cache first
 sh test/gates.sh                                                                     # all nine in one chain, the flow gate first
 sh test/why.sh prog.cpp                                                              # a failed build: the call where it gave up
-sh test/prof.sh prog.cpp                                                             # where a build's inferences go: windows along its run
+sh test/prof.sh prog.cpp                                                             # where a build's inferences and time go: windows along its run
 ```
 
 `module/build.sh` transpiles `module/cicilang.cicili` with Cicili and
@@ -374,7 +374,7 @@ test/flow.sh, flow.pl, flow.expect   the flow gate: cocolog's library(flow/chart
                                its findings held to the expect file
 test/why.sh, why.pl            where a failed build gave up: the build under library(flow/debug), the branch and the
                                failed call named
-test/prof.sh, prof.pl          where a build's inferences go: windows along its run, profiled by library(flow/debug)
+test/prof.sh, prof.pl          where a build's inferences and time go: windows along its run, by library(flow/debug)
 test/c/, test/cpp/             the fixtures: what runs, what is refused, what is read whole
 bench/btree, bench/compile     the B-tree and the compile-time benchmarks
 tutorials/                     the objects layer's lessons

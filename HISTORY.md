@@ -145,6 +145,7 @@ One row per step, in version order: the step's title, what it did and its gate n
 | 0.149 | cocolog 1.12.1, and a global that may be unset read with nb_current/2 | cocolog 1.12.1 (`nb_current/2`, `setarg/3`, `nb_setarg/3`; a global read as one block, a ground value's copy shared); the 156 reads `catch(nb_getval(K, V), _, R)` of the library and the gates made `nb_current(K, V)`; committed before the chain, on the stop hook's request | the flow gate GREEN (125 findings); test/why.sh names the new read; the chain and the measurements running at the commit |
 | 0.150 | the numbers of 0.149's chain, and the build's time on cocolog 1.12.1 | 0.149's chain recorded; the build's time measured three ways (0.148 on 1.11.10, 0.148 on 1.12.1, 0.149 on 1.12.1), a global's read alone, and the choice point a bare `catch/3` leaves | all nine gates GREEN over libc++ 18, the two libc++ gates over 21, 3836 s (0.148: 4254 s); 497 of 500 C++ fixtures over 18, 499 over 21; five fixtures' CPU time 77.2 s on 1.11.10, 55.7 s on 1.12.1 |
 | 0.151 | cocolog 1.13.0: the small builtins in one step, two clocks, and text in bytes or characters | cocolog 1.12.2 and 1.13.0 taken and rebuilt; a warm build, the two clocks, the text units, a cold read (12 to 16 % slower from 1.12.2, an `=/2` goal slower) and a bare `catch/3` measured; feedback to The Coco | all nine gates GREEN over libc++ 18, the two libc++ gates over 21, 3891 s (0.149: 3836 s); 497 of 500 C++ fixtures over 18, 499 over 21; five warm builds 54.8 s on 1.13.0, 55.1 s on 1.12.1; the census of `<iomanip>` 59.5 s, 66.4 s and 68.9 s on 1.12.1, 1.12.2 and 1.13.0 |
+| 0.152 | cocolog 1.13.3: where a build's time goes, a TIME view in `test/prof.sh` | cocolog 1.13.1 to 1.13.3 taken and rebuilt; `test/prof.sh` prints each predicate's inclusive and self time (`time(T)`); its first reading names `cpp_shipped_member/5`, 16 % of four builds' CPU, timed over the whole builds; a warm build's time the same on both engines | all nine gates GREEN over libc++ 18, the two libc++ gates over 21, 3690 s (0.151: 3891 s); 497 of 500 C++ fixtures over 18, 499 over 21; five warm builds 52.00 s on 1.13.3, 52.07 s on 1.13.0; `stdvector.cpp`'s profile 80 s at 792 MB with the TIME view |
 
 ## M5 — the C++ mode
 
@@ -8948,3 +8949,91 @@ kin as builtins now, and no key moved), reader 5 s, compile 11 s, driver 10 s, o
 the C++ gate in 920 s, 499 of 500 ok (the skip `stdoptionalref`). The fixtures' builds summed 2687 s over libc++ 18
 (0.149: 2790 s) and 2949 s over libc++ 21 (0.149: 3001 s). After the bump to 0.151: the flow gate again GREEN (125
 findings, 46 s) and the reader gate GREEN (4 s).
+
+## 0.152 — cocolog 1.13.3: where a build's time goes, a TIME view in `test/prof.sh`
+
+**0.152: cocolog 1.13.3 taken and gated -- all nine gates GREEN over libc++ 18 and the two libc++ gates GREEN over
+libc++ 21, in 3690 s; `test/prof.sh` prints a fifth view, TIME, each predicate's inclusive and self time, and its
+first reading names a cost of every C++ build that reads the library: `cpp_shipped_member/5`, 16 % of four builds' CPU,
+a copy of a class's whole record at every member the mangler names.** The Coco's message announced 1.13.3, whose
+profiler measures time as well as calls (the owner's request); the owner asked for the step ("Go ahead") on the plan
+that answered it: pull and rebuild, a TIME view in `test/prof.sh`, the chain, commit and push.
+
+- THE NEIGHBOUR. cocolog `7871d5e` (1.13.0) to `2ae4351` (1.13.3), through `9da534a` (1.13.1: `split_string/4` by
+  SWI's rule where the pad holds a separator, which cicilang does not call) and `72f6465` (1.13.2: the translator's
+  accents and marks in both text units, `library/reasoning/`, which cicilang does not load). 1.13.3 gives
+  `library(flow/debug)` a fifth answer, `time(T)`: the probe runs under a clock read at the top of every inference of
+  the window (`'$trace_window'/4`'s `time(F, K)`), untraced, and the replay says whose each inference was;
+  `flow_time_text/2` writes it and `flow_profile_merge/5` adds windows' up. Its engine change (`lib/solve.cicili`,
+  `lib/builtins.cicili`) moves the step limit so that a run that does not ask pays nothing, `cocolog.cicili` includes
+  `<time.h>`, and the SDK (`lib/sdk.cicili`) did not change. ZiguratIP and Cicili have no new commit. Rebuilt in order:
+  cocolog's `make`, `make schema` (with `ZIGURATIP_HOME`), `make modules` (every module this box can build, and the
+  flow tables), then `module/build.sh` and `module/build-llvm.sh` (LLVM 18) after the bump: `cicilang 0.152 (cocolog
+  1.13.3; LLVM 18.1.3)`. The 1.13.0 build and both modules built over it were kept in scratch copies for the measure
+  below.
+- THE TIME VIEW. `test/prof.pl`'s `cp_main/7` asks `time(_)` with the windows, adds their rows up with
+  `flow_profile_merge/5` and writes the view with `flow_time_text/2`; `test/prof.sh` asks for it where cocolog's
+  `library/flow/dbgprof.pl` has `flow_time_text` (1.13.3 or later), else gives the four other views and says why. A
+  view's heading is its leading lines that begin with `%` (the time view has three), and the control constructs' row,
+  which the time view puts last, is printed past the first `PROF_TOP` rows. `stdvector.cpp`'s profile took 80 s at 792
+  MB with the TIME view (0.151, on 1.13.0, without it: 79 s at 829 MB). Over the scratch copy of 1.13.0 the tool gave
+  the four other views and the line that says why there is no fifth (`counter.cpp`, 38 s).
+- THE FIRST READING, `stdvector.cpp`, its build 17.9 million inferences on the debugger's clock: the six windows'
+  120,000 inferences took 84.7 ms as the probes ran them, the clock read at 101,307 of them for 3.1 ms of its own
+  (30.5 ns a reading), which is taken off. The most self time:
+
+  | Predicate | Calls | Self time | Largest call |
+  |---|---|---|---|
+  | `ccl_llvm_compile/3`, the embedded LLVM: parse, verify, passes, object | 1 | 33.1 ms | 33.1 ms |
+  | `'$cpp_cls'/2`, a class's whole record copied out of its fact | 295 | 22.4 ms | 216 us |
+  | `use_module/1`, the LLVM module loaded by `ccl_llvm_ready/0` | 1 | 11.7 ms | 11.7 ms |
+  | `member/2`, a step of a list walk | 27,391 | 5.3 ms | 300 us |
+  | `dr_take/4`, the IR text into chunks | 9,830 | 1.0 ms | 361 us |
+  | `nb_getval/2` | 2,797 | 0.8 ms | 50 us |
+
+  `cpp_shipped_member/5`, which the mangler asks of every member it names -- does the shipped library define it? --
+  took 28.1 ms in 159 calls, a third of the windows' time. The INCLUSIVE view had named it too, 26.6 % of the windows'
+  inferences, nearly all of them `member/2` steps, and read its cost as the walk of the member list; the TIME view says
+  the walk is 5.3 ms of it and the copy of the class's record 22.4 ms, 295 inferences, 0.2 % of the count:
+  `cpp_class(C, cls(_, _, Ms, _, _, _))` copies every member with its body, and the light record of 0.120 has no
+  members. The readings of 0.148 shrink in time: `ccl_class_shape/1` 0.4 ms inclusive, `ccl_tab_hash/3` 0.04 ms.
+- THE WHOLE BUILDS, as Finding a cost times them: a scratch copy of `ccl_cpp.pl` with `statistics(cputime)` around the
+  record's lookup in `cpp_class/2` and around `cpp_shipped_member/5`, each build's goal run in a query over a warm HOME:
+
+  | Fixture | Build | Record copies | `cpp_shipped_member/5` |
+  |---|---|---|---|
+  | `counter.cpp` | 0.11 s | 77, 0.00 s | 64 calls, 0.00 s |
+  | `stdvector.cpp` | 3.18 s | 13,860, 0.80 s | 7,980 calls, none yes, 0.93 s (29 %) |
+  | `stdmap.cpp` | 4.68 s | 10,864, 0.44 s | 4,956 calls, 4 yes, 0.47 s (10 %) |
+  | `stdtuple.cpp` | 11.38 s | 21,046, 1.31 s | 7,456 calls, 887 yes, 1.50 s (13 %) |
+  | `stdformat.cpp` (C++20) | 32.06 s | 56,967, 4.45 s | 25,819 calls, 3,197 yes, 5.24 s (16 %) |
+
+  8.1 s of the four library builds' 51.3 s, 16 %; three runs of `stdvector.cpp` gave 0.93 to 0.98 s. An index of a
+  class's members that have no body, written where the record is written and replaced, would answer it with no copy.
+  It is not taken up here: the engine is this step's one variable, and the change reaches every program's names.
+- THE BUILD'S TIME on the two engines, as 0.151 measured it: `cicilang++ -c` over one warm HOME, one build at a time,
+  three rounds with the order turned each round; A the 0.151 library on 1.13.0 (its modules built over 1.13.0), B the
+  same library on 1.13.3. The least CPU time of three, in seconds:
+
+  | Fixture | A (1.13.0) | B (1.13.3) |
+  |---|---|---|
+  | `counter.cpp` | 0.15 | 0.17 |
+  | `stdvector.cpp` | 3.40 | 3.41 |
+  | `stdmap.cpp` | 4.47 | 4.47 |
+  | `stdtuple.cpp` | 11.80 | 11.91 |
+  | `stdformat.cpp` (C++20) | 32.25 | 32.04 |
+  | the sum | 52.07 | 52.00 |
+
+  The same: a run that does not ask for the time pays nothing for it. (Both sums are lower than 0.151's 55.1 and 54.8
+  s on the same box: a sum is compared within one run.)
+
+Nothing the compiler emits changed: reader 129, lowering 82. The gated module is the committed one, its version bumped
+before it was built.
+
+THE GATES. The chain on the live checkout, its modules built over 1.13.3, fresh HOMEs, 3690 s in all (0.151: 3891 s; the
+box ran faster this time, as the two sums of the build's time above show). Over libc++ 18: the flow gate (125 findings,
+all of them `test/flow.expect`'s, 51 s), reader 4 s, compile 9 s, driver 8 s, objects 3 s, the proof, the cross gate in
+46 s, the library read in 998 s (0.151: 1114 s), the C++ gate in 722 s with 497 of 500 fixtures ok (the skips
+`stdoptionalref`, `joinwith` and `tzone`), the 21 refusals and the three of the safe part. Over libc++ 21: the library
+read in 954 s (0.151: 971 s) and the C++ gate in 887 s, 499 of 500 ok (the skip `stdoptionalref`). The fixtures' builds
+summed 2590 s over libc++ 18 (0.151: 2687 s) and 2860 s over libc++ 21 (0.151: 2949 s).

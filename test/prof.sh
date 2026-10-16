@@ -1,8 +1,10 @@
 #!/bin/sh
-# test/prof.sh -- WHERE A BUILD'S INFERENCES GO (0.148): the build of a file profiled by cocolog's
-# library(flow/debug) over windows along its run, each window recorded by a cocolog of its own, their
-# profiles added up: each predicate's calls and the inferences spent inside them, the inferences by what
-# took them, who made the calls, and the goals asked more than once (test/prof.pl).
+# test/prof.sh -- WHERE A BUILD'S INFERENCES AND ITS TIME GO (0.148, 0.152): the build of a file profiled by
+# cocolog's library(flow/debug) over windows along its run, each window recorded by a cocolog of its own,
+# their profiles added up: each predicate's calls and the inferences spent inside them, the inferences by
+# what took them, who made the calls, the goals asked more than once, and (cocolog 1.13.3) each predicate's
+# inclusive and self time, its window's probe run untraced under a clock read at every inference
+# (test/prof.pl).
 #
 #   sh test/prof.sh [cicilang's arguments] FILE     a C file through bin/cicilang, a C++ one through bin/cicilang++
 #   PROF_WINDOWS=N   the windows spread along the run (6), the last ending where it ends
@@ -13,7 +15,8 @@
 #
 # The goal is the command's own (bin/cicilang writes it under CICILANG_GOAL), compiled with -c and no store. A
 # count of inferences is no count of time: a copy of a global (nb_getval/2) is one inference however big it is
-# (CLAUDE.md, Time and memory).
+# (CLAUDE.md, Time and memory); the TIME view says what it costs. An older library(flow/debug), with no time(T),
+# gives the four other views.
 HERE=$(cd "$(dirname "$0")" && pwd)
 . "$HERE/config.sh"
 [ -x "$C" ] || { echo "SKIP (no cocolog binary at $C -- set COCOLOG)"; exit 0; }
@@ -21,6 +24,7 @@ grep -q 'flow_debug_windows' "$COCOLOG/library/flow/debug.pl" 2>/dev/null || { e
 [ $# -ge 1 ] || { echo "usage: sh test/prof.sh [cicilang's arguments] FILE" >&2; exit 2; }
 PROF_WINDOWS=${PROF_WINDOWS:-6}; PROF_WINDOW=${PROF_WINDOW:-20000}; PROF_JOBS=${PROF_JOBS:-2}; PROF_TOP=${PROF_TOP:-20}
 PROF_SECS=${PROF_SECS:-2400}; PROF_MB=${PROF_MB:-2800}
+PT=no; grep -q 'flow_time_text' "$COCOLOG/library/flow/dbgprof.pl" 2>/dev/null && PT=yes
 if [ -n "$PROF_KEEP" ]; then D=$PROF_KEEP; mkdir -p "$D"; else D=$(mktemp -d "${TMPDIR:-/tmp}/cicilang-prof-XXXXXX"); trap 'rm -rf "$D"' EXIT; fi
 # the arguments, each file among them made absolute (the runs start in D); a C++ file goes through cicilang++
 cmd="$ROOT/bin/cicilang"; n=$#
@@ -45,7 +49,7 @@ sed 's/^/   /' "$D/plain.out"; echo "-- it took $(( $(date +%s) - s0 )) s"
 cp_tree() { echo "$1"; for c in $(pgrep -P "$1" 2>/dev/null); do cp_tree "$c"; done; }
 cp_kill_tree() { for c in $(pgrep -P "$1" 2>/dev/null); do cp_kill_tree "$c"; done; kill -9 "$1" 2>/dev/null; }
 cd "$D" || exit 2
-"$C" --local query "use_module(library(flow/debug)), ensure_loaded('$ROOT/test/prof.pl'), cp_main('$D/top.pl', '$D/prof', $PROF_WINDOWS, $PROF_WINDOW, $PROF_JOBS, $PROF_TOP)" < /dev/null > "$D/prof.out" 2>&1 &
+"$C" --local query "use_module(library(flow/debug)), ensure_loaded('$ROOT/test/prof.pl'), cp_main('$D/top.pl', '$D/prof', $PROF_WINDOWS, $PROF_WINDOW, $PROF_JOBS, $PROF_TOP, $PT)" < /dev/null > "$D/prof.out" 2>&1 &
 P=$!; peak=0; t0=$(date +%s); capped=""
 while kill -0 "$P" 2>/dev/null; do
   sleep 1
@@ -58,4 +62,5 @@ wait "$P"; rc=$?
 grep -av '^  1\.\|answer(s)\.$' "$D/prof.out"
 [ -n "$capped" ] && echo "$capped"
 grep -aq '^-- the windows:' "$D/prof.out" || { echo "RED: the profiler did not finish (exit $rc; peak $peak MB)"; exit 1; }
+[ "$PT" = yes ] || echo "-- no time view: cocolog's library(flow/debug) has no time(T) (1.13.3 or later)"
 echo "-- peak $peak MB"
