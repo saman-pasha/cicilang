@@ -10,7 +10,7 @@ it found, its measurements and its gate numbers. `README.md` tells a user what r
 architecture and the milestones. A step that changes a rule edits the rule here, in its topic, and writes its entry
 in `HISTORY.md`.
 
-At 0.152 the versions are: the module 0.152 (`ccl_p_version` in `module/cicilang.cicili`, `bin/cicilang --version`),
+At 0.153 the versions are: the module 0.153 (`ccl_p_version` in `module/cicilang.cicili`, `bin/cicilang --version`),
 the reader 129 (`ccl_reader_version/1`, `library/ccl_syntax.pl`) and the lowering 82 (`ccl_lowering_version/1`,
 `library/ccl_ir.pl`).
 
@@ -726,14 +726,15 @@ tutorials/01..03-*.pl       the objects layer's lessons; goal main, last line do
   call's own inference took is the control constructs'. A reading of the clock costs some 30 to 35 ns, measured as each
   probe starts and taken off, so a cheap predicate is read by its count and a costly inference by its time. The time is
   a SAMPLE, six windows of 20000 inferences of a run of millions: a cost it names is measured over the whole run, by the
-  timers of Finding a cost, before it is called the cost (0.152: `cpp_shipped_member/5`, the Not done topic).
-  `PROF_SECS` (2400 s) and `PROF_MB` (2800 MB) cap the whole process tree: the windows' cocologs run in sessions of
-  their own, each window's probe and replay in process groups of their own. Measured on cocolog 1.11.10: `stdvector.cpp`
-  (18.2 million inferences) in 82 s at 847 MB, `counter.cpp` in 44 s at 567 MB (0.148); on 1.13.0, `stdvector.cpp` (17.9
-  million) in 79 s at 829 MB (0.151); on 1.13.3, with the TIME view, in 80 s at 792 MB (0.152). THE WINDOWS ARE ON THE
+  timers of Finding a cost, before it is called the cost (0.152: `cpp_shipped_member/5`, taken out at 0.153, the
+  Tables topic of Time and memory). `PROF_SECS` (2400 s) and `PROF_MB` (2800 MB) cap the whole process tree: the
+  windows' cocologs run in sessions of their own, each window's probe and replay in process groups of their own.
+  Measured on cocolog 1.11.10: `stdvector.cpp` (18.2 million inferences) in 82 s at 847 MB, `counter.cpp` in 44 s at
+  567 MB (0.148); on 1.13.0, `stdvector.cpp` (17.9 million) in 79 s at 829 MB (0.151); on 1.13.3, with the TIME view,
+  in 80 s at 792 MB (0.152), and over the library of 0.153 (17.1 million) in 71 s at 679 MB. THE WINDOWS ARE ON THE
   DEBUGGER'S CLOCK, which counts every goal: since cocolog 1.12.2 `statistics/2`'s inferences leave out each `true` and
   `=/2`, as SWI counts none, so the two counts of one run differ -- `stdvector.cpp`'s build is 17.9 million on the
-  debugger's clock and 17.2 million by `statistics/2` (0.151). (0.148, 0.151, 0.152)
+  debugger's clock and 17.2 million by `statistics/2` (0.151). (0.148, 0.151, 0.152, 0.153)
 
 ## The driver and the commands
 
@@ -1948,9 +1949,10 @@ free. A const method adds `.c`, a ref-qualified one `.r` or `.rr` after it: each
   (`cpp_note_fns`) and the structs named as bases (`cpp_note_bases`). A class is the fact
   `'$cpp_cls'(C, cls(Base, Data, Ms, Statics, Defaults, Slots))` (`cpp_class_put`, which writes the light record
   `'$cpp_clsl'(C, cls(Base, Data, Statics, Defaults, Slots))` beside it: `cpp_class_l/2`, for a lookup that does not want the
-  members, Time and memory). Its methods, constructors,
-  destructor, statics and free operators are declared under their mangled names at once (`cpp_declare_members`,
-  `cpp_declare_statics`), so a rewritten call has a type while the walk goes on. (0.33, 0.44, 0.120)
+  members, Time and memory; and a fact for each constructor and method the class only declares, `'$cpp_decl'/4`, which
+  the mangler asks, 0.153). Its methods, constructors, destructor, statics and free operators are declared under their
+  mangled names at once (`cpp_declare_members`, `cpp_declare_statics`), so a rewritten call has a type while the walk
+  goes on. (0.33, 0.44, 0.120, 0.153)
 - `cpp_register_class` splits out the hidden friends (`cpp_split_friends`) and registers them after the class.
   `cpp_register_class__` adds the inherited constructors, normalizes the members (`cpp_norm_members`), records
   `C() = default`, notes the nested names (`cpp_nested_names/3`) and the extras, registers the class in its own words
@@ -5222,9 +5224,10 @@ A lambda is a class of its captures (`library/ccl_cpp.pl`). A fixture named alon
   `no_member`: a program with two kinds of `std::thread`. `stdthread.cpp`. (0.61, 0.108, 0.117)
 - A member that a header declares and the shipped library defines takes its symbol where declared, called and slotted
   (`cpp_mangle/4`). `cpp_shipped_member` says which: no body in the class, not pure, not defined out of the class
-  (`cpp_defined_out_of_class`), operators included. Its parameters are resolved in the class first
+  (`cpp_defined_out_of_class`), operators included. It asks the facts of the members the class only declares
+  (`'$cpp_decl'/4`, 0.153), never the class's record. Its parameters are resolved in the class first
   (`ctype<char>::do_narrow`). A const one keeps its symbol, which spells `K`, where the compiler's own name ends `.c`
-  (`cpp_shipped_member_q`). (0.73, 0.79)
+  (`cpp_shipped_member_q`). (0.73, 0.79, 0.153)
 - A shipped static data member takes its symbol (`cpp_static_name`: `_ZNSt3__15ctypeIcE2idE`); one that folds or that
   its class defines (`cpp_static_here`) is the compiler's own. A library class's destructor declared with no body is
   called by its symbol (`cpp_dtor_name`: `_ZNSt3__18ios_baseD1Ev`), any other is `C.dtor.0`; a constructor with no body
@@ -6233,6 +6236,19 @@ A lambda is a class of its captures (`library/ccl_cpp.pl`). A fixture named alon
   the record `'$cpp_clsl'(C, cls(Base, Data, Statics, Defaults, Slots))` (a hundredth of the size), `cpp_class_l/2` answers
   it (a class not registered yet is asked of `cpp_class/2`, which loads it), and every caller whose members field was `_`
   asks that one. A caller that wants the members still asks `cpp_class/2`.
+- THE MEMBERS A CLASS ONLY DECLARES (0.153): `cpp_shipped_member/5`, which the mangler asks of every member it names
+  (does the shipped library define it?), copied the class's whole record to walk its members, and it answers no almost
+  always; 0.152's time view found it (Finding a cost). `cpp_class_put/2` writes beside the light record a fact for each
+  constructor and method whose body is `none`, `'$cpp_decl'(C, ctor | method(Name), Qualifiers, Parameters)`, in the
+  order the class declares them; the record's replacement takes them away with it, and `cpp_register_units/1` clears
+  them. The predicate asks `cpp_class_l/2` (which loads a class not registered yet, as `cpp_class/2` did), then the
+  facts: it gives the answers it gave, in the same order, and the IR of 34 C++ fixtures is the same, byte for byte, over
+  the two libraries. Three shapes were measured first, 1000 classes of 60 declarations each: the whole record 93 us a
+  lookup, one list a class 17.5 us, one fact a member 6.2 us. Over the four library builds of 0.152's finding, the least
+  of three runs each: the predicate 0.71 s where it took 8.93 s, the copies of a record through `cpp_class/2` 56,464
+  where they were 102,737 (0.78 s against 7.57 s), and with `counter.cpp` the five builds 50.09 s where they took
+  58.02 s; the 34 fixtures 275.7 s where they took 385.1 s, one run each, a string's and a stream's build near half
+  (`stdstringstream.cpp` 38.1 s against 68.6 s).
 - Per-process state is a global, never a dynamic clause (`'$ccl_reading'`, `'$ccl_macro_files'`, `'$ccl_unit_paths'`):
   a dynamic predicate persists under `--embed`.
 - No header's macro table is parsed whole: a macro reaches a preprocessor run by name, on first use
@@ -6327,7 +6343,10 @@ A lambda is a class of its captures (`library/ccl_cpp.pl`). A fixture named alon
   sample of the run; the timers below measure a cost it names over the whole run. Its first reading (0.152) moved a cost
   from where the count put it: in `stdvector.cpp`'s windows `cpp_shipped_member/5` held 26.6 % of the inferences, nearly
   all of them `member/2` steps of a walk, and 33 % of the time, four fifths of it 295 single inferences that copy a
-  class's record. (0.148, 0.152)
+  class's record. 0.153 took the copy out (the Tables topic). The next reading of `stdvector.cpp`, 17.1 million
+  inferences, has 41 copies of a record where there were 295, and outside the embedded LLVM's compile (46.7 ms of the
+  windows' 76.3 ms) and the load of its module (12.0 ms), no predicate's own time reaches 1 ms: `dr_take/4` 1.0 ms,
+  `between/3` 0.9 ms, `member/2` 0.8 ms. (0.148, 0.152, 0.153)
 - The memory trace is in the code: `cpp_mem/1` and `ir_mem/1` give `kb(Heap, Store)`
   (`statistics(globalused | store_used)`) on every `'$cpp_trace'` line (`cpp_trace_mem/1`, each spend), at each phase
   (`phase(check | lowering | assemble)`) and per lowered item (`lower(Item, Mem)`); `stmt_out(S)` shows the program's
@@ -6767,17 +6786,17 @@ A lambda is a class of its captures (`library/ccl_cpp.pl`). A fixture named alon
 - Ubuntu 24.04 on x86_64 (clang and LLVM 18, glibc, libc++ 18 and 21) is a host since 0.87. Every gate but the C++ one
   is GREEN there since 0.93, and all seven since 0.95. Every step from 0.93 on is gated there, but the save points
   0.112, 0.113, 0.117, 0.122 to 0.125, 0.130, 0.131 and 0.143 (0.143's C gates and cross gate ran, its libc++ gates did
-  not; the others were gated by the steps after them). The last full run is 0.152's, over cocolog 1.13.3, on one tree,
-  3690 s in all (0.151's, over 1.13.0, 3891 s): over libc++ 18 all nine GREEN (the flow gate's 125 findings in 51 s,
-  reader 4 s, compile 9 s, driver 8 s, objects 3 s, proof, the cross gate in 46 s, the library read in 998 s (0.151's
-  took 1114 s), the C++ gate in 722 s with 497 of 500 fixtures ok, the skips are `stdoptionalref`, `joinwith` and
-  `tzone`, the 21 refusals and the three of the safe part); over libc++ 21 the library read (954 s; 0.151's 971 s) and
-  the C++ gate (887 s, 499 of 500 ok, the skip `stdoptionalref`) GREEN -- the C gates do not read libc++. The fixtures'
-  builds, summed, took 2590 s over libc++ 18 where 0.151's took 2687 s, and 2860 s over libc++ 21 where they took 2949
-  s. Two libc++ passes are one gate: `LLVM=/usr/lib/llvm-18` and `LLVM=/usr/lib/llvm-21` choose the tree the chain reads
-  and links. libc++ 22 (the newest tree, which a run without `$LLVM` reads) is untried but for `stdoptionalref`, which
-  passes there. The run before 0.121's (0.118, 0.119) found, over 0.117, two defects and one stale check of
-  `test/cpp.pl` (c20, above).
+  not; the others were gated by the steps after them). The last full run is 0.153's, over cocolog 1.13.3, on one tree,
+  4569 s in all on a slower container than 0.152's (0.152's 3690 s): over libc++ 18 all nine GREEN (the flow gate's 125
+  findings in 58 s, reader 4 s, compile 12 s, driver 12 s, objects 4 s, proof, the cross gate in 61 s, the library read
+  in 1491 s (0.152's took 998 s: the reader, which 0.153 did not touch, is the machine's measure), the C++ gate in 660 s
+  with 497 of 500 fixtures ok, the skips are `stdoptionalref`, `joinwith` and `tzone`, the 21 refusals and the three of
+  the safe part); over libc++ 21 the library read (1366 s; 0.152's 954 s) and the C++ gate (895 s, 499 of 500 ok, the
+  skip `stdoptionalref`) GREEN -- the C gates do not read libc++. The fixtures' builds, summed, took 2298 s over libc++
+  18 where 0.152's took 2590 s, and 2659 s over libc++ 21 where they took 2860 s. Two libc++ passes are one gate:
+  `LLVM=/usr/lib/llvm-18` and `LLVM=/usr/lib/llvm-21` choose the tree the chain reads and links. libc++ 22 (the newest
+  tree, which a run without `$LLVM` reads) is untried but for `stdoptionalref`, which passes there. The run before
+  0.121's (0.118, 0.119) found, over 0.117, two defects and one stale check of `test/cpp.pl` (c20, above).
 - The host sets the predefined macros (`ccl_host_os/1` and `ccl_host_arch/1` in the module), the inclusion path
   (Debian's `/usr/lib/llvm-NN`, the multiarch directory) and the link (`-lc++` and `-lm` on Linux) (0.87, 0.93, 0.100).
 - A struct passed or returned by value crosses a call as clang's x86-64 code expects, in both directions, with the
@@ -7185,16 +7204,6 @@ A lambda is a class of its captures (`library/ccl_cpp.pl`). A fixture named alon
   fixtures' builds went from 11,775 s to 2,936 s, the gate from 2989 s to 908 s over four lanes, its pool's peak from 9034
   MB to 1675 MB (0.120). What is left is mostly the reader's own cold flattening of a header (`stdatomic20.cpp`, 277 s,
   gained nothing).
-- THE TIME VIEW'S FIRST READING IS NOT TAKEN UP (0.152): `cpp_shipped_member/5`, which the mangler asks of every member
-  it names (does the shipped library define it?), copies the class's whole record -- every member with its body -- to
-  walk the member list (`cpp_class/2`; the light record of 0.120 holds no members), and over the library's inline
-  classes it answers no almost always. Timed over the whole build: `stdvector.cpp` 0.93 s of 3.18 s of CPU (7980 calls,
-  not one yes), `stdmap.cpp` 0.47 of 4.68, `stdtuple.cpp` 1.50 of 11.38, `stdformat.cpp` 5.24 of 32.06 -- 8.1 s of the
-  four builds' 51.3 s, 16 %; all the copies of a record through `cpp_class/2`, inside it and out, took 7.0 s. An index
-  of a class's members that have no body, written where the record is written and replaced, would answer it with no
-  copy. The readings of 0.148, timed in the same windows: the `member/2` steps 5.3 ms of the windows' 84.7 ms, most of
-  them inside `cpp_shipped_member/5` (`ccl_class_shape/1` 0.4 ms inclusive); `dr_take/4` 1.0 ms; `ccl_tab_hash/3` 0.04
-  ms.
 - The 124 predicates that the placement rule's splits name (`test/flow.expect`) are not regrouped. Each move is
   mechanical and the flow gate proves it (its key leaves the expect file), but the moves touch every large file of the
   library, and no step has taken them (0.144). The flow gate charts the ten hand-written files of `library/`: the two

@@ -154,7 +154,7 @@ cpp_flush_instances(Is0, Is) :-
 %% the registries that hold class and template BODIES are facts, one row per name: a global list would be copied
 %% whole at every lookup (nb_getval copies), and libc++'s bodies are megabytes (the finding in CLAUDE.md)
 cpp_reset(F/A) :- ( catch(abolish(F/A), _, true) -> true ; true ), dynamic(F/A).
-cpp_class_put(C, Cls) :- assertz('$cpp_cls'(C, Cls)), ( Cls = cls(B, Data, Ms, Ss, Df, Sl) -> assertz('$cpp_clsl'(C, cls(B, Data, Ss, Df, Sl))), cpp_note_static_fns(C, Ms) ; true ).
+cpp_class_put(C, Cls) :- assertz('$cpp_cls'(C, Cls)), ( Cls = cls(B, Data, Ms, Ss, Df, Sl) -> assertz('$cpp_clsl'(C, cls(B, Data, Ss, Df, Sl))), cpp_note_static_fns(C, Ms), cpp_note_decls(Ms, C) ; true ).
 %% THE LIGHT RECORD (0.119): a class's record is `cls(Base, Data, Members, Statics, Defaults, Slots)' and the members are 97% of it -- every
 %% method with its body -- so a lookup that wanted only the base copied the class: cpp_base_scope alone asked 44,764 times in a std::vector
 %% build, 2.6 seconds of its 9.6 for the copies. `cpp_class_l/2' answers the record WITHOUT the members, `cls(Base, Data, Statics, Defaults,
@@ -167,6 +167,15 @@ cpp_class_put(C, Cls) :- assertz('$cpp_cls'(C, Cls)), ( Cls = cls(B, Data, Ms, S
 cpp_note_static_fns(C, Ms) :- findall(N, ( member(method(_, Qs, _, N, _, _, _), Ms), memberchk(static, Qs), atom(N) ), Ns0), sort(Ns0, Ns), cpp_note_static_fns_(Ns, C).
 cpp_note_static_fns_([], _).
 cpp_note_static_fns_([N|Ns], C) :- assertz('$cpp_sfn'(C, N)), cpp_note_static_fns_(Ns, C).
+%% THE MEMBERS A CLASS ONLY DECLARES (0.153): `'$cpp_decl'(Class, ctor | method(Name), Qualifiers, Parameters)', one fact per
+%% constructor and method whose body is `none', in the order the class declares them, written beside the light record.
+%% cpp_shipped_member/5 asks them of every member the mangler names -- does the shipped library define it? -- and it copied the
+%% class's whole record to walk its members, nearly always to answer no: 16 % of four library builds' CPU time (0.152's time
+%% view, its finding timed over the whole builds). A fact is found by its class and copies only the declaration it answers.
+cpp_note_decls([], _).
+cpp_note_decls([M|Ms], C) :- ( cpp_decl_row(M, What, Qs, Ps) -> assertz('$cpp_decl'(C, What, Qs, Ps)) ; true ), cpp_note_decls(Ms, C).
+cpp_decl_row(ctor(_, Qs, Ps, _, B), ctor, Qs, Ps) :- \+ B \= none.
+cpp_decl_row(method(_, Qs, _, N, Ps, _, B), method(N), Qs, Ps) :- \+ B \= none.
 cpp_class_l(C, L) :- '$cpp_clsl'(C, L), !.
 cpp_class_l(C, L) :- cpp_class(C, _), '$cpp_clsl'(C, L), !.
 %% SEVEN REGISTRIES THAT WERE LISTS IN A GLOBAL ARE FACTS (0.119): nb_getval/2 copies what it answers, so every lookup copied the whole registry --
@@ -198,7 +207,7 @@ cpp_instance_note(Name, What) :- assertz('$cpp_inst'(Name, What)).
 
 %% ---- the classes of the units: '$cpp_classes' = [C-cls(Base, Data, Members, Statics, Defaults) ...] --------
 cpp_register_units(Units) :-
-    cpp_reset('$cpp_cls'/2), cpp_reset('$cpp_clsl'/2), cpp_reset('$cpp_sfn'/2), cpp_reset('$cpp_sfold'/3), cpp_reset('$cpp_nenum'/1), cpp_reset('$cpp_enumv'/3), cpp_reset('$cpp_tmpl'/3), cpp_reset('$cpp_fspec'/3), cpp_reset('$cpp_spec'/4), cpp_reset('$cpp_mt'/4), cpp_reset('$cpp_inst'/2), cpp_reset('$cpp_out'/1), cpp_reset('$cpp_ownfn'/1), cpp_reset('$cpp_consteval'/1), cpp_reset('$cpp_mdef'/5), cpp_reset('$cpp_extern'/3), cpp_reset('$cpp_friends'/2), cpp_reset('$cpp_extra'/2), cpp_reset('$cpp_base_slot'/3), cpp_reset('$cpp_primary_moved'/2), cpp_reset('$cpp_vbase'/1), cpp_reset('$cpp_poly_extra'/3), cpp_reset('$cpp_poly_path'/3), cpp_reset('$cpp_hdrfn'/1), cpp_reset('$cpp_nv_base'/2), cpp_reset('$cpp_vb_holder'/2),
+    cpp_reset('$cpp_cls'/2), cpp_reset('$cpp_clsl'/2), cpp_reset('$cpp_sfn'/2), cpp_reset('$cpp_decl'/4), cpp_reset('$cpp_sfold'/3), cpp_reset('$cpp_nenum'/1), cpp_reset('$cpp_enumv'/3), cpp_reset('$cpp_tmpl'/3), cpp_reset('$cpp_fspec'/3), cpp_reset('$cpp_spec'/4), cpp_reset('$cpp_mt'/4), cpp_reset('$cpp_inst'/2), cpp_reset('$cpp_out'/1), cpp_reset('$cpp_ownfn'/1), cpp_reset('$cpp_consteval'/1), cpp_reset('$cpp_mdef'/5), cpp_reset('$cpp_extern'/3), cpp_reset('$cpp_friends'/2), cpp_reset('$cpp_extra'/2), cpp_reset('$cpp_base_slot'/3), cpp_reset('$cpp_primary_moved'/2), cpp_reset('$cpp_vbase'/1), cpp_reset('$cpp_poly_extra'/3), cpp_reset('$cpp_poly_path'/3), cpp_reset('$cpp_hdrfn'/1), cpp_reset('$cpp_nv_base'/2), cpp_reset('$cpp_vb_holder'/2),
     cpp_reset('$cpp_dflt'/2), cpp_reset('$cpp_localcls'/2), nb_setval('$cpp_lambda_memo', []), cpp_reset('$cpp_dtor_def'/1), nb_setval('$cpp_lambdas', 0), nb_setval('$cpp_gen_invs', []), nb_setval('$cpp_caller', none), nb_setval('$cpp_obj_cat', none), nb_setval('$cpp_closure_this', []), nb_setval('$cpp_temps', none), nb_setval('$cpp_making', []), nb_setval('$cpp_obj_const', none),
     nb_setval('$cpp_nontrivial', []), nb_setval('$cpp_req_ctx', none), nb_setval('$cpp_nv', none),
     cpp_reset('$cpp_acc'/3), cpp_reset('$cpp_afriend'/2), cpp_reset('$cpp_bacc'/3), cpp_reset('$cpp_static_abi'/1), nb_setval('$cpp_body_ctx', none), nb_setval('$cpp_cur_fn', none), nb_setval('$cpp_acc_scope', none), nb_setval('$cpp_obj_expr', none),   % the access of a program class's members and its friends (0.117)
@@ -1559,7 +1568,7 @@ cpp_register_class_(K, L, C, Bases0, Ms) :-
     (   Later == no -> Data = DataA
     ;   cpp_declare_members(Ms, C), cpp_declare_statics(Statics, C),   % the class's functions and statics declared first, as a typedef resolved after the registration finds them
         ( cpp_member_types(Data0a, Data0) -> true ; cpp_refuse(L, member_types(C)) ), append(VPtr, Data0, Data),
-        retractall('$cpp_cls'(C, _)), retractall('$cpp_clsl'(C, _)), retractall('$cpp_sfn'(C, _)), cpp_class_put(C, cls(Base, Data, Ms, Statics, Defaults, Slots)) ),   % the record REPLACED
+        retractall('$cpp_cls'(C, _)), retractall('$cpp_clsl'(C, _)), retractall('$cpp_sfn'(C, _)), retractall('$cpp_decl'(C, _, _, _)), cpp_class_put(C, cls(Base, Data, Ms, Statics, Defaults, Slots)) ),   % the record REPLACED
     ( '$cpp_vbase'(C), Base \== none, cpp_polymorphic(Base), \+ cpp_empty_class(Base), \+ '$cpp_poly_extra'(C, Base, '$base') -> assertz('$cpp_poly_extra'(C, Base, '$base')) ; true ),
     cpp_inherit_poly_extras(C, Base),   % A POLYMORPHIC VIRTUAL BASE is a sub-object with a table of its own (0.110): this class's SECONDARY table goes in it, the base's slots with this class's overriders behind thunks, the offset to the complete object and this class's type_info -- it had kept the base's own table, so `pa->f()' through the base called the base's f and typeid named the base
     cpp_note_nontrivial(C, Base, Data, Ms, Slots),
@@ -2697,9 +2706,9 @@ cpp_mangle(C, M, Ps, Name) :- cpp_shipped_member(C, M, Ps, Qs, Kind), cpp_class_
 cpp_mangle(C, operator(Op), Ps, Name) :- !, cpp_op_word(Op, W), cpp_params_key(Ps, K), atomic_list_concat([C, '.op.', W, '.', K], Name).
 cpp_mangle(_, M, _, _) :- \+ atom(M), !, cpp_refuse(0, member_name(M)).   % never a raw type_error out of atomic_list_concat: say which name could not be mangled
 cpp_mangle(C, M, Ps, Name) :- cpp_params_key(Ps, K), atomic_list_concat([C, '.', M, '.', K], Name).
-cpp_shipped_member(C, M, Ps, Qs, Kind) :- ( atom(M) -> true ; M = operator(_) ), cpp_lib_class(C), cpp_class(C, cls(_, _, Ms, _, _, _)), cpp_params_key(Ps, K),   % an operator member too: `cin >> n' is the shipped `rs'
-    (   M == C -> member(ctor(_, Qs, Ps0, _, none), Ms), cpp_params_key(Ps0, K), Kind = '$ctor'
-    ;   member(method(_, Qs, _, M, Ps0, _, none), Ms), \+ memberchk(pure, Qs), cpp_params_key(Ps0, K), Kind = M ),
+cpp_shipped_member(C, M, Ps, Qs, Kind) :- ( atom(M) -> true ; M = operator(_) ), cpp_lib_class(C), cpp_class_l(C, _), cpp_params_key(Ps, K),   % an operator member too: `cin >> n' is the shipped `rs'
+    (   M == C -> '$cpp_decl'(C, ctor, Qs, Ps0), cpp_params_key(Ps0, K), Kind = '$ctor'   % the members the class only DECLARES, by their facts (0.153: its whole record was copied here)
+    ;   '$cpp_decl'(C, method(M), Qs, Ps0), \+ memberchk(pure, Qs), cpp_params_key(Ps0, K), Kind = M ),
     \+ cpp_defined_out_of_class(C, Kind, K), !.
 %% ... and not DEFINED OUT OF ITS CLASS in the header (`inline ios_base::fmtflags ios_base::flags() const { ... }'),
 %% whose body the class's own member list does not hold: that one is compiled here, under its own name
