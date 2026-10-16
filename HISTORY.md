@@ -148,6 +148,7 @@ One row per step, in version order: the step's title, what it did and its gate n
 | 0.152 | cocolog 1.13.3: where a build's time goes, a TIME view in `test/prof.sh` | cocolog 1.13.1 to 1.13.3 taken and rebuilt; `test/prof.sh` prints each predicate's inclusive and self time (`time(T)`); its first reading names `cpp_shipped_member/5`, 16 % of four builds' CPU, timed over the whole builds; a warm build's time the same on both engines | all nine gates GREEN over libc++ 18, the two libc++ gates over 21, 3690 s (0.151: 3891 s); 497 of 500 C++ fixtures over 18, 499 over 21; five warm builds 52.00 s on 1.13.3, 52.07 s on 1.13.0; `stdvector.cpp`'s profile 80 s at 792 MB with the TIME view |
 | 0.153 | the members a class only declares: the mangler's question answered by facts | `cpp_shipped_member/5` asks `'$cpp_decl'/4`, a fact for each constructor and method a class only declares, written beside the light record, where it copied the class's whole record (0.152's finding); the IR of 34 C++ fixtures the same, byte for byte | all nine gates GREEN over libc++ 18, the two libc++ gates over 21, 4569 s on a slower machine (0.152: 3690 s); 497 of 500 C++ fixtures over 18, 499 over 21; the predicate 0.71 s of four library builds where it took 8.93 s; five warm builds 50.09 s where 58.02 s; 34 fixtures 275.7 s where 385.1 s |
 | 0.154 | a long double literal keeps its exact value | the literal's text in both lexers (`ldbl(Text)`, reader 130), rounded once to the x87's or the quad's format (`ir_ld_value/2`, lowering 83); a global's long double fold exact, then rounded (`bv/3`); a decimal from one as gcc folds it; `float.h`'s C11 limits; cocolog's `>>` past 64 bits answered; far sums, an integer operand converted first, an integer operation in a floating global exact, a float's tie to even; two gaps measured and left | committed before the chain ended, on the stop hook's request: the flow gate, the C gates, the proof and the cross gate GREEN (79 run and 47 safe C fixtures, 37 driver checks, 79 fixtures on aarch64); the libc++ gates running |
+| 0.155 | cocolog 1.14.0, and a bitfield stored exactly at any width | cocolog 1.13.4 to 1.14.0 over ZiguratIP 1.0.1 taken and rebuilt; `>>` and `<<` take any count (1.14.0's answer to our report), `ccl_w_shr/3`'s work-round gone; a bitfield of 61 to 64 bits and a 100-bit one stored exactly, a global's field packed exactly (`bitfield64.c`, lowering 84); the debugger's clock read as steps in `test/why.sh` and `test/prof.sh`; the engine measured; 0.154's chain recorded | all nine gates GREEN over libc++ 18, the two libc++ gates over 21, 4509 s (0.154: 4509 s on 1.13.3); 498 of 501 C++ fixtures over 18, 500 over 21; 80 run and 47 safe C fixtures; five warm builds 50.09 s on 1.14.0, 50.49 s on 1.13.3; a bare `catch/3` keeps no choice point; the census of `<iomanip>` 100.7 s, 119.5 s and 118.7 s on 1.12.1, 1.13.3 and 1.14.0 |
 
 ## M5 — the C++ mode
 
@@ -9226,3 +9227,120 @@ commit: the flow gate (125 findings, all of them `test/flow.expect`'s, 56 s), re
 safe fixtures), driver 10 s (37 checks, the two decimal ones among them), objects 3 s, the proof, the cross gate in 51 s
 (79 fixtures and 3 checks). Running at the commit: the library read and the C++ gate (501 fixtures) over libc++ 18, then
 the two libc++ gates over libc++ 21; 0.155 records them.
+
+## 0.155 — cocolog 1.14.0, and a bitfield stored exactly at any width
+
+**0.155: cocolog 1.14.0 over ZiguratIP 1.0.1 taken and gated, `ccl_w_shr/3`'s work-round for the shift gone with
+1.14.0's answer to our report, and every bitfield store and global past 60 bits made exact -- all nine gates GREEN over
+libc++ 18 and the two libc++ gates GREEN over libc++ 21, in 4509 s; and 0.154's chain, which ran while 0.154 was
+committed, recorded: all GREEN on cocolog 1.13.3, in 4509 s too.** The Coco's messages announced 1.13.4 to 1.13.7,
+cocolog's answers to the points of 0.151 (a `catch/3`'s choice point, the `=/2` loop), and then 1.14.0, its answer to
+the shift reported this morning; the owner asked for each piece ("pull repos, fix bitfields"; "go ahead, commit and push
+when green"; "remove the ccl_w_shr work-round too, and do all"). The bitfield defect was found while 0.154's finding,
+cocolog's `>>` modulo 64, was checked for `<<` before it went to cocolog's owner, as the owner asked ("Tell it to The
+Coco").
+
+- 0.154'S CHAIN, on the live checkout, fresh HOMEs, 4509 s in all (0.153: 4569 s). Over libc++ 18: the flow gate (125
+  findings, all of them `test/flow.expect`'s, 56 s, 2487 MB summed over its four lanes), reader 5 s, compile 11 s (79
+  run and 47 safe fixtures), driver 10 s (37 checks), objects 3 s, the proof, the cross gate in 51 s (79 fixtures and 3
+  checks), the library read in 1447 s (peak 1077 MB; 0.153: 1491 s), the C++ gate in 680 s (peak 2209 MB; 0.153: 660
+  s) with 498 of its 501 fixtures ok -- the skips `joinwith`, `stdoptionalref` and `tzone`, which their `.needs` keep
+  from libc++ 18 -- and the 21 refusals and the three of the safe part. Over libc++ 21: the library read in 1341 s (peak
+  1294 MB; 0.153: 1366 s) and the C++ gate in 896 s (peak 2165 MB; 0.153: 895 s), 500 of 501 ok, the skip
+  `stdoptionalref`. The fixtures' builds summed 2394 s over libc++ 18 (0.153: 2298 s, one fixture fewer) and 2666 s
+  over libc++ 21 (0.153: 2659 s). Of the 96 s more over libc++ 18, the new `ldlimits.cpp` took 1 s and the four longest
+  fixtures 86 s -- `fmtchrono`, `fmtchrono2`, `fmtrange` and `fmttuple`, 19 to 23 s each, built in the gate's first
+  three minutes while a comparison of 316 small builds (the IR of the C run fixtures over a scratch library, below) ran
+  beside the gate on the box's four cores, against the rule of one guarded run at a time --, and no other fixture moved
+  by more than 8 s; over libc++ 21, where nothing ran beside the gate, the common fixtures moved by 6 s in all.
+- THE SHIFT, TOLD. 0.154's finding went to cocolog's owner, delivered at 11:10 UTC while that chain ran: the
+  measurement, made again first -- `1 >> 64`, `1 >> 128` and `1 >> 1000000` are 1, `255 >> 64` 255, `-5 >> 64` -5,
+  `1 << 64` 1, `1 << 65` 2, and a negative count goes modulo 64 too, `1 >> -1` 0; SWI answers 0 for the right shifts of
+  a value not below 0, -1 for `-5 >> 64` and 2 for `1 >> -1`, and a count from 0 to 63 is right --, the cause as we
+  read it, a plain C shift of two `i64` values in `lib/solve.cicili` (the `is/2` evaluator) and `lib/kb.cicili` (the
+  compiled arithmetic), undefined in C for a count past 63 or below 0 (C11 6.5.7/3), and a possible fix, which is the
+  owner's to decide. 1.14.0 answered it within the hour (below). The Findings line names `<<` too.
+- THE NEIGHBOURS. cocolog `2ae4351` (1.13.3) to `52abc90` (1.14.0), over ZiguratIP `01251f4` (1.0.0) to
+  `90d99b8` (1.0.1); Cicili stays `9d74a5e` (3.0.0). 1.13.4 (`c75dbfe`): a `catch/3` whose goal exited with nothing
+  above it to retry takes its frame with it, as SWI's `I_EXITCATCH` does -- our report of 0.151. `39ad572`: `make
+  schema` takes `$ZIGURATIP/home` where `ZIGURATIP_HOME` is not set -- our note of 0.151. 1.13.5 (`5303e09`): `=/2`
+  inline in the builtin switch again, without the 13 instructions a turn that 1.12.2 had added; the 8 % that 1.13.0
+  added to our `=/2` loop was where a function's code starts on its cache line, which cocolog's owner measured and left
+  (`-falign-functions=64` gave the loop its time back and moved nothing else past the noise). 1.13.6 (`bde07b1`):
+  `library(flow/debug)` calls its clock what it counts, steps (every goal, a `true/0` and an `=/2` among them), and
+  each profile view says how many steps were inferences. 1.13.7 (`eb90ec6`): the time view charges a retry to the
+  retried predicate, marks a load `(one call: P %)` and writes each window's profile under `windows=N`;
+  `flow_why_furthest/2` goes into the call that spent the most steps; and, with ZiguratIP 1.0.1, a store opens in 0.06 s
+  of CPU where it took 0.42 to 0.69 s (a page's hexmap read once), and the first call of a big predicate fetches its
+  clauses with 21 % fewer instructions. 1.14.0 (`52abc90`): `>>` and `<<` take any count, the answer to this morning's
+  report (above); its note says `ccl_w_shr/3`'s work-round can go, and the owner asked for that too ("remove the
+  ccl_w_shr work-round too, and do all"). The SDK (`lib/sdk.cicili`) did not change. Rebuilt in order: ZiguratIP (`make
+  MODE=Release`, 361 s), cocolog at 1.13.7 (`make`, `make schema`, `make modules`), then at 1.14.0 when The Coco's note
+  of it came (`make` 128 s, `make schema`, `make modules`), and both modules here (LLVM 18): `cicilang 0.155 (cocolog
+  1.14.0; LLVM 18.1.3)`; `1 >> 64` is 0, `-5 >> 64` -1, `1 >> -1` 2, `1 << 64` 0 and `4 << -1` 2. The 1.13.3 build,
+  ZiguratIP 1.0.0's libraries and both modules built over 1.13.3 were kept in scratch copies for the measures below.
+- THE ENGINE, MEASURED. one run at a time on this box, the library of 0.154 on each engine (its modules built
+  over each), the engines' runs interleaved. Five warm C++ builds, the least CPU time of three runs each: 50.49 s on
+  1.13.3 and 50.09 s on 1.14.0 (`stdvector.cpp` 2.97 s and 2.68 s, `stdformat.cpp` 31.40 s and 31.07 s). 0.151's two
+  points: a million bare `catch(atom(a), _, fail)` in a deterministic recursion took 0.81 to 0.94 s and kept 208 MB of
+  heap and 8 MB of trail on 1.13.3, and takes 0.16 to 0.19 s and keeps 18 MB of heap and no trail on 1.14.0 (under
+  `once/1` 10 MB on both, the plain call nothing) -- the choice point is gone; the `=/2` loop (ten million turns of
+  `X = f(N, a), X = f(_, Y), Y = a`), the least of five runs, 1.897 s on 1.13.3 and 1.890 s on 1.14.0, inside this
+  box's noise (a fifth between two runs of one engine). The store: the compile gate's store of 20 MB opens in 24 ms of
+  CPU on 1.13.3 and 13 ms on 1.14.0 (`cocolog --embed KB query true`, the least of five), a store of 1.9 MB in 15 ms on
+  either, and a build of `hello.c` served from the store takes 0.139 s and 0.129 s. A COLD READ IS STILL SLOWER than on
+  1.12.1: the census of the flattened `<iomanip>` (C++17, the parse alone) takes 100.7 s on 1.12.1 (the scratch build
+  of 0.151, the same library and modules), 119.5 s on 1.13.3 and 118.7 s on 1.14.0, the least of three to five runs
+  interleaved -- 18 % more, where 0.151 measured 16 % between 1.12.1 and 1.13.0 on a faster box (59.5 s and 68.9 s).
+  1.13.5's `=/2` took back cocolog's own loop and not our parse; cocolog's owner found 1.13.0's 8 % on that loop in
+  where a function's code starts on its cache line (`-falign-functions=64` gave it back), which may be this one too
+  and is not measured here. Not yet told to cocolog's owner.
+- A BITFIELD PAST 60 BITS, found while the left shift was checked against clang. The store (`ir_store_slot/4`) and a
+  global's packer (`ir_gpack/4`, `ir_le_bytes/3`) made their masks with cocolog's integers, which have 61 bits and whose
+  `<<` took its count modulo 64 through 1.13.7: a store into `unsigned long long a : 64` wrote nothing (its mask,
+  `(1 << 64) - 1`, was 0), and so did one into `long long a : 64`; a store into a field of 61 to 63 bits at offset 0
+  cleared the field above it (`struct { unsigned long long a : 63, b : 1; }`: b read 0 after `a = 0x7FFFFFFFFFFFFFF0`,
+  where clang reads 1); a 100-bit `unsigned __int128` field kept 36 bits; a global's field at bit 61 or above lost its
+  value (`{ a : 61, b : 3 } = { 5, 7 }`: b 0); and a global holding a value past 60 bits in a bitfield was refused,
+  `type_error(evaluable, '0xfedcba9876543210'/0)`. Silent wrong answers, but the last, as old as the store's code (0.41
+  or before). Now the masks are the wide arithmetic's (`ir_low_ones/2`, `ccl_w_shl/3`, `ccl_w_sub/3`), a constant past
+  59 bits is spelled whole (`ir_iconst/3` over `ir_big_text/2`), and a global's field is wrapped to its width and laid
+  at its bit by the same arithmetic (`ccl_w_wrap/4`, `ccl_w_shl/3`, `ccl_w_bit/4`, `ccl_w_shr/3`). A load is shifts
+  alone and was right. libc++'s string was stored right -- its 63-bit `__cap_` lies above its 1-bit `__is_long_`, and
+  the shift by one dropped the extra bit of the old mask, all ones -- and spells its mask whole now, so the IR of every
+  C++ program that holds a string changes in that constant. `test/c/run/bitfield64.c` (stores into fields of 61 to 64
+  bits, signed and unsigned, beside small ones, a 100-bit field, compound assignments, and eight globals) prints
+  clang's output on x86-64 and on aarch64 under qemu. The IR of every C run fixture, built over the library before the
+  fix and after it, for x86-64 and for aarch64, is the same, 158 of 158 builds, byte for byte. Lowering 84.
+- THE WORK-ROUND GONE. `ccl_w_shr/3` shifts an integer by cocolog's own `>>` again, as it did until 0.154, where 0.154
+  answered the sign for a count past 60 itself; on 1.14.0 the two give one answer for every count, and no code of the
+  library shifts by 61 or more elsewhere (the counts of `ccl_w_shl/3`'s fast path, `ccl_w_wrap/4`, the limb walks and
+  `ir_iconst/3` stay under 60). `int128.c`'s static assertion, `((unsigned __int128) 5 >> 64) == 0`, and `ldconst.c`
+  on aarch64 hold it.
+- THE TOOLS' WORD. `test/prof.sh` and `test/why.sh` (and their `.pl`) say steps for the debugger's clock, as cocolog
+  1.13.6 does: the windows, the run's end and the views' counts are steps, every goal, a `true/0` and an `=/2` among
+  them; `statistics/2`'s inferences leave those out. Over 1.14.0 both read as their topics say: `test/why.sh` over
+  `abstract.cpp` names the same 19 calls and the same branch as at 0.148 (the build ended at step 181,200; 12 s at
+  287 MB), and `test/prof.sh` over `stdvector.cpp` profiles 17.09 million steps in 142 s at 688 MB, its first build
+  cold (81 s): the windows' 120,000 steps are 114,719 inferences, and their 73.6 ms are the embedded LLVM's compile
+  (45.8 ms) and its module's load (13.5 ms), as at 0.153; the time view marks a load `(one call: P %)`.
+- `CLAUDE.md`: the bullet A BITFIELD IS STORED EXACTLY AT ANY WIDTH in the Object layout topic and a pointer to it from
+  the global constant's bullet; the Findings' shift line (`<<` too, told to cocolog's owner, answered by 1.14.0), the
+  64-bit arithmetic's line on `ccl_w_shr/3`, and the neighbours' versions; the steps of the two tools' topics and of
+  the flow tools bullet (1.13.6 and 1.13.7), the catch habit's bullet (1.13.4); What runs; the Hosts bullet (the chain
+  below); the gates' counts (80 run fixtures, 80 on aarch64); the versions.
+
+Reader 130, lowering 84. The gated module is the committed one, its version bumped before it was built.
+
+THE GATES. The chain on a worktree of 0.154 that holds this step's changes (detached at `c0e6b5d`), over cocolog
+1.14.0, fresh HOMEs, started at 13:12 UTC: 4509 s in all, to the second as long as 0.154's on 1.13.3. Over libc++ 18:
+the flow gate (125 findings, all of them `test/flow.expect`'s, 52 s, 2111 MB summed over its four lanes), reader 4 s,
+compile 10 s (80 run and 47 safe fixtures), driver 10 s (37 checks), objects 3 s (29 checks), the proof, the cross gate
+in 54 s (80 fixtures and 3 checks), the library read in 1447 s (peak 1171 MB; 0.154: 1447 s), the C++ gate in 664 s
+(peak 2183 MB; 0.154: 680 s) with 498 of its 501 fixtures ok -- the skips `joinwith`, `stdoptionalref` and `tzone` --
+and the 21 refusals and the three of the safe part. Over libc++ 21: the library read in 1359 s (peak 1081 MB; 0.154:
+1341 s) and the C++ gate in 898 s (peak 2011 MB; 0.154: 896 s), 500 of 501 ok, the skip `stdoptionalref`. The
+fixtures' builds summed 2332 s over libc++ 18 (0.154: 2394 s, with the comparison beside its gate) and 2670 s over
+libc++ 21 (0.154: 2666 s). Then the live checkout took the same changes, and its two modules were built again over
+1.14.0 (`cicilang 0.155 (cocolog 1.14.0; LLVM 18.1.3)`): on it the reader gate is GREEN (4 s) and `bitfield64.c`
+prints its `.expect`.

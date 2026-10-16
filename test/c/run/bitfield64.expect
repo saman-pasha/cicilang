@@ -1,0 +1,20 @@
+A fedcba9876543210
+B 7ffffffffffffff0 1
+C 3ffffffffffffff1 3
+D 1ffffffffffffff2 5
+E -3
+F f0f0f0f0f 123456789abcdef abcdef
+B2 7ffffffffffffff1 1
+F2 fffffffff fffffffffffffffe 7
+E2 -9223372036854775808
+E3 -9223372036854775803
+G 6 edcba9876543213 1
+gA fedcba9876543210
+gB 7ffffffffffffff0 1
+gD 1ffffffffffffff2 5
+gE -3
+gF f0f0f0f0f 123456789abcdef abcdef
+gG 5 fffffffffffffff 1
+gH -3 21 abcde
+gS 5 7
+exit 0

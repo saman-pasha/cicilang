@@ -197,7 +197,7 @@ ccl_w_mod(X, Y, V) :- integer(X), integer(Y), !, V is X - (X // Y) * Y.         
 ccl_w_mod(X, Y, V) :- ccl_wide(X, w(SA, MA)), ccl_wide(Y, w(_, MB)), ccl_mag_divmod(MA, MB, _, R), ccl_narrow(w(SA, R), V).
 ccl_w_shl(X, N, V) :- integer(X), N < 30, X < 1073741824, X > -1073741824, !, V is X << N.
 ccl_w_shl(X, N, V) :- ccl_wide(X, w(S, M)), ccl_mag_shl(M, N, M1), ccl_narrow(w(S, M1), V).
-ccl_w_shr(X, N, V) :- integer(X), !, ( N > 60 -> ( X < 0 -> V = -1 ; V = 0 ) ; V is X >> N ).   % arithmetic: the floor, as every compiler here has it; cocolog's `>>' takes its count modulo 64 (`1 >> 64' is 1), so an integer shifted past its 61 bits is its sign (0.154: a quad's small fraction shifted by 64 was itself)
+ccl_w_shr(X, N, V) :- integer(X), !, V is X >> N.   % arithmetic: the floor, as every compiler here has it; past its 61 bits an integer shifts to its sign, as cocolog 1.14.0's `>>' answers any count (0.155: through 1.13.7 it took the count modulo 64, `1 >> 64' was 1, and 0.154 tested the count here)
 ccl_w_shr(X, N, V) :- ccl_wide(X, w(S, M)), ccl_mag_shr(M, N, M1, Rem), ( S < 0, Rem == nonzero -> ccl_mag_add(M1, [1], M2) ; M2 = M1 ), ccl_narrow(w(S, M2), V).
 ccl_w_bit(Op, X, Y, V) :- integer(X), integer(Y), !, ccl_w_bit_int(Op, X, Y, V).
 ccl_w_bit(Op, X, Y, V) :- ccl_wide(X, A), ccl_wide(Y, B), ccl_w_tc(A, TA), ccl_w_tc(B, TB), ccl_mag_bit(Op, TA, TB, TC), ccl_w_untc(TC, C), ccl_narrow(C, V).

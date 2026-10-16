@@ -4,8 +4,8 @@
 %% A build that fails says where it gave up only as well as its refusal does: `not lowered yet:
 %% item(function(pick, block/1))' names the function, not the clause; `the check or the lowering
 %% failed without saying why' names nothing. library(flow/debug) runs the build twice, each time in
-%% a child of its own -- a probe at full speed learns at which inference the run ends, and a replay
-%% at full speed to there records the last inferences: every call, its arguments, the clauses it
+%% a child of its own -- a probe at full speed learns at which step the run ends, and a replay
+%% at full speed to there records the last steps: every call, its arguments, the clauses it
 %% tried and how it ended. The build is made to END AT ITS FIRST ERROR ('$ccl_why', which the
 %% driver reads): the driver throws after it reports an error (dr_why_stop/3), so the recording
 %% ends where the compiler gave up.
@@ -45,7 +45,7 @@ cw_main(Top, Base, Window, Keep) :-
     flow_debug(cw_goal, Base, [source(Top), window(Window), text(160), own(all)|Docs], Run),
     Run = run(How, At, _, window(From, To), Calls, _, _, _),
     length(Calls, NC),
-    format("-- the build under library(flow/debug): ~q at inference ~w; inferences ~w to ~w recorded, ~w calls~n",
+    format("-- the build under library(flow/debug): ~q at step ~w; steps ~w to ~w recorded, ~w calls~n",
            [How, At, From, To, NC]),
     (   flow_why_raised(Run, Raised, [own(all), chose(C), caught(K)])
     ->  format("-- the error was raised through (the window's top first):~n", []),

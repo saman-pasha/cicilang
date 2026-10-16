@@ -1,20 +1,20 @@
 #!/bin/sh
-# test/prof.sh -- WHERE A BUILD'S INFERENCES AND ITS TIME GO (0.148, 0.152): the build of a file profiled by
+# test/prof.sh -- WHERE A BUILD'S STEPS AND ITS TIME GO (0.148, 0.152): the build of a file profiled by
 # cocolog's library(flow/debug) over windows along its run, each window recorded by a cocolog of its own,
-# their profiles added up: each predicate's calls and the inferences spent inside them, the inferences by
+# their profiles added up: each predicate's calls and the steps spent inside them, the steps by
 # what took them, who made the calls, the goals asked more than once, and (cocolog 1.13.3) each predicate's
-# inclusive and self time, its window's probe run untraced under a clock read at every inference
+# inclusive and self time, its window's probe run untraced under a clock read at every step
 # (test/prof.pl).
 #
 #   sh test/prof.sh [cicilang's arguments] FILE     a C file through bin/cicilang, a C++ one through bin/cicilang++
 #   PROF_WINDOWS=N   the windows spread along the run (6), the last ending where it ends
-#   PROF_WINDOW=W    the inferences each records (20000)
+#   PROF_WINDOW=W    the steps each records (20000)
 #   PROF_JOBS=J      the windows recorded at once (2): each is a whole build to its window's end, twice
 #   PROF_TOP=K       the rows of each view printed (20); PROF_KEEP=DIR keeps DIR/prof.prof, every row
 #   PROF_SECS=S PROF_MB=M   the caps: S seconds (2400) and M MB summed over the run's process group (2800)
 #
 # The goal is the command's own (bin/cicilang writes it under CICILANG_GOAL), compiled with -c and no store. A
-# count of inferences is no count of time: a copy of a global (nb_getval/2) is one inference however big it is
+# count of steps is no count of time: a copy of a global (nb_getval/2) is one step however big it is
 # (CLAUDE.md, Time and memory); the TIME view says what it costs. An older library(flow/debug), with no time(T),
 # gives the four other views.
 HERE=$(cd "$(dirname "$0")" && pwd)

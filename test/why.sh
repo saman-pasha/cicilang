@@ -1,12 +1,12 @@
 #!/bin/sh
 # test/why.sh -- WHERE A BUILD GIVES UP (0.144): the build of a file run under cocolog's library(flow/debug), which
-# records its last inferences and reads back the failure that ended it. A refusal names a function, `not lowered yet:
+# records its last steps and reads back the failure that ended it. A refusal names a function, `not lowered yet:
 # item(function(pick, block/1))', and `the check or the lowering failed without saying why' names nothing; this
 # names the call that failed, down the path that got furthest, its arguments, the clause it failed in and that
 # clause's last goal -- in two runs of the build at full speed, where finding it by hand took probes and traces.
 #
 #   sh test/why.sh [cicilang's arguments] FILE     a C file through bin/cicilang, a C++ one through bin/cicilang++
-#   WHY_WINDOW=N    the inferences recorded before the end (20000); a failure further back needs more
+#   WHY_WINDOW=N    the steps recorded before the end (20000); a failure further back needs more
 #   WHY_KEEP=DIR    the debugger's files made and kept in DIR: why.txt (the run, a call a line), why.svg, why.xml
 #   WHY_SECS=S WHY_MB=M   the caps: S seconds (2400) and M MB summed over the run's process group (2800)
 #
@@ -35,7 +35,7 @@ rm -f "$D/goal"; CICILANG_GOAL="$D/goal" "$cmd" "$@" -c -o "$D/why.o"
 [ -s "$D/goal" ] || { echo "RED: $cmd made no goal of these arguments"; exit 1; }
 # THE BUILD ONCE AS IT IS, first: what it says, and the C++ summaries it reads written before the debugger's two runs
 # -- else the probe flattens a header and writes its summary, the replay reads the summary, and the two runs differ
-# (cocolog calls that DIVERGED: abstract.cpp's probe spent 4.4 million inferences, its replay 181 thousand)
+# (cocolog calls that DIVERGED: abstract.cpp's probe spent 4.4 million steps, its replay 181 thousand)
 echo "-- the build: $(basename "$cmd") $*"
 if timeout -s KILL "$WHY_SECS" "$cmd" "$@" -c -o "$D/plain.o" < /dev/null > "$D/plain.out" 2>&1; then
   sed 's/^/   /' "$D/plain.out"; echo "-- it builds: nothing to explain"; exit 0

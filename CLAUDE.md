@@ -10,8 +10,8 @@ it found, its measurements and its gate numbers. `README.md` tells a user what r
 architecture and the milestones. A step that changes a rule edits the rule here, in its topic, and writes its entry
 in `HISTORY.md`.
 
-At 0.154 the versions are: the module 0.154 (`ccl_p_version` in `module/cicilang.cicili`, `bin/cicilang --version`),
-the reader 130 (`ccl_reader_version/1`, `library/ccl_syntax.pl`) and the lowering 83 (`ccl_lowering_version/1`,
+At 0.155 the versions are: the module 0.155 (`ccl_p_version` in `module/cicilang.cicili`, `bin/cicilang --version`),
+the reader 130 (`ccl_reader_version/1`, `library/ccl_syntax.pl`) and the lowering 84 (`ccl_lowering_version/1`,
 `library/ccl_ir.pl`).
 
 Build and prove, always in this order (or all of it, `sh test/gates.sh`):
@@ -295,7 +295,7 @@ test/parlib.sh              the memory-gated pool: ccl_pool, ccl_cocolog_rss, cc
 test/flow.pl, flow.sh       the flow gate: every library file charted by cocolog's library(flow/chart), nothing run
 test/flow.expect            the findings the flow gate holds the library to, a key a line
 test/why.pl, why.sh         where a build gave up: the build run under library(flow/debug), the failed call named
-test/prof.pl, prof.sh       where a build's inferences and time go: windows along its run, by library(flow/debug)
+test/prof.pl, prof.sh       where a build's steps and time go: windows along its run, by library(flow/debug)
 test/reader.pl, reader.sh   the reader's gate
 test/compile.pl, compile.sh the compiler's gate
 test/driver.sh              the command's gate
@@ -455,7 +455,7 @@ tutorials/01..03-*.pl       the objects layer's lessons; goal main, last line do
 - The compile gate. `test/compile.pl`, one process over the user's store, reads, checks, lowers, compiles at `-O1`
   and links every `test/c/run/*.c` at its `NAME.std` level (`c_level`). It expects every `test/c/safe/*.c` refused.
   `test/compile.sh` runs each binary as `NAME arg1 arg2` against `NAME.expect`, and compares each refusal with
-  `safe/NAME.expect`. There are 79 run and 47 safe fixtures at 0.154. (M2, M3, 0.57)
+  `safe/NAME.expect`. There are 80 run and 47 safe fixtures at 0.155. (M2, M3, 0.57)
 - The driver gate. `test/driver.sh` makes 37 checks of `bin/cicilang` over the user's store (the two decimal checks are
   skipped where no gcc with decimal floating types is installed), the variadic calls of every kind both ways against
   clang among them (`test/c/link/va_*.c`, 0.131). They cover what `-o`,
@@ -485,8 +485,8 @@ tutorials/01..03-*.pl       the objects layer's lessons; goal main, last line do
   variadic calls of every AAPCS64 kind both ways (`test/c/link/va_*.c`: an int, a long, a double, a long double, an HFA
   of doubles and of floats, a struct past 16 bytes, an eight-byte struct, a 16-aligned `__int128` struct, the general
   and the SIMD registers run out). It SKIPs without `qemu-aarch64`, `aarch64-linux-gnu-gcc` and the sysroot (Debian
-  and Ubuntu: `qemu-user`, `gcc-aarch64-linux-gnu`, `libc6-dev-arm64-cross`) or without clang. 79 fixtures and 3
-  checks at 0.154, about a minute; `ldconst.c` holds the quad's literals to clang's there. (0.131, 0.154)
+  and Ubuntu: `qemu-user`, `gcc-aarch64-linux-gnu`, `libc6-dev-arm64-cross`) or without clang. 80 fixtures and 3
+  checks at 0.155, about a minute; `ldconst.c` holds the quad's literals to clang's there. (0.131, 0.154)
 - The proof. `proof/run.sh` has clang turn `proof/forty2.ll` into a binary that prints `cicilang reaches C` and exits
   42. (M0)
 
@@ -659,7 +659,7 @@ tutorials/01..03-*.pl       the objects layer's lessons; goal main, last line do
   arguments make into FILE and runs nothing. The tool then builds once as the command would and prints what it says (a
   build that succeeds has nothing to explain: exit 0). The build also writes the C++ summaries it reads BEFORE the
   debugger's two runs: else the probe flattened a header and wrote its summary, the replay read the summary, and the
-  two took different roads (`abstract.cpp`'s probe spent 4.4 million inferences, its replay 181 thousand). (0.144)
+  two took different roads (`abstract.cpp`'s probe spent 4.4 million steps, its replay 181 thousand). (0.144)
 - The program under the debugger is a top file: `:- use_module(library(cicilang)).`; the compiler's own files, named in
   a block the engine skips (`:- if(fail).`, an `ensure_loaded/1` of every `library/ccl_*.pl` but the two generated
   tables, `:- endif.`); and `cw_goal :- nb_setval('$ccl_why', yes), ccl_drive(...).` The debugger reads the clauses an
@@ -667,7 +667,7 @@ tutorials/01..03-*.pl       the objects layer's lessons; goal main, last line do
   `library(cicilang)` is a compiled module whose Prolog half's files it does not reach: without them named it found no
   branch and no catch, and its answered failure was an older one further out (`abstract.cpp`: an array-type test of the
   declaration); named, they are read, and the run loads nothing again (0.148). Under `'$ccl_why'` the run ENDS at its
-  first error, so the window that the debugger records -- the last `WHY_WINDOW` inferences -- holds the code that gave
+  first error, so the window that the debugger records -- the last `WHY_WINDOW` steps -- holds the code that gave
   up: an error the compiler RAISES passes the driver's five report sites untaken (`dr_catch/3`, 0.146) and ends the run
   as the compiler raised it, and an error the driver says after a FAILURE is thrown after it is written
   (`dr_why_stop/3`, `ccl_why(File, Line, Parts)`). `dr_catch/3` stays, measured at 0.148: cocolog 1.11.7's `caught(K)`
@@ -675,7 +675,7 @@ tutorials/01..03-*.pl       the objects layer's lessons; goal main, last line do
   the build starts -- over plain `catch/3` at the five sites no case found the compiler's error, the run ended in the
   report's own throw, and each case took 30 to 31 s and 736 to 751 MB where it takes 12 s and 300 MB. (0.144, 0.146,
   0.148)
-- `test/why.pl`'s `cw_main/4` runs `flow_debug/4` (a probe at full speed learns at which inference the run ends, a
+- `test/why.pl`'s `cw_main/4` runs `flow_debug/4` (a probe at full speed learns at which step the run ends, a
   replay records the window, each in a child cocolog) with `own(all)`, the chart being of the top file, whose every
   call into the compiler is a library's (cocolog 1.11.4), and with `svg(false)` and `xml(false)` unless `WHY_KEEP`
   (1.11.10: no document drawn or written; the same explanation, line for line, in 12 s and 300 MB a case where the
@@ -692,7 +692,7 @@ tutorials/01..03-*.pl       the objects layer's lessons; goal main, last line do
   done, then the most inferences spent, then the earlier, past an explicit `fail`). The rule of 0.146 -- a failed
   call that tried no clause just before the raise, since 1.11.4's answered failure passed a refusal's deciding builtin
   over -- is gone: `chose(C)` names it among the conditions. (0.144, 0.146, 0.148, 0.149)
-- `WHY_WINDOW` (20000 inferences: a desugaring failure 10,000 inferences before the end, behind backtracking, was
+- `WHY_WINDOW` (20000 steps: a desugaring failure 10,000 steps before the end, behind backtracking, was
   outside a window of 4000), `WHY_KEEP=DIR` (the debugger's files, made only then: `why.txt`, the run a call a line;
   `why.svg` and `why.xml`, the run over its chart), `WHY_SECS` (2400 s) and `WHY_MB` (2800 MB), both caps on the run's
   whole process TREE, killed whole past either: cocolog's process module starts every child in a process group or a
@@ -704,39 +704,41 @@ tutorials/01..03-*.pl       the objects layer's lessons; goal main, last line do
   `ccl_cpp_units/2` failed, down to the `\=/2` of `cpp_stmt_/3`; and `abstract.cpp`'s refusal as above: 12 to 13 s and
   300 to 308 MB each, the tree summed. (0.144, 0.146, 0.148)
 
-### Where a build's inferences and time go: test/prof.sh
+### Where a build's steps and time go: test/prof.sh
 
 - `sh test/prof.sh [cicilang's arguments] FILE` (0.148) profiles the build of FILE with cocolog's `library(flow/debug)`
   (1.11.10; the time since 1.13.3). The build runs once as it is (the C++ summaries it reads written), then once at full
-  speed under the debugger to learn its length; then `PROF_WINDOWS` windows (6) of `PROF_WINDOW` inferences (20000)
+  speed under the debugger to learn its length; then `PROF_WINDOWS` windows (6) of `PROF_WINDOW` steps (20000)
   spread along the run, the last ending where it ends, are each recorded by a cocolog of its own that runs the build
   twice to its window's end, `PROF_JOBS` at a time (2) (`flow_debug_windows/4`, with `svg(false)`, `xml(false)` and
   `time(T)`), and their rows are added up (`flow_profile_merge/5`). It prints the first `PROF_TOP` rows (20) of five
-  views: INCLUSIVE, each predicate's calls and the inferences spent inside them, a call charged from its Call to its
-  first Exit or Fail; STEPS, the windows' inferences by what took them, a call one each and the control constructs the
+  views: INCLUSIVE, each predicate's calls and the steps spent inside them, a call charged from its Call to its
+  first Exit or Fail; STEPS, the windows' steps by what took them, a call one each and the control constructs the
   rest; CALLERS, who made each predicate's calls; REPEATS, the goals asked more than once, where a memo would serve;
   TIME (0.152), each predicate's calls, its inclusive and self time in microseconds and its largest call's, the most
   inclusive first, and the control constructs' time last (`flow_time_text/2`). `PROF_KEEP=DIR` keeps them whole
   (`DIR/prof.prof`). A C file goes through `bin/cicilang`, a C++ one through `bin/cicilang++`, built with `-c` and no
   store, as `test/why.sh` builds. Over a `library(flow/debug)` older than 1.13.3 it gives the four other views and says
   why. It is no gate. (0.148, 0.152)
-- A count of inferences is no count of time: a copy of a global (`nb_getval/2`), a clause retrieval of a big term, an
-  assert or a call of a native module is one inference whatever it costs. The TIME view says what each cost (cocolog
-  1.13.3's `time(T)`): each window's PROBE runs the build untraced under a clock read at the top of every inference of
-  the window, and the replay, numbered as the probe is, says whose each inference was; a call's self time is its own
-  inference -- a predicate's head and the guards its clause runs as it is entered, a builtin's whole run -- and what no
-  call's own inference took is the control constructs'. A reading of the clock costs some 30 to 35 ns, measured as each
-  probe starts and taken off, so a cheap predicate is read by its count and a costly inference by its time. The time is
-  a SAMPLE, six windows of 20000 inferences of a run of millions: a cost it names is measured over the whole run, by the
+- A count of steps is no count of time: a copy of a global (`nb_getval/2`), a clause retrieval of a big term, an
+  assert or a call of a native module is one step whatever it costs. The TIME view says what each cost (cocolog
+  1.13.3's `time(T)`): each window's PROBE runs the build untraced under a clock read at the top of every step of
+  the window, and the replay, numbered as the probe is, says whose each step was; a call's self time is its own
+  step -- a predicate's head and the guards its clause runs as it is entered, a builtin's whole run -- and what no
+  call's own step took is the control constructs'. A reading of the clock costs some 30 to 35 ns, measured as each
+  probe starts and taken off, so a cheap predicate is read by its count and a costly step by its time. The time is
+  a SAMPLE, six windows of 20000 steps of a run of millions: a cost it names is measured over the whole run, by the
   timers of Finding a cost, before it is called the cost (0.152: `cpp_shipped_member/5`, taken out at 0.153, the
   Tables topic of Time and memory). `PROF_SECS` (2400 s) and `PROF_MB` (2800 MB) cap the whole process tree: the
   windows' cocologs run in sessions of their own, each window's probe and replay in process groups of their own.
-  Measured on cocolog 1.11.10: `stdvector.cpp` (18.2 million inferences) in 82 s at 847 MB, `counter.cpp` in 44 s at
+  Measured on cocolog 1.11.10: `stdvector.cpp` (18.2 million steps) in 82 s at 847 MB, `counter.cpp` in 44 s at
   567 MB (0.148); on 1.13.0, `stdvector.cpp` (17.9 million) in 79 s at 829 MB (0.151); on 1.13.3, with the TIME view,
   in 80 s at 792 MB (0.152), and over the library of 0.153 (17.1 million) in 71 s at 679 MB. THE WINDOWS ARE ON THE
   DEBUGGER'S CLOCK, which counts every goal: since cocolog 1.12.2 `statistics/2`'s inferences leave out each `true` and
   `=/2`, as SWI counts none, so the two counts of one run differ -- `stdvector.cpp`'s build is 17.9 million on the
-  debugger's clock and 17.2 million by `statistics/2` (0.151). (0.148, 0.151, 0.152, 0.153)
+  debugger's clock and 17.2 million by `statistics/2` (0.151). cocolog 1.13.6 calls that clock's unit a STEP, each view
+  says how many of its steps were inferences, and the two tools print steps since 0.155. (0.148, 0.151, 0.152, 0.153,
+  0.155)
 
 ## The driver and the commands
 
@@ -1939,7 +1941,7 @@ tutorials/01..03-*.pl       the objects layer's lessons; goal main, last line do
   0.117)
 - A reader bump makes every summary cold; `test/libcxx.sh` rewrites them. `test/reader.pl`'s `k16` (a cached read is
   the same AST as a fresh one) goes RED on a grammar change without a bump. (0.93, 0.105)
-- `ccl_lowering_version/1` (`library/ccl_ir.pl`, now 83): bump it whenever the check or the lowering changes what it
+- `ccl_lowering_version/1` (`library/ccl_ir.pl`, now 84): bump it whenever the check or the lowering changes what it
   emits, however small -- 0.120 bumped it for the ORDER of the drain functions alone. Why: `dr_ir/3` serves the old IR
   otherwise. Either bump starts the C store afresh. (M4, 0.103, 0.120)
 
@@ -4379,9 +4381,10 @@ A lambda is a class of its captures (`library/ccl_cpp.pl`). A fixture named alon
   as hex (`ccl_wide/2`, `ccl_limbs_of_hex/3`). `test/c/run/bighex.c`. (0.94, 0.112)
 - A wide result runs on base-2^30 limbs (`ccl_w_*` over `ccl_mag_*`; `ccl_w_fits/1` the fast path). `/` and `%` truncate
   toward zero, `>>` of a negative is arithmetic, bitwise operators are two's complement (`~0` is -1). (0.94) An integer
-  shifted right past its 61 bits is its sign (`ccl_w_shr/3`, 0.154): cocolog's `>>` takes its count modulo 64, so
-  `(unsigned __int128) 5 >> 64` folded to 5 and a quad's small fraction shifted by 64 stayed itself (`int128.c`'s static
-  assertion, `ldconst.c` on aarch64).
+  shifted right past its 61 bits is its sign, as cocolog's own `>>` answers any count since 1.14.0 (`ccl_w_shr/3`;
+  0.155): through 1.13.7 it took its count modulo 64, so `(unsigned __int128) 5 >> 64` folded to 5 and a quad's small
+  fraction shifted by 64 stayed itself, and from 0.154 to 0.155 `ccl_w_shr/3` tested the count itself (`int128.c`'s
+  static assertion and `ldconst.c` on aarch64 hold it).
 - A FLOATING CONSTANT THAT IS THE OPERAND OF A CAST TO AN INTEGER TYPE folds (C 6.6/6, [expr.const]; 0.129):
   `(int) 2.5`, `(__int128) 1e30` and `(long) -3.75` (`ccl_float_operand/2`, the two cast clauses of `ccl_const_eval/2`
   before the general ones). A floating literal alone still folds nowhere, since a folded floating static would become an
@@ -4606,6 +4609,18 @@ A lambda is a class of its captures (`library/ccl_cpp.pl`). A fixture named alon
   loads and stores go through `ir_load_slot` and `ir_store_slot`; a bitfield run loads `align 1`, shifted and masked.
   `&` of a bitfield refuses `address_of_bitfield`. `ir_ref_of` takes a slot's address only through `ir_slot_addr`.
   (M2b, 0.89)
+- A BITFIELD IS STORED EXACTLY AT ANY WIDTH (0.155): the store (`ir_store_slot/4`) makes the field's mask, `2^W - 1`
+  (`ir_low_ones/2`), and the run's mask of the other bits in the wide arithmetic (`ccl_w_shl/3`, `ccl_w_sub/3`), and a
+  constant past 59 bits is spelled whole (`ir_iconst/3` over `ir_big_text/2`); a global's packer wraps each field's
+  value to its width and lays it at its bit offset (`ir_gpack/4` over `ccl_w_wrap/4`, `ccl_w_shl/3`, `ccl_w_bit/4`;
+  `ir_le_bytes/3` takes the bytes off). They were cocolog's integers, which have 61 bits and whose `<<` took its count
+  modulo 64 through 1.13.7 (the Findings): a store into `unsigned long long a : 64` wrote nothing (its mask was 0), and
+  so did one into `long long a : 64`; a store into a field of 61 to 63 bits at offset 0 cleared the field above it; a
+  100-bit `unsigned __int128` field kept 36 bits; a global's field at bit 61 or above lost its value, and a global's
+  value past 60 bits in a bitfield was refused (`type_error(evaluable, '0xfedcba9876543210'/0)`). A load is shifts
+  alone and was right. libc++'s string, whose 63-bit `__cap_` lies above its 1-bit `__is_long_`, was stored right (the
+  shift by one dropped the extra bit of the old mask, all ones) and spells its mask whole now.
+  `test/c/run/bitfield64.c`, on aarch64 too. (0.155)
 - A union is `{ iA, [N-A x i8] }` for its alignment A, `[N x i8]` when A is 1 (`ir_union_type`). A union with
   constructors keeps a union's layout; its tag starts with `union_tag` (`ccl_is_union_tag/1`). Every member lies at the
   union's address. A member of an anonymous struct or union is reached through the hidden member (`ccl_anon_route`).
@@ -5878,7 +5893,8 @@ A lambda is a class of its captures (`library/ccl_cpp.pl`). A fixture named alon
 - A global's constant (`ir_gconst/3`): a struct over its shape, with bitfield runs packed into `c"..."` bytes
   (`ir_gstruct/3`); a union in its given member's literal type, padded (`ir_gunion/4`); a designated list made
   positional (`ccl_init_norm`), a hole `init([])`. A bitfield's value is read by `ir_gbit_value/2`: a hole is 0 and a
-  braced scalar its one item (`test/c/run/bitdesig.c`). An empty class's temporary is its constant, and a scalar `T{}`
+  braced scalar its one item (`test/c/run/bitdesig.c`), and packed exactly at any width (0.155, the Object layout
+  topic). An empty class's temporary is its constant, and a scalar `T{}`
   is its zero. A char array from a shorter literal is zero-filled to its bound (`ir_str_tail/3`;
   `test/cpp/run/staticbase.cpp`). (M2b, 0.72, 0.79, 0.108, 0.112)
 - A wide literal, or a pointer into one, is a pointer's global constant (`ir_wide_lit`: `wstr` and `u32str` i32,
@@ -6394,7 +6410,7 @@ A lambda is a class of its captures (`library/ccl_cpp.pl`). A fixture named alon
 
 ### Finding a cost
 
-- `test/prof.sh` (0.148, 0.152) says where a build's inferences and its time go, from windows of its run recorded under
+- `test/prof.sh` (0.148, 0.152) says where a build's steps and its time go, from windows of its run recorded under
   `library(flow/debug)` (its topic): the calls by predicate, the steps, the callers, the goals asked more than once, and
   since cocolog 1.13.3 each predicate's inclusive and self time. It needs no scratch copy of the library. Its time is a
   sample of the run; the timers below measure a cost it names over the whole run. Its first reading (0.152) moved a cost
@@ -6456,8 +6472,23 @@ A lambda is a class of its captures (`library/ccl_cpp.pl`). A fixture named alon
   at 2882 MB, 1.8.38 at 591 MB. After a cocolog update the modules are rebuilt (`module/build.sh`,
   `module/build-llvm.sh`, and cocolog's `os` and `process` modules); 1.8.36 to 1.8.41 left the SDK's ABI unchanged.
   (0.46, 0.112, 0.114)
-- cocolog is at 1.13.3 since 0.152 -- master `2ae4351`: 1.13.1 (`9da534a`) `split_string/4` by SWI's rule where the pad
-  holds a separator, which cicilang does not call; 1.13.2 (`72f6465`) the translator's accents and marks in both text
+- cocolog is at 1.14.0 since 0.155 -- master `52abc90`, over ZiguratIP 1.0.1 (`90d99b8`); Cicili stays 3.0.0
+  (`9d74a5e`). 1.13.4 (`c75dbfe`) a `catch/3` whose goal exited with nothing above it to retry takes its frame with it,
+  as SWI's `I_EXITCATCH` does (0.151's report; the bullet of `catch/3`'s habit below); `39ad572` `make schema` takes
+  `$ZIGURATIP/home` where `ZIGURATIP_HOME` is not set (0.151's note); 1.13.5 (`5303e09`) `=/2` inline in the builtin
+  switch again; 1.13.6 (`bde07b1`) the flow debugger's clock counts steps and says so (the flow tools bullet); 1.13.7
+  (`eb90ec6`) the time view's retries and loads, `flow_why_furthest/2`'s rule, and with ZiguratIP 1.0.1 a store that
+  opens in a tenth of the CPU (a page's hexmap read once) and a first call that fetches a big predicate's clauses with
+  21 % fewer instructions; 1.14.0 `>>` and `<<` by any count (0.155's report; the Integers bullet below). The SDK did
+  not change, and both modules here were built again with no change. Measured at 0.155, one run at a time, the 0.154
+  library on each engine: five warm C++ builds 50.49 s on 1.13.3 and 50.09 s on 1.14.0 (the least CPU time of three
+  runs each); the `=/2` loop of 0.151 1.897 s and 1.890 s, inside this box's noise; the compile gate's store of 20 MB
+  opens in 24 ms of CPU and 13 ms. A COLD READ IS STILL SLOWER than on 1.12.1: the census of the flattened `<iomanip>`
+  (C++17, the parse alone) takes 100.7 s on 1.12.1, 119.5 s on 1.13.3 and 118.7 s on 1.14.0, 18 % more (0.151: 16 %
+  between 1.12.1 and 1.13.0, on a faster box); 1.13.5's `=/2` took back cocolog's own loop and not our parse; not yet
+  told to cocolog's owner. It was at 1.13.3 from 0.152 -- master `2ae4351`: 1.13.1 (`9da534a`) `split_string/4` by
+  SWI's rule where the pad holds a separator, which cicilang does not call; 1.13.2 (`72f6465`) the translator's
+  accents and marks in both text
   units (`library/reasoning/`, which cicilang does not load); 1.13.3 the TIME a window's inferences took (the flow tools
   bullet), a probe under a clock read at every inference, which a run pays for only where it asks: the five fixtures of
   0.149, one build at a time over a warm cache, the least CPU time of three runs each, took 52.00 s on 1.13.3 and 52.07
@@ -6560,8 +6591,17 @@ A lambda is a class of its captures (`library/ccl_cpp.pl`). A fixture named alon
   `rm -rf ~/.cicilang/KB ~/.cicilang/KB.version` repairs it. (0.108)
 - Integers are 61-bit and `is/2` wraps silently. So a literal past 2^60 is `big(Atom)` in both lexers, the constant
   evaluator computes 64 bits over base-2^30 limbs (`ccl_w_*`), and `dr_fold/4` keeps two folds under 2^31. (0.94)
-  `X >> N` takes N modulo 64, as the machine's shift does (measured at 0.154 on 1.13.3): `1 >> 64` is 1, `1 >> 128` 1,
-  `255 >> 64` 255, where SWI answers 0; `ccl_w_shr/3` answers the sign past 60 bits. Not yet raised with cocolog's owner.
+  Through 1.13.7 `X >> N` and `X << N` took N modulo 64, as the machine's shift does (measured at 0.154 and 0.155
+  on 1.13.3): `1 >> 64` was 1, `1 >> 128` 1, `255 >> 64` 255 and `1 >> -1` 0, where SWI answers 0, 0, 0 and 2, and
+  `1 << 64` 1 and `1 << 65` 2, where the 61-bit wrap of the true value is 0: cocolog shifted two C `i64` values
+  (`lib/solve.cicili`'s `is/2`, `lib/kb.cicili`'s compiled arithmetic), a shift that C leaves undefined for a count
+  past 63 or below 0 (6.5.7/3). Told to cocolog's owner at 0.155 and answered by 1.14.0 (`52abc90`): a count past 63
+  gives a right shift the sign of its left side and a left shift 0, a negative count shifts the other way, as SWI's
+  does (`1 >> -1` is 2), and a left shift goes through `u64`, in both evaluators (`coco_shift_right` and
+  `coco_shift_left` in `lib/term.cicili`). `ccl_w_shr/3`'s own test of the count went with it; the bitfield masks past
+  60 bits are the wide arithmetic's, since a 61-bit integer holds none of them (the Object layout topic). A shift of a
+  float or by one raises `type_error(integer, P)` with the loaded file's path as P, cocolog's owner says; cicilang
+  shifts no float. (0.154, 0.155)
 - Through 1.10.27 a refused allocation was a WRONG ANSWER: the `oom` flag was set at eleven growth sites and read only
   by the compaction, which declined and kept the store; new terms then aliased cell 0, the query answered `false.`,
   printed `ERROR: ?-: Unknown message: _G0` and exited 1, and the heap and the choice stack ended the run with an `out
@@ -6581,7 +6621,10 @@ A lambda is a class of its captures (`library/ccl_cpp.pl`). A fixture named alon
   in a condition, under `\+` or under `once/1`; the builds measured at 0.149 show no change, since a cut or a caller's
   condition soon drops such a choice point. The catch alone, measured at 0.151 on 1.13.0 and on 1.12.1 alike: a million
   bare `catch(atom(a), _, fail)` kept 208 MB of heap and 8 MB of trail in 0.8 s, under `once/1` 10 MB in 0.19 s,
-  followed by a cut 24 MB in 0.25 s, and a plain `atom(a)` nothing; told to cocolog's owner at 0.151.
+  followed by a cut 24 MB in 0.25 s, and a plain `atom(a)` nothing; told to cocolog's owner at 0.151. Since 1.13.4 a
+  catch whose goal exited with nothing above it to retry takes its frame with it: measured at 0.155, the bare loop takes
+  0.16 to 0.19 s and keeps 18 MB of heap and no trail on 1.14.0, where 1.13.3 took 0.81 to 0.94 s and kept 208 MB and
+  8 MB. The habit stays, and costs nothing.
 - Fixed in cocolog 1.2.0: a clause over a store row (about 8 KB; no limit under `--local`) silently lost every clause
   of its predicate. It now raises `resource_error(clause_length)`, which the writers catch to leave the file uncached
   (`ccl_kb_store_items`, `dr_ir_store`). Nothing large goes in one clause: a row per item, IR chunks of 3500
@@ -6785,7 +6828,7 @@ A lambda is a class of its captures (`library/ccl_cpp.pl`). A fixture named alon
 - THE FLOW TOOLS (cocolog 1.10.14 and later; `make modules` writes their tables). `library(flow/chart)` reads a
   program from one call pattern, runs nothing, and gives its findings at file, line and column (`flow_graph/3`,
   `flow_findings/2`; `cocolog -s $COCOLOG/tools/flow/chart.pl -- SPEC FILE BASE` also writes BASE.svg and BASE.xml).
-  `library(flow/debug)` records the last inferences of a run (`flow_debug/4`: a probe, then a replay, each a child
+  `library(flow/debug)` records the last steps of a run (`flow_debug/4`: a probe, then a replay, each a child
   cocolog) and reads back why a call failed (`flow_why/3`, `flow_why_call/4`, `flow_why_raised/3`,
   `flow_why_furthest/2`). 0.140 used them by hand and found the two predicates written twice (written once since 0.141);
   since 0.144 they are two instruments of this repository, the flow gate (`test/flow.sh`) and `test/why.sh`, each in
@@ -6820,7 +6863,7 @@ A lambda is a class of its captures (`library/ccl_cpp.pl`). A fixture named alon
     times faster; `test/prof.sh` is built on them (its topic). The debugger's children -- the probe, the replay, a
     window's cocolog -- run in a process group or a session of their own (cocolog's process module: `posix_spawn` with
     `SETPGROUP` or `SETSID`), so a cap that sums or kills a process group misses them; ours sum and kill the process
-    tree (0.148). A window of 20000 inferences costs about 12 s and 300 MB a C++ build at 1.11.10, the documents left
+    tree (0.148). A window of 20000 steps costs about 12 s and 300 MB a C++ build at 1.11.10, the documents left
     out.
   - 1.13.3 (0.152, the owner's request): `time(T)`, where a window's TIME went -- each predicate's calls and its
     inclusive and self time in nanoseconds, the most inclusive first, the control constructs' share and the collections
@@ -6828,8 +6871,15 @@ A lambda is a class of its captures (`library/ccl_cpp.pl`). A fixture named alon
     under a clock read at the top of every inference of the window (`'$trace_window'/4`'s `time(F, K)`), untraced, and
     the replay says whose each inference was; a clause's leading guards read 0, their time their call's, and
     `findall/3`'s copying is its own. A reading costs some 30 to 35 ns, measured as the probe starts and taken off; a
-    run that does not ask pays nothing. `test/prof.sh` prints it as its TIME view (its topic). (0.140, 0.144, 0.146,
-    0.148, 0.152)
+    run that does not ask pays nothing. `test/prof.sh` prints it as its TIME view (its topic).
+  - 1.13.6 and 1.13.7 (0.155): the clock's unit is a STEP in `library(flow/debug)`'s words and in each view, which
+    says how many of its steps were inferences (a call of `true/0` or `=/2` is a step and no inference); the time view
+    charges a retry to the retried predicate, marks a load `(one call: P %)` -- a row whose largest call holds most of
+    its inclusive time, at least ten times its other calls' mean -- and writes each window's profile under
+    `windows=N`; `flow_why_furthest/2` goes into the call that spent the most steps before it failed, not into the
+    clause's last call that did not exit. Over 1.14.0 `test/why.sh` gives `abstract.cpp`'s 19 calls and branch as at
+    0.148, and `test/prof.sh` its views, each saying how many of its steps were inferences (`stdvector.cpp`: 114,719
+    of 120,000). (0.140, 0.144, 0.146, 0.148, 0.152, 0.155)
 - The session's tools are not in the repository: `probe.sh` (time and memory caps over its own process group),
   `trace.sh` (cocolog with `'$cpp_trace'` on), `fx.sh` (removes the binary, builds, compares as the gate does),
   `guard.sh` and `watch.sh` (a query or a gate under the summing watchdog). A new session writes them again. The first
@@ -6845,17 +6895,17 @@ A lambda is a class of its captures (`library/ccl_cpp.pl`). A fixture named alon
 - Ubuntu 24.04 on x86_64 (clang and LLVM 18, glibc, libc++ 18 and 21) is a host since 0.87. Every gate but the C++ one
   is GREEN there since 0.93, and all seven since 0.95. Every step from 0.93 on is gated there, but the save points
   0.112, 0.113, 0.117, 0.122 to 0.125, 0.130, 0.131 and 0.143 (0.143's C gates and cross gate ran, its libc++ gates did
-  not; the others were gated by the steps after them). The last full run is 0.153's, over cocolog 1.13.3, on one tree,
-  4569 s in all on a slower container than 0.152's (0.152's 3690 s): over libc++ 18 all nine GREEN (the flow gate's 125
-  findings in 58 s, reader 4 s, compile 12 s, driver 12 s, objects 4 s, proof, the cross gate in 61 s, the library read
-  in 1491 s (0.152's took 998 s: the reader, which 0.153 did not touch, is the machine's measure), the C++ gate in 660 s
-  with 497 of 500 fixtures ok, the skips are `stdoptionalref`, `joinwith` and `tzone`, the 21 refusals and the three of
-  the safe part); over libc++ 21 the library read (1366 s; 0.152's 954 s) and the C++ gate (895 s, 499 of 500 ok, the
-  skip `stdoptionalref`) GREEN -- the C gates do not read libc++. The fixtures' builds, summed, took 2298 s over libc++
-  18 where 0.152's took 2590 s, and 2659 s over libc++ 21 where they took 2860 s. Two libc++ passes are one gate:
-  `LLVM=/usr/lib/llvm-18` and `LLVM=/usr/lib/llvm-21` choose the tree the chain reads and links. libc++ 22 (the newest
-  tree, which a run without `$LLVM` reads) is untried but for `stdoptionalref`, which passes there. The run before
-  0.121's (0.118, 0.119) found, over 0.117, two defects and one stale check of `test/cpp.pl` (c20, above).
+  not; the others were gated by the steps after them). The last full run is 0.155's, over cocolog 1.14.0, on one tree,
+  4509 s in all, as 0.154's on 1.13.3: over libc++ 18 all nine GREEN (the flow gate's 125 findings in 52 s, reader 4 s,
+  compile 10 s, driver 10 s, objects 3 s, proof, the cross gate in 54 s, the library read in 1447 s (0.154's 1447 s),
+  the C++ gate in 664 s with 498 of 501 fixtures ok, the skips are `joinwith`, `stdoptionalref` and `tzone`, the 21
+  refusals and the three of the safe part); over libc++ 21 the library read (1359 s; 0.154's 1341 s) and the C++ gate
+  (898 s, 500 of 501 ok, the skip `stdoptionalref`) GREEN -- the C gates do not read libc++. The fixtures' builds,
+  summed, took 2332 s over libc++ 18 where 0.154's took 2394 s, and 2670 s over libc++ 21 where they took 2666 s. Two
+  libc++ passes are one gate: `LLVM=/usr/lib/llvm-18` and `LLVM=/usr/lib/llvm-21` choose the tree the chain reads and
+  links. libc++ 22 (the newest tree, which a run without `$LLVM` reads) is untried but for `stdoptionalref`, which
+  passes there. The run before 0.121's (0.118, 0.119) found, over 0.117, two defects and one stale check of
+  `test/cpp.pl` (c20, above).
 - The host sets the predefined macros (`ccl_host_os/1` and `ccl_host_arch/1` in the module), the inclusion path
   (Debian's `/usr/lib/llvm-NN`, the multiarch directory) and the link (`-lc++` and `-lm` on Linux) (0.87, 0.93, 0.100).
 - A struct passed or returned by value crosses a call as clang's x86-64 code expects, in both directions, with the
@@ -6887,7 +6937,8 @@ A lambda is a class of its captures (`library/ccl_cpp.pl`). A fixture named alon
   (`gotoown.c`). Since 0.137: a decimal to and from a 128-bit integer (`dec128.c`), a decimal constant's infinity, NaN and
   division by zero (`decspecial.c`). Since 0.154: a long double literal's exact value, in a function and in a global's
   fold, its arithmetic, casts and far sums (`ldconst.c`, on aarch64 against clang's quad); an integer operation inside a
-  floating global's initializer (`fpintexpr.c`); a float's and a half's tie to even (`fpconst.c`).
+  floating global's initializer (`fpintexpr.c`); a float's and a half's tie to even (`fpconst.c`). Since 0.155:
+  bitfields of 61 to 64 bits and a 100-bit one, stored and in a global's constant (`bitfield64.c`).
 - The C library is the host's. The compiler's own freestanding headers are in `library/include/` (`<stdarg.h>`,
   `<stdatomic.h>`, `<complex.h>`, `<stdckdint.h>`, `<stdbit.h>`, `<limits.h>` and six more).
 - The language's own additions run: `:=`, patterns, `name { }` structs and `format`, `print`, `println`
