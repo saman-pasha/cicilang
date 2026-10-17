@@ -1351,14 +1351,11 @@ pp_predef('__GXX_EXPERIMENTAL_CXX0X__', cpp, '1').
 %% shipped library's. `shared_ptr::get_deleter' and `dynamic_pointer_cast' are then not there, which is what
 %% -fno-rtti means. A program's own `typeid' and `dynamic_cast' run since 0.108, over type_info objects of its own.
 %% pp_predef('__GXX_RTTI', cpp, '1').
-%% AND NO VECTOR EXTENSIONS, the third question of the same kind. libc++ vectorizes its algorithms behind
-%% `_LIBCPP_HAS_ALGORITHM_VECTOR_UTILS && !defined(__OPTIMIZE_SIZE__)', and the first half is on because it asks
-%% whether the compiler is clang-based -- which this one answers yes to, its predefined table being clang's. But
-%% `__find_vectorized' is built on `__attribute__((__vector_size__(N)))' types, GENERIC LAMBDAS and the vector
-%% builtins, none of which this compiler has, so `std::find' of an int refused `generic_lambda'. `__OPTIMIZE_SIZE__'
-%% is the library's own switch for it and is read in EXACTLY TWO PLACES in all of libc++, both this one, so
-%% predefining it compiles the scalar algorithms the library ships for -Oz and changes nothing else.
-pp_predef('__OPTIMIZE_SIZE__', cpp, '1').
+%% `__OPTIMIZE_SIZE__' IS NOT PREDEFINED (0.162), as clang predefines it only at -Os and -Oz: libc++ 21 vectorizes its
+%% `mismatch' (and the `lexicographical_compare' and `operator<' of integers built on it) behind `_LIBCPP_HAS_ALGORITHM_VECTOR_UTILS
+%% && !defined(__OPTIMIZE_SIZE__)', over `__attribute__((__ext_vector_type__(N)))' types and the vector builtins, which this
+%% compiler reads and lowers since 0.162. From 0.92 to 0.161 it was predefined in C++ to keep that road off, since nothing
+%% here read a vector type; libc++ 18 reads the macro nowhere.
 pp_predef('__GXX_WEAK__', cpp, '1').
 pp_predef('__STDCPP_DEFAULT_NEW_ALIGNMENT__', cpp, '16UL').
 pp_predef('__STDCPP_THREADS__', cpp, '1').

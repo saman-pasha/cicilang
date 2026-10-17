@@ -35,8 +35,11 @@ record of every step.
   helpers, their constants folded with infinities and NaNs), the binary
   floating constants folded as clang folds them (a negative zero, an
   infinity, a NaN, a long double's arithmetic, an integer operation in its
-  own type), and trigraphs in the ISO modes. `-std=c17` is the default,
-  `-std=c23` the level.
+  own type), GCC's and clang's vector types (`vector_size`,
+  `ext_vector_type`: their operators lane by lane, their lanes, masks,
+  conversions and builtins, crossing a call as clang passes them), and
+  trigraphs in the ISO modes. `-std=c17` is the default, `-std=c23` the
+  level.
 * **C++17, C++20, C++23 and C++26.** Classes, virtual dispatch, multiple
   and virtual inheritance, templates with partial specialization, SFINAE,
   concepts and `requires`, lambdas (generic, capturing `this` and `*this`),
@@ -280,8 +283,9 @@ s := format("{} + {} = {}", 1, 2, 3);          // char *
 the baseline**; `-std=c++20`, `-std=c++23` and `-std=c++26` set the
 level, whose predefined macros the preprocessor answers first, so a header
 flattens as clang would flatten it for that level. The compiler runs no
-exceptions, no RTTI and no vector extensions inside libc++, which compiles
-its own configuration for that (`-fno-exceptions -fno-rtti`); the program's
+exceptions and no RTTI inside libc++, which compiles its own configuration
+for that (`-fno-exceptions -fno-rtti`), and libc++ 21's vectorized
+algorithms over vector types as clang builds them; the program's
 own `throw`, `try`, `typeid` and `dynamic_cast` run over libc++abi, which
 `-lc++` links. Where several libc++ are installed side by side (Debian's and
 Ubuntu's `/usr/lib/llvm-18` and `/usr/lib/llvm-21`, say), `$LLVM` names the tree

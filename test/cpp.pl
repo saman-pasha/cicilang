@@ -54,7 +54,7 @@ c_checks :-
     c34,
     c35,
     c36,
-    c37, c38, c39, c40, c41, c42, c43, c44, c45.
+    c37, c38, c39, c40, c41, c42, c43, c44, c45, c46.
 
 c1 :- check('namespace N { ... } is namespace(L, N, Items), nested, and anonymous',
     ( unit('names.cpp', unit(Is)), member(namespace(2, geo, Gs), Is), member(function(_, _, _, twice, _, _, _), Gs), member(namespace(_, inner, _), Gs), member(namespace(_, anon, _), Is) )).
@@ -260,6 +260,13 @@ c45 :- check('the Itanium mangler spells a VALUE template argument (0.137): L, t
           ita_name([], ss, [], [param(base([], [typedef('flag.1')]), a), param(base([], [typedef('flag.0')]), b)], '_ZNSt3__12ssENS_4flagILb1EEENS0_ILb0EEE')
       ->  R = true ; R = false ),
       retractall('$cpp_tmpl'(ratio, _, _)), ita_clear, R == true )).
+
+c46 :- check('the Itanium mangler spells a VECTOR type (0.162): Dv, its lanes, _ and its element, a substitution candidate -- a vector_size(16) of int Dv4_i, an ext_vector_type(2) of float Dv2_f, a bool ext_vector_type(8) Dv8_b -- as clang++ 18 spells them',
+    ( ita_facts,
+      ita_name([], ww, [], [param(base([], [vec(size, 4, base([], [int]))]), a), param(base([], [vec(size, 4, base([], [int]))]), b)], '_ZNSt3__12wwEDv4_iS0_'),
+      ita_name([], xx, [], [param(base([], [vec(ext, 2, base([], [float]))]), a), param(ref([], base([const], [vec(ext, 2, base([], [float]))])), b)], '_ZNSt3__12xxEDv2_fRKS0_'),
+      ita_name([], yy, [], [param(ptr([], base([], [vec(ext, 8, base([], [bool]))])), a)], '_ZNSt3__12yyEPDv8_b'),
+      ita_clear )).
 
 c38 :- check('the access control\'s reader forms (0.117): friend class Auditor; is friend(L, [friend_class(Auditor)]), a lambda\'s mutable stays among its captures, and the access markers stay among a class\'s members',
     ( unit('run/accessctl.cpp', unit(Is)),

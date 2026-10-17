@@ -10,8 +10,8 @@ it found, its measurements and its gate numbers. `README.md` tells a user what r
 architecture and the milestones. A step that changes a rule edits the rule here, in its topic, and writes its entry
 in `HISTORY.md`.
 
-At 0.161 the versions are: the module 0.161 (`ccl_p_version` in `module/cicilang.cicili`, `bin/cicilang --version`),
-the reader 132 (`ccl_reader_version/1`, `library/ccl_syntax.pl`) and the lowering 86 (`ccl_lowering_version/1`,
+At 0.162 the versions are: the module 0.162 (`ccl_p_version` in `module/cicilang.cicili`, `bin/cicilang --version`),
+the reader 133 (`ccl_reader_version/1`, `library/ccl_syntax.pl`) and the lowering 87 (`ccl_lowering_version/1`,
 `library/ccl_ir.pl`).
 
 Build and prove, always in this order (or all of it, `sh test/gates.sh`):
@@ -397,7 +397,8 @@ tutorials/01..03-*.pl       the objects layer's lessons; goal main, last line do
 - `test/flow.sh` (0.144) reads every file of the library with cocolog's `library(flow/chart)` and RUNS NOTHING. A chart
   starts at one call pattern, so `test/flow.pl`'s `fg_roots_main/2` writes a copy of each file with a root,
   `'$fg_all'/N`, that calls each predicate the file defines with free arguments: 3538 predicates in the ten files at
-  0.161, and since 0.161 the 220 of the nine gate programs, `test/reader.pl`, `compile.pl`, `cpp.pl`, `readhdr.pl`,
+  0.161 (3804 in all at 0.162), and since 0.161 the 220 of the nine gate programs, `test/reader.pl`, `compile.pl`,
+  `cpp.pl`, `readhdr.pl`,
   `census.pl`, `libcxx.pl`, `flow.pl`, `why.pl` and `prof.pl` (`TFILES`), each charted with the compiler and the flow
   and process libraries loaded, nothing stubbed (no gate program is a library file); their first chart found a predicate
   split by another's clauses (`census_main/0`) and a call of `print_message/2`, which cocolog does not have, in the
@@ -420,9 +421,10 @@ tutorials/01..03-*.pl       the objects layer's lessons; goal main, last line do
   `fg_dynamic_main/2`): without them 1221 of the 1291 findings of `ccl_cpp.pl` were unknown procedures. On 1.11.4 the
   two ways give the same findings, key for key, and the gate's own are gone. (0.144, 0.146)
 - One job a file in the memory-gated pool (`ccl_pool`; `FLOW_JOBS` 4, `FLOW_LAUNCH_MB` 9000, `FLOW_HARD_MB` 14000),
-  the longest first by `~/.cicilang/flow-times`, each under `FLOW_SECS` (900 s): `ccl_cpp.pl` 55 s, `ccl_ir.pl` 50 s,
-  `ccl_driver.pl` 37 s, `test/compile.pl` 35 s, `ccl_syntax.pl` 34 s, the others under 25 s; the gate 92 s and 2512 MB
-  over its four lanes at 0.161 (55 s over the library alone at 0.144). A file that is not charted is RED. (0.144, 0.161)
+  the longest first by `~/.cicilang/flow-times`, each under `FLOW_SECS` (900 s): `ccl_cpp.pl` 47 s, `ccl_ir.pl` 47 s,
+  `ccl_driver.pl` 35 s, `ccl_syntax.pl` 32 s, `test/compile.pl` 31 s, the others under 21 s; the gate 83 s and 2417 MB
+  over its four lanes at 0.162 (92 s at 0.161; 55 s over the library alone at 0.144). A file that is not charted is RED.
+  (0.144, 0.161)
 - `fg_findings_main/5` writes `flow_findings/2`'s findings but the root's, a line each: the kind, the severity, the
   predicate, the line, the column and the text. The kinds: `unknown_procedure` (a call that nothing answers, with the
   nearest name: `ir_inz/1 is defined nowhere ... did you mean ir_ins/1?`; a warning, not an error, under a `catch/3`
@@ -464,49 +466,51 @@ tutorials/01..03-*.pl       the objects layer's lessons; goal main, last line do
 - The compile gate. `test/compile.pl`, one process over the user's store, reads, checks, lowers, compiles at `-O1`
   and links every `test/c/run/*.c` at its `NAME.std` level (`c_level`). It expects every `test/c/safe/*.c` refused.
   `test/compile.sh` runs each binary as `NAME arg1 arg2` against `NAME.expect`, and compares each refusal with
-  `safe/NAME.expect`. There are 82 run and 47 safe fixtures at 0.161. (M2, M3, 0.57)
-- The driver gate. `test/driver.sh` makes 39 checks of `bin/cicilang` over the user's store (the two decimal checks are
+  `safe/NAME.expect`. There are 83 run and 47 safe fixtures at 0.162. (M2, M3, 0.57)
+- The driver gate. `test/driver.sh` makes 40 checks of `bin/cicilang` over the user's store (the two decimal checks are
   skipped where no gcc with decimal floating types is installed), the variadic calls of every kind both ways against
   clang among them (`test/c/link/va_*.c`, 0.131), and Apple's arm64 expansion of `va_arg` of an aggregate against
   clang's, both retargeted to this host (`test/c/link/va_darwin.c`, 0.160). They cover what `-o`, `-c`, `-S`,
   `-emit-llvm`, `-shared`, `-I`, `-ast-dump`, `-fsyntax-only`, `-g` and `-gline-tables-only` make (read back by
   `llvm-dwarfdump`, from `$PATH` or `$LLVM/bin`: the statements' lines and the file's name; each row's column one that
-  clang's line table has for that line, ten of them, 0.161; the variables, a struct's
-  members and an enum's enumerators, their names sorted; no variable under `-gline-tables-only`; a C++ static data
-  member declared in its class, its definition naming that declaration, through `cicilang++ -g -c`, 0.133; under
-  `-fdebug-macro` a file's and its header's macros at their lines, as clang's object has them, and the predefined ones
-  at line 0, 0.134; a destructor at its scope's closing brace, on a return and at the end, 0.139), and the diagnostics
-  in clang's shape (`#warning` printed, `#error` with exit 1). The text of `-E` compiled by clang makes the program the
-  source makes, its floats exact (0.143: `__DBL_MAX__`, `1.5e308`, 17 digits, a subnormal, an infinity), its long double
-  literals too (0.154: `__LDBL_MAX__`, `__LDBL_MIN__`, `__LDBL_DENORM_MIN__`, `0.1L`, a hex one, `0.1Li`). They find
-  `@ccl_drain_node` in `btree.c`'s IR, and pass structs by value both ways against clang-built code
-  (`test/c/link/abi_main.c`, `abi_helper.c`; seven lines at 0.117, the last two for the SysV register budget, `budget_*`
-  built by clang and `bud_*` by cicilang). The store must serve `hello.c` in under 10 s and redo only the changed one of
-  two files. The gate follows the host: `_main:` and `.dylib` on Darwin, `main:` and `.so` elsewhere. The decimal
-  floating types cross the ABI against gcc-built code both ways (`test/c/link/dec_main.c`, `dec_helper.c`: values,
-  structs by value, a variadic call; clang has no decimal types), and twelve long double constants converted to decimal
-  types fold to gcc's bits (`test/c/link/decld.c`, 0.154). (M4, 0.93, 0.128, 0.129, 0.154, 0.160)
+  clang's line table has for that line, ten of them, 0.161; the variables, a struct's members and an enum's enumerators,
+  their names sorted; no variable under `-gline-tables-only`; a C++ static data member declared in its class, its
+  definition naming that declaration, through `cicilang++ -g -c`, 0.133; under `-fdebug-macro` a file's and its header's
+  macros at their lines, as clang's object has them, and the predefined ones at line 0, 0.134; a destructor at its
+  scope's closing brace, on a return and at the end, 0.139), and the diagnostics in clang's shape (`#warning` printed,
+  `#error` with exit 1). The text of `-E` compiled by clang makes the program the source makes, its floats exact (0.143:
+  `__DBL_MAX__`, `1.5e308`, 17 digits, a subnormal, an infinity), its long double literals too (0.154: `__LDBL_MAX__`,
+  `__LDBL_MIN__`, `__LDBL_DENORM_MIN__`, `0.1L`, a hex one, `0.1Li`). They find `@ccl_drain_node` in `btree.c`'s IR, and
+  pass structs by value both ways against clang-built code (`test/c/link/abi_main.c`, `abi_helper.c`; seven lines at
+  0.117, the last two for the SysV register budget, `budget_*` built by clang and `bud_*` by cicilang), and vectors by
+  value both ways (0.162; `test/c/link/vec_main.c`, `vec_helper.c`: 8- and 16-byte vectors, a struct of one, nine of
+  them, a variadic call). The store must serve `hello.c` in under 10 s and redo only the changed one of two files. The
+  gate follows the host: `_main:` and `.dylib` on Darwin, `main:` and `.so` elsewhere. The decimal floating types cross
+  the ABI against gcc-built code both ways (`test/c/link/dec_main.c`, `dec_helper.c`: values, structs by value, a
+  variadic call; clang has no decimal types), and twelve long double constants converted to decimal types fold to gcc's
+  bits (`test/c/link/decld.c`, 0.154). (M4, 0.93, 0.128, 0.129, 0.154, 0.160)
 - The objects gate. `test/objects.sh` makes 29 checks of the objects layer, an instance that outlives its process
   among them. (from the start)
-- The cross gate (0.131). `test/cross.sh` builds every `test/c/run/*.c` with `cicilang --target=aarch64-linux-gnu`
-  and with `clang --target=aarch64-linux-gnu`, runs both under `qemu-aarch64 -L /usr/aarch64-linux-gnu` and compares
-  them: that machine's output is the reference, not this one's `.expect` (plain char and `wchar_t` are unsigned there,
-  `long double` an IEEE quad). A fixture in the language's own forms, which clang does not read, is held to its
-  `.expect`. Then three checks against `aarch64-linux-gnu-gcc`: structs by value both ways (`test/c/link/abi_*.c`) and
-  variadic calls of every AAPCS64 kind both ways (`test/c/link/va_*.c`: an int, a long, a double, a long double, an HFA
-  of doubles and of floats, a struct past 16 bytes, an eight-byte struct, a 16-aligned `__int128` struct, the general
-  and the SIMD registers run out). It SKIPs without `qemu-aarch64`, `aarch64-linux-gnu-gcc` and the sysroot (Debian
-  and Ubuntu: `qemu-user`, `gcc-aarch64-linux-gnu`, `libc6-dev-arm64-cross`) or without clang. `ldconst.c` holds the
-  quad's literals to clang's there. (0.131, 0.154)
+- The cross gate (0.131). `test/cross.sh` builds every `test/c/run/*.c` with `cicilang --target=aarch64-linux-gnu` and
+  with `clang --target=aarch64-linux-gnu`, runs both under `qemu-aarch64 -L /usr/aarch64-linux-gnu` and compares them:
+  that machine's output is the reference, not this one's `.expect` (plain char and `wchar_t` are unsigned there, `long
+  double` an IEEE quad). A fixture in the language's own forms, which clang does not read, is held to its `.expect`.
+  Then five checks against `aarch64-linux-gnu-gcc`: structs by value both ways (`test/c/link/abi_*.c`), variadic calls
+  of every AAPCS64 kind both ways (`test/c/link/va_*.c`: an int, a long, a double, a long double, an HFA of doubles and
+  of floats, a struct past 16 bytes, an eight-byte struct, a 16-aligned `__int128` struct, the general and the SIMD
+  registers run out) and vectors by value both ways (0.162, `test/c/link/vec_*.c`). It SKIPs without `qemu-aarch64`,
+  `aarch64-linux-gnu-gcc` and the sysroot (Debian and Ubuntu: `qemu-user`, `gcc-aarch64-linux-gnu`,
+  `libc6-dev-arm64-cross`) or without clang. `ldconst.c` holds the quad's literals to clang's there. (0.131, 0.154)
 - C++ FOR THAT MACHINE (0.161): where its libc++ is under the sysroot -- the tree cicilang++ reads, `$LLVM` or the
   newest `/usr/lib/llvm-NN`, at `/usr/aarch64-linux-gnu` plus that path, where Debian's and Ubuntu's arm64 packages put
   it when extracted there (`dpkg-deb -x` of `libc++-18-dev`, `libc++1-18`, `libc++abi-18-dev`, `libc++abi1-18`,
   `libunwind-18` and `libunwind-18-dev`: apt installs no package of another architecture without multiarch) -- the cross
-  gate builds 23 C++ fixtures with `cicilang++ --target=aarch64-linux-gnu` and with clang++ over that same libc++, runs
+  gate builds 24 C++ fixtures with `cicilang++ --target=aarch64-linux-gnu` and with clang++ over that same libc++, runs
   both under qemu and compares them, then two checks against clang++'s code on that machine, the C++ gate's own: classes
   by value and pointers to member functions both ways (`test/cpp/link/`). Each C++ build has a time and a memory cap of
   its own (`CROSS_SECS` 1800, `CROSS_MB` 2800: its summaries are the target's, cold in every chain); without the tree
-  the part is a SKIP line. 82 C fixtures and 3 checks, 23 C++ fixtures and 2 checks at 0.161, 644 s in the chain, the
+  the part is a SKIP line. 83 C fixtures and 5 checks, 24 C++ fixtures (`vector.cpp` since 0.162) and 2 checks at 0.162,
+  642 s in the chain, the
   C++ part cold (its summaries are that machine's own, read afresh in every chain's fresh HOME). (0.131, 0.161)
 - The proof. `proof/run.sh` has clang turn `proof/forty2.ll` into a binary that prints `cicilang reaches C` and exits
   42. (M0)
@@ -539,9 +543,9 @@ tutorials/01..03-*.pl       the objects layer's lessons; goal main, last line do
 ### The C++ gate: test/cpp.sh
 
 - `test/cpp.sh` runs in this order: `test/cpp.pl` in one `--local` process; four checks of the command; every
-  `test/cpp/run/*.cpp` as a pool job (512 at 0.161); `classes.cpp` and `templates.cpp` built and run; the refusals.
+  `test/cpp/run/*.cpp` as a pool job (514 at 0.162); `classes.cpp` and `templates.cpp` built and run; the refusals.
   (0.105)
-- `test/cpp.pl` runs 45 numbered checks, `c1` to `c45`, then reads Cicili's six C++ files whole (`test/cpp/objects.cpp`,
+- `test/cpp.pl` runs 46 numbered checks, `c1` to `c46`, then reads Cicili's six C++ files whole (`test/cpp/objects.cpp`,
   `emit_report.cpp`, `specialise.cpp`, `syntax.cpp`, `torch.cpp`, `torch-fragment.cpp`). `c34` checks the Itanium
   mangler on nine symbols, with no class registered. `unit_at(Std, Name, U)` sets `'$ccl_std'` for one read: `c22` to
   `c28` read `cxx20.cpp`, `c29` to `c33` `cxx23.cpp`, and `c35`, `c36` the run fixtures `cxx20cmp.cpp`, `cxx23b.cpp`,
@@ -550,7 +554,8 @@ tutorials/01..03-*.pl       the objects layer's lessons; goal main, last line do
   range-for (`rangeforbraced.cpp`), `c40` the user-defined literal (`userliteral.cpp`), `c41` the conversion function
   defined out of its class (`convout.cpp`), `c42` the parenthesized functional cast and `using typename`
   (`parencast.cpp`, `usingtypename.cpp`) and `c43` the pack using-declaration `using Ts::operator()...;`
-  (`overloaded.cpp`). `c37` also spells three symbols with `volatile`. (0.93, 0.117, 0.121)
+  (`overloaded.cpp`). `c37` also spells three symbols with `volatile`, and `c46` three with a vector type (0.162).
+  (0.93, 0.117, 0.121, 0.162)
 - A numbered check reads the AST by its SHAPE, so a reader node that moves moves its check in the same step: `throw Err{t}`
   has read `throw(braced_temp(call(id('Err'), [id(t)])))` since 0.117 and `c20` expected the plain call until 0.119 -- a
   RED that only this gate can show, so a step that does not run it leaves the check stale. `test/cpp.pl` alone runs in 15
@@ -1130,9 +1135,13 @@ tutorials/01..03-*.pl       the objects layer's lessons; goal main, last line do
 - NO RTTI in libc++: `__cpp_rtti` and `__GXX_RTTI` are not predefined. `any`, `exception_ptr`, `shared_ptr` and
   `function` change; the vtables do not, so control blocks match the shipped library. `shared_ptr::get_deleter` and
   `dynamic_pointer_cast` are absent. The program's own `typeid` and `dynamic_cast` use libc++abi. (0.86, 0.108)
-- `__OPTIMIZE_SIZE__` is predefined in C++, so libc++ 21 compiles its scalar algorithms, not the vectorized ones
-  behind `_LIBCPP_HAS_ALGORITHM_VECTOR_UTILS && !defined(__OPTIMIZE_SIZE__)` (vector types, generic lambdas, vector
-  builtins). libc++ 18 reads it nowhere. (0.92)
+- `__OPTIMIZE_SIZE__` IS NOT PREDEFINED (0.162), as clang predefines it only at `-Os` and `-Oz`: libc++ 21 compiles
+  its VECTORIZED algorithms behind `_LIBCPP_HAS_ALGORITHM_VECTOR_UTILS && !defined(__OPTIMIZE_SIZE__)` (`mismatch`, and
+  through it `lexicographical_compare` and so a vector's `operator<`): `__simd_vector<_Tp, _Np>`, an `ext_vector_type`
+  alias template, `__load_vector`'s braced vector from a pack, `__all_of` and `__find_first_set` over a bool vector and
+  `__builtin_bit_cast`. From 0.92 to 0.161 it was predefined in C++ to keep that road off, since nothing here read a
+  vector type (the Vector types topic of the lowering). libc++ 18 reads it nowhere. `mismatchvec.cpp` (C++17: libc++ 21
+  takes the road from C++14 on). (0.92, 0.162)
 - 128-BIT INTEGERS IN BOTH LANGUAGES: `__SIZEOF_INT128__` is predefined in C and in C++ (16; `pp_predef(..., any,
   '16')`, 0.129), so libc++ builds its int128 configuration: `is_integral<__int128>`, `make_unsigned`,
   `numeric_limits<__int128>`, `to_chars` and `from_chars` in 128 bits, `std::hash<__int128>`, `std::format` of one.
@@ -1309,6 +1318,18 @@ tutorials/01..03-*.pl       the objects layer's lessons; goal main, last line do
   The decimal floating types are the Lowering's topic (0.129). (0.71, 0.93, 0.117)
 - `_Thread_local` and `thread_local` (C++, C23) are the QUALIFIER `thread_local`, not storage; their clauses precede
   the storage clause, so `static _Thread_local` keeps both. Reader `k91`. (0.93)
+- A VECTOR TYPE (0.162): GCC's `__attribute__((vector_size(N)))` and clang's `__attribute__((ext_vector_type(N)))`, with
+  or without the underscores, are the one attribute of `__attribute__` that the reader keeps -- on a typedef, a
+  declarator or an alias template, before or after the name (`ccl_vec_note/2` notes it as it goes past, `'$ccl_vec'`
+  cleared at each item's start; `ccl_vec_take/2` folds it onto the declared type's base): `base(Q, [vector(size | ext,
+  X, Elem)])`, X as written, the bytes or the lanes, an expression that a template's parameter may be. The inference
+  resolves it (`ccl_resolve_base/3` over `ccl_vec_count/4`) to `vec(Kind, Lanes, Elem)`: its size the lanes' bytes, a
+  bool ext vector's a bit a lane, rounded up to a power of two, and its alignment its size (`ccl_size_align`); `v[i]` a
+  lane, a comparison of two vectors a MASK, the signed integer vector of the element's size whose lanes are -1 or 0
+  (`ccl_vector_mask/2`), an arithmetic, bitwise or shift operator the vector's own type, a scalar operand converted to
+  the element. `__builtin_convertvector(e, T)` is read in C and C++ with its operand an expression and its second a
+  type (`ccl_postfix_p`; it was a trait of types). The attribute was dropped and the vector was its element: `v4si c = a
+  + b` added two ints. Reader 133. `test/c/run/vector.c`, `test/cpp/run/vector.cpp`. (0.162)
 - `_Alignas(E)`, and C23's and C++'s `alignas(E)`, on an object are the qualifier `aligned(E)`; in an attribute
   position they are dropped. `test/c/run/wstr_alignas.c`. (0.99)
 - An alignment specifier changes the alignment, never the size (`ccl_size_align`): `sizeof x' of `_Alignas(16) int x'
@@ -2009,14 +2030,14 @@ tutorials/01..03-*.pl       the objects layer's lessons; goal main, last line do
 
 ### The versions
 
-- `ccl_reader_version/1` (`library/ccl_syntax.pl`, now 132): bump it for any grammar change to what a read gives, and
+- `ccl_reader_version/1` (`library/ccl_syntax.pl`, now 133): bump it for any grammar change to what a read gives, and
   for any change to what the AST beside a summary holds (item or member terms, `cpp_index_name/2`,
   `cpp_template_name/2`, `ccl_flat_items/3`, the namespace keys). Keep the reason in its comment. Why: the store and the
   summaries are keyed by it, and a stale read is served silently (`sizeof(std::string)` read 40). (M1, 0.89, 0.112,
   0.117)
 - A reader bump makes every summary cold; `test/libcxx.sh` rewrites them. `test/reader.pl`'s `k16` (a cached read is
   the same AST as a fresh one) goes RED on a grammar change without a bump. (0.93, 0.105)
-- `ccl_lowering_version/1` (`library/ccl_ir.pl`, now 86): bump it whenever the check or the lowering changes what it
+- `ccl_lowering_version/1` (`library/ccl_ir.pl`, now 87): bump it whenever the check or the lowering changes what it
   emits, however small -- 0.120 bumped it for the ORDER of the drain functions alone. Why: `dr_ir/3` serves the old IR
   otherwise. Either bump starts the C store afresh. (M4, 0.103, 0.120)
 
@@ -2464,8 +2485,10 @@ free. A const method adds `.c`, a ref-qualified one `.r` or `.rr` after it: each
   `typedef S T;` was a cast of k to the struct, which LLVM refused, where `S{k}` took the tag's road. `parendecl.cpp`.
   (0.60, 0.78, 0.161)
 - A bound type parameter called is one predicate, `cpp_type_called/3` in `cpp_subst`: `T(x)` a functional cast, `T()`
-  of a builtin or pointer the type's zero (`*__s = _CharT()`), `T(a, b, ...)` the bound class's name called.
-  `sizeof(id(T))` becomes `sizeof_type(T)`. (0.78, 0.90)
+  of a builtin or pointer the type's zero (`*__s = _CharT()`), `T(a, b, ...)` the bound class's name called -- a
+  single PACK EXPANSION too, which is no one argument until it expands (0.162: `V{it[Is]...}` in a lambda's body, its
+  pack `Is` the lambda's own, was the cast `ccast(functional, V, pack(...))` and refused `pack_unexpanded`).
+  `sizeof(id(T))` becomes `sizeof_type(T)`. (0.78, 0.90, 0.162)
 - `Guard<A, I>(a, i)` is a temporary of the instance (`cpp_call`'s `tmpl` clause) only where every argument is settled
   (`cpp_targs_settled/1`); an unfolded argument would name an instance by its spelling. (0.47)
 - `typename X::y(args)`, the reader's `construct(T, As)`, goes through the type-call road; `void()` is `(void) 0`.
@@ -3174,7 +3197,8 @@ free. A const method adds `.c`, a ref-qualified one `.r` or `.rr` after it: each
   (`cpp_expr`): SFINAE (unique_ptr's function-pointer deleter). (0.72)
 - A CALLED bound type parameter has its arguments substituted first (`cpp_type_called/3`): one argument is a
   functional cast, none on a builtin or pointer the zero, and a class makes its temporary. A pack expansion is one
-  element until it expands. Fixture: `packcall.cpp`. (0.90)
+  element until it expands, and over a class a call of its name, never a cast (0.162). Fixture: `packcall.cpp`. (0.90,
+  0.162)
 - A class bound as its TAG, a plain struct's form, names its class in a path too (`cpp_subst_path` over
   `cpp_tag_name/2`; 0.121): `using alt_type = remove_cvref_t<decltype(__alt)>; ... typename alt_type::__value_type` in
   the lambda of libc++ 18's `hash<variant>`. `stdvariant2.cpp`.
@@ -3581,6 +3605,19 @@ free. A const method adds `.c`, a ref-qualified one `.r` or `.rr` after it: each
   first, by the class typedef clause. `stdfspath.cpp`.
 - Clang's builtin templates resolve in `cpp_instantiate_type`: `__make_integer_seq<S, T, N>` is `S<T, 0, ..., N-1>`,
   `__type_pack_element<I, Ts...>` the I-th of `Ts`. (0.79)
+- AN ALIAS TEMPLATE WHOSE DEFINITION IS A VECTOR TYPE (0.162), libc++ 21's `template <class _Tp, size_t _Np> using
+  __simd_vector __attribute__((__ext_vector_type__(_Np))) = _Tp;`, is transparent to deduction as an alias of a
+  template-id is: `__simd_vector<_Tp, _Np>` deduces the element and the lane count (a `vector_size` one its bytes)
+  from a vector argument (`cpp_vector_alias/5`, `cpp_match_vector/7`, `cpp_alias_through/3`, a `cpp_match_one/5`
+  clause), so a function template over it is a candidate and a partial specialization over it matches
+  (`__simd_vector_size_v`); its instance is the vector (`cpp_type` on `vector(K, X, E)`, the count folded as an array's
+  bound), keyed apart from another (`cpp_spec_key`: `vec4e_int`). A braced vector `_VecT{x, y...}` -- a type parameter
+  bound to a vector, or a vector type's name -- is its compound literal, lane by lane (`cpp_subst` on `braced_temp`,
+  `cpp_expr` over `cpp_vector_named/2`). A VECTOR'S BRACED LIST IS ITS LANES, the rest zero, never a splat, as clang has
+  it: `v4 a{5}` is `{5, 0, 0, 0}` and `v4 z{}` zero (`cpp_braced_scalar_type` takes no vector: `v16 c{}` was the int 0
+  converted), a vector member's braced default initializer and an aggregate's item for one a compound literal of its
+  type (`cpp_vector_member/1`: `v4 r{7};` reached the lowering as a bare braced list); `v4 s = 3;` of an
+  `ext_vector_type` is the splat. `vector.cpp` (C++20). (0.162)
 - A variable template's instance is its VALUE: the initializer, or the picked specialization's (`cpp_pick_spec`),
   substituted, desugared and folded (`cpp_instantiate_variable`, trace `vartmpl(N, Args, V)`), else
   `variable_template_not_constant(N)`. The value is remembered per ground argument list (`'$cpp_vtm'(N, Args, E)`,
@@ -3941,9 +3978,11 @@ The desugaring (`library/ccl_cpp.pl`) chooses every C++ overload. A fixture name
   string out. `stdvariant.cpp`.
 - A comparison, `!`, `&&` and `||` are `bool` in C++ and `int` in C ([expr.rel]/1, [expr.eq]/1, [expr.log.and]/1,
   [expr.unary.op]/9; `ccl_type_of` through `ccl_truth_type/1`); with a class operand the operator the desugaring chooses
-  types it (`ccl_class_operand/1`). Fixture: `boolresult.cpp`. Why: `decltype(x < y)` was `int`, `auto b = x < y` four bytes,
-  `std::boolalpha` printed `1`, and `f(x < y)` took `f(int)` over `f(bool)`; libc++ 21's `__synth_three_way` asks
-  `decltype(a < b)`. (0.127)
+  types it (`ccl_class_operand/1`), and so do the desugaring's types where an operand's type is UNSETTLED, a template-id
+  or a qualified name the tables leave raw (`ccl_unsettled_type/1`, 0.162: `auto eq = l == r;` over an alias template's
+  vector was a `bool` at the read, where it is a mask). Fixture: `boolresult.cpp`. Why: `decltype(x < y)` was `int`,
+  `auto b = x < y` four bytes, `std::boolalpha` printed `1`, and `f(x < y)` took `f(int)` over `f(bool)`; libc++ 21's
+  `__synth_three_way` asks `decltype(a < b)`. (0.127, 0.162)
 - A conditional over two arms of ONE arithmetic type has that type in C++ ([expr.cond]/7.1: the usual arithmetic
   conversions bring two DIFFERENT types to one; `ccl_cond_arith/3`), where C converts them always (6.5.15/5). Why:
   `std::cout << (c ? 'Y' : 'N')` printed 89, and `c ? Red : Green` was no `Color`. `boolresult.cpp`. (0.127)
@@ -4310,15 +4349,18 @@ A lambda is a class of its captures (`library/ccl_cpp.pl`). A fixture named alon
 - A generic lambda's `operator()` is a member template ([expr.prim.lambda.closure]/3): its own `tparams(Ps)`, then one
   invented per `auto` (`cpp_auto_params/4`); its `auto` result is deduced at the call (`cpp_member_template_call`, the
   instance `op.call`). Why: libc++'s `__find_generic`. (0.92)
-- A GENERIC LAMBDA'S PARAMETERS THAT NAME ITS OWN TEMPLATE PARAMETERS STAY AS WRITTEN WHERE THE TABLES KNOW THE NAME
-  (`cpp_lambda_params/3`, `cpp_params_hiding/3`, `cpp_known_type_name/1`): the template parameter hides every outer name
-  ([temp.local]) and `cpp_type` resolves through the tables. A typedef in a block joins the unit's one table, and libc++
-  writes `using _Up = __libcpp_remove_reference_t<_Tp>;` inside a function: the second parameter of `[]<class _Tp, class
-  _Up>(const _Tp &__t, const _Up &__u)` -- libc++ 21's `__synth_three_way`, the comparison a vector's `<=>` is built on --
-  became `const _Tp &`, `_Up` could not be deduced (`cannot_deduce(_Up)`), the operator's result type refused, and
+- A GENERIC LAMBDA'S PARAMETERS THAT NAME ITS OWN TEMPLATE PARAMETERS STAY AS WRITTEN (`cpp_lambda_params/3`,
+  `cpp_params_hiding/3`): the template parameter hides every outer name ([temp.local]) and `cpp_type` resolves through
+  the tables. A typedef in a block joins the unit's one table, and libc++ writes `using _Up =
+  __libcpp_remove_reference_t<_Tp>;` inside a function: the second parameter of `[]<class _Tp, class _Up>(const _Tp
+  &__t, const _Up &__u)` -- libc++ 21's `__synth_three_way`, the comparison a vector's `<=>` is built on -- became
+  `const _Tp &`, `_Up` could not be deduced (`cannot_deduce(_Up)`), the operator's result type refused, and
   `std::three_way_comparable<std::vector<int>>` was false. Only a parameter whose type names such a template parameter
-  is kept raw; the rest resolve as before, and a lambda whose names no table knows takes the old road whole.
-  `lambdatparam.cpp` (C++20), `stringcmp20.cpp` (libc++ 21). (0.126)
+  is kept raw, the rest resolve as before -- WHATEVER THE TABLES KNOW since 0.162, where 0.126 kept only the names they
+  knew: resolved with its pack free, `std::index_sequence<Is...>` was `integer_sequence<size_t>`, which no argument
+  matched (`argument_mismatch`), and the call in place of `[=]<size_t... Is>(index_sequence<Is...>) { ... }
+  (make_index_sequence<N>{})` -- libc++ 21's `__load_vector` -- reached the lowering raw. `lambdatparam.cpp` (C++20),
+  `stringcmp20.cpp` (libc++ 21), `vector.cpp`. (0.126, 0.162)
 - A lambda's requires-clauses -- after its template parameters and trailing -- are kept by the reader as `lreq(R)`
   among its captures (reader version 105), and for the PROGRAM's generic lambda conjoined into the operator template's
   one requires entry (`cpp_lambda_constraint/4`), a parameter named in a `decltype` replaced by its declared type
@@ -5106,8 +5148,10 @@ A lambda is a class of its captures (`library/ccl_cpp.pl`). A fixture named alon
   defect since 0.94, met once a library function template had a `byte` among its arguments). `stdbyte.cpp`. (0.117)
 - The remaining builtin types are spelled (0.136; `cpp_ita_type_`): `_Complex T` is `C` and its real type's code, a
   substitution candidate as a pointer is; `_Float16` is `DF16_`; `_BitInt(N)` is `DB<N>_` and `unsigned _BitInt(N)`
-  `DU<N>_` (`ccl_bitint_width`); the decimal floating types are gcc's `Df`, `Dd`, `De`. `test/cpp.pl`'s `c44` spells four
-  symbols as clang++ 18 does.
+  `DU<N>_` (`ccl_bitint_width`); the decimal floating types are gcc's `Df`, `Dd`, `De`. `test/cpp.pl`'s `c44` spells
+  four symbols as clang++ 18 does. A VECTOR TYPE is `Dv<N>_<element>` (0.162), a `vector_size` one and an
+  `ext_vector_type` one alike, a substitution candidate after its element (clang++'s `k(f2, f2)` is `_Z1kDv2_fS_`), its
+  qualifiers before it (`RKDv2_f`); `c46` spells three symbols as clang++ does.
 - `volatile` is spelled (`cpp_ita_cv/2`, 0.117): `V` before `K`, the group one substitution candidate with its type
   (`void const volatile *` is `PVKv`), and a by-value parameter loses both ([dcl.fct]/5). Dropped, libc++ 18's
   `__cxx_atomic_notify_one(void const volatile *)` was called by `..EPKv`, a symbol no library exports (every
@@ -5242,8 +5286,8 @@ A lambda is a class of its captures (`library/ccl_cpp.pl`). A fixture named alon
   (0.41)
 - (owner's rule) A library module is taken whole, its whole surface in fixtures, never function by function. (0.78)
 - libc++ runs configurations that it ships, chosen by the predefined macros: no exceptions (0.50), no RTTI (0.86),
-  scalar algorithms through `__OPTIMIZE_SIZE__` (0.92), `<atomic>` over `_Atomic` through `__has_extension(c_atomic)`
-  (0.100). The preprocessor section has the details.
+  libc++ 21's vectorized algorithms since 0.162 (`__OPTIMIZE_SIZE__` no longer predefined; scalar ones from 0.92),
+  `<atomic>` over `_Atomic` through `__has_extension(c_atomic)` (0.100). The preprocessor section has the details.
 - `std::move(x)` is the language's own `move(x)`, with no header (`cpp_call` on `scoped([std], move)`). It stays a move
   on a class value or a value holding owners (`cpp_holds_owners/1`), else it is the value. (0.40, 0.83)
 
@@ -6230,6 +6274,41 @@ A lambda is a class of its captures (`library/ccl_cpp.pl`). A fixture named alon
   atomic test asked of the slot after (`ir_step_/6`). Why: the `_Atomic` road was a clause of its own that took the
   place to decide, a lowering emits as it goes and backtracking undoes no instruction, so `slot() += 5` called slot
   twice (since 0.99). `test/c/run/oncetarget.c`, `oncetarget.cpp`. (0.112)
+
+### Vector types
+
+- A vector is LLVM's own `<N x T>` (`ir_base`), a bool ext vector `<N x i1>` (0.162; the VECTOR TYPES block of
+  `library/ccl_ir.pl`, `ir_vec_*`). The arithmetic, bitwise and shift operators work lane by lane, as clang's do --
+  `add`, never `add nsw`, a lane wraps (`ir_vec_binary/10`) --, a scalar operand converted to the element and SPLATTED
+  (`insertelement`, `shufflevector ... zeroinitializer`; `ir_vec_side/8`); a comparison is the lanes' `icmp` or `fcmp`
+  and the `sext` of its `<N x i1>` to the mask (`ir_vec_cmp/10`); `-v` and `~v` lane by lane (`fneg`, `sub` from zero,
+  `xor` with all ones); a bool vector takes `& | ^` and `~`, its lanes bits. A lane is a place: an element's address in
+  the vector (`ir_lval(index)`), a bool vector's lane loaded and stored through the whole vector (`vlane/3`: load,
+  `extractelement` or `insertelement`, store) and no address (`address_of_a_bool_vector_lane`). A braced initializer
+  fills the lanes in order from zero, `[i] = x` moving the lane (`ir_vec_init_value/3`); a global's constant is `<i32 1,
+  i32 2, i32 0, i32 0>` (`ir_vec_gconst/3`). A vector converts to a vector of the same size by its bits and a scalar to
+  a vector by a splat (`ir_vec_convert/6`); anything else is `vector_conversion(From, To)`, and a vector used as a
+  condition `vector_condition(Op)`. (0.162)
+- The vector builtins (0.162): `__builtin_convertvector(v, T)` converts lane by lane, a bool lane from its truth and to
+  0 or 1 (`ir_vec_elem_convert/6`); `__builtin_shufflevector(a, b, i...)` is `shufflevector` over folded indices, -1 a
+  `poison` lane (`vector_shuffle_index` for another); `__builtin_reduce_add`, `mul`, `and`, `or`, `xor`, `max` and `min`
+  are `llvm.vector.reduce.*` of the lanes, a signed or an unsigned `max` and `min` by the element, `fmax` and `fmin` for
+  a floating one (`ir_vec_reduce_name/4`; `vector_reduce(Op, T)` for an integer reduction of floats), a bool vector's
+  answer a `bool`. libc++ 21's `__all_of` is `__builtin_reduce_and(__builtin_convertvector(v, __simd_vector<bool, N>))`.
+  (0.162)
+- A vector crosses a call as clang passes it, measured on both machines (`ir_vec_abi/8`, `ir_vec_leaves/5`): on SysV one
+  of 4 bytes or fewer in an INTEGER register as `iN`, one of 8 in an SSE register as a `double` -- a `<1 x double>` in
+  memory as an argument and in `xmm0` as a result --, one of 16 in one SSE register as itself (`<1 x i128>` as `<2 x
+  i64>`), a larger one in memory as an argument and as itself as a result; as a member of an aggregate its eightbytes
+  are SSE (a 16-byte one SSE and SSEUP: `struct { v4sf v; }` is `<4 x float>`). On AAPCS64 a legal vector -- 8 bytes, or
+  16 with more than one lane, lanes a power of two, no bool -- in a SIMD register as itself, any other of 4 bytes or
+  fewer as `i32`, of 8 as `<2 x i32>`, of 16 as `<4 x i32>`, a larger one by reference; a result of 16 bytes or fewer as
+  itself, a larger one through the hidden pointer; a struct of up to four vectors of one type is an HVA in SIMD
+  registers (`ir_hfa/3`). `va_arg` of a vector takes the same classes (the SSE area on SysV, the SIMD area on AAPCS64).
+  gcc and clang differ on aarch64 for a 4-byte vector RESULT, and this is clang's; the gates' link checks use the
+  vectors on which both agree. The driver gate and the cross gate (`test/c/link/vec_*.c`). (0.162)
+- The debug information describes a vector as DWARF's `DW_TAG_array_type` with `DIFlagVector` over its lanes, as clang
+  does (`ir_dbg_type_text`). (0.162)
 
 ### VLAs
 
@@ -7219,18 +7298,17 @@ A lambda is a class of its captures (`library/ccl_cpp.pl`). A fixture named alon
 - Ubuntu 24.04 on x86_64 (clang and LLVM 18, glibc, libc++ 18 and 21) is a host since 0.87. Every gate but the C++ one
   is GREEN there since 0.93, and all seven since 0.95. Every step from 0.93 on is gated there, but the save points
   0.112, 0.113, 0.117, 0.122 to 0.125, 0.130, 0.131 and 0.143 (0.143's C gates and cross gate ran, its libc++ gates did
-  not; the others were gated by the steps after them). The last full run is 0.159's, over cocolog 2.2.5, on one tree,
-  3956 s in all (0.158's 3890 s, on 2.2.0): over libc++ 18 all nine GREEN (the flow gate's 125 findings in 59 s, reader
-  4 s, compile 12 s, driver 12 s, objects 4 s, proof, the cross gate in 69 s, the library read in 1153 s (0.158's 1231
-  s), the C++ gate in 734 s with 498 of 501 fixtures ok, the skips are `joinwith`, `stdoptionalref` and `tzone`, the 21
-  refusals and the three of the safe part); over libc++ 21 the library read (1028 s; 0.158's 1092 s) and the C++ gate
-  (881 s, 500 of 501 ok, the skip `stdoptionalref`) GREEN -- the C gates do not read libc++. The fixtures' builds,
-  summed, took 2582 s over libc++ 18 where 0.158's took 2163 s, and 2799 s over libc++ 21 where they took 2497 s -- over
-  the same fixtures 19 % and 12 % more, the box slower now, as the five builds of the A/B (the neighbours bullet) read
-  alike on both engines. Two libc++ passes are one gate: `LLVM=/usr/lib/llvm-18` and `LLVM=/usr/lib/llvm-21` choose the
-  tree the chain reads and links. libc++ 22 (the newest tree, which a run without `$LLVM` reads) is untried but for
-  `stdoptionalref`, which passes there. The run before 0.121's (0.118, 0.119) found, over 0.117, two defects and one
-  stale check of `test/cpp.pl` (c20, above).
+  not; the others were gated by the steps after them). The last full run is 0.162's, over cocolog 2.2.5, on one tree,
+  4594 s in all (0.161's 4719 s): over libc++ 18 all nine GREEN in 2611 s (the flow gate's one finding in 83 s, reader 5
+  s, compile 14 s, driver 14 s, objects 3 s, proof, the cross gate in 642 s with its C++ part for aarch64, the library
+  read in 1090 s (0.161's 1111 s), the C++ gate in 754 s (0.161's 797 s) with 511 of 514 fixtures ok, the skips are
+  `joinwith`, `stdoptionalref` and `tzone`, the 22 refusals and the three of the safe part); over libc++ 21 the library
+  read (1047 s, peak 1161 MB; 0.161's 1109 s) and the C++ gate (935 s, peak 2141 MB; 0.161's 943 s; 513 of 514 ok, the
+  skip `stdoptionalref`) GREEN -- the C gates do not read libc++. The fixtures' builds, summed, took 2651 s over libc++
+  18 (0.161's 2797 s over 509) and 3031 s over libc++ 21 (0.161's 3056 s over 511). Two libc++ passes are one gate:
+  `LLVM=/usr/lib/llvm-18` and `LLVM=/usr/lib/llvm-21` choose the tree the chain reads and links. libc++ 22 (the newest
+  tree, which a run without `$LLVM` reads) is untried but for `stdoptionalref`, which passes there. The run before
+  0.121's (0.118, 0.119) found, over 0.117, two defects and one stale check of `test/cpp.pl` (c20, above).
 - The host sets the predefined macros (`ccl_host_os/1` and `ccl_host_arch/1` in the module), the inclusion path
   (Debian's `/usr/lib/llvm-NN`, the multiarch directory) and the link (`-lc++` and `-lm` on Linux) (0.87, 0.93, 0.100).
 - A struct passed or returned by value crosses a call as clang's x86-64 code expects, in both directions, with the
@@ -7239,7 +7317,7 @@ A lambda is a class of its captures (`library/ccl_cpp.pl`). A fixture named alon
   (`ccl_long_double/1`; `test/c/run/ldouble.c`, `test/cpp/run/ldouble.cpp`) (0.108, 0.131).
 - LINUX ON AARCH64 IS A TARGET (0.131): `cicilang --target=aarch64-linux-gnu` builds C for it on this x86-64 box, and
   the cross gate runs every C fixture and the ABI checks under qemu against clang's and gcc's builds; and C++ over that
-  machine's libc++ 18 under the sysroot since 0.161: 23 C++ fixtures and the two C++ ABI checks against clang++.
+  machine's libc++ 18 under the sysroot since 0.161: 24 C++ fixtures and the two C++ ABI checks against clang++.
 
 ### C
 
@@ -7320,6 +7398,10 @@ A lambda is a class of its captures (`library/ccl_cpp.pl`). A fixture named alon
   (two virtual overloads of one name and arity, one overridden), `virtualdefault` (a virtual call that leaves a defaulted
   argument out), `anonparam` (an unnamed by-value parameter destroyed), `rangeadl` (a range-for by the free `begin` and
   `end` of two namespaces), `downcast` (`static_cast` from a second base to the derived class, a pointer and a reference).
+- Forms of 0.162: `vector` (C++20: a vector alias template, a partial specialization over it, a braced vector from a
+  pack, overloads by vector type, a mask's lanes through `__builtin_bit_cast`, a struct of a vector), `mismatchvec`
+  (`std::mismatch`, `std::equal` and `operator<` of vectors over libc++ 21's vectorized road, every tail length).
+  In C, `vector.c` (vector types, their operators, lanes, conversions, the builtins, globals; on aarch64 too).
 - Forms of 0.161: `memptrnull` (pointers to members as the ABI holds them: a data member's null -1, a base's converted,
   compared, every zero-initialization; a base's member function named through the derived class; on aarch64 too),
   `usingnamed` (C++20: a header's keyed type, object, function template instance and overload set named through a
@@ -7583,8 +7665,6 @@ A lambda is a class of its captures (`library/ccl_cpp.pl`). A fixture named alon
   `stdquoted.cpp`), and so do the rvalue-stream `getline`, `getline` with a delimiter and `sync_with_stdio`
   (`stdstreammisc.cpp`, 0.117).
   `cin`'s tie flushes `cout`, which a buffer that counts its syncs checks (`stdtie.cpp`, 0.136).
-- `__builtin_reduce_and` and `__builtin_reduce_or` have no answer. They are latent: only libc++'s vector-utils road
-  calls them, and the predefined `__OPTIMIZE_SIZE__` keeps that road off (0.92).
 
 ### ABI and hosts
 
@@ -7592,8 +7672,8 @@ A lambda is a class of its captures (`library/ccl_cpp.pl`). A fixture named alon
   double differ: no Apple machine is on this box, and its expansion of an aggregate's `va_arg` is checked against
   clang's on this host alone (0.160).
 - The Itanium mangler spells a function type, a pointer to one, an array and a pointer to member as a parameter
-  (0.117; `c37`) and every builtin type (0.136; `c44`). A type that none of its clauses names -- a vector type, which
-  nothing here reads -- keeps this compiler's own name, and the link names it.
+  (0.117; `c37`), every builtin type (0.136; `c44`) and a vector type (0.162; `c46`). A type that none of its clauses
+  names keeps this compiler's own name, and the link names it.
 - macOS has not run the gates since 0.90, so every rule made since 0.91 is gated on Linux and libc++ 18 only.
 
 ### The safe part

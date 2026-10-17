@@ -420,7 +420,25 @@ ccl_resolve_base([decltype(E)], Q, base(Q, [unsigned, long])) :- ccl_lang(cpp), 
 ccl_resolve_base([decltype(E)], Q, T) :- ccl_lang(cpp), ccl_type_of(E, T0), T0 \== unknown, !, ccl_add_quals(Q, T0, T).
 ccl_resolve_base([struct(Tag, none)], Q, base(Q, [struct(Tag, Ms)])) :- ccl_tag(Tag, Ms), !.
 ccl_resolve_base([union(Tag, none)], Q, base(Q, [union(Tag, Ms)])) :- ccl_tag(Tag, Ms), !.
+%% A VECTOR TYPE (0.162): the reader's `vector(size, Bytes, E)' (GCC's `vector_size') or `vector(ext, N, E)' (clang's `ext_vector_type')
+%% resolves to `vec(K, N, E)', N its element count, where the count folds and the element resolves; over a template's own parameter
+%% (libc++'s `__simd_vector<_Tp, _Np>') it stays as written until the instance binds them
+ccl_resolve_base([vec(K, N, E)], Q, base(Q, [vec(K, N, E)])) :- !.
+ccl_resolve_base([vector(K, X, E0)], Q, base(Q, [vec(K, N, E)])) :- ccl_resolve_type(E0, E), ccl_vec_count(K, X, E, N), !.
 ccl_resolve_base(S, Q, base(Q, S)).
+ccl_vec_count(ext, X, _, N) :- catch(ccl_const_eval(X, N), _, fail), integer(N), N > 0, !.
+ccl_vec_count(size, X, E, N) :- catch(ccl_const_eval(X, B), _, fail), integer(B), catch(ccl_size_of(E, S), _, fail), integer(S), S > 0, N is B // S, N > 0, !.
+ccl_vector_type(T) :- nonvar(T), T \== unknown, ccl_resolve_type(T, base(_, [vec(_, _, _)])), !.
+ccl_vector_parts(T, K, N, E) :- nonvar(T), ccl_resolve_type(T, base(_, [vec(K, N, E)])), !.
+%% the type a vector comparison answers ([expr.rel] for vectors, GCC's and clang's): a vector of the signed integer of the element's
+%% size, of the same count and kind, its lanes -1 or 0
+ccl_vector_mask(T, base([], [vec(K, N, M)])) :- ccl_vector_parts(T, K, N, E), ccl_size_of(E, S), ccl_signed_of_size(S, M), !.
+ccl_signed_of_size(1, base([], [signed, char])).
+ccl_signed_of_size(2, base([], [short])).
+ccl_signed_of_size(4, base([], [int])).
+ccl_signed_of_size(8, base([], [long, long])).
+ccl_signed_of_size(16, base([], ['__int128'])).
+ccl_vector_bool_elem(E) :- ccl_resolve_type(E, base(_, S)), ( S == [bool] ; S == ['_Bool'] ), !.
 ccl_type_term(T) :- compound(T), functor(T, F, _), memberchk(F, [base, ptr, arr, fn, ref, rref]).
 %% what a C++ tag's name stands for, told by its members' shape: enumerators,
 %% plain members (a struct), or a class's (a constructor, a method, a label)
@@ -613,6 +631,11 @@ ccl_type_of(call(id(B), _), T) :- ccl_float_builtin_type(B, T), !.
 ccl_type_of(call(id(B), [_]), base([], [int])) :- memberchk(B, ['__builtin_isnan', '__builtin_isinf', '__builtin_isinf_sign', '__builtin_isfinite', '__builtin_signbit', '__builtin_isnormal']), !.   % glibc's classification macros (0.101)                                   % INFINITY, NAN, HUGE_VAL (0.101)
 ccl_type_of(call(id('__builtin_complex'), [A, _]), T) :- ccl_type_of(A, AT), AT \== unknown, !, ccl_complex_of(AT, T).   % C11's CMPLX and I, in the compiler's <complex.h> (0.100)   % C23's <stdckdint.h> is written on them
 ccl_type_of(call(id(B), _), T) :- ccl_coro_builtin_type(B, T), !.   % C++20's coroutine builtins, libc++'s coroutine_handle (0.108)
+%% THE VECTOR BUILTINS (0.162): a conversion is its type, a shuffle a vector of its first operand's element counted by its indices, a
+%% reduction the element
+ccl_type_of(call(id('__builtin_convertvector'), [_, type(T0)]), T) :- !, ccl_unref(T0, T).
+ccl_type_of(call(id('__builtin_shufflevector'), [A, _|Is]), T) :- ccl_type_of(A, AT), ccl_vector_parts(AT, K, _, E), !, length(Is, N), T = base([], [vec(K, N, E)]).
+ccl_type_of(call(id(B), [A]), T) :- ccl_vec_reduce(B, _), !, ( ccl_type_of(A, AT), ccl_vector_parts(AT, _, _, E) -> T = E ; T = unknown ).
 ccl_type_of(braced_temp(E), T) :- !, ccl_type_of(E, T).   % `T{a, b}' (reader version 113): the call it was before
 ccl_type_of(call(F, _), T) :- !,
     (   F = id(N), ccl_declared(N, fn(R, _, _)) -> ccl_unref(R, T)
@@ -621,7 +644,7 @@ ccl_type_of(call(F, _), T) :- !,
 ccl_type_of(member(E, N), T) :- !, ccl_type_of(E, ET), ( ccl_member_type(ET, N, T0) -> ccl_unref(T0, T) ; T = unknown ).
 ccl_type_of(arrow(E, N), T) :- !, ccl_type_of(E, ET), ccl_resolve_type(ET, ET1),
     ( ( ET1 = ptr(_, ST) ; ET1 = arr(_, ST) ), ccl_member_type(ST, N, T0) -> ccl_unref(T0, T) ; T = unknown ).
-ccl_type_of(index(A, _), T) :- !, ccl_type_of(A, AT), ccl_resolve_type(AT, AT1), ( ( AT1 = ptr(_, T0) ; AT1 = arr(_, T0) ) -> ccl_unref(T0, T) ; T = unknown ).
+ccl_type_of(index(A, _), T) :- !, ccl_type_of(A, AT), ccl_resolve_type(AT, AT1), ( ( AT1 = ptr(_, T0) ; AT1 = arr(_, T0) ) -> ccl_unref(T0, T) ; AT1 = base(_, [vec(_, _, T0)]) -> T = T0 ; T = unknown ).   % a vector's element (0.162)
 ccl_type_of(deref(E), T) :- !, ccl_type_of(E, ET), ccl_resolve_type(ET, ET1), ( ( ET1 = ptr(_, T0) ; ET1 = arr(_, T0) ) -> ccl_unref(T0, T) ; T = unknown ).
 %% C++ (M6): a reference is the thing it refers to wherever a value is asked;
 %% a qualified name is its bare name (a namespace flattens); the casts, new
@@ -679,7 +702,9 @@ ccl_type_of(stmt_expr(block(Is)), T) :- !,            % its declarations are in 
 ccl_type_of(bin(Op, A, B), T) :- !,
     ccl_type_of(A, AT), ccl_type_of(B, BT),
     (   memberchk(Op, ['&&', '||']) -> ccl_truth_type(T)
-    ;   memberchk(Op, ['<', '>', '<=', '>=', '==', '!=']) -> ( ccl_lang(cpp), ( ccl_class_operand(AT) ; ccl_class_operand(BT) ) -> T = unknown ; ccl_truth_type(T) )   % a CLASS operand: the operator the desugaring chooses decides (its declared result), never the built-in's
+    ;   memberchk(Op, ['<', '>', '<=', '>=', '==', '!=']), ( ccl_vector_type(AT) -> VT = AT ; ccl_vector_type(BT) -> VT = BT ) -> ccl_vector_mask(VT, T)   % a vector comparison: the mask vector (0.162)
+    ;   memberchk(Op, ['<', '>', '<=', '>=', '==', '!=']) -> ( ccl_lang(cpp), ( ccl_class_operand(AT) ; ccl_class_operand(BT) ; ccl_unsettled_type(AT) ; ccl_unsettled_type(BT) ) -> T = unknown ; ccl_truth_type(T) )   % a CLASS operand: the operator the desugaring chooses decides (its declared result), never the built-in's; an UNSETTLED one, the desugaring's types (0.162)
+    ;   ( ccl_vector_type(AT) -> VT = AT ; ccl_vector_type(BT) -> VT = BT ) -> ccl_strip_quals(VT, T)   % vector arithmetic, a scalar operand made a vector of it (0.162)
     ;   memberchk(Op, ['<<', '>>']) -> ccl_promoted_or_unknown(AT, T)
     ;   memberchk(Op, ['+', '-']), ccl_is_pointer(AT), ccl_is_pointer(BT) -> T = base([], [long])
     ;   memberchk(Op, ['+', '-']), ccl_is_pointer(AT) -> ccl_decay(AT, T)
@@ -688,6 +713,14 @@ ccl_type_of(bin(Op, A, B), T) :- !,
     ;   ccl_is_arith(AT), ccl_is_arith(BT) -> ccl_usual(AT, BT, T)
     ;   T = unknown ).
 ccl_type_of(_, unknown).
+%% the vector reductions ccl_type_of/2 types (0.162): each answers its vector's element
+ccl_vec_reduce('__builtin_reduce_add', add).
+ccl_vec_reduce('__builtin_reduce_mul', mul).
+ccl_vec_reduce('__builtin_reduce_and', and).
+ccl_vec_reduce('__builtin_reduce_or', or).
+ccl_vec_reduce('__builtin_reduce_xor', xor).
+ccl_vec_reduce('__builtin_reduce_max', max).
+ccl_vec_reduce('__builtin_reduce_min', min).
 %% ... and a value past 64 bits, which only a fold makes (a 128-bit type's constant: libc++'s numeric_limits<__int128>), the
 %% first of __int128 and unsigned __int128 that holds it (0.129: it was an unsigned long, lowered as an i64 and cut to its low
 %% half); a negative value is a long where it fits one (it was an unsigned long)
@@ -724,6 +757,9 @@ ccl_unref(T, T).
 %% `f(bool)' (the int overload) all said so. The lowering makes the value the type says (ir_truth/4).
 ccl_truth_type(T) :- ( ccl_lang(cpp) -> T = base([], [bool]) ; T = base([], [int]) ).
 ccl_class_operand(T) :- T \== unknown, ccl_resolve_type(T, base(_, [S])), compound(S), ( S = struct(_, _) ; S = class(_, _, _, _) ; S = union(_, _) ), !.
+%% a type the tables leave raw, a template-id or a qualified name (0.162): an alias template's instance may name a
+%% vector, whose comparison is a mask -- `auto eq = l == r;' over `simd<int, 4>' was a bool at the read
+ccl_unsettled_type(T) :- T \== unknown, ccl_resolve_type(T, base(_, [typedef(X)])), compound(X), !.
 %% an enumerator's type: its enum in C++ where the table names a named enum still in the tag table, else an int
 %% (C's, and an unnamed enum's)
 ccl_enumerator_type(N, L, T) :- ccl_lang(cpp), ccl_enumerator_tag(N, L, Tag), ccl_tag(Tag, Ms), Ms \== none, !, T = base([], [typedef(Tag)]).
@@ -749,7 +785,8 @@ ccl_range_var_type(ref(Q, base(_, [auto])), ET, ref(Q, ET)) :- !.
 ccl_range_var_type(rref(Q, base(_, [auto])), ET, ref(Q, ET)) :- !.
 ccl_range_var_type(ptr(Q, base(_, [auto])), ET, T) :- !, ( ccl_resolve_type(ET, ptr(_, _)) -> T = ET ; T = ptr(Q, ET) ).
 ccl_range_var_type(T, _, T).
-ccl_promoted_or_unknown(ET, T) :- ( ccl_is_integer(ET) -> ccl_promote(ET, T) ; ccl_is_float(ET) -> T = ET ; ccl_is_decimal(ET) -> T = ET ; T = unknown ).
+ccl_promoted_or_unknown(ET, T) :- ( ccl_is_integer(ET) -> ccl_promote(ET, T) ; ccl_is_float(ET) -> T = ET ; ccl_is_decimal(ET) -> T = ET ; ccl_vector_type(ET) -> T = ET ; T = unknown ).   % a vector's unary `-', `+', `~' and shifts are its own (0.162)
+ccl_pow2_at_least(X, P0, P) :- ( P0 >= X -> P = P0 ; P1 is P0 * 2, ccl_pow2_at_least(X, P1, P) ).   % steadfast: asked with P bound it stops at the first power past X
 %% an array decays to a pointer to its element, a function to a pointer to
 %% itself; anything else keeps its name (a typedef stays a typedef)
 %% the canonical form of a resolved type, for `_Generic' (the reader) -- every typedef resolved through the pointers,
@@ -779,6 +816,7 @@ ccl_size_align(base(_, S), N, A) :- memberchk(bitint(E), S), !, ccl_bitint_width
     ( W =< 8 -> N = 1 ; W =< 16 -> N = 2 ; W =< 32 -> N = 4 ; N is ((W + 63) // 64) * 8 ), ( N > 8 -> A = 8 ; A = N ).
 ccl_size_align(base(_, S), N, A) :- memberchk('_Complex', S), !, ccl_complex_real(base([], S), R), ccl_size_align(R, A, _), N is 2 * A.   % a complex: two components, aligned as one (0.100; an integer's too, 0.103)
 ccl_size_align(base(_, S), N, A) :- ccl_basic_size(S, N), !, A = N.
+ccl_size_align(base(_, [vec(K, C, E)]), N, N) :- !, ( K == ext, ccl_vector_bool_elem(E) -> Raw is (C + 7) // 8 ; ccl_size_of(E, ES), Raw is C * ES ), ccl_pow2_at_least(Raw, 1, N).   % a vector (0.162): its elements' bytes (a bool vector's bits packed) rounded up to a power of two, aligned at its size, as clang lays it
 ccl_size_align(base(_, [struct(_, Ms)]), N, A) :- Ms \== none, memberchk(virtual_base_of(_), Ms), !, ccl_members_layout(Ms, Lays, _, A),   % A BASE-SUBOBJECT FORM takes its DATA size (the Itanium ABI's dsize, 0.110): what follows it in the complete object may lie in its tail padding, as clang lays `int d' of `struct D : B, C' at 28, inside C's 16 bytes
     findall(E, ( member(lay(_, T, Off, _), Lays), ccl_resolve_type(T, T1), ccl_size_align(T1, S, _), E is Off + S ), Es), ( Es == [] -> N = 0 ; max_list(Es, N) ).
 ccl_size_align(base(_, [struct(_, Ms)]), N, A) :- Ms \== none, !, ccl_struct_layout(Ms, 0, 1, N0, A0), ccl_tag_size(Ms, N0, A0, N, A).

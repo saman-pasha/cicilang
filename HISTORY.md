@@ -155,6 +155,7 @@ One row per step, in version order: the step's title, what it did and its gate n
 | 0.159 | cocolog 2.2.5: `write/1` and `writeq/1` swipl's, the library unchanged | cocolog 2.2.1 to 2.2.5 taken and rebuilt, the library unchanged: the float flags, a prefix operator written before a number with no space, `print/1`, `write/1` and `writeq/1` with numbervars and a quote in an atom written `\'`; no summary, AST line or store row moves, `-ast-dump` and a diagnostic's terms spell `\'` | all nine gates GREEN over libc++ 18, the two libc++ gates over 21, 3956 s (0.158: 3890 s); 498 of 501 C++ fixtures over 18, 500 over 21; five warm builds 53.40 s on 2.2.5, 54.04 s on 2.2.0 |
 | 0.160 | Not done, the first part: casts in constant expressions, a floating literal's text, the diamonds, the regroup | floating constants under a cast folded in an integer constant expression and an enumerator a constant or nothing; a user-defined floating literal's text; an unfolded value argument's static defined; a decimal to and from a `_BitInt` past 128 bits; Apple's arm64 `va_arg` of an aggregate; a header's keyed names called through a using; the program's static member functions without `this`; diamonds over a virtual base with no virtual function and over two library classes; the 124 split predicates brought together | the chain RED at `nsusing.cpp` over both trees, then the flow gate and both C++ gates GREEN with the fix: 4195 s and 1487 s (0.159: 3956 s); 506 of 509 C++ fixtures over 18, 508 over 21 |
 | 0.161 | Not done, the second part: C++ for aarch64 and ARM's member pointers, names through a using, statement columns | C++ for aarch64 Linux over that machine's libc++ 18 in the cross sysroot, linked and run under qemu; pointers to member functions in ARM's form there; a data member pointer's null -1, its conversions, comparisons and zero-initialization; a header's keyed name named through a using; a statement's column in the debug information; the gates' own Prolog charted; the neighbours' open issues measured again | the libc++ 18 half GREEN, all nine gates, 2685 s; 509 of 512 C++ fixtures over 18; the libc++ 21 half still running at the commit |
+| 0.162 | Not done, the third part: vector types, and libc++ 21's vectorized algorithms | GCC's and clang's vector types read, checked and lowered (`vector_size`, `ext_vector_type`: operators lane by lane, lanes, masks, conversions, `__builtin_convertvector`, `__builtin_shufflevector`, `__builtin_reduce_*`; the ABI as clang passes them on both machines; the mangler's `Dv`); `__OPTIMIZE_SIZE__` no longer predefined, so libc++ 21's vectorized `mismatch` and `lexicographical_compare`; a generic lambda's parameters kept as written whatever the tables know, a pack expansion over a class a call; 0.161's libc++ 21 half recorded | all nine gates GREEN over libc++ 18, the two libc++ gates over 21, 4594 s (0.161: 4719 s); 511 of 514 C++ fixtures over 18, 513 over 21 |
 
 ## M5 — the C++ mode
 
@@ -9848,3 +9849,79 @@ gate in 797 s (peak 2191 MB; 0.160's rerun: 717 s), 509 of its 512 fixtures ok -
 and `tzone` -- and the 22 refusals and the three of the safe part. The fixtures' builds summed 2797 s over libc++ 18
 (0.160: 2689 s over 509). Over libc++ 21 the library read and the C++ gate were running when this step was committed:
 the entry claims nothing of them, and the next commit carries their numbers.
+
+## 0.162 — Not done, the third part: vector types, and libc++ 21's vectorized algorithms
+
+**0.162: GCC's and clang's vector types read, checked and lowered -- `vector_size` and `ext_vector_type`, their
+operators, lanes, masks, conversions and builtins, crossing a call as clang passes them on both machines, mangled as
+`Dv` -- and so libc++ 21's VECTORIZED algorithms, which the predefined `__OPTIMIZE_SIZE__` kept off since 0.92: it is
+predefined no more. All nine gates GREEN over libc++ 18 and both libc++ gates over libc++ 21, 4594 s.** The owner's ask
+of 0.159 ("Take cocolog 2.2.5, do all "not done" tasks"), its fourth step:
+item I of the plan, the Not done bullets of `__builtin_reduce_and` and of the mangler's vector type.
+
+- THE READER keeps the one attribute of `__attribute__` that makes a type: `vector_size(N)` and `ext_vector_type(N)`, on
+  a typedef, a declarator or an alias template (`ccl_vec_note/2`, `ccl_vec_take/2`, `'$ccl_vec'`), as `base(Q,
+  [vector(size | ext, X, Elem)])`, X as written; `__builtin_convertvector(e, T)` is read in C and C++ with an expression
+  and a type. Reader 133.
+- THE INFERENCE resolves it to `vec(Kind, Lanes, Elem)`, sized and aligned as clang has it (the lanes' bytes, a bool
+  ext vector's a bit a lane, rounded up to a power of two); `v[i]` is a lane, a comparison of two vectors a mask of the
+  element's size, `-1` or `0` a lane, and the arithmetic operators take the vector's type, a scalar operand converted
+  to the element.
+- THE LOWERING (the VECTOR TYPES block of `library/ccl_ir.pl`): `<N x T>`, a bool vector `<N x i1>`; lane by lane
+  arithmetic without `nsw`, a scalar splatted, comparisons `sext` of their `<N x i1>`, `-` and `~`, a lane read and
+  written through its address (a bool lane through the whole vector), braced initializers and globals, the conversion
+  by bits and by splat, `__builtin_convertvector`, `__builtin_shufflevector` and `__builtin_reduce_*` (LLVM's
+  `llvm.vector.reduce.*`), and the debug type as DWARF's vector array. Lowering 87.
+- THE ABI, as clang passes a vector, measured by its IR on both machines: on SysV `iN` up to 4 bytes, a `double` for 8
+  (a `<1 x double>` in memory), the vector for 16 (`<1 x i128>` as `<2 x i64>`), memory past 16 as an argument and the
+  vector as a result, an SSE eightbyte in an aggregate (`struct { v4sf v; }` is `<4 x float>`); on AAPCS64 a legal
+  vector in a SIMD register, an illegal one as `i32`, `<2 x i32>` or `<4 x i32>`, a large one by reference, a struct of
+  vectors an HVA; `va_arg` of a vector both. gcc and clang differ on aarch64 for a 4-byte vector result; this is
+  clang's. The driver gate's and the cross gate's new checks (`test/c/link/vec_*.c`) pass vectors both ways against
+  clang and gcc.
+- THE DESUGARING: an alias template whose definition is a vector type, libc++ 21's `__simd_vector<_Tp, _Np>`, is
+  transparent to deduction (its element and lane count from a vector) and to a partial specialization's match
+  (`__simd_vector_size_v`), its instance the vector; a braced vector `_VecT{x...}` is its compound literal; the mangler
+  spells `Dv<N>_<element>`, a substitution candidate (`c46`).
+- `__OPTIMIZE_SIZE__` IS NOT PREDEFINED: clang predefines it at `-Os` and `-Oz` only, and libc++ 21 then builds
+  `mismatch` -- and through it `lexicographical_compare`, a vector's `operator<` -- on its vector utilities
+  (`__load_vector`, `__all_of`, `__find_first_set`). The IR of `mismatchvec.cpp` over libc++ 21 defines `__load_vector`
+  for `<16 x i8>`, `<8 x i16>` and `<4 x i32>` (and loads `<2 x i64>`), `__all_of` over `llvm.vector.reduce.and` of the
+  masks' `<N x i1>`, and `__find_first_set`; over libc++ 18, which has no `simd_utils.h`, the loops are the scalar ones.
+- FOUND ON THE WAY, by the C++ fixture, in the order it met them: the reader typed `auto eq = l == r;` over `simd<int,
+  4>` as a `bool`, since it cannot resolve an alias template's instance -- a comparison over an UNSETTLED type, a
+  template-id or a qualified name the tables leave raw, is the desugaring's to type (`ccl_unsettled_type/1`); the
+  desugaring took a vector for a scalar, so `v16 c{}` was the int 0 converted and `v4 a{5}` the 5 splatted, where clang
+  has the lanes and the rest zero (`cpp_braced_scalar_type` takes no vector, a vector member's braced default
+  initializer and an aggregate's item are compound literals, `cpp_vector_member/1`); `ccl_size_of(To, S)` was asked
+  with S bound by the source's size, and the power-of-two search ran on to an `int_overflow` (it is steadfast now,
+  `ccl_pow2_at_least/3`, and the sizes are asked unbound); a generic lambda's parameter that names its own template
+  parameter was resolved where the tables did not know the name -- `std::index_sequence<Is...>` with the pack free was
+  `integer_sequence<size_t>`, `argument_mismatch`, and the call in place of libc++ 21's `__load_vector` form reached the
+  lowering raw, a defect since 0.126 (`cpp_lambda_params/3` keeps every such parameter as written); and `V{it[Is]...}`
+  over the lambda's own pack was taken for the one-argument functional cast, `pack_unexpanded` (`cpp_type_called/3`:
+  a pack expansion over a class is a call of its name). The fixture's own first form, `[=]` over a pointer parameter,
+  is refused by the safe part as a plain struct holding a borrow is (`borrow_stored`), and it captures by reference.
+- Fixtures: `test/c/run/vector.c` (clang's output, on aarch64 too), `test/cpp/run/vector.cpp` (C++20) and
+  `mismatchvec.cpp` (C++17, where libc++ 21 takes the road too: every tail length of the vectorized `mismatch`, `equal`,
+  `operator<` of vectors); the link files `test/c/link/vec.h`, `vec_main.c`, `vec_helper.c`.
+- `CLAUDE.md`: the versions; the reader's, the lowering's, the ABI's, the mangler's, the templates' and the
+  preprocessor's rules in their topics; the two Not done bullets dropped. `README.md`: vector types.
+
+Reader 133, lowering 87.
+
+THE GATES. 0.161's chain, whose libc++ 21 half was running when 0.161 was committed, ended GREEN: over libc++ 21 the
+library read in 1109 s (peak 1192 MB) and the C++ gate in 943 s (peak 2389 MB), 511 of its 512 fixtures ok -- the skip
+`stdoptionalref` -- and the 22 refusals and the three of the safe part; its fixtures' builds summed 3056 s over libc++
+21 (2797 s over 18); the chain 4719 s in all. This step's chain on a worktree of 0.161 (`60b307e`) with these changes
+and the version 0.162, its two modules built over cocolog 2.2.5, fresh HOMEs, started at 16:09 UTC. Over libc++ 18 all
+nine GREEN, 2611 s: the flow gate (one finding, `test/flow.expect`'s, 83 s, peak 2417 MB over its four lanes; 3804
+predicates charted, 3758 at 0.161), reader 5 s, compile 14 s (83 run and 47 safe fixtures), driver 14 s (40 checks),
+objects 3 s (29 checks), the proof, the cross gate in 642 s (83 C fixtures and 5 checks, 24 C++ fixtures and 2 checks,
+peak 544 MB), the library read in 1090 s (peak 1180 MB; 0.161: 1111 s) and the C++ gate in 754 s (peak 2190 MB; 0.161:
+797 s), 511 of its 514 fixtures ok -- the skips `joinwith`, `stdoptionalref` and `tzone` -- and the 22 refusals and the
+three of the safe part. Over libc++ 21 the library read in 1047 s (peak 1161 MB; 0.161: 1109 s) and the C++ gate in 935
+s (peak 2141 MB; 0.161: 943 s), 513 of its 514 fixtures ok -- the skip `stdoptionalref` -- and the 22 refusals and the
+three of the safe part: GREEN, the chain 4594 s in all. The fixtures' builds summed 2651 s over libc++ 18 (0.161: 2797 s
+over 509) and 3031 s over libc++ 21 (0.161: 3056 s over 511); `vector.cpp` builds in 1 s on both trees,
+`mismatchvec.cpp` in 7 s over libc++ 18 and 10 s over libc++ 21, where it takes the vectorized road.

@@ -1,0 +1,6 @@
+lanes 4 eq -1 -1 -1 0 all 0 first 3
+all 1 first 4 sum 10
+short 36000 elem 2
+first16 3 all16 0
+pt 3 5 7 9 3 32
+exit 0

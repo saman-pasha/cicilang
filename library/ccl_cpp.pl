@@ -430,6 +430,11 @@ cpp_ita_wrap_cv(CV, Canon, Inner, Subs0, Text, Subs) :-
 cpp_ita_type_(base(Q, S), Subs0, Canon, Text, Subs) :- memberchk('_Complex', S), !, ccl_delete_one(S, '_Complex', S0), ( S0 == [] -> S1 = [double] ; S1 = S0 ),
     cpp_ita_type(base([], S1), Subs0, C0, T0, Subs1), atom_concat('C', C0, C1), cpp_ita_wrap(C1, T0, Subs1, T1, Subs2),
     ( cpp_ita_cv(Q, CV), CV \== '' -> atom_concat(CV, C1, Canon), cpp_ita_wrap_cv(CV, Canon, T1, Subs2, Text, Subs) ; Canon = C1, Text = T1, Subs = Subs2 ).
+%% A VECTOR TYPE is `Dv' its lanes `_' and its element's code, a substitution candidate (0.162; clang++'s `k(f2, f2)' is
+%% `_Z1kDv2_fS_'), a `vector_size' one and an `ext_vector_type' one alike, a bool vector's element `b'
+cpp_ita_type_(base(Q, [vec(_, N, E)]), Subs0, Canon, Text, Subs) :- !, cpp_ita_type(E, Subs0, C0, T0, Subs1), atomic_list_concat(['Dv', N, '_', C0], C1),
+    ( cpp_ita_sub(C1, Subs1, Code) -> T1 = Code, Subs2 = Subs1 ; atomic_list_concat(['Dv', N, '_', T0], T1), cpp_ita_note(C1, Subs1, Subs2) ),
+    ( cpp_ita_cv(Q, CV), CV \== '' -> atom_concat(CV, C1, Canon), cpp_ita_wrap_cv(CV, Canon, T1, Subs2, Text, Subs) ; Canon = C1, Text = T1, Subs = Subs2 ).
 cpp_ita_type_(base(Q, S), Subs0, Canon, Text, Subs) :- cpp_mangle_basic(S, B), !,
     ( cpp_ita_cv(Q, CV), CV \== '' -> atom_concat(CV, B, Canon), cpp_ita_wrap_cv(CV, Canon, B, Subs0, Text, Subs) ; Canon = B, Text = B, Subs = Subs0 ).
 cpp_ita_type_(base(Q, [typedef(N)]), Subs0, Canon, Text, Subs) :- atom(N), cpp_ita_tparam(N, Code), !,   % a parameter WRITTEN as the template's own parameter is `T_', `T0_' ..., each a substitution candidate of its own
@@ -3058,6 +3063,7 @@ cpp_expr(_, tmpl(N, Args0), E) :- cpp_template(N, _, declaration(_, _, _, _)), !
 %% type parameter: the call it was, where the braces and the parentheses mean one thing.
 cpp_expr(Ctx, braced_temp(call(F, Vs)), E) :- cpp_braced_class(F, T, C), findall(item([], V), member(V, Vs), Items), cpp_il_braced(C, Items, ET), !,
     cpp_init_list(Ctx, ET, Items, IL), cpp_temporary(T, C, [IL], E).
+cpp_expr(Ctx, braced_temp(call(F, Vs)), E) :- cpp_vector_named(F, T), !, findall(item([], V), member(V, Vs), Items), cpp_expr(Ctx, compound_lit(T, init(Items)), E).   % A BRACED VECTOR, `_VecT{x...}' (0.162): its lanes, the rest zero, as a C compound literal is
 cpp_expr(Ctx, braced_temp(X), E) :- !, cpp_expr(Ctx, X, E).
 cpp_expr(Ctx, call(F, As), E) :- !, cpp_where(args(F), cpp_exprs(Ctx, As, As1)), cpp_where(call(F), cpp_call(Ctx, F, As1, E0)), cpp_copies(E0, E1), cpp_consteval_fold(E1, E).
 %% A MEMBER NAMED THROUGH AN OBJECT BY ITS QUALIFIED NAME ([expr.ref]/7, [class.qual]; 0.112): `b.A::v' is the member
@@ -3918,7 +3924,7 @@ cpp_member_inits([member(MT, N, _)|Ds], Inits, Defaults, L, Pre, Body) :-
     ->  ( cpp_scalar_member_type(MT) -> cpp_zero_of(MT, Z), Pre = [expr(L, assign('=', arrow(this, N), Z))|Pre1]
         ; cpp_zero_fill(MT, arrow(this, N), L, Pre, Pre1) )
     ;   memberchk(N-init([item([], E)]), Defaults), cpp_scalar_member_type(MT) -> Pre = [expr(L, assign('=', arrow(this, N), E))|Pre1]   % `int n{3};' on a scalar: its one item
-    ;   memberchk(N-init(Items), Defaults), cpp_plain_aggregate(MT) -> cpp_member_from(MT, arrow(this, N), init(Items), L, Pre, Pre1)   % a plain struct or union from its braced list (0.117): a compound literal of its type
+    ;   memberchk(N-init(Items), Defaults), ( cpp_plain_aggregate(MT) ; cpp_vector_member(MT) ) -> cpp_member_from(MT, arrow(this, N), init(Items), L, Pre, Pre1)   % a plain struct or union from its braced list (0.117), a vector from its lanes (0.162): a compound literal of its type
     ;   memberchk(N-E, Defaults) -> Pre = [expr(L, assign('=', arrow(this, N), E))|Pre1]
     ;   Pre = Pre1 ),
     cpp_member_inits(Ds, Inits, Defaults, L, Pre1, Body).
@@ -4688,7 +4694,7 @@ cpp_plain_init(init([]), T, Z) :- cpp_braced_scalar_type(T), !, cpp_zero_of(T, Z
 cpp_plain_init(init(Items), T, init(Items1)) :- cpp_class_of_type(T, C), cpp_aggregate_class(C), cpp_agg_skip_bases(C, Items, Items1), Items1 \== Items, !.   % AN AGGREGATE WITH EMPTY BASES (0.121), below
 cpp_plain_init(I, _, I).
 cpp_braced_scalar_type(T) :- \+ cpp_class_of_type(T, _), ( ccl_resolve_type(T, R) -> true ; R = T ),   % the resolver's FIRST answer (it has more on backtracking, and `R \= arr(_, _)' had backtracked into one that was not the array)
-    R \= arr(_, _), R \= base(_, [struct(_, _)]), R \= base(_, [union(_, _)]), R \= base(_, [class(_, _, _, _)]).
+    R \= arr(_, _), R \= base(_, [struct(_, _)]), R \= base(_, [union(_, _)]), R \= base(_, [class(_, _, _, _)]), R \= base(_, [vec(_, _, _)]).   % a VECTOR's braced list is its lanes, the rest zero, as clang has it (0.162): `v4 a{5}' is {5, 0, 0, 0}, never the splat
 cpp_zero_of(T, Z) :- ( ccl_resolve_type(T, ptr(_, _)) -> Z = nullptr ; ccl_is_float(T) -> Z = float(0.0) ; Z = int(0) ).
 %% THE DEFAULT MEMBER INITIALIZERS of the aggregate's class come along (0.112): from the caller that knows the class
 %% (cpp_member_from), else from the object's type; a member with no item takes its own ([dcl.init.aggr]/5.1)
@@ -4786,9 +4792,12 @@ cpp_member_from(MT, Place, E0, L, Inits, Rest) :- ccl_resolve_type(MT, arr(B, ET
 cpp_member_from(ref(_, _), Place, E0, L, [expr(L, bind_ref(Place, E))|Rest], Rest) :- !, ( E0 = init([item(_, E1)]) -> E = E1 ; E = E0 ).   % A REFERENCE MEMBER IS BOUND, never assigned (0.61's rule, here for an aggregate's member: a closure's reference capture)
 cpp_member_from(MT, Place, init([]), L, Inits, Rest) :- cpp_scalar_member_type(MT), !, cpp_value_init(MT, Place, L, Inits, Rest).   % a scalar from `{}': its zero
 cpp_member_from(MT, Place, init([item(_, X)]), L, [expr(L, assign('=', Place, X))|Rest], Rest) :- cpp_scalar_member_type(MT), !.   % a scalar from `{v}': its one item (0.112: `uint16_t __sign_ : 1 {false}' was assigned the braced list)
-cpp_member_from(MT, Place, init(Items), L, [expr(L, assign('=', Place, compound_lit(MT, init(Items))))|Rest], Rest) :- cpp_plain_aggregate(MT), !.   % A PLAIN STRUCT OR UNION MEMBER from a braced list (0.117) is a compound literal of its type, assigned: `__libcpp_mutex_t __m_ = PTHREAD_MUTEX_INITIALIZER' is `{ { 0, 0, 0, 0, PTHREAD_MUTEX_TIMED_NP, 0, 0, { 0, 0 } } }' over glibc's union, and `std::mutex' reached the lowering as a bare braced expression
+cpp_member_from(MT, Place, init(Items), L, [expr(L, assign('=', Place, compound_lit(MT, init(Items))))|Rest], Rest) :- ( cpp_plain_aggregate(MT) ; cpp_vector_member(MT) ), !.   % A PLAIN STRUCT OR UNION MEMBER from a braced list (0.117) is a compound literal of its type, assigned: `__libcpp_mutex_t __m_ = PTHREAD_MUTEX_INITIALIZER' is `{ { 0, 0, 0, 0, PTHREAD_MUTEX_TIMED_NP, 0, 0, { 0, 0 } } }' over glibc's union, and `std::mutex' reached the lowering as a bare braced expression
 cpp_member_from(_, Place, E, L, [expr(L, assign('=', Place, E))|Rest], Rest).
 cpp_plain_aggregate(MT) :- \+ cpp_class_of_type(MT, _), ccl_resolve_type(MT, base(_, [S])), compound(S), ( S = struct(_, _) ; S = union(_, _) ), !.
+%% a member of a VECTOR type, resolved in the class's words: its braced list is its lanes, the rest zero (0.162: `v4 r{7};'
+%% is {7, 0, 0, 0} as clang has it, and it reached the lowering as a bare braced expression)
+cpp_vector_member(MT) :- ( ccl_resolve_type(MT, base(_, [vec(_, _, _)])) -> true ; catch(( cpp_type(MT, T), ccl_resolve_type(T, base(_, [vec(_, _, _)])) ), _, fail) ), !.
 cpp_elems_from(I, K1, _, _, _, _, Inits, Inits) :- I > K1, !.
 cpp_elems_from(I, K1, ET, Arr, Es, L, Inits, Rest) :- Place = index(Arr, int(I)),
     ( Es = [E|Es1] -> cpp_elem_from(ET, Place, E, L, Inits, Inits1) ; Es1 = [], cpp_value_init(ET, Place, L, Inits, Inits1) ),
@@ -6506,6 +6515,7 @@ cpp_type(base(Q, [typedef(N)]), T) :- atom(N), ccl_typedef_of(N, base(Q0, [typed
 cpp_type(base(Q, [typedef(N)]), T) :- atom(N), cpp_enum_unsettled(N, Es, A, Tb1), !,
     ccl_note_tag(N, [enum_base(Tb1)|Es]), cpp_settle_typedef(A, Tb1),
     cpp_type(base(Q, [typedef(N)]), T).
+cpp_type(base(Q, [vector(K, X0, E0)]), T) :- !, cpp_type(E0, E), cpp_array_bound(X0, X), ( ccl_resolve_base([vector(K, X, E)], Q, T1) -> T = T1 ; T = base(Q, [vector(K, X, E)]) ).   % A VECTOR TYPE (0.162): its element and count in the desugaring's words, then the inference's vec(K, N, E)
 cpp_type(base(Q, S), base(Q, S)) :- !.
 cpp_type(ptr(Q, T0), ptr(Q, T)) :- !, cpp_type(T0, T).
 cpp_type(ref(Q, T0), T) :- !, cpp_type(T0, T1), cpp_collapse_ref(ref, Q, T1, T).
@@ -7030,6 +7040,10 @@ cpp_match_deducible([P|Ps], [A|As], TPs, B0, B, Later) :-
 cpp_alias_through(base(Q, [typedef(X)]), TPs, base(Q, [typedef(X2)])) :-
     cpp_template_id(X, N, UArgs), atom(N), \+ memberchk(tparam(template, N, _), TPs), cpp_alias_template(N),
     cpp_alias_pattern(N, UArgs, X2), cpp_template_id(X2, N2, _), atom(N2), \+ cpp_alias_template(N2), !.   % ... to a CLASS template's id; an alias of an alias (`__index_sequence_for') stays non-deduced
+%% A VECTOR ALIAS TEMPLATE IS TRANSPARENT TOO (0.162): libc++ 21's `template <class _Tp, size_t _Np> using __simd_vector
+%% __attribute__((__ext_vector_type__(_Np))) = _Tp;' deduces its element and its lane count from a vector (cpp_match_one/5)
+cpp_alias_through(base(Q, [typedef(X)]), TPs, base(Q, [vector(K, X2, E2)])) :-
+    cpp_template_id(X, N, UArgs), atom(N), \+ memberchk(tparam(template, N, _), TPs), cpp_alias_template(N), cpp_vector_alias(N, UArgs, K, X2, E2), !.
 cpp_non_deduced(base(_, [typedef(tmpl(N, _))]), TPs) :- atom(N), \+ memberchk(tparam(template, N, _), TPs), cpp_alias_template(N), !.
 cpp_non_deduced(base(_, [typedef(scoped(_, tmpl(N, _)))]), TPs) :- atom(N), \+ memberchk(tparam(template, N, _), TPs), cpp_alias_template(N), !.
 cpp_non_deduced(base(_, [typedef(scoped(Path, _))]), TPs) :- cpp_path_dependent(Path, TPs), !.   % a qualified name whose nested-name-specifier names a parameter ANYWHERE, inside a template-id segment included ([temp.deduct.type]/5.1): libc++ 18's `basic_format_context<typename __retarget_buffer<_CharT>::__iterator, _CharT>' was resolved in the first pass with _CharT free, and the buffer's constraint refused every format context (test/cpp/run/ndpath.cpp)
@@ -7066,6 +7080,8 @@ cpp_match_one(memptr(CP, _, X), A, TPs, B0, B) :- !, ccl_resolve_type(A, memptr(
 cpp_match_one(fn(R, Ps, V), A, TPs, B0, B) :- !, ccl_resolve_type(A, A1), A1 = fn(RA, PsA, V),
     cpp_match_one(R, RA, TPs, B0, B1), cpp_match_fparams(Ps, PsA, TPs, B1, B).
 cpp_match_one(base(_, [typedef(scoped(Path, N))]), A, _, B, B) :- atom(N), \+ cpp_is_type(A), catch(cpp_enumerator(Path, N, V), _, fail), !, cpp_same_value(int(V), A).   % A SCOPED ENUMERATOR READ AS A TYPE (0.133): the reader takes `range_format::map' for a type, its last name a known template (std::map), and libc++ 21's `__range_default_formatter<range_format::map, _Rp, _CharT>' never matched `format_kind<map<...>>', 1 -- std::format of a map met the primary, declared and not defined
+cpp_match_one(base(_, [vector(K, X, E)]), A, TPs, B0, B) :- !, ccl_resolve_type(A, base(_, [vec(K, N, AE)])), cpp_vector_count(K, N, AE, V),   % a vector's element and lane count (0.162)
+    cpp_match_one(X, int(V), TPs, B0, B1), cpp_match_one(E, AE, TPs, B1, B).
 cpp_match_one(P, A, _, B, B) :- cpp_is_type(P), !, cpp_same_type(P, A).
 cpp_match_one(P, A, _, B, B) :- cpp_same_value(P, A).
 cpp_pattern_quals([], A, A) :- !.
@@ -7726,6 +7742,7 @@ cpp_match(base(_, [typedef(P)]), AT, TPs, B0, B) :- memberchk(tparam(type, P, _)
 cpp_match(base(_, [typedef(scoped(Path, _))]), _, TPs, B, B) :- cpp_path_dependent(Path, TPs), !.   % A NAME QUALIFIED BY A PARAMETER IS A NON-DEDUCED CONTEXT, whatever it names: `typename _IterOps<_AlgPolicy>::template __difference_type<_InIter> __n' binds nothing here and resolves once the others bind it (C++'s nested-name-specifier rule; 0.46 had it for a pattern); its last segment taken for a class template refused deduction_failed
 cpp_match(base(_, [typedef(X)]), AT, TPs, B0, B) :- cpp_template_id(X, N, UArgs), \+ memberchk(tparam(template, N, _), TPs), cpp_alias_template(N), !,
     (   cpp_alias_pattern(N, UArgs, X2) -> cpp_match(base([], [typedef(X2)]), AT, TPs, B0, B)   % THROUGH THE ALIAS: `__index_sequence<_I1...>' is `__integer_sequence<size_t, _I1...>', which deduces -- C++ substitutes an alias before deducing; an alias that is no template-id stays a non-deduced context
+    ;   cpp_vector_alias(N, UArgs, K, X2, E2) -> cpp_match_vector(K, X2, E2, AT, TPs, B0, B)   % a vector alias (0.162): `__all_of(__simd_vector<_Tp, _Np>)'
     ;   B = B0 ).
 cpp_match(base(_, [typedef(X)]), _, TPs, B, B) :- cpp_template_id(X, N, _), \+ memberchk(tparam(template, N, _), TPs), cpp_nested_alias(N, _, _, _), !.   % A MEMBER ALIAS TEMPLATE'S TEMPLATE-ID IS A NON-DEDUCED CONTEXT too (0.93): libc++ 18 writes `unique_ptr(pointer, _LValRefType<_Dummy>)' with `_LValRefType' the class's own alias template over the constructor's defaulted `_Dummy' -- read as a class template-id it refused deduction_failed, and no two-argument constructor was left
 %% A PARAMETER WHOSE TEMPLATE PARAMETERS ALL STAND IN NON-DEDUCED CONTEXTS takes no part in deduction
@@ -7757,6 +7774,16 @@ cpp_alias_pattern(N, UArgs, X) :- cpp_class_template(N, TPs, typedef(_, [var(_, 
     ;   atom(X0), memberchk(tparam(type, X0, _), TPs), memberchk(X0-base(_, [typedef(X2)]), B) ),   % A TRANSPARENT ALIAS, `template <class _Type, class> using __enable_hash_helper_imp = _Type;': its argument (0.99)
     (   cpp_template_id(X2, N2, Args2), atom(N2), \+ memberchk(tparam(template, N2, _), TPs), cpp_transparent_alias(N2, Args2, X3) -> X = X3 ; X = X2 ).   % ... and through one: libc++'s `hash<__enable_hash_helper<optional<_Tp>, ...>>' is `hash<optional<_Tp>>' to the matcher, as C++ has it
 cpp_transparent_alias(N, Args, X) :- cpp_class_template(N, TPs, typedef(_, [var(_, base(_, [typedef(P)]), _)])), atom(P), memberchk(tparam(type, P, _), TPs), cpp_alias_binds(TPs, Args, B), memberchk(P-base(_, [typedef(X)]), B), !.
+%% an alias template whose definition is a vector type, its element and lane count in the pattern's words (0.162)
+cpp_vector_alias(N, UArgs, K, X, E) :- cpp_class_template(N, ATPs, typedef(_, [var(_, base(_, [vector(K, X0, E0)]), _)])), cpp_alias_binds(ATPs, UArgs, B), cpp_subst(X0, B, X), cpp_subst(E0, B, E), !.
+%% a type's name that names a vector type, the vector (0.162)
+cpp_vector_named(F, T) :- cpp_braced_spec(F, Spec), \+ cpp_raw_type(base([], [Spec])), catch(cpp_type(base([], [Spec]), T0), error(not_lowered(_), _), fail), ccl_resolve_type(T0, T), T = base(_, [vec(_, _, _)]), !.   % a name, a template-id, a qualified name, as a braced class's (cpp_braced_class/3)
+cpp_vector_named(base(Q, S), T) :- catch(cpp_type(base(Q, S), T0), error(not_lowered(_), _), fail), ccl_resolve_type(T0, T), T = base(_, [vec(_, _, _)]), !.
+%% the count a vector's type spells: an ext_vector_type its lanes, a vector_size its bytes
+cpp_vector_count(K, N, AE, V) :- ( K == ext -> V = N ; ccl_size_of(AE, ES), V is N * ES ).
+cpp_match_vector(K, X, E, AT, TPs, B0, B) :-
+    (   ccl_resolve_type(AT, base(_, [vec(K, N, AE)])) -> cpp_vector_count(K, N, AE, V), cpp_match_bound(X, int(V), TPs, B0, B1), cpp_match(E, AE, TPs, B1, B)
+    ;   cpp_refuse(0, deduction_failed(vector(K))) ).
 cpp_alias_binds([], _, []).
 cpp_alias_binds([requires(_)|TPs], As, B) :- !, cpp_alias_binds(TPs, As, B).
 cpp_alias_binds([tparam(K, P, _)|_], As, [P-pack(As)]) :- cpp_pack_kind(K), !.                 % a pack takes the rest as written: an expansion `_I1...' stays one element
@@ -7892,6 +7919,7 @@ cpp_spec_key(union(T, _), T) :- !.              % a nested union names its insta
 cpp_spec_key(class(_, T, _, _), T) :- !.
 cpp_spec_key(enum(T, _), T) :- !.
 cpp_spec_key(enum_class(T, _), T) :- !.
+cpp_spec_key(vec(K, N, E), Key) :- !, cpp_type_key(E, EK), ( K == ext -> C = e ; C = s ), atomic_list_concat([vec, N, C, '_', EK], Key).   % a vector (0.162): `vec4e_int' for an ext_vector_type(4) of int, `vec4s_int' for vector_size(16)
 cpp_spec_key(X, X) :- atom(X), !.
 cpp_spec_key(X, K) :- cpp_type_key(X, K).
 %% the parameters substituted through the item: a type parameter's typedef becomes the
@@ -7947,6 +7975,8 @@ cpp_subst(sizeof(id(P)), B, sizeof_type(A)) :- memberchk(P-A, B), cpp_is_type(A)
 %% ...)', which is how libc++'s tuple_cat builds its answer, was taken for the one-argument functional cast and
 %% its pattern substituted whole, refusing pack_unexpanded. One predicate for the three shapes (the owner's rule),
 %% where three clauses each matched an arity of the RAW list.
+cpp_subst(braced_temp(call(id(P), Args0)), B, compound_lit(T, init(Items))) :- memberchk(P-A, B), cpp_is_type(A), ccl_resolve_type(A, T), T = base(_, [vec(_, _, _)]), !,   % `_VecT{__iter[_Indices]...}' over a vector (0.162): its lanes
+    cpp_subst_elems(Args0, B, Args), findall(item([], V), member(V, Args), Items).
 cpp_subst(call(id(P), Args0), B, E) :- memberchk(P-A, B), cpp_is_type(A), cpp_subst_elems(Args0, B, Args), cpp_type_called(A, Args, E), !.
 cpp_subst(id(P), B, V) :- memberchk(P-V0, B), !, ( V0 == '$later' -> V = id(P) ; cpp_pack_list(V0, _) -> cpp_refuse(0, pack_unexpanded(P)) ; V = V0 ).
 cpp_subst(scoped(Path, N0), B, scoped(Path1, N)) :- !, cpp_subst_path(Path, B, Path1), ( atom(N0) -> N = N0 ; cpp_subst(N0, B, N) ).   % C::value_type with C a parameter: the class it is bound to; std::vector<T> under T
@@ -7977,7 +8007,7 @@ cpp_base_access(A) :- memberchk(A, [none, public, private, protected]).
 cpp_bound_base(tname(X), X) :- !.
 cpp_bound_base(base(_, [typedef(X)]), X) :- !.
 cpp_bound_base(base(_, [S]), X) :- cpp_tag_name(S, X), !.
-cpp_type_called(A, [X], ccast(functional, A, X)) :- !.                                                           % T(x)
+cpp_type_called(A, [X], ccast(functional, A, X)) :- \+ ( X = pack(_), A = base(_, [typedef(N)]), atom(N) ), !.   % T(x); a pack expansion over a CLASS is no one argument until it expands (0.162): `V{it[Is]...}' in a lambda's body, its pack `Is' the lambda's own, was the cast `ccast(functional, V, pack(...))' and refused pack_unexpanded
 cpp_type_called(T, [], ccast(functional, T, Z)) :- \+ T = base(_, [typedef(_)]), !, cpp_zero_of(T, Z).            % T() with T a BUILTIN or a pointer: value-initialization, the type's zero -- `*__s = _CharT()' ends the char extractor's string
 cpp_type_called(base(_, [typedef(N)]), Args, call(id(N), Args)) :- atom(N).   % T() and T(a, b, ...): the bound class's name called over the arguments, its temporary -- `using _Pair = pair<...>; return _Pair(__end, __end->__left_);' in libc++'s __tree, a block alias substituted into the statements after it (0.60), and how a constructor template writes its allocator's default argument, `const _Allocator & __a = _Allocator()'
 cpp_subst_path([], _, []).
@@ -8473,12 +8503,13 @@ cpp_lambda_(Ctx, Caps, Ps0, Ret0, Body, E) :-
 %% name ([temp.local]), and `cpp_type' resolves through the tables. A typedef in a block joins the unit's one table, and libc++ writes `using _Up = __libcpp_remove_reference_t<_Tp>;'
 %% inside a function: the second parameter of `[]<class _Tp, class _Up>(const _Tp &__t, const _Up &__u)' -- libc++ 21's `__synth_three_way', the comparison a vector's `<=>' is
 %% built on -- became `const _Tp &', `_Up' could not be deduced and `std::three_way_comparable<std::vector<int>>' was false. Only a parameter whose type names such a
-%% template parameter is kept; the rest resolve as before, and a lambda whose names no table knows takes the old road whole. `lambdatparam.cpp'.
+%% template parameter is kept; the rest resolve as before. `lambdatparam.cpp'. WHATEVER THE TABLES KNOW (0.162): resolved, `std::index_sequence<_Is...>'
+%% with the pack `_Is' free was `integer_sequence<size_t>', no argument took it (argument_mismatch), and the in-place call of `[=]<size_t...
+%% _Is>(index_sequence<_Is...>) { ... }(make_index_sequence<N>{})' -- libc++ 21's `__load_vector' -- reached the lowering raw. `vector.cpp'.
 cpp_lambda_params(Ps0, TPs, Ps) :-
-    findall(H, ( member(tparam(_, H, _), TPs), atom(H), cpp_known_type_name(H) ), Hidden), Hidden \== [], !,
+    findall(H, ( member(tparam(_, H, _), TPs), atom(H) ), Hidden), Hidden \== [], !,
     cpp_params_hiding(Ps0, Hidden, Ps).
 cpp_lambda_params(Ps0, _, Ps) :- cpp_plain_params(Ps0, Ps).
-cpp_known_type_name(N) :- ( ccl_typedef_of(N, _) ; ccl_tag(N, _) ; cpp_class_l(N, _) ; cpp_template(N, _, _) ), !.
 cpp_params_hiding([], _, []).
 cpp_params_hiding([P|Ps], Hidden, [Q|Qs]) :-
     (   cpp_param_t(P, T), member(H, Hidden), cpp_names_in(T, H) -> arg(2, P, N), Q = param(T, N)

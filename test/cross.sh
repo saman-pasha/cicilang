@@ -4,7 +4,8 @@
 # output is the reference, not this one's .expect: plain char and wchar_t are unsigned there, long double is an IEEE
 # quad -- and both binaries run under qemu-aarch64 over the cross sysroot; a fixture written in the language's own
 # forms, which clang does not read, is held to its .expect. Then the ABI both ways against aarch64-linux-gnu-gcc:
-# structs by value (test/c/link/abi_*.c) and variadic calls of every AAPCS64 kind (test/c/link/va_*.c). Then C++ (0.161):
+# structs by value (test/c/link/abi_*.c), variadic calls of every AAPCS64 kind (test/c/link/va_*.c) and vectors by value
+# (test/c/link/vec_*.c, 0.162). Then C++ (0.161):
 # fixtures built by `cicilang++ --target' and by clang++ over that machine's libc++, and the C++ gate's ABI check, where
 # its libc++ is under the sysroot (a SKIP line where not). A SKIP where the box has no qemu-aarch64, no
 # aarch64-linux-gnu-gcc or no clang (Debian and Ubuntu: qemu-user, gcc-aarch64-linux-gnu, libc6-dev-arm64-cross).
@@ -46,6 +47,9 @@ check "structs by value: cicilang's main over gcc's helper, which calls the main
 check "variadic calls: cicilang's va_arg under gcc's calls" "$(cd "$D" && aarch64-linux-gnu-gcc -c "$LINK/va_main.c" -o va_main.o && "$CC" $T "$LINK/va_func.c" va_main.o -o va1 > va1.log 2>&1 && $QE ./va1 > va1.out && aarch64-linux-gnu-gcc "$LINK/va_main.c" "$LINK/va_func.c" -o va_ref && $QE ./va_ref > va_ref.out && cmp -s va1.out va_ref.out && echo same && wc -l < va1.out | tr -d ' ')" "same
 12"
 check "variadic calls: cicilang's calls into gcc's va_arg" "$(cd "$D" && aarch64-linux-gnu-gcc -c "$LINK/va_func.c" -o va_func.o && "$CC" $T "$LINK/va_main.c" va_func.o -o va2 > va2.log 2>&1 && $QE ./va2 > va2.out && cmp -s va2.out va_ref.out && echo same)" "same"
+check "vectors by value: cicilang's main over gcc's helper, which calls the main's functions back" "$(cd "$D" && aarch64-linux-gnu-gcc -c "$LINK/vec_helper.c" -o vec_helper.o && "$CC" $T "$LINK/vec_main.c" vec_helper.o -o vec > vec.log 2>&1 && $QE ./vec > vec.out && aarch64-linux-gnu-gcc "$LINK/vec_main.c" "$LINK/vec_helper.c" -o vec_ref && $QE ./vec_ref > vec_ref.out && cmp -s vec.out vec_ref.out && echo same && wc -l < vec.out | tr -d ' ')" "same
+4"
+check "vectors by value: gcc's main over cicilang's helper" "$(cd "$D" && "$CC" $T -c "$LINK/vec_helper.c" -o vec_helper_ours.o > vech.log 2>&1 && aarch64-linux-gnu-gcc "$LINK/vec_main.c" vec_helper_ours.o -o vec_rev && $QE ./vec_rev > vec_rev.out && cmp -s vec_rev.out vec_ref.out && echo same)" "same"
 # C++ FOR AARCH64 LINUX (0.161): that machine's libc++ under the cross sysroot -- the tree cicilang++ reads ($LLVM, else the
 # newest /usr/lib/llvm-NN) at $SYS$TREE, where Debian's and Ubuntu's arm64 packages put it when extracted into $SYS --
 # each fixture built by `cicilang++ --target=aarch64-linux-gnu' and by clang++ for that machine over the same libc++, both
@@ -72,7 +76,8 @@ if [ -f "$XS/include/c++/v1/vector" ] && [ -f "$XS/lib/libc++.so.1" ] && [ -n "$
   for src in "$ROOT/test/cpp/hello.cpp" "$ROOT/test/cpp/classes.cpp" "$ROOT/test/cpp/templates.cpp" "$CR/counter.cpp" "$CR/shapes.cpp" \
              "$CR/lambdas.cpp" "$CR/bag.cpp" "$CR/stdvector.cpp" "$CR/stdstring.cpp" "$CR/stdmap.cpp" "$CR/stdunorderedmap.cpp" \
              "$CR/exceptions.cpp" "$CR/rtti.cpp" "$CR/virtualbase.cpp" "$CR/multibase3.cpp" "$CR/memfnptr.cpp" "$CR/memfnadj.cpp" \
-             "$CR/ldouble.cpp" "$CR/charpromote.cpp" "$CR/int128.cpp" "$CR/cogenerator.cpp" "$CR/stdvariant.cpp" "$CR/memptrnull.cpp"; do
+             "$CR/ldouble.cpp" "$CR/charpromote.cpp" "$CR/int128.cpp" "$CR/cogenerator.cpp" "$CR/stdvariant.cpp" "$CR/memptrnull.cpp" \
+             "$CR/vector.cpp"; do
     n=$(basename "$src" .cpp); dir=$(dirname "$src"); fl=""; [ -f "$dir/$n.flags" ] && fl=$(cat "$dir/$n.flags")
     inp="$dir/$n.stdin"; [ -f "$inp" ] || inp=/dev/null
     ( cd "$dir" && ccl_xcapped "$CXX" $T $fl "$src" -o "$D/x$n" ) > "$D/x$n.log" 2>&1 < /dev/null

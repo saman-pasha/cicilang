@@ -1,0 +1,22 @@
+/* vectors by value across the ABI: built by clang (or gcc) on one side and by cicilang on the other */
+typedef int v4si __attribute__((vector_size(16)));
+typedef float v4sf __attribute__((vector_size(16)));
+typedef double v2df __attribute__((vector_size(16)));
+typedef int v2si __attribute__((vector_size(8)));
+typedef short v4hi __attribute__((vector_size(8)));
+struct vs { v4sf v; };
+struct vt { v2si a; int b; };
+v4si h_add4(v4si a, v4si b);
+v4sf h_mul4(v4sf a, float k);
+v2df h_dbl(v2df a);
+v2si h_swap2(v2si a);
+v4hi h_neg4(v4hi a);
+struct vs h_vs(struct vs s);
+struct vt h_vt(struct vt t);
+int h_nine(v4si a, v4si b, v4si c, v4si d, v4si e, v4si f, v4si g, v4si h, v4si i);
+int h_sumv(int n, ...);
+double via_helper(void);
+v4si m_add4(v4si a, v4si b);
+v2si m_swap2(v2si a);
+struct vs m_vs(struct vs s);
+int m_sumv(int n, ...);

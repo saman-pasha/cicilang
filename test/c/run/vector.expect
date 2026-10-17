@@ -1,0 +1,48 @@
+add 6 4 10 4
+sub -4 -8 -4 -12
+mul 5 -12 21 -32
+div 5 -3 2 -2
+mod 2 0 1 2
+and 1 6 3 8
+or 5 -2 7 -4
+xor 4 -8 4 -12
+shl 4 -8 12 -16
+shr 0 -1 1 -2
+shrv 5 3 1 1
+neg -1 2 -3 4
+not -2 1 -4 3
+splat 11 8 13 6
+splat2 95 94 93 92
+lt -1 -1 -1 -1
+eq -1 0 -1 -1
+ge -1 0 -1 0
+ushr 0 1 1073741824 2147483647
+ugt 0 0 -1 -1
+lane 101 -2 30 -4
+read 6
+glob 1 2 3 4
+twice 2 4 6 8
+fmul 2 5 -6 8
+fdiv 0.5 1.25 -0.75 0.5
+fneg -1 -2.5 3 -4
+gf 0.5 1.5 0 0
+fgt 0 -1 0 -1
+cast 1 2 0 0
+v2df 1.5625 6.25 16
+swap2 9 7
+v4hi -1 2 -300 400
+v4qu 1 2 255 0
+pack 0.5 1 1.5 2
+tag 8
+va 55 102
+bool 1 0 1 0 all 0 any 1
+back 1 0 1 0
+cvt 5 6 7 8
+cvti 1 -1 2 100
+shuf 101 5 -2 6
+shuf2 8 7
+reduce 4 24 101 -4 12 0
+reducef 4 -3
+b16 803a 1 0
+sizes 16 8 4 1 2 16 32
+exit 0
