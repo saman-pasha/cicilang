@@ -149,8 +149,8 @@ cpp_units([], []).
 cpp_units([unit(Is0)|Us0], [unit(Is)|Us]) :- nb_setval('$cpp_ginit', []), nb_setval('$cpp_ginit_fns', []), nb_setval('$cpp_relops', none), nb_setval('$cpp_usings', []), nb_setval('$cpp_using_skip', []),cpp_items(Is0, Is1a), cpp_ginit_items(Is1a, Is1), cpp_flush_instances(Is1, Is2), cpp_name_anon_items(Is2, Is), cpp_units(Us0, Us).
 %% the instances made while the unit was walked join its items; walking them may make more
 cpp_flush_instances(Is0, Is) :-
-    findall(I, '$cpp_out'(I), New),
-    ( New == [] -> Is = Is0 ; cpp_reset('$cpp_out'/1), append(Is0, New, Is1), cpp_flush_instances(Is1, Is) ).
+    findall(I, '$cpp_out'(_, I), New),
+    ( New == [] -> Is = Is0 ; cpp_reset('$cpp_out'/2), append(Is0, New, Is1), cpp_flush_instances(Is1, Is) ).
 %% the registries that hold class and template BODIES are facts, one row per name: a global list would be copied
 %% whole at every lookup (nb_getval copies), and libc++'s bodies are megabytes (the finding in CLAUDE.md)
 cpp_reset(F/A) :- ( catch(abolish(F/A), _, true) -> true ; true ), dynamic(F/A).
@@ -207,7 +207,7 @@ cpp_instance_note(Name, What) :- assertz('$cpp_inst'(Name, What)).
 
 %% ---- the classes of the units: '$cpp_classes' = [C-cls(Base, Data, Members, Statics, Defaults) ...] --------
 cpp_register_units(Units) :-
-    cpp_reset('$cpp_cls'/2), cpp_reset('$cpp_clsl'/2), cpp_reset('$cpp_sfn'/2), cpp_reset('$cpp_decl'/4), cpp_reset('$cpp_sfold'/3), cpp_reset('$cpp_nenum'/1), cpp_reset('$cpp_enumv'/3), cpp_reset('$cpp_tmpl'/3), cpp_reset('$cpp_fspec'/3), cpp_reset('$cpp_spec'/4), cpp_reset('$cpp_mt'/4), cpp_reset('$cpp_inst'/2), cpp_reset('$cpp_out'/1), cpp_reset('$cpp_ownfn'/1), cpp_reset('$cpp_consteval'/1), cpp_reset('$cpp_cecheck'/3), cpp_reset('$cpp_scell'/2), cpp_reset('$cpp_mdef'/5), cpp_reset('$cpp_extern'/3), cpp_reset('$cpp_friends'/2), cpp_reset('$cpp_extra'/2), cpp_reset('$cpp_base_slot'/3), cpp_reset('$cpp_primary_moved'/2), cpp_reset('$cpp_vbase'/1), cpp_reset('$cpp_poly_extra'/3), cpp_reset('$cpp_poly_path'/3), cpp_reset('$cpp_hdrfn'/1), cpp_reset('$cpp_nv_base'/2), cpp_reset('$cpp_vb_holder'/2),
+    cpp_reset('$cpp_cls'/2), cpp_reset('$cpp_clsl'/2), cpp_reset('$cpp_sfn'/2), cpp_reset('$cpp_decl'/4), cpp_reset('$cpp_sfold'/3), cpp_reset('$cpp_nenum'/1), cpp_reset('$cpp_enumv'/3), cpp_reset('$cpp_tmpl'/3), cpp_reset('$cpp_fspec'/3), cpp_reset('$cpp_spec'/4), cpp_reset('$cpp_mt'/4), cpp_reset('$cpp_inst'/2), cpp_reset('$cpp_out'/2), cpp_reset('$cpp_ownfn'/2), cpp_reset('$cpp_consteval'/1), cpp_reset('$cpp_cecheck'/3), cpp_reset('$cpp_scell'/2), cpp_reset('$cpp_mdef'/5), cpp_reset('$cpp_extern'/3), cpp_reset('$cpp_friends'/2), cpp_reset('$cpp_extra'/2), cpp_reset('$cpp_base_slot'/3), cpp_reset('$cpp_primary_moved'/2), cpp_reset('$cpp_vbase'/1), cpp_reset('$cpp_poly_extra'/3), cpp_reset('$cpp_poly_path'/3), cpp_reset('$cpp_hdrfn'/1), cpp_reset('$cpp_nv_base'/2), cpp_reset('$cpp_vb_holder'/2),
     cpp_reset('$cpp_dflt'/2), cpp_reset('$cpp_localcls'/2), nb_setval('$cpp_lambda_memo', []), cpp_reset('$cpp_dtor_def'/1), nb_setval('$cpp_lambdas', 0), nb_setval('$cpp_gen_invs', []), nb_setval('$cpp_caller', none), nb_setval('$cpp_obj_cat', none), nb_setval('$cpp_closure_this', []), nb_setval('$cpp_temps', none), nb_setval('$cpp_making', []), nb_setval('$cpp_obj_const', none),
     nb_setval('$cpp_nontrivial', []), nb_setval('$cpp_req_ctx', none), nb_setval('$cpp_nv', none),
     cpp_reset('$cpp_acc'/3), cpp_reset('$cpp_afriend'/2), cpp_reset('$cpp_bacc'/3), cpp_reset('$cpp_static_abi'/1), nb_setval('$cpp_body_ctx', none), nb_setval('$cpp_cur_fn', none), nb_setval('$cpp_acc_scope', none), nb_setval('$cpp_obj_expr', none),   % the access of a program class's members and its friends (0.117)
@@ -2865,7 +2865,7 @@ cpp_item(declare(L, base(Q, [class(_, C0, _, _)])), Items) :- !, ( cpp_class_ite
     ( \+ cpp_implicit_ctor_needed(C) -> Fns2 = [] ; cpp_in_class(C, cpp_implicit_ctor(L, C, Base, Defaults, Fns2)) -> cpp_mangle(C, C, [], ICName), cpp_instance_note(ICName, C) ; cpp_trace(item_implicit_ctor(C)), fail ),   % ... and the implicit one is NOTED where the class emits it, so a later naming does not emit it again (cpp_use_member takes a written `C()' of a lazy class by the same name: two identical definitions, which LLVM refuses)
     ( \+ cpp_implicit_dtor_needed(C) -> Fns3 = [] ; cpp_in_class(C, cpp_implicit_dtor(L, C, Fns3)) -> true ; cpp_trace(item_implicit_dtor(C)), fail ),   % BOTH IMPLICIT MEMBERS ARE MADE IN THE CLASS (0.113), as its written members are: a default member initializer is written in the class's words ([class.mem]/7, a complete-class context), and libc++'s view sentinels write `sentinel_t<_Base> __end_ = sentinel_t<_Base>();' over their own alias `_Base' -- made outside, the implicit constructor named nothing and the instance was not emitted. `sentbase.cpp'.
     append(Fns0, Fns1, Fns01), append(Fns01, Fns2, Fns012), append(Fns012, Fns3, FnsA),
-    forall(( member(Fn, FnsA), Fn = function(_, _, _, _, _, _, _) ), assertz('$cpp_ownfn'(Fn))),   % a class's methods, where the constexpr evaluator finds them: `q.sum()' over a constant q (0.98)
+    forall(( member(Fn, FnsA), Fn = function(_, _, _, FN, _, _, _) ), assertz('$cpp_ownfn'(FN, Fn))),   % a class's methods, where the constexpr evaluator finds them: `q.sum()' over a constant q (0.98)
     cpp_align_tag(C, Ms, Data1, Data20), cpp_pod_mark(C, Data20, Data2),   % the `$nonpod' mark rides with the struct (0.135): the passes note the tags again from the items
     ( '$cpp_union'(C) -> Spec = union(C, [union_tag|Data2]) ; Spec = struct(C, Data2) ),   % a union-class shares its members' storage, and its tag says so wherever it is noted from (ccl_is_union_tag)
     ( cpp_nv_form(C, Data2, NVData) -> cpp_nv_tag(C, NV), Fns = [declare(L, base([], [struct(NV, NVData)]))|FnsA] ; Fns = FnsA ),   % the base-subobject form beside the class (0.110), a holder's too (0.163)
@@ -2896,7 +2896,7 @@ cpp_item(function(L, Sto, Ret0, N, Ps, V, Body), [function(L, Sto, Ret, Name, Ps
     cpp_fn_body_mark(Body, D), cpp_fn_name(N, Ps, D, Name),                                        % an overloaded name's definition carries its parameters' keys
     cpp_plain_params(Ps, Ps1), ( cpp_auto_result(Ret0) -> cpp_fn_auto_ret(Ret0, Ps1, Body, Ret), ccl_declare(Name, fn(Ret, Ps1, V)) ; cpp_decltype_ret(Ret0, Ps, Ret) -> ccl_declare(Name, fn(Ret, Ps1, V)) ; cpp_type(Ret0, Ret), cpp_declare_resolved(Name, Ret0, Ret, Ps1, V) ),   % C++14: auto f(...): the first return's type -- DECLARED under the deduced type (0.100): the table held the raw `auto', so `auto f = make(3)' in a later function typed the call as `auto' and asked again without end; [dcl.spec.auto]: such a function is defined before its type is used, so the item order serves
     ( ccl_nothrow(N) -> cpp_nx_wrap(L, Body, BodyG) ; BodyG = Body ), cpp_with_fn(N, cpp_method_body(none, Ret, Ps1, BodyG, Body1)),   % the function's own name is what a friend declaration names (0.117)
-    assertz('$cpp_ownfn'(function(L, Sto, Ret, Name, Ps1, V, Body1))),   % THE PROGRAM'S OWN FUNCTION, DESUGARED, where a constant fold can find it (0.95): `constexpr int N = twice(21);' at file scope
+    assertz('$cpp_ownfn'(Name, function(L, Sto, Ret, Name, Ps1, V, Body1))),   % THE PROGRAM'S OWN FUNCTION, DESUGARED, where a constant fold can find it (0.95): `constexpr int N = twice(21);' at file scope
     ( Ret0 = base(Q0, _), memberchk(consteval, Q0) -> assertz('$cpp_consteval'(Name)) ; true ).   % C++20's IMMEDIATE FUNCTION: every call of it is folded (cpp_free_call), or refused (0.99)
 cpp_item(declare(L, base(Q, [struct(N, Ms)])), Items) :- atom(N), '$cpp_promoted'(N), !, cpp_item(declare(L, base(Q, [class(struct, N, [], Ms)])), Items), cpp_trace(promoted_items(N, Items)).   % promoted at registration (cpp_struct_promotes)
 cpp_item(declare(L, base(Q, [union(N, Ms)])), Items) :- atom(N), '$cpp_union'(N), cpp_class_l(N, _), cpp_union_class_members(Ms), !, cpp_item(declare(L, base(Q, [class(union, N, [], Ms)])), Items).   % a union class (cpp_register_): its struct, its members as functions
@@ -3755,7 +3755,7 @@ cpp_note_consteval(C, Qs, Name) :- ( memberchk(consteval, Qs), \+ cpp_lib_class(
 cpp_ce_twin(L, C, B, Ds, Ps, Inits, Body) :-
     (   catch(cpp_ctor_fn(L, C, B, Ds, Ps, Inits, Body, F), E, ( cpp_trace(consteval_ctor_twin_refused(C, E)), fail )),
         F = function(L1, S1, R1, CName, P1, V1, B1)
-    ->  atom_concat(CName, '.ce', Twin), assertz('$cpp_ownfn'(function(L1, S1, R1, Twin, P1, V1, B1))),
+    ->  atom_concat(CName, '.ce', Twin), assertz('$cpp_ownfn'(Twin, function(L1, S1, R1, Twin, P1, V1, B1))),
         ( '$cpp_cecheck'(CName, _, _) -> true ; assertz('$cpp_cecheck'(CName, Twin, C)) )
     ;   cpp_trace(consteval_ctor_unchecked(C)) ).
 cpp_ctor_fn(L, C, B, Ds, Ps, Inits, Body, F) :-
@@ -6146,7 +6146,7 @@ cpp_const_value(E, V) :- cpp_const_fold(E, V), !.
 cpp_const_value(E0, V) :- cpp_const_reduce(E0, E), E \== E0, !, cpp_const_value(E, V).
 cpp_const_fold(call(id(F), Args), V) :- atom(F), cpp_eval_fn(F, Params, Ss),   % the evaluator (0.96, 0.98, 0.99): statements, aggregates, pointers, cells; a SCALAR answer here
     cpp_eval_args(Params, Args, [], Args1), cpp_eval_call(F, Params, Ss, Args1, V0), cpp_eval_scalar(V0), !, V = V0.
-cpp_const_fold(call(id(F), Args), V) :- atom(F), ( '$cpp_out'(function(_, _, _, F, Params, _, block([return(_, E0)]))) ; '$cpp_ownfn'(function(_, _, _, F, Params, _, block([return(_, E0)]))) ), !,   % an emitted instance's, or the program's own (0.95): 0.72's road, the arguments bound as WRITTEN
+cpp_const_fold(call(id(F), Args), V) :- atom(F), ( '$cpp_out'(F, function(_, _, _, F, Params, _, block([return(_, E0)]))) ; '$cpp_ownfn'(F, function(_, _, _, F, Params, _, block([return(_, E0)]))) ), !,   % an emitted instance's, or the program's own (0.95): 0.72's road, the arguments bound as WRITTEN
     cpp_fold_depth(D), D < 32, D1 is D + 1, nb_setval('$cpp_fold_depth', D1),
     (   cpp_param_binds(Params, Args, B), cpp_replace_ids(E0, B, E), cpp_const_value(E, V)
     ->  nb_setval('$cpp_fold_depth', D)
@@ -6175,7 +6175,7 @@ cpp_const_fold(member(id(N), F), V) :- cpp_global_agg(N, obj(Ps)), memberchk(F-V
 %% with the names replaced by their values, under a step budget (`'$cpp_eval_steps'`: 200000 statements) so a loop
 %% that does not end is a failure and not a hang. What it does not take -- an aggregate, a pointer, a call to a
 %% function it cannot fold, a form below -- FAILS, and the caller's answer is what it was: the call stays a call.
-cpp_eval_fn(F, Params, Ss) :- ( '$cpp_out'(function(_, _, _, F, Params, _, block(Ss))) ; '$cpp_ownfn'(function(_, _, _, F, Params, _, block(Ss))) ), !.
+cpp_eval_fn(F, Params, Ss) :- ( '$cpp_out'(F, function(_, _, _, F, Params, _, block(Ss))) ; '$cpp_ownfn'(F, function(_, _, _, F, Params, _, block(Ss))) ), !.   % FOUND BY ITS NAME (0.165): the two tables are keyed by it
 cpp_eval_call(_, Params, Ss, Args, V) :-
     cpp_fold_depth(D), D < 32, D1 is D + 1, nb_setval('$cpp_fold_depth', D1),
     (   cpp_eval_bind_params(Params, Args, Env0), ( D == 0 -> nb_setval('$cpp_eval_steps', 0) ; true ),   % one budget for the whole fold, a nested constexpr call included
@@ -6285,7 +6285,11 @@ cpp_eval_effect(bin(Op, A, B), Env0, Env, V) :- cpp_eval_side_effects(B), !, cpp
 cpp_eval_effect(cast(_, E), Env0, Env, V) :- cpp_eval_side_effects(E), !, cpp_eval_effect(E, Env0, Env, V).
 cpp_eval_effect(E, Env, Env, V) :- cpp_eval_expr(E, Env, V).
 cpp_eval_side_effects(E) :- compound(E), ( E = assign(_, _, _) ; E = preinc(_) ; E = predec(_) ; E = postinc(_) ; E = postdec(_) ), !.
-cpp_eval_side_effects(E) :- compound(E), E =.. [_|As], member(A, As), cpp_eval_side_effects(A), !.
+cpp_eval_side_effects(E) :- compound(E), \+ cpp_eval_inert(E), E =.. [_|As], member(A, As), cpp_eval_side_effects(A), !.
+cpp_eval_inert(str(_)).   % a literal, a name or a value holds no effect, and a string's codes were walked a code at a time (0.165)
+cpp_eval_inert(int(_)).
+cpp_eval_inert(id(_)).
+cpp_eval_inert('$val'(_)).
 %% THE VALUES (0.98): an integer, `big(A)', `arr(L)', `obj(Ps)', and a POINTER `ptr(Base, Off)' -- its base an `arr(L)' (a string
 %% literal's codes with their zero, an array named, a pointer's own) or an `obj(Ps)' (`&q', `this') -- a COPY read through
 %% and never written: `s[n]', `*s', `s++', `p - s', `p->x', a pointer compared with another, where a store through one
@@ -6315,25 +6319,36 @@ cpp_eval_reduce(sizeof(E), Env, int(S)) :- cpp_eval_sizeof(E, Env, S), !.       
 cpp_eval_reduce(index(P, I), Env, R) :- cpp_eval_addr(index(P, I), Env, A), cpp_eval_load(A, V), !, cpp_eval_decay(V, A, R).   % a place: through its address
 cpp_eval_reduce(member(P, F), Env, R) :- cpp_eval_addr(member(P, F), Env, A), cpp_eval_load(A, V), !, cpp_eval_decay(V, A, R).
 cpp_eval_reduce(arrow(P, F), Env, R) :- cpp_eval_addr(arrow(P, F), Env, A), cpp_eval_load(A, V), !, cpp_eval_decay(V, A, R).
-cpp_eval_reduce(deref(P), Env, R) :- cpp_eval_addr(deref(P), Env, A), cpp_eval_load(A, V), !, cpp_eval_decay(V, A, R).
+cpp_eval_reduce(deref(P), Env, R) :- \+ cpp_eval_side_effects(P), !, cpp_eval_reduce(P, Env, P1),   % AN OPERAND WITH NO EFFECT REDUCED ONCE (0.165), then its value decides: a pointer's place, a function's value (0.164), else the rest
+    (   P1 = '$val'(A), A = ptr(_, _), cpp_eval_load(A, V) -> cpp_eval_decay(V, A, R)
+    ;   P1 = '$val'(fn(F)) -> R = '$val'(fn(F))
+    ;   R = deref(P1) ).
+cpp_eval_reduce(deref(P), Env, R) :- cpp_eval_addr(deref(P), Env, A), cpp_eval_load(A, V), !, cpp_eval_decay(V, A, R).   % an operand with an effect: once, through its address
 cpp_eval_reduce(index(P, I), Env, R) :- \+ cpp_eval_side_effects(index(P, I)), cpp_eval_reduce(P, Env, '$val'(PV)), cpp_eval_reduce(I, Env, IR), cpp_eval_value(IR, K), integer(K), cpp_eval_elem(PV, K, V), !, cpp_eval_lit(V, R).   % a value that is no place: `make_arr()[2]'
 cpp_eval_reduce(member(P, F), Env, R) :- \+ cpp_eval_side_effects(P), cpp_eval_reduce(P, Env, '$val'(obj(Ps))), memberchk(F-V, Ps), !, cpp_eval_lit(V, R).
 cpp_eval_reduce(addr(P), Env, '$val'(A)) :- cpp_eval_addr(P, Env, A), !.                                        % the address of a place
-cpp_eval_reduce(addr(P), Env, '$val'(ptr(cell(Id), []))) :- \+ cpp_eval_side_effects(P), cpp_eval_reduce(P, Env, '$val'(V)), ( V = obj(_) ; V = arr(_) ), !, cpp_ec_new(V, Id).   % of a value: a temporary's cell
+cpp_eval_reduce(addr(P), Env, R) :- \+ cpp_eval_side_effects(P), !, cpp_eval_reduce(P, Env, P1),   % of a value no place holds: a temporary's cell, a function's address (0.164), else the rest -- the operand reduced ONCE (0.165)
+    (   P1 = '$val'(V), ( V = obj(_) ; V = arr(_) ) -> cpp_ec_new(V, Id), R = '$val'(ptr(cell(Id), []))
+    ;   P1 = '$val'(fn(F)) -> R = '$val'(fn(F))
+    ;   R = addr(P1) ).
 %% WHAT A LIBRARY CONSTEVAL CONSTRUCTOR'S CHECK RUNS INTO (0.164): a FUNCTION'S ADDRESS is the value `fn(F)', stored, loaded
 %% and called through (a handle's `__parse_' holds a lambda's invoker); `std::move' and a cast to a reference name their
 %% operand (`std::forward' is `static_cast<_Tp &&>(__t)'); an assignment or an increment inside an operand is done where
 %% it is reduced, once (`*__out_it++ = *__begin++'), and no road below reduces it again; `?:', `&&' and `||' evaluate the
 %% operands C++ evaluates, no more -- an arm not taken may call what is no constant expression (`__throw_format_error')
-cpp_eval_reduce(addr(P), Env, '$val'(fn(F))) :- \+ cpp_eval_side_effects(P), cpp_eval_reduce(P, Env, '$val'(fn(F))), !.
-cpp_eval_reduce(deref(P), Env, '$val'(fn(F))) :- \+ cpp_eval_side_effects(P), cpp_eval_reduce(P, Env, '$val'(fn(F))), !.
 cpp_eval_reduce(move(E), Env, R) :- !, cpp_eval_reduce(E, Env, R).
 cpp_eval_reduce(ccast(_, T, E), Env, R) :- cpp_eval_ref_type(T), !, cpp_eval_reduce(E, Env, R).
 cpp_eval_reduce(cast(T, E), Env, R) :- cpp_eval_ref_type(T), !, cpp_eval_reduce(E, Env, R).
 cpp_eval_reduce(E, Env, R) :- cpp_eval_effect_place(E, P), cpp_eval_placeish(P), !, cpp_eval_effect(E, Env, _, V), cpp_eval_lit(V, R).
-cpp_eval_reduce(cond(C, A, B), Env, R) :- cpp_eval_expr(C, Env, CV), !, ( CV \== 0 -> cpp_eval_reduce(A, Env, R) ; cpp_eval_reduce(B, Env, R) ).
-cpp_eval_reduce(bin('&&', A, B), Env, R) :- cpp_eval_expr(A, Env, AV), !, ( AV == 0 -> R = int(0) ; cpp_eval_expr(B, Env, BV), ( BV == 0 -> R = int(0) ; R = int(1) ) ).
-cpp_eval_reduce(bin('||', A, B), Env, R) :- cpp_eval_expr(A, Env, AV), !, ( AV \== 0 -> R = int(1) ; cpp_eval_expr(B, Env, BV), ( BV == 0 -> R = int(0) ; R = int(1) ) ).
+cpp_eval_reduce(cond(C, A, B), Env, R) :- !, cpp_eval_reduce(C, Env, C1),   % THE CONDITION REDUCED ONCE (0.165): one that did not fold went down the generic road and was reduced again, 2^n down a chain of n
+    (   cpp_eval_value(C1, CV) -> ( CV \== 0 -> cpp_eval_reduce(A, Env, R) ; cpp_eval_reduce(B, Env, R) )
+    ;   cpp_eval_reduce(A, Env, A1), cpp_eval_reduce(B, Env, B1), R = cond(C1, A1, B1) ).
+cpp_eval_reduce(bin('&&', A, B), Env, R) :- !, cpp_eval_reduce(A, Env, A1),
+    (   cpp_eval_value(A1, AV) -> ( AV == 0 -> R = int(0) ; cpp_eval_expr(B, Env, BV), ( BV == 0 -> R = int(0) ; R = int(1) ) )
+    ;   cpp_eval_reduce(B, Env, B1), cpp_eval_bin_rest('&&', A1, B1, R) ).
+cpp_eval_reduce(bin('||', A, B), Env, R) :- !, cpp_eval_reduce(A, Env, A1),
+    (   cpp_eval_value(A1, AV) -> ( AV \== 0 -> R = int(1) ; cpp_eval_expr(B, Env, BV), ( BV == 0 -> R = int(0) ; R = int(1) ) )
+    ;   cpp_eval_reduce(B, Env, B1), cpp_eval_bin_rest('||', A1, B1, R) ).
 cpp_eval_reduce(compound_lit(T, I), Env, R) :- cpp_eval_init(T, I, Env, _, V), !, cpp_eval_lit(V, R).
 cpp_eval_reduce(stmt_expr(block(Ss)), Env, R) :- append(Ss0, [expr(_, Last)], Ss), cpp_eval_stmts(Ss0, Env, Env1, next), cpp_eval_expr(Last, Env1, V), !, cpp_eval_lit(V, R).
 cpp_eval_reduce(call(id(F), Args), Env, _) :- atom(F), cpp_eval_abort_fn(F, How), !, cpp_eval_abort(How, Args, Env), fail.   % a library THROW HELPER, or its abort: no constant expression (0.164), its message kept for the refusal (cpp_ce_check)
@@ -6351,11 +6366,12 @@ cpp_eval_reduce(call(id(wcslen), [A]), Env, int(N)) :- cpp_eval_reduce(A, Env, '
 cpp_eval_reduce(cast(T, E), Env, R) :- cpp_eval_ptr_cast(T, E, Env, R), !.   % A CAST TO A POINTER TYPE keeps the pointer the evaluator holds (0.126): libc++ 21's `__constexpr_strlen' counts through `__builtin_strlen(reinterpret_cast<const char *>(__str))' where the evaluator's `__libcpp_is_constant_evaluated()' is false, and a pointer wrapped in a cast was none to `strlen' above -- `std::string_view s{"true"}' of a constant did not fold, the static member stayed undefined (constsv.cpp, staticsv.cpp)
 cpp_eval_reduce(ccast(_, T, E), Env, R) :- cpp_eval_ptr_cast(T, E, Env, R), !.   % ... by a C++ NAMED cast too, which the desugaring keeps as `ccast(reinterpret, T, E)': the evaluator saw none of the two forms until 0.126's second clause
 cpp_eval_reduce(call(id(F), [X|Rest]), Env, int(R)) :- cpp_bitcount(F, Dir, W0), cpp_eval_bitcount(Dir, W0, X, Rest, Env, R), !.   % THE BIT COUNTS (0.126): libc++ 21 writes `__countl_zero' as `__builtin_clzg(__t, numeric_limits<_Tp>::digits)' and its radix sort's `static constexpr auto __radix_size = std::__bit_log2<uint64_t>(...)' folds through the evaluator -- the desugaring folded a count of a CONSTANT argument alone (cpp_builtin_call), and the argument here is the callee's parameter (stdalgorithm6.cpp)
-cpp_eval_reduce(bin(Op, A, B), Env, R) :- !, cpp_eval_reduce(A, Env, A1), cpp_eval_reduce(B, Env, B1),
-    ( ( A1 = '$val'(_) ; B1 = '$val'(_) ), cpp_eval_ptr_bin(Op, A1, B1, V) -> cpp_eval_lit(V, R) ; R = bin(Op, A1, B1) ).
+cpp_eval_reduce(bin(Op, A, B), Env, R) :- !, cpp_eval_reduce(A, Env, A1), cpp_eval_reduce(B, Env, B1), cpp_eval_bin_rest(Op, A1, B1, R).
 cpp_eval_reduce(E, Env, R) :- \+ ( cpp_eval_tried(E), cpp_eval_side_effects(E) ), E =.. [F|Xs], cpp_eval_reduce_list(Xs, Env, Ys), R =.. [F|Ys].   % never again a term whose own clauses above reduced its effect once (0.164)
 cpp_eval_reduce_list([], _, []).
 cpp_eval_reduce_list([X|Xs], Env, [Y|Ys]) :- cpp_eval_reduce(X, Env, Y), cpp_eval_reduce_list(Xs, Env, Ys).
+%% two reduced operands: pointer arithmetic or a comparison of pointers where one is a value, else the operation rebuilt
+cpp_eval_bin_rest(Op, A1, B1, R) :- ( ( A1 = '$val'(_) ; B1 = '$val'(_) ), cpp_eval_ptr_bin(Op, A1, B1, V) -> cpp_eval_lit(V, R) ; R = bin(Op, A1, B1) ).
 cpp_eval_tried(index(_, _)).
 cpp_eval_tried(member(_, _)).
 cpp_eval_tried(arrow(_, _)).
@@ -6372,10 +6388,11 @@ cpp_eval_effect_place(postdec(P), P).
 %% THE THROW HELPERS: `__throw_format_error(Msg)' (its message), any other library `__throw_*' (its name and its string
 %% arguments: `__throw_invalid_type_format_error: a floating-point', which builds its message at run time), and the
 %% verbose abort they end in; the first one met is kept, '$cpp_eval_abort'
-cpp_eval_abort_fn(F, message) :- cpp_eval_short_name(F, '__throw_format_error'), !.
-cpp_eval_abort_fn(F, named(B)) :- cpp_eval_short_name(F, B), sub_atom(B, 0, _, _, '__throw_'), !.
-cpp_eval_abort_fn(F, message) :- sub_atom(F, _, _, _, '__libcpp_verbose_abort'), !.
-cpp_eval_short_name(F, B) :- ( sub_atom(F, Bf, 1, _, '.'), Bf1 is Bf + 1, sub_atom(F, Bf1, _, 0, B0), \+ sub_atom(B0, _, _, _, '.') -> B = B0 ; B = F ).
+cpp_eval_abort_fn(F, How) :- cpp_eval_short_name(F, B), cpp_eval_abort_short(F, B, How).   % asked of every call the evaluator meets: the name split ONCE (0.165), where each dot and each suffix were searched
+cpp_eval_abort_short(_, '__throw_format_error', message) :- !.
+cpp_eval_abort_short(_, B, named(B)) :- atom_concat('__throw_', _, B), !.
+cpp_eval_abort_short(F, _, message) :- atomic_list_concat(Ps, '__libcpp_verbose_abort', F), Ps = [_, _|_], !.
+cpp_eval_short_name(F, B) :- atomic_list_concat(Ps, '.', F), last(Ps, B).   % the last segment of a dotted name, the name itself without one
 cpp_eval_abort(How, Args, Env) :-
     (   nb_current('$cpp_eval_abort', abort(_)) -> true
     ;   findall(Cs, ( member(A, Args), catch(cpp_eval_reduce(A, Env, '$val'(P)), _, fail), P = ptr(_, _), cpp_eval_cstr(P, 0, Cs) ), Css),
@@ -6517,7 +6534,7 @@ cpp_eval_static_cell(N, Id) :- atom(N), cpp_static_split(N, C, SN), '$cpp_sinit'
     (   once(catch(cpp_isolated(cpp_in_class(C, ( cpp_type(T0, T), cpp_init_expr(Init, I0) ))), error(not_lowered(_), _), fail)) -> nb_setval('$cpp_temps', Ts)
     ;   nb_setval('$cpp_temps', Ts), fail ),
     cpp_eval_init(T, I0, [], _, V), cpp_ec_new(V, Id), assertz('$cpp_scell'(N, Id)).
-cpp_static_split(N, C, SN) :- sub_atom(N, B, 1, A, '.'), A > 0, sub_atom(N, _, A, 0, SN), \+ sub_atom(SN, _, _, _, '.'), !, sub_atom(N, 0, B, _, C).
+cpp_static_split(N, C, SN) :- atomic_list_concat(Ps, '.', N), Ps = [_, _|_], append(CPs, [SN], Ps), SN \== '', !, atomic_list_concat(CPs, '.', C).   % the name SPLIT ONCE (0.165): it searched the name for each dot and each suffix for another, a million times in a std::visit build
 cpp_eval_load(ptr(cell(Id), Path), V) :- cpp_ec_get(Id, W), cpp_eval_at(W, Path, V).
 cpp_eval_at(V, [], V) :- !.
 cpp_eval_at(arr(L), [K|P], V) :- integer(K), K >= 0, nth0(K, L, X), cpp_eval_at(X, P, V).
@@ -6725,7 +6742,7 @@ cpp_enum_unsettled(N, Es, A, Tb1) :- ccl_tag(N, Ms), Ms = [enum_base(base(_, [ty
 cpp_dependent_typedef(base(_, [typedef(scoped([_|_], M))])) :- atom(M), !.
 cpp_dependent_typedef(base(_, [typedef(X)])) :- cpp_template_id(X, _, _).
 %% the passes build the table again from the output's items, so the settled typedef is OUTPUT too: the lowering reads the enum's base through it
-cpp_settle_typedef(A, Tb1) :- Vs = [var(A, Tb1, none)], ccl_note_typedefs(Vs), assertz('$cpp_out'(typedef(0, Vs))).
+cpp_settle_typedef(A, Tb1) :- Vs = [var(A, Tb1, none)], ccl_note_typedefs(Vs), assertz('$cpp_out'('', typedef(0, Vs))).
 cpp_types([], []).
 cpp_types([T0|Ts], [T|Us]) :- cpp_type(T0, T), cpp_types(Ts, Us).
 %% A CALL'S EXPLICIT TEMPLATE ARGUMENTS ARE TEMPLATE ARGUMENTS, not types: libc++'s sort writes
@@ -6787,8 +6804,15 @@ cpp_line_kept(Goal) :- ( nb_current('$cpp_line', L) -> true ; L = 0 ),
 %% context's lambda refused `lambda_result_type' (every std::format of a range). The scope comes back as it was.
 cpp_in_frame(Goal) :- nb_getval('$ccl_scope', S0), ccl_scope_push,
     ( catch(Goal, E, ( nb_setval('$ccl_scope', S0), throw(E) )) -> nb_setval('$ccl_scope', S0) ; nb_setval('$ccl_scope', S0), fail ).
-cpp_add_instance_items(Items) :- cpp_linkonce(Items, Items1), forall(member(I, Items1), assertz('$cpp_out'(I))),
+cpp_add_instance_items(Items) :- cpp_linkonce(Items, Items1), forall(member(I, Items1), ( cpp_item_key(I, K), assertz('$cpp_out'(K, I)) )),
     ( nb_getval('$cpp_in_lib', yes) -> forall(member(function(_, _, _, Name, _, _, _), Items1), assertz('$cpp_libfn'(Name))) ; true ).
+%% THE EMITTED ITEMS BY NAME (0.165): '$cpp_out'(Key, Item), a function under its name and any other item under '', so
+%% that the evaluator finds a function by the first argument (cpp_eval_fn/3, cpp_const_fold/2) -- the table was found by
+%% its item's functor alone, and each ask scanned every function the walk had emitted -- 14.5 % of a std::visit build's
+%% run at 0.163, and since 0.164 the evaluator asks a name of every identifier it cannot place (cpp_eval_function/1). The
+%% program's own desugared functions are keyed alike, '$cpp_ownfn'(Name, Function).
+cpp_item_key(function(_, _, _, N, _, _, _), K) :- !, K = N.
+cpp_item_key(_, '').
 %% what a header or a template gives every unit alike links once: linkonce_odr
 cpp_linkonce([], []).
 cpp_linkonce([function(L, Sto, R, N, Ps, V, B)|Is], [function(L, linkonce, R, N, Ps, V, B)|Js]) :- ( Sto == none ; Sto == inline ), !, cpp_linkonce(Is, Js).   % an `inline' template's instance too (0.121): libc++'s `__invoke' instances were plain definitions, never dropped, and the one over std::variant's overload set called a function that is only declared

@@ -10,7 +10,7 @@ it found, its measurements and its gate numbers. `README.md` tells a user what r
 architecture and the milestones. A step that changes a rule edits the rule here, in its topic, and writes its entry
 in `HISTORY.md`.
 
-At 0.164 the versions are: the module 0.164 (`ccl_p_version` in `module/cicilang.cicili`, `bin/cicilang --version`),
+At 0.165 the versions are: the module 0.165 (`ccl_p_version` in `module/cicilang.cicili`, `bin/cicilang --version`),
 the reader 133 (`ccl_reader_version/1`, `library/ccl_syntax.pl`) and the lowering 89 (`ccl_lowering_version/1`,
 `library/ccl_ir.pl`).
 
@@ -397,7 +397,7 @@ tutorials/01..03-*.pl       the objects layer's lessons; goal main, last line do
 - `test/flow.sh` (0.144) reads every file of the library with cocolog's `library(flow/chart)` and RUNS NOTHING. A chart
   starts at one call pattern, so `test/flow.pl`'s `fg_roots_main/2` writes a copy of each file with a root,
   `'$fg_all'/N`, that calls each predicate the file defines with free arguments: 3538 predicates in the ten files at
-  0.161 (3833 in all at 0.164), and since 0.161 the 220 of the nine gate programs, `test/reader.pl`, `compile.pl`,
+  0.161 (3837 in all at 0.165), and since 0.161 the 220 of the nine gate programs, `test/reader.pl`, `compile.pl`,
   `cpp.pl`, `readhdr.pl`, `census.pl`, `libcxx.pl`, `flow.pl`, `why.pl` and `prof.pl` (`TFILES`), each charted with the
   compiler and the flow and process libraries loaded, nothing stubbed (no gate program is a library file); their first
   chart found a predicate split by another's clauses (`census_main/0`) and a call of `print_message/2`, which cocolog
@@ -4646,8 +4646,10 @@ A lambda is a class of its captures (`library/ccl_cpp.pl`). A fixture named alon
 ### The constexpr function evaluator
 
 - A call folds through the evaluator first ([dcl.constexpr]; `cpp_eval_fn/3`, `cpp_eval_args/4`, `cpp_eval_call/5`),
-  over an emitted instance (`'$cpp_out'`) or the program's own desugared function or method (`'$cpp_ownfn'`); the door
-  wants a scalar (`cpp_eval_scalar/1`). `constexprfn3.cpp`. (0.96, 0.98)
+  over an emitted instance (`'$cpp_out'(Name, Item)`) or the program's own desugared function or method
+  (`'$cpp_ownfn'(Name, Function)`), each found by its NAME, the first argument (0.165: an emitted item that is no
+  function is keyed `''`, `cpp_item_key/2`); the door wants a scalar (`cpp_eval_scalar/1`). `constexprfn3.cpp`. (0.96,
+  0.98, 0.165)
 - Else 0.72's road folds a one-`return` body, the parameters bound as written (`cpp_param_binds/3`, `cpp_replace_ids/3`;
   `this` null). `cpp_targ_value/2` turns `X::template f<U>()` into that call. `constexprfn.cpp`, `stdtraits.cpp`. Why:
   pair's `__is_pair_constructible<_U1, _U2>()`. (0.72, 0.95)
@@ -4666,6 +4668,15 @@ A lambda is a class of its captures (`library/ccl_cpp.pl`). A fixture named alon
   into a new cell, a constexpr call to its answer (an aggregate as `'$val'(Agg)`), pointer arithmetic, a statement
   expression to its last value, a compound literal. The scalar rest is `ccl_const_eval`'s (`cpp_eval_value/2`).
   (0.98, 0.99)
+- AN OPERAND IS REDUCED ONCE (0.165): the reduction tries a clause that reduces an operand, fails and hands the term to
+  the next, which reduces it again, so each road a form gains multiplies a chain of n of them -- 0.164's clauses for a
+  function's value made `*e` and `&e` reduce their operand three times, 3^n down a chain, and a `?:`, `&&` or `||`
+  whose condition did not fold reduced it twice, 2^n. Now `*e` and `&e` of an operand with no effect reduce it once and
+  its value decides (a pointer's place, a temporary's cell, a function's value, else the term rebuilt), and the
+  condition is reduced once (`cpp_eval_bin_rest/4` the rest of a binary operation); the side-effect test walks no
+  literal and no value (`cpp_eval_inert/1`); a static's name and a callee's are split once (`cpp_static_split/3`,
+  `cpp_eval_short_name/2`, one `atomic_list_concat/3` where a search took a step a character). `std::visit`'s builds:
+  `stdvariantsel.cpp` 13.9 s of CPU where 0.164 took 153.0 s and 0.163 17.1 s, the IR 0.164's (HISTORY.md, 0.165).
 - A store through a pointer writes the named cell in any function (`cpp_eval_addr/3`, `cpp_eval_load/2`,
   `cpp_eval_store_ptr/2`, `cpp_eval_padd/3`): `*p`, `p[i]`, `q->x`, a callee's `a[i]`, `this->x` in a non-const member,
   `&x` of a scalar, a reference. `constexprfn6.cpp`. (0.99)
@@ -7383,14 +7394,17 @@ A lambda is a class of its captures (`library/ccl_cpp.pl`). A fixture named alon
 - Ubuntu 24.04 on x86_64 (clang and LLVM 18, glibc, libc++ 18 and 21) is a host since 0.87. Every gate but the C++ one
   is GREEN there since 0.93, and all seven since 0.95. Every step from 0.93 on is gated there, but the save points
   0.112, 0.113, 0.117, 0.122 to 0.125, 0.130, 0.131 and 0.143 (0.143's C gates and cross gate ran, its libc++ gates did
-  not; the others were gated by the steps after them). The last full run is 0.163's, over cocolog 2.2.5, on one tree,
-  4495 s in all (0.162's 4594 s): over libc++ 18 all nine GREEN in 2564 s (the flow gate's one finding in 83 s, reader 4
-  s, compile 12 s, driver 12 s, objects 4 s, proof, the cross gate in 607 s with its C++ part for aarch64, the library
-  read in 1093 s (0.162's 1090 s), the C++ gate in 745 s (0.162's 754 s) with 515 of 518 fixtures ok, the skips are
-  `joinwith`, `stdoptionalref` and `tzone`, the 22 refusals and the three of the safe part); over libc++ 21 the library
-  read (1007 s, peak 1025 MB; 0.162's 1047 s) and the C++ gate (923 s, peak 2199 MB; 0.162's 935 s; 517 of 518 ok, the
-  skip `stdoptionalref`) GREEN -- the C gates do not read libc++. The fixtures' builds, summed, took 2613 s over libc++
-  18 (0.162's 2651 s over 511) and 3016 s over libc++ 21 (0.162's 3031 s over 513). Two libc++ passes are one gate:
+  not; the others were gated by the steps after them). The last full run is 0.164's, over cocolog 2.2.5, on one tree,
+  5105 s in all (0.163's 4495 s): over libc++ 18 all nine GREEN in 2801 s (the flow gate's one finding in 82 s, reader 4
+  s, compile 11 s, driver 12 s, objects 3 s, proof, the cross gate in 703 s with its C++ part for aarch64, the library
+  read in 1081 s (0.163's 1093 s), the C++ gate in 905 s (0.163's 745 s) with 517 of 520 fixtures ok, the skips are
+  `joinwith`, `stdoptionalref` and `tzone`, the 24 refusals and the three of the safe part); over libc++ 21 the library
+  read (1102 s, peak 1176 MB; 0.163's 1007 s) and the C++ gate (1202 s, peak 2197 MB; 0.163's 923 s; 519 of 520 ok, the
+  skip `stdoptionalref`) GREEN -- the C gates do not read libc++. The fixtures' builds, summed, took 3040 s over libc++
+  18 (0.163's 2613 s over 515) and 4091 s over libc++ 21 (0.163's 3016 s over 517): four builds over `std::visit` took
+  most of the rise (`joinwith` 110 s to 937 s over libc++ 21, `stdvariantsel` 19 s to 157 s, `stdvariant` 29 s to 129
+  s, `varvisit` 4 s to 35 s over libc++ 18): the evaluator reduced an operand three times, which 0.165 mended (the
+  evaluator topic). Two libc++ passes are one gate:
   `LLVM=/usr/lib/llvm-18` and `LLVM=/usr/lib/llvm-21` choose the tree the chain reads and links. libc++ 22 (the newest
   tree, which a run without `$LLVM` reads) is untried but for `stdoptionalref`, which passes there. The run before
   0.121's (0.118, 0.119) found, over 0.117, two defects and one stale check of `test/cpp.pl` (c20, above).

@@ -10057,3 +10057,76 @@ peak 2554 MB over its four lanes; 3833 predicates charted), reader 4 s, compile 
 driver 12 s, objects 3 s, the proof, and the cross gate in 703 s (84 C fixtures and 5 checks, 24 C++ fixtures and 2
 checks, peak 535 MB). The library read and the C++ gate over libc++ 18, and both over libc++ 21, were still running:
 this step claims no GREEN chain, and the next carries its numbers.
+
+## 0.165 — the numbers of 0.164's chain, and the evaluator's costs that 0.164 multiplied
+
+**0.165: 0.164's chain, ended: all nine gates GREEN over libc++ 18 and the two libc++ gates GREEN over libc++ 21, on
+cocolog 2.2.5, in 5105 s where 0.163's took 4495 s; four builds over `std::visit` took most of the rise, and their cause
+is mended: `stdvariantsel.cpp` builds in 13.9 s of CPU where 0.164 took 153 s and 0.163 17 s, the IR 0.164's.** 0.164 was
+committed before its chain ended, on the stop hook's request; this step records the chain, and the slower builds it
+showed.
+
+- THE CHAIN on a worktree holding 0.164's files (the live checkout's but one comment), its two modules 0.163's, built
+  over cocolog 2.2.5, fresh HOMEs, 5105 s in all. Over libc++ 18: the flow gate (one finding, `test/flow.expect`'s, 82
+  s, 2554 MB over its four lanes), reader 4 s, compile 11 s (84 run and 47 safe fixtures), driver 12 s, objects 3 s, the
+  proof, the cross gate in 703 s (peak 535 MB), the library read in 1081 s (peak 1107 MB; 0.163's 1093 s), the C++ gate
+  in 905 s (peak 2307 MB; 0.163's 745 s) with 517 of its 520 fixtures ok -- the skips `joinwith`, `stdoptionalref` and
+  `tzone` -- the 24 refusals and the three of the safe part. Over libc++ 21: the library read in 1102 s (peak 1176 MB;
+  0.163's 1007 s) and the C++ gate in 1202 s (peak 2197 MB; 0.163's 923 s), 519 of 520 ok, the skip `stdoptionalref`.
+  The fixtures' builds, as `fixture-times` records them (four at a time), summed 3040 s over 517 over libc++ 18 (0.163's
+  2613 s over 515) and 4091 s over 519 over libc++ 21 (0.163's 3016 s over 517).
+- WHAT TOOK LONGER. Four builds took most of the rise: `joinwith.cpp` over libc++ 21, 110 s to 937 s (its view holds a
+  `std::variant` and walks it with `std::visit`), and over libc++ 18 `stdvariantsel.cpp` 19 s to 157 s, `stdvariant.cpp`
+  29 s to 129 s, `varvisit.cpp` 4 s to 35 s; over libc++ 21 alike. Alone, one build at a time over the chain's warm
+  HOME, `stdvariantsel.cpp` took 17.1 s of CPU with 0.163's library and 153.0 s with 0.164's, `varvisit.cpp` 3.5 s and
+  32.0 s, the IR the same. The whole run's self time (`test/prof.sh`'s RUN view) of `varvisit.cpp`: 3.75 s untraced at
+  0.163, and 27.1 s at 0.164 with a first form of the name index below (which took the build's 32.0 s of CPU to 24.2 s),
+  7.6 s with every mend but the throw helpers' split. Where it went, all of it the evaluator's:
+  - THE EMITTED ITEMS BY NAME. `'$cpp_out'` holds every item the walk emits and is found by its item's functor alone,
+    so `cpp_eval_fn/3` and `cpp_const_fold/2`, which ask a function by its name, scanned every emitted function -- the
+    scans were already 14.5 % of 0.163's run (152,546 calls) -- and 0.164's `cpp_eval_function/1` asks a name of every
+    identifier the evaluator cannot place. The table is `'$cpp_out'(Key, Item)` now, a function keyed by its name and
+    any other item by `''`, and the program's own `'$cpp_ownfn'(Name, Function)` alike: both found by the first
+    argument.
+  - THE STATIC'S NAME. 0.164's `cpp_eval_static_cell/2`, asked for each such identifier too, split the name at its last
+    dot by searching it for every dot and every suffix for another, a `between/3` and a `sub_atom` step a character:
+    1,153,075 calls, 34.7 million `between/3` steps and 27.2 million of `'$sub_atom'/5`, 10 s of the 27. One split of
+    the name (`atomic_list_concat/3`, one step) now, and the throw helpers' test of 0.164, asked of every call the
+    evaluator meets, the same way (`cpp_eval_short_name/2`, `cpp_eval_abort_short/3`).
+  - ONE REDUCTION OF AN OPERAND. The evaluator tries a clause that reduces an operand, fails, and the next reduces it
+    again: `*e` reduced its operand through its address and then down the generic road, and 0.164's clauses for a
+    function's value -- `&f`, `*fp` -- added a third reduction, so a chain of n of them cost 3^n where it cost 2^n
+    (2,561,451 reductions where 0.163 made 687,124). A `?:`, `&&` or `||` whose condition did not fold reduced it a
+    second time down the generic road, 2^n down a chain of n. Now an operand with no effect is reduced once and its value
+    decides -- a pointer's place, a function's value, else the expression rebuilt -- and a condition once.
+  - The side-effect test walks no literal and no value (`cpp_eval_inert/1`): a string's codes were walked a code at a
+    time.
+- MEASURED (one build at a time, warm HOMEs, CPU seconds), 0.163's library, 0.164's and this step's:
+
+  | Fixture | 0.163 | 0.164 | 0.165 |
+  |---|---|---|---|
+  | `varvisit.cpp` | 3.5 | 32.0 | 5.5 |
+  | `stdvariantsel.cpp` (C++20) | 17.1 | 153.0 | 13.9 |
+  | `stdvariant.cpp` | 25.8 | 125.9 | 26.1 |
+
+  `joinwith.cpp` over libc++ 21 builds in 58.3 s alone with this step's library (the chains' 110 s and 937 s were four
+  builds at a time). A NET of 41 fixtures that the evaluator reaches -- the format fixtures (`fmtcheck`, `fmtrange`,
+  `fmttuple`, `stdformat`), the constexpr ones (`constexprfn` to `constexprfn6`, `consteval`, `constevalm`, `vtlambda`,
+  `ifconsteval`, `ifconstexprcall`, `bitcount`, `enumconstexpr`, `enumscope`, `staticpack`, `staticunused`, `caselabel`,
+  `commafold`, `aggconst`, `globalinit`, `localstatic`), the constant string views (`constsv`, `staticsv`, `widesv`,
+  `strlencast`), `stdtuple`, `stdbitset`, `stdoptional`, `stdarray`, `arrayone`, `desiganon`, `memtypecall`, `sigrecur`,
+  `lambdafp`, `tupleholder`, `stdvariant2`, `stdvariantcmp` -- each built to IR by 0.164's library and by this one,
+  three at a time over libc++ 18: the same IR, each. The rest of the format check's cost is its own: `fmtcheck.cpp` 68.3
+  s with 0.164's library and 65.0 s with this one.
+- Which checks of the other format fixtures the evaluator cannot take, which 0.164 left to count after its chain, is
+  counted in the next step: the counting builds and these gates cannot run at once.
+
+Reader 133, lowering 89: nothing the compiler emits changed.
+
+THE GATES. Committed before they ended, on the stop hook's request (the rule of 0.91): the gates this change
+touches, on a worktree holding these files over 0.164's (`e2318cb`), its two modules 0.164's, built over cocolog 2.2.5,
+over the HOMEs that 0.164's chain warmed (the same reader version, so their C++ summaries are valid, and the library
+reads were not run again), started at 22:46 UTC. Finished GREEN when this was committed: the flow gate (one finding,
+`test/flow.expect`'s, 78 s, peak 2680 MB over its four lanes; 3837 predicates charted), reader 5 s, compile 12 s,
+driver 13 s, objects 4 s and the proof. The cross gate and the C++ gate over libc++ 18 and over 21 were still running:
+this step claims no GREEN for them, and the next carries their numbers.
