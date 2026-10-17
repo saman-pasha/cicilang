@@ -828,6 +828,10 @@ ccl_long_double(K) :- ( once(catch(pp_arch(A), _, fail)) -> true ; A = x86_64 ),
 %% PLAIN CHAR AND wchar_t ARE UNSIGNED ON LINUX AARCH64 (AAPCS64; 0.131), as clang has them (`__CHAR_UNSIGNED__', `__WCHAR_UNSIGNED__')
 ccl_char_unsigned :- once(catch(pp_arch(arm64), _, fail)), once(catch(pp_os(linux), _, fail)).
 ccl_plain_char_unsigned(S) :- ( memberchk(char, S) ; memberchk(wchar_t, S) ), \+ memberchk(signed, S), ccl_char_unsigned.
+%% A POINTER TO MEMBER FUNCTION IS ARM'S ON arm64 (0.161), Linux's and Apple's (clang's ItaniumCXXABI with UseARMMethodPtrABI):
+%% `{ ptr, adj }' with the virtual mark in adj's low bit and adj twice the `this' adjustment, ptr the slot's byte offset for a
+%% virtual member -- where x86-64's marks ptr itself (1 + the offset), which an arm64 function's address may also be
+ccl_memptr_arm :- once(catch(pp_arch(arm64), _, fail)).
 ccl_basic_size(S, N) :- ( memberchk(double, S) -> ( memberchk(long, S), ( ccl_long_double(x87) ; ccl_long_double(quad) ) -> N = 16 ; N = 8 ) ; memberchk(float, S) -> N = 4 ; memberchk('_Float16', S) -> N = 2 ; memberchk('_Decimal32', S) -> N = 4 ; memberchk('_Decimal64', S) -> N = 8 ; memberchk('_Decimal128', S) -> N = 16 ; ccl_count(long, S, 2) -> N = 8
     ; memberchk('__int128', S) -> N = 16
     ; memberchk(long, S) -> N = 8 ; memberchk(short, S) -> N = 2 ; memberchk(char, S) -> N = 1 ; memberchk('_Bool', S) -> N = 1 ; memberchk(bool, S) -> N = 1 ; memberchk(char8_t, S) -> N = 1 ; memberchk(char16_t, S) -> N = 2 ; memberchk(wchar_t, S) -> N = 4 ; memberchk(char32_t, S) -> N = 4

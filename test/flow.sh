@@ -36,27 +36,36 @@ FLOW_SECS=${FLOW_SECS:-900}
 FLOW_JOBS=${FLOW_JOBS:-4}; FLOW_LAUNCH_MB=${FLOW_LAUNCH_MB:-9000}; FLOW_HARD_MB=${FLOW_HARD_MB:-14000}
 FLOW_TIMES=${FLOW_TIMES:-$HOME/.cicilang/flow-times}
 FILES="ccl_syntax ccl_pp ccl_include ccl_infer ccl_format ccl_cpp ccl_check ccl_ir ccl_build ccl_driver"
+TFILES="reader compile cpp readhdr census libcxx flow why prof"   # THE GATES' OWN PROLOG (0.161), charted as the library is: a mis-edit in a gate
+fg_path() { case " $TFILES " in *" $1 "*) echo "test/$1.pl" ;; *) echo "library/$1.pl" ;; esac; }
 if [ -n "$FLOW_KEEP" ]; then D=$FLOW_KEEP; rm -rf "$D"; mkdir -p "$D"; else D=$(mktemp -d "${TMPDIR:-/tmp}/cicilang-flow-XXXXXX"); trap 'rm -rf "$D"' EXIT; fi
 mkdir -p "$D/src" "$D/out" "$D/res" "$D/stub"
 start=$(date +%s)
 
 # the copies with their roots
-list=""; for f in $FILES; do list="$list${list:+,}'$ROOT/library/$f.pl'"; done
+list=""; for f in $FILES $TFILES; do list="$list${list:+,}'$ROOT/$(fg_path $f)'"; done
 out=$(cd "$ROOT" && timeout -s KILL 300 "$C" --local query "use_module(library(cicilang)), ensure_loaded('$ROOT/test/flow.pl'), fg_roots_main([$list], '$D/src')" 2>&1 < /dev/null)
 [ -f "$D/src/roots.txt" ] || { echo "RED: the roots were not written"; printf '%s\n' "$out" | tail -10; exit 1; }
-echo "-- every library file charted from a root that calls each predicate it defines ($(awk '{ s += $3 } END { print s }' "$D/src/roots.txt") predicates)"
+echo "-- every library file and gate program charted from a root that calls each predicate it defines ($(awk '{ s += $3 } END { print s }' "$D/src/roots.txt") predicates)"
 
 # one job a file, the heaviest first
 loads="[library(cicilang), library(ccl_llvm), library(ccl_bidrt), library(ccl_uninames), library(ccl_format)]"
+tloads="[library(cicilang), library(ccl_llvm), library(ccl_bidrt), library(ccl_uninames), library(ccl_format), library(os), library(process), library(stream), library(flow/debug)]"
 mods="['$ROOT/module/cicilang.cicili', '$ROOT/module/ccl_llvm.cicili']"
 for f in $FILES; do
   n=$(awk -v b="$f.pl" '$1 == b { print $2 }' "$D/src/roots.txt")
   mkdir -p "$D/stub/$f"; : > "$D/stub/$f/$f.pl"
   echo "$f COCOLOG_LIBRARY='$D/stub/$f:$COCOLOG_LIBRARY' fg_job $f $n"
-done | ccl_lpt_order "$FLOW_TIMES" | sed 's/^[^ ]* //' > "$D/jobs"
+done > "$D/jobs0"
+for f in $TFILES; do   # a gate program is no library file: nothing to stub, and the flow library its own two load beside the rest
+  n=$(awk -v b="$f.pl" '$1 == b { print $2 }' "$D/src/roots.txt")
+  echo "$f fg_job $f $n"
+done >> "$D/jobs0"
+ccl_lpt_order "$FLOW_TIMES" < "$D/jobs0" | sed 's/^[^ ]* //' > "$D/jobs"
 fg_job() {   # fg_job FILE ARITY: chart the copy, write the verdict line; its own variable names (sh has no locals, 0.107)
   _fj_s=$(date +%s)
-  timeout -s KILL "$FLOW_SECS" "$C" --local query "use_module(library(flow/chart)), ensure_loaded('$ROOT/test/flow.pl'), fg_findings_main('$D/src/$1.pl', $2, $loads, $mods, '$D/out/$1.txt')" > "$D/out/$1.log" 2>&1 < /dev/null
+  case " $TFILES " in *" $1 "*) _fj_l=$tloads ;; *) _fj_l=$loads ;; esac
+  timeout -s KILL "$FLOW_SECS" "$C" --local query "use_module(library(flow/chart)), ensure_loaded('$ROOT/test/flow.pl'), fg_findings_main('$D/src/$1.pl', $2, $_fj_l, $mods, '$D/out/$1.txt')" > "$D/out/$1.log" 2>&1 < /dev/null
   _fj_rc=$?; _fj_t=$(( $(date +%s) - _fj_s ))
   if [ "$_fj_rc" -eq 0 ] && [ -f "$D/out/$1.txt" ] && grep -aq '^1 answer' "$D/out/$1.log"; then
     echo "ok $1 $_fj_t" > "$D/res/$1"; ccl_time_record "$FLOW_TIMES" "$1" "$_fj_t"
@@ -68,16 +77,16 @@ ccl_pool "$FLOW_JOBS" "$FLOW_LAUNCH_MB" "$FLOW_HARD_MB" < "$D/jobs"; pooled=$?
 
 # the verdicts, then every finding keyed as the expect file keys it
 bad=0
-for f in $FILES; do
+for f in $FILES $TFILES; do
   r=$(cat "$D/res/$f" 2>/dev/null || echo "FAIL $f: no verdict")
   case "$r" in
-    ok*) set -- $r; echo "ok   library/$f.pl charted in $3 s: $(wc -l < "$D/out/$f.txt" | tr -d ' ') findings" ;;
+    ok*) set -- $r; echo "ok   $(fg_path $f) charted in $3 s: $(wc -l < "$D/out/$f.txt" | tr -d ' ') findings" ;;
     *) echo "$r"; tail -5 "$D/out/$f.log" 2>/dev/null | sed 's/^/     /'; bad=1 ;;
   esac
 done
 [ "$bad" -eq 0 ] || { echo "RED: a file was not charted"; exit 1; }
-for f in $FILES; do
-  awk -F '\t' -v file="library/$f.pl" '{
+for f in $FILES $TFILES; do
+  awk -F '\t' -v file="$(fg_path $f)" '{
       kind = $1; sev = $2; in_ = $3; text = $6
       if (kind == "discontiguous" || kind == "defined_twice") key = kind " " sev " " file " " in_
       else if (kind == "unknown_procedure") { c = text; sub(/ is defined nowhere.*/, "", c); key = kind " " sev " " file " " in_ " " c }

@@ -36,7 +36,10 @@ ccl_cross_prefix(x86_64, linux, 'x86_64-linux-gnu').
 %% THE C++ RUNTIME IS NAMED ON LINUX (0.93): a program is compiled against libc++'s headers (the one tree this compiler reads,
 %% ccl_toolchain_dirs), and on macOS `c++' is clang, whose C++ library is libc++; on Debian and Ubuntu `c++' is g++, whose is
 %% libstdc++, so the link found no `std::__1::__libcpp_verbose_abort' -- libc++'s runtime, `-lc++', is asked for by name there.
-ccl_link_libs(' -lm') :- ccl_cross_target(_, _), !.   % another machine (0.131): its own C library's libm; no libc++ of it here
+ccl_link_libs(Libs) :- ccl_cross_target(_, _), !,   % another machine (0.131): its own C library's libm ...
+    (   ccl_lang(cpp), ccl_cxx_dirs([TD]), ccl_cross_sysroot(SR), atom_concat(SR, HD, TD), atom_concat(Root, '/include/c++/v1', HD), atom_concat(Root, '/lib', Run), atom_concat(SR, Run, Lib), exists_directory(Lib)
+    ->  atomic_list_concat([' -L\'', Lib, '\' -Wl,-rpath-link,\'', Lib, '\' -Wl,-rpath,\'', Run, '\' -lc++ -lm'], Libs)   % ... and in C++ its libc++ (0.161), the tree read under the sysroot: found there at the link, and at the run where that machine keeps it, Root/lib, which `qemu-aarch64 -L' takes under the sysroot
+    ;   Libs = ' -lm' ).
 ccl_link_libs(Libs) :- ccl_lang(cpp), ccl_host_os(linux), !,
     (   ccl_cxx_dirs([D]), atom_concat(Root, '/include/c++/v1', D), atom_concat(Root, '/lib', Lib), exists_directory(Lib)   % THE LIBRARY OF THE TREE THE PROGRAM WAS READ FROM (0.122): two libc++ are often installed side by side (/usr/lib/llvm-18 and llvm-21), and the system's `libc++.so' is one of them -- the headers of one and the runtime of the other do not agree (std::print, optional<T &>, __hash_memory)
     ->  atomic_list_concat([' -L\'', Lib, '\' -Wl,-rpath,\'', Lib, '\' -lc++'], Libs)

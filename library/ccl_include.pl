@@ -405,10 +405,14 @@ ccl_lib_unit(G) :-
 %% involved: it cannot hold units this size (CLAUDE.md's findings).
 ccl_sum_dir(D) :- ( catch(os_env('HOME', H), _, fail) -> true ; H = '/tmp' ), atom_concat(H, '/.cicilang/cpp', D).
 ccl_sum_file(Path, F) :-
-    ccl_sum_dir(D), ccl_std(Std), ccl_cmdline_key(CK), atomic_list_concat([Path, '@', Std, CK], Keyed), atom_codes(Keyed, Cs), ccl_fold(Cs, 7, 131, S1), ccl_fold(Cs, 13, 137, S2),   % one summary per level, and per set of command-line macros (0.112): a header read under `-DNDEBUG' is another header
+    ccl_sum_dir(D), ccl_std(Std), ccl_cmdline_key(CK), ccl_target_key(TK), atomic_list_concat([Path, '@', Std, CK, TK], Keyed), atom_codes(Keyed, Cs), ccl_fold(Cs, 7, 131, S1), ccl_fold(Cs, 13, 137, S2),   % one summary per level, and per set of command-line macros (0.112): a header read under `-DNDEBUG' is another header
     ( sub_atom(Path, B, _, 0, Base), sub_atom(Path, B1, 1, _, '/'), B1 < B, \+ sub_atom(Base, _, _, _, '/') -> true ; Base = Path ),
     atomic_list_concat([D, '/', Base, '-', S1, '-', S2, '.sum'], F).
 ccl_cmdline_key(K) :- ( nb_current('$pp_cmdline', L), L \== [] -> msort(L, L1), term_to_atom(L1, A), atom_concat('@', A, K) ; K = '' ).
+%% ... AND PER MACHINE (0.161): a header read for another machine (`--target=') is read under its macros -- `__aarch64__',
+%% `__CHAR_UNSIGNED__', the quad's `__LDBL_*' -- and this compiler's own `<limits.h>' and `<float.h>' have one path for every
+%% machine, so a host's summary of one was VALID for a target's read (its deps unchanged) and served it the host's limits
+ccl_target_key(K) :- ( nb_current('$ccl_target', target(A, O, T)), \+ ( catch(ccl_host_arch(A), _, fail), catch(ccl_host_os(O), _, fail) ) -> atom_concat('@', T, K) ; K = '' ).
 ccl_fold([], S, _, S).
 ccl_fold([C|Cs], S0, M, S) :- S1 is (S0 * M + C) mod 2147483647, ccl_fold(Cs, S1, M, S).
 ccl_sum_valid(F) :-
@@ -760,7 +764,8 @@ ccl_toolchain_dirs(Ds) :-
 %% and trips an #error)
 ccl_cxx_dirs(Ds) :-
     ccl_llvm_roots(Rs), findall(D, ( member(R, Rs), atom_concat(R, '/include/c++/v1', D) ), D0), ccl_sdk_dirs(S), findall(D, ( member(Sd, S), atom_concat(Sd, '/c++/v1', D) ), D1), append(D0, D1, All),
-    ( member(D, All), exists_directory(D) -> Ds = [D] ; Ds = [] ).
+    ( member(D, All), exists_directory(D) -> Ds0 = [D] ; Ds0 = [] ),
+    ( Ds0 = [HD], ccl_cross_sysroot(SR), atom_concat(SR, HD, TD), exists_directory(TD) -> Ds = [TD] ; Ds = Ds0 ).   % ANOTHER MACHINE'S libc++ (0.161): the tree the host would read, under the cross sysroot -- Debian's and Ubuntu's arm64 packages (libc++-18-dev, libc++1-18, libc++abi1-18, libunwind-18) extracted into /usr/aarch64-linux-gnu put it at /usr/aarch64-linux-gnu/usr/lib/llvm-18; without it the host's headers, which compile and do not link
 ccl_llvm_roots(Rs) :- ( catch(os_env('LLVM', L), _, fail), L \== '' -> Rs0 = [L, '/usr/local/opt/llvm', '/opt/homebrew/opt/llvm'] ; Rs0 = ['/usr/local/opt/llvm', '/opt/homebrew/opt/llvm'] ),
     ccl_debian_llvm_roots(Ds), append(Rs0, Ds, Rs).
 %% Debian and Ubuntu keep each LLVM under /usr/lib/llvm-NN, libc++ at /usr/lib/llvm-NN/include/c++/v1 (the libc++-NN-dev

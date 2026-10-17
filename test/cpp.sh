@@ -46,7 +46,12 @@ if command -v "$CXXREF" > /dev/null 2>&1; then
   "$CXXREF" -std=c++17 -w -c "$ROOT/test/cpp/link/abi_helper.cpp" -o abi_helper.o 2>/dev/null
   got=$("$ROOT/bin/cicilang++" "$ROOT/test/cpp/link/abi_main.cpp" abi_helper.o -o abi 2>&1 && ./abi)
   if [ "$got" = "1 2 3 60 | 245 | 8 8 | 16 16" ]; then echo "ok   classes cross a call to clang++'s code as the Itanium ABI lays them (a base's tail padding, the table pointer first)"; else echo "FAIL the class layout against clang++'s (test/cpp/link)"; echo "     got  $got"; failures=$((failures + 1)); fi
-else echo "SKIP the class layout against clang++'s: no clang++"; fi
+  # ... AND POINTERS TO MEMBER FUNCTIONS BOTH WAYS (0.161): memptr_helper.cpp by clang++, memptr_main.cpp by cicilang++ -- a
+  # virtual member, a second base's adjustment, an override of its virtual, the null pointer
+  "$CXXREF" -std=c++17 -w -c "$ROOT/test/cpp/link/memptr_helper.cpp" -o memptr_helper.o 2>/dev/null
+  got=$("$ROOT/bin/cicilang++" "$ROOT/test/cpp/link/memptr_main.cpp" memptr_helper.o -o memptr 2>&1 && ./memptr)
+  if [ "$got" = "11 21 53 42 63 | 11 21 53 42 63 | 1 0 0 1" ]; then echo "ok   pointers to member functions cross a call to clang++'s code both ways ({ ptr, adj } as the Itanium ABI has it)"; else echo "FAIL pointers to member functions against clang++'s (test/cpp/link/memptr_*.cpp)"; echo "     got  $got"; failures=$((failures + 1)); fi
+else echo "SKIP the class layout and the member pointers against clang++'s: no clang++"; fi
 echo "-- M6, in steps: C++ that is C with names, classes, virtual, templates, lambdas, the B-tree the C++ way, a bag of names, members of class type, C++20, C++23, template template parameters, overloads as C++ chooses, libc++'s std::swap -- built and run (test/cpp/run/NAME.cpp against NAME.expect), in parallel over the pool"
 # A FIXTURE'S BUILD HAS A TIME CAP (0.93): on libc++ 18 two <algorithm> fixtures ran past thirty minutes, and a gate with no
 # cap hangs for the owner (0.92 kept a fixture out of the tree for exactly that). The cap is CPP_FIXTURE_SECS (2400: the

@@ -9,7 +9,7 @@ readhdr_main :-
     nb_setval('$ccl_std', Std),
     os_env('CCL_TEST_TMP', D), atomic_list_concat([D, '/inc_', H, '_', Std, '.cpp'], F),
     atomic_list_concat(['#include <', H, '>\n'], Text), atom_codes(Text, Cs), write_file_from_codes(F, Cs),
-    (   catch(cicilang_ast(F, unit(Is)), E, (print_message(error, E), fail)),
+    (   catch(cicilang_ast(F, unit(Is)), E, (format("     the read raised ~q~n", [E]), fail)),
         member(include(_, system(H), file(_, preprocessed, U)), Is)
     ->  (   U = unit(Items) -> length(Items, K),
             ( Min =:= 0 -> format("warm <~w> C++~w: ~w items~n", [H, Std, K])

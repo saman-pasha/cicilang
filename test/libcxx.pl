@@ -21,7 +21,7 @@ libcxx_header(H, Min) :- libcxx_header_(H, 17, Min).
 libcxx_header_(H, Std, Min) :-
     os_env('CCL_TEST_TMP', D), atomic_list_concat([D, '/inc_', H, '_', Std, '.cpp'], F),
     atomic_list_concat(['#include <', H, '>\n'], Text), atom_codes(Text, Cs), write_file_from_codes(F, Cs),
-    (   catch(cicilang_ast(F, unit(Is)), E, (print_message(error, E), fail)),
+    (   catch(cicilang_ast(F, unit(Is)), E, (format("     the read raised ~q~n", [E]), fail)),
         member(include(_, system(H), file(_, preprocessed, U)), Is)
     ->  (   U = unit(Items) -> length(Items, K),
             ( K >= Min -> format("ok   <~w> at C++~w flattened and read whole: ~w items~n", [H, Std, K]) ; format("FAIL <~w> at C++~w read whole but only ~w items~n", [H, Std, K]), libcxx_fail )

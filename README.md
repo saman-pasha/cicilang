@@ -57,7 +57,8 @@ record of every step.
   `std::coroutine_traits`, over LLVM's coroutine intrinsics), modules
   (`export module`, `import`, header units, exports enforced), contracts enforced at
   run time, and the Itanium ABI's layout, name mangling and calling
-  convention, so cicilang's objects link with clang's.
+  convention, so cicilang's objects link with clang's, on x86-64 and on
+  aarch64 Linux (pointers to member functions in ARM's form there).
 * **libc++ compiled from its own headers.** Nothing of the standard
   library is written here: `std::vector`, `std::string`, `std::map`,
   `std::set`, the unordered containers, `std::optional`, `std::tuple`,
@@ -66,7 +67,8 @@ record of every step.
   `std::stringstream`, `std::fstream`, `std::bitset`, `std::complex`,
   `std::span`, `std::byte` and the manipulators all compile from libc++'s
   own bodies and run, on Linux with libc++ 18 and with libc++ 21 (the gates run both, `LLVM=/usr/lib/llvm-18` and
-  `LLVM=/usr/lib/llvm-21` choose the tree) and, as of 0.90, on macOS (libc++ 21).
+  `LLVM=/usr/lib/llvm-21` choose the tree), on aarch64 Linux under qemu over that machine's libc++ 18 in the cross
+  sysroot, and, as of 0.90, on macOS (libc++ 21).
 * **The safe part.** `own` pointers are linear and `move` hands them on. A
   borrow dangles when its owner is consumed and may not escape. A struct's
   own fields are owners that go with it. A plain pointer parameter is a
@@ -405,4 +407,4 @@ HISTORY.md                     the record of every step: what it did, what it fo
 run-time parser catches a bad one); the range adaptors not named;
 a `\N{...}` abbreviation
 alias (`\N{NUL}`, which clang refuses too); the arm64 ABI on Apple's machines
-(Linux on aarch64 is proven under qemu). Each is named in `CLAUDE.md` with where it stops.
+(Linux on aarch64 is proven under qemu, C and C++). Each is named in `CLAUDE.md` with where it stops.

@@ -154,6 +154,7 @@ One row per step, in version order: the step's title, what it did and its gate n
 | 0.158 | cocolog 2.2.0: a float that is no number raises, and the library's float code meets none | cocolog 2.1.1, 2.1.2 and 2.2.0 taken and rebuilt; 2.2.0 raises at a float result or operand that is an infinity or a NaN and at a division by a float zero, and 0.157 failed on it (reader check `k93`, no `<vector>` summary, six C fixtures raised and three looped); the library's float code repaired: an infinity told by a comparison and made from its text, the exponent's estimate held to a double's, `float(T) * 2.0 ** L`, a double's fold on the exact road, the hex float; the same IR on 2.1.0, byte for byte; 2.2.1 and 2.2.2 not taken | all nine gates GREEN over libc++ 18, the two libc++ gates over 21, 3890 s (0.157: 4185 s); 498 of 501 C++ fixtures over 18, 500 over 21; five warm builds 45.62 s on 2.2.0, 45.31 s on 2.1.0; the census of `<iomanip>` 69.8 s and 72.7 s |
 | 0.159 | cocolog 2.2.5: `write/1` and `writeq/1` swipl's, the library unchanged | cocolog 2.2.1 to 2.2.5 taken and rebuilt, the library unchanged: the float flags, a prefix operator written before a number with no space, `print/1`, `write/1` and `writeq/1` with numbervars and a quote in an atom written `\'`; no summary, AST line or store row moves, `-ast-dump` and a diagnostic's terms spell `\'` | all nine gates GREEN over libc++ 18, the two libc++ gates over 21, 3956 s (0.158: 3890 s); 498 of 501 C++ fixtures over 18, 500 over 21; five warm builds 53.40 s on 2.2.5, 54.04 s on 2.2.0 |
 | 0.160 | Not done, the first part: casts in constant expressions, a floating literal's text, the diamonds, the regroup | floating constants under a cast folded in an integer constant expression and an enumerator a constant or nothing; a user-defined floating literal's text; an unfolded value argument's static defined; a decimal to and from a `_BitInt` past 128 bits; Apple's arm64 `va_arg` of an aggregate; a header's keyed names called through a using; the program's static member functions without `this`; diamonds over a virtual base with no virtual function and over two library classes; the 124 split predicates brought together | the chain RED at `nsusing.cpp` over both trees, then the flow gate and both C++ gates GREEN with the fix: 4195 s and 1487 s (0.159: 3956 s); 506 of 509 C++ fixtures over 18, 508 over 21 |
+| 0.161 | Not done, the second part: C++ for aarch64 and ARM's member pointers, names through a using, statement columns | C++ for aarch64 Linux over that machine's libc++ 18 in the cross sysroot, linked and run under qemu; pointers to member functions in ARM's form there; a data member pointer's null -1, its conversions, comparisons and zero-initialization; a header's keyed name named through a using; a statement's column in the debug information; the gates' own Prolog charted; the neighbours' open issues measured again | the libc++ 18 half GREEN, all nine gates, 2685 s; 509 of 512 C++ fixtures over 18; the libc++ 21 half still running at the commit |
 
 ## M5 — the C++ mode
 
@@ -9763,3 +9764,87 @@ flow gate (one finding, 49 s) and the two C++ gates ran again over the chain's w
 the 22 refusals and the three of the safe part; over libc++ 21 GREEN in 721 s (peak 2083 MB; 0.159: 881 s), 508 of 509
 ok, the skip `stdoptionalref`. The fixtures' builds summed 2689 s over libc++ 18 (0.159: 2582 s over 498 fixtures) and
 2726 s over libc++ 21 (0.159: 2799 s over 500).
+
+## 0.161 — Not done, the second part: C++ for aarch64 and ARM's member pointers, names through a using, statement columns
+
+**0.161: five items of Not done taken -- C++ for aarch64 Linux over that machine's libc++, linked and run under qemu,
+with pointers to member functions in ARM's form; a header's keyed name NAMED through a using of its namespace; a
+statement's column in the debug information; the gates' own Prolog charted by the flow gate; the neighbours' open issues
+measured again on cocolog 2.2.5 -- with the defects they met: four of pointers to members (three silent wrong answers),
+three of the reader and the desugaring, two of the gate programs. The chain's libc++ 18 half GREEN, all nine gates; its
+libc++ 21 half was still running when this step was committed, on the stop hook's request, and the next commit carries
+its numbers.** The owner's ask of 0.159 ("Take cocolog 2.2.5, do all "not done" tasks"), its third step.
+
+- G, C++ FOR AARCH64 LINUX. That machine's libc++ 18 is Ubuntu's six arm64 packages (`libc++-18-dev`, `libc++1-18`,
+  `libc++abi-18-dev`, `libc++abi1-18`, `libunwind-18`, `libunwind-18-dev`, 1:18.1.3-1ubuntu1) extracted by `dpkg-deb -x`
+  into the cross sysroot `/usr/aarch64-linux-gnu` (apt installs no package of another architecture without multiarch).
+  `cicilang++ --target=aarch64-linux-gnu` reads the tree the host would read under the sysroot (`ccl_cxx_dirs`), links
+  through the cross gcc with ` -lc++ -lm` and an rpath to where that machine keeps the library (`ccl_link_libs/1`), and
+  keys a C++ summary by the target too (`ccl_target_key/1` in `ccl_sum_file/2`): this compiler's own `<limits.h>` and
+  `<float.h>` have one path for every machine, so a host's summary of a header that read them was valid for the target's
+  read and served it the host's limits. The cross gate builds 23 C++ fixtures with cicilang++ and with clang++ over the
+  same libc++, runs both under qemu and compares them -- a fixture in the language's own forms (`bag.cpp`'s `own`),
+  which clang++ does not read, held to its `.expect` as the C fixtures are -- then the C++ gate's two ABI checks against
+  clang++'s code on that machine. Each C++ build has a time and a memory cap of its own (`CROSS_SECS`, `CROSS_MB`).
+- ARM'S MEMBER POINTERS (`ccl_memptr_arm/0`): on arm64 a function's address may be odd, so the virtual mark is `adj`'s
+  low bit and `adj` twice the `this` adjustment (clang's `UseARMMethodPtrABI`, on Linux and Apple's machines alike): a
+  virtual member's `ptr` its slot's offset, the null test `ptr` or the mark, a call shifting `adj` right once, a base's
+  conversion adding twice the offset. In x86-64's form a pointer that clang++ built for aarch64 was read as a plain
+  function, and a virtual call jumped to the slot's offset. `test/cpp/link/memptr_main.cpp` over clang++'s
+  `memptr_helper.cpp`, in the C++ gate and the cross gate.
+- POINTERS TO MEMBERS, the defects that check met, on both machines. A member function that a BASE declares named
+  through the derived class, `&C::va`, was refused `no_member(C, va)`: it is the base's member pointer, converted
+  (`cpp_method_base/3`). `CM none = nullptr` was a `ptrtoint` LLVM refused. And three silent wrong answers of pointers
+  to DATA members, whose null is -1 (the Itanium ABI's and ARM's; offset 0 is the first member's): the null was 0, so
+  `&C::a` of a first member tested null; a second base's member converted to the derived class's kept the base's offset,
+  so `c.*t` read C's first member; and `p == nullptr` compared a pointer with `ptr null` -- false for a null p -- and
+  two of them had no type. Now a null constant converts to -1 (`ir_convert/6`), a conversion adds the offset and keeps
+  the null (a `select`), the truth test is `!= -1`, a comparison brings both to one type (`ir_memptr_cmp/8`: integers,
+  or clang's rule for `{ ptr, adj }` on each ABI), and the zero-initialization of every type that holds one -- a global
+  without an initializer, an aggregate's missing items, an array's rest, `T t{}`, `new T()`, a value-initialized class
+  -- has the -1s (`ir_null_const/3`; `cpp_zero_not_null/3` and `cpp_zero_stmts/5` after a `calloc` or a `memset`).
+  `memptrnull.cpp`, on aarch64 too.
+- L, A HEADER'S KEYED NAME NAMED THROUGH A USING (0.160 took it called): a type (`less l;` under `using namespace
+  std::ranges;`, `cpp_using_type_key/3`), an object read or a function of one definition as a value (`auto b = begin;`,
+  `cpp_using_value/2`), a function template's instance as a value (`&abs<long long, ratio<1>>`), an overload set as a
+  value (the key's overloads first, then the bare name's), and a using-declaration of a keyed type at namespace scope
+  (`cpp_hdr_type_using/2`). `usingnamed.cpp` (C++20). ITS REDUCTIONS MET THREE DEFECTS: a qualified type before a
+  parenthesized declarator in a block, `ns::T (*m)(int) = &ns::make;`, read as an expression
+  (`ccl_paren_declarator_ahead//0`, [stmt.ambig]); `auto b = std::ranges::begin;` deduced from the table's flattened
+  `void begin(auto &)` (`ccl_auto_by_overload/1` takes a function-typed name in C++); and `T{k}` over `typedef S T;` a
+  cast of k to the struct (`cpp_type_call/3`'s record aggregate). `parendecl.cpp` (C++20). Reader 132.
+- J, A STATEMENT'S COLUMN IN THE DEBUG INFORMATION: every location has the column where its statement begins, the one
+  clang gives its first instruction or its last (`ir_stmt_anchor/2`, found in the line's text, `ir_dbg_col/2`), a loop's
+  step and branch back the loop's line and column; every location was column 1. clang gives each expression its own
+  column, which needs a column in every token; the driver gate (39 checks) holds each row of a program's line table to
+  one clang's has for that line.
+- E2, THE GATES' OWN PROLOG CHARTED: the flow gate reads the nine gate programs of `test/` beside the ten library files,
+  220 predicates more (3758 in all, 92 s). Their first chart found `census_main/0` split by another predicate's clause
+  and a call of `print_message/2`, which cocolog does not have, in a `catch/3`'s recovery in `readhdr.pl` and
+  `libcxx.pl`: a read that raised would have raised again there. Both mended.
+- F, THE NEIGHBOURS' OPEN ISSUES ON cocolog 2.2.5: the collector in a nested engine, which cocolog 1.9.4 brought: a
+  deterministic loop that makes a 41-cell term at each turn and keeps none, thirty million turns (some 9.8 GB of cells),
+  peaks at 42 MB inside `findall/3` and inside `forall/2` alike, 536 collections at the top, about 13 s each -- so its
+  Not done bullet goes, and the `\+ \+` scoping stays for the work it serves; the store's write is linear in its rows
+  (ZiguratIP 1.0.1, cocolog 2.x): one process asserting 10,000 to 640,000 rows of one predicate into a fresh store took
+  148 ms to 8.8 s, twice the time for twice the rows, some 385 bytes a row on disk, a read back 43 ms to 2.9 s, where
+  1.2.16's write grew as the square past 30,000 rows; but a LATER process that adds one row to a predicate of N rows
+  still rewrites all of it, 1.0 s and 15 MB more on disk at 40,000 rows and 3.9 s and 61 MB at 160,000, where a row of
+  another predicate costs 27 to 45 ms and nothing on disk -- so one predicate per file stays, and the reason written for
+  the C++ store's absence is gone: whether `cicilang++` keeps a store as `bin/cicilang` does is the owner's to decide.
+  The scripts are session scratch.
+- `CLAUDE.md`: the versions; each item in its topic, and the Not done bullets they close dropped. `README.md`: C++ on
+  aarch64 Linux.
+
+Reader 132, lowering 86.
+
+THE GATES. The chain on a worktree of 0.160 (`ffea08b`) with these changes and the version 0.161, its two modules built
+over cocolog 2.2.5, fresh HOMEs, started at 14:04 UTC. Over libc++ 18 all nine GREEN, 2685 s: the flow gate (one
+finding, `test/flow.expect`'s, 81 s, peak 2719 MB over its four lanes; 0.160: 58 s over the library alone), reader 5 s,
+compile 13 s (82 run and 47 safe fixtures), driver 12 s (39 checks), objects 4 s (29 checks), the proof, the cross gate
+in 644 s (82 C fixtures and 3 checks, 23 C++ fixtures and 2 checks, peak 577 MB; 0.160: 62 s for its C part alone -- the
+C++ part is cold, its summaries the target's own), the library read in 1111 s (peak 1048 MB; 0.160: 1140 s) and the C++
+gate in 797 s (peak 2191 MB; 0.160's rerun: 717 s), 509 of its 512 fixtures ok -- the skips `joinwith`, `stdoptionalref`
+and `tzone` -- and the 22 refusals and the three of the safe part. The fixtures' builds summed 2797 s over libc++ 18
+(0.160: 2689 s over 509). Over libc++ 21 the library read and the C++ gate were running when this step was committed:
+the entry claims nothing of them, and the next commit carries their numbers.
