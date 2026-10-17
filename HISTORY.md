@@ -152,6 +152,7 @@ One row per step, in version order: the step's title, what it did and its gate n
 | 0.156 | cocolog 1.15.0: a whole run's time by predicate, and `compare/3` measured | cocolog 1.15.0 taken and rebuilt; `test/prof.sh`'s sixth view, RUN, the whole build's self time by predicate (`flow_run_time/3`), and the TIME view's ` @W:S`; `compare/3` orders two integers as doubles (every kept engine back to 1.10.22), and cicilang's constant folds and C++ memos give wrong answers through it (four probes against clang), told to cocolog's owner and left in Not done; a copied HOME is no warm HOME | all nine gates GREEN over libc++ 18, the two libc++ gates over 21, 4469 s (0.155: 4509 s); 498 of 501 C++ fixtures over 18, 500 over 21; five warm builds 49.72 s on 1.15.0, 50.07 s on 1.14.0; the census of `<iomanip>` 119.6 s and 118.6 s; `stdvector.cpp`'s whole run 2.816 s untraced |
 | 0.157 | cocolog 2.1.0: integers of 64 bits, text in characters, and `compare/3` mended | cocolog 2.0.0 and 2.1.0 taken and rebuilt, the library unchanged: integers of 64 bits (`int_overflow` past them), two integers ordered exactly, text in characters by default, `=@=/2` and `subsumes_term/2`; the four `compare/3` probes of 0.156 print clang's answers on 2.1.0, and Not done's item goes; `0.0` and `-0.0` are equal to unification and `==` on 2.1.0, and 2.1.1 (out during the chain, not taken) tells them apart | all nine gates GREEN over libc++ 18, the two libc++ gates over 21, 4185 s (0.156: 4469 s), the C++ side's first run in characters; 498 of 501 C++ fixtures over 18, 500 over 21; five warm builds 46.92 s on 2.1.0, 47.20 s on 1.15.0; the census of `<iomanip>` 102.1 s and 101.0 s |
 | 0.158 | cocolog 2.2.0: a float that is no number raises, and the library's float code meets none | cocolog 2.1.1, 2.1.2 and 2.2.0 taken and rebuilt; 2.2.0 raises at a float result or operand that is an infinity or a NaN and at a division by a float zero, and 0.157 failed on it (reader check `k93`, no `<vector>` summary, six C fixtures raised and three looped); the library's float code repaired: an infinity told by a comparison and made from its text, the exponent's estimate held to a double's, `float(T) * 2.0 ** L`, a double's fold on the exact road, the hex float; the same IR on 2.1.0, byte for byte; 2.2.1 and 2.2.2 not taken | all nine gates GREEN over libc++ 18, the two libc++ gates over 21, 3890 s (0.157: 4185 s); 498 of 501 C++ fixtures over 18, 500 over 21; five warm builds 45.62 s on 2.2.0, 45.31 s on 2.1.0; the census of `<iomanip>` 69.8 s and 72.7 s |
+| 0.159 | cocolog 2.2.5: `write/1` and `writeq/1` swipl's, the library unchanged | cocolog 2.2.1 to 2.2.5 taken and rebuilt, the library unchanged: the float flags, a prefix operator written before a number with no space, `print/1`, `write/1` and `writeq/1` with numbervars and a quote in an atom written `\'`; no summary, AST line or store row moves, `-ast-dump` and a diagnostic's terms spell `\'` | all nine gates GREEN over libc++ 18, the two libc++ gates over 21, 3956 s (0.158: 3890 s); 498 of 501 C++ fixtures over 18, 500 over 21; five warm builds 53.40 s on 2.2.5, 54.04 s on 2.2.0 |
 
 ## M5 — the C++ mode
 
@@ -9615,3 +9616,47 @@ the C++ gate in 818 s (peak 2323 MB; 0.157: 851 s), 500 of 501 ok, the skip `std
 summed 2163 s over libc++ 18 (0.157: 2230 s) and 2497 s over libc++ 21 (0.157: 2534 s). Then the live checkout took the
 same changes, and its two modules were built again over 2.2.0 (`cicilang 0.158 (cocolog 2.2.0; LLVM 18.1.3)`): on it the
 reader gate is GREEN (4 s).
+
+## 0.159 — cocolog 2.2.5: write/1 and writeq/1 swipl's, the library unchanged
+
+**0.159: cocolog 2.2.1 to 2.2.5 taken and gated, the library unchanged -- all nine gates GREEN over libc++ 18 and the
+two libc++ gates GREEN over libc++ 21, in 3956 s (0.158: 3890 s on 2.2.0).** The owner's ask: "Take cocolog 2.2.5, do
+all "not done" tasks". This step is the engine, taken and gated alone, with only the version raised; the work on Not
+done follows in the steps after it.
+
+- THE NEIGHBOURS. cocolog `2b7df28` (2.2.0) to `fd155de` (2.2.1), `46c2807` (2.2.2), `cdf2cb4` (a note of its
+  `CLAUDE.md`), `e4a8b6f` (2.2.3), `f6a0a2f` (2.2.4) and `6718a45` (2.2.5); ZiguratIP (`90d99b8`, 1.0.1) and Cicili
+  (`9d74a5e`, 3.0.0) unchanged. The 2.2.0 tree was kept (`coco220`), and the live checkout's modules built over it
+  (`so158-220`), then `git merge --ff-only 6718a45`, `make` (156 s), `make schema` (36 s), `make modules` (66 s; torch,
+  tensorflow, ray and numpy skipped, as before) and both modules (LLVM 18): `cicilang 0.159 (cocolog 2.2.5; LLVM
+  18.1.3)` in the worktree. The SDK did not change.
+- WHAT THEY CHANGE, read against the library. 2.2.1 lints the tree (`tools/cocolint`) and changes no engine source but
+  its version line. 2.2.2 adds swipl's four float flags, `set_prolog_flag/2` as a goal and `inf`, `nan` and `epsilon` as
+  evaluable functions, no answer changed at the default flags: no `is/2` of the library evaluates an atom. 2.2.3 writes
+  a symbolic prefix operator before a number with no space (`+1`, `\+1`), as swipl does. 2.2.4 makes `print/1` and `~p`
+  quoted, with numbervars; the check's trace (`ck_trace/1`) is the one `print/1` of the library. 2.2.5 gives `write/1`,
+  `writeq/1`, `~w` and `~q` numbervars and makes every quoted write escape a quote inside an atom as `\'` and the codes
+  7, 8, 11 and 12 as `\a \b \v \f`, where `term_to_atom/2`, the store, a channel and a message keep the doubled quote.
+  The library writes no `'$VAR'` term, and every summary line, AST line and store row goes through `term_to_atom/2` or
+  the store, so nothing it keeps moves (the library read writes 23 headers' summaries again, GREEN); what `writeq/1`
+  writes -- `-ast-dump` and a diagnostic's terms (`dr_write/1`, `dr_args/1`) -- spells a quote in an atom `\'` now, and
+  no gate compares such a line.
+- THE ENGINE, MEASURED, one run at a time, the same library on each engine (`wt158x`, 0.158 over 2.2.0 with `so158-220`;
+  `wt159` over 2.2.5): five warm C++ builds, the least CPU time of three runs each, 54.04 s on 2.2.0 and 53.40 s on
+  2.2.5 (`counter.cpp` 0.19 and 0.21, `stdvector.cpp` 3.01 and 2.97, `stdmap.cpp` 5.07 and 4.92, `stdtuple.cpp` 12.36
+  and 12.24, `stdformat.cpp` 33.41 and 33.06), so 2.2.1 to 2.2.5 cost nothing measurable here; both are some 18 % above
+  0.158's 45.31 s and 45.62 s, the box slower now: the chain's fixture builds took 19 % and 12 % more than 0.158's over
+  the same fixtures, where its library reads took 6 % less.
+
+Reader 130, lowering 84: no version moves.
+
+THE GATES. The chain on a worktree of 0.158 (`b955054`) with the version 0.159, its two modules built over 2.2.5, fresh
+HOMEs, started at 08:12 UTC: 3956 s in all (0.158: 3890 s). Over libc++ 18: the flow gate (125 findings, all of them
+`test/flow.expect`'s, 59 s, 2184 MB summed over its four lanes), reader 4 s, compile 12 s (80 run and 47 safe fixtures),
+driver 12 s (37 checks), objects 4 s (29 checks), the proof, the cross gate in 69 s (80 fixtures and 3 checks), the
+library read in 1153 s (peak 1161 MB; 0.158: 1231 s), the C++ gate in 734 s (peak 2246 MB; 0.158: 619 s) with 498 of its
+501 fixtures ok -- the skips `joinwith`, `stdoptionalref` and `tzone` -- and the 21 refusals and the three of the safe
+part. Over libc++ 21: the library read in 1028 s (peak 1030 MB; 0.158: 1092 s) and the C++ gate in 881 s (peak 2291 MB;
+0.158: 818 s), 500 of 501 ok, the skip `stdoptionalref`. The fixtures' builds summed 2582 s over libc++ 18 (0.158: 2163
+s) and 2799 s over libc++ 21 (0.158: 2497 s) -- over the same fixtures 19 % and 12 % more, the box slower now, as the
+five builds of the A/B (above) read alike on both engines.
