@@ -10,8 +10,8 @@ it found, its measurements and its gate numbers. `README.md` tells a user what r
 architecture and the milestones. A step that changes a rule edits the rule here, in its topic, and writes its entry
 in `HISTORY.md`.
 
-At 0.162 the versions are: the module 0.162 (`ccl_p_version` in `module/cicilang.cicili`, `bin/cicilang --version`),
-the reader 133 (`ccl_reader_version/1`, `library/ccl_syntax.pl`) and the lowering 87 (`ccl_lowering_version/1`,
+At 0.163 the versions are: the module 0.163 (`ccl_p_version` in `module/cicilang.cicili`, `bin/cicilang --version`),
+the reader 133 (`ccl_reader_version/1`, `library/ccl_syntax.pl`) and the lowering 88 (`ccl_lowering_version/1`,
 `library/ccl_ir.pl`).
 
 Build and prove, always in this order (or all of it, `sh test/gates.sh`):
@@ -397,13 +397,12 @@ tutorials/01..03-*.pl       the objects layer's lessons; goal main, last line do
 - `test/flow.sh` (0.144) reads every file of the library with cocolog's `library(flow/chart)` and RUNS NOTHING. A chart
   starts at one call pattern, so `test/flow.pl`'s `fg_roots_main/2` writes a copy of each file with a root,
   `'$fg_all'/N`, that calls each predicate the file defines with free arguments: 3538 predicates in the ten files at
-  0.161 (3804 in all at 0.162), and since 0.161 the 220 of the nine gate programs, `test/reader.pl`, `compile.pl`,
-  `cpp.pl`, `readhdr.pl`,
-  `census.pl`, `libcxx.pl`, `flow.pl`, `why.pl` and `prof.pl` (`TFILES`), each charted with the compiler and the flow
-  and process libraries loaded, nothing stubbed (no gate program is a library file); their first chart found a predicate
-  split by another's clauses (`census_main/0`) and a call of `print_message/2`, which cocolog does not have, in the
-  recovery of a `catch/3` in `readhdr.pl` and `libcxx.pl`: a read that raised would have raised again there, an
-  existence error where the FAIL line stands. Each copy is charted with the rest of the compiler loaded
+  0.161 (3815 in all at 0.163), and since 0.161 the 220 of the nine gate programs, `test/reader.pl`, `compile.pl`,
+  `cpp.pl`, `readhdr.pl`, `census.pl`, `libcxx.pl`, `flow.pl`, `why.pl` and `prof.pl` (`TFILES`), each charted with the
+  compiler and the flow and process libraries loaded, nothing stubbed (no gate program is a library file); their first
+  chart found a predicate split by another's clauses (`census_main/0`) and a call of `print_message/2`, which cocolog
+  does not have, in the recovery of a `catch/3` in `readhdr.pl` and `libcxx.pl`: a read that raised would have raised
+  again there, an existence error where the FAIL line stands. Each copy is charted with the rest of the compiler loaded
   (`flow_graph/3`'s `load(Files)`), and the file itself is stubbed out of the library path (an empty file of its name
   first on `COCOLOG_LIBRARY`), so that its clauses are read once. A helper of the gate takes the prefix `fg_`: cocolog
   has one namespace, and a helper named `flow_trim/2` joined `library/flow/read.pl`'s own and failed the chart far from
@@ -422,8 +421,8 @@ tutorials/01..03-*.pl       the objects layer's lessons; goal main, last line do
   two ways give the same findings, key for key, and the gate's own are gone. (0.144, 0.146)
 - One job a file in the memory-gated pool (`ccl_pool`; `FLOW_JOBS` 4, `FLOW_LAUNCH_MB` 9000, `FLOW_HARD_MB` 14000),
   the longest first by `~/.cicilang/flow-times`, each under `FLOW_SECS` (900 s): `ccl_cpp.pl` 47 s, `ccl_ir.pl` 47 s,
-  `ccl_driver.pl` 35 s, `ccl_syntax.pl` 32 s, `test/compile.pl` 31 s, the others under 21 s; the gate 83 s and 2417 MB
-  over its four lanes at 0.162 (92 s at 0.161; 55 s over the library alone at 0.144). A file that is not charted is RED.
+  `ccl_driver.pl` 34 s, `test/compile.pl` 33 s, `ccl_syntax.pl` 30 s, the others under 22 s; the gate 83 s and 2638 MB
+  over its four lanes at 0.163 (92 s at 0.161; 55 s over the library alone at 0.144). A file that is not charted is RED.
   (0.144, 0.161)
 - `fg_findings_main/5` writes `flow_findings/2`'s findings but the root's, a line each: the kind, the severity, the
   predicate, the line, the column and the text. The kinds: `unknown_procedure` (a call that nothing answers, with the
@@ -543,7 +542,7 @@ tutorials/01..03-*.pl       the objects layer's lessons; goal main, last line do
 ### The C++ gate: test/cpp.sh
 
 - `test/cpp.sh` runs in this order: `test/cpp.pl` in one `--local` process; four checks of the command; every
-  `test/cpp/run/*.cpp` as a pool job (514 at 0.162); `classes.cpp` and `templates.cpp` built and run; the refusals.
+  `test/cpp/run/*.cpp` as a pool job (518 at 0.163); `classes.cpp` and `templates.cpp` built and run; the refusals.
   (0.105)
 - `test/cpp.pl` runs 46 numbered checks, `c1` to `c46`, then reads Cicili's six C++ files whole (`test/cpp/objects.cpp`,
   `emit_report.cpp`, `specialise.cpp`, `syntax.cpp`, `torch.cpp`, `torch-fragment.cpp`). `c34` checks the Itanium
@@ -598,7 +597,7 @@ tutorials/01..03-*.pl       the objects layer's lessons; goal main, last line do
   | `access_base.cpp` | `access(private,'Base',secret)` | 0.117 |
   | `abstract.cpp` | `pure_virtual` | 0.99 |
   | `modhidden.cpp` | `undeclared(hidden)` | 0.110 |
-  | `diamond.cpp` | `virtual_base_by_two_paths` | 0.110, 0.160 |
+  | `diamond.cpp` | `virtual_base_by_two_paths` | 0.110, 0.160, 0.163 |
   | `basenodefault.cpp` | `base_constructor('B')` | 0.112 |
   | `access_inherit.cpp` | `access(private,'Derived',pub)` | 0.127 |
   | `access_protobj.cpp` | `access(protected,'Base',secret)` | 0.127 |
@@ -2037,7 +2036,7 @@ tutorials/01..03-*.pl       the objects layer's lessons; goal main, last line do
   0.117)
 - A reader bump makes every summary cold; `test/libcxx.sh` rewrites them. `test/reader.pl`'s `k16` (a cached read is
   the same AST as a fresh one) goes RED on a grammar change without a bump. (0.93, 0.105)
-- `ccl_lowering_version/1` (`library/ccl_ir.pl`, now 87): bump it whenever the check or the lowering changes what it
+- `ccl_lowering_version/1` (`library/ccl_ir.pl`, now 88): bump it whenever the check or the lowering changes what it
   emits, however small -- 0.120 bumped it for the ORDER of the drain functions alone. Why: `dr_ir/3` serves the old IR
   otherwise. Either bump starts the C store afresh. (M4, 0.103, 0.120)
 
@@ -2548,6 +2547,11 @@ free. A const method adds `.c`, a ref-qualified one `.r` or `.rr` after it: each
 - `a = b` on a class calls its `operator=`, copy or move by the value category. A value of another type assigned to a
   class without a destructor and without a fitting `operator=` converts through a converting constructor
   (`cpp_expr(assign('=', ...))`): `__f = erase(__f)`. An array assigned is its bytes (`memcpy`). (0.44, 0.80)
+- AN OBJECT OF A DERIVED CLASS ASSIGNED TO A BASE'S IS ITS BASE SUB-OBJECT, the slicing copy ([class.copy.assign]: the
+  implicit `C &operator=(const C &)` binds the derived object's C part; 0.163; `cpp_assign_sliced/3`, `*(C *) &x` before
+  the roads above), where the class writes no copy or move `operator=` (a written one chooses as before). `sd2 = se`
+  over `SE : SD` was refused `assignment_to_a_class_with_destructor(SD)`, a class with no virtual base among them, since
+  the implicit memberwise assignment (0.84) took the class's own value only. `vbaseedge.cpp`. (0.163)
 - A by-value parameter of a class with a destructor takes a temporary (`cpp_copies_`): the move constructor's for
   `std::move(x)` (`cpp_move_temp`), else the copy constructor's (`cpp_copy_temp`), else
   `class_with_destructor_by_value(C)`. The callee destroys it through a defer (`cpp_param_defers`), an UNNAMED one too
@@ -5007,8 +5011,36 @@ A lambda is a class of its captures (`library/ccl_cpp.pl`). A fixture named alon
   name. Its struct carries `virtual_base`, or `virtual_base_of(T)` in its `.nv` form (`ccl_vbase_kind/2`);
   `ir_member_slot` adds the offset at `vptr[-3]` (-24), and `cpp_vbase_offset` writes it into every table. The complete
   object builds and destroys the base at its own place (`$base!`, `cpp_class_base_place`). A polymorphic virtual base
-  holds this class's secondary table. libc++'s streams are read through the shipped tables the same way.
-  `vbasertti.cpp`. (0.110, 0.160)
+  holds this class's secondary table. libc++'s streams are read through the shipped tables the same way. AN EMPTY
+  VIRTUAL BASE has no sub-object (an empty base takes no place, the Object layout topic), and the table's offset for it
+  is the complete object's own place, 0 for the primary table (0.163; `cpp_vbase_offset/4`'s first clause), as clang
+  lays it where nothing else of its type is there (the Itanium ABI's II.3): `offsetof(EB, $base)` named no member, and
+  every class over an empty virtual base was refused (`global_init`) from 0.160 to 0.162. `vbasertti.cpp`,
+  `vbaseedge.cpp`. (0.110, 0.160, 0.163)
+- EVERY CLASS OVER A VIRTUAL BASE IS LAID OUT AS THE ITANIUM ABI LAYS IT (2.4 II; 0.163): its non-virtual part is the
+  same in every context and its virtual base lies at the end of the COMPLETE object. A class whose one non-virtual base
+  holds a virtual base V -- a class over a virtual base, or a holder itself -- is a HOLDER of V (`cpp_path_holder/3`,
+  `cpp_nv_holds/2`; a class with several bases of which one holds V, `cpp_diamond_paths`' second clause): that base is
+  its `.nv` form, the class's own members follow it, and V is its own `$vb`, last; a holder's `.nv` form is the holder
+  without its `$vb` (`cpp_nv_form/3`), and every class with a `.nv` form has its base-variant twins
+  (`cpp_has_nv_form/1`, `cpp_nv_twin`), which build and destroy no virtual base and store no table. A holder has no
+  table pointer of its own: its pointer is its base's, a `$base` further in, and a store into a sub-object's pointer --
+  a secondary table's, a construction table's -- names it where the sub-object's class lays it (`cpp_vptr_at/3`; `P2.nv`
+  has no `$vptr`). The complete object builds V first -- with its OWN initializer of V, or V's default constructor
+  ([class.base.init]/13: a base's initializer of a virtual base is ignored where the base is not the most derived class)
+  -- then stores its tables and builds its paths by their base-variant constructors. Until 0.163 such a class embedded
+  its base whole, V inside it: `struct D : B { int d; }` over `B : virtual V` was [B (its table pointer, its members,
+  V), d], where clang lays [B's table pointer and members, d, V], and `D d;` built V with B's initializer. One virtual
+  base below a class; a class over two (`D : H1, H2` with `H1 : Q1, R1` over `virtual A` and `virtual W`) is laid as
+  before and refused where two paths share one, `virtual_base_by_two_paths` (`test/cpp/diamond.cpp`). A deeper path's
+  construction runs under its holder's construction table, the Itanium ABI's VTT being the exact form (a virtual call in
+  a base's constructor two levels below a holder reaches the nearer path's overrider). An EMPTY virtual base has no
+  place of its own -- it lies at offset 0, the ABI's II.3 -- and a class over it keeps its base whole
+  (`cpp_nv_holds/2`); the type information's `__diamond_shaped_mask` is set where a virtual base is reached twice below
+  the class, as clang sets it (`cpp_diamond_shaped/1`), and a holder of one path is no diamond. `vbaselayout.cpp`,
+  `diamonddeep.cpp`, `vbaseedge.cpp` (an empty virtual base, a holder's tail padding taken by a derived member, a copy
+  and an assignment of a holder's sub-object, a program class over `std::ostringstream`), `streamlay.cpp` (the streams'
+  sizes and where their `basic_ios` lies, clang's over libc++ 18 and 21). (0.163)
 - A diamond ([class.mi]/6) has clang's record layout (`cpp_diamond_paths`). Each path is its `B.nv` form, the class
   without the shared base at its data size, so a later member can use its tail padding (`ccl_size_align`'s
   `virtual_base_of` clause). The complete object holds the shared base once, at its end (`$vb`, `'$cpp_vb_holder'`,
@@ -5023,23 +5055,22 @@ A lambda is a class of its captures (`library/ccl_cpp.pl`). A fixture named alon
   do is the virtual base's destruction, which the holder performs. `std::wstringstream`, a diamond libc++ does not ship
   for wchar_t, is destroyed so. Any other shipped path destructor keeps the `.nv` name and fails at the link.
   `stdstringstream.cpp`. (0.117)
-- A class laid out otherwise than the ABI lays it is never CALLED by the shipped library's members (0.117). The ABI puts
-  a class's own members before the virtual base at the end of the complete object, and this compiler embeds a base that
-  has a virtual base WHOLE (the base at the end of it) before the derived members, so `basic_ofstream<char>`'s `__sb_`
-  lies at offset 160 here and 8 for clang. The members that libc++ exports for such an instance (`basic_ofstream<char>::
-  open`, `basic_ifstream<char>::open`, the two overloads each) read it at the ABI's offset: they are compiled from their
-  definition in the header instead (`cpp_nonabi_bases/1`, `'$cpp_nonabi'` around `cpp_member_defs` in
-  `cpp_instance_body`, read by `cpp_extern_shipped`). The members of the class that HOLDS the virtual base
-  (`basic_ostream`) and of a diamond's holder (`basic_iostream`) are shipped as before: their layout is the ABI's.
-  `stdfstream.cpp`. (0.117)
+- A class laid out otherwise than the ABI lays it is never CALLED by the shipped library's members (0.117): the members
+  that libc++ exports for such an instance are compiled from their definition in the header instead
+  (`cpp_nonabi_bases/1`, `'$cpp_nonabi'` around `cpp_member_defs` in `cpp_instance_body`, read by `cpp_extern_shipped`).
+  Since 0.163 every class over one virtual base is laid out as the ABI lays it (above) and is no such class
+  (`cpp_holder_bases/1`): the streams' `basic_ofstream<char>::open` and `basic_ifstream<char>::open`, whose `__sb_` lay
+  at offset 160 here and at 8 for clang from 0.117 to 0.162, are the shipped library's, and `__sb_` lies at 8. Only a
+  class over two virtual bases is still laid otherwise. `stdfstream.cpp`. (0.117, 0.163)
 - A diamond's method takes its final overrider from the path that overrides it (`cpp_final_impl`, a `cpp_primary_entry`
   thunk). A path that holds the base further in stays whole, and the later paths are `.nv`. A diamond over a virtual
   base with no virtual function builds, its paths having tables (0.160; `diamondplain.cpp`), and so does a program class
   over two LIBRARY classes sharing a virtual base (0.160; `struct X : std::istream, std::ostream`, `libdiamond.cpp`):
   `cpp_direct_nv/3` takes a library path, whose `.nv` constructors are compiled here and whose empty shipped destructor
   is left out (`cpp_nv_dtor/4`). A diamond whose paths hold the base FURTHER IN (`struct P1 : Q1` with `Q1 : virtual A`,
-  and `D : P1, P2` over two such) is refused, `virtual_base_by_two_paths` (`test/cpp/diamond.cpp`). `diamond.cpp`,
-  `diamond2.cpp`. (0.110, 0.160)
+  and `D : P1, P2` over two such) builds since 0.163, its paths holders whose `.nv` forms are the ABI's
+  (`cpp_direct_nv/3`'s second clause; refused as `virtual_base_by_two_paths` from 0.110 to 0.162). `diamond.cpp`,
+  `diamond2.cpp`, `diamonddeep.cpp`. (0.110, 0.160, 0.163)
 - CONSTRUCTION VTABLES (0.139; the Itanium ABI's, without the VTT: the holder stores them itself): while a diamond's path P is
   built or destroyed by its base-variant constructor or destructor, the object is a P ([class.cdtor]/4), so the path's table
   pointer holds `D.ctvtable<S>` (P's own implementations, the virtual base's offset and the offset to top of D's layout,
@@ -7298,14 +7329,14 @@ A lambda is a class of its captures (`library/ccl_cpp.pl`). A fixture named alon
 - Ubuntu 24.04 on x86_64 (clang and LLVM 18, glibc, libc++ 18 and 21) is a host since 0.87. Every gate but the C++ one
   is GREEN there since 0.93, and all seven since 0.95. Every step from 0.93 on is gated there, but the save points
   0.112, 0.113, 0.117, 0.122 to 0.125, 0.130, 0.131 and 0.143 (0.143's C gates and cross gate ran, its libc++ gates did
-  not; the others were gated by the steps after them). The last full run is 0.162's, over cocolog 2.2.5, on one tree,
-  4594 s in all (0.161's 4719 s): over libc++ 18 all nine GREEN in 2611 s (the flow gate's one finding in 83 s, reader 5
-  s, compile 14 s, driver 14 s, objects 3 s, proof, the cross gate in 642 s with its C++ part for aarch64, the library
-  read in 1090 s (0.161's 1111 s), the C++ gate in 754 s (0.161's 797 s) with 511 of 514 fixtures ok, the skips are
+  not; the others were gated by the steps after them). The last full run is 0.163's, over cocolog 2.2.5, on one tree,
+  4495 s in all (0.162's 4594 s): over libc++ 18 all nine GREEN in 2564 s (the flow gate's one finding in 83 s, reader 4
+  s, compile 12 s, driver 12 s, objects 4 s, proof, the cross gate in 607 s with its C++ part for aarch64, the library
+  read in 1093 s (0.162's 1090 s), the C++ gate in 745 s (0.162's 754 s) with 515 of 518 fixtures ok, the skips are
   `joinwith`, `stdoptionalref` and `tzone`, the 22 refusals and the three of the safe part); over libc++ 21 the library
-  read (1047 s, peak 1161 MB; 0.161's 1109 s) and the C++ gate (935 s, peak 2141 MB; 0.161's 943 s; 513 of 514 ok, the
-  skip `stdoptionalref`) GREEN -- the C gates do not read libc++. The fixtures' builds, summed, took 2651 s over libc++
-  18 (0.161's 2797 s over 509) and 3031 s over libc++ 21 (0.161's 3056 s over 511). Two libc++ passes are one gate:
+  read (1007 s, peak 1025 MB; 0.162's 1047 s) and the C++ gate (923 s, peak 2199 MB; 0.162's 935 s; 517 of 518 ok, the
+  skip `stdoptionalref`) GREEN -- the C gates do not read libc++. The fixtures' builds, summed, took 2613 s over libc++
+  18 (0.162's 2651 s over 511) and 3016 s over libc++ 21 (0.162's 3031 s over 513). Two libc++ passes are one gate:
   `LLVM=/usr/lib/llvm-18` and `LLVM=/usr/lib/llvm-21` choose the tree the chain reads and links. libc++ 22 (the newest
   tree, which a run without `$LLVM` reads) is untried but for `stdoptionalref`, which passes there. The run before
   0.121's (0.118, 0.119) found, over 0.117, two defects and one stale check of `test/cpp.pl` (c20, above).
@@ -7398,6 +7429,11 @@ A lambda is a class of its captures (`library/ccl_cpp.pl`). A fixture named alon
   (two virtual overloads of one name and arity, one overridden), `virtualdefault` (a virtual call that leaves a defaulted
   argument out), `anonparam` (an unnamed by-value parameter destroyed), `rangeadl` (a range-for by the free `begin` and
   `end` of two namespaces), `downcast` (`static_cast` from a second base to the derived class, a pointer and a reference).
+- Forms of 0.163: `vbaselayout` (a class over a virtual base through one path, two levels, and a holder in a diamond:
+  sizes, offsets, calls and casts as clang lays them; the virtual base built by the most derived class), `diamonddeep`
+  (a diamond whose paths hold the virtual base further in), `vbaseedge` (an empty virtual base, tail padding, a copy and
+  an assignment of a holder's sub-object, a program class over `std::ostringstream`), `streamlay` (the layout of every
+  stream class over `basic_ios`, and of a program class over one).
 - Forms of 0.162: `vector` (C++20: a vector alias template, a partial specialization over it, a braced vector from a
   pack, overloads by vector type, a mask's lanes through `__builtin_bit_cast`, a struct of a vector), `mismatchvec`
   (`std::mismatch`, `std::equal` and `operator<` of vectors over libc++ 21's vectorized road, every tail length).
@@ -7615,11 +7651,11 @@ A lambda is a class of its captures (`library/ccl_cpp.pl`). A fixture named alon
 
 - A library class's consteval constructor or member keeps its member initializers and runs at run time, its
   compile-time check dropped, as `basic_format_string`'s (0.110); the program's own fold (0.99, 0.112).
-- A diamond whose paths hold the shared virtual base FURTHER IN is refused, `virtual_base_by_two_paths`
-  (`test/cpp/diamond.cpp`): its paths' `.nv` forms need the Itanium layout of every class over a virtual base, the base
-  at the complete object's end, where this compiler embeds a base that has a virtual base whole (the Virtual bases
-  topic). A diamond over a virtual base with no virtual function and a program class over two library classes sharing
-  one build since 0.160 (0.110, 0.117, 0.160).
+- A class over TWO virtual bases is laid out as before, its bases whole, and a diamond whose paths each hold both is
+  refused, `virtual_base_by_two_paths` (`test/cpp/diamond.cpp`): a class laid out here holds one virtual base at its end
+  and its table one vbase offset. Every class over one virtual base has the Itanium layout since 0.163 (the deep
+  diamond builds), and its deeper paths' construction runs under the holder's construction table, where the ABI's VTT
+  would give each level its own (0.110, 0.117, 0.160, 0.163).
 
 ### libc++ modules
 

@@ -50,8 +50,11 @@ record of every step.
   pointers and `this`, RTTI (`typeid`, `dynamic_cast`), exceptions
   (`throw`, `try`, `catch`), `new T[n]` of a class with the ABI's array
   cookie, multiple polymorphic bases with their secondary vtables,
-  virtual bases reached through the vtable, the diamond with one shared
-  base, `noexcept` enforced, trailing return types, access control for
+  virtual bases reached through the vtable and laid out at the end of the
+  complete object as the Itanium ABI lays them (a program class over a
+  stream too), the diamond with one shared base, its paths holding it
+  directly or further in,
+  `noexcept` enforced, trailing return types, access control for
   the program's own classes, deducing `this` on a class's methods, user-defined
   literals, `mutable` lambdas checked, placement `new[]`, arrays of arrays of
   objects, scalar globals initialized before `main`, braced temporaries through

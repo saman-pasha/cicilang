@@ -156,6 +156,7 @@ One row per step, in version order: the step's title, what it did and its gate n
 | 0.160 | Not done, the first part: casts in constant expressions, a floating literal's text, the diamonds, the regroup | floating constants under a cast folded in an integer constant expression and an enumerator a constant or nothing; a user-defined floating literal's text; an unfolded value argument's static defined; a decimal to and from a `_BitInt` past 128 bits; Apple's arm64 `va_arg` of an aggregate; a header's keyed names called through a using; the program's static member functions without `this`; diamonds over a virtual base with no virtual function and over two library classes; the 124 split predicates brought together | the chain RED at `nsusing.cpp` over both trees, then the flow gate and both C++ gates GREEN with the fix: 4195 s and 1487 s (0.159: 3956 s); 506 of 509 C++ fixtures over 18, 508 over 21 |
 | 0.161 | Not done, the second part: C++ for aarch64 and ARM's member pointers, names through a using, statement columns | C++ for aarch64 Linux over that machine's libc++ 18 in the cross sysroot, linked and run under qemu; pointers to member functions in ARM's form there; a data member pointer's null -1, its conversions, comparisons and zero-initialization; a header's keyed name named through a using; a statement's column in the debug information; the gates' own Prolog charted; the neighbours' open issues measured again | the libc++ 18 half GREEN, all nine gates, 2685 s; 509 of 512 C++ fixtures over 18; the libc++ 21 half still running at the commit |
 | 0.162 | Not done, the third part: vector types, and libc++ 21's vectorized algorithms | GCC's and clang's vector types read, checked and lowered (`vector_size`, `ext_vector_type`: operators lane by lane, lanes, masks, conversions, `__builtin_convertvector`, `__builtin_shufflevector`, `__builtin_reduce_*`; the ABI as clang passes them on both machines; the mangler's `Dv`); `__OPTIMIZE_SIZE__` no longer predefined, so libc++ 21's vectorized `mismatch` and `lexicographical_compare`; a generic lambda's parameters kept as written whatever the tables know, a pack expansion over a class a call; 0.161's libc++ 21 half recorded | all nine gates GREEN over libc++ 18, the two libc++ gates over 21, 4594 s (0.161: 4719 s); 511 of 514 C++ fixtures over 18, 513 over 21 |
+| 0.163 | Not done, the fourth part: the Itanium layout of every class over a virtual base | a class whose one non-virtual base holds a virtual base is its holder (the base's `.nv` form, its own members, the virtual base last, built by the most derived class), so the deep diamond builds and the streams and a program class over one have clang's layout, their shipped members called again; a holder's sub-object's table pointer stored through its base, an object of a derived class assigned to a base's (the slicing copy), an empty virtual base's table offset, the diamond mask | all nine gates GREEN over libc++ 18, the two libc++ gates over 21, 4495 s (0.162: 4594 s); 515 of 518 C++ fixtures over 18, 517 over 21 |
 
 ## M5 — the C++ mode
 
@@ -9925,3 +9926,67 @@ s (peak 2141 MB; 0.161: 943 s), 513 of its 514 fixtures ok -- the skip `stdoptio
 three of the safe part: GREEN, the chain 4594 s in all. The fixtures' builds summed 2651 s over libc++ 18 (0.161: 2797 s
 over 509) and 3031 s over libc++ 21 (0.161: 3056 s over 511); `vector.cpp` builds in 1 s on both trees,
 `mismatchvec.cpp` in 7 s over libc++ 18 and 10 s over libc++ 21, where it takes the vectorized road.
+
+## 0.163 — Not done, the fourth part: the Itanium layout of every class over a virtual base
+
+**0.163: every class over one virtual base is laid out as the Itanium ABI lays it -- its non-virtual part the same in
+every context, its virtual base at the end of the COMPLETE object -- so a diamond whose paths hold the virtual base
+further in builds, a program class over a stream has clang's layout, and the streams' members that libc++ ships are
+called again where 0.117 compiled them from the header. All nine gates GREEN over libc++ 18 and both libc++ gates over
+libc++ 21, 4495 s.** The owner's ask of 0.159 ("Take cocolog 2.2.5, do all "not done" tasks"), its fifth step: item
+M of the plan, the Not done bullet of the deep diamond.
+
+- THE HOLDER (`cpp_path_holder/3`, `cpp_nv_holds/2`, `cpp_note_holder/3`; `cpp_diamond_paths`' second clause for a class
+  with several bases of which one holds the virtual base): a class whose one non-virtual base holds a virtual base V --
+  a class over V itself, or a holder -- holds V: that base is its `.nv` form, the class's own members follow it, and V
+  is the class's own `$vb`, last, as a diamond's shared base has been since 0.110. A holder's `.nv` form is the holder
+  without its `$vb` (`cpp_nv_form/3`), and every class with a `.nv` form has the base-variant twins of its constructors
+  and destructor (`cpp_has_nv_form/1`), which build and destroy no V and store no table. The complete object builds V
+  first -- with its own initializer of V or V's default constructor, never a base's ([class.base.init]/13: `struct DI :
+  BI {}` over `BI() : VI(5)` builds `VI(1)` and `DJ() : VI(7)` its own `VI(7)`, as clang does, where 0.162 built `VI(5)`
+  for both) -- then stores its tables and builds its bases by their base-variant constructors. Until 0.163 such a class
+  embedded its base whole: `struct D : B { int d; }` over `B : virtual V` was [B (its table pointer, b, V), d] -- `d` at
+  28 where clang lays it at 12, [B's table pointer, b, d, V] -- and a class with two such paths could not be laid at all
+  (`virtual_base_by_two_paths`). A diamond whose paths hold V further in (`P1 : Q1`, `P2 : Q2` over `Q1, Q2 : virtual
+  A`) builds: its paths are holders, whose `.nv` forms are the ABI's (`cpp_direct_nv/3`'s second clause). One virtual
+  base below a class: a class over two (`H1 : Q1, R1` over `virtual A` and `virtual W`) is laid as before and a diamond
+  of two such is refused by name (`test/cpp/diamond.cpp` holds that shape now). A deeper path's construction runs
+  under its holder's construction table; the ABI's VTT would give each level its own.
+- THE LIBRARY: `basic_ofstream`, `basic_ifstream`, `basic_fstream`, the string streams and a program class over one are
+  holders now, laid as clang lays them -- `std::ofstream` 328 bytes with its `basic_ios` at 176, `std::stringstream` 280
+  with its `basic_ostream` at 16 and its `basic_ios` at 128, `struct Log : std::ostringstream { int n; }` with `n` at
+  112, as clang has them over libc++ 18 and 21 (`streamlay.cpp`; 0.162 laid every stream's `basic_ios` at offset 8,
+  right after the stream's table pointer, and `n` at 264, past the whole stream) -- and `'$cpp_nonabi'` goes for them
+  (`cpp_holder_bases/1`): `basic_ofstream<char>::open` and `basic_ifstream<char>::open`, compiled from the header since
+  0.117 because `__sb_` lay at offset 160 here and at 8 for clang, are the shipped library's again.
+- FOUND ON THE WAY, by the fixtures: a holder has no table pointer of its own, and the stores into a sub-object's
+  pointer -- a secondary table's, a construction table's -- named `$vptr` in the sub-object, which `P2.nv` lacks
+  (`no_member('$vptr', P2.nv)`; `cpp_vptr_at/3` names the pointer where the sub-object's class lays it); an object of a
+  DERIVED class assigned to a base's was refused `assignment_to_a_class_with_destructor`, a class with no virtual base
+  among them (`sd2 = se` over `SE : SD`, SD with a destructor: the implicit memberwise assignment took SD's own value
+  only), and is its base sub-object now, the slicing copy (`cpp_assign_sliced/3`); a class over an EMPTY virtual base
+  was refused since 0.160 (`global_init(offsetof(EB, $base))`: the table's offset named a member an empty base does not
+  have), and the offset is the complete object's own place now, as clang lays the base at 0 (`cpp_vbase_offset/4`); an
+  empty virtual base takes no place, so a class over one keeps its base whole (`cpp_nv_holds/2`), which is the ABI's
+  layout; the type information's `__diamond_shaped_mask` is set where a virtual base is reached twice below the class,
+  as clang sets it (`cpp_diamond_shaped/1`), and a holder of one path is no diamond.
+- Fixtures: `vbaselayout.cpp`, `diamonddeep.cpp`, `vbaseedge.cpp`, `streamlay.cpp` (clang++'s output over libc++ 18
+  and 21); `test/cpp/diamond.cpp` a diamond of two virtual bases, still refused by name.
+- `CLAUDE.md`: the versions; the holder in the Virtual bases topic, the library's shipped members, the slicing
+  assignment, the empty virtual base's offset; the Not done bullet of the deep diamond rewritten for two virtual bases.
+
+Reader 133, lowering 88.
+
+THE GATES. The chain on a worktree holding 0.162 (`1de5e7f`'s files) with these changes and the version 0.163, its two
+modules built over cocolog 2.2.5, fresh HOMEs, started at 17:48 UTC. Over libc++ 18 all nine GREEN, 2564 s: the flow
+gate (one finding, `test/flow.expect`'s, 83 s, peak 2638 MB over its four lanes; 3815 predicates charted), reader 4 s,
+compile 12 s (83 run and 47 safe fixtures), driver 12 s (40 checks), objects 4 s (29 checks), the proof, the cross gate
+in 607 s (83 C fixtures and 5 checks, 24 C++ fixtures and 2 checks, peak 621 MB), the library read in 1093 s (peak 1232
+MB) and the C++ gate in 745 s (peak 2359 MB), 515 of its 518 fixtures ok -- the skips `joinwith`, `stdoptionalref` and
+`tzone` -- and the 22 refusals and the three of the safe part. Over libc++ 21 the library read in 1007 s (peak 1025 MB)
+and the C++ gate in 923 s (peak 2199 MB), 517 of its 518 fixtures ok -- the skip `stdoptionalref` -- and the 22 refusals
+and the three of the safe part: GREEN, the chain 4495 s in all (0.162: 4594 s). The fixtures' builds summed 2613 s over
+libc++ 18 and 3016 s over libc++ 21 (0.162: 2651 s and 3031 s); the four new ones build in 1 to 10 s, `stdfstream.cpp`
+in 24 s and 30 s, `stdstringstream.cpp` in 40 s and 52 s. Before the chain the fixtures the layout reaches ran as a net
+over both trees: 47 over libc++ 18 and 48 over 21 (`tzone` with them) of the streams, the virtual bases, the diamonds,
+RTTI, exceptions, the file system and chrono formatting, and the eight that read their standard input, all ok.

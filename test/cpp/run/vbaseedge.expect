@@ -1,0 +1,8 @@
+empty 16 16 8 12
+tail 32 32 32 12 12 13 24
+copy long string that is not short dee 50
+assign long string that is not short dee 50
+copy2 long string that is not short dee 50 60
+lib x3 7 8
+lib2 x3 7!
+exit 0
