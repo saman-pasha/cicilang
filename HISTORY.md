@@ -9990,3 +9990,70 @@ libc++ 18 and 3016 s over libc++ 21 (0.162: 2651 s and 3031 s); the four new one
 in 24 s and 30 s, `stdstringstream.cpp` in 40 s and 52 s. Before the chain the fixtures the layout reaches ran as a net
 over both trees: 47 over libc++ 18 and 48 over 21 (`tzone` with them) of the streams, the virtual bases, the diamonds,
 RTTI, exceptions, the file system and chrono formatting, and the eight that read their standard input, all ok.
+
+## 0.164 — Not done, the fifth part: `std::format`'s format string checked at compile time
+
+**0.164: a library class's consteval constructor runs in the constexpr evaluator where its object is made, so
+`std::format`'s format string is checked at compile time, as clang++ checks it, and a bad one is refused by name with
+libc++'s own message; on the way, brace elision of a scalar item into an array member of scalars, which LLVM refused for
+a one-element array, and the line of a refusal made after an instance's walk.** The owner's ask of 0.159 ("Take cocolog
+2.2.5, do all "not done" tasks"), its sixth step: item K of the plan, the Not done bullet of the library's consteval
+constructor.
+
+- THE CHECK (`cpp_ce_twin/7`, `cpp_ce_check/3`; the Constant evaluation topic). From 0.110 to 0.163 a library class's
+  consteval constructor kept its member initializers and dropped its body, which is a compile-time check:
+  `basic_format_string`'s runs `__format::__vformat_to` over a `__compile_time_basic_format_context` and parses the
+  format string against the arguments' kinds, and a bad format string reached the library's own parser at run time --
+  `std::format("{} {}", 1)` built and aborted when it ran. The run-time constructor stays as it was; the whole
+  constructor is desugared once more as its check twin `<Name>.ce`, which the evaluator finds and the lowering never
+  sees, and where a temporary of the class is made (the literal converted to `format_string<int>`) the twin runs over a
+  cell of the class's zero and the call's own arguments, `std::is_constant_evaluated()` true. A library throw helper met
+  on the way (`__throw_format_error`, any other `__throw_*`, the verbose abort) makes the expression no constant one:
+  the program is refused, `consteval_call_not_constant(Class, Message)`, at the statement's line, the library's message
+  in the refusal. A check the evaluator cannot take leaves the string to the run-time parser, as before. libc++ 21's
+  `_CmpUnspecifiedParam` (the `0` of `o < 0`) has a consteval constructor too, and its check passes.
+- THE EVALUATOR, for what the format parse runs into (each met in that order by a probe of one `std::format` call,
+  then by a battery): a function's address as a value, stored, loaded and called through (a handle's `__parse_`, a
+  lambda's invoker); `std::move` and a cast to a reference naming their operand (`std::forward`); an assignment or an
+  increment inside an operand done once, where it is reduced (`*__out_it++ = *__begin++` was done twice: once by the
+  clause that reduces the place, once by the general road); `?:`, `&&` and `||` evaluating only the operands C++
+  evaluates (an arm not taken called `__throw_format_error`); the desugaring's `memset` and `memcpy` of a whole object;
+  a pointer and a function pointer as an aggregate's item (`__parse_number_result{__begin, __value}`); brace elision in
+  an aggregate's list (`array<__arg_t, N>{...}`); a class's static constant as a place, built into a cell once per unit
+  (`__types_.data()`, `__handles_.data()`); a header's constant inline aggregate as a value (`__fields_integral`).
+- FOUND ON THE WAY: BRACE ELISION. `struct W { int a[1]; } w = {7};`, `struct S { int a[2]; int b; } s = {1, 2};` and
+  `std::array<int, 1> a = {5};` were refused by LLVM (`[1 x i32] 7`), in C as in C++, a local and a global alike: the
+  guard of 0.91, that more items than members remain, read a scalar item as the array's VALUE where as many items as
+  members remain. A scalar item for an array member of scalars is now elided whatever the count (`ccl_elided_item/2`, in
+  `cpp_agg_inits`, `ir_init_items` and `ir_gelide`), a string literal excepted, which is a char array's value -- the
+  first form of the rule took one, and the compile gate's `cforms.c` and `vaaggregate.c` went RED (`struct N { char
+  name[16]; int v; } g = { "global", 1 };`). `basic_format_string<char, int>` holds `std::array<__arg_t, 1>`, which is
+  how the check met it.
+- FOUND ON THE WAY: THE LINE OF A REFUSAL. `'$cpp_line'`, the line a refusal is reported at, kept the last line an
+  isolated walk had set -- an instance's body walked in the middle of the program's statement -- so the format string's
+  refusal named line 370, a line of libc++'s header; an isolated walk now gives the caller's line back
+  (`cpp_line_kept/1`), and the refusals name the program's lines 6 and 5, as clang++ does. The access control's
+  refusals read the same global.
+- MEASURED (one build at a time, warm HOMEs): `fmtcheck.cpp` builds in 79 s over libc++ 18 and 78 s over 21, as clang++
+  prints it, each of its 29 and 35 checks passed (traced: `consteval_ctor_checked`, none unevaluated); a probe of 21
+  format calls of every kind builds in 347 s where 0.163 took 335 s. A battery of 20 one-call programs, 18 that clang++
+  18 refuses and two it builds: the 18 refused, each with libc++'s message (an index outside the range, automatic and
+  manual numbering mixed, a precision for an integer, `{` at the end, a lone `}`, a type the formatter does not take, a
+  sign, `#` or `L` for a string, a width argument that is no integer, a chrono spec for an int), and the two built, as
+  clang++ prints them. Which checks of the other format fixtures the evaluator cannot take is counted after the chain.
+- Fixtures: `fmtcheck.cpp` (C++23) and `arrayone.cpp`; the refusals `test/cpp/fmtindex.cpp` and `fmttype.cpp` (C++20),
+  each built at its `NAME.flags` level -- `test/cpp.sh` reads a refusal's flags since this step;
+  `test/c/run/braceelide.c`.
+- `CLAUDE.md`: the versions; the check in the Constant evaluation topic, the evaluator's new forms, the libc++ bullet;
+  brace elision in the Aggregates and Lowering topics; the isolated walk keeps the caller's line; the C++ gate's
+  refusals and their levels; the Not done bullets of the consteval constructor and of `std::format`.
+
+Reader 133, lowering 89.
+
+THE GATES. Committed before its chain ended, on the stop hook's request (the rule of 0.91): the chain on a worktree
+holding 0.163 (`7006a8b`'s files) with these changes, its two modules 0.163's, built over cocolog 2.2.5, fresh HOMEs,
+started at 20:47 UTC. Finished GREEN when this was committed: the flow gate (one finding, `test/flow.expect`'s, 82 s,
+peak 2554 MB over its four lanes; 3833 predicates charted), reader 4 s, compile 11 s (84 run and 47 safe fixtures),
+driver 12 s, objects 3 s, the proof, and the cross gate in 703 s (84 C fixtures and 5 checks, 24 C++ fixtures and 2
+checks, peak 535 MB). The library read and the C++ gate over libc++ 18, and both over libc++ 21, were still running:
+this step claims no GREEN chain, and the next carries its numbers.

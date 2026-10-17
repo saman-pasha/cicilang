@@ -207,7 +207,7 @@ cpp_instance_note(Name, What) :- assertz('$cpp_inst'(Name, What)).
 
 %% ---- the classes of the units: '$cpp_classes' = [C-cls(Base, Data, Members, Statics, Defaults) ...] --------
 cpp_register_units(Units) :-
-    cpp_reset('$cpp_cls'/2), cpp_reset('$cpp_clsl'/2), cpp_reset('$cpp_sfn'/2), cpp_reset('$cpp_decl'/4), cpp_reset('$cpp_sfold'/3), cpp_reset('$cpp_nenum'/1), cpp_reset('$cpp_enumv'/3), cpp_reset('$cpp_tmpl'/3), cpp_reset('$cpp_fspec'/3), cpp_reset('$cpp_spec'/4), cpp_reset('$cpp_mt'/4), cpp_reset('$cpp_inst'/2), cpp_reset('$cpp_out'/1), cpp_reset('$cpp_ownfn'/1), cpp_reset('$cpp_consteval'/1), cpp_reset('$cpp_mdef'/5), cpp_reset('$cpp_extern'/3), cpp_reset('$cpp_friends'/2), cpp_reset('$cpp_extra'/2), cpp_reset('$cpp_base_slot'/3), cpp_reset('$cpp_primary_moved'/2), cpp_reset('$cpp_vbase'/1), cpp_reset('$cpp_poly_extra'/3), cpp_reset('$cpp_poly_path'/3), cpp_reset('$cpp_hdrfn'/1), cpp_reset('$cpp_nv_base'/2), cpp_reset('$cpp_vb_holder'/2),
+    cpp_reset('$cpp_cls'/2), cpp_reset('$cpp_clsl'/2), cpp_reset('$cpp_sfn'/2), cpp_reset('$cpp_decl'/4), cpp_reset('$cpp_sfold'/3), cpp_reset('$cpp_nenum'/1), cpp_reset('$cpp_enumv'/3), cpp_reset('$cpp_tmpl'/3), cpp_reset('$cpp_fspec'/3), cpp_reset('$cpp_spec'/4), cpp_reset('$cpp_mt'/4), cpp_reset('$cpp_inst'/2), cpp_reset('$cpp_out'/1), cpp_reset('$cpp_ownfn'/1), cpp_reset('$cpp_consteval'/1), cpp_reset('$cpp_cecheck'/3), cpp_reset('$cpp_scell'/2), cpp_reset('$cpp_mdef'/5), cpp_reset('$cpp_extern'/3), cpp_reset('$cpp_friends'/2), cpp_reset('$cpp_extra'/2), cpp_reset('$cpp_base_slot'/3), cpp_reset('$cpp_primary_moved'/2), cpp_reset('$cpp_vbase'/1), cpp_reset('$cpp_poly_extra'/3), cpp_reset('$cpp_poly_path'/3), cpp_reset('$cpp_hdrfn'/1), cpp_reset('$cpp_nv_base'/2), cpp_reset('$cpp_vb_holder'/2),
     cpp_reset('$cpp_dflt'/2), cpp_reset('$cpp_localcls'/2), nb_setval('$cpp_lambda_memo', []), cpp_reset('$cpp_dtor_def'/1), nb_setval('$cpp_lambdas', 0), nb_setval('$cpp_gen_invs', []), nb_setval('$cpp_caller', none), nb_setval('$cpp_obj_cat', none), nb_setval('$cpp_closure_this', []), nb_setval('$cpp_temps', none), nb_setval('$cpp_making', []), nb_setval('$cpp_obj_const', none),
     nb_setval('$cpp_nontrivial', []), nb_setval('$cpp_req_ctx', none), nb_setval('$cpp_nv', none),
     cpp_reset('$cpp_acc'/3), cpp_reset('$cpp_afriend'/2), cpp_reset('$cpp_bacc'/3), cpp_reset('$cpp_static_abi'/1), nb_setval('$cpp_body_ctx', none), nb_setval('$cpp_cur_fn', none), nb_setval('$cpp_acc_scope', none), nb_setval('$cpp_obj_expr', none),   % the access of a program class's members and its friends (0.117)
@@ -1004,6 +1004,7 @@ cpp_lazy_inline_var(L, N, T0, Init0) :- \+ cpp_instance_done(N), !, cpp_instance
     ;   Init1 \== none -> Init = Init1
     ;   cpp_init_expr(Init0, Init2), ( Init2 = init(_), cpp_class_of_type(T, C2), cpp_agg_constant(C2, Init2, Init3) -> Init = Init3 ; Init = Init2 ) ),   % an aggregate's list completed by its defaults (cpp_agg_constant)
     ccl_declare(N, T), nb_getval('$cpp_gvar', G), nb_setval('$cpp_gvar', [N-N|G]),
+    ( atom(N), Init \== none, T = base(Qs, _), memberchk(const, Qs), catch(cpp_eval_agg_kind(T, _), _, fail) -> atom_concat('$cpp_gagg:', N, GK), nb_setval(GK, agg(T, Init, global)) ; true ),   % A HEADER'S CONSTANT AGGREGATE is a value for the evaluator (0.164), as the program's own is (cpp_fold_const_inits_): `inline constexpr __fields __fields_integral{...}', which every integer's format spec is parsed against
     cpp_as_lib(yes, cpp_add_instance_items([declaration(L, linkonce, T, [var(N, T, Init)])])).
 cpp_lazy_inline_var(_, _, _, _).
 cpp_init_expr(init(Items), init(Items1)) :- !, findall(item(D, V1), ( member(item(D, V0), Items), once(cpp_init_expr(V0, V1)) ), Items1).   % ONE walk per item (0.112): a template-id's call has two answers, and the list of a static `array' was doubled
@@ -3733,8 +3734,8 @@ cpp_member_fns([ctor(L, _, Ps, _, none)|Ms], C, B, Ds, [F|Fs]) :- !,            
     cpp_mangle(C, C, Ps, Name), cpp_plain_params(Ps, Ps1), cpp_this_type(C, [], [fresh], ThisT), Params = [param(ThisT, this)|Ps1],
     F = declaration(L, none, base([], [void]), [var(Name, fn(base([], [void]), Params, false), none)]),
     cpp_member_fns(Ms, C, B, Ds, Fs).
-cpp_member_fns([ctor(L, Qs, Ps, Inits, Body0)|Ms], C, B, Ds, Fs) :- memberchk(consteval, Qs), Body0 \== block([]), cpp_lib_class(C), !,   % A LIBRARY CLASS'S CONSTEVAL CONSTRUCTOR: its body is a compile-time CHECK (basic_format_string parses the format string against the arguments' kinds), which nothing here evaluates -- the members are initialized and the check is not made; a bad format string is caught at run time by the library's own parser, as runtime_format's is
-    cpp_trace(consteval_ctor_unchecked(C)), cpp_member_fns([ctor(L, Qs, Ps, Inits, block([]))|Ms], C, B, Ds, Fs).
+cpp_member_fns([ctor(L, Qs, Ps, Inits, Body0)|Ms], C, B, Ds, Fs) :- memberchk(consteval, Qs), Body0 \== block([]), cpp_lib_class(C), !,   % A LIBRARY CLASS'S CONSTEVAL CONSTRUCTOR: its body is a compile-time CHECK (basic_format_string parses the format string against the arguments' kinds) -- the run-time constructor initializes the members, and the whole body is kept as the CHECK TWIN the evaluator runs where the object is made (cpp_ce_twin, cpp_ce_check; 0.164)
+    cpp_ce_twin(L, C, B, Ds, Ps, Inits, Body0), cpp_member_fns([ctor(L, Qs, Ps, Inits, block([]))|Ms], C, B, Ds, Fs).
 cpp_member_fns([ctor(L, Qs, Ps, Inits, Body)|Ms], C, B, Ds, Out) :- !,
     cpp_ctor_fn(L, C, B, Ds, Ps, Inits, Body, F), cpp_nv_twin(C, F, cpp_ctor_fn(L, C, B, Ds, Ps, Inits, Body, F2), F2, Out, Fs),
     ( F = function(_, _, _, CName, _, _, _) -> cpp_note_consteval(C, Qs, CName) ; true ),
@@ -3745,8 +3746,18 @@ cpp_member_fns([dtor(L, _, Body)|Ms], C, B, Ds, Fs) :- !,
 cpp_member_fns([_|Ms], C, B, Ds, Fs) :- cpp_member_fns(Ms, C, B, Ds, Fs).
 %% THE PROGRAM'S CONSTEVAL MEMBER FUNCTION AND CONSTRUCTOR ARE IMMEDIATE ([dcl.constexpr]/13; 0.112), as its free one has
 %% been since 0.99: a call of one folds (cpp_consteval_fold, cpp_decl_pieces' consteval constructor) or refuses
-%% `consteval_call_not_constant'. A library class's runs as before (basic_format_string's check, 0.110).
+%% `consteval_call_not_constant'. A library class's constructor is checked through its twin since 0.164 (below,
+%% cpp_ce_twin/7 and cpp_ce_check/3: basic_format_string's format parse); its other consteval members run at run time.
 cpp_note_consteval(C, Qs, Name) :- ( memberchk(consteval, Qs), \+ cpp_lib_class(C), \+ '$cpp_consteval'(Name) -> assertz('$cpp_consteval'(Name)) ; true ).
+%% THE CHECK TWIN (0.164): the library's consteval constructor desugared WHOLE -- its member initializers and its body --
+%% under the name `<CName>.ce', a function the evaluator finds ('$cpp_ownfn') and the lowering never sees, recorded as
+%% `'$cpp_cecheck'(CName, Twin, C)'. A twin the desugaring refuses leaves the constructor unchecked, as it was until 0.163.
+cpp_ce_twin(L, C, B, Ds, Ps, Inits, Body) :-
+    (   catch(cpp_ctor_fn(L, C, B, Ds, Ps, Inits, Body, F), E, ( cpp_trace(consteval_ctor_twin_refused(C, E)), fail )),
+        F = function(L1, S1, R1, CName, P1, V1, B1)
+    ->  atom_concat(CName, '.ce', Twin), assertz('$cpp_ownfn'(function(L1, S1, R1, Twin, P1, V1, B1))),
+        ( '$cpp_cecheck'(CName, _, _) -> true ; assertz('$cpp_cecheck'(CName, Twin, C)) )
+    ;   cpp_trace(consteval_ctor_unchecked(C)) ).
 cpp_ctor_fn(L, C, B, Ds, Ps, Inits, Body, F) :-
     cpp_mangle(C, C, Ps, Name), cpp_plain_params(Ps, Ps1), cpp_this_type(C, [], [fresh], ThisT), Params = [param(ThisT, this)|Ps1],
     ccl_scope_push, ccl_declare_params(Params),                                     % the parameters are in scope while the MEMBER INITIALIZERS are built: `a_(a)' has to type `a' to pick the member's constructor
@@ -4774,8 +4785,8 @@ cpp_agg_inits([member(MT, M, _)|Ds], ['$anon_item'(F, V)|Es], Defs, Obj, L, Init
 %% guard is that more items than members REMAIN, which is what tells this from 0.84's array member taken
 %% from an array VALUE (`S s = {arr}': one item, one member, and its bytes are meant).
 cpp_agg_inits([member(MT, M, _)|Ds], [E|Es], Defs, Obj, L, Inits) :- E \= init(_), E \== '$no_item',
-    ccl_resolve_type(MT, arr(B, _)), catch(ccl_const_eval(B, K), _, fail), K > 1,
-    length(Ds, ND), length(Es, NE), NE > ND, !,
+    ccl_resolve_type(MT, arr(B, ET)), catch(ccl_const_eval(B, K), _, fail), K >= 1,
+    ( K > 1, length(Ds, ND), length(Es, NE), NE > ND -> true ; ccl_elided_item(E, ET) ), !,   % ... or the item is a SCALAR for an array of scalars, never the array's value (0.164)
     cpp_elide_take(K, [E|Es], Take, Rest), findall(item(none, V), member(V, Take), Items),
     cpp_member_from(MT, member(Obj, M), init(Items), L, Inits, Inits1), cpp_agg_inits(Ds, Rest, Defs, Obj, L, Inits1).
 cpp_agg_inits([member(MT, M, _)|Ds], [E|Es], Defs, Obj, L, Inits) :- cpp_member_from(MT, member(Obj, M), E, L, Inits, Inits1), cpp_agg_inits(Ds, Es, Defs, Obj, L, Inits1).
@@ -5773,15 +5784,29 @@ cpp_temporary(T, C, [], compound_lit(T, init([]))) :- cpp_not_abstract(C), cpp_t
 cpp_temporary(T, C, As, stmt_expr(block([expr(0, Call), expr(0, id(Tmp))]))) :-
     cpp_not_abstract(C), cpp_dtor(C, Dtor), ccl_global('$cpp_temps', Ts, none), is_list(Ts), !,
     length(As, N), ( cpp_ctor(C, As, Name) -> true ; cpp_refuse(0, no_constructor(C, N)) ), cpp_fill_defaults(Name, As, As0), cpp_ref_args_of(Name, As0, As1),
-    cpp_copies(call(id(Name), [addr(id(Tmp))|As1]), Call0), cpp_temp_zeroed(C, As, T, Tmp, Call0, Call),   % THE COPY PASS ON A TEMPORARY'S CONSTRUCTOR CALL TOO: `pair<const string, int>("a", 1)' takes `pair(const T1 &, const T2 &)', and the literal went raw into the `const string &' -- the map's keys were the pointer's bytes
+    cpp_copies(call(id(Name), [addr(id(Tmp))|As1]), Call0), cpp_ce_check(Name, T, Call0), cpp_temp_zeroed(C, As, T, Tmp, Call0, Call),   % THE COPY PASS ON A TEMPORARY'S CONSTRUCTOR CALL TOO: `pair<const string, int>("a", 1)' takes `pair(const T1 &, const T2 &)', and the literal went raw into the `const string &' -- the map's keys were the pointer's bytes
     ccl_gensym('$tmp', Tmp), ccl_declare(Tmp, T), nb_getval('$cpp_temps', Ts1), nb_setval('$cpp_temps', [tmp(Tmp, T, Dtor)|Ts1]).   % the register READ AGAIN here: the copy pass above may have registered a temporary of its own (a string for a `const string &' parameter), and the list read at the head would have dropped it (undeclared('$tmp_8')); DECLARED here as well as by the statement that holds it: its block no longer carries the declaration, so nothing else could type the value the block yields
 cpp_temporary(T, C, As, stmt_expr(block([declaration(0, none, T, [var(Tmp, T, none)]), expr(0, Call), expr(0, id(Tmp))]))) :-
     cpp_not_abstract(C), length(As, N), ( cpp_ctor(C, As, Name) -> true ; cpp_refuse(0, no_constructor(C, N)) ), cpp_fill_defaults(Name, As, As0), cpp_ref_args_of(Name, As0, As1), ccl_gensym('$tmp', Tmp),
-    cpp_copies(call(id(Name), [addr(id(Tmp))|As1]), Call0), cpp_temp_zeroed(C, As, T, Tmp, Call0, Call).
+    cpp_copies(call(id(Name), [addr(id(Tmp))|As1]), Call0), cpp_ce_check(Name, T, Call0), cpp_temp_zeroed(C, As, T, Tmp, Call0, Call).
 %% `R()' VALUE-INITIALIZES (0.127): with no argument, a class whose default constructor is not user-provided is zeroed before it runs
 cpp_temp_zeroed(C, [], T, Tmp, Call0, comma(Zero, Call0)) :- cpp_value_zeroes(C), !,
     ( cpp_zero_not_null(T, id(Tmp), expr(_, Null)) -> Zero = Null ; Zero = call(id(memset), [addr(id(Tmp)), int(0), sizeof_type(T)]) ).   % a pointer to a data member's zero is -1 (0.161)
 cpp_temp_zeroed(_, _, _, _, Call, Call).
+%% A LIBRARY CLASS'S CONSTEVAL CONSTRUCTOR IS RUN AT COMPILE TIME where its object is made ([dcl.constexpr]/13,
+%% [expr.const]; 0.164; dropped since 0.110): the check twin runs in the evaluator over a cell of the class's zero and the
+%% constructor call's own arguments, std::is_constant_evaluated() true. A call of a library throw helper met on the way --
+%% `__throw_format_error', `__throw_invalid_type_format_error' -- is the call that makes the expression no constant one:
+%% the program is refused by name, the library's message in the refusal, as clang++ refuses it (`std::format("{} {}", 1)'
+%% is `consteval_call_not_constant(basic_format_string.char.int, 'Argument index outside the valid range')'). A form the
+%% evaluator cannot take leaves the check to the library's own parser at run time, as before (`consteval_ctor_unevaluated').
+cpp_ce_check(Name, T, call(_, [_|As])) :- '$cpp_cecheck'(Name, Twin, C), !,
+    nb_setval('$cpp_eval_abort', none), nb_setval('$cpp_eval_ce', on),
+    (   catch(cpp_eval_construct(T, Twin, As, _), _, fail) -> nb_setval('$cpp_eval_ce', off), cpp_trace(consteval_ctor_checked(C))
+    ;   nb_setval('$cpp_eval_ce', off), nb_current('$cpp_eval_abort', abort(Msg))
+    ->  ( nb_current('$cpp_line', L) -> true ; L = 0 ), cpp_refuse(L, consteval_call_not_constant(C, Msg))   % at the statement's line, as clang++ names it
+    ;   cpp_trace(consteval_ctor_unevaluated(C)) ).
+cpp_ce_check(_, _, _).
 %% an operator on a class-typed left operand: the class's member operator, else a free one declared, else the form as it is
 cpp_operator(Op, A, Args, Plain, E) :-
     (   cpp_class_of_type_of(A, C), cpp_method_on(A, C, operator(Op), Args, Name, Hops)
@@ -6278,7 +6303,7 @@ cpp_eval_lit(V, '$val'(V)).
 cpp_eval_reduce(E, _, E) :- \+ compound(E), !.
 cpp_eval_reduce(int(N), _, int(N)) :- !.
 cpp_eval_reduce('$val'(V), _, '$val'(V)) :- !.
-cpp_eval_reduce(id(N), Env, R) :- !, ( cpp_eval_addr(id(N), Env, A), cpp_eval_load(A, V) -> cpp_eval_decay(V, A, R) ; R = id(N) ).   % a name: its cell's value, an array DECAYED to a pointer to its first element
+cpp_eval_reduce(id(N), Env, R) :- !, ( cpp_eval_addr(id(N), Env, A), cpp_eval_load(A, V) -> cpp_eval_decay(V, A, R) ; cpp_eval_function(N) -> R = '$val'(fn(N)) ; R = id(N) ).   % a name: its cell's value, an array DECAYED to a pointer to its first element
 cpp_eval_reduce(str(Cs), _, '$val'(ptr(cell(Id), [0]))) :- !, append(Cs, [0], L), cpp_ec_new(arr(L), Id), atom_concat('$cpp_ecs:', Id, SK), nb_setval(SK, yes).   % the cell is a literal's: a pointer into it may be a global's constant
 %% ... A WIDE LITERAL is its code units (0.115): `L"true"' and `U"..."' the code points, `u"..."' UTF-16 units
 %% (ir_utf8_decode, ir_wide_units: the lowering's own doors), the cell marked with its kind so a pointer into it spells
@@ -6291,13 +6316,33 @@ cpp_eval_reduce(index(P, I), Env, R) :- cpp_eval_addr(index(P, I), Env, A), cpp_
 cpp_eval_reduce(member(P, F), Env, R) :- cpp_eval_addr(member(P, F), Env, A), cpp_eval_load(A, V), !, cpp_eval_decay(V, A, R).
 cpp_eval_reduce(arrow(P, F), Env, R) :- cpp_eval_addr(arrow(P, F), Env, A), cpp_eval_load(A, V), !, cpp_eval_decay(V, A, R).
 cpp_eval_reduce(deref(P), Env, R) :- cpp_eval_addr(deref(P), Env, A), cpp_eval_load(A, V), !, cpp_eval_decay(V, A, R).
-cpp_eval_reduce(index(P, I), Env, R) :- cpp_eval_reduce(P, Env, '$val'(PV)), cpp_eval_reduce(I, Env, IR), cpp_eval_value(IR, K), integer(K), cpp_eval_elem(PV, K, V), !, cpp_eval_lit(V, R).   % a value that is no place: `make_arr()[2]'
-cpp_eval_reduce(member(P, F), Env, R) :- cpp_eval_reduce(P, Env, '$val'(obj(Ps))), memberchk(F-V, Ps), !, cpp_eval_lit(V, R).
+cpp_eval_reduce(index(P, I), Env, R) :- \+ cpp_eval_side_effects(index(P, I)), cpp_eval_reduce(P, Env, '$val'(PV)), cpp_eval_reduce(I, Env, IR), cpp_eval_value(IR, K), integer(K), cpp_eval_elem(PV, K, V), !, cpp_eval_lit(V, R).   % a value that is no place: `make_arr()[2]'
+cpp_eval_reduce(member(P, F), Env, R) :- \+ cpp_eval_side_effects(P), cpp_eval_reduce(P, Env, '$val'(obj(Ps))), memberchk(F-V, Ps), !, cpp_eval_lit(V, R).
 cpp_eval_reduce(addr(P), Env, '$val'(A)) :- cpp_eval_addr(P, Env, A), !.                                        % the address of a place
-cpp_eval_reduce(addr(P), Env, '$val'(ptr(cell(Id), []))) :- cpp_eval_reduce(P, Env, '$val'(V)), ( V = obj(_) ; V = arr(_) ), !, cpp_ec_new(V, Id).   % of a value: a temporary's cell
+cpp_eval_reduce(addr(P), Env, '$val'(ptr(cell(Id), []))) :- \+ cpp_eval_side_effects(P), cpp_eval_reduce(P, Env, '$val'(V)), ( V = obj(_) ; V = arr(_) ), !, cpp_ec_new(V, Id).   % of a value: a temporary's cell
+%% WHAT A LIBRARY CONSTEVAL CONSTRUCTOR'S CHECK RUNS INTO (0.164): a FUNCTION'S ADDRESS is the value `fn(F)', stored, loaded
+%% and called through (a handle's `__parse_' holds a lambda's invoker); `std::move' and a cast to a reference name their
+%% operand (`std::forward' is `static_cast<_Tp &&>(__t)'); an assignment or an increment inside an operand is done where
+%% it is reduced, once (`*__out_it++ = *__begin++'), and no road below reduces it again; `?:', `&&' and `||' evaluate the
+%% operands C++ evaluates, no more -- an arm not taken may call what is no constant expression (`__throw_format_error')
+cpp_eval_reduce(addr(P), Env, '$val'(fn(F))) :- \+ cpp_eval_side_effects(P), cpp_eval_reduce(P, Env, '$val'(fn(F))), !.
+cpp_eval_reduce(deref(P), Env, '$val'(fn(F))) :- \+ cpp_eval_side_effects(P), cpp_eval_reduce(P, Env, '$val'(fn(F))), !.
+cpp_eval_reduce(move(E), Env, R) :- !, cpp_eval_reduce(E, Env, R).
+cpp_eval_reduce(ccast(_, T, E), Env, R) :- cpp_eval_ref_type(T), !, cpp_eval_reduce(E, Env, R).
+cpp_eval_reduce(cast(T, E), Env, R) :- cpp_eval_ref_type(T), !, cpp_eval_reduce(E, Env, R).
+cpp_eval_reduce(E, Env, R) :- cpp_eval_effect_place(E, P), cpp_eval_placeish(P), !, cpp_eval_effect(E, Env, _, V), cpp_eval_lit(V, R).
+cpp_eval_reduce(cond(C, A, B), Env, R) :- cpp_eval_expr(C, Env, CV), !, ( CV \== 0 -> cpp_eval_reduce(A, Env, R) ; cpp_eval_reduce(B, Env, R) ).
+cpp_eval_reduce(bin('&&', A, B), Env, R) :- cpp_eval_expr(A, Env, AV), !, ( AV == 0 -> R = int(0) ; cpp_eval_expr(B, Env, BV), ( BV == 0 -> R = int(0) ; R = int(1) ) ).
+cpp_eval_reduce(bin('||', A, B), Env, R) :- cpp_eval_expr(A, Env, AV), !, ( AV \== 0 -> R = int(1) ; cpp_eval_expr(B, Env, BV), ( BV == 0 -> R = int(0) ; R = int(1) ) ).
 cpp_eval_reduce(compound_lit(T, I), Env, R) :- cpp_eval_init(T, I, Env, _, V), !, cpp_eval_lit(V, R).
 cpp_eval_reduce(stmt_expr(block(Ss)), Env, R) :- append(Ss0, [expr(_, Last)], Ss), cpp_eval_stmts(Ss0, Env, Env1, next), cpp_eval_expr(Last, Env1, V), !, cpp_eval_lit(V, R).
+cpp_eval_reduce(call(id(F), Args), Env, _) :- atom(F), cpp_eval_abort_fn(F, How), !, cpp_eval_abort(How, Args, Env), fail.   % a library THROW HELPER, or its abort: no constant expression (0.164), its message kept for the refusal (cpp_ce_check)
+cpp_eval_reduce(call(id(F), []), _, int(1)) :- nb_current('$cpp_eval_ce', on), memberchk(F, [is_constant_evaluated, '__libcpp_is_constant_evaluated']), !.   % IN A CONSTEVAL CHECK the evaluation is a constant one (0.164); the desugaring answered false for the run time
+cpp_eval_reduce(call(id(memset), [P, X, sizeof_type(_)]), Env, '$val'(A)) :- cpp_eval_reduce(P, Env, '$val'(A)), A = ptr(_, _), cpp_eval_expr(X, Env, 0), cpp_eval_load(A, W), !, cpp_eval_zeroed(W, Z), cpp_eval_store_ptr(A, Z).   % THE DESUGARING'S OWN ZEROING of a whole object or member, value-initialization (0.164): its value zeroed
+cpp_eval_reduce(call(id(memcpy), [D, Src, sizeof_type(_)]), Env, '$val'(A)) :- cpp_eval_reduce(D, Env, '$val'(A)), A = ptr(_, _), cpp_eval_reduce(Src, Env, '$val'(S)), S = ptr(_, _), cpp_eval_load(S, W), !, cpp_eval_store_ptr(A, W).   % ... and its copy of a whole object as its bytes
 cpp_eval_reduce(call(id(F), Args), Env, R) :- atom(F), cpp_eval_fn(F, Params, Ss), cpp_eval_args(Params, Args, Env, Args1), cpp_eval_call(F, Params, Ss, Args1, V), !, cpp_eval_lit(V, R).
+cpp_eval_reduce(call(P, Args), Env, R) :- ( P = id(X) -> memberchk(X-_, Env) ; true ), cpp_eval_reduce(P, Env, '$val'(fn(F))), cpp_eval_fn(F, Params, Ss),   % THROUGH A FUNCTION POINTER (0.164)
+    cpp_eval_args(Params, Args, Env, Args1), cpp_eval_call(F, Params, Ss, Args1, V), !, cpp_eval_lit(V, R).
 %% THE C LIBRARY'S `strlen' OVER A STRING THE EVALUATOR HOLDS (0.112): libc++'s `char_traits<char>::length' is
 %% `__builtin_strlen', and `basic_string_view(const char *)' -- every constant string_view, `__bool_strings''s
 %% `__true{"true"}' among them -- counts its literal through it
@@ -6308,9 +6353,36 @@ cpp_eval_reduce(ccast(_, T, E), Env, R) :- cpp_eval_ptr_cast(T, E, Env, R), !.  
 cpp_eval_reduce(call(id(F), [X|Rest]), Env, int(R)) :- cpp_bitcount(F, Dir, W0), cpp_eval_bitcount(Dir, W0, X, Rest, Env, R), !.   % THE BIT COUNTS (0.126): libc++ 21 writes `__countl_zero' as `__builtin_clzg(__t, numeric_limits<_Tp>::digits)' and its radix sort's `static constexpr auto __radix_size = std::__bit_log2<uint64_t>(...)' folds through the evaluator -- the desugaring folded a count of a CONSTANT argument alone (cpp_builtin_call), and the argument here is the callee's parameter (stdalgorithm6.cpp)
 cpp_eval_reduce(bin(Op, A, B), Env, R) :- !, cpp_eval_reduce(A, Env, A1), cpp_eval_reduce(B, Env, B1),
     ( ( A1 = '$val'(_) ; B1 = '$val'(_) ), cpp_eval_ptr_bin(Op, A1, B1, V) -> cpp_eval_lit(V, R) ; R = bin(Op, A1, B1) ).
-cpp_eval_reduce(E, Env, R) :- E =.. [F|Xs], cpp_eval_reduce_list(Xs, Env, Ys), R =.. [F|Ys].
+cpp_eval_reduce(E, Env, R) :- \+ ( cpp_eval_tried(E), cpp_eval_side_effects(E) ), E =.. [F|Xs], cpp_eval_reduce_list(Xs, Env, Ys), R =.. [F|Ys].   % never again a term whose own clauses above reduced its effect once (0.164)
 cpp_eval_reduce_list([], _, []).
 cpp_eval_reduce_list([X|Xs], Env, [Y|Ys]) :- cpp_eval_reduce(X, Env, Y), cpp_eval_reduce_list(Xs, Env, Ys).
+cpp_eval_tried(index(_, _)).
+cpp_eval_tried(member(_, _)).
+cpp_eval_tried(arrow(_, _)).
+cpp_eval_tried(deref(_)).
+cpp_eval_tried(addr(_)).
+cpp_eval_tried(call(_, _)).
+cpp_eval_function(F) :- atom(F), ccl_declared(F, T), nonvar(T), T = fn(_, _, _), !.
+cpp_eval_function(F) :- atom(F), cpp_eval_fn(F, _, _), !.   % an invoker made in a frame since closed (`lambda.K.fn')
+cpp_eval_effect_place(assign(_, P, _), P).
+cpp_eval_effect_place(preinc(P), P).
+cpp_eval_effect_place(predec(P), P).
+cpp_eval_effect_place(postinc(P), P).
+cpp_eval_effect_place(postdec(P), P).
+%% THE THROW HELPERS: `__throw_format_error(Msg)' (its message), any other library `__throw_*' (its name and its string
+%% arguments: `__throw_invalid_type_format_error: a floating-point', which builds its message at run time), and the
+%% verbose abort they end in; the first one met is kept, '$cpp_eval_abort'
+cpp_eval_abort_fn(F, message) :- cpp_eval_short_name(F, '__throw_format_error'), !.
+cpp_eval_abort_fn(F, named(B)) :- cpp_eval_short_name(F, B), sub_atom(B, 0, _, _, '__throw_'), !.
+cpp_eval_abort_fn(F, message) :- sub_atom(F, _, _, _, '__libcpp_verbose_abort'), !.
+cpp_eval_short_name(F, B) :- ( sub_atom(F, Bf, 1, _, '.'), Bf1 is Bf + 1, sub_atom(F, Bf1, _, 0, B0), \+ sub_atom(B0, _, _, _, '.') -> B = B0 ; B = F ).
+cpp_eval_abort(How, Args, Env) :-
+    (   nb_current('$cpp_eval_abort', abort(_)) -> true
+    ;   findall(Cs, ( member(A, Args), catch(cpp_eval_reduce(A, Env, '$val'(P)), _, fail), P = ptr(_, _), cpp_eval_cstr(P, 0, Cs) ), Css),
+        (   How == message -> ( append(_, [Cs], Css) -> atom_codes(Msg, Cs) ; Msg = abort )
+        ;   How = named(B), findall(T, ( member(Cs, Css), atom_codes(T, Cs) ), Ts), atomic_list_concat([B|Ts], ': ', Msg) ),
+        nb_setval('$cpp_eval_abort', abort(Msg)) ).
+cpp_eval_cstr(P, K, Cs) :- K < 10000, cpp_eval_padd(P, K, Q), cpp_eval_load(Q, C), integer(C), ( C =:= 0 -> Cs = [] ; Cs = [C|Cs1], K1 is K + 1, cpp_eval_cstr(P, K1, Cs1) ).
 cpp_eval_pointer_cast(T) :- catch(ccl_resolve_type(T, ptr(_, _)), _, fail).
 cpp_eval_ptr_cast(T, E, Env, '$val'(P)) :- cpp_eval_pointer_cast(T), cpp_eval_reduce(E, Env, '$val'(P)), P = ptr(_, _).
 cpp_bitcount('__builtin_clz', clz, 32).   cpp_bitcount('__builtin_clzl', clz, 64).   cpp_bitcount('__builtin_clzll', clz, 64).   cpp_bitcount('__builtin_clzg', clz, any).
@@ -6381,8 +6453,12 @@ cpp_eval_agg_kind(T, obj(Ms)) :- ccl_resolve_type(T, T1), ( T1 = base(_, [struct
 cpp_eval_init(T, Init, Env0, Env, V) :- cpp_eval_agg_kind(T, K), !, cpp_eval_agg_init(K, Init, Env0, Env, V).
 cpp_eval_init(_, none, Env, Env, 0) :- !.
 cpp_eval_init(_, init([]), Env, Env, 0) :- !.
-cpp_eval_init(_, init([item(_, E)]), Env0, Env, V) :- !, cpp_eval_effect(E, Env0, Env, V), cpp_eval_scalar(V).   % a braced scalar
-cpp_eval_init(_, E, Env0, Env, V) :- cpp_eval_effect(E, Env0, Env, V), cpp_eval_scalar(V).
+cpp_eval_init(_, init([item(_, E)]), Env0, Env, V) :- !, cpp_eval_effect(E, Env0, Env, V), cpp_eval_simple(V).   % a braced scalar
+cpp_eval_init(_, E, Env0, Env, V) :- cpp_eval_effect(E, Env0, Env, V), cpp_eval_simple(V).
+cpp_eval_simple(V) :- ( cpp_eval_scalar(V) ; V = ptr(_, _) ; V = fn(_) ), !.   % a scalar, a POINTER or a FUNCTION POINTER (0.164): `__parse_number_result{__begin, __value}' holds a pointer
+cpp_eval_zeroed(arr(L), arr(Z)) :- !, findall(Y, ( member(X, L), cpp_eval_zeroed(X, Y) ), Z).
+cpp_eval_zeroed(obj(Ps), obj(Zs)) :- !, findall(N-Y, ( member(N-X, Ps), cpp_eval_zeroed(X, Y) ), Zs).
+cpp_eval_zeroed(_, 0).
 cpp_eval_agg_init(arr(B, ET), Init, Env0, Env, arr(L)) :- ( Init == none ; Init == init([]) ), !, Env = Env0, cpp_eval_expr(B, Env0, K), integer(K), cpp_eval_zero(ET, Z), length(L, K), cpp_eval_all(L, Z).
 cpp_eval_agg_init(arr(B, ET), init(Items), Env0, Env, arr(L)) :- !, cpp_eval_items(Items, ET, Env0, Env, L0), length(L0, N0),
     ( B == none -> K = N0 ; cpp_eval_expr(B, Env0, K), integer(K), K >= N0 ), P is K - N0, cpp_eval_zero(ET, Z), length(Pad, P), cpp_eval_all(Pad, Z), append(L0, Pad, L).
@@ -6394,9 +6470,17 @@ cpp_eval_agg_init(obj(_), E, Env0, Env, V) :- cpp_eval_effect(E, Env0, Env, V), 
 cpp_eval_items([], _, Env, Env, []).
 cpp_eval_items([item([], E)|Is], ET, Env0, Env, [V|Vs]) :- cpp_eval_init(ET, E, Env0, Env1, V), cpp_eval_items(Is, ET, Env1, Env, Vs).
 cpp_eval_fields([], _, _, Ps, Env, Env, Ps).
+cpp_eval_fields([item([], E)|Is], Ms, I, Ps0, Env0, Env, Ps) :- E \= init(_), nth0(I, Ms, member(MT, F, _)), cpp_eval_agg_kind(MT, arr(B, ET)),
+    cpp_eval_effect(E, Env0, Env1, V0), V0 \= arr(_), !,   % BRACE ELISION (0.164): `array<T, N>{a, b}' -- an array member given an item that is no braced list and no array takes the items that follow
+    cpp_eval_expr(B, Env1, K), integer(K), K1 is K - 1, cpp_eval_take(K1, Is, Taken, Rest), cpp_eval_items(Taken, ET, Env1, Env2, Vs0),
+    cpp_eval_zero(ET, Z), length(Vs0, N0), Pad is K - 1 - N0, length(PadL, Pad), cpp_eval_all(PadL, Z), append([V0|Vs0], PadL, L),
+    cpp_eval_put_field(F, arr(L), Ps0, Ps1), I1 is I + 1, cpp_eval_fields(Rest, Ms, I1, Ps1, Env2, Env, Ps).
 cpp_eval_fields([item(Ds, E)|Is], Ms, I0, Ps0, Env0, Env, Ps) :-
     ( Ds = [field(F)|_] -> nth0(I, Ms, member(MT, F, _)) ; Ds == [], I = I0, nth0(I, Ms, member(MT, F, _)) ),
     cpp_eval_init(MT, E, Env0, Env1, V), cpp_eval_put_field(F, V, Ps0, Ps1), I1 is I + 1, cpp_eval_fields(Is, Ms, I1, Ps1, Env1, Env, Ps).
+cpp_eval_take(0, Is, [], Is) :- !.
+cpp_eval_take(_, [], [], []) :- !.
+cpp_eval_take(K, [I|Is], [I|Ts], Rest) :- K1 is K - 1, cpp_eval_take(K1, Is, Ts, Rest).
 cpp_eval_members_zero([], []).
 cpp_eval_members_zero([member(MT, N, _)|Ms], [N-Z|Ps]) :- cpp_eval_zero(MT, Z), cpp_eval_members_zero(Ms, Ps).
 cpp_eval_zero(T, V) :- cpp_eval_agg_kind(T, K), !, cpp_eval_agg_init(K, none, [], _, V).
@@ -6419,6 +6503,21 @@ cpp_eval_addr(index(P, I), Env, A) :- cpp_eval_expr(I, Env, K), integer(K),
 cpp_eval_addr(member(P, F), Env, ptr(C, Path1)) :- cpp_eval_addr(P, Env, ptr(C, Path)), cpp_eval_load(ptr(C, Path), obj(_)), append(Path, [F], Path1).
 cpp_eval_addr(arrow(P, F), Env, ptr(C, Path1)) :- cpp_eval_expr(P, Env, ptr(C, Path)), cpp_eval_load(ptr(C, Path), obj(_)), append(Path, [F], Path1).
 cpp_eval_addr(deref(P), Env, A) :- cpp_eval_expr(P, Env, A), A = ptr(_, _).
+cpp_eval_addr(move(E), Env, A) :- cpp_eval_addr(E, Env, A).
+cpp_eval_addr(ccast(_, T, E), Env, A) :- cpp_eval_ref_type(T), cpp_eval_addr(E, Env, A).
+cpp_eval_addr(cast(T, E), Env, A) :- cpp_eval_ref_type(T), cpp_eval_addr(E, Env, A).
+cpp_eval_addr(id(N), Env, ptr(cell(Id), [])) :- \+ memberchk(N-_, Env), cpp_eval_static_cell(N, Id).
+%% A CLASS'S STATIC CONSTANT AS A PLACE (0.164): `basic_format_string's `__types_' and `__handles_', whose `.data()' the
+%% check hands its context -- the static's initializer desugared in its class, its type resolved there, its value built
+%% by the evaluator (the handles by the lambdas called in place) into a cell once per unit (`'$cpp_scell'(Name, Id)'),
+%% the statement's register of temporaries set aside while it is desugared
+cpp_eval_static_cell(N, Id) :- '$cpp_scell'(N, Id0), !, Id = Id0.
+cpp_eval_static_cell(N, Id) :- atom(N), cpp_static_split(N, C, SN), '$cpp_sinit'(C, SN, Init), ccl_declared(N, T0), nonvar(T0),
+    ccl_global('$cpp_temps', Ts, none), nb_setval('$cpp_temps', none),
+    (   once(catch(cpp_isolated(cpp_in_class(C, ( cpp_type(T0, T), cpp_init_expr(Init, I0) ))), error(not_lowered(_), _), fail)) -> nb_setval('$cpp_temps', Ts)
+    ;   nb_setval('$cpp_temps', Ts), fail ),
+    cpp_eval_init(T, I0, [], _, V), cpp_ec_new(V, Id), assertz('$cpp_scell'(N, Id)).
+cpp_static_split(N, C, SN) :- sub_atom(N, B, 1, A, '.'), A > 0, sub_atom(N, _, A, 0, SN), \+ sub_atom(SN, _, _, _, '.'), !, sub_atom(N, 0, B, _, C).
 cpp_eval_load(ptr(cell(Id), Path), V) :- cpp_ec_get(Id, W), cpp_eval_at(W, Path, V).
 cpp_eval_at(V, [], V) :- !.
 cpp_eval_at(arr(L), [K|P], V) :- integer(K), K >= 0, nth0(K, L, X), cpp_eval_at(X, P, V).
@@ -6658,7 +6757,7 @@ cpp_wstack(St) :- ( nb_current('$cpp_wstack', St0) -> St = St0 ; St = [] ).
 cpp_wtake(0, _, []) :- !.
 cpp_wtake(_, [], []) :- !.
 cpp_wtake(N, [X|Xs], [X|Ys]) :- N1 is N - 1, cpp_wtake(N1, Xs, Ys).
-cpp_isolated(Goal) :- cpp_with_obj_const(none, cpp_with_obj_cat(none, cpp_with_obj_expr(none, cpp_isolated_(Goal)))).   % NOR THE CALLER'S OBJECT (0.115), below; its expression too (0.117)
+cpp_isolated(Goal) :- cpp_with_obj_const(none, cpp_with_obj_cat(none, cpp_with_obj_expr(none, cpp_line_kept(cpp_isolated_(Goal))))).   % NOR THE CALLER'S OBJECT (0.115), below; its expression too (0.117)
 cpp_isolated_(Goal) :- nb_getval('$ccl_scope', S), nb_setval('$ccl_scope', []), ccl_global('$cpp_caller', Cl, none), nb_setval('$cpp_caller', none),
     ( catch(Goal, E, (nb_setval('$ccl_scope', S), nb_setval('$cpp_caller', Cl), throw(E))) -> nb_setval('$ccl_scope', S), nb_setval('$cpp_caller', Cl) ; nb_setval('$ccl_scope', S), nb_setval('$cpp_caller', Cl), fail ).   % ON A THROW TOO: SFINAE throws and catches by design, and a lost scope left the CALLER's own locals untyped
 %% ... AND AN ISOLATED WALK HAS NO CALLER (0.112): an instance or a member emitted while an outer overload set is scored
@@ -6672,6 +6771,12 @@ cpp_isolated_(Goal) :- nb_getval('$ccl_scope', S), nb_setval('$ccl_scope', []), 
 %% `__copy_loop<_AlgPolicy>::operator() const', emitted while its const temporary's call was chosen, `*__result =
 %% *__first' found no `back_insert_iterator::operator=' and stored a char into the iterator (std::print, a
 %% user formatter's format_to). `isolatedobj.cpp'.
+%% ... AND THE CALLER'S LINE COMES BACK (0.164): `'$cpp_line'', the line a refusal is reported at (cpp_stmt/3 sets it), is
+%% the caller's statement's again when an isolated walk ends, however it ends. An instance's body walked in the middle of
+%% the caller's statement left its own last line there, a line of another file: `std::format("{} {}", 1)' was refused
+%% at line 370, a line of libc++'s header, where clang++ names the program's line 6.
+cpp_line_kept(Goal) :- ( nb_current('$cpp_line', L) -> true ; L = 0 ),
+    ( catch(Goal, E, ( nb_setval('$cpp_line', L), throw(E) )) -> nb_setval('$cpp_line', L) ; nb_setval('$cpp_line', L), fail ).
 %% A FRAME PUSHED FOR A WALK IS GONE WHEN THE WALK ENDS, HOWEVER IT ENDS (0.133): the scope is a global, which neither a
 %% throw nor a failure restores, and a block, a statement expression or a deduction pushed its frame and popped it only
 %% on success. A refusal inside one, caught by a candidate check or by `cpp_lvalue_deep' (SFINAE), left the frame

@@ -545,6 +545,15 @@ ccl_is_integer(T) :- ccl_resolve_type(T, base(_, S)), \+ memberchk(double, S), \
     ( memberchk(int, S) ; memberchk(char, S) ; memberchk(short, S) ; memberchk(long, S) ; memberchk('__int128', S) ; memberchk(signed, S)
     ; memberchk(unsigned, S) ; memberchk('_Bool', S) ; memberchk(bool, S) ; memberchk(char8_t, S) ; memberchk(wchar_t, S) ; memberchk(char16_t, S) ; memberchk(char32_t, S) ; S = [enum(_, _)] ; S = [enum_class(_, _)] ; memberchk(bitint(_), S) ), !.   % C23's _BitInt(N) is an integer
 ccl_is_arith(T) :- ( ccl_is_integer(T) ; ccl_is_float(T) ; ccl_is_decimal(T) ), !.
+%% AN ITEM THAT ONLY BRACE ELISION READS ([dcl.init.aggr]/15, C 6.7.9/20; 0.164): a SCALAR item for an array member of
+%% scalars is never the array's value, so it is the array's first element and the items after it the rest, however many
+%% items and members remain -- `struct S { int a[2]; int b; } s = {1, 2};', `struct W { int a[1]; } w = {7};' and
+%% `std::array<int, 1> a = {5};', where the guard that MORE ITEMS THAN MEMBERS remain read the item as the array's value
+%% (`[1 x i32] 7', which LLVM refused). The desugaring and the lowering's two roads ask it (cpp_agg_inits, ir_init_items,
+%% ir_gelide); an item whose type is unknown keeps the old guard.
+ccl_elided_item(E, ET) :- \+ ccl_string_item(E), ccl_scalar_value_type(ET), catch(ccl_type_of(E, T), _, fail), T \== unknown, ccl_scalar_value_type(T), !.
+ccl_string_item(E) :- compound(E), E =.. [K, _], memberchk(K, [str, wstr, u16str, u32str]), !.   % a string literal is a char array's VALUE (`struct N { char name[16]; int v; } g = { "global", 1 };'), though the inference types it as a pointer
+ccl_scalar_value_type(T) :- catch(ccl_resolve_type(T, T1), _, fail), ( T1 = ptr(_, _) ; ccl_is_arith(T1) ), !.
 %% C23'S DECIMAL FLOATING TYPES (6.2.5/11; 0.129): `_Decimal32', `_Decimal64' and `_Decimal128', real floating types of their own,
 %% kept apart from the standard ones (ccl_is_float/1 is false for them): their arithmetic is libgcc's BID routines (the lowering)
 ccl_is_decimal(T) :- ccl_resolve_type(T, base(_, S)), ccl_decimal_spec(S, _), !.

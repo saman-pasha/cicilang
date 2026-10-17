@@ -10,8 +10,8 @@ it found, its measurements and its gate numbers. `README.md` tells a user what r
 architecture and the milestones. A step that changes a rule edits the rule here, in its topic, and writes its entry
 in `HISTORY.md`.
 
-At 0.163 the versions are: the module 0.163 (`ccl_p_version` in `module/cicilang.cicili`, `bin/cicilang --version`),
-the reader 133 (`ccl_reader_version/1`, `library/ccl_syntax.pl`) and the lowering 88 (`ccl_lowering_version/1`,
+At 0.164 the versions are: the module 0.164 (`ccl_p_version` in `module/cicilang.cicili`, `bin/cicilang --version`),
+the reader 133 (`ccl_reader_version/1`, `library/ccl_syntax.pl`) and the lowering 89 (`ccl_lowering_version/1`,
 `library/ccl_ir.pl`).
 
 Build and prove, always in this order (or all of it, `sh test/gates.sh`):
@@ -397,7 +397,7 @@ tutorials/01..03-*.pl       the objects layer's lessons; goal main, last line do
 - `test/flow.sh` (0.144) reads every file of the library with cocolog's `library(flow/chart)` and RUNS NOTHING. A chart
   starts at one call pattern, so `test/flow.pl`'s `fg_roots_main/2` writes a copy of each file with a root,
   `'$fg_all'/N`, that calls each predicate the file defines with free arguments: 3538 predicates in the ten files at
-  0.161 (3815 in all at 0.163), and since 0.161 the 220 of the nine gate programs, `test/reader.pl`, `compile.pl`,
+  0.161 (3833 in all at 0.164), and since 0.161 the 220 of the nine gate programs, `test/reader.pl`, `compile.pl`,
   `cpp.pl`, `readhdr.pl`, `census.pl`, `libcxx.pl`, `flow.pl`, `why.pl` and `prof.pl` (`TFILES`), each charted with the
   compiler and the flow and process libraries loaded, nothing stubbed (no gate program is a library file); their first
   chart found a predicate split by another's clauses (`census_main/0`) and a call of `print_message/2`, which cocolog
@@ -420,9 +420,9 @@ tutorials/01..03-*.pl       the objects layer's lessons; goal main, last line do
   `fg_dynamic_main/2`): without them 1221 of the 1291 findings of `ccl_cpp.pl` were unknown procedures. On 1.11.4 the
   two ways give the same findings, key for key, and the gate's own are gone. (0.144, 0.146)
 - One job a file in the memory-gated pool (`ccl_pool`; `FLOW_JOBS` 4, `FLOW_LAUNCH_MB` 9000, `FLOW_HARD_MB` 14000),
-  the longest first by `~/.cicilang/flow-times`, each under `FLOW_SECS` (900 s): `ccl_cpp.pl` 47 s, `ccl_ir.pl` 47 s,
-  `ccl_driver.pl` 34 s, `test/compile.pl` 33 s, `ccl_syntax.pl` 30 s, the others under 22 s; the gate 83 s and 2638 MB
-  over its four lanes at 0.163 (92 s at 0.161; 55 s over the library alone at 0.144). A file that is not charted is RED.
+  the longest first by `~/.cicilang/flow-times`, each under `FLOW_SECS` (900 s): `ccl_cpp.pl` 47 s, `ccl_ir.pl` 46 s,
+  `ccl_driver.pl` 33 s, `test/compile.pl` 32 s, `ccl_syntax.pl` 30 s, the others under 22 s; the gate 82 s and 2554 MB
+  over its four lanes at 0.164 (92 s at 0.161; 55 s over the library alone at 0.144). A file that is not charted is RED.
   (0.144, 0.161)
 - `fg_findings_main/5` writes `flow_findings/2`'s findings but the root's, a line each: the kind, the severity, the
   predicate, the line, the column and the text. The kinds: `unknown_procedure` (a call that nothing answers, with the
@@ -465,7 +465,7 @@ tutorials/01..03-*.pl       the objects layer's lessons; goal main, last line do
 - The compile gate. `test/compile.pl`, one process over the user's store, reads, checks, lowers, compiles at `-O1`
   and links every `test/c/run/*.c` at its `NAME.std` level (`c_level`). It expects every `test/c/safe/*.c` refused.
   `test/compile.sh` runs each binary as `NAME arg1 arg2` against `NAME.expect`, and compares each refusal with
-  `safe/NAME.expect`. There are 83 run and 47 safe fixtures at 0.162. (M2, M3, 0.57)
+  `safe/NAME.expect`. There are 84 run and 47 safe fixtures at 0.164. (M2, M3, 0.57)
 - The driver gate. `test/driver.sh` makes 40 checks of `bin/cicilang` over the user's store (the two decimal checks are
   skipped where no gcc with decimal floating types is installed), the variadic calls of every kind both ways against
   clang among them (`test/c/link/va_*.c`, 0.131), and Apple's arm64 expansion of `va_arg` of an aggregate against
@@ -508,9 +508,9 @@ tutorials/01..03-*.pl       the objects layer's lessons; goal main, last line do
   both under qemu and compares them, then two checks against clang++'s code on that machine, the C++ gate's own: classes
   by value and pointers to member functions both ways (`test/cpp/link/`). Each C++ build has a time and a memory cap of
   its own (`CROSS_SECS` 1800, `CROSS_MB` 2800: its summaries are the target's, cold in every chain); without the tree
-  the part is a SKIP line. 83 C fixtures and 5 checks, 24 C++ fixtures (`vector.cpp` since 0.162) and 2 checks at 0.162,
-  642 s in the chain, the
-  C++ part cold (its summaries are that machine's own, read afresh in every chain's fresh HOME). (0.131, 0.161)
+  the part is a SKIP line. 84 C fixtures and 5 checks, 24 C++ fixtures (`vector.cpp` since 0.162) and 2 checks at 0.164,
+  703 s in the chain, peak 535 MB, the C++ part cold (its summaries are that machine's own, read afresh in every chain's
+  fresh HOME). (0.131, 0.161)
 - The proof. `proof/run.sh` has clang turn `proof/forty2.ll` into a binary that prints `cicilang reaches C` and exits
   42. (M0)
 
@@ -542,8 +542,8 @@ tutorials/01..03-*.pl       the objects layer's lessons; goal main, last line do
 ### The C++ gate: test/cpp.sh
 
 - `test/cpp.sh` runs in this order: `test/cpp.pl` in one `--local` process; four checks of the command; every
-  `test/cpp/run/*.cpp` as a pool job (518 at 0.163); `classes.cpp` and `templates.cpp` built and run; the refusals.
-  (0.105)
+  `test/cpp/run/*.cpp` as a pool job (520 at 0.164); `classes.cpp` and `templates.cpp` built and run; the refusals,
+  each at the level its `test/cpp/NAME.flags` names, else C++17 (0.164). (0.105, 0.164)
 - `test/cpp.pl` runs 46 numbered checks, `c1` to `c46`, then reads Cicili's six C++ files whole (`test/cpp/objects.cpp`,
   `emit_report.cpp`, `specialise.cpp`, `syntax.cpp`, `torch.cpp`, `torch-fragment.cpp`). `c34` checks the Itanium
   mangler on nine symbols, with no class registered. `unit_at(Std, Name, U)` sets `'$ccl_std'` for one read: `c22` to
@@ -608,6 +608,8 @@ tutorials/01..03-*.pl       the objects layer's lessons; goal main, last line do
   | `lambda_method.cpp` | `non_const_member_on_const(bump,'Counter')` | 0.127 |
   | `bind_const.cpp` | `binds_const(r)` | 0.127 |
   | `enumnotconst.cpp` | `enumerator_not_constant('B')` | 0.160 |
+  | `fmtindex.cpp` (C++20) | `consteval_call_not_constant('basic_format_string.char.int','Argument index outside the valid range')` | 0.164 |
+  | `fmttype.cpp` (C++20) | `consteval_call_not_constant('basic_format_string.char.double','__throw_invalid_type_format_error: a floating-point')` | 0.164 |
 
   `deduced_this.cpp` (0.43) is gone: a class's `this auto` method builds since 0.117 (`deducethis.cpp`).
 
@@ -643,9 +645,9 @@ tutorials/01..03-*.pl       the objects layer's lessons; goal main, last line do
   holds the binary's standard output and error; for C++, the build's own output (empty when clean), then the binary's
   standard output. `btree`'s comes from the C mirror `bench/btree/btree_cicilang.c`. Compare by hand the same way.
   (M2, 0.93)
-- `NAME.flags` gives a C++ fixture its level (`-std=c++20`, `-std=c++23`, `-std=c++26`); without one it builds at
-  C++17. `NAME.std` gives a C fixture its level (`-std=c23`); an ISO level before C23 (`-std=c17`) turns trigraphs on,
-  as `bin/cicilang` does. (0.42, 0.57, 0.108)
+- `NAME.flags` gives a C++ fixture its level (`-std=c++20`, `-std=c++23`, `-std=c++26`), a refusal of `test/cpp/` too
+  (0.164); without one it builds at C++17. `NAME.std` gives a C fixture its level (`-std=c23`); an ISO level before C23
+  (`-std=c17`) turns trigraphs on, as `bin/cicilang` does. (0.42, 0.57, 0.108)
 - `NAME.stdin` is the input of a fixture that reads (`stdcin`, `stdcinld`, `stdget`, `stdgetline`, `stdistream`,
   `stdistream2`, `stdws`, `stdtie`); the others read `/dev/null`. (0.75, 0.115, 0.136)
 - `NAME.needs` holds a preprocessor condition over the library's own macros. `ccl_needs_met` runs a four-line file
@@ -2619,10 +2621,16 @@ free. A const method adds `.c`, a ref-qualified one `.r` or `.rr` after it: each
 - `cpp_member_from` builds one member from its item: an array from a nested braced list element by element (the rest
   zero) or from an array value as bytes; a nested aggregate from its own list; a class through its constructors, the
   `initializer_list` one first; a reference member bound; a scalar assigned. (0.84)
-- Brace elision ([dcl.init.aggr]/15, C too): an array member given a non-braced item takes as many following items as
-  it has elements, where more items than members remain (`cpp_aggregate_inits`, `cpp_elide_take`; the lowering's
-  `ir_init_items`, `ir_elide_take`, a global's `ir_gelide`). Else one item for one array member is an array value.
-  Every `std::array` initializer needs it. `stdarray.cpp`. (0.91, 0.110)
+- Brace elision ([dcl.init.aggr]/15, C too): an array member given a non-braced item takes as many following items as it
+  has elements, where more items than members remain (`cpp_aggregate_inits`, `cpp_elide_take`; the lowering's
+  `ir_init_items`, `ir_elide_take`, a global's `ir_gelide`), or where the item is a SCALAR -- no string literal, which
+  is a char array's value -- and the array's elements are scalars, however many items and members remain
+  (`ccl_elided_item/2`, 0.164): such an item is never the array's value. Else one item for one array member is an array
+  value. Every `std::array` initializer needs it. `stdarray.cpp`. Why (0.164): `struct W { int a[1]; } w = {7};`,
+  `struct S { int a[2]; int b; } s = {1, 2};` and `std::array<int, 1> a = {5};` took the item for the array's value,
+  `[1 x i32] 7`, which LLVM refused -- in C as in C++, a local and a global alike; libc++'s
+  `basic_format_string<char, int>` holds `std::array<__arg_t, 1> __types_{...}`. `test/c/run/braceelide.c`,
+  `arrayone.cpp`. (0.91, 0.110, 0.164)
 - `return { a, b }` builds the RESULT type's object: through its constructor, else member by member where a member
   constructs, else the compound literal (`cpp_stmt_` on `return(L, init(Items))`); it is elided. A designated list
   takes the designated road above. (0.72, 0.83, 0.112)
@@ -3052,6 +3060,10 @@ free. A const method adds `.c`, a ref-qualified one `.r` or `.rr` after it: each
   call was chosen walked its body under `const`, and in `__copy_loop::operator() const` the non-const
   `back_insert_iterator::operator=` was no candidate (0.113's rule): `*__result = *__first` stored a `char` into the
   iterator. `isolatedobj.cpp`. (0.115)
+- It KEEPS THE CALLER'S LINE (`cpp_line_kept/1`): `'$cpp_line'`, the line a refusal is reported at (cpp_stmt/3 sets it),
+  is the caller's statement's again when the walk ends, however it ends. Why: an instance's body walked in the middle of
+  the caller's statement left its own last line there, a line of another file, and `std::format("{} {}", 1)` was refused
+  at line 370, a line of libc++'s header, where clang++ names the program's line 6. (0.164)
 - `cpp_flush_instances/2` appends `'$cpp_out'` to the unit's items, and repeats while new items make more. (0.35)
 - An emission is IN PROGRESS while it runs (`'$cpp_making'`, `cpp_making/1`) and NOTED in `'$cpp_inst'` only when
   done; a throw clears the mark. This covers member, constructor and function template instances
@@ -4679,15 +4691,32 @@ A lambda is a class of its captures (`library/ccl_cpp.pl`). A fixture named alon
   link (`stable_sort` of ints). `bitcount.cpp`, `stdalgorithm6.cpp`. (0.126)
 - A CAST TO A POINTER TYPE keeps the pointer the evaluator holds (`cpp_eval_ptr_cast/4`), `cast(T, E)` and the C++ named
   forms the desugaring keeps, `ccast(reinterpret, T, E)`: libc++ 21's `__constexpr_strlen` counts through
-  `__builtin_strlen(reinterpret_cast<const char *>(__str))` (the evaluator's `__libcpp_is_constant_evaluated()` is false, so
-  the loop above it is not taken), and a pointer wrapped in a cast was none to `strlen`: `std::string_view s{"true"}` of a
-  constant did not fold, and the static member stayed an undefined symbol (`constsv.cpp`, `staticsv.cpp`, `strlencast.cpp`).
-  (0.126)
+  `__builtin_strlen(reinterpret_cast<const char *>(__str))` (the evaluator's `__libcpp_is_constant_evaluated()` is
+  false, so the loop above it is not taken but in a library consteval constructor's check, 0.164), and a pointer wrapped
+  in a cast was none to `strlen`: `std::string_view s{"true"}` of a constant did not fold, and the static member stayed
+  an undefined symbol (`constsv.cpp`, `staticsv.cpp`, `strlencast.cpp`). (0.126)
 - A wide literal (`L"..."`, `u"..."`, `U"..."`) is its code units to the evaluator (`ir_utf8_decode`,
   `ir_wide_units`), `wcslen` counts them, and a pointer into such a cell spells back as the literal (`cpp_ec_lit`). Why:
   `__bool_strings<wchar_t>::__true{L"true"}` did not fold and was an undefined symbol. `widesv.cpp`. (0.115)
 - `if consteval` keeps both branches, `ifce(L, CT, RT)`: the evaluator takes CT (`cpp_eval_stmt(ifce)`), the check and
   the lowering RT (`ck_stmt(ifce)`, `ir_stmt(ifce)`). `ifconsteval.cpp`. (0.108)
+- WHAT A LIBRARY CONSTEVAL CONSTRUCTOR'S CHECK RUNS INTO (0.164; the next topic), the evaluator takes: a FUNCTION'S
+  ADDRESS is the value `fn(F)` (`cpp_eval_function/1`: a name declared of function type, or one the evaluator finds, a
+  lambda's invoker made in a frame since closed), stored, loaded and CALLED THROUGH (a format handle's `__parse_`);
+  `std::move` and a cast to a reference name their operand, as a value and as a place (`std::forward` is
+  `static_cast<_Tp &&>(__t)`); an assignment or an increment INSIDE AN OPERAND is done once, where it is reduced
+  (`cpp_eval_effect_place/2`: `*__out_it++ = *__begin++`), and the general road never reduces such a term again
+  (`cpp_eval_tried/1`); `?:`, `&&` and `||` evaluate the operands C++ evaluates and no more -- an arm not taken may call
+  what is no constant expression; the desugaring's `memset` and `memcpy` of a whole object (`sizeof_type`) zero and copy
+  its value (`cpp_eval_zeroed/2`), value-initialization's zeroing; an aggregate's item may be a pointer or a function
+  pointer (`cpp_eval_simple/1`: `__parse_number_result{__begin, __value}`); an array member given an item that is no
+  braced list takes the items that follow, brace elision (`cpp_eval_fields`, `cpp_eval_take/4`: `array<T, N>{a, b}`); a
+  class's STATIC CONSTANT is a place, its initializer desugared in its class (the statement's register of temporaries
+  set aside) and its value built into a cell once per unit (`cpp_eval_static_cell/2`, `'$cpp_scell'(Name, Id)`:
+  `basic_format_string`'s `__types_` and `__handles_`, whose `.data()` the check hands its context); and a header's
+  constant inline aggregate is a value (`'$cpp_gagg:N'`, recorded by `cpp_lazy_inline_var`, as the program's own since
+  0.97: `__fields_integral`, which every integer's format spec is parsed against). `std::is_constant_evaluated()` and
+  `__libcpp_is_constant_evaluated()` are true in such a check alone (`'$cpp_eval_ce'`). `fmtcheck.cpp`. (0.164)
 
 ### Constexpr constructors, globals and consteval
 
@@ -4731,6 +4760,28 @@ A lambda is a class of its captures (`library/ccl_cpp.pl`). A fixture named alon
 - So does the program's consteval member function, static or not (`cpp_note_consteval/3` where the method is emitted,
   `cpp_consteval_fold/2` after every call), and its consteval constructor builds a local at compile time
   (`cpp_eval_construct` in `cpp_decl_pieces`: the object's value is the local's initializer). `constevalm.cpp`. (0.112)
+- A LIBRARY CLASS'S CONSTEVAL CONSTRUCTOR IS RUN AT COMPILE TIME where its object is made ([dcl.constexpr]/13,
+  [expr.const]; 0.164; dropped from 0.110 to 0.163): `basic_format_string`'s parses the format string against the
+  arguments' kinds, through `__format::__vformat_to` over a `__compile_time_basic_format_context`, and libc++ 21's
+  `_CmpUnspecifiedParam`'s is the `0` of `o < 0`. The run-time constructor initializes the members and runs no body; the
+  whole constructor -- its member initializers and its body -- is desugared once more as its CHECK TWIN `<Name>.ce`, a
+  function the evaluator finds (`'$cpp_ownfn'`) and the lowering never sees (`cpp_ce_twin/7`,
+  `'$cpp_cecheck'(Name, Twin, C)`). Where a temporary of the class is constructed (`cpp_temporary`'s two last clauses,
+  after the copy pass: the literal converted to `format_string<int>`), `cpp_ce_check/3` runs the twin over a cell of the
+  class's zero and the call's own arguments (`cpp_eval_construct/4`), `std::is_constant_evaluated()` true. A call of a
+  library throw helper met on the way -- `__throw_format_error(Msg)`, any other `__throw_*` (its name and its string
+  arguments: the type error builds its message at run time), the verbose abort they end in (`cpp_eval_abort_fn/2`, the
+  first one met kept in `'$cpp_eval_abort'`) -- is the call that makes the expression no constant one, and the program
+  is refused by name at the statement's line, the library's message in the refusal, as clang++ refuses it:
+  `std::format("{} {}", 1)` is
+  `consteval_call_not_constant('basic_format_string.char.int', 'Argument index outside the valid range')`
+  (`test/cpp/fmtindex.cpp`), `std::format("{:x}", 1.5)` names `__throw_invalid_type_format_error: a floating-point`
+  (`fmttype.cpp`). A check the evaluator cannot take leaves the format string to the library's own parser at run time,
+  as before (trace `consteval_ctor_unevaluated`); one that passes traces `consteval_ctor_checked`. `fmtcheck.cpp`
+  (C++23: the format strings of 17 calls -- positional and automatic arguments, fill, alignment, signs, bases, widths
+  and precisions from arguments, the char, bool, string, pointer and floating formatters, escapes, a wide string, a user
+  formatter's own `parse` -- each checked, over libc++ 18 and 21): its 29 checks over libc++ 18 and its 35 over 21 pass,
+  none left unevaluated. (0.164)
 
 ## Object layout and the ABI
 
@@ -5378,9 +5429,11 @@ A lambda is a class of its captures (`library/ccl_cpp.pl`). A fixture named alon
   (`ranges::iter_move`). A global of an empty class is its zero bytes, with no constructor run (`nullopt`,
   `piecewise_construct`); with no initializer it is value-initialized ([dcl.init]/8): `std::ignore`. (0.73, 0.82, 0.90,
   0.109)
-- A nested class of a library class is the library's (`cpp_lib_class` via `'$cpp_encl'`). A library class's
-  `consteval` constructor keeps its member initializers and drops its body, a compile-time check that nothing here
-  evaluates (`cpp_member_fns`, trace `consteval_ctor_unchecked`): `basic_format_string`'s format parse. (0.84, 0.110)
+- A nested class of a library class is the library's (`cpp_lib_class` via `'$cpp_encl'`). A library class's `consteval`
+  constructor keeps its member initializers and drops its body at run time; the body is a compile-time check,
+  `basic_format_string`'s format parse, which the evaluator runs where the object is made since 0.164 (the Constant
+  evaluation topic; `cpp_member_fns`, `cpp_ce_twin/7`, trace `consteval_ctor_unchecked` where the twin cannot be
+  desugared). (0.84, 0.110, 0.164)
 
 ### Library functions are not checked
 
@@ -6156,7 +6209,8 @@ A lambda is a class of its captures (`library/ccl_cpp.pl`). A fixture named alon
   3.7 s and `1.0L + 1e-4900L` 0.97 s of CPU, now under a millisecond. `test/c/run/ldconst.c`. (0.154)
 - Brace elision ([dcl.init.aggr]/15, and C's own rule): an array member given a non-braced item takes as many of the
   following items as it has elements, while more items than members remain (`ir_init_items/4`, `ir_elide_take/4`; a
-  global's through `ir_gelide/4`). Every `std::array` initializer needs it. (0.91, 0.110)
+  global's through `ir_gelide/4`), or where a scalar item meets an array of scalars (`ccl_elided_item/2`, 0.164; the
+  Aggregates topic). Every `std::array` initializer needs it. (0.91, 0.110, 0.164)
 - A local aggregate initializer stores `zeroinitializer`, then its items (`ir_init/3`). A braced list on a scalar is
   its one value or the type's zero; more items are `initializer_of_a_scalar(T)`. The scalar test takes the resolver's
   first answer, else `int arr[9] = {}` became a `sext`. An item with no member names its type, `initializer(I, ST)`.
@@ -7367,12 +7421,13 @@ A lambda is a class of its captures (`library/ccl_cpp.pl`). A fixture named alon
   splices (`splice.c`), the size of an aligned object (`alignsize.c`). Since 0.117: a VLA initialized by `= {}`
   (`vlaempty.c`, C23), `va_arg` of a struct, a union and a complex (`vaaggregate.c`), `__int128` (`int128.c`) and a
   `_Static_assert` over the `sizeof` of a struct (`sizeofassert.c`) and a conditional of a pointer and the literal zero
-  (`condnull.c`). Since 0.133: a `goto` out of scopes with `defer`s, forward and backward (`gotodefer.c`), and over owners
-  (`gotoown.c`). Since 0.137: a decimal to and from a 128-bit integer (`dec128.c`), a decimal constant's infinity, NaN and
-  division by zero (`decspecial.c`). Since 0.154: a long double literal's exact value, in a function and in a global's
-  fold, its arithmetic, casts and far sums (`ldconst.c`, on aarch64 against clang's quad); an integer operation inside a
-  floating global's initializer (`fpintexpr.c`); a float's and a half's tie to even (`fpconst.c`). Since 0.155:
-  bitfields of 61 to 64 bits and a 100-bit one, stored and in a global's constant (`bitfield64.c`).
+  (`condnull.c`). Since 0.133: a `goto` out of scopes with `defer`s, forward and backward (`gotodefer.c`), and over
+  owners (`gotoown.c`). Since 0.137: a decimal to and from a 128-bit integer (`dec128.c`), a decimal constant's
+  infinity, NaN and division by zero (`decspecial.c`). Since 0.154: a long double literal's exact value, in a function
+  and in a global's fold, its arithmetic, casts and far sums (`ldconst.c`, on aarch64 against clang's quad); an integer
+  operation inside a floating global's initializer (`fpintexpr.c`); a float's and a half's tie to even (`fpconst.c`).
+  Since 0.155: bitfields of 61 to 64 bits and a 100-bit one, stored and in a global's constant (`bitfield64.c`). Since
+  0.164: brace elision of a scalar item for an array member of scalars, a local and a global (`braceelide.c`).
 - The C library is the host's. The compiler's own freestanding headers are in `library/include/` (`<stdarg.h>`,
   `<stdatomic.h>`, `<complex.h>`, `<stdckdint.h>`, `<stdbit.h>`, `<limits.h>` and six more).
 - The language's own additions run: `:=`, patterns, `name { }` structs and `format`, `print`, `println`
@@ -7429,6 +7484,9 @@ A lambda is a class of its captures (`library/ccl_cpp.pl`). A fixture named alon
   (two virtual overloads of one name and arity, one overridden), `virtualdefault` (a virtual call that leaves a defaulted
   argument out), `anonparam` (an unnamed by-value parameter destroyed), `rangeadl` (a range-for by the free `begin` and
   `end` of two namespaces), `downcast` (`static_cast` from a second base to the derived class, a pointer and a reference).
+- Forms of 0.164: `fmtcheck` (C++23: `std::format`'s format strings checked at compile time, each of 17 calls), the
+  refusals `test/cpp/fmtindex.cpp` and `fmttype.cpp` (C++20: an argument the call does not have, a type the formatter
+  does not take), `arrayone` (brace elision into `std::array<T, 1>` and a struct's array member).
 - Forms of 0.163: `vbaselayout` (a class over a virtual base through one path, two levels, and a holder in a diamond:
   sizes, offsets, calls and casts as clang lays them; the virtual base built by the most derived class), `diamonddeep`
   (a diamond whose paths hold the virtual base further in), `vbaseedge` (an empty virtual base, tail padding, a copy and
@@ -7513,10 +7571,10 @@ A lambda is a class of its captures (`library/ccl_cpp.pl`). A fixture named alon
 - Coroutines: `cogenerator`, `cotask`, `coeager`, `coawait`, `coawaitop`, `cotemplate`, `cotraits`. Modules: `modules`
   (it imports `mathm.cppm`, which imports `basem.cppm`), `headerunit`, `hdrinline`. Also the array cookie
   (`arraycookie`), trailing return types (`trailing`) and CTAD (`stdctad`, `deduceguide`) (0.108, 0.110).
-- `test/cpp.sh` checks that twenty-one programs are refused by name (`coro.cpp`, `concept_fail.cpp`,
+- `test/cpp.sh` checks that twenty-four programs are refused by name (`coro.cpp`, `concept_fail.cpp`,
   `constrained_fail.cpp`, `lambda_const.cpp`, `lambda_method.cpp`, `bind_const.cpp`, the eleven `access_*.cpp`,
-  `abstract.cpp`, `modhidden.cpp`, `diamond.cpp`, `basenodefault.cpp`) and that the safe part refuses `escape.cpp`,
-  `thisunset.cpp` and `gotopastdtor.cpp`.
+  `abstract.cpp`, `modhidden.cpp`, `diamond.cpp`, `basenodefault.cpp`, `enumnotconst.cpp`, and since 0.164
+  `fmtindex.cpp` and `fmttype.cpp`) and that the safe part refuses `escape.cpp`, `thisunset.cpp` and `gotopastdtor.cpp`.
 
 ### libc++ headers read whole
 
@@ -7649,8 +7707,12 @@ A lambda is a class of its captures (`library/ccl_cpp.pl`). A fixture named alon
 
 ### C++ language
 
-- A library class's consteval constructor or member keeps its member initializers and runs at run time, its
-  compile-time check dropped, as `basic_format_string`'s (0.110); the program's own fold (0.99, 0.112).
+- A library class's consteval constructor's check runs at compile time since 0.164 where the evaluator takes it (the
+  Constant evaluation topic: `basic_format_string`'s format parse); a check it cannot take leaves the format string to
+  the library's run-time parser. A library's other consteval functions run at run time, as before -- their values are
+  the same, and only a call that is no constant expression would differ, which libc++'s own calls are not -- and
+  nothing answers `__builtin_source_location()`, which `std::source_location::current()` reads (0.110, 0.164); the
+  program's own fold (0.99, 0.112).
 - A class over TWO virtual bases is laid out as before, its bases whole, and a diamond whose paths each hold both is
   refused, `virtual_base_by_two_paths` (`test/cpp/diamond.cpp`): a class laid out here holds one virtual base at its end
   and its table one vbase offset. Every class over one virtual base has the Itanium layout since 0.163 (the deep
@@ -7665,13 +7727,14 @@ A lambda is a class of its captures (`library/ccl_cpp.pl`). A fixture named alon
   at libc++ 21. The other C++23 views are in neither libc++ 18 nor 21 (their `__ranges/` has no `adjacent`, `chunk`,
   `slide`, `stride`, `enumerate`, `cartesian_product`, `as_const`); libc++ 22 has `adjacent`, `pairwise` and
   `zip_transform`, and a cold read of its `<ranges>` passes the 2800 MB cap here (0.136, killed twice).
-- `std::format` runs (`stdformat.cpp`, 0.112), its compile-time format-string check dropped (0.110): a bad format
-  string is caught at run time by the library's own parser. `vformat`, a formatter the program specializes, the wide
-  format and `std::print` run (0.115), range and tuple formatting (0.133) and chrono formatting (0.136, `fmtchrono.cpp`).
-  Time points, the calendar types and `hh_mm_ss` format since 0.137 (`fmtchrono2.cpp`), and time zones, libc++'s
-  experimental part, run under `-fexperimental-library` since 0.138 (`tzone.cpp`: a zone by name, its offsets and
-  abbreviations in winter and in summer, a local time; libc++ 21, whose database reads the box's
-  `/usr/share/zoneinfo/tzdata.zi`).
+- `std::format` runs (`stdformat.cpp`, 0.112), its format string checked at compile time since 0.164 (`fmtcheck.cpp`;
+  `fmtindex.cpp` and `fmttype.cpp` refused with the library's message), where the evaluator takes the check (the
+  Constant evaluation topic); a check it cannot take is the library's own parser's at run time. `vformat`, a formatter
+  the program specializes, the wide format and `std::print` run (0.115), range and tuple formatting (0.133) and chrono
+  formatting (0.136, `fmtchrono.cpp`). Time points, the calendar types and `hh_mm_ss` format since 0.137
+  (`fmtchrono2.cpp`), and time zones, libc++'s experimental part, run under `-fexperimental-library` since 0.138
+  (`tzone.cpp`: a zone by name, its offsets and abbreviations in winter and in summer, a local time; libc++ 21, whose
+  database reads the box's `/usr/share/zoneinfo/tzdata.zi`).
 - `optional<T &>` needs libc++ 22 (`stdoptionalref.needs`; 21.1.8 has none). `bad_optional_access` cannot be caught: libc++ keeps its
   no-exceptions configuration and aborts with the message (0.82).
 - libc++ keeps its no-RTTI configuration by design, so `shared_ptr::get_deleter`, `dynamic_pointer_cast`,

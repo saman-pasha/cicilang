@@ -347,7 +347,9 @@ exceptions mask, the wide file streams and `std::filesystem` (`path` and the
 operations, a range-for over a `directory_iterator`); since 0.136 `<random>`
 (the engines through the distributions, `std::shuffle`), `std::valarray`,
 chrono formatting and `std::rel_ops` through a using-directive; since 0.138
-libc++'s time zones under `-fexperimental-library`, as clang++ takes it.
+libc++'s time zones under `-fexperimental-library`, as clang++ takes it; since
+0.164 `std::format`'s format string checked at compile time, a bad one
+refused with libc++'s own message, as clang++ refuses it.
 `test/libcxx.sh` reads `<vector>`, `<string>`,
 `<iostream>`, `<map>`, `<set>`, `<unordered_map>`, `<unordered_set>`,
 `<optional>`, `<memory>`, `<functional>`, `<tuple>` and `<algorithm>` whole,
@@ -410,8 +412,8 @@ HISTORY.md                     the record of every step: what it did, what it fo
 
 ## Not done
 
-`std::format`'s compile-time check of the format string (the library's own
-run-time parser catches a bad one); the range adaptors not named;
+a format string whose compile-time check the evaluator cannot take (the
+library's own run-time parser checks it); the range adaptors not named;
 a `\N{...}` abbreviation
 alias (`\N{NUL}`, which clang refuses too); the arm64 ABI on Apple's machines
 (Linux on aarch64 is proven under qemu, C and C++). Each is named in `CLAUDE.md` with where it stops.
