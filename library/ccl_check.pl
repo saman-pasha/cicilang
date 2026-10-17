@@ -247,6 +247,10 @@ ck_carries_type(T) :- ccl_resolve_type(T, T1), ck_carries_(T1).
 ck_carries_(memptr(_, _, _)) :- !, fail.
 ck_carries_(ptr(_, F)) :- ccl_resolve_type(F, fn(_, _, _)), !, fail.                    % nor a pointer to a function                                            % a pointer to member is a code address or an offset, never an owner or a borrow (0.100: the ABI's `{ ptr, adj }' has a pointer field, which is not memory)
 ck_carries_(ptr(_, _)) :- !.
+ck_carries_(block(_, _)) :- !.
+ck_carries_(arr(_, E)) :- !, ck_carries_type(E).
+ck_carries_(base(_, [struct(N, _)])) :- ccl_lang(cpp), ck_library_class(N), !, fail.   % A LIBRARY CLASS'S VALUE IS OPAQUE: its pointers are libc++'s own discipline, as its functions' bodies are (0.45) -- a map's iterator, `auto it = m.find(3)', holds a node pointer the safe part cannot follow and need not, since nothing here frees it
+ck_carries_(T) :- ccl_members_of(T, Ms), member(member(MT, MN, _), Ms), MN \== '$vptr', ck_carries_type(MT), !.   % a class's TABLE POINTER is static storage, never memory the check follows (0.127): `V v = V();' of a polymorphic class was refused `untied'
 %% A CLOSURE IS FOLLOWED AS A BORROW OF WHAT IT CAPTURES (0.100): its reference captures are `ref' members, which
 %% `ck_carries_' does not count (a reference member is bound once and read through, and counting it refused every
 %% closure's construction as a borrow stored), so the two places that make a value a borrow -- a declaration's
@@ -255,10 +259,6 @@ ck_carries_(ptr(_, _)) :- !.
 ck_borrowing_type(T) :- ck_carries_type(T), !.
 ck_borrowing_type(T) :- ccl_lang(cpp), ck_closure_type(T).
 ck_closure_type(T) :- ccl_resolve_type(T, base(_, [struct(N, _)])), atom(N), atom_concat('lambda.', _, N), !.
-ck_carries_(block(_, _)) :- !.
-ck_carries_(arr(_, E)) :- !, ck_carries_type(E).
-ck_carries_(base(_, [struct(N, _)])) :- ccl_lang(cpp), ck_library_class(N), !, fail.   % A LIBRARY CLASS'S VALUE IS OPAQUE: its pointers are libc++'s own discipline, as its functions' bodies are (0.45) -- a map's iterator, `auto it = m.find(3)', holds a node pointer the safe part cannot follow and need not, since nothing here frees it
-ck_carries_(T) :- ccl_members_of(T, Ms), member(member(MT, MN, _), Ms), MN \== '$vptr', ck_carries_type(MT), !.   % a class's TABLE POINTER is static storage, never memory the check follows (0.127): `V v = V();' of a polymorphic class was refused `untied'
 ck_library_class(N) :- atom(N), catch(cpp_lib_class(N), _, fail).
 ck_library_root(P) :- ccl_lang(cpp), atom(P), ccl_type_of(id(P), T), T \== unknown, catch(ccl_resolve_type(T, base(_, [struct(N, _)])), _, fail), ck_library_class(N).   % a borrow rooted at a local of a library class's type
 
@@ -560,6 +560,13 @@ ck_insert_at([F|Frs], I, P, [F|Frs1]) :- I1 is I - 1, ck_insert_at(Frs, I1, P, F
 ck_anchor_addrs(E, St, St) :- \+ compound(E), !.
 ck_anchor_addrs(addr(E), St0, St) :- !, ( ck_storage_base(E, N), \+ ck_is_ref(N) -> ck_anchor_local(N, St0, St1) ; St1 = St0 ), ck_anchor_addrs(E, St1, St).
 ck_anchor_addrs(id(N), St0, St) :- !, ( ck_arrlocal(N), ck_local_type(N, T), ccl_resolve_type(T, arr(_, _)) -> ck_anchor_local(N, St0, St) ; St = St0 ).
+ck_anchor_addrs(bin(_, A, B), St0, St) :- !, ck_anchor_addrs(A, St0, St1), ck_anchor_addrs(B, St1, St).      % the common shapes, without a univ
+ck_anchor_addrs(index(A, I), St0, St) :- !, ck_anchor_addrs(A, St0, St1), ck_anchor_addrs(I, St1, St).
+ck_anchor_addrs(arrow(E, _), St0, St) :- !, ck_anchor_addrs(E, St0, St).
+ck_anchor_addrs(member(E, F), St0, St) :- !, ( ck_storage_base(E, N), ck_is_local(N), \+ ck_is_ref(N), ck_array_member(E, F) -> ck_anchor_local(N, St0, St1) ; St1 = St0 ), ck_anchor_addrs(E, St1, St).   % an ARRAY member of a local struct used as a pointer anchors the struct (0.108)
+ck_anchor_addrs(assign(_, L, R), St0, St) :- !, ck_anchor_addrs(L, St0, St1), ck_anchor_addrs(R, St1, St).
+ck_anchor_addrs(call(F, As), St0, St) :- !, ck_anchor_addrs(F, St0, St1), ck_anchor_addrs_list(As, St1, St).
+ck_anchor_addrs(E, St0, St) :- E =.. [_|As], ck_anchor_addrs_list(As, St0, St).
 %% the names declared with an array type in this function, so the walk over
 %% every expression asks the scope only of those (every id cost a lookup and
 %% a resolution: 7 ms of the B-tree's check); the scope still decides
@@ -567,14 +574,7 @@ ck_note_arrlocal(N, T) :- ( ccl_resolve_type(T, arr(_, _)) -> nb_getval('$ck_arr
 ck_note_arrparams([]).
 ck_note_arrparams([P|Ps]) :- ( ( P = param(T, N) ; P = param(T, N, _) ), N \== anon -> ck_note_arrlocal(N, T) ; true ), ck_note_arrparams(Ps).
 ck_arrlocal(N) :- nb_getval('$ck_arrlocals', As), memberchk(N, As).
-ck_anchor_addrs(bin(_, A, B), St0, St) :- !, ck_anchor_addrs(A, St0, St1), ck_anchor_addrs(B, St1, St).      % the common shapes, without a univ
-ck_anchor_addrs(index(A, I), St0, St) :- !, ck_anchor_addrs(A, St0, St1), ck_anchor_addrs(I, St1, St).
-ck_anchor_addrs(arrow(E, _), St0, St) :- !, ck_anchor_addrs(E, St0, St).
-ck_anchor_addrs(member(E, F), St0, St) :- !, ( ck_storage_base(E, N), ck_is_local(N), \+ ck_is_ref(N), ck_array_member(E, F) -> ck_anchor_local(N, St0, St1) ; St1 = St0 ), ck_anchor_addrs(E, St1, St).   % an ARRAY member of a local struct used as a pointer anchors the struct (0.108)
 ck_array_member(E, F) :- ccl_type_of(member(E, F), MT), ccl_resolve_type(MT, arr(_, _)).
-ck_anchor_addrs(assign(_, L, R), St0, St) :- !, ck_anchor_addrs(L, St0, St1), ck_anchor_addrs(R, St1, St).
-ck_anchor_addrs(call(F, As), St0, St) :- !, ck_anchor_addrs(F, St0, St1), ck_anchor_addrs_list(As, St1, St).
-ck_anchor_addrs(E, St0, St) :- E =.. [_|As], ck_anchor_addrs_list(As, St0, St).
 ck_anchor_addrs_list([], St, St).
 ck_anchor_addrs_list([A|As], St0, St) :- ck_anchor_addrs(A, St0, St1), ck_anchor_addrs_list(As, St1, St).
 ck_anchor_local(N, St0, St) :- ( ck_state(St0, N, _) -> St = St0 ; ck_is_local(N) -> ck_anchor(St0, N, St) ; St = St0 ).
@@ -703,14 +703,14 @@ ck_borrows_from(call(id(F), [addr(E)|_]), St, P) :- ccl_lang(cpp), atom(F), cpp_
 %% `this' first, and the object is the first argument whose parameter is a reference -- `std::allocator_traits<A>::allocate(a, n)'
 %% hands back memory the allocator `a' manages, so the pointer is a borrow of `a' and not loose memory that nothing consumes
 ck_borrows_from(call(id(F), [nullptr|As]), St, P) :- ccl_lang(cpp), atom(F), cpp_library_function(F), ccl_declared(F, fn(_, [_|Ps], _)), ck_ref_object(As, Ps, E), ck_path_root(E, R), !, ck_borrow_of(R, St, P).
-ck_ref_object([A|_], [param(T, _)|_], A) :- ccl_resolve_type(T, ref(_, _)), !.
-ck_ref_object([_|As], [_|Ps], E) :- ck_ref_object(As, Ps, E).
 %% ... AND A LIBRARY FUNCTION'S POINTER RESULT BORROWS WHAT ITS POINTER ARGUMENTS BORROW (0.117), the first that borrows anything:
 %% `std::construct_at(p + 2, 42)' hands back its first argument, `std::find' a place in its range -- not fresh memory
 ck_borrows_from(call(id(F), Args), St, P) :- ccl_lang(cpp), atom(F), cpp_library_function(F), member(A, Args), A \== nullptr, ck_borrows_from(A, St, P), !.
+ck_borrows_from(call(F, Args), St, P) :- ck_callee_sig(F, fn(R, _, _)), \+ ck_own_type(R), ck_call_tie(call(F, Args), St, P0), !, P = P0.
+ck_ref_object([A|_], [param(T, _)|_], A) :- ccl_resolve_type(T, ref(_, _)), !.
+ck_ref_object([_|As], [_|Ps], E) :- ck_ref_object(As, Ps, E).
 ck_borrow_of(R, St, P) :- ck_state(St, R, S), !, ( ck_borrow_source(R, S, P) -> true ; P = R ).
 ck_borrow_of(R, _, R).
-ck_borrows_from(call(F, Args), St, P) :- ck_callee_sig(F, fn(R, _, _)), \+ ck_own_type(R), ck_call_tie(call(F, Args), St, P0), !, P = P0.
 ck_call_tie(call(F, Args), St, P) :-
     ck_callee_sig(F, fn(R, Ps, _)), ccl_tie_of(R, Y),
     ( ck_param_index(Ps, Y, 1, I) -> ccl_nth(I, Args, A), ck_borrows_from(A, St, P) ; P = static(Y) ).
@@ -792,27 +792,9 @@ ck_stmt(ifce(_, _, RT), St0, St) :- !, ck_stmt(RT, St0, St).                    
 %% a try (0.108): the body, then each handler from the state the try began in (what the body did before it threw is
 %% not known there), the states merged
 ck_stmt(try(L, Body, Catches), St0, St) :- !, ck_line(L), ck_stmt(Body, St0, StB), ck_catches(Catches, St0, StB, St).
-ck_catches([], _, St, St).
-ck_catches([catch(K, B)|Cs], St0, Acc, St) :- ( K == any ; K == terminate ), !, ck_stmt(B, St0, S1), ck_merge(Acc, S1, Acc1), ck_catches(Cs, St0, Acc1, St).
-ck_catches([catch(_, T, N, B)|Cs], St0, Acc, St) :- ccl_scope_push, ( N == anon -> true ; ccl_declare(N, T) ), ck_stmt(B, St0, S1), ccl_scope_pop, ck_merge(Acc, S1, Acc1), ck_catches(Cs, St0, Acc1, St).
 ck_stmt(if(L, C, T, E), St0, St) :- !, ck_line(L),
     ck_expr(C, St0, St1), ck_refine(C, St1, StThen, StElse),
     ck_stmt(T, StThen, StT), ( E == none -> StE = StElse ; ck_stmt(E, StElse, StE) ), ck_merge(StT, StE, St).
-%% a null test on an owner refines it: `if (!p)', `if (p == NULL)' make p null
-%% on the then path, `if (p)', `if (p != NULL)' on the else path -- and its
-%% own fields with it, there being nothing behind a null
-ck_refine(C, St, StThen, StElse) :-
-    (   ck_null_test(C, E, Sense) -> ( Sense == null -> ck_set_null(E, St, StThen), StElse = St ; StThen = St, ck_set_null(E, St, StElse) )
-    ;   StThen = St, StElse = St ).
-ck_null_test(not(E), E, null) :- !.
-ck_null_test(bin('==', E, N), E, null) :- ck_null(N), !.
-ck_null_test(bin('==', N, E), E, null) :- ck_null(N), !.
-ck_null_test(bin('!=', E, N), E, live) :- ck_null(N), !.
-ck_null_test(bin('!=', N, E), E, live) :- ck_null(N), !.
-ck_null_test(E, E, live) :- ( E = id(_) ; E = member(_, _) ; E = arrow(_, _) ), !.
-ck_set_null(E, St0, St) :-
-    (   ck_path(E, K), ck_state(St0, K, S), memberchk(S, [live, partial]) -> ck_own_under(St0, K, Ks), ck_set_all(St0, [K|Ks], null, St)
-    ;   St = St0 ).
 ck_stmt(while(L, C, S), St0, St) :- !, ck_line(L), ck_expr(C, St0, St1), ck_loop(S, St1, St2), ck_expr(C, St2, St).
 ck_stmt(do(L, S, C), St0, St) :- !, ck_line(L), ck_loop(S, St0, St1), ck_expr(C, St1, St).
 ck_stmt(for_each(L, D, R, S), St0, St) :- !, ck_line(L),                        % C++: a range-for over an array is the for it stands for
@@ -849,6 +831,24 @@ ck_stmt(assume(L, E), St0, St) :- !, ck_line(L), ck_expr(E, St0, St).   % C++23'
 ck_stmt(case(_, _, S), St0, St) :- !, ck_stmt(S, St0, St).
 ck_stmt(default(_, S), St0, St) :- !, ck_stmt(S, St0, St).
 ck_stmt(S, _, _) :- functor(S, F, _), nb_getval('$ck_fn', Fn), nb_getval('$ck_line', L), throw(error(not_lowered(F), where(Fn, line(L)))).   % a form of C++'s later steps
+ck_catches([], _, St, St).
+ck_catches([catch(K, B)|Cs], St0, Acc, St) :- ( K == any ; K == terminate ), !, ck_stmt(B, St0, S1), ck_merge(Acc, S1, Acc1), ck_catches(Cs, St0, Acc1, St).
+ck_catches([catch(_, T, N, B)|Cs], St0, Acc, St) :- ccl_scope_push, ( N == anon -> true ; ccl_declare(N, T) ), ck_stmt(B, St0, S1), ccl_scope_pop, ck_merge(Acc, S1, Acc1), ck_catches(Cs, St0, Acc1, St).
+%% a null test on an owner refines it: `if (!p)', `if (p == NULL)' make p null
+%% on the then path, `if (p)', `if (p != NULL)' on the else path -- and its
+%% own fields with it, there being nothing behind a null
+ck_refine(C, St, StThen, StElse) :-
+    (   ck_null_test(C, E, Sense) -> ( Sense == null -> ck_set_null(E, St, StThen), StElse = St ; StThen = St, ck_set_null(E, St, StElse) )
+    ;   StThen = St, StElse = St ).
+ck_null_test(not(E), E, null) :- !.
+ck_null_test(bin('==', E, N), E, null) :- ck_null(N), !.
+ck_null_test(bin('==', N, E), E, null) :- ck_null(N), !.
+ck_null_test(bin('!=', E, N), E, live) :- ck_null(N), !.
+ck_null_test(bin('!=', N, E), E, live) :- ck_null(N), !.
+ck_null_test(E, E, live) :- ( E = id(_) ; E = member(_, _) ; E = arrow(_, _) ), !.
+ck_set_null(E, St0, St) :-
+    (   ck_path(E, K), ck_state(St0, K, S), memberchk(S, [live, partial]) -> ck_own_under(St0, K, Ks), ck_set_all(St0, [K|Ks], null, St)
+    ;   St = St0 ).
 ck_stmts([], St, St).
 ck_stmts([S|Ss], St0, St) :- ck_stmt(S, St0, St1), ck_stmts(Ss, St1, St).
 
@@ -892,14 +892,14 @@ ck_decls([var(N, T0, Init0)|Vs], St0, St) :-
 %% what a right-hand side is to a slot: an owner (moved in), a null, a borrow, or a fresh value
 ck_kind(E, _, null) :- ck_null(E), !.
 ck_kind(id(P), St, null) :- ck_plain_copy(St, P), !.                   % a copy of a null pointer, or of a plain local with no state (0.99)
-ck_plain_copy(St, P) :- atom(P), ( ck_state(St, P, null) -> true ; ck_is_local(P), \+ ck_state(St, P, _) ).
 ck_kind(move(E), _, fresh) :- ck_own_elem(E, _), !.                  % an element moved out: an owner, complete
 ck_kind(move(E), St, K) :- ck_path(E, P), ck_by_value(E), ck_own_under(St, P, Fs), Fs \== [], !, ck_kind(E, St, K).   % a struct with owners moved whole: the value's kind, the fields going in ck_expr
 ck_kind(move(E), St, K) :- !, ( ck_owner_path(St, E, P) -> K = owner(P) ; ck_moves_library(E) -> ck_kind(E, St, K) ; ck_name(E, N), ck_fail(move_of_non_owner, N, move(E)) ).   % a library class's value: the kind its own form has (ck_moves_library)
-ck_name(E, N) :- ( ck_path(E, N) -> true ; N = E ).
 ck_kind(E, St, owner(P)) :- ck_owner_path(St, E, P), !.
 ck_kind(E, St, borrow(P)) :- ck_borrows_from(E, St, P), !.
 ck_kind(_, _, fresh).
+ck_plain_copy(St, P) :- atom(P), ( ck_state(St, P, null) -> true ; ck_is_local(P), \+ ck_state(St, P, _) ).
+ck_name(E, N) :- ( ck_path(E, N) -> true ; N = E ).
 
 %% an own slot -- an owner, an own field (Key), or an untracked own place (none) --
 %% receives a value: an owner is consumed into it and its own fields come along
@@ -1182,9 +1182,9 @@ ck_consume_or_use(E, St0, St) :- ck_owner_path(St0, E, K), !, ck_base_use(E, St0
 ck_consume_or_use(move(E), St0, St) :- !, ck_expr(move(E), St0, St).
 ck_consume_or_use(E, St0, St) :- ck_path(E, K), ck_by_value(E), ck_has_array_under(St0, K), !, ck_fail(own_array_by_value, K, E).
 ck_consume_or_use(E, St0, St) :- ck_path(E, K), ck_by_value(E), ck_own_under(St0, K, Fs), Fs \== [], !, ck_expr(E, St0, St1), ck_move_out(St1, Fs, E, St).
+ck_consume_or_use(E, St0, St) :- ck_expr(E, St0, St1), ck_loose_taken(E, St1, St).
 %% a struct held by value, not a pointer to one (whose own fields are the struct's, not the pointer's to move)
 ck_by_value(E) :- ccl_type_of(E, T), T \== unknown, \+ ck_is_pointer_type(T).
-ck_consume_or_use(E, St0, St) :- ck_expr(E, St0, St1), ck_loose_taken(E, St1, St).
 %% consuming an owner, by free (fclose) or by move: it must be live or null; its
 %% own fields must be consumed already when it is freed, complete when it is
 %% moved; nothing tied to it may still hold memory; then it and they are moved,
@@ -1254,18 +1254,9 @@ ck_expr(arrow(E, _), St0, St) :- !, ck_expr(E, St0, St).
 ck_expr(index(A, I), St0, St) :- !, ck_expr(A, St0, St1), ck_expr(I, St1, St).
 ck_expr(bin(Op, A, B), St0, St) :- Op \== '&&', Op \== '||', !, ck_expr(A, St0, St1), ck_expr(B, St1, St).
 ck_expr(E, St0, St) :- ck_unary_shape(E, A), !, ck_expr(A, St0, St).           % a wrapper around one expression: its child
-ck_unary_shape(neg(E), E). ck_unary_shape(not(E), E). ck_unary_shape(bitnot(E), E). ck_unary_shape(pos(E), E).
-ck_unary_shape(deref(E), E). ck_unary_shape(cast(_, E), E). ck_unary_shape(postinc(E), E). ck_unary_shape(postdec(E), E).
-ck_unary_shape(preinc(E), E). ck_unary_shape(predec(E), E).
-ck_unary_shape(real_part(E), E). ck_unary_shape(imag_part(E), E).   % a complex's components (0.100)
 ck_expr(move(E), St0, St) :- ck_own_elem(E, K), !, ck_expr(E, St0, St1), ck_dangle(St1, K, St).   % an element out: the array's borrows dangle
 ck_expr(move(E), St0, St) :- ck_path(E, K), ck_by_value(E), ck_own_under(St0, K, Fs), Fs \== [], !, ck_expr(E, St0, St1), ck_move_out(St1, Fs, move(E), St).   % a struct with owners moved whole: its fields go
 ck_expr(move(E), St0, St) :- !, ( ck_owner_path(St0, E, K) -> ck_base_use(E, St0, St1), ck_consume(K, move, move(E), St1, St, _) ; ck_moves_library(E) -> ck_expr(E, St0, St) ; ck_name(E, N), ck_fail(move_of_non_owner, N, move(E)) ).
-%% A LIBRARY CLASS'S VALUE MAY BE MOVED: what it holds is libc++'s own discipline, as its pointers are
-%% (ck_carries_) and its functions' bodies are (0.45) -- `auto r = std::move(q)' over a unique_ptr is the
-%% ordinary way to use one, and the check has no owner behind it to move and needs none.
-ck_moves_library(E) :- ccl_lang(cpp), catch(ccl_type_of(E, T), _, fail), T \== unknown, ccl_unref(T, T1),
-    catch(ccl_resolve_type(T1, base(_, [struct(N, _)])), _, fail), ck_library_class(N), !.
 ck_expr(scoped(_, N), St0, St) :- !, ck_expr(id(N), St0, St).                  % C++ (M6)
 ck_expr(ccast(_, _, E), St0, St) :- !, ck_expr(E, St0, St).
 ck_expr(new(_, Args), St0, St) :- !, ck_exprs(Args, St0, St).
@@ -1278,8 +1269,6 @@ ck_expr(call(id(F), Args), St0, St) :- !, ck_args(Args, id(F), St0, St).
 ck_expr(call(F, Args), St0, St) :- !,
     ck_expr(F, St0, St1),
     ( ccl_type_of(F, FT), ck_fn_params(FT, Ps) -> ck_args(Args, params(Ps), St1, St) ; ck_exprs(Args, St1, St) ).
-%% the parameters of a function type, or of a pointer to one
-ck_fn_params(T, Ps) :- ccl_resolve_type(T, T1), ( T1 = fn(_, Ps, _) -> true ; T1 = ptr(_, FT), ccl_resolve_type(FT, fn(_, Ps, _)) ).
 %% assignment: to an owner or an own field; to a struct by value with own fields;
 %% to a tied slot; to a local plain pointer (a borrow, or not); to any other
 %% place, by its type
@@ -1338,6 +1327,17 @@ ck_expr(stmt_expr(B), St0, St) :- !, ck_stmt(B, St0, St).
 ck_expr(compound_lit(T, init(Items)), St0, St) :- !, ck_init_slots(Items, T, none, St0, St).
 ck_expr(E, St0, St) :- compound(E), !, E =.. [_|Args], ck_exprs(Args, St0, St).
 ck_expr(_, St, St).
+ck_unary_shape(neg(E), E). ck_unary_shape(not(E), E). ck_unary_shape(bitnot(E), E). ck_unary_shape(pos(E), E).
+ck_unary_shape(deref(E), E). ck_unary_shape(cast(_, E), E). ck_unary_shape(postinc(E), E). ck_unary_shape(postdec(E), E).
+ck_unary_shape(preinc(E), E). ck_unary_shape(predec(E), E).
+ck_unary_shape(real_part(E), E). ck_unary_shape(imag_part(E), E).   % a complex's components (0.100)
+%% A LIBRARY CLASS'S VALUE MAY BE MOVED: what it holds is libc++'s own discipline, as its pointers are
+%% (ck_carries_) and its functions' bodies are (0.45) -- `auto r = std::move(q)' over a unique_ptr is the
+%% ordinary way to use one, and the check has no owner behind it to move and needs none.
+ck_moves_library(E) :- ccl_lang(cpp), catch(ccl_type_of(E, T), _, fail), T \== unknown, ccl_unref(T, T1),
+    catch(ccl_resolve_type(T1, base(_, [struct(N, _)])), _, fail), ck_library_class(N), !.
+%% the parameters of a function type, or of a pointer to one
+ck_fn_params(T, Ps) :- ccl_resolve_type(T, T1), ( T1 = fn(_, Ps, _) -> true ; T1 = ptr(_, FT), ccl_resolve_type(FT, fn(_, Ps, _)) ).
 ck_exprs([], St, St).
 ck_exprs([A|As], St0, St) :- ( is_list(A) -> ck_exprs(A, St0, St1) ; ck_expr(A, St0, St1) ), ck_exprs(As, St1, St).
 %% an assignment target: its base is used, not consumed

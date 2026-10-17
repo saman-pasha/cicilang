@@ -375,6 +375,11 @@ ccl_read_unit(Path, How, Unit) :-
         (   catch(ccl_ast_write(F, U1), E, ( ccl_ast_trace(ast_not_written(Path, E)), fail ))   % NO SUMMARY WITHOUT ITS AST (0.106): the recovery
         ->  ( catch(ccl_sum_write(F, Path, Files, U1), _, fail) -> true ; true )                   % used to SUCCEED, so an exception read as a written AST
         ;   ccl_ast_trace(ast_not_written(Path)) ) ).                                              % and a valid summary stood with no template bodies behind it   % THE SUMMARY IS WRITTEN LAST (0.100): it is the validity key, so a run killed while it writes the AST (the slow one) leaves no summary and the next run flattens again -- written first, a killed run left a valid .sum beside no .ast.pl, and every program over that header refused template_without_body
+ccl_read_unit(Path, How, Unit) :-
+    ccl_parse_file(Path, U0, Info0),
+    (   Info0 == whole -> How = raw, Unit = U0
+    ;   ccl_pp_parse(Path, U1, Info1, Files) -> How = preprocessed, ccl_partial(U1, Info1, Unit), ccl_pp_macros(Ms), ccl_kb_remember_macros(Path, Files, Ms)
+    ;   How = raw, ccl_partial(U0, Info0, Unit) ).
 
 %% a LIBRARY header's read is the library's, not the program's: the standard macros (format, print, println, clone)
 %% are the program's global names and never fire inside it -- libc++'s <format> calls its own `format(c, ctx)'
@@ -623,11 +628,6 @@ ccl_set_new([], _, []).
 ccl_set_new([N|Ns], Set, New) :- ( atom(N), \+ ccl_set_has(Set, N) -> ccl_set_add(Set, N), New = [N|New1] ; New = New1 ), ccl_set_new(Ns, Set, New1).
 ccl_new_names([], _, []).
 ccl_new_names([N|Ns], Have, New) :- ( atom(N), \+ memberchk(N, Have) -> New = [N|New1] ; New = New1 ), ccl_new_names(Ns, Have, New1).
-ccl_read_unit(Path, How, Unit) :-
-    ccl_parse_file(Path, U0, Info0),
-    (   Info0 == whole -> How = raw, Unit = U0
-    ;   ccl_pp_parse(Path, U1, Info1, Files) -> How = preprocessed, ccl_partial(U1, Info1, Unit), ccl_pp_macros(Ms), ccl_kb_remember_macros(Path, Files, Ms)
-    ;   How = raw, ccl_partial(U0, Info0, Unit) ).
 ccl_partial(U, whole, U) :- !.
 ccl_partial(U, stopped(L, near(F)), partial(U, line(L), near(F))).
 ccl_parse_file(Path, unit(Is), Info) :-
@@ -714,11 +714,6 @@ ccl_kb_macros_cached(Path, K) :-
 
 %% ---- the path ----------------------------------------------------------------
 ccl_resolve_include(path(P), _, P) :- !, exists_file(P).                       % a module's interface unit, found by ccl_module_path (0.108)
-%% an imported module's interface: read earlier in this run, else NAME.cppm (and kin) beside the importer, then on the path
-ccl_module_path(N, Path) :- nb_current('$ccl_modules', M), memberchk(N-Path, M), !.
-ccl_module_path(N, Path) :- atomic_list_concat(Parts, ':', N), atomic_list_concat(Parts, '-', Base), ccl_global('$ccl_file', From, none),
-    ( From == none -> Dirs0 = [] ; file_directory_name(From, D0), Dirs0 = [D0] ), ccl_include_path(Ds), append(Dirs0, Ds, Dirs),
-    member(D, Dirs), member(E, ['.cppm', '.ccm', '.cxxm', '.ixx', '.mpp']), atomic_list_concat([D, '/', Base, E], Path), exists_file(Path), !.
 ccl_resolve_include(local(N), From, Path) :-
     From \== none, file_directory_name(From, Dir), atomic_list_concat([Dir, '/', N], P0), exists_file(P0), !, Path = P0.
 ccl_resolve_include(Spec, _, Path) :-
@@ -728,6 +723,11 @@ ccl_resolve_include(next(Spec), From, Path) :-
     ( Spec = local(N) ; Spec = system(N) ),
     ccl_include_path(Dirs), ( ccl_dirs_after(Dirs, From, Rest) -> true ; Rest = Dirs ),
     member(D, Rest), atomic_list_concat([D, '/', N], P), exists_file(P), !, Path = P.
+%% an imported module's interface: read earlier in this run, else NAME.cppm (and kin) beside the importer, then on the path
+ccl_module_path(N, Path) :- nb_current('$ccl_modules', M), memberchk(N-Path, M), !.
+ccl_module_path(N, Path) :- atomic_list_concat(Parts, ':', N), atomic_list_concat(Parts, '-', Base), ccl_global('$ccl_file', From, none),
+    ( From == none -> Dirs0 = [] ; file_directory_name(From, D0), Dirs0 = [D0] ), ccl_include_path(Ds), append(Dirs0, Ds, Dirs),
+    member(D, Dirs), member(E, ['.cppm', '.ccm', '.cxxm', '.ixx', '.mpp']), atomic_list_concat([D, '/', Base, E], Path), exists_file(Path), !.
 ccl_dirs_after([D|Ds], From, Ds) :- atom_concat(D, '/', DP), atom_concat(DP, Base, From), \+ sub_atom(Base, _, _, _, '/'), !.
 ccl_dirs_after([_|Ds], From, Rest) :- ccl_dirs_after(Ds, From, Rest).
 

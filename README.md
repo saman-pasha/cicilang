@@ -27,16 +27,16 @@ record of every step.
   through the compiler's own `<stdatomic.h>`, variable length arrays, thread
   locals, wide and UTF-8 literals, variadic functions over the compiler's
   own `<stdarg.h>`, `long double` as x87's 80-bit type on x86-64 (its
-  literals exact, as clang reads them), hex
-  floats, designated initializers, anonymous members, K&R definitions,
-  `#line`, `__int128`, `va_arg` of a struct on x86-64, the SysV argument
-  register budget, the decimal floating types as gcc builds them (to and
-  from a 128-bit integer through the compiler's own helpers, their constants
-  folded with infinities and NaNs), the binary floating constants folded as
-  clang folds them (a negative zero, an infinity, a NaN, a long double's
-  arithmetic, an integer operation in its own type), and trigraphs in
-  the ISO modes. `-std=c17` is the
-  default, `-std=c23` the level.
+  literals exact, as clang reads them), hex floats, designated
+  initializers, anonymous members, K&R definitions, `#line`, `__int128`,
+  `va_arg` of a struct on x86-64 and arm64, the SysV argument register
+  budget, the decimal floating types as gcc builds them (to and from a
+  128-bit integer and a `_BitInt` past it through the compiler's own
+  helpers, their constants folded with infinities and NaNs), the binary
+  floating constants folded as clang folds them (a negative zero, an
+  infinity, a NaN, a long double's arithmetic, an integer operation in its
+  own type), and trigraphs in the ISO modes. `-std=c17` is the default,
+  `-std=c23` the level.
 * **C++17, C++20, C++23 and C++26.** Classes, virtual dispatch, multiple
   and virtual inheritance, templates with partial specialization, SFINAE,
   concepts and `requires`, lambdas (generic, capturing `this` and `*this`),

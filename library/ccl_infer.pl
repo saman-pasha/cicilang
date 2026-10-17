@@ -63,9 +63,9 @@ ccl_in_frames([F|Fs], N, T) :- ( memberchk(N-T0, F) -> T = T0 ; ccl_in_frames(Fs
 %% in a small cache (a copy of a dozen pairs is microseconds), emptied by
 %% ccl_tables_changed/0 wherever a table is written
 ccl_typedef_of(N, T) :- atom(N), ccl_builtin_typedef(N, T0), !, T = T0.
+ccl_typedef_of(N, T) :- ccl_cached_named('$ccl_td:', N, T, ccl_tab_find('$ccl_typedefs', N, T)).
 ccl_builtin_typedef('__int128_t', base([], ['__int128'])).                   % the compiler's own 128-bit typedefs, which clang predefines (0.117)
 ccl_builtin_typedef('__uint128_t', base([], [unsigned, '__int128'])).
-ccl_typedef_of(N, T) :- ccl_cached_named('$ccl_td:', N, T, ccl_tab_find('$ccl_typedefs', N, T)).
 ccl_tag(Tag, Ms) :- ccl_cached_named('$ccl_tag:', Tag, Ms, ccl_tab_find('$ccl_tags', Tag, Ms)).
 
 %% ---- constants ---------------------------------------------------------------------
@@ -98,9 +98,6 @@ ccl_const_eval(comma(A, B), V) :- !, ( ccl_const_eval(A, _) -> true ; A = cast(b
 ccl_const_eval(bool(false), 0) :- !.
 ccl_const_eval(chr(C), C) :- !.
 ccl_const_eval(id(N), V) :- !, \+ ccl_shadowed_constant(N), ccl_enum_value(N, V).   % a name is a constant only where no PLAIN local shadows the enumerator (0.94)
-%% ... a `const' local with a constant initializer IS the constant (0.63's rule 11, `cpp_note_const'): libc++'s `__mu' writes
-%% `const size_t __indx = is_placeholder<_Ti>::value - 1;' and indexes a tuple by it, and refused as a shadow it never folded
-ccl_shadowed_constant(N) :- ccl_locals(Ls), ccl_in_frames(Ls, N, T), \+ ( ccl_resolve_type(T, base(Q, _)), memberchk(const, Q) ).
 %% ---- 64-BIT CONSTANT ARITHMETIC (0.94) ------------------------------------------------------------------
 %% cocolog's integers are 61-bit (the finding): `_Tp(1) << 63' folded to 0 and `type(type(~0) ^ __min)' -- how libc++
 %% computes every numeric_limits<...>::max() -- to -1, so a string read, bounded by numeric_limits<streamsize>::max(),
@@ -133,6 +130,9 @@ ccl_const_eval(cond(C, A, B), V) :- !, ccl_const_eval(C, CV), ( CV \== 0 -> ccl_
 %% (a name the tables lack) keeps the mathematical shift.
 ccl_const_eval(bin('<<', A, B), V) :- !, ccl_const_eval(A, X), ccl_const_eval(B, Y), ccl_const_op('<<', X, Y, V0), ccl_shl_wrap(A, V0, V).
 ccl_const_eval(bin(Op, A, B), V) :- ccl_const_eval(A, X), ccl_const_eval(B, Y), ccl_const_op(Op, X, Y, V0), ccl_cv_binary(Op, A, B, X, Y, V0, V).
+%% ... a `const' local with a constant initializer IS the constant (0.63's rule 11, `cpp_note_const'): libc++'s `__mu' writes
+%% `const size_t __indx = is_placeholder<_Ti>::value - 1;' and indexes a tuple by it, and refused as a shadow it never folded
+ccl_shadowed_constant(N) :- ccl_locals(Ls), ccl_in_frames(Ls, N, T), \+ ( ccl_resolve_type(T, base(Q, _)), memberchk(const, Q) ).
 %% UNSIGNED ARITHMETIC WRAPS, AND A NEGATIVE OPERAND OF AN UNSIGNED OPERATION IS CONVERTED FIRST (0.128; C 6.3.1.8, 6.2.5/9,
 %% [expr.arith.conv], [basic.fundamental]/2): `~0u / 3' folded to 0 -- `~0u' was -1 and -1 / 3 is 0 -- where it is 0x55555555, `0u - 1' was
 %% -1, `-1 < 0u' held, and `_Static_assert(~0UL / 3 == 0x5555555555555555UL)' failed. The values themselves stay untyped mathematical
@@ -209,6 +209,7 @@ ccl_w_cmp(X, Y, O) :- ccl_wide(X, w(SA, MA)), ccl_wide(Y, w(SB, MB)),
     ( SA < SB -> O = (<) ; SA > SB -> O = (>) ; ccl_mag_cmp(MA, MB, O0), ( SA < 0 -> ccl_w_flip(O0, O) ; O = O0 ) ).
 ccl_w_flip(<, >). ccl_w_flip(>, <). ccl_w_flip(=, =).
 %% a cast to an integer type wraps to its width, then to its signedness; to bool it is the test; to anything else the value
+ccl_w_cast(T, X, V) :- X = bv(_, _, _), !, ccl_resolve_type(T, RT), ccl_cast_shape(RT, _, _), ir_fp_int(T, X, V).   % a long double's exact value (0.160), truncated as the lowering truncates it
 ccl_w_cast(T, X, V) :- float(X), ccl_resolve_type(T, RT), ccl_cast_shape(RT, Bits, Signed), !, ( Signed == bool -> ( X =:= 0.0 -> V = 0 ; V = 1 ) ; ccl_float_int(X, X1), ccl_w_wrap(X1, Bits, Signed, V) ).   % a floating value to an integer type truncates toward zero (6.3.1.4), then wraps (0.108)
 ccl_w_cast(T, X, V) :- ccl_resolve_type(T, RT), ccl_cast_shape(RT, Bits, Signed), !, ccl_w_wrap(X, Bits, Signed, V).
 ccl_w_cast(T, X, V) :- integer(X), ccl_is_float(T), !, V is X * 1.0.   % an integer to a floating type is a floating value
@@ -219,9 +220,28 @@ ccl_w_cast(_, X, X).
 %% A double past 2^59 is an integer m * 2^e with m below 2^53 -- halving it is exact -- and the wide value is m shifted; a wide
 %% integer is a double rounded to nearest, ties to even, from its top 53 bits, the next one and whether any lower bit is set.
 %% An infinity or a NaN converts to no integer, and does not fold.
-ccl_float_operand(float(X), X) :- float(X).
-ccl_float_operand(neg(float(X)), Y) :- float(X), Y is -X.
-ccl_float_operand(pos(float(X)), X) :- float(X).
+ccl_float_operand(float(X), X) :- float(X), !.
+ccl_float_operand(neg(float(X)), Y) :- float(X), !, Y is -X.
+ccl_float_operand(pos(float(X)), X) :- float(X), !.
+%% ... AND ANY OTHER FLOATING CONSTANT (0.160): a long double's literal (`(int) 2.5L'), a float's (`(int) 9.5f', the cast of a
+%% double it amounts to) and their arithmetic (`(int) (2.5L + 1.0L)', which C++ takes and clang folds in C too) are the
+%% lowering's exact fold (ir_fp_value/2: the literal rounded once to its type, the operation exact, then rounded) where the
+%% compiler is loaded. Their enumerator SILENTLY took the value after the one before it -- `enum { A = 7, B = (int) 2.5L, C, D =
+%% (int) 9.5f }' was 7 8 9 10 where clang has 7 2 3 9 -- and `_Static_assert((int) 2.5L == 3, "")' passed. The shape is asked
+%% first, so a cast of no floating operand costs one failed match: a floating literal, a cast to a real floating type, a sign
+%% and the four operations over one of them
+ccl_float_operand(E, X) :- ccl_float_shaped(E), catch(ir_fp_value(E, X0), error(existence_error(procedure, _), _), fail), ccl_float_folded(X0, X).
+ccl_float_shaped(float(_)).
+ccl_float_shaped(ldbl(_)).
+ccl_float_shaped(cast(T, _)) :- ccl_float_cast_type(T).
+ccl_float_shaped(ccast(_, T, _)) :- ccl_float_cast_type(T).
+ccl_float_shaped(neg(E)) :- ccl_float_shaped(E).
+ccl_float_shaped(pos(E)) :- ccl_float_shaped(E).
+ccl_float_shaped(paren(E)) :- ccl_float_shaped(E).
+ccl_float_shaped(bin(Op, A, B)) :- memberchk(Op, ['+', '-', '*', '/']), ( ccl_float_shaped(A) -> true ; ccl_float_shaped(B) ).
+ccl_float_cast_type(T) :- catch(ccl_resolve_type(T, RT), _, fail), ccl_is_float(RT), !.
+ccl_float_folded(X, X) :- float(X), !.
+ccl_float_folded(X, X) :- X = bv(_, _, _).
 ccl_float_int(X, V) :- A is abs(X), A =< 1.7976931348623157e308,
     (   A < 576460752303423488.0 -> V is truncate(X)
     ;   ccl_float_halve(A, 0, M, E), ccl_w_shl(M, E, V0), ( X < 0.0 -> ccl_w_neg(V0, V) ; V = V0 ) ).
@@ -396,12 +416,12 @@ ccl_resolve_base([typedef(N)], Q, T) :- atom(N), ccl_lang(cpp), ccl_tag(N, Ms), 
 ccl_resolve_base([typeof(unqual(X))], Q, T) :- !, ccl_resolve_base([typeof(X)], [], T0), ccl_strip_quals(T0, T1), ccl_add_quals(Q, T1, T).   % C23's typeof_unqual: the top-level qualifiers off
 ccl_resolve_base([typeof(X)], Q, T) :- ccl_type_term(X), !, ccl_resolve_type(X, T0), ccl_add_quals(Q, T0, T).
 ccl_resolve_base([typeof(X)], Q, T) :- ccl_type_of(X, T0), T0 \== unknown, !, ccl_resolve_type(T0, T1), ccl_add_quals(Q, T1, T).
-ccl_type_term(T) :- compound(T), functor(T, F, _), memberchk(F, [base, ptr, arr, fn, ref, rref]).
 ccl_resolve_base([decltype(E)], Q, base(Q, [unsigned, long])) :- ccl_lang(cpp), ccl_sizeof_expr(E), !.   % C++: libc++ spells size_t `decltype(sizeof(int))', and the type of a sizeof is size_t: the concrete type here, or the chain turns
 ccl_resolve_base([decltype(E)], Q, T) :- ccl_lang(cpp), ccl_type_of(E, T0), T0 \== unknown, !, ccl_add_quals(Q, T0, T).
 ccl_resolve_base([struct(Tag, none)], Q, base(Q, [struct(Tag, Ms)])) :- ccl_tag(Tag, Ms), !.
 ccl_resolve_base([union(Tag, none)], Q, base(Q, [union(Tag, Ms)])) :- ccl_tag(Tag, Ms), !.
 ccl_resolve_base(S, Q, base(Q, S)).
+ccl_type_term(T) :- compound(T), functor(T, F, _), memberchk(F, [base, ptr, arr, fn, ref, rref]).
 %% what a C++ tag's name stands for, told by its members' shape: enumerators,
 %% plain members (a struct), or a class's (a constructor, a method, a label)
 ccl_tag_type(N, Ms0, Q, base(Q, [union(N, Ms)])) :- ccl_is_union_tag(Ms0), !, ccl_tag(N, Ms).   % a UNION with constructors: a class whose members share storage
@@ -563,28 +583,14 @@ ccl_type_of(uint(big(_)), base([], [unsigned, long])) :- !.
 ccl_type_of(int(_), base([], [int])) :- !.
 ccl_type_of(uint(_), base([], [unsigned])) :- !.
 ccl_type_of(long(_), base([], [long])) :- !.
-%% ... and a value past 64 bits, which only a fold makes (a 128-bit type's constant: libc++'s numeric_limits<__int128>), the
-%% first of __int128 and unsigned __int128 that holds it (0.129: it was an unsigned long, lowered as an i64 and cut to its low
-%% half); a negative value is a long where it fits one (it was an unsigned long)
-ccl_big_type(A, T) :-
-    (   ccl_big_fits(A, '-9223372036854775808', '9223372036854775807') -> T = base([], [long])
-    ;   ccl_big_fits(A, 0, '18446744073709551615') -> T = base([], [unsigned, long])
-    ;   ccl_big_fits(A, '-170141183460469231731687303715884105728', '170141183460469231731687303715884105727') -> T = base([], ['__int128'])
-    ;   T = base([], [unsigned, '__int128']) ).
-ccl_big_fits(A, Lo, Hi) :- ccl_big_bound(Lo, L), ccl_big_bound(Hi, H), ccl_w_cmp(big(A), L, O1), O1 \== (<), ccl_w_cmp(big(A), H, O2), O2 \== (>).
-ccl_big_bound(B, V) :- ( integer(B) -> V = B ; V = big(B) ).
 ccl_type_of(ulong(_), base([], [unsigned, long])) :- !.
 ccl_type_of(wb(N), base([], [bitint(int(W))])) :- !, ccl_wb_width(N, W0), W is W0 + 1.   % C23's 9wb: a _BitInt of the width the value needs, plus the sign
 ccl_type_of(uwb(N), base([], [unsigned, bitint(int(W))])) :- !, ccl_wb_width(N, W).
-ccl_wb_width(N, W) :- ( N =:= 0 -> W = 1 ; W is msb(N) + 1 ).
 ccl_type_of(bool(_), base([], [bool])) :- !.                          % C++
 ccl_type_of(nullptr, ptr([], base([], [void]))) :- !.
 ccl_type_of(float(_), base([], [double])) :- !.
 ccl_type_of(ldbl(_), base([], [long, double])) :- !.                  % a long double literal's text (0.154)
 ccl_type_of(imag(_), base([], ['_Complex', double])) :- !.
-ccl_float_builtin_type('__builtin_inf', base([], [double])).      ccl_float_builtin_type('__builtin_huge_val', base([], [double])).
-ccl_float_builtin_type('__builtin_inff', base([], [float])).      ccl_float_builtin_type('__builtin_huge_valf', base([], [float])).
-ccl_float_builtin_type('__builtin_nan', base([], [double])).      ccl_float_builtin_type('__builtin_nanf', base([], [float])).    % the imaginary literal (0.101)
 ccl_type_of(imagf(_), base([], ['_Complex', float])) :- !.
 ccl_type_of(dec32(_), base([], ['_Decimal32'])) :- !.     % C23's decimal floating literals (0.129)
 ccl_type_of(dec64(_), base([], ['_Decimal64'])) :- !.
@@ -593,13 +599,6 @@ ccl_type_of(imagl(_), base([], ['_Complex', long, double])) :- !.
 ccl_type_of(imagi(Sp, _), base([], ['_Complex'|Sp])) :- !.   % `3i', `2ui', `3li', `4uli' (0.104): the specifiers its suffix and its value give
 ccl_type_of(chr(_), base([], [char])) :- ccl_lang(cpp), !.   % C++: a character literal is a char (C's is an int): `cout << ' '' takes the char inserter, not operator<<(int)
 ccl_type_of(chr(_), base([], [int])) :- !.
-%% a string literal is an ARRAY whose bytes `sizeof' counts (6.5.3.4, [expr.sizeof]; 0.103): the narrow one its codes
-%% and the NUL, a wide one a code point per element (the body is UTF-8 bytes, ccl_utf8_count), `wchar_t' and
-%% `char32_t' four bytes each, `char16_t' two -- the type stays the pointer it decays to everywhere else
-ccl_literal_bytes(str(S), N) :- length(S, L), N is L + 1.
-ccl_literal_bytes(wstr(S), N) :- ccl_utf8_count(S, K), N is (K + 1) * 4.
-ccl_literal_bytes(u32str(S), N) :- ccl_utf8_count(S, K), N is (K + 1) * 4.
-ccl_literal_bytes(u16str(S), N) :- ccl_utf16_count(S, K), N is (K + 1) * 2.   % UTF-16 units, a code point past U+FFFF two (0.112)
 ccl_type_of(str(_), ptr([], base([], [char]))) :- !.
 ccl_type_of(wstr(_), ptr([], base([], [wchar_t]))) :- !.                          % L"...": wchar_t's, u"..." char16_t's, U"..." char32_t's
 ccl_type_of(u16str(_), ptr([], base([], [char16_t]))) :- !.
@@ -654,12 +653,6 @@ ccl_type_of(rtti(_), base([const], [typedef(type_info)])) :- !.          % a typ
 ccl_type_of(rtti_dyn(_), base([const], [typedef(type_info)])) :- !.
 ccl_type_of(dyncast(_, _, _, T), T) :- !.
 ccl_type_of(eh_alloc(_), ptr([], base([], [void]))) :- !.
-ccl_coro_builtin_type('__builtin_coro_frame', ptr([], base([], [void]))).
-ccl_coro_builtin_type('__builtin_coro_noop', ptr([], base([], [void]))).
-ccl_coro_builtin_type('__builtin_coro_promise', ptr([], base([], [void]))).
-ccl_coro_builtin_type('__builtin_coro_resume', base([], [void])).
-ccl_coro_builtin_type('__builtin_coro_destroy', base([], [void])).
-ccl_coro_builtin_type('__builtin_coro_done', base([], [bool])).
 ccl_type_of(eh_throw(_, _, _), base([], [void])) :- !.
 ccl_type_of(eh_rethrow, base([], [void])) :- !.
 ccl_type_of(eh_terminate, base([], [void])) :- !.
@@ -695,6 +688,33 @@ ccl_type_of(bin(Op, A, B), T) :- !,
     ;   ccl_is_arith(AT), ccl_is_arith(BT) -> ccl_usual(AT, BT, T)
     ;   T = unknown ).
 ccl_type_of(_, unknown).
+%% ... and a value past 64 bits, which only a fold makes (a 128-bit type's constant: libc++'s numeric_limits<__int128>), the
+%% first of __int128 and unsigned __int128 that holds it (0.129: it was an unsigned long, lowered as an i64 and cut to its low
+%% half); a negative value is a long where it fits one (it was an unsigned long)
+ccl_big_type(A, T) :-
+    (   ccl_big_fits(A, '-9223372036854775808', '9223372036854775807') -> T = base([], [long])
+    ;   ccl_big_fits(A, 0, '18446744073709551615') -> T = base([], [unsigned, long])
+    ;   ccl_big_fits(A, '-170141183460469231731687303715884105728', '170141183460469231731687303715884105727') -> T = base([], ['__int128'])
+    ;   T = base([], [unsigned, '__int128']) ).
+ccl_big_fits(A, Lo, Hi) :- ccl_big_bound(Lo, L), ccl_big_bound(Hi, H), ccl_w_cmp(big(A), L, O1), O1 \== (<), ccl_w_cmp(big(A), H, O2), O2 \== (>).
+ccl_big_bound(B, V) :- ( integer(B) -> V = B ; V = big(B) ).
+ccl_wb_width(N, W) :- ( N =:= 0 -> W = 1 ; W is msb(N) + 1 ).
+ccl_float_builtin_type('__builtin_inf', base([], [double])).      ccl_float_builtin_type('__builtin_huge_val', base([], [double])).
+ccl_float_builtin_type('__builtin_inff', base([], [float])).      ccl_float_builtin_type('__builtin_huge_valf', base([], [float])).
+ccl_float_builtin_type('__builtin_nan', base([], [double])).      ccl_float_builtin_type('__builtin_nanf', base([], [float])).    % the imaginary literal (0.101)
+%% a string literal is an ARRAY whose bytes `sizeof' counts (6.5.3.4, [expr.sizeof]; 0.103): the narrow one its codes
+%% and the NUL, a wide one a code point per element (the body is UTF-8 bytes, ccl_utf8_count), `wchar_t' and
+%% `char32_t' four bytes each, `char16_t' two -- the type stays the pointer it decays to everywhere else
+ccl_literal_bytes(str(S), N) :- length(S, L), N is L + 1.
+ccl_literal_bytes(wstr(S), N) :- ccl_utf8_count(S, K), N is (K + 1) * 4.
+ccl_literal_bytes(u32str(S), N) :- ccl_utf8_count(S, K), N is (K + 1) * 4.
+ccl_literal_bytes(u16str(S), N) :- ccl_utf16_count(S, K), N is (K + 1) * 2.   % UTF-16 units, a code point past U+FFFF two (0.112)
+ccl_coro_builtin_type('__builtin_coro_frame', ptr([], base([], [void]))).
+ccl_coro_builtin_type('__builtin_coro_noop', ptr([], base([], [void]))).
+ccl_coro_builtin_type('__builtin_coro_promise', ptr([], base([], [void]))).
+ccl_coro_builtin_type('__builtin_coro_resume', base([], [void])).
+ccl_coro_builtin_type('__builtin_coro_destroy', base([], [void])).
+ccl_coro_builtin_type('__builtin_coro_done', base([], [bool])).
 ccl_unref(ref(_, T), T) :- !.
 ccl_unref(rref(_, T), T) :- !.
 ccl_unref(T, T).
@@ -707,7 +727,9 @@ ccl_class_operand(T) :- T \== unknown, ccl_resolve_type(T, base(_, [S])), compou
 %% an enumerator's type: its enum in C++ where the table names a named enum still in the tag table, else an int
 %% (C's, and an unnamed enum's)
 ccl_enumerator_type(N, L, T) :- ccl_lang(cpp), ccl_enumerator_tag(N, L, Tag), ccl_tag(Tag, Ms), Ms \== none, !, T = base([], [typedef(Tag)]).
+ccl_enumerator_type(N, L, T) :- memberchk(N-V, L), ccl_wide_enum_value(V), !, ( V = big(A) -> ccl_big_type(A, T) ; T = base([], [long]) ).   % a value no int holds is typed as a literal of it (0.160), as the lowering spells it
 ccl_enumerator_type(_, _, base([], [int])).
+ccl_wide_enum_value(V) :- ( V = big(_) -> true ; integer(V), ( V > 2147483647 ; V < -2147483648 ) ).
 %% THE CONDITIONAL OVER TWO ARMS OF ONE ARITHMETIC TYPE HAS THAT TYPE in C++ ([expr.cond]/7.1: the usual arithmetic
 %% conversions only bring two DIFFERENT types to one; 0.127), where C converts them always (6.5.15/5): `std::cout <<
 %% (c ? 'Y' : 'N')' printed 89, the char inserter passed over for the int one, and `c ? Red : Green' was no Color
@@ -761,6 +783,11 @@ ccl_size_align(base(_, [struct(_, Ms)]), N, A) :- Ms \== none, memberchk(virtual
     findall(E, ( member(lay(_, T, Off, _), Lays), ccl_resolve_type(T, T1), ccl_size_align(T1, S, _), E is Off + S ), Es), ( Es == [] -> N = 0 ; max_list(Es, N) ).
 ccl_size_align(base(_, [struct(_, Ms)]), N, A) :- Ms \== none, !, ccl_struct_layout(Ms, 0, 1, N0, A0), ccl_tag_size(Ms, N0, A0, N, A).
 ccl_size_align(base(_, [union(_, Ms)]), N, A) :- Ms \== none, !, ccl_union_layout(Ms, 0, 1, N0, A0), ccl_tag_size(Ms, N0, A0, N, A).
+ccl_size_align(base(_, [enum(_, [enum_base(T)|_])]), N, A) :- !, ( ccl_size_align(T, N, A) -> true ; ccl_resolve_type(T, T1), ccl_size_align(T1, N, A) ).   % `enum E : size_t' is eight bytes; a typedef'd underlying type is RESOLVED first (0.112): `enum class __alignment : uint8_t' had no size, so libc++ 18's format-spec parser lost its bitfields from the layout
+ccl_size_align(base(_, [enum(_, _)]), 4, 4) :- !.
+ccl_size_align(base(_, [enum_class(_, _)]), 4, 4) :- !.
+ccl_size_align(ref(_, _), 8, 8) :- !.                                            % C++: a reference is a pointer in memory
+ccl_size_align(rref(_, _), 8, 8) :- !.
 %% a tag's size and alignment: the members' own, the empty class's byte, and `alignas' where the class
 %% states one ([dcl.align]: never smaller than the natural alignment, and the size rounds up to it)
 ccl_tag_size(Ms, N0, A0, N, A) :- ccl_class_size(Ms, N0, N1), ccl_align_as(Ms, A0, A), ccl_round_up(N1, A, N).
@@ -775,11 +802,6 @@ ccl_max_align([V|Vs], A0, A) :- ( V > A0 -> A1 = V ; A1 = A0 ), ccl_max_align(Vs
 %% leaves are empty bases everywhere.
 ccl_class_size(Ms, 0, N) :- ccl_lang(cpp), ccl_no_data_members(Ms), !, N = 1.   % NO DATA MEMBERS AT ALL is what [class]/4 asks: a class whose one member is a zero-length array (libc++'s compressed-pair padding, `char __padding_[sizeof(T) - __datasizeof_v<T>]') HAS a member and keeps the no bytes the GNU extension gives it
 ccl_class_size(_, N, N).
-ccl_size_align(base(_, [enum(_, [enum_base(T)|_])]), N, A) :- !, ( ccl_size_align(T, N, A) -> true ; ccl_resolve_type(T, T1), ccl_size_align(T1, N, A) ).   % `enum E : size_t' is eight bytes; a typedef'd underlying type is RESOLVED first (0.112): `enum class __alignment : uint8_t' had no size, so libc++ 18's format-spec parser lost its bitfields from the layout
-ccl_size_align(base(_, [enum(_, _)]), 4, 4) :- !.
-ccl_size_align(base(_, [enum_class(_, _)]), 4, 4) :- !.
-ccl_size_align(ref(_, _), 8, 8) :- !.                                            % C++: a reference is a pointer in memory
-ccl_size_align(rref(_, _), 8, 8) :- !.
 %% LONG DOUBLE (0.108): x87's 80 bits in sixteen bytes aligned sixteen on x86-64, as the SysV ABI has it; a double on
 %% arm64 as Apple has it (Linux on arm64 has an IEEE quad, which no gate here runs on)
 ccl_va_list_type(Q, T) :- ( once(catch(pp_arch(A), _, fail)) -> true ; A = x86_64 ),     % the target's (0.131)

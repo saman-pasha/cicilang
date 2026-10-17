@@ -376,12 +376,12 @@ pp_expand(N, L, HS, Xs, Ls, Xs1, Ls1) :-
     ;   pp_paren_next(Xs, Ls, Xs0, Ls0) -> pp_collect_args(Xs0, Ls0, Args0, Rest, Ls1), pp_fit_args(Ps, Args0, Args), pp_subst(Body, Ps, Args, Subst), pp_wrap(Subst, [N|HS], L, W), append(W, Rest, Xs1) ).
 pp_builtin_obj('__LINE__', L, [tok(int, P, L)]) :- pp_presumed(L, P, _).
 pp_builtin_obj('__FILE__', L, [tok(str, Cs, L)]) :- pp_presumed(L, _, F), atom_codes(F, Cs).
-%% `#line N "file"' (C 6.10.4) and GNU's `# N "file"': the PRESUMED line and file from the next line on, per file --
-%% what __LINE__ and __FILE__ answer (0.108); a diagnostic still names the physical place
-pp_presumed(L, P, F) :- pp_current_file(F0), nb_getval('$pp_linemap', M), ( memberchk(F0-lm(D, F1), M) -> P is L + D, F = F1 ; P = L, F = F0 ).
 pp_builtin_obj('__COUNTER__', L, [tok(int, C, L)]) :- nb_getval('$pp_counter', C), C1 is C + 1, nb_setval('$pp_counter', C1).
 pp_builtin_obj('__DATE__', L, [tok(str, Cs, L)]) :- atom_codes('Jan  1 2026', Cs).
 pp_builtin_obj('__TIME__', L, [tok(str, Cs, L)]) :- atom_codes('00:00:00', Cs).
+%% `#line N "file"' (C 6.10.4) and GNU's `# N "file"': the PRESUMED line and file from the next line on, per file --
+%% what __LINE__ and __FILE__ answer (0.108); a diagnostic still names the physical place
+pp_presumed(L, P, F) :- pp_current_file(F0), nb_getval('$pp_linemap', M), ( memberchk(F0-lm(D, F1), M) -> P is L + D, F = F1 ; P = L, F = F0 ).
 pp_wrap([], _, _, []).
 pp_wrap([T|Ts], HS, L, [h(T1, HS)|Ws]) :- pp_reline(T, L, T1), pp_wrap(Ts, HS, L, Ws).
 pp_reline(tok(K, V, _), L, tok(K, V, L)).
@@ -464,22 +464,23 @@ pp_spell(tok(int, N, _), Cs) :- !, pp_int_codes(N, Cs).
 pp_spell(tok(float, N, _), Cs) :- !, pp_float_codes(N, Cs).
 pp_spell(tok(floatf, N, _), Cs) :- !, pp_float_codes(N, Cs0), append(Cs0, [0'f], Cs).     % `1.5f' and `1.5L' spelled with their suffixes (0.108)
 pp_spell(tok(floatl, A, _), Cs) :- !, atom_codes(A, Cs0), append(Cs0, [0'L], Cs).          % a long double literal: its text (0.154)
+pp_spell(tok(floatudl, fs(A, S), _), Cs) :- !, atom_codes(A, C1), atom_codes(S, C2), append(C1, C2, Cs).   % a user-defined floating literal: its text and its suffix, no space between (0.160)
 pp_spell(tok(K, A, _), Cs) :- pp_dec_suffix(K, Sfx), !, atom_codes(A, Cs0), append(Cs0, Sfx, Cs).   % a decimal literal: its text and its suffix (0.129)
-pp_dec_suffix(dec32, [0'd, 0'f]).  pp_dec_suffix(dec64, [0'd, 0'd]).  pp_dec_suffix(dec128, [0'd, 0'l]).
 pp_spell(tok(imag, N, _), Cs) :- !, number_codes(N, Cs0), append(Cs0, [0'i], Cs).
 pp_spell(tok(imagf, N, _), Cs) :- !, number_codes(N, Cs0), append(Cs0, [0'i, 0'f], Cs).
 pp_spell(tok(imagl, A, _), Cs) :- !, atom_codes(A, Cs0), append(Cs0, [0'i, 0'l], Cs).
 pp_spell(tok(K, N, _), Cs) :- pp_imag_suffix(K, Sfx), !, pp_int_codes(N, Cs0), append(Cs0, Sfx, Cs).   % `3i', `2ui', `3li', `4uli' (0.104)
-pp_imag_suffix(imagi, [0'i]).   pp_imag_suffix(imagui, [0'u, 0'i]).   pp_imag_suffix(imagli, [0'l, 0'i]).   pp_imag_suffix(imaguli, [0'u, 0'l, 0'i]).
 pp_spell(tok(str, S, _), Cs) :- !, pp_escape(S, E), append([34|E], [34], Cs).
 pp_spell(tok(chr, C, _), [39, C, 39]) :- !.
 pp_spell(tok(K, S, _), Cs) :- pp_str_prefix(K, P), !, pp_escape(S, E), append(P, [34|E], Cs0), append(Cs0, [34], Cs).   % L"...", u"...", U"..." (0.93: the prefixed literals)
 pp_spell(tok(K, C, _), Cs) :- pp_chr_prefix(K, P), !, append(P, [39, C, 39], Cs).
-pp_str_prefix(wstr, [0'L]).    pp_str_prefix(u16str, [0'u]).    pp_str_prefix(u32str, [0'U]).
-pp_chr_prefix(wchr, [0'L]).    pp_chr_prefix(u16chr, [0'u]).    pp_chr_prefix(u32chr, [0'U]).
 pp_spell(tok(p, P, _), Cs) :- !, atom_codes(P, Cs).
 pp_spell(tok(_, V, _), Cs) :- ( atom(V) -> atom_codes(V, Cs) ; number(V) -> number_codes(V, Cs) ; Cs = [] ).
 pp_spell(_, []).
+pp_dec_suffix(dec32, [0'd, 0'f]).  pp_dec_suffix(dec64, [0'd, 0'd]).  pp_dec_suffix(dec128, [0'd, 0'l]).
+pp_imag_suffix(imagi, [0'i]).   pp_imag_suffix(imagui, [0'u, 0'i]).   pp_imag_suffix(imagli, [0'l, 0'i]).   pp_imag_suffix(imaguli, [0'u, 0'l, 0'i]).
+pp_str_prefix(wstr, [0'L]).    pp_str_prefix(u16str, [0'u]).    pp_str_prefix(u32str, [0'U]).
+pp_chr_prefix(wchr, [0'L]).    pp_chr_prefix(u16chr, [0'u]).    pp_chr_prefix(u32chr, [0'U]).
 pp_escape([], []).
 pp_escape([34|Cs], [92, 34|Es]) :- !, pp_escape(Cs, Es).
 pp_escape([92|Cs], [92, 92|Es]) :- !, pp_escape(Cs, Es).
@@ -511,23 +512,6 @@ pp_directive_(undef, Rest, Body, L, Ls, Ls, Out0, Out) :- !, pp_ws(Rest, R1), pp
 pp_directive_(include, Rest, Body, L, Ls, Ls, Out0, Out) :- !, pp_do_include(Rest, plain, Body, L, Out0, Out).
 pp_directive_(include_next, Rest, Body, L, Ls, Ls, Out0, Out) :- !, pp_do_include(Rest, next, Body, L, Out0, Out).
 pp_directive_(cocolog, _, _, L, Ls, Ls1, Out0, Out) :- nb_getval('$pp_top', yes), !, pp_cocolog_block(Ls, L, Ls1, Out0, Out).
-%% in the user's file a directive is kept as the token the reader has always read
-pp_pass(Body, L, Out0, Out) :- ( nb_getval('$pp_top', yes) -> atom_codes(Text, [35|Body]), Out0 = [tok(pp, Text, L)|Out] ; Out0 = Out ).
-%% #cocolog ... #end in the user's file: the raw lines between, one token
-pp_cocolog_block(Ls, L, Ls1, [tok(cocolog, Text, L)|Out], Out) :-
-    pp_block_end(Ls, L, EndN, Ls1), pp_current_file(F), pp_raw_lines(F, Raw), From is L + 1, To is EndN - 1,
-    pp_raw_slice(Raw, 1, From, To, Cs), atom_codes(Text, Cs).
-pp_block_end([], L, E, []) :- E is L + 1000000.
-pp_block_end([line(N, A)|Ls], L, EndN, Ls1) :-
-    (   pp_directive_line(A, Body), pp_ws(Body, B1), pp_word(B1, W, _), atom_codes(end, W) -> EndN = N, Ls1 = Ls
-    ;   pp_block_end(Ls, L, EndN, Ls1) ).
-pp_raw_lines(F, Raw) :- read_file_to_codes(F, Codes), atom_codes(A, Codes), atomic_list_concat(Raw, '\n', A).
-pp_raw_slice([], _, _, _, []).
-pp_raw_slice([R|Rs], N, From, To, Cs) :-
-    N1 is N + 1,
-    (   N >= From, N =< To -> atom_codes(R, C1), append(C1, [10|C2], Cs), pp_raw_slice(Rs, N1, From, To, C2)
-    ;   N > To -> Cs = []
-    ;   pp_raw_slice(Rs, N1, From, To, Cs) ).
 pp_directive_(if, Rest, _, _, Ls, Ls1, Out, Out) :- !, pp_lex_body(Rest, Ts), ( pp_eval(Ts) -> Ls1 = Ls ; pp_skip_false(Ls, Ls1) ).
 pp_directive_(ifdef, Rest, _, _, Ls, Ls1, Out, Out) :- !, pp_ws(Rest, R1), pp_word(R1, W, _), atom_codes(N, W), ( pp_defined(N) -> Ls1 = Ls ; pp_skip_false(Ls, Ls1) ).
 pp_directive_(ifndef, Rest, _, _, Ls, Ls1, Out, Out) :- !, pp_ws(Rest, R1), pp_word(R1, W, _), atom_codes(N, W), ( pp_defined(N) -> pp_skip_false(Ls, Ls1) ; Ls1 = Ls ).
@@ -546,14 +530,31 @@ pp_directive_(warning, Rest, _, L, Ls, Ls, Out, Out) :- nb_getval('$pp_top', yes
 pp_directive_(embed, Rest, Body, L, Ls, Ls, Out0, Out) :- !, pp_do_embed(Rest, Body, L, Out0, Out).
 pp_directive_(line, Rest, _, L, Ls, Ls, Out, Out) :- !, pp_do_line(Rest, L).
 pp_directive_(D, Rest, _, L, Ls, Ls, Out, Out) :- atom_codes(D, [C|Cs]), C >= 0'0, C =< 0'9, !, pp_do_line([C|Cs], Rest, L).   % GNU's linemarker, `# 12 "f.c" 1'
+pp_directive_(error, Rest, _, L, _, [], Out, Out) :- !, pp_current_file(F), atom_codes(M, Rest), nb_getval('$pp_errors', Es), nb_setval('$pp_errors', [error(F, L, M)|Es]).   % the file stops here
+pp_directive_(_, _, _, _, Ls, Ls, Out, Out).                                       % line, warning, ident, an empty #: nothing
+%% in the user's file a directive is kept as the token the reader has always read
+pp_pass(Body, L, Out0, Out) :- ( nb_getval('$pp_top', yes) -> atom_codes(Text, [35|Body]), Out0 = [tok(pp, Text, L)|Out] ; Out0 = Out ).
+%% #cocolog ... #end in the user's file: the raw lines between, one token
+pp_cocolog_block(Ls, L, Ls1, [tok(cocolog, Text, L)|Out], Out) :-
+    pp_block_end(Ls, L, EndN, Ls1), pp_current_file(F), pp_raw_lines(F, Raw), From is L + 1, To is EndN - 1,
+    pp_raw_slice(Raw, 1, From, To, Cs), atom_codes(Text, Cs).
+pp_block_end([], L, E, []) :- E is L + 1000000.
+pp_block_end([line(N, A)|Ls], L, EndN, Ls1) :-
+    (   pp_directive_line(A, Body), pp_ws(Body, B1), pp_word(B1, W, _), atom_codes(end, W) -> EndN = N, Ls1 = Ls
+    ;   pp_block_end(Ls, L, EndN, Ls1) ).
+pp_raw_lines(F, Raw) :- read_file_to_codes(F, Codes), atom_codes(A, Codes), atomic_list_concat(Raw, '\n', A).
+pp_raw_slice([], _, _, _, []).
+pp_raw_slice([R|Rs], N, From, To, Cs) :-
+    N1 is N + 1,
+    (   N >= From, N =< To -> atom_codes(R, C1), append(C1, [10|C2], Cs), pp_raw_slice(Rs, N1, From, To, C2)
+    ;   N > To -> Cs = []
+    ;   pp_raw_slice(Rs, N1, From, To, Cs) ).
 pp_do_line(Rest, L) :- pp_lex_body(Rest, Ts), pp_expand_all(Ts, Es), pp_spell_all(Es, Cs), pp_ws(Cs, C1), pp_word(C1, W, R), pp_do_line(W, R, L).
 pp_do_line(W, R, L) :- W \== [], number_codes(N, W), pp_current_file(F0), nb_getval('$pp_linemap', M0),
     ( memberchk(F0-lm(_, FOld), M0) -> true ; FOld = F0 ),
     pp_ws(R, R1), ( R1 = [34|R2], append(NCs, [34|_], R2) -> atom_codes(FN, NCs) ; FN = FOld ),
     D is N - (L + 1), ( select(F0-_, M0, M1) -> true ; M1 = M0 ), nb_setval('$pp_linemap', [F0-lm(D, FN)|M1]), !.
 pp_do_line(_, _, _).
-pp_directive_(error, Rest, _, L, _, [], Out, Out) :- !, pp_current_file(F), atom_codes(M, Rest), nb_getval('$pp_errors', Es), nb_setval('$pp_errors', [error(F, L, M)|Es]).   % the file stops here
-pp_directive_(_, _, _, _, Ls, Ls, Out, Out).                                       % line, warning, ident, an empty #: nothing
 pp_ws([C|Cs], R) :- ( C =:= 32 ; C =:= 9 ), !, pp_ws(Cs, R).
 pp_ws(Cs, Cs).
 pp_word([C|Cs], [C|W], R) :- ( C >= 0'a, C =< 0'z ; C >= 0'A, C =< 0'Z ; C =:= 0'_ ; C >= 0'0, C =< 0'9 ), !, pp_word(Cs, W, R).
@@ -689,7 +690,6 @@ pp_builtin_answer('__has_embed', Args, V) :- !, pp_has_embed(Args, V).
 %% 202207), the `__x__' spellings alike, and 0 for anything else; `__has_cpp_attribute' keeps answering 0 (the
 %% plainest path through libc++, the rule above)
 pp_builtin_answer('__has_c_attribute', Args, V) :- ccl_lang(c), !, ( pp_attr_name(Args, N), pp_c_attribute(N, V0) -> V = V0 ; V = 0 ).
-
 %% `__has_extension(c_atomic)' answers 1 (0.100): libc++ decides its <atomic> by `__has_feature(cxx_atomic) ||
 %% __has_extension(c_atomic) || __has_keyword(_Atomic)', and with all three 0 it defines NO implementation
 %% (`template_without_body(__cxx_atomic_base_impl)'); this compiler has C11's `_Atomic(T)' and the `__c11_atomic_*'
@@ -709,6 +709,7 @@ pp_builtin_answer('__is_target_vendor', [tok(_, V0, _)], V) :- !, pp_os(O), ( O 
 pp_builtin_answer('__is_target_environment', [tok(_, E, _)], V) :- !, pp_os(O), ( O == linux, E == gnu -> V = 1 ; V = 0 ).
 pp_builtin_answer('__is_target_os', [tok(_, OS, _)], V) :- !, pp_os(O), ( O == darwin, memberchk(OS, [macos, darwin, macosx]) -> V = 1 ; O == linux, OS == linux -> V = 1 ; V = 0 ).
 pp_builtin_answer(_, _, 0).                                                       % features, attributes, warnings, modules: the plainest path
+
 %% THE BUILTINS LIBC++ HAS A FALLBACK FOR AND THIS COMPILER DOES NOT PROVIDE (0.126). Every other `__has_builtin' is 1 (the
 %% lowering and the desugaring answer them, and libc++'s other branch is often an #error). libc++ 21 writes
 %% `common_type' on clang's template `__builtin_common_type<__common_type_t, __type_identity, __empty, _Args...>' where it
@@ -1480,6 +1481,7 @@ ccl_pp_spell_tok(K, N, Out, Rest) :- pp_imag_suffix(K, Sfx), !, pp_int_codes(N, 
 ccl_pp_spell_tok(floatf, F, Out, Rest) :- !, pp_float_codes(F, Cs), append(Cs, [0'f|Rest], Out).
 ccl_pp_spell_tok(K, A, Out, Rest) :- pp_dec_suffix(K, Sfx), !, atom_codes(A, Cs), append(Sfx, Rest, R1), append(Cs, R1, Out).
 ccl_pp_spell_tok(floatl, A, Out, Rest) :- !, atom_codes(A, Cs), append(Cs, [0'L|Rest], Out).   % a long double literal: its text (0.154)
+ccl_pp_spell_tok(floatudl, fs(A, S), Out, Rest) :- !, atom_codes(A, C1), atom_codes(S, C2), append(C2, Rest, R1), append(C1, R1, Out).   % `0.1_v', the suffix right after the text (0.160)
 ccl_pp_spell_tok(float, F, Out, Rest) :- !, pp_float_codes(F, Cs), append(Cs, Rest, Out).
 ccl_pp_spell_tok(_, V, Out, Rest) :- ( atom(V) -> atom_codes(V, Cs) ; number_codes(V, Cs) ), append(Cs, Rest, Out).
 pp_int_codes(big(A), Cs) :- !, atom_codes(A, Cs).                                    % a literal past 2^60 spells as its digits (0.94's big(Atom); 0.99: the flattened text had `big(0xff...)ul', which no reader takes -- the census's road only)

@@ -10,8 +10,8 @@ it found, its measurements and its gate numbers. `README.md` tells a user what r
 architecture and the milestones. A step that changes a rule edits the rule here, in its topic, and writes its entry
 in `HISTORY.md`.
 
-At 0.159 the versions are: the module 0.159 (`ccl_p_version` in `module/cicilang.cicili`, `bin/cicilang --version`),
-the reader 130 (`ccl_reader_version/1`, `library/ccl_syntax.pl`) and the lowering 84 (`ccl_lowering_version/1`,
+At 0.160 the versions are: the module 0.160 (`ccl_p_version` in `module/cicilang.cicili`, `bin/cicilang --version`),
+the reader 131 (`ccl_reader_version/1`, `library/ccl_syntax.pl`) and the lowering 85 (`ccl_lowering_version/1`,
 `library/ccl_ir.pl`).
 
 Build and prove, always in this order (or all of it, `sh test/gates.sh`):
@@ -131,14 +131,16 @@ sh test/cpp.sh
   on backtracking, with an error that names no line (`ccl_init_items//1` is `ccl_init_items/3`; `cpp_scalar_type/1`
   already existed). (0.93, 0.99)
 - A predicate's helpers come after its last clause, never between its clauses: cocolog takes discontiguous clauses
-  without a word. At 0.144, 124 predicates break it, each a `discontiguous` line of `test/flow.expect`, which the flow
-  gate holds the library to: a NEW split is RED (The flow gate, below). A second DEFINITION of a name hides among such
-  splits, joined to the first: `cpp_derives/2` until 0.112, and `cpp_thunk_params/4` and `cpp_param_types/2` until
-  0.141 -- the secondary-table thunks and the instance thunks each wrote their own `cpp_thunk_params/4`, the first
-  answered every call, and each pair gave a second answer on backtracking, up to 2^n of them; each is written once now,
-  the thunks' parameters named as the first one named them. The chart names such a pair `defined_twice` (a later place
-  of the clauses repeats an earlier clause, or an earlier fact covers it) and every other split `discontiguous`.
-  (0.103, 0.140, 0.141, 0.144)
+  without a word. At 0.144, 124 predicates broke it, each a `discontiguous` line of `test/flow.expect`; 0.160 brought
+  each one's clauses together at the place of its first, in their order, the comments directly above a clause with it (a
+  mechanical move over the files' top-level terms: the same IR, byte for byte, for 82 C and 32 C++ fixtures), and none
+  breaks it now: a NEW split is RED (The flow gate, below). A second DEFINITION of a name hides among such splits,
+  joined to the first: `cpp_derives/2` until 0.112, and `cpp_thunk_params/4` and `cpp_param_types/2` until 0.141 -- the
+  secondary-table thunks and the instance thunks each wrote their own `cpp_thunk_params/4`, the first answered every
+  call, and each pair gave a second answer on backtracking, up to 2^n of them; each is written once now, the thunks'
+  parameters named as the first one named them. The chart names such a pair `defined_twice` (a later place of the
+  clauses repeats an earlier clause, or an earlier fact covers it) and every other split `discontiguous`. (0.103, 0.140,
+  0.141, 0.144, 0.160)
 - Base clauses are exclusive: they cut. Two that both match `[]` make `findall/3` answer twice, and a constructor is
   emitted twice (`cpp_keep_defaults/3`, `cpp_args_fit/2`, `cpp_args_no_clash/2`). (0.66, 0.69)
 - A comment ends the LINE: `%` in a cocolog clause, `#` in sh. Never rewrite a line that has a comment in its middle;
@@ -393,13 +395,13 @@ tutorials/01..03-*.pl       the objects layer's lessons; goal main, last line do
 
 - `test/flow.sh` (0.144) reads every file of the library with cocolog's `library(flow/chart)` and RUNS NOTHING. A chart
   starts at one call pattern, so `test/flow.pl`'s `fg_roots_main/2` writes a copy of each file with a root,
-  `'$fg_all'/N`, that calls each predicate the file defines with free arguments: 3451 predicates in the ten files at
-  0.146. Each copy is charted with the rest of the compiler loaded (`flow_graph/3`'s `load(Files)`), and the file
-  itself is stubbed out of the library path (an empty file of its name first on `COCOLOG_LIBRARY`), so that its
-  clauses are read once. A helper of the gate takes the prefix `fg_`: cocolog has one namespace, and a helper named
-  `flow_trim/2` joined `library/flow/read.pl`'s own and failed the chart far from the cause. Since cocolog 1.11.4 the
-  chart refuses by name a file IT READS that defines a predicate of the flow library; the gate's own Prolog is loaded by
-  the query, not read by the chart, so the prefix still guards it. (0.144, 0.146)
+  `'$fg_all'/N`, that calls each predicate the file defines with free arguments: 3498 predicates in the ten files at
+  0.160. Each copy is charted with the rest of the compiler loaded (`flow_graph/3`'s `load(Files)`), and the file itself
+  is stubbed out of the library path (an empty file of its name first on `COCOLOG_LIBRARY`), so that its clauses are
+  read once. A helper of the gate takes the prefix `fg_`: cocolog has one namespace, and a helper named `flow_trim/2`
+  joined `library/flow/read.pl`'s own and failed the chart far from the cause. Since cocolog 1.11.4 the chart refuses by
+  name a file IT READS that defines a predicate of the flow library; the gate's own Prolog is loaded by the query, not
+  read by the chart, so the prefix still guards it. (0.144, 0.146)
 - The chart is given the two modules' Cicili sources as `modules([...])` (cocolog 1.11.4; `flow_graph/3` in
   `fg_findings_main/5`). It reads each `("name" N cfun)` dispatch row of a module as a C predicate, with the modes of
   the module's header line (`;;;; name(+A, -B)`; `module/cicilang.cicili` names five, `module/ccl_llvm.cicili` four),
@@ -433,12 +435,12 @@ tutorials/01..03-*.pl       the objects layer's lessons; goal main, last line do
   not meet is RED too, so that a finding fixed leaves the file in the same step and a later edit cannot bring it back
   unseen. `FLOW_UPDATE=1` writes the expect file from the run, after every new line is read; `FLOW_KEEP=DIR` keeps the
   copies, the logs and each file's findings. (0.144, 0.146)
-- `test/flow.expect` at 0.146 holds 125 keys: the 124 `discontiguous` splits, all true, and one warning, the call of
-  `'$ccl_sum_big'/3` in `ccl_sum_bigs_/3`, a table that a summary's `.big.pl` file defines when `ensure_loaded/1`
-  loads it at run time, under a `catch/3` that takes its existence error. The seven false findings of 0.144 are gone on
-  cocolog 1.11.4, which answered the report of them: `format(atom(A), ...)` binds A (`ir_fp_nan/1`, `ir_neg_zero/1`),
-  text made from text binds every argument (`cpp_dbg_op_spell/2`, whose W `atomic_list_concat/3`'s split binds), and
-  the call under the catch is the warning above. (0.144, 0.146)
+- `test/flow.expect` at 0.160 holds one key -- the 124 `discontiguous` splits of 0.146, all true, are gone with the
+  regroup of 0.160 -- a warning, the call of `'$ccl_sum_big'/3` in `ccl_sum_bigs_/3`, a table that a summary's `.big.pl`
+  file defines when `ensure_loaded/1` loads it at run time, under a `catch/3` that takes its existence error. The seven
+  false findings of 0.144 are gone on cocolog 1.11.4, which answered the report of them: `format(atom(A), ...)` binds A
+  (`ir_fp_nan/1`, `ir_neg_zero/1`), text made from text binds every argument (`cpp_dbg_op_spell/2`, whose W
+  `atomic_list_concat/3`'s split binds), and the call under the catch is the warning above. (0.144, 0.146, 0.160)
 
 ### The C gates
 
@@ -456,25 +458,26 @@ tutorials/01..03-*.pl       the objects layer's lessons; goal main, last line do
   and links every `test/c/run/*.c` at its `NAME.std` level (`c_level`). It expects every `test/c/safe/*.c` refused.
   `test/compile.sh` runs each binary as `NAME arg1 arg2` against `NAME.expect`, and compares each refusal with
   `safe/NAME.expect`. There are 80 run and 47 safe fixtures at 0.155. (M2, M3, 0.57)
-- The driver gate. `test/driver.sh` makes 37 checks of `bin/cicilang` over the user's store (the two decimal checks are
+- The driver gate. `test/driver.sh` makes 38 checks of `bin/cicilang` over the user's store (the two decimal checks are
   skipped where no gcc with decimal floating types is installed), the variadic calls of every kind both ways against
-  clang among them (`test/c/link/va_*.c`, 0.131). They cover what `-o`,
-  `-c`, `-S`, `-emit-llvm`, `-shared`, `-I`, `-ast-dump`, `-fsyntax-only`, `-g` and `-gline-tables-only` make (read
-  back by `llvm-dwarfdump`, from `$PATH` or `$LLVM/bin`: the statements' lines and the file's name; the variables, a
-  struct's members and an enum's enumerators, their names sorted; no variable under `-gline-tables-only`; a C++ static
-  data member declared in its class, its definition naming that declaration, through `cicilang++ -g -c`, 0.133; under
-  `-fdebug-macro` a file's and its header's macros at their lines, as clang's object has them, and the predefined ones at
-  line 0, 0.134; a destructor at its scope's closing brace, on a return and at the end, 0.139), and the diagnostics in
-  clang's shape (`#warning` printed, `#error` with exit 1). The text of `-E` compiled by clang makes the program the source
-  makes, its floats exact (0.143: `__DBL_MAX__`, `1.5e308`, 17 digits, a subnormal, an infinity), its long double
-  literals too (0.154: `__LDBL_MAX__`, `__LDBL_MIN__`, `__LDBL_DENORM_MIN__`, `0.1L`, a hex one, `0.1Li`). They find `@ccl_drain_node` in `btree.c`'s IR, and pass
-  structs by value both ways against clang-built code (`test/c/link/abi_main.c`, `abi_helper.c`; seven lines at 0.117,
-  the last two for the SysV register budget, `budget_*` built by clang and `bud_*` by cicilang). The store must serve
-  `hello.c` in under 10 s and redo only the changed one of two files. The gate follows the host: `_main:` and `.dylib`
-  on Darwin, `main:` and `.so` elsewhere. The decimal floating types cross the ABI against gcc-built code both ways
-  (`test/c/link/dec_main.c`, `dec_helper.c`: values, structs by value, a variadic call; clang has no decimal types), and
-  twelve long double constants converted to decimal types fold to gcc's bits (`test/c/link/decld.c`, 0.154).
-  (M4, 0.93, 0.128, 0.129, 0.154)
+  clang among them (`test/c/link/va_*.c`, 0.131), and Apple's arm64 expansion of `va_arg` of an aggregate against
+  clang's, both retargeted to this host (`test/c/link/va_darwin.c`, 0.160). They cover what `-o`, `-c`, `-S`,
+  `-emit-llvm`, `-shared`, `-I`, `-ast-dump`, `-fsyntax-only`, `-g` and `-gline-tables-only` make (read back by
+  `llvm-dwarfdump`, from `$PATH` or `$LLVM/bin`: the statements' lines and the file's name; the variables, a struct's
+  members and an enum's enumerators, their names sorted; no variable under `-gline-tables-only`; a C++ static data
+  member declared in its class, its definition naming that declaration, through `cicilang++ -g -c`, 0.133; under
+  `-fdebug-macro` a file's and its header's macros at their lines, as clang's object has them, and the predefined ones
+  at line 0, 0.134; a destructor at its scope's closing brace, on a return and at the end, 0.139), and the diagnostics
+  in clang's shape (`#warning` printed, `#error` with exit 1). The text of `-E` compiled by clang makes the program the
+  source makes, its floats exact (0.143: `__DBL_MAX__`, `1.5e308`, 17 digits, a subnormal, an infinity), its long double
+  literals too (0.154: `__LDBL_MAX__`, `__LDBL_MIN__`, `__LDBL_DENORM_MIN__`, `0.1L`, a hex one, `0.1Li`). They find
+  `@ccl_drain_node` in `btree.c`'s IR, and pass structs by value both ways against clang-built code
+  (`test/c/link/abi_main.c`, `abi_helper.c`; seven lines at 0.117, the last two for the SysV register budget, `budget_*`
+  built by clang and `bud_*` by cicilang). The store must serve `hello.c` in under 10 s and redo only the changed one of
+  two files. The gate follows the host: `_main:` and `.dylib` on Darwin, `main:` and `.so` elsewhere. The decimal
+  floating types cross the ABI against gcc-built code both ways (`test/c/link/dec_main.c`, `dec_helper.c`: values,
+  structs by value, a variadic call; clang has no decimal types), and twelve long double constants converted to decimal
+  types fold to gcc's bits (`test/c/link/decld.c`, 0.154). (M4, 0.93, 0.128, 0.129, 0.154, 0.160)
 - The objects gate. `test/objects.sh` makes 29 checks of the objects layer, an instance that outlives its process
   among them. (from the start)
 - The cross gate (0.131). `test/cross.sh` builds every `test/c/run/*.c` with `cicilang --target=aarch64-linux-gnu`
@@ -570,7 +573,7 @@ tutorials/01..03-*.pl       the objects layer's lessons; goal main, last line do
   | `access_base.cpp` | `access(private,'Base',secret)` | 0.117 |
   | `abstract.cpp` | `pure_virtual` | 0.99 |
   | `modhidden.cpp` | `undeclared(hidden)` | 0.110 |
-  | `diamond.cpp` | `virtual_base_by_two_paths` | 0.110 |
+  | `diamond.cpp` | `virtual_base_by_two_paths` | 0.110, 0.160 |
   | `basenodefault.cpp` | `base_constructor('B')` | 0.112 |
   | `access_inherit.cpp` | `access(private,'Derived',pub)` | 0.127 |
   | `access_protobj.cpp` | `access(protected,'Base',secret)` | 0.127 |
@@ -580,6 +583,7 @@ tutorials/01..03-*.pl       the objects layer's lessons; goal main, last line do
   | `access_operator.cpp` | `access(private,'Money',operator(<))` | 0.127 |
   | `lambda_method.cpp` | `non_const_member_on_const(bump,'Counter')` | 0.127 |
   | `bind_const.cpp` | `binds_const(r)` | 0.127 |
+  | `enumnotconst.cpp` | `enumerator_not_constant('B')` | 0.160 |
 
   `deduced_this.cpp` (0.43) is gone: a class's `this auto` method builds since 0.117 (`deducethis.cpp`).
 
@@ -1335,16 +1339,26 @@ tutorials/01..03-*.pl       the objects layer's lessons; goal main, last line do
   unit's own definition shadows a header's declaration. (0.78)
 - Answers are cached: `ccl_cached/4` for small values, `ccl_cached_named/4` with a global per name for large ones.
   `ccl_tables_changed/0` empties them wherever a table is written. A cached predicate is not re-entrant. (2026-09-06)
-- An enumerator is of its ENUM's type in C++ ([dcl.enum]/5) and an `int` in C and for an unnamed enum (`ccl_type_of(id(N))`
-  through `ccl_enumerator_type/3`): the table of values keeps each enumerator's enum beside its value, `'$t'(Name)-Tag`,
-  and a scoped enum's tag as `'$s'(Tag)-1` (the parser's `ccl_declare_enumerators/2`, which declares the enumerator with
-  that type, and the bulk noter's `ccl_collect_enum_tags/4`). A compound key never answers a lookup of a value by name,
-  so every writer, save and restore of the table carries the two kinds of entry without a word, a summary's `enum/2`
-  lines too (reader 121). A scoped enum converts to no arithmetic type (`ccl_scoped_enum/1`). An enumerator of an
-  unscoped enum NESTED in a class, named through the class (`Shape::Circle`), is of the nested enum's type too
-  (`cpp_enum_class_tag/3`, a `cpp_expr` clause before the class road, which folded it as an `int` static). Fixture: `enumtype.cpp`.
-  Why: `h(Red)` called `h(int)` over `h(Color)`, `k(Fruit::Pear)` called `k(long)`, a template deduced an `int`, and
-  `v.push_back(Green)` was refused (`undeclared(Green)`). (0.100, 0.127)
+- An enumerator is of its ENUM's type in C++ ([dcl.enum]/5) and an `int` in C and for an unnamed enum
+  (`ccl_type_of(id(N))` through `ccl_enumerator_type/3`): the table of values keeps each enumerator's enum beside its
+  value, `'$t'(Name)-Tag`, and a scoped enum's tag as `'$s'(Tag)-1` (the parser's `ccl_declare_enumerators/2`, which
+  declares the enumerator with that type, and the bulk noter's `ccl_collect_enum_tags/4`). A compound key never answers
+  a lookup of a value by name, so every writer, save and restore of the table carries the two kinds of entry without a
+  word, a summary's `enum/2` lines too (reader 121). A scoped enum converts to no arithmetic type (`ccl_scoped_enum/1`).
+  An enumerator of an unscoped enum NESTED in a class, named through the class (`Shape::Circle`), is of the nested
+  enum's type too (`cpp_enum_class_tag/3`, a `cpp_expr` clause before the class road, which folded it as an `int`
+  static). Fixture: `enumtype.cpp`. Why: `h(Red)` called `h(int)` over `h(Color)`, `k(Fruit::Pear)` called `k(long)`, a
+  template deduced an `int`, and `v.push_back(Green)` was refused (`undeclared(Green)`). AN ENUMERATOR IS A CONSTANT OR
+  NOTHING (0.160; C 6.7.2.2/2, [dcl.enum]/5): in C an initializer that does not fold fails the item
+  (`ccl_declare_enumerators/4`), so a header read raw stops there and is read preprocessed and the program's file says
+  where it gave up; in C++ the reader keeps the value after the one before as a placeholder, and the desugaring folds
+  the initializer through the constexpr evaluator, the enumerators before it put in as their values
+  (`cpp_fold_enumerators/5`, `cpp_enum_unfolded/3`: `enum { A = f(), B }` over `constexpr int f()` was 0 and 1 where
+  clang++ has 7 and 8), else refuses the program's own by name, `enumerator_not_constant(N)`
+  (`test/cpp/enumnotconst.cpp`), as clang++ refuses it; it took the value after the one before it, silently. The next
+  value is wide (`ccl_w_add/3`), past 2^60 a `big(_)`, and an enumerator of a value no int holds is typed as a literal
+  of it, an int else (`ccl_enumerator_type/3`, `ir_expr(id(N))` over `ir_expr(int(V))`): `i32 18446744073709551600`
+  reached LLVM. `enumconstexpr.cpp`, `test/c/run/enumfloat.c`. (0.100, 0.127, 0.160)
 - `ccl_type_of/2` of a statement expression puts its declarations in scope for its last expression. (M1b)
 - A typedef, tag or enum declared in a block joins the unit's one table in C (`ccl_collect_item(function)` through
   `ccl_stmt_typedefs`, by statement shape; two blocks that typedef one name must agree; `test/c/run/typedef_block.c`).
@@ -1640,8 +1654,11 @@ tutorials/01..03-*.pl       the objects layer's lessons; goal main, last line do
   suffix: yes for `noexcept`, `noexcept(e)` with any `e` but the literal `false`, and `throw()`; no for `throw(X)`
   (`ccl_nx_arg`). A free function's name joins `'$ccl_nothrow'` (`ccl_note_nx`, `ccl_nothrow/1`). A method keeps
   `noexcept` among its qualifiers. (0.110)
-- A pointer to member is its own node ([dcl.mptr]): `memptr(C, Qs)` in the pointer list (`ccl_pointers`), and
-  `memptr(C, Q, T)` once applied (`ccl_apply_pointers`). (0.86)
+- A pointer to member is its own node ([dcl.mptr]): `memptr(C, Qs)` in the pointer list (`ccl_pointers`), and `memptr(C,
+  Q, T)` once applied (`ccl_apply_pointers`). `&C::f` of a STATIC member function is an ordinary pointer to function
+  ([expr.unary.op]/3; 0.160), the thunk its name as a value is (`cpp_static_thunk`): it took the member pointer road, `{
+  ptr, i64 }`, and `int (*p)(int, int) = &M::sum;` was an `inttoptr` of a struct that LLVM refused. `staticnothis.cpp`.
+  (0.86, 0.160)
 - Only a declarator that holds a pointer to member takes cv-, ref- and noexcept-qualifiers after its parameters
   ([dcl.fct]/1; `ccl_memptr_quals` -> `ccl_mptr_quals` -> `ccl_suffix_quals`), as `<functional>`'s `__strip_signature`
   writes. A method's `const` stays `ccl_method_quals`'s. Why: else every const method lost its mark, and a shipped
@@ -1692,8 +1709,13 @@ tutorials/01..03-*.pl       the objects layer's lessons; goal main, last line do
   so `5 _km` reads alike and the lexers stay as they were; the imaginary mark `i` after a number stays GNU's. The
   function is `operator(literal(Sfx))`, read after `operator ""` (`ccl_op_name`), the suffix an identifier or a keyword
   (`operator"" if` of `<complex>`). The preprocessor keeps the number and its suffix as two tokens (`pp_norm_toks/2`):
-  `5_km` was a pp-number the lexer cut in two, and `pp_norm` turned a result that was not one token into zero. Reader
-  check `c40`, `test/cpp/run/userliteral.cpp`. (0.117)
+  `5_km` was a pp-number the lexer cut in two, and `pp_norm` turned a result that was not one token into zero. A
+  FLOATING one is ONE token in both lexers (0.160; `ccl_udl_suffix//2`, the native `ccl_lx_emit_float`): `tok(floatudl,
+  fs(Text, Suffix), L)`, the text a long double literal's is, and `udl(Sfx, ldbl(Text))` to the parser, so the literal
+  operator takes the long double of the text -- `0.1_v` was the double nearest 0.1 widened, 0.100000000000000005551,
+  where clang++ hands 0.100000000000000000001, and `1e999_v` an infinity; `-E` spells it back (`pp_spell/2`), and k84
+  compares the two lexers over a line of them. Reader 131. Reader check `c40`, `test/cpp/run/userliteral.cpp`,
+  `udlfloat.cpp`. (0.117, 0.160)
 - A CONVERSION FUNCTION DEFINED OUT OF ITS CLASS (`S::operator int() const { ... }`, `X<E>::operator T() const { ... }`)
   is a `function` named `scoped(Path, operator(conv(T)))` with T as its result (the declaration-specifiers took the
   class's name for a result type); a conversion function's name holds a type (`ccl_conv_type`: specifiers and pointers
@@ -1873,8 +1895,13 @@ tutorials/01..03-*.pl       the objects layer's lessons; goal main, last line do
   variable template); a specialization by its template (`cpp_spec_name`); an `extern` global; an inline variable; a
   member or static data member defined out of its class, by the CLASS; a nested class's out-of-class constructor or
   destructor, by the ENCLOSING class; an `extern template`, by the template. (0.67, 0.71, 0.101, 0.108)
-- Each indexed name's namespace path is kept (`'$cpp_hdr_ns'`, `'$cpp_hdr_ast_ns'`; `cpp_hdr_ns/2` unwraps
-  `inline(N)`). Why: a name the header only declares is called by its mangled symbol. (0.61, 0.100)
+- Each indexed name's namespace path is kept (`'$cpp_hdr_ns'`, `'$cpp_hdr_ast_ns'`; `cpp_hdr_ns/2` unwraps `inline(N)`).
+  Why: a name the header only declares is called by its mangled symbol. A C declaration's `c` is kept beside the first
+  path (0.160; `cpp_note_hdr_ns/2`), as the AST beside a summary keeps every item's: a header FLATTENED in the process
+  noted the first path only, so `abs`, which libc++ 21's <__math/abs.h> declares in std::__math before <stdlib.h>'s, had
+  no `c` for `cpp_header_c_name/1`, and a cold build of `std::abs(-4)` over <chrono> called glibc's abs as
+  `_ZNSt3__16__math3absEi`, a link error, where a build served from the summary called `abs`. The gate builds warm, so
+  `stdabs.cpp` holds the warm road; the cold one was built by hand over libc++ 18 and 21. (0.61, 0.100, 0.160)
 - Where two namespaces declare one flattened name, the outermost keeps it bare. A deeper namespace's items are keyed
   `<suffix>.<name>` (`cpp_ns_quals`, `cpp_index_key`) and renamed (`cpp_qualify_item`); their bare uses inside go to
   the key (`cpp_qualify_body`). The keying follows the header's own items, so the index and the AST agree. (0.88,
@@ -1947,14 +1974,14 @@ tutorials/01..03-*.pl       the objects layer's lessons; goal main, last line do
 
 ### The versions
 
-- `ccl_reader_version/1` (`library/ccl_syntax.pl`, now 130): bump it for any grammar change to what a read gives, and
+- `ccl_reader_version/1` (`library/ccl_syntax.pl`, now 131): bump it for any grammar change to what a read gives, and
   for any change to what the AST beside a summary holds (item or member terms, `cpp_index_name/2`,
   `cpp_template_name/2`, `ccl_flat_items/3`, the namespace keys). Keep the reason in its comment. Why: the store and the
   summaries are keyed by it, and a stale read is served silently (`sizeof(std::string)` read 40). (M1, 0.89, 0.112,
   0.117)
 - A reader bump makes every summary cold; `test/libcxx.sh` rewrites them. `test/reader.pl`'s `k16` (a cached read is
   the same AST as a fresh one) goes RED on a grammar change without a bump. (0.93, 0.105)
-- `ccl_lowering_version/1` (`library/ccl_ir.pl`, now 84): bump it whenever the check or the lowering changes what it
+- `ccl_lowering_version/1` (`library/ccl_ir.pl`, now 85): bump it whenever the check or the lowering changes what it
   emits, however small -- 0.120 bumped it for the ORDER of the drain functions alone. Why: `dr_ir/3` serves the old IR
   otherwise. Either bump starts the C store afresh. (M4, 0.103, 0.120)
 
@@ -2643,14 +2670,18 @@ free. A const method adds `.c`, a ref-qualified one `.r` or `.rr` after it: each
 - `cpp_static_decls/4` emits a constant initializer as a folded `linkonce` definition, an aggregate one as its own
   `linkonce` definition (`cpp_static_aggregate`: libc++'s `__matches`), and a class-typed one constructed at compile
   time (`cpp_static_constructed` over `cpp_fold_ctor_init`). An empty class initialized in its class is its zero bytes,
-  `linkonce`. A FLOATING static initialized in its class is its own `linkonce` definition (0.143; `cpp_static_floating/4`)
-  where the lowering folds its initializer, desugared in the class's words (`ir_fp_global/2`, `ir_fp_value/2`: `static
-  constexpr double a = 1.5;`, `static inline double c = 3.5;`, `static constexpr T v = T(0.25);`), else its zero, assigned
-  before main by the unit's `$cpp_ginit` in the class's words (`cpp_static_floating_late/4` over `cpp_dynamic_assign/4`,
-  0.117's road for a namespace-scope scalar: `static constexpr double tau = 2 * pi;`, a constexpr call, since the
-  evaluator holds no floating value); it was an `extern` declaration that nothing defined, and every use named it at the
-  link. `floatconst.cpp`. Any other static is an `extern` declaration, which the link names when nothing defines it.
-  (0.45, 0.90, 0.101, 0.109, 0.143)
+  `linkonce`. A FLOATING static initialized in its class is its own `linkonce` definition (0.143;
+  `cpp_static_floating/4`) where the lowering folds its initializer, desugared in the class's words (`ir_fp_global/2`,
+  `ir_fp_value/2`: `static constexpr double a = 1.5;`, `static inline double c = 3.5;`, `static constexpr T v =
+  T(0.25);`), else its zero, assigned before main by the unit's `$cpp_ginit` in the class's words
+  (`cpp_static_floating_late/4` over `cpp_dynamic_assign/4`, 0.117's road for a namespace-scope scalar: `static
+  constexpr double tau = 2 * pi;`, a constexpr call, since the evaluator holds no floating value); it was an `extern`
+  declaration that nothing defined, and every use named it at the link. `floatconst.cpp`. A SCALAR static initialized in
+  its class whose initializer does not fold is a `linkonce` zero assigned before main the same way (0.160;
+  `cpp_static_scalar_late/4`, an integral, enumeration or pointer type): an unfolded call as a template's value argument
+  keys its instance by its spelling (`targ_raw`), and `S<half(4.0)>::v` was an `extern` declaration that nothing
+  defined. `targstatic.cpp`. Any other static is an `extern` declaration, which the link names when nothing defines it.
+  (0.45, 0.90, 0.101, 0.109, 0.143, 0.160)
 - A braced initializer of a class WITH constructors is the constructor's, never the aggregate road
   (`cpp_ctor_class_type/1` guards `cpp_static_aggregate`). Why: libc++'s `__bool_strings<char>::__true{"true"}`, a
   `basic_string_view`, took the literal as its pointer and 0 as its size, and `std::format("{}", true)` printed
@@ -4085,11 +4116,11 @@ The desugaring (`library/ccl_cpp.pl`) chooses every C++ overload. A fixture name
   `cpp_template/3`, `cpp_fn_ready/1`). Why: a friend `op.shl.2` hid libc++'s inserters. (0.78)
 - A USER-DEFINED LITERAL is the call of a free operator, `op.literal_<suffix>.<arity>` (`cpp_expr(udl(Sfx, Lit))`,
   `cpp_free_operator(literal(Sfx), Qs, Name)`), over the arguments the standard hands the literal operator
-  ([over.literal]): an integer literal as an `unsigned long long`, a floating one as a `long double`, a string as its
-  pointer and its length (a `size_t`; the wide kinds count code points, `u"..."` units), a character as it is. The
-  overloads (`operator""_m(long double)` beside `operator""_m(unsigned long long)`) are chosen by those types, in a
-  namespace the program opened or a header's inline one. A raw literal operator (`const char *` alone) and the template
-  form are not asked. `userliteral.cpp`, `stdliterals.cpp`. (0.117)
+  ([over.literal]): an integer literal as an `unsigned long long`, a floating one as a `long double`, from its text
+  (0.160), a string as its pointer and its length (a `size_t`; the wide kinds count code points, `u"..."` units), a
+  character as it is. The overloads (`operator""_m(long double)` beside `operator""_m(unsigned long long)`) are chosen
+  by those types, in a namespace the program opened or a header's inline one. A raw literal operator (`const char *`
+  alone) and the template form are not asked. `userliteral.cpp`, `stdliterals.cpp`, `udlfloat.cpp`. (0.117, 0.160)
 - A free operator is `op.<word>.<arity>` (`cpp_free_operator/3`), the program's and a header's template alike
   (`cpp_template_name/2`). That name is always an overload set, keyed by its parameters (`cpp_fn_overloaded/1`); an
   instance is one function under its own name. (0.67, 0.78, 0.79)
@@ -4402,15 +4433,20 @@ A lambda is a class of its captures (`library/ccl_cpp.pl`). A fixture named alon
   0.155): through 1.13.7 it took its count modulo 64, so `(unsigned __int128) 5 >> 64` folded to 5 and a quad's small
   fraction shifted by 64 stayed itself, and from 0.154 to 0.155 `ccl_w_shr/3` tested the count itself (`int128.c`'s
   static assertion and `ldconst.c` on aarch64 hold it).
-- A FLOATING CONSTANT THAT IS THE OPERAND OF A CAST TO AN INTEGER TYPE folds (C 6.6/6, [expr.const]; 0.129):
-  `(int) 2.5`, `(__int128) 1e30` and `(long) -3.75` (`ccl_float_operand/2`, the two cast clauses of `ccl_const_eval/2`
-  before the general ones). A floating literal alone still folds nowhere, since a folded floating static would become an
-  integer. A double past 2^59 converts to an integer exactly: it is m * 2^e with m below 2^53, halving it is exact, and
-  the wide value is m shifted (`ccl_float_int/2`; `truncate/1` had the engine's 61 bits, and raises past 64 since
-  2.0.0); an integer past 2^60 converts
-  to a double rounded to nearest, ties to even, from its top 53 bits, the next one and the sticky rest (`ccl_w_float/2`;
-  it had stayed an integer for a double). An infinity or a NaN converts to no integer. `test/c/run/floatglobal.c`.
-  (0.129)
+- A FLOATING CONSTANT THAT IS THE OPERAND OF A CAST TO AN INTEGER TYPE folds (C 6.6/6, [expr.const]; 0.129): `(int)
+  2.5`, `(__int128) 1e30` and `(long) -3.75` (`ccl_float_operand/2`, the two cast clauses of `ccl_const_eval/2` before
+  the general ones). A floating literal alone still folds nowhere, since a folded floating static would become an
+  integer. So does ANY floating constant under such a cast (0.160; `ccl_float_operand/2` over `ccl_float_shaped/1`, the
+  shape asked first): a long double's literal (`(int) 2.5L`), a float's (`(int) 9.5f`, the cast of a double it amounts
+  to) and their arithmetic (`(int) (2.5L + 1.0L)`), by the lowering's exact fold (`ir_fp_value/2`: the literal rounded
+  once to its type, the operation exact, then rounded) and truncated as the lowering truncates (`ir_fp_int/3`, a long
+  double's `bv/3` in `ccl_w_cast/3`) -- an enumerator of one SILENTLY took the value after the one before it, `enum { A
+  = 7, B = (int) 2.5L, C, D = (int) 9.5f }` 7 8 9 10 where clang has 7 2 3 9, and `_Static_assert((int) 2.5L == 3, "")`
+  passed. `test/c/run/enumfloat.c`. A double past 2^59 converts to an integer exactly: it is m * 2^e with m below 2^53,
+  halving it is exact, and the wide value is m shifted (`ccl_float_int/2`; `truncate/1` had the engine's 61 bits, and
+  raises past 64 since 2.0.0); an integer past 2^60 converts to a double rounded to nearest, ties to even, from its top
+  53 bits, the next one and the sticky rest (`ccl_w_float/2`; it had stayed an integer for a double). An infinity or a
+  NaN converts to no integer. `test/c/run/floatglobal.c`. (0.129, 0.160)
 - A cast to an integer type WRAPS to its width and signedness ([conv.integral]; `ccl_w_cast/3`, `ccl_w_wrap/4`):
   `(long long) (1ULL << 63)` is -2^63; a floating value truncates, then wraps. `test/c/run/bigint.c`. Why: libc++'s
   `numeric_limits<T>::max()` folded to -1 and the string extractor never looped. (0.94, 0.108)
@@ -4690,9 +4726,9 @@ A lambda is a class of its captures (`library/ccl_cpp.pl`). A fixture named alon
   `ir_x87_ret/2`). (0.100, 0.108)
 - A class that is not trivially copyable or destructible crosses a call by invisible reference and returns through a
   hidden pointer, whatever its size (the Itanium C++ ABI). `cpp_note_nontrivial` marks it in `'$cpp_nontrivial'`: a
-  destructor, a written copy or move constructor, a virtual function, or such a base or member. `ir_nontrivial_class`
-  makes it `indirect` (`ir_abi_`), the program's classes too. Else `ios_base::getloc()`'s `locale` came back in a
-  register. (0.73)
+  destructor, a written copy or move constructor, a virtual function, a virtual base (0.160: its copy constructor is
+  never trivial, [class.copy.ctor]/11), or such a base or member. `ir_nontrivial_class` makes it `indirect` (`ir_abi_`),
+  the program's classes too. Else `ios_base::getloc()`'s `locale` came back in a register. (0.73)
 - `ir_leaves` resolves an array member's ELEMENT type first (`once(ccl_resolve_type(E0, E))`): `unsigned long
   __first_[2]` of a bitset's base held `typedef(size_t)`, which has no size, so the ABI of `bitset<70>` failed -- and a
   failure in the lowering backtracks into the resolver and every statement before it, which are emitted AGAIN (nothing
@@ -4883,11 +4919,16 @@ A lambda is a class of its captures (`library/ccl_cpp.pl`). A fixture named alon
   the shared `$base` last (`cpp_base_layout`). The base's virtual destructor puts two destructor slots first in the
   class's own table (`cpp_vbase_dtor_slots`); with none written the class gets the implicit one
   (`cpp_implicit_dtor_needed`). `basic_ostream : virtual basic_ios`; `virtualbase.cpp`. (0.72)
-- With a table of its own (`cpp_vbase_dynamic`), it reaches the base through the table. Its struct carries
-  `virtual_base`, or `virtual_base_of(T)` in its `.nv` form (`ccl_vbase_kind/2`); `ir_member_slot` adds the offset at
-  `vptr[-3]` (-24), and `cpp_vbase_offset` writes it into every table. The complete object builds and destroys the base
-  at its own place (`$base!`, `cpp_class_base_place`). A polymorphic virtual base holds this class's secondary table.
-  libc++'s streams are read through the shipped tables the same way. `vbasertti.cpp`. (0.110)
+- EVERY CLASS WITH A VIRTUAL BASE HAS A TABLE OF ITS OWN (0.160; the Itanium ABI's dynamic class, `cpp_has_table/1`: one
+  with slots, or one whose primary chain holds a virtual base, `cpp_primary_vbase/2`), a class with no virtual function
+  among them -- the tables, their stores and the primary base are decided by that test, a virtual call, `typeid` and
+  `dynamic_cast` by `cpp_polymorphic/1` as before -- and it reaches the base through the table (`cpp_vbase_dynamic`):
+  until 0.160 such a class had no table, the base stayed where the class laid it, and a diamond over it was refused by
+  name. Its struct carries `virtual_base`, or `virtual_base_of(T)` in its `.nv` form (`ccl_vbase_kind/2`);
+  `ir_member_slot` adds the offset at `vptr[-3]` (-24), and `cpp_vbase_offset` writes it into every table. The complete
+  object builds and destroys the base at its own place (`$base!`, `cpp_class_base_place`). A polymorphic virtual base
+  holds this class's secondary table. libc++'s streams are read through the shipped tables the same way.
+  `vbasertti.cpp`. (0.110, 0.160)
 - A diamond ([class.mi]/6) has clang's record layout (`cpp_diamond_paths`). Each path is its `B.nv` form, the class
   without the shared base at its data size, so a later member can use its tail padding (`ccl_size_align`'s
   `virtual_base_of` clause). The complete object holds the shared base once, at its end (`$vb`, `'$cpp_vb_holder'`,
@@ -4911,11 +4952,14 @@ A lambda is a class of its captures (`library/ccl_cpp.pl`). A fixture named alon
   `cpp_instance_body`, read by `cpp_extern_shipped`). The members of the class that HOLDS the virtual base
   (`basic_ostream`) and of a diamond's holder (`basic_iostream`) are shipped as before: their layout is the ABI's.
   `stdfstream.cpp`. (0.117)
-- A diamond's method takes its final overrider from the path that overrides it (`cpp_final_impl`, a
-  `cpp_primary_entry` thunk). A path that holds the base further in stays whole, and the later paths are `.nv`. A
-  diamond over a virtual base with no table refuses `virtual_base_by_two_paths` (`test/cpp/diamond.cpp`), and so does a
-  program class over two library classes sharing a virtual base (`cpp_direct_nv`). `diamond.cpp`, `diamond2.cpp`.
-  (0.110)
+- A diamond's method takes its final overrider from the path that overrides it (`cpp_final_impl`, a `cpp_primary_entry`
+  thunk). A path that holds the base further in stays whole, and the later paths are `.nv`. A diamond over a virtual
+  base with no virtual function builds, its paths having tables (0.160; `diamondplain.cpp`), and so does a program class
+  over two LIBRARY classes sharing a virtual base (0.160; `struct X : std::istream, std::ostream`, `libdiamond.cpp`):
+  `cpp_direct_nv/3` takes a library path, whose `.nv` constructors are compiled here and whose empty shipped destructor
+  is left out (`cpp_nv_dtor/4`). A diamond whose paths hold the base FURTHER IN (`struct P1 : Q1` with `Q1 : virtual A`,
+  and `D : P1, P2` over two such) is refused, `virtual_base_by_two_paths` (`test/cpp/diamond.cpp`). `diamond.cpp`,
+  `diamond2.cpp`. (0.110, 0.160)
 - CONSTRUCTION VTABLES (0.139; the Itanium ABI's, without the VTT: the holder stores them itself): while a diamond's path P is
   built or destroyed by its base-variant constructor or destructor, the object is a P ([class.cdtor]/4), so the path's table
   pointer holds `D.ctvtable<S>` (P's own implementations, the virtual base's offset and the offset to top of D's layout,
@@ -5237,9 +5281,17 @@ A lambda is a class of its captures (`library/ccl_cpp.pl`). A fixture named alon
 - A USING-DECLARATION OR A USING-DIRECTIVE OF THE PROGRAM over such names ([namespace.udecl], [namespace.udir]; 0.139),
   at file scope, in a namespace or in a block, makes the names it brings the ones a bare use finds in the rest of its
   scope: the keyed ones are renamed to their keys in the items or statements that follow (`cpp_using_map/4`,
-  `cpp_using_blocks/4`, in the same pass; the namespace it names found from the scope's own outwards, `cpp_abs_ns_path`).
-  `using b::f; ... f()` called a::f, and `using namespace b; S s; g(2)` was a's S and a's g: silent wrong answers.
-  `nsusing.cpp`. (0.139)
+  `cpp_using_blocks/4`, in the same pass; the namespace it names found from the scope's own outwards,
+  `cpp_abs_ns_path`). `using b::f; ... f()` called a::f, and `using namespace b; S s; g(2)` was a's S and a's g: silent
+  wrong answers. `nsusing.cpp`. ... AND OF A HEADER'S KEYED NAMES (0.160; `cpp_hdr_using/2`, `cpp_using_key/2`): `using
+  namespace std::chrono;` or `using std::chrono::floor;` puts that namespace's keyed functions and objects in force, at
+  namespace scope for the rest of the unit -- or of the namespace it stands in -- and in a block to its end
+  (`'$cpp_usings'`), and a bare CALL of such a name takes its key first and the bare name's own road where the key's
+  candidates refuse, as a keyed qualified call does: `floor<seconds>(d)` met <cmath>'s floor, `argument_mismatch`, and
+  `abs(d)` of a duration the C library's. Only a HEADER's key is taken: the program's own are the renaming above, and a
+  QUALIFIED name is never redirected (`cpp_without_using/2`) -- the first chain of 0.160 met `nsusing.cpp` printing 4
+  for 3, `a::f()` calling b's f after `namespace d { using namespace b; }`, a using kept past its namespace. `using
+  namespace std;` brings nothing, std's names being the bare ones. `usingchrono.cpp`. (0.139, 0.160)
 - An inline namespace is in the mangler's path (`cpp_hdr_ns`, `cpp_ns_plain`: `St3__1`) and out of the keys:
   two paths are one namespace by their named segments (`cpp_ns_named_path`). (0.100, 0.112)
 - An item declared by a namespace-qualified name stands in that namespace ([namespace.memdef]/2; `ccl_flat_quals`,
@@ -5285,8 +5337,13 @@ A lambda is a class of its captures (`library/ccl_cpp.pl`). A fixture named alon
   `this` (`cpp_note_static_abi/2`, `'$cpp_static_abi'`; 0.127). The desugaring keeps its own null first argument, which
   every pass reads as the object's place, and the lowering drops it at the call and in the declaration (`ir_call/4`'s
   first clause; an object with side effects is still evaluated). Fixture: `shipstatic.cpp`. Why:
-  `ios_base::sync_with_stdio(true)` handed the library a null where its bool goes, and `locale::global(loc)` a null for its
-  locale.
+  `ios_base::sync_with_stdio(true)` handed the library a null where its bool goes, and `locale::global(loc)` a null for
+  its locale. AND SO IS THE PROGRAM'S OWN (0.160): every static member function is declared, defined and called with no
+  `this` (`ir_item/1` drops a definition's first parameter, `ir_call/4` the call's argument), the null kept for the
+  passes before the lowering alone -- an inner convention of 0.37 that a static's every call paid a register for; its
+  name as a value is still the thunk `<Name>.fn`. A body that still names `this` -- a lambda made there that captured it,
+  libc++ 18's `__make_fmatrix_impl` of `std::visit` -- has it as a local that holds the null (`ir_names_this/1`): the
+  regroup's comparison met `undeclared(this)` in `stdvariant.cpp`. `staticnothis.cpp`.
 - `extern ostream cout;` is registered on the first ask (`cpp_lazy_var`) under its exported symbol (`cpp_mangled_var`
   over `'$cpp_hdr_ns'`), `_ZNSt3__14coutE`; `cpp_global_var/2` gives it to `std::cout` and a bare `cout`. (0.71)
 - A header's enum keeps its namespace path without being an item to load (`cpp_enum_ns_name/2` in `cpp_index_flat`,
@@ -5786,8 +5843,9 @@ A lambda is a class of its captures (`library/ccl_cpp.pl`). A fixture named alon
   signed zeros `ir_x_op/4`'s; it was the engine's own float arithmetic, which raises at an infinity, at a NaN and at a
   division by a float zero since cocolog 2.2.0. Two integers keep the integer arithmetic the fold had where the integer
   evaluator gave up (`ir_fp_op_/4`). On 2.1.0 the two roads give the same IR for the 80 C run fixtures. (0.143, 0.158)
-- A local shadows an enumerator: `ir_expr(id(N))` asks `ir_lookup/2` before `ccl_enum_value/2`. Else an enumerator of
-  libc++'s `<format>`, `__ptr`, replaced a parameter. `test/c/run/enumshadow.c`, `test/cpp/run/enumshadow.cpp`. (0.94)
+- A local shadows an enumerator: `ir_expr(id(N))` asks `ir_lookup/2` before `ccl_enum_value/2`. An enumerator is a
+  literal of its value (0.160): an int, or a value no int holds the type its literal has. Else an enumerator of libc++'s
+  `<format>`, `__ptr`, replaced a parameter. `test/c/run/enumshadow.c`, `test/cpp/run/enumshadow.cpp`. (0.94, 0.160)
 - `ir_convert/6` tries, in order: a reference read through, where a reference to a function is its address
   ([conv.func]); a class pointer to its base by the base's offset, null kept null by a `select` ([conv.ptr]/3;
   `nullbase.cpp`); a member-function pointer's `adj` grown by a base's offset; a complex value; the scalar rules.
@@ -5978,17 +6036,23 @@ A lambda is a class of its captures (`library/ccl_cpp.pl`). A fixture named alon
   standard floating type `sf`, `df`, `xf` (a `_Float16` through a float), named `extend` or `trunc` by the formats' widths
   -- between formats of one width a decimal truncates to binary and a binary extends to decimal, as libgcc names them;
   to a bool the test. (0.129)
-- A 128-BIT INTEGER CONVERTS TO AND FROM A DECIMAL (0.137): libgcc has no `__bid_floattidd` nor `__bid_fixddti`, and gcc's
-  own link of such a conversion fails. The routines are the compiler's, written in C (`module/bidrt.c`) and compiled by
-  cicilang itself into IR text (`library/ccl_bidrt.pl`, generated, `ccl_bidrt_text(Name, Text)`); the first such
-  conversion of a module notes every function of it, internal, and the declarations of the libgcc routines they call
-  (`ir_dec_rt128/0`, loaded once by `ir_bidrt_ready/0` as the Unicode table is), so two objects that convert link.
+- A 128-BIT INTEGER CONVERTS TO AND FROM A DECIMAL (0.137): libgcc has no `__bid_floattidd` nor `__bid_fixddti`, and
+  gcc's own link of such a conversion fails. The routines are the compiler's, written in C (`module/bidrt.c`) and
+  compiled by cicilang itself into IR text (`library/ccl_bidrt.pl`, generated, `ccl_bidrt_text(Name, Text)`); the first
+  such conversion of a module notes every function of it, internal, and the declarations of the libgcc routines they
+  call (`ir_dec_rt128/0`, loaded once by `ir_bidrt_ready/0` as the Unicode table is), so two objects that convert link.
   `__ccl_bid_float[uns]ti<k>` rounds the integer's magnitude ONCE, half to even, to the kind's digits in integer
-  arithmetic, then builds the value from a 64-bit conversion and exact products by ten; `__ccl_bid_fix[uns]<k>ti` decodes
-  the BID coefficient and exponent and scales toward zero. A `_BitInt` of 65 to 128 bits widens to `i128` first, one past
-  128 is refused, `decimal_conversion(From, To)`. They are a runtime of the compiler, as libgcc's, and no part of the
-  standard library. `test/c/run/dec128.c` (gcc's build over the same helpers, the values checked against Python's
-  `decimal`; on aarch64 under qemu too). (0.137)
+  arithmetic, then builds the value from a 64-bit conversion and exact products by ten; `__ccl_bid_fix[uns]<k>ti`
+  decodes the BID coefficient and exponent and scales toward zero. A `_BitInt` of 65 to 128 bits widens to `i128` first;
+  one PAST 128 bits goes through the runtime's limb routines (0.160; `__ccl_bid_floatbitint<k>`,
+  `__ccl_bid_fix<k>bitint`, over its 64-bit limbs the least first and its width, negative for a signed one, as libgcc's
+  own `_BitInt` conversions take them, which libgcc 13 does not have): to a decimal the magnitude divided by ten while
+  it passes 128 bits, the digits taken off kept for the one rounding; from one the coefficient scaled into the limbs
+  toward zero and the bits past the width dropped. It was refused, `decimal_conversion(From, To)`.
+  `test/c/run/decbitint.c`, the values Python's `decimal` module's (no gcc here reads a `_BitInt` with the decimal
+  types). They are a runtime of the compiler, as libgcc's, and no part of the standard library. `test/c/run/dec128.c`
+  (gcc's build over the same helpers, the values checked against Python's `decimal`; on aarch64 under qemu too). (0.137,
+  0.160)
 - A literal is encoded here, exactly (`ir_dec_literal/3`): its text's digits and exponent (`ir_dec_parse/3`), rounded half
   to even past the kind's precision (7, 16, 34 digits; `ir_dec_round_to/5`), an exponent past the greatest clamped by
   padding with zeros where the coefficient holds them, else an infinity, one past the least rounded away (`ir_dec_fit/3`),
@@ -6129,15 +6193,23 @@ A lambda is a class of its captures (`library/ccl_cpp.pl`). A fixture named alon
   `ir_va_overflow/4`): every eightbyte of the type comes from the register save area by its class (`gp_offset` /
   `fp_offset`) when they all fit, else the whole value from `overflow_arg_area`, aligned to 8 or 16 and advanced; a
   long double is X87, always the overflow area (0.131: LLVM's own `va_arg` read it wrong, and every argument after it).
-- ON LINUX AARCH64 `va_arg` OF EVERY TYPE IS EXPANDED HERE (AAPCS64 B.4, as clang does; `ir_va_arg_aapcs/4`, 0.131):
-  the va_list is `{ __stack, __gr_top, __vr_top, __gr_offs, __vr_offs }`, and LLVM's own `va_arg` takes Apple's `char *`.
-  A floating scalar or an HFA comes from the SIMD registers' save area (`__vr_offs`, 16 bytes a register, an HFA's
-  members one register each, gathered into a temporary, `ir_va_hfa_copy/6`), anything else from the general registers'
+- ON LINUX AARCH64 `va_arg` OF EVERY TYPE IS EXPANDED HERE (AAPCS64 B.4, as clang does; `ir_va_arg_aapcs/4`, 0.131): the
+  va_list is `{ __stack, __gr_top, __vr_top, __gr_offs, __vr_offs }`, and LLVM's own `va_arg` takes Apple's `char *`. A
+  floating scalar or an HFA comes from the SIMD registers' save area (`__vr_offs`, 16 bytes a register, an HFA's members
+  one register each, gathered into a temporary, `ir_va_hfa_copy/6`), anything else from the general registers'
   (`__gr_offs`, 8 a register, a 16-aligned value from an even one), a composite past 16 bytes as the pointer it came by;
   an offset already 0 or more, or taken past 0, sends it to `__stack` (aligned 16 where the type needs it, moved on by
-  its size rounded up to 8), and the registers it took are not given back. Apple's arm64 refuses an aggregate by name.
-  `__builtin_va_list` is the ABI's type (`ccl_va_list_type/2`): `unsigned long[3]` on x86-64, `[4]` on AAPCS64, `char *`
-  on Apple's arm64. `test/c/run/varargs.c`, `vaaggregate.c`. (0.108, 0.117)
+  its size rounded up to 8), and the registers it took are not given back. ON APPLE'S ARM64 (0.160;
+  `ir_va_arg_darwin/4`, as clang's EmitDarwinVAArg) every variadic argument lies on the stack in 8-byte slots, a value
+  aligned past 8 rounds the pointer up to its alignment first, the pointer moves on by the size rounded up to 8, a
+  composite past 16 bytes that is no HFA came by a pointer, and an empty record takes no slot; a scalar is LLVM's own
+  `va_arg`. Its va_list is a `char *` OBJECT, whose ADDRESS `va_arg`, `va_start`, `va_end` and `va_copy` take
+  (`ir_va_list_addr/2`), where the pointer's value had been taken for the address; an aggregate was refused by name,
+  `va_arg_of_aggregate`. No Apple machine is here: the driver gate compiles `test/c/link/va_darwin.c` for
+  arm64-apple-macos with clang and with cicilang, retargets both texts to this host and runs them over one buffer laid
+  out as Apple lays the arguments out (`va_darwin_main.c`), and the scalar forms are clang's text. `__builtin_va_list`
+  is the ABI's type (`ccl_va_list_type/2`): `unsigned long[3]` on x86-64, `[4]` on AAPCS64, `char *` on Apple's arm64.
+  `test/c/run/varargs.c`, `vaaggregate.c`. (0.108, 0.117, 0.160)
 - `__builtin_inf`, `huge_val` and `nan`, in double, float and long double forms (a quad's too, 0.131), are constants (`ir_float_builtin/4`),
   as glibc's `INFINITY`, `NAN` and `HUGE_VAL` need. `__builtin_isnan`, `isinf`, `isinf_sign`, `isfinite`, `isnormal`
   and `signbit` are `fcmp` or bit tests that answer an `int` (`ir_fp_class/1`). (0.101, 0.108)
@@ -7360,43 +7432,20 @@ A lambda is a class of its captures (`library/ccl_cpp.pl`). A fixture named alon
 
 ## Not done
 
-### C
-
-- The lowering refuses by name `va_arg` of a struct, a union, a complex or an `__int128` on APPLE's arm64, whose
-  va_list is a `char *` and whose variadic arguments all go on the stack (`va_arg_of_aggregate`): no Apple machine is
-  on this box. Linux aarch64 expands them (0.131).
-- A decimal converts to and from a `_BitInt` past 128 bits nowhere (`decimal_conversion`). (A long double literal keeps
-  its exact value since 0.154, and a decimal global from one folds as gcc's.)
-- An integer constant expression folds a floating constant that is a cast's operand only where the constant is a double
-  (`ccl_float_operand/2`, C 6.6/6): `2.5L` and `3.5f` are casts of their literal since 0.108, so an enumerator initialized
-  by `(int) 2.5L` or `(int) 9.5f` is not folded and SILENTLY takes the value after the one before it -- `enum { A = 7, B =
-  (int) 2.5L, C, D = (int) 9.5f }` is 7 8 9 10 where clang has 7 2 3 9 -- and a static assertion over one is not checked
-  (`_Static_assert((int) 2.5L == 3, "")` passes). Measured at 0.153 and 0.154; an array bound of one folds by another
-  road. The fix changes what a read holds (an enum's values in a summary), so it needs a reader bump: the lowering's
-  rounding (`ir_fp_value/2`) of the inner literal, then its truncation (`ir_fp_int/3`).
-
 ### C++ language
 
-- The program's own static member functions take an unused null `this` as their first parameter (0.37), in the
-  desugaring's calls, in their definitions and in the constant evaluator, and a static's name as a value is a thunk,
-  `<Name>.fn`, of the plain function type (0.100). It is an inner convention of the program's own functions; a static that
-  the shipped library defines is declared and called by its ABI's signature since 0.127 (`'$cpp_static_abi'`).
 - A library class's consteval constructor or member keeps its member initializers and runs at run time, its
   compile-time check dropped, as `basic_format_string`'s (0.110); the program's own fold (0.99, 0.112).
-- A user-defined floating literal hands its literal operator the double nearest the text, widened: `0.1_v` over
-  `operator""_v(long double)` is 0.100000000000000005551 and `1e999_v` an infinity, where clang++ hands the long double of
-  the text (0.100000000000000000001, a finite 1e999). The lexers keep the text of an `L` literal alone (0.154); a
-  floating literal before a suffix would keep it too, and `cpp_udl_args/2` round it as `ldbl(Text)` is. Measured at
-  0.154.
-- A LIBRARY diamond is built here (libc++'s `basic_iostream`, 0.117: the path bases' `.nv` twins are compiled), but a
-  PROGRAM class over two library classes that share a virtual base (`struct X : std::istream, std::ostream`) is
-  refused, and so is a diamond over a virtual base with no table: `virtual_base_by_two_paths`
-  (`test/cpp/diamond.cpp`) (0.110, 0.117).
+- A diamond whose paths hold the shared virtual base FURTHER IN is refused, `virtual_base_by_two_paths`
+  (`test/cpp/diamond.cpp`): its paths' `.nv` forms need the Itanium layout of every class over a virtual base, the base
+  at the complete object's end, where this compiler embeds a base that has a virtual base whole (the Virtual bases
+  topic). A diamond over a virtual base with no virtual function and a program class over two library classes sharing
+  one build since 0.160 (0.110, 0.117, 0.160).
 - Namespaces flatten, so a `using` declaration or directive matters only where two namespaces declare one name. The
-  program's own are followed since 0.139 (`nsusing.cpp`); of a header's keyed names, `std::rel_ops` (0.136) and a block's
-  using-declaration of a class (0.121) are (0.44, 0.112).
-- An unfolded call or class static as a template VALUE argument keys its instance by its spelling (`targ_raw`). A
-  static that it feeds may be emitted `extern` and fail at the link, not be refused by name (0.97, 0.98).
+  program's own are followed since 0.139 (`nsusing.cpp`), and a header's keyed names called bare since 0.160
+  (`usingchrono.cpp`), with `std::rel_ops` (0.136) and a block's using-declaration of a class (0.121); a header's keyed
+  name NAMED, not called, through a using of its namespace -- a type, an object read, a function's address -- is the
+  bare name's still (0.44, 0.112, 0.160).
 
 ### libc++ modules
 
@@ -7448,8 +7497,9 @@ A lambda is a class of its captures (`library/ccl_cpp.pl`). A fixture named alon
 ### ABI and hosts
 
 - AAPCS64 is proven on Linux (the cross gate under qemu, 0.131), not on Apple's arm64, whose variadic calls and long
-  double differ: no Apple machine is on this box. C++ for another machine compiles and does not link: no libc++ of
-  aarch64 is installed here.
+  double differ: no Apple machine is on this box, and its expansion of an aggregate's `va_arg` is checked against
+  clang's on this host alone (0.160). C++ for another machine compiles and does not link: no libc++ of aarch64 is
+  installed here.
 - The Itanium mangler spells a function type, a pointer to one, an array and a pointer to member as a parameter
   (0.117; `c37`) and every builtin type (0.136; `c44`). A type that none of its clauses names -- a vector type, which
   nothing here reads -- keeps this compiler's own name, and the link names it.
@@ -7486,8 +7536,6 @@ A lambda is a class of its captures (`library/ccl_cpp.pl`). A fixture named alon
   fixtures' builds went from 11,775 s to 2,936 s, the gate from 2989 s to 908 s over four lanes, its pool's peak from 9034
   MB to 1675 MB (0.120). What is left is mostly the reader's own cold flattening of a header (`stdatomic20.cpp`, 277 s,
   gained nothing).
-- The 124 predicates that the placement rule's splits name (`test/flow.expect`) are not regrouped. Each move is
-  mechanical and the flow gate proves it (its key leaves the expect file), but the moves touch every large file of the
-  library, and no step has taken them (0.144). The flow gate charts the ten hand-written files of `library/`: the two
-  generated tables (`ccl_bidrt.pl`, `ccl_uninames.pl`) are loaded, not charted, and the gates' own Prolog
-  (`test/*.pl`) is not read. `test/why.sh` is no gate.
+- The flow gate charts the ten hand-written files of `library/`: the two generated tables (`ccl_bidrt.pl`,
+  `ccl_uninames.pl`) are loaded, not charted, and the gates' own Prolog (`test/*.pl`) is not read. `test/why.sh` is no
+  gate.

@@ -274,7 +274,7 @@ c39 :- check('a range-for over a braced list is a local array of the items and a
 c40 :- check('a user-defined literal is udl(Suffix, Literal) (0.117): 5_km, 1.5_twice, "hello"_len and \'a\'_up read as the literal and its suffix, and operator"" _km is a function named operator(literal(_km))',
     ( unit('run/userliteral.cpp', unit(Is)), member(function(_, _, _, main, _, _, block(B)), Is),
       member(declaration(_, _, _, [var(a, _, udl('_km', int(5)))]), B),
-      member(declaration(_, _, _, [var(b, _, udl('_twice', float(1.5)))]), B),
+      member(declaration(_, _, _, [var(b, _, udl('_twice', ldbl('1.5')))]), B),   % a floating one keeps its text, a long double's (0.160)
       member(declaration(_, _, _, [var(s, _, udl('_len', str(_)))]), B),
       member(declaration(_, _, _, [var(c, _, udl('_up', chr(97)))]), B),
       member(function(_, _, _, operator(literal('_km')), [param(_, v)], false, _), Is) )).

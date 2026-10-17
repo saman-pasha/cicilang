@@ -153,6 +153,7 @@ One row per step, in version order: the step's title, what it did and its gate n
 | 0.157 | cocolog 2.1.0: integers of 64 bits, text in characters, and `compare/3` mended | cocolog 2.0.0 and 2.1.0 taken and rebuilt, the library unchanged: integers of 64 bits (`int_overflow` past them), two integers ordered exactly, text in characters by default, `=@=/2` and `subsumes_term/2`; the four `compare/3` probes of 0.156 print clang's answers on 2.1.0, and Not done's item goes; `0.0` and `-0.0` are equal to unification and `==` on 2.1.0, and 2.1.1 (out during the chain, not taken) tells them apart | all nine gates GREEN over libc++ 18, the two libc++ gates over 21, 4185 s (0.156: 4469 s), the C++ side's first run in characters; 498 of 501 C++ fixtures over 18, 500 over 21; five warm builds 46.92 s on 2.1.0, 47.20 s on 1.15.0; the census of `<iomanip>` 102.1 s and 101.0 s |
 | 0.158 | cocolog 2.2.0: a float that is no number raises, and the library's float code meets none | cocolog 2.1.1, 2.1.2 and 2.2.0 taken and rebuilt; 2.2.0 raises at a float result or operand that is an infinity or a NaN and at a division by a float zero, and 0.157 failed on it (reader check `k93`, no `<vector>` summary, six C fixtures raised and three looped); the library's float code repaired: an infinity told by a comparison and made from its text, the exponent's estimate held to a double's, `float(T) * 2.0 ** L`, a double's fold on the exact road, the hex float; the same IR on 2.1.0, byte for byte; 2.2.1 and 2.2.2 not taken | all nine gates GREEN over libc++ 18, the two libc++ gates over 21, 3890 s (0.157: 4185 s); 498 of 501 C++ fixtures over 18, 500 over 21; five warm builds 45.62 s on 2.2.0, 45.31 s on 2.1.0; the census of `<iomanip>` 69.8 s and 72.7 s |
 | 0.159 | cocolog 2.2.5: `write/1` and `writeq/1` swipl's, the library unchanged | cocolog 2.2.1 to 2.2.5 taken and rebuilt, the library unchanged: the float flags, a prefix operator written before a number with no space, `print/1`, `write/1` and `writeq/1` with numbervars and a quote in an atom written `\'`; no summary, AST line or store row moves, `-ast-dump` and a diagnostic's terms spell `\'` | all nine gates GREEN over libc++ 18, the two libc++ gates over 21, 3956 s (0.158: 3890 s); 498 of 501 C++ fixtures over 18, 500 over 21; five warm builds 53.40 s on 2.2.5, 54.04 s on 2.2.0 |
+| 0.160 | Not done, the first part: casts in constant expressions, a floating literal's text, the diamonds, the regroup | floating constants under a cast folded in an integer constant expression and an enumerator a constant or nothing; a user-defined floating literal's text; an unfolded value argument's static defined; a decimal to and from a `_BitInt` past 128 bits; Apple's arm64 `va_arg` of an aggregate; a header's keyed names called through a using; the program's static member functions without `this`; diamonds over a virtual base with no virtual function and over two library classes; the 124 split predicates brought together | the chain RED at `nsusing.cpp` over both trees, then the flow gate and both C++ gates GREEN with the fix: 4195 s and 1487 s (0.159: 3956 s); 506 of 509 C++ fixtures over 18, 508 over 21 |
 
 ## M5 — the C++ mode
 
@@ -9660,3 +9661,105 @@ part. Over libc++ 21: the library read in 1028 s (peak 1030 MB; 0.158: 1092 s) a
 0.158: 818 s), 500 of 501 ok, the skip `stdoptionalref`. The fixtures' builds summed 2582 s over libc++ 18 (0.158: 2163
 s) and 2799 s over libc++ 21 (0.158: 2497 s) -- over the same fixtures 19 % and 12 % more, the box slower now, as the
 five builds of the A/B (above) read alike on both engines.
+
+## 0.160 — Not done, the first part: casts in constant expressions, a floating literal's text, the diamonds, the regroup
+
+**0.160: ten items of Not done taken -- floating constants under a cast in an integer constant expression, an enumerator
+that does not fold, a user-defined floating literal's text, an unfolded template value argument's static, a decimal to
+and from a `_BitInt` past 128 bits, Apple's arm64 `va_arg` of an aggregate, a using of a header's keyed names, the
+program's static member functions without a `this`, the diamonds over a virtual base, and the 124 split predicates
+brought together -- with three defects met on the way. The chain was RED at one C++ fixture over both libc++ trees; with
+its fix all nine gates are GREEN over libc++ 18 and the two libc++ gates over libc++ 21: 4195 s, then 1487 s for the
+flow gate and the two C++ gates again (0.159: 3956 s).** The owner's ask of 0.159 ("Take cocolog 2.2.5, do all "not
+done" tasks"), its second step.
+
+- A1, FLOATING CONSTANTS UNDER A CAST (`ccl_infer.pl`: `ccl_float_operand/2` over `ccl_float_shaped/1`, a long double's
+  `bv/3` in `ccl_w_cast/3`). An integer constant expression folded a double's literal under a cast to an integer type
+  (0.129) and nothing else: `(int) 2.5L`, `(int) 9.5f` (the cast of a double it amounts to) and `(int) (2.5L + 1.0L)`
+  fold now through the lowering's exact fold (`ir_fp_value/2`) and its truncation (`ir_fp_int/3`). An enumerator of one
+  had SILENTLY taken the value after the one before it: `enum { A = 7, B = (int) 2.5L, C, D = (int) 9.5f }` was 7 8 9 10
+  where clang has 7 2 3 9, and `_Static_assert((int) 2.5L == 3, "")` passed. `test/c/run/enumfloat.c`.
+- AN ENUMERATOR IS A CONSTANT OR NOTHING (C 6.7.2.2/2, [dcl.enum]/5). In C an initializer that does not fold fails the
+  item (`ccl_declare_enumerators/4`), so a header read raw stops there and is read preprocessed, and the program's file
+  says where it gave up. In C++ the reader keeps the value after the one before as a placeholder, and the desugaring
+  folds the initializer through the constexpr evaluator, the enumerators before it put in as their values
+  (`cpp_fold_enumerators/5`): `enum { A = f(), B }` over `constexpr int f()` was 0 and 1 where clang++ has 7 and 8; the
+  program's own that does not fold is refused, `enumerator_not_constant(N)` (`test/cpp/enumnotconst.cpp`), as clang++
+  refuses it. A value past an `int` is typed as a literal of it (`ccl_enumerator_type/3`, `ir_expr(id(N))`): `i32
+  18446744073709551600` had reached LLVM. `enumconstexpr.cpp`. Reader 131.
+- A2, A USER-DEFINED FLOATING LITERAL'S TEXT. A floating literal followed by an identifier is ONE token in both lexers,
+  `tok(floatudl, fs(Text, Suffix), L)` (`ccl_udl_suffix//2`, the native `ccl_lx_emit_float`), and its literal operator
+  takes the long double of the text, rounded once: `0.1_v` was the double nearest 0.1 widened, 0.100000000000000005551,
+  where clang++ hands 0.100000000000000000001, and `1e999_v` an infinity. `-E` spells it back; reader check `k84`
+  compares the lexers over a line of them, and `c40` reads the node. `udlfloat.cpp`.
+- A3, AN UNFOLDED TEMPLATE VALUE ARGUMENT'S STATIC. A scalar static initialized in its class whose initializer does not
+  fold (an integral, enumeration or pointer type) is a `linkonce` zero assigned before main, as an unfolded floating one
+  has been since 0.143 (`cpp_static_scalar_late/4`): `S<half(4.0)>::v` was an `extern` declaration that nothing defined,
+  a link error. `targstatic.cpp`.
+- B1, A DECIMAL TO AND FROM A `_BitInt` PAST 128 BITS, through the compiler's runtime (`module/bidrt.c`, regenerated
+  into `library/ccl_bidrt.pl`): `__ccl_bid_floatbitint<k>` and `__ccl_bid_fix<k>bitint` take the value's 64-bit limbs,
+  the least first, and its width, negative for a signed one, as libgcc's own `_BitInt` conversions take them (libgcc 13
+  has none): to a decimal the magnitude divided by ten while it passes 128 bits, the digits taken off kept for the one
+  rounding; from one the coefficient scaled into the limbs toward zero. It was refused, `decimal_conversion(From, To)`.
+  `test/c/run/decbitint.c` (C23), its expectation computed by Python's `decimal` module, since no gcc here reads a
+  `_BitInt` beside the decimal types; the first draft of the fixture held values past a `_BitInt(200)`'s range, which
+  the expectation's script then took for valid -- both mended before the gate.
+- B2, APPLE'S ARM64 `va_arg` OF AN AGGREGATE, expanded as clang's `EmitDarwinVAArg` (`ir_va_arg_darwin/4`): every
+  variadic argument on the stack in 8-byte slots, a value aligned past 8 rounding the pointer up, a composite past 16
+  bytes that is no HFA by a pointer, an empty record no slot. Its va_list is a `char *` OBJECT, whose ADDRESS `va_arg`,
+  `va_start`, `va_end` and `va_copy` take (`ir_va_list_addr/2`); the pointer's value had been taken for the address. No
+  Apple machine is here, so the driver gate (38 checks) compiles `test/c/link/va_darwin.c` for `arm64-apple-macos` with
+  clang and with cicilang, retargets both texts to this host and runs them over one buffer laid out as Apple lays the
+  arguments out (`va_darwin_main.c`).
+- C1, A USING OF A HEADER'S KEYED NAMES (`cpp_hdr_using/2`, `cpp_using_key/2`): `using namespace std::chrono;` or `using
+  std::chrono::floor;` puts that namespace's keyed functions and objects in force, at namespace scope for the rest of
+  the unit and in a block to its end, and a bare call takes the key first: `floor<seconds>(d)` met <cmath>'s floor, and
+  `abs(d)` of a duration the C library's. Never inside a library's code, whose names the program's usings do not reach.
+  `usingchrono.cpp`. THE FIRST CHAIN MET THREE FAULTS OF IT in 0.139's `nsusing.cpp`, which printed 4 for 3 over both
+  libc++ trees: a key of the PROGRAM's own namespaces was taken as a header's (`cpp_using_key/2` takes a header's alone
+  now: the program's are 0.139's renaming before the walk), a QUALIFIED call was redirected as a bare one (`a::f()` met
+  b's f; the qualified roads of `cpp_call/4` run under `cpp_without_using/2`), and a using inside a namespace stayed in
+  force past its end (`namespace d { using namespace b; }`; a namespace's items are walked under `cpp_with_usings([],
+  ...)`).
+- C2, THE PROGRAM'S STATIC MEMBER FUNCTIONS TAKE NO `this` in the lowering (`ir_item/1`, `ir_call/4`), as a shipped one
+  has not since 0.127 -- an inner convention of 0.37 that every call paid a register for; `&C::f` of a static is an
+  ordinary pointer to function, the thunk its name as a value is: it took the member pointer road and `int (*p)(int,
+  int) = &M::sum;` was an `inttoptr` of a struct that LLVM refused. `staticnothis.cpp`. THE REGROUP'S COMPARISON (below)
+  MET ITS DEFECT: a lambda made in a static member function that captured `this` -- libc++ 18's `__make_fmatrix_impl` of
+  `std::visit` -- named a `this` the definition no longer had, `undeclared(this)` in `stdvariant.cpp`, in both trees;
+  such a body has a local `this` that holds the null now (`ir_names_this/1`).
+- D, THE DIAMONDS OVER A VIRTUAL BASE. Every class over a virtual base has a table of its own (the Itanium ABI's dynamic
+  class, `cpp_has_table/1`: slots, or a virtual base in the primary chain), with no virtual function among them, and its
+  copy constructor is never trivial ([class.copy.ctor]/11, so it crosses a call by invisible reference); a diamond over
+  such a base builds (`diamondplain.cpp`), and so does a program class over two LIBRARY classes sharing one, `struct X :
+  std::istream, std::ostream` (`libdiamond.cpp`: `cpp_direct_nv/3` takes a library path). A diamond whose paths hold the
+  base FURTHER IN stays refused, `virtual_base_by_two_paths`, and `test/cpp/diamond.cpp` is that refusal now: its paths'
+  `.nv` forms need the Itanium layout of every class over a virtual base, which this compiler does not have.
+- E, THE REGROUP: the 124 predicates whose clauses another's split (`test/flow.expect`'s `discontiguous` keys) brought
+  together at the place of their first, in their order, the comments directly above a clause with it -- a mechanical
+  move over the files' top-level terms (`regroup.py`, scratch), proved by the flow gate (one key left, the warning of
+  `'$ccl_sum_big'/3`) and by the IR of 82 C and 32 C++ fixtures built by the tree before the move and after it, byte for
+  byte, one build at a time over one warm HOME (`ab.sh`, `ab2.sh`, scratch).
+- A COLD HEADER'S `c` PATH (`cpp_note_hdr_ns/2`): a header FLATTENED in the process noted a name's first namespace path
+  only, so `abs`, which libc++ 21's <__math/abs.h> declares in `std::__math` before <stdlib.h>'s, had no `c` for
+  `cpp_header_c_name/1`, and a cold build of `std::abs(-4)` over <chrono> called glibc's abs as
+  `_ZNSt3__16__math3absEi`, a link error, where a build served from the summary linked. `stdabs.cpp` (the gate builds
+  warm; the cold road built by hand over both trees).
+- `CLAUDE.md`: the versions; the split rule and `test/flow.expect` (one key); each item above in its topic, the Not done
+  bullets they close dropped, and the refusals' table (`diamond.cpp` again, `enumnotconst.cpp`). `README.md`: the
+  decimal types to and from a `_BitInt` past 128 bits.
+
+Reader 131, lowering 85.
+
+THE GATES. The chain on a worktree of 0.159 (`ee32ce6`) with these changes and the version 0.160, its two modules built
+over cocolog 2.2.5, fresh HOMEs, started at 11:20 UTC: 4195 s in all (0.159: 3956 s). Over libc++ 18: the flow gate (one
+finding, `test/flow.expect`'s, 58 s), reader 5 s, compile 13 s (82 run and 47 safe fixtures), driver 11 s (38 checks),
+objects 4 s (29 checks), the proof, the cross gate in 62 s (82 fixtures and 3 checks), the library read in 1140 s (peak
+1043 MB) and the C++ gate in 817 s, RED with ONE failure, `nsusing.cpp` (C1 above). Over libc++ 21: the library read in
+1167 s (peak 1210 MB) and the C++ gate in 918 s, the same one failure -- the scratch chain went on past the first C++
+gate's RED, its test reading `test/cpp.pl`'s own GREEN line; it reads each gate's exit status now. With the fix, the
+flow gate (one finding, 49 s) and the two C++ gates ran again over the chain's warm HOMEs: over libc++ 18 GREEN in 717 s
+(peak 2344 MB; 0.159: 734 s), 506 of its 509 fixtures ok -- the skips `joinwith`, `stdoptionalref` and `tzone` -- and
+the 22 refusals and the three of the safe part; over libc++ 21 GREEN in 721 s (peak 2083 MB; 0.159: 881 s), 508 of 509
+ok, the skip `stdoptionalref`. The fixtures' builds summed 2689 s over libc++ 18 (0.159: 2582 s over 498 fixtures) and
+2726 s over libc++ 21 (0.159: 2799 s over 500).
