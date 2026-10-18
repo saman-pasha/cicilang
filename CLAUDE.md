@@ -10,7 +10,7 @@ it found, its measurements and its gate numbers. `README.md` tells a user what r
 architecture and the milestones. A step that changes a rule edits the rule here, in its topic, and writes its entry
 in `HISTORY.md`.
 
-At 0.169 the versions are: the module 0.169 (`ccl_p_version` in `module/cicilang.cicili`, `bin/cicilang --version`),
+At 0.170 the versions are: the module 0.170 (`ccl_p_version` in `module/cicilang.cicili`, `bin/cicilang --version`),
 the reader 133 (`ccl_reader_version/1`, `library/ccl_syntax.pl`) and the lowering 92 (`ccl_lowering_version/1`,
 `library/ccl_ir.pl`).
 
@@ -421,8 +421,9 @@ tutorials/01..03-*.pl       the objects layer's lessons; goal main, last line do
   two ways give the same findings, key for key, and the gate's own are gone. (0.144, 0.146)
 - One job a file in the memory-gated pool (`ccl_pool`; `FLOW_JOBS` 4, `FLOW_LAUNCH_MB` 9000, `FLOW_HARD_MB` 14000),
   the longest first by `~/.cicilang/flow-times`, each under `FLOW_SECS` (900 s): `ccl_cpp.pl` 47 s, `ccl_ir.pl` 46 s,
-  `ccl_driver.pl` 33 s, `test/compile.pl` 32 s, `ccl_syntax.pl` 30 s, the others under 22 s; the gate 78 s and 2774 MB
-  over its four lanes at 0.167 (75 s at 0.166, 82 s at 0.164, 92 s at 0.161; 55 s over the library alone at 0.144). A
+  `ccl_driver.pl` 33 s, `test/compile.pl` 32 s, `ccl_syntax.pl` 30 s, the others under 22 s; the gate 68 s and 2742 MB
+  over its four lanes at 0.168 (78 s at 0.167, 75 s at 0.166, 82 s at 0.164, 92 s at 0.161; 55 s over the library alone
+  at 0.144). A
   file that is not charted is RED.
   (0.144, 0.161)
 - `fg_findings_main/5` writes `flow_findings/2`'s findings but the root's, a line each: the kind, the severity, the
@@ -511,8 +512,8 @@ tutorials/01..03-*.pl       the objects layer's lessons; goal main, last line do
   its own (`CROSS_SECS` 1800, `CROSS_MB` 2800: its summaries are the target's, cold in every chain); without the tree
   the part is a SKIP line. 85 C fixtures and 5 checks, 24 C++ fixtures (`vector.cpp` since 0.162) and 2 checks at 0.167,
   703 s in 0.164's chain, peak 535 MB, the C++ part cold (its summaries are that machine's own, read afresh in every
-  chain's fresh HOME); 151 s in 0.166's and 150 s in 0.167's, peaks 437 MB and 436 MB, over a HOME that 0.165's chain
-  had warmed. (0.131, 0.161)
+  chain's fresh HOME); 151 s in 0.166's, 150 s in 0.167's and 143 s in 0.168's, peaks 437 MB, 436 MB and 365 MB, over a
+  HOME that 0.165's chain had warmed. (0.131, 0.161)
 - The proof. `proof/run.sh` has clang turn `proof/forty2.ll` into a binary that prints `cicilang reaches C` and exits
   42. (M0)
 
@@ -7549,13 +7550,14 @@ A lambda is a class of its captures (`library/ccl_cpp.pl`). A fixture named alon
   18 (0.163's 2613 s over 515) and 4091 s over libc++ 21 (0.163's 3016 s over 517): four builds over `std::visit` took
   most of the rise (`joinwith` 110 s to 937 s over libc++ 21, `stdvariantsel` 19 s to 157 s, `stdvariant` 29 s to 129
   s, `varvisit` 4 s to 35 s over libc++ 18): the evaluator reduced an operand three times, which 0.165 mended (the
-  evaluator topic). 0.165's, 0.166's and 0.167's chains ran the gates their changes touch over the HOMEs that 0.164's
-  chain warmed (the reader version did not move, so the library reads were not run again), all GREEN but 0.167's run
-  over libc++ 21, which still ran when 0.167 was committed (its numbers are 0.168's): the C++ gate in 731 s and 733 s
-  over libc++ 18 and 21 at 0.165, its fixtures' builds summed 2579 s over 517 and 2610 s over 519 (the evaluator's
-  mend), in 728 s and 716 s at 0.166 (peaks 2319 MB and 2477 MB), 520 and 522 of 523 fixtures ok, the builds summed 2580
-  s over 520 and 2563 s over 522, and in 735 s over libc++ 18 at 0.167 (peak 2503 MB), 521 of 524 ok, the builds summed
-  2588 s over 521 (HISTORY.md, 0.165 to 0.167). Two libc++ passes are one gate: `LLVM=/usr/lib/llvm-18` and
+  evaluator topic). The chains of 0.165 to 0.168 ran the gates their changes touch over the HOMEs that 0.164's chain
+  warmed (the reader version did not move, so the library reads were not run again), all GREEN: the C++ gate in 731 s
+  and 733 s over libc++ 18 and 21 at 0.165, its fixtures' builds summed 2579 s over 517 and 2610 s over 519 (the
+  evaluator's mend), in 728 s and 716 s at 0.166 (peaks 2319 MB and 2477 MB), 520 and 522 of 523 fixtures ok, the builds
+  summed 2580 s over 520 and 2563 s over 522, in 735 s and 742 s at 0.167 (peaks 2503 MB and 2343 MB), 521 and 523 of
+  524 ok, the builds summed 2588 s over 521 and 2649 s over 523, and in 655 s and 656 s at 0.168 (peaks 2315 MB and 2380
+  MB), 523 and 525 of 526 ok, the builds summed 2316 s over 523 and 2330 s over 525 (HISTORY.md, 0.165 to 0.170). Two
+  libc++ passes are one gate: `LLVM=/usr/lib/llvm-18` and
   `LLVM=/usr/lib/llvm-21` choose the tree the chain reads and links. libc++ 22 (the newest tree, which a run without
   `$LLVM` reads) is untried but for `stdoptionalref`, which passes there. The run before 0.121's (0.118, 0.119) found,
   over 0.117, two defects and one stale check of `test/cpp.pl` (c20, above).

@@ -10381,3 +10381,25 @@ its numbers.**
   format checks of a pair, a tuple and a map.
 
 Reader 133 and lowering 92, as 0.168 left them: this step changes no library file.
+
+## 0.170 — the chain of 0.168
+
+**0.170: 0.168's chain ended, all GREEN. Committed after it, with no library file changed: its numbers are this step.**
+
+THE CHAIN OF 0.168, on a worktree holding 0.168's library, gate scripts and fixtures (its modules 0.166's, over cocolog
+2.2.5), over the HOMEs that 0.164's chain warmed, from 07:59:25 to 08:25:23 UTC: the flow gate (one finding,
+`test/flow.expect`'s, 68 s, peak 2742 MB over its four lanes; 0.167's 78 s), reader 4 s, compile 11 s (85 run and 47
+safe fixtures, over a C store started afresh by the lowering's bump), driver 12 s, objects 3 s, the proof, the cross gate
+in 143 s (peak 365 MB; 85 C fixtures and 5 checks, 24 C++ fixtures and 2 checks; 0.167's 150 s), the C++ gate over
+libc++ 18 in 655 s (peak 2315 MB; 0.167's 735 s) with 523 of its 526 fixtures ok -- the skips `joinwith`,
+`stdoptionalref` and `tzone` -- the 24 refusals and the three of the safe part, and over libc++ 21 in 656 s (peak 2380
+MB; 0.167's 742 s), 525 of 526 ok, the skip `stdoptionalref`: GREEN. The fixtures' builds, as `fixture-times` records
+them (four at a time), summed 2316 s over 523 over libc++ 18 (0.167's 2588 s over 521) and 2330 s over 525 over libc++
+21 (0.167's 2649 s over 523): `constevaltuple` 2 s and `aggfnptr` 1 s over each, `fmtrange` 93 s and 65 s, `fmttuple`
+60 s and 38 s, the checks that 0.168 took up included. The sums fell by a tenth, which no change of 0.168 explains: the
+numbers are the chain's, wall clock, and no claim about the library's speed.
+
+- `CLAUDE.md`: the versions; the flow gate's, the cross gate's and the C++ gates' numbers in their topics and in What
+  runs.
+
+Reader 133 and lowering 92, as 0.168 left them.
