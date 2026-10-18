@@ -10130,3 +10130,97 @@ reads were not run again), started at 22:46 UTC. Finished GREEN when this was co
 `test/flow.expect`'s, 78 s, peak 2680 MB over its four lanes; 3837 predicates charted), reader 5 s, compile 12 s,
 driver 13 s, objects 4 s and the proof. The cross gate and the C++ gate over libc++ 18 and over 21 were still running:
 this step claims no GREEN for them, and the next carries their numbers.
+
+## 0.166 — Not done, the sixth part: the function's own name and `std::source_location`
+
+**0.166: `__func__`, `__FUNCTION__` and `__PRETTY_FUNCTION__` are spelled as clang spells them, in C++ and in C, and
+`std::source_location::current()` answers the place of the call whose default argument it is: the file, the function's
+signature, the line and the column, as clang++ 18 prints them. All the gates this step touches GREEN, over libc++ 18
+and 21.** The owner's ask of 0.159 ("Take cocolog 2.2.5, do all "not done" tasks"), its sixth step: item N of the plan,
+the Not done bullet of `__builtin_source_location()`.
+
+- THE FUNCTION'S OWN NAME ([dcl.fct.def.general]/8; clang's PredefinedExpr). In C++ the three were this compiler's own
+  name of the function, `K.m.0`. `__func__` and `__FUNCTION__` are its own name now -- `m`, `K` for a constructor, `~K`,
+  `operator+=`, `operator()`, `operator int` -- and `__PRETTY_FUNCTION__` its signature: the result and the parameters
+  as written, the namespaces and the classes of its name, its `const` and ref-qualifier, `static ` or `virtual ` (an
+  override is virtual), a template's pattern with its arguments in brackets (`T tf(T) [T = int]`, `void S<int,
+  4>::f() [T = int, N = 4]`, `[Ts = <int, double, const char *>]`, `[N = 4U]`, `[C = 'c']`, `[x:auto = int]`), a class
+  template's arguments up to its defaulted ones, none for an explicit specialization, a lambda's and a local class's
+  through the function they are made in (`auto M::m(int)::(anonymous class)::operator()(double) const`, `void
+  L::loc()::Loc::lf()`). The desugaring keeps the function whose body it walks in `'$cpp_fsig'` (`cpp_with_fsig/2`
+  around each body: free functions and operators, members in and out of their class, constructors and destructors,
+  member templates' and function templates' instances under their patterns) and spells it where a name is used. In C
+  the lowering spells `__PRETTY_FUNCTION__` (`ir_c_pretty/1`): `int main(void)`, `struct point *mk(void)`, `int old()`
+  for a definition written with no `void` before C23. `prettyfn.cpp` (75 lines, clang++'s output over libc++ 18 and
+  21), `test/c/run/prettyfn.c`.
+- A SOURCE LOCATION ([support.srcloc.cons]). libc++'s `current()` is `consteval` and reads `__builtin_source_location()`
+  through its default argument, which nothing answered: every `std::source_location` was refused. It is the address of
+  a constant of `source_location::__impl` -- the file as the compiler was given it, `__PRETTY_FUNCTION__`'s text, the
+  line and the column -- one per place. The place is the OUTERMOST call whose default argument it is (`log("x")` over
+  `void log(const char *, std::source_location = std::source_location::current())` is `log`'s), found where
+  `cpp_fill_defaults/3` fills the default; the column is the callee's spelling in the line's text, back over its
+  qualifier, template arguments and object, a constructor's in a declaration its declarator's. A member call's column
+  is clang 18's (the object's start); clang 21 names the member, so `srcloc.cpp` holds no member call. `srcloc.cpp`
+  (C++20).
+- FOUND ON THE WAY, two defects of 0.165 and before that the new fixtures met, each its own rule now:
+  - A TEMPORARY OF A MEMBER CLASS TEMPLATE'S INSTANCE named through its holder, `O<int>::I<double>()`, raised
+    `type_error(atomic, tmpl('I', ...))`: the method road took the template-id for a member's name. A `cpp_call` clause
+    on `scoped(Path, tmpl(N, TArgs))`, where the holder has no member template N, takes the type road a declaration of
+    it takes and builds the temporary (`cpp_type_call/3`).
+  - A DEFINITION BY A QUALIFIED NAME OF MORE THAN ONE SEGMENT reached the lowering raw: `int n::f() {...}` and `int
+    n::g = 5;` as `member_of_class(scoped([n], f))`, `int n::C::m() const {...}` beside a class n declares as
+    `member_of_class(scoped([n, 'C'], m))`, `int Outer::Inner::f() {...}` alike; a member's definition was noted under
+    its class's name at file scope beside n's class, the two collided, and n's class was keyed `n.C`. Before the
+    namespaces are resolved each such item is moved into a block of its namespaces (`cpp_qual_members_in_ns/2`), and
+    a member's class is found through the whole path (`cpp_member_path_class/2`). `qualdef.cpp` (a namespace's
+    function and variable, a namespaced class's members, constructor, destructor, static data member and operator, a
+    nested class's member and constructor, a class template's members).
+- THE COST. The function's description is set around every body the desugaring walks and spelled only where a name is
+  used. A first form keyed the lambda memo by the enclosing function always: the closures of `std::format`'s library
+  lambdas were then made once per enclosing instance, seven fixtures' IR differed from 0.165's (their lambdas numbered
+  otherwise: `lambdas2`, `closurescope`, `stdvariant`, `viewsmore`, `stdformat`, `fmtcheck`, `fmtrange`), and
+  `fmtcheck.cpp` took 72.6 s of CPU where 0.165's library takes 63.1 s. The key holds the function only where the
+  lambda's text names it (`cpp_lambda_names_fn/1`), and a method's `auto` result is deduced under the method's own
+  description (`cpp_declare_members`), so that the lambda the deduction makes is the one the emission makes. A NET of 48
+  fixtures, each built to IR over libc++ 18 by 0.165's library and by this one, CPU seconds -- the lambdas'
+  (`lambdas`, `lambdas2`, `capturethis`, `closurescope`, `initcapture`, `lambdafp`, `lambdamutable`, `lambdanest`,
+  `lambdareq`, `closurecopy`, `genericfp`, `lambdaconst`, `lambdatparam`, `nestedlambda`, `recself`), `std::visit`'s
+  (`varvisit`, `stdvariant`, `stdvariant2`, `stdvariantsel`), the views' (`viewsmore`, `viewsall`), the format ones
+  (`stdformat`, `fmtcheck`, `fmtrange`), `stdalgorithm`, `stdalgorithm2`, `stdtuple`, `stdbind`, `stdsetlambda`,
+  `stdfunction`, `stdvector`, `stdstring`, `stdmap`, `stdlist`, `stddeque`, `stdstringstream`, `tempinitlist`, the
+  classes' (`counter`, `shapes`, `templ`, `bag`, `member`, `localclass`, `overloaded`), `constexprfn`, `consteval`,
+  `contracts`, `cogenerator`: the same IR, each, and the same time within the box's noise (`fmtcheck.cpp` 62.2 s,
+  0.165's 63.1 s; `fmtrange.cpp` 98.9 s and 96.4 s; `stdstringstream.cpp` 34.3 s and 34.2 s).
+- THE FORMAT CHECKS THAT 0.164 LEFT TO COUNT (its `consteval_ctor_checked` and `consteval_ctor_unevaluated` trace
+  lines, each format fixture built at its level): over libc++ 18, 68 checked and three left to the library's run-time
+  parser -- `fmtchrono` 15, `fmtchrono2` 22, `fmtrange` 3 (and `std::format` of a map unevaluated), `fmttuple` none
+  (a pair and a tuple unevaluated), `formatton` 3, `int128fmt` 3, `stdformat` 9, `stdformatter` 7, `stdprint` 3,
+  `stdvformat` 2, `stdwformat` 1 -- and none unchecked; over libc++ 21, 69 format strings checked and the same three
+  left -- `fmtchrono` 17, `fmtchrono2` 24, `fmtrange` 3, `fmttuple` none, `formatton` 3, `int128fmt` 3, `stdformat` 9,
+  `stdformatter` 4, `stdprint` 3, `stdvformat` 2, `stdwformat` 1 -- and 22 checks of libc++ 21's other consteval
+  constructor, `_CmpUnspecifiedParam`'s (the `0` of `o < 0`), none unchecked. `fmtcheck.cpp`'s 29 and 35 are 0.164's.
+- `CLAUDE.md`: the versions; the topic Function names and source locations in the section of exceptions and the rest
+  (its title and the contents' line with it); the reader's, the lowering's and libc++'s builtins' bullets; the Not done
+  bullet; the fixtures' counts.
+
+Reader 133, lowering 90 (C's `__PRETTY_FUNCTION__` is new text in the IR).
+
+THE CHAIN OF 0.165, ENDED. 0.165 was committed with the flow gate, the C gates and the proof GREEN and the rest still
+running; on its worktree (its modules 0.164's), over the HOMEs 0.164's chain warmed, from 22:46 to 23:22 UTC: the cross
+gate in 602 s (peak 587 MB; 0.164's 703 s), the C++ gate over libc++ 18 in 731 s (peak 2334 MB; 0.164's 905 s) with 517
+of its 520 fixtures ok -- the skips `joinwith`, `stdoptionalref` and `tzone` -- the 24 refusals and the three of the
+safe part, and over libc++ 21 in 733 s (peak 2166 MB; 0.164's 1202 s), 519 of 520 ok, the skip `stdoptionalref`: all
+GREEN. The fixtures' builds, as `fixture-times` records them (four at a time), summed 2579 s over 517 over libc++ 18
+(0.164's 3040 s) and 2610 s over 519 over libc++ 21 (0.164's 4091 s): `stdvariantsel` 15 s where 0.164's chain took 157
+s, `stdvariant` 28 s, `varvisit` 6 s, and over libc++ 21 `joinwith` 64 s (937 s) and `tzone` 25 s (238 s).
+
+THE GATES of this step, on a worktree holding these files (its modules 0.164's, built over cocolog 2.2.5), over the
+HOMEs 0.164's chain warmed, from 00:19 to 00:48 UTC: the flow gate (one finding, `test/flow.expect`'s, 75 s, peak 2655
+MB over its four lanes; 3929 predicates charted), reader 5 s, compile 12 s (85 run and 47 safe fixtures), driver 12 s,
+objects 4 s, the proof, the cross gate in 151 s (peak 437 MB; 85 C fixtures and 5 checks, 24 C++ fixtures and 2 checks,
+the HOME's aarch64 summaries warm since 0.165's chain), the C++ gate over libc++ 18 in 728 s (peak 2319 MB) with 520 of
+its 523 fixtures ok -- the skips `joinwith`, `stdoptionalref` and `tzone` -- the 24 refusals and the three of the safe
+part, and over libc++ 21 in 716 s (peak 2477 MB), 522 of 523 ok, the skip `stdoptionalref`: all GREEN. The fixtures'
+builds summed 2580 s over 520 over libc++ 18 (0.165's 2579 s over 517) and 2563 s over 522 over libc++ 21 (0.165's 2610
+s over 519). The live tree's module was rebuilt at 0.166 after the chain (`bin/cicilang --version`: `cicilang 0.166
+(cocolog 2.2.5; LLVM 18.1.3)`), its library the worktree's, file for file.

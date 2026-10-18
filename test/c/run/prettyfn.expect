@@ -1,0 +1,7 @@
+main | main | int main(void)
+add | add | int add(int, const char *, ...)
+kinds | kinds | void kinds(struct point *, unsigned int, long long, const char **, int (*)(int), double *, char **, _Bool, size_t, ulong_t, unsigned char, long double, short)
+old | old | int old()
+mk | mk | struct point *mk(void)
+cc | cc | const char *const *cc(const int *const)
+exit 0

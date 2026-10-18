@@ -1,0 +1,77 @@
+main | main | int main()
+free1 | free1 | int free1()
+over | over | int over(int)
+over | over | int over(double, const char *)
+refs | refs | void refs(int &, const int &, int &&, int *, const char *const, unsigned long, long long, signed char, bool)
+vari | vari | void vari(int, ...)
+str | str | void str(std::string, const std::string &)
+deep | deep | void ns::in::deep()
+K | K | K::K()
+K | K | K::K(int)
+m | m | void K::m()
+c | c | int K::c() const
+s | s | static long K::s(char)
+v | v | virtual void K::v()
+operator+= | operator+= | K &K::operator+=(const K &)
+operator int | operator int | int K::operator int() const
+tm | tm | T K::tm(T) [T = double]
+im | im | void K::In::im()
+rq | rq | void K::rq() &
+K | K | K::K()
+rr | rr | void K::rr() &&
+~K | ~K | K::~K()
+operator- | operator- | int operator-(const K &, int)
+~K | ~K | K::~K()
+~K | ~K | K::~K()
+K | K | K::K()
+v | v | virtual void D::v()
+~K | ~K | K::~K()
+tf | tf | T tf(T) [T = int]
+tf | tf | T tf(T) [T = char]
+f | f | void S<int, 4>::f() [T = int, N = 4]
+g | g | static int S<double, 2>::g(T) [T = double, N = 2]
+un | un | void un() [N = 4U]
+lo | lo | void lo() [N = -3L]
+ch | ch | void ch() [C = 'c']
+bo | bo | void bo() [B = true]
+pk | pk | void pk(Ts...) [Ts = <int, double, const char *>]
+pk | pk | void pk(Ts...) [Ts = <>]
+f | f | void U<int>::f() [T = int, N = 3]
+f | f | void U<char, 7>::f() [T = char, N = 7]
+g | g | void O<int>::I<double>::g() [T = int, V = double]
+tv | tv | void tv(const std::vector<T> &) [T = int]
+tv | tv | void tv(const std::vector<T> &) [T = std::vector<int>]
+tp | tp | T *tp(T *) [T = int]
+tp | tp | T *tp(T *) [T = const char]
+operator() | operator() | auto tl(int)::(anonymous class)::operator()() const
+operator() | operator() | auto tl(double)::(anonymous class)::operator()() const
+operator() | operator() | auto f(int)::(anonymous class)::operator()() const
+operator() | operator() | auto M::m(int)::(anonymous class)::operator()(double) const
+operator() | operator() | auto M::m(int)::(anonymous class)::operator()(double)::(anonymous class)::operator()() const
+lf | lf | void L::loc()::Loc::lf()
+tdef | tdef | void tdef(u32, lg, size_t, std::size_t)
+au | au | auto au()
+tr | tr | int tr()
+da | da | decltype(auto) da()
+m | m | void n::C::m()
+s | s | static void n::C::s()
+operator== | operator== | bool n::C::operator==(const C &) const
+operator[] | operator[] | int n::C::operator[](int)
+operator() | operator() | void n::C::operator()(int, char)
+f | f | void Sp<int *>::f() [T = int *]
+f | f | void Sp<int>::f()
+f | f | void Sp<double>::f() [T = double]
+fp | fp | void fp(T) [T = int (*)(int, int, ...)]
+fp | fp | void fp(T) [T = std::pair<int, char>]
+vv | vv | void vv(T &&) [T = int &]
+vv | vv | void vv(T &&) [T = int]
+Cn | Cn | Cn<double>::Cn(T) [T = double]
+~Cn | ~Cn | Cn<double>::~Cn() [T = double]
+g1 | g1 | int g1(int, int, ...)
+f | f | void X<'c', true, 5, 2, -1>::f() [C = 'c', B = true, N = 5, Sh = 2, I = -1]
+arr | arr | void arr(int *, int *, char **, int (*)(int), int (&)[3])
+operator() | operator() | auto main()::(anonymous class)::operator()() const
+operator() | operator() | auto main()::(anonymous class)::operator()(int)
+operator() | operator() | auto main()::(anonymous class)::operator()(auto, int) const [x:auto = int]
+operator() | operator() | auto main()::(anonymous class)::operator()(auto, int) const [x:auto = double]
+exit 0

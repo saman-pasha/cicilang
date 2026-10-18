@@ -62,7 +62,8 @@ record of every step.
   coroutines (`co_await`, `co_yield`, `co_return`, `operator co_await`,
   `std::coroutine_traits`, over LLVM's coroutine intrinsics), modules
   (`export module`, `import`, header units, exports enforced), contracts enforced at
-  run time, and the Itanium ABI's layout, name mangling and calling
+  run time, `__PRETTY_FUNCTION__` and `std::source_location` as clang++ spells them,
+  definitions by namespace-qualified names, and the Itanium ABI's layout, name mangling and calling
   convention, so cicilang's objects link with clang's, on x86-64 and on
   aarch64 Linux (pointers to member functions in ARM's form there).
 * **libc++ compiled from its own headers.** Nothing of the standard

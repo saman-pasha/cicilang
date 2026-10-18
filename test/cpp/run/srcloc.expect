@@ -1,0 +1,14 @@
+hello: srcloc.cpp:21:3 int main()
+indented: srcloc.cpp:22:5 int main()
+in method: srcloc.cpp:10:14 void K::f()
+in template: srcloc.cpp:11:40 static T K::g(T) [T = double]
+srcloc.cpp:13:48 int ns::h(int, double)
+srcloc.cpp:26:15 int main()
+0 0 [] []
+lambda: srcloc.cpp:30:8 auto main()::(anonymous class)::operator()() const
+srcloc.cpp:31:6 int main()
+split: srcloc.cpp:32:3 int main()
+srcloc.cpp:13:48 int ns::h(int, double)
+srcloc.cpp:36:29 int main()
+4 42
+exit 0

@@ -10,8 +10,8 @@ it found, its measurements and its gate numbers. `README.md` tells a user what r
 architecture and the milestones. A step that changes a rule edits the rule here, in its topic, and writes its entry
 in `HISTORY.md`.
 
-At 0.165 the versions are: the module 0.165 (`ccl_p_version` in `module/cicilang.cicili`, `bin/cicilang --version`),
-the reader 133 (`ccl_reader_version/1`, `library/ccl_syntax.pl`) and the lowering 89 (`ccl_lowering_version/1`,
+At 0.166 the versions are: the module 0.166 (`ccl_p_version` in `module/cicilang.cicili`, `bin/cicilang --version`),
+the reader 133 (`ccl_reader_version/1`, `library/ccl_syntax.pl`) and the lowering 90 (`ccl_lowering_version/1`,
 `library/ccl_ir.pl`).
 
 Build and prove, always in this order (or all of it, `sh test/gates.sh`):
@@ -47,7 +47,7 @@ sh test/cpp.sh
 - Lambdas
 - Constant evaluation
 - Object layout and the ABI
-- Exceptions, RTTI, coroutines, modules and contracts
+- Exceptions, RTTI, coroutines, modules, contracts and source locations
 - libc++: how the library is compiled
 - The safe part
 - The lowering
@@ -397,7 +397,7 @@ tutorials/01..03-*.pl       the objects layer's lessons; goal main, last line do
 - `test/flow.sh` (0.144) reads every file of the library with cocolog's `library(flow/chart)` and RUNS NOTHING. A chart
   starts at one call pattern, so `test/flow.pl`'s `fg_roots_main/2` writes a copy of each file with a root,
   `'$fg_all'/N`, that calls each predicate the file defines with free arguments: 3538 predicates in the ten files at
-  0.161 (3837 in all at 0.165), and since 0.161 the 220 of the nine gate programs, `test/reader.pl`, `compile.pl`,
+  0.161 (3929 in all at 0.166), and since 0.161 the 220 of the nine gate programs, `test/reader.pl`, `compile.pl`,
   `cpp.pl`, `readhdr.pl`, `census.pl`, `libcxx.pl`, `flow.pl`, `why.pl` and `prof.pl` (`TFILES`), each charted with the
   compiler and the flow and process libraries loaded, nothing stubbed (no gate program is a library file); their first
   chart found a predicate split by another's clauses (`census_main/0`) and a call of `print_message/2`, which cocolog
@@ -421,8 +421,9 @@ tutorials/01..03-*.pl       the objects layer's lessons; goal main, last line do
   two ways give the same findings, key for key, and the gate's own are gone. (0.144, 0.146)
 - One job a file in the memory-gated pool (`ccl_pool`; `FLOW_JOBS` 4, `FLOW_LAUNCH_MB` 9000, `FLOW_HARD_MB` 14000),
   the longest first by `~/.cicilang/flow-times`, each under `FLOW_SECS` (900 s): `ccl_cpp.pl` 47 s, `ccl_ir.pl` 46 s,
-  `ccl_driver.pl` 33 s, `test/compile.pl` 32 s, `ccl_syntax.pl` 30 s, the others under 22 s; the gate 82 s and 2554 MB
-  over its four lanes at 0.164 (92 s at 0.161; 55 s over the library alone at 0.144). A file that is not charted is RED.
+  `ccl_driver.pl` 33 s, `test/compile.pl` 32 s, `ccl_syntax.pl` 30 s, the others under 22 s; the gate 75 s and 2655 MB
+  over its four lanes at 0.166 (82 s at 0.164, 92 s at 0.161; 55 s over the library alone at 0.144). A file that is not
+  charted is RED.
   (0.144, 0.161)
 - `fg_findings_main/5` writes `flow_findings/2`'s findings but the root's, a line each: the kind, the severity, the
   predicate, the line, the column and the text. The kinds: `unknown_procedure` (a call that nothing answers, with the
@@ -465,7 +466,7 @@ tutorials/01..03-*.pl       the objects layer's lessons; goal main, last line do
 - The compile gate. `test/compile.pl`, one process over the user's store, reads, checks, lowers, compiles at `-O1`
   and links every `test/c/run/*.c` at its `NAME.std` level (`c_level`). It expects every `test/c/safe/*.c` refused.
   `test/compile.sh` runs each binary as `NAME arg1 arg2` against `NAME.expect`, and compares each refusal with
-  `safe/NAME.expect`. There are 84 run and 47 safe fixtures at 0.164. (M2, M3, 0.57)
+  `safe/NAME.expect`. There are 85 run and 47 safe fixtures at 0.166. (M2, M3, 0.57)
 - The driver gate. `test/driver.sh` makes 40 checks of `bin/cicilang` over the user's store (the two decimal checks are
   skipped where no gcc with decimal floating types is installed), the variadic calls of every kind both ways against
   clang among them (`test/c/link/va_*.c`, 0.131), and Apple's arm64 expansion of `va_arg` of an aggregate against
@@ -508,9 +509,9 @@ tutorials/01..03-*.pl       the objects layer's lessons; goal main, last line do
   both under qemu and compares them, then two checks against clang++'s code on that machine, the C++ gate's own: classes
   by value and pointers to member functions both ways (`test/cpp/link/`). Each C++ build has a time and a memory cap of
   its own (`CROSS_SECS` 1800, `CROSS_MB` 2800: its summaries are the target's, cold in every chain); without the tree
-  the part is a SKIP line. 84 C fixtures and 5 checks, 24 C++ fixtures (`vector.cpp` since 0.162) and 2 checks at 0.164,
-  703 s in the chain, peak 535 MB, the C++ part cold (its summaries are that machine's own, read afresh in every chain's
-  fresh HOME). (0.131, 0.161)
+  the part is a SKIP line. 85 C fixtures and 5 checks, 24 C++ fixtures (`vector.cpp` since 0.162) and 2 checks at 0.166,
+  703 s in 0.164's chain, peak 535 MB, the C++ part cold (its summaries are that machine's own, read afresh in every
+  chain's fresh HOME); 151 s in 0.166's, peak 437 MB, over a HOME that 0.165's chain had warmed. (0.131, 0.161)
 - The proof. `proof/run.sh` has clang turn `proof/forty2.ll` into a binary that prints `cicilang reaches C` and exits
   42. (M0)
 
@@ -542,7 +543,7 @@ tutorials/01..03-*.pl       the objects layer's lessons; goal main, last line do
 ### The C++ gate: test/cpp.sh
 
 - `test/cpp.sh` runs in this order: `test/cpp.pl` in one `--local` process; four checks of the command; every
-  `test/cpp/run/*.cpp` as a pool job (520 at 0.164); `classes.cpp` and `templates.cpp` built and run; the refusals,
+  `test/cpp/run/*.cpp` as a pool job (523 at 0.166); `classes.cpp` and `templates.cpp` built and run; the refusals,
   each at the level its `test/cpp/NAME.flags` names, else C++17 (0.164). (0.105, 0.164)
 - `test/cpp.pl` runs 46 numbered checks, `c1` to `c46`, then reads Cicili's six C++ files whole (`test/cpp/objects.cpp`,
   `emit_report.cpp`, `specialise.cpp`, `syntax.cpp`, `torch.cpp`, `torch-fragment.cpp`). `c34` checks the Itanium
@@ -1350,7 +1351,8 @@ tutorials/01..03-*.pl       the objects layer's lessons; goal main, last line do
   holder's, reached through `ccl_anon_route`. (0.108)
 - A label's body may be a declaration ([stmt.label], C23): `ccl_label_body` falls to `ccl_block_item`. (0.91)
 - `__func__`, `__FUNCTION__`, `__PRETTY_FUNCTION__` name the enclosing function unless the program declares them
-  (`ccl_func_name/1`). (0.108)
+  (`ccl_func_name/1`); their text is clang's since 0.166 (the topic Function names and source locations). (0.108,
+  0.166)
 
 ### Initializers and objects
 
@@ -2038,7 +2040,7 @@ tutorials/01..03-*.pl       the objects layer's lessons; goal main, last line do
   0.117)
 - A reader bump makes every summary cold; `test/libcxx.sh` rewrites them. `test/reader.pl`'s `k16` (a cached read is
   the same AST as a fresh one) goes RED on a grammar change without a bump. (0.93, 0.105)
-- `ccl_lowering_version/1` (`library/ccl_ir.pl`, now 88): bump it whenever the check or the lowering changes what it
+- `ccl_lowering_version/1` (`library/ccl_ir.pl`, now 90): bump it whenever the check or the lowering changes what it
   emits, however small -- 0.120 bumped it for the ORDER of the drain functions alone. Why: `dr_ir/3` serves the old IR
   otherwise. Either bump starts the C store afresh. (M4, 0.103, 0.120)
 
@@ -2118,6 +2120,12 @@ free. A const method adds `.c`, a ref-qualified one `.r` or `.rr` after it: each
   and a destructor are. (0.46)
 - Out of its class, `Shape::scale` and `Counter::~Counter` (`dtor_def/4`) are the class's own functions (`cpp_item`);
   a method's `const` comes from the storage slot (`cpp_sto_quals`). (0.33, 0.79)
+- A MEMBER DEFINED OUT OF ITS CLASS BY A QUALIFIED NAME OF SEVERAL SEGMENTS (0.166; [class.mfct]/2): `int
+  Outer::Inner::f() {...}` of a nested class -- `n::O2::I2::g` too, once the libc++ topic's rule has moved it into n
+  -- is the definition that a one-segment `C::m` names (a constructor's road is 0.133's): the class is found through the
+  whole path, as a qualified type's is (`cpp_member_path_class/2` over `cpp_scope_class/2`, a registered class), and the
+  item is taken as its one-segment form (`cpp_item`, a function and a declaration). Only `C::m` was taken, and the
+  others reached the lowering as `member_of_class(scoped(['Outer', 'Inner'], f))`. `qualdef.cpp`. (0.166)
 - A CONSTRUCTOR DEFINED OUT OF ITS CLASS (0.133; `P::P() { v = 3; }`, `P::P(int k) : v(k) {}`, `Outer::Inner::Inner()`)
   is built as one written in the class is (`cpp_item(ctor_def(...))` over `cpp_ctor_fn`: the bases, the table pointer, the
   member initializers, the body; a diamond's `.nv` twin; a `consteval` one noted), and its declaration in the class stays
@@ -2492,6 +2500,11 @@ free. A const method adds `.c`, a ref-qualified one `.r` or `.rr` after it: each
   `sizeof(id(T))` becomes `sizeof_type(T)`. (0.78, 0.90, 0.162)
 - `Guard<A, I>(a, i)` is a temporary of the instance (`cpp_call`'s `tmpl` clause) only where every argument is settled
   (`cpp_targs_settled/1`); an unfolded argument would name an instance by its spelling. (0.47)
+- A MEMBER CLASS TEMPLATE'S INSTANCE NAMED THROUGH ITS HOLDER AND CALLED, `O<int>::I<double>()`, is a temporary of it
+  (0.166; the `cpp_call` clause on `scoped(Path, tmpl(N, TArgs))` where the holder has no member template N): the type
+  road a declaration of it takes names the instance (`cpp_type`), and the type-call road builds it (`cpp_type_call/3`).
+  The method road took the template-id for a member's name and raised `type_error(atomic, tmpl(...))`. `prettyfn.cpp`.
+  (0.166)
 - `typename X::y(args)`, the reader's `construct(T, As)`, goes through the type-call road; `void()` is `(void) 0`.
   (0.79, 0.81)
 - A call whose callee is an object goes to its `operator()` over an address (`cpp_temp_call/3`). A temporary built in
@@ -4347,7 +4360,15 @@ A lambda is a class of its captures (`library/ccl_cpp.pl`). A fixture named alon
   per capture, and `operator()` over the parameters and body, marked `closure`. It is registered and emitted under
   `cpp_isolated/1`, so a local that is not captured is undeclared in the body. `lambdas.cpp`. (0.36)
 - A lambda is desugared ONCE, memoized by its text, context and captured types (`'$cpp_lambda_memo'`,
-  `cpp_lambda_key/6`). `lambdas2.cpp`. Why: an `auto` method's result made a second closure class. (0.99)
+  `cpp_lambda_key/6`). `lambdas2.cpp`. Why: an `auto` method's result made a second closure class. (0.99) The key holds
+  THE FUNCTION IT IS MADE IN where its text spells that function's name (0.166; `cpp_lambda_names_fn/1`): `__func__`,
+  `__FUNCTION__`, `__PRETTY_FUNCTION__`, `source_location`, `__builtin_source_location`, or a call of a function of the
+  program that takes a source location (`'$cpp_srcloc_fn'`, noted with the unit's registries, `cpp_note_srcloc_fns/1`),
+  so that its call operator's names are the ones of the function it is made in; a method's `auto` result is deduced
+  under the method's own description (`cpp_declare_members`), so the lambda the deduction makes is the one the
+  emission makes. Any other lambda is one class wherever its text, context and captured types are one: keyed by the
+  enclosing function every time, the closures of `std::format`'s library lambdas were made once per enclosing instance,
+  and `fmtcheck.cpp` took 72.6 s of CPU where it takes 62.2 s (0.165's library 63.1 s). (0.99, 0.166)
 - A closure is enclosed by the class it is made in (`cpp_lambda_scope/2` -> `'$cpp_encl'`): that class's types,
   statics and enumerators are in scope, `this` captured or not. Why: a string lambda's `__rep __new_rep = __short()`.
   (0.76)
@@ -5269,7 +5290,7 @@ A lambda is a class of its captures (`library/ccl_cpp.pl`). A fixture named alon
   `S1_` -- the symbols `std::set_terminate(void (*)())` is shipped under. `__int128` is `n` and `unsigned __int128` `o`.
   `test/cpp.pl`'s `c37`. Such a symbol kept this compiler's own name until 0.117, and the link named it. (0.73, 0.117)
 
-## Exceptions, RTTI, coroutines, modules and contracts
+## Exceptions, RTTI, coroutines, modules, contracts and source locations
 
 ### Exceptions
 
@@ -5369,6 +5390,41 @@ A lambda is a class of its captures (`library/ccl_cpp.pl`). A fixture named alon
   postconditions at each return (the result bound for `r`) and at a void function's end. A violation writes
   `contract violation: precondition|postcondition|assertion of F (line L)` to fd 2 and calls `abort()`
   (`contract_violation`). `contracts.cpp` (C++26) exits 134. (0.108)
+
+### Function names and source locations
+
+- THE FUNCTION'S OWN NAME, AS CLANG SPELLS IT (0.166; [dcl.fct.def.general]/8, clang's PredefinedExpr). In C++
+  `__func__` and `__FUNCTION__` are the function's own name -- `m`, `K` for a constructor, `~K`, `operator+=`,
+  `operator()`, `operator int` -- and `__PRETTY_FUNCTION__` its signature: the result and the parameters as written (a
+  typedef by its name, an array or a function parameter as the pointer it decays to), the name with its namespaces and
+  classes (`void ns::in::deep()`, `void K::In::im()`), `const`, `&` or `&&` after the parameters, `static ` or
+  `virtual ` before it (an override is virtual), a conversion function's type as its result (`int K::operator int()
+  const`), a template's PATTERN with its arguments in brackets (`T tf(T) [T = int]`, `void S<int, 4>::f() [T = int, N =
+  4]`, a pack `[Ts = <int, double, const char *>]`, a value with its type's suffix, `[N = 4U]`, `[N = -3L]`, a
+  character `'c'`, an `auto` parameter `[x:auto = int]`), a class template's arguments up to its defaulted ones
+  (`U<int>` of `template <class T, unsigned N = 3>`), none for an explicit specialization, a lambda's through the
+  function it is made in (`auto f(int)::(anonymous class)::operator()() const`), a local class's alike (`void
+  L::loc()::Loc::lf()`). The three were this compiler's own name of the function, `K.m.0`. The desugaring keeps the
+  function whose body it walks in `'$cpp_fsig'` -- `fsig(Kind, Class, Name, Result, Params, Variadic, Qualifiers,
+  TemplateArgs)`, its result and parameters as written, an instance's its pattern's, set around each body's walk by
+  `cpp_with_fsig/2` -- and spells it only where a name is used (`cpp_fsig_literal/2` over `cpp_pf/3`); a lambda's and
+  a local class's function are noted where they are made (`'$cpp_pf_closure'/3`, `'$cpp_pf_local'/3`), and the lambda
+  memo is keyed by that function too. In C the lowering spells `__PRETTY_FUNCTION__` (`ir_c_pretty/1`): `int
+  main(void)`, `struct point *mk(void)`, `const char *const *cc(const int *const)`, and `int old()` for a definition
+  written with no `void` before C23, as clang reads it. `prettyfn.cpp`, `test/c/run/prettyfn.c`. (0.166)
+- A SOURCE LOCATION (0.166; [support.srcloc.cons]): `__builtin_source_location()`, which libc++'s
+  `std::source_location::current()` reads through its default argument, is the address of a constant of libc++'s
+  `source_location::__impl` -- the file as the compiler was given it (`'$ccl_src_file'`, set by `ccl_read_file/3` for
+  the outermost read), `__PRETTY_FUNCTION__`'s text, the line and the column -- one constant per place
+  (`'$cpp_srcloc'/2`, `cpp_srcloc/1`). The place is the call whose default argument it is, the OUTERMOST one
+  (`'$cpp_dflt_site'`, set by `cpp_with_dflt_site/3` where `cpp_fill_defaults/3` fills a default and none is being
+  filled): `log("x")` over `void log(const char *, std::source_location = std::source_location::current())` is the
+  place of `log`, and `current()` written in a body its own. The column is found in the line's text: the callee's
+  spelling, back over its qualifier, its template arguments and its object (`std::`, `a.`, `p->`, `(*p).`: clang 18's
+  place -- clang 21 names a member call's member), a constructor's in a declaration its declarator's (`a` of `Lg
+  a(1);`), a call that goes on past its line followed to the line of its callee; `decltype(__builtin_source_location())`
+  is its type alone, no place made. Nothing answered the builtin, and every `std::source_location` was refused.
+  `srcloc.cpp` (C++20). (0.166)
 
 ## libc++: how the library is compiled
 
@@ -5509,6 +5565,16 @@ A lambda is a class of its captures (`library/ccl_cpp.pl`). A fixture named alon
   specialization is named with its namespace (`cpp_spec_name`). Else libc++'s
   `__format::__enable_insertable<basic_string<_CharT>>` belonged to nothing, and std::format took no string.
   `qualspec.cpp`. (0.112)
+- THE PROGRAM'S DEFINITION BY A NAMESPACE-QUALIFIED NAME (0.166; [namespace.memdef]/2, [class.mfct]/2): `int n::f()
+  {...}`, `int n::g = 5;`, `int n::C::m() const {...}`, `n::C::C() : v(4) {}`, `n::C::~C() {}` and `int n::C::count =
+  3;` written outside namespace n are members of n, their names looked up in n. Before the namespaces are resolved,
+  each such item is moved into a block of its namespaces, the qualifier's namespace segments taken off (`namespace n {
+  int C::m() const {...} }`; `cpp_qual_members_in_ns/2` at the head of `cpp_ns_resolve/2`, a segment a namespace where
+  the program's units open one of that name, an inline one as it was opened), so that the paths, the index, the keys and
+  the desugaring take it as the definition it is. The qualifier was taken whole: a function or a variable reached the
+  lowering as `member_of_class(scoped([n], f))`, and a member's definition was noted under its class's name at file
+  scope beside n's class, the two collided, n's class was keyed `n.C` and the definitions named a class nothing
+  defined. A class's or a variable template's specialization keeps the road above. `qualdef.cpp`. (0.166)
 - `std::rel_ops` IS INDEXED, its items under the keys `rel_ops.<name>` whatever else declares the name (`cpp_ns_quals`,
   `cpp_relops_path/1`; reader 126): its names are found only through a using-directive ([namespace.udir]) or a
   using-declaration, and flattened bare its `operator!=` took every class (filter_view's iterator; `stdviews.cpp`, which is
@@ -5596,6 +5662,8 @@ A lambda is a class of its captures (`library/ccl_cpp.pl`). A fixture named alon
     `__builtin_addressof(X)` is `addr(X)`;
   - `__builtin_assume`, `__builtin_assume_dereferenceable`, `__builtin_unreachable` and `__builtin_prefetch` are
     nothing;
+  - `__builtin_source_location()` is the place of the call whose default argument it is (0.166, the topic Function
+    names and source locations);
   - `__builtin_invoke(f, args...)` is the call, through `cpp_memptr_call` for a member pointer (`stdinvoke.cpp`); a pointer to
     a DATA member applied to an object is `o.*pm`, to a pointer to one `p->*pm` ([func.require]/1.4, 1.5;
     `cpp_invoke_object/4`): the object must be of the member's class or a class derived from it, else the call is refused
@@ -6025,7 +6093,8 @@ A lambda is a class of its captures (`library/ccl_cpp.pl`). A fixture named alon
   extensions before an index. (2026-09-05)
 - `int(N)` is `i32`, or `long` past 32 bits; `uint`, `long` and `ulong` keep their suffix's type. A `big(Atom)` past
   2^60 is spelled as written (`ir_big_text/2`; `u0x...` for hex). A character literal is a `char` in C++ and an `int`
-  in C. `__func__` and its kin are the function's name. (0.42, 0.78, 0.94, 0.108)
+  in C. `__func__` and `__FUNCTION__` are the function's name, and C's `__PRETTY_FUNCTION__` its signature as clang
+  spells it (`ir_c_pretty/1`, 0.166). (0.42, 0.78, 0.94, 0.108, 0.166)
 - A double prints as LLVM's hex (`ir_double/2`). A floating global is spelled for its own type (`ir_fp_const/3`): a
   float as the double hex of its value rounded to a float, `x86_fp80` in the `0xK` form, `_Float16` as `half`. (M2,
   0.108)
@@ -7404,7 +7473,11 @@ A lambda is a class of its captures (`library/ccl_cpp.pl`). A fixture named alon
   18 (0.163's 2613 s over 515) and 4091 s over libc++ 21 (0.163's 3016 s over 517): four builds over `std::visit` took
   most of the rise (`joinwith` 110 s to 937 s over libc++ 21, `stdvariantsel` 19 s to 157 s, `stdvariant` 29 s to 129
   s, `varvisit` 4 s to 35 s over libc++ 18): the evaluator reduced an operand three times, which 0.165 mended (the
-  evaluator topic). Two libc++ passes are one gate:
+  evaluator topic). 0.165's and 0.166's chains ran the gates their changes touch over the HOMEs that 0.164's chain
+  warmed (the reader version did not move, so the library reads were not run again), all GREEN: the C++ gate in 731 s
+  and 733 s over libc++ 18 and 21 at 0.165, its fixtures' builds summed 2579 s over 517 and 2610 s over 519 (the
+  evaluator's mend), and in 728 s and 716 s at 0.166 (peaks 2319 MB and 2477 MB), 520 and 522 of 523 fixtures ok, the
+  builds summed 2580 s over 520 and 2563 s over 522 (HISTORY.md, 0.165 and 0.166). Two libc++ passes are one gate:
   `LLVM=/usr/lib/llvm-18` and `LLVM=/usr/lib/llvm-21` choose the tree the chain reads and links. libc++ 22 (the newest
   tree, which a run without `$LLVM` reads) is untried but for `stdoptionalref`, which passes there. The run before
   0.121's (0.118, 0.119) found, over 0.117, two defects and one stale check of `test/cpp.pl` (c20, above).
@@ -7441,7 +7514,8 @@ A lambda is a class of its captures (`library/ccl_cpp.pl`). A fixture named alon
   and in a global's fold, its arithmetic, casts and far sums (`ldconst.c`, on aarch64 against clang's quad); an integer
   operation inside a floating global's initializer (`fpintexpr.c`); a float's and a half's tie to even (`fpconst.c`).
   Since 0.155: bitfields of 61 to 64 bits and a 100-bit one, stored and in a global's constant (`bitfield64.c`). Since
-  0.164: brace elision of a scalar item for an array member of scalars, a local and a global (`braceelide.c`).
+  0.164: brace elision of a scalar item for an array member of scalars, a local and a global (`braceelide.c`). Since
+  0.166: `__func__`, `__FUNCTION__` and `__PRETTY_FUNCTION__` as clang spells them (`prettyfn.c`).
 - The C library is the host's. The compiler's own freestanding headers are in `library/include/` (`<stdarg.h>`,
   `<stdatomic.h>`, `<complex.h>`, `<stdckdint.h>`, `<stdbit.h>`, `<limits.h>` and six more).
 - The language's own additions run: `:=`, patterns, `name { }` structs and `format`, `print`, `println`
@@ -7498,6 +7572,11 @@ A lambda is a class of its captures (`library/ccl_cpp.pl`). A fixture named alon
   (two virtual overloads of one name and arity, one overridden), `virtualdefault` (a virtual call that leaves a defaulted
   argument out), `anonparam` (an unnamed by-value parameter destroyed), `rangeadl` (a range-for by the free `begin` and
   `end` of two namespaces), `downcast` (`static_cast` from a second base to the derived class, a pointer and a reference).
+- Forms of 0.166: `prettyfn` (`__func__`, `__FUNCTION__` and `__PRETTY_FUNCTION__` in free functions, members in and
+  out of their class, constructors, destructors, operators, a conversion function, static and virtual members, function
+  and member templates' instances, class templates' members, a lambda and a local class; a member class template's
+  temporary), `srcloc` (C++20: `std::source_location::current()` as a default argument and in a body, its file,
+  function, line and column), `qualdef` (definitions by namespace-qualified and nested-class-qualified names).
 - Forms of 0.164: `fmtcheck` (C++23: `std::format`'s format strings checked at compile time, each of 17 calls), the
   refusals `test/cpp/fmtindex.cpp` and `fmttype.cpp` (C++20: an argument the call does not have, a type the formatter
   does not take), `arrayone` (brace elision into `std::array<T, 1>` and a struct's array member).
@@ -7724,9 +7803,8 @@ A lambda is a class of its captures (`library/ccl_cpp.pl`). A fixture named alon
 - A library class's consteval constructor's check runs at compile time since 0.164 where the evaluator takes it (the
   Constant evaluation topic: `basic_format_string`'s format parse); a check it cannot take leaves the format string to
   the library's run-time parser. A library's other consteval functions run at run time, as before -- their values are
-  the same, and only a call that is no constant expression would differ, which libc++'s own calls are not -- and
-  nothing answers `__builtin_source_location()`, which `std::source_location::current()` reads (0.110, 0.164); the
-  program's own fold (0.99, 0.112).
+  the same, and only a call that is no constant expression would differ, which libc++'s own calls are not (0.110,
+  0.164); the program's own fold (0.99, 0.112). `std::source_location::current()` is answered since 0.166.
 - A class over TWO virtual bases is laid out as before, its bases whole, and a diamond whose paths each hold both is
   refused, `virtual_base_by_two_paths` (`test/cpp/diamond.cpp`): a class laid out here holds one virtual base at its end
   and its table one vbase offset. Every class over one virtual base has the Itanium layout since 0.163 (the deep
