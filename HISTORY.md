@@ -10354,3 +10354,30 @@ THE GATES of this step, on a worktree holding these files but the lowering versi
 cocolog 2.2.5): the flow gate GREEN (one finding, `test/flow.expect`'s, 69 s, peak 2724 MB over its four lanes). The
 counts of the format checks over both libc++ began at 07:37 UTC and still ran when this step was committed, and the
 chain had not begun: they claim nothing here, and the next commit carries their numbers.
+
+## 0.169 — the counts of 0.168: every check of the format fixtures evaluated
+
+**0.169: the counts that 0.168 left running ended -- every check of the format fixtures is evaluated at compile time
+since 0.168, over libc++ 18 and 21, none left to the library's run-time parser and none unchecked. Committed before
+0.168's chain, on the owner's word ("Commit before chain"): the chain begins after this commit, and the next one carries
+its numbers.**
+
+- THE COUNTS, as 0.165 counted them (each format fixture built to an object at its level by 0.168's library -- its
+  lowering version still 91, which a C++ build does not read -- under `'$cpp_trace'`, its `consteval_ctor_checked`
+  and `consteval_ctor_unevaluated` trace lines counted), from 07:37 to 07:57 UTC, one build at a time:
+  - over libc++ 18, 71 checked and none unevaluated -- `fmtchrono` 15, `fmtchrono2` 22, `fmtrange` 4, `fmttuple` 2,
+    `formatton` 3, `int128fmt` 3, `stdformat` 9, `stdformatter` 7, `stdprint` 3, `stdvformat` 2, `stdwformat` 1 --
+    where 0.165 counted 68 and three left (`fmtrange`'s map, `fmttuple`'s pair and tuple); `fmtcheck` 29;
+  - over libc++ 21, 94 checked and none unevaluated -- `fmtchrono` 17, `fmtchrono2` 27, `fmtrange` 11, `fmttuple` 8,
+    `formatton` 3, `int128fmt` 3, `stdformat` 9, `stdformatter` 4, `stdprint` 9, `stdvformat` 2, `stdwformat` 1 -- 72
+    format strings and 22 checks of `_CmpUnspecifiedParam`, where 0.165 counted 69 format strings and the same three
+    left; `fmtcheck` 35;
+  - `explicitarg` and `wideformat` none, as before; no build was refused or unchecked. The builds took 26 to 99 s each
+    (wall clock), peaks 306 to 764 MB.
+- A FIRST RUN OF THE COUNTS, over 0.168's tree before its last patch, was stopped after three fixtures so that the tree
+  could be edited (the aggregate item's conversion held to aggregates; the global, the braced return and the braced
+  argument): its numbers are no part of these.
+- `CLAUDE.md`: the versions; the consteval constructor's bullet (the counts); the Not done bullet. `README.md`: the
+  format checks of a pair, a tuple and a map.
+
+Reader 133 and lowering 92, as 0.168 left them: this step changes no library file.

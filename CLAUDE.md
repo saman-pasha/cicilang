@@ -10,7 +10,7 @@ it found, its measurements and its gate numbers. `README.md` tells a user what r
 architecture and the milestones. A step that changes a rule edits the rule here, in its topic, and writes its entry
 in `HISTORY.md`.
 
-At 0.168 the versions are: the module 0.168 (`ccl_p_version` in `module/cicilang.cicili`, `bin/cicilang --version`),
+At 0.169 the versions are: the module 0.169 (`ccl_p_version` in `module/cicilang.cicili`, `bin/cicilang --version`),
 the reader 133 (`ccl_reader_version/1`, `library/ccl_syntax.pl`) and the lowering 92 (`ccl_lowering_version/1`,
 `library/ccl_ir.pl`).
 
@@ -4872,7 +4872,14 @@ A lambda is a class of its captures (`library/ccl_cpp.pl`). A fixture named alon
   (C++23: the format strings of 17 calls -- positional and automatic arguments, fill, alignment, signs, bases, widths
   and precisions from arguments, the char, bool, string, pointer and floating formatters, escapes, a wide string, a user
   formatter's own `parse` -- each checked, over libc++ 18 and 21): its 29 checks over libc++ 18 and its 35 over 21 pass,
-  none left unevaluated. (0.164)
+  none left unevaluated. EVERY CHECK OF THE FORMAT FIXTURES IS EVALUATED SINCE 0.168, none left to the run-time parser,
+  where 0.165 counted three left over each libc++ (`std::format` of a map in `fmtrange.cpp`, of a pair and a tuple in
+  `fmttuple.cpp`; the evaluator's roads of 0.168, the previous topic): over libc++ 18, 71 -- `fmtchrono` 15,
+  `fmtchrono2` 22, `fmtrange` 4, `fmttuple` 2, `formatton` 3, `int128fmt` 3, `stdformat` 9, `stdformatter` 7,
+  `stdprint` 3, `stdvformat` 2, `stdwformat` 1 -- and over libc++ 21, 94 -- `fmtchrono` 17, `fmtchrono2` 27, `fmtrange`
+  11, `fmttuple` 8, `formatton` 3, `int128fmt` 3, `stdformat` 9, `stdformatter` 4, `stdprint` 9, `stdvformat` 2,
+  `stdwformat` 1 -- 72 format strings and 22 checks of `_CmpUnspecifiedParam`; each fixture built at its level, its
+  `consteval_ctor_checked` and `consteval_ctor_unevaluated` trace lines counted. (0.164, 0.168)
 
 ## Object layout and the ABI
 
@@ -7882,9 +7889,10 @@ A lambda is a class of its captures (`library/ccl_cpp.pl`). A fixture named alon
 
 - A library class's consteval constructor's check runs at compile time since 0.164 where the evaluator takes it (the
   Constant evaluation topic: `basic_format_string`'s format parse); a check it cannot take leaves the format string to
-  the library's run-time parser. A library's other consteval functions run at run time, as before -- their values are
-  the same, and only a call that is no constant expression would differ, which libc++'s own calls are not (0.110,
-  0.164); the program's own fold (0.99, 0.112). `std::source_location::current()` is answered since 0.166.
+  the library's run-time parser, which no check of the format fixtures does since 0.168 (over libc++ 18 and 21). A
+  library's other consteval functions run at run time, as before -- their values are the same, and only a call that is
+  no constant expression would differ, which libc++'s own calls are not (0.110, 0.164, 0.168); the program's own fold
+  (0.99, 0.112). `std::source_location::current()` is answered since 0.166.
 - A class over TWO virtual bases is laid out as before, its bases whole, and a diamond whose paths each hold both is
   refused, `virtual_base_by_two_paths` (`test/cpp/diamond.cpp`): a class laid out here holds one virtual base at its end
   and its table one vbase offset. Every class over one virtual base has the Itanium layout since 0.163 (the deep
