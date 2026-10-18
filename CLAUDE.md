@@ -10,8 +10,8 @@ it found, its measurements and its gate numbers. `README.md` tells a user what r
 architecture and the milestones. A step that changes a rule edits the rule here, in its topic, and writes its entry
 in `HISTORY.md`.
 
-At 0.167 the versions are: the module 0.167 (`ccl_p_version` in `module/cicilang.cicili`, `bin/cicilang --version`),
-the reader 133 (`ccl_reader_version/1`, `library/ccl_syntax.pl`) and the lowering 91 (`ccl_lowering_version/1`,
+At 0.168 the versions are: the module 0.168 (`ccl_p_version` in `module/cicilang.cicili`, `bin/cicilang --version`),
+the reader 133 (`ccl_reader_version/1`, `library/ccl_syntax.pl`) and the lowering 92 (`ccl_lowering_version/1`,
 `library/ccl_ir.pl`).
 
 Build and prove, always in this order (or all of it, `sh test/gates.sh`):
@@ -544,7 +544,7 @@ tutorials/01..03-*.pl       the objects layer's lessons; goal main, last line do
 ### The C++ gate: test/cpp.sh
 
 - `test/cpp.sh` runs in this order: `test/cpp.pl` in one `--local` process; four checks of the command; every
-  `test/cpp/run/*.cpp` as a pool job (524 at 0.167); `classes.cpp` and `templates.cpp` built and run; the refusals,
+  `test/cpp/run/*.cpp` as a pool job (526 at 0.168); `classes.cpp` and `templates.cpp` built and run; the refusals,
   each at the level its `test/cpp/NAME.flags` names, else C++17 (0.164). (0.105, 0.164)
 - `test/cpp.pl` runs 46 numbered checks, `c1` to `c46`, then reads Cicili's six C++ files whole (`test/cpp/objects.cpp`,
   `emit_report.cpp`, `specialise.cpp`, `syntax.cpp`, `torch.cpp`, `torch-fragment.cpp`). `c34` checks the Itanium
@@ -2041,7 +2041,7 @@ tutorials/01..03-*.pl       the objects layer's lessons; goal main, last line do
   0.117)
 - A reader bump makes every summary cold; `test/libcxx.sh` rewrites them. `test/reader.pl`'s `k16` (a cached read is
   the same AST as a fresh one) goes RED on a grammar change without a bump. (0.93, 0.105)
-- `ccl_lowering_version/1` (`library/ccl_ir.pl`, now 91): bump it whenever the check or the lowering changes what it
+- `ccl_lowering_version/1` (`library/ccl_ir.pl`, now 92): bump it whenever the check or the lowering changes what it
   emits, however small -- 0.120 bumped it for the ORDER of the drain functions alone. Why: `dr_ir/3` serves the old IR
   otherwise. Either bump starts the C store afresh. (M4, 0.103, 0.120)
 
@@ -2252,7 +2252,9 @@ free. A const method adds `.c`, a ref-qualified one `.r` or `.rr` after it: each
   `o.f()`, `no_member(C, M, K)` for `X::f()` (`pointer_traits<P>::to_address`). A data member of function-pointer type
   is called through (`call(member(X, M), As)`), and named bare in a member function too (`this->f_`, base hops
   included): libc++ 18's `__output_buffer::__flush()` writes `__flush_(__ptr_, __size_, __obj_)`. `detect3.cpp`,
-  `fnptrmember.cpp`. (0.51, 0.72, 0.88, 0.112)
+  `fnptrmember.cpp`. A PLAIN struct's own data member is a member to that test (0.168; the struct's members and its
+  anonymous members asked first): `h.fp(k)` over `struct H { void (*fp)(int &); }` was refused `no_member(fp, H)`
+  since 0.88, where `p->fp(k)` was called. `aggfnptr.cpp`. (0.51, 0.72, 0.88, 0.112, 0.168)
 - A data member whose class has `operator()` is callable, bare in its class (`this->f_`, base hops included) or through
   an object (`c.f(x)`, `cpp_call(member(...))`): its class's `operator()` over the member's address. `__scope_guard`'s
   `__func_()`, a range adaptor's held closure. `callable.cpp`, `pipefriend.cpp`. (0.66, 0.110)
@@ -2673,6 +2675,21 @@ free. A const method adds `.c`, a ref-qualified one `.r` or `.rr` after it: each
   `cpp_braced_scalar_type`, the resolver's first answer): `S s = {7}` is the aggregate; `int a[9] = {}`, `int k[3]{}`
   and `S s{}` value-initialize. A type without constructors direct-initialized (`_Tp __t(std::move(__x))`, `int n{}`)
   takes the value or the type's zero. `plaininit.cpp`, `emptybrace.cpp`. (0.45, 0.99)
+- A CLASS VALUE AS AN AGGREGATE'S ITEM converts to its scalar member's or element's type through its conversion
+  function ([dcl.init.aggr]/4.2: the member is copy-initialized from the item; 0.168; `cpp_init_convs/3`), and a
+  captureless lambda's item for a function-pointer member is its invoker's address, a constant
+  (`cpp_closure_constant/4`): `H h{[](int &x) { x = 7; }}` over `struct H { void (*fp)(int &); }` took the closure's
+  bytes for the pointer, `inttoptr %struct.lambda.1`, which LLVM refused, in a constexpr or consteval function too. A
+  local (`cpp_decl_pieces`' plain road), a global (`cpp_vars`), a braced return and a braced argument ask it, over a
+  plain struct, a union or an aggregate class -- a class with constructors takes its items as its constructor's
+  arguments. The items pair with the members by position, a nested list with its own member, an array's items with its
+  element; a list with a designator, or over a struct with an array member (whose brace elision moves the
+  positions), is left as it is. `aggfnptr.cpp`. (0.168)
+- A BRACED ARGUMENT TO A PLAIN STRUCT OR UNION PARAMETER, by value or bound to a reference to const, is a compound
+  literal of its type ([dcl.init.list]/3.4, [over.ics.list]; `cpp_copies_` over `cpp_plain_struct_param/2`; 0.168), its
+  class items converted as above: `sum({3, 4})` over `int sum(P)` reached the lowering as a bare braced list (`not
+  lowered yet: expr(init(...))`), where a class parameter's braced argument has been a temporary since 0.79.
+  `aggfnptr.cpp`. (0.168)
 - `Gen{h}` inside the class template `Gen`, read as a functional cast, list-initializes the aggregate from another
   class's value, also while the instance is being registered (`'$cpp_iname'`): a coroutine's `return Gen{handle}`.
   (0.108)
@@ -4774,6 +4791,23 @@ A lambda is a class of its captures (`library/ccl_cpp.pl`). A fixture named alon
   constant inline aggregate is a value (`'$cpp_gagg:N'`, recorded by `cpp_lazy_inline_var`, as the program's own since
   0.97: `__fields_integral`, which every integer's format spec is parsed against). `std::is_constant_evaluated()` and
   `__libcpp_is_constant_evaluated()` are true in such a check alone (`'$cpp_eval_ce'`). `fmtcheck.cpp`. (0.164)
+- WHAT THE CHECKS OF A PAIR'S, A TUPLE'S AND A MAP'S FORMAT STRING RUN INTO (0.168), the evaluator takes too. A CAST TO
+  A BASE'S REFERENCE NAMES THE BASE SUB-OBJECT (`cpp_eval_addr/3` on `ccast/3` over `cpp_eval_base_path/4`, the
+  desugaring's own hops `$base`, `$base$K`): libc++'s `std::get<I>(t)` is `static_cast<__tuple_leaf<I, T>
+  &>(t.__base_).get()`, the I-th leaf a later base of `__tuple_impl`, and the cast named the whole object, which has no
+  `__value_` of its own. A REFERENCE MEMBER NAMES ITS REFERENT (`cpp_eval_ref_through/4`): its slot holds the address
+  it was bound to, so the place `x.r` is that address -- a closure's `$this` and its captures by reference; the tuple
+  formatter's `[&]<size_t _Index> { auto &__formatter = std::get<_Index>(__underlying_); ... }` reads
+  `this->$this.__underlying_` -- and a member of a reference is its referent's (`cpp_eval_type_of/3`). AN AGGREGATE'S
+  REFERENCE MEMBER BINDS ITS ITEM (`cpp_eval_init/5`'s reference clause): the slot holds the item's address, a
+  prvalue's in a cell of its own, as the lowering binds it (`ir_init_sub`), and an ADDRESS ITEM -- the item a closure
+  gives a capture by reference, `&x` or `this`, a pointer to the referent's type -- is that address already
+  (`cpp_eval_address_item/3`, as the lowering's `ir_address_item/2` tells it). A FUNCTION THAT RETURNS A REFERENCE
+  ANSWERS ITS REFERENT'S ADDRESS (`cpp_eval_ref_fn/1`): its returns are evaluated as places (`'$retref'` in the
+  environment), its call is that place (`cpp_eval_addr/3`) and, as a value, what the place holds; it answered the
+  referent's value, a copy, and `std::get<0>(t).parse()` over a constexpr tuple changed a temporary and the tuple kept
+  its 0, a silent wrong answer once the base cast let `std::get` through. `constevaltuple.cpp` (C++20: each step of the
+  tuple formatter's parse, a consteval function each). (0.168)
 
 ### Constexpr constructors, globals and consteval
 
@@ -7609,6 +7643,11 @@ A lambda is a class of its captures (`library/ccl_cpp.pl`). A fixture named alon
   (two virtual overloads of one name and arity, one overridden), `virtualdefault` (a virtual call that leaves a defaulted
   argument out), `anonparam` (an unnamed by-value parameter destroyed), `rangeadl` (a range-for by the free `begin` and
   `end` of two namespaces), `downcast` (`static_cast` from a second base to the derived class, a pointer and a reference).
+- Forms of 0.168: `constevaltuple` (C++20: a tuple element through `std::get` in a consteval function, a lambda that
+  captures by reference, a function-pointer member called, string_view members set, a reference member of an
+  aggregate), `aggfnptr` (a lambda as an aggregate's function-pointer item in a local, a nested list, an array, a
+  global, a braced return and a braced argument; a braced argument to a plain struct or union parameter; a call
+  through a plain struct's function-pointer member).
 - Forms of 0.167: `strlit` (a string literal as `const char[N]`: overloads, deduction by value, by reference and
   through a forwarding pack, `decltype`, an array's bound in its key, `is_const` and `remove_const` of an array, a
   template whose pointer parameter of another type is no candidate, a cast to a reference to an array converted to a

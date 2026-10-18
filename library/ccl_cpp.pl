@@ -3686,7 +3686,7 @@ cpp_fold_enumerators(L, [E|Es0], K, Seen, [E|Es]) :- cpp_fold_enumerators(L, Es0
 cpp_declare_resolved(Name, Ret0, Ret, Ps1, V) :- ( Ret \== Ret0, atom(Name) -> ccl_declare(Name, fn(Ret, Ps1, V)) ; true ).
 cpp_vars(_, [], []).
 cpp_vars(Ctx, [var(N, fn(R0, Ps, V), I)|Vs], [var(N, fn(R, Ps1, V), I)|Ws]) :- !, cpp_type(R0, R), cpp_plain_params(Ps, Ps1), cpp_vars(Ctx, Vs, Ws).
-cpp_vars(Ctx, [var(N, T0, I)|Vs], [var(N, T, I1)|Ws]) :- cpp_type(T0, T1), cpp_expr(Ctx, I, I1),
+cpp_vars(Ctx, [var(N, T0, I)|Vs], [var(N, T, I1)|Ws]) :- cpp_type(T0, T1), cpp_expr(Ctx, I, I10), cpp_init_convs(T1, I10, I1),   % an aggregate's class items converted to its scalar members (cpp_init_convs, 0.168)
     ( cpp_has_auto(T1), I1 \== none -> ( ccl_type_of(I1, IT), IT \== unknown -> cpp_auto_deduce(T1, IT, T) ; cpp_refuse(0, auto(N)) ), ( atom(N), ccl_locals([]) -> ccl_gdeclare([N-T]), ccl_tables_changed ; true ) ; T = T1 ),   % a namespace-scope `auto' object, `inline constexpr auto twice = fn{};' ([dcl.spec.auto]: deduced from its initializer), where the lowering met `auto'
     cpp_vars(Ctx, Vs, Ws).
 %% the static members: declared with the class, defined out of it (Counter::made, above) -- except one initialized in
@@ -4294,7 +4294,7 @@ cpp_stmt_(Ctx, return(L, init(Items)), return(L, E2)) :- nb_getval('$cpp_ret', R
     ;   cpp_class_of_type(Ret, C), cpp_class_l(C, cls(_, Data, _, _, _)), member(member(MT, _, _), Data), cpp_class_of_type(MT, MC), cpp_has_ctors(MC)   % AN AGGREGATE WHOSE MEMBER CONSTRUCTS is built member by member (cpp_aggregate_inits, 0.41's road for a local): the tree's `return _InsertReturnType{end(), false, _NodeHandle()}' put a `__tree_iterator' into a `__tree_const_iterator' member bitwise, where its converting constructor was meant
     ->  cpp_type(Ret, T), ccl_gensym('$ret', Tmp), ccl_declare(Tmp, T), cpp_aggregate_inits(Data, Vs, id(Tmp), L, Inits),
         append([declaration(L, none, T, [var(Tmp, T, none)])|Inits], [expr(L, id(Tmp))], Ss), E0 = stmt_expr(block(Ss))
-    ;   findall(item([], V), member(V, Vs), Items1), E0 = compound_lit(Ret, init(Items1)) ),
+    ;   findall(item([], V), member(V, Vs), Items1), cpp_init_convs(Ret, init(Items1), I2), E0 = compound_lit(Ret, I2) ),   % an aggregate's class items converted to its scalar members (cpp_init_convs, 0.168)
     cpp_temp_elide(E0, E2).
 cpp_stmt_(Ctx, return(L, cond(C, A, B)), Out) :- nb_getval('$cpp_ret', Ret), Ret \== none, cpp_class_of_type(Ret, _), !,   % A RETURN OF A CONDITIONAL OVER CLASS ARMS returns each arm on its own ([expr.cond], [class.copy.elision]: the chosen arm's prvalue IS the result object): optional's `value_or' is `return has_value() ? __get() : static_cast<value_type>(...)', and as one value the lvalue arm was copied BITWISE and the temporary arm destroyed under the caller
     cpp_stmt_(Ctx, if(L, C, return(L, A), return(L, B)), Out).
@@ -4707,7 +4707,7 @@ cpp_decl_pieces(Ctx, L, Sto, B, [var(N, T0, I)|Vs], Pieces) :-
         ;   Args == [], cpp_trivial_default(C) -> Pieces = [declaration(L, Sto, B, [var(N, T, none)])|P1]        % nothing to construct
         ;   Args = [E], cpp_class_of_type_of(E, C), \+ cpp_dtor(C, _) -> Pieces = [declaration(L, Sto, B, [var(N, T, E)])|P1]   % the implicit copy, bitwise
         ;   cpp_refuse(L, no_constructor(C, NA)) )
-    ;   cpp_trace(plain_init(N, T, I)), cpp_plain_init(I, T, I0), cpp_expr(Ctx, I0, I00), cpp_conv_to(I00, T, I1), ccl_declare(N, T), cpp_note_const(N, T, I1),   % a scalar from a class value: its conversion operator
+    ;   cpp_trace(plain_init(N, T, I)), cpp_plain_init(I, T, I0), cpp_expr(Ctx, I0, I0w), cpp_init_convs(T, I0w, I00), cpp_conv_to(I00, T, I1), ccl_declare(N, T), cpp_note_const(N, T, I1),   % a scalar from a class value: its conversion operator
         ( cpp_binds_const_lvalue(T, I1) -> cpp_refuse(L, binds_const(N)) ; true ),
         ( cpp_class_of_type(T, C0), cpp_dtor(C0, _), cpp_lvalue(I1) -> cpp_refuse(L, copy_of_a_class_with_destructor(C0)) ; true ),   % two owners of one buffer
         (   Sto \== static, Sto \== extern, cpp_ext_temp(T, I1, X, XT, XD)   % A TEMPORARY BOUND TO A NAMED REFERENCE LIVES AS LONG AS THE REFERENCE ([class.temporary]/6; 0.112): it is a hidden local `$ext_K', the prvalue elided into it, destroyed by a defer at the scope's end where the statement's end had destroyed it (`const Tag &a = Tag(1)' dangled) or nothing had (`Tag &&b = make(2)')
@@ -4789,6 +4789,28 @@ cpp_plain_init(init([item(_, X)]), T, X) :- cpp_braced_scalar_type(T), !.   % a 
 cpp_plain_init(init([]), T, Z) :- cpp_braced_scalar_type(T), !, cpp_zero_of(T, Z).
 cpp_plain_init(init(Items), T, init(Items1)) :- cpp_class_of_type(T, C), cpp_aggregate_class(C), cpp_agg_skip_bases(C, Items, Items1), Items1 \== Items, !.   % AN AGGREGATE WITH EMPTY BASES (0.121), below
 cpp_plain_init(I, _, I).
+%% A CLASS VALUE AS AN AGGREGATE'S ITEM converts to its member's or its element's scalar type through its conversion
+%% function ([dcl.init.aggr]/4.2: the member is copy-initialized from the item; 0.168): `H h{[](int &x) { x = 7; }}'
+%% over `struct H { void (*fp)(int &); }' takes the closure's invoker, where the closure's bytes reached the lowering
+%% (`inttoptr %struct.lambda.1', which LLVM refused). The items are paired with the members by position, a nested list
+%% with its own member or element; a list with a designator, or over a struct with an array member (whose brace
+%% elision moves the positions), is left as it is, and so is a class with constructors, whose items are its
+%% constructor's arguments. A local (cpp_decl_pieces), a global (cpp_vars), a braced return and a braced argument to a
+%% plain struct or union parameter (cpp_copies_) ask it.
+cpp_init_convs(T, init(Items), init(Items1)) :- once(ccl_resolve_type(T, R)), R = arr(_, ET), !, findall(item(D, V1), ( member(item(D, V), Items), once(cpp_init_conv(ET, V, V1)) ), Items1).
+cpp_init_convs(T, init(Items), init(Items1)) :- once(ccl_resolve_type(T, RT)), ( RT = base(_, [struct(_, _)]) ; RT = base(_, [union(_, _)]) ), \+ ( cpp_class_of_type(T, C), \+ cpp_aggregate_class(C) ), \+ ( member(item(D, _), Items), D \== [], D \== none ),
+    ccl_members_of(RT, Ms), findall(MT, member(member(MT, _, _), Ms), MTs), \+ ( member(MT, MTs), ccl_resolve_type(MT, arr(_, _)) ), !, cpp_init_convs_(MTs, Items, Items1).
+cpp_init_convs(_, I, I).
+cpp_init_convs_([MT|MTs], [item(D, V)|Is], [item(D, V1)|Is1]) :- !, once(cpp_init_conv(MT, V, V1)), cpp_init_convs_(MTs, Is, Is1).
+cpp_init_convs_(_, Is, Is).
+cpp_init_conv(MT, init(Is), V) :- !, cpp_init_convs(MT, init(Is), V).
+cpp_init_conv(MT, V, V1) :- \+ cpp_class_of_type(MT, _), cpp_class_of_type_of(V, C), !, ( cpp_closure_constant(V, C, MT, Inv) -> V1 = addr(id(Inv)) ; cpp_conv_to(V, MT, V1) ).
+cpp_init_conv(_, V, V).
+%% A CAPTURELESS LAMBDA'S CONVERSION TO A POINTER TO FUNCTION is the address of its static invoker `lambda.K.fn', which
+%% its conversion function returns (cpp_lambda_'s `Conv'): a constant, so an aggregate's item that is one calls nothing
+%% at run time, and a global that holds one is constant-initialized, as clang has it (0.168)
+cpp_closure_constant(compound_lit(_, init([])), C, MT, Inv) :- atom(C), atom_concat(C, '.fn', Inv), '$cpp_out'(Inv, function(_, _, _, Inv, _, _, _)), cpp_closure_class(C),
+    once(ccl_resolve_type(MT, ptr(_, F))), once(ccl_resolve_type(F, fn(_, _, _))).
 cpp_braced_scalar_type(T) :- \+ cpp_class_of_type(T, _), ( ccl_resolve_type(T, R) -> true ; R = T ),   % the resolver's FIRST answer (it has more on backtracking, and `R \= arr(_, _)' had backtracked into one that was not the array)
     R \= arr(_, _), R \= base(_, [struct(_, _)]), R \= base(_, [union(_, _)]), R \= base(_, [class(_, _, _, _)]), R \= base(_, [vec(_, _, _)]).   % a VECTOR's braced list is its lanes, the rest zero, as clang has it (0.162): `v4 a{5}' is {5, 0, 0, 0}, never the splat
 cpp_zero_of(T, Z) :- ( ccl_resolve_type(T, ptr(_, _)) -> Z = nullptr ; ccl_is_float(T) -> Z = float(0.0) ; Z = int(0) ).
@@ -4972,6 +4994,11 @@ cpp_copies_([P|Ps], [init(Items)|As], [A1|Bs]) :- ( P = param(PT, _) ; P = param
     ;   cpp_il_braced(C, Items, ET2) -> cpp_init_list(ET2, Items, IL), cpp_temporary(base([], [typedef(C)]), C, [IL], A1)   % a class WITH an initializer_list constructor takes the braced argument through it first ([over.match.list]; 0.117): `f({"a", "b"})' over a vector<string>
     ;   cpp_temporary(base([], [typedef(C)]), C, Es, A1) ),
     cpp_copies_(Ps, As, Bs).
+%% A BRACED ARGUMENT TO A PLAIN STRUCT OR UNION PARAMETER, by value or bound to a reference to const, is a compound
+%% literal of its type ([dcl.init.list]/3.4, [over.ics.list]; 0.168), its class items converted to its scalar members:
+%% `sum({3, 4})' over `int sum(P)' reached the lowering as a bare braced list
+cpp_copies_([P|Ps], [init(Items)|As], [compound_lit(ST, I1)|Bs]) :- ( P = param(PT, _) ; P = param(PT, _, _) ), cpp_plain_struct_param(PT, ST), !,
+    cpp_init_convs(ST, init(Items), I1), cpp_copies_(Ps, As, Bs).
 cpp_copies_([P|Ps], [A|As], [A1|Bs]) :-
     ( P = param(PT, _) ; P = param(PT, _, _) ), !,
     (   cpp_param_takes_class(PT, C), ccl_type_of(A, AT), AT \== unknown, \+ cpp_class_of_type_of(A, C), cpp_converting_ctor(C, A)   % the argument's type KNOWN and not the parameter's own class: what cannot be typed is never converted
@@ -4990,6 +5017,7 @@ cpp_copies_([P|Ps], [A|As], [A1|Bs]) :-
     ;   A1 = A ),
     cpp_copies_(Ps, As, Bs).
 cpp_copies_([_|Ps], [A|As], [A|Bs]) :- cpp_copies_(Ps, As, Bs).
+cpp_plain_struct_param(PT0, ST) :- cpp_param_ref(PT0, PT), cpp_param_takes_(PT, ST), \+ cpp_class_of_type(ST, _), once(ccl_resolve_type(ST, RT)), ( RT = base(_, [struct(_, _)]) ; RT = base(_, [union(_, _)]) ), !.
 %% AN initializer_list<T> IS THE COMPILER'S TO BUILD ([dcl.init.list]/6): a backing array of the items, which lives
 %% as long as the full expression -- here a local of the function, since the lowering allocates every block's
 %% locals at its entry -- and the list object through the class's own two-argument constructor over it (private in
@@ -5388,7 +5416,7 @@ cpp_call(Ctx, member(X0, M), As, E) :- !,
     ->  cpp_fill_defaults(Name, As, As1), cpp_object_arg(Name, addr(XM), Obj), cpp_ref_args_of(Name, As1, As2), E = call(id(Name), [Obj|As2])
     ;   atom(M), ( ccl_type_of(X, XT0) -> ccl_unref(XT0, XT) ; XT = unknown ),
         ( XT \== unknown, cpp_class_of_type(XT, XC0), cpp_obj_const(X, const), cpp_class_method(XC0, M, _, _, _, _) -> cpp_refuse(0, non_const_member_on_const(M, XC0))   % a NON-CONST member of a const object is no candidate ([over.match.funcs]/5; 0.127): `c.bump()' over a by-value capture in a lambda that is not mutable
-        ; XT \== unknown, ccl_members_of(XT, _), \+ ( cpp_class_of_type(XT, XC), cpp_data_member(XC, M, _) ) -> cpp_refuse(0, no_member(M, XT))   % a KNOWN type with no such member: a decltype asking for it must refuse, which is the SFINAE that rejects a detection
+        ; XT \== unknown, ccl_members_of(XT, XMs), \+ memberchk(member(_, M, _), XMs), \+ ccl_anon_route(XT, M, _, _), \+ ( cpp_class_of_type(XT, XC), cpp_data_member(XC, M, _) ) -> cpp_refuse(0, no_member(M, XT))   % (a PLAIN struct's own member is one, 0.168: `h.fp(k)' over `struct H { void (*fp)(int &); }' was refused no_member(fp, H)) a KNOWN type with no such member: a decltype asking for it must refuse, which is the SFINAE that rejects a detection
         ; cpp_scalar_object(XT) -> cpp_refuse(0, no_member(M, XT))                       % ... and a SCALAR has no member at all (0.127): `decltype(c.size(), 0)' over an int held, and the lowering refused the body
         ; E = call(member(X, M), As) )                                                   % ... but a DATA member of function-pointer type is called through, as C calls one
     ;   atom(M), ccl_type_of(X, XT0), ccl_unref(XT0, XT), cpp_scalar_object(XT) -> cpp_refuse(0, no_member(M, XT))
@@ -6225,9 +6253,14 @@ cpp_const_fold(member(id(N), F), V) :- cpp_global_agg(N, obj(Ps)), memberchk(F-V
 %% that does not end is a failure and not a hang. What it does not take -- an aggregate, a pointer, a call to a
 %% function it cannot fold, a form below -- FAILS, and the caller's answer is what it was: the call stays a call.
 cpp_eval_fn(F, Params, Ss) :- ( '$cpp_out'(F, function(_, _, _, F, Params, _, block(Ss))) ; '$cpp_ownfn'(F, function(_, _, _, F, Params, _, block(Ss))) ), !.   % FOUND BY ITS NAME (0.165): the two tables are keyed by it
-cpp_eval_call(_, Params, Ss, Args, V) :-
+%% A FUNCTION THAT RETURNS A REFERENCE answers the ADDRESS of its referent (0.168): its returns are evaluated as places
+%% (`'$retref'' in the environment), its call is that place (cpp_eval_addr) and, as a value, what the place holds. It
+%% answered the referent's value, a copy: `std::get<0>(t).parse()' over a constexpr tuple changed a temporary and the
+%% tuple kept its 0, a silent wrong answer once the base cast of 0.168 let `std::get' through
+cpp_eval_ref_fn(F) :- atom(F), ( '$cpp_out'(F, function(_, _, Ret, F, _, _, _)) ; '$cpp_ownfn'(F, function(_, _, Ret, F, _, _, _)) ), !, cpp_eval_ref_type(Ret).
+cpp_eval_call(F, Params, Ss, Args, V) :-
     cpp_fold_depth(D), D < 32, D1 is D + 1, nb_setval('$cpp_fold_depth', D1),
-    (   cpp_eval_bind_params(Params, Args, Env0), ( D == 0 -> nb_setval('$cpp_eval_steps', 0) ; true ),   % one budget for the whole fold, a nested constexpr call included
+    (   cpp_eval_bind_params(Params, Args, Env00), ( cpp_eval_ref_fn(F) -> Env0 = ['$retref'-yes|Env00] ; Env0 = Env00 ), ( D == 0 -> nb_setval('$cpp_eval_steps', 0) ; true ),   % one budget for the whole fold, a nested constexpr call included
         cpp_eval_stmts(Ss, Env0, _, R), ( R = ret(V0) -> true ; R == next, V0 = 0 )   % a void function falls off its end: a constructor, `fill(a, 4, 5)'
     ->  nb_setval('$cpp_fold_depth', D), V = V0
     ;   nb_setval('$cpp_fold_depth', D), fail ).
@@ -6275,6 +6308,7 @@ cpp_eval_stmt(static_assert(_, _, _), Env, Env, next) :- !.
 cpp_eval_stmt(assume(_, _), Env, Env, next) :- !.
 cpp_eval_stmt(declaration(_, _, _, Vars), Env0, Env, next) :- !, cpp_eval_decls(Vars, Env0, Env).
 cpp_eval_stmt(expr(_, E), Env0, Env, next) :- !, cpp_eval_effect(E, Env0, Env, _).
+cpp_eval_stmt(return(_, E), Env, Env, ret(V)) :- memberchk('$retref'-yes, Env), !, cpp_eval_arg(ref([], none), E, Env, '$val'(V)).   % a reference's return: the place (0.168)
 cpp_eval_stmt(return(_, E), Env, Env, ret(V)) :- !, cpp_eval_expr(E, Env, V).
 cpp_eval_stmt(return(_), Env, Env, ret(0)) :- !.
 cpp_eval_stmt(break(_), Env, Env, break) :- !.
@@ -6404,7 +6438,8 @@ cpp_eval_reduce(call(id(F), Args), Env, _) :- atom(F), cpp_eval_abort_fn(F, How)
 cpp_eval_reduce(call(id(F), []), _, int(1)) :- nb_current('$cpp_eval_ce', on), memberchk(F, [is_constant_evaluated, '__libcpp_is_constant_evaluated']), !.   % IN A CONSTEVAL CHECK the evaluation is a constant one (0.164); the desugaring answered false for the run time
 cpp_eval_reduce(call(id(memset), [P, X, sizeof_type(_)]), Env, '$val'(A)) :- cpp_eval_reduce(P, Env, '$val'(A)), A = ptr(_, _), cpp_eval_expr(X, Env, 0), cpp_eval_load(A, W), !, cpp_eval_zeroed(W, Z), cpp_eval_store_ptr(A, Z).   % THE DESUGARING'S OWN ZEROING of a whole object or member, value-initialization (0.164): its value zeroed
 cpp_eval_reduce(call(id(memcpy), [D, Src, sizeof_type(_)]), Env, '$val'(A)) :- cpp_eval_reduce(D, Env, '$val'(A)), A = ptr(_, _), cpp_eval_reduce(Src, Env, '$val'(S)), S = ptr(_, _), cpp_eval_load(S, W), !, cpp_eval_store_ptr(A, W).   % ... and its copy of a whole object as its bytes
-cpp_eval_reduce(call(id(F), Args), Env, R) :- atom(F), cpp_eval_fn(F, Params, Ss), cpp_eval_args(Params, Args, Env, Args1), cpp_eval_call(F, Params, Ss, Args1, V), !, cpp_eval_lit(V, R).
+cpp_eval_reduce(call(id(F), Args), Env, R) :- atom(F), cpp_eval_fn(F, Params, Ss), cpp_eval_args(Params, Args, Env, Args1), cpp_eval_call(F, Params, Ss, Args1, V), !,
+    ( cpp_eval_ref_fn(F) -> V = ptr(_, _), cpp_eval_load(V, W), cpp_eval_decay(W, V, R) ; cpp_eval_lit(V, R) ).   % a reference's call, as a value: what its place holds (0.168)
 cpp_eval_reduce(call(P, Args), Env, R) :- ( P = id(X) -> memberchk(X-_, Env) ; true ), cpp_eval_reduce(P, Env, '$val'(fn(F))), cpp_eval_fn(F, Params, Ss),   % THROUGH A FUNCTION POINTER (0.164)
     cpp_eval_args(Params, Args, Env, Args1), cpp_eval_call(F, Params, Ss, Args1, V), !, cpp_eval_lit(V, R).
 %% THE C LIBRARY'S `strlen' OVER A STRING THE EVALUATOR HOLDS (0.112): libc++'s `char_traits<char>::length' is
@@ -6517,10 +6552,22 @@ cpp_eval_init_items([X|Xs], [item([], T)|Ts]) :- cpp_eval_init_term(X, T), !, cp
 cpp_eval_agg_kind(T, arr(B, ET)) :- ccl_resolve_type(T, arr(B, ET)), !.
 cpp_eval_agg_kind(T, obj(Ms)) :- ccl_resolve_type(T, T1), ( T1 = base(_, [struct(_, Ms0)]), Ms0 \== none ; T1 = base(_, [class(_, _, _, _)]) ), !, ccl_members_of(T1, Ms).
 cpp_eval_init(T, Init, Env0, Env, V) :- cpp_eval_agg_kind(T, K), !, cpp_eval_agg_init(K, Init, Env0, Env, V).
+cpp_eval_init(T, Init, Env, Env, P) :- cpp_eval_ref_type(T), ( Init = init([item(_, E)]) -> true ; E = Init ), E \= init(_), E \== none, \+ cpp_eval_address_item(E, T, Env), !, cpp_eval_arg(T, E, Env, '$val'(P)).   % A REFERENCE MEMBER BINDS ITS ITEM (0.168): its slot holds the item's address (a prvalue's in a cell of its own), as the lowering binds it (ir_init_sub); a closure's item is that address already
 cpp_eval_init(_, none, Env, Env, 0) :- !.
 cpp_eval_init(_, init([]), Env, Env, 0) :- !.
 cpp_eval_init(_, init([item(_, E)]), Env0, Env, V) :- !, cpp_eval_effect(E, Env0, Env, V), cpp_eval_simple(V).   % a braced scalar
 cpp_eval_init(_, E, Env0, Env, V) :- cpp_eval_effect(E, Env0, Env, V), cpp_eval_simple(V).
+%% AN ADDRESS ITEM of a reference member -- the item a closure gives a capture by reference, `&x' or `this' -- is a
+%% pointer to the referent's type, as the lowering tells it (ir_address_item/2): the slot takes the pointer as it is.
+%% Where a type is not known, `&x' for a reference to no pointer is one (no valid initializer is). (0.168)
+cpp_eval_address_item(V, T, Env) :- T =.. [_, _, R], cpp_eval_item_pointee(V, Env, E), cpp_eval_core(E, U), cpp_eval_core(R, U1), !, U == U1.
+cpp_eval_address_item(addr(_), T, _) :- T =.. [_, _, R], \+ ccl_resolve_type(R, ptr(_, _)).
+cpp_eval_item_pointee(addr(X), Env, E) :- !, cpp_eval_type_of(X, Env, XT), ( cpp_eval_ref_type(XT) -> XT =.. [_, _, E] ; E = XT ).
+cpp_eval_item_pointee(V, Env, E) :- cpp_eval_type_of(V, Env, VT), ccl_resolve_type(VT, ptr(_, E)).
+cpp_eval_core(T, U) :- catch(ccl_type_canon(T, K), _, fail), cpp_eval_core_(K, U).
+cpp_eval_core_(base(_, S), base([], S)) :- !.
+cpp_eval_core_(ptr(K), ptr(K1)) :- !, cpp_eval_core_(K, K1).
+cpp_eval_core_(K, K).
 cpp_eval_simple(V) :- ( cpp_eval_scalar(V) ; V = ptr(_, _) ; V = fn(_) ), !.   % a scalar, a POINTER or a FUNCTION POINTER (0.164): `__parse_number_result{__begin, __value}' holds a pointer
 cpp_eval_zeroed(arr(L), arr(Z)) :- !, findall(Y, ( member(X, L), cpp_eval_zeroed(X, Y) ), Z).
 cpp_eval_zeroed(obj(Ps), obj(Zs)) :- !, findall(N-Y, ( member(N-X, Ps), cpp_eval_zeroed(X, Y) ), Zs).
@@ -6566,13 +6613,15 @@ cpp_eval_addr(id(N), _, ptr(cell(Id), [])) :- cpp_global_agg(N, V), atom_concat(
 cpp_eval_addr(index(P, I), Env, A) :- cpp_eval_expr(I, Env, K), integer(K),
     (   cpp_eval_addr(P, Env, ptr(C, Path)), cpp_eval_load(ptr(C, Path), arr(_)) -> append(Path, [K], Path1), A = ptr(C, Path1)
     ;   cpp_eval_expr(P, Env, PV), PV = ptr(_, _), cpp_eval_padd(PV, K, A) ).
-cpp_eval_addr(member(P, F), Env, ptr(C, Path1)) :- cpp_eval_addr(P, Env, ptr(C, Path)), cpp_eval_load(ptr(C, Path), obj(_)), append(Path, [F], Path1).
-cpp_eval_addr(arrow(P, F), Env, ptr(C, Path1)) :- cpp_eval_expr(P, Env, ptr(C, Path)), cpp_eval_load(ptr(C, Path), obj(_)), append(Path, [F], Path1).
+cpp_eval_addr(member(P, F), Env, A) :- cpp_eval_addr(P, Env, ptr(C, Path)), cpp_eval_load(ptr(C, Path), obj(_)), append(Path, [F], Path1), cpp_eval_ref_through(member(P, F), Env, ptr(C, Path1), A).
+cpp_eval_addr(arrow(P, F), Env, A) :- cpp_eval_expr(P, Env, ptr(C, Path)), cpp_eval_load(ptr(C, Path), obj(_)), append(Path, [F], Path1), cpp_eval_ref_through(arrow(P, F), Env, ptr(C, Path1), A).
 cpp_eval_addr(deref(P), Env, A) :- cpp_eval_expr(P, Env, A), A = ptr(_, _).
 cpp_eval_addr(move(E), Env, A) :- cpp_eval_addr(E, Env, A).
+cpp_eval_addr(ccast(_, T, E), Env, ptr(C, Path1)) :- cpp_eval_ref_type(T), cpp_eval_addr(E, Env, ptr(C, Path)), cpp_eval_base_path(T, E, Env, Hops), !, append(Path, Hops, Path1).   % A CAST TO A BASE'S REFERENCE names the base sub-object (0.168): libc++'s `std::get<I>(t)' is `static_cast<__tuple_leaf<I, T> &>(t.__base_).get()', the I-th leaf a later base of `__tuple_impl', and the cast named the whole object, which has no `__value_' of its own
 cpp_eval_addr(ccast(_, T, E), Env, A) :- cpp_eval_ref_type(T), cpp_eval_addr(E, Env, A).
 cpp_eval_addr(cast(T, E), Env, A) :- cpp_eval_ref_type(T), cpp_eval_addr(E, Env, A).
 cpp_eval_addr(id(N), Env, ptr(cell(Id), [])) :- \+ memberchk(N-_, Env), cpp_eval_static_cell(N, Id).
+cpp_eval_addr(call(id(F), Args), Env, A) :- cpp_eval_ref_fn(F), cpp_eval_fn(F, Params, Ss), !, cpp_eval_args(Params, Args, Env, Args1), cpp_eval_call(F, Params, Ss, Args1, A), A = ptr(_, _).   % a call of a function that returns a reference: its referent (0.168)
 %% A CLASS'S STATIC CONSTANT AS A PLACE (0.164): `basic_format_string's `__types_' and `__handles_', whose `.data()' the
 %% check hands its context -- the static's initializer desugared in its class, its type resolved there, its value built
 %% by the evaluator (the handles by the lambdas called in place) into a cell once per unit (`'$cpp_scell'(Name, Id)'),
@@ -6601,9 +6650,19 @@ cpp_eval_sizeof(E, Env, S) :- cpp_eval_type_of(E, Env, T0), ( cpp_eval_ref_type(
 cpp_eval_type_of(id(N), Env, T) :- memberchk('$t'(N)-T, Env), !.
 cpp_eval_type_of(index(E, _), Env, ET) :- cpp_eval_type_of(E, Env, T), ( ccl_resolve_type(T, arr(_, ET)) ; ccl_resolve_type(T, ptr(_, ET)) ), !.
 cpp_eval_type_of(deref(E), Env, ET) :- cpp_eval_type_of(E, Env, T), ( ccl_resolve_type(T, ptr(_, ET)) ; ccl_resolve_type(T, arr(_, ET)) ), !.
-cpp_eval_type_of(member(E, F), Env, MT) :- cpp_eval_type_of(E, Env, T), cpp_eval_agg_kind(T, obj(Ms)), memberchk(member(MT, F, _), Ms), !.
+cpp_eval_type_of(member(E, F), Env, MT) :- cpp_eval_type_of(E, Env, T0), ( cpp_eval_ref_type(T0) -> T0 =.. [_, _, T] ; T = T0 ), cpp_eval_agg_kind(T, obj(Ms)), memberchk(member(MT, F, _), Ms), !.   % a reference's member is its referent's (0.168)
 cpp_eval_type_of(arrow(E, F), Env, MT) :- cpp_eval_type_of(E, Env, T), ccl_resolve_type(T, ptr(_, PT)), cpp_eval_agg_kind(PT, obj(Ms)), memberchk(member(MT, F, _), Ms), !.
 cpp_eval_place(P, Env, V) :- cpp_eval_addr(P, Env, A), cpp_eval_load(A, V).
+%% A REFERENCE MEMBER NAMES ITS REFERENT (0.168): its slot holds the address it was bound to -- a closure's `$this' and its
+%% captures by reference, built as a compound literal of addresses -- so the place `x.r' is that address; the tuple
+%% formatter's `[&]<size_t _Index> { auto &__formatter = std::get<_Index>(__underlying_); ... }' reads `this->$this.__underlying_'
+cpp_eval_ref_through(E, Env, A0, A) :- cpp_eval_load(A0, V), V = ptr(_, _), cpp_eval_type_of(E, Env, MT), cpp_eval_ref_type(MT), !, A = V.
+cpp_eval_ref_through(_, _, A, A).
+%% the hops from an object's class down to a base's sub-object, as the desugaring names them (cpp_base_hops/3: `$base',
+%% `$base$K'), where the cast's class is a base of the operand's
+cpp_eval_base_path(T, E, Env, Hops) :- T =.. [_, _, BT], catch(cpp_class_of_type(BT, B), _, fail), cpp_eval_type_of(E, Env, ET0),
+    ( cpp_eval_ref_type(ET0) -> ET0 =.. [_, _, ET] ; ET = ET0 ), catch(cpp_class_of_type(ET, D), _, fail), D \== B,
+    catch(once(cpp_base_hops(D, B, Hops)), _, fail), Hops \== [].
 cpp_eval_store(P, V, Env, Env) :- cpp_eval_addr(P, Env, A), cpp_eval_store_ptr(A, V).
 cpp_eval_put(0, [_|L], V, [V|L]) :- !.
 cpp_eval_put(K, [X|L0], V, [X|L]) :- K > 0, K1 is K - 1, cpp_eval_put(K1, L0, V, L).

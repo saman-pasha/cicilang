@@ -10289,3 +10289,68 @@ C++ gate over libc++ 18 in 735 s (peak 2503 MB) with 521 of its 524 fixtures ok 
 `stdoptionalref` and `tzone` -- the 24 refusals and the three of the safe part: GREEN. The fixtures' builds summed 2588
 s over 521 (0.166's 2580 s over 520). The C++ gate over libc++ 21 began at 01:49:35 UTC and still ran when this step was
 committed, on the owner's word ("Commit before chain"): it claims nothing here, and the next commit carries its numbers.
+
+## 0.168 — Not done, the eighth part: the roads of a tuple's format check; aggregates' class items; 0.167's chain ended
+
+**0.168: the roads that the compile-time check of a tuple's, a pair's and a map's format string runs into -- which the
+evaluator could not take from 0.164 to 0.167, so that these checks were left to the library's run-time parser -- the
+evaluator takes: a cast to a base's reference, a reference member, an aggregate's reference member, a function that
+returns a reference. On the way, three run-time defects of the desugaring were found and mended: a class value as an
+aggregate's item for a scalar member, a call through a plain struct's function-pointer member by `.`, and a braced
+argument to a plain struct or union parameter. And 0.167's chain ended GREEN. This step was committed before its gates
+ran but the flow gate, on the stop hook's word: it claims nothing GREEN but that gate and its probes, and the next
+commit carries the counts of the format checks and the chain.** The owner's ask of 0.159 ("Take cocolog 2.2.5, do all
+"not done" tasks"), its eighth step: the counts of 0.165 named three checks over each libc++ that the evaluator left
+undone, the map's in `fmtrange.cpp` and the pair's and the tuple's in `fmttuple.cpp`.
+
+- THE STEPS OF THE TUPLE FORMATTER'S PARSE, cut down from libc++ 18's `formatter<tuple<...>>::parse` to one consteval
+  function each (`constevaltuple.cpp`, C++20), each refused `consteval_call_not_constant` before this step:
+  - A CAST TO A BASE'S REFERENCE NAMES THE BASE SUB-OBJECT (`cpp_eval_addr/3` on `ccast/3` over `cpp_eval_base_path/4`,
+    the desugaring's own hops `$base`, `$base$K`): libc++'s `std::get<I>(t)` is `static_cast<__tuple_leaf<I, T>
+    &>(t.__base_).get()`, the I-th leaf a later base of `__tuple_impl`, and the cast named the whole object, which has
+    no `__value_` of its own.
+  - A REFERENCE MEMBER NAMES ITS REFERENT (`cpp_eval_ref_through/4`): its slot holds the address it was bound to, so the
+    place `x.r` is that address -- a closure's `$this` and its captures by reference; the tuple formatter's `[&]<size_t
+    _Index> { auto &__formatter = std::get<_Index>(__underlying_); ... }` reads `this->$this.__underlying_` -- and a
+    member of a reference is its referent's (`cpp_eval_type_of/3`).
+  - AN AGGREGATE'S REFERENCE MEMBER BINDS ITS ITEM (`cpp_eval_init/5`'s reference clause): the slot holds the item's
+    address, a prvalue's in a cell of its own, as the lowering binds it (`ir_init_sub`); an ADDRESS ITEM -- the item a
+    closure gives a capture by reference, `&x` or `this`, a pointer to the referent's type -- is that address already
+    (`cpp_eval_address_item/3`, as the lowering's `ir_address_item/2` tells it). The first form of the rule bound the
+    place of a closure's `&t`, so the slot held a cell holding the pointer, and `std::get<1>(t)` in a `[&]` lambda read
+    no tuple.
+  - A FUNCTION THAT RETURNS A REFERENCE ANSWERS ITS REFERENT'S ADDRESS (`cpp_eval_ref_fn/1`): its returns are evaluated
+    as places (`'$retref'` in the environment), its call is that place (`cpp_eval_addr/3`) and, as a value, what the
+    place holds. It answered the referent's value, a copy: `std::get<0>(t).parse()` over a constexpr tuple changed a
+    temporary and the tuple kept its 0 -- a silent wrong answer, once the base cast let `std::get` through.
+- THE RUN-TIME DEFECTS that the cut-down steps met, each a rule now:
+  - A PLAIN STRUCT'S OWN DATA MEMBER IS A MEMBER to the call road's test of a member the type lacks (`cpp_call/4`'s
+    member clause): `h.fp(k)` over `struct H { void (*fp)(int &); }` was refused `no_member(fp, H)` since 0.88, where
+    `p->fp(k)` was called.
+  - A CLASS VALUE AS AN AGGREGATE'S ITEM CONVERTS TO ITS SCALAR MEMBER'S TYPE through its conversion function
+    ([dcl.init.aggr]/4.2; `cpp_init_convs/3`), and a captureless lambda's item for a function-pointer member is its
+    invoker's address, a constant (`cpp_closure_constant/4`): `H h{[](int &x) { x = 7; }}` took the closure's bytes for
+    the pointer, `inttoptr %struct.lambda.1`, which LLVM refused. A local, a global, a braced return and a braced
+    argument ask it, over a plain struct, a union or an aggregate class; a class with constructors takes its items as
+    its constructor's arguments, and a list with a designator, or over a struct with an array member, is left as it is.
+  - A BRACED ARGUMENT TO A PLAIN STRUCT OR UNION PARAMETER, by value or bound to a reference to const, is a compound
+    literal of its type (`cpp_copies_` over `cpp_plain_struct_param/2`): `sum({3, 4})` over `int sum(P)` reached the
+    lowering as a bare braced list, `not lowered yet: expr(init(...))`.
+- `constevaltuple.cpp` (C++20: the four roads and a function pointer called through a member) prints clang++'s `5 10 7 2
+  8` over libc++ 18 and 21; `aggfnptr.cpp` (a lambda as an aggregate's function-pointer item in a local, a nested list,
+  an array, a global, a braced return and a braced argument; braced arguments to a plain struct, a `const P &` and a
+  union parameter; the call through a plain struct's member) prints clang++'s three lines over both.
+- `CLAUDE.md`: the versions; the evaluator's bullet of the tuple formatter's roads; the member call's bullet; the
+  aggregate's item and the braced argument; What runs; the fixtures' count.
+
+Reader 133 (no grammar moved), lowering 92 (an aggregate's class item converted to its scalar member's type, a braced
+argument to a plain struct a compound literal: new IR where LLVM refused the old or the lowering refused the list).
+
+THE CHAIN OF 0.167, ENDED. Its C++ gate over libc++ 21, which still ran when 0.167 was committed, ended at 02:01:57 UTC:
+742 s (peak 2343 MB; 0.166's 716 s), 523 of its 524 fixtures ok -- the skip `stdoptionalref` -- the 24 refusals and
+the three of the safe part: GREEN. The fixtures' builds summed 2649 s over 523 (0.166's 2563 s over 522).
+
+THE GATES of this step, on a worktree holding these files but the lowering version's bump (its modules 0.166's, over
+cocolog 2.2.5): the flow gate GREEN (one finding, `test/flow.expect`'s, 69 s, peak 2724 MB over its four lanes). The
+counts of the format checks over both libc++ began at 07:37 UTC and still ran when this step was committed, and the
+chain had not begun: they claim nothing here, and the next commit carries their numbers.
