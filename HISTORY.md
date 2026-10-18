@@ -10769,3 +10769,68 @@ library's speed.
 Reader 133 (no grammar moved), lowering 97 (the primary virtual base clang chooses, the table's offsets in clang's order,
 the virtual bases' order of construction, a virtual base's own vcall offsets, a claimed virtual base's part of the VTT:
 new IR for such classes; no C text moves).
+
+## 0.176 — Not done, the fourteenth part: a primary virtual base further in, stolen or free
+
+**0.176: a class's primary may be a virtual base that none of its own bases is -- the nearly empty base that clang
+STEALS from the base that took it as its primary, where the walk finds none free (`D : virtual X` over `X : virtual I`),
+or one that no base takes (`D : virtual X` over `X : P, virtual I`) -- and it is laid as clang lays it: at the class's own
+address, sharing its table pointer, the virtual base that held it after the class's members. Committed before its
+chain, on the owner's word ("Commit before chain"): the chain begins after this commit, and the next one carries its
+numbers.**
+
+THE CHAIN OF 0.175, on the checkout of its commit (its module rebuilt at 0.175, over cocolog 2.2.5), over the HOMEs that
+0.164's chain warmed: the flow gate (one finding, `test/flow.expect`'s, 133 s, peak 2710 MB over its four lanes; 4038
+predicates), reader 6 s, compile 19 s, driver 20 s, objects 5 s, the proof, the cross gate in 236 s (peak 410 MB), the
+C++ gate over libc++ 18 in 1126 s (peak 2329 MB; 0.174's 1008 s) with 558 of its 561 fixtures ok -- the skips
+`joinwith`, `stdoptionalref` and `tzone` -- the 23 refusals and the three of the safe part, from 14:33:35 to 14:52:21
+UTC; and over libc++ 21 in 1167 s (peak 2402 MB; 0.174's 1067 s), 560 of 561 ok, the skip `stdoptionalref`, from 14:52:22
+to 15:11:49 UTC: GREEN. The fixtures' builds, as `fixture-times` records them (four at a time), summed 3966 s over 558
+over libc++ 18 (0.174's 3587 s over 551) and 4159 s over 560 over libc++ 21 (0.174's 3788 s over 553); the slowest over
+libc++ 18 `fmtrange` 177 s, `fmtchrono2` 165 s, `fmtchrono` 149 s, `viewsall` 118 s, `fmtcheck` 115 s and `fmttuple` 111
+s, over libc++ 21 `fmtchrono2` 174 s, `fmtchrono` 150 s, `viewsall` 139 s, `fmtrange` 123 s, `joinwith` 102 s and
+`fmtcheck` 100 s. The numbers are the chain's, wall clock, and no claim about the library's speed.
+
+- THE STOLEN PRIMARY (clang's SelectPrimaryVBase, its last resort; `cpp_vprim_select/3` over `cpp_vprim_walk/5`): where
+  the depth-first walk of the bases as written meets no nearly empty virtual base that is free -- no indirect primary
+  base, the virtual primary of a base that has virtual bases -- the class takes the FIRST nearly empty one the walk met,
+  and the base that took it loses it: `D : virtual X` over `X : virtual I` (X with data) takes I, X's own primary, and
+  lays it at D's own address, D's members after the pointer, X after them (`sizes 16 32`, I at 0, d at 8, X at 16, as
+  clang lays it); 0.175 took no primary there and laid I inside X. X keeps a table pointer of its own, its slots of I
+  thunks to I where I lies (0.174's `cpp_vprim_far/7`). `D2 : virtual X, virtual I` takes the I it writes.
+- A PRIMARY FURTHER IN than the class's own bases -- the stolen one, or one that no base takes (`D : virtual X` over `X :
+  P, virtual I`, X's primary P) -- is the class's FIRST BASE, a virtual one that no base wrote (`cpp_primary_first/3`
+  with no base to move, `'$cpp_vprim_ind'(C, I)`). The order of the bases as written, the type information and the
+  lookup of names leave it out (`cpp_written_order/3`, `cpp_rtti_chain/2`, `cpp_base_scope/2`, `cpp_method/5`,
+  `cpp_acc_owner/4`): its names are the written bases', which may hide them (`X::g` hides `I::g` in `D : virtual X`).
+- A PRIMARY MOVED FIRST IS LOOKED UP AFTER THE BASES WRITTEN AFTER IT ([class.member.lookup]): `D2 : virtual X, virtual
+  I`, its primary I moved first, finds X's g, which hides I's; it found I's.
+- ONE CONSTRUCTION TABLE FOR THE VIRTUAL BASES AT THE OBJECT'S OWN ADDRESS (`cpp_vb_table_name/3`, `cpp_vp_class/3`,
+  `cpp_des_off/3`): while a base-variant sub-object is built, the class's primary virtual base and the virtual bases
+  inside it share one table pointer, so they have one table, the one with the most slots (a primary chain's); its delta
+  from the sub-object being built is that sub-object's own offset. Named by the virtual base, each had a table of its
+  own at one place, and a VTT of a holder whose `.nv` sub-object holds such a base had more entries than its parts.
+- A SUB-OBJECT'S OWN CONSTRUCTION TABLE TAKES ITS FINAL OVERRIDERS (`cpp_ct_entry/12` over `cpp_final_overrider/4`, as
+  its virtual bases' tables and its secondary ones did since 0.171): with the primary further in, the sub-object's
+  first-base chain reaches the primary's own function, and D built inside `F : D` called I's f where X overrides it (two
+  probes of this step's own, `D() D 1 43` where clang has `D() D 22 43`). A thunk's offset from or to the object's own
+  address is 0 (`cpp_far_adj/5` over `cpp_hops_offset/4`), where a thunk to a base at the object's own address had no
+  designator and its entry was dropped.
+- STILL NOT DONE (the Not done bullet): a nearly empty base whose virtual bases lie outside it (`C : virtual I` over `I :
+  virtual A`, A with data) keeps a layout of its own; and a class's primary table over a virtual base that is no primary
+  lays its slots otherwise than clang (the destructor's first, no slot for an override of the virtual base's function).
+- Fixtures (7, each clang++'s output, the same over libc++ 18 and 21, each passing over both): `vprimstolen`, `vprimfar`,
+  `vprimstolenctor`, `vprimstolenover`, `vprimstolennames`, `vprimstolennest`, `vprimfarctor`; 568 run fixtures in all.
+- THE GATES of this step, before its commit, one run at a time: the seven probes against clang++ over libc++ 18, built
+  from the work tree -- five of them clang's at once, two (the calls in each constructor of a class derived from the one
+  whose primary lies further in) after the construction table took its final overriders. The flow gate on the work tree
+  and on the checkout: GREEN, its one finding `test/flow.expect`'s, 124 s and 117 s, peaks 2976 MB and 2726 MB over its
+  four lanes, 4041 predicates. A net of 70 fixtures that the change reaches -- the 63 of 0.175's net and the 7 new ones
+  -- built from the work tree over libc++ 18 and over libc++ 21: 70 ok each. The 7 new fixtures from the checkout over
+  libc++ 18 and over libc++ 21: 7 ok each. The chain claims nothing here.
+- `CLAUDE.md`: the versions, the nearly empty primary's bullet of the Virtual bases and the diamond topic, a new bullet
+  for a primary further in, the gates' numbers, What runs, Not done. `README.md`: a primary stolen or further in.
+
+Reader 133 (no grammar moved), lowering 98 (a primary virtual base further in, stolen or free, laid at the class's own
+address; the lookup order of a primary moved first; one construction table for the virtual bases at the object's own
+address; a sub-object's construction table its final overriders: new IR for such classes; no C text moves).

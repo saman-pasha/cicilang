@@ -56,7 +56,8 @@ record of every step.
   directly or further in, a class over several virtual bases through
   its paths, a diamond over them too, later virtual bases (`X : B, virtual
   A`), with virtual bases of their own too, a nearly empty virtual base as the
-  primary base, the one clang chooses, a virtual base's own vcall offsets,
+  primary base, the one clang chooses, stolen or further in, a virtual
+  base's own vcall offsets,
   and the base-variant constructors and destructors built under
   construction vtables of their own at any depth, from a VTT,
   `noexcept` enforced, trailing return types, access control for
