@@ -479,6 +479,7 @@ pp_spell(tok(_, V, _), Cs) :- ( atom(V) -> atom_codes(V, Cs) ; number(V) -> numb
 pp_spell(_, []).
 pp_dec_suffix(dec32, [0'd, 0'f]).  pp_dec_suffix(dec64, [0'd, 0'd]).  pp_dec_suffix(dec128, [0'd, 0'l]).
 pp_imag_suffix(imagi, [0'i]).   pp_imag_suffix(imagui, [0'u, 0'i]).   pp_imag_suffix(imagli, [0'l, 0'i]).   pp_imag_suffix(imaguli, [0'u, 0'l, 0'i]).
+pp_imag_suffix(imaglli, [0'l, 0'l, 0'i]).   pp_imag_suffix(imagulli, [0'u, 0'l, 0'l, 0'i]).   % (0.179)
 pp_str_prefix(wstr, [0'L]).    pp_str_prefix(u16str, [0'u]).    pp_str_prefix(u32str, [0'U]).
 pp_chr_prefix(wchr, [0'L]).    pp_chr_prefix(u16chr, [0'u]).    pp_chr_prefix(u32chr, [0'U]).
 pp_escape([], []).
@@ -1467,6 +1468,8 @@ ccl_pp_spell_tok(K, C, [P, 39|Out], Rest) :- pp_chr_prefix(K, [P]), !, ccl_pp_sp
 ccl_pp_spell_tok(uint, N, Out, Rest) :- !, pp_int_codes(N, Cs), append(Cs, [0'u|Rest], Out).
 ccl_pp_spell_tok(long, N, Out, Rest) :- !, pp_int_codes(N, Cs), append(Cs, [0'l|Rest], Out).
 ccl_pp_spell_tok(ulong, N, Out, Rest) :- !, pp_int_codes(N, Cs), append(Cs, [0'u, 0'l|Rest], Out).
+ccl_pp_spell_tok(llong, N, Out, Rest) :- !, pp_int_codes(N, Cs), append(Cs, [0'l, 0'l|Rest], Out).   % `9ll' and `9ull', kinds of their own (0.179)
+ccl_pp_spell_tok(ullong, N, Out, Rest) :- !, pp_int_codes(N, Cs), append(Cs, [0'u, 0'l, 0'l|Rest], Out).
 ccl_pp_spell_tok(bitint, N, Out, Rest) :- !, pp_int_codes(N, Cs), append(Cs, [0'w, 0'b|Rest], Out).        % C23's `wb' and `uwb' (0.93): the suffix was lost in the flattened text
 ccl_pp_spell_tok(ubitint, N, Out, Rest) :- !, pp_int_codes(N, Cs), append(Cs, [0'u, 0'w, 0'b|Rest], Out).
 ccl_pp_spell_tok(pp, A, [35|Out], Rest) :- !, atom_codes(A, Cs), append(Cs, Rest, Out).

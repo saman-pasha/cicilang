@@ -358,7 +358,9 @@ chrono formatting and `std::rel_ops` through a using-directive; since 0.138
 libc++'s time zones under `-fexperimental-library`, as clang++ takes it; since
 0.164 `std::format`'s format string checked at compile time (since 0.168 a
 pair's, a tuple's and a map's too), a bad one refused with libc++'s own
-message, as clang++ refuses it.
+message, as clang++ refuses it; since 0.179 `<chrono>`'s durations, clocks
+and time points with their literals (`1500ms`, `3us`), and `<complex>`'s
+(`3i`, `2.0if`).
 `test/libcxx.sh` reads `<vector>`, `<string>`,
 `<iostream>`, `<map>`, `<set>`, `<unordered_map>`, `<unordered_set>`,
 `<optional>`, `<memory>`, `<functional>`, `<tuple>` and `<algorithm>` whole,

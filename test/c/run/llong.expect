@@ -1,0 +1,7 @@
+long long unsigned long long long unsigned long long long unsigned long long unsigned long long
+5 18446744073709551615 -9223372036854775808 8 8 9223372036854775808
+1099511627779 1 7 16
+3 long long unsigned long long 1
+case
+1 4
+exit 0

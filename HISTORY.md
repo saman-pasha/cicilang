@@ -157,6 +157,22 @@ One row per step, in version order: the step's title, what it did and its gate n
 | 0.161 | Not done, the second part: C++ for aarch64 and ARM's member pointers, names through a using, statement columns | C++ for aarch64 Linux over that machine's libc++ 18 in the cross sysroot, linked and run under qemu; pointers to member functions in ARM's form there; a data member pointer's null -1, its conversions, comparisons and zero-initialization; a header's keyed name named through a using; a statement's column in the debug information; the gates' own Prolog charted; the neighbours' open issues measured again | the libc++ 18 half GREEN, all nine gates, 2685 s; 509 of 512 C++ fixtures over 18; the libc++ 21 half still running at the commit |
 | 0.162 | Not done, the third part: vector types, and libc++ 21's vectorized algorithms | GCC's and clang's vector types read, checked and lowered (`vector_size`, `ext_vector_type`: operators lane by lane, lanes, masks, conversions, `__builtin_convertvector`, `__builtin_shufflevector`, `__builtin_reduce_*`; the ABI as clang passes them on both machines; the mangler's `Dv`); `__OPTIMIZE_SIZE__` no longer predefined, so libc++ 21's vectorized `mismatch` and `lexicographical_compare`; a generic lambda's parameters kept as written whatever the tables know, a pack expansion over a class a call; 0.161's libc++ 21 half recorded | all nine gates GREEN over libc++ 18, the two libc++ gates over 21, 4594 s (0.161: 4719 s); 511 of 514 C++ fixtures over 18, 513 over 21 |
 | 0.163 | Not done, the fourth part: the Itanium layout of every class over a virtual base | a class whose one non-virtual base holds a virtual base is its holder (the base's `.nv` form, its own members, the virtual base last, built by the most derived class), so the deep diamond builds and the streams and a program class over one have clang's layout, their shipped members called again; a holder's sub-object's table pointer stored through its base, an object of a derived class assigned to a base's (the slicing copy), an empty virtual base's table offset, the diamond mask | all nine gates GREEN over libc++ 18, the two libc++ gates over 21, 4495 s (0.162: 4594 s); 515 of 518 C++ fixtures over 18, 517 over 21 |
+| 0.164 | Not done, the fifth part: `std::format`'s format string checked at compile time | a library class's consteval constructor run in the constexpr evaluator where its object is made (its check twin `<Name>.ce`), so `std::format`'s format string is checked at compile time and a bad one refused by name with libc++'s own message (`fmtindex.cpp`, `fmttype.cpp`); brace elision of a scalar item into an array member of scalars; a refusal's line kept after an instance's walk | all nine gates GREEN over libc++ 18, the two libc++ gates over 21, 5105 s (0.163: 4495 s); 517 of 520 C++ fixtures over 18, 519 over 21; four builds over `std::visit` took most of the rise |
+| 0.165 | the numbers of 0.164's chain, and the evaluator's costs that 0.164 multiplied | an operand reduced once in the evaluator (`*e` and `&e`, the condition of `?:`, `&&` and `||`), no literal walked by the test of an effect, a static's and a callee's name split once; the IR 0.164's | committed with the flow gate, the C gates and the proof GREEN; the C++ gate 731 s over libc++ 18 and 733 s over 21, 517 of 520 and 519 of 520; `stdvariantsel.cpp` 13.9 s of CPU (0.164: 153 s) |
+| 0.166 | Not done, the sixth part: the function's own name and `std::source_location` | `__func__`, `__FUNCTION__` and `__PRETTY_FUNCTION__` as clang spells them, in C++ and in C; `std::source_location::current()` the place of the call whose default argument it is; a member defined by a qualified name of several segments, and a definition by a namespace-qualified name moved into its namespace | all nine gates GREEN over libc++ 18, the two libc++ gates over 21, the C++ gate 728 s and 716 s; 520 of 523 C++ fixtures over 18, 522 over 21 |
+| 0.167 | Not done, the seventh part: a C++ string literal is `const char[N]` | a string literal an lvalue of `const char[N]`: the `const char *` overload the better one, the pointer deduced by value and the array by reference, `decltype`, an array's bound in a key, the array traits; a reference to an array bound to the literal's own global | the gates the step touches GREEN at the commit, the C++ gate 735 s over libc++ 18; over 21 742 s (0.168), 521 of 524 and 523 of 524 |
+| 0.168 | Not done, the eighth part: the roads of a tuple's format check; aggregates' class items; 0.167's chain ended | the evaluator takes a cast to a base's reference, a reference member, an aggregate's reference member and a function that returns a reference, so the format checks of a pair, a tuple and a map are evaluated; a class value as an aggregate's scalar item, a call through a plain struct's function-pointer member by `.`, a braced argument to a plain struct parameter | committed with the flow gate alone; its chain (0.170): all nine gates GREEN over libc++ 18, the two libc++ gates over 21, the C++ gate 655 s and 656 s; 523 of 526 over 18, 525 over 21 |
+| 0.169 | the counts of 0.168: every check of the format fixtures evaluated | the compile-time checks of the format fixtures counted: 71 over libc++ 18 and 94 over 21, none left to the library's run-time parser | committed before 0.168's chain |
+| 0.170 | the chain of 0.168 | no library file changed: the numbers of 0.168's chain | all nine gates GREEN over libc++ 18, the two libc++ gates over 21; the fixtures' builds summed 2316 s and 2330 s |
+| 0.171 | Not done, the ninth part: a class over several virtual bases through its paths | every base that holds virtual bases its `.nv` form and every virtual base at the end of the complete object (`$vb`, `$vb$2` ...), the final overrider of a slot found among all the bases; a diamond over two virtual bases builds (`virtual_base_by_two_paths` and `test/cpp/diamond.cpp` gone) | its chain (0.172): all nine gates GREEN over libc++ 18, the two libc++ gates over 21, the C++ gate 691 s and 690 s; 525 of 528 over 18, 527 over 21 |
+| 0.172 | Not done, the tenth part: later virtual bases and the VTT | a later virtual base held as the Itanium ABI holds it, reached through its table's vbase offset (`multiple_inheritance` gone); construction tables at any depth from a VTT, `D.vtt`, that each `.nv` constructor and destructor is handed, its secondary pointers included; a secondary table typed by its sub-object's slots | its chain (0.173): all nine gates GREEN over libc++ 18, the two libc++ gates over 21, the C++ gate 706 s and 663 s; 539 of 542 over 18, 541 over 21 |
+| 0.173 | Not done, the eleventh part: a later virtual base over virtual bases | a later virtual base with virtual bases of its own held as its `.nv` form, and a path that reaches an empty virtual base further in, laid as clang lays them (the two refusals of 0.172 met by no probe); the virtual bases built in the standard's order | its chain (0.174): all nine gates GREEN over libc++ 18, the two libc++ gates over 21, the C++ gate 1120 s and 1122 s, the machine slower after a restart; 547 of 550 over 18, 549 over 21 |
+| 0.174 | Not done, the twelfth part: the nearly empty virtual primary base | a nearly empty virtual base the primary base (the Itanium ABI 2.4 II.1b): at the class's own address, sharing its table pointer, with vcall offsets in its table; a holder lays it where the first base sub-object that takes it as its primary lies, a thunk moving `this` where it lies apart | its chain (0.175): all nine gates GREEN over libc++ 18, the two libc++ gates over 21, the C++ gate 1008 s and 1067 s; 551 of 554 over 18, 553 over 21 |
+| 0.175 | Not done, the thirteenth part: which virtual base is the primary, and a virtual base's vcall offsets | the primary virtual base that clang chooses, the first nearly empty one that is no other base's virtual primary, its own virtual bases inside it; a primary built in the standard's order; a virtual base's own tables carry its vcall offsets after its vbase offsets | its chain (0.176): all nine gates GREEN over libc++ 18, the two libc++ gates over 21, the C++ gate 1126 s and 1167 s; 558 of 561 over 18, 560 over 21 |
+| 0.176 | Not done, the fourteenth part: a primary virtual base further in, stolen or free | a primary virtual base that none of the class's own bases is -- stolen from the base that took it, or one that no base takes -- laid at the class's own address, sharing its table pointer; names looked up through the bases written; the construction tables of the virtual bases at the object's address shared | its chain (0.177): all nine gates GREEN over libc++ 18, the two libc++ gates over 21, the C++ gate 1108 s and 1073 s; 565 of 568 over 18, 567 over 21 |
+| 0.177 | Not done, the fifteenth part: the slots of a primary table in the ABI's order | a primary table's slots in the Itanium ABI's order (2.5.2): the primary base's, then each new virtual function, an override of another base's function among them, the implicit destructor last; a defaulted virtual destructor a destructor of its own; the implicit destructor of a class over a later base with one | its chain (0.178): all nine gates GREEN over libc++ 18, the two libc++ gates over 21, the C++ gate 1030 s and 1022 s; 571 of 574 over 18, 573 over 21 |
+| 0.178 | Not done, the sixteenth part: a nearly empty primary whose virtual bases lie outside it | a nearly empty primary whose own virtual bases lie outside it laid as its base-variant form at the class's own address, the class holding its virtual bases; a cached answer one answer, since a layout's other answers poisoned the layout cache | its chain (0.179): all nine gates GREEN over libc++ 18, the two libc++ gates over 21, the C++ gate 1059 s and 1005 s; 576 of 579 over 18, 578 over 21 |
+| 0.179 | Not done, the seventeenth part: a number's suffixes and types, pointer globals, the C++23 read of <complex> | an integer's tail that is no integer suffix its ud-suffix in C++ (`3us`); `<complex>`'s `i`, `if` and `il` where a using makes them visible, else GNU's; `3ll` a long long; the type information of a complex type, of a pointer to a class and of a library class without a table; a pointer caught; our `stddef.h` clears glibc's `__need_*`, so `<complex>` reads whole at C++23; pointer globals from integer constants, arrays bounded by constant expressions | committed before its chain: the flow gate, the C gates and the proof GREEN, two nets over libc++ 18 (41 and 25 fixtures); 87 run C fixtures, 585 C++ |
 
 ## M5 — the C++ mode
 
@@ -10981,3 +10997,110 @@ slowest over libc++ 18 `fmtrange` 178 s, `fmtchrono2` 164 s, `fmtchrono` 151 s, 
 
 Reader 133 (no grammar moved), lowering 100 (a nearly empty primary whose virtual bases lie outside it laid as its
 base-variant form, the class holding them; a cached answer one answer: new IR for such classes).
+
+## 0.179 — Not done, the seventeenth part: a number's suffixes and types, pointer globals, the C++23 read of <complex>
+
+**0.179: an integer literal's tail that is no integer suffix is its ud-suffix in C++, and so are a number's exact `i`,
+`if` and `il`, `<complex>`'s literals where a using makes them visible; `3ll` is a long long and `3ull` an unsigned long
+long; a complex type's type information is clang's, a pointer to a class has its own and a library class without a table
+too; a pointer caught is the pointer the runtime answers; our `<stddef.h>` clears glibc's `__need_*` requests, so libc++
+18's headers read whole at C++23; a pointer global from an integer constant is null or its address, and an array's bound
+is any constant expression where the lowering reads it. Committed before its chain, on the owner's word ("Commit before
+chain"): the chain begins after this commit, and the next one carries its numbers.**
+
+THE CHAIN OF 0.178, on the checkout of its commit (module 0.178, lowering 100, over cocolog 2.2.5), over the HOMEs that
+0.164's chain warmed, from 18:47:37 to 19:28:23 UTC: the flow gate (one finding, `test/flow.expect`'s, 122 s, peak 2764
+MB over its four lanes; 4048 predicates), reader 5 s, compile 17 s, driver 16 s, objects 5 s, the proof, the cross gate
+in 209 s (peak 463 MB), the C++ gate over libc++ 18 in 1059 s (peak 2369 MB; 0.177's 1030 s) with 576 of its 579
+fixtures ok -- the skips `joinwith`, `stdoptionalref` and `tzone` -- the 23 refusals and the three of the safe part,
+from 18:53:58 to 19:11:37 UTC; and over libc++ 21 in 1005 s (peak 2367 MB; 0.177's 1022 s), 578 of 579 ok, the skip
+`stdoptionalref`, from 19:11:38 to 19:28:23 UTC: GREEN. The fixtures' builds, as `fixture-times` records them (four at a
+time), summed 3754 s over 576 over libc++ 18 (0.177's 3671 s over 571) and 3605 s over 578 over libc++ 21 (0.177's 3654
+s over 573); the slowest over libc++ 18 `fmtrange` 168 s, `fmtchrono2` 157 s, `fmtchrono` 141 s, `fmtcheck` 111 s,
+`viewsall` 107 s and `fmttuple` 107 s, over libc++ 21 `fmtchrono2` 147 s, `fmtchrono` 128 s, `viewsall` 116 s,
+`fmtrange` 106 s, `joinwith` 88 s and `fmtcheck` 87 s. The numbers are the chain's, wall clock, and no claim about the
+library's speed.
+
+The step began with `<chrono>`, which 0.136 named too slow for a fixture of its own: a probe of its durations, clocks
+and time points built in 106 s cold and 6 s warm over the 0.178 library -- fast enough -- and printed another answer
+than clang++'s where it wrote `3us`. Each defect below was met by a probe of the one before it.
+
+- AN INTEGER'S TAIL THAT IS NO INTEGER SUFFIX IS ITS UD-SUFFIX in C++ ([lex.ext]/1; `ccl_int_end//3`,
+  `ccl_udl_int_ahead/2`; the native `ccl_lx_int_suffix`): `3us` was the literal `3u` and the suffix `s` -- three
+  seconds, `nanoseconds(1us)` 10^9 -- since the suffix `u` ran on into it; now nothing of a tail that no integer suffix
+  is read, and the identifier after the number is its suffix (`0x10us`, `0b11us`, `017us`, `5ul_x` alike). In C the tail
+  is the suffix it was. `k84` compares the two lexers over a new line of `test/c/lexer.c`.
+- `<complex>`'S LITERALS ([complex.literals]): in C++ a number's exact `i`, `if` and `il` are a ud-suffix
+  (`ccl_imag_udl_ahead/2`, `ccl_lx_imag_udl`; `if` lexes as the keyword, which `ccl_udl//2` takes), and the desugaring
+  calls `operator""i` where a using-directive or a using-declaration makes it visible -- of `std`, `std::literals`,
+  `std::complex_literals` or `std::literals::complex_literals`, at namespace scope for the rest of the unit and in a
+  block to its end (`cpp_cplxlit_using/2`, `cpp_cplxlit_visible/1`) -- and else makes GNU's imaginary literal
+  (`cpp_udl_imag/3`: `3if` a `_Complex int`, the `f` dropped, as clang reads it), as clang's Sema does where the lookup
+  of the operator fails; a using in a namespace's block ends with the block. `3i` was GNU's always: `auto e = 3i;` under
+  `using namespace std::complex_literals;` was a `_Complex int`.
+- THE TYPE INFORMATION OF A LIBRARY CLASS WITHOUT A TABLE, AND OF A COMPLEX TYPE (`cpp_rtti_of_type`, `ir_rtti_emit/2`):
+  libc++ exports the type information of its polymorphic classes alone, so `typeid(std::complex<double>)` named
+  `_ZTINSt3__17complexIdEE`, which the link did not find; such a class has its own `linkonce_odr` one now, as clang
+  emits it. A complex type's is clang's, `_ZTICd` over `__fundamental_type_info` and a pointer to one `_ZTIPCd` over
+  `__pointer_type_info` (`cpp_complex_code/2`, `cpp_ptr_cv/3`, `ir_rtti_string/2`), where it was the real type's.
+- A POINTER TO A CLASS has clang's type information too (`cpp_rtti_pointee/3`): `_ZTIP1A`, `_ZTIPKNSt3__17complexIdEE`,
+  `__pointer_type_info` over the class's own, the pointee's cv in its flags (a plain struct's alike); `typeid(const B
+  *)` was refused, `typeid_of`. And A POINTER CAUGHT is the pointer `__cxa_begin_catch` answers, adjusted to the
+  handler's type, as clang stores it (`ir_catch_bind/3`): it was loaded from where it points, so over the 0.178 library
+  `catch (int *p)` of `throw &k;` crashed (a segmentation fault, where clang++ prints 42) -- a defect since 0.108 that
+  no fixture held; a pointer to a class could not be caught at all, its type information refused.
+- THE C++23 READ OF `<complex>` (`library/include/stddef.h`): at C++23 `auto e = 3i;` under the using was `not lowered
+  yet: auto(e)` in a second, where it built at C++17; `test/why.sh` named the call of `op.literal_i.1`, of no type, and
+  the C++23 summary of `<complex>` held no literal operator, its AST 1.1 MB where C++17's is 4.4 MB. The census of the
+  flattened header read it PARTIAL, 383 items, stopped at `unique_ptr<T[]>::reset(nullptr_t = nullptr)`: `nullptr_t` was
+  declared nowhere. Our `<stddef.h>` answered glibc's `#define __need_size_t` with the whole header and left the request
+  defined, so every later inclusion was one more request, which libc++ 18's `<stddef.h>` answers by `#include_next`
+  alone; at C++23, whose headers include `<cstddef>` after a C header (the transitive includes gone), libc++'s `typedef
+  decltype(nullptr) nullptr_t;` never came, `<cstddef>` stopped at its `#error` (a header's `#error` stops that file,
+  silently) and so did every read at its first `nullptr_t`. It clears the requests clang's header names on every
+  inclusion now, and `<complex>` reads WHOLE at C++23, 636 items. libc++ 21's `<stddef.h>` reads no request.
+- `3ll` IS A LONG LONG AND `3ull` AN UNSIGNED LONG LONG (C 6.4.4.1/5, [lex.icon]/3): both lexers give the kinds `llong`
+  and `ullong` (the native `x->sfx` 6 and 7, the l's counted), and `imaglli` and `imagulli` for GNU's `3lli` and
+  `4ulli`; the parser types them as the casts they amount to, as it types `1.5f` (`ccl_primary_//3`), `-E` spells them
+  back (`ccl_pp_spell_tok/4`, `pp_imag_suffix/2`) and `ccl_null_constant/1` takes `0ll`. They were `long` and `ulong`.
+- AN ARRAY'S BOUND IS A CONSTANT EXPRESSION wherever the lowering reads it (`ir_arr_count/2`): a global's constant, the
+  call ABI's leaves and the debug subrange took a literal alone, and `long b[1 + 1] = { 7, 16 };` at file scope was
+  refused, `global_init(arr(bin(+, int(1), int(1)), ...))`, as `long long b[2ll]` was once `2ll` read as a cast.
+- A POINTER GLOBAL FROM AN INTEGER CONSTANT (C 6.3.2.3/3, /5, 6.6/9; `ir_gconst/3` over `ir_gint_const/2`): a null
+  pointer constant is `null`, any other integer constant the address it names (`inttoptr`), and a pointer constant cast
+  to another pointer type that constant. Over the 0.178 library every form failed at file scope: `int *p = 0;` and `=
+  0L` made `@p = global ptr 0`, which LLVM refused (`integer constant must have integer type`), and `= NULL`, `= (void
+  *) 0`, `= (int *) 0`, `= (long) 0` and `= (int *) 4096` were refused, `global_init(cast(...))`. No fixture held a
+  pointer global given an initializer.
+- BEFORE: over the 0.178 library, the `<chrono>` probe that opened the step printed two of its fifteen lines wrong, `0`
+  for `3us < 2ms` and `1000000000` for `nanoseconds(1us).count()`, where clang++ prints 1 and 1000; a C++23 probe of
+  `3us`, `0x10us`, `0b11us`, `017us`, `3i`, `3il`, `3if` and `3uz` stopped at a syntax error (`gave up near line 13`,
+  the line of `3i`, `3il` and `3if`); a probe of `3ll` and `3ull` called `f(long)` and `f(unsigned long)` where `f(long
+  long)` and `f(unsigned long long)` are the exact match, a template deduced `long` and `unsigned long`, `decltype(3ll)`
+  was no `long long`, `typeid` named `l` and `m` where clang++ names `x` and `y`, and with `int *gp = 0ll;` at file
+  scope the build stopped in LLVM (`integer constant must have integer type`).
+- Fixtures (8, each the reference compiler's output): in C `llong` and `ptrglobal` (clang's, the same on aarch64 under
+  qemu), 87 run fixtures in all; in C++ `stdchrono`, `udlsuffix` (C++23), `complexlit` (C++23), `complexrtti`, `llong`
+  and `ptrrtti` (clang++'s over libc++ 18, the same over 21, each passing over both), 585 run fixtures in all.
+- THE GATES of this step, before its commit, one run at a time over the work tree: the flow gate (one finding,
+  `test/flow.expect`'s, 112 s, peak 2662 MB; 4066 predicates), the reader gate (6 s), the compile gate (16 s; 87 run and
+  47 safe fixtures), the driver gate (16 s), the objects gate (4 s) and the proof, all GREEN; the probes; the two C
+  fixtures on x86-64 at `-O1` and on aarch64 under qemu; the six C++ fixtures over libc++ 18 and 21; and two nets over
+  libc++ 18, over a HOME of the reader's new version. The first, 41 fixtures -- the 15 at C++23 and C++26 that libc++ 18
+  runs and 26 over the literals, the formats and the containers -- three at a time, from 20:50 to 21:13 UTC, before the
+  last changes (the `3if` integer, the namespace block's end of a using, a pointer's type information and its handler):
+  40 printed clang++'s output, and `contracts` its standard output, the program ending by abort as clang++'s does (the
+  net's harness merges standard error and loses the exit status, which the C++ gate holds); the builds summed 3790 s,
+  the slowest `stdranges` 369 s, `stdformat` and `fmtrange` 352 s, peak 1101 MB (`fmtchrono`). The second, after them,
+  from 21:24 to 21:26 UTC, 25 fixtures over exceptions, type information, namespaces and usings, modules and literals:
+  24 printed clang++'s output and `noexcept` its standard output, ending in `terminate` as clang++'s does; 175 s summed,
+  peak 763 MB (`usingnamed`). The reader version moved, so the chain after the commit reads the library afresh, over
+  fresh HOMEs.
+- `CLAUDE.md`: the versions, the lexers' integer and imaginary literals, the user-defined literal, the compiler's own
+  `stddef.h`, the type information, the pointer globals and the array bounds, the gates' numbers, What runs, Not done
+  (`<chrono>`). `README.md`: `<chrono>`'s and `<complex>`'s literals.
+
+Reader 134 (an integer's ud-suffix and a number's exact `i`, `if` and `il` in C++; `llong` and `ullong`; whole C++23
+reads over libc++ 18), lowering 101 (the type information of a complex type, of a pointer to a class and of a library
+class without a table; a pointer caught; `<complex>`'s literal operators; pointer globals from integer constants and
+arrays bounded by constant expressions: new IR for such programs).

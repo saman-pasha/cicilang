@@ -1,0 +1,9 @@
+P1A PK1B PV1D PVK1P
+PSt13runtime_error PNSt3__112basic_stringIcNS_11char_traitsIcEENS_9allocatorIcEEEE
+1 0
+caught 4
+caught const 4
+caught int 42
+caught second base 8 4
+caught F 9
+exit 0

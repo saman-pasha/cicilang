@@ -10,8 +10,8 @@ it found, its measurements and its gate numbers. `README.md` tells a user what r
 architecture and the milestones. A step that changes a rule edits the rule here, in its topic, and writes its entry
 in `HISTORY.md`.
 
-At 0.178 the versions are: the module 0.178 (`ccl_p_version` in `module/cicilang.cicili`, `bin/cicilang --version`),
-the reader 133 (`ccl_reader_version/1`, `library/ccl_syntax.pl`) and the lowering 100 (`ccl_lowering_version/1`,
+At 0.179 the versions are: the module 0.179 (`ccl_p_version` in `module/cicilang.cicili`, `bin/cicilang --version`),
+the reader 134 (`ccl_reader_version/1`, `library/ccl_syntax.pl`) and the lowering 101 (`ccl_lowering_version/1`,
 `library/ccl_ir.pl`).
 
 Build and prove, always in this order (or all of it, `sh test/gates.sh`):
@@ -397,7 +397,8 @@ tutorials/01..03-*.pl       the objects layer's lessons; goal main, last line do
 - `test/flow.sh` (0.144) reads every file of the library with cocolog's `library(flow/chart)` and RUNS NOTHING. A chart
   starts at one call pattern, so `test/flow.pl`'s `fg_roots_main/2` writes a copy of each file with a root,
   `'$fg_all'/N`, that calls each predicate the file defines with free arguments: 3538 predicates in the ten files at
-  0.161 (3938 in all at 0.167, 3994 at 0.172, 4003 at 0.173, 4020 at 0.174, 4038 at 0.175, 4041 at 0.176, 4046 at 0.177, 4048 at 0.178), and since 0.161 the 220 of the nine gate programs, `test/reader.pl`, `compile.pl`,
+  0.161 (3938 in all at 0.167, 3994 at 0.172, 4003 at 0.173, 4020 at 0.174, 4038 at 0.175, 4041 at 0.176, 4046 at 0.177,
+  4048 at 0.178, 4066 at 0.179), and since 0.161 the 220 of the nine gate programs, `test/reader.pl`, `compile.pl`,
   `cpp.pl`, `readhdr.pl`, `census.pl`, `libcxx.pl`, `flow.pl`, `why.pl` and `prof.pl` (`TFILES`), each charted with the
   compiler and the flow and process libraries loaded, nothing stubbed (no gate program is a library file); their first
   chart found a predicate split by another's clauses (`census_main/0`) and a call of `print_message/2`, which cocolog
@@ -467,7 +468,7 @@ tutorials/01..03-*.pl       the objects layer's lessons; goal main, last line do
 - The compile gate. `test/compile.pl`, one process over the user's store, reads, checks, lowers, compiles at `-O1`
   and links every `test/c/run/*.c` at its `NAME.std` level (`c_level`). It expects every `test/c/safe/*.c` refused.
   `test/compile.sh` runs each binary as `NAME arg1 arg2` against `NAME.expect`, and compares each refusal with
-  `safe/NAME.expect`. There are 85 run and 47 safe fixtures at 0.166. (M2, M3, 0.57)
+  `safe/NAME.expect`. There are 87 run and 47 safe fixtures at 0.179. (M2, M3, 0.57)
 - The driver gate. `test/driver.sh` makes 40 checks of `bin/cicilang` over the user's store (the two decimal checks are
   skipped where no gcc with decimal floating types is installed), the variadic calls of every kind both ways against
   clang among them (`test/c/link/va_*.c`, 0.131), and Apple's arm64 expansion of `va_arg` of an aggregate against
@@ -510,8 +511,9 @@ tutorials/01..03-*.pl       the objects layer's lessons; goal main, last line do
   both under qemu and compares them, then two checks against clang++'s code on that machine, the C++ gate's own: classes
   by value and pointers to member functions both ways (`test/cpp/link/`). Each C++ build has a time and a memory cap of
   its own (`CROSS_SECS` 1800, `CROSS_MB` 2800: its summaries are the target's, cold in every chain); without the tree
-  the part is a SKIP line. 85 C fixtures and 5 checks, 24 C++ fixtures (`vector.cpp` since 0.162) and 2 checks at 0.167,
-  703 s in 0.164's chain, peak 535 MB, the C++ part cold (its summaries are that machine's own, read afresh in every
+  the part is a SKIP line. 87 C fixtures (85 at 0.167) and 5 checks at 0.179, 24 C++ fixtures (`vector.cpp` since
+  0.162) and 2 checks at 0.167, 703 s in 0.164's chain, peak 535 MB, the C++ part cold (its summaries are that
+  machine's own, read afresh in every
   chain's fresh HOME); 151 s in 0.166's, 150 s in 0.167's, 143 s in 0.168's, 139 s in 0.171's and 145 s in 0.172's, peaks 437 MB, 436 MB, 365 MB,
   387 MB and 390 MB, over a HOME that 0.165's chain had warmed. (0.131, 0.161)
 - The proof. `proof/run.sh` has clang turn `proof/forty2.ll` into a binary that prints `cicilang reaches C` and exits
@@ -545,7 +547,7 @@ tutorials/01..03-*.pl       the objects layer's lessons; goal main, last line do
 ### The C++ gate: test/cpp.sh
 
 - `test/cpp.sh` runs in this order: `test/cpp.pl` in one `--local` process; four checks of the command; every
-  `test/cpp/run/*.cpp` as a pool job (579 at 0.178); `classes.cpp` and `templates.cpp` built and run; the refusals,
+  `test/cpp/run/*.cpp` as a pool job (585 at 0.179); `classes.cpp` and `templates.cpp` built and run; the refusals,
   each at the level its `test/cpp/NAME.flags` names, else C++17 (0.164). (0.105, 0.164)
 - `test/cpp.pl` runs 46 numbered checks, `c1` to `c46`, then reads Cicili's six C++ files whole (`test/cpp/objects.cpp`,
   `emit_report.cpp`, `specialise.cpp`, `syntax.cpp`, `torch.cpp`, `torch-fragment.cpp`). `c34` checks the Itanium
@@ -949,9 +951,14 @@ tutorials/01..03-*.pl       the objects layer's lessons; goal main, last line do
 - Both lexers read `0b1011` (C23, C++14) and the digit separator `1'000'000` in every scan. The native lexer drops the
   separator from the value and the `strtod` text (`ccl_lx_puts_num`). The pp-number takes it (`ccl_pp_number//1`,
   `ccl_lx_pp_number`), else `1'000'` lexes as a char literal. Reader `k88`. (0.57)
-- The suffixes `u`, `l`, `ll`, `ul` (any case, any order) give `tok(uint|long|ulong, N, L)` (`ccl_int_suffix//1`,
+- The suffixes `u`, `l`, `ul` (any case, any order) give `tok(uint|long|ulong, N, L)` (`ccl_int_suffix//1`,
   `ccl_int_kind/4`; natively `ccl_lx_int_suffix`, `x->sfx` 0 to 3); `z` is a long. The parser makes `int(N)`,
-  `uint(N)`, `long(N)`, `ulong(N)`. Reader `k59`. Why: `1L` was `int(1)`, and `%ld` read garbage. (0.43)
+  `uint(N)`, `long(N)`, `ulong(N)`. Reader `k59`. Why: `1L` was `int(1)`, and `%ld` read garbage. `ll` and `ull` give
+  the kinds `llong` and `ullong` (0.179; `x->sfx` 6 and 7, the l's counted), which the parser types as the casts they
+  amount to, as it types `1.5f`: `cast(base([], [long, long]), long(N))` and `cast(base([], [unsigned, long, long]),
+  ulong(N))` (`ccl_null_constant/1` takes `0ll`). They were `long` and `ulong`, one type with them under LP64 and
+  another to `typeid`, `_Generic`, an overload and a template: `f(3ll)` called `f(long)`. `-E` spells them back
+  (`ccl_pp_spell_tok/4`). `test/c/run/llong.c`, `test/cpp/run/llong.cpp`. (0.43, 0.179)
 - C23's `wb` and `uwb` (any case, any base) give the kinds `bitint` and `ubitint` (`x->sfx` 4, 5). The parser makes
   `wb(N)`, a `_BitInt` of the value's width plus the sign, and `uwb(N)`. (0.93)
 - An integer literal of 2^60 or more is `big(Atom)` in BOTH lexers (`ccl_lx_emit_int`, `ccl_lx_big`; `ccl_int_value/2`,
@@ -965,6 +972,11 @@ tutorials/01..03-*.pl       the objects layer's lessons; goal main, last line do
   type's constant: `numeric_limits<__int128>::max()`), is the first of `__int128` and `unsigned __int128` that holds it,
   and a negative value is a `long` where it fits one; the lowering spells `int(big(A))` in that type (`ir_expr`). Before
   0.129 such a value was an `unsigned long`, lowered as an `i64` and cut to its low half. (0.94, 0.129)
+- AN INTEGER'S TAIL THAT IS NO INTEGER SUFFIX IS ITS UD-SUFFIX in C++ ([lex.ext]/1; 0.179; `ccl_int_end//3`,
+  `ccl_udl_int_ahead/2`; natively `ccl_lx_int_suffix`): nothing of the tail is read, and the identifier after the number
+  is its suffix (`ccl_udl//2`). `3us` is the literal 3 and the suffix `us`, microseconds: the suffix `u` ran on into it,
+  the suffix `s` was left, and `nanoseconds(1us)` was 10^9; `0x10us`, `0b11us`, `017us` and `5ul_x` alike. In C the
+  tail is the suffix it was. Reader `k84` over `test/c/lexer.c`. `udlsuffix.cpp` (C++23), `stdchrono.cpp`. (0.179)
 
 ### Floating literals
 
@@ -1004,7 +1016,17 @@ tutorials/01..03-*.pl       the objects layer's lessons; goal main, last line do
 - An integer imaginary literal's suffix names its kind: `imagi`, `imagui`, `imagli`, `imaguli` (`ccl_int_tok//4`,
   `ccl_imag_kind/2`); a `_BitInt` suffix gives the int kinds. The parser makes `imagi(Specs, N)` (`ccl_imag_specs/3`):
   no suffix `int` up to INT_MAX, else `long`; `u` `unsigned` up to UINT_MAX, else `unsigned long`; `l` `long`; `ul`
-  `unsigned long`; `big(A)` by `ccl_big_type/2`. `test/c/run/complex3.c`. (0.104)
+  `unsigned long`; `ll` `long long` and `ull` `unsigned long long`, the kinds `imaglli` and `imagulli` (0.179); `big(A)`
+  by `ccl_big_type/2`. `test/c/run/complex3.c`, `llong.c`. (0.104, 0.179)
+- IN C++ A NUMBER'S EXACT `i`, `if` AND `il` ARE A UD-SUFFIX ([lex.ext]/1, [complex.literals]; 0.179;
+  `ccl_imag_udl_ahead/2`, `ccl_int_end//3`; natively `ccl_lx_imag_udl`), C++14's `<complex>` literals, and `if` lexes as
+  the keyword (`ccl_udl//2` takes it): the desugaring calls `operator""i` where a using-directive or a using-declaration
+  makes it visible -- of `std`, `std::literals`, `std::complex_literals` or `std::literals::complex_literals`, at
+  namespace scope for the rest of the unit, in a namespace's block to the block's end and in a block to its end
+  (`cpp_cplxlit_using/2`, `cpp_cplxlit_visible/1`) -- and else makes GNU's imaginary literal (`cpp_udl_imag/3`: `3if`
+  a `_Complex int`, the `f` dropped, `2.0if` a `_Complex float`), as clang's Sema does where the lookup of the operator
+  fails. `3i` was GNU's always: `auto e = 3i;` under `using namespace std::complex_literals;` was a `_Complex int`.
+  `complexlit.cpp` (C++23), `complexrtti.cpp`, `udlsuffix.cpp`. (0.179)
 
 ### Strings, characters and escapes
 
@@ -1221,7 +1243,12 @@ tutorials/01..03-*.pl       the objects layer's lessons; goal main, last line do
   before `/usr/local/include` and the system's headers. The guard is `_CICILANG_<NAME>_H` (`__CCL_STDATOMIC_H`). (M2)
 - `stddef.h`: LP64's `size_t`, `ptrdiff_t`, `wchar_t` (C only), `max_align_t`, `NULL` as `((void *)0)` in both
   languages (C++'s `NULL` reads as C's cast), `offsetof` over `__builtin_offsetof`; at C23 `nullptr_t` and
-  `unreachable()`. (0.93)
+  `unreachable()`. It CLEARS A REQUEST of one piece, glibc's `#define __need_size_t` before `#include <stddef.h>` and
+  the others clang's header names, on every inclusion, as clang's header clears it (0.179): left defined, it made every
+  later inclusion one more request, which libc++ 18's `<stddef.h>` answers by `#include_next` alone -- so at C++23,
+  whose headers include `<cstddef>` after a C header, `::nullptr_t` was never declared, `<cstddef>` stopped at its
+  `#error` and a read stopped at its first `nullptr_t`: `<complex>` at `unique_ptr<T[]>::reset`, its literal operators
+  lost (a partial read is silent). libc++ 21's `<stddef.h>` reads no request. `complexlit.cpp`. (0.93, 0.179)
 - `stdarg.h`: `va_list` is `__builtin_va_list`, `va_start`, `va_arg`, `va_end`, `va_copy` the builtins; glibc's
   `__need___va_list` gets `__gnuc_va_list` alone, as from clang's header. `test/c/run/varargs.c`. (0.108)
 - `limits.h` defines `_GCC_LIMITS_H_` and the limits from the predefined macros (`__INT_MAX__` and kin, the widths at
@@ -1762,7 +1789,8 @@ tutorials/01..03-*.pl       the objects layer's lessons; goal main, last line do
 - A USER-DEFINED LITERAL ([lex.ext]; C++ only) is `udl(Suffix, Literal)`: a literal followed by an identifier, `5_km`,
   `1500ms`, `"text"s`, `'a'_up` (`ccl_udl//2` after `ccl_primary_`, over `ccl_udl_base/1`: the integer, floating, string
   and character kinds). No valid program has a literal and an identifier side by side, and the tokens carry no column,
-  so `5 _km` reads alike and the lexers stay as they were; the imaginary mark `i` after a number stays GNU's. The
+  so `5 _km` reads alike; since 0.179 an integer's tail that is no integer suffix (`3us`) and a number's exact `i`,
+  `if` and `il` are its ud-suffix, the lexers stopping the number there (the Integer literals topic). The
   function is `operator(literal(Sfx))`, read after `operator ""` (`ccl_op_name`), the suffix an identifier or a keyword
   (`operator"" if` of `<complex>`). The preprocessor keeps the number and its suffix as two tokens (`pp_norm_toks/2`):
   `5_km` was a pp-number the lexer cut in two, and `pp_norm` turned a result that was not one token into zero. A
@@ -1771,7 +1799,7 @@ tutorials/01..03-*.pl       the objects layer's lessons; goal main, last line do
   operator takes the long double of the text -- `0.1_v` was the double nearest 0.1 widened, 0.100000000000000005551,
   where clang++ hands 0.100000000000000000001, and `1e999_v` an infinity; `-E` spells it back (`pp_spell/2`), and k84
   compares the two lexers over a line of them. Reader 131. Reader check `c40`, `test/cpp/run/userliteral.cpp`,
-  `udlfloat.cpp`. (0.117, 0.160)
+  `udlfloat.cpp`. (0.117, 0.160, 0.179)
 - A CONVERSION FUNCTION DEFINED OUT OF ITS CLASS (`S::operator int() const { ... }`, `X<E>::operator T() const { ... }`)
   is a `function` named `scoped(Path, operator(conv(T)))` with T as its result (the declaration-specifiers took the
   class's name for a result type); a conversion function's name holds a type (`ccl_conv_type`: specifiers and pointers
@@ -2036,14 +2064,14 @@ tutorials/01..03-*.pl       the objects layer's lessons; goal main, last line do
 
 ### The versions
 
-- `ccl_reader_version/1` (`library/ccl_syntax.pl`, now 133): bump it for any grammar change to what a read gives, and
+- `ccl_reader_version/1` (`library/ccl_syntax.pl`, now 134): bump it for any grammar change to what a read gives, and
   for any change to what the AST beside a summary holds (item or member terms, `cpp_index_name/2`,
   `cpp_template_name/2`, `ccl_flat_items/3`, the namespace keys). Keep the reason in its comment. Why: the store and the
   summaries are keyed by it, and a stale read is served silently (`sizeof(std::string)` read 40). (M1, 0.89, 0.112,
   0.117)
 - A reader bump makes every summary cold; `test/libcxx.sh` rewrites them. `test/reader.pl`'s `k16` (a cached read is
   the same AST as a fresh one) goes RED on a grammar change without a bump. (0.93, 0.105)
-- `ccl_lowering_version/1` (`library/ccl_ir.pl`, now 99): bump it whenever the check or the lowering changes what it
+- `ccl_lowering_version/1` (`library/ccl_ir.pl`, now 101): bump it whenever the check or the lowering changes what it
   emits, however small -- 0.120 bumped it for the ORDER of the drain functions alone. Why: `dr_ir/3` serves the old IR
   otherwise. Either bump starts the C store afresh. (M4, 0.103, 0.120)
 
@@ -5568,7 +5596,9 @@ A lambda is a class of its captures (`library/ccl_cpp.pl`). A fixture named alon
   `llvm.eh.typeid.for`, and else resumes. Code run while unwinding makes plain calls. (0.108)
 - A handler binds its parameter to `__cxa_begin_catch`'s object, with `__cxa_end_catch` as its scope's defer
   (`ir_handler`); `catch (...)` takes all. A class caught by value is a copy ([except.handle]/15; `cpp_catches`),
-  destroyed at the handler's end. `catchvalue.cpp`. (0.108, 0.110)
+  destroyed at the handler's end. `catchvalue.cpp`. A POINTER CAUGHT is the pointer `__cxa_begin_catch` answers,
+  adjusted to the handler's type, as clang stores it (`ir_catch_bind/3`, 0.179): it was loaded from where it points, and
+  `catch (int *p)` crashed. `ptrrtti.cpp`. (0.108, 0.110, 0.179)
 - The reader keeps `noexcept` (`'$ccl_nx'`): a free function's name joins `'$ccl_nothrow'` (`ccl_note_nx`), a method
   keeps it among its qualifiers. `noexcept(false)` and `throw(X)` are not noexcept; `throw()` is. (0.110)
 - noexcept is enforced where the program throws (`'$cpp_throws'`; [except.spec]/5): a noexcept function that makes a
@@ -5592,7 +5622,14 @@ A lambda is a class of its captures (`library/ccl_cpp.pl`). A fixture named alon
   `__diamond_shaped_mask`, and the bases are listed in the order written, a primary base moved first put back (0.174).
   (0.108, 0.110, 0.174)
 - A program class at file scope is named `<len><name>` (`cpp_rtti_name`). A library class's type_info is the shipped
-  symbol (`_ZTISt13runtime_error`), a builtin's libc++abi's (`_ZTIi`, `_ZTIPKi`); a plain struct is a root. (0.108)
+  symbol (`_ZTISt13runtime_error`), a builtin's libc++abi's (`_ZTIi`, `_ZTIPKi`); a plain struct is a root. Only a
+  POLYMORPHIC library class's is shipped (0.179): libc++ exports no other, and a library class without a table has
+  its own `linkonce_odr` one, as clang emits it -- `typeid(std::complex<double>)` named `_ZTINSt3__17complexIdEE`, which
+  the link did not find. A complex type's is clang's: `_ZTICd` over `__fundamental_type_info`, a pointer to one
+  `_ZTIPCd` over `__pointer_type_info` (`cpp_complex_code/2`, `ir_rtti_emit/2`), where it was the real type's
+  (0.179). A POINTER TO A CLASS or to a plain struct has clang's too, `_ZTIP1A`, `_ZTIPKNSt3__17complexIdEE`, over the
+  class's own (`cpp_rtti_pointee/3`, 0.179): it was refused, `typeid_of`. `complexrtti.cpp`, `ptrrtti.cpp`. (0.108,
+  0.179)
 - `dynamic_cast` to a base is a plain conversion. A downcast or a cross-cast calls
   `__dynamic_cast(sub, &src, &dst, -1)`, and null gives null without the call; a failed reference cast calls `abort()`.
   Another target refuses `dynamic_cast_to(T)`. `multibase3.cpp`, `vbasertti.cpp`. (0.108)
@@ -6564,6 +6601,14 @@ A lambda is a class of its captures (`library/ccl_cpp.pl`). A fixture named alon
   below the unit u of the larger's bits made 120, more than any format keeps, the sum is the larger plus or minus u/2,
   which rounds as the exact sum does (every rounding boundary near it is a multiple of u); `LDBL_MAX + LDBL_TRUE_MIN` took
   3.7 s and `1.0L + 1e-4900L` 0.97 s of CPU, now under a millisecond. `test/c/run/ldconst.c`. (0.154)
+- A POINTER GLOBAL FROM AN INTEGER CONSTANT (0.179; C 6.3.2.3/3 and /5, 6.6/9; `ir_gconst/3` over `ir_gint_const/2`):
+  a null pointer constant is `null` -- `0`, `0L`, `0ll`, `NULL` as our `stddef.h` spells it, `(void *) 0`, `(int *) 0`,
+  `(long) 0` -- any other integer constant the address it names, `inttoptr`, and a pointer constant cast to another
+  pointer type that constant. `int *p = 0;` was `global ptr 0`, which LLVM refused, and `int *p = NULL;` was refused,
+  `global_init`: no fixture held a pointer global given an initializer.
+  AN ARRAY'S BOUND IS A CONSTANT EXPRESSION wherever the lowering reads it (`ir_arr_count/2`): a global's constant, the
+  call ABI's leaves and the debug subrange took a literal alone, and `long b[1 + 1] = { 7, 16 };` at file scope was
+  refused, as `long long b[2ll]` was since `2ll` reads as a cast. `test/c/run/ptrglobal.c`. (0.179)
 - Brace elision ([dcl.init.aggr]/15, and C's own rule): an array member given a non-braced item takes as many of the
   following items as it has elements, while more items than members remain (`ir_init_items/4`, `ir_elide_take/4`; a
   global's through `ir_gelide/4`), or where a scalar item meets an array of scalars (`ccl_elided_item/2`, 0.164; the
@@ -7754,7 +7799,7 @@ A lambda is a class of its captures (`library/ccl_cpp.pl`). A fixture named alon
   18 (0.163's 2613 s over 515) and 4091 s over libc++ 21 (0.163's 3016 s over 517): four builds over `std::visit` took
   most of the rise (`joinwith` 110 s to 937 s over libc++ 21, `stdvariantsel` 19 s to 157 s, `stdvariant` 29 s to 129
   s, `varvisit` 4 s to 35 s over libc++ 18): the evaluator reduced an operand three times, which 0.165 mended (the
-  evaluator topic). The chains of 0.165 to 0.168 and 0.171 to 0.177 ran the gates their changes touch over the HOMEs
+  evaluator topic). The chains of 0.165 to 0.168 and 0.171 to 0.178 ran the gates their changes touch over the HOMEs
   that 0.164's chain warmed (the reader version did not move, so the library reads were not run again), all GREEN: the C++ gate in 731 s
   and 733 s over libc++ 18 and 21 at 0.165, its fixtures' builds summed 2579 s over 517 and 2610 s over 519 (the
   evaluator's mend), in 728 s and 716 s at 0.166 (peaks 2319 MB and 2477 MB), 520 and 522 of 523 fixtures ok, the builds
@@ -7773,7 +7818,8 @@ A lambda is a class of its captures (`library/ccl_cpp.pl`). A fixture named alon
   and 4159 s over 560 (HISTORY.md, 0.176), and in 1108 s and 1073 s at 0.176 (peaks 2326 MB and 2409 MB), 565 and 567 of
   568 ok, the builds summed 3940 s over 565 and 3834 s over 567 (HISTORY.md, 0.177), and in 1030 s and 1022 s at 0.177
   (peaks 2290 MB and 2419 MB), 571 and 573 of 574 ok, the builds summed 3671 s over 571 and 3654 s over 573 (HISTORY.md,
-  0.178). Two libc++ passes are one gate:
+  0.178), and in 1059 s and 1005 s at 0.178 (peaks 2369 MB and 2367 MB), 576 and 578 of 579 ok, the builds summed 3754 s
+  over 576 and 3605 s over 578 (HISTORY.md, 0.179). Two libc++ passes are one gate:
   `LLVM=/usr/lib/llvm-18` and `LLVM=/usr/lib/llvm-21` choose the tree the chain reads and links. libc++ 22 (the newest
   tree, which a run without
   `$LLVM` reads) is untried but for `stdoptionalref`, which passes there. The run before 0.121's (0.118, 0.119) found,
@@ -7812,7 +7858,9 @@ A lambda is a class of its captures (`library/ccl_cpp.pl`). A fixture named alon
   operation inside a floating global's initializer (`fpintexpr.c`); a float's and a half's tie to even (`fpconst.c`).
   Since 0.155: bitfields of 61 to 64 bits and a 100-bit one, stored and in a global's constant (`bitfield64.c`). Since
   0.164: brace elision of a scalar item for an array member of scalars, a local and a global (`braceelide.c`). Since
-  0.166: `__func__`, `__FUNCTION__` and `__PRETTY_FUNCTION__` as clang spells them (`prettyfn.c`).
+  0.166: `__func__`, `__FUNCTION__` and `__PRETTY_FUNCTION__` as clang spells them (`prettyfn.c`). Since 0.179: `ll`
+  and `ull` literals of their own types (`llong.c`), pointer globals from integer constants and arrays bounded by
+  constant expressions (`ptrglobal.c`).
 - The C library is the host's. The compiler's own freestanding headers are in `library/include/` (`<stdarg.h>`,
   `<stdatomic.h>`, `<complex.h>`, `<stdckdint.h>`, `<stdbit.h>`, `<limits.h>` and six more).
 - The language's own additions run: `:=`, patterns, `name { }` structs and `format`, `print`, `println`
@@ -7888,6 +7936,13 @@ A lambda is a class of its captures (`library/ccl_cpp.pl`). A fixture named alon
   base, and the same with a path), `lvbvempty` (a later virtual base over an empty virtual base), `lvbemptypath` (a path
   that reaches an empty virtual base further in, beside a later virtual base), `lvblibbase` (`std::istream` as a later
   virtual base of the program's class).
+- Forms of 0.179: `stdchrono` (`<chrono>`'s durations, clocks and time points, and their literals), `udlsuffix`
+  (C++23: an integer's ud-suffix, `3us`, `0x10us`; `<complex>`'s literals; the types of `3u`, `3ull`, `3uz`; the
+  program's own literal operators), `complexlit` (C++23: `<complex>`'s literals and their arithmetic, a read of
+  `<complex>` whole at C++23), `complexrtti` (GNU's imaginary literals where no literal operator is visible and
+  `<complex>`'s where one is: the type information of each), `llong` (`3ll` and `3ull` in overloads, templates,
+  `decltype`, `typeid`, a null pointer constant), `ptrrtti` (the type information of a pointer to a class, a pointer
+  caught and adjusted to a base).
 - Forms of 0.178: `vprimout` (a nearly empty primary whose virtual base lies outside it: a class over it, one derived
   from that, one stealing it; sizes, offsets, calls, the tables' prefixes, `typeid`, `dynamic_cast`, deletes, copies),
   `vprimoutctor` (the calls and `typeid` in each constructor and destructor), `vprimoutmore` (beside a plain base,
@@ -8221,8 +8276,9 @@ A lambda is a class of its captures (`library/ccl_cpp.pl`). A fixture named alon
   uses most: `recursive_directory_iterator`, permissions, `last_write_time` read and set, `space`, `copy_file`, `rename`,
   `remove_all` (`fsrest.cpp`).
 - `<random>` and `std::valarray` run since 0.136 (`stdrandom.cpp`, `stdvalarray.cpp`). `std::bit_cast` runs since the
-  builtin is answered (`stdbitcast.cpp`, C++20). `<chrono>`: durations and clocks run, a build of three to five minutes
-  since 0.136, too slow for a fixture of its own. `std::thread` and
+  builtin is answered (`stdbitcast.cpp`, C++20). `<chrono>`: durations, clocks and time points run, with their literals
+  (`stdchrono.cpp` since 0.179, a cold build of 90 to 110 s and a warm one of 6 s, where it took three to five minutes
+  at 0.136; `3us` was three seconds until 0.179). `std::thread` and
   `std::mutex` run (`stdthread.cpp`), and `std::from_chars` and `std::to_chars` of integers (`stdcharconv.cpp`).
 - `std::variant` and `std::visit` run (0.121): the converting constructor and assignment, `in_place_index` and
   `in_place_type`, `emplace`, copy, move and swap, the relational operators, `hash`, `get_if`, `variant_size_v`,

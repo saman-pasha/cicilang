@@ -173,7 +173,7 @@ cpp_qualify_enum(Qs, PI, declare(L, base(Q, [E0])), declare(L, base(Q, [E]))) :-
 cpp_qualify_enumerator(Qs, PI, enumerator(N, Ex), enumerator(K, Ex)) :- !, cpp_index_key(Qs, PI, N, K).
 cpp_qualify_enumerator(_, _, X, X).
 cpp_units([], []).
-cpp_units([unit(Is0)|Us0], [unit(Is)|Us]) :- nb_setval('$cpp_ginit', []), nb_setval('$cpp_ginit_fns', []), nb_setval('$cpp_relops', none), nb_setval('$cpp_usings', []), nb_setval('$cpp_using_skip', []),cpp_items(Is0, Is1a), cpp_ginit_items(Is1a, Is1), cpp_flush_instances(Is1, Is2), cpp_name_anon_items(Is2, Is), cpp_units(Us0, Us).
+cpp_units([unit(Is0)|Us0], [unit(Is)|Us]) :- nb_setval('$cpp_ginit', []), nb_setval('$cpp_ginit_fns', []), nb_setval('$cpp_relops', none), nb_setval('$cpp_cplxlit', none), nb_setval('$cpp_usings', []), nb_setval('$cpp_using_skip', []),cpp_items(Is0, Is1a), cpp_ginit_items(Is1a, Is1), cpp_flush_instances(Is1, Is2), cpp_name_anon_items(Is2, Is), cpp_units(Us0, Us).
 %% the instances made while the unit was walked join its items; walking them may make more
 cpp_flush_instances(Is0, Is) :-
     findall(I, '$cpp_out'(_, I), New),
@@ -3123,8 +3123,9 @@ cpp_item(declaration(L, Sto, B, Vs), [declaration(L, Sto, B, Vs3)]) :- !, cpp_va
 cpp_item(typedef(L, Vs), [typedef(L, Vs1)]) :- !, cpp_vars(none, Vs, Vs1), ccl_note_typedefs(Vs1).   % the table learns the instance's name at once
 cpp_item(template(_, _, _), []) :- !.
 cpp_item(concept(_, _, _), []) :- !.                                                               % C++20: a constraint, checked where a template is instantiated
-cpp_item(namespace(L, N, Is), [namespace(L, N, Js)]) :- !, cpp_with_usings([], cpp_items(Is, Js)).   % a using of a header's namespace INSIDE a namespace ends with it (0.160): `namespace d { using namespace b; }' was in force for the rest of the unit
+cpp_item(namespace(L, N, Is), [namespace(L, N, Js)]) :- !, cpp_with_cplxlit([], cpp_with_usings([], cpp_items(Is, Js))).   % a using of a header's namespace INSIDE a namespace ends with it (0.160): `namespace d { using namespace b; }' was in force for the rest of the unit; <complex>'s literals' too (0.179)
 cpp_item(extern_c(L, Is), [extern_c(L, Js)]) :- !, cpp_items(Is, Js).
+cpp_item(using(L, U), Is) :- cpp_cplxlit_using(U, Sx), \+ cpp_cplxlit_covered(Sx), !, nb_getval('$cpp_cplxlit', C0), cpp_relops_join(C0, Sx, C), nb_setval('$cpp_cplxlit', C), cpp_item(using(L, U), Is).   % <complex>'s literal operators made visible at namespace scope (0.179): noted, and the using taken as before
 cpp_item(using(L, U), [using(L, U)]) :- ( cpp_hdr_using(U, Us) ; cpp_hdr_type_using(U, Us) ), !, ( nb_current('$cpp_usings', U0) -> true ; U0 = [] ), append(Us, U0, U1), nb_setval('$cpp_usings', U1).   % a header namespace's names at namespace scope (0.160): in force for the rest of the unit -- and a using-declaration of its keyed TYPE (0.161), which a block takes by the substitution of 0.121 (cpp_stmts)
 cpp_item(using(L, U), [using(L, U)]) :- cpp_relops_using(U, Ops), !, nb_getval('$cpp_relops', R0), cpp_relops_join(R0, Ops, R), nb_setval('$cpp_relops', R).   % `using namespace std::rel_ops;' at namespace scope (0.136): in force for the rest of the unit
 cpp_item(declare(L, base(Q, [E0])), [declare(L, base(Q, [E]))]) :- compound(E0), ( E0 = enum(Tag, Es0) ; E0 = enum_class(Tag, Es0) ), is_list(Es0),
@@ -3229,12 +3230,20 @@ cpp_rtti_name(C, N) :- once(catch(cpp_ita_type(base([], [typedef(C)]), [], _, T,
 cpp_rtti_name(C, N) :- atom_codes(C, Cs), findall(X, ( member(X, Cs), X \== 0'. ), Cs1), atom_codes(A, Cs1), atom_length(A, K), atomic_list_concat([K, A], N).
 %% the type_info of a TYPE: a class's own, a builtin's the one libc++abi exports (`_ZTIi')
 cpp_rtti_of_type(T0, E) :- ccl_unref(T0, T1), ccl_resolve_type(T1, T2), cpp_strip_top(T2, T),
-    (   cpp_class_of_type(T, C), cpp_lib_class(C), cpp_rtti_name(C, N) -> atom_concat('_ZTI', N, Sym), E = rtti(ext(Sym))   % a LIBRARY class's type_info is the one libc++ exports (`_ZTISt13runtime_error')
+    (   cpp_class_of_type(T, C), cpp_lib_class(C), cpp_polymorphic(C), cpp_rtti_name(C, N) -> atom_concat('_ZTI', N, Sym), E = rtti(ext(Sym))   % a LIBRARY class's type_info is the one libc++ exports (`_ZTISt13runtime_error'), a POLYMORPHIC one's, whose key function the library defines; one with no table is emitted where it is used, as clang does (0.179: `_ZTINSt3__17complexIdEE', which no library exports, failed the link)
     ;   cpp_class_of_type(T, C) -> cpp_rtti_chain(C, Ch), E = rtti(Ch)
     ;   T = base(_, [struct(Tag, _)]), atom(Tag) -> atom_length(Tag, K), atomic_list_concat([K, Tag], N), E = rtti([N])   % a plain struct: a root of its own
+    ;   T = base(_, S), memberchk('_Complex', S) -> cpp_complex_code(S, Code), E = rtti(fund(Code))   % A COMPLEX TYPE's (0.179): `_ZTICd', which no library exports, emitted as clang emits it -- it was the real type's, `_ZTId'
+    ;   T = ptr(_, base(Q, S)), memberchk('_Complex', S) -> cpp_complex_code(S, Code), cpp_ptr_cv(Q, CV, F), atomic_list_concat(['P', CV, Code], N), E = rtti(pointer(N, F, fund(Code)))   % ... and a pointer to one, `_ZTIPKCd'
     ;   T = base(_, S), cpp_mangle_basic(S, Code) -> atom_concat('_ZTI', Code, Sym), E = rtti(ext(Sym))
     ;   T = ptr(_, base(Q, S)), cpp_mangle_basic(S, Code) -> ( memberchk(const, Q) -> atomic_list_concat(['_ZTIPK', Code], Sym) ; atomic_list_concat(['_ZTIP', Code], Sym) ), E = rtti(ext(Sym))
+    ;   T = ptr(_, PT), PT = base(Q, _), cpp_rtti_pointee(PT, PN, PI) -> cpp_ptr_cv(Q, CV, F), atomic_list_concat(['P', CV, PN], N), E = rtti(pointer(N, F, PI))   % A POINTER TO A CLASS or a plain struct (0.179): `_ZTIP1A', `_ZTIPKNSt3__17complexIdEE', over the class's own, as clang emits it -- it was refused
     ;   cpp_refuse(0, typeid_of(T)) ).
+cpp_complex_code(S, Code) :- ccl_delete_one(S, '_Complex', S0), ( S0 == [] -> S1 = [double] ; S1 = S0 ), cpp_mangle_basic(S1, C0), atom_concat('C', C0, Code).   % `C' and the real type's code, a bare `_Complex' a double's
+%% a class's or a plain struct's type information as a pointer's pointee: its name and its own (0.179)
+cpp_rtti_pointee(PT, CN, I) :- cpp_class_of_type(PT, C), !, cpp_rtti_name(C, CN), ( cpp_lib_class(C), cpp_polymorphic(C) -> atom_concat('_ZTI', CN, Sym), I = ext(Sym) ; cpp_rtti_chain(C, I) ).
+cpp_rtti_pointee(PT, CN, [CN]) :- once(ccl_resolve_type(PT, base(_, [struct(Tag, _)]))), atom(Tag), atom_length(Tag, K), atomic_list_concat([K, Tag], CN).
+cpp_ptr_cv(Q, CV, F) :- ( memberchk(volatile, Q) -> V = 'V', FV = 2 ; V = '', FV = 0 ), ( memberchk(const, Q) -> K = 'K', FK = 1 ; K = '', FK = 0 ), atom_concat(V, K, CV), F is FV + FK.   % the pointee's cv, as the name spells it and __pbase_type_info's flags hold it
 cpp_strip_top(base(_, S), base([], S)) :- !.
 cpp_strip_top(ptr(_, P), ptr([], P)) :- !.
 cpp_strip_top(T, T).
@@ -3266,6 +3275,7 @@ cpp_expr(_, '$cpp_walked'(E), E) :- !.                                          
 %% a character as itself. The operator is a free operator, `op.literal_<suffix>.<arity>', the program's own or a header's
 %% (cpp_index_name), chosen among its overloads by the argument types: libc++'s `operator""s(const char *, size_t)', `operator""ms(
 %% unsigned long long)' beside `operator""ms(long double)'. A raw literal operator (`const char *') and the template form are not asked.
+cpp_expr(Ctx, udl(Sfx, Lit), E) :- memberchk(Sfx, [i, if, il]), \+ cpp_cplxlit_visible(Sfx), !, cpp_udl_imag(Sfx, Lit, G), cpp_expr(Ctx, G, E).   % `3i', `2.0i': GNU's imaginary literal where no literal operator of <complex> is visible (0.179, cpp_cplxlit_visible/1)
 cpp_expr(Ctx, udl(Sfx, Lit), E) :- !, cpp_udl_args(Lit, As), length(As, K), length(Qs, K), cpp_free_operator(literal(Sfx), Qs, Name), cpp_expr(Ctx, call(id(Name), As), E).
 cpp_expr(_, this, id(this)) :- !.
 cpp_expr(_, E, E) :- \+ compound(E), !.
@@ -4948,6 +4958,7 @@ cpp_stmts(Ctx, [typedef(L, Vs)|Ss], Ts) :- !,
 %% A USING-DECLARATION IN A BLOCK that names a class of a namespace whose items were indexed apart (cpp_ns_key) is that class under the short name for the
 %% statements that follow (0.121), as a block typedef is: libc++ 18's std::visit opens with `using __variant_detail::__visitation::__variant;' and calls
 %% `__variant::__visit_value(...)', where the bare name is `__access::__variant', another class.
+cpp_stmts(Ctx, [using(L, U)|Ss], Ts) :- cpp_cplxlit_using(U, Sx), \+ cpp_cplxlit_covered(Sx), !, cpp_with_cplxlit(Sx, cpp_stmts(Ctx, [using(L, U)|Ss], Ts)).   % ... and in a BLOCK, to its end (0.179)
 cpp_stmts(Ctx, [using(_, U)|Ss], Ts) :- cpp_relops_using(U, Ops), !, cpp_with_relops(Ops, cpp_stmts(Ctx, Ss, Ts)).   % std::rel_ops in a BLOCK (0.136): in force to the block's end
 cpp_stmts(Ctx, [using(_, U)|Ss], Ts) :- cpp_hdr_using(U, Us), !, cpp_with_usings(Us, cpp_stmts(Ctx, Ss, Ts)).   % a header namespace's names in a BLOCK (0.160): in force to the block's end
 cpp_stmts(Ctx, [using(_, name(scoped(Path, N)))|Ss], Ts) :- atom(N), cpp_ns_key(Path, N, K), K \== N, !,
@@ -5016,6 +5027,34 @@ cpp_with_relops(Ops, Goal) :- nb_getval('$cpp_relops', R0), cpp_relops_join(R0, 
 cpp_relops_call(Op, A, [B], E) :- memberchk(Op, ['!=', '>', '<=', '>=']), nb_current('$cpp_relops', R), R \== none, ( R == all -> true ; memberchk(Op, R) ),
     nb_getval('$cpp_in_lib', no), ( cpp_op_operand(A) ; cpp_op_operand(B) ), cpp_op_word(Op, W), atomic_list_concat(['rel_ops.op.', W, '.2'], Name),
     catch(cpp_call(none, id(Name), [A, B], E), error(not_lowered(_), _), fail), E = call(id(F), _), atom(F), ccl_declared(F, fn(_, _, _)), !.
+%% <complex>'S LITERAL OPERATORS MADE VISIBLE (0.179; [lex.ext]/1, [namespace.udir]): `3i', `2.0i', `1.5if' and `3il' call a literal
+%% operator where unqualified lookup finds one, else they are GNU's imaginary literals, as clang reads them (cpp_udl_imag/3). libc++
+%% declares `operator""i', `if' and `il' in std::literals::complex_literals, inline namespaces of std, so `using namespace std;', a
+%% using-directive of `std::literals', `std::complex_literals' or `std::literals::complex_literals', or a using-declaration of the one
+%% operator, makes them visible -- at namespace scope for the rest of the unit or of the namespace's block it stands in, in a block to
+%% its end, as rel_ops's are ('$cpp_cplxlit':
+%% `none', `all' or a list of suffixes). With `using namespace std::complex_literals;' the lexers' `2.0i' was a `_Complex double', and
+%% `std::complex<double> z = 1.0 + 2.0i;' was refused (`no_member(real, ...)'); without one, a `_Complex' value stays the program's.
+cpp_cplxlit_using(namespace(Q), all) :- cpp_using_ns_segs(Q, Segs0), ( Segs0 = [global|Segs] -> true ; Segs = Segs0 ), cpp_cplxlit_ns(Segs), !.
+cpp_cplxlit_using(name(scoped(P, operator(literal(S)))), [S]) :- memberchk(S, [i, if, il]), is_list(P), last(P, N), memberchk(N, [std, literals, complex_literals]), !.
+cpp_cplxlit_ns([std]).            cpp_cplxlit_ns([std, literals]).    cpp_cplxlit_ns([std, complex_literals]).
+cpp_cplxlit_ns([std, literals, complex_literals]).                    cpp_cplxlit_ns([literals]).
+cpp_cplxlit_ns([complex_literals]).                                    cpp_cplxlit_ns([literals, complex_literals]).
+cpp_cplxlit_covered(Sx) :- nb_current('$cpp_cplxlit', C), ( C == all -> true ; Sx \== all, is_list(C), forall(member(S, Sx), memberchk(S, C)) ).
+cpp_with_cplxlit(Sx, Goal) :- nb_getval('$cpp_cplxlit', C0), cpp_relops_join(C0, Sx, C), nb_setval('$cpp_cplxlit', C),
+    ( catch(Goal, E, ( nb_setval('$cpp_cplxlit', C0), throw(E) )) -> nb_setval('$cpp_cplxlit', C0) ; nb_setval('$cpp_cplxlit', C0), fail ).
+cpp_cplxlit_visible(S) :- nb_current('$cpp_cplxlit', C), ( C == all -> true ; is_list(C), memberchk(S, C) ), !.
+%% ... ELSE GNU'S IMAGINARY LITERAL, as the lexers made it before C++14's <complex> took the suffixes: `3i' a `_Complex int' (a long
+%% where the value needs it), `3il' a `_Complex long', `2.0i' a `_Complex double', `1.5if' a `_Complex float', `1.0il' a `_Complex long
+%% double', its text kept; `3if' a `_Complex int', the `f' dropped, as clang reads it
+cpp_udl_imag(i, int(N), imagi(Sp, N)) :- !, ccl_imag_specs(imagi, N, Sp).
+cpp_udl_imag(if, int(N), imagi(Sp, N)) :- !, ccl_imag_specs(imagi, N, Sp).
+cpp_udl_imag(il, int(N), imagi(Sp, N)) :- !, ccl_imag_specs(imagli, N, Sp).
+cpp_udl_imag(i, ldbl(A), imag(F)) :- !, cpp_text_double(A, F).
+cpp_udl_imag(if, ldbl(A), imagf(F)) :- !, cpp_text_double(A, F).
+cpp_udl_imag(il, ldbl(A), imagl(A)) :- !.
+cpp_udl_imag(S, L, _) :- cpp_refuse(0, literal_operator_not_visible(S, L)).
+cpp_text_double(A, F) :- atom_codes(A, Cs), once(phrase(ccl_number(0, tok(float, F, _)), Cs)).   % the double nearest the text, as the lexers read a decimal or a hex one
 cpp_local_class(_, K, N, Bases0, Ms0, Name) :- '$cpp_localcls'(class(K, N, Bases0, Ms0), Name), !.   % ONCE per text, as a lambda is: the result of a function is deduced from a walk of its first return, and the walk that emits meets the class again
 cpp_local_class(L, K, N, Bases0, Ms0, Name) :-
     ccl_gensym(local, G), ( N == anon -> Name = G ; atomic_list_concat([N, '.', G], Name) ),

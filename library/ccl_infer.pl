@@ -535,6 +535,7 @@ ccl_anon_has(T, N) :- ccl_members_of(T, Ms), ( memberchk(member(_, N, _), Ms) ->
 %% ---- classes ----------------------------------------------------------------------
 %% the literal zero, a null pointer constant ([conv.ptr]/1)
 ccl_null_constant(int(0)). ccl_null_constant(uint(0)). ccl_null_constant(long(0)). ccl_null_constant(ulong(0)).
+ccl_null_constant(cast(base([], [long, long]), long(0))). ccl_null_constant(cast(base([], [unsigned, long, long]), ulong(0))).   % `0ll', `0ull' (0.179)
 ccl_is_pointer(T) :- ccl_resolve_type(T, T1), ( T1 = ptr(_, _) ; T1 = arr(_, _) ; T1 = block(_, _) ), !.
 ccl_is_float(T) :- ccl_resolve_type(T, base(_, S)), \+ memberchk('_Complex', S), ( memberchk(double, S) ; memberchk(float, S) ; memberchk('_Float16', S) ), !.   % a complex type is no real floating type
 %% C's COMPLEX TYPES (C11 6.2.5, Annex G; 0.100): `_Complex double' and `_Complex float', two components of the real type;
