@@ -10403,3 +10403,51 @@ numbers are the chain's, wall clock, and no claim about the library's speed.
   runs.
 
 Reader 133 and lowering 92, as 0.168 left them.
+
+## 0.171 — Not done, the ninth part: a class over several virtual bases through its paths
+
+**0.171: a class that holds virtual bases through several of its bases, or several virtual bases through one, is laid
+out as the Itanium ABI lays it -- every such base its `.nv` form and every virtual base at the end of the complete
+object -- and a diamond over two virtual bases builds, where it was refused (`virtual_base_by_two_paths`,
+`test/cpp/diamond.cpp`, gone). Committed before its chain, on the owner's word ("Commit before chain"): the chain
+begins after this commit, and the next one carries its numbers.**
+
+- A CLASS HOLDS EVERY VIRTUAL BASE OF ITS PATHS (the ABI's 2.4 III; `cpp_holder_paths/3`, `cpp_nv_capable/1`,
+  `cpp_note_holder/3`): each base that has virtual bases is its `.nv` form, and the class lays every virtual base once,
+  last, in inheritance graph order -- the members `$vb`, `$vb$2` ... (`cpp_vb_name/3`, `cpp_vb_member/1`) -- builds them
+  first in that order, destroys them last in the reverse (`cpp_vb_calls/5`) and copies each from the source's. Its
+  tables carry one vbase offset a slot, -24 - 8I for the I-th virtual base of the sub-object in the ABI's order
+  (`cpp_vbase_offsets/4`, `cpp_vb_slots/2`, `cpp_vbo_fields/4`: the fields `$vbo`, `$vbo$1` ...), a later base's own
+  sub-objects with tables get the class's tables (`cpp_inherit_later_poly_extras/1`), and each held polymorphic base
+  its table and its construction tables (`cpp_held_poly_extras/1`, `cpp_ctor_vb_table/5`). Until 0.170 a class over
+  one virtual base was laid so (0.163), and `struct H1 : Q1, R1` over `Q1 : virtual A` and `R1 : virtual W` embedded
+  both bases whole, A inside Q1 and W inside R1, where clang lays [Q1, R1, h1, A, W]: 40 bytes both, but A at 12, W
+  at 28 and h1 at 32 where clang has 32, 36 and 28 (measured with 0.170's library). A diamond over two such, `D : H1,
+  H2`, was refused. A class's members are the shipped library's where its
+  layout is the ABI's (`cpp_holder_bases/1` over `cpp_holder_paths/3`).
+- THE FINAL OVERRIDER OF A SLOT THAT NO FIRST-BASE CHAIN REACHES ([class.virtual]/2; `cpp_final_overrider/4`, asked by
+  a second clause of `cpp_final_impl/5` and by the construction tables' `cpp_ct_vb_entry`): the class's own
+  implementation, else the one among all its bases' that no other dominates. In `D : H1, H2` over `H2 : Q2, R2`, the
+  `fw` of W that only `R2` overrides was W's own in every table of D (a virtual call through `W *`, through `R1 *` and in
+  R2's constructor reached `W::fw`), found by a probe against clang before the fixture was made.
+- STILL NOT DONE (the Not done bullet): a later direct virtual base (`X : virtual A, virtual W`) is refused
+  `multiple_inheritance`, as before; and a class whose FIRST base is virtual and whose later base holds another virtual
+  base (`X : virtual A, R1`) is laid as before, 32 bytes where clang lays 24, the same before and after this step.
+- Fixtures: `vbasetwo.cpp` (sizes and offsets of a class over two virtual bases and of a diamond over two such, the
+  virtual bases' members through each path, copies) and `vbasetwopoly.cpp` (the same with tables: virtual calls
+  through each base, `dynamic_cast`, a `delete` through a base, a virtual call in each path's constructor, the final
+  overrider of the second path), clang++'s output over libc++ 18 and 21 alike; both pass over both. `test/cpp.sh`'s
+  refusal list loses `diamond`. Five probes measured against clang++ 18 print clang's output: the program of
+  `test/cpp/diamond.cpp`, two paths over two virtual bases, a diamond over them, and both again with tables (virtual
+  calls, casts, a `delete`, the paths' constructors); two more are the two forms still not done (above).
+- THE GATES of this step, on a worktree holding these files (its modules 0.169's, over cocolog 2.2.5): the flow gate
+  GREEN (one finding, `test/flow.expect`'s, 67 s, peak 2764 MB over its four lanes); a net of the 25 fixtures over
+  virtual bases, diamonds, multiple bases, RTTI and the streams over libc++ 18 (`virtualbase`, `vbasertti`,
+  `vbaselayout`, `vbaseedge`, `vbcall`, `diamond`, `diamond2`, `diamondcopy`, `diamonddeep`, `diamondplain`, `ctorvt`,
+  `dtorvt`, `explicitvbase`, `itaniumlayout`, `multibase` to `multibase3`, `rtti`, `thunkdeep`, `streamlay`,
+  `libdiamond`, `stdstringstream`, `stdfstream`, `streamderived`, `stdwstream`): 25 ok. The chain claims nothing here.
+- `CLAUDE.md`: the versions; the layout bullet of a class over virtual bases, the diamond's, the shipped members', the
+  C++ gate's refusal table and fixture count, What runs, Not done. `README.md`: the classes over several virtual bases.
+
+Reader 133 (no grammar moved), lowering 93 (a class over several virtual bases laid otherwise, its tables with more
+vbase offsets and other final overriders: new IR for such classes; no C text moves).
