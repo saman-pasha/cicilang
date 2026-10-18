@@ -1,0 +1,13 @@
+sizes 24 32 32
+XJ: I 0 J 16 v 8 f 1 g 55 55
+XJ2: K 16 I 0 v2 8 f 66 h 4
+XJ3: I 0 K 16 v3 8 h 77 77
+XJ: 0 0 0 0 16
+XJ2: 0 0 0 16 0
+XJ3: 0 0 0 0 16
+2XJ 3XJ2 3XJ3
+dc 1 1 1
+del 55
+del 4
+copies 55 66 77
+exit 0

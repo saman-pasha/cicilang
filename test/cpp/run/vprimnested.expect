@@ -1,0 +1,12 @@
+sizes 8 16 16 16
+C: N 0 V 0 c 8 v 10 n 33 33
+C3: N 0 V 0 c3 8 v 55 55 n 11
+C2: N 0 V 0 c2 8 v 10 n 11
+C: 0 0 0 0 0 0
+C3: 0 0 0 0 0 0
+C2: 0 0 0 0
+1C 2C3 2C2
+dc 1 1
+new C 10
+copy 33
+exit 0

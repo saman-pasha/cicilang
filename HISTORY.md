@@ -10676,3 +10676,96 @@ chain's, wall clock, and no claim about the library's speed.
 Reader 133 (no grammar moved), lowering 96 (a nearly empty virtual base the primary, its vcall offsets, a held virtual
 base at the place of the sub-object that takes it, the thunks of a far primary's slots, the type information's base
 order: new IR for such classes; no C text moves).
+
+## 0.175 — Not done, the thirteenth part: which virtual base is the primary, and a virtual base's vcall offsets
+
+**0.175: the primary virtual base is the one clang chooses -- the first NEARLY EMPTY virtual base in a depth-first walk of
+the bases as written that is no other base's virtual primary (the Itanium ABI 2.4 II.1b, clang's SelectPrimaryVBase) --
+where it is a direct base and its own virtual bases lie inside it: `XJ : virtual I, virtual J` takes I beside J, `XJ2 :
+virtual K, virtual I` takes the I written second, and `C : virtual N` over `N : virtual V` takes N, V at the same address.
+A virtual base's own tables carry its vcall offsets after its vbase offsets (the ABI's 2.5.2). Committed before its
+chain, on the owner's word ("Commit before chain"): the chain begins after this commit, and the next one carries its
+numbers.**
+
+THE CHAIN OF 0.174, on the checkout of its commit (its modules rebuilt at 0.174, over cocolog 2.2.5), over the HOMEs that
+0.164's chain warmed: the flow gate (one finding, `test/flow.expect`'s, 113 s, peak 2806 MB over its four lanes; 4020
+predicates), reader 5 s, compile 17 s, driver 15 s, objects 5 s, the proof, the cross gate in 207 s (peak 408 MB), the
+C++ gate over libc++ 18 in 1008 s (peak 2361 MB; 0.173's 1120 s) with 551 of its 554 fixtures ok -- the skips
+`joinwith`, `stdoptionalref` and `tzone` -- the 23 refusals and the three of the safe part, from 13:05:53 to 13:28:49
+UTC; and over libc++ 21 in 1067 s (peak 2320 MB; 0.173's 1122 s), 553 of 554 ok, the skip `stdoptionalref`, from 13:41:53
+to 13:59:40 UTC: GREEN. The libc++ 21 pass ran first at 13:28:49 and stopped at 13:35, 29 verdicts in, all ok, when the
+session's background command that ran the chain reached its 30-minute limit -- a limit of the session's tool, no cap of
+the gates; it ran again alone, under a two-hour limit. The fixtures' builds, as `fixture-times` records them (four at a
+time), summed 3587 s over 551 over libc++ 18 (0.173's 3966 s over 547) and 3788 s over 553 over libc++ 21 (0.173's 3979
+s over 549); the slowest over libc++ 18 `fmtrange` 158 s, `fmtchrono2` 154 s, `fmtchrono` 138 s, `fmttuple` 105 s,
+`viewsall` 101 s and `fmtcheck` 100 s, over libc++ 21 `fmtchrono2` 157 s, `fmtchrono` 141 s, `viewsall` 125 s,
+`fmtrange` 118 s, `joinwith` 92 s and `fmtcheck` 91 s. The numbers are the chain's, wall clock, and no claim about the
+library's speed.
+
+- WHICH VIRTUAL BASE IS THE PRIMARY (clang's SelectPrimaryVBase and getIndirectPrimaryBases; `cpp_vprim_select/3` over
+  `cpp_vprim_walk/5` and `cpp_indirect_primaries/3`): a class none of whose non-virtual bases has a table walks its bases
+  as written, depth first; the first virtual base that is nearly empty and no INDIRECT primary base -- the virtual primary
+  of a base that has virtual bases, or of such a base's bases -- is its primary. 0.174 took a nearly empty base only where
+  it was the class's one virtual base and had none of its own. Taken here where the answer is a direct base whose
+  virtual bases lie inside it, at its own address (`cpp_vprim_inside/1`: none, or a complete object no larger than its
+  table pointer); a nearly empty base may have a virtual first base that it shares its pointer with
+  (`cpp_nearly_empty/1`), and the virtual bases inside the primary lie at the class's own address (`cpp_vbase_loc/3`). A
+  probe against clang
+  (`vprimchoice.cpp`): `sizes 24 32 32`, where 0.174 printed `sizes 32 40 40`, I at 0 in each.
+- THE TABLE'S OFFSETS IN CLANG'S ORDER (clang's AddVCallAndVBaseOffsets; `cpp_vb_slots/2` over `cpp_vbo/4`): the primary
+  base's first -- a virtual primary's vcall offsets with them --, then the class's vbase offsets in the order a
+  depth-first walk of its bases as written meets them, the primary among them at its own place: `XJ2 : virtual K, virtual
+  I` has I's two vcall offsets, then K's vbase offset, then I's (`XJ2: 0 0 0 16 0`, clang's). A function of the primary's
+  own primary chain has the primary's place as its overrider's (`cpp_vcall_hops/6`, `cpp_in_primary_chain/2`).
+- THE VIRTUAL BASES IN THE ORDER THE STANDARD BUILDS THEM ([class.base.init]/13; `cpp_vb_build_all/3`,
+  `cpp_vb_calls_all/6`, `cpp_vb_dtors/6`): a primary written after another virtual base is built after it and destroyed
+  before it, though it lies first: `XJ2 : virtual K, virtual I0` builds K, then I0, as clang does
+  (`vprimorder.cpp`). 0.174, which took no primary there, built them in that order too; with this step's choice and
+  0.174's order of a virtual primary, I0 would have been built first.
+- A VIRTUAL BASE'S OWN VCALL OFFSETS (the ABI's 2.5.2, clang's AddVCallOffsets for a virtual base; `cpp_vbo/4` in the
+  kind `virtual`, `cpp_vcall_new/5`, `cpp_vcalln_entry/9`): the table of a virtual base -- its secondary table in the
+  complete object (`cpp_poly_virtual/2`; a virtual base laid in a virtual base the class lays, `E : virtual C` over `C :
+  virtual A` in the 0.110 model, among them, `cpp_hops_end_virtual/2`), its construction table where its base variant
+  builds it, its table in another sub-object's construction table group -- carries after its vbase offsets one vcall
+  offset for each function of its table that has none yet, its primary chain's and its own in its table's order, then
+  its later non-virtual bases', where they lie in it: `D : virtual V` over `V : P, Q` has P's a, b and destructor, V's own
+  e and d, then Q's c (`D.V: -16 -16 0 -16 -16 0 -16`, clang's). They come after the vbase offsets, so no vbase offset
+  moves, and only clang's own virtual thunks read one.
+- A CLAIMED VIRTUAL BASE WITH VIRTUAL BASES OF ITS OWN (a shape this step's choice makes, met by its first patch over
+  `vprimchain.cpp`): `Y : M`
+  over `M : virtual N`, `N : virtual V` lays N where M lies, V inside it, and builds N by its base variant there; its part
+  of the VTT named N at `$vb`, a member a claimed base does not have, and the build stopped at `not lowered yet:
+  global_init(... offsetof(Y, $vb))`. The part is at the claim's hops now, its tables under a name of their own beside
+  the claimant's (`cpp_vtt_top_children/2`, `cpp_ct_j/4`), and its construction table is a virtual base's by what it is,
+  not by its hops.
+- STILL NOT DONE (the Not done bullet): a primary further in -- a virtual base's own primary that clang steals, or a
+  nearly empty base that no base takes (`D : virtual X` over `X : virtual I`) -- and a nearly empty base whose virtual
+  bases lie outside it keep a layout of their own; and a class's primary table over a virtual base that is no primary
+  lays its slots otherwise than clang (the destructor's first, no slot for an override of the virtual base's function),
+  so a virtual base's own vcall offsets follow its slots' order: `C : virtual A` overriding A's g has clang's g at slot 0.
+- Fixtures (7, each clang++'s output, the same over libc++ 18 and 21, each passing over both): `vprimchoice`,
+  `vprimnested`, `vprimorder`, `vprimchain`, `vcallvbase`, `vcallnv`, `vcallctor`; 561 run fixtures in all.
+- THE GATES of this step, before its commit, one run at a time: nine probes against clang++ over libc++ 18, built from
+  the work tree and again from the checkout, six of them clang's -- two virtual bases with a nearly empty one written
+  first, written second and beside a non-empty one (`sizes 24 32 32`; 0.174 printed `32 40 40`), a nearly empty base
+  with a virtual base of its own (`8 16 16 16`; 0.174 `8 24 24 16`), the vcall offsets of a virtual base's own table
+  (0.174's had none, and the probe read past its table), the order of construction over a primary written second
+  (`sizes 32 16 32`; 0.174 `40 24 40`), a chain of nearly empty bases (`8 8 16 16 16 16 32`; 0.174 `8 16 32 24 24 24
+  40`), a virtual base's table over its non-virtual primary and a later non-virtual base -- and three that the Not done
+  bullet keeps: a stolen primary (I at 16, clang's at 0), a virtual base's vcall offsets in a construction table over a
+  primary table whose slots lie otherwise (`E.C: -16 16 -16 0`, clang's `-16 16 0 0`), and those slots, read off
+  pointers to the virtual functions (clang's `C: g 0 h 1`). The flow gate on the checkout: GREEN, its one finding
+  `test/flow.expect`'s, 116 s, peak 2689 MB over its four lanes, 4038 predicates. A net of 56 fixtures that the change
+  reaches -- the virtual bases, the diamonds, the VTT and the construction tables, the type information, the streams over
+  `basic_ios`, the four of 0.174 -- built from the work tree over libc++ 18 and over libc++ 21: 56 ok each. The 7 new
+  fixtures from the checkout over libc++ 18 and over libc++ 21: 7 ok each. One slip: while the net over libc++ 21 ran,
+  the comment of `ccl_lowering_version/1` in the work tree's `library/ccl_ir.pl` was edited (14:12:30 UTC), a comment
+  alone, no clause changed; the fixture that built then, `ctorvt`, passed. The chain claims nothing here.
+- `CLAUDE.md`: the versions (the lowering's line of the Versions topic said 95 since 0.174); the table's shape; the
+  nearly empty primary's bullet of the Virtual bases and the diamond topic, rewritten; a new bullet for a virtual base's
+  own vcall offsets; the gates' numbers, What runs, Not done. `README.md`: the primary clang chooses and the vcall
+  offsets.
+
+Reader 133 (no grammar moved), lowering 97 (the primary virtual base clang chooses, the table's offsets in clang's order,
+the virtual bases' order of construction, a virtual base's own vcall offsets, a claimed virtual base's part of the VTT:
+new IR for such classes; no C text moves).
