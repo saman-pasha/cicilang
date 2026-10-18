@@ -10904,3 +10904,80 @@ s, over libc++ 21 `fmtchrono2` 162 s, `fmtchrono` 141 s, `viewsall` 127 s, `fmtr
 Reader 133 (no grammar moved), lowering 99 (the slots of a primary table in the ABI's order; a defaulted virtual
 destructor a destructor of its own; the implicit destructor of a class over a later base with one; a virtual base's vcall
 offsets in that order: new IR for such classes; no C text moves).
+
+## 0.178 — Not done, the sixteenth part: a nearly empty primary whose virtual bases lie outside it
+
+**0.178: a nearly empty virtual base whose own virtual bases lie outside it is the primary base, as clang chooses it:
+laid as its base-variant form at the class's own address, built by its base-variant constructor, the class holding every
+one of its virtual bases; and a cached answer is one answer, since a layout's other answers poisoned the layout cache.
+Committed before its chain, on the owner's word ("Commit before chain"): the chain begins after this commit, and the
+next one carries its numbers.**
+
+THE CHAIN OF 0.177, on the checkout of its commit (its module rebuilt at 0.177, over cocolog 2.2.5), over the HOMEs that
+0.164's chain warmed: the flow gate (one finding, `test/flow.expect`'s, 122 s, peak 2821 MB over its four lanes; 4046
+predicates), reader 5 s, compile 17 s, driver 18 s, objects 5 s, the proof, the cross gate in 213 s (peak 425 MB), the
+C++ gate over libc++ 18 in 1030 s (peak 2290 MB; 0.176's 1108 s) with 571 of its 574 fixtures ok -- the skips
+`joinwith`, `stdoptionalref` and `tzone` -- the 23 refusals and the three of the safe part, from 17:14:19 to 17:31:29
+UTC; and over libc++ 21 in 1022 s (peak 2419 MB; 0.176's 1073 s), 573 of 574 ok, the skip `stdoptionalref`, from
+17:31:30 to 17:48:32 UTC: GREEN. The fixtures' builds, as `fixture-times` records them (four at a time), summed 3671 s
+over 571 over libc++ 18 (0.176's 3940 s over 565) and 3654 s over 573 over libc++ 21 (0.176's 3834 s over 567); the
+slowest over libc++ 18 `fmtrange` 178 s, `fmtchrono2` 164 s, `fmtchrono` 151 s, `fmtcheck` 117 s, `fmttuple` 113 s and
+`viewsall` 110 s, over libc++ 21 `fmtchrono2` 149 s, `fmtchrono` 133 s, `viewsall` 116 s, `fmtrange` 108 s, `joinwith`
+95 s and `fmtcheck` 94 s. The numbers are the chain's, wall clock, and no claim about the library's speed.
+
+- THE PRIMARY (`cpp_vprim_select/3`, `cpp_vprim_outside/1`): clang's SelectPrimaryVBase takes a nearly empty virtual
+  base whatever its own virtual bases are, and 0.175 took one only where they lie inside it (`cpp_vprim_inside/1`: none,
+  or a complete object no larger than its table pointer). Since 0.178 one whose virtual bases lie outside it is taken
+  too, laid as its base-variant form -- its table pointer alone, at the class's own address -- and built by its
+  base-variant constructor and its part of the VTT (`'$cpp_nv_base'(C, I)`, `cpp_first_base_call/5`, `cpp_dtor_body/4`).
+  `C : virtual I { int c; }` over `I : virtual A`, A with data, is 32 bytes, I at 0, c at 8, A at 16, as clang lays it.
+- THE CLASS HOLDS EVERY VIRTUAL BASE OF SUCH A PRIMARY (`cpp_lvb_holders/3`, through `cpp_path_holder/3` for a single
+  base and `cpp_diamond_paths/3` beside a plain base): those outside it at its end, in the order clang lays them, and
+  those at the primary's own address, its own primary chain's (`cpp_vb_at_self/2`), which have no member (the held
+  members of `cpp_base_layout/4`), no secondary table (`cpp_held_poly_extras/1`), no claim (`cpp_claim_vloc/3`) and lie
+  where the class lies (`cpp_vb_place/3`) -- the class builds and destroys them itself, since the primary's base variant
+  builds none of them: `C5 : virtual J` over `J : virtual N, virtual A` (N nearly empty, J's primary) builds N, A, then
+  J.
+- THE VTT AND THE CONSTRUCTION TABLES AT THE CLASS'S OWN ADDRESS: the primary's part is at the class's own address
+  (`cpp_vtt_top_children/2`; a class over a virtual base has no child in `cpp_vtt_children/2`, since its base variant
+  builds no virtual base), its construction tables named `$at.` and the sub-object's class (`cpp_ct_j/4`), at an offset
+  of 0 (`cpp_ctor_table/5`, `cpp_ctor_vb_table/6`, `cpp_ctor_sec_table/7` over `cpp_hops_offset/4`), a table of their
+  own for the virtual base the primary is (`PK` virtual), and the virtual bases that share its pointer -- at the class's
+  own address, `$vp` (`cpp_vb_table_name/3`, a held one too) -- hold its own table while it is built (`cpp_vtt_own/4`).
+- A CACHED ANSWER IS ONE ANSWER (`ccl_cached/4`, `ccl_cached_named/4`, `library/ccl_infer.pl`): the goal of a miss runs
+  under `once/1`, as a hit gives one value. The first probe's build was traced: the size of `I : virtual A` read 8 bytes
+  where a fresh layout gave 24. A struct's layout has another answer for each member it may skip
+  (`ccl_members_layout_/8`: a member's clause, then the clause that skips what it cannot size), and `cpp_vprim_inside/1`
+  tested `S =:= 8` after the ask, so backtracking into the first ask took the next answers -- 24, 16, 16, then 8 bytes,
+  the layouts without A's members -- and the cache kept each one, the last for every later ask. So 0.175's test took
+  such an I as a primary where the cache had answered a wrong size, and laid it out as if A lay inside it: the 0.177
+  library refused the first probe, `not lowered yet: offsetof(base([],[typedef('C')]),member(id('$base'),'$base'))`. The
+  size test asks once now too.
+- A BASE-VARIANT FORM IS ONE ANSWER (`cpp_has_nv_form/1`, `cpp_nv_form/3`): the holder's test asked a holder fact, one
+  answer for each virtual base held, and a held base that holds two -- `X1 : P1, virtual I` over `I : virtual A`, held
+  by `F1 : virtual X1` -- was its part of the VTT twice and its construction tables' thunks were defined twice (LLVM
+  refused the redefinition).
+- BEFORE: the five probes over the 0.177 library, built over libc++ 18, each refused by the lowering: `not lowered yet:
+  offsetof(base([],[typedef('C')]),member(id('$base'),'$base'))` in the thunk of `fa`, `C.thunk$base.$base.fa.0` (the
+  third's and the fourth's alike, of `C3` and `F1`; the fifth's `G.thunk$base.$vb.fa.0`): the size the cache had served
+  laid each nearly empty primary out as if its virtual bases lay inside it.
+- Fixtures (5, each clang++'s output, the same over libc++ 18 and 21, each passing over both): `vprimout`,
+  `vprimoutctor`, `vprimoutmore`, `vprimoutdeep`, `vprimoutdeepctor`; 579 run fixtures in all.
+- THE GATES of this step, before its commit, one run at a time: the five probes against clang++, built from the work
+  tree, five of five over libc++ 18 and over 21. Then every gate over the work tree, one run at a time, over the HOMEs
+  that 0.164's chain warmed (the lowering version not moved there yet, the module at 0.177), from 18:02:48 to 18:42:46
+  UTC: the flow gate (one finding, `test/flow.expect`'s, 110 s, peak 2787 MB over its four lanes; 4048 predicates),
+  reader 6 s, compile 17 s, driver 19 s, objects 4 s, the proof, the cross gate in 207 s (peak 401 MB), the C++ gate
+  over libc++ 18 in 1017 s (peak 2269 MB) with 576 of its 579 fixtures ok -- the skips `joinwith`, `stdoptionalref` and
+  `tzone` -- the 23 refusals and the three of the safe part, and over libc++ 21 in 1012 s (peak 2315 MB), 578 of 579 ok,
+  the skip `stdoptionalref`: GREEN. The fixtures' builds, as `fixture-times` records them, summed 3617 s over 576 over
+  libc++ 18 and 3621 s over 578 over libc++ 21; the slowest over libc++ 18 `fmtrange` 159 s, `fmtchrono2` 152 s,
+  `fmtchrono` 134 s, `fmtcheck` 105 s, `fmttuple` 102 s and `viewsall` 101 s, over libc++ 21 `fmtchrono2` 144 s,
+  `fmtchrono` 124 s, `viewsall` 111 s, `fmtrange` 103 s, `fmtcheck` 91 s and `joinwith` 90 s. The flow gate on the
+  checkout, its module rebuilt at 0.178: GREEN, the same finding, 110 s, peak 2747 MB, 4048 predicates. The chain on the
+  checkout follows the commit: the lowering version moved, so the C store starts afresh there.
+- `CLAUDE.md`: the versions, the nearly empty primary's bullet and a bullet of its own for the outside case, the caches'
+  bullet, the gates' numbers, What runs, Not done. `README.md`: its own virtual bases inside it or outside.
+
+Reader 133 (no grammar moved), lowering 100 (a nearly empty primary whose virtual bases lie outside it laid as its
+base-variant form, the class holding them; a cached answer one answer: new IR for such classes).

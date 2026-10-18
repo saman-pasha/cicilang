@@ -10,8 +10,8 @@ it found, its measurements and its gate numbers. `README.md` tells a user what r
 architecture and the milestones. A step that changes a rule edits the rule here, in its topic, and writes its entry
 in `HISTORY.md`.
 
-At 0.177 the versions are: the module 0.177 (`ccl_p_version` in `module/cicilang.cicili`, `bin/cicilang --version`),
-the reader 133 (`ccl_reader_version/1`, `library/ccl_syntax.pl`) and the lowering 99 (`ccl_lowering_version/1`,
+At 0.178 the versions are: the module 0.178 (`ccl_p_version` in `module/cicilang.cicili`, `bin/cicilang --version`),
+the reader 133 (`ccl_reader_version/1`, `library/ccl_syntax.pl`) and the lowering 100 (`ccl_lowering_version/1`,
 `library/ccl_ir.pl`).
 
 Build and prove, always in this order (or all of it, `sh test/gates.sh`):
@@ -397,7 +397,7 @@ tutorials/01..03-*.pl       the objects layer's lessons; goal main, last line do
 - `test/flow.sh` (0.144) reads every file of the library with cocolog's `library(flow/chart)` and RUNS NOTHING. A chart
   starts at one call pattern, so `test/flow.pl`'s `fg_roots_main/2` writes a copy of each file with a root,
   `'$fg_all'/N`, that calls each predicate the file defines with free arguments: 3538 predicates in the ten files at
-  0.161 (3938 in all at 0.167, 3994 at 0.172, 4003 at 0.173, 4020 at 0.174, 4038 at 0.175, 4041 at 0.176, 4046 at 0.177), and since 0.161 the 220 of the nine gate programs, `test/reader.pl`, `compile.pl`,
+  0.161 (3938 in all at 0.167, 3994 at 0.172, 4003 at 0.173, 4020 at 0.174, 4038 at 0.175, 4041 at 0.176, 4046 at 0.177, 4048 at 0.178), and since 0.161 the 220 of the nine gate programs, `test/reader.pl`, `compile.pl`,
   `cpp.pl`, `readhdr.pl`, `census.pl`, `libcxx.pl`, `flow.pl`, `why.pl` and `prof.pl` (`TFILES`), each charted with the
   compiler and the flow and process libraries loaded, nothing stubbed (no gate program is a library file); their first
   chart found a predicate split by another's clauses (`census_main/0`) and a call of `print_message/2`, which cocolog
@@ -545,7 +545,7 @@ tutorials/01..03-*.pl       the objects layer's lessons; goal main, last line do
 ### The C++ gate: test/cpp.sh
 
 - `test/cpp.sh` runs in this order: `test/cpp.pl` in one `--local` process; four checks of the command; every
-  `test/cpp/run/*.cpp` as a pool job (574 at 0.177); `classes.cpp` and `templates.cpp` built and run; the refusals,
+  `test/cpp/run/*.cpp` as a pool job (579 at 0.178); `classes.cpp` and `templates.cpp` built and run; the refusals,
   each at the level its `test/cpp/NAME.flags` names, else C++17 (0.164). (0.105, 0.164)
 - `test/cpp.pl` runs 46 numbered checks, `c1` to `c46`, then reads Cicili's six C++ files whole (`test/cpp/objects.cpp`,
   `emit_report.cpp`, `specialise.cpp`, `syntax.cpp`, `torch.cpp`, `torch-fragment.cpp`). `c34` checks the Itanium
@@ -5277,8 +5277,9 @@ A lambda is a class of its captures (`library/ccl_cpp.pl`). A fixture named alon
   and no INDIRECT PRIMARY BASE, the virtual primary of a base that has virtual bases or of such a base's bases
   (`cpp_vprim_select/3` over `cpp_vprim_walk/5` and `cpp_indirect_primaries/3`; 0.174 took one only where it was the
   class's one virtual base and had none of its own) -- and where the walk meets none, the first nearly empty one it met,
-  which clang STEALS from the base that took it (0.176) -- where its own virtual bases lie inside it
-  (`cpp_vprim_inside/1`: none, or a complete object no larger than its table pointer; 0.175). `'$cpp_vprim'(C, I)`;
+  which clang STEALS from the base that took it (0.176) -- whether its own virtual bases lie inside it
+  (`cpp_vprim_inside/1`: none, or a complete object no larger than its table pointer; 0.175) or outside it (0.178,
+  below). `'$cpp_vprim'(C, I)`;
   `cpp_primary_first/3` moves I first, or puts it first where no base of the class wrote it (A primary virtual base
   further in, below): I lies at the class's own address and shares its table pointer, the class's slots
   are I's and then its own (`cpp_slots/5` over I's), and its `$base` is a pseudo-member of no storage, `vbase_ref('$base',
@@ -5296,7 +5297,21 @@ A lambda is a class of its captures (`library/ccl_cpp.pl`). A fixture named alon
   information flags I virtual at its vbase offset's place and lists the bases as written. `X : virtual I { int x; }` over
   `struct I { virtual int f(); virtual ~I(); }` is sixteen bytes, I at 0 and x at 8, as clang lays it, where it was
   twenty-four with I after x; `XJ : virtual I, virtual J` lays I at 0 and J after XJ's members, and `C : virtual N` over
-  `N : virtual V` lays N and V at 0 (0.175). (0.174, 0.175, 0.176)
+  `N : virtual V` lays N and V at 0 (0.175). (0.174, 0.175, 0.176, 0.178)
+- A NEARLY EMPTY PRIMARY WHOSE VIRTUAL BASES LIE OUTSIDE IT (0.178; clang's SelectPrimaryVBase asks nothing of them):
+  `C : virtual I` over `I : virtual A`, A with data, takes I as its primary, laid as its base-variant form -- its table
+  pointer alone, at the class's own address -- and built by its base-variant constructor and its part of the VTT
+  (`cpp_vprim_outside/1`, `'$cpp_nv_base'(C, I)`; the part at the class's own address, its construction tables named
+  `$at.` and the sub-object's class, `cpp_ct_j/4`). The class HOLDS every virtual base of I (`cpp_lvb_holders/3`): those
+  outside it at its end, as clang lays them, and those at I's own address, its own primary chain's, which have no member
+  (`cpp_vb_at_self/2`) and which the class builds and destroys itself where they lie, since I's base variant builds none
+  of them (`cpp_vb_place/3`); while a sub-object at the class's own address is built they hold its own table (`$vp`,
+  `cpp_vtt_own/4`). `C : virtual I { int c; }` is 32 bytes, I at 0, c at 8, A at 16, as clang lays it; `C5 : virtual J`
+  over `J : virtual N, virtual A` (N nearly empty, J's primary) builds N, A, then J by its base variant. Until 0.178 the
+  test of 0.175 took such an I as a primary only where the layout cache answered it a wrong size (`ccl_cached/4`, the
+  Caches topic of Time and memory) and laid it out as if A lay inside it: each of the five fixtures was refused, `not
+  lowered yet: offsetof(...)` in a thunk. `vprimout.cpp`, `vprimoutctor.cpp`, `vprimoutmore.cpp`, `vprimoutdeep.cpp`,
+  `vprimoutdeepctor.cpp`. (0.178)
 - A VIRTUAL BASE THAT A BASE SUB-OBJECT TAKES AS ITS PRIMARY (0.174; the ABI's 2.4 II.1b and III): a holder lays no member for
   it -- it lies where the first base sub-object whose own primary it is lies, in a depth-first walk of the bases as
   written, each virtual base once, as clang's ComputeBaseSubobjectInfo claims it (`cpp_note_claims/1`,
@@ -7017,7 +7032,11 @@ A lambda is a class of its captures (`library/ccl_cpp.pl`). A fixture named alon
 ### Caches of the symbol table
 
 - `ccl_cached(Cache, Key, Value, Goal)` keeps the Key-Value pairs found so far in one global, for a term key and a
-  small value: layouts (`'$ccl_laycache'`), `ir_type/2` (`'$ir_tcache'`), `ir_abi/2` (`'$ir_abicache'`).
+  small value: layouts (`'$ccl_laycache'`), `ir_type/2` (`'$ir_tcache'`), `ir_abi/2` (`'$ir_abicache'`). A CACHED ANSWER
+  IS ONE ANSWER (0.178): the goal of a miss runs under `once/1`, in both forms, as a hit gives one value. A caller that
+  backtracked into a first ask got the goal's next answer, and the cache kept that one for every later ask: a struct's
+  layout, which has an answer for each member it may skip, laid `I : virtual A` out without A, eight bytes for 24, where
+  `cpp_vprim_inside/1` tested the size after the ask. (0.178)
 - `ccl_cached_named(Prefix, Name, Value, Goal)` keeps a global per name and an index of the names, for a large value:
   typedefs (`'$ccl_td:'`), tags (`'$ccl_tag:'`), struct forms (`'$ccl_ts:'`), resolutions (`'$ccl_r:'`), the file
   scope (`'$ccl_g:'`), `ck_has_own_array/1` (`'$ck_oa:'`), a summary's tables (`'$ccl_sumload:'`).
@@ -7735,7 +7754,7 @@ A lambda is a class of its captures (`library/ccl_cpp.pl`). A fixture named alon
   18 (0.163's 2613 s over 515) and 4091 s over libc++ 21 (0.163's 3016 s over 517): four builds over `std::visit` took
   most of the rise (`joinwith` 110 s to 937 s over libc++ 21, `stdvariantsel` 19 s to 157 s, `stdvariant` 29 s to 129
   s, `varvisit` 4 s to 35 s over libc++ 18): the evaluator reduced an operand three times, which 0.165 mended (the
-  evaluator topic). The chains of 0.165 to 0.168 and 0.171 to 0.176 ran the gates their changes touch over the HOMEs
+  evaluator topic). The chains of 0.165 to 0.168 and 0.171 to 0.177 ran the gates their changes touch over the HOMEs
   that 0.164's chain warmed (the reader version did not move, so the library reads were not run again), all GREEN: the C++ gate in 731 s
   and 733 s over libc++ 18 and 21 at 0.165, its fixtures' builds summed 2579 s over 517 and 2610 s over 519 (the
   evaluator's mend), in 728 s and 716 s at 0.166 (peaks 2319 MB and 2477 MB), 520 and 522 of 523 fixtures ok, the builds
@@ -7752,7 +7771,9 @@ A lambda is a class of its captures (`library/ccl_cpp.pl`). A fixture named alon
   MB and 2320 MB), 551 and 553 of 554 ok, the builds summed 3587 s over 551 and 3788 s over 553 (HISTORY.md, 0.175), and
   in 1126 s and 1167 s at 0.175 (peaks 2329 MB and 2402 MB), 558 and 560 of 561 ok, the builds summed 3966 s over 558
   and 4159 s over 560 (HISTORY.md, 0.176), and in 1108 s and 1073 s at 0.176 (peaks 2326 MB and 2409 MB), 565 and 567 of
-  568 ok, the builds summed 3940 s over 565 and 3834 s over 567 (HISTORY.md, 0.177). Two libc++ passes are one gate:
+  568 ok, the builds summed 3940 s over 565 and 3834 s over 567 (HISTORY.md, 0.177), and in 1030 s and 1022 s at 0.177
+  (peaks 2290 MB and 2419 MB), 571 and 573 of 574 ok, the builds summed 3671 s over 571 and 3654 s over 573 (HISTORY.md,
+  0.178). Two libc++ passes are one gate:
   `LLVM=/usr/lib/llvm-18` and `LLVM=/usr/lib/llvm-21` choose the tree the chain reads and links. libc++ 22 (the newest
   tree, which a run without
   `$LLVM` reads) is untried but for `stdoptionalref`, which passes there. The run before 0.121's (0.118, 0.119) found,
@@ -7867,6 +7888,13 @@ A lambda is a class of its captures (`library/ccl_cpp.pl`). A fixture named alon
   base, and the same with a path), `lvbvempty` (a later virtual base over an empty virtual base), `lvbemptypath` (a path
   that reaches an empty virtual base further in, beside a later virtual base), `lvblibbase` (`std::istream` as a later
   virtual base of the program's class).
+- Forms of 0.178: `vprimout` (a nearly empty primary whose virtual base lies outside it: a class over it, one derived
+  from that, one stealing it; sizes, offsets, calls, the tables' prefixes, `typeid`, `dynamic_cast`, deletes, copies),
+  `vprimoutctor` (the calls and `typeid` in each constructor and destructor), `vprimoutmore` (beside a plain base,
+  beside another virtual base, and a primary whose own virtual bases lie at its address and outside it), `vprimoutdeep`
+  (one further in, a chain of nearly empty primaries at one address over an outside base, a class derived from that, one
+  stolen from a base) and `vprimoutdeepctor` (their constructors and destructors, and a class over each as a virtual
+  base).
 - Forms of 0.177: `vdtordefault` (a virtual destructor written `= default`, and one by `override`: the class's table, a
   delete through the base), `vslotorder` (the slots of a primary table read off pointers to virtual functions: a
   destructor virtual by inheritance at its place, an implicit one last, an override of a function of a base that is no
@@ -8155,13 +8183,12 @@ A lambda is a class of its captures (`library/ccl_cpp.pl`). A fixture named alon
   that reaches an empty virtual base further in (`X : P, virtual A` over `P : Q` and `Q : virtual E`), each refused at
   0.172, build as clang lays them. A NEARLY EMPTY virtual base is the primary base since 0.174 (the Itanium ABI's II.1b),
   the one clang chooses since 0.175, a stolen one and one further in since 0.176, and a holder lays it where a base
-  sub-object takes it as its primary; one shape keeps a layout of its own, which its own code agrees with and code that
-  clang built reads otherwise: a nearly empty base whose virtual bases lie outside it (`C : virtual I` over `I : virtual
-  A`, A with data). A primary table's slots are in the ABI's order since 0.177. Since 0.171
+  sub-object takes it as its primary, and one whose own virtual bases lie outside it since 0.178 (`C : virtual I` over
+  `I : virtual A`, A with data). A primary table's slots are in the ABI's order since 0.177. Since 0.171
   every class over virtual bases through its paths has the Itanium layout, since 0.172 every class with a later virtual
   base too, since 0.173 one whose later virtual base has virtual bases of its own, and every base-variant sub-object at
   any depth is built under construction tables of its own, its secondary pointers among them (0.110, 0.117, 0.160,
-  0.163, 0.171, 0.172, 0.173, 0.174, 0.175, 0.176, 0.177).
+  0.163, 0.171, 0.172, 0.173, 0.174, 0.175, 0.176, 0.177, 0.178).
 
 ### libc++ modules
 

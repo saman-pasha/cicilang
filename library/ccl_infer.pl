@@ -32,10 +32,13 @@ ccl_gdeclared(N, T) :- ccl_cached_named('$ccl_g:', N, T, ccl_tab_find('$ccl_gsco
 %% a small answer cache in a global -- the Key-Value pairs found so far; a
 %% copy of a dozen pairs is microseconds where the table's is a millisecond.
 %% For keys that are terms (a type, a member list) whose values are small.
+%% ONE ANSWER, as a hit gives one (0.178): the goal of a miss runs under once/1. A caller that backtracked into a first ask
+%% got the goal's next answer, and the cache kept that one for every later ask -- a struct's layout that skipped members:
+%% cpp_vprim_inside/1 tests `S =:= 8' after the size of `I : virtual A', 24 bytes, and backtracking laid I out without A, 8.
 ccl_cached(Cache, Key, Value, Goal) :-
     nb_getval(Cache, C),
     (   memberchk(Key-V0, C) -> Value = V0
-    ;   call(Goal), nb_setval(Cache, [Key-Value|C]) ).
+    ;   once(Goal), nb_setval(Cache, [Key-Value|C]) ).
 %% the same for a NAME whose value may be large -- a tag's members, a
 %% typedef's resolution, a function's type: a global per name, so a lookup
 %% copies that one value and not every value found so far (nb_getval/2
@@ -46,7 +49,7 @@ ccl_cached_named(Prefix, Name, Value, Goal) :-
     ;   atom(Name), var(Value), ccl_caches_misses(Prefix)
     ->  atom_concat(Prefix, Name, K), ( memberchk(Name, Names) -> Names1 = Names ; Names1 = [Name|Names] ),
         ( call(Goal) -> nb_setval(K, Value), nb_setval(IK, Names1) ; nb_setval(K, '$ccl_miss'), nb_setval(IK, Names1), fail )
-    ;   call(Goal), atom_concat(Prefix, Name, K), nb_setval(K, Value), ( memberchk(Name, Names) -> true ; nb_setval(IK, [Name|Names]) ) ).
+    ;   once(Goal), atom_concat(Prefix, Name, K), nb_setval(K, Value), ( memberchk(Name, Names) -> true ; nb_setval(IK, [Name|Names]) ) ).   % one answer, as a hit gives (0.178)
 %% A MISS IS REMEMBERED TOO (0.112), where the table is written only through ccl_tables_changed, which forgets it with
 %% the answers: a name that is no tag copied the whole tags table at every ask -- `cpp_path_class(std, _)' asks
 %% `ccl_tag(std, _)' at every `std::' call, 3 ms each over libc++'s ranges, 17,000 times in a 150 s build. Only for a
