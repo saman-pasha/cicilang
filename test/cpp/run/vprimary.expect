@@ -1,0 +1,22 @@
+sizes 8 16 16 32 32 16
+X: I at 0, f 22 g 3
+via I: 22
+Y: I at 0 X at 0 y at 12 f 22 g 55
+via I: 22
+Z: I 0 X1 0 X2 16 z 28 f 77
+via I: 77 via X1: 77 via X2: 77
+W: B 0 X 16 I 16 w 28 f 22 h 90
+via I: 22
+Q: I 0 P 8 q 12 f 1
+X: 0 0 0 0
+Y: 0 0 0 0
+Z: 0 16 0 0
+Z.X2: -16 0 -16 -16
+W: 0 16
+W.X: -16 0 -16 0
+Q: 0 0 0 0
+1W 1Z 1Q
+dc 1 1 1
+new Z: 77
+copies 22 77 77
+exit 0

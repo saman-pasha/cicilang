@@ -521,6 +521,7 @@ ccl_init_route(_, Ds, Ds).
 %% C99's `__func__' (6.4.2.2), and GNU's `__FUNCTION__' and `__PRETTY_FUNCTION__' beside it: the enclosing function's name (0.108)
 ccl_func_name(N) :- memberchk(N, ['__func__', '__FUNCTION__', '__PRETTY_FUNCTION__']), \+ ccl_declared(N, _), !.
 ccl_member_type(T, '$base!', MT) :- !, ccl_member_type(T, '$base', MT).   % the virtual base AT ITS PLACE in the complete object: a constructor's and a destructor's name for it
+ccl_member_type(T, '$base', MT) :- ccl_vbase_ref(T, '$base', MT0, _), !, MT = MT0.   % a nearly empty primary virtual base's pseudo-member (0.174)
 ccl_member_type(T, '$base', MT) :- ccl_vbase_kind(T, nv(MT0)), !, MT = MT0.
 ccl_member_type(T, N, MT) :- atom(N), sub_atom(N, 0, 6, _, '$base$'), ccl_vbase_ref(T, N, MT0, _), !, MT = MT0.   % a later virtual base's slot (0.172)
 ccl_member_type(T, N, MT) :- ccl_members_of(T, Ms), ( memberchk(member(MT, N, _), Ms) -> true ; ccl_anon_route(T, N, A, AT), A \== N, ccl_member_type(AT, N, MT) ).
