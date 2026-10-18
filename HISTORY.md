@@ -10224,3 +10224,68 @@ part, and over libc++ 21 in 716 s (peak 2477 MB), 522 of 523 ok, the skip `stdop
 builds summed 2580 s over 520 over libc++ 18 (0.165's 2579 s over 517) and 2563 s over 522 over libc++ 21 (0.165's 2610
 s over 519). The live tree's module was rebuilt at 0.166 after the chain (`bin/cicilang --version`: `cicilang 0.166
 (cocolog 2.2.5; LLVM 18.1.3)`), its library the worktree's, file for file.
+
+## 0.167 — Not done, the seventh part: a C++ string literal is `const char[N]`
+
+**0.167: in C++ a string literal is an lvalue of `const char[N]` ([lex.string]/10, [expr.prim.literal]/1), as clang++
+has it: an overload taking `const char *` is the better one, a template deduces the pointer it decays to by value and
+the array by reference, and the roads that a literal's own type opens in libc++'s `std::format`, `std::print` and
+`std::variant` answer as clang++'s. Every gate this step touches GREEN that had ended at the commit; the C++ gate over
+libc++ 21 still ran, and 0.168 carries its numbers.** The owner's ask of 0.159 ("Take cocolog 2.2.5, do all "not done"
+tasks"), its seventh step: a defect that 0.166 met, where `prettyfn.cpp` had to write `pk(1, 2.0, (const char *) "x")`
+to print clang++'s `[Ts = <int, double, const char *>]`.
+
+- THE LITERAL'S TYPE. It was `char *`, to the inference and to every deduction: `f("abc")` called `f(char *)`, declared
+  before `f(const char *)`; `T &` and `T (&)[N]` refused `cannot_deduce('T')`; a pack deduced `char *`, so
+  `std::make_pair("key", 7)` read a temporary pointer's bytes as the characters, and so did a reference to an array
+  bound to a literal. The inference types a literal as the pointer it decays to, `const char *` in C++ and `char *` in C
+  (`ccl_type_of(str(_))` over `ccl_literal_quals/1`; `wchar_t`, `char16_t` and `char32_t` alike), so that the plain
+  overloads see the better conversion, and a `char *` parameter still takes it, as clang allows with a warning.
+  Deduction takes the array (`cpp_string_literal/2`, asked first by `cpp_deduce_type/2`): `T` is `const char *` for a
+  by-value `T`, `const char[N]` for `T &`, `const char (&)[N]` for a forwarding reference and a forwarding pack's
+  element, N deduced by `T (&)[N]`; `decltype("ab")` is `const char (&)[3]`; and the lowering binds a reference to an
+  array to the literal's own global (`ir_ref_to/3`).
+- WHAT THE ARRAY TYPE OPENED. The first run of the C++ gate over the new type had five fixtures RED -- `fmtcheck`,
+  `stdformat`, `stdprint`, `stdvariant2`, `stdvariantsel` -- each a road that no program had taken with an array, each a
+  rule now:
+  - AN ARRAY'S BOUND IS IN ITS TYPE KEY (`cpp_type_key/2`: `int_a3`): `T &` over an `int[3]` and over an `int[5]` named
+    one instance, and the second read the first's `sizeof`. The key never held the bound: libc++'s width and grapheme
+    tables, a `const uint32_t[108]` and a `[1496]`, shared one instance of `declval` and one of `ranges::upper_bound`,
+    so that one table was searched over the other's length, a latent defect that no fixture of a non-ASCII width met.
+  - A PARTIAL SPECIALIZATION'S ARRAY PATTERN BINDS ITS BOUND (`cpp_match_bound_one/5`): `formatter<_CharT[_Size],
+    _CharT>` over `char[2]` binds `_Size`, which libc++'s character-array formatter reads; the bound was passed over,
+    and `std::format("{}", "a")` met `undeclared('_Size')`.
+  - `__array_rank` and `__array_extent`, the builtins of libc++'s `rank_v` and `extent_v`, are answered
+    (`cpp_array_rank/2`, `cpp_array_extent/3`); `__is_const` reads an array's element, as `__remove_const` and its kin
+    strip it ([basic.type.qualifier]/3): `is_const_v<const char[4]>` and `is_const_v<int *const>` were false, and
+    `remove_const_t<const char[4]>`, which libc++'s format takes as a string, kept its `const`.
+  - A REFERENCE PACK GIVEN AN ARRAY TAKES THE ARRAY (`cpp_pack_elem/4`): libc++'s `make_format_args(_Args &... __args)`
+    over a forwarded literal deduced `const char *`, and `std::format("{1} {0} {1}", "a", "b")` formatted a reference to
+    a pointer that was never made, a segmentation fault.
+  - A REFERENCE TO AN ARRAY CONVERTED TO A POINTER IS THE ARRAY'S ADDRESS ([conv.array]; `ir_convert/6`'s first clause):
+    libc++'s `__invoke` writes `static_cast<_Args &&>(__args)`, and over a literal's `const char (&)[5]` the cast's
+    value was loaded whole, `inttoptr [5 x i8] ... to ptr`, which LLVM refused (`std::variant<std::string, bool> a =
+    "text";`).
+  - AN ARRAY ARGUMENT FOR A PARAMETER THAT IS NO REFERENCE DECAYS IN THE TEMPLATE ACCEPTANCE (`cpp_arg_decayed/3`): an
+    array was no pointer to `cpp_scalar_mismatch/2`, and `std::println("{}", "ab")` took libc++'s `println(FILE *,
+    format_string<_Args...>, _Args &&...)` with the format string for its stream, a segmentation fault.
+- `strlit.cpp`: overloads, deduction by value, by reference and through a forwarding pack, `decltype`, an array's bound
+  in its key, `is_const` and `remove_const` of an array, a template whose pointer parameter of another type is no
+  candidate, a cast to a reference to an array converted to a pointer -- clang++'s output over libc++ 18 and 21.
+  `prettyfn.cpp` passes its literal as it is.
+- `CLAUDE.md`: the versions; the string literal's bullet in the overloads' topic; the type keys, a partial
+  specialization's array, the pack's element, the acceptance, the array traits, `__is_const`, `__remove_const`, the
+  lowering's conversion and reference; What runs; the counts.
+
+Reader 133 (no grammar moved), lowering 91 (a reference to an array bound to a literal holds the literal's global, and
+one converted to a pointer is its address; no C text moves).
+
+THE GATES of this step, on a worktree holding these files (its modules 0.166's, over cocolog 2.2.5), over the HOMEs that
+0.164's chain warmed, from 01:32:55 UTC: the flow gate (one finding, `test/flow.expect`'s, 78 s, peak 2774 MB over its
+four lanes; 3938 predicates charted; its first run found the helper of the array's bound placed between two clauses of
+`cpp_match_one/5`, moved after the last), reader 4 s, compile 12 s (85 run and 47 safe fixtures), driver 12 s, objects 3
+s, the proof, the cross gate in 150 s (peak 436 MB; 85 C fixtures and 5 checks, 24 C++ fixtures and 2 checks), and the
+C++ gate over libc++ 18 in 735 s (peak 2503 MB) with 521 of its 524 fixtures ok -- the skips `joinwith`,
+`stdoptionalref` and `tzone` -- the 24 refusals and the three of the safe part: GREEN. The fixtures' builds summed 2588
+s over 521 (0.166's 2580 s over 520). The C++ gate over libc++ 21 began at 01:49:35 UTC and still ran when this step was
+committed, on the owner's word ("Commit before chain"): it claims nothing here, and the next commit carries its numbers.

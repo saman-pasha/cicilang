@@ -626,10 +626,10 @@ ccl_type_of(imagl(_), base([], ['_Complex', long, double])) :- !.
 ccl_type_of(imagi(Sp, _), base([], ['_Complex'|Sp])) :- !.   % `3i', `2ui', `3li', `4uli' (0.104): the specifiers its suffix and its value give
 ccl_type_of(chr(_), base([], [char])) :- ccl_lang(cpp), !.   % C++: a character literal is a char (C's is an int): `cout << ' '' takes the char inserter, not operator<<(int)
 ccl_type_of(chr(_), base([], [int])) :- !.
-ccl_type_of(str(_), ptr([], base([], [char]))) :- !.
-ccl_type_of(wstr(_), ptr([], base([], [wchar_t]))) :- !.                          % L"...": wchar_t's, u"..." char16_t's, U"..." char32_t's
-ccl_type_of(u16str(_), ptr([], base([], [char16_t]))) :- !.
-ccl_type_of(u32str(_), ptr([], base([], [char32_t]))) :- !.
+ccl_type_of(str(_), ptr([], base(Q, [char]))) :- !, ccl_literal_quals(Q).   % the pointer a literal decays to: `const char *' in C++, whose literal is `const char[N]' ([lex.string]/10; 0.167), `char *' in C, whose is `char[N]' (6.4.5/6)
+ccl_type_of(wstr(_), ptr([], base(Q, [wchar_t]))) :- !, ccl_literal_quals(Q).                          % L"...": wchar_t's, u"..." char16_t's, U"..." char32_t's
+ccl_type_of(u16str(_), ptr([], base(Q, [char16_t]))) :- !, ccl_literal_quals(Q).
+ccl_type_of(u32str(_), ptr([], base(Q, [char32_t]))) :- !, ccl_literal_quals(Q).
 ccl_type_of(wchr(_), base([], [wchar_t])) :- !.
 ccl_type_of(u16chr(_), base([], [char16_t])) :- !.
 ccl_type_of(u32chr(_), base([], [char32_t])) :- !.
@@ -722,6 +722,7 @@ ccl_type_of(bin(Op, A, B), T) :- !,
     ;   ccl_is_arith(AT), ccl_is_arith(BT) -> ccl_usual(AT, BT, T)
     ;   T = unknown ).
 ccl_type_of(_, unknown).
+ccl_literal_quals(Q) :- ( ccl_lang(cpp) -> Q = [const] ; Q = [] ).
 %% the vector reductions ccl_type_of/2 types (0.162): each answers its vector's element
 ccl_vec_reduce('__builtin_reduce_add', add).
 ccl_vec_reduce('__builtin_reduce_mul', mul).

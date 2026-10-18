@@ -75,7 +75,7 @@ int main() {
   { D d; K &b = d; b.v(); }
   tf(3); tf<char>('c');
   S<int, 4>().f(); S<double, 2>::g(1.0);
-  un<4>(); lo<-3>(); ch<'c'>(); bo<true>(); pk(1, 2.0, (const char *) "x"); pk();
+  un<4>(); lo<-3>(); ch<'c'>(); bo<true>(); pk(1, 2.0, "x"); pk();
   U<int>().f(); U<char, 7>().f(); O<int>::I<double>().g();
   tv(std::vector<int>{}); tv(std::vector<std::vector<int>>{});
   int i = 0; tp(&i); const char *cs = ""; tp(cs);

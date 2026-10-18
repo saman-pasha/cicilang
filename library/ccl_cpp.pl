@@ -6741,6 +6741,7 @@ cpp_member_alias_of(C, N, C1, TPs, T0) :- cpp_base_scope(C, B), cpp_member_alias
 %% decltype OF A CALL IS THE FUNCTION'S DECLARED RESULT, its reference kept ([dcl.type.decltype]): `std::declval<T>()'
 %% is `T &&', and the inference DECAYS every reference (a reference is a pointer bound once), so declval gave the
 %% closure BY VALUE and its operator() found no object to be called on
+cpp_decltype_of(S, ref([], AT)) :- cpp_string_literal(S, AT), !.   % `decltype("ab")' is `const char (&)[3]' ([dcl.type.decltype]/1.5: a literal is an lvalue; 0.167)
 cpp_decltype_of(call(id(F), _), T) :- atom(F), ccl_declared(F, fn(R, _, _)), ( R = ref(_, _) ; R = rref(_, _) ), !, T = R.
 cpp_decltype_of(stmt_expr(block(Is)), R) :- append(_, [expr(_, call(Fc, _))], Is), cpp_called_fn(Fc, Is, fn(R, _, _)), ( R = ref(_, _) ; R = rref(_, _) ), !.   % ... AND A CALL THROUGH A POINTER TO MEMBER FUNCTION is the member's declared result (0.93), which cpp_memptr_call makes a STATEMENT EXPRESSION since 0.100 (the `{ ptr, adj }' pair, a virtual member through the table): its last call is through a cast to the function's type or through a local of it, and a clause on the bare call matched nothing, so `std::invoke(pm, s) += 2' over `int &(S::*)()' wrote into a copy (0.112; memptrdecl.cpp)
 cpp_decltype_of(stmt_expr(block(Is)), R) :- append(_, [expr(_, call(id(F), _))], Is), atom(F), ccl_declared(F, fn(R, _, _)), ( R = ref(_, _) ; R = rref(_, _) ), !.   % ... AND A CALL MADE IN A STATEMENT EXPRESSION, a lambda called where it is made (0.132)
@@ -7288,7 +7289,7 @@ cpp_match_one(base(_, [typedef(scoped(_, tmpl(N, Sub)))]), A, TPs, B0, B) :- !, 
 cpp_match_one(ptr(_, X), A, TPs, B0, B) :- !, ccl_resolve_type(A, A1), A1 = ptr(_, Y), cpp_match_one(X, Y, TPs, B0, B).
 cpp_match_one(ref(_, X), A, TPs, B0, B) :- !, A = ref(_, Y), cpp_match_one(X, Y, TPs, B0, B).
 cpp_match_one(rref(_, X), A, TPs, B0, B) :- !, A = rref(_, Y), cpp_match_one(X, Y, TPs, B0, B).
-cpp_match_one(arr(_, X), A, TPs, B0, B) :- !, ccl_resolve_type(A, A1), A1 = arr(_, Y), cpp_match_one(X, Y, TPs, B0, B).
+cpp_match_one(arr(K, X), A, TPs, B0, B) :- !, ccl_resolve_type(A, A1), A1 = arr(KA, Y), cpp_match_bound_one(K, KA, TPs, B0, B1), cpp_match_one(X, Y, TPs, B1, B).   % ... AND ITS BOUND (0.167): `formatter<_CharT[_Size], _CharT>' over `char[2]' binds `_Size = 2', which libc++'s character-array formatter reads; `T[]' takes no bounded array, `T[N]' no unbounded one
 cpp_match_one(memptr(CP, _, X), A, TPs, B0, B) :- !, ccl_resolve_type(A, memptr(CA, _, Y)),   % `_Rp (_Cp::*)(_A1)': __weak_result_type specializes over every member-function shape
     cpp_match_one(base([], [typedef(CP)]), base([], [typedef(CA)]), TPs, B0, B1), cpp_match_one(X, Y, TPs, B1, B).
 %% A FUNCTION TYPE as a pattern, `_Rp(_ArgTypes...)' ([temp.deduct.type]/8: the return type and the parameter
@@ -7303,6 +7304,13 @@ cpp_match_one(base(_, [vector(K, X, E)]), A, TPs, B0, B) :- !, ccl_resolve_type(
     cpp_match_one(X, int(V), TPs, B0, B1), cpp_match_one(E, AE, TPs, B1, B).
 cpp_match_one(P, A, _, B, B) :- cpp_is_type(P), !, cpp_same_type(P, A).
 cpp_match_one(P, A, _, B, B) :- cpp_same_value(P, A).
+%% an array pattern's bound against the argument's (0.167): an unbounded pattern takes only an unbounded array, a value
+%% parameter binds the folded bound, any other bound compares as a value
+cpp_match_bound_one(none, KA, _, B, B) :- !, KA == none.
+cpp_match_bound_one(_, none, _, _, _) :- !, fail.
+cpp_match_bound_one(id(P), KA, TPs, B0, B) :- memberchk(tparam(K, P, _), TPs), \+ memberchk(K, [type, pack, template]), !,
+    ( catch(once(ccl_const_eval(KA, V)), _, fail), integer(V) -> A = int(V) ; A = KA ), ( memberchk(P-A0, B0) -> cpp_same_value(A0, A), B = B0 ; B = [P-A|B0] ).
+cpp_match_bound_one(K, KA, _, B, B) :- ( catch(once(ccl_const_eval(K, V1)), _, fail), catch(once(ccl_const_eval(KA, V2)), _, fail) -> V1 =:= V2 ; true ).
 cpp_pattern_quals([], A, A) :- !.
 cpp_pattern_quals(Q, base(Q0, S), base(Q1, S)) :- forall(member(X, Q), memberchk(X, Q0)), findall(Y, ( member(Y, Q0), \+ memberchk(Y, Q) ), Q1).
 cpp_match_tmpl(N, Sub, A, TPs, B0, B) :- memberchk(tparam(template, N, _), TPs), !,               % `_Sp<_Tp, _Args...>': the template deduced too (tname)
@@ -7702,7 +7710,12 @@ cpp_param_accepts(PT, A) :- cpp_ref_lvalue_only(PT), PT = ref(_, T), cpp_lvalue(
     ccl_resolve_type(T, RT), ccl_resolve_type(AT1, RA), ccl_is_arith(RT), ccl_is_arith(RA), RT = base(_, S1), RA = base(_, S2),
     cpp_type_key(base([], S1), K1), cpp_type_key(base([], S2), K2), K1 \== K2, !, fail.
 cpp_param_accepts(PT, A) :- PT = rref(_, T), T \= ref(_, _), \+ ( ccl_resolve_type(T, R), ( R = ref(_, _) ; R = rref(_, _) ) ), cpp_lvalue(A), !, fail.   % ... AND AN LVALUE NEVER BINDS `T &&' ([dcl.init.ref]/5; 0.93): the parameter is judged AFTER substitution, so a forwarding `_Tp &&' given an lvalue has collapsed to `S &' by now and only a true rvalue reference is left as `rref' -- `pick2(const box<T> &)' beside `pick2(box<T> &&)' given an lvalue box: with (53)'s charge on the const binding, the `&&' candidate, held by the old unref-both-sides road, won the tie it had only ever lost by declaration order (refrank.cpp)
-cpp_param_accepts(PT, A) :- ( cpp_deduce_type(A, AT) -> cpp_ref_rank(PT, A), cpp_unref_all(PT, PT1), cpp_unref_all(AT, AT1), cpp_type_accepts(PT1, AT1), cpp_scalar_rank(PT1, AT1) ; true ).   % THE ARGUMENT TYPED AS THE DEDUCTION TYPES IT (cpp_deduce_type: through the desugaring where the inference cannot): a class's name called, `__optional_construct_from_invoke_tag{}', was unknown to the inference and passed every class parameter -- optional's `in_place_t' constructor took the invoke tag, level by level down its storage chain
+cpp_param_accepts(PT, A) :- ( cpp_deduce_type(A, AT) -> cpp_ref_rank(PT, A), cpp_unref_all(PT, PT1), cpp_unref_all(AT, AT0), cpp_arg_decayed(PT, AT0, AT1), cpp_type_accepts(PT1, AT1), cpp_scalar_rank(PT1, AT1) ; true ).   % THE ARGUMENT TYPED AS THE DEDUCTION TYPES IT (cpp_deduce_type: through the desugaring where the inference cannot): a class's name called, `__optional_construct_from_invoke_tag{}', was unknown to the inference and passed every class parameter -- optional's `in_place_t' constructor took the invoke tag, level by level down its storage chain
+%% AN ARRAY ARGUMENT FOR A PARAMETER THAT IS NO REFERENCE IS THE POINTER IT DECAYS TO ([conv.array]; 0.167): a C++ string
+%% literal is typed `const char[N]' since 0.167, an array was no pointer to cpp_scalar_mismatch/2, and libc++'s
+%% `println(FILE *, format_string<_Args...>, _Args &&...)' held for `std::println("{}", "ab")', the format string its stream
+cpp_arg_decayed(PT, AT0, ptr([], E)) :- \+ ( PT = ref(_, _) ; PT = rref(_, _) ), ccl_resolve_type(AT0, arr(_, E)), !.
+cpp_arg_decayed(_, AT, AT).
 cpp_pointee_settles(PT) :- ccl_unref(PT, PT1), ( PT1 = ptr(_, T) -> cpp_type(T, _) ; true ).   % a refusal here is the candidate's rejection, caught where the candidates are held
 %% a conversion that NARROWS ([dcl.init.list]/7): floating to integer; integer to floating or to an integer type that holds not all its values; floating to a narrower
 %% floating type; a pointer to bool -- except from a constant expression whose value fits (an integer constant in the range of the target, a floating one in the
@@ -7900,8 +7913,9 @@ cpp_type_resolved(T) :- \+ cpp_has_scoped(T).
 cpp_has_scoped(T) :- compound(T), ( T = typedef(scoped(_, _)) -> true ; T =.. [_|As], member(A, As), cpp_has_scoped(A) ).
 cpp_deduce_args([param(pack(T), _)], As, TPs, B0, B) :- !,                                       % a trailing pack: one element deduced per argument left
     findall(AT, ( member(A, As),
-                  (   T = rref(_, base(_, [typedef(_)])), cpp_lvalue_deep(A), cpp_deduce_type(A, AT0) -> ccl_unref(AT0, AT1), AT = ref([], AT1)   % a forwarding pack, an lvalue: as a reference (judged on the desugared argument too, cpp_lvalue_deep)
-                  ;   cpp_deduce_type(A, AT0) -> cpp_decayed(AT0, AT)
+                  (   T = rref(_, base(_, [typedef(_)])), cpp_string_literal(A, AT1) -> AT = ref([], AT1)   % a string literal, an lvalue of `const char[N]' (0.167): `const char (&)[N]', as `count("a", "bcd")' deduces it
+                  ;   T = rref(_, base(_, [typedef(_)])), cpp_lvalue_deep(A), cpp_deduce_type(A, AT0) -> ccl_unref(AT0, AT1), AT = ref([], AT1)   % a forwarding pack, an lvalue: as a reference (judged on the desugared argument too, cpp_lvalue_deep)
+                  ;   cpp_deduce_type(A, AT0) -> ( T = ref(_, _) -> ccl_unref(AT0, AT) ; cpp_decayed(AT0, AT) )   % a REFERENCE pattern takes the argument undecayed ([temp.deduct.call]/2; 0.167)
                   ;   AT = unknown ) ), ATs),
     cpp_deduce_pack(T, ATs, TPs, B0, B).
 cpp_deduce_args([], _, _, B, B) :- !.
@@ -7910,8 +7924,14 @@ cpp_deduce_args([P|Ps], [A|As], TPs, B0, B) :- ( P = param(PT, _) ; P = param(PT
 cpp_deduce_args([_|Ps], [_|As], TPs, B0, B) :- cpp_deduce_args(Ps, As, TPs, B0, B).
 cpp_deduce_pack(T, ATs, TPs, B0, [P-pack(Es)|B0]) :-
     cpp_pack_param_in(T, TPs, P), !,
-    findall(E, ( member(AT, ATs), ( AT == unknown -> E = unknown ; cpp_match(T, AT, [tparam(type, P, none)], [], Bk), memberchk(P-E, Bk) ) ), Es).
+    findall(E, ( member(AT, ATs), ( AT == unknown -> E = unknown ; cpp_pack_elem(T, AT, P, E) ) ), Es).
 cpp_deduce_pack(_, _, _, B, B).
+%% one element of a pack: `T &...' and `const T &...' given an ARRAY take the array, the pattern's own qualifiers off its
+%% element (0.167): libc++'s `make_format_args(_Args &... __args)' over a string literal's `const char (&)[2]' deduced the
+%% pointer it decays to, and `std::format("{} {}", "a", "b")' formatted a reference to a pointer that was never made
+cpp_pack_elem(ref(_, base(Q, [typedef(P)])), AT, P, arr(K, E)) :- ccl_resolve_type(AT, arr(K, E0)), !,
+    cpp_strip_quals(E0, EQ, E1), subtract(EQ, Q, EQ1), cpp_with_quals(EQ1, E1, E).
+cpp_pack_elem(T, AT, P, E) :- cpp_match(T, AT, [tparam(type, P, none)], [], Bk), memberchk(P-E, Bk).
 cpp_pack_param_in(T, TPs, P) :- member(tparam(pack, P, _), TPs), cpp_names_in(T, P), !.
 cpp_explicit_skip([], _, _, []).
 cpp_explicit_skip([P|Ps], TPs, B0, [Q|Qs]) :-
@@ -7921,6 +7941,8 @@ cpp_explicit_skip([P|Ps], TPs, B0, [Q|Qs]) :-
     cpp_explicit_skip(Ps, TPs, B0, Qs).
 cpp_deduce_one(_, A, _, B, B) :- cpp_fn_template_ref(A, _), !.                                  % a template's name is a NON-DEDUCED CONTEXT ([temp.deduct.call]/6)
 cpp_deduce_one(PT, init(Items), TPs, B0, B) :- Items \== [], cpp_il_param(PT, EPT), !, cpp_deduce_items(Items, EPT, TPs, B0, B).   % A BRACED LIST AGAINST `initializer_list<P>' DEDUCES P FROM EACH ITEM ([temp.deduct.call]/1; 0.132): zip_view's `size()' is `ranges::min({_CT(__sizes)...})', and `_Tp' of `operator()(initializer_list<_Tp>, ...)' was never deduced, `cannot_deduce(_Tp)'
+cpp_deduce_one(rref(_, base(_, [typedef(P)])), A, TPs, B0, [P-ref([], AT)|B0]) :-                   % ... a STRING LITERAL is such an lvalue (0.167): `const char (&)[N]', as libc++'s `_Args &&...' take it
+    memberchk(tparam(type, P, _), TPs), \+ memberchk(P-_, B0), cpp_string_literal(A, AT), !.
 cpp_deduce_one(rref(_, base(_, [typedef(P)])), A, TPs, B0, [P-ref([], AT1)|B0]) :-                 % A FORWARDING REFERENCE, `T &&' with T a parameter, given an LVALUE: T is the argument's type AS A REFERENCE ([temp.deduct.call]/3)
     memberchk(tparam(type, P, _), TPs), \+ memberchk(P-_, B0), cpp_lvalue_deep(A), cpp_deduce_type(A, AT), !, ccl_unref(AT, AT1).
 %% ... so `std::forward<T>' hands the lvalue back as one (T& && collapses to T&, cpp_collapse_ref), and the
@@ -7954,9 +7976,15 @@ cpp_deduce_items([It|Is], EPT, TPs, B0, B) :- ( It = item(_, V) -> true ; V = It
 %% alias template's instance, which only the desugaring can type, and typed unknown its pack `_I1' stayed EMPTY
 %% beside a bound `_Args1', so pair's piecewise delegation substituted two packs of different lengths and failed
 %% without a word. A template's name has no type to deduce from (a non-deduced context, the first clause above).
+cpp_deduce_type(A, AT) :- cpp_string_literal(A, AT), !.   % A STRING LITERAL IS AN LVALUE OF `const char[N]' ([lex.string]/10, [expr.prim.literal]/1; 0.167): a by-value parameter takes the pointer it decays to (`T' is `const char *'), a reference the array (`T &' is `const char (&)[N]')
 cpp_deduce_type(A, AT) :- \+ cpp_fn_template_ref(A, _), ccl_global('$cpp_temps', Ts, none),
     (   catch(cpp_arg_type(A, AT0), _, fail) -> nb_setval('$cpp_temps', Ts), AT0 \== unknown, AT = AT0
     ;   nb_setval('$cpp_temps', Ts), fail ).
+%% a string literal's own type, the array of its code units and the NUL: `const char[N]', `const wchar_t[N]' ...
+cpp_string_literal(str(Cs), arr(int(N), base([const], [char]))) :- !, length(Cs, K), N is K + 1.
+cpp_string_literal(wstr(Cs), arr(int(N), base([const], [wchar_t]))) :- !, ccl_utf8_count(Cs, K), N is K + 1.
+cpp_string_literal(u32str(Cs), arr(int(N), base([const], [char32_t]))) :- !, ccl_utf8_count(Cs, K), N is K + 1.
+cpp_string_literal(u16str(Cs), arr(int(N), base([const], [char16_t]))) :- ccl_utf16_count(Cs, K), N is K + 1.
 cpp_match(base(_, [typedef(P)]), AT, TPs, B0, B) :- memberchk(tparam(type, P, _), TPs), !, ( memberchk(P-Bound, B0) -> cpp_deduced_agree(P, Bound, AT, B0), B = B0 ; cpp_decayed(AT, AT1), B = [P-AT1|B0] ).
 cpp_match(base(_, [typedef(scoped(Path, _))]), _, TPs, B, B) :- cpp_path_dependent(Path, TPs), !.   % A NAME QUALIFIED BY A PARAMETER IS A NON-DEDUCED CONTEXT, whatever it names: `typename _IterOps<_AlgPolicy>::template __difference_type<_InIter> __n' binds nothing here and resolves once the others bind it (C++'s nested-name-specifier rule; 0.46 had it for a pattern); its last segment taken for a class template refused deduction_failed
 cpp_match(base(_, [typedef(X)]), AT, TPs, B0, B) :- cpp_template_id(X, N, UArgs), \+ memberchk(tparam(template, N, _), TPs), cpp_alias_template(N), !,
@@ -8108,7 +8136,7 @@ cpp_type_key(base(Q, S0), K) :- !, ( cpp_int_spelling(S0, S) -> true ; S = S0 ),
 cpp_type_key(ptr(Q, T), K) :- !, cpp_type_key(T, K0), findall(C, ( member(X-C, [const-c, volatile-v]), memberchk(X, Q) ), Cs), atomic_list_concat([K0, '_p'|Cs], K).
 cpp_type_key(ref(_, T), K) :- !, cpp_type_key(T, K0), atom_concat(K0, '_r', K).
 cpp_type_key(rref(_, T), K) :- !, cpp_type_key(T, K0), atom_concat(K0, '_rr', K).
-cpp_type_key(arr(_, T), K) :- !, cpp_type_key(T, K0), atom_concat(K0, '_a', K).
+cpp_type_key(arr(B, T), K) :- !, cpp_type_key(T, K0), ( catch(once(ccl_const_eval(B, V)), _, fail), integer(V) -> atomic_list_concat([K0, '_a', V], K) ; atom_concat(K0, '_a', K) ).   % ITS BOUND IS PART OF IT (0.167): `T &' over an `int[3]' and an `int[5]' named one instance, and the second read the first's sizeof
 cpp_type_key(memptr(C, _, T), K) :- !, cpp_type_key(T, TK), atomic_list_concat([C, '_mp_', TK], K).
 cpp_type_key(tname(mt(C, N)), K) :- !, atomic_list_concat([C, '.', N], K).   % a member alias template (0.109)
 cpp_type_key(tname(X), X) :- !.
@@ -8478,9 +8506,19 @@ cpp_trait('__builtin_bit_cast', [type(T0), X], stmt_expr(block([declaration(0, n
 %% clang has it). The test of a POD is the layout's (cpp_layout_pod/7), so what libc++ copies by it (`__libcpp_datasizeof<T>::value'
 %% in `__constexpr_memmove') and what libc++ 21 pads a compressed pair with are the bytes the layout lends. `datasizeof.cpp'.
 cpp_trait('__datasizeof', [A], int(N)) :- !, cpp_trait_type(A, T), ccl_resolve_type(T, R), ccl_data_size(R, N).
+cpp_trait('__array_rank', [A], int(N)) :- !, cpp_trait_type(A, T), ccl_resolve_type(T, R), cpp_array_rank(R, N).   % [meta.unary.prop.query] (0.167): an array's rank, 0 for any other type -- libc++'s `rank_v' and `extent_v' are the builtins where clang has them, and a literal's type is an array now
+cpp_trait('__array_extent', [A, D], int(N)) :- !, cpp_trait_type(A, T), ccl_resolve_type(T, R), ( cpp_trait_dim(D, I) -> true ; I = 0 ), cpp_array_extent(R, I, N).   % the extent of its I-th dimension, 0 past its rank or for an unbounded one
 cpp_trait(N, [A], bool(V)) :- cpp_trait_type(A, T), ccl_resolve_type(T, R), cpp_trait_of(N, R, V), !.
 cpp_trait(N, [A|As], bool(V)) :- cpp_trait_types([A|As], [T|Ts]), cpp_trait_n(N, T, Ts, V), !.
 cpp_trait(N, _, _) :- cpp_refuse(0, trait_unknown(N)).
+cpp_trait_dim(type(base(_, [typedef(X)])), I) :- !, atom(X), catch(cpp_const_value(id(X), I), _, fail).
+cpp_trait_dim(type(_), _) :- !, fail.
+cpp_trait_dim(E, I) :- catch(cpp_const_value(E, I), _, fail).
+cpp_array_rank(arr(_, E), N) :- !, ccl_resolve_type(E, R), cpp_array_rank(R, N0), N is N0 + 1.
+cpp_array_rank(_, 0).
+cpp_array_extent(arr(K, _), 0, N) :- !, ( K \== none, catch(once(ccl_const_eval(K, N0)), _, fail), integer(N0) -> N = N0 ; N = 0 ).
+cpp_array_extent(arr(_, E), I, N) :- I > 0, !, I1 is I - 1, ccl_resolve_type(E, R), cpp_array_extent(R, I1, N).
+cpp_array_extent(_, _, 0).
 cpp_offset_path(id(N), [N]) :- !.
 cpp_offset_path(member(X, N), Path) :- !, cpp_offset_path(X, P0), append(P0, [N], Path).
 cpp_offset_path(arrow(X, N), Path) :- !, cpp_offset_path(X, P0), append(P0, [N], Path).
@@ -8563,7 +8601,7 @@ cpp_trait_of('__is_pointer', R, V) :- ( R = ptr(_, _) -> V = true ; V = false ).
 cpp_trait_of('__is_reference', R, V) :- ( ( R = ref(_, _) ; R = rref(_, _) ) -> V = true ; V = false ).
 cpp_trait_of('__is_lvalue_reference', R, V) :- ( R = ref(_, _) -> V = true ; V = false ).
 cpp_trait_of('__is_rvalue_reference', R, V) :- ( R = rref(_, _) -> V = true ; V = false ).
-cpp_trait_of('__is_const', R, V) :- ( R = base(Q, _), memberchk(const, Q) -> V = true ; V = false ).
+cpp_trait_of('__is_const', R, V) :- ( cpp_strip_quals(R, Q, _), memberchk(const, Q) -> V = true ; V = false ).   % the top-level qualifiers: a pointer's own, an array's element's (0.167: `is_const<const char[4]>' was false, and `is_const<int *const>')
 cpp_trait_of('__is_volatile', R, V) :- ( ( R = base(Q, _) ; R = ptr(Q, _) ), memberchk(volatile, Q) -> V = true ; V = false ).   % libc++ 18's `__is_trivially_equality_comparable' road asks it (0.93); the top-level qualifiers, a pointer's own included
 cpp_trait_of('__is_abstract', R, V) :- ( cpp_class_of_type(R, C), cpp_abstract_class(C) -> V = true ; V = false ).   % the one test (cpp_abstract_class)
 cpp_trait_of('__is_void', R, V) :- ( R = base(_, [void]) -> V = true ; V = false ).
@@ -8639,9 +8677,11 @@ cpp_builtin_type('__underlying_type', [A], U) :- !, cpp_trait_type(A, T), cpp_un
 cpp_builtin_type(N, _, _) :- cpp_refuse(0, trait_unknown(N)).
 cpp_strip_quals(base(Q, S), Q, base([], S)) :- !.
 cpp_strip_quals(ptr(Q, T), Q, ptr([], T)) :- !.
+cpp_strip_quals(arr(K, E0), Q, arr(K, E)) :- !, cpp_strip_quals(E0, Q, E).   % AN ARRAY'S cv-QUALIFIERS ARE ITS ELEMENT'S ([basic.type.qualifier]/3; 0.167): `remove_const_t<const char[4]>' is `char[4]', which libc++'s format takes as a string
 cpp_strip_quals(T, [], T).
 cpp_with_quals(Q, base(_, S), base(Q, S)) :- !.
 cpp_with_quals(Q, ptr(_, T), ptr(Q, T)) :- !.
+cpp_with_quals(Q, arr(K, E0), arr(K, E)) :- !, cpp_with_quals(Q, E0, E).
 cpp_with_quals(_, T, T).
 cpp_underlying_of(T, U) :- ccl_resolve_type(T, base(_, [enum(_, Ms)])), !,
     (   Ms = [enum_base(B)|_] -> U = B

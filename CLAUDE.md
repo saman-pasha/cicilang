@@ -10,8 +10,8 @@ it found, its measurements and its gate numbers. `README.md` tells a user what r
 architecture and the milestones. A step that changes a rule edits the rule here, in its topic, and writes its entry
 in `HISTORY.md`.
 
-At 0.166 the versions are: the module 0.166 (`ccl_p_version` in `module/cicilang.cicili`, `bin/cicilang --version`),
-the reader 133 (`ccl_reader_version/1`, `library/ccl_syntax.pl`) and the lowering 90 (`ccl_lowering_version/1`,
+At 0.167 the versions are: the module 0.167 (`ccl_p_version` in `module/cicilang.cicili`, `bin/cicilang --version`),
+the reader 133 (`ccl_reader_version/1`, `library/ccl_syntax.pl`) and the lowering 91 (`ccl_lowering_version/1`,
 `library/ccl_ir.pl`).
 
 Build and prove, always in this order (or all of it, `sh test/gates.sh`):
@@ -397,7 +397,7 @@ tutorials/01..03-*.pl       the objects layer's lessons; goal main, last line do
 - `test/flow.sh` (0.144) reads every file of the library with cocolog's `library(flow/chart)` and RUNS NOTHING. A chart
   starts at one call pattern, so `test/flow.pl`'s `fg_roots_main/2` writes a copy of each file with a root,
   `'$fg_all'/N`, that calls each predicate the file defines with free arguments: 3538 predicates in the ten files at
-  0.161 (3929 in all at 0.166), and since 0.161 the 220 of the nine gate programs, `test/reader.pl`, `compile.pl`,
+  0.161 (3938 in all at 0.167), and since 0.161 the 220 of the nine gate programs, `test/reader.pl`, `compile.pl`,
   `cpp.pl`, `readhdr.pl`, `census.pl`, `libcxx.pl`, `flow.pl`, `why.pl` and `prof.pl` (`TFILES`), each charted with the
   compiler and the flow and process libraries loaded, nothing stubbed (no gate program is a library file); their first
   chart found a predicate split by another's clauses (`census_main/0`) and a call of `print_message/2`, which cocolog
@@ -421,9 +421,9 @@ tutorials/01..03-*.pl       the objects layer's lessons; goal main, last line do
   two ways give the same findings, key for key, and the gate's own are gone. (0.144, 0.146)
 - One job a file in the memory-gated pool (`ccl_pool`; `FLOW_JOBS` 4, `FLOW_LAUNCH_MB` 9000, `FLOW_HARD_MB` 14000),
   the longest first by `~/.cicilang/flow-times`, each under `FLOW_SECS` (900 s): `ccl_cpp.pl` 47 s, `ccl_ir.pl` 46 s,
-  `ccl_driver.pl` 33 s, `test/compile.pl` 32 s, `ccl_syntax.pl` 30 s, the others under 22 s; the gate 75 s and 2655 MB
-  over its four lanes at 0.166 (82 s at 0.164, 92 s at 0.161; 55 s over the library alone at 0.144). A file that is not
-  charted is RED.
+  `ccl_driver.pl` 33 s, `test/compile.pl` 32 s, `ccl_syntax.pl` 30 s, the others under 22 s; the gate 78 s and 2774 MB
+  over its four lanes at 0.167 (75 s at 0.166, 82 s at 0.164, 92 s at 0.161; 55 s over the library alone at 0.144). A
+  file that is not charted is RED.
   (0.144, 0.161)
 - `fg_findings_main/5` writes `flow_findings/2`'s findings but the root's, a line each: the kind, the severity, the
   predicate, the line, the column and the text. The kinds: `unknown_procedure` (a call that nothing answers, with the
@@ -509,9 +509,10 @@ tutorials/01..03-*.pl       the objects layer's lessons; goal main, last line do
   both under qemu and compares them, then two checks against clang++'s code on that machine, the C++ gate's own: classes
   by value and pointers to member functions both ways (`test/cpp/link/`). Each C++ build has a time and a memory cap of
   its own (`CROSS_SECS` 1800, `CROSS_MB` 2800: its summaries are the target's, cold in every chain); without the tree
-  the part is a SKIP line. 85 C fixtures and 5 checks, 24 C++ fixtures (`vector.cpp` since 0.162) and 2 checks at 0.166,
+  the part is a SKIP line. 85 C fixtures and 5 checks, 24 C++ fixtures (`vector.cpp` since 0.162) and 2 checks at 0.167,
   703 s in 0.164's chain, peak 535 MB, the C++ part cold (its summaries are that machine's own, read afresh in every
-  chain's fresh HOME); 151 s in 0.166's, peak 437 MB, over a HOME that 0.165's chain had warmed. (0.131, 0.161)
+  chain's fresh HOME); 151 s in 0.166's and 150 s in 0.167's, peaks 437 MB and 436 MB, over a HOME that 0.165's chain
+  had warmed. (0.131, 0.161)
 - The proof. `proof/run.sh` has clang turn `proof/forty2.ll` into a binary that prints `cicilang reaches C` and exits
   42. (M0)
 
@@ -543,7 +544,7 @@ tutorials/01..03-*.pl       the objects layer's lessons; goal main, last line do
 ### The C++ gate: test/cpp.sh
 
 - `test/cpp.sh` runs in this order: `test/cpp.pl` in one `--local` process; four checks of the command; every
-  `test/cpp/run/*.cpp` as a pool job (523 at 0.166); `classes.cpp` and `templates.cpp` built and run; the refusals,
+  `test/cpp/run/*.cpp` as a pool job (524 at 0.167); `classes.cpp` and `templates.cpp` built and run; the refusals,
   each at the level its `test/cpp/NAME.flags` names, else C++17 (0.164). (0.105, 0.164)
 - `test/cpp.pl` runs 46 numbered checks, `c1` to `c46`, then reads Cicili's six C++ files whole (`test/cpp/objects.cpp`,
   `emit_report.cpp`, `specialise.cpp`, `syntax.cpp`, `torch.cpp`, `torch-fragment.cpp`). `c34` checks the Itanium
@@ -2040,7 +2041,7 @@ tutorials/01..03-*.pl       the objects layer's lessons; goal main, last line do
   0.117)
 - A reader bump makes every summary cold; `test/libcxx.sh` rewrites them. `test/reader.pl`'s `k16` (a cached read is
   the same AST as a fresh one) goes RED on a grammar change without a bump. (0.93, 0.105)
-- `ccl_lowering_version/1` (`library/ccl_ir.pl`, now 90): bump it whenever the check or the lowering changes what it
+- `ccl_lowering_version/1` (`library/ccl_ir.pl`, now 91): bump it whenever the check or the lowering changes what it
   emits, however small -- 0.120 bumped it for the ORDER of the drain functions alone. Why: `dr_ir/3` serves the old IR
   otherwise. Either bump starts the C store afresh. (M4, 0.103, 0.120)
 
@@ -3162,7 +3163,10 @@ free. A const method adds `.c`, a ref-qualified one `.r` or `.rr` after it: each
   gives `F.c<K>.<keys>`, K the candidate's position. A library function template's instance with no body anywhere
   takes the shipped Itanium symbol (`cpp_ita_fn_instance`). (0.35, 0.48)
 - `cpp_type_key/2`: specifiers joined by `_`, `const` and `volatile` first (`cpp_cv_key`: `const_int`); a pointer `_p`
-  with its own `c` or `v` (`int_pc` is `int *const`), a reference `_r`, an rvalue reference `_rr`, an array `_a`, a
+  with its own `c` or `v` (`int_pc` is `int *const`), a reference `_r`, an rvalue reference `_rr`, an array `_a` and
+  its folded bound (`int_a3`; 0.167: `T &` over an `int[3]` and an `int[5]` named one instance, and the second read the
+  first's `sizeof`; libc++'s grapheme tables, a `const uint32_t[108]` and a `[1496]`, had one `declval` and one
+  `ranges::upper_bound` instance), a
   member pointer `C_mp_<T>`; a function type `fn_<R>_<Ps>`, `_z` if variadic, by types and never parameter names; a
   pack its keys joined by `_` (`e` if empty); a template template argument its name, a member alias template `C.N`; a
   literal its value and suffix (`4`, `4u`, `4l`, `4ul`, `4wb`), `m4` if negative, `c<code>` for a char, `1` or `0` for
@@ -3347,6 +3351,10 @@ free. A const method adds `.c`, a ref-qualified one `.r` or `.rr` after it: each
   - A trailing pack takes the rest (`cpp_match_targs`) (0.79).
   - A function type matches result and parameters, a trailing pack the rest, never decayed ([temp.deduct.type]/8;
     `cpp_match_fparams`): `function<_Rp(_ArgTypes...)>` (0.88).
+  - An ARRAY's bound binds a value parameter or compares as a value, and `T[]` takes only an unbounded array
+    (`cpp_match_bound_one/5`; 0.167): `formatter<_CharT[_Size], _CharT>` over `char[2]` binds `_Size`, which libc++'s
+    character-array formatter reads -- the bound was passed over, and `std::format("{}", "a")` met `undeclared('_Size')`
+    once a literal was an array.
   - An alias of a class template-id deduces through itself (`cpp_alias_through`); an alias of an alias stays
     non-deduced (0.79).
 - `cpp_pick_spec/4` keeps the matches whose constraints hold, the more constrained first (`cpp_by_constraints`),
@@ -3459,7 +3467,10 @@ free. A const method adds `.c`, a ref-qualified one `.r` or `.rr` after it: each
 - A FORWARDING REFERENCE `T &&` given an lvalue deduces T as a reference ([temp.deduct.call]/3; `cpp_deduce_one`, packs
   alike), the lvalue judged on the desugared argument too (`cpp_lvalue_deep`). Why: the rvalue-stream inserter
   recursed; an optional's copy moved its string out. (0.78, 0.82)
-- A trailing function parameter pack deduces element by element (`cpp_deduce_pack`). (0.44)
+- A trailing function parameter pack deduces element by element (`cpp_deduce_pack`), and a REFERENCE pattern takes an
+  array argument undecayed, the pattern's own qualifiers off its element (`cpp_pack_elem/4`; 0.167): libc++'s
+  `make_format_args(_Args &... __args)` over a forwarded literal deduced `const char *`, and `std::format("{1} {0}",
+  "a", "b")` formatted a reference to a pointer that was never made. (0.44, 0.167)
 - A template-id parameter takes an instance of the template, or a class derived from one at the cost of a conversion
   (`cpp_instance_or_base`, through the first bases and, since 0.117, any later base with storage:
   `cpp_class_base_instance/4` over `'$cpp_base_slot'`, so `operator<<(basic_ostream<_CharT, _Traits> &, ...)` deduces
@@ -4023,6 +4034,17 @@ The desugaring (`library/ccl_cpp.pl`) chooses every C++ overload. A fixture name
   ? 0 : *__mp + ...` to an iterator constructor. `condzero.cpp`, `test/c/run/condnull.c`. (0.81, 0.117)
 - A character literal is a `char` in C++ and an `int` in C (`ccl_type_of(chr(_))`, `ir_expr(chr(C))`). Why:
   `cout << ' '` printed 32. (0.78)
+- A STRING LITERAL IS AN LVALUE OF `const char[N]` IN C++ ([lex.string]/10, [expr.prim.literal]/1; 0.167), of `char[N]`
+  in C (6.4.5/6). The inference types it as the pointer it decays to, `const char *` in C++ (`ccl_type_of(str(_))` over
+  `ccl_literal_quals/1`; `wchar_t`, `char16_t` and `char32_t` alike), so an overload taking `const char *` is the better
+  one, and a `char *` parameter still takes it, the conversion clang allows with a warning. Deduction takes the
+  literal's own type (`cpp_string_literal/2`, asked first by `cpp_deduce_type/2`): `T` is `const char *` for a by-value
+  `T`, `const char[N]` for `T &`, and `const char (&)[N]` for a forwarding reference `T &&` (a pack's element too,
+  `cpp_deduce_args`), and `T (&)[N]` deduces N; `decltype("ab")` is `const char (&)[3]` (`cpp_decltype_of/2`). The
+  lowering binds a reference to an array to the literal's own global (`ir_ref_to/3`). Each was `char *`: `f("abc")`
+  called `f(char *)`, declared before `f(const char *)`; `T &` and `T (&)[N]` refused `cannot_deduce('T')`;
+  `std::make_pair("key", 7)` and a reference to an array bound to a literal read a temporary pointer's bytes as the
+  characters. `strlit.cpp`. (0.167)
 
 - A CALL OF A NAMESPACE-SCOPE OBJECT, a customization point (`std::ranges::begin(r)`), is typed by the call the
   desugaring makes of it, never by the inference (0.132; `cpp_object_callee/1` in `cpp_arg_type/2`): the table holds the
@@ -4160,7 +4182,10 @@ The desugaring (`library/ccl_cpp.pl`) chooses every C++ overload. A fixture name
 - `cpp_params_accept/3` checks each parameter, substituted and resolved in its class, with `cpp_param_accepts/2`,
   through every reference layer (`cpp_unref_all/2`), the argument typed as deduction types it (`cpp_deduce_type/2`).
   An argument with no type passes. A mismatch refuses `argument_mismatch`: no candidate. Two class types are the same
-  by class and qualifiers (`cpp_same_type/2`). (0.45, 0.79, 0.92)
+  by class and qualifiers (`cpp_same_type/2`). An ARRAY argument for a parameter that is no reference is the pointer it
+  decays to ([conv.array]; `cpp_arg_decayed/3`, 0.167): an array was no pointer to `cpp_scalar_mismatch/2`, and a
+  literal, `const char[3]`, took libc++'s `println(FILE *, format_string<_Args...>, _Args &&...)`, its format string the
+  stream. (0.45, 0.79, 0.92, 0.167)
 - A class parameter accepts its class, a class derived through first bases (`cpp_class_fits/2`), a class with a
   conversion operator to it (`cpp_conv_result/3`), or a class its constructor takes ([over.ics.user];
   `cpp_class_converts/2`, in `cpp_type_accepts/2`). A non-explicit constructor TEMPLATE over a template-id that the
@@ -5708,6 +5733,10 @@ A lambda is a class of its captures (`library/ccl_cpp.pl`). A fixture named alon
   `__has_extension(datasizeof)` with 1, as clang does, so libc++ 18's `__libcpp_datasizeof<T>::value` is that builtin.
   `datasizeof.cpp`. Why: the fallback libc++ writes for other compilers, a member template's explicit specialization,
   did not fold, and the static was an undefined symbol wherever `__constexpr_memmove` copied a range. (0.112)
+- `__array_rank(T)` and `__array_extent(T, I)` ([meta.unary.prop.query]; 0.167) are an array's rank and the extent of
+  its I-th dimension, 0 past its rank or for an unbounded one (`cpp_array_rank/2`, `cpp_array_extent/3`): libc++'s
+  `rank_v` and `extent_v` are the builtins where clang has them, and nothing answered them (`trait_unknown`), which no
+  program met before a literal was an array.
 - Constructible and assignable unref the argument and count constructor templates, defaulted constructors, a made
   implicit default constructor (`cpp_constructible`, `cpp_ctor_arity_fits`) and an assignment template
   (`cpp_assign_member` over `'$cpp_mt'`). Else `std::tie(a, std::ignore) = f()` read an int as an address. (0.46, 0.90,
@@ -5737,7 +5766,9 @@ A lambda is a class of its captures (`library/ccl_cpp.pl`). A fixture named alon
 - `__is_class` of a NESTED class known by name, registered or not (no union), is true (0.132; `cpp_nested_class_named/1`):
   lazy_split_view's iterator holds `struct value_type : view_interface<value_type>`, whose base asks `is_class_v` of it
   while it registers -- refused, the iterator's registration stopped before its friends, and `it != end` had no operator.
-- `__is_volatile` reads the top-level qualifiers, a pointer's included; `__is_abstract` asks `cpp_abstract_class/1`.
+- `__is_volatile` reads the top-level qualifiers, a pointer's included, and so does `__is_const` since 0.167, an array's
+  being its element's ([basic.type.qualifier]/3: `is_const<const char[4]>` and `is_const<int *const>` were false);
+  `__is_abstract` asks `cpp_abstract_class/1`.
   The member-pointer traits answer on `memptr(...)`; libc++ 18 picks its `__invoke` overloads by them
   (`memptrtraits.cpp`, `stdbind.cpp`). `decltype` of a call through a member function pointer is the member's result,
   its reference kept: `cpp_decltype_of` reads the statement expression `cpp_memptr_call` makes (`cpp_called_fn/3`: the
@@ -5748,8 +5779,9 @@ A lambda is a class of its captures (`library/ccl_cpp.pl`). A fixture named alon
 - The reference-temporary traits (`__reference_constructs_from_temporary`, `__reference_converts_from_temporary`,
   `__reference_binds_to_temporary`) and `__builtin_{lt,le,gt,ge}_synthesizes_from_spaceship` are false (`cpp_trait`).
   (0.84)
-- `cpp_builtin_type`: `__remove_cv`, `__remove_const` and `__remove_cvref` strip a pointer's own qualifiers too
-  (`cpp_strip_quals`) and keep a named type; `__remove_extent`, `__remove_all_extents`, `__add_pointer`,
+- `cpp_builtin_type`: `__remove_cv`, `__remove_const` and `__remove_cvref` strip a pointer's own qualifiers too, and an
+  array's element's (`cpp_strip_quals`, 0.167: `remove_const_t<const char[4]>` is `char[4]`, which libc++'s format takes
+  as a string) and keep a named type; `__remove_extent`, `__remove_all_extents`, `__add_pointer`,
   `__remove_pointer`, `__decay`, `__add_lvalue_reference` and `__add_rvalue_reference` (collapsing), `__make_unsigned`
   and `__make_signed` (`cpp_signedness/3`) answer. `__underlying_type(E)` is the enum's written base ([dcl.enum]), else
   `int` when an enumerator is negative and `unsigned` otherwise (`cpp_underlying_of/2`; the lowering's size for an
@@ -6124,10 +6156,12 @@ A lambda is a class of its captures (`library/ccl_cpp.pl`). A fixture named alon
 - A local shadows an enumerator: `ir_expr(id(N))` asks `ir_lookup/2` before `ccl_enum_value/2`. An enumerator is a
   literal of its value (0.160): an int, or a value no int holds the type its literal has. Else an enumerator of libc++'s
   `<format>`, `__ptr`, replaced a parameter. `test/c/run/enumshadow.c`, `test/cpp/run/enumshadow.cpp`. (0.94, 0.160)
-- `ir_convert/6` tries, in order: a reference read through, where a reference to a function is its address
-  ([conv.func]); a class pointer to its base by the base's offset, null kept null by a `select` ([conv.ptr]/3;
-  `nullbase.cpp`); a member-function pointer's `adj` grown by a base's offset; a complex value; the scalar rules.
-  (0.61, 0.72, 0.84, 0.99, 0.108)
+- `ir_convert/6` tries, in order: a reference read through, where a reference to a function is its address ([conv.func])
+  and a reference to an array the array's, which decays ([conv.array]; 0.167: libc++'s `__invoke` writes
+  `static_cast<_Args &&>(__args)`, and over a literal's `const char (&)[5]` the cast's value was loaded whole, an
+  `inttoptr` of `[5 x i8]`); a class pointer to its base by the base's offset, null kept null by a `select`
+  ([conv.ptr]/3; `nullbase.cpp`); a member-function pointer's `adj` grown by a base's offset; a complex value; the
+  scalar rules. (0.61, 0.72, 0.84, 0.99, 0.108, 0.167)
 - The scalar rules first convert to `bool` or `_Bool` (`ir_to_bool/4`): `icmp ne`, `fcmp une`, or a member-function
   pointer's `ptr` against null, then `zext` to `i8`. `bool` and `char8_t` are `i8`. (0.32, 0.108)
 
@@ -6180,7 +6214,8 @@ A lambda is a class of its captures (`library/ccl_cpp.pl`). A fixture named alon
 - A reference is a pointer bound once. A local's slot holds the address (`ir_locals/2` through `ir_ref_to/3`), and a
   use loads it first (`ir_ref_slot/4`). A reference parameter takes the argument's address (`ir_args_/4`). A reference
   result returns the address (`ir_stmt(return)`, `ir_lval(call)`) and is read through for a value (`ir_expr(call)`).
-  (0.32)
+  (0.32) A reference to an array bound to a string literal holds the literal's own global (0.167; `ir_ref_to/3`'s first
+  clause over `ir_string_literal/1`), where it held a temporary pointer to it.
 - `ir_ref_of/2` gives what a reference binds: an lvalue's address (through `ir_slot_addr/2`), the operand of `move(E)`
   or of a cast to a reference, or a call's reference result. A call's value or any other prvalue gets the temporary
   C++ materializes, as `v.push_back(1)` needs. (0.50, 0.58, 0.83)
@@ -7473,14 +7508,16 @@ A lambda is a class of its captures (`library/ccl_cpp.pl`). A fixture named alon
   18 (0.163's 2613 s over 515) and 4091 s over libc++ 21 (0.163's 3016 s over 517): four builds over `std::visit` took
   most of the rise (`joinwith` 110 s to 937 s over libc++ 21, `stdvariantsel` 19 s to 157 s, `stdvariant` 29 s to 129
   s, `varvisit` 4 s to 35 s over libc++ 18): the evaluator reduced an operand three times, which 0.165 mended (the
-  evaluator topic). 0.165's and 0.166's chains ran the gates their changes touch over the HOMEs that 0.164's chain
-  warmed (the reader version did not move, so the library reads were not run again), all GREEN: the C++ gate in 731 s
-  and 733 s over libc++ 18 and 21 at 0.165, its fixtures' builds summed 2579 s over 517 and 2610 s over 519 (the
-  evaluator's mend), and in 728 s and 716 s at 0.166 (peaks 2319 MB and 2477 MB), 520 and 522 of 523 fixtures ok, the
-  builds summed 2580 s over 520 and 2563 s over 522 (HISTORY.md, 0.165 and 0.166). Two libc++ passes are one gate:
-  `LLVM=/usr/lib/llvm-18` and `LLVM=/usr/lib/llvm-21` choose the tree the chain reads and links. libc++ 22 (the newest
-  tree, which a run without `$LLVM` reads) is untried but for `stdoptionalref`, which passes there. The run before
-  0.121's (0.118, 0.119) found, over 0.117, two defects and one stale check of `test/cpp.pl` (c20, above).
+  evaluator topic). 0.165's, 0.166's and 0.167's chains ran the gates their changes touch over the HOMEs that 0.164's
+  chain warmed (the reader version did not move, so the library reads were not run again), all GREEN but 0.167's run
+  over libc++ 21, which still ran when 0.167 was committed (its numbers are 0.168's): the C++ gate in 731 s and 733 s
+  over libc++ 18 and 21 at 0.165, its fixtures' builds summed 2579 s over 517 and 2610 s over 519 (the evaluator's
+  mend), in 728 s and 716 s at 0.166 (peaks 2319 MB and 2477 MB), 520 and 522 of 523 fixtures ok, the builds summed 2580
+  s over 520 and 2563 s over 522, and in 735 s over libc++ 18 at 0.167 (peak 2503 MB), 521 of 524 ok, the builds summed
+  2588 s over 521 (HISTORY.md, 0.165 to 0.167). Two libc++ passes are one gate: `LLVM=/usr/lib/llvm-18` and
+  `LLVM=/usr/lib/llvm-21` choose the tree the chain reads and links. libc++ 22 (the newest tree, which a run without
+  `$LLVM` reads) is untried but for `stdoptionalref`, which passes there. The run before 0.121's (0.118, 0.119) found,
+  over 0.117, two defects and one stale check of `test/cpp.pl` (c20, above).
 - The host sets the predefined macros (`ccl_host_os/1` and `ccl_host_arch/1` in the module), the inclusion path
   (Debian's `/usr/lib/llvm-NN`, the multiarch directory) and the link (`-lc++` and `-lm` on Linux) (0.87, 0.93, 0.100).
 - A struct passed or returned by value crosses a call as clang's x86-64 code expects, in both directions, with the
@@ -7572,6 +7609,10 @@ A lambda is a class of its captures (`library/ccl_cpp.pl`). A fixture named alon
   (two virtual overloads of one name and arity, one overridden), `virtualdefault` (a virtual call that leaves a defaulted
   argument out), `anonparam` (an unnamed by-value parameter destroyed), `rangeadl` (a range-for by the free `begin` and
   `end` of two namespaces), `downcast` (`static_cast` from a second base to the derived class, a pointer and a reference).
+- Forms of 0.167: `strlit` (a string literal as `const char[N]`: overloads, deduction by value, by reference and
+  through a forwarding pack, `decltype`, an array's bound in its key, `is_const` and `remove_const` of an array, a
+  template whose pointer parameter of another type is no candidate, a cast to a reference to an array converted to a
+  pointer).
 - Forms of 0.166: `prettyfn` (`__func__`, `__FUNCTION__` and `__PRETTY_FUNCTION__` in free functions, members in and
   out of their class, constructors, destructors, operators, a conversion function, static and virtual members, function
   and member templates' instances, class templates' members, a lambda and a local class; a member class template's
