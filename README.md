@@ -57,7 +57,7 @@ record of every step.
   its paths, a diamond over them too, later virtual bases (`X : B, virtual
   A`), with virtual bases of their own too, a nearly empty virtual base as the
   primary base, the one clang chooses, stolen or further in, a virtual
-  base's own vcall offsets,
+  base's own vcall offsets, the slots of a primary table in the ABI's order,
   and the base-variant constructors and destructors built under
   construction vtables of their own at any depth, from a VTT,
   `noexcept` enforced, trailing return types, access control for

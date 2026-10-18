@@ -1598,7 +1598,7 @@ cpp_register_class_(K, L, C, Bases0, Ms) :-
 
     ( cpp_split_members(Ms, Data00, Statics, Defaults) -> true ; cpp_refuse(L, members_not_split(C)) ),
     ( cpp_member_types_now(C, Data00, Data0a, Later) -> true ; cpp_refuse(L, member_types(C)) ),   % each member's type resolved under the class's own typedefs (`pointer __begin_;'), but one that names a call (below)
-    ( '$cpp_vprim'(C, _) -> cpp_slots(Base, Ms, C, Slots) ; '$cpp_vbase'(C) -> cpp_slots(none, Ms, C, Slots0), cpp_vbase_dtor_slots(Base, Slots0, Slots) ; cpp_slots(Base, Ms, C, Slots) ),   % over a VIRTUAL base the table is the class's own: the shared base keeps its own pointer inside its sub-object -- but a NEARLY EMPTY one is the primary, its slots the table's first (0.174)
+    ( '$cpp_vbase'(C), \+ '$cpp_vprim'(C, _) -> cpp_slots(none, Base, Ms, C, Slots) ; cpp_slots(Base, none, Ms, C, Slots) ),   % over a VIRTUAL base the table is the class's own: the shared base keeps its own pointer inside its sub-object, and an override of its functions is a slot of the class's own table (0.177) -- but a NEARLY EMPTY one is the primary, its slots the table's first (0.174)
     (   ( Slots \== [], ( '$cpp_vbase'(C) ; \+ cpp_has_table(Base) ) ; '$cpp_vbase'(C) ; '$cpp_lvb'(C, _, _), \+ cpp_has_table(Base) )      % the class introduces the table: its pointer is a member of its own -- and a class over a VIRTUAL base always has one (0.160): its table carries the base's offset
     ->  cpp_vt_tag(C, VT), VPtr = [member(ptr([], base([], [struct(VT, none)])), '$vptr', none)]
     ;   VPtr = [] ),
@@ -2035,7 +2035,19 @@ cpp_path_class(scoped(_, Last), C) :- cpp_path_class(Last, C).
 cpp_norm_members(Ms, Ms1) :- cpp_norm_members(Ms, [], Ms1).
 cpp_norm_members(Ms, Bases, Ms1) :-
     ( member(method(_, _, _, operator(Op), _, _, default), Ms), memberchk(Op, ['==', '<=>']) -> nb_setval('$cpp_norm_all', Ms), nb_setval('$cpp_norm_bases', Bases) ; true ),   % the defaulted comparisons below need the data members and the bases: kept only where one is there (nb_setval copies)
-    cpp_trailing_rets(Ms, MsT), cpp_auto_members(MsT, Ms0), cpp_norm_members_(Ms0, 0, Ms1).
+    cpp_trailing_rets(Ms, MsT), cpp_auto_members(MsT, Ms00), cpp_default_vdtor(Ms00, Bases, Ms0), cpp_norm_members_(Ms0, 0, Ms1).
+%% A DEFAULTED VIRTUAL DESTRUCTOR IS A DESTRUCTOR OF ITS OWN (0.177): `virtual ~B() = default;', `~D() override = default;' and `~D() =
+%% default;' over a base whose destructor is virtual are written with an empty body, which cpp_dtor_body completes as it completes the
+%% implicit one, so the table has its slots at its place. Dropped as the implicit destructor, a class whose one virtual function it was
+%% had no table, and a delete through it ran no derived destructor. A defaulted destructor that is not virtual stays the implicit one.
+cpp_default_vdtor(Ms, Bases, Ms1) :-
+    (   memberchk(dtor(_, Qs, default), Ms), ( memberchk(virtual, Qs) ; memberchk(override, Qs) ; cpp_raw_bases_virtual_dtor(Bases) )
+    ->  cpp_default_vdtor_(Ms, Ms1)
+    ;   Ms1 = Ms ).
+cpp_default_vdtor_([], []).
+cpp_default_vdtor_([dtor(L, Qs, default)|Ms], [dtor(L, Qs, block([]))|Ms1]) :- !, cpp_default_vdtor_(Ms, Ms1).
+cpp_default_vdtor_([M|Ms], [M|Ms1]) :- cpp_default_vdtor_(Ms, Ms1).
+cpp_raw_bases_virtual_dtor(Bases) :- member(base(_, B0), Bases), catch(cpp_base_name(B0, B), _, fail), cpp_bases_virtual_dtor([B]), !.
 %% A MEMBER FUNCTION WITH AN `auto' PARAMETER IS A MEMBER FUNCTION TEMPLATE ([dcl.fct]/22), its invented parameters
 %% after any written ones: libc++ 18's format-spec parser writes `int32_t __get_width(auto &__ctx) const', and kept as a
 %% method whose parameter type is `auto' its body typed nothing through `__ctx' -- std::format's width substitution
@@ -2162,26 +2174,48 @@ cpp_member_body(dtor(_, _, B), B).
 %% emit -- `member_instance_not_emitted', where every buffered algorithm (stable_partition, inplace_merge) makes a
 %% `unique_ptr<T, __destruct_n &>'
 cpp_member_body(template(_, _, M), B) :- cpp_member_body(M, B).
-%% the virtual slots of a class: the base's, an own virtual method (or one
-%% that overrides a slot) appended when new, `$dtor' for a virtual destructor
-cpp_slots(Base, Ms, C, Slots) :-
+%% THE VIRTUAL SLOTS OF A CLASS, as the Itanium ABI lays its primary table (2.5.2, clang's AddMethods; 0.177): the primary base's (Base,
+%% or none), then each virtual function the class declares that overrides none of them, in the order declared -- one marked
+%% `virtual', or one that overrides a function of any other base at any depth (cpp_overrides_base/4: a virtual first base that is no
+%% primary, Other; a later base, virtual or not; a virtual base a path holds) -- and a destructor that is virtual by its word or by a
+%% base's virtual destructor at its own place; then, LAST, the implicit destructor where the class declares none and a base's is
+%% virtual (cpp_implicit_dtor_slots/4). Before 0.177 an override of a virtual first base's function was no slot of the class's own
+%% table (`C : virtual A' overriding A's g had h at slot 0, clang's at 1), the pair of a destructor virtual by a virtual base went
+%% FIRST (cpp_vbase_dtor_slots/3, gone), and a destructor virtual by a later base was no slot at all, so a delete through the class
+%% ran no derived destructor.
+cpp_slots(Base, Other, Ms, C, Slots) :-
     ( Base == none -> S0 = [] ; cpp_class_l(Base, cls(_, _, _, _, S0)) -> true ; cpp_refuse(0, base_not_registered(Base, C)) ),   % never a silent failure: a half-registered class corrupts every later lookup
-    cpp_own_slots(Ms, C, S0, Slots).
+    ( '$cpp_extra'(C, Es) -> true ; Es = [] ), findall(H, '$cpp_vb_holder'(C, H), Hs), append([[Base, Other], Es, Hs], Bs0), findall(X, ( member(X, Bs0), X \== none ), Bs),
+    cpp_own_slots(Ms, Bs, S0, S1), cpp_implicit_dtor_slots(Ms, Bs, S1, Slots).
 cpp_own_slots([], _, S, S).
-cpp_own_slots([method(_, Qs, Ret, M, Ps, V, _)|Ms], C, S0, S) :-
+cpp_own_slots([method(_, Qs, Ret, M, Ps, V, _)|Ms], Bs, S0, S) :-
     length(Ps, A), cpp_slots_of(S0, M, A, Same),
     (   cpp_overridden_slot(Same, Qs, Ps) -> S1 = S0                                    % it overrides a slot of the table so far
-    ;   ( memberchk(virtual, Qs) ; cpp_overrides_extra(C, M, A, Ps) )                % ... or overriding a SECOND base's virtual (0.110): `int g() override' over B::g is virtual in C too, and `pc->g()' through a C * must dispatch
+    ;   ( memberchk(virtual, Qs) ; cpp_overrides_base(Bs, M, A, Ps) )                % ... or a function of another base: `int g() override' over B::g is virtual in C too, and `pc->g()' through a C * must dispatch (0.110, a later base's; any base's, 0.177)
     ->  cpp_plain_params(Ps, Ps1), cpp_slot_ret(Ret, Ret1), cpp_slot_key(S0, M, A, K), append(S0, [slot(M, K, Ret1, Ps1, V)], S1)
     ;   S1 = S0 ),
-    cpp_own_slots(Ms, C, S1, S).
-cpp_own_slots([dtor(_, Qs, _)|Ms], C, S0, S) :- ( memberchk(virtual, Qs) ; memberchk(override, Qs) ), \+ memberchk(slot('$dtor', 0, _, _, _), S0), !,   % virtual by the word, or by `override' (libc++'s `~basic_ostream() override')
-    append(S0, [slot('$dtor', 0, base([], [void]), [], false), slot('$dtor_del', 0, base([], [void]), [], false)], S1), cpp_own_slots(Ms, C, S1, S).
+    cpp_own_slots(Ms, Bs, S1, S).
+cpp_own_slots([dtor(_, Qs, _)|Ms], Bs, S0, S) :- ( memberchk(virtual, Qs) ; memberchk(override, Qs) ; cpp_bases_virtual_dtor(Bs) ), \+ memberchk(slot('$dtor', 0, _, _, _), S0), !,   % virtual by the word, by `override' (libc++'s `~basic_ostream() override'), or by a base's virtual destructor (0.177)
+    append(S0, [slot('$dtor', 0, base([], [void]), [], false), slot('$dtor_del', 0, base([], [void]), [], false)], S1), cpp_own_slots(Ms, Bs, S1, S).
 %% ... TWO entries for it, the complete-object and the deleting destructor, as the Itanium ABI lays a table out --
 %% and it must be laid out so, since a virtual call INTO an object the shipped library made (std::cout's streambuf,
 %% its `overflow') indexes that object's own table: with one entry every slot past the destructor was off by one.
 %% Both hold the one destructor here; a delete is that call and a free (cpp_destroy).
-cpp_own_slots([_|Ms], C, S0, S) :- cpp_own_slots(Ms, C, S0, S).
+cpp_own_slots([_|Ms], Bs, S0, S) :- cpp_own_slots(Ms, Bs, S0, S).
+cpp_implicit_dtor_slots(Ms, Bs, S0, S) :-
+    (   \+ memberchk(dtor(_, _, _), Ms), \+ memberchk(slot('$dtor', 0, _, _, _), S0), cpp_bases_virtual_dtor(Bs)
+    ->  append(S0, [slot('$dtor', 0, base([], [void]), [], false), slot('$dtor_del', 0, base([], [void]), [], false)], S)
+    ;   S = S0 ).
+%% a function of a base overridden: a slot of that base's table, or of its own bases', at any depth (each base's table holds its
+%% primary chain's functions and its own; a later base's are in that base's own table)
+cpp_overrides_base(Bs, M, A, Ps) :- member(X, Bs), cpp_base_overrides(X, M, A, Ps), !.
+cpp_base_overrides(X, M, A, Ps) :- cpp_class_l(X, cls(XB, _, _, _, XS)),
+    (   cpp_slots_of(XS, M, A, Same), cpp_overridden_slot(Same, [], Ps) -> true
+    ;   ( '$cpp_extra'(X, XEs) -> true ; XEs = [] ), findall(H, '$cpp_vb_holder'(X, H), Hs), append([[XB], XEs, Hs], Ys),
+        member(Y, Ys), Y \== none, cpp_base_overrides(Y, M, A, Ps) -> true ).
+%% a base's destructor is virtual: its table has the destructor's slots (a class with a base whose destructor is virtual has them
+%% itself, so a direct base tells)
+cpp_bases_virtual_dtor(Bs) :- member(X, Bs), cpp_class_l(X, cls(_, _, _, _, XS)), memberchk(slot('$dtor', 0, _, _, _), XS), !.
 %% a slot's RESULT type resolved in the class, as its parameters are: the table's struct is written from the slots, and
 %% `virtual int_type uflow()' -- basic_streambuf's, a class-scope typedef -- reached the lowering raw there; one that
 %% does not resolve stays as written, as it always did
@@ -2202,7 +2236,6 @@ cpp_slots_of(Slots, M, A, Same) :- findall(slot(M, K, R, Ps, V), ( member(slot(M
 cpp_overridden_slot([], _, _) :- !, fail.
 cpp_overridden_slot([slot(_, _, _, SPs, _)], Qs, Ps) :- !, \+ ( memberchk(virtual, Qs), \+ memberchk(override, Qs), \+ memberchk(final, Qs), cpp_params_differ(Ps, SPs) ).
 cpp_overridden_slot(Same, _, Ps) :- catch(cpp_plain_params(Ps, Ps1), _, fail), member(slot(_, _, _, SPs, _), Same), cpp_params_agree(Ps1, SPs), !.
-cpp_overrides_extra(C, M, A, Ps) :- '$cpp_extra'(C, Es), member(E, Es), cpp_class_l(E, cls(_, _, _, _, ES)), cpp_slots_of(ES, M, A, Same), cpp_overridden_slot(Same, [], Ps), !.
 %% two parameter lists AGREE where each type is the other's, the top-level cv of a value parameter dropped ([dcl.fct]/5);
 %% a type that cannot be compared is taken to agree, so only a sure difference makes a method a new overload
 cpp_params_differ(Ps, SPs) :- catch(cpp_plain_params(Ps, Ps1), _, fail), \+ cpp_params_agree(Ps1, SPs).
@@ -2253,23 +2286,6 @@ cpp_slot_name('$dtor_del', _, '$dtor_del') :- !.
 cpp_slot_name(M, K, Name) :- ( atom(M) -> M1 = M ; M = operator(Op), cpp_op_word(Op, W) -> atom_concat('op.', W, M1) ; term_to_atom(M, M1) ), atomic_list_concat([M1, '.', K], Name).
 %% the class whose table a pointer to C dispatches through: the first polymorphic one up the chain
 cpp_vt_owner(C, Owner) :- cpp_class_l(C, cls(B, _, _, _, _)), ( \+ '$cpp_vbase'(C), cpp_has_table(B) -> cpp_vt_owner(B, Owner) ; Owner = C ).
-%% VIRTUAL INHERITANCE, as the Itanium ABI lays a COMPLETE OBJECT out: the class's own pointer to its own table
-%% first, its own members, and the shared base LAST -- `basic_ostream : virtual public basic_ios', where std::cout
-%% is the basic_ostream's vptr and then the basic_ios at offset 8 (measured with clang++: 160 = 8 + 152), and
-%% every field of it we read sat eight bytes off. The base is still `$base' -- its members, its methods, its
-%% constructor and destructor are reached as through any base -- only placed after the class's own. A class
-%% deriving FURTHER from one keeps that layout inside its own sub-object, where the ABI would move the shared
-%% base to the end of the most-derived object: right for every object the library makes and for the program's
-%% own, and wrong only where the library's code would look into such a derived object of the program's, which
-%% nothing does yet. Two classes sharing one virtual base (basic_iostream) are not laid out here at all: the
-%% first base is taken, the second refused as multiple_inheritance unless empty.
-%% ... and a destructor is virtual BY INHERITANCE: over a virtual base the shared table is not this class's, so a
-%% virtual destructor of the base's makes the class's own slots, first, whether the class declares one or not (an
-%% implicit one is emitted then: cpp_implicit_dtor_needed)
-cpp_vbase_dtor_slots(Base, S0, S) :-
-    (   Base \== none, \+ memberchk(slot('$dtor', 0, _, _, _), S0), cpp_class_l(Base, cls(_, _, _, _, BS)), memberchk(slot('$dtor', 0, _, _, _), BS)
-    ->  S = [slot('$dtor', 0, base([], [void]), [], false), slot('$dtor_del', 0, base([], [void]), [], false)|S0]
-    ;   S = S0 ).
 %% A CLASS THAT IS NOT TRIVIALLY COPYABLE OR DESTRUCTIBLE is marked for the lowering, which passes it by invisible
 %% reference and returns it through a hidden pointer as the Itanium ABI has it (ir_abi): a destructor, a copy or
 %% move constructor, a virtual function, a VIRTUAL BASE (0.160: its copy constructor is never trivial, [class.copy.ctor]/11), or a
@@ -2885,6 +2901,7 @@ cpp_implicit_dtor_needed(C) :- cpp_class(C, cls(B, Data, Ms, _, _, _)), B \== no
 cpp_implicit_dtor_needed(C) :- '$cpp_vb_holder'(C, _), cpp_class(C, cls(_, _, Ms, _, _, _)), \+ memberchk(dtor(_, _, _), Ms), \+ ( cpp_dtor_def(C) ), !.   % a diamond's holder destroys its paths and the shared base itself
 cpp_implicit_dtor_needed(C) :- cpp_class(C, cls(_, Data, Ms, _, _, _)), \+ memberchk(dtor(_, _, _), Ms), \+ ( cpp_dtor_def(C) ),
     member(member(MT, _, _), Data), cpp_elem_class(MT, MC), cpp_dtor(MC, _), !.
+cpp_implicit_dtor_needed(C) :- '$cpp_base_slot'(C, E, _), \+ '$cpp_lvb'(C, E, _), cpp_dtor(E, _), cpp_class(C, cls(_, _, Ms, _, _, _)), \+ memberchk(dtor(_, _, _), Ms), \+ cpp_dtor_def(C), !.   % ... and over a LATER base with a destructor (0.177; [class.dtor]/8): the implicit destructor destroys it where it lies -- `struct T : P, Q {}' over `~Q()' had none, a local T never ran ~Q, a delete through a T * freed the bytes alone, and std::tuple<int, std::string> never destroyed its string (a leaf per element)
 cpp_implicit_dtor(L, C, Fs) :- cpp_implicit_dtor_(L, C, F), cpp_nv_twin(C, F, cpp_implicit_dtor_(L, C, F2), F2, Fs, []).
 cpp_implicit_dtor_(L, C, function(L, none, base([], [void]), Name, Params, false, Body1)) :-
     atomic_list_concat([C, '.dtor.0'], Name), cpp_this_type(C, [], [dying], ThisT), cpp_vtt_params(C, [param(ThisT, this)], Params),

@@ -10834,3 +10834,73 @@ s, over libc++ 21 `fmtchrono2` 174 s, `fmtchrono` 150 s, `viewsall` 139 s, `fmtr
 Reader 133 (no grammar moved), lowering 98 (a primary virtual base further in, stolen or free, laid at the class's own
 address; the lookup order of a primary moved first; one construction table for the virtual bases at the object's own
 address; a sub-object's construction table its final overriders: new IR for such classes; no C text moves).
+
+## 0.177 — Not done, the fifteenth part: the slots of a primary table in the ABI's order
+
+**0.177: a class's primary table has its slots in the order the Itanium ABI lays them (2.5.2, clang's AddMethods): the
+primary base's, then each virtual function the class declares that overrides none of them, an override of a function of
+any other base among them, a destructor virtual by a base's at its place, and the implicit destructor last; a defaulted
+virtual destructor is a destructor of its own; and a class over a later base with a destructor has the implicit one.
+Committed before its chain, on the owner's word ("Commit before chain"): the chain begins after this commit, and the
+next one carries its numbers.**
+
+THE CHAIN OF 0.176, on the checkout of its commit (its module rebuilt at 0.176, over cocolog 2.2.5), over the HOMEs that
+0.164's chain warmed: the flow gate (one finding, `test/flow.expect`'s, 111 s, peak 2734 MB over its four lanes; 4041
+predicates), reader 6 s, compile 18 s, driver 19 s, objects 5 s, the proof, the cross gate in 223 s (peak 462 MB), the
+C++ gate over libc++ 18 in 1108 s (peak 2326 MB; 0.175's 1126 s) with 565 of its 568 fixtures ok -- the skips
+`joinwith`, `stdoptionalref` and `tzone` -- the 23 refusals and the three of the safe part, from 15:41:22 to 15:59:50
+UTC; and over libc++ 21 in 1073 s (peak 2409 MB; 0.175's 1167 s), 567 of 568 ok, the skip `stdoptionalref`, from 15:59:51
+to 16:17:44 UTC: GREEN. The fixtures' builds, as `fixture-times` records them (four at a time), summed 3940 s over 565
+over libc++ 18 (0.175's 3966 s over 558) and 3834 s over 567 over libc++ 21 (0.175's 4159 s over 560); the slowest over
+libc++ 18 `fmtrange` 175 s, `fmtchrono2` 168 s, `fmtchrono` 151 s, `fmtcheck` 117 s, `viewsall` 116 s and `fmttuple` 116
+s, over libc++ 21 `fmtchrono2` 162 s, `fmtchrono` 141 s, `viewsall` 127 s, `fmtrange` 114 s, `fmtcheck` 97 s and
+`joinwith` 95 s. The numbers are the chain's, wall clock, and no claim about the library's speed.
+
+- THE SLOTS OF A PRIMARY TABLE (`cpp_slots/5`, `cpp_overrides_base/4`, `cpp_implicit_dtor_slots/4`): the primary base's
+  slots, then each virtual function the class declares that overrides none of them, in the order declared -- one marked
+  `virtual`, or one that overrides a function of ANY other base at any depth (a virtual first base that is no primary, a
+  later base, virtual or not, a virtual base a path holds), virtual without the word -- and a destructor virtual by its
+  word or by a base's virtual destructor at its own place; the implicit destructor goes LAST. Three shapes had other
+  slots: over a virtual first base that is no primary, an override of the base's function was no slot of the class's
+  own table (`C : virtual A` overriding A's g, its h at slot 2 behind the destructor's pair, where clang has g at 0 and h
+  at 1), and the pair of a destructor virtual by that base went FIRST (`cpp_vbase_dtor_slots/3`, gone: `W : virtual A`
+  declaring `k`, `~W`, `m` and `g` had k at 2, m at 3 and g at none; clang has k 0, the pair 1 and 2, m 3, g 4); and a
+  destructor virtual by a LATER base was no slot (`R2 : P2, Q2` over `virtual ~Q2()`: a delete of an S2 through an
+  `R2 *` ran ~R2 and ~Q2 and never ~S2). A pointer to a virtual function holds its slot's offset, so code that clang
+  built calls another function through such a pointer; the vcall offsets of a virtual base's own table follow its
+  slots' order (0.175), so they moved too (`E.C: -16 16 -16 0`, clang's `-16 16 0 0`).
+- A DEFAULTED VIRTUAL DESTRUCTOR IS A DESTRUCTOR OF ITS OWN (`cpp_default_vdtor/3`): `virtual ~B() = default;`, `~E()
+  override = default;` and `~D() = default;` over a base whose destructor is virtual are written with an empty body,
+  which `cpp_dtor_body` completes as it completes the implicit one. Dropped as the implicit destructor, it was no slot:
+  `struct B { virtual ~B() = default; int b = 1; }` had no table, `std::has_virtual_destructor<B>` was false, `typeid`
+  through a `D *` named D for an E, and a delete of a D through a `B *` freed a pointer that malloc never gave
+  (`free(): invalid pointer`).
+- THE IMPLICIT DESTRUCTOR OF A CLASS OVER A LATER BASE WITH ONE ([class.dtor]/8; `cpp_implicit_dtor_needed/1`): a class
+  with no destructor of its own over a later base with storage whose destructor is not trivial gets the implicit one,
+  which destroys that base where it lies. It had none since 0.88, when a later base got a sub-object of its own: `struct
+  T : P, Q {}` over `~Q()` never ran ~Q -- a local, a member, an array, a delete -- a delete of a Y through an `X *` with
+  `X : V, W` over `virtual ~W()` ran ~Y and never ~W, and libc++'s `std::tuple`, whose `__tuple_impl` derives from one
+  leaf per element, destroyed none of its elements but the first: a `std::tuple<int, C, C>` and its copy left four C
+  objects alive; under valgrind the fixture lost six of its twelve heap blocks (288 bytes, the strings of three tuples'
+  later elements), and it frees all twelve now.
+- STILL NOT DONE (the Not done bullet): a nearly empty base whose virtual bases lie outside it (`C : virtual I` over `I :
+  virtual A`, A with data) keeps a layout of its own.
+- Fixtures (6, each clang++'s output, the same over libc++ 18 and 21, each passing over both): `vdtordefault`,
+  `vslotorder`, `vcallslots`, `vslotptr`, `vdtorlater`, `laterbasedtor`; 574 run fixtures in all. Built from the 0.176
+  library, the six fail: one aborts, four print other slots, offsets or destructors, and `laterbasedtor` ends `live 4`.
+- THE GATES of this step, before its commit, one run at a time: the six probes against clang++, built from the work
+  tree -- three of the first five clang's at once over libc++ 18, the other two (a delete through a base whose
+  destructor is virtual by a later base's alone) once the implicit destructor of a class over a later base was made,
+  which the sixth probe then took: six of six over libc++ 18 and over 21. The flow gate on the work tree and on the
+  checkout: GREEN, its one finding `test/flow.expect`'s, 125 s and 116 s, peaks 2698 MB and 2804 MB over its four lanes,
+  4046 predicates. THE WHOLE C++ GATE over the work tree, the six new fixtures in it, in place of the net of the steps
+  before (the implicit destructor reaches every class over a later base with a destructor, `std::tuple` among them):
+  over libc++ 18 in 1117 s (peak 2195 MB), 571 of 574 ok, the skips `joinwith`, `stdoptionalref` and `tzone`; over
+  libc++ 21 in 1050 s (peak 2636 MB), 573 of 574 ok, the skip `stdoptionalref`: GREEN. The chain claims nothing here.
+- `CLAUDE.md`: the versions, the defaulted members' bullet, the implicit destructor's, the slots', the virtual
+  destructor's, the virtual first base's and the vcall offsets' bullets, the gates' numbers, What runs, Not done.
+  `README.md`: the slots of a primary table.
+
+Reader 133 (no grammar moved), lowering 99 (the slots of a primary table in the ABI's order; a defaulted virtual
+destructor a destructor of its own; the implicit destructor of a class over a later base with one; a virtual base's vcall
+offsets in that order: new IR for such classes; no C text moves).
