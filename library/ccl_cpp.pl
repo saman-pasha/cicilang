@@ -1819,14 +1819,23 @@ cpp_diamond_paths(_, _, _).
 %% virtual first base that is no primary, which keeps the 0.110 model, `$base' and the table's first slot, and is built
 %% first. A later one is reached by its slot `$base$K', a pseudo-member the class's struct marks `vbase_ref(Slot, T,
 %% Off)', the table's vbase offset at Off, -24 - 8I for its I-th slot (cpp_vb_slots/2, cpp_vbase_refs/2); an EMPTY one has no
-%% slot and no member and lies at the object's own address, its offset the table's (cpp_vbase_entry/4). A direct virtual base
-%% with virtual bases of its own and a path not laid as a `.nv' form are refused by name.
+%% slot and no member and lies at the object's own address, its offset the table's (cpp_vbase_entry/4). A LATER VIRTUAL BASE
+%% WITH VIRTUAL BASES OF ITS OWN (0.173; `X : B, virtual V' over `V : virtual A') is held as its base-variant form, `V.nv', and its
+%% virtual bases with it (cpp_vb_nv/1: a member of the nv struct, built by the base-variant constructor and its part of the VTT);
+%% a virtual FIRST base with virtual bases of its own keeps the 0.110 model, whole and last, its own virtual bases inside it (the
+%% same bytes as clang's V.nv and A after it). A later virtual base whose virtual bases cannot be laid so and a path not laid as
+%% a `.nv' form are refused by name.
 cpp_lvb_holders(L, C, WBs) :-
-    ( member(V-virtual, WBs), cpp_vbases_of(V, [_|_]) -> cpp_refuse(L, virtual_base_over_virtual_base(C, V)) ; true ),
+    ( '$cpp_vbase'(C), WBs = [V0-virtual|_] -> true ; V0 = none ),
+    ( member(V-virtual, WBs), V \== V0, cpp_vbases_of(V, [_|_]), \+ cpp_nv_vbase(V) -> cpp_refuse(L, virtual_base_over_virtual_base(C, V)) ; true ),
     ( member(P-plain, WBs), cpp_vbases_of(P, [_|_]), \+ cpp_nv_capable(P) -> cpp_refuse(L, virtual_base_laid_otherwise(C, P)) ; true ),
     cpp_vbases_walk(WBs, Vs0), cpp_first_each(Vs0, VBs),
-    ( '$cpp_vbase'(C), WBs = [V0-virtual|_] -> cpp_drop_all(VBs, V0, Held) ; Held = VBs ),
+    ( V0 \== none -> cpp_vbases_of(V0, V0s), cpp_drop_all(VBs, V0, H0), cpp_drop_list(V0s, H0, Held) ; Held = VBs ),
     findall(P, ( member(P-plain, WBs), cpp_vbases_of(P, [_|_]) ), Ps), cpp_note_holder(C, Ps, Held).
+%% a later virtual base laid as its base-variant form: one that can be (0.173)
+cpp_nv_vbase(V) :- cpp_nv_capable(V).
+cpp_drop_list([], Xs, Xs).
+cpp_drop_list([D|Ds], Xs, Ys) :- cpp_drop_all(Xs, D, Xs1), cpp_drop_list(Ds, Xs1, Ys).
 %% a class's bases in the order WRITTEN, each `virtual' or `plain', from its first base and its later ones (a primary base
 %% moved first, 0.112, put back)
 cpp_written_order(C, [B|Es], WBs) :- ( '$cpp_vbase'(C) -> K0 = virtual ; K0 = plain ),
@@ -1849,14 +1858,14 @@ cpp_path_holder(_, _, _).
 %% A CLASS HOLDS EVERY VIRTUAL BASE OF ITS PATHS (0.171; the Itanium ABI 2.4 III): each base that has virtual bases -- one path
 %% or several, one virtual base or several -- is its `.nv' form, its virtual bases left out, and the class lays them all at its
 %% end, each once, in the order a depth-first walk of its bases meets them (`$vb', `$vb$2' ...; clang's LayoutVirtualBases),
-%% building them first and destroying them last. Where a path cannot be `.nv' (its virtual bases laid otherwise) or a virtual
-%% base is empty, the class is laid as before. `struct H1 : Q1, R1' over `Q1 : virtual A' and `R1 : virtual W' was its bases
+%% building them first and destroying them last; an EMPTY one at the object's own address, with no member (0.173: the base stayed
+%% whole until then). Where a path cannot be `.nv' (its virtual bases laid otherwise), the class is laid as before. `struct H1 :
+%% Q1, R1' over `Q1 : virtual A' and `R1 : virtual W' was its bases
 %% whole, A inside Q1 and W inside R1, where clang lays [Q1, R1, h1, A, W]; and a diamond over the two, `D : H1, H2', was
 %% refused (`virtual_base_by_two_paths'): its paths' own members were read where their complete layout put them.
 cpp_holder_paths(Bs, Hs, Vs) :- findall(H, ( member(H, Bs), cpp_vbases_of(H, [_|_]) ), Hs), Hs \== [],
-    forall(member(H, Hs), cpp_nv_capable(H)), findall(V, ( member(H, Hs), cpp_vbases_of(H, HV), member(V, HV) ), Vs0), cpp_first_each(Vs0, Vs),
-    \+ ( member(V, Vs), cpp_empty_class(V) ).   % an EMPTY virtual base has no place of its own (it lies at offset 0, the ABI's II.3): the base stays whole
-cpp_nv_capable(H) :- cpp_vbases_of(H, Vs), sort(Vs, S), ( cpp_vbase_dynamic(H) -> cpp_class_l(H, cls(V0, _, _, _, _)), F = [V0] ; F = [] ), findall(V, '$cpp_vb_holder'(H, V), HV), append(F, HV, All), All \== [], sort(All, S).   % its table-reached first base, its held ones, or both (0.172)
+    forall(member(H, Hs), cpp_nv_capable(H)), findall(V, ( member(H, Hs), cpp_vbases_of(H, HV), member(V, HV) ), Vs0), cpp_first_each(Vs0, Vs).
+cpp_nv_capable(H) :- cpp_vbases_of(H, Vs), sort(Vs, S), ( cpp_vbase_dynamic(H) -> cpp_class_l(H, cls(V0, _, _, _, _)), cpp_vbases_of(V0, V0s), F = [V0|V0s] ; F = [] ), findall(V, '$cpp_vb_holder'(H, V), HV), append(F, HV, All), All \== [], sort(All, S).   % its table-reached first base -- and that one's own virtual bases, reached through its table (0.173) --, its held ones, or both (0.172)
 cpp_first_each([], []).
 cpp_first_each([X|Xs], [X|Ys]) :- cpp_drop_all(Xs, X, Xs1), cpp_first_each(Xs1, Ys).
 cpp_drop_all([], _, []).
@@ -1877,6 +1886,17 @@ cpp_vbases_of(C, Vs) :- cpp_class_l(C, _), !, cpp_bases_written(C, Bs), cpp_vbas
 cpp_vbases_of(_, []).
 cpp_vbases_walk([], []).
 cpp_vbases_walk([B-K|Bs], Vs) :- cpp_vbases_of(B, VB), ( K == virtual -> V1 = [B|VB] ; V1 = VB ), cpp_vbases_walk(Bs, V2), append(V1, V2, Vs).
+%% THE ORDER THE VIRTUAL BASES ARE BUILT IN ([class.base.init]/13; 0.173): a depth-first left-to-right traversal, each base's own
+%% virtual bases before it -- a post-order, where the layout is a pre-order (cpp_vbases_walk/2): `X : B, virtual V' over `V :
+%% virtual A' lays V then A and builds A then V, as clang's vbases() has it; the two agree for every shape before 0.173
+cpp_vb_post(C, Vs) :- cpp_bases_written(C, Bs), cpp_vb_post_walk(Bs, [], Vs).
+cpp_vb_post_walk([], Vs, Vs).
+cpp_vb_post_walk([B-K|Bs], V0, Vs) :- cpp_vb_post(B, BV), findall(X, ( member(X, BV), \+ memberchk(X, V0) ), New), append(V0, New, V1),
+    ( K == virtual, \+ memberchk(B, V1) -> append(V1, [B], V2) ; V2 = V1 ), cpp_vb_post_walk(Bs, V2, Vs).
+cpp_vb_build_order(C, Vs) :- findall(V, '$cpp_vb_holder'(C, V), Hs), cpp_vb_post(C, P), findall(V, ( member(V, P), memberchk(V, Hs) ), Vs1),
+    findall(V, ( member(V, Hs), \+ memberchk(V, Vs1) ), Rest), append(Vs1, Rest, Vs).
+%% a held virtual base laid, built and destroyed as its base-variant form: one with virtual bases of its own (0.173)
+cpp_vb_nv(V) :- cpp_has_nv_form(V).
 cpp_put_base_slots(_, []).
 cpp_put_base_slots(C, [N-Slot|Ss]) :- ( '$cpp_base_slot'(C, N, _) -> true ; assertz('$cpp_base_slot'(C, N, Slot)) ), cpp_put_base_slots(C, Ss).
 %% ... AND A SECOND BASE WITH STORAGE IS A SUB-OBJECT OF ITS OWN, `$base$2', `$base$3' ..., laid out after the
@@ -2201,7 +2221,7 @@ cpp_user_copy_ctor(C) :- cpp_class(C, cls(_, _, Ms, _, _, _)), member(M, Ms), M 
 %% `__max_align_impl' from six `alignas'-carrying EMPTY bases and asking alignof of it; with their
 %% alignment dropped it answered 1, and std::function's inline buffer was aligned by it.
 cpp_base_layout(C, Base, Data, Data2) :- cpp_base_layout_(C, Base, Data, Data00), cpp_vptr_first(C, Data00, Data0),
-    findall(member(base([], [typedef(V)]), VN, none), ( '$cpp_vb_holder'(C, V), \+ cpp_empty_class(V), cpp_vb_name(C, V, VN) ), VMs), append(Data0, VMs, Data10),   % the virtual bases it holds, each once, last, in their order (0.171) -- an empty one none, at the object's own address (0.172)
+    findall(member(VT, VN, none), ( '$cpp_vb_holder'(C, V), \+ cpp_empty_class(V), cpp_vb_name(C, V, VN), ( cpp_vb_nv(V) -> cpp_nv_tag(V, VNV), VT = base([], [struct(VNV, none)]) ; VT = base([], [typedef(V)]) ) ), VMs), append(Data0, VMs, Data10),   % the virtual bases it holds, each once, last, in their order (0.171) -- an empty one none, at the object's own address (0.172), one with virtual bases of its own its `.nv' form (0.173)
     cpp_vbase_refs(C, Refs), append(Data10, Refs, Data1),   % each later virtual base's slot, a pseudo-member of no storage reached through the table (0.172)
     cpp_empty_base_align(C, Base, Al), append(Data1, Al, Data2).
 cpp_vbase_refs(C, Refs) :- ( '$cpp_lvb'(C, _, _) -> findall(vbase_ref(S, base([], [typedef(V)]), Off), ( '$cpp_lvb'(C, V, S), S \== none, cpp_lvb_off(C, V, Off) ), Refs) ; Refs = [] ).
@@ -3371,11 +3391,12 @@ cpp_inherit_poly_extras(C, Base) :- Base \== none, \+ cpp_empty_class(Base), !,
     cpp_inherit_later_poly_extras(C), cpp_held_poly_extras(C).
 cpp_inherit_poly_extras(C, _) :- cpp_inherit_later_poly_extras(C), cpp_held_poly_extras(C).
 %% ... AND A LATER BASE'S OWN SUB-OBJECTS WITH TABLES are this class's too (0.171): in `D : H1, H2' over `H2 : Q2, R2', R2's
-%% table pointer lies at `$base$2.$base$2', and no base-variant constructor stores a table, so D stores its own there
+%% table pointer lies at `$base$2.$base$2', and no base-variant constructor stores a table, so D stores its own there; a later
+%% VIRTUAL base held as its `.nv' form lends none inside its own virtual bases, which the class holds (0.173)
 cpp_inherit_later_poly_extras(C) :-
-    forall(( '$cpp_base_slot'(C, E, Slot), '$cpp_poly_extra'(E, N, S0), cpp_poly_hops(E, S0, H0), \+ ( '$cpp_nv_base'(C, E), cpp_in_vbase(E, H0) ), Hops = [Slot|H0], atomic_list_concat(Hops, '.', S), \+ '$cpp_poly_extra'(C, N, S) ),
+    forall(( '$cpp_base_slot'(C, E, Slot), '$cpp_poly_extra'(E, N, S0), cpp_poly_hops(E, S0, H0), \+ ( ( '$cpp_nv_base'(C, E) ; '$cpp_lvb'(C, E, _), cpp_vb_nv(E) ), cpp_in_vbase(E, H0) ), Hops = [Slot|H0], atomic_list_concat(Hops, '.', S), \+ '$cpp_poly_extra'(C, N, S) ),
            ( assertz('$cpp_poly_extra'(C, N, S)), assertz('$cpp_poly_path'(C, S, Hops)) )).
-cpp_held_poly_extras(C) :- forall(( '$cpp_vb_holder'(C, V), cpp_polymorphic(V), \+ cpp_empty_class(V), cpp_vb_name(C, V, VN), \+ '$cpp_poly_extra'(C, V, VN) ), assertz('$cpp_poly_extra'(C, V, VN))).
+cpp_held_poly_extras(C) :- forall(( '$cpp_vb_holder'(C, V), ( cpp_polymorphic(V) ; cpp_vb_nv(V) ), \+ cpp_empty_class(V), cpp_vb_name(C, V, VN), \+ '$cpp_poly_extra'(C, V, VN) ), assertz('$cpp_poly_extra'(C, V, VN))).   % one with virtual bases of its own has a table though it has no virtual function (0.173)
 cpp_in_vbase(Base, ['$base'|_]) :- cpp_vbase_dynamic(Base), !.   % the table-reached base of a class over a virtual base
 cpp_in_vbase(Base, [N|_]) :- cpp_vb_member(N), '$cpp_vb_holder'(Base, _).      % ... or a holder's own (0.163; each of several, 0.171)
 cpp_poly_hops(C, S, Hops) :- '$cpp_poly_path'(C, S, Hops), !.
@@ -3409,7 +3430,7 @@ cpp_secondary_tables(L, C, Items) :- findall(I, ( '$cpp_poly_extra'(C, N, S), cp
 %% the one its base variant stored, N's own: `X : R, N' over `N : virtual A' as a path of D, X's constructor's call through N
 %% reached N::h where X overrides it.
 cpp_ctor_tables(L, C, Items) :- cpp_vtt_holder(C), !,
-    findall(I, ( cpp_vtt_sub(C, [], X, Hops), ( cpp_ctor_table(L, C, X, Hops, Is) ; cpp_vtt_vbs(X, Vs), member(V, Vs), cpp_ctor_vb_table(L, C, X, Hops, V, Is) ; cpp_vtt_secs(X, Ss), member(N-S, Ss), cpp_ctor_sec_table(L, C, X, Hops, N, S, Is) ), member(I, Is) ), Items0),
+    findall(I, ( cpp_vtt_top(C, X, Hops), ( cpp_ctor_table(L, C, X, Hops, Is) ; cpp_vtt_vbs(X, Vs), member(V, Vs), cpp_ctor_vb_table(L, C, X, Hops, V, Is) ; cpp_vtt_secs(X, Ss), member(N-S, Ss), cpp_ctor_sec_table(L, C, X, Hops, N, S, Is) ), member(I, Is) ), Items0),
     cpp_vtt_items(C, VItems), length(VItems, N), cpp_vtt_name(C, VTT),
     ( N =:= 0 -> Items = Items0 ; append(Items0, [declaration(L, static, base([const], [void]), [var(VTT, arr(int(N), ptr([], base([const], [void]))), init(VItems))])], Items) ).
 cpp_ctor_tables(_, _, []).
@@ -3432,8 +3453,9 @@ cpp_ctor_vb_table(L, C, P, Hops, V, Items) :- cpp_vb_name(C, V, VN), '$cpp_poly_
     findall(E-Fs, ( member(slot(M, K, Ret, Ps, Var), VSlots), once(cpp_ct_vb_entry(L, C, P, V, J, M, K, Ret, Ps, Var, Delta, ThisT, E, Fs)) ), EFs),
     findall(item([], E), member(E-_, EFs), SlotItems), findall(F, ( member(_-Fs, EFs), member(F, Fs) ), Thunks),
     ( catch(cpp_rtti_chain(P, Ch), _, fail) -> TI = rtti(Ch) ; TI = nullptr ),
-    VMs = [member(base([], [long]), '$off', none), member(ptr([], base([const], [void])), '$ti', none), member(base([], [struct(VT, none)]), '$vt', none)],
-    VItems = [item([], neg(Delta)), item([], TI), item([], init(SlotItems))],
+    PMs = [member(base([], [long]), '$off', none), member(ptr([], base([const], [void])), '$ti', none), member(base([], [struct(VT, none)]), '$vt', none)],
+    PItems = [item([], neg(Delta)), item([], TI), item([], init(SlotItems))],
+    ( cpp_vbase_offsets(C, V, offsetof(CT, id(VN)), VBOs) -> cpp_vbo_fields(VBOs, 0, VBMs, VBItems), append(VBMs, PMs, VMs), append(VBItems, PItems, VItems) ; VMs = PMs, VItems = PItems ),   % its own virtual bases' offsets, where it has some (0.173)
     append(Thunks, [declare(L, base([], [struct(VTP, VMs)])), declaration(L, static, base([], [struct(VTP, none)]), [var(TName, base([], [struct(VTP, none)]), init(VItems))])], Items).
 cpp_ct_vb_entry(_, _, _, V, _, M, K, _, _, _, _, _, E, []) :- memberchk(M, ['$dtor', '$dtor_del']), !, ( cpp_slot_def(V, M, K, Impl) -> E = id(Impl) ; E = nullptr ).
 cpp_ct_vb_entry(L, C, P, V, S, M, K, Ret, Ps, Var, Delta, ThisT, id(TN), [Fn]) :- ( cpp_final_overrider(P, M, K, Impl-_) -> true ; cpp_slot_impl(P, M, K, Impl) ), \+ cpp_slot_impl(V, M, K, Impl), !,   % the path's final overrider, a later base's too (0.171)
@@ -3483,19 +3505,22 @@ cpp_vtt_sizes([Q-_|Cs], N0, N) :- cpp_vtt_size(Q, NQ), N1 is N0 + NQ, cpp_vtt_si
 cpp_vtt_at([Q0-_|Cs], Q, K0, K) :- ( Q0 == Q -> K = K0 ; cpp_vtt_size(Q0, N0), K1 is K0 + N0, cpp_vtt_at(Cs, Q, K1, K) ).
 %% every base-variant sub-object of the class Y at the hops H0, at its hops, in the VTT's order: each, then its own
 cpp_vtt_sub(Y, H0, X, Hops) :- cpp_vtt_children(Y, Cs), member(Q-S, Cs), append(H0, [S], H1), ( X = Q, Hops = H1 ; cpp_vtt_sub(Q, H1, X, Hops) ).
+%% ... and from the most derived class, whose parts include those of the virtual bases it holds as their base-variant forms (0.173)
+cpp_vtt_top(C, X, Hops) :- cpp_vtt_top_children(C, Cs), member(Q-S, Cs), ( X = Q, Hops = [S] ; cpp_vtt_sub(Q, [S], X, Hops) ).
+cpp_vtt_top_children(C, Cs) :- cpp_vtt_children(C, Cs0), findall(V-VN, ( '$cpp_vb_holder'(C, V), cpp_vb_nv(V), \+ cpp_empty_class(V), cpp_vb_name(C, V, VN) ), Cs1), append(Cs0, Cs1, Cs).
 %% the VTT's items: each sub-object's own entries, in that order
-cpp_vtt_items(C, Items) :- findall(I, ( cpp_vtt_sub(C, [], X, Hops), cpp_vtt_own(C, X, Hops, Is), member(I, Is) ), Items).
+cpp_vtt_items(C, Items) :- findall(I, ( cpp_vtt_top(C, X, Hops), cpp_vtt_own(C, X, Hops, Is), member(I, Is) ), Items).
 cpp_vtt_own(C, X, Hops, [item([], addr(member(id(T), '$vt')))|VIs]) :- atomic_list_concat(Hops, '.', J), atomic_list_concat([C, '.ctvtable', J], T),
     cpp_vtt_vbs(X, Vs), findall(item([], addr(member(id(VT), '$vt'))), ( member(V, Vs), cpp_vb_name(C, V, VN), atomic_list_concat([C, '.ctvtable', VN, J], VT) ), VIs0),
     cpp_vtt_secs(X, Ss), findall(item([], addr(member(id(ST), '$vt'))), ( member(_-S, Ss), atomic_list_concat([C, '.ctvtable', J, '.sec', S], ST) ), SIs), append(VIs0, SIs, VIs).
 %% the arguments of a call of a base's constructor or destructor: a base variant's take, after the place, its part of the VTT
 %% -- of C's own where C is complete and keeps one, of the part C's base variant was handed (null passed on as null), else null
 cpp_vtt_pass(C, B, BName, [P|As], Out) :- ( atom_concat(_, '.nv', BName) -> cpp_vtt_arg(C, B, V), Out = [P, V|As] ; Out = [P|As] ).
-cpp_vtt_arg(C, Q, Arg) :- cpp_vtt_children(C, Cs),
-    (   cpp_nv_body(C) -> cpp_vtt_vbs(C, Vs), length(Vs, NV), cpp_vtt_secs(C, Ss), length(Ss, NS), K0 is 1 + NV + NS, cpp_vtt_at(Cs, Q, K0, K), Arg = cond(id('$vtt'), bin('+', id('$vtt'), int(K)), nullptr)
-    ;   cpp_vtt_holder(C) -> cpp_vtt_at(Cs, Q, 0, K), cpp_vtt_name(C, VTT), cpp_vtt_declare(C, VTT), Arg = addr(index(id(VTT), int(K)))
+cpp_vtt_arg(C, Q, Arg) :-
+    (   cpp_nv_body(C) -> cpp_vtt_children(C, Cs), cpp_vtt_vbs(C, Vs), length(Vs, NV), cpp_vtt_secs(C, Ss), length(Ss, NS), K0 is 1 + NV + NS, cpp_vtt_at(Cs, Q, K0, K), Arg = cond(id('$vtt'), bin('+', id('$vtt'), int(K)), nullptr)
+    ;   cpp_vtt_holder(C) -> cpp_vtt_top_children(C, Cs), cpp_vtt_at(Cs, Q, 0, K), cpp_vtt_name(C, VTT), cpp_vtt_declare(C, VTT), Arg = addr(index(id(VTT), int(K)))
     ;   Arg = nullptr ).
-cpp_vtt_declare(C, VTT) :- ( ccl_declared(VTT, _) -> true ; cpp_vtt_children(C, Cs), cpp_vtt_sizes(Cs, 0, N), ccl_gdeclare([VTT-arr(int(N), ptr([], base([const], [void])))]) ).
+cpp_vtt_declare(C, VTT) :- ( ccl_declared(VTT, _) -> true ; cpp_vtt_top_children(C, Cs), cpp_vtt_sizes(Cs, 0, N), ccl_gdeclare([VTT-arr(int(N), ptr([], base([const], [void])))]) ).
 %% A BASE VARIANT'S STORES of its own entries of the VTT it was handed, nothing where it was handed null: its primary table, then
 %% each polymorphic virtual base's, reached through the table just stored, then its own tables of its other polymorphic
 %% sub-objects that hold no virtual base -- their slots with its overriders and its offsets, as in any object of its class --
@@ -3595,8 +3620,8 @@ cpp_dtor_body(L, C, block(Body), block(Body1)) :-
     ( B \== none, \+ ( cpp_nv_body(C), '$cpp_vbase'(C) ), cpp_dtor(B, BName0), cpp_nv_dtor(C, B, BName0, BName), BName \== '$no_dtor' -> cpp_class_base_place(C, B, BPlace), cpp_vtt_pass(C, B, BName, [BPlace], BArgs), FirstDtor = [expr(L, call(id(BName), BArgs))] ; FirstDtor = [] ),
     ( '$cpp_vbase'(C), '$cpp_vb_holder'(C, _) -> BaseDtor0 = [], LastDtor = FirstDtor ; BaseDtor0 = FirstDtor, LastDtor = [] ),   % a virtual first base beside later virtual bases is destroyed LAST, as it was built first (0.172)
     cpp_bases_in_order(C, BaseDtor0, ExtraDtors0, Written), reverse(Written, BasesDtors),   % the bases in the reverse of the order WRITTEN (a moved primary base among them; one call per base, so the reverse of the calls is the reverse of the bases)
-    ( \+ cpp_nv_body(C) -> findall(V, '$cpp_vb_holder'(C, V), Vs0), reverse(Vs0, Vs) ; Vs = [] ),
-    findall(expr(L, call(id(VName), [VPl])), ( member(V, Vs), cpp_dtor(V, VName), cpp_vb_place(C, V, VPl) ), VDtors0), append(VDtors0, LastDtor, VDtors), append(BasesDtors, VDtors, BaseDtor),   % the virtual bases it holds last, in the reverse of their order (0.171)
+    ( \+ cpp_nv_body(C) -> cpp_vb_build_order(C, Vs0), reverse(Vs0, Vs) ; Vs = [] ),
+    findall(expr(L, call(id(VName), VArgs)), ( member(V, Vs), cpp_dtor(V, VName0), cpp_vb_place(C, V, VPl), cpp_vb_dtor_name(V, VName0, VName), VName \== '$no_dtor', cpp_vtt_pass(C, V, VName, [VPl], VArgs) ), VDtors0), append(VDtors0, LastDtor, VDtors), append(BasesDtors, VDtors, BaseDtor),   % the virtual bases it holds last, in the reverse of the order they were built in (0.171, 0.173) -- one with virtual bases of its own by its base variant, its part of the VTT handed to it (0.173)
     ( cpp_nv_body(C) -> cpp_vtt_stores(L, C, Store) ; cpp_vptr_store(L, C, Store) -> true ; Store = [] ),   % the base variant the tables of the VTT it was handed, first (0.172)
     append(Store, Body, BodyS), append(BodyS, MemberDtors, Body0), append(Body0, BaseDtor, Body1).
 %% THE DESTRUCTOR OF A PATH BASE OF A DIAMOND is its base-variant form, `D.nv' (0.110) -- a path base the library SHIPS a destructor for
@@ -3609,6 +3634,8 @@ cpp_nv_dtor(C, E, Name0, Name) :-
     ->  ( sub_atom(Name0, 0, _, _, '_ZN'), cpp_empty_header_dtor(E) -> Name = '$no_dtor' ; atom_concat(Name0, '.nv', Name) )
     ;   Name = Name0 ).
 cpp_empty_header_dtor(E) :- '$cpp_inst'(E, inst(N, _)), '$cpp_mdef'(N, '$dtor', _, _, Item0), cpp_mdef_inner(Item0, dtor(_, _, block([]))), !.
+%% the destructor of a held virtual base: a base-variant one's `.nv' form, as a path's (cpp_nv_dtor/4; 0.173)
+cpp_vb_dtor_name(V, Name0, Name) :- ( cpp_vb_nv(V) -> ( sub_atom(Name0, 0, _, _, '_ZN'), cpp_empty_header_dtor(V) -> Name = '$no_dtor' ; atom_concat(Name0, '.nv', Name) ) ; Name = Name0 ).
 %% ... AND A DESTRUCTOR STORES ITS OWN CLASS'S TABLES FIRST ([class.cdtor]/4, the Itanium ABI's destructor; 0.112): while
 %% it runs the object's dynamic type is its class, so a virtual call in it, or in a base's destructor after it, reaches
 %% that class's override and never one of a derived class whose members are already destroyed -- `~A() { f(); }'
@@ -4008,7 +4035,7 @@ cpp_ctor_body(L, C, _, _, Inits0, block(Body), block([expr(L, call(id(DName), [i
 cpp_ctor_body(L, C, B, Defaults, Inits0, block(Body), block(Pre)) :-
     cpp_norm_inits(Inits0, Inits), cpp_inits_known(L, C, B, Inits),
     (   '$cpp_vb_holder'(C, _), \+ cpp_nv_body(C)                                          % A DIAMOND'S HOLDER builds the shared base first, where it lies, then stores its tables, so every path's base-variant constructor reaches it -- its own base variant builds none (0.163)
-    ->  findall(V, '$cpp_vb_holder'(C, V), Vs), cpp_vb_calls(Vs, L, C, Inits, VCall0),   % every held base, in their order (0.171)
+    ->  cpp_vb_build_order(C, Vs), cpp_vb_calls(Vs, L, C, Inits, VCall0),   % every held base, in the order the standard builds them (0.171, 0.173)
         ( '$cpp_vbase'(C), B \== none -> cpp_first_base_call(L, C, B, Inits, ACall), append(ACall, VCall0, VCall) ; VCall = VCall0 ),   % a virtual first base beside later virtual bases built FIRST, in inheritance graph order (0.172)
         cpp_vptr_store(L, C, VStore), append(VCall, VStore, VPre), append(VPre, Pre00, Pre)
     ;   Pre = Pre00 ),
@@ -4030,10 +4057,15 @@ cpp_first_base_call(L, C, B, Inits, FirstCall) :-
 cpp_vb_calls([], _, _, _, []).
 cpp_vb_calls([V|Vs], L, C, Inits, Calls) :- cpp_vb_place(C, V, VPl),
     ( memberchk(init(V, VArgs), Inits) -> true ; VArgs = [] ),
-    ( cpp_base_ctor(V, VArgs, VName) -> cpp_fill_defaults(VName, VArgs, VArgs1), Call = [expr(L, call(id(VName), [VPl|VArgs1]))] ; VArgs == [], \+ cpp_no_default_ctor(V) -> Call = [] ; cpp_refuse(L, base_constructor(V)) ),
+    (   cpp_base_ctor(V, VArgs, VName0) -> cpp_fill_defaults(VName0, VArgs, VArgs1),
+        ( cpp_vb_nv(V) -> atom_concat(VName0, '.nv', VName), cpp_vtt_pass(C, V, VName, [VPl|VArgs1], CArgs) ; VName = VName0, CArgs = [VPl|VArgs1] ),   % one with virtual bases of its own by its base variant and its part of the VTT (0.173)
+        Call = [expr(L, call(id(VName), CArgs))]
+    ;   VArgs == [], \+ cpp_no_default_ctor(V) -> Call = []
+    ;   cpp_refuse(L, base_constructor(V)) ),
     cpp_vb_calls(Vs, L, C, Inits, Calls0), append(Call, Calls0, Calls).
-%% where a held virtual base lies in the complete object: its member, an empty one the object's own address (0.172)
-cpp_vb_place(C, V, P) :- ( cpp_empty_class(V) -> P = id(this) ; cpp_vb_name(C, V, VN), P = addr(arrow(this, VN)) ).
+%% where a held virtual base lies in the complete object: its member, an empty one the object's own address (0.172) -- by a cast
+%% through `void *', which takes no base route: the base is built before any table is stored (0.173)
+cpp_vb_place(C, V, P) :- ( cpp_empty_class(V) -> P = cast(ptr([], base([], [typedef(V)])), cast(ptr([], base([], [void])), id(this))) ; cpp_vb_name(C, V, VN), P = addr(arrow(this, VN)) ).
 cpp_memberwise_src(copy, E, E).
 cpp_memberwise_src(move, E, move(E)).
 %% THE SOURCE OF A BASE in a memberwise copy or move: its slot, or -- for a diamond's path, whose slot is the base-variant struct

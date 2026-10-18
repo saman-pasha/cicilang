@@ -55,7 +55,7 @@ record of every step.
   stream too), the diamond with one shared base, its paths holding it
   directly or further in, a class over several virtual bases through
   its paths, a diamond over them too, later virtual bases (`X : B, virtual
-  A`), and the base-variant constructors and destructors built under
+  A`), with virtual bases of their own too, and the base-variant constructors and destructors built under
   construction vtables of their own at any depth, from a VTT,
   `noexcept` enforced, trailing return types, access control for
   the program's own classes, deducing `this` on a class's methods, user-defined

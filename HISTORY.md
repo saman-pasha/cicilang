@@ -10526,3 +10526,64 @@ skip `stdoptionalref`: GREEN. The fixtures' builds, as `fixture-times` records t
 
 Reader 133 (no grammar moved), lowering 94 (a class with a later virtual base laid as the ABI lays it, the VTT and its
 stores, the construction tables' offset to top 0, the secondary tables' type: new IR for such classes; no C text moves).
+
+## 0.173 — Not done, the eleventh part: a later virtual base over virtual bases
+
+**0.173: a later virtual base with virtual bases of its own -- `X : B, virtual V` over `V : virtual A` -- and a path that
+reaches an empty virtual base further in beside a later virtual base build and are laid out as clang lays them, where
+both were refused (`virtual_base_over_virtual_base`, `virtual_base_laid_otherwise`, 0.172). Committed before its chain,
+on the owner's word ("Commit before chain"): the chain begins after this commit, and the next one carries its
+numbers.**
+
+THE CHAIN OF 0.172, on the checkout of its commit (its modules rebuilt at 0.172, over cocolog 2.2.5), over the HOMEs that
+0.164's chain warmed, from 10:43:19 to 11:10:22 UTC: the flow gate (one finding, `test/flow.expect`'s, 74 s, peak 2795 MB
+over its four lanes; 0.171's 71 s), reader 5 s, compile 12 s, driver 11 s, objects 3 s, the proof, the cross gate in 145
+s (peak 390 MB; 0.171's 139 s), the C++ gate over libc++ 18 in 706 s (peak 2458 MB; 0.171's 691 s) with 539 of its 542
+fixtures ok -- the skips `joinwith`, `stdoptionalref` and `tzone` -- the 23 refusals and the three of the safe part, and
+over libc++ 21 in 663 s (peak 2605 MB; 0.171's 690 s), 541 of 542 ok, the skip `stdoptionalref`: GREEN. The fixtures'
+builds, as `fixture-times` records them (four at a time), summed 2512 s over 539 over libc++ 18 (0.171's 2441 s over
+525) and 2374 s over 541 over libc++ 21 (0.171's 2463 s over 527); the slowest over libc++ 18 `fmtrange` 104 s,
+`fmtchrono2` 103 s, `fmtchrono` 93 s, `fmtcheck` 71 s and `viewsall` 69 s, over libc++ 21 `fmtchrono2` 94 s, `fmtchrono`
+85 s, `viewsall` 73 s, `fmtrange` 71 s and `fmtcheck` 60 s. The numbers are the chain's, wall clock, and no claim about
+the library's speed.
+
+- A LATER VIRTUAL BASE WITH VIRTUAL BASES OF ITS OWN (`cpp_lvb_holders/3`, `cpp_vb_nv/1`): the class holds it as its
+  `.nv` form, a member of that struct, built and destroyed by its base-variant constructor and destructor with its part of
+  the VTT (`cpp_vb_calls/5`, `cpp_vb_dtor_name/3`; the most derived class's VTT holds, after its paths' parts, those of
+  the virtual bases it holds so, `cpp_vtt_top/3`, `cpp_vtt_top_children/2`), and its own virtual bases beside it. A
+  construction table of such a virtual base carries their offsets (`cpp_ctor_vb_table/6`): `Y : X` over `X : B, virtual V`
+  crashed, `X.X.0.nv` reaching A through V's table where no offset was written. Its sub-objects lend the class no
+  secondary table inside the virtual bases the class holds (`cpp_inherit_later_poly_extras/1`): the thunk
+  `X.thunk$base$2.$base.fa.0` named `$base` inside V's `.nv` form, which has none. A held virtual base with virtual bases
+  of its own has a table of its own to store where it has no virtual function (`cpp_held_poly_extras/1`).
+- THE ORDER THE VIRTUAL BASES ARE BUILT IN ([class.base.init]/13; `cpp_vb_build_order/2` over `cpp_vb_post/2`): a
+  depth-first left-to-right walk of the bases, each base's own virtual bases before it, where the layout's walk puts a
+  base before its own: `X : B, virtual V` over `V : virtual A` lays V, then A, and builds A, then V, as clang's
+  `vbases()` has it (`A() V(1) B() X(44 22)`). The two orders agree for every shape before 0.173.
+- A VIRTUAL FIRST BASE WITH VIRTUAL BASES OF ITS OWN keeps the 0.110 model (whole and last, its own virtual bases inside
+  it, the bytes clang lays), and the class does not hold them again (`cpp_lvb_holders/3`); a later virtual base or a path
+  that shares them reaches them through its table, and such a class is a path or a later virtual base of another
+  (`cpp_nv_capable/1`: its first base's own virtual bases count as reached). `X : B, virtual W` over `W : virtual V` and `V
+  : virtual A` was refused `virtual_base_over_virtual_base('X', 'W')` with the first two patches in place.
+- AN EMPTY VIRTUAL BASE REACHED THROUGH A PATH is held, with no member, at the object's own address (`cpp_holder_paths/3`,
+  which kept the path whole for it since 0.163), and its place is a cast through `void *` (`cpp_vb_place/3`): reached as
+  a base of the object through a table, the complete constructor read the table before any was stored, and the build of
+  `lvbemptypath.cpp` crashed when it was linked over libc++ 21, its IR the same as over 18 (stack garbage).
+- Fixtures (8, each clang++'s output over libc++ 18 and 21 alike, each passing over both): `lvbover`, `lvbfirst`,
+  `lvbdeep`, `lvbmore`, `lvbshare`, `lvbvempty`, `lvbemptypath`, `lvblibbase` (`std::istream` as a later virtual base);
+  550 run fixtures in all.
+- THE GATES of this step, on a worktree holding these files (its modules 0.172's, over cocolog 2.2.5): 26 probes, each
+  against clang++'s output, over libc++ 18 and 21: 26 ok each; the flow gate GREEN (one finding, `test/flow.expect`'s,
+  121 s, peak 2809 MB over its four lanes; 4003 predicates); a net over libc++ 18 of the 41 fixtures over virtual bases,
+  diamonds, multiple bases, RTTI and the streams that 0.172's net ran: 41 ok; the same over libc++ 21 with `stdquoted`,
+  `stdseek` and `stdcin`: 44 ok; the 25 others of 0.172's net over libc++ 18: 25 ok; the 8 new fixtures over both: 8 ok
+  each. The chain claims nothing here.
+- STILL NOT DONE (the Not done bullet): a NEARLY EMPTY virtual base is no primary base here (the Itanium ABI's II.1b): the
+  layout of `X : virtual I` over `struct I { virtual int f(); }` is 24 bytes, clang's 16, and clang's table puts the
+  vcall offsets of the virtual primary base between the offset to top and the vbase offsets (I's vbase offset at -40).
+- `CLAUDE.md`: the versions; the holder bullet (the build order, an empty virtual base through a path, the stale name
+  `cpp_nv_holds/2` replaced by `cpp_holder_paths/3`, gone since 0.171), the later virtual base bullet, the VTT bullet, the
+  gates' numbers, What runs, Not done. `README.md`: a later virtual base with virtual bases of its own.
+
+Reader 133 (no grammar moved), lowering 95 (a later virtual base held as its `.nv` form, the build order, an empty
+virtual base through a path held, the construction tables' vbase offsets: new IR for such classes; no C text moves).
