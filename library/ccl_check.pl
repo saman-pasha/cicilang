@@ -1272,6 +1272,7 @@ ck_expr(call(F, Args), St0, St) :- !,
 %% assignment: to an owner or an own field; to a struct by value with own fields;
 %% to a tied slot; to a local plain pointer (a borrow, or not); to any other
 %% place, by its type
+ck_expr(assign('=', L, R), St0, St) :- ck_vptr_slot(L), !, ck_lval_use(L, St0, St1), ck_expr(R, St1, St).   % A TABLE POINTER is static storage, never memory the check follows (ck_carries_, 0.127): a base-variant constructor stores the construction tables its `$vtt' names (0.172)
 ck_expr(assign(Op, id(N), R), St0, St) :- ck_is_ref(N), !, ck_expr(assign(Op, deref(id(N)), R), St0, St).   % C++: through the reference
 ck_expr(assign('=', L, R), St0, St) :- ck_owner_path(St0, L, K), !,
     ck_base_use(L, St0, St1), ck_into_own(K, R, assign('=', L, R), St1, St, _).
@@ -1327,6 +1328,8 @@ ck_expr(stmt_expr(B), St0, St) :- !, ck_stmt(B, St0, St).
 ck_expr(compound_lit(T, init(Items)), St0, St) :- !, ck_init_slots(Items, T, none, St0, St).
 ck_expr(E, St0, St) :- compound(E), !, E =.. [_|Args], ck_exprs(Args, St0, St).
 ck_expr(_, St, St).
+ck_vptr_slot(member(_, '$vptr')).
+ck_vptr_slot(arrow(_, '$vptr')).
 ck_unary_shape(neg(E), E). ck_unary_shape(not(E), E). ck_unary_shape(bitnot(E), E). ck_unary_shape(pos(E), E).
 ck_unary_shape(deref(E), E). ck_unary_shape(cast(_, E), E). ck_unary_shape(postinc(E), E). ck_unary_shape(postdec(E), E).
 ck_unary_shape(preinc(E), E). ck_unary_shape(predec(E), E).

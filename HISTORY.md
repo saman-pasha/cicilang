@@ -10451,3 +10451,78 @@ begins after this commit, and the next one carries its numbers.**
 
 Reader 133 (no grammar moved), lowering 93 (a class over several virtual bases laid otherwise, its tables with more
 vbase offsets and other final overriders: new IR for such classes; no C text moves).
+
+## 0.172 — Not done, the tenth part: later virtual bases and the VTT
+
+**0.172: a class with a LATER virtual base -- `X : virtual A, virtual W`, `Y : B, virtual A`, a virtual first base beside
+a primary one, an empty one -- builds and is laid out as the Itanium ABI lays it, where it was refused
+(`multiple_inheritance`, 0.88 to 0.171); and every base-variant sub-object is built and destroyed under construction tables
+of its own at any depth, from a VTT, `D.vtt`, that each `.nv` constructor and destructor is handed. Committed before its
+chain, on the owner's word ("Commit before chain"): the chain begins after this commit, and the next one carries its
+numbers.**
+
+THE CHAIN OF 0.171, on a worktree holding 0.171's library, gate scripts and fixtures (its modules 0.169's, over cocolog
+2.2.5), over the HOMEs that 0.164's chain warmed, from 08:46:29 to 09:13:35 UTC: the flow gate (one finding,
+`test/flow.expect`'s, 71 s, peak 2697 MB over its four lanes; 0.168's 68 s), reader 5 s, compile 11 s, driver 11 s,
+objects 3 s, the proof, the cross gate in 139 s (peak 387 MB; 0.168's 143 s), the C++ gate over libc++ 18 in 691 s (peak
+2293 MB; 0.168's 655 s) with 525 of its 528 fixtures ok -- the skips `joinwith`, `stdoptionalref` and `tzone` -- the 23
+refusals and the three of the safe part, and over libc++ 21 in 690 s (peak 2647 MB; 0.168's 656 s), 527 of 528 ok, the
+skip `stdoptionalref`: GREEN. The fixtures' builds, as `fixture-times` records them (four at a time), summed 2441 s over
+525 over libc++ 18 (0.168's 2316 s over 523) and 2463 s over 527 over libc++ 21 (0.168's 2330 s over 525); the slowest
+`fmtchrono2` 99 s and 95 s, `fmtrange` 97 s and 69 s, `fmtchrono` 88 s and 82 s, `fmtcheck` 68 s and 61 s, `viewsall`
+67 s and 71 s. The numbers are the chain's, wall clock, and no claim about the library's speed.
+
+- A LATER VIRTUAL BASE ([class.mi]/4, the ABI's 2.4 II.1b and III; `cpp_lvb_holders/3`): the class holds every virtual
+  base its bases name, at its end, built first by the complete object and destroyed last, a path's through its `.nv`
+  form, in inheritance graph order (`cpp_written_order/3`, `cpp_vbases_walk/2`; `cpp_vbases_of/2` and the destructor's,
+  constructor's and copy's groups follow it); a later one is reached by its slot `$base$K`, a pseudo-member of no storage
+  that the struct marks `vbase_ref(Slot, T, Off)` (`'$cpp_lvb'/3`, `cpp_vbase_refs/2`, `cpp_lvb_off/3`;
+  `ccl_vbase_ref/4` in the inference, `ir_member_slot/5` over `ir_vptr_slot/3` in the lowering); a virtual first base
+  beside a non-virtual dynamic base is no primary (`cpp_primary_first/3`, II.1b), and a class over a virtual first base
+  lays its table pointer first, ahead of a later plain base (`cpp_vptr_first/3`: `Z : virtual A, B` laid B at 0 and the
+  pointer at 8, clang the pointer at 0, B at 8, z at 12, A at 16). An EMPTY later virtual base lies at the object's own
+  address with no slot (`cpp_vb_place/3`): `X : B, virtual E` was 8 bytes with no table pointer, clang's 16. Two forms
+  are refused by name: a later virtual base with virtual bases of its own, `virtual_base_over_virtual_base`, and a path
+  whose virtual bases cannot be its `.nv` form, `virtual_base_laid_otherwise` (both measured against clang: `1 2` and `1
+  2 3 4`).
+- THE VTT (the ABI's 2.6, in a form of its own; `cpp_ctor_tables/3`, `cpp_vtt_*`): for each base-variant sub-object X
+  of a holder D at any depth, `D.ctvtable<J>` (X's implementations laid out for D, offset to top 0 as clang's
+  `_ZTC1D16_1Q` has it, where it was the path's offset), one `D.ctvtable<VN><J>` for each of X's polymorphic virtual
+  bases, and one `D.ctvtable<J>.sec<S>` for each of X's sub-objects that is no primary and holds virtual bases (the
+  secondary pointers); their addresses are `D.vtt`, each X's part contiguous. Every `.nv` constructor and destructor
+  takes its part after `this`, `$vtt` (null from a library class, which stores nothing, as before), stores its entries
+  -- the constructor once its bases are built, the destructor first -- and hands its own base variants their parts.
+  Until 0.172 the holder stored its direct paths' tables around their calls and the base variants stored none, which
+  three probes against clang measured: `P : PB, X` over `X : virtual PA` crashed (the path's own first base, built by
+  its complete constructor, left its table in place, and the path's call of a slot of its own read past it); `YZ : YY :
+  Y` called YY's override in Y's constructor over YY's unbuilt member (it printed `Y:49192`); and, with the VTT in
+  place and its secondary pointers not yet made, `X : R, N` over `N : virtual A` as a path of D called N's `h` through N
+  in X's constructor, 100 where clang prints 204 (`vttsec.cpp`).
+- A SECONDARY OR CONSTRUCTION TABLE IS TYPED BY ITS SUB-OBJECT'S OWN SLOTS (`cpp_slots_vt/3`): `D : X, P` over `P :
+  PB`, P adding `virtual int h()`, was refused since 0.108, `item(declaration('D.vtable$base$2'))`, a table one slot
+  short (found by `test/why.sh`: `ir_gelems` failed, four slot items for PB's three).
+- The safe part takes a store into a table pointer as no assignment it follows (`ck_vptr_slot/1`): a base variant stores
+  what its `$vtt` names. The lowering spells a global's member's address as a constant (`ir_gconst`, the VTT's items
+  `&D.ctvtable<J>.$vt`).
+- STILL NOT DONE (the Not done bullet): the two refusals above; and a NEARLY EMPTY virtual base, a table pointer and
+  nothing else, is no primary base here where the ABI makes it one: `X : virtual I` is 24 bytes, clang's 16 with I at 0
+  (a probe: `24 24 40 24` where clang prints `16 16 32 16`; the calls agree).
+- Fixtures (14, each clang++'s output over libc++ 18 and 21 alike, each passing over both): `lvbase`, `lvbprimary`,
+  `lvbthree`, `lvbpoly`, `lvbdiamond`, `lvbtwice`, `lvbempty`, `holdassign`, `vttprimary`, `vttprimary2`, `vttdeep`,
+  `vttlater`, `vttsec`, `secslots`; 542 run fixtures in all.
+- THE GATES of this step, on a worktree holding these files (its modules 0.171's, over cocolog 2.2.5): the flow gate GREEN
+  (one finding, `test/flow.expect`'s, 77 s, peak 2723 MB over its four lanes; 3994 predicates); a net over libc++ 18 of
+  the 27 fixtures over virtual bases, diamonds, multiple bases, RTTI and the streams (`virtualbase`, `vbasertti`,
+  `vbaselayout`, `vbaseedge`, `vbcall`, `diamond`, `diamond2`, `diamondcopy`, `diamonddeep`, `diamondplain`, `ctorvt`,
+  `dtorvt`, `explicitvbase`, `itaniumlayout`, `multibase` to `multibase3`, `rtti`, `thunkdeep`, `streamlay`, `libdiamond`,
+  `stdstringstream`, `stdfstream`, `streamderived`, `stdwstream`, `vbasetwo`, `vbasetwopoly`) and the 14 new ones: 41
+  ok; the same over libc++ 21 with `stdquoted`, `stdseek` and `stdcin`: 44 ok; and 25 others over libc++ 18 (exceptions,
+  shapes, counters, primary bases, casts, member pointers, overloads, `std::function`, `std::shared_ptr`, the money
+  facets, the views): 25 ok. The chain claims nothing here.
+- `CLAUDE.md`: the versions; the Base sub-objects topic (the table pointer first over a virtual first base, the later
+  virtual base), the table stores, the secondary tables' type, the Virtual bases and the diamond topic (the later
+  virtual bases' layout, the VTT), the safe part's table pointer, the gates' numbers, What runs, Not done. `README.md`:
+  later virtual bases and the VTT.
+
+Reader 133 (no grammar moved), lowering 94 (a class with a later virtual base laid as the ABI lays it, the VTT and its
+stores, the construction tables' offset to top 0, the secondary tables' type: new IR for such classes; no C text moves).

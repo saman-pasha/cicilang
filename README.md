@@ -53,8 +53,10 @@ record of every step.
   virtual bases reached through the vtable and laid out at the end of the
   complete object as the Itanium ABI lays them (a program class over a
   stream too), the diamond with one shared base, its paths holding it
-  directly or further in, and a class over several virtual bases through
-  its paths, a diamond over them too,
+  directly or further in, a class over several virtual bases through
+  its paths, a diamond over them too, later virtual bases (`X : B, virtual
+  A`), and the base-variant constructors and destructors built under
+  construction vtables of their own at any depth, from a VTT,
   `noexcept` enforced, trailing return types, access control for
   the program's own classes, deducing `this` on a class's methods, user-defined
   literals, `mutable` lambdas checked, placement `new[]`, arrays of arrays of

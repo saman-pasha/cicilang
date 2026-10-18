@@ -466,10 +466,14 @@ ccl_class_shape(Ms) :- member(M, Ms), \+ ccl_layout_marker(M), M \= member(_, _,
 ccl_layout_marker(align_as(_)).
 ccl_layout_marker(virtual_base).                                   % a class whose FIRST base is VIRTUAL (0.110): its `$base' is reached through the vtable's vbase offset
 ccl_layout_marker(virtual_base_of(_)).                             % ... and its base-subobject form `C.nv', the shared base not laid out (a diamond's later path)
+ccl_layout_marker(vbase_ref(_, _, _)).                           % A LATER VIRTUAL BASE's slot `$base$K' (0.172): a pseudo-member of no storage, reached through the table's vbase offset at its place
 ccl_layout_marker('$nonpod').                                      % A CLASS THAT IS NOT A POD FOR THE PURPOSE OF LAYOUT (the Itanium ABI's term, as clang decides it; 0.135): as a base or a `[[no_unique_address]]' member it takes its DATA size and lends its tail padding (ccl_data_size/2)
 %% which kind of virtual-base struct a type is: `complete' (the base laid LAST, at a place only the complete object knows)
 %% or `nv(T)' (the base elsewhere in the complete object); either is reached through the vtable, never statically
 ccl_vbase_kind(T, K) :- ccl_members_of_(T, Ms), ( memberchk(virtual_base, Ms) -> K = complete ; memberchk(virtual_base_of(VT), Ms) -> K = nv(VT) ).
+%% a later virtual base's slot N of a struct, its type and its offset's place in the table (0.172); and every such slot as a member
+ccl_vbase_ref(T, N, VT, Off) :- ccl_members_of_(T, Ms), memberchk(vbase_ref(N, VT, Off), Ms).
+ccl_vbase_refs(T, Rs) :- ( ccl_members_of_(T, Ms) -> findall(member(VT, N, none), member(vbase_ref(N, VT, _), Ms), Rs) ; Rs = [] ).
 ccl_resolve_typedef(N, T) :- ccl_typedef_of(N, T0), ccl_resolve_type(T0, T).
 ccl_add_quals([], T, T) :- !.
 ccl_add_quals(Q, base(Q0, S), base(Q1, S)) :- !, append(Q, Q0, Q1).
@@ -518,6 +522,7 @@ ccl_init_route(_, Ds, Ds).
 ccl_func_name(N) :- memberchk(N, ['__func__', '__FUNCTION__', '__PRETTY_FUNCTION__']), \+ ccl_declared(N, _), !.
 ccl_member_type(T, '$base!', MT) :- !, ccl_member_type(T, '$base', MT).   % the virtual base AT ITS PLACE in the complete object: a constructor's and a destructor's name for it
 ccl_member_type(T, '$base', MT) :- ccl_vbase_kind(T, nv(MT0)), !, MT = MT0.
+ccl_member_type(T, N, MT) :- atom(N), sub_atom(N, 0, 6, _, '$base$'), ccl_vbase_ref(T, N, MT0, _), !, MT = MT0.   % a later virtual base's slot (0.172)
 ccl_member_type(T, N, MT) :- ccl_members_of(T, Ms), ( memberchk(member(MT, N, _), Ms) -> true ; ccl_anon_route(T, N, A, AT), A \== N, ccl_member_type(AT, N, MT) ).
 %% the anonymous member of a C struct or union that holds a member N, directly or through another anonymous one
 ccl_anon_route(T, N, A, AT) :- ccl_members_of(T, Ms), member(member(AT, A, _), Ms), atom(A), sub_atom(A, 0, _, _, '$anon'), ccl_anon_has(AT, N), !.
