@@ -10,8 +10,8 @@ it found, its measurements and its gate numbers. `README.md` tells a user what r
 architecture and the milestones. A step that changes a rule edits the rule here, in its topic, and writes its entry
 in `HISTORY.md`.
 
-At 0.180 the versions are: the module 0.180 (`ccl_p_version` in `module/cicilang.cicili`, `bin/cicilang --version`),
-the reader 134 (`ccl_reader_version/1`, `library/ccl_syntax.pl`) and the lowering 102 (`ccl_lowering_version/1`,
+At 0.181 the versions are: the module 0.181 (`ccl_p_version` in `module/cicilang.cicili`, `bin/cicilang --version`),
+the reader 135 (`ccl_reader_version/1`, `library/ccl_syntax.pl`) and the lowering 103 (`ccl_lowering_version/1`,
 `library/ccl_ir.pl`).
 
 Build and prove, always in this order (or all of it, `sh test/gates.sh`):
@@ -397,8 +397,8 @@ tutorials/01..03-*.pl       the objects layer's lessons; goal main, last line do
 - `test/flow.sh` (0.144) reads every file of the library with cocolog's `library(flow/chart)` and RUNS NOTHING. A chart
   starts at one call pattern, so `test/flow.pl`'s `fg_roots_main/2` writes a copy of each file with a root,
   `'$fg_all'/N`, that calls each predicate the file defines with free arguments: 3538 predicates in the ten files at
-  0.161 (3938 in all at 0.167, 4003 at 0.173, 4038 at 0.175, 4048 at 0.178, 4066 at 0.179, 4074 at 0.180; each step's
-  in HISTORY.md), and since 0.161 the 220 of the nine gate programs, `test/reader.pl`, `compile.pl`,
+  0.161 (3938 in all at 0.167, 4003 at 0.173, 4038 at 0.175, 4048 at 0.178, 4066 at 0.179, 4074 at 0.180, 4092 at 0.181;
+  each step's in HISTORY.md), and since 0.161 the 220 of the nine gate programs, `test/reader.pl`, `compile.pl`,
   `cpp.pl`, `readhdr.pl`, `census.pl`, `libcxx.pl`, `flow.pl`, `why.pl` and `prof.pl` (`TFILES`), each charted with the
   compiler and the flow and process libraries loaded, nothing stubbed (no gate program is a library file); their first
   chart found a predicate split by another's clauses (`census_main/0`) and a call of `print_message/2`, which cocolog
@@ -550,7 +550,7 @@ tutorials/01..03-*.pl       the objects layer's lessons; goal main, last line do
 ### The C++ gate: test/cpp.sh
 
 - `test/cpp.sh` runs in this order: `test/cpp.pl` in one `--local` process; four checks of the command; every
-  `test/cpp/run/*.cpp` as a pool job (587 at 0.180); `classes.cpp` and `templates.cpp` built and run; the refusals,
+  `test/cpp/run/*.cpp` as a pool job (592 at 0.181); `classes.cpp` and `templates.cpp` built and run; the refusals,
   each at the level its `test/cpp/NAME.flags` names, else C++17 (0.164). (0.105, 0.164)
 - `test/cpp.pl` runs 46 numbered checks, `c1` to `c46`, then reads Cicili's six C++ files whole (`test/cpp/objects.cpp`,
   `emit_report.cpp`, `specialise.cpp`, `syntax.cpp`, `torch.cpp`, `torch-fragment.cpp`). `c34` checks the Itanium
@@ -913,10 +913,15 @@ tutorials/01..03-*.pl       the objects layer's lessons; goal main, last line do
   the program was READ from, ` -L<root>/lib -Wl,-rpath,<root>/lib -lc++` (`ccl_cxx_dirs`): two or three libc++ are
   installed side by side on the Ubuntu box (`/usr/lib/llvm-18`, `-21`, `-22`), chosen by `$LLVM`, and the headers of one
   with the library of another do not link. Without `$LLVM` the NEWEST tree is read, 22 here: the gates run with
-  `LLVM=/usr/lib/llvm-18` and `LLVM=/usr/lib/llvm-21`. For another machine (0.161), ` -lm` in C and, in C++, its libc++
-  under the sysroot: ` -L<sysroot><root>/lib -Wl,-rpath-link,<sysroot><root>/lib -Wl,-rpath,<root>/lib -lc++ -lm`, the
-  rpath where that machine keeps the library, which `qemu-aarch64 -L <sysroot>` finds under the sysroot. (0.93, 0.100,
-  0.122, 0.161)
+  `LLVM=/usr/lib/llvm-18` and `LLVM=/usr/lib/llvm-21`. LIBC++ABI IS NAMED after `-lc++` where the tree has one (0.181;
+  ` -lc++abi`, `ccl_cxxabi_lib/2`): libc++ 18's `libc++.so` is a linker script, `INPUT(libc++.so.1 -lc++abi -lunwind)`,
+  which names it, and libc++ 21's and 22's is the library itself, so the link through g++ found the program's
+  `__cxa_throw`, `__cxa_begin_catch`, personality and type information in libstdc++, g++'s own runtime, while libc++'s
+  code asked libc++abi -- two runtimes in one process, and `std::current_exception()` captured nothing
+  (`exceptionptr.cpp`). Over libc++ 18 the libraries and their bindings are the same as without. For another machine
+  (0.161), ` -lm` in C and, in C++, its libc++ under the sysroot: ` -L<sysroot><root>/lib
+  -Wl,-rpath-link,<sysroot><root>/lib -Wl,-rpath,<root>/lib -lc++ -lm`, the rpath where that machine keeps the library,
+  which `qemu-aarch64 -L <sysroot>` finds under the sysroot. (0.93, 0.100, 0.122, 0.161, 0.181)
 
 ## The lexers
 
@@ -1749,6 +1754,11 @@ tutorials/01..03-*.pl       the objects layer's lessons; goal main, last line do
   ([dcl.fct]/1; `ccl_memptr_quals` -> `ccl_mptr_quals` -> `ccl_suffix_quals`), as `<functional>`'s `__strip_signature`
   writes. A method's `const` stays `ccl_method_quals`'s. Why: else every const method lost its mark, and a shipped
   symbol its `K`. (0.86, 0.88)
+- THEY ARE KEPT, ON THE MEMBER'S FUNCTION TYPE (0.181; `ccl_mfn_mark/5`): `int (A::*)(int) const` is `memptr(A, [],
+  fn(int, [int], q(false, [const])))`, `q(V, Qs)` in the function type's third field -- V the ellipsis mark, Qs
+  `const`, `volatile`, `&` and `&&` in that order -- on the function suffix after the parenthesized declarator that
+  holds the pointer to member; a pointer to member among the level's own pointers (`int A::*f() const`) takes none.
+  They were read and dropped, and `int (A::*)(int) const` was `int (A::*)(int)` to every pass. Reader 135. (0.181)
 
 ### Declarations, namespaces and modules
 
@@ -2067,14 +2077,14 @@ tutorials/01..03-*.pl       the objects layer's lessons; goal main, last line do
 
 ### The versions
 
-- `ccl_reader_version/1` (`library/ccl_syntax.pl`, now 134): bump it for any grammar change to what a read gives, and
+- `ccl_reader_version/1` (`library/ccl_syntax.pl`, now 135): bump it for any grammar change to what a read gives, and
   for any change to what the AST beside a summary holds (item or member terms, `cpp_index_name/2`,
   `cpp_template_name/2`, `ccl_flat_items/3`, the namespace keys). Keep the reason in its comment. Why: the store and the
   summaries are keyed by it, and a stale read is served silently (`sizeof(std::string)` read 40). (M1, 0.89, 0.112,
   0.117)
 - A reader bump makes every summary cold; `test/libcxx.sh` rewrites them. `test/reader.pl`'s `k16` (a cached read is
   the same AST as a fresh one) goes RED on a grammar change without a bump. (0.93, 0.105)
-- `ccl_lowering_version/1` (`library/ccl_ir.pl`, now 102): bump it whenever the check or the lowering changes what it
+- `ccl_lowering_version/1` (`library/ccl_ir.pl`, now 103): bump it whenever the check or the lowering changes what it
   emits, however small -- 0.120 bumped it for the ORDER of the drain functions alone. Why: `dr_ir/3` serves the old IR
   otherwise. Either bump starts the C store afresh. (M4, 0.103, 0.120)
 
@@ -3685,8 +3695,10 @@ free. A const method adds `.c`, a ref-qualified one `.r` or `.rr` after it: each
 ### Alias and variable templates
 
 - An alias template instantiates as its type (`cpp_instantiate_type`); a class wins a name it shares with an alias
-  (`cpp_alias_template`: `std::pmr::vector`); alias and variable templates stay out of the C typedef table
-  (`ccl_collect_item`). (0.44)
+  (`cpp_alias_template`: `std::pmr::vector`, keyed apart since 0.181); alias and variable templates stay out of the C
+  typedef table (`ccl_collect_item`). An alias given more arguments than it has parameters, a pack aside, is refused
+  by name ([temp.arg]/1; `cpp_alias_args_fit/3`, `too_many_template_arguments(N)`): `cpp_bind_targs/3` dropped the
+  rest, and an alias whose body names its own name resolved itself without end. (0.44, 0.181)
 - An alias whose WHOLE definition is a template-id resolves to the INSTANCE (`cpp_type` on `ccl_typedef_of`:
   `false_type`), a refusal traced `alias_refused(N, W)`; a bare name such as `type` never resolves through the global
   table. Fixture: `aliastype.cpp`. Why: a summary keeps a header's aliases raw. So does an alias whose definition is a
@@ -4297,7 +4309,15 @@ The desugaring (`library/ccl_cpp.pl`) chooses every C++ overload. A fixture name
   `own(V)` keeps the program's ellipsis, so a call falls to `f(...)` (`cpp_fn_origin/4`). (0.56, 0.58, 0.100)
 - `cpp_fn_name/4` names a free function in the table, the emission and the call (`cpp_free_call/5`): an `extern "C"`
   name keeps it (`'$cpp_cname'`); a library declaration with a namespace path takes its Itanium symbol; a definition
-  of an overloaded name is `F.<keys>` (`cpp_fn_overloaded/1`); else the plain name. `freeoverloads.cpp`. (0.56, 0.61)
+  of an overloaded name is `F.<keys>` (`cpp_fn_overloaded/1`); else the plain name. `freeoverloads.cpp`. A name with
+  ONE definition is overloaded too where a declaration of it has SURELY other parameters (0.181;
+  `cpp_params_surely_differ/2`): another count, or at one place a reference, a pointer or a builtin type against
+  another shape or another builtin type; a name only the tables resolve agrees with anything, so `f(size_t)` declared
+  and `f(unsigned long n)` defined stay one function. The definition kept the plain name, the table holds one type a
+  name, the first declared, and `g("abc")` after `int g(const Inc &);` passed the literal's address for the reference
+  (8 where clang++ prints 97); a declared `g(double)` gave LLVM a pointer converted to a double; two units that
+  define `g(int)` and `g(const char *)` beside a declaration of the other did not link (`declfirst.cpp`). (0.56, 0.61,
+  0.181)
 - An EXACT overload has as many parameters as arguments, each one, resolved (`cpp_type_or_self/2`), unreffed and bare,
   equal to its argument's type (`cpp_arg_exact/2`); a function is exact for a function pointer of its type. (0.56, 0.78)
 - A header's templates and functions of a name join the program's on the first ask (`cpp_hdr_join/1` in
@@ -4386,7 +4406,9 @@ The desugaring (`library/ccl_cpp.pl`) chooses every C++ overload. A fixture name
 ### Overload sets and function templates named as values
 
 - An overload set named as a value is chosen by its target's parameter keys ([over.over]; `cpp_conv_to/4` on `id(F)`,
-  `cpp_fn_target/2`) and emitted by `cpp_use_fn`: `int (*pi)(int) = twice`. `overloadset.cpp`. (0.99)
+  `cpp_fn_target/2`) and emitted by `cpp_use_fn`: `int (*pi)(int) = twice`. `overloadset.cpp`. Its address too, `&m`
+  (0.181; it was `undeclared(m)`), and a namespace-scope object's initializer (`cpp_set_value/3` in `cpp_vars`; it was
+  refused, `global_init(id(m))`). `declfirst.cpp`. (0.99, 0.181)
 - A function template's name is `tmplfn(F)` (`cpp_fn_template_ref/2`). A function-pointer, -reference or -type parameter
   deduces it from its target ([temp.deduct.funcaddr]; `cpp_target_deduces/2`) and scores it exact; no other parameter
   takes it. The argument pass makes it the instance (`cpp_deduce_target/3`). Why: `cout << std::endl`. (0.74)
@@ -4399,8 +4421,9 @@ The desugaring (`library/ccl_cpp.pl`) chooses every C++ overload. A fixture name
   `stdthread.cpp`. (0.117)
 
 - An overloaded member's address, `&C::add`, is `'$memaddr'(C, N)` until a target chooses ([over.over];
-  `cpp_conv_to`'s clause: the overload whose parameters key as the pointer to member's, `cpp_method_address/4`); one
-  no target chose is refused at the lowering, `overloaded_member_address(C, N)`. `classforms.cpp`. (0.88, 0.112)
+  `cpp_conv_to`'s clause: the overload whose parameters key as the pointer to member's, `cpp_method_address/4`, the
+  one whose qualifiers are the target's first, 0.181); one no target chose is refused at the lowering,
+  `overloaded_member_address(C, N)`. `classforms.cpp`, `memfnq.cpp`. (0.88, 0.112, 0.181)
 ### The argument pass at a call (the copy pass)
 
 - After the choice: the defaults fill (`cpp_fill_defaults/3`); the reference parameters take their objects
@@ -5488,6 +5511,15 @@ A lambda is a class of its captures (`library/ccl_cpp.pl`). A fixture named alon
   member's class, an even one is the function. `(obj.*pm)(args)`, `(p->*pm)(args)` and `__builtin_invoke(pm, obj, ...)`
   take this road. A base's member pointer converted to a derived class's adds the base's offset to `adj` ([conv.mem];
   `ir_convert`). `memfnadj.cpp`. (0.100, 0.108)
+- A MEMBER FUNCTION TYPE'S QUALIFIERS (0.181; the reader's `q(V, Qs)`, `cpp_fn_q/3`): `&A::cf` of a const member is
+  `int (A::*)(int) const` (`cpp_mfq_v/3`, over the member's `const` and ref-qualifier; a member's `volatile` the reader
+  drops), and the type key holds them (`A_mp_Kfn_int_int`, `fnO`), so an overload, a specialization (`S<R (C::*)(int)
+  const>`) and an instance over one are their own, and a target's qualifiers choose an overloaded member's address
+  (`int (B::*pc)() const = &B::get` is the const `get`). A call through one checks the object's rights
+  ([expr.mptr.oper]/6, [over.match.funcs]/5; `cpp_memptr_obj_ok/3`): a const object takes only a const member, an
+  lvalue no `&&` member and an rvalue no `&` member -- from C++20 one whose qualifiers are exactly `const` (P0704) --
+  else `non_const_member_on_const(pointer_to_member, C)` or `ref_qualified_member(pointer_to_member, C, Q)`, which a
+  detection reads: `is_invocable_v<int (A::*)(int), const A &, int>` held. `memfnq.cpp`, `memfnq20.cpp`. (0.181)
 - A NULL POINTER TO A DATA MEMBER IS -1, on both machines (0.161; the Itanium ABI's and ARM's: offset 0 is the first
   member's): a null pointer constant converted to one (`ir_convert/6`; the desugaring's own offsets are `long` literals,
   never a null constant's `int`), a global's constant (`ir_gconst`), and the zero-initialization of every type that
@@ -5582,6 +5614,13 @@ A lambda is a class of its captures (`library/ccl_cpp.pl`). A fixture named alon
   (`cpp_ita_whole/5`): `void (*)(int, ...)` is `PFvizE`, `int (&)[4]` is `RA4_i`, two `void (*)()` are `PFvvE` and
   `S1_` -- the symbols `std::set_terminate(void (*)())` is shipped under. `__int128` is `n` and `unsigned __int128` `o`.
   `test/cpp.pl`'s `c37`. Such a symbol kept this compiler's own name until 0.117, and the link named it. (0.73, 0.117)
+- A MEMBER FUNCTION TYPE'S QUALIFIERS ARE SPELLED (0.181; `cpp_ita_fn/7`): `[V][K] F <result> <parameters> [R|O] E`,
+  the qualified type one substitution candidate -- `int (A::*)(int) const` is `M1AKFiiE`, `&&` `M1AFiiOE`, `const &`
+  `M1AKFiiRE` -- and the function type of a pointer to member takes a place in the table and is never substituted, as
+  clang's mangler has it (`'$mfn'(Canon)`, keyed by the whole, so the same pointer to member again takes none):
+  `void (*)(int (A::*)(int) const, int (A::*)(int) const)` is `PFvM1AKFiiES1_E`, and `int (*)(int)` before `int
+  (A::*)(int)` `PFiiEM1AFiiE`, where it was `M1AS_`. The type information follows: `_ZTIM1AKFiiE` over `_ZTIKFiiE`.
+  (0.181)
 
 ## Exceptions, RTTI, coroutines, modules, contracts and source locations
 
@@ -5848,7 +5887,11 @@ A lambda is a class of its captures (`library/ccl_cpp.pl`). A fixture named alon
   by the shortest unique suffix of its namespace path (`cpp_ns_quals`, `cpp_ns_unique_suffix`, `cpp_index_key`,
   `cpp_qualify_item`; 0.112, where it was the innermost namespace alone). A qualified use resolves to the key
   (`cpp_ns_key` in `cpp_type`, `cpp_call`, `cpp_expr`), a qualified template-id called too (`__elements::__fn<0>{}`,
-  views::keys). Else `function<int(int)>` took the wrong `__maybe_derive_from_unary_function`. (0.88, 0.112)
+  views::keys). Else `function<int(int)>` took the wrong `__maybe_derive_from_unary_function`. An ALIAS TEMPLATE is
+  keyed so too (0.181; `cpp_qualify_item/4`): std::pmr::basic_string is `pmr.basic_string`. It kept the bare name, and
+  where <string> was unread it won the name from the class template that <iosfwd> declares: its body names
+  `std::basic_string<_CharT, _Traits, polymorphic_allocator<_CharT>>`, which resolved through it again without end, and
+  a call over `const std::string &` ran to the memory cap with no trace line (`fwdstring.cpp`). (0.88, 0.112, 0.181)
 - An ENUM's tag and an unscoped enum's enumerators collide as names do (0.127; `cpp_ns_enum_name/2` in
   `cpp_ns_resolve`, `cpp_qualify_enum/4`): keyed and renamed in the deeper namespace, a qualified enumerator `n2::x`
   taken by its key (`cpp_expr`'s clause before the enumerator road), `n2::Mode::Fast` through the tag's key
@@ -7831,7 +7874,9 @@ A lambda is a class of its captures (`library/ccl_cpp.pl`). A fixture named alon
   C++ gate in 655 s to 1167 s over each libc++, its fixtures' builds summed 2316 s to 4159 s; their numbers are in
   HISTORY.md, 0.166 to 0.179 (from 0.173 on the machine was slower, not the library: it had started again at 11:21 UTC,
   and `stdformat.cpp` built alone, two rounds interleaved, took 52.1 and 53.2 s of CPU over 0.172's library and 52.7
-  and 52.4 s over 0.173's, where 0.172's chain recorded 35 s for it, four at a time). Two libc++ passes are one gate:
+  and 52.4 s over 0.173's, where 0.172's chain recorded 35 s for it, four at a time); 0.180's chain ran them over the
+  HOMEs that 0.179's chain warmed, all GREEN, the C++ gate in 700 s and 690 s (peaks 2498 MB and 2484 MB), 584 and 586
+  of 587 fixtures ok, their builds summed 2479 s and 2463 s (HISTORY.md, 0.181). Two libc++ passes are one gate:
   `LLVM=/usr/lib/llvm-18` and `LLVM=/usr/lib/llvm-21` choose the tree the chain reads and links. libc++ 22 (the newest
   tree, which a run without
   `$LLVM` reads) is untried but for `stdoptionalref`, which passes there. The run before 0.121's (0.118, 0.119) found,
@@ -7948,6 +7993,14 @@ A lambda is a class of its captures (`library/ccl_cpp.pl`). A fixture named alon
   base, and the same with a path), `lvbvempty` (a later virtual base over an empty virtual base), `lvbemptypath` (a path
   that reaches an empty virtual base further in, beside a later virtual base), `lvblibbase` (`std::istream` as a later
   virtual base of the program's class).
+- Forms of 0.181: `memfnq` (a pointer to member function's cv- and ref-qualifiers: the type information's names, an
+  overload, a specialization, an overloaded member's address chosen by the target, an instance over one, a detection,
+  calls through `std::invoke`, `std::mem_fn` and `.*`, `__PRETTY_FUNCTION__`), `memfnq20` (C++20: an rvalue and a
+  `const &` member), `exceptionptr` (`std::current_exception` and `std::rethrow_exception` over the program's throw;
+  over libc++ 21 the link names libc++abi), `fwdstring` (a call over `const std::string &` with <string> unread: an
+  overload set, explicit constructors, <stdexcept>'s `logic_error`), `declfirst` (a definition after a declared
+  overload of other parameters -- a reference, a builtin type, another count -- and an overload set named by a
+  global's initializer, by name and by address).
 - Forms of 0.180: `rttiother` (C++20: the type information of an enum and a scoped one, a pointer to a pointer and
   to an enum, a pointer to a data member and to a member function, an array, a function, `std::nullptr_t`, a pointer
   to a volatile builtin, `_Float16`, `_BitInt`, a vector type and a pointer to each, compared, thrown and caught;
@@ -8263,9 +8316,6 @@ A lambda is a class of its captures (`library/ccl_cpp.pl`). A fixture named alon
   base too, since 0.173 one whose later virtual base has virtual bases of its own, and every base-variant sub-object at
   any depth is built under construction tables of its own, its secondary pointers among them (0.110, 0.117, 0.160,
   0.163, 0.171, 0.172, 0.173, 0.174, 0.175, 0.176, 0.177, 0.178).
-- A pointer to a member function keeps no cv- or ref-qualifier of the function's: the reader reads them and drops them
-  (`ccl_mptr_quals`), so `int (A::*)(int) const` is `int (A::*)(int)` to an overload, a template's specialization, the
-  mangler and the type information (`M1AFiiE`, where clang spells `M1AKFiiE`). (0.180)
 
 ### libc++ modules
 
@@ -8324,11 +8374,6 @@ A lambda is a class of its captures (`library/ccl_cpp.pl`). A fixture named alon
   (0.117; `c37`), every builtin type (0.136; `c44`) and a vector type (0.162; `c46`). A type that none of its clauses
   names keeps this compiler's own name, and the link names it.
 - macOS has not run the gates since 0.90, so every rule made since 0.91 is gated on Linux and libc++ 18 only.
-- Over libc++ 21 a program's `throw` and `catch` bind libstdc++'s runtime, not libc++abi (`ldd` names
-  `libstdc++.so.6` alone, and `LD_DEBUG=bindings` binds `__cxa_throw` there): libc++ 18's `libc++.so` is a linker
-  script, `INPUT(libc++.so.1 -lc++abi -lunwind)`, libc++ 21's the library itself, and the link through `c++` (g++)
-  finds the runtime in libstdc++. Both are the Itanium ABI's, and the gates pass over both trees; `-lc++abi` named where
-  `libc++.so` is no linker script would make it libc++abi's. (0.180)
 
 ### The safe part
 

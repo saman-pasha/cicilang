@@ -45,11 +45,12 @@ record of every step.
   concepts and `requires`, lambdas (generic, capturing `this` and `*this`),
   structured bindings, `if constexpr`, `consteval` at compile time, the
   three-way comparison and the defaulted comparisons, pack indexing, the
-  `_` placeholder, class template argument deduction, pointers to members,
-  `constexpr` functions evaluated at compile time over locals, aggregates,
-  pointers and `this`, RTTI (`typeid` of every type, `dynamic_cast`), exceptions
-  (`throw`, `try`, `catch`), `new T[n]` of a class with the ABI's array
-  cookie, multiple polymorphic bases with their secondary vtables,
+  `_` placeholder, class template argument deduction, pointers to members
+  (a member function's `const` and ref-qualifier kept), `constexpr`
+  functions evaluated at compile time over locals, aggregates, pointers and
+  `this`, RTTI (`typeid` of every type, `dynamic_cast`), exceptions (`throw`,
+  `try`, `catch`, `std::exception_ptr`), `new T[n]` of a class with the
+  ABI's array cookie, multiple polymorphic bases with their secondary vtables,
   virtual bases reached through the vtable and laid out at the end of the
   complete object as the Itanium ABI lays them (a program class over a
   stream too), the diamond with one shared base, its paths holding it

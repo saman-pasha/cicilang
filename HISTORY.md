@@ -173,7 +173,8 @@ One row per step, in version order: the step's title, what it did and its gate n
 | 0.177 | Not done, the fifteenth part: the slots of a primary table in the ABI's order | a primary table's slots in the Itanium ABI's order (2.5.2): the primary base's, then each new virtual function, an override of another base's function among them, the implicit destructor last; a defaulted virtual destructor a destructor of its own; the implicit destructor of a class over a later base with one | its chain (0.178): all nine gates GREEN over libc++ 18, the two libc++ gates over 21, the C++ gate 1030 s and 1022 s; 571 of 574 over 18, 573 over 21 |
 | 0.178 | Not done, the sixteenth part: a nearly empty primary whose virtual bases lie outside it | a nearly empty primary whose own virtual bases lie outside it laid as its base-variant form at the class's own address, the class holding its virtual bases; a cached answer one answer, since a layout's other answers poisoned the layout cache | its chain (0.179): all nine gates GREEN over libc++ 18, the two libc++ gates over 21, the C++ gate 1059 s and 1005 s; 576 of 579 over 18, 578 over 21 |
 | 0.179 | Not done, the seventeenth part: a number's suffixes and types, pointer globals, the C++23 read of <complex> | an integer's tail that is no integer suffix its ud-suffix in C++ (`3us`); `<complex>`'s `i`, `if` and `il` where a using makes them visible, else GNU's; `3ll` a long long; the type information of a complex type, of a pointer to a class and of a library class without a table; a pointer caught; our `stddef.h` clears glibc's `__need_*`, so `<complex>` reads whole at C++23; pointer globals from integer constants, arrays bounded by constant expressions | its chain (0.180), over fresh HOMEs: all nine gates GREEN over libc++ 18, the two libc++ gates over 21 (run again after a restart of the container), the C++ gate 1057 s and 886 s; 582 of 585 over 18, 584 over 21 |
-| 0.180 | Not done, the eighteenth part: the type information of every other type | `typeid` of an enum, an array, a function, a pointer to member, a vector and a pointer to any type, as clang emits them; a builtin libc++abi does not export emitted; `std::nullptr_t`'s libc++abi's, `throw nullptr`; the program's types named as clang names them; the library read warms `<ostream>` | committed before its chain: the flow gate, the C gates and the proof GREEN, nets of 80 fixtures over libc++ 18 and 21; 87 run C fixtures, 587 C++ |
+| 0.180 | Not done, the eighteenth part: the type information of every other type | `typeid` of an enum, an array, a function, a pointer to member, a vector and a pointer to any type, as clang emits them; a builtin libc++abi does not export emitted; `std::nullptr_t`'s libc++abi's, `throw nullptr`; the program's types named as clang names them; the library read warms `<ostream>` | its chain (0.181), over the HOMEs 0.179's chain warmed (no library read: the reader did not move): the flow gate, the C gates, the proof, the cross gate and the C++ gate GREEN over libc++ 18, the C++ gate over 21, the C++ gate 700 s and 690 s; 584 of 587 over 18, 586 over 21 |
+| 0.181 | Not done, the nineteenth part: a member function pointer's qualifiers; libc++abi over libc++ 21 | a pointer to member function keeps its cv- and ref-qualifiers (the type key, the mangler, the type information, a specialization, an overload, an overloaded member's address, a call through one checked); ` -lc++abi` linked where `libc++.so` is the library itself; an alias template of a deeper namespace keyed apart (`std::pmr::basic_string` resolved itself without end); a definition beside a declared overload named by its keys; an overload set named by a global or by its address chosen by the target | committed before its chain: the flow gate, the C gates and the proof GREEN, a net over libc++ 18 cut by a restart after 62 of 96 fixtures, all the same; 87 run C fixtures, 592 C++ |
 
 ## M5 — the C++ mode
 
@@ -11207,3 +11208,120 @@ speed.
 Reader 134 (no grammar moved), lowering 102 (the type information of every other type, a builtin's that libc++abi does
 not export, `std::nullptr_t`'s, `throw nullptr`, a `std::nullptr_t` caught, the program's types named as clang names
 them: new IR for such programs).
+
+## 0.181 — Not done, the nineteenth part: a member function pointer's qualifiers; libc++abi over libc++ 21
+
+**0.181: a pointer to member function keeps its cv- and ref-qualifiers -- the type key, the mangler, the type
+information, a specialization's pattern, an overload, the choice of an overloaded member's address and a call through
+one read them --; over a libc++ whose `libc++.so` is the library itself (21, 22) the link names libc++abi, so a
+program's `throw` and `catch` and libc++'s `std::current_exception` share one runtime; an alias template of a deeper
+namespace is keyed apart from the outer name (`std::pmr::basic_string`, which resolved itself without end where
+`<string>` was unread); and a definition beside a declared overload of other parameters is named by its keys, an
+overload set named by a global's initializer or by its address chosen by the target. Committed before its chain, on the
+owner's word ("Commit before chain"): the chain begins after this commit, and the next one carries its numbers.**
+
+THE CHAIN OF 0.180, on the checkout of its commit (module 0.180, reader 134, lowering 102, over cocolog 2.2.5), over the
+HOMEs that 0.179's chain warmed (the reader version did not move, so the library reads were not run again), from
+00:03:15 UTC: the flow gate (one finding, `test/flow.expect`'s, 74 s, peak 2761 MB over its four lanes; 4074
+predicates), reader 7 s, compile 13 s, driver 12 s, objects 3 s, the proof, the cross gate in 590 s (peak 586 MB), over
+libc++ 18 the C++ gate in 700 s (peak 2498 MB; 0.179's 1057 s) with 584 of its 587 fixtures ok -- the skips
+`joinwith`, `stdoptionalref` and `tzone` -- the 23 refusals and the three of the safe part, and over libc++ 21 the C++
+gate in 690 s (peak 2484 MB; 0.179's 886 s), 586 of 587 ok, the skip `stdoptionalref`, to 00:38:22 UTC: GREEN. The
+fixtures' builds summed 2479 s over 584 over libc++ 18 and 2463 s over 586 over libc++ 21 (0.179's 3601 s and 2751 s,
+over cold HOMEs); the slowest over libc++ 18 `fmtrange` 103 s, `fmtchrono2` 100 s, `fmtchrono` 90 s, `fmtcheck` 68 s,
+`viewsall` 67 s and `fmttuple` 67 s, over libc++ 21 `fmtchrono2` 91 s, `fmtchrono` 80 s, `viewsall` 70 s, `fmtrange`
+68 s, `fmtcheck` 57 s and `joinwith` 55 s. `libdiamond` built in 10 s and 8 s and `tzone` in 22 s over 21, over
+summaries that 0.179's C++ gate had written into these HOMEs (147 s, 86 s and 234 s there): the warm of `<ostream>` that
+0.180 mended is measured in the next chain over fresh HOMEs.
+
+- A MEMBER FUNCTION TYPE'S QUALIFIERS ARE KEPT (the reader's `ccl_mfn_mark/5`; reader 135): `int (A::*)(int) const` is
+  `memptr(A, [], fn(int, [int], q(false, [const])))`, the qualifiers -- `const`, `volatile`, `&` and `&&`, in that order
+  -- in the function type's third field beside the ellipsis mark, on the function suffix after the parenthesized
+  declarator that holds the pointer to member. The reader read them and dropped them (`ccl_mptr_quals`), so every
+  qualified form was the plain one to every pass: `typeid(&A::cf)` named `M1AFiiE` where clang has `M1AKFiiE`, the
+  overloads `g(int (A::*)(int))` and `g(int (A::*)(int) const)` were one function (two definitions of one name, which
+  LLVM refuses), a specialization over `R (C::*)(int) const` was the plain one's, `bump<int (A::*)(int)>` and
+  `bump<int (A::*)(int) const>` one instance, and `int (B::*pc)() const = &B::get` the first `get` declared.
+- THE DESUGARING READS THEM (`cpp_fn_q/3`): `&A::cf` carries its member's `const` and ref-qualifier (`cpp_mfq_v/3`; a
+  member's `volatile` the reader drops), the type key holds them (`A_mp_Kfn_int_int`, `fnO`), a target's qualifiers
+  choose an overloaded member's address first, and `__PRETTY_FUNCTION__` spells them after the parameters (`[T = int
+  (A::*)(int) const &]`). A CALL THROUGH ONE CHECKS THE OBJECT'S RIGHTS ([expr.mptr.oper]/6, [over.match.funcs]/5;
+  `cpp_memptr_obj_ok/3`): a const object takes only a const member, an lvalue no `&&` member, an rvalue no `&` member --
+  from C++20 one whose qualifiers are exactly `const` (P0704; clang++ refuses `std::invoke(&A::clf, A{}, 4)` at C++17
+  and takes it at C++20, `const volatile &` at neither) -- else the call is refused by name, which a detection reads:
+  `is_invocable_v<int (A::*)(int), const A &, int>` and `<int (A::*)(int) &&, A &, int>` held. Two such pointers are
+  one candidate's fit by their whole keys (`cpp_memptr_fit/3`): a pointer to member fitted every parameter of pointer
+  to member at 2, the qualifiers apart, and `g` chose the first declared.
+- THE MANGLER SPELLS THEM (`cpp_ita_fn/7`): `[V][K] F <result> <parameters> [R|O] E`, the qualified type one
+  substitution candidate (`M1AKFiiE`, `M1AFiiOE`, `M1AKFiiRE`), and the function type of a pointer to member takes a
+  place in the table and is never substituted, as clang's mangler has it -- a place keyed by the whole pointer to member
+  (`'$mfn'(Canon)`), so the same pointer to member again takes none: `void (*)(int (A::*)(int) const, int (A::*)(int)
+  const)` is `PFvM1AKFiiES1_E`, and `int (*)(int)` before `int (A::*)(int)` `PFiiEM1AFiiE`, where the function type was
+  substituted, `M1AS_`. The type information follows the mangler: `_ZTIM1AKFiiE` over `_ZTIKFiiE`, a
+  `__function_type_info`.
+- LIBC++ABI OVER LIBC++ 21 AND 22 (`ccl_cxxabi_lib/2` in `ccl_link_libs/1`): ` -lc++abi` follows `-lc++` where the
+  tree has a `libc++abi.so`. libc++ 18's `libc++.so` is a linker script, `INPUT(libc++.so.1 -lc++abi -lunwind)`, and
+  21's and 22's the library itself, so the link through g++ found the program's `__cxa_throw`, `__cxa_begin_catch`,
+  personality and type information in libstdc++ (`LD_DEBUG=bindings`), while libc++'s code asked libc++abi: a
+  clang++-built object of `exceptionptr.cpp` linked as 0.180 linked it named `libstdc++.so.6` beside libc++ 21's
+  `libc++.so.1`, and `std::current_exception()` in its handler captured nothing (`captured 0`, `std::rethrow_exception`
+  never reached), where with ` -lc++abi` it prints `captured 1` and `rethrown 42`, as clang++'s program does. Over
+  libc++ 18 the libraries the binary needs and their bindings are the same with the name as without.
+- AN ALIAS TEMPLATE OF A DEEPER NAMESPACE IS KEYED APART (`cpp_qualify_item/4`; reader 135, the AST beside a summary):
+  `std::pmr::basic_string` is `pmr.basic_string`. The collision of two namespaces' names (0.88, 0.112) renamed a class,
+  a function and an object, and an alias kept the bare name; where `<string>` was unread -- `<stdexcept>` and
+  `<iosfwd>` declare `std::basic_string` and define nothing -- the alias won the name from the class template, and its
+  body names `std::basic_string<_CharT, _Traits, polymorphic_allocator<_CharT>>`, which resolved through it again,
+  without end. `exceptionptr.cpp`'s first build was killed at the cap, and so over the 0.180 library, cold: 2807 MB
+  after 321 s (its read alone, `-fsyntax-only`, 7 s and 119 MB). The trace (`'$cpp_trace'`) ended at
+  `incomplete(polymorphic_allocator.char)` and wrote no line while the memory grew; the flow debugger recorded a window
+  of the run at step 30 million (`from(29990000)`, `to(30000000)`: the probe stopped at its limit, 17 s and 346 MB),
+  and it was `cpp_instantiate_type(basic_string, [char, char_traits.char, polymorphic_allocator.char], _)` asked again
+  and again, the alias binding the first two arguments and dropping the third. Reduced to five lines: `#include
+  <iosfwd>`, `int g(const std::string &);`, `int g(const char *s) { ... }`, `g("abc")`, past 90 s and 1 GB. Now
+  `exceptionptr.cpp` builds cold in 4 s and 102 MB.
+- AN ALIAS GIVEN MORE ARGUMENTS THAN IT HAS PARAMETERS IS REFUSED BY NAME ([temp.arg]/1; `cpp_alias_args_fit/3`,
+  `too_many_template_arguments(N)`), a pack aside: `cpp_bind_targs/3` drops the arguments past the parameters, which
+  is how the alias above took three, and any other alias whose body names its own flattened name stops there by name.
+- A DEFINITION BESIDE A DECLARED OVERLOAD OF SURELY OTHER PARAMETERS IS NAMED BY ITS KEYS (`cpp_fn_overloaded/1`'s
+  third clause over `cpp_params_surely_differ/2`), as one of two definitions is: a name with one definition kept the
+  plain name, and the table holds one type a name, the first declared. `fwdstring.cpp`'s first run printed `11` where
+  clang++ prints `97`: `g("abc")` after `int g(const std::string &);` called the definition with the address of a
+  temporary holding the literal's pointer, taken for the reference; the same over the 0.180 library with a program's
+  own incomplete `struct Inc` (`8`), with `const int &` (`8`), and, with `int g(double);` declared, `uitofp ptr ... to
+  double`, which LLVM refused. Two units, one declaring `g(int)` and defining `g(const char *)`, the other defining
+  `g(int)`, did not link (two `g`), and link now, `97 15`. Only a SURE difference counts -- another count of
+  parameters, or at one place a reference against no reference, a pointer against no pointer, or two builtin types of
+  other spellings --, and a name that only the tables resolve agrees with anything: `int f(std::size_t);` declared and
+  `int f(size_t n)` defined, `int h(size_t);` and `int h(unsigned long n)`, stay one function each (`42 42`).
+- AN OVERLOAD SET NAMED BY A GLOBAL'S INITIALIZER IS CHOSEN BY THE GLOBAL'S TYPE, and an overload set's ADDRESS by its
+  target ([over.over]; `cpp_set_value/3` in `cpp_vars`, and `cpp_conv_to/4` on `addr(id(F))`): `int (*pm)(int) = m;`
+  beside two definitions of `m` was refused, `global_init(id(m))`, `int (*la)(int) = &m;` in a block was
+  `undeclared(m)`, and once the declared overload above made `m` a set, `pm` named the declaration (`@pm = global ptr
+  @m`, a link error). `int (*pl)(long) = &m;` takes the other (`10 10 109 10 10`, as clang++ prints).
+- Fixtures (5, each clang++'s output over libc++ 18, the same over 21, each passing over both): `memfnq`, `memfnq20`
+  (C++20), `exceptionptr`, `fwdstring` and `declfirst`; 592 run fixtures in all. For clang++'s link over libc++ 21 the
+  expectations' programs were linked with ` -lc++abi` too: clang's driver names `-lc++` alone, and the link fails over
+  libc++ 21 (`undefined reference to symbol '__cxa_throw'`, `DSO missing from command line`).
+- Before the commit, over the work tree (module 0.181, reader 135, lowering 103), each run over a HOME of its own: the
+  flow gate GREEN after each patch, the last in 65 s, peak 2819 MB over its four lanes, 4092 predicates (0.180's 4074),
+  its one finding `test/flow.expect`'s; the reader (5 s), compile (10 s), driver (11 s) and objects (3 s) gates and the
+  proof GREEN at 00:41 UTC, before the last two patches, which change the C++ desugaring alone; the cross gate was not
+  run. The five fixtures, built cold one at a time: over libc++ 18 `exceptionptr` 4 s and 102 MB, `memfnq` 72 s and
+  446 MB, `memfnq20` 95 s and 507 MB, `fwdstring` and `declfirst` under 1 s; over libc++ 21 3 s and 172 MB, 72 s and
+  402 MB, 109 s and 447 MB, 1 s and under 1 s; each prints clang++'s output. A net over libc++ 18 of 96 fixtures that
+  the changes reach (pointers to members, overloads, namespaces, aliases, strings, streams, `std::function`,
+  `std::invoke`, `std::variant`, exceptions), three at a time over a HOME the probes had warmed, from 01:36:55 UTC: 62
+  verdicts, each the same as its `.expect`, when the container started again, between 01:44 and 01:51 UTC, three
+  builds cut (`stddeque`, `usingnamed`, `stdformat`) and 31 not begun. A net claims nothing. The versions moved, so
+  0.181's chain starts over fresh HOMEs; the next commit carries its numbers.
+- `CLAUDE.md`: the versions, the reader's and the desugaring's bullets of a member function type's qualifiers, the
+  mangler's, the overloaded member's address, the link's libc++abi, the collision of namespaces (an alias template),
+  an alias's arguments, the naming of a definition beside a declared overload, an overload set named by a global or by
+  its address, the Hosts bullet (0.180's chain), What runs, Not done (both bullets gone). `README.md`: a member
+  function's qualifiers, `std::exception_ptr`.
+
+Reader 135 (a member function type's qualifiers kept; an alias template of a deeper namespace keyed apart in the AST
+beside a summary), lowering 103 (the type information's and the mangled names over a member function type's
+qualifiers, the overloaded member a target chooses, a call through one checked; a definition beside a declared overload
+named by its keys; an overload set named by a global or by its address chosen: new IR for such programs).

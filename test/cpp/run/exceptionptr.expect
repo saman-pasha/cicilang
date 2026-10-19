@@ -1,0 +1,5 @@
+in handler: uncaught 0
+captured 1
+rethrown 42
+what: boom
+exit 0

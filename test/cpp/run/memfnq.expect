@@ -1,0 +1,13 @@
+M1AFiiE M1AKFiiE M1AFiiRE M1AFiiOE M1AKFiiRE
+PFvM1AKFiiES1_E | PFvPFiiEM1AFiiEE
+g plain, g const, g rvalue
+S plain, S const, S lvalue, S rvalue, S const lvalue
+get: 2 1 2
+bump: 1 2 1
+invocable: 0 1 0 1 0 0 1
+calls: 6 15 4 200 1004 30
+through: 1001 1002
+void pf(T) [T = int (A::*)(int) const]
+void pf(T) [T = int (A::*)(int) &&]
+void pf(T) [T = int (A::*)(int) const &]
+exit 0

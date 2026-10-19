@@ -42,10 +42,17 @@ ccl_link_libs(Libs) :- ccl_cross_target(_, _), !,   % another machine (0.131): i
     ;   Libs = ' -lm' ).
 ccl_link_libs(Libs) :- ccl_lang(cpp), ccl_host_os(linux), !,
     (   ccl_cxx_dirs([D]), atom_concat(Root, '/include/c++/v1', D), atom_concat(Root, '/lib', Lib), exists_directory(Lib)   % THE LIBRARY OF THE TREE THE PROGRAM WAS READ FROM (0.122): two libc++ are often installed side by side (/usr/lib/llvm-18 and llvm-21), and the system's `libc++.so' is one of them -- the headers of one and the runtime of the other do not agree (std::print, optional<T &>, __hash_memory)
-    ->  atomic_list_concat([' -L\'', Lib, '\' -Wl,-rpath,\'', Lib, '\' -lc++'], Libs)
+    ->  ccl_cxxabi_lib(Lib, Abi), atomic_list_concat([' -L\'', Lib, '\' -Wl,-rpath,\'', Lib, '\' -lc++', Abi], Libs)
     ;   Libs = ' -lc++' ).
 ccl_link_libs(' -lm') :- ccl_host_os(linux), !.   % THE MATH LIBRARY IS NAMED AT THE LINK ON LINUX (0.100): glibc keeps `sqrt', `creal' and `cabs' in libm, apart from libc (macOS has them in libSystem), and a C program that uses them is otherwise `undefined reference' -- the fixtures' clang builds pass `-lm' by hand
 ccl_link_libs('').
+%% LIBC++ABI IS NAMED WHERE THE TREE HAS ONE (0.181): libc++ 18's `libc++.so' is a linker script, `INPUT(libc++.so.1
+%% -lc++abi -lunwind)', which names it, and libc++ 21's and 22's is the library itself: the link through g++ found the
+%% program's `__cxa_throw', `__cxa_begin_catch', personality and type information in libstdc++, g++'s own runtime, while
+%% libc++'s own code used libc++abi -- two runtimes in one process. Named after `-lc++', each is libc++abi's, as
+%% clang++'s link has it, and over libc++ 18 the libraries and their bindings are the same as without.
+ccl_cxxabi_lib(Lib, ' -lc++abi') :- atom_concat(Lib, '/libc++abi.so', A), exists_file(A), !.
+ccl_cxxabi_lib(_, '').
 ccl_sh(Cmd, Out, Exit) :- ( once(catch(proc_run(Cmd, 300000, Out, Exit), _, fail)) -> true ; Out = "could not run", Exit = 1 ).
 ccl_words([], '').
 ccl_words([W|Ws], A) :- ccl_words(Ws, A1), atomic_list_concat(['\'', W, '\' ', A1], A).
