@@ -84,15 +84,16 @@ ccl_warm() {   # ccl_warm HEADER STD
   else echo "warm <$h> C++$std: FAILED to flatten (a fixture including it will cold-flatten in the gate)" > "$RES/w_${h}_${std}.res"; fi
 }
 
-# the asserted (header@std) as a key set, so the union's warm-only jobs skip them (read once)
-akeys=$(printf '%s\n' "$asserted" | awk '{print $1"@"$2}')
+# the asserted (header@std) as a key set, so the union's warm-only jobs skip them (read once); each key between
+# blanks and matched WHOLE (0.180): `ostream@17' is a substring of `iostream@17', and <ostream> was never warmed
+akeys=" $(printf '%s\n' "$asserted" | awk 'NF {printf "%s@%s ", $1, $2}')"
 # every job keyed `HEADER@STD', ordered LONGEST FIRST by the last run's times (the unknown first),
 # so a heavy header never starts last and holds the phase alone at its end
 lx_start=$(date +%s)
 {
   printf '%s\n' "$asserted" | while read -r h std min; do [ -n "$h" ] && echo "$h@$std ccl_read $h $std $min"; done
   ccl_union | while read -r std h; do
-    case "$akeys" in *"$h@$std"*) : ;; *) echo "$h@$std ccl_warm $h $std" ;; esac
+    case "$akeys" in *" $h@$std "*) : ;; *) echo "$h@$std ccl_warm $h $std" ;; esac
   done
 } | ccl_lpt_order "$LX_TIMES" | sed 's/^[^ ]* //' | ccl_pool "$LX_JOBS" "$LX_LAUNCH_MB" "$LX_HARD_MB"
 pool_rc=$?

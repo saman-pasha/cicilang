@@ -47,7 +47,7 @@ record of every step.
   three-way comparison and the defaulted comparisons, pack indexing, the
   `_` placeholder, class template argument deduction, pointers to members,
   `constexpr` functions evaluated at compile time over locals, aggregates,
-  pointers and `this`, RTTI (`typeid`, `dynamic_cast`), exceptions
+  pointers and `this`, RTTI (`typeid` of every type, `dynamic_cast`), exceptions
   (`throw`, `try`, `catch`), `new T[n]` of a class with the ABI's array
   cookie, multiple polymorphic bases with their secondary vtables,
   virtual bases reached through the vtable and laid out at the end of the

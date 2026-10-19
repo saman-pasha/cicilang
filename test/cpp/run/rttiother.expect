@@ -1,0 +1,20 @@
+5Color 4Mode PPi PKPKc
+M1Ai M1AFiiE A3_i FidE
+Dn P5Color 3BoxIiE
+1 1 0
+caught 1
+caught ptr 1
+Dn Dn PVi PVKc
+1 0
+caught as a pointer 1
+caught as nullptr_t 1
+caught a volatile pointer 4
+DF16_ DB37_ DU7_ Du
+PDF16_ PDB37_ PKDB37_
+1 0
+caught 5
+caught a half pointer 1
+Dv4_i Dv2_f PDv4_i
+1 0
+caught a vector 3
+exit 0

@@ -84,6 +84,8 @@ cpp_ns_resolve(Units00, Units) :-
     sort(Pairs0, Pairs), cpp_ns_quals_(Pairs, Qs),
     cpp_reset('$cpp_dbg_ns'/2), cpp_reset('$cpp_dbg_targs'/2),                                       % -g: the namespaces of the program's own names, a function template instance's arguments (0.130)
     cpp_reset('$cpp_own_ns'/2), forall(( member(N-NP, Pairs), NP \== [] ), assertz('$cpp_own_ns'(N, NP))),   % the namespace of each of the program's own names, where argument-dependent lookup looks (cpp_adl_fn, 0.134)
+    cpp_reset('$cpp_type_ns'/2), forall(( member(N-NP, Pairs), NP \== [], cpp_ns_final_name(N, NP, Qs, K) ), assertz('$cpp_type_ns'(K, NP))),   % ... and by the name it has once a collision is keyed (0.180), which the type information's names read (cpp_prog_scope/2)
+    forall(( member(in(UP, declare(_, base(_, [union(UN, UMs)]))), Flat), atom(UN), UMs \== none, cpp_ns_named_path(UP, UNP), UNP \== [] ), assertz('$cpp_type_ns'(UN, UNP))),   % a plain union's too, which no index name names
     ( nb_current('$ccl_debug', file(_)) -> forall(( member(N-NP, Pairs), NP \== [], \+ '$cpp_dbg_ns'(N, _) ), assertz('$cpp_dbg_ns'(N, NP))) ; true ),
     (   Qs == []
     ->  Units = Units0
@@ -91,6 +93,7 @@ cpp_ns_resolve(Units00, Units) :-
         forall(( member(q(Ns, N, _), Qs), Ns \== bare ), ( atomic_list_concat([Ns, '.', N], K), assertz('$cpp_ns_own'(K)) )),
         cpp_ns_rewrite_units(Units0, Qs, Units),
         ccl_scope_init, forall(member(unit(Is1), Units), ccl_items_note(Is1)) ).
+cpp_ns_final_name(N, NP, Qs, K) :- ( memberchk(q(Ns, N, NP), Qs), Ns \== bare -> atomic_list_concat([Ns, '.', N], K) ; K = N ).   % a deeper namespace's item of a collided name is `<suffix>.<name>'
 %% A DEFINITION BY A NAME THAT BEGINS WITH NAMESPACES (0.166; [namespace.memdef]/2, [class.mfct]/2): `int n::f() {...}',
 %% `int n::g = 5;', `int n::C::m() const {...}', `n::C::C() : v(4) {}', `n::C::~C() {}', `int n::C::count = 3;' written
 %% outside namespace n are members of n (and of its class C), their names looked up in n. Each such item is moved into a
@@ -428,8 +431,8 @@ cpp_ita_ptypes([_|Ps], Subs0, Text, Subs) :- cpp_ita_ptypes(Ps, Subs0, Text, Sub
 %% resolution, the chain is walked one typedef at a time to the one that names the struct, and a NAMED C struct is its tag.
 cpp_ita_type(base(Q, [typedef(N)]), Subs0, Canon, Text, Subs) :- atom(N), cpp_ita_c_struct(N, Name), !, cpp_ita_global(Name, Q, Subs0, Canon, Text, Subs).
 cpp_ita_type(T0, Subs0, Canon, Text, Subs) :- ccl_resolve_type(T0, T), cpp_ita_type_(T, Subs0, Canon, Text, Subs).
-cpp_ita_c_struct(N, Name) :- \+ cpp_class_known(N), \+ catch('$cpp_inst'(N, _), _, fail), ccl_typedef_of(N, T), cpp_ita_c_struct_(N, T, Name).
-cpp_ita_c_struct(N, N) :- \+ ccl_typedef_of(N, _), catch(ccl_tag(N, Ms), _, fail), Ms \== none, \+ ccl_is_enum_tag(Ms), cpp_ita_c_tag(N), \+ catch('$cpp_inst'(N, _), _, fail), !.   % A C STRUCT NAMED BY ITS TAG ALONE (0.134): <time.h>'s `struct tm', which no typedef names -- `time_put<char>::put(iter_type, ios_base &, char_type, const tm *, const char_type *, const char_type *)' is shipped as `..3putES4_RNS_8ios_baseEcPK2tmPKcSC_', the typedef road found no name for `tm', and the call kept this compiler's own: an undefined symbol at the link of every `std::put_time' and `std::get_time'
+cpp_ita_c_struct(N, Name) :- \+ catch('$cpp_type_ns'(N, _), _, fail), \+ cpp_class_known(N), \+ catch('$cpp_inst'(N, _), _, fail), ccl_typedef_of(N, T), cpp_ita_c_struct_(N, T, Name).   % a type of the program in a namespace of its own is none (0.180)
+cpp_ita_c_struct(N, N) :- \+ catch('$cpp_type_ns'(N, _), _, fail), \+ ccl_typedef_of(N, _), catch(ccl_tag(N, Ms), _, fail), Ms \== none, \+ ccl_is_enum_tag(Ms), cpp_ita_c_tag(N), \+ catch('$cpp_inst'(N, _), _, fail), !.   % A C STRUCT NAMED BY ITS TAG ALONE (0.134): <time.h>'s `struct tm', which no typedef names -- `time_put<char>::put(iter_type, ios_base &, char_type, const tm *, const char_type *, const char_type *)' is shipped as `..3putES4_RNS_8ios_baseEcPK2tmPKcSC_', the typedef road found no name for `tm', and the call kept this compiler's own: an undefined symbol at the link of every `std::put_time' and `std::get_time'
 cpp_class_known(N) :- catch(cpp_class_l(N, _), _, fail).   % ... in a process WITHOUT the desugaring's registries too (the mangler's own check, test/cpp.pl's c34, spells its symbols with no class registered: an existence error there, 0.94's first gate)
 cpp_ita_c_struct_(N, base(_, [struct(anon, _)]), N) :- !.
 cpp_ita_c_struct_(N, base(_, [union(anon, _)]), N) :- !.
@@ -520,6 +523,8 @@ cpp_ita_class(N, Subs0, Canon, Text, Subs) :-
     cpp_ita_ns(Path, '', '', Subs0, C0, T0, Subs1),
     (   Path == [std], Chain = [plain(Last)]
     ->  atom_length(Last, L), atomic_list_concat(['St', L, Last], Canon), ( cpp_ita_sub(Canon, Subs1, Code) -> Text = Code, Subs = Subs1 ; Text = Canon, cpp_ita_note(Canon, Subs1, Subs) )
+    ;   Path == [], Chain = [L1]   % AN UNSCOPED NAME (0.180), a class of the program at file scope or its template's instance: `1A', `3BoxIiE', no `N ... E'
+    ->  cpp_ita_last_level(L1, C0, T0, Subs1, Canon, T1, Subs2), ( cpp_ita_sub(Canon, Subs2, Code) -> Text = Code, Subs = Subs2 ; Text = T1, cpp_ita_note(Canon, Subs2, Subs) )
     ;   cpp_ita_chain_type(Chain, C0, T0, Subs1, C1, T1, Subs2),
         Canon = C1,                                                                                  % THE KEY IS THE CHAIN'S OWN, as a prefix level's is: the ABI counts `basic_istream<char>' the prefix and the type as ONE entity
         ( cpp_ita_sub(Canon, Subs2, Code) -> Text = Code, Subs = Subs2 ; atomic_list_concat(['N', T1, 'E'], Text), cpp_ita_note(Canon, Subs2, Subs) ) ).
@@ -549,8 +554,15 @@ cpp_class_scope(C, Path, Chain) :- atom(C), cpp_class_scope_(C, Path, Chain).
 cpp_class_scope_(C, Path, Chain) :- cpp_enclosing(C, Enc), !, cpp_class_scope_(Enc, Path, Chain0), cpp_last_segment(C, Last), append(Chain0, [plain(Last)], Chain).
 cpp_class_scope_(C, Path, Chain) :- ccl_tag(C, Ms), ccl_is_enum_tag(Ms), once('$cpp_ctype'(Enc, Last, base([], [typedef(C)]))), cpp_last_segment(C, Last), !,   % ... THE HOLDER'S TYPE OF THAT NAME (0.117): an alias is no holder -- `typedef _Tp value_type' of `__split_buffer<std::byte, ...>' made std::byte "__split_buffer<byte, ...>::value_type", and the mangler walked it for ever (`vector<std::byte>': 4 GB in ten seconds)   % a NESTED ENUM (0.94): recorded as a type of its holder (cpp_nested_names), never in '$cpp_enclosing'
     cpp_class_scope_(Enc, Path, Chain0), append(Chain0, [plain(Last)], Chain).
-cpp_class_scope_(C, Path, [inst(N, Args)]) :- '$cpp_inst'(C, inst(N, Args)), !, cpp_hdr_ns(N, Path), Path = [_|_].
+cpp_class_scope_(C, Path, [inst(L, Args)]) :- '$cpp_inst'(C, inst(N, Args)), !, ( cpp_hdr_ns(N, P0) -> P0 = [_|_], Path = P0, L = N ; cpp_prog_scope(N, Path), cpp_last_segment(N, L) ).
 cpp_class_scope_(C, Path, [plain(C)]) :- cpp_hdr_ns(C, Path), Path = [_|_].
+cpp_class_scope_(C, Path, [plain(L)]) :- \+ catch(cpp_hdr_ns(C, _), _, fail), ( catch('$cpp_type_ns'(C, _), _, fail) -> true ; cpp_class_known(C), \+ cpp_lib_class(C) ), cpp_prog_scope(C, Path), cpp_last_segment(C, L).
+%% A TYPE OF THE PROGRAM (0.180), for the type information's names, which clang spells: at file scope or in a namespace of
+%% its own (`1A', `N2ns1AE', a plain struct's too, `N2ns1PE'), its template's instance (`3BoxIiE'), nested (above:
+%% `N5Outer5InnerE'); a local class's or a closure's name, which has a dot, none; the program's functions keep this
+%% compiler's names
+cpp_prog_scope(N, Path) :- atom(N), catch('$cpp_type_ns'(N, P), _, fail), !, Path = P.
+cpp_prog_scope(N, []) :- atom(N), \+ sub_atom(N, _, _, _, '.'), \+ catch('$cpp_lib'(N), _, fail).
 cpp_last_segment(C, Last) :- atomic_list_concat(Segs, '.', C), ccl_last(Segs, Last).
 cpp_mangle_ns([std|Rest], T) :- !, cpp_mangle_ns_(Rest, R), atom_concat('St', R, T).     % St is std's own abbreviation
 cpp_mangle_ns(Path, T) :- cpp_mangle_ns_(Path, T).
@@ -3225,24 +3237,48 @@ cpp_rtti_chain(C, vmi(N, C, [b(BCh, '$base')])) :- cpp_class_l(C, cls(B, Data, _
     cpp_rtti_name(C, N), cpp_rtti_chain(B, BCh).
 cpp_rtti_chain(C, [N|Rest]) :- cpp_class_l(C, cls(B, _, _, _, _)), \+ '$cpp_vbase'(C), cpp_rtti_name(C, N),
     ( B == none -> Rest = [] ; cpp_rtti_chain(B, Rest) ).
-cpp_rtti_name(C, N) :- \+ sub_atom(C, _, _, _, '.'), \+ cpp_lib_class(C), !, atom_length(C, K), atomic_list_concat([K, C], N).   % a class of the program at file scope: `1A', as clang spells it
+cpp_rtti_name(C, N) :- \+ sub_atom(C, _, _, _, '.'), \+ cpp_lib_class(C), \+ catch('$cpp_type_ns'(C, _), _, fail), !, atom_length(C, K), atomic_list_concat([K, C], N).   % a class of the program at file scope: `1A', as clang spells it; in a namespace of its own the mangler's (0.180: `N2ns1AE', which was `1A')
 cpp_rtti_name(C, N) :- once(catch(cpp_ita_type(base([], [typedef(C)]), [], _, T, _), _, fail)), atom(T), !, N = T.
 cpp_rtti_name(C, N) :- atom_codes(C, Cs), findall(X, ( member(X, Cs), X \== 0'. ), Cs1), atom_codes(A, Cs1), atom_length(A, K), atomic_list_concat([K, A], N).
 %% the type_info of a TYPE: a class's own, a builtin's the one libc++abi exports (`_ZTIi')
+cpp_rtti_of_type(T0, E) :- ccl_unref(T0, T1), cpp_nullptr_param(T1), !, E = rtti(ext('_ZTIDn')).   % STD::NULLPTR_T, libc++abi's `_ZTIDn' (0.180): resolved, its typedef `decltype(nullptr)' was a `void *', `Pv'
 cpp_rtti_of_type(T0, E) :- ccl_unref(T0, T1), ccl_resolve_type(T1, T2), cpp_strip_top(T2, T),
     (   cpp_class_of_type(T, C), cpp_lib_class(C), cpp_polymorphic(C), cpp_rtti_name(C, N) -> atom_concat('_ZTI', N, Sym), E = rtti(ext(Sym))   % a LIBRARY class's type_info is the one libc++ exports (`_ZTISt13runtime_error'), a POLYMORPHIC one's, whose key function the library defines; one with no table is emitted where it is used, as clang does (0.179: `_ZTINSt3__17complexIdEE', which no library exports, failed the link)
     ;   cpp_class_of_type(T, C) -> cpp_rtti_chain(C, Ch), E = rtti(Ch)
-    ;   T = base(_, [struct(Tag, _)]), atom(Tag) -> atom_length(Tag, K), atomic_list_concat([K, Tag], N), E = rtti([N])   % a plain struct: a root of its own
+    ;   T = base(_, [struct(Tag, _)]), atom(Tag) -> cpp_rtti_tag_name(Tag, N), E = rtti([N])   % a plain struct (a plain union resolves to one): a root of its own, named as clang names it (0.180)
     ;   T = base(_, S), memberchk('_Complex', S) -> cpp_complex_code(S, Code), E = rtti(fund(Code))   % A COMPLEX TYPE's (0.179): `_ZTICd', which no library exports, emitted as clang emits it -- it was the real type's, `_ZTId'
     ;   T = ptr(_, base(Q, S)), memberchk('_Complex', S) -> cpp_complex_code(S, Code), cpp_ptr_cv(Q, CV, F), atomic_list_concat(['P', CV, Code], N), E = rtti(pointer(N, F, fund(Code)))   % ... and a pointer to one, `_ZTIPKCd'
-    ;   T = base(_, S), cpp_mangle_basic(S, Code) -> atom_concat('_ZTI', Code, Sym), E = rtti(ext(Sym))
-    ;   T = ptr(_, base(Q, S)), cpp_mangle_basic(S, Code) -> ( memberchk(const, Q) -> atomic_list_concat(['_ZTIPK', Code], Sym) ; atomic_list_concat(['_ZTIP', Code], Sym) ), E = rtti(ext(Sym))
+    ;   T = base(_, S), cpp_mangle_basic(S, Code) -> ( cpp_abi_fundamental(Code) -> atom_concat('_ZTI', Code, Sym), E = rtti(ext(Sym)) ; E = rtti(fund(Code)) )   % a builtin's, libc++abi's, else emitted (0.180): `_ZTIDB37_', `_ZTIDF16_'
+    ;   T = ptr(_, base(Q, S)), \+ memberchk(volatile, Q), cpp_mangle_basic(S, Code), cpp_abi_fundamental(Code) -> ( memberchk(const, Q) -> atomic_list_concat(['_ZTIPK', Code], Sym) ; atomic_list_concat(['_ZTIP', Code], Sym) ), E = rtti(ext(Sym))   % libc++abi's, a plain or a const pointee's (a volatile one's is emitted, below, 0.180: `volatile int *' named `_ZTIPi')
     ;   T = ptr(_, PT), PT = base(Q, _), cpp_rtti_pointee(PT, PN, PI) -> cpp_ptr_cv(Q, CV, F), atomic_list_concat(['P', CV, PN], N), E = rtti(pointer(N, F, PI))   % A POINTER TO A CLASS or a plain struct (0.179): `_ZTIP1A', `_ZTIPKNSt3__17complexIdEE', over the class's own, as clang emits it -- it was refused
+    ;   cpp_rtti_other(T, X) -> E = rtti(X)   % an enum, an array, a function, a pointer to member, a pointer to any other type (0.180)
     ;   cpp_refuse(0, typeid_of(T)) ).
+%% THE TYPE INFORMATION OF EVERY OTHER TYPE (0.180), as clang emits it, `linkonce_odr', its name the mangler's spelling of
+%% the type (cpp_rtti_mangled/2): an enum's `__enum_type_info' (`5Color'), an array's `__array_type_info' (`A3_i'), a
+%% function's `__function_type_info' (`FidE'), a pointer to member's `__pointer_to_member_type_info' over the member's type
+%% and its class's (`M1Ai', `M1AFiiE'), a vector's `__fundamental_type_info' (`Dv4_i'), a pointer to any other type
+%% `__pointer_type_info' over its pointee's, the pointee's cv in its flags (`PPi', `PKPKc', `P5Color', `PVi'): `typeid' of
+%% each was refused, `typeid_of', and an enum could not be thrown or caught
+cpp_rtti_other(T, simple(enum, N)) :- T = base(_, [E]), ( E = enum(_, _) ; E = enum_class(_, _) ), !, cpp_rtti_mangled(T, N).
+cpp_rtti_other(T, simple(array, N)) :- T = arr(_, _), !, cpp_rtti_mangled(T, N).
+cpp_rtti_other(T, simple(function, N)) :- T = fn(_, _, _), !, cpp_rtti_mangled(T, N).
+cpp_rtti_other(T, fund(N)) :- T = base(_, [vec(_, _, _)]), !, cpp_rtti_mangled(T, N).
+cpp_rtti_other(T, memptr(N, F, PI, CI)) :- T = memptr(C, _, MT), atom(C), !, cpp_rtti_mangled(T, N), cpp_pointee_cv(MT, F, MT1),
+    cpp_rtti_of_type(MT1, rtti(PI)), cpp_rtti_of_type(base([], [typedef(C)]), rtti(CI)).
+cpp_rtti_other(T, pointer(N, F, PI)) :- T = ptr(_, PT0), cpp_rtti_mangled(T, N), cpp_pointee_cv(PT0, F, PT), cpp_rtti_of_type(PT, rtti(PI)).
+cpp_rtti_mangled(T, N) :- once(catch(cpp_ita_type(T, [], _, N, _), _, fail)), atom(N).
+cpp_pointee_cv(base(Q, S), F, base([], S)) :- !, cpp_ptr_cv(Q, _, F).
+cpp_pointee_cv(ptr(Q, X), F, ptr([], X)) :- !, cpp_ptr_cv(Q, _, F).
+cpp_pointee_cv(T, 0, T).
+%% the builtin types whose type information libc++abi exports, and a pointer and a pointer to const to each (18, 21, 22)
+cpp_abi_fundamental(C) :- memberchk(C, [v, b, c, a, h, s, t, i, j, l, m, x, y, n, o, f, d, e, g, w, 'Ds', 'Di', 'Du', 'Dn', 'Dh']).
 cpp_complex_code(S, Code) :- ccl_delete_one(S, '_Complex', S0), ( S0 == [] -> S1 = [double] ; S1 = S0 ), cpp_mangle_basic(S1, C0), atom_concat('C', C0, Code).   % `C' and the real type's code, a bare `_Complex' a double's
 %% a class's or a plain struct's type information as a pointer's pointee: its name and its own (0.179)
 cpp_rtti_pointee(PT, CN, I) :- cpp_class_of_type(PT, C), !, cpp_rtti_name(C, CN), ( cpp_lib_class(C), cpp_polymorphic(C) -> atom_concat('_ZTI', CN, Sym), I = ext(Sym) ; cpp_rtti_chain(C, I) ).
-cpp_rtti_pointee(PT, CN, [CN]) :- once(ccl_resolve_type(PT, base(_, [struct(Tag, _)]))), atom(Tag), atom_length(Tag, K), atomic_list_concat([K, Tag], CN).
+cpp_rtti_pointee(PT, CN, [CN]) :- once(ccl_resolve_type(PT, base(_, [struct(Tag, _)]))), atom(Tag), cpp_rtti_tag_name(Tag, CN).
+%% a plain struct's (or union's) name: the mangler's in a namespace of the program's own (0.180: `N2ns1PE'), else `1P'
+cpp_rtti_tag_name(Tag, N) :- catch('$cpp_type_ns'(Tag, _), _, fail), cpp_rtti_mangled(base([], [typedef(Tag)]), N0), !, N = N0.
+cpp_rtti_tag_name(Tag, N) :- atom_length(Tag, K), atomic_list_concat([K, Tag], N).
 cpp_ptr_cv(Q, CV, F) :- ( memberchk(volatile, Q) -> V = 'V', FV = 2 ; V = '', FV = 0 ), ( memberchk(const, Q) -> K = 'K', FK = 1 ; K = '', FK = 0 ), atom_concat(V, K, CV), F is FV + FK.   % the pointee's cv, as the name spells it and __pbase_type_info's flags hold it
 cpp_strip_top(base(_, S), base([], S)) :- !.
 cpp_strip_top(ptr(_, P), ptr([], P)) :- !.
@@ -3250,6 +3286,7 @@ cpp_strip_top(T, T).
 cpp_expr(_, typeid(type(T0)), E) :- !, cpp_type(T0, T), cpp_rtti_of_type(T, E).
 cpp_expr(Ctx, typeid(X), E) :- !, cpp_expr(Ctx, X, X1),
     (   cpp_class_of_type_of(X1, C), cpp_polymorphic(C) -> E = rtti_dyn(X1)            % a polymorphic object: its DYNAMIC type, through its table's prefix
+    ;   X1 == nullptr -> E = rtti(ext('_ZTIDn'))   % `nullptr' is a std::nullptr_t (0.180)
     ;   ccl_type_of(X1, T), T \== unknown -> cpp_rtti_of_type(T, E)
     ;   cpp_refuse(0, typeid_of(X)) ).
 %% dynamic_cast: an upcast is the plain conversion; a downcast or a cross-cast asks libc++abi's __dynamic_cast over
@@ -3265,7 +3302,7 @@ cpp_expr(Ctx, throw(E), stmt_expr(block([declaration(0, none, VP, [var(X, VP, eh
         ( ccl_type_of(E1, T0), T0 \== unknown -> true ; cpp_refuse(0, throw_of_untyped(E)) ),
         ccl_unref(T0, T1), ccl_resolve_type(T1, T2), ( T2 = arr(_, El) -> T3 = ptr([], El) ; T3 = T2 ), cpp_strip_top(T3, T), Args = [E1] ),
     VP = ptr([], base([], [void])), ccl_gensym('$exn', X), ccl_declare(X, VP),
-    cpp_new_at([id(X)], T, Args, NewE), cpp_rtti_of_type(T, R),
+    cpp_new_at([id(X)], T, Args, NewE), ( Args == [nullptr] -> R = rtti(ext('_ZTIDn')) ; cpp_rtti_of_type(T, R) ),   % `throw nullptr' throws a std::nullptr_t (0.180), which a pointer handler catches as null
     ( cpp_class_of_type(T, C), cpp_dtor(C, DName) -> D = id(DName) ; D = nullptr ).
 cpp_expr(Ctx, arrow(this, '$this'), arrow(id(this), '$this')) :- cpp_closure_this(Ctx, _), !.   % the closure's OWN member holding the captured object, named by a generated body (its destructor's, its copy's): the closure's this, never the enclosing object's (0.101)
 cpp_expr(Ctx, this, E) :- cpp_closure_this(Ctx, _), !, cpp_closure_object([], E).      % inside a lambda that captured it, `this' is the enclosing object's address

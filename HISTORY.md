@@ -172,7 +172,8 @@ One row per step, in version order: the step's title, what it did and its gate n
 | 0.176 | Not done, the fourteenth part: a primary virtual base further in, stolen or free | a primary virtual base that none of the class's own bases is -- stolen from the base that took it, or one that no base takes -- laid at the class's own address, sharing its table pointer; names looked up through the bases written; the construction tables of the virtual bases at the object's address shared | its chain (0.177): all nine gates GREEN over libc++ 18, the two libc++ gates over 21, the C++ gate 1108 s and 1073 s; 565 of 568 over 18, 567 over 21 |
 | 0.177 | Not done, the fifteenth part: the slots of a primary table in the ABI's order | a primary table's slots in the Itanium ABI's order (2.5.2): the primary base's, then each new virtual function, an override of another base's function among them, the implicit destructor last; a defaulted virtual destructor a destructor of its own; the implicit destructor of a class over a later base with one | its chain (0.178): all nine gates GREEN over libc++ 18, the two libc++ gates over 21, the C++ gate 1030 s and 1022 s; 571 of 574 over 18, 573 over 21 |
 | 0.178 | Not done, the sixteenth part: a nearly empty primary whose virtual bases lie outside it | a nearly empty primary whose own virtual bases lie outside it laid as its base-variant form at the class's own address, the class holding its virtual bases; a cached answer one answer, since a layout's other answers poisoned the layout cache | its chain (0.179): all nine gates GREEN over libc++ 18, the two libc++ gates over 21, the C++ gate 1059 s and 1005 s; 576 of 579 over 18, 578 over 21 |
-| 0.179 | Not done, the seventeenth part: a number's suffixes and types, pointer globals, the C++23 read of <complex> | an integer's tail that is no integer suffix its ud-suffix in C++ (`3us`); `<complex>`'s `i`, `if` and `il` where a using makes them visible, else GNU's; `3ll` a long long; the type information of a complex type, of a pointer to a class and of a library class without a table; a pointer caught; our `stddef.h` clears glibc's `__need_*`, so `<complex>` reads whole at C++23; pointer globals from integer constants, arrays bounded by constant expressions | committed before its chain: the flow gate, the C gates and the proof GREEN, two nets over libc++ 18 (41 and 25 fixtures); 87 run C fixtures, 585 C++ |
+| 0.179 | Not done, the seventeenth part: a number's suffixes and types, pointer globals, the C++23 read of <complex> | an integer's tail that is no integer suffix its ud-suffix in C++ (`3us`); `<complex>`'s `i`, `if` and `il` where a using makes them visible, else GNU's; `3ll` a long long; the type information of a complex type, of a pointer to a class and of a library class without a table; a pointer caught; our `stddef.h` clears glibc's `__need_*`, so `<complex>` reads whole at C++23; pointer globals from integer constants, arrays bounded by constant expressions | its chain (0.180), over fresh HOMEs: all nine gates GREEN over libc++ 18, the two libc++ gates over 21 (run again after a restart of the container), the C++ gate 1057 s and 886 s; 582 of 585 over 18, 584 over 21 |
+| 0.180 | Not done, the eighteenth part: the type information of every other type | `typeid` of an enum, an array, a function, a pointer to member, a vector and a pointer to any type, as clang emits them; a builtin libc++abi does not export emitted; `std::nullptr_t`'s libc++abi's, `throw nullptr`; the program's types named as clang names them; the library read warms `<ostream>` | committed before its chain: the flow gate, the C gates and the proof GREEN, nets of 80 fixtures over libc++ 18 and 21; 87 run C fixtures, 587 C++ |
 
 ## M5 — the C++ mode
 
@@ -11104,3 +11105,105 @@ Reader 134 (an integer's ud-suffix and a number's exact `i`, `if` and `il` in C+
 reads over libc++ 18), lowering 101 (the type information of a complex type, of a pointer to a class and of a library
 class without a table; a pointer caught; `<complex>`'s literal operators; pointer globals from integer constants and
 arrays bounded by constant expressions: new IR for such programs).
+
+## 0.180 — Not done, the eighteenth part: the type information of every other type
+
+**0.180: `typeid` of every other type has clang's type information -- an enum's, an array's, a function's, a pointer
+to member's, a vector's and a pointer to any type's --, a builtin type that libc++abi does not export has its own,
+`std::nullptr_t`'s is libc++abi's, `throw nullptr` throws one and a `std::nullptr_t` caught is null; the program's own
+types are named as clang names them (a namespace, a nested class, a template's instance); and the library read warms
+`<ostream>` at C++17, which an asserted key's substring had kept cold. Committed before its chain, on the owner's word
+("Commit before chain"): the chain begins after this commit, and the next one carries its numbers.**
+
+THE CHAIN OF 0.179, on the checkout of its commit (module 0.179, reader 134, lowering 101, over cocolog 2.2.5), over
+FRESH HOMEs (the reader version moved), from 21:37:27 UTC: the flow gate (one finding, `test/flow.expect`'s, 104 s,
+peak 2624 MB over its four lanes; 4066 predicates), reader 6 s, compile 15 s, driver 15 s, objects 4 s, the proof, the
+cross gate in 848 s (peak 607 MB; its C++ part cold, the target's summaries read afresh), over libc++ 18 the library
+read in 1532 s (peak 1028 MB; 0.164's 1081 s) and the C++ gate in 1057 s (peak 2228 MB; 0.178's 1059 s) with 582 of
+its 585 fixtures ok -- the skips `joinwith`, `stdoptionalref` and `tzone` -- the 23 refusals and the three of the safe
+part, to 22:37:12 UTC; and over libc++ 21 the library read in 997 s (peak 1016 MB; 0.164's 1102 s) and the C++ gate in
+886 s (peak 2239 MB; 0.178's 1005 s), 584 of 585 ok, the skip `stdoptionalref`, from 22:54:59 to 23:26:22 UTC: GREEN.
+The first run of the libc++ 21 half, from 22:37:12, was killed by a restart of the container at about 22:51 UTC, and it
+was run again. The fixtures' builds, as `fixture-times` records them (four at a time), summed 3601 s over 582 over
+libc++ 18 (0.178's 3754 s over 576) and 2751 s over 584 over libc++ 21 (0.178's 3605 s over 578); the slowest over
+libc++ 18 `fmtrange` 151 s, `libdiamond` 147 s (below), `fmtchrono2` 146 s, `fmtchrono` 129 s, `fmtcheck` 98 s and
+`fmttuple` 97 s, over libc++ 21 `tzone` 234 s (its `-fexperimental-library` summaries are their own, which no warm
+reads), `fmtchrono2` 95 s, `libdiamond` 86 s, `fmtchrono` 85 s, `viewsall` 69 s and `fmtrange` 69 s. The header reads
+of the library read, summed, took 5927 s over 110 over libc++ 18 and 3898 s over 110 over 21; the 104 that 0.164's chain
+made took 1.38 times as long as there over libc++ 18 and 0.88 times over 21: the machine was slower in the libc++ 18
+half, before the restart (the A/B below). The numbers are the chain's, wall clock, and no claim about the library's
+speed.
+
+- THE TYPE INFORMATION OF EVERY OTHER TYPE (`cpp_rtti_other/2`, `cpp_rtti_mangled/2`, `ir_rtti_emit/2`; `typeid` of a
+  type and of an expression, a `throw` and a handler alike), as clang emits it, `linkonce_odr`, its name the mangler's
+  spelling of the type: an enum's over `__enum_type_info` (`5Color`, `4Mode`), an array's over `__array_type_info`
+  (`A3_i`), a function's over `__function_type_info` (`FidE`), a pointer to member's over
+  `__pointer_to_member_type_info` -- its flags, the member's type's information and its class's -- (`M1Ai`, `M1AFiiE`),
+  a vector's over `__fundamental_type_info` (`Dv4_i`, as clang has it), and a pointer to any other type over
+  `__pointer_type_info`, its pointee's, the pointee's cv in its flags (`PPi`, `PKPKc`, `P5Color`, `PDv4_i`). `typeid`
+  of each was refused, `typeid_of`, and an enum could be neither thrown nor caught: the throw asks the type information
+  too. A pointer to a volatile builtin had the plain pointer's, libc++abi's (`volatile int *` was `_ZTIPi`, `const
+  volatile char *` `_ZTIPKc`), since the builtin pointer's clause read `const` alone; it has its own now, `PVi`, `PVKc`.
+- A BUILTIN TYPE THAT libc++abi DOES NOT EXPORT has its own, emitted as clang emits a `_BitInt`'s
+  (`cpp_abi_fundamental/1`: the codes libc++abi 18, 21 and 22 export, read by `nm -D`, each with a pointer and a pointer
+  to const): `_ZTIDB37_`, `_ZTIDU7_`, and a `_Float16`'s `_ZTIDF16_`, which clang declares external and libc++abi does
+  not export (libstdc++ does), so clang++'s link of `typeid(_Float16)` fails over libc++abi. They named libc++abi's
+  symbol, which the link did not find.
+- STD::NULLPTR_T (the first clause of `cpp_rtti_of_type/2`, `cpp_expr(typeid)`, the throw): its type information is
+  libc++abi's `_ZTIDn`, `typeid(nullptr)`'s too; resolved, its typedef `decltype(nullptr)` was a `void *`, and
+  `typeid(std::nullptr_t)` named `Pv`. `throw nullptr` throws a `std::nullptr_t`, which a pointer handler catches as
+  null, libc++abi's rule, and a `std::nullptr_t` caught holds null (`ir_catch_bind/3`): `__cxa_begin_catch` answers the
+  exception object's address, which is no value of it.
+- THE PROGRAM'S TYPES NAMED AS CLANG NAMES THEM (`cpp_class_scope_/3` over `cpp_prog_scope/2`, the unscoped name of
+  `cpp_ita_class/5`, `cpp_rtti_tag_name/2`): the mangler spelled a library's classes alone, and the type information
+  named a class of the program by its name with the dots taken out -- `typeid(Box<int>)` `6Boxint` where clang has
+  `3BoxIiE`, `Box<ns::P>` `4BoxP`, `Arr<char, 3>` `8Arrchar3`, `Outer::Inner` `10OuterInner`, a class or a plain struct
+  of a namespace by its bare name (`1P`, `1Q`, a union `1V`), and `ns::A`, keyed `ns.A` where a class `A` stands at file
+  scope too, `3nsA` --, and a pointer to member, a pointer to a pointer and an array over such a class, whose names are
+  the mangler's alone, were refused. The mangler spells the program's types now -- at file scope or in a namespace of
+  the program's own, nested, an instance of its template, an unscoped name with no `N ... E` -- for the type
+  information alone: the program's functions keep this compiler's names. `'$cpp_own_ns'`, keyed by the bare name, said
+  `[ns]` for the class at file scope where `ns::A` collides with it, so each type's namespace is noted again by the name
+  it has once a collision is keyed, `'$cpp_type_ns'/2` (`cpp_ns_resolve/2`, `cpp_ns_final_name/4`), a plain union's too
+  (no index name names a union), and a type of the program in a namespace is no C struct to the mangler
+  (`cpp_ita_c_struct/2`).
+- THE LIBRARY READ'S WARM (`test/libcxx.sh`): the warm-only jobs skip the asserted reads by their keys, `header@level`,
+  matched as a substring of the asserted list, so `ostream@17` was found in `iostream@17` and `<ostream>` at C++17 was
+  never warmed; `libdiamond.cpp` flattened it cold in the C++ gate of every chain over a fresh HOME (147 s at 0.179's
+  over libc++ 18, 86 s over 21, where it builds in 12 to 16 s warm). Each key stands between blanks now and is matched
+  whole; of the union's keys, `ostream@17` alone had been skipped so.
+- BEFORE: over the 0.179 library both new fixtures were refused at their first enum, `typeid_of(base([],[enum('Color',
+  ...)]))` and `typeid_of(base([],[enum('Outer.Color', ...)]))`; a probe of the class names alone printed `3nsA 1P 1Q
+  10OuterInner`, `6Boxint 4BoxP 8Arrchar3 9BoxBoxint` and `1A P3nsA` where clang++ prints `N2ns1AE N2ns1PE N2ns2in1QE
+  N5Outer5InnerE`, `3BoxIiE 3BoxIN2ns1PEE 3ArrIcLi3EE 3BoxIS_IiEE` and `1A PN2ns1AE`, and a union of a namespace `1V`
+  for `N2ns1VE`.
+- THE MACHINE AND NOT THE LIBRARY: after the chain, alone, two rounds of cold reads by the 0.178 library (its own
+  checkout and module) and by the 0.179 one, interleaved, each over a fresh HOME: `<compare>` at C++20 in 6.54 and
+  7.21 s of CPU over 0.178's and 7.08 and 7.10 s over 0.179's, `<string>` at C++17 in 41.62 and 42.24 s and in 41.73
+  and 42.84 s. The two libraries read alike; the 1.38 of the libc++ 18 half was the machine's.
+- LIBC++ 22's `<ranges>`: a cold build at C++23, over a fresh HOME, of a probe of its `pairwise`, `adjacent`,
+  `pairwise_transform`, `adjacent_transform` and `zip_transform` views was killed at the 2800 MB cap after 188 s, as
+  0.136's two were; the cap stays (the owner's rule), and the views stay in Not done until a measure names where the
+  memory goes.
+- A FINDING, not mended here: over libc++ 21 a program's `throw` and `catch` bind libstdc++'s runtime, not libc++abi
+  (`ldd` of `noexcept.cpp`'s binary names `libstdc++.so.6` alone; `LD_DEBUG=bindings` binds `__cxa_throw` and
+  `__cxa_begin_catch` there, and its terminate message is libstdc++'s): libc++ 18's `libc++.so` is a linker script,
+  `INPUT(libc++.so.1 -lc++abi -lunwind)`, and libc++ 21's is the library itself, so the link through `c++` (g++) finds
+  them in libstdc++. CLAUDE.md's Not done holds it.
+- Fixtures (2, each clang++'s output over libc++ 18, the same over 21, each passing over both): `rttiother` (C++20; for
+  clang++'s link `_Float16`'s two symbols supplied as clang lays out a `_BitInt`'s) and `rttinames`; 587 run fixtures in
+  all.
+- THE GATES of this step, before its commit, one run at a time over the work tree: the flow gate (one finding,
+  `test/flow.expect`'s, 70 s, peak 2741 MB over its four lanes; 4074 predicates), the reader gate (5 s), compile (11 s),
+  driver (12 s), objects (3 s) and the proof, GREEN; the probes; and two nets of 80 fixtures -- the type information,
+  exceptions and namespaces -- over libc++ 18 and over 21, three at a time: 79 printed clang++'s output and `noexcept`
+  its standard output, ending in `terminate` as clang++'s does (the harness merges standard error and loses the exit
+  status, which the C++ gate holds); the builds summed 209 s and 215 s, 75 s and 74 s of wall clock. The lowering
+  version moved, so the C store starts afresh in the chain after the commit, over the HOMEs that 0.179's chain warmed.
+- `CLAUDE.md`: the versions, the library read's warm, the RTTI topic, the gates' numbers (the Hosts bullet: the full run
+  is 0.179's), What runs, Not done (a member function pointer's qualifiers; libc++abi over libc++ 21). `README.md`:
+  `typeid` of every type.
+
+Reader 134 (no grammar moved), lowering 102 (the type information of every other type, a builtin's that libc++abi does
+not export, `std::nullptr_t`'s, `throw nullptr`, a `std::nullptr_t` caught, the program's types named as clang names
+them: new IR for such programs).

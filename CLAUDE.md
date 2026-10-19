@@ -10,8 +10,8 @@ it found, its measurements and its gate numbers. `README.md` tells a user what r
 architecture and the milestones. A step that changes a rule edits the rule here, in its topic, and writes its entry
 in `HISTORY.md`.
 
-At 0.179 the versions are: the module 0.179 (`ccl_p_version` in `module/cicilang.cicili`, `bin/cicilang --version`),
-the reader 134 (`ccl_reader_version/1`, `library/ccl_syntax.pl`) and the lowering 101 (`ccl_lowering_version/1`,
+At 0.180 the versions are: the module 0.180 (`ccl_p_version` in `module/cicilang.cicili`, `bin/cicilang --version`),
+the reader 134 (`ccl_reader_version/1`, `library/ccl_syntax.pl`) and the lowering 102 (`ccl_lowering_version/1`,
 `library/ccl_ir.pl`).
 
 Build and prove, always in this order (or all of it, `sh test/gates.sh`):
@@ -397,8 +397,8 @@ tutorials/01..03-*.pl       the objects layer's lessons; goal main, last line do
 - `test/flow.sh` (0.144) reads every file of the library with cocolog's `library(flow/chart)` and RUNS NOTHING. A chart
   starts at one call pattern, so `test/flow.pl`'s `fg_roots_main/2` writes a copy of each file with a root,
   `'$fg_all'/N`, that calls each predicate the file defines with free arguments: 3538 predicates in the ten files at
-  0.161 (3938 in all at 0.167, 3994 at 0.172, 4003 at 0.173, 4020 at 0.174, 4038 at 0.175, 4041 at 0.176, 4046 at 0.177,
-  4048 at 0.178, 4066 at 0.179), and since 0.161 the 220 of the nine gate programs, `test/reader.pl`, `compile.pl`,
+  0.161 (3938 in all at 0.167, 4003 at 0.173, 4038 at 0.175, 4048 at 0.178, 4066 at 0.179, 4074 at 0.180; each step's
+  in HISTORY.md), and since 0.161 the 220 of the nine gate programs, `test/reader.pl`, `compile.pl`,
   `cpp.pl`, `readhdr.pl`, `census.pl`, `libcxx.pl`, `flow.pl`, `why.pl` and `prof.pl` (`TFILES`), each charted with the
   compiler and the flow and process libraries loaded, nothing stubbed (no gate program is a library file); their first
   chart found a predicate split by another's clauses (`census_main/0`) and a call of `print_message/2`, which cocolog
@@ -468,7 +468,7 @@ tutorials/01..03-*.pl       the objects layer's lessons; goal main, last line do
 - The compile gate. `test/compile.pl`, one process over the user's store, reads, checks, lowers, compiles at `-O1`
   and links every `test/c/run/*.c` at its `NAME.std` level (`c_level`). It expects every `test/c/safe/*.c` refused.
   `test/compile.sh` runs each binary as `NAME arg1 arg2` against `NAME.expect`, and compares each refusal with
-  `safe/NAME.expect`. There are 87 run and 47 safe fixtures at 0.179. (M2, M3, 0.57)
+  `safe/NAME.expect`. There are 87 run and 47 safe fixtures at 0.180. (M2, M3, 0.57)
 - The driver gate. `test/driver.sh` makes 40 checks of `bin/cicilang` over the user's store (the two decimal checks are
   skipped where no gcc with decimal floating types is installed), the variadic calls of every kind both ways against
   clang among them (`test/c/link/va_*.c`, 0.131), and Apple's arm64 expansion of `va_arg` of an aggregate against
@@ -531,8 +531,11 @@ tutorials/01..03-*.pl       the objects layer's lessons; goal main, last line do
   check of its own. (0.109)
 - The same pass warms every other `#include <…>` of `test/cpp/*.cpp`, `test/cpp/run/*.cpp` and
   `$CICILI/test/cpp/*.cpp` (`ccl_union`), by a `-fsyntax-only` build (`ccl_warm`) at the including file's `.flags`
-  level, else C++17. A missing Cicili checkout is named, because `<sstream>` and `<stdexcept>` then stay cold.
-  `<algorithm>` and `<array>` are only warmed: nothing asserts their counts. (0.92, 0.105)
+  level, else C++17, but an asserted one, its key `header@level` matched WHOLE (0.180: `ostream@17` is a substring of
+  `iostream@17`, so `<ostream>` at C++17 was never warmed, and `libdiamond.cpp` flattened it cold in the C++ gate of
+  every chain over a fresh HOME, 147 s at 0.179's where it builds in 12 to 16 s warm). A missing Cicili checkout is
+  named, because `<sstream>` and `<stdexcept>` then stay cold. `<algorithm>` and `<array>` are only warmed: nothing
+  asserts their counts. (0.92, 0.105, 0.180)
 - `LX_SECS` (2400 s) caps each read and each warm through `timeout -s KILL`. A read with no verdict is
   `FAIL <h> at C++N: the read did not finish`. A failed warm, `FAILED to flatten`, counts as a failure. A pool killed
   at its hard cap is RED. (0.105)
@@ -547,7 +550,7 @@ tutorials/01..03-*.pl       the objects layer's lessons; goal main, last line do
 ### The C++ gate: test/cpp.sh
 
 - `test/cpp.sh` runs in this order: `test/cpp.pl` in one `--local` process; four checks of the command; every
-  `test/cpp/run/*.cpp` as a pool job (585 at 0.179); `classes.cpp` and `templates.cpp` built and run; the refusals,
+  `test/cpp/run/*.cpp` as a pool job (587 at 0.180); `classes.cpp` and `templates.cpp` built and run; the refusals,
   each at the level its `test/cpp/NAME.flags` names, else C++17 (0.164). (0.105, 0.164)
 - `test/cpp.pl` runs 46 numbered checks, `c1` to `c46`, then reads Cicili's six C++ files whole (`test/cpp/objects.cpp`,
   `emit_report.cpp`, `specialise.cpp`, `syntax.cpp`, `torch.cpp`, `torch-fragment.cpp`). `c34` checks the Itanium
@@ -2071,7 +2074,7 @@ tutorials/01..03-*.pl       the objects layer's lessons; goal main, last line do
   0.117)
 - A reader bump makes every summary cold; `test/libcxx.sh` rewrites them. `test/reader.pl`'s `k16` (a cached read is
   the same AST as a fresh one) goes RED on a grammar change without a bump. (0.93, 0.105)
-- `ccl_lowering_version/1` (`library/ccl_ir.pl`, now 101): bump it whenever the check or the lowering changes what it
+- `ccl_lowering_version/1` (`library/ccl_ir.pl`, now 102): bump it whenever the check or the lowering changes what it
   emits, however small -- 0.120 bumped it for the ORDER of the drain functions alone. Why: `dr_ir/3` serves the old IR
   otherwise. Either bump starts the C store afresh. (M4, 0.103, 0.120)
 
@@ -5613,7 +5616,8 @@ A lambda is a class of its captures (`library/ccl_cpp.pl`). A fixture named alon
 - libc++ runs without RTTI (`__cpp_rtti`, `__GXX_RTTI` not predefined); the program's own `typeid` and `dynamic_cast`
   work over libc++abi. `rtti.cpp`. (0.86, 0.108)
 - `typeid` of a type is its type_info (`cpp_rtti_of_type`); of a polymorphic object it reads `vptr[-1]` (`rtti_dyn`);
-  anything else refuses `typeid_of`. (0.108)
+  since 0.180 only a type that the mangler cannot spell, or an expression with no type, refuses `typeid_of`. (0.108,
+  0.180)
 - A class's type_info is `_ZTI<name>` with the string `_ZTS<name>`, both `linkonce_odr` (`cpp_rtti_chain`,
   `ir_rtti_emit`): `__class_type_info` for a root, `__si_class_type_info` for one base at offset 0, `__vmi_class_type_info`
   for several bases, a virtual base, or one base behind the class's own table pointer (0.135: the first base's entry
@@ -5621,7 +5625,14 @@ A lambda is a class of its captures (`library/ccl_cpp.pl`). A fixture named alon
   virtual at -24 (a nearly empty primary one at its own vbase offset's place, -10237 for -40, 0.174), a diamond sets
   `__diamond_shaped_mask`, and the bases are listed in the order written, a primary base moved first put back (0.174).
   (0.108, 0.110, 0.174)
-- A program class at file scope is named `<len><name>` (`cpp_rtti_name`). A library class's type_info is the shipped
+- A program class is named as clang names it (`cpp_rtti_name`): at file scope `<len><name>` (`1A`); in a namespace of
+  the program's own, nested, or an instance of the program's template by the mangler, which spells the program's types
+  for the type information since 0.180 -- the program's functions keep this compiler's names -- through
+  `cpp_class_scope_/3` over `cpp_prog_scope/2` and `'$cpp_type_ns'/2`, each type's namespace by the name it has once a
+  collision is keyed (`cpp_ns_resolve/2`): `N2ns1AE`, `N5Outer5InnerE`, `3BoxIiE`, a plain struct's and a union's too
+  (`N2ns1PE`). `typeid(Box<int>)` was `6Boxint`, `typeid(Outer::Inner)` `10OuterInner`, `typeid(ns::P)` `1P`, and
+  `ns::A`, keyed `ns.A` where a global `A` collides with it, `3nsA`. `rttinames.cpp`. (0.108, 0.180)
+- A library class's type_info is the shipped
   symbol (`_ZTISt13runtime_error`), a builtin's libc++abi's (`_ZTIi`, `_ZTIPKi`); a plain struct is a root. Only a
   POLYMORPHIC library class's is shipped (0.179): libc++ exports no other, and a library class without a table has
   its own `linkonce_odr` one, as clang emits it -- `typeid(std::complex<double>)` named `_ZTINSt3__17complexIdEE`, which
@@ -5630,6 +5641,20 @@ A lambda is a class of its captures (`library/ccl_cpp.pl`). A fixture named alon
   (0.179). A POINTER TO A CLASS or to a plain struct has clang's too, `_ZTIP1A`, `_ZTIPKNSt3__17complexIdEE`, over the
   class's own (`cpp_rtti_pointee/3`, 0.179): it was refused, `typeid_of`. `complexrtti.cpp`, `ptrrtti.cpp`. (0.108,
   0.179)
+- THE TYPE INFORMATION OF EVERY OTHER TYPE (0.180), as clang emits it, `linkonce_odr`, its name the mangler's spelling
+  of the type (`cpp_rtti_other/2`, `cpp_rtti_mangled/2`, `ir_rtti_emit/2`): an enum's over `__enum_type_info` (`5Color`,
+  `4Mode`), an array's over `__array_type_info` (`A3_i`), a function's over `__function_type_info` (`FidE`), a pointer
+  to member's over `__pointer_to_member_type_info`, the member's type and its class's (`M1Ai`, `M1AFiiE`), a vector's
+  over `__fundamental_type_info` (`Dv4_i`), and a pointer to any other type over `__pointer_type_info`, its pointee's,
+  the pointee's cv in its flags (`PPi`, `PKPKc`, `P5Color`, `PDv4_i`, `PVi`: a pointer to a volatile builtin was
+  `_ZTIPi`). `typeid` of each was refused, `typeid_of`, and none could be thrown or caught. A BUILTIN TYPE THAT
+  libc++abi DOES NOT EXPORT has its own (`cpp_abi_fundamental/1` names the codes libc++abi 18, 21 and 22 export, each
+  with a pointer and a pointer to const): a `_BitInt(37)`'s `_ZTIDB37_`, as clang emits it, and a `_Float16`'s
+  `_ZTIDF16_`, which clang declares external and libc++abi does not export (clang++'s link fails). `std::nullptr_t`'s
+  is libc++abi's `_ZTIDn`, `typeid(nullptr)`'s too (resolved, its typedef `decltype(nullptr)` was a `void *`, `Pv`);
+  `throw nullptr` throws a `std::nullptr_t`, which a pointer handler catches as null, libc++abi's rule, and a
+  `std::nullptr_t` caught holds null (`ir_catch_bind/3`: `__cxa_begin_catch` answers the exception object's address,
+  which is no value of it). `rttiother.cpp` (C++20; its expect clang++'s, `_Float16`'s two symbols supplied).
 - `dynamic_cast` to a base is a plain conversion. A downcast or a cross-cast calls
   `__dynamic_cast(sub, &src, &dst, -1)`, and null gives null without the call; a failed reference cast calls `abort()`.
   Another target refuses `dynamic_cast_to(T)`. `multibase3.cpp`, `vbasertti.cpp`. (0.108)
@@ -7789,37 +7814,24 @@ A lambda is a class of its captures (`library/ccl_cpp.pl`). A fixture named alon
 - Ubuntu 24.04 on x86_64 (clang and LLVM 18, glibc, libc++ 18 and 21) is a host since 0.87. Every gate but the C++ one
   is GREEN there since 0.93, and all seven since 0.95. Every step from 0.93 on is gated there, but the save points
   0.112, 0.113, 0.117, 0.122 to 0.125, 0.130, 0.131 and 0.143 (0.143's C gates and cross gate ran, its libc++ gates did
-  not; the others were gated by the steps after them). The last full run is 0.164's, over cocolog 2.2.5, on one tree,
-  5105 s in all (0.163's 4495 s): over libc++ 18 all nine GREEN in 2801 s (the flow gate's one finding in 82 s, reader 4
-  s, compile 11 s, driver 12 s, objects 3 s, proof, the cross gate in 703 s with its C++ part for aarch64, the library
-  read in 1081 s (0.163's 1093 s), the C++ gate in 905 s (0.163's 745 s) with 517 of 520 fixtures ok, the skips are
-  `joinwith`, `stdoptionalref` and `tzone`, the 24 refusals and the three of the safe part); over libc++ 21 the library
-  read (1102 s, peak 1176 MB; 0.163's 1007 s) and the C++ gate (1202 s, peak 2197 MB; 0.163's 923 s; 519 of 520 ok, the
-  skip `stdoptionalref`) GREEN -- the C gates do not read libc++. The fixtures' builds, summed, took 3040 s over libc++
-  18 (0.163's 2613 s over 515) and 4091 s over libc++ 21 (0.163's 3016 s over 517): four builds over `std::visit` took
-  most of the rise (`joinwith` 110 s to 937 s over libc++ 21, `stdvariantsel` 19 s to 157 s, `stdvariant` 29 s to 129
-  s, `varvisit` 4 s to 35 s over libc++ 18): the evaluator reduced an operand three times, which 0.165 mended (the
-  evaluator topic). The chains of 0.165 to 0.168 and 0.171 to 0.178 ran the gates their changes touch over the HOMEs
-  that 0.164's chain warmed (the reader version did not move, so the library reads were not run again), all GREEN: the C++ gate in 731 s
-  and 733 s over libc++ 18 and 21 at 0.165, its fixtures' builds summed 2579 s over 517 and 2610 s over 519 (the
-  evaluator's mend), in 728 s and 716 s at 0.166 (peaks 2319 MB and 2477 MB), 520 and 522 of 523 fixtures ok, the builds
-  summed 2580 s over 520 and 2563 s over 522, in 735 s and 742 s at 0.167 (peaks 2503 MB and 2343 MB), 521 and 523 of
-  524 ok, the builds summed 2588 s over 521 and 2649 s over 523, and in 655 s and 656 s at 0.168 (peaks 2315 MB and 2380
-  MB), 523 and 525 of 526 ok, the builds summed 2316 s over 523 and 2330 s over 525 (HISTORY.md, 0.165 to 0.170), and
-  in 691 s and 690 s at 0.171 (peaks 2293 MB and 2647 MB), 525 and 527 of 528 ok, the builds summed 2441 s over 525 and
-  2463 s over 527 (HISTORY.md, 0.172), and in 706 s and 663 s at 0.172 (peaks 2458 MB and 2605 MB), 539 and 541 of 542
-  ok, the builds summed 2512 s over 539 and 2374 s over 541 (HISTORY.md, 0.173), and in 1120 s and 1122 s at 0.173
-  (peaks 2349 MB and 2575 MB), 547 and 549 of 550 ok, the builds summed 3966 s over 547 and 3979 s over 549 -- the
-  machine was slower, not the library (it had started again at 11:21 UTC): built alone after the chain, two rounds
-  interleaved, `stdformat.cpp` took 52.1 and 53.2 s of CPU over 0.172's library and 52.7 and 52.4 s over 0.173's, where
-  0.172's chain recorded 35 s for it, four at a time (HISTORY.md, 0.174), and in 1008 s and 1067 s at 0.174 (peaks 2361
-  MB and 2320 MB), 551 and 553 of 554 ok, the builds summed 3587 s over 551 and 3788 s over 553 (HISTORY.md, 0.175), and
-  in 1126 s and 1167 s at 0.175 (peaks 2329 MB and 2402 MB), 558 and 560 of 561 ok, the builds summed 3966 s over 558
-  and 4159 s over 560 (HISTORY.md, 0.176), and in 1108 s and 1073 s at 0.176 (peaks 2326 MB and 2409 MB), 565 and 567 of
-  568 ok, the builds summed 3940 s over 565 and 3834 s over 567 (HISTORY.md, 0.177), and in 1030 s and 1022 s at 0.177
-  (peaks 2290 MB and 2419 MB), 571 and 573 of 574 ok, the builds summed 3671 s over 571 and 3654 s over 573 (HISTORY.md,
-  0.178), and in 1059 s and 1005 s at 0.178 (peaks 2369 MB and 2367 MB), 576 and 578 of 579 ok, the builds summed 3754 s
-  over 576 and 3605 s over 578 (HISTORY.md, 0.179). Two libc++ passes are one gate:
+  not; the others were gated by the steps after them). The last full run is 0.179's, over cocolog 2.2.5, on one tree,
+  over fresh HOMEs (the reader version moved): over libc++ 18 all nine GREEN in 3585 s (the flow gate's one finding in
+  104 s, reader 6 s, compile 15 s, driver 15 s, objects 4 s, proof, the cross gate in 848 s with its C++ part for
+  aarch64, the library read in 1532 s (0.164's 1081 s), the C++ gate in 1057 s (0.164's 905 s) with 582 of 585
+  fixtures ok, the skips are `joinwith`, `stdoptionalref` and `tzone`, the 23 refusals and the three of the safe part);
+  over libc++ 21 the library read (997 s, peak 1016 MB; 0.164's 1102 s) and the C++ gate (886 s, peak 2239 MB; 0.164's
+  1202 s; 584 of 585 ok, the skip `stdoptionalref`) GREEN -- the C gates do not read libc++. The fixtures' builds,
+  summed, took 3601 s over 582 over libc++ 18 and 2751 s over 584 over libc++ 21. The machine was slower in the libc++
+  18 half than in the libc++ 21 half, which a restart of the container cut at about 22:51 UTC and which ran again from
+  22:55: the 104 header reads of 0.164's chain took 1.38 times as long over libc++ 18 and 0.88 times over 21, and
+  two interleaved rounds of cold reads by the 0.178 and the 0.179 library after the chain read alike (HISTORY.md,
+  0.180). 0.164's chain is the full run before it, 5105 s in all; the chains of 0.165 to 0.168 and
+  0.171 to 0.178 ran the gates their changes touch over the HOMEs
+  that 0.164's chain warmed (the reader version did not move, so the library reads were not run again), all GREEN, the
+  C++ gate in 655 s to 1167 s over each libc++, its fixtures' builds summed 2316 s to 4159 s; their numbers are in
+  HISTORY.md, 0.166 to 0.179 (from 0.173 on the machine was slower, not the library: it had started again at 11:21 UTC,
+  and `stdformat.cpp` built alone, two rounds interleaved, took 52.1 and 53.2 s of CPU over 0.172's library and 52.7
+  and 52.4 s over 0.173's, where 0.172's chain recorded 35 s for it, four at a time). Two libc++ passes are one gate:
   `LLVM=/usr/lib/llvm-18` and `LLVM=/usr/lib/llvm-21` choose the tree the chain reads and links. libc++ 22 (the newest
   tree, which a run without
   `$LLVM` reads) is untried but for `stdoptionalref`, which passes there. The run before 0.121's (0.118, 0.119) found,
@@ -7936,6 +7948,13 @@ A lambda is a class of its captures (`library/ccl_cpp.pl`). A fixture named alon
   base, and the same with a path), `lvbvempty` (a later virtual base over an empty virtual base), `lvbemptypath` (a path
   that reaches an empty virtual base further in, beside a later virtual base), `lvblibbase` (`std::istream` as a later
   virtual base of the program's class).
+- Forms of 0.180: `rttiother` (C++20: the type information of an enum and a scoped one, a pointer to a pointer and
+  to an enum, a pointer to a data member and to a member function, an array, a function, `std::nullptr_t`, a pointer
+  to a volatile builtin, `_Float16`, `_BitInt`, a vector type and a pointer to each, compared, thrown and caught;
+  `throw nullptr` caught as a pointer and as a `std::nullptr_t`), `rttinames` (the type information's names of the
+  program's types: in a namespace and a nested one, a namespace's class whose name a class at file scope has too, a
+  plain struct and a union in a namespace, a nested class and enum, a template's instances, and pointers, pointers to
+  members, arrays and functions over them).
 - Forms of 0.179: `stdchrono` (`<chrono>`'s durations, clocks and time points, and their literals), `udlsuffix`
   (C++23: an integer's ud-suffix, `3us`, `0x10us`; `<complex>`'s literals; the types of `3u`, `3ull`, `3uz`; the
   program's own literal operators), `complexlit` (C++23: `<complex>`'s literals and their arithmetic, a read of
@@ -8244,6 +8263,9 @@ A lambda is a class of its captures (`library/ccl_cpp.pl`). A fixture named alon
   base too, since 0.173 one whose later virtual base has virtual bases of its own, and every base-variant sub-object at
   any depth is built under construction tables of its own, its secondary pointers among them (0.110, 0.117, 0.160,
   0.163, 0.171, 0.172, 0.173, 0.174, 0.175, 0.176, 0.177, 0.178).
+- A pointer to a member function keeps no cv- or ref-qualifier of the function's: the reader reads them and drops them
+  (`ccl_mptr_quals`), so `int (A::*)(int) const` is `int (A::*)(int)` to an overload, a template's specialization, the
+  mangler and the type information (`M1AFiiE`, where clang spells `M1AKFiiE`). (0.180)
 
 ### libc++ modules
 
@@ -8252,7 +8274,8 @@ A lambda is a class of its captures (`library/ccl_cpp.pl`). A fixture named alon
   `elements`, `drop_while`, `as_rvalue`, `repeat`, `join`, `split`, `lazy_split` and `ranges::to`, and since 0.133 `join_with`
   at libc++ 21. The other C++23 views are in neither libc++ 18 nor 21 (their `__ranges/` has no `adjacent`, `chunk`,
   `slide`, `stride`, `enumerate`, `cartesian_product`, `as_const`); libc++ 22 has `adjacent`, `pairwise` and
-  `zip_transform`, and a cold read of its `<ranges>` passes the 2800 MB cap here (0.136, killed twice).
+  `zip_transform`, and a cold read of its `<ranges>` passes the 2800 MB cap here (0.136, killed twice; a cold build of a
+  probe of those views at C++23 was killed at the cap after 188 s at 0.180).
 - `std::format` runs (`stdformat.cpp`, 0.112), its format string checked at compile time since 0.164 (`fmtcheck.cpp`;
   `fmtindex.cpp` and `fmttype.cpp` refused with the library's message), where the evaluator takes the check (the
   Constant evaluation topic); a check it cannot take is the library's own parser's at run time. `vformat`, a formatter
@@ -8301,6 +8324,11 @@ A lambda is a class of its captures (`library/ccl_cpp.pl`). A fixture named alon
   (0.117; `c37`), every builtin type (0.136; `c44`) and a vector type (0.162; `c46`). A type that none of its clauses
   names keeps this compiler's own name, and the link names it.
 - macOS has not run the gates since 0.90, so every rule made since 0.91 is gated on Linux and libc++ 18 only.
+- Over libc++ 21 a program's `throw` and `catch` bind libstdc++'s runtime, not libc++abi (`ldd` names
+  `libstdc++.so.6` alone, and `LD_DEBUG=bindings` binds `__cxa_throw` there): libc++ 18's `libc++.so` is a linker
+  script, `INPUT(libc++.so.1 -lc++abi -lunwind)`, libc++ 21's the library itself, and the link through `c++` (g++)
+  finds the runtime in libstdc++. Both are the Itanium ABI's, and the gates pass over both trees; `-lc++abi` named where
+  `libc++.so` is no linker script would make it libc++abi's. (0.180)
 
 ### The safe part
 
