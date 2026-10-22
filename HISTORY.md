@@ -174,7 +174,8 @@ One row per step, in version order: the step's title, what it did and its gate n
 | 0.178 | Not done, the sixteenth part: a nearly empty primary whose virtual bases lie outside it | a nearly empty primary whose own virtual bases lie outside it laid as its base-variant form at the class's own address, the class holding its virtual bases; a cached answer one answer, since a layout's other answers poisoned the layout cache | its chain (0.179): all nine gates GREEN over libc++ 18, the two libc++ gates over 21, the C++ gate 1059 s and 1005 s; 576 of 579 over 18, 578 over 21 |
 | 0.179 | Not done, the seventeenth part: a number's suffixes and types, pointer globals, the C++23 read of <complex> | an integer's tail that is no integer suffix its ud-suffix in C++ (`3us`); `<complex>`'s `i`, `if` and `il` where a using makes them visible, else GNU's; `3ll` a long long; the type information of a complex type, of a pointer to a class and of a library class without a table; a pointer caught; our `stddef.h` clears glibc's `__need_*`, so `<complex>` reads whole at C++23; pointer globals from integer constants, arrays bounded by constant expressions | its chain (0.180), over fresh HOMEs: all nine gates GREEN over libc++ 18, the two libc++ gates over 21 (run again after a restart of the container), the C++ gate 1057 s and 886 s; 582 of 585 over 18, 584 over 21 |
 | 0.180 | Not done, the eighteenth part: the type information of every other type | `typeid` of an enum, an array, a function, a pointer to member, a vector and a pointer to any type, as clang emits them; a builtin libc++abi does not export emitted; `std::nullptr_t`'s libc++abi's, `throw nullptr`; the program's types named as clang names them; the library read warms `<ostream>` | its chain (0.181), over the HOMEs 0.179's chain warmed (no library read: the reader did not move): the flow gate, the C gates, the proof, the cross gate and the C++ gate GREEN over libc++ 18, the C++ gate over 21, the C++ gate 700 s and 690 s; 584 of 587 over 18, 586 over 21 |
-| 0.181 | Not done, the nineteenth part: a member function pointer's qualifiers; libc++abi over libc++ 21 | a pointer to member function keeps its cv- and ref-qualifiers (the type key, the mangler, the type information, a specialization, an overload, an overloaded member's address, a call through one checked); ` -lc++abi` linked where `libc++.so` is the library itself; an alias template of a deeper namespace keyed apart (`std::pmr::basic_string` resolved itself without end); a definition beside a declared overload named by its keys; an overload set named by a global or by its address chosen by the target | committed before its chain: the flow gate, the C gates and the proof GREEN, a net over libc++ 18 cut by a restart after 62 of 96 fixtures, all the same; 87 run C fixtures, 592 C++ |
+| 0.181 | Not done, the nineteenth part: a member function pointer's qualifiers; libc++abi over libc++ 21 | a pointer to member function keeps its cv- and ref-qualifiers (the type key, the mangler, the type information, a specialization, an overload, an overloaded member's address, a call through one checked); ` -lc++abi` linked where `libc++.so` is the library itself; an alias template of a deeper namespace keyed apart (`std::pmr::basic_string` resolved itself without end); a definition beside a declared overload named by its keys; an overload set named by a global or by its address chosen by the target | its chain (0.182), over fresh HOMEs (the reader moved): all nine gates GREEN over libc++ 18, the library read and the C++ gate over 21; the C++ gate 727 s and 845 s; 589 of 592 over 18, 591 over 21 |
+| 0.182 | Not done, the twentieth part: libc++ 22's vector and its C++23 views; cocolog 2.11.0 | a class instance given to a template template parameter is the injected class name; a template-id qualified by a namespace never finds a member template of the class being walked; a class declares its members' names and a function its parameters' where a collided name is renamed; a constraint sees no caller's local; cocolog 2.11.0 from 2.2.5 (five warm builds 6.9 % dearer; the logical update view, the number readers, the cell tag) | committed before its chain: on 2.11.0 the flow gate, the C gates and the proof GREEN, nets of 56 C++ fixtures over libc++ 18 (on 2.2.5 and on 2.11.0) and over 21 (on 2.11.0), each the same as its .expect but `stdthread` over 21 (a read after another in one process, older than this step, 0.183's); 87 run C fixtures, 597 C++ |
 
 ## M5 — the C++ mode
 
@@ -11325,3 +11326,123 @@ Reader 135 (a member function type's qualifiers kept; an alias template of a dee
 beside a summary), lowering 103 (the type information's and the mangled names over a member function type's
 qualifiers, the overloaded member a target chooses, a call through one checked; a definition beside a declared overload
 named by its keys; an overload set named by a global or by its address chosen: new IR for such programs).
+
+
+## 0.182 — Not done, the twentieth part: libc++ 22's vector and its C++23 views; cocolog 2.11.0
+
+**0.182: over libc++ 22 a `std::vector` builds -- a class instance given to a template template parameter is the
+injected class name, and a namespace-qualified template-id never finds a member template of the class being walked --
+and so do the C++23 views that tree adds, `pairwise`, `adjacent`, `zip_transform` and `adjacent_transform` -- a class
+declares its members' names and a function its parameters' where a collided name is renamed, and a constraint sees no
+caller's local; and cocolog 2.11.0, from 2.2.5: its logical update view, rationals, four-bit cell tag and green threads,
+measured. Committed before its chain, on the owner's word ("Commit before chain"); its net over libc++ 21 found a defect
+of a read that follows another in one process, older than this step, which 0.183 mends, and the chain runs over 0.183.**
+
+THE CHAIN OF 0.181, on the checkout of its commit (module 0.181, reader 135, lowering 103, over cocolog 2.2.5), over
+fresh HOMEs (the reader version moved), from 01:57:17 UTC: the flow gate (one finding, `test/flow.expect`'s, 87 s, peak
+2643 MB over its four lanes; 4092 predicates), reader 4 s, compile 12 s, driver 22 s, objects 4 s, the proof, the cross
+gate in 645 s (peak 533 MB; 87 C fixtures and 5 checks, 24 C++ fixtures and 2 checks), over libc++ 18 the library read
+in 1121 s (peak 1162 MB; the 23 asserted reads whole, 91 other headers warmed, none failed) and the C++ gate in 727 s
+(peak 2274 MB) with 589 of its 592 fixtures ok -- the skips `joinwith`, `stdoptionalref` and `tzone` -- the 23 refusals
+and the three of the safe part, and over libc++ 21 the library read in 1061 s (peak 1052 MB; 91 warmed) and the C++ gate
+in 845 s (peak 2319 MB), 591 of 592 ok, the skip `stdoptionalref`, to about 03:12:50 UTC: GREEN. The fixtures' builds
+summed 2454 s over 589 over libc++ 18 and 2624 s over 591 over libc++ 21 (0.179's 3601 s and 2751 s, over fresh HOMEs
+too, its libc++ 18 half on a slower machine); the slowest over libc++ 18 `fmtrange` 97 s, `fmtchrono2` 94 s, `fmtchrono`
+83 s, `viewsall` 66 s, `fmtcheck` 64 s and `fmttuple` 60 s, over libc++ 21 `tzone` 232 s, `fmtchrono2` 87 s, `fmtchrono`
+78 s, `viewsall` 69 s, `fmtrange` 63 s and `joinwith` 55 s. `libdiamond` built in 9 s over both (0.179's fresh-HOME
+chain: 147 s and 86 s), 0.180's warm of `<ostream>` at C++17 measured; the new fixtures `memfnq`, `memfnq20` and
+`exceptionptr` in 1 to 2 s each over both.
+
+- LIBC++ 22'S VECTOR. The Not done list said a cold read of libc++ 22's `<ranges>` passed the 2800 MB cap (0.136,
+  0.180). The read was never the cost: `cicilang++ -fsyntax-only` of a file that includes `<ranges>` alone took 25 s and
+  184 MB. The desugaring of ANY `std::vector` over libc++ 22 ran past the cap: seven lines, `std::vector<int> v{1, 2,
+  3};` and a `printf` of its size, were killed at 1205 MB after 99 s (a cap of 1200 MB), and a probe of the views at
+  2804 MB after 164 s. Two defects, each enough alone, and neither left a trace line while the memory grew:
+- A CLASS INSTANCE GIVEN TO A TEMPLATE TEMPLATE PARAMETER IS THE INJECTED CLASS NAME, which there names the class
+  template ([temp.local]/1; `cpp_tname_arg/3` over `'$cpp_inst'`). libc++ 22 lays a vector's split buffer out through a
+  template template parameter, `template <class, class, template <class, class> class _Layout> class __split_buffer`,
+  and `__split_buffer_pointer_layout` names ITSELF in its own body, `__split_buffer<value_type, allocator_type,
+  __split_buffer_pointer_layout>`; inside an instance's body the template's name is the instance, which was taken for a
+  template's name, and `__split_buffer` was made over the instance, then over that, without end. `injectedttp.cpp`: a
+  class template that passes itself to a template template parameter in its own body, and a class over it.
+- A TEMPLATE-ID QUALIFIED BY A SCOPE NAMES THAT SCOPE'S TEMPLATE, never a member template of the class being walked
+  ([basic.lookup.qual]/1; `cpp_instantiate_type_of/4` sends it to `cpp_instantiate_type_ns/3`, the part of
+  `cpp_instantiate_type/3` past the member templates' clauses). libc++ 22's vector declares `template <class _Up, class
+  _Alloc> using __split_buffer = std::__split_buffer<_Up, _Alloc, __split_buffer_pointer_layout>;`, and the alias's
+  body, flattened to `__split_buffer<...>`, found the alias again in vector's own class, binding two of its three
+  arguments, again without end. A member alias template takes no more arguments than it has parameters
+  (`cpp_alias_args_fit/3`, 0.181's rule, asked on this road too). `qualalias.cpp`: a namespace-qualified template-id in
+  a class beside a member alias template of the same name.
+- With the two, the seven lines build in 2 s and 175 MB and print clang++ 22's output. Over libc++ 22 the views then met
+  two more defects:
+- A CLASS DECLARES ITS MEMBERS' NAMES, and a function, a method, a constructor, a destructor and a lambda their
+  parameters' and their locals', each inside itself only, where a collided name is renamed (`cpp_rename_names/3`,
+  `cpp_declared_names/3`; reader 136, the AST beside a summary). `views::adjacent_transform<2>(f)` was
+  `template_without_body('__fn')`: `__adjacent_transform::__fn` has `operator()(_Range &&, _Fn &&__fn)`, the renaming of
+  the collided bare `__fn` stopped at the operator's parameter -- an operator's name is no atom, and the method rule
+  took an atom -- and went past it everywhere else in the class, so the class's base
+  `__range_adaptor_closure<__fn<_Np>>` kept the bare `__fn`, another namespace's class. `nsparamname.cpp`: two
+  namespaces' class templates of one name, a member function whose parameter has that name, and a base clause naming the
+  class's own.
+- A CONSTRAINT SEES NO CALLER'S LOCAL ([temp.constr]: its names are looked up where the template is): a head's requires
+  entries (`cpp_constraints_hold/3`) and a concept's body (`cpp_concept_holds/2`) are walked under `cpp_isolated/1`, as
+  a member's trailing clause has been since 0.110. `views::zip_transform(f, v, w)` failed the desugaring: it names its
+  parameter `__fun` and asks, in its trailing return type, `views::all` of each range, and ref_view's constructor
+  requires `requires { __fun(std::declval<_Tp>()); }` of its own static `__fun` -- with the caller's frames open the
+  call went to the caller's lambda, the requirement was unmet, and no `operator()` was left. `reqcaller.cpp` (C++20): a
+  constraint that names a static of its class while the caller has a parameter of that name.
+- Measured over libc++ 22, cold the first time, each the output of clang++ 22: `views::transform` 8 s, `pairwise` 6 s,
+  `adjacent<3>` 6 s, `zip_transform` 15 s, `adjacent_transform<2>` 65 s (cold), `zip` 10 s, a `zip_transform_view` made
+  through a trailing `decltype` 14 s, and the four C++23 views in one program 23 s and 264 MB. `zipadjacent.cpp` (C++23)
+  holds them, and its `.needs` (`__cpp_lib_ranges_zip >= 202110L`) skips it over libc++ 18 and 21, which have none of
+  them; no gate reads libc++ 22.
+- COCOLOG 2.11.0 (`885f9b7`), from 2.2.5, ZiguratIP 1.0.1 and Cicili 3.0.0 unchanged; the 2.2.5 build kept for the
+  comparison (a copy of the tree, and the modules built over it). `make` 210 s, `make schema` 39 s, `make modules` 83 s;
+  the SDK changes no declaration the modules call, and both were built again with no change. 2.3.0 gives assert and
+  retract ISO's logical update view, 2.5.0 rationals, a four-bit cell tag (`max_tagged_integer` 2^59 - 1, from 2^60 -
+  1), swipl's text surface and number readers that take the whole text, 2.6.0 to 2.10.1 green threads, preloaded since
+  2.8.0 (`async_run/1` is a visible predicate of every run), 2.11.0 the shared tables' growth check. Of 107 arithmetic
+  expressions 101 answer alike on both, and the six others name a function 2.5.0 added (`rdiv`, `copysign`, `random/1`,
+  `cputime`, `float_integer_part/1`, `float_fractional_part/1`); of the text predicates, `atom_number/2`,
+  `number_codes/2` and `number_string/2` no longer read a number at the front of longer text (`'12abc'`, `"12 "`), `1r3`
+  is a rational and `atom_concat/3`'s (-, -, +) mode enumerates. `forall(q(K), retract(q(K)))` over five clauses left
+  two on 2.2.5 and none on 2.11.0. Each call of the number readers in the library passes the digits of one number, and
+  its loops that write a table read another or test by a new call: nothing in the library leans on the old answers.
+- THE COST, one run at a time, the 0.181 library on each engine (`wt181` with its modules over 2.2.5, `wt181n` over
+  2.11.0), over one warm HOME: five warm C++ builds, the least CPU time of three runs each, 61.85 s on 2.2.5 and 66.09 s
+  on 2.11.0 (`counter` 0.21 and 0.24 s, `stdvector` 3.28 and 3.58, `stdmap` 5.77 and 5.38, `stdtuple` 14.11 and 15.61,
+  `stdformat` 38.46 and 41.28), 6.9 % more, every round alike; the cold census of the flattened `<iomanip>` (C++17) 79.5
+  s and 77.1 s, the least of two runs each. A loop of each kind of step, the least of five runs each: a naive reverse of
+  thirty 0.703 s and 0.768 s (9 % dearer, as 2.3.0's own measure of its update view has it, 10.3 %), `atom_concat/3`
+  splitting an atom by its suffix 0.141 s and 0.197 s and by its prefix 0.144 s and 0.196 s (clauses over
+  `'$atom_concat'` since 2.5.0), `sub_atom/5` 0.307 s and 0.365 s, the rest within 6 % (an empty loop, joining an atom,
+  `atomic_list_concat/3` both ways, `atom_codes/2`, `=..`, integer arithmetic, a fact by its first argument, `assertz/1`
+  and `retract/1`, `nb_setval/2` and `nb_getval/2`, `findall/3`, `memberchk/2`, `catch/3`, `copy_term/2`,
+  `term_to_atom/2` both ways, `format/3`, `compare/3`, `msort/2`, `atom_number/2`).
+- ON 2.11.0, over the work tree (module 0.181, reader 136, lowering 104): the flow gate GREEN, 4094 predicates, its one
+  finding `test/flow.expect`'s, 86 s; reader 4 s, compile 13 s, driver 14 s, objects 4 s and the proof GREEN. Nets of
+  the 56 C++ fixtures the changes reach (the four new ones; template template parameters, member alias templates,
+  namespaces, concepts and constraints, the views, the format fixtures, the containers, `std::variant`), three at a
+  time: over libc++ 18 on 2.2.5 (before the update, over a HOME the probes had warmed) 56 of 56 the same as their
+  `.expect`; on 2.11.0 over that HOME 56 of 56, from 13:41:43 to 13:45:57 UTC; over libc++ 21 on 2.11.0 over a fresh
+  HOME, from 13:46 to 14:04 UTC, 55 of 56 (the builds summed 2917 s, the largest peak 1054 MB): `stdthread` stopped at
+  `kind_mismatch('_Tp')`. 0.181's library stops the same build over a fresh HOME as well, on 2.11.0 and on 2.2.5 alike
+  (`template_without_body(lock_guard)`), and over a HOME warmed header by header, as the C++ gate's is, the build is the
+  same in 10 s: a cold build reads `<atomic>`, `<cstdio>`, `<mutex>` and `<thread>` in one process, `<mutex>`'s read
+  stops at `shared_ptr`'s deduction guide, and `<thread>`'s, whose summary that build writes, stops there too. 0.183 has
+  the cause and the mending. A net claims nothing. The versions moved, so 0.182's chain starts over fresh HOMEs: its
+  first run of every gate on 2.11.0.
+- Fixtures (5, each clang++'s output): `injectedttp`, `qualalias`, `nsparamname`, `reqcaller` (C++20), each the same
+  over libc++ 18 and 21, and `zipadjacent` (C++23), clang++ 22's over libc++ 22; 597 run fixtures in all.
+- `CLAUDE.md`: the versions, the template template parameters' bullet (the injected class name), the member alias
+  templates' (a qualified template-id), the constraints' (no caller's local), the collision of namespaces (a class's
+  members, a function's parameters), the flow gate's count, the C++ gate's, the Hosts bullet (0.181's chain), What runs
+  (Forms of 0.182), Not done (the views over libc++ 22; `std::atomic<shared_ptr<T>>` is in libc++ 22 no more than in 18
+  and 21: clang++ 22 refuses `std::atomic<std::shared_ptr<int>>`, `std::atomic<T> requires that 'T' be a trivially
+  copyable type`), the Findings (cocolog 2.11.0, the logical update view, the number readers, the cell tag).
+  `README.md`: libc++ 22's vector and views.
+
+Reader 136 (a class declares its members' names and a function its parameters' and its locals' where a collided name is
+renamed: the AST beside a summary changes), lowering 104 (the injected class name as a template template argument, a
+template-id qualified by a namespace, a class's members' and a function's parameters' names, a constraint isolated from
+its caller: new IR for such programs, libc++ 22's vector and views).

@@ -361,7 +361,9 @@ libc++'s time zones under `-fexperimental-library`, as clang++ takes it; since
 pair's, a tuple's and a map's too), a bad one refused with libc++'s own
 message, as clang++ refuses it; since 0.179 `<chrono>`'s durations, clocks
 and time points with their literals (`1500ms`, `3us`), and `<complex>`'s
-(`3i`, `2.0if`).
+(`3i`, `2.0if`); since 0.182, over libc++ 22, `std::vector` and the C++23
+views that tree adds (`pairwise`, `adjacent`, `zip_transform`,
+`adjacent_transform`), built by hand: no gate reads that tree.
 `test/libcxx.sh` reads `<vector>`, `<string>`,
 `<iostream>`, `<map>`, `<set>`, `<unordered_map>`, `<unordered_set>`,
 `<optional>`, `<memory>`, `<functional>`, `<tuple>` and `<algorithm>` whole,

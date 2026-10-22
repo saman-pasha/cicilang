@@ -10,8 +10,8 @@ it found, its measurements and its gate numbers. `README.md` tells a user what r
 architecture and the milestones. A step that changes a rule edits the rule here, in its topic, and writes its entry
 in `HISTORY.md`.
 
-At 0.181 the versions are: the module 0.181 (`ccl_p_version` in `module/cicilang.cicili`, `bin/cicilang --version`),
-the reader 135 (`ccl_reader_version/1`, `library/ccl_syntax.pl`) and the lowering 103 (`ccl_lowering_version/1`,
+At 0.182 the versions are: the module 0.182 (`ccl_p_version` in `module/cicilang.cicili`, `bin/cicilang --version`),
+the reader 136 (`ccl_reader_version/1`, `library/ccl_syntax.pl`) and the lowering 104 (`ccl_lowering_version/1`,
 `library/ccl_ir.pl`).
 
 Build and prove, always in this order (or all of it, `sh test/gates.sh`):
@@ -397,19 +397,19 @@ tutorials/01..03-*.pl       the objects layer's lessons; goal main, last line do
 - `test/flow.sh` (0.144) reads every file of the library with cocolog's `library(flow/chart)` and RUNS NOTHING. A chart
   starts at one call pattern, so `test/flow.pl`'s `fg_roots_main/2` writes a copy of each file with a root,
   `'$fg_all'/N`, that calls each predicate the file defines with free arguments: 3538 predicates in the ten files at
-  0.161 (3938 in all at 0.167, 4003 at 0.173, 4038 at 0.175, 4048 at 0.178, 4066 at 0.179, 4074 at 0.180, 4092 at 0.181;
-  each step's in HISTORY.md), and since 0.161 the 220 of the nine gate programs, `test/reader.pl`, `compile.pl`,
-  `cpp.pl`, `readhdr.pl`, `census.pl`, `libcxx.pl`, `flow.pl`, `why.pl` and `prof.pl` (`TFILES`), each charted with the
-  compiler and the flow and process libraries loaded, nothing stubbed (no gate program is a library file); their first
-  chart found a predicate split by another's clauses (`census_main/0`) and a call of `print_message/2`, which cocolog
-  does not have, in the recovery of a `catch/3` in `readhdr.pl` and `libcxx.pl`: a read that raised would have raised
-  again there, an existence error where the FAIL line stands. Each copy is charted with the rest of the compiler loaded
-  (`flow_graph/3`'s `load(Files)`), and the file itself is stubbed out of the library path (an empty file of its name
-  first on `COCOLOG_LIBRARY`), so that its clauses are read once. A helper of the gate takes the prefix `fg_`: cocolog
-  has one namespace, and a helper named `flow_trim/2` joined `library/flow/read.pl`'s own and failed the chart far from
-  the cause. Since cocolog 1.11.4 the chart refuses by name a file IT READS that defines a predicate of the flow
-  library; the gate's own Prolog is loaded by the query, not read by the chart, so the prefix still guards it. (0.144,
-  0.146)
+  0.161 (3938 in all at 0.167, 4003 at 0.173, 4038 at 0.175, 4048 at 0.178, 4066 at 0.179, 4074 at 0.180, 4092 at 0.181,
+  4094 at 0.182; each step's in HISTORY.md), and since 0.161 the 220 of the nine gate programs, `test/reader.pl`,
+  `compile.pl`, `cpp.pl`, `readhdr.pl`, `census.pl`, `libcxx.pl`, `flow.pl`, `why.pl` and `prof.pl` (`TFILES`), each
+  charted with the compiler and the flow and process libraries loaded, nothing stubbed (no gate program is a library
+  file); their first chart found a predicate split by another's clauses (`census_main/0`) and a call of
+  `print_message/2`, which cocolog does not have, in the recovery of a `catch/3` in `readhdr.pl` and `libcxx.pl`: a
+  read that raised would have raised again there, an existence error where the FAIL line stands. Each copy is charted
+  with the rest of the compiler loaded (`flow_graph/3`'s `load(Files)`), and the file itself is stubbed out of the
+  library path (an empty file of its name first on `COCOLOG_LIBRARY`), so that its clauses are read once. A helper of
+  the gate takes the prefix `fg_`: cocolog has one namespace, and a helper named `flow_trim/2` joined
+  `library/flow/read.pl`'s own and failed the chart far from the cause. Since cocolog 1.11.4 the chart refuses by name a
+  file IT READS that defines a predicate of the flow library; the gate's own Prolog is loaded by the query, not read by
+  the chart, so the prefix still guards it. (0.144, 0.146)
 - The chart is given the two modules' Cicili sources as `modules([...])` (cocolog 1.11.4; `flow_graph/3` in
   `fg_findings_main/5`). It reads each `("name" N cfun)` dispatch row of a module as a C predicate, with the modes of
   the module's header line (`;;;; name(+A, -B)`; `module/cicilang.cicili` names five, `module/ccl_llvm.cicili` four),
@@ -550,7 +550,7 @@ tutorials/01..03-*.pl       the objects layer's lessons; goal main, last line do
 ### The C++ gate: test/cpp.sh
 
 - `test/cpp.sh` runs in this order: `test/cpp.pl` in one `--local` process; four checks of the command; every
-  `test/cpp/run/*.cpp` as a pool job (592 at 0.181); `classes.cpp` and `templates.cpp` built and run; the refusals,
+  `test/cpp/run/*.cpp` as a pool job (597 at 0.182); `classes.cpp` and `templates.cpp` built and run; the refusals,
   each at the level its `test/cpp/NAME.flags` names, else C++17 (0.164). (0.105, 0.164)
 - `test/cpp.pl` runs 46 numbered checks, `c1` to `c46`, then reads Cicili's six C++ files whole (`test/cpp/objects.cpp`,
   `emit_report.cpp`, `specialise.cpp`, `syntax.cpp`, `torch.cpp`, `torch-fragment.cpp`). `c34` checks the Itanium
@@ -3785,6 +3785,14 @@ free. A const method adds `.c`, a ref-qualified one `.r` or `.rr` after it: each
   resolves at the instantiation door (`cpp_nested_alias`: optional's `__enable_implicit<_Up>()`, 0.82). As a template
   template argument (`_Tester::template _Apply`) it stays `tname(mt(C, N))`, keyed `C.N`, substitutes as a scoped
   template-id and is found through the bases (`memberaliasttp.cpp`: `_ITER_CONCEPT`). (0.109)
+- A TEMPLATE-ID QUALIFIED BY A SCOPE NAMES THAT SCOPE'S TEMPLATE, never a member template of the class being walked
+  ([basic.lookup.qual]/1; 0.182; `cpp_instantiate_type_of/4`, which sends it to `cpp_instantiate_type_ns/3`, the door
+  that does not ask the class's own members): the clauses of `cpp_type/2` before the door take a class's own member
+  templates through the class, and what comes there qualified is a namespace's, which flattens. A member alias template
+  takes no more arguments than it has parameters (`cpp_alias_args_fit/3`, 0.181's rule, on this road too). libc++ 22's
+  vector declares `template <class _Up, class _Alloc> using __split_buffer = std::__split_buffer<_Up, _Alloc,
+  __split_buffer_pointer_layout>;`, and the alias's body, flattened, found the alias again in vector's class, binding
+  two of its three arguments, without end and with no trace line. `qualalias.cpp`. (0.182)
 - A member CLASS template and its partial specializations are a template `C.N` (`cpp_nested_template_put`,
   `'$cpp_nested_tmpl'`), registered at its declaration even when defined later. It resolves bare in its class, the
   nested classes and the bases at the instantiation door (`cpp_nested_template`), and the class encloses its instance
@@ -3885,6 +3893,12 @@ free. A const method adds `.c`, a ref-qualified one `.r` or `.rr` after it: each
   namespace, or another such binding passed on. `cpp_subst` replaces `typedef(P)` and `tmpl(P, Args)` with it, paths
   included; the key is the name; `cpp_match` and `cpp_match_one` deduce H from `f(H<T>)`. A member alias template is
   one too (`tname(mt(C, N))`). Fixture: `ttp.cpp` (`__split_buffer`'s `_Layout`). (0.45, 0.109)
+- A CLASS INSTANCE GIVEN TO A TEMPLATE TEMPLATE PARAMETER IS THE INJECTED CLASS NAME, which there names the class
+  template itself ([temp.local]/1; 0.182; `cpp_tname_arg/3` over `'$cpp_inst'`): inside an instance's body its
+  template's name is the instance, and no type is a template template argument. libc++ 22's
+  `__split_buffer_pointer_layout` names itself so, in `__split_buffer<value_type, allocator_type,
+  __split_buffer_pointer_layout>` within its own body; the instance's name was taken for a template's, `__split_buffer`
+  was made over it, and every `std::vector` over libc++ 22 ran past the memory cap. `injectedttp.cpp`. (0.182)
 
 ## Concepts and constraints
 
@@ -3916,6 +3930,13 @@ free. A const method adds `.c`, a ref-qualified one `.r` or `.rr` after it: each
 - The checked heads: a class template at instantiation (`cpp_instantiate_class_`), each function template candidate
   (`cpp_signature_holds/7`), member and constructor template candidates, CTAD guides, a function template deduced from
   a target (`cpp_target_bindings`). On a candidate road a refusal drops the candidate. (0.42, 0.74)
+- A CONSTRAINT SEES NO CALLER'S LOCAL ([temp.constr]: its names are looked up where the template is; 0.182): a head's
+  requires entries (`cpp_constraints_hold/3`) and a concept's body (`cpp_concept_holds/2`) are walked under
+  `cpp_isolated/1`, as a member's trailing clause has been since 0.110 (`cpp_member_req_holds/4`). libc++ 22's
+  `views::zip_transform` names its parameter `__fun` and asks, in its trailing return type, `views::all` of each range,
+  and ref_view's constructor requires `requires { __fun(std::declval<_Tp>()); }` of its own static `__fun`: with the
+  caller's frames open, the call went to the caller's lambda, the requirement was unmet, and no `operator()` was left.
+  `reqcaller.cpp` (C++20). (0.182)
 - A partial specialization is a candidate only where its constraints hold ([temp.spec.partial.match];
   `cpp_pick_spec`); the more constrained comes first, counted by `&&` conjuncts, equals in declaration order
   (`cpp_by_constraints`, `cpp_constraint_count`). Fixture: `concepttraits.cpp`. Why:
@@ -5899,7 +5920,13 @@ A lambda is a class of its captures (`library/ccl_cpp.pl`). A fixture named alon
   n1's 7, and two enums `Mode` were one tag.
 - A bare use in the deeper namespace is rewritten to the key (`cpp_qualify_body`, `cpp_rename_names`; a header's in
   `cpp_index_flat`), base clauses included (`base(Access, N)`, `base(Access, virtual(N))`), unless the item declares the
-  name (`cpp_declared_names`: vector's own `begin()`). `nscollide2.cpp`. (0.100, 0.101)
+  name (`cpp_declared_names`: vector's own `begin()`). `nscollide2.cpp`. A CLASS DECLARES ITS MEMBERS' NAMES, and a
+  function, a method, a constructor, a destructor and a lambda their parameters' and their locals', each inside itself
+  only (0.182; `cpp_rename_names/3` stops at each, `cpp_declared_names/3`): libc++ 22's `__adjacent_transform::__fn` has
+  an `operator()(_Range &&, _Fn &&__fn)`, the search went through that member's parameters (an operator's name is no
+  atom, and the method rule took an atom), and the class's base `__range_adaptor_closure<__fn<_Np>>` kept the bare
+  `__fn`, another namespace's: `template_without_body('__fn')` for every `views::adjacent_transform`. Reader 136.
+  `nsparamname.cpp`. (0.100, 0.101, 0.182)
 - The program's own collisions follow the same rule before registration (`cpp_ns_resolve`, `'$cpp_ns_own'`): the units
   are rewritten and the table built again; a declared-only function keeps its shipped name. `nscollide.cpp`. (0.100)
 - A USING-DECLARATION OR A USING-DIRECTIVE OF THE PROGRAM over such names ([namespace.udecl], [namespace.udir]; 0.139),
@@ -7298,7 +7325,31 @@ A lambda is a class of its captures (`library/ccl_cpp.pl`). A fixture named alon
   at 2882 MB, 1.8.38 at 591 MB. After a cocolog update the modules are rebuilt (`module/build.sh`,
   `module/build-llvm.sh`, and cocolog's `os` and `process` modules); 1.8.36 to 1.8.41 left the SDK's ABI unchanged.
   (0.46, 0.112, 0.114)
-- cocolog is at 2.2.5 since 0.159 -- master `6718a45`, over ZiguratIP 1.0.1 (`90d99b8`); Cicili stays 3.0.0 (`9d74a5e`).
+- cocolog is at 2.11.0 since 0.182 -- master `885f9b7`, over ZiguratIP 1.0.1 (`90d99b8`) beside Cicili 3.0.0
+  (`9d74a5e`), neither of which moved. 2.3.0 (`ee0073a`) gives assert and retract ISO's logical update view (the bullet
+  below); 2.4.0 (`58e9d89`) a Unix socket as an address; 2.4.1 (`596502e`) library(template); 2.5.0 (`5e6b89f`)
+  rationals, a cell tag of four bits (`max_tagged_integer` 2^59 - 1, where it was 2^60 - 1; an integer past it boxed,
+  integers still 64 bits), the rest of swipl's evaluable functions and text predicates, `atom_concat/3` as clauses over
+  `'$atom_concat'` (its (-, -, +) mode enumerates), and number readers that take the WHOLE text (the bullet below);
+  2.5.1 (`d966687`) `-0.0` through `atom_number/2`; 2.6.0 to 2.10.1 green threads, library(async), on by default
+  since 2.8.0 -- preloaded at start-up beside the eight vendored SWI libraries, `async_run/1,2`, `go/1,2`, `await/1,2`,
+  `async/2`, the futures and the channels, which no name of cicilang meets -- one shared store and a write barrier that
+  only a running world of workers takes, library(signal) and library(regex) (PCRE2); and 2.11.0 the shared tables'
+  growth check, a cache of the empty dynamic predicates of a fresh store, and `astar/7`. The SDK adds declarations (the
+  signals, a green thread's foreign call) and changes none that a module here calls; the cell tag is the interpreter's
+  own (`coco_m_new_int` boxes), and both modules were built again with no change. The update took `make` 210 s, `make
+  schema` 39 s and `make modules` 83 s (torch, tensorflow, ray and numpy skipped; regex and signal built). Measured at
+  0.182, one run at a time, the 0.181 library on each engine (its modules built over each): five warm C++ builds 61.85
+  s on 2.2.5 and 66.09 s on 2.11.0, 6.9 % more (the least CPU time of three runs each, every round alike:
+  `stdformat.cpp` 38.5 s and 41.3 s), where the cold census of the flattened `<iomanip>` took 79.5 s and 77.1 s (the
+  least of two runs each). A loop of each kind of step, the least of five runs, puts the cost in a plain call (a naive
+  reverse 9 % dearer, as 2.3.0's own measure of its update view has it, 10.3 %), in `atom_concat/3`'s split modes (36
+  and 40 %: clauses now) and in `sub_atom/5` (19 %), the rest within 6 % (`assertz/1` and `retract/1`, `nb_getval/2`,
+  `findall/3`, `term_to_atom/2`, `format/3`, `msort/2`, `copy_term/2`). The arithmetic answers of 2.2.5 stand: of 107
+  expressions, from `7/2` and `2^ -1` to `truncate(1.0e19)` and the overflows past 64 bits, 101 answer alike, and the
+  six others name a function 2.5.0 added (`rdiv`, `copysign`, `random/1`, `cputime`, `float_integer_part/1`,
+  `float_fractional_part/1`). It was at 2.2.5 from 0.159 -- master `6718a45`, over ZiguratIP 1.0.1 (`90d99b8`); Cicili
+  3.0.0 (`9d74a5e`).
   2.2.1 (`fd155de`) changes no engine source but its version line (its change is the linter, `tools/cocolint`, the
   translation library and the lessons); 2.2.2 (`46c2807`) adds swipl's four float flags (`float_overflow`,
   `float_zero_div`, `float_undefined`, `float_underflow`), `set_prolog_flag/2` as a goal, and `inf`, `nan` and `epsilon`
@@ -7414,7 +7465,22 @@ A lambda is a class of its captures (`library/ccl_cpp.pl`). A fixture named alon
   added one SDK call (`coco_m_resource_error`). 1.10.22 (0.140) and 1.10.0 (0.132) were the steps before; cocolog
   1.10.6's builtins that raise where they failed (`arg/3` on an atomic term, `=..`, `assert` of what is no clause) broke
   nothing here. (0.132, 0.140, 0.142, 0.144, 0.146, 0.148, 0.149, 0.150, 0.151, 0.152, 0.155, 0.156, 0.157, 0.158,
-  0.159)
+  0.159, 0.182)
+- SINCE 2.3.0 (`ee0073a`) A CALL SEES THE CLAUSES THAT STOOD WHEN IT BEGAN, ISO's logical update view, as swipl's: an
+  assert or a retract while a call is open on its predicate moves nothing that call has still to try, and a new call
+  sees the clauses as they are. Through 2.2.5 a retry read the live clause list: measured at 0.182, `forall(q(K),
+  retract(q(K)))` over five clauses left two on 2.2.5 and none on 2.11.0. The library's loops that write a table read
+  another, or test the one they write by a new call (`\+ '$cpp_lvb'(C, N, _)` in the generator before the
+  `assertz/1`), and its registries are read whole by `findall/3` before they are cleared (`cpp_flush_instances/2`), so
+  each answers alike under either view. (0.182)
+- SINCE 2.5.0 THE NUMBER READERS TAKE THE WHOLE TEXT (measured at 0.182): `atom_number('12abc', N)` and
+  `atom_number('12 ', N)` fail, `number_codes(N, "12 ")` raises `syntax_error(illegal_number)` and `number_string(N, "
+  42 ")` fails, where 2.2.5 read the number at the text's front (12, 12, 12 and 42); a leading blank is still taken
+  (`atom_number(' 12', 12)`), and `1r3` reads as a rational (`atom_number('1r3', 1r3)`, 1 on 2.2.5). Each call of them
+  in the library and the gates passes the digits of one number and no `r` -- a name's numbered part (`'$anon'`, `$A`,
+  an arity, `llvm-NN`), an IR type's width, a decimal literal's exponent, a pp-number's digits, and the DCG lexer's
+  float text, which it makes whole (`1.` is read as `1.0`) -- so nothing moves; the reader gate's `k84` compares the two
+  lexers token for token. (0.182)
 - cocolog counts text in CHARACTERS since 2.0.0, as SWI does, where 1.13.0 to 1.15.0 counted bytes unless a program
   asked for characters (the flag `text_units`, 1.13.0): bytes are asked for by `:- set_prolog_flag(text_units,
   bytes).`, or `COCOLOG_TEXT_UNITS=bytes` for a whole run, and give 1.x's answers. In characters `atom_length/2`,
@@ -7471,13 +7537,14 @@ A lambda is a class of its captures (`library/ccl_cpp.pl`). A fixture named alon
   `ccl_kb_prepare`).
 - A writer killed mid-write can damage the store (`hexmap ends inside the chunk`). It is a cache:
   `rm -rf ~/.cicilang/KB ~/.cicilang/KB.version` repairs it. (0.108)
-- INTEGERS ARE 64 BITS SINCE cocolog 2.0.0 (`d17fef4`): a value past 61 bits is boxed as a float is, and a result past
-  64 bits, the least integer `// -1` and a `<<` that loses a bit raise `evaluation_error(int_overflow)` (`1 << 63`,
-  `10^18 * 997`), where SWI makes a bignum; a literal past the range is a syntax error, `atom_number/2` and
-  `number_codes/2` fail for a numeral past it, the flag `bounded` is true and `max_integer` 2^63 - 1. Through 1.15.0
-  they were 61-bit and `is/2` wrapped in silence. cicilang leans on neither: a literal past 2^60 is `big(Atom)` in both
-  lexers, the constant evaluator computes 64 bits and more over base-2^30 limbs (`ccl_w_*`, the 64-bit arithmetic
-  topic), and `dr_fold/4` keeps two folds under 2^31; the chain of 0.157 is GREEN on 2.1.0, the library unchanged.
+- INTEGERS ARE 64 BITS SINCE cocolog 2.0.0 (`d17fef4`): a value past 61 bits (60 since 2.5.0's four-bit cell tag) is
+  boxed as a float is, and a result past 64 bits, the least integer `// -1` and a `<<` that loses a bit raise
+  `evaluation_error(int_overflow)` (`1 << 63`, `10^18 * 997`), where SWI makes a bignum; a literal past the range is a
+  syntax error, `atom_number/2` and `number_codes/2` fail for a numeral past it, the flag `bounded` is true and
+  `max_integer` 2^63 - 1. Through 1.15.0 they were 61-bit and `is/2` wrapped in silence. cicilang leans on neither: a
+  literal past 2^60 is `big(Atom)` in both lexers, the constant evaluator computes 64 bits and more over base-2^30
+  limbs (`ccl_w_*`, the 64-bit arithmetic topic), and `dr_fold/4` keeps two folds under 2^31; the chain of 0.157 is
+  GREEN on 2.1.0, the library unchanged.
   (0.94, 0.157) Through 1.13.7 `X >> N` and `X << N` took N modulo 64, as the machine's shift does (measured at 0.154
   and 0.155 on 1.13.3): `1 >> 64` was 1, `1 >> 128` 1, `255 >> 64` 255 and `1 >> -1` 0, where SWI answers 0, 0, 0 and 2,
   and `1 << 64` 1 and `1 << 65` 2, where the 61-bit wrap of the true value is 0: cocolog shifted two C `i64` values
@@ -7857,30 +7924,22 @@ A lambda is a class of its captures (`library/ccl_cpp.pl`). A fixture named alon
 - Ubuntu 24.04 on x86_64 (clang and LLVM 18, glibc, libc++ 18 and 21) is a host since 0.87. Every gate but the C++ one
   is GREEN there since 0.93, and all seven since 0.95. Every step from 0.93 on is gated there, but the save points
   0.112, 0.113, 0.117, 0.122 to 0.125, 0.130, 0.131 and 0.143 (0.143's C gates and cross gate ran, its libc++ gates did
-  not; the others were gated by the steps after them). The last full run is 0.179's, over cocolog 2.2.5, on one tree,
-  over fresh HOMEs (the reader version moved): over libc++ 18 all nine GREEN in 3585 s (the flow gate's one finding in
-  104 s, reader 6 s, compile 15 s, driver 15 s, objects 4 s, proof, the cross gate in 848 s with its C++ part for
-  aarch64, the library read in 1532 s (0.164's 1081 s), the C++ gate in 1057 s (0.164's 905 s) with 582 of 585
+  not; the others were gated by the steps after them). The last full run is 0.181's, over cocolog 2.2.5, on one tree,
+  over fresh HOMEs (the reader version moved): over libc++ 18 all nine GREEN in 2622 s (the flow gate's one finding in
+  87 s, reader 4 s, compile 12 s, driver 22 s, objects 4 s, proof, the cross gate in 645 s with its C++ part for
+  aarch64, the library read in 1121 s (0.179's 1532 s), the C++ gate in 727 s (0.179's 1057 s) with 589 of 592
   fixtures ok, the skips are `joinwith`, `stdoptionalref` and `tzone`, the 23 refusals and the three of the safe part);
-  over libc++ 21 the library read (997 s, peak 1016 MB; 0.164's 1102 s) and the C++ gate (886 s, peak 2239 MB; 0.164's
-  1202 s; 584 of 585 ok, the skip `stdoptionalref`) GREEN -- the C gates do not read libc++. The fixtures' builds,
-  summed, took 3601 s over 582 over libc++ 18 and 2751 s over 584 over libc++ 21. The machine was slower in the libc++
-  18 half than in the libc++ 21 half, which a restart of the container cut at about 22:51 UTC and which ran again from
-  22:55: the 104 header reads of 0.164's chain took 1.38 times as long over libc++ 18 and 0.88 times over 21, and
-  two interleaved rounds of cold reads by the 0.178 and the 0.179 library after the chain read alike (HISTORY.md,
-  0.180). 0.164's chain is the full run before it, 5105 s in all; the chains of 0.165 to 0.168 and
-  0.171 to 0.178 ran the gates their changes touch over the HOMEs
-  that 0.164's chain warmed (the reader version did not move, so the library reads were not run again), all GREEN, the
-  C++ gate in 655 s to 1167 s over each libc++, its fixtures' builds summed 2316 s to 4159 s; their numbers are in
-  HISTORY.md, 0.166 to 0.179 (from 0.173 on the machine was slower, not the library: it had started again at 11:21 UTC,
-  and `stdformat.cpp` built alone, two rounds interleaved, took 52.1 and 53.2 s of CPU over 0.172's library and 52.7
-  and 52.4 s over 0.173's, where 0.172's chain recorded 35 s for it, four at a time); 0.180's chain ran them over the
-  HOMEs that 0.179's chain warmed, all GREEN, the C++ gate in 700 s and 690 s (peaks 2498 MB and 2484 MB), 584 and 586
-  of 587 fixtures ok, their builds summed 2479 s and 2463 s (HISTORY.md, 0.181). Two libc++ passes are one gate:
-  `LLVM=/usr/lib/llvm-18` and `LLVM=/usr/lib/llvm-21` choose the tree the chain reads and links. libc++ 22 (the newest
-  tree, which a run without
-  `$LLVM` reads) is untried but for `stdoptionalref`, which passes there. The run before 0.121's (0.118, 0.119) found,
-  over 0.117, two defects and one stale check of `test/cpp.pl` (c20, above).
+  over libc++ 21 the library read (1061 s, peak 1052 MB; 0.179's 997 s) and the C++ gate (845 s, peak 2319 MB; 0.179's
+  886 s; 591 of 592 ok, the skip `stdoptionalref`) GREEN -- the C gates do not read libc++. The fixtures' builds,
+  summed, took 2454 s over 589 over libc++ 18 and 2624 s over 591 over libc++ 21 (HISTORY.md, 0.182). 0.179's chain is
+  the full run before it, 3585 s over libc++ 18, its libc++ 18 half on a slower machine (HISTORY.md, 0.180); 0.180's
+  chain ran the gates its change touches over the HOMEs that 0.179's chain warmed, all GREEN (HISTORY.md, 0.181); the
+  chains of 0.165 to 0.178 are in HISTORY.md, 0.166 to 0.179. The chain of 0.182 is the first over cocolog 2.11.0 (the
+  Findings). Two libc++ passes are one gate: `LLVM=/usr/lib/llvm-18` and `LLVM=/usr/lib/llvm-21` choose the tree the
+  chain reads and links. libc++ 22 (the newest tree, which a run without `$LLVM` reads) is no gate: 0.182 built its
+  vector and its C++23 views by hand (`zipadjacent.cpp`, which its `.needs` skips over 18 and 21), and
+  `stdoptionalref` passes there. The run before 0.121's (0.118, 0.119) found, over 0.117, two defects and one stale
+  check of `test/cpp.pl` (c20, above).
 - The host sets the predefined macros (`ccl_host_os/1` and `ccl_host_arch/1` in the module), the inclusion path
   (Debian's `/usr/lib/llvm-NN`, the multiarch directory) and the link (`-lc++` and `-lm` on Linux) (0.87, 0.93, 0.100).
 - A struct passed or returned by value crosses a call as clang's x86-64 code expects, in both directions, with the
@@ -8001,6 +8060,12 @@ A lambda is a class of its captures (`library/ccl_cpp.pl`). A fixture named alon
   overload set, explicit constructors, <stdexcept>'s `logic_error`), `declfirst` (a definition after a declared
   overload of other parameters -- a reference, a builtin type, another count -- and an overload set named by a
   global's initializer, by name and by address).
+- Forms of 0.182: `injectedttp` (a class template's injected class name given to a template template parameter in its
+  own body, and a class over it), `qualalias` (a namespace-qualified template-id beside a member alias template of the
+  same name), `nsparamname` (two namespaces' class templates of one name, a member function whose parameter has that
+  name, and a base clause naming the class's own), `reqcaller` (C++20: a constraint that names a static of its own class
+  while the caller has a local of that name), `zipadjacent` (C++23 over libc++ 22: `views::pairwise`, `adjacent`,
+  `zip_transform` and `adjacent_transform`, which its `.needs` skips over libc++ 18 and 21).
 - Forms of 0.180: `rttiother` (C++20: the type information of an enum and a scoped one, a pointer to a pointer and
   to an enum, a pointer to a data member and to a member function, an array, a function, `std::nullptr_t`, a pointer
   to a volatile builtin, `_Float16`, `_BitInt`, a vector type and a pointer to each, compared, thrown and caught;
@@ -8323,9 +8388,12 @@ A lambda is a class of its captures (`library/ccl_cpp.pl`). A fixture named alon
   run, alone and in one program (0.115), and since 0.132 `empty`, `single`, `counted`, `chunk_by`, `common`, `zip`,
   `elements`, `drop_while`, `as_rvalue`, `repeat`, `join`, `split`, `lazy_split` and `ranges::to`, and since 0.133 `join_with`
   at libc++ 21. The other C++23 views are in neither libc++ 18 nor 21 (their `__ranges/` has no `adjacent`, `chunk`,
-  `slide`, `stride`, `enumerate`, `cartesian_product`, `as_const`); libc++ 22 has `adjacent`, `pairwise` and
-  `zip_transform`, and a cold read of its `<ranges>` passes the 2800 MB cap here (0.136, killed twice; a cold build of a
-  probe of those views at C++23 was killed at the cap after 188 s at 0.180).
+  `slide`, `stride`, `enumerate`, `cartesian_product`, `as_const`); libc++ 22 has `adjacent`, `pairwise`,
+  `zip_transform` and `adjacent_transform`, which run since 0.182 (`zipadjacent.cpp`, built over libc++ 22 by hand: no
+  gate reads that tree). The read of its `<ranges>` was never the cost (25 s and 184 MB alone at 0.182): the
+  desugaring of any `std::vector` over libc++ 22 ran past the cap (0.136, 0.180), which 0.182 mended (the template
+  template parameters' and the member alias templates' topics). `chunk`, `slide`, `stride`, `enumerate`,
+  `cartesian_product` and `as_const` are in none of the three trees.
 - `std::format` runs (`stdformat.cpp`, 0.112), its format string checked at compile time since 0.164 (`fmtcheck.cpp`;
   `fmtindex.cpp` and `fmttype.cpp` refused with the library's message), where the evaluator takes the check (the
   Constant evaluation topic); a check it cannot take is the library's own parser's at run time. `vformat`, a formatter
@@ -8339,10 +8407,11 @@ A lambda is a class of its captures (`library/ccl_cpp.pl`). A fixture named alon
 - libc++ keeps its no-RTTI configuration by design, so `shared_ptr::get_deleter`, `dynamic_pointer_cast`,
   `std::function::target` and `target_type` are absent (0.86, 0.88). The program's own `typeid` and `dynamic_cast` run
   (0.108).
-- `std::atomic<shared_ptr<T>>` (C++20, P0718) is in neither libc++ 18 nor libc++ 21: clang++ refuses
-  `std::atomic<std::shared_ptr<int>>` over both trees, so there is nothing of the library to compile (0.86, 0.128).
-  `<atomic>`'s `wait`, `notify_one` and `notify_all` run at C++20 (`stdatomic20.cpp`, 0.117). A program's own calls
-  of `std::uninitialized_copy`, `std::construct_at`, the `destroy_*` algorithms and `allocator_traits` run
+- `std::atomic<shared_ptr<T>>` (C++20, P0718) is in none of libc++ 18, 21 and 22: clang++ refuses
+  `std::atomic<std::shared_ptr<int>>` over each tree (22's `<version>` leaves `__cpp_lib_atomic_shared_ptr` out, and
+  `std::atomic<T>` asserts that T is trivially copyable), so there is nothing of the library to compile (0.86, 0.128,
+  0.182). `<atomic>`'s `wait`, `notify_one` and `notify_all` run at C++20 (`stdatomic20.cpp`, 0.117). A program's own
+  calls of `std::uninitialized_copy`, `std::construct_at`, the `destroy_*` algorithms and `allocator_traits` run
   (`stduninit.cpp`, `stdallocator.cpp`, 0.117).
 - `std::stringstream`, `std::wstringstream`, `std::ofstream`, `std::ifstream` and `std::fstream` run (0.117), and since
   0.134 the wide file streams and `std::filesystem`'s `path` and operations, and since 0.137 the rest of it that a program

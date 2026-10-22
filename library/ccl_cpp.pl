@@ -903,7 +903,13 @@ cpp_index_key(_, _, N, N).
 cpp_ns_named_path(Path, NP) :- Path \== c, findall(S, ( member(S, Path), atom(S) ), NP).
 %% THE BARE USES INSIDE A DEEPER NAMESPACE GO TO THE KEY: `id(N)', `typedef(N)', `tmpl(N, As)' of a colliding name in
 %% that namespace's items -- unless the item declares a parameter, a local, a member or a capture of the name, which
-%% shadows it there (then that item's `id's are left alone; its types are still rewritten)
+%% shadows it there (then that item's `id's are left alone; its types are still rewritten). A CLASS DECLARES ITS MEMBERS'
+%% NAMES, a function its parameters' and its locals' (0.182): the search for a class's own stops at each method,
+%% function, constructor, destructor and lambda, which shadow only inside themselves. libc++ 22's
+%% `__adjacent_transform::__fn' has an `operator()(_Range &&, _Fn &&__fn)', the search went through that member's
+%% parameters (an operator's name is no atom, and the method rule takes an atom), and the class's base
+%% `__range_adaptor_closure<__fn<_Np>>' kept the bare `__fn', another namespace's: `template_without_body('__fn')' for
+%% every `views::adjacent_transform'. A method named by an atom counts its own parameters inside it now too.
 cpp_qualify_body(Qs, Path, I, I2) :- Qs \== [], cpp_ns_named_path(Path, NP), !,
     findall(N-K, ( member(q(Ns, N, NP), Qs), Ns \== bare, atomic_list_concat([Ns, '.', N], K) ), Map),
     ( Map == [] -> I1 = I ; cpp_rename_names(I, Map, I1) ),
@@ -935,8 +941,8 @@ cpp_rename_names(tmpl(N, As), Map, tmpl(K, As1)) :- atom(N), memberchk(N-K, Map)
 cpp_rename_names(base(Acc, N), Map, base(Acc, K)) :- cpp_base_access(Acc), atom(N), memberchk(N-K, Map), !.            % a BASE CLAUSE naming the colliding name (0.101): `struct D : Base' inside the deeper namespace is that namespace's Base
 cpp_rename_names(base(Acc, virtual(N)), Map, base(Acc, virtual(K))) :- cpp_base_access(Acc), atom(N), memberchk(N-K, Map), !.
 cpp_rename_names(T, Map, T2) :- functor(T, F, _), memberchk(F, [function, method, ctor, ctor_def, dtor_def, lambda, class, struct]), !,
-    cpp_declared_names(T, [], Ds), ( Ds == [] -> Map1 = Map ; findall(N-K, ( member(N-K, Map), \+ memberchk(N, Ds) ), Map1) ),
-    ( Map1 == [] -> T2 = T ; T =.. [F|As], cpp_rename_list(As, Map1, As1), T2 =.. [F|As1] ).
+    T =.. [F|As], cpp_declared_list(As, [], Ds), ( Ds == [] -> Map1 = Map ; findall(N-K, ( member(N-K, Map), \+ memberchk(N, Ds) ), Map1) ),
+    ( Map1 == [] -> T2 = T ; cpp_rename_list(As, Map1, As1), T2 =.. [F|As1] ).
 cpp_rename_names(T, Map, T2) :- T =.. [F|As], cpp_rename_list(As, Map, As1), T2 =.. [F|As1].
 cpp_rename_qualifier(N, Map, K) :- atom(N), memberchk(N-K, Map).
 cpp_rename_qualifier(tmpl(N, As), Map, tmpl(K, As1)) :- atom(N), memberchk(N-K, Map), cpp_rename_names(As, Map, As1).
@@ -951,7 +957,9 @@ cpp_declared_names(param(_, N), Ds, [N|Ds]) :- atom(N), !.
 cpp_declared_names(param(_, N, _), Ds, [N|Ds]) :- atom(N), !.
 cpp_declared_names(var(N, _, _), Ds, [N|Ds]) :- atom(N), !.
 cpp_declared_names(member(_, N, _), Ds, [N|Ds]) :- atom(N), !.
-cpp_declared_names(method(_, _, _, N, _, _, _), Ds, [N|Ds]) :- atom(N), !.                 % a class's own method of the name shadows the namespace's: vector's `begin()' beside std::begin
+cpp_declared_names(method(_, _, _, N, _, _, _), Ds, Ds1) :- !, ( atom(N) -> Ds1 = [N|Ds] ; Ds1 = Ds ).   % a class's own method of the name shadows the namespace's: vector's `begin()' beside std::begin
+cpp_declared_names(function(_, _, _, N, _, _, _), Ds, Ds1) :- !, ( atom(N) -> Ds1 = [N|Ds] ; Ds1 = Ds ).
+cpp_declared_names(T, Ds, Ds) :- functor(T, F, _), memberchk(F, [ctor, dtor, ctor_def, dtor_def, lambda]), !.   % (above) their names shadow inside them only
 cpp_declared_names(typedef(_, Vs), Ds0, Ds) :- !, findall(N, member(var(N, _, _), Vs), Ns), append(Ns, Ds0, Ds).
 cpp_declared_names(cap(_, N), Ds, [N|Ds]) :- atom(N), !.
 cpp_declared_names(T, Ds0, Ds) :- T =.. [_|As], cpp_declared_list(As, Ds0, Ds).
@@ -2540,7 +2548,7 @@ cpp_class_of_type_(base(_, [class(_, C, _, _)]), C) :- cpp_class_l(C, _), !.
 cpp_class_of_type_(base(_, [struct(C, _)]), C) :- cpp_class_l(C, _), !.
 cpp_class_of_type_(base(_, [union(C, _)]), C) :- cpp_class_l(C, _), !.        % a UNION-CLASS resolves to its union spec, and is its class all the same
 cpp_class_of_type_(base(_, [typedef(C)]), C) :- cpp_class_l(C, _), !.
-cpp_class_of_type_(base(_, [typedef(X)]), C) :- cpp_template_id(X, N, Args), !, cpp_targ_values(Args, Args1), cpp_instantiate_type(N, Args1, T), cpp_class_of_type(T, C).   % a template-id the table still holds raw
+cpp_class_of_type_(base(_, [typedef(X)]), C) :- cpp_template_id(X, N, Args), !, cpp_targ_values(Args, Args1), cpp_instantiate_type_of(X, N, Args1, T), cpp_class_of_type(T, C).   % a template-id the table still holds raw
 cpp_class_of_type_(base(_, [typedef(scoped(_, C))]), C) :- cpp_class_l(C, _), !.
 cpp_pointee_class(T, C) :- ccl_resolve_type(T, T1), ( T1 = ptr(_, E) ; T1 = arr(_, E) ), cpp_class_of_type(E, C).
 cpp_class_of_type_of(move(X), C) :- !, cpp_class_of_type_of(X, C).
@@ -6735,18 +6743,26 @@ cpp_template_class_def(declare(_, base(_, [union(_, Ms)]))) :- Ms \== none.
 %% a template-id as a type: a class template's instance, or an alias template's type under the bindings
 cpp_instantiate_type(N, Args, T) :- atom(N), cpp_nested_template(N, MN), !, cpp_instantiate_type(MN, Args, T).   % a MEMBER CLASS TEMPLATE named bare inside its class, whatever road asks (cpp_path_class walks `_CheckArrayPointerConversion<_Pp>::value' here)
 cpp_instantiate_type(N, Args, T) :- atom(N), cpp_nested_alias(N, C, TPs, T0), !,                                          % a MEMBER ALIAS TEMPLATE named bare inside its class: optional's `_CheckOptionalArgsCtor<_Up>::template __enable_implicit<_Up>()' (0.47 resolved one only through `C::template _Select<A, B>')
-    cpp_targ_values(Args, Args1), cpp_bind_targs(TPs, Args1, B), cpp_in_class(C, ( cpp_subst(T0, B, T1), cpp_type(T1, T) )).
-cpp_instantiate_type('__make_integer_seq', [A1, TA, NA], T) :- !,                          % CLANG'S BUILTIN TEMPLATE `__make_integer_seq<S, T, N>' IS `S<T, 0, 1, ..., N-1>': libc++'s index sequences, which the piecewise pair behind map::operator[] is built on
+    cpp_targ_values(Args, Args1), cpp_alias_args_fit(N, TPs, Args1), cpp_bind_targs(TPs, Args1, B), cpp_in_class(C, ( cpp_subst(T0, B, T1), cpp_type(T1, T) )).   % no more arguments than parameters (0.182; below)
+cpp_instantiate_type(N, Args, T) :- cpp_instantiate_type_ns(N, Args, T).
+cpp_instantiate_type_ns('__make_integer_seq', [A1, TA, NA], T) :- !,                          % CLANG'S BUILTIN TEMPLATE `__make_integer_seq<S, T, N>' IS `S<T, 0, 1, ..., N-1>': libc++'s index sequences, which the piecewise pair behind map::operator[] is built on
     ( A1 = tname(B) -> true ; A1 = base(_, [typedef(B)]), atom(B) ),
     ( cpp_targ_value(NA, NV) -> true ; NV = NA ), ( ccl_const_eval(NV, N) -> true ; cpp_refuse(0, integer_seq_size(NA)) ),
     findall(int(I), ( between(1, N, I0), I is I0 - 1 ), Is),
     cpp_type(base([], [typedef(tmpl(B, [TA|Is]))]), T).
-cpp_instantiate_type('__type_pack_element', [NA|Ts], T) :- !,                                % CLANG'S BUILTIN `__type_pack_element<I, Ts...>' IS THE I-TH OF Ts: libc++'s tuple_element, which tuple's get<I> is typed by
+cpp_instantiate_type_ns('__type_pack_element', [NA|Ts], T) :- !,                                % CLANG'S BUILTIN `__type_pack_element<I, Ts...>' IS THE I-TH OF Ts: libc++'s tuple_element, which tuple's get<I> is typed by
     ( cpp_targ_value(NA, NV) -> true ; NV = NA ), ( ccl_const_eval(NV, I) -> true ; cpp_refuse(0, type_pack_index(NA)) ),
     ( nth0(I, Ts, T0) -> true ; cpp_refuse(0, type_pack_index(NA)) ), cpp_type(T0, T).
-cpp_instantiate_type(N, Args, T) :-
+cpp_instantiate_type_ns(N, Args, T) :-
     (   cpp_class_template(N, TPs, Item), Item = typedef(_, [var(_, T0, _)]) -> cpp_alias_args_fit(N, TPs, Args), cpp_bind_targs(TPs, Args, B), cpp_subst(T0, B, T1), cpp_type(T1, T)   % an alias template (the class definition wins the name)
     ;   cpp_instantiate_class(N, Args, Name), T = base([], [typedef(Name)]) ).
+%% A TEMPLATE-ID QUALIFIED BY A SCOPE NAMES THAT SCOPE'S TEMPLATE, NEVER A MEMBER TEMPLATE OF THE CLASS BEING WALKED
+%% ([basic.lookup.qual]/1; 0.182): the clauses of cpp_type/2 before the door take a class's own member templates through the
+%% class, and what comes here qualified is a namespace's, which flattens. libc++ 22's vector declares `template <class _Up,
+%% class _Alloc> using __split_buffer = std::__split_buffer<_Up, _Alloc, __split_buffer_pointer_layout>;', and the alias's
+%% body, flattened, found the alias again in vector's class context, binding two of its three arguments, without end and
+%% with no trace line: every std::vector over libc++ 22 ran past the memory cap.
+cpp_instantiate_type_of(X, N, Args, T) :- ( X = scoped(_, _) -> cpp_instantiate_type_ns(N, Args, T) ; cpp_instantiate_type(N, Args, T) ).
 %% AN ALIAS TEMPLATE TAKES NO MORE ARGUMENTS THAN IT HAS PARAMETERS ([temp.arg]/1; 0.181), a pack aside: more is no use of
 %% it, refused by name. cpp_bind_targs/3 dropped the arguments past the parameters, and an alias whose body names its own
 %% flattened name -- std::pmr::basic_string, `std::basic_string<_CharT, _Traits, polymorphic_allocator<_CharT>>', bare
@@ -7316,7 +7332,7 @@ cpp_type(base(Q, [typedef(X)]), T) :- cpp_template_id(X, N, [C, A, B]), cpp_cond
     ( Tr == true -> cpp_type(A, T0) ; cpp_type(B, T0) ), cpp_merge_quals(Q, T0, T).
 cpp_type(base(Q, [typedef(X)]), T) :- cpp_template_id(X, N, Args), !,                       % the traces fire only under '$cpp_trace': a failure here is otherwise silent
     ( cpp_targ_values(Args, Args1) -> true ; cpp_trace(targ_values_failed(N)), fail ),
-    ( cpp_instantiate_type(N, Args1, T0) -> true ; cpp_trace(instantiate_failed(N)), fail ),
+    ( cpp_instantiate_type_of(X, N, Args1, T0) -> true ; cpp_trace(instantiate_failed(N)), fail ),
     cpp_merge_quals(Q, T0, T).
 cpp_type(base(Q, [typedef(scoped(Path, N))]), T) :- cpp_scope_class(Path, C), !,           % C::value_type, X<T>::type: the class's typedef (none: no type -- what SFINAE reads)
     ( atom(N), atom(C) -> ( cpp_class_ctx(Cx) -> true ; cpp_body_ctx(Cx) ), cpp_check_access(Cx, C, N) ; true ),   % A NESTED TYPE'S NAME has its access (0.127): `Outer::Secret' outside Outer, its members and its friends is refused
@@ -8527,6 +8543,12 @@ cpp_tname_arg(mt(C, N), _, tname(mt(C, N))) :- !.   % a member alias template pa
 cpp_tname_arg(base(_, [typedef(X)]), B, A) :- !, cpp_tname_arg(X, B, A).
 cpp_tname_arg(scoped(Path, X), _, tname(mt(C, X))) :- atom(X), Path \== [], catch(cpp_scope_class(Path, C0), _, fail), cpp_member_alias_of(C0, X, C, _, _), !.   % (the declaring class: a base's alias is found through the derived one) A MEMBER ALIAS TEMPLATE as a template template argument keeps its class ([temp.arg.template]; 0.109): libc++'s `_IsValidExpansion<_Tester::template _Apply, _Iter>', three testers each with an `_Apply'
 cpp_tname_arg(scoped(_, X), B, A) :- !, cpp_tname_arg(X, B, A).
+%% A CLASS INSTANCE GIVEN TO A TEMPLATE TEMPLATE PARAMETER IS THE INJECTED CLASS NAME, which there names the class template
+%% itself ([temp.local]/1; 0.182): no type is a template template argument, and inside an instance's body its template's name
+%% is the instance (`Self' of cpp_instantiate_class_/3). libc++ 22's `__split_buffer_pointer_layout' names itself so, in
+%% `__split_buffer<value_type, allocator_type, __split_buffer_pointer_layout>' within its own body; the instance's name was
+%% taken for a template's, `__split_buffer' was made over it, and every `std::vector' over libc++ 22 ran past the cap.
+cpp_tname_arg(X, _, tname(N)) :- atom(X), '$cpp_inst'(X, inst(N, _)), !.
 cpp_tname_arg(X, B, tname(N)) :- atom(X), !, ( memberchk(X-tname(N0), B) -> N = N0 ; cpp_type_name_only(X) -> cpp_refuse(0, not_a_template_name(X)) ; N = X ).   % a TYPE'S name is no template (0.132): `ranges::to<std::string>(r)' is no candidate of the template template overload
 cpp_tname_arg(X, _, _) :- cpp_refuse(0, not_a_template_name(X)).
 %% A NAME THAT IS ONLY A TEMPLATE (the reader's set of templates, and no typedef or class of the name), and a name that
@@ -8534,7 +8556,12 @@ cpp_tname_arg(X, _, _) :- cpp_refuse(0, not_a_template_name(X)).
 cpp_bare_template_name(N) :- atom(N), ccl_known_template(N), \+ catch(ccl_typedef_of(N, _), _, fail), \+ catch(cpp_class_l(N, _), error(not_lowered(_), _), fail), !.
 cpp_type_name_only(N) :- atom(N), \+ ccl_known_template(N), ( catch(ccl_typedef_of(N, _), _, fail) -> true ; catch(cpp_class_l(N, _), error(not_lowered(_), _), fail) ), !.
 %% C++20: the head's requires-clause, under the bindings, must hold
-cpp_constraints_hold(N, TPs, B) :- cpp_constraints_hold_(TPs, N, B).                    % EVERY requires entry (a written clause, and one per constrained auto parameter)
+%% ... AND IT SEES NO CALLER'S LOCAL (0.182; [temp.constr]: its names are looked up where the template is), as a member's
+%% trailing clause has not since 0.110 (cpp_member_req_holds/4): libc++ 22's `views::zip_transform' names its parameter
+%% `__fun' and asks, in its trailing return type, `views::all' of each range, and ref_view's constructor requires
+%% `requires { __fun(std::declval<_Tp>()); }' of its own static `__fun' -- with the caller's frames open, the call went
+%% to the caller's lambda, the requirement was unmet, and no `operator()' was left.
+cpp_constraints_hold(N, TPs, B) :- ( memberchk(requires(_), TPs) -> cpp_isolated(cpp_constraints_hold_(TPs, N, B)) ; true ).   % EVERY requires entry (a written clause, and one per constrained auto parameter)
 cpp_constraints_hold_([], _, _).
 cpp_constraints_hold_([requires(R)|TPs], N, B) :- !, cpp_subst(R, B, R1), ( cpp_satisfied(R1) -> true ; cpp_refuse(0, constraint_not_satisfied(N)) ), cpp_constraints_hold_(TPs, N, B).
 cpp_constraints_hold_([_|TPs], N, B) :- cpp_constraints_hold_(TPs, N, B).
@@ -9734,7 +9761,7 @@ cpp_concept_holds(C, Args) :-
     cpp_types(Args, Args1),
     (   ground(Args1), '$cpp_ccm'(C, A0, R0), A0 == Args1 -> R0 == yes                              % A CONCEPT'S SATISFACTION IS REMEMBERED (0.112), as C++ caches it ([temp.constr.atomic]: one answer per arguments, a second one ill-formed): libc++'s ranges asked 3463 concept-ids of 97 kinds in one build -- `same_as<I &, I &>' 552 times
     ;   once('$cpp_concept'(C, concept(TPs, E))), cpp_bind_targs(TPs, Args1, B), cpp_subst(E, B, E1),
-        ( cpp_with_req_ctx(none, cpp_satisfied(E1)) -> R = yes ; cpp_trace(concept_unsatisfied(C, Args1)), R = no ),   % a concept's body is at namespace scope, never the asking class's
+        ( cpp_with_req_ctx(none, cpp_isolated(cpp_satisfied(E1))) -> R = yes ; cpp_trace(concept_unsatisfied(C, Args1)), R = no ),   % a concept's body is at namespace scope, never the asking class's -- nor the asking function's (0.182, above)
         ( ground(Args1) -> assertz('$cpp_ccm'(C, Args1, R)) ; true ),
         R == yes ).   % the concept that failed is named under the trace (0.109)
 %% THE CONTEXT a requirement is walked in: none for a template's head, the CLASS for a member's trailing requires-clause
