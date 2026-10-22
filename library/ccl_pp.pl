@@ -246,8 +246,10 @@ pp_lines([P|Ps], N, out, Lines) :-
     pp_lines(Ps1, N1, St1, Lines1).
 %% A RAW STRING LITERAL THAT SPANS LINES (C++ only, 0.138): a line that opens `R"d(' and does not close it with `)d"'
 %% takes the next lines, newlines kept, up to the line that closes it, and the whole is one line of the first one's
-%% number; the lexers count the newlines inside the literal, and the lines after it keep their numbers
-pp_raw_join(P, Ps, P1, Ps1, K) :- sub_atom(P, _, _, _, 'R"'), nb_current('$ccl_lang', cpp), atom_codes(P, Cs), pp_raw_open(Cs, D), !,
+%% number; the lexers count the newlines inside the literal, and the lines after it keep their numbers. A line holds
+%% `R"' where the split by it gives two parts or more (0.184): sub_atom/5 with its start free tries every start in
+%% cocolog 2.11 (clauses over between/3), 26 us a line of 80 characters, where the split takes 0.7 us.
+pp_raw_join(P, Ps, P1, Ps1, K) :- nb_current('$ccl_lang', cpp), atomic_list_concat(Rs, 'R"', P), Rs = [_, _|_], atom_codes(P, Cs), pp_raw_open(Cs, D), !,
     pp_raw_more(Ps, D, Qs, Ps1), length(Qs, K), atomic_list_concat([P|Qs], '\n', P1).
 pp_raw_more([Q|Qs], D, [Q|Rs], Rest) :- atom_codes(Q, QCs), append([41|D], [34], Close),
     (   append(_, Tail, QCs), append(Close, After, Tail) -> ( pp_raw_open(After, D2) -> pp_raw_more(Qs, D2, Rs, Rest) ; Rs = [], Rest = Qs )

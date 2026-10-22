@@ -10,8 +10,8 @@ it found, its measurements and its gate numbers. `README.md` tells a user what r
 architecture and the milestones. A step that changes a rule edits the rule here, in its topic, and writes its entry
 in `HISTORY.md`.
 
-At 0.183 the versions are: the module 0.183 (`ccl_p_version` in `module/cicilang.cicili`, `bin/cicilang --version`),
-the reader 137 (`ccl_reader_version/1`, `library/ccl_syntax.pl`) and the lowering 104 (`ccl_lowering_version/1`,
+At 0.184 the versions are: the module 0.184 (`ccl_p_version` in `module/cicilang.cicili`, `bin/cicilang --version`),
+the reader 138 (`ccl_reader_version/1`, `library/ccl_syntax.pl`) and the lowering 104 (`ccl_lowering_version/1`,
 `library/ccl_ir.pl`).
 
 Build and prove, always in this order (or all of it, `sh test/gates.sh`):
@@ -550,7 +550,7 @@ tutorials/01..03-*.pl       the objects layer's lessons; goal main, last line do
 ### The C++ gate: test/cpp.sh
 
 - `test/cpp.sh` runs in this order: `test/cpp.pl` in one `--local` process; four checks of the command; every
-  `test/cpp/run/*.cpp` as a pool job (598 at 0.183); `classes.cpp` and `templates.cpp` built and run; the refusals,
+  `test/cpp/run/*.cpp` as a pool job (599 at 0.184); `classes.cpp` and `templates.cpp` built and run; the refusals,
   each at the level its `test/cpp/NAME.flags` names, else C++17 (0.164). (0.105, 0.164)
 - `test/cpp.pl` runs 46 numbered checks, `c1` to `c46`, then reads Cicili's six C++ files whole (`test/cpp/objects.cpp`,
   `emit_report.cpp`, `specialise.cpp`, `syntax.cpp`, `torch.cpp`, `torch-fragment.cpp`). `c34` checks the Itanium
@@ -1285,9 +1285,19 @@ tutorials/01..03-*.pl       the objects layer's lessons; goal main, last line do
   `ccl_pp_top/3` and `ccl_unit/3` inside `ccl_with_file/2` and stores a whole read. (M5)
 - `ccl_unit/3` seeds the typedef names, resets `'$ccl_far'`, `'$ccl_macros'` and `'$ccl_expansions'`, registers the
   standard macros, empties the tables (`ccl_scope_init`) and reads the items with `ccl_externals//2`. (M1b)
-- The item loop parses EACH ITEM inside `\+ \+` (`ccl_externals/4`). The item and the count of tokens left pass
-  through `'$ccl_item'`, and `ccl_skip/3` recovers the position. Later items get the marker `genv`. A `clang -E` line
-  marker `# N "file"` is dropped (`ccl_line_marker/1`). Why: cocolog reclaims the heap on backtracking only. (0.46)
+- The item loop parses EACH ITEM inside `\+ \+` (`ccl_externals/4`). The item and the count of the tokens it TOOK
+  pass through `'$ccl_item'`, and `ccl_skip/3` recovers the position. Later items get the marker `genv`. A `clang -E`
+  line marker `# N "file"` is dropped (`ccl_line_marker/1`). Why: cocolog reclaims the heap on backtracking only.
+  (0.46)
+- THE COUNT IS THE ITEM'S OWN (0.184; `ccl_item_length/3`): its input walked to the tail its parse left, which `==`
+  finds at once (the same cell); a tail the parse made itself, which no walk meets, is counted by the two lengths.
+  Until 0.183 the loop took the length of what was LEFT after each item, and of the whole input at each body's start,
+  a walk of the rest of the file each: a read was quadratic in its length, and `<thread>`'s flattened text (libc++
+  21, 50,720 lines) read 7,523 items at every depth in 1,223 bodies (the file's, the namespaces', the linkage blocks')
+  and spent 41 of its 71 s in those 8,746 walks, calls of `length/2`. A cold read of a header's text is 2.8 to 3.4
+  times faster, its tree the same, byte for byte: `<vector>` 48.5 s to 17.5 s and C++20's `<iostream>` 82.9 s to
+  29.4 s with this alone, `<thread>` 66.7 s to 19.5 s and `<iomanip>` 67.8 s to 20.2 s with the two bounds of
+  `sub_atom/5` too (Time and memory). (0.184)
 - Every statement carries its line first: `expr(L, E)`, `if(L, C, T, E)`, `return(L, E)`. Reader `k77`. (M1)
 - `ccl_p//1`, `ccl_kw//1`, `ccl_id//1` note the farthest line (`ccl_far/1`, `'$ccl_far'`, `ccl_farthest/1`) for the
   error's `near(F)`. (M1)
@@ -1648,8 +1658,11 @@ tutorials/01..03-*.pl       the objects layer's lessons; goal main, last line do
   __count, __enable_if_t< __count < _Dt, int> = 0>` of `<random>` read `__count <` as the algorithm's template-id.
   `valueparam.cpp`. (0.117)
 - A template template parameter's name is a template inside its item only (`ccl_note_tt_param`, un-noted per item frame
-  by `ccl_tparams_leave`). `ccl_skip_to_close` counts nested `<>` in its list. Why: `<variant>`'s `template <_Trait X,
-  ...>` read as a constrained parameter. (0.45, 0.93)
+  by `ccl_tparams_leave`). `ccl_skip_to_close` counts nested `<>` in its list, skips a parenthesized group whole and
+  ends at a `;` (0.184), its list's names and defaults unread (Not done). Why: `<variant>`'s `template <_Trait X,
+  ...>` read as a constrained parameter; and `template <template <class T, bool = (sizeof(T) < 4)> class TT>` counted
+  the comparison's `<` and was a syntax error, as the scan ahead of a class body did until 0.183. `ttpdefault.cpp`.
+  (0.45, 0.93, 0.184)
 - Packs and folds: `param(pack(T), N)`; `pack(X)` for an expansion in a template argument, a call argument, a base, an
   initializer item or a constructor initializer; `sizeof_pack(N)`; `fold(Op, dots, E)`, `fold(Op, E, dots)`,
   `fold(Op, A, dots, B)`. C++26's pack index is `pack_index(N, I)` as a type and `pack_index(A, I)` as an
@@ -2085,7 +2098,7 @@ tutorials/01..03-*.pl       the objects layer's lessons; goal main, last line do
 
 ### The versions
 
-- `ccl_reader_version/1` (`library/ccl_syntax.pl`, now 137): bump it for any grammar change to what a read gives, and
+- `ccl_reader_version/1` (`library/ccl_syntax.pl`, now 138): bump it for any grammar change to what a read gives, and
   for any change to what the AST beside a summary holds (item or member terms, `cpp_index_name/2`,
   `cpp_template_name/2`, `ccl_flat_items/3`, the namespace keys). Keep the reason in its comment. Why: the store and the
   summaries are keyed by it, and a stale read is served silently (`sizeof(std::string)` read 40). (M1, 0.89, 0.112,
@@ -7090,9 +7103,9 @@ A lambda is a class of its captures (`library/ccl_cpp.pl`). A fixture named alon
 - cocolog reclaimed the heap only on backtracking before 1.8.36, and its collector ran inside no nested engine before
   1.9.4 (findings below). So each unit of work runs inside `\+ \+` and passes
   its result out through a global or a fact: a preprocessed file (`pp_include_file`, its output under `'$pp_out:N'`,
-  spliced by `pp_finish`), a parsed item (`ccl_externals_/5`: the item and the tokens left pass through `'$ccl_item'`,
-  and `ccl_skip` restores the position), a gate check (`test/reader.pl`, `test/cpp.pl`). Why: a `std::vector<int>`
-  build restarted the owner's machine. (0.46)
+  spliced by `pp_finish`), a parsed item (`ccl_externals/4`: the item and the count of its tokens pass through
+  `'$ccl_item'`, and `ccl_skip` restores the position), a gate check (`test/reader.pl`, `test/cpp.pl`). Why: a
+  `std::vector<int>` build restarted the owner's machine. (0.46, 0.184)
 - Large text is built a hundred items at a time, each chunk inside `\+ \+` (`ccl_ast_chunks`, `ccl_sum_chunks`).
   (0.71)
 - `ck_items` scopes each checked function and `ir_items` each lowered item. A function's text is a global of its own
@@ -7250,7 +7263,13 @@ A lambda is a class of its captures (`library/ccl_cpp.pl`). A fixture named alon
   owner's rule: a pattern is written once). Why: trying every alternative cost 30 token matches a token, against 8.
 - Text goes through builtins: `atomic_list_concat/3` splits a file, `atom_codes/2` and `memberchk/2` test a line, and
   only a line that needs it is walked code by code (`pp_clean/3`). On a hot path `sub_atom/5` has every position
-  bound.
+  bound: since cocolog 2.5.0 it is clauses over `between/3`, and with its start free it tries every start (0.184: the
+  test of a line for a raw string's `R"` took 26 us a line of 80 characters, where the split by it takes 0.7 us,
+  `pp_raw_join/5`; a name's last character 8 us, where at its own position it takes 1 us, `ccl_set_bucket/3`; the cold
+  read of `<thread>`'s text 27.3 s to 20.2 s, `between/3` 7.83 million steps to 1.05 million). (0.184)
+- A read is linear in its items: the item loop counts the tokens an item took, never the length of the rest of the
+  file (`ccl_item_length/3`, the C reader's topic). Until 0.183 that length, a walk of the rest of the file for each
+  item and each body, was 58 % of a cold read of `<thread>`'s text. (0.184)
 - A C++ library header is flattened and read once, never raw: raw, `<sstream>`'s headers each failed and were
   preprocessed in turn, for ten minutes.
 - The lowering caches `ir_type/2` and `ir_abi/2` per type term; `ir_expr/4` carries the LLVM type beside the C type;
@@ -7338,7 +7357,9 @@ A lambda is a class of its captures (`library/ccl_cpp.pl`). A fixture named alon
   below); 2.4.0 (`58e9d89`) a Unix socket as an address; 2.4.1 (`596502e`) library(template); 2.5.0 (`5e6b89f`)
   rationals, a cell tag of four bits (`max_tagged_integer` 2^59 - 1, where it was 2^60 - 1; an integer past it boxed,
   integers still 64 bits), the rest of swipl's evaluable functions and text predicates, `atom_concat/3` as clauses over
-  `'$atom_concat'` (its (-, -, +) mode enumerates), and number readers that take the WHOLE text (the bullet below);
+  `'$atom_concat'` (its (-, -, +) mode enumerates), `sub_atom/5` as clauses over `between/3` and `'$sub_atom'/5`, whose
+  free start tries every start (0.184 bound it on two hot paths: Time and memory), and number readers that take the
+  WHOLE text (the bullet below);
   2.5.1 (`d966687`) `-0.0` through `atom_number/2`; 2.6.0 to 2.10.1 green threads, library(async), on by default
   since 2.8.0 -- preloaded at start-up beside the eight vendored SWI libraries, `async_run/1,2`, `go/1,2`, `await/1,2`,
   `async/2`, the futures and the channels, which no name of cicilang meets -- one shared store and a write barrier that
@@ -7942,12 +7963,13 @@ A lambda is a class of its captures (`library/ccl_cpp.pl`). A fixture named alon
   summed, took 2454 s over 589 over libc++ 18 and 2624 s over 591 over libc++ 21 (HISTORY.md, 0.182). 0.179's chain is
   the full run before it, 3585 s over libc++ 18, its libc++ 18 half on a slower machine (HISTORY.md, 0.180); 0.180's
   chain ran the gates its change touches over the HOMEs that 0.179's chain warmed, all GREEN (HISTORY.md, 0.181); the
-  chains of 0.165 to 0.178 are in HISTORY.md, 0.166 to 0.179. The chain of 0.183 is the first over cocolog 2.11.0 (the
-  Findings). Two libc++ passes are one gate: `LLVM=/usr/lib/llvm-18` and `LLVM=/usr/lib/llvm-21` choose the tree the
-  chain reads and links. libc++ 22 (the newest tree, which a run without `$LLVM` reads) is no gate: 0.182 built its
-  vector and its C++23 views by hand (`zipadjacent.cpp`, which its `.needs` skips over 18 and 21), and
-  `stdoptionalref` passes there. The run before 0.121's (0.118, 0.119) found, over 0.117, two defects and one stale
-  check of `test/cpp.pl` (c20, above).
+  chains of 0.165 to 0.178 are in HISTORY.md, 0.166 to 0.179. The chain of 0.184 is the first over cocolog 2.11.0 (the
+  Findings); 0.183's was not started, for the profile of a cold read taken before it found the item loop's quadratic
+  walk, and 0.184 holds 0.183. Two libc++ passes are one gate: `LLVM=/usr/lib/llvm-18` and `LLVM=/usr/lib/llvm-21`
+  choose the tree the chain reads and links. libc++ 22 (the newest tree, which a run without `$LLVM` reads) is no
+  gate: 0.182 built its vector and its C++23 views by hand (`zipadjacent.cpp`, which its `.needs` skips over 18 and
+  21), and `stdoptionalref` passes there. The run before 0.121's (0.118, 0.119) found, over 0.117, two defects and
+  one stale check of `test/cpp.pl` (c20, above).
 - The host sets the predefined macros (`ccl_host_os/1` and `ccl_host_arch/1` in the module), the inclusion path
   (Debian's `/usr/lib/llvm-NN`, the multiarch directory) and the link (`-lc++` and `-lm` on Linux) (0.87, 0.93, 0.100).
 - A struct passed or returned by value crosses a call as clang's x86-64 code expects, in both directions, with the
@@ -8041,33 +8063,8 @@ A lambda is a class of its captures (`library/ccl_cpp.pl`). A fixture named alon
   (two virtual overloads of one name and arity, one overridden), `virtualdefault` (a virtual call that leaves a defaulted
   argument out), `anonparam` (an unnamed by-value parameter destroyed), `rangeadl` (a range-for by the free `begin` and
   `end` of two namespaces), `downcast` (`static_cast` from a second base to the derived class, a pointer and a reference).
-- Forms of 0.172: `lvbase` (two direct virtual bases, a plain base then a virtual one, a virtual first base before a
-  plain one, a class derived from one), `lvbprimary` (a virtual first base beside a later primary one that holds a
-  virtual base), `lvbthree` (three virtual bases written in an order of their own, a class over one as its first base),
-  `lvbpoly` (later polymorphic virtual bases: virtual calls, overrides, `dynamic_cast`, a `delete` through a base, the
-  order of the constructors and destructors), `lvbdiamond` (a diamond over a later virtual base), `lvbtwice` (a virtual
-  base named directly and through a path), `lvbempty` (an empty later virtual base), `holdassign` (a holder assigned
-  through a reference inside a larger object); `vttprimary`, `vttprimary2`, `vttdeep` and `vttlater` (the VTT: a path
-  with a primary base of its own, a path two levels below its holder, a virtual call through the shared base in each
-  constructor and destructor) and `vttsec` (the VTT's secondary pointers: a call through a later base that holds the
-  virtual base, in a path's constructor and destructor); `secslots` (a later polymorphic base that adds virtual functions
-  to its primary base's).
-- Forms of 0.173: `lvbover` (a later virtual base with a virtual base of its own, a class derived from it, a copy, the
-  order of the constructors and destructors), `lvbfirst` (a virtual first base with a virtual base of its own beside a
-  later one, in both orders), `lvbdeep` (a later virtual base over a class whose virtual first base has one, and that
-  class as a path), `lvbmore` (a diamond over such later virtual bases, a virtual base named after one that holds it and
-  before it, `dynamic_cast` and `typeid`), `lvbshare` (a virtual first base and a later virtual base sharing a virtual
-  base, and the same with a path), `lvbvempty` (a later virtual base over an empty virtual base), `lvbemptypath` (a path
-  that reaches an empty virtual base further in, beside a later virtual base), `lvblibbase` (`std::istream` as a later
-  virtual base of the program's class).
-- Forms of 0.181: `memfnq` (a pointer to member function's cv- and ref-qualifiers: the type information's names, an
-  overload, a specialization, an overloaded member's address chosen by the target, an instance over one, a detection,
-  calls through `std::invoke`, `std::mem_fn` and `.*`, `__PRETTY_FUNCTION__`), `memfnq20` (C++20: an rvalue and a
-  `const &` member), `exceptionptr` (`std::current_exception` and `std::rethrow_exception` over the program's throw;
-  over libc++ 21 the link names libc++abi), `fwdstring` (a call over `const std::string &` with <string> unread: an
-  overload set, explicit constructors, <stdexcept>'s `logic_error`), `declfirst` (a definition after a declared
-  overload of other parameters -- a reference, a builtin type, another count -- and an overload set named by a
-  global's initializer, by name and by address).
+- Forms of 0.184: `ttpdefault` (a template template parameter's list with a comparison in parentheses, in a class
+  template's head and a member template's).
 - Forms of 0.183: `scanahead` (a member template's head with a comparison in parentheses, then a class template's
   deduction guide after a global that names it).
 - Forms of 0.182: `injectedttp` (a class template's injected class name given to a template template parameter in its
@@ -8076,6 +8073,14 @@ A lambda is a class of its captures (`library/ccl_cpp.pl`). A fixture named alon
   name, and a base clause naming the class's own), `reqcaller` (C++20: a constraint that names a static of its own class
   while the caller has a local of that name), `zipadjacent` (C++23 over libc++ 22: `views::pairwise`, `adjacent`,
   `zip_transform` and `adjacent_transform`, which its `.needs` skips over libc++ 18 and 21).
+- Forms of 0.181: `memfnq` (a pointer to member function's cv- and ref-qualifiers: the type information's names, an
+  overload, a specialization, an overloaded member's address chosen by the target, an instance over one, a detection,
+  calls through `std::invoke`, `std::mem_fn` and `.*`, `__PRETTY_FUNCTION__`), `memfnq20` (C++20: an rvalue and a
+  `const &` member), `exceptionptr` (`std::current_exception` and `std::rethrow_exception` over the program's throw;
+  over libc++ 21 the link names libc++abi), `fwdstring` (a call over `const std::string &` with <string> unread: an
+  overload set, explicit constructors, <stdexcept>'s `logic_error`), `declfirst` (a definition after a declared
+  overload of other parameters -- a reference, a builtin type, another count -- and an overload set named by a
+  global's initializer, by name and by address).
 - Forms of 0.180: `rttiother` (C++20: the type information of an enum and a scoped one, a pointer to a pointer and
   to an enum, a pointer to a data member and to a member function, an array, a function, `std::nullptr_t`, a pointer
   to a volatile builtin, `_Float16`, `_BitInt`, a vector type and a pointer to each, compared, thrown and caught;
@@ -8130,6 +8135,25 @@ A lambda is a class of its captures (`library/ccl_cpp.pl`). A fixture named alon
   (such a base two classes down, beside a later virtual base, written after an empty base and a plain one, a class over
   two paths that take it in turn), `vprimsteal` (a class over it through a virtual base, and over two nearly empty virtual
   bases: calls only, clang lays them otherwise, Not done).
+- Forms of 0.173: `lvbover` (a later virtual base with a virtual base of its own, a class derived from it, a copy, the
+  order of the constructors and destructors), `lvbfirst` (a virtual first base with a virtual base of its own beside a
+  later one, in both orders), `lvbdeep` (a later virtual base over a class whose virtual first base has one, and that
+  class as a path), `lvbmore` (a diamond over such later virtual bases, a virtual base named after one that holds it and
+  before it, `dynamic_cast` and `typeid`), `lvbshare` (a virtual first base and a later virtual base sharing a virtual
+  base, and the same with a path), `lvbvempty` (a later virtual base over an empty virtual base), `lvbemptypath` (a path
+  that reaches an empty virtual base further in, beside a later virtual base), `lvblibbase` (`std::istream` as a later
+  virtual base of the program's class).
+- Forms of 0.172: `lvbase` (two direct virtual bases, a plain base then a virtual one, a virtual first base before a
+  plain one, a class derived from one), `lvbprimary` (a virtual first base beside a later primary one that holds a
+  virtual base), `lvbthree` (three virtual bases written in an order of their own, a class over one as its first base),
+  `lvbpoly` (later polymorphic virtual bases: virtual calls, overrides, `dynamic_cast`, a `delete` through a base, the
+  order of the constructors and destructors), `lvbdiamond` (a diamond over a later virtual base), `lvbtwice` (a virtual
+  base named directly and through a path), `lvbempty` (an empty later virtual base), `holdassign` (a holder assigned
+  through a reference inside a larger object); `vttprimary`, `vttprimary2`, `vttdeep` and `vttlater` (the VTT: a path
+  with a primary base of its own, a path two levels below its holder, a virtual call through the shared base in each
+  constructor and destructor) and `vttsec` (the VTT's secondary pointers: a call through a later base that holds the
+  virtual base, in a path's constructor and destructor); `secslots` (a later polymorphic base that adds virtual functions
+  to its primary base's).
 - Forms of 0.171: `vbasetwo` (a class over two virtual bases through its paths, and a diamond over two such paths:
   sizes and offsets as clang lays them, the virtual bases' members read and written through each path, copies),
   `vbasetwopoly` (the same with tables: virtual calls through each base, `dynamic_cast` across, a `delete` through a
@@ -8391,6 +8415,11 @@ A lambda is a class of its captures (`library/ccl_cpp.pl`). A fixture named alon
   base too, since 0.173 one whose later virtual base has virtual bases of its own, and every base-variant sub-object at
   any depth is built under construction tables of its own, its secondary pointers among them (0.110, 0.117, 0.160,
   0.163, 0.171, 0.172, 0.173, 0.174, 0.175, 0.176, 0.177, 0.178).
+- A template template parameter's own parameter list is skipped, its default arguments with it: `TT<U>` takes the
+  bound template's own defaults, where [temp.param]/14 has the parameter's apply in its scope, as clang++ does, so a
+  default that differs from the template's gives another answer, silently (`template <template <class T, bool =
+  (sizeof(T) > 2)> class TT>` over `template <class T, bool B = (sizeof(T) < 4)> struct Small`). libc++ 18, 21 and 22
+  write no default in such a list (a scan of their 57, 80 and 99 template template parameters, 0.184).
 
 ### libc++ modules
 

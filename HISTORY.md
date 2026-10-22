@@ -177,6 +177,7 @@ One row per step, in version order: the step's title, what it did and its gate n
 | 0.181 | Not done, the nineteenth part: a member function pointer's qualifiers; libc++abi over libc++ 21 | a pointer to member function keeps its cv- and ref-qualifiers (the type key, the mangler, the type information, a specialization, an overload, an overloaded member's address, a call through one checked); ` -lc++abi` linked where `libc++.so` is the library itself; an alias template of a deeper namespace keyed apart (`std::pmr::basic_string` resolved itself without end); a definition beside a declared overload named by its keys; an overload set named by a global or by its address chosen by the target | its chain (0.182), over fresh HOMEs (the reader moved): all nine gates GREEN over libc++ 18, the library read and the C++ gate over 21; the C++ gate 727 s and 845 s; 589 of 592 over 18, 591 over 21 |
 | 0.182 | Not done, the twentieth part: libc++ 22's vector and its C++23 views; cocolog 2.11.0 | a class instance given to a template template parameter is the injected class name; a template-id qualified by a namespace never finds a member template of the class being walked; a class declares its members' names and a function its parameters' where a collided name is renamed; a constraint sees no caller's local; cocolog 2.11.0 from 2.2.5 (five warm builds 6.9 % dearer; the logical update view, the number readers, the cell tag) | committed before its chain: on 2.11.0 the flow gate, the C gates and the proof GREEN, nets of 56 C++ fixtures over libc++ 18 (on 2.2.5 and on 2.11.0) and over 21 (on 2.11.0), each the same as its .expect but `stdthread` over 21 (a read after another in one process, older than this step, 0.183's); 87 run C fixtures, 597 C++ |
 | 0.183 | A header read after another in one process: the scan ahead of a class body stays in its member | the scan that notes a class's member templates before its members are read skips a parenthesized group and ends at a member's `;` or `}`: a comparison in a head of libc++ 21's `<variant>` noted `shared_ptr` as a function template, and the reads of `<mutex>` and `<thread>` after it in one process stopped (a cold `stdthread` over libc++ 21) | committed before its chain: on 2.11.0 the flow gate, the C gates and the proof GREEN, nets of 69 C++ fixtures and `stdrandom` over fresh HOMEs, 70 of 70 the same over libc++ 18 and over 21, `stdthread` cold among them; 87 run C fixtures, 598 C++ |
+| 0.184 | A cold read linear in its items; a template template parameter's list skips a parenthesized group | the item loop counts the tokens an item took, never the length of the rest of the file, 58 % of a cold read of `<thread>`'s text (a header's text read 2.8 to 3.4 times faster, its tree the same); two hot calls of `sub_atom/5` take their positions bound (cocolog 2.5.0 made it clauses over `between/3`); a template template parameter's list skips a parenthesized group and ends at a `;` | committed before its chain, which holds 0.183's: on 2.11.0 the flow gate, the C gates and the proof GREEN, nets of 71 C++ fixtures over fresh HOMEs, 71 of 71 the same over libc++ 18 (the builds summed 1772 s, 3666 s at 0.183) and over 21 (1469 s, 2971 s at 0.183); 87 run C fixtures, 599 C++ |
 
 ## M5 — the C++ mode
 
@@ -11510,3 +11511,75 @@ carries its numbers.**
 
 Reader 137 (the scan ahead of a class body stays in its member: what a read gives changes, `<mutex>` whole and the
 headers read after it in one process with it), lowering 104 (no change).
+
+## 0.184 — A cold read linear in its items; a template template parameter's list skips a parenthesized group
+
+**0.184: the item loop counts the tokens an item took, where it took the length of the rest of the file after each
+item -- a cold read of a header's text 2.8 to 3.4 times faster, its tree the same, byte for byte -- and two hot calls of
+`sub_atom/5` take their positions bound; a template template parameter's own list skips a parenthesized group, as the
+scan ahead of a class body does since 0.183. It holds 0.183, whose chain was not started: the profile of a cold read,
+taken before it, found the loop's quadratic walk. Committed before its chain, on the owner's word ("Commit before
+chain"): the chain runs over this commit, the first over cocolog 2.11.0, and the next one carries its numbers.**
+
+- THE PROFILE. The RUN view of cocolog's `library(flow/debug)` (`flow_run_time/3`, the `test/prof.sh` topic) over the
+  read alone of `<thread>`'s flattened text (libc++ 21, C++17, 50,720 lines, read as the library's: `cicilang_ast/3`
+  under `ccl_lib_unit/1`; 838 items at the top), with 0.183's library on 2.11.0: 70.8 s untraced, 199.5 million steps,
+  and 41.3 s of them, 58.4 %, in 17,242 calls of `length/2`. 8,746 of those calls were the item loop's, each a walk
+  of the rest of the file, 4.7 ms on the mean: one for each of the 7,523 items read at every depth -- the length of
+  what its parse LEFT -- and one for each of the 1,223 bodies -- the file's, the namespaces', the linkage blocks': the
+  length of the whole input where each began; the count of an item was the difference. The other 8,496 calls took
+  2.4 ms in all. The rest of the run was flat: `nb_setval/2` 2.8 s (325,307 calls), `between/3` 1.2 s and 0.7 s in its
+  retries (7.83 million steps), `nb_getval/2` 1.2 s (9.52 million), `'$sub_atom'/5` 1.2 s (5.10 million).
+- THE MENDING (`ccl_externals/4`, `ccl_item_length/3`): an item's count is its input walked to the tail its parse
+  left, which `==` finds at once, the same cell -- no tail of the input equals a longer one --, and `ccl_skip/3` walks
+  the same count on; a tail the parse made itself, which no walk meets, falls back to the two lengths, the old answer.
+  The threaded length and `ccl_externals_/5` are gone. The profile again: 27.3 s, `length/2` 8,496 calls and 2.4 ms;
+  an item's tokens are walked twice now, 1,586,398 steps each, `ccl_item_walk/4` 0.4 s with its retries and
+  `ccl_skip/3` 0.1 s.
+- `sub_atom/5` WITH ITS START FREE. Since cocolog 2.5.0 `sub_atom/5` is clauses over `between/3` and `'$sub_atom'/5`,
+  and with its start free it tries every start. `pp_raw_join/5` tested each line for a raw string's `R"` with
+  `sub_atom(P, _, _, _, 'R"')`, 26 us a line of 80 characters, where the split by `R"` (`atomic_list_concat/3`, in C)
+  takes 0.7 us; `ccl_set_bucket/3`, asked at every identifier, took a name's last character with `sub_atom(N, _, 1,
+  0, L)`, 8 us for a name of 17 characters, where at its own position it takes 1 us. Both take their positions bound
+  now, the same answers. The profile with both mendings: 20.2 s, 164.2 million steps where there were 204.3 million;
+  `between/3` 1.05 million steps and 0.14 s, where it took 7.83 million and 1.8 s with its retries, and
+  `'$sub_atom'/5` 0.53 million and 0.11 s, where it took 5.10 million and 1.2 s. `nb_setval/2` leads now, 2.1 s, 10.3 %
+  (325,307 calls).
+- THE MEASURE, the read alone of four flattened texts, each in a process of its own (CPU time; each tree written out
+  item by item, a line each, and compared byte for byte): `<thread>` (libc++ 21, C++17) 66.7 s to 19.5 s and
+  `<iomanip>` (libc++ 18, C++17) 67.8 s to 20.2 s with both mendings; `<vector>` (libc++ 18, C++17) 48.5 s to 17.5 s
+  and `<iostream>` (libc++ 18, C++20) 82.9 s to 29.4 s with the loop's alone. The trees are the same, byte for byte:
+  838, 794, 807 and 884 items.
+- A TEMPLATE TEMPLATE PARAMETER'S OWN LIST. 0.183's rule -- an angle-bracket count skips a parenthesized group --
+  looked for in the reader's other counts: `ccl_skip_targs/3`, the look-ahead of a template-id, skipped one already
+  (now with `ccl_scan_parens/3`, 0.183's, the same stops; `ccl_skip_parens/3` is gone), and `ccl_skip_to_close//0`,
+  which steps over a template template parameter's list, did not. In `template <template <class T, bool = (sizeof(T)
+  < 4)> class TT, class U> struct Use` it counted the comparison's `<`, and the list ran on to the outer list's `>`; in
+  `bool = (sizeof(T) > 2)` the comparison's `>` closed it too soon. 0.183's library refused the item, `syntax error:
+  could not read this item`. The skip steps over a parenthesized group whole and ends at a `;` now.
+  `ttpdefault.cpp` -- the list in a class template's head and in a member template's -- prints clang++'s `1 2 3 40
+  30`. The list's names and defaults are still unread: `TT<U>` takes the bound template's own defaults, where the
+  parameter's apply in its scope ([temp.param]), a silent difference where they differ (`CLAUDE.md`, Not done). A scan
+  of libc++'s headers (a Python script, no cocolog run) found 57, 80 and 99 template template parameters in 18, 21 and
+  22, none with a default in its list: no header met the defect.
+- 0.183'S CHAIN WAS NOT STARTED. A profile of a cold read, taken after 0.183 was pushed and before its chain, found the
+  quadratic loop; the chain of 0.184 holds 0.183 and is the first over cocolog 2.11.0. 0.183's nets stand for it until
+  then.
+- ON 2.11.0, over the work tree (module 0.183, reader 138, lowering 104): the flow gate GREEN, 4094 predicates, its one
+  finding, 95 s and 2962 MB, and after the last edit, a comment's, 97 s and 2882 MB; over a fresh HOME reader 4 s,
+  compile 15 s, driver 13 s, objects 4 s and the proof GREEN. Nets of 0.183's 70 fixtures (its 69 and `stdrandom`) and
+  `ttpdefault`, three at a time, each over a fresh HOME: over libc++ 18 from 16:10:15 to 16:20:41 UTC, 71 of 71 the same
+  as their `.expect`, the builds summed 1772 s where 0.183's net took 3666 s for the 70 (`usingnamed` 479 s to 134 s,
+  `viewsall` 464 s to 205 s, `stdformat` 247 s to 113 s, `fmtrange` 234 s to 175 s, `viewsmore` 210 s to 104 s,
+  `stdthread` 189 s to 78 s, `viewchain` 158 s to 30 s, `stdrandom` 149 s to 57 s), the largest peak 1071 MB where it
+  was 1160 MB; over libc++ 21 the same 71 from 16:42:36 to 16:51:17 UTC, 71 of 71 the same, the builds summed 1469 s
+  where 0.183's took 2971 s (`viewsall` 358 s to 198 s, `usingnamed` 303 s to 125 s, `stdformat` 252 s to 100 s,
+  `stdthread` 184 s to 63 s, `fmtrange` 172 s to 105 s, `fmtcheck` 146 s to 92 s, `stdrandom` 130 s to 48 s,
+  `viewchain` 112 s to 28 s), the largest peak 1047 MB where it was 1021 MB. A net claims nothing.
+- `CLAUDE.md`: the item loop's count (the C reader's topic), the template template parameter's rule, the versions and
+  the `now` line, the C++ gate's count, Time and memory (a read linear in its items; `sub_atom/5`'s free start), the
+  Findings' line of cocolog 2.5.0, the Hosts bullet (the chain of 0.184), Not done (a template template parameter's
+  list), What runs (Forms of 0.184; the Forms bullets put in descending order, 0.172, 0.173 and 0.181 out of place).
+
+Reader 138 (a template template parameter's list skips a parenthesized group and ends at a `;`: what a read gives
+changes), lowering 104 (no change).
