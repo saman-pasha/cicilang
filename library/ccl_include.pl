@@ -187,7 +187,7 @@ ccl_with_file(File, Goal) :-
     -> ccl_restore_globals(Saved)
     ;  ccl_restore_globals(Saved), fail ).
 ccl_save_globals(g(F, E, Far, M, Sc, Gs, Td, Tg, En, Ex)) :-
-    ccl_global('$ccl_file', F, none), ccl_global('$ccl_env', E, []), ccl_global('$ccl_far', Far, 0), ccl_global('$ccl_macros', M, []),
+    ccl_global('$ccl_file', F, none), ccl_env_names(E), ccl_global('$ccl_far', Far, 0), ccl_global('$ccl_macros', M, []),
     ccl_global('$ccl_scope', Sc, []), ccl_tab_save('$ccl_gscope', Gs), ccl_tab_save('$ccl_typedefs', Td), ccl_tab_save('$ccl_tags', Tg),
     ccl_global('$ccl_enums', En, []), ccl_global('$ccl_expansions', Ex, []).
 ccl_restore_globals(g(F, E, Far, M, Sc, Gs, Td, Tg, En, Ex)) :-
@@ -400,7 +400,7 @@ ccl_lib_unit(G) :-
 %% 0.184's chain: 4 of 47 summaries over libc++ 18, 5 of 47 over 21). The includer of a header flattened in the process
 %% now has what an includer served from its summary has.
 ccl_seed_read(G, U) :-
-    ccl_global('$ccl_templates', Ts0, []), ccl_global('$ccl_fn_templates', Fs0, []),
+    ccl_ensure_globals, ccl_set_list('$ccl_tmpls', Ts0), ccl_set_list('$ccl_ftmpls', Fs0),
     ccl_seed_template_names(Seed), ccl_templates_put(Seed), ccl_fn_templates_put([]),
     (   catch(G, E, ( ccl_templates_put(Ts0), ccl_fn_templates_put(Fs0), throw(E) ))
     ->  ccl_templates_put(Ts0), ccl_fn_templates_put(Fs0), ccl_unit_templates_note(U)
@@ -636,21 +636,21 @@ ccl_sum_note(F) :-
     ccl_tab_add('$ccl_tags', G), ccl_tables_changed,
     nb_getval('$ccl_enums', E0), append(E, E0, E1), nb_setval('$ccl_enums', E1),
     ccl_note_templates(Tmpls), ccl_add_envs(Names).
-%% a summary's names into the templates and the Env in ONE read and one write
-%% each: one at a time, every addition copied the whole list (nb_setval/2),
-%% 190 names against 500 -- 15 ms of every rebuild of the symbol table
+%% a summary's names into the sets of templates and of the Env, the new ones logged (ccl_env_log/1; until 0.187 a list
+%% beside each set took them in ONE read and one write: one at a time, every addition had copied the whole list,
+%% 190 names against 500 -- 15 ms of every rebuild of the symbol table)
 ccl_note_templates(Ns0) :- ccl_split_fn_templates(Ns0, Ns, Fns),
-    ccl_set_new(Ns, '$ccl_tmpls', New), ( New == [] -> true ; nb_getval('$ccl_templates', Ts), append(New, Ts, Ts1), nb_setval('$ccl_templates', Ts1) ),
-    ccl_set_new(Fns, '$ccl_ftmpls', NewF), ( NewF == [] -> true ; nb_getval('$ccl_fn_templates', Fs), append(NewF, Fs, Fs1), nb_setval('$ccl_fn_templates', Fs1) ).
+    ccl_set_adds('$ccl_tmpls', Ns), ccl_set_adds('$ccl_ftmpls', Fns).
 ccl_split_fn_templates([], [], []).
 ccl_split_fn_templates([fn(N)|Ns], [N|Ps], [N|Fs]) :- !, ccl_split_fn_templates(Ns, Ps, Fs).
 ccl_split_fn_templates([N|Ns], [N|Ps], Fs) :- ccl_split_fn_templates(Ns, Ps, Fs).
-ccl_add_envs(Ns) :- ccl_set_new(Ns, '$ccl_envs', New), ( New == [] -> true ; nb_getval('$ccl_env', G), append(New, G, G1), nb_setval('$ccl_env', G1) ).
+ccl_add_envs(Ns) :- ccl_set_new(Ns, '$ccl_envs', New), ccl_env_log(New).
 %% the names not in the set yet, added to it as they are found (a duplicate among them counted once)
 ccl_set_new([], _, []).
-ccl_set_new([N|Ns], Set, New) :- ( atom(N), \+ ccl_set_has(Set, N) -> ccl_set_add(Set, N), New = [N|New1] ; New = New1 ), ccl_set_new(Ns, Set, New1).
+ccl_set_new([N|Ns], Set, New) :- ( ccl_set_add_new(Set, N) -> New = [N|New1] ; New = New1 ), ccl_set_new(Ns, Set, New1).
+%% a template head's parameters that it added to the env: those among the names logged since its mark (ccl_env_since/2)
 ccl_new_names([], _, []).
-ccl_new_names([N|Ns], Have, New) :- ( atom(N), \+ memberchk(N, Have) -> New = [N|New1] ; New = New1 ), ccl_new_names(Ns, Have, New1).
+ccl_new_names([N|Ns], Added, New) :- ( atom(N), memberchk(N, Added) -> New = [N|New1] ; New = New1 ), ccl_new_names(Ns, Added, New1).
 ccl_partial(U, whole, U) :- !.
 ccl_partial(U, stopped(L, near(F)), partial(U, line(L), near(F))).
 ccl_parse_file(Path, unit(Is), Info) :-

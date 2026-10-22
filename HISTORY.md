@@ -179,7 +179,8 @@ One row per step, in version order: the step's title, what it did and its gate n
 | 0.183 | A header read after another in one process: the scan ahead of a class body stays in its member | the scan that notes a class's member templates before its members are read skips a parenthesized group and ends at a member's `;` or `}`: a comparison in a head of libc++ 21's `<variant>` noted `shared_ptr` as a function template, and the reads of `<mutex>` and `<thread>` after it in one process stopped (a cold `stdthread` over libc++ 21) | committed before its chain: on 2.11.0 the flow gate, the C gates and the proof GREEN, nets of 69 C++ fixtures and `stdrandom` over fresh HOMEs, 70 of 70 the same over libc++ 18 and over 21, `stdthread` cold among them; 87 run C fixtures, 598 C++; held by 0.184's chain (0.185): GREEN |
 | 0.184 | A cold read linear in its items; a template template parameter's list skips a parenthesized group | the item loop counts the tokens an item took, never the length of the rest of the file, 58 % of a cold read of `<thread>`'s text (a header's text read 2.8 to 3.4 times faster, its tree the same); two hot calls of `sub_atom/5` take their positions bound (cocolog 2.5.0 made it clauses over `between/3`); a template template parameter's list skips a parenthesized group and ends at a `;` | its chain (0.185), the first over cocolog 2.11.0, over fresh HOMEs (the reader moved), holding 0.182 and 0.183: all nine gates GREEN over libc++ 18 in 1808 s, the library read and the C++ gate over 21; the library read 482 s and 413 s (0.181's 1121 s and 1061 s), the C++ gate 837 s and 842 s; 595 of 599 over 18, 597 over 21 |
 | 0.185 | Not done, the twenty-first part: a template template parameter's own defaults | a template template parameter's own list read; in its scope `TT<U>` takes the defaults the list gives, not the bound template's (`Use<Small, char>::v` was 1, clang++ gives 2); the numbers of 0.184's chain; the engine's cost measured again, 3.6 % | committed before its chain: on 2.11.0 the flow gate GREEN (4101 predicates), the trees of four libc++ headers the same, byte for byte, nets of 75 C++ fixtures over fresh HOMEs, 75 of 75 the same over libc++ 18 and over 21; 87 run C fixtures, 600 C++; its chain (0.186), over fresh HOMEs (the reader moved): all nine gates GREEN over libc++ 18 in 1841 s, the library read and the C++ gate over 21; the library read 474 s and 421 s, the C++ gate 868 s and 853 s; 596 of 600 over 18, 598 over 21 |
-| 0.186 | Not done, the twenty-second part: a header read alike after others; a qualified name that names no type | a library header's read starts from the seed set of templates (0.185's cold nets wrote 4 and 5 of 47 summaries otherwise than 0.184's chain); a qualified name that names no type declares no parameter (libc++'s orderings' `less` were member function declarations, 13 of 38 summaries); a namespace-scope object and a static data member defined out of its class, initialized by `T(args)` or `T{args}`, constructed from their own arguments (`no_constructor` since 0.99); a scalar `<=>` no arithmetic type to the inference; the mangler measured against the shipped libraries; the numbers of 0.185's chain | committed before its chain: on 2.11.0 the flow gate GREEN (4109 predicates), the trees of seven libc++ headers the same but the three `less` definitions, nets of 112 C++ fixtures over fresh HOMEs, 112 of 112 the same over libc++ 18 and over 21; 87 run C fixtures, 604 C++ |
+| 0.186 | Not done, the twenty-second part: a header read alike after others; a qualified name that names no type | a library header's read starts from the seed set of templates (0.185's cold nets wrote 4 and 5 of 47 summaries otherwise than 0.184's chain); a qualified name that names no type declares no parameter (libc++'s orderings' `less` were member function declarations, 13 of 38 summaries); a namespace-scope object and a static data member defined out of its class, initialized by `T(args)` or `T{args}`, constructed from their own arguments (`no_constructor` since 0.99); a scalar `<=>` no arithmetic type to the inference; the mangler measured against the shipped libraries; the numbers of 0.185's chain | committed before its chain: on 2.11.0 the flow gate GREEN (4109 predicates), the trees of seven libc++ headers the same but the three `less` definitions, nets of 112 C++ fixtures over fresh HOMEs, 112 of 112 the same over libc++ 18 and over 21; 87 run C fixtures, 604 C++; its chain (0.187), over fresh HOMEs (the reader moved): all nine gates GREEN over libc++ 18 in 1813 s, the library read and the C++ gate over 21; the library read 482 s and 395 s, the C++ gate 838 s and 855 s; 600 of 604 over 18, 602 over 21 |
+| 0.187 | Not done, the twenty-third part: a cold read 1.5 times faster, its trees the same | the sets of names the whole record, no list of every name beside them (12,397 copies of the env's list, 0.89 s, in a read of `<thread>`'s flattened text); one look before an attribute, at the end of the specifiers and at a qualified name of one identifier; an out-of-class definition's qualified name read once; a set's bucket key from the name's list of characters; the numbers of 0.186's chain | committed before its chain: on 2.11.0 the flow gate GREEN (4128 predicates), the trees of seven libc++ headers the same, byte for byte, read in 90.0 s where 0.186 read them in 133.7 s, the C gates GREEN, nets of 112 C++ fixtures over fresh HOMEs, 112 of 112 the same over libc++ 18 and over 21, their cold builds 1597 s and 1436 s where 0.186's took 1942 s and 1702 s; 87 run C fixtures, 604 C++ |
 
 ## M5 — the C++ mode
 
@@ -11756,3 +11757,86 @@ over 595 and 2893 s over 597). The slowest over libc++ 18 `fmtrange` 123 s, `fmt
 
 Reader 140 (a qualified name that names no type declares no parameter, and a library header's read starts from the seed
 set of templates: what a read gives changes), lowering 104 (no change).
+
+## 0.187 — Not done, the twenty-third part: a cold read 1.5 times faster, its trees the same
+
+**0.187: a cold read of a header's text 1.5 times faster, its tree the same, byte for byte: the sets of names are the
+whole record, with no list of every name beside them; one look tells an attribute, the end of the specifiers and a
+qualified name of one identifier; an out-of-class definition's qualified name is read once; a set's bucket key comes
+from the name's list of characters; and the numbers of 0.186's chain: GREEN. Committed before its chain, on the owner's
+word ("Commit before chain"): the chain runs over this commit, and the next one carries its numbers.**
+
+THE CHAIN OF 0.186, on the checkout of its commit (module 0.186, reader 140, lowering 104, over cocolog 2.11.0), over
+fresh HOMEs (the reader version moved), from 20:28:55 UTC: the flow gate (one finding, `test/flow.expect`'s, 96 s, peak
+2779 MB over its four lanes; 4109 predicates), reader 5 s, compile 13 s, driver 13 s, objects 4 s, the proof, the cross
+gate in 357 s (peak 567 MB; 87 C fixtures and 5 checks, 24 C++ fixtures and 2 checks), over libc++ 18 the library read
+in 482 s (peak 1531 MB; the 23 asserted reads whole, 91 other headers warmed, none failed) and the C++ gate in 838 s
+(peak 2434 MB) with 600 of its 604 fixtures ok -- the skips `joinwith`, `stdoptionalref`, `tzone` and `zipadjacent` --
+the 23 refusals and the three of the safe part, the libc++ 18 half in 1813 s (to 20:59:08 UTC), and over libc++ 21 the
+library read in 395 s (peak 1167 MB; 91 warmed) and the C++ gate in 855 s (peak 2155 MB), 602 of 604 ok, the skips
+`stdoptionalref` and `zipadjacent`, to 21:19:58 UTC: GREEN. The headers' reads summed 1802 s over 114 over libc++ 18 and
+1487 s over 21 (0.185's 1776 s and 1592 s); the fixtures' builds 2832 s over 600 and 2930 s over 602 (0.185's 2934 s
+over 596 and 2905 s over 598). The slowest over libc++ 18 `fmtrange` 120 s, `fmtchrono2` 114 s, `fmtchrono` 100 s,
+`fmtcheck` 79 s, `viewsall` 78 s and `fmttuple` 78 s, over libc++ 21 `fmtchrono2` 106 s, `tzone` 94 s, `fmtchrono` 92 s,
+`viewsall` 82 s, `fmtrange` 79 s and `joinwith` 71 s. The summaries that the chain's library read wrote, one header a
+process, are the ones 0.186's nets wrote, every header of a fixture in one process: over libc++ 18 and over 21, the 52
+that both HOMEs hold are the same, each line made independent of the checkout and of the files' times (`sumcmp2.sh`;
+0.185's chain against its nets: 43 of 47 and 42 of 47). 0.186's read from the seed holds.
+
+- WHERE A COLD READ'S TIME WENT. The RUN views (`flow_run_time/3`, as `test/prof.sh` prints it) of a read of
+  `<thread>`'s flattened text (libc++ 21, C++17, the parse alone) and of a cold read of `<thread>` as the library read
+  makes it, both with 0.186's library: 164.3 million steps and 20.5 s, and 268.8 million steps and 30.7 s. The writes
+  of the globals, counted by key in a copy of the library (a session script, `countrun.sh`): the env's list,
+  `'$ccl_env'`, 12,397 writes and 0.89 s, 72 us a write, each a copy of thousands of names; the lists of templates and
+  of function templates 0.12 s. `ccl_gnu_attr//0` was asked 419,449 times, 0.57 s of its own; `ccl_specs//8` 254,949
+  times, 1.41 s of its own; and the two calls of `sub_atom/5` in `ccl_set_bucket/3` 240,479 times each.
+- THE SET IS THE WHOLE RECORD. The env's names, the templates and the function templates were each a set in buckets AND
+  a list of every name beside it, the list for the snapshots of a nested read and of a library header's read
+  (`ccl_save_globals`, `ccl_seed_read/2`), and each name added or taken away copied the list whole: a template head's
+  parameters joined the env as they were read and left it at the item's end, found by a comparison of the env with a
+  copy taken before the head (`ccl_env_prefix/3`). The lists are gone: a snapshot is the set's names (`ccl_set_list/2`,
+  `ccl_env_names/1`), a rebuild puts them back (`ccl_env_put/1`, `ccl_templates_put/1`, `ccl_fn_templates_put/1`), and
+  the names new to the env are logged with a count as they join (`ccl_env_log/1`); a head takes the count as its mark
+  (`ccl_env_mark/1`), and its leave takes away the names logged after it (`ccl_env_since/2`, `ccl_new_names/3`). The log
+  starts afresh at each item of the item loop, where no head is open. A lambda's head handed on the list of every name
+  as its Env, which `ccl_env_member/2` walked to its end at each name the lambda asked; it hands on `genv`, the set.
+- ONE LOOK. An attribute begins with `[`, `alignas` or one of nineteen words (`ccl_attr_word/1`), and `ccl_gnu_attr//0`
+  looks at the token before it tries its eight clauses; an identifier that none takes is noted as the farthest line,
+  as the clauses noted it. The specifiers end where the next token begins none -- a token that is no keyword, no
+  identifier, no `::` and no `[`, or, after a type, a word that no clause takes (`ccl_spec_word/1`, `ccl_spec_kw/1`) --
+  and the first clause of `ccl_specs//8` ends them there, where each such call tried the twenty-seven clauses one after
+  another. A qualified name of one identifier, which neither `<` nor `::` follows, is an atom, no compound name and no
+  concept before `auto`: the constrained `auto`'s clause of `ccl_specs//8` and the compound name's clause of
+  `ccl_cpp_type//3` look at the token after it first (`ccl_qname_ahead//1`), where they read each such type name twice
+  before `ccl_typedef_name//3` read it a third time.
+- A NAME READ ONCE. A constructor, a destructor and a conversion function defined out of their class were three clauses,
+  each reading the words before the name (`ccl_member_prefix//1`) and the qualified name again, and every declaration
+  that none of them took read them three times on its way to the general clause: a class template-id with its
+  arguments. The name is read once; `ccl_qdef_kind//2` chooses by its shape and the tokens after it, in the old clauses'
+  order, `ccl_qdef//7` reads the rest, and the clause commits where each of the three did.
+- THE BUCKET KEY. A set's bucket key, the name's first and last character and its length modulo 7, took two calls of
+  `sub_atom/5`, which are clauses over `between/3` since cocolog 2.5.0. It takes `atom_chars/2`, `last/2` and
+  `length/2`, a step each: 240,000 keys in 0.39 s where they took 0.68 s, the keys the same.
+- THE MEASURE. On 2.11.0, the trees of the seven flattened headers of 0.184 to 0.186 (`<map>`, `<algorithm>` and
+  `<iostream>` at C++20 and `<vector>` at C++17 over libc++ 18, `<string>` and `<ranges>` at C++20 and `<thread>` at
+  C++17 over 21), read with 0.186's library and with 0.187's, are the same, byte for byte (860, 831, 885, 807, 846, 838
+  and 955 items), read in 90.0 s where they took 133.7 s (24.1 s to 15.9 s, 14.4 to 9.1, 25.3 to 17.4, 16.0 to 10.1,
+  14.2 to 9.7, 19.2 to 13.7, 20.4 to 14.0; one run each). The read of `<thread>`'s flattened text in the RUN view: 115.0
+  million steps and 13.0 s where it took 164.3 million and 20.5 s; step by step, with the lists gone 130.1 million and
+  15.9 s, with the end of the specifiers and the bucket key 118.3 million and 13.4 s. A cold read of `<thread>` as the
+  library read makes it, the lists gone: 234.3 million steps where it took 268.8 million (the two profiles' untraced
+  times, 21.2 s and 30.7 s, are not compared: that run measured its clock at 60 ns a reading, the other at 32 ns). The
+  flow gate GREEN, 4128 predicates (19 new), its one finding, 86 s and 2937 MB. The reader, compile, driver and objects
+  gates and the proof GREEN over the work tree and a fresh HOME. Nets of the 112 fixtures of 0.186's nets, three at a
+  time, each net over a fresh HOME: over libc++ 18 from 21:43:12 to 21:52:18 UTC, 112 of 112 the same as their
+  `.expect`, the builds summed 1597 s where 0.186's nets summed 1942 s (`viewsall` 193 s to 154 s, `usingnamed` 127 s
+  to 92 s), the largest peak 1086 MB; over libc++ 21 from 21:52:18 to 22:00:30 UTC, 112 of 112 the same, 1436 s where
+  they summed 1702 s, the largest peak 992 MB. A net claims nothing.
+- `CLAUDE.md`: the versions and the `now` line; the C reader's typedef-names bullet; the known template's and the
+  function template's bullets; the template head's bullet (the log); the out-of-class constructor's bullet (the name
+  read once); `ccl_with_file/2`'s bullet; the Tables bullet of Time and memory (the set the whole record, the bucket
+  key); the one-look bullet; the flow gate's count; the Hosts bullet (the chain of 0.186); Not done (the cold read's
+  numbers).
+
+Reader 141 (the grammar's rules change and a read gives the same tree: a summary is read again with the rules that write
+it), lowering 104 (no change).

@@ -10,8 +10,8 @@ it found, its measurements and its gate numbers. `README.md` tells a user what r
 architecture and the milestones. A step that changes a rule edits the rule here, in its topic, and writes its entry
 in `HISTORY.md`.
 
-At 0.186 the versions are: the module 0.186 (`ccl_p_version` in `module/cicilang.cicili`, `bin/cicilang --version`),
-the reader 140 (`ccl_reader_version/1`, `library/ccl_syntax.pl`) and the lowering 104 (`ccl_lowering_version/1`,
+At 0.187 the versions are: the module 0.187 (`ccl_p_version` in `module/cicilang.cicili`, `bin/cicilang --version`),
+the reader 141 (`ccl_reader_version/1`, `library/ccl_syntax.pl`) and the lowering 104 (`ccl_lowering_version/1`,
 `library/ccl_ir.pl`).
 
 Build and prove, always in this order (or all of it, `sh test/gates.sh`):
@@ -398,11 +398,12 @@ tutorials/01..03-*.pl       the objects layer's lessons; goal main, last line do
   starts at one call pattern, so `test/flow.pl`'s `fg_roots_main/2` writes a copy of each file with a root,
   `'$fg_all'/N`, that calls each predicate the file defines with free arguments: 3538 predicates in the ten files at
   0.161 (3938 in all at 0.167, 4003 at 0.173, 4038 at 0.175, 4048 at 0.178, 4066 at 0.179, 4074 at 0.180, 4092 at 0.181,
-  4094 at 0.182, 4101 at 0.185, 4109 at 0.186; each step's in HISTORY.md), and since 0.161 the 220 of the nine gate
-  programs, `test/reader.pl`, `compile.pl`, `cpp.pl`, `readhdr.pl`, `census.pl`, `libcxx.pl`, `flow.pl`, `why.pl` and
-  `prof.pl` (`TFILES`), each charted with the compiler and the flow and process libraries loaded, nothing stubbed (no
-  gate program is a library file); their first chart found a predicate split by another's clauses (`census_main/0`) and
-  a call of `print_message/2`, which cocolog does not have, in the recovery of a `catch/3` in `readhdr.pl` and
+  4094 at 0.182, 4101 at 0.185, 4109 at 0.186, 4128 at 0.187; each step's in HISTORY.md), and since 0.161 the 220 of
+  the nine gate programs, `test/reader.pl`, `compile.pl`, `cpp.pl`, `readhdr.pl`, `census.pl`, `libcxx.pl`, `flow.pl`,
+  `why.pl` and `prof.pl` (`TFILES`), each charted with the compiler and the flow and process libraries loaded, nothing
+  stubbed (no gate program is a library file); their first chart found a predicate split by another's clauses
+  (`census_main/0`) and a call of `print_message/2`, which cocolog does not have, in the recovery of a `catch/3` in
+  `readhdr.pl` and
   `libcxx.pl`: a read that raised would have raised again there, an existence error where the FAIL line stands. Each
   copy is charted with the rest of the compiler loaded (`flow_graph/3`'s `load(Files)`), and the file itself is stubbed
   out of the library path (an empty file of its name first on `COCOLOG_LIBRARY`), so that its clauses are read once. A
@@ -1419,10 +1420,11 @@ tutorials/01..03-*.pl       the objects layer's lessons; goal main, last line do
 - A typedef name from a header the reader has not seen is known from its context: `name x`, `name *p` where no
   expression can stand, `(name *)`, `(name){`, `name *p = ...` in a block. A seed of standard names starts every unit
   (`ccl_seed_typedefs/1`). (M1)
-- The file's typedef names are threaded as an Env and mirrored in `'$ccl_env'` with the bucket set `'$ccl_envs'`
-  (`ccl_set_has/2`) for the casts deep in an expression. `ccl_env_sync/2` MERGES an item's new names and never
-  replaces the global env; a deep rule passes `genv` (`ccl_env_member/2`). Why: a replace dropped C++'s class names.
-  (0.44, 0.46)
+- The file's typedef names are threaded as an Env and held in the bucket set `'$ccl_envs'` (`ccl_set_has/2`) for the
+  casts deep in an expression, the set the whole record since 0.187 (the Tables topic of Time and memory).
+  `ccl_env_sync/2` MERGES an item's new names and never replaces the global env; a deep rule passes `genv`
+  (`ccl_env_member/2`), a lambda's head too since 0.187, which handed on the list of every name and walked it to its
+  end at each name it asked. Why: a replace dropped C++'s class names. (0.44, 0.46, 0.187)
 - The table kept while parsing: `'$ccl_scope'` the OPEN frames of Name-Type, innermost first, `[]` at file scope
   (pushed by `ccl_compound`, and at a function's parameters only when `{` is next); `'$ccl_gscope'` the file scope;
   `'$ccl_typedefs'`; `'$ccl_tags'` (a C++ class without its bodies, `ccl_slim_members`) -- these three in 128 buckets
@@ -1582,9 +1584,9 @@ tutorials/01..03-*.pl       the objects layer's lessons; goal main, last line do
 - `ccl_qname//3` reads `::a::b<args>::c` into an atom, `tmpl(N, Args)` or `scoped(Path, Last)`; a leading `::` puts
   `global` first. A segment may be `decltype(E)`, `operator(Op)` or `::template f<U>` (`ccl_qseg`, `ccl_qrest`).
   (M5, 0.44)
-- `N <` starts a template-id when N is a known template (`ccl_known_template/1`: the set `'$ccl_tmpls'`, the list
-  `'$ccl_templates'`). In a type context it also starts one when `ccl_targs_ahead//0` finds the matching `>` and a
-  declarator-like token follows. The scan skips parentheses and stops at `;`, `{` or `}`. (M5, 0.44)
+- `N <` starts a template-id when N is a known template (`ccl_known_template/1`: the set `'$ccl_tmpls'`, the whole
+  record since 0.187). In a type context it also starts one when `ccl_targs_ahead//0` finds the matching `>` and a
+  declarator-like token follows. The scan skips parentheses and stops at `;`, `{` or `}`. (M5, 0.44, 0.187)
 - `ccl_ensure_globals` seeds the templates with common standard library names and the compiler's template-shaped
   builtins (`__type_pack_element`, `__make_integer_seq` ...). Every template item adds its name (`ccl_note_template/1`).
   (M5)
@@ -1620,9 +1622,9 @@ tutorials/01..03-*.pl       the objects layer's lessons; goal main, last line do
   undefined symbols over 13 of the 38 summaries of libc++ 18 that hold them (`<map>`, `<string>`, `<algorithm>` ... at
   C++20, 0.184's chain); `O b(R::tag);` and `int y(Q::less);` in a block declared functions. Reader 140.
   `qualparam.cpp`, `ordless.cpp`. (0.44, 0.186)
-- A function template's name is a template, never a type. `ccl_note_if_fn_template` records it (`'$ccl_fn_templates'`,
-  the set `'$ccl_ftmpls'`; a summary's `ftemplate(N)`), and `ccl_qname_typish` refuses it, its explicit template-id too.
-  So `_Tp __t(std::move(__x))` and `T &r(std::forward<U>(v))` declare variables. (0.45, 0.84)
+- A function template's name is a template, never a type. `ccl_note_if_fn_template` records it (the set
+  `'$ccl_ftmpls'`; a summary's `ftemplate(N)`), and `ccl_qname_typish` refuses it, its explicit template-id too. So
+  `_Tp __t(std::move(__x))` and `T &r(std::forward<U>(v))` declare variables. (0.45, 0.84, 0.187)
 - `X<T>::f`, `v<T>` and `operator+<...>` are the declarator-id `name(Q)` only where a declarator may end
   (`ccl_declarator_id_end`) and outside a block (`\+ ccl_in_block`). So `(is_x<T>::value && y)` is no cast, and
   `traits::take(x);` in a body is a call. `test/cpp/run/qualstmt.cpp`. (0.44, 0.55)
@@ -1656,7 +1658,9 @@ tutorials/01..03-*.pl       the objects layer's lessons; goal main, last line do
 
 - In `template(L, TParams, Item)`, the type, pack and template parameters are type names for the whole item:
   `ccl_tparam` adds each to the global env, `ccl_tparams_enter/3` and `ccl_tparams_leave/1` wrap the item, and the leave
-  removes them. `'$ccl_tmpl_depth'` and `ccl_note_if_template` make the item's own name a template in its body. (0.44)
+  removes those the head added: the names the env logged after the mark taken before the head (`ccl_env_mark/1`,
+  `ccl_env_since/2`; 0.187, where a copy of the env taken before the head was compared with the env after it).
+  `'$ccl_tmpl_depth'` and `ccl_note_if_template` make the item's own name a template in its body. (0.44, 0.187)
 - Parameters are `tparam(type | pack | template, N, Default)`, `tparam(vpack(T), N, none)` and, for a value,
   `tparam(T, N, Default)`. An unnamed one is `anon`. `typename T::x = 0` is a value (`ccl_tparam_end`). `template <int
   &...>` and `template <class...> class F = X` are read. (0.44)
@@ -1740,7 +1744,10 @@ tutorials/01..03-*.pl       the objects layer's lessons; goal main, last line do
   its enclosing path: `ctor_def(L, scoped([tmpl(basic_ostream, ...)], sentry), ...)`. Its qualifiers hold the prefix's
   `inline`, `constexpr`, `consteval` and the hidden mark (`ccl_prefix_quals/2`, as a method's storage words did since
   0.79 and 0.112). Why: libc++ 18's `inline basic_ofstream<...>::basic_ofstream(const char *, ...)` is hidden from the
-  ABI and defined in no library, and without the mark it looked shipped. Reader 112. (0.44, 0.73, 0.117)
+  ABI and defined in no library, and without the mark it looked shipped. Reader 112. Its qualified name is read once, a
+  conversion function's beside it (`ccl_qdef_kind//2`, `ccl_qdef//7`; 0.187): the three were three clauses that each
+  read the words before it and the name again, and every declaration that none took read them three times on its way
+  to the general clause. (0.44, 0.73, 0.117, 0.187)
 - A member defined out of its class keeps `inline` among its storage words, and a trailing `const` as `const(Sto)`
   (`ccl_sto_quals`), which `cpp_sto_quals` reads. Why: `inline` marks a member libc++ hides from its ABI, and without
   `const` the const overload's body joined the other. (0.75, 0.79)
@@ -1960,10 +1967,11 @@ tutorials/01..03-*.pl       the objects layer's lessons; goal main, last line do
   in the process has what one served from the summary has. (0.186)
 - A partial read is silent: `ccl_partial` gives `partial(U, line(L), near(F))`, and a library header's summary and AST
   hold what was read. `test/census.sh` on the flattened header (`cicilang++ -E`) names the stop. (0.44)
-- `ccl_with_file/2` saves and restores around a nested read, on success, failure and a throw: `'$ccl_file'`,
-  `'$ccl_env'`, `'$ccl_far'`, `'$ccl_macros'`, the tables (`'$ccl_scope'`, `'$ccl_gscope'`, `'$ccl_typedefs'`,
-  `'$ccl_tags'`; the last three bucket by bucket, `ccl_tab_save/2` and `ccl_tab_restore/2`), `'$ccl_enums'` and
-  `'$ccl_expansions'`. `ccl_tables_changed` follows the restore. (M1b, 0.120)
+- `ccl_with_file/2` saves and restores around a nested read, on success, failure and a throw: `'$ccl_file'`, the
+  env's names (`ccl_env_names/1`, put back by `ccl_env_put/1`), `'$ccl_far'`, `'$ccl_macros'`, the tables
+  (`'$ccl_scope'`, `'$ccl_gscope'`, `'$ccl_typedefs'`, `'$ccl_tags'`; the last three bucket by bucket, `ccl_tab_save/2`
+  and `ccl_tab_restore/2`), `'$ccl_enums'` and `'$ccl_expansions'`. `ccl_tables_changed` follows the restore. (M1b,
+  0.120, 0.187)
 - A `.pl` include is a macro file (owner's rule): `ccl_load_macros/2` loads it, and the node is
   `macros(Path, [macro(CName, Pred, Arity | dcg) ...])`. (M1b)
 - The program's own C++ header read whole gives its classes and templates to every includer (`cpp_register_header/1`),
@@ -2123,7 +2131,7 @@ tutorials/01..03-*.pl       the objects layer's lessons; goal main, last line do
 
 ### The versions
 
-- `ccl_reader_version/1` (`library/ccl_syntax.pl`, now 140): bump it for any grammar change to what a read gives, and
+- `ccl_reader_version/1` (`library/ccl_syntax.pl`, now 141): bump it for any grammar change to what a read gives, and
   for any change to what the AST beside a summary holds (item or member terms, `cpp_index_name/2`,
   `cpp_template_name/2`, `ccl_flat_items/3`, the namespace keys). Keep the reason in its comment. Why: the store and the
   summaries are keyed by it, and a stale read is served silently (`sizeof(std::string)` read 40). (M1, 0.89, 0.112,
@@ -7182,10 +7190,18 @@ A lambda is a class of its captures (`library/ccl_cpp.pl`). A fixture named alon
   catch failed). A `catch/3` stays only where a call can
   throw (`time_file/2`, `proc_run/4`, a macro call, a candidate check), never around a hot read. (0.46, 0.149)
 - A name set that the parser asks at every identifier is held in buckets, a global each (`ccl_set_has/2`,
-  `ccl_set_add/2`, `ccl_set_new/3` over `'$ccl_envs'`, `'$ccl_tmpls'`, `'$ccl_ftmpls'`). Every writer keeps the
-  buckets and the list (`ccl_env_put/1`, `ccl_add_env(s)/1`, `ccl_note_template(s)/1`, `ccl_tparams_leave/1`). A deep
-  grammar rule passes `genv` for the global env (`ccl_env_member/2`). A C++ tag is noted without its bodies
-  (`ccl_slim_members/2`, `ccl_sum_slim/2`). (0.46)
+  `ccl_set_add/2`, `ccl_set_new/3` over `'$ccl_envs'`, `'$ccl_tmpls'`, `'$ccl_ftmpls'`). A bucket's key is the name's
+  first and last character and its length modulo 7, taken from its list of characters (`ccl_set_bucket/3`:
+  `atom_chars/2`, `last/2` and `length/2`, a step each, 0.187; two calls of `sub_atom/5`, clauses over `between/3`
+  since cocolog 2.5.0, took 0.68 s where they take 0.39 s for 240,000 keys, the count a read of `<thread>`'s
+  flattened text asks). THE SET IS THE WHOLE RECORD (0.187): a list of every name stood beside each set until 0.186,
+  for the snapshots, and each name added or taken away copied it whole -- a template's parameters joined the env and
+  left it at the item's end, 12,397 copies of the env's list, 0.89 s of that read. A snapshot is the set's names
+  (`ccl_set_list/2`, `ccl_env_names/1`), a rebuild puts them back (`ccl_env_put/1`, `ccl_templates_put/1`), and the
+  names new to the env are logged as they join (`ccl_env_log/1`, the log cleared at each item of the item loop), so
+  that a template head's leave takes away those logged after its mark (`ccl_env_since/2`). A deep grammar rule passes
+  `genv` for the global env (`ccl_env_member/2`). A C++ tag is noted without its bodies (`ccl_slim_members/2`,
+  `ccl_sum_slim/2`). (0.46, 0.187)
 - THREE TABLES ARE BUCKETED (0.120): the file scope `'$ccl_gscope'`, the typedefs `'$ccl_typedefs'` and the tags
   `'$ccl_tags'` are 128 globals each, `P_0` to `P_127` (`ccl_tab_g/3`), and an entry lives in the bucket its key's
   characters hash to (`ccl_tab_bucket/2`; a key that is no atom, a method defined out of its class, is in bucket 0). A
@@ -7261,7 +7277,7 @@ A lambda is a class of its captures (`library/ccl_cpp.pl`). A fixture named alon
 - Answer by shape first: `ccl_resolve_type/2` takes a plain specifier list in one head and sends `base` to
   `ccl_resolve_base/3`; `ck_own_array_type/1` answers an array, a pointer or a plain type in one head each.
 - A summary is parsed once per process (`ccl_sum_terms/2` into `'$ccl_sum:<File>'`, forgotten by `ccl_sum_write/4`),
-  split once (`ccl_sum_load/7`), and its names added in ONE read and write (`ccl_add_envs/1`, `ccl_note_templates/1`).
+  split once (`ccl_sum_load/7`), and its names added to the sets (`ccl_add_envs/1`, `ccl_note_templates/1`).
 - `time_file/2` is never memoized: a memo served a touched file stale inside one gate process.
 
 ### Memos of the C++ desugaring
@@ -7306,6 +7322,12 @@ A lambda is a class of its captures (`library/ccl_cpp.pl`). A fixture named alon
 - The grammar chooses a clause by one look at the next token (`ccl_peek//2`, `ccl_unary_//3`, `ccl_primary_//3`,
   `ccl_postfix_p//3`), and one precedence-climbing rule reads the binary levels (`ccl_binary//2` over `ccl_binop/2`;
   owner's rule: a pattern is written once). Why: trying every alternative cost 30 token matches a token, against 8.
+  Since 0.187 one look also tells an attribute (`ccl_gnu_attr//0`: `[`, `alignas` or a word of `ccl_attr_word/1`,
+  asked 419,449 times in a read of `<thread>`'s flattened text, 0.57 s where it takes 0.06 s), the end of the
+  specifiers (the first clause of `ccl_specs//8`, before 27 others: 1.35 s where it takes 0.79 s) and a qualified name
+  of one identifier, which two clauses read only to test it (`ccl_qname_ahead//1`); with the sets as the whole record
+  (above) and an out-of-class definition's name read once, that read takes 13.0 s and 115.0 million steps where it
+  took 20.5 s and 164.3 million, its tree the same, byte for byte. (0.187)
 - Text goes through builtins: `atomic_list_concat/3` splits a file, `atom_codes/2` and `memberchk/2` test a line, and
   only a line that needs it is walked code by code (`pp_clean/3`). On a hot path `sub_atom/5` has every position
   bound: since cocolog 2.5.0 it is clauses over `between/3`, and with its start free it tries every start (0.184: the
@@ -7998,17 +8020,17 @@ A lambda is a class of its captures (`library/ccl_cpp.pl`). A fixture named alon
 - Ubuntu 24.04 on x86_64 (clang and LLVM 18, glibc, libc++ 18 and 21) is a host since 0.87. Every gate but the C++ one
   is GREEN there since 0.93, and all seven since 0.95. Every step from 0.93 on is gated there, but the save points
   0.112, 0.113, 0.117, 0.122 to 0.125, 0.130, 0.131 and 0.143 (0.143's C gates and cross gate ran, its libc++ gates did
-  not; the others were gated by the steps after them). The last full run is 0.185's, over cocolog 2.11.0 (the
-  Findings), on one tree, over fresh HOMEs (the reader version moved): over libc++ 18 all nine GREEN in 1841 s (the
-  flow gate's one finding in 97 s, reader 4 s, compile 12 s, driver 17 s, objects 4 s, proof, the cross gate in 360 s
-  with its C++ part for aarch64, the library read in 474 s (0.184's 482 s), the C++ gate in 868 s (0.184's 837 s) with
-  596 of 600 fixtures ok, the skips are `joinwith`, `stdoptionalref`, `tzone` and `zipadjacent`, the 23 refusals and the
-  three of the safe part); over libc++ 21 the library read (421 s, peak 1244 MB; 0.184's 413 s) and the C++ gate (853
-  s, peak 2119 MB; 0.184's 842 s; 598 of 600 ok, the skips `stdoptionalref` and `zipadjacent`) GREEN -- the C gates do
-  not read libc++. The headers' reads, summed, took 1776 s over 114 over libc++ 18 and 1592 s over 21 (0.184's 1801 s
-  and 1549 s; 0.181's 4313 s and 4116 s, before a read linear in its items); the fixtures' builds 2934 s over 596 and
-  2905 s over 598 (0.184's 2824 s over 595 and 2893 s over 597) (HISTORY.md, 0.186). The chains of 0.165 to 0.184 are
-  in HISTORY.md, 0.166 to 0.185. Two libc++ passes are one gate: `LLVM=/usr/lib/llvm-18` and `LLVM=/usr/lib/llvm-21`
+  not; the others were gated by the steps after them). The last full run is 0.186's, over cocolog 2.11.0 (the
+  Findings), on one tree, over fresh HOMEs (the reader version moved): over libc++ 18 all nine GREEN in 1813 s (the
+  flow gate's one finding in 96 s, reader 5 s, compile 13 s, driver 13 s, objects 4 s, proof, the cross gate in 357 s
+  with its C++ part for aarch64, the library read in 482 s (0.185's 474 s), the C++ gate in 838 s (0.185's 868 s) with
+  600 of 604 fixtures ok, the skips are `joinwith`, `stdoptionalref`, `tzone` and `zipadjacent`, the 23 refusals and the
+  three of the safe part); over libc++ 21 the library read (395 s, peak 1167 MB; 0.185's 421 s) and the C++ gate (855
+  s, peak 2155 MB; 0.185's 853 s; 602 of 604 ok, the skips `stdoptionalref` and `zipadjacent`) GREEN -- the C gates do
+  not read libc++. The headers' reads, summed, took 1802 s over 114 over libc++ 18 and 1487 s over 21 (0.185's 1776 s
+  and 1592 s; 0.181's 4313 s and 4116 s, before a read linear in its items); the fixtures' builds 2832 s over 600 and
+  2930 s over 602 (0.185's 2934 s over 596 and 2905 s over 598) (HISTORY.md, 0.187). The chains of 0.165 to 0.185 are
+  in HISTORY.md, 0.166 to 0.186. Two libc++ passes are one gate: `LLVM=/usr/lib/llvm-18` and `LLVM=/usr/lib/llvm-21`
   choose the tree the chain reads and links. libc++ 22 (the newest tree, which a run without `$LLVM` reads) is no
   gate: 0.182 built its vector and its C++23 views by hand (`zipadjacent.cpp`, which its `.needs` skips over 18 and
   21), and `stdoptionalref` passes there. The run before 0.121's (0.118, 0.119) found, over 0.117, two defects and
@@ -8563,8 +8585,10 @@ A lambda is a class of its captures (`library/ccl_cpp.pl`). A fixture named alon
   of the C++ gate's 2400 s cap in the gate's pool at 0.115 and 1357 s at 0.118, and takes 211 s now; the sum of the 388
   fixtures' builds went from 11,775 s to 2,936 s, the gate from 2989 s to 908 s over four lanes, its pool's peak from 9034
   MB to 1675 MB (0.120). What is left is mostly the reader's own cold flattening of a header, 2.4 to 2.7 times faster
-  since 0.184 (its item loop: the 114 headers' reads summed 1776 s over libc++ 18 in 0.185's chain, 4313 s in 0.181's).
-  In 0.185's chain the slowest builds were `fmtrange` (123 s over libc++ 18) and `fmtchrono2` (103 s over 21),
-  `viewsall` 80 s and 84 s, and the 596 and 598 builds summed 2934 s and 2905 s over four lanes (0.120, 0.184, 0.186).
+  since 0.184 (its item loop: the 114 headers' reads summed 1802 s over libc++ 18 in 0.186's chain, 4313 s in 0.181's)
+  and 1.5 times faster again since 0.187 (the sets as the whole record and the grammar's looks: seven headers' texts
+  read in 90.0 s where 0.186 read them in 133.7 s, the trees the same). In 0.186's chain the slowest builds were `fmtrange`
+  (120 s over libc++ 18) and `fmtchrono2` (106 s over 21), `viewsall` 78 s and 82 s, and the 600 and 602 builds summed
+  2832 s and 2930 s over four lanes (0.120, 0.184, 0.187).
 - The flow gate charts the ten hand-written files of `library/` and the nine gate programs of `test/` (0.161): the two
   generated tables (`ccl_bidrt.pl`, `ccl_uninames.pl`) are loaded, not charted. `test/why.sh` is no gate.
