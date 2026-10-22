@@ -176,6 +176,7 @@ One row per step, in version order: the step's title, what it did and its gate n
 | 0.180 | Not done, the eighteenth part: the type information of every other type | `typeid` of an enum, an array, a function, a pointer to member, a vector and a pointer to any type, as clang emits them; a builtin libc++abi does not export emitted; `std::nullptr_t`'s libc++abi's, `throw nullptr`; the program's types named as clang names them; the library read warms `<ostream>` | its chain (0.181), over the HOMEs 0.179's chain warmed (no library read: the reader did not move): the flow gate, the C gates, the proof, the cross gate and the C++ gate GREEN over libc++ 18, the C++ gate over 21, the C++ gate 700 s and 690 s; 584 of 587 over 18, 586 over 21 |
 | 0.181 | Not done, the nineteenth part: a member function pointer's qualifiers; libc++abi over libc++ 21 | a pointer to member function keeps its cv- and ref-qualifiers (the type key, the mangler, the type information, a specialization, an overload, an overloaded member's address, a call through one checked); ` -lc++abi` linked where `libc++.so` is the library itself; an alias template of a deeper namespace keyed apart (`std::pmr::basic_string` resolved itself without end); a definition beside a declared overload named by its keys; an overload set named by a global or by its address chosen by the target | its chain (0.182), over fresh HOMEs (the reader moved): all nine gates GREEN over libc++ 18, the library read and the C++ gate over 21; the C++ gate 727 s and 845 s; 589 of 592 over 18, 591 over 21 |
 | 0.182 | Not done, the twentieth part: libc++ 22's vector and its C++23 views; cocolog 2.11.0 | a class instance given to a template template parameter is the injected class name; a template-id qualified by a namespace never finds a member template of the class being walked; a class declares its members' names and a function its parameters' where a collided name is renamed; a constraint sees no caller's local; cocolog 2.11.0 from 2.2.5 (five warm builds 6.9 % dearer; the logical update view, the number readers, the cell tag) | committed before its chain: on 2.11.0 the flow gate, the C gates and the proof GREEN, nets of 56 C++ fixtures over libc++ 18 (on 2.2.5 and on 2.11.0) and over 21 (on 2.11.0), each the same as its .expect but `stdthread` over 21 (a read after another in one process, older than this step, 0.183's); 87 run C fixtures, 597 C++ |
+| 0.183 | A header read after another in one process: the scan ahead of a class body stays in its member | the scan that notes a class's member templates before its members are read skips a parenthesized group and ends at a member's `;` or `}`: a comparison in a head of libc++ 21's `<variant>` noted `shared_ptr` as a function template, and the reads of `<mutex>` and `<thread>` after it in one process stopped (a cold `stdthread` over libc++ 21) | committed before its chain: on 2.11.0 the flow gate, the C gates and the proof GREEN, nets of 69 C++ fixtures and `stdrandom` over fresh HOMEs, 70 of 70 the same over libc++ 18 and over 21, `stdthread` cold among them; 87 run C fixtures, 598 C++ |
 
 ## M5 — the C++ mode
 
@@ -11446,3 +11447,66 @@ Reader 136 (a class declares its members' names and a function its parameters' a
 renamed: the AST beside a summary changes), lowering 104 (the injected class name as a template template argument, a
 template-id qualified by a namespace, a class's members' and a function's parameters' names, a constraint isolated from
 its caller: new IR for such programs, libc++ 22's vector and views).
+
+## 0.183 — A header read after another in one process: the scan ahead of a class body stays in its member
+
+**0.183: the scan that notes a class's member templates before its members are read stays in its member -- a
+parenthesized group is skipped whole and a `;` or a `}` ends it -- so a comparison in a member template's head no longer
+notes a later name as a function template. 0.182's net over libc++ 21 found it. Committed before its chain, on the
+owner's word ("Commit before chain"): the chain runs over this commit, the first over cocolog 2.11.0, and the next one
+carries its numbers.**
+
+- THE DEFECT. `stdthread.cpp` over libc++ 21 over a fresh HOME stopped at `kind_mismatch('_Tp')` with 0.182's library
+  and at `template_without_body(lock_guard)` with 0.181's, on 2.11.0 and on 2.2.5 alike; over a HOME warmed header by
+  header, as the C++ gate's is, it built in 10 s, the same as its `.expect`. The cold build reads `<atomic>`,
+  `<cstdio>`, `<mutex>`, `<thread>` and `<vector>` in one process and writes their summaries. Those of `<atomic>`,
+  `<cstdio>`, `<mutex>` and `<vector>` were the warm ones, byte for byte but for the HOME's path in the `.big.pl` files;
+  `<thread>`'s AST was half as large, 2.2 MB against 4.3 MB, 3600 indexed names against 5313, the last
+  `__uninitialized_allocator_relocate` -- a partial read, which is silent -- and the build over it failed again, warm,
+  in 4 s. The census of the four headers read in one process: `<mutex>` and `<thread>` partial. `<mutex>`'s flattened
+  text read alone: partial too, 629 items, stopped at the namespace block of `<__memory/shared_ptr.h>`, its farthest
+  line that of the deduction guide `template <class _Tp> shared_ptr(weak_ptr<_Tp>) -> shared_ptr<_Tp>;`; `<thread>`'s
+  alone: whole, 838 items.
+- THE CAUSE. A copy of the guide after each of the 543 top-level items of `<mutex>`'s text before that block read; a
+  copy inside the block, after `class bad_weak_ptr`, did not. The guide's steps, traced: its parameters and its `->`
+  read, its result read as the plain `shared_ptr`, and the `;` failed -- `shared_ptr` was a FUNCTION template to the
+  reader, and a function template's template-id is no type (`ccl_qname_typish/2`). The noter, traced: the note came from
+  the scan of `variant`'s body: the head on line 17585 of the text, which the scan closed on line 20218.
+  `ccl_scan_close/3` and `ccl_scan_did/4` counted the `<` of `enable_if_t<(_Ip < sizeof...(_Types)), int>` as an angle
+  bracket, the head's own `>` then closed nothing, and the scan ran past the class and 2,600 lines on, to the first
+  `Name (` at depth 0 after a `>` it took for the head's close: a constructor of `shared_ptr`, in its own class, noted a
+  member function template of `variant`.
+- THE MENDING (`ccl_scan_close/3`, `ccl_scan_did/4`): a parenthesized group is skipped whole (`ccl_scan_parens/3`), and
+  a `;` or a `}` ends the search of a head or of a declarator-id at any depth. `<mutex>`'s text alone reads whole, 756
+  items, and `stdthread.cpp` over libc++ 21 over a fresh HOME builds cold, the same as its `.expect`, in 184 s and
+  700 MB (the net below).
+- WHERE ELSE THE OLD SCAN RAN ON, a script over every `template <` of libc++ 18, 21 and 22 with the new rule (no
+  cocolog run): of 10,464, 16,631 and 16,698 heads, the ones whose close the new rule does not find are five, eight
+  and nine (three of 21's and 22's in their `__cxx03` copies, which nothing here reads), of three kinds. `<random>`'s
+  two engines write `__enable_if_t<__count < _Dt, int> = 0` with no parentheses in the heads of their member templates
+  `__lshift` and `__rshift` (`mersenne_twister_engine`, `independent_bits_engine`): the old scan ran on there too and
+  noted whatever `Name (` it met at its depth 0, and the new one stops at the member's `;` and notes nothing; the two
+  names are used only in definitions written after the class, where they are known. C++26's member `variant::visit`
+  holds a braced default in its head, `__variant_visit_barrier_tag{}`, whose `}` ends the new scan: the old one found
+  that head's close, and the new one notes `visit` from the head of the second overload, `template <class _Rp, class
+  _Self, class _Visitor>`. libc++ 22's `std::make_optional` holds one too, and `__mu` of `__functional/bind.h` an
+  unparenthesized comparison: free function templates, which no class body holds. `stdrandom.cpp`, the one fixture
+  that reads `<random>`, joins the nets.
+- `scanahead.cpp`, the program's own text in the same shape: `struct V` holds `template <unsigned I, class = typename
+  std::enable_if<(I < 3)>::type> int get()`, then `bool big = 5 > Box(4).v;`, whose `>` ended the scan and whose `Box (`
+  was noted; the deduction guide after it, `Box(Tag) -> Box<int>;`, was a syntax error with 0.182's library, and the
+  program prints clang++'s `12 1 7 8 9` with 0.183's.
+- ON 2.11.0, over the work tree (module 0.182, reader 137, lowering 104): the flow gate GREEN, 4094 predicates, its one
+  finding, 106 s; reader 5 s, compile 15 s, driver 14 s, objects 4 s and the proof GREEN. Nets of 69 fixtures -- 0.182's
+  56, `scanahead`, and twelve that read `<variant>`, `<memory>`, `<mutex>` or `<atomic>` -- three at a time, each over a
+  fresh HOME: over libc++ 18 from 14:45:40 to 15:05:24 UTC, 69 of 69 the same as their `.expect`, the builds summed
+  3517 s, cold (`usingnamed` 479 s, `viewsall` 464 s, `stdformat` 247 s, `fmtrange` 234 s, `viewsmore` 210 s,
+  `fmtcheck` 191 s), the largest peak 1160 MB, then `stdrandom` over that HOME, its `<random>` cold, the same in 149 s
+  and 597 MB; over libc++ 21 the same 69 and `stdrandom` from 15:08:14 to 15:26:15 UTC, 70 of 70 the same, the builds
+  summed 2971 s (`viewsall` 358 s, `usingnamed` 303 s, `stdformat` 252 s, `stdthread` 184 s, `fmtrange` 172 s,
+  `fmtcheck` 146 s, `stdrandom` 130 s), the largest peak 1021 MB. A net claims nothing.
+- `CLAUDE.md`: the scan's rule (the class body's topic), the versions, and the versions topic's `now` lines (0.182 left
+  them at 0.181's 135 and 103), the C++ gate's count, the Hosts bullet (the chain of 0.183), What runs (Forms of 0.183).
+
+Reader 137 (the scan ahead of a class body stays in its member: what a read gives changes, `<mutex>` whole and the
+headers read after it in one process with it), lowering 104 (no change).

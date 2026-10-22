@@ -10,8 +10,8 @@ it found, its measurements and its gate numbers. `README.md` tells a user what r
 architecture and the milestones. A step that changes a rule edits the rule here, in its topic, and writes its entry
 in `HISTORY.md`.
 
-At 0.182 the versions are: the module 0.182 (`ccl_p_version` in `module/cicilang.cicili`, `bin/cicilang --version`),
-the reader 136 (`ccl_reader_version/1`, `library/ccl_syntax.pl`) and the lowering 104 (`ccl_lowering_version/1`,
+At 0.183 the versions are: the module 0.183 (`ccl_p_version` in `module/cicilang.cicili`, `bin/cicilang --version`),
+the reader 137 (`ccl_reader_version/1`, `library/ccl_syntax.pl`) and the lowering 104 (`ccl_lowering_version/1`,
 `library/ccl_ir.pl`).
 
 Build and prove, always in this order (or all of it, `sh test/gates.sh`):
@@ -550,7 +550,7 @@ tutorials/01..03-*.pl       the objects layer's lessons; goal main, last line do
 ### The C++ gate: test/cpp.sh
 
 - `test/cpp.sh` runs in this order: `test/cpp.pl` in one `--local` process; four checks of the command; every
-  `test/cpp/run/*.cpp` as a pool job (597 at 0.182); `classes.cpp` and `templates.cpp` built and run; the refusals,
+  `test/cpp/run/*.cpp` as a pool job (598 at 0.183); `classes.cpp` and `templates.cpp` built and run; the refusals,
   each at the level its `test/cpp/NAME.flags` names, else C++17 (0.164). (0.105, 0.164)
 - `test/cpp.pl` runs 46 numbered checks, `c1` to `c46`, then reads Cicili's six C++ files whole (`test/cpp/objects.cpp`,
   `emit_report.cpp`, `specialise.cpp`, `syntax.cpp`, `torch.cpp`, `torch-fragment.cpp`). `c34` checks the Itanium
@@ -1682,7 +1682,15 @@ tutorials/01..03-*.pl       the objects layer's lessons; goal main, last line do
   - a member ALIAS template, and a class-scope alias, `using N =` or `typedef ... N;` (the name before `;`).
 
   Why: libc++ uses `__rehash<true>(__n)` and `_Context{...}` before it declares them. `test/cpp/run/aliasahead.cpp`.
-  (0.81, 0.92, 0.99, 0.109)
+  THE SCAN STAYS IN ITS MEMBER (0.183; `ccl_scan_close`, `ccl_scan_did`): a parenthesized group is skipped whole, its
+  `<` and `>` being comparisons, and a `;` or a `}` ends the search of a head or of a declarator-id. libc++ 21's
+  `<variant>` writes `enable_if_t<(_Ip < sizeof...(_Types)), int> = 0` in its constructors' heads; the scan took that
+  `<` for an angle bracket, ran past the class's end and noted the first `Name (` it met 2,600 lines on, `shared_ptr` in
+  its own class, as a member FUNCTION template of `variant`. `shared_ptr`'s deduction guide then read its result as the
+  plain name and failed: the read of `<mutex>` stopped there, silently (629 of its 756 items), and so did the read of
+  `<thread>` after it in the same process, so the summaries a cold build of `stdthread.cpp` wrote were partial and the
+  build stopped (`kind_mismatch('_Tp')`). The program's text meets it the same way: a later deduction guide was a
+  syntax error. `scanahead.cpp`. (0.81, 0.92, 0.99, 0.109, 0.183)
 - A class head's first name is the class's own only where no `::` follows it (`ccl_struct_body`). Why:
   `friend struct std::__segmented_iterator_traits;` made `std` a type name for the rest of `<ranges>`. (0.109)
 - The members are `access(A)`, `method(L, Qs, Ret, Name, Params, Variadic, Body)`, `ctor(L, Qs, Params, Inits, Body)`,
@@ -2077,14 +2085,14 @@ tutorials/01..03-*.pl       the objects layer's lessons; goal main, last line do
 
 ### The versions
 
-- `ccl_reader_version/1` (`library/ccl_syntax.pl`, now 135): bump it for any grammar change to what a read gives, and
+- `ccl_reader_version/1` (`library/ccl_syntax.pl`, now 137): bump it for any grammar change to what a read gives, and
   for any change to what the AST beside a summary holds (item or member terms, `cpp_index_name/2`,
   `cpp_template_name/2`, `ccl_flat_items/3`, the namespace keys). Keep the reason in its comment. Why: the store and the
   summaries are keyed by it, and a stale read is served silently (`sizeof(std::string)` read 40). (M1, 0.89, 0.112,
   0.117)
 - A reader bump makes every summary cold; `test/libcxx.sh` rewrites them. `test/reader.pl`'s `k16` (a cached read is
   the same AST as a fresh one) goes RED on a grammar change without a bump. (0.93, 0.105)
-- `ccl_lowering_version/1` (`library/ccl_ir.pl`, now 103): bump it whenever the check or the lowering changes what it
+- `ccl_lowering_version/1` (`library/ccl_ir.pl`, now 104): bump it whenever the check or the lowering changes what it
   emits, however small -- 0.120 bumped it for the ORDER of the drain functions alone. Why: `dr_ir/3` serves the old IR
   otherwise. Either bump starts the C store afresh. (M4, 0.103, 0.120)
 
@@ -7934,7 +7942,7 @@ A lambda is a class of its captures (`library/ccl_cpp.pl`). A fixture named alon
   summed, took 2454 s over 589 over libc++ 18 and 2624 s over 591 over libc++ 21 (HISTORY.md, 0.182). 0.179's chain is
   the full run before it, 3585 s over libc++ 18, its libc++ 18 half on a slower machine (HISTORY.md, 0.180); 0.180's
   chain ran the gates its change touches over the HOMEs that 0.179's chain warmed, all GREEN (HISTORY.md, 0.181); the
-  chains of 0.165 to 0.178 are in HISTORY.md, 0.166 to 0.179. The chain of 0.182 is the first over cocolog 2.11.0 (the
+  chains of 0.165 to 0.178 are in HISTORY.md, 0.166 to 0.179. The chain of 0.183 is the first over cocolog 2.11.0 (the
   Findings). Two libc++ passes are one gate: `LLVM=/usr/lib/llvm-18` and `LLVM=/usr/lib/llvm-21` choose the tree the
   chain reads and links. libc++ 22 (the newest tree, which a run without `$LLVM` reads) is no gate: 0.182 built its
   vector and its C++23 views by hand (`zipadjacent.cpp`, which its `.needs` skips over 18 and 21), and
@@ -8060,6 +8068,8 @@ A lambda is a class of its captures (`library/ccl_cpp.pl`). A fixture named alon
   overload set, explicit constructors, <stdexcept>'s `logic_error`), `declfirst` (a definition after a declared
   overload of other parameters -- a reference, a builtin type, another count -- and an overload set named by a
   global's initializer, by name and by address).
+- Forms of 0.183: `scanahead` (a member template's head with a comparison in parentheses, then a class template's
+  deduction guide after a global that names it).
 - Forms of 0.182: `injectedttp` (a class template's injected class name given to a template template parameter in its
   own body, and a class over it), `qualalias` (a namespace-qualified template-id beside a member alias template of the
   same name), `nsparamname` (two namespaces' class templates of one name, a member function whose parameter has that
