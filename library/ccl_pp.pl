@@ -77,20 +77,23 @@ ccl_pp_run(Path, Top, Tokens, Files) :-
     ( var(E) -> true ; E == failed -> fail ; throw(E) ),
     pp_finish(Out, Tokens),
     nb_getval('$pp_files', Fs), reverse(Fs, Files).
-%% the includes a file names, their headers read and their macros made ready
-ccl_pp_prescan(Path) :- pp_source(Path, Lines), pp_prescan_lines(Lines, Path).
-pp_prescan_lines([], _).
-pp_prescan_lines([line(_, A)|Ls], Path) :-
+%% the includes a file names, their headers read and their macros made ready, in the file's order; the cold library
+%% headers among them first read by processes of their own, where there are two or more (0.188; ccl_cold_headers_read/2)
+ccl_pp_prescan(Path) :- pp_source(Path, Lines), pp_prescan_specs(Lines, Specs), ccl_cold_headers_read(Specs, Path), pp_prescan_ready(Specs, Path).
+pp_prescan_specs([], []).
+pp_prescan_specs([line(_, A)|Ls], Specs) :-
     (   pp_directive_line(A, Body), pp_ws(Body, B1), pp_word(B1, W, Rest), atom_codes(D, W), ( D == include ; D == include_next ),
         pp_ws(Rest, R1), pp_inc_name(R1, Spec0)
-    ->  ( D == include_next -> Spec = next(Spec0) ; Spec = Spec0 ), ( catch(ccl_header_macros_ready(Spec, Path), _, true) -> true ; true )
-    ;   pp_import_line(A, Spec) -> ( catch(ccl_header_macros_ready(Spec, Path), _, true) -> true ; true )
-    ;   true ),
-    pp_prescan_lines(Ls, Path).
+    ->  ( D == include_next -> Spec = next(Spec0) ; Spec = Spec0 ), Specs = [Spec|Specs1]
+    ;   pp_import_line(A, Spec) -> Specs = [Spec|Specs1]
+    ;   Specs = Specs1 ),
+    pp_prescan_specs(Ls, Specs1).
+pp_prescan_ready([], _).
+pp_prescan_ready([Spec|Specs], Path) :- ( catch(ccl_header_macros_ready(Spec, Path), _, true) -> true ; true ), pp_prescan_ready(Specs, Path).
 %% A HEADER UNIT'S MACROS ARE THE IMPORTER'S ([module.import]/5; 0.110): `import "h";' and `import <h>;' (and `export
 %% import') make the header's macros visible after the line, as an #include does -- the line itself is passed on for
 %% the reader, which reads the header as the include it amounts to
-pp_import_line(A, Spec) :- nb_getval('$ccl_lang', cpp), atom_codes(A, Cs), pp_ws(Cs, C1), pp_word(C1, W0, R0), atom_codes(W0A, W0),
+pp_import_line(A, Spec) :- atom(A), nb_getval('$ccl_lang', cpp), atom_codes(A, Cs), pp_ws(Cs, C1), pp_word(C1, W0, R0), atom_codes(W0A, W0),
     ( W0A == export -> pp_ws(R0, R1), pp_word(R1, W1, R2), atom_codes(import, W1) ; W0A == import, R2 = R0 ), pp_ws(R2, R3), pp_inc_name(R3, Spec).
 %% the macros defined when the run ended, macro(Name, Params, text(Body)) --
 %% the run's own, not the predefined: what a header's summary or store keeps
@@ -240,9 +243,9 @@ pp_lines([P|Ps], N, in, Lines) :- !,                                            
 pp_lines([P|Ps], N, out, Lines) :- pp_raw_join(P, Ps, P1, Ps1, K), !, N1 is N + K, pp_lines_raw(P1, Ps1, N, N1, Lines).
 pp_lines([P|Ps], N, out, Lines) :-
     atom_codes(P, Cs),
-    (   \+ memberchk(47, Cs), \+ pp_ends_backslash(P) -> Lines = [line(N, P)|Lines1], N1 is N + 1, St1 = out, Ps1 = Ps
+    (   \+ memberchk(47, Cs), \+ pp_ends_backslash(P) -> pp_line_mark(P, Cs, X), Lines = [line(N, X)|Lines1], N1 is N + 1, St1 = out, Ps1 = Ps
     ;   pp_join(Cs, P, Ps, N, Joined, Ps1, N1), pp_clean(Joined, Out, St1),
-        atom_codes(OA, Out), Lines = [line(N, OA)|Lines1] ),
+        atom_codes(OA, Out), pp_line_mark(OA, Out, X), Lines = [line(N, X)|Lines1] ),
     pp_lines(Ps1, N1, St1, Lines1).
 %% A RAW STRING LITERAL THAT SPANS LINES (C++ only, 0.138): a line that opens `R"d(' and does not close it with `)d"'
 %% takes the next lines, newlines kept, up to the line that closes it, and the whole is one line of the first one's
@@ -255,10 +258,15 @@ pp_raw_more([Q|Qs], D, [Q|Rs], Rest) :- atom_codes(Q, QCs), append([41|D], [34],
     (   append(_, Tail, QCs), append(Close, After, Tail) -> ( pp_raw_open(After, D2) -> pp_raw_more(Qs, D2, Rs, Rest) ; Rs = [], Rest = Qs )
     ;   pp_raw_more(Qs, D, Rs, Rest) ).
 %% the joined line goes on as any other: one that holds a `/' or ends in a backslash through the cleaning
-pp_lines_raw(P1, Ps1, N, N1, [line(N, OA)|Lines1]) :- atom_codes(P1, Cs),
-    (   \+ memberchk(47, Cs), \+ pp_ends_backslash(P1) -> OA = P1, N2 is N1 + 1, Ps2 = Ps1, St1 = out
+pp_lines_raw(P1, Ps1, N, N1, [line(N, X)|Lines1]) :- atom_codes(P1, Cs),
+    (   \+ memberchk(47, Cs), \+ pp_ends_backslash(P1) -> OA = P1, Out = Cs, N2 is N1 + 1, Ps2 = Ps1, St1 = out
     ;   pp_join(Cs, P1, Ps1, N1, Joined, Ps2, N2), pp_clean(Joined, Out, St1), atom_codes(OA, Out) ),
-    pp_lines(Ps2, N2, St1, Lines1).
+    pp_line_mark(OA, Out, X), pp_lines(Ps2, N2, St1, Lines1).
+%% A DIRECTIVE LINE IS MARKED AS IT IS MADE (0.188): line(N, d(Atom)), its codes at hand here, once a file and process
+%% (pp_source/2 keeps the lines); a text line keeps its atom. pp_directive_line/2 takes the mark: a line was converted
+%% to codes at every test -- each run over the file, each false group skipped -- 1.40 million tests and as many
+%% conversions in a cold read of <thread> over libc++ 21, the most of them text lines
+pp_line_mark(A, Cs, X) :- ( pp_ws(Cs, [35|_]) -> X = d(A) ; X = A ).
 %% does the line open a raw string it leaves open? Its delimiter: a walk over ordinary strings, character literals and
 %% comments, so a `R"' inside them is no literal
 pp_raw_open([], _) :- !, fail.
@@ -305,8 +313,9 @@ pp_quoted([Q|R], Q, R, [Q]) :- !.
 pp_quoted([92, C|R], Q, R1, [92, C|S]) :- !, pp_quoted(R, Q, R1, S).
 pp_quoted([C|R], Q, R1, [C|S]) :- pp_quoted(R, Q, R1, S).
 %% a directive line: `#' first, blanks before it allowed; Body the codes after
-%% it (atom_codes/2 and a walk over the blanks: sub_atom/5 costs 70 us here)
-pp_directive_line(A, Body) :- atom_codes(A, Cs), pp_ws(Cs, [35|Body]).
+%% it (atom_codes/2 and a walk over the blanks: sub_atom/5 costs 70 us here);
+%% a text line fails at the head, its atom no d(_) (pp_line_mark/3, 0.188)
+pp_directive_line(d(A), Body) :- atom_codes(A, Cs), pp_ws(Cs, [35|Body]).
 %% a text line's tokens, at its line; a macro body or a directive's tail --
 %% all in the preprocessor's mode: `#' and `##' punctuators, a number as spelled
 pp_lex_line(N, A, Toks) :-

@@ -10,8 +10,8 @@ it found, its measurements and its gate numbers. `README.md` tells a user what r
 architecture and the milestones. A step that changes a rule edits the rule here, in its topic, and writes its entry
 in `HISTORY.md`.
 
-At 0.187 the versions are: the module 0.187 (`ccl_p_version` in `module/cicilang.cicili`, `bin/cicilang --version`),
-the reader 141 (`ccl_reader_version/1`, `library/ccl_syntax.pl`) and the lowering 104 (`ccl_lowering_version/1`,
+At 0.188 the versions are: the module 0.188 (`ccl_p_version` in `module/cicilang.cicili`, `bin/cicilang --version`),
+the reader 142 (`ccl_reader_version/1`, `library/ccl_syntax.pl`) and the lowering 104 (`ccl_lowering_version/1`,
 `library/ccl_ir.pl`).
 
 Build and prove, always in this order (or all of it, `sh test/gates.sh`):
@@ -185,7 +185,10 @@ sh test/cpp.sh
   repository does not bend"). The owner set 2800 MB for one run on the 16 GB Mac; the gates' pool sums all runs
   against 9000 MB and 14000 MB. (0.46, 0.71, 0.92, 0.105)
 - A cap kills the whole process tree. cocolog is the command's grandchild, so a kill of the shell alone leaves it
-  running. `timeout -s KILL` signals the process group it leads; `test/cpp.sh` uses `ccl_kill_tree`. (0.46, 0.93)
+  running. `timeout -s KILL` signals the process group it leads; `test/cpp.sh` uses `ccl_kill_tree`. A C++ build's
+  processes for its cold headers (0.188, the driver's topic) run in sessions of their own (cocolog's `proc_spawn/2`),
+  out of the build's process group: a cap finds the tree by parent id and sums it (`ccl_kill_tree`, `ccl_xkill`,
+  `ccl_cocolog_rss`), and each such process holds its own CPU time with `ulimit -t 1800`. (0.46, 0.93, 0.188)
 - The memory cap stays: a fixture too heavy for it is split, never the cap raised (owner's rule). Examples:
   `stdmapstring.cpp`, `stdmapstring2.cpp` and `stdmultimap.cpp`; `stdistream.cpp` and `stdistream2.cpp`;
   `stderaseif.cpp` and `stderaseifuset.cpp`. (0.78, 0.79, 0.99)
@@ -398,8 +401,9 @@ tutorials/01..03-*.pl       the objects layer's lessons; goal main, last line do
   starts at one call pattern, so `test/flow.pl`'s `fg_roots_main/2` writes a copy of each file with a root,
   `'$fg_all'/N`, that calls each predicate the file defines with free arguments: 3538 predicates in the ten files at
   0.161 (3938 in all at 0.167, 4003 at 0.173, 4038 at 0.175, 4048 at 0.178, 4066 at 0.179, 4074 at 0.180, 4092 at 0.181,
-  4094 at 0.182, 4101 at 0.185, 4109 at 0.186, 4128 at 0.187; each step's in HISTORY.md), and since 0.161 the 220 of
-  the nine gate programs, `test/reader.pl`, `compile.pl`, `cpp.pl`, `readhdr.pl`, `census.pl`, `libcxx.pl`, `flow.pl`,
+  4094 at 0.182, 4101 at 0.185, 4109 at 0.186, 4128 at 0.187, 4151 at 0.188; each step's in HISTORY.md), and since
+  0.161 the 220 of the nine gate programs, `test/reader.pl`, `compile.pl`, `cpp.pl`, `readhdr.pl`, `census.pl`,
+  `libcxx.pl`, `flow.pl`,
   `why.pl` and `prof.pl` (`TFILES`), each charted with the compiler and the flow and process libraries loaded, nothing
   stubbed (no gate program is a library file); their first chart found a predicate split by another's clauses
   (`census_main/0`) and a call of `print_message/2`, which cocolog does not have, in the recovery of a `catch/3` in
@@ -570,13 +574,16 @@ tutorials/01..03-*.pl       the objects layer's lessons; goal main, last line do
   s over a warm HOME: `CCL_TEST_ROOT` and `CCL_TEST_TMP` set, `cocolog --local query "ensure_loaded('test/cpp.pl'),
   cpp_main"`; without the two variables it answers `false.` and names no line. (0.119)
 - The command's checks: `hello.cpp` built through `cicilang++` prints `hello, cicilang++`; a second build is served from
-  the summaries in under 8 s; `cicilang++ -fsyntax-only classes.cpp` says nothing and exits 0; and (0.135) classes cross
+  the summaries in under 8 s; `cicilang++ -fsyntax-only classes.cpp` says nothing and exits 0; (0.188) a cold build
+  reads its library headers by processes of their own -- `stdcstdlib.cpp`'s five, over a summary directory of the
+  check's own, four at a time: `-v` names five processes and five summaries written, and the binary prints its
+  `.expect`; and (0.135) classes cross
   a call between code that clang++ built and code that cicilang++ built as the Itanium ABI lays them (`test/cpp/link/`:
   `abi_helper.cpp` built by `$LLVM`'s clang++, else the one on the path, linked with `abi_main.cpp`; a base's tail
   padding reused, the table pointer first; no clang++ is a SKIP line); and (0.161) pointers to member functions cross
   such a call both ways -- a virtual and a plain member of a first and of a second base, an override, a null one
   (`memptr_helper.cpp` by clang++, `memptr_main.cpp` by cicilang++). After the fixtures, `classes.cpp` builds and exits
-  34, and `templates.cpp` exits 10. (M5, 0.34, 0.35, 0.135, 0.161)
+  34, and `templates.cpp` exits 10. (M5, 0.34, 0.35, 0.135, 0.161, 0.188)
 - The fixture builds assume a warm cache: a build that only reads summaries is safe in parallel, and a cold flatten
   under load is not. `CPP_JOBS=1` makes the gate serial. (0.105)
 - `ccl_fixture NAME` builds with `NAME.flags`, capped at `CPP_FIXTURE_SECS` (2400 s) by `ccl_capped`. Past the cap,
@@ -852,7 +859,22 @@ tutorials/01..03-*.pl       the objects layer's lessons; goal main, last line do
 
 - `ccl_drive/2` is `once(dr_drive(Inputs, Options))`. Why: cocolog's query loop asks for a second answer, and a stray
   choicepoint prints everything again. It sets `'$ccl_lang_forced'` and `'$ccl_lang'`, `'$ccl_std'` (default 17),
-  `'$ccl_c_std'` (default 17) and `'$ccl_trigraphs'`, and asserts a `ccl_include_dir/1` per `-I`. (M4, 0.108)
+  `'$ccl_c_std'` (default 17) and `'$ccl_trigraphs'`, and asserts a `ccl_include_dir/1` per `-I`: `dr_setup/2`, the
+  options as a run of the command sets them (0.188). (M4, 0.108, 0.188)
+- THE COLD LIBRARY HEADERS OF A C++ BUILD ARE READ BY PROCESSES OF THEIR OWN (0.188, the owner's design): `dr_drive`
+  keeps the build's options in `'$ccl_children'`, and before the file's run its prescan (`ccl_pp_prescan/1`) finds the
+  library headers it names (`<name>`, `#include_next`, a header unit's `import`) that no valid summary serves
+  (`ccl_cold_headers/4`). Where two or more are cold it starts a cocolog for each (`ccl_cold_headers_read/2`,
+  `ccl_kids/4` over `proc_spawn/2`), J at a time (`ccl_jobs/1`: `$CICILANG_JOBS`, else the machine's processors,
+  `os_cpus/1`; 1 turns it off), each running `ccl_drive_header/3` -- the build's options set by `dr_setup/2`, then the
+  header read as the prescan reads it and its summary written -- and waits for them all; the prescan then serves each
+  header from its summary. Since 0.186 a header's read does not depend on what the process read before it, so the
+  summaries are the ones the build writes alone (0.188's nets: the same, file for file). One cold header is read in the
+  build's own process; a process past 1800 s is killed, its session by signal 9, and one that writes no summary leaves
+  its header to the build. `-v` names each process and says how many summaries they wrote. A C build and `-E` start
+  none, and a library header that only the program's own header names is read in the build's own process.
+  `aliasptr.cpp`'s eight cold headers over libc++ 18: 52.8 s where the build alone takes 96.5 s, the same CPU time,
+  peak 562 MB over six processes. (0.188)
 - ANOTHER MACHINE (0.131): `target(T)` sets it before anything reads it (`dr_set_target/1`): the arch from the triple's
   first word (`aarch64` or `arm64` is `arm64`, `x86_64`), the OS from a word in it (`linux`; `apple`, `darwin`, `macos`
   are `darwin`); `'$ccl_target'` = `target(Arch, OS, Triple)`, and the globals every machine question reads --
@@ -1098,7 +1120,10 @@ tutorials/01..03-*.pl       the objects layer's lessons; goal main, last line do
 - `pp_source/2` makes `line(N, Atom)` once per process and path (`'$pp_src:<Path>'`, or `'$pp_srct:<Path>'` with
   trigraphs): lines by `atomic_list_concat/3`, continuations joined, comments removed, block-comment lines counted.
   Only a line with `/` or a final backslash is walked code by code (`pp_clean/3`). Why: a walk costs ~1 µs a
-  character. (M5)
+  character. A DIRECTIVE LINE IS MARKED AS IT IS MADE, `line(N, d(Atom))`, its codes at hand there (`pp_line_mark/3`,
+  0.188), and `pp_directive_line/2` takes the mark: a text line fails at its head, where every line was converted to
+  codes at every test -- each run over the file, each false group skipped -- 1.40 million tests in a cold read of
+  `<thread>` over libc++ 21, the most of them text lines. (M5, 0.188)
 - Trigraphs are replaced before anything else (`pp_trigraphs`, `pp_tri`, `pp_trigraph/2`) when `'$ccl_trigraphs'` is
   `yes`: in the ISO modes before C23 and under `-trigraphs`, never in GNU modes or C23 (clang's rule).
   `test/c/run/trigraphs.c`. (0.108)
@@ -1432,7 +1457,11 @@ tutorials/01..03-*.pl       the objects layer's lessons; goal main, last line do
   (`ccl_type_of/2`, `ccl_resolve_type/2`, `ccl_size_of/2`, LP64). Reader `k25`. (M1b, 0.120)
 - `ccl_declare/2` puts a name in the innermost open frame, else `ccl_gdeclare/1`; `ccl_declared/2` asks the open frames,
   then `ccl_gdeclared/2`; `ccl_scope/1` answers all frames, file scope last; `ccl_locals/1` the open ones;
-  `ccl_scope_add/1` adds a list. Why: `nb_getval/2` copies, and a local must not copy the file scope. (M1b)
+  `ccl_scope_add/1` adds a list. Why: `nb_getval/2` copies, and a local must not copy the file scope. AT FILE SCOPE
+  ONLY AN ATOM IS DECLARED (0.188): a member defined out of its class (`scoped(Path, N)`), an operator
+  (`operator(Op)`) and a template-id are no name the file scope is asked for, as the bulk noter has never kept them,
+  and each went to the bucket of the keys that are no atom, whose every write copied it whole: 861 of the file scope's
+  3,649 writes in a read of `<thread>`'s flattened text, 0.80 s of its 13.4 s. (M1b, 0.188)
 - `ccl_note_item/1` notes one item; a unit tree goes through the BULK noter `ccl_items_note/1`: difference lists, each
   table set once, the unit's own items before its includes' (`ccl_own_first`). Why: per item it was quadratic, and a
   unit's own definition shadows a header's declaration. (0.78)
@@ -1787,8 +1816,9 @@ tutorials/01..03-*.pl       the objects layer's lessons; goal main, last line do
   refused. `test/cpp/run/constexprfn2.cpp`. (0.79, 0.95)
 - `noexcept` is kept. `ccl_suffix_quals`, the one rule for `noexcept` and `throw(...)`, sets `'$ccl_nx'` per function
   suffix: yes for `noexcept`, `noexcept(e)` with any `e` but the literal `false`, and `throw()`; no for `throw(X)`
-  (`ccl_nx_arg`). A free function's name joins `'$ccl_nothrow'` (`ccl_note_nx`, `ccl_nothrow/1`). A method keeps
-  `noexcept` among its qualifiers. (0.110)
+  (`ccl_nx_arg`). A free function's name joins the set `'$ccl_nxs'` (`ccl_note_nx`, `ccl_nothrow/1`; a list until
+  0.188, copied whole at each name added: 1,068 times in a read of `<thread>`'s text, 68 us each). A method keeps
+  `noexcept` among its qualifiers. (0.110, 0.188)
 - A pointer to member is its own node ([dcl.mptr]): `memptr(C, Qs)` in the pointer list (`ccl_pointers`), and `memptr(C,
   Q, T)` once applied (`ccl_apply_pointers`). `&C::f` of a STATIC member function is an ordinary pointer to function
   ([expr.unary.op]/3; 0.160), the thunk its name as a value is (`cpp_static_thunk`): it took the member pointer road, `{
@@ -2029,6 +2059,12 @@ tutorials/01..03-*.pl       the objects layer's lessons; goal main, last line do
   `.mac`, the `.big.pl` and, LAST, the `.sum`. `ccl_write_whole/2` writes a temporary name and renames it. A failed AST
   write is traced (`ast_not_written(Path)`) and leaves no summary. Why: the `.sum` is the validity key, and a valid one
   with no AST refused `template_without_body`. (0.100, 0.106)
+- EACH WRITER WRITES UNDER A NAME OF ITS OWN (0.188; `ccl_tmp_name/2`: the file's name, `.tmp` and the process id) and
+  renames the whole file into place, the `.sum`, the `.mac` and the AST alike: two processes that write one header's
+  files at once -- two builds, or a build's processes for its cold headers -- each rename a whole file, where under one
+  temporary name their appends were mixed. THE TEXT GOES OUT AS ATOMS (0.188): the atoms `term_to_atom/2` makes,
+  joined up to 16,000 characters an append (`ccl_append_parts/2`), a longer one as its codes, since
+  `append_file_from_codes/2` copies an atom through 64 KB and raises past it; each was made into codes first. (0.188)
 
 ### The AST beside the summary and the header index
 
@@ -2118,7 +2154,10 @@ tutorials/01..03-*.pl       the objects layer's lessons; goal main, last line do
   second time over one store took 7.3 GB). Reader check `k93`; reader version 125. No float arithmetic of the freeze or
   the thaw meets an infinity since 0.158 (the Findings' bullet of cocolog 2.2.0, which raises at one): an infinity is
   told by a comparison and made from its text (`ccl_float_infinite/1`, `ccl_float_infinity/1`), the exponent's estimate
-  is held to a double's (`ccl_float_norm/4`), and a thawed value is `float(M) * 2.0 ** E`. (0.132, 0.158)
+  is held to a double's (`ccl_float_norm/4`), and a thawed value is `float(M) * 2.0 ** E`. A WALK THAT BUILDS NOTHING
+  COMES FIRST (0.188; `ccl_has_float/1`): the freeze built a copy of every item it was given and threw it away where no
+  float was in it, nearly every item, 0.60 s of a cold read of `<thread>` over libc++ 21 (0.31 s since). (0.132, 0.158,
+  0.188)
 
 ### The IR cache
 
@@ -2131,7 +2170,7 @@ tutorials/01..03-*.pl       the objects layer's lessons; goal main, last line do
 
 ### The versions
 
-- `ccl_reader_version/1` (`library/ccl_syntax.pl`, now 141): bump it for any grammar change to what a read gives, and
+- `ccl_reader_version/1` (`library/ccl_syntax.pl`, now 142): bump it for any grammar change to what a read gives, and
   for any change to what the AST beside a summary holds (item or member terms, `cpp_index_name/2`,
   `cpp_template_name/2`, `ccl_flat_items/3`, the namespace keys). Keep the reason in its comment. Why: the store and the
   summaries are keyed by it, and a stale read is served silently (`sizeof(std::string)` read 40). (M1, 0.89, 0.112,
@@ -5736,14 +5775,14 @@ A lambda is a class of its captures (`library/ccl_cpp.pl`). A fixture named alon
   destroyed at the handler's end. `catchvalue.cpp`. A POINTER CAUGHT is the pointer `__cxa_begin_catch` answers,
   adjusted to the handler's type, as clang stores it (`ir_catch_bind/3`, 0.179): it was loaded from where it points, and
   `catch (int *p)` crashed. `ptrrtti.cpp`. (0.108, 0.110, 0.179)
-- The reader keeps `noexcept` (`'$ccl_nx'`): a free function's name joins `'$ccl_nothrow'` (`ccl_note_nx`), a method
-  keeps it among its qualifiers. `noexcept(false)` and `throw(X)` are not noexcept; `throw()` is. (0.110)
+- The reader keeps `noexcept` (`'$ccl_nx'`): a free function's name joins the set `'$ccl_nxs'` (`ccl_note_nx`), a
+  method keeps it among its qualifiers. `noexcept(false)` and `throw(X)` are not noexcept; `throw()` is. (0.110, 0.188)
 - noexcept is enforced where the program throws (`'$cpp_throws'`; [except.spec]/5): a noexcept function that makes a
   call has its body in a `try` with a `terminate` handler (`cpp_nx_wrap`). It calls `std::terminate` and runs no
   destructor on the way (`ir_unwind_to`), as clang's pad does. `noexcept.cpp`. (0.110)
 - `noexcept(e)` is false when e holds a `throw` or calls a program function that is not noexcept (`cpp_nx_throws`): a
-  free function not in `'$ccl_nothrow'`, or a method with no noexcept overload of its name. A library function and a
-  destructor count as noexcept. (0.110)
+  free function not in `'$ccl_nxs'`, or a method with no noexcept overload of its name. A library function and a
+  destructor count as noexcept. (0.110, 0.188)
 
 ### RTTI
 
@@ -7190,7 +7229,8 @@ A lambda is a class of its captures (`library/ccl_cpp.pl`). A fixture named alon
   catch failed). A `catch/3` stays only where a call can
   throw (`time_file/2`, `proc_run/4`, a macro call, a candidate check), never around a hot read. (0.46, 0.149)
 - A name set that the parser asks at every identifier is held in buckets, a global each (`ccl_set_has/2`,
-  `ccl_set_add/2`, `ccl_set_new/3` over `'$ccl_envs'`, `'$ccl_tmpls'`, `'$ccl_ftmpls'`). A bucket's key is the name's
+  `ccl_set_add/2`, `ccl_set_new/3` over `'$ccl_envs'`, `'$ccl_tmpls'`, `'$ccl_ftmpls'`, and since 0.188 the no-throw
+  names `'$ccl_nxs'`). A bucket's key is the name's
   first and last character and its length modulo 7, taken from its list of characters (`ccl_set_bucket/3`:
   `atom_chars/2`, `last/2` and `length/2`, a step each, 0.187; two calls of `sub_atom/5`, clauses over `between/3`
   since cocolog 2.5.0, took 0.68 s where they take 0.39 s for 240,000 keys, the count a read of `<thread>`'s
@@ -7201,10 +7241,11 @@ A lambda is a class of its captures (`library/ccl_cpp.pl`). A fixture named alon
   names new to the env are logged as they join (`ccl_env_log/1`, the log cleared at each item of the item loop), so
   that a template head's leave takes away those logged after its mark (`ccl_env_since/2`). A deep grammar rule passes
   `genv` for the global env (`ccl_env_member/2`). A C++ tag is noted without its bodies (`ccl_slim_members/2`,
-  `ccl_sum_slim/2`). (0.46, 0.187)
+  `ccl_sum_slim/2`). (0.46, 0.187, 0.188)
 - THREE TABLES ARE BUCKETED (0.120): the file scope `'$ccl_gscope'`, the typedefs `'$ccl_typedefs'` and the tags
   `'$ccl_tags'` are 128 globals each, `P_0` to `P_127` (`ccl_tab_g/3`), and an entry lives in the bucket its key's
-  characters hash to (`ccl_tab_bucket/2`; a key that is no atom, a method defined out of its class, is in bucket 0). A
+  characters hash to (`ccl_tab_bucket/2`; a key that is no atom, a method defined out of its class, is in bucket 0,
+  which the file scope keeps none of since 0.188, the symbol table's topic). A
   write or a lookup copies ONE bucket, 150 entries at 20,000 names: `ccl_tab_add/2` (one entry, or a bulk grouped by
   bucket), `ccl_tab_find/3` (by key), `ccl_tab_member/3`, `ccl_tab_list/2` (every entry, the buckets concatenated, for a
   reader that wants them all), `ccl_tab_reset/1`, and `ccl_tab_save/2` with `ccl_tab_restore/2` (a nested read's save and
@@ -7213,7 +7254,7 @@ A lambda is a class of its captures (`library/ccl_cpp.pl`). A fixture named alon
   gets the first bucket's (every caller asks with the name). The drain functions follow `ccl_tab_list`, which is why the
   lowering version moved. `ck_declare_at/4` asks the open frames and the file scope apart for the same reason (the file
   scope is the LAST frame). Why: 800 file-scope declarations into 3,000 names and 6,000 lookups were 6 of the 15 CPU
-  seconds of a `std::vector` build, and one write was 40 ms at 20,000 names. (0.120)
+  seconds of a `std::vector` build, and one write was 40 ms at 20,000 names. (0.120, 0.188)
 - SEVEN OF THE DESUGARING'S REGISTRIES, lists in a global until 0.119, are facts (0.120): the class typedefs
   `'$cpp_ctype'(Class, Name, Type)`, the enclosing classes `'$cpp_encl'(Nested, Enclosing)`, the static initializers
   `'$cpp_sinit'(Class, Name, Init)`, the lazy library classes `'$cpp_lazy_c'(Class)`, the destructors defined out of their
@@ -7327,7 +7368,13 @@ A lambda is a class of its captures (`library/ccl_cpp.pl`). A fixture named alon
   specifiers (the first clause of `ccl_specs//8`, before 27 others: 1.35 s where it takes 0.79 s) and a qualified name
   of one identifier, which two clauses read only to test it (`ccl_qname_ahead//1`); with the sets as the whole record
   (above) and an out-of-class definition's name read once, that read takes 13.0 s and 115.0 million steps where it
-  took 20.5 s and 164.3 million, its tree the same, byte for byte. (0.187)
+  took 20.5 s and 164.3 million, its tree the same, byte for byte. Since 0.188 one look takes a specifier's keyword
+  -- a storage word but `auto`, a qualifier but `_Atomic` and `constexpr`, a basic type (`ccl_spec_fast/2`) -- and a
+  type's name of one word (`ccl_specs_type//7`), where a word went down the clauses one after another to the one that
+  took it, the fifteenth for `int`: `ccl_specs/10`'s retries 0.70 s of a cold read of `<thread>` over libc++ 21, 0.23 s
+  since. With the file scope's atoms, the no-throw set, the directive mark, the float walk and the text as atoms (each
+  in its topic), the flat read takes 11.3 s and 98.7 million steps; that cold read 17.3 s and 170.3 million where
+  0.187's library takes 22.0 s and 211.7 million, the trees the same, byte for byte. (0.187, 0.188)
 - Text goes through builtins: `atomic_list_concat/3` splits a file, `atom_codes/2` and `memberchk/2` test a line, and
   only a line that needs it is walked code by code (`pp_clean/3`). On a hot path `sub_atom/5` has every position
   bound: since cocolog 2.5.0 it is clauses over `between/3`, and with its start free it tries every start (0.184: the
@@ -7344,7 +7391,8 @@ A lambda is a class of its captures (`library/ccl_cpp.pl`). A fixture named alon
 - The inference is at its floor. The check's cost is `ck_expr`'s walk, a `ck_in` lookup per node over the threaded
   `st(Frames)`; a further cut is a redesign (a state table per function, or the lookups in C).
 - The host's arch and OS come from the module (`ccl_host_arch/1`, `ccl_host_os/1`), `uname` only without it. A build's
-  only spawns are the link (`ccl_sh/3`) and, for a C++ summary, `mkdir -p` (`ccl_sum_dir_ready`).
+  only spawns are the link (`ccl_sh/3`), for a C++ summary `mkdir -p` (`ccl_sum_dir_ready`), and, for two or more cold
+  library headers of a C++ build, a cocolog for each (0.188, the driver's topic).
 - `bin/cicilang` forks about six times, where it forked twenty: every `$(...)` and every pipe is a fork.
 
 ### Finding a cost
@@ -8020,17 +8068,17 @@ A lambda is a class of its captures (`library/ccl_cpp.pl`). A fixture named alon
 - Ubuntu 24.04 on x86_64 (clang and LLVM 18, glibc, libc++ 18 and 21) is a host since 0.87. Every gate but the C++ one
   is GREEN there since 0.93, and all seven since 0.95. Every step from 0.93 on is gated there, but the save points
   0.112, 0.113, 0.117, 0.122 to 0.125, 0.130, 0.131 and 0.143 (0.143's C gates and cross gate ran, its libc++ gates did
-  not; the others were gated by the steps after them). The last full run is 0.186's, over cocolog 2.11.0 (the
-  Findings), on one tree, over fresh HOMEs (the reader version moved): over libc++ 18 all nine GREEN in 1813 s (the
-  flow gate's one finding in 96 s, reader 5 s, compile 13 s, driver 13 s, objects 4 s, proof, the cross gate in 357 s
-  with its C++ part for aarch64, the library read in 482 s (0.185's 474 s), the C++ gate in 838 s (0.185's 868 s) with
+  not; the others were gated by the steps after them). The last full run is 0.187's, over cocolog 2.11.0 (the
+  Findings), on one tree, over fresh HOMEs (the reader version moved): over libc++ 18 all nine GREEN in 1595 s (the
+  flow gate's one finding in 88 s, reader 4 s, compile 13 s, driver 13 s, objects 4 s, proof, the cross gate in 298 s
+  with its C++ part for aarch64, the library read in 365 s (0.186's 482 s), the C++ gate in 803 s (0.186's 838 s) with
   600 of 604 fixtures ok, the skips are `joinwith`, `stdoptionalref`, `tzone` and `zipadjacent`, the 23 refusals and the
-  three of the safe part); over libc++ 21 the library read (395 s, peak 1167 MB; 0.185's 421 s) and the C++ gate (855
-  s, peak 2155 MB; 0.185's 853 s; 602 of 604 ok, the skips `stdoptionalref` and `zipadjacent`) GREEN -- the C gates do
-  not read libc++. The headers' reads, summed, took 1802 s over 114 over libc++ 18 and 1487 s over 21 (0.185's 1776 s
-  and 1592 s; 0.181's 4313 s and 4116 s, before a read linear in its items); the fixtures' builds 2832 s over 600 and
-  2930 s over 602 (0.185's 2934 s over 596 and 2905 s over 598) (HISTORY.md, 0.187). The chains of 0.165 to 0.185 are
-  in HISTORY.md, 0.166 to 0.186. Two libc++ passes are one gate: `LLVM=/usr/lib/llvm-18` and `LLVM=/usr/lib/llvm-21`
+  three of the safe part); over libc++ 21 the library read (322 s, peak 1461 MB; 0.186's 395 s) and the C++ gate (801
+  s, peak 2116 MB; 0.186's 855 s; 602 of 604 ok, the skips `stdoptionalref` and `zipadjacent`) GREEN -- the C gates do
+  not read libc++. The headers' reads, summed, took 1349 s over 114 over libc++ 18 and 1191 s over 21 (0.186's 1802 s
+  and 1487 s; 0.181's 4313 s and 4116 s, before a read linear in its items); the fixtures' builds 2711 s over 600 and
+  2739 s over 602 (0.186's 2832 s and 2930 s) (HISTORY.md, 0.188). The chains of 0.165 to 0.186 are
+  in HISTORY.md, 0.166 to 0.187. Two libc++ passes are one gate: `LLVM=/usr/lib/llvm-18` and `LLVM=/usr/lib/llvm-21`
   choose the tree the chain reads and links. libc++ 22 (the newest tree, which a run without `$LLVM` reads) is no
   gate: 0.182 built its vector and its C++23 views by hand (`zipadjacent.cpp`, which its `.needs` skips over 18 and
   21), and `stdoptionalref` passes there. The run before 0.121's (0.118, 0.119) found, over 0.117, two defects and
@@ -8585,10 +8633,12 @@ A lambda is a class of its captures (`library/ccl_cpp.pl`). A fixture named alon
   of the C++ gate's 2400 s cap in the gate's pool at 0.115 and 1357 s at 0.118, and takes 211 s now; the sum of the 388
   fixtures' builds went from 11,775 s to 2,936 s, the gate from 2989 s to 908 s over four lanes, its pool's peak from 9034
   MB to 1675 MB (0.120). What is left is mostly the reader's own cold flattening of a header, 2.4 to 2.7 times faster
-  since 0.184 (its item loop: the 114 headers' reads summed 1802 s over libc++ 18 in 0.186's chain, 4313 s in 0.181's)
-  and 1.5 times faster again since 0.187 (the sets as the whole record and the grammar's looks: seven headers' texts
-  read in 90.0 s where 0.186 read them in 133.7 s, the trees the same). In 0.186's chain the slowest builds were `fmtrange`
-  (120 s over libc++ 18) and `fmtchrono2` (106 s over 21), `viewsall` 78 s and 82 s, and the 600 and 602 builds summed
-  2832 s and 2930 s over four lanes (0.120, 0.184, 0.187).
+  since 0.184 (its item loop: the 114 headers' reads summed 4313 s over libc++ 18 in 0.181's chain), 1.5 times faster
+  again since 0.187 (the sets as the whole record and the grammar's looks: 1349 s in 0.187's chain, 1802 s in 0.186's)
+  and faster again since 0.188 (seven headers' texts read in 71.9 s where 0.186's library read them in 133.7 s and
+  0.187's in 90.0 s, the trees the same); and since 0.188 a build's cold headers are read by processes of their own, at
+  once (the driver's topic). In 0.187's chain the slowest builds were `fmtrange` (115 s over libc++ 18) and
+  `fmtchrono2` (102 s over 21), `viewsall` 73 s and 76 s, and the 600 and 602 builds summed 2711 s and 2739 s over
+  four lanes (0.120, 0.184, 0.187, 0.188).
 - The flow gate charts the ten hand-written files of `library/` and the nine gate programs of `test/` (0.161): the two
   generated tables (`ccl_bidrt.pl`, `ccl_uninames.pl`) are loaded, not charted. `test/why.sh` is no gate.

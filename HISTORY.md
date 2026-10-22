@@ -180,7 +180,8 @@ One row per step, in version order: the step's title, what it did and its gate n
 | 0.184 | A cold read linear in its items; a template template parameter's list skips a parenthesized group | the item loop counts the tokens an item took, never the length of the rest of the file, 58 % of a cold read of `<thread>`'s text (a header's text read 2.8 to 3.4 times faster, its tree the same); two hot calls of `sub_atom/5` take their positions bound (cocolog 2.5.0 made it clauses over `between/3`); a template template parameter's list skips a parenthesized group and ends at a `;` | its chain (0.185), the first over cocolog 2.11.0, over fresh HOMEs (the reader moved), holding 0.182 and 0.183: all nine gates GREEN over libc++ 18 in 1808 s, the library read and the C++ gate over 21; the library read 482 s and 413 s (0.181's 1121 s and 1061 s), the C++ gate 837 s and 842 s; 595 of 599 over 18, 597 over 21 |
 | 0.185 | Not done, the twenty-first part: a template template parameter's own defaults | a template template parameter's own list read; in its scope `TT<U>` takes the defaults the list gives, not the bound template's (`Use<Small, char>::v` was 1, clang++ gives 2); the numbers of 0.184's chain; the engine's cost measured again, 3.6 % | committed before its chain: on 2.11.0 the flow gate GREEN (4101 predicates), the trees of four libc++ headers the same, byte for byte, nets of 75 C++ fixtures over fresh HOMEs, 75 of 75 the same over libc++ 18 and over 21; 87 run C fixtures, 600 C++; its chain (0.186), over fresh HOMEs (the reader moved): all nine gates GREEN over libc++ 18 in 1841 s, the library read and the C++ gate over 21; the library read 474 s and 421 s, the C++ gate 868 s and 853 s; 596 of 600 over 18, 598 over 21 |
 | 0.186 | Not done, the twenty-second part: a header read alike after others; a qualified name that names no type | a library header's read starts from the seed set of templates (0.185's cold nets wrote 4 and 5 of 47 summaries otherwise than 0.184's chain); a qualified name that names no type declares no parameter (libc++'s orderings' `less` were member function declarations, 13 of 38 summaries); a namespace-scope object and a static data member defined out of its class, initialized by `T(args)` or `T{args}`, constructed from their own arguments (`no_constructor` since 0.99); a scalar `<=>` no arithmetic type to the inference; the mangler measured against the shipped libraries; the numbers of 0.185's chain | committed before its chain: on 2.11.0 the flow gate GREEN (4109 predicates), the trees of seven libc++ headers the same but the three `less` definitions, nets of 112 C++ fixtures over fresh HOMEs, 112 of 112 the same over libc++ 18 and over 21; 87 run C fixtures, 604 C++; its chain (0.187), over fresh HOMEs (the reader moved): all nine gates GREEN over libc++ 18 in 1813 s, the library read and the C++ gate over 21; the library read 482 s and 395 s, the C++ gate 838 s and 855 s; 600 of 604 over 18, 602 over 21 |
-| 0.187 | Not done, the twenty-third part: a cold read 1.5 times faster, its trees the same | the sets of names the whole record, no list of every name beside them (12,397 copies of the env's list, 0.89 s, in a read of `<thread>`'s flattened text); one look before an attribute, at the end of the specifiers and at a qualified name of one identifier; an out-of-class definition's qualified name read once; a set's bucket key from the name's list of characters; the numbers of 0.186's chain | committed before its chain: on 2.11.0 the flow gate GREEN (4128 predicates), the trees of seven libc++ headers the same, byte for byte, read in 90.0 s where 0.186 read them in 133.7 s, the C gates GREEN, nets of 112 C++ fixtures over fresh HOMEs, 112 of 112 the same over libc++ 18 and over 21, their cold builds 1597 s and 1436 s where 0.186's took 1942 s and 1702 s; 87 run C fixtures, 604 C++ |
+| 0.187 | Not done, the twenty-third part: a cold read 1.5 times faster, its trees the same | the sets of names the whole record, no list of every name beside them (12,397 copies of the env's list, 0.89 s, in a read of `<thread>`'s flattened text); one look before an attribute, at the end of the specifiers and at a qualified name of one identifier; an out-of-class definition's qualified name read once; a set's bucket key from the name's list of characters; the numbers of 0.186's chain | committed before its chain: on 2.11.0 the flow gate GREEN (4128 predicates), the trees of seven libc++ headers the same, byte for byte, read in 90.0 s where 0.186 read them in 133.7 s, the C gates GREEN, nets of 112 C++ fixtures over fresh HOMEs, 112 of 112 the same over libc++ 18 and over 21, their cold builds 1597 s and 1436 s where 0.186's took 1942 s and 1702 s; 87 run C fixtures, 604 C++; its chain (0.188), over fresh HOMEs (the reader moved): all nine gates GREEN over libc++ 18 in 1595 s, the library read and the C++ gate over 21; the library read 365 s and 322 s, the C++ gate 803 s and 801 s; 600 of 604 over 18, 602 over 21 |
+| 0.188 | Not done, the twenty-fourth part: a build's cold headers read at once, each by a process of its own; the next costs of a cold read | the cold library headers of a C++ build read by a cocolog each, as many at a time as the machine has processors (`CICILANG_JOBS`), the build then served from their summaries (`aliasptr.cpp`'s eight over libc++ 18: 52.8 s where the build alone takes 96.5 s, the same CPU time); each writer's temporary file a name of its own; the file scope holds atoms alone (861 copies of a bucket, 0.80 s of a read of `<thread>`'s text); the no-throw names a set; one look at a specifier's keyword and at a type's name of one word; a directive line marked once; an item walked for floats before it is copied; a summary's and an AST's text written as atoms (26 million steps of `append/3`); the numbers of 0.187's chain | committed before its chain: on 2.11.0 the flow gate GREEN (4151 predicates), the trees of seven libc++ headers the same, byte for byte, read in 71.9 s where 0.186's library read them in 133.7 s, the C gates and the cross gate GREEN, nets of 112 C++ fixtures over fresh HOMEs, 112 of 112 the same over libc++ 18 and over 21, their cold builds 1343 s and 1231 s where 0.187's took 1597 s and 1436 s, their summaries 0.187's nets', 52 of 52 over each; 87 run C fixtures, 604 C++ |
 
 ## M5 — the C++ mode
 
@@ -11839,4 +11840,122 @@ that both HOMEs hold are the same, each line made independent of the checkout an
   numbers).
 
 Reader 141 (the grammar's rules change and a read gives the same tree: a summary is read again with the rules that write
+it), lowering 104 (no change).
+
+## 0.188 — Not done, the twenty-fourth part: a build's cold headers read at once, each by a process of its own; the next costs of a cold read
+
+**0.188: the cold library headers of a C++ build are read at once, each by a cocolog of its own, as many at a time as
+the machine has processors (the owner's design: "start one process for each cold header"), and the build reads their
+summaries; a cold read of a header's text faster again, its tree the same, byte for byte: the file scope holds atoms
+alone, the no-throw names are a set, one look takes a specifier's keyword and a type's name of one word, a directive
+line is marked once as it is made, an item is copied for its floats only where it holds one, and the text of a summary
+and of its AST goes to the file as the atoms term_to_atom/2 makes; and the numbers of 0.187's chain: GREEN. Committed
+before its chain, on the owner's word: the chain runs over this commit, and the next one carries its numbers.**
+
+THE CHAIN OF 0.187, on the checkout of its commit (module 0.187, reader 141, lowering 104, over cocolog 2.11.0), over
+fresh HOMEs (the reader version moved), from 22:03:15 UTC: the flow gate (one finding, `test/flow.expect`'s, 88 s, peak
+2820 MB over its four lanes; 4128 predicates), reader 4 s, compile 13 s, driver 13 s, objects 4 s, the proof, the cross
+gate in 298 s (peak 518 MB; 87 C fixtures and 5 checks, 24 C++ fixtures and 2 checks), over libc++ 18 the library read
+in 365 s (peak 1628 MB; the 23 asserted reads whole, 91 other headers warmed, none failed) and the C++ gate in 803 s
+(peak 2180 MB) with 600 of its 604 fixtures ok -- the skips `joinwith`, `stdoptionalref`, `tzone` and `zipadjacent` --
+the 23 refusals and the three of the safe part, the libc++ 18 half in 1595 s (to 22:29:50 UTC), and over libc++ 21 the
+library read in 322 s (peak 1461 MB; 91 warmed) and the C++ gate in 801 s (peak 2116 MB), 602 of 604 ok, the skips
+`stdoptionalref` and `zipadjacent`, to 22:48:34 UTC: GREEN. The headers' reads summed 1349 s over 114 over libc++ 18 and
+1191 s over 21 (0.186's 1802 s and 1487 s); the fixtures' builds 2711 s over 600 and 2739 s over 602 (0.186's 2832 s
+and 2930 s). The slowest over libc++ 18 `fmtrange` 115 s, `fmtchrono2` 108 s, `fmtchrono` 96 s, `fmttuple` 76 s,
+`fmtcheck` 74 s and `viewsall` 73 s, over libc++ 21 `fmtchrono2` 102 s, `fmtchrono` 90 s, `viewsall` 76 s, `tzone` 76 s,
+`fmtrange` 74 s and `fmtcheck` 67 s. The summaries that
+the chain's library read wrote, one header a process, are the ones 0.187's nets wrote, every header of a fixture in
+one process: over libc++ 18 and over 21, the 52 that both HOMEs hold are the same (`sumcmp3.sh`).
+
+- A BUILD'S COLD HEADERS, EACH READ BY A PROCESS OF ITS OWN. The question was the owner's: could cocolog's green
+  threads (2.6.0 to 2.11.0, one worker a core over one shared store) read many headers at once? Not as they are: a read
+  writes its globals at every name it notes (`nb_setval/2`, half a million writes in a cold read of `<thread>`), and a
+  store write in a world of workers stops the world, so the reads would go one after another and pay the stops besides.
+  Processes share nothing, and since 0.186 a header's read does not depend on what the process read before it: the
+  prescan of the program's file (`ccl_pp_prescan/1`) now first gathers the includes the file names
+  (`pp_prescan_specs/2`), finds the library headers among them that no valid summary serves (`ccl_cold_headers/4`:
+  a `<name>`, an `#include_next`, a header unit's `import`, resolved, no macro file, not read in this process, its
+  summary not valid), and where two or more are cold starts one cocolog for each (`ccl_cold_headers_read/2`,
+  `ccl_kids/4`): `proc_spawn/2` of `/bin/sh -c 'ulimit -t 1800; exec cocolog --local query ...'`, J at a time
+  (`ccl_jobs/1`: `$CICILANG_JOBS`, else `os_cpus/1`; 1 turns it off), the parent polling with `proc_wait/3` and no
+  wait past 1800 s, past which the process's session is killed. Each runs `ccl_drive_header(Spec, From, Options)`:
+  the build's options set as the build sets them (`dr_setup/2`, `dr_drive`'s own setup made a predicate of its own),
+  `'$ccl_children'` set to `none` so that it starts none, then the header read as the prescan reads it
+  (`ccl_header_macros_ready/2`), its summary, AST and macro table written. The build then forgets the summaries it had
+  parsed and found invalid (`ccl_sum_forget/1`), counts the valid ones, and the prescan serves each header from its
+  summary as before (`pp_prescan_ready/2`). One cold header is read in the build's own process; a header whose process
+  wrote no summary is read there too; `-v` names each process and says how many summaries they wrote and in how long.
+  The command line's macros, the level, another machine and the include directories reach the child in the options.
+- EACH WRITER UNDER A NAME OF ITS OWN. Two processes may write one header's files at once: two builds, or the
+  processes of builds that run side by side in a gate's pool. The temporary names were `F.tmp`, one for every writer,
+  so two appends could mix in one file before the rename; the name is now the file's, `.tmp` and the process id
+  (`ccl_tmp_name/2`), for the `.sum`, the `.mac`, the AST and the `.big.pl`, and each writer renames a whole file.
+- THE MEASURE OF THE PROCESSES. `aliasptr.cpp` (C++20, eight cold library headers over libc++ 18, a fresh HOME), the
+  build alone against the build with its processes, one run each: 96.5 s and 97.8 s of CPU, peak 752 MB, against
+  52.8 s, 95.5 s of CPU summed over the tree and peak 562 MB summed over six processes at most; the cold headers'
+  phase 25.0 s; the binary's output the same, and the eight summaries the same, file for file (`sumcmp3.sh`, each line
+  made independent of the checkout and of the files' times). `stdcstdlib.cpp`'s five over a fresh HOME with
+  `CICILANG_JOBS=1` and with 4: the same five summaries. The C++ gate's new check builds that file cold, four at a
+  time, and asks for five processes, five summaries written and the binary's `.expect`; it passes alone over libc++
+  21. The caps: each gate already sums every cocolog on the box (`ccl_cocolog_rss`, the session's watchdog) and kills
+  a build's tree by parent id (`ccl_kill_tree`, `ccl_xkill`), which reaches a child in a session of its own.
+- WHERE THE READ'S TIME WENT. The RUN view of 0.187's library over a cold read of `<thread>` as the library read makes
+  it (libc++ 21, C++17): 211.7 million steps and 22.0 s; `nb_setval/2` 2.56 s, 541,987 writes; `append/3` 26.3 million
+  steps and 1.21 s; `atom_codes/2` 2.29 million calls and 1.14 s; `ccl_specs/10`'s retries 0.70 s; the freeze's walk
+  (`ccl_ff_args/6`, `ccl_ff/4`) 0.60 s. In a copy of the library that counted each table write by key (a session
+  script), the file scope's writes in a read of `<thread>`'s flattened text: 3,649, of which 861 -- the keys
+  `scoped(Path, N)` of 525 members defined out of their class and `operator(Op)` of 336 operators -- went to the bucket
+  of the keys that are no atom and copied it whole at each write, 0.80 s of the read's 13.4 s.
+- THE FILE SCOPE HOLDS ATOMS. `ccl_declare/2` declares at file scope only a name that is an atom: no lookup asks the
+  file scope for a compound name, and the bulk noter has never kept one; `ccl_gdeclare/1` no longer writes
+  `'$ccl_gcache'`, which nothing read.
+- THE NO-THROW NAMES ARE A SET. `ccl_note_nx/1` kept the free functions declared `noexcept` in a list, `'$ccl_nothrow'`,
+  copied whole at each name added -- 1,068 times in that read, 68 us each -- and `ccl_nothrow/1` walked it; they are a
+  set in buckets, `'$ccl_nxs'`, as the names a read notes are.
+- ONE LOOK AT A SPECIFIER. A storage word but `auto`, a qualifier but `_Atomic` and `constexpr` (each a clause of its
+  own) and a basic type take their action at once (`ccl_spec_fast/2`, `ccl_specs_fast/12`), where a word went down the
+  clauses one after another to the one that took it, the fifteenth for `int`; a type's name of one word that no clause
+  between the constrained `auto` and the type's own takes (their words are `ccl_spec_word/1`'s) goes to the type's
+  clauses (`ccl_specs_type//7`). No clause the look passes over can take the token, so the read is the same.
+- A DIRECTIVE LINE MARKED ONCE. `pp_source/2` marks a directive line as it makes it, `line(N, d(Atom))`, its codes at
+  hand there (`pp_line_mark/3`); `pp_directive_line/2` takes the mark, and a text line fails at its head, where every
+  line was converted to codes at every test -- 1.40 million tests in that cold read, each run over a file and each false
+  group skipped. `pp_import_line/2` asks for an atom first.
+- THE FLOATS LOOKED FOR FIRST. The store's freeze built a copy of every item it was given and threw it away where no
+  float was in it, nearly every item; `ccl_has_float/1` walks the item first and builds nothing, and only an item
+  with a float is copied.
+- THE TEXT AS ATOMS, IN PIECES. The summary's and the AST's lines were turned into codes and the codes appended into one
+  list (`append/3`'s 26.3 million steps); the atoms `term_to_atom/2` makes are joined up to 16,000 characters an append
+  (`ccl_append_parts/2`), a longer one appended as its codes, since `append_file_from_codes/2` copies an atom through a
+  buffer of 64 KB and raises past it (found by reading cocolog's `lib/files.cicili` before the first run); the AST's
+  lines are a difference list of atoms (`ccl_ast_clause/3`).
+- THE MEASURE OF THE READ. On 2.11.0, the trees of the seven flattened headers of 0.184 to 0.187 (`<map>`,
+  `<algorithm>` and `<iostream>` at C++20 and `<vector>` at C++17 over libc++ 18, `<string>` and `<ranges>` at C++20 and
+  `<thread>` at C++17 over 21), read with 0.186's library and with 0.188's, are the same, byte for byte (860, 831, 885,
+  807, 846, 838 and 955 items), read in 71.9 s where 0.186's took 133.7 s in the same run (24.1 s to 12.2 s, 14.4 to
+  7.1, 25.3 to 13.4, 16.0 to 8.4, 14.2 to 8.4, 19.2 to 10.7, 20.4 to 11.7; one run each; 0.187's measure read them in
+  90.0 s). The RUN view of the read of `<thread>`'s flattened text: 98.7 million steps and 11.3 s where 0.187's took
+  115.0 million and 13.0 s. The cold read of `<thread>`: 170.3 million steps and 17.3 s where 0.187's library took
+  211.7 million and 22.0 s in the same series -- `nb_setval/2` 1.15 s, `append/3` 2.04 million steps and 0.17 s,
+  `atom_codes/2` 1.44 million calls and 0.80 s, `ccl_specs/10`'s retries 0.23 s, the freeze 0.31 s -- and its summary
+  the same as 0.187's (`sumcmp3.sh`). The flow gate GREEN over the library as committed, 4151 predicates (23 new), its
+  one finding, 80 s and 2886 MB. The reader, compile, driver and objects gates, the proof and the cross gate GREEN over
+  the work tree and a fresh HOME (the cross gate 257 s, peak 349 MB, its C++ builds over a cold HOME with their
+  processes). Nets of the 112 fixtures of 0.186's nets, three at a time, each net over a fresh HOME, each build and the
+  processes it starts capped as one tree (2800 MB a process, 4000 MB the tree, 1200 s): over libc++ 18 from 23:14:24 to
+  23:22:07 UTC, 112 of 112 the same as their `.expect`, the builds summed 1343 s where 0.187's nets summed 1597 s from
+  21:43:12 to 21:52:18 UTC (`usingnamed` 92 s to 56 s, `viewsall` 154 s to 121 s, `stdthread` 53 s to 26 s), the largest
+  tree 879 MB over six processes (`usingnamed`); over libc++ 21 from 23:22:09 to 23:29:09 UTC, 112 of 112 the same, 1231
+  s where 0.187's summed 1436 s from 21:52:18 to 22:00:30 UTC, the largest tree 823 MB. The summaries that the nets'
+  builds and their processes wrote are the ones 0.187's nets wrote, 52 of 52 over each libc++ (`sumcmp3.sh`). A net
+  claims nothing.
+- `CLAUDE.md`: the versions and the `now` line; the caps bullet (a build's processes); `ccl_drive/2`'s section (the
+  setup, the cold headers' processes); the C++ gate's command checks; the preprocessor's lines bullet (the mark);
+  `ccl_declare/2`'s bullet (atoms at file scope); the two no-throw bullets of the reader and the one of exceptions; the
+  summary cache's writers (a name of its own, the text as atoms); the store's float bullet (the walk first); the Tables
+  bullets; the one-look bullet; the spawns bullet; the flow gate's count; the Hosts bullet (the chain of 0.187); Not
+  done (the cold read's numbers). `README.md`: the processes and `CICILANG_JOBS`.
+
+Reader 142 (the grammar's rules change and a read gives the same tree: a summary is read again with the rules that write
 it), lowering 104 (no change).

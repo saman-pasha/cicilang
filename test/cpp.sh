@@ -38,6 +38,11 @@ s1=$(date +%s); "$ROOT/bin/cicilang++" "$ROOT/test/cpp/hello.cpp" -o hello2 >/de
 if [ "$t1" -lt 8 ] && [ "$n" -ge 1 ]; then echo "ok   a second build reads stdio.h's summary from ~/.cicilang/cpp, no preprocessing ($t1 s, $n summaries)"; else echo "FAIL a second build is served from the summary cache"; echo "     got  $t1 s, $n summaries"; failures=$((failures + 1)); fi
 got=$("$ROOT/bin/cicilang++" -fsyntax-only "$ROOT/test/cpp/classes.cpp" 2>&1; echo "exit $?")
 if [ "$got" = "exit 0" ]; then echo "ok   cicilang++ -fsyntax-only reads a file of classes, and says nothing"; else echo "FAIL cicilang++ -fsyntax-only classes.cpp"; echo "     got  $got"; failures=$((failures + 1)); fi
+# THE COLD HEADERS OF A BUILD, EACH READ BY A PROCESS OF ITS OWN (0.188): stdcstdlib.cpp's five library headers, cold in a
+# summary directory of the check's own (its HOME), read by five processes four at a time, then the build and its binary
+mkdir -p "$D/coldhome"; said=$(HOME="$D/coldhome" CICILANG_JOBS=4 "$ROOT/bin/cicilang++" -v "$ROOT/test/cpp/run/stdcstdlib.cpp" -o cold 2>&1)
+nk=$(printf '%s\n' "$said" | grep -ac 'in a process of its own'); got=$(./cold < /dev/null; echo "exit $?")
+if [ "$nk" = 5 ] && printf '%s\n' "$said" | grep -aq ': 5 summaries written' && [ "$got" = "$(cat "$ROOT/test/cpp/run/stdcstdlib.expect")" ]; then echo "ok   a cold build reads its five library headers by processes of their own, four at a time, and its binary prints what it should"; else echo "FAIL the cold headers by processes of their own"; echo "     got  $nk processes; $(printf '%s\n' "$said" | grep -a 'summaries written' | cut -c1-160); $(printf '%s' "$got" | tail -1)"; failures=$((failures + 1)); fi
 # THE CLASS LAYOUT AGAINST CLANG++'S (0.135): test/cpp/link/abi_helper.cpp built by the reference compiler of the tree read
 # ($LLVM's clang++, else the one on the path), linked with abi_main.cpp built by cicilang++ -- a base's tail padding reused
 # and the table pointer first, values and sizes crossing the call both ways. No clang++: a SKIP, named.

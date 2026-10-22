@@ -276,12 +276,18 @@ ccl_float_infinity(1.0Inf).
 %% the lowering recurse without end (test/c/run/hexfloat.c, a second compile gate over one store: 7 GB). An item that
 %% holds a float is stored as '$fz'(Item), each float in it as '$fl'(M, E) (ccl_float_parts/3); an item without one is
 %% stored as it is, so a served read walks only the items that need it.
-ccl_float_freeze(T0, T) :- ccl_ff(T0, T1, no, F), ( F == yes -> T = '$fz'(T1) ; T = T0 ).
+ccl_float_freeze(T0, T) :- ( ccl_has_float(T0) -> ccl_ff(T0, T1, no, _), T = '$fz'(T1) ; T = T0 ).
 ccl_ff(X, Y, _, yes) :- float(X), !, ccl_float_parts(X, M, E), Y = '$fl'(M, E).
 ccl_ff(X, X, F, F) :- \+ compound(X), !.
 ccl_ff(X, Y, F0, F) :- functor(X, N, A), functor(Y, N, A), ccl_ff_args(1, A, X, Y, F0, F).
 ccl_ff_args(I, A, _, _, F, F) :- I > A, !.
 ccl_ff_args(I, A, X, Y, F0, F) :- arg(I, X, XI), arg(I, Y, YI), ccl_ff(XI, YI, F0, F1), I1 is I + 1, ccl_ff_args(I1, A, X, Y, F1, F).
+%% A WALK THAT BUILDS NOTHING FIRST (0.188): the freeze built a copy of every item it was given and threw it away where no
+%% float was found, nearly every item; an item is copied only where a float is in it. The last argument is the walk's last
+%% call, so a list's tail goes on in the same frame
+ccl_has_float(X) :- float(X), !.
+ccl_has_float(X) :- compound(X), functor(X, _, A), ccl_hf_args(1, A, X).
+ccl_hf_args(I, A, X) :- arg(I, X, XI), ( I =:= A -> ccl_has_float(XI) ; ccl_has_float(XI) -> true ; I1 is I + 1, ccl_hf_args(I1, A, X) ).
 ccl_float_thaw('$fz'(X), Y) :- !, ccl_ft(X, Y).
 ccl_float_thaw(X, X).
 ccl_ft('$fl'(M, E), F) :- !, ccl_float_of(M, E, F).

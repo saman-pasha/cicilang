@@ -19,6 +19,20 @@
 
 ccl_drive(Inputs, Options) :- once(dr_drive(Inputs, Options)).          % one answer: the query loop would re-run a second
 dr_drive(Inputs, Options) :-
+    dr_setup(Options, Flags), nb_setval('$ccl_children', opts(Options)),   % a cold library header read by a process of its own (0.188)
+    dr_inputs(Inputs, Options, Flags, Objects),
+    nb_getval('$dr_errors', N),
+    (   N > 0 -> true
+    ;   ( dr_no_link(Options) ; Objects == [] ) -> true
+    ;   ( memberchk(out(Out), Options) -> true ; Out = 'a.out' ),
+        findall(F, member(link(F), Options), LinkFlags),
+        dr_say(['link ', Out]),
+        dr_catch(cicilang_link(Objects, LinkFlags, Out), E, dr_report(Out, E)) ),
+    nb_getval('$dr_errors', N1),
+    ( N1 =:= 0 -> write('cicilang: ok') ; write('cicilang: '), write(N1), write(' error(s)') ), nl.
+%% THE OPTIONS AS A RUN OF THE COMMAND SETS THEM: the language and its level, another machine, the command line's macros
+%% and directories, the compile's flags (0.188: a cold header's process sets them as its build does, ccl_drive_header/3)
+dr_setup(Options, Flags) :-
     ccl_ensure_globals, nb_setval('$dr_errors', 0),
     ( memberchk(lang(cpp), Options) -> nb_setval('$ccl_lang_forced', cpp), nb_setval('$ccl_lang', cpp) ; nb_setval('$ccl_lang_forced', none) ),   % cicilang++: everything C++
     ( memberchk(std(Std), Options) -> nb_setval('$ccl_std', Std) ; nb_setval('$ccl_std', 17) ),                                       % -std=c++20: the level libc++ keys on
@@ -30,17 +44,14 @@ dr_drive(Inputs, Options) :-
     ( memberchk(opt(O), Options) -> Flags0 = [O] ; Flags0 = ['-O0'] ),
     ( memberchk(target(Tg1), Options) -> atom_concat('--target=', Tg1, TF), append(Flags0, [TF], Flags) ; Flags = Flags0 ),   % the embedded LLVM's target
     ( memberchk(verbose, Options) -> nb_setval('$dr_verbose', yes) ; nb_setval('$dr_verbose', no) ),
-    nb_setval('$ccl_debug', none), nb_setval('$ccl_debug_kind', none),
-    dr_inputs(Inputs, Options, Flags, Objects),
-    nb_getval('$dr_errors', N),
-    (   N > 0 -> true
-    ;   ( dr_no_link(Options) ; Objects == [] ) -> true
-    ;   ( memberchk(out(Out), Options) -> true ; Out = 'a.out' ),
-        findall(F, member(link(F), Options), LinkFlags),
-        dr_say(['link ', Out]),
-        dr_catch(cicilang_link(Objects, LinkFlags, Out), E, dr_report(Out, E)) ),
-    nb_getval('$dr_errors', N1),
-    ( N1 =:= 0 -> write('cicilang: ok') ; write('cicilang: '), write(N1), write(' error(s)') ), nl.
+    nb_setval('$ccl_debug', none), nb_setval('$ccl_debug_kind', none).
+%% ONE COLD LIBRARY HEADER, READ FOR A BUILD BY A PROCESS OF ITS OWN (0.188; ccl_cold_headers_read/2): the build's options
+%% set as the build sets them, then the header read as the build's prescan reads it, its summary written; it starts no
+%% process of its own
+ccl_drive_header(Spec, From, Options) :- once(dr_header(Spec, From, Options)).
+dr_header(Spec, From, Options) :-
+    dr_setup(Options, _), nb_setval('$ccl_children', none), ccl_set_lang(From),
+    ( catch(ccl_header_macros_ready(Spec, From), _, fail) -> true ; true ).
 dr_no_link(O) :- ( memberchk(compile_only, O) ; memberchk(assembly, O) ; memberchk(emit_llvm, O) ; memberchk(syntax_only, O) ; memberchk(ast, O) ; memberchk(preprocess, O) ), !.
 
 %% ANOTHER MACHINE (0.131): clang's `--target=TRIPLE' names the arch and the OS -- `aarch64-linux-gnu', `arm64-apple-darwin',

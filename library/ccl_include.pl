@@ -451,13 +451,28 @@ ccl_sum_write(F, Path, Files, unit(Is)) :-
     ccl_sum_enums(Es, T5), ccl_sum_names(Names, T6), ccl_sum_tmpls(Tmpls, T7),
     ccl_concat_codes([[sum(Path, key(V, cpp(S)))], T1, T2, T3, T4, T5, T6, T7], Terms),
     ccl_pp_macros(Ms), ccl_sum_mnames(Ms, Out8), append(Out8, Ms, MTerms),   % the macros the run defined, for the user's file, beside it
-    ccl_mac_file(F, M), ccl_sum_chunks(MTerms, 100, MCodes), write_file_from_codes(M, MCodes),
+    ccl_mac_file(F, M), ccl_tmp_name(M, MT), write_file_from_codes(MT, []), ccl_sum_chunks(MTerms, 100, MT), rename_file(MT, M),
     nb_setval('$ccl_sum_bigs', big(F, 0, [])),
-    ccl_sum_chunks(Terms, 100, Codes), nb_getval('$ccl_sum_bigs', big(_, NB, BigCodes)), nb_setval('$ccl_sum_bigs', none),
-    ( NB > 0 -> ccl_big_file(F, BF), ccl_write_whole(BF, BigCodes) ; true ),
-    ccl_write_whole(F, Codes), ccl_sum_forget(F).   % the .sum last, and whole (a rename): a truncated one must never read as valid
-%% a file written through a temporary name and renamed into place, so a run killed mid-write leaves the old file or none
-ccl_write_whole(F, Codes) :- atom_concat(F, '.tmp', T), write_file_from_codes(T, Codes), rename_file(T, F).
+    ccl_tmp_name(F, FT), write_file_from_codes(FT, []), ccl_sum_chunks(Terms, 100, FT),
+    nb_getval('$ccl_sum_bigs', big(_, NB, Bigs)), nb_setval('$ccl_sum_bigs', none),
+    ( NB > 0 -> ccl_big_file(F, BF), reverse(Bigs, Bigs1), ccl_write_whole(BF, Bigs1) ; true ),
+    rename_file(FT, F), ccl_sum_forget(F).   % the .sum last, and whole (a rename): a truncated one must never read as valid
+%% a file written through a temporary name and renamed into place, so a run killed mid-write leaves the old file or none;
+%% its text the atoms Parts
+ccl_write_whole(F, Parts) :- ccl_tmp_name(F, T), write_file_from_codes(T, []), ccl_append_parts(T, Parts), rename_file(T, F).
+%% THE TEMPORARY NAME IS THE WRITER'S OWN (0.188): `F.tmp' and the process's id, so two processes that write one header's
+%% summary at once -- two builds, or a build's processes for its cold headers (ccl_cold_headers_read/2) -- each write a
+%% file of their own and rename it whole; under one name their appends were interleaved, and the rename took the mix
+ccl_tmp_name(F, T) :- ( catch(os_pid(P), _, fail) -> true ; P = 0 ), atomic_list_concat([F, '.tmp', P], T).
+%% THE PARTS OF A TEXT, ATOMS, APPENDED TO THE FILE F (0.188): consecutive parts joined up to 16,000 characters, a longer
+%% part as its codes. append_file_from_codes/2 copies an atom through a buffer of 64 KB and raises a type error past it
+%% (cocolog's lib/files.cicili, `char txt [65536]'), and a character takes at most four bytes; a code list has no bound.
+ccl_append_parts(_, []) :- !.
+ccl_append_parts(F, Ps) :- ccl_parts_batch(Ps, 0, B, Rest),
+    ( B == [] -> Rest = [P|Rest1], atom_codes(P, Cs), append_file_from_codes(F, Cs) ; atomic_list_concat(B, A), append_file_from_codes(F, A), Rest1 = Rest ),
+    ccl_append_parts(F, Rest1).
+ccl_parts_batch([P|Ps], N0, [P|B], Rest) :- atom_length(P, K), N is N0 + K, N =< 16000, !, ccl_parts_batch(Ps, N, B, Rest).
+ccl_parts_batch(Ps, _, [], Ps).
 %% THE AST BESIDE THE SUMMARY: the flattened header's named items, one clause each -- '$cpp_hdr_ast'(Name, Item) in
 %% <name>-<fold>.ast.pl -- consulted by the desugaring when the include is served from the summary, so a program that
 %% instantiates a library template needs no second flatten (two minutes for <vector>): what the summary keeps for the
@@ -466,16 +481,19 @@ ccl_write_whole(F, Codes) :- atom_concat(F, '.tmp', T), write_file_from_codes(T,
 %% (cicilang++ never runs over a store, where such a clause would be refused). The names are the desugaring's index
 %% names (cpp_index_name/2); an item with none is never asked for by name and is left out.
 ccl_ast_file(F, A) :- atom_length(F, N), N1 is N - 4, sub_atom(F, 0, N1, 4, B), atom_concat(B, '.ast.pl', A).
-ccl_ast_write(F, unit(Is)) :- ccl_ast_file(F, A), ccl_flat_items([], Is, Flat), cpp_ns_quals(Flat, Qs), ccl_ast_chunks(Flat, Qs, 100, Codes), ccl_write_whole(A, Codes).
-%% THE TEXT IS BUILT A HUNDRED ITEMS AT A TIME, each chunk inside \+ \+ and kept through a global: cocolog reclaims
-%% the heap on backtracking only, and term_to_atom over three thousand items in one deterministic run held a
-%% gigabyte of intermediates beside the two megabytes of text it was making (the cold read of <iostream>: 2598 MB).
-ccl_ast_chunks([], _, _, []) :- !.
-ccl_ast_chunks(Is, Qs, K, Codes) :-
+ccl_ast_write(F, unit(Is)) :- ccl_ast_file(F, A), ccl_flat_items([], Is, Flat), cpp_ns_quals(Flat, Qs),
+    ccl_tmp_name(A, T), write_file_from_codes(T, []), ccl_ast_chunks(Flat, Qs, 100, T), rename_file(T, A).
+%% THE TEXT IS BUILT A HUNDRED ITEMS AT A TIME, each chunk inside \+ \+: cocolog reclaims the heap on backtracking only,
+%% and term_to_atom over three thousand items in one deterministic run held a gigabyte of intermediates beside the two
+%% megabytes of text it was making (the cold read of <iostream>: 2598 MB). A CHUNK'S TEXT IS THE ATOMS term_to_atom/2
+%% MAKES, APPENDED TO THE FILE (0.188; ccl_append_parts/2), where each was turned into codes and the codes appended over
+%% and over on their way to the file -- 26 million steps of append/3 in a cold read of <thread>, most of them the text
+%% of its AST and its summary. The temporary name is renamed into place at the end.
+ccl_ast_chunks([], _, _, _) :- !.
+ccl_ast_chunks(Is, Qs, K, T) :-
     ccl_ast_take(K, Is, Some, Rest),
-    \+ \+ ( ccl_ast_lines(Some, Qs, Cs), nb_setval('$ccl_ast_chunk', Cs) ),
-    nb_getval('$ccl_ast_chunk', Cs1), nb_setval('$ccl_ast_chunk', []),
-    ccl_ast_chunks(Rest, Qs, K, More), append(Cs1, More, Codes).
+    \+ \+ ( ccl_ast_lines(Some, Qs, Parts), ccl_append_parts(T, Parts) ),
+    ccl_ast_chunks(Rest, Qs, K, T).
 ccl_ast_take(0, Is, [], Is) :- !.
 ccl_ast_take(_, [], [], []) :- !.
 ccl_ast_take(K, [I|Is], [I|Some], Rest) :- K1 is K - 1, ccl_ast_take(K1, Is, Some, Rest).
@@ -513,11 +531,11 @@ ccl_ast_lines([in(Path, I)|Is], Qs, Out) :-
     ->  cpp_index_key(Qs, Path, N, Key0),                                   % the same qualified key the index gives a deeper namespace's item (cpp_ns_quals)
         ( Key0 == N -> Key = N, I0 = I ; cpp_qualify_item(N, Key0, I, Iq) -> Key = Key0, I0 = Iq ; Key = N, I0 = I ),
         cpp_qualify_body(Qs, Path, I0, I1),                                     % the deeper namespace's bare uses of a colliding name go to its key (0.100)
-        ccl_float_freeze(I1, I2), ccl_ast_clause('$cpp_hdr_ast'(Key, I2), L1), ccl_ast_clause('$cpp_hdr_ast_ns'(Key, Path), L2), append(L1, L2, L0)   % a float kept exactly (0.132)
-    ;   catch(cpp_enum_ns_name(I, EN), _, fail) -> ccl_ast_clause('$cpp_hdr_ast_ns'(EN, Path), L0)   % a header's enum, its namespace path alone (0.112)
-    ;   L0 = [] ),
-    ccl_ast_lines(Is, Qs, O2), append(L0, O2, Out).
-ccl_ast_clause(T, Cs1) :- term_to_atom(T, A), atom_codes(A, Cs), append(Cs, [0'., 10], Cs1).
+        ccl_float_freeze(I1, I2), ccl_ast_clause('$cpp_hdr_ast'(Key, I2), Out, O1), ccl_ast_clause('$cpp_hdr_ast_ns'(Key, Path), O1, O2)   % a float kept exactly (0.132)
+    ;   catch(cpp_enum_ns_name(I, EN), _, fail) -> ccl_ast_clause('$cpp_hdr_ast_ns'(EN, Path), Out, O2)   % a header's enum, its namespace path alone (0.112)
+    ;   Out = O2 ),
+    ccl_ast_lines(Is, Qs, O2).
+ccl_ast_clause(T, [A, '.\n'|O], O) :- term_to_atom(T, A).
 ccl_sum_mnames([], []) :- !.
 ccl_sum_mnames(Ms, [mnames(Ns)|Out]) :- ccl_sum_mnames_(Ms, 100, Ns, Rest), ccl_sum_mnames(Rest, Out).
 ccl_sum_mnames_([], _, [], []) :- !.
@@ -540,13 +558,13 @@ ccl_sum_names([N|Ns], [tname(N)|Out]) :- ccl_sum_names(Ns, Out).
 ccl_sum_tmpls([], []).
 ccl_sum_tmpls([fn(N)|Ns], [ftemplate(N)|Out]) :- !, ccl_sum_tmpls(Ns, Out).
 ccl_sum_tmpls([N|Ns], [template(N)|Out]) :- ccl_sum_tmpls(Ns, Out).
-%% the terms' text, a hundred terms at a time inside \+ \+, as the AST beside it is built (ccl_ast_chunks)
-ccl_sum_chunks([], _, []) :- !.
-ccl_sum_chunks(Ts, K, Codes) :-
+%% the terms' text, a hundred terms at a time inside \+ \+, each chunk's atoms appended to the file F (ccl_append_parts/2),
+%% as the AST beside it is written (ccl_ast_chunks)
+ccl_sum_chunks([], _, _) :- !.
+ccl_sum_chunks(Ts, K, F) :-
     ccl_ast_take(K, Ts, Some, Rest),
-    \+ \+ ( ccl_sum_terms_out(Some, Cs), nb_setval('$ccl_sum_chunk', Cs) ),
-    nb_getval('$ccl_sum_chunk', Cs1), nb_setval('$ccl_sum_chunk', []),
-    ccl_sum_chunks(Rest, K, More), append(Cs1, More, Codes).
+    \+ \+ ( ccl_sum_terms_out(Some, Parts), ccl_append_parts(F, Parts) ),
+    ccl_sum_chunks(Rest, K, F).
 %% a class's members without their bodies: what a type needs of them
 ccl_sum_slim(none, none) :- !.
 ccl_sum_slim([], []).
@@ -556,17 +574,17 @@ ccl_sum_slim([dtor(L, Q, _)|Ms], [dtor(L, Q, none)|Ms1]) :- !, ccl_sum_slim(Ms, 
 ccl_sum_slim([template(L, Ps, M)|Ms], [template(L, Ps, M1)|Ms1]) :- !, ccl_sum_slim([M], [M1]), ccl_sum_slim(Ms, Ms1).
 ccl_sum_slim([M|Ms], [M|Ms1]) :- ccl_sum_slim(Ms, Ms1).
 ccl_sum_terms_out([], []).
-ccl_sum_terms_out([T0|Ts], Out) :- ccl_float_freeze(T0, T), term_to_atom(T, A), ccl_sum_line(T, A, Cs), append(Cs, [0'., 10], L1), ccl_sum_terms_out(Ts, O2), append(L1, O2, Out).   % a float kept exactly (0.132)
+ccl_sum_terms_out([T0|Ts], [L, '.\n'|Out]) :- ccl_float_freeze(T0, T), term_to_atom(T, A), ccl_sum_line(T, A, L), ccl_sum_terms_out(Ts, Out).   % a float kept exactly (0.132)
 %% A TERM TOO LONG FOR A LINE goes to the clause file beside the summary, <name>-<fold>.big.pl, as
 %% '$ccl_sum_big'(F, I, T), and its line is `big(I)' (0.112): term_to_atom/2 READS through an 8 KB buffer in cocolog
 %% (`char buf [8192]' in coco_b_term_to_atom, the neighbour's), so the `tag(...)' lines of libc++'s large classes --
 %% basic_string 56 KB, tuple, vector, pair: twelve lines of <vector>'s summary -- were written whole and dropped
 %% SILENTLY at the read, and a summary-served run's tag table lacked them. ensure_loaded/1 has no such limit (the AST
 %% beside the summary is read so). Only while a .sum is written (`'$ccl_sum_bigs''); the .mac's lines stay as they were.
-ccl_sum_line(T, A, Cs) :- atom_length(A, N), N > 8000, nb_current('$ccl_sum_bigs', big(F, I, Bs)), !,
-    term_to_atom('$ccl_sum_big'(F, I, T), C), atom_codes(C, CCs), append(CCs, [0'., 10], CL), append(Bs, CL, Bs1),
-    I1 is I + 1, nb_setval('$ccl_sum_bigs', big(F, I1, Bs1)), term_to_atom(big(I), BA), atom_codes(BA, Cs).
-ccl_sum_line(_, A, Cs) :- atom_codes(A, Cs).
+%% The clauses of the big terms are kept as atoms, the newest first, and joined when the summary is done.
+ccl_sum_line(T, A, L) :- atom_length(A, N), N > 8000, nb_current('$ccl_sum_bigs', big(F, I, Bs)), !,
+    term_to_atom('$ccl_sum_big'(F, I, T), C), I1 is I + 1, nb_setval('$ccl_sum_bigs', big(F, I1, ['.\n', C|Bs])), term_to_atom(big(I), L).
+ccl_sum_line(_, A, A).
 ccl_big_file(F, B) :- atom_length(F, N), N1 is N - 4, sub_atom(F, 0, N1, 4, Base), atom_concat(Base, '.big.pl', B).
 ccl_concat_codes([], []).
 ccl_concat_codes([C|Cs], Out) :- ccl_concat_codes(Cs, O2), append(C, O2, Out).
@@ -680,6 +698,70 @@ ccl_header_macros_ready(Spec, From) :-
         ( ccl_include_read(Path, _) -> true ; true ),
         ( ccl_header_macros(Path, _) -> true ; true )
     ;   true ).
+
+%% ---- the cold headers of a build, each read by a process of its own (0.188) ----
+%% THE OWNER'S DESIGN: before its file's run, a C++ build that the command runs (ccl_drive/2 sets '$ccl_children') finds
+%% the library headers its includes name that no valid summary serves, and where two or more are cold it starts one
+%% cocolog for each, J at a time (ccl_jobs/1: $CICILANG_JOBS, else the machine's processors), each reading its header as
+%% the build's prescan reads it (ccl_drive_header/3) and writing its summary; the build waits for them, and its prescan
+%% then serves each header from its summary. Since 0.186 a header's read does not depend on what the process read before
+%% it, so a header read by a process of its own gives the summary the build would write. A child that has not ended
+%% after 1800 s is killed, its session by signal 9, and one that ends without a summary leaves its header to the build,
+%% which reads it as before. A child runs in a session of its own (proc_spawn/2), so a build killed from outside does not
+%% take it along: `ulimit -t' holds its own CPU time to 1800 s. One cold header is read in the build's own process.
+ccl_cold_headers_read(Specs, From) :-
+    (   ccl_lang(cpp), nb_current('$ccl_children', opts(Opts)),
+        ccl_cold_headers(Specs, From, [], Cold), Cold = [_, _|_], ccl_jobs(J), J >= 2
+    ->  get_time(T0), catch(ccl_kids_run(Cold, From, Opts, J), _, true), get_time(T1),
+        findall(F, ( member(_-Path, Cold), ccl_sum_file(Path, F), ccl_sum_forget(F), ccl_sum_valid(F) ), Fs),   % forgotten: the check parsed it before its child wrote it
+        length(Cold, N), length(Fs, M), S is T1 - T0, format(atom(SA), '~1f', [S]),
+        dr_say(['the ', N, ' cold headers given to processes of their own, ', J, ' at a time: ', M, ' summaries written in ', SA, ' s'])
+    ;   true ).
+ccl_cold_headers([], _, _, []).
+ccl_cold_headers([Spec|Specs], From, Seen, Cold) :-
+    (   ccl_cold_header(Spec, From, Path), \+ memberchk(Path, Seen) -> Cold = [Spec-Path|Cold1], Seen1 = [Path|Seen]
+    ;   Cold = Cold1, Seen1 = Seen ),
+    ccl_cold_headers(Specs, From, Seen1, Cold1).
+%% a library header (`<name>' or `#include_next'), no `.pl' macro file, not read in this process, no valid summary
+ccl_cold_header(Spec, From, Path) :-
+    ccl_inc_kind(Spec, system), once(ccl_resolve_include(Spec, From, Path)), \+ sub_atom(Path, _, 3, 0, '.pl'),
+    \+ ccl_unit_cached(Path, _, _), ccl_sum_file(Path, F), \+ ccl_sum_valid(F).
+%% the children at once: $CICILANG_JOBS where it is a number (1 reads every header in the build's own process), else the
+%% machine's processors (library(os)'s os_cpus/1)
+ccl_jobs(J) :-
+    (   catch(os_env('CICILANG_JOBS', A), _, fail), catch(atom_number(A, J0), _, fail), integer(J0) -> J = J0
+    ;   catch(os_cpus(J0), _, fail), integer(J0) -> J = J0
+    ;   J = 1 ).
+ccl_kids_run(Cold, From, Opts, J) :- current_prolog_flag(executable, Exe), ccl_kids(Cold, [], J, ctx(Exe, From, Opts)).
+%% a child started while one of the J places is free; else the ended ones reaped, a tenth of a second between looks
+ccl_kids([], [], _, _) :- !.
+ccl_kids([H|Hs], Run, J, Ctx) :- length(Run, R), R < J, !,
+    ( ccl_kid_start(H, Ctx, Kid) -> Run1 = [Kid|Run] ; Run1 = Run ),
+    ccl_kids(Hs, Run1, J, Ctx).
+ccl_kids(Hs, Run, J, Ctx) :- ccl_kids_reap(Run, Run1), ( Run1 == Run -> proc_sleep(100) ; true ), ccl_kids(Hs, Run1, J, Ctx).
+%% one child: /bin/sh, in a session of its own, runs cocolog over the build's options and the header's spec, its output
+%% to nowhere and its input none (a query reads its input)
+ccl_kid_start(Spec-_, ctx(Exe, From, Opts), kid(Pid, T0)) :-
+    term_to_atom(ccl_drive_header(Spec, From, Opts), G0), atom_concat('use_module(library(cicilang)), ', G0, G),
+    ccl_sh_quote(Exe, QE), ccl_sh_quote(G, QG),
+    atomic_list_concat(['ulimit -t 1800 2>/dev/null; exec ', QE, ' --local query ', QG, ' > /dev/null 2>&1 < /dev/null'], Cmd),
+    catch(proc_spawn(Cmd, Pid), _, fail), get_time(T0),
+    ccl_spec_text(Spec, Name), dr_say(['read ', Name, ' in a process of its own']).
+%% the children still running: an ended one reaped (or gone), one past its 1800 s killed
+ccl_kids_reap([], []).
+ccl_kids_reap([kid(Pid, T0)|Ks], Run) :-
+    (   catch(proc_wait(Pid, 0, _), _, fail) -> Run = Run1
+    ;   \+ catch(proc_running(Pid), _, fail) -> Run = Run1
+    ;   get_time(T), T - T0 > 1800 -> G is -Pid, ( catch(proc_kill(G, 9), _, fail) -> true ; true ), ( catch(proc_wait(Pid, 5000, _), _, fail) -> true ; true ), Run = Run1
+    ;   Run = [kid(Pid, T0)|Run1] ),
+    ccl_kids_reap(Ks, Run1).
+%% an atom in single quotes for /bin/sh: each quote in it closed, escaped and opened again
+ccl_sh_quote(A, Q) :- atomic_list_concat(Ps, '\'', A), atomic_list_concat(Ps, '\'\\\'\'', B), atomic_list_concat(['\'', B, '\''], Q).
+ccl_spec_text(system(N), T) :- !, atomic_list_concat(['<', N, '>'], T).
+ccl_spec_text(local(N), T) :- !, atomic_list_concat(['"', N, '"'], T).
+ccl_spec_text(next(S), T) :- !, ccl_spec_text(S, T).
+ccl_spec_text(S, T) :- term_to_atom(S, T).
+
 %% the table's kind: indexed (every name in '$ccl_hml:<Name>', Path-Def) or
 %% store(Key) (answered by name from the rows); nothing of a header in neither
 ccl_header_macros(Path, Kind) :-
