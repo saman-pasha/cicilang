@@ -207,13 +207,16 @@ ccl_ensure_globals :-
       nb_setval('$ccl_lang', c), nb_setval('$ccl_lang_forced', none), ccl_fn_templates_put([]), nb_setval('$ccl_class', []), nb_setval('$ccl_inc_kind', local), nb_setval('$ccl_hash', line), nb_setval('$ccl_lib_unit', no),
       nb_setval('$ccl_targ', 0), nb_setval('$ccl_tmpl_depth', 0), nb_setval('$ccl_tt_pending', []), nb_setval('$ccl_tt_frames', []), nb_setval('$ccl_vparams', []), nb_setval('$ccl_vhead', []),
       ( nb_current('$ccl_std', _) -> true ; nb_setval('$ccl_std', 17) ),
-      ccl_templates_put([vector, map, set, unordered_map, unordered_set, list, deque, array, pair, tuple, optional, variant,
-                                   unique_ptr, shared_ptr, weak_ptr, function, basic_string, initializer_list, allocator, less, greater, hash,
-                                   numeric_limits, is_same, enable_if, remove_reference, decay, queue, stack, priority_queue, span,
-                                   '__builtin_common_type', '__type_pack_element', '__make_integer_seq', '__integer_pack']),   % the compiler's template-shaped builtins
+      ccl_seed_template_names(Seed), ccl_templates_put(Seed),
       ( catch(ccl_lex_native('', 1, line, c, _, _), _, fail) -> nb_setval('$ccl_lexer', native) ; nb_setval('$ccl_lexer', dcg) ),
       nb_setval('$ccl_sumload:names', []),
       nb_setval('$ccl_inited', yes) ).
+%% the templates a read starts from: common standard library names and the compiler's template-shaped builtins (a library
+%% header's read starts from these alone, ccl_seed_read/2)
+ccl_seed_template_names([vector, map, set, unordered_map, unordered_set, list, deque, array, pair, tuple, optional, variant,
+                         unique_ptr, shared_ptr, weak_ptr, function, basic_string, initializer_list, allocator, less, greater, hash,
+                         numeric_limits, is_same, enable_if, remove_reference, decay, queue, stack, priority_queue, span,
+                         '__builtin_common_type', '__type_pack_element', '__make_integer_seq', '__integer_pack']).
 
 %% ---- the directive's text -----------------------------------------------------
 ccl_include_spec(Text, Spec) :- atom_codes(Text, Cs), phrase(ccl_inc_spec(Spec), Cs).
@@ -370,7 +373,7 @@ ccl_read_unit(Path, How, Unit) :-
     nb_setval('$ccl_inc_kind', local),
     ccl_sum_file(Path, F),
     (   ccl_sum_valid(F) -> How = summary, Unit = summary(F)
-    ;   ccl_lib_unit(ccl_pp_parse(Path, U1, Info1, Files)), How = preprocessed, ccl_partial(U1, Info1, Unit),
+    ;   ccl_lib_unit(ccl_seed_read(ccl_pp_parse(Path, U1, Info1, Files), U1)), How = preprocessed, ccl_partial(U1, Info1, Unit),
         ccl_sum_dir_ready,   % THE DIRECTORY FIRST (0.106): 0.100 put the AST's write before the summary's, whose mkdir made the directory, so in a fresh or wiped cache the first header's AST met no directory and was lost
         (   catch(ccl_ast_write(F, U1), E, ( ccl_ast_trace(ast_not_written(Path, E)), fail ))   % NO SUMMARY WITHOUT ITS AST (0.106): the recovery
         ->  ( catch(ccl_sum_write(F, Path, Files, U1), _, fail) -> true ; true )                   % used to SUCCEED, so an exception read as a written AST
@@ -388,6 +391,22 @@ ccl_lib_unit(G) :-
     ccl_global('$ccl_lib_unit', Old, no), nb_setval('$ccl_lib_unit', yes),
     (   catch(G, E, ( nb_setval('$ccl_lib_unit', Old), throw(E) )) -> nb_setval('$ccl_lib_unit', Old)
     ;   nb_setval('$ccl_lib_unit', Old), fail ).
+%% A LIBRARY HEADER IS READ FROM THE SEED (0.186): the templates and the function templates that the process noted before
+%% -- the program's, another header's -- are set aside while the header is flattened and read, and put back after it with
+%% the header's own as its summary notes them (ccl_items_templates/2), on success, failure and a throw. A header's read
+%% depended on what the process had read before it: after <ranges> had noted `__move_impl', a static member function
+%% template there, a later <string> read `__move_impl<_AlgPolicy>', move.h's class template, as an expression, and the
+%% summary and the AST written by a cold build over several headers were not the library read's (0.185's nets against
+%% 0.184's chain: 4 of 47 summaries over libc++ 18, 5 of 47 over 21). The includer of a header flattened in the process
+%% now has what an includer served from its summary has.
+ccl_seed_read(G, U) :-
+    ccl_global('$ccl_templates', Ts0, []), ccl_global('$ccl_fn_templates', Fs0, []),
+    ccl_seed_template_names(Seed), ccl_templates_put(Seed), ccl_fn_templates_put([]),
+    (   catch(G, E, ( ccl_templates_put(Ts0), ccl_fn_templates_put(Fs0), throw(E) ))
+    ->  ccl_templates_put(Ts0), ccl_fn_templates_put(Fs0), ccl_unit_templates_note(U)
+    ;   ccl_templates_put(Ts0), ccl_fn_templates_put(Fs0), fail ).
+ccl_unit_templates_note(unit(Is)) :- !, ccl_items_templates(Is, Ns), ccl_note_templates(Ns).
+ccl_unit_templates_note(_).
 
 %% ---- the summary cache: a C++ library header, once ----------------------------
 %% What a header contributes downstream is its declarations -- the names and

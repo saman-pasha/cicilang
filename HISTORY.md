@@ -178,7 +178,8 @@ One row per step, in version order: the step's title, what it did and its gate n
 | 0.182 | Not done, the twentieth part: libc++ 22's vector and its C++23 views; cocolog 2.11.0 | a class instance given to a template template parameter is the injected class name; a template-id qualified by a namespace never finds a member template of the class being walked; a class declares its members' names and a function its parameters' where a collided name is renamed; a constraint sees no caller's local; cocolog 2.11.0 from 2.2.5 (five warm builds 6.9 % dearer; the logical update view, the number readers, the cell tag) | committed before its chain: on 2.11.0 the flow gate, the C gates and the proof GREEN, nets of 56 C++ fixtures over libc++ 18 (on 2.2.5 and on 2.11.0) and over 21 (on 2.11.0), each the same as its .expect but `stdthread` over 21 (a read after another in one process, older than this step, 0.183's); 87 run C fixtures, 597 C++; held by 0.184's chain (0.185): GREEN |
 | 0.183 | A header read after another in one process: the scan ahead of a class body stays in its member | the scan that notes a class's member templates before its members are read skips a parenthesized group and ends at a member's `;` or `}`: a comparison in a head of libc++ 21's `<variant>` noted `shared_ptr` as a function template, and the reads of `<mutex>` and `<thread>` after it in one process stopped (a cold `stdthread` over libc++ 21) | committed before its chain: on 2.11.0 the flow gate, the C gates and the proof GREEN, nets of 69 C++ fixtures and `stdrandom` over fresh HOMEs, 70 of 70 the same over libc++ 18 and over 21, `stdthread` cold among them; 87 run C fixtures, 598 C++; held by 0.184's chain (0.185): GREEN |
 | 0.184 | A cold read linear in its items; a template template parameter's list skips a parenthesized group | the item loop counts the tokens an item took, never the length of the rest of the file, 58 % of a cold read of `<thread>`'s text (a header's text read 2.8 to 3.4 times faster, its tree the same); two hot calls of `sub_atom/5` take their positions bound (cocolog 2.5.0 made it clauses over `between/3`); a template template parameter's list skips a parenthesized group and ends at a `;` | its chain (0.185), the first over cocolog 2.11.0, over fresh HOMEs (the reader moved), holding 0.182 and 0.183: all nine gates GREEN over libc++ 18 in 1808 s, the library read and the C++ gate over 21; the library read 482 s and 413 s (0.181's 1121 s and 1061 s), the C++ gate 837 s and 842 s; 595 of 599 over 18, 597 over 21 |
-| 0.185 | Not done, the twenty-first part: a template template parameter's own defaults | a template template parameter's own list read; in its scope `TT<U>` takes the defaults the list gives, not the bound template's (`Use<Small, char>::v` was 1, clang++ gives 2); the numbers of 0.184's chain; the engine's cost measured again, 3.6 % | committed before its chain: on 2.11.0 the flow gate GREEN (4101 predicates), the trees of four libc++ headers the same, byte for byte, nets of 75 C++ fixtures over fresh HOMEs, 75 of 75 the same over libc++ 18 and over 21; 87 run C fixtures, 600 C++ |
+| 0.185 | Not done, the twenty-first part: a template template parameter's own defaults | a template template parameter's own list read; in its scope `TT<U>` takes the defaults the list gives, not the bound template's (`Use<Small, char>::v` was 1, clang++ gives 2); the numbers of 0.184's chain; the engine's cost measured again, 3.6 % | committed before its chain: on 2.11.0 the flow gate GREEN (4101 predicates), the trees of four libc++ headers the same, byte for byte, nets of 75 C++ fixtures over fresh HOMEs, 75 of 75 the same over libc++ 18 and over 21; 87 run C fixtures, 600 C++; its chain (0.186), over fresh HOMEs (the reader moved): all nine gates GREEN over libc++ 18 in 1841 s, the library read and the C++ gate over 21; the library read 474 s and 421 s, the C++ gate 868 s and 853 s; 596 of 600 over 18, 598 over 21 |
+| 0.186 | Not done, the twenty-second part: a header read alike after others; a qualified name that names no type | a library header's read starts from the seed set of templates (0.185's cold nets wrote 4 and 5 of 47 summaries otherwise than 0.184's chain); a qualified name that names no type declares no parameter (libc++'s orderings' `less` were member function declarations, 13 of 38 summaries); a namespace-scope object and a static data member defined out of its class, initialized by `T(args)` or `T{args}`, constructed from their own arguments (`no_constructor` since 0.99); a scalar `<=>` no arithmetic type to the inference; the mangler measured against the shipped libraries; the numbers of 0.185's chain | committed before its chain: on 2.11.0 the flow gate GREEN (4109 predicates), the trees of seven libc++ headers the same but the three `less` definitions, nets of 112 C++ fixtures over fresh HOMEs, 112 of 112 the same over libc++ 18 and over 21; 87 run C fixtures, 604 C++ |
 
 ## M5 — the C++ mode
 
@@ -11656,3 +11657,102 @@ cause. The slowest over libc++ 18 `fmtrange` 123 s, `fmtchrono2` 116 s, `fmtchro
 
 Reader 139 (a template template parameter's own list is read, and a head whose list has a default gets the entry `ttp(N,
 List)`: what a read gives changes), lowering 104 (no change).
+
+## 0.186 — Not done, the twenty-second part: a header read alike after others; a qualified name that names no type
+
+**0.186: a library header's read starts from the seed set of templates, so that it reads alike after other headers in
+one process -- the cold builds of 0.185's nets, each process flattening several headers, wrote 4 and 5 of 47 summaries
+otherwise than 0.184's chain; a qualified name that names no type declares no parameter (libc++'s orderings' `less`,
+read as member functions); a namespace-scope object and a static data member defined out of its class, initialized by
+`T(args)` or `T{args}`, constructed from their own arguments; a scalar `<=>` no arithmetic type to the inference; and
+the numbers of 0.185's chain: GREEN. Committed before its chain, on the owner's word ("Commit before chain"): the chain
+runs over this commit, and the next one carries its numbers.**
+
+THE CHAIN OF 0.185, on the checkout of its commit (module 0.185, reader 139, lowering 104, over cocolog 2.11.0), over
+fresh HOMEs (the reader version moved), from 18:41:06 UTC: the flow gate (one finding, `test/flow.expect`'s, 97 s, peak
+2781 MB over its four lanes; 4101 predicates), reader 4 s, compile 12 s, driver 17 s, objects 4 s, the proof, the cross
+gate in 360 s (peak 548 MB; 87 C fixtures and 5 checks, 24 C++ fixtures and 2 checks), over libc++ 18 the library read
+in 474 s (peak 1456 MB; the 23 asserted reads whole, 91 other headers warmed, none failed) and the C++ gate in 868 s
+(peak 2211 MB) with 596 of its 600 fixtures ok -- the skips `joinwith`, `stdoptionalref`, `tzone` and `zipadjacent` --
+the 23 refusals and the three of the safe part, the libc++ 18 half in 1841 s (to 19:11:47 UTC), and over libc++ 21 the
+library read in 421 s (peak 1244 MB; 91 warmed) and the C++ gate in 853 s (peak 2119 MB), 598 of 600 ok, the skips
+`stdoptionalref` and `zipadjacent`, to 19:33:01 UTC: GREEN. The headers' reads summed 1776 s over 114 over libc++ 18 and
+1592 s over 21 (0.184's 1801 s and 1549 s); the fixtures' builds 2934 s over 596 and 2905 s over 598 (0.184's 2824 s
+over 595 and 2893 s over 597). The slowest over libc++ 18 `fmtrange` 123 s, `fmtchrono2` 119 s, `fmtchrono` 103 s,
+`fmttuple` 81 s, `viewsall` 80 s and `fmtcheck` 79 s, over libc++ 21 `fmtchrono2` 103 s, `tzone` 96 s, `fmtchrono` 91 s,
+`viewsall` 84 s, `fmtrange` 76 s and `joinwith` 71 s.
+
+- A HEADER READ ALIKE AFTER OTHERS. A chain's library read flattens one header a process (`test/readhdr.pl`), and its
+  C++ gate reads the summaries; 0.185's nets build their fixtures cold over one fresh HOME, three at a time, so that a
+  process flattens every header its fixture reads, one after another. The summaries of the two were compared, each line
+  made independent of the checkout and of the files' times (a session script, `sumcmp2.sh`: a path into a checkout's
+  `library/` made `ROOT/library/`, a dep's time `T`, the HOME's path `HOME`): over libc++ 18, 43 of the 47 summaries
+  that both HOMEs hold the same and 4 not (`<ranges>`, `<utility>` and two of `<vector>`, the AST beside each), over
+  libc++ 21 42 the same and 5 not (`<functional>`, `<ranges>`, `<string>`, `<utility>`, `<vector>`). The templates and
+  the function templates that a process notes stay noted after the read that noted them (`'$ccl_templates'`,
+  `'$ccl_fn_templates'`), and a later header's read took a name by them: after `<ranges>` had noted `__move_impl`, a
+  static member function template there, `<string>` read move.h's class template-id `__move_impl<_AlgPolicy>` as an
+  expression. `ccl_seed_read/2` sets them aside around the flatten and the read of a library header, starts the read
+  from the set a process starts with (`ccl_seed_template_names/1`, the seed of `ccl_ensure_globals/0`), and puts them
+  back with the header's own as its summary notes them (`ccl_items_templates/2`), on success, failure and a throw. An
+  includer has from a header flattened in its process what it has from one served from the summary.
+- A QUALIFIED NAME THAT NAMES NO TYPE DECLARES NO PARAMETER. The comparison showed a misread that both kinds of HOME
+  hold: libc++ writes `inline constexpr partial_ordering partial_ordering::less(_OrdResult::__less);`, and wherever
+  `std::__less` -- a class template of `<__algorithm/comp.h>`, which `<map>`, `<string>` and `<algorithm>` read before
+  `<compare>` at C++20 -- had been read before, `_OrdResult::__less` was a type (its last name a known template), the
+  definition a member function's declaration that no item keeps, and the three orderings' `less` without a definition:
+  13 of the 38 summaries of libc++ 18 that hold them, in 0.184's chain. In a parameter list a qualified name is no type
+  now (`ccl_param_no_type/3`) where its qualifier is an enumeration, whose members are its enumerators, or a class with
+  a data member or a member function of its last name, and where its last name is a type only as a class template's,
+  with no arguments -- a placeholder for a deduced class type, which stands in no parameter list
+  ([dcl.type.class.deduct]/2); the declarator is then an object's with an initializer ([dcl.ambig.res]). In a block, `O
+  b(R::tag);` and `int y(Q::less);` were function declarations too (`qualparam.cpp`).
+- A PRVALUE OF THE CLASS IS THE OBJECT. `qualparam.cpp` met a road older than this step: a static data member of a class
+  with constructors, defined out of its class, took a scalar's road -- `const O O::low(3);` and `const O O::low = O(3);`
+  reached the lowering raw (`global_init(ctor(...))`), and `const O O::low{3};` over `O(int x) : v(x * 2)` was the
+  aggregate {3}, where clang++ gives 6, a silent difference -- and takes a namespace-scope object's two roads now, in
+  its class's words and access (`cpp_static_object_init/7`, `'$in_class'`). On those roads, `const O g = O(3);` and `P g
+  = P{3};` at namespace scope were `no_constructor('O', 0)` where the class has no default constructor, since 0.99: the
+  fold took the walked initializer and walked it again, and the temporary that the first walk had declared was
+  default-constructed; where the class has a default constructor, the fold ran it and then a copy, which C++17 never
+  makes. A prvalue of the class written as its constructor's call is folded, and else constructed before main, from its
+  own arguments (`cpp_prvalue_init/3`, the forms `cpp_dyn_init_args/3` gave the dynamic road alone). Of twelve
+  namespace-scope forms over a class with no default constructor and one with a destructor, five failed with 0.185 and
+  none with 0.186 (`globalprvalue.cpp`: those forms and three statics, constant and run-time, a copy constructor that
+  shows a copy).
+- A SCALAR `<=>` IS NO ARITHMETIC TYPE TO THE INFERENCE. `ordless.cpp` met another older defect: `auto p = 1.0 <=> 2.0;`
+  was a double -- the inference typed a scalar `<=>` by the usual arithmetic conversions -- so the ordering was
+  converted to a double (a `sitofp` of a struct, which LLVM refused, for `p < 0`) and `p == std::partial_ordering::less`
+  was `no_operator(==)`. In C++ `ccl_type_of/2` answers `unknown` for it, and the desugaring's type decides
+  (`cpp_scalar_ordering/3`; `spaceauto.cpp`).
+- THE MEASURE. On 2.11.0, over the work tree, with 0.185's library beside it: the four new fixtures built cold, each
+  libc++ over a fresh HOME, print clang++ 18's output over libc++ 18 and over 21 (`ordless` in 30 s and 27 s, peak 426
+  MB; the others under 8 s); with 0.185's library `qualparam` is `no_member_type('Q', less)` and `ordless` `auto(w)`
+  over both, `globalprvalue` `no_constructor('O', 0)` and `spaceauto` `no_operator(==)` over libc++ 18. The trees of
+  seven flattened headers, read with 0.185's library and with 0.186's: `<map>` and `<algorithm>` over libc++ 18 and
+  `<string>` over 21, at C++20, differ in the three orderings' `less` alone, definitions now
+  (`var(scoped([partial_ordering], less), ..., ctor([scoped(['_OrdResult'], '__less')]))`, where they were functions);
+  `<iostream>` at C++20 and `<vector>` at C++17 over 18, `<thread>` at C++17 and `<ranges>` at C++20 over 21, the same,
+  byte for byte (885, 807, 838 and 955 items). The flow gate GREEN, 4109 predicates (eight more), its one finding, 92 s
+  and 2891 MB. Nets of 112 fixtures -- 0.185's 75, the four new ones and 33 over the roads this step changes
+  (`globalinit`, `constexprfn6`, `constsv`, `staticsv`, `stdcompare`, `cxx20cmp`, `stringcmp20`, `localstatic`,
+  `stdstringstream` ...) -- three at a time, each net over a fresh HOME: over libc++ 18 from 20:04:13 to 20:15:10 UTC,
+  112 of 112 the same as their `.expect`, the builds summed 1942 s, the largest peak 1080 MB; over libc++ 21 from
+  20:15:10 to 20:24:53 UTC, 112 of 112 the same, 1702 s, the largest peak 1024 MB. The 75 that 0.185's nets built took
+  1634 s and 1371 s, where they took 1566 s and 1341 s there (4 % and 2 % more; the most `viewsall`, 183 s to 193 s over
+  libc++ 18). A net claims nothing.
+- THE MANGLER AGAINST THE SHIPPED LIBRARIES (`CLAUDE.md`'s Not done). The `_Z` symbols that libc++ 18's, 21's and 22's
+  `libc++.so.1` and `libc++abi.so.1` export (2294, 2288 and 2291; `nm -D --defined-only`) and the 27 that libc++ 21's
+  `libc++experimental.a` defines strongly use no form the mangler lacks -- a pack expansion `Dp`, a `decltype` `DT` or
+  `Dt`, an ABI tag, a closure `Ul`, an unnamed type `Ut`, an external name `L_Z` as an argument; the six of each library
+  that demangle with a `decltype` are the type information of `decltype(nullptr)`, `Dn`, which the mangler spells
+  (0.180). The archive's weak definitions that use one (190) are instances of the headers' inline templates, which a
+  program compiles itself.
+- `CLAUDE.md`: the C++ reader's `ccl_qname_typish/2` bullet (the parameter rule), a new bullet of the Includes topic (a
+  library header read from the seed), the Constexpr constructors bullets (a prvalue of the class, a static data member
+  defined out of its class), the operators' `<=>` bullet, Not done (the mangler measured against the shipped libraries,
+  the cold read's numbers), the versions and the `now` line, the C++ gate's count, the flow gate's count, the Hosts
+  bullet (the chain of 0.185), What runs (Forms of 0.186).
+
+Reader 140 (a qualified name that names no type declares no parameter, and a library header's read starts from the seed
+set of templates: what a read gives changes), lowering 104 (no change).

@@ -3155,7 +3155,8 @@ cpp_item(declaration(L, Sto, B, Vs), Out) :- Vs = [_, _|_], member(var(scoped([C
     findall(declaration(L, Sto, B, [V]), member(V, Vs), Ds), cpp_items(Ds, Out).
 cpp_item(declaration(L, Sto, B, [var(scoped([C], N), T, Init)]), [declaration(L, Sto, B, Vs1)]) :- cpp_class_l(C, _), !,
     atomic_list_concat([C, '.', N], Name), cpp_with_access_scope(C, cpp_expr(none, Init, Init1)),   % the initializer is in the class's scope ([basic.scope.class]): its private statics are the program's to name (0.117)
-    cpp_dynamic_scalars(L, C, Sto, B, [var(Name, T, Init)], [var(Name, T, Init1)], Vs1).
+    cpp_static_object_init(C, Sto, Name, T, Init, Init1, Init2),                                    % a class-typed one constructed (0.186)
+    cpp_dynamic_scalars(L, C, Sto, B, [var(Name, T, Init)], [var(Name, T, Init2)], Vs1).
 cpp_item(function(L, Sto, Ret, scoped([C], M), Ps, V, Body), [function(L, Sto0, Ret, Name, [param(ThisT, this)|Ps1], V, Body1)]) :- cpp_class_l(C, _), !,
     cpp_sto_quals(Sto, Qs, Sto0), cpp_mangle_q(C, M, Qs, Ps, Name), cpp_plain_params(Ps, Ps1), cpp_this_type(C, Qs, ThisT),
     cpp_pf_decl_quals(C, M, Ps, Qs, FQs), cpp_with_fsig(fsig(member, C, M, Ret, Ps, V, FQs, none), cpp_method_body(C, Ret, [param(ThisT, this)|Ps1], Body, Body1)).
@@ -4003,6 +4004,15 @@ cpp_fold_ctor_inits_(Sto, [R|Rs], [var(N, T, I)|Vs], [var(N, T, I1)|Ws]) :-
 %% construction is no trivial one (0.112: `Tag g;' had been its zero bytes, the constructor never run)
 cpp_global_object(Sto, N, T, I, C) :- atom(N), cpp_class_of_type(T, C), cpp_has_ctors(C),
     ( I \== none -> true ; Sto \== extern, \+ cpp_trivial_default(C) ), !.   % a value of the class itself too (0.112): `static Tag t = Tag(3)' constructs t, `T h = g' copies g
+%% A STATIC DATA MEMBER OF A CLASS WITH CONSTRUCTORS, DEFINED OUT OF ITS CLASS, IS CONSTRUCTED AS A NAMESPACE-SCOPE OBJECT
+%% IS (0.186; [class.static.data]/4): at compile time where the evaluator runs its constructor, else before main, in the
+%% class's words and access. The road was a scalar's: `const O O::low(3);' and `const O O::low = O(3);' reached the
+%% lowering raw (`global_init(ctor(...))'), and `const O O::low{3};' over `O(int x) : v(x * 2)' was the aggregate {3},
+%% where clang++ gives 6 -- a silent wrong answer. A library class's such statics take its class's road (`'$cpp_sinit'',
+%% cpp_static_constructed/4). `qualparam.cpp', `globalprvalue.cpp'.
+cpp_static_object_init(Cx, Sto, N, T, Raw, I, I1) :-
+    (   cpp_global_object(Sto, N, T, I, C) -> cpp_with_access_scope(Cx, cpp_global_ctor_init(Cx, Sto, var(N, T, Raw), N, T, C, I, I1))
+    ;   I1 = I ).
 cpp_fold_ctor_init(N, T, C, I, I1) :- ( cpp_fold_ctor_value(T, C, I, I0) -> I1 = I0 ; cpp_refuse(0, dynamic_initialization_of_global(N, C)) ).
 %% the compile-time attempt with no trace left behind: its walk may register temporaries in the statement's register,
 %% which a failed attempt must not leave there to be destroyed unconstructed
@@ -4018,13 +4028,15 @@ cpp_fold_ctor_value(T, C, I, I1) :-
 %% `llvm.global_ctors' -- constructs it where it stands (a placement new over its address, the RAW initializer walked
 %% as any statement is) and registers its destructor with `atexit' (a wrapper `$cpp_gdtor.N'), in declaration order,
 %% so the globals die in the reverse order. `std::string g = "x";' at file scope.
-cpp_global_ctor_init(Sto, Raw, N, T, C, I, I1) :-
-    (   cpp_fold_ctor_value(T, C, I, I0) -> I1 = I0
-    ;   Sto \== extern -> Raw = var(_, T0, I00), cpp_dynamic_init(N, T0, C, I00), I1 = none
+cpp_global_ctor_init(Sto, Raw, N, T, C, I, I1) :- cpp_global_ctor_init(none, Sto, Raw, N, T, C, I, I1).
+cpp_global_ctor_init(Cx, Sto, var(_, T0, I00), N, T, C, I, I1) :-   % Cx: the class whose static data member N is, else none
+    ( cpp_prvalue_init(T0, I00, IP) -> IF = IP, ID = IP ; IF = I, ID = I00 ),
+    (   cpp_fold_ctor_value(T, C, IF, I0) -> I1 = I0
+    ;   Sto \== extern -> cpp_dynamic_init(Cx, N, T0, C, ID), I1 = none
     ;   cpp_refuse(0, dynamic_initialization_of_global(N, C)) ).
-cpp_dynamic_init(N, T0, C, I0) :-
-    ( I0 == none -> As = [] ; I0 = init(Items0), cpp_il_ctor_for(C, Items0, _) -> As = [I0] ; cpp_dyn_init_args(T0, I0, As) ),   % a braced list for a class with an initializer_list constructor is ONE argument, the list (`std::vector<int> v = {1, 2, 3}')
-    S1 = expr(0, new_at([addr(id(N))], new(T0, As))),
+cpp_dynamic_init(Cx, N, T0, C, I0) :-
+    ( I0 == none -> As = [] ; I0 = init(Items0), cpp_il_ctor_for(C, Items0, _) -> As = [I0] ; cpp_init_args(I0, As) ),   % a braced list for a class with an initializer_list constructor is ONE argument, the list (`std::vector<int> v = {1, 2, 3}')
+    S0 = expr(0, new_at([addr(id(N))], new(T0, As))), ( Cx == none -> S1 = S0 ; S1 = '$in_class'(Cx, S0) ),   % a static member's in its class's words and access (0.186)
     (   cpp_dtor(C, DName)
     ->  atom_concat('$cpp_gdtor.', N, W), Void = base([], [void]), ccl_declare(W, fn(Void, [], false)),
         cpp_math_declared(atexit, base([], [int]), [param(ptr([], fn(Void, [], false)), f)]),
@@ -4032,11 +4044,15 @@ cpp_dynamic_init(N, T0, C, I0) :-
         nb_getval('$cpp_ginit_fns', Fs0), append(Fs0, [function(0, static, Void, W, [], false, block([expr(0, call(id(DName), [addr(id(N))]))]))], Fs1), nb_setval('$cpp_ginit_fns', Fs1)
     ;   Ss = [S1] ),
     nb_getval('$cpp_ginit', G0), append(G0, Ss, G1), nb_setval('$cpp_ginit', G1), cpp_trace(dynamic_init(N, C)).
-%% the constructor's arguments from the RAW initializer: a prvalue of the class written as its constructor's call,
-%% `Tag(3)', IS the object (C++17's elision): its own arguments
-cpp_dyn_init_args(base(_, [typedef(X)]), call(id(X), As), As) :- !.
-cpp_dyn_init_args(base(_, [typedef(X)]), ccast(functional, base(_, [typedef(X)]), A), As) :- !, ( A == none -> As = [] ; As = [A] ).
-cpp_dyn_init_args(_, I0, As) :- cpp_init_args(I0, As).
+%% A PRVALUE OF THE CLASS WRITTEN AS ITS CONSTRUCTOR'S CALL IS THE OBJECT ([dcl.init.general]/16.6.1, C++17's elision):
+%% `Tag(3)' and `Tag{3}' (a list, the initializer_list constructor first) give the RAW initializer of the global, folded
+%% and constructed from its own arguments (0.186). The fold took the WALKED initializer and walked it again, and the
+%% temporary's declaration that the first walk made was default-constructed: `const O g = O(3);' and `P g = P{3};' at
+%% namespace scope, and `const O O::low = O(3);', were `no_constructor('O', 0)' where the class has no default
+%% constructor, and a copy of a temporary where it has one. `globalprvalue.cpp'.
+cpp_prvalue_init(base(_, [typedef(X)]), call(id(X), As), ctor(As)).
+cpp_prvalue_init(base(_, [typedef(X)]), ccast(functional, base(_, [typedef(X)]), A), ctor(As)) :- ( A == none -> As = [] ; As = [A] ).
+cpp_prvalue_init(base(_, [typedef(X)]), braced_temp(call(id(X), Vs)), init(Items)) :- findall(item([], V), member(V, Vs), Items).
 %% A FILE-SCOPE SCALAR WHOSE INITIALIZER NEEDS THE RUN TIME IS INITIALIZED DYNAMICALLY TOO ([basic.start.dynamic]; 0.117):
 %% `int g = f() * 2;', `static int n = h + 4;', `int A::v = A::compute() * 2;' were refused by the lowering as
 %% `global_init(...)', for the constant initialization of a global is all it spells. The global stays its zero, and the

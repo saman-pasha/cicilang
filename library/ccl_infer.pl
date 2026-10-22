@@ -721,6 +721,7 @@ ccl_type_of(stmt_expr(block(Is)), T) :- !,            % its declarations are in 
 ccl_type_of(bin(Op, A, B), T) :- !,
     ccl_type_of(A, AT), ccl_type_of(B, BT),
     (   memberchk(Op, ['&&', '||']) -> ccl_truth_type(T)
+    ;   Op == '<=>', ccl_lang(cpp) -> T = unknown   % <compare>'s category, which the desugaring makes ([expr.spaceship]/7; 0.186): two doubles were a double, and `auto p = 1.0 <=> 2.0;' a double the ordering was converted to
     ;   memberchk(Op, ['<', '>', '<=', '>=', '==', '!=']), ( ccl_vector_type(AT) -> VT = AT ; ccl_vector_type(BT) -> VT = BT ) -> ccl_vector_mask(VT, T)   % a vector comparison: the mask vector (0.162)
     ;   memberchk(Op, ['<', '>', '<=', '>=', '==', '!=']) -> ( ccl_lang(cpp), ( ccl_class_operand(AT) ; ccl_class_operand(BT) ; ccl_unsettled_type(AT) ; ccl_unsettled_type(BT) ) -> T = unknown ; ccl_truth_type(T) )   % a CLASS operand: the operator the desugaring chooses decides (its declared result), never the built-in's; an UNSETTLED one, the desugaring's types (0.162)
     ;   ( ccl_vector_type(AT) -> VT = AT ; ccl_vector_type(BT) -> VT = BT ) -> ccl_strip_quals(VT, T)   % vector arithmetic, a scalar operand made a vector of it (0.162)

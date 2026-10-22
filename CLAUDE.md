@@ -10,8 +10,8 @@ it found, its measurements and its gate numbers. `README.md` tells a user what r
 architecture and the milestones. A step that changes a rule edits the rule here, in its topic, and writes its entry
 in `HISTORY.md`.
 
-At 0.185 the versions are: the module 0.185 (`ccl_p_version` in `module/cicilang.cicili`, `bin/cicilang --version`),
-the reader 139 (`ccl_reader_version/1`, `library/ccl_syntax.pl`) and the lowering 104 (`ccl_lowering_version/1`,
+At 0.186 the versions are: the module 0.186 (`ccl_p_version` in `module/cicilang.cicili`, `bin/cicilang --version`),
+the reader 140 (`ccl_reader_version/1`, `library/ccl_syntax.pl`) and the lowering 104 (`ccl_lowering_version/1`,
 `library/ccl_ir.pl`).
 
 Build and prove, always in this order (or all of it, `sh test/gates.sh`):
@@ -398,15 +398,15 @@ tutorials/01..03-*.pl       the objects layer's lessons; goal main, last line do
   starts at one call pattern, so `test/flow.pl`'s `fg_roots_main/2` writes a copy of each file with a root,
   `'$fg_all'/N`, that calls each predicate the file defines with free arguments: 3538 predicates in the ten files at
   0.161 (3938 in all at 0.167, 4003 at 0.173, 4038 at 0.175, 4048 at 0.178, 4066 at 0.179, 4074 at 0.180, 4092 at 0.181,
-  4094 at 0.182, 4101 at 0.185; each step's in HISTORY.md), and since 0.161 the 220 of the nine gate programs,
-  `test/reader.pl`, `compile.pl`, `cpp.pl`, `readhdr.pl`, `census.pl`, `libcxx.pl`, `flow.pl`, `why.pl` and `prof.pl`
-  (`TFILES`), each charted with the compiler and the flow and process libraries loaded, nothing stubbed (no gate program
-  is a library file); their first chart found a predicate split by another's clauses (`census_main/0`) and a call of
-  `print_message/2`, which cocolog does not have, in the recovery of a `catch/3` in `readhdr.pl` and `libcxx.pl`: a
-  read that raised would have raised again there, an existence error where the FAIL line stands. Each copy is charted
-  with the rest of the compiler loaded (`flow_graph/3`'s `load(Files)`), and the file itself is stubbed out of the
-  library path (an empty file of its name first on `COCOLOG_LIBRARY`), so that its clauses are read once. A helper of
-  the gate takes the prefix `fg_`: cocolog has one namespace, and a helper named `flow_trim/2` joined
+  4094 at 0.182, 4101 at 0.185, 4109 at 0.186; each step's in HISTORY.md), and since 0.161 the 220 of the nine gate
+  programs, `test/reader.pl`, `compile.pl`, `cpp.pl`, `readhdr.pl`, `census.pl`, `libcxx.pl`, `flow.pl`, `why.pl` and
+  `prof.pl` (`TFILES`), each charted with the compiler and the flow and process libraries loaded, nothing stubbed (no
+  gate program is a library file); their first chart found a predicate split by another's clauses (`census_main/0`) and
+  a call of `print_message/2`, which cocolog does not have, in the recovery of a `catch/3` in `readhdr.pl` and
+  `libcxx.pl`: a read that raised would have raised again there, an existence error where the FAIL line stands. Each
+  copy is charted with the rest of the compiler loaded (`flow_graph/3`'s `load(Files)`), and the file itself is stubbed
+  out of the library path (an empty file of its name first on `COCOLOG_LIBRARY`), so that its clauses are read once. A
+  helper of the gate takes the prefix `fg_`: cocolog has one namespace, and a helper named `flow_trim/2` joined
   `library/flow/read.pl`'s own and failed the chart far from the cause. Since cocolog 1.11.4 the chart refuses by name a
   file IT READS that defines a predicate of the flow library; the gate's own Prolog is loaded by the query, not read by
   the chart, so the prefix still guards it. (0.144, 0.146)
@@ -550,7 +550,7 @@ tutorials/01..03-*.pl       the objects layer's lessons; goal main, last line do
 ### The C++ gate: test/cpp.sh
 
 - `test/cpp.sh` runs in this order: `test/cpp.pl` in one `--local` process; four checks of the command; every
-  `test/cpp/run/*.cpp` as a pool job (600 at 0.185); `classes.cpp` and `templates.cpp` built and run; the refusals,
+  `test/cpp/run/*.cpp` as a pool job (604 at 0.186); `classes.cpp` and `templates.cpp` built and run; the refusals,
   each at the level its `test/cpp/NAME.flags` names, else C++17 (0.164). (0.105, 0.164)
 - `test/cpp.pl` runs 46 numbered checks, `c1` to `c46`, then reads Cicili's six C++ files whole (`test/cpp/objects.cpp`,
   `emit_report.cpp`, `specialise.cpp`, `syntax.cpp`, `torch.cpp`, `torch-fragment.cpp`). `c34` checks the Itanium
@@ -1608,7 +1608,18 @@ tutorials/01..03-*.pl       the objects layer's lessons; goal main, last line do
   named an `a` nothing declared (`no_constructor(duration, 1)`). A plain name is left to the C heuristics, so `std::cout
   << x` is an expression. Reader 132; `parendecl.cpp`. (0.44, 0.161)
 - `ccl_qname_typish/2` holds for a template-id whose template is no function's, for a last name known as a typedef or as
-  such a template, and for a fixed list of type-like names (`string`, `size_t`, `value_type`, `iterator` ...). (0.44)
+  such a template, and for a fixed list of type-like names (`string`, `size_t`, `value_type`, `iterator` ...;
+  `ccl_type_like_name/1`). A QUALIFIED NAME THAT NAMES NO TYPE DECLARES NO PARAMETER (0.186; `ccl_param_no_type/3`, in
+  a parameter list): before what ends an unnamed parameter it is an expression, and the declarator before the list an
+  object's with an initializer ([dcl.ambig.res]) -- where its qualifier is an enumeration, whose members are its
+  enumerators ([dcl.enum]), or a class with a data member or a member function of its name, which hides a type
+  ([basic.scope.hiding]), and where its last name is a type only as a class TEMPLATE's, with no arguments, a
+  placeholder for a deduced class type, which never stands in a parameter list ([dcl.type.class.deduct]/2). libc++'s
+  `inline constexpr partial_ordering partial_ordering::less(_OrdResult::__less);` was a member function's declaration
+  wherever `std::__less` (`<__algorithm/comp.h>`) had been read before: no item kept it, and the orderings' `less` were
+  undefined symbols over 13 of the 38 summaries of libc++ 18 that hold them (`<map>`, `<string>`, `<algorithm>` ... at
+  C++20, 0.184's chain); `O b(R::tag);` and `int y(Q::less);` in a block declared functions. Reader 140.
+  `qualparam.cpp`, `ordless.cpp`. (0.44, 0.186)
 - A function template's name is a template, never a type. `ccl_note_if_fn_template` records it (`'$ccl_fn_templates'`,
   the set `'$ccl_ftmpls'`; a summary's `ftemplate(N)`), and `ccl_qname_typish` refuses it, its explicit template-id too.
   So `_Tp __t(std::move(__x))` and `T &r(std::forward<U>(v))` declare variables. (0.45, 0.84)
@@ -1938,6 +1949,15 @@ tutorials/01..03-*.pl       the objects layer's lessons; goal main, last line do
 - The flatten runs inside `ccl_lib_unit/1`, which sets `'$ccl_lib_unit'` (restored on success, failure and a throw), so
   `ccl_unit` registers no standard macro (`format`, `print`, `println`, `clone`). Why: libc++'s `<format>` calls its own
   `format(c, ctx)`. (0.99)
+- A LIBRARY HEADER IS READ FROM THE SEED (0.186; `ccl_seed_read/2` around the flatten): the templates and the function
+  templates the process noted before -- the program's, another header's -- are set aside while the header is flattened
+  and read (`ccl_seed_template_names/1`, the set a process starts with), and put back after it with the header's own as
+  its summary notes them (`ccl_items_templates/2`), on success, failure and a throw. A header's read depended on what
+  the process had read before it, so a cold build over several headers wrote other summaries than the library read's one
+  header a process: after `<ranges>` had noted `__move_impl`, a static member function template there, `<string>` read
+  move.h's class template-id `__move_impl<_AlgPolicy>` as an expression (0.185's nets against 0.184's chain: 4 of 47
+  summaries over libc++ 18 and 5 of 47 over 21 differed, `sumcmp2.sh` in HISTORY.md). An includer of a header flattened
+  in the process has what one served from the summary has. (0.186)
 - A partial read is silent: `ccl_partial` gives `partial(U, line(L), near(F))`, and a library header's summary and AST
   hold what was read. `test/census.sh` on the flattened header (`cicilang++ -E`) names the stop. (0.44)
 - `ccl_with_file/2` saves and restores around a nested read, on success, failure and a throw: `'$ccl_file'`,
@@ -2103,7 +2123,7 @@ tutorials/01..03-*.pl       the objects layer's lessons; goal main, last line do
 
 ### The versions
 
-- `ccl_reader_version/1` (`library/ccl_syntax.pl`, now 139): bump it for any grammar change to what a read gives, and
+- `ccl_reader_version/1` (`library/ccl_syntax.pl`, now 140): bump it for any grammar change to what a read gives, and
   for any change to what the AST beside a summary holds (item or member terms, `cpp_index_name/2`,
   `cpp_template_name/2`, `ccl_flat_items/3`, the namespace keys). Keep the reason in its comment. Why: the store and the
   summaries are keyed by it, and a stale read is served silently (`sizeof(std::string)` read 40). (M1, 0.89, 0.112,
@@ -4457,7 +4477,10 @@ The desugaring (`library/ccl_cpp.pl`) chooses every C++ overload. A fixture name
   `three_way_comparison_of_a_class(C)`; a plain struct with none refuses too, never the scalar rule. An `auto` operator
   deduces its result as a plain function does (`cpp_item`). `friendreq.cpp`. Of scalars it is
   `<compare>`'s `strong_ordering`, or `partial_ordering` (-127 unordered) for a floating operand ([expr.spaceship];
-  `cpp_scalar_ordering/3`); without `<compare>`, the int `(A > B) - (A < B)`. `stdcompare.cpp`. (0.42, 0.101)
+  `cpp_scalar_ordering/3`); without `<compare>`, the int `(A > B) - (A < B)`. `stdcompare.cpp`. TO THE INFERENCE A
+  SCALAR `<=>` IS NO ARITHMETIC TYPE in C++ (`ccl_type_of/2` answers `unknown`, and the desugaring's type decides;
+  0.186): `auto p = 1.0 <=> 2.0;` was a double that the ordering was converted to, and `p == partial_ordering::less`
+  was `no_operator(==)`. `spaceauto.cpp`. (0.42, 0.101, 0.186)
 
 ### Overload sets and function templates named as values
 
@@ -4932,15 +4955,23 @@ A lambda is a class of its captures (`library/ccl_cpp.pl`). A fixture named alon
 
 - A global of a class with constructors -- any initializer, or none where its default construction is no trivial one
   (`cpp_global_object/5`) -- is constructed at compile time over a cell of the class's zero where the evaluator can
-  ([basic.start.static]; `cpp_fold_ctor_value/4`, `cpp_eval_construct/4`). `constexprfn6.cpp`. (0.99, 0.112)
-- Else it is INITIALIZED DYNAMICALLY ([basic.start.dynamic]; `cpp_global_ctor_init/7`, `cpp_dynamic_init/4`): the
+  ([basic.start.static]; `cpp_fold_ctor_value/4`, `cpp_eval_construct/4`). A PRVALUE OF THE CLASS WRITTEN AS ITS
+  CONSTRUCTOR'S CALL, `Tag(3)` or `Tag{3}`, IS THE OBJECT (C++17's elision; `cpp_prvalue_init/3`, 0.186): the global
+  is folded, and else constructed, from its own arguments. The fold took the walked initializer and walked it again,
+  and the temporary that the first walk had declared was default-constructed: `const O g = O(3);` and `P g = P{3};`
+  were `no_constructor('O', 0)` where the class has no default constructor (since 0.99), and the copy of a
+  default-constructed temporary where it has one. `constexprfn6.cpp`, `globalprvalue.cpp`. (0.99, 0.112, 0.186)
+- Else it is INITIALIZED DYNAMICALLY ([basic.start.dynamic]; `cpp_global_ctor_init/8`, `cpp_dynamic_init/5`): the
   global stays zero bytes, and the unit's one function `$cpp_ginit` -- run before main through `@llvm.global_ctors`,
   which the lowering spells where it lowers that function -- constructs it where it stands, a placement new over its
-  address from the RAW initializer (a prvalue `Tag(3)` its own arguments, `cpp_dyn_init_args/3`; a braced list for an
+  address from the RAW initializer (a prvalue `Tag(3)` its own arguments, `cpp_prvalue_init/3`; a braced list for an
   `initializer_list` constructor one argument), and registers its destructor with `atexit` through a wrapper
   `$cpp_gdtor.N`, in declaration order, so the globals die in the reverse order ([basic.start.term]). `extern` stays a
   declaration; `dynamic_initialization_of_global(N, C)` remains for a static member the evaluator cannot build.
-  `globalinit.cpp`. (0.112)
+  `globalinit.cpp`. A STATIC DATA MEMBER OF SUCH A CLASS DEFINED OUT OF ITS CLASS takes the same two roads, in its
+  class's words and access ([class.static.data]/4; `cpp_static_object_init/7`, `'$in_class'`; 0.186): it took a
+  scalar's, `const O O::low(3);` and `const O O::low = O(3);` reached the lowering raw (`global_init(ctor(...))`), and
+  `const O O::low{3};` over `O(int x) : v(x * 2)` was the aggregate {3}, where clang++ gives 6. (0.112, 0.186)
 - A file-scope SCALAR whose initializer needs the run time is initialized dynamically too (C++ only, 0.117): `int g =
   f() * 2;`, `static int h = g + 4;`, `const int k = f();`, `double d = f() / 2.0;`, `Color c = pick();`, `int
   br{f(3)};`, `int *p = &arr[2];`, `int A::v = A::compute() * 2;` were refused by the lowering as `global_init(...)`,
@@ -7967,18 +7998,17 @@ A lambda is a class of its captures (`library/ccl_cpp.pl`). A fixture named alon
 - Ubuntu 24.04 on x86_64 (clang and LLVM 18, glibc, libc++ 18 and 21) is a host since 0.87. Every gate but the C++ one
   is GREEN there since 0.93, and all seven since 0.95. Every step from 0.93 on is gated there, but the save points
   0.112, 0.113, 0.117, 0.122 to 0.125, 0.130, 0.131 and 0.143 (0.143's C gates and cross gate ran, its libc++ gates did
-  not; the others were gated by the steps after them). The last full run is 0.184's, the first over cocolog 2.11.0
-  (the Findings), on one tree, over fresh HOMEs (the reader version moved); it holds 0.182 and 0.183, whose chains were
-  not started: over libc++ 18 all nine GREEN in 1808 s (the flow gate's one finding in 90 s, reader 4 s, compile 13 s,
-  driver 14 s, objects 4 s, proof, the cross gate in 360 s with its C++ part for aarch64, the library read in 482 s
-  (0.181's 1121 s), the C++ gate in 837 s (0.181's 727 s) with 595 of 599 fixtures ok, the skips are `joinwith`,
-  `stdoptionalref`, `tzone` and `zipadjacent`, the 23 refusals and the three of the safe part); over libc++ 21 the
-  library read (413 s, peak 1284 MB; 0.181's 1061 s) and the C++ gate (842 s, peak 2239 MB; 0.181's 845 s; 597 of 599
-  ok, the skips `stdoptionalref` and `zipadjacent`) GREEN -- the C gates do not read libc++. The headers' reads, summed,
-  took 1801 s over 114 over libc++ 18 and 1549 s over 21, where 0.181's took 4313 s and 4116 s (a read linear in its
-  items, 0.184); the fixtures' builds 2824 s over 595 and 2893 s over 597, where 0.181's took 2454 s over 589 and
-  2624 s over 591 (HISTORY.md, 0.185). The chains of 0.165 to 0.181 are in HISTORY.md, 0.166 to 0.182. Two libc++
-  passes are one gate: `LLVM=/usr/lib/llvm-18` and `LLVM=/usr/lib/llvm-21`
+  not; the others were gated by the steps after them). The last full run is 0.185's, over cocolog 2.11.0 (the
+  Findings), on one tree, over fresh HOMEs (the reader version moved): over libc++ 18 all nine GREEN in 1841 s (the
+  flow gate's one finding in 97 s, reader 4 s, compile 12 s, driver 17 s, objects 4 s, proof, the cross gate in 360 s
+  with its C++ part for aarch64, the library read in 474 s (0.184's 482 s), the C++ gate in 868 s (0.184's 837 s) with
+  596 of 600 fixtures ok, the skips are `joinwith`, `stdoptionalref`, `tzone` and `zipadjacent`, the 23 refusals and the
+  three of the safe part); over libc++ 21 the library read (421 s, peak 1244 MB; 0.184's 413 s) and the C++ gate (853
+  s, peak 2119 MB; 0.184's 842 s; 598 of 600 ok, the skips `stdoptionalref` and `zipadjacent`) GREEN -- the C gates do
+  not read libc++. The headers' reads, summed, took 1776 s over 114 over libc++ 18 and 1592 s over 21 (0.184's 1801 s
+  and 1549 s; 0.181's 4313 s and 4116 s, before a read linear in its items); the fixtures' builds 2934 s over 596 and
+  2905 s over 598 (0.184's 2824 s over 595 and 2893 s over 597) (HISTORY.md, 0.186). The chains of 0.165 to 0.184 are
+  in HISTORY.md, 0.166 to 0.185. Two libc++ passes are one gate: `LLVM=/usr/lib/llvm-18` and `LLVM=/usr/lib/llvm-21`
   choose the tree the chain reads and links. libc++ 22 (the newest tree, which a run without `$LLVM` reads) is no
   gate: 0.182 built its vector and its C++23 views by hand (`zipadjacent.cpp`, which its `.needs` skips over 18 and
   21), and `stdoptionalref` passes there. The run before 0.121's (0.118, 0.119) found, over 0.117, two defects and
@@ -8076,6 +8106,11 @@ A lambda is a class of its captures (`library/ccl_cpp.pl`). A fixture named alon
   (two virtual overloads of one name and arity, one overridden), `virtualdefault` (a virtual call that leaves a defaulted
   argument out), `anonparam` (an unnamed by-value parameter destroyed), `rangeadl` (a range-for by the free `begin` and
   `end` of two namespaces), `downcast` (`static_cast` from a second base to the derived class, a pointer and a reference).
+- Forms of 0.186: `qualparam` (an enumerator and a static data member named like class templates, as a static's
+  initializer and in a block's declarations), `ordless` (C++20: the orderings' `less` over `<string>`, read before
+  `<compare>`), `globalprvalue` (namespace-scope objects and out-of-class static members initialized by `T(args)`,
+  `T{args}` and `(args)`, at compile time and before main, a copy constructor never run), `spaceauto` (C++20: a scalar
+  `<=>` to `auto`, decltype, a template's deduction and an overload).
 - Forms of 0.185: `ttpown` (a template template parameter's own defaults: in a class template's head, beside a value
   parameter, an outer parameter and a pack, in a function template's, a member template's and a class template's
   member template's head; an argument given where the list has a default; a list with no default).
@@ -8491,7 +8526,11 @@ A lambda is a class of its captures (`library/ccl_cpp.pl`). A fixture named alon
   clang's on this host alone (0.160).
 - The Itanium mangler spells a function type, a pointer to one, an array and a pointer to member as a parameter
   (0.117; `c37`), every builtin type (0.136; `c44`) and a vector type (0.162; `c46`). A type that none of its clauses
-  names keeps this compiler's own name, and the link names it.
+  names keeps this compiler's own name, and the link names it. No shipped symbol needs one (measured at 0.186): the
+  symbols that libc++ 18's, 21's and 22's `libc++.so.1` and their `libc++abi.so.1` export, and the 27 that libc++ 21's
+  `libc++experimental.a` defines strongly, use no form the mangler lacks -- a pack expansion `Dp`, a `decltype` `DT` or
+  `Dt`, an ABI tag `B`, a closure `Ul`, an unnamed type `Ut`, an expression `X`, an external name `L_Z` as an argument
+  (the archive's weak definitions that do are instances of the headers' inline templates, which a program compiles).
 - macOS has not run the gates since 0.90, so every rule made since 0.91 is gated on Linux and libc++ 18 only.
 
 ### The safe part
@@ -8523,7 +8562,9 @@ A lambda is a class of its captures (`library/ccl_cpp.pl`). A fixture named alon
   desugaring's own tables and class records (the Time and memory topic): the slowest fixture, `viewsall.cpp`, took 1760 s
   of the C++ gate's 2400 s cap in the gate's pool at 0.115 and 1357 s at 0.118, and takes 211 s now; the sum of the 388
   fixtures' builds went from 11,775 s to 2,936 s, the gate from 2989 s to 908 s over four lanes, its pool's peak from 9034
-  MB to 1675 MB (0.120). What is left is mostly the reader's own cold flattening of a header (`stdatomic20.cpp`, 277 s,
-  gained nothing).
+  MB to 1675 MB (0.120). What is left is mostly the reader's own cold flattening of a header, 2.4 to 2.7 times faster
+  since 0.184 (its item loop: the 114 headers' reads summed 1776 s over libc++ 18 in 0.185's chain, 4313 s in 0.181's).
+  In 0.185's chain the slowest builds were `fmtrange` (123 s over libc++ 18) and `fmtchrono2` (103 s over 21),
+  `viewsall` 80 s and 84 s, and the 596 and 598 builds summed 2934 s and 2905 s over four lanes (0.120, 0.184, 0.186).
 - The flow gate charts the ten hand-written files of `library/` and the nine gate programs of `test/` (0.161): the two
   generated tables (`ccl_bidrt.pl`, `ccl_uninames.pl`) are loaded, not charted. `test/why.sh` is no gate.
