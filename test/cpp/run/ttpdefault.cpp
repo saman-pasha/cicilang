@@ -2,8 +2,8 @@
 // `template <template <class T, bool = (sizeof(T) < 4)> class TT>'. The reader skips that list to its `>' by
 // counting angle brackets, and the `<' of the comparison was counted: the list ran on past its close and the
 // head was a syntax error (a `>' in the parentheses closed it too soon). A parenthesized group is skipped whole
-// now, as the scan ahead of a class body skips one since 0.183. The list's defaults are not read (CLAUDE.md, Not
-// done): here they agree with the templates' own.
+// now, as the scan ahead of a class body skips one since 0.183. Here the list's defaults agree with the templates'
+// own; since 0.185 the list is read and its defaults apply where they differ (ttpown.cpp).
 #include <cstdio>
 
 template <class T, bool B = (sizeof(T) < 4)> struct Small { static const int v = B ? 1 : 2; };

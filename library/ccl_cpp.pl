@@ -357,11 +357,13 @@ cpp_ita_fn_inst_(Path, F, Args, Ret, Ps, V, Name) :-
     atomic_list_concat(['_ZN', T1, 'I', AText, 'EE', RText, PText], Name).
 cpp_ita_tparams([], _, []).
 cpp_ita_tparams([requires(_)|TPs], I, Rs) :- !, cpp_ita_tparams(TPs, I, Rs).
+cpp_ita_tparams([ttp(_, _)|TPs], I, Rs) :- !, cpp_ita_tparams(TPs, I, Rs).
 cpp_ita_tparams([tparam(_, P, _)|TPs], I, [P-Code|Rs]) :- cpp_ita_tp_code(I, Code), I1 is I + 1, cpp_ita_tparams(TPs, I1, Rs).
 cpp_ita_tp_code(0, 'T_') :- !.
 cpp_ita_tp_code(I, Code) :- I1 is I - 1, atomic_list_concat(['T', I1, '_'], Code).
 cpp_ita_bound_args([], _, []).
 cpp_ita_bound_args([requires(_)|TPs], B, As) :- !, cpp_ita_bound_args(TPs, B, As).
+cpp_ita_bound_args([ttp(_, _)|TPs], B, As) :- !, cpp_ita_bound_args(TPs, B, As).
 cpp_ita_bound_args([tparam(_, P, _)|TPs], B, [A|As]) :- memberchk(P-A, B), cpp_ita_bound_args(TPs, B, As).
 cpp_ita_tparam(N, Code) :- ( nb_current('$cpp_ita_tps', Refs) -> true ; Refs = [] ), memberchk(N-Code, Refs).
 cpp_ita_tp_use(Code, Subs0, Text, Subs) :- ( cpp_ita_sub(Code, Subs0, S) -> Text = S, Subs = Subs0 ; Text = Code, cpp_ita_note(Code, Subs0, Subs) ).
@@ -403,6 +405,7 @@ cpp_ita_chain([inst(N, Args)|Ls], C0, T0, Subs0, C, T, Subs) :-
 cpp_ita_targs_t(N, Args, Subs0, Canon, Text, Subs) :- ( atom(N), catch('$cpp_tmpl'(N, TPs, _), _, fail) -> cpp_ita_vtypes(TPs, VTs) ; VTs = [] ), cpp_ita_targs_v(Args, VTs, Subs0, Canon, Text, Subs).
 cpp_ita_vtypes([], []).
 cpp_ita_vtypes([requires(_)|TPs], VTs) :- !, cpp_ita_vtypes(TPs, VTs).
+cpp_ita_vtypes([ttp(_, _)|TPs], VTs) :- !, cpp_ita_vtypes(TPs, VTs).
 cpp_ita_vtypes([tparam(K, _, _)|TPs], [VT|VTs]) :- ( memberchk(K, [type, pack, template]) -> VT = none ; K = vpack(_) -> VT = vpack ; VT = K ), cpp_ita_vtypes(TPs, VTs).
 cpp_ita_targs_v([], _, Subs, '', '', Subs).
 cpp_ita_targs_v([A|As], VTs, Subs0, Canon, Text, Subs) :- ( VTs = [VT|VTs1] -> true ; VT = none, VTs1 = [] ),
@@ -2966,6 +2969,7 @@ cpp_default_ctor_exists(C) :- cpp_class(C, cls(_, _, Ms, _, _, _)),
 %% ("The type option contains an invalid value for an integer formatting argument").
 cpp_tparams_defaulted([]).
 cpp_tparams_defaulted([requires(_)|TPs]) :- !, cpp_tparams_defaulted(TPs).
+cpp_tparams_defaulted([ttp(_, _)|TPs]) :- !, cpp_tparams_defaulted(TPs).
 cpp_tparams_defaulted([tparam(K, _, D)|TPs]) :- ( cpp_pack_kind(K) -> true ; D \== none ), cpp_tparams_defaulted(TPs).
 %% an implicit destructor: none of its own, a member with one to destroy
 cpp_implicit_dtor_needed(C) :- '$cpp_vbase'(C), cpp_class(C, cls(B, _, Ms, _, _, _)), \+ memberchk(dtor(_, _, _), Ms), \+ ( cpp_dtor_def(C) ), B \== none, cpp_dtor(B, _), !.   % over a virtual base: the base's destructor runs on the sub-object where it lies, never on `this' as if at offset 0
@@ -6370,6 +6374,7 @@ cpp_guide_params(Ms, Ps) :- member(ctor(_, _, Ps, _, _), Ms), Ps \== [].        
 cpp_guide_params(Ms, Ps) :- \+ memberchk(ctor(_, _, _, _, _), Ms), findall(param(T, A), member(member(T, A, _), Ms), Ps), Ps \== [].   % an AGGREGATE: its members, in order
 cpp_ctad_bind([], _, []).
 cpp_ctad_bind([requires(_)|TPs], B, Args) :- !, cpp_ctad_bind(TPs, B, Args).
+cpp_ctad_bind([ttp(_, _)|TPs], B, Args) :- !, cpp_ctad_bind(TPs, B, Args).
 cpp_ctad_bind([tparam(_, P, D)|TPs], B, [A|Args]) :- ( memberchk(P-A0, B) -> A = A0 ; D \== none, cpp_subst(D, B, A) ), cpp_ctad_bind(TPs, B, Args).
 %% every argument a type or a constant: an expression that did not fold would name an instance by its spelling
 cpp_targs_settled([]).
@@ -6720,6 +6725,7 @@ cpp_tparam_kinds([_|Ps], Ks) :- cpp_tparam_kinds(Ps, Ks).
 %% the arguments' KINDS against the parameters': a type for a type parameter, anything but a type for a value one, a pack takes the rest
 cpp_kinds_fit([], []).
 cpp_kinds_fit([requires(_)|Ps], As) :- !, cpp_kinds_fit(Ps, As).
+cpp_kinds_fit([ttp(_, _)|Ps], As) :- !, cpp_kinds_fit(Ps, As).
 cpp_kinds_fit([tparam(K, _, _)|_], _) :- ( K == pack ; K = vpack(_) ), !.
 cpp_kinds_fit([tparam(K, _, _)|Ps], [A|As]) :- !, cpp_kind_fits(K, A), cpp_kinds_fit(Ps, As).
 cpp_kinds_fit([tparam(_, _, D)|Ps], []) :- D \== none, cpp_kinds_fit(Ps, []).
@@ -6736,7 +6742,9 @@ cpp_merge_defaults_([P|Ps], I, All, Others, [P|Qs]) :- I1 is I + 1, cpp_merge_de
 cpp_rename_params([], [], []).
 cpp_rename_params([tparam(K, P2, _)|Ps2], [tparam(_, P, _)|Ps], B) :- ( P2 == P -> B = B1 ; ( K == type ; K == pack ; K == template ) -> B = [P2-base([], [typedef(P)])|B1] ; B = [P2-id(P)|B1] ), cpp_rename_params(Ps2, Ps, B1).
 cpp_rename_params([requires(_)|Ps2], Ps, B) :- cpp_rename_params(Ps2, Ps, B).
+cpp_rename_params([ttp(_, _)|Ps2], Ps, B) :- cpp_rename_params(Ps2, Ps, B).
 cpp_rename_params(Ps2, [requires(_)|Ps], B) :- cpp_rename_params(Ps2, Ps, B).
+cpp_rename_params(Ps2, [ttp(_, _)|Ps], B) :- cpp_rename_params(Ps2, Ps, B).
 cpp_template_class_def(declare(_, base(_, [class(_, _, _, Ms)]))) :- Ms \== none.
 cpp_template_class_def(declare(_, base(_, [struct(_, Ms)]))) :- Ms \== none.
 cpp_template_class_def(declare(_, base(_, [union(_, Ms)]))) :- Ms \== none.
@@ -7780,7 +7788,9 @@ cpp_keep_tdefaults(_, _, M, M).
 cpp_tparams_shape([], []).
 cpp_tparams_shape([tparam(K0, P, _)|Ps], [tparam(K1, P, _)|Qs]) :- functor(K0, F, A), functor(K1, F, A), cpp_tparams_shape(Ps, Qs).
 cpp_tparams_shape([requires(_)|Ps], Qs) :- !, cpp_tparams_shape(Ps, Qs).
+cpp_tparams_shape([ttp(_, _)|Ps], Qs) :- !, cpp_tparams_shape(Ps, Qs).
 cpp_tparams_shape(Ps, [requires(_)|Qs]) :- !, cpp_tparams_shape(Ps, Qs).
+cpp_tparams_shape(Ps, [ttp(_, _)|Qs]) :- !, cpp_tparams_shape(Ps, Qs).
 cpp_member_const(template(_, _, M), K) :- !, cpp_member_const(M, K).
 cpp_member_const(method(_, Qs, _, _, _, _, _), K) :- !, ( memberchk(const, Qs) -> K = const ; K = nonconst ).
 cpp_member_const(_, nonconst).
@@ -7869,6 +7879,7 @@ cpp_instance_class(declare(L, base(_, [union(_, Ms)])), L, union, [], Ms) :- Ms 
 %% the arguments in the parameters' order, a pack's spliced: what a specialization's pattern is matched against
 cpp_full_args([], _, []).
 cpp_full_args([requires(_)|TPs], B, As) :- !, cpp_full_args(TPs, B, As).
+cpp_full_args([ttp(_, _)|TPs], B, As) :- !, cpp_full_args(TPs, B, As).
 cpp_full_args([tparam(_, P, _)|TPs], B, As) :- memberchk(P-A, B), ( cpp_pack_list(A, L) -> append(L, As1, As) ; As = [A|As1] ), cpp_full_args(TPs, B, As1).
 %% the specialization whose pattern matches, the most specialized of those that do (X is more specialized than Y when
 %% X's pattern, taken as arguments, matches Y's)
@@ -7899,6 +7910,7 @@ cpp_spec_pattern(N, Pat, Args, Pat1) :-
     ;   Pat1 = Pat ).
 cpp_plain_tparams([], []).
 cpp_plain_tparams([requires(_)|Ts], Us) :- !, cpp_plain_tparams(Ts, Us).
+cpp_plain_tparams([ttp(_, _)|Ts], Us) :- !, cpp_plain_tparams(Ts, Us).
 cpp_plain_tparams([T|Ts], [T|Us]) :- cpp_plain_tparams(Ts, Us).
 cpp_nth_tail(0, L, L) :- !.
 cpp_nth_tail(K, [_|L], R) :- K > 0, K1 is K - 1, cpp_nth_tail(K1, L, R).
@@ -8119,7 +8131,9 @@ cpp_fn_lend_defaults(F, K, TPs0, Keyed, TPs) :-
 cpp_same_tparams([], []).
 cpp_same_tparams([tparam(K, P, _)|Ps], [tparam(K, P, _)|Qs]) :- cpp_same_tparams(Ps, Qs).
 cpp_same_tparams([requires(_)|Ps], Qs) :- !, cpp_same_tparams(Ps, Qs).
+cpp_same_tparams([ttp(_, _)|Ps], Qs) :- !, cpp_same_tparams(Ps, Qs).
 cpp_same_tparams(Ps, [requires(_)|Qs]) :- !, cpp_same_tparams(Ps, Qs).
+cpp_same_tparams(Ps, [ttp(_, _)|Qs]) :- !, cpp_same_tparams(Ps, Qs).
 %% a function template's item: its definition, or a DECLARATION with no body -- `template <class T> T &&declval();'
 %% is never called, and a decltype wants only its return type
 cpp_fn_item(function(L, Sto, Ret, N, Ps, V, Body), function(L, Sto, Ret, N, Ps, V, Body)).
@@ -8519,9 +8533,10 @@ cpp_instantiate_function_emit(F, TPs, B, L0, Sto0, Ret, Ps, V0, Body, Name) :-
                                      ( Body1 == none -> Items = [declaration(L, Sto, Ret2, [var(Name, fn(Ret2, Ps2, V), none)])]   % declared, not defined: a declaration, never a bodyless function
                                      ; cpp_item(function(L, Sto, Ret2, Name, Ps1, V, Body1), Items) ) ))),
                       cpp_add_instance_items(Items) )).
-cpp_bind_targs(TPs, Args, B) :- cpp_bind_targs_(TPs, Args, [], B).
+cpp_bind_targs(TPs, Args, B) :- cpp_bind_targs_(TPs, Args, [], B0), ( memberchk(ttp(_, _), TPs) -> cpp_ttp_binds(TPs, B0, B) ; B = B0 ).   % a template template parameter's own list (0.185): bound after the rest, past a pack, which ends the walk
 cpp_bind_targs_([], _, B, B).
 cpp_bind_targs_([requires(_)|TPs], Args, Acc, B) :- !, cpp_bind_targs_(TPs, Args, Acc, B).
+cpp_bind_targs_([ttp(_, _)|TPs], Args, Acc, B) :- !, cpp_bind_targs_(TPs, Args, Acc, B).
 cpp_bind_targs_([tparam(K, P, _)|_], Args, Acc, [P-pack(Args)|Acc]) :- cpp_pack_kind(K), !.     % a pack takes what is left
 cpp_bind_targs_([tparam(template, P, D)|TPs], Args, Acc, B) :- !,                                % a template template parameter: bound to a template's NAME
     ( Args = [A0|Rest] -> cpp_tname_arg(A0, Acc, A) ; D \== none -> cpp_tname_arg(D, Acc, A), Rest = [] ; cpp_refuse(0, template_argument_missing(P)) ),
@@ -8568,6 +8583,7 @@ cpp_constraints_hold_([_|TPs], N, B) :- cpp_constraints_hold_(TPs, N, B).
 cpp_bind_explicit([], _, []) :- !.
 cpp_bind_explicit(_, [], []) :- !.
 cpp_bind_explicit([requires(_)|TPs], As, B) :- !, cpp_bind_explicit(TPs, As, B).
+cpp_bind_explicit([ttp(_, _)|TPs], As, B) :- !, cpp_bind_explicit(TPs, As, B).
 cpp_bind_explicit([tparam(K, P, _)|_], As, [P-pack(As)]) :- cpp_pack_kind(K), !.
 cpp_bind_explicit([tparam(template, P, _)|TPs], [A0|As], [P-A|B]) :- !, cpp_tname_arg(A0, [], A), cpp_bind_explicit(TPs, As, B).
 cpp_bind_explicit([tparam(K, P, _)|TPs], [A0|As], [P-A|B]) :- ( cpp_targ_value(A0, A) -> true ; cpp_trace(targ_raw(P, A0)), A = A0 ),   % EVALUATED where it binds, as the class path's arguments are
@@ -8579,6 +8595,7 @@ cpp_bind_explicit([tparam(K, P, _)|TPs], [A0|As], [P-A|B]) :- ( cpp_targ_value(A
 %% parameter's TYPE must resolve -- `enable_if<c, int>::type = 0' has no type when c is false (SFINAE)
 cpp_bind_defaults([], B, B).
 cpp_bind_defaults([requires(_)|TPs], B0, B) :- !, cpp_bind_defaults(TPs, B0, B).
+cpp_bind_defaults([ttp(P, I)|TPs], B0, B) :- !, cpp_ttp_bind(P, I, B0, B1), cpp_bind_defaults(TPs, B1, B).             % its own list, for cpp_ttp_fill/4 (0.185)
 cpp_bind_defaults([tparam(template, P, D)|TPs], B0, B) :- !,
     ( memberchk(P-_, B0) -> B1 = B0 ; D \== none -> cpp_tname_arg(D, B0, A), B1 = [P-A|B0] ; cpp_refuse(0, cannot_deduce(P)) ),
     cpp_bind_defaults(TPs, B1, B).
@@ -8715,6 +8732,7 @@ cpp_match_vector(K, X, E, AT, TPs, B0, B) :-
     ;   cpp_refuse(0, deduction_failed(vector(K))) ).
 cpp_alias_binds([], _, []).
 cpp_alias_binds([requires(_)|TPs], As, B) :- !, cpp_alias_binds(TPs, As, B).
+cpp_alias_binds([ttp(_, _)|TPs], As, B) :- !, cpp_alias_binds(TPs, As, B).
 cpp_alias_binds([tparam(K, P, _)|_], As, [P-pack(As)]) :- cpp_pack_kind(K), !.                 % a pack takes the rest as written: an expansion `_I1...' stays one element
 cpp_alias_binds([tparam(_, P, _)|TPs], [A|As], [P-A|B]) :- cpp_alias_binds(TPs, As, B).
 cpp_tparam_names(TPs, Ns) :- findall(P, member(tparam(_, P, _), TPs), Ns).
@@ -8900,7 +8918,7 @@ cpp_subst(init(P, As), B, init(X, As1)) :- atom(P), memberchk(P-A, B), cpp_bound
 cpp_subst(base(Q, [typedef(P)]), B, base(Q, [typedef(X)])) :- atom(P), memberchk(P-tname(X), B), !.      % a template template parameter passed on by name
 cpp_subst(base(Q, [typedef(tmpl(P, Args0))]), B, base(Q, [typedef(scoped([C], tmpl(N, Args)))])) :- atom(P), memberchk(P-tname(mt(C, N)), B), !, cpp_subst(Args0, B, Args).   % bound to a MEMBER alias template, `_Tester::template _Apply' (0.109): `C::template N<Args>'
 cpp_subst(tmpl(P, Args0), B, scoped([C], tmpl(N, Args))) :- atom(P), memberchk(P-tname(mt(C, N)), B), !, cpp_subst(Args0, B, Args).
-cpp_subst(tmpl(P, Args0), B, tmpl(X, Args)) :- atom(P), memberchk(P-tname(X), B), !, cpp_subst(Args0, B, Args).   % L<A, B>: the template it is bound to
+cpp_subst(tmpl(P, Args0), B, tmpl(X, Args)) :- atom(P), memberchk(P-tname(X), B), !, cpp_subst(Args0, B, Args1), cpp_ttp_fill(P, B, Args1, Args).   % L<A, B>: the template it is bound to
 cpp_subst(base(Q, [typedef(P)]), B, T) :- memberchk(P-A, B), !, ( A == '$later' -> T = base(Q, [typedef(P)]) ; cpp_pack_list(A, _) -> cpp_refuse(0, pack_unexpanded(P)) ; A = pack(_) -> T = A ; cpp_merge_quals(Q, A, T) ).   % an expansion handed through stays one; a member template's own pack stays its name
 cpp_subst(sizeof(id(P)), B, sizeof_type(A)) :- memberchk(P-A, B), cpp_is_type(A), !.          % sizeof(T), read as an expression while T was a name
 %% A BOUND TYPE PARAMETER CALLED: the ARGUMENTS ARE SUBSTITUTED FIRST and the arity read off the result, since a
@@ -8915,6 +8933,21 @@ cpp_subst(id(P), B, V) :- memberchk(P-V0, B), !, ( V0 == '$later' -> V = id(P) ;
 cpp_subst(scoped(Path, N0), B, scoped(Path1, N)) :- !, cpp_subst_path(Path, B, Path1), ( atom(N0) -> N = N0 ; cpp_subst(N0, B, N) ).   % C::value_type with C a parameter: the class it is bound to; std::vector<T> under T
 cpp_subst(str(S), _, str(S)) :- !.
 cpp_subst(T0, B, T) :- T0 =.. [F|As], cpp_subst_list(As, B, Bs), T =.. [F|Bs].
+%% A TEMPLATE TEMPLATE PARAMETER'S OWN DEFAULTS ([temp.param]/14; 0.185): in the parameter's scope `TT<U>' takes
+%% the arguments its own list defaults (the reader's ttp(N, List), bound beside the parameter as '$ttdef'(N) by
+%% cpp_ttp_bind/4, LAST, so that no reader of the first binding meets it), read under the arguments given and the
+%% template's own bindings, an unnamed one named by its place; the bound template's own defaults take what the list
+%% leaves. They were skipped with the list, and `TT<U>' took the bound template's own, a silent difference where the
+%% two differ (ttpown.cpp).
+cpp_ttp_bind(P, I, B0, B) :- ( memberchk(P-tname(_), B0), \+ memberchk('$ttdef'(P)-_, B0) -> append(B0, ['$ttdef'(P)-ttdef(I)], B) ; B = B0 ).
+cpp_ttp_binds([], B, B).
+cpp_ttp_binds([ttp(P, I)|TPs], B0, B) :- !, cpp_ttp_bind(P, I, B0, B1), cpp_ttp_binds(TPs, B1, B).
+cpp_ttp_binds([_|TPs], B0, B) :- cpp_ttp_binds(TPs, B0, B).
+cpp_ttp_fill(P, B, Args0, Args) :-
+    (   memberchk('$ttdef'(P)-ttdef(I0), B), cpp_name_anon(I0, I), cpp_ttp_short(I, Args0),
+        catch(cpp_bind_targs_(I, Args0, B, IB), error(not_lowered(_), _), fail), cpp_full_args(I, IB, Args1) -> Args = Args1
+    ;   Args = Args0 ).
+cpp_ttp_short(I, Args) :- \+ ( member(tparam(K, _, _), I), cpp_pack_kind(K) ), findall(x, member(tparam(_, _, _), I), Ps), length(Ps, NP), length(Args, NA), NA < NP.
 cpp_pack_at(P, I, B, L, E) :-
     cpp_subst(I, B, I1), ( ccl_const_eval(I1, K) -> true ; cpp_refuse(0, pack_index_not_constant(P)) ),
     length(L, N), ( K >= 0, K < N -> true ; cpp_refuse(0, pack_index_out_of_range(P, K)) ), nth0(K, L, E).
@@ -8935,6 +8968,7 @@ cpp_subst_quals([Q|Qs], B, [Q|Qs1]) :- cpp_subst_quals(Qs, B, Qs1).
 cpp_subst_tparams([], _, []).
 cpp_subst_tparams([tparam(K, P, D)|TPs], B, [tparam(K1, P, D1)|Qs]) :- !, ( cpp_is_type(K) -> cpp_subst(K, B, K1) ; K1 = K ), ( D == none -> D1 = none ; cpp_subst(D, B, D1) ), cpp_subst_tparams(TPs, B, Qs).
 cpp_subst_tparams([requires(R)|TPs], B, [requires(R1)|Qs]) :- !, cpp_subst(R, B, R1), cpp_subst_tparams(TPs, B, Qs).
+cpp_subst_tparams([ttp(N, I)|TPs], B, [ttp(N, I1)|Qs]) :- !, cpp_shadow(I, B, B1), cpp_subst_tparams(I, B1, I1), cpp_subst_tparams(TPs, B, Qs).   % a template template parameter's own list (0.185): its defaults take the class's bindings too
 cpp_subst_tparams([X|TPs], B, [X|Qs]) :- cpp_subst_tparams(TPs, B, Qs).
 cpp_base_access(A) :- memberchk(A, [none, public, private, protected]).
 cpp_bound_base(tname(X), X) :- !.

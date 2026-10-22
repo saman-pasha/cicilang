@@ -10,8 +10,8 @@ it found, its measurements and its gate numbers. `README.md` tells a user what r
 architecture and the milestones. A step that changes a rule edits the rule here, in its topic, and writes its entry
 in `HISTORY.md`.
 
-At 0.184 the versions are: the module 0.184 (`ccl_p_version` in `module/cicilang.cicili`, `bin/cicilang --version`),
-the reader 138 (`ccl_reader_version/1`, `library/ccl_syntax.pl`) and the lowering 104 (`ccl_lowering_version/1`,
+At 0.185 the versions are: the module 0.185 (`ccl_p_version` in `module/cicilang.cicili`, `bin/cicilang --version`),
+the reader 139 (`ccl_reader_version/1`, `library/ccl_syntax.pl`) and the lowering 104 (`ccl_lowering_version/1`,
 `library/ccl_ir.pl`).
 
 Build and prove, always in this order (or all of it, `sh test/gates.sh`):
@@ -398,10 +398,10 @@ tutorials/01..03-*.pl       the objects layer's lessons; goal main, last line do
   starts at one call pattern, so `test/flow.pl`'s `fg_roots_main/2` writes a copy of each file with a root,
   `'$fg_all'/N`, that calls each predicate the file defines with free arguments: 3538 predicates in the ten files at
   0.161 (3938 in all at 0.167, 4003 at 0.173, 4038 at 0.175, 4048 at 0.178, 4066 at 0.179, 4074 at 0.180, 4092 at 0.181,
-  4094 at 0.182; each step's in HISTORY.md), and since 0.161 the 220 of the nine gate programs, `test/reader.pl`,
-  `compile.pl`, `cpp.pl`, `readhdr.pl`, `census.pl`, `libcxx.pl`, `flow.pl`, `why.pl` and `prof.pl` (`TFILES`), each
-  charted with the compiler and the flow and process libraries loaded, nothing stubbed (no gate program is a library
-  file); their first chart found a predicate split by another's clauses (`census_main/0`) and a call of
+  4094 at 0.182, 4101 at 0.185; each step's in HISTORY.md), and since 0.161 the 220 of the nine gate programs,
+  `test/reader.pl`, `compile.pl`, `cpp.pl`, `readhdr.pl`, `census.pl`, `libcxx.pl`, `flow.pl`, `why.pl` and `prof.pl`
+  (`TFILES`), each charted with the compiler and the flow and process libraries loaded, nothing stubbed (no gate program
+  is a library file); their first chart found a predicate split by another's clauses (`census_main/0`) and a call of
   `print_message/2`, which cocolog does not have, in the recovery of a `catch/3` in `readhdr.pl` and `libcxx.pl`: a
   read that raised would have raised again there, an existence error where the FAIL line stands. Each copy is charted
   with the rest of the compiler loaded (`flow_graph/3`'s `load(Files)`), and the file itself is stubbed out of the
@@ -550,7 +550,7 @@ tutorials/01..03-*.pl       the objects layer's lessons; goal main, last line do
 ### The C++ gate: test/cpp.sh
 
 - `test/cpp.sh` runs in this order: `test/cpp.pl` in one `--local` process; four checks of the command; every
-  `test/cpp/run/*.cpp` as a pool job (599 at 0.184); `classes.cpp` and `templates.cpp` built and run; the refusals,
+  `test/cpp/run/*.cpp` as a pool job (600 at 0.185); `classes.cpp` and `templates.cpp` built and run; the refusals,
   each at the level its `test/cpp/NAME.flags` names, else C++17 (0.164). (0.105, 0.164)
 - `test/cpp.pl` runs 46 numbered checks, `c1` to `c46`, then reads Cicili's six C++ files whole (`test/cpp/objects.cpp`,
   `emit_report.cpp`, `specialise.cpp`, `syntax.cpp`, `torch.cpp`, `torch-fragment.cpp`). `c34` checks the Itanium
@@ -1658,11 +1658,16 @@ tutorials/01..03-*.pl       the objects layer's lessons; goal main, last line do
   __count, __enable_if_t< __count < _Dt, int> = 0>` of `<random>` read `__count <` as the algorithm's template-id.
   `valueparam.cpp`. (0.117)
 - A template template parameter's name is a template inside its item only (`ccl_note_tt_param`, un-noted per item frame
-  by `ccl_tparams_leave`). `ccl_skip_to_close` counts nested `<>` in its list, skips a parenthesized group whole and
-  ends at a `;` (0.184), its list's names and defaults unread (Not done). Why: `<variant>`'s `template <_Trait X,
-  ...>` read as a constrained parameter; and `template <template <class T, bool = (sizeof(T) < 4)> class TT>` counted
-  the comparison's `<` and was a syntax error, as the scan ahead of a class body did until 0.183. `ttpdefault.cpp`.
-  (0.45, 0.93, 0.184)
+  by `ccl_tparams_leave`). ITS OWN LIST IS READ by the head's rule (0.185; `ccl_tt_inner/4`): its names are types
+  while the list is read and leave the env after it, a template template parameter in it is un-noted, and the head's
+  value names stay as they were ([basic.scope.temparam]: the names are the list's). Where a parameter of the list has a
+  default, the head gets a second entry, `ttp(N, List)`, last with the requires-clause (`ccl_gather_requires/2`; the
+  Template template parameters topic). A list that the head's rule does not take, or whose read raises, is skipped as
+  before: `ccl_skip_to_close` counts nested `<>`, skips a parenthesized group whole and ends at a `;` (0.184). A list
+  with no default gives the head it gave, so libc++'s read is the same. Why: `<variant>`'s `template <_Trait X, ...>`
+  read as a constrained parameter; `template <template <class T, bool = (sizeof(T) < 4)> class TT>` counted the
+  comparison's `<` and was a syntax error, as the scan ahead of a class body did until 0.183. Reader 139.
+  `ttpdefault.cpp`, `ttpown.cpp`. (0.45, 0.93, 0.184, 0.185)
 - Packs and folds: `param(pack(T), N)`; `pack(X)` for an expansion in a template argument, a call argument, a base, an
   initializer item or a constructor initializer; `sizeof_pack(N)`; `fold(Op, dots, E)`, `fold(Op, E, dots)`,
   `fold(Op, A, dots, B)`. C++26's pack index is `pack_index(N, I)` as a type and `pack_index(A, I)` as an
@@ -2098,7 +2103,7 @@ tutorials/01..03-*.pl       the objects layer's lessons; goal main, last line do
 
 ### The versions
 
-- `ccl_reader_version/1` (`library/ccl_syntax.pl`, now 138): bump it for any grammar change to what a read gives, and
+- `ccl_reader_version/1` (`library/ccl_syntax.pl`, now 139): bump it for any grammar change to what a read gives, and
   for any change to what the AST beside a summary holds (item or member terms, `cpp_index_name/2`,
   `cpp_template_name/2`, `ccl_flat_items/3`, the namespace keys). Keep the reason in its comment. Why: the store and the
   summaries are keyed by it, and a stale read is served silently (`sizeof(std::string)` read 40). (M1, 0.89, 0.112,
@@ -3920,6 +3925,15 @@ free. A const method adds `.c`, a ref-qualified one `.r` or `.rr` after it: each
   `__split_buffer_pointer_layout` names itself so, in `__split_buffer<value_type, allocator_type,
   __split_buffer_pointer_layout>` within its own body; the instance's name was taken for a template's, `__split_buffer`
   was made over it, and every `std::vector` over libc++ 22 ran past the memory cap. `injectedttp.cpp`. (0.182)
+- A TEMPLATE TEMPLATE PARAMETER'S OWN DEFAULTS APPLY IN ITS SCOPE ([temp.param]/14; 0.185; `cpp_ttp_fill/4`): `TT<U>`
+  takes the arguments that the parameter's own list gives by default, not the bound template's own. The binding of the
+  head puts the list beside the parameter as `'$ttdef'(N)`, the last binding (`cpp_ttp_bind/4`, from
+  `cpp_bind_targs/3` after the walk, which a pack ends, and from `cpp_bind_defaults/3`); a member template's list takes
+  its class's bindings (`cpp_subst_tparams/3`). The substitution of `TT<U>` binds the list over the arguments given
+  and the template's own bindings, an unnamed parameter named by its place; the bound template's own defaults take
+  what the list leaves, and a list with a pack is left to them. The list was skipped, and `TT<U>` took the bound
+  template's own defaults, a silent difference where the two differ: `Use<Small, char>::v` was 1, where clang++ gives
+  2. `ttpown.cpp`. (0.185)
 
 ## Concepts and constraints
 
@@ -7371,14 +7385,14 @@ A lambda is a class of its captures (`library/ccl_cpp.pl`). A fixture named alon
   0.182, one run at a time, the 0.181 library on each engine (its modules built over each): five warm C++ builds 61.85
   s on 2.2.5 and 66.09 s on 2.11.0, 6.9 % more (the least CPU time of three runs each, every round alike:
   `stdformat.cpp` 38.5 s and 41.3 s), where the cold census of the flattened `<iomanip>` took 79.5 s and 77.1 s (the
-  least of two runs each). A loop of each kind of step, the least of five runs, puts the cost in a plain call (a naive
-  reverse 9 % dearer, as 2.3.0's own measure of its update view has it, 10.3 %), in `atom_concat/3`'s split modes (36
-  and 40 %: clauses now) and in `sub_atom/5` (19 %), the rest within 6 % (`assertz/1` and `retract/1`, `nb_getval/2`,
-  `findall/3`, `term_to_atom/2`, `format/3`, `msort/2`, `copy_term/2`). The arithmetic answers of 2.2.5 stand: of 107
-  expressions, from `7/2` and `2^ -1` to `truncate(1.0e19)` and the overflows past 64 bits, 101 answer alike, and the
-  six others name a function 2.5.0 added (`rdiv`, `copysign`, `random/1`, `cputime`, `float_integer_part/1`,
-  `float_fractional_part/1`). It was at 2.2.5 from 0.159 -- master `6718a45`, over ZiguratIP 1.0.1 (`90d99b8`); Cicili
-  3.0.0 (`9d74a5e`).
+  least of two runs each); the same measure at 0.185, 58.25 s and 60.32 s, 3.6 % more (HISTORY.md, 0.185). A loop
+  of each kind of step, the least of five runs, puts the cost in a plain call (a naive reverse 9 % dearer, as 2.3.0's
+  own measure of its update view has it, 10.3 %), in `atom_concat/3`'s split modes (36 and 40 %: clauses now) and in
+  `sub_atom/5` (19 %), the rest within 6 % (`assertz/1` and `retract/1`, `nb_getval/2`, `findall/3`, `term_to_atom/2`,
+  `format/3`, `msort/2`, `copy_term/2`). The arithmetic answers of 2.2.5 stand: of 107 expressions, from `7/2` and `2^
+  -1` to `truncate(1.0e19)` and the overflows past 64 bits, 101 answer alike, and the six others name a function 2.5.0
+  added (`rdiv`, `copysign`, `random/1`, `cputime`, `float_integer_part/1`, `float_fractional_part/1`). It was at 2.2.5
+  from 0.159 -- master `6718a45`, over ZiguratIP 1.0.1 (`90d99b8`); Cicili 3.0.0 (`9d74a5e`).
   2.2.1 (`fd155de`) changes no engine source but its version line (its change is the linter, `tools/cocolint`, the
   translation library and the lessons); 2.2.2 (`46c2807`) adds swipl's four float flags (`float_overflow`,
   `float_zero_div`, `float_undefined`, `float_underflow`), `set_prolog_flag/2` as a goal, and `inf`, `nan` and `epsilon`
@@ -7953,19 +7967,18 @@ A lambda is a class of its captures (`library/ccl_cpp.pl`). A fixture named alon
 - Ubuntu 24.04 on x86_64 (clang and LLVM 18, glibc, libc++ 18 and 21) is a host since 0.87. Every gate but the C++ one
   is GREEN there since 0.93, and all seven since 0.95. Every step from 0.93 on is gated there, but the save points
   0.112, 0.113, 0.117, 0.122 to 0.125, 0.130, 0.131 and 0.143 (0.143's C gates and cross gate ran, its libc++ gates did
-  not; the others were gated by the steps after them). The last full run is 0.181's, over cocolog 2.2.5, on one tree,
-  over fresh HOMEs (the reader version moved): over libc++ 18 all nine GREEN in 2622 s (the flow gate's one finding in
-  87 s, reader 4 s, compile 12 s, driver 22 s, objects 4 s, proof, the cross gate in 645 s with its C++ part for
-  aarch64, the library read in 1121 s (0.179's 1532 s), the C++ gate in 727 s (0.179's 1057 s) with 589 of 592
-  fixtures ok, the skips are `joinwith`, `stdoptionalref` and `tzone`, the 23 refusals and the three of the safe part);
-  over libc++ 21 the library read (1061 s, peak 1052 MB; 0.179's 997 s) and the C++ gate (845 s, peak 2319 MB; 0.179's
-  886 s; 591 of 592 ok, the skip `stdoptionalref`) GREEN -- the C gates do not read libc++. The fixtures' builds,
-  summed, took 2454 s over 589 over libc++ 18 and 2624 s over 591 over libc++ 21 (HISTORY.md, 0.182). 0.179's chain is
-  the full run before it, 3585 s over libc++ 18, its libc++ 18 half on a slower machine (HISTORY.md, 0.180); 0.180's
-  chain ran the gates its change touches over the HOMEs that 0.179's chain warmed, all GREEN (HISTORY.md, 0.181); the
-  chains of 0.165 to 0.178 are in HISTORY.md, 0.166 to 0.179. The chain of 0.184 is the first over cocolog 2.11.0 (the
-  Findings); 0.183's was not started, for the profile of a cold read taken before it found the item loop's quadratic
-  walk, and 0.184 holds 0.183. Two libc++ passes are one gate: `LLVM=/usr/lib/llvm-18` and `LLVM=/usr/lib/llvm-21`
+  not; the others were gated by the steps after them). The last full run is 0.184's, the first over cocolog 2.11.0
+  (the Findings), on one tree, over fresh HOMEs (the reader version moved); it holds 0.182 and 0.183, whose chains were
+  not started: over libc++ 18 all nine GREEN in 1808 s (the flow gate's one finding in 90 s, reader 4 s, compile 13 s,
+  driver 14 s, objects 4 s, proof, the cross gate in 360 s with its C++ part for aarch64, the library read in 482 s
+  (0.181's 1121 s), the C++ gate in 837 s (0.181's 727 s) with 595 of 599 fixtures ok, the skips are `joinwith`,
+  `stdoptionalref`, `tzone` and `zipadjacent`, the 23 refusals and the three of the safe part); over libc++ 21 the
+  library read (413 s, peak 1284 MB; 0.181's 1061 s) and the C++ gate (842 s, peak 2239 MB; 0.181's 845 s; 597 of 599
+  ok, the skips `stdoptionalref` and `zipadjacent`) GREEN -- the C gates do not read libc++. The headers' reads, summed,
+  took 1801 s over 114 over libc++ 18 and 1549 s over 21, where 0.181's took 4313 s and 4116 s (a read linear in its
+  items, 0.184); the fixtures' builds 2824 s over 595 and 2893 s over 597, where 0.181's took 2454 s over 589 and
+  2624 s over 591 (HISTORY.md, 0.185). The chains of 0.165 to 0.181 are in HISTORY.md, 0.166 to 0.182. Two libc++
+  passes are one gate: `LLVM=/usr/lib/llvm-18` and `LLVM=/usr/lib/llvm-21`
   choose the tree the chain reads and links. libc++ 22 (the newest tree, which a run without `$LLVM` reads) is no
   gate: 0.182 built its vector and its C++23 views by hand (`zipadjacent.cpp`, which its `.needs` skips over 18 and
   21), and `stdoptionalref` passes there. The run before 0.121's (0.118, 0.119) found, over 0.117, two defects and
@@ -8063,6 +8076,9 @@ A lambda is a class of its captures (`library/ccl_cpp.pl`). A fixture named alon
   (two virtual overloads of one name and arity, one overridden), `virtualdefault` (a virtual call that leaves a defaulted
   argument out), `anonparam` (an unnamed by-value parameter destroyed), `rangeadl` (a range-for by the free `begin` and
   `end` of two namespaces), `downcast` (`static_cast` from a second base to the derived class, a pointer and a reference).
+- Forms of 0.185: `ttpown` (a template template parameter's own defaults: in a class template's head, beside a value
+  parameter, an outer parameter and a pack, in a function template's, a member template's and a class template's
+  member template's head; an argument given where the list has a default; a list with no default).
 - Forms of 0.184: `ttpdefault` (a template template parameter's list with a comparison in parentheses, in a class
   template's head and a member template's).
 - Forms of 0.183: `scanahead` (a member template's head with a comparison in parentheses, then a class template's
@@ -8415,11 +8431,6 @@ A lambda is a class of its captures (`library/ccl_cpp.pl`). A fixture named alon
   base too, since 0.173 one whose later virtual base has virtual bases of its own, and every base-variant sub-object at
   any depth is built under construction tables of its own, its secondary pointers among them (0.110, 0.117, 0.160,
   0.163, 0.171, 0.172, 0.173, 0.174, 0.175, 0.176, 0.177, 0.178).
-- A template template parameter's own parameter list is skipped, its default arguments with it: `TT<U>` takes the
-  bound template's own defaults, where [temp.param]/14 has the parameter's apply in its scope, as clang++ does, so a
-  default that differs from the template's gives another answer, silently (`template <template <class T, bool =
-  (sizeof(T) > 2)> class TT>` over `template <class T, bool B = (sizeof(T) < 4)> struct Small`). libc++ 18, 21 and 22
-  write no default in such a list (a scan of their 57, 80 and 99 template template parameters, 0.184).
 
 ### libc++ modules
 

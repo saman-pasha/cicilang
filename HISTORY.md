@@ -175,9 +175,10 @@ One row per step, in version order: the step's title, what it did and its gate n
 | 0.179 | Not done, the seventeenth part: a number's suffixes and types, pointer globals, the C++23 read of <complex> | an integer's tail that is no integer suffix its ud-suffix in C++ (`3us`); `<complex>`'s `i`, `if` and `il` where a using makes them visible, else GNU's; `3ll` a long long; the type information of a complex type, of a pointer to a class and of a library class without a table; a pointer caught; our `stddef.h` clears glibc's `__need_*`, so `<complex>` reads whole at C++23; pointer globals from integer constants, arrays bounded by constant expressions | its chain (0.180), over fresh HOMEs: all nine gates GREEN over libc++ 18, the two libc++ gates over 21 (run again after a restart of the container), the C++ gate 1057 s and 886 s; 582 of 585 over 18, 584 over 21 |
 | 0.180 | Not done, the eighteenth part: the type information of every other type | `typeid` of an enum, an array, a function, a pointer to member, a vector and a pointer to any type, as clang emits them; a builtin libc++abi does not export emitted; `std::nullptr_t`'s libc++abi's, `throw nullptr`; the program's types named as clang names them; the library read warms `<ostream>` | its chain (0.181), over the HOMEs 0.179's chain warmed (no library read: the reader did not move): the flow gate, the C gates, the proof, the cross gate and the C++ gate GREEN over libc++ 18, the C++ gate over 21, the C++ gate 700 s and 690 s; 584 of 587 over 18, 586 over 21 |
 | 0.181 | Not done, the nineteenth part: a member function pointer's qualifiers; libc++abi over libc++ 21 | a pointer to member function keeps its cv- and ref-qualifiers (the type key, the mangler, the type information, a specialization, an overload, an overloaded member's address, a call through one checked); ` -lc++abi` linked where `libc++.so` is the library itself; an alias template of a deeper namespace keyed apart (`std::pmr::basic_string` resolved itself without end); a definition beside a declared overload named by its keys; an overload set named by a global or by its address chosen by the target | its chain (0.182), over fresh HOMEs (the reader moved): all nine gates GREEN over libc++ 18, the library read and the C++ gate over 21; the C++ gate 727 s and 845 s; 589 of 592 over 18, 591 over 21 |
-| 0.182 | Not done, the twentieth part: libc++ 22's vector and its C++23 views; cocolog 2.11.0 | a class instance given to a template template parameter is the injected class name; a template-id qualified by a namespace never finds a member template of the class being walked; a class declares its members' names and a function its parameters' where a collided name is renamed; a constraint sees no caller's local; cocolog 2.11.0 from 2.2.5 (five warm builds 6.9 % dearer; the logical update view, the number readers, the cell tag) | committed before its chain: on 2.11.0 the flow gate, the C gates and the proof GREEN, nets of 56 C++ fixtures over libc++ 18 (on 2.2.5 and on 2.11.0) and over 21 (on 2.11.0), each the same as its .expect but `stdthread` over 21 (a read after another in one process, older than this step, 0.183's); 87 run C fixtures, 597 C++ |
-| 0.183 | A header read after another in one process: the scan ahead of a class body stays in its member | the scan that notes a class's member templates before its members are read skips a parenthesized group and ends at a member's `;` or `}`: a comparison in a head of libc++ 21's `<variant>` noted `shared_ptr` as a function template, and the reads of `<mutex>` and `<thread>` after it in one process stopped (a cold `stdthread` over libc++ 21) | committed before its chain: on 2.11.0 the flow gate, the C gates and the proof GREEN, nets of 69 C++ fixtures and `stdrandom` over fresh HOMEs, 70 of 70 the same over libc++ 18 and over 21, `stdthread` cold among them; 87 run C fixtures, 598 C++ |
-| 0.184 | A cold read linear in its items; a template template parameter's list skips a parenthesized group | the item loop counts the tokens an item took, never the length of the rest of the file, 58 % of a cold read of `<thread>`'s text (a header's text read 2.8 to 3.4 times faster, its tree the same); two hot calls of `sub_atom/5` take their positions bound (cocolog 2.5.0 made it clauses over `between/3`); a template template parameter's list skips a parenthesized group and ends at a `;` | committed before its chain, which holds 0.183's: on 2.11.0 the flow gate, the C gates and the proof GREEN, nets of 71 C++ fixtures over fresh HOMEs, 71 of 71 the same over libc++ 18 (the builds summed 1772 s, 3666 s at 0.183) and over 21 (1469 s, 2971 s at 0.183); 87 run C fixtures, 599 C++ |
+| 0.182 | Not done, the twentieth part: libc++ 22's vector and its C++23 views; cocolog 2.11.0 | a class instance given to a template template parameter is the injected class name; a template-id qualified by a namespace never finds a member template of the class being walked; a class declares its members' names and a function its parameters' where a collided name is renamed; a constraint sees no caller's local; cocolog 2.11.0 from 2.2.5 (five warm builds 6.9 % dearer; the logical update view, the number readers, the cell tag) | committed before its chain: on 2.11.0 the flow gate, the C gates and the proof GREEN, nets of 56 C++ fixtures over libc++ 18 (on 2.2.5 and on 2.11.0) and over 21 (on 2.11.0), each the same as its .expect but `stdthread` over 21 (a read after another in one process, older than this step, 0.183's); 87 run C fixtures, 597 C++; held by 0.184's chain (0.185): GREEN |
+| 0.183 | A header read after another in one process: the scan ahead of a class body stays in its member | the scan that notes a class's member templates before its members are read skips a parenthesized group and ends at a member's `;` or `}`: a comparison in a head of libc++ 21's `<variant>` noted `shared_ptr` as a function template, and the reads of `<mutex>` and `<thread>` after it in one process stopped (a cold `stdthread` over libc++ 21) | committed before its chain: on 2.11.0 the flow gate, the C gates and the proof GREEN, nets of 69 C++ fixtures and `stdrandom` over fresh HOMEs, 70 of 70 the same over libc++ 18 and over 21, `stdthread` cold among them; 87 run C fixtures, 598 C++; held by 0.184's chain (0.185): GREEN |
+| 0.184 | A cold read linear in its items; a template template parameter's list skips a parenthesized group | the item loop counts the tokens an item took, never the length of the rest of the file, 58 % of a cold read of `<thread>`'s text (a header's text read 2.8 to 3.4 times faster, its tree the same); two hot calls of `sub_atom/5` take their positions bound (cocolog 2.5.0 made it clauses over `between/3`); a template template parameter's list skips a parenthesized group and ends at a `;` | its chain (0.185), the first over cocolog 2.11.0, over fresh HOMEs (the reader moved), holding 0.182 and 0.183: all nine gates GREEN over libc++ 18 in 1808 s, the library read and the C++ gate over 21; the library read 482 s and 413 s (0.181's 1121 s and 1061 s), the C++ gate 837 s and 842 s; 595 of 599 over 18, 597 over 21 |
+| 0.185 | Not done, the twenty-first part: a template template parameter's own defaults | a template template parameter's own list read; in its scope `TT<U>` takes the defaults the list gives, not the bound template's (`Use<Small, char>::v` was 1, clang++ gives 2); the numbers of 0.184's chain; the engine's cost measured again, 3.6 % | committed before its chain: on 2.11.0 the flow gate GREEN (4101 predicates), the trees of four libc++ headers the same, byte for byte, nets of 75 C++ fixtures over fresh HOMEs, 75 of 75 the same over libc++ 18 and over 21; 87 run C fixtures, 600 C++ |
 
 ## M5 — the C++ mode
 
@@ -11583,3 +11584,75 @@ chain"): the chain runs over this commit, the first over cocolog 2.11.0, and the
 
 Reader 138 (a template template parameter's list skips a parenthesized group and ends at a `;`: what a read gives
 changes), lowering 104 (no change).
+
+## 0.185 — Not done, the twenty-first part: a template template parameter's own defaults
+
+**0.185: a template template parameter's own list is read, and in the template's scope `TT<U>` takes the defaults that
+list gives ([temp.param]/14), where it took the bound template's own -- the last item of the C++ language in
+`CLAUDE.md`'s Not done list that a program can meet; and the numbers of 0.184's chain, the first over cocolog 2.11.0:
+GREEN. Committed before its chain, on the owner's word ("Commit before chain"): the chain runs over this commit, and the
+next one carries its numbers.**
+
+THE CHAIN OF 0.184, on the checkout of its commit (module 0.184, reader 138, lowering 104, over cocolog 2.11.0), over
+fresh HOMEs (the reader version moved), from 16:54:23 UTC: the flow gate (one finding, `test/flow.expect`'s, 90 s, peak
+2987 MB over its four lanes; 4094 predicates), reader 4 s, compile 13 s, driver 14 s, objects 4 s, the proof, the cross
+gate in 360 s (peak 649 MB; 87 C fixtures and 5 checks, 24 C++ fixtures and 2 checks), over libc++ 18 the library read
+in 482 s (peak 1494 MB; the 23 asserted reads whole, 91 other headers warmed, none failed) and the C++ gate in 837 s
+(peak 2335 MB) with 595 of its 599 fixtures ok -- the skips `joinwith`, `stdoptionalref`, `tzone` and `zipadjacent` --
+the 23 refusals and the three of the safe part, the libc++ 18 half in 1808 s, and over libc++ 21 the library read in 413
+s (peak 1284 MB; 91 warmed) and the C++ gate in 842 s (peak 2239 MB), 597 of 599 ok, the skips `stdoptionalref` and
+`zipadjacent`, to 17:45:33 UTC: GREEN. It holds the steps of 0.182 and 0.183, whose chains were not started. The
+headers' reads summed 1801 s over 114 over libc++ 18 and 1549 s over 21, where 0.181's chain took 4313 s and 4116 s: a
+cold read of a header 2.4 and 2.7 times faster (0.184's item loop). The fixtures' builds summed 2824 s over 595 over
+libc++ 18 and 2893 s over 597 over 21; the 589 and the 591 that 0.181's chain built took 2818 s and 2887 s, where they
+took 2454 s and 2624 s there -- 15 % and 10 % more, 17 % over 21 without `tzone`, whose build reads the experimental
+time zone headers cold (232 s to 94 s) -- the format fixtures the most (over 18 `fmtrange` 97 s to 123 s, `fmtchrono2`
+94 s to 116 s, `fmtchrono` 83 s to 103 s, `fmtcheck` 64 s to 81 s, `fmttuple` 60 s to 79 s); the A/B below names the
+cause. The slowest over libc++ 18 `fmtrange` 123 s, `fmtchrono2` 116 s, `fmtchrono` 103 s, `fmtcheck` 81 s, `fmttuple`
+79 s and `viewsall` 77 s, over libc++ 21 `fmtchrono2` 105 s, `tzone` 94 s, `fmtchrono` 91 s, `viewsall` 81 s, `fmtrange`
+77 s and `joinwith` 70 s.
+
+- THE A/B. The 589 and the 591 fixtures that both chains built took 15 % and 10 % more in this one. One run at a time,
+  warm, over libc++ 18, each library over its own chain's HOME, the CPU time of a build to IR (user and system, the
+  least of three runs, of two on 2.2.5): 0.181's library on cocolog 2.2.5 (`wt181`, its modules built over the kept
+  build) `stdformat` 37.1 s and `fmtrange` 118.3 s, on 2.11.0 36.5 s and 114.7 s; 0.184's library on 2.11.0 36.0 s and
+  114.9 s. The steps of 0.182 to 0.184 cost nothing here. 0.182's measure of the engine, taken again -- five warm
+  builds, the 0.181 library, round by round, the least of three -- gives 58.25 s on 2.2.5 and 60.32 s on 2.11.0, 3.6 %
+  more, where 0.182 had 6.9 % (`counter` 0.21 and 0.19 s, `stdvector` 2.94 and 3.44, `stdmap` 5.11 and 5.31, `stdtuple`
+  13.48 and 14.12, `stdformat` 36.51 and 37.26). The rest is the box: `fmtrange` built in 97 s beside three other lanes
+  in 0.181's chain, and alone it takes 115 s to 125 s now. A chain's build times are compared over one box at one time
+  only.
+- A TEMPLATE TEMPLATE PARAMETER'S OWN LIST, READ ([temp.param]/14; `CLAUDE.md`'s Not done until this step). The reader
+  skipped the list of `template <template <class T, bool = (sizeof(T) > 2)> class TT>` to its `>`, its names and its
+  defaults unread, and in the template's scope `TT<U>` took the bound template's own defaults, where the parameter's
+  apply: over `template <class T, bool B = (sizeof(T) < 4)> struct Small`, `Use<Small, char>::v` was 1 where clang++
+  gives 2, a silent difference. The head's rule reads the list now (`ccl_tt_inner/4`): its names are types while it is
+  read and leave the env after it, a template template parameter in it is un-noted, and the head's value names are put
+  back; a list that the rule does not take, or whose read raises, is skipped as before. Where a parameter of the list
+  has a default, the head gets a second entry, `ttp(N, List)`, last with the requires-clause (`ccl_gather_requires/2`);
+  a list with no default gives the head it gave. The binding of the head puts the list beside the parameter as
+  `'$ttdef'(N)`, the last binding, so that no reader of the first binding meets it (`cpp_ttp_bind/4`, from
+  `cpp_bind_targs/3` after the walk, which a pack ends, and from `cpp_bind_defaults/3`); a member template's list takes
+  its class's bindings (`cpp_subst_tparams/3`); and the substitution of `TT<U>` binds the list over the arguments given
+  and the template's own bindings (`cpp_ttp_fill/4`), an unnamed parameter named by its place, the bound template's own
+  defaults taking what the list leaves and a list with a pack left to them. The walkers of a head that skip its
+  requires-clause skip the new entry too (fourteen predicates).
+- THE MEASURE. `ttpown.cpp` -- the list in a class template's head, beside a value parameter, an outer parameter and a
+  pack, in a function template's, a member template's and a class template's member template's head, an argument given
+  where the list has a default, and lists with no default -- prints clang++ 18's and 21's `2 1 1 2`, `7 3 12 5 9` and
+  `14 12 4 16`; 0.184 printed `1 2 1 2`, `3 3 8 3 3` and `6 3 4 16`. The trees of four flattened headers read with 0.185
+  are 0.184's, byte for byte (`<thread>` over libc++ 21 and `<iomanip>` and `<vector>` over 18 at C++17, `<iostream>`
+  over 18 at C++20: 838, 794, 807 and 884 items): libc++'s template template parameters write no default in their lists
+  (0.184's scan), and its reads are the same. On 2.11.0, over the work tree: the flow gate GREEN, 4101 predicates (the
+  seven new ones), its one finding, 86 s and 2823 MB. Nets of 75 fixtures (0.184's 71, `ttpown`, `basetmpl`, `packzip`
+  and `ttleak`), three at a time, each net over a fresh HOME: over libc++ 18 from 17:49:40 to 17:58:58 UTC, 75 of 75 the
+  same as their `.expect`, the builds summed 1566 s (0.184's net built its 71 in 1772 s, this one the same 71 in 1565
+  s), the largest peak 1098 MB; over libc++ 21 from 17:59:10 to 18:07:15 UTC, 75 of 75 the same, the builds summed 1341
+  s (1469 s and 1339 s), the largest peak 1034 MB. A net claims nothing.
+- `CLAUDE.md`: the template template parameter's rule (the C++ reader's topic) and a new bullet of the Template template
+  parameters topic, the versions and the `now` line, the C++ gate's count, the flow gate's count, the Hosts bullet (the
+  chain of 0.184), Not done (the bullet of a template template parameter's list is gone), What runs (Forms of 0.185).
+  `ttpdefault.cpp`'s comment says the list is read.
+
+Reader 139 (a template template parameter's own list is read, and a head whose list has a default gets the entry `ttp(N,
+List)`: what a read gives changes), lowering 104 (no change).
