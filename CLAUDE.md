@@ -10,7 +10,7 @@ it found, its measurements and its gate numbers. `README.md` tells a user what r
 architecture and the milestones. A step that changes a rule edits the rule here, in its topic, and writes its entry
 in `HISTORY.md`.
 
-At 0.188 the versions are: the module 0.188 (`ccl_p_version` in `module/cicilang.cicili`, `bin/cicilang --version`),
+At 0.189 the versions are: the module 0.189 (`ccl_p_version` in `module/cicilang.cicili`, `bin/cicilang --version`),
 the reader 142 (`ccl_reader_version/1`, `library/ccl_syntax.pl`) and the lowering 104 (`ccl_lowering_version/1`,
 `library/ccl_ir.pl`).
 
@@ -8068,17 +8068,17 @@ A lambda is a class of its captures (`library/ccl_cpp.pl`). A fixture named alon
 - Ubuntu 24.04 on x86_64 (clang and LLVM 18, glibc, libc++ 18 and 21) is a host since 0.87. Every gate but the C++ one
   is GREEN there since 0.93, and all seven since 0.95. Every step from 0.93 on is gated there, but the save points
   0.112, 0.113, 0.117, 0.122 to 0.125, 0.130, 0.131 and 0.143 (0.143's C gates and cross gate ran, its libc++ gates did
-  not; the others were gated by the steps after them). The last full run is 0.187's, over cocolog 2.11.0 (the
-  Findings), on one tree, over fresh HOMEs (the reader version moved): over libc++ 18 all nine GREEN in 1595 s (the
-  flow gate's one finding in 88 s, reader 4 s, compile 13 s, driver 13 s, objects 4 s, proof, the cross gate in 298 s
-  with its C++ part for aarch64, the library read in 365 s (0.186's 482 s), the C++ gate in 803 s (0.186's 838 s) with
+  not; the others were gated by the steps after them). The last full run is 0.188's, over cocolog 2.11.0 (the
+  Findings), on one tree, over fresh HOMEs (the reader version moved): over libc++ 18 all nine GREEN in 1427 s (the
+  flow gate's one finding in 81 s, reader 4 s, compile 11 s, driver 12 s, objects 4 s, proof, the cross gate in 250 s
+  with its C++ part for aarch64, the library read in 273 s (0.187's 365 s), the C++ gate in 784 s (0.187's 803 s) with
   600 of 604 fixtures ok, the skips are `joinwith`, `stdoptionalref`, `tzone` and `zipadjacent`, the 23 refusals and the
-  three of the safe part); over libc++ 21 the library read (322 s, peak 1461 MB; 0.186's 395 s) and the C++ gate (801
-  s, peak 2116 MB; 0.186's 855 s; 602 of 604 ok, the skips `stdoptionalref` and `zipadjacent`) GREEN -- the C gates do
-  not read libc++. The headers' reads, summed, took 1349 s over 114 over libc++ 18 and 1191 s over 21 (0.186's 1802 s
-  and 1487 s; 0.181's 4313 s and 4116 s, before a read linear in its items); the fixtures' builds 2711 s over 600 and
-  2739 s over 602 (0.186's 2832 s and 2930 s) (HISTORY.md, 0.188). The chains of 0.165 to 0.186 are
-  in HISTORY.md, 0.166 to 0.187. Two libc++ passes are one gate: `LLVM=/usr/lib/llvm-18` and `LLVM=/usr/lib/llvm-21`
+  three of the safe part); over libc++ 21 the library read (241 s, peak 734 MB; 0.187's 322 s) and the C++ gate (803
+  s, peak 1941 MB; 0.187's 801 s; 602 of 604 ok, the skips `stdoptionalref` and `zipadjacent`) GREEN -- the C gates do
+  not read libc++. The headers' reads, summed, took 999 s over 114 over libc++ 18 and 877 s over 21 (0.187's 1349 s
+  and 1191 s; 0.181's 4313 s and 4116 s, before a read linear in its items); the fixtures' builds 2638 s over 600 and
+  2701 s over 602 (0.187's 2711 s and 2739 s) (HISTORY.md, 0.189). The chains of 0.165 to 0.187 are
+  in HISTORY.md, 0.166 to 0.188. Two libc++ passes are one gate: `LLVM=/usr/lib/llvm-18` and `LLVM=/usr/lib/llvm-21`
   choose the tree the chain reads and links. libc++ 22 (the newest tree, which a run without `$LLVM` reads) is no
   gate: 0.182 built its vector and its C++23 views by hand (`zipadjacent.cpp`, which its `.needs` skips over 18 and
   21), and `stdoptionalref` passes there. The run before 0.121's (0.118, 0.119) found, over 0.117, two defects and
@@ -8635,10 +8635,10 @@ A lambda is a class of its captures (`library/ccl_cpp.pl`). A fixture named alon
   MB to 1675 MB (0.120). What is left is mostly the reader's own cold flattening of a header, 2.4 to 2.7 times faster
   since 0.184 (its item loop: the 114 headers' reads summed 4313 s over libc++ 18 in 0.181's chain), 1.5 times faster
   again since 0.187 (the sets as the whole record and the grammar's looks: 1349 s in 0.187's chain, 1802 s in 0.186's)
-  and faster again since 0.188 (seven headers' texts read in 71.9 s where 0.186's library read them in 133.7 s and
-  0.187's in 90.0 s, the trees the same); and since 0.188 a build's cold headers are read by processes of their own, at
-  once (the driver's topic). In 0.187's chain the slowest builds were `fmtrange` (115 s over libc++ 18) and
-  `fmtchrono2` (102 s over 21), `viewsall` 73 s and 76 s, and the 600 and 602 builds summed 2711 s and 2739 s over
-  four lanes (0.120, 0.184, 0.187, 0.188).
+  and faster again since 0.188 (999 s in 0.188's chain; seven headers' texts read in 71.9 s where 0.186's library read
+  them in 133.7 s and 0.187's in 90.0 s, the trees the same); and since 0.188 a build's cold headers are read by
+  processes of their own, at once (the driver's topic). In 0.188's chain the slowest builds were `fmtrange` (109 s over
+  libc++ 18) and `fmtchrono2` (97 s over 21), `viewsall` 72 s and 76 s, and the 600 and 602 builds summed 2638 s and
+  2701 s over four lanes (0.120, 0.184, 0.187, 0.188, 0.189).
 - The flow gate charts the ten hand-written files of `library/` and the nine gate programs of `test/` (0.161): the two
   generated tables (`ccl_bidrt.pl`, `ccl_uninames.pl`) are loaded, not charted. `test/why.sh` is no gate.
