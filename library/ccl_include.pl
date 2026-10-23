@@ -399,12 +399,19 @@ ccl_lib_unit(G) :-
 %% summary and the AST written by a cold build over several headers were not the library read's (0.185's nets against
 %% 0.184's chain: 4 of 47 summaries over libc++ 18, 5 of 47 over 21). The includer of a header flattened in the process
 %% now has what an includer served from its summary has.
+%% THE NAMES OF ITS FREE FUNCTIONS DECLARED NOEXCEPT ARE THE HEADER'S OWN TOO (0.193): the read notes each in the set
+%% `'$ccl_nxs'' (ccl_note_nx), which the program's own declarations fill; set aside like the templates, the set holds the
+%% header's names after its read, which go to the LIBRARY's set `'$ccl_lnxs'' (ccl_lib_nothrow/1) and into the summary
+%% (`nothrow(N)' lines, ccl_sum_write/4) through `'$ccl_hdr_nxs'', and the program's set is put back as it was: a
+%% program's own `swap' is not noexcept because a header declares one so, and a header flattened in the process gives
+%% what one served from its summary gives
 ccl_seed_read(G, U) :-
-    ccl_ensure_globals, ccl_set_list('$ccl_tmpls', Ts0), ccl_set_list('$ccl_ftmpls', Fs0),
-    ccl_seed_template_names(Seed), ccl_templates_put(Seed), ccl_fn_templates_put([]),
-    (   catch(G, E, ( ccl_templates_put(Ts0), ccl_fn_templates_put(Fs0), throw(E) ))
-    ->  ccl_templates_put(Ts0), ccl_fn_templates_put(Fs0), ccl_unit_templates_note(U)
-    ;   ccl_templates_put(Ts0), ccl_fn_templates_put(Fs0), fail ).
+    ccl_ensure_globals, ccl_set_list('$ccl_tmpls', Ts0), ccl_set_list('$ccl_ftmpls', Fs0), ccl_set_list('$ccl_nxs', Nx0),
+    ccl_seed_template_names(Seed), ccl_templates_put(Seed), ccl_fn_templates_put([]), ccl_set_clear('$ccl_nxs'), nb_setval('$ccl_hdr_nxs', []),
+    (   catch(G, E, ( ccl_templates_put(Ts0), ccl_fn_templates_put(Fs0), ccl_set_rebuild('$ccl_nxs', Nx0), throw(E) ))
+    ->  ccl_templates_put(Ts0), ccl_fn_templates_put(Fs0), ccl_unit_templates_note(U),
+        ccl_set_list('$ccl_nxs', NxH), ccl_set_rebuild('$ccl_nxs', Nx0), ccl_set_adds('$ccl_lnxs', NxH), nb_setval('$ccl_hdr_nxs', NxH)
+    ;   ccl_templates_put(Ts0), ccl_fn_templates_put(Fs0), ccl_set_rebuild('$ccl_nxs', Nx0), fail ).
 ccl_unit_templates_note(unit(Is)) :- !, ccl_items_templates(Is, Ns), ccl_note_templates(Ns).
 ccl_unit_templates_note(_).
 
@@ -434,7 +441,7 @@ ccl_cmdline_key(K) :- ( nb_current('$pp_cmdline', L), L \== [] -> msort(L, L1), 
 ccl_target_key(K) :- ( nb_current('$ccl_target', target(A, O, T)), \+ ( catch(ccl_host_arch(A), _, fail), catch(ccl_host_os(O), _, fail) ) -> atom_concat('@', T, K) ; K = '' ).
 %% ... AND PER CONFIGURATION OF libc++ (0.191): a header read under -fno-rtti is read under other macros (`__cpp_rtti'
 %% undefined), and its deps are the same files; the default configuration adds nothing, so its summaries keep their names
-ccl_config_key(K) :- ( nb_current('$ccl_rtti', no) -> K = '@no-rtti' ; K = '' ).
+ccl_config_key(K) :- ( nb_current('$ccl_rtti', no) -> K1 = '@no-rtti' ; K1 = '' ), ( nb_current('$ccl_exceptions', no) -> K2 = '@no-exceptions' ; K2 = '' ), atom_concat(K1, K2, K).   % ... and -fno-exceptions (0.193)
 ccl_fold([], S, _, S).
 ccl_fold([C|Cs], S0, M, S) :- S1 is (S0 * M + C) mod 2147483647, ccl_fold(Cs, S1, M, S).
 ccl_sum_valid(F) :-
@@ -452,7 +459,8 @@ ccl_sum_write(F, Path, Files, unit(Is)) :-
     ccl_items_templates(Is, Tmpls),
     ccl_std(S), ccl_sum_deps(Deps, T1), ccl_sum_decls(Ds, T2), ccl_sum_typedefs(Ts, T3), ccl_sum_tags(Gs, T4),   % a term per dep, per declaration ...: a line stays short
     ccl_sum_enums(Es, T5), ccl_sum_names(Names, T6), ccl_sum_tmpls(Tmpls, T7),
-    ccl_concat_codes([[sum(Path, key(V, cpp(S)))], T1, T2, T3, T4, T5, T6, T7], Terms),
+    ( nb_current('$ccl_hdr_nxs', Nxs) -> true ; Nxs = [] ), ccl_sum_nothrow(Nxs, T8),   % the header's free functions declared noexcept (0.193, ccl_seed_read/2)
+    ccl_concat_codes([[sum(Path, key(V, cpp(S)))], T1, T2, T3, T4, T5, T6, T7, T8], Terms),
     ccl_pp_macros(Ms), ccl_sum_mnames(Ms, Out8), append(Out8, Ms, MTerms),   % the macros the run defined, for the user's file, beside it
     ccl_mac_file(F, M), ccl_tmp_name(M, MT), write_file_from_codes(MT, []), ccl_sum_chunks(MTerms, 100, MT), rename_file(MT, M),
     nb_setval('$ccl_sum_bigs', big(F, 0, [])),
@@ -561,6 +569,8 @@ ccl_sum_names([N|Ns], [tname(N)|Out]) :- ccl_sum_names(Ns, Out).
 ccl_sum_tmpls([], []).
 ccl_sum_tmpls([fn(N)|Ns], [ftemplate(N)|Out]) :- !, ccl_sum_tmpls(Ns, Out).
 ccl_sum_tmpls([N|Ns], [template(N)|Out]) :- ccl_sum_tmpls(Ns, Out).
+ccl_sum_nothrow([], []).
+ccl_sum_nothrow([N|Ns], [nothrow(N)|Out]) :- ccl_sum_nothrow(Ns, Out).
 %% the terms' text, a hundred terms at a time inside \+ \+, each chunk's atoms appended to the file F (ccl_append_parts/2),
 %% as the AST beside it is written (ccl_ast_chunks)
 ccl_sum_chunks([], _, _) :- !.
@@ -647,7 +657,8 @@ ccl_sum_load_nocache(F, D, T, G, E, Tmpls, Names) :-
     ccl_sum_terms(F, Terms),
     findall(N-Ty, member(decl(N, Ty), Terms), D), findall(N-Ty, member(typedef(N, Ty), Terms), T),
     findall(Tag-Ms, member(tag(Tag, Ms), Terms), G), findall(N-V, member(enum(N, V), Terms), E),
-    findall(N, member(template(N), Terms), Tmpls0), findall(fn(N), member(ftemplate(N), Terms), Tmpls1), append(Tmpls0, Tmpls1, Tmpls),
+    findall(N, member(template(N), Terms), Tmpls0), findall(fn(N), member(ftemplate(N), Terms), Tmpls1), findall(nx(N), member(nothrow(N), Terms), Tmpls2),
+    append(Tmpls1, Tmpls2, Tmpls12), append(Tmpls0, Tmpls12, Tmpls),   % the names noted with the templates: nx(N) a free function declared noexcept (0.193)
     findall(N, member(tname(N), Terms), Names).
 %% a summary in the symbol table, as ccl_items_note puts a unit there
 ccl_sum_note(F) :-
@@ -660,11 +671,12 @@ ccl_sum_note(F) :-
 %% a summary's names into the sets of templates and of the Env, the new ones logged (ccl_env_log/1; until 0.187 a list
 %% beside each set took them in ONE read and one write: one at a time, every addition had copied the whole list,
 %% 190 names against 500 -- 15 ms of every rebuild of the symbol table)
-ccl_note_templates(Ns0) :- ccl_split_fn_templates(Ns0, Ns, Fns),
-    ccl_set_adds('$ccl_tmpls', Ns), ccl_set_adds('$ccl_ftmpls', Fns).
-ccl_split_fn_templates([], [], []).
-ccl_split_fn_templates([fn(N)|Ns], [N|Ps], [N|Fs]) :- !, ccl_split_fn_templates(Ns, Ps, Fs).
-ccl_split_fn_templates([N|Ns], [N|Ps], Fs) :- ccl_split_fn_templates(Ns, Ps, Fs).
+ccl_note_templates(Ns0) :- ccl_split_fn_templates(Ns0, Ns, Fns, Nxs),
+    ccl_set_adds('$ccl_tmpls', Ns), ccl_set_adds('$ccl_ftmpls', Fns), ccl_set_adds('$ccl_lnxs', Nxs).
+ccl_split_fn_templates([], [], [], []).
+ccl_split_fn_templates([fn(N)|Ns], [N|Ps], [N|Fs], Xs) :- !, ccl_split_fn_templates(Ns, Ps, Fs, Xs).
+ccl_split_fn_templates([nx(N)|Ns], Ps, Fs, [N|Xs]) :- !, ccl_split_fn_templates(Ns, Ps, Fs, Xs).   % a free function the header declares noexcept (0.193)
+ccl_split_fn_templates([N|Ns], [N|Ps], Fs, Xs) :- ccl_split_fn_templates(Ns, Ps, Fs, Xs).
 ccl_add_envs(Ns) :- ccl_set_new(Ns, '$ccl_envs', New), ccl_env_log(New).
 %% the names not in the set yet, added to it as they are found (a duplicate among them counted once)
 ccl_set_new([], _, []).

@@ -47,7 +47,7 @@ kb_prepare() {                        # one awk for both versions, read for the 
   if [ "$runs" -ge 64 ]; then [ -f "$1/data.bin" ] && "$C" --embed "$1" vacuum > /dev/null 2>&1 < /dev/null; runs=0; fi
   echo "$runs" > "$1.runs"
 }
-inputs=""; opts=""; out=""; opt=""; verbose=""; defs=""; gdbg=""; tgt=""; rtti=""
+inputs=""; opts=""; out=""; opt=""; verbose=""; defs=""; gdbg=""; tgt=""; rtti=""; eh=""
 [ "${CICILANG_LANG:-c}" = cpp ] && opts="$opts lang(cpp),"
 need() { [ $# -ge 2 ] || { echo "$me: error: argument to '$1' is missing" >&2; exit 1; }; }
 q() { case $1 in *\'*) printf "'%s'" "$(printf '%s' "$1" | sed "s/'/\\\\'/g")" ;; *) printf "'%s'" "$1" ;; esac; }
@@ -96,6 +96,8 @@ while [ $# -gt 0 ]; do
     -fno-debug-macro) dmac="" ;;
     -frtti) rtti="" ;;   # libc++ with RTTI, as clang++ has it (0.191); the last -frtti or -fno-rtti wins
     -fno-rtti) rtti="no_rtti," ;;   # libc++'s no-RTTI configuration, and the program's typeid refused, as clang++ -fno-rtti (0.191)
+    -fexceptions|-fcxx-exceptions) eh="" ;;   # libc++ with exceptions, as clang++ has them (0.193); the last of these four wins
+    -fno-exceptions|-fno-cxx-exceptions) eh="no_exceptions," ;;   # libc++'s no-exceptions configuration, as clang++ -fno-exceptions (0.193)
     -fexperimental-library) opts="$opts define('_LIBCPP_ENABLE_EXPERIMENTAL'), link('-lc++experimental'), link('-lc++abi'),"; defs=1 ;;   # libc++'s experimental part, as clang++ (0.138)
     -W*|-f*|-std=*|-pedantic|-g*) ;;   # accepted for clang's sake
     -*) echo "$me: error: unknown argument: '$1'" >&2; exit 1 ;;
@@ -106,6 +108,7 @@ done
 [ -n "$inputs" ] || { echo "$me: error: no input files" >&2; exit 1; }
 [ -n "$gdbg" ] && opts="$opts $gdbg"
 [ -n "$rtti" ] && opts="$opts $rtti"
+[ -n "$eh" ] && opts="$opts $eh"
 [ "$gdbg" = "debug," ] && [ -n "$dmac" ] && opts="$opts $dmac"
 [ -n "$out" ] && opts="$opts out($(q "$out")),"
 [ -n "$opt" ] && opts="$opts opt('$opt'),"

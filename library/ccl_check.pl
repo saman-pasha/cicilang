@@ -149,7 +149,7 @@ ck_items([_|Is]) :- ck_items(Is).
 %% ---- state: frames of Key-State, innermost first; with each frame its defers ----------
 ck_function(L, Ret, Name, Params0, Body) :-
     ck_ref_params(Params0, Params),                                      % C++: a reference parameter is a borrow, as a pointer is
-    nb_setval('$ck_fn', Name), nb_setval('$ck_ret', Ret), nb_setval('$ck_line', L), nb_setval('$ck_loops', []), nb_setval('$ck_ties', []), nb_setval('$ck_statics', []), nb_setval('$ck_arrays', []),
+    nb_setval('$ck_fn', Name), nb_setval('$ck_ret', Ret), nb_setval('$ck_line', L), nb_setval('$ck_loops', []), nb_setval('$ck_trys', []), nb_setval('$ck_ties', []), nb_setval('$ck_statics', []), nb_setval('$ck_arrays', []),
     nb_setval('$ck_arrlocals', []), ck_note_arrparams(Params),
     ccl_scope_push, ccl_declare_params(Params),
     ck_param_names(Params, Names), nb_setval('$ck_params', Names),
@@ -791,7 +791,14 @@ ck_stmt(defer(L, _, Body), St0, St) :- !, ck_line(L), ck_defer(St0, Body, St).
 ck_stmt(ifce(_, _, RT), St0, St) :- !, ck_stmt(RT, St0, St).                                % `if consteval': the run-time branch (0.108)
 %% a try (0.108): the body, then each handler from the state the try began in (what the body did before it threw is
 %% not known there), the states merged
-ck_stmt(try(L, Body, Catches), St0, St) :- !, ck_line(L), ck_stmt(Body, St0, StB), ck_catches(Catches, St0, StB, St).
+%% A HANDLER IS ENTERED FROM ANY POINT OF ITS TRY'S BODY where a call may throw (0.193: libc++'s calls throw now), so it
+%% starts from the join of the body's entry, its exit and the state before each statement of the body, each cut to the
+%% try's own frames (ck_try_body/4, ck_try_note/1): an owner the body consumed is `partial' there, refused on use and a
+%% leak, where the handler took it as the entry's and freed it again. A terminate handler (a noexcept function's guard,
+%% cpp_nx_wrap) ends the path, and asks no record.
+ck_stmt(try(L, Body, Catches), St0, St) :- !, ck_line(L),
+    ( Catches = [catch(terminate, _)] -> ck_stmt(Body, St0, StB), StH = St0 ; ck_try_body(Body, St0, StB, StH) ),
+    ck_catches(Catches, StH, StB, St).
 ck_stmt(if(L, C, T, E), St0, St) :- !, ck_line(L),
     ck_expr(C, St0, St1), ck_refine(C, St1, StThen, StElse),
     ck_stmt(T, StThen, StT), ( E == none -> StE = StElse ; ck_stmt(E, StElse, StE) ), ck_merge(StT, StE, St).
@@ -850,7 +857,18 @@ ck_set_null(E, St0, St) :-
     (   ck_path(E, K), ck_state(St0, K, S), memberchk(S, [live, partial]) -> ck_own_under(St0, K, Ks), ck_set_all(St0, [K|Ks], null, St)
     ;   St = St0 ).
 ck_stmts([], St, St).
-ck_stmts([S|Ss], St0, St) :- ck_stmt(S, St0, St1), ck_stmts(Ss, St1, St).
+ck_stmts([S|Ss], St0, St) :- ck_try_note(St0), ck_stmt(S, St0, St1), ck_stmts(Ss, St1, St).
+%% the states a try's handlers may be entered from: one record a try open, `t(Depth, States)' in `'$ck_trys'', each state
+%% before a statement of its body cut to the try's frames (a state is st(Frames), the innermost frame first)
+ck_try_body(Body, St0, StB, St0) :- St0 \= st(_), !, ck_stmt(Body, St0, StB).   % a try on an ended path
+ck_try_body(Body, St0, StB, StH) :- St0 = st(Fs0), length(Fs0, D), nb_getval('$ck_trys', Ts0), nb_setval('$ck_trys', [t(D, [])|Ts0]),
+    (   catch(ck_stmt(Body, St0, StB), E, ( nb_setval('$ck_trys', Ts0), throw(E) ))
+    ->  nb_getval('$ck_trys', [t(_, Rec)|_]), nb_setval('$ck_trys', Ts0), ck_merge_all([St0, StB|Rec], StH)
+    ;   nb_setval('$ck_trys', Ts0), fail ).
+ck_try_note(st(Fs)) :- nb_current('$ck_trys', [_|_]), !, nb_getval('$ck_trys', Ts0), length(Fs, N), ck_try_note_(Ts0, Fs, N, Ts), nb_setval('$ck_trys', Ts).
+ck_try_note(_).
+ck_try_note_([], _, _, []).
+ck_try_note_([t(D, R)|Ts], Fs, N, [t(D, R1)|Ts1]) :- K is N - D, ( K >= 0, length(Pre, K), append(Pre, P, Fs) -> R1 = [st(P)|R] ; R1 = R ), ck_try_note_(Ts, Fs, N, Ts1).
 
 ck_switch_items([], _, St, St).
 ck_switch_items([case(_, E, S)|Is], Entry, St0, St) :- !, ck_merge(St0, Entry, St1), ck_switch_items([S|Is], Entry, St1, St).

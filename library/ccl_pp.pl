@@ -162,6 +162,7 @@ pp_predef_macro(N, obj, Cs) :-
     ;   pp_os(O), pp_predef(N, O, T) -> true                                          % the host's own: __APPLE__ and __MACH__, or __linux__ and __ELF__
     ;   pp_arch(A), pp_predef(N, A, T) -> true
     ;   ccl_lang(cpp), \+ nb_current('$ccl_rtti', no), pp_predef(N, cpp_rtti, T) -> true   % RTTI unless -fno-rtti (0.191)
+    ;   ccl_lang(cpp), \+ nb_current('$ccl_exceptions', no), pp_predef(N, cpp_eh, T) -> true   % exceptions unless -fno-exceptions (0.193)
     ;   ccl_lang(cpp), pp_predef(N, cpp, T)
     ;   ccl_lang(c), pp_predef(N, c, T) ),                                            % C's own beyond the levels' (0.117): __SIZEOF_INT128__
     atom_codes(T, Cs).
@@ -1345,12 +1346,13 @@ pp_predef('__WCHAR_UNSIGNED__', linux_arm64, '1').
 pp_predef('__arm64', linux_arm64, '$undef').
 pp_predef('__arm64__', linux_arm64, '$undef').
 pp_predef('__DEPRECATED', cpp, '1').
-%% NO EXCEPTIONS (owner's design: the safe part has no unwinding to offer, and DESIGN.md puts exceptions last if at
-%% all). libc++ asks the COMPILER: `#if defined(__cpp_exceptions) && __cpp_exceptions >= 199711L' decides its
-%% _LIBCPP_HAS_EXCEPTIONS, so leaving both undefined compiles the library's own no-exceptions configuration, as it
-%% ships and as -fno-exceptions gives it: a thrower aborts with a message instead of throwing, and its try blocks are
-%% not there. Neither macro is predefined; a program's own `throw', `try' and `catch' run since 0.108.
-%% pp_predef('__EXCEPTIONS', cpp, '1').
+%% EXCEPTIONS, AS clang++ HAS THEM (0.193, the owner's decision of 0.190): `#if defined(__cpp_exceptions) &&
+%% __cpp_exceptions >= 199711L' decides libc++'s exceptions configuration (_LIBCPP_HAS_NO_EXCEPTIONS in libc++ 18,
+%% _LIBCPP_HAS_EXCEPTIONS in 21), and both macros are the table `cpp_eh''s, which pp_predef_macro/3 asks unless the
+%% build says -fno-exceptions ('$ccl_exceptions' = no): then libc++ builds its no-exceptions configuration, where a
+%% thrower in its headers' code aborts with a message, as this compiler built it from 0.50 to 0.192. A program's own
+%% `throw', `try' and `catch' run since 0.108.
+pp_predef('__EXCEPTIONS', cpp_eh, '1').
 pp_predef('__GLIBCXX_BITSIZE_INT_N_0', cpp, '128').
 pp_predef('__GLIBCXX_TYPE_INT_N_0', cpp, '__int128').
 pp_predef('__GNUC_GNU_INLINE__', cpp, '1').
@@ -1389,7 +1391,7 @@ pp_predef('__cpp_delegating_constructors', cpp, '200604L').
 pp_predef('__cpp_deleted_function', cpp, '202403L').
 pp_predef('__cpp_digit_separators', cpp, '201309L').
 pp_predef('__cpp_enumerator_attributes', cpp, '201411L').
-%% pp_predef('__cpp_exceptions', cpp, '199711L').   % see NO EXCEPTIONS above
+pp_predef('__cpp_exceptions', cpp_eh, '199711L').   % see EXCEPTIONS above
 pp_predef('__cpp_fold_expressions', cpp, '201603L').
 pp_predef('__cpp_generic_lambdas', cpp, '201304L').
 pp_predef('__cpp_guaranteed_copy_elision', cpp, '201606L').

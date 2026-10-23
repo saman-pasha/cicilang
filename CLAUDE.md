@@ -10,8 +10,8 @@ it found, its measurements and its gate numbers. `README.md` tells a user what r
 architecture and the milestones. A step that changes a rule edits the rule here, in its topic, and writes its entry
 in `HISTORY.md`.
 
-At 0.192 the versions are: the module 0.192 (`ccl_p_version` in `module/cicilang.cicili`, `bin/cicilang --version`),
-the reader 143 (`ccl_reader_version/1`, `library/ccl_syntax.pl`) and the lowering 105 (`ccl_lowering_version/1`,
+At 0.193 the versions are: the module 0.193 (`ccl_p_version` in `module/cicilang.cicili`, `bin/cicilang --version`),
+the reader 145 (`ccl_reader_version/1`, `library/ccl_syntax.pl`) and the lowering 106 (`ccl_lowering_version/1`,
 `library/ccl_ir.pl`).
 
 Build and prove, always in this order (or all of it, `sh test/gates.sh`):
@@ -541,8 +541,9 @@ tutorials/01..03-*.pl       the objects layer's lessons; goal main, last line do
   `iostream@17`, so `<ostream>` at C++17 was never warmed, and `libdiamond.cpp` flattened it cold in the C++ gate of
   every chain over a fresh HOME, 147 s at 0.179's where it builds in 12 to 16 s warm). A missing Cicili checkout is
   named, because `<sstream>` and `<stdexcept>` then stay cold. `<algorithm>` and `<array>` are only warmed: nothing
-  asserts their counts. A file whose `.flags` names `-fno-rtti` has its headers warmed under that flag too, its key
-  `header@level@-fno-rtti` (0.191: such a summary is keyed apart, the C++ summary cache). (0.92, 0.105, 0.180, 0.191)
+  asserts their counts. A file whose `.flags` names `-fno-rtti` or `-fno-exceptions` has its headers warmed under that
+  flag too, its key `header@level@-fno-rtti` (0.191, `-fno-exceptions` since 0.193: such a summary is keyed apart, the
+  C++ summary cache). (0.92, 0.105, 0.180, 0.191, 0.193)
 - `LX_SECS` (2400 s) caps each read and each warm through `timeout -s KILL`. A read with no verdict is
   `FAIL <h> at C++N: the read did not finish`. A failed warm, `FAILED to flatten`, counts as a failure. A pool killed
   at its hard cap is RED. (0.105)
@@ -633,14 +634,17 @@ tutorials/01..03-*.pl       the objects layer's lessons; goal main, last line do
   | `typeidnortti.cpp` (`-fno-rtti`) | `typeid_requires_rtti` | 0.191 |
   | `dyncastnortti.cpp` (`-fno-rtti`) | `dynamic_cast_requires_rtti` | 0.191 |
   | `dpcnortti.cpp` (`-fno-rtti`) | `instance_refused('dynamic_pointer_cast.D.B',dynamic_cast_requires_rtti)` | 0.191 |
+  | `thrownoexc.cpp` (`-fno-exceptions`) | `throw_requires_exceptions` | 0.193 |
+  | `trynoexc.cpp` (`-fno-exceptions`) | `try_requires_exceptions` | 0.193 |
 
   `deduced_this.cpp` (0.43) is gone: a class's `this auto` method builds since 0.117 (`deducethis.cpp`). So is
   `diamond.cpp` (`virtual_base_by_two_paths`, 0.110 to 0.170): a diamond whose paths each hold two virtual bases builds
   since 0.171 (`run/vbasetwo.cpp`).
 
 - `test/cpp/escape.cpp` must be refused by the safe part with `a borrow leaves the function`,
-  `test/cpp/thisunset.cpp` with `owner used before it was given anything` (0.133), and `test/cpp/gotopastdtor.cpp` with
-  `goto over a defer` (0.138).
+  `test/cpp/thisunset.cpp` with `owner used before it was given anything` (0.133), `test/cpp/gotopastdtor.cpp` with
+  `goto over a defer` (0.138), and `test/cpp/tryowner.cpp` with `use after move of` (0.193: a handler entered after the
+  body freed an owner frees it again).
   `test/cpp/control.cpp` (a `try`) builds now, and only `test/cpp.pl` reads it. (0.100, 0.108)
 - A gate that dies says so. Without a GREEN or RED line from `test/cpp.pl`, `test/cpp.sh` prints
   `RED: the gate did not finish (query exit N)` and the last 20 raw lines. `test/reader.sh` and `test/compile.sh`
@@ -672,7 +676,7 @@ tutorials/01..03-*.pl       the objects layer's lessons; goal main, last line do
   (M2, 0.93)
 - `NAME.flags` gives a C++ fixture its level (`-std=c++20`, `-std=c++23`, `-std=c++26`), a refusal of `test/cpp/` too
   (0.164); without one it builds at C++17. It may name `-fno-rtti` beside the level (0.191: `nortti.cpp` and three
-  refusals). `NAME.std` gives a C fixture its level (`-std=c23`); an ISO level before C23
+  refusals), or `-fno-exceptions` (0.193: `noexcgrow.cpp` and two refusals). `NAME.std` gives a C fixture its level (`-std=c23`); an ISO level before C23
   (`-std=c17`) turns trigraphs on, as `bin/cicilang` does. (0.42, 0.57, 0.108)
 - `NAME.stdin` is the input of a fixture that reads (`stdcin`, `stdcinld`, `stdget`, `stdgetline`, `stdistream`,
   `stdistream2`, `stdws`, `stdtie`); the others read `/dev/null`. (0.75, 0.115, 0.136)
@@ -834,6 +838,10 @@ tutorials/01..03-*.pl       the objects layer's lessons; goal main, last line do
 - `-fno-rtti` acts (0.191), as clang++'s does: the option `no_rtti`, libc++'s no-RTTI configuration and `typeid`
   refused (the Configuration chosen through the macros topic); `-frtti`, the default, takes it back, and the last of
   the two on the line wins (`bin/cicilang`'s `rtti`).
+- `-fno-exceptions` and `-fno-cxx-exceptions` act (0.193), as clang++'s do: the option `no_exceptions`, libc++'s
+  no-exceptions configuration, and the program's `throw` and `try` refused (the Configuration chosen through the
+  macros topic); `-fexceptions` and `-fcxx-exceptions`, the default, take it back, and the last of the four on the
+  line wins (`bin/cicilang`'s `eh`).
 - `-g` is the option `debug` (0.128, 0.130): `-g`, `-g2`, `-g3`, `-ggdb`, `-ggdb2`, `-ggdb3`, `-gdwarf*`, `-gfull`, `-glldb`
   and `-gsce` give the FULL debug information (the line tables, the variables, their types, the lexical blocks, C++'s
   names and scopes); `-g1`, `-ggdb1`, `-gline-tables-only` and `-gline-directives-only` give `debug(lines)`, the line
@@ -1208,11 +1216,18 @@ tutorials/01..03-*.pl       the objects layer's lessons; goal main, last line do
 
 ### Configuration chosen through the macros
 
-- NO EXCEPTIONS in libc++ (0.50's choice, when nothing here unwound): `__cpp_exceptions` and `__EXCEPTIONS` are not
-  predefined, so libc++ builds its `-fno-exceptions` configuration, where a throw in its headers' code aborts with a
-  message (the Exceptions topic). The program's own `throw` and `try` use libc++abi. The owner decided at 0.190 to
-  turn them on by default, as clang++ has them, with `-fno-exceptions` for this configuration (Not done). (0.50,
-  0.108, 0.190)
+- EXCEPTIONS IN libc++, AS clang++ HAS THEM (0.193, the owner's decision of 0.190): `__cpp_exceptions` and
+  `__EXCEPTIONS` are the predefined table `cpp_eh`'s, which `pp_predef_macro/3` asks in C++ unless the build says
+  `-fno-exceptions` (`'$ccl_exceptions'` = `no`, set by `dr_setup/2`); libc++ then builds its exceptions configuration:
+  what its headers throw is thrown (`__throw_out_of_range` ...), its try blocks are there, and a vector grows through
+  `std::move_if_noexcept`, copying an element whose move constructor may throw where it has a copy (the nothrow traits,
+  the Traits answered topic). `-fno-exceptions` gives the no-exceptions configuration this compiler built from 0.50 to
+  0.192 (when nothing here unwound), where a throw in libc++'s headers' code aborts with a message and a vector moves
+  every element (`noexcgrow.cpp`); under it the program's own `throw` and `try` are refused,
+  `throw_requires_exceptions` and `try_requires_exceptions` (`cpp_eh_needed/1`), as clang++ `-fno-exceptions` refuses
+  them (`cannot use 'throw' with exceptions disabled`), never in a header's code nor the desugaring's own terminate
+  guard. A C++ summary read under it is keyed apart (`@no-exceptions`, `ccl_config_key/1`, the C++ summary cache).
+  (0.50, 0.108, 0.190, 0.193)
 - RTTI IN libc++, AS clang++ HAS IT (0.191, the owner's decision of 0.190): `__cpp_rtti` and `__GXX_RTTI` are the
   predefined table `cpp_rtti`'s, which `pp_predef_macro/3` asks in C++ unless the build says `-fno-rtti`
   (`'$ccl_rtti'` = `no`, set by `dr_setup/2`); libc++ then decides `_LIBCPP_HAS_RTTI` as clang++'s build does.
@@ -2024,7 +2039,11 @@ tutorials/01..03-*.pl       the objects layer's lessons; goal main, last line do
   header a process: after `<ranges>` had noted `__move_impl`, a static member function template there, `<string>` read
   move.h's class template-id `__move_impl<_AlgPolicy>` as an expression (0.185's nets against 0.184's chain: 4 of 47
   summaries over libc++ 18 and 5 of 47 over 21 differed, `sumcmp2.sh` in HISTORY.md). An includer of a header flattened
-  in the process has what one served from the summary has. (0.186)
+  in the process has what one served from the summary has. The names of the free functions the header declares
+  noexcept are set aside the same way (0.193): the program's set `'$ccl_nxs'` is put back as it was, and the header's
+  own go to the library's set `'$ccl_lnxs'` (`ccl_lib_nothrow/1`) and into its summary, so that `noexcept(e)` answers a
+  library call by the library's declarations and a program's own function by the program's (the Exceptions topic).
+  (0.186, 0.193)
 - A partial read is silent: `ccl_partial` gives `partial(U, line(L), near(F))`, and a library header's summary and AST
   hold what was read. `test/census.sh` on the flattened header (`cicilang++ -E`) names the stop. (0.44)
 - `ccl_with_file/2` saves and restores around a nested read, on success, failure and a throw: `'$ccl_file'`, the
@@ -2073,11 +2092,14 @@ tutorials/01..03-*.pl       the objects layer's lessons; goal main, last line do
   `ccl_target_key/1`): a header read for `--target` is read under that machine's macros, and this compiler's own
   `<limits.h>` and `<float.h>` have one path for every machine, so a host's summary of one was valid for a target's read
   (its deps unchanged) and served it the host's limits. It takes the CONFIGURATION too (0.191, `ccl_config_key/1`): a
-  header read under `-fno-rtti` is read under other macros from the same files, `@no-rtti` in its key; the default
-  configuration adds nothing to the key. (M5, 0.42, 0.112, 0.161, 0.191)
+  header read under `-fno-rtti` or `-fno-exceptions` (0.193) is read under other macros from the same files, `@no-rtti`
+  and `@no-exceptions` in its key; the default configuration adds nothing to the key. (M5, 0.42, 0.112, 0.161, 0.191,
+  0.193)
 - A summary is one term per line (`ccl_sum_write/4`, `ccl_sum_chunks`): `sum(Path, key(V, cpp(Std)))`, a
   `dep(File, Time)` per file the preprocessor pulled, then `decl/2`, `typedef/2`, `tag/2` (bodies dropped,
-  `ccl_sum_slim/2`), `enum/2`, `tname/1`, `template/1` and `ftemplate/1`. (M5, 0.45)
+  `ccl_sum_slim/2`), `enum/2`, `tname/1`, `template/1`, `ftemplate/1` and `nothrow/1` (0.193: a free function the
+  header declares noexcept, `ccl_sum_nothrow/2`; noted with the templates, `nx(N)` in `ccl_note_templates/1`). (M5,
+  0.45, 0.193)
 - `ccl_sum_valid/1` holds when the `.sum` and its `.ast.pl` exist, the version is `ccl_reader_version/1`, the level is
   `ccl_std/1`, and every dep's time is unchanged. Then the node is `file(Path, summary, summary(F))`. A hollow summary
   is read again. (0.106)
@@ -2209,14 +2231,14 @@ tutorials/01..03-*.pl       the objects layer's lessons; goal main, last line do
 
 ### The versions
 
-- `ccl_reader_version/1` (`library/ccl_syntax.pl`, now 143): bump it for any grammar change to what a read gives, and
+- `ccl_reader_version/1` (`library/ccl_syntax.pl`, now 145): bump it for any grammar change to what a read gives, and
   for any change to what the AST beside a summary holds (item or member terms, `cpp_index_name/2`,
   `cpp_template_name/2`, `ccl_flat_items/3`, the namespace keys). Keep the reason in its comment. Why: the store and the
   summaries are keyed by it, and a stale read is served silently (`sizeof(std::string)` read 40). (M1, 0.89, 0.112,
   0.117)
 - A reader bump makes every summary cold; `test/libcxx.sh` rewrites them. `test/reader.pl`'s `k16` (a cached read is
   the same AST as a fresh one) goes RED on a grammar change without a bump. (0.93, 0.105)
-- `ccl_lowering_version/1` (`library/ccl_ir.pl`, now 105): bump it whenever the check or the lowering changes what it
+- `ccl_lowering_version/1` (`library/ccl_ir.pl`, now 106): bump it whenever the check or the lowering changes what it
   emits, however small -- 0.120 bumped it for the ORDER of the drain functions alone. Why: `dr_ir/3` serves the old IR
   otherwise. Either bump starts the C store afresh. (M4, 0.103, 0.120)
 
@@ -5854,18 +5876,21 @@ A lambda is a class of its captures (`library/ccl_cpp.pl`). A fixture named alon
 
 ### Exceptions
 
-- libc++ runs its no-exceptions configuration (`__cpp_exceptions`, `__EXCEPTIONS` not predefined): a throw in the
-  code of its HEADERS aborts with its message, so no program catches `bad_optional_access` or the `out_of_range` of
-  `vector::at`; a throw in the COMPILED library's own code (`libc++.so`: `std::stoi`) is a real throw, which the
-  program's handler catches, as clang++'s does (measured at 0.190: `v.at(5)` in a `try` aborts with exit 134 where
-  clang++'s handler returns 3, and `std::stoi("x")` in one returns 3 in both). The owner decided at 0.190 to turn
-  exceptions on by default, as clang++ has them, `-fno-exceptions` this configuration (Not done). (0.50, 0.190)
+- libc++ runs its exceptions configuration (0.193; its no-exceptions one from 0.50 to 0.192, and under
+  `-fno-exceptions`): what its headers throw and what the compiled library throws reach the program's handlers
+  (`ehlib.cpp`: a vector's and a map's `at`, an optional's `value`, an empty `std::function` called, a variant's wrong
+  alternative, `substr`, `stoi`, each caught by its own type), a stream whose exceptions mask holds `failbit` throws
+  `ios_base::failure` (`iosfailure.cpp`), a failed `dynamic_cast` to a reference throws `std::bad_cast` (`__cxa_bad_cast`;
+  it called `abort`) and `typeid(*p)` of a null `p` `std::bad_typeid` (`__cxa_bad_typeid`; the table was read through
+  null). Over the no-exceptions configuration (0.190's measure) a throw in the headers' code aborted with its message
+  where clang++'s handler caught it, and a throw in the compiled library's own code (`std::stoi`) was caught either
+  way. (0.50, 0.190, 0.193)
 - The program's own `throw`, `try` and `catch` run over libc++abi (linked through `-lc++`, `ccl_link_libs` on Linux).
   `throw e` is `__cxa_allocate_exception`, the object built in place (`cpp_new_at`), then `__cxa_throw` with the
   type_info and the destructor; `throw E(args)` builds E in the exception's memory. `throw;` is `__cxa_rethrow`. An
   untyped throw refuses `throw_of_untyped`. `exceptions.cpp`, `exceptions2.cpp`. (0.108, 0.110)
-- Where the program throws or catches (`'$cpp_eh_used'`, `'$ir_eh'`), a call under a `try` or a scope with defers is an
-  `invoke` (`ir_invoke_needed`). Its landing pad (`ir_landing_pad`, personality `__gxx_personality_v0`) lists the
+- Where the program throws or catches (`'$cpp_eh_used'`, `'$ir_eh'`), and in every C++ program of the exceptions
+  configuration (0.193), a call under a `try` or a scope with defers is an `invoke` (`ir_invoke_needed`). Its landing pad (`ir_landing_pad`, personality `__gxx_personality_v0`) lists the
   handlers' type_infos and `cleanup`, runs the defers of the scopes it leaves (`ir_unwind_to`), tests the selector with
   `llvm.eh.typeid.for`, and else resumes. Code run while unwinding makes plain calls. (0.108)
 - A handler binds its parameter to `__cxa_begin_catch`'s object, with `__cxa_end_catch` as its scope's defer
@@ -5874,13 +5899,21 @@ A lambda is a class of its captures (`library/ccl_cpp.pl`). A fixture named alon
   adjusted to the handler's type, as clang stores it (`ir_catch_bind/3`, 0.179): it was loaded from where it points, and
   `catch (int *p)` crashed. `ptrrtti.cpp`. (0.108, 0.110, 0.179)
 - The reader keeps `noexcept` (`'$ccl_nx'`): a free function's name joins the set `'$ccl_nxs'` (`ccl_note_nx`), a
-  method keeps it among its qualifiers. `noexcept(false)` and `throw(X)` are not noexcept; `throw()` is. (0.110, 0.188)
-- noexcept is enforced where the program throws (`'$cpp_throws'`; [except.spec]/5): a noexcept function that makes a
-  call has its body in a `try` with a `terminate` handler (`cpp_nx_wrap`). It calls `std::terminate` and runs no
+  method keeps it among its qualifiers. `noexcept(false)` and `throw(X)` are not noexcept; `throw()` is, and so is
+  glibc's `__THROW`, `noexcept (true)` in C++. A LIBRARY header's names go to a set of their own, `'$ccl_lnxs'`, which
+  its summary carries (0.193; `ccl_seed_read/2`, the Includes topic). (0.110, 0.188, 0.193)
+- noexcept is enforced where the program throws (`'$cpp_throws'`; [except.spec]/5), and in every C++ program of the
+  exceptions configuration (0.193), libc++'s code throwing: a noexcept function that makes a call has its body in a
+  `try` with a `terminate` handler (`cpp_nx_wrap`). It calls `std::terminate` and runs no
   destructor on the way (`ir_unwind_to`), as clang's pad does. `noexcept.cpp`. (0.110)
-- `noexcept(e)` is false when e holds a `throw` or calls a program function that is not noexcept (`cpp_nx_throws`): a
-  free function not in `'$ccl_nxs'`, or a method with no noexcept overload of its name. A library function and a
-  destructor count as noexcept. (0.110, 0.188)
+- `noexcept(e)` is false when e holds a `throw` or calls a function that is not noexcept (`cpp_nx_throws`): a
+  program's free function not in `'$ccl_nxs'`, or a method with no noexcept overload of its name; and since 0.193 a
+  library's: a free function or function template a header declares, called by its name or a qualified one, not in
+  `'$ccl_lnxs'` (`std::stoi(s)` and `std::max(a, b)` false, `std::strlen(p)` and `std::move(x)` true), and a member
+  function of a library class -- its own, a member template's, else the first base's that declares the name
+  (`cpp_nx_method_quals/3`) -- none of whose declarations is noexcept (`v.at(0)`, `v.push_back(x)` and `in.good()` false,
+  `v.size()` and `s.c_str()` true). A library function counted as noexcept until 0.193, libc++ running its no-exceptions
+  configuration; a destructor counts as noexcept ([except.spec]/9). `noexceptlib.cpp`. (0.110, 0.188, 0.193)
 
 ### RTTI
 
@@ -6312,8 +6345,19 @@ A lambda is a class of its captures (`library/ccl_cpp.pl`). A fixture named alon
 
 - The traits are decided in the desugaring: `cpp_trait` (`__is_same`, `__builtin_offsetof`), `cpp_trait_of` (the
   one-type tests), `cpp_trait_n` (constructible, assignable, convertible, base_of) and `cpp_builtin_type` (the type
-  traits). An unknown one refuses `trait_unknown(N)`; a nothrow one is the plain one. A `type(T)` argument is a type
-  (`cpp_expr(_, type(T0), type(T))`): libc++ 18's `is_copy_constructible`. (0.44, 0.93)
+  traits). An unknown one refuses `trait_unknown(N)`; a nothrow one answers the declarations (0.193, below). A `type(T)`
+  argument is a type (`cpp_expr(_, type(T0), type(T))`): libc++ 18's `is_copy_constructible`. (0.44, 0.93)
+- THE NOTHROW TRAITS ANSWER THE DECLARATIONS (0.193; [meta.unary.prop], [except.spec]/8, /10; `cpp_nothrow_ctor/2`,
+  `cpp_nothrow_assign/2`): `__is_nothrow_constructible`, `__is_nothrow_assignable` and `__is_nothrow_convertible` hold
+  where the plain trait holds and the construction or assignment is known not to throw -- a scalar's always; a class's
+  copy or move its constructor's or assignment's declared `noexcept`, a move the class does not declare beside a copy it
+  declares being the copy ([class.copy.ctor]/8), else the implicit one's, every data member's and base sub-object's own
+  (`cpp_nothrow_parts/2`); its default construction the declared default constructor's, else the implicit one's, a
+  default member initializer that calls taken as throwing; any other construction or assignment where every candidate of
+  the arity asked, a constructor template among them, is declared `noexcept`. A refusal met while asking answers as the
+  plain trait (`cpp_nothrow_q/1`). They were the plain traits, which libc++'s no-exceptions configuration could take; its
+  exceptions configuration asks them in `std::move_if_noexcept`, and a vector grows by COPYING an element whose move
+  constructor may throw where it has a copy (`nothrowtraits.cpp`). (0.193)
 - A PLAIN STRUCT IS ITS OWN BASE (`__is_base_of`, `cpp_base_of/2`; [meta.rel]: `is_base_of<T, T>` holds for a class that is
   no union; 0.126): a struct of data members alone is no registered class and has no base, so only itself, and a pointer to
   it is none. It was false, and libc++ 18's `__enable_if_bullet4` of `__invoke` (`is_same<_ClassT, _DecayA0>::value ||
@@ -6650,7 +6694,12 @@ A lambda is a class of its captures (`library/ccl_cpp.pl`). A fixture named alon
 - A closure's `'$this'` slot is walked (`ck_init_slots_/6`), and a bound reference member is a plain walk
   (`ck_stmt(expr(_, bind_ref(_, E)))`): the check follows neither object. It follows a closure only where it is made;
   a closure in a `std::function` is the library's discipline. (0.59, 0.61)
-- A `try` checks its body, then each handler from the `try`'s entry state, and merges them (`ck_catches/4`).
+- A `try` checks its body, then each handler, and merges them (`ck_catches/4`). A HANDLER IS ENTERED FROM ANY POINT OF
+  ITS TRY'S BODY (0.193; `ck_try_body/4`, `ck_try_note/1`): it starts from the join of the body's entry state, its exit
+  and the state before each statement of the body, each cut to the try's own frames, so an owner the body consumed is
+  `partial` in the handler and its use there refused (`test/cpp/tryowner.cpp`); it started from the entry state alone,
+  and the handler freed again an owner the body had freed before the call that threw. A `try` that is only a noexcept
+  function's terminate guard is checked as its body.
   `if consteval` checks the run-time branch (`ck_stmt(ifce)`). `co_return` exits as a return does. A `dynamic_cast`
   borrows what its operand borrows. `[[assume(e)]]` only reads `e`. (0.93, 0.108)
 
@@ -8196,17 +8245,17 @@ A lambda is a class of its captures (`library/ccl_cpp.pl`). A fixture named alon
 - Ubuntu 24.04 on x86_64 (clang and LLVM 18, glibc, libc++ 18 and 21) is a host since 0.87. Every gate but the C++ one
   is GREEN there since 0.93, and all seven since 0.95. Every step from 0.93 on is gated there, but the save points
   0.112, 0.113, 0.117, 0.122 to 0.125, 0.130, 0.131 and 0.143 (0.143's C gates and cross gate ran, its libc++ gates did
-  not; the others were gated by the steps after them). The last full run is 0.192's, over cocolog 2.11.1 (the
+  not; the others were gated by the steps after them). The last full run is 0.193's, over cocolog 2.11.1 (the
   Findings), on one tree, over fresh HOMEs (the reader version moved): over libc++ 18 all nine GREEN (the flow gate's one
-  finding in 90 s, reader 5 s, compile 12 s, driver 13 s, objects 4 s, proof, the cross gate in 272 s with its C++ part
-  for aarch64, the library read in 334 s (0.191's 319 s; 97 other headers warmed, six of them under `-fno-rtti`), the C++
-  gate in 869 s (0.191's 824 s) with 606 of 610 fixtures ok, the skips are `joinwith`, `stdoptionalref`, `tzone` and
-  `zipadjacent`, the two units, the 26 refusals and the three of the safe part); over libc++ 21 the library read (303 s,
-  peak 702 MB; 0.191's 303 s) and the C++ gate (999 s, peak 1996 MB; 0.191's 902 s; 608 of 610 ok, the skips
-  `stdoptionalref` and `zipadjacent`) GREEN -- the C gates do not read libc++. The headers' reads, summed, took 1229 s
-  over 120 over libc++ 18 and 1109 s over 21 (0.191's 1176 s and 1104 s; 0.181's 4313 s and 4116 s, before a read
-  linear in its items); the fixtures' builds 2896 s over 606 and 3385 s over 608 (0.191's 2919 s over 604 and 3037 s
-  over 606) (HISTORY.md, 0.192). The chains of 0.165 to 0.191 are in HISTORY.md, 0.166 to 0.192.
+  finding in 107 s, reader 5 s, compile 15 s, driver 15 s, objects 5 s, proof, the cross gate in 300 s with its C++ part
+  for aarch64, the library read in 393 s (0.192's 334 s; 100 other headers warmed), the C++ gate in 982 s (0.192's 869
+  s) with 611 of 615 fixtures ok, the skips are `joinwith`, `stdoptionalref`, `tzone` and `zipadjacent`, the two units,
+  the 28 refusals and the four of the safe part); over libc++ 21 the library read (318 s, peak 720 MB; 0.192's 303 s)
+  and the C++ gate (965 s, peak 2196 MB; 0.192's 999 s; 613 of 615 ok, the skips `stdoptionalref` and `zipadjacent`)
+  GREEN -- the C gates do not read libc++. The headers' reads, summed, took 1454 s over 123 over libc++ 18 and 1175 s
+  over 21 (0.192's 1229 s and 1109 s over 120; 0.181's 4313 s and 4116 s, before a read linear in its items); the
+  fixtures' builds 3296 s over 611 and 3237 s over 613 (0.192's 2896 s over 606 and 3385 s over 608) (HISTORY.md, 0.193).
+  The chains of 0.165 to 0.192 are in HISTORY.md, 0.166 to 0.193.
   Two libc++ passes are one gate: `LLVM=/usr/lib/llvm-18` and `LLVM=/usr/lib/llvm-21`
   choose the tree the chain reads and links. libc++ 22 (the newest tree, which a run without `$LLVM` reads) is no
   gate: 0.182 built its vector and its C++23 views by hand (`zipadjacent.cpp`, which its `.needs` skips over 18 and
@@ -8305,6 +8354,12 @@ A lambda is a class of its captures (`library/ccl_cpp.pl`). A fixture named alon
   (two virtual overloads of one name and arity, one overridden), `virtualdefault` (a virtual call that leaves a defaulted
   argument out), `anonparam` (an unnamed by-value parameter destroyed), `rangeadl` (a range-for by the free `begin` and
   `end` of two namespaces), `downcast` (`static_cast` from a second base to the derived class, a pointer and a reference).
+- Forms of 0.193, libc++ in its exceptions configuration: `ehlib` (the library's throws caught by the program -- a
+  vector's and a map's `at`, an optional's `value`, an empty `std::function` called, a variant's wrong alternative,
+  `substr`, `stoi` -- the destructors of the scopes left run on the way, `std::bad_cast` and `std::bad_typeid`),
+  `iosfailure` (`ios_base::failure` from a stream's exceptions mask), `nothrowtraits` (the nothrow traits of declared,
+  implicit and defaulted members, and a vector's growth through `std::move_if_noexcept`), `noexcgrow` (`-fno-exceptions`:
+  the same growth moves), `noexceptlib` (`noexcept(e)` over library calls and over the program's own `swap`).
 - Forms of 0.192: `staticdtor` (statics constructed at compile time destroyed at exit in the reverse order of their
   construction, the dynamically initialized ones among them: at namespace scope, a static data member defined out of its
   class, an inline one in and out of its class, `static` ones, local statics of each kind), `tempsret` (a class value
@@ -8525,12 +8580,12 @@ A lambda is a class of its captures (`library/ccl_cpp.pl`). A fixture named alon
 - Coroutines: `cogenerator`, `cotask`, `coeager`, `coawait`, `coawaitop`, `cotemplate`, `cotraits`. Modules: `modules`
   (it imports `mathm.cppm`, which imports `basem.cppm`), `headerunit`, `hdrinline`. Also the array cookie
   (`arraycookie`), trailing return types (`trailing`) and CTAD (`stdctad`, `deduceguide`) (0.108, 0.110).
-- `test/cpp.sh` checks that twenty-six programs are refused by name (`coro.cpp`, `concept_fail.cpp`,
+- `test/cpp.sh` checks that twenty-eight programs are refused by name (`coro.cpp`, `concept_fail.cpp`,
   `constrained_fail.cpp`, `lambda_const.cpp`, `lambda_method.cpp`, `bind_const.cpp`, the eleven `access_*.cpp`,
   `abstract.cpp`, `modhidden.cpp`, `basenodefault.cpp`, `enumnotconst.cpp`, since 0.164 `fmtindex.cpp` and
-  `fmttype.cpp`, and since 0.191 `typeidnortti.cpp`, `dyncastnortti.cpp` and `dpcnortti.cpp` under `-fno-rtti`;
-  `diamond.cpp` builds since 0.171 and is gone) and that the safe part refuses `escape.cpp`,
-  `thisunset.cpp` and `gotopastdtor.cpp`.
+  `fmttype.cpp`, since 0.191 `typeidnortti.cpp`, `dyncastnortti.cpp` and `dpcnortti.cpp` under `-fno-rtti`, and since
+  0.193 `thrownoexc.cpp` and `trynoexc.cpp` under `-fno-exceptions`; `diamond.cpp` builds since 0.171 and is gone) and
+  that the safe part refuses `escape.cpp`, `thisunset.cpp`, `gotopastdtor.cpp` and `tryowner.cpp`.
 
 ### libc++ headers read whole
 
@@ -8664,14 +8719,9 @@ A lambda is a class of its captures (`library/ccl_cpp.pl`). A fixture named alon
 ### The owner's decisions of 0.190, in the order they are done
 
 The four questions put to the owner at 0.190, each answered by the recommendation it was given. Each is a step of its
-own, and each moves into its topic when it is done. The first, RTTI in libc++ on by default, is done at 0.191 (the
-Configuration chosen through the macros topic).
+own, and each moves into its topic when it is done. The first, RTTI in libc++ on by default, is done at 0.191, and the
+second, exceptions in libc++ on by default, at 0.193 (the Configuration chosen through the macros topic).
 
-2. EXCEPTIONS IN libc++: on by default, as clang++ has them; `-fno-exceptions` gives today's configuration. Their
-   cost is measured on the nets before the commit: libc++'s headers then hold throws and `try` blocks, more calls are
-   `invoke`s with landing pads, and every noexcept function that makes a call is guarded. The noexcept-ness of library
-   functions and the nothrow traits answer the declarations then (`__is_nothrow_constructible` is the plain trait
-   today), and the safe part's rules are reviewed for a library call that can throw.
 3. THE SAFE PART AT THE LIBRARY'S BOUNDARY: 0.45's decision stands (the library's bodies are not checked), and a
    library object borrows what it stores -- a value of a library class whose template arguments carry a pointer, a
    reference or a closure, and the view types (`std::string_view`, `std::span`), borrows the borrows handed to its
@@ -8725,9 +8775,9 @@ Configuration chosen through the macros topic).
   (`fmtchrono2.cpp`), and time zones, libc++'s experimental part, run under `-fexperimental-library` since 0.138
   (`tzone.cpp`: a zone by name, its offsets and abbreviations in winter and in summer, a local time; libc++ 21, whose
   database reads the box's `/usr/share/zoneinfo/tzdata.zi`).
-- `optional<T &>` needs libc++ 22 (`stdoptionalref.needs`; 21.1.8 has none). `bad_optional_access` cannot be caught: libc++ keeps its
-  no-exceptions configuration and aborts with the message (0.82), until the owner's decision of 0.190 is done (The
-  owner's decisions of 0.190, below).
+- `optional<T &>` needs libc++ 22 (`stdoptionalref.needs`; 21.1.8 has none). `bad_optional_access` is caught since
+  0.193 (`ehlib.cpp`), libc++ in its exceptions configuration; under `-fno-exceptions` it aborts with the message, as
+  it did from 0.82 to 0.192.
 - `std::atomic<shared_ptr<T>>` (C++20, P0718) is in none of libc++ 18, 21 and 22: clang++ refuses
   `std::atomic<std::shared_ptr<int>>` over each tree (22's `<version>` leaves `__cpp_lib_atomic_shared_ptr` out, and
   `std::atomic<T>` asserts that T is trivially copyable), so there is nothing of the library to compile (0.86, 0.128,
@@ -8747,10 +8797,11 @@ Configuration chosen through the macros topic).
   `in_place_type`, `emplace`, copy, move and swap, the relational operators, `hash`, `get_if`, `variant_size_v`,
   `variant_alternative_t`, and `visit` with a function object, a generic lambda, the `overloaded` idiom, two variants
   and an explicit result type, and at C++20 `variant <=> variant` and the relational operators of a variant of strings
-  (`stdvariantcmp.cpp`); a failed access (`std::get` of the wrong alternative) aborts with the library's message, as
-  `bad_optional_access` does (the no-exceptions configuration).
-- Streams: the money and time facets and the exceptions mask run (0.134); a failure whose bit the mask holds aborts with
-  the library's message, the no-exceptions configuration. `std::quoted` runs (0.113,
+  (`stdvariantcmp.cpp`); a failed access (`std::get` of the wrong alternative) throws `std::bad_variant_access` since
+  0.193 (`ehlib.cpp`), and under `-fno-exceptions` aborts with the library's message.
+- Streams: the money and time facets and the exceptions mask run (0.134); a failure whose bit the mask holds throws
+  `std::ios_base::failure` since 0.193 (`iosfailure.cpp`), and under `-fno-exceptions` aborts with the library's
+  message. `std::quoted` runs (0.113,
   `stdquoted.cpp`), and so do the rvalue-stream `getline`, `getline` with a delimiter and `sync_with_stdio`
   (`stdstreammisc.cpp`, 0.117).
   `cin`'s tie flushes `cout`, which a buffer that counts its syncs checks (`stdtie.cpp`, 0.136).
@@ -8780,6 +8831,11 @@ Configuration chosen through the macros topic).
 - A direct `std::allocator::allocate` and `allocator_traits<A>::allocate(a, n)` are accepted: a library member's or
   static function's plain pointer result borrows the object it takes by reference (`ck_borrows_from`, 0.91, 0.117;
   `stdallocator.cpp`).
+- An owner live across a call that may throw, outside every `try`, is not followed on the unwinding path (0.193: libc++'s
+  calls throw now): the unwinding runs the defers and the destructors of the scopes it leaves, and an owner that none of
+  them frees leaks, as a raw pointer does in C++. The language's remedy is a `defer`, which runs on every exit, the
+  unwinding included; no rule asks for one. Inside a `try`, a handler is entered from any point of its body (the safe
+  part's topic).
 
 ### Tools and performance
 
@@ -8798,6 +8854,10 @@ Configuration chosen through the macros topic).
   (The owner's decisions of 0.190, below).
 - The check's cost is its expression walk. The next cut needs the state as a per-function table, or the lookups in C
   (2026-09-06).
+- A call under a `try` or a scope with defers is an `invoke` whatever its callee (`ir_invoke_needed`): one declared
+  noexcept, a C function among them, gets a landing pad it never uses. libc++'s exceptions configuration (0.193) made
+  every C++ program's calls so: eight warm builds take 5.2 % more CPU than 0.192's, and the IR of `stdstringstream.cpp`
+  is 42 % larger (256 invokes), of `stdvector.cpp` 14 % (42).
 - A C++ build's time was its first deductions and its instantiations (0.98), and, found at 0.120, the COPIES of the
   desugaring's own tables and class records (the Time and memory topic): the slowest fixture, `viewsall.cpp`, took 1760 s
   of the C++ gate's 2400 s cap in the gate's pool at 0.115 and 1357 s at 0.118, and takes 211 s now; the sum of the 388

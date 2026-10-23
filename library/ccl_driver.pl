@@ -39,6 +39,7 @@ dr_setup(Options, Flags) :-
     ( memberchk(cstd(CStd), Options) -> nb_setval('$ccl_c_std', CStd) ; nb_setval('$ccl_c_std', 17) ),                                 % -std=c23: C's own level, the forms and __STDC_VERSION__
     ( memberchk(trigraphs, Options) -> nb_setval('$ccl_trigraphs', yes) ; nb_setval('$ccl_trigraphs', no) ),                          % -std=c99/c11/c17 (ISO, not gnu) or -trigraphs: phase 1's nine sequences, as clang
     ( memberchk(no_rtti, Options) -> nb_setval('$ccl_rtti', no) ; nb_setval('$ccl_rtti', yes) ),                                       % -fno-rtti (0.191): libc++'s no-RTTI configuration, the program's typeid refused
+    ( memberchk(no_exceptions, Options) -> nb_setval('$ccl_exceptions', no) ; nb_setval('$ccl_exceptions', yes) ),                     % -fno-exceptions (0.193): libc++'s no-exceptions configuration, the program's throw and try refused
     ( memberchk(target(Tg), Options) -> dr_set_target(Tg) ; true ),                % --target=TRIPLE (0.131): another machine's macros, headers, types, ABI, back end and linker
     findall(D, ( member(O, Options), ( O = define(_) ; O = undef(_) ), D = O ), Ds), ccl_pp_cmdline(Ds),                       % -D and -U (0.112): the macros the command line defines and undefines, before every file's own
     forall(member(include(D), Options), assertz(ccl_include_dir(D))),

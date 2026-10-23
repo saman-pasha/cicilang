@@ -186,6 +186,7 @@ One row per step, in version order: the step's title, what it did and its gate n
 | 0.190 | cocolog 2.11.1; the native lexer's buffers grow through a second pointer; the owner's four decisions | cocolog 2.11.1 (a failed store read raises and loses no row, growths keep their block); the native lexer's two `x = realloc(x, n)` sites grow through a second pointer, a refused allocation `resource_error(memory)` where the module of 0.189 crashed (signal 11, under a shim that refuses its requests); libc++'s configurations measured (a throw in its headers' code aborts, one in the compiled library is caught; `std::dynamic_pointer_cast` runs, written absent since 0.86); the safe part's boundary measured (a borrow handed into a `std::vector` or a `std::function` and returned compiles); the four questions put to the owner and their answers, the next steps | committed before its chain: on 2.11.1 the flow gate GREEN (4151 predicates), the reader, compile, driver and objects gates, the proof and the cross gate's C part GREEN; five warm C++ builds 59.17 s on 2.11.0 and 58.42 s on 2.11.1 (the least CPU time of three interleaved runs) |
 | 0.191 | RTTI in libc++ on by default, as clang++ has it; `-fno-rtti` gives the no-RTTI configuration; `std::any` and a `shared_ptr`'s deleter, which never built | `__cpp_rtti` and `__GXX_RTTI` predefined in C++ unless `-fno-rtti`; under it `typeid` and a downcasting or cross-casting `dynamic_cast` refused by name, a header's `std::dynamic_pointer_cast` too; a summary read under it keyed apart; four older defects the new fixtures met: a base written `decltype(e)`, the address of a static constant member, a static member function's thunk emitted twice, a qualification conversion tied with the identity (and the partial ordering of `f(T *)` and `f(const T *)`); the numbers of 0.190's chain | all nine gates GREEN over libc++ 18, the two libc++ gates over 21 (the C++ gate's first run RED at one refusal's expected text, corrected in this commit); the headers' reads summed 1176 s and 1104 s over 120 (0.190's 1000 s and 904 s over 114), the fixtures' builds 2919 s and 3037 s; 604 of 608 C++ fixtures over 18, 606 over 21 |
 | 0.192 | each unit's own names at the link: closures, local classes, unnamed namespaces; statics constructed at compile time destroyed at exit; inline variables one object; a temporary returned through the hidden pointer constructed in place | the unit's tag in a closure's and a local class's name; an unnamed namespace its unit's own (named by the tag, its names keyed by its path, its type information internal, `_GLOBAL__N_1` to the mangler); a static constructed at compile time registers its destructor; an inline variable linkonce, initialized and destroyed once under a guard, before the unit's ordered initializations; the program's header's variables defined, a header class's statics at its place; a namespace-scope const variable internal; a class-typed static member the evaluator cannot construct constructed before main; a statement's temporary that a call returns through the hidden pointer constructed in place (`std::function<int(int)> ha(); ha()(5)` freed the stack); the C++ gate's two units built apart | all nine gates GREEN over libc++ 18, the two libc++ gates over 21; the headers' reads summed 1229 s and 1109 s over 120, the fixtures' builds 2896 s and 3385 s; 606 of 610 C++ fixtures over 18, 608 over 21 |
+| 0.193 | exceptions in libc++ on by default, as clang++ has them; `-fno-exceptions` gives the no-exceptions configuration; the nothrow traits and `noexcept(e)` answer the declarations | `__cpp_exceptions` and `__EXCEPTIONS` predefined in C++ unless `-fno-exceptions`, a summary read under it keyed apart; every C++ program's calls under the EH rules and its noexcept functions guarded; under `-fno-exceptions` the program's `throw` and `try` refused by name; the nothrow traits by the declared, implicit and defaulted members (a vector grows through `std::move_if_noexcept`); `noexcept(e)` over a library call by the library's declarations, a header's noexcept free functions carried by its summary apart from the program's; `std::bad_cast` and `std::bad_typeid` thrown; the safe part enters a handler from any point of its try's body | all nine gates GREEN over libc++ 18, the two libc++ gates over 21; the headers' reads summed 1454 s and 1175 s over 123, the fixtures' builds 3296 s and 3237 s; 611 of 615 C++ fixtures over 18, 613 over 21 |
 
 ## M5 — the C++ mode
 
@@ -12259,3 +12260,90 @@ the stack. The C++ gate builds two units apart and links them.**
 Reader 143 and lowering 105 (the IR of such programs: a closure's and a local class's name, the inline variables and
 their guards, the internal const variables, the type information of an unnamed namespace's types, the statement's
 temporary in place).
+
+## 0.193 — exceptions in libc++ on by default, as clang++ has them; -fno-exceptions gives the no-exceptions configuration; the nothrow traits and noexcept(e) answer the declarations
+
+**0.193: the second of the owner's decisions of 0.190. `__cpp_exceptions` and `__EXCEPTIONS` are predefined in C++, so
+libc++ builds its exceptions configuration: what its headers throw is thrown and reaches the program's handlers, its
+try blocks are there, and a vector grows through `std::move_if_noexcept`. `-fno-exceptions` gives the configuration this
+compiler built from 0.50 to 0.192 and refuses the program's own `throw` and `try`, as clang++ does. The nothrow traits
+and the operator `noexcept(e)` over a library call answer the declarations, a failed `dynamic_cast` to a reference throws `std::bad_cast` and `typeid(*p)` of a null `p`
+`std::bad_typeid`, and the safe part enters a handler from any point of its try's body.**
+
+- THE CONFIGURATION (`library/ccl_pp.pl`): `__cpp_exceptions` (199711L) and `__EXCEPTIONS` (1) are the predefined table
+  `cpp_eh`'s, which `pp_predef_macro/3` asks in C++ unless `'$ccl_exceptions'` is `no`; `dr_setup/2` sets it from the
+  option `no_exceptions`, which `bin/cicilang` gives for `-fno-exceptions` and `-fno-cxx-exceptions` (`-fexceptions` and
+  `-fcxx-exceptions` take it back, the last of the four winning). A summary read under it is keyed apart,
+  `@no-exceptions` (`ccl_config_key/1`, `library/ccl_include.pl`), and `test/libcxx.sh` warms a fixture's headers under
+  the flag its `.flags` names.
+- EVERY C++ PROGRAM LOWERS ITS CALLS UNDER THE EH RULES in the exceptions configuration (`library/ccl_ir.pl`, `'$ir_eh'`):
+  a call under a try or a scope with defers is an `invoke`, its landing pad running the defers of the scopes it leaves;
+  before, only a program that threw or caught did. Its noexcept functions are guarded by a terminate handler
+  (`'$cpp_throws'` in `library/ccl_cpp.pl`, `cpp_nx_wrap`), and its coroutines by the promise's `unhandled_exception`.
+- `-fno-exceptions` REFUSES THE PROGRAM'S `throw` AND `try` (`cpp_eh_needed/1`): `throw_requires_exceptions` and
+  `try_requires_exceptions`, as clang++ refuses them (`cannot use 'throw' with exceptions disabled`); never a header's
+  code, nor the desugaring's own terminate guard. `test/cpp/thrownoexc.cpp`, `trynoexc.cpp`.
+- THE NOTHROW TRAITS ANSWER THE DECLARATIONS (`cpp_nothrow_ctor/2`, `cpp_nothrow_assign/2`, `cpp_nothrow_parts/2`):
+  `__is_nothrow_constructible`, `__is_nothrow_assignable` and `__is_nothrow_convertible` were the plain traits.
+  `nothrowtraits.cpp`: a class with a throwing move and a copy is copied by `std::move_if_noexcept` and by a vector's
+  growth, one with a noexcept move moved, the traits of declared, implicit and defaulted members. `noexcgrow.cpp`
+  (`-fno-exceptions`): the same vector moves its element.
+- `noexcept(e)` OVER A LIBRARY CALL ANSWERS THE LIBRARY'S DECLARATIONS (`cpp_nx_throwing/1`, `cpp_nx_method_quals/3`,
+  `cpp_nx_lib_fn/1`): a member function of a library class -- its own, a member template's, else the first base's that
+  declares the name -- is potentially throwing where none of its declarations of the name is noexcept, and a free function
+  or a function template of a header, called by its name or a qualified one, where no noexcept declaration of the header
+  names it. A header's read sets the program's set of noexcept names aside as it sets the templates aside
+  (`ccl_seed_read/2`): its own go to the library's set `'$ccl_lnxs'` (`ccl_lib_nothrow/1`) and into its summary,
+  `nothrow(N)` lines (`ccl_sum_nothrow/2`, read back as `nx(N)` with the templates), and the program's set is put back as
+  it was -- so a header flattened in the process answers as one served from its summary does, and a program's own
+  `swap` is not noexcept because a header declares one so. A library call counted as noexcept until 0.193.
+  `noexceptlib.cpp`.
+- `std::bad_cast` AND `std::bad_typeid`: a failed `dynamic_cast` to a reference calls `__cxa_bad_cast` (it called
+  `abort`), and `typeid(*p)` tests p and calls `__cxa_bad_typeid` for a null one (the table was read through null).
+- THE SAFE PART (`library/ccl_check.pl`, `ck_try_body/4`, `ck_try_note/1`): a handler starts from the join of its try's
+  entry, its exit and the state before each statement of its body, each cut to the try's own frames: an owner the body
+  freed before a call that threw was taken as live in the handler and freed again. `test/cpp/tryowner.cpp` is refused,
+  `use after move of`: its body frees the owner and then calls what may throw, and its handler frees the owner again.
+- FIXTURES: `ehlib.cpp` (the library's throws caught: `vector::at`, `map::at`, `optional::value`, an empty
+  `std::function`, `std::get` of a variant, `substr`, `std::stoi`, `bad_cast`, `bad_typeid`, and the destructors of the
+  scopes left), `iosfailure.cpp` (`ios_base::failure` from a stream's exceptions mask), `nothrowtraits.cpp`,
+  `noexcgrow.cpp`, `noexceptlib.cpp`; each clang++'s output over libc++ 18 and 21. `stdiosexc.cpp`'s comment says what it measures now.
+- THE COST, measured before the `noexcept(e)` part was written (it changes no IR of these fixtures, below): eight warm C++
+  builds over libc++ 18 (`counter`, `stdvector`, `stdmap`, `stdtuple`, `stdformat`, `stdstringstream`, `stdfunction`,
+  `viewchain`), one at a time, the least CPU time of three interleaved rounds each (`abc193.py`, session scratch): 0.192
+  146.16 s, 0.193 153.82 s (5.2 % more), 0.193 under `-fno-exceptions` 144.23 s (1.3 % less than 0.192); the most over
+  0.192 `stdvector` 3.20 s to 4.08 s, `stdmap` 5.13 s to 5.84 s, `stdfunction` 17.76 s to 19.60 s, `viewchain` 25.98 s
+  to 27.33 s, `stdformat` 39.13 s to 40.94 s. The IR (`-S -emit-llvm`) of six fixtures: `counter` 8,878 bytes to 15,134
+  (12 invokes and their landing pads), `stdvector` 224,299 to 255,133 (42), `stdmap` 327,739 to 380,997 (79),
+  `stdstringstream` 501,915 to 713,634 (256), `stdfunction` 963,673 to 1,112,464 (177), `stdformat` 1,862,182 to
+  2,088,294 (406); under `-fno-exceptions` each is 0.192's, byte for byte but the unit's tag in its closures' names,
+  which folds the configuration. A call under a try or a scope with defers is an `invoke` whatever its callee: a callee
+  declared noexcept, a C function among them, gets a landing pad it never uses (Not done).
+- THE NET, before the chain: the flow gate GREEN over the final library (its one finding, 94 s, peak 3111 MB); the library
+  read over a fresh HOME GREEN, the 23 asserted reads whole and 100 other headers warmed, 357 s at peak 760 MB (0.192's
+  chain 334 s); 67 fixtures over that HOME, built and compared as the C++ gate does -- the exceptions, RTTI, coroutine,
+  container, format, stream, thread and static-object ones -- all clang++'s output (562 s of builds over three lanes),
+  and 17 of them over libc++ 21 and a fresh HOME, all clang++'s output; `tryowner.cpp` refused, `thrownoexc.cpp` and
+  `trynoexc.cpp` refused as clang++ -fno-exceptions refuses them; the IR of the six fixtures measured above the same,
+  byte for byte, over the final library.
+- THE CHAIN OF 0.193, over a fresh worktree of its commit and fresh HOMEs (the reader version moved), on cocolog 2.11.1,
+  12:21:32 to 13:13:37 UTC: ALL GREEN. Over libc++ 18: the flow gate 107 s (peak 3085 MB, its one finding), reader 5 s,
+  compile 15 s, driver 15 s, objects 5 s, the proof, the cross gate 300 s (peak 481 MB), the library read 393 s (peak
+  822 MB; the 23 asserted reads whole, 100 other headers warmed), the C++ gate 982 s (peak 2268 MB), 611 of 615 fixtures
+  ok (skips `joinwith`, `stdoptionalref`, `tzone`, `zipadjacent`), the cold build's processes, the two units, the 28
+  refusals and the four of the safe part; over libc++ 21 the library read 318 s (peak 720 MB) and the C++ gate 965 s
+  (peak 2196 MB), 613 of 615 (skips `stdoptionalref`, `zipadjacent`). The headers' reads summed 1454 s over 123 and 1175
+  s over 123 (0.192's 1229 s and 1109 s over 120), the fixtures' builds 3296 s over 611 and 3237 s over 613 (0.192's
+  2896 s over 606 and 3385 s over 608; clang's builds of the next step's probes, small C and C++ programs, ran beside
+  both passes one at a time, and the builds count them); the slowest over 18 `fmtrange` 145 s, `fmtchrono2` 135 s,
+  `fmtchrono` 120 s, `fmtcheck` 96 s, `fmttuple` 92 s, `viewsall` 83 s, over 21 `fmtchrono2` 110 s, `fmtchrono` 99 s,
+  `viewsall` 93 s, `fmtrange` 81 s, `joinwith` 74 s, `fmtcheck` 73 s.
+- `CLAUDE.md`: the versions (and the two version bullets, which still said 143 and 105); the configuration (the macros
+  topic), `-fno-exceptions` (Arguments), the summary cache's key and its `nothrow/1` lines, the seed read, the library
+  read's warm; the Exceptions topic, `noexcept(e)` over a library call among it; the nothrow traits; the safe part's
+  handler; the refusals' table and the safe part's refusals; a fixture's `.flags`; What runs (the forms of 0.193, the
+  refusals); Hosts (the last full run); Not done (the owner's second decision done; three lines that still said libc++
+  aborts where it throws now; an owner across a throwing call outside a try; the invoke of a call that cannot throw).
+
+Reader 145 (every libc++ header flattens in its exceptions configuration, and a summary names the header's noexcept free
+functions; 144 was this step's first form, never committed) and lowering 106 (every C++ program's calls).

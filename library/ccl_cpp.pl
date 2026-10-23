@@ -285,7 +285,7 @@ cpp_register_units(Units) :-
     cpp_reset('$cpp_fn'/5), cpp_reset('$cpp_nested'/5), cpp_reset('$cpp_nested_out'/1), cpp_reset('$cpp_union'/1), cpp_reset('$cpp_nonpod'/1), cpp_reset('$cpp_default_ctor'/1), cpp_reset('$cpp_iname'/3), nb_setval('$cpp_nesting', []), cpp_reset('$cpp_hdr_ns'/2), dynamic('$cpp_hdr_ast_ns'/2), cpp_reset('$cpp_cname'/1), nb_setval('$cpp_gvar', []), nb_setval('$cpp_fn_refusal', none),
     ( nb_current('$cpp_trace', _) -> true ; nb_setval('$cpp_trace', no) ),
     forall(member(unit(Is), Units), cpp_note_fns(Is)), forall(member(unit(Is), Units), cpp_note_bases(Is)),                                 % the free functions FIRST: a name is overloaded or not before any call to it is read
-    ( cpp_term_mentions_functor(Units, throw) -> nb_setval('$cpp_throws', yes) ; nb_setval('$cpp_throws', no) ),   % the program throws: its noexcept functions are guarded (cpp_nx_wrap)
+    ( ( \+ nb_current('$ccl_exceptions', no) ; cpp_term_mentions_functor(Units, throw) ) -> nb_setval('$cpp_throws', yes) ; nb_setval('$cpp_throws', no) ),   % the program throws, or libc++ does (its exceptions configuration, 0.193): the program's noexcept functions are guarded (cpp_nx_wrap)
     cpp_reset('$cpp_extern_var'/1), forall(member(unit(Is), Units), cpp_note_extern_vars(Is)),   % the variables declared `extern', whose definitions keep external linkage (cpp_inline_storage/3, 0.192)
     cpp_reset('$cpp_hdr_pre'/2), forall(member(unit(Is), Units), cpp_register_(Is)),
     forall(member(unit(Is), Units), cpp_include_fns(Is)),                                % the program's own headers' functions, once every name is registered
@@ -3412,9 +3412,9 @@ cpp_expr(Ctx, typeid(X), E) :- !, cpp_rtti_needed(typeid_requires_rtti), cpp_exp
 %% the two type_info objects, null for a null pointer; `dynamic_cast<void *>' is the complete object (offset-to-top);
 %% a reference that does not convert aborts, as a throw of bad_cast with exceptions off would
 cpp_expr(Ctx, ccast(dynamic, T0, X), E) :- !, cpp_type(T0, T), cpp_expr(Ctx, X, X1), cpp_dynamic_cast(T, X1, E).
-cpp_expr(_, throw(none), eh_rethrow) :- !, nb_setval('$cpp_eh_used', yes).
+cpp_expr(_, throw(none), eh_rethrow) :- !, cpp_eh_needed(throw_requires_exceptions), nb_setval('$cpp_eh_used', yes).
 cpp_expr(Ctx, throw(E), stmt_expr(block([declaration(0, none, VP, [var(X, VP, eh_alloc(sizeof_type(T)))]), expr(0, NewE), expr(0, eh_throw(id(X), R, D))]))) :- !,
-    nb_setval('$cpp_eh_used', yes),
+    cpp_eh_needed(throw_requires_exceptions), nb_setval('$cpp_eh_used', yes),
     (   E = call(id(C), As), atom(C), cpp_class_l(C, _), cpp_has_ctors(C)                % `throw E(2)': the object made IN the exception's memory, C++17's guaranteed elision (0.110) -- it had been built in a temporary and copied, and the temporary never destroyed
     ->  cpp_type(base([], [typedef(C)]), T), cpp_exprs(Ctx, As, Args)
     ;   cpp_expr(Ctx, E, E1),
@@ -3665,6 +3665,10 @@ cpp_dynamic_cast(T, _, _) :- cpp_refuse(0, dynamic_cast_to(T)).
 %% *>' need none. A header's code is refused alike: libc++'s no-RTTI configuration guards its own typeids, and leaves
 %% `std::dynamic_pointer_cast' unguarded, which clang++ -fno-rtti refuses where a program calls it
 cpp_rtti_needed(What) :- ( nb_current('$ccl_rtti', no) -> cpp_refuse(0, What) ; true ).
+%% -fno-exceptions (0.193): the program's own `throw' and `try' are refused, as clang++ -fno-exceptions refuses them
+%% (`cannot use 'throw' with exceptions disabled'); libc++'s no-exceptions configuration guards its own, and the
+%% desugaring's terminate guard of a noexcept function (cpp_nx_wrap) is none of the program's
+cpp_eh_needed(What) :- ( nb_current('$ccl_exceptions', no), nb_getval('$cpp_in_lib', no) -> cpp_refuse(0, What) ; true ).
 
 %% the store of the table's address, first thing after the base was constructed
 cpp_vptr_store(L, C, [expr(L, assign('=', arrow(this, '$vptr'), cast(ptr([], base([], [struct(VT, none)])), addr(member(id(Table), '$vt')))))|Secs]) :-
@@ -4922,7 +4926,7 @@ cpp_stmt_(Ctx, coro_suspend(L, K, E0), coro_suspend(L, K, E, SK)) :- !, cpp_expr
 %% matched by that type_info in the lowering's landing pads, which also run the destructors and defers of every scope
 %% the exception leaves (ir_landing_pad). A handler binds its parameter to the caught object: by reference as C++
 %% says, and a class caught BY VALUE is bound to the object itself rather than a copy (named, not done).
-cpp_stmt_(Ctx, try(L, Body, Catches), try(L, Body1, Catches1)) :- !, nb_setval('$cpp_eh_used', yes),
+cpp_stmt_(Ctx, try(L, Body, Catches), try(L, Body1, Catches1)) :- !, ( Catches = [catch(terminate, _)] -> true ; cpp_eh_needed(try_requires_exceptions) ), nb_setval('$cpp_eh_used', yes),
     cpp_stmt(Ctx, Body, Body1), cpp_catches(Ctx, Catches, Catches1).
 cpp_stmt_(Ctx, if(L, C, T, E), if(L, C2, T1, E1)) :- !, cpp_expr(Ctx, C, C1), cpp_to_bool(C1, C2), cpp_stmt(Ctx, T, T1), ( E == none -> E1 = none ; cpp_stmt(Ctx, E, E1) ).
 cpp_stmt_(Ctx, while(L, C, S), while(L, C2, S1)) :- !, cpp_cond_once(Ctx, L, C, C2), cpp_stmt(Ctx, S, S1).
@@ -5981,11 +5985,15 @@ cpp_scalar_ordering(A, B, bin('-', bin('>', A, B), bin('<', A, B))).
 cpp_ordering_class(Kind, C) :- ( Kind == partial -> C = partial_ordering ; Kind == weak -> C = weak_ordering ; C = strong_ordering ),
     ( cpp_class_l(C, _) -> true ; cpp_hdr_item(C, _), cpp_hdr_join(C), cpp_class_l(C, _) ).
 cpp_ordering_value(C, V, compound_lit(base([], [typedef(C)]), init([item([], cast(base([], [signed, char]), V))]))).
-%% ... AND FALSE FOR A CALL OF A FUNCTION THE PROGRAM DEFINES WITHOUT `noexcept' (0.110; [expr.unary.noexcept]/3: a
+%% ... AND FALSE FOR A CALL OF A FUNCTION DECLARED WITHOUT `noexcept' (0.110; [expr.unary.noexcept]/3: a
 %% potentially-throwing function called): a free function of the program's own whose name no noexcept declaration
 %% noted (ccl_nothrow, the reader's), or a method of the program's own class none of whose overloads of that name is
-%% declared noexcept. A library function stays true, as libc++ runs its no-exceptions configuration (0.50) and its
-%% summaries do not carry the mark; a destructor is implicitly noexcept ([except.spec]/9).
+%% declared noexcept; AND A LIBRARY'S (0.193, libc++'s exceptions configuration): a free function or function template
+%% that a header declares and whose name no noexcept declaration of the header noted (ccl_lib_nothrow/1, the library's
+%% set, which a summary carries), called by its name or a qualified one (`std::stoi(s)', `std::max(a, b)'), and a member
+%% function of a library class -- its own, a member template's, else the first base's that declares the name -- none of
+%% whose declarations of the name is noexcept (`v.at(0)', `s.c_str()' noexcept). Until 0.193 a library function stayed
+%% true, as libc++ ran its no-exceptions configuration (0.50). A destructor is implicitly noexcept ([except.spec]/9).
 cpp_nx_throws(E) :- cpp_term_mentions_functor(E, throw), !.
 cpp_nx_throws(E) :- cpp_nx_call(E, C), cpp_nx_throwing(C), !.
 %% NOEXCEPT ENFORCED (0.110; [except.spec]/5): an exception that leaves a noexcept function calls std::terminate. Where
@@ -5999,10 +6007,24 @@ cpp_nx_wrap(_, B, B).
 cpp_nx_call(T, T) :- compound(T), T = call(_, _).
 cpp_nx_call(T, C) :- compound(T), T \= noexcept_expr(_), T \= lambda(_, _, _, _), T =.. [_|As], member(A, As), cpp_nx_call(A, C).
 cpp_nx_throwing(call(id(F), _)) :- atom(F), \+ ccl_nothrow(F), '$cpp_fn'(F, _, _, yes, own(_)), \+ ccl_declared(F, ptr(_, _)).
+cpp_nx_throwing(call(id(F), _)) :- atom(F), \+ '$cpp_fn'(F, _, _, yes, own(_)), \+ cpp_local(F), \+ ccl_lib_nothrow(F), \+ ccl_nothrow(F), cpp_nx_lib_fn(F).
+cpp_nx_throwing(call(scoped(_, F), As)) :- atom(F), cpp_nx_throwing(call(id(F), As)).   % `std::stoi(s)': the name as the flattening has it
 cpp_nx_throwing(call(member(O, M), _)) :- atom(M), cpp_class_of_type_of(O, C), cpp_nx_method_throws(C, M).
 cpp_nx_throwing(call(arrow(P, M), _)) :- atom(M), ccl_type_of(P, T), ccl_unref(T, ptr(_, PT)), cpp_class_of_type(PT, C), cpp_nx_method_throws(C, M).
-cpp_nx_method_throws(C, M) :- \+ cpp_lib_class(C), cpp_class(C, cls(_, _, Ms, _, _, _)),
-    findall(Qs, member(method(_, Qs, _, M, _, _, _), Ms), QL), QL \== [], \+ ( member(Qs, QL), memberchk(noexcept, Qs) ).
+cpp_nx_method_throws(C, M) :- cpp_nx_method_quals(C, M, QL), QL \== [], \+ ( member(Qs, QL), memberchk(noexcept, Qs) ).
+%% the qualifiers of each declaration of the member function M of C, a member template's among them, else of the first base
+%% that declares the name ([class.member.lookup]), [] where none does
+cpp_nx_method_quals(C, M, QL) :- catch(cpp_class(C, cls(_, _, Ms, _, _, _)), error(not_lowered(_), _), fail), !,
+    findall(Qs, ( member(method(_, Qs, _, M, _, _, _), Ms) ; '$cpp_mt'(C, _, _, method(_, Qs, _, M, _, _, _)) ), QL0),
+    (   QL0 \== [] -> QL = QL0
+    ;   cpp_base_scope(C, B), atom(B), cpp_nx_method_quals(B, M, QL1), QL1 \== [] -> QL = QL1
+    ;   QL = [] ).
+cpp_nx_method_quals(_, _, []).
+%% a free function or a function template that a LIBRARY header declares: its items in the header index
+cpp_nx_lib_fn(F) :- cpp_hdr_item(F, I), cpp_nx_fn_item(I), !.
+cpp_nx_fn_item(function(_, _, _, _, _, _, _)).
+cpp_nx_fn_item(declaration(_, _, _, Vs)) :- member(var(_, fn(_, _, _), _), Vs), !.
+cpp_nx_fn_item(template(_, _, I)) :- cpp_nx_fn_item(I).
 cpp_term_mentions_functor(T, F) :- compound(T), ( functor(T, F, _) -> true ; T =.. [_|As], member(A, As), cpp_term_mentions_functor(A, F) ), !.
 %% THE AWAITER ([expr.await]/3.3; 0.110): the awaitable's `operator co_await', a member or a free one, where it has one
 cpp_coro_awaiter(_, Op0, call(member(Op0, operator(co_await)), [])) :- cpp_coro_class(Op0, C), cpp_has_member(C, operator(co_await)), !.
@@ -9424,15 +9446,63 @@ cpp_offsetof(T, [N|_], _, _) :- cpp_refuse(0, no_member(N, T)).
 cpp_trait_types([], []).
 cpp_trait_types([A|As], [T|Ts]) :- cpp_trait_type(A, T), cpp_trait_types(As, Ts).
 %% the traits over two or more types, decided over the registry: a scalar constructs from and converts to what
-%% C++ converts, a class through its constructors, its conversion operators, its bases; nothing throws here, so
-%% the nothrow forms are the plain ones, and the trivial ones ask for no user-written special member
-cpp_trait_n(N, T, Args, V) :- memberchk(N, ['__is_constructible', '__is_nothrow_constructible']), !, ( cpp_constructible(T, Args) -> V = true ; V = false ).
+%% C++ converts, a class through its constructors, its conversion operators, its bases; the trivial ones ask for no
+%% user-written special member, and the NOTHROW ones answer the declarations (0.193, below)
+cpp_trait_n('__is_constructible', T, Args, V) :- !, ( cpp_constructible(T, Args) -> V = true ; V = false ).
+cpp_trait_n('__is_nothrow_constructible', T, Args, V) :- !, ( cpp_constructible(T, Args), cpp_nothrow_q(cpp_nothrow_ctor(T, Args)) -> V = true ; V = false ).
 cpp_trait_n('__is_trivially_constructible', T, Args, V) :- !, ( cpp_constructible(T, Args), cpp_trivial_type(T) -> V = true ; V = false ).
-cpp_trait_n(N, T, [F], V) :- memberchk(N, ['__is_assignable', '__is_nothrow_assignable']), !, ( cpp_assignable(T, F) -> V = true ; V = false ).
+cpp_trait_n('__is_assignable', T, [F], V) :- !, ( cpp_assignable(T, F) -> V = true ; V = false ).
+cpp_trait_n('__is_nothrow_assignable', T, [F], V) :- !, ( cpp_assignable(T, F), cpp_nothrow_q(cpp_nothrow_assign(T, F)) -> V = true ; V = false ).
 cpp_trait_n('__is_trivially_assignable', T, [F], V) :- !, ( cpp_assignable(T, F), cpp_trivial_type(T) -> V = true ; V = false ).
-cpp_trait_n(N, F, [T], V) :- memberchk(N, ['__is_convertible', '__is_convertible_to', '__is_nothrow_convertible']), !, ( cpp_convertible(F, T) -> V = true ; V = false ).
+cpp_trait_n(N, F, [T], V) :- memberchk(N, ['__is_convertible', '__is_convertible_to']), !, ( cpp_convertible(F, T) -> V = true ; V = false ).
+cpp_trait_n('__is_nothrow_convertible', F, [T], V) :- !, ( cpp_convertible(F, T), cpp_nothrow_q(cpp_nothrow_ctor(T, [F])) -> V = true ; V = false ).
 cpp_trait_n('__is_base_of', B, [D], V) :- !, ( cpp_base_of(B, D) -> V = true ; V = false ).
 cpp_trait_n('__is_same_as', A, [B], V) :- !, ( cpp_same_type(A, B) -> V = true ; V = false ).
+%% THE NOTHROW TRAITS ANSWER THE DECLARATIONS (0.193; [meta.unary.prop]: `T t(declval<Args>()...)' known not to throw;
+%% [except.spec]/8, /10: an implicit or defaulted special member is noexcept where each sub-object's own is): a scalar's
+%% construction and assignment never throw; a class's copy or move is its copy or move constructor's or assignment's
+%% declared `noexcept' -- a move that the class does not declare beside a copy it declares is the copy ([class.copy.ctor]/8)
+%% -- else the implicit one's, every data member's and base sub-object's (`$base', `$vb' ...) nothrow; its default
+%% construction the declared default constructor's, else the implicit one's, the members' and their default member
+%% initializers' (one that calls is taken as throwing); any other construction or assignment of the arity asked nothrow
+%% where every candidate of that arity is declared `noexcept' (a constructor template among them). They were the plain
+%% traits, which only libc++'s no-exceptions configuration could take: its exceptions configuration asks them in
+%% `std::move_if_noexcept', and a vector grows by COPYING an element whose move constructor may throw where it has a copy.
+cpp_nothrow_q(G) :- catch(once(G), error(not_lowered(_), _), true).   % a refusal met while asking: the plain trait's answer, as before
+cpp_nothrow_ctor(T0, Args) :- ccl_unref(T0, T1), ( cpp_class_of_type(T1, C) -> cpp_nothrow_ctor_c(C, Args) ; true ).
+cpp_nothrow_ctor_c(C, [F0]) :- ccl_unref(F0, F1), cpp_class_of_type(F1, C), !, ( F0 = ref(_, _) -> K = ref ; K = rref ), cpp_nothrow_copy(C, K).
+cpp_nothrow_ctor_c(C, []) :- !, cpp_nothrow_default(C).
+cpp_nothrow_ctor_c(C, Args) :- length(Args, N), cpp_class(C, cls(_, _, Ms, _, _, _)),
+    findall(Qs, ( ( member(ctor(_, Qs, Ps, _, _), Ms) ; '$cpp_mt'(C, ctor, _, ctor(_, Qs, Ps, _, _)) ), cpp_arity(Ps, Min, Max), N >= Min, ( Max == any ; N =< Max ) ), Qss),
+    Qss \== [], forall(member(Qs, Qss), memberchk(noexcept, Qs)).
+cpp_nothrow_copy(C, K) :- cpp_class(C, cls(_, _, Ms, _, _, _)),
+    (   member(ctor(_, Qs, [P], I, _), Ms), I \= memberwise(_, _), cpp_special_param(P, C, K) -> memberchk(noexcept, Qs)
+    ;   K == rref, \+ ( member(ctor(_, _, [P], _, _), Ms), cpp_special_param(P, C, rref) ), member(ctor(_, Qs, [P], I, _), Ms), I \= memberwise(_, _), cpp_special_param(P, C, ref) -> memberchk(noexcept, Qs)
+    ;   cpp_nothrow_parts(C, copy(K)) ).
+cpp_nothrow_default(C) :- cpp_class(C, cls(_, _, Ms, _, _, _)),
+    (   member(ctor(_, Qs, Ps, I, _), Ms), I \= memberwise(_, _), cpp_params_no_args(Ps) -> memberchk(noexcept, Qs)
+    ;   cpp_nothrow_parts(C, default), \+ ( cpp_class_l(C, cls(_, _, _, Ds, _)), cpp_term_mentions_functor(Ds, call) ) ).
+cpp_nothrow_assign(T0, F0) :- ccl_unref(T0, T1),
+    (   cpp_class_of_type(T1, C)
+    ->  (   ccl_unref(F0, F1), cpp_class_of_type(F1, C) -> ( F0 = ref(_, _) -> K = ref ; K = rref ), cpp_nothrow_assign_c(C, K)
+        ;   cpp_class(C, cls(_, _, Ms, _, _, _)), findall(Qs, member(method(_, Qs, _, operator('='), [_], _, _), Ms), Qss), Qss \== [], forall(member(Qs, Qss), memberchk(noexcept, Qs)) )
+    ;   true ).
+cpp_nothrow_assign_c(C, K) :- cpp_class(C, cls(_, _, Ms, _, _, _)),
+    (   member(method(_, Qs, _, operator('='), [P], _, _), Ms), cpp_special_param(P, C, K) -> memberchk(noexcept, Qs)
+    ;   K == rref, \+ ( member(method(_, _, _, operator('='), [P], _, _), Ms), cpp_special_param(P, C, rref) ), member(method(_, Qs, _, operator('='), [P], _, _), Ms), cpp_special_param(P, C, ref) -> memberchk(noexcept, Qs)
+    ;   cpp_nothrow_parts(C, assign(K)) ).
+%% the implicit member's: each data member's and base sub-object's own (an array's element's; a scalar's and a reference's never throws)
+cpp_nothrow_parts(C, Op) :- cpp_class_l(C, cls(_, Data, _, _, _)), forall(member(member(MT, _, _), Data), cpp_nothrow_part(MT, Op)).
+cpp_nothrow_part(T0, Op) :- catch(ccl_resolve_type(T0, T), _, fail), !,
+    (   T = arr(_, E) -> cpp_nothrow_part(E, Op)
+    ;   ( T = ref(_, _) ; T = rref(_, _) ) -> true
+    ;   cpp_class_of_type(T, D) -> ( Op == default -> cpp_nothrow_default(D) ; Op = copy(K) -> cpp_nothrow_copy(D, K) ; Op = assign(K) -> cpp_nothrow_assign_c(D, K) )
+    ;   true ).
+cpp_nothrow_part(_, _).
+%% a parameter of a copy or a move -- `const C &' (K ref) or `C &&' (K rref), the class named as written or through its words
+cpp_special_param(P, C, K) :- ( P = param(PT0, _) ; P = param(PT0, _, _) ), ( PT0 = ref(_, _) -> K0 = ref ; PT0 = rref(_, _) -> K0 = rref ), K0 == K,
+    (   PT0 =.. [_, _, base(_, [typedef(C)])] -> true
+    ;   catch(cpp_in_class(C, cpp_param_ref(PT0, PT1)), error(not_lowered(_), _), fail), ccl_unref(PT1, PT2), cpp_class_of_type(PT2, C) ), !.
 cpp_base_of(B, D) :- cpp_class_of_type(B, CB), cpp_class_of_type(D, CD), cpp_derives(CD, CB), !.
 cpp_base_of(B, D) :- \+ cpp_class_of_type(B, _), \+ cpp_class_of_type(D, _), ccl_resolve_type(B, base(_, [struct(S, _)])), atom(S), S \== anon, ccl_resolve_type(D, base(_, [struct(S, _)])).   % A PLAIN STRUCT IS ITS OWN BASE ([meta.rel]: `is_base_of<T, T>' holds for a class that is no union; 0.126): a struct of data members alone is no registered class and has no base, so only itself. Else libc++ 18's `__invoke' overloads for a pointer to a data member (`__enable_if_bullet4': `is_base_of<_ClassT, _DecayA0>') were all disabled for `std::invoke(&Pt::x, p)' and the generic callable one was chosen (invokedata.cpp)
 %% A CLASS DERIVES FROM EVERY BASE IT NAMES, the first or a later one, empty or with storage (0.112; [class.derived]):

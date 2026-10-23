@@ -1,0 +1,14 @@
+~Guard at
+out_of_range
+~Guard deep
+~Guard deep
+caught through deep
+bad_optional_access
+bad_function_call
+bad_variant_access
+substr out_of_range
+map out_of_range
+invalid_argument
+bad_cast
+bad_typeid
+exit 0

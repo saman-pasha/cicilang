@@ -1,5 +1,5 @@
-// The exceptions mask of a stream: set and read back; with no exceptions in libc++'s configuration a failure only sets
-// the state (the mask is kept, and nothing is thrown that the program could catch).
+// The exceptions mask of a stream: set and read back; a failed read sets failbit, which a mask of badbit does not hold,
+// so nothing is thrown (iosfailure.cpp throws through a mask of failbit, 0.193).
 #include <cstdio>
 #include <sstream>
 int main() {

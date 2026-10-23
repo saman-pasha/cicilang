@@ -62,7 +62,7 @@ optional 26 200"
 ccl_union() {
   for f in "$ROOT"/test/cpp/*.cpp "$ROOT"/test/cpp/run/*.cpp "$CICILI"/test/cpp/*.cpp; do
     std=17; cfg=-; fl="${f%.cpp}.flags"; [ -f "$fl" ] && std=$(sed -n 's/.*-std=c++\([0-9]*\).*/\1/p' "$fl"); [ -n "$std" ] || std=17
-    [ -f "$fl" ] && cfg=$(tr ' ' '\n' < "$fl" | grep -x -e '-fno-rtti' | sort | tr '\n' ',' | sed 's/,$//'); [ -n "$cfg" ] || cfg=-
+    [ -f "$fl" ] && cfg=$(tr ' ' '\n' < "$fl" | grep -x -e '-fno-rtti' -e '-fno-exceptions' | sort | tr '\n' ',' | sed 's/,$//'); [ -n "$cfg" ] || cfg=-
     sed -n 's/^#include <\([^>]*\)>.*/\1/p' "$f" | sed "s/^/$std $cfg /"
   done | sort -u
 }
