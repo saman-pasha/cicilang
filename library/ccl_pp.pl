@@ -292,7 +292,7 @@ pp_skip_quoted([], _, []).
 pp_skip_quoted([92, _|R], Q, R1) :- !, pp_skip_quoted(R, Q, R1).
 pp_skip_quoted([Q|R], Q, R) :- !.
 pp_skip_quoted([_|R], Q, R1) :- pp_skip_quoted(R, Q, R1).
-pp_ident_start(C) :- ( C >= 0'a, C =< 0'z ; C >= 0'A, C =< 0'Z ; C == 0'_ ), !.
+pp_ident_start(C) :- ( C >= 0'a, C =< 0'z ; C >= 0'A, C =< 0'Z ; C == 0'_ ; C >= 128 ), !.   % a character past ASCII is an identifier's (0.196)
 pp_take_ident([C|R], [C|Id], R1) :- ( pp_ident_start(C) ; C >= 0'0, C =< 0'9 ), !, pp_take_ident(R, Id, R1).
 pp_take_ident(R, [], R).
 pp_take_number([C|R], R1) :- ( pp_ident_start(C) ; C >= 0'0, C =< 0'9 ; C == 39 ; C == 0'. ), !, pp_take_number(R, R1).
@@ -499,8 +499,8 @@ pp_spell(_, []).
 pp_dec_suffix(dec32, [0'd, 0'f]).  pp_dec_suffix(dec64, [0'd, 0'd]).  pp_dec_suffix(dec128, [0'd, 0'l]).
 pp_imag_suffix(imagi, [0'i]).   pp_imag_suffix(imagui, [0'u, 0'i]).   pp_imag_suffix(imagli, [0'l, 0'i]).   pp_imag_suffix(imaguli, [0'u, 0'l, 0'i]).
 pp_imag_suffix(imaglli, [0'l, 0'l, 0'i]).   pp_imag_suffix(imagulli, [0'u, 0'l, 0'l, 0'i]).   % (0.179)
-pp_str_prefix(wstr, [0'L]).    pp_str_prefix(u16str, [0'u]).    pp_str_prefix(u32str, [0'U]).
-pp_chr_prefix(wchr, [0'L]).    pp_chr_prefix(u16chr, [0'u]).    pp_chr_prefix(u32chr, [0'U]).
+pp_str_prefix(wstr, [0'L]).    pp_str_prefix(u16str, [0'u]).    pp_str_prefix(u32str, [0'U]).    pp_str_prefix(u8str, [0'u, 0'8]).   % u8 (0.196)
+pp_chr_prefix(wchr, [0'L]).    pp_chr_prefix(u16chr, [0'u]).    pp_chr_prefix(u32chr, [0'U]).    pp_chr_prefix(u8chr, [0'u, 0'8]).
 pp_escape([], []).
 pp_escape([34|Cs], [92, 34|Es]) :- !, pp_escape(Cs, Es).
 pp_escape([92|Cs], [92, 92|Es]) :- !, pp_escape(Cs, Es).
@@ -577,7 +577,7 @@ pp_do_line(W, R, L) :- W \== [], number_codes(N, W), pp_current_file(F0), nb_get
 pp_do_line(_, _, _).
 pp_ws([C|Cs], R) :- ( C =:= 32 ; C =:= 9 ), !, pp_ws(Cs, R).
 pp_ws(Cs, Cs).
-pp_word([C|Cs], [C|W], R) :- ( C >= 0'a, C =< 0'z ; C >= 0'A, C =< 0'Z ; C =:= 0'_ ; C >= 0'0, C =< 0'9 ), !, pp_word(Cs, W, R).
+pp_word([C|Cs], [C|W], R) :- ( C >= 0'a, C =< 0'z ; C >= 0'A, C =< 0'Z ; C =:= 0'_ ; C >= 0'0, C =< 0'9 ; C >= 128 ), !, pp_word(Cs, W, R).   % a macro's name past ASCII (0.196)
 pp_word(Cs, [], Cs).
 %% #define NAME body | #define NAME(params) body -- function-like when `(' follows the name at once
 pp_do_define(Rest) :-
@@ -1644,6 +1644,8 @@ ccl_pp_spell_([tok(K, V, L)|Ts], L0, Codes) :-
     ccl_pp_spell_tok(K, V, C1, C2), ccl_pp_spell_(Ts, L, C2).
 ccl_pp_spell_tok(str, Cs, [34|Out], Rest) :- !, ccl_pp_spell_str(Cs, Out, [34|Rest]).
 ccl_pp_spell_tok(chr, C, [39|Out], Rest) :- !, ccl_pp_spell_str([C], Out, [39|Rest]).
+ccl_pp_spell_tok(u8str, Cs, [0'u, 0'8, 34|Out], Rest) :- !, ccl_pp_spell_str(Cs, Out, [34|Rest]).   % u8"..." and u8'c', kinds of their own (0.196)
+ccl_pp_spell_tok(u8chr, C, [0'u, 0'8, 39|Out], Rest) :- !, ccl_pp_spell_str([C], Out, [39|Rest]).
 ccl_pp_spell_tok(K, Cs, [P, 34|Out], Rest) :- pp_str_prefix(K, [P]), !, ccl_pp_spell_str(Cs, Out, [34|Rest]).   % THE PREFIXED LITERALS SPELL WITH THEIR PREFIX (0.93): `L"true"' came out as a code list in the flattened text, which no reader takes -- the census's road, not the gate's, which reads the tokens
 ccl_pp_spell_tok(K, C, [P, 39|Out], Rest) :- pp_chr_prefix(K, [P]), !, ccl_pp_spell_str([C], Out, [39|Rest]).
 ccl_pp_spell_tok(uint, N, Out, Rest) :- !, pp_int_codes(N, Cs), append(Cs, [0'u|Rest], Out).

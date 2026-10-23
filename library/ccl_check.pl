@@ -452,6 +452,7 @@ ck_static_value(str(_)) :- !.
 ck_static_value(wstr(_)) :- !.
 ck_static_value(u16str(_)) :- !.
 ck_static_value(u32str(_)) :- !.
+ck_static_value(u8str(_)) :- !.   % C23's and C++20's u8 literal (0.196)
 ck_static_value(cast(_, E)) :- !, ck_static_value(E).
 ck_static_value(addr(E)) :- !, ck_storage_base(E, N), ck_is_global(N).
 ck_static_value(id(N)) :- !, ck_is_global(N), ccl_declared(N, T), ccl_resolve_type(T, T1), ( T1 = arr(_, _) ; T1 = fn(_, _, _) ), !.
@@ -1253,6 +1254,7 @@ ck_expr(ulong(_), St, St) :- !.
 ck_expr(wstr(_), St, St) :- !.
 ck_expr(u16str(_), St, St) :- !.
 ck_expr(u32str(_), St, St) :- !.
+ck_expr(u8str(_), St, St) :- !.
 ck_expr(wchr(_), St, St) :- !.
 ck_expr(u16chr(_), St, St) :- !.
 ck_expr(u32chr(_), St, St) :- !.

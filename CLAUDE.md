@@ -10,8 +10,8 @@ it found, its measurements and its gate numbers. `README.md` tells a user what r
 architecture and the milestones. A step that changes a rule edits the rule here, in its topic, and writes its entry
 in `HISTORY.md`.
 
-At 0.195 the versions are: the module 0.195 (`ccl_p_version` in `module/cicilang.cicili`, `bin/cicilang --version`),
-the reader 147 (`ccl_reader_version/1`, `library/ccl_syntax.pl`) and the lowering 108 (`ccl_lowering_version/1`,
+At 0.196 the versions are: the module 0.196 (`ccl_p_version` in `module/cicilang.cicili`, `bin/cicilang --version`),
+the reader 148 (`ccl_reader_version/1`, `library/ccl_syntax.pl`) and the lowering 109 (`ccl_lowering_version/1`,
 `library/ccl_ir.pl`).
 
 Build and prove, always in this order (or all of it, `sh test/gates.sh`):
@@ -477,7 +477,7 @@ tutorials/01..03-*.pl       the objects layer's lessons; goal main, last line do
 - The compile gate. `test/compile.pl`, one process over the user's store, reads, checks, lowers, compiles at `-O1`
   and links every `test/c/run/*.c` at its `NAME.std` level (`c_level`). It expects every `test/c/safe/*.c` refused.
   `test/compile.sh` runs each binary as `NAME arg1 arg2` against `NAME.expect`, and compares each refusal with
-  `safe/NAME.expect`. There are 101 run and 47 safe fixtures at 0.195. (M2, M3, 0.57)
+  `safe/NAME.expect`. There are 104 run and 47 safe fixtures at 0.196. (M2, M3, 0.57)
 - The driver gate. `test/driver.sh` makes 40 checks of `bin/cicilang` over the user's store (the two decimal checks are
   skipped where no gcc with decimal floating types is installed), the variadic calls of every kind both ways against
   clang among them (`test/c/link/va_*.c`, 0.131), and Apple's arm64 expansion of `va_arg` of an aggregate against
@@ -990,6 +990,11 @@ tutorials/01..03-*.pl       the objects layer's lessons; goal main, last line do
 - **A lexer rule changes in BOTH lexers.** Reader `k84` compares them token for token and rest for rest on
   `test/c/lexer.c` (both modes, both languages), `rich.c`, `cocolog.c`, `run/btree_del.c`, `test/cpp/classes.cpp`,
   `sys/cdefs.h` and `math.h`; `k85` checks that the native lexer runs. A new token form goes into `test/c/lexer.c`. (M1)
+- THE REST IS IN THE RUN'S TEXT UNITS in both lexers (0.196): the DCG's is what is left of the codes it was given, and the
+  native lexer's the codes of the text it did not read as `atom_codes/2` gives them (`coco_m_codes_of`, the SDK's), its
+  characters past ASCII, where a token's body is its bytes (the Strings topic). It was the text's bytes, and `k84` met it
+  once `test/c/lexer.c` held text past ASCII: in `punct` mode both lexers stop at its first continuation, and the rests
+  differed by the bytes past ASCII after it. `ccl_line_of/3` finds the rest in the file's codes. (0.196)
 - `'$ccl_hash'` is the mode. In `line` mode (the reader's) a `#` line is one `tok(pp, Text, L)`, continuations joined.
   In `punct` mode (the preprocessor's) `#` and `##` are punctuators and a number is `tok(num, Spelling, L)`, so
   `200112L` pastes whole; a pp-number may start with a dot. (M5, 0.108)
@@ -1004,6 +1009,14 @@ tutorials/01..03-*.pl       the objects layer's lessons; goal main, last line do
 - `<=>` is a punctuator in both lexers and both languages (`ccl_punct//1`, `ccl_lx_p3`). `::` lexes in C++ only. `:=`
   is a punctuator. (0.42)
 - `tie` is an identifier, and `<*>` is no punctuator in either lexer; the grammar reads `tie` in context. (0.109)
+- AN IDENTIFIER PAST ASCII (C23 6.4.2.1, C++23 [lex.name]; 0.196): a letter, `_`, a digit after the first, a character past
+  ASCII -- the bytes of its UTF-8 to the native lexer -- and a universal character name past ASCII, `caf\u00e9` the
+  identifier `café`, its UTF-8 in the atom (`ccl_word//2`, `ccl_id_first//2`, `ccl_id_more//1`, `ccl_ucn_codes/3`;
+  natively `ccl_lx_alpha`, `ccl_lx_id_ucn`, `ccl_lx_word`); the preprocessor reads a macro's name past ASCII too
+  (`pp_word/3`), never one spelled with a universal character name. XID_Start and XID_Continue are not told apart, as no
+  valid program needs them told. They were ASCII alone, and `int café = 3;` was a lexical error where clang reads it in
+  C17 and C++17 too. A symbol past ASCII is spelled quoted (the Lowering's topic) and the mangler counts bytes (the
+  Itanium mangler's topic). `test/c/run/identutf8.c`, `test/cpp/run/identutf8.cpp`. (0.196)
 - A `#cocolog` line takes every line up to the `#end` line, or the file's end, raw into one `tok(cocolog, Text, L)`
   (`ccl_cocolog_body//3`, `ccl_lx_cocolog`). (M1b)
 
@@ -1091,9 +1104,34 @@ tutorials/01..03-*.pl       the objects layer's lessons; goal main, last line do
 
 ### Strings, characters and escapes
 
-- Both lexers read the prefixed literals (`ccl_lit_prefix//2`, `ccl_lx_string_k`): `u8"..."` is a plain `str` and
-  `u8'c'` a `chr`; `L`, `u`, `U` give `wstr`, `u16str`, `u32str` (`wchr`, `u16chr`, `u32chr` for chars). The body is
-  a plain string's UTF-8 bytes, which the lowering decodes. Reader `k91`. (0.93)
+- Both lexers read the prefixed literals (`ccl_lit_prefix//2`, `ccl_lx_string_k`): `L`, `u`, `U` give `wstr`, `u16str`,
+  `u32str` (`wchr`, `u16chr`, `u32chr` for chars), and `u8` the kinds `u8str` and `u8chr` (0.196). The body is a plain
+  string's UTF-8 bytes, which the lowering decodes, the DCG's too where it reads characters (`ccl_text_bytes/3`: cocolog
+  2's units, a character past ASCII one code). Reader `k91`. (0.93, 0.196)
+- A u8 LITERAL HAS ITS LEVEL'S TYPE (C23 6.4.4.5/12, 6.4.5/6, [lex.ccon]/3, [lex.string]/6; 0.196): `u8'c'` is C++20's
+  `char8_t`, C23's `unsigned char`, C++17's `char`, the cast a `1.5f` is (`ccl_u8chr_node/2`), and `u8"..."` is C++20's
+  `const char8_t[N]` and C23's `char8_t[N]` -- the node `u8str(S)` there alone, a plain `str(S)` before
+  (`ccl_string_node/3`): its bytes a plain string's to the lowering (`ir_expr`, `ir_gconst`, an array it initializes),
+  its element char8_t's to the inference, deduction and `decltype` (`cpp_string_literal/2`). They were `str` and `chr`:
+  `decltype(u8'a')` was `char` at C++20, `std::u8string s = u8"x";` had no constructor, and `sizeof(u8'a')` was 4 at C23.
+  `-E` spells the prefix (`pp_str_prefix/2`, `ccl_pp_spell_tok/4`). clang 18 types C23's `u8"..."` as `char[N]`, clang
+  21 and 22 as the standard has it, and a fixture's expect is clang 22's. `test/c/run/u8lit23.c`, `test/cpp/run/u8lit.cpp`,
+  `u8lit20.cpp` (C++20). (0.196)
+- A CHARACTER LITERAL'S ITEMS (C 6.4.4.4, [lex.ccon]; 0.196): a PREFIXED one holds one character, a UTF-8 sequence its code
+  point (`L'é'` 233, `U'😀'` 128512; `ccl_wchr_body//1`, `ccl_lx_utf8_at`); a PLAIN one of one byte is a char's value, a
+  signed one where plain char is signed (`'\xE9'` -23 on x86-64, 233 on aarch64 Linux; `ccl_plain_chr_value/2`, in an
+  expression, a case label, a template argument and `#if` alike, C 6.4.4.4/10 and [lex.ccon]/2) -- it was 233 on both,
+  and `c == '\xff'` over `char c = '\xff';` false --, and of two bytes or more -- `'ab'`, `'abcd'`, `'\x41\x42'`, `'é'`'s
+  two bytes, a universal character name past ASCII's UTF-8 -- a MULTI-CHARACTER constant, the token `tok(int, V, L)`, an
+  `int` in C and in C++, its value the bytes in order, the last four kept, read signed (`ccl_chr_token/3`,
+  `ccl_multichar/3`; natively `ccl_lx_char_k`), as gcc and clang give it. The native lexer read one byte and refused
+  both; `'é'` and `'\u00e9'`, which clang refuses (`character too large`), are gcc's 50089. A stringized
+  multi-character constant spells its value (`#x` of `'ab'` is `"24930"`, clang's `"'ab'"`). `test/c/run/chrsign.c`
+  (both machines), `test/cpp/run/chrsign.cpp`. (0.196)
+- ADJACENT STRING LITERALS ARE ONE (C 6.4.5/5, [lex.string]/12; 0.196; `ccl_strings_k//4`, `ccl_kind_join/3`): their bodies
+  joined, of the prefix one of them has -- `"a" L"b"` and `L"a" "b"` wide, `u"x" "y"` a char16_t string, `u8"x" "y"` a u8
+  one; two different prefixes are not joined. Only plain ones were: `L"ab" L"cd"` was refused, and so was a macro's `L""
+  x`. `test/c/run/u8lit23.c`, `test/cpp/run/u8lit.cpp`. (0.196)
 - A `u"..."` literal is UTF-16 ([lex.string]/10): a code point past U+FFFF is a surrogate pair, two `i16` units
   (`ir_wide_units/3`, `ir_utf16/2`), in the constant, in an array it initializes, in that array's bound
   (`ccl_utf16_count/2`) and in `sizeof` (`ccl_literal_bytes`); it was one unit that kept the low bits.
@@ -2314,14 +2352,14 @@ tutorials/01..03-*.pl       the objects layer's lessons; goal main, last line do
 
 ### The versions
 
-- `ccl_reader_version/1` (`library/ccl_syntax.pl`, now 146): bump it for any grammar change to what a read gives, and
+- `ccl_reader_version/1` (`library/ccl_syntax.pl`, now 148): bump it for any grammar change to what a read gives, and
   for any change to what the AST beside a summary holds (item or member terms, `cpp_index_name/2`,
   `cpp_template_name/2`, `ccl_flat_items/3`, the namespace keys). Keep the reason in its comment. Why: the store and the
   summaries are keyed by it, and a stale read is served silently (`sizeof(std::string)` read 40). (M1, 0.89, 0.112,
   0.117)
 - A reader bump makes every summary cold; `test/libcxx.sh` rewrites them. `test/reader.pl`'s `k16` (a cached read is
   the same AST as a fresh one) goes RED on a grammar change without a bump. (0.93, 0.105)
-- `ccl_lowering_version/1` (`library/ccl_ir.pl`, now 107): bump it whenever the check or the lowering changes what it
+- `ccl_lowering_version/1` (`library/ccl_ir.pl`, now 109): bump it whenever the check or the lowering changes what it
   emits, however small -- 0.120 bumped it for the ORDER of the drain functions alone. Why: `dr_ir/3` serves the old IR
   otherwise. Either bump starts the C store afresh. (M4, 0.103, 0.120)
 
@@ -5940,6 +5978,8 @@ A lambda is a class of its captures (`library/ccl_cpp.pl`). A fixture named alon
 - A function is `_ZN <namespace path> <len>name E <parameters>` (`cpp_ita_function/7`), `v` for no parameter and `z`
   for an ellipsis. `St` is std and no substitution candidate; `St3__1` is one. A function directly in std is
   `_ZSt<len>name<parameters>`. (0.61, 0.73)
+- A NAME'S `<len>` COUNTS ITS UTF-8 BYTES (0.196; `ccl_byte_length/2` at each length the mangler writes): `int
+  ñs::naïve(int)` is `_ZN3ñs6naïveEi`, as clang++ mangles it, where cocolog 2 counts an atom's characters. (0.196)
 - The substitution table is threaded through (`cpp_ita_sub`, `cpp_ita_note`): each prefix level, nested name and
   non-builtin type is a candidate in the order met, and its second occurrence is `S_`, `S0_` ... in base 36. A builtin
   is none; each layer (`P`, `R`, `O`, `K`) is one of its own, inner first. (0.73)
@@ -6877,6 +6917,15 @@ A lambda is a class of its captures (`library/ccl_cpp.pl`). A fixture named alon
   their items; `using` lowers nothing. (0.32)
 - The module text is the struct types, the strings, the globals and the functions, then a `declare` line for each
   external used (an intrinsic's line raw). (M2)
+- A SYMBOL PAST ASCII IS QUOTED (0.196; `ir_sym_text/2`): a function's, a global's, a struct type's and a type
+  information's name with a character past ASCII is LLVM's quoted name, its UTF-8 bytes escaped, as clang spells it --
+  `@"caf\C3\A9"`, `%"struct.Gr\C3\B6\C3\9Fe"`, `@"_ZTIN3\C3\B1s7Gr\C3\B6\C3\9FeE"` -- and an ASCII name stays bare. A
+  name's text in the IR -- `__func__`, a type information's name, a contract's message -- is its UTF-8 bytes, its array
+  as long as they are (`ccl_atom_bytes/2`, `ccl_byte_length/2`): cocolog 2 counts an atom's characters. A LOCAL'S, A
+  PARAMETER'S AND A LABEL'S NAME past ASCII in a register is `.u` and its bytes in hex (`ir_reg_name/2`: `%.uCEBB.4` for
+  `λ`, the parameter `ñ`'s `%.uC3B1.addr`, the label `é`'s `L..uC3A9`), since a register takes suffixes that a quoted name cannot and
+  no C name starts with a dot; nothing reads a register's name (a variable's is its DILocalVariable's). LLVM refused
+  `%λ.4` (`expected instruction opcode`), met by `identutf8.c`. (0.196)
 - The lowering reads four qualifiers only: `own` (moves, drains), `thread_local` (`ir_tls/1`), `aligned(E)`
   (`ir_aligned_q/2`) and `'_Atomic'` (`ir_atomic_q/1`). `const` and `volatile` change nothing. Nothing reads `tie(Y)`,
   so a tie costs the lowering and the layout nothing. (M3, 0.99)
@@ -8414,17 +8463,17 @@ A lambda is a class of its captures (`library/ccl_cpp.pl`). A fixture named alon
 - Ubuntu 24.04 on x86_64 (clang and LLVM 18, glibc, libc++ 18 and 21) is a host since 0.87. Every gate but the C++ one
   is GREEN there since 0.93, and all seven since 0.95. Every step from 0.93 on is gated there, but the save points
   0.112, 0.113, 0.117, 0.122 to 0.125, 0.130, 0.131 and 0.143 (0.143's C gates and cross gate ran, its libc++ gates did
-  not; the others were gated by the steps after them). The last full run is 0.195's, over cocolog 2.11.1 (the
+  not; the others were gated by the steps after them). The last full run is 0.196's, over cocolog 2.11.1 (the
   Findings), on one tree, over fresh HOMEs (the reader version moved): over libc++ 18 all nine GREEN (the flow gate's one
-  finding in 93 s, reader 4 s, compile 14 s, driver 14 s, objects 4 s, proof, the cross gate in 293 s with its C++ part
-  for aarch64, the library read in 355 s (0.194's 354 s; 105 other headers warmed), the C++ gate in 949 s (0.194's 958
-  s) with 619 of 625 fixtures ok, the skips are `atomicref`, `joinwith`, `stdoptionalref`, `tzone`, `vbaseof` and
-  `zipadjacent`, the two units, the 28 refusals and the four of the safe part); over libc++ 21 the library read (315 s,
-  peak 796 MB; 0.194's 319 s) and the C++ gate (935 s, peak 2258 MB; 0.194's 937 s; 623 of 625 ok, the skips
-  `stdoptionalref` and `zipadjacent`) GREEN -- the C gates do not read libc++. The headers' reads, summed, took 1292 s
-  over 128 over libc++ 18 and 1155 s over 21 (0.194's 1310 s and 1176 s over 127; 0.181's 4313 s and 4116 s, before a
-  read linear in its items); the fixtures' builds 3199 s over 619 and 3146 s over 623 (0.194's 3231 s over 616 and 3162
-  s over 620) (HISTORY.md, 0.195). The chains of 0.165 to 0.194 are in HISTORY.md, 0.166 to 0.195.
+  finding in 94 s, reader 5 s, compile 15 s, driver 14 s, objects 4 s, proof, the cross gate in 292 s with its C++ part
+  for aarch64, the library read in 333 s (0.195's 355 s; 105 other headers warmed), the C++ gate in 927 s (0.195's 949
+  s) with 623 of 629 fixtures ok, the skips are `atomicref`, `joinwith`, `stdoptionalref`, `tzone`, `vbaseof` and
+  `zipadjacent`, the two units, the 28 refusals and the four of the safe part); over libc++ 21 the library read (302 s,
+  peak 801 MB; 0.195's 315 s) and the C++ gate (915 s, peak 2202 MB; 0.195's 935 s; 627 of 629 ok, the skips
+  `stdoptionalref` and `zipadjacent`) GREEN -- the C gates do not read libc++. The headers' reads, summed, took 1227 s
+  over 128 over libc++ 18 and 1101 s over 21 (0.195's 1292 s and 1155 s; 0.181's 4313 s and 4116 s over 114, before a
+  read linear in its items); the fixtures' builds 3124 s over 623 and 3093 s over 627 (0.195's 3199 s over 619 and 3146
+  s over 623) (HISTORY.md, 0.196). The chains of 0.165 to 0.195 are in HISTORY.md, 0.166 to 0.196.
   Two libc++ passes are one gate: `LLVM=/usr/lib/llvm-18` and `LLVM=/usr/lib/llvm-21`
   choose the tree the chain reads and links. libc++ 22 (the newest tree, which a run without `$LLVM` reads) is no
   gate: 0.182 built its vector and its C++23 views by hand (`zipadjacent.cpp`, which its `.needs` skips over 18 and
@@ -8473,7 +8522,10 @@ A lambda is a class of its captures (`library/ccl_cpp.pl`). A fixture named alon
   and `<stdatomic.h>` (`c23float.c`), the compiler's own `<tgmath.h>` (`tgmath.c`), a typedef, a tag and a function's
   types named `names` (`cachenames.c`). Since 0.195: the program's file-scope `const` integers as constants, its own
   header's too, a parameter and a local shadowing one (`fileconst.c`, C17), C23's `constexpr` at file scope and in a
-  block (`fileconst23.c`), an enumerator over another enum's and a header's (`enumcross.c`).
+  block (`fileconst23.c`), an enumerator over another enum's and a header's (`enumcross.c`). Since 0.196: C23's u8
+  literals, a prefixed character literal past ASCII, a multi-character constant and adjacent prefixed string literals
+  (`u8lit23.c`), identifiers past ASCII and universal character names in them (`identutf8.c`), a plain character
+  literal's value past 127 a char's (`chrsign.c`).
 - The C library is the host's. The compiler's own freestanding headers are in `library/include/` (`<stdarg.h>`,
   `<stdatomic.h>`, `<complex.h>`, `<stdckdint.h>`, `<stdbit.h>`, `<limits.h>`, `<tgmath.h>` and six more).
 - The language's own additions run: `:=`, patterns, `name { }` structs and `format`, `print`, `println`
@@ -8530,6 +8582,11 @@ A lambda is a class of its captures (`library/ccl_cpp.pl`). A fixture named alon
   (two virtual overloads of one name and arity, one overridden), `virtualdefault` (a virtual call that leaves a defaulted
   argument out), `anonparam` (an unnamed by-value parameter destroyed), `rangeadl` (a range-for by the free `begin` and
   `end` of two namespaces), `downcast` (`static_cast` from a second base to the derived class, a pointer and a reference).
+- Forms of 0.196: `u8lit` (C++17's u8 literals, a multi-character constant, adjacent wide literals), `u8lit20` (C++20:
+  `char8_t` and `const char8_t[N]` in overloads, deduction and `decltype`, `std::u8string`, a prefixed character literal
+  past ASCII), `identutf8` (identifiers past ASCII and universal character names: a namespace's, a class's, a member's, a
+  template's and a lambda's; the Itanium symbols and the type information's names), `chrsign` (a plain character
+  literal's value past 127 a signed char's, in a template argument, a case label and `#if`).
 - Forms of 0.195: `fileconst` (the program's file-scope `const` and `constexpr` integers in an array's bound at file scope,
   in a block and in a class, `alignas`, a bit-field's width, a template argument, `std::array`, a case label, `if
   constexpr`, an enumerator; one over a constexpr call, a namespace's, two namespaces' of one name; `decltype` of one), `constshadow` (a local constant its block's own, a `const` parameter shadowing a constant
@@ -8928,21 +8985,25 @@ C++26, to be done. The audit's gaps are steps of their own, a group a step; each
 The first group, the platform and the preprocessor, is 0.194's (clang's predefined macros on Linux, asm labels, brace
 elision into records, C23's enums, `<tgmath.h>`, C23's headers, GCC's atomic builtins, `alignas` before a declaration);
 the second, the program's own file-scope constants, is 0.195's (the Constant evaluation topic: C17's, C23's and C++'s,
-a C23 block's `constexpr`, a local constant its block's own).
+a C23 block's `constexpr`, a local constant its block's own); the third, the lexers, is 0.196's (the Lexers topic: the
+`u8` literals of C23 and C++20, UTF-8 and multi-character constants in a character literal, adjacent prefixed string
+literals, identifiers past ASCII and universal character names in them).
 
-1. THE LEXERS: C23's `u8` character literals, UTF-8 in a character literal, UTF-8 identifiers and universal character
-   names in identifiers.
-2. C++'S CORE LANGUAGE: the order of evaluation C++17 fixes, parenthesized aggregate initialization, `explicit(bool)`,
+1. C++'S CORE LANGUAGE: the order of evaluation C++17 fixes, parenthesized aggregate initialization, `explicit(bool)`,
    C++20's and C++23's implicit moves, non-type template parameters of class type, `decltype((x))` of a variable, which is
    a reference (the reader keeps no parentheses, so it is `decltype(x)`: an old gap, 0.194 has it too), an enumerator whose
    initializer names another enum's by its qualified name (`cpp_enum_walk/4` does not fold `scoped(...)`, and the table's
    answer for the bare name is the first enum's of that name: libc++ 21's `_PartialOrdResult` is right by the order of
    `<compare>`'s two enums), and the rest the audit names.
-3. THE ALLOCATION FUNCTIONS: the program's `operator new` and `operator delete`, the aligned, sized, class-specific and
+2. THE ALLOCATION FUNCTIONS: the program's `operator new` and `operator delete`, the aligned, sized, class-specific and
    destroying forms, replaceable ones.
-4. libc++'S FACILITIES the fixtures do not reach yet: `<future>`, `std::jthread`, `<regex>`, `std::expected`, `<mdspan>`,
+3. libc++'S FACILITIES the fixtures do not reach yet: `<future>`, `std::jthread`, `<regex>`, `std::expected`, `<mdspan>`,
    `std::flat_map`, `<memory_resource>` and the others the audit lists.
-5. SMALL ONES: an ISO mode (`-std=c17`, `-std=c++17`) predefines `__STRICT_ANSI__` in clang and the GNU modes do not --
+4. SMALL ONES: the lexers' three limits of 0.196 -- a macro's name spelled with a universal character name
+   (`#define caf\u00e9 1`) is not read, since the preprocessor's own word reader takes the bytes past ASCII and no
+   escape; a multi-character constant stringized (`#x` of `'ab'`) spells its value, `"24930"`, where clang spells
+   `"'ab'"`; XID_Start and XID_Continue are not told apart: every character past ASCII is a letter to the lexers, one
+   that no level takes in an identifier included --; an ISO mode (`-std=c17`, `-std=c++17`) predefines `__STRICT_ANSI__` in clang and the GNU modes do not --
    it needs the mode in the C store's key and the C++ summaries' keys, since `-std=c23` and `-std=gnu23` read one key
    now; `decltype(x)` and `alignof(decltype(x))` of an aligned variable keep its alignment, the qualifier `aligned(E)`
    sitting in its type, where the alignment is the entity's ([dcl.align]); clang's C extension that types a conditional

@@ -189,6 +189,7 @@ One row per step, in version order: the step's title, what it did and its gate n
 | 0.193 | exceptions in libc++ on by default, as clang++ has them; `-fno-exceptions` gives the no-exceptions configuration; the nothrow traits and `noexcept(e)` answer the declarations | `__cpp_exceptions` and `__EXCEPTIONS` predefined in C++ unless `-fno-exceptions`, a summary read under it keyed apart; every C++ program's calls under the EH rules and its noexcept functions guarded; under `-fno-exceptions` the program's `throw` and `try` refused by name; the nothrow traits by the declared, implicit and defaulted members (a vector grows through `std::move_if_noexcept`); `noexcept(e)` over a library call by the library's declarations, a header's noexcept free functions carried by its summary apart from the program's; `std::bad_cast` and `std::bad_typeid` thrown; the safe part enters a handler from any point of its try's body | all nine gates GREEN over libc++ 18, the two libc++ gates over 21; the headers' reads summed 1454 s and 1175 s over 123, the fixtures' builds 3296 s and 3237 s; 611 of 615 C++ fixtures over 18, 613 over 21 |
 | 0.194 | the audit's first group: the platform and the preprocessor -- clang's predefined macros on Linux, asm labels, brace elision into records, C23's enums and headers, `<tgmath.h>`, GCC's atomic builtins, `alignas` before a declaration | clang's `-dM -E` on Linux (x86-64's own table, C23's per OS, C++'s `_GNU_SOURCE`, `__STDC_VERSION__` C's alone, function-like predefined macros); asm labels the symbol a declaration stands for (glibc's C23 `strtol`); brace elision into a struct or union member and an array's elements; C23's fixed-base enums; `__builtin_classify_type`, GCC's lock-free and generic atomic builtins (libc++ 21's `std::atomic_ref`), `FLT_ROUNDS`, the signaling NaNs; C23's `<float.h>`, `<limits.h>`, `<stdarg.h>`, `<stdatomic.h>`; the compiler's own `<tgmath.h>`; `std::is_virtual_base_of`; C++'s `alignas` before a member or a file-scope declaration kept, a member's alignment folded in the class's words; the named caches' index no name's global (a name `names` took the index as its type since 2026-09-06) | all nine gates GREEN over libc++ 18, the two libc++ gates over 21 (the first chain's compile gate RED at `memory.c`, the named caches' index); the headers' reads summed 1310 s and 1176 s over 127, the fixtures' builds 3231 s and 3162 s; 616 of 622 C++ fixtures over 18, 620 over 21 |
 | 0.195 | the audit's second group: the program's own file-scope constants -- C17's and C++'s `const` and C23's `constexpr` named constants, a C23 block's `constexpr` its own, a local constant its block's, an enumerator over another enum's | a file-scope `const` integer of the program or its own header that folds a named constant (`'$ccl_consts'`) at every level, in an array's bound, an enumerator, a bit-field's width, `alignas`, a template argument, `static_assert` and a case label; a local constant an entry of its frame (`'$cv'(N)`), C++'s `const` local and C23's `constexpr` local, which leaves with its block; a local or a parameter of the name, a `const` one included, shadows a constant; in C a bound, a bit-field's width and an enumerator fixed at the read; an enum over another enum's enumerator, a header's or a constant folded again once the table is written, its known values only | all nine gates GREEN over libc++ 18, the two libc++ gates over 21; the headers' reads summed 1292 s and 1155 s over 128, the fixtures' builds 3199 s and 3146 s; 619 of 625 C++ fixtures over 18, 623 over 21 |
+| 0.196 | the audit's third group: the lexers -- u8 literals of their level's types, a character literal's items, multi-character constants, a plain character literal's sign, adjacent strings of any prefix, identifiers past ASCII | `u8'c'` and `u8"..."` kinds of their own, typed as their level has them (C++20's `char8_t`, C23's `unsigned char`); a prefixed character literal one character, its UTF-8 its code point; a plain one of several bytes a multi-character constant, an `int`; a plain character literal past 127 a char's value where plain char is signed; adjacent string literals of different prefixes one literal; an identifier past ASCII and a universal character name in one, its symbol quoted, its register name in ASCII, its mangled length in bytes; the native lexer's rest in the run's text units | all nine gates GREEN over libc++ 18, the two libc++ gates over 21; the headers' reads summed 1227 s and 1101 s over 128, the fixtures' builds 3124 s and 3093 s; 623 of 629 C++ fixtures over 18, 627 over 21 |
 
 ## M5 — the C++ mode
 
@@ -12563,3 +12564,91 @@ them; in C a bound, a bit-field's width and an enumerator fixed where read; an e
 again once the table is written) and lowering 108 (the program's file-scope constants fold in a bound and a case label, a
 C23 block's `constexpr` its own, a `const` parameter or local shadows a constant, an enumerator over another enum's its
 value).
+
+## 0.196 — the audit's third group: the lexers -- u8 literals of their level's types, a character literal's items, multi-character constants, a plain character literal's sign, adjacent strings of any prefix, identifiers past ASCII
+
+**0.196: the third step of the audit of C17 to C23 and C++17 to C++26 (Not done's order). Each form below is read by both
+lexers, the DCG's and the native one, token for token (reader `k84` over the new lines of `test/c/lexer.c`, both modes
+and both languages), and each fixture prints clang's or clang++'s output. Over 0.195 each was a lexical error, a read
+that stopped, or a wrong value.**
+
+- THE u8 LITERALS (C23 6.4.4.5/12, 6.4.5/6; C++20 [lex.ccon]/3, [lex.string]/6): `u8'c'` and `u8"..."` are the kinds
+  `u8chr` and `u8str` in both lexers (`ccl_lit_prefix//2`, `ccl_wchr_kind/2`, `ccl_raw_prefix//1`; natively `k_u8chr` and
+  `k_u8str`), where they were `chr` and `str`. The parser gives them their level's type: `u8'c'` is C++20's `char8_t`,
+  C23's `unsigned char` and C++17's `char`, the cast a `1.5f` is (`ccl_u8chr_node/2`); `u8"..."` is the node `u8str(S)`
+  at C++20 and C23 (`ccl_u8_typed/0`, `ccl_string_node/3`), `const char8_t[N]` and `char8_t[N]` to the inference
+  (`ccl_type_of/2`, `ccl_literal_bytes/2`), its element `char8_t` to deduction and `decltype` (`cpp_string_literal/2`), its
+  bytes a plain string's to the lowering (`ir_expr`, `ir_gconst`, an array it initializes) and a static value to the safe
+  part (`ck_static_value/1`); before C++20 and C23 a plain `str(S)`. Over 0.195, measured: a C23 probe printed
+  `sizeof(u8'a')`, `_Generic(u8'a', ...)`, `_Generic(u8"x", ...)` and `sizeof(u8"hé")` as `4 3 2 4` where clang 22 prints
+  `1 1 1 4` (an `int`, and a `char *`), and a C++20 probe `f(u8'a')` over `f(char)`, `f(char8_t)` and `f(int)`,
+  `std::is_same_v<decltype(u8"x"), const char8_t (&)[2]>` and `sizeof(u8"hé")` as `1 0 4` where clang++ prints `2 1 4`.
+  clang 18 still types a C23 `u8"x"` as `char[2]` (`u8"é"[0]` is -61 on x86-64); clang 21 and 22 and gcc 13 type it
+  `unsigned char[2]`, as C23 does (N2653), and so does 0.196: the C23 fixture's expect file is clang 22's, and on aarch64,
+  where plain char is unsigned, clang 18 prints the same (the cross gate). `u8lit23.c` (C23), `u8lit.cpp` (C++17),
+  `u8lit20.cpp` (C++20).
+- A CHARACTER LITERAL'S ITEMS (C 6.4.4.4, [lex.ccon]): a prefixed one holds one character, its UTF-8 its code point
+  (`ccl_wchr_body//1`, `ccl_utf8_tail//2`; natively `ccl_lx_utf8_at`): `L'é'` is 233, `U'😀'` 128512. A plain one of
+  one item is its value as before, and one of several bytes -- `'ab'`, `'abcd'`, `'\x41\x42'` -- a MULTI-CHARACTER
+  constant, an `int` in C and in C++, its value the bytes in order, the last four kept and read signed
+  (`ccl_chr_items//1`, `ccl_chr_token/3`, `ccl_multichar/3`; natively `ccl_lx_char_k`), as gcc and clang give it; a
+  universal character name past ASCII alone is its UTF-8 bytes, gcc's multi-character constant (`'é'` 50089, which
+  clang refuses). Over 0.195 `'ab'` and `L'é'` were lexical errors, in C and in C++.
+- A PLAIN CHARACTER LITERAL'S VALUE PAST 127 IS A CHAR'S (C 6.4.4.4/10, [lex.ccon]/2; `ccl_plain_chr_value/2`): `'\xE9'`
+  is -23 where plain char is signed and 233 on aarch64 Linux, in an expression, a case label, a template argument and
+  `#if` alike, as clang has it. Over 0.195 `chrsign.c` printed `233 255 128 0 0 4`, `other` and `pp unsigned` where clang
+  prints `-23 -1 -128 1 1 4`, `ff` and `pp signed`: `c == '\xff'` over `char c = '\xff';` was false; in C++ the literal
+  was a `char` where it reached the lowering, so `'\xE9'` printed -23, but `val<'\xE9'>()` returned 233, `case '\xff':`
+  took no `-1` and `#if '\xff' < 0` was false (`chrsign.cpp`).
+- ADJACENT STRING LITERALS ARE ONE (C 6.4.5/5, [lex.string]/12; `ccl_strings_k//4`, `ccl_kind_join/3`): their bodies
+  joined, the prefix the one that one of them has, `"a" L"b"` wide, `u8"x" "y"` a u8 string. Only plain ones were
+  joined: over 0.195 `L"ab" "cd"` and `"x" u"yz"` stopped the read (`syntax error: could not read this item`), in C and
+  C++.
+- AN IDENTIFIER PAST ASCII (C23 6.4.2.1, C++23 [lex.name], which clang takes at every level): a character past ASCII is
+  a letter, its UTF-8 the bytes the native lexer reads, and a universal character name past ASCII in an identifier is
+  the character it names, `caf\u00e9` the identifier `café` (`ccl_word//2`, `ccl_id_first//2`, `ccl_id_more//1`,
+  `ccl_ucn_codes/3`; natively `ccl_lx_alpha`, `ccl_lx_id_ucn`, `ccl_lx_word`); the preprocessor's own word reader takes a
+  macro's name past ASCII (`pp_word/3`, `pp_ident_start`). A symbol past ASCII is LLVM's quoted name, its UTF-8 bytes
+  escaped (`ir_sym_text/2`: a function's, a global's, a struct type's, a type information's), a name's text in the IR is
+  its bytes (`ccl_atom_bytes/2`: `__func__`, a type information's name, a contract's message), and the mangler's lengths
+  count bytes (`ccl_byte_length/2`, fourteen places: `_ZN3ñs6naïveEi`), where cocolog 2 counts an atom's characters. A
+  local's, a parameter's and a label's name past ASCII in a register is `.u` and its bytes in hex (`ir_reg_name/2`:
+  `%.uCEBB.4` for `λ`, a struct parameter's pieces `%.u6772C3B6.0` and `.1`, the label `zurück`'s `L..u7A7572C3BC636B`),
+  since a register takes suffixes that a quoted name cannot; the first build of `identutf8.c` met it, LLVM refusing
+  `%λ.4` (`expected instruction opcode`). Over 0.195 `static int café = 3;` and `namespace ñs` were lexical errors.
+  `identutf8.c`, `identutf8.cpp`.
+- THE NATIVE LEXER'S REST IS IN THE RUN'S TEXT UNITS, as the DCG's is (`coco_m_codes_of`, the SDK's): the codes of the
+  text it did not read, as `atom_codes/2` gives them. It was the text's bytes, and the reader gate's `k84` met it once
+  `test/c/lexer.c` held text past ASCII: in `punct` mode both lexers stop at the file's first continuation, and the rests
+  differed by the bytes past ASCII after it (4970 codes and 4984 bytes). The tokens agreed; a token's body is its bytes in
+  both. `ccl_line_of/3` finds the rest in the file's codes.
+- THE LIMITS, in Not done's small ones: a macro's name spelled with a universal character name is not read; a
+  multi-character constant stringized spells its value; XID_Start and XID_Continue are not told apart.
+- THE NET, before the chain: the flow gate GREEN over the final library (its one finding, 92 s); the C gates over a fresh
+  store and HOME GREEN (reader 4 s, compile 16 s, driver 14 s, objects 4 s, the proof, the cross gate 72 s, its C++ part a
+  SKIP line without `$LLVM`), the three C fixtures on both machines among them; 71 C++ fixtures over two HOMEs, built and
+  compared as the C++ gate does -- the new four, every fixture of a literal's kind or of a name in the IR (the
+  user-defined literals, the wide strings and streams, `strlit`, `prettyfn`, `srcloc`, the type information's names), and
+  the format, chrono, string, stream, container, variant and exception ones -- clang++'s output over libc++ 18 (419 s of
+  pool wall over three lanes, the headers cold) and over libc++ 21 (385 s).
+- THE CHAIN OF 0.196, over a fresh worktree of its commit and fresh HOMEs (the reader version moved), on cocolog 2.11.1,
+  17:52:28 to 18:41:01 UTC: ALL GREEN. Over libc++ 18: the flow gate 94 s (peak 2893 MB, its one finding), reader 5 s,
+  compile 15 s, driver 14 s, objects 4 s, the proof, the cross gate 292 s (peak 511 MB), the library read 333 s (peak 811
+  MB; the 23 asserted reads whole, 105 other headers warmed), the C++ gate 927 s (peak 2558 MB), 623 of 629 fixtures ok
+  (skips `atomicref`, `joinwith`, `stdoptionalref`, `tzone`, `vbaseof`, `zipadjacent`), the cold build's processes, the
+  two units, the 28 refusals and the four of the safe part; over libc++ 21 the library read 302 s (peak 801 MB) and the
+  C++ gate 915 s (peak 2202 MB), 627 of 629 (skips `stdoptionalref`, `zipadjacent`). The headers' reads summed 1227 s over
+  128 and 1101 s over 128 (0.195's 1292 s and 1155 s), the fixtures' builds 3124 s over 623 and 3093 s over 627 (0.195's
+  3199 s over 619 and 3146 s over 623; clang's builds of the next step's probes ran beside the libc++ gates one at a time,
+  and the builds count them); the slowest over 18 `fmtrange` 124 s, `fmtchrono2` 114 s, `fmtchrono` 100 s, `fmtcheck` 84
+  s, `fmttuple` 81 s, `viewsall` 80 s, over 21 `fmtchrono2` 104 s, `fmtchrono` 92 s, `viewsall` 82 s, `fmtrange` 80 s,
+  `joinwith` 71 s, `fmtcheck` 68 s.
+- `CLAUDE.md`: the versions, and the versions' subsection (146 and 107, stale since 0.194); the compile gate's count (104
+  run and 47 safe fixtures); the Lexers topic (the rest in the run's units, an identifier past ASCII; the prefixed
+  literals, the u8 literals, a character literal's items, adjacent strings); the Lowering's quoted symbols and register
+  names; the mangler's byte lengths; What runs; Hosts (the last full run); Not done (the audit's order, the lexers' three
+  limits).
+
+Reader 148 (the u8 kinds, a character literal's items, multi-character constants, a plain character literal's sign,
+adjacent prefixed strings, identifiers past ASCII and universal character names in them) and lowering 109 (a symbol past
+ASCII quoted, a register's name past ASCII in ASCII, a name's text its bytes, the u8 node lowered).

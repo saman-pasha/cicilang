@@ -40,6 +40,9 @@ long long lls = 3ll + 4LL + 5ull + 6ULL + 7uLL + 8llu + 9LLU + 0x10ll + 017ULL +
 const char *raw = R"(a\b"c)" R"xy(1)2)x")xy" LR"(w)" u8R"(u)" uR"(16)" UR"(32)"; /* C++11's raw strings (0.115): in C++ the body as it stands; in C an R and a plain string, in both lexers */
 const char *rawnl = R"(line one
 line two)"; int after_raw = 2;
+const char *u8s = u8"ü" "x" u8R"(rü)"; int u8c = u8'a' + L'é' + u'€' + U'😀' + U'\u00e9' + L'\N{SNOWMAN}'; /* u8 literals of their own, a prefixed literal's one character (0.196) */
+int mc = 'ab' + 'abcd' + 'é' + '\x41\x42' + '\u00e9a' + 'abcde' + '\u00e9' + '\xE9'; /* multi-character constants, ints (0.196) */
+int café = 3, caf\u00e9x = 4, \u00e9t\u00e9 = 5, πΔ字 = 6, x\U0001F600 = 7; /* identifiers past ASCII and universal character names in them (0.196) */
 int last = 1;
 #if 0
 this is not C but the lexer reads it: @ $ ` are where it stops

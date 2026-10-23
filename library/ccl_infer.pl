@@ -599,7 +599,7 @@ ccl_is_arith(T) :- ( ccl_is_integer(T) ; ccl_is_float(T) ; ccl_is_decimal(T) ), 
 %% (`[1 x i32] 7', which LLVM refused). The desugaring and the lowering's two roads ask it (cpp_agg_inits, ir_init_items,
 %% ir_gelide); an item whose type is unknown keeps the old guard.
 ccl_elided_item(E, ET) :- \+ ccl_string_item(E), ccl_scalar_value_type(ET), catch(ccl_type_of(E, T), _, fail), T \== unknown, ccl_scalar_value_type(T), !.
-ccl_string_item(E) :- compound(E), E =.. [K, _], memberchk(K, [str, wstr, u16str, u32str]), !.   % a string literal is a char array's VALUE (`struct N { char name[16]; int v; } g = { "global", 1 };'), though the inference types it as a pointer
+ccl_string_item(E) :- compound(E), E =.. [K, _], memberchk(K, [str, wstr, u16str, u32str, u8str]), !.   % a string literal is a char array's VALUE (`struct N { char name[16]; int v; } g = { "global", 1 };'), though the inference types it as a pointer
 ccl_scalar_value_type(T) :- catch(ccl_resolve_type(T, T1), _, fail), ( T1 = ptr(_, _) ; ccl_is_arith(T1) ), !.
 ccl_lock_free_at(K, P) :- ccl_lock_free_width(K), ( ( ccl_null_constant(P) ; P == nullptr ) -> true ; catch(ccl_type_of(P, PT), _, fail), ccl_aligned_for(PT, K) ), !.
 ccl_lock_free_width(K) :- ( memberchk(K, [1, 2, 4, 8]) -> true ; K == 16, once(catch(pp_arch(arm64), _, fail)) ).   % 16 bytes too on aarch64 (its pair loads and stores, as clang answers)
@@ -736,6 +736,8 @@ ccl_type_of(str(_), ptr([], base(Q, [char]))) :- !, ccl_literal_quals(Q).   % th
 ccl_type_of(wstr(_), ptr([], base(Q, [wchar_t]))) :- !, ccl_literal_quals(Q).                          % L"...": wchar_t's, u"..." char16_t's, U"..." char32_t's
 ccl_type_of(u16str(_), ptr([], base(Q, [char16_t]))) :- !, ccl_literal_quals(Q).
 ccl_type_of(u32str(_), ptr([], base(Q, [char32_t]))) :- !, ccl_literal_quals(Q).
+ccl_type_of(u8str(_), ptr([], base(Q, [char8_t]))) :- ccl_lang(cpp), !, ccl_literal_quals(Q).   % u8"...": C++20's `const char8_t[N]', C23's `char8_t[N]', the typedef of unsigned char (0.196; the node is C23's and C++20's alone, ccl_string_node/3)
+ccl_type_of(u8str(_), ptr([], base([], [unsigned, char]))) :- !.
 ccl_type_of(wchr(_), base([], [wchar_t])) :- !.
 ccl_type_of(u16chr(_), base([], [char16_t])) :- !.
 ccl_type_of(u32chr(_), base([], [char32_t])) :- !.
@@ -877,6 +879,7 @@ ccl_float_builtin_type('__builtin_flt_rounds', base([], [int])).   % FLT_ROUNDS,
 %% and the NUL, a wide one a code point per element (the body is UTF-8 bytes, ccl_utf8_count), `wchar_t' and
 %% `char32_t' four bytes each, `char16_t' two -- the type stays the pointer it decays to everywhere else
 ccl_literal_bytes(str(S), N) :- length(S, L), N is L + 1.
+ccl_literal_bytes(u8str(S), N) :- length(S, L), N is L + 1.
 ccl_literal_bytes(wstr(S), N) :- ccl_utf8_count(S, K), N is (K + 1) * 4.
 ccl_literal_bytes(u32str(S), N) :- ccl_utf8_count(S, K), N is (K + 1) * 4.
 ccl_literal_bytes(u16str(S), N) :- ccl_utf16_count(S, K), N is (K + 1) * 2.   % UTF-16 units, a code point past U+FFFF two (0.112)

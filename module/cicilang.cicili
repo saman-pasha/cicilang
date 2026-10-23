@@ -261,7 +261,7 @@
   ;; ccl_version(-Atom): THE VERSION. Every commit raises it (owner's rule),
   ;; one number per change; `cicili --version' prints it with LLVM's.
   (func ccl_p_version ((coco_engine * e) (size_t g)) (out int)
-        (return (coco_m_unify_atom e (coco_m_arg e g 0) "0.195")))
+        (return (coco_m_unify_atom e (coco_m_arg e g 0) "0.196")))
 
   ;; ccl_cocolog_version(-Atom): the engine's own version text, from the
   ;; running binary (coco_version_text is cocolog's, resolved at load like
@@ -296,6 +296,7 @@
     (member size_t k_uint) (member size_t k_long) (member size_t k_ulong) (member size_t k_bitint) (member size_t k_ubitint) (member size_t k_llong) (member size_t k_ullong) (member int sfx)
     (member size_t k_imag) (member size_t k_imagf) (member size_t k_imagl) (member size_t k_imagi) (member size_t k_imagui) (member size_t k_imagli) (member size_t k_imaguli) (member size_t k_imaglli) (member size_t k_imagulli) (member int imag)
     (member size_t k_wstr) (member size_t k_u16str) (member size_t k_u32str) (member size_t k_wchr) (member size_t k_u16chr) (member size_t k_u32chr)
+    (member size_t k_u8str) (member size_t k_u8chr)
     (member size_t k_chr) (member size_t k_p) (member size_t k_pp) (member size_t k_cocolog) (member size_t k_num))
 
   ;; the code at i, -1 past the end
@@ -313,8 +314,9 @@
         (if (ccl_lx_digit c) (return (- c 48)))
         (if (>= c 97) (return (+ (- c 97) 10)))
         (return (+ (- c 65) 10)))
+  ;; an identifier's character (0.196): a letter, `_', and every byte of a character past ASCII (the DCG's ccl_alpha/1)
   (static) (func ccl_lx_alpha ((int c)) (out int)
-        (return (or (and (>= c 97) (<= c 122)) (or (and (>= c 65) (<= c 90)) (== c 95)))))
+        (return (or (and (>= c 97) (<= c 122)) (or (and (>= c 65) (<= c 90)) (or (== c 95) (>= c 128))))))
   (static) (func ccl_lx_alnum ((int c)) (out int) (return (or (ccl_lx_alpha c) (ccl_lx_digit c))))
   (static) (func ccl_lx_trimc ((int c)) (out int) (return (or (== c 32) (or (== c 9) (== c 13)))))
 
@@ -502,21 +504,54 @@
           (ccl_lx_tok x kind (ccl_lx_codes x (-> x buf) (-> x bn)) line)
           (set (-> x i) j)
           (return 1)))
-  ;; 'c' : one code, escaped or not
+  ;; a UTF-8 sequence at j, its lead byte past 191: its code point, j past it
+  (static) (func ccl_lx_utf8_at ((ccl_lx * x) (size_t * j)) (out i64)
+        (let ((int c . 0) (int n . 0) (i64 v . 0))
+          (set c (ccl_lx_at x (cof j)))
+          (cond ((< c 224) (block (set n 1) (set v (- c 192))))
+                ((< c 240) (block (set n 2) (set v (- c 224))))
+                (#t (block (set n 3) (set v (- c 240)))))
+          (set (cof j) (+ (cof j) 1))
+          (while (and (> n 0) (>= (ccl_lx_at x (cof j)) 128) (< (ccl_lx_at x (cof j)) 192))
+            (set v (+ (* v 64) (- (ccl_lx_at x (cof j)) 128)))
+            (set (cof j) (+ (cof j) 1))
+            (set n (- n 1)))
+          (return v)))
+  ;; 'c' : its items, an escape, a universal character name or a byte (0.196, the DCG's ccl_chr_token/3 and ccl_wchr_body//1).
+  ;; A PREFIXED literal (L u U u8) holds one character, a UTF-8 sequence its code point; a PLAIN one of one item is its value
+  ;; as before, and of two bytes or more a MULTI-CHARACTER constant, an `int' whose value is its bytes in order, the last four
+  ;; kept, read signed -- `'ab'' 24930, `'é'' its two bytes 50089 -- which neither lexer read
   (static) (func ccl_lx_char_k ((ccl_lx * x) (i64 line) (size_t kind)) (out int)
-        (let ((size_t j . 0) (int c . 0) (int v . 0) (i64 u . 0))
+        (let ((size_t j . 0) (size_t k . 0) (int c . 0) (int v . 0) (i64 u . 0) (int items . 0) (i64 one . 0) (u32 mv . 0))
           (set j (+ (-> x i) 1))
-          (set c (ccl_lx_at x j))
-          (if (< c 0) (return 0))
-          (if (== c 92)
-              (block (set j (+ j 1))
-                     (set u (ccl_lx_ucn x (aof j)))
-                     (if (>= u 0)
-                         (set v (cast int u))
-                         (block (set v (ccl_lx_escape x (aof j))) (if (< v 0) (return 0)))))
-              (block (set v c) (set j (+ j 1))))
-          (if (!= (ccl_lx_at x j) 39) (return 0))
-          (ccl_lx_tok x kind (coco_m_new_int (-> x e) (cast i64 v)) line)
+          (set (-> x bn) 0)
+          (while 1
+            (set c (ccl_lx_at x j))
+            (if (or (< c 0) (== c 10)) (return 0))
+            (if (== c 39) break)
+            (set items (+ items 1))
+            (cond ((== c 92)
+                   (set j (+ j 1))
+                   (set u (ccl_lx_ucn x (aof j)))
+                   (if (>= u 0)
+                       (block (set one u) (ccl_lx_put_utf8 x u))
+                       (block (set v (ccl_lx_escape x (aof j)))
+                              (if (< v 0) (return 0))
+                              (set one v)
+                              (ccl_lx_putc x (bitand v 255)))))
+                  ((and (!= kind (-> x k_chr)) (>= c 192)) (set one (ccl_lx_utf8_at x (aof j))))
+                  (#t (block (set one c) (ccl_lx_putc x c) (set j (+ j 1))))))
+          (if (== items 0) (return 0))
+          (if (and (!= kind (-> x k_chr)) (!= items 1)) (return 0))
+          ;; one item a token of its value -- but in a plain literal a universal character name past ASCII, whose UTF-8
+          ;; took two bytes or more, is its bytes, gcc's multi-character constant, as the DCG's ccl_chr_token/3 (0.196)
+          (if (or (!= kind (-> x k_chr)) (and (== items 1) (<= (-> x bn) 1)))
+              (ccl_lx_tok x kind (coco_m_new_int (-> x e) one) line)
+              (block
+                     (while (< k (-> x bn))
+                       (set mv (+ (* mv 256) (cast u32 (cast u8 (nth k (-> x buf))))))
+                       (set k (+ k 1)))
+                     (ccl_lx_tok x (-> x k_int) (coco_m_new_int (-> x e) (cast i64 (cast i32 mv))) line)))
           (set (-> x i) (+ j 1))
           (return 1)))
 
@@ -766,12 +801,27 @@
             (if (== 0 (strcmp (nth k table) w)) (return 1))
             (set k (+ k 1)))
           (return 0)))
+  ;; a universal character name past ASCII at j, the backslash: its code point, else -1 (j untouched)
+  (static) (func ccl_lx_id_ucn ((ccl_lx * x) (size_t j)) (out i64)
+        (let ((size_t k . 0) (i64 u . 0))
+          (if (!= (ccl_lx_at x j) 92) (return -1))
+          (set k (+ j 1))
+          (set u (ccl_lx_ucn x (aof k)))
+          (return (? (>= u 128) u -1))))
+  ;; a word (0.196, the DCG's ccl_word//2): letters, digits, `_', the bytes of a character past ASCII, and a universal
+  ;; character name past ASCII put in as its UTF-8 bytes -- `caf\u00e9' is the identifier `café'
   (static) (func ccl_lx_word ((ccl_lx * x) (i64 line))
-        (let ((size_t j . 0) (int kw . 0))
+        (let ((size_t j . 0) (size_t k . 0) (int kw . 0) (i64 u . 0))
           (set j (-> x i))
-          (while (ccl_lx_alnum (ccl_lx_at x j)) (set j (+ j 1)))
           (set (-> x bn) 0)
-          (ccl_lx_puts x (-> x i) j)
+          (while 1
+            (cond ((ccl_lx_alnum (ccl_lx_at x j)) (ccl_lx_putc x (ccl_lx_at x j)) (set j (+ j 1)))
+                  ((>= (ccl_lx_id_ucn x j) 0)
+                   (set k (+ j 1))
+                   (set u (ccl_lx_ucn x (aof k)))
+                   (ccl_lx_put_utf8 x u)
+                   (set j k))
+                  (#t break)))
           (set kw (ccl_lx_in ccl_lx_ckw (-> x buf)))
           (if (and (not kw) (-> x cpp)) (set kw (ccl_lx_in ccl_lx_cppkw (-> x buf))))
           (ccl_lx_tok x (? kw (-> x k_kw) (-> x k_id)) (coco_m_new_atom (-> x e) (-> x buf)) line)
@@ -880,7 +930,7 @@
   (static) (func ccl_lx_raw ((ccl_lx * x) (i64 line) (size_t j)) (out int)
         (let ((size_t kind . 0) (size_t d . 0) (size_t dn . 0) (size_t k . 0) (int c . 0) (int ok . 0) (int c0 . 0))
           (set c0 (ccl_lx_at x (-> x i)))
-          (set kind (? (== c0 76) (-> x k_wstr) (? (and (== c0 117) (!= (ccl_lx_at x (+ (-> x i) 1)) 56)) (-> x k_u16str) (? (== c0 85) (-> x k_u32str) (-> x k_str)))))
+          (set kind (? (== c0 76) (-> x k_wstr) (? (and (== c0 117) (!= (ccl_lx_at x (+ (-> x i) 1)) 56)) (-> x k_u16str) (? (== c0 85) (-> x k_u32str) (? (== c0 117) (-> x k_u8str) (-> x k_str))))))
           (set d (-> x i))
           (while (!= (ccl_lx_at x d) 34) (set d (+ d 1)))
           (set d (+ d 1))
@@ -922,9 +972,9 @@
             ((== c 34) (return (ccl_lx_string x line)))
             ((== c 39) (return (ccl_lx_char x line)))
             ((and (-> x cpp) (> (ccl_lx_raw_start x) 0)) (return (ccl_lx_raw x line (ccl_lx_raw_start x))))   ; R"d(...)d" and its prefixed forms, C++ only (0.115)
-            ((and (== c 117) (== (ccl_lx_at x (+ (-> x i) 1)) 56) (or (== (ccl_lx_at x (+ (-> x i) 2)) 34) (== (ccl_lx_at x (+ (-> x i) 2)) 39)))   ; u8"..." and u8'.': a byte string, a char
+            ((and (== c 117) (== (ccl_lx_at x (+ (-> x i) 1)) 56) (or (== (ccl_lx_at x (+ (-> x i) 2)) 34) (== (ccl_lx_at x (+ (-> x i) 2)) 39)))   ; u8"..." and u8'.': kinds of their own (0.196)
              (set (-> x i) (+ (-> x i) 2))
-             (if (== (ccl_lx_at x (-> x i)) 34) (return (ccl_lx_string_k x line (-> x k_str))) (return (ccl_lx_char_k x line (-> x k_chr)))))
+             (if (== (ccl_lx_at x (-> x i)) 34) (return (ccl_lx_string_k x line (-> x k_u8str))) (return (ccl_lx_char_k x line (-> x k_u8chr)))))
             ((and (or (== c 76) (or (== c 117) (== c 85))) (or (== (ccl_lx_at x (+ (-> x i) 1)) 34) (== (ccl_lx_at x (+ (-> x i) 1)) 39)))   ; L u U before a quote: the wide literals
              (set (-> x i) (+ (-> x i) 1))
              (if (== (ccl_lx_at x (-> x i)) 34)
@@ -935,6 +985,7 @@
             ((ccl_lx_digit c) (return (ccl_lx_number x line)))
             ((and (== c 46) (ccl_lx_digit (ccl_lx_at x (+ (-> x i) 1)))) (return (ccl_lx_number x line)))   ; `.5f': a float with no integer part (0.108)
             ((ccl_lx_alpha c) (ccl_lx_word x line) (return 1))
+            ((>= (ccl_lx_id_ucn x (-> x i)) 0) (ccl_lx_word x line) (return 1))   ; an identifier that starts with a universal character name (0.196)
             (#t (return (ccl_lx_punct x line))))))
 
   (func ccl_p_lex_native ((coco_engine * e) (size_t g)) (out int)
@@ -982,6 +1033,8 @@
           (set (-> x k_wchr) (coco_m_new_atom e "wchr"))
           (set (-> x k_u16chr) (coco_m_new_atom e "u16chr"))
           (set (-> x k_u32chr) (coco_m_new_atom e "u32chr"))
+          (set (-> x k_u8str) (coco_m_new_atom e "u8str"))
+          (set (-> x k_u8chr) (coco_m_new_atom e "u8chr"))
           (set (-> x sfx) 0)
           (set (-> x k_float) (coco_m_new_atom e "float"))
           (set (-> x k_floatf) (coco_m_new_atom e "floatf"))
@@ -1013,7 +1066,9 @@
             (if (-> x oom) break)
             (ccl_lx_layout x))
           (if (not (-> x oom)) (set toks (coco_m_list e (-> x toks) (-> x ntoks))))
-          (if (not (-> x oom)) (set rest (ccl_lx_codes x (+ (-> x s) (-> x i)) (- (-> x n) (-> x i)))))
+          ;; the rest in the run's text units, as atom_codes/2 gives the text's codes and the DCG reads them (0.196): a token's
+          ;; body is its bytes, but past ASCII the rest's codes are its characters, which ccl_line_of/3 finds in the file's
+          (if (not (-> x oom)) (set rest (coco_m_codes_of e (+ (-> x s) (-> x i)) (- (-> x n) (-> x i)) 0 (coco_m_nil e))))
           (set oom (-> x oom))
           (free (-> x toks))
           (free (-> x buf))

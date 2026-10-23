@@ -394,7 +394,7 @@ cpp_ita_fn_instance(F, TPs, B, Ret, Ps, V, Name) :-
     ;   nb_setval('$cpp_ita_tps', []), fail ).
 cpp_ita_fn_inst_(Path, F, Args, Ret, Ps, V, Name) :-
     cpp_ita_ns(Path, '', '', [], C0, T0, Subs1),
-    atom_length(F, L), atomic_list_concat([C0, L, F], C1),
+    ccl_byte_length(F, L), atomic_list_concat([C0, L, F], C1),
     cpp_ita_level(C1, T0, L, F, Subs1, T1, Subs2),                                          % the template-prefix, a candidate
     cpp_ita_targs(Args, Subs2, _, AText, Subs3),
     cpp_ita_type(Ret, Subs3, _, RText, Subs4),                                              % the RETURN TYPE, which only a template's encoding carries
@@ -417,7 +417,7 @@ cpp_ita_member_text(F, _, T) :- cpp_ita_member_name(F, T).
 cpp_ita_member_name('$ctor', 'C1') :- !.
 cpp_ita_member_name('$dtor', 'D1') :- !.
 cpp_ita_member_name(operator(Op), Code) :- !, cpp_ita_op(Op, Code).                      % an operator by the ABI's two-letter code: `operator>>' is `rs'
-cpp_ita_member_name(F, T) :- atom(F), atom_length(F, L), atomic_list_concat([L, F], T).
+cpp_ita_member_name(F, T) :- atom(F), ccl_byte_length(F, L), atomic_list_concat([L, F], T).
 cpp_ita_op('+', pl).    cpp_ita_op('-', mi).    cpp_ita_op('*', ml).    cpp_ita_op('/', dv).    cpp_ita_op('%', rm).    cpp_ita_op('&', an).    cpp_ita_op('|', or).    cpp_ita_op('^', eo).
 cpp_ita_op('=', 'aS').  cpp_ita_op('+=', 'pL'). cpp_ita_op('-=', 'mI'). cpp_ita_op('*=', 'mL'). cpp_ita_op('/=', 'dV'). cpp_ita_op('%=', 'rM'). cpp_ita_op('&=', 'aN'). cpp_ita_op('|=', 'oR'). cpp_ita_op('^=', 'eO').
 cpp_ita_op('<<', ls).   cpp_ita_op('>>', rs).   cpp_ita_op('<<=', 'lS'). cpp_ita_op('>>=', 'rS'). cpp_ita_op('==', eq). cpp_ita_op('!=', ne). cpp_ita_op('<', lt). cpp_ita_op('>', gt). cpp_ita_op('<=', le). cpp_ita_op('>=', ge). cpp_ita_op('<=>', ss).
@@ -431,15 +431,15 @@ cpp_ita_prefix(Path, Chain, Subs0, Text, Subs) :-
     cpp_ita_chain(Chain, C0, T0, Subs1, _, Text, Subs).
 cpp_ita_ns([], C, T, Subs, C, T, Subs).
 cpp_ita_ns([std|Ns], '', '', Subs0, C, T, Subs) :- !, cpp_ita_ns(Ns, 'St', 'St', Subs0, C, T, Subs).   % `St' abbreviates std, and is no candidate
-cpp_ita_ns([N0|Ns], C0, T0, Subs0, C, T, Subs) :- atom(N0), ( cpp_anon_seg(N0) -> N = '_GLOBAL__N_1' ; N = N0 ), atom_length(N, L), atomic_list_concat([C0, L, N], C1), cpp_ita_level(C1, T0, L, N, Subs0, T1, Subs1), cpp_ita_ns(Ns, C1, T1, Subs1, C, T, Subs).   % an unnamed namespace as clang spells it (0.192)
+cpp_ita_ns([N0|Ns], C0, T0, Subs0, C, T, Subs) :- atom(N0), ( cpp_anon_seg(N0) -> N = '_GLOBAL__N_1' ; N = N0 ), ccl_byte_length(N, L), atomic_list_concat([C0, L, N], C1), cpp_ita_level(C1, T0, L, N, Subs0, T1, Subs1), cpp_ita_ns(Ns, C1, T1, Subs1, C, T, Subs).   % an unnamed namespace as clang spells it (0.192)
 %% one level of a prefix: its canonical text C1 is the key; known, its code stands for the whole prefix so far
 cpp_ita_level(C1, T0, L, N, Subs0, T1, Subs1) :-
     (   cpp_ita_sub(C1, Subs0, Code) -> T1 = Code, Subs1 = Subs0
     ;   atomic_list_concat([T0, L, N], T1), cpp_ita_note(C1, Subs0, Subs1) ).
 cpp_ita_chain([], C, T, Subs, C, T, Subs).
-cpp_ita_chain([plain(N)|Ls], C0, T0, Subs0, C, T, Subs) :- atom_length(N, L), atomic_list_concat([C0, L, N], C1), cpp_ita_level(C1, T0, L, N, Subs0, T1, Subs1), cpp_ita_chain(Ls, C1, T1, Subs1, C, T, Subs).
+cpp_ita_chain([plain(N)|Ls], C0, T0, Subs0, C, T, Subs) :- ccl_byte_length(N, L), atomic_list_concat([C0, L, N], C1), cpp_ita_level(C1, T0, L, N, Subs0, T1, Subs1), cpp_ita_chain(Ls, C1, T1, Subs1, C, T, Subs).
 cpp_ita_chain([inst(N, Args)|Ls], C0, T0, Subs0, C, T, Subs) :-
-    atom_length(N, L), atomic_list_concat([C0, L, N], C1), cpp_ita_level(C1, T0, L, N, Subs0, T1, Subs1),   % the template-name prefix, a candidate
+    ccl_byte_length(N, L), atomic_list_concat([C0, L, N], C1), cpp_ita_level(C1, T0, L, N, Subs0, T1, Subs1),   % the template-name prefix, a candidate
     cpp_ita_targs_t(N, Args, Subs1, ACanon, AText, Subs2),
     atomic_list_concat([C1, 'I', ACanon, 'E'], C2),
     (   cpp_ita_sub(C2, Subs2, Code) -> T2 = Code, Subs3 = Subs2
@@ -494,7 +494,7 @@ cpp_ita_c_struct_(_, base(_, [typedef(N2)]), Name) :- atom(N2), cpp_ita_c_struct
 cpp_ita_c_tag(S) :- \+ cpp_class_known(S), !.
 cpp_ita_c_tag(S) :- catch(cpp_hdr_ns(S, c), _, fail).
 cpp_ita_c_tag(S) :- catch(cpp_hdr_ns(S, []), _, fail).   % ... OR IN THE GLOBAL NAMESPACE (0.134): glibc's `struct tm' stands before <time.h>'s `extern "C"' and is a library class once a header load registers it; a class at global scope is its bare name, `2tm'
-cpp_ita_global(Name, Q, Subs0, Canon, Text, Subs) :- atom_length(Name, L), atomic_list_concat([L, Name], C0),
+cpp_ita_global(Name, Q, Subs0, Canon, Text, Subs) :- ccl_byte_length(Name, L), atomic_list_concat([L, Name], C0),
     ( cpp_ita_sub(C0, Subs0, Code) -> T0 = Code, Subs1 = Subs0 ; T0 = C0, cpp_ita_note(C0, Subs0, Subs1) ),
     ( cpp_ita_cv(Q, CV), CV \== '' -> atom_concat(CV, C0, Canon), cpp_ita_wrap_cv(CV, Canon, T0, Subs1, Text, Subs) ; Canon = C0, Text = T0, Subs = Subs1 ).
 %% THE CV-QUALIFIERS OF A TYPE as the mangling spells them (0.117): `V' for volatile, then `K' for const -- the group is ONE substitution candidate with its type
@@ -578,7 +578,7 @@ cpp_ita_class(N, Subs0, Canon, Text, Subs) :-
     cpp_class_scope(N, Path, Chain),
     cpp_ita_ns(Path, '', '', Subs0, C0, T0, Subs1),
     (   Path == [std], Chain = [plain(Last)]
-    ->  atom_length(Last, L), atomic_list_concat(['St', L, Last], Canon), ( cpp_ita_sub(Canon, Subs1, Code) -> Text = Code, Subs = Subs1 ; Text = Canon, cpp_ita_note(Canon, Subs1, Subs) )
+    ->  ccl_byte_length(Last, L), atomic_list_concat(['St', L, Last], Canon), ( cpp_ita_sub(Canon, Subs1, Code) -> Text = Code, Subs = Subs1 ; Text = Canon, cpp_ita_note(Canon, Subs1, Subs) )
     ;   Path == [], Chain = [L1]   % AN UNSCOPED NAME (0.180), a class of the program at file scope or its template's instance: `1A', `3BoxIiE', no `N ... E'
     ->  cpp_ita_last_level(L1, C0, T0, Subs1, Canon, T1, Subs2), ( cpp_ita_sub(Canon, Subs2, Code) -> Text = Code, Subs = Subs2 ; Text = T1, cpp_ita_note(Canon, Subs2, Subs) )
     ;   cpp_ita_chain_type(Chain, C0, T0, Subs1, C1, T1, Subs2),
@@ -590,9 +590,9 @@ cpp_ita_class(N, Subs0, Canon, Text, Subs) :-
 %% the chain of a TYPE: every level but the last is a prefix candidate; the last is the type's own (noted whole above)
 cpp_ita_chain_type([L], C0, T0, Subs0, C, T, Subs) :- !, cpp_ita_last_level(L, C0, T0, Subs0, C, T, Subs).
 cpp_ita_chain_type([L|Ls], C0, T0, Subs0, C, T, Subs) :- cpp_ita_chain([L], C0, T0, Subs0, C1, T1, Subs1), cpp_ita_chain_type(Ls, C1, T1, Subs1, C, T, Subs).
-cpp_ita_last_level(plain(N), C0, T0, Subs, C, T, Subs) :- atom_length(N, L), atomic_list_concat([C0, L, N], C), atomic_list_concat([T0, L, N], T).
+cpp_ita_last_level(plain(N), C0, T0, Subs, C, T, Subs) :- ccl_byte_length(N, L), atomic_list_concat([C0, L, N], C), atomic_list_concat([T0, L, N], T).
 cpp_ita_last_level(inst(N, Args), C0, T0, Subs0, C, T, Subs) :-
-    atom_length(N, L), atomic_list_concat([C0, L, N], C1), cpp_ita_level(C1, T0, L, N, Subs0, T1, Subs1),   % the template-name prefix IS a candidate
+    ccl_byte_length(N, L), atomic_list_concat([C0, L, N], C1), cpp_ita_level(C1, T0, L, N, Subs0, T1, Subs1),   % the template-name prefix IS a candidate
     cpp_ita_targs_t(N, Args, Subs1, ACanon, AText, Subs), atomic_list_concat([C1, 'I', ACanon, 'E'], C), atomic_list_concat([T1, 'I', AText, 'E'], T).
 %% the substitution table: a key's code by its position, S_ then S0_ S1_ ... in base 36
 cpp_ita_sub(Key, Subs, Code) :- cpp_ita_index(Subs, Key, 0, I), cpp_ita_code(I, Code).
@@ -623,7 +623,7 @@ cpp_last_segment(C, Last) :- atomic_list_concat(Segs, '.', C), ccl_last(Segs, La
 cpp_mangle_ns([std|Rest], T) :- !, cpp_mangle_ns_(Rest, R), atom_concat('St', R, T).     % St is std's own abbreviation
 cpp_mangle_ns(Path, T) :- cpp_mangle_ns_(Path, T).
 cpp_mangle_ns_([], '').
-cpp_mangle_ns_([N|Ns], T) :- atom(N), atom_length(N, L), cpp_mangle_ns_(Ns, R), atomic_list_concat([L, N, R], T).
+cpp_mangle_ns_([N|Ns], T) :- atom(N), ccl_byte_length(N, L), cpp_mangle_ns_(Ns, R), atomic_list_concat([L, N, R], T).
 %% the builtin types' codes (the Itanium mangler above spells a class, a pointer, a reference over them)
 cpp_mangle_basic(S, v) :- memberchk(void, S), !.
 cpp_mangle_basic(S, 'DF16_') :- memberchk('_Float16', S), !.   % THE REST OF THE BUILTIN TYPES (0.136), clang's and gcc's codes: _Float16,
@@ -1150,7 +1150,7 @@ cpp_lazy_var(L, N, T0) :- cpp_mangled_var(N, Name), \+ cpp_instance_done(Name), 
     cpp_as_lib(yes, cpp_add_instance_items([declaration(L, extern, T, [var(Name, T, none)])])).
 cpp_lazy_var(_, _, _).
 cpp_mangled_var(N, Name) :- atom(N), \+ cpp_c_name(N), cpp_hdr_ns(N, Path), Path = [_|_],
-    cpp_mangle_ns(Path, NsText), atom_length(N, NL), atomic_list_concat(['_ZN', NsText, NL, N, 'E'], Name).
+    cpp_mangle_ns(Path, NsText), ccl_byte_length(N, NL), atomic_list_concat(['_ZN', NsText, NL, N, 'E'], Name).
 %% ... and the name a program writes is that symbol, the header's items loaded on the first ask as a function's are
 cpp_global_var(N, Name) :- nb_getval('$cpp_gvar', G), memberchk(N-Name, G), !.
 cpp_global_var(N, Name) :- atom(N), cpp_hdr_item(N, _), cpp_hdr_load(N), nb_getval('$cpp_gvar', G), memberchk(N-Name, G), !.
@@ -3367,9 +3367,9 @@ cpp_rtti_chain(C, vmi(N, C, [b(BCh, '$base')])) :- cpp_class_l(C, cls(B, Data, _
     cpp_rtti_name(C, N), cpp_rtti_chain(B, BCh).
 cpp_rtti_chain(C, [N|Rest]) :- cpp_class_l(C, cls(B, _, _, _, _)), \+ '$cpp_vbase'(C), cpp_rtti_name(C, N),
     ( B == none -> Rest = [] ; cpp_rtti_chain(B, Rest) ).
-cpp_rtti_name(C, N) :- \+ sub_atom(C, _, _, _, '.'), \+ cpp_lib_class(C), \+ catch('$cpp_type_ns'(C, _), _, fail), !, atom_length(C, K), atomic_list_concat([K, C], N).   % a class of the program at file scope: `1A', as clang spells it; in a namespace of its own the mangler's (0.180: `N2ns1AE', which was `1A')
+cpp_rtti_name(C, N) :- \+ sub_atom(C, _, _, _, '.'), \+ cpp_lib_class(C), \+ catch('$cpp_type_ns'(C, _), _, fail), !, ccl_byte_length(C, K), atomic_list_concat([K, C], N).   % a class of the program at file scope: `1A', as clang spells it; in a namespace of its own the mangler's (0.180: `N2ns1AE', which was `1A')
 cpp_rtti_name(C, N) :- once(catch(cpp_ita_type(base([], [typedef(C)]), [], _, T, _), _, fail)), atom(T), !, N = T.
-cpp_rtti_name(C, N) :- atom_codes(C, Cs), findall(X, ( member(X, Cs), X \== 0'. ), Cs1), atom_codes(A, Cs1), atom_length(A, K), atomic_list_concat([K, A], N).
+cpp_rtti_name(C, N) :- atom_codes(C, Cs), findall(X, ( member(X, Cs), X \== 0'. ), Cs1), atom_codes(A, Cs1), ccl_byte_length(A, K), atomic_list_concat([K, A], N).
 %% the type_info of a TYPE: a class's own, a builtin's the one libc++abi exports (`_ZTIi')
 cpp_rtti_of_type(T0, E) :- ccl_unref(T0, T1), cpp_nullptr_param(T1), !, E = rtti(ext('_ZTIDn')).   % STD::NULLPTR_T, libc++abi's `_ZTIDn' (0.180): resolved, its typedef `decltype(nullptr)' was a `void *', `Pv'
 cpp_rtti_of_type(T0, E) :- ccl_unref(T0, T1), ccl_resolve_type(T1, T2), cpp_strip_top(T2, T),
@@ -3408,7 +3408,7 @@ cpp_rtti_pointee(PT, CN, I) :- cpp_class_of_type(PT, C), !, cpp_rtti_name(C, CN)
 cpp_rtti_pointee(PT, CN, [CN]) :- once(ccl_resolve_type(PT, base(_, [struct(Tag, _)]))), atom(Tag), cpp_rtti_tag_name(Tag, CN).
 %% a plain struct's (or union's) name: the mangler's in a namespace of the program's own (0.180: `N2ns1PE'), else `1P'
 cpp_rtti_tag_name(Tag, N) :- catch('$cpp_type_ns'(Tag, _), _, fail), cpp_rtti_mangled(base([], [typedef(Tag)]), N0), !, N = N0.
-cpp_rtti_tag_name(Tag, N) :- atom_length(Tag, K), atomic_list_concat([K, Tag], N).
+cpp_rtti_tag_name(Tag, N) :- ccl_byte_length(Tag, K), atomic_list_concat([K, Tag], N).
 cpp_ptr_cv(Q, CV, F) :- ( memberchk(volatile, Q) -> V = 'V', FV = 2 ; V = '', FV = 0 ), ( memberchk(const, Q) -> K = 'K', FK = 1 ; K = '', FK = 0 ), atom_concat(V, K, CV), F is FV + FK.   % the pointee's cv, as the name spells it and __pbase_type_info's flags hold it
 cpp_strip_top(base(_, S), base([], S)) :- !.
 cpp_strip_top(ptr(_, P), ptr([], P)) :- !.
@@ -3658,6 +3658,7 @@ cpp_expr(Ctx, move(X), E) :- !, cpp_expr(Ctx, X, X1),
 cpp_expr(Ctx, stmt_expr(block(Is)), stmt_expr(block(Js))) :- !, cpp_in_frame(cpp_stmts(Ctx, Is, Js)).
 cpp_expr(Ctx, lambda(Caps, Ps, Ret, Body), E) :- !, cpp_lambda(Ctx, Caps, Ps, Ret, Body, E).
 cpp_expr(_, str(S), str(S)) :- !.
+cpp_expr(_, u8str(S), u8str(S)) :- !.   % C++20's u8 literal (0.196)
 cpp_expr(Ctx, cond(C, A, B), cond(C2, A1, B1)) :- !, cpp_expr(Ctx, C, C1), cpp_to_bool(C1, C2), cpp_exprs(Ctx, [A, B], [A1, B1]).   % THE CONDITION CONTEXTUALLY CONVERTED TO BOOL ([expr.cond]/1; 0.137), through a class's `operator bool' as `if' and `!' have it: `l ? 1 : 0' over an `optional' compared the struct with zero
 cpp_expr(Ctx, E, E1) :- E =.. [F|As], cpp_exprs(Ctx, As, Bs), E1 =.. [F|Bs].
 %% the class whose static data member a bare name is, where its address is taken (cpp_expr's `&s', above): the class being
@@ -4217,6 +4218,7 @@ cpp_rt_node(sizeof(_)) :- !, fail.
 cpp_rt_node(alignof_type(_)) :- !, fail.
 cpp_rt_node(noexcept_expr(_)) :- !, fail.
 cpp_rt_node(str(_)) :- !, fail.
+cpp_rt_node(u8str(_)) :- !, fail.
 cpp_rt_node(deref(_)) :- !.
 cpp_rt_node(arrow(_, _)) :- !.
 cpp_rt_node(member(_, _)) :- !.
@@ -5839,6 +5841,7 @@ cpp_udl_args(Lit, [cast(base([], [unsigned, long, long]), Lit)]) :- ( Lit = int(
 cpp_udl_args(float(F), [cast(base([], [long, double]), float(F))]) :- !.
 cpp_udl_args(ldbl(A), [cast(base([], [long, double]), ldbl(A))]) :- !.   % the literal's text as a long double, rounded once (0.160)
 cpp_udl_args(str(Cs), [str(Cs), cast(base([], [unsigned, long]), int(N))]) :- !, length(Cs, N).
+cpp_udl_args(u8str(Cs), [u8str(Cs), cast(base([], [unsigned, long]), int(N))]) :- !, length(Cs, N).   % char8_t's: a unit a byte (0.196)
 cpp_udl_args(wstr(Cs), [wstr(Cs), cast(base([], [unsigned, long]), int(N))]) :- !, ccl_utf8_count(Cs, N).
 cpp_udl_args(u32str(Cs), [u32str(Cs), cast(base([], [unsigned, long]), int(N))]) :- !, ccl_utf8_count(Cs, N).
 cpp_udl_args(u16str(Cs), [u16str(Cs), cast(base([], [unsigned, long]), int(N))]) :- !, ccl_utf16_count(Cs, N).
@@ -7183,7 +7186,7 @@ cpp_eval_effect(cast(_, E), Env0, Env, V) :- cpp_eval_side_effects(E), !, cpp_ev
 cpp_eval_effect(E, Env, Env, V) :- cpp_eval_expr(E, Env, V).
 cpp_eval_side_effects(E) :- compound(E), ( E = assign(_, _, _) ; E = preinc(_) ; E = predec(_) ; E = postinc(_) ; E = postdec(_) ), !.
 cpp_eval_side_effects(E) :- compound(E), \+ cpp_eval_inert(E), E =.. [_|As], member(A, As), cpp_eval_side_effects(A), !.
-cpp_eval_inert(str(_)).   % a literal, a name or a value holds no effect, and a string's codes were walked a code at a time (0.165)
+cpp_eval_inert(str(_)).  cpp_eval_inert(u8str(_)).   % a literal, a name or a value holds no effect, and a string's codes were walked a code at a time (0.165)
 cpp_eval_inert(int(_)).
 cpp_eval_inert(id(_)).
 cpp_eval_inert('$val'(_)).
@@ -7205,7 +7208,7 @@ cpp_eval_reduce(E, _, E) :- \+ compound(E), !.
 cpp_eval_reduce(int(N), _, int(N)) :- !.
 cpp_eval_reduce('$val'(V), _, '$val'(V)) :- !.
 cpp_eval_reduce(id(N), Env, R) :- !, ( cpp_eval_addr(id(N), Env, A), cpp_eval_load(A, V) -> cpp_eval_decay(V, A, R) ; cpp_eval_function(N) -> R = '$val'(fn(N)) ; R = id(N) ).   % a name: its cell's value, an array DECAYED to a pointer to its first element
-cpp_eval_reduce(str(Cs), _, '$val'(ptr(cell(Id), [0]))) :- !, append(Cs, [0], L), cpp_ec_new(arr(L), Id), atom_concat('$cpp_ecs:', Id, SK), nb_setval(SK, yes).   % the cell is a literal's: a pointer into it may be a global's constant
+cpp_eval_reduce(W, _, '$val'(ptr(cell(Id), [0]))) :- ( W = str(Cs) ; W = u8str(Cs) ), !, append(Cs, [0], L), cpp_ec_new(arr(L), Id), atom_concat('$cpp_ecs:', Id, SK), nb_setval(SK, yes).   % the cell is a literal's: a pointer into it may be a global's constant
 %% ... A WIDE LITERAL is its code units (0.115): `L"true"' and `U"..."' the code points, `u"..."' UTF-16 units
 %% (ir_utf8_decode, ir_wide_units: the lowering's own doors), the cell marked with its kind so a pointer into it spells
 %% back as that literal. Why: `__bool_strings<wchar_t>::__true{L"true"}' did not fold, the static stayed an undefined
@@ -8896,6 +8899,7 @@ cpp_deduce_type(A, AT) :- \+ cpp_fn_template_ref(A, _), ccl_global('$cpp_temps',
     ;   nb_setval('$cpp_temps', Ts), fail ).
 %% a string literal's own type, the array of its code units and the NUL: `const char[N]', `const wchar_t[N]' ...
 cpp_string_literal(str(Cs), arr(int(N), base([const], [char]))) :- !, length(Cs, K), N is K + 1.
+cpp_string_literal(u8str(Cs), arr(int(N), base([const], [char8_t]))) :- !, length(Cs, K), N is K + 1.   % C++20's u8"..." (0.196)
 cpp_string_literal(wstr(Cs), arr(int(N), base([const], [wchar_t]))) :- !, ccl_utf8_count(Cs, K), N is K + 1.
 cpp_string_literal(u32str(Cs), arr(int(N), base([const], [char32_t]))) :- !, ccl_utf8_count(Cs, K), N is K + 1.
 cpp_string_literal(u16str(Cs), arr(int(N), base([const], [char16_t]))) :- ccl_utf16_count(Cs, K), N is K + 1.
@@ -9147,6 +9151,7 @@ cpp_subst(call(id(P), Args0), B, E) :- memberchk(P-A, B), cpp_is_type(A), cpp_su
 cpp_subst(id(P), B, V) :- memberchk(P-V0, B), !, ( V0 == '$later' -> V = id(P) ; cpp_pack_list(V0, _) -> cpp_refuse(0, pack_unexpanded(P)) ; V = V0 ).
 cpp_subst(scoped(Path, N0), B, scoped(Path1, N)) :- !, cpp_subst_path(Path, B, Path1), ( atom(N0) -> N = N0 ; cpp_subst(N0, B, N) ).   % C::value_type with C a parameter: the class it is bound to; std::vector<T> under T
 cpp_subst(str(S), _, str(S)) :- !.
+cpp_subst(u8str(S), _, u8str(S)) :- !.
 cpp_subst(T0, B, T) :- T0 =.. [F|As], cpp_subst_list(As, B, Bs), T =.. [F|Bs].
 %% A TEMPLATE TEMPLATE PARAMETER'S OWN DEFAULTS ([temp.param]/14; 0.185): in the parameter's scope `TT<U>' takes
 %% the arguments its own list defaults (the reader's ttp(N, List), bound beside the parameter as '$ttdef'(N) by
@@ -9702,15 +9707,15 @@ cpp_lambda_key(Ctx, Caps, Ps0, Ret0, Body, k(Ctx, Caps, Ps0, Ret0, Body, Ts, F))
 %% every time, the closures of std::format's library lambdas were made once per enclosing instance, and fmtcheck.cpp took
 %% 72.6 s where it takes 62.9 s.
 cpp_lambda_names_fn(T) :- atom(T), !, ( memberchk(T, ['__func__', '__FUNCTION__', '__PRETTY_FUNCTION__', '__builtin_source_location', source_location]) -> true ; '$cpp_srcloc_fn'(T) ).
-cpp_lambda_names_fn(T) :- compound(T), T \= str(_), T =.. [_|As], member(A, As), cpp_lambda_names_fn(A), !.
+cpp_lambda_names_fn(T) :- compound(T), T \= str(_), T \= u8str(_), T =.. [_|As], member(A, As), cpp_lambda_names_fn(A), !.
 cpp_note_srcloc_fns(Units) :- forall(( cpp_srcloc_fn_item(Units, N, Ps), cpp_srcloc_param(Ps) ), ( '$cpp_srcloc_fn'(N) -> true ; assertz('$cpp_srcloc_fn'(N)) )).
 cpp_srcloc_fn_item(T, N, Ps) :- compound(T),
     (   T = function(_, _, _, N0, Ps, _, _) ; T = method(_, _, _, N0, Ps, _, _)
     ;   T = class(_, N0, _, Ms), is_list(Ms), member(ctor(_, _, Ps, _, _), Ms) ),   % a constructor's, by its class's name: `Lg a(1);'
     ( atom(N0) -> N = N0 ; N0 = scoped(_, N1), atom(N1) -> N = N1 ; N0 = tmpl(N1, _), atom(N1) -> N = N1 ).
-cpp_srcloc_fn_item(T, N, Ps) :- compound(T), T \= str(_), T =.. [_|As], member(A, As), cpp_srcloc_fn_item(A, N, Ps).
+cpp_srcloc_fn_item(T, N, Ps) :- compound(T), T \= str(_), T \= u8str(_), T =.. [_|As], member(A, As), cpp_srcloc_fn_item(A, N, Ps).
 cpp_srcloc_param(T) :- atom(T), !, memberchk(T, [source_location, '__builtin_source_location']).
-cpp_srcloc_param(T) :- compound(T), T \= str(_), T =.. [_|As], member(A, As), cpp_srcloc_param(A), !.
+cpp_srcloc_param(T) :- compound(T), T \= str(_), T \= u8str(_), T =.. [_|As], member(A, As), cpp_srcloc_param(A), !.
 cpp_lambda_(Ctx, Caps, Ps0, Ret0, Body, E) :-
     ( Ps0 = [param(this(ST0), SN)|Ps1] -> true ; Ps1 = Ps0, SN = none ),                                         % C++23: an explicit object parameter: the closure itself, `this auto self'
     %% A GENERIC LAMBDA IS A CLOSURE WHOSE `operator()' IS A MEMBER TEMPLATE ([expr.prim.lambda.closure]/3), which
@@ -10225,7 +10230,7 @@ cpp_fsig_unwrap(S, S).
 %% a member defined out of its class: `static' and `virtual' are its declaration's
 cpp_pf_decl_quals(C, M, Ps, Qs, FQs) :- ( catch('$cpp_decl'(C, method(M), DQs, DPs), _, fail), length(DPs, A), length(Ps, A) -> append(Qs, DQs, FQs) ; FQs = Qs ).
 %% `__func__' (func) or `__PRETTY_FUNCTION__' (pretty) in the function walked, a string literal; empty outside one
-cpp_fsig_literal(N, str(Cs)) :- ( N == '__PRETTY_FUNCTION__' -> K = pretty ; K = func ), cpp_fsig_text(K, T), atom_codes(T, Cs).
+cpp_fsig_literal(N, str(Cs)) :- ( N == '__PRETTY_FUNCTION__' -> K = pretty ; K = func ), cpp_fsig_text(K, T), ccl_atom_bytes(T, Cs).   % its bytes, a name past ASCII's UTF-8 (0.196)
 cpp_fsig_text(K, T) :- cpp_fsig_now(S), ( S \== none, catch(cpp_pf(K, S, T0), _, fail), atom(T0) -> T = T0 ; T = '' ).
 cpp_pf(func, fsig(Kind, C, Src, _, _, _, _, _), T) :- !, ( Kind == ctor -> cpp_pf_class_short(C, T) ; Kind == dtor -> cpp_pf_class_short(C, S), atom_concat('~', S, T) ; cpp_pf_short(Src, T) ).
 cpp_pf(pretty, fsig(free, _, Src, Ret, Ps, V, _, TA), T) :- !,
