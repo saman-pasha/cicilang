@@ -183,6 +183,7 @@ One row per step, in version order: the step's title, what it did and its gate n
 | 0.187 | Not done, the twenty-third part: a cold read 1.5 times faster, its trees the same | the sets of names the whole record, no list of every name beside them (12,397 copies of the env's list, 0.89 s, in a read of `<thread>`'s flattened text); one look before an attribute, at the end of the specifiers and at a qualified name of one identifier; an out-of-class definition's qualified name read once; a set's bucket key from the name's list of characters; the numbers of 0.186's chain | committed before its chain: on 2.11.0 the flow gate GREEN (4128 predicates), the trees of seven libc++ headers the same, byte for byte, read in 90.0 s where 0.186 read them in 133.7 s, the C gates GREEN, nets of 112 C++ fixtures over fresh HOMEs, 112 of 112 the same over libc++ 18 and over 21, their cold builds 1597 s and 1436 s where 0.186's took 1942 s and 1702 s; 87 run C fixtures, 604 C++; its chain (0.188), over fresh HOMEs (the reader moved): all nine gates GREEN over libc++ 18 in 1595 s, the library read and the C++ gate over 21; the library read 365 s and 322 s, the C++ gate 803 s and 801 s; 600 of 604 over 18, 602 over 21 |
 | 0.188 | Not done, the twenty-fourth part: a build's cold headers read at once, each by a process of its own; the next costs of a cold read | the cold library headers of a C++ build read by a cocolog each, as many at a time as the machine has processors (`CICILANG_JOBS`), the build then served from their summaries (`aliasptr.cpp`'s eight over libc++ 18: 52.8 s where the build alone takes 96.5 s, the same CPU time); each writer's temporary file a name of its own; the file scope holds atoms alone (861 copies of a bucket, 0.80 s of a read of `<thread>`'s text); the no-throw names a set; one look at a specifier's keyword and at a type's name of one word; a directive line marked once; an item walked for floats before it is copied; a summary's and an AST's text written as atoms (26 million steps of `append/3`); the numbers of 0.187's chain | committed before its chain: on 2.11.0 the flow gate GREEN (4151 predicates), the trees of seven libc++ headers the same, byte for byte, read in 71.9 s where 0.186's library read them in 133.7 s, the C gates and the cross gate GREEN, nets of 112 C++ fixtures over fresh HOMEs, 112 of 112 the same over libc++ 18 and over 21, their cold builds 1343 s and 1231 s where 0.187's took 1597 s and 1436 s, their summaries 0.187's nets', 52 of 52 over each; 87 run C fixtures, 604 C++; its chain (0.189), over fresh HOMEs (the reader moved): all nine gates GREEN over libc++ 18 in 1427 s, the library read and the C++ gate over 21; the library read 273 s and 241 s, the C++ gate 784 s and 803 s; 600 of 604 over 18, 602 over 21 |
 | 0.189 | the chain of 0.188 | no library file changed: the numbers of 0.188's chain | all nine gates GREEN over libc++ 18 in 1427 s, the two libc++ gates over 21; the headers' reads summed 999 s and 877 s (0.187's 1349 s and 1191 s), the fixtures' builds 2638 s and 2701 s; 600 of 604 C++ fixtures over 18, 602 over 21; the chain's summaries the 0.188 nets', 52 of 52 over each |
+| 0.190 | cocolog 2.11.1; the native lexer's buffers grow through a second pointer; the owner's four decisions | cocolog 2.11.1 (a failed store read raises and loses no row, growths keep their block); the native lexer's two `x = realloc(x, n)` sites grow through a second pointer, a refused allocation `resource_error(memory)` where the module of 0.189 crashed (signal 11, under a shim that refuses its requests); libc++'s configurations measured (a throw in its headers' code aborts, one in the compiled library is caught; `std::dynamic_pointer_cast` runs, written absent since 0.86); the safe part's boundary measured (a borrow handed into a `std::vector` or a `std::function` and returned compiles); the four questions put to the owner and their answers, the next steps | committed before its chain: on 2.11.1 the flow gate GREEN (4151 predicates), the reader, compile, driver and objects gates, the proof and the cross gate's C part GREEN; five warm C++ builds 59.17 s on 2.11.0 and 58.42 s on 2.11.1 (the least CPU time of three interleaved runs) |
 
 ## M5 — the C++ mode
 
@@ -11989,3 +11990,73 @@ chain's, wall clock.
   builds of 0.188's chain).
 
 Reader 142 and lowering 104, as 0.188 left them.
+
+## 0.190 — cocolog 2.11.1; the native lexer's buffers grow through a second pointer; the owner's four decisions
+
+**0.190: cocolog 2.11.1, whose engine session named the pattern `x = realloc(x, n)`, which loses its block when the
+allocation is refused; the native lexer had it twice and crashed there, and raises `resource_error(memory)` now; the
+facts of libc++'s two configurations measured (a throw in its headers' code aborts, one in the compiled library is
+caught; `std::dynamic_pointer_cast` runs, where `CLAUDE.md` said it was absent); and the four questions put to the
+owner, answered by their recommendations, written down as the next steps. Committed before its chain, on the owner's
+word: the chain runs over this commit, and the next one carries its numbers.**
+
+- COCOLOG 2.11.1 (`870bcb9`), the engine session's answer to an outside review of 2.11.0, beside ZiguratIP 1.0.1
+  (`90d99b8`) and Cicili 3.0.0 (`9d74a5e`), neither of which moved: a failed read of the store raises
+  `resource_error(knowledge_base)`, `context(Name/Arity, Why)` and loses no row, where a read marked a predicate read
+  before the backend answered and kept what a fetch that skipped an unreadable row had put in, so that the next write
+  rewrote the predicate from the partial copy and deleted the row on the server; fifteen `x = realloc(x, n)` sites of
+  the engine and its modules grow through a second pointer and raise memory; `test/run.pl` counts a test binary GREEN
+  or SKIP only when it also exits 0; library(astar) reopens a node reached more cheaply. The SDK did not change
+  (`lib/sdk.cicili`), and both modules here were built again with no change but the lexer's own (below). The update
+  took `make` 187 s, `make schema` 37 s and `make modules` 78 s (torch, tensorflow, ray and numpy skipped).
+  Measured, the least CPU time of three interleaved runs each, the same library over one warm HOME (libc++ 18, the
+  0.188 chain's): five warm C++ builds 59.17 s on 2.11.0 (its own build kept in a scratch copy, the modules built over
+  it) and 58.42 s on 2.11.1 -- `counter.cpp` 0.20 s and 0.21 s, `stdvector.cpp` 3.18 and 3.10, `stdmap.cpp` 4.96 and
+  5.30, `stdtuple.cpp` 14.06 and 15.03, `stdformat.cpp` 36.76 and 34.77 -- `stdmap` and `stdtuple` above in each round
+  (`stdtuple`'s best on 2.11.1 past its worst on 2.11.0), `stdformat` below, the sum 1.3 % less; a call of an empty
+  dynamic predicate, which 2.11.1's read now meets on its path for a predicate with no clauses, costs the same: 3
+  million in 0.354 s and 0.353 s, beside 0.344 s for a predicate of one fact (the least of three runs).
+- THE NATIVE LEXER'S BUFFERS. `ccl_lx_push` grew the token array and `ccl_lx_putc` the text buffer by `x = realloc(x,
+  n)`: refused, the call answered null, the block was lost and the next store wrote through the null pointer. Each now
+  grows through a second pointer (`ccl_lx_grow_toks`, `ccl_lx_grow_buf`): a refused allocation keeps the block and
+  marks the lexer (`oom`, a member of `ccl_lx`), which then grows and stores nothing more, the loop stops at the next
+  token, and `ccl_lex_native/6` frees what it
+  holds and raises `resource_error(memory)`, which a `catch/3` takes; the lexer's first allocations and its rest's code
+  list (`ccl_lx_codes`) are checked too. Measured with a shim, session scratch, that refuses a request of a given size
+  or more where the caller lies in `cicilang.so` (`dladdr` of the return address), so that cocolog's own allocations are
+  served: a string literal of 300,000 characters (the text buffer past 100,000 bytes) and 200,000 one-letter tokens
+  (the token array past 1,000,000 bytes) each crashed the module of 0.189 (signal 11, exit 139) and raise the error
+  with 0.190's; without the shim both lex as they did (2 tokens and 200,000). No other allocation of either module
+  grows a block (`module/ccl_llvm.cicili` has none; `module/bidrt.c` none).
+- LIBC++'S TWO CONFIGURATIONS, MEASURED (over libc++ 18, against clang++ 18). No exceptions: `try { return v.at(5); }
+  catch (const std::out_of_range &) { return 3; }` aborts with libc++'s message, exit 134, where clang++'s handler
+  returns 3; `try { return std::stoi("x"); } catch (const std::invalid_argument &) { return 3; }` returns 3 in both,
+  since `std::stoi` is compiled in `libc++.so` and throws there for real. No RTTI: `a.type()` of a `std::any` is
+  refused, `no_member(type, ...)`, as the configuration means; `std::dynamic_pointer_cast<D>(b)` runs and prints D's
+  value, where `CLAUDE.md` had said since 0.86 that it was absent: libc++ 18 guards it by no macro, and its
+  `dynamic_cast` is the program's own, which runs since 0.108. `std::get_deleter` and `std::function::target_type()`
+  and `target<T>()` are guarded (`__memory/shared_ptr.h`, `__functional/function.h`).
+- THE SAFE PART'S BOUNDARY, MEASURED: `int x = 5; std::vector<int *> v; v.push_back(&x); return v;` and `int x = 5;
+  return [&x] { return x; };` with the result `std::function<int()>` compile and run, each returning a pointer to a
+  dead local, where the same closure returned as `auto` is refused (`test/cpp/escape.cpp`: a borrow leaves the
+  function): a borrow handed into a library object is not followed.
+- THE OWNER'S FOUR DECISIONS. The four questions the `Not done` list held for the owner -- libc++'s exceptions,
+  libc++'s RTTI, the library's functions unchecked by the safe part (0.45's decision), and a store for `cicilang++` --
+  were put with their facts, their reasons then and now (0.50 had no unwinding, 0.86 no `type_info`, M5 a store write
+  that grew as the square of its rows: each reason gone), their costs and a recommendation each, and the owner took
+  the four recommendations: RTTI and exceptions on by default, as clang++ has them, `-fno-rtti` and `-fno-exceptions`
+  the configurations of today (clang's own arguments: no new flag); 0.45's decision confirmed and the gap closed at
+  the boundary, a library object borrowing what it stores; and the IR of a C++ build kept as files beside the
+  summaries. `CLAUDE.md`'s Not done opens with them, in the order they are done (RTTI first: four headers change).
+- THE GATES, on 2.11.1, over the work tree and a fresh HOME: the flow gate GREEN (one finding, `test/flow.expect`'s,
+  100 s, peak 3032 MB over its four lanes; 4151 predicates: the modules' dispatch rows did not change), reader 5 s,
+  compile 13 s, driver 14 s, objects 4 s, the proof, the cross gate's C part in 67 s (87 C fixtures and 5 checks;
+  its C++ part reads `$LLVM`'s tree, libc++ 22 here, whose aarch64 copy the sysroot does not hold: a SKIP line, and
+  the chain runs it over libc++ 18); and after the lexer's last change (a refused buffer is not grown again) the
+  reader, compile and driver gates again, 3 s, 8 s and 11 s, and the shim's four runs as before.
+- `CLAUDE.md`: the versions; the lexers' topic (the buffers); the preprocessor's two configuration bullets and the
+  Exceptions topic (the facts measured, the owner's decisions); the safe part's bullet of 0.45 (confirmed); the
+  neighbours' version bullet (2.11.1); Not done (the owner's decisions of 0.190, and the bullets that waited for
+  the owner).
+
+Reader 142 and lowering 104, as 0.189 left them: no library file changed.

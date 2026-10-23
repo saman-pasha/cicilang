@@ -10,7 +10,7 @@ it found, its measurements and its gate numbers. `README.md` tells a user what r
 architecture and the milestones. A step that changes a rule edits the rule here, in its topic, and writes its entry
 in `HISTORY.md`.
 
-At 0.189 the versions are: the module 0.189 (`ccl_p_version` in `module/cicilang.cicili`, `bin/cicilang --version`),
+At 0.190 the versions are: the module 0.190 (`ccl_p_version` in `module/cicilang.cicili`, `bin/cicilang --version`),
 the reader 142 (`ccl_reader_version/1`, `library/ccl_syntax.pl`) and the lowering 104 (`ccl_lowering_version/1`,
 `library/ccl_ir.pl`).
 
@@ -954,6 +954,12 @@ tutorials/01..03-*.pl       the objects layer's lessons; goal main, last line do
   specification and the fallback. The native `ccl_lex_native(+Text, +Line0, +Mode, +Lang, -Tokens, -Rest)` in
   `module/cicilang.cicili` is the one that runs: C in Cicili, keyword tables and punctuators in C, `tok/3` built by
   `coco_make` behind `coco_m_machine`. Why: the DCG lexer was the cost floor of every read. (M1)
+- THE NATIVE LEXER'S BUFFERS GROW THROUGH A SECOND POINTER (0.190; `ccl_lx_grow_toks`, `ccl_lx_grow_buf`): a refused
+  allocation keeps the old block and marks the lexer (`oom`), and `ccl_lex_native/6` frees what it holds and raises
+  `resource_error(memory)`, which a `catch/3` takes. The token array and the text buffer were grown by `x = realloc(x,
+  n)`, which lost the block, and the next store wrote through a null pointer: signal 11 (cocolog's owner named the
+  pattern at 2.11.1). Measured with a shim that refuses the lexer's own large requests (session scratch): a string
+  literal of 300,000 characters and 200,000 tokens, each a crash before and the error after. (0.190)
 - `ccl_tokens/3` and `ccl_lex_atom/4` (the preprocessor's door) choose the lexer by `'$ccl_lexer'`, which
   `ccl_ensure_globals` sets once from a probe of `ccl_lex_native/6`. `library(ccl_syntax)` loaded alone lexes through
   the DCG. (M1)
@@ -1190,12 +1196,18 @@ tutorials/01..03-*.pl       the objects layer's lessons; goal main, last line do
 
 ### Configuration chosen through the macros
 
-- NO EXCEPTIONS in libc++ (the owner's design): `__cpp_exceptions` and `__EXCEPTIONS` are not predefined, so libc++
-  builds its `-fno-exceptions` configuration, where a throw aborts with a message. The program's own `throw` and `try`
-  use libc++abi. (0.50, 0.108)
-- NO RTTI in libc++: `__cpp_rtti` and `__GXX_RTTI` are not predefined. `any`, `exception_ptr`, `shared_ptr` and
-  `function` change; the vtables do not, so control blocks match the shipped library. `shared_ptr::get_deleter` and
-  `dynamic_pointer_cast` are absent. The program's own `typeid` and `dynamic_cast` use libc++abi. (0.86, 0.108)
+- NO EXCEPTIONS in libc++ (0.50's choice, when nothing here unwound): `__cpp_exceptions` and `__EXCEPTIONS` are not
+  predefined, so libc++ builds its `-fno-exceptions` configuration, where a throw in its headers' code aborts with a
+  message (the Exceptions topic). The program's own `throw` and `try` use libc++abi. The owner decided at 0.190 to
+  turn them on by default, as clang++ has them, with `-fno-exceptions` for this configuration (Not done). (0.50,
+  0.108, 0.190)
+- NO RTTI in libc++ (0.86's choice, when nothing here made a `type_info`): `__cpp_rtti` and `__GXX_RTTI` are not
+  predefined. `any`, `exception_ptr`, `shared_ptr` and `function` change; the vtables do not, so control blocks match
+  the shipped library. `std::any::type()`, `std::function::target_type()` and `target<T>()` and `std::get_deleter`
+  are absent; `std::dynamic_pointer_cast` is not, which libc++ guards by no macro and whose `dynamic_cast` is the
+  program's own (0.190: written absent from 0.86 to 0.189). The program's own `typeid` and `dynamic_cast` use
+  libc++abi. The owner decided at 0.190 to turn RTTI on by default, with `-fno-rtti` for this configuration (Not
+  done). (0.86, 0.108, 0.190)
 - `__OPTIMIZE_SIZE__` IS NOT PREDEFINED (0.162), as clang predefines it only at `-Os` and `-Oz`: libc++ 21 compiles
   its VECTORIZED algorithms behind `_LIBCPP_HAS_ALGORITHM_VECTOR_UTILS && !defined(__OPTIMIZE_SIZE__)` (`mismatch`, and
   through it `lexicographical_compare` and so a vector's `operator<`): `__simd_vector<_Tp, _Np>`, an `ext_vector_type`
@@ -5760,8 +5772,12 @@ A lambda is a class of its captures (`library/ccl_cpp.pl`). A fixture named alon
 
 ### Exceptions
 
-- libc++ runs its no-exceptions configuration (`__cpp_exceptions`, `__EXCEPTIONS` not predefined): a library throw
-  aborts with its message, so no program catches `bad_optional_access`. (0.50)
+- libc++ runs its no-exceptions configuration (`__cpp_exceptions`, `__EXCEPTIONS` not predefined): a throw in the
+  code of its HEADERS aborts with its message, so no program catches `bad_optional_access` or the `out_of_range` of
+  `vector::at`; a throw in the COMPILED library's own code (`libc++.so`: `std::stoi`) is a real throw, which the
+  program's handler catches, as clang++'s does (measured at 0.190: `v.at(5)` in a `try` aborts with exit 134 where
+  clang++'s handler returns 3, and `std::stoi("x")` in one returns 3 in both). The owner decided at 0.190 to turn
+  exceptions on by default, as clang++ has them, `-fno-exceptions` this configuration (Not done). (0.50, 0.190)
 - The program's own `throw`, `try` and `catch` run over libc++abi (linked through `-lc++`, `ccl_link_libs` on Linux).
   `throw e` is `__cxa_allocate_exception`, the object built in place (`cpp_new_at`), then `__cxa_throw` with the
   type_info and the destructor; `throw E(args)` builds E in the exception's memory. `throw;` is `__cxa_rethrow`. An
@@ -6501,7 +6517,7 @@ A lambda is a class of its captures (`library/ccl_cpp.pl`). A fixture named alon
   (`ck_args_/5`: `ck_dying_param/2`, `ck_fresh_param/2`, `ck_own_under/3`). `ck_arg_base/2` takes any path, and
   `ck_pointee_fields/3` recurses into members held by value, so a member's constructor and destructor update its
   fields. (0.37, 0.41)
-- The library's functions are not checked (0.45's decision, open to the owner to confirm or reverse): libc++ keeps raw
+- The library's functions are not checked (0.45's decision, which the owner confirmed at 0.190): libc++ keeps raw
   pointers by its own discipline. `cpp_as_lib/2` marks each function a library walk emits `'$cpp_libfn'(Name)`; a
   library template's origin is `'$cpp_lib'(N)`. `ck_items/1` skips them (`cpp_library_function/1`), and compiler-made
   thunks too. The program's own functions and its templates' instances are checked. (0.45, 0.108)
@@ -7467,8 +7483,17 @@ A lambda is a class of its captures (`library/ccl_cpp.pl`). A fixture named alon
   at 2882 MB, 1.8.38 at 591 MB. After a cocolog update the modules are rebuilt (`module/build.sh`,
   `module/build-llvm.sh`, and cocolog's `os` and `process` modules); 1.8.36 to 1.8.41 left the SDK's ABI unchanged.
   (0.46, 0.112, 0.114)
-- cocolog is at 2.11.0 since 0.182 -- master `885f9b7`, over ZiguratIP 1.0.1 (`90d99b8`) beside Cicili 3.0.0
-  (`9d74a5e`), neither of which moved. 2.3.0 (`ee0073a`) gives assert and retract ISO's logical update view (the bullet
+- cocolog is at 2.11.1 since 0.190 -- master `870bcb9`, over ZiguratIP 1.0.1 (`90d99b8`) beside Cicili 3.0.0
+  (`9d74a5e`), neither of which moved: a failed read of the store raises `resource_error(knowledge_base)` and loses no
+  row, where a predicate read in part was rewritten from the partial copy at the next write and the row deleted on the
+  server; fifteen `x = realloc(x, n)` sites grow through a second pointer and raise memory, the pattern the native
+  lexer had too (The lexers topic). The SDK did not change, and both modules were built again. The update took `make`
+  187 s, `make schema` 37 s and `make modules` 78 s. Measured at 0.190, the least CPU time of three interleaved runs
+  each over one warm HOME: five warm C++ builds 59.17 s on 2.11.0 and 58.42 s on 2.11.1, `stdmap.cpp` and
+  `stdtuple.cpp` some 7 % above in each round and `stdformat.cpp` 5 % below; a call of an empty dynamic predicate
+  costs the same (3 million in 0.354 s and 0.353 s). It was at 2.11.0 from 0.182 -- master `885f9b7`, over ZiguratIP
+  1.0.1 and beside Cicili 3.0.0, neither of which moved then. 2.3.0 (`ee0073a`) gives assert and retract ISO's logical
+  update view (the bullet
   below); 2.4.0 (`58e9d89`) a Unix socket as an address; 2.4.1 (`596502e`) library(template); 2.5.0 (`5e6b89f`)
   rationals, a cell tag of four bits (`max_tagged_integer` 2^59 - 1, where it was 2^60 - 1; an integer past it boxed,
   integers still 64 bits), the rest of swipl's evaluable functions and text predicates, `atom_concat/3` as clauses over
@@ -8516,6 +8541,29 @@ A lambda is a class of its captures (`library/ccl_cpp.pl`). A fixture named alon
 
 ## Not done
 
+### The owner's decisions of 0.190, in the order they are done
+
+The four questions put to the owner at 0.190, each answered by the recommendation it was given. Each is a step of its
+own, and each moves into its topic when it is done.
+
+1. RTTI IN libc++: on by default, as clang++ has it; `-fno-rtti` gives the no-RTTI configuration, and refuses the
+   program's own `typeid` and a downcasting `dynamic_cast` as `clang++ -fno-rtti` does (`use of typeid requires
+   -frtti`). The C++ summaries fold the configuration. Its cost is expected small: four headers change.
+2. EXCEPTIONS IN libc++: on by default, as clang++ has them; `-fno-exceptions` gives today's configuration. Their
+   cost is measured on the nets before the commit: libc++'s headers then hold throws and `try` blocks, more calls are
+   `invoke`s with landing pads, and every noexcept function that makes a call is guarded. The noexcept-ness of library
+   functions and the nothrow traits answer the declarations then (`__is_nothrow_constructible` is the plain trait
+   today), and the safe part's rules are reviewed for a library call that can throw.
+3. THE SAFE PART AT THE LIBRARY'S BOUNDARY: 0.45's decision stands (the library's bodies are not checked), and a
+   library object borrows what it stores -- a value of a library class whose template arguments carry a pointer, a
+   reference or a closure, and the view types (`std::string_view`, `std::span`), borrows the borrows handed to its
+   constructors and members, so that returning or storing it obeys the borrow rules. A `std::string` made from a local
+   array borrows nothing: it copies.
+4. THE C++ IR CACHE: a C++ build keeps the IR of each file it builds as files beside the summaries in
+   `~/.cicilang/cpp/`, each writer under a name of its own (0.188), keyed as `dr_ir/3`'s signature is and also by the
+   libc++ tree, the level, `-D`, the target and the RTTI and exceptions configuration; the C++ gate builds uncached. A
+   store for it comes only after parallel writes to one store are measured.
+
 ### C++ language
 
 - A library class's consteval constructor's check runs at compile time since 0.164 where the evaluator takes it (the
@@ -8558,10 +8606,11 @@ A lambda is a class of its captures (`library/ccl_cpp.pl`). A fixture named alon
   (`tzone.cpp`: a zone by name, its offsets and abbreviations in winter and in summer, a local time; libc++ 21, whose
   database reads the box's `/usr/share/zoneinfo/tzdata.zi`).
 - `optional<T &>` needs libc++ 22 (`stdoptionalref.needs`; 21.1.8 has none). `bad_optional_access` cannot be caught: libc++ keeps its
-  no-exceptions configuration and aborts with the message (0.82).
-- libc++ keeps its no-RTTI configuration by design, so `shared_ptr::get_deleter`, `dynamic_pointer_cast`,
-  `std::function::target` and `target_type` are absent (0.86, 0.88). The program's own `typeid` and `dynamic_cast` run
-  (0.108).
+  no-exceptions configuration and aborts with the message (0.82), until the owner's decision of 0.190 is done (The
+  owner's decisions of 0.190, below).
+- libc++ keeps its no-RTTI configuration, so `std::get_deleter`, `std::any::type()`, `std::function::target` and
+  `target_type` are absent (0.86, 0.88); `std::dynamic_pointer_cast` runs (0.190). The program's own `typeid` and
+  `dynamic_cast` run (0.108).
 - `std::atomic<shared_ptr<T>>` (C++20, P0718) is in none of libc++ 18, 21 and 22: clang++ refuses
   `std::atomic<std::shared_ptr<int>>` over each tree (22's `<version>` leaves `__cpp_lib_atomic_shared_ptr` out, and
   `std::atomic<T>` asserts that T is trivially copyable), so there is nothing of the library to compile (0.86, 0.128,
@@ -8605,8 +8654,11 @@ A lambda is a class of its captures (`library/ccl_cpp.pl`). A fixture named alon
 
 ### The safe part
 
-- A library header's functions are not checked (`cpp_library_function/1`, `'$cpp_libfn'`). This is 0.45's decision,
-  and it waits for the owner to confirm or reverse it.
+- A library header's functions are not checked (`cpp_library_function/1`, `'$cpp_libfn'`): 0.45's decision, which
+  the owner confirmed at 0.190. A borrow handed INTO a library object is not followed: `int x = 5; std::vector<int *>
+  v; v.push_back(&x); return v;` and `int x = 5; return std::function<int()>([&x] { return x; });` compile and run
+  (measured at 0.190), where the same borrow returned without the library class is `borrow_escapes`. The owner decided
+  at 0.190 to close that gap at the boundary (The owner's decisions of 0.190, below).
 - A closure held in a `std::function` is not followed: it is the library's discipline (0.100).
 - A direct `std::allocator::allocate` and `allocator_traits<A>::allocate(a, n)` are accepted: a library member's or
   static function's plain pointer result borrows the object it takes by reference (`ck_borrows_from`, 0.91, 0.117;
@@ -8625,7 +8677,8 @@ A lambda is a class of its captures (`library/ccl_cpp.pl`). A fixture named alon
 - A C++ read never uses the store: `cicilang++` runs `--no-kb` (M5), its cache the summary and the AST beside it (0.35,
   0.45). The reason written then, a store write quadratic past about 30,000 rows, is gone (linear on cocolog 2.2.5,
   measured at 0.161: the Findings); a process that adds a row to a predicate still rewrites all of it, which one
-  predicate per file serves. Whether `cicilang++` keeps a store as `bin/cicilang` does is the owner's to decide.
+  predicate per file serves. The owner decided at 0.190 that a C++ build keeps its IR as files beside the summaries
+  (The owner's decisions of 0.190, below).
 - The check's cost is its expression walk. The next cut needs the state as a per-function table, or the lookups in C
   (2026-09-06).
 - A C++ build's time was its first deductions and its instantiations (0.98), and, found at 0.120, the COPIES of the
