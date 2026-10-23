@@ -14,7 +14,13 @@
 #define ATOMIC_LLONG_LOCK_FREE 2
 #define ATOMIC_POINTER_LOCK_FREE 2
 #define ATOMIC_FLAG_INIT { 0 }
-#define ATOMIC_VAR_INIT(value) (value)
+#if !defined(__STDC_VERSION__) || __STDC_VERSION__ < 202311L || defined(__cplusplus)
+#define ATOMIC_VAR_INIT(value) (value)   /* removed by C23 (0.194), as clang's header has it */
+#endif
+#if defined(__STDC_VERSION__) && __STDC_VERSION__ >= 202311L
+#define __STDC_VERSION_STDATOMIC_H__ 202311L
+#define ATOMIC_CHAR8_T_LOCK_FREE 2
+#endif
 typedef enum memory_order {
     memory_order_relaxed = __ATOMIC_RELAXED, memory_order_consume = __ATOMIC_CONSUME, memory_order_acquire = __ATOMIC_ACQUIRE,
     memory_order_release = __ATOMIC_RELEASE, memory_order_acq_rel = __ATOMIC_ACQ_REL, memory_order_seq_cst = __ATOMIC_SEQ_CST
@@ -35,6 +41,9 @@ typedef _Atomic(long) atomic_long;
 typedef _Atomic(unsigned long) atomic_ulong;
 typedef _Atomic(long long) atomic_llong;
 typedef _Atomic(unsigned long long) atomic_ullong;
+#if defined(__STDC_VERSION__) && __STDC_VERSION__ >= 202311L
+typedef _Atomic(unsigned char) atomic_char8_t;   /* C23's char8_t is <uchar.h>'s unsigned char (0.194) */
+#endif
 typedef _Atomic(__CHAR16_TYPE__) atomic_char16_t;
 typedef _Atomic(__CHAR32_TYPE__) atomic_char32_t;
 typedef _Atomic(__WCHAR_TYPE__) atomic_wchar_t;

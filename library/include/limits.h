@@ -38,19 +38,20 @@
 
 /* C23: the widths ([tab:limits.h]), and the bit-precise integers' bound */
 #if defined(__STDC_VERSION__) && __STDC_VERSION__ >= 202311L
-#define BOOL_WIDTH 1
+#define __STDC_VERSION_LIMITS_H__ 202311L
+#define BOOL_WIDTH __BOOL_WIDTH__
 #define CHAR_WIDTH CHAR_BIT
 #define SCHAR_WIDTH CHAR_BIT
 #define UCHAR_WIDTH CHAR_BIT
-#define SHRT_WIDTH 16
-#define USHRT_WIDTH 16
-#define INT_WIDTH 32
-#define UINT_WIDTH 32
-#define LONG_WIDTH 64
-#define ULONG_WIDTH 64
-#define LLONG_WIDTH 64
-#define ULLONG_WIDTH 64
-#define BITINT_MAXWIDTH 128
+#define SHRT_WIDTH __SHRT_WIDTH__
+#define USHRT_WIDTH __SHRT_WIDTH__
+#define INT_WIDTH __INT_WIDTH__
+#define UINT_WIDTH __INT_WIDTH__
+#define LONG_WIDTH __LONG_WIDTH__
+#define ULONG_WIDTH __LONG_WIDTH__
+#define LLONG_WIDTH __LLONG_WIDTH__
+#define ULLONG_WIDTH __LLONG_WIDTH__
+#define BITINT_MAXWIDTH __BITINT_MAXWIDTH__
 #endif
 
 /* the C library's own (PATH_MAX and POSIX's, on the platforms that have them), past this file */

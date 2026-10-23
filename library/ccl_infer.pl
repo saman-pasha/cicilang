@@ -44,12 +44,18 @@ ccl_cached(Cache, Key, Value, Goal) :-
 %% copies that one value and not every value found so far (nb_getval/2
 %% copies what it answers); the names found are an index of atoms
 ccl_cached_named(Prefix, Name, Value, Goal) :-
-    atom_concat(Prefix, names, IK), nb_getval(IK, Names),
+    ccl_cache_index(Prefix, IK), nb_getval(IK, Names),
     (   memberchk(Name, Names), atom_concat(Prefix, Name, K), nb_getval(K, V0), V0 \== '$ccl_recheck' -> V0 \== '$ccl_miss', Value = V0
     ;   atom(Name), var(Value), ccl_caches_misses(Prefix)
     ->  atom_concat(Prefix, Name, K), ( memberchk(Name, Names) -> Names1 = Names ; Names1 = [Name|Names] ),
         ( call(Goal) -> nb_setval(K, Value), nb_setval(IK, Names1) ; nb_setval(K, '$ccl_miss'), nb_setval(IK, Names1), fail )
     ;   once(Goal), atom_concat(Prefix, Name, K), nb_setval(K, Value), ( memberchk(Name, Names) -> true ; nb_setval(IK, [Name|Names]) ) ).   % one answer, as a hit gives (0.178)
+%% THE INDEX OF A NAMED CACHE IS A GLOBAL THAT NO NAME'S OWN IS (0.194): '$ccl_cidx' and the prefix, where the prefix and
+%% any name begin with the prefix. It was the prefix and `names', which is the global of the name `names' too: the first
+%% ask of that name wrote its value there and the index over it, and every later ask answered the index, a list of names
+%% -- a C global `names' (test/c/run/memory.c) took the list as its asm label at 0.194, whose lowering asks the label of
+%% every global, and a typedef, a tag or a file-scope name `names' asked twice took it as its type since 2026-09-06
+ccl_cache_index(Prefix, IK) :- atom_concat('$ccl_cidx', Prefix, IK).
 %% A MISS IS REMEMBERED TOO (0.112), where the table is written only through ccl_tables_changed, which forgets it with
 %% the answers: a name that is no tag copied the whole tags table at every ask -- `cpp_path_class(std, _)' asks
 %% `ccl_tag(std, _)' at every `std::' call, 3 ms each over libc++'s ranges, 17,000 times in a 150 s build. Only for a
@@ -58,7 +64,8 @@ ccl_caches_misses('$ccl_tag:').
 ccl_caches_misses('$ccl_td:').
 ccl_caches_misses('$ccl_ts:').
 ccl_caches_misses('$ccl_g:').     % ... and the file scope's, whose writer marks a remembered miss of each name it declares for a new look (ccl_gdeclare)
-ccl_named_caches(['$ccl_td:', '$ccl_tag:', '$ccl_r:', '$ccl_g:', '$ck_oa:', '$ccl_ts:']).
+ccl_caches_misses('$ccl_asm:').   % ... and its asm labels' (0.194), marked with it
+ccl_named_caches(['$ccl_td:', '$ccl_tag:', '$ccl_r:', '$ccl_g:', '$ck_oa:', '$ccl_ts:', '$ccl_asm:']).
 ccl_in_frames([F|Fs], N, T) :- ( memberchk(N-T0, F) -> T = T0 ; ccl_in_frames(Fs, N, T) ).
 %% nb_getval/2 COPIES the term it answers, 0.05 ms for the typedef table and
 %% 0.15 ms for the tags, and the lowering of 170 lines asks 2000 typedefs
@@ -122,6 +129,13 @@ ccl_const_eval(ccast(_, T, F), V) :- ccl_float_operand(F, X), ccl_resolve_type(T
 ccl_const_eval(cast(T, E), V) :- !, ccl_const_eval(E, V0), ccl_w_cast(T, V0, V).
 ccl_const_eval(ccast(_, T, E), V) :- !, ccl_const_eval(E, V0), ccl_w_cast(T, V0, V).      % C++'s own casts, a functional one among them: `type(~0)' folds as `(type) ~0' does
 ccl_const_eval(sizeof_type(T), V) :- !, once(ccl_size_of(T, V)).   % A SIZE IS ONE ANSWER (0.117): the resolver leaves alternatives, and a test that backtracked into the fold (a static assertion) met a 0 after the right 16
+%% GCC'S `__atomic_always_lock_free(size, ptr)' (0.194), which libc++'s `is_always_lock_free' asks and libc++ 21's atomic_ref with
+%% an aligned pointer: 1 for a size of 1, 2, 4 or 8 bytes -- the default CPU's lock-free widths; 16 needs cmpxchg16b -- where
+%% the pointer is null or its pointee is aligned to the size at least, as clang answers; 0 else. It was no builtin at all
+ccl_const_eval(call(id('__atomic_always_lock_free'), [S, P]), V) :- !, ccl_const_eval(S, K), ccl_lock_free_answer(K, P, V).
+%% GCC'S `__builtin_classify_type(e)' (0.194): the class of e's type, an integer constant, clang's numbers -- glibc's <tgmath.h>
+%% chooses its function by it where the compiler is no GCC 8 (clang's `__GNUC__' is 4). It was no builtin
+ccl_const_eval(call(id('__builtin_classify_type'), [E]), V) :- !, catch(ccl_type_of(E, T), _, fail), T \== unknown, ccl_type_class(T, V).
 ccl_const_eval(noexcept_expr(_), 1) :- !.   % no library function throws here (0.109; the desugaring folds a throwing operand to false first)
 ccl_const_eval(offsetof(T, D), V) :- !, ccl_offsetof(T, D, V).
 ccl_const_eval(alignof_type(T), V) :- !, once(( ccl_resolve_type(T, T1), ccl_size_align(T1, _, V) )).   % `alignof(T)' ([expr.alignof]): the alignment the layout already computes
@@ -429,6 +443,7 @@ ccl_resolve_base([decltype(E)], Q, base(Q, [unsigned, long])) :- ccl_lang(cpp), 
 ccl_resolve_base([decltype(E)], Q, T) :- ccl_lang(cpp), ccl_type_of(E, T0), T0 \== unknown, !, ccl_add_quals(Q, T0, T).
 ccl_resolve_base([struct(Tag, none)], Q, base(Q, [struct(Tag, Ms)])) :- ccl_tag(Tag, Ms), !.
 ccl_resolve_base([union(Tag, none)], Q, base(Q, [union(Tag, Ms)])) :- ccl_tag(Tag, Ms), !.
+ccl_resolve_base([enum(Tag, none)], Q, base(Q, [enum(Tag, Ms)])) :- atom(Tag), ccl_tag(Tag, Ms), Ms = [enum_base(_)|_], !.   % an enum with a FIXED underlying type named `enum E' is its base's size and type (C23 6.7.2.2, [dcl.enum]; 0.194): it was an int's
 %% A VECTOR TYPE (0.162): the reader's `vector(size, Bytes, E)' (GCC's `vector_size') or `vector(ext, N, E)' (clang's `ext_vector_type')
 %% resolves to `vec(K, N, E)', N its element count, where the count folds and the element resolves; over a template's own parameter
 %% (libc++'s `__simd_vector<_Tp, _Np>') it stays as written until the instance binds them
@@ -570,6 +585,65 @@ ccl_is_arith(T) :- ( ccl_is_integer(T) ; ccl_is_float(T) ; ccl_is_decimal(T) ), 
 ccl_elided_item(E, ET) :- \+ ccl_string_item(E), ccl_scalar_value_type(ET), catch(ccl_type_of(E, T), _, fail), T \== unknown, ccl_scalar_value_type(T), !.
 ccl_string_item(E) :- compound(E), E =.. [K, _], memberchk(K, [str, wstr, u16str, u32str]), !.   % a string literal is a char array's VALUE (`struct N { char name[16]; int v; } g = { "global", 1 };'), though the inference types it as a pointer
 ccl_scalar_value_type(T) :- catch(ccl_resolve_type(T, T1), _, fail), ( T1 = ptr(_, _) ; ccl_is_arith(T1) ), !.
+ccl_lock_free_at(K, P) :- ccl_lock_free_width(K), ( ( ccl_null_constant(P) ; P == nullptr ) -> true ; catch(ccl_type_of(P, PT), _, fail), ccl_aligned_for(PT, K) ), !.
+ccl_lock_free_width(K) :- ( memberchk(K, [1, 2, 4, 8]) -> true ; K == 16, once(catch(pp_arch(arm64), _, fail)) ).   % 16 bytes too on aarch64 (its pair loads and stores, as clang answers)
+%% the folded answer: in C++ a pointer that is no null constant folds nowhere here, and the desugaring answers over its
+%% desugared form (cpp_builtin_call/3): the raw form of libc++ 21's `std::addressof(__get_aligner_instance<...>::__instance)'
+%% is typed by addressof's own signature, `_Tp *', and the raw fold of atomic_ref's static `is_always_lock_free' answered 0
+ccl_lock_free_answer(K, P, V) :-
+    (   \+ ccl_lock_free_width(K) -> V = 0
+    ;   ( ccl_null_constant(P) ; P == nullptr ) -> V = 1
+    ;   \+ ccl_lang(cpp), catch(ccl_type_of(P, PT), _, fail), PT \== unknown -> ( ccl_aligned_for(PT, K) -> V = 1 ; V = 0 ) ).
+%% the GCC type class of a type, as clang answers it (EvaluateBuiltinClassifyType): void 0, an integer 1 (a character type, and
+%% an enum in C), an enum in C++ 3, a bool 4, a pointer, an array or a function 5 (both decay), a pointer to a data member 7,
+%% a real floating type 8 (a decimal one too, as gcc has it), a complex type 9, a struct, a class or a pointer to a member
+%% function 12, a union 13, a _BitInt 18, a vector 19
+ccl_type_class(T0, K) :- once(ccl_resolve_type(T0, T)), ccl_type_class_(T, K), !.
+ccl_type_class_(ptr(_, _), 5).
+ccl_type_class_(arr(_, _), 5).
+ccl_type_class_(fn(_, _, _), 5).
+ccl_type_class_(block(_, _), -1).
+ccl_type_class_(memptr(_, _, T), K) :- ( once(ccl_resolve_type(T, fn(_, _, _))) -> K = 12 ; K = 7 ).
+ccl_type_class_(T, 9) :- ccl_is_complex(T).
+ccl_type_class_(base(_, S), K) :-
+    (   memberchk(void, S) -> K = 0
+    ;   ( memberchk(bool, S) ; memberchk('_Bool', S) ) -> K = 4
+    ;   ( S = [enum(_, _)] ; S = [enum_class(_, _)] ) -> ( ccl_lang(cpp) -> K = 3 ; K = 1 )
+    ;   memberchk(bitint(_), S) -> K = 18
+    ;   S = [vec(_, _, _)] -> K = 19
+    ;   S = [union(_, _)] -> K = 13
+    ;   S = [struct(_, _)] -> K = 12
+    ;   ccl_is_integer(base([], S)) -> K = 1
+    ;   ( ccl_is_float(base([], S)) ; ccl_is_decimal(base([], S)) ) -> K = 8 ).
+ccl_aligned_for(PT, K) :- ccl_resolve_type(PT, ptr(_, E)), once(( ccl_resolve_type(E, E1), ccl_size_align(E1, _, A) )), A >= K.
+%% BRACE ELISION INTO A STRUCT OR A UNION MEMBER (C 6.7.9/20, [dcl.init.aggr]/16; 0.194): a member that is a struct or a
+%% union, given an item that is no braced list and can be no value of its type -- a scalar, a string -- takes as many of
+%% the items as its own members need, member by member (a union its first member alone), an aggregate member in turn, a
+%% braced item or any other filling one member whole; a designator ends it, since it is the outer list's (6.7.9/17).
+%% `struct sigaction sa = {0};' (glibc's begins with a union) reached LLVM as `sext i32 0 to { i64 }', and `struct P {
+%% struct Q q; int c; } p = {1, 2, 3};' gave q the 1 as its value. The lowering's two roads ask it (ir_init_items,
+%% ir_gelide); only an array member was elided before (0.91, 0.164)
+ccl_record_elided(MT, V) :- V \= init(_), ccl_record_type(MT), ( ccl_string_item(V) -> true ; catch(ccl_type_of(V, T), _, fail), T \== unknown, ccl_scalar_value_type(T) ), !.
+ccl_record_type(T) :- catch(ccl_resolve_type(T, T1), _, fail), T1 = base(_, [R]), ( R = struct(_, _) ; R = union(_, _) ), !.
+%% ... and AN ARRAY'S ELEMENT that is a record or an array, given an item that is no braced list (a scalar; a string only for a
+%% record, since it is a char array's own value): `int a[2][2] = {1, 2, 3, 4};', `struct P ps[2] = {1, 2, 3, 4, 5, 6};'
+ccl_elem_elided(El, V) :- V \= init(_), ( ccl_record_elided(El, V) -> true ; \+ ccl_string_item(V), catch(ccl_resolve_type(El, arr(_, _)), _, fail) ), !.
+ccl_elide_record(MT, Is0, Sub, Rest) :- ccl_resolve_type(MT, MT1), ccl_members_of(MT1, Ms0), ccl_initialized_members(Ms0, Ms1),
+    ( MT1 = base(_, [union(_, _)]), Ms1 = [M1|_] -> Ms = [M1] ; Ms = Ms1 ), ccl_elide_members(Ms, Is0, Sub, Rest).
+ccl_initialized_members([], []).
+ccl_initialized_members([M|Ms], Out) :- ( M = member(_, anon, W), W \== none -> Out = Out1 ; Out = [M|Out1] ), ccl_initialized_members(Ms, Out1).   % an unnamed bitfield no initializer names (6.7.9/9)
+ccl_elide_members(_, [], [], []) :- !.
+ccl_elide_members([], Is, [], Is) :- !.
+ccl_elide_members(_, [item(Ds, V)|Is], [], [item(Ds, V)|Is]) :- Ds \== [], !.
+ccl_elide_members([member(T, _, _)|Ms], [item([], V)|Is], [item([], W)|Sub], Rest) :- ccl_elide_one(T, V, Is, W, Is1), ccl_elide_members(Ms, Is1, Sub, Rest).
+ccl_elide_one(T, V, Is, init(S), Is1) :- ccl_record_elided(T, V), !, ccl_elide_record(T, [item([], V)|Is], S, Is1).
+ccl_elide_one(T, V, Is, init(S), Is1) :- V \= init(_), \+ ccl_string_item(V), catch(ccl_resolve_type(T, arr(B, E)), _, fail), catch(ccl_const_eval(B, K), _, fail), K >= 1, !,
+    ccl_elide_elems(K, E, [item([], V)|Is], S, Is1).   % an array member of the record: its elements, each in turn
+ccl_elide_one(_, V, Is, V, Is).
+ccl_elide_elems(0, _, Is, [], Is) :- !.
+ccl_elide_elems(_, _, [], [], []) :- !.
+ccl_elide_elems(_, _, [item(Ds, V)|Is], [], [item(Ds, V)|Is]) :- Ds \== [], !.
+ccl_elide_elems(K, E, [item([], V)|Is], [item([], W)|Sub], Rest) :- ccl_elide_one(E, V, Is, W, Is1), K1 is K - 1, ccl_elide_elems(K1, E, Is1, Sub, Rest).
 %% C23'S DECIMAL FLOATING TYPES (6.2.5/11; 0.129): `_Decimal32', `_Decimal64' and `_Decimal128', real floating types of their own,
 %% kept apart from the standard ones (ccl_is_float/1 is false for them): their arithmetic is libgcc's BID routines (the lowering)
 ccl_is_decimal(T) :- ccl_resolve_type(T, base(_, S)), ccl_decimal_spec(S, _), !.
@@ -651,6 +725,10 @@ ccl_type_of(u16chr(_), base([], [char16_t])) :- !.
 ccl_type_of(u32chr(_), base([], [char32_t])) :- !.
 ccl_type_of(id(N), T) :- !, ( ccl_declared(N, T0) -> ccl_unref(T0, T) ; atom(N), nb_getval('$ccl_enums', L), memberchk(N-_, L) -> ccl_enumerator_type(N, L, T) ; ccl_func_name(N) -> T = ptr([], base([const], [char])) ; T = unknown ).   % AN ENUMERATOR is an int in C, its ENUM in C++ (0.127; ccl_enumerator_type): the parser declares one in scope, the bulk noter keeps its value and its enum in the table of values, so after the passes' rebuild it is found there (0.100: it was `unknown' when the table held only the value -- libc++'s __to_failure_order)
 ccl_type_of(call(id(B), _), base([], [bool])) :- ccl_overflow_builtin(B, _), !.
+ccl_type_of(call(id(B), [_, _]), base([], [bool])) :- memberchk(B, ['__atomic_always_lock_free', '__atomic_is_lock_free']), !.   % GCC's lock-free questions (0.194)
+ccl_type_of(call(id(B), _), base([], [void])) :- memberchk(B, ['__atomic_load', '__atomic_store', '__atomic_exchange']), !.   % GCC's generic atomic builtins (0.194): through pointers, no value
+ccl_type_of(call(id('__atomic_compare_exchange'), _), base([], [bool])) :- !.
+ccl_type_of(call(id('__builtin_classify_type'), [_]), base([], [int])) :- !.   % a type's class (0.194)
 ccl_type_of(call(id(B), _), base([], [int])) :- ccl_bit_builtin(B, _), !.   % the bit counts answer an int (0.129): `c ? 64 + __builtin_clzll(x) : __builtin_clzll(y)' had no type, in C as in C++ (libc++'s `__libcpp_clz(__uint128_t)')
 ccl_type_of(call(id(B), _), T) :- ccl_float_builtin_type(B, T), !.
 ccl_type_of(call(id(B), [_]), base([], [int])) :- memberchk(B, ['__builtin_isnan', '__builtin_isinf', '__builtin_isinf_sign', '__builtin_isfinite', '__builtin_signbit', '__builtin_isnormal']), !.   % glibc's classification macros (0.101)                                   % INFINITY, NAN, HUGE_VAL (0.101)
@@ -683,6 +761,7 @@ ccl_type_of(delete(_), base([], [void])) :- !.
 ccl_type_of(delete_array(_), base([], [void])) :- !.
 ccl_type_of(addr(E), T) :- !, ccl_type_of(E, ET), ( ET == unknown -> T = unknown ; T = ptr([], ET) ).
 ccl_type_of(neg(E), T) :- ccl_type_of(E, ET), ccl_is_complex(ET), !, T = ET.
+ccl_type_of(pos(E), T) :- ccl_type_of(E, ET), ccl_is_complex(ET), !, T = ET.   % `+z' is the complex itself (6.5.3.3/2; 0.194): <tgmath.h> types its argument by `__typeof__ (+(expr))'
 ccl_type_of(real_part(E), T) :- !, ccl_type_of(E, ET), ( ccl_is_complex(ET) -> ccl_complex_real(ET, T) ; ccl_is_arith(ET) -> T = ET ; T = unknown ).   % GNU's `__real__ z', `__imag__ z' (0.100)
 ccl_type_of(imag_part(E), T) :- !, ccl_type_of(E, ET), ( ccl_is_complex(ET) -> ccl_complex_real(ET, T) ; ccl_is_arith(ET) -> T = ET ; T = unknown ).
 ccl_type_of(neg(E), T) :- !, ccl_type_of(E, ET), ccl_promoted_or_unknown(ET, T).
@@ -719,6 +798,10 @@ ccl_type_of(cond(_, A, B), T) :- !, ccl_type_of(A, AT), ccl_type_of(B, BT),
     ;   B == nullptr -> T = AT          % nullptr while the other arm was still unknown, `__nbc > 0 ? allocate(...) : nullptr' chose unique_ptr's `reset(nullptr_t)' and dropped the buckets
     ;   ccl_null_constant(A), ccl_is_pointer(BT) -> T = BT      % `c ? 0 : p': the literal zero is a null pointer constant and takes the pointer's type ([expr.cond]/7), where the arm `0' made it an int (0.117): libc++'s `deque::begin()' passes `__map_.empty() ? 0 : *__mp + __start_ % __block_size' to an iterator taking a pointer, and no constructor fit
     ;   ccl_null_constant(B), ccl_is_pointer(AT) -> T = AT
+    ;   ccl_void_null(A), ccl_is_pointer(BT) -> T = BT          % C's `(void *) 0' is a null pointer constant too (6.3.2.3/3; 0.194)
+    ;   ccl_void_null(B), ccl_is_pointer(AT) -> T = AT
+    ;   ccl_void_ptr_quals(AT, QA), ccl_is_pointer(BT) -> ccl_pointee_quals(BT, QB), ccl_cv_union(QA, QB, Q), T = ptr([], base(Q, [void]))   % a pointer to void and another: a pointer to void, qualified by both (6.5.15/6, [expr.cond]/7.3; 0.194)
+    ;   ccl_void_ptr_quals(BT, QB), ccl_is_pointer(AT) -> ccl_pointee_quals(AT, QA), ccl_cv_union(QA, QB, Q), T = ptr([], base(Q, [void]))
     ;   AT \== unknown -> T = AT ; T = BT ).
 ccl_type_of(stmt_expr(block(Is)), T) :- !,            % its declarations are in scope for its last expression
     ccl_scope_push, ccl_note_items(Is),
@@ -740,6 +823,13 @@ ccl_type_of(bin(Op, A, B), T) :- !,
     ;   T = unknown ).
 ccl_type_of(_, unknown).
 ccl_literal_quals(Q) :- ( ccl_lang(cpp) -> Q = [const] ; Q = [] ).
+%% C's NULL POINTER CONSTANT CAST TO `void *' (6.3.2.3/3; 0.194): `(void *) E' with E an integer constant 0, or such a cast
+%% itself, as clang reads it (the pointee void, unqualified). glibc's <tgmath.h> chooses a type by `__typeof__ (0 ? (T *) 0 :
+%% (void *) (E))': T's where E is 0, and `void *' else (the rule beside it)
+ccl_void_null(cast(T, E)) :- \+ ccl_lang(cpp), ccl_void_ptr_quals(T, []), ( ccl_void_null(E) -> true ; catch(ccl_const_eval(E, V), _, fail), V == 0 ), !.
+ccl_void_ptr_quals(T, Q) :- catch(ccl_resolve_type(T, ptr(_, P)), _, fail), once(ccl_resolve_type(P, base(Q, [void]))), !.
+ccl_pointee_quals(T, Q) :- ( catch(ccl_resolve_type(T, ptr(_, P)), _, fail), once(ccl_resolve_type(P, base(Q0, _))) -> Q = Q0 ; Q = [] ).
+ccl_cv_union(QA, QB, Q) :- findall(X, ( member(X, [const, volatile]), ( memberchk(X, QA) -> true ; memberchk(X, QB) ) ), Q).
 %% the vector reductions ccl_type_of/2 types (0.162): each answers its vector's element
 ccl_vec_reduce('__builtin_reduce_add', add).
 ccl_vec_reduce('__builtin_reduce_mul', mul).
@@ -762,6 +852,11 @@ ccl_wb_width(N, W) :- ( N =:= 0 -> W = 1 ; W is msb(N) + 1 ).
 ccl_float_builtin_type('__builtin_inf', base([], [double])).      ccl_float_builtin_type('__builtin_huge_val', base([], [double])).
 ccl_float_builtin_type('__builtin_inff', base([], [float])).      ccl_float_builtin_type('__builtin_huge_valf', base([], [float])).
 ccl_float_builtin_type('__builtin_nan', base([], [double])).      ccl_float_builtin_type('__builtin_nanf', base([], [float])).    % the imaginary literal (0.101)
+ccl_float_builtin_type('__builtin_infl', base([], [long, double])).  ccl_float_builtin_type('__builtin_huge_vall', base([], [long, double])).   % the long double forms (0.194: only the lowering typed them)
+ccl_float_builtin_type('__builtin_nanl', base([], [long, double])).
+ccl_float_builtin_type('__builtin_nans', base([], [double])).     ccl_float_builtin_type('__builtin_nansf', base([], [float])).   % C23's signaling NaNs, FLT_SNAN and kin (0.194)
+ccl_float_builtin_type('__builtin_nansl', base([], [long, double])).
+ccl_float_builtin_type('__builtin_flt_rounds', base([], [int])).   % FLT_ROUNDS, the current rounding direction (0.194)
 %% a string literal is an ARRAY whose bytes `sizeof' counts (6.5.3.4, [expr.sizeof]; 0.103): the narrow one its codes
 %% and the NUL, a wide one a code point per element (the body is UTF-8 bytes, ccl_utf8_count), `wchar_t' and
 %% `char32_t' four bytes each, `char16_t' two -- the type stays the pointer it decays to everywhere else
@@ -790,6 +885,7 @@ ccl_unsettled_type(T) :- T \== unknown, ccl_resolve_type(T, base(_, [typedef(X)]
 %% an enumerator's type: its enum in C++ where the table names a named enum still in the tag table, else an int
 %% (C's, and an unnamed enum's)
 ccl_enumerator_type(N, L, T) :- ccl_lang(cpp), ccl_enumerator_tag(N, L, Tag), ccl_tag(Tag, Ms), Ms \== none, !, T = base([], [typedef(Tag)]).
+ccl_enumerator_type(N, L, T) :- \+ ccl_lang(cpp), ccl_c_std(S), S >= 23, ccl_enumerator_tag(N, L, Tag), ccl_tag(Tag, Ms), Ms = [enum_base(_)|_], !, T = base([], [enum(Tag, Ms)]).   % C23 (6.7.2.2/15; 0.194): an enumerator of an enum with a FIXED underlying type is of the enum's type, its size the base's -- `sizeof(Y)' of `enum Big : unsigned long long' was an int's 4
 ccl_enumerator_type(N, L, T) :- memberchk(N-V, L), ccl_wide_enum_value(V), !, ( V = big(A) -> ccl_big_type(A, T) ; T = base([], [long]) ).   % a value no int holds is typed as a literal of it (0.160), as the lowering spells it
 ccl_enumerator_type(_, _, base([], [int])).
 ccl_wide_enum_value(V) :- ( V = big(_) -> true ; integer(V), ( V > 2147483647 ; V < -2147483648 ) ).
@@ -1000,6 +1096,24 @@ ccl_tie_of(ptr(Q, _), Y) :- memberchk(tie(Y), Q), !.
 ccl_tie_of(block(Q, _), Y) :- memberchk(tie(Y), Q), !.
 ccl_tie_of(arr(_, T), Y) :- !, ccl_tie_of(T, Y).
 ccl_tie_of(fn(R, _, _), Y) :- !, ccl_tie_of(R, Y).
+%% an ASM LABEL, `int f(void) __asm__("g")' (0.194): the declared name's symbol, kept as the qualifier asm(Name, Sym) where a
+%% tie is kept -- through an array to its element, through a function to its result; the lowering spells it (ir_gname/3).
+%% It names its OWNER: a type taken from the declaration -- `auto g = strtol(s, 0, 10);', `__typeof__ (strtol) h;' --
+%% carries the qualifier and is no label of the new name, as an asm label belongs to a declaration and not to its type
+ccl_add_asm(N, S, base(Q, B), base([asm(N, S)|Q], B)) :- !.
+ccl_add_asm(N, S, ptr(Q, T), ptr([asm(N, S)|Q], T)) :- !.
+ccl_add_asm(N, S, arr(K, T0), arr(K, T)) :- !, ccl_add_asm(N, S, T0, T).
+ccl_add_asm(N, S, fn(R0, Ps, V), fn(R, Ps, V)) :- !, ccl_add_asm(N, S, R0, R).
+ccl_add_asm(_, _, T, T).
+ccl_asm_of(base(Q, _), N, S) :- memberchk(asm(N, S), Q), !.
+ccl_asm_of(ptr(Q, _), N, S) :- memberchk(asm(N, S), Q), !.
+ccl_asm_of(arr(_, T), N, S) :- !, ccl_asm_of(T, N, S).
+ccl_asm_of(fn(R, _, _), N, S) :- !, ccl_asm_of(R, N, S).
+%% the label of a name at file scope, from ANY of its declarations: a prototype's is its definition's (`int f(int)
+%% __asm__("g"); int f(int x) { ... }' defines @g) and an extern's its definition's, as GCC and clang have it. The answer,
+%% a miss among them, is kept per name, since the lowering asks it of every global it names
+ccl_asm_label(N, S) :- atom(N), ccl_cache_index('$ccl_asm:', IK), nb_current(IK, _), ccl_cached_named('$ccl_asm:', N, S, ccl_asm_search(N, S)).
+ccl_asm_search(N, S) :- ccl_tab_member('$ccl_gscope', N, T), ccl_asm_of(T, N, S), !.
 %% a struct (or union) with an own member, at any depth held by value: its copy
 %% would own the same memory twice, so clone refuses it
 ccl_has_own_member(T) :- ccl_members_of(T, Ms), member(member(MT, _, _), Ms), ( ccl_own_quals(MT) -> true ; ccl_has_own_member(MT) ), !.

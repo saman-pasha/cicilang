@@ -209,7 +209,7 @@ ccl_ensure_globals :-
       ( nb_current('$ccl_std', _) -> true ; nb_setval('$ccl_std', 17) ),
       ccl_seed_template_names(Seed), ccl_templates_put(Seed),
       ( catch(ccl_lex_native('', 1, line, c, _, _), _, fail) -> nb_setval('$ccl_lexer', native) ; nb_setval('$ccl_lexer', dcg) ),
-      nb_setval('$ccl_sumload:names', []),
+      ccl_cache_index('$ccl_sumload:', SI), nb_setval(SI, []),
       nb_setval('$ccl_inited', yes) ).
 %% the templates a read starts from: common standard library names and the compiler's template-shaped builtins (a library
 %% header's read starts from these alone, ccl_seed_read/2)
@@ -631,7 +631,7 @@ ccl_sum_bigs_in(_, Ts, Ts).
 ccl_sum_bigs_([], _, []).
 ccl_sum_bigs_([big(I)|Ts0], F, [T|Ts]) :- catch('$ccl_sum_big'(F, I, T0), _, fail), !, T = T0, ccl_sum_bigs_(Ts0, F, Ts).
 ccl_sum_bigs_([T|Ts0], F, [T|Ts]) :- ccl_sum_bigs_(Ts0, F, Ts).
-ccl_sum_forget(F) :- atom_concat('$ccl_sum:', F, K), nb_setval(K, none), nb_setval('$ccl_sumload:names', []).
+ccl_sum_forget(F) :- atom_concat('$ccl_sum:', F, K), nb_setval(K, none), ccl_cache_index('$ccl_sumload:', IK), nb_setval(IK, []).
 ccl_sum_lines([], []).
 ccl_sum_lines([L|Ls], Ts) :-                                                  % every position bound: a free one enumerates, 0.7 ms a line
     (   L == '' -> Ts = Ts1

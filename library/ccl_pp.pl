@@ -156,19 +156,25 @@ pp_cmd_define(Cs, N, def(Ps, Body)) :-
 pp_cmdline(N, D) :- nb_current('$pp_cmdline', L), memberchk(N-D, L).
 pp_predef_macro(N, obj, Cs) :-
     (   ccl_lang(cpp), ccl_std(S), pp_std_table(S, Tab), pp_predef(N, Tab, T) -> true   % the level's own value first (__cplusplus, __cpp_constexpr ...)
-    ;   ccl_lang(c), ccl_c_std(CS), pp_c_std_table(CS, CTab), pp_predef(N, CTab, T) -> true   % C's own level (-std=c23): __STDC_VERSION__ and what the forms answer
+    ;   ccl_lang(c), ccl_c_std(CS), pp_c_std_table(CS, CTab), ( pp_predef(N, CTab, T) ; pp_c_os_table(CTab, OTab), pp_predef(N, OTab, T) ) -> true   % C's own level (-std=c23): __STDC_VERSION__ and what the forms answer, the OS's own after it (0.194)
     ;   pp_target_table(TT), pp_predef(N, TT, T) -> T \== '$undef'                     % THE TARGET'S OWN, before the rest (0.131): Linux aarch64's long double, char and wchar_t; `$undef' is no macro
     ;   pp_predef(N, any, T) -> true
     ;   pp_os(O), pp_predef(N, O, T) -> true                                          % the host's own: __APPLE__ and __MACH__, or __linux__ and __ELF__
     ;   pp_arch(A), pp_predef(N, A, T) -> true
     ;   ccl_lang(cpp), \+ nb_current('$ccl_rtti', no), pp_predef(N, cpp_rtti, T) -> true   % RTTI unless -fno-rtti (0.191)
     ;   ccl_lang(cpp), \+ nb_current('$ccl_exceptions', no), pp_predef(N, cpp_eh, T) -> true   % exceptions unless -fno-exceptions (0.193)
+    ;   ccl_lang(cpp), pp_os(linux), pp_predef(N, cpp_linux, T) -> true                % C++ on Linux's own (0.194): _GNU_SOURCE
     ;   ccl_lang(cpp), pp_predef(N, cpp, T)
     ;   ccl_lang(c), pp_predef(N, c, T) ),                                            % C's own beyond the levels' (0.117): __SIZEOF_INT128__
     atom_codes(T, Cs).
+%% A FUNCTION-LIKE PREDEFINED MACRO (0.194), `__INT64_C(c)' and kin, is the fact whose name holds its parameter list as
+%% clang writes it, `'__INT64_C(c)'': asked by the name alone where no object-like one is, through the same tables. They
+%% were facts no lookup reached, and `__INT64_C(5)' was a call of an undeclared function
+pp_predef_macro(N, [c], Cs) :- atom_concat(N, '(c)', FN), pp_predef_macro(FN, obj, Cs).
 pp_target_table(TT) :- pp_os(O), pp_arch(A), atomic_list_concat([O, '_', A], TT).
 %% C's levels, the newest first: what -std=c23 answers where C17's table would
 pp_c_std_table(S, c23) :- S >= 23.
+pp_c_os_table(CTab, OTab) :- pp_os(O), atomic_list_concat([CTab, '_', O], OTab).   % c23_linux, c23_darwin
 %% the tables a level sees beyond cpp's (C++17's): the newest first
 pp_std_table(S, cpp26) :- S >= 26.
 pp_std_table(S, cpp23) :- S >= 23.
@@ -731,7 +737,10 @@ pp_builtin_answer(_, _, 0).                                                     
 %% the second is the one this desugaring runs: clang's template has no body here, and `common_type_t<_Tp, _Up>' refused
 %% `template_without_body' -- `std::accumulate' and the rest of <numeric>, the comparisons of `unique_ptr', the `std::atomic'
 %% operations of C++20 and the visitation table of `std::variant' (stdnumeric, stdptrcmp, stdatomic20, stdvariant).
+%% `__builtin_clear_padding' (0.194) is GCC's, and clang 18, 21 and 22 do not have it: libc++ 21's atomic_ref then clears no
+%% padding and compares the whole object in its compare-exchange, the branch clang++'s build takes.
 pp_no_builtin('__builtin_common_type').
+pp_no_builtin('__builtin_clear_padding').
 pp_attr_name([tok(_, N0, _)], N) :- pp_attr_plain(N0, N).
 pp_attr_name([tok(_, S0, _), tok(p, ':', _), tok(p, ':', _), tok(_, N0, _)], scoped(S, N)) :- pp_attr_plain(S0, S), pp_attr_plain(N0, N).   % `::' is two colons to C's lexer
 pp_attr_name([tok(_, S0, _), tok(p, '::', _), tok(_, N0, _)], scoped(S, N)) :- pp_attr_plain(S0, S), pp_attr_plain(N0, N).
@@ -855,6 +864,7 @@ pp_predef('__FLT_MIN_10_EXP__', any, '(-37)').
 pp_predef('__FLT_MIN_EXP__', any, '(-125)').
 pp_predef('__FLT_MIN__', any, '1.17549435e-38F').
 pp_predef('__FLT_NORM_MAX__', any, '3.40282347e+38F').
+pp_predef('__FLT_EVAL_METHOD__', any, '0').   % a builtin macro in clang (`#pragma clang fp eval_method' moves it), so no -dM lists it; 0 on both machines (0.194: <float.h>'s FLT_EVAL_METHOD)
 pp_predef('__FLT_RADIX__', any, '2').
 pp_predef('__FPCLASS_NEGINF', any, '0x0004').
 pp_predef('__FPCLASS_NEGNORMAL', any, '0x0008').
@@ -887,7 +897,7 @@ pp_predef('__GCC_HAVE_SYNC_COMPARE_AND_SWAP_4', any, '1').
 pp_predef('__GCC_HAVE_SYNC_COMPARE_AND_SWAP_8', any, '1').
 pp_predef('__GNUC_MINOR__', any, '2').
 pp_predef('__GNUC_PATCHLEVEL__', any, '1').
-pp_predef('__GNUC_STDC_INLINE__', any, '1').
+pp_predef('__GNUC_STDC_INLINE__', c, '1').   % C's alone (0.194): C++ has __GNUC_GNU_INLINE__ (the `cpp' table)
 pp_predef('__GNUC__', any, '4').
 pp_predef('__GXX_ABI_VERSION', any, '1002').
 pp_predef('__INT16_C(c)', any, 'c').
@@ -1049,17 +1059,56 @@ pp_predef('__STDC_HOSTED__', any, '1').
 pp_predef('__STDC_NO_THREADS__', darwin, '1').
 pp_predef('__STDC_UTF_16__', any, '1').
 pp_predef('__STDC_UTF_32__', any, '1').
-pp_predef('__STDC_VERSION__', any, '201710L').
+pp_predef('__STDC_VERSION__', c, '201710L').   % C's alone (0.194): clang++ defines no __STDC_VERSION__, and in the `any' table C++ had it
 %% ---- C23 (-std=c23): the level's own macros, answered before C17's ------------------------------
 pp_predef('__STDC_VERSION__', c23, '202311L').
 pp_predef('__STDC_EMBED_NOT_FOUND__', c23, '0').
 pp_predef('__STDC_EMBED_FOUND__', c23, '1').
 pp_predef('__STDC_EMBED_EMPTY__', c23, '2').
-pp_predef('__STDC_VERSION_STDDEF_H__', c23, '202311L').
-pp_predef('__STDC_VERSION_STDINT_H__', c23, '202311L').
-pp_predef('__STDC_VERSION_STDARG_H__', c23, '202311L').
-pp_predef('__STDC_VERSION_STDBOOL_H__', c23, '202311L').
-pp_predef('__STDC_VERSION_LIMITS_H__', c23, '202311L').
+%% C23's char8_t and its lock-free answer, and the binary formats of <inttypes.h> (`%b', `%B'), as clang 22 predefines
+%% them at C23 (0.194); a header's __STDC_VERSION_*_H__ is the header's own (C23 7.x.1: <stddef.h>, <limits.h>, <stdarg.h>,
+%% <float.h> and <stdatomic.h> here, <stdbit.h> and <stdckdint.h> too), never predefined: five were, and clang and gcc
+%% predefine none of them
+pp_predef('__CHAR8_TYPE__', c23, 'unsigned char').
+pp_predef('__CLANG_ATOMIC_CHAR8_T_LOCK_FREE', c23, '2').
+pp_predef('__GCC_ATOMIC_CHAR8_T_LOCK_FREE', c23, '2').
+pp_predef('__UINT8_FMTB__', c23, '"hhB"').
+pp_predef('__UINT8_FMTb__', c23, '"hhb"').
+pp_predef('__UINT_LEAST8_FMTB__', c23, '"hhB"').
+pp_predef('__UINT_LEAST8_FMTb__', c23, '"hhb"').
+pp_predef('__UINT_FAST8_FMTB__', c23, '"hhB"').
+pp_predef('__UINT_FAST8_FMTb__', c23, '"hhb"').
+pp_predef('__UINT16_FMTB__', c23, '"hB"').
+pp_predef('__UINT16_FMTb__', c23, '"hb"').
+pp_predef('__UINT_LEAST16_FMTB__', c23, '"hB"').
+pp_predef('__UINT_LEAST16_FMTb__', c23, '"hb"').
+pp_predef('__UINT_FAST16_FMTB__', c23, '"hB"').
+pp_predef('__UINT_FAST16_FMTb__', c23, '"hb"').
+pp_predef('__UINT32_FMTB__', c23, '"B"').
+pp_predef('__UINT32_FMTb__', c23, '"b"').
+pp_predef('__UINT_LEAST32_FMTB__', c23, '"B"').
+pp_predef('__UINT_LEAST32_FMTb__', c23, '"b"').
+pp_predef('__UINT_FAST32_FMTB__', c23, '"B"').
+pp_predef('__UINT_FAST32_FMTb__', c23, '"b"').
+pp_predef('__SIZE_FMTB__', c23, '"lB"').
+pp_predef('__SIZE_FMTb__', c23, '"lb"').
+pp_predef('__UINTMAX_FMTB__', c23, '"lB"').
+pp_predef('__UINTMAX_FMTb__', c23, '"lb"').
+pp_predef('__UINTPTR_FMTB__', c23, '"lB"').
+pp_predef('__UINTPTR_FMTb__', c23, '"lb"').
+%% the 64-bit ones are the OS's: `long' on Linux, `long long' on Darwin (pp_c_os_table/2)
+pp_predef('__UINT64_FMTB__', c23_linux, '"lB"').
+pp_predef('__UINT64_FMTb__', c23_linux, '"lb"').
+pp_predef('__UINT_LEAST64_FMTB__', c23_linux, '"lB"').
+pp_predef('__UINT_LEAST64_FMTb__', c23_linux, '"lb"').
+pp_predef('__UINT_FAST64_FMTB__', c23_linux, '"lB"').
+pp_predef('__UINT_FAST64_FMTb__', c23_linux, '"lb"').
+pp_predef('__UINT64_FMTB__', c23_darwin, '"llB"').
+pp_predef('__UINT64_FMTb__', c23_darwin, '"llb"').
+pp_predef('__UINT_LEAST64_FMTB__', c23_darwin, '"llB"').
+pp_predef('__UINT_LEAST64_FMTb__', c23_darwin, '"llb"').
+pp_predef('__UINT_FAST64_FMTB__', c23_darwin, '"llB"').
+pp_predef('__UINT_FAST64_FMTb__', c23_darwin, '"llb"').
 pp_predef('__STDC__', any, '1').
 pp_predef('__UINT16_C(c)', any, 'c').
 pp_predef('__UINT16_C_SUFFIX__', any, '').
@@ -1297,8 +1346,8 @@ pp_predef('__arm64', arm64, '1').
 pp_predef('__arm64__', arm64, '1').
 %% LINUX ON AARCH64 (0.131), asked before `any' for --target=aarch64-linux-gnu (pp_target_table/1): clang 18's own
 %% `-dM -E' where it differs from what the tables answer -- an IEEE quad long double, an unsigned char and wchar_t, the
-%% generic armv8's features, none of Apple's names. `$undef' is no macro. A difference that x86-64 Linux keeps as the
-%% tables have it (the 64-bit types spelled `long long', `__USER_LABEL_PREFIX__') is kept the same way here.
+%% generic armv8's features, none of Apple's names. `$undef' is no macro. Since 0.194 also what Linux has on either
+%% machine (below, the x86-64 table): the 64-bit types spelled `long', no `__USER_LABEL_PREFIX__', an unsigned `wint_t'.
 pp_predef('__AARCH64_SIMD__', linux_arm64, '$undef').
 pp_predef('__ARM64_ARCH_8__', linux_arm64, '$undef').
 pp_predef('__ARM_ACLE', linux_arm64, '200').
@@ -1345,6 +1394,124 @@ pp_predef('__WCHAR_TYPE__', linux_arm64, 'unsigned int').
 pp_predef('__WCHAR_UNSIGNED__', linux_arm64, '1').
 pp_predef('__arm64', linux_arm64, '$undef').
 pp_predef('__arm64__', linux_arm64, '$undef').
+pp_predef('__INT64_C_SUFFIX__', linux_arm64, 'L').
+pp_predef('__INT64_C(c)', linux_arm64, 'c##L').
+pp_predef('__UINT64_C(c)', linux_arm64, 'c##UL').
+pp_predef('__INT64_FMTd__', linux_arm64, '"ld"').
+pp_predef('__INT64_FMTi__', linux_arm64, '"li"').
+pp_predef('__INT64_MAX__', linux_arm64, '9223372036854775807L').
+pp_predef('__INT64_TYPE__', linux_arm64, 'long int').
+pp_predef('__INT_FAST64_FMTd__', linux_arm64, '"ld"').
+pp_predef('__INT_FAST64_FMTi__', linux_arm64, '"li"').
+pp_predef('__INT_FAST64_MAX__', linux_arm64, '9223372036854775807L').
+pp_predef('__INT_FAST64_TYPE__', linux_arm64, 'long int').
+pp_predef('__INT_LEAST64_FMTd__', linux_arm64, '"ld"').
+pp_predef('__INT_LEAST64_FMTi__', linux_arm64, '"li"').
+pp_predef('__INT_LEAST64_MAX__', linux_arm64, '9223372036854775807L').
+pp_predef('__INT_LEAST64_TYPE__', linux_arm64, 'long int').
+pp_predef('__NO_MATH_ERRNO__', linux_arm64, '$undef').
+pp_predef('__SIG_ATOMIC_MIN__', linux_arm64, '$undef').
+pp_predef('__SIG_ATOMIC_TYPE__', linux_arm64, '$undef').
+pp_predef('__UINT64_C_SUFFIX__', linux_arm64, 'UL').
+pp_predef('__UINT64_FMTX__', linux_arm64, '"lX"').
+pp_predef('__UINT64_FMTo__', linux_arm64, '"lo"').
+pp_predef('__UINT64_FMTu__', linux_arm64, '"lu"').
+pp_predef('__UINT64_FMTx__', linux_arm64, '"lx"').
+pp_predef('__UINT64_MAX__', linux_arm64, '18446744073709551615UL').
+pp_predef('__UINT64_TYPE__', linux_arm64, 'long unsigned int').
+pp_predef('__UINT_FAST64_FMTX__', linux_arm64, '"lX"').
+pp_predef('__UINT_FAST64_FMTo__', linux_arm64, '"lo"').
+pp_predef('__UINT_FAST64_FMTu__', linux_arm64, '"lu"').
+pp_predef('__UINT_FAST64_FMTx__', linux_arm64, '"lx"').
+pp_predef('__UINT_FAST64_MAX__', linux_arm64, '18446744073709551615UL').
+pp_predef('__UINT_FAST64_TYPE__', linux_arm64, 'long unsigned int').
+pp_predef('__UINT_LEAST64_FMTX__', linux_arm64, '"lX"').
+pp_predef('__UINT_LEAST64_FMTo__', linux_arm64, '"lo"').
+pp_predef('__UINT_LEAST64_FMTu__', linux_arm64, '"lu"').
+pp_predef('__UINT_LEAST64_FMTx__', linux_arm64, '"lx"').
+pp_predef('__UINT_LEAST64_MAX__', linux_arm64, '18446744073709551615UL').
+pp_predef('__UINT_LEAST64_TYPE__', linux_arm64, 'long unsigned int').
+pp_predef('__USER_LABEL_PREFIX__', linux_arm64, '').
+pp_predef('__WCHAR_MIN__', linux_arm64, '$undef').
+pp_predef('__WINT_MAX__', linux_arm64, '4294967295U').
+pp_predef('__WINT_MIN__', linux_arm64, '$undef').
+pp_predef('__WINT_TYPE__', linux_arm64, 'unsigned int').
+pp_predef('__WINT_UNSIGNED__', linux_arm64, '1').
+pp_predef('__clang_literal_encoding__', linux_arm64, '"UTF-8"').
+pp_predef('__clang_wide_literal_encoding__', linux_arm64, '"UTF-32"').
+pp_predef('__nonnull', linux_arm64, '$undef').
+pp_predef('__null_unspecified', linux_arm64, '$undef').
+pp_predef('__nullable', linux_arm64, '$undef').
+%% LINUX ON X86-64 (0.194), asked before `any' (pp_target_table/1): clang 22's `-dM -E' on this machine where it differs
+%% from what the other tables answer, which were taken from a clang on macOS -- the 64-bit types are `long' (`ld'
+%% formats, `L' constants), `__USER_LABEL_PREFIX__' is empty (glibc's asm labels spell it), `wint_t' is unsigned (the
+%% shipped library's `char_traits<wchar_t>::int_type', `j' in a symbol: `wistringstream::ignore' did not link), the
+%% default CPU is the k8 (no SSE3, SSSE3, SSE4.1, LAHF and 16-byte compare-and-swap), math errno is on, and Apple's
+%% nullability spellings `__nonnull' and kin are no macros (glibc defines `__nonnull(params)' itself). Made by a script
+%% (o279/gentab.py in HISTORY.md's 0.194): a macro whose value differs between C and C++ is the language tables'.
+pp_predef('__GCC_HAVE_SYNC_COMPARE_AND_SWAP_16', linux_x86_64, '$undef').
+pp_predef('__INT64_C_SUFFIX__', linux_x86_64, 'L').
+pp_predef('__INT64_C(c)', linux_x86_64, 'c##L').
+pp_predef('__UINT64_C(c)', linux_x86_64, 'c##UL').
+pp_predef('__INT64_FMTd__', linux_x86_64, '"ld"').
+pp_predef('__INT64_FMTi__', linux_x86_64, '"li"').
+pp_predef('__INT64_MAX__', linux_x86_64, '9223372036854775807L').
+pp_predef('__INT64_TYPE__', linux_x86_64, 'long int').
+pp_predef('__INT_FAST64_FMTd__', linux_x86_64, '"ld"').
+pp_predef('__INT_FAST64_FMTi__', linux_x86_64, '"li"').
+pp_predef('__INT_FAST64_MAX__', linux_x86_64, '9223372036854775807L').
+pp_predef('__INT_FAST64_TYPE__', linux_x86_64, 'long int').
+pp_predef('__INT_LEAST64_FMTd__', linux_x86_64, '"ld"').
+pp_predef('__INT_LEAST64_FMTi__', linux_x86_64, '"li"').
+pp_predef('__INT_LEAST64_MAX__', linux_x86_64, '9223372036854775807L').
+pp_predef('__INT_LEAST64_TYPE__', linux_x86_64, 'long int').
+pp_predef('__LAHF_SAHF__', linux_x86_64, '$undef').
+pp_predef('__NO_MATH_ERRNO__', linux_x86_64, '$undef').
+pp_predef('__SIG_ATOMIC_MIN__', linux_x86_64, '$undef').
+pp_predef('__SIG_ATOMIC_TYPE__', linux_x86_64, '$undef').
+pp_predef('__SSE3__', linux_x86_64, '$undef').
+pp_predef('__SSE4_1__', linux_x86_64, '$undef').
+pp_predef('__SSSE3__', linux_x86_64, '$undef').
+pp_predef('__UINT64_C_SUFFIX__', linux_x86_64, 'UL').
+pp_predef('__UINT64_FMTX__', linux_x86_64, '"lX"').
+pp_predef('__UINT64_FMTo__', linux_x86_64, '"lo"').
+pp_predef('__UINT64_FMTu__', linux_x86_64, '"lu"').
+pp_predef('__UINT64_FMTx__', linux_x86_64, '"lx"').
+pp_predef('__UINT64_MAX__', linux_x86_64, '18446744073709551615UL').
+pp_predef('__UINT64_TYPE__', linux_x86_64, 'long unsigned int').
+pp_predef('__UINT_FAST64_FMTX__', linux_x86_64, '"lX"').
+pp_predef('__UINT_FAST64_FMTo__', linux_x86_64, '"lo"').
+pp_predef('__UINT_FAST64_FMTu__', linux_x86_64, '"lu"').
+pp_predef('__UINT_FAST64_FMTx__', linux_x86_64, '"lx"').
+pp_predef('__UINT_FAST64_MAX__', linux_x86_64, '18446744073709551615UL').
+pp_predef('__UINT_FAST64_TYPE__', linux_x86_64, 'long unsigned int').
+pp_predef('__UINT_LEAST64_FMTX__', linux_x86_64, '"lX"').
+pp_predef('__UINT_LEAST64_FMTo__', linux_x86_64, '"lo"').
+pp_predef('__UINT_LEAST64_FMTu__', linux_x86_64, '"lu"').
+pp_predef('__UINT_LEAST64_FMTx__', linux_x86_64, '"lx"').
+pp_predef('__UINT_LEAST64_MAX__', linux_x86_64, '18446744073709551615UL').
+pp_predef('__UINT_LEAST64_TYPE__', linux_x86_64, 'long unsigned int').
+pp_predef('__USER_LABEL_PREFIX__', linux_x86_64, '').
+pp_predef('__WCHAR_MIN__', linux_x86_64, '$undef').
+pp_predef('__WINT_MAX__', linux_x86_64, '4294967295U').
+pp_predef('__WINT_MIN__', linux_x86_64, '$undef').
+pp_predef('__WINT_TYPE__', linux_x86_64, 'unsigned int').
+pp_predef('__WINT_UNSIGNED__', linux_x86_64, '1').
+pp_predef('__clang_literal_encoding__', linux_x86_64, '"UTF-8"').
+pp_predef('__clang_wide_literal_encoding__', linux_x86_64, '"UTF-32"').
+pp_predef('__core2', linux_x86_64, '$undef').
+pp_predef('__core2__', linux_x86_64, '$undef').
+pp_predef('__k8', linux_x86_64, '1').
+pp_predef('__k8__', linux_x86_64, '1').
+pp_predef('__nonnull', linux_x86_64, '$undef').
+pp_predef('__null_unspecified', linux_x86_64, '$undef').
+pp_predef('__nullable', linux_x86_64, '$undef').
+pp_predef('__tune_core2__', linux_x86_64, '$undef').
+pp_predef('__tune_k8__', linux_x86_64, '1').
+%% C++ ON LINUX (0.194), asked in C++ after the target's and the platform's tables: clang++ predefines `_GNU_SOURCE'
+%% there, as g++ does, so glibc declares its GNU extensions to C++ (libc++'s condition_variable::wait_until calls
+%% pthread_cond_clockwait, which glibc declares under __USE_GNU)
+pp_predef('_GNU_SOURCE', cpp_linux, '1').
 pp_predef('__DEPRECATED', cpp, '1').
 %% EXCEPTIONS, AS clang++ HAS THEM (0.193, the owner's decision of 0.190): `#if defined(__cpp_exceptions) &&
 %% __cpp_exceptions >= 199711L' decides libc++'s exceptions configuration (_LIBCPP_HAS_NO_EXCEPTIONS in libc++ 18,
@@ -1403,7 +1570,7 @@ pp_predef('__cpp_init_captures', cpp, '201304L').
 pp_predef('__cpp_initializer_lists', cpp, '200806L').
 pp_predef('__cpp_inline_variables', cpp, '201606L').
 pp_predef('__cpp_lambdas', cpp, '200907L').
-pp_predef('__cpp_named_character_escapes', cpp, '202606L').
+pp_predef('__cpp_named_character_escapes', cpp, '202207L').   % P2071's value (0.194): 202606L was no value a clang has
 pp_predef('__cpp_namespace_attributes', cpp, '201411L').
 pp_predef('__cpp_nested_namespace_definitions', cpp, '201411L').
 pp_predef('__cpp_noexcept_function_type', cpp, '201510L').

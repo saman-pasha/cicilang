@@ -1776,8 +1776,15 @@ cpp_member_types([], []).
 cpp_member_types([member(base(Q, [union(anon, Us0)]), N, I)|Ms], [member(base(Q, [union(anon, Us)]), N, I)|Ns]) :- !, cpp_member_types(Us0, Us), cpp_member_types(Ms, Ns).
 cpp_member_types([member(base(Q, [struct(anon, Us0)]), N, I)|Ms], [member(base(Q, [struct(anon, Us)]), N, I)|Ns]) :- is_list(Us0), !, cpp_member_types(Us0, Us), cpp_member_types(Ms, Ns).   % an anonymous struct kept inside a union (cpp_norm_union_members)
 cpp_member_types([member(T0, N, I)|Ms], [member(T, N, I)|Ns]) :- !,
-    ( catch(cpp_type(T0, T1), error(not_lowered(W), _), ( cpp_trace(member_type_unresolved(N, W)), fail )) -> T = T1 ; T = T0 ), cpp_member_types(Ms, Ns).
+    ( catch(cpp_type(T0, T1), error(not_lowered(W), _), ( cpp_trace(member_type_unresolved(N, W)), fail )) -> cpp_fold_aligned(T1, T) ; T = T0 ), cpp_member_types(Ms, Ns).
 cpp_member_types([M|Ms], [M|Ns]) :- cpp_member_types(Ms, Ns).
+%% A MEMBER'S ALIGNMENT SPECIFIER FOLDS IN THE CLASS'S WORDS (0.194; [dcl.align]), as its bitfield width and the class's own
+%% `alignas' do (cpp_bit_width, cpp_align_tag): `alignas(_Alignment) char __data;' of an instance of libc++ 21's
+%% `__alignment_checker_type', `_ALIGNAS_TYPE(_Tp) char __buffer_[sizeof(_Tp)]', `alignas(K)' over a constexpr global -- the
+%% layout reads the qualifier `aligned(E)' by the inference's fold, which knows no template's value nor the evaluator
+cpp_fold_aligned(base(Q0, S), base([aligned(N)|Q1], S)) :- select(aligned(E), Q0, Q1), E \= int(_), !, cpp_array_bound(E, N).
+cpp_fold_aligned(arr(B, E0), arr(B, E)) :- !, cpp_fold_aligned(E0, E).
+cpp_fold_aligned(T, T).
 %% what else a class carries: its member templates (by name; a constructor under `ctor'), its typedefs
 %% (`typedef T value_type;', `using x = T;': what a dependent name `C::value_type' resolves to), and the
 %% constant initializers of its static members (`static const bool value = true;': what `C::value' folds to)
@@ -2519,7 +2526,7 @@ cpp_slot_def(C, M, K, Name) :- cpp_class(C, cls(B, _, Ms, _, _, _)),
     ( cpp_slot_method(C, Ms, M, K, Qs, Ps) -> \+ memberchk(pure, Qs), cpp_mangle_q(C, M, Qs, Ps, Name) ; B \== none, cpp_slot_def(B, M, K, Name) ).
 cpp_split_members([], [], [], []).
 cpp_split_members([member(T0, N, _)|Ms], Data, [N-T|Ss], Ds) :- cpp_static_type(T0, T), !, cpp_split_members(Ms, Data, Ss, Ds).
-cpp_split_members([member(T0, N, W0)|Ms], [member(T, N, W)|Data], Ss, Ds) :- !, ( cpp_class_ctx(C), cpp_type_names_call(C, T0) -> T = T0 ; cpp_type(T0, T) ), cpp_bit_width(W0, W), cpp_split_members(Ms, Data, Ss, Ds).   % a type that names a call waits for the class's record (cpp_member_types_now, 0.136)
+cpp_split_members([member(T0, N, W0)|Ms], [member(T, N, W)|Data], Ss, Ds) :- !, ( cpp_class_ctx(C), cpp_type_names_call(C, T0) -> T = T0 ; cpp_type(T0, T1), cpp_fold_aligned(T1, T) ), cpp_bit_width(W0, W), cpp_split_members(Ms, Data, Ss, Ds).   % a type that names a call waits for the class's record (cpp_member_types_now, 0.136)
 cpp_split_members([default_init(N, E)|Ms], Data, Ss, [N-E|Ds]) :- !, cpp_split_members(Ms, Data, Ss, Ds).
 cpp_split_members([_|Ms], Data, Ss, Ds) :- cpp_split_members(Ms, Data, Ss, Ds).
 %% `static' sits in the INNERMOST base's qualifiers, so a static POINTER or ARRAY member -- `static const char
@@ -3259,6 +3266,9 @@ cpp_item(extern_c(L, Is), [extern_c(L, Js)]) :- !, cpp_items(Is, Js).
 cpp_item(using(L, U), Is) :- cpp_cplxlit_using(U, Sx), \+ cpp_cplxlit_covered(Sx), !, nb_getval('$cpp_cplxlit', C0), cpp_relops_join(C0, Sx, C), nb_setval('$cpp_cplxlit', C), cpp_item(using(L, U), Is).   % <complex>'s literal operators made visible at namespace scope (0.179): noted, and the using taken as before
 cpp_item(using(L, U), [using(L, U)]) :- ( cpp_hdr_using(U, Us) ; cpp_hdr_type_using(U, Us) ), !, ( nb_current('$cpp_usings', U0) -> true ; U0 = [] ), append(Us, U0, U1), nb_setval('$cpp_usings', U1).   % a header namespace's names at namespace scope (0.160): in force for the rest of the unit -- and a using-declaration of its keyed TYPE (0.161), which a block takes by the substitution of 0.121 (cpp_stmts)
 cpp_item(using(L, U), [using(L, U)]) :- cpp_relops_using(U, Ops), !, nb_getval('$cpp_relops', R0), cpp_relops_join(R0, Ops, R), nb_setval('$cpp_relops', R).   % `using namespace std::rel_ops;' at namespace scope (0.136): in force for the rest of the unit
+cpp_item(declare(L, base(Q, [E0])), Out) :- compound(E0), ( E0 = enum(Tag, Es0) ; E0 = enum_class(Tag, Es0) ), is_list(Es0),   % AN UNDERLYING TYPE NAMED BY A QUALIFIED NAME (0.194): `enum class Color : std::uint8_t' -- resolved here, so the table the passes build again from the output holds the type the lowering sizes the enum by (it met `typedef(scoped([std], uint8_t))')
+    Es0 = [enum_base(B0)|Rest], B0 = base(_, [typedef(scoped(_, _))]), catch(cpp_type(B0, B), error(not_lowered(_), _), fail), B \== B0, !,
+    functor(E0, F, 2), Es1 = [enum_base(B)|Rest], E1 =.. [F, Tag, Es1], ( atom(Tag) -> ccl_note_tag(Tag, Es1) ; true ), cpp_item(declare(L, base(Q, [E1])), Out).
 cpp_item(declare(L, base(Q, [E0])), [declare(L, base(Q, [E]))]) :- compound(E0), ( E0 = enum(Tag, Es0) ; E0 = enum_class(Tag, Es0) ), is_list(Es0),
     cpp_enum_unfolded(Es0, 0, []), !, functor(E0, F, 2), cpp_fold_enumerators(L, Es0, 0, [], Es), E =.. [F, Tag, Es].
 cpp_item(I, [I]).
@@ -4064,7 +4074,7 @@ cpp_fn_auto_ret(Ret0, Ps, Body, Ret) :- Ret0 =.. [K, Q, base(QA, [auto])], cpp_l
 cpp_ref_auto_result(ref, Q, T, _, ref(Q, T)).
 cpp_ref_auto_result(rref, Q, T, Lv, R) :- ( Lv == yes -> R = ref(Q, T) ; R = rref(Q, T) ).
 cpp_plain_members([], []).
-cpp_plain_members([member(T, A, W)|Ms], [member(T1, A, W)|Ms1]) :- !, ( cpp_type(T, T1) -> true ; T1 = T ), cpp_plain_members(Ms, Ms1).
+cpp_plain_members([member(T, A, W)|Ms], [member(T1, A, W)|Ms1]) :- !, ( cpp_type(T, T2) -> cpp_fold_aligned(T2, T1) ; T1 = T ), cpp_plain_members(Ms, Ms1).
 cpp_plain_members([M|Ms], [M|Ms1]) :- cpp_plain_members(Ms, Ms1).
 %% A FILE-SCOPE OBJECT IS DECLARED UNDER ITS RESOLVED TYPE (0.112): the table holds the type as the reader wrote it,
 %% `std::string_view' -- a scoped name the inference cannot resolve -- so `g.size()' on `constexpr std::string_view
@@ -6340,6 +6350,8 @@ cpp_builtin_call('__builtin_invoke', [F, O], E) :-        % A POINTER TO A DATA 
 cpp_builtin_call('__builtin_invoke', [F, O|As], E) :- cpp_memptr_call(F, O, As, E), !.   % ... and a POINTER TO MEMBER as the callee is `(obj.*pm)(args...)': std::invoke and std::mem_fn are written on it
 cpp_builtin_call('__builtin_invoke', [F|As], E) :- !, cpp_call(none, F, As, E).   % clang's __builtin_invoke(f, args...) is std::invoke: the callee applied to the arguments (a callable object through its operator(), a function by name); libc++'s __invoke_result asks it under a decltype
 cpp_builtin_call('__builtin_is_constant_evaluated', [], bool(false)).
+cpp_builtin_call('__atomic_always_lock_free', [S, P], B) :- cpp_const_value(S, K), !, ( ccl_lock_free_at(K, P) -> B = bool(true) ; B = bool(false) ).   % over the desugared pointer (0.194): libc++ 21's atomic_ref hands it `std::addressof' of an aligned instance
+cpp_builtin_call('__builtin_classify_type', [X], int(K)) :- cpp_arg_type(X, T), ccl_type_class(T, K), !.   % the class of the operand's type, clang's numbers (0.194)
 cpp_builtin_call('__builtin_launder', [P], P).
 cpp_builtin_call('__builtin_addressof', [X], addr(X)).
 cpp_builtin_call('__builtin_expect', [E, _], E).
@@ -9457,6 +9469,7 @@ cpp_trait_n('__is_trivially_assignable', T, [F], V) :- !, ( cpp_assignable(T, F)
 cpp_trait_n(N, F, [T], V) :- memberchk(N, ['__is_convertible', '__is_convertible_to']), !, ( cpp_convertible(F, T) -> V = true ; V = false ).
 cpp_trait_n('__is_nothrow_convertible', F, [T], V) :- !, ( cpp_convertible(F, T), cpp_nothrow_q(cpp_nothrow_ctor(T, [F])) -> V = true ; V = false ).
 cpp_trait_n('__is_base_of', B, [D], V) :- !, ( cpp_base_of(B, D) -> V = true ; V = false ).
+cpp_trait_n('__builtin_is_virtual_base_of', B, [D], V) :- !, ( cpp_class_of_type(B, CB), cpp_class_of_type(D, CD), cpp_vbases_of(CD, Vs), memberchk(CB, Vs) -> V = true ; V = false ).   % C++26's is_virtual_base_of, libc++ 21's over clang's builtin (0.194): B a virtual base of D, at any depth, cv-qualifiers aside
 cpp_trait_n('__is_same_as', A, [B], V) :- !, ( cpp_same_type(A, B) -> V = true ; V = false ).
 %% THE NOTHROW TRAITS ANSWER THE DECLARATIONS (0.193; [meta.unary.prop]: `T t(declval<Args>()...)' known not to throw;
 %% [except.spec]/8, /10: an implicit or defaulted special member is noexcept where each sub-object's own is): a scalar's

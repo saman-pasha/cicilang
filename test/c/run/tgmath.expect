@@ -1,0 +1,9 @@
+0 2 0 3
+double complex float complex long double float double
+4 5 1.41421 2.71828
+double float long double
+1024 3.14159 3.5
+double 5 double complex
+3 -4
+9 8 1
+exit 0

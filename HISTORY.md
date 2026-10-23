@@ -187,6 +187,7 @@ One row per step, in version order: the step's title, what it did and its gate n
 | 0.191 | RTTI in libc++ on by default, as clang++ has it; `-fno-rtti` gives the no-RTTI configuration; `std::any` and a `shared_ptr`'s deleter, which never built | `__cpp_rtti` and `__GXX_RTTI` predefined in C++ unless `-fno-rtti`; under it `typeid` and a downcasting or cross-casting `dynamic_cast` refused by name, a header's `std::dynamic_pointer_cast` too; a summary read under it keyed apart; four older defects the new fixtures met: a base written `decltype(e)`, the address of a static constant member, a static member function's thunk emitted twice, a qualification conversion tied with the identity (and the partial ordering of `f(T *)` and `f(const T *)`); the numbers of 0.190's chain | all nine gates GREEN over libc++ 18, the two libc++ gates over 21 (the C++ gate's first run RED at one refusal's expected text, corrected in this commit); the headers' reads summed 1176 s and 1104 s over 120 (0.190's 1000 s and 904 s over 114), the fixtures' builds 2919 s and 3037 s; 604 of 608 C++ fixtures over 18, 606 over 21 |
 | 0.192 | each unit's own names at the link: closures, local classes, unnamed namespaces; statics constructed at compile time destroyed at exit; inline variables one object; a temporary returned through the hidden pointer constructed in place | the unit's tag in a closure's and a local class's name; an unnamed namespace its unit's own (named by the tag, its names keyed by its path, its type information internal, `_GLOBAL__N_1` to the mangler); a static constructed at compile time registers its destructor; an inline variable linkonce, initialized and destroyed once under a guard, before the unit's ordered initializations; the program's header's variables defined, a header class's statics at its place; a namespace-scope const variable internal; a class-typed static member the evaluator cannot construct constructed before main; a statement's temporary that a call returns through the hidden pointer constructed in place (`std::function<int(int)> ha(); ha()(5)` freed the stack); the C++ gate's two units built apart | all nine gates GREEN over libc++ 18, the two libc++ gates over 21; the headers' reads summed 1229 s and 1109 s over 120, the fixtures' builds 2896 s and 3385 s; 606 of 610 C++ fixtures over 18, 608 over 21 |
 | 0.193 | exceptions in libc++ on by default, as clang++ has them; `-fno-exceptions` gives the no-exceptions configuration; the nothrow traits and `noexcept(e)` answer the declarations | `__cpp_exceptions` and `__EXCEPTIONS` predefined in C++ unless `-fno-exceptions`, a summary read under it keyed apart; every C++ program's calls under the EH rules and its noexcept functions guarded; under `-fno-exceptions` the program's `throw` and `try` refused by name; the nothrow traits by the declared, implicit and defaulted members (a vector grows through `std::move_if_noexcept`); `noexcept(e)` over a library call by the library's declarations, a header's noexcept free functions carried by its summary apart from the program's; `std::bad_cast` and `std::bad_typeid` thrown; the safe part enters a handler from any point of its try's body | all nine gates GREEN over libc++ 18, the two libc++ gates over 21; the headers' reads summed 1454 s and 1175 s over 123, the fixtures' builds 3296 s and 3237 s; 611 of 615 C++ fixtures over 18, 613 over 21 |
+| 0.194 | the audit's first group: the platform and the preprocessor -- clang's predefined macros on Linux, asm labels, brace elision into records, C23's enums and headers, `<tgmath.h>`, GCC's atomic builtins, `alignas` before a declaration | clang's `-dM -E` on Linux (x86-64's own table, C23's per OS, C++'s `_GNU_SOURCE`, `__STDC_VERSION__` C's alone, function-like predefined macros); asm labels the symbol a declaration stands for (glibc's C23 `strtol`); brace elision into a struct or union member and an array's elements; C23's fixed-base enums; `__builtin_classify_type`, GCC's lock-free and generic atomic builtins (libc++ 21's `std::atomic_ref`), `FLT_ROUNDS`, the signaling NaNs; C23's `<float.h>`, `<limits.h>`, `<stdarg.h>`, `<stdatomic.h>`; the compiler's own `<tgmath.h>`; `std::is_virtual_base_of`; C++'s `alignas` before a member or a file-scope declaration kept, a member's alignment folded in the class's words; the named caches' index no name's global (a name `names` took the index as its type since 2026-09-06) | all nine gates GREEN over libc++ 18, the two libc++ gates over 21 (the first chain's compile gate RED at `memory.c`, the named caches' index); the headers' reads summed 1310 s and 1176 s over 127, the fixtures' builds 3231 s and 3162 s; 616 of 622 C++ fixtures over 18, 620 over 21 |
 
 ## M5 — the C++ mode
 
@@ -12347,3 +12348,114 @@ and the operator `noexcept(e)` over a library call answer the declarations, a fa
 
 Reader 145 (every libc++ header flattens in its exceptions configuration, and a summary names the header's noexcept free
 functions; 144 was this step's first form, never committed) and lowering 106 (every C++ program's calls).
+
+## 0.194 — the audit's first group: the platform and the preprocessor -- clang's predefined macros on Linux, asm labels, brace elision into records, C23's enums and headers, <tgmath.h>, GCC's atomic builtins, alignas before a declaration
+
+**0.194: the first step of the audit the owner asked for at 0.193 -- every form and library facility of C17 to C23 and
+C++17 to C++26 done. Its first group is the platform's and the preprocessor's: the predefined macros are clang's on Linux
+where they had been a Mac clang's, a declaration's asm label is the symbol it stands for (glibc's C23 and GNU
+redirects), brace elision reaches into records and an array's elements, C23's enums with a fixed underlying type have
+their base's size, C23's headers are C23's, `<tgmath.h>` is the compiler's own, and GCC's atomic and classification
+builtins answer. libc++ 21's `std::atomic_ref` and `std::is_virtual_base_of` run; the first needed C++'s `alignas`
+before a member, which the reader had dropped as an attribute since 0.89.**
+
+- THE PREDEFINED MACROS (`library/ccl_pp.pl`; the Predefined macros topic): the tables had been taken from a clang on
+  macOS. `linux_x86_64`, x86-64 Linux's own table asked before `any` (clang 22's `-dM -E` here where it differs): the
+  64-bit types `long`, `__USER_LABEL_PREFIX__` empty, `wint_t` unsigned -- the shipped `char_traits<wchar_t>::int_type`
+  (`j` in a symbol: `wistringstream::ignore` did not link) --, the default CPU k8's features, math errno on, no Apple
+  nullability spellings; `linux_arm64` took the same Linux rows. C23's `c23_linux` and `c23_darwin` after `c23`
+  (`pp_c_os_table/2`): `__CHAR8_TYPE__`, the normalized maxima, `<inttypes.h>`'s binary formats. `cpp_linux`:
+  `_GNU_SOURCE` in C++, as clang++ and g++ predefine it on Linux -- libc++'s `condition_variable::wait_until` calls
+  `pthread_cond_clockwait`, which glibc declares under `__USE_GNU`. `__STDC_VERSION__` is C's alone (C++ had it). A
+  function-like predefined macro (`__INT64_C(c)` and kin) is the fact named with its parameter list, asked by the name
+  alone (`pp_predef_macro/3`'s second clause): `__INT64_C(5)` was a call of an undeclared function. No
+  `__STDC_VERSION_*_H__` is predefined: five were, which neither clang nor gcc predefines; each header defines its own.
+  `__FLT_EVAL_METHOD__` 0. The rows were made by a script over clang's `-dM -E` in C and C++ at each level
+  (`o279/gentab.py`, session scratch): 152 rows added, 8 taken away. `predefs.c`, `gnusource.cpp`.
+- ASM LABELS (`library/ccl_syntax.pl`, `library/ccl_infer.pl`, `library/ccl_ir.pl`; the Declarators topic): `__asm__
+  ("sym")` after a declarator was read and dropped; it is the qualifier `asm(Name, Sym)` now, the symbol of that name,
+  which the lowering spells for a definition, a declare line, a call and an address (`ir_gname/3`, `ir_fn_sym/2`), from
+  any declaration of the name at file scope (`ccl_asm_label/2`, cached per name). It names its owner only: a type taken
+  from the declaration (`auto g = strtol(...)`, `__typeof__ (strtol) h`) is no label of the new name -- the first form
+  of the rule, the qualifier alone, leaked into deduced types. glibc's redirects are taken: at C23 and in C++
+  (`_GNU_SOURCE`) `strtol` and `sscanf` are `__isoc23_strtol` and `__isoc23_sscanf`, which read `0b` and `%b`, as
+  clang's builds do. `asmlabel.c`, `asmlabel23.c` (`-std=c23`).
+- BRACE ELISION INTO RECORDS AND ELEMENTS (C 6.7.9/20, [dcl.init.aggr]/16; the Aggregates and Statics topics): a struct
+  or union member given a scalar or a string takes the items its members need (`struct sigaction sa = {0};` reached LLVM
+  as `sext i32 0 to { i64 }`: glibc's begins with a union), an array's element that is an array or a record alike (`int
+  a[2][2] = {1, 2, 3, 4};` was refused), from a designator on too, locally and in a global. `unionelide.c`,
+  `elidenest.c`.
+- ENUMS WITH A FIXED UNDERLYING TYPE (C23 6.7.2.2, [dcl.enum]): their enumerators are of the enum's type in C23 and
+  `enum E` named alone is its base's size in C and C++ (`sizeof(Y)` of `enum Big : unsigned long long` and `enum E e;`
+  were 4); `enum class Color : std::uint8_t`, a qualified base, is resolved at the item (the lowering met
+  `typedef(scoped([std], uint8_t))`). `c23enum.c`, `enumelab.cpp`, `enumbase.cpp`.
+- C23'S HEADERS (`library/include`): `<float.h>`'s signaling NaNs, normalized maxima and IEC 60559 marks, `FLT_ROUNDS`
+  the current rounding direction (`__builtin_flt_rounds()`, `llvm.get.rounding`; it was 1), `FLT_EVAL_METHOD` from the
+  macro, `INFINITY` and `NAN`; `<limits.h>`'s widths from the predefined macros; `<stdarg.h>`'s, `<stdatomic.h>`'s and
+  their kin's `__STDC_VERSION_*_H__`; `atomic_char8_t`, and no `ATOMIC_VAR_INIT` at C23. The signaling NaNs are
+  constants of the quiet bit clear, `snan(S)` in a global's fold, quieted by an operation or a conversion as gcc folds
+  them. `c23float.c` (`-std=c23`; its expect clang 22's, which the cross gate holds where clang 18 cannot build it).
+- `<tgmath.h>` IS THE COMPILER'S OWN (the Compiler's own headers topic): glibc's refuses clang's macros at its `#error`,
+  which stopped the header silently, and `sqrt(z)` of a complex called the real `sqrt` over its real part; clang's lives
+  in a resource directory off the path. The 60 macros clang's header defines, by `_Generic`. `tgmath.c`, its expect
+  clang 18's (22's the same). The inference's side: C's `(void *) 0` is a null pointer constant in a conditional, a
+  pointer to void beside another pointer gives a pointer to void, `+z` of a complex is the complex, and
+  `__builtin_classify_type` answers clang's type classes -- what glibc's header asks.
+- GCC'S ATOMIC BUILTINS (the Atomics topic): `__atomic_always_lock_free` and `__atomic_is_lock_free`, and 16 bytes
+  lock-free on aarch64 (`lockfree.c`); the generic `__atomic_load`, `__atomic_store`, `__atomic_exchange` and
+  `__atomic_compare_exchange`, an object of a lock-free width and alignment moved as the integer of its size, any other
+  through libatomic's routine as clang calls it (`atomicgen.c`). libc++ 21's `std::atomic_ref` is written on them, and on
+  `__builtin_clear_padding`, which no clang has: `__has_builtin` of it answers 0 now, as clang's does. The fold of
+  `is_always_lock_free` met the raw `std::addressof(...)`, typed `_Tp *` by its signature, and answered 0: in C++ only
+  the desugaring answers a pointer that is no null constant. `atomicref.cpp` (C++20, libc++ 21).
+- `__builtin_is_virtual_base_of` (C++26's `std::is_virtual_base_of`, libc++ 21). `vbaseof.cpp`.
+- C++'S `alignas` BEFORE A DECLARATION (the Attributes topic and the Object layout's `alignas` topic): the two rules that
+  drop an attribute before a file-scope item and before a member took `alignas` too, and the specifiers never saw it:
+  `struct M { alignas(8) char c; }` was of alignment 1, `alignas(32) char g[3];` a global of alignment 1 -- in the
+  program and in libc++ (`std::array<T, 0>`, libc++ 21's `make_shared` block, `no_destroy`, `small_buffer`, atomic_ref's
+  aligner); locals were right. A member's alignment is folded in the class's words (`cpp_fold_aligned/2`), and a bare
+  name in `alignas(...)` is a type only where it is one (`ccl_align_type_ok/1`: `alignas(_Alignment)` over a value
+  template parameter was the alignment of a type named so). `alignmember.cpp`, its expect clang++'s over libc++ 18 and
+  21. Met on the way, the next step's: the program's own file-scope `const` and `constexpr` integers are no constants
+  (Not done) -- `alignas(K)` over one does not fold.
+- THE NAMED CACHES' INDEX (the Caches topic of Time and memory), found by the first chain of 0.194: its compile gate
+  was RED at `memory.c`, `ir_parse_failed: ... getelementptr inbounds ptr, ptr @[pri...`, a global's symbol spelled as a
+  list. `ccl_cached_named/4` kept its index of names under the prefix and `names`, which is the global of the name
+  `names` too: the first ask of that name wrote its value there and then the index over it, and every later ask
+  answered the index. `memory.c` holds a global `names`, and the lowering of 0.194 asks the asm label of every global it
+  names, twice for this one in the gate's one process. The defect is as old as the named caches (2026-09-06): over the
+  committed 0.193 library a C `typedef int names;` asked twice was refused `not lowered yet: phase(check)`, and a C++
+  `struct names` was lowered as `type([names])`. The index is `'$ccl_cidx'` and the prefix now (`ccl_cache_index/2`,
+  asked by the cache, its forgetting, the asm label's test and the summaries' loader), a global that no prefix and name
+  makes. `cachenames.c` (on aarch64 too) and `cachenames.cpp` (over libc++ 18 and 21) print clang's output; the
+  compile gate is GREEN over the fixed library (15 s).
+- THE NET, before the chain: the flow gate GREEN over the final library (its one finding, 98 s); the library read over
+  two fresh HOMEs GREEN, 371 s over libc++ 18 and 315 s over 21 (the 23 asserted reads whole, 100 other headers warmed
+  each); the 10 C fixtures, each built at `-O1` and run as the compile gate does, and built for aarch64 and run under
+  qemu against clang's build (`c23float.c` against its expect); the 6 C++ fixtures over libc++ 18 and 21 (two skips over
+  18, by their `.needs`); 60 fixtures over those HOMEs, built and compared as the C++ gate does -- the shared pointers,
+  atomics and threads, `std::array` and the layouts, streams, formats, containers, the functional ones, chrono, random,
+  complex, ranges, exceptions -- all clang++'s output over both (242 s and 224 s of pool wall over three lanes).
+- THE CHAIN OF 0.194, over a fresh worktree of its amended commit and fresh HOMEs (the reader version moved), on cocolog
+  2.11.1, 14:49:27 to 15:39:50 UTC: ALL GREEN. Over libc++ 18: the flow gate 95 s (peak 2787 MB, its one finding),
+  reader 5 s, compile 14 s, driver 13 s, objects 4 s, the proof, the cross gate 309 s (peak 444 MB), the library read 354
+  s (peak 786 MB; the 23 asserted reads whole, 104 other headers warmed), the C++ gate 958 s (peak 2542 MB), 616 of 622
+  fixtures ok (skips `atomicref`, `joinwith`, `stdoptionalref`, `tzone`, `vbaseof`, `zipadjacent`), the cold build's
+  processes, the two units, the 28 refusals and the four of the safe part; over libc++ 21 the library read 319 s (peak
+  819 MB) and the C++ gate 937 s (peak 2499 MB), 620 of 622 (skips `stdoptionalref`, `zipadjacent`). The headers'
+  reads summed 1310 s over 127 and 1176 s over 127 (0.193's 1454 s and 1175 s over 123), the fixtures' builds 3231 s
+  over 616 and 3162 s over 620 (0.193's 3296 s over 611 and 3237 s over 613; clang's builds of the next step's probes,
+  small C and C++ programs, ran beside the libc++ gates one at a time, and the builds count them); the slowest over 18
+  `fmtrange` 131 s, `fmtchrono2` 122 s, `fmtchrono` 111 s, `fmtcheck` 88 s, `fmttuple` 87 s, `viewsall` 82 s, over 21
+  `fmtchrono2` 114 s, `fmtchrono` 97 s, `viewsall` 86 s, `fmtrange` 84 s, `joinwith` 73 s, `fmtcheck` 70 s. The first
+  chain, over the commit before the named caches' index was mended, was RED at the compile gate (above).
+- `CLAUDE.md`: the versions; the header list (`tgmath.h`); the predefined macros' order and tables; the builtins'
+  answers (`__builtin_clear_padding`); the compiler's own headers (`limits.h`, `float.h`, `tgmath.h`); the asm labels
+  (Declarators); C23's fixed-base enums; the attributes (`alignas` kept, a bare name a type only where it is one); brace
+  elision (Aggregates, Statics); the conditional's `(void *) 0`; an enum's qualified base; the atomics (the generic and
+  lock-free builtins); the floating builtins (signaling NaNs, `FLT_ROUNDS`, `__builtin_classify_type`); the alignas
+  layout's fold; `__builtin_is_virtual_base_of`; the named caches' index; What runs; Hosts (the last full run); Not done
+  (the audit's order and its gaps). The compile gate's count: 98 run and 47 safe fixtures.
+
+Reader 146 (every header flattens over clang's Linux macros and `_GNU_SOURCE` in C++, an asm label and a leading
+`alignas` are kept) and lowering 107 (an asm label's symbol, the new builtins, brace elision into records).

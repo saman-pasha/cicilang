@@ -15,5 +15,8 @@ typedef __builtin_va_list va_list;
 #define va_arg(ap, type) __builtin_va_arg(ap, type)
 #define va_copy(dest, src) __builtin_va_copy(dest, src)
 #define __va_copy(dest, src) __builtin_va_copy(dest, src)
+#if defined(__STDC_VERSION__) && __STDC_VERSION__ >= 202311L
+#define __STDC_VERSION_STDARG_H__ 202311L   /* C23 7.16.1 (0.194): the header's own, never predefined */
+#endif
 #endif
 #endif

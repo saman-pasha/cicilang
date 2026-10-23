@@ -10,8 +10,8 @@ it found, its measurements and its gate numbers. `README.md` tells a user what r
 architecture and the milestones. A step that changes a rule edits the rule here, in its topic, and writes its entry
 in `HISTORY.md`.
 
-At 0.193 the versions are: the module 0.193 (`ccl_p_version` in `module/cicilang.cicili`, `bin/cicilang --version`),
-the reader 145 (`ccl_reader_version/1`, `library/ccl_syntax.pl`) and the lowering 106 (`ccl_lowering_version/1`,
+At 0.194 the versions are: the module 0.194 (`ccl_p_version` in `module/cicilang.cicili`, `bin/cicilang --version`),
+the reader 146 (`ccl_reader_version/1`, `library/ccl_syntax.pl`) and the lowering 107 (`ccl_lowering_version/1`,
 `library/ccl_ir.pl`).
 
 Build and prove, always in this order (or all of it, `sh test/gates.sh`):
@@ -284,7 +284,8 @@ library/include/            the compiler's own freestanding headers: each COCOLO
                             libc++'s in C++, ahead of the C library's; guards _CICILANG_<NAME>_H, stdatomic.h's
                             __CCL_STDATOMIC_H
   complex.h                   the C library's, then I, CMPLX, CMPLXF, CMPLXL over __builtin_complex
-  float.h                     the floating limits from the predefined macros
+  float.h                     the floating limits from the predefined macros; FLT_ROUNDS the current direction; C23's
+                              signaling NaNs, normalized maxima and IEC 60559 marks
   iso646.h, stdalign.h, stdbool.h, stdnoreturn.h
                               the small C headers
   limits.h                    the limits from the predefined macros, then the C library's through #include_next
@@ -293,6 +294,7 @@ library/include/            the compiler's own freestanding headers: each COCOLO
   stdbit.h                    C23's bit utilities over the bit builtins, the generic forms by _Generic
   stdckdint.h                 C23's ckd_add, ckd_sub, ckd_mul over the overflow builtins
   stddef.h                    size_t, ptrdiff_t, NULL, offsetof; nullptr_t and unreachable() at C23 only
+  tgmath.h                    C17 7.25's type-generic macros over <math.h> and <complex.h>, by _Generic (0.194)
 
 test/config.sh              sourced by every gate: the neighbours, this library first on COCOLOG_LIBRARY, the store
 test/gates.sh               every gate in one chain
@@ -474,7 +476,7 @@ tutorials/01..03-*.pl       the objects layer's lessons; goal main, last line do
 - The compile gate. `test/compile.pl`, one process over the user's store, reads, checks, lowers, compiles at `-O1`
   and links every `test/c/run/*.c` at its `NAME.std` level (`c_level`). It expects every `test/c/safe/*.c` refused.
   `test/compile.sh` runs each binary as `NAME arg1 arg2` against `NAME.expect`, and compares each refusal with
-  `safe/NAME.expect`. There are 87 run and 47 safe fixtures at 0.180. (M2, M3, 0.57)
+  `safe/NAME.expect`. There are 98 run and 47 safe fixtures at 0.194. (M2, M3, 0.57)
 - The driver gate. `test/driver.sh` makes 40 checks of `bin/cicilang` over the user's store (the two decimal checks are
   skipped where no gcc with decimal floating types is installed), the variadic calls of every kind both ways against
   clang among them (`test/c/link/va_*.c`, 0.131), and Apple's arm64 expansion of `va_arg` of an aggregate against
@@ -1190,7 +1192,9 @@ tutorials/01..03-*.pl       the objects layer's lessons; goal main, last line do
 - Built-ins (`pp_builtin_answer/3`): `__has_include(_next)` resolve for real (`ccl_resolve_include/3`);
   `__has_builtin` and `__is_identifier` 1 (libc++'s other branch is an `#error`), but `__has_builtin(__builtin_common_type)`
   0 (`pp_no_builtin/1`, a table of the builtins this compiler does not model: libc++ 21 then flattens `common_type` on its own
-  specializations, the ones libc++ 18 has, and not on clang's builtin class template; reader 118; 0.126); `__has_embed` 1
+  specializations, the ones libc++ 18 has, and not on clang's builtin class template; reader 118; 0.126), and
+  `__has_builtin(__builtin_clear_padding)` 0 (0.194), GCC's, which no clang of 18, 21 and 22 has: libc++ 21's atomic_ref
+  then clears no padding and compares the whole object, the branch clang++'s build takes; `__has_embed` 1
   found, 2 empty, 0 nowhere; `__has_c_attribute` (C only) the standard attributes' dates (`pp_c_attribute/2`); `__is_target_arch`,
   `_vendor`, `_os`, `_environment` per host; every other `__has_*` 0, the plainest path, the one the reader reads best.
   (0.93)
@@ -1200,15 +1204,29 @@ tutorials/01..03-*.pl       the objects layer's lessons; goal main, last line do
 - The predefined macros are `pp_predef(Name, Table, Text)` facts, from the reference compiler's `-dM -E` per level,
   answered BY NAME on a miss (`pp_predef_macro/3`), never defined in bulk. Why: defining them cost 25 ms a run. (M5)
 - The order: the level's table (C++ `pp_std_table/2`: `cpp26`, `cpp23`, `cpp20`, newest first; C `pp_c_std_table/2`:
-  `c23`), the TARGET's own (`pp_target_table/1`, `<os>_<arch>`, 0.131), `any`, the OS (`pp_os/1`), the arch
-  (`pp_arch/1`), `cpp`. The target's own table is `linux_arm64` alone: clang 18's `-dM -E` for aarch64 Linux where it
-  differs from what the other tables answer -- `__CHAR_UNSIGNED__`, `__WCHAR_UNSIGNED__` and `unsigned int`, the quad's
-  `__LDBL_*`, `__SIZEOF_LONG_DOUBLE__` 16, `__BIGGEST_ALIGNMENT__` 16, the generic armv8's features -- and `'$undef'`,
-  no macro, for Apple's names (`__arm64__`, `__ARM_NEON__`, the M1's `__ARM_FEATURE_*`). A difference that x86-64 Linux
-  keeps as the tables have it (the 64-bit types spelled `long long`, `__USER_LABEL_PREFIX__` `_`) is kept the same way
-  there. `__cplusplus` is 201703L, 202002L, 202302L or
-  202400L. `__STDC_VERSION__` is 201710L (C11, C99 too), 202311L at C23 with the `__STDC_VERSION_*_H__` macros.
-  (0.57, 0.93)
+  `c23`, then its OS's own, `c23_linux` or `c23_darwin`, `pp_c_os_table/2`, 0.194), the TARGET's own (`pp_target_table/1`,
+  `<os>_<arch>`, 0.131), `any`, the OS (`pp_os/1`), the arch (`pp_arch/1`), C++'s `cpp_rtti` and `cpp_eh` unless
+  `-fno-rtti` and `-fno-exceptions`, C++ on Linux's `cpp_linux` (0.194: `_GNU_SOURCE`, as clang++ and g++ predefine it,
+  so glibc declares its GNU extensions -- libc++'s `condition_variable::wait_until` calls `pthread_cond_clockwait`, and
+  `strtol` is glibc's C23 one by an asm label, the Declarators topic), `cpp`, and C's own `c`. A target's own table is
+  clang's `-dM -E` for that machine where it differs from what the other tables answer, the tables having been taken
+  from a clang on macOS: `linux_arm64` (0.131) -- `__CHAR_UNSIGNED__`, `__WCHAR_UNSIGNED__` and `unsigned int`, the
+  quad's `__LDBL_*`, `__SIZEOF_LONG_DOUBLE__` 16, `__BIGGEST_ALIGNMENT__` 16, the generic armv8's features, and
+  `'$undef'`, no macro, for Apple's names (`__arm64__`, `__ARM_NEON__`, the M1's `__ARM_FEATURE_*`) -- and `linux_x86_64`
+  (0.194, clang 22's on this box): the 64-bit types `long` (`ld` formats, `L` constants), `__USER_LABEL_PREFIX__`
+  empty (glibc's asm labels spell it), `wint_t` unsigned (the shipped `char_traits<wchar_t>::int_type`, `j` in a symbol:
+  `wistringstream::ignore` did not link), the default CPU k8's features (no SSE3, SSSE3, SSE4.1, LAHF, 16-byte
+  compare-and-swap), math errno on (no `__NO_MATH_ERRNO__`), and Apple's nullability spellings no macros; both Linux tables hold what
+  Linux has on either machine. A macro whose value differs between C and C++ is the language tables'. `__cplusplus` is
+  201703L, 202002L, 202302L or 202400L. `__STDC_VERSION__` is C's alone (0.194: C++ had it too), 201710L (C11, C99
+  too), 202311L at C23, where `__CHAR8_TYPE__`, `__FLT_NORM_MAX__` and kin and `<inttypes.h>`'s binary formats are
+  predefined as clang 22 has them; `__FLT_EVAL_METHOD__` is 0. A header's `__STDC_VERSION_*_H__` is the header's own
+  (C23 7.x.1: `<stddef.h>`, `<limits.h>`, `<stdarg.h>`, `<float.h>`, `<stdatomic.h>`, `<stdbit.h>` and `<stdckdint.h>`
+  here), never predefined: five were, which neither clang nor gcc predefines. A FUNCTION-LIKE PREDEFINED MACRO
+  (`__INT64_C(c)` and kin) is the fact whose name holds its parameter list as clang writes it, `'__INT64_C(c)'`, asked
+  by the name alone where no object-like one is (0.194): `__INT64_C(5)` was a call of an undeclared function. The rows
+  of 0.194 were made by a script over clang's `-dM -E` (`o279/gentab.py`, session scratch). `predefs.c`,
+  `gnusource.cpp`. (0.57, 0.93, 0.131, 0.194)
 - The OS and the arch are the HOST's -- the module's compile-time `ccl_host_os/1`, `ccl_host_arch/1` (`uname` only
   without it), cached in `'$pp_os'`, `'$pp_arch'` -- or the target's, which `--target` puts there first (0.131). `darwin` holds the Apple rows (`__APPLE__`, `__MACH__`,
   `TARGET_OS_*`); `linux` holds `__linux__`, `__gnu_linux__`, `__unix__`, `__ELF__`, `__PIE__` and kin. Why: Linux
@@ -1331,11 +1349,19 @@ tutorials/01..03-*.pl       the objects layer's lessons; goal main, last line do
 - `stdarg.h`: `va_list` is `__builtin_va_list`, `va_start`, `va_arg`, `va_end`, `va_copy` the builtins; glibc's
   `__need___va_list` gets `__gnuc_va_list` alone, as from clang's header. `test/c/run/varargs.c`. (0.108)
 - `limits.h` defines `_GCC_LIMITS_H_` and the limits from the predefined macros (`__INT_MAX__` and kin, the widths at
-  C23), then takes the C library's own `limits.h` by `#include_next` where there is one. Why: glibc asks the
-  compiler's header for them, so `INT_MAX` was undefined on Linux. (0.93)
+  C23, `__INT_WIDTH__` and kin since 0.194, and C23's `__STDC_VERSION_LIMITS_H__`), then takes the C library's own
+  `limits.h` by `#include_next` where there is one. Why: glibc asks the compiler's header for them, so `INT_MAX` was
+  undefined on Linux. (0.93, 0.194)
 - `float.h` (from the predefined macros), `stdbool.h` and `iso646.h` (C only), `stdalign.h`, `stdnoreturn.h`. (M2)
   `float.h` holds C11's limits too, under clang's guard (0.154): `FLT_TRUE_MIN`, `DBL_TRUE_MIN`, `LDBL_TRUE_MIN`, the three
-  `_DECIMAL_DIG` and the three `_HAS_SUBNORM`, and C99's `DECIMAL_DIG`; `LDBL_TRUE_MIN` was undefined.
+  `_DECIMAL_DIG` and the three `_HAS_SUBNORM`, and C99's `DECIMAL_DIG`; `LDBL_TRUE_MIN` was undefined. Since 0.194
+  `FLT_ROUNDS` is the CURRENT rounding direction, `__builtin_flt_rounds()` (LLVM's `llvm.get.rounding`, which
+  `fesetround` moves; it was 1), `FLT_EVAL_METHOD` is `__FLT_EVAL_METHOD__`, and C23's own come under clang's guards:
+  `FLT_SNAN`, `DBL_SNAN` and `LDBL_SNAN` over `__builtin_nans*` (a signaling NaN, the Lowering's floating constants),
+  `FLT_NORM_MAX` and kin, `*_IS_IEC_60559`, `__STDC_VERSION_FLOAT_H__`, and `INFINITY` and `NAN`, which `<math.h>` defines
+  too (taken away first, as clang's and gcc's headers do). `stdarg.h` and `stdatomic.h` define their own
+  `__STDC_VERSION_*_H__` at C23, and `stdatomic.h` `atomic_char8_t` and `ATOMIC_CHAR8_T_LOCK_FREE`, and no
+  `ATOMIC_VAR_INIT` in C23, which removed it. `c23float.c` (`-std=c23`).
 - `stdckdint.h` (C23 7.20): `ckd_add`, `ckd_sub`, `ckd_mul` over `__builtin_*_overflow`. `stdbit.h` (C23 7.18): the
   suffixed functions over the bit builtins, the generic forms through `_Generic`. (0.93)
 - `stdatomic.h` (C11 7.17) over the `__c11_atomic_*` builtins, as clang's: the `atomic_*` typedefs through `_Atomic(T)`,
@@ -1344,6 +1370,15 @@ tutorials/01..03-*.pl       the objects layer's lessons; goal main, last line do
 - `complex.h`: the C library's declarations by `#include_next`, then `_Complex_I`, `I`, `CMPLX`, `CMPLXF`, `CMPLXL`
   over `__builtin_complex`; `CMPLXL` casts to `long double` (0.112: it cast to `double`, and `long double` is x86_fp80).
   Why: glibc defines `CMPLX` for GCC only. `test/c/run/complex.c`, `complex4.c`. (0.100, 0.112)
+- `tgmath.h` (C17 7.25; 0.194): the type-generic macros over the C library's `<math.h>` and `<complex.h>`, the set
+  clang's own header defines, chosen by `_Generic` (`__TG_P`, `__TG_R`, `__TG_C`, `__TG_X`): an integer argument counts
+  as a double, several generic arguments by the type their sum has, a complex one by the complex function, `carg`,
+  `cimag`, `conj`, `cproj` and `creal` for a real argument too; `frexp`, `ldexp`, `scalbn`, `scalbln` and `nexttoward`
+  generic in their first argument. Why it is the compiler's own, as `stdatomic.h` is: glibc's `<tgmath.h>` refuses a
+  compiler with clang's macros at its `#error "Unsupported combination of types for <tgmath.h>."` (`__HAVE_FLOAT64X`
+  without `__HAVE_FLOAT128`), which stopped the header silently -- `sqrt(z)` of a complex called the real `sqrt` over
+  its real part -- and clang's lives in a resource directory off the path. In C++ libc++'s `<tgmath.h>` comes first.
+  `tgmath.c`.
 
 ## The C reader and the language's own forms
 
@@ -1408,7 +1443,19 @@ tutorials/01..03-*.pl       the objects layer's lessons; goal main, last line do
   `Loop()(1, 2);` is a call. Why: it read as a declaration of nothing initialized by `(1, 2)`, the call was dropped, and
   libc++'s `ranges::copy` copied nothing. `test/cpp/run/tempcallstmt.cpp`. (0.115)
 - `ccl_sto_pick/2` picks the deciding storage word. Why: `static inline constexpr` lost `static`. (0.44)
-- `__attribute__((...))` and `__asm("...")` are read and dropped (`ccl_gnu_attr`). `typeof`, `__typeof__`, `__typeof`
+- AN ASM LABEL IS THE SYMBOL A DECLARATION STANDS FOR (0.194; GCC's `asm` labels, which clang reads): `int f(void)
+  __asm__("g");` and `extern long strtol(...) __asm__ ("" "__isoc23_strtol");` -- string literals alone, joined
+  (`ccl_asm_string//1`) -- are noted as the attribute goes past (`'$ccl_asm'`) and taken by the init-declarator
+  (`ccl_asm_take/3`) as the qualifier `asm(Name, Sym)` where a tie stands (`ccl_add_asm/4`: through an array to its
+  element, through a function to its result). The label names its OWNER: a type taken from the declaration (`auto g =
+  strtol(s, 0, 10);`, `__typeof__ (strtol) h;`) carries the qualifier and is no label of the new name (`ccl_asm_of/3`
+  matches the name). A name's label comes from ANY of its declarations at file scope, a prototype's being its
+  definition's (`ccl_asm_label/2` over the file scope, kept per name in `'$ccl_asm:'`, a named cache with misses), and
+  the lowering spells it wherever it spells the name (`ir_gname/3`, `ir_fn_sym/2`: a definition, a declare line, a call,
+  an address in a constant). It was dropped: glibc's C23 and GNU redirects were not taken -- `strtol` is
+  `__isoc23_strtol` at C23 and in C++ (`_GNU_SOURCE`), which reads a `0b` prefix -- and a program's own label did not
+  link. `asmlabel.c`, `asmlabel23.c` (`-std=c23`), `gnusource.cpp`.
+- `__attribute__((...))` and every other `__asm("...")` are read and dropped (`ccl_gnu_attr`). `typeof`, `__typeof__`, `__typeof`
   and `typeof_unqual` are type specifiers at every level (`ccl_typeof//1`; `typeof_unqual(X)` is
   `typeof(unqual(X))`). `(^b)` is `block(Q, T)`. (0.93) `__extension__` before an expression is the expression
   (`ccl_unary_`), and before a block's alias declaration it is dropped (C++ only; reader 127, 0.136): libc++ 21's
@@ -1565,6 +1612,12 @@ tutorials/01..03-*.pl       the objects layer's lessons; goal main, last line do
 - From C23, C reads C++'s forms: `[[attributes]]` dropped; `enum E : unsigned char` (`ccl_enum_base//1`, `enum_base(T)`
   the first member); `auto x = e` deduced (`ccl_auto_decl/5`); `static_assert(e[, "msg"])` at file scope and in a
   block. `_Static_assert` is read in every C. (0.57)
+- AN ENUM WITH A FIXED UNDERLYING TYPE IS ITS BASE'S SIZE AND ITS ENUMERATORS ARE OF ITS TYPE (C23 6.7.2.2/5, /15;
+  [dcl.enum]; 0.194): in C23 a named enum with a written base is noted as C++'s are (`ccl_enum_typed/2` in the bulk
+  noter's `ccl_collect_enum_tags/4` and the parser's `ccl_declare_enumerators/2`), its enumerators typed `enum(Tag, Ms)`
+  (`ccl_enumerator_type/3`), and `enum E` named alone resolves to the tag's members, its base among them, in C and C++
+  (`ccl_resolve_base/3` on `enum(Tag, none)`): `sizeof(Y)` of `enum Big : unsigned long long` and `enum E e;` were an
+  int's 4. `c23enum.c` (`-std=c23`), `enumelab.cpp`.
 - A static assertion is CHECKED where it folds, in C ONLY (`ccl_assert_holds/3` throws `static_assert_failed(Text)`).
   Why: C++ allows `static_assert(false)` in a branch no instantiation takes. (0.57) The fold is asked ONCE
   (`once(ccl_const_eval(E, V))`, 0.117): `sizeof` of a struct had alternatives (16, 0, 0, 0), the test `V =:= 0` failed
@@ -1844,14 +1897,21 @@ tutorials/01..03-*.pl       the objects layer's lessons; goal main, last line do
 ### Attributes and qualifiers
 
 - Attributes are read anywhere and dropped (`ccl_attrs`, `ccl_gnu_attr`, `ccl_skip_attr`), except four:
-  - `alignas` on an object: the qualifier `aligned(E)` (C++'s, C23's `alignas`, C11's `_Alignas`);
+  - `alignas` on an object: the qualifier `aligned(E)` (C++'s, C23's `alignas`, C11's `_Alignas`); before a file-scope
+    declaration or a member it is the specifiers', never an attribute to drop (0.194; `ccl_not_alignas//0` in the two
+    rules that drop a leading attribute): `alignas(8) char c;` was a member of alignment 1 and `alignas(32) char g[3];` a
+    global of alignment 1 -- libc++'s `std::array<T, 0>`, libc++ 21's `make_shared` block, `no_destroy` and
+    `small_buffer`, atomic_ref's aligner among them;
   - `alignas` on a class, struct or union: `align_as(E)` at the END of the members (`ccl_attrs_align`,
     `ccl_align_members`), since the head holds `union_tag` and `enum_base`;
   - `[[no_unique_address]]` on a member;
   - `[[assume(e)]];`: the statement `assume(L, E)`.
 
   (0.89, 0.93, 0.99)
-- `alignas(T)` is `alignof_type(T)` (`ccl_align_arg`: the type is tried once, only before `)`). (0.89)
+- `alignas(T)` is `alignof_type(T)` (`ccl_align_arg`: the type is tried once, only before `)`). (0.89) A bare name is a
+  type there only where it IS one (0.194; `ccl_align_type_ok/1`: a name of the env, no local and no value parameter):
+  the type rule takes any name before `)`, and `alignas(K)` over a constexpr object and `alignas(_Alignment)` over a
+  value template parameter were the alignment of a type named so, which nothing folds.
 - `[[no_unique_address]]` and `__no_unique_address__` (`ccl_nua_word`) set `'$ccl_nua'`, and `ccl_take_nua` takes it in
   `ccl_member_decl`. `ccl_members` clears it once per member, never the declarator, which drops an attribute and
   recurses. The mark rides in the bit-width slot. (0.89)
@@ -2231,14 +2291,14 @@ tutorials/01..03-*.pl       the objects layer's lessons; goal main, last line do
 
 ### The versions
 
-- `ccl_reader_version/1` (`library/ccl_syntax.pl`, now 145): bump it for any grammar change to what a read gives, and
+- `ccl_reader_version/1` (`library/ccl_syntax.pl`, now 146): bump it for any grammar change to what a read gives, and
   for any change to what the AST beside a summary holds (item or member terms, `cpp_index_name/2`,
   `cpp_template_name/2`, `ccl_flat_items/3`, the namespace keys). Keep the reason in its comment. Why: the store and the
   summaries are keyed by it, and a stale read is served silently (`sizeof(std::string)` read 40). (M1, 0.89, 0.112,
   0.117)
 - A reader bump makes every summary cold; `test/libcxx.sh` rewrites them. `test/reader.pl`'s `k16` (a cached read is
   the same AST as a fresh one) goes RED on a grammar change without a bump. (0.93, 0.105)
-- `ccl_lowering_version/1` (`library/ccl_ir.pl`, now 106): bump it whenever the check or the lowering changes what it
+- `ccl_lowering_version/1` (`library/ccl_ir.pl`, now 107): bump it whenever the check or the lowering changes what it
   emits, however small -- 0.120 bumped it for the ORDER of the drain functions alone. Why: `dr_ir/3` serves the old IR
   otherwise. Either bump starts the C store afresh. (M4, 0.103, 0.120)
 
@@ -2877,7 +2937,15 @@ free. A const method adds `.c`, a ref-qualified one `.r` or `.rr` after it: each
   `ir_init_items`, `ir_elide_take`, a global's `ir_gelide`), or where the item is a SCALAR -- no string literal, which
   is a char array's value -- and the array's elements are scalars, however many items and members remain
   (`ccl_elided_item/2`, 0.164): such an item is never the array's value. Else one item for one array member is an array
-  value. Every `std::array` initializer needs it. `stdarray.cpp`. Why (0.164): `struct W { int a[1]; } w = {7};`,
+  value. A STRUCT OR UNION MEMBER given an item that is no braced list and can be no value of its type -- a scalar, a
+  string -- takes as many of the items as its own members need, member by member (a union its first member alone, an
+  aggregate member in turn, an unnamed bitfield none), and AN ARRAY'S ELEMENT that is a record or an array alike, from a
+  designator on too (`[1] = 7, 8, 9`, `.q = 4, 5`); a designator inside ends it, being the outer list's (C 6.7.9/17,
+  /20, [dcl.init.aggr]/16; 0.194; `ccl_record_elided/2`, `ccl_elem_elided/2`, `ccl_elide_record/4`, `ccl_elide_one/5`
+  in `library/ccl_infer.pl`, which the lowering's `ir_init_items/4`, `ir_gelide/4` and `ir_garr_elide/3` ask): `struct
+  sigaction sa = {0};` (glibc's begins with a union) reached LLVM as `sext i32 0 to { i64 }`, `struct P { struct Q q;
+  int c; } p = {1, 2, 3};` gave q the 1 as its value, and `int a[2][2] = {1, 2, 3, 4};` was refused. `unionelide.c`,
+  `elidenest.c`. Every `std::array` initializer needs it. `stdarray.cpp`. Why (0.164): `struct W { int a[1]; } w = {7};`,
   `struct S { int a[2]; int b; } s = {1, 2};` and `std::array<int, 1> a = {5};` took the item for the array's value,
   `[1 x i32] 7`, which LLVM refused -- in C as in C++, a local and a global alike; libc++'s
   `basic_format_string<char, int>` holds `std::array<__arg_t, 1> __types_{...}`. `test/c/run/braceelide.c`,
@@ -4328,7 +4396,12 @@ The desugaring (`library/ccl_cpp.pl`) chooses every C++ overload. A fixture name
   pointer, in both orders ([expr.cond]/7: the null pointer constant converts to the pointer's type;
   `ccl_null_constant/1` over `int(0)` ... `ulong(0)`, asked where the other arm is a pointer): `c ? 0 : p` was an `int`,
   the overload taking the pointer lost to the one taking a `long`, and libc++'s `deque::begin()` passed `__map_.empty()
-  ? 0 : *__mp + ...` to an iterator constructor. `condzero.cpp`, `test/c/run/condnull.c`. (0.81, 0.117)
+  ? 0 : *__mp + ...` to an iterator constructor. `condzero.cpp`, `test/c/run/condnull.c`. (0.81, 0.117) In C a NULL
+  POINTER CONSTANT CAST TO `void *` is one too (C 6.3.2.3/3; 0.194; `ccl_void_null/1`: `(void *) E` with E an integer
+  constant 0, or such a cast itself, the pointee unqualified), and a pointer to void beside another pointer is a pointer
+  to void qualified by both pointees (6.5.15/6, [expr.cond]/7.3; `ccl_void_ptr_quals/2`, `ccl_cv_union/3`): glibc's
+  `<tgmath.h>` chooses a type by `__typeof__ (0 ? (T *) 0 : (void *) (E))`. `+z` of a complex is the complex itself
+  (6.5.3.3/2; `ccl_type_of(pos(E))`), which `__typeof__ (+(expr))` asks.
 - A character literal is a `char` in C++ and an `int` in C (`ccl_type_of(chr(_))`, `ir_expr(chr(C))`). Why:
   `cout << ' '` printed 32. (0.78)
 - A STRING LITERAL IS AN LVALUE OF `const char[N]` IN C++ ([lex.string]/10, [expr.prim.literal]/1; 0.167), of `char[N]`
@@ -5238,7 +5311,11 @@ A lambda is a class of its captures (`library/ccl_cpp.pl`). A fixture named alon
 - An enum with an underlying type has that type's size and LLVM type (`ccl_size_align`, `ir_base` on `enum_base(T)`);
   an underlying type named by a typedef is resolved first: `enum class __alignment : uint8_t`. Other enums are 4 bytes.
   An enum with no enumerators is no empty struct (`ccl_is_enum_tag/1` in `ccl_tag_type/4`), so `__element_count(n)` is
-  a cast. An enum is no scope (`cpp_path_class`): `Color::Green` is its enumerator. `enumbits.cpp`. (0.55, 0.112)
+  a cast. An enum is no scope (`cpp_path_class`): `Color::Green` is its enumerator. `enumbits.cpp`. (0.55, 0.112) An
+  underlying type named by a QUALIFIED name, `enum class Color : std::uint8_t`, is resolved by the desugaring at the
+  enum's item and the tag noted again with it (0.194; `cpp_item` on `declare(L, base(Q, [enum(...)]))`), so the table
+  the passes build again from the output holds the type the lowering sizes the enum by: it met
+  `typedef(scoped([std], uint8_t))`. `enumbase.cpp`.
 - An underlying type named through a typedef of a DEPENDENT name is SETTLED where the enum is first named (0.117;
   `cpp_type` on the enum's name through `cpp_enum_unsettled/4`): libc++ 18's `enum class memory_order :
   __memory_order_underlying_t` over `typedef underlying_type<__legacy_memory_order>::type __memory_order_underlying_t`
@@ -5352,7 +5429,12 @@ A lambda is a class of its captures (`library/ccl_cpp.pl`). A fixture named alon
   the natural alignment, the size rounded up ([dcl.align]). `alignas.cpp`. (0.89)
 - `_Alignas(E)` or `alignas(E)` among an object's or a member's specifiers is the qualifier `aligned(E)`, which
   `ccl_size_align`, the alloca and the global read (`ir_aligned_q`, `ir_galign`). It raises the alignment and leaves
-  the size alone (0.112). As an attribute elsewhere, `ccl_gnu_attr` drops it. (0.99)
+  the size alone (0.112). As an attribute elsewhere, `ccl_gnu_attr` drops it. (0.99) A member's alignment FOLDS IN THE
+  CLASS'S WORDS where the members are resolved (0.194; `cpp_fold_aligned/2` in `cpp_member_types/2`,
+  `cpp_split_members/4` and `cpp_plain_members/2`, over `cpp_array_bound/2`), as a bitfield's width and the class's own
+  `alignas` do: `alignas(_Alignment) char __data;` of an instance of libc++ 21's `__alignment_checker_type`,
+  `_ALIGNAS_TYPE(_Tp) char __buffer_[sizeof(_Tp)]`; the layout reads the qualifier by the inference's fold, which knows
+  no template's value nor the evaluator. `alignmember.cpp`.
 - `[[no_unique_address]]` is the one attribute the reader keeps, in the member's bit-width slot (`ccl_take_nua`,
   `ccl_plain_width`). A marked member whose type has bytes lies where an unmarked one lies; the ABI agrees.
   `nounique.cpp`. (0.89, 0.96)
@@ -6362,6 +6444,9 @@ A lambda is a class of its captures (`library/ccl_cpp.pl`). A fixture named alon
   no union; 0.126): a struct of data members alone is no registered class and has no base, so only itself, and a pointer to
   it is none. It was false, and libc++ 18's `__enable_if_bullet4` of `__invoke` (`is_same<_ClassT, _DecayA0>::value ||
   is_base_of<_ClassT, _DecayA0>::value`) read it. `memptrqual.cpp`. (0.112, 0.126)
+- `__builtin_is_virtual_base_of(B, D)` (clang's, under C++26's `std::is_virtual_base_of` of libc++ 21; 0.194;
+  `cpp_trait_n/4` over `cpp_vbases_of/2`): B a virtual base of D at any depth, cv-qualifiers aside; a plain base, the
+  class itself and an unrelated class are none. `vbaseof.cpp` (C++26, libc++ 21).
 - `*e` OF AN ARITHMETIC VALUE IS REFUSED (`cpp_deref_operand/1`, `deref_of_arithmetic(T)`; 0.126), as an operator on a class
   that has none is: an operand whose type is KNOWN and arithmetic (an enumeration included). A detection reads it --
   libc++ 18's `decltype((*std::declval<_A0>()).*std::declval<_Fp>())` with `_A0` `int` is a substitution failure, and the
@@ -6988,7 +7073,8 @@ A lambda is a class of its captures (`library/ccl_cpp.pl`). A fixture named alon
 - Brace elision ([dcl.init.aggr]/15, and C's own rule): an array member given a non-braced item takes as many of the
   following items as it has elements, while more items than members remain (`ir_init_items/4`, `ir_elide_take/4`; a
   global's through `ir_gelide/4`), or where a scalar item meets an array of scalars (`ccl_elided_item/2`, 0.164; the
-  Aggregates topic). Every `std::array` initializer needs it. (0.91, 0.110, 0.164)
+  Aggregates topic), and a struct or union member and an array's element given a scalar (0.194, the same topic). Every
+  `std::array` initializer needs it. (0.91, 0.110, 0.164, 0.194)
 - A local aggregate initializer stores `zeroinitializer`, then its items (`ir_init/3`). A braced list on a scalar is
   its one value or the type's zero; more items are `initializer_of_a_scalar(T)`. The scalar test takes the resolver's
   first answer, else `int arr[9] = {}` became a `sext`. An item with no member names its type, `initializer(I, ST)`.
@@ -7124,11 +7210,30 @@ A lambda is a class of its captures (`library/ccl_cpp.pl`). A fixture named alon
   `atomicrmw` followed by the op on the old value; `__atomic_fetch_<op>` answers the old value; `__atomic_exchange_n`
   is `xchg`. `__atomic_load_n` and `__atomic_store_n` carry the order and the type's alignment. The thread fence is a
   `fence`, the signal fence a `fence syncscope("singlethread")`. libc++'s `shared_ptr` counts its owners so. (0.86)
+- GCC'S GENERIC ATOMIC BUILTINS (0.194): `__atomic_load(p, ret, mo)`, `__atomic_store(p, val, mo)`,
+  `__atomic_exchange(p, val, ret, mo)` and `__atomic_compare_exchange(p, expected, desired, weak, success, failure)` move
+  an object of any type through pointers, where the `_n` forms take and give values; libc++ 21's atomic_ref is written
+  on them, and they were `undeclared`. As clang lowers them: an object whose size is a lock-free width and whose type is
+  aligned to it moves as the integer of its size, by the instructions of the `_n` forms (`ir_atomic_int/3`: `load atomic
+  i64`, a `cmpxchg` of two `i64` loaded through the pointers, the old value stored to `*expected`); any other is the
+  call of libatomic's generic routine of that name, its size first, the orders as the program gives them at run time
+  (`ir_atomic_lib/6`: `__atomic_load(i64 8, ptr, ptr, i32 5)`), which the link takes with `-latomic`, as clang's does. A
+  weak flag that does not fold asks the strong instruction, which never fails spuriously. Their types are the
+  inference's (`void`, the exchange's `bool`). `atomicgen.c`, `atomicref.cpp` (C++20, libc++ 21).
+- GCC'S LOCK-FREE QUESTIONS (0.194): `__atomic_always_lock_free(size, ptr)` is a constant (`ccl_const_eval/2` over
+  `ccl_lock_free_answer/3`): 1 for a lock-free width -- 1, 2, 4 and 8 bytes, 16 on aarch64 too (its pair loads and
+  stores; `ccl_lock_free_width/1`), where x86-64's default CPU has no 16-byte compare-and-swap -- whose pointer is null
+  or points to a type aligned to the size at least, as clang answers, 0 else; in C++ a pointer that is no null constant
+  is answered by the desugaring over its desugared form (`cpp_builtin_call/3`), since the raw form of libc++ 21's
+  `std::addressof(__get_aligner_instance<...>::__instance)` is typed by addressof's own signature, `_Tp *`, and the raw
+  fold of atomic_ref's static `is_always_lock_free` answered 0. `__atomic_is_lock_free(size, ptr)` asks the pointer's
+  alignment at run time where its type does not tell, and `__c11_atomic_is_lock_free` answers 16 bytes on aarch64.
+  `lockfree.c`.
 - The memory order is the constant the header spells, in clang's numbering (`ir_atomic_order/2`): 0 is `monotonic`, 1
   and 2 `acquire`, 3 `release`, 4 `acq_rel`, 5 `seq_cst`. An order that does not fold is `seq_cst`. (0.86)
 - The `__c11_atomic_*` builtins are the same instructions (`ir_c11_rmw/2`; load, store and the fences as above; init a
   plain store). Compare-exchange, strong or weak, is a `cmpxchg` that stores the old value to `*expected`; its failure
-  order is never a release (`ir_cmpxchg_fail/2`). `is_lock_free` answers 1 up to 8 bytes. The compiler's own
+  order is never a release (`ir_cmpxchg_fail/2`). `is_lock_free` answers 1 up to 8 bytes (and 16 on aarch64, 0.194). The compiler's own
   `library/include/stdatomic.h` and libc++'s `<atomic>` are written on them. `test/c/run/atomic.c`. (0.99)
 - An `_Atomic` object loads and stores `seq_cst` (`ir_load_slot/4`, `ir_store_slot/4` over `ir_atomic_q/1`). An
   integer `x++` or `--x` (`ir_step/6`) and `+=`, `-=`, `&=`, `|=`, `^=` are one `atomicrmw` each (C11 6.7.3, 7.17.7).
@@ -7224,7 +7329,17 @@ A lambda is a class of its captures (`library/ccl_cpp.pl`). A fixture named alon
   `test/c/run/varargs.c`, `vaaggregate.c`. (0.108, 0.117, 0.160)
 - `__builtin_inf`, `huge_val` and `nan`, in double, float and long double forms (a quad's too, 0.131), are constants (`ir_float_builtin/4`),
   as glibc's `INFINITY`, `NAN` and `HUGE_VAL` need. `__builtin_isnan`, `isinf`, `isinf_sign`, `isfinite`, `isnormal`
-  and `signbit` are `fcmp` or bit tests that answer an `int` (`ir_fp_class/1`). (0.101, 0.108)
+  and `signbit` are `fcmp` or bit tests that answer an `int` (`ir_fp_class/1`). (0.101, 0.108) C23's SIGNALING NaNs,
+  `__builtin_nans`, `nansf` and `nansl` (`FLT_SNAN` and kin), are constants of the quiet bit clear and the bit below it
+  set, as clang spells them (0.194; `ir_float_builtin/4`, `ir_fp_snan_text/3`), and a global's fold carries one as
+  `snan(S)`: a negation flips its sign, an operation or a conversion gives the quiet NaN (IEEE 754 6.2), as gcc folds it.
+  `__builtin_flt_rounds()` is LLVM's `llvm.get.rounding`, `<float.h>`'s `FLT_ROUNDS` (0.194). `c23float.c`.
+- `__builtin_classify_type(e)` (GCC's; 0.194) is the class of e's type, an integer constant with clang's numbers and e
+  never evaluated (`ccl_type_class/2` in `library/ccl_infer.pl`, the desugaring's `cpp_builtin_call/3` over the
+  argument's type, the lowering's `ir_call/4`): void 0, an integer 1 (a character type, and an enum in C), an enum in
+  C++ 3, a bool 4, a pointer, an array or a function 5, a pointer to a data member 7, a real floating type 8 (a decimal
+  one too), a complex type 9, a struct, a class or a pointer to a member function 12, a union 13, a `_BitInt` 18, a
+  vector 19. glibc's `<tgmath.h>` asks it where the compiler is no GCC 8. `tgmath.c`.
 - libc++'s memory builtins become the C library's `memcpy`, `memmove` and `memset` in the desugaring;
   `ir_cpp_prelude/0` declares them when the file did not. (0.60)
 
@@ -7470,7 +7585,14 @@ A lambda is a class of its captures (`library/ccl_cpp.pl`). A fixture named alon
   `cpp_vprim_inside/1` tested the size after the ask. (0.178)
 - `ccl_cached_named(Prefix, Name, Value, Goal)` keeps a global per name and an index of the names, for a large value:
   typedefs (`'$ccl_td:'`), tags (`'$ccl_tag:'`), struct forms (`'$ccl_ts:'`), resolutions (`'$ccl_r:'`), the file
-  scope (`'$ccl_g:'`), `ck_has_own_array/1` (`'$ck_oa:'`), a summary's tables (`'$ccl_sumload:'`).
+  scope (`'$ccl_g:'`), `ck_has_own_array/1` (`'$ck_oa:'`), a summary's tables (`'$ccl_sumload:'`), the asm labels
+  (`'$ccl_asm:'`, 0.194). THE INDEX IS A GLOBAL THAT NO NAME'S OWN IS (0.194; `ccl_cache_index/2`): `'$ccl_cidx'` and the
+  prefix, where a name's global is the prefix and the name. It was the prefix and `names`, the global of the name `names`
+  too: the first ask of that name wrote its value there and the index over it, and every later ask answered the index, a
+  list. A typedef, a tag or a file-scope name `names` asked twice took the list as its type, since 2026-09-06 (`typedef
+  int names;` refused `phase(check)`, a class `names` lowered as `type([names])`), and a C global `names` took it as its
+  asm label at 0.194, whose lowering asks the label of every global (`memory.c` in the compile gate's one process).
+  `test/c/run/cachenames.c`, `test/cpp/run/cachenames.cpp`.
 - `ccl_tables_changed/0` empties the small caches and the index of each `ccl_named_caches/1` prefix wherever a table
   is written (the noters, a summary's note, `ccl_scope_init/0`, `ccl_with_file/2`'s restore). `ccl_sum_forget/1`
   empties `'$ccl_sumload:'`.
@@ -8245,17 +8367,17 @@ A lambda is a class of its captures (`library/ccl_cpp.pl`). A fixture named alon
 - Ubuntu 24.04 on x86_64 (clang and LLVM 18, glibc, libc++ 18 and 21) is a host since 0.87. Every gate but the C++ one
   is GREEN there since 0.93, and all seven since 0.95. Every step from 0.93 on is gated there, but the save points
   0.112, 0.113, 0.117, 0.122 to 0.125, 0.130, 0.131 and 0.143 (0.143's C gates and cross gate ran, its libc++ gates did
-  not; the others were gated by the steps after them). The last full run is 0.193's, over cocolog 2.11.1 (the
+  not; the others were gated by the steps after them). The last full run is 0.194's, over cocolog 2.11.1 (the
   Findings), on one tree, over fresh HOMEs (the reader version moved): over libc++ 18 all nine GREEN (the flow gate's one
-  finding in 107 s, reader 5 s, compile 15 s, driver 15 s, objects 5 s, proof, the cross gate in 300 s with its C++ part
-  for aarch64, the library read in 393 s (0.192's 334 s; 100 other headers warmed), the C++ gate in 982 s (0.192's 869
-  s) with 611 of 615 fixtures ok, the skips are `joinwith`, `stdoptionalref`, `tzone` and `zipadjacent`, the two units,
-  the 28 refusals and the four of the safe part); over libc++ 21 the library read (318 s, peak 720 MB; 0.192's 303 s)
-  and the C++ gate (965 s, peak 2196 MB; 0.192's 999 s; 613 of 615 ok, the skips `stdoptionalref` and `zipadjacent`)
-  GREEN -- the C gates do not read libc++. The headers' reads, summed, took 1454 s over 123 over libc++ 18 and 1175 s
-  over 21 (0.192's 1229 s and 1109 s over 120; 0.181's 4313 s and 4116 s, before a read linear in its items); the
-  fixtures' builds 3296 s over 611 and 3237 s over 613 (0.192's 2896 s over 606 and 3385 s over 608) (HISTORY.md, 0.193).
-  The chains of 0.165 to 0.192 are in HISTORY.md, 0.166 to 0.193.
+  finding in 95 s, reader 5 s, compile 14 s, driver 13 s, objects 4 s, proof, the cross gate in 309 s with its C++ part
+  for aarch64, the library read in 354 s (0.193's 393 s; 104 other headers warmed), the C++ gate in 958 s (0.193's 982
+  s) with 616 of 622 fixtures ok, the skips are `atomicref`, `joinwith`, `stdoptionalref`, `tzone`, `vbaseof` and
+  `zipadjacent`, the two units, the 28 refusals and the four of the safe part); over libc++ 21 the library read (319 s,
+  peak 819 MB; 0.193's 318 s) and the C++ gate (937 s, peak 2499 MB; 0.193's 965 s; 620 of 622 ok, the skips
+  `stdoptionalref` and `zipadjacent`) GREEN -- the C gates do not read libc++. The headers' reads, summed, took 1310 s
+  over 127 over libc++ 18 and 1176 s over 21 (0.193's 1454 s and 1175 s over 123; 0.181's 4313 s and 4116 s, before a
+  read linear in its items); the fixtures' builds 3231 s over 616 and 3162 s over 620 (0.193's 3296 s over 611 and 3237
+  s over 613) (HISTORY.md, 0.194). The chains of 0.165 to 0.193 are in HISTORY.md, 0.166 to 0.194.
   Two libc++ passes are one gate: `LLVM=/usr/lib/llvm-18` and `LLVM=/usr/lib/llvm-21`
   choose the tree the chain reads and links. libc++ 22 (the newest tree, which a run without `$LLVM` reads) is no
   gate: 0.182 built its vector and its C++23 views by hand (`zipadjacent.cpp`, which its `.needs` skips over 18 and
@@ -8297,9 +8419,14 @@ A lambda is a class of its captures (`library/ccl_cpp.pl`). A fixture named alon
   0.164: brace elision of a scalar item for an array member of scalars, a local and a global (`braceelide.c`). Since
   0.166: `__func__`, `__FUNCTION__` and `__PRETTY_FUNCTION__` as clang spells them (`prettyfn.c`). Since 0.179: `ll`
   and `ull` literals of their own types (`llong.c`), pointer globals from integer constants and arrays bounded by
-  constant expressions (`ptrglobal.c`).
+  constant expressions (`ptrglobal.c`). Since 0.194: the predefined macros clang has on x86-64 Linux (`predefs.c`), asm
+  labels (`asmlabel.c`; glibc's C23 redirects, `asmlabel23.c`), brace elision into a struct or union member and into an
+  array's elements (`unionelide.c`, `elidenest.c`), C23's enums with a fixed underlying type (`c23enum.c`), GCC's
+  lock-free and generic atomic builtins (`lockfree.c`, `atomicgen.c`), C23's `<float.h>`, `<limits.h>`, `<stdarg.h>`
+  and `<stdatomic.h>` (`c23float.c`), the compiler's own `<tgmath.h>` (`tgmath.c`), a typedef, a tag and a function's
+  types named `names` (`cachenames.c`).
 - The C library is the host's. The compiler's own freestanding headers are in `library/include/` (`<stdarg.h>`,
-  `<stdatomic.h>`, `<complex.h>`, `<stdckdint.h>`, `<stdbit.h>`, `<limits.h>` and six more).
+  `<stdatomic.h>`, `<complex.h>`, `<stdckdint.h>`, `<stdbit.h>`, `<limits.h>`, `<tgmath.h>` and six more).
 - The language's own additions run: `:=`, patterns, `name { }` structs and `format`, `print`, `println`
   (`surface.c`), `defer` (`defers.c`), `#cocolog` (`cocolog.c`), `tie` (`tie.c`), `clone` (`clone.c`), `own` and
   `move` (`owners.c`, `own_fields.c`, `btree.c`, `btree_del.c`).
@@ -8354,6 +8481,12 @@ A lambda is a class of its captures (`library/ccl_cpp.pl`). A fixture named alon
   (two virtual overloads of one name and arity, one overridden), `virtualdefault` (a virtual call that leaves a defaulted
   argument out), `anonparam` (an unnamed by-value parameter destroyed), `rangeadl` (a range-for by the free `begin` and
   `end` of two namespaces), `downcast` (`static_cast` from a second base to the derived class, a pointer and a reference).
+- Forms of 0.194: `gnusource` (C++ on Linux with `_GNU_SOURCE`: glibc's GNU functions declared, its C23 `strtol` by an
+  asm label, `wint_t` unsigned), `enumbase` (an underlying type named through its namespace), `enumelab` (an enum named
+  by its elaborated specifier the base's size), `alignmember` (`alignas` before a member and a global; a member's
+  alignment over a template parameter; `std::array<T, 0>`), `atomicref` (C++20's `std::atomic_ref`, libc++ 21),
+  `vbaseof` (C++26's `std::is_virtual_base_of`, libc++ 21), `cachenames` (a class, an alias, a function's result and a
+  namespace's variable named `names`).
 - Forms of 0.193, libc++ in its exceptions configuration: `ehlib` (the library's throws caught by the program -- a
   vector's and a map's `at`, an optional's `value`, an empty `std::function` called, a variant's wrong alternative,
   `substr`, `stoi` -- the destructors of the scopes left run on the way, `std::bad_cast` and `std::bad_typeid`),
@@ -8733,6 +8866,33 @@ second, exceptions in libc++ on by default, at 0.193 (the Configuration chosen t
    `~/.cicilang/cpp/`, each writer under a name of its own (0.188), keyed as `dr_ir/3`'s signature is and also by the
    libc++ tree, the level, `-D`, the target and the RTTI and exceptions configuration; the C++ gate builds uncached. A
    store for it comes only after parallel writes to one store are measured.
+
+### The audit of C17 to C23 and C++17 to C++26, in the order it is done
+
+The owner asked at 0.193 for every form and every library facility of the C and C++ levels the compiler takes, up to
+C++26, to be done. The audit's gaps are steps of their own, a group a step; each moves into its topic when it is done.
+The first group, the platform and the preprocessor, is 0.194's (clang's predefined macros on Linux, asm labels, brace
+elision into records, C23's enums, `<tgmath.h>`, C23's headers, GCC's atomic builtins, `alignas` before a declaration).
+
+1. THE PROGRAM'S OWN FILE-SCOPE CONSTANTS ([expr.const]/2): a `const` or `constexpr` integer at namespace scope in the
+   program -- not a header -- is no constant to the desugaring: `case N - 7:` is refused (`case(bin(-,id('N'),int(7)))`),
+   `enum { E = M + 1 }` too (`enumerator_not_constant`), `struct A { int a[K]; }` has size 0, `T<K>` is a wrong instance
+   and `alignas(K)` does not fold. `cpp_global_const/2` folds a header's constant only (`cpp_hdr_item/2`), and
+   `cpp_fold_const_inits_/4` notes no scalar. An old gap: 0.193 has it too.
+2. THE LEXERS: C23's `u8` character literals, UTF-8 in a character literal, UTF-8 identifiers and universal character
+   names in identifiers.
+3. C++'S CORE LANGUAGE: the order of evaluation C++17 fixes, parenthesized aggregate initialization, `explicit(bool)`,
+   C++20's and C++23's implicit moves, non-type template parameters of class type, and the rest the audit names.
+4. THE ALLOCATION FUNCTIONS: the program's `operator new` and `operator delete`, the aligned, sized, class-specific and
+   destroying forms, replaceable ones.
+5. libc++'S FACILITIES the fixtures do not reach yet: `<future>`, `std::jthread`, `<regex>`, `std::expected`, `<mdspan>`,
+   `std::flat_map`, `<memory_resource>` and the others the audit lists.
+6. SMALL ONES: an ISO mode (`-std=c17`, `-std=c++17`) predefines `__STRICT_ANSI__` in clang and the GNU modes do not --
+   it needs the mode in the C store's key and the C++ summaries' keys, since `-std=c23` and `-std=gnu23` read one key
+   now; `decltype(x)` and `alignof(decltype(x))` of an aligned variable keep its alignment, the qualifier `aligned(E)`
+   sitting in its type, where the alignment is the entity's ([dcl.align]); clang's C extension that types a conditional
+   of two incompatible pointers as `void *`, with a warning, is not modelled; a generic atomic builtin over an object that
+   is no lock-free width calls libatomic, which the link takes only with `-latomic`, as clang's.
 
 ### C++ language
 

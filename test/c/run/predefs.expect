@@ -1,0 +1,9 @@
+stdc 201710
+c64 8 8
+int64 long
+intmax long
+wint 4 unsigned
+label []
+k8
+7L 7UL
+exit 0

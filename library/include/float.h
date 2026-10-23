@@ -29,8 +29,8 @@
 #define FLT_MAX_10_EXP __FLT_MAX_10_EXP__
 #define DBL_MAX_10_EXP __DBL_MAX_10_EXP__
 #define LDBL_MAX_10_EXP __LDBL_MAX_10_EXP__
-#define FLT_EVAL_METHOD 0
-#define FLT_ROUNDS 1
+#define FLT_EVAL_METHOD __FLT_EVAL_METHOD__
+#define FLT_ROUNDS (__builtin_flt_rounds())   /* the CURRENT rounding direction, which fesetround changes (0.194; it was 1) */
 /* C11 5.2.4.2.2's, under clang's guard: the least subnormal, the digits that read a value back, the subnormals' presence (0.154) */
 #if (defined(__STDC_VERSION__) && __STDC_VERSION__ >= 201112L) || !defined(__STRICT_ANSI__) || (defined(__cplusplus) && __cplusplus >= 201703L)
 #define FLT_TRUE_MIN __FLT_DENORM_MIN__
@@ -45,5 +45,26 @@
 #endif
 #if (defined(__STDC_VERSION__) && __STDC_VERSION__ >= 199901L) || !defined(__STRICT_ANSI__) || (defined(__cplusplus) && __cplusplus >= 201103L)
 #define DECIMAL_DIG __DECIMAL_DIG__
+#endif
+/* C23 5.2.5.3.2 and 5.2.5.3.3 (0.194), under clang's guard: the signaling NaNs and the normalized maxima; the types'
+   conformance to IEC 60559, as gcc's header has it; at C23 the version and INFINITY and NAN, which <math.h> defines too
+   (clang's and gcc's float.h take them away first, so the two spellings meet no redefinition) */
+#if (defined(__STDC_VERSION__) && __STDC_VERSION__ >= 202311L) || !defined(__STRICT_ANSI__)
+#define FLT_SNAN (__builtin_nansf(""))
+#define DBL_SNAN (__builtin_nans(""))
+#define LDBL_SNAN (__builtin_nansl(""))
+#define FLT_NORM_MAX __FLT_NORM_MAX__
+#define DBL_NORM_MAX __DBL_NORM_MAX__
+#define LDBL_NORM_MAX __LDBL_NORM_MAX__
+#endif
+#if defined(__STDC_VERSION__) && __STDC_VERSION__ >= 202311L
+#define __STDC_VERSION_FLOAT_H__ 202311L
+#define FLT_IS_IEC_60559 1
+#define DBL_IS_IEC_60559 1
+#define LDBL_IS_IEC_60559 1
+#undef INFINITY
+#undef NAN
+#define INFINITY (__builtin_inff())
+#define NAN (__builtin_nanf(""))
 #endif
 #endif
