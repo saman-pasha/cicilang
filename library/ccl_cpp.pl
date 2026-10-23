@@ -68,20 +68,24 @@
 %% specializations, a template's non-type argument deduced, `[this]' in a
 %% lambda, a lambda in a template's body before its instantiation.
 
-ccl_cpp_units(Units0, Units) :- cpp_ns_resolve(Units0, Units1), cpp_register_units(Units1), cpp_units(Units1, Units).
+ccl_cpp_units(Units0, Units) :- cpp_ginit_reset, cpp_ns_resolve(Units0, Units1), cpp_register_units(Units1), cpp_units(Units1, Units).
+%% the unit's initialization lists, empty before anything registers (0.192): the registration emits the program's own
+%% headers' classes and variables, whose statics' initializations and destructors join the first unit's lists
+cpp_ginit_reset :- nb_setval('$cpp_ginit', []), nb_setval('$cpp_ginit_pre', []), nb_setval('$cpp_ginit_fns', []).
 %% TWO NAMESPACES OF THE PROGRAM'S OWN DECLARING ONE NAME (0.100; 0.88's rule was a header's): the outermost keeps
 %% the bare name, a deeper namespace's item is renamed `<innermost named namespace>.<name>' (cpp_qualify_item), the
 %% bare uses inside that namespace go to the key (cpp_qualify_body), and a use QUALIFIED by the namespace resolves
 %% to it wherever a name is read (cpp_ns_key, through '$cpp_ns_own'). The units are rewritten before anything is
 %% registered, and the symbol table is built again from them, since the first build held the two under one name --
 %% `R::cpo(3)' and `cpo(3)' had both gone to whichever was noted last. A program's own raw header is part of the program.
-cpp_ns_resolve(Units00, Units) :-
+cpp_ns_resolve(Units000, Units) :-
+    cpp_anon_ns_units(Units000, Units00),      % an unnamed namespace is its unit's own, a using-directive after it (0.192, below)
     cpp_qual_members_in_ns(Units00, Units0),   % a definition by a namespace-qualified name is moved into its namespace first (0.166, below)
     cpp_reset('$cpp_ns_own'/1),
     findall(F, ( member(unit(Is), Units0), cpp_own_flat([], Is, F) ), Fs), append(Fs, Flat0), ccl_flat_quals(Flat0, Flat),   % a qualified declarator's namespace is the item's (ccl_flat_quals)
     findall(S, ( member(in(P0, _), Flat0), P0 \== c, member(S, P0), atom(S) ), NsL0), sort(NsL0, NsL), cpp_reset('$cpp_ns_names'/1), assertz('$cpp_ns_names'(NsL)),
     findall(N-NP, ( member(in(Path, I), Flat), ( catch(once(cpp_index_name(I, N)), _, fail) ; cpp_ns_enum_name(I, N) ), atom(N), cpp_ns_named_path(Path, NP) ), Pairs0),   % an ENUM's tag and an unscoped enum's enumerators are names of the namespace too (0.127)
-    sort(Pairs0, Pairs), cpp_ns_quals_(Pairs, Qs),
+    sort(Pairs0, Pairs), cpp_ns_quals_(Pairs, Qs0), cpp_anon_quals(Pairs, Qs0, Qs),
     cpp_reset('$cpp_dbg_ns'/2), cpp_reset('$cpp_dbg_targs'/2),                                       % -g: the namespaces of the program's own names, a function template instance's arguments (0.130)
     cpp_reset('$cpp_own_ns'/2), forall(( member(N-NP, Pairs), NP \== [] ), assertz('$cpp_own_ns'(N, NP))),   % the namespace of each of the program's own names, where argument-dependent lookup looks (cpp_adl_fn, 0.134)
     cpp_reset('$cpp_type_ns'/2), forall(( member(N-NP, Pairs), NP \== [], cpp_ns_final_name(N, NP, Qs, K) ), assertz('$cpp_type_ns'(K, NP))),   % ... and by the name it has once a collision is keyed (0.180), which the type information's names read (cpp_prog_scope/2)
@@ -94,6 +98,39 @@ cpp_ns_resolve(Units00, Units) :-
         cpp_ns_rewrite_units(Units0, Qs, Units),
         ccl_scope_init, forall(member(unit(Is1), Units), ccl_items_note(Is1)) ).
 cpp_ns_final_name(N, NP, Qs, K) :- ( memberchk(q(Ns, N, NP), Qs), Ns \== bare -> atomic_list_concat([Ns, '.', N], K) ; K = N ).   % a deeper namespace's item of a collided name is `<suffix>.<name>'
+%% THE UNIT'S TAG (0.192): a name that is one unit's own -- a closure's (`lambda.K'), a local class's (`N.local_K'), an unnamed
+%% namespace's -- carries it, so that two units linked together never share one: a fold of the main file's absolute path, the
+%% command line's macros, the configuration and the target, in base 36. The names were the same in every unit and emitted
+%% linkonce_odr, so the link kept one unit's `lambda.1' for both, and one unit ran the other's body.
+cpp_unit_tag(T) :- ( nb_current('$ccl_src_file', F), atom(F) -> true ; F = '' ),
+    (   nb_current('$cpp_utag', tag(F0, T0)), F0 == F -> T = T0
+    ;   F == '' -> T = ''
+    ;   ( catch(absolute_file_name(F, A), _, fail) -> true ; A = F ), ccl_cmdline_key(CK), ccl_config_key(GK), ccl_target_key(TK),
+        atomic_list_concat([A, CK, GK, TK], K), atom_codes(K, Cs), ccl_fold(Cs, 7, 131, S), cpp_tag_digits(S, Ds), atom_codes(T, Ds),
+        nb_setval('$cpp_utag', tag(F, T)) ).
+cpp_tag_digits(S, [C]) :- S < 36, !, cpp_tag_digit(S, C).
+cpp_tag_digits(S, Cs) :- D is S mod 36, S1 is S // 36, cpp_tag_digits(S1, Cs0), cpp_tag_digit(D, C), append(Cs0, [C], Cs).
+cpp_tag_digit(D, C) :- ( D < 10 -> C is 48 + D ; C is 87 + D ).
+%% AN UNNAMED NAMESPACE IS ITS UNIT'S OWN ([namespace.unnamed]/1: `inline namespace unique {} using namespace unique; namespace
+%% unique { body }'; 0.192): it is named `_GLOBAL__N_<tag>' (the unit's tag), a using-directive of it stands after its block, and
+%% every name it declares is keyed by its path (cpp_anon_quals/3), so two units' names never meet at the link. It was flattened
+%% into its enclosing namespace: two units that each define `namespace { int helper(); }' did not link, two strong definitions.
+%% The mangler spells the segment as clang does, `12_GLOBAL__N_1', and such a type's information is internal (ir_rtti_link/2).
+cpp_anon_ns_units(Us0, Us) :- \+ ( member(unit(Is), Us0), cpp_anon_ns_in(Is) ), !, Us = Us0.
+cpp_anon_ns_units(Us0, Us) :- cpp_unit_tag(T), ( T == '' -> AN = '_GLOBAL__N_1' ; atom_concat('_GLOBAL__N_', T, AN) ),
+    findall(unit(Is1), ( member(unit(Is), Us0), cpp_anon_ns_items(Is, AN, Is1) ), Us).
+cpp_anon_ns_in(Is) :- member(I, Is), ( I = namespace(_, anon, _) -> true ; I = namespace(_, _, Js) -> cpp_anon_ns_in(Js) ; I = include(_, _, file(_, raw, unit(Js))) -> cpp_anon_ns_in(Js) ), !.
+cpp_anon_ns_items([], _, []).
+cpp_anon_ns_items([namespace(L, anon, Js)|Is], AN, [namespace(L, AN, Js1), using(L, namespace(AN))|Is1]) :- !, cpp_anon_ns_items(Js, AN, Js1), cpp_anon_ns_items(Is, AN, Is1).
+cpp_anon_ns_items([namespace(L, N, Js)|Is], AN, [namespace(L, N, Js1)|Is1]) :- !, cpp_anon_ns_items(Js, AN, Js1), cpp_anon_ns_items(Is, AN, Is1).
+cpp_anon_ns_items([include(L, S, file(F, raw, unit(Js)))|Is], AN, [include(L, S, file(F, raw, unit(Js1)))|Is1]) :- !, cpp_anon_ns_items(Js, AN, Js1), cpp_anon_ns_items(Is, AN, Is1).
+cpp_anon_ns_items([I|Is], AN, [I|Is1]) :- cpp_anon_ns_items(Is, AN, Is1).
+cpp_anon_quals(Pairs, Qs0, Qs) :-
+    findall(Q, ( member(Q, Qs0), \+ ( Q = q(bare, _, P), cpp_anon_ns_path(P) ) ), Qs1),
+    findall(q(Ns, N, P), ( member(N-P, Pairs), cpp_anon_ns_path(P), \+ ( member(q(X, N, P), Qs1), X \== bare ), atomic_list_concat(P, '.', Ns) ), Qs2),
+    append(Qs1, Qs2, Qs).
+cpp_anon_ns_path(P) :- member(S, P), cpp_anon_seg(S), !.
+cpp_anon_seg(S) :- atom(S), sub_atom(S, 0, 11, _, '_GLOBAL__N_').
 %% A DEFINITION BY A NAME THAT BEGINS WITH NAMESPACES (0.166; [namespace.memdef]/2, [class.mfct]/2): `int n::f() {...}',
 %% `int n::g = 5;', `int n::C::m() const {...}', `n::C::C() : v(4) {}', `n::C::~C() {}', `int n::C::count = 3;' written
 %% outside namespace n are members of n (and of its class C), their names looked up in n. Each such item is moved into a
@@ -176,7 +213,7 @@ cpp_qualify_enum(Qs, PI, declare(L, base(Q, [E0])), declare(L, base(Q, [E]))) :-
 cpp_qualify_enumerator(Qs, PI, enumerator(N, Ex), enumerator(K, Ex)) :- !, cpp_index_key(Qs, PI, N, K).
 cpp_qualify_enumerator(_, _, X, X).
 cpp_units([], []).
-cpp_units([unit(Is0)|Us0], [unit(Is)|Us]) :- nb_setval('$cpp_ginit', []), nb_setval('$cpp_ginit_fns', []), nb_setval('$cpp_relops', none), nb_setval('$cpp_cplxlit', none), nb_setval('$cpp_usings', []), nb_setval('$cpp_using_skip', []),cpp_items(Is0, Is1a), cpp_ginit_items(Is1a, Is1), cpp_flush_instances(Is1, Is2), cpp_name_anon_items(Is2, Is), cpp_units(Us0, Us).
+cpp_units([unit(Is0)|Us0], [unit(Is)|Us]) :- nb_setval('$cpp_relops', none), nb_setval('$cpp_cplxlit', none), nb_setval('$cpp_usings', []), nb_setval('$cpp_using_skip', []),cpp_items(Is0, Is1a), cpp_ginit_items(Is1a, Is1), cpp_flush_instances(Is1, Is2), cpp_name_anon_items(Is2, Is), cpp_units(Us0, Us).
 %% the instances made while the unit was walked join its items; walking them may make more
 cpp_flush_instances(Is0, Is) :-
     findall(I, '$cpp_out'(_, I), New),
@@ -249,8 +286,16 @@ cpp_register_units(Units) :-
     ( nb_current('$cpp_trace', _) -> true ; nb_setval('$cpp_trace', no) ),
     forall(member(unit(Is), Units), cpp_note_fns(Is)), forall(member(unit(Is), Units), cpp_note_bases(Is)),                                 % the free functions FIRST: a name is overloaded or not before any call to it is read
     ( cpp_term_mentions_functor(Units, throw) -> nb_setval('$cpp_throws', yes) ; nb_setval('$cpp_throws', no) ),   % the program throws: its noexcept functions are guarded (cpp_nx_wrap)
-    forall(member(unit(Is), Units), cpp_register_(Is)),
-    forall(member(unit(Is), Units), cpp_include_fns(Is)).                                % the program's own headers' functions, once every name is registered
+    cpp_reset('$cpp_extern_var'/1), forall(member(unit(Is), Units), cpp_note_extern_vars(Is)),   % the variables declared `extern', whose definitions keep external linkage (cpp_inline_storage/3, 0.192)
+    cpp_reset('$cpp_hdr_pre'/2), forall(member(unit(Is), Units), cpp_register_(Is)),
+    forall(member(unit(Is), Units), cpp_include_fns(Is)),                                % the program's own headers' functions, once every name is registered
+    forall(retract('$cpp_hdr_pre'(_, Ps)), cpp_ginit_pre_put(Ps)).                       % a header class's static members that no walk of its header put back (cpp_hdr_pre_apart/2)
+cpp_note_extern_vars([]).
+cpp_note_extern_vars([I|Is]) :-
+    (   I = declaration(_, extern, _, Vs) -> forall(( member(var(N, T, _), Vs), atom(N), T \= fn(_, _, _) ), assertz('$cpp_extern_var'(N)))
+    ;   ( I = namespace(_, _, Js) ; I = extern_c(_, Js) ; I = include(_, _, file(_, _, unit(Js))) ), is_list(Js) -> cpp_note_extern_vars(Js)
+    ;   true ),
+    cpp_note_extern_vars(Is).
 cpp_include_fns([]).
 cpp_include_fns([include(_, local(_), file(P, _, unit(Js)))|Is]) :- atom(P), \+ cpp_system_path(P), !, cpp_include_fns(Js), cpp_header_fns(Js), cpp_include_fns(Is).   % a "..." header of the PROGRAM's; a system header read raw keeps its declarations (`abs' over __builtin_labs)
 cpp_include_fns([include(_, _, _)|Is]) :- !, cpp_include_fns(Is).
@@ -386,7 +431,7 @@ cpp_ita_prefix(Path, Chain, Subs0, Text, Subs) :-
     cpp_ita_chain(Chain, C0, T0, Subs1, _, Text, Subs).
 cpp_ita_ns([], C, T, Subs, C, T, Subs).
 cpp_ita_ns([std|Ns], '', '', Subs0, C, T, Subs) :- !, cpp_ita_ns(Ns, 'St', 'St', Subs0, C, T, Subs).   % `St' abbreviates std, and is no candidate
-cpp_ita_ns([N|Ns], C0, T0, Subs0, C, T, Subs) :- atom(N), atom_length(N, L), atomic_list_concat([C0, L, N], C1), cpp_ita_level(C1, T0, L, N, Subs0, T1, Subs1), cpp_ita_ns(Ns, C1, T1, Subs1, C, T, Subs).
+cpp_ita_ns([N0|Ns], C0, T0, Subs0, C, T, Subs) :- atom(N0), ( cpp_anon_seg(N0) -> N = '_GLOBAL__N_1' ; N = N0 ), atom_length(N, L), atomic_list_concat([C0, L, N], C1), cpp_ita_level(C1, T0, L, N, Subs0, T1, Subs1), cpp_ita_ns(Ns, C1, T1, Subs1, C, T, Subs).   % an unnamed namespace as clang spells it (0.192)
 %% one level of a prefix: its canonical text C1 is the key; known, its code stands for the whole prefix so far
 cpp_ita_level(C1, T0, L, N, Subs0, T1, Subs1) :-
     (   cpp_ita_sub(C1, Subs0, Code) -> T1 = Code, Subs1 = Subs0
@@ -931,9 +976,13 @@ cpp_qualify_paths_l([], _, _, []).
 cpp_qualify_paths_l([A|As], NP, Qs, [A1|As1]) :- cpp_qualify_paths(A, NP, Qs, A1), cpp_qualify_paths_l(As, NP, Qs, As1).
 cpp_scoped_last(N, N) :- atom(N), !.
 cpp_scoped_last(tmpl(N, _), N) :- atom(N).
-cpp_abs_ns_path([global|P], N, _, Qs, P) :- !, P \== [], forall(member(S, P), atom(S)), memberchk(q(_, N, P), Qs).
+cpp_abs_ns_path([global|P], N, _, Qs, Cand) :- !, forall(member(S, P), atom(S)), ( P \== [], memberchk(q(_, N, P), Qs) -> Cand = P ; cpp_anon_in(P, N, Qs, Cand) ).
 cpp_abs_ns_path(P, N, NP, Qs, Cand) :- P \== [], forall(member(S, P), atom(S)), memberchk(q(_, N, _), Qs),
-    length(NP, Len), between(0, Len, J), K is Len - J, length(Pre, K), append(Pre, _, NP), append(Pre, P, Cand), memberchk(q(_, N, Cand), Qs), !.
+    length(NP, Len), between(0, Len, J), K is Len - J, length(Pre, K), append(Pre, _, NP), append(Pre, P, Cand0),
+    ( memberchk(q(_, N, Cand0), Qs) -> Cand = Cand0 ; cpp_anon_in(Cand0, N, Qs, Cand) ), !.
+%% ... and a namespace's UNNAMED namespace where the namespace itself declares no such name ([namespace.qual]/2: the members of
+%% the namespaces its using-directives nominate, the unnamed one's implicit directive among them; 0.192): `n::deep()' and `::helper()'
+cpp_anon_in(P, N, Qs, Cand) :- member(q(_, N, Cand), Qs), append(P, [S], Cand), cpp_anon_seg(S), !.
 cpp_rename_names(T, _, T) :- \+ compound(T), !.
 cpp_rename_names(scoped([S0|P], X), Map, scoped([S|P], X)) :- cpp_rename_qualifier(S0, Map, S), !.   % THE FIRST SEGMENT of a qualified name is looked up in the item's own scope ([basic.lookup.qual]/1): `__base::__visit_alt(...)' inside `namespace visitation' is visitation's class
 cpp_rename_names(scoped(P, X), Map, scoped(P1, X1)) :- memberchk('$deep'-yes, Map), !, cpp_rename_path(P, Map, P1), cpp_rename_last(X, Map, X1).   % a LOCAL CLASS's name (0.121) is renamed in the template arguments of a qualified name too: `std::vector<P>' (cpp_stmts)
@@ -1168,22 +1217,36 @@ cpp_register_header([]).
 cpp_register_header([declare(L, base(_, [class(K, C0, Bases, Ms)]))|Is]) :- cpp_class_item_name(C0, C), !,
     (   cpp_class_l(C, _) -> true
     ;   cpp_class_encloses(C0, C),
-        cpp_isolated(( cpp_register_class(K, L, C, Bases, Ms), cpp_item(declare(L, base([], [class(K, C, Bases, Ms)])), Items) )), cpp_add_instance_items(Items) ),
+        cpp_hdr_pre_apart(C, cpp_isolated(( cpp_register_class(K, L, C, Bases, Ms), cpp_item(declare(L, base([], [class(K, C, Bases, Ms)])), Items) ))), cpp_add_instance_items(Items) ),
     cpp_register_header(Is).
 cpp_register_header([namespace(_, _, Js)|Is]) :- !, cpp_register_header(Js), cpp_register_header(Is).
 cpp_register_header([declare(L, base(Q, [struct(N, Ms)]))|Is]) :- atom(N), Ms \== none, \+ '$cpp_promoted'(N), \+ cpp_class_l(N, _), cpp_struct_promotes(N, Ms), !,   % a header's plain struct promoted (cpp_struct_promotes): emitted with the header's classes
     assertz('$cpp_promoted'(N)), cpp_trace(promoted(N)), cpp_register_header([declare(L, base(Q, [class(struct, N, [], Ms)]))|Is]).
 cpp_register_header([I|Is]) :- cpp_note_fns([I]), cpp_register_([I]), cpp_register_header(Is).
+%% A HEADER CLASS'S STATIC MEMBERS ARE INITIALIZED AT THE CLASS'S PLACE among the header's variables (0.192), as clang
+%% orders a unit's inline variables by their definitions: the class is emitted at its registration, and the guarded
+%% initializations its emission adds are set apart, `'$cpp_hdr_pre'(C, Ss)', until cpp_header_fns meets the class
+cpp_hdr_pre_apart(C, G) :- nb_getval('$cpp_ginit_pre', P0), nb_setval('$cpp_ginit_pre', []),
+    (   catch(G, E, ( nb_setval('$cpp_ginit_pre', P0), throw(E) ))
+    ->  nb_getval('$cpp_ginit_pre', Ps), nb_setval('$cpp_ginit_pre', P0), ( Ps == [] -> true ; assertz('$cpp_hdr_pre'(C, Ps)) )
+    ;   nb_setval('$cpp_ginit_pre', P0), fail ).
 %% a function the program's own header DEFINES (a body, no template): emitted with the header's classes, linkonce, once
 %% -- an included unit's items are not the includer's, so an inline `int twelve() { return 12; }' was declared and never
 %% defined, and the link named it
 cpp_header_fns([]).
 cpp_header_fns([namespace(_, _, Js)|Is]) :- !, cpp_header_fns(Js), cpp_header_fns(Is).
+cpp_header_fns([declare(_, base(_, [S]))|Is]) :- ( S = class(_, C0, _, _), cpp_class_item_name(C0, C) ; S = struct(C, _), atom(C) ), retract('$cpp_hdr_pre'(C, Ps)), !,   % a class's static members at its place (cpp_hdr_pre_apart/2)
+    cpp_ginit_pre_put(Ps), cpp_header_fns(Is).
 cpp_header_fns([I|Is]) :- I = function(_, _, _, N, _, _, B), atom(N), B \== none, \+ '$cpp_hdrfn'(N), !,
     assertz('$cpp_hdrfn'(N)),
     ( cpp_isolated(cpp_item(I, Items)) -> cpp_add_instance_items(Items) ; cpp_trace(header_fn_not_emitted(N)) ),
     cpp_header_fns(Is).
+cpp_header_fns([I|Is]) :- I = declaration(_, Sto, _, [var(N, T, _)|_]), Sto \== extern, T \= fn(_, _, _), \+ '$cpp_hdrfn'(var(N)), !,   % ... AND A VARIABLE IT DEFINES (0.192): an inline one linkonce, initialized and destroyed once (cpp_ginit_add/3), a const one the unit's own -- it was defined nowhere, and `inline Cnt gc(5);' in a header was an undefined symbol at the link
+    assertz('$cpp_hdrfn'(var(N))),
+    ( cpp_isolated(cpp_item(I, Items)) -> cpp_add_instance_items(Items) ; cpp_trace(header_var_not_emitted(N)) ),
+    cpp_header_fns(Is).
 cpp_header_fns([_|Is]) :- cpp_header_fns(Is).
+cpp_ginit_pre_put(Ps) :- nb_getval('$cpp_ginit_pre', P0), append(P0, Ps, P1), nb_setval('$cpp_ginit_pre', P1).
 %% A NESTED CLASS DEFINED OUT OF ITS ENCLOSING CLASS -- `class locale::facet : public __shared_count { ... };',
 %% which is how libc++ writes its facets, its holder declaring only `class facet;' -- is the class `Enclosing.Nested'
 %% under the name the forward declaration already gave the type (cpp_nested_names), and the holder's own types are
@@ -3157,10 +3220,10 @@ cpp_item(declaration(L, Sto, B, Vs0), Out) :- member(var(scoped(Path, _), _, _),
     findall(V1, ( member(V, Vs0), ( V = var(scoped(P, N), T, I), cpp_member_path_class(P, C) -> V1 = var(scoped([C], N), T, I) ; V1 = V ) ), Vs), cpp_item(declaration(L, Sto, B, Vs), Out).
 cpp_item(declaration(L, Sto, B, Vs), Out) :- Vs = [_, _|_], member(var(scoped([C], _), _, _), Vs), cpp_class_l(C, _), !,
     findall(declaration(L, Sto, B, [V]), member(V, Vs), Ds), cpp_items(Ds, Out).
-cpp_item(declaration(L, Sto, B, [var(scoped([C], N), T, Init)]), [declaration(L, Sto, B, Vs1)]) :- cpp_class_l(C, _), !,
+cpp_item(declaration(L, Sto, B, [var(scoped([C], N), T, Init)]), [declaration(L, Sto1, B, Vs1)]) :- cpp_class_l(C, _), !,
     atomic_list_concat([C, '.', N], Name), cpp_with_access_scope(C, cpp_expr(none, Init, Init1)),   % the initializer is in the class's scope ([basic.scope.class]): its private statics are the program's to name (0.117)
     cpp_static_object_init(C, Sto, Name, T, Init, Init1, Init2),                                    % a class-typed one constructed (0.186)
-    cpp_dynamic_scalars(L, C, Sto, B, [var(Name, T, Init)], [var(Name, T, Init2)], Vs1).
+    cpp_dynamic_scalars(L, C, Sto, B, [var(Name, T, Init)], [var(Name, T, Init2)], Vs1), ( Sto == inline -> Sto1 = linkonce ; Sto1 = Sto ).   % an inline one linkonce (0.192); a const one keeps its class's external linkage
 cpp_item(function(L, Sto, Ret, scoped([C], M), Ps, V, Body), [function(L, Sto0, Ret, Name, [param(ThisT, this)|Ps1], V, Body1)]) :- cpp_class_l(C, _), !,
     cpp_sto_quals(Sto, Qs, Sto0), cpp_mangle_q(C, M, Qs, Ps, Name), cpp_plain_params(Ps, Ps1), cpp_this_type(C, Qs, ThisT),
     cpp_pf_decl_quals(C, M, Ps, Qs, FQs), cpp_with_fsig(fsig(member, C, M, Ret, Ps, V, FQs, none), cpp_method_body(C, Ret, [param(ThisT, this)|Ps1], Body, Body1)).
@@ -3186,8 +3249,8 @@ cpp_item(declare(L, base(Q, [struct(N, Ms)])), Items) :- atom(N), '$cpp_promoted
 cpp_item(declare(L, base(Q, [union(N, Ms)])), Items) :- atom(N), '$cpp_union'(N), cpp_class_l(N, _), cpp_union_class_members(Ms), !, cpp_item(declare(L, base(Q, [class(union, N, [], Ms)])), Items).   % a union class (cpp_register_): its struct, its members as functions
 cpp_item(declare(L, base(Q, [struct(N, Ms)])), [declare(L, base(Q, [struct(N, Ms1)]))]) :- atom(N), Ms \== none, !,       % a plain struct: its member types resolved in place (`std::size_t n')
     cpp_plain_members(Ms, Ms1), ( Ms1 == Ms -> true ; ccl_note_tag(N, Ms1) ).
-cpp_item(declaration(L, Sto, B, Vs), [declaration(L, Sto, B, Vs3)]) :- !, cpp_vars(none, Vs, Vs1), cpp_fold_const_inits(B, Sto, Vs, Vs1, Vs2), cpp_redeclare_globals(Vs, Vs1),
-    cpp_dynamic_scalars(L, none, Sto, B, Vs, Vs2, Vs3).
+cpp_item(declaration(L, Sto, B, Vs), [declaration(L, Sto1, B, Vs3)]) :- !, cpp_vars(none, Vs, Vs1), cpp_fold_const_inits(B, Sto, Vs, Vs1, Vs2), cpp_redeclare_globals(Vs, Vs1),
+    cpp_dynamic_scalars(L, none, Sto, B, Vs, Vs2, Vs3), cpp_inline_storage(Sto, Vs3, Sto1).
 cpp_item(typedef(L, Vs), [typedef(L, Vs1)]) :- !, cpp_vars(none, Vs, Vs1), ccl_note_typedefs(Vs1).   % the table learns the instance's name at once
 cpp_item(template(_, _, _), []) :- !.
 cpp_item(concept(_, _, _), []) :- !.                                                               % C++20: a constraint, checked where a template is instantiated
@@ -4051,19 +4114,48 @@ cpp_fold_ctor_value(T, C, I, I1) :-
 cpp_global_ctor_init(Sto, Raw, N, T, C, I, I1) :- cpp_global_ctor_init(none, Sto, Raw, N, T, C, I, I1).
 cpp_global_ctor_init(Cx, Sto, var(_, T0, I00), N, T, C, I, I1) :-   % Cx: the class whose static data member N is, else none
     ( cpp_prvalue_init(T0, I00, IP) -> IF = IP, ID = IP ; IF = I, ID = I00 ),
-    (   cpp_fold_ctor_value(T, C, IF, I0) -> I1 = I0
-    ;   Sto \== extern -> cpp_dynamic_init(Cx, N, T0, C, ID), I1 = none
+    (   cpp_fold_ctor_value(T, C, IF, I0) -> I1 = I0, ( Sto \== extern, cpp_dtor(C, DName) -> cpp_gdtor_reg(N, DName, Reg), cpp_ginit_add(Sto, N, [Reg]) ; true )   % ... AND DESTROYED AT EXIT (0.192), below
+    ;   Sto \== extern -> cpp_dynamic_init(Cx, Sto, N, T0, C, ID), I1 = none
     ;   cpp_refuse(0, dynamic_initialization_of_global(N, C)) ).
-cpp_dynamic_init(Cx, N, T0, C, I0) :-
+cpp_dynamic_init(Cx, Sto, N, T0, C, I0) :-
     ( I0 == none -> As = [] ; I0 = init(Items0), cpp_il_ctor_for(C, Items0, _) -> As = [I0] ; cpp_init_args(I0, As) ),   % a braced list for a class with an initializer_list constructor is ONE argument, the list (`std::vector<int> v = {1, 2, 3}')
     S0 = expr(0, new_at([addr(id(N))], new(T0, As))), ( Cx == none -> S1 = S0 ; S1 = '$in_class'(Cx, S0) ),   % a static member's in its class's words and access (0.186)
-    (   cpp_dtor(C, DName)
-    ->  atom_concat('$cpp_gdtor.', N, W), Void = base([], [void]), ccl_declare(W, fn(Void, [], false)),
-        cpp_math_declared(atexit, base([], [int]), [param(ptr([], fn(Void, [], false)), f)]),
-        Ss = [S1, expr(0, call(id(atexit), [id(W)]))],
-        nb_getval('$cpp_ginit_fns', Fs0), append(Fs0, [function(0, static, Void, W, [], false, block([expr(0, call(id(DName), [addr(id(N))]))]))], Fs1), nb_setval('$cpp_ginit_fns', Fs1)
-    ;   Ss = [S1] ),
-    nb_getval('$cpp_ginit', G0), append(G0, Ss, G1), nb_setval('$cpp_ginit', G1), cpp_trace(dynamic_init(N, C)).
+    ( cpp_dtor(C, DName) -> cpp_gdtor_reg(N, DName, Reg), Ss = [S1, Reg] ; Ss = [S1] ),
+    cpp_ginit_add(Sto, N, Ss), cpp_trace(dynamic_init(N, C)).
+%% AN OBJECT CONSTRUCTED AT COMPILE TIME IS DESTROYED AT EXIT TOO ([basic.start.term]/1, /3: one initialized statically is destroyed as
+%% if it had been initialized dynamically, in its declaration's place; 0.192): its destructor is registered with `atexit' where the
+%% unit's initialization function reaches the declaration, as a dynamically initialized one's is, a wrapper `$cpp_gdtor.N' that
+%% destroys it. It registered nothing, and `~K' of a namespace-scope `K k(2);' over a constexpr constructor never ran.
+cpp_gdtor_reg(N, DName, expr(0, call(id(atexit), [id(W)]))) :-
+    atom_concat('$cpp_gdtor.', N, W), Void = base([], [void]), ccl_declare(W, fn(Void, [], false)),
+    cpp_math_declared(atexit, base([], [int]), [param(ptr([], fn(Void, [], false)), f)]),
+    nb_getval('$cpp_ginit_fns', Fs0), append(Fs0, [function(0, static, Void, W, [], false, block([expr(0, call(id(DName), [addr(id(N))]))]))], Fs1), nb_setval('$cpp_ginit_fns', Fs1).
+cpp_ginit_add(Ss) :- nb_getval('$cpp_ginit', G0), append(G0, Ss, G1), nb_setval('$cpp_ginit', G1).
+%% A VARIABLE THAT EVERY UNIT MAY DEFINE -- an inline one, a static data member initialized in its class -- IS INITIALIZED AND
+%% REGISTERED ONCE (0.192): its statements stand under a guard of its own, `$gv.N', linkonce as the variable is, which the first
+%% unit's initialization function tests and sets, and they run before the unit's ordered initializations, as clang runs them (the
+%% partially-ordered and unordered initialization of [basic.start.dynamic]/1, each in a `llvm.global_ctors' entry of its own ahead
+%% of the unit's). Two units that include one header's `inline Cnt gc(5);' each constructed the one object and registered it.
+cpp_ginit_add(Sto, N, Ss) :- cpp_once_storage(Sto), !, atom_concat('$gv.', N, G), GT = base([], [char]), nb_getval('$cpp_ginit_fns', Fs0),
+    (   memberchk(declaration(_, linkonce, _, [var(G, _, _)]), Fs0) -> true
+    ;   ccl_gdeclare([G-GT]), ccl_tables_changed, append(Fs0, [declaration(0, linkonce, GT, [var(G, GT, none)])], Fs1), nb_setval('$cpp_ginit_fns', Fs1) ),
+    nb_getval('$cpp_ginit_pre', P0), append(P0, [if(0, not(id(G)), block([expr(0, assign('=', id(G), int(1)))|Ss]), none)], P1), nb_setval('$cpp_ginit_pre', P1).
+cpp_ginit_add(_, _, Ss) :- cpp_ginit_add(Ss).
+cpp_once_storage(inline).
+cpp_once_storage(linkonce).
+%% ... and such a variable is DEFINED linkonce in every unit that has it ([basic.def.odr]/14), where `inline' was a strong `global' and
+%% two units did not link, two definitions; a function's declaration keeps its word
+cpp_inline_storage(inline, Vs, linkonce) :- \+ member(var(_, fn(_, _, _), _), Vs), !.
+cpp_inline_storage(none, Vs, static) :- Vs \== [], forall(member(var(N, T, _), Vs), ( atom(N), \+ '$cpp_extern_var'(N), cpp_internal_const(T) )), !.
+cpp_inline_storage(Sto, _, Sto).
+%% ... AND A CONST ONE IS ITS UNIT'S OWN ([basic.link]/3.2: a variable of non-volatile const-qualified type that is not declared
+%% `extern' or `inline', here or before, has internal linkage; 0.192): `const int k = 5;' in two units, and a header's
+%% `constexpr int N = 8;' that two units include, were two strong definitions of one symbol, a link error. A name the
+%% program declares `extern' anywhere keeps its external linkage (`'$cpp_extern_var'', cpp_note_extern_vars/1).
+cpp_internal_const(T0) :- catch(ccl_resolve_type(T0, T), _, fail), cpp_internal_const_(T).
+cpp_internal_const_(base(Q, _)) :- memberchk(const, Q), \+ memberchk(volatile, Q).
+cpp_internal_const_(ptr(Q, _)) :- memberchk(const, Q), \+ memberchk(volatile, Q).
+cpp_internal_const_(arr(_, E)) :- cpp_internal_const_(E).
 %% A PRVALUE OF THE CLASS WRITTEN AS ITS CONSTRUCTOR'S CALL IS THE OBJECT ([dcl.init.general]/16.6.1, C++17's elision):
 %% `Tag(3)' and `Tag{3}' (a list, the initializer_list constructor first) give the RAW initializer of the global, folded
 %% and constructed from its own arguments (0.186). The fold took the WALKED initializer and walked it again, and the
@@ -4083,7 +4175,7 @@ cpp_prvalue_init(base(_, [typedef(X)]), braced_temp(call(id(X), Vs)), init(Items
 %% (it needs one initialization per thread), an `extern' declaration, a class, an array, a reference.
 cpp_dynamic_scalars(_, _, _, _, [], [], []).
 cpp_dynamic_scalars(L, Ctx, Sto, B, [R|Rs], [var(N, T, I)|Vs], [var(N, T, I1)|Ws]) :-
-    (   cpp_dyn_scalar(Ctx, Sto, B, R, N, T, I, E) -> cpp_dynamic_assign(L, Ctx, N, E), I1 = none
+    (   cpp_dyn_scalar(Ctx, Sto, B, R, N, T, I, E) -> cpp_dynamic_assign(L, Ctx, Sto, N, E), I1 = none
     ;   I1 = I ),
     cpp_dynamic_scalars(L, Ctx, Sto, B, Rs, Vs, Ws).
 cpp_dyn_scalar(Ctx, Sto, B, var(_, _, I0), N, T, I, E) :-
@@ -4096,9 +4188,9 @@ cpp_dyn_scalar_type(T) :- cpp_braced_scalar_type(T), ccl_resolve_type(T, R), \+ 
 cpp_unbrace(init([item(_, X)]), X) :- !.
 cpp_unbrace(ctor([X]), X) :- !.
 cpp_unbrace(X, X).
-cpp_dynamic_assign(L, Ctx, N, E) :-
+cpp_dynamic_assign(L, Ctx, Sto, N, E) :-
     S0 = expr(L, assign('=', id(N), E)), ( Ctx == none -> S = S0 ; S = '$in_class'(Ctx, S0) ),
-    nb_getval('$cpp_ginit', G0), append(G0, [S], G1), nb_setval('$cpp_ginit', G1), cpp_trace(dynamic_scalar_init(N)).
+    cpp_ginit_add(Sto, N, [S]), cpp_trace(dynamic_scalar_init(N)).
 %% the test: a node that reads or computes at run time. A name is a constant when it is a function, an enumerator or a
 %% constant that folds; an address is a constant when it is a name's (`&g', `&f'); a `sizeof' is never walked into.
 cpp_runtime_init(I) :- compound(I), cpp_rt_node(I), !.
@@ -4125,12 +4217,13 @@ cpp_rt_node(new_array(_, _)) :- !.
 cpp_rt_node(stmt_expr(_)) :- !.
 cpp_rt_node(T) :- T =.. [_|As], member(A, As), compound(A), ( A = [_|_] -> member(X, A), cpp_runtime_init(X) ; cpp_runtime_init(A) ), !.
 %% the unit's initialization function, at its end: its statements walked as a body's are (temporaries, copies)
-cpp_ginit_items(Is0, Is) :- ( nb_current('$cpp_ginit', Ss) -> true ; Ss = [] ),
-    ( nb_current('$cpp_ginit_fns', Fs) -> true ; Fs = [] ),                       % the wrappers a static local array registers (0.117) stand without the unit's initialization function
-    (   Ss == [] -> append(Is0, Fs, Is)
+cpp_ginit_items(Is0, Is) :- ( nb_current('$cpp_ginit', Ss1) -> true ; Ss1 = [] ),
+    ( nb_current('$cpp_ginit_pre', Ss0) -> true ; Ss0 = [] ), append(Ss0, Ss1, Ss),   % the guarded ones first (0.192, cpp_ginit_add/3)
+    (   Ss == [] -> Fn = []
     ;   Void = base([], [void]), ccl_declare('$cpp_ginit', fn(Void, [], false)),
-        cpp_method_body(none, Void, [], block(Ss), Body1),
-        append(Is0, Fs, Is1), append(Is1, [function(0, static, Void, '$cpp_ginit', [], false, Body1)], Is) ).
+        cpp_method_body(none, Void, [], block(Ss), Body1), Fn = [function(0, static, Void, '$cpp_ginit', [], false, Body1)] ),
+    ( nb_current('$cpp_ginit_fns', Fs) -> true ; Fs = [] ),                       % the wrappers a static local array registers (0.117) stand without the unit's initialization function; read after its walk
+    append(Is0, Fs, Is1), append(Is1, Fn, Is), cpp_ginit_reset.                  % ... and the lists emptied for the next unit (0.192)
 %% A GLOBAL AGGREGATE'S BRACED LIST IS COMPLETED BY THE CLASS'S DEFAULT MEMBER INITIALIZERS ([dcl.init.aggr]/5.1;
 %% 0.112): every data member gets its item -- the one written (by position, or by a designator `.f = v'), else its
 %% default member initializer desugared in the class's words, else `init([])', its zero -- and a member of an aggregate
@@ -4248,13 +4341,22 @@ cpp_static_decls(_, _, [], []).
 cpp_static_decls(L, C, [N-T0|Ss], [D|Ds]) :- cpp_static_name(C, N, Name), cpp_resolved_type(T0, T1), cpp_static_auto(C, N, T1, T),
     (   cpp_static_const(C, N, V) -> D = declaration(L, linkonce, T, [var(Name, T, V)])
     ;   \+ cpp_ctor_class_type(T), cpp_static_aggregate(C, N, I) -> D = declaration(L, linkonce, T, [var(Name, T, I)])   % never a class with constructors (0.112): `static constexpr basic_string_view<_CharT> __true{"true"}' is the constructor's, and as an aggregate its pointer took the literal and its size 0 -- std::format printed `true' as nothing
-    ;   cpp_static_constructed(C, N, T, I) -> D = declaration(L, linkonce, T, [var(Name, T, I)])
+    ;   cpp_static_constructed(C, N, T, I) -> D = declaration(L, linkonce, T, [var(Name, T, I)]), cpp_static_dtor_reg(Name, T)
     ;   cpp_sinit(C, N, _), cpp_class_of_type(T, TC), cpp_empty_class(TC) -> D = declaration(L, linkonce, T, [var(Name, T, init([]))])   % a static of an EMPTY class initialized in its class -- a customization point object copied, `static constexpr auto __iter_move = ranges::iter_move;' -- is its zero bytes, as a header's inline global of one is (0.82)   % a static of CLASS type constructed at compile time by its constexpr constructor (0.99's rule for a global; 0.101 for a member): `strong_ordering::less(_OrdResult::__less)'
     ;   cpp_static_floating(C, N, T, I) -> D = declaration(L, linkonce, T, [var(Name, T, I)])
-    ;   cpp_static_floating_late(C, N, T, E) -> D = declaration(L, linkonce, T, [var(Name, T, none)]), cpp_dynamic_assign(L, C, Name, E)
-    ;   cpp_static_scalar_late(C, N, T, E) -> D = declaration(L, linkonce, T, [var(Name, T, none)]), cpp_dynamic_assign(L, C, Name, E)
+    ;   cpp_static_floating_late(C, N, T, E) -> D = declaration(L, linkonce, T, [var(Name, T, none)]), cpp_dynamic_assign(L, C, linkonce, Name, E)
+    ;   cpp_static_scalar_late(C, N, T, E) -> D = declaration(L, linkonce, T, [var(Name, T, none)]), cpp_dynamic_assign(L, C, linkonce, Name, E)
+    ;   cpp_static_dynamic(C, N, T, E, TC) -> D = declaration(L, linkonce, T, [var(Name, T, none)]), cpp_dynamic_init(C, linkonce, Name, T, TC, E)
     ;   D = declaration(L, extern, T, [var(Name, T, none)]) ),
     cpp_static_decls(L, C, Ss, Ds).
+%% A STATIC DATA MEMBER OF CLASS TYPE INITIALIZED IN ITS CLASS (an inline variable, every unit's) IS DESTROYED AT EXIT, once (0.192):
+%% one the evaluator constructs registers its destructor under its guard (cpp_ginit_add/3), and one it cannot construct is constructed
+%% before main in its class's words and registered, under the guard too -- `static inline Loud l{3};' was declared `extern', defined
+%% nowhere, and its first use failed at the link. Never an AGGREGATE, whose braced items are no constructor's arguments: libc++'s
+%% `static constexpr array<__compile_time_handle<_CharT>, sizeof...(_Args)> __handles_{...}', which only the consteval check of a
+%% format string names, stays declared and not defined, as 0.112 left it (`no_constructor('array.__compile_time_handle.char.2', 2)')
+cpp_static_dtor_reg(Name, T) :- ( cpp_class_of_type(T, TC), cpp_dtor(TC, DName) -> cpp_gdtor_reg(Name, DName, Reg), cpp_ginit_add(linkonce, Name, [Reg]) ; true ).
+cpp_static_dynamic(C, N, T, ID, TC) :- cpp_sinit(C, N, E), cpp_class_of_type(T, TC), cpp_has_ctors(TC), \+ cpp_aggregate_class(TC), ( cpp_prvalue_init(T, E, IP) -> ID = IP ; ID = E ).
 %% A STATIC MEMBER DECLARED `auto' TAKES THE TYPE OF ITS INITIALIZER ([dcl.spec.auto]), desugared in its class's words:
 %% libc++'s `_IterOps<_RangeAlgPolicy>' writes `static constexpr auto __iter_move = ranges::iter_move;', a customization
 %% point object, and every ranges algorithm calls through it.
@@ -5188,7 +5290,7 @@ cpp_udl_imag(S, L, _) :- cpp_refuse(0, literal_operator_not_visible(S, L)).
 cpp_text_double(A, F) :- atom_codes(A, Cs), once(phrase(ccl_number(0, tok(float, F, _)), Cs)).   % the double nearest the text, as the lexers read a decimal or a hex one
 cpp_local_class(_, K, N, Bases0, Ms0, Name) :- '$cpp_localcls'(class(K, N, Bases0, Ms0), Name), !.   % ONCE per text, as a lambda is: the result of a function is deduced from a walk of its first return, and the walk that emits meets the class again
 cpp_local_class(L, K, N, Bases0, Ms0, Name) :-
-    ccl_gensym(local, G), ( N == anon -> Name = G ; atomic_list_concat([N, '.', G], Name) ),
+    ccl_gensym(local, G0), cpp_unit_tag(UT), ( UT == '' -> G = G0 ; atomic_list_concat([G0, '_', UT], G) ), ( N == anon -> Name = G ; atomic_list_concat([N, '.', G], Name) ),   % the unit's tag in the name (0.192)
     ( N == anon -> Bases = Bases0, Ms = Ms0 ; cpp_rename_names(Bases0, ['$deep'-yes, N-Name], Bases), cpp_rename_names(Ms0, ['$deep'-yes, N-Name], Ms) ),   % its own name inside it is the new one
     ( N == anon -> true ; cpp_fsig_now(Encl), assertz('$cpp_pf_local'(Name, N, Encl)) ),             % the function it is written in: its members' own names (0.166)
     cpp_isolated(( cpp_register_class(L, Name, Bases, Ms), cpp_item(declare(L, base([], [class(K, Name, Bases, Ms)])), Its) )),
@@ -5232,23 +5334,20 @@ cpp_decl_pieces(Ctx, L, Sto, B, [var(N, T0, init(Items))|Vs], Pieces) :-
 cpp_decl_pieces(Ctx, L, static, B, [var(N, T0, I)|Vs], Pieces) :-
     atom(N), cpp_type(T0, T), cpp_class_of_type(T, C), cpp_has_ctors(C), ( I \== none ; \+ cpp_trivial_default(C) ), !,
     ccl_declare(N, T),
-    (   cpp_fold_quietly(T, C, I, IV) -> Pieces = [declaration(L, static, B, [var(N, T, IV)])|P1]
+    (   cpp_fold_quietly(T, C, I, IV)
+    ->  (   cpp_dtor(C, DName)   % ... AND ONE CONSTRUCTED AT COMPILE TIME REGISTERS ITS DESTRUCTOR the first time control passes it, under the guard (0.192): it registered none
+        ->  cpp_static_guard(L, N, G, GT, Acq, Rel), cpp_cxa_atexit(L, N, DName, Reg),
+            Pieces = [declaration(L, static, B, [var(N, T, IV)]), declaration(L, static, GT, [var(G, GT, none)]), if(L, Acq, block([Reg, Rel]), none)|P1]
+        ;   Pieces = [declaration(L, static, B, [var(N, T, IV)])|P1] )
     ;   ( I = '$cpp_walked'(E1) -> W = I ; I \== none, I \= ctor(_), I \= init(_) -> cpp_expr(Ctx, I, E1), W = '$cpp_walked'(E1) ; W = I ),   % the initializer walked ONCE
         (   nonvar(E1), cpp_class_of_type_of(E1, C), \+ cpp_lvalue(E1), \+ E1 = move(_)
         ->  cpp_temp_elide(E1, E2), InitS = expr(L, assign('=', id(N), E2))   % a prvalue of the class IS the object (C++17)
         ;   cpp_ctor_args(Ctx, W, C, Args), length(Args, NA), ( cpp_ctor(C, Args, CName) -> true ; cpp_refuse(L, no_constructor(C, NA)) ),
             cpp_fill_defaults(CName, Args, Args0), cpp_ref_args_of(CName, Args0, Args1), cpp_copies(call(id(CName), [addr(id(N))|Args1]), Call), InitS = expr(L, Call) ),
-        atom_concat('$guard.', N, G), GT = base([], [long]), ccl_declare(G, GT),
-        cpp_math_declared('__cxa_guard_acquire', base([], [int]), [param(ptr([], GT), g)]),
-        cpp_math_declared('__cxa_guard_release', base([], [void]), [param(ptr([], GT), g)]),
-        (   cpp_dtor(C, DName)
-        ->  VP = ptr([], base([], [void])), FT = ptr([], fn(base([], [void]), [param(VP, p)], false)),
-            cpp_math_declared('__cxa_atexit', base([], [int]), [param(FT, f), param(VP, p), param(VP, d)]),
-            Reg = [expr(L, call(id('__cxa_atexit'), [cast(FT, id(DName)), cast(VP, addr(id(N))), nullptr]))]
-        ;   Reg = [] ),
-        append([InitS|Reg], [expr(L, call(id('__cxa_guard_release'), [addr(id(G))]))], Once),
-        Pieces = [declaration(L, static, B, [var(N, T, none)]), declaration(L, static, GT, [var(G, GT, none)]),
-                  if(L, call(id('__cxa_guard_acquire'), [addr(id(G))]), block(Once), none)|P1] ),
+        cpp_static_guard(L, N, G, GT, Acq, Rel),
+        ( cpp_dtor(C, DName) -> cpp_cxa_atexit(L, N, DName, R1), Reg = [R1] ; Reg = [] ),
+        append([InitS|Reg], [Rel], Once),
+        Pieces = [declaration(L, static, B, [var(N, T, none)]), declaration(L, static, GT, [var(G, GT, none)]), if(L, Acq, block(Once), none)|P1] ),
     cpp_decl_pieces(Ctx, L, static, B, Vs, P1).
 %% A FUNCTION-LOCAL STATIC ARRAY OF OBJECTS (0.117) is initialized the first time control passes its declaration, as
 %% a static object is: under the guard, each element made in order (the local array's road, cpp_elems_from), then the
@@ -5329,6 +5428,16 @@ cpp_decl_pieces(Ctx, L, Sto, B, [var(N, T0, I)|Vs], Pieces) :-
             Pieces = [declaration(L, Sto, B, [var(N, T, I2)])|P1] ) ),
     ( Sto \== static, Sto \== extern, cpp_class_of_type(T, C2), cpp_dtor(C2, DName) -> cpp_check_access(Ctx, C2, '$dtor'), cpp_scope_end(L, N, LE), P1 = [defer(L, [], block([expr(LE, call(id(DName), [addr(id(N))]))]))|P2] ; P1 = P2 ),   % THE DESTRUCTOR'S ACCESS where a local of the class ends (0.127; [class.dtor]/15)
     cpp_decl_pieces(Ctx, L, Sto, B, Vs, P2).
+%% a local static's guard, the Itanium ABI's (`$guard.N', a static of its own; `__cxa_guard_acquire' answers non-zero once,
+%% `__cxa_guard_release' marks it done), and its destructor's registration with `__cxa_atexit' (the destructor itself the
+%% callback, the object its argument, a null DSO handle), for both roads of a local static of class type (0.112, 0.192)
+cpp_static_guard(L, N, G, GT, call(id('__cxa_guard_acquire'), [addr(id(G))]), expr(L, call(id('__cxa_guard_release'), [addr(id(G))]))) :-
+    atom_concat('$guard.', N, G), GT = base([], [long]), ccl_declare(G, GT),
+    cpp_math_declared('__cxa_guard_acquire', base([], [int]), [param(ptr([], GT), g)]),
+    cpp_math_declared('__cxa_guard_release', base([], [void]), [param(ptr([], GT), g)]).
+cpp_cxa_atexit(L, N, DName, expr(L, call(id('__cxa_atexit'), [cast(FT, id(DName)), cast(VP, addr(id(N))), nullptr]))) :-
+    VP = ptr([], base([], [void])), FT = ptr([], fn(base([], [void]), [param(VP, p)], false)),
+    cpp_math_declared('__cxa_atexit', base([], [int]), [param(FT, f), param(VP, p), param(VP, d)]).
 %% A FORWARDING REFERENCE, `auto &&x = e' (cv-unqualified), GIVEN AN LVALUE IS `T &' ([dcl.spec.auto.general]/4,
 %% [temp.deduct.call]/3; 0.132): it was `T &&' whatever e was, so `std::forward<decltype(x)>(x)' moved from an lvalue,
 %% and a call that returns a reference was taken for a temporary to extend -- join_view's `auto &&__inner = [this]() ->
@@ -9520,7 +9629,7 @@ cpp_lambda_(Ctx, Caps, Ps0, Ret0, Body, E) :-
     ( memberchk(tparams(TPs0), Caps) -> true ; TPs0 = [] ),
     cpp_auto_params(Ps1, 0, Ps1a, TPsA), append(TPs0, TPsA, TPs00), cpp_lambda_constraint(Caps, Ps1a, TPs00, TPs),
     cpp_lambda_params(Ps1a, TPs, Ps),
-    nb_getval('$cpp_lambdas', K0), K is K0 + 1, nb_setval('$cpp_lambdas', K), atomic_list_concat(['lambda.', K], Name),
+    nb_getval('$cpp_lambdas', K0), K is K0 + 1, nb_setval('$cpp_lambdas', K), cpp_unit_tag(UT), ( UT == '' -> atomic_list_concat(['lambda.', K], Name) ; atomic_list_concat(['lambda.', K, '_', UT], Name) ),   % THE UNIT'S TAG in the name (0.192, cpp_unit_tag/1)
     T = base([], [typedef(Name)]),
     ( SN == none -> Self = [], SelfPs = Ps ; cpp_self_type(ST0, Name, ST), Self = [param(this(ST), SN)], SelfPs = [param(ST, SN)|Ps] ),
     cpp_captures(Ctx, Caps, SelfPs, Body, Captures),
@@ -9991,7 +10100,7 @@ cpp_dbg_spell(base(Q, Sp), S) :- !, cpp_dbg_specs(Sp, S0), ( memberchk(const, Q)
 cpp_dbg_specs([typedef(N)], S) :- !, atom(N), ( catch('$cpp_clsl'(N, _), _, fail) -> cpp_dbg_class_spelled(N, S) ; S = N ).
 cpp_dbg_specs([X], S) :- compound(X), functor(X, F, _), memberchk(F, [struct, union, enum, enum_class]), arg(1, X, N), atom(N), !, cpp_dbg_class_spelled(N, S).
 cpp_dbg_specs(Sp, S) :- forall(member(X, Sp), atom(X)), atomic_list_concat(Sp, ' ', S).
-cpp_dbg_class_spelled(C, S) :- cpp_dbg_class_path(C, P, Chain), append(P, Chain, All), atomic_list_concat(All, '::', S).
+cpp_dbg_class_spelled(C, S) :- cpp_dbg_class_path(C, P0, Chain), cpp_pf_anon(P0, P), append(P, Chain, All), atomic_list_concat(All, '::', S).
 cpp_dbg_op_spell(W, S) :- atom_concat(conv_, K, W), !, atom_concat('operator ', K, S).
 cpp_dbg_op_spell(W, S) :- member(Op, ['+', '-', '*', '/', '%', '==', '!=', '<', '>', '<=', '>=', '+=', '-=', '*=', '/=', '%=', '[]', '()', '<<', '>>', '!', '&&', '||', '&', '|', '^', '~', '++', '--', '=', '->', '<<=', '>>=', '&=', '|=', '^=', '<=>', ',', '->*']),
     catch(cpp_op_word(Op, W0), _, fail), W0 == W, !, atom_concat(operator, Op, S).
@@ -10217,7 +10326,10 @@ cpp_pf_same_arg(X, Y) :- cpp_pf_int_of(X, I), cpp_pf_int_of(Y, J), !, I =:= J.
 cpp_pf_same_arg(X, Y) :- cpp_is_type(X), cpp_is_type(Y), catch(cpp_same_type(X, Y), _, fail).
 %% a namespace's name and the name in it: the program's own (`'$cpp_own_ns''), a header's (an inline namespace left out);
 %% a key `inner.f' is the `f' of the namespace that ends in `inner'
-cpp_pf_ns_name(N, K, S) :- atomic_list_concat(Segs, '.', N), ccl_last(Segs, Short), cpp_pf_ns_path(N, Segs, Short, K, P), append(P, [Short], All), atomic_list_concat(All, '::', S).
+cpp_pf_ns_name(N, K, S) :- atomic_list_concat(Segs, '.', N), ccl_last(Segs, Short), cpp_pf_ns_path(N, Segs, Short, K, P0), cpp_pf_anon(P0, P), append(P, [Short], All), atomic_list_concat(All, '::', S).
+%% an unnamed namespace's segment spelled as clang spells it in a function's description, `(anonymous namespace)' (0.192)
+cpp_pf_anon([], []).
+cpp_pf_anon([S0|Ss0], [S|Ss]) :- ( cpp_anon_seg(S0) -> S = '(anonymous namespace)' ; S = S0 ), cpp_pf_anon(Ss0, Ss).
 cpp_pf_ns_path(N, _, _, _, P) :- catch('$cpp_own_ns'(N, P), _, fail), !.
 cpp_pf_ns_path(_, Segs, Short, _, P) :- Segs = [_, _|_], append(Pre, [Short], Segs), catch('$cpp_own_ns'(Short, P), _, fail), append(_, Pre, P), !.
 cpp_pf_ns_path(N, _, _, K, P) :- cpp_pf_lib(K, N), ( catch('$cpp_hdr_ns'(N, P0), _, fail) -> true ; catch('$cpp_hdr_ast_ns'(N, P0), _, fail) ), is_list(P0), !, findall(X, ( member(X, P0), atom(X) ), P).

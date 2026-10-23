@@ -374,7 +374,10 @@ views that tree adds (`pairwise`, `adjacent`, `zip_transform`,
 `adjacent_transform`), built by hand: no gate reads that tree; since 0.191
 libc++ with RTTI, as clang++ builds it, and its no-RTTI configuration under
 `-fno-rtti`, `std::any` and `std::any_cast` in both, and a `shared_ptr` with
-a deleter.
+a deleter; since 0.192 programs of several units built apart: each unit's
+lambdas, local classes and unnamed namespace stay its own at the link, a
+header's inline variables are one object, and every static object is
+destroyed at exit, one constructed at compile time too.
 `test/libcxx.sh` reads `<vector>`, `<string>`,
 `<iostream>`, `<map>`, `<set>`, `<unordered_map>`, `<unordered_set>`,
 `<optional>`, `<memory>`, `<functional>`, `<tuple>` and `<algorithm>` whole,

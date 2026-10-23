@@ -185,6 +185,7 @@ One row per step, in version order: the step's title, what it did and its gate n
 | 0.189 | the chain of 0.188 | no library file changed: the numbers of 0.188's chain | all nine gates GREEN over libc++ 18 in 1427 s, the two libc++ gates over 21; the headers' reads summed 999 s and 877 s (0.187's 1349 s and 1191 s), the fixtures' builds 2638 s and 2701 s; 600 of 604 C++ fixtures over 18, 602 over 21; the chain's summaries the 0.188 nets', 52 of 52 over each |
 | 0.190 | cocolog 2.11.1; the native lexer's buffers grow through a second pointer; the owner's four decisions | cocolog 2.11.1 (a failed store read raises and loses no row, growths keep their block); the native lexer's two `x = realloc(x, n)` sites grow through a second pointer, a refused allocation `resource_error(memory)` where the module of 0.189 crashed (signal 11, under a shim that refuses its requests); libc++'s configurations measured (a throw in its headers' code aborts, one in the compiled library is caught; `std::dynamic_pointer_cast` runs, written absent since 0.86); the safe part's boundary measured (a borrow handed into a `std::vector` or a `std::function` and returned compiles); the four questions put to the owner and their answers, the next steps | committed before its chain: on 2.11.1 the flow gate GREEN (4151 predicates), the reader, compile, driver and objects gates, the proof and the cross gate's C part GREEN; five warm C++ builds 59.17 s on 2.11.0 and 58.42 s on 2.11.1 (the least CPU time of three interleaved runs) |
 | 0.191 | RTTI in libc++ on by default, as clang++ has it; `-fno-rtti` gives the no-RTTI configuration; `std::any` and a `shared_ptr`'s deleter, which never built | `__cpp_rtti` and `__GXX_RTTI` predefined in C++ unless `-fno-rtti`; under it `typeid` and a downcasting or cross-casting `dynamic_cast` refused by name, a header's `std::dynamic_pointer_cast` too; a summary read under it keyed apart; four older defects the new fixtures met: a base written `decltype(e)`, the address of a static constant member, a static member function's thunk emitted twice, a qualification conversion tied with the identity (and the partial ordering of `f(T *)` and `f(const T *)`); the numbers of 0.190's chain | all nine gates GREEN over libc++ 18, the two libc++ gates over 21 (the C++ gate's first run RED at one refusal's expected text, corrected in this commit); the headers' reads summed 1176 s and 1104 s over 120 (0.190's 1000 s and 904 s over 114), the fixtures' builds 2919 s and 3037 s; 604 of 608 C++ fixtures over 18, 606 over 21 |
+| 0.192 | each unit's own names at the link: closures, local classes, unnamed namespaces; statics constructed at compile time destroyed at exit; inline variables one object; a temporary returned through the hidden pointer constructed in place | the unit's tag in a closure's and a local class's name; an unnamed namespace its unit's own (named by the tag, its names keyed by its path, its type information internal, `_GLOBAL__N_1` to the mangler); a static constructed at compile time registers its destructor; an inline variable linkonce, initialized and destroyed once under a guard, before the unit's ordered initializations; the program's header's variables defined, a header class's statics at its place; a namespace-scope const variable internal; a class-typed static member the evaluator cannot construct constructed before main; a statement's temporary that a call returns through the hidden pointer constructed in place (`std::function<int(int)> ha(); ha()(5)` freed the stack); the C++ gate's two units built apart | all nine gates GREEN over libc++ 18, the two libc++ gates over 21; the headers' reads summed 1229 s and 1109 s over 120, the fixtures' builds 2896 s and 3385 s; 606 of 610 C++ fixtures over 18, 608 over 21 |
 
 ## M5 — the C++ mode
 
@@ -12157,3 +12158,104 @@ refusal, which this commit corrects.**
   0.191; Not done (the first decision done, the get_deleter case under the third, the two defects of the next step).
 
 Reader 143 (every libc++ header flattens in its RTTI configuration) and lowering 104.
+
+## 0.192 — each unit's own names at the link: closures, local classes, unnamed namespaces; statics constructed at compile time destroyed at exit; inline variables one object; a temporary returned through the hidden pointer constructed in place
+
+**0.192: the two defects that 0.191 found, and five more that the programs of two units built apart met, each
+measured over 0.191 against clang++. A closure's and a local class's name carries the unit's tag, and an unnamed
+namespace is its unit's own, so two units' names never meet at the link; a static constructed at compile time
+registers its destructor; an inline variable is defined in every unit that has it and initialized and destroyed once;
+the program's header defines its variables; a namespace-scope const variable is internal; a static data member of a
+class type that the evaluator cannot construct is constructed before main; and a statement's temporary that a call
+returns through the hidden pointer is constructed in place, where `ha()(5)` over `std::function<int(int)> ha()` freed
+the stack. The C++ gate builds two units apart and links them.**
+
+- THE UNIT'S TAG (`library/ccl_cpp.pl`, `cpp_unit_tag/1`): a fold of the main file's absolute path, the command line's
+  macros, the configuration and the target (`ccl_fold/4` over the four keys a summary's fold takes), in base 36, kept
+  for the file in `'$cpp_utag'`. A name that is one unit's own carries it.
+- CLOSURES AND LOCAL CLASSES: `lambda.K_<tag>` and `Loc.local_K_<tag>`. K counts in one unit only, and the closure's
+  functions and the instances made over it are emitted `linkonce_odr`, so two units' `lambda.1` were one function at
+  the link and one unit ran the other's body: `11 20 100 7` where clang++ prints `11 10009 100 7` (0.191's probe).
+- UNNAMED NAMESPACES ([namespace.unnamed]/1; `cpp_anon_ns_units/2` at the head of `cpp_ns_resolve/2`): the namespace is
+  named `_GLOBAL__N_<tag>`, a using-directive of it stands after its block, and every name it declares is keyed by its
+  whole path (`cpp_anon_quals/3`), so the renaming of the namespaces finds it after the block; a qualified name looks
+  into the unnamed namespace of the namespace it names where that namespace declares no such name (`cpp_anon_in/4` in
+  `cpp_abs_ns_path/5`: `n::deep()`, `::helper()`). The mangler spells the segment `12_GLOBAL__N_1` (`cpp_ita_ns/7`), the
+  type information of a type that names it is `internal` (`ir_rtti_link/2`, in `library/ccl_ir.pl`: `typeid` of two
+  units' `S` are two types, as clang++ has them), `__PRETTY_FUNCTION__` says `(anonymous namespace)` (`cpp_pf_anon/2`)
+  and the debug information's namespace has no name. It was flattened into its enclosing namespace: two units that each
+  define `namespace { int helper(); }` did not link, two strong definitions.
+- A STATIC CONSTRUCTED AT COMPILE TIME IS DESTROYED AT EXIT ([basic.start.term]/1, /3): a namespace-scope object or a
+  static data member defined out of its class whose constructor the evaluator runs registers its destructor with
+  `atexit` where the unit's initialization function reaches its declaration (`cpp_gdtor_reg/3`, the wrapper
+  `$cpp_gdtor.N`), and a local `static` the first time control passes it, under its guard (`cpp_static_guard/6`,
+  `cpp_cxa_atexit/4`). It registered nothing: `~K` of `K k(2);` over a constexpr constructor never ran.
+- AN INLINE VARIABLE IS ONE OBJECT ([basic.def.odr]/14, [basic.start.dynamic]/1): it is `linkonce`
+  (`cpp_inline_storage/3`; it was a strong `global`), and its initialization and its destructor's registration -- a
+  static data member's initialized in its class too -- stand under a guard of its own, `$gv.N`, linkonce as the
+  variable is, in a list (`'$cpp_ginit_pre'`, `cpp_ginit_add/3`) that the unit's initialization function runs before its
+  ordered initializations, as clang runs them, each in an `llvm.global_ctors` entry of its own ahead of the unit's. The
+  lists are emptied before the units register (`cpp_ginit_reset/0` in `ccl_cpp_units/2`), since the registration
+  emits the program's headers' classes, and after each unit's function is made.
+- THE PROGRAM'S HEADER DEFINES ITS VARIABLES (`cpp_header_fns/1`): none was defined, and a header's `inline Cnt gc(5);`,
+  `inline int iv = 10;` and `inline constexpr int ic = 9;` were undefined symbols at the link (measured over 0.191:
+  `gc`, `gk`, `ic`, `iv` and `A.sc` undefined in two units over one header). A header class's static members are
+  initialized at the class's place among them (`cpp_hdr_pre_apart/2`, `'$cpp_hdr_pre'`): the class is emitted at its
+  registration, so its guarded initializations came before every variable of the header, `ULoud 8` before `ULoud 5`
+  in the gate's two units, where clang++ initializes in the order of the definitions.
+- A CONST VARIABLE AT NAMESPACE SCOPE IS INTERNAL ([basic.link]/3.2; `cpp_internal_const/1`): `const int k = 5;` in two
+  units was `multiple definition of 'k'` at the link (measured over 0.191), and so was a header's `constexpr int N = 8;`
+  that two units include. A name the program declares `extern` anywhere keeps its external linkage (`'$cpp_extern_var'`,
+  noted before the units register), and a static data member keeps its class's.
+- A STATIC DATA MEMBER OF A CLASS TYPE WITH A CONSTRUCTOR, initialized in its class, that the evaluator cannot construct
+  is constructed before main in its class's words (`cpp_static_dynamic/5`, `cpp_dynamic_init/6`), under its guard:
+  `static inline Loud l{3};` over a constructor that prints was declared `extern` and defined nowhere. Never an
+  aggregate's: the net's first run met libc++'s `__handles_` (`static constexpr array<__compile_time_handle<_CharT>,
+  sizeof...(_Args)> __handles_{...}`, named only by the consteval check of a format string), whose braced items no
+  constructor takes -- `stdformat.cpp`, `fmtcheck.cpp` and `fmtrange.cpp` stopped at
+  `no_constructor('array.__compile_time_handle.char.2', 2)` -- and it stays declared and not defined, as 0.112 left it.
+- A STATEMENT'S TEMPORARY THAT A CALL RETURNS THROUGH THE HIDDEN POINTER IS CONSTRUCTED IN PLACE (`library/ccl_ir.pl`,
+  an `ir_stmt_` clause on `expr(L, assign('=', id(N), R))` for a desugarer's `$tmp...` and `ir_sret_call(R, T)`): the
+  desugaring declares a temporary of a class with a destructor by the statement and gives it its value by `$tmp = f()`
+  (`cpp_temp_call/3`, a call returning a class by value, called), and the lowering copied it bitwise from the call's own
+  slot. `ha()(5)` over `std::function<int(int)> ha() { return [](int x) { return x * 2; }; }` called through a pointer
+  into that slot and the destructor freed the stack, `free(): invalid pointer` (measured over 0.191). No other
+  assignment of a class takes the road: a program's `x = f()` may alias x in f, and is copied as clang copies it.
+- THE C++ GATE'S TWO UNITS (`test/cpp.sh`, after the check of a cold build's processes): `test/cpp/link/units_a.cpp` and
+  `units_b.cpp` over `units.h`, each built by `cicilang++ -c` in a process of its own, linked and run against
+  `units.expect`, clang++ 18's output: each unit's closures, local classes, unnamed namespace, static functions and type
+  information, a `std::function` of a lambda, generic lambdas, a lambda's pointer to function, a class with a table in
+  each unit's unnamed namespace, `n::use()` over a nested unnamed namespace, `(anonymous namespace)` in a function's
+  description, the header's inline variables, inline static members and an inline function's static local.
+- FIXTURES: `staticdtor.cpp` (statics constructed at compile time destroyed at exit in the reverse order of their
+  construction, beside dynamically initialized ones, at namespace scope, out of a class, inline in and out of a class,
+  `static`, local) and `tempsret.cpp` (a class that holds its own address and a `std::function`, each returned by value
+  and called at once, in a loop and as a local's initializer), each clang++'s output over libc++ 18; over 0.191
+  `staticdtor.cpp` printed none of its eight compile-time destructions and `tempsret.cpp` freed the stack.
+- THE NET, over the warm HOME of 0.191's chain (libc++ 18), three at a time: 87 fixtures that reach the changed rules --
+  the lambdas, the local classes, the statics and the inline variables, the temporaries of calls, the program's
+  headers (`bag`, `member`, `headerunit`, `hdrinline`, `modules`), the type information, the format and the range
+  fixtures, the containers -- 84 the same as their `.expect`, three stopped at the aggregate's static above; with it
+  mended, the three and the two new fixtures the same. Eight probes of two units each against clang++ the same:
+  closures, local classes and unnamed namespaces, inline variables over a header, const variables, a class with a table
+  in each unit's unnamed namespace, statics, a `std::function` returned. The flow gate GREEN (its one finding).
+- THE CHAIN OF 0.192, over a fresh worktree of its commit and fresh HOMEs (the reader version moved), on cocolog 2.11.1,
+  09:07:57 to 09:56:37 UTC: ALL GREEN. Over libc++ 18: the flow gate 90 s (peak 2945 MB, its one finding), reader 5 s,
+  compile 12 s, driver 13 s, objects 4 s, the proof, the cross gate 272 s (peak 451 MB), the library read 334 s (peak
+  779 MB; the 23 asserted reads whole, 97 other headers warmed), the C++ gate 869 s (peak 2171 MB), 606 of 610 fixtures
+  ok (skips `joinwith`, `stdoptionalref`, `tzone`, `zipadjacent`), the cold build's processes, the two units, the 26
+  refusals and the three of the safe part; over libc++ 21 the library read 303 s (peak 702 MB) and the C++ gate 999 s
+  (peak 1996 MB), 608 of 610 (skips `stdoptionalref`, `zipadjacent`). The headers' reads summed 1229 s over 120 and 1109
+  s over 120 (0.191's 1176 s and 1104 s), the fixtures' builds 2896 s over 606 and 3385 s over 608 (0.191's 2919 s over
+  604 and 3037 s over 606; clang's builds of the next steps' probes ran beside the libc++ 21 pass, one at a time at a
+  lower priority, and its builds count them); the slowest over 18 `fmtrange` 120 s, `fmtchrono2` 115 s, `fmtchrono` 102
+  s, `viewsall` 85 s, `fmttuple` 80 s, `fmtcheck` 80 s, over 21 `fmtchrono2` 149 s, `fmtchrono` 141 s, `fmtrange` 116 s,
+  `fmtcheck` 108 s, `viewsall` 83 s, `joinwith` 75 s.
+- `CLAUDE.md`: the versions; the C++ gate's two units; the program's header's variables; the static destroyed at exit,
+  the variable every unit may define, the const variable's linkage, the class-typed static member; a closure's name;
+  a local class's name; the unnamed namespace; the temporary of a call called, and the statement's temporary in place;
+  the forms of 0.192; Hosts (the last full run); Not done (the two defects of 0.191 gone).
+
+Reader 143 and lowering 105 (the IR of such programs: a closure's and a local class's name, the inline variables and
+their guards, the internal const variables, the type information of an unnamed namespace's types, the statement's
+temporary in place).

@@ -10,8 +10,8 @@ it found, its measurements and its gate numbers. `README.md` tells a user what r
 architecture and the milestones. A step that changes a rule edits the rule here, in its topic, and writes its entry
 in `HISTORY.md`.
 
-At 0.191 the versions are: the module 0.191 (`ccl_p_version` in `module/cicilang.cicili`, `bin/cicilang --version`),
-the reader 143 (`ccl_reader_version/1`, `library/ccl_syntax.pl`) and the lowering 104 (`ccl_lowering_version/1`,
+At 0.192 the versions are: the module 0.192 (`ccl_p_version` in `module/cicilang.cicili`, `bin/cicilang --version`),
+the reader 143 (`ccl_reader_version/1`, `library/ccl_syntax.pl`) and the lowering 105 (`ccl_lowering_version/1`,
 `library/ccl_ir.pl`).
 
 Build and prove, always in this order (or all of it, `sh test/gates.sh`):
@@ -320,7 +320,8 @@ test/c/run/                 C programs built and run: NAME.c, NAME.expect, NAME.
 test/c/safe/                C programs the safe part refuses: NAME.c, NAME.expect
 test/cpp/                   the C++ reader's fixtures and the refusals; hidem.cppm for modhidden.cpp
 test/cpp/link/              the C++ ABI checks of the C++ gate and the cross gate: abi_helper.cpp and memptr_helper.cpp
-                            built by clang++, abi_main.cpp and memptr_main.cpp by cicilang++, abi.h, memptr.h
+                            built by clang++, abi_main.cpp and memptr_main.cpp by cicilang++, abi.h, memptr.h; the C++
+                            gate's two units, units_a.cpp and units_b.cpp over units.h, both by cicilang++, units.expect
 test/cpp/run/               C++ programs built and run: NAME.cpp, .expect, .flags, .stdin, .needs; bag.h, hunit.h,
                             basem.cppm and mathm.cppm (for modules.cpp), embed26.txt
 
@@ -578,13 +579,16 @@ tutorials/01..03-*.pl       the objects layer's lessons; goal main, last line do
   the summaries in under 8 s; `cicilang++ -fsyntax-only classes.cpp` says nothing and exits 0; (0.188) a cold build
   reads its library headers by processes of their own -- `stdcstdlib.cpp`'s five, over a summary directory of the
   check's own, four at a time: `-v` names five processes and five summaries written, and the binary prints its
-  `.expect`; and (0.135) classes cross
+  `.expect`; (0.192) two units built apart, each by `cicilang++ -c` in a process of its own, link and print clang++'s
+  output (`test/cpp/link/units_a.cpp`, `units_b.cpp` over `units.h`, against `units.expect`): each unit's closures,
+  local classes, unnamed namespace, static functions and their type information its own, the header's inline variables
+  and inline static members one object each, constructed and destroyed once; and (0.135) classes cross
   a call between code that clang++ built and code that cicilang++ built as the Itanium ABI lays them (`test/cpp/link/`:
   `abi_helper.cpp` built by `$LLVM`'s clang++, else the one on the path, linked with `abi_main.cpp`; a base's tail
   padding reused, the table pointer first; no clang++ is a SKIP line); and (0.161) pointers to member functions cross
   such a call both ways -- a virtual and a plain member of a first and of a second base, an override, a null one
   (`memptr_helper.cpp` by clang++, `memptr_main.cpp` by cicilang++). After the fixtures, `classes.cpp` builds and exits
-  34, and `templates.cpp` exits 10. (M5, 0.34, 0.35, 0.135, 0.161, 0.188)
+  34, and `templates.cpp` exits 10. (M5, 0.34, 0.35, 0.135, 0.161, 0.188, 0.192)
 - The fixture builds assume a warm cache: a build that only reads summaries is safe in parallel, and a cold flatten
   under load is not. `CPP_JOBS=1` makes the gate serial. (0.105)
 - `ccl_fixture NAME` builds with `NAME.flags`, capped at `CPP_FIXTURE_SECS` (2400 s) by `ccl_capped`. Past the cap,
@@ -2034,6 +2038,13 @@ tutorials/01..03-*.pl       the objects layer's lessons; goal main, last line do
   emitted `linkonce` (`cpp_linkonce/2`), so two units link (`test/cpp/run/bag.cpp`, `bag.h`). Its inline functions are
   emitted with the program, by `#include` and by `import` (`cpp_include_fns`, `cpp_header_fns`), unless it lies under
   `/usr/`, `/opt/`, `/Library/` or `/Applications/` (`cpp_system_path`). `test/cpp/run/hdrinline.cpp`. (0.41, 0.110)
+  So are the variables it defines (0.192; `cpp_header_fns/1`): an `inline` one `linkonce`, initialized and destroyed
+  once, a `const` one the unit's own (the Destructors topic of Classes); none was defined, and a header's `inline Cnt
+  gc(5);`, `inline int iv = 10;` and `inline constexpr int ic = 9;` were undefined symbols at the link. A header class's
+  static members are initialized at the class's place among them, in the order of their definitions, as clang orders a
+  unit's inline variables: the class is emitted at its registration, and the guarded initializations its emission adds
+  are set apart (`cpp_hdr_pre_apart/2`, `'$cpp_hdr_pre'(C, Ss)`) until `cpp_header_fns` meets the class -- they ran
+  before every variable of the header. The C++ gate's two units. (0.192)
 
 ### Resolution and the inclusion path
 
@@ -2205,7 +2216,7 @@ tutorials/01..03-*.pl       the objects layer's lessons; goal main, last line do
   0.117)
 - A reader bump makes every summary cold; `test/libcxx.sh` rewrites them. `test/reader.pl`'s `k16` (a cached read is
   the same AST as a fresh one) goes RED on a grammar change without a bump. (0.93, 0.105)
-- `ccl_lowering_version/1` (`library/ccl_ir.pl`, now 104): bump it whenever the check or the lowering changes what it
+- `ccl_lowering_version/1` (`library/ccl_ir.pl`, now 105): bump it whenever the check or the lowering changes what it
   emits, however small -- 0.120 bumped it for the ORDER of the drain functions alone. Why: `dr_ir/3` serves the old IR
   otherwise. Either bump starts the C store afresh. (M4, 0.103, 0.120)
 
@@ -2332,7 +2343,8 @@ free. A const method adds `.c`, a ref-qualified one `.r` or `.rr` after it: each
   base has no sub-object and no hop (`cpp_base_hops`). `usingbase.cpp`, `overloaded.cpp`. (0.121)
 - A LOCAL CLASS ([class.local]; 0.121) -- a `struct` or `class` defined in a function body, named or not, with a
   member function, a constructor or a base (a struct of plain data stays C's) -- is a class of the unit under a name
-  of its own, `Loc.local_7` (`cpp_local_class/6`, from `cpp_stmts`): registered and emitted where the walk meets it,
+  of its own, `Loc.local_7_<tag>` (`cpp_local_class/6`, from `cpp_stmts`; the unit's tag since 0.192, the Lambdas topic's
+  closure class, so that two units' `Loc.local_7` are two classes at the link): registered and emitted where the walk meets it,
   as a closure's class is (`cpp_isolated`, `cpp_add_instance_items`), and the statements after it name it by that name
   (`cpp_rename_names` with the mark `'$deep'`, which reaches the template arguments of a qualified name too,
   `std::vector<Loc>`). An unnamed one is the type of its declaration (`cpp_subst_term/4`). One text is one class
@@ -2631,6 +2643,32 @@ free. A const method adds `.c`, a ref-qualified one `.r` or `.rr` after it: each
   over the static's address (a prvalue elided into it), the destructor is registered with `__cxa_atexit` (itself the
   callback, the object its argument, a null DSO handle), and `__cxa_guard_release` marks it done. `localstatic.cpp`.
   (0.112)
+- A STATIC CONSTRUCTED AT COMPILE TIME IS DESTROYED AT EXIT TOO ([basic.start.term]/1, /3: one initialized statically is
+  destroyed as if it had been initialized dynamically; 0.192): a namespace-scope object or a static data member defined out
+  of its class whose constructor the evaluator runs -- a constexpr one, or one it can run though it is not constexpr --
+  registers its destructor with `atexit` where the unit's initialization function reaches its declaration
+  (`cpp_gdtor_reg/3`, the wrapper `$cpp_gdtor.N`, as a dynamically initialized one's), and a local `static` the first time
+  control passes it, under its guard (`cpp_static_guard/6`, `cpp_cxa_atexit/4`, the two roads' one guard). It registered
+  nothing: `~K` of `K k(2);` over a constexpr constructor never ran, nor `~Cnt` of `Cnt c(1);` over `Cnt(int k) : n(k)
+  {}`. `staticdtor.cpp`. (0.192)
+- A VARIABLE EVERY UNIT MAY DEFINE IS DEFINED, INITIALIZED AND DESTROYED ONCE ([basic.def.odr]/14, [basic.start.dynamic]/1;
+  0.192): an `inline` variable is `linkonce` (`cpp_inline_storage/3`; it was a strong `global`, and two units that include
+  one header's `inline Cnt gc(5);` did not link), and its initialization and its destructor's registration, a static data
+  member's initialized in its class too, stand under a guard of its own, `$gv.N`, linkonce as the variable is, in a list
+  the unit's initialization function runs before its ordered initializations (`cpp_ginit_add/3`, `'$cpp_ginit_pre'`), as
+  clang orders them, each in an `llvm.global_ctors` entry of its own ahead of the unit's; unguarded, each unit constructed
+  the one object again. A static data member of class type initialized in its class whose construction the evaluator
+  cannot do is constructed before main, in its class's words (`cpp_static_dynamic/5`): `static inline Loud l{3};` was
+  declared `extern`, defined nowhere, and its first use failed at the link. Never an aggregate's, whose braced items are no
+  constructor's arguments: libc++'s `__handles_` of `basic_format_string`, which only the consteval check of a format
+  string names, stays declared and not defined, as 0.112 left it. `staticdtor.cpp`, the C++ gate's two units
+  (`test/cpp/link/units.h`). (0.192)
+- A CONST VARIABLE AT NAMESPACE SCOPE IS ITS UNIT'S OWN ([basic.link]/3.2: one of non-volatile const-qualified type that is
+  not declared `extern` or `inline`, here or before, has internal linkage; 0.192; `cpp_inline_storage/3` over
+  `cpp_internal_const/1`): `const int k = 5;` in two units, and a header's `constexpr int N = 8;` that two units include,
+  were two strong definitions of one symbol, a link error. A name the program declares `extern` anywhere keeps its
+  external linkage (`'$cpp_extern_var'/1`, `cpp_note_extern_vars/1`, noted before the units register), and a static data
+  member keeps its class's. (0.192)
 - A prvalue that initializes another object of its class IS that object ([class.copy.elision]; `cpp_temp_elide/2`): a
   by-value class parameter (`cpp_copies_`), a `return`, a local from a prvalue of its class (no constructor looked
   for), a closure built member by member. Why: destroyed at both ends, a temporary double-freed (`bag.cpp`) and
@@ -2687,8 +2725,9 @@ free. A const method adds `.c`, a ref-qualified one `.r` or `.rr` after it: each
 - A call whose callee is an object goes to its `operator()` over an address (`cpp_temp_call/3`). A temporary built in
   the same expression is called inside its block (`__destroy_vector(*this)()`), an aggregate temporary gets one
   (`_Algorithm()(a, b, c)`), and a call returning a class by value materializes a statement temporary
-  (`g.key_comp()(3, 1)`). `(*p)(a)`, `fs[i](a)` and a call returning a reference use their own address
-  (`cpp_addressable/1`). `tempcall.cpp`, `aggcall.cpp`. (0.55, 0.72, 0.80)
+  (`g.key_comp()(3, 1)`; one the call returns through the hidden pointer is constructed in place since 0.192, the
+  Lowering's topic of temporaries). `(*p)(a)`, `fs[i](a)` and a call returning a reference use their own address
+  (`cpp_addressable/1`). `tempcall.cpp`, `aggcall.cpp`, `tempsret.cpp`. (0.55, 0.72, 0.80, 0.192)
 - The call of a temporary object takes the argument passes a call by name takes (`cpp_copies` on the four roads of
   `cpp_temp_call/3`; 0.121): `std::hash<std::string>{}("hello")` handed the literal's address to a `const string &`
   parameter and hashed the bytes of a pointer. `fwdmember.cpp`.
@@ -4640,6 +4679,11 @@ A lambda is a class of its captures (`library/ccl_cpp.pl`). A fixture named alon
 - A lambda becomes the class `lambda.K` (`cpp_lambda/6` -> `cpp_lambda_/6`; `'$cpp_lambdas'` counts K): a data member
   per capture, and `operator()` over the parameters and body, marked `closure`. It is registered and emitted under
   `cpp_isolated/1`, so a local that is not captured is undeclared in the body. `lambdas.cpp`. (0.36)
+- ITS NAME CARRIES THE UNIT'S TAG, `lambda.K_<tag>` (0.192; `cpp_unit_tag/1`: a fold of the main file's absolute path, the
+  command line's macros, the configuration and the target, in base 36), as a local class's does: K counts in one unit
+  only, its functions and the instances made over it are emitted `linkonce_odr`, and two units built apart had one
+  `lambda.1` at the link -- one unit ran the other's body (`11 20 100 7`, where clang++ prints `11 10009 100 7`). The C++
+  gate's two units (`test/cpp/link/units_*.cpp`). (0.192)
 - A lambda is desugared ONCE, memoized by its text, context and captured types (`'$cpp_lambda_memo'`,
   `cpp_lambda_key/6`). `lambdas2.cpp`. Why: an `auto` method's result made a second closure class. (0.99) The key holds
   THE FUNCTION IT IS MADE IN where its text spells that function's name (0.166; `cpp_lambda_names_fn/1`): `__func__`,
@@ -6123,6 +6167,18 @@ A lambda is a class of its captures (`library/ccl_cpp.pl`). A fixture named alon
   of a keyed type at namespace scope (`using std::ranges::greater;`, `cpp_hdr_type_using/2`), which a block takes by
   0.121's substitution. Each was the bare name's: `less l;` a std::less that deduced nothing. `usingnamed.cpp` (C++20).
   (0.139, 0.160, 0.161)
+- AN UNNAMED NAMESPACE IS ITS UNIT'S OWN ([namespace.unnamed]/1: `inline namespace unique {} using namespace unique;
+  namespace unique { body }`; 0.192; `cpp_anon_ns_units/2` at the head of `cpp_ns_resolve/2`): it is named
+  `_GLOBAL__N_<tag>` (the unit's tag, the Lambdas topic), a using-directive of it stands after its block, and every name it
+  declares is keyed by its whole path (`cpp_anon_quals/3`: `_GLOBAL__N_<tag>.helper`, `n._GLOBAL__N_<tag>.deep`), so the
+  renaming above finds it after the block and two units' names never meet at the link; a qualified name looks into the
+  unnamed namespace of the namespace it names where that namespace declares no such name ([namespace.qual]/2;
+  `cpp_anon_in/4` in `cpp_abs_ns_path`: `n::deep()`, `::helper()`). It was flattened into its enclosing namespace: two
+  units that each define `namespace { int helper(); }` did not link, two strong definitions. The mangler spells the
+  segment `12_GLOBAL__N_1`, as clang does (`cpp_ita_ns`), the type information of a type that names it is `internal`
+  (`ir_rtti_link/2`: `typeid` of two units' `S` are two types, as clang++ has them), a function's description says
+  `(anonymous namespace)` (`cpp_pf_anon/2`) and the debug information's namespace has no name. The C++ gate's two units.
+  (0.192)
 - An inline namespace is in the mangler's path (`cpp_hdr_ns`, `cpp_ns_plain`: `St3__1`) and out of the keys:
   two paths are one namespace by their named segments (`cpp_ns_named_path`). (0.100, 0.112)
 - An item declared by a namespace-qualified name stands in that namespace ([namespace.memdef]/2; `ccl_flat_quals`,
@@ -6819,7 +6875,13 @@ A lambda is a class of its captures (`library/ccl_cpp.pl`). A fixture named alon
   list's sentinel, a `std::function`'s small buffer) pointed into the dead slot -- three defects of 0.120 and before
   (`std::function<int(int)> f = std::function<int(int)>(g)` freed an invalid pointer, `return std::list<int>{1, 2, 3};`
   and a `std::map` returned by value corrupted their first growth, `std::map<int, int> m = build();` iterated for ever).
-  `prvalueinplace.cpp`. (0.121)
+  `prvalueinplace.cpp`. (0.121) So is a STATEMENT'S TEMPORARY that such a call gives its value (0.192; `ir_stmt_` on
+  `expr(L, assign('=', id(N), R))` for a desugarer's `$tmp...` and `ir_sret_call(R, T)`): the desugaring declares a
+  temporary of a class with a destructor by the statement and gives it its value by `$tmp = f()` (`cpp_temp_call/3`, a
+  call returning a class by value, called: `make(3)(4)`), and the assignment copied it bitwise from the call's own slot --
+  `std::function<int(int)> ha(); ... ha()(5)` called through a pointer into that slot, and the destructor freed the
+  stack (`free(): invalid pointer`, measured over 0.191). No other assignment of a class takes this road: a program's
+  `x = f()` may alias x in f, and is copied as clang copies it. `tempsret.cpp`. (0.192)
 
 ### Statics, globals and initializers
 
@@ -8134,18 +8196,18 @@ A lambda is a class of its captures (`library/ccl_cpp.pl`). A fixture named alon
 - Ubuntu 24.04 on x86_64 (clang and LLVM 18, glibc, libc++ 18 and 21) is a host since 0.87. Every gate but the C++ one
   is GREEN there since 0.93, and all seven since 0.95. Every step from 0.93 on is gated there, but the save points
   0.112, 0.113, 0.117, 0.122 to 0.125, 0.130, 0.131 and 0.143 (0.143's C gates and cross gate ran, its libc++ gates did
-  not; the others were gated by the steps after them). The last full run is 0.191's, over cocolog 2.11.1 (the
+  not; the others were gated by the steps after them). The last full run is 0.192's, over cocolog 2.11.1 (the
   Findings), on one tree, over fresh HOMEs (the reader version moved): over libc++ 18 all nine GREEN (the flow gate's one
-  finding in 87 s, reader 4 s, compile 12 s, driver 16 s, objects 4 s, proof, the cross gate in 292 s with its C++ part
-  for aarch64, the library read in 319 s (0.190's 275 s; 97 other headers warmed, six of them under `-fno-rtti`), the C++
-  gate in 824 s (0.190's 801 s) with 604 of 608 fixtures ok, the skips are `joinwith`, `stdoptionalref`, `tzone` and
-  `zipadjacent`, the 26 refusals and the three of the safe part); over libc++ 21 the library read (303 s, peak 758 MB;
-  0.190's 249 s) and the C++ gate (902 s, peak 2127 MB; 0.190's 785 s; 606 of 608 ok, the skips `stdoptionalref` and
-  `zipadjacent`) GREEN -- the C gates do not read libc++. The headers' reads, summed, took 1176 s over 120 over libc++
-  18 and 1104 s over 21 (0.190's 1000 s and 904 s over 114: libc++ in its RTTI configuration is more to read; 0.181's
-  4313 s and 4116 s, before a read linear in its items); the fixtures' builds 2919 s over 604 and 3037 s over 606
-  (0.190's 2716 s over 600 and 2674 s over 602) (HISTORY.md, 0.191). The chains of 0.165 to 0.190 are in HISTORY.md,
-  0.166 to 0.191. Two libc++ passes are one gate: `LLVM=/usr/lib/llvm-18` and `LLVM=/usr/lib/llvm-21`
+  finding in 90 s, reader 5 s, compile 12 s, driver 13 s, objects 4 s, proof, the cross gate in 272 s with its C++ part
+  for aarch64, the library read in 334 s (0.191's 319 s; 97 other headers warmed, six of them under `-fno-rtti`), the C++
+  gate in 869 s (0.191's 824 s) with 606 of 610 fixtures ok, the skips are `joinwith`, `stdoptionalref`, `tzone` and
+  `zipadjacent`, the two units, the 26 refusals and the three of the safe part); over libc++ 21 the library read (303 s,
+  peak 702 MB; 0.191's 303 s) and the C++ gate (999 s, peak 1996 MB; 0.191's 902 s; 608 of 610 ok, the skips
+  `stdoptionalref` and `zipadjacent`) GREEN -- the C gates do not read libc++. The headers' reads, summed, took 1229 s
+  over 120 over libc++ 18 and 1109 s over 21 (0.191's 1176 s and 1104 s; 0.181's 4313 s and 4116 s, before a read
+  linear in its items); the fixtures' builds 2896 s over 606 and 3385 s over 608 (0.191's 2919 s over 604 and 3037 s
+  over 606) (HISTORY.md, 0.192). The chains of 0.165 to 0.191 are in HISTORY.md, 0.166 to 0.192.
+  Two libc++ passes are one gate: `LLVM=/usr/lib/llvm-18` and `LLVM=/usr/lib/llvm-21`
   choose the tree the chain reads and links. libc++ 22 (the newest tree, which a run without `$LLVM` reads) is no
   gate: 0.182 built its vector and its C++23 views by hand (`zipadjacent.cpp`, which its `.needs` skips over 18 and
   21), and `stdoptionalref` passes there. The run before 0.121's (0.118, 0.119) found, over 0.117, two defects and
@@ -8243,6 +8305,15 @@ A lambda is a class of its captures (`library/ccl_cpp.pl`). A fixture named alon
   (two virtual overloads of one name and arity, one overridden), `virtualdefault` (a virtual call that leaves a defaulted
   argument out), `anonparam` (an unnamed by-value parameter destroyed), `rangeadl` (a range-for by the free `begin` and
   `end` of two namespaces), `downcast` (`static_cast` from a second base to the derived class, a pointer and a reference).
+- Forms of 0.192: `staticdtor` (statics constructed at compile time destroyed at exit in the reverse order of their
+  construction, the dynamically initialized ones among them: at namespace scope, a static data member defined out of its
+  class, an inline one in and out of its class, `static` ones, local statics of each kind), `tempsret` (a class value
+  returned through the hidden pointer and called at once: a class that holds its own address, a `std::function` of a
+  lambda, in a loop and as a local's initializer); the C++ gate's two units
+  (`test/cpp/link/units_*.cpp`: closures, local classes, unnamed namespaces, static functions, a `std::function` of a
+  lambda, generic lambdas, a lambda's pointer to function, a class with a table in each unit's unnamed namespace and
+  its type information, `n::use()` over a nested unnamed namespace, `(anonymous namespace)` in a function's description,
+  a header's inline variables, inline static members and an inline function's static local).
 - Forms of 0.191: `rttilib` (libc++ in its RTTI configuration: `std::any::type()`, `std::function::target_type()` and
   `target<T>()`, `std::get_deleter` of a `shared_ptr` with a deleter, `std::dynamic_pointer_cast`), `nortti`
   (`-fno-rtti`: `std::any_cast`, `std::function`, `static_pointer_cast`, `dynamic_cast` to a base and to `void *`, an
@@ -8612,17 +8683,6 @@ Configuration chosen through the macros topic).
    `~/.cicilang/cpp/`, each writer under a name of its own (0.188), keyed as `dr_ir/3`'s signature is and also by the
    libc++ tree, the level, `-D`, the target and the RTTI and exceptions configuration; the C++ gate builds uncached. A
    store for it comes only after parallel writes to one store are measured.
-
-### Two defects found at 0.191, the next step
-
-- A NAME THAT IS ONE UNIT'S IS MERGED AT THE LINK: a closure (`lambda.K`, numbered per unit) and a local class
-  (`Loc.local_K`) are emitted `linkonce_odr`, so two units' `lambda.1` are one function and one calls the other's body
-  (measured: `11 20 100 7` where clang++ gives `11 10009 100 7`), their type information too; and an unnamed
-  namespace's names are flattened to the file scope, so two units that each define `namespace { int helper(); }` do
-  not link (two strong definitions).
-- A STATIC CONSTRUCTED AT COMPILE TIME IS NEVER DESTROYED: a namespace-scope object or a local `static` whose
-  constructor the evaluator runs (`cpp_fold_ctor_value/4`, `cpp_fold_quietly/4`) registers no destructor, where one
-  constructed before main or under the guard registers it with `atexit` or `__cxa_atexit`: `~K` never runs at exit.
 
 ### C++ language
 

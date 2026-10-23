@@ -43,6 +43,12 @@ if [ "$got" = "exit 0" ]; then echo "ok   cicilang++ -fsyntax-only reads a file 
 mkdir -p "$D/coldhome"; said=$(HOME="$D/coldhome" CICILANG_JOBS=4 "$ROOT/bin/cicilang++" -v "$ROOT/test/cpp/run/stdcstdlib.cpp" -o cold 2>&1)
 nk=$(printf '%s\n' "$said" | grep -ac 'in a process of its own'); got=$(./cold < /dev/null; echo "exit $?")
 if [ "$nk" = 5 ] && printf '%s\n' "$said" | grep -aq ': 5 summaries written' && [ "$got" = "$(cat "$ROOT/test/cpp/run/stdcstdlib.expect")" ]; then echo "ok   a cold build reads its five library headers by processes of their own, four at a time, and its binary prints what it should"; else echo "FAIL the cold headers by processes of their own"; echo "     got  $nk processes; $(printf '%s\n' "$said" | grep -a 'summaries written' | cut -c1-160); $(printf '%s' "$got" | tail -1)"; failures=$((failures + 1)); fi
+# TWO UNITS BUILT APART (0.192): test/cpp/link/units_a.cpp and units_b.cpp, each built by cicilang++ -c in a process of its own,
+# then linked -- each unit's closures, local classes, unnamed namespace, static functions and their type information are its own,
+# and the header's (units.h) inline variables and inline static members are one object each, constructed and destroyed once
+"$ROOT/bin/cicilang++" -c "$ROOT/test/cpp/link/units_a.cpp" -o units_a.o > units.log 2>&1 && "$ROOT/bin/cicilang++" -c "$ROOT/test/cpp/link/units_b.cpp" -o units_b.o >> units.log 2>&1 \
+  && "$ROOT/bin/cicilang++" units_a.o units_b.o -o units >> units.log 2>&1; got=$(./units < /dev/null 2>&1; echo "exit $?")
+if [ "$got" = "$(cat "$ROOT/test/cpp/link/units.expect")" ]; then echo "ok   two units built apart keep their closures, local classes, unnamed namespaces and type information apart, and share the header's inline variables, built and destroyed once"; else echo "FAIL two units built apart (test/cpp/link/units_*.cpp)"; echo "     got  $(printf '%s' "$got" | tr '\n' '|' | cut -c1-300); $(tail -2 units.log | tr '\n' ' ' | cut -c1-200)"; failures=$((failures + 1)); fi
 # THE CLASS LAYOUT AGAINST CLANG++'S (0.135): test/cpp/link/abi_helper.cpp built by the reference compiler of the tree read
 # ($LLVM's clang++, else the one on the path), linked with abi_main.cpp built by cicilang++ -- a base's tail padding reused
 # and the table pointer first, values and sizes crossing the call both ways. No clang++: a SKIP, named.

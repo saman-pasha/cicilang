@@ -1,0 +1,15 @@
+Loud 3
+1 2 3 5 4 6 7
+Loud 30
+10 20 30 20
+~Loud 30
+~K 20
+~Cnt 10
+~K 7
+~K 5
+~Loud 3
+~K 2
+~Cnt 1
+~K 6
+~Cnt 4
+exit 0
