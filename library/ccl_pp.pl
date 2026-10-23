@@ -389,6 +389,8 @@ pp_toks([X|Xs], Ls, Ls1, Out0, Out) :-
 pp_pragma_op(Xs, Ls, Rest, Ls1) :- pp_paren_next(Xs, Ls, Xs0, Ls0), pp_collect_args(Xs0, Ls0, _, Rest, Ls1).
 %% a name that is a macro: its expansion, hidden from itself, pushed back for the rescan
 pp_expand(N, L, HS, Xs, Ls, Xs1, Ls) :- pp_builtin_obj(N, L, Body), !, pp_wrap(Body, [N|HS], L, W), append(W, Xs, Xs1).
+pp_expand(N, L, HS, Xs, Ls, Xs1, Ls1) :- pp_text_builtin(N), pp_paren_next(Xs, Ls, Xs0, Ls0), !,   % A FEATURE QUESTION IN A TEXT LINE (0.198), as clang answers one: `__has_cpp_attribute(nodiscard)' in an expression was a call of nothing
+    pp_collect_args(Xs0, Ls0, Args0, Rest, Ls1), ( Args0 = [A0] -> pp_strip(A0, Args) ; Args = [] ), pp_builtin_answer(N, Args, V), pp_wrap([tok(int, V, L)], [N|HS], L, W), append(W, Rest, Xs1).
 pp_expand(N, L, HS, Xs, Ls, Xs1, Ls1) :-
     pp_macro(N, Ps, Body),
     (   Ps == obj -> pp_wrap(Body, [N|HS], L, W), append(W, Xs, Xs1), Ls1 = Ls
@@ -398,6 +400,7 @@ pp_builtin_obj('__FILE__', L, [tok(str, Cs, L)]) :- pp_presumed(L, _, F), atom_c
 pp_builtin_obj('__COUNTER__', L, [tok(int, C, L)]) :- nb_getval('$pp_counter', C), C1 is C + 1, nb_setval('$pp_counter', C1).
 pp_builtin_obj('__DATE__', L, [tok(str, Cs, L)]) :- atom_codes('Jan  1 2026', Cs).
 pp_builtin_obj('__TIME__', L, [tok(str, Cs, L)]) :- atom_codes('00:00:00', Cs).
+pp_text_builtin(N) :- memberchk(N, ['__has_cpp_attribute', '__has_c_attribute', '__has_attribute', '__has_builtin', '__has_feature', '__has_extension', '__has_declspec_attribute', '__has_warning', '__is_identifier']).   % the questions clang answers in a text line too; `__has_include' is #if's alone
 %% `#line N "file"' (C 6.10.4) and GNU's `# N "file"': the PRESUMED line and file from the next line on, per file --
 %% what __LINE__ and __FILE__ answer (0.108); a diagnostic still names the physical place
 pp_presumed(L, P, F) :- pp_current_file(F0), nb_getval('$pp_linemap', M), ( memberchk(F0-lm(D, F1), M) -> P is L + D, F = F1 ; P = L, F = F0 ).
@@ -707,9 +710,13 @@ pp_builtin_answer('__has_include', Args, V) :- !, pp_has_include(Args, plain, V)
 pp_builtin_answer('__has_include_next', Args, V) :- !, pp_has_include(Args, next, V).
 pp_builtin_answer('__has_embed', Args, V) :- !, pp_has_embed(Args, V).
 %% C23's `__has_c_attribute(x)' answers the standard attributes' dates ([[deprecated]] 201904 ... [[unsequenced]]
-%% 202207), the `__x__' spellings alike, and 0 for anything else; `__has_cpp_attribute' keeps answering 0 (the
-%% plainest path through libc++, the rule above)
+%% 202207), the `__x__' spellings alike, and 0 for anything else; ... AND C++'s `__has_cpp_attribute(x)' ITS STANDARD
+%% ATTRIBUTES' (0.198; [cpp.cond]/5, clang 21's values at every level: [[nodiscard]] 201907, [[no_unique_address]] 201803 ...),
+%% 0 for anything else, a scoped one (`clang::...', which this compiler drops) among them. It was 0 for every attribute:
+%% `__has_cpp_attribute(nodiscard)' was false, and libc++ 18 defined `_LIBCPP_NO_UNIQUE_ADDRESS' as nothing, where clang++'s
+%% build lays its views' members `[[__no_unique_address__]]' (libc++ 21 writes the attribute whatever the answer)
 pp_builtin_answer('__has_c_attribute', Args, V) :- ccl_lang(c), !, ( pp_attr_name(Args, N), pp_c_attribute(N, V0) -> V = V0 ; V = 0 ).
+pp_builtin_answer('__has_cpp_attribute', Args, V) :- ccl_lang(cpp), !, ( pp_attr_name(Args, N), atom(N), pp_cpp_attribute(N, V0) -> V = V0 ; V = 0 ).
 %% `__has_extension(c_atomic)' answers 1 (0.100): libc++ decides its <atomic> by `__has_feature(cxx_atomic) ||
 %% __has_extension(c_atomic) || __has_keyword(_Atomic)', and with all three 0 it defines NO implementation
 %% (`template_without_body(__cxx_atomic_base_impl)'); this compiler has C11's `_Atomic(T)' and the `__c11_atomic_*'
@@ -748,6 +755,10 @@ pp_attr_plain(N0, N) :- ( atom_concat('__', X, N0), atom_concat(N1, '__', X) -> 
 pp_c_attribute(deprecated, 201904).  pp_c_attribute(fallthrough, 201904).  pp_c_attribute(maybe_unused, 201904).
 pp_c_attribute(nodiscard, 202003).   pp_c_attribute(noreturn, 202202).     pp_c_attribute('_Noreturn', 202202).
 pp_c_attribute(unsequenced, 202207). pp_c_attribute(reproducible, 202207).
+pp_cpp_attribute(assume, 202207).              pp_cpp_attribute(carries_dependency, 200809). pp_cpp_attribute(deprecated, 201309).
+pp_cpp_attribute(fallthrough, 201603).         pp_cpp_attribute(likely, 201803).             pp_cpp_attribute(maybe_unused, 201603).
+pp_cpp_attribute(no_unique_address, 201803).   pp_cpp_attribute(nodiscard, 201907).          pp_cpp_attribute(noreturn, 200809).
+pp_cpp_attribute(unlikely, 201803).
 pp_has_include(Args, How, V) :-
     (   Args = [tok(str, S, _)] -> atom_codes(N, S), Spec0 = local(N)
     ;   pp_angle_name(Args, N) -> Spec0 = system(N)

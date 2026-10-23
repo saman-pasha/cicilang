@@ -1041,13 +1041,13 @@ ccl_members_layout_([], Bits, Al, acc(_, EE), [], Bits, Al, EE).
 ccl_members_layout_([member(T, N, W0)|Ms], Bit0, Al0, acc(Seen, EE0), Lays, Bits, Al, EE) :-
     ccl_resolve_type(T, T1), ccl_size_align(T1, S, A), ABits is A * 8,
     (   W0 == no_unique_address, ccl_empty_layout(T1)
-    ->  ccl_empty_tag(T1, Tag), ccl_empty_offset(Tag, A, Bit0, Seen, Off), Bit1 = Bit0, Al1 is max(Al0, A),   % no bytes, its ALIGNMENT kept -- libc++ marks every container's allocator and comparator with it
-        EE1 is max(EE0, Off + S), Seen1 = [Tag-Off|Seen],
+    ->  ccl_empty_subs(T1, Subs), ccl_empty_offset(Subs, A, Bit0, Seen, Off), Bit1 = Bit0, Al1 is max(Al0, A),   % no bytes, its ALIGNMENT kept -- libc++ marks every container's allocator and comparator with it
+        EE1 is max(EE0, Off + S), ccl_subs_at(Subs, Off, Seen, Seen1),
         Lays = [lay(N, T, Off, empty)|Lays1]
     ;   ccl_plain_width(W0)
     ->  ccl_round_up(Bit0, ABits, B1), Off is B1 // 8, Al1 is max(Al0, A),
         ( ccl_overlapping(N, W0), ccl_overlap_size(T1, S, DS) -> Bit1 is B1 + DS * 8, EE1 is max(EE0, Off + S) ; Bit1 is B1 + S * 8, EE1 = EE0 ),   % a base or a `[[no_unique_address]]' member of a class that is no POD takes its DATA size (0.135, below)
-        ( ccl_empty_layout(T1), ccl_empty_tag(T1, Tag) -> Seen1 = [Tag-Off|Seen] ; Seen1 = Seen ),   % a plain member of an empty class is an empty subobject too, and its byte is in the way of a marked one of its type
+        ( ccl_empty_layout(T1) -> ccl_empty_subs(T1, Subs), ccl_subs_at(Subs, Off, Seen, Seen1) ; Seen1 = Seen ),   % a plain member of an empty class is an empty subobject too, and its byte is in the way of a marked one of its type
         Lays = [lay(N, T, Off, none)|Lays1]
     ;   ccl_bit_width(W0, W), Seen1 = Seen, EE1 = EE0,
         (   W =:= 0 -> ccl_round_up(Bit0, ABits, Bit1), Al1 = Al0, Lays = Lays1
@@ -1062,10 +1062,21 @@ ccl_members_layout_([_|Ms], Bit0, Al0, Acc, Lays, Bits, Al, EE) :- ccl_members_l
 ccl_empty_tag(base(_, [struct(Tag, _)]), Tag) :- !.
 ccl_empty_tag(base(_, [union(Tag, _)]), Tag) :- !.
 ccl_empty_tag(T, T).
-ccl_empty_offset(Tag, A, Bit0, Seen, Off) :-
-    (   \+ memberchk(Tag-0, Seen) -> Off = 0
-    ;   Bytes is (Bit0 + 7) // 8, ccl_round_up(Bytes, A, C0), ccl_empty_step(Tag, A, Seen, C0, Off) ).
-ccl_empty_step(Tag, A, Seen, C, Off) :- ( memberchk(Tag-C, Seen) -> C1 is C + A, ccl_empty_step(Tag, A, Seen, C1, Off) ; Off = C ).
+ccl_empty_offset(Subs, A, Bit0, Seen, Off) :-
+    (   \+ ccl_subs_clash(Subs, 0, Seen) -> Off = 0
+    ;   Bytes is (Bit0 + 7) // 8, ccl_round_up(Bytes, A, C0), ccl_empty_step(Subs, A, Seen, C0, Off) ).
+ccl_empty_step(Subs, A, Seen, C, Off) :- ( ccl_subs_clash(Subs, C, Seen) -> C1 is C + A, ccl_empty_step(Subs, A, Seen, C1, Off) ; Off = C ).
+%% THE EMPTY SUBOBJECTS OF AN EMPTY CLASS (0.198; the Itanium ABI 2.4 II.3 counts every one, clang's EmptySubobjectMap): the class
+%% itself at 0 and, inside it, each of its own empty members at its offset, so that `struct T { [[no_unique_address]] E e;
+%% [[no_unique_address]] H h; }' over `struct H { [[no_unique_address]] E e; }' lays h at 1, H's E being in the way at 0, as
+%% clang++ lays it -- the top tag alone was asked, and h lay at 0
+ccl_empty_subs(T1, [Tag-0|Subs]) :- ccl_empty_tag(T1, Tag),
+    (   ( T1 = base(_, [struct(_, Ms)]) ; T1 = base(_, [union(_, Ms)]) ), is_list(Ms), memberchk(member(_, _, _), Ms), ccl_members_layout_nocache(Ms, Lays, _, _, _)
+    ->  findall(Tg-R1, ( member(lay(_, MT, O, empty), Lays), ccl_resolve_type(MT, MT1), ccl_empty_subs(MT1, Ss), member(Tg-R, Ss), R1 is O + R ), Subs)
+    ;   Subs = [] ).
+ccl_subs_at([], _, Seen, Seen).
+ccl_subs_at([Tg-R|Ss], Off, Seen0, [Tg-O|Seen]) :- O is Off + R, ccl_subs_at(Ss, Off, Seen0, Seen).
+ccl_subs_clash(Subs, C, Seen) :- member(Tg-R, Subs), O is C + R, memberchk(Tg-O, Seen), !.
 ccl_plain_width(none).
 ccl_plain_width(no_unique_address).                                              % the mark is no bitfield width: a member carrying it over a type with bytes lies where it always did
 %% A POTENTIALLY-OVERLAPPING SUBOBJECT ([intro.object]/7: a base sub-object, `$base' and `$base$K', or a `[[no_unique_address]]'
@@ -1090,7 +1101,13 @@ ccl_data_size(T, DS) :- ccl_resolve_type(T, T1),
 %% by the weaker test basic_string's 24-byte union became a member of no bytes -- the struct came out
 %% `{ {}, padding, {}, {} }' with no `__rep_' in it, every string was its own first byte, and `a + ", "' was empty.
 ccl_empty_layout(T) :- ( T = base(_, [struct(_, Ms)]) ; T = base(_, [union(_, Ms)]) ), Ms \== none, ccl_no_data_members(Ms).
-ccl_no_data_members(Ms) :- \+ member(member(_, _, _), Ms).
+ccl_no_data_members(Ms) :- \+ ( member(member(T, _, W), Ms), \+ ccl_empty_data_member(T, W) ).
+%% ... AND AN EMPTY DATA MEMBER IS NO DATA (0.198; the Itanium ABI's term: a `[[no_unique_address]]' member of empty class type;
+%% [meta.unary.prop]'s is_empty: "subobjects of zero size"): libc++'s `__movable_box<F>' of a captureless lambda holds only such a
+%% member, `__movable_box_holder<F>', which holds only one of F, and each was a class of one byte where clang++ lays none --
+%% `transform_view' over a lambda sixteen bytes for clang++'s eight, `struct P { [[no_unique_address]] H h; int *p; }' over
+%% `struct H { [[no_unique_address]] E e; }' sixteen for eight. The member's type resolved for real: one that does not resolve is data
+ccl_empty_data_member(T, W) :- W == no_unique_address, catch(ccl_resolve_type(T, T1), _, fail), ccl_empty_layout(T1).
 ccl_bit_width(int(W), W) :- !.
 ccl_bit_width(W, W) :- integer(W), !.
 ccl_bit_width(E, W) :- ccl_const_eval(E, W).

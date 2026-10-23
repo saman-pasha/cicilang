@@ -10,8 +10,8 @@ it found, its measurements and its gate numbers. `README.md` tells a user what r
 architecture and the milestones. A step that changes a rule edits the rule here, in its topic, and writes its entry
 in `HISTORY.md`.
 
-At 0.197 the versions are: the module 0.197 (`ccl_p_version` in `module/cicilang.cicili`, `bin/cicilang --version`),
-the reader 149 (`ccl_reader_version/1`, `library/ccl_syntax.pl`) and the lowering 110 (`ccl_lowering_version/1`,
+At 0.198 the versions are: the module 0.198 (`ccl_p_version` in `module/cicilang.cicili`, `bin/cicilang --version`),
+the reader 150 (`ccl_reader_version/1`, `library/ccl_syntax.pl`) and the lowering 111 (`ccl_lowering_version/1`,
 `library/ccl_ir.pl`).
 
 Build and prove, always in this order (or all of it, `sh test/gates.sh`):
@@ -477,7 +477,7 @@ tutorials/01..03-*.pl       the objects layer's lessons; goal main, last line do
 - The compile gate. `test/compile.pl`, one process over the user's store, reads, checks, lowers, compiles at `-O1`
   and links every `test/c/run/*.c` at its `NAME.std` level (`c_level`). It expects every `test/c/safe/*.c` refused.
   `test/compile.sh` runs each binary as `NAME arg1 arg2` against `NAME.expect`, and compares each refusal with
-  `safe/NAME.expect`. There are 107 run and 47 safe fixtures at 0.197. (M2, M3, 0.57)
+  `safe/NAME.expect`. There are 107 run and 47 safe fixtures at 0.198. (M2, M3, 0.57)
 - The driver gate. `test/driver.sh` makes 40 checks of `bin/cicilang` over the user's store (the two decimal checks are
   skipped where no gcc with decimal floating types is installed), the variadic calls of every kind both ways against
   clang among them (`test/c/link/va_*.c`, 0.131), and Apple's arm64 expansion of `va_arg` of an aggregate against
@@ -639,6 +639,7 @@ tutorials/01..03-*.pl       the objects layer's lessons; goal main, last line do
   | `dpcnortti.cpp` (`-fno-rtti`) | `instance_refused('dynamic_pointer_cast.D.B',dynamic_cast_requires_rtti)` | 0.191 |
   | `thrownoexc.cpp` (`-fno-exceptions`) | `throw_requires_exceptions` | 0.193 |
   | `trynoexc.cpp` (`-fno-exceptions`) | `try_requires_exceptions` | 0.193 |
+  | `access_varfriend.cpp` (C++26) | `access(private,'Fr.U1',secret)` | 0.198 |
 
   `deduced_this.cpp` (0.43) is gone: a class's `this auto` method builds since 0.117 (`deducethis.cpp`). So is
   `diamond.cpp` (`virtual_base_by_two_paths`, 0.110 to 0.170): a diamond whose paths each hold two virtual bases builds
@@ -649,6 +650,9 @@ tutorials/01..03-*.pl       the objects layer's lessons; goal main, last line do
   `goto over a defer` (0.138), and `test/cpp/tryowner.cpp` with `use after move of` (0.193: a handler entered after the
   body freed an owner frees it again).
   `test/cpp/control.cpp` (a `try`) builds now, and only `test/cpp.pl` reads it. (0.100, 0.108)
+- `test/cpp/sassertfail.cpp` must be refused with `static assertion failed: wrong size` and `test/cpp/sassertinst.cpp` with
+  `static assertion failed: one byte` (0.198: a false static assertion of the program at file scope, and in an instance of
+  a function template).
 - A gate that dies says so. Without a GREEN or RED line from `test/cpp.pl`, `test/cpp.sh` prints
   `RED: the gate did not finish (query exit N)` and the last 20 raw lines. `test/reader.sh` and `test/compile.sh`
   print `RED: the gate did not finish`. (0.85)
@@ -1235,9 +1239,15 @@ tutorials/01..03-*.pl       the objects layer's lessons; goal main, last line do
   specializations, the ones libc++ 18 has, and not on clang's builtin class template; reader 118; 0.126), and
   `__has_builtin(__builtin_clear_padding)` 0 (0.194), GCC's, which no clang of 18, 21 and 22 has: libc++ 21's atomic_ref
   then clears no padding and compares the whole object, the branch clang++'s build takes; `__has_embed` 1
-  found, 2 empty, 0 nowhere; `__has_c_attribute` (C only) the standard attributes' dates (`pp_c_attribute/2`); `__is_target_arch`,
-  `_vendor`, `_os`, `_environment` per host; every other `__has_*` 0, the plainest path, the one the reader reads best.
-  (0.93)
+  found, 2 empty, 0 nowhere; `__has_c_attribute` (C only) the standard attributes' dates (`pp_c_attribute/2`), and
+  `__has_cpp_attribute` (C++ only) its standard attributes' values, clang 21's at every level (`pp_cpp_attribute/2`, 0.198:
+  `nodiscard` 201907, `no_unique_address` 201803 ...), a scoped one 0 -- it was 0 for every attribute, and libc++ 18 laid out
+  its algorithm results, its views, `shared_ptr`'s array control blocks and its format buffers without
+  `[[no_unique_address]]`: `sizeof(std::ranges::in_in_result<E, int>)` 8 where clang++'s build has 4 (`nualayout.cpp`; the
+  Object layout topic's empty data member is the rest of it); these questions and `__has_builtin`, `__has_feature` and kin
+  are answered in a text line too (`pp_text_builtin/1`, 0.198), as clang answers them (`hascppattr.cpp`: the name was
+  undeclared); `__is_target_arch`, `_vendor`, `_os`, `_environment` per host; every other `__has_*` 0, the plainest path,
+  the one the reader reads best. (0.93, 0.198)
 
 ### The predefined macros
 
@@ -1679,8 +1689,9 @@ tutorials/01..03-*.pl       the objects layer's lessons; goal main, last line do
   (`ccl_enumerator_type/3`), and `enum E` named alone resolves to the tag's members, its base among them, in C and C++
   (`ccl_resolve_base/3` on `enum(Tag, none)`): `sizeof(Y)` of `enum Big : unsigned long long` and `enum E e;` were an
   int's 4. `c23enum.c` (`-std=c23`), `enumelab.cpp`.
-- A static assertion is CHECKED where it folds, in C ONLY (`ccl_assert_holds/3` throws `static_assert_failed(Text)`).
-  Why: C++ allows `static_assert(false)` in a branch no instantiation takes. (0.57) The fold is asked ONCE
+- A static assertion is CHECKED where it folds: in C at the read (`ccl_assert_holds/3` throws `static_assert_failed(Text)`),
+  in C++ by the desugaring (0.198, the Constants of the desugaring topic), since C++ allows `static_assert(false)` in a
+  branch no instantiation takes. (0.57, 0.198) The fold is asked ONCE
   (`once(ccl_const_eval(E, V))`, 0.117): `sizeof` of a struct had alternatives (16, 0, 0, 0), the test `V =:= 0` failed
   on the first and backtracked into a 0, and `_Static_assert(sizeof(T) == 16, ...)` over `struct { char c; long v; }`
   failed since 0.57. `sizeof`, `sizeof_type` and `alignof_type` answer one value in `ccl_const_eval/2` now.
@@ -1922,8 +1933,9 @@ tutorials/01..03-*.pl       the objects layer's lessons; goal main, last line do
   `__traits` writes `using typename __traits_base<_Tp>::type;` and its members take `type &`; reader 114, 0.117). A
   struct declared inside is
   `nested(Base)`. A friend is `friend(L, Ms)`, `friend(L, [friend_class(Q)])` for `friend class X;`, `friend struct X;`
-  and `friend X;` (a qualified name or a template-id too; kept since 0.117 for the access control) or `friend(L, [])`
-  for `friend Ts...;`. The `friend_class(Q)` clause stands BEFORE the clause that reads a friend declaration as a
+  and `friend X;` (a qualified name or a template-id too; kept since 0.117 for the access control), `friend(L,
+  [friend_class(pack(Q))])` for `friend Ts...;` and one `friend_class(Q)` each for `friend A, B;` (0.198, the Access
+  control topic). The `friend_class(Q)` clause stands BEFORE the clause that reads a friend declaration as a
   member: after it, `friend class X;` was `nested(class(X, none))`, and no friend was noted.
   `using Base::Base;` is `using(L, name(Q))`. (0.44, 0.79, 0.93)
 - A nested class defined out of its holder is `class(K, scoped(Path, N), Bases, Members)`, template arguments first:
@@ -2077,7 +2089,8 @@ tutorials/01..03-*.pl       the objects layer's lessons; goal main, last line do
   the anonymous union whole. (0.112, 0.117)
 - A lambda is `lambda(Caps, Params, Ret | none, Body)`. Its captures (`ccl_lambda_cap`) are `cap(val, N)`,
   `cap(ref, N)`, `cap(default, '=' | '&')`, `cap(this)`, `cap(star_this)`, `cap(pack, N)`, `cap(init, N, E)` for
-  `[n = e]` and `cap(init_ref, N, E)` for `[&n = e]`. `ccl_lambda_specs/1` keeps `mutable` among the captures (the
+  `[n = e]`, `cap(init_ref, N, E)` for `[&n = e]`, and `cap(init_pack, N, E)` and `cap(init_ref_pack, N, E)` for `[...xs =
+  e]` and `[&...xs = e]` (0.198, the Captures topic). `ccl_lambda_specs/1` keeps `mutable` among the captures (the
   desugaring reads it, 0.117) and drops `constexpr`, `consteval`, `static`, `noexcept(...)` and attributes, with or
   without a parameter list. (0.36, 0.43, 0.99, 0.112, 0.117)
 - `if (T x = e)` and `while (T x = e)` are `block([Decl, if | while])` (`ccl_cond_decl`). `for (decl : range)` is
@@ -2113,6 +2126,11 @@ tutorials/01..03-*.pl       the objects layer's lessons; goal main, last line do
 - C++26's `if (auto [a, b] = e)` (`ccl_bind_cond`): a temporary `bindif…` holds `e`, `bindings(L, yes, Ns, id(Tmp))`
   binds into it, and the test is the temporary's. In an init-statement, the bindings clause of `ccl_for_init` comes
   FIRST, else `auto [c2]` read as an array. (0.93)
+- C++26's STRUCTURED BINDING PACK (P1061; 0.198, reader 150): `auto [a, ...xs, z] = e` -- the element `pack(N)` -- is
+  deferred to the desugaring, whose `cpp_binding_names/4` names the elements the other names leave, `xs$1` ..., and the
+  statements after it name xs as the pack of them (`cpp_stmts/3`, and the first-return walk of an `auto` result,
+  `cpp_first_return_in_/3`): a fold, `sizeof...(xs)`, an expansion. ATTRIBUTES AFTER A BINDING'S NAME (P0609) are read and
+  dropped. `bindpack.cpp`.
 
 ### Forms by level
 
@@ -2352,14 +2370,14 @@ tutorials/01..03-*.pl       the objects layer's lessons; goal main, last line do
 
 ### The versions
 
-- `ccl_reader_version/1` (`library/ccl_syntax.pl`, now 148): bump it for any grammar change to what a read gives, and
+- `ccl_reader_version/1` (`library/ccl_syntax.pl`, now 150): bump it for any grammar change to what a read gives, and
   for any change to what the AST beside a summary holds (item or member terms, `cpp_index_name/2`,
   `cpp_template_name/2`, `ccl_flat_items/3`, the namespace keys). Keep the reason in its comment. Why: the store and the
   summaries are keyed by it, and a stale read is served silently (`sizeof(std::string)` read 40). (M1, 0.89, 0.112,
   0.117)
 - A reader bump makes every summary cold; `test/libcxx.sh` rewrites them. `test/reader.pl`'s `k16` (a cached read is
   the same AST as a fresh one) goes RED on a grammar change without a bump. (0.93, 0.105)
-- `ccl_lowering_version/1` (`library/ccl_ir.pl`, now 109): bump it whenever the check or the lowering changes what it
+- `ccl_lowering_version/1` (`library/ccl_ir.pl`, now 111): bump it whenever the check or the lowering changes what it
   emits, however small -- 0.120 bumped it for the ORDER of the drain functions alone. Why: `dr_ir/3` serves the old IR
   otherwise. Either bump starts the C store afresh. (M4, 0.103, 0.120)
 
@@ -2950,10 +2968,16 @@ free. A const method adds `.c`, a ref-qualified one `.r` or `.rr` after it: each
   where any written constructor counts), and a derived object returned as its base reached LLVM as the derived struct. And a
   member, a global and a reference that is no rvalue reference are COPIED: `return name_;` moved the member out, and three
   returns of one member, a global and a reference printed `kept` and two empty strings. A copy or a move constructor whose
-  parameter names the class by a template-id of its own template is the class's too (`cpp_ret_copy_ctor/2` over
-  `cpp_special_param/3`): libc++'s `__bit_iterator(const __bit_iterator<_Cp, false> &)` is the copy constructor of the
-  non-const iterator, and the first chain of 0.197 refused its return and its argument by value (`vector<bool>`, `bitset`).
-  `implicitmove.cpp`, `retmember.cpp`, `vectorbool.cpp`.
+  parameter names the class by a template-id of its own template is the class's too (the next bullet): libc++'s
+  `__bit_iterator(const __bit_iterator<_Cp, false> &)` is the copy constructor of the non-const iterator, and the first
+  chain of 0.197 refused its return and its argument by value (`vector<bool>`, `bitset`). `implicitmove.cpp`,
+  `retmember.cpp`, `vectorbool.cpp`.
+- A COPY OR MOVE CONSTRUCTOR WHOSE PARAMETER NAMES THE CLASS OTHERWISE THAN BY ITS PLAIN NAME (0.198; `cpp_named_self/3` over
+  `cpp_special_param/3`): by a template-id of its own template, `S(const S<T> &)` and `S(S<T> &&)` ([temp.local]/1), or by an
+  alias of the class, `A(const Self &)`, it is the class's copy or move constructor to `cpp_copy_ctor/2` -- which the return,
+  an argument by value and `std::move` ask, 0.197's `cpp_ret_copy_ctor/2` folded into it -- to `cpp_copy_or_move/2` and to
+  the ABI's `cpp_user_copy_ctor/1`. Such a class with no constructor the old test read was no class whose value moves:
+  `S<int> c = std::move(a);` was refused `move of a non-owner: 'a'`. `selfnamedctor.cpp`.
 - `move(X)` of a class value stays `move(X)` ([expr.xvalue]; `cpp_expr(move)`), since overload resolution reads its
   category; of a scalar it is the value. `std::move(x)` names an object, never a temporary to elide ([basic.lval];
   `cpp_decl_pieces`): elided, two unique_ptrs held one pointer. A reference parameter takes the object itself, its
@@ -3409,6 +3433,10 @@ free. A const method adds `.c`, a ref-qualified one `.r` or `.rr` after it: each
     its `operator(Op)` name, a conversion function aside. `access_operator.cpp`.
 
   Allowed forms of all six: `accessctl3.cpp`. (0.127)
+- C++26's VARIADIC FRIEND (P2893; 0.198, reader 150): `friend Ts...;` and `friend A, B;` are `friend_class(pack(Q))` and one
+  `friend_class(Q)` each, a pack expanded with the class's bindings, one friend class for each element (`cpp_subst_elems/3`).
+  It was `friend(L, [])`, a friend the note could not name, which opened the class to every name: `test/cpp/access_varfriend.cpp`
+  compiled, where clang++ refuses a class that is not in the pack; `variadicfriend.cpp` is the allowed form.
 
 ### new, delete and placement new
 
@@ -4576,8 +4604,9 @@ The desugaring (`library/ccl_cpp.pl`) chooses every C++ overload. A fixture name
   arity-only resort and the template road). Why: as `void *`, `unique_ptr::reset(nullptr_t)` took every pointer.
   (0.81, 0.86)
 - An integer type has one spelling, the shortest, wherever sameness is judged ([basic.fundamental]/2;
-  `cpp_canon_specs/2` via `cpp_int_spelling/2`, also in `cpp_type_key/2`). `signed char` stays its own type.
-  `intspell.cpp`. Why: libc++ specializes `__libcpp_is_signed_integer` over `signed int`. (0.78, 0.112)
+  `cpp_canon_specs/2` via `cpp_int_spelling/2`, also in `cpp_type_key/2`). `signed char` stays its own type, and `signed
+  __int128` is `__int128` (0.198: libc++'s `make_signed_t<unsigned __int128>`). `intspell.cpp`. Why: libc++ specializes
+  `__libcpp_is_signed_integer` over `signed int`. (0.78, 0.112, 0.198)
 
 - A braced list fits an `initializer_list<T>` parameter whose every item fits T with 3, a class it constructs with
   2 ([over.ics.rank]/3.1: the list conversion is the better one): `vector(initializer_list<int>)` over `vector(const
@@ -4965,6 +4994,9 @@ A lambda is a class of its captures (`library/ccl_cpp.pl`). A fixture named alon
   (`cap(init, N, E)`) of `e`'s type decayed, `[&r = e]` (`cap(init_ref, N, E)`) a reference bound to `e`. `e` is walked
   once in the enclosing scope (`'$cpp_walked'`, `cpp_cap_init/3`); the name is in scope for the result.
   `initcapture.cpp`. Why: libc++'s radix sort's `[__map = std::move(__map)]`. (0.112)
+- AN INIT-CAPTURE PACK (C++20, [expr.prim.lambda.capture]/17, P0780; 0.198, reader 150): `[...xs = e]` and `[&...xs = e]` are
+  one init-capture for each element of the pack that e expands over, `xs$1` ... (`cpp_subst_caps/3`), and the body names
+  xs as the pack of them (`cpp_cap_packs/3`): a fold, `sizeof...(xs)`, `f(xs...)`. `initcappack.cpp`.
 - `[xs...]` over a bound pack is one by-value capture per element (`cap(pack, N)`, `cpp_subst_caps/3`). (0.99)
 - `this` is captured for `[this]`, and under a default capture where the body names `this` or an enclosing data member,
   static, method or member template, bases included (`cpp_captures_this/4`, `cpp_has_member/2`). The closure holds the
@@ -5163,6 +5195,15 @@ A lambda is a class of its captures (`library/ccl_cpp.pl`). A fixture named alon
   `f() && g()`); else it is a plain `if`. Why: libc++ 18's `if constexpr
   (__format::__use_packed_format_arg_store(sizeof...(_Args)))` kept both branches, and the other named a member the
   store does not have. `ifconstexprcall.cpp`. `explicit(bool)` asks it too. (0.42, 0.112, 0.197)
+- A C++ STATIC ASSERTION IS CHECKED (0.198; [dcl.pre]/10; `cpp_static_assert/4`): the program's own, where its condition
+  folds -- at file scope, in a block and in an instance's body, which a discarded `if constexpr` branch never is (P2593:
+  `static_assert(false)` there is no error); a library header's are trusted, its traits being this compiler's. A false one
+  is `static assertion failed: Text` at its line; a C++26 message of a class value (P2741, a `size()` and a `data()`) is
+  read and not spelled. A class member's is not asked (Not done). It was read and never asked:
+  `static_assert(sizeof(int) == 8);` compiled. Its first net met an older defect: `make_signed_t<unsigned __int128>` was
+  `signed __int128`, a spelling of its own (`cpp_int_spelling/2` takes `__int128` since 0.198, the Overload resolution
+  topic's one spelling of an integer type). `test/cpp/sassertfail.cpp`, `sassertinst.cpp` (refused), `sassertdiscard.cpp`,
+  `sassertmsg.cpp`.
 - A static const folds from `'$cpp_sinit'`, also through the bases and the enclosing class
   (`cpp_static_const/3`), raw or else desugared in its class under `'$cpp_folding:C.N'` (`cpp_fold_static/4`). Named
   bare in its class it folds in an expression and as a template argument. Why: libc++'s `__str_find<..., npos>`. (0.47,
@@ -5191,7 +5232,13 @@ A lambda is a class of its captures (`library/ccl_cpp.pl`). A fixture named alon
   (`cpp_note_nested_enum/1`, written where `cpp_nested_names/3` notes the tag), so that a qualified name which is no enum's
   costs one failed lookup. An UNQUALIFIED enumerator is still the table's. libc++ 21's grapheme-cluster rules switch over
   `__GB9c_indic_conjunct_break_state`, nested in a class and declared after the member that switches, whose `__Consonant`
-  is also `__inCB_property::__Consonant` (`std::print`, `std::format` of a string). `enumscope.cpp`. (0.126)
+  is also `__inCB_property::__Consonant` (`std::print`, `std::format` of a string). `enumscope.cpp`. AND THROUGH ITS
+  NAMESPACE (0.198; `cpp_ns_enum_tag/4`, [namespace.qual]): `n::y` of an unscoped enum of the program's namespace is the
+  value the enum of that namespace whose list holds the name gives it, its key where two namespaces declare the name, typed
+  as that enum; and an enum's walk folds another enum's enumerator named by its qualified name in an initializer
+  (`cpp_enum_quals/2`; no enum walked inside its own walk, `'$cpp_enum_walking'`). `enum C { c = n::y + 1 };` was refused
+  `enumerator_not_constant(c)`, and libc++ 21's `_PartialOrdResult::__less = static_cast<signed char>(_OrdResult::__less)`
+  was right only by the order of `<compare>`'s two enums. `enumqualns.cpp`. (0.126, 0.198)
 - A `const` non-floating local whose desugared initializer folds, a constexpr call through the evaluator included, is a
   constant of its block (`cpp_note_const/3`: `'$cv'(N)-V` in its frame and `'$cpp_lconsts'`, which `cpp_in_frame/1` and
   `cpp_with_fsig/2` restore where the block's or the body's walk ends; trace `const_not_folded`). Why:
@@ -5393,6 +5440,12 @@ A lambda is a class of its captures (`library/ccl_cpp.pl`). A fixture named alon
 - So does the program's consteval member function, static or not (`cpp_note_consteval/3` where the method is emitted,
   `cpp_consteval_fold/2` after every call), and its consteval constructor builds a local at compile time
   (`cpp_eval_construct` in `cpp_decl_pieces`: the object's value is the local's initializer). `constevalm.cpp`. (0.112)
+- AN IMMEDIATE FUNCTION CONTEXT (C++20 [expr.const]/16, C++23's P2564; 0.198; `cpp_immediate_context/0`): a call of a
+  consteval function that does not fold stays a call in a consteval function's body, and in an instance of a function
+  template that is being made it makes that instance immediate (`'$cpp_consteval'`, trace `immediate_escalated`), whose
+  own calls its callers fold: `template <class T> constexpr int prop(T x) { return cev(x); }` and `prop(4)` are 5. A
+  template's instance is escalated whether or not it is declared constexpr (the reader keeps no such mark on a function),
+  where clang++ refuses the program. `cevescalate.cpp`.
 - A LIBRARY CLASS'S CONSTEVAL CONSTRUCTOR IS RUN AT COMPILE TIME where its object is made ([dcl.constexpr]/13,
   [expr.const]; 0.164; dropped from 0.110 to 0.163): `basic_format_string`'s parses the format string against the
   arguments' kinds, through `__format::__vformat_to` over a `__compile_time_basic_format_context`, and libc++ 21's
@@ -5543,7 +5596,17 @@ A lambda is a class of its captures (`library/ccl_cpp.pl`). A fixture named alon
 - A C++ class with no data members has size 1 ([class]/4; `ccl_class_size`, C++ only); a C empty struct stays 0 bytes.
   The test is the member list, written once (`ccl_no_data_members`, for `ccl_class_size` and `ccl_empty_layout`), never
   "lays out to zero": `ccl_members_layout_` skips a member that it cannot size yet. `char p[0]` alone stays 0 bytes.
-  `emptyclass.cpp`. Else basic_string's `__rep_` became a member of no bytes. (0.89)
+  `emptyclass.cpp`. Else basic_string's `__rep_` became a member of no bytes. AN EMPTY DATA MEMBER IS NO DATA (0.198; the
+  Itanium ABI's term, a `[[no_unique_address]]` member of empty class type; [meta.unary.prop]'s is_empty, "subobjects of
+  zero size"; `ccl_empty_data_member/2`, its type resolved for real): a class whose members are all such is empty itself, to
+  the layout, to the desugaring (`cpp_empty_class/1` over `cpp_empty_data/1`; a plain struct, no registered class, by the
+  layout's test) and to `__is_empty` -- as a member, as a base, and where its zero-fill would write a byte over the member
+  that shares its address. libc++'s `__movable_box<F>` of a captureless lambda holds only such a member,
+  `__movable_box_holder<F>`, which holds only one of F, and each took a byte: a `transform_view` over a lambda was 16 bytes
+  where clang++ lays 8, over libc++ 21 and, since 0.198 answers `__has_cpp_attribute`, over libc++ 18;
+  `struct P { [[no_unique_address]] H h; int *p; }` over `struct H { [[no_unique_address]] E e; }` was 16 for 8, `struct S :
+  H { int x; }` 8 for 4, and `std::is_empty_v<H>` and `std::is_empty_v<E>` of a plain `struct E {}` were 0.
+  `nuaempty.cpp`, `nualayout.cpp`. (0.89, 0.198)
 - An empty base (`cpp_empty_class`: no data, no slots) has no sub-object, as the first base (`cpp_base_layout_`) or a
   later one (`cpp_extra_bases_`). Its address is the object's (`cpp_base_place`, `cpp_base_src`, `cpp_base_hop`); a
   memberwise copy names it by a reference cast. It keeps its alignment as `align_as(int(A))` (`cpp_empty_base_align`):
@@ -5597,7 +5660,11 @@ A lambda is a class of its captures (`library/ccl_cpp.pl`). A fixture named alon
 - An empty marked member lies where Itanium 2.4 II.3 puts it (`ccl_empty_offset`, `ccl_empty_step`): at 0, unless an
   empty subobject of its type is there; then at the data size rounded to its alignment, stepping by it. It takes no data
   bytes and keeps its alignment. The size is the larger of the data and the end of the empty subobjects
-  (`acc(Seen, EmptyEnd)`). A plain member of an empty class counts as one in the way. `nounique2.cpp` (C++20). (0.96)
+  (`acc(Seen, EmptyEnd)`). A plain member of an empty class counts as one in the way. `nounique2.cpp` (C++20). An empty
+  subobject INSIDE an empty member counts too, at its own offset (0.198; `ccl_empty_subs/2`, clang's EmptySubobjectMap):
+  `struct T { [[no_unique_address]] E e; [[no_unique_address]] H h; }` lays h at 1, H's E in the way at 0, where it lay at 0
+  in one byte. An empty BASE is not seen in the way yet: `struct X : E { [[no_unique_address]] E e; }` lays e at 0 (Not
+  done). `nuaempty.cpp`. (0.96, 0.198)
 - An empty marked member has no LLVM element. Its map entry is `m(N, empty(Off), T, empty)`, and `ir_member_slot`
   addresses it by byte offset (`getelementptr inbounds i8`). (0.96)
 
@@ -6154,6 +6221,22 @@ A lambda is a class of its captures (`library/ccl_cpp.pl`). A fixture named alon
   (`cpp_nx_method_quals/3`) -- none of whose declarations is noexcept (`v.at(0)`, `v.push_back(x)` and `in.good()` false,
   `v.size()` and `s.c_str()` true). A library function counted as noexcept until 0.193, libc++ running its no-exceptions
   configuration; a destructor counts as noexcept ([except.spec]/9). `noexceptlib.cpp`. (0.110, 0.188, 0.193)
+- NOEXCEPT IS PART OF A FUNCTION TYPE (C++17, [except.spec]/2, [dcl.fct]/1, P0012; 0.198, reader 150): the reader keeps it on
+  a function TYPE -- a pointer's, a reference's, a type-id's -- as the mark `q(V, [noexcept])` of `fn(R, Ps, V)`
+  (`ccl_suffix//2`), and on a member function type after its qualifiers (`ccl_mfn_mark/5`, `cpp_method_mfq/2`); a declared
+  function's own type keeps the plain mark (`ccl_own_fn_nx/3`) and its noexcept the name's (`'$ccl_nxs'`), so that its
+  symbol, its declare line and the table are what they were, and `decltype(nf)` and `decltype(&nf)` take the mark again
+  (`cpp_decltype_of/2`). The type key holds it (`nxfn`, `cpp_type_key/2`), and the mangler spells it `Do` (`PDoFvvE`,
+  `M1SKDoFivE`; `cpp_ita_fn/7`). A call through a pointer or a reference to a function, or through a pointer to member
+  function, is noexcept where its type is (`cpp_nx_throwing/1` over `cpp_nx_pointer_callee/2` and `cpp_nx_memptr_fn/2`).
+  The function pointer conversion takes the mark away and never adds it ([conv.fctptr]; `cpp_fnptr_conv/2` in
+  `cpp_convertible/2`, `cpp_fn_types_agree/2`, `cpp_mfq_fits/2`); a partial specialization over `R (*)(A...) noexcept` is
+  one of its own; the lowering reads the ellipsis mark through it (`ir_variadic/1`, lowering 111). The mark was dropped:
+  `void (*p)() = nf;` made `noexcept(p())` true, `is_same_v<decltype(nf), void()>` and `is_convertible_v<void (*)(), void
+  (*)() noexcept>` were true, a call through `.*` of a member that may throw was noexcept, and the type information of `void
+  (*)() noexcept` was `PFvvE`. A typedef of a function type, `typedef void F() noexcept;`, keeps no mark (its declarator is
+  a name, as a function's is), and a CONDITIONAL `noexcept(E)` is noexcept for every E but the literal `false`, the reader
+  keeping no E: `std::is_nothrow_invocable_v<void (*)()>` is 1, where clang++ has 0 (Not done). `noexcepttype.cpp`.
 
 ### RTTI
 
@@ -7036,7 +7119,10 @@ A lambda is a class of its captures (`library/ccl_cpp.pl`). A fixture named alon
   the right side moves is moved before the left side's place is read. An overloaded assignment operator's operands are
   sequenced as the built-in's ([over.match.oper]/2): the right one is evaluated first into a local `$rhs` where the
   operator's second parameter is a reference, a pointer or an arithmetic value (`cpp_rhs_first/2`; an operand with no side
-  effect, `cpp_fixed_operand/1`, keeps the call). `test/c/run/evalorder.c`, `test/cpp/run/evalorder.cpp`.
+  effect, `cpp_fixed_operand/1`, keeps the call), and since 0.198 where it takes a class by value (`cpp_rhs_first/2`'s
+  second clause): the argument's temporary is built first and the object bound after it, a reference `$lhs`, the temporary
+  handed on in place -- `left() = right();` over `S &operator=(S)` called left() first, and `left() = lref();` copied
+  `lref()`'s object after it called left(). `test/c/run/evalorder.c`, `test/cpp/run/evalorder.cpp`, `assignbyval.cpp`.
 - `int(N)` is `i32`, or `long` past 32 bits; `uint`, `long` and `ulong` keep their suffix's type. A `big(Atom)` past
   2^60 is spelled as written (`ir_big_text/2`; `u0x...` for hex). A character literal is a `char` in C++ and an `int`
   in C. `__func__` and `__FUNCTION__` are the function's name, and C's `__PRETTY_FUNCTION__` its signature as clang
@@ -7947,8 +8033,19 @@ A lambda is a class of its captures (`library/ccl_cpp.pl`). A fixture named alon
   at 2882 MB, 1.8.38 at 591 MB. After a cocolog update the modules are rebuilt (`module/build.sh`,
   `module/build-llvm.sh`, and cocolog's `os` and `process` modules); 1.8.36 to 1.8.41 left the SDK's ABI unchanged.
   (0.46, 0.112, 0.114)
-- cocolog is at 2.11.1 since 0.190 -- master `870bcb9`, over ZiguratIP 1.0.1 (`90d99b8`) beside Cicili 3.0.0
-  (`9d74a5e`), neither of which moved: a failed read of the store raises `resource_error(knowledge_base)` and loses no
+- cocolog is at 2.11.4 since 0.198, pulled at the owner's word -- master `fbda058`, over ZiguratIP 1.0.1 (`90d99b8`),
+  which did not move, beside Cicili 3.1.0 (`cc24ae0`), which 2.11.2 asks for: 2.11.2 (`dd53f69`) marks the growths' slow
+  paths with Cicili's new `(cold)` attribute, where an older Cicili stops at `unknown symbol: cold`; 2.11.3 (`5164d48`)
+  answers a read predicate's clause count inline in the step; 2.11.4 (`fbda058`) gives each engine two private term
+  stores, for `findall/3`'s solutions and for a ball a `catch/3` of that engine takes, which no longer pass the shared
+  store's write barrier. The SDK did not change (`lib/sdk.cicili`), Cicili 3.1.0 made both modules' C byte for byte what
+  3.0.0 made, and both were built again. The update took `make` 149 s, `make schema` 39 s and `make modules` 74 s (torch
+  and tensorflow skipped, as before). Measured at 0.198, the least CPU time of three interleaved runs each over one warm
+  HOME, the 0.198 library on each engine (its modules built over each): five warm C++ builds 63.11 s on 2.11.1 and 58.06
+  s on 2.11.4, 8 % less, each of the four larger builds less in every round -- `stdtuple.cpp` 13.54 s and 11.81 s,
+  `stdformat.cpp` 39.63 and 37.07, `stdmap.cpp` 5.79 and 5.22, `stdvector.cpp` 3.90 and 3.70 (`counter.cpp` 0.25 and
+  0.26); the flow gate and the fixtures of 0.198 gave the same answers on both. It was at 2.11.1 from 0.190 -- master
+  `870bcb9`, over ZiguratIP 1.0.1 (`90d99b8`) beside Cicili 3.0.0 (`9d74a5e`), neither of which moved then: a failed read of the store raises `resource_error(knowledge_base)` and loses no
   row, where a predicate read in part was rewritten from the partial copy at the next write and the row deleted on the
   server; fifteen `x = realloc(x, n)` sites grow through a second pointer and raise memory, the pattern the native
   lexer had too (The lexers topic). The SDK did not change, and both modules were built again. The update took `make`
@@ -8557,17 +8654,18 @@ A lambda is a class of its captures (`library/ccl_cpp.pl`). A fixture named alon
 - Ubuntu 24.04 on x86_64 (clang and LLVM 18, glibc, libc++ 18 and 21) is a host since 0.87. Every gate but the C++ one
   is GREEN there since 0.93, and all seven since 0.95. Every step from 0.93 on is gated there, but the save points
   0.112, 0.113, 0.117, 0.122 to 0.125, 0.130, 0.131 and 0.143 (0.143's C gates and cross gate ran, its libc++ gates did
-  not; the others were gated by the steps after them). The last full run is 0.197's, over cocolog 2.11.1 (the
+  not; the others were gated by the steps after them). The last full run is 0.198's, over cocolog 2.11.4 (the
   Findings), on one tree, over fresh HOMEs (the reader version moved): over libc++ 18 all nine GREEN (the flow gate's one
-  finding in 99 s, reader 4 s, compile 16 s, driver 14 s, objects 4 s, proof, the cross gate in 286 s with its C++ part
-  for aarch64, the library read in 321 s (0.196's 333 s; 105 other headers warmed), the C++ gate in 921 s (0.196's 927
-  s) with 639 of 645 fixtures ok, the skips are `atomicref`, `joinwith`, `stdoptionalref`, `tzone`, `vbaseof` and
-  `zipadjacent`, the two units, the 28 refusals and the four of the safe part); over libc++ 21 the library read (298 s,
-  peak 755 MB; 0.196's 302 s) and the C++ gate (940 s, peak 2127 MB; 0.196's 915 s; 643 of 645 ok, the skips
-  `stdoptionalref` and `zipadjacent`) GREEN -- the C gates do not read libc++. The headers' reads, summed, took 1167 s
-  over 128 over libc++ 18 and 1103 s over 21 (0.196's 1227 s and 1101 s; 0.181's 4313 s and 4116 s over 114, before a
-  read linear in its items); the fixtures' builds 3076 s over 639 and 3174 s over 643 (0.196's 3124 s over 623 and 3093
-  s over 627) (HISTORY.md, 0.197). The chains of 0.165 to 0.196 are in HISTORY.md, 0.166 to 0.197.
+  finding in 91 s, reader 4 s, compile 15 s, driver 14 s, objects 4 s, proof, the cross gate in 266 s with its C++ part
+  for aarch64, the library read in 319 s (0.197's 321 s; 111 other headers warmed), the C++ gate in 859 s (0.197's 921
+  s) with 660 of 666 fixtures ok, the skips are `atomicref`, `joinwith`, `stdoptionalref`, `tzone`, `vbaseof` and
+  `zipadjacent`, the two units, the 29 refusals, the four of the safe part and the two static assertions); over libc++
+  21 the library read (282 s, peak 798 MB; 0.197's 298 s) and the C++ gate (837 s, peak 2093 MB; 0.197's 940 s; 664 of
+  666 ok, the skips `stdoptionalref` and `zipadjacent`; run again alone after a restart of the container) GREEN -- the C
+  gates do not read libc++. The headers' reads, summed, took 1166 s over 134 over libc++ 18 and 1033 s over 21 (0.197's
+  1167 s and 1103 s over 128; 0.181's 4313 s and 4116 s over 114, before a read linear in its items); the fixtures'
+  builds 2866 s over 660 and 2904 s over 664 (0.197's 3076 s over 639 and 3174 s over 643) (HISTORY.md, 0.198). The
+  chains of 0.165 to 0.197 are in HISTORY.md, 0.166 to 0.198.
   Two libc++ passes are one gate: `LLVM=/usr/lib/llvm-18` and `LLVM=/usr/lib/llvm-21`
   choose the tree the chain reads and links. libc++ 22 (the newest tree, which a run without `$LLVM` reads) is no
   gate: 0.182 built its vector and its C++23 views by hand (`zipadjacent.cpp`, which its `.needs` skips over 18 and
@@ -8678,6 +8776,19 @@ A lambda is a class of its captures (`library/ccl_cpp.pl`). A fixture named alon
   (two virtual overloads of one name and arity, one overridden), `virtualdefault` (a virtual call that leaves a defaulted
   argument out), `anonparam` (an unnamed by-value parameter destroyed), `rangeadl` (a range-for by the free `begin` and
   `end` of two namespaces), `downcast` (`static_cast` from a second base to the derived class, a pointer and a reference).
+- Forms of 0.198, C++'s core language, the rest: `noexcepttype` (C++17's noexcept in the type system: a call through a
+  pointer, a reference and a pointer to member, `decltype` of a noexcept function, the conversions, a partial
+  specialization, `Do` in the type information), `initcappack` (C++20's init-capture pack), `bindpack` (C++26's
+  structured binding pack, attributes on bindings), `variadicfriend` (C++26's variadic friend, which ran at 0.197 too, a
+  friend pack then opening the class to every name; `test/cpp/access_varfriend.cpp`, which 0.197 compiled, the refusal),
+  `cevescalate` (C++23's consteval propagation), `hascppattr` (`__has_cpp_attribute` in `#if` and in a text line),
+  `nualayout` (libc++'s algorithm results and a view as clang++ lays them), `nuaempty` (empty data members, an empty
+  subobject inside a member, `is_empty`), `enumqualns` (an enumerator through its namespace, another enum's in an
+  initializer), `selfnamedctor` (a copy and a move constructor named by a template-id or an alias), `assignbyval` (an
+  overloaded assignment by value's order; `test/cpp/sassertfail.cpp` and `sassertinst.cpp`, a false static assertion,
+  the refusals), and `sassertdiscard`, `sassertmsg`, `core20forms`, `core23forms`, `constexprplace`, `constexprgoto`,
+  `packindexdel`, `staticcallop`, `sizesuffix` and `elifdefgoto` -- these ten passed at 0.197 too, the audit's record of
+  what holds.
 - Forms of 0.197, C++'s core language: `evalorder` (C++17's order of evaluation: an assignment's operands, a shift's, a
   call's function expression before its arguments, a member access's object), `explicitbool` (C++20's `explicit(bool)`: a
   constructor template's, a conversion function's, libc++'s pair and optional), `implicitmove` (C++20's and C++23's implicit
@@ -9096,25 +9207,28 @@ elision into records, C23's enums, `<tgmath.h>`, C23's headers, GCC's atomic bui
 the second, the program's own file-scope constants, is 0.195's (the Constant evaluation topic: C17's, C23's and C++'s,
 a C23 block's `constexpr`, a local constant its block's own); the third, the lexers, is 0.196's (the Lexers topic: the
 `u8` literals of C23 and C++20, UTF-8 and multi-character constants in a character literal, adjacent prefixed string
-literals, identifiers past ASCII and universal character names in them); the fourth, C++'s core language, is 0.197's in
-part (the order of evaluation, `explicit(bool)`, the implicit moves, `decltype((x))`, a constant's initializer manifestly
-constant-evaluated, parenthesized aggregate initialization, template parameter objects, a lambda made in a lambda one class,
-a class prvalue handed by value in place and one bound to a reference parameter destroyed; and C's variably modified
-parameters).
+literals, identifiers past ASCII and universal character names in them); the fourth, C++'s core language, is 0.197's and
+0.198's (0.197: the order of evaluation, `explicit(bool)`, the implicit moves, `decltype((x))`, a constant's initializer
+manifestly constant-evaluated, parenthesized aggregate initialization, template parameter objects, a lambda made in a lambda
+one class, a class prvalue handed by value in place and one bound to a reference parameter destroyed, and C's variably
+modified parameters; 0.198: noexcept in the type system, an init-capture pack, an immediate function context, C++26's
+structured binding packs, attributes on bindings and variadic friends, `__has_cpp_attribute`, C++'s static assertions, an
+enumerator through its namespace and in another enum's initializer, a copy constructor named by a template-id or an
+alias, an overloaded assignment by value's order, and an empty data member no data; C++26's user-generated
+`static_assert` message, a constexpr placement new and cast from `void *`, a static call operator and a pack index held
+already, the audit's record of them `sassertmsg.cpp`, `constexprplace.cpp`, `staticcallop.cpp`, `packindexdel.cpp`).
 
-1. C++'S CORE LANGUAGE, THE REST: noexcept in the type system (C++17: `void (*p)() = nf;` keeps no `noexcept`, so
-   `noexcept(p())` is true where clang++ answers false, and `is_same_v<decltype(nf), void()>` true; the function type
-   carries no mark, which the mangler (`Do`), the conversions and the deduction would read), an init-capture pack
-   (C++20: `[...xs = std::move(ts)]` is a syntax error), consteval propagation (C++23, P2564: `prop(4)` over a constexpr
-   function template that calls a consteval function is refused `consteval_call_not_constant`), C++26's core forms (a
-   structured binding pack `auto [...xs] = t`, variadic friends, a user-generated `static_assert` message, attributes on
-   structured bindings, a constexpr placement new and cast from `void *`), `__has_cpp_attribute` answered with clang's
-   values and expanded in text (it answers 0 in `#if` and is no name elsewhere; libc++ 18 then leaves `[[no_unique_address]]`
-   out of its views, so their layouts differ from clang++'s), an enumerator whose initializer names another enum's by its
-   qualified name (`cpp_enum_walk/4` does not fold `scoped(...)`, and the table's answer for the bare name is the first
-   enum's of that name: libc++ 21's `_PartialOrdResult` is right by the order of `<compare>`'s two enums), and an
-   overloaded assignment whose right parameter takes a class by value, which keeps the call's order (`cpp_rhs_first/2`
-   leaves it: the temporary would be a second copy).
+1. C++'S CORE LANGUAGE, WHAT ITS PROBES FOUND OLDER: a CONDITIONAL `noexcept(E)` of a template evaluated under the
+   instance's bindings (the reader keeps no E and takes every E but `false` as true: libc++'s `std::__invoke` and
+   `std::swap` are conditional, so `is_nothrow_invocable_v<void (*)()>` and `is_nothrow_swappable` answer 1); NRVO (clang
+   builds `return s;` of a named local of the result's class in the caller's object at -O0 too, where this compiler moves or
+   copies it, a difference in a program whose constructors print); a VALUE TEMPLATE PARAMETER TYPED in its instance
+   (`template <unsigned N> auto f() { return N; }` returns an `int`; `template <auto N>` keeps no type and keys none:
+   `std::is_same_v<X<'a'>, X<97>>` is 1 and `sizeof(fa<'c'>())` 4) and `decltype(C::s)` of a static data member its declared
+   type (`static constexpr auto v = 5;` gives the folded value's `int`, clang++'s `const int`); an empty BASE in the way of
+   an empty member of its type (`struct X : E { [[no_unique_address]] E e; }` is 1 byte, clang++'s 2); the limits of
+   0.198: a typedef of a noexcept function type keeps no mark, `&nf` keeps it in `decltype` alone, a scoped
+   `__has_cpp_attribute` answers 0, and a class member's and a library header's static assertions are not asked.
 2. THE TRAITS OF ONE VALUE: `is_convertible_v<int, std::string>`, `is_convertible_v<char, std::string>` and
    `is_constructible_v<std::string, int>` answer 1 where clang++ answers 0 (0.196 too): a constructor template whose
    parameter does not depend on its own template parameters takes any argument (`cpp_ctor_tmpl_takes/5` over libc++'s

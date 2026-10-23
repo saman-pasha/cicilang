@@ -1,0 +1,14 @@
+ctor 3
+right
+ctor 2
+ctor 1
+left
+assign 2
+--
+lref
+copy 3
+left
+assign 3
+left
+3
+exit 0

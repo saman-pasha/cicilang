@@ -191,6 +191,7 @@ One row per step, in version order: the step's title, what it did and its gate n
 | 0.195 | the audit's second group: the program's own file-scope constants -- C17's and C++'s `const` and C23's `constexpr` named constants, a C23 block's `constexpr` its own, a local constant its block's, an enumerator over another enum's | a file-scope `const` integer of the program or its own header that folds a named constant (`'$ccl_consts'`) at every level, in an array's bound, an enumerator, a bit-field's width, `alignas`, a template argument, `static_assert` and a case label; a local constant an entry of its frame (`'$cv'(N)`), C++'s `const` local and C23's `constexpr` local, which leaves with its block; a local or a parameter of the name, a `const` one included, shadows a constant; in C a bound, a bit-field's width and an enumerator fixed at the read; an enum over another enum's enumerator, a header's or a constant folded again once the table is written, its known values only | all nine gates GREEN over libc++ 18, the two libc++ gates over 21; the headers' reads summed 1292 s and 1155 s over 128, the fixtures' builds 3199 s and 3146 s; 619 of 625 C++ fixtures over 18, 623 over 21 |
 | 0.196 | the audit's third group: the lexers -- u8 literals of their level's types, a character literal's items, multi-character constants, a plain character literal's sign, adjacent strings of any prefix, identifiers past ASCII | `u8'c'` and `u8"..."` kinds of their own, typed as their level has them (C++20's `char8_t`, C23's `unsigned char`); a prefixed character literal one character, its UTF-8 its code point; a plain one of several bytes a multi-character constant, an `int`; a plain character literal past 127 a char's value where plain char is signed; adjacent string literals of different prefixes one literal; an identifier past ASCII and a universal character name in one, its symbol quoted, its register name in ASCII, its mangled length in bytes; the native lexer's rest in the run's text units | all nine gates GREEN over libc++ 18, the two libc++ gates over 21; the headers' reads summed 1227 s and 1101 s over 128, the fixtures' builds 3124 s and 3093 s; 623 of 629 C++ fixtures over 18, 627 over 21 |
 | 0.197 | the audit's fourth group, in part: C++'s core language -- the order of evaluation, `explicit(bool)`, the implicit moves, `decltype((x))`, parenthesized aggregate initialization, template parameter objects | an assignment's right operand first, in C too; `explicit(bool)` folded under a member template's bindings, a call inside the condition where it sits; `return x;` of a local or a by-value parameter an rvalue, never a member, a global or a reference; `decltype((x))` and `return (x);` references; a constant's initializer manifestly constant-evaluated; C++20's parenthesized aggregate initialization at every site and in the traits; a template parameter of class type a template parameter object; a lambda made in a lambda one class; a class prvalue handed by value built in place; a variably modified parameter's bounds on entry | all nine gates GREEN over libc++ 18, the two libc++ gates over 21, after a first chain RED at three fixtures (a copy constructor written with a template-id), mended in the commit; the headers' reads summed 1167 s and 1103 s over 128, the fixtures' builds 3076 s and 3174 s; 639 of 645 C++ fixtures over 18, 643 over 21 |
+| 0.198 | the audit's fourth group, the rest: noexcept in the type system, an init-capture pack, consteval propagation, C++26's structured binding packs and variadic friends, `__has_cpp_attribute`, C++'s static assertions; cocolog 2.11.4 | noexcept on a function type, in its key, its symbol (`Do`) and its calls, the function pointer conversion dropping it; `[...xs = e]`; a consteval call in an immediate function context, an instance being made escalated; `auto [a, ...xs] = e`, attributes after a binding; `friend Ts...;` and `friend A, B;` (a friend pack opened the class to every name); `__has_cpp_attribute` with clang 21's values (libc++ 18's `[[no_unique_address]]`); a false static assertion of the program an error, a discarded branch's none; an enumerator through its namespace and in another enum's initializer; a copy or move constructor named by a template-id or an alias; an overloaded assignment by value's operand first; an empty data member no data, a nested empty subobject in the way (libc++'s views over a lambda); `make_signed_t<unsigned __int128>` `__int128`; cocolog 2.11.4 over Cicili 3.1.0, five warm builds 8 % less CPU | all nine gates GREEN over libc++ 18, the two libc++ gates over 21 (the C++ gate over 21 run again alone after a restart of the container); the headers' reads summed 1166 s and 1033 s over 134, the fixtures' builds 2866 s and 2904 s; 660 of 666 C++ fixtures over 18, 664 over 21 |
 
 ## M5 — the C++ mode
 
@@ -12755,3 +12756,110 @@ pack, consteval propagation, C++26's core forms, `__has_cpp_attribute` -- is the
 
 Reader 149 (a parenthesized operand of decltype and of a return kept) and lowering 110 (an assignment's right operand first,
 a class prvalue handed by value in place, a variably modified parameter's bounds on entry).
+
+## 0.198 — the audit's fourth group, the rest: noexcept in the type system, an init-capture pack, consteval propagation, C++26's structured binding packs and variadic friends, `__has_cpp_attribute`, C++'s static assertions; an enumerator through its namespace, a copy constructor named otherwise, an assignment by value's order, an empty data member; cocolog 2.11.4
+
+**0.198: the fourth step of the audit of C17 to C23 and C++17 to C++26 (Not done's order), its rest: the forms of C++'s core
+language that 0.197 left, and the older defects that their probes met. Each fixture prints clang++'s output. Four older
+gaps that the probes met are a step's own (Not done's item 1): a conditional `noexcept(E)`, NRVO, a value template
+parameter's type in its instance, an empty base in the way of an empty member. cocolog 2.11.4 over Cicili 3.1.0, pulled
+at the owner's word during the step.**
+
+- NOEXCEPT IN THE TYPE SYSTEM (C++17, P0012; reader 150, lowering 111): the reader keeps `noexcept` on a function TYPE, the
+  mark `q(V, [noexcept])` in the third field of `fn(R, Ps, V)` (`ccl_suffix//2`), and on a member function type after its
+  qualifiers (`ccl_mfn_mark/5`); a declared function's own type keeps the plain mark (`ccl_own_fn_nx/3`), so its symbol,
+  its declare line and the table are what they were, and `decltype(nf)` takes the mark again (`cpp_decltype_of/2`). The
+  type key holds it (`nxfn`), the mangler spells it `Do` (the type information `_ZTIPDoFvvE`), a call through a pointer, a
+  reference or a pointer to member function is noexcept where its type is (`cpp_nx_pointer_callee/1`,
+  `cpp_nx_memptr_fn/2`), and the function pointer conversion takes the mark away and never adds it (`cpp_fnptr_conv/2`,
+  `cpp_mfq_fits/2`). Over 0.197 `noexcepttype.cpp` printed `1 1 1 0 / 1 1 1 1 / 1 1 1 / 1 1 1 / 1 1 / 1 1 1 / PFvvE M1SKFivE`
+  where clang++ prints `1 0 1 0 / 1 1 1 0 / 1 0 1 / 1 2 2 / 1 1 / 1 1 0 / PDoFvvE M1SKDoFivE`: a call through a plain
+  pointer or a pointer to a plain member function was noexcept, `is_same` of a noexcept and a plain function type held, a
+  conversion added the mark, and two partial specializations, over a pointer to function and to a noexcept one, were one.
+- AN INIT-CAPTURE PACK (C++20, P0780; reader 150): `[...xs = e]` and `[&...xs = e]`, one init-capture for each element of
+  the pack e expands over (`cpp_subst_caps/3`), the body naming xs as the pack of them (`cpp_cap_packs/3`). Over 0.197
+  `initcappack.cpp` was a syntax error at its line 5.
+- C++26's STRUCTURED BINDING PACK (P1061) and ATTRIBUTES AFTER A BINDING'S NAME (P0609; reader 150): `auto [a, ...xs, z] =
+  e`, the elements the other names leave named `xs$1` ... (`cpp_binding_names/4`), xs the pack of them in the statements
+  after it. Over 0.197 `bindpack.cpp` was a syntax error at its line 5.
+- C++26's VARIADIC FRIEND (P2893; reader 150): `friend Ts...;` and `friend A, B;`, one friend class for each element. It
+  was `friend(L, [])`, which opened the class to every name: over 0.197 `variadicfriend.cpp` printed clang++'s output, and
+  `test/cpp/access_varfriend.cpp`, which clang++ refuses (`'secret' is a private member of 'Fr<U1>'`), compiled.
+- AN IMMEDIATE FUNCTION CONTEXT (C++20 [expr.const]/16, C++23's P2564; `cpp_immediate_context/0`): a consteval call that
+  does not fold stays a call in a consteval function's body, and in an instance being made it makes the instance immediate.
+  Over 0.197 `cevescalate.cpp` was refused `consteval_call_not_constant(cev)`.
+- `__has_cpp_attribute` (`pp_cpp_attribute/2`, `pp_text_builtin/1`): clang 21's values of the standard attributes, in
+  `#if` and in a text line. Over 0.197 `hascppattr.cpp` was refused `undeclared('__has_cpp_attribute')`; and libc++ 18
+  asks `__has_cpp_attribute(no_unique_address)` for its `_LIBCPP_NO_UNIQUE_ADDRESS`, so its algorithm results and views
+  were laid out without the attribute: `nualayout.cpp` printed `16 8 16` over libc++ 18 where clang++ prints `8 4 8`.
+- AN EMPTY DATA MEMBER IS NO DATA (the Itanium ABI's term; [meta.unary.prop]'s is_empty; `ccl_no_data_members/1`,
+  `ccl_empty_data_member/2`, `cpp_empty_data/1`, lowering 111): a class whose members are all `[[no_unique_address]]`
+  members of empty classes is empty itself, to the layout, to the desugaring and to `__is_empty`, and an empty subobject
+  inside a member is in the way of another of its type (`ccl_empty_subs/2`, `ccl_subs_clash/3`, Itanium 2.4 II.3). libc++'s
+  `__movable_box` of a captureless lambda is such a class: over 0.197 `nualayout.cpp` printed `8 4 16` over libc++ 21 (a
+  `transform_view` 16 bytes where clang++ lays 8), and `nuaempty.cpp` printed `1 1 16 16 2 8 1 1 8 / 0 8 1 0 0 4 / 0 0 0 0
+  0` where clang++ prints `1 1 8 8 2 4 2 2 4 / 0 0 1 1 1 0 / 1 1 0 1 0`.
+- C++'S STATIC ASSERTIONS CHECKED (`cpp_static_assert/4`): at file scope, in a block, in an instance's body, never in a
+  discarded `if constexpr` branch, never a library header's. A false one is `static assertion failed: Text`. Over 0.197
+  `test/cpp/sassertfail.cpp` and `sassertinst.cpp` compiled. Its first net met an older defect: `int128lib.cpp` was refused
+  by its own `static_assert(std::is_same_v<std::make_signed_t<unsigned __int128>, __int128>)`, `signed __int128` a
+  spelling of its own to the type key (`cpp_int_spelling/2` takes `__int128` now).
+- AN ENUMERATOR THROUGH ITS NAMESPACE, AND IN ANOTHER ENUM'S INITIALIZER (`cpp_ns_enum_tag/4`, `cpp_enum_quals/2`). Over
+  0.197 `enumqualns.cpp` was refused `enumerator_not_constant(c)`.
+- A COPY OR MOVE CONSTRUCTOR NAMED BY A TEMPLATE-ID OR AN ALIAS (`cpp_named_self/3`): `cpp_ret_copy_ctor/2` of 0.197's
+  amended commit is gone, `cpp_copy_ctor/2` reading both forms. Over 0.197 `selfnamedctor.cpp` was refused by the safe
+  part, `move of a non-owner: 'a'` at `S<int> c = std::move(a);`.
+- AN OVERLOADED ASSIGNMENT BY VALUE'S ORDER (`cpp_rhs_first/2`'s second clause): the by-value parameter, the right operand,
+  is built first. Over 0.197 `assignbyval.cpp` printed `left` before `right` and `ctor 2`, and before `lref` and `copy 3`.
+- FOUND AND LEFT FOR A STEP OF THEIR OWN (Not done's item 1): `std::is_nothrow_invocable_v<void (*)()>` is 1 (a conditional
+  `noexcept(E)` is noexcept for every E but `false`); `return s;` of a named local moves where clang builds it in the
+  caller's object (NRVO); `decltype(X<'a'>::v)` of `template <auto N> struct X { static constexpr auto v = N; };` is no
+  `const char`, since a value template parameter is an `int` in its instance and `decltype` of a static data member is its
+  folded value's type (`o289/r/autostatic.cpp`, session scratch: twelve answers of sixteen differ from clang++'s);
+  `struct X : E { [[no_unique_address]] E e; }` is 1 byte where clang++ lays 2.
+- COCOLOG 2.11.4 OVER CICILI 3.1.0 (the Findings): pulled at the owner's word after the nets below, ZiguratIP unmoved;
+  2.11.2 asks Cicili's `(cold)`, 2.11.4 gives each engine private term stores for `findall/3` and a caught ball. Cicili
+  3.1.0 made both modules' C byte for byte what 3.0.0 made. Five warm C++ builds took 63.11 s on 2.11.1 and 58.06 s on
+  2.11.4 (the least CPU time of three interleaved runs each, the 0.198 library on each engine), `stdtuple.cpp` 13.54 s and
+  11.81 s, `stdformat.cpp` 39.63 and 37.07, `stdmap.cpp` 5.79 and 5.22, `stdvector.cpp` 3.90 and 3.70, `counter.cpp` 0.25
+  and 0.26.
+- FIXTURES: 21 C++ (`noexcepttype`, `initcappack`, `bindpack`, `cevescalate`, `hascppattr`, `nualayout`, `nuaempty`,
+  `enumqualns`, `selfnamedctor`, `assignbyval`, and `variadicfriend`, `sassertdiscard`, `sassertmsg`, `core20forms`,
+  `core23forms`, `constexprplace`, `constexprgoto`, `packindexdel`, `staticcallop`, `sizesuffix` and `elifdefgoto`, which
+  print clang++'s output over 0.197 too, the audit's record of forms that hold: C++26's user-generated `static_assert`
+  message, a constexpr placement new and cast from `void *`, a static call operator, a pack index, C++23's `#elifdef` and
+  `goto` in a constexpr function) and 3 refusals (`test/cpp/sassertfail.cpp`, `sassertinst.cpp`, `access_varfriend.cpp`),
+  each of which 0.197 compiled.
+- THE NET, before the chain, on cocolog 2.11.1: the flow gate GREEN (its one finding, 87 s); the C gates over a fresh store
+  and HOME GREEN over the final library (reader 4 s, compile 15 s, driver 13 s, objects 4 s, the proof, the cross gate 280
+  s, peak 414 MB); 194 C++ fixtures over two HOMEs, built and compared as the C++ gate does -- the new 21, every access,
+  lambda, constant evaluation, layout, `noexcept`, exceptions and RTTI fixture, the containers, the variants, the format
+  and the range ones -- clang++'s output over libc++ 18 (533 s of pool wall over three lanes) and over libc++ 21 (500 s),
+  after the first net over libc++ 18 had met `int128lib.cpp` (above), the one fixture of 194 that differed. On cocolog
+  2.11.4: the flow gate GREEN over the final library (89 s, peak 3418 MB), and the 21 new fixtures clang++'s output over
+  both trees.
+- THE CHAIN OF 0.198, over a fresh worktree of its commit and fresh HOMEs (the reader version moved), on cocolog 2.11.4
+  (`fbda058`), from 23:42:53 UTC: ALL GREEN. Over libc++ 18: the flow gate 91 s (peak 3090 MB, its one finding, 4348
+  predicates charted), reader 4 s, compile 15 s, driver 14 s, objects 4 s, the proof, the cross gate 266 s (peak 436
+  MB), the library read 319 s (peak 826 MB; the 23 asserted reads whole, 111 other headers warmed), the C++ gate 859 s
+  (peak 2524 MB), 660 of 666 fixtures ok (skips `atomicref`, `joinwith`, `stdoptionalref`, `tzone`, `vbaseof`,
+  `zipadjacent`), the cold build's processes, the two units, the 29 refusals, the four of the safe part and the two
+  static assertions; over libc++ 21 the library read 282 s (peak 798 MB) and the C++ gate 837 s (peak 2093 MB), 664 of
+  666 (skips `stdoptionalref`, `zipadjacent`). The container restarted while the C++ gate over libc++ 21 built its
+  fixtures, near 00:19; that gate ran again alone, 00:22:38 to 00:36:36, over the HOME the chain's library read had
+  warmed, and its numbers are that run's. The headers' reads summed 1166 s over 134 and 1033 s over 134 (0.197's 1167 s
+  and 1103 s over 128), the fixtures' builds 2866 s over 660 and 2904 s over 664 (0.197's 3076 s over 639 and 3174 s
+  over 643); the slowest over 18 `fmtrange` 97 s, `fmtchrono2` 94 s, `fmtchrono` 84 s, `fmtcheck` 75 s, `viewsall` 70 s,
+  `fmttuple` 63 s, over 21 `fmtchrono2` 92 s, `fmtchrono` 80 s, `viewsall` 75 s, `fmtrange` 68 s, `joinwith` 64 s,
+  `fmtcheck` 64 s.
+- `CLAUDE.md`: the versions (and the versions topic's, stale since 0.197); the Preprocessor (`__has_cpp_attribute`, a
+  feature question in a text line); C's language levels (the static assertion's C++ road); the C++ reader (a variadic
+  friend's node, an init-capture pack's, a structured binding pack); Classes (a copy constructor named otherwise; the
+  variadic friend); Lambdas (an init-capture pack); Constant evaluation (an immediate function context, C++'s static
+  assertions, an enumerator through its namespace); Overload resolution (`__int128`'s one spelling); Object layout (an
+  empty data member); Exceptions (noexcept in the type system); the Lowering (an assignment by value's order); the C++ gate
+  (the refusals); the Findings (cocolog 2.11.4); What runs; Hosts; Not done (the audit's core group done; its findings).
+
+Reader 150 (noexcept on a function type, an init-capture pack, a structured binding pack and attributes on bindings, a
+variadic friend) and lowering 111 (a noexcept function type's ellipsis mark; an empty data member no data, a nested empty
+subobject in the way).

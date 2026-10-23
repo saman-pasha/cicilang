@@ -551,7 +551,8 @@ cpp_ita_type_(memptr(C, _, T), Subs0, Canon, Text, Subs) :- atom(C),
 %% the reader's q(V, Qs)): `M1AKFiiE' for `int (A::*)(int) const', `M1AFiiOE' for `&&' -- the qualified type ONE candidate
 cpp_ita_fn(Ret, Ps, V0, Subs0, Canon, Text, Subs) :- cpp_fn_q(V0, V, Qs),
     cpp_ita_type(Ret, Subs0, RC, RT, Subs1), cpp_ita_fparams(Ps, V, Subs1, PC, PT, Subs), cpp_ita_cv(Qs, CV), cpp_ita_refq(Qs, RQ),
-    atomic_list_concat([CV, 'F', RC, PC, RQ, 'E'], Canon), atomic_list_concat([CV, 'F', RT, PT, RQ, 'E'], Text).
+    ( memberchk(noexcept, Qs) -> DO = 'Do' ; DO = '' ),   % a noexcept function type (0.198): `[V][K] Do F ... E', `PDoFvvE' for `void (*)() noexcept'
+    atomic_list_concat([CV, DO, 'F', RC, PC, RQ, 'E'], Canon), atomic_list_concat([CV, DO, 'F', RT, PT, RQ, 'E'], Text).
 cpp_ita_refq(Qs, R) :- ( memberchk('&&', Qs) -> R = 'O' ; memberchk('&', Qs) -> R = 'R' ; R = '' ).
 %% a function type's parameters: each as the function's own would be -- an array or a function is the pointer it
 %% decays to and a by-value parameter has no top-level const ([dcl.fct]/5) -- the canonical spelling beside the text
@@ -718,7 +719,7 @@ cpp_canon_specs(S, S1) :- ( cpp_int_spelling(S, S0) -> S1 = S0 ; msort(S, S1) ).
 %% `signed long' and `signed short', and keyed by the words as written those specializations never matched `int',
 %% `long' or `short' -- `__libcpp_signed_integer<int>' was false and std::format took an int for a `__handle'
 %% (test/cpp/run/intspell.cpp). `signed char' stays a type of its own beside `char'.
-cpp_int_spelling(S, S1) :- S = [_|_], forall(member(W, S), ( atom(W), memberchk(W, [int, signed, unsigned, long, short, char]) )),
+cpp_int_spelling(S, S1) :- S = [_|_], forall(member(W, S), ( atom(W), memberchk(W, [int, signed, unsigned, long, short, char, '__int128']) )),
     msort(S, Ss), cpp_int_spelling_(Ss, S1), !.
 cpp_int_spelling_([int], [int]).
 cpp_int_spelling_([signed], [int]).
@@ -745,9 +746,12 @@ cpp_int_spelling_([long, long, unsigned], [unsigned, long, long]).
 cpp_int_spelling_([int, long, long, unsigned], [unsigned, long, long]).
 cpp_int_spelling_([char, signed], [signed, char]).
 cpp_int_spelling_([char, unsigned], [unsigned, char]).
+cpp_int_spelling_(['__int128'], ['__int128']).
+cpp_int_spelling_(['__int128', signed], ['__int128']).   % `signed __int128' is __int128 (0.198): libc++'s make_signed_t<unsigned __int128> is `[signed, __int128]', and a static assertion of int128lib.cpp that it is __int128 failed once C++'s were checked
+cpp_int_spelling_(['__int128', unsigned], [unsigned, '__int128']).
 cpp_free_call(F, Ps, D, As, E) :- cpp_free_call_(F, Ps, D, As, E0),
     (   E0 = call(id(Name), _), '$cpp_consteval'(Name)                                             % a consteval function is EVALUATED AT COMPILE TIME ([dcl.constexpr]/13; 0.99: it ran at run time like constexpr since 0.42)
-    ->  ( cpp_const_fold(E0, V), cpp_eval_scalar(V) -> ( integer(V) -> E = int(V) ; E = V ) ; cpp_refuse(0, consteval_call_not_constant(F)) )
+    ->  ( cpp_const_fold(E0, V), cpp_eval_scalar(V) -> ( integer(V) -> E = int(V) ; E = V ) ; cpp_immediate_context -> E = E0 ; cpp_refuse(0, consteval_call_not_constant(F)) )
     ;   E = E0 ).
 cpp_free_call_(F, Ps, D, As, call(id(Name), As2)) :-
     cpp_fn_name(F, Ps, D, Name), cpp_use_fn(F, Ps, Name), cpp_use_mangled(F, Ps, Name),
@@ -1591,6 +1595,7 @@ cpp_using_last(N, N) :- atom(N).
 cpp_own_name(Base, N) :- Base == N, !.
 cpp_own_name(Base, N) :- '$cpp_inst'(Base, inst(N0, _)), N0 == N.
 cpp_copy_or_move(Base, [P]) :- ( P = param(T, _) ; P = param(T, _, _) ), ( T = ref(_, base(_, [typedef(Base)])) ; T = rref(_, base(_, [typedef(Base)])) ), !.
+cpp_copy_or_move(Base, [P]) :- cpp_named_self(Base, P, _), !.   % ... or one that names the class otherwise, `S(const S<T> &)' (0.198, cpp_named_self/3)
 cpp_named_params([], _, [], []).
 cpp_named_params([P|Ps], I, [P1|Ps1], [id(N)|As]) :-
     ( P = param(T0, N0) -> D = none ; P = param(T0, N0, D) ), ( N0 == anon -> atom_concat('$i', I, N) ; N = N0 ),
@@ -1638,6 +1643,7 @@ cpp_nested_enum_item(L, Name, Spec) :- assertz('$cpp_nested_out'(Name)), cpp_tra
 %% enums' names are '$cpp_nenum' facts, so that a qualified name which is no enum's costs one failed lookup. `enumscope.cpp'.
 cpp_enumerator(Path, N, V) :- ( cpp_class_ctx(Cx) -> true ; Cx = none ), cpp_enumerator(Cx, Path, N, V).
 cpp_enumerator(Ctx, Path, N, V) :- atom(N), cpp_enum_path_tag(Ctx, Path, Tag), ( cpp_enum_value(Tag, N, V) -> true ; cpp_enum_key_name(Path, N, NK), cpp_enum_value(Tag, NK, V) ), !.
+cpp_enumerator(_, Path, N, V) :- atom(N), cpp_ns_enum_tag(Path, N, NK, Tag), cpp_enum_value(Tag, NK, V), !.   % `n::y': an unscoped enum's enumerator named through its namespace (0.198, below)
 cpp_enumerator(_, Path, N, V) :- atom(N), cpp_enum_scope(Path), ccl_enum_value(N, V), !.   % the table's answer, where the enum's own list does not fold
 cpp_enum_path_tag(Ctx, [E], Tag) :- atom(E), '$cpp_nenum'(E), cpp_enum_class_of(Ctx, C), cpp_class_typedef(C, E, base(_, [typedef(Tag)]), _), !.   % `state::Consonant' in a member of the class that declares `state', or of one derived from it or nested in it
 cpp_enum_path_tag(_, Path, Tag) :- append(Prefix, [E], Path), Prefix = [_|_], atom(E), '$cpp_nenum'(E), ccl_last(Prefix, Q), atom(Q), cpp_class_l(Q, _), cpp_class_typedef(Q, E, base(_, [typedef(Tag)]), _), !.   % `S::D::X': the class named before the enum
@@ -1650,16 +1656,34 @@ cpp_enum_class_of(_, C) :- cpp_class_ctx(C).
 cpp_enum_class_tag(Path, N, Tag) :- append(_, [Q], Path), atom(Q), catch(cpp_class_l(Q, _), _, fail), '$cpp_nenum'(E),
     catch(cpp_class_typedef(Q, E, base(_, [typedef(Tag)]), _), _, fail), atom(Tag), ccl_tag(Tag, Ms), is_list(Ms), memberchk(enumerator(N, _), Ms), !.
 cpp_enum_key_name(Path, N, NK) :- append(Prefix, [_], Path), Prefix = [_|_], cpp_ns_key(Prefix, N, NK), NK \== N.   % ... its enumerator renamed with it (cpp_qualify_enum)
+%% `n::y', AN ENUMERATOR OF AN UNSCOPED ENUM OF THE PROGRAM'S NAMESPACE named through the namespace (0.198; [namespace.qual],
+%% [dcl.enum]/10: an unscoped enum's enumerators are names of the enum's scope): the enum is the one of that namespace -- its tag
+%% recorded with the namespace's named path ('$cpp_type_ns', cpp_ns_resolve) -- whose list holds the name, or its key where two
+%% namespaces declare it (cpp_ns_key, cpp_qualify_enum). No road took it: `enum C { c = n::y + 1 };' was refused
+%% `enumerator_not_constant(c)', the path naming no enum
+cpp_ns_enum_tag(Path, N, NK, Tag) :- is_list(Path), Path = [_|_], cpp_ns_named_path(Path, NP0), delete(NP0, global, NP), NP \== [],
+    ( cpp_ns_key(Path, N, NK0) -> NK = NK0 ; NK = N ), '$cpp_type_ns'(NK, NP), '$cpp_type_ns'(Tag, NP), atom(Tag),
+    ccl_tag(Tag, Ms), is_list(Ms), ccl_is_enum_tag(Ms), \+ ccl_scoped_enum(Tag), memberchk(enumerator(NK, _), Ms), !.
 cpp_enum_value(Tag, N, V) :- '$cpp_enumv'(Tag, N, V0), !, V = V0.
 cpp_enum_value(Tag, N, V) :- \+ '$cpp_enumv'(Tag, '$walked', _), ccl_tag(Tag, Es), is_list(Es), ccl_is_enum_tag(Es),   % the whole list once: every enumerator that folds is remembered, the rest are the table's
-    cpp_enum_walk(Es, 0, [], Pairs), cpp_enum_remember(Pairs, Tag), assertz('$cpp_enumv'(Tag, '$walked', 0)), '$cpp_enumv'(Tag, N, V0), !, V = V0.
+    ( nb_current('$cpp_enum_walking', W0) -> true ; W0 = [] ), \+ memberchk(Tag, W0),   % never an enum's walk inside its own (0.198: an initializer names another enum's enumerators, cpp_enum_quals/2)
+    nb_setval('$cpp_enum_walking', [Tag|W0]), ( catch(cpp_enum_walk(Es, 0, [], Pairs), _, fail) -> nb_setval('$cpp_enum_walking', W0) ; nb_setval('$cpp_enum_walking', W0), fail ),
+    cpp_enum_remember(Pairs, Tag), assertz('$cpp_enumv'(Tag, '$walked', 0)), '$cpp_enumv'(Tag, N, V0), !, V = V0.
 cpp_enum_walk([], _, Seen, Seen) :- !.
 cpp_enum_walk([enum_base(_)|Es], K, Seen, Pairs) :- !, cpp_enum_walk(Es, K, Seen, Pairs).
 cpp_enum_walk([enumerator(M, E)|Es], K, Seen, Pairs) :-
     (   E == none -> V0 = K
-    ;   cpp_replace_ids(E, Seen, E1), catch(ccl_const_eval(E1, V1), _, fail), integer(V1) -> V0 = V1 ), !,
+    ;   cpp_replace_ids(E, Seen, E1), cpp_enum_quals(E1, E2), catch(ccl_const_eval(E2, V1), _, fail), integer(V1) -> V0 = V1 ), !,
     K1 is V0 + 1, cpp_enum_walk(Es, K1, [M-int(V0)|Seen], Pairs).
 cpp_enum_walk(_, _, Seen, Seen).   % an initializer that does not fold ends the walk: the enumerators before it stand
+%% AN INITIALIZER THAT NAMES ANOTHER ENUM'S ENUMERATOR BY ITS QUALIFIED NAME folds it as its own enum gives it (0.198):
+%% libc++ 21's `_PartialOrdResult::__less = static_cast<signed char>(_OrdResult::__less)' ended the walk, and the name was the
+%% table's, right only by the order of <compare>'s two enums
+cpp_enum_quals(scoped(P, N), int(V)) :- atom(N), is_list(P), catch(cpp_enumerator(P, N, V), _, fail), !.
+cpp_enum_quals(T, T1) :- compound(T), !, T =.. [F|Xs], cpp_enum_quals_list(Xs, Ys), T1 =.. [F|Ys].
+cpp_enum_quals(T, T).
+cpp_enum_quals_list([], []).
+cpp_enum_quals_list([X|Xs], [Y|Ys]) :- cpp_enum_quals(X, Y), cpp_enum_quals_list(Xs, Ys).
 cpp_enum_remember([], _).
 cpp_enum_remember([M-int(V)|Ps], Tag) :- assertz('$cpp_enumv'(Tag, M, V)), cpp_enum_remember(Ps, Tag).
 cpp_note_nested_enum(N) :- ( '$cpp_nenum'(N) -> true ; assertz('$cpp_nenum'(N)) ).
@@ -2113,7 +2137,14 @@ cpp_extra_bases_([base(Q, B0)|Bs], K, [N|Ns], Slots, LVBs) :- cpp_base_name(B0, 
     (   cpp_empty_class(N) -> Slots = Slots1, ( Q = virtual(_) -> LVBs = [N-none|LVBs1] ; LVBs = LVBs1 )   % EMPTY: no sub-object, C++'s empty base optimization (0.71) -- a virtual one still a virtual base, at the object's own address (0.172)
     ;   atomic_list_concat(['$base$', K], Slot), Slots = [N-Slot|Slots1], ( Q = virtual(_) -> LVBs = [N-Slot|LVBs1] ; LVBs = LVBs1 ) ),   % a later VIRTUAL base's slot is reached through the table (0.172; cpp_lvb_holders)
     K1 is K + 1, cpp_extra_bases_(Bs, K1, Ns, Slots1, LVBs1).
-cpp_empty_class(N) :- cpp_class_l(N, cls(B, Data, _, _, Slots)), Data == [], Slots == [], ( B == none -> true ; cpp_empty_class(B) ).
+cpp_empty_class(N) :- cpp_class_l(N, cls(B, Data, _, _, Slots)), Slots == [], ( B == none -> true ; cpp_empty_class(B) ), cpp_empty_data(Data).
+%% ... ITS DATA MEMBERS, IF ANY, ARE EMPTY DATA MEMBERS (0.198), `[[no_unique_address]]' members of empty class type, as the layout has
+%% them (ccl_no_data_members/1): `struct S : H { int x; }' over `struct H { [[no_unique_address]] E e; }' is four bytes, H an empty
+%% base, and no zero-fill of such a member writes its byte over the member that shares its address
+cpp_empty_data([]) :- !.
+cpp_empty_data(Data) :- \+ ( member(D, Data), \+ cpp_empty_data_member(D) ).
+cpp_empty_data_member(member(T, _, W)) :- W == no_unique_address,
+    ( catch(cpp_class_of_type(T, C), _, fail), cpp_class_l(C, _) -> cpp_empty_class(C) ; catch(ccl_resolve_type(T, T1), _, fail), ccl_empty_layout(T1) ).   % a plain struct, which is no registered class, by the layout's test
 %% every class a name is looked up in: the base sub-object first, then the empty bases
 cpp_base_scope(C, B) :- cpp_class_l(C, cls(B, _, _, _, _)), B \== none, \+ '$cpp_vprim'(C, B).
 cpp_base_scope(C, B) :- '$cpp_extra'(C, Bs), member(B, Bs).
@@ -2440,6 +2471,7 @@ cpp_note_nontrivial(C, Base, Data, Ms, Slots) :-
     ;   true ).
 cpp_nontrivial(C) :- nb_getval('$cpp_nontrivial', L), memberchk(C, L).
 cpp_user_copy_ctor(C) :- cpp_class(C, cls(_, _, Ms, _, _, _)), member(M, Ms), M = ctor(_, _, [P], _, _), cpp_user_ctor(M), ( P = param(RT, _) ; P = param(RT, _, _) ), RT =.. [Kind, _, base(_, [typedef(C)])], memberchk(Kind, [ref, rref]), !.   % a copy or move constructor the class WRITES (a memberwise one is its members' business)
+cpp_user_copy_ctor(C) :- cpp_class(C, cls(_, _, Ms, _, _, _)), member(M, Ms), M = ctor(_, _, [P], _, _), cpp_user_ctor(M), cpp_named_self(C, P, _), !.   % ... or names it otherwise (0.198, cpp_named_self/3)
 %% ... AND AN EMPTY BASE STILL CONTRIBUTES ITS ALIGNMENT, though it takes no bytes ([class.derived]:
 %% the empty base optimization is about storage, not alignment) -- which is exactly what an `align_as'
 %% marker says, so it is written as one. libc++ finds the widest alignment a platform has by deriving
@@ -2763,11 +2795,21 @@ cpp_assign_sliced(_, B, B).
 %% type -- a reference, or a scalar's value -- and handed on from it: `({ const T &$rhs = b; F(&a, $rhs); })'. A parameter
 %% by value of a class keeps the call's order (Not done). `vs[next()] = std::to_string(next())' stored into `vs[1]', where
 %% clang++ stores into `vs[2]', and `ms[next()] = std::to_string(ms.size())' read the size after the new element was made.
+%% ... AND A PARAMETER BY VALUE OF A CLASS (0.198): the argument, the temporary the call's argument pass built (a copy, a
+%% prvalue), is built first and the object bound after it, a reference `$lhs', the temporary handed on in place (the lowering's
+%% ir_arg_in_place/4, its statement expression's own name): `left() = right();' over `S &operator=(S)' called left() first.
 cpp_rhs_first(call(F, [A, B]), E) :- \+ cpp_fixed_operand(A), \+ cpp_fixed_operand(B), F = id(Name), atom(Name),
     ccl_declared(Name, fn(_, [_, P2|_], _)), ( P2 = param(PT0, _) ; P2 = param(PT0, _, _) ), once(ccl_resolve_type(PT0, PT)),
     ( PT = ref(_, _) ; PT = rref(_, _) ; PT = ptr(_, _) ; ccl_is_arith(PT) ), !,
     ccl_gensym('$rhs', N), ccl_declare(N, PT0),
     E = stmt_expr(block([declaration(0, none, PT0, [var(N, PT0, B)]), expr(0, call(F, [A, id(N)]))])).
+cpp_rhs_first(call(F, [addr(X), B]), E) :- \+ cpp_fixed_operand(X), F = id(Name), atom(Name),
+    ccl_declared(Name, fn(_, [_, P2|_], _)), ( P2 = param(PT0, _) ; P2 = param(PT0, _, _) ), once(ccl_resolve_type(PT0, PT)), cpp_class_of_type(PT, _),
+    (   B = stmt_expr(block(Is)), append(Ss, [expr(L, id(T))], Is), Ss \== [], atom(T), ( sub_atom(T, 0, _, _, '$tmp') ; sub_atom(T, 0, _, _, '$copy') ) -> true
+    ;   B = call(_, _), L = 0, ccl_gensym('$tmp', T), ccl_declare(T, PT0), Ss = [declaration(0, none, PT0, [var(T, PT0, B)])] ),   % a call's value, built in a local of its own through the hidden pointer
+    catch(ccl_type_of(X, XT0), _, fail), XT0 \== unknown, ccl_unref(XT0, XT), !,
+    ccl_gensym('$lhs', N), RT = ref([], XT), ccl_declare(N, RT),
+    append(Ss, [declaration(0, none, RT, [var(N, RT, X)]), expr(0, call(F, [addr(id(N)), stmt_expr(block([expr(L, id(T))]))]))], Js), E = stmt_expr(block(Js)).
 cpp_rhs_first(E, E).
 %% an operand whose place or value nothing else that is evaluated can change: a name, a literal, `*this', a member, a cast or
 %% the address of one of these
@@ -2986,7 +3028,7 @@ cpp_pointee_fit(PE, AE) :- ccl_resolve_type(PE, fn(R1, Ps1, V1)), !, ccl_resolve
 cpp_pointee_fit(PE, AE) :- cpp_pointee_kind(PE, K1), K1 \== other, !, cpp_pointees_agree(PE, AE).
 cpp_pointee_fit(_, _).
 %% two function types agree parameter for parameter and in their result, whatever the parameters are named
-cpp_fn_types_agree(fn(R1, Ps1, V), fn(R2, Ps2, V)) :- cpp_types_agree(R1, R2), cpp_param_types_agree(Ps1, Ps2).
+cpp_fn_types_agree(fn(R1, Ps1, V1), fn(R2, Ps2, V2)) :- cpp_fn_nx_off(V1, V), cpp_fn_nx_off(V2, V), cpp_types_agree(R1, R2), cpp_param_types_agree(Ps1, Ps2).   % noexcept aside (0.198): a function pointer conversion, and a noexcept function's declared type has no mark
 cpp_param_types_agree([], []).
 cpp_param_types_agree([P|Ps], [Q|Qs]) :- cpp_param_type_of(P, T1), cpp_param_type_of(Q, T2), cpp_types_agree(T1, T2), cpp_param_types_agree(Ps, Qs).
 cpp_param_type_of(param(T, _), T).
@@ -3297,6 +3339,7 @@ cpp_item(declare(L, base(Q, [E0])), Out) :- compound(E0), ( E0 = enum(Tag, Es0) 
     functor(E0, F, 2), Es1 = [enum_base(B)|Rest], E1 =.. [F, Tag, Es1], ( atom(Tag) -> ccl_note_tag(Tag, Es1) ; true ), cpp_item(declare(L, base(Q, [E1])), Out).
 cpp_item(declare(L, base(Q, [E0])), [declare(L, base(Q, [E]))]) :- compound(E0), ( E0 = enum(Tag, Es0) ; E0 = enum_class(Tag, Es0) ), is_list(Es0),
     cpp_enum_unfolded(Es0, 0, []), !, functor(E0, F, 2), cpp_fold_enumerators(L, Es0, 0, [], Es), E =.. [F, Tag, Es].
+cpp_item(static_assert(L, E, M), [static_assert(L, E, M)]) :- !, cpp_static_assert(none, L, E, M).   % checked (0.198, cpp_static_assert/4)
 cpp_item(I, [I]).
 cpp_member_path_class(Path, C) :- Path = [_, _|_], catch(cpp_scope_class(Path, C), error(not_lowered(_), _), fail), atom(C), cpp_class_l(C, _), !.
 %% A LAZY POLYMORPHIC CLASS emitted EVERY member, where only the ones its table names need a body: libc++'s
@@ -3531,7 +3574,7 @@ cpp_expr(Ctx, memptr_arrow(X0, F0), E) :- !, cpp_expr(Ctx, X0, X), cpp_expr(Ctx,
 cpp_expr(_, type(T0), type(T)) :- !, cpp_type(T0, T).
 cpp_expr(_, scoped(Path, N), _) :- memberchk(nonclass(A), Path), !, cpp_refuse(0, no_member(A, N)).   % `_Tp::value' with _Tp a scalar: no members (cpp_subst_path)
 cpp_expr(_, scoped(Path, N), id(K)) :- atom(N), cpp_ns_key(Path, N, K), K \== N, ccl_enum_value(K, _), !.   % `n2::x', an enumerator two namespaces declare: its key (cpp_qualify_enum, 0.127)
-cpp_expr(Ctx, scoped(Path, N), E) :- atom(N), cpp_enumerator(Ctx, Path, N, V), !, ( cpp_enum_path_tag(Ctx, Path, Tag) -> E = cast(base([], [typedef(Tag)]), int(V)) ; E = int(V) ).   % ... OF ITS ENUM'S TYPE (0.127): a bare `int(V)', `k(Fruit::Pear)' chose `k(long)' over `k(Fruit)', and a template deduced an int   % A QUALIFIED ENUMERATOR IS ITS VALUE WHATEVER A LOCAL IS NAMED (0.94): `Kind::ptr' asks the enumerators' table directly, since flattened to `id(ptr)' it would meet the local that now shadows the bare name
+cpp_expr(Ctx, scoped(Path, N), E) :- atom(N), cpp_enumerator(Ctx, Path, N, V), !, ( ( cpp_enum_path_tag(Ctx, Path, Tag) -> true ; cpp_ns_enum_tag(Path, N, _, Tag) ) -> E = cast(base([], [typedef(Tag)]), int(V)) ; E = int(V) ).   % ... OF ITS ENUM'S TYPE (0.127): a bare `int(V)', `k(Fruit::Pear)' chose `k(long)' over `k(Fruit)', and a template deduced an int   % A QUALIFIED ENUMERATOR IS ITS VALUE WHATEVER A LOCAL IS NAMED (0.94): `Kind::ptr' asks the enumerators' table directly, since flattened to `id(ptr)' it would meet the local that now shadows the bare name
 cpp_expr(_, scoped(Path, N), id(GName)) :- atom(N), ( cpp_ns_key(Path, N, K) -> true ; K = N ), cpp_global_var(K, GName), !.   % ... a deeper namespace's colliding object by its key (0.100)   % `std::cout': a library header's extern GLOBAL, by the symbol the shipped binary exports (a scoped name is flattened in the lowering, so it must be taken here)
 cpp_expr(_, scoped(Path, N), id(Name)) :- atom(N), \+ cpp_scope_class(Path, _), cpp_lazy_fn_value(N, Name), !.   % `std::hex' named as a value: the header's function, emitted (the bare name's road below)
 cpp_expr(_, scoped(Path, tmpl(N0, Args0)), E) :- atom(N0), \+ cpp_scope_class(Path, _), ( cpp_ns_key(Path, N0, K), cpp_variable_template(K) -> N = K ; cpp_variable_template(N0), N = N0 ), !,   % A NAMESPACE-QUALIFIED VARIABLE TEMPLATE IS ITS VALUE (0.104): `std::is_same_v<A, B>' in an expression had its value put back INSIDE the scoped path, `scoped([std], bool(false))', which the lowering met as a name
@@ -4932,8 +4975,9 @@ cpp_stmt_(Ctx, declaration(L, Sto, B, Vs), S) :- !, cpp_decl_stmt(Ctx, L, Sto, B
 %% A STRUCTURED BINDING THE READER DEFERRED (bindings/4): the initializer desugared and typed, a temporary of that
 %% type (a reference to it for `auto &'), then one `auto' declaration per name from the class's data members by
 %% position -- a pair's first and second, a struct's members; a tuple's get<I> is not done
-cpp_stmt_(Ctx, bindings(L, Ref, Ns, E0), S) :- !,
-    cpp_expr(Ctx, E0, E), ( cpp_arg_type(E, T0) -> true ; cpp_refuse(L, bindings_untyped(Ns)) ), ccl_unref(T0, T1), cpp_type(T1, T),
+cpp_stmt_(Ctx, bindings(L, Ref, Ns0, E0), S) :- !,
+    cpp_expr(Ctx, E0, E), ( cpp_arg_type(E, T0) -> true ; cpp_refuse(L, bindings_untyped(Ns0)) ), ccl_unref(T0, T1), cpp_type(T1, T),
+    cpp_binding_names(L, T, Ns0, Ns),   % a binding pack's elements named (0.198, below)
     length(Ns, K),
     ccl_gensym('$bind', Tmp),
     ( Ref == yes, cpp_lvalue(E) -> TT = ref([], T) ; TT = T ),
@@ -5060,7 +5104,7 @@ cpp_stmt_(Ctx, return(L, E), return(L, E2)) :- !, cpp_expr(Ctx, E, E0), cpp_temp
     ;   nb_getval('$cpp_ret', Ret), Ret \== none, cpp_class_of_type(Ret, C), cpp_ret_constructs(C),
         ( E1 = move(EL0), cpp_lvalue(EL0) -> How = move ; cpp_lvalue(E1), EL0 = E1, ( cpp_implicitly_movable(E) -> How = move ; How = copy ) ),   % by value: `return std::move(x)' and an implicitly movable name move, any other lvalue is copied (0.197)
         ( cpp_class_of_type_of(EL0, C1), C1 \== C, cpp_class_fits(C1, C) -> EL = deref(cast(ptr([], base([], [typedef(C)])), addr(EL0))) ; EL = EL0 )   % a DERIVED object's base sub-object, which the move constructor takes as its own class's (0.197: `M(const M &)' was chosen, the tie the first declared)
-    ->  (   ( How == move, cpp_ret_copy_ctor(C, rref) -> Arg = move(EL) ; cpp_ret_copy_ctor(C, ref) -> Arg = EL )   % C++'s implicit move out of a local, else its copy
+    ->  (   ( How == move, cpp_copy_ctor(C, rref) -> Arg = move(EL) ; cpp_copy_ctor(C, ref) -> Arg = EL )   % C++'s implicit move out of a local, else its copy
         ->  T = base([], [typedef(C)]), cpp_ctor(C, [Arg], CName), ccl_gensym('$ret', Tmp),
             E2 = stmt_expr(block([declaration(L, none, T, [var(Tmp, T, none)]), expr(L, call(id(CName), [addr(id(Tmp)), EL])), expr(L, id(Tmp))]))
         ;   cpp_refuse(L, return_of_a_class_with_destructor(C)) )
@@ -5072,7 +5116,26 @@ cpp_stmt_(Ctx, switch(L, E, S), switch(L, E1, S1)) :- !, cpp_expr(Ctx, E, E1), c
 cpp_stmt_(Ctx, case(L, E, S), case(L, E2, S1)) :- !, cpp_expr(Ctx, E, E1),   % A CASE LABEL IS A CONSTANT EXPRESSION, desugared and folded as any (0.112): libc++ 18's `case __format_spec::__type::__default:' reached the lowering raw
     ( catch(cpp_const_value(E1, K), _, fail), integer(K) -> E2 = int(K) ; E2 = E1 ), cpp_stmt(Ctx, S, S1).
 cpp_stmt_(Ctx, default(L, S), default(L, S1)) :- !, cpp_stmt(Ctx, S, S1).
+cpp_stmt_(Ctx, static_assert(L, E, M), static_assert(L, E, M)) :- !, cpp_static_assert(Ctx, L, E, M).
 cpp_stmt_(_, S, S).
+%% A C++ STATIC ASSERTION IS CHECKED (0.198; [dcl.pre]/10): the program's own, where its condition folds -- at file scope, in a block and in
+%% an instance's body, which a discarded `if constexpr' branch never is (P2593: `static_assert(false)' there is no error); a library
+%% header's are trusted, its traits being this compiler's. It was read and never asked: `static_assert(sizeof(int) == 8);' compiled.
+cpp_static_assert(Ctx, L, E, M) :- nb_getval('$cpp_in_lib', no), catch(( cpp_expr(Ctx, E, E1), cpp_const_bool(E1, V) ), _, fail), V == false, !,
+    ( ( M == none ; M = str(_) ) -> ccl_assert_text(M, Text) ; Text = '' ), throw(error(static_assert_failed(Text), here(none, L))).
+cpp_static_assert(_, _, _, _).
+%% A STRUCTURED BINDING PACK (C++26, [dcl.struct.bind]/1, P1061; 0.198): `auto [a, ...xs, z] = e' -- the pack is the elements the other
+%% names leave, each a binding of its own, `xs$1' ... `xs$k'; the statements after the declaration name xs as the pack of them, a
+%% parameter pack's way (cpp_stmts, over '$cpp_bindpack': a fold, `sizeof...(xs)', an expansion `f(xs...)', `xs...[I]')
+cpp_binding_names(L, T, Ns0, Ns) :- append(Pre, [pack(X)|Post], Ns0), !,
+    ( cpp_binding_count(T, K0) -> true ; cpp_refuse(L, bindings_of(T)) ),
+    length(Pre, K1), length(Post, K2), KP is K0 - K1 - K2, ( KP >= 0 -> true ; cpp_refuse(L, bindings_count(K0)) ),
+    findall(XN, ( between(1, KP, I), atomic_list_concat([X, '$', I], XN) ), XNs), findall(id(XN), member(XN, XNs), Ids),
+    append([Pre, XNs, Post], Ns), nb_setval('$cpp_bindpack', [X-vpack(Ids)]).
+cpp_binding_names(_, _, Ns, Ns).
+cpp_binding_count(T, K) :- cpp_tuple_size(T, K), !.
+cpp_binding_count(T, K) :- cpp_class_of_type(T, C), !, cpp_class_l(C, cls(_, Data, _, _, _)), findall(M, ( member(member(_, M, _), Data), M \== '$base', M \== '$vptr' ), Ms), length(Ms, K).
+cpp_binding_count(T, K) :- ccl_resolve_type(T, base(_, [struct(_, SMs)])), findall(M, member(member(_, M, _), SMs), Ms), length(Ms, K).
 %% THE TUPLE PROTOCOL ([dcl.struct.bind]/4): where `std::tuple_size<E>::value' is a constant, THAT many bindings
 %% are asked for and each is `get<i>(e)', a reference to what the get answers -- a tuple keeps its elements in its
 %% BASES (one `__tuple_leaf' per element) and has no data member of its own, so the member road found none and
@@ -5170,7 +5233,7 @@ cpp_conv_to(_, id(F), T0, id(Name)) :- atom(F), \+ cpp_local(F), cpp_fn_overload
     cpp_params_key(Ps1, K), '$cpp_fn'(F, K, Ps, yes, _), !, cpp_fn_name(F, Ps, yes, Name), cpp_use_fn(F, Ps, Name).
 cpp_conv_to(How, addr(id(F)), T0, addr(E)) :- atom(F), \+ cpp_local(F), cpp_fn_overloaded(F), cpp_conv_to(How, id(F), T0, E), E \== id(F), !.   % ... AND ITS ADDRESS, `&m' ([over.over]/1; 0.181): it was `undeclared(m)', the set's own name no function's
 cpp_conv_to(_, '$memaddr'(C, N), T0, E) :- cpp_type_or_self(T0, T1), ccl_resolve_type(T1, memptr(_, _, F0)), ccl_resolve_type(F0, fn(_, Ps1, V1)), cpp_params_key(Ps1, K), cpp_fn_q(V1, _, TQs),   % AN OVERLOADED MEMBER'S ADDRESS IS CHOSEN BY ITS TARGET ([over.over]; 0.112): the overload whose parameters are the pointer's
-    (   cpp_class_method(C, N, Qs, R0, Ps0, V0), cpp_method_mfq(Qs, TQs), cpp_in_class(C, cpp_plain_params(Ps0, PsP)), cpp_params_key(PsP, K) -> true   % ... and whose qualifiers are the target's (0.181): `int (A::*pc)() const = &A::get' is the const `get'
+    (   cpp_class_method(C, N, Qs, R0, Ps0, V0), cpp_method_mfq(Qs, MQs), cpp_mfq_fits(MQs, TQs), cpp_in_class(C, cpp_plain_params(Ps0, PsP)), cpp_params_key(PsP, K) -> true   % ... and whose qualifiers are the target's (0.181): `int (A::*pc)() const = &A::get' is the const `get'
     ;   cpp_class_method(C, N, Qs, R0, Ps0, V0), cpp_in_class(C, cpp_plain_params(Ps0, PsP)), cpp_params_key(PsP, K) ), !, cpp_method_address(C, N, m(Qs, R0, Ps0, V0), E).
 cpp_conv_to(_, '$staticfn'(C, N), T0, id(Thunk)) :- cpp_fn_target(T0, fn(_, Ps1, _)), cpp_params_key(Ps1, K),   % SEVERAL STATIC FUNCTIONS OF ONE NAME NAMED AS A VALUE: the target's parameters choose ([over.over]; 0.126, cpp_static_fn_value)
     cpp_class(C, cls(_, _, Ms, _, _, _)), member(method(_, Qs, _, N, Ps0, _, _), Ms), memberchk(static, Qs), cpp_in_class(C, cpp_plain_params(Ps0, PsP)), cpp_params_key(PsP, K), !,
@@ -5278,6 +5341,9 @@ cpp_stmts(Ctx, [declare(L, base(_, [class(K, N, Bases, Ms)]))|Ss], Ts) :- atom(N
     cpp_local_class(L, K, N, Bases, Ms, Name), cpp_rename_names(Ss, ['$deep'-yes, N-Name], Ss1), cpp_stmts(Ctx, Ss1, Ts).
 cpp_stmts(Ctx, [declaration(L, Sto, B, Vs)|Ss], Ts) :- B = base(_, [class(K, anon, Bases, Ms)]), !,
     cpp_local_class(L, K, anon, Bases, Ms, Name), cpp_subst_term(class(K, anon, Bases, Ms), typedef(Name), declaration(L, Sto, B, Vs), D1), cpp_stmts(Ctx, [D1|Ss], Ts).   % an UNNAMED class is the type of the declaration, its variables' types the same term
+cpp_stmts(Ctx, [S|Ss], [S1|Ts]) :- S = bindings(L, _, Ns, _), memberchk(pack(_), Ns), !,   % a structured binding pack (0.198, cpp_binding_names): the statements after it name its elements
+    nb_setval('$cpp_bindpack', none), cpp_where(stmt(bindings, L), cpp_stmt(Ctx, S, S1)), nb_getval('$cpp_bindpack', PB), nb_setval('$cpp_bindpack', none),
+    ( PB == none -> Ss1 = Ss ; cpp_subst(Ss, PB, Ss1) ), cpp_stmts(Ctx, Ss1, Ts).
 cpp_stmts(Ctx, [S|Ss], [S1|Ts]) :- ( S =.. [F, L|_], integer(L) -> W = stmt(F, L) ; W = stmt ), cpp_where(W, cpp_stmt(Ctx, S, S1)), cpp_stmts(Ctx, Ss, Ts).
 cpp_block_typedefs([], []).
 cpp_block_typedefs([var(N, T, _)|Vs], [N-T|B]) :- atom(N), !, cpp_block_typedefs(Vs, B).
@@ -5392,12 +5458,6 @@ cpp_implicitly_movable(id(N)) :- atom(N), ccl_locals(Fs), member(F, Fs), memberc
 %% and the constructor's effects were lost); a defaulted one is memberwise, which the bytes are where nothing is destroyed
 cpp_ret_constructs(C) :- cpp_dtor(C, _), !.
 cpp_ret_constructs(C) :- cpp_class(C, cls(_, _, Ms, _, _, _)), member(ctor(_, _, [P], I, _), Ms), I \= memberwise(_, _), ( cpp_special_param(P, C, ref) ; cpp_special_param(P, C, rref) ), !.
-%% ... AND ITS COPY OR MOVE CONSTRUCTOR is the one cpp_copy_ctor/2 reads, or one whose parameter names the class by a
-%% template-id of its own template (cpp_special_param/3): libc++'s `__bit_iterator(const __bit_iterator<_Cp, false> &)' is
-%% the copy constructor of the non-const iterator, and its return and its argument by value were refused
-%% (`return_of_a_class_with_destructor', `class_with_destructor_by_value': vector<bool>, bitset; 0.197's chain)
-cpp_ret_copy_ctor(C, K) :- cpp_copy_ctor(C, K), !.
-cpp_ret_copy_ctor(C, K) :- cpp_class(C, cls(_, _, Ms, _, _, _)), member(ctor(_, _, [P], _, _), Ms), member(K, [ref, rref]), cpp_special_param(P, C, K), !.
 cpp_decl_pieces(_, _, _, _, [], []).
 cpp_decl_pieces(Ctx, L, Sto, B, [var(N, T0, I0)|Vs], Pieces) :- cpp_has_auto(T0), !,      % auto the reader could not infer: a lambda, a call of a method or a template
     cpp_where(auto(N), cpp_expr(Ctx, I0, I)), ( ccl_type_of(I, IT), IT \== unknown -> cpp_trace(auto_type(N, I, IT)), cpp_auto_deduce(T0, IT, T2), cpp_fwd_auto(T0, I, T2, T) ; cpp_trace(auto_untyped(N, I)), cpp_refuse(L, auto(N)) ),   % ANY deduced type, not only a plain one: `auto p = q - n' is a pointer, and required a base before
@@ -5811,6 +5871,7 @@ cpp_xvalue_move(E, E).
 %% a constructor from the class itself: Kind ref for `C(const C &)', rref for `C(C &&)'
 cpp_copy_ctor(C, Kind) :- cpp_class(C, cls(_, _, Ms, _, _, _)), member(ctor(_, _, [P], _, _), Ms), ( P = param(RT, _) ; P = param(RT, _, _) ), RT =.. [Kind, _, base(_, [typedef(C)])], !.
 cpp_copy_ctor(C, K) :- '$cpp_implicit_copy'(C, Kind, _), ( Kind == copy -> K = ref ; K = rref ).   % the implicit one, once made (cpp_implicit_copy_ctor)
+cpp_copy_ctor(C, K) :- cpp_class(C, cls(_, _, Ms, _, _, _)), member(ctor(_, _, [P], _, _), Ms), cpp_named_self(C, P, K), !.   % ... and one whose parameter names the class otherwise than by its plain name (0.198, cpp_named_self/3)
 %% a by-value parameter of a class with a destructor takes a copy: the copy constructor's, in a temporary the callee owns
 cpp_copies(call(id(Name), Args), call(id(Name), Args1)) :- ccl_declared(Name, fn(_, Ps, _)), !, cpp_copies_(Ps, Args, Args1).
 cpp_copies(call(F, Args), call(F, Args1)) :- Args \== [], cpp_callee_params(F, Ps), !, cpp_copies_(Ps, Args, Args1).   % a call through a pointer or a reference to function takes the copy pass by the FUNCTION TYPE (cpp_callee_params)
@@ -5839,10 +5900,10 @@ cpp_copies_([P|Ps], [A|As], [A1|Bs]) :-
     ;   cpp_param_takes_class(PT, C), ccl_type_of(A, AT), AT \== unknown, \+ cpp_class_of_type_of(A, C), cpp_converting_ctor(C, A)   % the argument's type KNOWN and not the parameter's own class: what cannot be typed is never converted
     ->  cpp_temporary(base([], [typedef(C)]), C, [A], A10),                                   % A CONVERTING CONSTRUCTOR at a call: libc++ hands a `__long' where a `__rep' is wanted, and `__rep(__long)' is how a string becomes long
         ( cpp_param_ref(PT, PTr), PTr \= ref(_, _), PTr \= rref(_, _) -> cpp_temp_elide(A10, A1) ; A1 = A10 )   % ... and BY VALUE the temporary IS the parameter ([class.copy.elision]/1; 0.112): the callee destroys it, and registered with the statement too it was destroyed twice -- `g(9)' over `g(T t)'
-    ;   cpp_class_of_type(PT, C), cpp_ret_constructs(C), A = move(X), cpp_lvalue(X), cpp_ret_copy_ctor(C, _)   % (a class with a copy or a move constructor of its own too, 0.197: its effects were lost to a bitwise copy) `f(std::move(s))' with `f(string)': the MOVE constructor into the callee's copy, else the copy one over the object; a class with NEITHER (Cicili's own, over own pointers) keeps the lowering's move, which nulls the source's owners
-    ->  ( cpp_ret_copy_ctor(C, rref) -> cpp_move_temp(C, X, A1) ; cpp_copy_temp(C, X, A1) )
+    ;   cpp_class_of_type(PT, C), cpp_ret_constructs(C), A = move(X), cpp_lvalue(X), cpp_copy_ctor(C, _)   % (a class with a copy or a move constructor of its own too, 0.197: its effects were lost to a bitwise copy) `f(std::move(s))' with `f(string)': the MOVE constructor into the callee's copy, else the copy one over the object; a class with NEITHER (Cicili's own, over own pointers) keeps the lowering's move, which nulls the source's owners
+    ->  ( cpp_copy_ctor(C, rref) -> cpp_move_temp(C, X, A1) ; cpp_copy_temp(C, X, A1) )
     ;   cpp_class_of_type(PT, C), cpp_ret_constructs(C), cpp_lvalue(A)
-    ->  ( cpp_ret_copy_ctor(C, ref) -> cpp_copy_temp(C, A, A1) ; cpp_refuse(0, class_with_destructor_by_value(C)) )
+    ->  ( cpp_copy_ctor(C, ref) -> cpp_copy_temp(C, A, A1) ; cpp_refuse(0, class_with_destructor_by_value(C)) )
     ;   cpp_class_of_type(PT, C), cpp_class_of_type_of(A, D), D \== C, cpp_base_hops(D, C, Hops)   % A DERIVED OBJECT WHERE ITS BASE IS TAKEN BY VALUE is SLICED to the base sub-object ([conv.ptr]/[class.copy]): libc++'s `__priority_tag<1>()' handed to the `__priority_tag<0>' fallback of __try_key_extraction_impl
     ->  (   A = compound_lit(_, init([])) -> A1 = compound_lit(base([], [typedef(C)]), init([]))
         ;   Hops == []                                                                        % ... AND WITH NO HOPS every base on the path is EMPTY (0.89's rule: such a base has no sub-object, so the object IS it): the value carries nothing but its TYPE must still be the base's, and the guard `Hops \== []' left `__priority_tag<1>' where `__priority_tag<0>' was wanted -- LLVM refused the store. The evaluation is kept beside the base's own empty aggregate, since A may have effects.
@@ -6011,7 +6072,10 @@ cpp_method_address(C, N, m(Qs, R1, Ps1, V0), cast(memptr(C, [], fn(R, Ps, V)), R
 %% A MEMBER'S ADDRESS HAS THE MEMBER'S QUALIFIERS in its type (0.181): `&A::cf' of `int cf(int) const' is `int (A::*)(int) const',
 %% `const' and a ref-qualifier on the member function type (q(V, Qs), the reader's form); a member's `volatile' the reader drops
 cpp_mfq_v(Qs, V0, V) :- cpp_method_mfq(Qs, Ms), ( Ms == [] -> V = V0 ; V = q(V0, Ms) ).
-cpp_method_mfq(Qs, Ms) :- findall(M, ( member(Q-M, [const-const, refq(lvalue)-'&', refq(rvalue)-'&&']), memberchk(Q, Qs) ), Ms).
+cpp_method_mfq(Qs, Ms) :- findall(M, ( member(Q-M, [const-const, refq(lvalue)-'&', refq(rvalue)-'&&', noexcept-noexcept]), memberchk(Q, Qs) ), Ms).   % a noexcept member's type is noexcept too (0.198)
+%% a member's qualifiers fit a target's where they are the target's but for noexcept, which the function pointer conversion takes away
+%% and never gives ([conv.fctptr]; 0.198): a noexcept member's address goes to `int (A::*)() const', a plain one to no noexcept target
+cpp_mfq_fits(MQs, TQs) :- delete(MQs, noexcept, M1), delete(TQs, noexcept, T1), M1 == T1, ( memberchk(noexcept, TQs) -> memberchk(noexcept, MQs) ; true ).
 cpp_slot_offset(C, M, K, Off) :- cpp_class_l(C, cls(_, _, _, _, Slots)), nth0(I, Slots, slot(M, K, _, _, _)), !, Off is I * 8.   % a table's slots are pointers, 8 bytes each, in the table's order (cpp_vt_struct)
 cpp_data_member_type(C, N, MT) :- cpp_class_l(C, cls(B, Data, _, _, _)),
     ( memberchk(member(MT0, N, _), Data) -> cpp_in_class(C, cpp_type(MT0, MT)) ; B \== none, cpp_data_member_type(B, N, MT) ).
@@ -6064,8 +6128,17 @@ cpp_static_thunk(C, M, Name, Thunk) :-
         cpp_instance_note(Thunk, thunk),
         ( cpp_lib_class(C) -> Lib = yes ; Lib = no ), cpp_as_lib(Lib, cpp_add_instance_items([function(0, none, R, Thunk, Ps, false, Body)])) ).
 cpp_consteval_fold(E0, E) :- E0 = call(id(Name), _), atom(Name), '$cpp_consteval'(Name), !,   % a consteval METHOD (the free road folds its own, cpp_free_call)
-    ( cpp_const_fold(E0, V), cpp_eval_scalar(V) -> ( integer(V) -> E = int(V) ; E = V ) ; cpp_refuse(0, consteval_call_not_constant(Name)) ).
+    ( cpp_const_fold(E0, V), cpp_eval_scalar(V) -> ( integer(V) -> E = int(V) ; E = V ) ; cpp_immediate_context -> E = E0 ; cpp_refuse(0, consteval_call_not_constant(Name)) ).
 cpp_consteval_fold(E, E).
+%% AN IMMEDIATE FUNCTION CONTEXT (C++20 [expr.const]/16, C++23's P2564; 0.198): a call of a consteval function that does not fold is no
+%% immediate invocation in a consteval function's own body, and in an IMMEDIATE-ESCALATING function -- here an instance of a function
+%% template that is being made -- it makes that function an immediate one, whose own calls are then folded where they stand (the
+%% caller's cpp_consteval_fold): `template <class T> constexpr int prop(T x) { return cev(x); }' and `prop(4)' are 5, where the call of
+%% cev was refused `consteval_call_not_constant(cev)'. A non-constexpr template is escalated too (P2564 asks the constexpr specifier, which
+%% the reader keeps on no function), a program that is ill-formed and that clang++ refuses.
+cpp_immediate_context :- nb_current('$cpp_fsig', S0), cpp_fsig_unwrap(S0, fsig(_, _, _, R, _, _, Qs, _)), ( nonvar(R), R = base(Q, _), memberchk(consteval, Q) -> true ; is_list(Qs), memberchk(consteval, Qs) ), !.
+cpp_immediate_context :- nb_current('$cpp_cur_fn', Cur), atom(Cur), nb_getval('$cpp_making', Ms), memberchk(Cur, Ms), !,
+    ( '$cpp_consteval'(Cur) -> true ; assertz('$cpp_consteval'(Cur)), cpp_trace(immediate_escalated(Cur)) ).
 cpp_qual_object(X, Path, C, B) :-
     ( cpp_scope_class(Path, C) -> true ; cpp_refuse(0, qualified_member_scope(Path)) ),
     ( cpp_class_of_type_of(X, D) -> true ; cpp_refuse(0, qualified_member_of_unknown(C)) ),
@@ -6134,6 +6207,15 @@ cpp_nx_throwing(call(id(F), _)) :- atom(F), \+ '$cpp_fn'(F, _, _, yes, own(_)), 
 cpp_nx_throwing(call(scoped(_, F), As)) :- atom(F), cpp_nx_throwing(call(id(F), As)).   % `std::stoi(s)': the name as the flattening has it
 cpp_nx_throwing(call(member(O, M), _)) :- atom(M), cpp_class_of_type_of(O, C), cpp_nx_method_throws(C, M).
 cpp_nx_throwing(call(arrow(P, M), _)) :- atom(M), ccl_type_of(P, T), ccl_unref(T, ptr(_, PT)), cpp_class_of_type(PT, C), cpp_nx_method_throws(C, M).
+cpp_nx_throwing(call(F, _)) :- cpp_nx_pointer_callee(F, FT), \+ cpp_fn_type_nx(FT).   % A CALL THROUGH A POINTER OR A REFERENCE TO A FUNCTION (0.198; [except.spec]/3): its type says, `void (*q)() noexcept' does not throw and `void (*p)()' may -- every such call was taken as noexcept
+cpp_nx_throwing(call(F, _)) :- ( F = memptr_get(_, PM) ; F = memptr_arrow(_, PM) ), cpp_nx_memptr_fn(PM, FT), \+ cpp_fn_type_nx(FT).   % ... and THROUGH A POINTER TO MEMBER FUNCTION, `(o.*pm)(args)' (0.198): the member function type's own noexcept
+cpp_nx_pointer_callee(id(N), FT) :- atom(N), !, ( cpp_local(N) -> true ; ccl_declared(N, T0), ccl_resolve_type(T0, ptr(_, _)) ), ccl_declared(N, T), cpp_nx_fn_of(T, FT).
+cpp_nx_pointer_callee(F, FT) :- \+ F = scoped(_, _), \+ F = member(_, _), \+ F = arrow(_, _), \+ F = tmpl(_, _), catch(ccl_type_of(F, T), _, fail), T \== unknown, cpp_nx_fn_of(T, FT).
+cpp_nx_fn_of(T, FT) :- ccl_resolve_type(T, T0), ccl_unref(T0, T1), ( ccl_resolve_type(T1, ptr(_, F0)) -> true ; F0 = T1 ), ccl_resolve_type(F0, FT), FT = fn(_, _, _).   % a reference to a pointer too: libc++'s `static_cast<_Fp &&>(__f)(...)'
+cpp_fn_type_nx(fn(_, _, V)) :- nonvar(V), V = q(_, Qs), memberchk(noexcept, Qs).
+%% the member function type of a pointer to member: its type as decltype has it, the expression desugared where it is written
+cpp_nx_memptr_fn(PM, FT) :- ( cpp_class_ctx(Cx) -> true ; Cx = none ), catch(( cpp_unevaluated(cpp_expr(Cx, PM, PM1)), cpp_decltype_of(PM1, T0) ), _, fail),
+    ccl_resolve_type(T0, T1), ccl_unref(T1, T2), ccl_resolve_type(T2, memptr(_, _, F0)), ccl_resolve_type(F0, FT), FT = fn(_, _, _), !.
 cpp_nx_method_throws(C, M) :- cpp_nx_method_quals(C, M, QL), QL \== [], \+ ( member(Qs, QL), memberchk(noexcept, Qs) ).
 %% the qualifiers of each declaration of the member function M of C, a member template's among them, else of the first base
 %% that declares the name ([class.member.lookup]), [] where none does
@@ -7748,7 +7830,14 @@ cpp_decltype_of(E, ref([], T)) :- ( E = deref(_) ; E = index(_, _) ), ccl_type_o
 %% declared result: libc++'s common_reference is `decltype(false ? declval<X (&)()>()() : declval<Y (&)()>()())'
 cpp_decltype_of(cond(_, A, B), T) :- cpp_decltype_of(A, TA), cpp_decltype_of(B, TB), cpp_cond_glvalue(TA, TB, T), !.
 cpp_decltype_of(call(F, _), R) :- \+ F = id(_), ( cpp_decltype_of(F, FT) -> true ; ccl_type_of(F, FT) ), cpp_fn_result(FT, R), ( R = ref(_, _) ; R = rref(_, _) ), !.
+cpp_decltype_of(id(N), T) :- atom(N), cpp_nx_fn_name(N), ccl_declared(N, T0), ccl_resolve_type(T0, fn(R, Ps, V)), !, cpp_fn_nx_on(V, V1), T = fn(R, Ps, V1).   % A NOEXCEPT FUNCTION'S TYPE IS `R(Ps) noexcept' (C++17, [except.spec]/2; 0.198): the name keeps the mark the reader takes off the declared type (ccl_own_fn_nx)
+cpp_decltype_of(addr(id(N)), ptr([], T)) :- atom(N), cpp_nx_fn_name(N), cpp_decltype_of(id(N), T), T = fn(_, _, _), !.   % ... and its address a pointer to one
 cpp_decltype_of(E, T) :- ccl_type_of(E, T), T \== unknown.
+cpp_nx_fn_name(N) :- ( ccl_nothrow(N) ; ccl_lib_nothrow(N) ), !.
+cpp_fn_nx_on(q(V, Qs), q(V, Qs1)) :- !, ( memberchk(noexcept, Qs) -> Qs1 = Qs ; append(Qs, [noexcept], Qs1) ).
+cpp_fn_nx_on(V, q(V, [noexcept])).
+cpp_fn_nx_off(V0, V) :- nonvar(V0), V0 = q(W, Qs), memberchk(noexcept, Qs), !, delete(Qs, noexcept, Qs1), ( Qs1 == [] -> V = W ; V = q(W, Qs1) ).
+cpp_fn_nx_off(V, V).
 cpp_called_fn(cast(ptr(_, F), _), _, F) :- F = fn(_, _, _), !.
 cpp_called_fn(id(Fn), Is, F) :- member(declaration(_, _, _, Vs), Is), memberchk(var(Fn, ptr(_, F), _), Vs), F = fn(_, _, _), !.
 cpp_std_move_call(call(scoped(P, move), [X]), X) :- ( P == [std] ; P == [std, inline('__1')] ; P == [global, std] ), !.   % `decltype(std::move(x))' is `T &&' ([dcl.type.decltype], an xvalue; 0.112): std::move is desugared to the move node, which the inference types as the value -- libc++'s `__move_t<_Iter>' came out by value, and `__iter_move' returned a COPY of every element std::move shifts
@@ -9204,7 +9293,7 @@ cpp_type_key(memptr(C, _, T), K) :- !, cpp_type_key(T, TK), atomic_list_concat([
 cpp_type_key(tname(mt(C, N)), K) :- !, atomic_list_concat([C, '.', N], K).   % a member alias template (0.109)
 cpp_type_key(tname(X), X) :- !.
 cpp_type_key(fn(R, Ps, V0), K) :- !, cpp_fn_q(V0, V, Qs), cpp_type_key(R, RK), findall(PK, ( member(P, Ps), cpp_param_type_of(P, PT), cpp_type_key(PT, PK) ), PKs),   % a FUNCTION TYPE keys by its result and its parameters' types, never their names: `(*pf)(basic_ostream &)' declared and `(*__pf)(basic_ostream &__os)' defined are one
-    ( V == true -> Vs = [z] ; Vs = [] ), cpp_ita_cv(Qs, CV), cpp_ita_refq(Qs, RQ), atomic_list_concat([CV, fn, RQ], FW), append([FW, RK|PKs], Vs, Ks), atomic_list_concat(Ks, '_', K).   % ... and a member function type's qualifiers (0.181): `Kfn_int_int', `fnO_int_int'
+    ( V == true -> Vs = [z] ; Vs = [] ), cpp_ita_cv(Qs, CV), cpp_ita_refq(Qs, RQ), ( memberchk(noexcept, Qs) -> NX = nx ; NX = '' ), atomic_list_concat([CV, NX, fn, RQ], FW), append([FW, RK|PKs], Vs, Ks), atomic_list_concat(Ks, '_', K).   % ... and a member function type's qualifiers (0.181): `Kfn_int_int', `fnO_int_int'; a noexcept one's `nxfn' (0.198)
 cpp_type_key(int(big(A)), A) :- !.                                                       % a literal past 2^60 (0.94)
 cpp_type_key(uint(big(A)), K) :- !, atom_concat(A, u, K).
 cpp_type_key(long(big(A)), K) :- !, atom_concat(A, l, K).
@@ -9260,7 +9349,7 @@ cpp_subst(ctor(L, Qs, Ps, Inits, Body), B, ctor(L, Qs1, Ps1, Inits1, Body1)) :- 
     cpp_param_packs(Ps, B, B1), cpp_subst(Ps, B1, Ps1), cpp_subst(Inits, B1, Inits1), cpp_subst(Body, B1, Body1),
     cpp_subst_quals(Qs, B1, Qs1).   % A CONSTRUCTOR'S QUALIFIERS TOO (0.112), as a method's since 0.100: `filter_view() requires default_initializable<_View> = default' was checked over the free `_View'
 cpp_subst(lambda(Caps, Ps, Ret, Body), B, lambda(Caps1, Ps1, Ret1, Body1)) :- !,               % A LAMBDA'S OWN PARAMETER PACK expands with the enclosing template's bindings, as a function's does: libc++'s __tree writes `[this](_Args&&... __args2) { ... std::forward<_Args>(__args2)... }' inside __emplace_unique, and unexpanded the body named `__args2', a name with no type
-    cpp_param_packs(Ps, B, B1), cpp_subst_caps(Caps, B1, Caps1), cpp_subst(Ps, B1, Ps1), cpp_subst(Ret, B1, Ret1), cpp_subst(Body, B1, Body1).
+    cpp_param_packs(Ps, B, B1), cpp_cap_packs(Caps, B1, B2), cpp_subst_caps(Caps, B1, Caps1), cpp_subst(Ps, B2, Ps1), cpp_subst(Ret, B2, Ret1), cpp_subst(Body, B2, Body1).
 cpp_subst(requires_expr(Ps, Rs), B, requires_expr(Ps1, Rs1)) :- !, cpp_param_packs(Ps, B, B1), cpp_subst(Ps, B1, Ps1), cpp_subst(Rs, B1, Rs1).   % A REQUIRES-EXPRESSION'S OWN PARAMETER PACK expands with the bindings as a function's does (0.126): `requires(_Fn &&__fn, _Args &&...__args) { std::invoke(std::forward<_Fn>(__fn), std::forward<_Args>(__args)...); }' is the concept `invocable', its parameters became `__args$1', `__args$2' and its body kept `__args' -- found nowhere, so an enclosing function's variable of that name was found: libc++ 21's `__try_constant_folding(..., basic_format_args __args)' made `std::ranges::find_first_of(__fmt, array{'{', '}'})' fail `indirectly_comparable', and every std::format and std::print with it (stdformat.cpp, stdprint.cpp, reqpack.cpp)
 cpp_subst(fn(R, Ps, X), B, fn(R1, Ps1, X1)) :- !, cpp_param_packs(Ps, B, B1), cpp_subst(R, B1, R1), cpp_subst(Ps, B1, Ps1), cpp_subst(X, B1, X1).
 cpp_subst(memptr(C0, Q, T0), B, memptr(C, Q, T)) :- !,                                          % the CLASS of a pointer to member is a bare name in the term, so the binding is read by hand: `_Rp _Tp::*'
@@ -9319,9 +9408,18 @@ cpp_pack_at(P, I, B, L, E) :-
 %% target matched it exactly, so `long t = s;' took the first arithmetic conversion function declared
 cpp_subst_mname(operator(conv(T)), B, operator(conv(T1))) :- !, cpp_subst(T, B, T1).
 cpp_subst_mname(M, _, M).
+%% AN INIT-CAPTURE PACK (C++20, [expr.prim.lambda.capture]/17, P0780; 0.198): `[...xs = std::move(ts)]' is one init-capture an element of the
+%% pack its initializer expands over, `xs$1' ... `xs$k' (cpp_subst_caps), and the body names xs as the pack of them, a parameter pack's way
+cpp_cap_packs([], B, B).
+cpp_cap_packs([C|Cs], B0, B) :- ( C = cap(init_pack, N, E) ; C = cap(init_ref_pack, N, E) ), cpp_pack_names(E, B0, [_|_]), !,
+    cpp_expand_pack(E, B0, Es), length(Es, K), findall(id(Nk), ( between(1, K, I), atomic_list_concat([N, '$', I], Nk) ), Ids),
+    cpp_cap_packs(Cs, [N-vpack(Ids)|B0], B).
+cpp_cap_packs([_|Cs], B0, B) :- cpp_cap_packs(Cs, B0, B).
 cpp_subst_caps([], _, []).
 cpp_subst_caps([cap(pack, N)|Cs], B, Out) :- ( memberchk(N-vpack(Xs), B) ; memberchk(N-pack(Xs), B) ), !,   % `[xs...]' over a bound pack: one capture by value per element (0.99)
     findall(cap(val, X), member(id(X), Xs), Cs1), cpp_subst_caps(Cs, B, Rest), append(Cs1, Rest, Out).
+cpp_subst_caps([C|Cs], B, Out) :- ( C = cap(init_pack, N, E), W = init ; C = cap(init_ref_pack, N, E), W = init_ref ), cpp_pack_names(E, B, [_|_]), !,   % an init-capture pack (0.198, above): one init-capture an element
+    cpp_expand_pack(E, B, Es), findall(cap(W, Nk, Ek), ( nth1(I, Es, Ek), atomic_list_concat([N, '$', I], Nk) ), Cs1), cpp_subst_caps(Cs, B, Rest), append(Cs1, Rest, Out).
 cpp_subst_caps([C|Cs], B, [C1|Cs1]) :- cpp_subst(C, B, C1), cpp_subst_caps(Cs, B, Cs1).
 cpp_subst_quals([], _, []).
 cpp_subst_quals([trailing(T)|Qs], B, [trailing(T1)|Qs1]) :- !, cpp_subst(T, B, T1), cpp_subst_quals(Qs, B, Qs1).
@@ -9374,6 +9472,8 @@ cpp_subst_elems([pack(X)|Xs], B, Ys) :- cpp_pack_names(X, B, [_|_]), !, cpp_expa
 cpp_subst_elems([base(A, pack(Q0))|Xs], B, Ys) :- atom(Q0), memberchk(Q0-Pk, B), cpp_pack_list(Pk, L), !,   % A BASE CLAUSE THAT IS A BARE PACK, `struct overloaded : Ts... {' (0.121): the reader writes the pack's name as an atom, the pattern below is a template-id or a path, and the atom named no pack to it -- every base of the expansion is the class its element is bound to (cpp_bound_base), as a single parameter's base is
     findall(base(A, X), ( member(E, L), cpp_bound_base(E, X) ), Bs), cpp_subst_elems(Xs, B, Ys1), append(Bs, Ys1, Ys).
 cpp_subst_elems([base(A, pack(Q))|Xs], B, Ys) :- cpp_pack_names(Q, B, [_|_]), !, cpp_expand_pack(Q, B, Qs), findall(base(A, Q1), member(Q1, Qs), Bs), cpp_subst_elems(Xs, B, Ys1), append(Bs, Ys1, Ys).
+cpp_subst_elems([friend_class(pack(Q0))|Xs], B, Ys) :- atom(Q0), memberchk(Q0-Pk, B), cpp_pack_list(Pk, L), !,   % a variadic friend (C++26, 0.198): one friend class per element of the pack, the class each is bound to
+    findall(friend_class(X), ( member(E, L), cpp_bound_base(E, X) ), Fs), cpp_subst_elems(Xs, B, Ys1), append(Fs, Ys1, Ys).
 cpp_subst_elems([using(L, pack(Q))|Xs], B, Ys) :- cpp_pack_names(Q, B, [_|_]), !, cpp_expand_pack(Q, B, Qs),   % `using Bs::operator()...;' (0.121): one using-declaration per element of the pack it names, each naming its base
     findall(using(L, name(Q1)), member(Q1, Qs), Us), cpp_subst_elems(Xs, B, Ys1), append(Us, Ys1, Ys).
 cpp_subst_elems([item(D, pack(V))|Xs], B, Ys) :- cpp_pack_names(V, B, [_|_]), !, cpp_expand_pack(V, B, Vs), findall(item(D, V1), member(V1, Vs), Is), cpp_subst_elems(Xs, B, Ys1), append(Is, Ys1, Ys).
@@ -9675,6 +9775,16 @@ cpp_nothrow_part(_, _).
 cpp_special_param(P, C, K) :- ( P = param(PT0, _) ; P = param(PT0, _, _) ), ( PT0 = ref(_, _) -> K0 = ref ; PT0 = rref(_, _) -> K0 = rref ), K0 == K,
     (   PT0 =.. [_, _, base(_, [typedef(C)])] -> true
     ;   catch(cpp_in_class(C, cpp_param_ref(PT0, PT1)), error(not_lowered(_), _), fail), ccl_unref(PT1, PT2), cpp_class_of_type(PT2, C) ), !.
+%% A SPECIAL MEMBER'S PARAMETER THAT NAMES ITS CLASS OTHERWISE THAN BY ITS PLAIN NAME (0.198): by a template-id of its own
+%% template ([temp.local]/1: within a class template its name with its own arguments is the class), `S(const S<T> &)',
+%% `S(S<T> &&)', libc++'s `__bit_iterator(const __bit_iterator<_Cp, false> &)', or by an alias of the class, `A(const Self
+%% &)'. The copy and the move constructor (cpp_copy_ctor/2, cpp_copy_or_move/2) and the ABI's non-triviality
+%% (cpp_user_copy_ctor/1) asked the parameter to name the class by its own name: such a constructor was no copy, `S<int> b =
+%% a;' copied a memberwise and the written constructor never ran, and the class was passed as its bytes where clang passes it
+%% by reference. Asked only of a referent named by a compound specifier other than the class's plain name, which the class's
+%% words resolve (cpp_special_param/3).
+cpp_named_self(C, P, K) :- ( P = param(PT, _) ; P = param(PT, _, _) ), ( PT = ref(_, base(_, [S])) ; PT = rref(_, base(_, [S])) ), compound(S), S \= typedef(C), S \= struct(_, _),
+    member(K, [ref, rref]), cpp_special_param(P, C, K), !.
 cpp_base_of(B, D) :- cpp_class_of_type(B, CB), cpp_class_of_type(D, CD), cpp_derives(CD, CB), !.
 cpp_base_of(B, D) :- \+ cpp_class_of_type(B, _), \+ cpp_class_of_type(D, _), ccl_resolve_type(B, base(_, [struct(S, _)])), atom(S), S \== anon, ccl_resolve_type(D, base(_, [struct(S, _)])).   % A PLAIN STRUCT IS ITS OWN BASE ([meta.rel]: `is_base_of<T, T>' holds for a class that is no union; 0.126): a struct of data members alone is no registered class and has no base, so only itself. Else libc++ 18's `__invoke' overloads for a pointer to a data member (`__enable_if_bullet4': `is_base_of<_ClassT, _DecayA0>') were all disabled for `std::invoke(&Pt::x, p)' and the generic callable one was chosen (invokedata.cpp)
 %% A CLASS DERIVES FROM EVERY BASE IT NAMES, the first or a later one, empty or with storage (0.112; [class.derived]):
@@ -9716,13 +9826,17 @@ cpp_convertible(F, T) :- ccl_unref(F, F1), ccl_unref(T, T1), ccl_resolve_type(F1
     (   cpp_same_type(F1, T1) -> true
     ;   cpp_same_unqualified(RF, RT) -> true                                                         % A VALUE'S TOP-LEVEL QUALIFIERS ARE NO BAR to initializing from it ([dcl.init]): `is_constructible<S, const S &>' of a plain struct, `__is_constructible(int *, int *const &)' -- both answered 0 where clang answers 1, since neither side is a registered class and `const S' is not the spelling `S' (0.93, libc++ 18's is_copy_constructible)
     ;   ccl_is_arith(RF), ccl_is_arith(RT) -> true
-    ;   ( RF = ptr(_, PF) ; RF = arr(_, PF) ), RT = ptr(_, PT), ( ccl_resolve_type(PT, base(_, [void])) -> true ; cpp_same_type(PF, PT) -> true ; cpp_quals_added(PF, PT) -> true ; cpp_pointer_to_base(PF, PT) ) -> true   % ... AND THE QUALIFICATION CONVERSION ([conv.qual]): `char *' converts to `const char *' (0.93). libc++ 18's `__unwrap_range' builds `std::make_pair(__unwrap_iter(__first), __unwrap_iter(__last))' over a string's characters, and `is_constructible<const char *, char *const>' answered 0, which rejected every two-argument constructor of the pair
-    ;   RF = fn(_, _, _), RT = ptr(_, PT), cpp_same_type(RF, PT) -> true                                % A FUNCTION CONVERTS TO A POINTER TO ITSELF ([conv.func]), which is what `is_constructible<_Fd, _Gp>' asks of std::bind's `int (&)(int, int, int)' against its decayed `int (*)(int, int, int)'
+    ;   ( RF = ptr(_, PF) ; RF = arr(_, PF) ), RT = ptr(_, PT), ( ccl_resolve_type(PT, base(_, [void])) -> true ; cpp_same_type(PF, PT) -> true ; cpp_quals_added(PF, PT) -> true ; cpp_fnptr_conv(PF, PT) -> true ; cpp_pointer_to_base(PF, PT) ) -> true   % ... AND THE QUALIFICATION CONVERSION ([conv.qual]): `char *' converts to `const char *' (0.93). libc++ 18's `__unwrap_range' builds `std::make_pair(__unwrap_iter(__first), __unwrap_iter(__last))' over a string's characters, and `is_constructible<const char *, char *const>' answered 0, which rejected every two-argument constructor of the pair
+    ;   RF = fn(_, _, _), RT = ptr(_, PT), ( cpp_same_type(RF, PT) -> true ; cpp_fnptr_conv(RF, PT) ) -> true                                % A FUNCTION CONVERTS TO A POINTER TO ITSELF ([conv.func]), which is what `is_constructible<_Fd, _Gp>' asks of std::bind's `int (&)(int, int, int)' against its decayed `int (*)(int, int, int)'
     ;   RF = ptr(_, base(_, [void])), RT = ptr(_, _) -> true                                          % nullptr's type here
     ;   cpp_class_of_type(RF, CF), cpp_class_of_type(RT, CT) -> ( cpp_class_fits(CF, CT) -> true ; cpp_converting(CT, RF) -> true ; cpp_conv_result(CF, RT, _) )   % A CLASS TO ANOTHER CLASS (0.121): a derived one, a converting constructor of the target that takes the source, or a conversion function of the source that gives the target ([conv], [class.conv]); only the first was asked -- libc++'s `strong_ordering' converts to `partial_ordering' by `operator partial_ordering()', and `convertible_to' of the two, the compound requirement of `three_way_comparable', was false
     ;   cpp_class_of_type(RT, CT) -> ( RF == unknown -> cpp_converting(CT) ; cpp_converting(CT, RF) )   % BY THE SOURCE'S TYPE (0.115): a constructor whose parameter takes its kind, as an argument converts -- `basic_string_view<char>(const char *)' made `is_convertible<const wchar_t *, string_view>' true
     ;   cpp_class_of_type(RF, CF) -> cpp_has_conversion(CF)
     ;   fail ).
+%% THE FUNCTION POINTER CONVERSION ([conv.fctptr], C++17; 0.198): a pointer to a noexcept function converts to a pointer to the same
+%% function type without it, never the other way: `is_convertible_v<void (*)() noexcept, void (*)()>' is 1 and the reverse 0
+cpp_fnptr_conv(F0, T0) :- ccl_resolve_type(F0, F), F = fn(R, Ps, VF), cpp_fn_type_nx(F), ccl_resolve_type(T0, T), T = fn(_, _, _), \+ cpp_fn_type_nx(T),
+    cpp_fn_nx_off(VF, V), cpp_same_type(fn(R, Ps, V), T), !.
 %% A POINTER TO A DERIVED CLASS CONVERTS TO A POINTER TO ITS BASE ([conv.ptr]/3), the pointee gaining qualifiers and
 %% losing none (0.100): `is_convertible<Node *, const enable_shared_from_this<Node> *>' is how libc++'s shared_ptr
 %% chooses `__enable_weak_this' over its `(...)' fallback, and answered 0 here the object's weak pointer was never set
@@ -9782,7 +9896,9 @@ cpp_trait_of(N, R, V) :- memberchk(N, ['__is_trivially_destructible', '__has_tri
 cpp_trait_of(N, _, true) :- memberchk(N, ['__is_destructible', '__is_nothrow_destructible']).
 cpp_trait_of('__has_virtual_destructor', R, V) :- ( cpp_class_of_type(R, C), cpp_class_l(C, cls(_, _, _, _, Slots)), memberchk(slot('$dtor', _, _, _, _), Slots) -> V = true ; V = false ).
 cpp_trait_of('__is_polymorphic', R, V) :- ( cpp_class_of_type(R, C), cpp_polymorphic(C) -> V = true ; V = false ).
-cpp_trait_of('__is_empty', R, V) :- ( cpp_class_of_type(R, C), cpp_class_l(C, cls(B, Data, _, _, _)), Data == [], ( B == none ; cpp_trait_of('__is_empty', base([], [typedef(B)]), true) ) -> V = true ; V = false ).
+cpp_trait_of('__is_empty', R, V) :- ( cpp_class_of_type(R, C), cpp_class_l(C, cls(B, Data, _, _, _)) -> ( cpp_empty_data(Data), ( B == none ; cpp_trait_of('__is_empty', base([], [typedef(B)]), true) ) -> V = true ; V = false )   % its data members, if any, empty data members (0.198, cpp_empty_data/1)
+    ;   catch(ccl_resolve_type(R, base(_, [struct(_, Ms)])), _, fail), Ms \== none, ccl_no_data_members(Ms) -> V = true   % ... and a plain struct, no registered class, by the layout's test (0.198)
+    ;   V = false ).
 cpp_trait_of('__is_trivially_equality_comparable', R, V) :- ( ( ccl_is_arith(R), R = base(_, S), \+ memberchk(float, S), \+ memberchk(double, S), \+ cpp_enum_type(R) ; R = ptr(_, _) ) -> V = true ; V = false ).   % `a == b' is `memcmp(&a, &b, sizeof(T))': the integral types and pointers, never a FLOAT (0.0 == -0.0 with different bits) and never an ENUM, for which a program may write its own `==' (0.112: std::find over an enum used memcmp and missed the program's operator==; test/cpp/run/enumeq.cpp)
 cpp_trait_of('__is_aggregate', R, V) :- ( ( R = arr(_, _) ; cpp_class_of_type(R, C), cpp_aggregate_class(C) ) -> V = true ; V = false ).
 %% AN ENUMERATION IS NO ARITHMETIC TYPE ([basic.fundamental]; an enum is a SCALAR, [basic.types.general]/9): the inference
@@ -10223,6 +10339,9 @@ cpp_first_return_in_([declaration(L, Sto, B, Vs)|Ss], Ctx, E) :- B = base(_, [cl
 cpp_first_return_in_([typedef(_, Vs)|Ss], Ctx, E) :- !,   % A BLOCK TYPEDEF OF A NESTED BLOCK (0.132), as the body's own (cpp_body_typedefs): libc++'s ranges::to deduces its container in `if constexpr (...) { using _Result = decltype(_Container(...)); return type_identity<_Result>{}; }', and the free `_Result' was the deduced type
     ( catch(( cpp_vars(none, Vs, Vs1), cpp_block_typedefs(Vs1, B) ), Err, ( cpp_trace(body_typedef_refused(Err)), fail )), B \== [] -> cpp_subst(Ss, B, Ss1) ; Ss1 = Ss ),
     cpp_first_return_in_(Ss1, Ctx, E).
+cpp_first_return_in_([S|Ss], Ctx, E) :- S = bindings(_, _, Ns, _), memberchk(pack(_), Ns), !,   % A STRUCTURED BINDING PACK (0.198, cpp_binding_names): the statements after it name its elements, as cpp_stmts has them
+    nb_setval('$cpp_bindpack', none), cpp_declare_only(Ctx, S), nb_getval('$cpp_bindpack', PB), nb_setval('$cpp_bindpack', none),
+    ( PB == none -> Ss1 = Ss ; cpp_subst(Ss, PB, Ss1) ), cpp_first_return_in_(Ss1, Ctx, E).
 cpp_first_return_in_([S|Ss], Ctx, E) :-
     (   ( S = declaration(_, _, _, _) ; S = bindings(_, _, _, _) ) -> cpp_declare_only(Ctx, S), cpp_first_return_in_(Ss, Ctx, E)
     ;   cpp_first_return_in(Ctx, S, E) -> true
