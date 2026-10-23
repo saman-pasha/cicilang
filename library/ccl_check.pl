@@ -1292,16 +1292,18 @@ ck_expr(call(F, Args), St0, St) :- !,
 %% assignment: to an owner or an own field; to a struct by value with own fields;
 %% to a tied slot; to a local plain pointer (a borrow, or not); to any other
 %% place, by its type
-ck_expr(assign('=', L, R), St0, St) :- ck_vptr_slot(L), !, ck_lval_use(L, St0, St1), ck_expr(R, St1, St).   % A TABLE POINTER is static storage, never memory the check follows (ck_carries_, 0.127): a base-variant constructor stores the construction tables its `$vtt' names (0.172)
+ck_expr(assign('=', L, R), St0, St) :- ck_vptr_slot(L), !, ck_expr(R, St0, St1), ck_lval_use(L, St1, St).   % A TABLE POINTER is static storage, never memory the check follows (ck_carries_, 0.127): a base-variant constructor stores the construction tables its `$vtt' names (0.172)
 ck_expr(assign(Op, id(N), R), St0, St) :- ck_is_ref(N), !, ck_expr(assign(Op, deref(id(N)), R), St0, St).   % C++: through the reference
+%% THE RIGHT SIDE IS WALKED FIRST, as the lowering evaluates it (C++17 [expr.ass]/1; 0.197), then the place: `p->next =
+%% take(p)' over an own parameter of take frees p before p->next is written, a use after the move
 ck_expr(assign('=', L, R), St0, St) :- ck_owner_path(St0, L, K), !,
-    ck_base_use(L, St0, St1), ck_into_own(K, R, assign('=', L, R), St1, St, _).
+    ck_into_own(K, R, assign('=', L, R), St0, St1, _), ck_base_use(L, St1, St).
 ck_expr(assign('=', L, R), St0, St) :- ck_path(L, K), ck_by_value(L), ck_own_under(St0, K, [_|_]), !,
-    ck_base_use(L, St0, St1), ( ccl_type_of(L, T) -> true ; T = unknown ), ck_fill(K, T, R, assign('=', L, R), St1, St).
+    ( ccl_type_of(L, T) -> true ; T = unknown ), ck_fill(K, T, R, assign('=', L, R), St0, St1), ck_base_use(L, St1, St).
 ck_expr(assign('=', L, R), St0, St) :- ck_path(L, K), ck_tied_to(K, Root), !,
-    ck_base_use(L, St0, St1), ck_into_tied(K, Root, R, assign('=', L, R), St1, St).
+    ck_into_tied(K, Root, R, assign('=', L, R), St0, St1), ck_base_use(L, St1, St).
 ck_expr(assign('=', L, R), St0, St) :- ck_own_elem(L, K), !,                 % an element: an own slot; the old one freed by the lowering
-    ck_lval_use(L, St0, St1), ck_into_own(none, R, assign('=', L, R), St1, St2, _), ck_dangle(St2, K, St).
+    ck_into_own(none, R, assign('=', L, R), St0, St1, _), ck_lval_use(L, St1, St2), ck_dangle(St2, K, St).
 ck_expr(assign('=', id(N), R), St0, St) :- ( ck_state(St0, N, _) ; ck_is_local(N) ), !,
     ck_expr(R, St0, St1),
     (   ck_is_param(N), ck_state(St1, N, borrow(N)) -> ck_rebind(St1, N, none, St2)   % a parameter re-assigned is a plain local from here
@@ -1314,13 +1316,13 @@ ck_expr(assign('=', id(N), R), St0, St) :- ( ck_state(St0, N, _) ; ck_is_local(N
     ;   T \== unknown, \+ ck_state(St2, N, _) -> ck_no_owner_behind(N, T, R, assign('=', id(N), R)), St = St2
     ;   St = St2 ).
 ck_expr(assign('=', L, R), St0, St) :- !,
-    ck_lval_use(L, St0, St1),
-    ( ck_path(R, RK), ck_by_value(R), ck_has_array_under(St1, RK) -> ck_fail(own_array_by_value, RK, assign('=', L, R)) ; true ),
+    ( ck_path(R, RK), ck_by_value(R), ck_has_array_under(St0, RK) -> ck_fail(own_array_by_value, RK, assign('=', L, R)) ; true ),
     (   ccl_type_of(L, T), T \== unknown
-    ->  (   ck_own_type(T) -> ck_into_own(none, R, assign('=', L, R), St1, St, _)
-        ;   ck_carries_type(T) -> ck_slot_name(L, Name), ck_into_plain(Name, R, assign('=', L, R), St1, St)
-        ;   ck_expr(R, St1, St) )
-    ;   ck_expr(R, St1, St) ).
+    ->  (   ck_own_type(T) -> ck_into_own(none, R, assign('=', L, R), St0, St1, _)
+        ;   ck_carries_type(T) -> ck_slot_name(L, Name), ck_into_plain(Name, R, assign('=', L, R), St0, St1)
+        ;   ck_expr(R, St0, St1) )
+    ;   ck_expr(R, St0, St1) ),
+    ck_lval_use(L, St1, St).
 ck_expr(assign(_, L, R), St0, St) :- !, ck_expr(R, St0, St1), ck_lval_use(L, St1, St).
 ck_expr(sizeof(_), St, St) :- !.
 ck_expr(sizeof_type(_), St, St) :- !.
