@@ -1,0 +1,7 @@
+no rtti
+any_cast: 5 1
+function: 42
+static_pointer_cast: 2
+to a base and to void: 1 1
+caught: 4
+exit 0

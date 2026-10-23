@@ -184,6 +184,7 @@ One row per step, in version order: the step's title, what it did and its gate n
 | 0.188 | Not done, the twenty-fourth part: a build's cold headers read at once, each by a process of its own; the next costs of a cold read | the cold library headers of a C++ build read by a cocolog each, as many at a time as the machine has processors (`CICILANG_JOBS`), the build then served from their summaries (`aliasptr.cpp`'s eight over libc++ 18: 52.8 s where the build alone takes 96.5 s, the same CPU time); each writer's temporary file a name of its own; the file scope holds atoms alone (861 copies of a bucket, 0.80 s of a read of `<thread>`'s text); the no-throw names a set; one look at a specifier's keyword and at a type's name of one word; a directive line marked once; an item walked for floats before it is copied; a summary's and an AST's text written as atoms (26 million steps of `append/3`); the numbers of 0.187's chain | committed before its chain: on 2.11.0 the flow gate GREEN (4151 predicates), the trees of seven libc++ headers the same, byte for byte, read in 71.9 s where 0.186's library read them in 133.7 s, the C gates and the cross gate GREEN, nets of 112 C++ fixtures over fresh HOMEs, 112 of 112 the same over libc++ 18 and over 21, their cold builds 1343 s and 1231 s where 0.187's took 1597 s and 1436 s, their summaries 0.187's nets', 52 of 52 over each; 87 run C fixtures, 604 C++; its chain (0.189), over fresh HOMEs (the reader moved): all nine gates GREEN over libc++ 18 in 1427 s, the library read and the C++ gate over 21; the library read 273 s and 241 s, the C++ gate 784 s and 803 s; 600 of 604 over 18, 602 over 21 |
 | 0.189 | the chain of 0.188 | no library file changed: the numbers of 0.188's chain | all nine gates GREEN over libc++ 18 in 1427 s, the two libc++ gates over 21; the headers' reads summed 999 s and 877 s (0.187's 1349 s and 1191 s), the fixtures' builds 2638 s and 2701 s; 600 of 604 C++ fixtures over 18, 602 over 21; the chain's summaries the 0.188 nets', 52 of 52 over each |
 | 0.190 | cocolog 2.11.1; the native lexer's buffers grow through a second pointer; the owner's four decisions | cocolog 2.11.1 (a failed store read raises and loses no row, growths keep their block); the native lexer's two `x = realloc(x, n)` sites grow through a second pointer, a refused allocation `resource_error(memory)` where the module of 0.189 crashed (signal 11, under a shim that refuses its requests); libc++'s configurations measured (a throw in its headers' code aborts, one in the compiled library is caught; `std::dynamic_pointer_cast` runs, written absent since 0.86); the safe part's boundary measured (a borrow handed into a `std::vector` or a `std::function` and returned compiles); the four questions put to the owner and their answers, the next steps | committed before its chain: on 2.11.1 the flow gate GREEN (4151 predicates), the reader, compile, driver and objects gates, the proof and the cross gate's C part GREEN; five warm C++ builds 59.17 s on 2.11.0 and 58.42 s on 2.11.1 (the least CPU time of three interleaved runs) |
+| 0.191 | RTTI in libc++ on by default, as clang++ has it; `-fno-rtti` gives the no-RTTI configuration; `std::any` and a `shared_ptr`'s deleter, which never built | `__cpp_rtti` and `__GXX_RTTI` predefined in C++ unless `-fno-rtti`; under it `typeid` and a downcasting or cross-casting `dynamic_cast` refused by name, a header's `std::dynamic_pointer_cast` too; a summary read under it keyed apart; four older defects the new fixtures met: a base written `decltype(e)`, the address of a static constant member, a static member function's thunk emitted twice, a qualification conversion tied with the identity (and the partial ordering of `f(T *)` and `f(const T *)`); the numbers of 0.190's chain | all nine gates GREEN over libc++ 18, the two libc++ gates over 21 (the C++ gate's first run RED at one refusal's expected text, corrected in this commit); the headers' reads summed 1176 s and 1104 s over 120 (0.190's 1000 s and 904 s over 114), the fixtures' builds 2919 s and 3037 s; 604 of 608 C++ fixtures over 18, 606 over 21 |
 
 ## M5 — the C++ mode
 
@@ -12060,3 +12061,99 @@ word: the chain runs over this commit, and the next one carries its numbers.**
   the owner).
 
 Reader 142 and lowering 104, as 0.189 left them: no library file changed.
+
+## 0.191 — RTTI in libc++ on by default, as clang++ has it; `-fno-rtti` gives the no-RTTI configuration; `std::any` and a `shared_ptr`'s deleter, which never built
+
+**0.191: the first of the owner's four decisions of 0.190. `__cpp_rtti` and `__GXX_RTTI` are predefined in C++ unless
+the build says `-fno-rtti`, so libc++ decides `_LIBCPP_HAS_RTTI` as clang++'s build does; `-fno-rtti` gives the no-RTTI
+configuration this compiler built from 0.86 to 0.190, and refuses `typeid` and a `dynamic_cast` that asks the type
+information by name, as clang++ `-fno-rtti` refuses them. The fixtures of the two configurations met four defects older
+than the step -- a base written `decltype(e)`, the address of a static constant member, a static member function's thunk
+emitted twice, a qualification conversion that tied with the identity -- and `std::any`, which no fixture had used,
+builds and runs now in both. Its chain is ALL GREEN; the first run was RED at one line, the expected text of one
+refusal, which this commit corrects.**
+
+- THE CONFIGURATION (`library/ccl_pp.pl`): the predefined table `cpp_rtti` holds `__GXX_RTTI` 1 and `__cpp_rtti`
+  199711L, and `pp_predef_macro/3` asks it in C++ unless `'$ccl_rtti'` is `no`. `bin/cicilang` takes `-fno-rtti` and
+  `-frtti`, the last of the two on the line winning (`rtti`), and passes the option `no_rtti`, which `dr_setup/2` turns
+  into the global, in the build's process and in each process that reads one of its cold headers (0.188). A C++ summary
+  read under `-fno-rtti` is keyed apart (`ccl_config_key/1`: `@no-rtti` in the fold of `ccl_sum_file/2`; the default
+  adds nothing), and `test/libcxx.sh` warms a fixture's headers under its `.flags`' configuration too (`ccl_union` gives
+  the configuration beside the header and the level, the key `header@level@-fno-rtti`). Reader 143: every libc++ header
+  flattens in its RTTI configuration (`any`, `function`, `shared_ptr`, `exception_ptr` change; the vtables do not, so
+  the control blocks lay out as the shipped library's either way).
+- THE REFUSALS UNDER `-fno-rtti` (`library/ccl_cpp.pl`, `cpp_rtti_needed/1`): `typeid` is `typeid_requires_rtti`, and
+  a `dynamic_cast` that asks the type information -- a downcast, a cross-cast -- `dynamic_cast_requires_rtti`, as
+  clang++ `-fno-rtti` refuses them (`use of typeid requires -frtti`), in a header's code too: libc++ leaves
+  `std::dynamic_pointer_cast` unguarded, and clang++ `-fno-rtti` refuses it where a program calls it (the refusal of the
+  instance's body, `instance_refused('dynamic_pointer_cast.D.B',dynamic_cast_requires_rtti)`, over libc++ 18 and 21 alike:
+  the first chain of this step expected the bare refusal and was RED at that one line). A cast to a base,
+  `dynamic_cast<void *>` and the exceptions need none. Three refusals, each with `-fno-rtti` in its `.flags`:
+  `typeidnortti.cpp`, `dyncastnortti.cpp`, `dpcnortti.cpp`.
+- FOUR OLDER DEFECTS, each met by the new fixtures and each the same over the 0.190 compiler (measured):
+  - A BASE WRITTEN `decltype(e)` ([class.derived]/1) was refused `base_shape`: libc++'s `struct __well_formed_deleter :
+    decltype(std::__well_formed_deleter_test<_Dp, _Pt>(0)) {}`, so `__shared_ptr_deleter_ctor_reqs<...>::value` did not
+    fold and `std::shared_ptr<int> sp(new int(7), d)` had no constructor (`no_constructor('shared_ptr.int', 2)`; found by
+    `test/why.sh`: the failed call was the fold of that `value`). `cpp_base_name/2` resolves the decltype as a type.
+  - THE ADDRESS OF A STATIC CONSTANT MEMBER, `&C::s` and a bare `&s` in its class, folded to the constant, and the
+    address of `int(0)` reached the lowering (`lvalue(int(0))`): libc++'s no-RTTI `std::any` tells its types apart by
+    `&__unique_typeinfo<_Tp>::__id`. The address is the global's, defined where it is taken (`cpp_static_use/3`).
+  - A STATIC MEMBER FUNCTION'S THUNK WAS EMITTED TWICE: `_SmallHandler<T>::__handle`'s own walk makes `__create`, which
+    stores `&_SmallHandler::__handle`, and the thunk, noted only after its method was made, was made again inside it;
+    LLVM refused the redefinition at every `std::any a = 5;`. The thunk is declared first and in progress while its
+    method is made (`'$cpp_making'`).
+  - A QUALIFICATION CONVERSION TIED WITH THE IDENTITY on the template road: libc++'s `any_cast<T>(const any *)` calls
+    `std::any_cast<T>(const_cast<any *>(__any))`, and the first declared of `any_cast(const any *)` and `any_cast(any *)`
+    won, so the call was itself and every `std::any_cast` of a value overflowed the stack. A pointer argument whose
+    pointee the parameter adds `const` or `volatile` to costs a demerit for each qualifier added
+    (`cpp_qualification_conv/3` in `cpp_scalar_rank/2`, [over.ics.rank]/3.2.5). And the partial ordering took the
+    call's deduction, which lets `const T *` deduce from `U *`, so neither of `f(T *)` and `f(const T *)` was more
+    specialized and the first declared won; it deduces as [temp.deduct.type] does now (`cpp_partial_ptr_ok/2`). Over
+    0.190 a program with `f(T *)` and `f(const T *)` declared in each order printed `1 1 1 / 2 2 2` where clang++ prints
+    `1 2 2 / 1 2 2`, and `qualrank.cpp` crashed.
+- THE SAFE PART AT THE BOUNDARY, met by `rttilib.cpp`: `Del *d = std::get_deleter<Del>(sp);` is refused `plain pointer
+  not consumed`, where the pointer borrows `sp`; the fixture compares the result in place, and the case joins the third
+  decision's step (Not done). A deleter takes ownership in this language: `void operator()(own int *p) const`, as
+  `stdmemory.cpp`'s does.
+- FIXTURES: `rttilib.cpp` (`std::any::type()`, `std::function::target_type()` and `target<T>()`, `std::get_deleter`,
+  `std::dynamic_pointer_cast`), `nortti.cpp` (`-fno-rtti`), `staticaddr.cpp`, `qualrank.cpp`, each clang++'s output
+  over libc++ 18 (`-Down=` for the deleter's `own`); the three refusals above.
+- THE CHAIN OF 0.190, over a fresh worktree of its commit and fresh HOMEs, on cocolog 2.11.1, 01:20:48 to 02:02:16 UTC:
+  ALL GREEN. Over libc++ 18 in 1455 s: the flow gate 83 s (peak 3238 MB, 4151 predicates, its one finding), reader 4 s,
+  compile 12 s, driver 12 s, objects 3 s, the proof, the cross gate 251 s (peak 400 MB), the library read 275 s (peak
+  908 MB, 91 other headers warmed), the C++ gate 801 s (peak 2213 MB), 600 of 604 fixtures ok (skips `joinwith`,
+  `stdoptionalref`, `tzone`, `zipadjacent`), the 23 refusals and the three of the safe part; over libc++ 21 the library
+  read 249 s (peak 745 MB) and the C++ gate 785 s (peak 2068 MB), 602 of 604 (skips `stdoptionalref`, `zipadjacent`).
+  The headers' reads summed 1000 s over 114 and 904 s over 114 (0.188's 999 s and 877 s), the fixtures' builds 2716 s
+  over 600 and 2674 s over 602 (0.188's 2638 s and 2701 s); the slowest over 18 `fmtrange` 115 s, `fmtchrono2` 110 s,
+  `fmtchrono` 100 s, `fmttuple` 75 s, `fmtcheck` 75 s, `viewsall` 74 s, over 21 `fmtchrono2` 100 s, `fmtchrono` 86 s,
+  `viewsall` 77 s, `fmtrange` 72 s, `joinwith` 64 s, `fmtcheck` 62 s.
+- TWO DEFECTS FOUND, the next step's (Not done), each measured over the 0.190 compiler against clang++: a closure's and
+  a local class's name is one unit's (`lambda.K`, `Loc.local_K`) and is emitted `linkonce_odr`, so two units' `lambda.1`
+  are one function at the link and one unit runs the other's body (`11 20 100 7` where clang++ prints `11 10009 100 7`),
+  and an unnamed namespace's names are flattened to the file scope, so two units that each define `namespace { int
+  helper(); }` do not link; and a static constructed at compile time registers no destructor, so `~K` never runs at
+  exit, where one constructed before main or under the guard registers it.
+- THE CHAIN OF 0.191, over a fresh worktree of its commit and fresh HOMEs (the reader version moved), on cocolog 2.11.1,
+  from 07:29:39 UTC: over libc++ 18 the flow gate 87 s (peak 2901 MB, its one finding), reader 4 s, compile 12 s,
+  driver 16 s, objects 4 s, the proof, the cross gate 292 s (peak 449 MB), the library read 319 s (peak 817 MB; the 23
+  asserted reads whole, 97 other headers warmed, six of them under `-fno-rtti`), then the C++ gate RED in 848 s at one
+  line: `dpcnortti.cpp`'s refusal is its instance's, `instance_refused('dynamic_pointer_cast.D.B',
+  dynamic_cast_requires_rtti)`, a held candidate's body refusing (the Overload resolution topic), and the gate expected
+  the bare refusal -- the same text over libc++ 21, measured. The expectation corrected and the commit amended, the
+  library the same, from 07:58:06 over the amended commit: the C++ gate over 18 GREEN in 824 s (peak 2063 MB), 604 of
+  608 fixtures ok (skips `joinwith`, `stdoptionalref`, `tzone`, `zipadjacent`), the 26 refusals and the three of the
+  safe part; over libc++ 21 the library read 303 s (peak 758 MB) and the C++ gate 902 s (peak 2127 MB), 606 of 608
+  (skips `stdoptionalref`, `zipadjacent`), to 08:31:57 UTC: ALL GREEN. The headers' reads summed 1176 s over 120 and 1104
+  s over 120 (0.190's 1000 s and 904 s over 114: libc++ in its RTTI configuration is more to read, and six headers are
+  warmed again under `-fno-rtti`), the fixtures' builds 2919 s over 604 and 3037 s over 606 (0.190's 2716 s over 600 and
+  2674 s over 602); the slowest over 18 `fmtrange` 121 s, `fmtchrono2` 114 s, `fmtchrono` 104 s, `viewsall` 80 s,
+  `fmttuple` 79 s, `fmtcheck` 79 s, over 21 `fmtchrono2` 114 s, `fmtchrono` 102 s, `viewsall` 85 s, `fmtrange` 85 s,
+  `joinwith` 80 s, `fmtcheck` 76 s.
+- `CLAUDE.md`: the versions; the arguments (`-fno-rtti`), the predefined macros' configuration (RTTI), the C++ summary
+  cache (the configuration's key), the library read (the warm under `-fno-rtti`), the C++ gate's refusals, the
+  fixtures' companion files (`.flags`), the RTTI topic; the base named by `decltype`, the thunk, the static data
+  member's address, the partial ordering's pointee, the qualification conversion; Hosts (0.191's chain); the forms of
+  0.191; Not done (the first decision done, the get_deleter case under the third, the two defects of the next step).
+
+Reader 143 (every libc++ header flattens in its RTTI configuration) and lowering 104.

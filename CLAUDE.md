@@ -10,8 +10,8 @@ it found, its measurements and its gate numbers. `README.md` tells a user what r
 architecture and the milestones. A step that changes a rule edits the rule here, in its topic, and writes its entry
 in `HISTORY.md`.
 
-At 0.190 the versions are: the module 0.190 (`ccl_p_version` in `module/cicilang.cicili`, `bin/cicilang --version`),
-the reader 142 (`ccl_reader_version/1`, `library/ccl_syntax.pl`) and the lowering 104 (`ccl_lowering_version/1`,
+At 0.191 the versions are: the module 0.191 (`ccl_p_version` in `module/cicilang.cicili`, `bin/cicilang --version`),
+the reader 143 (`ccl_reader_version/1`, `library/ccl_syntax.pl`) and the lowering 104 (`ccl_lowering_version/1`,
 `library/ccl_ir.pl`).
 
 Build and prove, always in this order (or all of it, `sh test/gates.sh`):
@@ -540,7 +540,8 @@ tutorials/01..03-*.pl       the objects layer's lessons; goal main, last line do
   `iostream@17`, so `<ostream>` at C++17 was never warmed, and `libdiamond.cpp` flattened it cold in the C++ gate of
   every chain over a fresh HOME, 147 s at 0.179's where it builds in 12 to 16 s warm). A missing Cicili checkout is
   named, because `<sstream>` and `<stdexcept>` then stay cold. `<algorithm>` and `<array>` are only warmed: nothing
-  asserts their counts. (0.92, 0.105, 0.180)
+  asserts their counts. A file whose `.flags` names `-fno-rtti` has its headers warmed under that flag too, its key
+  `header@level@-fno-rtti` (0.191: such a summary is keyed apart, the C++ summary cache). (0.92, 0.105, 0.180, 0.191)
 - `LX_SECS` (2400 s) caps each read and each warm through `timeout -s KILL`. A read with no verdict is
   `FAIL <h> at C++N: the read did not finish`. A failed warm, `FAILED to flatten`, counts as a failure. A pool killed
   at its hard cap is RED. (0.105)
@@ -625,6 +626,9 @@ tutorials/01..03-*.pl       the objects layer's lessons; goal main, last line do
   | `enumnotconst.cpp` | `enumerator_not_constant('B')` | 0.160 |
   | `fmtindex.cpp` (C++20) | `consteval_call_not_constant('basic_format_string.char.int','Argument index outside the valid range')` | 0.164 |
   | `fmttype.cpp` (C++20) | `consteval_call_not_constant('basic_format_string.char.double','__throw_invalid_type_format_error: a floating-point')` | 0.164 |
+  | `typeidnortti.cpp` (`-fno-rtti`) | `typeid_requires_rtti` | 0.191 |
+  | `dyncastnortti.cpp` (`-fno-rtti`) | `dynamic_cast_requires_rtti` | 0.191 |
+  | `dpcnortti.cpp` (`-fno-rtti`) | `instance_refused('dynamic_pointer_cast.D.B',dynamic_cast_requires_rtti)` | 0.191 |
 
   `deduced_this.cpp` (0.43) is gone: a class's `this auto` method builds since 0.117 (`deducethis.cpp`). So is
   `diamond.cpp` (`virtual_base_by_two_paths`, 0.110 to 0.170): a diamond whose paths each hold two virtual bases builds
@@ -663,7 +667,8 @@ tutorials/01..03-*.pl       the objects layer's lessons; goal main, last line do
   standard output. `btree`'s comes from the C mirror `bench/btree/btree_cicilang.c`. Compare by hand the same way.
   (M2, 0.93)
 - `NAME.flags` gives a C++ fixture its level (`-std=c++20`, `-std=c++23`, `-std=c++26`), a refusal of `test/cpp/` too
-  (0.164); without one it builds at C++17. `NAME.std` gives a C fixture its level (`-std=c23`); an ISO level before C23
+  (0.164); without one it builds at C++17. It may name `-fno-rtti` beside the level (0.191: `nortti.cpp` and three
+  refusals). `NAME.std` gives a C fixture its level (`-std=c23`); an ISO level before C23
   (`-std=c17`) turns trigraphs on, as `bin/cicilang` does. (0.42, 0.57, 0.108)
 - `NAME.stdin` is the input of a fixture that reads (`stdcin`, `stdcinld`, `stdget`, `stdgetline`, `stdistream`,
   `stdistream2`, `stdws`, `stdtie`); the others read `/dev/null`. (0.75, 0.115, 0.136)
@@ -822,6 +827,9 @@ tutorials/01..03-*.pl       the objects layer's lessons; goal main, last line do
   `define('_LIBCPP_ENABLE_EXPERIMENTAL')`, and links `-lc++experimental` and `-lc++abi` (the archive names libc++abi's
   symbols directly); a run with it keeps no C store, as with `-D`. libc++'s time zones (`tzone.cpp`, libc++ 21; libc++
   18 has none, `tzone.needs`), syncstream and the rest of its experimental part. `--version` prints the versions of cicilang, cocolog and LLVM; `-h` prints the help. (M4, 0.108)
+- `-fno-rtti` acts (0.191), as clang++'s does: the option `no_rtti`, libc++'s no-RTTI configuration and `typeid`
+  refused (the Configuration chosen through the macros topic); `-frtti`, the default, takes it back, and the last of
+  the two on the line wins (`bin/cicilang`'s `rtti`).
 - `-g` is the option `debug` (0.128, 0.130): `-g`, `-g2`, `-g3`, `-ggdb`, `-ggdb2`, `-ggdb3`, `-gdwarf*`, `-gfull`, `-glldb`
   and `-gsce` give the FULL debug information (the line tables, the variables, their types, the lexical blocks, C++'s
   names and scopes); `-g1`, `-ggdb1`, `-gline-tables-only` and `-gline-directives-only` give `debug(lines)`, the line
@@ -1201,13 +1209,19 @@ tutorials/01..03-*.pl       the objects layer's lessons; goal main, last line do
   message (the Exceptions topic). The program's own `throw` and `try` use libc++abi. The owner decided at 0.190 to
   turn them on by default, as clang++ has them, with `-fno-exceptions` for this configuration (Not done). (0.50,
   0.108, 0.190)
-- NO RTTI in libc++ (0.86's choice, when nothing here made a `type_info`): `__cpp_rtti` and `__GXX_RTTI` are not
-  predefined. `any`, `exception_ptr`, `shared_ptr` and `function` change; the vtables do not, so control blocks match
-  the shipped library. `std::any::type()`, `std::function::target_type()` and `target<T>()` and `std::get_deleter`
-  are absent; `std::dynamic_pointer_cast` is not, which libc++ guards by no macro and whose `dynamic_cast` is the
-  program's own (0.190: written absent from 0.86 to 0.189). The program's own `typeid` and `dynamic_cast` use
-  libc++abi. The owner decided at 0.190 to turn RTTI on by default, with `-fno-rtti` for this configuration (Not
-  done). (0.86, 0.108, 0.190)
+- RTTI IN libc++, AS clang++ HAS IT (0.191, the owner's decision of 0.190): `__cpp_rtti` and `__GXX_RTTI` are the
+  predefined table `cpp_rtti`'s, which `pp_predef_macro/3` asks in C++ unless the build says `-fno-rtti`
+  (`'$ccl_rtti'` = `no`, set by `dr_setup/2`); libc++ then decides `_LIBCPP_HAS_RTTI` as clang++'s build does.
+  `std::any::type()`, `std::function::target_type()` and `target<T>()`, `std::get_deleter` and the `any_cast` that
+  compares type information run (`rttilib.cpp`). `-fno-rtti` gives libc++'s no-RTTI configuration, which this compiler
+  built from 0.86 to 0.190 (nothing here made a `type_info` then): `any`, `exception_ptr`, `shared_ptr` and `function`
+  change, the vtables do not, so the control blocks lay out as the shipped library's either way (`nortti.cpp`). Under it
+  `typeid` and a `dynamic_cast` that asks the type information -- a downcast, a cross-cast -- are refused,
+  `typeid_requires_rtti` and `dynamic_cast_requires_rtti` (`cpp_rtti_needed/1`), as clang++ `-fno-rtti` refuses them
+  (`use of typeid requires -frtti`), in a header's code too: libc++ leaves `std::dynamic_pointer_cast` unguarded, and
+  clang++ `-fno-rtti` refuses it where a program calls it; a cast to a base, `dynamic_cast<void *>` and the exceptions
+  need none. A C++ summary read under `-fno-rtti` is keyed apart (`ccl_config_key/1`, the C++ summary cache).
+  (0.86, 0.108, 0.190, 0.191)
 - `__OPTIMIZE_SIZE__` IS NOT PREDEFINED (0.162), as clang predefines it only at `-Os` and `-Oz`: libc++ 21 compiles
   its VECTORIZED algorithms behind `_LIBCPP_HAS_ALGORITHM_VECTOR_UTILS && !defined(__OPTIMIZE_SIZE__)` (`mismatch`, and
   through it `lexicographical_compare` and so a vector's `operator<`): `__simd_vector<_Tp, _Np>`, an `ext_vector_type`
@@ -2047,7 +2061,9 @@ tutorials/01..03-*.pl       the objects layer's lessons; goal main, last line do
   are the C++ cache. The fold takes the command line's macros (0.112) and ANOTHER MACHINE's triple (0.161,
   `ccl_target_key/1`): a header read for `--target` is read under that machine's macros, and this compiler's own
   `<limits.h>` and `<float.h>` have one path for every machine, so a host's summary of one was valid for a target's read
-  (its deps unchanged) and served it the host's limits. (M5, 0.42, 0.112, 0.161)
+  (its deps unchanged) and served it the host's limits. It takes the CONFIGURATION too (0.191, `ccl_config_key/1`): a
+  header read under `-fno-rtti` is read under other macros from the same files, `@no-rtti` in its key; the default
+  configuration adds nothing to the key. (M5, 0.42, 0.112, 0.161, 0.191)
 - A summary is one term per line (`ccl_sum_write/4`, `ccl_sum_chunks`): `sum(Path, key(V, cpp(Std)))`, a
   `dep(File, Time)` per file the preprocessor pulled, then `decl/2`, `typedef/2`, `tag/2` (bodies dropped,
   `ccl_sum_slim/2`), `enum/2`, `tname/1`, `template/1` and `ftemplate/1`. (M5, 0.45)
@@ -2182,7 +2198,7 @@ tutorials/01..03-*.pl       the objects layer's lessons; goal main, last line do
 
 ### The versions
 
-- `ccl_reader_version/1` (`library/ccl_syntax.pl`, now 142): bump it for any grammar change to what a read gives, and
+- `ccl_reader_version/1` (`library/ccl_syntax.pl`, now 143): bump it for any grammar change to what a read gives, and
   for any change to what the AST beside a summary holds (item or member terms, `cpp_index_name/2`,
   `cpp_template_name/2`, `ccl_flat_items/3`, the namespace keys). Keep the reason in its comment. Why: the store and the
   summaries are keyed by it, and a stale read is served silently (`sizeof(std::string)` read 40). (M1, 0.89, 0.112,
@@ -2257,8 +2273,11 @@ free. A const method adds `.c`, a ref-qualified one `.r` or `.rr` after it: each
 - `cpp_base_name/2` names a base: a class's own name, else the type it resolves to. An alias of an instance names the
   INSTANCE (`true_type`), a name the tag table resolves to a struct names that struct, and an ALIAS OF A CLASS names the
   class (`cpp_alias_class/2`, also in `cpp_note_bases_` for the promotion of a plain struct): `using ZA = Z; struct Y :
-  ZA` and `typedef Z ZT; struct X : ZT` were refused `base_not_registered('ZA', 'Y')`. Else it refuses `base_shape(T)`,
-  `base_arguments(N)`, `base_instance(N)` or `base_not_a_class(B)`. `baseparam.cpp`. (0.71, 0.117)
+  ZA` and `typedef Z ZT; struct X : ZT` were refused `base_not_registered('ZA', 'Y')`. A base WRITTEN `decltype(e)`
+  ([class.derived]/1) is the class of its expression's type (0.191): libc++'s `struct __well_formed_deleter :
+  decltype(std::__well_formed_deleter_test<_Dp, _Pt>(0)) {}` was refused `base_shape`, so `std::shared_ptr<int> sp(new
+  int(7), d)` had no constructor. Else it refuses `base_shape(T)`, `base_arguments(N)`, `base_instance(N)` or
+  `base_not_a_class(B)`. `baseparam.cpp`, `staticaddr.cpp`. (0.71, 0.117, 0.191)
 - `cpp_abstract_class/1` is the one test for an abstract class: a slot that nothing implements, or whose implementation
   is the pure declaration (`cpp_slot_pure`). An abstract class registers; a complete object of it refuses
   `pure_virtual(C)` (`cpp_not_abstract`), while a base sub-object of it is built ([class.abstract]/6; `cpp_base_ctor`:
@@ -2356,8 +2375,11 @@ free. A const method adds `.c`, a ref-qualified one `.r` or `.rr` after it: each
 - A member template called bare with explicit arguments passes `this`, a null one only where it is static
   (`cpp_static_member_template`). Why: `__lower_upper_bound_unique_impl<true>(__v)` inside `__tree`. (0.79)
 - A static member function takes a null `this` (`cpp_static_method`). Named as a value it is a `this`-less thunk
-  `<Name>.fn` (`cpp_static_thunk`), as libc++'s `find_first_of` takes `_Traits::eq`. `staticfn.cpp`,
-  `stdstringfind.cpp`. (0.100)
+  `<Name>.fn` (`cpp_static_thunk`), as libc++'s `find_first_of` takes `_Traits::eq`. The thunk is IN PROGRESS while its
+  method is made (0.191; `'$cpp_making'`, declared first): the method's own walk may name it again -- std::any's
+  `_SmallHandler<T>::__handle` makes `__create`, which stores `&_SmallHandler::__handle` -- and noted only after, it was
+  emitted twice, a redefinition LLVM refused at every `std::any a = 5;`. `staticfn.cpp`, `stdstringfind.cpp`,
+  `staticaddr.cpp`. (0.100, 0.191)
 - A STATIC MEMBER FUNCTION NAMED BARE AS A VALUE is that thunk too (`cpp_static_fn_value/3`, the identifier road of
   `cpp_expr`): `fn = prep;` in a member's body, `Buf{16, prep}` in a base's initializer, the name found in the class being
   walked, its bases (`cpp_static_fn_owner/3`) and the classes enclosing it, a closure's included. The static functions of a
@@ -2923,6 +2945,11 @@ free. A const method adds `.c`, a ref-qualified one `.r` or `.rr` after it: each
 - A static data member is the global `C.N` (`cpp_static_name`), declared with the class (`cpp_static_decls/4`); its
   type is resolved in its class (`cpp_in_class`, `cpp_resolved_type/2`): `static constexpr const type __max`.
   (0.33, 0.58)
+- ITS ADDRESS IS ITS OBJECT'S, a constant's too ([expr.unary.op]/3; 0.191): `&C::s`, and a bare `&s` in its class
+  (`cpp_bare_static_class/3`), are the global's address, defined where it is taken (`cpp_static_use/3`); the name
+  folded to its value, and the address of `int(0)` reached the lowering (`lvalue(int(0))`): libc++'s no-RTTI
+  `std::any` tells its types apart by `&__unique_typeinfo<_Tp>::__id`, a `static constexpr int` of each instance.
+  `staticaddr.cpp`, `nortti.cpp`. (0.191)
 - `cpp_static_decls/4` emits a constant initializer as a folded `linkonce` definition, an aggregate one as its own
   `linkonce` definition (`cpp_static_aggregate`: libc++'s `__matches`), and a class-typed one constructed at compile
   time (`cpp_static_constructed` over `cpp_fold_ctor_init`). An empty class initialized in its class is its zero bytes,
@@ -3726,6 +3753,11 @@ free. A const method adds `.c`, a ref-qualified one `.r` or `.rr` after it: each
   `stdpadout.cpp`. (0.125, 0.134)
 - A function parameter pack is less specialized ([temp.deduct.partial]/8; `cpp_has_pack_param`). Fixtures:
   `packorder.cpp`, `stdinvoke.cpp` (libc++'s `__invoke` for a data-member pointer). (0.99)
+- A POINTEE'S QUALIFIERS ARE NOT DEDUCED AWAY in the comparison ([temp.deduct.partial] deduces as [temp.deduct.type]
+  does, with none of [temp.deduct.call]/4's adjustments; 0.191; `cpp_partial_ptr_ok/2`, through every pointer level):
+  `const T *` does not deduce from `U *`, so `f(const T *)` is more specialized than `f(T *)`. The call's deduction
+  took the qualification conversion, each deduced the other, and the first declared won: `f(&ci)` of a `const int ci`
+  called `f(T *)`. `qualrank.cpp`. (0.191)
 - Of `T &` and `const T &` deducing each other, the less cv-qualified loses ([temp.deduct.partial]/9;
   `cpp_partial_cv_ok`), only where X's referent is a bare type parameter; elsewhere /7 strips the top-level cv.
   Fixtures: `constref.cpp`, `overloads.cpp`. (0.99)
@@ -4380,6 +4412,12 @@ The desugaring (`library/ccl_cpp.pl`) chooses every C++ overload. A fixture name
   f(T &&, U &&)` for `(2.5, 3.5)` is the second. `stdvariant2.cpp`, `overloaded.cpp`. A PROMOTION costs one demerit and
   any other conversion two (0.127, [over.ics.rank]/4.2; `cpp_promotes_to/2`): `std::cout << e` of an `enum : unsigned
   char` is the free `unsigned char` inserter, which beats the member `operator<<(int)`, never the `char` one. `enumtype.cpp`.
+- A QUALIFICATION CONVERSION IS WORSE THAN THE IDENTITY ([over.ics.rank]/3.2.5; 0.191; `cpp_qualification_conv/3` in
+  `cpp_scalar_rank/2`): a pointer argument whose pointee the parameter adds `const` or `volatile` to costs a demerit for
+  each qualifier added, so `f(T *)` beats `f(const T *)` for an `int *` and `h(const T *)` beats `h(const volatile T
+  *)`. libc++'s `any_cast<T>(const any *)` calls `std::any_cast<T>(const_cast<any *>(__any))`, which is `any_cast(any
+  *)`; the two tied, the first declared stood, and the call was itself: every `std::any_cast` of a value ran until the
+  stack overflowed. `qualrank.cpp`, `nortti.cpp`. (0.191)
 
 ### The template acceptance
 
@@ -5802,8 +5840,10 @@ A lambda is a class of its captures (`library/ccl_cpp.pl`). A fixture named alon
 
 ### RTTI
 
-- libc++ runs without RTTI (`__cpp_rtti`, `__GXX_RTTI` not predefined); the program's own `typeid` and `dynamic_cast`
-  work over libc++abi. `rtti.cpp`. (0.86, 0.108)
+- libc++ runs with RTTI, as clang++ builds it, since 0.191 (without it from 0.86 to 0.190; `-fno-rtti` gives that
+  configuration, the Configuration chosen through the macros topic); the program's own `typeid` and `dynamic_cast` work
+  over libc++abi since 0.108, and libc++'s headers' own typeids are the program's to lower alike. `rtti.cpp`,
+  `rttilib.cpp`. (0.86, 0.108, 0.191)
 - `typeid` of a type is its type_info (`cpp_rtti_of_type`); of a polymorphic object it reads `vptr[-1]` (`rtti_dyn`);
   since 0.180 only a type that the mangler cannot spell, or an expression with no type, refuses `typeid_of`. (0.108,
   0.180)
@@ -5949,9 +5989,10 @@ A lambda is a class of its captures (`library/ccl_cpp.pl`). A fixture named alon
   (`library/include`) are the one exception. C++ compiles against libc++ as it is: C++17 first, then C++20, 23, 26.
   (0.41)
 - (owner's rule) A library module is taken whole, its whole surface in fixtures, never function by function. (0.78)
-- libc++ runs configurations that it ships, chosen by the predefined macros: no exceptions (0.50), no RTTI (0.86),
-  libc++ 21's vectorized algorithms since 0.162 (`__OPTIMIZE_SIZE__` no longer predefined; scalar ones from 0.92),
-  `<atomic>` over `_Atomic` through `__has_extension(c_atomic)` (0.100). The preprocessor section has the details.
+- libc++ runs configurations that it ships, chosen by the predefined macros: no exceptions (0.50), RTTI since 0.191
+  (without it from 0.86 to 0.190, and under `-fno-rtti`), libc++ 21's vectorized algorithms since 0.162
+  (`__OPTIMIZE_SIZE__` no longer predefined; scalar ones from 0.92), `<atomic>` over `_Atomic` through
+  `__has_extension(c_atomic)` (0.100). The preprocessor section has the details.
 - `std::move(x)` is the language's own `move(x)`, with no header (`cpp_call` on `scoped([std], move)`). It stays a move
   on a class value or a value holding owners (`cpp_holds_owners/1`), else it is the value. (0.40, 0.83)
 
@@ -8093,17 +8134,18 @@ A lambda is a class of its captures (`library/ccl_cpp.pl`). A fixture named alon
 - Ubuntu 24.04 on x86_64 (clang and LLVM 18, glibc, libc++ 18 and 21) is a host since 0.87. Every gate but the C++ one
   is GREEN there since 0.93, and all seven since 0.95. Every step from 0.93 on is gated there, but the save points
   0.112, 0.113, 0.117, 0.122 to 0.125, 0.130, 0.131 and 0.143 (0.143's C gates and cross gate ran, its libc++ gates did
-  not; the others were gated by the steps after them). The last full run is 0.188's, over cocolog 2.11.0 (the
-  Findings), on one tree, over fresh HOMEs (the reader version moved): over libc++ 18 all nine GREEN in 1427 s (the
-  flow gate's one finding in 81 s, reader 4 s, compile 11 s, driver 12 s, objects 4 s, proof, the cross gate in 250 s
-  with its C++ part for aarch64, the library read in 273 s (0.187's 365 s), the C++ gate in 784 s (0.187's 803 s) with
-  600 of 604 fixtures ok, the skips are `joinwith`, `stdoptionalref`, `tzone` and `zipadjacent`, the 23 refusals and the
-  three of the safe part); over libc++ 21 the library read (241 s, peak 734 MB; 0.187's 322 s) and the C++ gate (803
-  s, peak 1941 MB; 0.187's 801 s; 602 of 604 ok, the skips `stdoptionalref` and `zipadjacent`) GREEN -- the C gates do
-  not read libc++. The headers' reads, summed, took 999 s over 114 over libc++ 18 and 877 s over 21 (0.187's 1349 s
-  and 1191 s; 0.181's 4313 s and 4116 s, before a read linear in its items); the fixtures' builds 2638 s over 600 and
-  2701 s over 602 (0.187's 2711 s and 2739 s) (HISTORY.md, 0.189). The chains of 0.165 to 0.187 are
-  in HISTORY.md, 0.166 to 0.188. Two libc++ passes are one gate: `LLVM=/usr/lib/llvm-18` and `LLVM=/usr/lib/llvm-21`
+  not; the others were gated by the steps after them). The last full run is 0.191's, over cocolog 2.11.1 (the
+  Findings), on one tree, over fresh HOMEs (the reader version moved): over libc++ 18 all nine GREEN (the flow gate's one
+  finding in 87 s, reader 4 s, compile 12 s, driver 16 s, objects 4 s, proof, the cross gate in 292 s with its C++ part
+  for aarch64, the library read in 319 s (0.190's 275 s; 97 other headers warmed, six of them under `-fno-rtti`), the C++
+  gate in 824 s (0.190's 801 s) with 604 of 608 fixtures ok, the skips are `joinwith`, `stdoptionalref`, `tzone` and
+  `zipadjacent`, the 26 refusals and the three of the safe part); over libc++ 21 the library read (303 s, peak 758 MB;
+  0.190's 249 s) and the C++ gate (902 s, peak 2127 MB; 0.190's 785 s; 606 of 608 ok, the skips `stdoptionalref` and
+  `zipadjacent`) GREEN -- the C gates do not read libc++. The headers' reads, summed, took 1176 s over 120 over libc++
+  18 and 1104 s over 21 (0.190's 1000 s and 904 s over 114: libc++ in its RTTI configuration is more to read; 0.181's
+  4313 s and 4116 s, before a read linear in its items); the fixtures' builds 2919 s over 604 and 3037 s over 606
+  (0.190's 2716 s over 600 and 2674 s over 602) (HISTORY.md, 0.191). The chains of 0.165 to 0.190 are in HISTORY.md,
+  0.166 to 0.191. Two libc++ passes are one gate: `LLVM=/usr/lib/llvm-18` and `LLVM=/usr/lib/llvm-21`
   choose the tree the chain reads and links. libc++ 22 (the newest tree, which a run without `$LLVM` reads) is no
   gate: 0.182 built its vector and its C++23 views by hand (`zipadjacent.cpp`, which its `.needs` skips over 18 and
   21), and `stdoptionalref` passes there. The run before 0.121's (0.118, 0.119) found, over 0.117, two defects and
@@ -8201,6 +8243,12 @@ A lambda is a class of its captures (`library/ccl_cpp.pl`). A fixture named alon
   (two virtual overloads of one name and arity, one overridden), `virtualdefault` (a virtual call that leaves a defaulted
   argument out), `anonparam` (an unnamed by-value parameter destroyed), `rangeadl` (a range-for by the free `begin` and
   `end` of two namespaces), `downcast` (`static_cast` from a second base to the derived class, a pointer and a reference).
+- Forms of 0.191: `rttilib` (libc++ in its RTTI configuration: `std::any::type()`, `std::function::target_type()` and
+  `target<T>()`, `std::get_deleter` of a `shared_ptr` with a deleter, `std::dynamic_pointer_cast`), `nortti`
+  (`-fno-rtti`: `std::any_cast`, `std::function`, `static_pointer_cast`, `dynamic_cast` to a base and to `void *`, an
+  exception), `staticaddr` (the address of a static constant member, one per instance, bare in its class; a base
+  written `decltype(e)`; a static member function whose body names its own address), `qualrank` (a qualification
+  conversion against the identity in four pairs of overloads, and the partial ordering of `f(T *)` and `f(const T *)`).
 - Forms of 0.186: `qualparam` (an enumerator and a static data member named like class templates, as a static's
   initializer and in a block's declarations), `ordless` (C++20: the orderings' `less` over `<string>`, read before
   `<compare>`), `globalprvalue` (namespace-scope objects and out-of-class static members initialized by `T(args)`,
@@ -8406,10 +8454,11 @@ A lambda is a class of its captures (`library/ccl_cpp.pl`). A fixture named alon
 - Coroutines: `cogenerator`, `cotask`, `coeager`, `coawait`, `coawaitop`, `cotemplate`, `cotraits`. Modules: `modules`
   (it imports `mathm.cppm`, which imports `basem.cppm`), `headerunit`, `hdrinline`. Also the array cookie
   (`arraycookie`), trailing return types (`trailing`) and CTAD (`stdctad`, `deduceguide`) (0.108, 0.110).
-- `test/cpp.sh` checks that twenty-three programs are refused by name (`coro.cpp`, `concept_fail.cpp`,
+- `test/cpp.sh` checks that twenty-six programs are refused by name (`coro.cpp`, `concept_fail.cpp`,
   `constrained_fail.cpp`, `lambda_const.cpp`, `lambda_method.cpp`, `bind_const.cpp`, the eleven `access_*.cpp`,
-  `abstract.cpp`, `modhidden.cpp`, `basenodefault.cpp`, `enumnotconst.cpp`, and since 0.164 `fmtindex.cpp` and
-  `fmttype.cpp`; `diamond.cpp` builds since 0.171 and is gone) and that the safe part refuses `escape.cpp`,
+  `abstract.cpp`, `modhidden.cpp`, `basenodefault.cpp`, `enumnotconst.cpp`, since 0.164 `fmtindex.cpp` and
+  `fmttype.cpp`, and since 0.191 `typeidnortti.cpp`, `dyncastnortti.cpp` and `dpcnortti.cpp` under `-fno-rtti`;
+  `diamond.cpp` builds since 0.171 and is gone) and that the safe part refuses `escape.cpp`,
   `thisunset.cpp` and `gotopastdtor.cpp`.
 
 ### libc++ headers read whole
@@ -8544,11 +8593,9 @@ A lambda is a class of its captures (`library/ccl_cpp.pl`). A fixture named alon
 ### The owner's decisions of 0.190, in the order they are done
 
 The four questions put to the owner at 0.190, each answered by the recommendation it was given. Each is a step of its
-own, and each moves into its topic when it is done.
+own, and each moves into its topic when it is done. The first, RTTI in libc++ on by default, is done at 0.191 (the
+Configuration chosen through the macros topic).
 
-1. RTTI IN libc++: on by default, as clang++ has it; `-fno-rtti` gives the no-RTTI configuration, and refuses the
-   program's own `typeid` and a downcasting `dynamic_cast` as `clang++ -fno-rtti` does (`use of typeid requires
-   -frtti`). The C++ summaries fold the configuration. Its cost is expected small: four headers change.
 2. EXCEPTIONS IN libc++: on by default, as clang++ has them; `-fno-exceptions` gives today's configuration. Their
    cost is measured on the nets before the commit: libc++'s headers then hold throws and `try` blocks, more calls are
    `invoke`s with landing pads, and every noexcept function that makes a call is guarded. The noexcept-ness of library
@@ -8558,11 +8605,24 @@ own, and each moves into its topic when it is done.
    library object borrows what it stores -- a value of a library class whose template arguments carry a pointer, a
    reference or a closure, and the view types (`std::string_view`, `std::span`), borrows the borrows handed to its
    constructors and members, so that returning or storing it obeys the borrow rules. A `std::string` made from a local
-   array borrows nothing: it copies.
+   array borrows nothing: it copies. A plain pointer that a FREE library function returns from an object it takes by
+   reference borrows that object too: `Del *d = std::get_deleter<Del>(sp);` is refused `plain pointer not consumed`,
+   where it borrows `sp` (0.191's `rttilib.cpp` compares the result in place).
 4. THE C++ IR CACHE: a C++ build keeps the IR of each file it builds as files beside the summaries in
    `~/.cicilang/cpp/`, each writer under a name of its own (0.188), keyed as `dr_ir/3`'s signature is and also by the
    libc++ tree, the level, `-D`, the target and the RTTI and exceptions configuration; the C++ gate builds uncached. A
    store for it comes only after parallel writes to one store are measured.
+
+### Two defects found at 0.191, the next step
+
+- A NAME THAT IS ONE UNIT'S IS MERGED AT THE LINK: a closure (`lambda.K`, numbered per unit) and a local class
+  (`Loc.local_K`) are emitted `linkonce_odr`, so two units' `lambda.1` are one function and one calls the other's body
+  (measured: `11 20 100 7` where clang++ gives `11 10009 100 7`), their type information too; and an unnamed
+  namespace's names are flattened to the file scope, so two units that each define `namespace { int helper(); }` do
+  not link (two strong definitions).
+- A STATIC CONSTRUCTED AT COMPILE TIME IS NEVER DESTROYED: a namespace-scope object or a local `static` whose
+  constructor the evaluator runs (`cpp_fold_ctor_value/4`, `cpp_fold_quietly/4`) registers no destructor, where one
+  constructed before main or under the guard registers it with `atexit` or `__cxa_atexit`: `~K` never runs at exit.
 
 ### C++ language
 
@@ -8608,9 +8668,6 @@ own, and each moves into its topic when it is done.
 - `optional<T &>` needs libc++ 22 (`stdoptionalref.needs`; 21.1.8 has none). `bad_optional_access` cannot be caught: libc++ keeps its
   no-exceptions configuration and aborts with the message (0.82), until the owner's decision of 0.190 is done (The
   owner's decisions of 0.190, below).
-- libc++ keeps its no-RTTI configuration, so `std::get_deleter`, `std::any::type()`, `std::function::target` and
-  `target_type` are absent (0.86, 0.88); `std::dynamic_pointer_cast` runs (0.190). The program's own `typeid` and
-  `dynamic_cast` run (0.108).
 - `std::atomic<shared_ptr<T>>` (C++20, P0718) is in none of libc++ 18, 21 and 22: clang++ refuses
   `std::atomic<std::shared_ptr<int>>` over each tree (22's `<version>` leaves `__cpp_lib_atomic_shared_ptr` out, and
   `std::atomic<T>` asserts that T is trivially copyable), so there is nothing of the library to compile (0.86, 0.128,

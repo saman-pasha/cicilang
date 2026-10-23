@@ -57,10 +57,13 @@ optional 26 200"
 # test/cpp/run/*.cpp include, at the level its .flags gives and at C++17, plus Cicili's own
 # test/cpp/*.cpp that the reader's gate reads whole (<sstream>, <stdexcept>). This is what
 # test/warm.sh warmed; it is folded in here so the C++ gate is warm after this one phase.
+# A line is `STD CFG HEADER': CFG the configuration flags the .flags names, joined by `,' (0.191: -fno-rtti, whose
+# summaries are keyed apart), else `-'
 ccl_union() {
   for f in "$ROOT"/test/cpp/*.cpp "$ROOT"/test/cpp/run/*.cpp "$CICILI"/test/cpp/*.cpp; do
-    std=17; fl="${f%.cpp}.flags"; [ -f "$fl" ] && std=$(sed -n 's/.*-std=c++\([0-9]*\).*/\1/p' "$fl"); [ -n "$std" ] || std=17
-    sed -n 's/^#include <\([^>]*\)>.*/\1/p' "$f" | sed "s/^/$std /"
+    std=17; cfg=-; fl="${f%.cpp}.flags"; [ -f "$fl" ] && std=$(sed -n 's/.*-std=c++\([0-9]*\).*/\1/p' "$fl"); [ -n "$std" ] || std=17
+    [ -f "$fl" ] && cfg=$(tr ' ' '\n' < "$fl" | grep -x -e '-fno-rtti' | sort | tr '\n' ',' | sed 's/,$//'); [ -n "$cfg" ] || cfg=-
+    sed -n 's/^#include <\([^>]*\)>.*/\1/p' "$f" | sed "s/^/$std $cfg /"
   done | sort -u
 }
 [ -n "$(ls "$CICILI"/test/cpp/*.cpp 2>/dev/null)" ] || echo "-- note: no C++ test files under CICILI=$CICILI -- Cicili's headers (<sstream>, <stdexcept>) are NOT warmed"
@@ -77,11 +80,13 @@ ccl_read() {   # ccl_read HEADER STD MIN
   grep -aq "^ok" "$RES/a_${h}_${std}.res" && ccl_time_record "$LX_TIMES" "$h@$std" $(( $(date +%s) - t0 ))   # a good read's seconds only
 }
 # ONE WARM-ONLY HEADER: a syntax-only build writes its summary; nothing is asserted
-ccl_warm() {   # ccl_warm HEADER STD
-  h=$1; std=$2; t0=$(date +%s); f="$D/warm_${h}_${std}.cpp"; printf '#include <%s>\nint main() { return 0; }\n' "$h" > "$f"
-  if timeout -s KILL "$LX_SECS" env HOME="$WARMHOME" "$ROOT/bin/cicilang++" -std=c++$std -fsyntax-only "$f" > "$RES/w_${h}_${std}.out" 2>&1; then
-    echo "warm <$h> C++$std" > "$RES/w_${h}_${std}.res"; ccl_time_record "$LX_TIMES" "$h@$std" $(( $(date +%s) - t0 ))
-  else echo "warm <$h> C++$std: FAILED to flatten (a fixture including it will cold-flatten in the gate)" > "$RES/w_${h}_${std}.res"; fi
+ccl_warm() {   # ccl_warm HEADER STD [CFG]: CFG as ccl_union gives it, the build's configuration flags
+  h=$1; std=$2; cfg=${3:--}; t0=$(date +%s)
+  case "$cfg" in -) fls=""; tag=""; key="$h@$std" ;; *) fls=$(echo "$cfg" | tr ',' ' '); tag=$(echo "$cfg" | tr ',' '_'); key="$h@$std@$cfg" ;; esac
+  f="$D/warm_${h}_${std}${tag}.cpp"; printf '#include <%s>\nint main() { return 0; }\n' "$h" > "$f"
+  if timeout -s KILL "$LX_SECS" env HOME="$WARMHOME" "$ROOT/bin/cicilang++" -std=c++$std $fls -fsyntax-only "$f" > "$RES/w_${h}_${std}${tag}.out" 2>&1; then
+    echo "warm <$h> C++$std${fls:+ $fls}" > "$RES/w_${h}_${std}${tag}.res"; ccl_time_record "$LX_TIMES" "$key" $(( $(date +%s) - t0 ))
+  else echo "warm <$h> C++$std${fls:+ $fls}: FAILED to flatten (a fixture including it will cold-flatten in the gate)" > "$RES/w_${h}_${std}${tag}.res"; fi
 }
 
 # the asserted (header@std) as a key set, so the union's warm-only jobs skip them (read once); each key between
@@ -92,8 +97,9 @@ akeys=" $(printf '%s\n' "$asserted" | awk 'NF {printf "%s@%s ", $1, $2}')"
 lx_start=$(date +%s)
 {
   printf '%s\n' "$asserted" | while read -r h std min; do [ -n "$h" ] && echo "$h@$std ccl_read $h $std $min"; done
-  ccl_union | while read -r std h; do
-    case "$akeys" in *" $h@$std "*) : ;; *) echo "$h@$std ccl_warm $h $std" ;; esac
+  ccl_union | while read -r std cfg h; do
+    case "$cfg" in -) k="$h@$std" ;; *) k="$h@$std@$cfg" ;; esac
+    case "$akeys" in *" $k "*) : ;; *) echo "$k ccl_warm $h $std $cfg" ;; esac
   done
 } | ccl_lpt_order "$LX_TIMES" | sed 's/^[^ ]* //' | ccl_pool "$LX_JOBS" "$LX_LAUNCH_MB" "$LX_HARD_MB"
 pool_rc=$?

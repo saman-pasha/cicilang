@@ -99,7 +99,7 @@ record of every step.
   { body }` is a scope-bound cleanup with no runtime.
 * **clang's arguments.** `cicilang` and `cicilang++` take what `clang` and
   `clang++` take: `-c -S -E -emit-llvm -fsyntax-only -o -O0..-Oz -I -l -L
-  -shared -std= --version`. Diagnostics are `file:line: error: what`.
+  -shared -std= -fno-rtti --version`. Diagnostics are `file:line: error: what`.
 * **Fast, once warm.** The C headers a program includes are read once into
   the user's knowledge base, `~/.cicilang/KB`, and served from it in every
   later run; a C++ library header is flattened once and summarized to
@@ -299,12 +299,15 @@ s := format("{} + {} = {}", 1, 2, 3);          // char *
 `cicilang++` compiles against libc++ as the system ships it. **C++17 is
 the baseline**; `-std=c++20`, `-std=c++23` and `-std=c++26` set the
 level, whose predefined macros the preprocessor answers first, so a header
-flattens as clang would flatten it for that level. The compiler runs no
-exceptions and no RTTI inside libc++, which compiles its own configuration
-for that (`-fno-exceptions -fno-rtti`), and libc++ 21's vectorized
-algorithms over vector types as clang builds them; the program's
-own `throw`, `try`, `typeid` and `dynamic_cast` run over libc++abi, which
-`-lc++` links. Where several libc++ are installed side by side (Debian's and
+flattens as clang would flatten it for that level. libc++ is built with
+RTTI, as clang++ builds it (`std::any::type()`, `std::function::target`,
+`std::get_deleter`), and `-fno-rtti` gives libc++'s no-RTTI configuration
+and refuses `typeid`, as clang++ `-fno-rtti` does. The compiler runs no
+exceptions inside libc++, which compiles its own configuration for that
+(`-fno-exceptions`), and libc++ 21's vectorized algorithms over vector
+types as clang builds them; the program's own `throw`, `try`, `typeid`
+and `dynamic_cast` run over libc++abi, which `-lc++` links. Where several
+libc++ are installed side by side (Debian's and
 Ubuntu's `/usr/lib/llvm-18` and `/usr/lib/llvm-21`, say), `$LLVM` names the tree
 whose headers are read and whose library is linked; without it the newest is read.
 
@@ -368,7 +371,10 @@ message, as clang++ refuses it; since 0.179 `<chrono>`'s durations, clocks
 and time points with their literals (`1500ms`, `3us`), and `<complex>`'s
 (`3i`, `2.0if`); since 0.182, over libc++ 22, `std::vector` and the C++23
 views that tree adds (`pairwise`, `adjacent`, `zip_transform`,
-`adjacent_transform`), built by hand: no gate reads that tree.
+`adjacent_transform`), built by hand: no gate reads that tree; since 0.191
+libc++ with RTTI, as clang++ builds it, and its no-RTTI configuration under
+`-fno-rtti`, `std::any` and `std::any_cast` in both, and a `shared_ptr` with
+a deleter.
 `test/libcxx.sh` reads `<vector>`, `<string>`,
 `<iostream>`, `<map>`, `<set>`, `<unordered_map>`, `<unordered_set>`,
 `<optional>`, `<memory>`, `<functional>`, `<tuple>` and `<algorithm>` whole,

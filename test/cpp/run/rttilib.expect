@@ -1,0 +1,13 @@
+any int: 1 0
+any string: 1
+any empty: 1
+function target_type: 1
+function target: 1 42
+function wrong target: 1
+function empty target_type: 1
+get_deleter: 1 1
+deleter ran: 1
+dynamic_pointer_cast: 1 2
+dynamic_pointer_cast null: 1
+typeid string: 1
+exit 0

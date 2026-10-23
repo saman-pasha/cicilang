@@ -161,6 +161,7 @@ pp_predef_macro(N, obj, Cs) :-
     ;   pp_predef(N, any, T) -> true
     ;   pp_os(O), pp_predef(N, O, T) -> true                                          % the host's own: __APPLE__ and __MACH__, or __linux__ and __ELF__
     ;   pp_arch(A), pp_predef(N, A, T) -> true
+    ;   ccl_lang(cpp), \+ nb_current('$ccl_rtti', no), pp_predef(N, cpp_rtti, T) -> true   % RTTI unless -fno-rtti (0.191)
     ;   ccl_lang(cpp), pp_predef(N, cpp, T)
     ;   ccl_lang(c), pp_predef(N, c, T) ),                                            % C's own beyond the levels' (0.117): __SIZEOF_INT128__
     atom_codes(T, Cs).
@@ -1355,14 +1356,14 @@ pp_predef('__GLIBCXX_TYPE_INT_N_0', cpp, '__int128').
 pp_predef('__GNUC_GNU_INLINE__', cpp, '1').
 pp_predef('__GNUG__', cpp, '4').
 pp_predef('__GXX_EXPERIMENTAL_CXX0X__', cpp, '1').
-%% AND NO RTTI, the same question asked the same way: `#if defined(__cpp_rtti) && __cpp_rtti >= 199711L' decides
-%% libc++'s _LIBCPP_HAS_RTTI, and this compiler emits no type_info object for any type, so leaving both undefined
-%% compiles the library's own no-RTTI configuration, as -fno-rtti gives it. Four headers change (`any',
-%% `exception_ptr', `shared_ptr', `function'); the VTABLES do not -- `__shared_weak_count::__get_deleter' is
-%% declared unconditionally and only the derived override is guarded, so our control blocks still lay out as the
-%% shipped library's. `shared_ptr::get_deleter' and `dynamic_pointer_cast' are then not there, which is what
-%% -fno-rtti means. A program's own `typeid' and `dynamic_cast' run since 0.108, over type_info objects of its own.
-%% pp_predef('__GXX_RTTI', cpp, '1').
+%% RTTI, AS clang++ HAS IT (0.191, the owner's decision of 0.190): `#if defined(__cpp_rtti) && __cpp_rtti >= 199711L'
+%% decides libc++'s _LIBCPP_HAS_RTTI, and both macros are the table `cpp_rtti''s, which pp_predef_macro/3 asks unless
+%% the build says -fno-rtti ('$ccl_rtti' = no): then libc++ builds its own no-RTTI configuration, as -fno-rtti gives
+%% it. Four headers change (`any', `exception_ptr', `shared_ptr', `function'); the VTABLES do not --
+%% `__shared_weak_count::__get_deleter' is declared unconditionally and only the derived override is guarded, so the
+%% control blocks lay out as the shipped library's either way. From 0.86 to 0.190 neither macro was predefined, since
+%% nothing here made a type_info then; the program's own `typeid' and `dynamic_cast' run since 0.108.
+pp_predef('__GXX_RTTI', cpp_rtti, '1').
 %% `__OPTIMIZE_SIZE__' IS NOT PREDEFINED (0.162), as clang predefines it only at -Os and -Oz: libc++ 21 vectorizes its
 %% `mismatch' (and the `lexicographical_compare' and `operator<' of integers built on it) behind `_LIBCPP_HAS_ALGORITHM_VECTOR_UTILS
 %% && !defined(__OPTIMIZE_SIZE__)', over `__attribute__((__ext_vector_type__(N)))' types and the vector builtins, which this
@@ -1413,7 +1414,7 @@ pp_predef('__cpp_range_based_for', cpp, '201603L').
 pp_predef('__cpp_raw_strings', cpp, '200710L').
 pp_predef('__cpp_ref_qualifiers', cpp, '200710L').
 pp_predef('__cpp_return_type_deduction', cpp, '201304L').
-%% pp_predef('__cpp_rtti', cpp, '199711L').   % see NO RTTI above
+pp_predef('__cpp_rtti', cpp_rtti, '199711L').   % see RTTI above
 pp_predef('__cpp_rvalue_references', cpp, '200610L').
 pp_predef('__cpp_sized_deallocation', cpp, '201309L').
 pp_predef('__cpp_static_assert', cpp, '202306L').

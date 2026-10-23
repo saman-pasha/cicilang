@@ -2053,7 +2053,11 @@ cpp_base_name(B, B) :- atom(B), cpp_class_l(B, _), !.                 % a class'
 %% ... and an ALIAS of an instance names the INSTANCE, as a parameter's type has since 0.58: libc++ derives its
 %% traits from `true_type', which is `integral_constant<bool, true>', and the atom was taken for a class's name
 %% (base_not_registered). A name that is neither resolves to itself, as it did.
-cpp_base_name(B0, B) :- cpp_type(base([], [typedef(B0)]), T), !,                              % what came back, when it is not a class's name
+%% ... AND A BASE WRITTEN `decltype(e)' ([class.derived]/1: a class-or-decltype) IS THE CLASS OF ITS EXPRESSION'S TYPE (0.191):
+%% libc++'s `struct __well_formed_deleter : decltype(std::__well_formed_deleter_test<_Dp, _Pt>(0)) {}', a true_type or a
+%% false_type by overload resolution, was refused base_shape, so `__shared_ptr_deleter_ctor_reqs<_Dp, _Yp, _Tp>::value' did
+%% not fold and `std::shared_ptr<int> sp(new int(7), d)' had no constructor (no_constructor('shared_ptr.int', 2)).
+cpp_base_name(B0, B) :- ( B0 = decltype(E) -> T0 = base([], [decltype(E)]) ; T0 = base([], [typedef(B0)]) ), cpp_type(T0, T), !,   % what came back, when it is not a class's name
     (   T = base(_, [typedef(B1)]), atom(B1), B1 \== B0 -> B = B1
     ;   T = base(_, [S]), cpp_tag_name(S, B1) -> B = B1                                      % a name the tag table resolved to its STRUCT: `__tuple_leaf<_Ip, _Hp, true> : private _Hp' with _Hp an empty class (libc++'s tuple, the empty base optimization)
     ;   cpp_alias_class(B0, B1) -> B = B1                                                    % AN ALIAS OF A CLASS (0.117): `using ZA = Z; struct Y : ZA' -- cpp_type leaves the alias as it is, and `ZA' was refused base_not_registered
@@ -3335,8 +3339,8 @@ cpp_ptr_cv(Q, CV, F) :- ( memberchk(volatile, Q) -> V = 'V', FV = 2 ; V = '', FV
 cpp_strip_top(base(_, S), base([], S)) :- !.
 cpp_strip_top(ptr(_, P), ptr([], P)) :- !.
 cpp_strip_top(T, T).
-cpp_expr(_, typeid(type(T0)), E) :- !, cpp_type(T0, T), cpp_rtti_of_type(T, E).
-cpp_expr(Ctx, typeid(X), E) :- !, cpp_expr(Ctx, X, X1),
+cpp_expr(_, typeid(type(T0)), E) :- !, cpp_rtti_needed(typeid_requires_rtti), cpp_type(T0, T), cpp_rtti_of_type(T, E).
+cpp_expr(Ctx, typeid(X), E) :- !, cpp_rtti_needed(typeid_requires_rtti), cpp_expr(Ctx, X, X1),
     (   cpp_class_of_type_of(X1, C), cpp_polymorphic(C) -> E = rtti_dyn(X1)            % a polymorphic object: its DYNAMIC type, through its table's prefix
     ;   X1 == nullptr -> E = rtti(ext('_ZTIDn'))   % `nullptr' is a std::nullptr_t (0.180)
     ;   ccl_type_of(X1, T), T \== unknown -> cpp_rtti_of_type(T, E)
@@ -3408,6 +3412,13 @@ cpp_expr(Ctx, addr(scoped(Path, N)), addr(id(Thunk))) :- atom(N), cpp_scope_clas
 %% is (cpp_type's memptr clause). A method with several overloads has no target here to choose by, a VIRTUAL one
 %% would need a table index in the value, and a DATA member an offset: each is refused by name.
 cpp_expr(Ctx, addr(scoped(Path, N)), E) :- atom(N), cpp_scope_class(Path, C), \+ cpp_static_member(C, N, _), !, cpp_check_access(Ctx, C, N), cpp_member_address(C, N, E).   % the member's ACCESS where its address is taken (0.127)
+%% `&C::s' AND A BARE `&s' OF A STATIC DATA MEMBER ARE ITS OBJECT'S ADDRESS ([expr.unary.op]/3; 0.191): a static that folds to a
+%% constant is still an object, defined linkonce with its class (cpp_static_decls), a lazy class's where its address is taken
+%% (cpp_static_use). It folded to its value, and the address of `int(0)' reached the lowering (`lvalue(int(0))'): libc++'s
+%% no-RTTI std::any tells its types apart by `&__unique_typeinfo<_Tp>::__id', a `static constexpr int' of each.
+cpp_expr(Ctx, addr(scoped(Path, N)), addr(id(Name))) :- atom(N), cpp_scope_class(Path, C), cpp_static_member(C, N, _), !,
+    cpp_check_access(Ctx, C, N), cpp_static_use(C, N, Name).
+cpp_expr(Ctx, addr(id(N)), addr(id(Name))) :- atom(N), \+ cpp_local(N), cpp_bare_static_class(Ctx, N, C), !, cpp_static_use(C, N, Name).
 %% `x.*pm' and `p->*pm' AS VALUES ([expr.mptr.oper]): for a pointer to a DATA member, the object's bytes at the
 %% offset, as the member's type -- `*(T *) ((char *) &x + pm)'; a pointer to a member FUNCTION means something only
 %% when it is called (cpp_call's memptr clauses), and named bare is refused
@@ -3575,13 +3586,22 @@ cpp_expr(Ctx, lambda(Caps, Ps, Ret, Body), E) :- !, cpp_lambda(Ctx, Caps, Ps, Re
 cpp_expr(_, str(S), str(S)) :- !.
 cpp_expr(Ctx, cond(C, A, B), cond(C2, A1, B1)) :- !, cpp_expr(Ctx, C, C1), cpp_to_bool(C1, C2), cpp_exprs(Ctx, [A, B], [A1, B1]).   % THE CONDITION CONTEXTUALLY CONVERTED TO BOOL ([expr.cond]/1; 0.137), through a class's `operator bool' as `if' and `!' have it: `l ? 1 : 0' over an `optional' compared the struct with zero
 cpp_expr(Ctx, E, E1) :- E =.. [F|As], cpp_exprs(Ctx, As, Bs), E1 =.. [F|Bs].
+%% the class whose static data member a bare name is, where its address is taken (cpp_expr's `&s', above): the class being
+%% walked, else a hidden friend's class (cpp_class_ctx), never one where the name is a data member
+cpp_bare_static_class(Ctx, N, Ctx) :- atom(Ctx), Ctx \== none, \+ cpp_data_member(Ctx, N, _), cpp_static_member(Ctx, N, _), !.
+cpp_bare_static_class(none, N, C) :- cpp_class_ctx(C), C \== none, \+ cpp_data_member(C, N, _), cpp_static_member(C, N, _), !.
 cpp_dynamic_cast(T, X, E) :- T = ptr(_, base(_, [void])), !,   % `dynamic_cast<void *>': THE COMPLETE OBJECT, the table's offset-to-top added (0.112; refused by name since 0.108)
     ( ccl_type_of(X, XT), ccl_unref(XT, XT1), ccl_resolve_type(XT1, ptr(_, S0)), cpp_class_of_type(S0, S), cpp_polymorphic(S) -> E = dyncast(X, void, void, T) ; cpp_refuse(0, dynamic_cast_to_void) ).
 cpp_dynamic_cast(T, X, E) :- T = ptr(_, D0), cpp_class_of_type(D0, D), !, ccl_type_of(X, XT), ccl_unref(XT, XT1), ccl_resolve_type(XT1, ptr(_, S0)), cpp_class_of_type(S0, S),
-    ( ( S == D ; cpp_derives(S, D) ) -> E = cast(T, X) ; cpp_rtti_chain(S, SC), cpp_rtti_chain(D, DC), E = dyncast(X, SC, DC, T) ).
+    ( ( S == D ; cpp_derives(S, D) ) -> E = cast(T, X) ; cpp_rtti_needed(dynamic_cast_requires_rtti), cpp_rtti_chain(S, SC), cpp_rtti_chain(D, DC), E = dyncast(X, SC, DC, T) ).
 cpp_dynamic_cast(T, X, E) :- ( T = ref(_, D0) ; T = rref(_, D0) ), cpp_class_of_type(D0, D), !, cpp_class_of_type_of(X, S),
-    ( ( S == D ; cpp_derives(S, D) ) -> E = ccast(static, T, X) ; cpp_rtti_chain(S, SC), cpp_rtti_chain(D, DC), E = deref(dyncast_ref(addr(X), SC, DC, ptr([], D0))) ).
+    ( ( S == D ; cpp_derives(S, D) ) -> E = ccast(static, T, X) ; cpp_rtti_needed(dynamic_cast_requires_rtti), cpp_rtti_chain(S, SC), cpp_rtti_chain(D, DC), E = deref(dyncast_ref(addr(X), SC, DC, ptr([], D0))) ).
 cpp_dynamic_cast(T, _, _) :- cpp_refuse(0, dynamic_cast_to(T)).
+%% -fno-rtti (0.191): `typeid' and a `dynamic_cast' that asks the type information (a downcast or a cross-cast) are
+%% refused, as clang++ -fno-rtti refuses them (`use of typeid requires -frtti'); a cast to a base and `dynamic_cast<void
+%% *>' need none. A header's code is refused alike: libc++'s no-RTTI configuration guards its own typeids, and leaves
+%% `std::dynamic_pointer_cast' unguarded, which clang++ -fno-rtti refuses where a program calls it
+cpp_rtti_needed(What) :- ( nb_current('$ccl_rtti', no) -> cpp_refuse(0, What) ; true ).
 
 %% the store of the table's address, first thing after the base was constructed
 cpp_vptr_store(L, C, [expr(L, assign('=', arrow(this, '$vptr'), cast(ptr([], base([], [struct(VT, none)])), addr(member(id(Table), '$vt')))))|Secs]) :-
@@ -5790,14 +5810,22 @@ cpp_qualified_data_member(Ctx, C, N, E) :- atom(N), cpp_closure_this(Ctx, EC),
 %% a THUNK, `<Name>.fn', a function over the method's own parameters that calls it with the null this, emitted once
 %% beside the method (linkonce, the library's where the class is), so its type is the function type C++ gives the
 %% name and a template deduces from it; a call `C::f(args)' keeps its direct road.
+%% THE THUNK IS IN PROGRESS WHILE ITS METHOD IS MADE (0.191; '$cpp_making', as every emission is): the method's own walk may name
+%% it again -- std::any's `_SmallHandler<T>::__handle' makes `__create', which stores `&_SmallHandler::__handle' -- and the
+%% thunk, noted only after, was emitted twice, a redefinition LLVM refused at every `std::any a = 5;'. It is declared first.
 cpp_static_thunk(C, M, Name, Thunk) :-
     atom_concat(Name, '.fn', Thunk),
     (   cpp_instance_done(Thunk) -> true
-    ;   cpp_use_member(C, Name),
-        cpp_class(C, cls(_, _, Ms, _, _, _)), member(method(_, Qs, R0, M, Ps0, _, _), Ms), memberchk(static, Qs), cpp_mangle_q(C, M, Qs, Ps0, Name), !,
+    ;   cpp_making(Thunk) -> true
+    ;   cpp_class(C, cls(_, _, Ms, _, _, _)), member(method(_, Qs, R0, M, Ps0, _, _), Ms), memberchk(static, Qs), cpp_mangle_q(C, M, Qs, Ps0, Name), !,
         cpp_in_class(C, ( cpp_type_or_self(R0, R), cpp_resolved_params(Ps0, Ps1) )), cpp_thunk_params(Ps1, 1, Ps, Args),
+        ccl_declare(Thunk, fn(R, Ps, false)),
+        nb_getval('$cpp_making', K0), nb_setval('$cpp_making', [Thunk|K0]),
+        (   catch(cpp_use_member(C, Name), E, ( nb_setval('$cpp_making', K0), throw(E) ))
+        ->  nb_setval('$cpp_making', K0)
+        ;   nb_setval('$cpp_making', K0), fail ),
         ( ccl_resolve_type(R, base(_, [void])) -> Body = block([expr(0, call(id(Name), [nullptr|Args]))]) ; Body = block([return(0, call(id(Name), [nullptr|Args]))]) ),
-        cpp_instance_note(Thunk, thunk), ccl_declare(Thunk, fn(R, Ps, false)),
+        cpp_instance_note(Thunk, thunk),
         ( cpp_lib_class(C) -> Lib = yes ; Lib = no ), cpp_as_lib(Lib, cpp_add_instance_items([function(0, none, R, Thunk, Ps, false, Body)])) ).
 cpp_consteval_fold(E0, E) :- E0 = call(id(Name), _), atom(Name), '$cpp_consteval'(Name), !,   % a consteval METHOD (the free road folds its own, cpp_free_call)
     ( cpp_const_fold(E0, V), cpp_eval_scalar(V) -> ( integer(V) -> E = int(V) ; E = V ) ; cpp_refuse(0, consteval_call_not_constant(Name)) ).
@@ -8299,7 +8327,7 @@ cpp_most_special_fn([_|Hs], All, H) :- cpp_most_special_fn(Hs, All, H).
 cpp_fn_more_special(h(_, TPsX, function(_, _, _, _, PsX, _, _), _, _), h(_, TPsY, function(_, _, _, _, PsY, _, _), _, _)) :-
     \+ ( cpp_has_pack_param(PsX), \+ cpp_has_pack_param(PsY) ),   % A FUNCTION PARAMETER PACK IS LESS SPECIALIZED than a parameter that is none ([temp.deduct.partial]/8; 0.99): `f(F &&, A0 &&)' beats `f(F &&, Args &&...)' for two arguments, where the pack's overload had won libc++'s `__invoke' for a pointer to data member
     once(( cpp_opaque_bindings(TPsX, BX), cpp_subst(PsX, BX, PsX1), cpp_param_types(PsX1, TsX0), cpp_opaque_types(TsX0, TsX), cpp_param_types(PsY, TsY) )),   % ONE way of spelling the opaque types: a comparison that FAILS is asked under `\+', which exhausts every alternative of what came before -- 127,000 deductions for one choice among four candidates (0.99, the sort probe: 484 s of a 570 s build)
-    length(TsX, N), length(TsY, N), cpp_param_types(PsX, TsXr), cpp_partial_cv_ok(TsXr, TsY, TPsX),   % X's types as WRITTEN, the parameters still named
+    length(TsX, N), length(TsY, N), cpp_param_types(PsX, TsXr), cpp_partial_cv_ok(TsXr, TsY, TPsX), cpp_partial_ptr_ok(TsY, TsX),   % X's types as WRITTEN, the parameters still named
     once(catch(cpp_deduce_types(TsY, TsX, TPsY, [], B), error(not_lowered(_), _), fail)), cpp_all_bound(TPsY, TsY, B),
     cpp_params_consistent(TsY, TsX, TPsY).   % A PARAMETER THAT STANDS TWICE deduces ONE type ([temp.deduct.partial]/10; 0.122): `f(I1, I1, I2, I2)' is more special than `f(I1, I1, I2, P)' -- cpp_match took the second occurrence unseen, both directions deduced, and the first declared won (`std::mismatch(a, a + 3, b, b + 3)' called the predicate overload with an int *)
 %% ... AND THE REFERENCE TIE-BREAK ([temp.deduct.partial]/9; 0.99): where two reference parameters deduce each other
@@ -8312,6 +8340,15 @@ cpp_partial_cv_ok([PX|Xs], [PY|Ys], TPs) :-
     \+ ( PX = ref(_, base(QX, [typedef(P)])), atom(P), memberchk(tparam(type, P, _), TPs), \+ memberchk(const, QX),
           PY = ref(_, base(QY, _)), memberchk(const, QY) ),
     cpp_partial_cv_ok(Xs, Ys, TPs).
+%% ... AND A POINTEE'S QUALIFIERS ARE NO PART OF WHAT A PARTIAL ORDERING DEDUCES AWAY ([temp.deduct.partial]: its deduction is [temp.deduct.type]'s,
+%% with none of the adjustments [temp.deduct.call]/4 allows a call; 0.191): `const T *' does not deduce from `U *', so `f(const T *)' is more
+%% specialized than `f(T *)'. The call's deduction took the qualification conversion, each deduced the other, and the first declared won:
+%% `f(&ci)' of a `const int ci' called `f(T *)', and with the two declared the other way `f(&i)' called `f(const T *)' (qualrank.cpp).
+cpp_partial_ptr_ok([], []).
+cpp_partial_ptr_ok([P|Ps], [A|As]) :- cpp_partial_ptr_ok_(P, A), cpp_partial_ptr_ok(Ps, As).
+cpp_partial_ptr_ok_(ptr(_, P), ptr(_, A)) :- !, cpp_pointee_quals(P, QP), cpp_pointee_quals(A, QA),
+    \+ ( member(Q, [const, volatile]), memberchk(Q, QP), \+ memberchk(Q, QA) ), cpp_partial_ptr_ok_(P, A).
+cpp_partial_ptr_ok_(_, _).
 cpp_params_consistent(TsY, TsX, TPs) :- findall(P-T, ( nth1(I, TsY, PY), nth1(I, TsX, TX), cpp_bare_param(PY, TX, TPs, P, T) ), Bs), \+ ( member(P-T1, Bs), member(P-T2, Bs), \+ catch(cpp_same_type(T1, T2), _, fail) ).
 cpp_bare_param(PY, TX, TPs, P, T) :- ( PY = ref(_, PY1), TX = ref(_, TX1) ; PY = rref(_, PY1), TX = rref(_, TX1) ; PY = ptr(_, PY1), TX = ptr(_, TX1) ), !, cpp_bare_param(PY1, TX1, TPs, P, T).
 cpp_bare_param(base(QP, [typedef(P)]), TX, TPs, P, T) :- atom(P), memberchk(tparam(type, P, _), TPs),
@@ -8442,7 +8479,17 @@ cpp_scalar_rank(PT, AT) :-
     (   ccl_resolve_type(PT, RP), ccl_resolve_type(AT, RA), ccl_is_arith(RP), ccl_is_arith(RA), RP = base(_, S1), RA = base(_, S2),
         cpp_type_key(base([], S1), K1), cpp_type_key(base([], S2), K2), K1 \== K2
     ->  cpp_ref_demerit, ( cpp_promotes_to(AT, PT) -> true ; cpp_ref_demerit )   % ... ONE for a promotion, TWO for a conversion (0.127, [over.ics.rank]/4.2): `std::cout << e' of an `enum : unsigned char' is the free `unsigned char' inserter, a promotion, never the `char' one
+    ;   cpp_qualification_conv(PT, AT, K) -> forall(between(1, K, _), cpp_ref_demerit)
     ;   true ).
+%% ... AND A POINTER WHOSE POINTEE A QUALIFICATION CONVERSION ADDS `const' OR `volatile' TO IS WORSE THAN THE IDENTITY ([over.ics.rank]/3.2.5;
+%% 0.191), one demerit for each qualifier it adds, so the less qualified target is the better one (`f(const T *)' over `f(const volatile T *)'
+%% for an `int *'): libc++'s `any_cast<T>(const any *)' calls `std::any_cast<T>(const_cast<any *>(__any))', which is `any_cast(any *)'; the
+%% two tied, the first declared stood, and the call was itself -- every `std::any_cast' of a value ran until the stack overflowed
+cpp_qualification_conv(PT, AT, K) :- ccl_resolve_type(PT, ptr(_, P)), ccl_resolve_type(AT, ptr(_, A)), cpp_pointee_quals(P, QP), cpp_pointee_quals(A, QA),
+    findall(X, ( member(X, [const, volatile]), memberchk(X, QP), \+ memberchk(X, QA) ), Xs), length(Xs, K), K > 0, !.
+cpp_pointee_quals(base(Q, _), Q) :- !.
+cpp_pointee_quals(ptr(Q, _), Q) :- !.
+cpp_pointee_quals(_, []).
 cpp_ref_lvalue_only(ref(Q, T)) :- \+ memberchk(const, Q), \+ cpp_top_const(T).   % ... the referent's own top-level const counts, a CONST POINTER's too (`int (*const &)(int)', what a forwarding `_Tp &&' collapses to for a const function-pointer lvalue; 0.99: read as non-const, the const-lvalue rule refused forward_as_tuple's argument inside std::function)
 %% ... and among the ones that do bind, an rvalue prefers `T &&' to `const T &' ([over.ics.rank]/3.2.3),
 %% which this road already has a place to say: the candidate with the FEWEST conversions wins (0.45), so
