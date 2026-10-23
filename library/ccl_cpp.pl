@@ -96,7 +96,7 @@ cpp_ns_resolve(Units000, Units) :-
     ;   ( nb_current('$cpp_trace', yes) -> cpp_trace(ns_collisions(Qs)) ; true ),   % before cpp_register_units has set the trace global
         forall(( member(q(Ns, N, _), Qs), Ns \== bare ), ( atomic_list_concat([Ns, '.', N], K), assertz('$cpp_ns_own'(K)) )),
         cpp_ns_rewrite_units(Units0, Qs, Units),
-        ccl_scope_init, forall(member(unit(Is1), Units), ccl_items_note(Is1)) ).
+        ccl_scope_init, forall(member(unit(Is1), Units), ccl_items_note_program(Is1)) ).
 cpp_ns_final_name(N, NP, Qs, K) :- ( memberchk(q(Ns, N, NP), Qs), Ns \== bare -> atomic_list_concat([Ns, '.', N], K) ; K = N ).   % a deeper namespace's item of a collided name is `<suffix>.<name>'
 %% THE UNIT'S TAG (0.192): a name that is one unit's own -- a closure's (`lambda.K'), a local class's (`N.local_K'), an unnamed
 %% namespace's -- carries it, so that two units linked together never share one: a fold of the main file's absolute path, the
@@ -276,7 +276,7 @@ cpp_instance_note(Name, What) :- assertz('$cpp_inst'(Name, What)).
 cpp_register_units(Units) :-
     cpp_reset('$cpp_cls'/2), cpp_reset('$cpp_clsl'/2), cpp_reset('$cpp_sfn'/2), cpp_reset('$cpp_decl'/4), cpp_reset('$cpp_sfold'/3), cpp_reset('$cpp_nenum'/1), cpp_reset('$cpp_enumv'/3), cpp_reset('$cpp_tmpl'/3), cpp_reset('$cpp_fspec'/3), cpp_reset('$cpp_spec'/4), cpp_reset('$cpp_mt'/4), cpp_reset('$cpp_inst'/2), cpp_reset('$cpp_out'/2), cpp_reset('$cpp_ownfn'/2), cpp_reset('$cpp_consteval'/1), cpp_reset('$cpp_cecheck'/3), cpp_reset('$cpp_scell'/2), cpp_reset('$cpp_mdef'/5), cpp_reset('$cpp_extern'/3), cpp_reset('$cpp_friends'/2), cpp_reset('$cpp_extra'/2), cpp_reset('$cpp_base_slot'/3), cpp_reset('$cpp_primary_moved'/2), cpp_reset('$cpp_vbase'/1), cpp_reset('$cpp_poly_extra'/3), cpp_reset('$cpp_poly_path'/3), cpp_reset('$cpp_hdrfn'/1), cpp_reset('$cpp_nv_base'/2), cpp_reset('$cpp_vb_holder'/2), cpp_reset('$cpp_lvb'/3), cpp_reset('$cpp_vprim'/2), cpp_reset('$cpp_vprim_ind'/2), cpp_reset('$cpp_vb_claim'/3),
     cpp_reset('$cpp_dflt'/2), cpp_reset('$cpp_localcls'/2), cpp_reset('$cpp_srcloc'/2), cpp_reset('$cpp_pf_closure'/3), cpp_reset('$cpp_pf_local'/3), cpp_reset('$cpp_srcloc_fn'/1), cpp_note_srcloc_fns(Units), nb_setval('$cpp_fsig', none), nb_setval('$cpp_dflt_site', none), nb_setval('$cpp_lambda_memo', []), cpp_reset('$cpp_dtor_def'/1), nb_setval('$cpp_lambdas', 0), nb_setval('$cpp_gen_invs', []), nb_setval('$cpp_caller', none), nb_setval('$cpp_obj_cat', none), nb_setval('$cpp_closure_this', []), nb_setval('$cpp_temps', none), nb_setval('$cpp_making', []), nb_setval('$cpp_obj_const', none),
-    nb_setval('$cpp_nontrivial', []), nb_setval('$cpp_req_ctx', none), nb_setval('$cpp_nv', none),
+    nb_setval('$cpp_nontrivial', []), nb_setval('$cpp_req_ctx', none), nb_setval('$cpp_nv', none), nb_setval('$cpp_lconsts', []),
     cpp_reset('$cpp_acc'/3), cpp_reset('$cpp_afriend'/2), cpp_reset('$cpp_bacc'/3), cpp_reset('$cpp_static_abi'/1), nb_setval('$cpp_body_ctx', none), nb_setval('$cpp_cur_fn', none), nb_setval('$cpp_acc_scope', none), nb_setval('$cpp_obj_expr', none),   % the access of a program class's members and its friends (0.117)
     cpp_reset('$cpp_concept'/2), cpp_reset('$cpp_ccm'/3), cpp_reset('$cpp_vtm'/3), cpp_reset('$cpp_friend_in'/3),   % the concepts by name, and the memos of a concept's satisfaction and a variable template's value (0.112)
     cpp_reset('$cpp_ctype'/3), cpp_reset('$cpp_sinit'/3), cpp_reset('$cpp_encl'/2),
@@ -3257,6 +3257,7 @@ cpp_item(declare(L, base(Q, [union(N, Ms)])), Items) :- atom(N), '$cpp_union'(N)
 cpp_item(declare(L, base(Q, [struct(N, Ms)])), [declare(L, base(Q, [struct(N, Ms1)]))]) :- atom(N), Ms \== none, !,       % a plain struct: its member types resolved in place (`std::size_t n')
     cpp_plain_members(Ms, Ms1), ( Ms1 == Ms -> true ; ccl_note_tag(N, Ms1) ).
 cpp_item(declaration(L, Sto, B, Vs), [declaration(L, Sto1, B, Vs3)]) :- !, cpp_vars(none, Vs, Vs1), cpp_fold_const_inits(B, Sto, Vs, Vs1, Vs2), cpp_redeclare_globals(Vs, Vs1),
+    ( nb_current('$cpp_in_lib', yes) -> true ; ccl_note_own_constant(declaration(L, Sto, B, Vs2)) ),   % the program's named constant, its constexpr call folded (0.195)
     cpp_dynamic_scalars(L, none, Sto, B, Vs, Vs2, Vs3), cpp_inline_storage(Sto, Vs3, Sto1).
 cpp_item(typedef(L, Vs), [typedef(L, Vs1)]) :- !, cpp_vars(none, Vs, Vs1), ccl_note_typedefs(Vs1).   % the table learns the instance's name at once
 cpp_item(template(_, _, _), []) :- !.
@@ -5488,7 +5489,7 @@ cpp_binds_const_lvalue(ref(Q, RT), E) :- \+ memberchk(const, Q), \+ cpp_type_con
 %% a type with no constructor direct-initialized, `_Tp __t(std::move(__x))', `int n{}', `S s(t)': the value itself, or
 %% the type's zero for an empty one
 %% A `const' LOCAL OF INTEGRAL TYPE WITH A CONSTANT INITIALIZER IS A CONSTANT EXPRESSION, as C++ has had it since
-%% C++98 (C gained it at C23, ccl_note_constants): its name may stand where a template argument or an array's bound
+%% C++98 (C gained it at C23, ccl_note_own_constant): its name may stand where a template argument or an array's bound
 %% does. libc++'s `__recommend' writes `const size_type __boundary = ...;' and then `__align_it<__boundary>(...)'.
 %% Noted after the initializer is DESUGARED, since the class constants in it fold only then.
 %% an unbounded array whose initializer held a pack expansion at the read is SIZED HERE, the pack expanded (0.104)
@@ -5503,7 +5504,7 @@ cpp_note_const(N, T, I) :- ccl_resolve_type(T, R), R = base(Q, _), memberchk(con
     (   ccl_const_eval(I, V) -> true
     ;   I = call(_, _), catch(cpp_const_value(I, V0), _, fail) -> ( V0 = bool(B) -> ( B == true -> V = 1 ; V = 0 ) ; V = V0 )   % a CONSTEXPR CALL folds through the evaluator (0.104): libc++'s `constexpr _CCC __cat = __compute_comp_type(__type_kinds);'
     ;   cpp_trace(const_not_folded(N, I)), fail ), !,
-    nb_getval('$ccl_enums', L), nb_setval('$ccl_enums', [N-V|L]).
+    ccl_declare('$cv'(N), V), cpp_lconst_push(N-V).
 %% A `const' LOCAL AGGREGATE WITH A CONSTANT INITIALIZER IS A VALUE TO THE CONSTEXPR EVALUATOR (0.104), as a file-scope
 %% one has been since 0.97 (`'$cpp_gagg:N'', marked `local': read only while the name IS a local of the walk, where a
 %% global's entry is read only while it is not): libc++'s `__get_comp_type' writes `constexpr _CCC __type_kinds[] =
@@ -5513,6 +5514,12 @@ cpp_note_const(N, T, I) :- I \== none, atom(N), cpp_const_agg_type(T), !,
     ->  atom_concat('$cpp_gagg:', N, K), nb_setval(K, agg(T, I, local)), cpp_trace(const_local_agg(N))
     ;   cpp_trace(const_agg_not_folded(N, I)), cpp_agg_items_trace(I) ).
 cpp_note_const(_, _, _).
+%% A LOCAL CONSTANT IS ITS BLOCK'S (0.195): the first clause above put it in the file's table of enumerators, before every
+%% entry, and it stayed there when its body ended -- after `void f() { const int K = 3; }' a file-scope `int b[K];' over
+%% `const int K = 8;' had 3 elements. It is an entry of the frame that declares it, `'$cv'(N)-V' (ccl_frame_constant/3),
+%% and of the walk's own list ('$cpp_lconsts', ccl_body_constant/2), which a lambda's body reads, its frames set aside;
+%% both leave where the block's walk ends, however it ends (cpp_in_frame/1, cpp_with_fsig/2).
+cpp_lconst_push(P) :- cpp_lconsts_now(L), nb_setval('$cpp_lconsts', [P|L]).
 cpp_agg_items_trace(init(Items)) :- !, forall(member(item(_, E), Items), ( catch(cpp_eval_effect(E, [], _, V), Err, ( V = error(Err) )) -> cpp_trace(agg_item(E, V)) ; cpp_trace(agg_item(E, failed)) )).   % under the trace: which item of a const aggregate the evaluator cannot take
 cpp_agg_items_trace(_).
 cpp_const_agg_type(T) :- catch(cpp_eval_agg_kind(T, _), _, fail), ccl_resolve_type(T, R), ( R = arr(_, ET) -> ccl_resolve_type(ET, base(Q, _)) ; R = base(Q, _) ), memberchk(const, Q).
@@ -7719,8 +7726,10 @@ cpp_line_kept(Goal) :- ( nb_current('$cpp_line', L) -> true ; L = 0 ),
 %% its statement expression stayed -- so the instance `visit_format_arg<...>', declared a moment later, went into that
 %% frame instead of the file scope and was gone when it closed: its call had no type, and the retargeted format
 %% context's lambda refused `lambda_result_type' (every std::format of a range). The scope comes back as it was.
-cpp_in_frame(Goal) :- nb_getval('$ccl_scope', S0), ccl_scope_push,
-    ( catch(Goal, E, ( nb_setval('$ccl_scope', S0), throw(E) )) -> nb_setval('$ccl_scope', S0) ; nb_setval('$ccl_scope', S0), fail ).
+cpp_in_frame(Goal) :- nb_getval('$ccl_scope', S0), cpp_lconsts_now(LC0), ccl_scope_push,   % ... and its local constants leave with it (0.195, cpp_note_const)
+    ( catch(Goal, E, ( cpp_frame_back(S0, LC0), throw(E) )) -> cpp_frame_back(S0, LC0) ; cpp_frame_back(S0, LC0), fail ).
+cpp_frame_back(S0, LC0) :- nb_setval('$ccl_scope', S0), nb_setval('$cpp_lconsts', LC0).
+cpp_lconsts_now(LC) :- ( nb_current('$cpp_lconsts', LC0) -> LC = LC0 ; LC = [] ).
 cpp_add_instance_items(Items) :- cpp_linkonce(Items, Items1), forall(member(I, Items1), ( cpp_item_key(I, K), assertz('$cpp_out'(K, I)) )),
     ( nb_getval('$cpp_in_lib', yes) -> forall(member(function(_, _, _, Name, _, _, _), Items1), assertz('$cpp_libfn'(Name))) ; true ).
 %% THE EMITTED ITEMS BY NAME (0.165): '$cpp_out'(Key, Item), a function under its name and any other item under '', so
@@ -10202,9 +10211,12 @@ cpp_dbg_op_spell(W, S) :- atom_concat('operator_', W, S).
 %% name is used. A type is spelled as written; a template's bound argument as clang prints a canonical type, through its
 %% namespaces (an inline one left out) and with its class template's defaulted arguments left out.
 cpp_with_fsig(S, Goal) :- ( nb_current('$cpp_fsig', S0) -> true ; S0 = none ), ( nb_current('$cpp_dflt_site', D0) -> true ; D0 = none ),
+    cpp_lconsts_now(LC0),
     nb_setval('$cpp_fsig', S), nb_setval('$cpp_dflt_site', none),                   % a body's own calls are their own places
-    ( catch(Goal, E, ( nb_setval('$cpp_fsig', S0), nb_setval('$cpp_dflt_site', D0), throw(E) )) -> nb_setval('$cpp_fsig', S0), nb_setval('$cpp_dflt_site', D0)
-    ; nb_setval('$cpp_fsig', S0), nb_setval('$cpp_dflt_site', D0), fail ).
+    ( catch(Goal, E, ( cpp_fsig_back(S0, D0, LC0), throw(E) )) -> cpp_fsig_back(S0, D0, LC0)
+    ; cpp_fsig_back(S0, D0, LC0), fail ).
+%% ... and its local constants are its own (0.195, cpp_lconst_push/1)
+cpp_fsig_back(S0, D0, LC0) :- nb_setval('$cpp_fsig', S0), nb_setval('$cpp_dflt_site', D0), nb_setval('$cpp_lconsts', LC0).
 %% an instance's road names the description its body is walked under, `inst(Name, Sig)': its pattern's, with its arguments
 cpp_fsig_own(Name, Default, Sig) :- ( nb_current('$cpp_fsig', inst(N0, S)), N0 == Name -> Sig = S ; Sig = Default ).
 cpp_fsig_now(S) :- ( nb_current('$cpp_fsig', S0) -> cpp_fsig_unwrap(S0, S) ; S = none ).

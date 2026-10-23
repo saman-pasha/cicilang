@@ -10,8 +10,8 @@ it found, its measurements and its gate numbers. `README.md` tells a user what r
 architecture and the milestones. A step that changes a rule edits the rule here, in its topic, and writes its entry
 in `HISTORY.md`.
 
-At 0.194 the versions are: the module 0.194 (`ccl_p_version` in `module/cicilang.cicili`, `bin/cicilang --version`),
-the reader 146 (`ccl_reader_version/1`, `library/ccl_syntax.pl`) and the lowering 107 (`ccl_lowering_version/1`,
+At 0.195 the versions are: the module 0.195 (`ccl_p_version` in `module/cicilang.cicili`, `bin/cicilang --version`),
+the reader 147 (`ccl_reader_version/1`, `library/ccl_syntax.pl`) and the lowering 108 (`ccl_lowering_version/1`,
 `library/ccl_ir.pl`).
 
 Build and prove, always in this order (or all of it, `sh test/gates.sh`):
@@ -318,7 +318,8 @@ test/c/                     the reader's fixtures: hello.c, rich.c, lexer.c, mac
 test/c/inc/                 the -I fixture: uses_box.c over box.h
 test/c/link/                two files linked into one program; the ABI against clang-built code (abi_main.c,
                             abi_helper.c), variadic calls (va_main.c, va_func.c, va.h), the decimal ABI against gcc
-test/c/run/                 C programs built and run: NAME.c, NAME.expect, NAME.std; pp_defs.h, embed.txt, empty.txt
+test/c/run/                 C programs built and run: NAME.c, NAME.expect, NAME.std; pp_defs.h, fileconst.h, embed.txt,
+                            empty.txt
 test/c/safe/                C programs the safe part refuses: NAME.c, NAME.expect
 test/cpp/                   the C++ reader's fixtures and the refusals; hidem.cppm for modhidden.cpp
 test/cpp/link/              the C++ ABI checks of the C++ gate and the cross gate: abi_helper.cpp and memptr_helper.cpp
@@ -476,7 +477,7 @@ tutorials/01..03-*.pl       the objects layer's lessons; goal main, last line do
 - The compile gate. `test/compile.pl`, one process over the user's store, reads, checks, lowers, compiles at `-O1`
   and links every `test/c/run/*.c` at its `NAME.std` level (`c_level`). It expects every `test/c/safe/*.c` refused.
   `test/compile.sh` runs each binary as `NAME arg1 arg2` against `NAME.expect`, and compares each refusal with
-  `safe/NAME.expect`. There are 98 run and 47 safe fixtures at 0.194. (M2, M3, 0.57)
+  `safe/NAME.expect`. There are 101 run and 47 safe fixtures at 0.195. (M2, M3, 0.57)
 - The driver gate. `test/driver.sh` makes 40 checks of `bin/cicilang` over the user's store (the two decimal checks are
   skipped where no gcc with decimal floating types is installed), the variadic calls of every kind both ways against
   clang among them (`test/c/link/va_*.c`, 0.131), and Apple's arm64 expansion of `va_arg` of an aggregate against
@@ -689,7 +690,8 @@ tutorials/01..03-*.pl       the objects layer's lessons; goal main, last line do
   `joinwith.needs` (`__cpp_lib_ranges_join_with >= 202202L`, since 0.133: libc++ 18 has no `views::join_with`). (0.95,
   0.107, 0.123, 0.133)
 - `test/c/safe/NAME.expect` holds the refusal, `ownership(Kind,Name)`. (M3)
-- Inputs beside the fixtures are no fixtures: `test/c/run/pp_defs.h`, `embed.txt`, `empty.txt`; `test/cpp/run/bag.h`
+- Inputs beside the fixtures are no fixtures: `test/c/run/pp_defs.h`, `fileconst.h` (`fileconst.c`, 0.195), `embed.txt`,
+  `empty.txt`; `test/cpp/run/bag.h`
   (`bag.cpp`, `member.cpp`), `hunit.h` (`headerunit.cpp`, `hdrinline.cpp`), `basem.cppm` and `mathm.cppm`
   (`modules.cpp`), `embed26.txt` (`cxx26.cpp`); `test/cpp/hidem.cppm` (`modhidden.cpp`). (0.93, 0.108, 0.110)
 - A binary runs only if this run built it. Each gate builds into a fresh temporary directory; `test/cpp.sh` runs on
@@ -1433,6 +1435,13 @@ tutorials/01..03-*.pl       the objects layer's lessons; goal main, last line do
 
 - Declarators are parsed inside out and folded onto the base by `ccl_mk_type/4`, which drops the `constexpr` marker
   (`ccl_constexpr_fold`; a function's result loses its `const` too). (0.95)
+- IN C AN ARRAY'S SIZE IS FIXED WHERE IT IS DECLARED (6.7.6.2/5; 0.195): a bound that names a constant -- a named
+  constant, an enumerator, a block's `constexpr` -- is folded where the declaration is read, at file scope and in a block
+  (`ccl_fix_bounds/2`), and a member's bound and bit-field width too (`ccl_fix_member/4`); a bound that names one of the
+  statement's own declarators, or no constant (a VLA's), stays as written. Else a later local of the name named it: `int
+  a[N];` under a block's `constexpr int N = 7;` read the inner block's `int N = 2;` at a `sizeof a` there, as the layout of
+  `struct S { int a[K]; }` read a shadowing local where it was first asked. C++'s bounds are the desugaring's
+  (`cpp_array_bound/2`). `fileconst23.c`.
 - `auto a = x, b = y;` (C23 and C++) is one declaration per declarator, each initialized by an ASSIGNMENT-expression and
   deduced alone (`ccl_auto_more//3`, `ccl_auto_next//3`; a `'$splice'/1` in a block and at file scope). The clause
   commits after its `;`, so a form it cannot take (`auto a = 1, *p = &a;`) falls to the general declarators. Else the
@@ -1579,6 +1588,19 @@ tutorials/01..03-*.pl       the objects layer's lessons; goal main, last line do
   value is wide (`ccl_w_add/3`), past 2^60 a `big(_)`, and an enumerator of a value no int holds is typed as a literal
   of it, an int else (`ccl_enumerator_type/3`, `ir_expr(id(N))` over `ir_expr(int(V))`): `i32 18446744073709551600`
   reached LLVM. `enumconstexpr.cpp`, `test/c/run/enumfloat.c`. (0.100, 0.127, 0.160)
+- AN ENUMERATOR'S VALUE THAT NAMES ANOTHER ENUM'S, A HEADER'S OR A CONSTANT (0.195): the bulk noter sets the unit's table
+  once, at the end, and folded each enum with its own enumerators alone, so `enum B { Y = X + 1 };` after `enum A { X = 5
+  };`, an enumerator over a header's (the unit's own items come first) or over a named constant took the value after the
+  one before it -- Y was 0 and `int arr[Y];` had no element, in C and in C++, since the first enums. Such an enum is kept
+  (`'$ccl_eretry'`, `ccl_collect_enum_values/3`) and folded again once the table is written and once the program's named
+  constants are noted (`ccl_enum_retries/0`), the values it KNOWS then put before the ones it had -- an initializer that
+  folds, or none after a known value (`ccl_retry_enumerators/5`): a placeholder of the first pass put first answers a bare
+  name before an earlier enum's, and libc++ 21's `_PartialOrdResult::__less = static_cast<signed char>(_OrdResult::__less)`,
+  which folds nowhere here, made the bare `__less` 0 and every `partial_ordering` compare false (the first net of 0.195,
+  `stdcompare.cpp`). In C an enumerator's value is also
+  FIXED WHERE IT IS READ (`ccl_fix_enumerators/2`, in the enum's rule): its initializer folded there, the enumerators
+  before it put in as their values, and kept as the literal -- a block's `constexpr` is no name the passes know. C++'s
+  unfolded ones are the desugaring's (`cpp_fold_enumerators/5`). `enumcross.c`, `enumcross.cpp`. (0.195)
 - `ccl_type_of/2` of a statement expression puts its declarations in scope for its last expression. (M1b)
 - A typedef, tag or enum declared in a block joins the unit's one table in C (`ccl_collect_item(function)` through
   `ccl_stmt_typedefs`, by statement shape; two blocks that typedef one name must agree; `test/c/run/typedef_block.c`).
@@ -1606,9 +1628,10 @@ tutorials/01..03-*.pl       the objects layer's lessons; goal main, last line do
   READ at the level, never lexed at it. (0.57)
 - At `-std=c23`: `bool` a specifier; `true`, `false`, `nullptr` primaries; `constexpr` is `const` plus the marker
   `constexpr`; `thread_local` the qualifier; `alignas(E)` on an object `aligned(E)`. Reader `k88`, `k90`. (0.99)
-- At `-std=c23` a `const` object whose initializer folds is a CONSTANT, a `constexpr` one among them:
-  `ccl_note_constants/2` adds it to `'$ccl_enums'`, so an array bound and a static assertion fold it. Reader `k87`.
-  (0.57)
+- A FILE-SCOPE `const` integer whose initializer folds is a NAMED CONSTANT at every level, a C23 `constexpr` one among
+  them, as clang folds a C17 one (GNU's folding; gcc refuses it): an array's bound, an enumerator, a bit-field's width,
+  `_Static_assert`, a case label. A C23 `constexpr` object in a BLOCK is a constant of its block alone. The Constant
+  evaluation topic has the tables. Reader `k87`. `fileconst.c`, `fileconst23.c`. (0.57, 0.195)
 - From C23, C reads C++'s forms: `[[attributes]]` dropped; `enum E : unsigned char` (`ccl_enum_base//1`, `enum_base(T)`
   the first member); `auto x = e` deduced (`ccl_auto_decl/5`); `static_assert(e[, "msg"])` at file scope and in a
   block. `_Static_assert` is read in every C. (0.57)
@@ -4943,11 +4966,32 @@ A lambda is a class of its captures (`library/ccl_cpp.pl`). A fixture named alon
 
 - A literal folds to its value (`int`, `uint`, `long`, `ulong`, the character kinds, `wb`/`uwb`, `bool`); past 2^60 it
   is `big(Atom)`, its own value, but a `_BitInt` literal past 2^60 folds nowhere. (0.94)
-- A name folds to its entry in `'$ccl_enums'` unless a NON-CONST local shadows it (`ccl_shadowed_constant/1`); a const
-  local with a constant initializer is the constant. `enumshadow.cpp`, `test/c/run/enumshadow.c`. Why: `<format>`'s
-  enumerator `__ptr` replaced `__tree`'s parameter; `__mu`'s `const size_t __indx` must fold. (0.94)
-- At `-std=c23` a `const` or `constexpr` object with a constant initializer joins `'$ccl_enums'`
-  (`ccl_note_constants/2`), folding in a bound, a static assertion, a case label. `test/c/run/c23.c`. (0.57)
+- A NAME FOLDS where no local of the open frames shadows it (`ccl_const_eval(id(N))`): the innermost frame that holds N
+  decides, and a LOCAL CONSTANT is an entry `'$cv'(N)-V` of the frame that declares it, which leaves with its block
+  (`ccl_frame_with/3`, `ccl_frame_constant/3`) -- C++'s `const` local with a constant initializer (`cpp_note_const/3`), C23's
+  `constexpr` local (`ccl_note_block_constants/2`, made by the reader, the check and the lowering where each declares the
+  local, the answer caches emptied where one comes and where its frame goes: `arr(id(N), int)` is another type in another
+  block); a plain local, a parameter (a `const` one included) shadows it. A name no frame holds is a C++ walk's own
+  constant (`'$cpp_lconsts'`, `ccl_body_constant/2`: what the walk makes apart from its frames, a lambda's body, uses one
+  with no capture), else the PROGRAM'S NAMED CONSTANT (`'$ccl_consts'`, `ccl_named_constant/2`), else an enumerator
+  (`'$ccl_enums'`). `enumshadow.cpp`, `test/c/run/enumshadow.c`, `constshadow.cpp`. Why: `<format>`'s enumerator `__ptr`
+  replaced `__tree`'s parameter; `__mu`'s `const size_t __indx` must fold (0.94); a `const` local was taken for a
+  constant whatever it held, so `void g(const int K) { int a[K]; }` had the file-scope K's 8 elements where `g(2)` has 2,
+  and a C++ local constant stayed in the enumerators' table after its body -- `int b[K];` after `void f() { const int K =
+  3; }` had 3 (0.195). (0.94, 0.195)
+- THE PROGRAM'S NAMED CONSTANTS (0.195; [expr.const]/4, C23 6.6/7): a file-scope `const` object of integral or enumeration
+  type, not volatile, whose initializer folds, its value converted to its type, in a table of their own (`'$ccl_consts'`,
+  newest first; `ccl_note_own_constants/1`): an object is no enumerator to what asks one (an enumerator is a prvalue, an
+  enumeration operand takes the enumeration's operator road, a requirement's `decltype((e))` of an object is a reference). The C reader notes one as it reads it (`ccl_note_item/1`) and a program's own header's (`#include
+  "defs.h"`, `ccl_include_constants/2`, recursively); the passes over the program's units and its own headers
+  (`ccl_items_note_program/1`: `ccl_ir_units`, the check's own table, the desugaring's after a namespace collision, with
+  the keyed names); the desugaring one whose initializer is a constexpr call once it folds (`cpp_item/2` of a declaration,
+  the program's only). A LIBRARY header's are none of them -- a summary carries none, so a header read in the process would
+  give what a summary does not -- and the desugaring folds those as it did (`cpp_global_const/2`). The table is reset with
+  the scope (`ccl_scope_init`) and saved and restored around a nested read (`ccl_with_file/2`). It was C23's alone, noted
+  at the read and lost by the passes, which built the table again from the items; a C++ program's were noted nowhere, so
+  `const int K = 8; int arr[K];`, `alignas(K)`, `std::array<int, K>`, `case K:` and `enum { E = K }` read K as a variable,
+  and C17's `enum { E = K }` stopped the read. `fileconst.c` (over `fileconst.h`), `fileconst23.c`, `fileconst.cpp`. (0.195)
 - The operators fold (`ccl_const_op/4`), and so do `?:`, a C or C++ cast (`ccl_w_cast/3`: `type(~0)`), `sizeof` (a
   string literal's array bytes, `ccl_literal_bytes/2`), `sizeof_type`, `alignof_type` ([expr.alignof]; its type resolved
   by the desugaring's hook first), `offsetof` (`ccl_offsetof/3`) and `noexcept_expr` (1). Division by zero and a bad
@@ -5046,17 +5090,20 @@ A lambda is a class of its captures (`library/ccl_cpp.pl`). A fixture named alon
   `__GB9c_indic_conjunct_break_state`, nested in a class and declared after the member that switches, whose `__Consonant`
   is also `__inCB_property::__Consonant` (`std::print`, `std::format` of a string). `enumscope.cpp`. (0.126)
 - A `const` non-floating local whose desugared initializer folds, a constexpr call through the evaluator included, is a
-  constant (`cpp_note_const/3` into `'$ccl_enums'`; trace `const_not_folded`). Why: `__align_it<__boundary>`.
-  (0.63, 0.104)
+  constant of its block (`cpp_note_const/3`: `'$cv'(N)-V` in its frame and `'$cpp_lconsts'`, which `cpp_in_frame/1` and
+  `cpp_with_fsig/2` restore where the block's or the body's walk ends; trace `const_not_folded`). Why:
+  `__align_it<__boundary>` (0.63); it went into the enumerators' table and stayed there after its body (0.195). (0.63, 0.104,
+  0.195)
 - A file-scope `const` initialized by a CALL is folded TWICE at its declaration (`cpp_fold_const_inits_`): the first
   attempt EMITS the library instances the call runs through (`numeric_limits<size_t>::max()`), and only the second sees
   them. A value past 2^60 is the initializer `int(big(A))`. Else `inline constexpr size_t dynamic_extent` stayed a call
   and became a run-time initialization (0.117).
 - A `const` local aggregate with a constant initializer is an evaluator value, `'$cpp_gagg:N'` = `agg(T, Init, local)`,
   read by `cpp_global_agg/2` only while the name is a local. Traces: `const_agg_not_folded`, `agg_item`. (0.104)
-- A file-scope `const` integral object with a constant initializer is a constant ([expr.const]): `cpp_global_const/2` ->
-  `cpp_fold_global/2` under `'$cpp_gfolding:N'`, keeping only a SUCCESS (`'$cpp_gconst:N'`). Why: a failure in an
-  abandoned candidate would stand for ever; `__aligned_storage_max_align`. (0.88)
+- A file-scope `const` integral object with a constant initializer is a constant ([expr.const]): a HEADER's through
+  `cpp_global_const/2` -> `cpp_fold_global/2` under `'$cpp_gfolding:N'`, keeping only a SUCCESS (`'$cpp_gconst:N'`), the
+  program's own a named constant (above, 0.195). Why: a failure in an abandoned candidate would stand for ever;
+  `__aligned_storage_max_align`. (0.88, 0.195)
 - A file-scope `const` object initialized by a constexpr call takes its value (`cpp_fold_const_inits/3`): a scalar, a
   `bool`, or an aggregate spelled as braced items (`cpp_eval_init_term/2`). A file-scope `const` aggregate is a value,
   `agg(T, Init, global)` in `'$cpp_gagg:N'`, so `table[2]`, `origin.x` fold anywhere. Why: `constexpr int N =
@@ -8367,17 +8414,17 @@ A lambda is a class of its captures (`library/ccl_cpp.pl`). A fixture named alon
 - Ubuntu 24.04 on x86_64 (clang and LLVM 18, glibc, libc++ 18 and 21) is a host since 0.87. Every gate but the C++ one
   is GREEN there since 0.93, and all seven since 0.95. Every step from 0.93 on is gated there, but the save points
   0.112, 0.113, 0.117, 0.122 to 0.125, 0.130, 0.131 and 0.143 (0.143's C gates and cross gate ran, its libc++ gates did
-  not; the others were gated by the steps after them). The last full run is 0.194's, over cocolog 2.11.1 (the
+  not; the others were gated by the steps after them). The last full run is 0.195's, over cocolog 2.11.1 (the
   Findings), on one tree, over fresh HOMEs (the reader version moved): over libc++ 18 all nine GREEN (the flow gate's one
-  finding in 95 s, reader 5 s, compile 14 s, driver 13 s, objects 4 s, proof, the cross gate in 309 s with its C++ part
-  for aarch64, the library read in 354 s (0.193's 393 s; 104 other headers warmed), the C++ gate in 958 s (0.193's 982
-  s) with 616 of 622 fixtures ok, the skips are `atomicref`, `joinwith`, `stdoptionalref`, `tzone`, `vbaseof` and
-  `zipadjacent`, the two units, the 28 refusals and the four of the safe part); over libc++ 21 the library read (319 s,
-  peak 819 MB; 0.193's 318 s) and the C++ gate (937 s, peak 2499 MB; 0.193's 965 s; 620 of 622 ok, the skips
-  `stdoptionalref` and `zipadjacent`) GREEN -- the C gates do not read libc++. The headers' reads, summed, took 1310 s
-  over 127 over libc++ 18 and 1176 s over 21 (0.193's 1454 s and 1175 s over 123; 0.181's 4313 s and 4116 s, before a
-  read linear in its items); the fixtures' builds 3231 s over 616 and 3162 s over 620 (0.193's 3296 s over 611 and 3237
-  s over 613) (HISTORY.md, 0.194). The chains of 0.165 to 0.193 are in HISTORY.md, 0.166 to 0.194.
+  finding in 93 s, reader 4 s, compile 14 s, driver 14 s, objects 4 s, proof, the cross gate in 293 s with its C++ part
+  for aarch64, the library read in 355 s (0.194's 354 s; 105 other headers warmed), the C++ gate in 949 s (0.194's 958
+  s) with 619 of 625 fixtures ok, the skips are `atomicref`, `joinwith`, `stdoptionalref`, `tzone`, `vbaseof` and
+  `zipadjacent`, the two units, the 28 refusals and the four of the safe part); over libc++ 21 the library read (315 s,
+  peak 796 MB; 0.194's 319 s) and the C++ gate (935 s, peak 2258 MB; 0.194's 937 s; 623 of 625 ok, the skips
+  `stdoptionalref` and `zipadjacent`) GREEN -- the C gates do not read libc++. The headers' reads, summed, took 1292 s
+  over 128 over libc++ 18 and 1155 s over 21 (0.194's 1310 s and 1176 s over 127; 0.181's 4313 s and 4116 s, before a
+  read linear in its items); the fixtures' builds 3199 s over 619 and 3146 s over 623 (0.194's 3231 s over 616 and 3162
+  s over 620) (HISTORY.md, 0.195). The chains of 0.165 to 0.194 are in HISTORY.md, 0.166 to 0.195.
   Two libc++ passes are one gate: `LLVM=/usr/lib/llvm-18` and `LLVM=/usr/lib/llvm-21`
   choose the tree the chain reads and links. libc++ 22 (the newest tree, which a run without `$LLVM` reads) is no
   gate: 0.182 built its vector and its C++23 views by hand (`zipadjacent.cpp`, which its `.needs` skips over 18 and
@@ -8424,7 +8471,9 @@ A lambda is a class of its captures (`library/ccl_cpp.pl`). A fixture named alon
   array's elements (`unionelide.c`, `elidenest.c`), C23's enums with a fixed underlying type (`c23enum.c`), GCC's
   lock-free and generic atomic builtins (`lockfree.c`, `atomicgen.c`), C23's `<float.h>`, `<limits.h>`, `<stdarg.h>`
   and `<stdatomic.h>` (`c23float.c`), the compiler's own `<tgmath.h>` (`tgmath.c`), a typedef, a tag and a function's
-  types named `names` (`cachenames.c`).
+  types named `names` (`cachenames.c`). Since 0.195: the program's file-scope `const` integers as constants, its own
+  header's too, a parameter and a local shadowing one (`fileconst.c`, C17), C23's `constexpr` at file scope and in a
+  block (`fileconst23.c`), an enumerator over another enum's and a header's (`enumcross.c`).
 - The C library is the host's. The compiler's own freestanding headers are in `library/include/` (`<stdarg.h>`,
   `<stdatomic.h>`, `<complex.h>`, `<stdckdint.h>`, `<stdbit.h>`, `<limits.h>`, `<tgmath.h>` and six more).
 - The language's own additions run: `:=`, patterns, `name { }` structs and `format`, `print`, `println`
@@ -8481,6 +8530,11 @@ A lambda is a class of its captures (`library/ccl_cpp.pl`). A fixture named alon
   (two virtual overloads of one name and arity, one overridden), `virtualdefault` (a virtual call that leaves a defaulted
   argument out), `anonparam` (an unnamed by-value parameter destroyed), `rangeadl` (a range-for by the free `begin` and
   `end` of two namespaces), `downcast` (`static_cast` from a second base to the derived class, a pointer and a reference).
+- Forms of 0.195: `fileconst` (the program's file-scope `const` and `constexpr` integers in an array's bound at file scope,
+  in a block and in a class, `alignas`, a bit-field's width, a template argument, `std::array`, a case label, `if
+  constexpr`, an enumerator; one over a constexpr call, a namespace's, two namespaces' of one name; `decltype` of one), `constshadow` (a local constant its block's own, a `const` parameter shadowing a constant
+  and an enumerator, a local constant in a lambda and a generic lambda, an inner block's constant ended), `enumcross` (an
+  enumerator over another enum's, a header's and a file-scope constant, in a block's enum too).
 - Forms of 0.194: `gnusource` (C++ on Linux with `_GNU_SOURCE`: glibc's GNU functions declared, its C23 `strtol` by an
   asm label, `wint_t` unsigned), `enumbase` (an underlying type named through its namespace), `enumelab` (an enum named
   by its elaborated specifier the base's size), `alignmember` (`alignas` before a member and a global; a member's
@@ -8872,22 +8926,23 @@ second, exceptions in libc++ on by default, at 0.193 (the Configuration chosen t
 The owner asked at 0.193 for every form and every library facility of the C and C++ levels the compiler takes, up to
 C++26, to be done. The audit's gaps are steps of their own, a group a step; each moves into its topic when it is done.
 The first group, the platform and the preprocessor, is 0.194's (clang's predefined macros on Linux, asm labels, brace
-elision into records, C23's enums, `<tgmath.h>`, C23's headers, GCC's atomic builtins, `alignas` before a declaration).
+elision into records, C23's enums, `<tgmath.h>`, C23's headers, GCC's atomic builtins, `alignas` before a declaration);
+the second, the program's own file-scope constants, is 0.195's (the Constant evaluation topic: C17's, C23's and C++'s,
+a C23 block's `constexpr`, a local constant its block's own).
 
-1. THE PROGRAM'S OWN FILE-SCOPE CONSTANTS ([expr.const]/2): a `const` or `constexpr` integer at namespace scope in the
-   program -- not a header -- is no constant to the desugaring: `case N - 7:` is refused (`case(bin(-,id('N'),int(7)))`),
-   `enum { E = M + 1 }` too (`enumerator_not_constant`), `struct A { int a[K]; }` has size 0, `T<K>` is a wrong instance
-   and `alignas(K)` does not fold. `cpp_global_const/2` folds a header's constant only (`cpp_hdr_item/2`), and
-   `cpp_fold_const_inits_/4` notes no scalar. An old gap: 0.193 has it too.
-2. THE LEXERS: C23's `u8` character literals, UTF-8 in a character literal, UTF-8 identifiers and universal character
+1. THE LEXERS: C23's `u8` character literals, UTF-8 in a character literal, UTF-8 identifiers and universal character
    names in identifiers.
-3. C++'S CORE LANGUAGE: the order of evaluation C++17 fixes, parenthesized aggregate initialization, `explicit(bool)`,
-   C++20's and C++23's implicit moves, non-type template parameters of class type, and the rest the audit names.
-4. THE ALLOCATION FUNCTIONS: the program's `operator new` and `operator delete`, the aligned, sized, class-specific and
+2. C++'S CORE LANGUAGE: the order of evaluation C++17 fixes, parenthesized aggregate initialization, `explicit(bool)`,
+   C++20's and C++23's implicit moves, non-type template parameters of class type, `decltype((x))` of a variable, which is
+   a reference (the reader keeps no parentheses, so it is `decltype(x)`: an old gap, 0.194 has it too), an enumerator whose
+   initializer names another enum's by its qualified name (`cpp_enum_walk/4` does not fold `scoped(...)`, and the table's
+   answer for the bare name is the first enum's of that name: libc++ 21's `_PartialOrdResult` is right by the order of
+   `<compare>`'s two enums), and the rest the audit names.
+3. THE ALLOCATION FUNCTIONS: the program's `operator new` and `operator delete`, the aligned, sized, class-specific and
    destroying forms, replaceable ones.
-5. libc++'S FACILITIES the fixtures do not reach yet: `<future>`, `std::jthread`, `<regex>`, `std::expected`, `<mdspan>`,
+4. libc++'S FACILITIES the fixtures do not reach yet: `<future>`, `std::jthread`, `<regex>`, `std::expected`, `<mdspan>`,
    `std::flat_map`, `<memory_resource>` and the others the audit lists.
-6. SMALL ONES: an ISO mode (`-std=c17`, `-std=c++17`) predefines `__STRICT_ANSI__` in clang and the GNU modes do not --
+5. SMALL ONES: an ISO mode (`-std=c17`, `-std=c++17`) predefines `__STRICT_ANSI__` in clang and the GNU modes do not --
    it needs the mode in the C store's key and the C++ summaries' keys, since `-std=c23` and `-std=gnu23` read one key
    now; `decltype(x)` and `alignof(decltype(x))` of an aligned variable keep its alignment, the qualifier `aligned(E)`
    sitting in its type, where the alignment is the entity's ([dcl.align]); clang's C extension that types a conditional

@@ -333,7 +333,7 @@ k83 :- check('pp_defs.h is preprocessed (its false group is not C): #if/#elif/#e
       member(typedef(_, [var(mytype, base([], [int]), none)]), Is),
       member(declaration(_, static, _, [var(pp_text, _, str(S))]), Is), atom_codes(A, S), A == 'hello world',
       member(declare(_, base(_, [enum(_, Es)])), Is),
-      member(enumerator('PP_AREA', bin('*', int(3), int(4))), Es), member(enumerator('PP_CAT', int(42)), Es),
+      member(enumerator('PP_AREA', int(12)), Es), member(enumerator('PP_CAT', int(42)), Es),   % C folds an enumerator at the read (0.195)
       member(enumerator('PP_TAKEN', int(1)), Es), member(enumerator('PP_HAS', int(1)), Es), member(enumerator('PP_BITS', int(64)), Es),
       member(enumerator('PP_ZERO', int(7)), Es), member(enumerator('PP_LINE', int(40)), Es) )).
 
@@ -408,7 +408,7 @@ k88 :- check('C23: bool/true/false and nullptr are the language\'s, auto deduces
       member(declaration(_, none, base([], [bool]), [var(f, _, bool(false))]), B),
       member(declaration(_, none, _, [var(p, ptr([], base([], [int])), nullptr)]), B),
       member(declaration(_, none, base([], [int]), [var(n, _, bin('+', id('K'), int(1)))]), B),
-      member(declaration(_, none, _, [var(arr, arr(id('K'), _), none)]), B),   % the bound folds where the size is taken, not at the read
+      member(declaration(_, none, _, [var(arr, arr(int(7), _), none)]), B),   % C folds a bound over a named constant at the read (0.195)
       member(expr(_, assign('=', index(id(arr), int(0)), int(42))), B),
       member(declaration(_, none, _, [var(big, _, int(1000000))]), B),
       member(declaration(_, none, _, [var(d, _, float(15.25))]), B) )).

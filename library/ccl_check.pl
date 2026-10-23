@@ -136,7 +136,7 @@
 ccl_check_units(Units) :- ccl_ensure_globals, ccl_scope_init, ck_note_units(Units), ck_units(Units).
 ccl_check_noted(Units) :- ck_units(Units).                            % on the table the caller built
 ck_note_units([]).
-ck_note_units([unit(Is)|Us]) :- ccl_items_note(Is), ck_note_units(Us).
+ck_note_units([unit(Is)|Us]) :- ccl_items_note_program(Is), ck_note_units(Us).
 ck_units([]).
 ck_units([unit(Is)|Us]) :- ck_items(Is), ck_units(Us).
 ck_trace(T) :- ( nb_current('$cpp_trace', yes) -> print(T), nl ; true ).
@@ -778,7 +778,7 @@ ck_merge_state(_, _, partial).
 ck_stmt(S, dead, dead) :- S \= label(_, _, _), !.   % dead code is not walked -- but a LABEL is, the gotos to it may bring a state (0.133)
 ck_stmt(block(Is), St0, St) :- !, ccl_scope_push, ck_bpath_push, ck_push(St0, St1), ck_stmts(Is, St1, St2), ck_scope_end(St2, St), ck_bpath_pop, ccl_scope_pop.
 ck_stmt('$splice'(Is), St0, St) :- !, ck_stmts(Is, St0, St).
-ck_stmt(declaration(L, Sto, _, Vs), St0, St) :- !, ck_line(L), ( Sto == static -> ck_note_statics(Vs) ; true ), ck_decls(Vs, St0, St).
+ck_stmt(declaration(L, Sto, Base, Vs), St0, St) :- !, ck_line(L), ( Sto == static -> ck_note_statics(Vs) ; true ), ck_decls(Vs, St0, St), ccl_note_block_constants(Base, Vs).   % a C23 `constexpr' local is a constant of its block (0.195)
 ck_stmt(typedef(_, _), St, St) :- !.
 ck_stmt(declare(_, _), St, St) :- !.
 ck_stmt(directive(_, _), St, St) :- !.

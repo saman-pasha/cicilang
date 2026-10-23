@@ -80,6 +80,10 @@ ccl_tag(Tag, Ms) :- ccl_cached_named('$ccl_tag:', Tag, Ms, ccl_tab_find('$ccl_ta
 
 %% ---- constants ---------------------------------------------------------------------
 ccl_enum_value(N, V) :- nb_getval('$ccl_enums', L), memberchk(N-V, L).
+%% THE PROGRAM'S NAMED CONSTANTS (0.195), a table of their own beside the enumerators' ('$ccl_consts', Name-Value, newest
+%% first; ccl_note_own_constants/1): an object is no enumerator to the passes that ask one (`decltype((K))' is a reference,
+%% an enumerator is a prvalue), and a library header's are not in it, as a summary carries none
+ccl_named_constant(N, V) :- nb_current('$ccl_consts', L), memberchk(N-V0, L), !, V = V0.
 %% AN ENUMERATOR'S TYPE IS ITS ENUM IN C++ ([dcl.enum]/5; 0.127), and the enum's name is a type. The table that keeps
 %% the values ('$ccl_enums', Name-Value) keeps the enum too, as an entry of its own, `'$t'(Name)-Tag', beside the value;
 %% and a SCOPED enum's tag as `'$s'(Tag)-1' (C++ asks it: a scoped enum converts to nothing implicitly). An entry of
@@ -107,7 +111,8 @@ ccl_const_eval(bool(true), 1) :- !.                                            %
 ccl_const_eval(comma(A, B), V) :- !, ( ccl_const_eval(A, _) -> true ; A = cast(base(_, [void]), _) ), ccl_const_eval(B, V).   % THE COMMA OPERATOR IS A CONSTANT EXPRESSION (C++11, [expr.const]): the right operand's value, the left one a constant or a `(void)' cast of anything. libc++ writes its conjunction as `_IsSame<__all_dummy<_Preds...>, __all_dummy<((void)_Preds, true)...>>', and unfolded the second instance was keyed by the term's spelling, so `__all<true, true, true>' was FALSE and every tuple constructed from another tuple lost its converting constructor (0.93)
 ccl_const_eval(bool(false), 0) :- !.
 ccl_const_eval(chr(C), C) :- !.
-ccl_const_eval(id(N), V) :- !, \+ ccl_shadowed_constant(N), ccl_enum_value(N, V).   % a name is a constant only where no PLAIN local shadows the enumerator (0.94)
+ccl_const_eval(id(N), V) :- !, ccl_locals(Ls),   % a name is a constant only where no PLAIN local shadows it (0.94; the locals, ccl_frame_constant/3)
+    ( ccl_frame_with(Ls, N, F) -> ccl_frame_constant(F, N, V) ; ccl_body_constant(N, V0) -> V = V0 ; ccl_named_constant(N, V0) -> V = V0 ; ccl_enum_value(N, V) ).
 %% ---- 64-BIT CONSTANT ARITHMETIC (0.94) ------------------------------------------------------------------
 %% cocolog's integers are 61-bit (the finding): `_Tp(1) << 63' folded to 0 and `type(type(~0) ^ __min)' -- how libc++
 %% computes every numeric_limits<...>::max() -- to -1, so a string read, bounded by numeric_limits<streamsize>::max(),
@@ -148,8 +153,19 @@ ccl_const_eval(cond(C, A, B), V) :- !, ccl_const_eval(C, CV), ( CV \== 0 -> ccl_
 ccl_const_eval(bin('<<', A, B), V) :- !, ccl_const_eval(A, X), ccl_const_eval(B, Y), ccl_const_op('<<', X, Y, V0), ccl_shl_wrap(A, V0, V).
 ccl_const_eval(bin(Op, A, B), V) :- ccl_const_eval(A, X), ccl_const_eval(B, Y), ccl_const_op(Op, X, Y, V0), ccl_cv_binary(Op, A, B, X, Y, V0, V).
 %% ... a `const' local with a constant initializer IS the constant (0.63's rule 11, `cpp_note_const'): libc++'s `__mu' writes
-%% `const size_t __indx = is_placeholder<_Ti>::value - 1;' and indexes a tuple by it, and refused as a shadow it never folded
-ccl_shadowed_constant(N) :- ccl_locals(Ls), ccl_in_frames(Ls, N, T), \+ ( ccl_resolve_type(T, base(Q, _)), memberchk(const, Q) ).
+%% `const size_t __indx = is_placeholder<_Ti>::value - 1;' and indexes a tuple by it, and refused as a shadow it never folded.
+%% A LOCAL SHADOWS A CONSTANT UNLESS IT IS ITSELF ONE (0.195): a `const' local was taken for one whatever it held, so a
+%% `const int K' PARAMETER -- or a const local of a value no fold knows -- named the file-scope constant or the enumerator
+%% K: `void g(const int K) { int a[K]; }' had the global's 8 elements where g(2) has 2. A local constant is an entry
+%% `'$cv'(N)-V' of the frame that declares N, so that it leaves with its block -- C++'s const local (cpp_note_const), C23's
+%% `constexpr' at block scope (6.7.1, 6.6/7, ccl_note_block_constants/2), made by the reader, the check and the lowering
+%% where each declares the local -- and the innermost frame that holds N decides: a local of an inner block shadows it. A
+%% C++ body's constants are kept for its walk too ('$cpp_lconsts', dropped where their block's walk ends, cpp_in_frame/1),
+%% for what the walk makes apart from its frames: a lambda's body uses one with no capture ([expr.prim.lambda.capture]/7).
+%% A name no frame holds is the file's: a named constant (ccl_named_constant/2), else an enumerator.
+ccl_frame_with([F|Fs], N, F1) :- ( ( memberchk(N-_, F) ; memberchk('$cv'(N)-_, F) ) -> F1 = F ; ccl_frame_with(Fs, N, F1) ).
+ccl_frame_constant(F, N, V) :- memberchk('$cv'(N)-V0, F), V = V0.
+ccl_body_constant(N, V) :- nb_current('$cpp_lconsts', LC), memberchk(N-V0, LC), !, V = V0.
 %% UNSIGNED ARITHMETIC WRAPS, AND A NEGATIVE OPERAND OF AN UNSIGNED OPERATION IS CONVERTED FIRST (0.128; C 6.3.1.8, 6.2.5/9,
 %% [expr.arith.conv], [basic.fundamental]/2): `~0u / 3' folded to 0 -- `~0u' was -1 and -1 / 3 is 0 -- where it is 0x55555555, `0u - 1' was
 %% -1, `-1 < 0u' held, and `_Static_assert(~0UL / 3 == 0x5555555555555555UL)' failed. The values themselves stay untyped mathematical
