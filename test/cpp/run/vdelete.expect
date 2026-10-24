@@ -1,0 +1,22 @@
+D::new 40
+2
+~D
+~B2
+~B1
+D::delete 40
+D::new 56
+~E
+~D
+~B2
+~B1
+D::delete 56
+~Q
+~P
+P::delete
+~Q
+~P
+, 1
+~Comma
+Comma::delete
+done
+exit 0

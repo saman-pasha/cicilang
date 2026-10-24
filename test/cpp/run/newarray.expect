@@ -1,0 +1,12 @@
+S::new[] 24
+1
+S::delete[] 24
+0
+1
+8 0
+T::new[] 28
+~T 2
+~T 1
+T::delete[]
+caught 3
+exit 0

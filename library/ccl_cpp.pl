@@ -68,7 +68,7 @@
 %% specializations, a template's non-type argument deduced, `[this]' in a
 %% lambda, a lambda in a template's body before its instantiation.
 
-ccl_cpp_units(Units0, Units) :- cpp_ginit_reset, cpp_ns_resolve(Units0, Units1), cpp_register_units(Units1), cpp_units(Units1, Units).
+ccl_cpp_units(Units0, Units) :- cpp_ginit_reset, cpp_alloc_units(Units0, Units00), cpp_ns_resolve(Units00, Units1), cpp_register_units(Units1), cpp_units(Units1, Units).
 %% the unit's initialization lists, empty before anything registers (0.192): the registration emits the program's own
 %% headers' classes and variables, whose statics' initializations and destructors join the first unit's lists
 cpp_ginit_reset :- nb_setval('$cpp_ginit', []), nb_setval('$cpp_ginit_pre', []), nb_setval('$cpp_ginit_fns', []).
@@ -221,7 +221,7 @@ cpp_flush_instances(Is0, Is) :-
 %% the registries that hold class and template BODIES are facts, one row per name: a global list would be copied
 %% whole at every lookup (nb_getval copies), and libc++'s bodies are megabytes (the finding in CLAUDE.md)
 cpp_reset(F/A) :- ( catch(abolish(F/A), _, true) -> true ; true ), dynamic(F/A).
-cpp_class_put(C, Cls) :- assertz('$cpp_cls'(C, Cls)), ( Cls = cls(B, Data, Ms, Ss, Df, Sl) -> assertz('$cpp_clsl'(C, cls(B, Data, Ss, Df, Sl))), cpp_note_static_fns(C, Ms), cpp_note_decls(Ms, C) ; true ).
+cpp_class_put(C, Cls) :- assertz('$cpp_cls'(C, Cls)), ( Cls = cls(B, Data, Ms, Ss, Df, Sl) -> assertz('$cpp_clsl'(C, cls(B, Data, Ss, Df, Sl))), cpp_note_static_fns(C, Ms), cpp_note_decls(Ms, C), cpp_note_alloc_fns(C, Ms) ; true ).
 %% THE LIGHT RECORD (0.119): a class's record is `cls(Base, Data, Members, Statics, Defaults, Slots)' and the members are 97% of it -- every
 %% method with its body -- so a lookup that wanted only the base copied the class: cpp_base_scope alone asked 44,764 times in a std::vector
 %% build, 2.6 seconds of its 9.6 for the copies. `cpp_class_l/2' answers the record WITHOUT the members, `cls(Base, Data, Statics, Defaults,
@@ -234,6 +234,9 @@ cpp_class_put(C, Cls) :- assertz('$cpp_cls'(C, Cls)), ( Cls = cls(B, Data, Ms, S
 cpp_note_static_fns(C, Ms) :- findall(N, ( member(method(_, Qs, _, N, _, _, _), Ms), memberchk(static, Qs), atom(N) ), Ns0), sort(Ns0, Ns), cpp_note_static_fns_(Ns, C).
 cpp_note_static_fns_([], _).
 cpp_note_static_fns_([N|Ns], C) :- assertz('$cpp_sfn'(C, N)), cpp_note_static_fns_(Ns, C).
+%% A CLASS'S OWN ALLOCATION AND DEALLOCATION FUNCTIONS BY KIND (0.202): `'$cpp_alloc_m'(Class, Op)', one fact per kind it declares, written
+%% beside the light record, so that a new-expression and a delete-expression ask a fact of the class and its bases (cpp_alloc_owner/3)
+cpp_note_alloc_fns(C, Ms) :- forall(( cpp_alloc_op(Op), once(( member(M, Ms), cpp_member_named(M, operator(Op)) )), \+ '$cpp_alloc_m'(C, Op) ), assertz('$cpp_alloc_m'(C, Op))).
 %% THE MEMBERS A CLASS ONLY DECLARES (0.153): `'$cpp_decl'(Class, ctor | method(Name), Qualifiers, Parameters)', one fact per
 %% constructor and method whose body is `none', in the order the class declares them, written beside the light record.
 %% cpp_shipped_member/5 asks them of every member the mangler names -- does the shipped library define it? -- and it copied the
@@ -274,7 +277,7 @@ cpp_instance_note(Name, What) :- assertz('$cpp_inst'(Name, What)).
 
 %% ---- the classes of the units: '$cpp_classes' = [C-cls(Base, Data, Members, Statics, Defaults) ...] --------
 cpp_register_units(Units) :-
-    cpp_reset('$cpp_cls'/2), cpp_reset('$cpp_clsl'/2), cpp_reset('$cpp_sfn'/2), cpp_reset('$cpp_sfn_pre'/2), cpp_reset('$cpp_decl'/4), cpp_reset('$cpp_sfold'/3), cpp_reset('$cpp_nenum'/1), cpp_reset('$cpp_enumv'/3), cpp_reset('$cpp_tmpl'/3), cpp_reset('$cpp_fspec'/3), cpp_reset('$cpp_spec'/4), cpp_reset('$cpp_mt'/4), cpp_reset('$cpp_inst'/2), cpp_reset('$cpp_out'/2), cpp_reset('$cpp_ownfn'/2), cpp_reset('$cpp_consteval'/1), cpp_reset('$cpp_cecheck'/3), cpp_reset('$cpp_scell'/2), cpp_reset('$cpp_mdef'/5), cpp_reset('$cpp_extern'/3), cpp_reset('$cpp_friends'/2), cpp_reset('$cpp_extra'/2), cpp_reset('$cpp_base_slot'/3), cpp_reset('$cpp_primary_moved'/2), cpp_reset('$cpp_vbase'/1), cpp_reset('$cpp_poly_extra'/3), cpp_reset('$cpp_poly_path'/3), cpp_reset('$cpp_hdrfn'/1), cpp_reset('$cpp_nv_base'/2), cpp_reset('$cpp_vb_holder'/2), cpp_reset('$cpp_lvb'/3), cpp_reset('$cpp_vprim'/2), cpp_reset('$cpp_vprim_ind'/2), cpp_reset('$cpp_vb_claim'/3),
+    cpp_reset('$cpp_cls'/2), cpp_reset('$cpp_clsl'/2), cpp_reset('$cpp_sfn'/2), cpp_reset('$cpp_alloc_m'/2), cpp_reset('$cpp_sfn_pre'/2), cpp_reset('$cpp_decl'/4), cpp_reset('$cpp_sfold'/3), cpp_reset('$cpp_nenum'/1), cpp_reset('$cpp_enumv'/3), cpp_reset('$cpp_tmpl'/3), cpp_reset('$cpp_fspec'/3), cpp_reset('$cpp_spec'/4), cpp_reset('$cpp_mt'/4), cpp_reset('$cpp_inst'/2), cpp_reset('$cpp_out'/2), cpp_reset('$cpp_ownfn'/2), cpp_reset('$cpp_consteval'/1), cpp_reset('$cpp_cecheck'/3), cpp_reset('$cpp_scell'/2), cpp_reset('$cpp_mdef'/5), cpp_reset('$cpp_extern'/3), cpp_reset('$cpp_friends'/2), cpp_reset('$cpp_extra'/2), cpp_reset('$cpp_base_slot'/3), cpp_reset('$cpp_primary_moved'/2), cpp_reset('$cpp_vbase'/1), cpp_reset('$cpp_poly_extra'/3), cpp_reset('$cpp_poly_path'/3), cpp_reset('$cpp_hdrfn'/1), cpp_reset('$cpp_nv_base'/2), cpp_reset('$cpp_vb_holder'/2), cpp_reset('$cpp_lvb'/3), cpp_reset('$cpp_vprim'/2), cpp_reset('$cpp_vprim_ind'/2), cpp_reset('$cpp_vb_claim'/3),
     cpp_reset('$cpp_dflt'/2), cpp_reset('$cpp_extern_full'/3), cpp_reset('$cpp_friends_pending'/1), cpp_reset('$cpp_auto_later'/2), cpp_reset('$cpp_localcls'/2), cpp_reset('$cpp_localst'/2), cpp_reset('$cpp_closure_made'/2), cpp_reset('$cpp_lib_closure'/1), cpp_reset('$cpp_lambda_cls'/5), cpp_reset('$cpp_srcloc'/2), cpp_reset('$cpp_pf_closure'/3), cpp_reset('$cpp_pf_local'/3), cpp_reset('$cpp_srcloc_fn'/1), cpp_note_srcloc_fns(Units), nb_setval('$cpp_fsig', none), nb_setval('$cpp_dflt_site', none), nb_setval('$cpp_lambda_memo', []), cpp_reset('$cpp_dtor_def'/1), nb_setval('$cpp_lambdas', 0), nb_setval('$cpp_gen_invs', []), nb_setval('$cpp_caller', none), nb_setval('$cpp_obj_cat', none), nb_setval('$cpp_closure_this', []), nb_setval('$cpp_temps', none), nb_setval('$cpp_making', []), nb_setval('$cpp_obj_const', none),
     nb_setval('$cpp_nontrivial', []), nb_setval('$cpp_req_ctx', none), nb_setval('$cpp_nv', none), nb_setval('$cpp_lconsts', []),
     cpp_reset('$cpp_acc'/3), cpp_reset('$cpp_afriend'/2), cpp_reset('$cpp_bacc'/3), cpp_reset('$cpp_static_abi'/1), nb_setval('$cpp_body_ctx', none), nb_setval('$cpp_cur_fn', none), nb_setval('$cpp_acc_scope', none), nb_setval('$cpp_obj_expr', none),   % the access of a program class's members and its friends (0.117)
@@ -291,6 +294,7 @@ cpp_register_units(Units) :-
     cpp_reset('$cpp_extern_var'/1), forall(member(unit(Is), Units), cpp_note_extern_vars(Is)),   % the variables declared `extern', whose definitions keep external linkage (cpp_inline_storage/3, 0.192)
     cpp_reset('$cpp_fwd'/1), forall(member(unit(Is), Units), cpp_note_fwd_classes(Is)),   % the classes the program declares, a header it reads in place among it (cpp_declared_class/1, 0.201)
     cpp_reset('$cpp_hdr_pre'/2), forall(member(unit(Is), Units), cpp_register_(Is)),
+    cpp_alloc_declare_implicit,                                                          % the replaceable allocation functions, where the program declared none (0.202)
     forall(member(unit(Is), Units), cpp_include_fns(Is)),                                % the program's own headers' functions, once every name is registered
     forall(retract('$cpp_hdr_pre'(_, Ps)), cpp_ginit_pre_put(Ps)).                       % a header class's static members that no walk of its header put back (cpp_hdr_pre_apart/2)
 cpp_note_extern_vars([]).
@@ -425,13 +429,14 @@ cpp_ita_member_text(operator(Op), [], Code) :- cpp_ita_unary(Op, Code), !.      
 cpp_ita_member_text(F, _, T) :- cpp_ita_member_name(F, T).
 cpp_ita_member_name('$ctor', 'C1') :- !.
 cpp_ita_member_name('$dtor', 'D1') :- !.
+cpp_ita_member_name('$dtor_del', 'D0') :- !.                                    % the DELETING destructor (0.202)
 cpp_ita_member_name(operator(Op), Code) :- !, cpp_ita_op(Op, Code).                      % an operator by the ABI's two-letter code: `operator>>' is `rs'
 cpp_ita_member_name(F, T) :- atom(F), ccl_byte_length(F, L), atomic_list_concat([L, F], T).
 cpp_ita_op('+', pl).    cpp_ita_op('-', mi).    cpp_ita_op('*', ml).    cpp_ita_op('/', dv).    cpp_ita_op('%', rm).    cpp_ita_op('&', an).    cpp_ita_op('|', or).    cpp_ita_op('^', eo).
 cpp_ita_op('=', 'aS').  cpp_ita_op('+=', 'pL'). cpp_ita_op('-=', 'mI'). cpp_ita_op('*=', 'mL'). cpp_ita_op('/=', 'dV'). cpp_ita_op('%=', 'rM'). cpp_ita_op('&=', 'aN'). cpp_ita_op('|=', 'oR'). cpp_ita_op('^=', 'eO').
 cpp_ita_op('<<', ls).   cpp_ita_op('>>', rs).   cpp_ita_op('<<=', 'lS'). cpp_ita_op('>>=', 'rS'). cpp_ita_op('==', eq). cpp_ita_op('!=', ne). cpp_ita_op('<', lt). cpp_ita_op('>', gt). cpp_ita_op('<=', le). cpp_ita_op('>=', ge). cpp_ita_op('<=>', ss).
 cpp_ita_op('!', nt).    cpp_ita_op('&&', aa).   cpp_ita_op('||', oo).   cpp_ita_op('++', pp).   cpp_ita_op('--', mm).   cpp_ita_op(',', cm).    cpp_ita_op('->*', pm).  cpp_ita_op('->', pt).
-cpp_ita_op(co_await, aw). cpp_ita_op('()', cl).   cpp_ita_op('[]', ix).   cpp_ita_op('~', co).    cpp_ita_op(new, nw).    cpp_ita_op(delete, dl).
+cpp_ita_op(co_await, aw). cpp_ita_op('()', cl).   cpp_ita_op('[]', ix).   cpp_ita_op('~', co).    cpp_ita_op(new, nw).    cpp_ita_op(delete, dl).   cpp_ita_op('new[]', na).   cpp_ita_op('delete[]', da).   % the array forms are other functions (0.202)
 cpp_ita_unary('-', ng). cpp_ita_unary('+', ps). cpp_ita_unary('*', de). cpp_ita_unary('&', ad).
 %% the prefix: the namespace path, then the class chain (plain(Name) or inst(Name, Args) per level), each level a
 %% candidate once complete; a level already in the table replaces everything spelled so far by its code
@@ -800,10 +805,14 @@ cpp_use_fn(F, Ps, Name) :-
     (   '$cpp_fn'(F, _, Ps, yes, lazy(function(L, Sto, Ret, N, Ps2, V, Body))), \+ cpp_instance_done(Name), \+ cpp_making(Name)
     ->  cpp_trace(use_fn(Name, emit)), nb_getval('$cpp_making', M0), nb_setval('$cpp_making', [Name|M0]),                % IN PROGRESS while it emits, NOTED after (0.69's rule, in its fourth place): noted first, an emission a candidate's check abandoned left the name behind, and the real call to `__convert_to_integral' had no declaration and no type
         ( '$cpp_friend_in'(F, Ps, FC) -> Walk = cpp_in_class(FC, cpp_item(function(L, Sto, Ret, N, Ps2, V, Body), Items)) ; Walk = cpp_item(function(L, Sto, Ret, N, Ps2, V, Body), Items) ),   % a hidden friend's body in its class (0.112)
-        (   catch(\+ \+ cpp_as_lib(yes, ( cpp_isolated(Walk), cpp_add_instance_items(Items) )), E, ( nb_setval('$cpp_making', M0), throw(E) ))   % inside `\+ \+': the items go to the facts, the walk's intermediates are reclaimed
+        (   catch(\+ \+ cpp_as_lib(yes, ( cpp_isolated(Walk), cpp_add_instance_items(Items), cpp_declare_emitted(Items) )), E, ( nb_setval('$cpp_making', M0), throw(E) ))   % inside `\+ \+': the items go to the facts, the walk's intermediates are reclaimed
         ->  nb_setval('$cpp_making', M0), cpp_instance_note(Name, hdr)
         ;   nb_setval('$cpp_making', M0), cpp_refuse(0, function_not_emitted(Name)) )   % never silently: the call would be emitted and the definition not, and the linker would say so
     ;   ( cpp_instance_done(Name) -> cpp_trace(use_fn(Name, done)) ; cpp_making(Name) -> cpp_trace(use_fn(Name, making)) ; '$cpp_fn'(F, _, Ps, yes, O) -> cpp_trace(use_fn(Name, origin(O))) ; cpp_c_decl_current(F, Ps), cpp_trace(use_fn(Name, no_entry)) ) ).
+%% ... DECLARED UNDER THE NAME IT IS EMITTED UNDER (0.202): the call names a header's overload by the parameters the pre-pass noted, raw, and the
+%% registration declared it by the parameters it resolved -- `operator==(coroutine_handle<>, coroutine_handle<>)' is `op.eq.2.coroutine_handle...'
+%% to the call and `...coroutine_handle.void...' to the table, so `h == nullptr' found its operator emitted and undeclared (`no_operator(==)')
+cpp_declare_emitted(Items) :- forall(( member(function(_, _, R, FN, FPs, V, _), Items), atom(FN), \+ ccl_declared(FN, fn(_, _, _)) ), ccl_gdeclare([FN-fn(R, FPs, V)])).
 %% THE TABLE HOLDS ONE TYPE PER NAME, so a C function that shares its name with a library template is called under whichever
 %% declaration the table kept (0.117): `std::remove(path)' after <fstream> -- the algorithm's template, `remove(_ForwardIterator,
 %% _ForwardIterator, const _Tp &)', came first in the summary and the lowering met `_ForwardIterator' in the call of stdio's
@@ -1223,11 +1232,13 @@ cpp_init_expr(E0, E) :- cpp_expr(none, E0, E).
 cpp_lazy_var(L, N, T0) :- cpp_mangled_var(N, Name), \+ cpp_instance_done(Name), !,
     cpp_instance_note(Name, mangled),
     ( catch(cpp_type(T0, T), _, fail) -> true ; T = T0 ),
+    ( catch(cpp_class_of_type(T, _), _, fail) -> true ; true ),   % ITS CLASS REGISTERED, its struct emitted (0.202): `std::nothrow' handed to `operator new(std::size_t, const std::nothrow_t &)' calls no member of its class, and the lowering met the raw class
     ccl_declare(Name, T), nb_getval('$cpp_gvar', G), nb_setval('$cpp_gvar', [N-Name|G]),
     cpp_as_lib(yes, cpp_add_instance_items([declaration(L, extern, T, [var(Name, T, none)])])).
 cpp_lazy_var(_, _, _).
-cpp_mangled_var(N, Name) :- atom(N), \+ cpp_c_name(N), cpp_hdr_ns(N, Path), Path = [_|_],
-    cpp_mangle_ns(Path, NsText), ccl_byte_length(N, NL), atomic_list_concat(['_ZN', NsText, NL, N, 'E'], Name).
+cpp_mangled_var(N, Name) :- atom(N), \+ cpp_c_name(N), cpp_hdr_ns(N, Path), Path = [_|_], ccl_byte_length(N, NL),
+    (   Path == [std] -> atomic_list_concat(['_ZSt', NL, N], Name)   % DIRECTLY IN std an unscoped name, `_ZSt7nothrow' (0.202; the Itanium ABI's <unscoped-name>): libc++ declares `std::nothrow' in the unversioned namespace, and `_ZNSt7nothrowE' named nothing at the link
+    ;   cpp_mangle_ns(Path, NsText), atomic_list_concat(['_ZN', NsText, NL, N, 'E'], Name) ).
 %% ... and the name a program writes is that symbol, the header's items loaded on the first ask as a function's are
 cpp_global_var(N, Name) :- nb_getval('$cpp_gvar', G), memberchk(N-Name, G), !.
 cpp_global_var(N, Name) :- atom(N), cpp_hdr_item(N, _), cpp_hdr_load(N), nb_getval('$cpp_gvar', G), memberchk(N-Name, G), !.
@@ -2343,7 +2354,7 @@ cpp_path_class(scoped(_, Last), C) :- cpp_path_class(Last, C).
 cpp_norm_members(Ms, Ms1) :- cpp_norm_members(Ms, [], Ms1).
 cpp_norm_members(Ms, Bases, Ms1) :-
     ( member(method(_, _, _, operator(Op), _, _, default), Ms), memberchk(Op, ['==', '<=>']) -> nb_setval('$cpp_norm_all', Ms), nb_setval('$cpp_norm_bases', Bases) ; true ),   % the defaulted comparisons below need the data members and the bases: kept only where one is there (nb_setval copies)
-    cpp_trailing_rets(Ms, MsT), cpp_auto_members(MsT, Ms00), cpp_default_vdtor(Ms00, Bases, Ms0), cpp_norm_members_(Ms0, 0, Ms1).
+    cpp_trailing_rets(Ms, MsT), cpp_auto_members(MsT, Ms00), cpp_alloc_members(Ms00, Ms01), cpp_default_vdtor(Ms01, Bases, Ms0), cpp_norm_members_(Ms0, 0, Ms1).
 %% A DEFAULTED VIRTUAL DESTRUCTOR IS A DESTRUCTOR OF ITS OWN (0.177): `virtual ~B() = default;', `~D() override = default;' and `~D() =
 %% default;' over a base whose destructor is virtual are written with an empty body, which cpp_dtor_body completes as it completes the
 %% implicit one, so the table has its slots at its place. Dropped as the implicit destructor, a class whose one virtual function it was
@@ -2352,6 +2363,13 @@ cpp_default_vdtor(Ms, Bases, Ms1) :-
     (   memberchk(dtor(_, Qs, default), Ms), ( memberchk(virtual, Qs) ; memberchk(override, Qs) ; cpp_raw_bases_virtual_dtor(Bases) )
     ->  cpp_default_vdtor_(Ms, Ms1)
     ;   Ms1 = Ms ).
+%% A CLASS'S ALLOCATION AND DEALLOCATION FUNCTIONS ARE STATIC MEMBERS whether or not they say so ([class.free]/1, /3; 0.202): the probe's
+%% `void *operator new[](std::size_t)' took a `this', and a new-expression handed it the size for one; a usual deallocation function's
+%% block is an owner (cpp_alloc_own_params/4)
+cpp_alloc_members([], []).
+cpp_alloc_members([method(L, Qs0, R, operator(Op), Ps0, V, B)|Ms0], [method(L, Qs, R, operator(Op), Ps, V, B)|Ms]) :- cpp_alloc_op(Op), !,
+    ( memberchk(static, Qs0) -> Qs = Qs0 ; Qs = [static|Qs0] ), cpp_alloc_own_params(class, Op, Ps0, Ps), cpp_alloc_members(Ms0, Ms).
+cpp_alloc_members([M|Ms0], [M|Ms]) :- cpp_alloc_members(Ms0, Ms).
 cpp_default_vdtor_([], []).
 cpp_default_vdtor_([dtor(L, Qs, default)|Ms], [dtor(L, Qs, block([]))|Ms1]) :- !, cpp_default_vdtor_(Ms, Ms1).
 cpp_default_vdtor_([M|Ms], [M|Ms1]) :- cpp_default_vdtor_(Ms, Ms1).
@@ -2830,11 +2848,15 @@ cpp_use_static(C, N) :-
     ->  cpp_trace(use_static(C, N)),
         nb_getval('$cpp_making', M0), nb_setval('$cpp_making', [static(C, N)|M0]),
         cpp_lazy_lib(C, Lib),
-        (   catch(\+ \+ cpp_as_lib(Lib, ( cpp_isolated(cpp_in_class(C, cpp_static_decls(0, C, [N-T], Ds))), cpp_add_instance_items(Ds) )),
+        (   catch(\+ \+ cpp_as_lib(Lib, ( cpp_isolated(cpp_in_class(C, cpp_static_decls(0, C, [N-T], Ds))), cpp_add_instance_items(Ds), cpp_static_gdeclare(Ds) )),
                   E, ( nb_setval('$cpp_making', M0), throw(E) ))
         ->  nb_setval('$cpp_making', M0), cpp_instance_note(static(C, N), C)
         ;   nb_setval('$cpp_making', M0), cpp_refuse(0, static_not_emitted(C, N)) )
     ;   true ).
+%% ... ITS GLOBAL DECLARED UNDER ITS NAME, its type resolved (0.202): a library class's statics are declared at its registration under the
+%% compiler's own name with the table's raw type, and a shipped one's global is its Itanium symbol, so `__f->id.__get()' in libc++'s
+%% `locale(const locale &, _Facet *)' had an object of no type and stayed a raw member call (`type(unknown)': every program facet)
+cpp_static_gdeclare(Ds) :- forall(( member(declaration(_, _, _, Vs), Ds), member(var(VN, VT, _), Vs), atom(VN) ), ccl_gdeclare([VN-VT])).
 %% A STATIC DATA MEMBER A LIBRARY HEADER DECLARES AND THE SHIPPED LIBRARY DEFINES -- every facet's `static locale::id
 %% id', `_ZNSt3__15ctypeIcE2idE' -- is named by its Itanium symbol, where it is declared (extern) and where it is
 %% used; one with its initializer in the class is this compiler's own definition, under its own name (0.45)
@@ -3327,6 +3349,7 @@ cpp_param_fn_type(ptr(Q, T), ptr(Q1, T)) :- !, cpp_no_cv(Q, Q1).
 cpp_param_fn_type(T, T).
 cpp_no_cv(Q, Q1) :- findall(X, ( member(X, Q), X \== const, X \== volatile ), Q1).
 cpp_cv_key(Q, CV) :- findall(X, ( member(X, [const, volatile]), memberchk(X, Q) ), CV).
+cpp_free_operator(Op, Ps, Name) :- cpp_alloc_op(Op), cpp_alloc_shape(Ps, Sh), cpp_alloc_sym(Op, Sh, Name), !.   % A REPLACEABLE ALLOCATION OR DEALLOCATION FUNCTION IS ITS ITANIUM SYMBOL (0.202; [replacement.functions]): the program's `void *operator new(std::size_t)' is `_Znwm', which replaces the library's at the link
 cpp_free_operator(Op, Ps, Name) :- length(Ps, K), cpp_op_word(Op, W), atomic_list_concat(['op.', W, '.', K], Name).
 cpp_op_word('+', plus) :- !.        cpp_op_word('-', minus) :- !.       cpp_op_word('*', times) :- !.       cpp_op_word('/', divide) :- !.     cpp_op_word('%', modulo) :- !.
 cpp_op_word('==', eq) :- !.         cpp_op_word('!=', ne) :- !.         cpp_op_word('<', lt) :- !.          cpp_op_word('>', gt) :- !.         cpp_op_word('<=', le) :- !.        cpp_op_word('>=', ge) :- !.
@@ -3336,6 +3359,7 @@ cpp_op_word('&&', and) :- !.        cpp_op_word('||', or) :- !.         cpp_op_w
 cpp_op_word('++', inc) :- !.        cpp_op_word('--', dec) :- !.        cpp_op_word('=', assign) :- !.      cpp_op_word('->', arrow) :- !.
 cpp_op_word('<<=', shl_assign) :- !. cpp_op_word('>>=', shr_assign) :- !. cpp_op_word('&=', bitand_assign) :- !. cpp_op_word('|=', bitor_assign) :- !. cpp_op_word('^=', bitxor_assign) :- !.
 cpp_op_word(co_await, co_await) :- !.
+cpp_op_word(new, new) :- !.         cpp_op_word('new[]', new_array) :- !. cpp_op_word(delete, delete) :- !. cpp_op_word('delete[]', delete_array) :- !.   % `op.new.2', `C.op.delete.void_p' (0.202), where the word was the codes of the name
 cpp_op_word(conv(T), W) :- !, cpp_type_key(T, K), atomic_list_concat([conv, K], '_', W).                 % operator bool(): op.conv_bool
 cpp_op_word(literal(S), W) :- !, atom_concat(literal_, S, W).                                          % operator"" _km: op.literal__km.1 (0.117)
 cpp_op_word(Op, W) :- atom_codes(Op, Cs), atomic_list_concat([op|Cs], '_', W).
@@ -3542,6 +3566,7 @@ cpp_final_overrider(C, M, K, Impl-X) :- cpp_class(C, cls(B, _, Ms, _, _, _)),
     ;   ( B == none -> Bs0 = [] ; Bs0 = [B] ), ( '$cpp_extra'(C, Es) -> append(Bs0, Es, Bs) ; Bs = Bs0 ),
         findall(F, ( member(Y, Bs), cpp_final_overrider(Y, M, K, F) ), Fs0), sort(Fs0, Fs),
         member(Impl-X, Fs), \+ ( member(_-X2, Fs), X2 \== X, cpp_derives(X2, X) ), ! ).
+cpp_primary_entry(L, C, '$dtor_del', _, _, _, _, id(D0), Fs) :- cpp_d0_fn(L, C, D0, Fs), !.   % THE DELETING DESTRUCTOR (0.202): the class's own D0, made with its table (cpp_d0_fn/4)
 cpp_primary_entry(L, C, M, K, Ret, Ps, V, id(TN), [Fn]) :- cpp_final_impl(C, M, K, IE, Sub), !,
     cpp_slot_name(M, K, SN), atomic_list_concat([C, '.thunkp', Sub, '.', SN], TN), cpp_vt_owner(C, Owner), cpp_this_type(Owner, [], ThisT),
     cpp_mk_thunk(L, TN, IE, Ret, Ps, V, ThisT, cast(ptr([], base([], [typedef(C)])), id(this)), Fn).   % the complete object: the call's own conversion moves it to the path
@@ -3828,26 +3853,12 @@ cpp_expr(Ctx, decay_copy(X), E) :- !, cpp_expr(Ctx, X, X1),                     
     (   ccl_type_of(X1, T0), T0 \== unknown
     ->  cpp_decayed(T0, T), ( cpp_class_of_type(T, C) -> ( cpp_dtor(C, _), cpp_lvalue(X1) -> cpp_refuse(0, copy_of_a_class_with_destructor(C)) ; E = X1 ) ; E = cast(T, X1) )
     ;   E = X1 ).
-cpp_expr(Ctx, new(T0, As), E) :- !, cpp_type(T0, T), cpp_exprs(Ctx, As, As1), ( cpp_class_of_type(T, CN) -> cpp_check_access(Ctx, CN, '$ctor') ; true ), cpp_new(T, As1, E).
-cpp_expr(Ctx, new_default(T0), E) :- !, cpp_type(T0, T), ( cpp_class_of_type(T, CN) -> cpp_check_access(Ctx, CN, '$ctor') ; true ), cpp_new_default(T, E).   % `new T' with no initializer (0.127)
-%% `new T[n]()' AND `new T[n]{}' VALUE-INITIALIZE every element ([expr.new]/24), which for a scalar and for a
-%% class with nothing to run is its zero bytes -- `calloc' exactly. libc++'s `make_unique<_Tp[]>(__n)' is
-%% `unique_ptr<_Tp>(new _Up[__n]())', the one place the form is asked for. An element whose class has a
-%% constructor or a destructor would need that constructor over each element and the destructor over each at
-%% `delete[]', which needs the ABI's ARRAY COOKIE (the count written before the first element) that nothing here
-%% writes: refused by name, as the braced item list is.
-cpp_expr(Ctx, new_array_init(T0, N, Items), E) :- cpp_type(T0, T), cpp_class_of_type(T, C), \+ cpp_trivial_class(C), !, cpp_expr(Ctx, N, N1), cpp_new_objects(Ctx, T, C, N1, Items, E).
-cpp_expr(Ctx, new_array_init(T0, N, []), E) :- !, cpp_type(T0, T), cpp_expr(Ctx, N, N1),
-    E = cast(ptr([], T), call(id(calloc), [N1, sizeof_type(T)])).
-cpp_expr(Ctx, new_array_init(T0, N, Items), E) :- !, cpp_type(T0, T), cpp_expr(Ctx, N, N1), cpp_new_scalars(Ctx, T, N1, Items, E).   % `new int[n]{a, b}': the items, the rest zero
-cpp_expr(Ctx, new_at(Ps, N0), E) :- !, cpp_exprs(Ctx, Ps, Ps1),
-    (   N0 = new(T0, As) -> cpp_type(T0, T), cpp_exprs(Ctx, As, As1), cpp_new_at(Ps1, T, As1, E)
-    ;   N0 = new_default(T0) -> cpp_type(T0, T), cpp_new_at(default, Ps1, T, [], E)   % `new (p) T' (0.127)
-    ;   N0 = new_array(T0, N), Ps1 = [P1] -> cpp_new_at_array(Ctx, P1, T0, N, none, E)
-    ;   N0 = new_array_init(T0, N, Items), Ps1 = [P1] -> cpp_new_at_array(Ctx, P1, T0, N, Items, E)
-    ;   cpp_refuse(0, placement_new_array) ).
-cpp_expr(Ctx, new_array(T0, N), E) :- cpp_type(T0, T), cpp_class_of_type(T, C), \+ cpp_trivial_class(C), !, cpp_expr(Ctx, N, N1), cpp_new_objects(Ctx, T, C, N1, [], E).
-cpp_expr(Ctx, new_array(T0, N), new_array(T, N1)) :- !, cpp_type(T0, T), cpp_expr(Ctx, N, N1).
+cpp_expr(Ctx, global(X), E) :- !, cpp_new_expr(Ctx, yes, [], X, E).   % `::new', `::delete': the global allocation and deallocation functions alone ([expr.new]/12, [expr.delete]/9; 0.202)
+cpp_expr(Ctx, X, E) :- cpp_new_form(X), !, cpp_new_expr(Ctx, no, [], X, E).   % a new- or a delete-expression (cpp_new_expr/5, the allocation functions' section)
+cpp_expr(_, coro_size, coro_size) :- !.                               % a coroutine state's size and block, the lowering's (0.202)
+cpp_expr(_, coro_mem, coro_mem) :- !.
+cpp_expr(_, alloc(M, T, C), alloc(M, T, C)) :- !.                    % the allocation and the deallocation the desugaring makes, whole where it makes them (0.202)
+cpp_expr(_, dealloc(D, F, X), dealloc(D, F, X)) :- !.
 cpp_expr(Ctx, cast(T0, X), E) :- !, cpp_type(T0, T), cpp_expr(Ctx, X, X1), cpp_cast_to(X1, T, X2), ( cpp_cast_made(T, X1, X2) -> E = X2 ; E = cast(T, X2) ).   % `(long) pos': a class value through its conversion operator, an explicit one too
 cpp_expr(_, tmpl(N, Args0), E) :- atom(N), cpp_variable_template(N), !, cpp_targ_values(Args0, Args), cpp_instantiate_variable(N, Args, E).   % A VARIABLE TEMPLATE'S ID AS A BARE EXPRESSION, `__is_tuple_v<_Tuple1>' in a conjunction (0.50 had the form read as a type): unevaluated it kept the whole `&&' from folding, and the enable_if behind libc++'s piecewise key extraction came out false for every string key
 cpp_expr(_, ccast(functional, base(_, [void]), none), cast(base([], [void]), int(0))) :- !.   % `void()', which the reader gives as a functional cast of nothing: the void value
@@ -3861,8 +3872,6 @@ cpp_expr(_, sizeof_type(T0), sizeof_type(T)) :- !, cpp_type(T0, T),
 cpp_expr(Ctx, compound_lit(T0, init(Items)), E) :- cpp_designated(Items), cpp_type(T0, T), cpp_class_of_type(T, C), cpp_class_l(C, cls(_, Data, _, _, _)), cpp_agg_slots(Items, Data, 0, [], _), !,
     cpp_agg_values(Data, Items, Vs0), cpp_exprs(Ctx, Vs0, Vs), cpp_agg_temp(T, C, Data, Vs, E).
 cpp_expr(Ctx, compound_lit(T0, I), compound_lit(T, I1)) :- !, cpp_type(T0, T), cpp_expr(Ctx, I, I1).
-cpp_expr(Ctx, delete(X), E) :- !, cpp_expr(Ctx, X, X1), ( cpp_pointee_class_of(X1, DC), cpp_dtor(DC, _) -> cpp_check_access(Ctx, DC, '$dtor') ; true ), cpp_delete(X1, E).   % ... and where one is deleted (0.127)
-cpp_expr(Ctx, delete_array(X), E) :- !, cpp_expr(Ctx, X, X1), cpp_delete_array(X1, E).
 %% `Gen{h}' inside the class template Gen is read as a functional cast (the reader knows Gen as a template there):
 %% to an AGGREGATE of another class's value it is LIST-INITIALIZATION ([dcl.init.list]), the first member from it --
 %% a coroutine's `return Gen{handle}' (0.108)
@@ -4128,7 +4137,7 @@ cpp_thunk_entry(L, C, _, S, M, K, Ret, Ps, V, Off, ThisT, _, id(E), Fs) :- cpp_f
     ;   cpp_slot_name(M, K, SN), atomic_list_concat([C, '.thunk', S, '.', SN], E),
         cpp_mk_thunk(L, E, IE, Ret, Ps, V, ThisT, cast(ptr([], base([], [typedef(C)])), bin('-', cast(ptr([], base([], [char])), id(this)), Off)), Fn), Fs = [Fn] ).
 cpp_thunk_entry(L, C, N, S, M, K, Ret, Ps, V, Off, ThisT, DyingT, id(TN), [function(L, static, Ret, TN, [param(TT, this)|Ps1], V, Body)]) :-
-    ( memberchk(M, ['$dtor', '$dtor_del']) -> cpp_dtor(C, Impl), \+ cpp_dtor(N, Impl), TT = DyingT ; cpp_slot_impl(C, M, K, Impl), \+ cpp_slot_impl(N, M, K, Impl), TT = ThisT ), !,
+    ( M == '$dtor' -> cpp_dtor(C, Impl), \+ cpp_dtor(N, Impl), TT = DyingT ; M == '$dtor_del' -> cpp_d0_name(C, Impl), \+ cpp_d0_name(N, Impl), TT = DyingT ; cpp_slot_impl(C, M, K, Impl), \+ cpp_slot_impl(N, M, K, Impl), TT = ThisT ), !,   % a deleting destructor's thunk moves `this' to the complete object and deletes it there (0.202)
     cpp_slot_name(M, K, SN), atomic_list_concat([C, '.thunk', S, '.', SN], TN),
     cpp_thunk_params(Ps, 1, Ps1, Ids),
     Adj = cast(ptr([], base([], [typedef(C)])), bin('-', cast(ptr([], base([], [char])), id(this)), Off)),
@@ -4138,7 +4147,7 @@ cpp_thunk_entry(L, C, N, S, M, K, Ret, Ps, V, Off, ThisT, DyingT, id(TN), [funct
 cpp_thunk_entry(L, C, N, S, M, K, Ret, Ps, V, Off, ThisT, _, id(TN), [Fn]) :- cpp_poly_hops(C, S, NHops), cpp_vprim_far(C, N, NHops, M, K, _, _), !,   % a nearly empty primary virtual base's own slot, the base claimed by another sub-object (0.174): through the complete object, as an override is
     cpp_slot_impl(N, M, K, Impl), cpp_slot_name(M, K, SN), atomic_list_concat([C, '.thunk', S, '.', SN], TN),
     cpp_mk_thunk(L, TN, Impl, Ret, Ps, V, ThisT, cast(ptr([], base([], [typedef(C)])), bin('-', cast(ptr([], base([], [char])), id(this)), Off)), Fn).
-cpp_thunk_entry(_, _, N, _, M, K, _, _, _, _, _, _, E, []) :- ( memberchk(M, ['$dtor', '$dtor_del']) -> cpp_dtor(N, Impl) ; cpp_slot_def(N, M, K, Impl) ) -> E = id(Impl) ; E = nullptr.
+cpp_thunk_entry(_, _, N, _, M, K, _, _, _, _, _, _, E, []) :- ( M == '$dtor' -> cpp_dtor(N, Impl) ; M == '$dtor_del' -> cpp_d0_name(N, Impl) ; cpp_slot_def(N, M, K, Impl) ) -> E = id(Impl) ; E = nullptr.
 %% a thunk's parameters, each named for the call it makes: an unnamed one, or one whose name is no atom, `$t<I>' (0.141: the
 %% instance thunk's copy of this predicate, further down, was joined to it by cocolog and answered second)
 cpp_thunk_params([], _, [], []).
@@ -5301,9 +5310,9 @@ cpp_stmt_(Ctx, if_consteval(L, Neg, T, E), ifce(L, CT1, RT1)) :- !,
 %% `await_resume()'. The lowering is LLVM's switch-resumed coroutine.
 cpp_stmt_(Ctx, co_return(L, none), S) :- !, cpp_stmt(Ctx, block([expr(L, call(member(id('$promise'), return_void), [])), coro_return(L)]), S).
 cpp_stmt_(Ctx, co_return(L, E), S) :- !, cpp_stmt(Ctx, block([expr(L, call(member(id('$promise'), return_value), [E])), coro_return(L)]), S).
-cpp_stmt_(_, coro_begin(L, P), coro_begin(L, P)) :- !.
+cpp_stmt_(Ctx, coro_begin(L, P, As), coro_begin(L, P, A, F)) :- !, cpp_coro_alloc(Ctx, L, As, A, F).   % the coroutine state's allocation (0.202)
 cpp_stmt_(_, coro_return(L), coro_return(L)) :- !.
-cpp_stmt_(_, coro_done(L), coro_done(L)) :- !.
+cpp_stmt_(_, coro_done(L), coro_done(L, D)) :- !, cpp_coro_dealloc(D).
 cpp_stmt_(Ctx, coro_body(L, S0), coro_body(L, S)) :- !, cpp_stmt(Ctx, S0, S).
 cpp_stmt_(Ctx, coro_ret(L, E0), S) :- !, cpp_stmt(Ctx, return(L, E0), S0), ( cpp_coro_ret(S0, S) -> true ; cpp_refuse(L, coroutine_return_object) ).
 cpp_stmt_(Ctx, coro_falloff(L), S) :- !, ( cpp_promise_class(C), cpp_has_member(C, return_void) -> cpp_stmt(Ctx, expr(L, call(member(id('$promise'), return_void), [])), S) ; S = block([]) ).
@@ -5442,7 +5451,8 @@ cpp_coro_skeleton(_, _, Body, Body) :- \+ cpp_has_coro(Body), !.
 cpp_coro_skeleton(Ret, Params, block(Ss), block(Sk)) :- ( cpp_promise_type(Ret, Params, PT) -> true ; cpp_refuse(0, coroutine_result(Ret)) ),
     ( Ss = [S1|_], arg(1, S1, L), integer(L) -> true ; L = 0 ), P = id('$promise'), append(Ss, [coro_falloff(L)], Ss2),
     cpp_promise_init(PT, Params, Init), cpp_coro_guard(L, P, block(Ss2), Guarded),
-    Sk = [declaration(L, none, PT, [var('$promise', PT, Init)]), coro_begin(L, '$promise'),
+    findall(A, ( member(Pm, Params), cpp_coro_param_arg(Pm, A) ), AllocArgs),
+    Sk = [declaration(L, none, PT, [var('$promise', PT, Init)]), coro_begin(L, '$promise', AllocArgs),
           coro_ret(L, call(member(P, get_return_object), [])),
           expr(L, co_await_raw(call(member(P, initial_suspend), []), initial)),
           coro_body(L, Guarded),
@@ -5471,6 +5481,22 @@ cpp_coro_param_arg(P, id(N)) :- arg(2, P, N).
 cpp_coro_guard(L, P, B, block([try(L, B, [catch(any, block([expr(L, call(member(P, unhandled_exception), []))]))])])) :-
     nb_current('$cpp_throws', yes), !.
 cpp_coro_guard(_, _, B, B).
+%% THE COROUTINE STATE'S ALLOCATION ([dcl.fct.def.coroutine]/9, /10; 0.202; `_Znwm' alone before): the promise type's `operator new', its own or a
+%% base's, over the frame's size (`coro_size') and the coroutine's parameters as lvalues, else over the size alone; else the global one, the
+%% nothrow form where the promise has `get_return_object_on_allocation_failure' -- whose call the ramp returns where the allocation answers null
+cpp_coro_alloc(Ctx, L, As, A, F) :- ( cpp_promise_class(PC) -> true ; PC = none ),
+    ( PC \== none, cpp_has_member(PC, get_return_object_on_allocation_failure) -> NT = yes ; NT = no ),
+    (   PC \== none, cpp_alloc_owner(PC, new, _), member(Args, [[coro_size|As], [coro_size]]), catch(cpp_call(none, scoped([PC], operator(new)), Args, A0), _, fail), A0 = call(id(Name), _), cpp_alloc_method(PC, new, Name, _, _) -> cpp_copies(A0, A)
+    ;   NT == yes, catch(cpp_expr(none, scoped([std], nothrow), NTE), _, fail) -> A = call(id('_ZnwmRKSt9nothrow_t'), [coro_size, NTE])
+    ;   A = call(id('_Znwm'), [coro_size]) ), !,
+    ( NT == yes -> cpp_stmt(Ctx, return(L, call(scoped([PC], get_return_object_on_allocation_failure), [])), F) ; F = none ).
+%% ... AND ITS DEALLOCATION ([dcl.fct.def.coroutine]/12): the promise type's usual `operator delete', the one that takes the size where it has both,
+%% else the global one, sized (`_ZdlPv' before)
+cpp_coro_dealloc(D) :- cpp_promise_class(PC), cpp_alloc_owner(PC, delete, O), cpp_class(O, cls(_, _, Ms, _, _, _)),
+    findall(Sh-(Qs-Ps), ( member(method(_, Qs, _, operator(delete), Ps, _, _), Ms), cpp_alloc_shape(Ps, Sh), memberchk(Sh, [[ptr], [ptr, size]]) ), Us), Us \== [],
+    ( memberchk([ptr, size]-(Qs-Ps), Us) -> Rest = [coro_size] ; memberchk([ptr]-(Qs-Ps), Us), Rest = [] ), !,
+    cpp_mangle_q(O, operator(delete), Qs, Ps, Name), D = call(id(Name), [nullptr, coro_mem|Rest]).
+cpp_coro_dealloc(call(id('_ZdlPvm'), [coro_mem, coro_size])).
 %% an awaiter named by an lvalue is awaited where it is; a prvalue is kept for the suspension
 cpp_coro_lvalue(E) :- ( E = id(_) ; E = member(_, _) ; E = arrow(_, _) ; E = deref(_) ; E = index(_, _) ), !.
 cpp_coro_operand(E, call(member(id('$promise'), await_transform), [E])) :- cpp_promise_class(C), cpp_has_member(C, await_transform), !.
@@ -6776,34 +6802,48 @@ cpp_deref_operand(A) :-
     ->  cpp_refuse(0, deref_of_arithmetic(T))
     ;   true ).
 %% `new T[n]' OF A CLASS THAT CONSTRUCTS OR DESTROYS (0.108; refused by name since 0.86): the Itanium C++ ABI's ARRAY
-%% COOKIE -- where the class has a destructor, the count is written before the first element, in a cookie of
-%% max(sizeof(size_t), alignof(T)) bytes, so `delete[]' knows how many to destroy -- then each element made in
-%% place by the placement new's road (the default constructor, or the item of a braced list, the rest
-%% value-initialized). A class with a constructor and no destructor takes no cookie.
-cpp_new_objects(Ctx, T, C, N1, Items, E) :-
-    SizeT = base([], [unsigned, long]), CharP = ptr([], base([], [char])), PT = ptr([], T),
-    ( cpp_dtor(C, _) -> ( ccl_resolve_type(T, RT), ccl_size_align(RT, _, Al) -> true ; Al = 8 ), Ck is max(8, Al) ; Ck = 0 ),
+%% COOKIE -- where the class has a destructor, or the array deallocation function delete[] takes is a sized one, the count
+%% is written before the first element, in a cookie of max(sizeof(size_t), alignof(T)) bytes, so `delete[]' knows how many
+%% to destroy (cpp_array_cookie/2) -- then each element made in place by the placement new's road (the default
+%% constructor, or the item of a braced list, the rest value-initialized). The block is the array allocation function's
+%% (cpp_alloc_call/7, 0.202), its size the cookie and the elements; a non-throwing one's null result skips the elements.
+cpp_new_objects(Ctx, Spec, T, C, N1, Items, E) :-
+    SizeT = base([], [unsigned, long]), CharT = base([], [char]), CharP = ptr([], CharT), PT = ptr([], T),
+    cpp_array_cookie(T, Ck),
     ccl_gensym('$an', Nv), ccl_gensym('$araw', Raw), ccl_gensym('$ap', P), ccl_gensym('$ai', I),
     ( Ck > 0 -> CkOff is Ck - 8, Cookie = [expr(0, assign('=', deref(cast(ptr([], SizeT), bin('+', id(Raw), int(CkOff)))), id(Nv)))] ; Cookie = [] ),
     ccl_gensym('$abuilt', Bt), cpp_new_items(Items, T, P, Bt, Placed, K),
-    ( cpp_dtor(C, _) -> cpp_member_dtor(T, index(id(P), id(Bt)), 0, Ds) ; Ds = [] ),   % AN ELEMENT'S CONSTRUCTOR THAT THROWS (0.201; [expr.new]/26, [except.ctor]/3): the elements built destroyed, the last first, and the block freed, by a cleanup the unwinding alone runs (eh_cleanup) -- `new T[5]' left them built and its memory taken
-    Undo = eh_cleanup(0, block([while(0, bin('>', id(Bt), int(0)), block([expr(0, predec(id(Bt)))|Ds])), expr(0, call(id(free), [id(Raw)]))])),
-    Stmts0 = [declaration(0, none, SizeT, [var(Nv, SizeT, '$cpp_walked'(N1))]),
-              declaration(0, none, CharP, [var(Raw, CharP, cast(CharP, call(id(malloc), [bin('+', int(Ck), bin('*', id(Nv), sizeof_type(T)))])))])
-             | Cookie],
-    append(Stmts0, [declaration(0, none, PT, [var(P, PT, cast(PT, bin('+', id(Raw), int(Ck))))]), declaration(0, none, SizeT, [var(Bt, SizeT, int(0))]), Undo | Placed], Stmts1),
-    append(Stmts1, [for(0, decl(SizeT, [var(I, SizeT, int(K))]), bin('<', id(I), id(Nv)), postinc(id(I)),
-                        block([expr(0, new_at([addr(index(id(P), id(I)))], new(T, []))), expr(0, preinc(id(Bt)))])),
-                    expr(0, id(P))], Stmts),
+    ( cpp_dtor(C, _) -> cpp_member_dtor(T, index(id(P), id(Bt)), 0, Ds) ; Ds = [] ),   % AN ELEMENT'S CONSTRUCTOR THAT THROWS (0.201; [expr.new]/26, [except.ctor]/3): the elements built destroyed, the last first, and the block given back, by a cleanup the unwinding alone runs (eh_cleanup) -- `new T[5]' left them built and its memory taken
+    Size = bin('+', int(Ck), bin('*', id(Nv), sizeof_type(T))), cpp_alloc_call(Spec, T, Size, Raw, Call, Undo0, NT),
+    ( Undo0 == none -> Free = [] ; Free = [expr(0, Undo0)] ),
+    Undo = eh_cleanup(0, block([while(0, bin('>', id(Bt), int(0)), block([expr(0, predec(id(Bt)))|Ds]))|Free])),
+    Head = [declaration(0, none, SizeT, [var(Nv, SizeT, '$cpp_walked'(N1))]), declaration(0, none, CharT, [var(Raw, CharP, alloc(garbage, CharT, Call))])],
+    (   cpp_items_cover(N1, K) -> Loop = []   % a constant bound the items cover asks no default constructor ([dcl.init.aggr]/5: no element is left)
+    ;   Loop = [for(0, decl(SizeT, [var(I, SizeT, int(K))]), bin('<', id(I), id(Nv)), postinc(id(I)),
+                    block([expr(0, new_at([addr(index(id(P), id(I)))], new(T, []))), expr(0, preinc(id(Bt)))]))] ),
+    (   NT == yes   % `new (std::nothrow) T[n]': a null block is a null result, no element made ([expr.new]/20)
+    ->  append([Cookie, [expr(0, assign('=', id(P), cast(PT, bin('+', id(Raw), int(Ck))))), declaration(0, none, SizeT, [var(Bt, SizeT, int(0))]), Undo], Placed, Loop], Built),
+        append(Head, [declaration(0, none, PT, [var(P, PT, cast(PT, nullptr))]), if(0, id(Raw), block(Built), none), expr(0, id(P))], Stmts)
+    ;   append([Head, Cookie, [declaration(0, none, PT, [var(P, PT, cast(PT, bin('+', id(Raw), int(Ck))))]), declaration(0, none, SizeT, [var(Bt, SizeT, int(0))]), Undo], Placed, Loop, [expr(0, id(P))]], Stmts) ),
     cpp_expr(Ctx, stmt_expr(block(Stmts)), E).
+%% ... the elements the items do not cover default-constructed by a loop, unless the bound is a constant they cover (0.202): `new A[2]{A(1),
+%% A(2)}' of a class with no default constructor is well-formed, and the loop that never ran named one
+cpp_items_cover(N, K) :- K > 0, catch(ccl_const_eval(N, V), _, fail), integer(V), V =< K.
 cpp_new_items(Items, T, P, Placed, K) :- cpp_new_items_(Items, T, P, none, 0, Placed, K).   % a placement array new's: no count of the elements built
 cpp_new_items(Items, T, P, Bt, Placed, K) :- cpp_new_items_(Items, T, P, Bt, 0, Placed, K).
 cpp_new_items_([], _, _, _, K, [], K).
 cpp_new_items_([V0|Is], T, P, Bt, K0, [expr(0, new_at([addr(index(id(P), int(K0)))], new(T, As)))|Ss0], K) :- ( V0 = item(_, V) -> true ; V = V0 ), ( V = init(Sub) -> findall(X, member(item(_, X), Sub), As) ; As = [V] ),
     ( Bt == none -> Ss0 = Ss ; Ss0 = [expr(0, preinc(id(Bt)))|Ss] ), K1 is K0 + 1, cpp_new_items_(Is, T, P, Bt, K1, Ss, K).
-cpp_new_scalars(Ctx, T, N1, Items, E) :-
-    PT = ptr([], T), ccl_gensym('$ap', P), findall(expr(0, assign('=', index(id(P), int(J)), V)), ( nth0(J, Items, V0), ( V0 = item(_, V) -> true ; V = V0 ) ), Sets),
-    append([declaration(0, none, PT, [var(P, PT, cast(PT, call(id(calloc), ['$cpp_walked'(N1), sizeof_type(T)])))])|Sets], [expr(0, id(P))], Stmts),
+%% `new T[n]' OF A SCALAR OR OF A CLASS WITH NOTHING TO RUN (0.202): the array allocation function's block over n elements; `new T[n]()'
+%% and `new T[n]{a, b}' value-initialize, its bytes zero, the items stored over them ([expr.new]/24) -- calloc's before
+cpp_new_scalars(Ctx, Spec, T, N1, Items, E) :-
+    PT = ptr([], T), SizeT = base([], [unsigned, long]), ccl_gensym('$an', Nv), ccl_gensym('$ap', P),
+    Size = bin('*', id(Nv), sizeof_type(T)), cpp_alloc_call(Spec, T, Size, P, Call, Undo, NT),
+    ( Items == none -> M = garbage, Items1 = [] ; NT == yes -> M = nzeroed(Size), Items1 = Items ; M = zeroed(Size), Items1 = Items ),
+    findall(expr(0, assign('=', index(id(P), int(J)), V)), ( nth0(J, Items1, V0), ( V0 = item(_, V) -> true ; V = V0 ) ), Sets),
+    ( Sets \== [], Undo \== none -> Sets1 = [eh_cleanup(0, block([expr(0, Undo)]))|Sets] ; Sets1 = Sets ),   % an item that throws gives the block back
+    ( NT == yes, Sets1 \== [] -> Body = [if(0, id(P), block(Sets1), none)] ; Body = Sets1 ),
+    append([declaration(0, none, SizeT, [var(Nv, SizeT, '$cpp_walked'(N1))]), declaration(0, none, T, [var(P, PT, alloc(M, T, Call))])|Body], [expr(0, id(P))], Stmts),
     cpp_expr(Ctx, stmt_expr(block(Stmts)), E).
 %% PLACEMENT `new T[n]' (0.117; refused by name before): n objects made in the storage the placement argument names,
 %% with NO cookie -- the Itanium ABI asks for none when the allocation function is the global placement
@@ -6818,9 +6858,10 @@ cpp_new_at_array(Ctx, P1, T0, N, Items0, E) :-
     ->  ( Items0 == none -> Items = [] ; Items = Items0 ),
         cpp_new_items(Items, T, P, Placed, K),
         append(Head, Placed, Stmts0),
-        append(Stmts0, [for(0, decl(SizeT, [var(I, SizeT, int(K))]), bin('<', id(I), id(Nv)), postinc(id(I)),
-                            block([expr(0, new_at([addr(index(id(P), id(I)))], new(T, [])))])),
-                        expr(0, id(P))], Stmts)
+        (   cpp_items_cover(N1, K) -> Rest = []
+        ;   Rest = [for(0, decl(SizeT, [var(I, SizeT, int(K))]), bin('<', id(I), id(Nv)), postinc(id(I)),
+                        block([expr(0, new_at([addr(index(id(P), id(I)))], new(T, [])))]))] ),
+        append(Stmts0, Rest, Stmts1), append(Stmts1, [expr(0, id(P))], Stmts)
     ;   Items0 == none
     ->  append(Head, [expr(0, id(P))], Stmts)
     ;   findall(expr(0, assign('=', index(id(P), int(J)), V)), ( nth0(J, Items0, V0), ( V0 = item(_, V) -> true ; V = V0 ) ), Sets),
@@ -6829,18 +6870,26 @@ cpp_new_at_array(Ctx, P1, T0, N, Items0, E) :-
     cpp_expr(Ctx, stmt_expr(block(Stmts)), E).
 cpp_incomplete_class(C) :- '$cpp_inst'(C, _), \+ '$cpp_cls'(C, _), \+ cpp_nested_pending(C).   % an instance made of a declared-only primary with no specialization matching
 cpp_nested_pending(C) :- nb_current('$cpp_nested', L), memberchk(C-_, L).
-%% `delete[] p' of a class with a destructor (0.108): the count read from the cookie before the first element, each
-%% element destroyed in the reverse order of its construction, then the block freed from the cookie's start
-cpp_delete_array(X, E) :- cpp_pointee_class_of(X, C), cpp_dtor(C, DName), !,
-    SizeT = base([], [unsigned, long]), CharP = ptr([], base([], [char])), PT = ptr([], base([], [typedef(C)])),
-    ( ccl_resolve_type(base([], [typedef(C)]), RT), ccl_size_align(RT, _, Al) -> true ; Al = 8 ), Ck is max(8, Al),
-    ccl_gensym('$dn', Nv), ( X = id(_) -> Q = X, Pre = [] ; ccl_gensym('$dq', QN), Q = id(QN), Pre = [declaration(0, none, PT, [var(QN, PT, X)])] ),
-    cpp_destroy(addr(index(Q, id(Nv))), C, DName, D),
-    append(Pre, [if(0, Q, block([declaration(0, none, SizeT, [var(Nv, SizeT, deref(cast(ptr([], SizeT), bin('-', cast(CharP, Q), int(8)))))]),
-                                 while(0, id(Nv), block([expr(0, predec(id(Nv))), expr(0, D)]))]), none),
-                 expr(0, delete_cookie(Q, Ck))], Ss),
+%% `delete[] p' (0.108; its deallocation function's since 0.202): of a class with a cookie, the count read from it before the first
+%% element, each element destroyed in the reverse order of its construction, then the block given back from the cookie's start --
+%% to the class's own array deallocation function unless `::delete[]', else the global one, a sized one told the block's size
+%% ([expr.delete]/10); of any other, its deallocation function over p. Nothing where p is null (dealloc/3).
+cpp_delete_array(G, X, E) :- cpp_pointee_class_of(X, C), T = base([], [typedef(C)]), cpp_array_cookie(T, Ck), Ck > 0, !,
+    SizeT = base([], [unsigned, long]), CharP = ptr([], base([], [char])),
+    ccl_gensym('$dn', Nv), ccl_gensym('$dn0', N0), cpp_delete_operand(X, Pre, Q),
+    ( cpp_dtor(C, DName) -> cpp_destroy(addr(index(Q, id(Nv))), C, DName, D), Loop = [while(0, id(Nv), block([expr(0, predec(id(Nv))), expr(0, D)]))] ; Loop = [] ),
+    Raw = bin('-', cast(CharP, Q), int(Ck)), Size = bin('+', int(Ck), bin('*', id(N0), sizeof_type(T))),
+    cpp_usual_delete(G, 'delete[]', T, Raw, Size, Free, _),
+    append(Pre, [declaration(0, none, SizeT, [var(N0, SizeT, int(0))]),
+                 if(0, Q, block([declaration(0, none, SizeT, [var(Nv, SizeT, deref(cast(ptr([], SizeT), bin('-', cast(CharP, Q), int(8)))))]), expr(0, assign('=', id(N0), id(Nv)))|Loop]), none),
+                 expr(0, dealloc(none, Free, Q))], Ss),
     E = stmt_expr(block(Ss)).
-cpp_delete_array(X, delete_array(X)).
+cpp_delete_array(G, X, E) :- cpp_delete_pointee(X, T), cpp_delete_operand(X, Pre, Q), cpp_usual_delete(G, 'delete[]', T, Q, int(0), Free, _), cpp_delete_expr(Pre, dealloc(none, Free, Q), E).
+%% THE ARRAY COOKIE ([expr.new]/15, the Itanium ABI 2.7): a class with a destructor, or whose array deallocation function is a sized one, keeps
+%% the count of its elements before the first, in max(8, alignof(T)) bytes
+cpp_array_cookie(T, Ck) :- cpp_class_of_type(T, C), ( cpp_dtor(C, _) -> true ; cpp_usual_delete(no, 'delete[]', T, nullptr, int(0), _, cls(Sh)), memberchk(size, Sh) ), !,
+    ( ccl_resolve_type(T, RT), ccl_size_align(RT, _, Al) -> true ; Al = 8 ), Ck is max(8, Al).
+cpp_array_cookie(_, 0).
 cpp_local(N) :- ccl_locals(Fs), member(F, Fs), memberchk(N-_, F), !.
 %% the way to a member: o.$base...n by value, p->n or p->$base...n through a pointer
 cpp_hops(X, [], X).
@@ -7068,12 +7117,16 @@ cpp_base_hops(C, C, []) :- !.
 cpp_base_hops(Ctx, C, Hops1) :- cpp_class_l(Ctx, cls(B, _, _, _, _)), B \== none, cpp_base_hops(B, C, Hops), cpp_base_hop(B, ['$base'|Hops], Hops1).
 cpp_base_hops(Ctx, C, [Slot|Hops]) :- '$cpp_base_slot'(Ctx, B, Slot), cpp_base_hops(B, C, Hops).
 cpp_base_hops(Ctx, C, Hops) :- '$cpp_extra'(Ctx, Es), member(B, Es), \+ '$cpp_base_slot'(Ctx, B, _), cpp_base_hops(B, C, Hops).   % A LATER EMPTY BASE has no sub-object (0.121): its address is the object's, no hop -- `this->B::f()' in a class over two empty closures (the `overloaded' idiom)
-cpp_operator_new(new, [N|_], call(id(malloc), [N])).
-cpp_operator_new('new[]', [N|_], call(id(malloc), [N])).
-cpp_operator_new(delete, [P|_], call(id(free), [P])).
-cpp_operator_new('delete[]', [P|_], call(id(free), [P])).
-%% nothing here is evaluated at compile time, so a run-time answer is the true one; `operator new' is the allocation
-%% the lowering already has (ir_cpp_prelude declares malloc and free), and an alignment request is dropped
+%% `::operator new(n)' AND ITS KIN WRITTEN OUT, and libc++'s __builtin_operator_new and __builtin_operator_delete (0.202; malloc and
+%% free before, an alignment dropped): the allocation or deallocation function a call of that name takes -- a replaceable one by its
+%% arguments' kinds (the program's where it replaces it), a reserved placement form its pointer ([new.delete.placement]), any other the
+%% program's own overload set
+cpp_operator_new(Op, As, E) :- cpp_alloc_op(Op), cpp_arg_kinds(As, Ks), cpp_written_alloc(Op, Ks, As, E).
+cpp_written_alloc(Op, [size, ptr], [_, P], cast(ptr([], base([], [void])), P)) :- memberchk(Op, [new, 'new[]']), !.
+cpp_written_alloc(Op, [ptr, ptr], _, cast(base([], [void]), int(0))) :- memberchk(Op, [delete, 'delete[]']), !.
+cpp_written_alloc(Op, Ks, As, E) :- cpp_alloc_sym(Op, Ks, F), !, cpp_copies(call(id(F), As), E).
+cpp_written_alloc(Op, _, As, E) :- length(As, N), length(Qs, N), cpp_free_operator(Op, Qs, Set), cpp_call(none, id(Set), As, E).
+%% nothing here is evaluated at compile time, so a run-time answer is the true one
 cpp_builtin_call('__builtin_source_location', [], E) :- !, cpp_srcloc(E).   % the place of the call whose default argument it is: std::source_location::current() (0.166, below)
 cpp_builtin_call(B, [], E) :- cpp_srcloc_builtin(B, K), !, cpp_srcloc_value(K, B, E).   % clang's `__builtin_FILE()', `__builtin_LINE()' and kin: the same place (0.201, below; glibc's `assert')
 cpp_builtin_call('__builtin_invoke', [F, O], E) :-        % A POINTER TO A DATA MEMBER applied to an object is `o.*pm', and `p->*pm' for a pointer to the object ([func.require]/1.4, 1.5; 0.126): libc++ 21 writes std::invoke and __invoke_result on __builtin_invoke, where libc++ 18 had overloads of __invoke that read `std::forward<_A0>(__a0).*__f' -- a detection of `int Pt::*' called with a `Pt &' met no_member_type(__invoke_result_impl..., type)
@@ -7089,8 +7142,8 @@ cpp_builtin_call('__builtin_launder', [P], P).
 cpp_builtin_call('__builtin_addressof', [X], addr(X)).
 cpp_builtin_call('__builtin_expect', [E, _], E).
 cpp_builtin_call('__builtin_assume_aligned', [P|_], P).
-cpp_builtin_call('__builtin_operator_new', [N|_], call(id(malloc), [N])).      % a size, and an alignment this compiler does not honour
-cpp_builtin_call('__builtin_operator_delete', [P|_], call(id(free), [P])).
+cpp_builtin_call('__builtin_operator_new', As, E) :- cpp_operator_new(new, As, E).          % the global allocation function its arguments name (0.202): a size, an alignment, the nothrow tag
+cpp_builtin_call('__builtin_operator_delete', As, E) :- cpp_operator_new(delete, As, E).
 %% the memory builtins are the C library's functions, which the lowering declares when the file did not
 %% (ir_cpp_prelude): libc++ relocates a vector's elements with __builtin_memcpy
 cpp_builtin_call('__builtin_memcpy', As, call(id(memcpy), As)).
@@ -7573,35 +7626,35 @@ cpp_args_exact([param(P, _)|Ps], [A|As]) :- ( cpp_arg_exact(P, A) ; cpp_arg_conv
 %% free `char' inserter that the operator's arithmetic result also converts to -- it printed the byte 6.
 cpp_arg_conv_exact(PT0, A) :- cpp_class_of_type_of(A, D), catch(cpp_type_or_self(PT0, PT), _, fail), ccl_unref(PT, PT1), ccl_resolve_type(PT1, R1), \+ cpp_class_of_type(R1, _),
     cpp_conv_member(implicit, D, R1, _, RCT), cpp_bare_type(R1, B1), cpp_bare_type(RCT, B2), B1 == B2.
-%% new C(args): malloc's block constructed; delete p: destroyed, then freed
-%% A `new' OF AN AGGREGATE FROM VALUES (C++20's parentheses, and braces at every level, one node after `new'; cpp_paren_aggregate/2,
-%% 0.197): the block malloc gives, its members initialized as a local's are (cpp_aggregate_inits), a plain struct or union from the
+%% A NEW-EXPRESSION'S BLOCK (0.202; malloc's and calloc's before): the allocation function's (cpp_new_block/6) over sizeof(T), then
+%% the initialization. An AGGREGATE FROM VALUES (C++20's parentheses, and braces at every level, one node after `new';
+%% cpp_paren_aggregate/2, 0.197): its members initialized as a local's are (cpp_aggregate_inits), a plain struct or union from the
 %% compound literal of its values
-cpp_new(T, As, stmt_expr(block(Ss))) :- cpp_class_of_type(T, C), cpp_paren_aggregate(T, As), !,
+cpp_new(Spec, T, As, E) :- cpp_class_of_type(T, C), cpp_paren_aggregate(T, As), !,
     ccl_gensym('$new', P), PT = ptr([], T), ccl_declare(P, PT), cpp_class_l(C, cls(_, Data, _, _, _)),
-    cpp_aggregate_inits(Data, As, deref(id(P)), 0, Inits), append([declaration(0, none, T, [var(P, PT, new(T, []))])|Inits], [expr(0, id(P))], Ss).
-cpp_new(T, As, stmt_expr(block([declaration(0, none, T, [var(P, PT, new(T, []))]), expr(0, assign('=', deref(id(P)), compound_lit(T, init(Items)))), expr(0, id(P))]))) :-
-    \+ cpp_class_of_type(T, _), \+ ccl_resolve_type(T, arr(_, _)), cpp_paren_aggregate(T, As), !,
-    findall(item([], A), member(A, As), Items), ccl_gensym('$new', P), PT = ptr([], T), ccl_declare(P, PT).
-cpp_new(T, As, E) :- cpp_class_of_type(T, C), cpp_has_ctors(C), !, ( As == [], cpp_value_zeroes(C) -> A = calloc ; A = malloc ), cpp_new_ctor(A, T, C, As, E).
-cpp_new(T, [], E) :- !, cpp_new_zeroed(T, E).
-cpp_new(T, As, new(T, As)).
+    cpp_aggregate_inits(Data, As, deref(id(P)), 0, Inits), cpp_new_block(Spec, T, garbage, P, Inits, E).
+cpp_new(Spec, T, As, E) :- \+ cpp_class_of_type(T, _), \+ ccl_resolve_type(T, arr(_, _)), cpp_paren_aggregate(T, As), !,
+    findall(item([], A), member(A, As), Items), ccl_gensym('$new', P), PT = ptr([], T), ccl_declare(P, PT),
+    cpp_new_block(Spec, T, garbage, P, [expr(0, assign('=', deref(id(P)), compound_lit(T, init(Items))))], E).
+cpp_new(Spec, T, As, E) :- cpp_class_of_type(T, C), cpp_has_ctors(C), !, ( As == [], cpp_value_zeroes(C) -> M = zeroed ; M = garbage ), cpp_new_ctor(Spec, M, T, C, As, E).
+cpp_new(Spec, T, [], E) :- !, cpp_new_zeroed(Spec, T, E).
+cpp_new(Spec, T, [A], E) :- !, ccl_gensym('$new', P), cpp_new_block(Spec, T, garbage, P, [expr(0, assign('=', deref(id(P)), A))], E).   % `new T(v)' of a type with no constructor: v stored
+cpp_new(_, T, _, _) :- cpp_refuse(0, new_with_constructor(T)).
 %% `new T()' and `new T{}' VALUE-INITIALIZE (0.127; [expr.new]/24, [dcl.init]/8): a scalar is its zero and a type with nothing to
-%% construct every byte zero (calloc, whose own fields the check takes as null), a class whose default constructor is not
+%% construct every byte zero (the zeroed block, whose own fields the check takes as null), a class whose default constructor is not
 %% user-provided zeroed BEFORE that constructor runs. `new T' alone, the reader's `new_default(T)', default-initializes: the
-%% constructor, or malloc's bytes as they are. Both were malloc's bytes: `new int()' over reused memory was garbage, as was the
+%% constructor, or the block's bytes as they are. Both were malloc's bytes: `new int()' over reused memory was garbage, as was the
 %% member of `new R()' that R's implicit constructor leaves alone.
-cpp_new_default(T, E) :- cpp_class_of_type(T, C), cpp_has_ctors(C), !, cpp_new_ctor(malloc, T, C, [], E).
-cpp_new_default(T, new(T, [])).
-cpp_new_ctor(Alloc, T, C, As, stmt_expr(block([declaration(0, none, T, [var(P, PT, New)])|Rest]))) :-
-    length(As, N), ( cpp_ctor(C, As, Name) -> true ; cpp_refuse(0, no_constructor(C, N)) ), cpp_fill_defaults(Name, As, As1), ccl_gensym('$new', P), PT = ptr([], T),
-    ( Alloc == calloc -> New = cast(PT, call(id(calloc), [ulong(1), sizeof_type(T)])) ; New = new(T, []) ),
-    Ctor = [eh_cleanup(0, block([expr(0, call(id(free), [id(P)]))])), expr(0, call(id(Name), [id(P)|As1])), expr(0, id(P))],   % A CONSTRUCTOR THAT THROWS FREES THE BLOCK ([expr.new]/26; 0.201): the unwinding's cleanup only (eh_cleanup, the lowering's eh_only defer) -- `new T(9)' of a throwing constructor left its memory
-    ( Alloc == calloc, cpp_zero_not_null(T, deref(id(P)), Null) -> Rest = [Null|Ctor] ; Rest = Ctor ).
-cpp_new_zeroed(T, new(T, [Z])) :- \+ ccl_resolve_type(T, arr(_, _)), cpp_scalar_type(T), cpp_zero_of(T, Z), !.
-cpp_new_zeroed(T, stmt_expr(block([declaration(0, none, T, [var(P, PT, cast(PT, call(id(calloc), [ulong(1), sizeof_type(T)])))]), Null, expr(0, id(P))]))) :-
-    ccl_gensym('$new', P), PT = ptr([], T), cpp_zero_not_null(T, deref(id(P)), Null), !.
-cpp_new_zeroed(T, cast(ptr([], T), call(id(calloc), [ulong(1), sizeof_type(T)]))).
+cpp_new_default(Spec, T, E) :- cpp_class_of_type(T, C), cpp_has_ctors(C), !, cpp_new_ctor(Spec, garbage, T, C, [], E).
+cpp_new_default(Spec, T, E) :- ccl_gensym('$new', P), cpp_new_block(Spec, T, garbage, P, [], E).
+cpp_new_ctor(Spec, Mode, T, C, As, E) :-
+    length(As, N), ( cpp_ctor(C, As, Name) -> true ; cpp_refuse(0, no_constructor(C, N)) ), cpp_fill_defaults(Name, As, As1), ccl_gensym('$new', P),
+    Ctor = expr(0, call(id(Name), [id(P)|As1])),   % A CONSTRUCTOR THAT THROWS GIVES THE BLOCK BACK ([expr.new]/26; 0.201, its deallocation function's since 0.202): the unwinding's cleanup only (cpp_new_block/6)
+    ( Mode == zeroed, cpp_zero_not_null(T, deref(id(P)), Null) -> Inits = [Null, Ctor] ; Inits = [Ctor] ),
+    cpp_new_block(Spec, T, Mode, P, Inits, E).
+cpp_new_zeroed(Spec, T, E) :- \+ ccl_resolve_type(T, arr(_, _)), cpp_scalar_type(T), cpp_zero_of(T, Z), !,
+    ccl_gensym('$new', P), cpp_new_block(Spec, T, garbage, P, [expr(0, assign('=', deref(id(P)), Z))], E).
+cpp_new_zeroed(Spec, T, E) :- ccl_gensym('$new', P), ( cpp_zero_not_null(T, deref(id(P)), Null) -> Inits = [Null] ; Inits = [] ), cpp_new_block(Spec, T, zeroed, P, Inits, E).
 %% A TYPE WHOSE ZERO BYTES ARE NOT ITS ZERO (0.161): one that holds a pointer to a data member, whose null is -1 (ir_null_const/3) --
 %% its object zero-initialized by calloc or memset is given the type's zero after the bytes, a compound literal with no items, which the
 %% lowering spells with the -1s; an array of them keeps the bytes
@@ -7640,15 +7693,258 @@ cpp_same_record(T, V) :- ( ccl_type_of(V, VT0), VT0 \== unknown -> true ; catch(
 %% node takes its `pair<int, int>' so, through std::__construct_at. A class whose members have constructors of
 %% their own waits for the memberwise one (not done).
 cpp_trivial_copy_init(C, [E]) :- cpp_class_of_type_of(E, C), \+ cpp_copy_ctor(C, _), \+ cpp_dtor(C, _), \+ cpp_implicit_ctor_needed(C).
-cpp_delete(X, E) :- '$cpp_poly_extra'(_, _, _), cpp_pointee_class_of(X, C), cpp_polymorphic(C), cpp_dtor(C, DName), !,   % the COMPLETE object is freed: through a pointer to a second base, its address is the table's offset-to-top away, read before the destructor resets the tables (0.108)
-    (   X = id(_) -> cpp_destroy(X, C, DName, D), E = delete_poly(X, D)
-    ;   ccl_type_of(X, PT), ccl_gensym('$del', P), cpp_destroy(id(P), C, DName, D), E = stmt_expr(block([declaration(0, none, PT, [var(P, PT, X)]), expr(0, delete_poly(id(P), D))])) ).
-cpp_delete(X, E) :- cpp_pointee_class_of(X, C), cpp_dtor(C, DName), !,
-    (   X = id(_) -> cpp_destroy(X, C, DName, D), E = comma(D, delete(X))
-    ;   ccl_type_of(X, PT), ccl_gensym('$del', P), cpp_destroy(id(P), C, DName, D), E = stmt_expr(block([declaration(0, none, PT, [var(P, PT, X)]), expr(0, comma(D, delete(id(P))))])) ).
-cpp_delete(X, delete(X)).
+%% `delete p' ([expr.delete]/6-11; 0.202): where p is not null, the object's destructor, then the deallocation function --
+%% the class's own unless `::delete', else the global one (cpp_usual_delete/7). A class with a VIRTUAL DESTRUCTOR is deleted by
+%% its deleting destructor through the table (the Itanium ABI's D0, cpp_d0_fn/4): the dynamic type's destructor and the dynamic
+%% type's deallocation function over the complete object, which a secondary table's thunk finds; `::delete' of one is the complete
+%% object's destructor and the global function over the address its table's offset-to-top gives (delete_poly, 0.108). A
+%% DESTROYING delete (C++20, [expr.delete]/9) runs in place of the destructor. The pointer is a name or a temporary of its own
+%% (cpp_delete_operand/3): the check frees a borrow otherwise.
+cpp_delete(G, X, E) :- cpp_pointee_class_of(X, C), cpp_slot(C, '$dtor', 0, _), !, cpp_dtor(C, DName), cpp_delete_operand(X, Pre, Q),
+    (   G == no -> cpp_slot(C, '$dtor_del', 0, Slot), cpp_dispatch(Q, C, Slot, [], D0), D = dealloc(D0, none, Q)
+    ;   cpp_destroy(Q, C, DName, D1), ( cpp_alloc_align(base([], [typedef(C)]), A) -> AA = ulong(A) ; AA = none ), D = delete_poly(Q, D1, AA) ),
+    cpp_delete_expr(Pre, D, E).
+cpp_delete(G, X, E) :- cpp_delete_pointee(X, T), cpp_delete_operand(X, Pre, Q), cpp_usual_delete(G, delete, T, Q, sizeof_type(T), Free, K),
+    (   K = cls([objptr, destroying|_]) -> D = dealloc(none, Free, Q)
+    ;   cpp_class_of_type(T, C), cpp_dtor(C, DName) -> cpp_destroy(Q, C, DName, D1), D = dealloc(D1, Free, Q)
+    ;   D = dealloc(none, Free, Q) ),
+    cpp_delete_expr(Pre, D, E).
+cpp_delete_expr([], D, D) :- !.
+cpp_delete_expr(Pre, D, stmt_expr(block(Ss))) :- append(Pre, [expr(0, D)], Ss).
+cpp_delete_operand(X, [], X) :- X = id(_), !.
+cpp_delete_operand(X, [declaration(0, none, PT, [var(P, PT, X)])], id(P)) :- ( ccl_type_of(X, PT), PT \== unknown -> true ; PT = ptr([], base([], [void])) ), ccl_gensym('$del', P).
+cpp_delete_pointee(X, T) :- catch(( ccl_type_of(X, PT0), ccl_resolve_type(PT0, ptr(_, T)) ), _, fail), !.
+cpp_delete_pointee(_, base([], [void])).
 cpp_destroy(P, C, _, E) :- cpp_slot(C, '$dtor', 0, Slot), !, cpp_dispatch(P, C, Slot, [], E).
 cpp_destroy(P, _, DName, call(id(DName), [P])).
+
+%% ---- THE ALLOCATION FUNCTIONS (0.202) ------------------------------------------------------------------------------
+%% A new-expression OBTAINS ITS STORAGE BY CALLING AN ALLOCATION FUNCTION, and a delete-expression gives it back by a
+%% DEALLOCATION FUNCTION ([expr.new]/9, /12, [expr.delete]/9, [basic.stc.dynamic], [class.free]): for a class type not
+%% written `::new', the class's own if it or a base declares one, else the global one -- the program's where it replaces it
+%% ([replacement.functions]), else the library's. Every `new' was malloc and every `delete' free (M6): a program's
+%% `operator new' was never called, nor a class's, nor the matching delete where a constructor throws, and an alignment past
+%% 16 was never asked for. The global replaceable functions are their Itanium symbols (`_Znwm' ..., cpp_free_operator/3), so a
+%% program's replaces the library's at the link as clang's does. What a new-expression makes is `alloc(Mode, T, Call)', T's
+%% block from Call (Mode garbage, or zeroed(Size) for value-initialization's zero bytes, nzeroed(Size) under a function that
+%% may answer null), and a delete-expression's `dealloc(Destroy, Free, X)': where X is not null, its destructor, then its
+%% deallocation -- which the check reads as the allocation and the free they are.
+cpp_alloc_op(new).  cpp_alloc_op('new[]').  cpp_alloc_op(delete).  cpp_alloc_op('delete[]').
+cpp_dealloc_kind(new, delete).  cpp_dealloc_kind('new[]', 'delete[]').
+cpp_new_form(new(_, _)).  cpp_new_form(new_default(_)).  cpp_new_form(new_array(_, _)).  cpp_new_form(new_array_init(_, _, _)).
+cpp_new_form(new_at(_, _)).  cpp_new_form(delete(_)).  cpp_new_form(delete_array(_)).
+%% the replaceable forms by their parameters' kinds ([new.delete.single], [new.delete.array]), and their symbols; then the reserved
+%% placement forms, which libc++ defines inline ([new.delete.placement])
+cpp_alloc_sym(new, [size], '_Znwm').
+cpp_alloc_sym(new, [size, align], '_ZnwmSt11align_val_t').
+cpp_alloc_sym(new, [size, nothrow], '_ZnwmRKSt9nothrow_t').
+cpp_alloc_sym(new, [size, align, nothrow], '_ZnwmSt11align_val_tRKSt9nothrow_t').
+cpp_alloc_sym('new[]', [size], '_Znam').
+cpp_alloc_sym('new[]', [size, align], '_ZnamSt11align_val_t').
+cpp_alloc_sym('new[]', [size, nothrow], '_ZnamRKSt9nothrow_t').
+cpp_alloc_sym('new[]', [size, align, nothrow], '_ZnamSt11align_val_tRKSt9nothrow_t').
+cpp_alloc_sym(delete, [ptr], '_ZdlPv').
+cpp_alloc_sym(delete, [ptr, size], '_ZdlPvm').
+cpp_alloc_sym(delete, [ptr, align], '_ZdlPvSt11align_val_t').
+cpp_alloc_sym(delete, [ptr, size, align], '_ZdlPvmSt11align_val_t').
+cpp_alloc_sym(delete, [ptr, nothrow], '_ZdlPvRKSt9nothrow_t').
+cpp_alloc_sym(delete, [ptr, align, nothrow], '_ZdlPvSt11align_val_tRKSt9nothrow_t').
+cpp_alloc_sym('delete[]', [ptr], '_ZdaPv').
+cpp_alloc_sym('delete[]', [ptr, size], '_ZdaPvm').
+cpp_alloc_sym('delete[]', [ptr, align], '_ZdaPvSt11align_val_t').
+cpp_alloc_sym('delete[]', [ptr, size, align], '_ZdaPvmSt11align_val_t').
+cpp_alloc_sym('delete[]', [ptr, nothrow], '_ZdaPvRKSt9nothrow_t').
+cpp_alloc_sym('delete[]', [ptr, align, nothrow], '_ZdaPvSt11align_val_tRKSt9nothrow_t').
+cpp_alloc_sym(new, [size, ptr], '_ZnwmPv').
+cpp_alloc_sym('new[]', [size, ptr], '_ZnamPv').
+cpp_alloc_sym(delete, [ptr, ptr], '_ZdlPvS_').
+cpp_alloc_sym('delete[]', [ptr, ptr], '_ZdaPvS_').
+%% a parameter list's kinds: the size (std::size_t), the alignment (std::align_val_t), the nothrow tag (const std::nothrow_t &), the
+%% destroying tag (std::destroying_delete_t), a pointer to void, a pointer to an object (a destroying delete's), anything else
+cpp_alloc_shape([], []).
+cpp_alloc_shape([P|Ps], [K|Ks]) :- nonvar(P), cpp_param_type_of(P, T), nonvar(T), cpp_alloc_kind(T, K), cpp_alloc_shape(Ps, Ks).
+cpp_alloc_kind(T, K) :- once(cpp_alloc_kind_(T, K)).
+cpp_alloc_kind_(ref(_, T), nothrow) :- cpp_alloc_named(T, nothrow_t).
+cpp_alloc_kind_(T, align) :- cpp_alloc_named(T, align_val_t).
+cpp_alloc_kind_(T, destroying) :- cpp_alloc_named(T, destroying_delete_t).
+cpp_alloc_kind_(ptr(_, base(_, [void])), ptr).
+cpp_alloc_kind_(ptr(_, _), objptr).
+cpp_alloc_kind_(T, size) :- cpp_alloc_named(T, size_t).
+cpp_alloc_kind_(T, size) :- catch(ccl_resolve_type(T, base(_, S)), _, fail), msort(S, [long, unsigned]).
+cpp_alloc_kind_(_, other).
+cpp_alloc_named(base(_, [typedef(N)]), L) :- ( atom(N) -> N == L ; N = scoped(_, L1), L1 == L ), !.
+cpp_alloc_named(base(_, [Sp]), L) :- ( Sp = enum(L1, _) ; Sp = enum_class(L1, _) ; Sp = struct(L1, _) ; Sp = class(_, L1, _, _) ), L1 == L, !.
+%% an argument's kind, by the type the desugaring gives it: an integer is a size
+cpp_arg_kinds([], []).
+cpp_arg_kinds([A|As], [K|Ks]) :- cpp_arg_kind(A, K), cpp_arg_kinds(As, Ks).
+cpp_arg_kind(A, K) :- ( catch(cpp_arg_type(A, T0), _, fail), T0 \== unknown, ccl_unref(T0, T) -> once(cpp_arg_kind_(T, K)) ; K = other ).
+cpp_arg_kind_(T, nothrow) :- cpp_alloc_named(T, nothrow_t).
+cpp_arg_kind_(T, align) :- cpp_alloc_named(T, align_val_t).
+cpp_arg_kind_(T, destroying) :- cpp_alloc_named(T, destroying_delete_t).
+cpp_arg_kind_(T, ptr) :- catch(ccl_resolve_type(T, R), _, fail), ( R = ptr(_, _) ; R = arr(_, _) ), !.
+cpp_arg_kind_(T, size) :- catch(ccl_resolve_type(T, R), _, fail), ccl_is_integer(R), !.
+cpp_arg_kind_(_, other).
+%% THE USUAL DEALLOCATION FUNCTIONS ([basic.stc.dynamic.deallocation]/3), whose first parameter is the block given back: an OWNER to
+%% the safe part, its body frees it -- `void operator delete(void *p) noexcept { free(p); }' was refused `a borrow consumed'. A
+%% placement deallocation function's first parameter is as the program writes it.
+cpp_alloc_own_params(Where, Op, Ps0, Ps) :- memberchk(Op, [delete, 'delete[]']), cpp_alloc_shape(Ps0, Sh), cpp_alloc_usual(Where, Sh), Ps0 = [param(PT0, N)|Rest], cpp_own_pointer(PT0, PT), !, Ps = [param(PT, N)|Rest].
+cpp_alloc_own_params(_, _, Ps, Ps).
+cpp_alloc_usual(_, Sh) :- memberchk(Sh, [[ptr], [ptr, size], [ptr, align], [ptr, size, align]]), !.
+cpp_alloc_usual(global, Sh) :- memberchk(Sh, [[ptr, nothrow], [ptr, align, nothrow]]), !.
+cpp_alloc_usual(class, [objptr, destroying|Ks]) :- memberchk(Ks, [[], [size], [align], [size, align]]).
+cpp_own_pointer(ptr(Q, base(Q2, S)), ptr(Q, base(Q3, S))) :- ( memberchk(own, Q2) -> Q3 = Q2 ; Q3 = [own|Q2] ).
+%% ... at namespace scope, before the namespaces are resolved: a function or a declaration of one, a class's defined out of it
+cpp_alloc_units([], []).
+cpp_alloc_units([unit(Is0)|Us0], [unit(Is)|Us]) :- !, cpp_alloc_items(Is0, Is), cpp_alloc_units(Us0, Us).
+cpp_alloc_units([U|Us0], [U|Us]) :- cpp_alloc_units(Us0, Us).
+cpp_alloc_items([], []).
+cpp_alloc_items([I0|Is0], [I|Is]) :- cpp_alloc_item(I0, I), cpp_alloc_items(Is0, Is).
+cpp_alloc_item(function(L, Sto, R, operator(Op), Ps0, V, B), function(L, Sto, R, operator(Op), Ps, V, B)) :- !, cpp_alloc_own_params(global, Op, Ps0, Ps).
+cpp_alloc_item(function(L, Sto, R, scoped(P, operator(Op)), Ps0, V, B), function(L, Sto, R, scoped(P, operator(Op)), Ps, V, B)) :- !, cpp_alloc_own_params(class, Op, Ps0, Ps).
+cpp_alloc_item(declaration(L, Sto, T, Vs0), declaration(L, Sto, T, Vs)) :- !, cpp_alloc_vars(Vs0, Vs).
+cpp_alloc_item(namespace(L, N, Is0), namespace(L, N, Is)) :- !, cpp_alloc_items(Is0, Is).
+cpp_alloc_item(extern_c(L, Is0), extern_c(L, Is)) :- !, cpp_alloc_items(Is0, Is).
+cpp_alloc_item(include(L, S, file(P, raw, unit(Js0))), include(L, S, file(P, raw, unit(Js)))) :- !, cpp_alloc_items(Js0, Js).   % the program's own header, read whole
+cpp_alloc_item(I, I).
+cpp_alloc_vars([], []).
+cpp_alloc_vars([var(operator(Op), fn(R, Ps0, V), I)|Vs0], [var(operator(Op), fn(R, Ps, V), I)|Vs]) :- !, cpp_alloc_own_params(global, Op, Ps0, Ps), cpp_alloc_vars(Vs0, Vs).
+cpp_alloc_vars([X|Vs0], [X|Vs]) :- cpp_alloc_vars(Vs0, Vs).
+%% THE IMPLICIT DECLARATIONS ([basic.stc.dynamic]/2): the replaceable functions are declared in every unit -- here under their symbols,
+%% where nothing declared them (the program's replacement, <new>) -- the size and the alignment unsigned longs, a deallocation
+%% function's block an owner
+cpp_alloc_declare_implicit :- forall(( cpp_alloc_sym(Op, Sh, F), \+ memberchk(Sh, [[size, ptr], [ptr, ptr]]), \+ ccl_gdeclared(F, _) ), ( cpp_alloc_decl_type(Op, Sh, T), ccl_gdeclare([F-T]) )).
+cpp_alloc_decl_type(Op, Sh, fn(R, Ps, false)) :- ( memberchk(Op, [new, 'new[]']) -> R = ptr([], base([], [void])) ; R = base([], [void]) ), cpp_alloc_decl_params(Sh, 1, Ps).
+cpp_alloc_decl_params([], _, []).
+cpp_alloc_decl_params([K|Ks], I, [param(T, N)|Ps]) :- cpp_alloc_decl_param(K, T), atom_concat('$a', I, N), I1 is I + 1, cpp_alloc_decl_params(Ks, I1, Ps).
+cpp_alloc_decl_param(size, base([], [unsigned, long])).
+cpp_alloc_decl_param(align, base([], [unsigned, long])).
+cpp_alloc_decl_param(nothrow, ref([], base([const], [typedef(nothrow_t)]))).
+cpp_alloc_decl_param(ptr, ptr([], base([own], [void]))).
+%% the class whose allocation or deallocation functions of kind Op a new- or a delete-expression of class C finds ([class.free]: in the class,
+%% else its bases, as a member's name is)
+cpp_alloc_owner(C, Op, C) :- '$cpp_alloc_m'(C, Op), !.
+cpp_alloc_owner(C, Op, O) :- cpp_base_scope(C, B), cpp_alloc_owner(B, Op, O), !.
+cpp_alloc_class_of(T, C) :- catch(cpp_class_of_type(T, C), _, fail), !.
+%% a type of NEW-EXTENDED ALIGNMENT ([basic.align]/3, [expr.new]/19): past __STDCPP_DEFAULT_NEW_ALIGNMENT__, 16 here as in clang
+cpp_alloc_align(T, A) :- catch(( ccl_resolve_type(T, R), ccl_size_align(R, _, A) ), _, fail), A > 16.
+cpp_align_value(A, cast(base([], [typedef(align_val_t)]), ulong(A))).
+%% THE NEW-EXPRESSIONS: Spec = aspec(Kind, Global, Placement), the placement arguments desugared once
+cpp_new_expr(Ctx, G, Ps, new(T0, As), E) :- !, cpp_type(T0, T), cpp_exprs(Ctx, As, As1), ( cpp_class_of_type(T, CN) -> cpp_check_access(Ctx, CN, '$ctor') ; true ), cpp_new(aspec(new, G, Ps), T, As1, E).
+cpp_new_expr(Ctx, G, Ps, new_default(T0), E) :- !, cpp_type(T0, T), ( cpp_class_of_type(T, CN) -> cpp_check_access(Ctx, CN, '$ctor') ; true ), cpp_new_default(aspec(new, G, Ps), T, E).   % `new T' with no initializer (0.127)
+%% `new T[n]' of a class that constructs or destroys, or that keeps a cookie (cpp_new_objects); `new T[n]()' AND `new T[n]{}'
+%% VALUE-INITIALIZE every element ([expr.new]/24), which for a scalar and for a class with nothing to run is its zero bytes
+%% (cpp_new_scalars); libc++'s `make_unique<_Tp[]>(__n)' is `unique_ptr<_Tp>(new _Up[__n]())'
+cpp_new_expr(Ctx, G, Ps, new_array_init(T0, N, Items), E) :- cpp_type(T0, T), cpp_class_of_type(T, C), ( \+ cpp_trivial_class(C) ; cpp_array_cookie(T, Ck), Ck > 0 ), !, cpp_expr(Ctx, N, N1), cpp_new_objects(Ctx, aspec('new[]', G, Ps), T, C, N1, Items, E).
+cpp_new_expr(Ctx, G, Ps, new_array_init(T0, N, Items), E) :- !, cpp_type(T0, T), cpp_expr(Ctx, N, N1), cpp_new_scalars(Ctx, aspec('new[]', G, Ps), T, N1, Items, E).   % `new int[n]{a, b}': the items, the rest zero
+cpp_new_expr(Ctx, G, Ps, new_array(T0, N), E) :- cpp_type(T0, T), cpp_class_of_type(T, C), ( \+ cpp_trivial_class(C) ; cpp_array_cookie(T, Ck), Ck > 0 ), !, cpp_expr(Ctx, N, N1), cpp_new_objects(Ctx, aspec('new[]', G, Ps), T, C, N1, [], E).
+cpp_new_expr(Ctx, G, Ps, new_array(T0, N), E) :- !, cpp_type(T0, T), cpp_expr(Ctx, N, N1), cpp_new_scalars(Ctx, aspec('new[]', G, Ps), T, N1, none, E).
+%% PLACEMENT: `new (p) T' over a pointer is the reserved form, which constructs where it is told and allocates nothing (cpp_new_at/4,
+%% unless the class's own allocation function takes the pointer); any other placement is an allocation function's arguments
+cpp_new_expr(Ctx, G, [], new_at(Ps, N0), E) :- !, cpp_exprs(Ctx, Ps, Ps1),
+    (   cpp_reserved_placement(G, Ps1, N0) -> cpp_new_placed(Ctx, Ps1, N0, E)
+    ;   cpp_new_expr(Ctx, G, Ps1, N0, E) ).
+cpp_new_expr(Ctx, G, [], delete(X), E) :- !, cpp_expr(Ctx, X, X1), ( cpp_pointee_class_of(X1, DC), cpp_dtor(DC, _) -> cpp_check_access(Ctx, DC, '$dtor') ; true ), cpp_delete(G, X1, E).   % ... and where one is deleted (0.127)
+cpp_new_expr(Ctx, G, [], delete_array(X), E) :- !, cpp_expr(Ctx, X, X1), cpp_delete_array(G, X1, E).
+cpp_new_placed(Ctx, Ps1, N0, E) :-
+    (   N0 = new(T0, As) -> cpp_type(T0, T), cpp_exprs(Ctx, As, As1), cpp_new_at(Ps1, T, As1, E)
+    ;   N0 = new_default(T0) -> cpp_type(T0, T), cpp_new_at(default, Ps1, T, [], E)   % `new (p) T' (0.127)
+    ;   N0 = new_array(T0, N), Ps1 = [P1] -> cpp_new_at_array(Ctx, P1, T0, N, none, E)
+    ;   N0 = new_array_init(T0, N, Items), Ps1 = [P1] -> cpp_new_at_array(Ctx, P1, T0, N, Items, E)
+    ;   cpp_refuse(0, placement_new_array) ).
+cpp_reserved_placement(G, [P], N0) :- cpp_arg_kind(P, ptr),
+    \+ ( G == no, cpp_new_node_type(N0, K, T0), catch(cpp_type(T0, T), _, fail), cpp_alloc_class_of(T, C), cpp_alloc_owner(C, K, _), cpp_class_alloc(C, K, T, sizeof_type(T), [P], _, _, _) ).
+cpp_new_node_type(new(T, _), new, T).  cpp_new_node_type(new_default(T), new, T).  cpp_new_node_type(new_array(T, _), 'new[]', T).  cpp_new_node_type(new_array_init(T, _, _), 'new[]', T).
+%% the block a new-expression is: its pointer P over the block the allocation function gives, its initialization Inits (statements over
+%% id(P)) under a cleanup that gives the block back where they throw ([expr.new]/26), P its value; under a non-throwing allocation
+%% function the initialization runs only where there is a block ([expr.new]/20)
+cpp_new_block(Spec, T, Mode, P, Inits, stmt_expr(block(Ss))) :-
+    PT = ptr([], T), S = sizeof_type(T), cpp_alloc_call(Spec, T, S, P, Call, Undo, NT),
+    ( Mode == zeroed -> ( NT == yes -> M = nzeroed(S) ; M = zeroed(S) ) ; M = garbage ),
+    Decl = declaration(0, none, T, [var(P, PT, alloc(M, T, Call))]),
+    ( Undo \== none, Inits \== [] -> Body = [eh_cleanup(0, block([expr(0, Undo)]))|Inits] ; Body = Inits ),
+    (   NT == yes, Body \== [] -> Ss = [Decl, if(0, id(P), block(Body), none), expr(0, id(P))]
+    ;   append([Decl|Body], [expr(0, id(P))], Ss) ).
+%% cpp_alloc_call(+Spec, +T, +Size, +P, -Call, -Undo, -NoThrow): the call of the allocation function a new-expression of T makes over
+%% Size and the placement arguments; Undo the call that gives the block, id(P), back where its initialization throws (the matching
+%% deallocation function, [expr.new]/27; none where none matches); NoThrow `yes' for a non-throwing allocation function
+cpp_alloc_call(aspec(K, no, Ps), T, S, P, Call, Undo, NT) :- cpp_alloc_class_of(T, C), cpp_alloc_owner(C, K, _),
+    cpp_class_alloc(C, K, T, S, Ps, Call, Qs, AAs), !,
+    ( memberchk(noexcept, Qs) -> NT = yes ; NT = no ),
+    cpp_dealloc_kind(K, DK), ( cpp_class_undo(C, DK, T, S, AAs, Ps, Call, P, Undo0) -> Undo = Undo0 ; Undo = none ).
+cpp_alloc_call(aspec(K, G, Ps), T, S, P, Call, Undo, NT) :- cpp_global_alloc(G, K, T, S, Ps, P, Call, Undo, NT), !.
+cpp_alloc_call(aspec(K, _, Ps), T, _, _, _, _, _) :- length(Ps, N), cpp_refuse(0, no_allocation_function(K, T, N)).
+%% the CLASS'S OWN ([class.free]/1): its static `operator new' over the size, the alignment first where the type asks for one and a
+%% function takes it ([expr.new]/19), and the placement arguments
+cpp_class_alloc(C, K, T, S, Ps, Call, Qs, AAs) :-
+    ( cpp_alloc_align(T, A) -> cpp_align_value(A, AV), Tries = [[AV], []] ; Tries = [[]] ),
+    member(AAs, Tries), append([S|AAs], Ps, As),
+    catch(cpp_call(none, scoped([C], operator(K)), As, Call0), _, fail), Call0 = call(id(Name), _), cpp_alloc_method(C, K, Name, Qs, _), !,
+    cpp_copies(Call0, Call).
+cpp_alloc_method(C, K, Name, Qs, Ps) :- cpp_alloc_owner(C, K, O), cpp_class(O, cls(_, _, Ms, _, _, _)), member(method(_, Qs, _, operator(K), Ps, _, _), Ms),
+    catch(cpp_mangle_q(O, operator(K), Qs, Ps, N1), _, fail), N1 == Name, !.
+%% ... the matching deallocation function where the initialization throws: the usual one for a usual allocation, else the class's
+%% placement deallocation function whose parameters after the first are the allocation function's after the first ([expr.new]/27)
+cpp_class_undo(C, DK, T, S, [], [], _, P, Undo) :- !, cpp_usual_delete(no, DK, T, id(P), S, Undo, _).
+cpp_class_undo(C, DK, _, _, AAs, Ps, call(id(AName), _), P, call(id(DName), [nullptr, id(P)|Rest])) :- cpp_dealloc_kind(K, DK),
+    cpp_alloc_method(C, K, AName, _, [_|APs]), cpp_alloc_owner(C, DK, O), cpp_class(O, cls(_, _, Ms, _, _, _)),
+    member(method(_, DQs, _, operator(DK), [_|DPs], _, _), Ms), cpp_params_key(APs, KA), cpp_params_key(DPs, KD), KA == KD, !,
+    member(method(_, DQs, _, operator(DK), DPs1, _, _), Ms), DPs1 = [_|DPs], cpp_mangle_q(O, operator(DK), DQs, DPs1, DName), append(AAs, Ps, Rest).
+%% the GLOBAL ONES: a replaceable form by the arguments -- none, the nothrow tag -- the alignment first where the type asks for one; any
+%% other placement the program's own overload set ([expr.new]/19: with the alignment, then without). A non-placement allocation's matching
+%% deallocation is the one a delete-expression would call ([expr.new]/27): the class's own unless `::new', else the global one
+cpp_global_alloc(G, K, T, S, [], P, call(id(F), [S|AA]), Undo, no) :- !,
+    cpp_alloc_align_parts(T, AK, AA), cpp_alloc_sym(K, [size|AK], F), cpp_dealloc_kind(K, DK), cpp_usual_delete(G, DK, T, id(P), S, Undo, _).
+cpp_global_alloc(_, K, T, S, [N], P, call(id(F), As), call(id(DF), DAs), yes) :- cpp_arg_kind(N, nothrow), !,
+    cpp_alloc_align_parts(T, AK, AA), append([[size], AK, [nothrow]], Sh), cpp_alloc_sym(K, Sh, F), append([[S], AA, [N]], As),
+    cpp_dealloc_kind(K, DK), append([[ptr], AK, [nothrow]], DSh), cpp_alloc_sym(DK, DSh, DF), append([[id(P)], AA, [N]], DAs).
+cpp_global_alloc(_, K, T, S, Ps, P, Call, Undo, no) :-
+    cpp_alloc_align_parts(T, _, AA0), ( AA0 == [] -> Tries = [[]] ; Tries = [AA0, []] ),
+    member(AA, Tries), append([S|AA], Ps, As), length(As, KN), length(Qs, KN), cpp_free_operator(K, Qs, Set),
+    catch(cpp_call(none, id(Set), As, Call0), _, fail), Call0 = call(id(F), _), atom(F), ccl_declared(F, fn(_, _, _)), !,
+    cpp_copies(Call0, Call), cpp_dealloc_kind(K, DK), ( cpp_global_undo(Set, F, DK, P, AA, Ps, Undo0) -> Undo = Undo0 ; Undo = none ).
+cpp_alloc_align_parts(T, [align], [ulong(A)]) :- cpp_alloc_align(T, A), !.
+cpp_alloc_align_parts(_, [], []).
+cpp_global_undo(Set, F, DK, P, AA, Ps, call(id(DName), [id(P)|Rest])) :-
+    cpp_set_member(Set, F, [_|APs]), cpp_params_key(APs, KA), length([_|APs], N), length(Qs, N), cpp_free_operator(DK, Qs, DSet),
+    catch('$cpp_fn'(DSet, _, [D1|DPs], _, _), _, fail), cpp_params_key(DPs, KD), KD == KA, !,
+    cpp_fn_name(DSet, [D1|DPs], yes, DName), append(AA, Ps, Rest).
+cpp_set_member(Set, Name, Ps) :- catch('$cpp_fn'(Set, _, Ps, _, _), _, fail), catch(cpp_fn_name(Set, Ps, yes, N0), _, fail), N0 == Name, !.
+%% cpp_usual_delete(+Global, +DK, +T, +X, +Size, -Call, -Kind): the usual deallocation function of kind DK for an object of type T at X,
+%% Size its block's size ([expr.delete]/10): the class's own unless `::delete' -- a DESTROYING one first (C++20), then by the
+%% alignment the type asks for, then the one without a size -- else the global one, by the alignment, SIZED for a complete type and for an
+%% array of a class with a non-trivial destructor, as the standard selects it (clang 19 and later, `-fsized-deallocation'; clang 18 calls the
+%% unsized one); Kind cls(Shape) or glob(Shape)
+cpp_usual_delete(no, DK, T, X, S, Call, cls(Sh)) :- cpp_alloc_class_of(T, C), cpp_alloc_owner(C, DK, O), cpp_class(O, cls(_, _, Ms, _, _, _)),
+    findall(u(Sh0, Qs0, Ps0), ( member(method(_, Qs0, _, operator(DK), Ps0, _, _), Ms), cpp_alloc_shape(Ps0, Sh0), cpp_alloc_usual(class, Sh0) ), Us), Us \== [], !,
+    cpp_usual_pick(Us, T, u(Sh, Qs, Ps)), cpp_mangle_q(O, operator(DK), Qs, Ps, Name),
+    Sh = [_|Ks], cpp_usual_rest(Ks, S, T, Rest), Call = call(id(Name), [nullptr, X|Rest]).
+cpp_usual_delete(_, DK, T, X, S, call(id(F), [X|Rest]), glob([ptr|Ks])) :- cpp_alloc_align_parts(T, AK, AA),
+    ( cpp_global_sized(DK, T) -> Ks = [size|AK], Rest = [S|AA] ; Ks = AK, Rest = AA ), cpp_alloc_sym(DK, [ptr|Ks], F).
+cpp_global_sized(delete, T) :- catch(( ccl_resolve_type(T, R), \+ R = base(_, [void]), ccl_size_align(R, _, _) ), _, fail), !.
+cpp_global_sized('delete[]', T) :- cpp_alloc_class_of(T, C), cpp_dtor(C, _), !.
+cpp_usual_pick(Us, T, U) :- ( cpp_alloc_align(T, _) -> OA = yes ; OA = no ),
+    findall(k(D, AP, SP)-U0, ( member(U0, Us), U0 = u(Sh, _, _), ( Sh = [objptr, destroying|_] -> D = 0 ; D = 1 ), ( memberchk(align, Sh) -> HA = yes ; HA = no ), ( HA == OA -> AP = 0 ; AP = 1 ), ( memberchk(size, Sh) -> SP = 1 ; SP = 0 ) ), KUs),
+    msort(KUs, [_-U|_]).
+cpp_usual_rest([], _, _, []).
+cpp_usual_rest([size|Ks], S, T, [S|As]) :- !, cpp_usual_rest(Ks, S, T, As).
+cpp_usual_rest([align|Ks], S, T, [AV|As]) :- !, ( catch(( ccl_resolve_type(T, R), ccl_size_align(R, _, A) ), _, fail) -> true ; A = 16 ), cpp_align_value(A, AV), cpp_usual_rest(Ks, S, T, As).
+cpp_usual_rest([destroying|Ks], S, T, [compound_lit(base([], [typedef(destroying_delete_t)]), init([]))|As]) :- !, cpp_usual_rest(Ks, S, T, As).
+cpp_usual_rest([_|Ks], S, T, As) :- cpp_usual_rest(Ks, S, T, As).
+%% THE DELETING DESTRUCTOR (0.202), the Itanium ABI's D0, in a class's table where its destructor is virtual: the complete object's
+%% destructor, then the class's usual deallocation function over it ([class.dtor]/16: the one a delete-expression in the destructor's
+%% class would find) -- or the class's destroying delete alone. The slot held the complete destructor, so a `delete' through the
+%% table -- the program's, and the library's own `delete this' of a facet the program made -- destroyed and kept the block. A shipped
+%% class's is the library's (its D1's symbol with D0); the program's and the library's instances' are static functions of the unit,
+%% made with the table (cpp_primary_entry/9) and called by a secondary table's thunk.
+cpp_d0_name(C, D0) :- catch(cpp_own_dtor(C, D1), _, fail), atom_concat('_Z', _, D1), atom_concat(Pre, 'D1Ev', D1), !, atom_concat(Pre, 'D0Ev', D0).
+cpp_d0_name(C, D0) :- atomic_list_concat([C, '.dtor_del.0'], D0).
+cpp_d0_fn(L, C, D0, Fs) :- cpp_d0_name(C, D0), atom_concat('_Z', _, D0), !,   % the library's, declared once
+    ( cpp_instance_done(D0) -> Fs = [] ; cpp_instance_note(D0, mangled), cpp_this_type(C, [], [dying], ThisT), Fs = [function(L, extern, base([], [void]), D0, [param(ThisT, this)], false, none)] ).
+cpp_d0_fn(L, C, D0, [function(L, static, base([], [void]), D0, [param(ThisT, this)], false, block(Body))]) :-
+    cpp_d0_name(C, D0), cpp_this_type(C, [], [dying], ThisT), T = base([], [typedef(C)]),
+    cpp_usual_delete(no, delete, T, id(this), sizeof_type(T), Free, K),
+    ( K = cls([objptr, destroying|_]) -> Body = [expr(L, Free)] ; cpp_dtor(C, D1), Body = [expr(L, call(id(D1), [id(this)])), expr(L, Free)] ),
+    ( '$cpp_libfn'(D0) -> true ; assertz('$cpp_libfn'(D0)) ).
 
 %% ---- templates, instantiated on use --------------------------------------------------
 %% '$cpp_templates' = [Name-tmpl(TParams, Item) ...]; '$cpp_instances' = [InstanceName-Template ...];

@@ -1,0 +1,9 @@
+nothrow new
+C()
+5
+~C
+nothrow new
+1
+nothrow new
+1
+exit 0

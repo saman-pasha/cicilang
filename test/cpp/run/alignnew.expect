@@ -1,0 +1,8 @@
+new 64 align 64
+0
+delete align 64
+new[] align 32
+0
+delete[] align 32
+4
+exit 0

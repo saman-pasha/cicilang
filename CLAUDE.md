@@ -10,8 +10,8 @@ it found, its measurements and its gate numbers. `README.md` tells a user what r
 architecture and the milestones. A step that changes a rule edits the rule here, in its topic, and writes its entry
 in `HISTORY.md`.
 
-At 0.201 the versions are: the module 0.201 (`ccl_p_version` in `module/cicilang.cicili`, `bin/cicilang --version`),
-the reader 152 (`ccl_reader_version/1`, `library/ccl_syntax.pl`) and the lowering 114 (`ccl_lowering_version/1`,
+At 0.202 the versions are: the module 0.202 (`ccl_p_version` in `module/cicilang.cicili`, `bin/cicilang --version`),
+the reader 153 (`ccl_reader_version/1`, `library/ccl_syntax.pl`) and the lowering 115 (`ccl_lowering_version/1`,
 `library/ccl_ir.pl`).
 
 Build and prove, always in this order (or all of it, `sh test/gates.sh`):
@@ -2452,14 +2452,14 @@ tutorials/01..03-*.pl       the objects layer's lessons; goal main, last line do
 
 ### The versions
 
-- `ccl_reader_version/1` (`library/ccl_syntax.pl`, now 152): bump it for any grammar change to what a read gives, and
+- `ccl_reader_version/1` (`library/ccl_syntax.pl`, now 153): bump it for any grammar change to what a read gives, and
   for any change to what the AST beside a summary holds (item or member terms, `cpp_index_name/2`,
   `cpp_template_name/2`, `ccl_flat_items/3`, the namespace keys). Keep the reason in its comment. Why: the store and the
   summaries are keyed by it, and a stale read is served silently (`sizeof(std::string)` read 40). (M1, 0.89, 0.112,
   0.117)
 - A reader bump makes every summary cold; `test/libcxx.sh` rewrites them. `test/reader.pl`'s `k16` (a cached read is
   the same AST as a fresh one) goes RED on a grammar change without a bump. (0.93, 0.105)
-- `ccl_lowering_version/1` (`library/ccl_ir.pl`, now 114): bump it whenever the check or the lowering changes what it
+- `ccl_lowering_version/1` (`library/ccl_ir.pl`, now 115): bump it whenever the check or the lowering changes what it
   emits, however small -- 0.120 bumped it for the ORDER of the drain functions alone. Why: `dr_ir/3` serves the old IR
   otherwise. Either bump starts the C store afresh. (M4, 0.103, 0.120)
 
@@ -2768,10 +2768,11 @@ free. A const method adds `.c`, a ref-qualified one `.r` or `.rr` after it: each
   `cpp_value_zeroes/1` over `cpp_user_default_ctor/1`: a constructor the class writes, or a constructor template, that
   takes no argument is user-provided; the implicit one and `C() = default` in the class are not), then runs that
   constructor: `R()` and every temporary of no argument (`cpp_temp_zeroed/6`), `T t{}` of a non-aggregate class, a
-  member's `m()` (`cpp_member_inits`, `cpp_value_init`), `new T()` and `new T{}` (calloc, `cpp_new_ctor/5`; a type with
-  nothing to construct calloc'd, a scalar its zero, `cpp_new_zeroed/2`) and `new (p) T()` (a `memset`, then the
-  constructor; `cpp_new_at/5`). `new T` and `new (p) T` alone, the reader's `new_default(T)`, default-initialize: the
-  constructor, else the bytes as they are (`cpp_new_default/2`, `cpp_new_at(default, ...)`). Fixture: `valueinit.cpp`.
+  member's `m()` (`cpp_member_inits`, `cpp_value_init`), `new T()` and `new T{}` (the block's zero bytes, calloc's
+  before 0.202, `cpp_new_ctor/6`; a type with nothing to construct zeroed, a scalar its zero, `cpp_new_zeroed/3`) and
+  `new (p) T()` (a `memset`, then the constructor; `cpp_new_at/5`). `new T` and `new (p) T` alone, the reader's
+  `new_default(T)`, default-initialize: the constructor, else the bytes as they are (`cpp_new_default/3`,
+  `cpp_new_at(default, ...)`). Fixture: `valueinit.cpp`.
   Why: each ran the implicit constructor alone, so `struct R { int a; Q q; }` had a garbage `a` where clang++ gives 0,
   and `new int()` over reused memory was garbage. (0.127)
 - A braced default member initializer value-initializes too: `T cur{};` as `m()` does; `int n{3};` on a scalar is its
@@ -3426,7 +3427,11 @@ free. A const method adds `.c`, a ref-qualified one `.r` or `.rr` after it: each
   `cpp_use_static/2`, `static(C, N)` in `'$cpp_inst'`); its declaration in the table is the registration's
   (`cpp_declare_statics`), and a folded constant needs no definition. Why: checking `std::format`'s second candidate
   instantiates `basic_format_string<wchar_t, int, int>`, and its statics' initializers (`__types_`, `__handles_`)
-  pulled the whole `wchar_t` format road and `numpunct<wchar_t>` into a `char` program. (0.112)
+  pulled the whole `wchar_t` format road and `numpunct<wchar_t>` into a `char` program. (0.112) The global it is made
+  under -- a shipped one's Itanium symbol, an `extern` declaration -- is declared at file scope in the desugaring's
+  table where it is made (`cpp_static_gdeclare/1`, 0.202): the walk that named it met a global of no type,
+  `type(unknown)`, as libc++'s `locale(const locale &, Facet *)` met `numpunct<char>::id` over a facet the program
+  made, a defect of 0.201 too, which 0.202's probes found. `vdelete.cpp`, `localefacet.cpp`.
 - The word `static` sits in the innermost base's qualifiers, so a static pointer or array member is a static
   (`cpp_static_type`); else a class of statics was no empty base. `staticbase.cpp`. (0.72)
 - `cpp_register_class_extras` records the static initializers in `'$cpp_sinit'`, also one defined out of the
@@ -3653,11 +3658,55 @@ free. A const method adds `.c`, a ref-qualified one `.r` or `.rr` after it: each
 
 ### new, delete and placement new
 
-- `new C(As)` constructs into `new(T, [])`'s block through the chosen constructor (`cpp_new`); `new T` of a type
-  without constructors is malloc's block (`new(T, As)`). (0.33)
-- `delete p` of a class with a destructor is `comma(dtor(p), delete(p))` (`cpp_delete`); a pointer that is no name
-  goes through a temporary, else the check sees a borrow freed. A virtual destructor runs through its slot
-  (`cpp_destroy`). (0.33, 0.34)
+- THE ALLOCATION FUNCTIONS (0.202; [expr.new]/9, /12, /19, [expr.delete]/9-10, [basic.stc.dynamic], [class.free],
+  [replacement.functions]): a new-expression obtains its storage by calling an allocation function and a delete-expression
+  gives it back by a deallocation function. Both were malloc and free (M6): a program's `operator new` was never called, nor
+  a class's, nor the matching delete where a constructor throws, and an alignment past 16 was never asked for. The global
+  replaceable functions are their Itanium symbols (`_Znwm`, `_Znam`, `_ZdlPv`, `_ZdaPv`, the sized, aligned and nothrow
+  forms; `cpp_alloc_sym/3`), declared in every unit (`cpp_alloc_declare_implicit/0`, [basic.stc.dynamic]/2) and named so
+  wherever the program defines, declares or calls one (`cpp_free_operator/3`'s first clause): the program's replace
+  libc++'s at the link, as clang's do. The reserved placement forms (`_ZnwmPv` ...) are libc++'s inline ones. The reader
+  names `operator new[]` and `operator delete[]` apart, `operator('new[]')` and `operator('delete[]')` (they were `new` and
+  `delete`, one name with the single forms), and marks `::new` and `::delete`, `global(E)` (reader 153); the mangler spells
+  `na` and `da`. `allocrepl.cpp` (the library's allocations through the program's replacement too). (0.202)
+- A NEW-EXPRESSION (`cpp_new_expr/5`, `cpp_new_block/6` over `cpp_alloc_call/7`): for a class, unless it is written `::new`,
+  the class's own `operator new` -- a member or a base's, static whether or not it says so ([class.free]/1;
+  `cpp_alloc_members/2`, `'$cpp_alloc_m'/2`, `cpp_alloc_owner/3`) -- chosen by overload resolution over the size and the
+  placement arguments; else the global one: the replaceable form the arguments name (none, the nothrow tag), any other
+  placement the program's overload set. A type aligned past 16 (`__STDCPP_DEFAULT_NEW_ALIGNMENT__`, `cpp_alloc_align/2`)
+  takes the aligned form first, the alignment after the size ([expr.new]/19). The node is `alloc(Mode, T, Call)`: T's block
+  from Call -- `garbage`; `zeroed(Size)`, value-initialization's zero bytes, an `llvm.memset` after the call (calloc's before);
+  `nzeroed(Size)` under a function that may answer null -- and the initialization follows it. `new (p) T` over a pointer is
+  the reserved placement new (`cpp_new_at/4`), unless the class's own allocation function takes the pointer.
+  `classnew.cpp`, `alignnew.cpp`. (0.33, 0.202)
+- A NON-THROWING ALLOCATION FUNCTION ([expr.new]/20) -- `noexcept`, the nothrow form -- answers a null block with a null
+  result and no initialization: the constructor and an array's items run only where there is a block. `nothrownew.cpp`.
+  (0.202)
+- AN INITIALIZATION THAT THROWS GIVES THE BLOCK BACK BY THE MATCHING DEALLOCATION FUNCTION ([expr.new]/27; `cpp_class_undo/9`,
+  `cpp_global_undo/7`; free since 0.201): a non-placement allocation's the one a delete-expression of the type would call, a
+  placement allocation's the placement deallocation function whose parameters after the first are the allocation
+  function's after the first (`operator delete(void *, Arena &)` for `operator new(std::size_t, Arena &)`), none where none
+  matches; an array's built elements are destroyed first, the last first. `placealloc.cpp`, `newarray.cpp`. (0.201, 0.202)
+- A DELETE-EXPRESSION (`cpp_delete/3`, `cpp_usual_delete/7`) is `dealloc(Destroy, Free, X)`: where X is not null
+  ([expr.delete]/7: no destructor runs on a null pointer; it ran on one before), its destructor, then the usual deallocation
+  function -- the class's own unless `::delete`, a DESTROYING one first (C++20, [expr.delete]/9, which runs in place of the
+  destructor), then by the alignment, then the unsized one ([expr.delete]/10) -- else the global one, by the alignment,
+  SIZED for a complete type and for an array of a class with a non-trivial destructor, as the standard selects it and clang
+  19 and later call it (clang 18 calls the unsized one: a program that defines both alike prints the same). The pointer is a
+  name or a temporary of its own (`cpp_delete_operand/3`), else the check sees a borrow freed. `destroydel.cpp`. (0.33,
+  0.202)
+- A CLASS WITH A VIRTUAL DESTRUCTOR IS DELETED BY ITS DELETING DESTRUCTOR (the Itanium ABI's D0; `cpp_d0_fn/4`,
+  `cpp_d0_name/2`; 0.202) through the `$dtor_del` slot: the complete object's destructor, then the deallocation function the
+  class finds ([class.dtor]/16) over the complete object and its size, or the class's destroying delete alone -- a static
+  function of the unit, made with the table and marked the compiler's (`'$cpp_libfn'`), a shipped class's the library's
+  `...D0Ev`; a secondary table's entry is a thunk to the complete object. The slot held the complete destructor (0.72), so a
+  delete through the table destroyed and kept the block -- the program's, through a later base too, and the library's own
+  `delete this` of a facet the program made. `::delete` of such a class is the complete object's destructor through the
+  table, then the global function over the address the table's offset to top gives (`delete_poly/3`, 0.108). `vdelete.cpp`.
+  (0.34, 0.108, 0.202)
+- `operator new` AND `operator delete` WRITTEN OUT, and libc++'s `__builtin_operator_new` and `__builtin_operator_delete`
+  (`cpp_operator_new/3`): the replaceable function the arguments name, a reserved placement form its pointer or nothing, any
+  other the program's overload set (0.202; malloc and free, and an alignment request dropped).
 - Placement new constructs where it is told and allocates nothing (`cpp_new_at/4`): `::new ((void *) __p) _Up(args)`
   is `std::__construct_at`. A class with constructors is built over the address, the copy pass on the call. A value of
   the class itself is its bytes where the class writes no copy or move constructor, has no destructor and needs no
@@ -6103,9 +6152,10 @@ A lambda is a class of its captures (`library/ccl_cpp.pl`). A fixture named alon
   first's slot, the table had one slot too few, and `std::put_money` of a string dispatched to the `long double` one --
   LLVM refused the `sitofp` of a struct. `virtualoverload.cpp`, `stdmoney.cpp`.
 - A virtual destructor, by `virtual`, by `override` or by a base's virtual destructor (0.177), takes two slots,
-  `'$dtor'` and `'$dtor_del'` (`cpp_own_slots`): Itanium's complete and deleting destructors, both the one destructor
-  here. A virtual call into an object that the shipped library made indexes that object's own table.
-  `vdtordefault.cpp`, `vdtorlater.cpp`. (0.72, 0.177)
+  `'$dtor'` and `'$dtor_del'` (`cpp_own_slots`): Itanium's complete and deleting destructors, the second the deleting
+  destructor since 0.202 (it held the complete one: the new, delete and placement new topic). A virtual call into an
+  object that the shipped library made indexes that object's own table. `vdtordefault.cpp`, `vdtorlater.cpp`. (0.72,
+  0.177, 0.202)
 - The class that introduces the slots has a `'$vptr'` to `struct C.vt` (`cpp_vt_struct`): a function pointer per slot
   over the owner's `this` (`cpp_vt_owner/2`), a `dying` `this` for the destructor slots. The vptr comes first, ahead of
   the base sub-objects (0.135, the Base sub-objects topic). (0.34, 0.72, 0.135)
@@ -6156,8 +6206,9 @@ A lambda is a class of its captures (`library/ccl_cpp.pl`). A fixture named alon
   virtual functions of its own had its table typed by the primary base's struct, one slot short, and LLVM's constant could
   not hold it: `D : X, P` over `P : PB` with `virtual int h()` was refused since 0.108,
   `item(declaration('D.vtable$base$2'))`. `secslots.cpp`. (0.108, 0.172)
-- `delete` through a later polymorphic base frees the complete object, found by the offset to top before the destructor
-  runs (`cpp_delete`, `delete_poly`). (0.108)
+- `delete` through a later polymorphic base calls the deleting destructor through that base's table, whose entry is a
+  thunk that moves `this` to the complete object (`cpp_thunk_entry`, 0.202); `::delete` of one frees the complete object,
+  found by the offset to top before the destructor runs (`cpp_delete`, `delete_poly/3`). (0.108, 0.202)
 
 ### Virtual bases and the diamond
 
@@ -6457,7 +6508,8 @@ A lambda is a class of its captures (`library/ccl_cpp.pl`). A fixture named alon
   never a null constant's `int`), a global's constant (`ir_gconst`), and the zero-initialization of every type that
   holds one through its arrays and its members by value ([dcl.init]/6) -- a global without an initializer, an
   aggregate's missing items, an array's rest, `T t{}`, `new T()`, a value-initialized class -- spelled with the -1s by
-  `ir_null_const/3` and stored after the bytes of a `calloc` or a `memset` by the desugaring (`cpp_zero_not_null/3`,
+  `ir_null_const/3` and stored after the zero bytes of a new-expression's block (a `calloc`'s before 0.202) or of a
+  `memset` by the desugaring (`cpp_zero_not_null/3`,
   `cpp_zero_stmts/5`). One tests true where it is no -1, and a base's converted to a derived class's grows by the base's
   offset, null kept null ([conv.mem]/2). Two pointers to members compare ([expr.eq]/4; `ir_memptr_cmp/8`): both brought
   to one type, a data member's as integers, a member function's by clang's rule -- equal ptrs and either a null ptr or
@@ -6478,12 +6530,16 @@ A lambda is a class of its captures (`library/ccl_cpp.pl`). A fixture named alon
 ### The array cookie
 
 - `new T[n]` of a class that constructs or destroys (`\+ cpp_trivial_class`) uses the Itanium array cookie
-  (`cpp_new_objects`). Only a class with a destructor gets one: the count, in max(8, alignof(T)) bytes before the first
-  element. The elements are made in place, by the default constructor or from braced items, the rest value-initialized.
-  (0.108)
-- `delete[]` reads the count, destroys in reverse and frees from the cookie (`cpp_delete_array`, `delete_cookie`).
-  `new T[n]()` and `new T[n]{}` of a trivial type are `calloc`; `new int[n]{a, b}` stores the items over the zeroes
-  (`cpp_new_scalars`). `arraycookie.cpp`. (0.86, 0.108)
+  (`cpp_new_objects`). A class with a destructor gets one, and since 0.202 one whose array deallocation function is a
+  sized one ([expr.new]/15, the Itanium ABI 2.7; `cpp_array_cookie/2`): the count, in max(8, alignof(T)) bytes before
+  the first element. The block is the array allocation function's, its size the cookie and the elements (0.202). The
+  elements are made in place, by the default constructor or from braced items, the rest value-initialized; a constant
+  bound that the items cover asks no default constructor (`cpp_items_cover/2`, 0.202: `new A[2]{A(1), A(2)}` of a class
+  without one was refused `no_constructor`). (0.108, 0.202)
+- `delete[]` reads the count, destroys in reverse and gives the block back from the cookie's start, a sized function
+  told its size (`cpp_delete_array/3`, 0.202). `new T[n]()` and `new T[n]{}` of a trivial type are the block's zero
+  bytes, calloc's before 0.202; `new int[n]{a, b}` stores the items over the zeroes (`cpp_new_scalars`).
+  `arraycookie.cpp`, `newarray.cpp`. (0.86, 0.108, 0.202)
 
 ### The Itanium mangler
 
@@ -6749,12 +6805,20 @@ A lambda is a class of its captures (`library/ccl_cpp.pl`). A fixture named alon
 - A body with `co_await`, `co_yield` or `co_return` (outside a lambda) takes LLVM's switch-resumed lowering. The
   desugaring makes it a skeleton (`cpp_coro_skeleton`), in order:
   1. the promise `$promise` declared;
-  2. `coro_begin`: `llvm.coro.id`, the frame from operator new, `llvm.coro.begin`;
+  2. `coro_begin`: `llvm.coro.id`, the frame from its allocation function (below), `llvm.coro.begin`;
   3. `coro_ret`: `get_return_object()`, converted as a return is;
   4. the initial suspend's await;
   5. `coro_body`, with a fall-off `return_void()` where the promise has one;
   6. the final suspend's await;
-  7. `coro_done`: the defers, `llvm.coro.free`, `llvm.coro.end`. (0.108)
+  7. `coro_done`: the defers, `llvm.coro.free`, the frame given back to its deallocation function, `llvm.coro.end`.
+     (0.108, 0.202)
+- THE COROUTINE STATE'S ALLOCATION ([dcl.fct.def.coroutine]/9-12; `cpp_coro_alloc/5`, `cpp_coro_dealloc/1`; 0.202): the
+  promise type's `operator new`, a member or a base's, over the frame's size (`coro_size`, `llvm.coro.size.i64`) and the
+  coroutine's arguments, else over the size alone, else the global one; a promise with
+  `get_return_object_on_allocation_failure` takes the nothrow form, and a null frame returns that function's result,
+  the body never run. It is given back to the promise type's usual `operator delete`, the sized one first, over the frame
+  (`coro_mem`, `llvm.coro.free`'s pointer), else to the global sized one. Both were the global functions, the frame's
+  given back unsized. `coroalloc.cpp` (C++20). (0.202)
 - `co_await e` is a statement expression over the awaiter, through `await_transform` where the promise has one:
   `await_ready()`; else `coro_suspend` (`llvm.coro.save`, `await_suspend(coroutine_handle<P>::from_address(frame))`
   whose void, bool or handle result decides, `llvm.coro.suspend`, a switch whose destroy edge runs each defer); then
@@ -6903,7 +6967,11 @@ A lambda is a class of its captures (`library/ccl_cpp.pl`). A fixture named alon
 - A header's free function is declared at the load with resolved types (`cpp_register_lazy`, `cpp_resolved_params`)
   and emitted `linkonce` where called (`cpp_use_fn/3`, origin `lazy(Item)`), once per overload, in progress while it
   emits and noted after; a failure refuses `function_not_emitted(Name)`. So the `__convert_to_integral` overloads over
-  `__int128_t` are never emitted. (0.58, 0.73, 0.78)
+  `__int128_t` are never emitted. It is declared under the name it is emitted under where the table holds no function of
+  that name (`cpp_declare_emitted/1`, 0.202): a call names an overload by the parameters the pre-pass noted, raw, and the
+  registration declared it by the ones it resolved, so `h == nullptr` of a `coroutine_handle<>` found its operator
+  emitted and undeclared, `no_operator(==)`, a defect of 0.201 too. `corohandleeq.cpp` (C++20). (0.58, 0.73, 0.78,
+  0.202)
 - A library class's hidden friend is registered as a free function, its types resolved in its class
   (`cpp_register_lazy_friends`), and its body is walked in that class when emitted (`'$cpp_friend_in'`). Else
   filter_view's iterator `operator==`, which names its nested class bare, matched nothing. `stdviews.cpp`. (0.78, 0.112)
@@ -7082,7 +7150,10 @@ A lambda is a class of its captures (`library/ccl_cpp.pl`). A fixture named alon
   libc++ 18's `__make_fmatrix_impl` of `std::visit` -- has it as a local that holds the null (`ir_names_this/1`): the
   regroup's comparison met `undeclared(this)` in `stdvariant.cpp`. `staticnothis.cpp`.
 - `extern ostream cout;` is registered on the first ask (`cpp_lazy_var`) under its exported symbol (`cpp_mangled_var`
-  over `'$cpp_hdr_ns'`), `_ZNSt3__14coutE`; `cpp_global_var/2` gives it to `std::cout` and a bare `cout`. (0.71)
+  over `'$cpp_hdr_ns'`), `_ZNSt3__14coutE`; `cpp_global_var/2` gives it to `std::cout` and a bare `cout`. One directly in
+  std, outside the inline namespace, is the Itanium ABI's unscoped name, `_ZSt7nothrow` for `std::nothrow` (0.202: it
+  was `_ZNSt7nothrowE`, which named nothing at the link), and the class of its type is registered with it (0.202: the
+  lowering met `class(nothrow_t)`). `nothrownew.cpp`. (0.71, 0.202)
 - A header's enum keeps its namespace path without being an item to load (`cpp_enum_ns_name/2` in `cpp_index_flat`,
   and in the AST beside the summary, `'$cpp_hdr_ast_ns'`), so in a shipped function's symbol it is a nested name:
   `to_chars(char *, char *, double, chars_format)` is `_ZNSt3__18to_charsEPcS0_dNS_12chars_formatE`. A program's own
@@ -7123,8 +7194,9 @@ A lambda is a class of its captures (`library/ccl_cpp.pl`). A fixture named alon
 
 - `cpp_builtin_call/3` answers libc++'s builtins as this compiler can:
   - `__builtin_is_constant_evaluated` is false, and `__builtin_constant_p` is 0;
-  - `__builtin_operator_new` and `__builtin_operator_delete` are `malloc` and `free` at any arity, as written-out
-    `::operator new` and `::operator delete` are (`cpp_operator_new/3`);
+  - `__builtin_operator_new` and `__builtin_operator_delete` are the global allocation and deallocation functions their
+    arguments name -- a size, an alignment, the nothrow tag -- as written-out `::operator new` and `::operator delete`
+    are (`cpp_operator_new/3`, 0.202: `malloc` and `free` at any arity, an alignment dropped);
   - `__builtin_launder`, `__builtin_assume_aligned` and `__builtin_expect` give their operand, and
     `__builtin_addressof(X)` is `addr(X)`;
   - `__builtin_assume`, `__builtin_assume_dereferenceable`, `__builtin_unreachable` and `__builtin_prefetch` are
@@ -7142,8 +7214,8 @@ A lambda is a class of its captures (`library/ccl_cpp.pl`). A fixture named alon
   e (its type unref'd and unqualified), a `memcpy` of `sizeof(T)` bytes between them, the local of T last. <bit>'s
   `std::bit_cast` is `return __builtin_bit_cast(_ToType, __from);`; the builtin was `trait_unknown`. `stdbitcast.cpp`.
 - The memory builtins are libc's: `memcpy`, `memmove`, `memset`, `memcmp`, `memchr`, `strlen`, and
-  `__builtin_char_memchr` as `memchr`. `ir_cpp_prelude` declares `malloc`, `free`, `calloc`, `memcpy`, `memmove` and
-  `memset` where the file did not. `__builtin_wmemchr`, `wmemcmp` and `wcslen` are libc's, declared where no header did
+  `__builtin_char_memchr` as `memchr`. `ir_cpp_prelude` declares `free`, `memcpy`, `memmove` and `memset` where the
+  file did not, and the replaceable allocation functions (0.202, `malloc` and `calloc` before). `__builtin_wmemchr`, `wmemcmp` and `wcslen` are libc's, declared where no header did
   (`cpp_wide_fn`): `std::find` of an int goes that road. (0.60, 0.76, 0.92)
 - The math builtins are libm's (`cpp_math_fn`, `cpp_math_stem`, `cpp_math_shape`): `f` float, `l` libm's own long double
   function, each declared once where no header did (`cpp_math_declared`): the rehash's `__builtin_ceilf`. `scalbn` and
@@ -7498,10 +7570,19 @@ A lambda is a class of its captures (`library/ccl_cpp.pl`). A fixture named alon
 - `'$ck_refs'` names the function's references, and a use of one is a use of its referent: `x = v` is `*x = v`, and
   `&x` is the pointer held. `r.f` is keyed `r->f` (`ck_path/2`). A reference result is a borrow out (`'$ck_ret'`,
   `ck_no_escape/2`); a reference to a non-parameter local is `borrow_escapes`. (0.32, 0.44)
-- Every `delete` consumes as `free`: plain, `[]`, polymorphic, and past an array cookie. `new` is fresh. `new T` of a
-  struct without a constructor is malloc's bytes (`ck_alloc_mode/2` on `new(_, [])`, `new_array`, through a cast);
-  `new C(args)` is complete. `ir_cpp_prelude/0` declares `malloc`, `free`, `calloc`, `memcpy`, `memmove` and `memset`
-  before the check when the file did not. (0.32, 0.37, 0.108)
+- Every `delete` consumes as `free`: plain, `[]`, polymorphic, and past an array cookie -- `dealloc/3` after its
+  destructor's walk (0.202). `new` is fresh. A new-expression's block is the allocation function's bytes
+  (`ck_alloc_mode/2` on `alloc(Mode, _, _)`: `garbage` for a struct's own fields `unset`, a zeroed block `null`; the
+  arguments of the call are read), a statement expression `$new...` borrows what its allocation borrows (a placement
+  allocation function tied to its argument, below), and `new C(args)` is complete. `ir_cpp_prelude/0` declares `free`
+  and the replaceable allocation functions before the check when the file did not (`malloc` and `calloc` before 0.202).
+  (0.32, 0.37, 0.108, 0.202)
+- A USUAL DEALLOCATION FUNCTION'S FIRST PARAMETER IS AN OWNER (0.202; `cpp_alloc_own_params/4`): the global and the
+  class-specific `operator delete` and `operator delete[]` of the shapes [basic.stc.dynamic.deallocation]/3 names take
+  the block they give back, which their body frees -- `void operator delete(void *p) noexcept { std::free(p); }` was
+  `borrow_consumed`. A placement deallocation function's parameter is as the program writes it. A TIE TO A REFERENCE
+  PARAMETER borrows the argument's object (`ck_call_tie/3`, an `addr` of the argument): `void *operator new(std::size_t,
+  Arena &a) tie a` hands out a block within the arena, the caller's pointer a borrow of it. `placealloc.cpp`. (0.202)
 - The desugaring marks a constructor's `this` `[fresh]` and a destructor's `[dying]` (`cpp_this_type/4`), and
   `ck_this_marker/2` reads the marks. Under `fresh` the own fields start `unset` (`ck_param_owners/2`) and must be live
   or null at each return (`ck_complete_owners/2`). Under `dying` they are exempt (`'$ck_dying_fields'`).
@@ -7806,10 +7887,14 @@ A lambda is a class of its captures (`library/ccl_cpp.pl`). A fixture named alon
 - `move(E)` is E, with two exceptions. An own array's element is loaded and its slot nulled. A struct lvalue with own
   fields has them nulled behind it, nested structs too (`ir_null_own_fields/2`, `ir_has_own_fields/1`), so its
   destructor frees nothing. (M3, 0.40)
-- `new T` is `(T *) malloc(sizeof(T))`, `new T(v)` stores v, `new T[n]` mallocs `n * sizeof(T)`, and `delete` is
-  `free` (`ir_new/3`). A `new` that still needs a constructor is `new_with_constructor(T)`. A polymorphic `delete`
-  frees the complete object found through `vptr[-2]`; a `delete[]` past an array cookie frees from the cookie. (0.32,
-  0.108)
+- A new-expression's block is `alloc(Mode, T, Call)` (0.202): the allocation function's call, then, for `zeroed(Size)`,
+  an `llvm.memset` of Size bytes over the block, for `nzeroed(Size)` the same where the block is not null
+  (`ir_zero_bytes/2`). A delete-expression is `dealloc(Destroy, Free, X)`: where X is not null, Destroy, the drain of
+  the pointee's own arrays (`ir_dealloc_drain/1`), then Free. `delete_poly/3`, `::delete` of a class with a virtual
+  destructor, takes the complete object through `vptr[-2]` before the destructor runs through the table, then gives it
+  to the global function, the aligned one where the class asks for it. A `new` or a `delete` that reaches the lowering
+  as it is takes the global functions (`ir_new/3`: `new T`, `new T(v)` of a type with no constructor, `new T[n]`), and a
+  `new` that still needs a constructor is `new_with_constructor(T)`. They were malloc and free. (0.32, 0.108, 0.202)
 - The drains are in the safe part above. Exceptions (`invoke`, landing pads), RTTI (libc++abi), coroutines
   (`llvm.coro.*`) and contracts lower as their own section says. (0.108)
 
@@ -8601,7 +8686,14 @@ A lambda is a class of its captures (`library/ccl_cpp.pl`). A fixture named alon
   at 2882 MB, 1.8.38 at 591 MB. After a cocolog update the modules are rebuilt (`module/build.sh`,
   `module/build-llvm.sh`, and cocolog's `os` and `process` modules); 1.8.36 to 1.8.41 left the SDK's ABI unchanged.
   (0.46, 0.112, 0.114)
-- cocolog is at 2.11.4 since 0.198, pulled at the owner's word -- master `fbda058` (`d67250f` since 0.199, pulled at the
+- cocolog is at 2.11.6 since 0.202, pulled at the owner's word -- master `47670ff`, over ZiguratIP 1.0.1 (`90d99b8`),
+  which did not move, beside Cicili 3.2.0 (`a9e2dcf`), which 2.11.5 asks for: 2.11.5 (`a27ea39`) writes its fifteen
+  store-write barriers through one macro and takes `realpath` from Cicili's standard library, which Cicili 3.2.0
+  declares; 2.11.6 (`257c6ae`) hands a ball across engines privately -- a `catch/3` around `findall/3` no longer pays
+  the shared store's barrier -- and frees a private store's array where it returns to zero above 65,536 cells. The SDK
+  did not change (`lib/sdk.cicili`), Cicili 3.2.0 makes both modules' C byte for byte what 3.1.0 made (the 0.200 module
+  source transpiled again and compared), and both were built again. The two engines are measured in the next step. It
+  was at 2.11.4 from 0.198 -- master `fbda058` (`d67250f` since 0.199, pulled at the
   owner's word again: thirteen commits of the translation library, `library/reasoning/`, its test and tutorial and
   cocolog's own `CLAUDE.md`, the engine 2.11.4 and nothing built again), over ZiguratIP 1.0.1 (`90d99b8`),
   which did not move, beside Cicili 3.1.0 (`cc24ae0`), which 2.11.2 asks for: 2.11.2 (`dd53f69`) marks the growths' slow
@@ -9350,6 +9442,19 @@ A lambda is a class of its captures (`library/ccl_cpp.pl`). A fixture named alon
   (two virtual overloads of one name and arity, one overridden), `virtualdefault` (a virtual call that leaves a defaulted
   argument out), `anonparam` (an unnamed by-value parameter destroyed), `rangeadl` (a range-for by the free `begin` and
   `end` of two namespaces), `downcast` (`static_cast` from a second base to the derived class, a pointer and a reference).
+- Forms of 0.202, the allocation functions: `allocrepl` (the program's replacements of the global single and array
+  forms, sized and unsized, through a new-expression, a `std::vector`'s and a `std::string`'s growth and `::operator
+  new` written out), `classnew` (a class's own allocation and deallocation functions, static whether or not they say
+  so, a base's, the dynamic type's through a virtual destructor, `::new` and `::delete`), `alignnew` (an over-aligned
+  type's aligned forms, an array of one with a destructor), `nothrownew` (the nothrow form and its null result),
+  `placealloc` (a placement allocation function tied to its arena and the placement deallocation function where the
+  constructor throws), `destroydel` (C++20: a destroying `operator delete`), `vdelete` (a delete through a second base,
+  the dynamic type's sized deallocation function, `::delete` through the table, a program facet deleted by libc++),
+  `newarray` (a class's array forms, a sized `delete[]`'s cookie, a value-initialized array, `new T[0]`, a nothrow array
+  with items, an element's constructor that throws), `coroalloc` (C++20: a coroutine state's allocation through its
+  promise type, over the coroutine's arguments, and `get_return_object_on_allocation_failure`), `corohandleeq` (C++20: a
+  `coroutine_handle` compared), `localefacet` (a library facet the program makes, deleted by the library) and `tieref`
+  (a function's result tied to a reference parameter).
 - Forms of 0.201, what libc++'s facilities asked for: `ctorthrow` (a constructor that throws destroys what it built, a
   function-try-block's handler sees them destroyed), `fntryblock` (a base with nothing to construct, a later base, the
   implicit copy constructor's members; the function-try-blocks of a method, a destructor and a free function),
@@ -9874,7 +9979,12 @@ synchronization headers, `<syncstream>`, the execution policies, and the headers
 their probes found: a constructor's and a destructor's function-try-block, a throwing constructor destroying what it
 built, a destructor that throws at a scope's exit, an integer literal's first type, a class's arguments deduced from the
 caller's words and the standard's deduction guides, an xvalue and a scalar's `std::move`, a volatile object, clang's
-source-location builtins, the digraphs and C++'s alternative tokens, an attribute after `enum`, and `int()` written).
+source-location builtins, the digraphs and C++'s alternative tokens, an attribute after `enum`, and `int()` written);
+the seventh, the allocation functions, is 0.202's (the new, delete and placement new topic of Classes: the program's
+replacements of the global functions, a class's own and its bases', the aligned, sized, nothrow, placement and
+destroying forms, the matching deallocation where an initialization throws, the deleting destructor in a class's table,
+a coroutine state's allocation through its promise type, libc++'s `__builtin_operator_new` -- and what their probes
+found: a tie to a reference parameter, a shipped static of a lazy class and a header operator emitted undeclared).
 
 1. C++'S CORE LANGUAGE, WHAT 0.199 LEFT: a prototype's trailing requires-clause is dropped (a definition's joins its
    head's); an enumeration's value template argument is an `int` -- a placeholder's `X<Color::Red>` and `X<0>` are one
@@ -9893,8 +10003,16 @@ source-location builtins, the digraphs and C++'s alternative tokens, an attribut
    conversion function's call are nothrow to it (each is 1 where clang++ answers 0, `lim3.cpp` of 0.200's entry in
    HISTORY.md); the general road is the noexcept operator over the desugared call, whose temporaries and conversions are
    calls there.
-3. THE ALLOCATION FUNCTIONS: the program's `operator new` and `operator delete`, the aligned, sized, class-specific and
-   destroying forms, replaceable ones.
+3. THE ALLOCATION FUNCTIONS, WHAT 0.202 LEFT: a construction table keeps the complete destructor in both destructor
+   slots, so a delete through the table while a base-variant sub-object is built keeps the block; a coroutine's promise
+   is built before its state is allocated, so where `get_return_object_on_allocation_failure` answers a null frame the
+   promise has been built and is destroyed; the cookie of `::new T[n]` and `::delete[]` is decided by the class's own
+   array deallocation function, where clang asks the global one; a global placement `operator new` of the program that
+   takes a pointer to an object (`operator new(std::size_t, Arena *)`) is not asked, `new (&a) T` being the reserved
+   placement new -- a silent wrong answer (`gplace.cpp` of 0.202's entry in HISTORY.md: `7 0` where clang++ prints
+   `arena new 4` and `7 4`); a class's allocation function written as a member template is not asked, `new (1, 2) A`
+   over `template <class... Ts> static void *operator new(std::size_t, Ts...)` refused
+   `no_allocation_function(new, A, 2)`.
 4. libc++'S FACILITIES, WHAT 0.201 LEFT: every standard header of libc++ 18 and 21 is included by a fixture; the
    Technical Specifications' `<experimental/...>` headers and GNU's `<ext/hash_map>` and `<ext/hash_set>` are no level
    of the standard, and a facility neither tree ships (`<stacktrace>`, `<spanstream>`, `<generator>`, `<text_encoding>`,

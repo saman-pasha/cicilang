@@ -390,7 +390,13 @@ included; since 0.201 the rest of libc++'s facilities: `<future>` with
 `<mdspan>`, over libc++ 21 `std::flat_map` and `std::flat_set`, the
 execution policies, and every other standard header, each included by a
 fixture; and a constructor, an initialization or a `new` that throws cleans
-up what it built, as the standard says.
+up what it built, as the standard says; since 0.202 the allocation functions:
+a `new` calls the program's replacement of the global `operator new` (the
+library's allocations too), a class's own and its bases', the aligned form
+past an alignment of 16, the nothrow and the placement forms and C++20's
+destroying `operator delete`, a `delete` the matching deallocation function,
+the dynamic type's through a virtual destructor, and a coroutine's state its
+promise type's.
 `test/libcxx.sh` reads `<vector>`, `<string>`,
 `<iostream>`, `<map>`, `<set>`, `<unordered_map>`, `<unordered_set>`,
 `<optional>`, `<memory>`, `<functional>`, `<tuple>` and `<algorithm>` whole,

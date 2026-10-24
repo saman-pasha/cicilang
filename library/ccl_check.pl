@@ -293,6 +293,7 @@ ck_alloc_mode(call(id(calloc), _), zeroed) :- !.
 ck_alloc_mode(cast(_, E), M) :- !, ck_alloc_mode(E, M).                              % C++'s new T is (T *) malloc(sizeof(T))
 ck_alloc_mode(new(_, []), garbage) :- !.                                            % new T of a struct without a constructor: malloc's bytes
 ck_alloc_mode(new_array(_, _), garbage) :- !.
+ck_alloc_mode(alloc(M, _, _), Mode) :- !, ( M == garbage -> Mode = garbage ; Mode = zeroed ).   % a new-expression's block from its allocation function (0.202): its bytes as they are, or value-initialization's zero bytes
 ck_alloc_mode(_, complete).
 ck_set_fields(St0, Key, Mode, Form, St) :-
     ck_under_states(St0, Key, Ps),
@@ -691,9 +692,10 @@ ck_borrows_from(index(A, _), St, P) :- !, ck_borrows_from(A, St, P).
 ck_borrows_from(deref(E), St, P) :- !, ck_borrows_from(E, St, P).
 ck_borrows_from(cond(_, A, B), St, P) :- !, ( ck_borrows_from(A, St, P) -> true ; ck_borrows_from(B, St, P) ).
 ck_borrows_from(comma(_, B), St, P) :- !, ck_borrows_from(B, St, P).
-ck_borrows_from(stmt_expr(block(Is)), St, P) :- append(_, [expr(_, id(N))], Is), atom(N), atom_concat('$at', _, N),   % A PLACEMENT NEW'S RESULT is the address it was given (0.112): the desugaring's `$at', declared in the block from that address and never assigned again, borrows what the address borrows -- `int *p = new (buf) int(7)' over a local buffer had read as a loose pointer, `plain pointer not consumed'
+ck_borrows_from(stmt_expr(block(Is)), St, P) :- append(_, [expr(_, id(N))], Is), atom(N), ( atom_concat('$at', _, N) ; atom_concat('$new', _, N) ),   % A NEW-EXPRESSION'S RESULT, `$new', what its block's allocation borrows (alloc/3, 0.202); A PLACEMENT NEW'S RESULT is the address it was given (0.112): the desugaring's `$at', declared in the block from that address and never assigned again, borrows what the address borrows -- `int *p = new (buf) int(7)' over a local buffer had read as a loose pointer, `plain pointer not consumed'
     member(declaration(_, _, _, Vs), Is), memberchk(var(N, _, I), Vs), I \== none, !, ck_borrows_from(I, St, P).
 ck_borrows_from(stmt_expr(block(Is)), St, P) :- append(_, [expr(_, E)], Is), !, ck_borrows_from(E, St, P).
+ck_borrows_from(alloc(_, _, Call), St, P) :- !, ck_borrows_from(Call, St, P).   % A NEW-EXPRESSION'S BLOCK borrows what its allocation function's result borrows (0.202): an arena's `void *operator new(std::size_t, Arena &a) tie a' hands back memory of `a'
 %% A CLOSURE BORROWS WHAT ITS CAPTURES BORROW (0.100): the desugaring makes a lambda a compound literal of the
 %% captures' values, `&x' for a reference capture and `this' for the object, so a closure local is a borrow of the
 %% captured local (an anchor) or of the parameter, and `return f' of one that holds `&x' is borrow_escapes where a
@@ -722,7 +724,8 @@ ck_borrow_of(R, St, P) :- ck_state(St, R, S), !, ( ck_borrow_source(R, S, P) -> 
 ck_borrow_of(R, _, R).
 ck_call_tie(call(F, Args), St, P) :-
     ck_callee_sig(F, fn(R, Ps, _)), ccl_tie_of(R, Y),
-    ( ck_param_index(Ps, Y, 1, I) -> ccl_nth(I, Args, A), ck_borrows_from(A, St, P) ; P = static(Y) ).
+    (   ck_param_index(Ps, Y, 1, I) -> ccl_nth(I, Args, A0), ( ccl_nth(I, Ps, param(PT, _)), ( PT = ref(_, _) ; PT = rref(_, _) ) -> A = addr(A0) ; A = A0 ), ck_borrows_from(A, St, P)   % a result tied to a REFERENCE parameter borrows the object the reference binds, its argument (0.202): `void *operator new(std::size_t, Arena &a) tie a' over `new (ar) S' borrows `ar'
+    ;   P = static(Y) ).
 ck_param_index([param(_, Y)|_], Y, I, I) :- !.
 ck_param_index([_|Ps], Y, I0, I) :- I1 is I0 + 1, ck_param_index(Ps, Y, I1, I).
 ck_callee_sig(id(F), Sig) :- ccl_declared(F, T), !, ck_fn_sig(T, Sig).
@@ -826,12 +829,12 @@ ck_stmt(for(L, Init, C, Step, S), St0, St) :- !, ck_line(L),
 ck_stmt(return(L), St0, dead) :- !, ck_line(L), ck_exit_all(St0, return).
 %% a coroutine's skeleton (0.108): co_return leaves every scope as a return does; the promise, the frame and the
 %% suspensions are the lowering's, their expressions read as any
-ck_stmt(coro_begin(L, _), St, St) :- !, ck_line(L).
+ck_stmt(coro_begin(L, _, _, _), St, St) :- !, ck_line(L).
 ck_stmt(coro_ret(L, E), St0, St) :- !, ck_line(L), ck_expr(E, St0, St).
 ck_stmt(coro_body(_, S), St0, St) :- !, ck_stmt(S, St0, St).
 ck_stmt(coro_return(L), St0, dead) :- !, ck_line(L), ck_exit_all(St0, return).
 ck_stmt(coro_suspend(L, _, E, _), St0, St) :- !, ck_line(L), ck_expr(E, St0, St).
-ck_stmt(coro_done(L), _, dead) :- !, ck_line(L).
+ck_stmt(coro_done(L, _), _, dead) :- !, ck_line(L).
 ck_stmt(return(L, move(E)), St0, St) :- nb_getval('$ck_ret', Ret), ck_ref_as_ptr(Ret, RP), RP \== Ret, !, ck_stmt(return(L, E), St0, St).   % `return std::move(x);' WITH A REFERENCE RESULT IS A CAST ([expr.static.cast]; 0.132): `T &&' bound to x, which stays the caller's -- nothing moves, and the reference leaves as any other does (a parameter's referent, never a local's); it was refused `move_of_non_owner' for a reference parameter
 ck_stmt(return(L, E), St0, dead) :- !, ck_line(L), ck_anchor_addrs(E, St0, St1), ck_no_escape(E, St1), ck_consume_or_use(E, St1, St2), ck_exit_all(St2, return(E)).
 ck_stmt(break(L), St0, dead) :- !, ck_line(L), ck_exit_to_loop(St0, break).
@@ -1307,9 +1310,10 @@ ck_expr(ccast(_, _, E), St0, St) :- !, ck_expr(E, St0, St).
 ck_expr(new(_, Args), St0, St) :- !, ck_exprs(Args, St0, St).
 ck_expr(new_array(_, N), St0, St) :- !, ck_expr(N, St0, St).
 ck_expr(delete(E), St0, St) :- !, ck_expr(call(id(free), [E]), St0, St).
-ck_expr(delete_poly(E, D), St0, St) :- !, ck_expr(D, St0, St1), ck_expr(call(id(free), [E]), St1, St).   % the destructor, then the free of the complete object (0.108)
 ck_expr(delete_array(E), St0, St) :- !, ck_expr(call(id(free), [E]), St0, St).
-ck_expr(delete_cookie(E, _), St0, St) :- !, ck_expr(call(id(free), [E]), St0, St).   % `delete[]' past the array cookie: a free of the pointer (0.108)
+ck_expr(delete_poly(E, D, _), St0, St) :- !, ck_expr(D, St0, St1), ck_expr(call(id(free), [E]), St1, St).   % the destructor, then the free of the complete object (0.108)
+ck_expr(alloc(_, _, Call), St0, St) :- !, ( Call = call(_, As) -> ck_exprs(As, St0, St) ; St = St0 ).   % a new-expression's block (0.202): the allocation function's arguments read, the block fresh
+ck_expr(dealloc(D, _, X), St0, St) :- !, ( D == none -> St1 = St0 ; ck_expr(D, St0, St1) ), ck_expr(call(id(free), [X]), St1, St).   % a delete-expression (0.202): the destructor, then the block given back -- a free of the pointer to the check
 ck_expr(call(id(F), Args), St0, St) :- !, ck_args(Args, id(F), St0, St).
 ck_expr(call(F, Args), St0, St) :- !,
     ck_expr(F, St0, St1),

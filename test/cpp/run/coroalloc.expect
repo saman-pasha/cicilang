@@ -1,0 +1,16 @@
+promise new 1
+0
+1
+2
+promise delete 1
+arena new 5
+run 5
+arena delete
+1
+lazy new
+lazy body
+lazy delete
+lazy new
+failure
+1
+exit 0

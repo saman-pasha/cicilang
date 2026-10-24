@@ -788,8 +788,14 @@ ccl_type_of(new(T, _), ptr([], T)) :- !.
 ccl_type_of(new_default(T), ptr([], T)) :- !.
 ccl_type_of(new_at(_, N), T) :- !, ccl_type_of(N, T).                              % placement new: the type the plain one has
 ccl_type_of(new_array(T, _), ptr([], T)) :- !.
+ccl_type_of(new_array_init(T, _, _), ptr([], T)) :- !.
 ccl_type_of(delete(_), base([], [void])) :- !.
 ccl_type_of(delete_array(_), base([], [void])) :- !.
+ccl_type_of(global(E), T) :- !, ccl_type_of(E, T).                                 % `::new', `::delete' (0.202): the form they mark
+ccl_type_of(coro_size, base([], [unsigned, long])) :- !.                         % a coroutine state's size and block (0.202)
+ccl_type_of(coro_mem, ptr([], base([], [void]))) :- !.
+ccl_type_of(alloc(_, T, _), ptr([], T)) :- !.                                      % an allocation function's block, of the type it is made for (0.202)
+ccl_type_of(dealloc(_, _, _), base([], [void])) :- !.
 ccl_type_of(addr(E), T) :- !, ccl_type_of(E, ET), ( ET == unknown -> T = unknown ; T = ptr([], ET) ).
 ccl_type_of(neg(E), T) :- ccl_type_of(E, ET), ccl_is_complex(ET), !, T = ET.
 ccl_type_of(pos(E), T) :- ccl_type_of(E, ET), ccl_is_complex(ET), !, T = ET.   % `+z' is the complex itself (6.5.3.3/2; 0.194): <tgmath.h> types its argument by `__typeof__ (+(expr))'

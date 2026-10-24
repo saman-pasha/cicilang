@@ -195,6 +195,7 @@ One row per step, in version order: the step's title, what it did and its gate n
 | 0.199 | the audit's fourth group, what its probes found older: a conditional `noexcept(E)` per instance, NRVO, value template arguments of their types, `decltype` of a static member as declared, an empty base in the way; a free function template's trailing requires-clause | a noexcept-specifier's condition kept and evaluated with an instance's bindings (the operator, the nothrow traits, the terminate guard), a function template of the program declared without one may throw; a named local returned built in the caller's object; a value template argument of its parameter's type, a placeholder's of its own, in the key, the mangler, `__PRETTY_FUNCTION__` and the debug names; `decltype(C::s)` as declared; an empty base in the way of a member of its type; a free function template's trailing requires-clause joined to its head's; a noexcept body that throws with no call, and a noexcept template's instance, guarded; a cast's key keeps its value's sign | all nine gates GREEN over libc++ 18, the two libc++ gates over 21; the headers' reads summed 1210 s and 1035 s over 134, the fixtures' builds 2927 s and 2944 s; 670 of 676 C++ fixtures over 18, 674 over 21; `<sys/wait.h>` not warmed (a slash in its name) |
 | 0.200 | the audit's fifth group, the traits of one value: a construction, a conversion and an assignment asked of the members that take the values; the special members a class declares; a constraint folded through the evaluator; the constructors a call runs, to the noexcept operator; a warm of a header in a directory | `is_constructible`, `is_convertible` and `is_assignable` from the constructors, the conversion functions and the assignments that take the values, a deleted one that takes them exactly, the copy and the move as the class declares them, a reference as [dcl.init.ref] binds it; a member defined out of its class keeps its declaration's `explicit`; a requires-clause over class values folded through the evaluator; the noexcept operator over a call's argument and temporary constructors; `<sys/wait.h>` warmed | all nine gates GREEN over libc++ 18, the two libc++ gates over 21; the headers' reads summed 1290 s and 1136 s over 136, the fixtures' builds 3143 s and 3482 s (the box shared); 679 of 685 C++ fixtures over 18, 683 over 21 |
 | 0.201 | the audit's sixth group, libc++'s facilities: `<future>`, `std::jthread`, `<regex>`, `std::expected`, `<mdspan>`, `std::flat_map`, `<memory_resource>`, the synchronization headers and the rest, every standard header included by a fixture; and what their probes found | a function-try-block; the cleanups of a constructor, an initialization and a new-expression that throw; class template argument deduction in the caller's words, through braces and by the standard's guides; a lone `;` among a class's members; the digraphs and the alternative tokens; an attribute after `enum`; a block's struct its block's own in C and C++; `int()` written; a function-local static scalar of a run-time initializer; `volatile`; `setjmp` returns twice | a first chain RED in its C++ gate, 734 of 745 fixtures ok (a plain union's tag mark, the split of `struct S {...} s;`); then all nine gates GREEN over libc++ 18, the two libc++ gates over 21; the headers' reads summed 2243 s and 2071 s over 182, the fixtures' builds 4865 s over 738 and 4829 s over 743 (a slower container); 738 of 745 C++ fixtures over 18, 743 over 21 |
+| 0.202 | the audit's seventh group, the allocation functions: a new-expression's block from its allocation function and a delete-expression's back to its deallocation function -- the program's replacements, a class's own, the aligned, sized, nothrow, placement and destroying forms, the deleting destructor, a coroutine state's; cocolog 2.11.6 | a tie to a reference parameter; a shipped static of a lazy class a global of no type; a header's operator emitted undeclared; `std::nothrow`'s symbol | committed on the owner's word before its nets and its chain: the flow gate GREEN, the library reads GREEN over libc++ 18 and 21, the 12 new fixtures ok over both; the numbers in the next commit |
 
 ## M5 — the C++ mode
 
@@ -13273,3 +13274,104 @@ function-try-blocks, an integer literal's type and a switch's, the conditionals 
 an xvalue argument, plain local structs and C's block tags keyed apart, the static local scalar's guard, `int()`,
 volatile, `returns_twice`, and libc++'s facilities compiled).
 
+
+## 0.202 — the audit's seventh group, the allocation functions: a new-expression's block from its allocation function and a delete-expression's back to its deallocation function, the program's replacements, a class's own, the aligned, sized, nothrow, placement and destroying forms, the deleting destructor; cocolog 2.11.6
+
+**0.202: the seventh group of the audit of C17 to C23 and C++17 to C++26, Not done's item 3 of 0.201: a new-expression
+obtains its storage by calling an allocation function and a delete-expression gives it back by a deallocation function
+([expr.new]/9, /12, /19, [expr.delete]/9-10, [basic.stc.dynamic], [class.free], [replacement.functions]). Both were
+malloc and free since M6: a program's `operator new` was never called, nor a class's, nor the matching delete where a
+constructor throws, and an alignment past 16 was never asked for. Each fixture prints clang++'s output over libc++ 18
+and 21.**
+
+- THE NAMES: the global replaceable functions are their Itanium symbols (`_Znwm`, `_Znam`, `_ZdlPv`, `_ZdaPv`, the
+  sized, aligned and nothrow forms, `cpp_alloc_sym/3`), declared in every unit ([basic.stc.dynamic]/2,
+  `cpp_alloc_declare_implicit/0`) and named so wherever the program defines, declares or calls one: the program's
+  replace libc++'s at the link, as clang's do, and the library's own allocations go through them (`allocrepl.cpp`: the
+  single and the array forms, sized and unsized, a `std::vector`'s and a `std::string`'s growth and `::operator new`
+  written out, each through the program's). The reader names `operator new[]` and `operator delete[]` apart (they were `operator new` and
+  `operator delete`, one name with the single forms) and marks `::new` and `::delete`, `global(E)` (reader 153); the
+  mangler spells `na` and `da`.
+- A NEW-EXPRESSION (`cpp_new_expr/5`, `cpp_new_block/6`, `cpp_alloc_call/7`): a class's own `operator new`, a member or
+  a base's and static whether or not it says so, unless `::new`; else the global one -- the replaceable form the
+  arguments name, any other placement the program's overload set; a type aligned past 16 the aligned form, the
+  alignment after the size. The node is `alloc(Mode, T, Call)`, T's block from Call, its bytes as they are or
+  value-initialization's zero bytes (an `llvm.memset` where calloc's were). `new (p) T` over a pointer stays the
+  reserved placement new unless the class's own allocation function takes the pointer. `classnew.cpp`, `alignnew.cpp`.
+- A NON-THROWING ALLOCATION FUNCTION ([expr.new]/20) answers a null block with a null result and no initialization
+  (`nothrownew.cpp`: the program's nothrow `operator new`, `new (std::nothrow)` of a class and of a scalar; `newarray.cpp`:
+  of an array with items).
+- AN INITIALIZATION THAT THROWS GIVES THE BLOCK BACK BY THE MATCHING DEALLOCATION FUNCTION ([expr.new]/27): a usual
+  allocation's the one a delete-expression of the type would call, a placement allocation's the placement deallocation
+  function whose parameters after the first are its own (`placealloc.cpp`: an arena's `operator new(std::size_t, Arena
+  &)` and `operator delete(void *, Arena &)`), none where none matches; free since 0.201.
+- A DELETE-EXPRESSION is `dealloc(Destroy, Free, X)`: where X is not null ([expr.delete]/7: no destructor runs on a
+  null pointer; it ran on one), its destructor, then the usual deallocation function -- the class's own unless
+  `::delete`, a destroying one first (C++20, `destroydel.cpp`), then by the alignment, then the unsized one -- else the
+  global one, by the alignment, SIZED for a complete type and for an array of a class with a non-trivial destructor, as
+  the standard selects it and clang 19 and later call it (clang 18 calls the unsized one; the fixtures define both
+  alike, and their outputs are the same under clang++ 18 and 21).
+- THE DELETING DESTRUCTOR (the Itanium ABI's D0, `cpp_d0_fn/4`): a class with a virtual destructor is deleted through the
+  `$dtor_del` slot of its table, which held the complete destructor since 0.72 -- a delete through the table destroyed
+  and kept the block, the program's through a later base too, and the library's own `delete this` of a facet the
+  program made. The slot holds the class's D0, the complete object's destructor and the deallocation function its
+  class finds over the complete object and its size, a shipped class's the library's `...D0Ev`, and a secondary table's
+  entry is a thunk to it (`vdelete.cpp`: a delete through a second base, the dynamic type's class-specific sized
+  delete, `::delete` through the table, a program facet deleted by libc++).
+- ARRAYS: the array allocation function's block over the cookie and the elements; a cookie where the class's array
+  deallocation function is a sized one, a class with nothing to destroy among them ([expr.new]/15, the Itanium ABI
+  2.7); `delete[]` back from the cookie's start, a sized function told its size; a constant bound that the items cover
+  asks no default constructor (`new A[2]{A(1), A(2)}` of a class without one was refused `no_constructor`).
+  `newarray.cpp`.
+- COROUTINES ([dcl.fct.def.coroutine]/9-12): the coroutine state is allocated by the promise type's `operator new` over
+  the frame's size and the coroutine's arguments, else over the size alone, else by the global one -- the nothrow form
+  where the promise has `get_return_object_on_allocation_failure`, whose result the coroutine returns where the frame is
+  null -- and given back to the promise type's usual `operator delete`, the sized one first, else to the global sized
+  one; both were `_Znwm` and `_ZdlPv`. `coroalloc.cpp` (C++20).
+- `operator new` AND `operator delete` WRITTEN OUT and libc++'s `__builtin_operator_new` and `__builtin_operator_delete`
+  are the functions their arguments name, a reserved placement form its pointer or nothing (they were malloc and free
+  at any arity, and an alignment request was dropped).
+- THE SAFE PART: a usual deallocation function's first parameter is an owner, which its body frees (`void operator
+  delete(void *p) noexcept { std::free(p); }` was `borrow_consumed`); a new-expression's block is the allocation
+  function's bytes and borrows what the call borrows; a TIE TO A REFERENCE PARAMETER borrows the argument's object
+  (`ck_call_tie/3`): `void *operator new(std::size_t, Arena &a) tie a` hands out a block within the arena
+  (`tieref.cpp`: a defect of every tie to a reference parameter, `plain pointer not consumed`).
+- WHAT THE PROBES FOUND OLDER, each of 0.201 too: a shipped static of a lazy class was a global of no type to the walk
+  that named it (`cpp_static_gdeclare/1`: libc++'s `locale(const locale &, Facet *)` reads `Facet::id`, and every
+  program facet was `type(unknown)`; `localefacet.cpp`); a header's operator emitted where it is called was declared
+  under another name than the one it is emitted under (`cpp_declare_emitted/1`: `h == nullptr` of a
+  `coroutine_handle<>` was `no_operator(==)`; `corohandleeq.cpp`); a variable directly in std is the unscoped
+  `_ZSt7nothrow` (`_ZNSt7nothrowE` named nothing at the link) and its class is registered with it.
+- FOUND AND LEFT (Not done's item 3): a construction table keeps the complete destructor in both destructor slots; a
+  coroutine's promise is built before its state is allocated; the cookie of `::new T[n]` is decided by the class's own
+  array deallocation function; a program's global placement `operator new` over a pointer to an object is not asked, a
+  silent wrong answer (`gplace.cpp`, a probe: `void *operator new(std::size_t, Arena *)` and `new (&ar) S` print `7 0`
+  where clang++ prints `arena new 4` and `7 4`); a class's allocation function written as a member template is not
+  asked (`mtalloc.cpp`, a probe: refused `no_allocation_function(new, A, 2)`).
+- FIXTURES: 12 C++ (`CLAUDE.md`'s What runs names each), each seen to pass over libc++ 18 and 21, its expect the same
+  under clang++ 18 over libc++ 18 and clang++ 21 over libc++ 21. The 0.201 library, over libc++ 18, refused the 12:
+  seven by the safe part -- `a borrow consumed` in a deallocation function's `std::free(p)` (`allocrepl`, `alignnew`,
+  `destroydel`, `vdelete`, `newarray`), `plain pointer not consumed` of a tie to a reference parameter (`placealloc`,
+  `tieref`) -- and five as not lowered: `no_constructor` (`classnew`'s `new A[2]{A(1), A(2)}`), `class(nothrow_t)`
+  (`nothrownew`), `no_operator(==)` (`coroalloc`, `corohandleeq`) and `type(unknown)` (`localefacet`).
+- COCOLOG 2.11.6 (`47670ff`) and Cicili 3.2.0 (`a9e2dcf`), pulled at the owner's word: 2.11.5 (`a27ea39`) writes its
+  fifteen store-write barriers through one macro and takes `realpath` from Cicili's standard library, which Cicili 3.2.0
+  declares; 2.11.6 (`257c6ae`) hands a ball across engines privately -- a `catch/3` around `findall/3` no longer pays
+  the shared store's barrier -- and frees a private store's array where it returns to zero above 65,536 cells. The SDK
+  did not change (`lib/sdk.cicili`), and Cicili 3.2.0 makes both modules' C byte for byte what 3.1.0 made (the 0.200
+  module source transpiled again and compared). The measure of the two engines comes with the next commit.
+- COMMITTED ON THE OWNER'S WORD BEFORE ITS NETS AND ITS CHAIN, and it claims nothing GREEN but this: the flow gate
+  GREEN (123 s, its one finding), the library reads of the worktree GREEN over libc++ 18 (591 s over four lanes: the 23
+  asserted reads whole, 159 other headers warmed) and over libc++ 21 (513 s), and the 12 fixtures ok over both. The
+  next commit carries the nets' and the chain's numbers.
+- `CLAUDE.md`: the versions; new, delete and placement new (eight bullets); Virtual functions and Multiple polymorphic
+  bases (the deleting destructor); the array cookie; Coroutines (the state's allocation); value-initialization and a
+  null pointer to a data member (the block's zero bytes); static members, lazy free functions and shipped symbols (the
+  three older defects); the builtins and the prelude; the safe part (a usual deallocation function's owner, a tie to a
+  reference parameter); the lowering (`alloc/3`, `dealloc/3`, `delete_poly/3`); What runs; Hosts; Findings; Not done (the
+  audit's seventh group done; its limits). `README.md`: what runs.
+
+Reader 153 (`operator new[]` and `operator delete[]` names of their own, `::new` and `::delete` marked). Lowering 115
+(a new-expression's block from its allocation function and a delete-expression's given back to its deallocation
+function; the deleting destructor; a coroutine state's allocation; a sized `delete[]`'s cookie; no destructor on a null
+pointer).

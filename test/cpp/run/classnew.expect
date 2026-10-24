@@ -1,0 +1,14 @@
+A::new 4
+7
+A::delete
+A::new 8
+1 2
+A::delete
+A::new[] 1
+2
+A::delete[]
+9
+~Q
+~P
+Q::delete
+exit 0

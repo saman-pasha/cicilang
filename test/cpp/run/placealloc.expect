@@ -1,0 +1,7 @@
+arena new 4
+arena new 4
+4 5 16
+arena new 4
+arena delete
+caught -1
+exit 0
