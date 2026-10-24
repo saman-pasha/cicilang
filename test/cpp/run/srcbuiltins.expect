@@ -1,0 +1,12 @@
+srcbuiltins.cpp srcbuiltins.cpp
+29 47 main
+main at 30 in main col 3
+again at 5 in main col 3
+twice at 24 in twice col 3
+member at 21 in m col 14
+34 9
+1 1 1
+41
+twice at 24 in twice col 3
+asserts held
+exit 0

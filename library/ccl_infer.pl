@@ -450,6 +450,7 @@ ccl_resolve_base([S|Ss], Q, base(Q, [S|Ss])) :- atom(S), !.                     
 ccl_resolve_base([typedef('__builtin_va_list')], Q, T) :- !, ccl_va_list_type(Q, T).
 ccl_resolve_base([typedef(N)], Q, T) :- atom(N), ccl_cached_named('$ccl_r:', N, T1, ccl_resolve_typedef(N, T1)), !, ccl_add_quals(Q, T1, T).
 ccl_resolve_base([typedef(N)], Q, T) :- atom(N), ccl_lang(cpp), ccl_tag(N, Ms), !, ccl_tag_type(N, Ms, Q, T).   % C++: a tag's name is a type name; a template-id (a compound) stays as it is
+ccl_resolve_base([typedef(scoped([global], N))], Q, T) :- atom(N), ccl_lang(cpp), !, ccl_resolve_base([typedef(N)], Q, T).   % C++: `::N' is the global N, which keeps the bare name (0.201): libc++ 18's `typedef ::timespec __libcpp_timespec_t;' at file scope resolved to nothing, and `std::barrier''s wait met `decltype(__ts.tv_sec)' of no type
 %% typeof(x): the TYPE when a type was written (GNU's, and C23's own), else the expression's -- nothing
 %% resolved it before, so a `typeof' reached the lowering as a specifier it could not take
 ccl_resolve_base([typeof(unqual(X))], Q, T) :- !, ccl_resolve_base([typeof(X)], [], T0), ccl_strip_quals(T0, T1), ccl_add_quals(Q, T1, T).   % C23's typeof_unqual: the top-level qualifiers off
@@ -716,8 +717,16 @@ ccl_sizeof_expr(sizeof_type(_)).
 %% ---- the type of an expression ----------------------------------------------------
 ccl_type_of(int(big(A)), T) :- !, ccl_big_type(A, T).                                  % a literal past 2^60 (0.94): the first of long and unsigned long that holds it
 ccl_type_of(uint(big(_)), base([], [unsigned, long])) :- !.
+%% AN INTEGER LITERAL IS THE FIRST TYPE THAT HOLDS ITS VALUE (C 6.4.4.1/5, [lex.icon]/3; 0.201): a decimal one past INT_MAX is a
+%% long, a `u' one past UINT_MAX an unsigned long, an `l' one past LONG_MAX (a big(A)) an unsigned long; the lowering had
+%% them so, and the inference had an int and an unsigned whatever the value -- `nanoseconds(2500000000)' deduced `_Rep2' an int,
+%% the `const int &' bound a temporary of the truncated value, and <__threading_support>'s __convert_to_timespec gave -1 s. A
+%% hex, octal or binary one past INT_MAX that an unsigned int holds is the lexers' `uint' (ccl_int_end//4)
+ccl_type_of(int(N), T) :- integer(N), ( N > 2147483647 ; N < -2147483648 ), !, T = base([], [long]).
 ccl_type_of(int(_), base([], [int])) :- !.
+ccl_type_of(uint(N), T) :- integer(N), N > 4294967295, !, T = base([], [unsigned, long]).
 ccl_type_of(uint(_), base([], [unsigned])) :- !.
+ccl_type_of(long(big(A)), T) :- !, ccl_big_type(A, T).
 ccl_type_of(long(_), base([], [long])) :- !.
 ccl_type_of(ulong(_), base([], [unsigned, long])) :- !.
 ccl_type_of(wb(N), base([], [bitint(int(W))])) :- !, ccl_wb_width(N, W0), W is W0 + 1.   % C23's 9wb: a _BitInt of the width the value needs, plus the sign
@@ -750,6 +759,7 @@ ccl_type_of(call(id(B), [_, _]), base([], [bool])) :- memberchk(B, ['__atomic_al
 ccl_type_of(call(id(B), _), base([], [void])) :- memberchk(B, ['__atomic_load', '__atomic_store', '__atomic_exchange']), !.   % GCC's generic atomic builtins (0.194): through pointers, no value
 ccl_type_of(call(id('__atomic_compare_exchange'), _), base([], [bool])) :- !.
 ccl_type_of(call(id('__builtin_classify_type'), [_]), base([], [int])) :- !.   % a type's class (0.194)
+ccl_type_of(call(id(B), []), T) :- ccl_srcloc_builtin_type(B, T), !.   % clang's source-location builtins (0.201)
 ccl_type_of(call(id(B), _), base([], [int])) :- ccl_bit_builtin(B, _), !.   % the bit counts answer an int (0.129): `c ? 64 + __builtin_clzll(x) : __builtin_clzll(y)' had no type, in C as in C++ (libc++'s `__libcpp_clz(__uint128_t)')
 ccl_type_of(call(id(B), _), T) :- ccl_float_builtin_type(B, T), !.
 ccl_type_of(call(id(B), [_]), base([], [int])) :- memberchk(B, ['__builtin_isnan', '__builtin_isinf', '__builtin_isinf_sign', '__builtin_isfinite', '__builtin_signbit', '__builtin_isnormal']), !.   % glibc's classification macros (0.101)                                   % INFINITY, NAN, HUGE_VAL (0.101)
@@ -843,6 +853,10 @@ ccl_type_of(bin(Op, A, B), T) :- !,
     ;   ccl_is_arith(AT), ccl_is_arith(BT) -> ccl_usual(AT, BT, T)
     ;   T = unknown ).
 ccl_type_of(_, unknown).
+%% clang's `__builtin_LINE()' and `__builtin_COLUMN()' are an `unsigned int', its `__builtin_FILE()', `__builtin_FILE_NAME()' and
+%% `__builtin_FUNCTION()' a `const char *' (0.201; the desugaring's cpp_srcloc_value/3, the lowering's ir_call/4)
+ccl_srcloc_builtin_type(B, base([], [unsigned])) :- memberchk(B, ['__builtin_LINE', '__builtin_COLUMN']), !.
+ccl_srcloc_builtin_type(B, ptr([], base([const], [char]))) :- memberchk(B, ['__builtin_FILE', '__builtin_FILE_NAME', '__builtin_FUNCTION']).
 ccl_literal_quals(Q) :- ( ccl_lang(cpp) -> Q = [const] ; Q = [] ).
 %% C's NULL POINTER CONSTANT CAST TO `void *' (6.3.2.3/3; 0.194): `(void *) E' with E an integer constant 0, or such a cast
 %% itself, as clang reads it (the pointee void, unqualified). glibc's <tgmath.h> chooses a type by `__typeof__ (0 ? (T *) 0 :
@@ -1044,7 +1058,7 @@ ccl_empty_seed(Ms, Seen) :- findall(Tg-R, ( member(empty_sub(T), Ms), ccl_resolv
 %% E a; char c; }' one byte, `c' at 0. Before, such a member lay one past the members before it (0.89's not-done).
 ccl_members_layout_([], Bits, Al, acc(_, EE), [], Bits, Al, EE).
 ccl_members_layout_([member(T, N, W0)|Ms], Bit0, Al0, acc(Seen, EE0), Lays, Bits, Al, EE) :-
-    ccl_resolve_type(T, T1), ccl_size_align(T1, S, A), ABits is A * 8,
+    ccl_resolve_type(T, T1), ccl_size_align(T1, S, A), !, ABits is A * 8,   % a member that has a size is laid, ONCE (0.201): the last clause skips only one that has none
     (   W0 == no_unique_address, ccl_empty_layout(T1)
     ->  ccl_empty_subs(T1, Subs), ccl_empty_offset(Subs, A, Bit0, Seen, Off), Bit1 = Bit0, Al1 is max(Al0, A),   % no bytes, its ALIGNMENT kept -- libc++ marks every container's allocator and comparator with it
         EE1 is max(EE0, Off + S), ccl_subs_at(Subs, Off, Seen, Seen1),
@@ -1095,7 +1109,7 @@ ccl_plain_width(no_unique_address).                                             
 %% which class is one and marks the other `$nonpod', cpp_layout_pod/7); the class's own size still covers the sub-object's.
 ccl_overlapping(_, no_unique_address) :- !.
 ccl_overlapping(N, _) :- atom(N), ( N == '$base' -> true ; sub_atom(N, 0, 6, _, '$base$') ), !.
-ccl_overlap_size(T1, S, DS) :- ccl_data_size(T1, DS), DS > 0, DS < S.
+ccl_overlap_size(T1, S, DS) :- once(ccl_data_size(T1, DS)), DS > 0, DS < S.
 %% THE DATA SIZE of a type (the ABI's dsize; clang's `__datasizeof'): a class that is no POD, its bytes up to the end of its last
 %% data member (an empty one's 0); any other type, and a diamond path's base-subobject form (its size is its data size already),
 %% its whole size
@@ -1121,7 +1135,7 @@ ccl_bit_width(W, W) :- integer(W), !.
 ccl_bit_width(E, W) :- ccl_const_eval(E, W).
 ccl_union_layout([], S, Al, N, Al) :- ccl_round_up(S, Al, N).
 ccl_union_layout([member(T, _, _)|Ms], S0, Al0, N, Al) :-
-    ccl_resolve_type(T, T1), ccl_size_align(T1, S, A), S1 is max(S0, S), Al1 is max(Al0, A), ccl_union_layout(Ms, S1, Al1, N, Al).
+    ccl_resolve_type(T, T1), ccl_size_align(T1, S, A), !, S1 is max(S0, S), Al1 is max(Al0, A), ccl_union_layout(Ms, S1, Al1, N, Al).   % ONE answer (0.201): the clause below skipped a member it had laid, and backtracking gave a union of four bytes the data sizes 1 and 0
 ccl_union_layout([_|Ms], S0, Al0, N, Al) :- ccl_union_layout(Ms, S0, Al0, N, Al).      % the data members alone, as above
 ccl_round_up(X, A, Y) :- Y is ((X + A - 1) // A) * A.
 

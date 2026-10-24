@@ -274,7 +274,9 @@ pp_lines_raw(P1, Ps1, N, N1, [line(N, X)|Lines1]) :- atom_codes(P1, Cs),
 %% (pp_source/2 keeps the lines); a text line keeps its atom. pp_directive_line/2 takes the mark: a line was converted
 %% to codes at every test -- each run over the file, each false group skipped -- 1.40 million tests and as many
 %% conversions in a cold read of <thread> over libc++ 21, the most of them text lines
-pp_line_mark(A, Cs, X) :- ( pp_ws(Cs, [35|_]) -> X = d(A) ; X = A ).
+pp_line_mark(A, Cs, X) :- ( pp_ws(Cs, R), pp_hash_intro(R, _) -> X = d(A) ; X = A ).
+pp_hash_intro([35|Body], Body) :- !.
+pp_hash_intro([37, 58|Body], Body).   % `%:' IS `#' (C 6.4.6/3, [lex.digraph]; 0.201): `%:include <x>' and `%:define' are directives
 %% does the line open a raw string it leaves open? Its delimiter: a walk over ordinary strings, character literals and
 %% comments, so a `R"' inside them is no literal
 pp_raw_open([], _) :- !, fail.
@@ -323,7 +325,7 @@ pp_quoted([C|R], Q, R1, [C|S]) :- pp_quoted(R, Q, R1, S).
 %% a directive line: `#' first, blanks before it allowed; Body the codes after
 %% it (atom_codes/2 and a walk over the blanks: sub_atom/5 costs 70 us here);
 %% a text line fails at the head, its atom no d(_) (pp_line_mark/3, 0.188)
-pp_directive_line(d(A), Body) :- atom_codes(A, Cs), pp_ws(Cs, [35|Body]).
+pp_directive_line(d(A), Body) :- atom_codes(A, Cs), pp_ws(Cs, R), pp_hash_intro(R, Body).
 %% a text line's tokens, at its line; a macro body or a directive's tail --
 %% all in the preprocessor's mode: `#' and `##' punctuators, a number as spelled
 pp_lex_line(N, A, Toks) :-
@@ -523,7 +525,7 @@ pp_norm_toks(T0, [T]) :- pp_norm(T0, T).
 pp_relined([], _, []).
 pp_relined([tok(K, V, _)|Ts], L, [tok(K, V, L)|Us]) :- pp_relined(Ts, L, Us).
 pp_norm(tok(num, Cs, L), tok(int, V, L)) :- pp_plain_int(Cs), !, ccl_int_value(Cs, V).   % ... through the reader's one door, so a literal past 2^60 is big(Atom) here too (0.94)   % a plain decimal, most of them: no lexer run
-pp_norm(tok(num, Cs, L), T) :- !, nb_getval('$ccl_hash', M), nb_setval('$ccl_hash', line), atom_codes(A, Cs), ( ccl_lex_atom(A, 0, [tok(K, V, _)], []) -> T = tok(K, V, L) ; T = tok(int, 0, L) ), nb_setval('$ccl_hash', M).
+pp_norm(tok(num, Cs, L), T) :- !, nb_getval('$ccl_hash', M), nb_setval('$ccl_hash', line), atom_codes(A, Cs), ( ccl_lex_atom(A, 0, [tok(K, V, _)], []) -> T0 = tok(K, V, L) ; T0 = tok(int, 0, L) ), nb_setval('$ccl_hash', M), T = T0.   % the mode restored before the answer meets the caller's (0.201)
 pp_norm(T, T).
 
 %% ---- directives -------------------------------------------------------------
@@ -778,6 +780,9 @@ pp_normalize([], []).
 pp_normalize([tok(kw, true, L)|Ts], [tok(int, 1, L)|Os]) :- !, pp_normalize(Ts, Os).
 pp_normalize([tok(id, _, L)|Ts], [tok(int, 0, L)|Os]) :- !, pp_normalize(Ts, Os).
 pp_normalize([tok(kw, _, L)|Ts], [tok(int, 0, L)|Os]) :- !, pp_normalize(Ts, Os).
+%% IN `#if' AN INT IS AN INTMAX_T (C 6.10.1/4, [cpp.cond]/12; 0.201): a hex, octal or binary literal with no `u' that the lexers
+%% made an unsigned int, past INT_MAX (ccl_int_end//4), is signed there, as clang evaluates `#if 0x80000000 > -1'
+pp_normalize([tok(num, Cs, L)|Ts], [tok(int, V, L)|Os]) :- \+ pp_plain_int(Cs), \+ ( member(C, Cs), ( C =:= 0'u ; C =:= 0'U ) ), pp_norm(tok(num, Cs, L), T), T = tok(uint, V, _), !, pp_normalize(Ts, Os).   % asked with T free: a bound output fails pp_norm/2 before it restores the lexer's mode
 pp_normalize([T|Ts], [T1|Os]) :- pp_norm(T, T1), pp_normalize(Ts, Os).
 pp_predef('TARGET_IPHONE_SIMULATOR', darwin, '0').
 pp_predef('TARGET_OS_DRIVERKIT', darwin, '0').

@@ -1,0 +1,42 @@
+make 1
+move 101
+in 101
+dtor 101
+dtor -1
+--
+make 2
+move 102
+in 102
+dtor 102
+dtor -1
+--
+make 3
+move 103
+in 103
+dtor 103
+dtor -1
+--
+make 4
+move 104
+in 104
+dtor 104
+dtor -1
+--
+make 5
+move 105
+in 105
+dtor 105
+dtor -1
+--
+make 6
+move 106
+g 106
+dtor 106
+dtor -1
+--
+make 7
+move 107
+g 107
+dtor 107
+dtor -1
+exit 0

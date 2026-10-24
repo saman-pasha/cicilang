@@ -1,0 +1,36 @@
+~D1
+~D4
+outer caught 4
+nested 8
+no jump
+~D6
+jump caught 6
+~D3
+jump0 1
+~D6
+jump caught 6
+~D3
+jump1 1
+~D10
+loop 0 caught 10
+~D1
+~D10
+loop 1 caught 10
+~D3
+~D10
+loop 2 caught 10
+~D5
+inloop 30
+in handler 5
+~D12
+~H1
+hr caught 12
+~H2
+~H3
+~H1
+~H2
+~H3
+~H4
+~H1
+fromloop 3 4
+exit 0

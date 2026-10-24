@@ -454,16 +454,24 @@ ck_static_value(u16str(_)) :- !.
 ck_static_value(u32str(_)) :- !.
 ck_static_value(u8str(_)) :- !.   % C23's and C++20's u8 literal (0.196)
 ck_static_value(cast(_, E)) :- !, ck_static_value(E).
+ck_static_value(ccast(_, _, E)) :- !, ck_static_value(E).
 ck_static_value(addr(E)) :- !, ck_storage_base(E, N), ck_is_global(N).
 ck_static_value(id(N)) :- !, ck_is_global(N), ccl_declared(N, T), ccl_resolve_type(T, T1), ( T1 = arr(_, _) ; T1 = fn(_, _, _) ), !.
 ck_static_value(bin(Op, A, _)) :- memberchk(Op, ['+', '-']), !, ck_static_value(A).
 ck_static_value(cond(_, A, B)) :- !, ck_static_value(A), ck_static_value(B).
 ck_static_value(comma(_, B)) :- !, ck_static_value(B).
+ck_static_value(call(id(F), _)) :- atom(F), ck_library_static(F), !.   % the C library's own static storage, and a source-location builtin's literal (0.201, ck_library_static/1)
 ck_static_value(call(id(F), As)) :- ccl_lang(cpp), atom(F), cpp_library_function(F),   % A POINTER TO CONST THAT A C++ LIBRARY FUNCTION RETURNS FROM NO POINTER ARGUMENT is the library's storage (0.138): libc++'s `locate_zone' answers a zone of the database it keeps for the whole run; a pointer to const cannot be freed, and what the function does is the library's discipline (its functions are not checked)
     catch(ccl_declared(F, fn(R, _, _)), _, fail), catch(ccl_resolve_type(R, ptr(_, base(Q, _))), _, fail), memberchk(const, Q),
     \+ ( member(A, As), A \== nullptr, ck_pointer_arg(A) ), !.
 ck_pointer_arg(addr(_)) :- !.
 ck_pointer_arg(A) :- catch(ccl_type_of(A, T), _, fail), T \== unknown, catch(ccl_resolve_type(T, T1), _, fail), ( T1 = ptr(_, _) ; T1 = arr(_, _) ), !.
+%% A POINTER THAT THE C LIBRARY ANSWERS FROM ITS OWN STATIC STORAGE (C17 7.11.1.1, 7.11.2.1, 7.22.4.6, 7.24.6.2, 7.27.3; 0.201):
+%% `getenv', `setlocale', `localeconv', `strerror', `asctime', `ctime', `gmtime' and `localtime' answer an object the library
+%% keeps for the whole run, which a later call may overwrite and the program never frees, as a string literal is; and
+%% clang's `__builtin_FILE()', `__builtin_FILE_NAME()' and `__builtin_FUNCTION()' answer a literal (the lowering's
+%% ir_call/4). Each was fresh memory to the check, `plain pointer not consumed'. `cwrap.c', `srcbuiltins.c'.
+ck_library_static(F) :- memberchk(F, [getenv, setlocale, localeconv, strerror, asctime, ctime, gmtime, localtime, '__builtin_FILE', '__builtin_FILE_NAME', '__builtin_FUNCTION']).
 
 ck_line(L) :- ( integer(L), L > 0 -> nb_setval('$ck_line', L) ; true ).
 ck_fail(Kind, Name, Form) :- nb_getval('$ck_fn', F), nb_getval('$ck_line', L), ck_short(Form, Short0), ck_squash(Short0, Short), throw(error(ownership(Kind, Name, Short), where(F, line(L)))).
@@ -789,6 +797,7 @@ ck_stmt(expr(_, bind_ref(_, E)), St0, St) :- !, ck_expr(E, St0, St).   % a REFER
 ck_stmt(empty, St, St) :- !.
 ck_stmt(expr(L, E), St0, St) :- !, ck_line(L), ck_anchor_addrs(E, St0, St1), ck_expr(E, St1, St).
 ck_stmt(defer(L, _, Body), St0, St) :- !, ck_line(L), ck_defer(St0, Body, St).
+ck_stmt(eh_cleanup(_, _), St, St) :- !.   % a constructor's cleanup of what it built, run only while an exception unwinds (0.201): the check follows no unwinding path
 ck_stmt(ifce(_, _, RT), St0, St) :- !, ck_stmt(RT, St0, St).                                % `if consteval': the run-time branch (0.108)
 %% a try (0.108): the body, then each handler from the state the try began in (what the body did before it threw is
 %% not known there), the states merged
@@ -841,7 +850,11 @@ ck_stmt(default(_, S), St0, St) :- !, ck_stmt(S, St0, St).
 ck_stmt(S, _, _) :- functor(S, F, _), nb_getval('$ck_fn', Fn), nb_getval('$ck_line', L), throw(error(not_lowered(F), where(Fn, line(L)))).   % a form of C++'s later steps
 ck_catches([], _, St, St).
 ck_catches([catch(K, B)|Cs], St0, Acc, St) :- ( K == any ; K == terminate ), !, ck_stmt(B, St0, S1), ck_merge(Acc, S1, Acc1), ck_catches(Cs, St0, Acc1, St).
-ck_catches([catch(_, T, N, B)|Cs], St0, Acc, St) :- ccl_scope_push, ( N == anon -> true ; ccl_declare(N, T) ), ck_stmt(B, St0, S1), ccl_scope_pop, ck_merge(Acc, S1, Acc1), ck_catches(Cs, St0, Acc1, St).
+%% A HANDLER'S PARAMETER HAS A FRAME OF ITS OWN, in the state as in the symbol table (0.201): the two are pushed together,
+%% and a defer of a frame outside the handler that an exit from inside it runs -- a `return' in the handler over a local's
+%% destructor -- names its local by the symbol table's frame, which the state did not have: the check failed with no word.
+ck_catches([catch(_, T, N, B)|Cs], St0, Acc, St) :- ccl_scope_push, ck_bpath_push, ( St0 = st(_) -> ck_push(St0, St0a) ; St0a = St0 ), ( N == anon -> true ; ccl_declare(N, T) ),
+    ck_stmt(B, St0a, S0), ( St0 = st(_) -> ck_scope_end(S0, S1) ; S1 = S0 ), ck_bpath_pop, ccl_scope_pop, ck_merge(Acc, S1, Acc1), ck_catches(Cs, St0, Acc1, St).
 %% a null test on an owner refines it: `if (!p)', `if (p == NULL)' make p null
 %% on the then path, `if (p)', `if (p != NULL)' on the else path -- and its
 %% own fields with it, there being nothing behind a null
@@ -910,6 +923,7 @@ ck_decls([var(N, T0, Init0)|Vs], St0, St) :-
 
 %% what a right-hand side is to a slot: an owner (moved in), a null, a borrow, or a fresh value
 ck_kind(E, _, null) :- ck_null(E), !.
+ck_kind(ccast(_, rref(_, T), E), St, K) :- catch(ccl_resolve_type(T, R), _, fail), ( R = ptr(_, _) ; ccl_is_arith(R) ), !, ck_kind(E, St, K).   % an xvalue cast of a scalar is the object it names (0.201: `std::move(p)' of a plain pointer is `static_cast<T *&&>(p)', cpp_scalar_xvalue/2)
 ck_kind(id(P), St, null) :- ck_plain_copy(St, P), !.                   % a copy of a null pointer, or of a plain local with no state (0.99)
 ck_kind(move(E), _, fresh) :- ck_own_elem(E, _), !.                  % an element moved out: an owner, complete
 ck_kind(move(E), St, K) :- ck_path(E, P), ck_by_value(E), ck_own_under(St, P, Fs), Fs \== [], !, ck_kind(E, St, K).   % a struct with owners moved whole: the value's kind, the fields going in ck_expr
@@ -1061,7 +1075,7 @@ ck_exit_to_loop_outer(St1, [lp(K, StIn, Exits, Conts)|L], Kind) :- !, nb_setval(
 ck_exit_to_loop_outer(_, [], _) :- ck_fail(not_checked, continue, continue).
 %% close the frames opened inside the loop: their defers run, their owners must be consumed
 ck_close_to(St, Depth, St) :- st(Frs) = St, length(Frs, Depth), !.
-ck_close_to(St0, Depth, St) :- ck_scope_end(St0, St1), ck_close_to(St1, Depth, St).
+ck_close_to(St0, Depth, St) :- ck_in_state_scope(St0, ck_scope_end(St0, St1)), ck_close_to(St1, Depth, St).
 
 %% ---- goto (0.133): the walk follows it ------------------------------------------------------
 %% A goto was refused wherever an owner lived (`goto_with_owners', M3) and the code after a label that only a goto
@@ -1176,10 +1190,21 @@ ck_exit_all(St0, Form) :- ck_exit_frames(St0, Form).
 ck_exit_frames(dead, _) :- !.
 ck_exit_frames(st([]), _) :- !.
 ck_exit_frames(st([fr(Os, Ds)|Frs]), Form) :-
-    ck_run_defers(Ds, st([fr(Os, [])|Frs]), St1),
+    ck_in_state_scope(st([fr(Os, [])|Frs]), ck_run_defers(Ds, st([fr(Os, [])|Frs]), St1)),
     (   St1 == dead -> true
     ;   st([fr(Os1, _)|Frs1]) = St1, ( Frs1 == [] -> ck_complete_owners(Os1, Form) ; true ),
         ck_leaks(Os1, Form), ck_exit_frames(st(Frs1), Form) ).
+%% AN EXIT RUNS A FRAME'S DEFERS UNDER THAT FRAME'S SYMBOL TABLE (0.201): the state's frames and the symbol table's are
+%% pushed together, and a `return', a `break' or a `goto' closes the state's frames one by one while the symbol table
+%% keeps the walk's own; a defer of an outer frame that anchors its local (`&h' of a destructor's call, the local's
+%% first anchor where an aggregate's braces made it) put the anchor in the state frame of the symbol table's index, a
+%% frame too deep or none: `H h{1}; for (...) { H d{2}; if (c) return 3; }' failed the check with no word. The table is
+%% cut to the frame's while its defers run, and is the walk's again afterwards, however they end.
+ck_in_state_scope(st(Frs), G) :- nb_getval('$ccl_scope', S0), length(Frs, N), length(S0, M), M > N, !,
+    K is M - N, length(Drop, K), append(Drop, S1, S0), nb_setval('$ccl_scope', S1), ccl_tables_changed,
+    ( catch(G, E, true) -> R = done ; R = failed ), nb_setval('$ccl_scope', S0), ccl_tables_changed,
+    ( R == failed -> fail ; var(E) -> true ; throw(E) ).
+ck_in_state_scope(_, G) :- call(G).
 ck_leaks_all(st(Frs), Form) :- ck_leaks_frames(Frs, Form).
 ck_leaks_frames([], _).
 ck_leaks_frames([fr(Os, _)|Frs], Form) :- ck_leaks(Os, Form), ck_leaks_frames(Frs, Form).

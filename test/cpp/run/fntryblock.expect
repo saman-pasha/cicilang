@@ -1,0 +1,27 @@
+M7
+M1
+M2
+T body
+~M2
+~M1
+~M7
+~E
+caught 5
+M1
+M2
+M3
+copy M11
+copy M12
+~M12
+~M11
+caught 13
+f kept -4
+6 0
+~D body
+~D handler 6
+caught 6
+0 9
+~M3
+~M2
+~M1
+exit 0

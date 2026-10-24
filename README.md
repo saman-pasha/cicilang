@@ -381,7 +381,16 @@ destroyed at exit, one constructed at compile time too; since 0.200 the
 type traits of a construction, a conversion and an assignment
 (`is_constructible`, `is_convertible`, `is_assignable` and their nothrow
 forms) answer as clang++'s do, deleted and implicit special members
-included.
+included; since 0.201 the rest of libc++'s facilities: `<future>` with
+`std::async`, `<regex>`, `<memory_resource>` under the pmr containers,
+`<forward_list>`, `<shared_mutex>`, `std::condition_variable` and
+`std::call_once`, `<numbers>`, `<scoped_allocator>`, `<system_error>` and
+`<typeindex>`, at C++20 `std::jthread` with `<stop_token>`, `<latch>`,
+`<barrier>`, `<semaphore>` and `<syncstream>`, at C++23 `std::expected` and
+`<mdspan>`, over libc++ 21 `std::flat_map` and `std::flat_set`, the
+execution policies, and every other standard header, each included by a
+fixture; and a constructor, an initialization or a `new` that throws cleans
+up what it built, as the standard says.
 `test/libcxx.sh` reads `<vector>`, `<string>`,
 `<iostream>`, `<map>`, `<set>`, `<unordered_map>`, `<unordered_set>`,
 `<optional>`, `<memory>`, `<functional>`, `<tuple>` and `<algorithm>` whole,

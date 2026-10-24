@@ -1,0 +1,17 @@
+int long long long
+int unsigned unsigned long
+int unsigned unsigned
+int unsigned long
+unsigned unsigned long long long
+unsigned long unsigned long
+long long unsigned long long
+8 4 8 4
+-2147483648 2147483647 -2147483649 18446744069414584319
+0 1 1
+1 268435455 -2147483648
+pp hex signed
+pp u unsigned
+big
+max
+c200
+exit 0

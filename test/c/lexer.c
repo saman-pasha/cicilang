@@ -37,12 +37,16 @@ _Decimal64 dec = 0.1dd + .5DD + 1e3df + 2.5E-3DL + 1'000.25dd + 7.dd + 3e+2DF; /
 long double udl = 1.5_km + 2e3_x + .5_y + 0x1p3_z + 3._w + 1'000.5_s + 7e-2Lx + 4.25if; /* C++11's user-defined floating literals (0.160): one token, its text and its suffix, in C++; a float and a name in C; in both lexers */
 long udli = 3us + 0x10us + 0b11us + 017us + 3il + 3if + 5ul_x + 7_uz + 3i + 2.0i + 1.5if + 1.0il + 2.0fi + 3li + 3ui + 3I + 2.0j + 1us2 + 9uz + 2.5iL; /* C++14: an integer's tail that is no integer suffix, and a number's exact i, if, il, are its ud-suffix (0.179): a number and a name in C++; GNU's suffix and a name in C; in both lexers */
 long long lls = 3ll + 4LL + 5ull + 6ULL + 7uLL + 8llu + 9LLU + 0x10ll + 017ULL + 0b11ull + 3lli + 4ulli + 9223372036854775807LL + 18446744073709551615ULL; /* ll a long long, ull an unsigned long long: kinds of their own (0.179) */
+long based = 0x80000000 + 0XFFFFFFFF + 037777777777 + 020000000000 + 0b10000000000000000000000000000000 + 0x7FFFFFFF + 0x100000000 + 2147483648 + 4294967295 + 4294967296u + 0x80000000i + 0x80000000u + 0x80000000l + 0x80000000_x + 0xFFFFFFFFFFFFFFFFll + 0x8'0000'0000; /* a hex, octal or binary literal past INT_MAX that an unsigned int holds is one, a decimal one an int token (0.201), in both lexers */
 const char *raw = R"(a\b"c)" R"xy(1)2)x")xy" LR"(w)" u8R"(u)" uR"(16)" UR"(32)"; /* C++11's raw strings (0.115): in C++ the body as it stands; in C an R and a plain string, in both lexers */
 const char *rawnl = R"(line one
 line two)"; int after_raw = 2;
 const char *u8s = u8"ü" "x" u8R"(rü)"; int u8c = u8'a' + L'é' + u'€' + U'😀' + U'\u00e9' + L'\N{SNOWMAN}'; /* u8 literals of their own, a prefixed literal's one character (0.196) */
 int mc = 'ab' + 'abcd' + 'é' + '\x41\x42' + '\u00e9a' + 'abcde' + '\u00e9' + '\xE9'; /* multi-character constants, ints (0.196) */
 int café = 3, caf\u00e9x = 4, \u00e9t\u00e9 = 5, πΔ字 = 6, x\U0001F600 = 7; /* identifiers past ASCII and universal character names in them (0.196) */
+%:define DG(x) %:x %:%: x
+int dg<:2:> = <%1, 2%>, lt = A<::B> + C<:::D + E<::>F + G<::H; /* the digraphs (C 6.4.6/3, [lex.digraph]; 0.201): `<:' `:>' `<%' `%>' `%:' `%:%:', and C++'s `<::' before no `:' or `>', `<' then `::', in both lexers */
+int alt = a and b or not c bitand d bitor compl e xor f, alt2 = (x and_eq 1, x or_eq 2, x xor_eq 3, x not_eq 4); /* C++'s alternative tokens: punctuators in C++, names in C (0.201), in both lexers */
 int last = 1;
 #if 0
 this is not C but the lexer reads it: @ $ ` are where it stops

@@ -10,8 +10,8 @@ it found, its measurements and its gate numbers. `README.md` tells a user what r
 architecture and the milestones. A step that changes a rule edits the rule here, in its topic, and writes its entry
 in `HISTORY.md`.
 
-At 0.200 the versions are: the module 0.200 (`ccl_p_version` in `module/cicilang.cicili`, `bin/cicilang --version`),
-the reader 151 (`ccl_reader_version/1`, `library/ccl_syntax.pl`) and the lowering 113 (`ccl_lowering_version/1`,
+At 0.201 the versions are: the module 0.201 (`ccl_p_version` in `module/cicilang.cicili`, `bin/cicilang --version`),
+the reader 152 (`ccl_reader_version/1`, `library/ccl_syntax.pl`) and the lowering 114 (`ccl_lowering_version/1`,
 `library/ccl_ir.pl`).
 
 Build and prove, always in this order (or all of it, `sh test/gates.sh`):
@@ -477,7 +477,7 @@ tutorials/01..03-*.pl       the objects layer's lessons; goal main, last line do
 - The compile gate. `test/compile.pl`, one process over the user's store, reads, checks, lowers, compiles at `-O1`
   and links every `test/c/run/*.c` at its `NAME.std` level (`c_level`). It expects every `test/c/safe/*.c` refused.
   `test/compile.sh` runs each binary as `NAME arg1 arg2` against `NAME.expect`, and compares each refusal with
-  `safe/NAME.expect`. There are 107 run and 47 safe fixtures at 0.199. (M2, M3, 0.57)
+  `safe/NAME.expect`. There are 113 run and 47 safe fixtures at 0.201. (M2, M3, 0.57)
 - The driver gate. `test/driver.sh` makes 40 checks of `bin/cicilang` over the user's store (the two decimal checks are
   skipped where no gcc with decimal floating types is installed), the variadic calls of every kind both ways against
   clang among them (`test/c/link/va_*.c`, 0.131), and Apple's arm64 expansion of `va_arg` of an aggregate against
@@ -563,7 +563,7 @@ tutorials/01..03-*.pl       the objects layer's lessons; goal main, last line do
 ### The C++ gate: test/cpp.sh
 
 - `test/cpp.sh` runs in this order: `test/cpp.pl` in one `--local` process; four checks of the command; every
-  `test/cpp/run/*.cpp` as a pool job (604 at 0.186); `classes.cpp` and `templates.cpp` built and run; the refusals,
+  `test/cpp/run/*.cpp` as a pool job (745 at 0.201); `classes.cpp` and `templates.cpp` built and run; the refusals,
   each at the level its `test/cpp/NAME.flags` names, else C++17 (0.164). (0.105, 0.164)
 - `test/cpp.pl` runs 46 numbered checks, `c1` to `c46`, then reads Cicili's six C++ files whole (`test/cpp/objects.cpp`,
   `emit_report.cpp`, `specialise.cpp`, `syntax.cpp`, `torch.cpp`, `torch-fragment.cpp`). `c34` checks the Itanium
@@ -1023,6 +1023,19 @@ tutorials/01..03-*.pl       the objects layer's lessons; goal main, last line do
   valid program needs them told. They were ASCII alone, and `int café = 3;` was a lexical error where clang reads it in
   C17 and C++17 too. A symbol past ASCII is spelled quoted (the Lowering's topic) and the mangler counts bytes (the
   Itanium mangler's topic). `test/c/run/identutf8.c`, `test/cpp/run/identutf8.cpp`. (0.196)
+- THE DIGRAPHS ([lex.digraph], C 6.4.6/3; 0.201): `<:`, `:>`, `<%`, `%>`, `%:` and `%:%:` are `[`, `]`, `{`, `}`, `#` and
+  `##` in both lexers and both languages (`ccl_punct//1`'s first clauses, `ccl_token//3` for `%:` and `%:%:`; natively
+  `ccl_lx_dg`, `ccl_lx_dgp` and the first branch of `ccl_lx_token`), and a line that begins with `%:` is a directive
+  (`pp_hash_intro/2` in `pp_line_mark/3` and `pp_directive_line/2`; the `line` mode reads it as a `#` line). In C++ `<::`
+  is `<` and then `::` unless the next character is `:` or `>` ([lex.pptoken]/3.2: `std::vector<::X>`; `ccl_dg_lt/2`).
+  They were no tokens, a lexical error. `-E` spells the punctuator. `test/c/run/digraphs.c`; reader `k84` over
+  `test/c/lexer.c`. (0.201)
+- C++'S ALTERNATIVE TOKENS ([lex.digraph]/2, [lex.key]/2; 0.201): `and`, `and_eq`, `bitand`, `bitor`, `compl`, `not`,
+  `not_eq`, `or`, `or_eq`, `xor` and `xor_eq` are the punctuators `&&`, `&=`, `&`, `|`, `~`, `!`, `!=`, `||`, `|=`, `^` and
+  `^=` in C++ in both lexers, never a name (`ccl_alt_token/2` in `ccl_word//2`; natively `ccl_lx_alt`, `ccl_lx_altp` in
+  `ccl_lx_word`); C has them as `<iso646.h>`'s macros. They were identifiers, and `bool t = true and not false;` was
+  refused. A stringized one spells its punctuator, `#x` of `and` `"&&"` where clang spells `"and"` (Not done).
+  `alttokens.cpp`, `hdrrest.cpp`. (0.201)
 - A `#cocolog` line takes every line up to the `#end` line, or the file's end, raw into one `tok(cocolog, Text, L)`
   (`ccl_cocolog_body//3`, `ccl_lx_cocolog`). (M1b)
 
@@ -1039,6 +1052,17 @@ tutorials/01..03-*.pl       the objects layer's lessons; goal main, last line do
   ulong(N))` (`ccl_null_constant/1` takes `0ll`). They were `long` and `ulong`, one type with them under LP64 and
   another to `typeid`, `_Generic`, an overload and a template: `f(3ll)` called `f(long)`. `-E` spells them back
   (`ccl_pp_spell_tok/4`). `test/c/run/llong.c`, `test/cpp/run/llong.cpp`. (0.43, 0.179)
+- AN INTEGER LITERAL IS THE FIRST TYPE THAT HOLDS ITS VALUE (C 6.4.4.1/5, [lex.icon]/3; 0.201): a HEX, OCTAL OR BINARY
+  one with no suffix past INT_MAX that an unsigned int holds is the kind a `u` gives, `tok(uint, N, L)`, in both lexers
+  (`ccl_int_end//4` over `ccl_int_based/4`; natively `ccl_lx_emit_int`, a C++ ud-suffix's tail `x->sfx` 8, the int kind
+  with no such test), a decimal one stays the `int` token; the inference types `int(N)` past INT_MAX as a long, `uint(N)`
+  past UINT_MAX as an unsigned long and `long(big(A))` by `ccl_big_type/2` (`ccl_type_of/2`), as the lowering spells them
+  (`ir_expr/4`: `i32 4294967296` was 0), and `0xFFFFFFFFFFFFFFFFll` past LLONG_MAX is an unsigned long long. They were an
+  int and an unsigned whatever the value: `~0x80000000` folded to -2147483649, `f(0xFFFFFFFF)` called `f(int)` over
+  `f(unsigned)`, and `nanoseconds(2500000000)` deduced an int, the `const int &` bound a temporary of the truncated value
+  and <__threading_support>'s `__convert_to_timespec` gave -1 s. In `#if` such a literal is signed (the Preprocessor's
+  topic). Reader `k84` over a line of them in `test/c/lexer.c`. `test/c/run/littype.c`, `test/cpp/run/littype.cpp`.
+  (0.201)
 - C23's `wb` and `uwb` (any case, any base) give the kinds `bitint` and `ubitint` (`x->sfx` 4, 5). The parser makes
   `wb(N)`, a `_BitInt` of the value's width plus the sign, and `uwb(N)`. (0.93)
 - An integer literal of 2^60 or more is `big(Atom)` in BOTH lexers (`ccl_lx_emit_int`, `ccl_lx_big`; `ccl_int_value/2`,
@@ -1234,7 +1258,11 @@ tutorials/01..03-*.pl       the objects layer's lessons; goal main, last line do
   left is 0 and `true` 1 (`pp_normalize`); then `ccl_cond_expr//1` and `ccl_const_eval/2`. What does not evaluate is
   false. The evaluation is C's `#if` arithmetic (C 6.10.1/4): `pp_eval_/1` sets `'$ccl_cv_pp'` around it, and every
   unsigned operation is done in `uintmax_t`, 64 bits (`ccl_cv_width/2`), so `#if ~0u == 0xFFFFFFFFFFFFFFFF` holds; the
-  global is put back on success, failure and throw. `test/c/run/unsignedconst.c`. (M5, 0.128)
+  global is put back on success, failure and throw. `test/c/run/unsignedconst.c`. An int there is an `intmax_t` (C
+  6.10.1/4, [cpp.cond]/12; 0.201): a hex, octal or binary literal with no `u` that the lexers make an unsigned int past
+  INT_MAX (the Integer literals topic) is signed in `#if` (`pp_normalize/2`), as clang evaluates `#if 0x80000000 > -1`.
+  `pp_norm/2` puts the lexer's mode back before its answer meets the caller's: a bound answer that did not unify left
+  the mode `line` behind it. `littype.c`. (M5, 0.128, 0.201)
 - Built-ins (`pp_builtin_answer/3`): `__has_include(_next)` resolve for real (`ccl_resolve_include/3`);
   `__has_builtin` and `__is_identifier` 1 (libc++'s other branch is an `#error`), but `__has_builtin(__builtin_common_type)`
   0 (`pp_no_builtin/1`, a table of the builtins this compiler does not model: libc++ 21 then flattens `common_type` on its own
@@ -1660,11 +1688,32 @@ tutorials/01..03-*.pl       the objects layer's lessons; goal main, last line do
   entry of the name, so the one it shadowed answers again). Fixture: `blocktypedef.cpp`. Why: one table holding every
   block's `using _Tp = ...;` made `_Tp` a KNOWN name to every rule that tells a template's own parameter by the tables
   not knowing it; 0.126 had worked round it twice (`cpp_callee_param_type/2`, `cpp_lambda_params/3`). (0.108, 0.127)
+- A BLOCK'S STRUCT OR UNION IS ITS BLOCK'S OWN TYPE (C17 6.2.1/4, 6.7.2.3/5, [basic.scope.block]; 0.201): in C, one that
+  a block defines under a tag the unit defines otherwise too -- another block's, the file's -- is renamed `N.local_K` for
+  the rest of its block (`ir_block_tags/2`, before the check, the table noted again from the renamed units): its own
+  members' `struct N *`, its declarators' types and every use whose innermost definition in force it is, the elaborated
+  name alone or the definition's own members; a nested block's definition ends with the block. A tag defined once keeps
+  its name. In C++ every plain local struct is renamed (the Classes topic), one defined with its declarators too: the
+  reader reads `struct S { long a; } s;` in a block as its definition and a declaration over the elaborated name
+  (`ccl_block_tag_split/2`), since a declaration whose type is a struct with its members is no definition to the
+  desugaring -- a template argument's substitution makes that shape too, and the first chain of 0.201 met `T y = x;`
+  over a deduced struct of the program renamed a local one of its own (`std::sort` of a vector of the program's
+  struct, `argument_mismatch`; `std::sort` of strings, `no_constructor`). The rename of a local class's or
+  struct's name stops where a nested block defines the name again (`cpp_tag_scoped_list/4`). The tables hold one tag a
+  name and the lowering one layout a tag (`%struct.S`, the first met): `struct S { long a; } s; s.a = 5000000000L;` in a
+  function after another's `struct S { int a; }` stored and read through the first's `i32`, a silent wrong answer, and a
+  member the first lacked was `no_member`. `test/c/run/blocktag.c`, `test/cpp/run/blocktag.cpp`. (0.201)
 - The bulk noter skips a name that is no atom, a member defined out of its class (`ccl_collect_vars`:
   `Counter::made`; `ccl_collect_item`: `Shape::scale`). Why: it crashed `atom_concat`. (0.32)
+- A DELETED FUNCTION TYPES NO CALL OF ITS NAME (0.201; `ccl_collect_vars/7`, `ccl_declare_vars/1`): the table keeps one type
+  a name, and libc++'s poison pill `void make_error_code() = delete;` (`std::__adl_only`), noted first, answered
+  `std::make_error_code(e)` with `void`, so `std::error_code ec = std::make_error_code(errc::invalid_argument)` chose no
+  constructor. The desugaring's own test for the same is `cpp_arity_clash/1` (Overload resolution). `stdmisc.cpp`. (0.201)
 - In C++ a tag's name is a type. `ccl_resolve_base([typedef(N)], ...)` asks `ccl_tag_type/4`, which tells the kind by
   the members' shape. A class resolves to its desugared struct (`ccl_tag_struct/2`, cached `'$ccl_ts:'`), so a tag
-  noted twice resolves to the struct. (0.41)
+  noted twice resolves to the struct. `::N` is the global N, which keeps the bare name (0.201; `ccl_resolve_base/3` on
+  `scoped([global], N)`): libc++ 18's `typedef ::timespec __libcpp_timespec_t;` at file scope resolved to nothing, and
+  `std::barrier`'s wait met `decltype(__ts.tv_sec)` of no type. `stdsync.cpp`. (0.41, 0.201)
 - `ccl_resolve_base/3` leaves a template-id typedef raw (an `atom(N)` guard before the named cache). (0.35)
 - In C++ an included unit's class, struct and enum class names join the includer's Env (`ccl_items_typedefs`), so
   `Name &s` parses. (0.41)
@@ -1787,7 +1836,9 @@ tutorials/01..03-*.pl       the objects layer's lessons; goal main, last line do
   (M5, 0.44)
 - `N <` starts a template-id when N is a known template (`ccl_known_template/1`: the set `'$ccl_tmpls'`, the whole
   record since 0.187). In a type context it also starts one when `ccl_targs_ahead//0` finds the matching `>` and a
-  declarator-like token follows. The scan skips parentheses and stops at `;`, `{` or `}`. (M5, 0.44, 0.187)
+  declarator-like token follows. The scan skips parentheses and stops at `;`, `{` or `}`; a `>>` that closes both lists
+  ends it (0.201, `ccl_skip_targs/3`: `ns::Unknown<ns::B<int>> x;` with the outer template unknown failed where `> >` read).
+  (M5, 0.44, 0.187, 0.201)
 - `ccl_ensure_globals` seeds the templates with common standard library names and the compiler's template-shaped
   builtins (`__type_pack_element`, `__make_integer_seq` ...). Every template item adds its name (`ccl_note_template/1`).
   (M5)
@@ -1917,7 +1968,11 @@ tutorials/01..03-*.pl       the objects layer's lessons; goal main, last line do
   - a member FUNCTION template (the declarator-id before `(`) as a template and a function template; a constructor or
     destructor template (the class's own name) as a template only, else `pair<...>` was no type;
   - a member CLASS template (a name after `struct`, `class` or `union`, with no `::` after it);
-  - a member ALIAS template, and a class-scope alias, `using N =` or `typedef ... N;` (the name before `;`).
+  - a member ALIAS template, and a class-scope alias, `using N =` or `typedef ... N;` (the name before `;`);
+  - a NESTED CLASS OR ENUM (0.201): `struct N {`, `class N :`, `union N;`, `enum class N : int {` -- N as a type, a member
+    class template's name aside: libc++ 18's stop_callback delegates `: stop_callback(__private_tag{}, ...)` in its public
+    constructors and declares `struct __private_tag {};` under `private:` after them, and the read of `<stop_token>`
+    stopped at its first constructor, `std::stop_source` no type (`nestedahead.cpp`).
 
   Why: libc++ uses `__rehash<true>(__n)` and `_Context{...}` before it declares them. `test/cpp/run/aliasahead.cpp`.
   THE SCAN STAYS IN ITS MEMBER (0.183; `ccl_scan_close`, `ccl_scan_did`): a parenthesized group is skipped whole, its
@@ -1931,6 +1986,16 @@ tutorials/01..03-*.pl       the objects layer's lessons; goal main, last line do
   syntax error. `scanahead.cpp`. (0.81, 0.92, 0.99, 0.109, 0.183)
 - A class head's first name is the class's own only where no `::` follows it (`ccl_struct_body`). Why:
   `friend struct std::__segmented_iterator_traits;` made `std` a type name for the rest of `<ranges>`. (0.109)
+- A LONE `;` AMONG THE MEMBERS is an empty-declaration, a member-declaration ([class.mem]/1; GNU's extra `;` in a C struct;
+  0.201, `ccl_members//2`): libc++'s `<mdspan>` writes `extent(rank_type __r) const noexcept { ... };`, and the read of
+  `<mdspan>` stopped there, a partial read. `classsemi.cpp`. (0.201)
+- A FUNCTION-TRY-BLOCK ([except.pre]/1, [dcl.fct.def.general]; reader 152, 0.201): `C() try : m(x) { ... } catch (...) {
+  ... }` -- a constructor's body `fntry(Body, Handlers)`, its member initializers under the try (`ccl_ctor_rest//4`), a
+  destructor's alike (`ccl_dtor_body//2`), in its class and out of it (`ccl_qdef//7`); any other function's, a method's and
+  a free function's, `{ try Body Handlers }`, which it is ([except.handle]/16; `ccl_fn_body//3`, `ccl_fn_body_ahead//0`,
+  `ccl_fn_compound//2`). The parameters are in scope in the handlers (`ccl_fn_try_body//4`). libc++ 21's flat_map and
+  flat_set write their move constructors so, and the read of `<flat_map>` stopped there, silently. The desugaring's side
+  is in the Exceptions topic. `ctorthrow.cpp`, `fntryblock.cpp`. (0.201)
 - The members are `access(A)`, `method(L, Qs, Ret, Name, Params, Variadic, Body)`, `ctor(L, Qs, Params, Inits, Body)`,
   `dtor(L, Qs, Body)`, `member(T, N, Width)`, `template(L, TParams, M)` and `static_assert(L, E, Msg)`. A method's body
   is `pure`, `default` or `delete` for `= 0`, `= default` or `= delete` (`ccl_fn_body`). A class-scope
@@ -1972,6 +2037,13 @@ tutorials/01..03-*.pl       the objects layer's lessons; goal main, last line do
   written base gets `int` (`ccl_scoped_base/2`); an unscoped one gets only a written base. The mark tells
   `enum class __element_count : size_t { }` from an empty struct. An enumerator may carry attributes.
   `test/cpp/run/strongenum.cpp`. (0.55, 0.71)
+- AN ATTRIBUTE AFTER `enum` AND ITS KEY IS THE ENUM'S ([dcl.enum]/1, C23 6.7.2.2/1; 0.201; `ccl_enum_spec//1`), read and
+  dropped, in both languages: libc++'s `enum _LIBCPP_DEPRECATED_IN_CXX17 codecvt_mode { ... }` of `<codecvt>` and, at
+  C++23, `enum _LIBCPP_DEPRECATED_IN_CXX23 float_denorm_style { ... }` of `<limits>` are `enum [[deprecated]] E { ... }`
+  here (`__has_attribute` answers 0), and the read took an unnamed enum and then a variable named E with a braced
+  initializer, which the lowering refused (`global_init(base([], [enum(anon, none)]))`) where the program named the
+  variable. GCC's `__attribute__((packed))` on an enum is dropped too, its size an int's (Not done). `enumattr.cpp`,
+  `test/c/run/enumattr.c`, `hdrrest.cpp`. (0.201)
 
 ### Attributes and qualifiers
 
@@ -2380,14 +2452,14 @@ tutorials/01..03-*.pl       the objects layer's lessons; goal main, last line do
 
 ### The versions
 
-- `ccl_reader_version/1` (`library/ccl_syntax.pl`, now 151): bump it for any grammar change to what a read gives, and
+- `ccl_reader_version/1` (`library/ccl_syntax.pl`, now 152): bump it for any grammar change to what a read gives, and
   for any change to what the AST beside a summary holds (item or member terms, `cpp_index_name/2`,
   `cpp_template_name/2`, `ccl_flat_items/3`, the namespace keys). Keep the reason in its comment. Why: the store and the
   summaries are keyed by it, and a stale read is served silently (`sizeof(std::string)` read 40). (M1, 0.89, 0.112,
   0.117)
 - A reader bump makes every summary cold; `test/libcxx.sh` rewrites them. `test/reader.pl`'s `k16` (a cached read is
   the same AST as a fresh one) goes RED on a grammar change without a bump. (0.93, 0.105)
-- `ccl_lowering_version/1` (`library/ccl_ir.pl`, now 113): bump it whenever the check or the lowering changes what it
+- `ccl_lowering_version/1` (`library/ccl_ir.pl`, now 114): bump it whenever the check or the lowering changes what it
   emits, however small -- 0.120 bumped it for the ORDER of the drain functions alone. Why: `dr_ir/3` serves the old IR
   otherwise. Either bump starts the C store afresh. (M4, 0.103, 0.120)
 
@@ -2435,7 +2507,10 @@ free. A const method adds `.c`, a ref-qualified one `.r` or `.rr` after it: each
   statics are declared, the members resolved, and the record REPLACED (the full, the light and the static-function facts).
   libc++'s `hh_mm_ss` holds `precision __f_;` over `using precision = duration<rep, ratio<1, __pow10(fractional_width)>>;`:
   resolved before, the argument stayed the call, keyed by its spelling (`ratio.1.callidpow10idfw`), and ratio's
-  `__static_gcd` of unfolded terms made instances without end. `memtypecall.cpp`.
+  `__static_gcd` of unfolded terms made instances without end. `memtypecall.cpp`. So does a type that names one of the
+  class's static functions as a template argument, read as a function type (0.201; `cpp_type_names_call/2` over
+  `'$cpp_sfn_pre'/2`, the class's static functions' names noted before its record): `<mdspan>`'s `array<_OtherIndexType,
+  rank()>` (the Template arguments topic). `targcall.cpp` (C++20). (0.136, 0.201)
 - A bitfield keeps its width, folded in the class's words (`cpp_split_members` -> `cpp_bit_width`). Why: without it
   libc++'s string is 40 bytes where the shipped library's is 24. (0.75)
 - An anonymous struct's members are the holder's own (`cpp_norm_members_`), written `struct(anon, Ns)` or, with default
@@ -2523,6 +2598,19 @@ free. A const method adds `.c`, a ref-qualified one `.r` or `.rr` after it: each
   the emission does (`cpp_first_return_in_`), and two functions' `Loc` are two classes. libc++ 18's `variant` assigns
   an alternative through an unnamed one: `struct { void operator()(true_type) const {...} ... } __impl{this,
   std::forward<_Arg>(__arg)};`. `localclass.cpp`. (0.121)
+- A PLAIN LOCAL STRUCT OR UNION is the unit's under a name of its own too (0.201; [class.local]; `cpp_plain_local/4`,
+  `cpp_plain_local_name/5`, `'$cpp_localst'/2`): the table holds one tag a name, and two functions' -- or two instances of
+  one function template's -- `struct X { T a; char b; }` had one layout, the first met: `f<double>()` read `f<int>`'s
+  `sizeof(X)`, a silent wrong answer, and libc++ 18's `std::expected` asks `__fits_in_tail_padding<_First, _Second>`, a
+  lambda's local struct, of each instance (`variable_template_not_constant`). It stays C's, its members' types resolved,
+  named once per text as the instance has it (`X.local_7_<tag>`), its tag noted; one that a member of class type
+  promotes takes the local class road, as a file-scope one is promoted (`cpp_struct_promotes`). The statements after it
+  name it by its new name, by its elaborated specifier too (`struct X x`, `sizeof(union U)`: `cpp_rename_names/3`'s
+  `struct(N, none)` and `union(N, none)` under `'$deep'`); the evaluator takes its declaration as no effect. A
+  definition is a `declare` statement: one written with its declarators, `struct S { ... } s;`, the reader splits so
+  (`ccl_block_tag_split/2`, the C reader's topic), and a declaration whose type is a struct with members -- a
+  substituted template argument's, `T y = x;` -- is renamed nothing. `localstruct.cpp`, `stdexpected.cpp`,
+  `stdalgorithmstr.cpp`. (0.201)
 
 ### Methods and calls
 
@@ -2658,7 +2746,11 @@ free. A const method adds `.c`, a ref-qualified one `.r` or `.rr` after it: each
   in order (`cpp_member_inits`), then the written body. (0.33, 0.88)
 - A base takes its initializer by its name, its slot, or a class alias naming it (`cpp_alias_base_init`): `using
   __base = ...; : __base(in_place, ...)`. Arguments that no constructor takes refuse `base_constructor(B)`. (0.82,
-  0.93)
+  0.93) ... OR A NAMESPACE'S TYPEDEF OF IT ([class.base.init]/2: a mem-initializer-id that names a type names the base it
+  denotes; 0.201; `cpp_ns_typedef_class/2` in `cpp_alias_base_init/4` and `cpp_init_known/3`): libc++'s `class strstream :
+  public iostream` writes `: iostream(&__sb_)`, `iostream` std's typedef of `basic_iostream<char>`, and the initializer
+  was `unknown_initializer(strstream, iostream)`. A data member of the name, and a typedef of the class's own, come first.
+  `hdrrest.cpp`.
 - A base with user-declared constructors, none of which takes no argument, that no initializer names is refused,
   `base_constructor(B)` ([class.base.init]/9; `cpp_no_default_ctor/1`, for the first base, a later one and a
   diamond's shared one). A base with no constructor at all is left alone, as C++ leaves it. Such a base also deletes
@@ -2690,6 +2782,12 @@ free. A const method adds `.c`, a ref-qualified one `.r` or `.rr` after it: each
   through `cpp_member_from` on `init(Items)`): an aggregate member by its items and its own defaults, a class through
   its constructors. Why: libc++ 18's format-spec parser holds `__code_point<_CharT> __fill_{}`, which refused
   `member_not_constructed`. `aggdefaults.cpp`. (0.112)
+- `m{}` OF A CLASS WHOSE DEFAULT CONSTRUCTOR IS DEFAULTED AND HAS NOTHING TO DO is value-initialized, its bytes zero
+  ([dcl.init.list]/3.5, [dcl.init]/8; 0.201; `cpp_member_from/6`'s `init([])` clause over `cpp_trivial_default/1`): the
+  constructor road named an implicit constructor that is never made -- `<mdspan>`'s `__extents_{}` -- and the zeroing of
+  such a class by value-initialization is `cpp_zero_fill/5` too, which writes no byte of an empty class (a
+  `[[no_unique_address]]` member of one owns none, and a `memset` wrote over the member that shares its address).
+  `bracedefault.cpp`, `stdmdspan.cpp`. (0.201)
 - A braced default member initializer of a PLAIN struct or union member, `U u = { { 1, 2 } };` or `P p{3, 4};`, assigns
   a compound literal of the member's type (`cpp_member_from/6` on `init(Items)` after `cpp_plain_aggregate/1`; the
   plain-member clause of `cpp_member_inits` asks it for a default initializer). Else the list reached the lowering as a
@@ -2809,6 +2907,30 @@ free. A const method adds `.c`, a ref-qualified one `.r` or `.rr` after it: each
   of its own (`cpp_temps_around/5`) -- the temporaries declared, the value kept in `$cv` after a condition's contextual
   conversion to bool, the destructors run, the value last. Refused as `temporary_in_a_loop_condition` from 0.62, now
   only where the value has no type. `looptemp.cpp`. (0.62, 0.112)
+- THE CONDITION OF AN `if` IS A FULL-EXPRESSION ([intro.execution]/5, [stmt.pre]; 0.201; `cpp_if_cond/4` over
+  `cpp_temps_around/5`): its temporaries die when its evaluation ends, before a branch runs, as a loop's condition's do;
+  they were the whole statement's, destroyed after the branch. A value the inference cannot type leaves them the
+  statement's (`cpp_temps_back/1`). `condtemp.cpp`. (0.201)
+- A TEMPORARY BUILT IN A CONDITIONALLY EVALUATED OPERAND -- the right operand of `&&` and `||`, an arm of `?:` -- IS
+  DESTROYED ONLY WHERE IT WAS BUILT ([class.temporary]/4: only a constructed object is destroyed; 0.201;
+  `cpp_cond_branch/4`, `cpp_cond_flag/3`): it is the statement's, as any temporary, with a cleanup flag of its own,
+  `$tf_K`, declared 0 beside it (`cpp_temp_decls/2`), set to 1 right after its construction in the operand's walked form
+  (`cpp_flag_set/4`), its destructor called only where the flag is set (`cpp_temp_dtor/2`) -- clang's cleanup flag. A
+  temporary taken out of the register by an elision takes its flag's setting out of its block (`cpp_unflag/3`). It was
+  destroyed at the statement's end on every path, over the stack's garbage: libc++'s `__assoc_sub_state::__has_value()` is
+  `(__state_ & __constructed) || (__exception_ != nullptr)`, whose right operand builds an `exception_ptr(nullptr)`, and
+  a `std::future` that a thread set crashed in `__cxa_decrement_exception_refcount`. One whose construction is not found
+  in the walked form keeps the old road (trace `cleanup_flag_unplaced`). `condtemp.cpp`, `stdfuture.cpp`. (0.201)
+- A CONDITIONAL OF TWO PRVALUES OF THE CLASS IS ELIDED ARM BY ARM ([class.copy.elision]/1, [expr.cond]/7; 0.201;
+  `cpp_temp_elide/2`'s `cond` clause over `cpp_elidable_arm/1`, the lowering's `ir_init/3` and `ir_arg_in_place/4` of a
+  conditional over `ir_init_in_place/2`): `T x = c ? T(1) : T(2);` -- the object built in place by the arm taken, where it
+  was copied bitwise from a phi and both arms' temporaries destroyed, one never built. An LVALUE ARM BESIDE A PRVALUE ARM
+  of a class with a destructor or a written copy constructor is copied into a temporary (`cpp_cond_copy_arm/5`;
+  [expr.cond]/7: the conditional is a prvalue), and a conditional of two lvalues is an lvalue (`cpp_lvalue/1`;
+  [expr.cond]/4): `const T &r = c ? a : b;` takes the arm's object, the lowering's address phi, an arm that is a call
+  returning a reference or a cast to one among them (`ir_cond_arm/1`: `c ? f() : g()` over `T &f()` bound a temporary
+  copy, and `<regex>`'s sub_match chose its `first` so and crashed). `condinit.cpp`, `condrefcall.cpp`, `stdregex.cpp`.
+  (0.201)
 - A local initialized by a prvalue of its class takes it through `cpp_ctor_args`, which keeps the prvalue for the
   caller's elision rather than failing after its walk: failing, the caller walked the initializer again, and `Tag t =
   plus(Tag(1), 5)` destroyed a second, never-built temporary. `prvalueinit.cpp`. (0.112)
@@ -2817,7 +2939,13 @@ free. A const method adds `.c`, a ref-qualified one `.r` or `.rr` after it: each
   failed attempt), else under the Itanium guard -- `__cxa_guard_acquire` answers non-zero once, the constructor runs
   over the static's address (a prvalue elided into it), the destructor is registered with `__cxa_atexit` (itself the
   callback, the object its argument, a null DSO handle), and `__cxa_guard_release` marks it done. `localstatic.cpp`.
-  (0.112)
+  (0.112) A SCALAR one with a run-time initializer too (0.201; the plain road of `cpp_decl_pieces/6` over
+  `cpp_runtime_init/1`): zero, then assigned under the guard -- `static int x = f();` was refused,
+  `global_init(call(id(f), []))`; a constant and a constexpr call's value stay the static's constant, and a
+  `thread_local` one and a reference are left as they were. AN INITIALIZATION THAT THROWS IS NOT COMPLETE ([stmt.dcl]/4;
+  0.201; `cpp_guard_abort/4`): the guard is aborted, `__cxa_guard_abort` by an unwinding-only cleanup (the Exceptions
+  topic), and the next pass tries again; left acquired, the next call met libc++abi's `recursive initialization` and
+  aborted. `staticlocal.cpp`, `throwinit.cpp`.
 - A STATIC CONSTRUCTED AT COMPILE TIME IS DESTROYED AT EXIT TOO ([basic.start.term]/1, /3: one initialized statically is
   destroyed as if it had been initialized dynamically; 0.192): a namespace-scope object or a static data member defined out
   of its class whose constructor the evaluator runs -- a constexpr one, or one it can run though it is not constexpr --
@@ -2888,6 +3016,11 @@ free. A const method adds `.c`, a ref-qualified one `.r` or `.rr` after it: each
   single PACK EXPANSION too, which is no one argument until it expands (0.162: `V{it[Is]...}` in a lambda's body, its
   pack `Is` the lambda's own, was the cast `ccast(functional, V, pack(...))` and refused `pack_unexpanded`).
   `sizeof(id(T))` becomes `sizeof_type(T)`. (0.78, 0.90, 0.162)
+- A BUILTIN TYPE'S FUNCTIONAL CAST WRITTEN WITH NO ARGUMENT, `int()` or `char{}`, is the type's zero
+  ([expr.type.conv]/2, [dcl.init]/8; 0.201; the `cpp_expr` clause on `ccast(functional, T, none)` over `cpp_zero_of/2`):
+  the reader gives a cast of nothing, which reached the lowering, `expr(none)`, wherever the program or a header wrote
+  one -- `int k = int();`, `std::string s(3, char());`, libc++'s `wstring_convert::to_bytes` -- a defect older than
+  0.200; a bound parameter's `T()` was `cpp_type_called/3`'s. `castzero.cpp`, `hdrrest.cpp`.
 - `Guard<A, I>(a, i)` is a temporary of the instance (`cpp_call`'s `tmpl` clause) only where every argument is settled
   (`cpp_targs_settled/1`); an unfolded argument would name an instance by its spelling. (0.47)
 - A MEMBER CLASS TEMPLATE'S INSTANCE NAMED THROUGH ITS HOLDER AND CALLED, `O<int>::I<double>()`, is a temporary of it
@@ -2934,7 +3067,15 @@ free. A const method adds `.c`, a ref-qualified one `.r` or `.rr` after it: each
   them ([dcl.init]/17.6.2; 0.135: `B b = d;` over a B that writes no copy constructor was `no_constructor(B, 1)`, the
   implicit copy asking the argument to be of the class itself; `assignbase.cpp`). The name is noted when emitted, never before: a walk abandoned by
   a throw left `Rec.Rec.Rec_rr` undefined. A local's initializer makes one only for the program's own class without
-  owners (`cpp_ctor_args`); a library class's special members come through its lazy road. (0.82, 0.84, 0.93)
+  owners (`cpp_ctor_args`); a library class's special members come through its lazy road, but where the library class
+  has a destructor (0.201; `cpp_implicit_copy_here/1`), whose copy is never bitwise: `<regex>`'s `std::__state<_CharT>`,
+  a struct with a written default constructor and vector members, was refused `copy_of_a_class_with_destructor` at
+  `__state __snext = __s;`. The road asks the copy and move constructors the class WRITES (`cpp_written_copy_ctor/1`),
+  never an implicit one made already: the implicit copy made first kept the implicit move from being made, and the
+  reverse. AN RVALUE TAKES THE IMPLICIT MOVE only where the class declares it ([class.copy.ctor]/8; 0.201;
+  `cpp_implicit_rvalue_kind/2` over `cpp_move_kind/2`): beside a declared copy constructor, copy or move assignment or
+  destructor no implicit move is declared, and the rvalue takes the copy -- it took the move whatever the class
+  declared. `implicitcopymove.cpp`, `stdregex.cpp`. (0.82, 0.84, 0.93, 0.201)
 - The implicit memberwise assignment ([class.copy.assign]; `cpp_implicit_assign`, `'$cpp_implicit_assign'`) serves a
   class with a destructor, or with a table pointer or a virtual base (`cpp_dynamic_class/1`, 0.135), and no written
   `operator=`: the BASE SUB-OBJECTS first, each through its own assignment (`cpp_assign_base_slot/3`, 0.135), then each
@@ -2965,7 +3106,11 @@ free. A const method adds `.c`, a ref-qualified one `.r` or `.rr` after it: each
   `cpp_name_anon_items/2` over the unit's output): libc++'s `end(directory_iterator) noexcept { return
   directory_iterator(); }` holds a shared_ptr in its unnamed parameter, and the defer named `anon`, which nothing declares
   (`undeclared(anon)`). `anonparam.cpp`. A class with neither constructor keeps the lowering's move, which nulls the
-  source's owners. (0.44, 0.83, 0.134)
+  source's owners. AN XVALUE NAMES ITS OBJECT AS `std::move(x)` DOES ([basic.lval], [dcl.init]/17.6.2; 0.201;
+  `cpp_xvalue_arg/2`): `static_cast<R &&>(x)`, `std::forward<R>(x)` and any call declared to return `R &&`, which libc++'s
+  `std::invoke` and `std::thread` hand a by-value parameter, move-construct the callee's copy -- it was the object itself,
+  bitwise, destroyed with the caller's own: a stop_token's shared state freed early in every `std::jthread` whose function
+  takes one. `xvaluearg.cpp`, `stdjthread.cpp`. (0.44, 0.83, 0.134, 0.201)
 - `return x` of a local of a class with a destructor moves out through the move constructor, else copies; `return
   std::move(x)` alike (`cpp_stmt_(return)`). A prvalue moves bitwise, as C++17 elides that copy. (0.44, 0.83)
 - C++20'S AND C++23'S IMPLICIT MOVE ([class.copy.elision]/3, P1825, P2266; clang applies it at C++17 too; 0.197;
@@ -3000,9 +3145,18 @@ free. A const method adds `.c`, a ref-qualified one `.r` or `.rr` after it: each
   the ABI's `cpp_user_copy_ctor/1`. Such a class with no constructor the old test read was no class whose value moves:
   `S<int> c = std::move(a);` was refused `move of a non-owner: 'a'`. `selfnamedctor.cpp`.
 - `move(X)` of a class value stays `move(X)` ([expr.xvalue]; `cpp_expr(move)`), since overload resolution reads its
-  category; of a scalar it is the value. `std::move(x)` names an object, never a temporary to elide ([basic.lval];
+  category; of a plain struct (0.122) and of a scalar (0.201) it is the xvalue cast `static_cast<T &&>(x)`, the bullet
+  below. `std::move(x)` names an object, never a temporary to elide ([basic.lval];
   `cpp_decl_pieces`): elided, two unique_ptrs held one pointer. A reference parameter takes the object itself, its
   `move` stripped (`cpp_ref_args_of`). (0.83, 0.86)
+- `std::move(x)` OF A SCALAR IS AN XVALUE ([expr.move]; 0.201; `cpp_scalar_xvalue/2` in `cpp_expr(move)`): an lvalue of
+  arithmetic, enumeration or pointer type moved is `ccast(static, rref([], T), X)`, `static_cast<T &&>(x)` as libc++'s
+  std::move is. It was the value, an lvalue to every rule that reads a category: a forwarding reference deduced `T &`
+  (`kind(std::move(x))` gave an lvalue's answer, and libc++ 18's `__reduce(__policy, std::move(__first),
+  std::move(__last), std::move(__init), ...)` returned `optional<long &>`, which LLVM refused under every `std::reduce` of
+  an execution policy), and `f(int &&)` beside `f(int &)` lost to the second. The check takes such a cast as the object
+  it names (`ck_kind/3`, `ck_static_value/1`), and the lowering takes its value as the scalar's (the References topic of
+  the lowering). `scalarmove.cpp` (C++20), `execpol.cpp`.
 - Copy-initialization from `std::move(x)` or from an xvalue cast, `static_cast<T &&>(x)`, keeps the move among the
   constructor's arguments ([dcl.init]/17.6.2; `cpp_ctor_args`, `cpp_xvalue_move/2`), so `cpp_ctor` chooses the MOVE
   constructor, written or implicit. Why: `M b = std::move(a)` chose the copy constructor, and the cast form was elided
@@ -3046,7 +3200,14 @@ free. A const method adds `.c`, a ref-qualified one `.r` or `.rr` after it: each
 - A designated list is made positional over the class's data members ([dcl.init.aggr]/3.1; `cpp_agg_values/3`): `.f =
   v` at f's place, an item without a designator at the next, a skipped member the hole `'$no_item'` (taken as a member
   with no item). Every aggregate door asks it: a local, a member's braced list, a global. Why: the values were taken in
-  order with their designators dropped, so `F l{.b_ = true}` set the first member. `aggconst.cpp`. (0.112)
+  order with their designators dropped, so `F l{.b_ = true}` set the first member. `aggconst.cpp`. A MEMBER
+  INITIALIZER'S DESIGNATED LIST, `: m{.a = x, .b = y}`, is one too (C++20, [class.base.init]/7; 0.201, reader 152): the
+  reader keeps the list as the initializer's one argument, `init(m, [init(Items)])` (`ccl_designated_list//1`), and the
+  member is built from it by the aggregate road (`cpp_member_inits/6` over `cpp_designated_items/1` and
+  `cpp_member_from/6`), the members it skips from their defaults. Its `.` was a syntax error: libc++ 21's flat_map writes
+  `__containers_{.keys = std::move(__key_cont), .values = std::move(__mapped_cont)}`, the read of `<flat_map>` stopped at
+  the class template, silently, and `std::flat_map` was `template_without_body(flat_map)`. `desigmem.cpp` (C++20),
+  `stdflatmap.cpp`. (0.112, 0.201)
 - A designator may name a member of an ANONYMOUS UNION ([class.union.anon]/1): its slot is the union's own `$anonK`,
   its item `'$anon_item'(F, V)` (`cpp_agg_slots`, `cpp_anon_field/3`), stored through the union by `cpp_agg_inits`.
   `desiganon.cpp`. Why: libc++'s `__parsed_specifications{.__std_ = __std{...}, ...}` stored the whole `__std` into
@@ -3162,7 +3323,10 @@ free. A const method adds `.c`, a ref-qualified one `.r` or `.rr` after it: each
 - A converting constructor serves a call's argument (`cpp_copies_` -> `cpp_converting_ctor/2` -> a temporary) only
   where the argument's type is known and not already the class, for a parameter taking the class by value or binding a
   temporary, `const T &` or `T &&` (`cpp_param_takes_class/2`): `__rep(__long)`, `v.push_back("alpha")`.
-  `callable.cpp`. (0.66, 0.70)
+  `callable.cpp`. Never for a DERIVED class's object (0.201; `cpp_arg_derives/2`), which binds its base sub-object
+  ([dcl.init.ref]/5.1.1) and copies by its base's copy (the slicing): a base's converting template that takes it,
+  `template <class U> Al(const Al<U> &)`, built a temporary from it whose constructor's parameter took it again, without
+  end (`scoped_allocator_adaptor`; `stdmisc.cpp`). (0.66, 0.70, 0.201)
 - `cpp_converting_ctor` never takes an `explicit` constructor ([class.conv.ctor]) or the copy or move one
   (`cpp_own_class_param`). It checks the fit in the class's words; a refusal there is no conversion. A constructor
   template converts by the fit, or by the template road where its parameter names its own template parameters
@@ -3180,6 +3344,12 @@ free. A const method adds `.c`, a ref-qualified one `.r` or `.rr` after it: each
   (`cpp_stmt_(return)`), cast ([expr.static.cast]/4; `cpp_cast_to`) or an initializer list's item (`cpp_il_item`),
   as an argument does: `map::find` returns a `__tree_iterator`; optional's `value_or` casts a `const char *`.
   (0.79, 0.80, 0.82)
+- A CAST OF A GLVALUE TO ITS OWN CLASS, OR TO A BASE, IS A TEMPORARY DIRECT-INITIALIZED FROM IT ([expr.static.cast]/4;
+  0.201; `cpp_cast_to/3`'s clause over `cpp_ret_constructs/1` and `cpp_glvalue_arg/1`): `static_cast<R>(std::forward<A>(a))`,
+  `static_cast<R>(std::move(s))`, `(R) r` -- the move constructor for an xvalue, the copy one for an lvalue -- where the
+  cast was the value itself: libc++'s `_LIBCPP_AUTO_CAST` over an argument pack copied a move-only value, and `R t =
+  static_cast<R>(std::move(s));` was refused `move of a non-owner`. A prvalue of the class stays itself, and a cast that
+  made its prvalue IS that prvalue, which the elisions see (`cpp_cast_made/3`). `castclass.cpp`. (0.201)
 - A return of a conditional over class arms returns each arm on its own ([class.copy.elision]; `cpp_stmt_(return)`).
   Why: `value_or` copied the lvalue arm bitwise. (0.82)
 - A class value converts through its conversion operator where a scalar or another class is wanted (`cpp_conv_to`):
@@ -3245,6 +3415,12 @@ free. A const method adds `.c`, a ref-qualified one `.r` or `.rr` after it: each
   (`cpp_ctor_class_type/1` guards `cpp_static_aggregate`). Why: libc++'s `__bool_strings<char>::__true{"true"}`, a
   `basic_string_view`, took the literal as its pointer and 0 as its size, and `std::format("{}", true)` printed
   nothing. `constsv.cpp`. (0.112)
+- A STATIC AGGREGATE MEMBER INITIALIZED BY A CALL, `T x{f()}` or `T x = f()`, IS THE VALUE THE CALL ANSWERS (0.201;
+  `cpp_static_agg_call/4`): `<mdspan>` writes `static constexpr array<_Tp, sizeof...(_Values)>
+  __result{__static_partial_sums_impl()};` over a static constexpr function of its own class that fills an array through
+  its `operator[]`, and the static was declared and not defined -- the link named it. The call is desugared in the class
+  and run by the evaluator, TWICE: the first attempt emits the instances the call runs through, and only the second sees
+  them (as a file-scope constant's, `cpp_fold_const_inits_/4`). `staticaggcall.cpp`, `stdmdspan.cpp`. (0.201)
 - A LAZY class's static data member is defined where the program names it, as its member functions are
   ([temp.inst]/3: a static's initialization occurs only where the member is used; `cpp_static_use/3`,
   `cpp_use_static/2`, `static(C, N)` in `'$cpp_inst'`); its declaration in the table is the registration's
@@ -3308,6 +3484,14 @@ free. A const method adds `.c`, a ref-qualified one `.r` or `.rr` after it: each
   class's whole road, a union's layout. Its tag starts with `union_tag` (`ccl_is_union_tag/1`, the one test); it is
   emitted as `union(C, [union_tag|Data])` and answered by `ccl_tag_type/4` and `cpp_class_of_type_`.
   `basic_string::__rep`. (0.63)
+- A PLAIN UNION'S TAG IS MARKED A UNION IN C++ TOO (0.201; `ccl_union_tag_ms/2` in the bulk noter's `ccl_collect_spec/5`
+  and the parser's `ccl_note_spec/1`): its bare name, `P p;`, names the tag, which told a union from a struct by nothing,
+  and `sizeof(P)` of `union P { int i; char c; }` was a struct's 8. C names a union by `union P`, which carries the kind.
+  Every walk of a resolved union's members takes the mark: the call ABI's leaves (`ir_union_leaves/3`), `typeid`
+  (`cpp_rtti_of_type/2`, `cpp_rtti_pointee/3`) and the mangler, which names it through its namespace as a struct
+  (`cpp_ita_type_/5`); the first chain of 0.201 met each -- a union passed by value had no ABI (`int first(U u)`),
+  `typeid(U)` was refused and `typeid(ns::V)` named `1V`, clang's `N2ns1VE`. `unionplain.cpp`, `aggfnptr.cpp`,
+  `rttinames.cpp`. (0.201)
 - A union class's constructor initializes only the members an initializer or a default member initializer names
   (`cpp_union_inits/4`); the others share the bytes. (0.63)
 - A nested union is a nested type (`cpp_nested_name`, `cpp_nested_spec`): with a constructor or method a union class
@@ -3383,6 +3567,14 @@ free. A const method adds `.c`, a ref-qualified one `.r` or `.rr` after it: each
   (`cpp_split_friends`) and registered as the free function it is (`cpp_register_friends`); a friend template is a
   template. A friend only declared names a function defined elsewhere and makes nothing. `<iomanip>`'s inserters and a
   program's `operator<<` are written so. (0.78)
+- A MEMBER WHOSE DEDUCED RESULT NEEDS A HIDDEN FRIEND OF ITS CLASS WAITS FOR THE FRIENDS (0.201; [dcl.spec.auto]/11:
+  the result is deduced where the function is used; `cpp_friends_pending/2`, `cpp_auto_waits/4`, `cpp_declare_later/1`):
+  the members' results are deduced as the class registers, before its friends are registered (they name the class), so
+  while a class with friends registers (`'$cpp_friends_pending'`), a member whose deduced result is refused is kept
+  (`'$cpp_auto_later'`, once a member) and deduced and declared once the friends are, in the class's words; refused
+  again, the refusal is the class's. libc++ 21's `__ra_iterator`, flat_set's iterator, writes `decltype(auto)
+  operator[](difference_type __n) const { return *(*this + __n); }` over the friend `operator+`, and every
+  `std::flat_set` was `auto_result(__ra_iterator...)`. `autofriend.cpp` (C++20), `stdflatmap.cpp`. (0.201)
 - A plain hidden friend of the program's class is declared at file scope and emitted with the class
   (`'$cpp_friends'`, `cpp_item`). One of a library class is a lazy header function emitted where it is called, its
   types resolved and its body walked in the class (`'$cpp_friend_in'`, 0.112). Why: filter_view's iterator
@@ -3717,6 +3909,12 @@ free. A const method adds `.c`, a ref-qualified one `.r` or `.rr` after it: each
   - A concept-id is its truth, a variable template id its value (`cpp_variable_template/1`) (0.48, 0.84).
   - `X::template f<U>()`, read as a function type, is the CALL where X's class has that member template (pair's
     `__is_pair_constructible`) (0.72).
+  - `f()`, read as a function type returning `f`, is the CALL where f is a static member function of the class the
+    argument is written in -- its bases' and its enclosing classes' (`cpp_static_fn_called/2`) -- and no type of it,
+    and so is `X::f()` of the class a path names ([temp.arg]/2 takes the type-id only where it is one): libc++'s mdspan
+    writes `make_index_sequence<rank()>()` and `array<_OtherIndexType, rank()>`, and its layouts
+    `array<index_type, extents_type::rank()>`, where `<type_traits>`'s class template `rank` made the name a type and
+    `__make_integer_seq` met a function type (`integer_seq_size`). `targcall.cpp` (C++20), `stdmdspan.cpp` (0.201).
   - A static const named bare folds (`__str_find<..., npos>`) (0.84).
   - A member alias template's name is `tname(mt(C, N))`; `C::template ap<T>` is a type (0.93, 0.109).
   - Anything else is desugared in its class (`cpp_class_ctx`) and folded (`aligned_storage<sizeof(__buf_)>`) (0.88).
@@ -3774,7 +3972,13 @@ free. A const method adds `.c`, a ref-qualified one `.r` or `.rr` after it: each
   `pack_expansion_without_pack`, and a pack named outside an expansion `pack_unexpanded(P)`. (0.79)
 - An expansion naming a class pack AND a member template's own waits for the member's instantiation
   ([temp.variadic]): `cpp_shadow` marks the member's pack `'$later'`, and the pattern travels as `pack_zip(Bound, X)`
-  (`cpp_later_names`): `__tuple_impl`'s `__tuple_leaf<_Indx, _Tp>(std::forward<_Args>(__args))...`. (0.79)
+  (`cpp_later_names`): `__tuple_impl`'s `__tuple_leaf<_Indx, _Tp>(std::forward<_Args>(__args))...`. A FOLD over such
+  packs waits the same way (0.201; `fold_zip(Op, Dir, Bound, X)` over `cpp_zip_later/4`, expanded by
+  `cpp_fold_zip_dir/5` once the waiting pack is bound): libc++'s `<mdspan>` folds `((__res =
+  static_cast<index_type>(__idx) + __extents_.extent(_Pos) * __res), ...)` over the call operator's `__idx...` in a
+  lambda over its own `_Pos...`, and expanded over `__idx` alone the lambda's instance met `_Pos` bare. A GENERIC
+  LAMBDA'S OWN TEMPLATE PARAMETERS SHADOW the enclosing bindings and its own pack waits (`cpp_subst/3` on `lambda/4`
+  over `cpp_shadow`), as a member template's do. `foldlater.cpp`, `stdmdspan.cpp`. (0.79, 0.201)
 - `cpp_fold_left/3` and `cpp_fold_right/3` fold an expanded pack. An empty fold of `&&` is `true`, of `||` `false`, of
   `,` `0`, any other refuses `empty_fold(Op)`. `sizeof...(P)` is `int(N)` once bound. (0.44)
 - C++26 pack indexing (`Ts...[I]`, `args...[I]`) substitutes once the pack is bound (`cpp_pack_at`), else refuses
@@ -3794,6 +3998,10 @@ free. A const method adds `.c`, a ref-qualified one `.r` or `.rr` after it: each
 - A path of two or more segments is WALKED first, each segment named inside the one before (`cpp_scope_walk/3`); one
   segment goes to `cpp_path_class`. Fixture: `scopewalk.cpp`. Why: in a class with its own `type`, `_ITER_CONCEPT`'s
   `__iter_concept_cache<_Iter>::type::template _Apply<_Iter>` took that `type`. (0.47, 0.112)
+- `sizeof(C::type)` OF A MEMBER TYPE IS THE TYPE'S SIZE ([expr.sizeof]/1; 0.201; a `cpp_expr` clause on
+  `sizeof(scoped(Path, N))`): the reader takes `sizeof(decltype(v)::value_type)` for the size of an expression, a
+  qualified name, and the class's typedef of that name answers it as a type; it reached the lowering raw,
+  `not lowered yet: sizeof(scoped(...))`. `ctadstd.cpp`. (0.201)
 - `cpp_path_class` tries, in order ([basic.lookup.unqual]): a typedef the current class sees, resolved where defined;
   a registered class; an instance still being registered (`'$cpp_inst'`, `'$cpp_iname'`); a plain struct, never an
   enum (`NoPtr::pointer` refuses, `Color::Green` is the enumerator); `decltype(e)`, the expression's class; a
@@ -3825,7 +4033,10 @@ free. A const method adds `.c`, a ref-qualified one `.r` or `.rr` after it: each
   that class under its short name for the statements that follow (`cpp_stmts`; `cpp_body_typedefs_` for a deduced
   result), as a block typedef is: libc++ 18's `std::visit` opens with `using
   __variant_detail::__visitation::__variant;` and calls `__variant::__visit_value(...)`, where the bare name is
-  `__access::__variant`, another class. (0.121)
+  `__access::__variant`, another class. Only a key that names a TYPE is so (0.201; `cpp_key_names_type/1`: a class, a
+  struct, a union, a typedef or a class template in the index, the tables): a function's keyed name -- libc++'s `using
+  __adl_only::make_error_condition;` before the call that ADL answers -- was made a type, and the call `typedef(...)`;
+  such a using reaches the check and the lowering, which take it as nothing. `stdmisc.cpp`. (0.121, 0.201)
 
 ### Partial specializations
 
@@ -3866,7 +4077,11 @@ free. A const method adds `.c`, a ref-qualified one `.r` or `.rr` after it: each
 - `cpp_pick_spec/4` keeps the matches whose constraints hold, the more constrained first (`cpp_by_constraints`),
   prefers a definition to a forward declaration of one specialization (`cpp_template_class_def/1`:
   `struct char_traits<char>;`), then takes the most specialized (`cpp_most_special`, `cpp_more_special` asked `once`:
-  X's pattern as arguments matches Y's). (0.63, 0.109)
+  X's pattern as arguments matches Y's). ON A TIE, THE ONE WITH NO TRAILING PACK EXPANSION WHERE THE OTHER ENDS IN ONE
+  wins (0.201; `cpp_spec_better/2`, `cpp_pack_tie/2`; [temp.deduct.type]/9 lets both deduce, and CWG 1432's tie-breaker
+  orders them, as clang and gcc do): libc++'s `__scoped_allocator_storage<_OuterAlloc>` over `<_OuterAlloc,
+  _InnerAllocs...>` -- the first declared stood, and `scoped_allocator_adaptor<allocator<string>>` was built on a
+  storage with an inner adaptor of no allocator. `stdmisc.cpp`. (0.63, 0.109, 0.201)
 - The picked specialization is used only where it has a body (`cpp_template_defined`), else the primary's body, else
   the instance is incomplete. (0.46, 0.58)
 
@@ -3949,6 +4164,11 @@ free. A const method adds `.c`, a ref-qualified one `.r` or `.rr` after it: each
   uint32_t[5]` is `_Tp = const uint32_t`). `T &` given a const lvalue keeps the const, and an array stays an array
   ([temp.deduct.call]/2: no array-to-pointer conversion for a reference): `addressof<const int>`, and ranges::begin's
   `is_array_v<_Tp>`. Fixtures: `arrayref.cpp`, `rangesarray.cpp`. (0.99, 0.108, 0.112)
+- A FUNCTION OR AN ARRAY GIVEN TO A PARAMETER OF POINTER TYPE IS THE POINTER IT DECAYS TO ([temp.deduct.call]/2: P is
+  no reference; 0.201; `cpp_ptr_decay/3` in `cpp_deduce_one/5`'s last clause): `template <class R, class... A> int
+  arity(R (*)(A...))` called with a function's name, and libc++'s guide `function(_Rp (*)(_Ap...)) -> function<_Rp(_Ap...)>`
+  of `std::function f{twice};`, deduced nothing from the function type, `cannot_deduce(R)`. `fnptrded.cpp`,
+  `ctadstd.cpp`. (0.201)
 - The decay of a by-value parameter drops a POINTER's own top-level `const` too (`cpp_decayed(ptr(_, E), ptr([], E))`;
   [temp.deduct.call]/2): `T` deduced from `const char *const` is `const char *`. Else a member of a const object, which
   is const since 0.121, handed `const char *const` to `std::format`'s `__format_arg_store` deduced a const pointer type
@@ -4190,7 +4410,11 @@ free. A const method adds `.c`, a ref-qualified one `.r` or `.rr` after it: each
   `variable_template_not_constant(N)`. The value is remembered per ground argument list (`'$cpp_vtm'(N, Args, E)`,
   compared with `==`), since libc++'s ranges evaluate one `is_convertible_v` hundreds of times. The value is a literal of
   the variable's declared type, a placeholder's the initializer's (0.199; `cpp_vt_typed_value/5`, `cpp_vt_type/4`):
-  `w<'b'>` is a `char`, `tuple_size_v<T>` a `size_t`; it was an `int` whatever the type. (0.48, 0.112, 0.199)
+  `w<'b'>` is a `char`, `tuple_size_v<T>` a `size_t`; it was an `int` whatever the type. A FLOATING value is its
+  initializer converted to the variable's type, a constant the lowering folds (0.201; `cpp_vt_floating/4` over
+  `ir_fp_value/2`, as a floating static's, the evaluator holding no floating value): `<numbers>`' `template
+  <floating_point _Tp> inline constexpr _Tp pi_v<_Tp> = 3.141592653589793238462643383279502884L;`, and `std::numbers::pi`
+  was refused `variable_template_not_constant(pi_v)`. `stdmisc.cpp`. (0.48, 0.112, 0.199, 0.201)
 - A variable template whose value is an OBJECT of class type answers that value, a compound literal of the class
   (`cpp_object_value/1` in `cpp_instantiate_variable_`), and its instance called is the object's `operator()` (the
   `cpp_call` clause on `tmpl(N, As)`, never for a function template's prototype, which is a declaration item too).
@@ -4295,7 +4519,17 @@ free. A const method adds `.c`, a ref-qualified one `.r` or `.rr` after it: each
   class, never on a definition out of it; `cpp_keep_explicit/3` in `cpp_mdef_take/6`): the merged member had the
   definition's qualifiers alone, and libc++ 18's `explicit vector(size_type)`, defined out of its class, converted an
   `int` (`is_convertible_v<int, std::vector<int>>` and `is_assignable_v<std::vector<int> &, int>` were 1). `valtraits.cpp`.
-  (0.200)
+  AND ITS `static`, `virtual`, `override` AND `final` (0.201; [class.static]/1, [class.virtual]/2: each stands on the
+  declaration in the class alone; `cpp_explicit_word/1`): merged without them, a static member function of a class
+  template defined out of it took a `this` -- `<regex>`'s regex_traits called itself through the wrong road until the stack
+  ran out -- and a virtual one defined out of its class template had no slot, a call through a base's reference reaching
+  the base's function. `staticvirtout.cpp`. (0.200, 0.201)
+- A MEMBER CLASS TEMPLATE OF A PLAIN CLASS DEFINED OUT OF IT (0.201; `cpp_mct_def/7`, `cpp_mct_owner/3`, before the member
+  road of `cpp_register_`'s template clause): `template <class _Extents> class layout_left::mapping { ... };` of libc++'s
+  `<mdspan>`, the class declaring `template <class _Extents> class mapping;` -- registered as the member class template it
+  is (`cpp_nested_template_put/7`; a `class` one declared only registers too, `cpp_register_class_extras/2`), where the
+  road of a member template defined out of a plain class kept it as a member's body and `layout_left::mapping<E>` had no
+  template. `mctplain.cpp`, `stdmdspan.cpp`. (0.201)
 - An UNNAMED parameter of the declaration takes the definition's name, never the reverse (`cpp_tparam_renames`,
   `cpp_rename_tparams`). Why: libc++ declares `template <bool> class __iterator;` in transform_view and defines it
   `template <bool _Const> class transform_view<...>::__iterator`, and `__iterator<!_Const>` was renamed to nobody's
@@ -4351,6 +4585,30 @@ free. A const method adds `.c`, a ref-qualified one `.r` or `.rr` after it: each
   every road of `cpp_ctad_args/3`), else the deduction refuses `constraint_not_satisfied`: a requirement that makes it is
   unmet, any other use an error. `owning_view{c}` of a char deduced `owning_view<char>` against `template <range _Rp>
   requires movable<_Rp> class owning_view`, so libc++'s `views::all` held for a char. `ctadcheck.cpp`.
+- THE ARGUMENTS OF A DEDUCTION ARE THE CALLER'S (0.201; `cpp_ctad_caller/1` around every road of `cpp_ctad_args/3`):
+  an argument that only the desugaring can type -- a data member named bare in a member function, one the class
+  declares after the function among them -- is desugared in the words of the class being walked, as a candidate's
+  arguments are (`cpp_caller_ctx/2`). Typed with no class it was `unknown`, the guides deduced nothing and the
+  declaration named the bare template: libc++'s `<syncstream>` writes `shared_lock __lock{__mutex_};` in a member, and
+  every `std::osyncstream` was refused. `ctadmem.cpp` (C++20), `syncs.cpp` (C++20, `-fexperimental-library`).
+- AN IMPLICIT GUIDE'S PARAMETER THAT NAMES A MEMBER TYPEDEF OF THE TEMPLATE IS THE TYPEDEF'S TYPE
+  ([over.match.class.deduct]/1: the guide is the constructor in the class template's own terms; 0.201;
+  `cpp_guide_member_types/3`): `explicit lock_guard(mutex_type &)` over `typedef _Mutex mutex_type;` deduces `_Mutex`
+  from a mutex, where C++17's `std::lock_guard g(m);`, `std::unique_lock u(m);` and `std::shared_lock s(sm);` named the
+  bare template. A PACK'S ELEMENTS ARE THE DEDUCED ARGUMENTS (`cpp_ctad_bind/3`): `std::scoped_lock both(m, sm);` is
+  `scoped_lock<mutex, shared_mutex>`, where the pack's binding was one argument, `pack_unexpanded`. `ctadlock.cpp`.
+  (0.201)
+- A BRACED INITIALIZER DEDUCES THROUGH THE INITIALIZER-LIST CONSTRUCTORS FIRST ([over.match.class.deduct]/1,
+  [over.match.list]; 0.201; `cpp_ctad_init/4`): the list as one argument, which only an `initializer_list<P>` parameter
+  deduces from, each item a P -- `std::vector v{1, 2, 3};` is a `vector<int>`, where its items were three arguments and no
+  constructor deduced the element -- then the items as the arguments, a deduction that names an `unknown` being none
+  (`cpp_ctad_unknown/1`); a list of one item of the template's own class, or of a class derived from one, is its copy
+  (P0702: `std::vector w{v};` is v's type), and a designated list goes to the items as before. A BRACED TEMPORARY OF A
+  TEMPLATE'S BARE NAME, `std::vector{4, 5}`, deduces so too (`cpp_braced_ctad/4`), where it was the parenthesized form's
+  call, the four elements of `vector(4, 5)`. NO ARGUMENT DEDUCES THE TEMPLATE'S DEFAULTS (the default constructor's guide;
+  `cpp_ctad_args_/3`'s first clause), where every parameter but a pack has one: libc++'s parallel algorithms write
+  `less{}`, which is `less<void>`, and the call was the bare template's. `ctadstd.cpp` (P0433: the standard library's
+  guides), `execpol.cpp`. (0.201)
 
 ### Template template parameters
 
@@ -4482,6 +4740,13 @@ free. A const method adds `.c`, a ref-qualified one `.r` or `.rr` after it: each
   default constructor only where the clause holds, decided once the class is registered (`cpp_register_class__`,
   `'$cpp_default_ctor'`; trace `default_ctor_unmet(C)`). Fixture: `defaultreq.cpp`. Why: filter_view
   default-constructed its ref_view member, which has no default constructor. (0.112)
+- THE SELECTED DESTRUCTOR (C++20 [class.dtor]/4; 0.201; `cpp_selected_dtor/4`, `cpp_drop_unmet_dtors/3`): of the
+  prospective destructors a class declares, the one whose constraints hold is its destructor, chosen once the class's
+  typedefs are noted, in its own words (`cpp_method_viable/3`; trace `dtor_unmet(C)`). libc++'s std::expected writes
+  `~__repr() requires(is_trivially_destructible_v<_Err>) = default;` beside `~__repr()
+  requires(!is_trivially_destructible_v<_Err>) { __destroy_union_member(); }`: the defaulted one is the implicit
+  destructor, and the other was kept whatever its clause said, so `std::expected<void, int>`'s destructor named a member
+  whose own clause is unmet (`undeclared`). `stdexpected.cpp` (C++23). (0.201)
 - Member and constructor templates' own constraints are walked in their class (`cpp_with_req_ctx(C, ...)`), and a
   concept's body never is. Fixture: `ctorreq.cpp` (ref_view's constructor names its static `__fun`). (0.110)
 - A member whose clause is unmet is not DECLARED where its declaration cannot be made: an `auto` result that does not
@@ -4548,10 +4813,20 @@ The desugaring (`library/ccl_cpp.pl`) chooses every C++ overload. A fixture name
 - `cpp_arg_type/2` is the one door: it looks through `move(X)` and `std::move(X)` first, answers `tmplfn(F)` for a
   function template's name, takes the inference's type unless it is RAW, else types the desugared form in the
   caller's words. Why: `std::move`'s raw result won, and raw, `__rep_(std::move(...))` took `__rep(__short)`.
-  (0.68, 0.69)
+  THE TABLE'S ONE TYPE OF A NAME MAY BE ANOTHER OVERLOAD'S (0.201; `cpp_arity_clash/1`): a call with more arguments than
+  the declared function of no ellipsis has parameters is no call of it, and the desugared call is typed instead --
+  libc++'s poison pill `void make_error_code() = delete;` typed `std::make_error_code(errc::invalid_argument)` void, and
+  `std::error_code ec = ...` chose no constructor (the reader notes a deleted function in no table since, the Typedef
+  names topic). `stdmisc.cpp`. (0.68, 0.69, 0.201)
 - A RAW type names a template's own parameter: a free name, or a template-id or scoped path over one, through
   pointers, references and packs (`cpp_raw_type/1`, `cpp_free_arg/1`). It counts as no type, so the desugaring types the
-  call. Why: `std::exchange(...)` read `_T1`. (0.83, 0.87)
+  call. Why: `std::exchange(...)` read `_T1`. A CLASS DECLARED AND NEVER DEFINED is a type, never a free name (0.201;
+  `cpp_declared_class/1`): the program's (`'$cpp_fwd'`, noted before the units register, `cpp_note_fwd_classes/1`) and a
+  header's, which keeps its namespace path in the index and the AST beside the summary as an enum does
+  (`cpp_fwd_class_item/2`), so a shipped function over a pointer to it is mangled with its namespace: libc++'s
+  `<barrier>` holds `unique_ptr<__barrier_algorithm_base, void (*)(__barrier_algorithm_base *)>` over a class the
+  compiled library defines, the pointer deduced nothing for the compressed pair's constructor template, and
+  `std::barrier` was refused `member_not_constructed`. `stdsync.cpp`. (0.83, 0.87, 0.201)
 - THE TYPE OF A CALL OF A FUNCTION TEMPLATE THAT NAMES THE TEMPLATE'S OWN PARAMETER IS RAW whatever the tables know of
   the name (`cpp_callee_param_type/2`, asked by `cpp_arg_type/2` after `cpp_raw_type/1`, for a callee in
   `ccl_fn_template/1` whose `tparam(_, P, _)` the type mentions as `typedef(P)`): `cpp_raw_type` calls a name raw when no
@@ -4565,7 +4840,8 @@ The desugaring (`library/ccl_cpp.pl`) chooses every C++ overload. A fixture name
 - `cpp_init_arg_class/2` gives an argument's class, through the desugared form where a known type names no class.
   `cpp_class_of_type_of/2` looks through `move` and a reference, and never takes a raw type. (0.69, 0.87)
 - `std::move(x)` keeps its `move` where `x` is a class or holds owners ([expr.xvalue]; `cpp_expr(move(X))`, the door of
-  both spellings); else it is the value. `stdnodehandle.cpp`. Why: `t.insert(std::move(nh))` found no
+  both spellings); else an lvalue of a plain struct or of a scalar is the xvalue cast `static_cast<T &&>(x)` (0.122,
+  0.201), and any other is its operand. `stdnodehandle.cpp`. Why: `t.insert(std::move(nh))` found no
   `insert(node_type &&)`. (0.83)
 - An lvalue is an `id`, `member`, `arrow`, `deref`, `index`, a call declared to return `T &`, or a cast to `T &`
   (`cpp_lvalue/1`). A cast to a reference is typed as its object (`ccl_type_of(ccast)`). (0.79)
@@ -4719,14 +4995,20 @@ The desugaring (`library/ccl_cpp.pl`) chooses every C++ overload. A fixture name
     `__mul_overflowed(unsigned char, _Tp, unsigned char &)` held for a `uint32_t` lvalue and its store wrote ONE BYTE of
     the caller's variable: `std::from_chars("12345", ...)` stored 0 (0.117). `stdcharconv.cpp`.
 - A binding that holds can cost one DEMERIT ([over.ics.rank]/3.2.3, /3.2.6; `cpp_ref_rank/2` -> `cpp_ref_demerit/0`):
-  an rvalue, or a non-const lvalue, bound to `const T &`. The `const` is the reference's or its referent's.
-  `refrank.cpp` (both declaration orders), `commafold.cpp`. (0.91, 0.93, 0.94)
+  an rvalue, or a non-const lvalue, bound to `const T &`. The `const` is the reference's or its referent's. An rvalue
+  is an xvalue of any shape, `std::move(a)` too, or a prvalue the call returns, a temporary the desugaring made (`$tmp`,
+  `$copy`) or a cast to a class (0.201; `cpp_xvalue_object/1`, `cpp_prvalue_shape/1`): uncharged, std::tuple's
+  `tuple(const _Tp &...)` tied with `tuple(_Up &&...)` and, declared first, COPIED a moved value (`fwdtuple.cpp`).
+  `refrank.cpp` (both declaration orders), `commafold.cpp`. (0.91, 0.93, 0.94, 0.201)
 
 ### Ranking the template candidates: Conversions-Demerits
 
 - A holding template candidate costs `Conversions-Demerits` (`cpp_conversions/1` over `'$cpp_conversions'` and
   `'$cpp_refbind'`). The lowest wins in standard order (`cpp_fewest_conversions/2`, `cpp_min_of/3`), so a demerit only
-  breaks a tie. Trace: `holds(1-0)`. Why: as a conversion, `const string &` tied with a user-defined one. (0.94)
+  breaks a tie. Trace: `holds(1-0)`. Why: as a conversion, `const string &` tied with a user-defined one. A count or a
+  demerit asked with no check under way -- a trait asks the acceptance alone -- is no one's and is dropped (0.201;
+  `cpp_converted/0`, `cpp_ref_demerit/0` over `nb_current/2`): `std::barrier`'s wait raised `existence_error(variable,
+  '$cpp_refbind')`. (0.94, 0.201)
 - A conversion is counted (`cpp_converted/0`) for a derived class taken as its base, a class through a conversion
   operator or the parameter class's constructor, and a non-class value through a converting constructor
   ([over.match.best]). The free, member (`cpp_member_holding/5`) and constructor (`cpp_ctor_holding/4`) template roads
@@ -5110,6 +5392,12 @@ A lambda is a class of its captures (`library/ccl_cpp.pl`). A fixture named alon
 
 - A written result type is resolved under the parameters and the init-captures (`cpp_lambda_written_ret/3`;
   [expr.prim.lambda]). Why: libc++ 18's `[](basic_string &__s) -> decltype(__s.__r_) && {...}`. (0.93, 0.112)
+- A GENERIC LAMBDA'S WRITTEN RESULT IS ITS CALL OPERATOR TEMPLATE'S TRAILING TYPE (0.201; `trailing(T)` among the
+  operator's qualifiers, made the result at the instance with the instance's bindings, `cpp_trailing_rets`, and part of
+  its signature): `[](auto x) -> decltype(x + 1)` was resolved where the lambda is made, over the invented `$A1`,
+  `decltype_unknown`, and libc++ 18's parallel algorithms dispatch through `[](auto &&... __args) ->
+  decltype(std::__pstl_sort<_Policy>(...))`, a substitution failure on the call (`kind_mismatch`). `lamret.cpp`,
+  `execpol.cpp`. (0.201)
 - Else it is the first return, desugared in the ENCLOSING context with its locals and `this` (`cpp_lambda_ret/4`), then
   typed and decayed: the declarations before it in scope, a discarded `if constexpr` branch skipped
   (`cpp_first_return_in/3`), the block typedefs before it substituted (`cpp_body_typedefs/2`), a conditional over
@@ -5304,7 +5592,11 @@ A lambda is a class of its captures (`library/ccl_cpp.pl`). A fixture named alon
   as that enum; and an enum's walk folds another enum's enumerator named by its qualified name in an initializer
   (`cpp_enum_quals/2`; no enum walked inside its own walk, `'$cpp_enum_walking'`). `enum C { c = n::y + 1 };` was refused
   `enumerator_not_constant(c)`, and libc++ 21's `_PartialOrdResult::__less = static_cast<signed char>(_OrdResult::__less)`
-  was right only by the order of `<compare>`'s two enums. `enumqualns.cpp`. (0.126, 0.198)
+  was right only by the order of `<compare>`'s two enums. `enumqualns.cpp`. A LIBRARY HEADER'S unscoped enumerator named
+  through its namespace alike (0.201; `cpp_hdr_enum_tag/3`): the enum the table of values names for the enumerator, its
+  tag placed by the header index in a namespace whose named path ends with the path's, the path naming no class --
+  `<regex>`'s `case regex_constants::ECMAScript:` inside basic_regex, whose class has a static member of that name, was
+  flattened into the class's scope and the label reached the lowering raw. `stdregex.cpp`. (0.126, 0.198, 0.201)
 - A `const` non-floating local whose desugared initializer folds, a constexpr call through the evaluator included, is a
   constant of its block (`cpp_note_const/3`: `'$cv'(N)-V` in its frame and `'$cpp_lconsts'`, which `cpp_in_frame/1` and
   `cpp_with_fsig/2` restore where the block's or the body's walk ends; trace `const_not_folded`). Why:
@@ -5366,7 +5658,12 @@ A lambda is a class of its captures (`library/ccl_cpp.pl`). A fixture named alon
 - Both roads stay under depth 32 (`'$cpp_fold_depth'`): a constexpr function may call itself. (0.72, 0.96)
 - The evaluator runs statements (`cpp_eval_stmts/4`): declarations, a block's own dropped at its end; effects, also
   inside operands (`cpp_eval_effect/4`); `if`, `if constexpr`, `while`, `do`, `for`, `switch`, a range-for over an
-  array, `break`, `continue`, several `return`s. A void function falling off its end answers 0. (0.96, 0.97)
+  array, `break`, `continue`, several `return`s. A void function falling off its end answers 0. A type a body declares
+  (a local struct's `declare/2`) and a constructor's cleanup of what it built (`eh_cleanup/2`, which only an unwinding
+  runs) are nothing to it (0.201). A CALL OF A FUNCTION THAT RETURNS A REFERENCE IS A PLACE to store through (0.201;
+  `cpp_eval_placeish/1` over `cpp_eval_ref_fn/1`): `__partial_sums[__i] = __running_sum;` over a std::array in
+  `<mdspan>`'s `__static_partial_sums`, and `constexpr std::array<int, 3> r = f();` over such a store was a run-time
+  initialization. `constexprstore.cpp`, `stdmdspan.cpp`. (0.96, 0.97, 0.201)
 - ONE step budget per fold: `cpp_eval_step/0` counts `'$cpp_eval_steps'` to 200000, so an endless loop fails and never
   hangs; only depth 0 resets it, nested calls share it, and an unset count reads 0. (0.96, 0.98)
 - Each local and parameter is a CELL, the global `'$cpp_ec:K'` (`cpp_ec_new/2`; `'$cpp_ec_n'` never restarts). The
@@ -5579,7 +5876,10 @@ A lambda is a class of its captures (`library/ccl_cpp.pl`). A fixture named alon
   `al` read the byte a struct member had written; libc++'s `__parsed_specifications` reads `__alignment_` so.
   (0.112)
 - A layout uses the data members only: `ccl_members_layout_` and `ccl_union_layout` skip each term that is not
-  `member/3` (a C++ tag also holds methods, as libc++'s `union __rep` does). (0.63)
+  `member/3` (a C++ tag also holds methods, as libc++'s `union __rep` does). A MEMBER THAT HAS A SIZE IS LAID ONCE (0.201;
+  a cut after its size in both, `once/1` over the data size in `ccl_overlap_size/3`): the clause that skips a member
+  without a size also skipped one it had laid, on backtracking, and a union of four bytes had the data sizes 1 and 0.
+  (0.63, 0.201)
 - Layout markers (`align_as(E)`, `virtual_base`, `virtual_base_of(T)`) leave the member list at one door,
   `ccl_members_of` (`ccl_data_members`, `ccl_layout_marker`). A tag with markers is still a plain struct
   (`ccl_class_shape`). Else a marker failed a field walk with no message (`phase(check)`). (0.89, 0.110)
@@ -6117,6 +6417,11 @@ A lambda is a class of its captures (`library/ccl_cpp.pl`). A fixture named alon
 
 - A pointer to member keeps the type `memptr(C, Q, T)` through the passes (`cpp_is_type`), so deduction and
   `__weak_result_type`'s specializations match it (`cpp_match_one`). (0.88)
+- AN OPERATOR'S ADDRESS IS A POINTER TO MEMBER TOO, `&C::operator()` ([expr.unary.op]/4; 0.201; a `cpp_expr` clause
+  on `addr(scoped(Path, operator(Op)))`, its access checked as a named member's is): the clause took an atom name alone,
+  and the operator's name was taken apart, `type_error(atomic, operator('()'))`. libc++'s guide of `std::function` strips
+  `&_Fp::operator()` to the call's signature, so `std::function g{[](int x) { return x + 1; }};` deduced nothing.
+  `ctadstd.cpp`. (0.201)
 - A pointer to a data member is its byte offset, an `i64` (`cpp_member_address` over `cpp_offsetof`); `x.*pm` and
   `p->*pm` read `*(T *) ((char *) &x + pm)` (`cpp_memptr_read`). A member function pointer read as a value refuses
   `pointer_to_member_function_read`. A PLAIN struct's data member has one too (`cpp_member_address`'s clause over
@@ -6275,6 +6580,42 @@ A lambda is a class of its captures (`library/ccl_cpp.pl`). A fixture named alon
   configuration (0.193), a call under a `try` or a scope with defers is an `invoke` (`ir_invoke_needed`). Its landing pad (`ir_landing_pad`, personality `__gxx_personality_v0`) lists the
   handlers' type_infos and `cleanup`, runs the defers of the scopes it leaves (`ir_unwind_to`), tests the selector with
   `llvm.eh.typeid.for`, and else resumes. Code run while unwinding makes plain calls. (0.108)
+- A CLEANUP RUN AT A NORMAL EXIT RUNS UNDER WHAT IS LEFT TO RUN AND UNDER THE TRIES THAT ENCLOSE ITS FRAME (0.201;
+  `ir_run_exit/2`, `ir_run_exit_bodies/3`, `ir_tries_within/3`): while a frame's defers run at a block's end, a `return`,
+  a `break`, a `continue` or a `goto`, the defer stack holds the bodies not run yet and the frames outside, so a call in
+  one that throws -- a destructor declared `noexcept(false)`, a defer's call -- unwinds through the rest alone
+  ([except.ctor]/2: what is destroyed is what has not been); and the tries in force are those entered outside the frame
+  ([except.throw]/2: the nearest handler is one whose try was entered and not exited), a try that the exit leaves
+  catching nothing of its cleanups. A forward goto's trampoline runs under the goto's own tries (`fwd/8` records them,
+  `ir_trampolines/3`). The landing pad made there ran the whole frame again, the body that threw among it: `~D()
+  noexcept(false)` at the end of `{ D d; }` ran twice and the second throw, during the unwinding, was terminate's; and
+  `D d; try { return 5; } catch (int) {...}` caught d's exception in the handler the return had left, and destroyed d
+  again at the next return. `dtorthrow.cpp`, `throwexit.cpp`. (0.201)
+- A CONSTRUCTOR THAT THROWS DESTROYS WHAT IT HAS BUILT ([except.ctor]/3; 0.201): each base and each member with a
+  destructor, once built, is followed by `eh_cleanup(L, Body)`, the call of the destructor that the class's own
+  destructor calls for that sub-object (`cpp_member_cleanup/4`, `cpp_first_base_cleanup/4`,
+  `cpp_extra_group_cleanups/5` in `cpp_ctor_body/7`), which the lowering pushes into its scope's frame as
+  `eh_only(Body)`, a defer that only a landing pad runs (`ir_stmt_(eh_cleanup)`, `ir_run_bodies/1`; the check and the
+  evaluator take it as nothing): a throw from a later member's initializer or from the body destroys the built ones in
+  the reverse of their construction, then propagates. They were left, their destructors never run: `T() : a(1),
+  b(boom(2))` leaked a's string. A union's members get none. A virtual base that the complete object built is followed by
+  its own (`cpp_vb_cleanup/5`, the virtual first base's by `cpp_first_base_cleanup/4`), and a delegating constructor's
+  body by the class's destructor ([except.ctor]/4: the object its target completed). `ctorthrow.cpp`, `vbthrow.cpp`.
+  (0.201)
+- THE SAME CLEANUP FREES AND DESTROYS WHAT A THROWING INITIALIZATION LEFT (0.201): a new-expression's block where the
+  constructor throws ([expr.new]/26; `cpp_new_ctor/5`: `free` of the block, an unwinding-only cleanup before the
+  constructor's call -- `new T(9)` of a throwing constructor kept its memory, and `std::make_unique` with it); an array
+  new's elements built, the last first, and its block ([except.ctor]/3; `cpp_new_objects/6`: a count of the elements
+  built, `$abuilt`, and one cleanup over it); a local array's elements built (`cpp_elems_unwind/8`: each element's
+  destructor after it, the elements' construction a block of its own, so the cleanups end there and the array's defer
+  takes over); a static local array's too, its guard aborted. `T arr[5];` and `new T[5]` over a constructor that throws
+  at the fourth left three elements built. `newthrow.cpp`, `throwinit.cpp`. (0.201)
+- A CONSTRUCTOR'S OR A DESTRUCTOR'S FUNCTION-TRY-BLOCK ([except.pre]/1, [except.handle]/15; 0.201; the reader's
+  `fntry(Body, Handlers)`, the C++ reader's Classes topic): the desugaring puts a constructor's bases, member
+  initializers and body (`cpp_ctor_body/7`), and a destructor's body and its members' and bases' destruction
+  (`cpp_dtor_body/4`), under one try. What was built is destroyed before a handler is entered (its cleanups lie inside
+  the try, the bullet above), and the exception is rethrown where a handler's end is reached (`cpp_fntry_handlers/3`).
+  Any other function's is the try it is. `fntryblock.cpp`. (0.201)
 - A handler binds its parameter to `__cxa_begin_catch`'s object, with `__cxa_end_catch` as its scope's defer
   (`ir_handler`); `catch (...)` takes all. A class caught by value is a copy ([except.handle]/15; `cpp_catches`),
   destroyed at the handler's end. `catchvalue.cpp`. A POINTER CAUGHT is the pointer `__cxa_begin_catch` answers,
@@ -6494,6 +6835,14 @@ A lambda is a class of its captures (`library/ccl_cpp.pl`). A fixture named alon
   a(1);`), a call that goes on past its line followed to the line of its callee; `decltype(__builtin_source_location())`
   is its type alone, no place made. Nothing answered the builtin, and every `std::source_location` was refused.
   `srcloc.cpp` (C++20). (0.166)
+- CLANG'S SOURCE-LOCATION BUILTINS (0.201; `cpp_srcloc_builtin/2`, `cpp_srcloc_value/3`, `cpp_srcloc_here/4`; in C
+  the lowering's `ir_call/4`): `__builtin_FILE()`, `__builtin_FILE_NAME()` (the file's base name), `__builtin_LINE()`,
+  `__builtin_COLUMN()` and `__builtin_FUNCTION()` (`__func__`'s text) answer the place a source location has -- in a
+  default argument the outermost call's, else their own, the builtin's name found in its line's text -- a file and a
+  function as a `const char *` prvalue, a line and a column as an `unsigned int`, as clang types them
+  (`ccl_srcloc_builtin_type/2`). glibc's `<assert.h>` writes `assert` on the first two in C++ (`__ASSERT_FILE` and
+  `__ASSERT_LINE`, where `__has_builtin(__builtin_FILE)`), and every `assert` of a C++ program was refused,
+  `undeclared('__builtin_FILE')`. `srcbuiltins.cpp`, `srcbuiltins.c`, `cwrap.cpp`. (0.201)
 
 ## libc++: how the library is compiled
 
@@ -6508,7 +6857,8 @@ A lambda is a class of its captures (`library/ccl_cpp.pl`). A fixture named alon
   (`__OPTIMIZE_SIZE__` no longer predefined; scalar ones from 0.92), `<atomic>` over `_Atomic` through
   `__has_extension(c_atomic)` (0.100). The preprocessor section has the details.
 - `std::move(x)` is the language's own `move(x)`, with no header (`cpp_call` on `scoped([std], move)`). It stays a move
-  on a class value or a value holding owners (`cpp_holds_owners/1`), else it is the value. (0.40, 0.83)
+  on a class value or a value holding owners (`cpp_holds_owners/1`); an lvalue of a plain struct or of a scalar is the
+  xvalue cast `static_cast<T &&>(x)` (0.122, 0.201), and any other is its operand. (0.40, 0.83, 0.201)
 
 ### Headers: the index and the load
 
@@ -6560,7 +6910,10 @@ A lambda is a class of its captures (`library/ccl_cpp.pl`). A fixture named alon
 - The unit's own items come first in the bulk noter (`ccl_own_first` in `ccl_items_note`), so an emitted definition
   shadows a summary's raw declaration. (0.78)
 - A header's function named as a value (`std::hex`) is emitted as a call would emit it (`cpp_lazy_fn_value`, one
-  definition); an overload set goes by its target (`cpp_conv_to`). (0.78, 0.99)
+  definition); an overload set goes by its target (`cpp_conv_to`). One the header only DECLARES, of one declaration, is
+  the shipped library's: its Itanium symbol, declared (0.201; `cpp_use_mangled/3`) -- `<barrier>` hands
+  `&__destroy_barrier_algorithm_base` to a unique_ptr as its deleter, and the plain name was an undefined symbol at the
+  link. `stdsync.cpp`. (0.78, 0.99, 0.201)
 - A header's C++17 inline variable, which no library exports (`__digits_base_10`), is a `linkonce` global of the
   program that names it (`cpp_lazy_inline_var`), its initializer desugared; an `auto` one takes the initializer's type
   (`ranges::iter_move`). A global of an empty class is its zero bytes, with no constructor run (`nullopt`,
@@ -6578,6 +6931,12 @@ A lambda is a class of its captures (`library/ccl_cpp.pl`). A fixture named alon
   template, or what such a walk emits (`cpp_as_lib/2`; a template's origin `'$cpp_lib'(N)`). The check skips it
   (`cpp_library_function/1` in `ck_items`); the lowering lowers it. libc++ keeps raw pointers by its own discipline,
   which the safe part refuses. The program's functions and its own templates' instances are checked. (0.45)
+- A CLOSURE MADE IN A LIBRARY'S WALK IS THE LIBRARY'S CLASS (0.201; `'$cpp_lib_closure'/1` in `cpp_lib_class/1`): a
+  generic lambda's call operator template is instantiated where it is called, and its instance takes its class's origin
+  (`cpp_make_member/9`) -- the program's, for a closure made in a free function template of a header, which no
+  enclosing class makes the library's: libc++ 18's `__pstl_transform_reduce` makes `[__transform, __reduce](auto
+  __brick_first, auto __brick_last, _Tp __brick_init) { ... std::move(__transform) ... }`, and its instance was checked
+  as the program's, `move of a non-owner`. `execpol.cpp`. (0.201)
 - A library class's value is opaque to the check (`ck_carries_`, `ck_library_class`) and can be moved
   (`ck_moves_library`). A plain pointer that its member returns borrows the object (`ck_borrows_from`), and such a
   borrow can be consumed (`ck_library_root`). (0.79, 0.86, 0.91, 0.94)
@@ -6602,6 +6961,17 @@ A lambda is a class of its captures (`library/ccl_cpp.pl`). A fixture named alon
   taken by its key (`cpp_expr`'s clause before the enumerator road), `n2::Mode::Fast` through the tag's key
   (`cpp_enum_path_tag/3`, `cpp_enum_key_name/3`). Fixture: `nsenum.cpp`. Why: `n2::x` and the bare `x` inside n2 read
   n1's 7, and two enums `Mode` were one tag.
+- A HEADER'S NAMESPACE-SCOPE TYPEDEF THAT TWO NAMESPACES DEFINE AS DIFFERENT TYPES is keyed apart too (0.201, reader
+  152; `cpp_ns_typedef_quals/4` after `cpp_ns_quals/2`), the outermost keeping the bare name: only among such typedefs,
+  for a name no indexed item has, so no other item's key moves, each definition read in its own namespace (its colliding
+  names at their keys) and compared (`cpp_typedefs_differ/2` over `cpp_typedef_type/2`: an alias of the name itself, and
+  two spellings of one builtin type -- libc++ 21's `using size_t = decltype(sizeof(int));` in std, the global `unsigned
+  long` -- are one type and keep one name). The deeper one is indexed and kept in the AST beside the summary under its key
+  (`cpp_keyed_typedef_item/5`), its bare uses in its namespace go to it, and a qualified use resolves through
+  `cpp_ns_key/3` to its definition (`cpp_hdr_keyed_typedef/2`, a `cpp_type/2` clause and a `cpp_call/4` one for the cast,
+  the temporary or the zero its name called makes). std's `typedef basic_string<char> string;` and pmr's `using string =
+  basic_string<char>;` were one name in the flat table, `basic_string` bare inside pmr was std's class template, and
+  `std::pmr::string s("hello", &mr);` found no constructor. `stdpmr.cpp`. (0.201)
 - A bare use in the deeper namespace is rewritten to the key (`cpp_qualify_body`, `cpp_rename_names`; a header's in
   `cpp_index_flat`), base clauses included (`base(Access, N)`, `base(Access, virtual(N))`), unless the item declares the
   name (`cpp_declared_names`: vector's own `begin()`). `nscollide2.cpp`. A CLASS DECLARES ITS MEMBERS' NAMES, and a
@@ -6725,7 +7095,12 @@ A lambda is a class of its captures (`library/ccl_cpp.pl`). A fixture named alon
   (`cpp_extern_args`) keeps those out-of-class definitions declared (`cpp_member_def_key`, `cpp_extern_shipped`) and
   calls them by their symbols: `cin >> n` calls `_ZNSt3__113basic_istreamIcNS_11char_traitsIcEEErsERi`. An `inline`
   definition stays compiled (`cpp_mdef_inline`; libc++ 21 writes each `_LIBCPP_HIDE_FROM_ABI` member `inline`), as do a
-  nested class's definition, a member template (`cpp_mdef_function`) and in-class bodies. (0.75)
+  nested class's definition, a member template (`cpp_mdef_function`) and in-class bodies. The declaration's arguments
+  are the instance's WHOLE list, its template's defaults filling the rest ([temp.explicit]/2; 0.201;
+  `cpp_extern_args/3`, `cpp_extern_full/3`, made once a declaration, `'$cpp_extern_full'/3`): `extern template class
+  basic_string<char>;` is `basic_string<char, char_traits<char>, allocator<char>>`, and compared by its first argument
+  alone it covered `std::pmr::string`, whose `__init` and `append` were called by symbols no library defines (a link
+  error). `stdpmr.cpp`. (0.75, 0.201)
 - A definition marked hidden stays compiled too (`cpp_mdef_inline` on the qualifier `hidden`, the reader's mark of
   `__visibility__("hidden")`): libc++ 18 writes `_LIBCPP_HIDE_FROM_ABI void basic_stringbuf<...>::__init_buf_ptrs()`
   without `inline`, and the link named the symbol (`std::quoted` over an `istringstream`). (0.112) A mark on an
@@ -7031,7 +7406,11 @@ A lambda is a class of its captures (`library/ccl_cpp.pl`). A fixture named alon
   (0.99, 0.100)
 - A value that lives as long as the program is never fresh (`ck_static_value/1`): a narrow or wide string literal,
   `&global`, a global array or function, arithmetic on one, a conditional of two. So a vtable store is no fresh value.
-  (0.34, 0.93)
+  So is a pointer that the C library answers from its own static storage (C17 7.11.1.1, 7.11.2.1, 7.22.4.6, 7.24.6.2,
+  7.27.3; 0.201; `ck_library_static/1`): `getenv`, `setlocale`, `localeconv`, `strerror`, `asctime`, `ctime`, `gmtime`
+  and `localtime` answer an object the library keeps for the whole run, which a later call may overwrite and the program
+  never frees, and clang's `__builtin_FILE()`, `__builtin_FILE_NAME()` and `__builtin_FUNCTION()` a literal. Each was
+  fresh memory, `plain pointer not consumed`. `cwrap.c`, `srcbuiltins.c`. (0.34, 0.93, 0.201)
 - A function pointer and a pointer to member are code, which the check never follows (`ck_is_pointer_type/1`,
   `ck_carries_/1`). Else `int (*f)(int) = c ? a : b` was a loose pointer. (0.100)
 
@@ -7183,6 +7562,15 @@ A lambda is a class of its captures (`library/ccl_cpp.pl`). A fixture named alon
   function's terminate guard is checked as its body.
   `if consteval` checks the run-time branch (`ck_stmt(ifce)`). `co_return` exits as a return does. A `dynamic_cast`
   borrows what its operand borrows. `[[assume(e)]]` only reads `e`. (0.93, 0.108)
+- A HANDLER'S PARAMETER HAS A FRAME OF ITS OWN in the state as in the symbol table (0.201; `ck_catches/4`): the two are
+  pushed together. AN EXIT RUNS A FRAME'S DEFERS UNDER THAT FRAME'S SYMBOL TABLE (0.201; `ck_in_state_scope/2` in
+  `ck_exit_frames/2` and `ck_close_to/3`): a `return`, a `break` or a `goto` closes the state's frames one by one while
+  the symbol table keeps the walk's own, so a defer of an outer frame that anchors its local -- `&h` of a destructor's
+  call, the local's first anchor where an aggregate's braces made it -- put the anchor in a state frame too deep or in
+  none; the table is cut to the frame's while its defers run, and is the walk's again afterwards, however they end.
+  Each was a check that failed with no word, over 0.200's library too: `H h{1}; try { throw 5; } catch (int e) {
+  return e; }` and `H h{1}; for (...) { H d{2}; if (c) return 3; }`. A constructor's cleanup of what it has built,
+  `eh_cleanup/2` (the Exceptions topic), is nothing to the check. `throwexit.cpp`. (0.201)
 
 - `&*p` borrows what p borrows (0.132): a reference bound to `*it`, which every `for (auto &&x : r)` over raw-pointer
   iterators makes (std::array, std::string_view, the empty and single views), was fresh memory, `plain pointer not
@@ -7235,9 +7623,17 @@ A lambda is a class of its captures (`library/ccl_cpp.pl`). A fixture named alon
   `λ`, the parameter `ñ`'s `%.uC3B1.addr`, the label `é`'s `L..uC3A9`), since a register takes suffixes that a quoted name cannot and
   no C name starts with a dot; nothing reads a register's name (a variable's is its DILocalVariable's). LLVM refused
   `%λ.4` (`expected instruction opcode`), met by `identutf8.c`. (0.196)
-- The lowering reads four qualifiers only: `own` (moves, drains), `thread_local` (`ir_tls/1`), `aligned(E)`
-  (`ir_aligned_q/2`) and `'_Atomic'` (`ir_atomic_q/1`). `const` and `volatile` change nothing. Nothing reads `tie(Y)`,
-  so a tie costs the lowering and the layout nothing. (M3, 0.99)
+- The lowering reads five qualifiers only: `own` (moves, drains), `thread_local` (`ir_tls/1`), `aligned(E)`
+  (`ir_aligned_q/2`), `'_Atomic'` (`ir_atomic_q/1`) and `volatile` (`ir_volatile_q/1`, 0.201, below). `const` changes
+  nothing. Nothing reads `tie(Y)`, so a tie costs the lowering and the layout nothing. (M3, 0.99, 0.201)
+- A VOLATILE OBJECT IS READ AND WRITTEN AS THE ABSTRACT MACHINE DOES (C 6.7.3/7, [dcl.type.cv]/5; 0.201;
+  `ir_volatile_q/1`, `ir_load_op/2` in `ir_load_or_decay/4` and the load of a name, a clause of `ir_store_slot/4`): each
+  load and each store through a slot of a volatile-qualified type -- a scalar, a pointer's own `volatile`, a struct whole,
+  an array's element -- is LLVM's `load volatile` or `store volatile`, which no pass removes, merges or moves past
+  another, and an alloca with one is never promoted to a register. The qualifier was read and dropped: at `-O1`
+  `volatile double z = 0.0; 1.0 / z` was folded and raised no exception, a division after `fesetround` was rounded at
+  compile time, and a volatile local changed between `setjmp` and `longjmp` lost its value. A bitfield's run and a
+  member of a volatile object are loaded and stored as before (Not done). `cwrap.c`, `cwrap.cpp`. (0.201)
 - `ccl_lowering_version/1` (`ccl_ir.pl`) is part of every stored IR's signature (`dr_ir/3`) and of `KB.version`
   (`Reader.Lowering`). Bump it for EVERY change to what the check or the lowering emits, however small. Else the store
   serves the old IR. (M4, 0.103)
@@ -7273,10 +7669,12 @@ A lambda is a class of its captures (`library/ccl_cpp.pl`). A fixture named alon
   second clause): the argument's temporary is built first and the object bound after it, a reference `$lhs`, the temporary
   handed on in place -- `left() = right();` over `S &operator=(S)` called left() first, and `left() = lref();` copied
   `lref()`'s object after it called left(). `test/c/run/evalorder.c`, `test/cpp/run/evalorder.cpp`, `assignbyval.cpp`.
-- `int(N)` is `i32`, or `long` past 32 bits; `uint`, `long` and `ulong` keep their suffix's type. A `big(Atom)` past
-  2^60 is spelled as written (`ir_big_text/2`; `u0x...` for hex). A character literal is a `char` in C++ and an `int`
+- `int(N)` is `i32`, or `long` past 32 bits; `uint`, `long` and `ulong` keep their suffix's type, but a `uint` past
+  UINT_MAX is an `unsigned long` and a `long(big(A))` past LONG_MAX an `unsigned long`, as the inference has them (0.201,
+  the Integer literals topic: `i32 4294967296` was 0). A `big(Atom)` past 2^60 is spelled as written (`ir_big_text/2`;
+  `u0x...` for hex). A character literal is a `char` in C++ and an `int`
   in C. `__func__` and `__FUNCTION__` are the function's name, and C's `__PRETTY_FUNCTION__` its signature as clang
-  spells it (`ir_c_pretty/1`, 0.166). (0.42, 0.78, 0.94, 0.108, 0.166)
+  spells it (`ir_c_pretty/1`, 0.166). (0.42, 0.78, 0.94, 0.108, 0.166, 0.201)
 - A double prints as LLVM's hex (`ir_double/2`). A floating global is spelled for its own type (`ir_fp_const/3`): a
   float as the double hex of its value rounded to a float, `x86_fp80` in the `0xK` form, `_Float16` as `half`. (M2,
   0.108)
@@ -7320,7 +7718,9 @@ A lambda is a class of its captures (`library/ccl_cpp.pl`). A fixture named alon
 - `defer` is scope-bound and static, with no runtime (owner's rule). `ir_defer_push/1` registers a body in its scope's
   frame. `ir_run_defers/1` inlines the bodies last first: at a block's end, at `break` and `continue` (the frames inside
   the loop), and at `return` (every frame, after the value is computed). A statement expression runs its own block's
-  defers. A `goto` runs the defers of the scopes it leaves (0.133, below). (M2)
+  defers. A `goto` runs the defers of the scopes it leaves (0.133, below). Each body runs under the bodies not run yet
+  and under the tries that enclose its frame (`ir_run_exit/2`, 0.201: the Exceptions topic), and a body pushed as
+  `eh_only(B)` runs only in a landing pad (`ir_run_bodies/1`, 0.201). (M2, 0.201)
 - A GOTO RUNS THE DEFERS OF THE SCOPES IT LEAVES (0.133; [stmt.jump]/2: leaving a block by any jump destroys its
   objects; the language's `defer` runs at every exit of its scope; `ir_goto/3`, `ir_label_here/2`): each frame the
   lowering pushes has an id (`ir_bpath_push`, `'$ir_bpath'`), and a label records its path and how many defers its own
@@ -7353,8 +7753,11 @@ A lambda is a class of its captures (`library/ccl_cpp.pl`). A fixture named alon
   `bool`, an `i8` (`ir_truth/4`, the inference's `ccl_truth_type/1`; 0.127). (M2, 0.127)
 - An ENUMERATOR is a prvalue (`ir_lvalue_form(id(N))` over `ir_enumerator/1`): bound to `const Color &` it takes the
   temporary C++ materializes. Why: `v.push_back(Green)` bound it through `ir_lval` and it was `undeclared`. (0.127)
-- A `switch` converts its value to `int` and lists its cases as `i32` constants (`ir_case_lines/2` over
-  `ccl_const_eval/2`). It finds its cases at the top level of its block (`ir_switch_cases/3`). (M2)
+- A `switch` COMPARES AT ITS CONDITION'S PROMOTED TYPE (C 6.8.4.2/5, [stmt.switch]/2; 0.201; `ir_switch_type/3`,
+  `ir_case_value/3`, `ir_case_lines/4` over `ccl_const_eval/2`): the integer promotions on its value, each case's
+  constant converted to that type. It finds its cases at the top level of its block (`ir_switch_cases/3`). Every switch
+  was an `i32` one: `switch (x)` of `long x = 0x100000001` took `case 1:`, and a case of `18446744073709551615ULL`
+  raised a type error. `littype.c`. (M2, 0.201)
 - A range-for over an array is `for (int i = 0; i < N; i++) { T x = xs[i]; S }` for both passes
   (`ccl_for_each_as_for/2`); `auto &` and `auto &&` bind a reference. Any other range-for that reaches the lowering is
   `range_for_over_non_array`. (0.32)
@@ -7372,7 +7775,11 @@ A lambda is a class of its captures (`library/ccl_cpp.pl`). A fixture named alon
 - A cast to a reference is a bind, never a value conversion: its value is the address (`ir_expr(cast(T, E))` ->
   `ir_ref_to/3`). The cast's own base offset applies first (`ir_ref_cast/3`), then the binding's (`ir_ref_hops/4`).
   Else `static_cast<_Tp &&>(__t)`, `std::forward`'s body, made an `inttoptr`. `test/cpp/run/stdvector.cpp`,
-  `basecast.cpp`. (0.61, 0.90)
+  `basecast.cpp`. A CAST TO A REFERENCE TO A SCALAR -- arithmetic, enumeration, pointer -- has the scalar's value where a
+  value is wanted ([expr.type]/1; 0.201; `ir_scalar_referent/1`), and a binding takes the operand's address as before
+  (`ir_ref_of/2`, `ir_ref_to/3`, `ir_lval/4`, a reference result's `return`): `static_cast<int &&>(x) + 1` was the
+  address, `not_a_pointer`, a condition over one tested the address, and an ellipsis argument passed it. `xvcast.cpp`.
+  (0.61, 0.90, 0.201)
 - A function bound to a reference to a pointer converts first, and the reference binds the temporary pointer
   ([conv.func]; `ir_ref_to/3`). Else libc++'s `__tuple_leaf` loaded code bytes. `test/cpp/run/fnrefptr.cpp`. (0.100)
 - A POINTER OPERAND THAT IS A REFERENCE TO A POINTER IS READ THROUGH (`ir_ptr_operand/3`, asked by the lvalue forms of `*e`,
@@ -7735,6 +8142,11 @@ A lambda is a class of its captures (`library/ccl_cpp.pl`). A fixture named alon
   `i128` over operands widened by their own signedness (`ir_widen128/4`). They store the truncated result and answer
   whether it lost anything. C23's `<stdckdint.h>` is written on them. (0.93)
 - `__builtin_unreachable()` is `unreachable`, and `[[assume(e)]]` calls `llvm.assume`. (0.93)
+- A FUNCTION THAT RETURNS TWICE IS DECLARED SO, as clang declares it (0.201; `ir_returns_twice/1` in `ir_declares`):
+  `setjmp`, `_setjmp`, `sigsetjmp`, `__sigsetjmp`, `savectx`, `vfork` and `getcontext` carry LLVM's `returns_twice`, which
+  tells the optimizer that the call returns a second time. A local changed between the two returns keeps its value only
+  where it is `volatile` (C 7.13.2.1/3, the qualifiers topic above): `cwrap.c` at `-O1`, whose locals are volatile, prints
+  clang's answers with the attribute and without it. `cwrap.c`, `cwrap.cpp`. (0.201)
 - `va_start`, `va_end` and `va_copy` are the `llvm.va_*` intrinsics (`ir_va_intrinsic/3`); on x86-64 `va_arg` of a
   scalar is LLVM's own instruction. `va_arg` of a struct, a union, a complex, an `__int128` or an x87 `long double` is
   expanded here on x86-64 (psABI 3.5.7; `ir_va_arg_aggregate/4`, `ir_piece_classes/5`, `ir_va_fetch/7`,
@@ -8812,18 +9224,18 @@ A lambda is a class of its captures (`library/ccl_cpp.pl`). A fixture named alon
 - Ubuntu 24.04 on x86_64 (clang and LLVM 18, glibc, libc++ 18 and 21) is a host since 0.87. Every gate but the C++ one
   is GREEN there since 0.93, and all seven since 0.95. Every step from 0.93 on is gated there, but the save points
   0.112, 0.113, 0.117, 0.122 to 0.125, 0.130, 0.131 and 0.143 (0.143's C gates and cross gate ran, its libc++ gates did
-  not; the others were gated by the steps after them). The last full run is 0.200's, over cocolog 2.11.4 (the Findings),
-  on one tree, over fresh HOMEs: over libc++ 18 all nine GREEN (the flow gate's one finding in 94 s, reader 4 s,
-  compile 15 s, driver 13 s, objects 4 s, proof, the cross gate in 283 s with its C++ part for aarch64, the library read
-  in 346 s (0.199's 327 s; 113 other headers warmed, `<sys/wait.h>` among them), the C++ gate in 938 s (0.199's 873 s)
-  with 679 of 685 fixtures ok, the skips are `atomicref`, `joinwith`, `stdoptionalref`, `tzone`, `vbaseof` and
-  `zipadjacent`, the two units, the 29 refusals, the four of the safe part and the two static assertions); over libc++
-  21 the library read (306 s, peak 1094 MB; 0.199's 283 s) and the C++ gate (1020 s, peak 2522 MB; 0.199's 875 s; 683
-  of 685 ok, the skips `stdoptionalref` and `zipadjacent`) GREEN -- the C gates do not read libc++. The headers' reads,
-  summed, took 1290 s over 136 over libc++ 18 and 1136 s over 21 (0.199's 1210 s and 1035 s over 134; 0.181's 4313 s
-  and 4116 s over 114, before a read linear in its items); the fixtures' builds 3143 s over 679 and 3482 s over 683
-  (0.199's 2927 s over 670 and 2944 s over 674), the box shared with the next step's probes from the C++ gate over 18 on
-  (HISTORY.md, 0.200). The chains of 0.165 to 0.199 are in HISTORY.md, 0.166 to 0.200.
+  not; the others were gated by the steps after them). The last full run is 0.201's, over cocolog 2.11.4 (the Findings),
+  on one tree, over fresh HOMEs: over libc++ 18 all nine GREEN (the flow gate's one finding in 129 s, reader 5 s,
+  compile 22 s, driver 17 s, objects 5 s, proof, the cross gate in 382 s with its C++ part for aarch64, the library read
+  in 594 s (159 other headers warmed), the C++ gate in 1435 s with 738 of 745 fixtures ok, the skips are `atomicref`,
+  `joinwith`, `stdflatmap`, `stdoptionalref`, `tzone`, `vbaseof` and `zipadjacent`, the two units, the 29 refusals, the
+  four of the safe part and the two static assertions); over libc++ 21 the library read (549 s) and the C++ gate (1418 s;
+  743 of 745 ok, the skips `stdoptionalref` and `zipadjacent`) GREEN -- the C gates do not read libc++. The headers'
+  reads, summed, took 2243 s over 182 over libc++ 18 and 2071 s over 21; the fixtures' builds 4865 s over 738 and 4829 s
+  over 743, in a slower container than 0.200's (1290 s and 1136 s over 136, 3143 s over 679 and 3482 s over 683 there:
+  here 0.200's library builds five warm fixtures in 83.05 s of CPU, where 0.198 measured 58.06 s on the earlier box, and
+  0.201's in 84.59 s). A first chain of 0.201 was RED in its C++ gate, three defects of its own (HISTORY.md, 0.201). The
+  chains of 0.165 to 0.200 are in HISTORY.md, 0.166 to 0.201.
   Two libc++ passes are one gate: `LLVM=/usr/lib/llvm-18` and `LLVM=/usr/lib/llvm-21`
   choose the tree the chain reads and links. libc++ 22 (the newest tree, which a run without `$LLVM` reads) is no
   gate: 0.182 built its vector and its C++23 views by hand (`zipadjacent.cpp`, which its `.needs` skips over 18 and
@@ -8877,7 +9289,11 @@ A lambda is a class of its captures (`library/ccl_cpp.pl`). A fixture named alon
   (`u8lit23.c`), identifiers past ASCII and universal character names in them (`identutf8.c`), a plain character
   literal's value past 127 a char's (`chrsign.c`). Since 0.197: an assignment's right operand first (`evalorder.c`), C17's
   and C11's forms with a variably modified parameter (`c17forms.c`), C23's smaller core forms, a compound literal's storage
-  class among them (`c23forms.c`, `-std=c23`; gcc's output: clang 18 and 21 read no such storage class).
+  class among them (`c23forms.c`, `-std=c23`; gcc's output: clang 18 and 21 read no such storage class). Since 0.201:
+  integer literals of the first type that holds them, a switch over a long and an unsigned long long, a hex literal in
+  `#if` (`littype.c`); `setjmp` and `longjmp` over a volatile local, `signal` and `raise`, the floating environment over
+  volatile operands, the locale, `<inttypes.h>` and `<uchar.h>` (`cwrap.c`), clang's source-location builtins
+  (`srcbuiltins.c`), the digraphs (`digraphs.c`), an attribute after `enum` (`enumattr.c`, `-std=c23`).
 - The C library is the host's. The compiler's own freestanding headers are in `library/include/` (`<stdarg.h>`,
   `<stdatomic.h>`, `<complex.h>`, `<stdckdint.h>`, `<stdbit.h>`, `<limits.h>`, `<tgmath.h>` and six more).
 - The language's own additions run: `:=`, patterns, `name { }` structs and `format`, `print`, `println`
@@ -8934,6 +9350,42 @@ A lambda is a class of its captures (`library/ccl_cpp.pl`). A fixture named alon
   (two virtual overloads of one name and arity, one overridden), `virtualdefault` (a virtual call that leaves a defaulted
   argument out), `anonparam` (an unnamed by-value parameter destroyed), `rangeadl` (a range-for by the free `begin` and
   `end` of two namespaces), `downcast` (`static_cast` from a second base to the derived class, a pointer and a reference).
+- Forms of 0.201, what libc++'s facilities asked for: `ctorthrow` (a constructor that throws destroys what it built, a
+  function-try-block's handler sees them destroyed), `fntryblock` (a base with nothing to construct, a later base, the
+  implicit copy constructor's members; the function-try-blocks of a method, a destructor and a free function),
+  `dtorthrow` and `throwexit` (a destructor that throws at a scope's end, a `return`, a `goto`, a `break`, a `continue`
+  and a return in a handler: each object destroyed once, a try the exit left catching nothing), `littype` (integer
+  literals of the first type that holds them in overloads, deduction, `decltype`, a template argument, a duration, a
+  switch over a long), `condinit`, `condrefcall` and `condtemp` (a conditional of two prvalues built in place, an lvalue
+  arm copied, a conditional of reference results an lvalue, a temporary of a conditionally evaluated operand destroyed
+  only where built), `castclass` (C++20: a cast of a glvalue to its class a temporary), `xvaluearg` and `invokeproxy`
+  (C++20: an xvalue handed to a by-value parameter moved from, as std::thread's proxy calls), `fwdtuple` (C++20:
+  perfect forwarding into std::tuple), `implicitcopymove` (the implicit copy and move made apart), `localstruct`,
+  `elab` and `vtlocal` (C++20: plain local structs a function's own, named by their elaborated specifier, held by a
+  variable template's lambda), `mctplain` (a member class template of a plain class defined out of it),
+  `staticvirtout` (a class template's static and virtual members defined out of it), `staticaggcall` (a static
+  aggregate member from a constexpr call), `constexprstore` (a constant built through a call returning a reference),
+  `bracedefault` (`m{}` of a class with nothing to construct), `classsemi` (a lone `;` among members), `nestedahead`
+  (C++20: a nested struct used before its declaration), `unionplain` (C++20: a plain union's size and data size),
+  `foldlater` (C++20: a fold over an enclosing pack and a generic lambda's own), `targcall` (C++20: `rank()` in a
+  template argument), `desigmem` (C++20: a member initializer's designated list), `autofriend` (C++20: a member's
+  deduced result that calls a hidden friend of its class), `ctadlock` (C++17's lock guards by deduction: a member
+  typedef in a constructor's parameter, a pack), `ctadmem` (C++20: a deduction from data members the class declares
+  after the member function), `ctadstd` (the standard library's deduction guides, P0433: containers from a braced list,
+  from iterators and by copy, pair, tuple, optional, array, function from a function and from a lambda, shared_ptr from a
+  unique_ptr, string from iterators; `sizeof` of a member type through `decltype`), `fnptrded` (a pointer to function's
+  parts deduced from a function's name), `lamret` (a generic lambda's written result over its own pack), `scalarmove`
+  (C++20: `std::move` of a scalar an xvalue), `xvcast` (a cast to a scalar reference in every place a value stands),
+  `srcbuiltins` (clang's source-location builtins, glibc's `assert` in C++), `cwrap` (the C library through
+  `<csetjmp>`, `<csignal>`, `<cfenv>`, `<clocale>`, `<cinttypes>`, `<cuchar>` and `<cassert>`), `hdrrest` (the
+  standard headers no other fixture includes: `<cerrno>`, `<cfloat>`, `<cstdarg>`, `<cwctype>`, `<ratio>`, `<version>`,
+  and C++17's deprecated `<ccomplex>`, `<ciso646>`, `<cstdalign>`, `<cstdbool>`, `<ctgmath>`, `<codecvt>` and
+  `<strstream>`), `alttokens` (the alternative tokens and the digraphs, `<::`), `enumattr` (an attribute after `enum`),
+  `castzero` (`int()` and `char{}` written), `stdnames` (the program's functions named as std's function templates),
+  `blocktag` (local structs of one tag in two functions, in a block and a nested one), `newthrow`, `throwinit` and
+  `vbthrow` (a throwing initialization: a new-expression's block freed, an array's elements and a virtual base
+  destroyed, a delegated object destroyed, a static local tried again), `staticlocal` (a function-local static scalar
+  with a run-time initializer).
 - Forms of 0.200, the traits of one value: `valtraits` (`is_convertible`, `is_constructible` and `is_assignable` over
   `std::string`, `string_view`, `vector`, `optional`, `unique_ptr`, `shared_ptr`, `function` and `pair`), `valtraits20`
   (C++20: the program's explicit, converting and two-parameter constructors; `tuple`, `variant`, `any` and `string_view`;
@@ -9353,6 +9805,18 @@ A lambda is a class of its captures (`library/ccl_cpp.pl`). A fixture named alon
   tuple (`fmttuple`). Chrono formatting at C++20 (0.136): `seconds`, `milliseconds` and `minutes` with their suffixes and
   a `%H:%M:%S` spec (`fmtchrono`, about three minutes); time points, `year_month_day`, `weekday`, `month` and `hh_mm_ss`
   (`fmtchrono2`, 0.137).
+- Since 0.201: `<future>` (`stdfuture`: `std::future`, `std::promise`, `std::packaged_task`, `std::async`), `<regex>`
+  (`stdregex`: match, search, replace, iterate), `<memory_resource>` (`stdpmr`: a monotonic buffer resource under pmr
+  containers), `<expected>` (`stdexpected`, C++23), `<mdspan>` (`stdmdspan`, C++23: extents, layouts, element
+  access), `<stop_token>` and `std::jthread` (`stdjthread`, C++20 under `-fexperimental-library`, libc++ 18's
+  experimental part), `<latch>`, `<barrier>` and `<semaphore>` (`stdsync`, C++20), `<shared_mutex>`,
+  `std::condition_variable` and `std::call_once` (`stdshmutex`), `<forward_list>`, `<numbers>`, `<scoped_allocator>`,
+  `<system_error>` and `<typeindex>` (`stdmisc`, C++20), over libc++ 21 `<flat_map>` and `<flat_set>` (`stdflatmap`,
+  C++23, which its `.needs` skips over libc++ 18), `<syncstream>` (`syncs`, C++20 under `-fexperimental-library`), C++23's
+  `<stdatomic.h>` (`stdatom23`), and the execution policies over the parallel algorithms (`execpol`, C++20 under
+  `-fexperimental-library`: libc++'s PSTL over the backend this box's libc++ is configured with, its std::thread one, which
+  runs each algorithm in the calling thread). With them every standard header of libc++ 18 and 21 is
+  included by a fixture.
 
 ### Benchmarks
 
@@ -9404,7 +9868,13 @@ of its parameter's type, `decltype` of a static data member as declared, an empt
 type -- and a free function template's trailing requires-clause); the fifth, the traits of one value, is 0.200's (the
 Traits answered topic: a construction, a conversion and an assignment asked of the members that take the values and of
 the special members a class declares; a constraint folded through the evaluator; the constructors a call runs, to the
-noexcept operator).
+noexcept operator); the sixth, libc++'s facilities, is 0.201's (the What runs topic: `<future>`, `std::jthread` and
+`<stop_token>`, `<regex>`, `std::expected`, `<mdspan>`, `std::flat_map` and `std::flat_set`, `<memory_resource>`, the
+synchronization headers, `<syncstream>`, the execution policies, and the headers no other fixture included -- and what
+their probes found: a constructor's and a destructor's function-try-block, a throwing constructor destroying what it
+built, a destructor that throws at a scope's exit, an integer literal's first type, a class's arguments deduced from the
+caller's words and the standard's deduction guides, an xvalue and a scalar's `std::move`, a volatile object, clang's
+source-location builtins, the digraphs and C++'s alternative tokens, an attribute after `enum`, and `int()` written).
 
 1. C++'S CORE LANGUAGE, WHAT 0.199 LEFT: a prototype's trailing requires-clause is dropped (a definition's joins its
    head's); an enumeration's value template argument is an `int` -- a placeholder's `X<Color::Red>` and `X<0>` are one
@@ -9425,8 +9895,15 @@ noexcept operator).
    calls there.
 3. THE ALLOCATION FUNCTIONS: the program's `operator new` and `operator delete`, the aligned, sized, class-specific and
    destroying forms, replaceable ones.
-4. libc++'S FACILITIES the fixtures do not reach yet: `<future>`, `std::jthread`, `<regex>`, `std::expected`, `<mdspan>`,
-   `std::flat_map`, `<memory_resource>` and the others the audit lists.
+4. libc++'S FACILITIES, WHAT 0.201 LEFT: every standard header of libc++ 18 and 21 is included by a fixture; the
+   Technical Specifications' `<experimental/...>` headers and GNU's `<ext/hash_map>` and `<ext/hash_set>` are no level
+   of the standard, and a facility neither tree ships (`<stacktrace>`, `<spanstream>`, `<generator>`, `<text_encoding>`,
+   `std::inplace_vector`, `std::hive`) is nothing to compile. The limits its probes met: a program's own function named
+   `get`, called where `std::tuple<R> t(get(4));` constructs over libc++ 21, instantiates `tuple<_Tp...>` over its free
+   pack (`not lowered yet: type(pack(...))`); a stringized alternative token spells its punctuator; a member of a
+   volatile object, and a bitfield of one, are loaded and stored as a plain object's; GCC's `packed` attribute is
+   dropped, a packed struct or enum keeping its natural layout (glibc's `struct epoll_event` among them, 12 bytes with
+   gcc and clang); `test/census.sh` reads a header at C++17 whatever `CCL_CENSUS_STD` says.
 5. SMALL ONES: the lexers' three limits of 0.196 -- a macro's name spelled with a universal character name
    (`#define caf\u00e9 1`) is not read, since the preprocessor's own word reader takes the bytes past ASCII and no
    escape; a multi-character constant stringized (`#x` of `'ab'`) spells its value, `"24930"`, where clang spells

@@ -1,0 +1,6 @@
+srcbuiltins.c srcbuiltins.c
+13 42 main
+15 10
+main 4
+assert held
+exit 0

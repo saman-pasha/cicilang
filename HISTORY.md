@@ -194,6 +194,7 @@ One row per step, in version order: the step's title, what it did and its gate n
 | 0.198 | the audit's fourth group, the rest: noexcept in the type system, an init-capture pack, consteval propagation, C++26's structured binding packs and variadic friends, `__has_cpp_attribute`, C++'s static assertions; cocolog 2.11.4 | noexcept on a function type, in its key, its symbol (`Do`) and its calls, the function pointer conversion dropping it; `[...xs = e]`; a consteval call in an immediate function context, an instance being made escalated; `auto [a, ...xs] = e`, attributes after a binding; `friend Ts...;` and `friend A, B;` (a friend pack opened the class to every name); `__has_cpp_attribute` with clang 21's values (libc++ 18's `[[no_unique_address]]`); a false static assertion of the program an error, a discarded branch's none; an enumerator through its namespace and in another enum's initializer; a copy or move constructor named by a template-id or an alias; an overloaded assignment by value's operand first; an empty data member no data, a nested empty subobject in the way (libc++'s views over a lambda); `make_signed_t<unsigned __int128>` `__int128`; cocolog 2.11.4 over Cicili 3.1.0, five warm builds 8 % less CPU | all nine gates GREEN over libc++ 18, the two libc++ gates over 21 (the C++ gate over 21 run again alone after a restart of the container); the headers' reads summed 1166 s and 1033 s over 134, the fixtures' builds 2866 s and 2904 s; 660 of 666 C++ fixtures over 18, 664 over 21 |
 | 0.199 | the audit's fourth group, what its probes found older: a conditional `noexcept(E)` per instance, NRVO, value template arguments of their types, `decltype` of a static member as declared, an empty base in the way; a free function template's trailing requires-clause | a noexcept-specifier's condition kept and evaluated with an instance's bindings (the operator, the nothrow traits, the terminate guard), a function template of the program declared without one may throw; a named local returned built in the caller's object; a value template argument of its parameter's type, a placeholder's of its own, in the key, the mangler, `__PRETTY_FUNCTION__` and the debug names; `decltype(C::s)` as declared; an empty base in the way of a member of its type; a free function template's trailing requires-clause joined to its head's; a noexcept body that throws with no call, and a noexcept template's instance, guarded; a cast's key keeps its value's sign | all nine gates GREEN over libc++ 18, the two libc++ gates over 21; the headers' reads summed 1210 s and 1035 s over 134, the fixtures' builds 2927 s and 2944 s; 670 of 676 C++ fixtures over 18, 674 over 21; `<sys/wait.h>` not warmed (a slash in its name) |
 | 0.200 | the audit's fifth group, the traits of one value: a construction, a conversion and an assignment asked of the members that take the values; the special members a class declares; a constraint folded through the evaluator; the constructors a call runs, to the noexcept operator; a warm of a header in a directory | `is_constructible`, `is_convertible` and `is_assignable` from the constructors, the conversion functions and the assignments that take the values, a deleted one that takes them exactly, the copy and the move as the class declares them, a reference as [dcl.init.ref] binds it; a member defined out of its class keeps its declaration's `explicit`; a requires-clause over class values folded through the evaluator; the noexcept operator over a call's argument and temporary constructors; `<sys/wait.h>` warmed | all nine gates GREEN over libc++ 18, the two libc++ gates over 21; the headers' reads summed 1290 s and 1136 s over 136, the fixtures' builds 3143 s and 3482 s (the box shared); 679 of 685 C++ fixtures over 18, 683 over 21 |
+| 0.201 | the audit's sixth group, libc++'s facilities: `<future>`, `std::jthread`, `<regex>`, `std::expected`, `<mdspan>`, `std::flat_map`, `<memory_resource>`, the synchronization headers and the rest, every standard header included by a fixture; and what their probes found | a function-try-block; the cleanups of a constructor, an initialization and a new-expression that throw; class template argument deduction in the caller's words, through braces and by the standard's guides; a lone `;` among a class's members; the digraphs and the alternative tokens; an attribute after `enum`; a block's struct its block's own in C and C++; `int()` written; a function-local static scalar of a run-time initializer; `volatile`; `setjmp` returns twice | a first chain RED in its C++ gate, 734 of 745 fixtures ok (a plain union's tag mark, the split of `struct S {...} s;`); then all nine gates GREEN over libc++ 18, the two libc++ gates over 21; the headers' reads summed 2243 s and 2071 s over 182, the fixtures' builds 4865 s over 738 and 4829 s over 743 (a slower container); 738 of 745 C++ fixtures over 18, 743 over 21 |
 
 ## M5 — the C++ mode
 
@@ -13125,3 +13126,150 @@ libc++ 18 and 21.**
 
 Lowering 113 (the traits' answers, which choose the library's overloads and its SFINAE; the constraints the evaluator
 folds; the noexcept operator's answers).
+
+## 0.201 — the audit's sixth group, libc++'s facilities: `<future>`, `std::jthread`, `<regex>`, `std::expected`, `<mdspan>`, `std::flat_map`, `<memory_resource>`, the synchronization headers and the rest, every standard header included by a fixture, and what their probes found
+
+**0.201: the sixth group of the audit of C17 to C23 and C++17 to C++26, Not done's item 4 of 0.200: libc++'s facilities
+that no fixture reached -- each compiled and run against clang++'s output over libc++ 18 and 21 -- and the older defects
+their probes and nets met in the core languages, C's among them. Each fixture prints clang's or clang++'s output.**
+
+- THE FACILITIES: `<future>` (`std::future`, `std::promise`, `std::packaged_task`, `std::async`), `<regex>` (match,
+  search, replace, iterate), `<memory_resource>` (a monotonic buffer resource under pmr containers), `<expected>`
+  (C++23), `<mdspan>` (C++23: extents, layouts, element access), `<stop_token>` and `std::jthread` (C++20 under
+  `-fexperimental-library` over libc++ 18), `<latch>`, `<barrier>` and `<semaphore>`, `<shared_mutex>`,
+  `std::condition_variable` and `std::call_once`, `<forward_list>`, `<numbers>`, `<scoped_allocator>`,
+  `<system_error>` and `<typeindex>`, over libc++ 21 `<flat_map>` and `<flat_set>` (C++23), `<syncstream>` (C++20 under
+  `-fexperimental-library`), C++23's `<stdatomic.h>`, the execution policies over the parallel algorithms (libc++'s
+  PSTL over this box's std::thread backend, which runs each algorithm in the calling thread), and the standard headers
+  no fixture included (`<cerrno>`, `<cfloat>`, `<cstdarg>`, `<cwctype>`, `<ratio>`, `<version>`, `<csetjmp>`,
+  `<csignal>`, `<cfenv>`, `<clocale>`, `<cinttypes>`, `<cuchar>`, `<cassert>`, and C++17's deprecated `<ccomplex>`,
+  `<ciso646>`, `<cstdalign>`, `<cstdbool>`, `<ctgmath>`, `<codecvt>` and `<strstream>`). With them every standard
+  header of libc++ 18 and 21 is included by a fixture.
+- THE READER (reader 152): a function-try-block, a constructor's and a destructor's body `fntry(Body, Handlers)` and any
+  other function's `{ try Body Handlers }`; a member initializer's designated list one argument; a lone `;` among a
+  class's members (libc++'s `<mdspan>` was read in part); a `>>` that closes two template argument lists ends the scan
+  ahead, which notes a nested class, struct, union and enum; a plain union's tag marked in C++ (`sizeof(P)` of `union
+  P { int i; char c; }` was a struct's 8), which the call ABI's union leaves, `typeid` and the mangler take; a block's
+  named struct or union defined with its declarators, `struct S {...} s;`, read in C++ as its definition and a
+  declaration over the elaborated name (`ccl_block_tag_split/2`); a deleted function noted in no table (libc++'s poison pill `void
+  make_error_code() = delete;` typed `std::make_error_code(e)` void); a hex, octal or binary literal past INT_MAX that
+  an unsigned int holds an unsigned token (C 6.4.4.1/5), the first type that holds a literal its type, a switch at its
+  condition's promoted type; the DIGRAPHS (`<:` `:>` `<%` `%>` `%:` `%:%:`, `<::` before a name `<` then `::`) and
+  C++'s ALTERNATIVE TOKENS (`and` ... `xor_eq`) in both lexers, a `%:` line a directive -- a lexical error, and `bool t
+  = true and not false;` refused; an ATTRIBUTE AFTER `enum`: libc++'s `enum [[deprecated]] codecvt_mode { ... }` of
+  `<codecvt>` (and `<limits>`'s `float_denorm_style` at C++23) was an unnamed enum and a variable named `codecvt_mode`,
+  which the lowering refused where `std::wstring_convert<std::codecvt_utf8<wchar_t>>` named it; a namespace-scope
+  typedef that two namespaces define otherwise keyed apart in a summary (`std::pmr::string` found no constructor).
+- CLASSES AND TEMPLATES: a member class template of a plain class defined out of it (`layout_left::mapping`); a class
+  template's static and virtual members defined out of it keep their words; a static aggregate member from a constexpr
+  call folded (`<mdspan>`'s `__result`); a member whose deduced result calls a hidden friend of its class deduced once
+  the friends are registered (libc++ 21's flat_set iterator); C++20's selected destructor of a class's prospective ones
+  (`std::expected`'s `~__repr() requires ...`); a fold over an enclosing pack and a generic lambda's own; a call in a
+  template argument (`rank()`); a member initializer's designated list (`flat_map`'s `__containers_{.keys = ...}`);
+  `m{}` of a class with nothing to construct zeroed; a plain local struct the unit's under a name of its own, one
+  defined with its declarators too, and the rename of a local type stopping where a nested block defines the name
+  again; a base named by a namespace's typedef of it (`strstream : public iostream` writes `: iostream(&__sb_)`); an
+  operator's address a pointer to member (`&_Fp::operator()` of std::function's guide); `sizeof(C::type)` a type's size.
+- CLASS TEMPLATE ARGUMENT DEDUCTION: the arguments desugared in the caller's words (a data member named bare in a member
+  function: `<syncstream>`'s `shared_lock __lock{__mutex_};`); an implicit guide's parameter naming a member typedef the
+  typedef's type and a pack's elements the deduced arguments (C++17's lock guards: `std::lock_guard g(m);`,
+  `std::scoped_lock both(m, sm);`); a braced initializer through the initializer-list constructors first and a braced
+  temporary of a template's bare name (`std::vector v{1, 2, 3};`, `std::vector{4, 5}`), a list of one item of the class
+  its copy; the standard's deduction guides (P0433: containers from iterators and by copy, pair, tuple, optional, array,
+  function from a function and from a lambda, shared_ptr from a unique_ptr, string from iterators); a function or an
+  array given to a parameter of pointer type the pointer it decays to.
+- OVERLOADS AND VALUES: an xvalue handed to a by-value parameter move-constructed (std::thread's proxy); `std::move` of a
+  scalar an xvalue (`kind(std::move(x))` an lvalue's answer, libc++ 18's `__reduce(..., std::move(__init), ...)` an
+  `optional<long &>`), a cast to a scalar reference a value where a value stands (`static_cast<int &&>(x) + 1` was
+  `not_a_pointer`); a cast of a glvalue to its own class a temporary (`_LIBCPP_AUTO_CAST`); a generic lambda's written
+  result its call operator template's trailing type (libc++ 18's parallel algorithms' dispatch); a closure made in a
+  library's walk the library's (the safe part had checked a library lambda's instance, `move of a non-owner`); the
+  condition of an `if` a full-expression; a temporary of a conditionally evaluated operand destroyed only where built
+  (a cleanup flag, clang's: libc++'s `__assoc_sub_state::__has_value()`); a conditional of two prvalues elided arm by
+  arm, an lvalue arm copied, two lvalues an lvalue; `int()` and `char{}` WRITTEN the type's zero -- the reader's cast of
+  nothing reached the lowering (`expr(none)`) wherever a program or a header wrote one, `int k = int();` and libc++'s
+  `wstring_convert::to_bytes` among them, a defect older than 0.200.
+- EXCEPTIONS: a constructor that throws destroys the bases and members it built, a virtual base the complete object
+  built among them, and a delegating constructor's body the object its target completed ([except.ctor]/3, /4); a
+  function-try-block of a constructor, a destructor, a method and a free function ([except.handle]/15); a cleanup run at
+  a normal exit under what is left to run and the tries that enclose its frame (a destructor that throws at a scope's
+  end, a `return`, a `goto`, a `break`, a `continue`: each object destroyed once); a new-expression's block freed where
+  the constructor throws ([expr.new]/26: `new T(9)` kept its memory, and `std::make_unique` with it), an array new's and
+  a local array's built elements destroyed, the last first, a static local's guard aborted so that the next pass tries
+  again (left acquired, libc++abi aborted on `recursive initialization`).
+- STATICS: a function-local static scalar with a run-time initializer guarded, `static int x = f();` (it was refused,
+  `global_init(call(id(f), []))`).
+- C: a BLOCK'S STRUCT OR UNION ITS BLOCK'S OWN TYPE (C17 6.2.1/4, 6.7.2.3/5; `ir_block_tags/2`): two functions' `struct
+  S` of different members shared the first one's layout, and `struct S { long a; } s; s.a = 5000000000L;` after another
+  function's `struct S { int a; }` stored and read through an `i32` (705032704 where clang prints 5000000000), a
+  silent wrong answer since a block's tags joined the unit's one table (0.108);
+  `volatile` objects loaded and stored as the abstract machine does (at `-O1` a division by a volatile zero was folded);
+  `setjmp` and kin declared `returns_twice`; clang's source-location builtins (glibc's `assert` in C++ was
+  `undeclared('__builtin_FILE')`); the C library's static storage (`getenv`, `localeconv`, `strerror` ...) no fresh
+  memory to the safe part; a handler's parameter a frame of its own to the check, and an exit's defers under their own
+  frame's symbol table.
+- FOUND AND LEFT (Not done's item 4 of 0.201): a program's own function named `get` where `std::tuple<R> t(get(4));`
+  constructs over libc++ 21; a stringized alternative token spells its punctuator; a member of a volatile object and a
+  bitfield of one not volatile; GCC's `packed` attribute dropped (glibc's `struct epoll_event` 16 bytes where gcc and
+  clang lay 12); `test/census.sh` reads a header at C++17 whatever `CCL_CENSUS_STD` says.
+- FIXTURES: 6 C and 60 C++ (the What runs topic of `CLAUDE.md` names each). The 0.200 library, measured over libc++ 18
+  (`stdflatmap` over 21, which has `<flat_map>`): the six C ones refused; of the C++ ones 45 refused, 11 built with
+  another output (`condinit`, `condtemp`, `dtorthrow`, `fwdtuple`, `invokeproxy`, `newthrow`, `staticvirtout`,
+  `stdfuture`, `unionplain`, `vbthrow`, `xvaluearg`) and 4 built alike, over libc++ 18 and 21 -- `stdshmutex`
+  (`<shared_mutex>`, `std::condition_variable`, `std::call_once`) and `stdatom23` (C++23's `<stdatomic.h>`), which ran
+  already, and `elab` and `stdnames`, which hold forms the changes touch (a local struct named by its elaborated
+  specifier; the program's functions named as std's function templates). No 0.200 build met a cap.
+- THE NETS, before the first chain, over the library of the commit it ran: over libc++ 18, 77 fixtures of the areas the changes
+  reach -- the exceptions, the constructors, the statics, the locals, the streams, the containers, the new facilities --
+  all ok, and the other 32 new ones, 31 ok (`stdflatmap`, which its `.needs` skips there: libc++ 18 has no
+  `<flat_map>`); over libc++ 21, after the library read of the worktree (GREEN in 551 s over four lanes: the 23 asserted
+  reads, 159 other headers warmed, none failed), the 109 of both, all ok. The flow gate GREEN (127 s, its one finding),
+  the reader, compile (113 run and 47 safe fixtures), driver (40 checks) and objects (29) gates and the proof GREEN, and
+  the six new C fixtures built for aarch64 and run under qemu, each clang's output there.
+- A FIRST CHAIN, over the commit before its fixes (`ba6f1bc`), from 15:30:24 UTC to 16:13:50: the flow gate 131 s, reader
+  5 s, compile 21 s, driver 18 s, objects 5 s, the proof and the cross gate 383 s GREEN, the library read 579 s GREEN (159
+  other headers warmed), and the C++ gate RED in 1464 s: 734 of 745 fixtures ok, 7 skipped by their `.needs`, and four
+  failures, three defects of 0.201's own in fixtures no net had built. A C++ plain union's tag mark (`union_tag`, above)
+  was no member to the call ABI's walk of a union's members (`ir_union_leaves/3`), so `int first(U u)` had no ABI
+  (`aggfnptr`), to `typeid` (`typeid(U)` refused) and to the mangler (`typeid(ns::V)` named `1V`, clang's `N2ns1VE`;
+  `rttinames`); and the desugaring's split of `struct S {...} s;` (0.201's first form, a `cpp_stmts` clause) took a
+  declaration whose type is a struct with its members for a definition, the shape a substituted template argument has
+  too: `__sift_down`'s `value_type __top(...)` over `std::string` renamed the string's struct a local one
+  (`no_constructor(...local_149...)`: `stdalgorithmstr`, `fsrest`), and so a deduced struct of the program, `std::sort`
+  of a `std::vector<P>` (`argument_mismatch`, a probe), each of which the 0.200 library built -- the reader splits the
+  form now. The four built after the fixes, and the flow gate GREEN (120 s); then the C++ gate of the worktree over
+  libc++ 18 over the first chain's HOME, GREEN in 1313 s: 738 of 745 fixtures ok, 7 skipped.
+- THE CHAIN OF 0.201, over a fresh worktree of its commit (`26b27b3`) and fresh HOMEs, on cocolog 2.11.4 (`d67250f`), from
+  16:40:31 UTC to 17:56:35: ALL GREEN. Over libc++ 18: the flow gate 129 s (its one finding, 4611 predicates charted),
+  reader 5 s, compile 22 s (113 run and 47 safe fixtures), driver 17 s, objects 5 s, the proof, the cross gate 382 s (the
+  113 C fixtures for aarch64, the five ABI checks, 24 C++ fixtures and the two C++ checks), the library read 594 s (the
+  23 asserted reads whole, 159 other headers warmed), the C++ gate 1435 s, 738 of 745 fixtures ok (skips `atomicref`,
+  `joinwith`, `stdflatmap`, `stdoptionalref`, `tzone`, `vbaseof`, `zipadjacent`), the cold build's processes, the two
+  units, the 29 refusals, the four of the safe part and the two static assertions; over libc++ 21 the library read 549 s
+  and the C++ gate 1418 s, 743 of 745 (skips `stdoptionalref`, `zipadjacent`). The headers' reads summed 2243 s and
+  2071 s over 182, the fixtures' builds 4865 s over 738 and 4829 s over 743, nothing else running beside the chain (its
+  peaks not measured); the slowest over 18 `fmtchrono2` 140 s, `fmtrange` 139 s, `fmtchrono` 127 s, `viewsall` 126 s,
+  `fmtcheck` 111 s, `fmttuple` 91 s, over 21 `viewsall` 141 s, `fmtchrono2` 127 s, `fmtchrono` 113 s, `joinwith` 97 s,
+  `fmtrange` 94 s, `fmtcheck` 89 s. The reader gate's two Cicili examples (`example/cimath.c`, `example/numpy_example.c`)
+  are SKIP lines: Cicili's checkout in this container holds no transpiled `.c` of them.
+- THIS CONTAINER IS SLOWER than 0.200's, and 0.201 costs no build time measurably: the least CPU time of two interleaved
+  runs, one build at a time over a warm HOME of each library, the five warm builds of the cocolog measures (`stdvector`,
+  `stdmap`, `stdtuple`, `stdformat`, `counter`) take 84.59 s with 0.201's library and 83.05 s with 0.200's (`stdformat`
+  51.68 s and 51.71 s, `stdtuple` 18.83 and 18.10, `stdmap` 7.93 and 7.62, `stdvector` 5.79 and 5.29), where 0.198's
+  measure of the five on cocolog 2.11.4 took 58.06 s on the earlier box; and 0.200's reader reads the 182 headers in
+  2064 s summed here, 0.201's in 2243 s.
+- `CLAUDE.md`: the versions; the Lexers (the digraphs, the alternative tokens, integer literals' types); the
+  preprocessor (`%:`); the C reader (a block's struct, a deleted function); the C++ reader (a function-try-block, a lone
+  `;`, the scan ahead, an attribute after `enum`); Classes (local structs, a base by a namespace's typedef, `m{}`, the
+  conditionals and their temporaries, `int()` written, a cast to a class, statics, a member class template of a plain
+  class, a member waiting for its class's friends, the selected destructor); Templates and CTAD; Overload resolution;
+  Lambdas; Constant evaluation; Exceptions (a throwing constructor's and initialization's cleanups, a function-try-block,
+  a normal exit's cleanups, the source-location builtins); libc++ (a library's closure, a namespace's typedefs keyed
+  apart); the safe part; the lowering (volatile, a switch's type, `returns_twice`); What runs; Hosts; Not done (the
+  audit's sixth group done; its limits). `README.md`: what runs.
+
+Reader 152 (the grammar above). Lowering 114 (the cleanups of a throwing construction and initialization, the
+function-try-blocks, an integer literal's type and a switch's, the conditionals elided arm by arm, a cast to a class,
+an xvalue argument, plain local structs and C's block tags keyed apart, the static local scalar's guard, `int()`,
+volatile, `returns_twice`, and libc++'s facilities compiled).
+

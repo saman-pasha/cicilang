@@ -1,0 +1,20 @@
+make 1
+move 101
+move 201
+dtor -1
+dtor -1
+got 201
+dtor 201
+--
+make 2
+move 102
+dtor -1
+got 102
+dtor 102
+--
+make 3
+move 103
+got -1 103
+dtor 103
+dtor -1
+exit 0

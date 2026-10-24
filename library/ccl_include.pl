@@ -544,6 +544,8 @@ ccl_ast_lines([in(Path, I)|Is], Qs, Out) :-
         cpp_qualify_body(Qs, Path, I0, I1),                                     % the deeper namespace's bare uses of a colliding name go to its key (0.100)
         ccl_float_freeze(I1, I2), ccl_ast_clause('$cpp_hdr_ast'(Key, I2), Out, O1), ccl_ast_clause('$cpp_hdr_ast_ns'(Key, Path), O1, O2)   % a float kept exactly (0.132)
     ;   catch(cpp_enum_ns_name(I, EN), _, fail) -> ccl_ast_clause('$cpp_hdr_ast_ns'(EN, Path), Out, O2)   % a header's enum, its namespace path alone (0.112)
+    ;   catch(cpp_keyed_typedef_item(Qs, Path, I, Key, I1), _, fail) -> ccl_float_freeze(I1, I2), ccl_ast_clause('$cpp_hdr_ast'(Key, I2), Out, O1), ccl_ast_clause('$cpp_hdr_ast_ns'(Key, Path), O1, O2)   % a keyed namespace-scope typedef, as the index has it (0.201)
+    ;   catch(cpp_fwd_class_item(I, FN), _, fail) -> ccl_ast_clause('$cpp_hdr_ast_ns'(FN, Path), Out, O2)   % a class declared and never defined, its namespace path alone (0.201)
     ;   Out = O2 ),
     ccl_ast_lines(Is, Qs, O2).
 ccl_ast_clause(T, [A, '.\n'|O], O) :- term_to_atom(T, A).

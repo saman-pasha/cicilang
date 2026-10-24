@@ -1,0 +1,9 @@
+before: [] 1
+after: [one 1
+two 2.5
+]
+synced 42
+tail
+temporary 7
+6
+exit 0

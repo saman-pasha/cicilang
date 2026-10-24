@@ -1,0 +1,30 @@
+make 1
+move 101
+l1 101
+dtor 101
+dtor -1
+--
+make 2
+move 102
+dtor -1
+l2 102
+dtor 102
+--
+make 3
+copy 13
+l3 13
+dtor 13
+dtor 3
+--
+make 4
+move 104
+dtor -1
+t 104
+dtor 104
+--
+make 5
+move 105
+t 105
+dtor 105
+dtor -1
+exit 0

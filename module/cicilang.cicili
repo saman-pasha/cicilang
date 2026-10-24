@@ -261,7 +261,7 @@
   ;; ccl_version(-Atom): THE VERSION. Every commit raises it (owner's rule),
   ;; one number per change; `cicili --version' prints it with LLVM's.
   (func ccl_p_version ((coco_engine * e) (size_t g)) (out int)
-        (return (coco_m_unify_atom e (coco_m_arg e g 0) "0.200")))
+        (return (coco_m_unify_atom e (coco_m_arg e g 0) "0.201")))
 
   ;; ccl_cocolog_version(-Atom): the engine's own version text, from the
   ;; running binary (coco_version_text is cocolog's, resolved at load like
@@ -587,7 +587,7 @@
           (set (-> x sfx) (? (== w 4) (+ 4 u) (? (>= l 2) (+ 6 u) (? (== l 1) (+ 2 u) u))))
           (if (ccl_lx_imag_c c) (block (set (-> x imag) 1) (set j (+ j 1))))
           (if (and (-> x cpp) (or (ccl_lx_alnum (ccl_lx_at x j)) (ccl_lx_imag_udl x j0)))   ; C++ (0.179): a tail that is no integer suffix (`3us'), or the exact `i', is the ud-suffix: none of it read
-              (block (set (-> x sfx) 0) (set (-> x imag) 0) (set j j0)))
+              (block (set (-> x sfx) 8) (set (-> x imag) 0) (set j j0)))                   ; 8: no suffix read, the int kind, and no unsigned int by its base (0.201)
           (return j)))
   (static) (func ccl_lx_float_suffix ((ccl_lx * x) (size_t j)) (out size_t)
         (let ((int c . 0) (int f . 0) (size_t j0 . 0))
@@ -654,6 +654,8 @@
           (set k (? (== (-> x sfx) 7) (-> x k_ullong) (? (== (-> x sfx) 6) (-> x k_llong) (? (== (-> x sfx) 5) (-> x k_ubitint) (? (== (-> x sfx) 4) (-> x k_bitint) (? (== (-> x sfx) 3) (-> x k_ulong) (? (== (-> x sfx) 2) (-> x k_long) (? (== (-> x sfx) 1) (-> x k_uint) (-> x k_int)))))))))
           (if (-> x imag)                                                          ; `3i': an integer imaginary literal, its suffix naming the kind (0.104): i, ui, li, uli; a _BitInt suffix the int kinds
               (set k (? (== (-> x sfx) 7) (-> x k_imagulli) (? (== (-> x sfx) 6) (-> x k_imaglli) (? (== (-> x sfx) 3) (-> x k_imaguli) (? (== (-> x sfx) 2) (-> x k_imagli) (? (or (== (-> x sfx) 1) (== (-> x sfx) 5)) (-> x k_imagui) (-> x k_imagi))))))))
+          (if (and hex (and (== (-> x sfx) 0) (and (> v (cast u64 2147483647)) (<= v (cast u64 4294967295)))))   ; a hex, octal or binary literal with no suffix past INT_MAX that an unsigned int holds IS one (0.201; C 6.4.4.1/5), as the DCG's ccl_int_end//4
+              (set k (? (-> x imag) (-> x k_imagui) (-> x k_uint))))
           (if (>= v (cast u64 1152921504606846976))
               (ccl_lx_tok x k (ccl_lx_big x v hex) line)
               (ccl_lx_tok x k (coco_m_new_int (-> x e) (cast i64 v)) line))
@@ -801,6 +803,15 @@
             (if (== 0 (strcmp (nth k table) w)) (return 1))
             (set k (+ k 1)))
           (return 0)))
+  ;; C++'s alternative tokens ([lex.digraph]/2; 0.201): each word and the punctuator it is
+  (static) (var const char * ccl_lx_alt [12] . '{ "and" "and_eq" "bitand" "bitor" "compl" "not" "not_eq" "or" "or_eq" "xor" "xor_eq" nil })
+  (static) (var const char * ccl_lx_altp [12] . '{ "&&" "&=" "&" "|" "~" "!" "!=" "||" "|=" "^" "^=" nil })
+  (static) (func ccl_lx_index ((const char ** table) (const char * w)) (out int)
+        (let ((int k . 0))
+          (while (!= (nth k table) nil)
+            (if (== 0 (strcmp (nth k table) w)) (return k))
+            (set k (+ k 1)))
+          (return -1)))
   ;; a universal character name past ASCII at j, the backslash: its code point, else -1 (j untouched)
   (static) (func ccl_lx_id_ucn ((ccl_lx * x) (size_t j)) (out i64)
         (let ((size_t k . 0) (i64 u . 0))
@@ -811,7 +822,7 @@
   ;; a word (0.196, the DCG's ccl_word//2): letters, digits, `_', the bytes of a character past ASCII, and a universal
   ;; character name past ASCII put in as its UTF-8 bytes -- `caf\u00e9' is the identifier `café'
   (static) (func ccl_lx_word ((ccl_lx * x) (i64 line))
-        (let ((size_t j . 0) (size_t k . 0) (int kw . 0) (i64 u . 0))
+        (let ((size_t j . 0) (size_t k . 0) (int kw . 0) (i64 u . 0) (int alt . -1))
           (set j (-> x i))
           (set (-> x bn) 0)
           (while 1
@@ -824,16 +835,30 @@
                   (#t break)))
           (set kw (ccl_lx_in ccl_lx_ckw (-> x buf)))
           (if (and (not kw) (-> x cpp)) (set kw (ccl_lx_in ccl_lx_cppkw (-> x buf))))
-          (ccl_lx_tok x (? kw (-> x k_kw) (-> x k_id)) (coco_m_new_atom (-> x e) (-> x buf)) line)
+          (set alt (? (and (not kw) (-> x cpp)) (ccl_lx_index ccl_lx_alt (-> x buf)) -1))
+          (cond ((>= alt 0) (ccl_lx_tok x (-> x k_p) (coco_m_new_atom (-> x e) (nth alt ccl_lx_altp)) line))   ; C++'s alternative tokens are punctuators (0.201, ccl_alt_token/2)
+                (#t (ccl_lx_tok x (? kw (-> x k_kw) (-> x k_id)) (coco_m_new_atom (-> x e) (-> x buf)) line)))
           (set (-> x i) j)))
 
   ;; punctuators, longest first, as ccl_punct//1 tries them; `::' in C++ only
   (static) (var const char * ccl_lx_p3 [8] . '{ "..." ">>=" "<<=" "<=>" nil })
   (static) (var const char * ccl_lx_p2 [24] . '{ ":=" "->" "++" "--" "<<" ">>" "<=" ">=" "==" "!=" "&&" "||" "*=" "/=" "%=" "+=" "-=" "&=" "^=" "|=" nil })
   (static) (var const char * ccl_lx_p1 . "[](){}.&*+-~!/%<>^|?:;=,")
+  ;; THE DIGRAPHS (C 6.4.6/3, [lex.digraph]/1; 0.201, ccl_punct//1): `<:' `:>' `<%' `%>' are `[' `]' `{' `}', but in C++
+  ;; `<::' whose next character is no `:' and no `>' is `<' then `::' ([lex.pptoken]/3.2)
+  (static) (var const char * ccl_lx_dg [5] . '{ "<:" ":>" "<%" "%>" nil })
+  (static) (var const char * ccl_lx_dgp [5] . '{ "[" "]" "{" "}" nil })
   (static) (func ccl_lx_punct ((ccl_lx * x) (i64 line)) (out int)
         (let ((size_t k . 0) (int c . 0) (const char * p . nil) (char one [2]))
           (set p (+ (-> x s) (-> x i)))
+          (while (!= (nth k ccl_lx_dg) nil)
+            (if (and (== 0 (strncmp p (nth k ccl_lx_dg) 2))
+                     (not (and (== k 0) (and (-> x cpp) (and (== (nth 2 p) 58) (and (!= (nth 3 p) 58) (!= (nth 3 p) 62)))))))
+                (block (ccl_lx_tok x (-> x k_p) (coco_m_new_atom (-> x e) (nth k ccl_lx_dgp)) line)
+                       (set (-> x i) (+ (-> x i) 2))
+                       (return 1)))
+            (set k (+ k 1)))
+          (set k 0)
           (while (!= (nth k ccl_lx_p3) nil)
             (if (== 0 (strncmp p (nth k ccl_lx_p3) 3))
                 (block (ccl_lx_tok x (-> x k_p) (coco_m_new_atom (-> x e) (nth k ccl_lx_p3)) line)
@@ -963,6 +988,12 @@
           (set c (ccl_lx_at x (-> x i)))
           (set line (-> x line))
           (cond
+            ((and (== c 37) (== (ccl_lx_at x (+ (-> x i) 1)) 58))   ; `%:%:' and `%:' are `##' and `#' (C 6.4.6/3, [lex.digraph]; 0.201): the operators, or a `#' line
+             (cond ((and (-> x punct) (and (== (ccl_lx_at x (+ (-> x i) 2)) 37) (== (ccl_lx_at x (+ (-> x i) 3)) 58)))
+                    (ccl_lx_tok x (-> x k_p) (coco_m_new_atom (-> x e) "##") line) (set (-> x i) (+ (-> x i) 4)))
+                   ((-> x punct) (ccl_lx_tok x (-> x k_p) (coco_m_new_atom (-> x e) "#") line) (set (-> x i) (+ (-> x i) 2)))
+                   (#t (set (-> x i) (+ (-> x i) 1)) (ccl_lx_hash x line)))
+             (return 1))
             ((and (-> x punct) (== c 35))
              (if (== (ccl_lx_at x (+ (-> x i) 1)) 35)
                  (block (ccl_lx_tok x (-> x k_p) (coco_m_new_atom (-> x e) "##") line) (set (-> x i) (+ (-> x i) 2)))

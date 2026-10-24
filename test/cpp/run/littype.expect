@@ -1,0 +1,15 @@
+f(int)
+f(long)
+f(int)
+f(unsigned)
+f(unsigned)
+f(long)
+f(unsigned)
+f(unsigned long)
+long unsigned unsigned unsigned
+unsigned long unsigned long unsigned long long
+8 4 4
+2 2500000000
+0 2147483647 -2147483649
+big
+exit 0

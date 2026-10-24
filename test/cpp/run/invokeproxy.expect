@@ -1,0 +1,20 @@
+make 5
+move 105
+built
+move 205
+in 205
+dtor 205
+ran
+dtor -1
+dtor -1
+--
+make 6
+copy 16
+built
+move 116
+in 116
+dtor 116
+ran
+dtor -1
+dtor 6
+exit 0
