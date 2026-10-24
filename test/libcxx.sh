@@ -83,10 +83,11 @@ ccl_read() {   # ccl_read HEADER STD MIN
 ccl_warm() {   # ccl_warm HEADER STD [CFG]: CFG as ccl_union gives it, the build's configuration flags
   h=$1; std=$2; cfg=${3:--}; t0=$(date +%s)
   case "$cfg" in -) fls=""; tag=""; key="$h@$std" ;; *) fls=$(echo "$cfg" | tr ',' ' '); tag=$(echo "$cfg" | tr ',' '_'); key="$h@$std@$cfg" ;; esac
-  f="$D/warm_${h}_${std}${tag}.cpp"; printf '#include <%s>\nint main() { return 0; }\n' "$h" > "$f"
-  if timeout -s KILL "$LX_SECS" env HOME="$WARMHOME" "$ROOT/bin/cicilang++" -std=c++$std $fls -fsyntax-only "$f" > "$RES/w_${h}_${std}${tag}.out" 2>&1; then
-    echo "warm <$h> C++$std${fls:+ $fls}" > "$RES/w_${h}_${std}${tag}.res"; ccl_time_record "$LX_TIMES" "$key" $(( $(date +%s) - t0 ))
-  else echo "warm <$h> C++$std${fls:+ $fls}: FAILED to flatten (a fixture including it will cold-flatten in the gate)" > "$RES/w_${h}_${std}${tag}.res"; fi
+  hf=$(echo "$h" | tr '/' '_')   # a header in a directory, <sys/wait.h>: its files' names hold no slash (0.200: the warm wrote into a directory that is not there, and the header was never warmed)
+  f="$D/warm_${hf}_${std}${tag}.cpp"; printf '#include <%s>\nint main() { return 0; }\n' "$h" > "$f"
+  if timeout -s KILL "$LX_SECS" env HOME="$WARMHOME" "$ROOT/bin/cicilang++" -std=c++$std $fls -fsyntax-only "$f" > "$RES/w_${hf}_${std}${tag}.out" 2>&1; then
+    echo "warm <$h> C++$std${fls:+ $fls}" > "$RES/w_${hf}_${std}${tag}.res"; ccl_time_record "$LX_TIMES" "$key" $(( $(date +%s) - t0 ))
+  else echo "warm <$h> C++$std${fls:+ $fls}: FAILED to flatten (a fixture including it will cold-flatten in the gate)" > "$RES/w_${hf}_${std}${tag}.res"; fi
 }
 
 # the asserted (header@std) as a key set, so the union's warm-only jobs skip them (read once); each key between

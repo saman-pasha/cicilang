@@ -193,6 +193,7 @@ One row per step, in version order: the step's title, what it did and its gate n
 | 0.197 | the audit's fourth group, in part: C++'s core language -- the order of evaluation, `explicit(bool)`, the implicit moves, `decltype((x))`, parenthesized aggregate initialization, template parameter objects | an assignment's right operand first, in C too; `explicit(bool)` folded under a member template's bindings, a call inside the condition where it sits; `return x;` of a local or a by-value parameter an rvalue, never a member, a global or a reference; `decltype((x))` and `return (x);` references; a constant's initializer manifestly constant-evaluated; C++20's parenthesized aggregate initialization at every site and in the traits; a template parameter of class type a template parameter object; a lambda made in a lambda one class; a class prvalue handed by value built in place; a variably modified parameter's bounds on entry | all nine gates GREEN over libc++ 18, the two libc++ gates over 21, after a first chain RED at three fixtures (a copy constructor written with a template-id), mended in the commit; the headers' reads summed 1167 s and 1103 s over 128, the fixtures' builds 3076 s and 3174 s; 639 of 645 C++ fixtures over 18, 643 over 21 |
 | 0.198 | the audit's fourth group, the rest: noexcept in the type system, an init-capture pack, consteval propagation, C++26's structured binding packs and variadic friends, `__has_cpp_attribute`, C++'s static assertions; cocolog 2.11.4 | noexcept on a function type, in its key, its symbol (`Do`) and its calls, the function pointer conversion dropping it; `[...xs = e]`; a consteval call in an immediate function context, an instance being made escalated; `auto [a, ...xs] = e`, attributes after a binding; `friend Ts...;` and `friend A, B;` (a friend pack opened the class to every name); `__has_cpp_attribute` with clang 21's values (libc++ 18's `[[no_unique_address]]`); a false static assertion of the program an error, a discarded branch's none; an enumerator through its namespace and in another enum's initializer; a copy or move constructor named by a template-id or an alias; an overloaded assignment by value's operand first; an empty data member no data, a nested empty subobject in the way (libc++'s views over a lambda); `make_signed_t<unsigned __int128>` `__int128`; cocolog 2.11.4 over Cicili 3.1.0, five warm builds 8 % less CPU | all nine gates GREEN over libc++ 18, the two libc++ gates over 21 (the C++ gate over 21 run again alone after a restart of the container); the headers' reads summed 1166 s and 1033 s over 134, the fixtures' builds 2866 s and 2904 s; 660 of 666 C++ fixtures over 18, 664 over 21 |
 | 0.199 | the audit's fourth group, what its probes found older: a conditional `noexcept(E)` per instance, NRVO, value template arguments of their types, `decltype` of a static member as declared, an empty base in the way; a free function template's trailing requires-clause | a noexcept-specifier's condition kept and evaluated with an instance's bindings (the operator, the nothrow traits, the terminate guard), a function template of the program declared without one may throw; a named local returned built in the caller's object; a value template argument of its parameter's type, a placeholder's of its own, in the key, the mangler, `__PRETTY_FUNCTION__` and the debug names; `decltype(C::s)` as declared; an empty base in the way of a member of its type; a free function template's trailing requires-clause joined to its head's; a noexcept body that throws with no call, and a noexcept template's instance, guarded; a cast's key keeps its value's sign | all nine gates GREEN over libc++ 18, the two libc++ gates over 21; the headers' reads summed 1210 s and 1035 s over 134, the fixtures' builds 2927 s and 2944 s; 670 of 676 C++ fixtures over 18, 674 over 21; `<sys/wait.h>` not warmed (a slash in its name) |
+| 0.200 | the audit's fifth group, the traits of one value: a construction, a conversion and an assignment asked of the members that take the values; the special members a class declares; a constraint folded through the evaluator; the constructors a call runs, to the noexcept operator; a warm of a header in a directory | `is_constructible`, `is_convertible` and `is_assignable` from the constructors, the conversion functions and the assignments that take the values, a deleted one that takes them exactly, the copy and the move as the class declares them, a reference as [dcl.init.ref] binds it; a member defined out of its class keeps its declaration's `explicit`; a requires-clause over class values folded through the evaluator; the noexcept operator over a call's argument and temporary constructors; `<sys/wait.h>` warmed | all nine gates GREEN over libc++ 18, the two libc++ gates over 21; the headers' reads summed 1290 s and 1136 s over 136, the fixtures' builds 3143 s and 3482 s (the box shared); 679 of 685 C++ fixtures over 18, 683 over 21 |
 
 ## M5 — the C++ mode
 
@@ -12998,3 +12999,129 @@ requires-clause, found during the step, is in it too. Each fixture prints clang+
 Reader 151 (a noexcept-specifier's condition kept, a free function template's trailing requires-clause joined to its
 head's) and lowering 112 (NRVO; a value template argument of its type, which names the instance; a conditional noexcept's
 storage; an empty base in the layout).
+
+## 0.200 — the audit's fifth group, the traits of one value: a construction, a conversion and an assignment asked of the members that take the values; the special members a class declares; a constraint folded through the evaluator; the constructors a call runs, to the noexcept operator; a warm of a header in a directory
+
+**0.200: the fifth group of the audit of C17 to C23 and C++17 to C++26, Not done's item 2 of 0.199: the traits of one
+value -- `is_constructible`, `is_convertible` and `is_assignable`, and the traits libc++ builds on them -- answered as
+clang++ answers them in a valid program, with the older gaps their net met. Each fixture prints clang++'s output over
+libc++ 18 and 21.**
+
+- A CONSTRUCTION (`cpp_constructible/2`; [meta.unary.prop], [dcl.init], [over.match.ctor]): `declval<A>()` is an lvalue
+  where A is an lvalue reference, an rvalue else (`cpp_value_cat/3`). A class from its own value, or a derived one's,
+  takes its copy or its move where the one overload resolution chooses is there and not deleted (`cpp_copy_there/2`);
+  from other values a constructor that takes them (`cpp_ctor_takes/2`): a written one, `explicit` or not, whose
+  parameters take the values in order (`cpp_params_take/3`, `cpp_value_binds/2`), or a constructor template whose
+  parameters deduce from them (`cpp_match_args/5`, a pack its elements by `cpp_deduce_pack/5`), its defaults, constraints
+  and requires-clause holding and its substituted parameters taking them (`cpp_tmpl_params_ok/5`); and no constructor
+  declared deleted takes them exactly (`cpp_deleted_takes/2`: `basic_string(nullptr_t) = delete`, C++23). A scalar takes
+  what converts to it, and by direct-initialization a null pointer to `bool` and a class value's `explicit` conversion
+  function whose result is the scalar's type, a qualification conversion at most (`cpp_scalar_constructible/2`;
+  [over.match.conv]/1.1). It was the arity alone: `is_constructible_v<std::string, int>` and `<Two, int, int>` of
+  `Two(int, const char *)` were 1.
+- THE SPECIAL MEMBERS A CLASS DECLARES (`cpp_note_specials/2`, `'$cpp_sdecl'/4`, `'$cpp_dctor'/2`): noted at registration
+  before the record drops a member `= delete`, and asked once the class is registered (`cpp_sdecl/3`). A copy or a move
+  declared `= delete` is deleted; the implicit copy is deleted by a declared move constructor or move assignment; the
+  implicit move is not declared beside a declared copy constructor, copy or move assignment or destructor, and an rvalue
+  then takes the copy; a defaulted or implicit one is deleted where a base, an empty one among them, or a data member
+  cannot copy or move (`cpp_parts_copyable/2`, remembered once a class is registered), and a union's where a variant
+  member's class is not trivial (`cpp_union_untrivial/2`; [class.copy.ctor]/10). The copy and the move were always
+  there: `is_copy_constructible_v<std::unique_ptr<int>>`, `<std::mutex>`, `<std::optional<std::unique_ptr<int>>>` and
+  that of `union U { std::string s; int i; U() {} ~U() {} };` were 1.
+- A REFERENCE (`cpp_ref_constructible/3`; [dcl.init.ref]/5): one to a non-const type binds an lvalue of a compatible type,
+  or the lvalue a class value's conversion function gives; one to a const type and an rvalue reference a compatible value
+  or a temporary of what converts to the referent, an rvalue reference no lvalue of a related type. A reference to a
+  reference collapses first (`cpp_ref_collapsed/2`; [dcl.ref]/7): the substitution of `const _Tp &` with `_Tp = int &` is
+  `int &`, and tuple's `tuple(const _Tp &...)` took an rvalue `int` for a `tuple<int &>`. The reference was dropped:
+  `is_constructible_v<int &, int>` and `is_convertible_v<int, int &>` were 1.
+- A CONVERSION (`cpp_convertible/2`, `cpp_converts/3`; [conv], [class.conv]/4): a copy-initialization, so no `explicit`
+  constructor and at most one user-defined conversion -- a class value never reaches a converting constructor's
+  non-class parameter (it went through its own conversion function since 0.137), and a converting constructor
+  template's substituted parameter takes the value by a standard conversion (`cpp_tmpl_type_ok/4`, the call road's
+  template acceptance too: libc++'s `template <__enable_if_t<...> = 0> basic_string(const _CharT *)` deduces nothing from
+  its parameter and took an `int`); an arithmetic value to no enumeration and from no scoped one; a pointer to `bool`;
+  `void *` to no other pointer, `std::nullptr_t` to any (`cpp_nullptr_written/1`), and to `std::nullptr_t`, which
+  resolves to `void *`, a `std::nullptr_t` alone, a parameter of it too (`cpp_nullptr_arg/1`: libc++'s `unique_ptr(nullptr_t)`,
+  a constructor template, converted an `int *`); a class value to a scalar through a conversion function whose result
+  converts to it (`cpp_conv_scalar/3`; any conversion function counted). A constructor template over a template-id that
+  the argument's class instantiates converts where its defaults bind and its constraints hold (`cpp_class_converts/2`:
+  `shared_ptr(unique_ptr<_Yp, _Dp> &&)` under `__compatible_with<_Yp, _Tp>` converted a `unique_ptr<double>` to a
+  `shared_ptr<int>`).
+- AN ASSIGNMENT (`cpp_assignable/2`; [expr.ass]/1, [class.copy.assign]): to a scalar only through a non-const lvalue
+  reference; a class's copy or move assignment chosen as its constructor is, the implicit one also deleted by a const or
+  a reference data member (`cpp_assign_there/2`, `cpp_parts_assignable/2`), as a plain struct's or union's is
+  (`cpp_plain_unassignable/1`, through its arrays and the records it holds); any other `operator=`, written or a
+  template, takes the value as a parameter does, and the implicit one the class made from it. It was any one-parameter
+  `operator=`: `is_assignable_v<std::vector<int> &, int>`, `<int, int>` and `<const int &, int>` were 1.
+- THE DECLARATION'S `explicit` IS THE MERGED MEMBER'S (`cpp_keep_explicit/3` in `cpp_mdef_take/6`; [dcl.fct.spec]/4): a
+  member defined out of its class took the definition's qualifiers alone, and libc++ 18's `explicit vector(size_type)`,
+  defined out of its class, converted an `int`.
+- A value the tables cannot type keeps the old answers (`cpp_untyped_arg/1`).
+- THE ARITY TEST OF A PACK, `( Max == any ; N =< Max )`, backtracked into `N =< any` and raised `type_error(evaluable,
+  any/0)` where a later goal failed: an if-then-else in the two new tests and in 0.193's nothrow traits
+  (`cpp_nothrow_ctor_c/2`), where it was latent: every `is_nothrow_constructible` of a class with a constructor of a pack
+  -- optional's `optional(in_place_t, _Args &&...)` -- from values other than its own raised, and over 0.199
+  `valtraits20.cpp` stopped at that error.
+- A CONSTRAINT FOLDED THROUGH THE EVALUATOR (`cpp_satisfied/1`'s last clause over `cpp_const_bool/2` under `cpp_with_ce/1`;
+  [temp.constr.atomic]/3, [expr.const]/20), found by the net: a requires-clause whose desugared form `ccl_const_eval/2` does
+  not fold -- a constexpr call over class values -- is folded by the constant evaluator, manifestly constant-evaluated, as a
+  constant condition is (0.112); else it is refused, `constraint_unknown(E)`, as before. libc++ 18's inserter of a
+  `sys_time<_Duration>` requires `_Duration{1} < days{1}`: 0.199 took the `sys_days` inserter for a `sys_seconds`, through
+  `is_convertible<seconds, days>`, 1 there, and printed `1970-01-06` for 5 s (`chr.cpp`, session scratch, `o295/fx4`);
+  with that trait 0 the constraint was refused, and the first net's `fmtchrono2.cpp` over libc++ 18 stopped at
+  `instance_refused('__format_chrono.char.time_point.system_clock...', no_operator(<<))`. Over 0.199 `reqclassval.cpp`
+  printed `0 0 0 / 0 0 0 0 0 / 0 0` where clang++ prints `1 0 1 / 1 1 1 1 0 / 1 0`: no such constraint held, of the program's
+  own class or of chrono's.
+- THE CONSTRUCTORS A CALL RUNS, TO THE NOEXCEPT OPERATOR (`cpp_nx_args_init_throw/2`, `cpp_nx_class_named/2`, three
+  `cpp_nx_throwing/2` clauses before the conditional ones; [except.spec]/6): a by-value parameter of a class initialized
+  by the constructor that takes the argument -- none for a prvalue of its class, C++17's elision -- and a reference to a
+  class bound to a temporary of another value, for a function template whose arguments the call gives and for a plain
+  function of one overload of the call's arity; a temporary `T(args)` or `T{args}` of a class by its constructor, an
+  aggregate's aside. libc++ 18's `is_nothrow_convertible` is `noexcept(__test_noexcept<_To>(declval<_Fm>()))` over
+  `template <class _Tp> void __test_noexcept(_Tp) noexcept;`, which answered 1 whatever constructor converted the value
+  (`valtraitsnx.cpp` over 0.199: `1 1 1 1 1 1` where clang++ prints `0 1 0 0 1 1`; over libc++ 21 the builtin answers it,
+  the nothrow traits of 0.193); over 0.199 `nxctors.cpp` printed 1 for each of its 20 answers, 10 of which clang++ answers 0.
+- THE LIBRARY READ: a warm header whose name holds a slash, `<sys/wait.h>` of 0.199's `nxplain.cpp`, names its files
+  with `_` for each `/`: the warm's file was in a directory that is not there, the build read nothing and its verdict was
+  written nowhere, so the header stayed cold and the gate GREEN without a word (the chain of 0.199's log has the shell's
+  `cannot create` lines).
+- OVER 0.199 (libc++ 18), each new fixture printed other answers: `valtraits.cpp` `111111 / 111111 / 11101 / 11101 /
+  11111 / 101 / 111 / 11111` where clang++ prints `001010 / 001110 / 01110 / 10110 / 01101 / 100 / 110 / 11001`;
+  `valtraitsown.cpp` `1111 / 111111 / 10111111 / 1111 / 111110` where `0101 / 010110 / 10100110 / 1011 / 111010`;
+  `valtraitsconv.cpp` `11111111 / 111111111 / 11101010` where `00011010 / 110100110 / 11001110`; `valtraitsspecial.cpp`
+  `111111 / 111111111 / 11111111111111 / 11111111111 / 111111011111` where `010000 / 110100111 / 01010010100101 /
+  01000010001 / 101011101001`; `valtraitsmore.cpp` `111111 / 1111 / 1111111 / 11101111` where `101011 / 0110 / 0110100 /
+  11101100`; `valtraits20.cpp` stopped at the type error above.
+- FOUND AND LEFT (Not done's new item 2): `std::nullptr_t` is `void *` to the tables, so a `void *` value passes for a
+  `std::nullptr_t` (`is_convertible_v<void *, std::unique_ptr<int>>` is 1, clang++'s 0); the noexcept operator asks no
+  constructor of a member function's call, an overload set's, a function template's whose arguments it deduces, a
+  temporary named by a qualified name (`std::string("x")`) or a conversion function's call (`lim3.cpp`, session scratch,
+  `o295/fx6`: `1 1 1 1 1` where clang++ prints `0 0 0 0 0`).
+- FIXTURES: 9 C++ (`valtraits`, `valtraits20`, `valtraitsown`, `valtraitsconv`, `valtraitsspecial`, `valtraitsmore`,
+  `valtraitsnx`, `nxctors`, `reqclassval`), each of which 0.199 built with another output or did not build.
+- THE NETS, before the chain: the flow gate GREEN (4478 predicates); a first C++ gate over libc++ 18 RED (868 s, peak
+  2458 MB, one failure, `fmtchrono2.cpp`, which the constraint folded through the evaluator mended) and over libc++ 21
+  GREEN (1018 s, peak 3879 MB); then over the step's final library, over libc++ 18 GREEN (904 s, peak 2374 MB, 679 of 685
+  fixtures ok, 6 skipped) and over libc++ 21 GREEN (875 s, peak 2386 MB, 683 of 685 ok, 2 skipped).
+- THE CHAIN OF 0.200, over a fresh worktree of its commit and fresh HOMEs, on cocolog 2.11.4 (`d67250f`), from 04:25:44
+  UTC to 05:16:20: ALL GREEN. Over libc++ 18: the flow gate 94 s (peak 3092 MB, its one finding, 4478 predicates
+  charted), reader 4 s, compile 15 s, driver 13 s, objects 4 s, the proof, the cross gate 283 s (peak 714 MB), the library
+  read 346 s (peak 848 MB; the 23 asserted reads whole, 113 other headers warmed, `<sys/wait.h>` among them, its summary
+  written), the C++ gate 938 s (peak 2432 MB), 679 of 685 fixtures ok (skips `atomicref`, `joinwith`, `stdoptionalref`,
+  `tzone`, `vbaseof`, `zipadjacent`), the cold build's processes, the two units, the 29 refusals, the four of the safe
+  part and the two static assertions; over libc++ 21 the library read 306 s (peak 1094 MB) and the C++ gate 1020 s (peak
+  2522 MB), 683 of 685 (skips `stdoptionalref`, `zipadjacent`). The headers' reads summed 1290 s over 136 and 1136 s over
+  136 (0.199's 1210 s and 1035 s over 134), the fixtures' builds 3143 s over 679 and 3482 s over 683 (0.199's 2927 s
+  over 670 and 2944 s over 674), the box shared from the C++ gate over libc++ 18 on with the next step's probes, one
+  build at a time; the slowest over 18 `fmtrange` 98 s, `fmtchrono2` 96 s, `fmtchrono` 87 s, `fmtcheck` 78 s, `viewsall`
+  75 s, `fmttuple` 67 s, over 21 `fmtchrono2` 126 s, `fmtchrono` 116 s, `fmtrange` 100 s, `fmtcheck` 94 s, `viewsall`
+  88 s, `joinwith` 69 s.
+- `CLAUDE.md`: the versions (the versions topic's too); the Traits answered topic (the traits of a construction, a
+  conversion and an assignment); the template acceptance (a class value and a converting constructor; a constructor
+  template's substituted parameter and pack; a `std::nullptr_t` parameter; a template-id's constructor template's
+  defaults); the members defined out of class (the declaration's `explicit`); Concepts (a constraint folded through the
+  evaluator); Exceptions (the constructors a call runs); the library read (a header in a directory); What runs; Hosts; Not
+  done (the audit's fifth group done; its limits). `README.md`: what runs (the traits).
+
+Lowering 113 (the traits' answers, which choose the library's overloads and its SFINAE; the constraints the evaluator
+folds; the noexcept operator's answers).

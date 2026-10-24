@@ -377,7 +377,11 @@ libc++ with RTTI, as clang++ builds it, and its no-RTTI configuration under
 a deleter; since 0.192 programs of several units built apart: each unit's
 lambdas, local classes and unnamed namespace stay its own at the link, a
 header's inline variables are one object, and every static object is
-destroyed at exit, one constructed at compile time too.
+destroyed at exit, one constructed at compile time too; since 0.200 the
+type traits of a construction, a conversion and an assignment
+(`is_constructible`, `is_convertible`, `is_assignable` and their nothrow
+forms) answer as clang++'s do, deleted and implicit special members
+included.
 `test/libcxx.sh` reads `<vector>`, `<string>`,
 `<iostream>`, `<map>`, `<set>`, `<unordered_map>`, `<unordered_set>`,
 `<optional>`, `<memory>`, `<functional>`, `<tuple>` and `<algorithm>` whole,

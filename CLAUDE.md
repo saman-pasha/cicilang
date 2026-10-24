@@ -10,8 +10,8 @@ it found, its measurements and its gate numbers. `README.md` tells a user what r
 architecture and the milestones. A step that changes a rule edits the rule here, in its topic, and writes its entry
 in `HISTORY.md`.
 
-At 0.199 the versions are: the module 0.199 (`ccl_p_version` in `module/cicilang.cicili`, `bin/cicilang --version`),
-the reader 151 (`ccl_reader_version/1`, `library/ccl_syntax.pl`) and the lowering 112 (`ccl_lowering_version/1`,
+At 0.200 the versions are: the module 0.200 (`ccl_p_version` in `module/cicilang.cicili`, `bin/cicilang --version`),
+the reader 151 (`ccl_reader_version/1`, `library/ccl_syntax.pl`) and the lowering 113 (`ccl_lowering_version/1`,
 `library/ccl_ir.pl`).
 
 Build and prove, always in this order (or all of it, `sh test/gates.sh`):
@@ -546,7 +546,9 @@ tutorials/01..03-*.pl       the objects layer's lessons; goal main, last line do
   named, because `<sstream>` and `<stdexcept>` then stay cold. `<algorithm>` and `<array>` are only warmed: nothing
   asserts their counts. A file whose `.flags` names `-fno-rtti` or `-fno-exceptions` has its headers warmed under that
   flag too, its key `header@level@-fno-rtti` (0.191, `-fno-exceptions` since 0.193: such a summary is keyed apart, the
-  C++ summary cache). (0.92, 0.105, 0.180, 0.191, 0.193)
+  C++ summary cache). A header in a directory, `<sys/wait.h>`, names its warm's files with `_` for each `/` (0.200: they
+  named a directory that is not there, the build read no file and wrote no verdict, and the header stayed cold without a
+  word). (0.92, 0.105, 0.180, 0.191, 0.193, 0.200)
 - `LX_SECS` (2400 s) caps each read and each warm through `timeout -s KILL`. A read with no verdict is
   `FAIL <h> at C++N: the read did not finish`. A failed warm, `FAILED to flatten`, counts as a failure. A pool killed
   at its hard cap is RED. (0.105)
@@ -2385,7 +2387,7 @@ tutorials/01..03-*.pl       the objects layer's lessons; goal main, last line do
   0.117)
 - A reader bump makes every summary cold; `test/libcxx.sh` rewrites them. `test/reader.pl`'s `k16` (a cached read is
   the same AST as a fresh one) goes RED on a grammar change without a bump. (0.93, 0.105)
-- `ccl_lowering_version/1` (`library/ccl_ir.pl`, now 112): bump it whenever the check or the lowering changes what it
+- `ccl_lowering_version/1` (`library/ccl_ir.pl`, now 113): bump it whenever the check or the lowering changes what it
   emits, however small -- 0.120 bumped it for the ORDER of the drain functions alone. Why: `dr_ir/3` serves the old IR
   otherwise. Either bump starts the C store afresh. (M4, 0.103, 0.120)
 
@@ -4289,6 +4291,11 @@ free. A const method adds `.c`, a ref-qualified one `.r` or `.rr` after it: each
   the declaration's ([temp.mem]; `cpp_align_tparams`). The declaration lends its template-parameter defaults where the
   lists are alike or of one shape ([temp.param]/12; `cpp_keep_tdefaults`, `cpp_tparams_shape`). Fixtures:
   `sfinaedefs.cpp`, `stdvectorinsert.cpp` (libc++ 18's twin `__construct_at_end`). (0.99, 0.100)
+- THE DECLARATION'S `explicit` IS THE MERGED MEMBER'S (0.200; [dcl.fct.spec]/4: `explicit` stands on a declaration in its
+  class, never on a definition out of it; `cpp_keep_explicit/3` in `cpp_mdef_take/6`): the merged member had the
+  definition's qualifiers alone, and libc++ 18's `explicit vector(size_type)`, defined out of its class, converted an
+  `int` (`is_convertible_v<int, std::vector<int>>` and `is_assignable_v<std::vector<int> &, int>` were 1). `valtraits.cpp`.
+  (0.200)
 - An UNNAMED parameter of the declaration takes the definition's name, never the reverse (`cpp_tparam_renames`,
   `cpp_rename_tparams`). Why: libc++ declares `template <bool> class __iterator;` in transform_view and defines it
   `template <bool _Const> class transform_view<...>::__iterator`, and `__iterator<!_Const>` was renamed to nobody's
@@ -4383,8 +4390,13 @@ free. A const method adds `.c`, a ref-qualified one `.r` or `.rr` after it: each
 - `cpp_satisfied/1` decides a constraint: `&&`, `||` and `!` combine; `true` holds, `false` does not; a variable
   template is its folded value (`cpp_instantiate_variable`); a concept-id asks `cpp_concept_holds/2`; a
   requires-expression holds when each requirement holds; anything else is a constant, folded through the desugaring in
-  the requirement's context where needed (`requires _IsSame<...>::value;`). What does not fold refuses
-  `constraint_unknown(E)`. (0.42, 0.84)
+  the requirement's context where needed (`requires _IsSame<...>::value;`), and since 0.200 through the constant
+  evaluator, manifestly constant-evaluated ([temp.constr.atomic]/3, [expr.const]/20; `cpp_const_bool/2` under
+  `cpp_with_ce/1`): a constexpr call over class values, libc++ 18's `requires(... _Duration{1} < days{1})` on the inserter
+  of a `sys_time<_Duration>`, folded nowhere, so the constraint was refused and no inserter took a time point of seconds
+  (`fmtchrono2.cpp`, once 0.200's traits left the `sys_days` inserter out: it had taken the `sys_seconds` through
+  `is_convertible<seconds, days>`, 1 until 0.200, and printed `1970-01-06` for 5 s). What does not fold refuses
+  `constraint_unknown(E)`. `reqclassval.cpp` (C++20). (0.42, 0.84, 0.200)
 - A concept-id is a `bool` prvalue in an expression ([temp.names]/8; `cpp_expr`: `(int) std::same_as<A, B>`), a
   refusal inside giving `false`. As a template argument it is its truth (`cpp_targ_value`: C++20 `iterator_traits`'
   `conditional_t<__primary_template<...>, ...>`). (0.84, 0.109)
@@ -4758,26 +4770,32 @@ The desugaring (`library/ccl_cpp.pl`) chooses every C++ overload. A fixture name
 - A class parameter accepts its class, a class derived through first bases (`cpp_class_fits/2`), a class with a
   conversion operator to it (`cpp_conv_result/3`), or a class its constructor takes ([over.ics.user];
   `cpp_class_converts/2`, in `cpp_type_accepts/2`). A non-explicit constructor TEMPLATE over a template-id that the
-  argument's class instantiates converts too. `ctortconv.cpp`. Why: libc++'s `basic_format_args`. So does, last, a
+  argument's class instantiates converts too, where its defaults bind and its constraints hold (0.200:
+  `shared_ptr(unique_ptr<_Yp, _Dp> &&)` under `__compatible_with<_Yp, _Tp>` converted a `unique_ptr<double>` to a
+  `shared_ptr<int>`). `ctortconv.cpp`. Why: libc++'s `basic_format_args`. So does, last, a
   constructor template whose one parameter deduces from the argument's class, its defaults and constraints checked
   (`cpp_converting_tmpl/2` over `cpp_ctor_tmpl_takes`, never a pack; 0.137): `const optional<locale> &` took no `locale`,
   `optional(_Up &&)` being no template-id's constructor, and libc++'s `__format_context_create(..., optional<locale> &&)`
-  had no candidate (std::format of `hh_mm_ss` and the calendar types). `optparam.cpp`. (0.80, 0.112, 0.137)
+  had no candidate (std::format of `hh_mm_ss` and the calendar types). `optparam.cpp`. (0.80, 0.112, 0.137, 0.200)
 - A non-class argument converts to a class only through a non-explicit constructor whose parameter takes its kind, or a
   constructor template (`cpp_converting/2`). `cpp_converting/1` serves `is_convertible` only, and also takes no
   `explicit` constructor ([meta.rel]: an implicit conversion; it counted them until 0.112, `is_convertible<int, E>`
   true for `explicit E(int)`, `explicitconv.cpp`). Why: `const pair *` passed for a map's `const_iterator`. A CLASS
-  argument reaches such a non-class parameter only through its own conversion function (`cpp_conv_result/3`; 0.137): any
-  argument passed before, so `is_convertible<const locale &, string_view>` held through string_view's `const char *`
+  argument reaches such a non-class parameter never (0.200): its conversion function and the constructor would be two
+  user-defined conversions ([class.conv]/4). It went through its own conversion function from 0.137 (`cpp_conv_result/3`),
+  and through any before, so `is_convertible<const locale &, string_view>` held through string_view's `const char *`
   constructor, and `std::format(__os.getloc(), fmt, hms)` chose the overload whose format string the locale converted to.
-  (0.83, 0.137)
+  A `std::nullptr_t` parameter, which resolves to `void *`, takes a `std::nullptr_t` alone (0.200, `cpp_nullptr_arg/1`):
+  `unique_ptr(nullptr_t)` converted an `int *`. (0.83, 0.137, 0.200)
 - A constructor TEMPLATE converts an argument only where its one parameter deduces from the argument's type, the
-  defaults bind and the head's and trailing requires-clauses hold (`cpp_ctor_tmpl_takes`; a parameter pack keeps the
-  old answer). A constructor over a template-id converts an instance only where the substituted parameter IS the
-  argument's class (`cpp_class_converts`). A pointer to one arithmetic type takes no pointer to another
-  (`cpp_arith_pointee_differs`). Why: `std::format(L"...")` held the narrow overload through
-  `basic_format_string<char, ...>`, and `std::vformat` the wide one through `basic_format_args<wformat_context>`.
-  `wideformat.cpp`, `ctorctx.cpp`. (0.115)
+  defaults bind, the head's and trailing requires-clauses hold and its substituted parameter takes the value by a
+  standard conversion (`cpp_ctor_tmpl_takes`, `cpp_tmpl_type_ok/4`, 0.200: libc++'s `template <__enable_if_t<...> = 0>
+  basic_string(const _CharT *)` deduces nothing from its parameter and took an `int`); a parameter pack deduces its one
+  element from the value (0.200: it took any value, and `tuple(_Up &&...)` converted an `int` to a `tuple<string>`). A
+  constructor over a template-id converts an instance only where the substituted parameter IS the argument's class
+  (`cpp_class_converts`). A pointer to one arithmetic type takes no pointer to another (`cpp_arith_pointee_differs`).
+  Why: `std::format(L"...")` held the narrow overload through `basic_format_string<char, ...>`, and `std::vformat` the
+  wide one through `basic_format_args<wformat_context>`. `wideformat.cpp`, `ctorctx.cpp`. (0.115, 0.200)
 - A class argument converts to a non-class parameter only through a conversion operator whose result fits it
   ([over.ics.user]; `cpp_conv_result/3`; any one, `cpp_has_conversion/1`, only where the parameter does not resolve).
   Why: `operator basic_string_view()` let libc++ 18's char inserter take a string. (0.94)
@@ -6285,7 +6303,15 @@ A lambda is a class of its captures (`library/ccl_cpp.pl`). A fixture named alon
   function of a library class -- its own, a member template's, else the first base's that declares the name
   (`cpp_nx_method_quals/3`) -- none of whose declarations is noexcept (`v.at(0)`, `v.push_back(x)` and `in.good()` false,
   `v.size()` and `s.c_str()` true). A library function counted as noexcept until 0.193, libc++ running its no-exceptions
-  configuration; a destructor counts as noexcept ([except.spec]/9). `noexceptlib.cpp`. (0.110, 0.188, 0.193)
+  configuration; a destructor counts as noexcept ([except.spec]/9). `noexceptlib.cpp`. And since 0.200 the CONSTRUCTORS
+  A CALL RUNS ([except.spec]/6: an implicit call of a constructor for a function argument; `cpp_nx_args_init_throw/2`,
+  `cpp_nx_class_named/2`): a by-value parameter of a class initialized by the constructor that takes the argument -- none
+  for a prvalue of its class, C++17's elision -- and a reference to a class bound to a temporary of another value, for a
+  function template whose arguments the call gives and for a plain function of one overload of the call's arity; a
+  temporary `T(args)` or `T{args}` of a class by its constructor, an aggregate's aside. Each was nothrow whatever
+  constructor ran: libc++ 18's `is_nothrow_convertible` is `noexcept(__test_noexcept<_To>(declval<_Fm>()))` over
+  `template <class _Tp> void __test_noexcept(_Tp) noexcept;`, and `is_nothrow_convertible_v<int, TH>` over a `TH(int)`
+  that may throw was 1. `nxctors.cpp`, `valtraitsnx.cpp` (C++20). (0.110, 0.188, 0.193, 0.200)
 - A CALL OF A FUNCTION WITH A CONDITIONAL NOEXCEPT ([except.spec]/2, /13; 0.199, reader 151, lowering 112): the condition
   is evaluated for each specialization. The desugaring substitutes it with an instance's bindings, its packs' among them
   (`cpp_subst_nxsto/3`), keeps it beside the emitted function's name (`'$cpp_nxdef'`; `'$cpp_nxsrc'` for a definition not
@@ -6795,10 +6821,43 @@ A lambda is a class of its captures (`library/ccl_cpp.pl`). A fixture named alon
   its I-th dimension, 0 past its rank or for an unbounded one (`cpp_array_rank/2`, `cpp_array_extent/3`): libc++'s
   `rank_v` and `extent_v` are the builtins where clang has them, and nothing answered them (`trait_unknown`), which no
   program met before a literal was an array.
-- Constructible and assignable unref the argument and count constructor templates, defaulted constructors, a made
-  implicit default constructor (`cpp_constructible`, `cpp_ctor_arity_fits`) and an assignment template
-  (`cpp_assign_member` over `'$cpp_mt'`). Else `std::tie(a, std::ignore) = f()` read an int as an address. (0.46, 0.90,
-  0.93)
+- THE TRAITS OF A CONSTRUCTION, A CONVERSION AND AN ASSIGNMENT ASK THE MEMBERS THAT TAKE THE VALUES (0.200;
+  [meta.unary.prop], [meta.rel], [dcl.init], [dcl.init.ref], [over.match.ctor]; `cpp_constructible/2`, `cpp_convertible/2`,
+  `cpp_assignable/2`), `declval<A>()` an lvalue where A is an lvalue reference and an rvalue else (`cpp_value_cat/3`). A
+  reference binds as [dcl.init.ref] has it (`cpp_ref_constructible/3`, a reference to a reference collapsed first,
+  `cpp_ref_collapsed/2`): one to a non-const type an lvalue of a compatible type, or the lvalue a class value's conversion
+  function gives; one to a const type, and an rvalue reference, a compatible value or a temporary of what converts to the
+  referent, an rvalue reference no lvalue of a related type. A class from its own value, or a derived one's, takes its copy
+  or its move where the one overload resolution chooses is there and not deleted (`cpp_copy_there/2`): an rvalue the move,
+  an lvalue or a const value the copy. A copy or a move is as the class declares it (`'$cpp_sdecl'/4`, noted by
+  `cpp_note_specials/2` before the record drops a deleted member): one declared `= delete` is deleted; the implicit copy is
+  deleted by a declared move constructor or move assignment; the implicit move is not declared beside a declared copy
+  constructor, copy or move assignment or destructor, and an rvalue then takes the copy; a defaulted or implicit one is
+  deleted where a base, an empty one among them, or a data member cannot copy or move (`cpp_parts_copyable/2`), and a
+  union's where a variant member's class is not trivial (`cpp_union_untrivial/2`; [class.copy.ctor]/6, /8, /10,
+  [over.match.funcs]/8). From other values a constructor takes them (`cpp_ctor_takes/2`): a written one, `explicit` or not,
+  whose parameters take them in order, or a constructor template whose parameters deduce from them, a pack its elements
+  (`cpp_deduce_pack/5`), its defaults, its constraints and its requires-clause holding, whose substituted parameters take
+  them (`cpp_tmpl_type_ok/4`: a `std::nullptr_t` parameter a `std::nullptr_t` alone, `cpp_nullptr_arg/1`, and a non-const
+  lvalue reference an lvalue alone); and no constructor declared deleted takes them exactly (`basic_string(nullptr_t) =
+  delete`, C++23). A scalar takes what converts to it, by direct-initialization a null pointer to `bool` too, and a class
+  value's `explicit` conversion function whose result is the scalar's type, a qualification conversion at most
+  ([over.match.conv]/1.1: `explicit operator bool` gives no `int`). A conversion is a copy-initialization (`cpp_converts/3`,
+  its mode `std` the standard conversions alone): no `explicit` constructor; one user-defined conversion at most
+  ([class.conv]/4), so a class value never reaches a converting constructor's non-class parameter, and a converting
+  constructor template's substituted parameter takes the value by a standard conversion; an arithmetic value to no
+  enumeration and from no scoped one ([dcl.enum]/10); a pointer to `bool`; `void *` to no other pointer, `std::nullptr_t`
+  to any (`cpp_nullptr_written/1`) and to `std::nullptr_t` nothing else; a class value to a scalar through a conversion
+  function whose result converts to it. An assignment to a scalar needs a non-const lvalue reference ([expr.ass]/1); a
+  class's copy or move assignment is chosen as its constructor is, the implicit one also deleted by a const or a reference
+  data member (`cpp_assign_there/2`; [class.copy.assign]/7), as a plain struct's or union's is (`cpp_plain_unassignable/1`,
+  through its arrays and the records it holds), and any other `operator=` takes the value as a parameter does. Each was
+  asked of the arity alone or of any one-parameter member: `is_constructible_v<std::string, int>`,
+  `is_convertible_v<int, std::string>`, `is_copy_constructible_v<std::unique_ptr<int>>`, `is_assignable_v<std::vector<int>
+  &, int>` and `is_assignable_v<int, int>` were 1. A value the tables cannot type keeps the old answer
+  (`cpp_untyped_arg/1`). `std::tie(a, std::ignore) = f()` still takes `__ignore_type`'s assignment template.
+  `valtraits.cpp`, `valtraits20.cpp` (C++20), `valtraitsown.cpp`, `valtraitsconv.cpp`, `valtraitsspecial.cpp`,
+  `valtraitsmore.cpp`. (0.46, 0.90, 0.93, 0.200)
 - AN AGGREGATE IS CONSTRUCTIBLE FROM ITS ELEMENTS' VALUES from C++20 on ([meta.unary.prop]: `T t(declval<Args>()...)`, P0960;
   0.197; `cpp_agg_constructible/2` ahead of `cpp_constructible/2`'s clauses): as many values as it has elements at most -- its
   direct bases, then its data members, a union its first member -- each convertible to its element in order;
@@ -8753,18 +8812,18 @@ A lambda is a class of its captures (`library/ccl_cpp.pl`). A fixture named alon
 - Ubuntu 24.04 on x86_64 (clang and LLVM 18, glibc, libc++ 18 and 21) is a host since 0.87. Every gate but the C++ one
   is GREEN there since 0.93, and all seven since 0.95. Every step from 0.93 on is gated there, but the save points
   0.112, 0.113, 0.117, 0.122 to 0.125, 0.130, 0.131 and 0.143 (0.143's C gates and cross gate ran, its libc++ gates did
-  not; the others were gated by the steps after them). The last full run is 0.199's, over cocolog 2.11.4 (the Findings),
-  on one tree, over fresh HOMEs (the reader version moved): over libc++ 18 all nine GREEN (the flow gate's one finding
-  in 95 s, reader 4 s, compile 15 s, driver 13 s, objects 4 s, proof, the cross gate in 275 s with its C++ part for
-  aarch64, the library read in 327 s (0.198's 319 s; 111 other headers warmed, not `<sys/wait.h>`: the names of its
-  warm's files held its slash, which 0.200 mends), the C++ gate in 873 s (0.198's 859 s) with 670 of 676 fixtures ok,
-  the skips are `atomicref`, `joinwith`, `stdoptionalref`, `tzone`, `vbaseof` and `zipadjacent`, the two units, the 29
-  refusals, the four of the safe part and the two static assertions); over libc++ 21 the library read (283 s, peak 787
-  MB; 0.198's 282 s) and the C++ gate (875 s, peak 2151 MB; 0.198's 837 s; 674 of 676 ok, the skips `stdoptionalref` and
-  `zipadjacent`) GREEN -- the C gates do not read libc++. The headers' reads, summed, took 1210 s over 134 over libc++
-  18 and 1035 s over 21 (0.198's 1166 s and 1033 s over 134; 0.181's 4313 s and 4116 s over 114, before a read linear in
-  its items); the fixtures' builds 2927 s over 670 and 2944 s over 674 (0.198's 2866 s over 660 and 2904 s over 664)
-  (HISTORY.md, 0.199). The chains of 0.165 to 0.198 are in HISTORY.md, 0.166 to 0.199.
+  not; the others were gated by the steps after them). The last full run is 0.200's, over cocolog 2.11.4 (the Findings),
+  on one tree, over fresh HOMEs: over libc++ 18 all nine GREEN (the flow gate's one finding in 94 s, reader 4 s,
+  compile 15 s, driver 13 s, objects 4 s, proof, the cross gate in 283 s with its C++ part for aarch64, the library read
+  in 346 s (0.199's 327 s; 113 other headers warmed, `<sys/wait.h>` among them), the C++ gate in 938 s (0.199's 873 s)
+  with 679 of 685 fixtures ok, the skips are `atomicref`, `joinwith`, `stdoptionalref`, `tzone`, `vbaseof` and
+  `zipadjacent`, the two units, the 29 refusals, the four of the safe part and the two static assertions); over libc++
+  21 the library read (306 s, peak 1094 MB; 0.199's 283 s) and the C++ gate (1020 s, peak 2522 MB; 0.199's 875 s; 683
+  of 685 ok, the skips `stdoptionalref` and `zipadjacent`) GREEN -- the C gates do not read libc++. The headers' reads,
+  summed, took 1290 s over 136 over libc++ 18 and 1136 s over 21 (0.199's 1210 s and 1035 s over 134; 0.181's 4313 s
+  and 4116 s over 114, before a read linear in its items); the fixtures' builds 3143 s over 679 and 3482 s over 683
+  (0.199's 2927 s over 670 and 2944 s over 674), the box shared with the next step's probes from the C++ gate over 18 on
+  (HISTORY.md, 0.200). The chains of 0.165 to 0.199 are in HISTORY.md, 0.166 to 0.200.
   Two libc++ passes are one gate: `LLVM=/usr/lib/llvm-18` and `LLVM=/usr/lib/llvm-21`
   choose the tree the chain reads and links. libc++ 22 (the newest tree, which a run without `$LLVM` reads) is no
   gate: 0.182 built its vector and its C++23 views by hand (`zipadjacent.cpp`, which its `.needs` skips over 18 and
@@ -8875,6 +8934,18 @@ A lambda is a class of its captures (`library/ccl_cpp.pl`). A fixture named alon
   (two virtual overloads of one name and arity, one overridden), `virtualdefault` (a virtual call that leaves a defaulted
   argument out), `anonparam` (an unnamed by-value parameter destroyed), `rangeadl` (a range-for by the free `begin` and
   `end` of two namespaces), `downcast` (`static_cast` from a second base to the derived class, a pointer and a reference).
+- Forms of 0.200, the traits of one value: `valtraits` (`is_convertible`, `is_constructible` and `is_assignable` over
+  `std::string`, `string_view`, `vector`, `optional`, `unique_ptr`, `shared_ptr`, `function` and `pair`), `valtraits20`
+  (C++20: the program's explicit, converting and two-parameter constructors; `tuple`, `variant`, `any` and `string_view`;
+  the nothrow traits; `unique_ptr` and `shared_ptr` from each other), `valtraitsown` (the program's classes: a deleted
+  copy, a constructor template whose parameter names no parameter of its own, a forwarding and a constrained template, an
+  assignment from another type), `valtraitsconv` (a class to a scalar through a conversion function, an explicit one
+  among them, and a scalar to a scalar or a pointer), `valtraitsspecial` (deleted, defaulted and implicit copies and
+  moves, the members and bases that delete them, references), `valtraitsmore` (references in a tuple and a pair, a
+  union's implicit copy, a scalar by an explicit conversion function, `std::nullptr_t`), `valtraitsnx` (C++20:
+  `is_nothrow_convertible` through a constructor that may throw), `nxctors` (C++20: the noexcept operator over the
+  constructors a call runs) and `reqclassval` (C++20: a requires-clause that builds class values and calls their
+  constexpr members and operators).
 - Forms of 0.199, what the probes of 0.198 found older: `nxcond` (a conditional `noexcept(E)` per specialization: a
   function template's, a class template's members', `noexcept(true)` and `noexcept(false)`, a constexpr call in the
   condition, a forwarding template's condition asking another's, `is_nothrow_invocable`, `is_nothrow_swappable` and
@@ -9330,7 +9401,10 @@ alias, an overloaded assignment by value's order, and an empty data member no da
 already, the audit's record of them `sassertmsg.cpp`, `constexprplace.cpp`, `staticcallop.cpp`, `packindexdel.cpp`; 0.199:
 what its probes found older -- a conditional `noexcept(E)` evaluated per specialization, NRVO, a value template argument
 of its parameter's type, `decltype` of a static data member as declared, an empty base in the way of a member of its
-type -- and a free function template's trailing requires-clause).
+type -- and a free function template's trailing requires-clause); the fifth, the traits of one value, is 0.200's (the
+Traits answered topic: a construction, a conversion and an assignment asked of the members that take the values and of
+the special members a class declares; a constraint folded through the evaluator; the constructors a call runs, to the
+noexcept operator).
 
 1. C++'S CORE LANGUAGE, WHAT 0.199 LEFT: a prototype's trailing requires-clause is dropped (a definition's joins its
    head's); an enumeration's value template argument is an `int` -- a placeholder's `X<Color::Red>` and `X<0>` are one
@@ -9341,12 +9415,14 @@ type -- and a free function template's trailing requires-clause).
    spelled, which no symbol here needs (the program's functions keep this compiler's names); and the limits of 0.198: a
    typedef of a noexcept function type keeps no mark, `&nf` keeps it in `decltype` alone, a scoped `__has_cpp_attribute`
    answers 0, and a class member's and a library header's static assertions are not asked.
-2. THE TRAITS OF ONE VALUE: `is_convertible_v<int, std::string>`, `is_convertible_v<char, std::string>` and
-   `is_constructible_v<std::string, int>` answer 1 where clang++ answers 0 (0.196 too): a constructor template whose
-   parameter does not depend on its own template parameters takes any argument (`cpp_ctor_tmpl_takes/5` over libc++'s
-   `template <__enable_if_t<...> = 0> basic_string(const _CharT *)`), and `cpp_constructible/2` of one value checks the
-   arity alone. libc++ asks these traits in pair, tuple, optional, variant and the ranges concepts, so the step needs a wide
-   net.
+2. THE TRAITS, WHAT 0.200 LEFT: `std::nullptr_t` is `void *` to the tables, so a `void *` value passes for a
+   `std::nullptr_t` (`is_convertible_v<void *, std::unique_ptr<int>>` is 1, clang++'s 0); and the noexcept operator asks
+   the constructors of a call's arguments only for a plain function of one overload of the call's arity and a function
+   template called with its arguments given, and a temporary's only where an unqualified class name names it -- a member
+   function's call, an overload set's, a function template's whose arguments it deduces, `std::string("x")` and a
+   conversion function's call are nothrow to it (each is 1 where clang++ answers 0, `lim3.cpp` of 0.200's entry in
+   HISTORY.md); the general road is the noexcept operator over the desugared call, whose temporaries and conversions are
+   calls there.
 3. THE ALLOCATION FUNCTIONS: the program's `operator new` and `operator delete`, the aligned, sized, class-specific and
    destroying forms, replaceable ones.
 4. libc++'S FACILITIES the fixtures do not reach yet: `<future>`, `std::jthread`, `<regex>`, `std::expected`, `<mdspan>`,
