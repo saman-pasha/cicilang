@@ -455,7 +455,7 @@ ccl_resolve_base([typedef(scoped([global], N))], Q, T) :- atom(N), ccl_lang(cpp)
 %% resolved it before, so a `typeof' reached the lowering as a specifier it could not take
 ccl_resolve_base([typeof(unqual(X))], Q, T) :- !, ccl_resolve_base([typeof(X)], [], T0), ccl_strip_quals(T0, T1), ccl_add_quals(Q, T1, T).   % C23's typeof_unqual: the top-level qualifiers off
 ccl_resolve_base([typeof(X)], Q, T) :- ccl_type_term(X), !, ccl_resolve_type(X, T0), ccl_add_quals(Q, T0, T).
-ccl_resolve_base([typeof(X)], Q, T) :- ccl_type_of(X, T0), T0 \== unknown, !, ccl_resolve_type(T0, T1), ccl_add_quals(Q, T1, T).
+ccl_resolve_base([typeof(X)], Q, T) :- ccl_type_of(X, T0), T0 \== unknown, !, ccl_resolve_type(T0, T1), ccl_place_free(T1, T2), ccl_add_quals(Q, T2, T).   % the type alone, where its object lies off (0.203)
 ccl_resolve_base([decltype(E)], Q, base(Q, [unsigned, long])) :- ccl_lang(cpp), ccl_sizeof_expr(E), !.   % C++: libc++ spells size_t `decltype(sizeof(int))', and the type of a sizeof is size_t: the concrete type here, or the chain turns
 ccl_resolve_base([decltype(paren(E))], _, T) :- ccl_lang(cpp), ccl_type_of(E, T0), T0 \== unknown, !,   % `decltype((x))': an lvalue's, a reference (0.197; the desugaring's cpp_decltype_paren/2 decides it in full)
     ( E = id(N), atom(N), ccl_enum_value(N, _) -> T = T0 ; ccl_unref(T0, T1), T = ref([], T1) ).
@@ -511,6 +511,7 @@ ccl_layout_marker(virtual_base).                                   % a class who
 ccl_layout_marker(virtual_base_of(_)).                             % ... and its base-subobject form `C.nv', the shared base not laid out (a diamond's later path)
 ccl_layout_marker(vbase_ref(_, _, _)).                           % A LATER VIRTUAL BASE's slot `$base$K' (0.172): a pseudo-member of no storage, reached through the table's vbase offset at its place
 ccl_layout_marker(empty_sub(_)).                                   % AN EMPTY BASE at offset 0 (0.199): no storage, an empty subobject in the way of a member of its type (ccl_empty_seed/2)
+ccl_layout_marker(packed(_)).                                      % GCC'S `packed' ON A STRUCT OR A UNION (0.203): its members aligned at one, a bitfield at the next bit (ccl_member_align/4)
 ccl_layout_marker('$nonpod').                                      % A CLASS THAT IS NOT A POD FOR THE PURPOSE OF LAYOUT (the Itanium ABI's term, as clang decides it; 0.135): as a base or a `[[no_unique_address]]' member it takes its DATA size and lends its tail padding (ccl_data_size/2)
 %% which kind of virtual-base struct a type is: `complete' (the base laid LAST, at a place only the complete object knows)
 %% or `nv(T)' (the base elsewhere in the complete object); either is reached through the vtable, never statically
@@ -927,7 +928,7 @@ ccl_unsettled_type(T) :- T \== unknown, ccl_resolve_type(T, base(_, [typedef(X)]
 %% an enumerator's type: its enum in C++ where the table names a named enum still in the tag table, else an int
 %% (C's, and an unnamed enum's)
 ccl_enumerator_type(N, L, T) :- ccl_lang(cpp), ccl_enumerator_tag(N, L, Tag), ccl_tag(Tag, Ms), Ms \== none, !, T = base([], [typedef(Tag)]).
-ccl_enumerator_type(N, L, T) :- \+ ccl_lang(cpp), ccl_c_std(S), S >= 23, ccl_enumerator_tag(N, L, Tag), ccl_tag(Tag, Ms), Ms = [enum_base(_)|_], !, T = base([], [enum(Tag, Ms)]).   % C23 (6.7.2.2/15; 0.194): an enumerator of an enum with a FIXED underlying type is of the enum's type, its size the base's -- `sizeof(Y)' of `enum Big : unsigned long long' was an int's 4
+ccl_enumerator_type(N, L, T) :- \+ ccl_lang(cpp), ccl_c_std(S), S >= 23, ccl_enumerator_tag(N, L, Tag), ccl_tag(Tag, Ms), Ms = [enum_base(B)|_], \+ ( B = base(BQ, _), memberchk(packed_enum, BQ) ), !, T = base([], [enum(Tag, Ms)]).   % C23 (6.7.2.2/15; 0.194): an enumerator of an enum with a FIXED underlying type is of the enum's type, its size the base's -- `sizeof(Y)' of `enum Big : unsigned long long' was an int's 4
 ccl_enumerator_type(N, L, T) :- memberchk(N-V, L), ccl_wide_enum_value(V), !, ( V = big(A) -> ccl_big_type(A, T) ; T = base([], [long]) ).   % a value no int holds is typed as a literal of it (0.160), as the lowering spells it
 ccl_enumerator_type(_, _, base([], [int])).
 ccl_wide_enum_value(V) :- ( V = big(_) -> true ; integer(V), ( V > 2147483647 ; V < -2147483648 ) ).
@@ -958,24 +959,46 @@ ccl_pow2_at_least(X, P0, P) :- ( P0 >= X -> P = P0 ; P1 is P0 * 2, ccl_pow2_at_l
 %% arrays and functions, the specifiers sorted with `signed' dropped (but on a char), `int' dropped beside short or
 %% long and supplied for a bare `unsigned', so `unsigned' and `unsigned int' are one type as C has them
 ccl_type_canon(T, K) :- ccl_resolve_type(T, T1), ccl_type_canon_(T1, K).
-ccl_type_canon_(base(Q, S), base(Q1, K)) :- !, msort(Q, Q1), msort(S, S1), ( memberchk(char, S1) -> S2 = S1 ; delete(S1, signed, S2) ),
+ccl_type_canon_(base(Q, S), base(Q1, K)) :- !, ccl_layout_free(Q, Q0), msort(Q0, Q1), msort(S, S1), ( memberchk(char, S1) -> S2 = S1 ; delete(S1, signed, S2) ),
     ( ( memberchk(short, S2) ; memberchk(long, S2) ) -> delete(S2, int, S3) ; S2 == [unsigned] -> S3 = [int, unsigned] ; S3 = S2 ), ccl_canon_specs(S3, K).
 ccl_type_canon_(ptr(_, T), ptr(K)) :- !, ccl_type_canon(T, K).
 ccl_type_canon_(arr(N, T), arr(V, K)) :- !, ( ccl_const_eval(N, V) -> true ; V = N ), ccl_type_canon(T, K).
 ccl_type_canon_(fn(R, Ps, V), fn(RK, PKs, V)) :- !, ccl_type_canon(R, RK), findall(PK, ( member(param(PT, _), Ps), ccl_type_canon(PT, PK) ), PKs).
 ccl_type_canon_(T, T).
+%% the qualifiers that say where an object lies, not what it is -- GCC's `packed' and `aligned', a typedef's `aligned', a place's
+%% alignment (0.203) -- are no part of a type's identity: `_Generic(&p.i, int *: 1, default: 0)' over a packed member is 1, as clang has it
+ccl_layout_free([], []).
+ccl_layout_free([X|Xs], Ys) :- ( ccl_layout_q(X) -> Ys = Ys1 ; Ys = [X|Ys1] ), ccl_layout_free(Xs, Ys1).
+ccl_layout_q(packed).
+ccl_layout_q(aligned(_)).
+ccl_layout_q(taligned(_)).
+ccl_layout_q(ualign(_)).
+%% WHERE AN OBJECT LIES IS NO PART OF THE TYPE `typeof' NAMES (0.203; GCC's manual, Typeof: the type of the expression): a packed
+%% member's `packed', an object's `aligned(E)' and a place's `ualign(K)' are off, through an array to its element -- a typedef's own
+%% alignment, `taligned(E)', stays, as clang has it. `__typeof__(q.i)' of `int i __attribute__((packed))' was aligned at one
+ccl_place_free(base(Q0, S), base(Q, S)) :- !, ccl_place_free_q(Q0, Q).
+ccl_place_free(ptr(Q0, P), ptr(Q, P)) :- !, ccl_place_free_q(Q0, Q).
+ccl_place_free(arr(N, E0), arr(N, E)) :- !, ccl_place_free(E0, E).
+ccl_place_free(T, T).
+ccl_place_free_q([], []).
+ccl_place_free_q([X|Xs], Ys) :- ( ( X == packed ; X = aligned(_) ; X = ualign(_) ) -> Ys = Ys1 ; Ys = [X|Ys1] ), ccl_place_free_q(Xs, Ys1).
 ccl_canon_specs([], []).
 ccl_canon_specs([S|Ss], [K|Ks]) :- ( S = struct(Tag, _) -> K = struct(Tag) ; S = union(Tag, _) -> K = union(Tag) ; S = enum(Tag, _) -> K = enum(Tag) ; K = S ), ccl_canon_specs(Ss, Ks).
 ccl_decay(T, D) :- ccl_resolve_type(T, T1), ( T1 = arr(_, E) -> D = ptr([], E) ; T1 = fn(_, _, _) -> D = ptr([], T1) ; D = T ).
 
 %% ---- sizes, LP64 ---------------------------------------------------------------------
 ccl_size_of(T, N) :- ccl_resolve_type(T, T1), ccl_size_align(T1, N, _).
+ccl_size_align(ptr(Q, _), 8, A) :- memberchk(packed, Q), !, ccl_q_align(Q, 1, A).   % GCC's `packed' on a member (0.203): its alignment one, or what its own `aligned' says
+ccl_size_align(ptr(Q, _), 8, A) :- memberchk(taligned(E), Q), ccl_const_eval(E, A0), !, ccl_q_align(Q, A0, A).   % a TYPEDEF's own (0.203): the type's alignment, lower or higher, which an object's own may raise
+ccl_size_align(ptr(Q, _), 8, A) :- memberchk(aligned(E), Q), ccl_const_eval(E, A0), !, A is max(8, A0).   % ... and GCC's `aligned' on a pointer variable or member, `_Alignas' on a pointer object (0.203)
 ccl_size_align(ptr(_, _), 8, 8) :- !.
 ccl_size_align(block(_, _), 8, 8) :- !.
 ccl_size_align(fn(_, _, _), 8, 8) :- !.
 ccl_size_align(memptr(_, _, F), 16, 8) :- ccl_resolve_type(F, fn(_, _, _)), !.   % A POINTER TO MEMBER FUNCTION IS THE ITANIUM ABI'S `{ ptr, adj }' (0.100): the function's address, or 1 + the slot's byte offset in the table for a virtual one, and the this adjustment (0 here: a base's address is made by the conversion at the call)
 ccl_size_align(memptr(_, _, _), 8, 8) :- !.                                    % a pointer to member: a function's is the address of the one function emitted for it, a data member's its byte offset (0.99)                          % a pointer to member function: the address of the one function emitted for it
 ccl_size_align(arr(NE, E), N, A) :- !, ( ccl_size_align(E, EN0, A0) -> EN = EN0, A = A0 ; ccl_resolve_type(E, E1), ccl_size_align(E1, EN, A) ), ( ccl_const_eval(NE, K) -> N is K * EN ; N = 0 ).   % a flexible member, `T a[]' or `own T *a[n]': no bytes of its own; the ELEMENT resolved (the resolver leaves an array as it is, and `std::string s[2]' had no size)
+ccl_size_align(base(Q, S), N, A) :- memberchk(packed, Q), !, ccl_size_align(base([], S), N, _), ccl_q_align(Q, 1, A).   % a PACKED MEMBER (GCC's, 0.203): its own size, aligned at one or at what its `aligned' says
+ccl_size_align(base(Q, S), N, A) :- memberchk(taligned(E), Q), ccl_const_eval(E, A0), !, ccl_size_align(base([], S), N, _), ccl_q_align(Q, A0, A).   % a TYPEDEF's own (0.203): its size unchanged, as clang has it
 ccl_size_align(base(Q, S), N, A) :- memberchk(aligned(E), Q), ccl_const_eval(E, A0), !, ccl_size_align(base([], S), N, A1), A is max(A0, A1).   % `_Alignas(E)' on a member or an object ([dcl.align]; 0.99): never below the natural alignment -- and THE SIZE UNCHANGED (0.112): an alignment specifier moves where an object or a member lies, never how big it is; rounded, `_Alignas(16) int x' had `sizeof x' 16, the member after it lay 16 bytes on, and on an array, whose element carries the qualifier, every element counted at the alignment: `alignas(S) unsigned char buf[sizeof(S)]' was 192 bytes to sizeof for 24, and a loop over it wrote past the stack slot
 ccl_size_align(base(_, S), N, A) :- memberchk(bitint(E), S), !, ccl_bitint_width(E, W),     % _BitInt(N): the smallest integer type that holds it up to 64 bits; past that, whole eightbytes aligned 8 (the psABI)
     ( W =< 8 -> N = 1 ; W =< 16 -> N = 2 ; W =< 32 -> N = 4 ; N is ((W + 63) // 64) * 8 ), ( N > 8 -> A = 8 ; A = N ).
@@ -991,6 +1014,7 @@ ccl_size_align(base(_, [enum(_, _)]), 4, 4) :- !.
 ccl_size_align(base(_, [enum_class(_, _)]), 4, 4) :- !.
 ccl_size_align(ref(_, _), 8, 8) :- !.                                            % C++: a reference is a pointer in memory
 ccl_size_align(rref(_, _), 8, 8) :- !.
+ccl_q_align(Q, Min, A) :- ( memberchk(aligned(E), Q), ccl_const_eval(E, A0) -> A is max(Min, A0) ; A = Min ).
 %% a tag's size and alignment: the members' own, the empty class's byte, and `alignas' where the class
 %% states one ([dcl.align]: never smaller than the natural alignment, and the size rounds up to it)
 ccl_tag_size(Ms, N0, A0, N, A) :- ccl_class_size(Ms, N0, N1), ccl_align_as(Ms, A0, A), ccl_round_up(N1, A, N).
@@ -1050,7 +1074,8 @@ ccl_struct_layout(Ms, _, _, N, Al) :- ccl_members_layout(Ms, _, N, Al).
 %% a struct's layout is asked at every member access: kept per member list
 ccl_members_layout(Ms, Lays, Size, Align) :- ccl_members_layout(Ms, Lays, Size, Align, _).
 ccl_members_layout(Ms, Lays, Size, Align, DSize) :- ccl_cached('$ccl_laycache', Ms, lay(Lays, Size, Align, DSize), ccl_members_layout_nocache(Ms, Lays, Size, Align, DSize)).   % ... and the DATA SIZE beside them (0.135): the bytes up to the end of the last data member, the tail padding left out
-ccl_members_layout_nocache(Ms, Lays, Size, Align, DSize) :- ccl_empty_seed(Ms, Seen0), ccl_members_layout_(Ms, 0, 1, acc(Seen0, 0), Lays, Bits, Align, EE), DSize is (Bits + 7) // 8, Bytes is max(DSize, EE), ccl_round_up(Bytes, Align, Size).
+ccl_members_layout_nocache(Ms, Lays, Size, Align, DSize) :- ccl_empty_seed(Ms, Seen0), ( memberchk(packed(_), Ms) -> Pk = packed ; Pk = natural ),   % a PACKED struct (GCC's, 0.203)
+    ccl_members_layout_(Ms, 0, 1, acc(Seen0, 0, Pk), Lays, Bits, Align, EE), DSize is (Bits + 7) // 8, Bytes is max(DSize, EE), ccl_round_up(Bytes, Align, Size).
 %% THE EMPTY BASES' SUBOBJECTS start the walk's (0.199; the Itanium ABI 2.4 II.3, clang's EmptySubobjectMap): an empty base lies at
 %% offset 0 and takes no byte, and a member of its type -- `[[no_unique_address]]' or plain -- is put past it: `struct X : E {
 %% [[no_unique_address]] E e; }' is two bytes, e at 1, `struct Z : E { E e; }' too, as clang++ lays them; e lay at 0
@@ -1062,9 +1087,9 @@ ccl_empty_seed(Ms, Seen) :- findall(Tg-R, ( member(empty_sub(T), Ms), ccl_resolv
 %% while such a subobject is in the way. It takes no bytes of the data, and the class's size still covers its byte.
 %% `struct { int x; [[no_unique_address]] E a, b; }' is `a' at 0, `b' at 4, eight bytes; `struct { [[no_unique_address]]
 %% E a; char c; }' one byte, `c' at 0. Before, such a member lay one past the members before it (0.89's not-done).
-ccl_members_layout_([], Bits, Al, acc(_, EE), [], Bits, Al, EE).
-ccl_members_layout_([member(T, N, W0)|Ms], Bit0, Al0, acc(Seen, EE0), Lays, Bits, Al, EE) :-
-    ccl_resolve_type(T, T1), ccl_size_align(T1, S, A), !, ABits is A * 8,   % a member that has a size is laid, ONCE (0.201): the last clause skips only one that has none
+ccl_members_layout_([], Bits, Al, acc(_, EE, _), [], Bits, Al, EE).
+ccl_members_layout_([member(T, N, W0)|Ms], Bit0, Al0, acc(Seen, EE0, Pk), Lays, Bits, Al, EE) :-
+    ccl_resolve_type(T, T1), ccl_size_align(T1, S, A0), !, ccl_member_align(Pk, T1, A0, A), ABits is A * 8,   % a member that has a size is laid, ONCE (0.201): the last clause skips only one that has none
     (   W0 == no_unique_address, ccl_empty_layout(T1)
     ->  ccl_empty_subs(T1, Subs), ccl_empty_offset(Subs, A, Bit0, Seen, Off), Bit1 = Bit0, Al1 is max(Al0, A),   % no bytes, its ALIGNMENT kept -- libc++ marks every container's allocator and comparator with it
         EE1 is max(EE0, Off + S), ccl_subs_at(Subs, Off, Seen, Seen1),
@@ -1076,15 +1101,30 @@ ccl_members_layout_([member(T, N, W0)|Ms], Bit0, Al0, acc(Seen, EE0), Lays, Bits
         ( ccl_empty_layout(T1) -> ccl_empty_subs(T1, Subs), ccl_subs_at(Subs, Off, Seen, Seen1) ; Seen1 = Seen ),   % a plain member of an empty class is an empty subobject too, and its byte is in the way of a marked one of its type
         Lays = [lay(N, T, Off, none)|Lays1]
     ;   ccl_bit_width(W0, W), Seen1 = Seen, EE1 = EE0,
-        (   W =:= 0 -> ccl_round_up(Bit0, ABits, Bit1), Al1 = Al0, Lays = Lays1
-        ;   ( (Bit0 mod ABits) + W > ABits -> ccl_round_up(Bit0, ABits, Start) ; Start = Bit0 ),
+        (   W =:= 0 -> ( ccl_packed_field(Pk, T1) -> Bit1 = Bit0 ; ccl_round_up(Bit0, ABits, Bit1) ), Al1 = Al0, Lays = Lays1
+        ;   ( ccl_packed_field(Pk, T1) -> Start = Bit0 ; (Bit0 mod ABits) + W > ABits -> ccl_round_up(Bit0, ABits, Start) ; Start = Bit0 ),
             UnitStart is (Start // ABits) * ABits, Off is UnitStart // 8, BOff is Start - UnitStart,
             Bit1 is Start + W, Al1 is max(Al0, A),
             Lays = [lay(N, T, Off, bits(BOff, W, S))|Lays1] ) ),
-    ccl_members_layout_(Ms, Bit1, Al1, acc(Seen1, EE1), Lays1, Bits, Al, EE).
+    ccl_members_layout_(Ms, Bit1, Al1, acc(Seen1, EE1, Pk), Lays1, Bits, Al, EE).
 %% A LAYOUT IS OVER DATA MEMBERS: a C++ class's tag carries its constructors, methods and typedefs beside them, and
 %% a nested one reaches the layout as the reader gave it -- libc++'s `union __rep' has three constructors.
 ccl_members_layout_([_|Ms], Bit0, Al0, Acc, Lays, Bits, Al, EE) :- ccl_members_layout_(Ms, Bit0, Al0, Acc, Lays, Bits, Al, EE).
+%% A PACKED STRUCT'S MEMBER (GCC's `packed', 0.203; clang's FieldPacked) is aligned at one, or at what its own `aligned' says, and a
+%% packed bitfield lies at the next bit, whatever unit of its type it crosses -- a zero-width one moves nothing there, as clang lays it
+ccl_member_align(packed, T1, A0, A) :- ccl_nonpod_field(T1), \+ once(catch(pp_os(darwin), _, fail)), !, A = A0.
+ccl_member_align(packed, T1, _, A) :- !, ccl_packed_align(T1, A).
+ccl_member_align(_, _, A, A).
+%% A MEMBER OF A CLASS THAT IS NO POD IS NOT PACKED (0.203; clang's FieldPacked since its ABI 16, but on Apple's platforms): a packed
+%% struct's member of a class that is no POD for the purpose of layout keeps its alignment, unless the class or the member says
+%% `packed': `struct __attribute__((packed)) H { char c; NP n; }' over a class with a user-provided constructor lays n at four, as
+%% clang does, where it lay at one. An ARRAY of such a class is packed: its type is no class, as clang asks it
+ccl_nonpod_field(base(Q, [K])) :- ( K = struct(_, Ms) ; K = union(_, Ms) ), !, Ms \== none, memberchk('$nonpod', Ms), \+ memberchk(packed(_), Ms), \+ memberchk(packed, Q).
+ccl_packed_align(T, A) :- ( T = base(Q, _) ; T = ptr(Q, _) ), !, ccl_q_align(Q, 1, A).
+ccl_packed_align(arr(_, E), A) :- !, ( ccl_resolve_type(E, E1) -> ccl_packed_align(E1, A) ; A = 1 ).
+ccl_packed_align(_, 1).
+ccl_packed_field(packed, _) :- !.
+ccl_packed_field(_, T1) :- ( T1 = base(Q, _) ; T1 = ptr(Q, _) ), memberchk(packed, Q), !.
 ccl_empty_tag(base(_, [struct(Tag, _)]), Tag) :- !.
 ccl_empty_tag(base(_, [union(Tag, _)]), Tag) :- !.
 ccl_empty_tag(T, T).
@@ -1139,10 +1179,15 @@ ccl_empty_data_member(T, W) :- W == no_unique_address, catch(ccl_resolve_type(T,
 ccl_bit_width(int(W), W) :- !.
 ccl_bit_width(W, W) :- integer(W), !.
 ccl_bit_width(E, W) :- ccl_const_eval(E, W).
-ccl_union_layout([], S, Al, N, Al) :- ccl_round_up(S, Al, N).
-ccl_union_layout([member(T, _, _)|Ms], S0, Al0, N, Al) :-
-    ccl_resolve_type(T, T1), ccl_size_align(T1, S, A), !, S1 is max(S0, S), Al1 is max(Al0, A), ccl_union_layout(Ms, S1, Al1, N, Al).   % ONE answer (0.201): the clause below skipped a member it had laid, and backtracking gave a union of four bytes the data sizes 1 and 0
-ccl_union_layout([_|Ms], S0, Al0, N, Al) :- ccl_union_layout(Ms, S0, Al0, N, Al).      % the data members alone, as above
+%% A PACKED UNION (GCC's `packed', 0.203) lays each member at alignment one, or at what its own `aligned' says, and a bitfield in
+%% it takes the bytes its width needs, as clang lays it: `union __attribute__((packed)) { int a : 3; char c; }' is one byte
+ccl_union_layout(Ms, S0, Al0, N, Al) :- ( memberchk(packed(_), Ms) -> Pk = packed ; Pk = natural ), ccl_union_layout_(Ms, Pk, S0, Al0, N, Al).
+ccl_union_layout_([], _, S, Al, N, Al) :- ccl_round_up(S, Al, N).
+ccl_union_layout_([member(T, _, W)|Ms], Pk, S0, Al0, N, Al) :-
+    ccl_resolve_type(T, T1), ccl_size_align(T1, S, A0), !, ccl_member_align(Pk, T1, A0, A),   % ONE answer (0.201): the clause below skipped a member it had laid, and backtracking gave a union of four bytes the data sizes 1 and 0
+    ( Pk == packed, \+ ccl_plain_width(W), ccl_bit_width(W, BW) -> SM is (BW + 7) // 8 ; SM = S ),
+    S1 is max(S0, SM), Al1 is max(Al0, A), ccl_union_layout_(Ms, Pk, S1, Al1, N, Al).
+ccl_union_layout_([_|Ms], Pk, S0, Al0, N, Al) :- ccl_union_layout_(Ms, Pk, S0, Al0, N, Al).      % the data members alone, as above
 ccl_round_up(X, A, Y) :- Y is ((X + A - 1) // A) * A.
 
 %% ---- the tie, `x tie y' -------------------------------------------------------

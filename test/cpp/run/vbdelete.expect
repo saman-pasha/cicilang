@@ -1,0 +1,12 @@
+D::new 40
+1
+~D
+~A
+~V
+D::delete 40
+D::new 40
+~D
+~A
+~V
+D::delete 40
+exit 0

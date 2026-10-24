@@ -471,6 +471,8 @@ cpp_ita_targs_v([A|As], VTs, Subs0, Canon, Text, Subs) :- ( VTs = [VT|VTs1] -> t
     ( cpp_ita_value(A, VT, C1) -> T1 = C1, Subs1 = Subs0 ; cpp_ita_type(A, Subs0, C1, T1, Subs1) ),
     ( VT == vpack -> VTs2 = VTs ; VTs2 = VTs1 ), cpp_ita_targs_v(As, VTs2, Subs1, C2, T2, Subs), atom_concat(C1, C2, Canon), atom_concat(T1, T2, Text).
 cpp_ita_value(bool(B), _, Text) :- !, ( B == true -> Text = 'Lb1E' ; Text = 'Lb0E' ).
+cpp_ita_value(cast(ET, X), VT, Text) :- ( VT == none ; VT == vpack ), cpp_ita_literal(X, _, V), integer(V), cpp_enum_type(ET), catch(cpp_ita_type(ET, [], _, TC, _), _, fail), !,   % an enumeration's value by its enum (0.203): `L5Color0E'
+    ( V < 0 -> V1 is -V, atomic_list_concat(['L', TC, n, V1, 'E'], Text) ; atomic_list_concat(['L', TC, V, 'E'], Text) ).
 cpp_ita_value(A, VT, Text) :- cpp_ita_literal(A, Kind, V), integer(V), !,
     ( VT \== none, VT \== vpack, catch(cpp_ita_type(VT, [], _, TC0, _), _, fail) -> TC = TC0 ; TC = Kind ),
     ( V < 0 -> V1 is -V, atomic_list_concat(['L', TC, n, V1, 'E'], Text) ; atomic_list_concat(['L', TC, V, 'E'], Text) ).
@@ -555,7 +557,7 @@ cpp_ita_type_(base(Q, [typedef(N)]), Subs0, Canon, Text, Subs) :- atom(N), cpp_i
 cpp_ita_type_(base(Q, [struct(N, _)]), Subs0, Canon, Text, Subs) :- atom(N), cpp_ita_type_(base(Q, [typedef(N)]), Subs0, Canon, Text, Subs).
 cpp_ita_type_(base(Q, [union(N, _)]), Subs0, Canon, Text, Subs) :- atom(N), N \== anon, cpp_ita_type_(base(Q, [typedef(N)]), Subs0, Canon, Text, Subs).   % ... and a plain union's, which resolves to a union since 0.201: in a namespace of the program `N2ns1VE', as a struct is (the global clause below took it, `1V')
 cpp_ita_type_(base(Q, [class(_, N, _, _)]), Subs0, Canon, Text, Subs) :- atom(N), cpp_ita_type_(base(Q, [typedef(N)]), Subs0, Canon, Text, Subs).
-cpp_ita_type_(base(Q, [E]), Subs0, Canon, Text, Subs) :- ( E = enum(N, _) ; E = enum_class(N, _) ), atom(N), \+ sub_atom(N, _, _, _, '.'), \+ catch(cpp_hdr_ns(N, _), _, fail), !, cpp_ita_global(N, Q, Subs0, Canon, Text, Subs).   % A GLOBAL ENUM OF THE PROGRAM is a global name, `1K' (0.110): taken to its name it resolved back to the enum and asked again without end -- libc++'s `__declval<K *&>' behind a std::array of an enum
+cpp_ita_type_(base(Q, [E]), Subs0, Canon, Text, Subs) :- ( E = enum(N, _) ; E = enum_class(N, _) ), atom(N), \+ sub_atom(N, _, _, _, '.'), \+ catch(cpp_hdr_ns(N, _), _, fail), \+ catch('$cpp_type_ns'(N, _), _, fail), !, cpp_ita_global(N, Q, Subs0, Canon, Text, Subs).   % A GLOBAL ENUM OF THE PROGRAM is a global name, `1K' (0.110): taken to its name it resolved back to the enum and asked again without end -- libc++'s `__declval<K *&>' behind a std::array of an enum
 cpp_ita_type_(base(Q, [enum(N, _)]), Subs0, Canon, Text, Subs) :- atom(N), cpp_ita_type_(base(Q, [typedef(N)]), Subs0, Canon, Text, Subs).   % A NESTED ENUM IS A NESTED NAME (0.94): `ios_base::seekdir' in `basic_streambuf<char>::seekoff', shipped as `NS_8ios_base7seekdirE'; the tag resolves to its enum spec, which no clause took, and the vtable named the slot by its plain name
 cpp_ita_type_(base(Q, [enum_class(N, _)]), Subs0, Canon, Text, Subs) :- atom(N), cpp_ita_type_(base(Q, [typedef(N)]), Subs0, Canon, Text, Subs).
 cpp_ita_type_(base(Q, [struct(N, _)]), Subs0, Canon, Text, Subs) :- atom(N), N \== anon, \+ cpp_class_known(N), \+ catch(cpp_hdr_ns(N, _), _, fail), !, cpp_ita_global(N, Q, Subs0, Canon, Text, Subs).   % a NAMED C struct reached through its tag: `struct tm' is `2tm'
@@ -1952,6 +1954,7 @@ cpp_member_types([M|Ms], [M|Ns]) :- cpp_member_types(Ms, Ns).
 %% `__alignment_checker_type', `_ALIGNAS_TYPE(_Tp) char __buffer_[sizeof(_Tp)]', `alignas(K)' over a constexpr global -- the
 %% layout reads the qualifier `aligned(E)' by the inference's fold, which knows no template's value nor the evaluator
 cpp_fold_aligned(base(Q0, S), base([aligned(N)|Q1], S)) :- select(aligned(E), Q0, Q1), E \= int(_), !, cpp_array_bound(E, N).
+cpp_fold_aligned(ptr(Q0, P), ptr([aligned(N)|Q1], P)) :- select(aligned(E), Q0, Q1), E \= int(_), !, cpp_array_bound(E, N).   % a pointer member's own (0.203)
 cpp_fold_aligned(arr(B, E0), arr(B, E)) :- !, cpp_fold_aligned(E0, E).
 cpp_fold_aligned(T, T).
 %% what else a class carries: its member templates (by name; a constructor under `ctor'), its typedefs
@@ -2369,6 +2372,8 @@ cpp_default_vdtor(Ms, Bases, Ms1) :-
 cpp_alloc_members([], []).
 cpp_alloc_members([method(L, Qs0, R, operator(Op), Ps0, V, B)|Ms0], [method(L, Qs, R, operator(Op), Ps, V, B)|Ms]) :- cpp_alloc_op(Op), !,
     ( memberchk(static, Qs0) -> Qs = Qs0 ; Qs = [static|Qs0] ), cpp_alloc_own_params(class, Op, Ps0, Ps), cpp_alloc_members(Ms0, Ms).
+cpp_alloc_members([template(L, TPs, M0)|Ms0], [template(L, TPs, M)|Ms]) :- M0 = method(_, _, _, operator(Op), _, _, _), cpp_alloc_op(Op), !,   % a member template's too (0.203)
+    cpp_alloc_members([M0], [M]), cpp_alloc_members(Ms0, Ms).
 cpp_alloc_members([M|Ms0], [M|Ms]) :- cpp_alloc_members(Ms0, Ms).
 cpp_default_vdtor_([], []).
 cpp_default_vdtor_([dtor(L, Qs, default)|Ms], [dtor(L, Qs, block([]))|Ms1]) :- !, cpp_default_vdtor_(Ms, Ms1).
@@ -2407,10 +2412,10 @@ cpp_trailing_ret(method(L, Qs, base(_, [auto]), M, Ps, V, Body), method(L, Qs, T
 cpp_trailing_ret(template(L, TPs, M0), template(L, TPs, M)) :- !, cpp_trailing_ret(M0, M).
 cpp_trailing_ret(M, M).
 cpp_norm_members_([], _, []).
-cpp_norm_members_([nested(base(_, [class(_, anon, _, Ns)]))|Ms], K, Ms1) :- !,             % the same struct in C++'s own shape, which is what it is with default member initializers
-    cpp_norm_members_(Ns, 0, Ns1), cpp_norm_members_(Ms, K, Ms2), append(Ns1, Ms2, Ms1).
-cpp_norm_members_([nested(base(_, [struct(anon, Ns)]))|Ms], K, Ms1) :- !,                   % an anonymous struct's members are the class's own (libc++'s compressed pair)
-    cpp_norm_members_(Ns, 0, Ns1), cpp_norm_members_(Ms, K, Ms2), append(Ns1, Ms2, Ms1).
+cpp_norm_members_([nested(base(_, [class(_, anon, _, Ns0)]))|Ms], K, Ms1) :- !,            % the same struct in C++'s own shape, which is what it is with default member initializers
+    cpp_anon_unpack(Ns0, Ns), cpp_norm_members_(Ns, 0, Ns1), cpp_norm_members_(Ms, K, Ms2), append(Ns1, Ms2, Ms1).
+cpp_norm_members_([nested(base(_, [struct(anon, Ns0)]))|Ms], K, Ms1) :- !,                  % an anonymous struct's members are the class's own (libc++'s compressed pair)
+    cpp_anon_unpack(Ns0, Ns), cpp_norm_members_(Ns, 0, Ns1), cpp_norm_members_(Ms, K, Ms2), append(Ns1, Ms2, Ms1).
 cpp_norm_members_([nested(base(_, [union(anon, Ns)]))|Ms], K, [member(base([], [union(anon, Ns1)]), A, none)|Ms1]) :- !,   % an anonymous union: one member, its names reached through it (cpp_data_member)
     K1 is K + 1, atomic_list_concat(['$anon', K1], A), cpp_norm_union_members(Ns, 0, Ns1), cpp_norm_members_(Ms, K1, Ms1).
 cpp_norm_members_([using(_, _)|Ms], K, Ms1) :- !, cpp_norm_members_(Ms, K, Ms1).       % a using-declaration: its constructors are inherited above, a member's name is the base's already (cpp_base_scope)
@@ -2439,6 +2444,15 @@ cpp_norm_members_([method(L, Qs, Ret, M, Ps, V, pure)|Ms], K, [method(L, [pure|Q
 cpp_norm_members_([method(L, Qs, Ret, M, [param(this(T), N)|Ps], V, Body)|Ms], K, [method(L, [explicit_this(N, T)|Qs], Ret, M, Ps, V, Body)|Ms1]) :- !, cpp_norm_members_(Ms, K, Ms1).
 cpp_norm_members_([template(L, TPs, method(L2, Qs, Ret, M, [param(this(T), N)|Ps], V, Body))|Ms], K, [template(L, TPs, method(L2, [explicit_this(N, T)|Qs], Ret, M, Ps, V, Body))|Ms1]) :- !, cpp_norm_members_(Ms, K, Ms1).   % ... a member TEMPLATE's too (0.117): `template <class Self> int get(this Self &&self)'
 cpp_norm_members_([M|Ms], K, [M|Ms1]) :- cpp_norm_members_(Ms, K, Ms1).
+%% AN ANONYMOUS STRUCT'S `packed' IS ITS MEMBERS', NEVER ITS HOLDER'S (0.203): its members are the holder's, and GCC's `packed' on it
+%% packs each of them, a member's own `packed' (ccl_packed_field/2) -- libc++ 21's string writes `struct _LIBCPP_PACKED { size_type
+%% __is_long_ : 1; size_type __cap_ : 63; };' in its `__long', and the marker, carried into `__long', packed the whole string at one
+cpp_anon_unpack(Ns0, Ns) :- memberchk(packed(_), Ns0), !, cpp_anon_unpack_(Ns0, Ns).
+cpp_anon_unpack(Ns, Ns).
+cpp_anon_unpack_([], []).
+cpp_anon_unpack_([packed(_)|Ms0], Ms) :- !, cpp_anon_unpack_(Ms0, Ms).
+cpp_anon_unpack_([member(T0, N, W)|Ms0], [member(T, N, W)|Ms]) :- !, ccl_add_layout_q(packed, T0, T), cpp_anon_unpack_(Ms0, Ms).
+cpp_anon_unpack_([M|Ms0], [M|Ms]) :- cpp_anon_unpack_(Ms0, Ms).
 %% AN ANONYMOUS STRUCT INSIDE A UNION IS ONE MEMBER of the union, its own members in sequence ([class.union.anon]; 0.112):
 %% flattened into the union, every one of them lay at the union's offset. libc++ 18's `basic_format_args' keeps
 %% `union { struct { const __basic_format_arg_value *__values_; uint64_t __types_; }; const basic_format_arg *__args_; }',
@@ -2679,7 +2693,9 @@ cpp_nv_data(C, Data2, NVData) :- cpp_class_l(C, cls(Base, _, _, _, _)),
 %% an array's bound are: `union alignas(_Align) type { ... }' in an instance of libc++'s aligned_storage
 %% states an alignment the layout must know wherever the tag is noted from (ccl_align_as).
 cpp_align_tag(C, Ms, Data, Data1) :-
-    ( memberchk(align_as(E), Ms) -> cpp_in_class(C, cpp_array_bound(E, N)), append(Data, [align_as(N)], Data1) ; Data1 = Data ).
+    ( memberchk(align_as(E), Ms) -> cpp_in_class(C, cpp_array_bound(E, N)), append(Data, [align_as(N)], Data2) ; Data2 = Data ),
+    ( memberchk(packed(P), Ms) -> append(Data2, [packed(P)], Data3) ; Data3 = Data2 ),   % GCC's `packed' travels with the tag too (0.203)
+    findall(align_as(N2), ( member(align_as(E2), Ms), E2 \== E, cpp_in_class(C, cpp_array_bound(E2, N2)) ), More), append(Data3, More, Data1).   % ... and GCC's `aligned' beside an `alignas'
 %% where a class's base sub-object lies, and where the source's lies in a memberwise copy: its own
 %% `$base' member, or the object itself when the base is empty and has none
 cpp_class_base_place(C, B, cast(ptr([], base([], [typedef(B)])), cast(ptr([], base([], [void])), id(this)))) :- '$cpp_vprim'(C, _), !.   % a nearly empty primary virtual base at the object's own address (0.174), by a cast through `void *', which takes no route through a table not yet stored
@@ -7852,8 +7868,18 @@ cpp_new_placed(Ctx, Ps1, N0, E) :-
     ;   N0 = new_array_init(T0, N, Items), Ps1 = [P1] -> cpp_new_at_array(Ctx, P1, T0, N, Items, E)
     ;   cpp_refuse(0, placement_new_array) ).
 cpp_reserved_placement(G, [P], N0) :- cpp_arg_kind(P, ptr),
-    \+ ( G == no, cpp_new_node_type(N0, K, T0), catch(cpp_type(T0, T), _, fail), cpp_alloc_class_of(T, C), cpp_alloc_owner(C, K, _), cpp_class_alloc(C, K, T, sizeof_type(T), [P], _, _, _) ).
+    \+ ( G == no, cpp_new_node_type(N0, K, T0), catch(cpp_type(T0, T), _, fail), cpp_alloc_class_of(T, C), cpp_alloc_owner(C, K, _), cpp_class_alloc(C, K, T, sizeof_type(T), [P], _, _, _) ),
+    \+ cpp_global_placement(N0, P).
 cpp_new_node_type(new(T, _), new, T).  cpp_new_node_type(new_default(T), new, T).  cpp_new_node_type(new_array(T, _), 'new[]', T).  cpp_new_node_type(new_array_init(T, _, _), 'new[]', T).
+%% ... NOR WHERE A GLOBAL PLACEMENT ALLOCATION FUNCTION OF THE PROGRAM'S TAKES THE POINTER TO AN OBJECT ([expr.new]/19, [over.match.best]:
+%% the pointer exact, or converted to a base, beats the reserved form's conversion to `void *'; 0.203): `void *operator new(std::size_t,
+%% Arena *)' and `new (&ar) S' were read as the reserved placement new, a silent wrong answer. A `void *' is the reserved form's
+%% exact match; the set is asked only where the program declares one of two parameters (cpp_global_alloc/9 then calls it)
+cpp_global_placement(N0, P) :- cpp_new_node_type(N0, K, T0), cpp_free_operator(K, [_, _], Set), '$cpp_fn'(Set, _, _, _, _), !,
+    catch(( cpp_arg_type(P, PT0), ccl_unref(PT0, PT1), ccl_resolve_type(PT1, ptr(_, AT)), \+ ccl_resolve_type(AT, base(_, [void])) ), _, fail),
+    catch(cpp_type(T0, T), _, fail),
+    catch(cpp_call(none, id(Set), [sizeof_type(T), P], call(id(F), _)), _, fail), atom(F), F \== Set,
+    ccl_declared(F, fn(_, [_, param(QT, _)|_], _)), catch(( ccl_resolve_type(QT, ptr(_, QP)), \+ ccl_resolve_type(QP, base(_, [void])) ), _, fail).
 %% the block a new-expression is: its pointer P over the block the allocation function gives, its initialization Inits (statements over
 %% id(P)) under a cleanup that gives the block back where they throw ([expr.new]/26), P its value; under a non-throwing allocation
 %% function the initialization runs only where there is a block ([expr.new]/20)
@@ -7882,6 +7908,7 @@ cpp_class_alloc(C, K, T, S, Ps, Call, Qs, AAs) :-
     cpp_copies(Call0, Call).
 cpp_alloc_method(C, K, Name, Qs, Ps) :- cpp_alloc_owner(C, K, O), cpp_class(O, cls(_, _, Ms, _, _, _)), member(method(_, Qs, _, operator(K), Ps, _, _), Ms),
     catch(cpp_mangle_q(O, operator(K), Qs, Ps, N1), _, fail), N1 == Name, !.
+cpp_alloc_method(C, K, Name, Qs, Ps) :- cpp_alloc_owner(C, K, O), '$cpp_inst'(Name, O), '$cpp_mt'(O, operator(K), _, method(_, Qs, _, operator(K), Ps, _, _)), !.   % A MEMBER TEMPLATE'S INSTANCE (0.203; [temp.mem]): `template <class... Ts> static void *operator new(std::size_t, Ts...)' was refused, no_allocation_function(new, A, 2)
 %% ... the matching deallocation function where the initialization throws: the usual one for a usual allocation, else the class's
 %% placement deallocation function whose parameters after the first are the allocation function's after the first ([expr.new]/27)
 cpp_class_undo(C, DK, T, S, [], [], _, P, Undo) :- !, cpp_usual_delete(no, DK, T, id(P), S, Undo, _).
@@ -8061,8 +8088,8 @@ cpp_targ_value(A0, tname(mt(C, N))) :- ( A0 = base(_, [typedef(scoped(Path, N))]
 cpp_targ_value(base([], [typedef(scoped(Path, N))]), A) :- atom(N), cpp_scope_class(Path, C), \+ cpp_class_typedef(C, N, _), !,   % a NAME: `X<T>::value'; a template-id last, `C::template ap<T>', is a member alias template and a TYPE, taken below (0.93)   % X<T>::value read as a type: the class has no such type, so a value
     ( cpp_static_const(C, N, _) -> true ; cpp_static_member(C, N, _) -> true ; cpp_refuse(0, no_member_type(C, N)) ),   % ... unless it has no such MEMBER either: `typename _Up::category' on a class without one, which is the SFINAE that rejects the candidate
     cpp_targ_value(scoped(Path, N), A).
-cpp_targ_value(base([], [typedef(scoped(Path, N))]), int(V)) :- cpp_enumerator(Path, N, V), !.   % A SCOPED ENUMERATOR AS A TEMPLATE ARGUMENT IS ITS VALUE (0.93): `__base<_Trait::_TriviallyAvailable, _Types...>' in libc++'s variant, `holder<Trait::two, 5>' -- read as a type and keyed by its spelling, `scopedTraittwo', the static it fed never folded
-cpp_targ_value(scoped(Path, N), int(V)) :- cpp_enumerator(Path, N, V), !.
+cpp_targ_value(base([], [typedef(scoped(Path, N))]), A) :- cpp_enumerator(Path, N, V), !, cpp_enum_targ(Path, N, V, A).   % A SCOPED ENUMERATOR AS A TEMPLATE ARGUMENT IS ITS VALUE (0.93): `__base<_Trait::_TriviallyAvailable, _Types...>' in libc++'s variant, `holder<Trait::two, 5>' -- read as a type and keyed by its spelling, `scopedTraittwo', the static it fed never folded
+cpp_targ_value(scoped(Path, N), A) :- cpp_enumerator(Path, N, V), !, cpp_enum_targ(Path, N, V, A).
 %% A SCOPED NAME THAT IS A TYPE OF ITS CLASS IS A TYPE ARGUMENT (0.100): in an EXPRESSION, `is_same<iterator_traits<int *>::
 %% iterator_category, random_access_iterator_tag>::value', the reader gives the argument as the value form `scoped(Path, N)'
 %% (it cannot know the member is a type), and walked as an expression it became the static member's name
@@ -8099,8 +8126,14 @@ cpp_targ_value(A0, A) :- ( cpp_class_ctx(Cx) -> true ; Cx = none ), cpp_expr(Cx,
 %% their literals are -- so that `template <auto N>' over `'a'' is a `char' in its instance and `X<'a'>' another class than
 %% `X<97>'; a type no literal spells (an enumeration, `short', a character type but `char') and a value past 2^60 keep the
 %% `int' they were. A parameter of a written type converts the argument to it where it is bound (cpp_vbinds_typed/3).
-cpp_typed_value(A1, V, A) :- integer(V), catch(ccl_type_of(A1, T), _, fail), T \== unknown, cpp_value_lit(T, V, A0), !, A = A0.
+cpp_typed_value(A1, V, A) :- integer(V), catch(ccl_type_of(A1, T), _, fail), T \== unknown, ( cpp_value_lit(T, V, A0) -> true ; cpp_enum_value_lit(T, V, A0) ), !, A = A0.
 cpp_typed_value(_, V, int(V)).
+%% AN ENUMERATION'S VALUE AS A TEMPLATE ARGUMENT KEEPS ITS TYPE too (0.203; [temp.arg.nontype]/1): the cast of its value to the enum,
+%% named by its tag, so that `X<Color::Red>' and `X<0>' of a placeholder are two classes, `decltype' of the value is the enumeration,
+%% and the type information spells it (`1XIL5Color0EE'). It was its number, an int
+cpp_enum_value_lit(T, V, cast(base([], [typedef(Tag)]), int(V))) :- catch(ccl_resolve_type(T, R), _, fail), R = base(_, [E]), compound(E), ( E = enum(Tag, _) ; E = enum_class(Tag, _) ), atom(Tag), Tag \== anon.
+cpp_enum_targ(Path, N, V, A) :- integer(V), ( cpp_class_ctx(Cx) -> true ; Cx = none ), ( cpp_enum_path_tag(Cx, Path, Tag) -> true ; cpp_ns_enum_tag(Path, N, _, Tag) -> true ; cpp_hdr_enum_tag(Path, N, Tag) ), atom(Tag), !, A = cast(base([], [typedef(Tag)]), int(V)).
+cpp_enum_targ(_, _, V, int(V)).
 cpp_value_lit(T, V, A) :- catch(ccl_resolve_type(T, R), _, fail), R = base(_, Sp), \+ ( member(X, Sp), compound(X) ), cpp_canon_specs(Sp, Cs), cpp_value_lit_(Cs, V, A), !.
 cpp_value_lit_(_, V, int(V)) :- \+ integer(V), !.
 cpp_value_lit_([int], V, int(V)).
@@ -9414,7 +9447,8 @@ cpp_same_value(A, B) :- cpp_value_of(A, VA), cpp_value_of(B, VB),
 %% ... the value of a pattern element or an argument: the one evaluator's, else the template argument's own road (cpp_targ_value) -- `dynamic_extent' is `inline constexpr size_t
 %% dynamic_extent = numeric_limits<size_t>::max()', a name whose value only a constexpr call gives
 cpp_value_of(E, V) :- ( ccl_const_eval(E, V0) -> V = V0 ; E = bool(X) -> ( X == true -> V = 1 ; V = 0 )
-    ; catch(cpp_targ_value(E, A), error(not_lowered(_), _), fail), ( A = int(V0) -> V = V0 ; A = bool(X) -> ( X == true -> V = 1 ; V = 0 ) ) ).
+    ; nonvar(E), E = cast(ET, X), cpp_enum_type(ET) -> cpp_value_of(X, V)   % an enumeration's typed value (0.203): its number
+    ; catch(cpp_targ_value(E, A), error(not_lowered(_), _), fail), ( A = int(V0) -> V = V0 ; A = bool(X) -> ( X == true -> V = 1 ; V = 0 ) ; A = cast(ET, X), cpp_enum_type(ET) -> cpp_value_of(X, V) ) ).   % a scoped enumerator's value is its enum's typed value (0.203)
 %% a variable template's instance: the initializer under the bindings, a constant where it folds
 cpp_instantiate_variable(N, Args, E) :- ground(Args), '$cpp_vtm'(N, A0, E0), A0 == Args, !, E = E0.   % A VARIABLE TEMPLATE'S VALUE IS REMEMBERED (0.112): one instance per arguments -- `is_convertible_v' was evaluated 1031 times over libc++'s ranges, 35 instances in all
 cpp_instantiate_variable(N, Args, E) :- cpp_instantiate_variable_(N, Args, E), ( ground(Args) -> assertz('$cpp_vtm'(N, Args, E)) ; true ).
@@ -9425,7 +9459,7 @@ cpp_instantiate_variable_(N, Args, E) :-
     cpp_expr(none, I1, I2), cpp_trace(vartmpl(N, Args, I2)), ( I2 = bool(_) -> E = I2 ; ccl_const_eval(I2, V) -> cpp_vt_typed_value(VT1, VB, I2, V, E) ; cpp_eval_constant(I2, V) -> cpp_vt_typed_value(VT1, VB, I2, V, E) ; cpp_object_value(I2) -> E = I2 ; cpp_braced_object(I2, VT1, VB, E0) -> E = E0 ; cpp_vt_floating(VT1, VB, I2, E0) -> E = E0 ; cpp_trace(vartmpl_not_constant(I2)), cpp_refuse(0, variable_template_not_constant(N)) ).
 %% A VARIABLE TEMPLATE'S VALUE OF ITS DECLARED TYPE (0.199): `template <auto N> constexpr auto w = N;' over 'b' a char,
 %% `tuple_size_v<T>' a size_t; the value was an int whatever the variable's type
-cpp_vt_typed_value(VT0, B, I2, V, E) :- integer(V), catch(( cpp_vt_type(VT0, B, I2, T), cpp_value_lit(T, V, E0) ), _, fail), !, E = E0.
+cpp_vt_typed_value(VT0, B, I2, V, E) :- integer(V), catch(( cpp_vt_type(VT0, B, I2, T), ( cpp_value_lit(T, V, E0) -> true ; cpp_enum_value_lit(T, V, E0) ) ), _, fail), !, E = E0.
 cpp_vt_typed_value(_, _, _, V, int(V)).
 %% the declared type substituted, a placeholder the initializer's type (its top-level qualifiers off) under the declaration's own
 cpp_vt_type(VT0, B, I2, T) :- cpp_subst(VT0, B, VT1), cpp_storage_off(VT1, VT2),
@@ -10022,7 +10056,7 @@ cpp_vbinds_map([], _, _, []).
 cpp_vbinds_map([X|Bs], PKs, B0, [Y|Bs1]) :- ( X = P-A0, atom(P), memberchk(P-K, PKs), cpp_nttp_as(K, B0, A0, A1) -> Y = P-A1 ; Y = X ), cpp_vbinds_map(Bs, PKs, B0, Bs1).
 cpp_nttp_as(vpack(T), B0, pack(L0), pack(L)) :- !, is_list(L0), cpp_nttp_as_list(L0, T, B0, L).
 cpp_nttp_as(K0, B0, A0, A) :- K0 \= vpack(_), cpp_nttp_value(A0, V), integer(V), cpp_subst(K0, B0, K1), \+ cpp_has_auto(K1),
-    catch(cpp_type(K1, K2), _, fail), catch(ccl_w_cast(K2, V, V1), _, fail), cpp_value_lit(K2, V1, A), !.
+    catch(cpp_type(K1, K2), _, fail), catch(ccl_w_cast(K2, V, V1), _, fail), ( cpp_value_lit(K2, V1, A) -> true ; cpp_enum_value_lit(K2, V1, A) ), !.   % an enumeration's too (0.203): one value, one instance
 cpp_nttp_as_list([], _, _, []).
 cpp_nttp_as_list([X0|Xs0], T, B0, [X|Xs]) :- ( cpp_nttp_as(T, B0, X0, X1) -> X = X1 ; X = X0 ), cpp_nttp_as_list(Xs0, T, B0, Xs).
 cpp_nttp_value(bool(true), 1) :- !.
@@ -10345,6 +10379,7 @@ cpp_type_key(chr(C), K) :- !, atom_concat(c, C, K).
 cpp_type_key(wchr(C), K) :- !, atom_concat(wc, C, K).   % a wide character's value argument (0.199), its sign kept
 cpp_type_key(u16chr(C), K) :- !, atom_concat(u16c, C, K).
 cpp_type_key(u32chr(C), K) :- !, atom_concat(u32c, C, K).
+cpp_type_key(cast(base(_, S), X), K) :- cpp_settled_value(X), \+ maplist(atomic, S), !, cpp_type_key(X, K0), cpp_type_key(base([], S), SK), atomic_list_concat([K0, SK], '_', K).   % an enumeration's value (0.203), its tag's key: `0_Color'
 cpp_type_key(cast(base(_, S), X), K) :- cpp_settled_value(X), !, cpp_type_key(X, K0), cpp_canon_specs(S, Cs), atomic_list_concat(Cs, '_', SK), atomic_list_concat([K0, SK], '_', K).   % A TYPED VALUE'S CAST (0.199): its value's key and its type, `-5l_long_long'; spelled by its letters the sign went, and `Val<-X>' and `Val<X>' over a long long parameter were one instance
 cpp_type_key(bool(true), '1') :- !.      % a bool argument keys as its NUMBER, so `true' and `1' name one instance and not two
 cpp_type_key(bool(false), '0') :- !.
@@ -11764,6 +11799,7 @@ cpp_dbg_holder_tag(C, E) :- catch('$cpp_inst'(C, inst(N, _)), _, fail), atom(N),
 cpp_dbg_holder_tag(C, E) :- cpp_dbg_holder(C, E, _).
 cpp_dbg_args(Args, AS) :- findall(S, ( member(A, Args), ( catch(cpp_dbg_spell(A, S0), _, fail) -> S = S0 ; S = '?' ) ), Ss), atomic_list_concat(Ss, ', ', AS).
 cpp_dbg_spell(A, A) :- integer(A), !.
+cpp_dbg_spell(cast(ET, X), S) :- cpp_enum_type(ET), cpp_pf_int_of(X, I), catch(ccl_resolve_type(ET, base(_, [E])), _, fail), compound(E), arg(1, E, Tag), atom(Tag), cpp_dbg_class_spelled(Tag, EN), !, atomic_list_concat(['(', EN, ')', I], S).   % an enumeration's value, `X<(Color)1>' as clang names a debug entry (0.203)
 cpp_dbg_spell(V, S) :- cpp_pf_int_of(V, I), cpp_pf_lit_type(V, LT), !, cpp_pf_value(LT, I, yes, S).   % a value by its own type, shown, as clang names a debug entry (0.199: `g<4U>', `h<5LL>', `s<(short)9>', `k<'x'>')
 cpp_dbg_spell(bool(B), B) :- !.
 cpp_dbg_spell(pack(L), S) :- !, is_list(L), cpp_dbg_args(L, S).
@@ -11911,7 +11947,10 @@ cpp_pf_lit_specs(u32chr, [char32_t]).
 %% literal, its prefix (`L', `u8', `u', `U') and C's escapes (`'\n'', `'\x00'', `'\''), a signed or an unsigned char
 %% cast where the type is shown (`(unsigned char)'B''); where the type is shown -- a function template's arguments, a
 %% placeholder's -- `5U', `5L', `5UL', `5LL', `5ULL', an int as its number and another type cast (`(short)9'); else the
-%% number. An enumeration's value is its number (clang names the enumerator).
+%% number. An enumeration's value is the enumerator of that value, qualified as the source names it (`Color::Green', `P1',
+%% `ns::K::b'), else its number cast to the enum, `(Color)7' (0.203; it was the number).
+cpp_pf_value(K, I, _, S) :- compound(K), cpp_enum_type(K), catch(ccl_resolve_type(K, base(_, [E])), _, fail), compound(E), arg(1, E, Tag), atom(Tag), Tag \== anon, cpp_pf_class(Tag, EN), !,
+    ( ccl_tag(Tag, Es), is_list(Es), member(enumerator(N, _), Es), atom(N), cpp_enum_value(Tag, N, V), V =:= I -> cpp_pf_enumerator(Tag, EN, N, S) ; atomic_list_concat(['(', EN, ')', I], S) ).
 cpp_pf_value(K, I, IT, S) :- ( compound(K), catch(ccl_resolve_type(K, R), _, fail), R = base(_, Sp), \+ ( member(X, Sp), compound(X) ) -> cpp_canon_specs(Sp, Cs) ; Cs = none ),
     cpp_pf_value_(Cs, I, IT, S), !.
 cpp_pf_value_([bool], I, _, S) :- !, ( I =:= 0 -> S = false ; S = true ).
@@ -11920,6 +11959,7 @@ cpp_pf_value_(Cs, I, yes, S) :- cpp_pf_int_suffix(Cs, Sfx), !, atomic_list_conca
 cpp_pf_value_([int], I, _, S) :- !, atomic_list_concat([I], S).
 cpp_pf_value_(Cs, I, yes, S) :- Cs \== none, forall(member(W, Cs), atom(W)), !, atomic_list_concat(Cs, ' ', TS), atomic_list_concat(['(', TS, ')', I], S).
 cpp_pf_value_(_, I, _, S) :- atomic_list_concat([I], S).
+cpp_pf_enumerator(Tag, EN, N, S) :- ( ccl_scoped_enum(Tag) -> atomic_list_concat([EN, '::', N], S) ; atomic_list_concat(Ps, '::', EN), append(Pre, [_], Ps), Pre \== [] -> append(Pre, [N], Ps1), atomic_list_concat(Ps1, '::', S) ; S = N ).
 cpp_pf_int_suffix([unsigned], 'U').
 cpp_pf_int_suffix([long], 'L').
 cpp_pf_int_suffix([unsigned, long], 'UL').

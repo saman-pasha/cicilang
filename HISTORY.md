@@ -195,7 +195,8 @@ One row per step, in version order: the step's title, what it did and its gate n
 | 0.199 | the audit's fourth group, what its probes found older: a conditional `noexcept(E)` per instance, NRVO, value template arguments of their types, `decltype` of a static member as declared, an empty base in the way; a free function template's trailing requires-clause | a noexcept-specifier's condition kept and evaluated with an instance's bindings (the operator, the nothrow traits, the terminate guard), a function template of the program declared without one may throw; a named local returned built in the caller's object; a value template argument of its parameter's type, a placeholder's of its own, in the key, the mangler, `__PRETTY_FUNCTION__` and the debug names; `decltype(C::s)` as declared; an empty base in the way of a member of its type; a free function template's trailing requires-clause joined to its head's; a noexcept body that throws with no call, and a noexcept template's instance, guarded; a cast's key keeps its value's sign | all nine gates GREEN over libc++ 18, the two libc++ gates over 21; the headers' reads summed 1210 s and 1035 s over 134, the fixtures' builds 2927 s and 2944 s; 670 of 676 C++ fixtures over 18, 674 over 21; `<sys/wait.h>` not warmed (a slash in its name) |
 | 0.200 | the audit's fifth group, the traits of one value: a construction, a conversion and an assignment asked of the members that take the values; the special members a class declares; a constraint folded through the evaluator; the constructors a call runs, to the noexcept operator; a warm of a header in a directory | `is_constructible`, `is_convertible` and `is_assignable` from the constructors, the conversion functions and the assignments that take the values, a deleted one that takes them exactly, the copy and the move as the class declares them, a reference as [dcl.init.ref] binds it; a member defined out of its class keeps its declaration's `explicit`; a requires-clause over class values folded through the evaluator; the noexcept operator over a call's argument and temporary constructors; `<sys/wait.h>` warmed | all nine gates GREEN over libc++ 18, the two libc++ gates over 21; the headers' reads summed 1290 s and 1136 s over 136, the fixtures' builds 3143 s and 3482 s (the box shared); 679 of 685 C++ fixtures over 18, 683 over 21 |
 | 0.201 | the audit's sixth group, libc++'s facilities: `<future>`, `std::jthread`, `<regex>`, `std::expected`, `<mdspan>`, `std::flat_map`, `<memory_resource>`, the synchronization headers and the rest, every standard header included by a fixture; and what their probes found | a function-try-block; the cleanups of a constructor, an initialization and a new-expression that throw; class template argument deduction in the caller's words, through braces and by the standard's guides; a lone `;` among a class's members; the digraphs and the alternative tokens; an attribute after `enum`; a block's struct its block's own in C and C++; `int()` written; a function-local static scalar of a run-time initializer; `volatile`; `setjmp` returns twice | a first chain RED in its C++ gate, 734 of 745 fixtures ok (a plain union's tag mark, the split of `struct S {...} s;`); then all nine gates GREEN over libc++ 18, the two libc++ gates over 21; the headers' reads summed 2243 s and 2071 s over 182, the fixtures' builds 4865 s over 738 and 4829 s over 743 (a slower container); 738 of 745 C++ fixtures over 18, 743 over 21 |
-| 0.202 | the audit's seventh group, the allocation functions: a new-expression's block from its allocation function and a delete-expression's back to its deallocation function -- the program's replacements, a class's own, the aligned, sized, nothrow, placement and destroying forms, the deleting destructor, a coroutine state's; cocolog 2.11.6 | a tie to a reference parameter; a shipped static of a lazy class a global of no type; a header's operator emitted undeclared; `std::nothrow`'s symbol | committed on the owner's word before its nets and its chain: the flow gate GREEN, the library reads GREEN over libc++ 18 and 21, the 12 new fixtures ok over both; the numbers in the next commit |
+| 0.202 | the audit's seventh group, the allocation functions: a new-expression's block from its allocation function and a delete-expression's back to its deallocation function -- the program's replacements, a class's own, the aligned, sized, nothrow, placement and destroying forms, the deleting destructor, a coroutine state's; cocolog 2.11.6 | a tie to a reference parameter; a shipped static of a lazy class a global of no type; a header's operator emitted undeclared; `std::nothrow`'s symbol | committed on the owner's word before its nets and its chain; then all nine gates GREEN over libc++ 18, the two libc++ gates over 21; the headers' reads summed 2220 s and 2366 s over 184, the fixtures' builds 4885 s over 750 and 5119 s over 755; 750 of 757 C++ fixtures over 18, 755 over 21 |
+| 0.203 | the audit's eighth group, the silent wrong answers it left: GCC's `packed` and `aligned`, a volatile object's members, an enumeration's value as a template argument, a global placement allocation function over a pointer, a member template as a class's allocation function | a union's constant in a struct or an array global; `_Alignas` on a pointer object and on an array; an aligned union's size; a namespace's enum in a symbol | committed before its chain: the flow gate GREEN, the library reads GREEN over libc++ 18 and 21, the C gates GREEN, the C++ gate GREEN over libc++ 18 (759 of 766 ok, 7 skipped), a net of 56 over 21 ok after it found the anonymous packed struct of libc++ 21's string; the chain's numbers in the next commit |
 
 ## M5 — the C++ mode
 
@@ -13375,3 +13376,111 @@ Reader 153 (`operator new[]` and `operator delete[]` names of their own, `::new`
 (a new-expression's block from its allocation function and a delete-expression's given back to its deallocation
 function; the deleting destructor; a coroutine state's allocation; a sized `delete[]`'s cookie; no destructor on a null
 pointer).
+
+## 0.203 — the audit's eighth group, the silent wrong answers it left: GCC's `packed` and `aligned`, a volatile object's members, an enumeration's value as a template argument, a global placement allocation function over a pointer, a member template as a class's allocation function
+
+**0.203: the eighth group of the audit of C17 to C23 and C++17 to C++26: the silent wrong answers that Not done's items
+1, 3 and 4 of 0.202 named, and what their probes found. Each fixture prints clang's or clang++'s output over libc++ 18
+and 21, the C ones on aarch64 under qemu too.**
+
+- GCC'S `packed` AND `aligned` (item 4; GCC's manual, Common Type and Variable Attributes, which clang reads): the
+  reader notes them as they go past, as `vector_size` (`ccl_layout_note//0`), and takes them where they stand -- on a
+  struct or a union, before its name or after its brace, the layout markers `packed(1)` and `align_as(E)`
+  (`ccl_layout_grab/2`); on a member's declarator the qualifiers `packed` and `aligned(E)` on its type
+  (`ccl_layout_take/2`); on a variable `aligned(E)` (`ccl_galign_take/2`); on a typedef `taligned(E)`, the alignment of
+  the type it names, lower or higher (`ccl_talign_take/2`); on an enum the smallest integer type that holds its values,
+  unsigned where none is negative, its base marked `packed_enum` (`ccl_packed_enum/5`). `aligned` alone is 16. Each was
+  dropped: glibc's `struct epoll_event`, packed on x86-64, was sixteen bytes where gcc and clang lay twelve. `packed.c`,
+  `packattr.c`, `packunion.c`, `aligntd.c`, `packenum.c`, `packlead.c`, `packedcpp.cpp`, `packnonpod.cpp`.
+- THE LAYOUT AND THE LOWERING: a packed struct's or union's member at alignment one, or at its own `aligned`, a packed
+  bitfield at the next bit (`ccl_members_layout/5`, `ccl_member_align/4`, `ccl_union_layout_/6`); an object's `aligned`
+  raises and never lowers, a typedef's `taligned` replaces. A struct that LLVM cannot lay as C does is LLVM's packed
+  one, `<{ ... }>`, every padding explicit, its members loaded and stored at their places' alignment, `ualign(K)` in the
+  shape's map (`ir_lays_unaligned/1`, `ir_map_ualign/4`, `ir_ualign_q/2`); a type a typedef aligns below its natural
+  alignment is read at it (the idiom of an unaligned read); on SysV an unaligned field's eightbytes are MEMORY. Three
+  older defects came with it: `_Alignas(16) char *p` aligned the pointee, so a struct member of that form lay at eight
+  where clang lays it at sixteen (`ccl_align_fold/3`: the qualifier is the pointer's); an aligned array had no `align`
+  of its own, alloca or global (`ir_aligned_q/2` over its element); and an `alignas` or `aligned` union's LLVM type had
+  the members' size alone (`ir_union_type/3` over `ccl_tag_size`).
+- A VOLATILE OBJECT'S MEMBERS (item 4): a member of a volatile object is volatile (C 6.5.2.3/3, [expr.ref]/6.2), a
+  bitfield's run and a union's member too (`ir_member_slot/5`, `ir_add_volatile/2`): 0.201 made the object's own loads
+  and stores volatile and left its members plain (`volmember.c`).
+- AN ENUMERATION'S VALUE AS A TEMPLATE ARGUMENT (item 1; [temp.arg.nontype]/1): the cast of its number to the
+  enumeration, named by its tag (`cpp_enum_value_lit/3`, `cpp_enum_targ/4`), keyed `0_Color` (`cpp_type_key/2`), mangled
+  `L5Color0E` and `LN2ns1KE4E` (`cpp_ita_value/3`), spelled `[V = Color::Green]`, `[V = P1]`, `[V = ns::K::b]` or `[V =
+  (Color)7]` in `__PRETTY_FUNCTION__` (`cpp_pf_enumerator/4`) and `X<(Color)1>` in the debug information
+  (`cpp_dbg_spell/2`): `X<Color::Red>` and `X<0>` of a placeholder are two classes, `decltype` of the value is the
+  enumeration. It was its number, an int. `enumnttp.cpp`, `enumnttpname.cpp`, `enumspec.cpp`.
+- THE ALLOCATION FUNCTIONS (item 3): a global placement allocation function of the program's that takes the pointer to
+  an object is chosen over the reserved placement new, the pointer exact or converted to a base being the better
+  conversion ([expr.new]/19, [over.match.best]; `cpp_global_placement/2`): `void *operator new(std::size_t, Arena *)`
+  and `new (&ar) S` printed `7 0` where clang++ prints `arena new 4` and `7 4` (`gplace.cpp`); a class's allocation
+  function written as a member template is asked, its instance the class's function (`cpp_alloc_members/2`,
+  `cpp_alloc_method/5`: `new (1, 2) A` was refused `no_allocation_function(new, A, 2)`; `mtalloc.cpp`). Item 3's note on
+  the cookie of `::new T[n]` was wrong: it is the global functions', as clang decides it (`gcookie.cpp`); and a delete
+  through a virtual base takes the most derived class's deleting destructor (`vbdelete.cpp`); both held.
+- WHAT THE PROBES FOUND: a union's constant inside a struct or an array global had the union's own LLVM type, the
+  struct's element, and LLVM refused it -- `static struct S g = { 1, { .i = 5 }, 2 };` over a union of a char, an int
+  and a long long was `{ i64 } { i32 5, ... }`, so a static table of tagged unions did not build (a defect of 0.202 and
+  before): the holder's type follows its constants' types, LLVM's packed literal struct with its padding explicit where
+  they differ from its elements' (`ir_gconst_t/5`, `ir_gstruct_t/5`, `ir_gnat_padded/5`; `gunion.c`); an enum of the
+  program's namespace was mangled as a global one, `1K`, where clang names `N2ns1KE`; and within the step, a packed
+  member's local initializer was stored through the declared type where its slot's says `ualign(K)` (`ir_init_slot/5`),
+  a packed enum of values up to 70000 took a signed type where clang takes `unsigned int` (`ccl_packed_enum_type/3`),
+  `_Generic` took a packed member's `int *` for no `int *` (`ccl_layout_free/2`: the layout's qualifiers are no part of
+  a type's identity), and the cross gate's C++ part met libc++'s `std::variant` over its
+  `__union<_Trait::_TriviallyAvailable, ...>`, whose specialization by an enumerator no longer matched the typed value
+  (`cpp_value_of/2` takes the typed value's number). The probes against clang met four more: an attribute before a
+  struct's key packed the struct, where clang gives it to the declarators -- `__attribute__((packed)) struct I { ... }
+  m;` is a packed member of a struct I of its natural layout (`ccl_layout_saved/1`, `ccl_layout_put/1`); one among the
+  declaration specifiers was the first declarator's alone, `__attribute__((aligned(16))) int a, b;` aligning a
+  (`ccl_lead_layout/3`); a member of a class that is no POD was packed in a packed C++ struct, where clang keeps its
+  alignment (`ccl_nonpod_field/1`); and `typeof` of a packed member kept its alignment one (`ccl_place_free/2`). The net
+  over libc++ 21 met the last: libc++ 21's string writes an anonymous packed struct in its `__long`, `struct
+  _LIBCPP_PACKED { size_type __is_long_ : 1; size_type __cap_ : 63; };`, the desugaring makes an anonymous struct's
+  members the holder's, and its marker went with them and packed the whole string at one -- 21 of the 56 fixtures of the
+  net stopped at an IR that LLVM refused (`'%t27' defined with type '[24 x i8]' but expected 'ptr'`, the union `__rep`
+  of alignment one), and a packed struct holding a string laid it at one, 25 bytes where clang lays 32
+  (`packnonpod.cpp`). The anonymous struct's `packed` is its members' (`cpp_anon_unpack/2`; `anonpacked.cpp`).
+- FIXTURES: 8 C and 10 C++ (`CLAUDE.md`'s What runs names each), each seen to pass over libc++ 18 and 21, the C ones on
+  aarch64 under qemu too, each expect clang's or clang++'s, alike over libc++ 18 and 21. The 0.202 library, over libc++
+  18, failed 14 of the 18: the packed and aligned ones printed the natural sizes and offsets, in silence (`packed.c`'s
+  `struct P` twelve bytes where clang lays seven), `gunion.c` stopped at an IR that LLVM refused (`initializer with
+  struct type has wrong type`), `gplace.cpp` printed `7 0`, `mtalloc.cpp` was refused `no_allocation_function(new, A,
+  2)`, and `enumnttp.cpp` and `enumnttpname.cpp` took an enumeration's values for ints. `volmember.c`, `vbdelete.cpp`,
+  `gcookie.cpp` and `enumspec.cpp` printed the same over it, the first because its loads and stores survived the
+  optimizer there: its IR holds 18 volatile loads and stores over 0.203's library and 1 over 0.202's.
+- THE TWO ENGINES, measured as 0.202 promised: the least CPU time of three interleaved runs each over one warm HOME, the
+  0.202 library on each engine, five warm C++ builds took 78.21 s on cocolog 2.11.4 and 79.01 s on 2.11.6, inside this
+  box's noise -- `stdvector.cpp` 5.39 s and 5.05 s, `stdmap.cpp` 7.57 and 7.46, `stdtuple.cpp` 17.21 and 17.09,
+  `stdformat.cpp` 47.70 and 49.05, `counter.cpp` 0.34 and 0.36.
+- THE CHAIN OF 0.202, over its commit and fresh HOMEs, on cocolog 2.11.6: over libc++ 18 all nine gates GREEN -- the
+  flow gate 126 s (its one finding), reader 4 s, compile 22 s, driver 18 s, objects 5 s, proof 1 s, cross 379 s, the
+  library read 589 s (the 23 asserted reads whole, 161 other headers warmed), the C++ gate 1445 s, 750 of 757 fixtures
+  ok and 7 skipped by their needs --; over libc++ 21 the library read 626 s and the C++ gate GREEN, 755 of 757 ok, 2
+  skipped. The headers' reads summed 2220 s over 184 and 2366 s; the fixtures' builds 4885 s over 750 and 5119 s over
+  755.
+- COMMITTED BEFORE ITS CHAIN, and it claims nothing GREEN but this, over the worktree: the flow gate GREEN (125 s, its
+  one finding, after the last edit); the library reads GREEN over libc++ 18 (554 s over four lanes: the 23 asserted
+  reads whole, 161 other headers warmed) and over libc++ 21 (497 s), the 184 reads summed 2095 s and 1870 s; the C gates
+  GREEN over libc++ 18 -- reader 6 s, compile 26 s (121 run fixtures and 47 refusals), driver 20 s, objects 6 s, proof 1
+  s, cross 394 s (121 C fixtures, 5 ABI checks, 24 C++ fixtures and 2 C++ checks for aarch64, peak 465 MB); the C++ gate
+  GREEN over libc++ 18 in 1366 s, 759 of 766 fixtures ok and 7 skipped by their needs, the builds summed 4635 s; and a
+  net of 56 fixtures over libc++ 21 -- the new ones and those of the formats, the variants, the views, the clocks, the
+  regexes and the streams -- whose first run met the anonymous packed struct (above) in 21 of them, all 56 ok once it
+  was mended. The anonymous struct's rule came after the C++ gate over libc++ 18, which no fixture of that tree reaches
+  (libc++ 18 writes its packed attribute only where `__has_attribute(__packed__)` answers 1, and here it answers 0);
+  `anonpacked.cpp` passes over both trees. The next commit carries the chain's numbers.
+- `CLAUDE.md`: the versions; the gates' counts; the C reader (GCC's `packed` and `aligned`, where an attribute stands,
+  the vector attribute, `_Generic`, `typeof`); the C++ reader's attributes; Classes (an anonymous struct's `packed`);
+  the layout (a packed struct or union, a member of a class that is no POD) and the LLVM shape (LLVM's packed struct); a
+  global's constant (the holder's type); the lowering's qualifiers and a volatile object's members; a value template
+  argument, the mangler, `__PRETTY_FUNCTION__` and the debug names (an enumeration's value); a new-expression (a global
+  placement function, a member template), the array cookie and the deleting destructor; What runs; Hosts; Findings (the
+  two engines); Not done (the audit's eighth group done; items 1, 3, 4 and 5). `README.md`: what runs.
+
+Reader 154 (GCC's `packed` and `aligned` kept: a struct's and a union's markers, a member's qualifiers, a variable's and
+a typedef's alignment, a packed enum's base; `_Alignas` on a pointer object the pointer's). Lowering 116 (a struct LLVM
+cannot lay as C does is LLVM's packed one, its members loaded and stored at their places' alignment; a natural struct's
+element at its LLVM alignment, padded to C's offset; a union's size its tag's; a global's holder typed by its constants;
+a volatile object's members volatile).

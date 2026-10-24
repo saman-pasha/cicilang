@@ -396,7 +396,10 @@ library's allocations too), a class's own and its bases', the aligned form
 past an alignment of 16, the nothrow and the placement forms and C++20's
 destroying `operator delete`, a `delete` the matching deallocation function,
 the dynamic type's through a virtual destructor, and a coroutine's state its
-promise type's.
+promise type's; since 0.203 GCC's `packed` and `aligned` attributes, which
+glibc's headers use (`struct epoll_event`), on a C++ class too, a volatile
+object's members, and an enumeration's value as a template argument, of its
+own type.
 `test/libcxx.sh` reads `<vector>`, `<string>`,
 `<iostream>`, `<map>`, `<set>`, `<unordered_map>`, `<unordered_set>`,
 `<optional>`, `<memory>`, `<functional>`, `<tuple>` and `<algorithm>` whole,

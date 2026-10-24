@@ -1,0 +1,8 @@
+static const char *X<Color::Green>::name() [V = Color::Green]
+static const char *Y<Color::Blue>::name() [C = Color::Blue]
+const char *f() [V = P1]
+const char *f() [V = ns::K::b]
+const char *f() [V = (Color)7]
+1XIL5Color0EE 1YIL5Color2EE 1XIL5Plain1EE
+1XILN2ns1KE4EE 1XIL5Color9EE
+exit 0

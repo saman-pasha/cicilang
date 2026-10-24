@@ -1,0 +1,4 @@
+A::new 1 2
+4
+A::delete
+exit 0
