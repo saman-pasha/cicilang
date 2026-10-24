@@ -1,0 +1,14 @@
+ctor 3
+x 4
+ctor 1
+ctor 2
+move 1
+dtor 2
+dtor 1
+y 1
+ctor 3
+z 6
+dtor 6
+dtor 1
+dtor 4
+exit 0

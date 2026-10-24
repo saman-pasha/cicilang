@@ -141,7 +141,7 @@ ccl_const_eval(call(id('__atomic_always_lock_free'), [S, P]), V) :- !, ccl_const
 %% GCC'S `__builtin_classify_type(e)' (0.194): the class of e's type, an integer constant, clang's numbers -- glibc's <tgmath.h>
 %% chooses its function by it where the compiler is no GCC 8 (clang's `__GNUC__' is 4). It was no builtin
 ccl_const_eval(call(id('__builtin_classify_type'), [E]), V) :- !, catch(ccl_type_of(E, T), _, fail), T \== unknown, ccl_type_class(T, V).
-ccl_const_eval(noexcept_expr(_), 1) :- !.   % no library function throws here (0.109; the desugaring folds a throwing operand to false first)
+ccl_const_eval(noexcept_expr(E), 1) :- ( atomic(E) ; E = id(_) ; compound(E), functor(E, F, 1), memberchk(F, [int, uint, long, ulong, chr, bool, float, str]) ), !.   % only an operand that can throw nothing, a literal or a name, folds raw (0.199): the desugaring answers a call -- every `noexcept(e)' was 1 here since 0.109, when no library function threw, and libc++'s `__nothrow_invokable_r_imp<...>::value', a static of `noexcept(std::__invoke(...))', was folded raw, so `is_nothrow_invocable_v<void (*)()>' held
 ccl_const_eval(offsetof(T, D), V) :- !, ccl_offsetof(T, D, V).
 ccl_const_eval(alignof_type(T), V) :- !, once(( ccl_resolve_type(T, T1), ccl_size_align(T1, _, V) )).   % `alignof(T)' ([expr.alignof]): the alignment the layout already computes
 ccl_const_eval(sizeof(E), V) :- !, ( ccl_literal_bytes(E, V) -> true ; once(( ccl_type_of(E, T), ccl_size_of(T, V) )) ).   % a string literal's bytes (0.103)
@@ -509,6 +509,7 @@ ccl_layout_marker(align_as(_)).
 ccl_layout_marker(virtual_base).                                   % a class whose FIRST base is VIRTUAL (0.110): its `$base' is reached through the vtable's vbase offset
 ccl_layout_marker(virtual_base_of(_)).                             % ... and its base-subobject form `C.nv', the shared base not laid out (a diamond's later path)
 ccl_layout_marker(vbase_ref(_, _, _)).                           % A LATER VIRTUAL BASE's slot `$base$K' (0.172): a pseudo-member of no storage, reached through the table's vbase offset at its place
+ccl_layout_marker(empty_sub(_)).                                   % AN EMPTY BASE at offset 0 (0.199): no storage, an empty subobject in the way of a member of its type (ccl_empty_seed/2)
 ccl_layout_marker('$nonpod').                                      % A CLASS THAT IS NOT A POD FOR THE PURPOSE OF LAYOUT (the Itanium ABI's term, as clang decides it; 0.135): as a base or a `[[no_unique_address]]' member it takes its DATA size and lends its tail padding (ccl_data_size/2)
 %% which kind of virtual-base struct a type is: `complete' (the base laid LAST, at a place only the complete object knows)
 %% or `nv(T)' (the base elsewhere in the complete object); either is reached through the vtable, never statically
@@ -1000,7 +1001,7 @@ ccl_offset_walk([], _, Off, Off).
 ccl_offset_walk([m(N)|Ss], T, Acc, Off) :- ccl_resolve_type(T, R), ccl_offset_member_of(R, N, MT, MO), !, Acc1 is Acc + MO, ccl_offset_walk(Ss, MT, Acc1, Off).
 ccl_offset_walk([i(I)|Ss], T, Acc, Off) :- ccl_resolve_type(T, arr(_, E)), ccl_const_eval(I, V), ccl_size_of(E, Sz), !, Acc1 is Acc + V * Sz, ccl_offset_walk(Ss, E, Acc1, Off).
 %% a member of an anonymous struct or union is the holder's own, at the anonymous member's offset plus its own
-ccl_offset_member_of(R, N, MT, MO) :- ccl_members_of(R, Ms), ( R = base(_, [union(_, _)]) -> findall(lay(M, T, 0, none), member(member(T, M, _), Ms), Lays) ; ccl_members_layout(Ms, Lays, _, _) ),
+ccl_offset_member_of(R, N, MT, MO) :- ccl_members_of(R, Ms), ( R = base(_, [union(_, _)]) -> findall(lay(M, T, 0, none), member(member(T, M, _), Ms), Lays) ; ( ccl_members_of_(R, Ms0) -> true ; Ms0 = Ms ), ccl_members_layout(Ms0, Lays, _, _) ),   % the layout over the members AS THE TAG HOLDS THEM, its markers in (0.199: an empty base's place moves a member)
     ( memberchk(lay(N, MT, MO, _), Lays) -> true
     ; member(lay(A, AT, AO, _), Lays), ccl_anon_member(A), ccl_resolve_type(AT, AR), ccl_offset_member_of(AR, N, MT, O2), MO is AO + O2 ), !.
 ccl_anon_member(A) :- atom(A), sub_atom(A, 0, _, _, '$anon'), !.
@@ -1029,7 +1030,11 @@ ccl_struct_layout(Ms, _, _, N, Al) :- ccl_members_layout(Ms, _, N, Al).
 %% a struct's layout is asked at every member access: kept per member list
 ccl_members_layout(Ms, Lays, Size, Align) :- ccl_members_layout(Ms, Lays, Size, Align, _).
 ccl_members_layout(Ms, Lays, Size, Align, DSize) :- ccl_cached('$ccl_laycache', Ms, lay(Lays, Size, Align, DSize), ccl_members_layout_nocache(Ms, Lays, Size, Align, DSize)).   % ... and the DATA SIZE beside them (0.135): the bytes up to the end of the last data member, the tail padding left out
-ccl_members_layout_nocache(Ms, Lays, Size, Align, DSize) :- ccl_members_layout_(Ms, 0, 1, acc([], 0), Lays, Bits, Align, EE), DSize is (Bits + 7) // 8, Bytes is max(DSize, EE), ccl_round_up(Bytes, Align, Size).
+ccl_members_layout_nocache(Ms, Lays, Size, Align, DSize) :- ccl_empty_seed(Ms, Seen0), ccl_members_layout_(Ms, 0, 1, acc(Seen0, 0), Lays, Bits, Align, EE), DSize is (Bits + 7) // 8, Bytes is max(DSize, EE), ccl_round_up(Bytes, Align, Size).
+%% THE EMPTY BASES' SUBOBJECTS start the walk's (0.199; the Itanium ABI 2.4 II.3, clang's EmptySubobjectMap): an empty base lies at
+%% offset 0 and takes no byte, and a member of its type -- `[[no_unique_address]]' or plain -- is put past it: `struct X : E {
+%% [[no_unique_address]] E e; }' is two bytes, e at 1, `struct Z : E { E e; }' too, as clang++ lays them; e lay at 0
+ccl_empty_seed(Ms, Seen) :- findall(Tg-R, ( member(empty_sub(T), Ms), ccl_resolve_type(T, T1), ccl_empty_layout(T1), ccl_empty_subs(T1, Ss), member(Tg-R, Ss) ), Seen).
 %% THE EMPTY SUBOBJECTS PLACED SO FAR travel with the walk (acc(Seen, EmptyEnd): the empty subobjects' tags and offsets,
 %% and the byte past the last of them), since an EMPTY `[[no_unique_address]]' MEMBER IS PLACED BY THE ABI'S RULE
 %% (Itanium 2.4 II.3, measured against clang++, 0.96): at offset ZERO, whatever lies there, unless an empty subobject of
@@ -1045,7 +1050,8 @@ ccl_members_layout_([member(T, N, W0)|Ms], Bit0, Al0, acc(Seen, EE0), Lays, Bits
         EE1 is max(EE0, Off + S), ccl_subs_at(Subs, Off, Seen, Seen1),
         Lays = [lay(N, T, Off, empty)|Lays1]
     ;   ccl_plain_width(W0)
-    ->  ccl_round_up(Bit0, ABits, B1), Off is B1 // 8, Al1 is max(Al0, A),
+    ->  ccl_round_up(Bit0, ABits, B10), Off0 is B10 // 8, Al1 is max(Al0, A),
+        ( ccl_lang(cpp), ccl_empty_layout(T1) -> ccl_empty_subs(T1, Subs0), ccl_empty_step(Subs0, A, Seen, Off0, Off), B1 is Off * 8 ; Off = Off0, B1 = B10 ),   % a plain member of an empty class past an empty subobject of its type (0.199)
         ( ccl_overlapping(N, W0), ccl_overlap_size(T1, S, DS) -> Bit1 is B1 + DS * 8, EE1 is max(EE0, Off + S) ; Bit1 is B1 + S * 8, EE1 = EE0 ),   % a base or a `[[no_unique_address]]' member of a class that is no POD takes its DATA size (0.135, below)
         ( ccl_empty_layout(T1) -> ccl_empty_subs(T1, Subs), ccl_subs_at(Subs, Off, Seen, Seen1) ; Seen1 = Seen ),   % a plain member of an empty class is an empty subobject too, and its byte is in the way of a marked one of its type
         Lays = [lay(N, T, Off, none)|Lays1]
@@ -1072,8 +1078,10 @@ ccl_empty_step(Subs, A, Seen, C, Off) :- ( ccl_subs_clash(Subs, C, Seen) -> C1 i
 %% clang++ lays it -- the top tag alone was asked, and h lay at 0
 ccl_empty_subs(T1, [Tag-0|Subs]) :- ccl_empty_tag(T1, Tag),
     (   ( T1 = base(_, [struct(_, Ms)]) ; T1 = base(_, [union(_, Ms)]) ), is_list(Ms), memberchk(member(_, _, _), Ms), ccl_members_layout_nocache(Ms, Lays, _, _, _)
-    ->  findall(Tg-R1, ( member(lay(_, MT, O, empty), Lays), ccl_resolve_type(MT, MT1), ccl_empty_subs(MT1, Ss), member(Tg-R, Ss), R1 is O + R ), Subs)
-    ;   Subs = [] ).
+    ->  findall(Tg-R1, ( member(lay(_, MT, O, empty), Lays), ccl_resolve_type(MT, MT1), ccl_empty_subs(MT1, Ss), member(Tg-R, Ss), R1 is O + R ), Subs0)
+    ;   Subs0 = [] ),
+    (   ( T1 = base(_, [struct(_, Ms1)]) ; T1 = base(_, [union(_, Ms1)]) ), is_list(Ms1) -> ccl_empty_seed(Ms1, BSubs), append(BSubs, Subs0, Subs)   % ... and its own empty bases' at 0 (0.199)
+    ;   Subs = Subs0 ).
 ccl_subs_at([], _, Seen, Seen).
 ccl_subs_at([Tg-R|Ss], Off, Seen0, [Tg-O|Seen]) :- O is Off + R, ccl_subs_at(Ss, Off, Seen0, Seen).
 ccl_subs_clash(Subs, C, Seen) :- member(Tg-R, Subs), O is C + R, memberchk(Tg-O, Seen), !.

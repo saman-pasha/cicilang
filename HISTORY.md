@@ -192,6 +192,7 @@ One row per step, in version order: the step's title, what it did and its gate n
 | 0.196 | the audit's third group: the lexers -- u8 literals of their level's types, a character literal's items, multi-character constants, a plain character literal's sign, adjacent strings of any prefix, identifiers past ASCII | `u8'c'` and `u8"..."` kinds of their own, typed as their level has them (C++20's `char8_t`, C23's `unsigned char`); a prefixed character literal one character, its UTF-8 its code point; a plain one of several bytes a multi-character constant, an `int`; a plain character literal past 127 a char's value where plain char is signed; adjacent string literals of different prefixes one literal; an identifier past ASCII and a universal character name in one, its symbol quoted, its register name in ASCII, its mangled length in bytes; the native lexer's rest in the run's text units | all nine gates GREEN over libc++ 18, the two libc++ gates over 21; the headers' reads summed 1227 s and 1101 s over 128, the fixtures' builds 3124 s and 3093 s; 623 of 629 C++ fixtures over 18, 627 over 21 |
 | 0.197 | the audit's fourth group, in part: C++'s core language -- the order of evaluation, `explicit(bool)`, the implicit moves, `decltype((x))`, parenthesized aggregate initialization, template parameter objects | an assignment's right operand first, in C too; `explicit(bool)` folded under a member template's bindings, a call inside the condition where it sits; `return x;` of a local or a by-value parameter an rvalue, never a member, a global or a reference; `decltype((x))` and `return (x);` references; a constant's initializer manifestly constant-evaluated; C++20's parenthesized aggregate initialization at every site and in the traits; a template parameter of class type a template parameter object; a lambda made in a lambda one class; a class prvalue handed by value built in place; a variably modified parameter's bounds on entry | all nine gates GREEN over libc++ 18, the two libc++ gates over 21, after a first chain RED at three fixtures (a copy constructor written with a template-id), mended in the commit; the headers' reads summed 1167 s and 1103 s over 128, the fixtures' builds 3076 s and 3174 s; 639 of 645 C++ fixtures over 18, 643 over 21 |
 | 0.198 | the audit's fourth group, the rest: noexcept in the type system, an init-capture pack, consteval propagation, C++26's structured binding packs and variadic friends, `__has_cpp_attribute`, C++'s static assertions; cocolog 2.11.4 | noexcept on a function type, in its key, its symbol (`Do`) and its calls, the function pointer conversion dropping it; `[...xs = e]`; a consteval call in an immediate function context, an instance being made escalated; `auto [a, ...xs] = e`, attributes after a binding; `friend Ts...;` and `friend A, B;` (a friend pack opened the class to every name); `__has_cpp_attribute` with clang 21's values (libc++ 18's `[[no_unique_address]]`); a false static assertion of the program an error, a discarded branch's none; an enumerator through its namespace and in another enum's initializer; a copy or move constructor named by a template-id or an alias; an overloaded assignment by value's operand first; an empty data member no data, a nested empty subobject in the way (libc++'s views over a lambda); `make_signed_t<unsigned __int128>` `__int128`; cocolog 2.11.4 over Cicili 3.1.0, five warm builds 8 % less CPU | all nine gates GREEN over libc++ 18, the two libc++ gates over 21 (the C++ gate over 21 run again alone after a restart of the container); the headers' reads summed 1166 s and 1033 s over 134, the fixtures' builds 2866 s and 2904 s; 660 of 666 C++ fixtures over 18, 664 over 21 |
+| 0.199 | the audit's fourth group, what its probes found older: a conditional `noexcept(E)` per instance, NRVO, value template arguments of their types, `decltype` of a static member as declared, an empty base in the way; a free function template's trailing requires-clause | a noexcept-specifier's condition kept and evaluated with an instance's bindings (the operator, the nothrow traits, the terminate guard), a function template of the program declared without one may throw; a named local returned built in the caller's object; a value template argument of its parameter's type, a placeholder's of its own, in the key, the mangler, `__PRETTY_FUNCTION__` and the debug names; `decltype(C::s)` as declared; an empty base in the way of a member of its type; a free function template's trailing requires-clause joined to its head's; a noexcept body that throws with no call, and a noexcept template's instance, guarded; a cast's key keeps its value's sign | all nine gates GREEN over libc++ 18, the two libc++ gates over 21; the headers' reads summed 1210 s and 1035 s over 134, the fixtures' builds 2927 s and 2944 s; 670 of 676 C++ fixtures over 18, 674 over 21; `<sys/wait.h>` not warmed (a slash in its name) |
 
 ## M5 — the C++ mode
 
@@ -12863,3 +12864,137 @@ at the owner's word during the step.**
 Reader 150 (noexcept on a function type, an init-capture pack, a structured binding pack and attributes on bindings, a
 variadic friend) and lowering 111 (a noexcept function type's ellipsis mark; an empty data member no data, a nested empty
 subobject in the way).
+
+## 0.199 — the audit's fourth group, what its probes found older: a conditional `noexcept(E)` per instance, NRVO, value template arguments of their types, `decltype` of a static member as declared, an empty base in the way; a free function template's trailing requires-clause
+
+**0.199: the fourth group of the audit of C17 to C23 and C++17 to C++26 (Not done's order), its item 1: the older gaps
+that the probes of 0.198 met, each a difference from clang++ in a valid program. A free function template's trailing
+requires-clause, found during the step, is in it too. Each fixture prints clang++'s output.**
+
+- A CONDITIONAL NOEXCEPT (C++11, [except.spec]/2, /13; reader 151, lowering 112): the reader keeps a noexcept-specifier's
+  condition, `cond(E)` (`ccl_nx_arg//1`; `noexcept(true)` is yes, `noexcept(false)` no, a condition the expression rule
+  cannot read yes, as every condition was until now), a method's as the qualifier `noexcept(E)` and a free function
+  definition's as `nxif(E, Sto)` in its storage slot (`ccl_nx_sto/3`). The desugaring substitutes it with an instance's
+  bindings, its packs' among them (`cpp_subst_nxsto/3`, `cpp_instantiate_function_emit/10`), keeps it beside the emitted
+  function's name (`'$cpp_nxdef'`, and `'$cpp_nxsrc'` for a definition not emitted yet), and evaluates it where it is
+  asked, in its class's words with its parameters declared, unevaluated and isolated from the asker's scopes, folded as a
+  constant condition (`cpp_nx_cond_value/4` over `cpp_const_bool/2`; a condition that does not fold holds, trace
+  `nx_cond_unknown`, and one that asks itself again holds), once a function or a class and condition (`'$cpp_nxval'`,
+  `'$cpp_nxmval'`). The noexcept operator desugars the call it is asked of and reads the condition of the function the
+  call resolves to (`cpp_nx_callee_value/3`, `cpp_nx_named_value/2`): `noexcept(f(1))` of `template <class T> void f(T)
+  noexcept(sizeof(T) > 4)` is false and `noexcept(f(1.0))` true. A member's condition answers the nothrow traits
+  (`cpp_qs_nothrow/3` in `cpp_nothrow_ctor_c/2`, `cpp_nothrow_copy/2`, `cpp_nothrow_default/1`, `cpp_nothrow_assign/2`), a
+  hidden friend keeps its noexcept (`cpp_friend_item/3`), and a body is guarded by `std::terminate` only where its
+  condition holds for the instance (`cpp_fn_nx_guarded/4`, `cpp_qs_guarded/4`). Over 0.198 `nxcond.cpp` printed `1 1 1 /
+  1 1 / 1 1 0 1 / 1 1 1 1 / 1 1 1 / 1 1 / 1 1` where clang++ prints `0 1 0 / 1 0 / 0 1 0 1 / 1 0 0 1 / 0 1 1 / 0 1 / 1
+  0`: every condition held, `std::is_nothrow_invocable_v<void (*)()>` and `std::is_nothrow_swappable_v<M>` over a move
+  `noexcept(false)` among them; and `nxguard.cpp` printed `move 1` where clang++ prints `copy 1`, a vector of a class whose
+  move constructor is `noexcept(sizeof(int) > 8)` moving its element as it grew.
+- NOEXCEPT THROUGH FUNCTION TEMPLATES: a function template of the program declared without a noexcept-specifier may throw
+  (`cpp_nx_prog_fn_template/1`; `noexcept(dv<T>())` over `template <class T> T &&dv();` held), a call with the template's
+  arguments given is asked by the template's name (`tmpl(F, _)`), a noexcept function's name deduces its type with the
+  mark (`cpp_deduce_type/2`: `inv(pn)` deduces `void (&)() noexcept`, which the instance's condition reads), and
+  `__builtin_invoke(f, ...)` throws as f's type says (`cpp_nx_invoke_throws/1`: libc++ 21's `is_nothrow_invocable` asks
+  it). The raw fold of the noexcept operator answers only an operand that can throw nothing, a literal or a name
+  (`ccl_const_eval/2`): every `noexcept(e)` folded to 1 there since 0.109, and libc++'s `__nothrow_invokable_r_imp<...>::value`,
+  a static of `noexcept(std::__invoke(...))`, was folded before the desugaring answered the call. Over 0.198 `nxtrait.cpp`
+  printed `1 1 / 1 1 / 1 1 / 1 1` where clang++ prints `0 0 / 0 1 / 0 1 / 0 1`.
+- NRVO, THE NAMED RETURN VALUE ([class.copy.elision]/1.1; lowering 112; `cpp_nrvo/3` in `cpp_method_body_/5`): a named local
+  of the result's class -- automatic, not volatile, declared alone -- that every return after it returns by its name and
+  that no other declaration there names is the result object, where the class is returned through the hidden pointer
+  (`cpp_ret_constructs/1`), as clang builds it at every level of optimization. Its declaration takes the storage `nrvo`,
+  which the lowering binds to `%agg.result` (`ir_locals/2`), a return of it sets the flag `$nrvo.N` and is `ret void`
+  (`ir_stmt_/1`), and its destructor's defer asks the flag, so that it runs where the scope ends otherwise, an exception
+  or a jump (`cpp_nrvo_pieces/4`). A lambda's and a local class's returns are their own, and a coroutine is left alone.
+  Over 0.198 `nrvo.cpp` printed `move 4`, `dtor 4` after `ctor 3`, and `move 6`, `dtor 6` after the second `ctor 3`: the
+  implicit move of 0.197, where clang runs no constructor. Two locals returned by two returns keep the implicit move, as
+  clang does.
+- A VALUE TEMPLATE ARGUMENT OF ITS TYPE ([temp.arg.nontype]/1; lowering 112): the folded constant is a literal of the
+  argument's own type (`cpp_typed_value/3` over `cpp_value_lit/3`: `int`, `unsigned`, `long`, `unsigned long`, the
+  character types, `bool`, and the casts a `long long`, an `unsigned long long`, a `short`, a `signed char`, an `unsigned
+  char`, a `char8_t` or an `__int128` literal amounts to), and a parameter of a written type converts its argument to that
+  type, wrapped, whatever road bound it -- the arguments written, a default, a deduction, a pack element by element
+  (`cpp_vbinds_typed/3` in `cpp_bind_targs/3` and `cpp_signature_holds_/7`). A placeholder keeps the argument's own type.
+  The instance's key holds it (`cpp_type_key/2`: `5u`, a cast's value and type `-5l_long_long`, `wc<code>`), the mangler
+  spells it (`cpp_ita_literal/3`, `cpp_ita_lit_code/2`: `1SILj5EE`, `1SILc97EE`, `1SILs3EE`), and a typed value is a
+  settled argument (`cpp_settled_value/1`: `S<5u>{}` reached the lowering as the template-id). A variable template's value
+  is of its declared type (`cpp_vt_typed_value/5`). Over 0.198 `nttptyped.cpp` printed `0 0 0 1 1 / 0 0 0 0 / 0 0 0 1 / 4 4
+  4 4000000000` where clang++ prints `1 1 1 1 1 / 1 1 1 1 / 1 1 1 0 / 1 1 4 4000000000`, and `nttpauto.cpp` `0 0 0 0 / 0 0
+  4` where `1 1 1 1 / 1 1 1`: `template <unsigned N> auto f() { return N; }` returned an `int`, `X<'a'>` and `X<97>` were
+  one class, and `sizeof(fa<'c'>())` was 4.
+- `DECLTYPE` OF A STATIC DATA MEMBER, A NAMESPACE'S VARIABLE AND A VARIABLE TEMPLATE'S ID, AS DECLARED ([dcl.type.decltype]/1.3;
+  `cpp_decltype_declared/2`, a `cpp_type/2` clause before the desugaring folds a constant to its value): a local or a
+  parameter, then a static member of the class being walked or of the class a path names, then a variable at namespace
+  scope that no member hides, a variable template's specialization by its declared type (`cpp_vt_declared/3`), the
+  storage words and an object's own alignment off (`cpp_storage_off/2`). `decltype(P::v)` of `static constexpr auto v =
+  5;` was the folded literal's `int`, where clang++ has `const int` (`nttptyped.cpp`'s first line).
+- VALUE ARGUMENTS SPELLED AS CLANG PRINTS THEM (clang's printIntegral; `cpp_pf_value/4`, `cpp_pf_char_lit/3`): in
+  `__PRETTY_FUNCTION__` a function template's values with their types' suffixes, `5U`, `5LL`, a type no suffix spells cast,
+  `(short)9`, a character type a character literal, its prefix and C's escapes, `'\n'`, `L'q'`, `(unsigned char)'B'`, a
+  placeholder's by its own type in a class's name too, `S<5U>::m() [N = 5U]`; a debug name with its value's type always,
+  `g<4U>`, `h<5LL>`, `s<(short)9>` (`cpp_dbg_spell/2`), as clang names a debug entry. Over 0.198 `prettyvals.cpp` printed
+  `[N = 5]` for each of `f<5u>()` ... `f<5ull>()`, `[N = 97]` for `f<'a'>()`, `S<98>::m()` for `S<'b'>`, `[C = 10]` for
+  `kc<10>()` (clang++'s `'\n'`), `1 1 0 0` for `is_same_v<S<5>, S<5u>>` ... (clang++'s `0 1 1 1`), and the type
+  information names `1SILi5EE 1SILi97EE 1SILi3EE` (clang++'s `1SILj5EE 1SILc97EE 1SILs3EE`).
+- AN EMPTY BASE IN THE WAY OF A MEMBER OF ITS TYPE (the Itanium ABI 2.4 II.3, clang's EmptySubobjectMap; lowering 112):
+  an empty base lies at offset 0 and takes no byte, and the class's tag carries it as the layout marker `empty_sub(T)`
+  (`cpp_empty_base_align/3`), which seeds the walk's empty subobjects (`ccl_empty_seed/2`, `ccl_empty_subs/2`); a
+  `[[no_unique_address]]` member of its type and a plain member of an empty class of its type step past it, and a member's
+  offset and `offsetof` take the layout over the tag's own list, its markers in (`ccl_offset_member_of/4`,
+  `cpp_offsetof/4`). Over 0.198 `emptybase.cpp` printed `1 0 | 4 0 0 | 1 0 | 8 4 | 8 0 4 / 1 0 | 1 0 | 1 0 0 | 8 0` where
+  clang++ prints `2 1 | 4 1 0 | 2 1 | 8 4 | 8 1 4 / 2 1 | 2 1 | 2 0 1 | 16 8`.
+- A FREE FUNCTION TEMPLATE'S TRAILING REQUIRES-CLAUSE ([temp.pre]/9; reader 151): the definition rule keeps it in the
+  storage slot, `treq(R, Sto)`, and the template's item conjoins it with its head's (`ccl_take_treq/4`). It was read with
+  the qualifiers and dropped: over 0.198 `treqfree.cpp` printed `1 1 4 3 5 6 6` where clang++ prints `2 1 4 3 5 6 7`, both
+  of two overloads constrained `sizeof(T) > 4` and `<= 4` holding, the first declared winning.
+- THE NET met one older fixture: `shiftwrap.cpp` printed `9223372036854775` for `Val<(-9223372036854775807LL) / 1000>`,
+  the instance of the positive value: the key of a typed value's cast was spelled by its letters and lost the minus sign,
+  so `Val<-X>` and `Val<X>` over `template <long long N>` were one instance (`cpp_type_key/2`'s clause for a cast, its
+  value's key and its type).
+- THE TERMINATE GUARD OF A BODY THAT THROWS, AND OF A FUNCTION TEMPLATE'S INSTANCE (lowering 112), found while this entry
+  was written: a noexcept body that throws with no call (`void d(int v) noexcept { if (v > 0) throw v; }`, a method's
+  alike) is guarded too (`cpp_nx_may_throw/1`; the guard asked a call since 0.110), and so is an instance of the
+  program's function template declared `noexcept` (its storage `nxif(bool(true), Sto)` in
+  `cpp_instantiate_function_emit/10`: the set `'$ccl_nxs'` holds the template's name, never an instance's, so no
+  instance was ever guarded). Over 0.198, and this step's first form, `nxplain.cpp` printed `caught 1` for each of its
+  three throwing cases where clang++ calls `std::terminate`; each case runs in a child process of its own (`fork`).
+- FOUND AND LEFT (Not done's item 1): a prototype's trailing requires-clause is still dropped; an enumeration's value
+  argument is an `int` (`o292/r2/enumarg.cpp`, session scratch: `X<Color::Red>` and `X<0>` over `template <auto N>` one
+  class, `decltype(X<Color::Green>::v)` no `const Color`, `[C = 1]` where clang++ prints `[C = Color::Green]`); a
+  specialization's value parameter deduced from an array's bound stays an `int`; a function TYPE's conditional noexcept, a
+  lambda's noexcept and a pointer to member's conditional one count as noexcept; clang's `TnDa` for a placeholder's
+  argument in a function template's symbol is not spelled, which no symbol here needs.
+- FIXTURES: 10 C++ (`nxcond`, `nxguard`, `nxtrait`, `nxplain`, `nrvo`, `nttptyped`, `nttpauto`, `prettyvals`,
+  `emptybase`, `treqfree`), each of which 0.198 built and ran with another output.
+- THE NET, before the chain: the flow gate GREEN after a helper was moved past the last clause of `ccl_external/5`
+  (`ccl_take_treq/4` had split them: 91 s, peak 3464 MB, 4413 predicates); the C++ gate over libc++ 18 (869 s, peak 2389
+  MB), 668 of 675 ok, the one failure `shiftwrap.cpp` (above), mended and built again over libc++ 18 and 21; the C++
+  gate over libc++ 21 GREEN (886 s, peak 2167 MB), 673 of 675 ok, 2 skipped by their `.needs`; after it the two guard
+  fixes (above), `nxplain.cpp` and the 20 fixtures that write `noexcept` clang++'s output over both trees, and the flow
+  gate GREEN again (90 s, peak 3161 MB, 4414 predicates).
+- THE CHAIN OF 0.199, over a fresh worktree of its commit and fresh HOMEs (the reader version moved), on cocolog 2.11.4
+  (`d67250f`), from 02:02:17 UTC to 02:48:38: ALL GREEN. Over libc++ 18: the flow gate 95 s (peak 3413 MB, its one
+  finding, 4414 predicates charted), reader 4 s, compile 15 s, driver 13 s, objects 4 s, the proof, the cross gate 275 s
+  (peak 485 MB), the library read 327 s (peak 783 MB; the 23 asserted reads whole, 111 other headers warmed), the C++
+  gate 873 s (peak 2636 MB), 670 of 676 fixtures ok (skips `atomicref`, `joinwith`, `stdoptionalref`, `tzone`, `vbaseof`,
+  `zipadjacent`), the cold build's processes, the two units, the 29 refusals, the four of the safe part and the two
+  static assertions; over libc++ 21 the library read 283 s (peak 787 MB) and the C++ gate 875 s (peak 2151 MB), 674 of
+  676 (skips `stdoptionalref`, `zipadjacent`). The library read did not warm `<sys/wait.h>`, which `nxplain.cpp`
+  includes: the warm's files named a directory that is not there (`warm_sys/wait.h_17.cpp`), the shell said `cannot
+  create` three times, and no verdict was written, so the count and the GREEN line did not show it; the C++ gate read the
+  header cold, and 0.200 mends the warm. The headers' reads summed 1210 s over 134 and 1035 s over 134 (0.198's 1166 s
+  and 1033 s over 134), the fixtures' builds 2927 s over 670 and 2944 s over 674 (0.198's 2866 s over 660 and 2904 s over
+  664); the slowest over 18 `fmtrange` 104 s, `fmtchrono2` 102 s, `fmtchrono` 90 s, `fmtcheck` 81 s, `viewsall` 73 s,
+  `fmttuple` 69 s, over 21 `fmtchrono2` 95 s, `fmtchrono` 85 s, `viewsall` 75 s, `fmtrange` 71 s, `fmtcheck` 67 s,
+  `joinwith` 65 s.
+- `CLAUDE.md`: the versions (the versions topic's too); the compile gate's count; the C++ reader (a noexcept's condition, a
+  free function template's trailing requires-clause); Classes (NRVO); Templates (the instance keys, a value argument of its
+  type, `decltype` of a static member, a variable template's value); Constant evaluation (the noexcept operator's raw
+  fold); Object layout (an empty base in the way); the Itanium mangler (a typed value); Exceptions (a conditional
+  noexcept); the nothrow traits; Function names (value arguments as clang prints them); Debug information (a value's type
+  in a name); the Lowering (the named return value); the Findings (cocolog `d67250f`); What runs; Hosts; Not done (the
+  audit's fourth group done; its limits).
+
+Reader 151 (a noexcept-specifier's condition kept, a free function template's trailing requires-clause joined to its
+head's) and lowering 112 (NRVO; a value template argument of its type, which names the instance; a conditional noexcept's
+storage; an empty base in the layout).
