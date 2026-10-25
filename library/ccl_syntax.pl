@@ -235,8 +235,8 @@ ccl_ucn(U) --> [C], { C =:= 0'u ; C =:= 0'U }, ( [123], !, ccl_hex_digits(Ds), {
 %% computed within the runs the table lists, every other name looked up in library/ccl_uninames.pl, the Name property
 %% of Unicode 14.0.0 loaded on the first `\N{' a process meets (ccl_uninames_ready). The native lexer agrees over the
 %% same facts, spelled into module/ccl_uninames.h by module/build.sh; a name that is nobody's is a lexical error in
-%% both (ccl_escape refuses `N{', so the escape never falls to the plain `N'), as clang refuses it. Name ALIASES are not
-%% read (named in CLAUDE.md).
+%% both (ccl_escape refuses `N{', so the escape never falls to the plain `N'), as clang refuses it. An abbreviation
+%% (`\N{NUL}') is not read, as clang reads none (RULES.md, the lexers).
 ccl_ucn(U) --> [0'N, 123], !, ccl_uname_chars(Cs), { Cs \== [] }, [125], { ccl_uname_value(Cs, U) }.
 ccl_uname_chars([C|Cs]) --> [C], { C =\= 125, C =\= 34, C =\= 39, C =\= 92, C >= 32 }, !, ccl_uname_chars(Cs).
 ccl_uname_chars([]) --> [].

@@ -16,7 +16,7 @@
 #
 # The goal is the command's own (bin/cicilang writes it under CICILANG_GOAL), compiled with -c and no store. A
 # count of steps is no count of time: a copy of a global (nb_getval/2) is one step however big it is
-# (CLAUDE.md, Time and memory); the TIME view says what it costs. An older library(flow/debug), with no time(T),
+# (RULES.md, Time and memory); the TIME view says what it costs. An older library(flow/debug), with no time(T),
 # gives the four other views, and one with no flow_run_time/3 (before 1.15.0) no RUN view.
 HERE=$(cd "$(dirname "$0")" && pwd)
 . "$HERE/config.sh"

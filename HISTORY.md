@@ -1,13 +1,14 @@
 # cicilang -- the record of the steps
 
-This is the chronological record of how cicilang was built, one entry per step, as `CLAUDE.md` carried it up to
-0.111: the rules each step added, the defects it found, its measurements and its gate numbers, kept VERBATIM.
-`CLAUDE.md` states the rules as they hold now, by topic; this file is the history behind them. A statement here can
-be superseded by a later step -- the later entry says so, and `CLAUDE.md` has the current rule. The version of an
-entry is the module's (`bin/cicilang --version`); the entries are in version order (0.94's, which sat after
-`CLAUDE.md`'s commit rules, is in its place). The whole `CLAUDE.md` as it stood at 0.111, with its reference sections
-on the preprocessor, the lowering, the check and the findings, is `git show 5ddd0b0:CLAUDE.md`. From 0.112 on, each
-step writes its entry here and its rules into `CLAUDE.md`'s topics.
+This is the chronological record of how cicilang was built, one entry per step, as `CLAUDE.md` carried it up to 0.111:
+the rules each step added, the defects it found, its measurements and its gate numbers, kept VERBATIM. `RULES.md` states
+the rules as they hold now, by topic (`CLAUDE.md` did until 0.204); this file is the history behind them. A statement
+here can be superseded by a later step -- the later entry says so, and `RULES.md` has the current rule. The version of
+an entry is the module's (`bin/cicilang --version`); the entries are in version order (0.94's, which sat after
+`CLAUDE.md`'s commit rules, is in its place). The whole `CLAUDE.md` as it stood at 0.111, with its reference sections on
+the preprocessor, the lowering, the check and the findings, is `git show 5ddd0b0:CLAUDE.md`. From 0.112 on, each step
+writes its entry here and its rules into `CLAUDE.md`'s topics, and from 0.204 on into `RULES.md`'s, which holds those
+topics since `CLAUDE.md` was divided.
 
 ## Index
 
@@ -196,7 +197,8 @@ One row per step, in version order: the step's title, what it did and its gate n
 | 0.200 | the audit's fifth group, the traits of one value: a construction, a conversion and an assignment asked of the members that take the values; the special members a class declares; a constraint folded through the evaluator; the constructors a call runs, to the noexcept operator; a warm of a header in a directory | `is_constructible`, `is_convertible` and `is_assignable` from the constructors, the conversion functions and the assignments that take the values, a deleted one that takes them exactly, the copy and the move as the class declares them, a reference as [dcl.init.ref] binds it; a member defined out of its class keeps its declaration's `explicit`; a requires-clause over class values folded through the evaluator; the noexcept operator over a call's argument and temporary constructors; `<sys/wait.h>` warmed | all nine gates GREEN over libc++ 18, the two libc++ gates over 21; the headers' reads summed 1290 s and 1136 s over 136, the fixtures' builds 3143 s and 3482 s (the box shared); 679 of 685 C++ fixtures over 18, 683 over 21 |
 | 0.201 | the audit's sixth group, libc++'s facilities: `<future>`, `std::jthread`, `<regex>`, `std::expected`, `<mdspan>`, `std::flat_map`, `<memory_resource>`, the synchronization headers and the rest, every standard header included by a fixture; and what their probes found | a function-try-block; the cleanups of a constructor, an initialization and a new-expression that throw; class template argument deduction in the caller's words, through braces and by the standard's guides; a lone `;` among a class's members; the digraphs and the alternative tokens; an attribute after `enum`; a block's struct its block's own in C and C++; `int()` written; a function-local static scalar of a run-time initializer; `volatile`; `setjmp` returns twice | a first chain RED in its C++ gate, 734 of 745 fixtures ok (a plain union's tag mark, the split of `struct S {...} s;`); then all nine gates GREEN over libc++ 18, the two libc++ gates over 21; the headers' reads summed 2243 s and 2071 s over 182, the fixtures' builds 4865 s over 738 and 4829 s over 743 (a slower container); 738 of 745 C++ fixtures over 18, 743 over 21 |
 | 0.202 | the audit's seventh group, the allocation functions: a new-expression's block from its allocation function and a delete-expression's back to its deallocation function -- the program's replacements, a class's own, the aligned, sized, nothrow, placement and destroying forms, the deleting destructor, a coroutine state's; cocolog 2.11.6 | a tie to a reference parameter; a shipped static of a lazy class a global of no type; a header's operator emitted undeclared; `std::nothrow`'s symbol | committed on the owner's word before its nets and its chain; then all nine gates GREEN over libc++ 18, the two libc++ gates over 21; the headers' reads summed 2220 s and 2366 s over 184, the fixtures' builds 4885 s over 750 and 5119 s over 755; 750 of 757 C++ fixtures over 18, 755 over 21 |
-| 0.203 | the audit's eighth group, the silent wrong answers it left: GCC's `packed` and `aligned`, a volatile object's members, an enumeration's value as a template argument, a global placement allocation function over a pointer, a member template as a class's allocation function | a union's constant in a struct or an array global; `_Alignas` on a pointer object and on an array; an aligned union's size; a namespace's enum in a symbol | committed before its chain: the flow gate GREEN, the library reads GREEN over libc++ 18 and 21, the C gates GREEN, the C++ gate GREEN over libc++ 18 (759 of 766 ok, 7 skipped), a net of 56 over 21 ok after it found the anonymous packed struct of libc++ 21's string; the chain's numbers in the next commit |
+| 0.203 | the audit's eighth group, the silent wrong answers it left: GCC's `packed` and `aligned`, a volatile object's members, an enumeration's value as a template argument, a global placement allocation function over a pointer, a member template as a class's allocation function | a union's constant in a struct or an array global; `_Alignas` on a pointer object and on an array; an aligned union's size; a namespace's enum in a symbol | committed before its chain: the flow gate GREEN, the library reads GREEN over libc++ 18 and 21, the C gates GREEN, the C++ gate GREEN over libc++ 18 (759 of 766 ok, 7 skipped), a net of 56 over 21 ok after it found the anonymous packed struct of libc++ 21's string; then all nine gates GREEN over libc++ 18, the two libc++ gates over 21; the headers' reads summed 2117 s and 1890 s over 184, the fixtures' builds 4624 s over 760 and 4737 s over 765; 760 of 767 C++ fixtures over 18, 765 over 21 |
+| 0.204 | `CLAUDE.md` divided: the owner's rules and how the work is done stay, the rules of the code go to `RULES.md`, by topic; the chain of 0.203 | `CLAUDE.md` 27 KB and `RULES.md` 997 KB where `CLAUDE.md` was 1.01 MB; the comments, `README.md`, `DESIGN.md` and `HISTORY.md`'s head name `RULES.md`; no code changed | the flow gate GREEN (126 s) over the comments, the four small gates and the proof over the module built again; it carries 0.203's chain: all nine gates GREEN over libc++ 18, the two libc++ gates over 21 |
 
 ## M5 — the C++ mode
 
@@ -13484,3 +13486,38 @@ a typedef's alignment, a packed enum's base; `_Alignas` on a pointer object the 
 cannot lay as C does is LLVM's packed one, its members loaded and stored at their places' alignment; a natural struct's
 element at its LLVM alignment, padded to C's offset; a union's size its tag's; a global's holder typed by its constants;
 a volatile object's members volatile).
+
+## 0.204 — `CLAUDE.md` divided: the owner's rules and how the work is done stay, the rules of the code go to `RULES.md`, by topic; the chain of 0.203
+
+**0.204: `CLAUDE.md` is divided, on the owner's word ("Yes, divide CLAUDE.md after 0.203"). It was 1.01 MB, which every
+session read whole. `CLAUDE.md` keeps its head (the versions, the build and the proof), the owner's rules and how the
+work is done, and Where things are: 27 KB. `RULES.md` takes the 22 topics from "Build, prove and the gates" to "Not
+done", in their order and with their text, but one reference across the division: 997 KB. No code changes.**
+
+- THE DIVISION (`doc204.py`, session scratch, cut at `## Build, prove and the gates`): `CLAUDE.md`'s introduction says
+  what each file states and that the topic of `RULES.md` that covers the code is read before the code is changed; its
+  Contents names its two sections, then `RULES.md`'s topics; the rule of 0.112 (`HISTORY.md` keeps each step's entry)
+  names both files; its two references to a topic that moved, the flow gate's and the driver's, name `RULES.md`; and
+  Where things are lists `RULES.md`. `RULES.md` has a title, an introduction and its Contents, and its flow gate's
+  bullet names the split rule as `CLAUDE.md`'s. A reference to the owner's rules (the Caps of `test/prof.sh` and
+  `test/why.sh`) stays `CLAUDE.md`'s.
+- THE REFERENCES: the comments of `library/ccl_syntax.pl`, `ccl_cpp.pl`, `ccl_infer.pl` and `ccl_include.pl`, and of
+  `test/prof.sh`, `test/parlib.sh` and `test/prof.pl`, that named a finding or a topic of `CLAUDE.md` name `RULES.md`,
+  each a whole comment line. One of them, at the lexer's `\N{NAME}`, said that no alias is read, which has been false
+  since 0.104 (the aliases of the kinds clang takes are names): it says that an abbreviation is not read. `README.md`,
+  `DESIGN.md` and the head of this file name `RULES.md`. An entry of this file before 0.204 that names a topic of
+  `CLAUDE.md` is a record and stays as written.
+- THE CHAIN OF 0.203, over its commit (4282665) and fresh HOMEs, on cocolog 2.11.6: over libc++ 18 all nine gates GREEN
+  -- the flow gate 131 s (its one finding), reader 5 s, compile 24 s, driver 19 s, objects 5 s, proof, cross 369 s, the
+  library read 566 s (the 23 asserted reads whole, 161 other headers warmed), the C++ gate 1363 s, 760 of 767 fixtures
+  ok and 7 skipped by their needs --; over libc++ 21 the library read 505 s and the C++ gate GREEN, 765 of 767 ok, 2
+  skipped. The headers' reads summed 2117 s over 184 and 1890 s; the fixtures' builds 4624 s over 760 and 4737 s over
+  765.
+- THIS STEP'S GATES: the flow gate GREEN (126 s, its one finding) over the comments it changed, and over the module
+  built again with its version string, the only other change, the reader gate (6 s), the compile gate (18 s), the driver
+  gate (17 s), the objects gate (6 s) and the proof GREEN; `bin/cicilang --version` says 0.204. The code is 0.203's,
+  whose chain it carries.
+- `CLAUDE.md`: divided (above); the versions. `RULES.md`: Hosts (the chain of 0.203). `README.md`, `DESIGN.md` and the
+  head of `HISTORY.md`: the files.
+
+Reader 154 and lowering 116, unchanged: no grammar, no AST and no lowering changes.

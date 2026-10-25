@@ -14,8 +14,8 @@ native pieces are written in Cicili.
 
 It uses Cicili, cocolog and [ZiguratIP](https://github.com/saman-pasha/ziguratip)
 and **modifies none of them**. `DESIGN.md` is the architecture; `CLAUDE.md`
-is how the repository is worked on, its rules by topic; `HISTORY.md` is the
-record of every step.
+is how the repository is worked on, the owner's rules; `RULES.md` is the
+rules of the code by topic; `HISTORY.md` is the record of every step.
 
 ## Features
 
@@ -441,7 +441,8 @@ test/prof.sh, prof.pl          where a build's inferences and time go: windows a
 test/c/, test/cpp/             the fixtures: what runs, what is refused, what is read whole
 bench/btree, bench/compile     the B-tree and the compile-time benchmarks
 tutorials/                     the objects layer's lessons
-DESIGN.md, CLAUDE.md           the architecture; how the repository is worked on, by topic
+DESIGN.md, CLAUDE.md           the architecture; how the repository is worked on, the owner's rules
+RULES.md                       the rules of the code, by topic: the gates, each pass, what runs, what is not done
 HISTORY.md                     the record of every step: what it did, what it found, its gate numbers
 ```
 
@@ -466,4 +467,4 @@ a format string whose compile-time check the evaluator cannot take (the
 library's own run-time parser checks it); the range adaptors not named;
 a `\N{...}` abbreviation
 alias (`\N{NUL}`, which clang refuses too); the arm64 ABI on Apple's machines
-(Linux on aarch64 is proven under qemu, C and C++). Each is named in `CLAUDE.md` with where it stops.
+(Linux on aarch64 is proven under qemu, C and C++). Each is named in `RULES.md`'s Not done with where it stops.

@@ -60,7 +60,7 @@
 :- dynamic ccl_include_dir/1.
 
 %% ---- what lives only in this process ----------------------------------------
-%% A `:- dynamic' here PERSISTS under the store (see CLAUDE.md), so the units
+%% A `:- dynamic' here PERSISTS under the store (see RULES.md), so the units
 %% read in this process, the files being read (the cycle guard) and the macro
 %% files loaded are globals, not clauses: nb_setval/2 is the process's own.
 ccl_unit_cached(Path, How, Unit) :- ccl_unit_key(Path, K), ccl_global('$ccl_unit_paths', Ps, []), memberchk(K, Ps), nb_getval(K, How-Unit).
@@ -79,7 +79,7 @@ ccl_macro_loaded(Path, Preds) :- ccl_global('$ccl_macro_files', L, []), memberch
 ccl_macro_note(Path, Preds) :- ccl_global('$ccl_macro_files', L, []), nb_setval('$ccl_macro_files', [Path-Preds|L]).
 
 %% ---- the top ----------------------------------------------------------------
-%% THE CACHE, as it must be under cocolog (a finding, in CLAUDE.md): a
+%% THE CACHE, as it must be under cocolog (a finding, in RULES.md): a
 %% predicate with ONE clause over about 8 KB loses EVERY clause in the store,
 %% silently -- so a unit is stored one clause per top-level item, with its
 %% count, and an include inside it as a reference to the header's own cached
@@ -196,7 +196,7 @@ ccl_restore_globals(g(F, E, Far, M, Sc, Gs, Td, Tg, En, Ex, Cn)) :-
     ccl_tables_changed, nb_setval('$ccl_expansions', Ex), nb_setval('$ccl_consts', Cn).
 %% every global is set once per process (ccl_ensure_globals/0), so reads are
 %% bare nb_getval/2: a catch/3 costs in proportion to the terms bound inside
-%% it, 37 ms with the symbol table -- a finding, in CLAUDE.md
+%% it, 37 ms with the symbol table -- a finding, in RULES.md
 ccl_global(K, V, _) :- ccl_ensure_globals, nb_getval(K, V).
 ccl_ensure_globals :-
     ( nb_current('$ccl_inited', yes) -> true
@@ -428,7 +428,7 @@ ccl_unit_templates_note(_).
 %% include(L, Spec, summary(File)), and every consumer of a unit -- the
 %% parser's Env, the symbol table, the bulk noter, the driver's deps -- reads
 %% the summary where it would have walked the unit. cocolog's store is not
-%% involved: it cannot hold units this size (CLAUDE.md's findings).
+%% involved: it cannot hold units this size (RULES.md's findings).
 ccl_sum_dir(D) :- ( catch(os_env('HOME', H), _, fail) -> true ; H = '/tmp' ), atom_concat(H, '/.cicilang/cpp', D).
 ccl_sum_file(Path, F) :-
     ccl_sum_dir(D), ccl_std(Std), ccl_cmdline_key(CK), ccl_target_key(TK), ccl_config_key(GK), atomic_list_concat([Path, '@', Std, CK, TK, GK], Keyed), atom_codes(Keyed, Cs), ccl_fold(Cs, 7, 131, S1), ccl_fold(Cs, 13, 137, S2),   % one summary per level, and per set of command-line macros (0.112): a header read under `-DNDEBUG' is another header

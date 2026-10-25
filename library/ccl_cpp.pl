@@ -219,7 +219,7 @@ cpp_flush_instances(Is0, Is) :-
     findall(I, '$cpp_out'(_, I), New),
     ( New == [] -> Is = Is0 ; cpp_reset('$cpp_out'/2), append(Is0, New, Is1), cpp_flush_instances(Is1, Is) ).
 %% the registries that hold class and template BODIES are facts, one row per name: a global list would be copied
-%% whole at every lookup (nb_getval copies), and libc++'s bodies are megabytes (the finding in CLAUDE.md)
+%% whole at every lookup (nb_getval copies), and libc++'s bodies are megabytes (the finding in RULES.md)
 cpp_reset(F/A) :- ( catch(abolish(F/A), _, true) -> true ; true ), dynamic(F/A).
 cpp_class_put(C, Cls) :- assertz('$cpp_cls'(C, Cls)), ( Cls = cls(B, Data, Ms, Ss, Df, Sl) -> assertz('$cpp_clsl'(C, cls(B, Data, Ss, Df, Sl))), cpp_note_static_fns(C, Ms), cpp_note_decls(Ms, C), cpp_note_alloc_fns(C, Ms) ; true ).
 %% THE LIGHT RECORD (0.119): a class's record is `cls(Base, Data, Members, Statics, Defaults, Slots)' and the members are 97% of it -- every

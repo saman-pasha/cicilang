@@ -1,7 +1,7 @@
 %% test/prof.pl -- WHERE A BUILD'S STEPS AND ITS TIME GO (0.148, 0.152, 0.156), read from cocolog's
 %% library(flow/debug), run by test/prof.sh.
 %%
-%% A build's cost was found by hand until 0.148: a scratch copy of the library with a timer in every clause (CLAUDE.md,
+%% A build's cost was found by hand until 0.148: a scratch copy of the library with a timer in every clause (RULES.md,
 %% Finding a cost). library(flow/debug) records windows of a run and says where their steps went (cocolog
 %% 1.11.10), and where their time went (1.13.3). The build runs once at full speed to learn its length; then N windows
 %% of W steps spread along it -- the last ending where the run ends -- are recorded, each by a cocolog of its own
@@ -34,7 +34,7 @@
 %%                    time of the run, where the windows are a sample of it. It takes about twice the build's
 %%                    time, under Secs seconds.
 %%       A count of steps is no count of time: a copy of a global (nb_getval/2), a unification of big terms and
-%%       an assert are one step however long they take (CLAUDE.md, Time and memory). The TIME view says what
+%%       an assert are one step however long they take (RULES.md, Time and memory). The TIME view says what
 %%       such a step costs. A reading of the clock costs some 35 ns, measured as the probe starts and taken
 %%       off, so a cheap predicate is read by its count and a costly one by its time. svg(false) and xml(false): no
 %%       window draws its documents, the cheap way to a profile. A STEP is every goal the debugger's clock counts,

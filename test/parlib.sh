@@ -1,6 +1,6 @@
 # test/parlib.sh -- a memory-gated parallel job pool, sourced by the gates.
 # cocolog has no heap collector and a build peaks in the gigabytes, so N builds
-# at once can exhaust the box (CLAUDE.md's findings). The pool runs up to NMAX
+# at once can exhaust the box (RULES.md's findings). The pool runs up to NMAX
 # jobs concurrently but launches a new one only while the summed resident size
 # of every cocolog process is under LAUNCH_MB, and kills the whole pool if that
 # sum ever passes HARD_MB (a RED, as the watchdog is) -- so light builds pack

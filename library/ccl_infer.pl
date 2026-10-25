@@ -24,7 +24,7 @@
 
 %% no catch on a read of a global here: the keys are set once per process
 %% (ccl_ensure_globals/0, library(ccl_include)), and a catch costs in
-%% proportion to the terms bound inside it (a cocolog finding, in CLAUDE.md)
+%% proportion to the terms bound inside it (a cocolog finding, in RULES.md)
 ccl_scope(Fs) :- nb_getval('$ccl_scope', Ls), ccl_tab_list('$ccl_gscope', G), append(Ls, [G], Fs).   % every frame, the file scope's last
 ccl_locals(Ls) :- nb_getval('$ccl_scope', Ls).                                                   % the open frames alone, innermost first
 ccl_declared(N, T) :- nb_getval('$ccl_scope', Ls), ( ccl_in_frames(Ls, N, T0) -> T = T0 ; ccl_gdeclared(N, T) ).

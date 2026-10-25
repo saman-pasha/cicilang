@@ -1,6 +1,6 @@
 # cicilang — a Safe Modern C compiler to LLVM, written on cocolog
 
-**Status: the milestones M0 to M6 are built and GREEN -- C17 and C23 whole, C++17, C++20, C++23 and C++26 to their ends, libc++ compiled from its own headers, on macOS and Linux. `CLAUDE.md` holds the rules by topic, `HISTORY.md` every step; `README.md` says what runs.**
+**Status: the milestones M0 to M6 are built and GREEN -- C17 and C23 whole, C++17, C++20, C++23 and C++26 to their ends, libc++ compiled from its own headers, on macOS and Linux. `RULES.md` holds the rules by topic, `CLAUDE.md` the owner's rules and how the work is done, `HISTORY.md` every step; `README.md` says what runs.**
 
 
 cicilang is a compiler for Safe Modern C — C source, extended by macros
@@ -200,7 +200,7 @@ it is done (see below); the checker and the lowering take the AST from here.
   it, read once, and SUMMARIZED to one file under `~/.cicilang/cpp`
   -- its declarations, not its text -- which the next run loads instead:
   cocolog's store cannot hold units that size (the finding in
-  `CLAUDE.md`), and the summary is what the passes need of a header
+  `RULES.md`), and the summary is what the passes need of a header
   anyway. The plan: the reader
   grows the C++ forms, because the libraries are in C++: classes
   with member functions, constructors and destructors and access labels;
@@ -344,7 +344,7 @@ it is done (see below); the checker and the lowering take the AST from here.
   `try` is refused
   by name; exceptions come last, if at all, since the safe part has no
   unwinding to offer. What the steps leave: the forms named in
-  `CLAUDE.md` under each step.
+  `RULES.md`'s Not done.
 * **Later — the objects layer's fate (below)**, and, on the LLVM module
   already here, ORC JIT: a macro running C at compile time.
 
@@ -362,4 +362,4 @@ objects-and-modules layer over cocolog (`module/cicilang.cicili`,
   view of a Cicili `struct` and `module`, expressed as these objects.
 
 Or it is set aside as a first mis-scope. It cost little and it taught the
-cocolog findings in this repo's `CLAUDE.md`; it does not block anything.
+cocolog findings in this repo's `RULES.md`; it does not block anything.
