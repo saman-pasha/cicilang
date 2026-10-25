@@ -248,7 +248,7 @@ that changes a rule edits the rule here, in its topic, and writes its entry in `
 ### The C++ gate: test/cpp.sh
 
 - `test/cpp.sh` runs in this order: `test/cpp.pl` in one `--local` process; four checks of the command; every
-  `test/cpp/run/*.cpp` as a pool job (801 at 0.207); `classes.cpp` and `templates.cpp` built and run; the refusals,
+  `test/cpp/run/*.cpp` as a pool job (803 at 0.208); `classes.cpp` and `templates.cpp` built and run; the refusals,
   each at the level its `test/cpp/NAME.flags` names, else C++17 (0.164). (0.105, 0.164)
 - `test/cpp.pl` runs 46 numbered checks, `c1` to `c46`, then reads Cicili's six C++ files whole (`test/cpp/objects.cpp`,
   `emit_report.cpp`, `specialise.cpp`, `syntax.cpp`, `torch.cpp`, `torch-fragment.cpp`). `c34` checks the Itanium
@@ -666,6 +666,14 @@ that changes a rule edits the rule here, in its topic, and writes its entry in `
   (0.161), ` -lm` in C and, in C++, its libc++ under the sysroot: ` -L<sysroot><root>/lib
   -Wl,-rpath-link,<sysroot><root>/lib -Wl,-rpath,<root>/lib -lc++ -lm`, the rpath where that machine keeps the library,
   which `qemu-aarch64 -L <sysroot>` finds under the sysroot. (0.93, 0.100, 0.122, 0.161, 0.181)
+- LIBATOMIC IS NAMED AT THE LINK WHERE AN OBJECT CALLS IT (0.208; `ccl_note_libatomic/1` in `ccl_compile/3`,
+  `ccl_libatomic_lib/2` in `ccl_link/3`), on Linux, this machine's or another's, as libm is: the compiled IR is asked
+  for a call of libatomic's routines (`@__atomic_` -- an atomic object of a size that is no lock-free width, an x86
+  `long double`'s) or a sixteen-byte atomic, which LLVM turns into `__atomic_*_16`, and the next link takes ` -latomic`,
+  once. clang and gcc name it only when the program's link says so; a program that uses those atomics linked here with
+  no flag of its own failed, undefined `__atomic_load`. An IR served from the store holds the same calls, so the text is
+  what is asked, split at the string (`ccl_ir_has/2`: cocolog's `sub_atom/5` is quadratic there, the Findings).
+  `atomodd.c`, `atomldbl.c`. (0.208)
 
 ## The lexers
 
@@ -3080,8 +3088,13 @@ free. A const method adds `.c`, a ref-qualified one `.r` or `.rr` after it: each
   0.112), the caller's to destroy (0.207, `cpp_byval_arg/3`): elided out of the statement while the callee destroyed it,
   it had been destroyed by both -- `g({5, 6})` over `int g(std::vector<int>)` freed the vector's buffer twice. A braced
   argument to a reference to an array of scalars binds a temporary array of its items ([dcl.init.ref]/5.3; 0.206):
-  `std::to_array({7, 8, 9})` reached the lowering as a bare braced list; an array of objects so is refused by name.
-  `initlistobj.cpp`, `ftm20.cpp`.
+  `std::to_array({7, 8, 9})` reached the lowering as a bare braced list. ONE TO A REFERENCE TO AN ARRAY OF OBJECTS binds
+  a temporary array of them (0.208; `cpp_obj_array/5`, the road of an initializer_list's array of objects, 0.206): each
+  element built in place from its item, in order, and destroyed at the end of the full-expression, the last first, where
+  it was built -- `sum({1, 2, 3})` over `int sum(const T (&)[3])` and `std::to_array<std::string>({"x", "yy", "zzz"})`
+  were refused, `not lowered yet: expr(init(...))`. The element's type is the desugaring's (`cpp_type/2`): a declared
+  `std::string (&&)[2]` holds the written name, which the scalar road took for no class. `initlistobj.cpp`, `ftm20.cpp`,
+  `refarrcls.cpp`.
 - The compiler builds an `initializer_list` ([dcl.init.list]/6; `cpp_init_list`): a backing array `$il`, then libc++'s
   private `initializer_list(const _Ep *, size_t)` over it. A class with an `initializer_list` constructor takes a
   braced initializer through it first ([over.match.list]; `cpp_il_ctor`, `cpp_ctor_args`). An item of another type
@@ -4095,7 +4108,11 @@ free. A const method adds `.c`, a ref-qualified one `.r` or `.rr` after it: each
   the defaults; an unbound parameter refuses `cannot_deduce(P)`. An argument's type is the inference's, else the
   DESUGARED form's (`cpp_deduce_type` over `cpp_arg_type`: `__index_sequence_for<_Args1...>()`). (0.35, 0.79)
 - A parameter whose template parameters are ALL given explicitly takes no part in the deduction (`cpp_explicit_skip`);
-  it is checked once bound. Why: `deduction_failed(basic_format_args)`. `explicitarg.cpp`. (0.115)
+  it is checked once bound. Why: `deduction_failed(basic_format_args)`. `explicitarg.cpp`. (0.115) ONE THAT NAMES A
+  GIVEN AND A DEDUCED PARAMETER TAKES PART (0.208): the rule's two tests shared one variable, so the name the first
+  found stood for the second, and `_Tp (&&)[_Size]` with `_Tp` given was skipped -- `std::to_array<std::string>({...})`
+  refused `cannot_deduce('_Size')`. An element type the explicit arguments give whole deduces nothing from the list's
+  items, its bound the list's length (`cpp_deduce_one/5`). `refarrcls.cpp`. (0.115, 0.208)
 - A type parameter takes the argument DECAYED only as a by-value parameter (`cpp_decayed`: arrays and functions to
   pointers, top-level cv dropped). A pointee keeps its qualifiers ([temp.deduct.call]/4; `cpp_match_pointee`: `T *`
   against `const int *` is `T = const int`), and so does an array's element (`_Tp (&)[_Np]` against `const
@@ -8048,6 +8065,13 @@ A lambda is a class of its captures (`library/ccl_cpp.pl`). A fixture named alon
   AN ARRAY'S BOUND IS A CONSTANT EXPRESSION wherever the lowering reads it (`ir_arr_count/2`): a global's constant, the
   call ABI's leaves and the debug subrange took a literal alone, and `long b[1 + 1] = { 7, 16 };` at file scope was
   refused, as `long long b[2ll]` was since `2ll` reads as a cast. `test/c/run/ptrglobal.c`. (0.179)
+- AN ADDRESS CONSTANT (C17 6.6/9, [expr.const]; 0.208; `ir_gaddr/3` over `ir_glval/4`, `ir_gconst/3`'s last clause): a
+  pointer global, a pointer element of an array global and a struct global's pointer member initialized with a static
+  object's address -- an array's or a member array's name decayed, `&arr[3]`, `&sarr[1].m[2]`, a row `m2[1]`, and an
+  integer constant added or taken, `arr + 2`, `4 + arr`, `&arr[6] - 1`, `m2 + 2` -- is that object's symbol and a byte
+  offset, `getelementptr inbounds (i8, ptr @arr, i64 8)`; a static local's initializer too. Each was refused,
+  `global_init`, where only `&x`, `&x.m`, a literal and a function's address were taken: `int *p = arr;` and `char *q =
+  buf;` at file scope did not compile. `test/c/run/addrconst.c`. (0.208)
 - Brace elision ([dcl.init.aggr]/15, and C's own rule): an array member given a non-braced item takes as many of the
   following items as it has elements, while more items than members remain (`ir_init_items/4`, `ir_elide_take/4`; a
   global's through `ir_gelide/4`), or where a scalar item meets an array of scalars (`ccl_elided_item/2`, 0.164; the
@@ -8219,6 +8243,17 @@ A lambda is a class of its captures (`library/ccl_cpp.pl`). A fixture named alon
 - An `_Atomic` object loads and stores `seq_cst` (`ir_load_slot/4`, `ir_store_slot/4` over `ir_atomic_q/1`). An
   integer `x++` or `--x` (`ir_step/6`) and `+=`, `-=`, `&=`, `|=`, `^=` are one `atomicrmw` each (C11 6.7.3, 7.17.7).
   (0.99)
+- EVERY OTHER READ-MODIFY-WRITE OF AN `_Atomic` OBJECT IS ONE COMPARE-EXCHANGE LOOP (C17 6.5.16.2/3, 6.5.2.4/2; 0.208;
+  `ir_atomic_loop/6` from the compound assignment of `ir_expr/4` and from `ir_step_/6`, over `ir_cas_ll/2`), as clang's:
+  `*=`, `/=`, `%=`, `<<=` and `>>=` on an integer, `*=` and `/=` on a floating object, the integer of its bits to
+  `cmpxchg`, a pointer's `++` and `--`, and every one of an x86 `long double`, through libatomic's
+  `__atomic_compare_exchange` over two sixteen-byte temporaries, the desired one zeroed first. The object is loaded
+  once, the new value computed from the old and exchanged where the object still holds the old, else the loop goes again
+  from what the exchange found; the expected temporary holds the object's own bytes, so a `long double`'s padding
+  compares equal. Each was a load and a store, another thread's write between them lost. AN ATOMIC POINTER IS ATOMIC
+  (`ir_atomic_q/1` takes `ptr(Q, _)` too): `_Atomic(int *)` resolves to a pointer whose qualifiers hold `_Atomic`, and
+  its loads, stores and steps were plain. `test/c/run/atomrmw.c` (clang's 17 `cmpxchg` and one `atomicrmw`),
+  `atomldbl.c`. (0.208)
 - A compound assignment and an increment take their place ONCE ([expr.ass]/6, C 6.5.16.2/3): `ir_lval` first, the
   atomic test asked of the slot after (`ir_step_/6`). Why: the `_Atomic` road was a clause of its own that took the
   place to decide, a lowering emits as it goes and backtracking undoes no instruction, so `slot() += 5` called slot
@@ -8229,23 +8264,38 @@ A lambda is a class of its captures (`library/ccl_cpp.pl`). A fixture named alon
   `fp128`): C++20's `std::atomic<float>::fetch_add` is `__c11_atomic_fetch_add` over a float, and LLVM refused `atomicrmw
   add` of one (`operand must be an integer`); `x += 1.5f` and `x++` on an `_Atomic float` were a load and a store, two
   atomic accesses and no atomic step. `ftmatomic20.cpp`, `test/c/run/atomicfp.c`.
-- AN x86 `_Atomic long double` MOVES THROUGH LIBATOMIC'S GENERIC ROUTINE (0.206; the `x86_fp80` clauses of
+- AN x86 `_Atomic long double` MOVES THROUGH LIBATOMIC'S GENERIC ROUTINE (0.206; the last `_Atomic` clauses of
   `ir_load_slot/4` and `ir_store_slot/4` over `ir_atomic_lib/6`, sixteen bytes, sequentially consistent, through a
   temporary), as clang's does: `load atomic x86_fp80` LLVM refused, its 80 bits no power of two
-  (`ir_atomic_scalar_ll/1` takes `float`, `double`, `half` and `fp128` only), so the link takes `-latomic`, as clang's
-  does. Its `x++` and `+=` are such a load and store, where clang's are a compare-exchange loop (Not done). Seen by
-  hand: no gate links libatomic.
+  (`ir_atomic_scalar_ll/1` takes `float`, `double`, `half` and `fp128` only), and the link names `-latomic` (0.208, the
+  driver topic). Its `x++` and `+=` are a compare-exchange loop since 0.208 (above). `atomldbl.c`.
 - AN ATOMIC OBJECT OF CLASS TYPE MOVES AS THE INTEGER OF ITS SIZE (0.206; `ir_atomic_int/3` on the `__atomic_load_n` and
   `__atomic_store_n` roads, through a temporary, and in `ir_load_slot/4` and `ir_store_slot/4` for an `_Atomic` one):
   where its size is a lock-free width and its type aligned to it, as the generic builtins move it, else libatomic's
   routine. `std::atomic<Pt>` of `struct Pt { int x, y; }` was `load atomic %struct.Pt`, which LLVM refused. The scalar
   types an atomic load and store take as they are -- an integer, a floating type, a pointer -- are
-  `ir_atomic_scalar_ll/1`'s. `ftmatomic20.cpp`.
+  `ir_atomic_scalar_ll/1`'s. `ftmatomic20.cpp`. ANY OTHER `_Atomic` OBJECT, of a size that is no lock-free width, loads
+  and stores through libatomic's routines (0.208; the last `_Atomic` clauses of `ir_load_slot/4` and `ir_store_slot/4`,
+  the x86 `long double`'s made general): `r = g` and `c = e` over an `_Atomic` struct of 20 or 12 bytes were a plain
+  load and store. C11'S EXCHANGE AND COMPARE-EXCHANGE TAKE ANY TYPE (0.208; GCC's generic forms' bodies as
+  `ir_atomic_xchg_mem/5` and `ir_atomic_cas_mem/8`, over temporaries of the values): `atomicrmw xchg` and `cmpxchg` take
+  an integer or a pointer only, and a struct's `atomic_exchange`, a float's `compare_exchange_strong` and an x86 `long
+  double`'s `fetch_add` (a compare-exchange loop, above) were IR that LLVM refused. An integer's and a pointer's
+  compare-exchange keep their one `cmpxchg`. `atomodd.c`, `atomic208.cpp`.
+- A POINTER'S ATOMIC ADDITION AND SUBTRACTION ARE ONE `atomicrmw` OVER AN i64 (0.208; `ir_atomic_ptr_rmw/9` on the
+  `__c11_*` and the `__atomic_*` roads, `ir_atomic_ptr_place/1` asking the type before anything is emitted): the delta
+  in elements for C11's builtin, as clang scales it, in bytes for GCC's, as GCC has it, the result back through
+  `inttoptr`; libc++'s `atomic<T *>::fetch_add`, `++` and `+=` were `atomicrmw add ptr, ptr`, which LLVM refused
+  (`operand must be an integer`). `atomic208.cpp`.
 - AN ATOMIC TYPE OF A POWER-OF-TWO SIZE UP TO 16 BYTES IS ALIGNED AT ITS SIZE (C17 6.2.5/27: its alignment need not be
   the unqualified type's; clang's rule; 0.206; `ccl_size_align/3`'s first clause, and `ir_atomic_plain/2` keeps
   `_Atomic`): libc++'s `std::atomic<T>` holds an `_Atomic(T)`, and `std::atomic<Pt>` was aligned at 4, its loads
-  libatomic's routine, which the link did not find; clang's are one 8-byte instruction. Another size keeps the type's own
-  layout here, where clang rounds it up to a power of two (Not done). `ftmatomic20.cpp`.
+  libatomic's routine, which the link did not find; clang's are one 8-byte instruction. ANOTHER SIZE KEEPS THE TYPE'S
+  OWN LAYOUT, as gcc's does (0.208): clang rounds a size up to sixteen bytes to a power of two and aligns it so, gcc
+  does not, and clang's compare-exchange then compares the padding -- over `_Atomic struct { int i[3]; }` clang 18
+  leaves `*expected` as it was when the exchange fails and clang 21 fails the first exchange, and over libc++ 18 and 21
+  `std::atomic<S12>`'s compare_exchange_strong fails where C++20 ignores padding bits (P0528); gcc's answers and this
+  compiler's are the standards' (`atomodd.c`, `atomic208.cpp`; the Findings). `ftmatomic20.cpp`.
 
 ### Vector types
 
@@ -9221,6 +9271,12 @@ A lambda is a class of its captures (`library/ccl_cpp.pl`). A fixture named alon
 - The Unicode name table comes from Perl's `Unicode::UCD` (`module/gen-uninames.pl`): python3's `unicodedata` is
   Unicode 14.0.0 and lists no alias, and the proxy refuses unicode.org. `charprop` is slow per Hangul syllable, so
   those names come from the Jamo tables. (0.104)
+- COCOLOG'S `sub_atom/5` SEEKING A SUBSTRING WITH ITS PLACE UNBOUND IS QUADRATIC in the atom's length (2.11.6, 0.208:
+  0.09 s over 10 KB, 0.84 s over 40 KB, 5.5 s over 100 KB, the substring absent), where `atomic_list_concat/3` split at
+  the same string takes no measurable time. 0.208's libatomic test asked an IR's text so, and the compile gate went from
+  29 s to 86 s, and the cross gate's build of `stdvariant.cpp` for aarch64 did not end in 23 minutes; the test splits
+  the text (`ccl_ir_has/2`). Every other `sub_atom/5` of the library seeks in a name or a path. For cocolog's owner.
+  (0.208)
 
 ### Measurement and the instruments
 
@@ -9398,6 +9454,14 @@ A lambda is a class of its captures (`library/ccl_cpp.pl`). A fixture named alon
   `guard.sh` and `watch.sh` (a query or a gate under the summing watchdog). A new session writes them again. The first
   question a trace of a failed build answered, which call gave up, is `test/why.sh`'s since 0.144, in the repository.
   (0.93, 0.144)
+- THE REFERENCE COMPILERS DISAGREE OVER AN `_Atomic` OBJECT OF A SIZE THAT IS NO POWER OF TWO (0.208), and two of them
+  answer wrongly: clang rounds `_Atomic struct { int i[3]; }` up to sixteen bytes aligned at sixteen, gcc keeps twelve
+  aligned at four, and clang's compare-exchange compares the four bytes of padding -- clang 18 leaves `*expected` as it
+  was when the exchange fails, and clang 21 fails an exchange whose values are equal; clang++ over libc++ 18 and 21 lays
+  `std::atomic<S12>` so, and its `compare_exchange_strong` fails where C++20 ignores padding bits (P0528), while clang++
+  over libstdc++ answers as the standard does; g++ over libstdc++ never ends `std::atomic<long double>::fetch_add`, its
+  loop comparing padding that the expected copy does not hold. This compiler takes gcc's layout and the standards'
+  answers, and the fixtures hold those: `atomodd.c` gcc's output, `atomic208.cpp` clang++'s over libstdc++. (0.208)
 
 ## What runs
 
@@ -9408,16 +9472,16 @@ A lambda is a class of its captures (`library/ccl_cpp.pl`). A fixture named alon
 - Ubuntu 24.04 on x86_64 (clang and LLVM 18, glibc, libc++ 18 and 21) is a host since 0.87. Every gate but the C++ one
   is GREEN there since 0.93, and all seven since 0.95. Every step from 0.93 on is gated there, but the save points
   0.112, 0.113, 0.117, 0.122 to 0.125, 0.130, 0.131 and 0.143 (0.143's C gates and cross gate ran, its libc++ gates did
-  not; the others were gated by the steps after them). The last full run is 0.206's, over cocolog 2.11.6 (the
-  Findings), on one tree, over fresh HOMEs: over libc++ 18 all nine GREEN (the flow gate's one finding in 141 s, reader
-  5 s, compile 26 s, driver 20 s, objects 6 s, proof, the cross gate in 427 s with its C++ part for aarch64, the
-  library read in 759 s (198 other headers warmed), the C++ gate in 1644 s with 789 of 799 fixtures ok, the skips are
+  not; the others were gated by the steps after them). The last full run is 0.207's, over cocolog 2.11.6 (the
+  Findings), on one tree, over fresh HOMEs: over libc++ 18 all nine GREEN (the flow gate's one finding in 152 s, reader
+  6 s, compile 28 s, driver 23 s, objects 6 s, proof, the cross gate in 415 s with its C++ part for aarch64, the
+  library read in 745 s (198 other headers warmed), the C++ gate in 1593 s with 791 of 801 fixtures ok, the skips are
   `atomicref`, `atomicrefalign`, `ftm23b`, `ftm26b`, `joinwith`, `stdflatmap`, `stdoptionalref`, `tzone`, `vbaseof` and
   `zipadjacent`, the two units, the 29 refusals, the four of the safe part and the four static assertions); over libc++
-  21 the library read (the phase 671 s) and the C++ gate (797 of 799 ok, the skips `stdoptionalref` and `zipadjacent`)
-  GREEN -- the C gates do not read libc++. The headers' reads, summed, took 2868 s over 221 over libc++ 18 and 2514 s
-  over 21; the fixtures' builds 5640 s over 789 and 5651 s over 797. The chains of 0.165 to 0.203, of 0.205 and of
-  0.206 are in HISTORY.md, 0.166 to 0.204, 0.206 and 0.207. Two libc++ passes are one gate:
+  21 the library read (the phase 633 s) and the C++ gate (799 of 801 ok, the skips `stdoptionalref` and `zipadjacent`)
+  GREEN -- the C gates do not read libc++. The headers' reads, summed, took 2794 s over 221 over libc++ 18 and 2355 s
+  over 21; the fixtures' builds 5498 s over 791 and 5416 s over 799. The chains of 0.165 to 0.203 and of 0.205 to
+  0.207 are in HISTORY.md, 0.166 to 0.204 and 0.206 to 0.208. Two libc++ passes are one gate:
   `LLVM=/usr/lib/llvm-18` and `LLVM=/usr/lib/llvm-21` choose the tree the chain reads and links. libc++ 22 (the newest
   tree, which a run without `$LLVM` reads) is no gate: 0.182 built its vector and its C++23 views by hand
   (`zipadjacent.cpp`, which its `.needs` skips over 18 and 21), and `stdoptionalref` passes there. The run before
@@ -9484,7 +9548,11 @@ A lambda is a class of its captures (`library/ccl_cpp.pl`). A fixture named alon
   (`memassert.c`), GCC's `packed` and `aligned` in C23's standard spelling (`gnuattrc.c`, `-std=c23`). Since 0.206:
   C23's `nullptr_t` (`nullptrtype.c`, `-std=c23`), C23's library over glibc -- `strdup` and `strndup`, `memccpy`, the
   searches, `timegm`, `strfromd` and `strfromf`, `mbrtoc8`, `printf`'s `%b` and `%wN` (`stdc23.c`, `-std=c23`), an
-  `_Atomic` floating object's steps and compound assignments, one `atomicrmw` each (`atomicfp.c`).
+  `_Atomic` floating object's steps and compound assignments, one `atomicrmw` each (`atomicfp.c`). Since 0.208: every
+  compound assignment and step of an `_Atomic` integer, floating object and pointer one read-modify-write (`atomrmw.c`),
+  an x86 `long double`'s through libatomic (`atomldbl.c`), an `_Atomic` struct of a size that is no lock-free width
+  through libatomic's routines, a failed compare-exchange's `*expected` (`atomodd.c`; gcc's output), and address
+  constants at file scope and in a static local (`addrconst.c`).
 - The C library is the host's. The compiler's own freestanding headers are in `library/include/` (`<stdarg.h>`,
   `<stdatomic.h>`, `<complex.h>`, `<stdckdint.h>`, `<stdbit.h>`, `<limits.h>`, `<tgmath.h>` and six more).
 - The language's own additions run: `:=`, patterns, `name { }` structs and `format`, `print`, `println`
@@ -9557,6 +9625,10 @@ A lambda is a class of its captures (`library/ccl_cpp.pl`). A fixture named alon
   function given to a template over a plain function pointer, a reference and a pointer to member, `noexcept(B)`
   deducing B, specializations over a function type with and without noexcept); `test/cpp/memassert.cpp` and
   `memassert2.cpp`, a class member's false static assertion and a class template instance's, the refusals.
+- Forms of 0.208: `refarrcls` (C++20: a braced argument to a reference to an array of objects,
+  `std::to_array<std::string>` of a list) and `atomic208` (C++20: libc++'s atomics where no one instruction does it -- a
+  `long double`'s `fetch_add` and `+=`, a float's and a twelve-byte struct's compare-exchange, a pointer's `++`, `+=`
+  and `fetch_sub`; the standard's output, which clang++ prints over libstdc++).
 - Forms of 0.207, the by-value parameters: `byvalorder` (a by-value argument destroyed by the caller at the end of its
   full-expression -- a prvalue, an lvalue's copy, an xvalue's move, a call's result, a conditional's arm, two arguments
   newest first, a method's, a lambda's, one the callee throws over) and `tempunwind` (a statement's temporaries
@@ -10167,7 +10239,10 @@ integer, the byte swaps, an initializer_list's array of objects built in place, 
 {a, b}`, a braced argument by value the parameter and one to a reference to an array, `decltype` of a member and of a
 template-id's arguments, a declaration's noexcept merged with its definition, the nearer base breaking a tie, a lambda
 as a braced list's item, a callee written `std::move(f)`, a recursive class's implicit copy made once, and a C library
-function's pointer result a borrow of its first argument).
+function's pointer result a borrow of its first argument); the eleventh, what the tenth left, is 0.208's (a braced
+argument to a reference to an array of objects, every read-modify-write of an `_Atomic` object one, an `_Atomic` object
+of any size atomic, a pointer's atomic addition, an atomic pointer -- and what their probes found: the address constants
+at file scope, a parameter naming a given and a deduced template parameter, libatomic named at the link).
 
 1. C++'S CORE LANGUAGE, WHAT 0.205 LEFT: clang's `TnDa` for a placeholder's argument in a function template's symbol is
    not spelled, which no symbol here needs (the program's functions keep this compiler's names); and a library header's
@@ -10194,20 +10269,18 @@ function's pointer result a borrow of its first argument).
    key and the C++ summaries' keys, since `-std=c23` and `-std=gnu23` read one key now; `decltype(x)` and
    `alignof(decltype(x))` of an aligned variable keep its alignment, the qualifier `aligned(E)` sitting in its type,
    where the alignment is the entity's ([dcl.align]); clang's C extension that types a conditional of two incompatible
-   pointers as `void *`, with a warning, is not modelled; a generic atomic builtin over an object that is no lock-free
-   width calls libatomic, which the link takes only with `-latomic`, as clang's.
+   pointers as `void *`, with a warning, is not modelled. (A generic atomic builtin over an object that is no lock-free
+   width calls libatomic, which the link names since 0.208, the driver topic.)
 6. libc++'S FACILITIES BY THEIR FEATURE-TEST MACROS, WHAT 0.206 LEFT: `#x` spells its argument's tokens with a space
    between every two of them (`pp_spell_all/2`), where C17 6.10.3.2/2 keeps a space only where white space stood:
-   `#x` of `a+b` is `"a + b"` and of `f(1,2)` `"f ( 1 , 2 )"`, where clang spells `"a+b"` and `"f(1,2)"` -- the
+   `#x` of `a+b` is `"a + b"` and of `f(1,2)` `"f ( 1 , 2 )"`, where clang and gcc spell `"a+b"` and `"f(1,2)"` -- the
    tokens carry no mark of the white space before them, which both lexers would need to give (an `assert`'s message
-   shows it); a braced argument to a reference to an array of class objects is refused by name, `not lowered yet:
-   expr(init(...))` (a temporary array of scalars is taken, 0.206); an atomic type whose size is no power of two keeps its type's layout, where
-   clang rounds its size and alignment up to the next one (`_Atomic struct { char c[3]; }` is 3 bytes aligned at 1 here,
-   4 aligned at 4 in clang, moved by one `load atomic i32`), and an `_Atomic` object of class type of a size that is no
-   lock-free width loads and stores as a plain object, where clang calls libatomic; an x86 `_Atomic long double`'s
-   `x++` and `+=` are a libatomic load and store, where clang's are a compare-exchange loop; and a class's table is
-   emitted where its key function is only declared, so a program that declares a virtual function, never defines it and
-   never makes an object of the class links with clang and fails here, the table's slot undefined.
+   shows it); the next step's work. Done at 0.208: a braced argument to a reference to an array of objects (the Classes
+   topic), every read-modify-write of an `_Atomic` object one and an `_Atomic` object of any size atomic (the Atomics
+   topic; its layout gcc's, where clang rounds it up). No defect: a class's table is emitted where its key function is
+   only declared, so a program that declares a virtual function, never defines it and never makes an object of the
+   class links with clang and fails here -- a virtual function that is not pure is odr-used ([basic.def.odr]/8), and a
+   program that never defines one is ill-formed, no diagnostic required (/10).
 7. THE BY-VALUE PARAMETERS, WHAT 0.206 LEFT: done -- the caller destroys a by-value parameter of a class with a
    destructor at the end of its full-expression since 0.207, as the Itanium C++ ABI and clang have it, and every
    temporary of a statement is destroyed on unwinding where it was built (the Classes topic).

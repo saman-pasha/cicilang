@@ -6435,10 +6435,16 @@ cpp_copies_([P|Ps], [init(Items)|As], [A1|Bs]) :- ( P = param(PT, _) ; P = param
 %% `sum({3, 4})' over `int sum(P)' reached the lowering as a bare braced list
 %% A BRACED ARGUMENT TO A REFERENCE TO AN ARRAY OF SCALARS binds a temporary array of its items ([dcl.init.list]/3.10,
 %% [dcl.init.ref]/5.3; 0.206): `std::to_array({7, 8, 9})' over `to_array(_Tp (&&)[_Size])' reached the lowering as a bare
-%% braced list. An array of objects is refused as it was.
-cpp_copies_([P|Ps], [init(Items)|As], [A1|Bs]) :- ( P = param(PT, _) ; P = param(PT, _, _) ), ( PT = ref(_, AT0) ; PT = rref(_, AT0) ), catch(ccl_resolve_type(AT0, arr(_, ET)), _, fail), \+ cpp_elem_class(ET, _), !,
+%% braced list
+cpp_copies_([P|Ps], [init(Items)|As], [A1|Bs]) :- ( P = param(PT, _) ; P = param(PT, _, _) ), ( PT = ref(_, AT0) ; PT = rref(_, AT0) ), catch(ccl_resolve_type(AT0, arr(_, ET0)), _, fail), catch(cpp_type(ET0, ET), _, fail), \+ cpp_elem_class(ET, _), !,
     length(Items, N), AT = arr(int(N), ET), ccl_gensym('$tmp', Tmp), ccl_declare(Tmp, AT),
     A1 = stmt_expr(block([declaration(0, none, AT, [var(Tmp, AT, init(Items))]), expr(0, id(Tmp))])), cpp_copies_(Ps, As, Bs).
+%% ... AND ONE TO A REFERENCE TO AN ARRAY OF OBJECTS a temporary array of objects (0.208; cpp_obj_array/5, an initializer_list's
+%% array's road): each element built in place from its item, in order, and destroyed at the end of the full-expression, the last
+%% first -- `std::to_array<std::string>({"x", "yy"})' was refused, `not lowered yet: expr(init(...))'
+cpp_copies_([P|Ps], [init(Items)|As], [stmt_expr(block(Ss))|Bs]) :- ( P = param(PT, _) ; P = param(PT, _, _) ), ( PT = ref(_, AT0) ; PT = rref(_, AT0) ), catch(ccl_resolve_type(AT0, arr(_, ET0)), _, fail),
+    catch(cpp_type(ET0, ET), _, fail), cpp_elem_class(ET, EC), ( cpp_has_ctors(EC) ; cpp_dtor(EC, _) ), ccl_global('$cpp_temps', Ts, none), is_list(Ts), !,   % the element's type as the desugaring names it: a declared `std::string (&&)[2]' holds the written name
+    findall(E2, ( member(item(_, E1), Items), once(cpp_il_item(ET, E1, E2)) ), Es), cpp_obj_array(ET, Es, Arr, _, Ss0), append(Ss0, [expr(0, id(Arr))], Ss), cpp_copies_(Ps, As, Bs).
 cpp_copies_([P|Ps], [init(Items)|As], [compound_lit(ST, I1)|Bs]) :- ( P = param(PT, _) ; P = param(PT, _, _) ), cpp_plain_struct_param(PT, ST), !,
     cpp_init_convs(ST, init(Items), I1), cpp_copies_(Ps, As, Bs).
 cpp_copies_([P|Ps], [A|As], [A1|Bs]) :-
@@ -6500,19 +6506,22 @@ cpp_init_list(ET, Items, IL) :- cpp_init_list(none, ET, Items, IL).
 %% temporary destroyed at the statement's end -- a list's sentinel pointed into the dead temporary, and `std::vector<
 %% std::list<int>> v{{1, 2}, {3}}' aborted. Outside a statement walk (no register of temporaries) it keeps that road.
 cpp_init_list(Ctx, ET, Items, stmt_expr(block(Ss))) :- cpp_elem_class(ET, EC), ( cpp_has_ctors(EC) ; cpp_dtor(EC, _) ), ccl_global('$cpp_temps', Ts0, none), is_list(Ts0), !,
-    findall(E2, ( member(item(_, E0), Items), once(( cpp_expr(Ctx, E0, E1), cpp_il_item(ET, E1, E2) )) ), Es), length(Es, N),
-    ccl_gensym('$il', Arr), AT = arr(int(N), ET), ccl_declare(Arr, AT), K1 is N - 1,
+    findall(E2, ( member(item(_, E0), Items), once(( cpp_expr(Ctx, E0, E1), cpp_il_item(ET, E1, E2) )) ), Es), cpp_obj_array(ET, Es, Arr, N, Ss0),
+    cpp_instantiate_type(initializer_list, [ET], ILT), cpp_class_of_type(ILT, ILC), cpp_temporary(ILT, ILC, [id(Arr), int(N)], IL),
+    append(Ss0, [expr(0, IL)], Ss).
+cpp_init_list(Ctx, ET, Items, stmt_expr(block([declaration(0, none, ET, [var(Arr, arr(int(N), ET), init(Items1))]), expr(0, IL)]))) :-
+    findall(item(D, E2), ( member(item(D, E0), Items), once(( cpp_expr(Ctx, E0, E1), cpp_il_item(ET, E1, E2) )) ), Items1), length(Items1, N),   % ONCE: a second answer would register a second temporary (nb_setval survives backtracking) and the array would hold both
+    ccl_gensym('$il', Arr), ccl_declare(Arr, arr(int(N), ET)),
+    cpp_instantiate_type(initializer_list, [ET], ILT), cpp_class_of_type(ILT, ILC), cpp_temporary(ILT, ILC, [id(Arr), int(N)], IL).
+%% the temporary array of objects of the class ET from the element values Es, `$il': its statements, the elements built in place
+%% in order and, where the class has a destructor, the array registered with the statement, flagged once the elements are built
+cpp_obj_array(ET, Es, Arr, N, Ss) :- cpp_elem_class(ET, EC), length(Es, N), ccl_gensym('$il', Arr), AT = arr(int(N), ET), ccl_declare(Arr, AT), K1 is N - 1,
     ( cpp_dtor(EC, _) -> cpp_elems_unwind(0, K1, ET, id(Arr), Es, 0, Inits0, []), Inits = [block(Inits0)] ; cpp_elems_from(0, K1, ET, id(Arr), Es, 0, Inits, []) ),
     (   cpp_member_dtor(AT, id(Arr), 0, Ds), Ds \== []
     ->  ccl_gensym('$tf', F), ccl_declare(F, base([], [int])), nb_getval('$cpp_temps', Ts1), nb_setval('$cpp_temps', [tmp(Arr, AT, flag(F, stmts(Ds)))|Ts1]),
         Decl = [], Built = [expr(0, assign('=', id(F), int(1)))]
     ;   Decl = [declaration(0, none, AT, [var(Arr, AT, none)])], Built = [] ),
-    cpp_instantiate_type(initializer_list, [ET], ILT), cpp_class_of_type(ILT, ILC), cpp_temporary(ILT, ILC, [id(Arr), int(N)], IL),
-    append([Decl, Inits, Built, [expr(0, IL)]], Ss).
-cpp_init_list(Ctx, ET, Items, stmt_expr(block([declaration(0, none, ET, [var(Arr, arr(int(N), ET), init(Items1))]), expr(0, IL)]))) :-
-    findall(item(D, E2), ( member(item(D, E0), Items), once(( cpp_expr(Ctx, E0, E1), cpp_il_item(ET, E1, E2) )) ), Items1), length(Items1, N),   % ONCE: a second answer would register a second temporary (nb_setval survives backtracking) and the array would hold both
-    ccl_gensym('$il', Arr), ccl_declare(Arr, arr(int(N), ET)),
-    cpp_instantiate_type(initializer_list, [ET], ILT), cpp_class_of_type(ILT, ILC), cpp_temporary(ILT, ILC, [id(Arr), int(N)], IL).
+    append([Decl, Inits, Built], Ss).
 %% ... and a class WITH an initializer_list constructor takes a braced initializer through it, before any other
 %% constructor over the items ([over.match.list]): `vector(initializer_list<value_type>)' beside `vector(size_type,
 %% const value_type &)', which three ints would otherwise have gone to
@@ -10405,12 +10414,15 @@ cpp_pack_param_in(T, TPs, P) :- member(tparam(pack, P, _), TPs), cpp_names_in(T,
 cpp_explicit_skip([], _, _, []).
 cpp_explicit_skip([P|Ps], TPs, B0, [Q|Qs]) :-
     ( ( P = param(PT, _) ; P = param(PT, _, _) ), PT \= pack(_), cpp_tparam_names(TPs, Ns),
-      once(( member(N, Ns), cpp_term_mentions(PT, N) )), \+ ( member(N, Ns), \+ memberchk(N-_, B0), cpp_term_mentions(PT, N) )
+      once(( member(N1, Ns), cpp_term_mentions(PT, N1) )), \+ ( member(N2, Ns), \+ memberchk(N2-_, B0), cpp_term_mentions(PT, N2) )
     ->  Q = skip ; Q = P ),
     cpp_explicit_skip(Ps, TPs, B0, Qs).
+%% ... A PARAMETER NAMING A GIVEN AND A DEDUCED ONE TAKES PART (0.208): the two tests shared one variable, so the name the first
+%% found stood for the second, and `T (&&)[N]' with T given was skipped -- `std::to_array<std::string>({"x", "yy"})' could not
+%% deduce N
 cpp_deduce_one(_, A, _, B, B) :- cpp_fn_template_ref(A, _), !.                                  % a template's name is a NON-DEDUCED CONTEXT ([temp.deduct.call]/6)
 cpp_deduce_one(PT, init(Items), TPs, B0, B) :- Items \== [], cpp_il_param(PT, EPT), !, cpp_deduce_items(Items, EPT, TPs, B0, B).   % A BRACED LIST AGAINST `initializer_list<P>' DEDUCES P FROM EACH ITEM ([temp.deduct.call]/1; 0.132): zip_view's `size()' is `ranges::min({_CT(__sizes)...})', and `_Tp' of `operator()(initializer_list<_Tp>, ...)' was never deduced, `cannot_deduce(_Tp)'
-cpp_deduce_one(PT, init(Items), TPs, B0, B) :- Items \== [], ccl_unref(PT, PT1), PT1 = arr(K, EPT), !, cpp_deduce_items(Items, EPT, TPs, B0, B1), length(Items, N), cpp_match_bound(K, int(N), TPs, B1, B).   % ... AND AGAINST `P (&)[N]' AND `P (&&)[N]' DEDUCES P FROM EACH ITEM AND N FROM THE LIST'S LENGTH ([temp.deduct.call]/1; 0.206): `std::to_array({7, 8, 9})' was `cannot_deduce(_Tp)'
+cpp_deduce_one(PT, init(Items), TPs, B0, B) :- Items \== [], ccl_unref(PT, PT1), PT1 = arr(K, EPT), !, ( cpp_deduce_items(Items, EPT, TPs, B0, B1) -> true ; \+ ( member(tparam(_, P, _), TPs), atom(P), \+ memberchk(P-_, B0), cpp_mentions(EPT, typedef(P)) ) -> B1 = B0 ), length(Items, N), cpp_match_bound(K, int(N), TPs, B1, B).   % (an element type the explicit arguments give whole deduces nothing from the items, 0.208: `std::to_array<std::string>({"x", "yy"})') ... AND AGAINST `P (&)[N]' AND `P (&&)[N]' DEDUCES P FROM EACH ITEM AND N FROM THE LIST'S LENGTH ([temp.deduct.call]/1; 0.206): `std::to_array({7, 8, 9})' was `cannot_deduce(_Tp)'
 cpp_deduce_one(rref(_, base(_, [typedef(P)])), A, TPs, B0, [P-ref([], AT)|B0]) :-                   % ... a STRING LITERAL is such an lvalue (0.167): `const char (&)[N]', as libc++'s `_Args &&...' take it
     memberchk(tparam(type, P, _), TPs), \+ memberchk(P-_, B0), cpp_string_literal(A, AT), !.
 cpp_deduce_one(rref(_, base(_, [typedef(P)])), A, TPs, B0, [P-ref([], AT1)|B0]) :-                 % A FORWARDING REFERENCE, `T &&' with T a parameter, given an LVALUE: T is the argument's type AS A REFERENCE ([temp.deduct.call]/3)

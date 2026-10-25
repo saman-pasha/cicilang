@@ -202,6 +202,7 @@ One row per step, in version order: the step's title, what it did and its gate n
 | 0.205 | the audit's ninth group, what its Not done list held: a prototype's and an out-of-class member's trailing requires-clause, a partial specialization's typed value, the noexcept of a lambda, of a function type and of the calls the noexcept operator asks, a class member's static assertion, the vendors' scoped attributes, GCC's `aligned` on an enum and GNU's alignment of an expression, a coroutine's promise after its state | GCC's `packed` and `aligned` in the standard spelling; libc++ 21's `std::atomic_ref` of an over-aligned type at the link; a member's leading attribute in C++; a class typedef's alignment; `noexcept(B)` deducing B; a typedef's conditional noexcept; a noexcept function given to a template over a plain function pointer, a regression since 0.199 | committed before its chain: the flow gate GREEN, the library reads GREEN over libc++ 18 and 21, the C gates GREEN, the C++ gate GREEN over libc++ 18 (774 of 782 ok, 8 skipped), a net of 91 over 21 ok |
 | 0.206 | the audit's tenth group: libc++'s facilities by their feature-test macros, C++17 to C++26, and C23's library over glibc; `std::nullptr_t` a type of its own in both languages; a class's `final` | four traits the library asks the compiler; a declaration's noexcept merged with its definition; the nearer base breaking a tie; an initializer_list's array of objects built in place; `auto x{e}` and `auto x = {e}`; a braced argument by value and to a reference to an array; `decltype` of a member; a recursive class's implicit copy made twice; a callee `std::move(f)`; a function as a template argument; `std::out_ptr`'s crash, two defects; an explicit object member template with its arguments given; the floating atomics and an atomic of a struct; the byte swaps; a C library function's pointer result; three regressions the gate found, fixed; the by-value parameter's destruction against the Itanium ABI, left | committed before its chain: the nine gates over libc++ 18 (the C++ gate GREEN after three fixes, 789 of 799 ok, 10 skipped), the library read over libc++ 21 GREEN, the 17 new fixtures ok over 21 |
 | 0.207 | a by-value parameter destroyed by the caller, as the Itanium C++ ABI has it; every temporary of a statement destroyed on unwinding where it was built; 0.206's chain | the callee destroyed the parameter: across a link with clang's code an object destroyed never or twice, and a destructor run before the rest of the caller's full-expression; a temporary bound to a reference parameter left alive when the call threw, a defer destroying a temporary not yet built; four defects of the change that the C++ gate found, fixed; the link with clang++'s code a check of the C++ gate and the cross gate | committed before its chain: the flow gate, the C gates in a fresh HOME and the C++ gate over libc++ 18 (791 of 801 ok, 10 skipped) and over 21 (799 of 801 ok, 2 skipped) GREEN, the new link check seen by hand; it carries 0.206's chain: all nine gates GREEN over libc++ 18, the two libc++ gates over 21 |
+| 0.208 | the audit's eleventh group, what 0.206 left: every read-modify-write of an atomic object one, an atomic object of any size atomic, a braced argument to a reference to an array of objects; the address constants at file scope; 0.207's chain | an integer's `*=`, a float's `/=`, a pointer's `++` and an x86 `long double`'s every step a load and a store; an atomic pointer no atomic; an odd-size atomic struct a plain load and store, its exchange and a float's compare-exchange IR LLVM refused, a pointer's `fetch_add` too; `int *p = arr;` at file scope refused; the explicit arguments' skip rule sharing one variable since 0.115; libatomic named at the link; cocolog's `sub_atom/5` quadratic; clang's, libc++'s and libstdc++'s atomics over padding wrong; a mis-edit of the step found in its review; the key function no defect | committed before its chain: the flow gate, the C gates in a fresh HOME and the C++ gate over libc++ 18 (793 of 803 ok, 10 skipped) and over 21 (801 of 803 ok, 2 skipped) GREEN, and again after the mis-edit's fix; it carries 0.207's chain: all nine gates GREEN over libc++ 18, the two libc++ gates over 21 |
 
 ## M5 — the C++ mode
 
@@ -13856,3 +13857,99 @@ caller's object, destroyed at the end of its full-expression, and on unwinding w
 no parameter; every temporary of a statement flagged, an expression's or a declaration's destroyed on unwinding while
 the statement runs, all of them in the reverse of the order they were built; a conditional of two such temporaries
 passed as the one built; the check walks a by-value parameter's destructor as a defer at the callee's head).
+
+## 0.208 — the audit's eleventh group, what 0.206 left: every read-modify-write of an atomic object one, an atomic object of any size atomic, a braced argument to a reference to an array of objects; the address constants at file scope; 0.207's chain
+
+**0.208: the eleventh group of the audit of C17 to C23 and C++17 to C++26: what 0.206's Not done item 6 held, the
+stringizing left for the next step, and what its probes found. Each fixture prints clang's or clang++'s output over
+libc++ 18 and 21, or the standards' where the reference compilers answer wrongly (the Findings). And 0.207's chain.**
+
+- EVERY READ-MODIFY-WRITE OF AN `_Atomic` OBJECT IS ONE (C17 6.5.16.2/3, 6.5.2.4/2; `ir_atomic_loop/6` over
+  `ir_cas_ll/2`, from the compound assignment of `ir_expr/4` and from `ir_step_/6`), a compare-exchange loop where no
+  one instruction does it, as clang's: the integer `*=`, `/=`, `%=`, `<<=` and `>>=`, a floating `*=` and `/=` (the
+  integer of its bits to `cmpxchg`), a pointer's `++` and `--`, and every one of an x86 `long double` through
+  libatomic's `__atomic_compare_exchange` over two sixteen-byte temporaries. Each was an atomic load and an atomic
+  store, another thread's write between them lost. AN ATOMIC POINTER WAS NO ATOMIC AT ALL: `_Atomic(int *)` resolves to
+  a pointer whose qualifiers hold `_Atomic`, and `ir_atomic_q/1` asked a base type's only; its loads, stores and steps
+  were plain. `atomrmw.c` has clang's 17 `cmpxchg` and one `atomicrmw`; `atomldbl.c`.
+- AN `_Atomic` OBJECT OF ANY SIZE IS ATOMIC: one of a size that is no lock-free width loads and stores through
+  libatomic's routines (the last `_Atomic` clauses of `ir_load_slot/4` and `ir_store_slot/4`, 0.206's x86 `long double`
+  clauses made general), where `r = g` and `c = e` over a struct of 20 or 12 bytes were a plain load and store; C11's
+  exchange and compare-exchange take any type through temporaries of the values (`ir_atomic_xchg_mem/5`,
+  `ir_atomic_cas_mem/8`, GCC's generic forms' bodies), where a struct's `atomic_exchange`, a float's
+  `compare_exchange_strong` and an x86 `long double`'s `fetch_add` were IR that LLVM refused. THE LAYOUT STAYS GCC'S:
+  clang rounds a size up to sixteen bytes to a power of two and aligns it so, gcc does not, and the reference compilers
+  answer wrongly over the padding clang adds -- clang 18 leaves `*expected` as it was when the exchange of `_Atomic
+  struct { int i[3]; }` fails, clang 21 fails an exchange of equal values, clang++ over libc++ 18 and 21 fails
+  `std::atomic<S12>::compare_exchange_strong` where C++20 ignores padding bits (P0528), and g++ over libstdc++ never
+  ends `std::atomic<long double>::fetch_add`. gcc's answers and this compiler's are the standards' (`atomodd.c`, gcc's
+  output; `atomic208.cpp`, clang++'s over libstdc++).
+- A POINTER'S ATOMIC ADDITION IS ONE `atomicrmw` OVER AN i64 (`ir_atomic_ptr_rmw/9`; `ir_atomic_ptr_place/1` asks the
+  type before anything is emitted, since a lowering emits as it goes): the delta in elements for C11's builtin, as clang
+  scales it, in bytes for GCC's. libc++'s `atomic<T *>::fetch_add`, `++` and `+=` were `atomicrmw add ptr, ptr`, which
+  LLVM refused.
+- LIBATOMIC IS NAMED AT THE LINK where an object calls it, on Linux (`ccl_note_libatomic/1`, `ccl_libatomic_lib/2`), as
+  libm is: the compiled IR is asked for a call of libatomic's routines or a sixteen-byte atomic; clang and gcc name it
+  only when the program's link says so. THE TEXT IS SPLIT AT THE STRING (`ccl_ir_has/2`): asked by `sub_atom/5` first,
+  the compile gate went from 29 s to 86 s and the cross gate's build of `stdvariant.cpp` for aarch64 did not end in 23
+  minutes -- COCOLOG'S `sub_atom/5` SEEKING A SUBSTRING WITH ITS PLACE UNBOUND IS QUADRATIC in the atom's length
+  (2.11.6: 0.09 s over 10 KB, 0.84 s over 40 KB, 5.5 s over 100 KB), where `atomic_list_concat/3`'s split takes no
+  measurable time. For cocolog's owner; that gate run was stopped and run again from its start.
+- A BRACED ARGUMENT TO A REFERENCE TO AN ARRAY OF OBJECTS binds a temporary array of them (`cpp_obj_array/5`, the road
+  of an initializer_list's array of objects of 0.206, made one predicate for both): each element built in place from its
+  item, in order, destroyed at the end of the full-expression, the last first, where it was built. `sum({1, 2, 3})` over
+  `int sum(const T (&)[3])` was refused, `not lowered yet: expr(init(...))`. Its probes found two defects on the way:
+  THE EXPLICIT ARGUMENTS' SKIP RULE SHARED ONE VARIABLE BETWEEN ITS TWO TESTS (`cpp_explicit_skip/4`, since 0.115), so
+  the name the first found stood for the second, and `_Tp (&&)[_Size]` with `_Tp` given was skipped:
+  `std::to_array<std::string>({"x", "yy", "zzz"})` refused `cannot_deduce('_Size')`; and the element type came from the
+  callee's declared parameter as written, `std::string (&&)[2]`'s `typedef(scoped([std], string))`, which the 0.206
+  scalar road took for no class and the lowering refused. `refarrcls.cpp`.
+- THE ADDRESS CONSTANTS (C17 6.6/9; a probe's finding; `ir_gaddr/3` over `ir_glval/4`, `ir_gconst/3`'s last clause): an
+  array's name or a member array's decayed, `&arr[3]`, `&sarr[1].m[2]`, a row `m2[1]`, and an integer constant added or
+  taken are that object's symbol and a byte offset, `getelementptr inbounds (i8, ptr @arr, i64 8)`, in a pointer global,
+  an array of pointers, a struct's pointer member and a static local. `int *p = arr;` and `char *q = buf;` at file scope
+  did not compile (`global_init(id(arr))`); only `&x`, `&x.m`, a literal and a function's address were taken.
+  `addrconst.c` prints clang's and gcc's lines; the same forms in C++ print clang++'s.
+- A MIS-EDIT OF THIS STEP, FOUND IN ITS REVIEW BEFORE THE COMMIT: a comment put in the middle of a line of the new
+  `cpp_copies_` clause commented out the rest of the line, the clause's guard and its cut (`( cpp_has_ctors(EC) ;
+  cpp_dtor(EC, _) ), ccl_global('$cpp_temps', Ts, none), is_list(Ts), !`). The gates passed over it, since every
+  fixture's road through the clause succeeds; on backtracking it would have built and registered its temporaries again,
+  and outside a statement walk it would have registered them nowhere. `CLAUDE.md`'s rule stands as it is written: a
+  comment ends the line. The gates that the clause reaches ran again after the fix (below).
+- NO DEFECT: a class's table emitted where its key function is only declared fails the link of a program that declares a
+  virtual function, never defines it and never makes an object of the class, which clang links -- a virtual function
+  that is not pure is odr-used ([basic.def.odr]/8), and a program that never defines one is ill-formed, no diagnostic
+  required (/10). Not done item 6 says so.
+- FIXTURES: 4 C (`atomrmw.c`, `atomldbl.c`, `atomodd.c`, `addrconst.c`) and 2 C++ (`refarrcls.cpp`, `atomic208.cpp`,
+  both at C++20), each seen to pass, the C++ ones over libc++ 18 and 21, the C ones on aarch64 under qemu too (the cross
+  gate).
+- THE CHAIN OF 0.207, over its commit (1638c76) and fresh HOMEs, on cocolog 2.11.6: over libc++ 18 all nine gates GREEN
+  -- the flow gate 152 s (its one finding), reader 6 s, compile 28 s, driver 23 s, objects 6 s, proof, cross 415 s, the
+  library read 745 s (the 23 asserted reads whole, 198 other headers warmed), the C++ gate 1593 s, 791 of 801 fixtures
+  ok and 10 skipped by their needs --; over libc++ 21 the library read 633 s and the C++ gate GREEN in about 1574 s, 799
+  of 801 ok, 2 skipped (`stdoptionalref.cpp`, `zipadjacent.cpp`). The headers' reads summed 2794 s over 221 and 2355 s;
+  the fixtures' builds 5498 s over 791 and 5416 s over 799.
+- COMMITTED BEFORE ITS CHAIN, and it claims nothing GREEN but this, over the worktree: the flow gate GREEN (152 s, its
+  one finding) after the last library edit, a comment; in a fresh HOME the reader gate (5 s), the compile gate (28 s:
+  131 run fixtures and 47 refusals), the driver gate (21 s, 41 checks), the objects gate (6 s), the proof and the cross
+  gate (409 s: 131 C fixtures, 5 ABI checks, 24 C++ fixtures and 3 C++ checks for aarch64) GREEN; the C++ gate over
+  libc++ 18 GREEN in 1501 s over a warm cache, 793 of 803 fixtures ok and 10 skipped by their needs, the builds summed
+  5417 s, and over libc++ 21 GREEN in 1450 s over the warm cache of 0.207's chain, 801 of 803 ok and 2 skipped, the
+  builds summed 5229 s. 0.207's by-value link check ran in both C++ gates and in the cross gate for the first time,
+  GREEN. The first run of these gates, before the split, was stopped in the cross gate (above). AFTER THE FIX OF THE
+  MIS-EDIT (above) the gates that its clause reaches ran again, GREEN: the flow gate (140 s, its one finding), the cross
+  gate (237 s over the HOME the first run warmed, its 163 checks), and the C++ gate over libc++ 18 in 1440 s, 793 of 803
+  ok and 10 skipped, the builds summed 5168 s, and over 21 in 1450 s, 801 of 803 ok and 2 skipped, 5238 s. The next
+  commit carries the chain's numbers.
+- `RULES.md`: the driver (libatomic at the link); the C++ gate's count; classes (a braced argument to a reference to an
+  array of objects); templates (a parameter naming a given and a deduced parameter); the lowering (the address
+  constants; the atomics: the compare-exchange loops, an atomic pointer, a pointer's addition, an atomic object of any
+  size, the layout gcc's); the Findings (cocolog's `sub_atom/5`; the reference compilers over atomics of odd sizes); the
+  Hosts (0.207's chain); What runs; Not done (item 6, item 5's libatomic). `CLAUDE.md`: the versions.
+
+Reader 156, unchanged: no grammar and no AST change. Lowering 120 (a compound assignment and an increment of an
+`_Atomic` object that no one instruction does a compare-exchange loop, an x86 `long double`'s through libatomic's; an
+`_Atomic` object of a size that is no lock-free width loaded and stored through libatomic; a C11 exchange and
+compare-exchange of any type through temporaries; an atomic pointer atomic, its addition one `atomicrmw` over an i64;
+an address constant a symbol and a byte offset; a braced argument to a reference to an array of objects a temporary
+array of them; a parameter naming a given and a deduced template parameter deduced).

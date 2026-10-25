@@ -16,16 +16,28 @@
 :- use_module(library(process)).
 
 ccl_compile(IR, File, Flags) :-
-    ( ccl_llvm_ready -> ccl_llvm_compile(IR, File, Flags) ; throw(error(no_embedded_llvm, cicilang_compile(File))) ).
+    ( ccl_llvm_ready -> ccl_llvm_compile(IR, File, Flags), ccl_note_libatomic(IR) ; throw(error(no_embedded_llvm, cicilang_compile(File))) ).
 ccl_llvm_ready :- once(catch(use_module(library(ccl_llvm)), _, fail)), once(catch(ccl_llvm_version(_), _, fail)).
+%% AN OBJECT THAT CALLS LIBATOMIC (0.208): libatomic's generic routines, which an atomic object of a size that is no lock-free width
+%% and an x86 `long double' take (ccl_ir's ir_atomic_lib/6), and LLVM's own `__atomic_*_16' for a sixteen-byte one; the next link
+%% names the library, as it names libm (ccl_link_libs/1). An IR served from the store holds the same calls, so its text is asked
+ccl_note_libatomic(IR) :- ( ccl_ir_has(IR, '@__atomic_') ; ( ccl_ir_has(IR, ' i128') ; ccl_ir_has(IR, ' fp128') ), ( ccl_ir_has(IR, ' atomic ') ; ccl_ir_has(IR, 'atomicrmw ') ; ccl_ir_has(IR, 'cmpxchg ') ) ), !,
+    nb_setval('$ccl_latomic', yes).
+ccl_note_libatomic(_).
+%% ... the text split at the string, which is linear: cocolog's sub_atom/5 seeking a substring with its place unbound is
+%% quadratic in the atom's length (2.11.6: 5.5 s over 100 KB), and the build of a C++ fixture's IR of megabytes did not end
+ccl_ir_has(IR, S) :- ( atom(IR) -> A = IR ; string(IR) -> atom_string(A, IR) ), atomic_list_concat(Ps, S, A), Ps = [_, _|_], !.
 
 ccl_link(Objects, Flags, Out) :-
     ccl_words(Objects, Os), ccl_words(Flags, F),
     ccl_linker(Ld),
-    ccl_link_libs(Libs),
+    ccl_link_libs(Libs0), ccl_libatomic_lib(Libs0, Libs),
     atomic_list_concat([Ld, ' ', Os, ' ', F, Libs, ' -o \'', Out, '\' 2>&1'], Cmd),
     ccl_sh(Cmd, O, Exit),
     ( Exit =:= 0 -> true ; atom_codes(Msg, O), throw(error(link_failed(Msg), cicilang_link(Out))) ).
+%% ... `-latomic' on Linux, this machine's or another's, once for the objects compiled since the last link
+ccl_libatomic_lib(Libs0, Libs) :- nb_current('$ccl_latomic', yes), nb_setval('$ccl_latomic', no), ( ccl_cross_target(_, linux) ; \+ ccl_cross_target(_, _), ccl_host_os(linux) ), !, atom_concat(Libs0, ' -latomic', Libs).
+ccl_libatomic_lib(Libs, Libs).
 
 %% THE LINKER: cc, or c++ for cicilang++; for another machine (dr_set_target/1) its cross gcc, `aarch64-linux-gnu-gcc' (0.131)
 ccl_linker(Ld) :- ccl_cross_target(A, O), ccl_cross_prefix(A, O, P), !, ( ccl_lang(cpp) -> atom_concat(P, '-g++', Ld) ; atom_concat(P, '-gcc', Ld) ).
