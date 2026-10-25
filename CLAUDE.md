@@ -12,8 +12,8 @@ the fixture that gates it, and why. The bullet ends with the version that made t
 edits the rule in `RULES.md`, in its topic, and writes its entry in `HISTORY.md`. Read the topic of `RULES.md` that
 covers the code before the code is changed.
 
-At 0.206 the versions are: the module 0.206 (`ccl_p_version` in `module/cicilang.cicili`, `bin/cicilang --version`),
-the reader 156 (`ccl_reader_version/1`, `library/ccl_syntax.pl`) and the lowering 118 (`ccl_lowering_version/1`,
+At 0.207 the versions are: the module 0.207 (`ccl_p_version` in `module/cicilang.cicili`, `bin/cicilang --version`),
+the reader 156 (`ccl_reader_version/1`, `library/ccl_syntax.pl`) and the lowering 119 (`ccl_lowering_version/1`,
 `library/ccl_ir.pl`).
 
 Build and prove, always in this order (or all of it, `sh test/gates.sh`):
@@ -331,9 +331,10 @@ test/c/run/                 C programs built and run: NAME.c, NAME.expect, NAME.
                             empty.txt
 test/c/safe/                C programs the safe part refuses: NAME.c, NAME.expect
 test/cpp/                   the C++ reader's fixtures and the refusals; hidem.cppm for modhidden.cpp
-test/cpp/link/              the C++ ABI checks of the C++ gate and the cross gate: abi_helper.cpp and memptr_helper.cpp
-                            built by clang++, abi_main.cpp and memptr_main.cpp by cicilang++, abi.h, memptr.h; the C++
-                            gate's two units, units_a.cpp and units_b.cpp over units.h, both by cicilang++, units.expect
+test/cpp/link/              the C++ ABI checks of the C++ gate and the cross gate: abi_helper.cpp, memptr_helper.cpp and
+                            byval_helper.cpp built by clang++, abi_main.cpp, memptr_main.cpp and byval_main.cpp by
+                            cicilang++, abi.h, memptr.h, byval.h; the C++ gate's two units, units_a.cpp and units_b.cpp
+                            over units.h, both by cicilang++, units.expect
 test/cpp/run/               C++ programs built and run: NAME.cpp, .expect, .flags, .stdin, .needs; bag.h, hunit.h,
                             basem.cppm and mathm.cppm (for modules.cpp), embed26.txt
 

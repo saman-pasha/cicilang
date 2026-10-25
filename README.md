@@ -319,7 +319,9 @@ its captures, a temporary destroyed at the end of its statement, a
 `constexpr` call folded by an evaluator with cells for its locals. A
 member a library header declares and the shipped library defines is called
 by its Itanium symbol, and a class that is not trivially copyable crosses
-a call as the ABI has it, so cicilang's code calls libc++'s and clang's.
+a call as the ABI has it, the caller destroying it at the end of its
+full-expression, so cicilang's code calls libc++'s and clang's, and
+theirs call cicilang's.
 
 What runs, each fixture matching clang++ line for line (`test/cpp/run/*.cpp`):
 the standard streams (`cout`, `cin`, `getline`, the extractors and inserters

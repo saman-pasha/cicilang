@@ -164,9 +164,20 @@ ck_function(L, Ret, Name, Params0, Body) :-
     ck_dying_fields(Params, Dying), nb_setval('$ck_dying_fields', Dying),
     ck_param_owners(Params, Owners),
     ck_param_ties(Params, [], st([fr(Owners, [])]), St0),
-    ck_walk_body(Body, St0, St1),
+    ck_param_dtors(Params, Body, Body1),
+    ck_walk_body(Body1, St0, St1),
     ( St1 == dead -> true ; St1 = st([fr(Os, _)]), ck_complete_owners(Os, function_end), ck_leaks_all(St1, function_end) ),
     ccl_scope_pop.
+%% A BY-VALUE PARAMETER OF A CLASS WITH A DESTRUCTOR IS DESTROYED BY THE CALLER (0.207; the Itanium C++ ABI's 3.1.2.3, the
+%% desugaring's cpp_byval_arg/3), and the callee's code destroys no parameter; to the check it is the callee's object all the
+%% same, moved from or not, and its destructor runs at every exit: the walk takes a defer of it at the body's head, as the
+%% desugaring's own defer was until 0.207. A borrow instead, as a reference parameter is, refused `push(T x) { v.push_back(move(x)); }'
+%% as a move of a non-owner; no defer, `int len(Name n)' over an own member as `owner leaked'
+ck_param_dtors(Ps, block(Ss), block(Ss1)) :- ccl_lang(cpp),
+    findall(defer(0, [], block([expr(0, call(id(D), [addr(id(N))]))])),
+            ( member(param(T, N), Ps), atom(N), N \== anon, N \== this, once(( catch(cpp_class_of_type(T, C), _, fail), catch(cpp_dtor(C, D), _, fail) )) ), Ds),
+    Ds \== [], !, append(Ds, Ss, Ss1).
+ck_param_dtors(_, B, B).
 %% the own fields of the structs the plain pointer parameters point to: the
 %% struct's, not the callee's -- one may be freed and replaced, and must be
 %% whole (live or null) again when the callee returns
@@ -812,6 +823,7 @@ ck_stmt(empty, St, St) :- !.
 ck_stmt(expr(L, E), St0, St) :- !, ck_line(L), ck_anchor_addrs(E, St0, St1), ck_expr(E, St1, St).
 ck_stmt(defer(L, _, Body), St0, St) :- !, ck_line(L), ck_defer(St0, Body, St).
 ck_stmt(eh_cleanup(_, _), St, St) :- !.   % a constructor's cleanup of what it built, run only while an exception unwinds (0.201): the check follows no unwinding path
+ck_stmt(eh_drop(_, _), St, St) :- !.   % ... and a statement's temporary's, dropped at its end (0.207)
 ck_stmt(ifce(_, _, RT), St0, St) :- !, ck_stmt(RT, St0, St).                                % `if consteval': the run-time branch (0.108)
 %% a try (0.108): the body, then each handler from the state the try began in (what the body did before it threw is
 %% not known there), the states merged

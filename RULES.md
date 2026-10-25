@@ -201,14 +201,15 @@ that changes a rule edits the rule here, in its topic, and writes its entry in `
   it when extracted there (`dpkg-deb -x` of `libc++-18-dev`, `libc++1-18`, `libc++abi-18-dev`, `libc++abi1-18`,
   `libunwind-18` and `libunwind-18-dev`: apt installs no package of another architecture without multiarch) -- the cross
   gate builds 24 C++ fixtures with `cicilang++ --target=aarch64-linux-gnu` and with clang++ over that same libc++, runs
-  both under qemu and compares them, then two checks against clang++'s code on that machine, the C++ gate's own: classes
-  by value and pointers to member functions both ways (`test/cpp/link/`). Each C++ build has a time and a memory cap of
+  both under qemu and compares them, then three checks against clang++'s code on that machine, the C++ gate's own:
+  classes by value, pointers to member functions both ways, and a by-value parameter destroyed by the caller both ways
+  (0.207; `test/cpp/link/`). Each C++ build has a time and a memory cap of
   its own (`CROSS_SECS` 1800, `CROSS_MB` 2800: its summaries are the target's, cold in every chain); without the tree
   the part is a SKIP line. 87 C fixtures (85 at 0.167) and 5 checks at 0.179, 24 C++ fixtures (`vector.cpp` since
-  0.162) and 2 checks at 0.167, 703 s in 0.164's chain, peak 535 MB, the C++ part cold (its summaries are that
+  0.162) and 2 checks at 0.167 (3 since 0.207), 703 s in 0.164's chain, peak 535 MB, the C++ part cold (its summaries are that
   machine's own, read afresh in every
   chain's fresh HOME); 151 s in 0.166's, 150 s in 0.167's, 143 s in 0.168's, 139 s in 0.171's and 145 s in 0.172's, peaks 437 MB, 436 MB, 365 MB,
-  387 MB and 390 MB, over a HOME that 0.165's chain had warmed. (0.131, 0.161)
+  387 MB and 390 MB, over a HOME that 0.165's chain had warmed. (0.131, 0.161, 0.207)
 - The proof. `proof/run.sh` has clang turn `proof/forty2.ll` into a binary that prints `cicilang reaches C` and exits
   42. (M0)
 
@@ -247,7 +248,7 @@ that changes a rule edits the rule here, in its topic, and writes its entry in `
 ### The C++ gate: test/cpp.sh
 
 - `test/cpp.sh` runs in this order: `test/cpp.pl` in one `--local` process; four checks of the command; every
-  `test/cpp/run/*.cpp` as a pool job (799 at 0.206); `classes.cpp` and `templates.cpp` built and run; the refusals,
+  `test/cpp/run/*.cpp` as a pool job (801 at 0.207); `classes.cpp` and `templates.cpp` built and run; the refusals,
   each at the level its `test/cpp/NAME.flags` names, else C++17 (0.164). (0.105, 0.164)
 - `test/cpp.pl` runs 46 numbered checks, `c1` to `c46`, then reads Cicili's six C++ files whole (`test/cpp/objects.cpp`,
   `emit_report.cpp`, `specialise.cpp`, `syntax.cpp`, `torch.cpp`, `torch-fragment.cpp`). `c34` checks the Itanium
@@ -277,8 +278,12 @@ that changes a rule edits the rule here, in its topic, and writes its entry in `
   `abi_helper.cpp` built by `$LLVM`'s clang++, else the one on the path, linked with `abi_main.cpp`; a base's tail
   padding reused, the table pointer first; no clang++ is a SKIP line); and (0.161) pointers to member functions cross
   such a call both ways -- a virtual and a plain member of a first and of a second base, an override, a null one
-  (`memptr_helper.cpp` by clang++, `memptr_main.cpp` by cicilang++). After the fixtures, `classes.cpp` builds and exits
-  34, and `templates.cpp` exits 10. (M5, 0.34, 0.35, 0.135, 0.161, 0.188, 0.192)
+  (`memptr_helper.cpp` by clang++, `memptr_main.cpp` by cicilang++); and (0.207) a by-value parameter of a class with a
+  destructor crosses such a call both ways and is destroyed once, by the caller, at the end of its full-expression --
+  a prvalue and a copy handed to clang++'s callee, a prvalue and a copy handed by clang++'s caller (`byval_helper.cpp`
+  by clang++, `byval_main.cpp` by cicilang++, over `byval.h`; clang++ 18 and 21 and g++ print the same line). After
+  the fixtures, `classes.cpp` builds and exits 34, and `templates.cpp` exits 10. (M5, 0.34, 0.35, 0.135, 0.161, 0.188,
+  0.192, 0.207)
 - The fixture builds assume a warm cache: a build that only reads summaries is safe in parallel, and a cold flatten
   under load is not. `CPP_JOBS=1` makes the gate serial. (0.105)
 - `ccl_fixture NAME` builds with `NAME.flags`, capped at `CPP_FIXTURE_SECS` (2400 s) by `ccl_capped`. Past the cap,
@@ -2703,6 +2708,21 @@ free. A const method adds `.c`, a ref-qualified one `.r` or `.rr` after it: each
   `(__state_ & __constructed) || (__exception_ != nullptr)`, whose right operand builds an `exception_ptr(nullptr)`, and
   a `std::future` that a thread set crashed in `__cxa_decrement_exception_refcount`. One whose construction is not found
   in the walked form keeps the old road (trace `cleanup_flag_unplaced`). `condtemp.cpp`, `stdfuture.cpp`. (0.201)
+- EVERY TEMPORARY OF A STATEMENT HAS ITS CLEANUP FLAG, AND AN EXCEPTION DESTROYS IT WHERE IT WAS BUILT (0.207;
+  [except.ctor]/2, [class.temporary]/4; `cpp_cond_flags/4` over the walked statement in `cpp_stmt/3`): the flag, set
+  right after the construction as a conditional operand's, is asked by every destruction. An expression's or a
+  declaration's temporaries, destroyed by plain calls after the statement, get an unwinding-only cleanup each
+  (`eh_cleanup`, the lowering's `eh_only` defer), pushed before the statement in construction order and taken out of its
+  frame at its end (`eh_drop`, `ir_stmt_(eh_drop)`), so the frame of a long block holds no cleanup per statement for its
+  later landing pads; the statement's own end clears the flag before it calls the destructor, so a destructor that
+  throws is not run again (`cpp_temp_end/2`). Any other statement's temporaries are destroyed by its block's defers,
+  which unwinding runs, and which ask the flag too. Until 0.206 a temporary bound to a reference parameter was never
+  destroyed when the call threw, and a defer destroyed a temporary not built yet when an earlier operand threw. THE
+  DESTRUCTIONS COME IN THE REVERSE OF THE ORDER THE CONSTRUCTIONS END (`cpp_temps_built_order/3`): each temporary placed
+  where the walked statement sets its flag, right after its construction, in the evaluation's order, where the
+  register's order is the desugaring's -- a by-value argument's copy is registered by the argument pass after the
+  temporaries its later arguments made, and `both(x, T(3), 4)` destroyed the copy of x first, where clang destroys
+  `T(3)` first (`anonparam.cpp`). `tempunwind.cpp`, `byvalorder.cpp`.
 - A CONDITIONAL OF TWO PRVALUES OF THE CLASS IS ELIDED ARM BY ARM ([class.copy.elision]/1, [expr.cond]/7; 0.201;
   `cpp_temp_elide/2`'s `cond` clause over `cpp_elidable_arm/1`, the lowering's `ir_init/3` and `ir_arg_in_place/4` of a
   conditional over `ir_init_in_place/2`): `T x = c ? T(1) : T(2);` -- the object built in place by the arm taken, where it
@@ -2892,16 +2912,26 @@ free. A const method adds `.c`, a ref-qualified one `.r` or `.rr` after it: each
   the implicit memberwise assignment (0.84) took the class's own value only. `vbaseedge.cpp`. (0.163)
 - A by-value parameter of a class with a destructor takes a temporary (`cpp_copies_`): the move constructor's for
   `std::move(x)` (`cpp_move_temp`), else the copy constructor's (`cpp_copy_temp`), else
-  `class_with_destructor_by_value(C)`. The callee destroys it through a defer (`cpp_param_defers`), an UNNAMED one too
-  (0.134), named by its position, `$argK`, in the defer and in the function's own parameter list (`cpp_param_defers/3`,
-  `cpp_name_anon_items/2` over the unit's output): libc++'s `end(directory_iterator) noexcept { return
-  directory_iterator(); }` holds a shared_ptr in its unnamed parameter, and the defer named `anon`, which nothing declares
-  (`undeclared(anon)`). `anonparam.cpp`. A class with neither constructor keeps the lowering's move, which nulls the
-  source's owners. AN XVALUE NAMES ITS OBJECT AS `std::move(x)` DOES ([basic.lval], [dcl.init]/17.6.2; 0.201;
-  `cpp_xvalue_arg/2`): `static_cast<R &&>(x)`, `std::forward<R>(x)` and any call declared to return `R &&`, which libc++'s
-  `std::invoke` and `std::thread` hand a by-value parameter, move-construct the callee's copy -- it was the object itself,
-  bitwise, destroyed with the caller's own: a stop_token's shared state freed early in every `std::jthread` whose function
-  takes one. `xvaluearg.cpp`, `stdjthread.cpp`. (0.44, 0.83, 0.134, 0.201)
+  `class_with_destructor_by_value(C)`. THE CALLER DESTROYS IT (0.207; the Itanium C++ ABI's 3.1.2.3, as clang and gcc
+  have it; `cpp_byval_arg/3`): the argument object is a temporary of the caller's statement -- a temporary the roads
+  registered stays registered, a `$copy` is registered and its declaration the statement's, a call returning the class
+  is materialized into a `$tmp`, a conditional's two arms each so, flagged -- built where the callee reads it (the
+  lowering's `ir_arg_in_place/4`, a conditional of two such temporaries passed as the one built) and destroyed at the
+  end of the full-expression, and on unwinding where it was built (the Destructors topic). The callee destroyed it
+  through a defer at every exit until 0.206: across a link with clang's code, through `extern "C"` functions, a call
+  into clang's code never destroyed it and a call from it destroyed it twice, and a destructor that prints ran before
+  the rest of the caller's full-expression -- `std::printf("[1] %d\n", f(D(1)))` printed `~D(1)` first. Each parameter's
+  class is still asked where the callee's body is made (`cpp_param_classes/1`), so a header's class is loaded for the
+  lowering to lay out: the defers had asked it, and without them `operator delete(D *, std::destroying_delete_t)` was
+  `class(destroying_delete_t)` (`destroydel.cpp`). `byvalorder.cpp`, `tempunwind.cpp`, and the link with clang++'s code
+  both ways, on aarch64 too (`test/cpp/link/byval_*.cpp`, the C++ gate's check and the cross gate's). An unnamed
+  parameter is named by its position, `$argK`, in the function's own list (0.134; `cpp_name_anon_items/2` over the unit's output),
+  `anonparam.cpp`. A class with neither constructor keeps the lowering's move, which nulls the source's owners. AN
+  XVALUE NAMES ITS OBJECT AS `std::move(x)` DOES ([basic.lval], [dcl.init]/17.6.2; 0.201; `cpp_xvalue_arg/2`):
+  `static_cast<R &&>(x)`, `std::forward<R>(x)` and any call declared to return `R &&`, which libc++'s `std::invoke` and
+  `std::thread` hand a by-value parameter, move-construct the callee's copy -- it was the object itself, bitwise,
+  destroyed with the caller's own: a stop_token's shared state freed early in every `std::jthread` whose function takes
+  one. `xvaluearg.cpp`, `stdjthread.cpp`. (0.44, 0.83, 0.134, 0.201)
 - `return x` of a local of a class with a destructor moves out through the move constructor, else copies; `return
   std::move(x)` alike (`cpp_stmt_(return)`). A prvalue moves bitwise, as C++17 elides that copy. (0.44, 0.83)
 - C++20'S AND C++23'S IMPLICIT MOVE ([class.copy.elision]/3, P1825, P2266; clang applies it at C++17 too; 0.197;
@@ -3046,12 +3076,12 @@ free. A const method adds `.c`, a ref-qualified one `.r` or `.rr` after it: each
 - A braced argument to a class parameter list-initializes a temporary ([over.ics.list]; `cpp_copies_`,
   `cpp_param_takes_class`), to `initializer_list<T>` the compiler's list. The fit (`cpp_arg_fit_` on `init(Items)`)
   takes a class the list constructs or an `initializer_list<T>` whose items fit, nothing else: `m.insert({4, 40})`.
-  (0.79, 0.80)
-  BY VALUE THE TEMPORARY IS THE PARAMETER (0.206; [class.copy.elision]/1, as a prvalue argument's since 0.112;
-  `cpp_temp_elide/2` in `cpp_copies_`): the callee destroys it, and the statement destroyed it too -- `g({5, 6})` over
-  `int g(std::vector<int>)` freed the vector's buffer twice. A braced argument to a reference to an array of scalars
-  binds a temporary array of its items ([dcl.init.ref]/5.3; 0.206): `std::to_array({7, 8, 9})` reached the lowering as a
-  bare braced list; an array of objects so is refused by name. `initlistobj.cpp`, `ftm20.cpp`.
+  (0.79, 0.80) BY VALUE THE TEMPORARY IS THE PARAMETER (0.206; [class.copy.elision]/1, as a prvalue argument's since
+  0.112), the caller's to destroy (0.207, `cpp_byval_arg/3`): elided out of the statement while the callee destroyed it,
+  it had been destroyed by both -- `g({5, 6})` over `int g(std::vector<int>)` freed the vector's buffer twice. A braced
+  argument to a reference to an array of scalars binds a temporary array of its items ([dcl.init.ref]/5.3; 0.206):
+  `std::to_array({7, 8, 9})` reached the lowering as a bare braced list; an array of objects so is refused by name.
+  `initlistobj.cpp`, `ftm20.cpp`.
 - The compiler builds an `initializer_list` ([dcl.init.list]/6; `cpp_init_list`): a backing array `$il`, then libc++'s
   private `initializer_list(const _Ep *, size_t)` over it. A class with an `initializer_list` constructor takes a
   braced initializer through it first ([over.match.list]; `cpp_il_ctor`, `cpp_ctor_args`). An item of another type
@@ -3208,8 +3238,8 @@ free. A const method adds `.c`, a ref-qualified one `.r` or `.rr` after it: each
   `bool test(size_t) const { return (*this)[__pos]; }`, a proxy converting to bool, and was compared with zero as a
   struct. `returnconv.cpp`. (0.117)
 - A converting constructor's temporary handed to a BY-VALUE parameter is the parameter ([class.copy.elision]/1;
-  `cpp_copies_` through `cpp_temp_elide`): the callee destroys it, and the statement does not. Why: `g(9)` over `g(T
-  t)` destroyed the temporary twice. `convbyval.cpp`. (0.112)
+  `cpp_copies_`), destroyed once: by the callee from 0.112 (`g(9)` over `g(T t)` had destroyed it twice), by the caller
+  at the end of its full-expression since 0.207 (`cpp_byval_arg/3`). `convbyval.cpp`. (0.112, 0.207)
 
 ### Static members
 
@@ -7575,6 +7605,12 @@ A lambda is a class of its captures (`library/ccl_cpp.pl`). A fixture named alon
   is its `for` (`ccl_for_each_as_for/2`). (0.32)
 - A reference is the pointer it is (`ck_ref_params/2`, `ck_ref_decl/5`). A reference parameter is a borrow. A local
   bound to an lvalue borrows `addr(Init)`; one bound to a call has no state. (0.32)
+- A BY-VALUE PARAMETER OF A CLASS WITH A DESTRUCTOR IS THE CALLEE'S OBJECT TO THE CHECK (0.207; `ck_param_dtors/3` in
+  `ck_function/5`): the caller destroys it since 0.207 (the Classes topic), and the callee's code has no defer of its
+  destructor; the walk takes one at the body's head all the same, as the desugaring's own defer was before, so its
+  owners may be moved from (`push(T x) { v.push_back(move(x)); }`) and are consumed at every exit. With no defer, `int
+  len(Name n)` over a class with an `own` member was `owner leaked` (`copies.cpp`); as a borrow, as a reference
+  parameter is, the move was `move of a non-owner` (`bag.cpp`, `member.cpp`).
 - `'$ck_refs'` names the function's references, and a use of one is a use of its referent: `x = v` is `*x = v`, and
   `&x` is the pointer held. `r.f` is keyed `r->f` (`ck_path/2`). A reference result is a borrow out (`'$ck_ret'`,
   `ck_no_escape/2`); a reference to a non-parameter local is `borrow_escapes`. (0.32, 0.44)
@@ -7938,9 +7974,13 @@ A lambda is a class of its captures (`library/ccl_cpp.pl`). A fixture named alon
 - A CLASS PRVALUE HANDED TO A BY-VALUE PARAMETER IS THE PARAMETER ([class.copy.elision]/1; 0.197; `ir_arg_in_place/4` in
   `ir_args_/5`): where the parameter crosses by invisible reference (the Itanium ABI's `indirect`), the temporary the
   desugaring made (`$tmp...`), the copy it made for an lvalue (`$copy...`) and a call that returns the class through the
-  hidden pointer are built where the callee reads them, and their address is the argument. Each was built in a slot of its
-  own and copied bitwise into a second one, so `sum(l)` over `int sum(std::list<int>)` walked a sentinel left in the first
-  slot for ever, and `call(g, 6)` over a `std::function` parameter freed an invalid pointer (0.196 too). `byvalself.cpp`.
+  hidden pointer are built where the callee reads them, and their address is the argument. Each was built in a slot of
+  its own and copied bitwise into a second one, so `sum(l)` over `int sum(std::list<int>)` walked a sentinel left in the
+  first slot for ever, and `call(g, 6)` over a `std::function` parameter freed an invalid pointer (0.196 too).
+  `byvalself.cpp`. The object is the caller's to destroy since 0.207 (the desugaring's `cpp_byval_arg/3`): a temporary
+  of its statement, and a conditional of two such temporaries is passed as the address of the one its arm built
+  (`ir_stmt_temp_arm/1`), where the arms were built in place into a slot of the lowering's own that nothing destroyed
+  once the callee no longer did.
 - A NAMED RETURN VALUE IS THE RESULT OBJECT (0.199; the desugaring's `cpp_nrvo/3`, the Copies topic of Classes): a local
   that the desugaring declares with the storage `nrvo` lives at `%agg.result` where the function returns its class
   through the hidden pointer, its initializer built there (`ir_locals/2`), and a return of it is `ret void` after the
@@ -9368,16 +9408,16 @@ A lambda is a class of its captures (`library/ccl_cpp.pl`). A fixture named alon
 - Ubuntu 24.04 on x86_64 (clang and LLVM 18, glibc, libc++ 18 and 21) is a host since 0.87. Every gate but the C++ one
   is GREEN there since 0.93, and all seven since 0.95. Every step from 0.93 on is gated there, but the save points
   0.112, 0.113, 0.117, 0.122 to 0.125, 0.130, 0.131 and 0.143 (0.143's C gates and cross gate ran, its libc++ gates did
-  not; the others were gated by the steps after them). The last full run is 0.205's, over cocolog 2.11.6 (the
-  Findings), on one tree, over fresh HOMEs: over libc++ 18 all nine GREEN (the flow gate's one finding in 132 s, reader
-  5 s, compile 25 s, driver 20 s, objects 6 s, proof, the cross gate in 389 s with its C++ part for aarch64, the
-  library read in 576 s (161 other headers warmed), the C++ gate in 1400 s with 774 of 782 fixtures ok, the skips are
-  `atomicref`, `atomicrefalign`, `joinwith`, `stdflatmap`, `stdoptionalref`, `tzone`, `vbaseof` and `zipadjacent`, the
-  two units, the 29 refusals, the four of the safe part and the four static assertions); over libc++ 21 the library
-  read (about 510 s) and the C++ gate (780 of 782 ok in about 1450 s, the skips `stdoptionalref` and `zipadjacent`)
-  GREEN -- the C gates do not read libc++. The headers' reads, summed, took 2171 s over 184 over libc++ 18 and 1892 s
-  over 21; the fixtures' builds 4776 s over 774 and 4938 s over 780. The chains of 0.165 to 0.203 and of 0.205 are in
-  HISTORY.md, 0.166 to 0.204 and 0.206. Two libc++ passes are one gate:
+  not; the others were gated by the steps after them). The last full run is 0.206's, over cocolog 2.11.6 (the
+  Findings), on one tree, over fresh HOMEs: over libc++ 18 all nine GREEN (the flow gate's one finding in 141 s, reader
+  5 s, compile 26 s, driver 20 s, objects 6 s, proof, the cross gate in 427 s with its C++ part for aarch64, the
+  library read in 759 s (198 other headers warmed), the C++ gate in 1644 s with 789 of 799 fixtures ok, the skips are
+  `atomicref`, `atomicrefalign`, `ftm23b`, `ftm26b`, `joinwith`, `stdflatmap`, `stdoptionalref`, `tzone`, `vbaseof` and
+  `zipadjacent`, the two units, the 29 refusals, the four of the safe part and the four static assertions); over libc++
+  21 the library read (the phase 671 s) and the C++ gate (797 of 799 ok, the skips `stdoptionalref` and `zipadjacent`)
+  GREEN -- the C gates do not read libc++. The headers' reads, summed, took 2868 s over 221 over libc++ 18 and 2514 s
+  over 21; the fixtures' builds 5640 s over 789 and 5651 s over 797. The chains of 0.165 to 0.203, of 0.205 and of
+  0.206 are in HISTORY.md, 0.166 to 0.204, 0.206 and 0.207. Two libc++ passes are one gate:
   `LLVM=/usr/lib/llvm-18` and `LLVM=/usr/lib/llvm-21` choose the tree the chain reads and links. libc++ 22 (the newest
   tree, which a run without `$LLVM` reads) is no gate: 0.182 built its vector and its C++23 views by hand
   (`zipadjacent.cpp`, which its `.needs` skips over 18 and 21), and `stdoptionalref` passes there. The run before
@@ -9517,6 +9557,10 @@ A lambda is a class of its captures (`library/ccl_cpp.pl`). A fixture named alon
   function given to a template over a plain function pointer, a reference and a pointer to member, `noexcept(B)`
   deducing B, specializations over a function type with and without noexcept); `test/cpp/memassert.cpp` and
   `memassert2.cpp`, a class member's false static assertion and a class template instance's, the refusals.
+- Forms of 0.207, the by-value parameters: `byvalorder` (a by-value argument destroyed by the caller at the end of its
+  full-expression -- a prvalue, an lvalue's copy, an xvalue's move, a call's result, a conditional's arm, two arguments
+  newest first, a method's, a lambda's, one the callee throws over) and `tempunwind` (a statement's temporaries
+  destroyed by an exception where they were built, the last first, one never built not at all).
 - Forms of 0.206, libc++'s facilities by their feature-test macros: `ftm17` and `ftm17b` (C++17: `std::exchange`,
   `as_const`, `make_from_tuple`, `launder`, the three-argument `hypot`, `sample`, the searchers, the traits the compiler
   answers, `shared_timed_mutex`'s locks, a transparent comparator's lookup, `uncaught_exceptions`, the interference
@@ -10164,15 +10208,9 @@ function's pointer result a borrow of its first argument).
    `x++` and `+=` are a libatomic load and store, where clang's are a compare-exchange loop; and a class's table is
    emitted where its key function is only declared, so a program that declares a virtual function, never defines it and
    never makes an object of the class links with clang and fails here, the table's slot undefined.
-7. A BY-VALUE PARAMETER OF A CLASS WITH A DESTRUCTOR IS DESTROYED BY THE CALLEE here (`cpp_param_defers`, the Classes
-   topic), where the Itanium C++ ABI (3.1.2.3) has the caller destroy it, which clang and gcc do at the end of the
-   full-expression ([expr.call]/7 leaves the time implementation-defined). Seen at 0.206 by hand, through `extern "C"`
-   functions: a call from code built here into clang's never destroys the object, a call from clang's into code built
-   here destroys it twice; and in one program a destructor that prints runs before the rest of the caller's
-   full-expression, where clang's runs after it (`std::printf("%d\n", f(D(1)))`). Within a program built here every
-   object is destroyed once; libc++'s shipped functions that take such a class by value (`std::rethrow_exception`,
-   `promise::set_exception`, over an `exception_ptr`) keep a count up. The caller's destruction is the next step's
-   work.
+7. THE BY-VALUE PARAMETERS, WHAT 0.206 LEFT: done -- the caller destroys a by-value parameter of a class with a
+   destructor at the end of its full-expression since 0.207, as the Itanium C++ ABI and clang have it, and every
+   temporary of a statement is destroyed on unwinding where it was built (the Classes topic).
 
 ### C++ language
 

@@ -62,7 +62,12 @@ if command -v "$CXXREF" > /dev/null 2>&1; then
   "$CXXREF" -std=c++17 -w -c "$ROOT/test/cpp/link/memptr_helper.cpp" -o memptr_helper.o 2>/dev/null
   got=$("$ROOT/bin/cicilang++" "$ROOT/test/cpp/link/memptr_main.cpp" memptr_helper.o -o memptr 2>&1 && ./memptr)
   if [ "$got" = "11 21 53 42 63 | 11 21 53 42 63 | 1 0 0 1" ]; then echo "ok   pointers to member functions cross a call to clang++'s code both ways ({ ptr, adj } as the Itanium ABI has it)"; else echo "FAIL pointers to member functions against clang++'s (test/cpp/link/memptr_*.cpp)"; echo "     got  $got"; failures=$((failures + 1)); fi
-else echo "SKIP the class layout and the member pointers against clang++'s: no clang++"; fi
+  # ... AND A BY-VALUE PARAMETER OF A CLASS WITH A DESTRUCTOR BOTH WAYS (0.207): byval_helper.cpp by clang++, byval_main.cpp
+  # by cicilang++ -- a prvalue and a copy each way, each object destroyed once, by the caller, after its full-expression
+  "$CXXREF" -std=c++17 -w -c "$ROOT/test/cpp/link/byval_helper.cpp" -o byval_helper.o 2>/dev/null
+  got=$("$ROOT/bin/cicilang++" "$ROOT/test/cpp/link/byval_main.cpp" byval_helper.o -o byval 2>&1 && ./byval)
+  if [ "$got" = "[1] ~T(1) [102] ~T(102) ~T(2) ~T(103) ~T(3) ~T(3) [212] live 0" ]; then echo "ok   a by-value parameter of a class with a destructor crosses a call to clang++'s code both ways, destroyed once by the caller after its full-expression (the Itanium ABI)"; else echo "FAIL a by-value parameter against clang++'s code (test/cpp/link/byval_*.cpp)"; echo "     got  $got"; failures=$((failures + 1)); fi
+else echo "SKIP the class layout, the member pointers and the by-value parameters against clang++'s: no clang++"; fi
 echo "-- M6, in steps: C++ that is C with names, classes, virtual, templates, lambdas, the B-tree the C++ way, a bag of names, members of class type, C++20, C++23, template template parameters, overloads as C++ chooses, libc++'s std::swap -- built and run (test/cpp/run/NAME.cpp against NAME.expect), in parallel over the pool"
 # A FIXTURE'S BUILD HAS A TIME CAP (0.93): on libc++ 18 two <algorithm> fixtures ran past thirty minutes, and a gate with no
 # cap hangs for the owner (0.92 kept a fixture out of the tree for exactly that). The cap is CPP_FIXTURE_SECS (2400: the

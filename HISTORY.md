@@ -201,6 +201,7 @@ One row per step, in version order: the step's title, what it did and its gate n
 | 0.204 | `CLAUDE.md` divided: the owner's rules and how the work is done stay, the rules of the code go to `RULES.md`, by topic; the chain of 0.203 | `CLAUDE.md` 27 KB and `RULES.md` 997 KB where `CLAUDE.md` was 1.01 MB; the comments, `README.md`, `DESIGN.md` and `HISTORY.md`'s head name `RULES.md`; no code changed | the flow gate GREEN (126 s) over the comments, the four small gates and the proof over the module built again; it carries 0.203's chain: all nine gates GREEN over libc++ 18, the two libc++ gates over 21 |
 | 0.205 | the audit's ninth group, what its Not done list held: a prototype's and an out-of-class member's trailing requires-clause, a partial specialization's typed value, the noexcept of a lambda, of a function type and of the calls the noexcept operator asks, a class member's static assertion, the vendors' scoped attributes, GCC's `aligned` on an enum and GNU's alignment of an expression, a coroutine's promise after its state | GCC's `packed` and `aligned` in the standard spelling; libc++ 21's `std::atomic_ref` of an over-aligned type at the link; a member's leading attribute in C++; a class typedef's alignment; `noexcept(B)` deducing B; a typedef's conditional noexcept; a noexcept function given to a template over a plain function pointer, a regression since 0.199 | committed before its chain: the flow gate GREEN, the library reads GREEN over libc++ 18 and 21, the C gates GREEN, the C++ gate GREEN over libc++ 18 (774 of 782 ok, 8 skipped), a net of 91 over 21 ok |
 | 0.206 | the audit's tenth group: libc++'s facilities by their feature-test macros, C++17 to C++26, and C23's library over glibc; `std::nullptr_t` a type of its own in both languages; a class's `final` | four traits the library asks the compiler; a declaration's noexcept merged with its definition; the nearer base breaking a tie; an initializer_list's array of objects built in place; `auto x{e}` and `auto x = {e}`; a braced argument by value and to a reference to an array; `decltype` of a member; a recursive class's implicit copy made twice; a callee `std::move(f)`; a function as a template argument; `std::out_ptr`'s crash, two defects; an explicit object member template with its arguments given; the floating atomics and an atomic of a struct; the byte swaps; a C library function's pointer result; three regressions the gate found, fixed; the by-value parameter's destruction against the Itanium ABI, left | committed before its chain: the nine gates over libc++ 18 (the C++ gate GREEN after three fixes, 789 of 799 ok, 10 skipped), the library read over libc++ 21 GREEN, the 17 new fixtures ok over 21 |
+| 0.207 | a by-value parameter destroyed by the caller, as the Itanium C++ ABI has it; every temporary of a statement destroyed on unwinding where it was built; 0.206's chain | the callee destroyed the parameter: across a link with clang's code an object destroyed never or twice, and a destructor run before the rest of the caller's full-expression; a temporary bound to a reference parameter left alive when the call threw, a defer destroying a temporary not yet built; four defects of the change that the C++ gate found, fixed; the link with clang++'s code a check of the C++ gate and the cross gate | committed before its chain: the flow gate, the C gates in a fresh HOME and the C++ gate over libc++ 18 (791 of 801 ok, 10 skipped) and over 21 (799 of 801 ok, 2 skipped) GREEN, the new link check seen by hand; it carries 0.206's chain: all nine gates GREEN over libc++ 18, the two libc++ gates over 21 |
 
 ## M5 — the C++ mode
 
@@ -13780,3 +13781,78 @@ function as a template argument; a deduced result typed unevaluated; a class prv
 function a temporary of the statement; an explicit object member template with its arguments given; the floating
 atomics, an atomic class object as an integer, an atomic type's alignment, an x86 `long double` atomic through
 libatomic; the byte swaps; a C library function's pointer result a borrow).
+
+## 0.207 — a by-value parameter destroyed by the caller, as the Itanium C++ ABI has it; every temporary of a statement destroyed on unwinding where it was built; 0.206's chain
+
+**0.207: what 0.206's Not done item 7 held, an ABI divergence that 0.206 found and measured by hand: the callee
+destroyed a by-value parameter of a class with a destructor, where the Itanium C++ ABI (3.1.2.3) has the caller destroy
+it, which clang and gcc do at the end of the full-expression. And the 0.206 chain's numbers.**
+
+- A BY-VALUE PARAMETER OF A CLASS WITH A DESTRUCTOR IS THE CALLER'S OBJECT (`cpp_byval_arg/3` in `cpp_copies_/3`): a
+  temporary of the caller's statement, built where the callee reads it and destroyed at the end of the full-expression
+  -- a temporary the argument's road registered stays registered, where it was elided out of the statement; an lvalue's
+  copy and an xvalue's move into `$copy` are registered, their block's declaration the statement's; a call returning the
+  class is materialized into a `$tmp` built in place (the lowering's `$tmp = f()`, 0.192); a conditional's arms each so,
+  flagged, and the lowering passes the address of the one built (`ir_arg_in_place/4` over `ir_stmt_temp_arm/1`). The
+  callee destroys no parameter (`cpp_method_body_/5`; `cpp_param_defers` is gone). Before: across a link with clang's
+  code, through `extern "C"` functions, a call into clang's code never destroyed the argument and a call from clang's
+  code destroyed it twice; within a program, `std::printf("[1] %d\n", f(D(1)))` printed `~D(1)` before `[1] 1`, and
+  `f(D(11)) + f(D(12))` destroyed each argument at its callee's return, where clang destroys them after both calls, the
+  newest first. Now the mixed link destroys each object once, as clang alone does, and `byvalorder.cpp` prints clang++'s
+  output line for line. THE LINK IS A CHECK OF THE C++ GATE AND OF THE CROSS GATE (`test/cpp/link/byval_*.cpp` over
+  `byval.h`, the C++ gate's third check against clang++'s code): a prvalue and a copy handed to clang++'s callee, a
+  prvalue and a copy handed by clang++'s caller, each object destroyed once, after the caller's full-expression -- `[1]
+  ~T(1) [102] ~T(102) ~T(2) ~T(103) ~T(3) ~T(3) [212] live 0`, the line clang++ 18 and 21 and g++ print. 0.206's build
+  printed `[1] [102] ~T(2) ~T(3) ~T(103) ~T(103) ~T(3) ~T(3) [212] live 0`: the two objects handed to clang++'s callee
+  never destroyed, the two that clang++'s caller handed in destroyed twice, and the count of live objects 0 all the
+  same.
+- EVERY TEMPORARY OF A STATEMENT HAS ITS CLEANUP FLAG (`cpp_cond_flags/4` over the walked statement in `cpp_stmt/3`,
+  0.201's flags of a conditional operand made general), and an exception destroys it where it was built: an expression's
+  or a declaration's temporaries get an unwinding-only cleanup each, pushed before the statement in construction order
+  and dropped at its end (`eh_drop`, the lowering's `ir_stmt_(eh_drop)`, so a block's frame keeps no cleanup per
+  statement for its later landing pads); the statement's end clears the flag before the destructor runs; any other
+  statement's block defers ask the flag. The callee's unwinding destroyed a by-value parameter before; a temporary bound
+  to a reference parameter was never destroyed when the call threw, and a block's defer destroyed a temporary not yet
+  built when an earlier operand threw. `tempunwind.cpp` prints clang++'s output.
+- THE C++ GATE FOUND FOUR OF THE CHANGE'S OWN DEFECTS, in two runs, each fixed: the destructions came in the register's
+  order, the desugaring's, where a by-value argument's copy is registered after the temporaries its later arguments made
+  -- `both(x, T(3), 4)` destroyed the copy of x first, where clang destroys `T(3)` first; they come in the reverse of
+  the order the constructions end now, each temporary placed where the walked statement sets its flag
+  (`cpp_temps_built_order/3`; `anonparam.cpp`). The callee's destructor defers had asked the class of every parameter,
+  which loads a header's class: without them `operator delete(D *, std::destroying_delete_t)` was
+  `class(destroying_delete_t)`; each parameter's class is asked as before (`cpp_param_classes/1`; `destroydel.cpp`). The
+  safe part had followed the callee's defer of the destructor, and without it `int len(Name n)` over an `own` member was
+  `owner leaked` (`copies.cpp`); the first cure took such a parameter for a borrow, as a reference is, and the second
+  run refused `push(T x) { v.push_back(move(x)); }` as a move of a non-owner (`bag.cpp`, `member.cpp`). The check takes
+  a defer of the destructor at the body's head now, as the desugaring's own was, and the callee's code has none
+  (`ck_param_dtors/3`).
+- FIXTURES: 2 C++, `byvalorder.cpp` and `tempunwind.cpp` (`RULES.md`'s What runs names them), each seen to pass over
+  libc++ 18 and 21, each expecting clang++'s output; and the link check above, in two gates.
+- THE CHAIN OF 0.206, over its commit (9c32aee) and fresh HOMEs, on cocolog 2.11.6: over libc++ 18 all nine gates GREEN
+  -- the flow gate 141 s (its one finding), reader 5 s, compile 26 s, driver 20 s, objects 6 s, proof, cross 427 s, the
+  library read 759 s (the 23 asserted reads whole, 198 other headers warmed), the C++ gate 1644 s, 789 of 799 fixtures
+  ok and 10 skipped by their needs --; over libc++ 21 the library read 671 s and the C++ gate GREEN, 797 of 799 ok, 2
+  skipped (`stdoptionalref.cpp`, `zipadjacent.cpp`). The headers' reads summed 2868 s over 221 and 2514 s; the fixtures'
+  builds 5640 s over 789 and 5651 s over 797.
+- COMMITTED BEFORE ITS CHAIN, and it claims nothing GREEN but this, over the worktree: the flow gate GREEN (143 s, its
+  one finding) after the last library edit, a comment; the C++ gate over libc++ 18, over a warm cache, RED twice -- the
+  four defects above -- then GREEN in 1404 s, 791 of 801 fixtures ok and 10 skipped by their needs, the refusals
+  refused, the builds summed 5020 s; in a fresh HOME the reader gate (5 s), the compile gate (29 s: 127 run fixtures and
+  47 refusals), the driver gate (21 s, 41 checks), the objects gate (6 s), the proof and the cross gate (456 s: 127 C
+  fixtures, 5 ABI checks, 24 C++ fixtures and 2 C++ checks for aarch64) GREEN; and the C++ gate over libc++ 21 GREEN in
+  1546 s, over the warm cache of 0.206's chain, 799 of 801 ok and 2 skipped (`stdoptionalref.cpp`, `zipadjacent.cpp`),
+  the builds summed 5579 s. The by-value link check came after those runs, and is seen to pass by hand as the two gates
+  run it: over libc++ 18 and 21, and on aarch64 under qemu beside clang++'s own build. The next commit carries the
+  chain's numbers.
+- `RULES.md`: the gates (the C++ gate's and the cross gate's by-value link check); classes (a by-value parameter the
+  caller's, the braced and the converting constructor's temporaries, every temporary flagged and destroyed on unwinding
+  where it was built, in the reverse of the order they were built); the safe part (a by-value parameter's destructor
+  walked as a defer); the lowering (a conditional of two temporaries of the statement); the Hosts (the 0.206 chain);
+  What runs; Not done (item 7 done). `README.md`: a class crosses a call, destroyed by the caller. `CLAUDE.md`: the
+  versions; `test/cpp/link/`'s files.
+
+Reader 156, unchanged: no grammar and no AST change. Lowering 119 (a by-value parameter of a class with a destructor the
+caller's object, destroyed at the end of its full-expression, and on unwinding where it was built; the callee destroys
+no parameter; every temporary of a statement flagged, an expression's or a declaration's destroyed on unwinding while
+the statement runs, all of them in the reverse of the order they were built; a conditional of two such temporaries
+passed as the one built; the check walks a by-value parameter's destructor as a defer at the callee's head).

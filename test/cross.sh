@@ -6,7 +6,7 @@
 # forms, which clang does not read, is held to its .expect. Then the ABI both ways against aarch64-linux-gnu-gcc:
 # structs by value (test/c/link/abi_*.c), variadic calls of every AAPCS64 kind (test/c/link/va_*.c) and vectors by value
 # (test/c/link/vec_*.c, 0.162). Then C++ (0.161):
-# fixtures built by `cicilang++ --target' and by clang++ over that machine's libc++, and the C++ gate's ABI check, where
+# fixtures built by `cicilang++ --target' and by clang++ over that machine's libc++, and the C++ gate's ABI checks, where
 # its libc++ is under the sysroot (a SKIP line where not). A SKIP where the box has no qemu-aarch64, no
 # aarch64-linux-gnu-gcc or no clang (Debian and Ubuntu: qemu-user, gcc-aarch64-linux-gnu, libc6-dev-arm64-cross).
 # GREEN or RED.
@@ -53,7 +53,7 @@ check "vectors by value: gcc's main over cicilang's helper" "$(cd "$D" && "$CC" 
 # C++ FOR AARCH64 LINUX (0.161): that machine's libc++ under the cross sysroot -- the tree cicilang++ reads ($LLVM, else the
 # newest /usr/lib/llvm-NN) at $SYS$TREE, where Debian's and Ubuntu's arm64 packages put it when extracted into $SYS --
 # each fixture built by `cicilang++ --target=aarch64-linux-gnu' and by clang++ for that machine over the same libc++, both
-# run under qemu and compared; then the C++ ABI check of the C++ gate (test/cpp/link) on that machine. A SKIP line where
+# run under qemu and compared; then the C++ ABI checks of the C++ gate (test/cpp/link) on that machine. A SKIP line where
 # the tree is not there: the C part above stands alone.
 XR=${LLVM:-$(ls -d /usr/lib/llvm-* 2>/dev/null | sort -t- -k2 -n | tail -1)}; XS="$SYS$XR"; CXX="$ROOT/bin/cicilang++"
 . "$HERE/parlib.sh"   # ccl_cocolog_rss: every cocolog query and run on the box, summed, as the pool sums them
@@ -93,6 +93,7 @@ if [ -f "$XS/include/c++/v1/vector" ] && [ -f "$XS/lib/libc++.so.1" ] && [ -n "$
   check "C++ classes cross a call to clang++'s code on aarch64 as the Itanium ABI lays them" "$(cd "$D" && $XREF -std=c++17 -c "$ROOT/test/cpp/link/abi_helper.cpp" -o xabi_helper.o && ccl_xcapped "$CXX" $T "$ROOT/test/cpp/link/abi_main.cpp" xabi_helper.o -o xabi > xabi.log 2>&1 && $QE ./xabi > xabi.out && $XREF -std=c++17 "$ROOT/test/cpp/link/abi_main.cpp" "$ROOT/test/cpp/link/abi_helper.cpp" -o xabi_ref && $QE ./xabi_ref > xabi_ref.out && cmp -s xabi.out xabi_ref.out && echo same && cat xabi.out)" "same
 1 2 3 60 | 245 | 8 8 | 16 16"
   check "C++ pointers to member functions cross a call to clang++'s code on aarch64 both ways (ARM's { ptr, adj })" "$(cd "$D" && $XREF -std=c++17 -c "$ROOT/test/cpp/link/memptr_helper.cpp" -o xmemptr_helper.o && ccl_xcapped "$CXX" $T "$ROOT/test/cpp/link/memptr_main.cpp" xmemptr_helper.o -o xmemptr > xmemptr.log 2>&1 && $QE ./xmemptr)" "11 21 53 42 63 | 11 21 53 42 63 | 1 0 0 1"
+  check "C++ a by-value parameter of a class with a destructor crosses a call to clang++'s code on aarch64 both ways, destroyed once by the caller" "$(cd "$D" && $XREF -std=c++17 -c "$ROOT/test/cpp/link/byval_helper.cpp" -o xbyval_helper.o && ccl_xcapped "$CXX" $T "$ROOT/test/cpp/link/byval_main.cpp" xbyval_helper.o -o xbyval > xbyval.log 2>&1 && $QE ./xbyval)" "[1] ~T(1) [102] ~T(102) ~T(2) ~T(103) ~T(3) ~T(3) [212] live 0"
 else
   echo "SKIP the C++ part: no libc++ of aarch64 at $XS (Debian and Ubuntu: dpkg-deb -x the arm64 libc++-NN-dev, libc++1-NN, libc++abi-NN-dev, libc++abi1-NN, libunwind-NN and libunwind-NN-dev into $SYS), no clang++ or no aarch64-linux-gnu-g++"
 fi

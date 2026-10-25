@@ -5155,25 +5155,17 @@ cpp_method_body_(Ctx, Ret, Params, Body, Body1) :-
               Err, ( nb_setval('$cpp_ret', R0), nb_setval('$cpp_body_ctx', BC0), throw(Err) ))
     ->  nb_setval('$cpp_ret', R0), nb_setval('$cpp_body_ctx', BC0)
     ;   nb_setval('$cpp_ret', R0), nb_setval('$cpp_body_ctx', BC0), fail ),   % THE RESULT TYPE IS RESTORED ON EVERY EXIT (0.115): a body whose walk threw (a refusal inside an instance that a candidate check catches) left its own result type behind, and `return 0;' in main converted through `vector(size_type)' after `v | views::reverse'
-    cpp_body_end(Body, LE), cpp_param_defers(Params, LE, Defers), ( Defers == [], ! ; Body0 = block(Ss), Body1 = block(Ss1), append(Defers, Ss, Ss1) ), ( Defers == [] -> Body1 = Body0 ; true ).
+    Body1 = Body0, cpp_param_classes(Params).   % A BY-VALUE PARAMETER IS THE CALLER'S TO DESTROY (0.207; the Itanium C++ ABI's 3.1.2.3, as clang and gcc have it, at the end of the caller's full-expression, cpp_copies_/3): the callee destroyed it at every exit, so a call from clang's code destroyed it twice and a call into clang's code never
+%% EACH PARAMETER'S CLASS IS ASKED, so the unit knows it (0.207): the lowering lays a by-value parameter's class out, and a header's
+%% class is loaded when it is first asked (cpp_class/2) -- the callee's destructor defers asked it of every parameter, and with them
+%% gone `void operator delete(D *, std::destroying_delete_t)' was `class(destroying_delete_t)', the tag's class never loaded
+cpp_param_classes(Ps) :- forall(( member(P, Ps), ( P = param(T, N) ; P = param(T, N, _) ), N \== this ), ( cpp_class_of_type(T, _) -> true ; true )).
 %% UNDER -g A DESTRUCTOR RUN AT A SCOPE'S END HAS THE LINE OF THE SCOPE'S CLOSING BRACE, on every exit (0.139), as clang's
-%% has: the reader recorded it against the declaration's line and name (ccl_note_scope_end/2), and a function's against its
-%% body's first statement; without the record (no -g, or a library's code) the declaration's own line, as before
+%% has: the reader recorded it against the declaration's line and name (ccl_note_scope_end/2); without the record (no -g,
+%% or a library's code) the declaration's own line, as before
 cpp_scope_end(L, N, LE) :- ( nb_current('$ccl_scope_ends', Es), Es \== [], memberchk(v(L, N, E), Es) -> LE = E ; LE = L ).
-cpp_body_end(block(Is), LE) :- member(I, Is), compound(I), arg(1, I, L), integer(L), !, ( nb_current('$ccl_scope_ends', Es), memberchk(b(L, E), Es) -> LE = E ; LE = 0 ).
-cpp_body_end(_, 0).
-%% a by-value parameter of a class with a destructor is the callee's to destroy, at every exit
-cpp_param_defers(Ps, Ds) :- cpp_param_defers(Ps, 0, Ds).
-cpp_param_defers(Ps, LE, Ds) :- cpp_param_defers(Ps, LE, 1, Ds).
-%% ... AN UNNAMED ONE TOO (0.134), named by its position, `$argK' -- here and in the function's own parameter list
-%% (cpp_name_anon_items): libc++'s `end(directory_iterator) noexcept { return directory_iterator(); }' holds a shared_ptr
-%% in its unnamed parameter, and the defer named `anon', which nothing declares (`undeclared(anon)')
-cpp_param_defers([], _, _, []).
-cpp_param_defers([param(T, N0)|Ps], LE, K, Ds) :- ( N0 == anon -> atom_concat('$arg', K, N) ; N = N0 ), atom(N), N \== this, cpp_class_of_type(T, C), cpp_dtor(C, DName), !,
-    Ds = [defer(0, [], block([expr(LE, call(id(DName), [addr(id(N))]))]))|Ds1], K1 is K + 1, cpp_param_defers(Ps, LE, K1, Ds1).
-cpp_param_defers([_|Ps], LE, K, Ds) :- K1 is K + 1, cpp_param_defers(Ps, LE, K1, Ds).
-%% the unnamed parameters a body names by position (cpp_param_defers) take that name in the function's own list, every
-%% function of the unit's output, in a namespace or an `extern "C"' block too
+%% the unnamed parameters take a name by position, `$argK' (0.134), in the function's own list, every function of the unit's
+%% output, in a namespace or an `extern "C"' block too
 cpp_name_anon_items([], []).
 cpp_name_anon_items([I|Is], [J|Js]) :- cpp_name_anon_item(I, J), cpp_name_anon_items(Is, Js).
 cpp_name_anon_item(function(L, Sto, R, N, Ps, V, B), function(L, Sto, R, N, Ps1, V, B)) :- B \== none, memberchk(param(_, anon), Ps), !, cpp_name_anon_ps(Ps, 1, B, Ps1).
@@ -5195,7 +5187,7 @@ cpp_stmt(Ctx, S, Out) :-
     (   catch(cpp_stmt_(Ctx, S, S1), E, (nb_setval('$cpp_temps', Outer), throw(E)))
     ->  nb_getval('$cpp_temps', Ts), nb_setval('$cpp_temps', Outer)
     ;   nb_setval('$cpp_temps', Outer), fail ),
-    ( Ts == [] -> Out = S1 ; cpp_temp_scope(S, Ts, S1, Out) ),
+    ( Ts == [] -> Out = S1 ; cpp_cond_flags(Ts, S1, S2, Ts1), cpp_temps_built_order(Ts1, S2, Ts2), cpp_temp_scope(S, Ts2, S2, Out) ),   % EVERY TEMPORARY FLAGGED WHERE IT IS BUILT (0.207), as a conditional operand's (cpp_cond_branch/4): its destruction asks the flag, on unwinding too, and comes in the reverse of the order they were built
     ( ccl_global('$cpp_in_lib', no, no) -> cpp_trace(stmt_out(Out)) ; true ).   % under the trace, the program's own statements as they come out
 %% AN EXPRESSION OR A DECLARATION ends where its full expression ends, and the destructors are plain calls after
 %% it: C++'s point of destruction, exactly. ANY OTHER statement holds statements of its own, past which an early
@@ -5203,10 +5195,32 @@ cpp_stmt(Ctx, S, Out) :-
 %% `return' needs in any case, the defers running after its value is computed. The temporaries are newest first:
 %% declared in construction order, destroyed in the reverse, as C++ has it.
 cpp_temp_scope(S0, Ts, S, '$splice'(Js)) :- ( S0 = expr(_, _) ; S0 = declaration(_, _, _, _) ), !,
-    reverse(Ts, Order), cpp_temp_decls(Order, Ds), findall(C, (member(X, Ts), cpp_temp_dtor(X, C)), Cs),
-    ( S = '$splice'(Is) -> true ; Is = [S] ), append(Ds, Is, Js0), append(Js0, Cs, Js).
+    reverse(Ts, Order), cpp_temp_decls(Order, Ds), findall(C, (member(X, Ts), cpp_temp_end(X, C)), Cs),
+    findall(eh_cleanup(0, block([C])), ( member(X, Order), cpp_temp_flagged(X), cpp_temp_dtor(X, C) ), Es),
+    findall(eh_drop(0, block([C])), ( member(X, Ts), cpp_temp_flagged(X), cpp_temp_dtor(X, C) ), Xs),
+    ( S = '$splice'(Is) -> true ; Is = [S] ), append([Ds, Es, Is, Cs, Xs], Js).
 cpp_temp_scope(_, Ts, S, block(Js)) :- reverse(Ts, Order), cpp_temp_decls(Order, Ds),
     findall(defer(0, [], block([C])), (member(X, Order), cpp_temp_dtor(X, C)), Fs), append(Ds, Fs, Pre), append(Pre, [S], Js).
+%% ... A FLAGGED TEMPORARY OF AN EXPRESSION OR A DECLARATION IS DESTROYED ON UNWINDING TOO, where it was built (0.207): an
+%% unwinding-only cleanup that asks its flag (the lowering's eh_only) runs while the statement does, dropped at its end
+%% (`eh_drop'), and the statement's own end clears the flag before the destructor runs, so a destructor that throws is not run
+%% again by the cleanup. The callee destroyed a by-value parameter on unwinding before (cpp_byval_arg/3); a temporary bound to a
+%% reference parameter was never destroyed by an exception.
+cpp_temp_flagged(tmp(_, _, D)) :- nonvar(D), D = flag(_, _).
+%% THE TEMPORARIES IN THE ORDER THEIR CONSTRUCTIONS END (0.207): each placed where the walked statement sets its flag, right after
+%% its construction, in the evaluation's order -- the register is the order they were made in the desugaring, and a by-value
+%% argument's copy is registered by the argument pass after the temporaries its later arguments made: `both(x, T(3), 4)' destroyed
+%% the copy of x first, where clang destroys `T(3)' first. An unflagged one is placed where it is first named. Newest first.
+cpp_temps_built_order(Ts, S, Ts1) :- cpp_ids_preorder(S, Ns, []),
+    findall(K-T, ( member(T, Ts), T = tmp(N, _, D), ( nonvar(D), D = flag(F, _) -> M = F ; M = N ), ( nth0(K0, Ns, M) -> K = K0 ; K = -1 ) ), KTs0),
+    keysort(KTs0, KTs), findall(T, member(_-T, KTs), Built), reverse(Built, Ts1).
+cpp_ids_preorder(id(N), [N|R], R) :- atom(N), !.
+cpp_ids_preorder(T, R0, R) :- compound(T), !, T =.. [_|As], cpp_ids_preorder_list(As, R0, R).
+cpp_ids_preorder(_, R, R).
+cpp_ids_preorder_list([], R, R).
+cpp_ids_preorder_list([A|As], R0, R) :- cpp_ids_preorder(A, R0, R1), cpp_ids_preorder_list(As, R1, R).
+cpp_temp_end(tmp(N, T, flag(F, D)), if(0, id(F), block([expr(0, assign('=', id(F), int(0)))|Ss]), none)) :- !, cpp_temp_dtor(tmp(N, T, D), S), ( S = block(Ss) -> true ; Ss = [S] ).
+cpp_temp_end(X, C) :- cpp_temp_dtor(X, C).
 cpp_temp_decls(Ts, Ds) :- findall(D, ( member(tmp(N, T, Dt), Ts), ( D = declaration(0, none, T, [var(N, T, none)]) ; nonvar(Dt), Dt = flag(F, _), D = declaration(0, none, base([], [int]), [var(F, base([], [int]), int(0))]) ) ), Ds).   % a flagged temporary's flag declared 0 beside it (cpp_cond_branch, 0.201)
 %% A TEMPORARY WHOSE VALUE INITIALIZES ANOTHER OBJECT of its own class is ELIDED, as C++17 guarantees: the object
 %% it builds IS the by-value parameter or the result, and whoever holds it destroys it. Its declaration goes back
@@ -6414,7 +6428,7 @@ cpp_copies_([P|Ps], [init(Items)|As], [A1|Bs]) :- ( P = param(PT, _) ; P = param
     (   '$cpp_inst'(C, inst(initializer_list, [ET])) -> cpp_init_list(ET, Items, A10)
     ;   cpp_il_braced(C, Items, ET2) -> cpp_init_list(ET2, Items, IL), cpp_temporary(base([], [typedef(C)]), C, [IL], A10)   % a class WITH an initializer_list constructor takes the braced argument through it first ([over.match.list]; 0.117): `f({"a", "b"})' over a vector<string>
     ;   cpp_temporary(base([], [typedef(C)]), C, Es, A10) ),
-    ( cpp_param_ref(PT, PTr), PTr \= ref(_, _), PTr \= rref(_, _) -> cpp_temp_elide(A10, A1) ; A1 = A10 ),   % BY VALUE THE TEMPORARY IS THE PARAMETER (0.206), as a prvalue argument's is below: the callee destroys it, and the statement destroyed it too -- `g({5, 6})' over `int g(std::vector<int>)' freed the buffer twice
+    ( cpp_param_ref(PT, PTr), PTr \= ref(_, _), PTr \= rref(_, _) -> cpp_byval_arg(C, A10, A1) ; A1 = A10 ),   % BY VALUE THE TEMPORARY IS THE PARAMETER (0.206), the caller's to destroy (0.207, cpp_byval_arg/3): `g({5, 6})' over `int g(std::vector<int>)' freed the buffer twice when the callee destroyed it too
     cpp_copies_(Ps, As, Bs).
 %% A BRACED ARGUMENT TO A PLAIN STRUCT OR UNION PARAMETER, by value or bound to a reference to const, is a compound
 %% literal of its type ([dcl.init.list]/3.4, [over.ics.list]; 0.168), its class items converted to its scalar members:
@@ -6433,25 +6447,45 @@ cpp_copies_([P|Ps], [A|As], [A1|Bs]) :-
     ->  ccl_gensym('$tmp', Tmp), ccl_declare(Tmp, T), nb_setval('$cpp_temps', [tmp(Tmp, T, Dtor)|Ts]), A1 = stmt_expr(block([expr(0, assign('=', id(Tmp), A)), expr(0, id(Tmp))]))
     ;   cpp_param_takes_class(PT, C), ccl_type_of(A, AT), AT \== unknown, \+ cpp_class_of_type_of(A, C), \+ cpp_arg_derives(A, C), cpp_converting_ctor(C, A)   % the argument's type KNOWN and not the parameter's own class: what cannot be typed is never converted -- nor A DERIVED CLASS's (0.201), which binds its base sub-object ([dcl.init.ref]/5.1.1) and copies by its base's copy (the slicing below): a base's converting template that takes it, `template <class U> Al(const Al<U> &)', built a temporary from it whose constructor's parameter took it again, without end (scoped_allocator_adaptor)
     ->  cpp_temporary(base([], [typedef(C)]), C, [A], A10),                                   % A CONVERTING CONSTRUCTOR at a call: libc++ hands a `__long' where a `__rep' is wanted, and `__rep(__long)' is how a string becomes long
-        ( cpp_param_ref(PT, PTr), PTr \= ref(_, _), PTr \= rref(_, _) -> cpp_temp_elide(A10, A1) ; A1 = A10 )   % ... and BY VALUE the temporary IS the parameter ([class.copy.elision]/1; 0.112): the callee destroys it, and registered with the statement too it was destroyed twice -- `g(9)' over `g(T t)'
+        ( cpp_param_ref(PT, PTr), PTr \= ref(_, _), PTr \= rref(_, _) -> cpp_byval_arg(C, A10, A1) ; A1 = A10 )   % ... and BY VALUE the temporary IS the parameter ([class.copy.elision]/1; 0.112), the caller's to destroy (0.207, cpp_byval_arg/3)
     ;   cpp_class_of_type(PT, C), cpp_ret_constructs(C), A = move(X), cpp_lvalue(X), cpp_copy_ctor(C, _)   % (a class with a copy or a move constructor of its own too, 0.197: its effects were lost to a bitwise copy) `f(std::move(s))' with `f(string)': the MOVE constructor into the callee's copy, else the copy one over the object; a class with NEITHER (Cicili's own, over own pointers) keeps the lowering's move, which nulls the source's owners
-    ->  ( cpp_copy_ctor(C, rref) -> cpp_move_temp(C, X, A1) ; cpp_copy_temp(C, X, A1) )
+    ->  ( cpp_copy_ctor(C, rref) -> cpp_move_temp(C, X, A01) ; cpp_copy_temp(C, X, A01) ), cpp_byval_arg(C, A01, A1)
     ;   cpp_class_of_type(PT, C), cpp_ret_constructs(C), cpp_xvalue_arg(A, X), cpp_copy_ctor(C, _)   % AN XVALUE NAMES ITS OBJECT AS `std::move(x)' does ([basic.lval], [dcl.init]/17.6.2; 0.201): `static_cast<R &&>(x)', and `std::forward<R>(x)', a call declared to return `R &&', which libc++'s std::invoke and std::thread hand a by-value parameter: the callee's copy is MOVE-constructed from it, where it was the object itself, bitwise, and destroyed with the caller's own -- a stop_token's shared state freed early, every std::jthread whose function takes one
-    ->  ( cpp_copy_ctor(C, rref) -> cpp_move_temp(C, X, A1) ; cpp_copy_temp(C, X, A1) )
+    ->  ( cpp_copy_ctor(C, rref) -> cpp_move_temp(C, X, A01) ; cpp_copy_temp(C, X, A01) ), cpp_byval_arg(C, A01, A1)
     ;   cpp_class_of_type(PT, C), cpp_ret_constructs(C), cpp_lvalue(A)
-    ->  ( cpp_copy_ctor(C, ref) -> cpp_copy_temp(C, A, A1) ; cpp_refuse(0, class_with_destructor_by_value(C)) )
+    ->  ( cpp_copy_ctor(C, ref) -> cpp_copy_temp(C, A, A01), cpp_byval_arg(C, A01, A1) ; cpp_refuse(0, class_with_destructor_by_value(C)) )
     ;   cpp_class_of_type(PT, C), cpp_class_of_type_of(A, D), D \== C, cpp_base_hops(D, C, Hops)   % A DERIVED OBJECT WHERE ITS BASE IS TAKEN BY VALUE is SLICED to the base sub-object ([conv.ptr]/[class.copy]): libc++'s `__priority_tag<1>()' handed to the `__priority_tag<0>' fallback of __try_key_extraction_impl
     ->  (   A = compound_lit(_, init([])) -> A1 = compound_lit(base([], [typedef(C)]), init([]))
         ;   Hops == []                                                                        % ... AND WITH NO HOPS every base on the path is EMPTY (0.89's rule: such a base has no sub-object, so the object IS it): the value carries nothing but its TYPE must still be the base's, and the guard `Hops \== []' left `__priority_tag<1>' where `__priority_tag<0>' was wanted -- LLVM refused the store. The evaluation is kept beside the base's own empty aggregate, since A may have effects.
         ->  A1 = comma(A, compound_lit(base([], [typedef(C)]), init([])))
         ;   cpp_hops(A, Hops, A1) )
-    ;   cpp_class_of_type(PT, _) -> cpp_temp_elide(A, A1)                                     % a prvalue IS the parameter: elided
+    ;   cpp_class_of_type(PT, C) -> cpp_byval_arg(C, A, A1)                                   % a prvalue IS the parameter, the caller's to destroy (0.207)
     ;   A1 = A ),
     cpp_copies_(Ps, As, Bs).
 cpp_copies_([_|Ps], [A|As], [A|Bs]) :- cpp_copies_(Ps, As, Bs).
 cpp_xvalue_arg(ccast(_, rref(_, _), X), X) :- cpp_lvalue(X), !.   % the object an xvalue names: a cast's lvalue operand, else the xvalue itself, whose reference the constructor's parameter binds
 cpp_xvalue_arg(A, A) :- A \= move(_), cpp_xvalue_object(A), !.
 cpp_dtor_prvalue(call(id(F), _), base([], [typedef(C)]), Dtor) :- atom(F), ccl_declared(F, fn(R, _, _)), \+ R = ref(_, _), \+ R = rref(_, _), cpp_class_of_type(R, C), cpp_dtor(C, Dtor), !.
+%% THE ARGUMENT OF A BY-VALUE PARAMETER OF A CLASS WITH A DESTRUCTOR IS THE CALLER'S OBJECT (0.207; the Itanium C++ ABI's 3.1.2.3, as
+%% clang and gcc have it): a temporary of the statement, built where the callee reads it (the lowering's ir_arg_in_place/4) and
+%% destroyed at the end of the full-expression, and on unwinding where it was built (its cleanup flag, cpp_stmt/3). A temporary the
+%% roads above registered stays registered, where it was elided before and the callee destroyed it; a copy or a move into `$copy'
+%% is registered, its block's declaration the statement's; a call returning the class is materialized into a `$tmp'; a conditional's
+%% arms each so, flagged where they are built. Outside a statement walk the argument is as it was.
+cpp_byval_arg(C, A0, A) :- cpp_dtor(C, Dtor), ccl_global('$cpp_temps', Ts, none), is_list(Ts), !, cpp_byval_arg_(A0, Dtor, A).
+cpp_byval_arg(_, A, A).
+cpp_byval_arg_(stmt_expr(block([declaration(0, none, T, [var(Tmp, T, none)])|Is])), Dtor, stmt_expr(block(Is))) :- atom(Tmp), sub_atom(Tmp, 0, _, _, '$copy'), !,
+    ccl_declare(Tmp, T), nb_getval('$cpp_temps', Ts), nb_setval('$cpp_temps', [tmp(Tmp, T, Dtor)|Ts]).
+cpp_byval_arg_(A, Dtor, A1) :- A = call(_, _), cpp_dtor_prvalue(A, T, _), !,
+    ccl_gensym('$tmp', Tmp), ccl_declare(Tmp, T), nb_getval('$cpp_temps', Ts), nb_setval('$cpp_temps', [tmp(Tmp, T, Dtor)|Ts]),
+    A1 = stmt_expr(block([expr(0, assign('=', id(Tmp), A)), expr(0, id(Tmp))])).
+cpp_byval_arg_(cond(C, A0, B0), Dtor, cond(C, A, B)) :- !, cpp_byval_arm(A0, Dtor, A), cpp_byval_arm(B0, Dtor, B).
+cpp_byval_arg_(A, _, A).
+%% a conditional's arm: a call materialized into a `$tmp' FLAGGED, built only where the arm is taken (cpp_cond_branch/4's rule)
+cpp_byval_arm(A, Dtor, stmt_expr(block([expr(0, assign('=', id(Tmp), A)), expr(0, assign('=', id(F), int(1))), expr(0, id(Tmp))]))) :- A = call(_, _), cpp_dtor_prvalue(A, T, _), !,
+    ccl_gensym('$tmp', Tmp), ccl_declare(Tmp, T), ccl_gensym('$tf', F), ccl_declare(F, base([], [int])),
+    nb_getval('$cpp_temps', Ts), nb_setval('$cpp_temps', [tmp(Tmp, T, flag(F, Dtor))|Ts]).
+cpp_byval_arm(A, _, A).
 cpp_plain_struct_param(PT0, ST) :- cpp_param_ref(PT0, PT), cpp_param_takes_(PT, ST), \+ cpp_class_of_type(ST, _), once(ccl_resolve_type(ST, RT)), ( RT = base(_, [struct(_, _)]) ; RT = base(_, [union(_, _)]) ), !.
 %% AN initializer_list<T> IS THE COMPILER'S TO BUILD ([dcl.init.list]/6): a backing array of the items, which lives
 %% as long as the full expression -- here a local of the function, since the lowering allocates every block's
