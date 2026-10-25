@@ -406,7 +406,16 @@ prototype's and an out-of-class member's trailing requires-clause, a static
 assertion among a class's or a struct's members, the scoped attributes of
 `__has_cpp_attribute`, GCC's attributes in the standard spelling
 (`[[gnu::packed]]`, `[[gnu::aligned(N)]]`) and `aligned` on an enum, GNU's
-`__alignof__` of an expression, and C++20's `std::atomic_ref` of a struct.
+`__alignof__` of an expression, and C++20's `std::atomic_ref` of a struct;
+since 0.206 every facility that libc++ 18 and 21 name by a feature-test
+macro from C++17 to C++26 (`std::sample` and the searchers, the scans,
+`std::to_array`, `std::ssize`, the saturation arithmetic, `std::byteswap`,
+the ranges algorithms and the containers' ranges members of C++23, a
+floating `std::atomic` and an atomic of a struct, the constexpr containers
+of C++26 ...), `std::nullptr_t` a type of its own in both languages (C23's
+`nullptr_t` too), a class's `final` for `std::is_final`, an initializer list
+of objects (`std::vector<std::list<int>> v{{1, 2}, {3}}`), and C23's library
+over glibc (`memccpy`, `strfromd`, `mbrtoc8`, `printf`'s `%b` and `%w32d`).
 `test/libcxx.sh` reads `<vector>`, `<string>`,
 `<iostream>`, `<map>`, `<set>`, `<unordered_map>`, `<unordered_set>`,
 `<optional>`, `<memory>`, `<functional>`, `<tuple>` and `<algorithm>` whole,

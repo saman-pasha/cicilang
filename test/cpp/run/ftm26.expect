@@ -1,0 +1,11 @@
+add_sat 2147483647 -2147483648 4294967295
+sub_sat -2147483648 0
+mul_sat 2147483647 -2147483648
+div_sat 2147483647 3
+saturate_cast 127 0 0
+span_at 5 out_of_range
+span_il 10
+bitset_sv 45
+ratio 1001000 1000
+native_handle 1
+exit 0

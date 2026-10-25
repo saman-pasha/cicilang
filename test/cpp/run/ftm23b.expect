@@ -1,0 +1,11 @@
+contains 1 0
+contains_subrange 1
+starts_ends 1 1
+find_last 3 5
+iota 10 13
+fold 31 45
+containers 5 0 3 7 abcde
+bind_back 15
+out_ptr 77 78
+implicit_lifetime 1 1 0
+exit 0

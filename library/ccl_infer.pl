@@ -514,6 +514,7 @@ ccl_layout_marker(vbase_ref(_, _, _)).                           % A LATER VIRTU
 ccl_layout_marker(empty_sub(_)).                                   % AN EMPTY BASE at offset 0 (0.199): no storage, an empty subobject in the way of a member of its type (ccl_empty_seed/2)
 ccl_layout_marker(packed(_)).                                      % GCC'S `packed' ON A STRUCT OR A UNION (0.203): its members aligned at one, a bitfield at the next bit (ccl_member_align/4)
 ccl_layout_marker('$nonpod').                                      % A CLASS THAT IS NOT A POD FOR THE PURPOSE OF LAYOUT (the Itanium ABI's term, as clang decides it; 0.135): as a base or a `[[no_unique_address]]' member it takes its DATA size and lends its tail padding (ccl_data_size/2)
+ccl_layout_marker(final_class).                                    % A CLASS DECLARED `final' (0.206): no member, the mark `__is_final' asks
 %% which kind of virtual-base struct a type is: `complete' (the base laid LAST, at a place only the complete object knows)
 %% or `nv(T)' (the base elsewhere in the complete object); either is reached through the vtable, never statically
 ccl_vbase_kind(T, K) :- ccl_members_of_(T, Ms), ( memberchk(virtual_base, Ms) -> K = complete ; memberchk(virtual_base_of(VT), Ms) -> K = nv(VT) ).
@@ -598,6 +599,7 @@ ccl_is_integer(T) :- ccl_resolve_type(T, base(_, S)), \+ memberchk(double, S), \
     ( memberchk(int, S) ; memberchk(char, S) ; memberchk(short, S) ; memberchk(long, S) ; memberchk('__int128', S) ; memberchk(signed, S)
     ; memberchk(unsigned, S) ; memberchk('_Bool', S) ; memberchk(bool, S) ; memberchk(char8_t, S) ; memberchk(wchar_t, S) ; memberchk(char16_t, S) ; memberchk(char32_t, S) ; S = [enum(_, _)] ; S = [enum_class(_, _)] ; memberchk(bitint(_), S) ), !.   % C23's _BitInt(N) is an integer
 ccl_is_arith(T) :- ( ccl_is_integer(T) ; ccl_is_float(T) ; ccl_is_decimal(T) ), !.
+ccl_nullptr_type(T) :- nonvar(T), catch(ccl_resolve_type(T, base(_, [nullptr_t])), _, fail), !.   % `std::nullptr_t' (0.206)
 %% AN ITEM THAT ONLY BRACE ELISION READS ([dcl.init.aggr]/15, C 6.7.9/20; 0.164): a SCALAR item for an array member of
 %% scalars is never the array's value, so it is the array's first element and the items after it the rest, however many
 %% items and members remain -- `struct S { int a[2]; int b; } s = {1, 2};', `struct W { int a[1]; } w = {7};' and
@@ -606,7 +608,7 @@ ccl_is_arith(T) :- ( ccl_is_integer(T) ; ccl_is_float(T) ; ccl_is_decimal(T) ), 
 %% ir_gelide); an item whose type is unknown keeps the old guard.
 ccl_elided_item(E, ET) :- \+ ccl_string_item(E), ccl_scalar_value_type(ET), catch(ccl_type_of(E, T), _, fail), T \== unknown, ccl_scalar_value_type(T), !.
 ccl_string_item(E) :- compound(E), E =.. [K, _], memberchk(K, [str, wstr, u16str, u32str, u8str]), !.   % a string literal is a char array's VALUE (`struct N { char name[16]; int v; } g = { "global", 1 };'), though the inference types it as a pointer
-ccl_scalar_value_type(T) :- catch(ccl_resolve_type(T, T1), _, fail), ( T1 = ptr(_, _) ; ccl_is_arith(T1) ), !.
+ccl_scalar_value_type(T) :- catch(ccl_resolve_type(T, T1), _, fail), ( T1 = ptr(_, _) ; ccl_is_arith(T1) ; T1 = base(_, [nullptr_t]) ), !.   % `nullptr' an item too (0.206)
 ccl_lock_free_at(K, P) :- ccl_lock_free_width(K), ( ( ccl_null_constant(P) ; P == nullptr ) -> true ; catch(ccl_type_of(P, PT), _, fail), ccl_aligned_for(PT, K) ), !.
 ccl_lock_free_width(K) :- ( memberchk(K, [1, 2, 4, 8]) -> true ; K == 16, once(catch(pp_arch(arm64), _, fail)) ).   % 16 bytes too on aarch64 (its pair loads and stores, as clang answers)
 %% the folded answer: in C++ a pointer that is no null constant folds nowhere here, and the desugaring answers over its
@@ -715,6 +717,10 @@ ccl_overflow_builtin('__builtin_add_overflow', add).  ccl_overflow_builtin('__bu
 ccl_bit_builtin('__builtin_clzg', ctlz).  ccl_bit_builtin('__builtin_clz', ctlz).  ccl_bit_builtin('__builtin_clzl', ctlz).  ccl_bit_builtin('__builtin_clzll', ctlz).
 ccl_bit_builtin('__builtin_ctzg', cttz).  ccl_bit_builtin('__builtin_ctz', cttz).  ccl_bit_builtin('__builtin_ctzl', cttz).  ccl_bit_builtin('__builtin_ctzll', cttz).
 ccl_bit_builtin('__builtin_popcountg', ctpop).  ccl_bit_builtin('__builtin_popcount', ctpop).  ccl_bit_builtin('__builtin_popcountl', ctpop).  ccl_bit_builtin('__builtin_popcountll', ctpop).
+%% THE BYTE SWAPS (0.206), GCC's and clang's `__builtin_bswap16' to `__builtin_bswap128', which C++23's std::byteswap is written on:
+%% each answers the unsigned integer of its width (the lowering's ir_call/4 reads this table: LLVM's `llvm.bswap'); they were undeclared
+ccl_bswap_builtin('__builtin_bswap16', 16, base([], [unsigned, short])).  ccl_bswap_builtin('__builtin_bswap32', 32, base([], [unsigned, int])).
+ccl_bswap_builtin('__builtin_bswap64', 64, base([], [unsigned, long])).   ccl_bswap_builtin('__builtin_bswap128', 128, base([], [unsigned, '__int128'])).
 ccl_size_type(T) :- ( ccl_typedef_of(size_t, _) -> T = base([], [typedef(size_t)]) ; T = base([], [unsigned, long]) ).
 ccl_sizeof_expr(sizeof(_)).
 ccl_sizeof_expr(sizeof_type(_)).
@@ -737,7 +743,10 @@ ccl_type_of(ulong(_), base([], [unsigned, long])) :- !.
 ccl_type_of(wb(N), base([], [bitint(int(W))])) :- !, ccl_wb_width(N, W0), W is W0 + 1.   % C23's 9wb: a _BitInt of the width the value needs, plus the sign
 ccl_type_of(uwb(N), base([], [unsigned, bitint(int(W))])) :- !, ccl_wb_width(N, W).
 ccl_type_of(bool(_), base([], [bool])) :- !.                          % C++
-ccl_type_of(nullptr, ptr([], base([], [void]))) :- !.
+%% `nullptr' IS A `std::nullptr_t', A TYPE OF ITS OWN ([basic.fundamental]/15, [lex.nullptr]; C23 6.4.4.6; 0.206), the builtin
+%% `base([], [nullptr_t])', eight bytes, LLVM's `ptr' and its value null: it was a `void *', and `std::is_null_pointer_v<std::nullptr_t>'
+%% was 0, `std::is_same_v<std::nullptr_t, void *>' 1, and C23's `_Generic(nullptr, nullptr_t: 1, void *: 2)' 2
+ccl_type_of(nullptr, base([], [nullptr_t])) :- !.
 ccl_type_of(float(_), base([], [double])) :- !.
 ccl_type_of(ldbl(_), base([], [long, double])) :- !.                  % a long double literal's text (0.154)
 ccl_type_of(imag(_), base([], ['_Complex', double])) :- !.
@@ -766,6 +775,7 @@ ccl_type_of(call(id('__atomic_compare_exchange'), _), base([], [bool])) :- !.
 ccl_type_of(call(id('__builtin_classify_type'), [_]), base([], [int])) :- !.   % a type's class (0.194)
 ccl_type_of(call(id(B), []), T) :- ccl_srcloc_builtin_type(B, T), !.   % clang's source-location builtins (0.201)
 ccl_type_of(call(id(B), _), base([], [int])) :- ccl_bit_builtin(B, _), !.   % the bit counts answer an int (0.129): `c ? 64 + __builtin_clzll(x) : __builtin_clzll(y)' had no type, in C as in C++ (libc++'s `__libcpp_clz(__uint128_t)')
+ccl_type_of(call(id(B), _), T) :- ccl_bswap_builtin(B, _, T), !.   % a byte swap answers the unsigned integer of its width (0.206)
 ccl_type_of(call(id(B), _), T) :- ccl_float_builtin_type(B, T), !.
 ccl_type_of(call(id(B), [_]), base([], [int])) :- memberchk(B, ['__builtin_isnan', '__builtin_isinf', '__builtin_isinf_sign', '__builtin_isfinite', '__builtin_signbit', '__builtin_isnormal']), !.   % glibc's classification macros (0.101)                                   % INFINITY, NAN, HUGE_VAL (0.101)
 ccl_type_of(call(id('__builtin_complex'), [A, _]), T) :- ccl_type_of(A, AT), AT \== unknown, !, ccl_complex_of(AT, T).   % C11's CMPLX and I, in the compiler's <complex.h> (0.100)   % C23's <stdckdint.h> is written on them
@@ -838,6 +848,8 @@ ccl_type_of(comma(_, B), T) :- !, ccl_type_of(B, T).
 ccl_type_of(cond(_, A, B), T) :- !, ccl_type_of(A, AT), ccl_type_of(B, BT),
     (   ccl_is_arith(AT), ccl_is_arith(BT) -> ccl_cond_arith(AT, BT, T)
     ;   A == nullptr -> T = BT          % a null pointer constant takes the OTHER arm's type ([expr.cond]), unknown included: typed `void *' by its
+    ;   ccl_nullptr_type(AT), \+ ccl_nullptr_type(BT) -> T = BT   % ... and a value of `std::nullptr_t' that is no literal (0.206)
+    ;   ccl_nullptr_type(BT), \+ ccl_nullptr_type(AT) -> T = AT
     ;   B == nullptr -> T = AT          % nullptr while the other arm was still unknown, `__nbc > 0 ? allocate(...) : nullptr' chose unique_ptr's `reset(nullptr_t)' and dropped the buckets
     ;   ccl_null_constant(A), ccl_is_pointer(BT) -> T = BT      % `c ? 0 : p': the literal zero is a null pointer constant and takes the pointer's type ([expr.cond]/7), where the arm `0' made it an int (0.117): libc++'s `deque::begin()' passes `__map_.empty() ? 0 : *__mp + __start_ % __block_size' to an iterator taking a pointer, and no constructor fit
     ;   ccl_null_constant(B), ccl_is_pointer(AT) -> T = AT
@@ -1002,6 +1014,12 @@ ccl_size_align(fn(_, _, _), 8, 8) :- !.
 ccl_size_align(memptr(_, _, F), 16, 8) :- ccl_resolve_type(F, fn(_, _, _)), !.   % A POINTER TO MEMBER FUNCTION IS THE ITANIUM ABI'S `{ ptr, adj }' (0.100): the function's address, or 1 + the slot's byte offset in the table for a virtual one, and the this adjustment (0 here: a base's address is made by the conversion at the call)
 ccl_size_align(memptr(_, _, _), 8, 8) :- !.                                    % a pointer to member: a function's is the address of the one function emitted for it, a data member's its byte offset (0.99)                          % a pointer to member function: the address of the one function emitted for it
 ccl_size_align(arr(NE, E), N, A) :- !, ( ccl_size_align(E, EN0, A0) -> EN = EN0, A = A0 ; ccl_resolve_type(E, E1), ccl_size_align(E1, EN, A) ), ( ccl_const_eval(NE, K) -> N is K * EN ; N = 0 ).   % a flexible member, `T a[]' or `own T *a[n]': no bytes of its own; the ELEMENT resolved (the resolver leaves an array as it is, and `std::string s[2]' had no size)
+%% AN ATOMIC TYPE OF A POWER-OF-TWO SIZE UP TO SIXTEEN BYTES IS ALIGNED AT ITS SIZE (C17 6.2.5/27: its alignment need not be the
+%% unqualified type's; clang's rule, the target's widest atomic promotion; 0.206): libc++'s std::atomic<T> holds an `_Atomic(T)', and
+%% `std::atomic<Pt>' of `struct Pt { int x, y; }' was aligned four, its loads libatomic's routine the link did not find, where clang's
+%% are one 8-byte instruction. Another size keeps the type's own layout here (clang rounds it up to a power of two).
+ccl_size_align(base(Q, S), N, A) :- memberchk('_Atomic', Q), !, ccl_delete_one(Q, '_Atomic', Q1), ccl_size_align(base(Q1, S), N, A0),
+    ( N > 0, N =< 16, N /\ (N - 1) =:= 0 -> A is max(A0, N) ; A = A0 ).
 ccl_size_align(base(Q, S), N, A) :- memberchk(packed, Q), !, ccl_size_align(base([], S), N, _), ccl_q_align(Q, 1, A).   % a PACKED MEMBER (GCC's, 0.203): its own size, aligned at one or at what its `aligned' says
 ccl_size_align(base(Q, S), N, A) :- memberchk(taligned(E), Q), ccl_const_eval(E, A0), !, ccl_size_align(base([], S), N, _), ccl_q_align(Q, A0, A).   % a TYPEDEF's own (0.203): its size unchanged, as clang has it
 ccl_size_align(base(Q, S), N, A) :- memberchk(aligned(E), Q), ccl_const_eval(E, A0), !, ccl_size_align(base([], S), N, A1), A is max(A0, A1).   % `_Alignas(E)' on a member or an object ([dcl.align]; 0.99): never below the natural alignment -- and THE SIZE UNCHANGED (0.112): an alignment specifier moves where an object or a member lies, never how big it is; rounded, `_Alignas(16) int x' had `sizeof x' 16, the member after it lay 16 bytes on, and on an array, whose element carries the qualifier, every element counted at the alignment: `alignas(S) unsigned char buf[sizeof(S)]' was 192 bytes to sizeof for 24, and a loop over it wrote past the stack slot
@@ -1064,7 +1082,7 @@ ccl_plain_char_unsigned(S) :- ( memberchk(char, S) ; memberchk(wchar_t, S) ), \+
 %% `{ ptr, adj }' with the virtual mark in adj's low bit and adj twice the `this' adjustment, ptr the slot's byte offset for a
 %% virtual member -- where x86-64's marks ptr itself (1 + the offset), which an arm64 function's address may also be
 ccl_memptr_arm :- once(catch(pp_arch(arm64), _, fail)).
-ccl_basic_size(S, N) :- ( memberchk(double, S) -> ( memberchk(long, S), ( ccl_long_double(x87) ; ccl_long_double(quad) ) -> N = 16 ; N = 8 ) ; memberchk(float, S) -> N = 4 ; memberchk('_Float16', S) -> N = 2 ; memberchk('_Decimal32', S) -> N = 4 ; memberchk('_Decimal64', S) -> N = 8 ; memberchk('_Decimal128', S) -> N = 16 ; ccl_count(long, S, 2) -> N = 8
+ccl_basic_size(S, N) :- ( memberchk(nullptr_t, S) -> N = 8 ; memberchk(double, S) -> ( memberchk(long, S), ( ccl_long_double(x87) ; ccl_long_double(quad) ) -> N = 16 ; N = 8 ) ; memberchk(float, S) -> N = 4 ; memberchk('_Float16', S) -> N = 2 ; memberchk('_Decimal32', S) -> N = 4 ; memberchk('_Decimal64', S) -> N = 8 ; memberchk('_Decimal128', S) -> N = 16 ; ccl_count(long, S, 2) -> N = 8
     ; memberchk('__int128', S) -> N = 16
     ; memberchk(long, S) -> N = 8 ; memberchk(short, S) -> N = 2 ; memberchk(char, S) -> N = 1 ; memberchk('_Bool', S) -> N = 1 ; memberchk(bool, S) -> N = 1 ; memberchk(char8_t, S) -> N = 1 ; memberchk(char16_t, S) -> N = 2 ; memberchk(wchar_t, S) -> N = 4 ; memberchk(char32_t, S) -> N = 4
     ; memberchk(int, S) -> N = 4 ; memberchk(unsigned, S) -> N = 4 ; memberchk(signed, S) -> N = 4 ; memberchk(void, S) -> N = 1 ; fail ).

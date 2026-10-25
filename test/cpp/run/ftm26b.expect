@@ -1,0 +1,9 @@
+not_fn_nttp 1 0
+variant_visit 5 42
+reference_wrapper 1 1 1
+sstream_sv 12 34 3
+string_sv abcd xyab
+constexpr 9343 24
+is_sufficiently_aligned 1
+aligned_accessor 3 8
+exit 0

@@ -1,0 +1,22 @@
+assume_aligned 3
+endian 1
+cmp 1 0 1 0
+lerp 4.00 midpoint 5 2.50
+ssize 3 1
+to_address 9
+to_array 3 8 4 e
+unwrap 1 1
+type_identity 1
+bounded 1 1 0
+remove_cvref 1
+shift_left 3 4 5
+shift_right 1 2 3
+arrays 11 6 0 1
+starts_with 1 1 0 1
+remove 3 1 1
+lookup 2 0 1
+bit 4 31 1 8
+bind_front 123
+identity 7
+is_constant_evaluated 0
+exit 0

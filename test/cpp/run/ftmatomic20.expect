@@ -1,0 +1,9 @@
+flag 0 0 1 0
+float 1.50 3.00
+double 7.50
+lock_free -2 4 1 1
+value_init 0 0 0
+wait 5
+lock_free_p 1 1
+layout 8 8 4 8 1
+exit 0

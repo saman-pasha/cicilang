@@ -1,0 +1,25 @@
+lists 2 1 2 3
+sets 2 1 5
+maps 1 2 30
+prvalue 2 9
+leaf array 0 1
+leaf vector 1 0
+node array 0 0
+node vector 1 0
+in 3 3 6
+after 0
+conv 2 5
+after2 0
+lvalue 3 12
+after3 1
+cond 9 1
+call 21 1
+by value 18
+functions 1 7
+one 3
+int lists 3 2 96
+object list 6 4
+auto list 2 6
+strings 2 2
+end 1
+exit 0

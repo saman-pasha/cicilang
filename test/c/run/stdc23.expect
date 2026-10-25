@@ -1,0 +1,9 @@
+dup hello world abc, 4
+search 2 1 xyz
+time 1709208000 59 4
+strfrom 3.142 0.5
+mbrtoc8 1 65
+binary 1010 0b101 00000011
+width 42 7
+strtol 13
+exit 0

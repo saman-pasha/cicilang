@@ -462,6 +462,7 @@ ck_static_value(bin(Op, A, _)) :- memberchk(Op, ['+', '-']), !, ck_static_value(
 ck_static_value(cond(_, A, B)) :- !, ck_static_value(A), ck_static_value(B).
 ck_static_value(comma(_, B)) :- !, ck_static_value(B).
 ck_static_value(call(id(F), _)) :- atom(F), ck_library_static(F), !.   % the C library's own static storage, and a source-location builtin's literal (0.201, ck_library_static/1)
+ck_static_value(call(id(F), [A|_])) :- atom(F), ck_library_borrow(F), !, ck_static_value(A).   % a place in its first argument's object (0.206, ck_library_borrow/1): static where that is
 ck_static_value(call(id(F), As)) :- ccl_lang(cpp), atom(F), cpp_library_function(F),   % A POINTER TO CONST THAT A C++ LIBRARY FUNCTION RETURNS FROM NO POINTER ARGUMENT is the library's storage (0.138): libc++'s `locate_zone' answers a zone of the database it keeps for the whole run; a pointer to const cannot be freed, and what the function does is the library's discipline (its functions are not checked)
     catch(ccl_declared(F, fn(R, _, _)), _, fail), catch(ccl_resolve_type(R, ptr(_, base(Q, _))), _, fail), memberchk(const, Q),
     \+ ( member(A, As), A \== nullptr, ck_pointer_arg(A) ), !.
@@ -717,7 +718,17 @@ ck_borrows_from(call(id(F), [nullptr|As]), St, P) :- ccl_lang(cpp), atom(F), cpp
 %% ... AND A LIBRARY FUNCTION'S POINTER RESULT BORROWS WHAT ITS POINTER ARGUMENTS BORROW (0.117), the first that borrows anything:
 %% `std::construct_at(p + 2, 42)' hands back its first argument, `std::find' a place in its range -- not fresh memory
 ck_borrows_from(call(id(F), Args), St, P) :- ccl_lang(cpp), atom(F), cpp_library_function(F), member(A, Args), A \== nullptr, ck_borrows_from(A, St, P), !.
+ck_borrows_from(call(id(F), [A|_]), St, P) :- atom(F), ck_library_borrow(F), !, ck_borrows_from(A, St, P).   % a place in its first argument's object (0.206, ck_library_borrow/1)
 ck_borrows_from(call(F, Args), St, P) :- ck_callee_sig(F, fn(R, _, _)), \+ ck_own_type(R), ck_call_tie(call(F, Args), St, P0), !, P = P0.
+%% A C LIBRARY FUNCTION WHOSE POINTER RESULT LIES IN ITS FIRST ARGUMENT'S OBJECT (C17 7.24.2, 7.24.3, 7.24.5, 7.24.6.1,
+%% 7.29.4; C23 7.26.2.2; POSIX's `stpcpy' and `stpncpy', glibc's `mempcpy', `memrchr', `rawmemchr' and `strchrnul'; 0.206):
+%% the copies, the concatenations and `memset' answer the destination, the searches a place in the object searched or null,
+%% `memccpy' a place in the destination or null -- a borrow of what that argument borrows, never fresh memory: `char *e =
+%% memccpy(buf, s, ',', n)' was `plain pointer not consumed'. clang's `__builtin_' spelling of one is the function.
+ck_library_borrow(F) :- atom_concat('__builtin_', G, F), !, ck_library_borrow(G).
+ck_library_borrow(F) :- memberchk(F, [memcpy, memmove, memset, memccpy, memchr, strcpy, strncpy, strcat, strncat, strchr, strrchr, strpbrk, strstr,
+    wmemcpy, wmemmove, wmemset, wmemchr, wcscpy, wcsncpy, wcscat, wcsncat, wcschr, wcsrchr, wcspbrk, wcsstr,
+    stpcpy, stpncpy, wcpcpy, wcpncpy, mempcpy, wmempcpy, memrchr, rawmemchr, strchrnul]).
 ck_ref_object([A|_], [param(T, _)|_], A) :- ccl_resolve_type(T, ref(_, _)), !.
 ck_ref_object([_|As], [_|Ps], E) :- ck_ref_object(As, Ps, E).
 ck_borrow_of(R, St, P) :- ck_state(St, R, S), !, ( ck_borrow_source(R, S, P) -> true ; P = R ).

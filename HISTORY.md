@@ -200,6 +200,7 @@ One row per step, in version order: the step's title, what it did and its gate n
 | 0.203 | the audit's eighth group, the silent wrong answers it left: GCC's `packed` and `aligned`, a volatile object's members, an enumeration's value as a template argument, a global placement allocation function over a pointer, a member template as a class's allocation function | a union's constant in a struct or an array global; `_Alignas` on a pointer object and on an array; an aligned union's size; a namespace's enum in a symbol | committed before its chain: the flow gate GREEN, the library reads GREEN over libc++ 18 and 21, the C gates GREEN, the C++ gate GREEN over libc++ 18 (759 of 766 ok, 7 skipped), a net of 56 over 21 ok after it found the anonymous packed struct of libc++ 21's string; then all nine gates GREEN over libc++ 18, the two libc++ gates over 21; the headers' reads summed 2117 s and 1890 s over 184, the fixtures' builds 4624 s over 760 and 4737 s over 765; 760 of 767 C++ fixtures over 18, 765 over 21 |
 | 0.204 | `CLAUDE.md` divided: the owner's rules and how the work is done stay, the rules of the code go to `RULES.md`, by topic; the chain of 0.203 | `CLAUDE.md` 27 KB and `RULES.md` 997 KB where `CLAUDE.md` was 1.01 MB; the comments, `README.md`, `DESIGN.md` and `HISTORY.md`'s head name `RULES.md`; no code changed | the flow gate GREEN (126 s) over the comments, the four small gates and the proof over the module built again; it carries 0.203's chain: all nine gates GREEN over libc++ 18, the two libc++ gates over 21 |
 | 0.205 | the audit's ninth group, what its Not done list held: a prototype's and an out-of-class member's trailing requires-clause, a partial specialization's typed value, the noexcept of a lambda, of a function type and of the calls the noexcept operator asks, a class member's static assertion, the vendors' scoped attributes, GCC's `aligned` on an enum and GNU's alignment of an expression, a coroutine's promise after its state | GCC's `packed` and `aligned` in the standard spelling; libc++ 21's `std::atomic_ref` of an over-aligned type at the link; a member's leading attribute in C++; a class typedef's alignment; `noexcept(B)` deducing B; a typedef's conditional noexcept; a noexcept function given to a template over a plain function pointer, a regression since 0.199 | committed before its chain: the flow gate GREEN, the library reads GREEN over libc++ 18 and 21, the C gates GREEN, the C++ gate GREEN over libc++ 18 (774 of 782 ok, 8 skipped), a net of 91 over 21 ok |
+| 0.206 | the audit's tenth group: libc++'s facilities by their feature-test macros, C++17 to C++26, and C23's library over glibc; `std::nullptr_t` a type of its own in both languages; a class's `final` | four traits the library asks the compiler; a declaration's noexcept merged with its definition; the nearer base breaking a tie; an initializer_list's array of objects built in place; `auto x{e}` and `auto x = {e}`; a braced argument by value and to a reference to an array; `decltype` of a member; a recursive class's implicit copy made twice; a callee `std::move(f)`; a function as a template argument; `std::out_ptr`'s crash, two defects; an explicit object member template with its arguments given; the floating atomics and an atomic of a struct; the byte swaps; a C library function's pointer result; three regressions the gate found, fixed; the by-value parameter's destruction against the Itanium ABI, left | committed before its chain: the nine gates over libc++ 18 (the C++ gate GREEN after three fixes, 789 of 799 ok, 10 skipped), the library read over libc++ 21 GREEN, the 17 new fixtures ok over 21 |
 
 ## M5 — the C++ mode
 
@@ -13632,3 +13633,150 @@ keeps its mark, a function type's conditional noexcept `nxif(E)`; GCC's `aligned
 the standard spelling; a member's leading attribute kept; the vendors' scoped attributes answered). Lowering 117 (a
 coroutine's promise built in its state; `alignof_expr(E)` folded; an enum that `aligned` raised; a lambda's noexcept;
 the noexcept operator's answers; a class member's static assertion; an atomic object's alignment from its type).
+
+## 0.206 — the audit's tenth group: libc++'s facilities by their feature-test macros, C++17 to C++26, and C23's library; `std::nullptr_t` a type of its own, a class's `final` kept
+
+**0.206: the tenth group of the audit of C17 to C23 and C++17 to C++26: every `__cpp_lib_*` macro that libc++ 18 and 21
+define at each level (174 at C++26 over 21, `clang++ -dM -E` of `<version>`), each facility exercised by a fixture, and
+C23's library over glibc 2.39; and what their probes found. Each fixture prints clang's or clang++'s output over libc++
+18 and 21, the C ones on aarch64 under qemu too.**
+
+- `nullptr` IS A `std::nullptr_t`, A TYPE OF ITS OWN ([basic.fundamental]/15, [lex.nullptr]; C23 6.4.4.6): the builtin
+  `base([], [nullptr_t])`, eight bytes aligned eight, LLVM's `ptr`, its value null (`ccl_type_of(nullptr)`,
+  `ccl_nullptr_type/1`, `ccl_basic_size/2`, `ir_base/2`). It was a `void *`: `std::is_null_pointer_v<std::nullptr_t>`
+  was 0, `std::is_same_v<std::nullptr_t, void *>` 1, `f(nullptr)` took `f(void *)` over `f(std::nullptr_t)` and C23's
+  `_Generic(nullptr, nullptr_t: 1, void *: 2)` 2. A value of the type converts to a null of the target's kind -- `ptr
+  null`, a null pointer to member (-1 for a data member's, `{ null, 0 }` for a function's), `false` by
+  direct-initialization and 0 for an integer (`ir_convert/6`, `ir_null_value/3`) -- where only the literal did; it is
+  a null pointer argument for a `std::nullptr_t` parameter and a pointer one (`cpp_null_arg/1`); to the conversion
+  traits it converts to any pointer and pointer to member and to `bool` by direct-initialization alone (`cpp_converts/3`,
+  `cpp_scalar_constructible/2`), and a `void *` converts to no `std::nullptr_t` (`cpp_nullptr_arg/1`); its traits are
+  `__is_null_pointer` (`__is_nullptr`), `__is_scalar` and `__is_fundamental`, never `__is_pointer` and `__is_compound`;
+  it is mangled `Dn` (`cpp_mangle_basic/2`), its debug type `decltype(nullptr)`, and a conditional with an arm of the
+  type has the other arm's type (`ccl_type_of(cond)`).
+- A POINTER TO MEMBER IS A SCALAR TYPE ([basic.types.general]/9): `__is_scalar` was false for it.
+- A CLASS'S `final` IS KEPT ([class.pre]/3): the layout marker `final_class` among its members (`ccl_class_head_words//1`,
+  `ccl_layout_marker/1`), noted at the class's registration (`'$cpp_final'/1`), which `__is_final` asks: it was read and
+  dropped, and `std::is_final_v` was false for every class.
+- FOUR TRAITS THE LIBRARY ASKS THE COMPILER, each `trait_unknown` before: `__has_unique_object_representations`
+  (`cpp_unique_repr/1`: an integral type whose bits fill its bytes, a pointer, a pointer to member, an array of one, a
+  trivially copyable class with no table whose members' bits fill it, a union whose members each fill it),
+  `__is_scoped_enum`, `__builtin_is_implicit_lifetime` (`cpp_implicit_lifetime/1`), and `__is_aggregate` of a plain
+  struct, which was 0.
+- A DECLARATION'S `noexcept` IS ITS DEFINITION'S ([except.spec]/5): an out-of-class definition merged without it, and
+  `std::is_nothrow_swappable_v<std::string>` was 0, since `basic_string::swap` is declared `noexcept` in the class
+  template and defined out of it.
+- THE NEARER BASE BREAKS A TIE ([over.ics.rank]/4.4.4): a demerit per step of a derived class's path to its parameter's
+  class on the template road (`cpp_base_steps_demerit/2`), and the same steps summed on the plain road's tie
+  (`cpp_nearer_bases/3`): libc++'s `__sample` took the `input_iterator_tag` overload for a vector's iterators and asked
+  `operator[]` of a back_insert_iterator, so `std::sample` was refused.
+- AN INITIALIZER LIST OF OBJECTS IS BUILT IN PLACE ([dcl.init.list]/5): the backing array element by element, each a
+  prvalue of the class built where it lives, and destroyed at the end of the full-expression behind a cleanup flag
+  (`cpp_init_list/4`, `cpp_elems_from/8`, `cpp_temp_dtor/2`); an aggregate's temporary built member by member is
+  retargeted to its place too (`cpp_prvalue_in_place/3`). It was an aggregate of the items' bytes, each item a
+  temporary destroyed at the statement's end: `std::vector<std::list<int>> v{{1, 2}, {3}}` aborted, as did a vector of
+  sets, of maps and of aggregates holding a list.
+- `auto x{e}` OF ONE ITEM DEDUCES FROM IT ([dcl.type.auto.deduct]/4, C++17): the reader wrote it `init(Items)`, as
+  `auto x = {e}`, and `auto y{5};` was refused `auto(y)`; it is read as `auto x = e` now (`ccl_var_init_fn//2`), and
+  every `auto x = {...}` deduces an initializer_list.
+- A LOCAL `std::initializer_list<E>` FROM A BRACED LIST holds its array as long as it lives (`$ila`), where it was
+  `no_constructor(initializer_list.int, 3)`, and `auto x = {a, b}` deduces `std::initializer_list<E>`, where it was
+  refused `auto(x)`.
+- A BRACED ARGUMENT TO A BY-VALUE PARAMETER IS THE PARAMETER ([class.copy.elision]/1): `g({5, 6})` over `int
+  g(std::vector<int>)` freed the vector's buffer twice, the callee's destruction and the statement's. A braced argument
+  to a reference to an array of scalars binds a temporary array, and P and N of `P (&&)[N]` are deduced from the list
+  (`cpp_deduce_one/5` over `cpp_match_bound/5`): `std::to_array({7, 8, 9})` was `cannot_deduce(_Tp)`.
+- `decltype` OF A MEMBER ([dcl.type.decltype]/1.3): of a non-static data member through its class (`decltype(S::m)`,
+  `decltype_unknown` before), through an object and through a pointer, the member's declared type
+  (`cpp_member_declared/3`), with no object's alignment (`cpp_storage_off/2`: `alignof(decltype(s.m))` of `alignas(32)
+  int m;` was 32); `decltype((c.m))` of a const object `const int &`; and a `decltype` inside a template-id's arguments
+  resolved where the parameters are in scope (`cpp_has_decltype/1`): `std::ssize` was `decltype_unknown`.
+- A RECURSIVE CLASS'S IMPLICIT COPY CONSTRUCTOR IS MADE ONCE: `struct Node { int v; std::vector<Node> kids; };` copies
+  its vector, whose copy copies each Node again, and the copy was made twice, `invalid redefinition` (`'$cpp_making'`'s
+  `icopy(C, Kind, Name)`).
+- A LAMBDA IS A BRACED LIST'S ITEM: `[k] { return k; }` read as the array designator `[k]` with a braced value, and
+  `std::vector<std::function<int()>> vf{[] { return 1; }, [k] { return k; }}` stopped the read (`ccl_init_item`).
+- A CALLEE WRITTEN `std::move(f)` IS f: libc++'s `basic_string::resize_and_overwrite` calls `std::move(__op)(data(),
+  __n)`, and the call of a `move` reached the lowering.
+- THE ATOMICS: a floating object's `fetch_add` and `fetch_sub` and an `_Atomic float`'s `+=` and `-=` are `atomicrmw
+  fadd` and `fsub` (`ir_rmw_fp/3`; LLVM refused `atomicrmw add` of a float); an atomic object of class type moves as
+  the integer of its size through a temporary (`ir_atomic_int/3`; `load atomic %struct.Pt` was refused); and an atomic
+  type of a power-of-two size up to 16 bytes is aligned at its size (`ccl_size_align/3`), as clang aligns it:
+  `std::atomic<Pt>` of `struct Pt { int x, y; }` was aligned at 4, and its loads called libatomic, which the link did
+  not find.
+- A FUNCTION AS A TEMPLATE ARGUMENT ([temp.param]/10, [temp.arg.nontype]/1): given to a placeholder or pointer
+  parameter it is bound as its address (`cpp_nttp_as/4`), so `decltype(F)` is the pointer, where it was the function
+  type; and a function's name is a settled argument (`cpp_settled_value/1`), so `NF<is_odd>()` is a temporary of the
+  instance, where it was refused `expr(tmpl(...))`. libc++ 21's C++26 `std::not_fn<f>()` returns
+  `__nttp_not_fn_t<_Fn>()` and was refused `lambda_result_type` (the `auto` result's road, shared with the lambdas).
+- `std::out_ptr` AND `std::inout_ptr` (C++23, libc++ 21) crashed, by two defects. A DEDUCED RESULT'S FIRST RETURN IS
+  TYPED UNEVALUATED (`cpp_unevaluated/1` in `cpp_lambda_ret_mode_/6`): the deduction of `out_ptr`'s `auto` result runs
+  inside the caller's statement, and the temporary its `return out_ptr_t<...>(...)` makes was registered with that
+  statement, which destroyed, at its end, a slot nothing had constructed -- a segmentation fault. And A CLASS PRVALUE
+  CONVERTED THROUGH ITS CONVERSION FUNCTION IS A TEMPORARY OF THE STATEMENT (`cpp_conv_object/3`): `operator int **` was
+  called on a copy of the `out_ptr_t` and none was destroyed, so the pointer the C function wrote never reached the
+  `unique_ptr`; `make() * 2` over a class with `operator double` and a destructor never destroyed the object.
+- A MEMBER TEMPLATE WITH AN EXPLICIT OBJECT PARAMETER CALLED WITH ITS ARGUMENTS GIVEN deduces `Self` from the object
+  (`cpp_member_tmpl_via/7`): C++26's `v.visit<R>(f)`, written so in libc++ 21, was `no_member_template(visit)`.
+- AN `_Atomic` FLOATING OBJECT'S `x++` AND `--x` are one `atomicrmw fadd` or `fsub`, as clang's, where they were a load
+  and a store; aarch64's `long double` (`fp128`) takes the instructions too, and an x86 `long double` (`x86_fp80`, 80
+  bits, which LLVM's atomic instructions refuse) moves through libatomic's generic routine, as clang's does.
+- THE BYTE SWAPS `__builtin_bswap16` to `128` are `llvm.bswap.iN` (`ccl_bswap_builtin/3`), folded in a constant
+  expression at 16 and 32 bits: `std::byteswap` was `undeclared`.
+- A C LIBRARY FUNCTION'S POINTER RESULT IN ITS FIRST ARGUMENT'S OBJECT IS A BORROW of what that argument borrows
+  (`ck_library_borrow/1`): `char *e = memccpy(buf, s, ',', n)` was refused `plain pointer not consumed`, and so was
+  every copy, concatenation and search of `<string.h>` and `<wchar.h>` whose result was kept.
+- C23'S LIBRARY OVER GLIBC 2.39: `strdup` and `strndup`, `memccpy`, `timegm`, `strfromd` and `strfromf`, `mbrtoc8`,
+  `printf`'s `%b`, `%w32d` and `%wf16d`, and `strtol` of a `0b` literal build and print clang's output; nothing else
+  was needed.
+- WHAT IS LEFT (`RULES.md`'s Not done, items 6 and 7): `#x` spells a space between every two tokens of its argument,
+  where C17 6.10.3.2/2 keeps a space only where white space stood (`"a + b"` for `a+b`): the tokens carry no mark of
+  the white space before them; a braced argument to a reference to an array of class objects is refused by name; an
+  atomic type of a size that is no power of two keeps its layout, where clang rounds it up, and an `_Atomic` object of
+  class type of a size that is no lock-free width is loaded and stored plainly; an x86 `_Atomic long double`'s `x++` and
+  `+=` are a libatomic load and store, where clang's are a compare-exchange loop; a class's table is emitted where its
+  key function is only declared. And A BY-VALUE PARAMETER OF A CLASS WITH A DESTRUCTOR IS DESTROYED BY THE CALLEE,
+  where the Itanium C++ ABI has the caller destroy it at the end of the full-expression, as clang and gcc do: across a
+  link with clang's code, through `extern "C"` functions, the object is destroyed never (a call into clang's code) or
+  twice (a call from it), and a destructor that prints runs before the rest of the caller's full-expression -- the
+  next step's work.
+- THE C++ GATE FOUND THREE REGRESSIONS OF THIS STEP, each fixed before the commit: the lowering's conditional took its
+  first arm's type, so `refuse ? nullptr : std::malloc(n)` was a `std::nullptr_t`, null whichever arm was taken -- an
+  allocation function written so never gave memory (`nothrownew.cpp`, `coroalloc.cpp`); and the local initializer_list
+  road asked the type of every braced declaration under a catch, so `B<char> b{1};` lost the static assertion that
+  refuses `B<char>` and was refused `typedef('B.char')` (`memassert2.cpp`); the road asks the written type first now.
+- FIXTURES: 3 C and 17 C++ (`RULES.md`'s What runs names each), each seen to pass over libc++ 18 and 21 (`ftm23b.cpp`
+  and `ftm26b.cpp` over 21 alone, by their needs), the C ones on aarch64 under qemu too (the cross gate), each expect
+  clang's or clang++'s output -- clang 21's over libc++ 21, which clang 18 over libc++ 18 prints too wherever it builds
+  the program (gcc too for the C library's).
+- COMMITTED BEFORE ITS CHAIN, and it claims nothing GREEN but this, over the worktree: the nine gates over libc++ 18
+  in a fresh HOME -- the flow gate GREEN (155 s, its one finding; 141 s after the last edit, a comment), reader 5 s,
+  compile 29 s, driver 26 s, objects 6 s, proof, cross 436 s, the library read GREEN in 802 s over four lanes (the 23
+  asserted reads whole, 198 other headers warmed; the 221 reads summed 3021 s), and the C++ gate RED, its three
+  regressions above; after their fixes the C gates GREEN again in a fresh HOME -- compile 29 s (127 run fixtures and 47
+  refusals), driver 21 s (41 checks), cross 424 s (127 C fixtures, 5 ABI checks, 24 C++ fixtures and 2 C++ checks for
+  aarch64) -- and the C++ gate GREEN over libc++ 18 in 1556 s, 789 of 799 fixtures ok and 10 skipped by their needs
+  (`ftm23b.cpp` and `ftm26b.cpp` among them), the refusals refused, the builds summed 5628 s; over libc++ 21 the library
+  read GREEN in 584 s and the 17 new C++ fixtures ok, before the last reader edit (`auto x{e}`; `autolist.cpp` after
+  it). The next commit carries the chain's numbers.
+- `RULES.md`: the gates' counts; the C reader (C23's `nullptr`); the C++ reader (a class's `final`, a lambda as a
+  braced list's item, `auto x{e}`); classes (a callee `std::move(f)`, a braced argument by value and to a reference to
+  an array, an initializer_list's array of objects in place, a local initializer_list, an aggregate's prvalue in place,
+  a recursive class's implicit copy, a class prvalue converted through its conversion function); templates (a function
+  as a template argument, `decltype` of a member and of a template-id's arguments, `P (&&)[N]` deduced from a list, a
+  deduced result typed unevaluated, the nearer base on the template road, an explicit object member template with its
+  arguments given); overload resolution (`std::nullptr_t`, the nearer base on the plain road, a declaration's noexcept);
+  the traits (`std::nullptr_t`'s, `__is_final`, four the library asks); the safe part (a C library function's pointer
+  result a borrow); the lowering's atomics and builtins (floating atomics, an atomic of a struct, an atomic type's
+  alignment, an x86 `long double` atomic, the byte swaps); What runs; Not done (the audit's tenth group done; items 6
+  and 7). `README.md`: what runs. `CLAUDE.md`: the versions.
+
+Reader 156 (a class's `final` kept; `nullptr` a `std::nullptr_t`; a braced list's item `[k] { ... }` a lambda; `auto
+x{e}` of one item read as `auto x = e`). Lowering 118 (`std::nullptr_t`'s conversions, debug type and traits, a conditional's arm of the type the other's type; four
+traits and `__is_final`; a declaration's noexcept merged; the nearer base breaking a tie; an initializer_list's array of
+objects in place, a local initializer_list and `auto x = {...}`; a braced argument by value and to a reference to an
+array, `P (&&)[N]` deduced; `decltype` of a member; a recursive class's implicit copy once; a callee `std::move(f)`; a
+function as a template argument; a deduced result typed unevaluated; a class prvalue converted through its conversion
+function a temporary of the statement; an explicit object member template with its arguments given; the floating
+atomics, an atomic class object as an integer, an atomic type's alignment, an x86 `long double` atomic through
+libatomic; the byte swaps; a C library function's pointer result a borrow).

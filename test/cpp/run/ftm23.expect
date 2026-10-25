@@ -1,0 +1,15 @@
+byteswap 44332211 cdab
+to_underlying 7 1 1
+scoped 1 0
+unreachable 3
+forward_like 1 7
+invoke_r 42
+contains 1 0 1
+resize_and_overwrite abcd 4
+adaptors 4 1 4
+allocate_at_least 1
+noreplace 1
+constexpr 5179 1238 42 1
+substr cde
+string_view range 3
+exit 0
