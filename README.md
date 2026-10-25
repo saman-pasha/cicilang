@@ -399,7 +399,14 @@ the dynamic type's through a virtual destructor, and a coroutine's state its
 promise type's; since 0.203 GCC's `packed` and `aligned` attributes, which
 glibc's headers use (`struct epoll_event`), on a C++ class too, a volatile
 object's members, and an enumeration's value as a template argument, of its
-own type.
+own type; since 0.205 a lambda's noexcept, a function type's conditional
+noexcept and the noexcept operator over member calls, temporaries, deduced
+templates, overload sets and calls of objects as clang++ answers them, a
+prototype's and an out-of-class member's trailing requires-clause, a static
+assertion among a class's or a struct's members, the scoped attributes of
+`__has_cpp_attribute`, GCC's attributes in the standard spelling
+(`[[gnu::packed]]`, `[[gnu::aligned(N)]]`) and `aligned` on an enum, GNU's
+`__alignof__` of an expression, and C++20's `std::atomic_ref` of a struct.
 `test/libcxx.sh` reads `<vector>`, `<string>`,
 `<iostream>`, `<map>`, `<set>`, `<unordered_map>`, `<unordered_set>`,
 `<optional>`, `<memory>`, `<functional>`, `<tuple>` and `<algorithm>` whole,

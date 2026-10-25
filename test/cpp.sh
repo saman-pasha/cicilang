@@ -133,7 +133,7 @@ for pair in "escape:a borrow leaves the function" "thisunset:owner used before i
   case "$got" in *"$what"*"exit 1"*) echo "ok   $n.cpp is refused: $what" ;; *) echo "FAIL $n.cpp should be refused with '$what'"; echo "     got  $got" | head -3; failures=$((failures + 1)) ;; esac
 done
 echo "-- and a false static assertion of the program is an error"
-for pair in "sassertfail:static assertion failed: wrong size" "sassertinst:static assertion failed: one byte"; do   # at file scope, and in an instance of a function template (0.198)
+for pair in "sassertfail:static assertion failed: wrong size" "sassertinst:static assertion failed: one byte" "memassert:static assertion failed: int is eight" "memassert2:static assertion failed: too small"; do   # at file scope, and in an instance of a function template (0.198); a class member's, and a class template instance's (0.205)
   n=${pair%%:*}; what=${pair#*:}
   got=$("$ROOT/bin/cicilang++" -c "$ROOT/test/cpp/$n.cpp" -o "$n.o" 2>&1; echo "exit $?")
   case "$got" in *"$what"*"exit 1"*) echo "ok   $n.cpp is refused: $what" ;; *) echo "FAIL $n.cpp should be refused with '$what'"; echo "     got  $got" | head -3; failures=$((failures + 1)) ;; esac

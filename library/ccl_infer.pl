@@ -144,6 +144,7 @@ ccl_const_eval(call(id('__builtin_classify_type'), [E]), V) :- !, catch(ccl_type
 ccl_const_eval(noexcept_expr(E), 1) :- ( atomic(E) ; E = id(_) ; compound(E), functor(E, F, 1), memberchk(F, [int, uint, long, ulong, chr, bool, float, str]) ), !.   % only an operand that can throw nothing, a literal or a name, folds raw (0.199): the desugaring answers a call -- every `noexcept(e)' was 1 here since 0.109, when no library function threw, and libc++'s `__nothrow_invokable_r_imp<...>::value', a static of `noexcept(std::__invoke(...))', was folded raw, so `is_nothrow_invocable_v<void (*)()>' held
 ccl_const_eval(offsetof(T, D), V) :- !, ccl_offsetof(T, D, V).
 ccl_const_eval(alignof_type(T), V) :- !, once(( ccl_resolve_type(T, T1), ccl_size_align(T1, _, V) )).   % `alignof(T)' ([expr.alignof]): the alignment the layout already computes
+ccl_const_eval(alignof_expr(E), V) :- !, once(( ccl_type_of(E, T), T \== unknown, ccl_resolve_type(T, T1), ccl_size_align(T1, _, V) )).   % GNU's `__alignof__(e)' (0.205): the alignment of the object it names, its declared `_Alignas' with it, else its type's
 ccl_const_eval(sizeof(E), V) :- !, ( ccl_literal_bytes(E, V) -> true ; once(( ccl_type_of(E, T), ccl_size_of(T, V) )) ).   % a string literal's bytes (0.103)
 ccl_const_eval(cond(C, A, B), V) :- !, ccl_const_eval(C, CV), ( CV \== 0 -> ccl_const_eval(A, V) ; ccl_const_eval(B, V) ).
 %% A LEFT SHIFT WRAPS IN THE PROMOTED TYPE OF ITS LEFT OPERAND ([expr.shift]/1, [expr.const]; 0.117): `intmax_t(1) << 63' is -2^63, which clang folds so,
@@ -692,7 +693,10 @@ ccl_promote(T, P) :- ( ccl_resolve_type(T, base(_, S)), memberchk(char32_t, S) -
                      ; \+ ccl_is_bitint(T), ccl_int_rank(T, R, _), R < 3 -> P = base([], [int]) ; P = T ).   % a _BitInt is never promoted (C23 6.3.1.1/2)
 ccl_enum_spec_members(enum(_, Ms), Ms).
 ccl_enum_spec_members(enum_class(_, Ms), Ms).
-ccl_enum_underlying(Ms, U) :- ( is_list(Ms), memberchk(enum_base(B), Ms) -> U = B ; U = base([], [int]) ).
+ccl_enum_underlying(Ms, U) :- ( is_list(Ms), memberchk(enum_base(B), Ms) -> ccl_enum_base_plain(B, U) ; U = base([], [int]) ).
+%% the base without GCC's marks (0.205): a promoted enum is no aligned type
+ccl_enum_base_plain(base(Q, S), base(Q1, S)) :- !, findall(X, ( member(X, Q), X \= aligned(_), X \== packed_enum ), Q1).
+ccl_enum_base_plain(B, B).
 ccl_float_rank(T, R) :- ccl_resolve_type(T, base(_, S)), ( memberchk(double, S) -> ( memberchk(long, S) -> R = 3 ; R = 2 ) ; memberchk(float, S) -> R = 1 ; R = 0 ).
 ccl_usual(A, B, T) :- ccl_usual_(A, B, T0), ( T0 = base(_, S) -> T = base([], S) ; T = T0 ).   % THE RESULT IS AN UNQUALIFIED VALUE (0.112): an operand's const stayed on it, and `false ? declval<const char32_t &>() : declval<const unsigned &>()' typed `const const char32_t'
 ccl_usual_(A, B, T) :-
@@ -825,6 +829,7 @@ ccl_type_of(throw(_), base([], [void])) :- !.
 ccl_type_of(dyncast_ref(_, _, _, T), T) :- !.
 ccl_type_of(va_arg(_, T0), T) :- !, T = T0.
 ccl_type_of(alignof_type(_), T) :- !, ccl_size_type(T).
+ccl_type_of(alignof_expr(_), T) :- !, ccl_size_type(T).
 ccl_type_of(cast(T, _), T) :- !.
 ccl_type_of(move(E), T) :- !, ccl_type_of(E, T).
 ccl_type_of(compound_lit(T, _), T) :- !.

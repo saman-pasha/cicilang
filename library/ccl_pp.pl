@@ -717,8 +717,8 @@ pp_builtin_answer('__has_embed', Args, V) :- !, pp_has_embed(Args, V).
 %% 0 for anything else, a scoped one (`clang::...', which this compiler drops) among them. It was 0 for every attribute:
 %% `__has_cpp_attribute(nodiscard)' was false, and libc++ 18 defined `_LIBCPP_NO_UNIQUE_ADDRESS' as nothing, where clang++'s
 %% build lays its views' members `[[__no_unique_address__]]' (libc++ 21 writes the attribute whatever the answer)
-pp_builtin_answer('__has_c_attribute', Args, V) :- ccl_lang(c), !, ( pp_attr_name(Args, N), pp_c_attribute(N, V0) -> V = V0 ; V = 0 ).
-pp_builtin_answer('__has_cpp_attribute', Args, V) :- ccl_lang(cpp), !, ( pp_attr_name(Args, N), atom(N), pp_cpp_attribute(N, V0) -> V = V0 ; V = 0 ).
+pp_builtin_answer('__has_c_attribute', Args, V) :- ccl_lang(c), !, ( pp_attr_name(Args, N), ( atom(N) -> pp_c_attribute(N, V0) ; N = scoped(S, A), pp_attr_vendor(S, gnu), pp_vendor_attribute(gnu, A), V0 = 1 ) -> V = V0 ; V = 0 ).   % ... a GNU one too (0.205, below), as clang answers it in C
+pp_builtin_answer('__has_cpp_attribute', Args, V) :- ccl_lang(cpp), !, ( pp_attr_name(Args, N), pp_cpp_attr_value(N, V0) -> V = V0 ; V = 0 ).
 %% `__has_extension(c_atomic)' answers 1 (0.100): libc++ decides its <atomic> by `__has_feature(cxx_atomic) ||
 %% __has_extension(c_atomic) || __has_keyword(_Atomic)', and with all three 0 it defines NO implementation
 %% (`template_without_body(__cxx_atomic_base_impl)'); this compiler has C11's `_Atomic(T)' and the `__c11_atomic_*'
@@ -761,6 +761,29 @@ pp_cpp_attribute(assume, 202207).              pp_cpp_attribute(carries_dependen
 pp_cpp_attribute(fallthrough, 201603).         pp_cpp_attribute(likely, 201803).             pp_cpp_attribute(maybe_unused, 201603).
 pp_cpp_attribute(no_unique_address, 201803).   pp_cpp_attribute(nodiscard, 201907).          pp_cpp_attribute(noreturn, 200809).
 pp_cpp_attribute(unlikely, 201803).
+%% ... AND A VENDOR'S ATTRIBUTE THIS COMPILER RECOGNIZES IS 1 (0.205; [cpp.cond]/5: an attribute the implementation recognizes
+%% and the standard does not specify has an implementation-defined value; clang 21's, which are 1): one whose meaning is a
+%% diagnostic, an optimization's hint or the debug information -- `gnu::unused', `gnu::always_inline', `clang::fallthrough',
+%% `clang::lifetimebound', the thread-safety analysis' -- which reading and dropping implements, in its `gnu' or `__gnu__'
+%% and its `clang' or `_Clang' spellings, its name with or without its underscores, and `gnu::packed' and `gnu::aligned',
+%% which the reader honours in that form as in GCC's (ccl_skip_attr//0). One that changes what a program does and that
+%% the reader drops in that form (`gnu::vector_size', `gnu::weak', `gnu::section', `gnu::constructor', `gnu::cleanup',
+%% `gnu::used', `gnu::visibility', `clang::trivial_abi', `clang::no_destroy', `clang::musttail', `clang::internal_linkage')
+%% stays 0. A scoped attribute was 0 for every vendor: a program's
+%% `#if __has_cpp_attribute(clang::fallthrough)' took its other branch where clang++'s build takes the first. libc++ 21 asks
+%% `_Clang::__lifetimebound__', `__preferred_name__', `__no_specializations__' and the capabilities and writes them into its
+%% declarations, which the reader drops; `__no_destroy__' stays its fallback
+pp_cpp_attr_value(N, V) :- atom(N), !, pp_cpp_attribute(N, V).
+pp_cpp_attr_value(scoped(S, N), 1) :- pp_attr_vendor(S, Ns), pp_vendor_attribute(Ns, N).
+pp_attr_vendor(gnu, gnu).
+pp_attr_vendor(clang, clang).
+pp_attr_vendor('_Clang', clang).
+pp_vendor_attribute(gnu, A) :- memberchk(A, [unused, always_inline, noinline, cold, hot, deprecated, warn_unused_result, format, format_arg, nonnull,
+    returns_nonnull, pure, const, noreturn, malloc, flatten, artificial, nothrow, fallthrough, leaf, error, warning, may_alias, packed, aligned]).
+pp_vendor_attribute(clang, A) :- memberchk(A, [always_inline, noinline, warn_unused_result, fallthrough, lifetimebound, noescape, preferred_name,
+    standalone_debug, no_specializations, capability, scoped_lockable, acquire_capability, acquire_shared_capability, release_capability,
+    release_shared_capability, try_acquire_capability, try_acquire_shared_capability, requires_capability, ptrauth_vtable_pointer, assume,
+    nomerge, noduplicate, optnone, minsize, unavailable, no_sanitize, disable_tail_calls, suppress, unsafe_buffer_usage]).
 pp_has_include(Args, How, V) :-
     (   Args = [tok(str, S, _)] -> atom_codes(N, S), Spec0 = local(N)
     ;   pp_angle_name(Args, N) -> Spec0 = system(N)

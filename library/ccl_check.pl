@@ -1355,6 +1355,7 @@ ck_expr(assign('=', L, R), St0, St) :- !,
 ck_expr(assign(_, L, R), St0, St) :- !, ck_expr(R, St0, St1), ck_lval_use(L, St1, St).
 ck_expr(sizeof(_), St, St) :- !.
 ck_expr(sizeof_type(_), St, St) :- !.
+ck_expr(alignof_expr(_), St, St) :- !.                                 % GNU's `__alignof__(e)' (0.205): unevaluated, as sizeof's operand
 ck_expr(offsetof(_, _), St, St) :- !.
 ck_expr(contract_violation(_, _, _), St, St) :- !.
 ck_expr(rtti(_), St, St) :- !.                                                     % RTTI's nodes (0.108)

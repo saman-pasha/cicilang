@@ -199,6 +199,7 @@ One row per step, in version order: the step's title, what it did and its gate n
 | 0.202 | the audit's seventh group, the allocation functions: a new-expression's block from its allocation function and a delete-expression's back to its deallocation function -- the program's replacements, a class's own, the aligned, sized, nothrow, placement and destroying forms, the deleting destructor, a coroutine state's; cocolog 2.11.6 | a tie to a reference parameter; a shipped static of a lazy class a global of no type; a header's operator emitted undeclared; `std::nothrow`'s symbol | committed on the owner's word before its nets and its chain; then all nine gates GREEN over libc++ 18, the two libc++ gates over 21; the headers' reads summed 2220 s and 2366 s over 184, the fixtures' builds 4885 s over 750 and 5119 s over 755; 750 of 757 C++ fixtures over 18, 755 over 21 |
 | 0.203 | the audit's eighth group, the silent wrong answers it left: GCC's `packed` and `aligned`, a volatile object's members, an enumeration's value as a template argument, a global placement allocation function over a pointer, a member template as a class's allocation function | a union's constant in a struct or an array global; `_Alignas` on a pointer object and on an array; an aligned union's size; a namespace's enum in a symbol | committed before its chain: the flow gate GREEN, the library reads GREEN over libc++ 18 and 21, the C gates GREEN, the C++ gate GREEN over libc++ 18 (759 of 766 ok, 7 skipped), a net of 56 over 21 ok after it found the anonymous packed struct of libc++ 21's string; then all nine gates GREEN over libc++ 18, the two libc++ gates over 21; the headers' reads summed 2117 s and 1890 s over 184, the fixtures' builds 4624 s over 760 and 4737 s over 765; 760 of 767 C++ fixtures over 18, 765 over 21 |
 | 0.204 | `CLAUDE.md` divided: the owner's rules and how the work is done stay, the rules of the code go to `RULES.md`, by topic; the chain of 0.203 | `CLAUDE.md` 27 KB and `RULES.md` 997 KB where `CLAUDE.md` was 1.01 MB; the comments, `README.md`, `DESIGN.md` and `HISTORY.md`'s head name `RULES.md`; no code changed | the flow gate GREEN (126 s) over the comments, the four small gates and the proof over the module built again; it carries 0.203's chain: all nine gates GREEN over libc++ 18, the two libc++ gates over 21 |
+| 0.205 | the audit's ninth group, what its Not done list held: a prototype's and an out-of-class member's trailing requires-clause, a partial specialization's typed value, the noexcept of a lambda, of a function type and of the calls the noexcept operator asks, a class member's static assertion, the vendors' scoped attributes, GCC's `aligned` on an enum and GNU's alignment of an expression, a coroutine's promise after its state | GCC's `packed` and `aligned` in the standard spelling; libc++ 21's `std::atomic_ref` of an over-aligned type at the link; a member's leading attribute in C++; a class typedef's alignment; `noexcept(B)` deducing B; a typedef's conditional noexcept; a noexcept function given to a template over a plain function pointer, a regression since 0.199 | committed before its chain: the flow gate GREEN, the library reads GREEN over libc++ 18 and 21, the C gates GREEN, the C++ gate GREEN over libc++ 18 (774 of 782 ok, 8 skipped), a net of 91 over 21 ok |
 
 ## M5 — the C++ mode
 
@@ -13521,3 +13522,113 @@ done", in their order and with their text, but one reference across the division
   head of `HISTORY.md`: the files.
 
 Reader 154 and lowering 116, unchanged: no grammar, no AST and no lowering changes.
+
+## 0.205 — the audit's ninth group, what its Not done list held: a prototype's and an out-of-class member's trailing requires-clause, a partial specialization's typed value, the noexcept of a lambda, of a function type and of the calls the noexcept operator asks, a class member's static assertion, the vendors' scoped attributes, GCC's `aligned` on an enum and GNU's alignment of an expression, a coroutine's promise after its state
+
+**0.205: the ninth group of the audit of C17 to C23 and C++17 to C++26: what Not done's items 1 to 5 of 0.204 held, and
+what their probes found. Each fixture prints clang's or clang++'s output over libc++ 18 and 21, the C ones on aarch64
+under qemu too.**
+
+- A TRAILING REQUIRES-CLAUSE (item 1; [temp.pre]/9, [temp.over.link]/7): a prototype's joins its template's head as a
+  definition's has since 0.199 (`ccl_fn_quals//2` notes it, `'$ccl_ptreq'`, and `ccl_take_treq/4` takes it), and a
+  member's defined out of its class is kept in its storage slot, `mreq(R, Sto)` (`ccl_req_sto/4`), and compared with the
+  declaration's where the definition is merged (`cpp_member_req/2` in `cpp_mdef_match/9`): of `int g() requires
+  (sizeof(T) > 1);` and `int g() requires (sizeof(T) == 1);` the first definition met served both, `kc.g()` of a
+  `K<char>` running the other's body, a silent wrong answer, and of two prototypes the first declared won where the
+  definitions came after the call. `protoreq.cpp` (C++20).
+- A PARTIAL SPECIALIZATION'S VALUE PARAMETERS ARE TYPED (item 1; [temp.arg.nontype]/1): deduced from its pattern
+  (`cpp_vbinds_typed/3` after `cpp_pick_spec/4`), `S<T[N]>` with `std::size_t N` over `int[7]` bound the bound's `int`,
+  and `decltype(S<int[7]>::n)` of `static constexpr auto n = N;` was no `const size_t`. `specbound.cpp`.
+- NOEXCEPT (items 1 and 2): a lambda's is its call operator's, the reader's `lnx(yes | no | cond(E))`
+  (`cpp_lambda_nx/4`; a generic lambda's condition substituted at its operator's instance, `'$cpp_nxdef'`), and the
+  pointer a captureless one converts to is a pointer to a noexcept function where its operator cannot throw: it was
+  dropped, and every closure's call was noexcept (`lambdanx.cpp`). A function type's conditional noexcept is the mark
+  `nxif(E)`, evaluated where the type is resolved (`cpp_fn_nx_cond/2`): `void (*)() noexcept(B)` and a pointer to
+  member's alike counted as noexcept whatever B was (`nxover.cpp`). A typedef of a noexcept function type keeps its mark
+  (`ccl_typedef_nx/3`), and `auto r = &nf;` deduces a pointer to a noexcept function (`cpp_nx_init_type/3`). The
+  noexcept operator asks the initialization of the parameters of a member function's call, a static member's through its
+  class, a function template's call whose arguments it deduces, an overload set's call where several take as many
+  arguments, a temporary's member call, a call of an object of class type and a temporary of a typedef's class
+  (`cpp_nx_method_call_throws/3`, `cpp_nx_instance_params/3`, `cpp_nx_value_class/2`, `cpp_nx_object_class/2`,
+  `cpp_nx_class_named/2`): each answered 1 where clang++ answers 0 (`nxcalls.cpp`, `nxtemp.cpp`, `nxover.cpp`).
+- A STATIC ASSERTION AMONG A CLASS'S MEMBERS (item 1; [class.mem]/1): checked once the class is registered, an
+  instance's once its arguments are substituted, a template's never (`cpp_member_asserts/2`); it was read and dropped,
+  and `struct A { static_assert(sizeof(int) == 8); };` compiled (`test/cpp/memassert.cpp`, `memassert2.cpp`, refused).
+  In C one among a struct's members was a syntax error (C11 6.7.2.1/1: a static_assert-declaration is a
+  struct-declaration); it is read and checked at the read (`memassert.c`; the driver gate refuses a false one).
+- THE VENDORS' SCOPED ATTRIBUTES (item 1; [cpp.cond]/5): `__has_cpp_attribute(gnu::N)` and `clang::N` -- `__gnu__::` and
+  `_Clang::`, the name with or without its underscores -- and `__has_c_attribute(gnu::N)` in C answer 1 for the
+  attributes the compiler honours in that spelling or that change nothing a program can see, as clang 21 does, and 0 for
+  those that would change a layout, a linkage or a call that this compiler does not model from that spelling
+  (`pp_cpp_attr_value/2`, `pp_attr_vendor/2`, `pp_vendor_attribute/2`); each was 0. `vendorattr.cpp` (C++20).
+- GCC'S `aligned` ON AN ENUM AND GNU'S ALIGNMENT OF AN EXPRESSION (item 5): the enum's base takes the qualifier
+  `aligned(E)`, its alignment raised and its size kept, as clang lays it (`ccl_aligned_enum/4`, `ir_laid_tag/1`; gcc
+  ignores the attribute there) -- `struct { char c; enum E e; }` over `enum __attribute__((aligned(8))) E` was 8 bytes,
+  e at 4, where clang lays 16, e at 8; and `__alignof__ x`, `__alignof(x)`, `_Alignof(x)` and C++'s `alignof(x)` of an
+  expression are `alignof_expr(E)`, the alignment of the object it names (`ccl_alignof_operand//1`), where it was a call
+  of an undeclared `__alignof__` and a syntax error after `_Alignof`. `alignexpr.c`.
+- A COROUTINE'S PROMISE (item 3; [dcl.fct.def.coroutine]/5, /10): constructed once the state is allocated, none where
+  `get_return_object_on_allocation_failure` answers a null state (`coro_promise/3`, `'$cpp_coro_pinit'`); it was built
+  first and destroyed after a null state. `coronull.cpp` (C++20).
+- A PROGRAM'S `get` BESIDE `std::tuple` (item 4): a pack expansion left in a template's argument list is no argument
+  (`cpp_unexpanded_pack/1`), so a candidate whose check typed a call outside the template that writes it is none, and a
+  struct's own value named by its tag is its copy (`cpp_record_own_value/2`): `std::tuple<R> t(get(4));` over libc++ 21
+  was `not lowered yet: type(pack(...))`, and `R(grab(3))` an aggregate of one item, the struct stored into its first
+  member. `ownget.cpp`.
+- WHAT THE PROBES FOUND: GCC's `packed` and `aligned` in the standard spelling -- `[[gnu::packed]]`,
+  `[[gnu::aligned(N)]]`, `[[__gnu__::__aligned__(N)]]`, C23's in C -- were dropped (`ccl_skip_attr//0` over
+  `ccl_gnu_scope//0` sets GCC's notes; `gnuattr.cpp`, `gnuattrc.c`); libc++ 21's `std::atomic_ref` of a 4-byte struct of
+  alignment 2, whose `using _Aligned_Tp [[__gnu__::__aligned__(required_alignment)]] = _Tp;` raises it to 4, called
+  libatomic's generic routines, which the link did not find: the attribute was dropped, a pointer member's pointee's
+  alignment was not folded in the class's words (`cpp_fold_align_qs/2`), and the atomic lowering took every qualifier
+  off the pointee's type (`ir_atomic_plain/2`; `atomicrefalign.cpp`, `atomicalign.cpp`); a member's leading attribute in
+  C++ -- `__attribute__((aligned(16))) int i;` among a class's members -- was cleared by the first member rule tried,
+  which failed, a defect of 0.203 (`ccl_lead_layout/3`, `ccl_members//2`, `ccl_add_layout_q/3`; `leadattr.cpp`). The
+  last probes met four more: a class's typedef folded no alignment, so `alignof(R<P>::AT)` over the class's static was
+  the aligned type's own (`cpp_ctype_resolve/3`, in the class that defines the typedef); a function type's `noexcept(B)`
+  deduced no B, `callp(tf)` refused (`cpp_match_fn_mark/5`); a typedef of a function type with a conditional noexcept
+  counted as noexcept (`ccl_note_nxc/1`: the condition folded at the read where it is a constant, else the mark
+  `nxif(E)`; `nxtypedef.cpp`); and since 0.199, when a noexcept function's name began to deduce its type with the mark,
+  a template over a plain function pointer, a reference to a function or a pointer to member took no noexcept function
+  -- `template <class R> int g(R (*)());` and `g(k)` over `int k() noexcept` was `no_matching_template(g)`, a
+  regression: the function pointer conversion is a call's ([temp.deduct.call]/4; `cpp_match_fnconv/5`, at the call's own
+  level, never inside a template-id; `nxfnconv.cpp`).
+- FIXTURES: 3 C and 15 C++, and 2 C++ refusals (`RULES.md`'s What runs names each), each seen to pass over libc++ 18 and
+  21 (`atomicrefalign.cpp` over 21 alone, by its needs), the C ones on aarch64 under qemu too, each expect clang's or
+  clang++'s. The 0.204 library, over libc++ 18, failed all 18 and compiled both refusals: 11 printed another output in
+  silence -- `coronull.cpp` built the promise of a state never allocated and destroyed it, `gnuattr.cpp` and
+  `gnuattrc.c` printed the natural sizes, `leadattr.cpp` the members at their natural places, `lambdanx.cpp`,
+  `nxcalls.cpp`, `nxtemp.cpp` and `nxtypedef.cpp` noexcept where clang++ prints 0, `protoreq.cpp` 20 for `kc.g()` and
+  `no scoped`, `specbound.cpp` a bound typed `int`, `vendorattr.cpp` 0 for each scoped attribute; `atomicalign.cpp`
+  failed at the link (libatomic's `__atomic_load`), `nxover.cpp` and `nxfnconv.cpp` were `no_matching_template(callp)`
+  and `no_matching_template(g)`, `ownget.cpp` an IR that LLVM refused, `alignexpr.c` `undeclared('__alignof__')`,
+  `memassert.c` a syntax error; and `atomicrefalign.cpp` reads no `std::atomic_ref` over libc++ 18.
+- COMMITTED BEFORE ITS CHAIN, and it claims nothing GREEN but this, over the worktree: the flow gate GREEN (132 s, its
+  one finding, after the last edit); the library reads GREEN over libc++ 18 (552 s over four lanes: the 23 asserted
+  reads whole, 161 other headers warmed) and over libc++ 21 (504 s), the 184 reads summed 2083 s and 1900 s, before the
+  last edits of the reader, which change no summary (no header of libc++ 18 or 21, nor of glibc, writes a typedef of a
+  function type with a noexcept); the C gates GREEN over libc++ 18 -- reader 6 s, compile 24 s (124 run fixtures and 47
+  refusals), driver 20 s (41 checks), objects 5 s, proof 2 s, cross 382 s (124 C fixtures, 5 ABI checks, 24 C++ fixtures
+  and 2 C++ checks for aarch64, peak 449 MB); the C++ gate GREEN over libc++ 18 in 1390 s, 774 of 782 fixtures ok and 8
+  skipped by their needs (`atomicrefalign.cpp` among them), the four static assertions and the other refusals refused,
+  the builds summed 4996 s; and a net of 91 fixtures over libc++ 21 -- the new ones and those of the coroutines, the
+  noexcept rules, the lambdas, the attributes and layouts, the atomics, the traits, the views, the formats, the
+  specializations and constraints, the streams and the invocations -- all 91 ok. The next commit carries the chain's
+  numbers.
+- `RULES.md`: the gates' counts; the C reader (the alignment of an expression, a struct's static assertion, GCC's
+  `aligned` on an enum, GCC's attributes in the standard spelling, a member's leading attribute); the C++ reader (a
+  prototype's trailing requires-clause, the nodes, a lambda's specifiers); the preprocessor (the scoped attributes);
+  templates (a member defined out of its class, a partial specialization's typed value, an unexpanded pack, the function
+  pointer conversion in a call's deduction); the C++ attributes (an alignment folded through a pointer and in a class's
+  typedef); lambdas (the noexcept, the pointer to function); exceptions (a function type's conditional noexcept and
+  `noexcept(B)` deducing B, a typedef's noexcept, the noexcept operator); coroutines (the promise after the state);
+  classes (a struct's own value through its tag); constants (a class member's static assertion); the lowering's atomics
+  (the pointee's alignment); What runs; Not done (the audit's ninth group done; items 1 to 5). `README.md`: what runs.
+  `CLAUDE.md`: the versions.
+
+Reader 155 (a prototype's and an out-of-class member's trailing requires-clause kept; a lambda's noexcept kept; the
+alignment of an expression, `alignof_expr(E)`; a struct's static assertion in C; a typedef of a noexcept function type
+keeps its mark, a function type's conditional noexcept `nxif(E)`; GCC's `aligned` on an enum, and GCC's attributes in
+the standard spelling; a member's leading attribute kept; the vendors' scoped attributes answered). Lowering 117 (a
+coroutine's promise built in its state; `alignof_expr(E)` folded; an enum that `aligned` raised; a lambda's noexcept;
+the noexcept operator's answers; a class member's static assertion; an atomic object's alignment from its type).

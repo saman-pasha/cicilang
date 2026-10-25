@@ -53,6 +53,10 @@ printf '#error not here\nint main(void) { return 0; }\n' > err.c
 errout=$("$CICILI" err.c -o err 2>&1 >/dev/null); errcode=$?
 check "#error in the file is a diagnostic, exit 1" "$(echo "$errout" | head -1; echo "exit $errcode")" "err.c:1: error: not here
 exit 1"
+printf 'struct S { int a; _Static_assert(sizeof(int) == 8, "eight"); };\nint main(void) { return 0; }\n' > sasm.c
+sasmout=$("$CICILI" sasm.c -o sasm 2>&1 >/dev/null); sasmcode=$?
+check "a false static assertion among a struct's members is an error" "$(echo "$sasmout" | head -1; echo "exit $sasmcode")" "sasm.c:1: error: static assertion failed: eight
+exit 1"   # 0.205: a static_assert-declaration is a struct-declaration (C11 6.7.2.1/1); it was a syntax error
 cat > defs.c <<'EOF2'
 #include <stdio.h>
 #include <assert.h>
