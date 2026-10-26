@@ -1,0 +1,7 @@
+printf("x" "1" "= %d, x" "2" "= %s", x1, x2);
+: @
+
+vers2.h
+"hello";
+"hello" ", world"
+exit 0

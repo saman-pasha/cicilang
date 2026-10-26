@@ -14022,3 +14022,74 @@ every case a fixture holds, or clang++'s over libc++ 18 and 21. And 0.208's chai
 Reader 157 (a stringized argument keeps a space only where white space stood, and `#__VA_OPT__` is stringized: a string
 that a header's body stringizes changes). Lowering 120, unchanged: no change to what the check and the lowering emit for
 a tree, and the reader's bump starts the store afresh.
+
+## 0.210 — the audit's thirteenth group: the preprocessor by the standards' own examples -- the hide sets of Prosser's algorithm, `##` in an object-like macro and an argument's `##` no operator, `__VA_OPT__` over the expanded argument, a character that begins no token one of its own, `$` a letter; 0.209's chain
+
+**0.210: the thirteenth group of the audit of C17 to C23 and C++17 to C++26: the preprocessor held to the examples that
+the standards give of macro replacement (C17 6.10.3.5 EXAMPLES 3, 4, 5 and 7, 6.10.3.3's, C23 6.10.5.1's of
+`__VA_OPT__`, C++20's [cpp.subst], [cpp.rescan] and [cpp.concat]), and to what clang and gcc give where the standard
+leaves the answer open; the two compilers agree on every line the fixtures hold. And 0.209's chain.**
+
+- THE PROBES: each example's lines, through `clang -E`, `gcc -E` and this compiler, then as run fixtures that stringize
+  each expansion. 0.209 refused the C examples at the line of EXAMPLE 4's `str(: @\n)` (a lexical error), and without
+  that line gave six of EXAMPLE 3's and the rescans' lines wrong: `f(2 * (f(2 * (z[0][0][0]))))` for the standard's `f(2
+  * (f(2 * (z[0]))))`, `f(2 * (2 * (0)))` for `f(2 * (0))`, `ab 21y` for `ab x1y`, `2*ff(9)` for `2*9*gg`, `NIL(42)` for
+  `42`, `obj+1+1 obj+1+1+1` for `obj+1 obj+1` and `3 4 LIT` for `3 LIT(4)`; C23's `F(EMP)` was `f(0 , )` for `f(0 )`,
+  and C++20's `f(2)(9)` `2*f(9)`.
+- THE HIDE SETS ARE PROSSER'S, as clang and gcc expand (C17 6.10.3.4). AN ARGUMENT'S TOKENS KEEP THEIRS: the argument's
+  expansion kept a token's mark of white space and dropped its hide set (`pp_toks/6`'s mode `marks` keeps each element
+  whole now), and the substitution gave every token of the argument the expansion's hide set alone (`pp_reline_marks/3`
+  makes it `h(tok(K, V, Mark), HideSet)` in the body's form, and `pp_wrap/6` joins the expansion's to it,
+  `pp_body_el/6`, `pp_hs_add/3`), so a name that its own expansion had left unexpanded was expanded again where the
+  substitution was read (6.10.3.4/2: such a name "is no longer available for further replacement"). A FUNCTION-LIKE
+  MACRO'S EXPANSION IS HIDDEN FROM WHAT ITS NAME AND ITS CLOSING `)` BOTH ARE, and its name (`pp_args/11` gives the `)`,
+  `pp_rparen_meet/3`, `pp_hs_meet/3`): the name's hide set alone hid a macro that the `)` came from outside of, `NIL` in
+  `NIL(G_1)(arg)`. A paste's token is hidden from what both of its operands are (`pp_glued/3`). The union keeps each
+  name once: an argument through k macros would hold k(k+1)/2 names.
+- `##` IN AN OBJECT-LIKE MACRO PASTES (6.10.3.3/3, "both object-like and function-like macro invocations"): once, where
+  the body is read (`pp_obj_paste/3`); the reader met the `##`. AN ARGUMENT'S `##` IS NO OPERATOR (6.10.3.3/3, "not from
+  an argument"): `pp_paste/2` takes a bare `##`, the body's own, and an argument's tokens are `h/2` elements; it pasted
+  every `##` -- the standard's `join(x, y)` over `hash_hash` gave its `"x ## y"` only as the two defects met.
+- `__VA_OPT__` ASKS THE VARIADIC ARGUMENT AFTER ITS EXPANSION (`pp_va_present/1`; C23's and C++20's examples): `F(EMP)`
+  with `EMP` empty is `f(0 )`; one that holds no name is not expanded for the question.
+- A CHARACTER THAT BEGINS NO TOKEN IS A TOKEN OF ITS OWN in the preprocessor's mode (C17 6.4/1: "each non-white-space
+  character that cannot be one of the above"), `tok(other, Code, L)` in both lexers (`ccl_pp_token//3`, natively
+  `ccl_lx_other`, the place and the line put back where no token was read), spelled by `#x` and by `-E`, and refused
+  where it reaches the reader, `lexical(L)` at its line (`ccl_pp_top/3`; reader `k71`'s unterminated string meets it
+  there). Both lexers stopped at it: the user's file was refused at the line where `#` took the character, and a
+  header's line lost its rest without a word. A `\` of no literal begins an escape of the string that `#x` makes
+  (`pp_str_decode/3`): the standard's `str(: @\n)` is `": @"` and a new-line. Reader `k84` reads `test/c/lexer.c` to its
+  end in `punct` mode: its last line, 0.93's prefixed literals, came after the `@` where both lexers stopped, and no
+  mode had compared it.
+- `$` IS A LETTER of a name, a macro's too (`ccl_alpha/1`, `ccl_lx_alpha`, `pp_word/3`; C17 6.4.2.1/3's
+  implementation-defined characters, as clang and gcc take it): it was a lexical error.
+- MEASURED, 0.209'S COST: the marks of white space cost about 4 % of a cold read's CPU -- `<map>`, `<sstream>`, `<list>`
+  and `<thread>` at C++20 took 28.5 s, 29.6 s, 27.7 s and 30.0 s with 0.208's library and 29.9 s, 31.7 s, 27.4 s and
+  31.2 s with 0.209's, one at a time over fresh HOMEs (`ptime.py`, session scratch) -- where the summed reads of 0.209's
+  chain were 6.0 % and 6.8 % over 0.208's: a mark is an `h/2` around a token, made by the lexer for each token that
+  white space precedes.
+- FIXTURES: 4 C (`ppexample.c`, `ppexample4.c`, `ppvaopt.c` at C23, `dollar.c`) and 1 C++ (`ppexample.cpp`, C++20), each
+  seen to pass, the C++ one over libc++ 18 and 21.
+- THE CHAIN OF 0.209, over its commit (dab3deb) and fresh HOMEs, on cocolog 2.12.0: over libc++ 18 all nine gates GREEN
+  -- the flow gate 140 s (its one finding), reader 5 s, compile 26 s, driver 20 s, objects 6 s, proof, cross 397 s, the
+  library read 713 s (the 23 asserted reads whole, 198 other headers warmed), the C++ gate 1552 s, 794 of 804 fixtures
+  ok and 10 skipped by their needs --; over libc++ 21 the library read 630 s and the C++ gate GREEN in about 1550 s, 802
+  of 804 ok, 2 skipped (`stdoptionalref.cpp`, `zipadjacent.cpp`). The headers' reads summed 2665 s over 221 and 2355 s;
+  the fixtures' builds 5303 s over 794 and 5319 s over 802.
+- COMMITTED BEFORE ITS CHAIN, and it claims nothing GREEN but this, over the worktree and fresh HOMEs, on cocolog
+  2.12.0: over libc++ 18 all nine gates GREEN -- the flow gate 156 s (its one finding), reader 6 s, compile 31 s (139
+  run fixtures and 47 refusals), driver 21 s, objects 6 s, proof, cross 441 s (139 C fixtures, 5 ABI checks, 24 C++
+  fixtures and 3 C++ checks for aarch64), the library read 773 s (the 23 asserted reads whole, 198 other headers
+  warmed), the C++ gate 1546 s, 795 of 805 fixtures ok and 10 skipped by their needs --; over libc++ 21 the library read
+  650 s and the C++ gate GREEN in about 1560 s, 803 of 805 ok, 2 skipped (`stdoptionalref.cpp`, `zipadjacent.cpp`). The
+  headers' reads summed 2957 s over 221 over libc++ 18 and 2423 s over 21; the fixtures' builds 5579 s over 795 and 5605
+  s over 803. The box ran slower than in 0.209's chain -- the flow gate, which runs no preprocessor, took 156 s against
+  140 s -- and the next chain measures the reads again. The next commit carries the chain's numbers.
+- `RULES.md`: the lexers (a character that begins no token, `$`, `k84`); the preprocessor (the hide sets, `##` in an
+  object-like macro and from an argument, `__VA_OPT__`, a stray `\` in `#x`, the marks' cost, the user's file's lexical
+  error, `-E`); the C gates' count; the C++ gate's count; the Hosts (0.209's chain); What runs; Not done (the audit's
+  thirteenth group). `CLAUDE.md`: the versions.
+
+Reader 158 (an argument's tokens keep their hide sets and a function-like expansion's meets its closing parenthesis's,
+an object-like macro's `##` pastes and an argument's does not, `__VA_OPT__` asks the expanded argument, a character that
+begins no token is one of its own, `$` a letter: what an expansion gives changes). Lowering 120, unchanged.

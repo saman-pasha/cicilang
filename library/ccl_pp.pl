@@ -68,7 +68,7 @@ pp_mt_quoted([C|Cs], Q, [C|Out], R) :- pp_mt_quoted(Cs, Q, Out, R).
 %% directive item; a `#cocolog ... #end' block is the reader's, one token of
 %% its raw lines; a `.pl' include is the reader's macro file. A line that
 %% does not lex whole is the lexical error it always was.
-ccl_pp_top(Path, Tokens, Files) :- nb_setval('$pp_warnings', []), ccl_pp_prescan(Path), ccl_pp_run(Path, yes, Tokens, Files).   % the warnings are the run's, read by the driver after the read (pp_reset leaves them: a nested header's run must not wipe the file's)
+ccl_pp_top(Path, Tokens, Files) :- nb_setval('$pp_warnings', []), ccl_pp_prescan(Path), ccl_pp_run(Path, yes, Tokens, Files), ( memberchk(tok(other, _, L), Tokens) -> throw(lexical(L)) ; true ).   % the warnings are the run's, read by the driver after the read (pp_reset leaves them: a nested header's run must not wipe the file's)
 ccl_pp_run(Path, Top, Tokens, Files) :-
     ccl_ensure_globals, pp_reset, nb_setval('$pp_top', Top),
     nb_setval('$ccl_hash', punct),                                                   % the run lexes in the preprocessor's mode: `#' a punctuator, a number as spelled
@@ -123,11 +123,15 @@ pp_undefine(N) :- nb_getval('$pp_gen', G), pp_key(N, K), nb_setval(K, undef(G)).
 %% through, the last first), defined into the run on that first use; one
 %% undefined in this run stays so
 pp_macro(N, Ps, Body) :- pp_key(N, K), nb_getval('$pp_gen', G), ( nb_current(K, V) -> true ; V = none ), pp_macro_(V, G, N, K, Ps, Body).
-pp_macro_(mac(G, Ps, C, T0), G, _, K, Ps, Body) :- !, ( T0 == none -> C = codes(Cs), pp_lex_mbody(Cs, Body), nb_setval(K, mac(G, Ps, C, Body)) ; Body = T0 ).
+pp_macro_(mac(G, Ps, C, T0), G, _, K, Ps, Body) :- !, ( T0 == none -> C = codes(Cs), pp_lex_mbody(Cs, Body0), pp_obj_paste(Ps, Body0, Body), nb_setval(K, mac(G, Ps, C, Body)) ; Body = T0 ).
 pp_macro_(undef(G), G, _, _, _, _) :- !, fail.
 pp_macro_(nomac(G, I), G, _, _, _, _) :- nb_getval('$pp_ninc', I), !, fail.                 % a miss remembered, good until the next include
 pp_macro_(_, G, N, K, Ps, Body) :- ( pp_outer_macro(N, Ps, Cs) -> pp_macro_(mac(G, Ps, codes(Cs), none), G, N, K, Ps, Body) ; pp_note_miss(K, G), fail ).
 pp_note_miss(K, G) :- nb_getval('$pp_ninc', I), nb_setval(K, nomac(G, I)).
+%% AN OBJECT-LIKE MACRO'S `##' PASTES TOO (C17 6.10.3.3/3, both kinds of macro; 0.210), once, where its body is read:
+%% `#define AB a ## b' is `ab' and `# ## #' the one token `##'. They were the tokens as written, and the reader met `##'
+pp_obj_paste(obj, B0, B) :- memberchk(tok(p, '##', _), B0), !, pp_paste(B0, B).
+pp_obj_paste(_, B, B).
 pp_defined(N) :- ( pp_builtin_name(N) -> true ; pp_key(N, K), nb_getval('$pp_gen', G), ( nb_current(K, V) -> true ; V = none ), pp_defined_(V, G, N) ).
 pp_defined_(mac(G, _, _, _), G, _) :- !.
 pp_defined_(undef(G), G, _) :- !, fail.
@@ -387,28 +391,37 @@ pp_strip([], []).
 pp_strip([X|Xs], [T|Ts]) :- pp_unwrap(X, T, _), pp_strip(Xs, Ts).
 %% the tokens of a line (or of an argument), expanded into the output; a
 %% function-like macro's arguments may run on to the following lines, pulled
-%% as needed. M top gives the bare tokens; marks keeps a token's mark,
-%% h(T, ['$sp']), for an argument's substitution (0.209)
+%% as needed. M top gives the bare tokens; marks keeps each token as the
+%% stream has it, its mark and its hide set, for an argument's substitution
+%% (0.209, 0.210)
 pp_toks(_, [], Ls, Ls, Out, Out).
 pp_toks(M, [X|Xs], Ls, Ls1, Out0, Out) :-
     pp_unwrap(X, T, HS),
     (   T = tok(id, '_Pragma', _), pp_pragma_op(Xs, Ls, Xs1, Ls2) -> pp_toks(M, Xs1, Ls2, Ls1, Out0, Out)          % _Pragma("...") is a #pragma: nothing
     ;   T = tok(K, N, L), ( K == id ; K == kw ), \+ memberchk(N, HS), pp_expand(N, L, HS, Xs, Ls, Xs1, Ls2) -> pp_toks(M, Xs1, Ls2, Ls1, Out0, Out)
-    ;   M == marks, HS = ['$sp'|_] -> Out0 = [h(T, ['$sp'])|Out1], pp_toks(M, Xs, Ls, Ls1, Out1, Out)
+    ;   M == marks -> Out0 = [X|Out1], pp_toks(M, Xs, Ls, Ls1, Out1, Out)
     ;   Out0 = [T|Out1], pp_toks(M, Xs, Ls, Ls1, Out1, Out) ).
 %% its operand, the parenthesized group as it stands -- a macro's #x is still unexpanded there
-pp_pragma_op(Xs, Ls, Rest, Ls1) :- pp_paren_next(Xs, Ls, Xs0, Ls0), pp_collect_args(Xs0, Ls0, _, _, Rest, Ls1).
+pp_pragma_op(Xs, Ls, Rest, Ls1) :- pp_paren_next(Xs, Ls, Xs0, Ls0), pp_collect_args(Xs0, Ls0, _, _, _, Rest, Ls1).
 %% a name that is a macro: its expansion, hidden from itself, pushed back for the rescan; the name's mark of white space
 %% the expansion's first token's (pp_wrap/6)
 pp_expand(N, L, HS, Xs, Ls, Xs1, Ls) :- pp_builtin_obj(N, L, Body), !, pp_mark_of(HS, M0, HS1), pp_wrap(Body, M0, [N|HS1], L, W, _), append(W, Xs, Xs1).
 pp_expand(N, L, HS, Xs, Ls, Xs1, Ls1) :- pp_text_builtin(N), pp_paren_next(Xs, Ls, Xs0, Ls0), !,   % A FEATURE QUESTION IN A TEXT LINE (0.198), as clang answers one: `__has_cpp_attribute(nodiscard)' in an expression was a call of nothing
-    pp_collect_args(Xs0, Ls0, Args0, _, Rest, Ls1), ( Args0 = [A0] -> pp_strip(A0, Args) ; Args = [] ), pp_builtin_answer(N, Args, V), pp_mark_of(HS, M0, HS1), pp_wrap([tok(int, V, L)], M0, [N|HS1], L, W, _), append(W, Rest, Xs1).
+    pp_collect_args(Xs0, Ls0, Args0, _, _, Rest, Ls1), ( Args0 = [A0] -> pp_strip(A0, Args) ; Args = [] ), pp_builtin_answer(N, Args, V), pp_mark_of(HS, M0, HS1), pp_wrap([tok(int, V, L)], M0, [N|HS1], L, W, _), append(W, Rest, Xs1).
 pp_expand(N, L, HS, Xs, Ls, Xs1, Ls1) :-
     pp_macro(N, Ps, Body), pp_mark_of(HS, M0, HS1),
     (   Ps == obj -> pp_wrap(Body, M0, [N|HS1], L, W, ME), pp_push(W, ME, Xs, Xs1), Ls1 = Ls
-    ;   pp_paren_next(Xs, Ls, Xs0, Ls0) -> pp_collect_args(Xs0, Ls0, Args0, RSeps, Rest, Ls1), pp_fit_args(Ps, Args0, RSeps, Args), pp_subst(Body, Ps, Args, Subst), pp_wrap(Subst, M0, [N|HS1], L, W, ME), pp_push(W, ME, Rest, Xs1) ).
+    ;   pp_paren_next(Xs, Ls, Xs0, Ls0) -> pp_collect_args(Xs0, Ls0, Args0, RSeps, RP, Rest, Ls1), pp_fit_args(Ps, Args0, RSeps, Args), pp_subst(Body, Ps, Args, Subst), pp_rparen_meet(RP, HS1, HS2), pp_wrap(Subst, M0, [N|HS2], L, W, ME), pp_push(W, ME, Rest, Xs1) ).
 pp_mark_of(['$sp'|HS], 1, HS) :- !.
 pp_mark_of(HS, 0, HS).
+%% A FUNCTION-LIKE MACRO'S EXPANSION IS HIDDEN FROM WHAT ITS NAME AND ITS CLOSING `)' BOTH ARE (0.210; the hide sets of
+%% Prosser's algorithm, as clang and gcc expand): `NIL(G_1)(arg)' expands G_1, out of NIL's expansion, and NIL again --
+%% the name's hide set alone kept NIL hidden there, and `G_0(42)' gave `NIL(42)' where both give `42'
+pp_rparen_meet(none, HS, HS) :- !.
+pp_rparen_meet(RP, HS, HS1) :- pp_unwrap(RP, _, RHS0), pp_mark_of(RHS0, _, RHS), pp_hs_meet(HS, RHS, HS1).
+pp_hs_meet(_, [], []) :- !.
+pp_hs_meet([], _, []).
+pp_hs_meet([N|Ns], RHS, Out) :- ( memberchk(N, RHS) -> Out = [N|Out1] ; Out = Out1 ), pp_hs_meet(Ns, RHS, Out1).
 pp_builtin_obj('__LINE__', L, [tok(int, P, L)]) :- pp_presumed(L, P, _).
 pp_builtin_obj('__FILE__', L, [tok(str, Cs, L)]) :- pp_presumed(L, _, F), atom_codes(F, Cs).
 pp_builtin_obj('__COUNTER__', L, [tok(int, C, L)]) :- nb_getval('$pp_counter', C), C1 is C + 1, nb_setval('$pp_counter', C1).
@@ -424,12 +437,18 @@ pp_presumed(L, P, F) :- pp_current_file(F0), nb_getval('$pp_linemap', M), ( memb
 %% of nothing passes the name's on, a last empty argument its own (clang and gcc: `a E+b' with E empty is "a +b")
 pp_wrap([], M0, _, _, [], M0).
 pp_wrap([spmark|Ts], M0, HS, L, W, ME) :- !, pp_wrap(Ts, M0, HS, L, W, ME).
-pp_wrap([tok(K, V, _)|Ts], M0, HS, L, [X|Ws], ME) :- pp_mark(M0, tok(K, V, L), HS, X), pp_wrap_(Ts, 0, HS, L, Ws, ME).
+pp_wrap([E|Ts], M0, HS, L, [X|Ws], ME) :- pp_body_el(E, K, V, _, HS, HS1), pp_mark(M0, tok(K, V, L), HS1, X), pp_wrap_(Ts, 0, HS, L, Ws, ME).
 pp_wrap_([], P, _, _, [], P).
 pp_wrap_([spmark|Ts], _, HS, L, Ws, ME) :- !, pp_wrap_(Ts, 1, HS, L, Ws, ME).
-pp_wrap_([tok(K, V, M)|Ts], P, HS, L, [X|Ws], ME) :- M1 is M \/ P, pp_mark(M1, tok(K, V, L), HS, X), pp_wrap_(Ts, 0, HS, L, Ws, ME).
+pp_wrap_([E|Ts], P, HS, L, [X|Ws], ME) :- pp_body_el(E, K, V, M, HS, HS1), M1 is M \/ P, pp_mark(M1, tok(K, V, L), HS1, X), pp_wrap_(Ts, 0, HS, L, Ws, ME).
 pp_mark(1, T, HS, h(T, ['$sp'|HS])) :- !.
 pp_mark(_, T, HS, h(T, HS)).
+%% a substitution's element (0.210): a body's own token, tok(K, V, Mark), or an argument's, h(tok(K, V, Mark), HideSet),
+%% whose hide set the expansion's joins
+pp_body_el(tok(K, V, M), K, V, M, HS, HS).
+pp_body_el(h(tok(K, V, M), AHS), K, V, M, HS, HS1) :- pp_hs_add(AHS, HS, HS1).
+pp_hs_add([], HS, HS) :- !.
+pp_hs_add([N|Ns], HS, HS1) :- ( memberchk(N, HS) -> HS1 = HS2 ; HS1 = [N|HS2] ), pp_hs_add(Ns, HS, HS2).   % a union, each name once: an argument through k macros would hold k(k+1)/2
 %% ... pushed back for the rescan, the token after it marked where ME says so
 pp_push(W, 1, Xs, Xs1) :- !, pp_mark_head(Xs, Xs2), append(W, Xs2, Xs1).
 pp_push(W, _, Xs, Xs1) :- append(W, Xs, Xs1).
@@ -441,17 +460,18 @@ pp_paren_next([X|Xs], Ls, [X|Xs], Ls) :- pp_unwrap(X, tok(p, '(', _), _), !.
 pp_paren_next([], Ls, Xs, Ls1) :- pp_pull(Ls, Xs, Ls1), Xs = [X|_], pp_unwrap(X, tok(p, '(', _), _).
 pp_pull([line(N, A)|Ls], Toks, Ls) :- \+ pp_directive_line(A, _), pp_lex_line(N, A, Toks).
 %% the arguments: balanced, split at the commas of depth one; an argument keeps its wrappers, and the commas are kept
-%% apart, the last first (RSeps), for the variadic argument they join as they stood (0.209)
-pp_collect_args([_|Xs], Ls, Args, RSeps, Rest, Ls1) :- pp_args(Xs, Ls, 1, [], [], [], Args, RSeps, Rest, Ls1).
-pp_args([], Ls, D, Cur, Acc, SAcc, Args, RSeps, Rest, Ls1) :- pp_pull(Ls, Toks, Ls0), !, pp_args(Toks, Ls0, D, Cur, Acc, SAcc, Args, RSeps, Rest, Ls1).
-pp_args([], Ls, _, Cur, Acc, SAcc, Args, SAcc, [], Ls) :- !, reverse(Cur, A), reverse([A|Acc], Args).          % a directive, or the file's end: the arguments close here
-pp_args([X|Xs], Ls, D, Cur, Acc, SAcc, Args, RSeps, Rest, Ls1) :-
+%% apart, the last first (RSeps), for the variadic argument they join as they stood (0.209); RP the closing `)', whose
+%% hide set the expansion's meets (pp_rparen_meet/3; 0.210), none where a directive or the file's end closes them
+pp_collect_args([_|Xs], Ls, Args, RSeps, RP, Rest, Ls1) :- pp_args(Xs, Ls, 1, [], [], [], Args, RSeps, RP, Rest, Ls1).
+pp_args([], Ls, D, Cur, Acc, SAcc, Args, RSeps, RP, Rest, Ls1) :- pp_pull(Ls, Toks, Ls0), !, pp_args(Toks, Ls0, D, Cur, Acc, SAcc, Args, RSeps, RP, Rest, Ls1).
+pp_args([], Ls, _, Cur, Acc, SAcc, Args, SAcc, none, [], Ls) :- !, reverse(Cur, A), reverse([A|Acc], Args).          % a directive, or the file's end: the arguments close here
+pp_args([X|Xs], Ls, D, Cur, Acc, SAcc, Args, RSeps, RP, Rest, Ls1) :-
     pp_unwrap(X, T, _),
-    (   T = tok(p, '(', _) -> D1 is D + 1, pp_args(Xs, Ls, D1, [X|Cur], Acc, SAcc, Args, RSeps, Rest, Ls1)
-    ;   T = tok(p, ')', _), D =:= 1 -> reverse(Cur, A), reverse([A|Acc], Args), RSeps = SAcc, Rest = Xs, Ls1 = Ls
-    ;   T = tok(p, ')', _) -> D1 is D - 1, pp_args(Xs, Ls, D1, [X|Cur], Acc, SAcc, Args, RSeps, Rest, Ls1)
-    ;   T = tok(p, ',', _), D =:= 1 -> reverse(Cur, A), pp_args(Xs, Ls, D, [], [A|Acc], [X|SAcc], Args, RSeps, Rest, Ls1)
-    ;   pp_args(Xs, Ls, D, [X|Cur], Acc, SAcc, Args, RSeps, Rest, Ls1) ).
+    (   T = tok(p, '(', _) -> D1 is D + 1, pp_args(Xs, Ls, D1, [X|Cur], Acc, SAcc, Args, RSeps, RP, Rest, Ls1)
+    ;   T = tok(p, ')', _), D =:= 1 -> reverse(Cur, A), reverse([A|Acc], Args), RSeps = SAcc, RP = X, Rest = Xs, Ls1 = Ls
+    ;   T = tok(p, ')', _) -> D1 is D - 1, pp_args(Xs, Ls, D1, [X|Cur], Acc, SAcc, Args, RSeps, RP, Rest, Ls1)
+    ;   T = tok(p, ',', _), D =:= 1 -> reverse(Cur, A), pp_args(Xs, Ls, D, [], [A|Acc], [X|SAcc], Args, RSeps, RP, Rest, Ls1)
+    ;   pp_args(Xs, Ls, D, [X|Cur], Acc, SAcc, Args, RSeps, RP, Rest, Ls1) ).
 %% as many arguments as parameters: `f()' for no parameter is none; the rest to the variadic one, joined by their commas
 pp_fit_args([], [[]], _, []) :- !.
 pp_fit_args(Ps, Args, RSeps, Args1) :-
@@ -475,15 +495,17 @@ pp_subst_([tok(p, '#', L), tok(K, P, _)|Bs], Ps, Args, [tok(str, Cs, L)|Out]) :-
 %% C++20's and C23's `#__VA_OPT__(tokens)' (0.209): the group substituted and pasted, stringized; "" where the variadic
 %% argument has no token (clang and gcc)
 pp_subst_([tok(p, '#', L), tok(id, '__VA_OPT__', _), tok(p, '(', _)|Bs], Ps, Args, [tok(str, Cs, L)|Out]) :- memberchk(va(VP), Ps), pp_va_group(Bs, 1, [], G, Rest), !,
-    (   pp_param(VP, Ps, Args, Arg), pp_strip(Arg, Raw), Raw \== [] -> pp_subst_(G, Ps, Args, G1), pp_paste(G1, G2), pp_wrap(G2, 0, [], 0, W, _), pp_stringize(W, Cs)
+    (   pp_param(VP, Ps, Args, Arg), pp_va_present(Arg) -> pp_subst_(G, Ps, Args, G1), pp_paste(G1, G2), pp_wrap(G2, 0, [], 0, W, _), pp_stringize(W, Cs)
     ;   Cs = [] ),
     nb_setval('$pp_paste', no), pp_subst_(Rest, Ps, Args, Out).
 %% C23's and C++20's `__VA_OPT__(tokens)': the group substituted where the variadic argument has tokens, a
 %% placemarker where it has none ([cpp.subst]) -- `#define LOG(f, ...) printf(f __VA_OPT__(,) __VA_ARGS__)'; the
-%% group's first token takes the mark of white space before `__VA_OPT__', and an empty group passes it on (0.209, clang's)
+%% group's first token takes the mark of white space before `__VA_OPT__', and an empty group passes it on (0.209, clang's);
+%% the variadic argument's tokens are those of its expansion (0.210: `F(EMP)' with EMP empty is `f(0)', the standards'
+%% example, where the argument as written gave `f(0 , )')
 pp_subst_([tok(id, '__VA_OPT__', VL), tok(p, '(', _)|Bs], Ps, Args, Out) :- memberchk(va(VP), Ps), pp_va_group(Bs, 1, [], G, Rest), !,
     ( pp_last_was_paste -> PB = yes ; PB = no ),
-    (   pp_param(VP, Ps, Args, Arg), pp_strip(Arg, Raw), Raw \== [] -> pp_subst_(G, Ps, Args, GOut0), pp_mark_first(GOut0, VL, GOut), ( GOut == [] -> pp_none_mark(VL, PB, Rest, E), Out = [E|Out1] ; append(GOut, Out1, Out) )
+    (   pp_param(VP, Ps, Args, Arg), pp_va_present(Arg) -> pp_subst_(G, Ps, Args, GOut0), pp_mark_first(GOut0, VL, GOut), ( GOut == [] -> pp_none_mark(VL, PB, Rest, E), Out = [E|Out1] ; append(GOut, Out1, Out) )
     ;   pp_none_mark(VL, PB, Rest, E), Out = [E|Out1] ),
     nb_setval('$pp_paste', no), pp_subst_(Rest, Ps, Args, Out1).
 %% a parameter: its argument's tokens, the first with the parameter's mark of white space and each other with its own;
@@ -496,9 +518,11 @@ pp_subst_([tok(K, P, L)|Bs], Ps, Args, Out) :- ( K == id ; K == kw ), pp_param(P
 pp_subst_([tok(p, '##', L)|Bs], Ps, Args, [tok(p, '##', L)|Out]) :- !, nb_setval('$pp_paste', yes), pp_subst_(Bs, Ps, Args, Out).
 pp_subst_([T|Bs], Ps, Args, [T|Out]) :- nb_setval('$pp_paste', no), pp_subst_(Bs, Ps, Args, Out).
 pp_mark_first([tok(K, V, _)|Ts], 1, [tok(K, V, 1)|Ts]) :- !.
+pp_mark_first([h(tok(K, V, _), AHS)|Ts], 1, [h(tok(K, V, 1), AHS)|Ts]) :- !.
 pp_mark_first(Ts, _, Ts).
 pp_none_mark(1, no, Rest, spmark) :- \+ Rest = [tok(p, '##', _)|_], !.
 pp_none_mark(_, _, _, placemarker).
+pp_va_present(Arg) :- pp_strip(Arg, Raw), Raw \== [], ( member(tok(K, _, _), Raw), ( K == id ; K == kw ) -> pp_expand_all(Arg, E), E \== [] ; true ).
 pp_va_group([tok(p, ')', _)|Ts], 1, Acc, G, Ts) :- !, reverse(Acc, G).
 pp_va_group([tok(p, ')', L)|Ts], D, Acc, G, Rest) :- !, D1 is D - 1, pp_va_group(Ts, D1, [tok(p, ')', L)|Acc], G, Rest).
 pp_va_group([tok(p, '(', L)|Ts], D, Acc, G, Rest) :- !, D1 is D + 1, pp_va_group(Ts, D1, [tok(p, '(', L)|Acc], G, Rest).
@@ -510,11 +534,15 @@ pp_param_index([P|_], P, I, I) :- !.
 pp_param_index([_|Ps], P, I0, I) :- I1 is I0 + 1, pp_param_index(Ps, P, I1, I).
 pp_reline_all([], _, []).
 pp_reline_all([T|Ts], L, [T1|Ts1]) :- pp_reline(T, L, T1), pp_reline_all(Ts, L, Ts1).
-%% an argument's tokens in a body's form, each mark in the line (pp_lex_mbody/2), the first the parameter's M (0.209)
+%% AN ARGUMENT'S TOKENS IN A BODY'S FORM, h(tok(K, V, Mark), HideSet) (0.209, 0.210): the mark in the line, as a body's
+%% own token has it (pp_lex_mbody/2), the first the parameter's M; the hide set the token's own, which the expansion's
+%% joins (pp_wrap/6), so a name that its own expansion left unexpanded stays so (C17 6.10.3.4/2: `id(obj)' over `#define
+%% obj obj+1' was `obj+1+1'); and a `##' that an argument brings is no operator to pp_paste/2 (C17 6.10.3.3/3: `# ## #'
+%% through two arguments)
 pp_reline_marks([], _, []).
-pp_reline_marks([X|Xs], M, [tok(K, V, M)|Ts]) :- pp_unwrap(X, tok(K, V, _), _), pp_reline_marks_(Xs, Ts).
+pp_reline_marks([X|Xs], M, [h(tok(K, V, M), AHS)|Ts]) :- pp_unwrap(X, tok(K, V, _), HS), pp_mark_of(HS, _, AHS), pp_reline_marks_(Xs, Ts).
 pp_reline_marks_([], []).
-pp_reline_marks_([X|Xs], [tok(K, V, M)|Ts]) :- pp_unwrap(X, tok(K, V, _), HS), ( HS = ['$sp'|_] -> M = 1 ; M = 0 ), pp_reline_marks_(Xs, Ts).
+pp_reline_marks_([X|Xs], [h(tok(K, V, B), AHS)|Ts]) :- pp_unwrap(X, tok(K, V, _), HS), pp_mark_of(HS, B, AHS), pp_reline_marks_(Xs, Ts).
 %% a token list of its own, expanded whole (an argument, an #if line); for a substitution, its marks kept (0.209)
 pp_expand_all(Toks, Out) :- pp_toks(top, Toks, [], _, Out0, []), pp_strip(Out0, Out).
 pp_expand_marked(Toks, Out) :- pp_toks(marks, Toks, [], _, Out, []).
@@ -529,10 +557,24 @@ pp_paste_two(placemarker, B, [B]) :- !.
 pp_paste_two(A, placemarker, [A]) :- !.
 pp_paste_two(vamarker, B, [B]) :- !.
 pp_paste_two(A, vamarker, [A]) :- !.
-pp_paste_two(A, B, Toks) :- pp_spell(A, Ca), pp_spell(B, Cb), append(Ca, Cb, C), pp_lex_body(C, T0), ( T0 = [_|_], arg(3, A, L) -> pp_reline_all(T0, L, Toks) ; Toks = [A, B] ).
+pp_paste_two(A, B, Toks) :- pp_body_el(A, KA, VA, MA, [], HA), pp_body_el(B, KB, VB, _, [], HB), pp_spell(tok(KA, VA, 0), Ca), pp_spell(tok(KB, VB, 0), Cb), append(Ca, Cb, C), pp_lex_body(C, T0),
+    ( T0 = [_|_] -> pp_reline_all(T0, MA, T1), pp_hs_meet(HA, HB, H), pp_glued(H, T1, Toks) ; Toks = [A, B] ).
+%% ... the pasted token hidden from what both sides are hidden from (Prosser's glue; 0.210)
+pp_glued([], Ts, Ts) :- !.
+pp_glued(H, [T|Ts], [h(T, H)|Ws]) :- pp_glued(H, Ts, Ws).
+pp_glued(_, [], []).
 %% `#x': the argument spelled, a space where white space stood between two of its tokens, none before the first or after
 %% the last (C17 6.10.3.2/2; 0.209: it was a space between every two)
-pp_stringize(Arg, Cs) :- pp_spell_marked(Arg, Cs).
+pp_stringize(Arg, Cs) :- pp_spell_marked(Arg, Cs0), ( member(X, Arg), pp_unwrap(X, tok(other, 92, _), _) -> pp_str_decode(Arg, Cs0, Cs) ; Cs = Cs0 ).
+%% ... the string's value is that spelling, a literal's quote and `\' escaped only to be read back; a `\' of no literal
+%% begins an escape of the string made (0.210: the standard's `str(: @\n)' is ": @" and a new-line), so the spelling is
+%% escaped where it is a literal's and read as a string's body
+pp_str_decode(Arg, Cs0, Cs) :- pp_spell_esc(Arg, E), append([34|E], [34], Q), atom_codes(A, Q), nb_getval('$ccl_hash', M), nb_setval('$ccl_hash', line),
+    ( catch(ccl_lex_atom(A, 0, [tok(str, Cs1, _)], []), _, fail) -> Cs = Cs1 ; Cs = Cs0 ), nb_setval('$ccl_hash', M).
+pp_spell_esc([], []).
+pp_spell_esc([X|Xs], Cs) :- pp_unwrap(X, T, _), pp_spell(T, C0), ( pp_lit_kind(T) -> pp_escape(C0, 34, raw, C1) ; C1 = C0 ), pp_spell_esc(Xs, C2),
+    ( Xs = [X1|_], pp_unwrap(X1, _, ['$sp'|_]) -> append(C1, [0' |C2], Cs) ; append(C1, C2, Cs) ).
+pp_lit_kind(tok(K, _, _)) :- ( K == str ; K == chr ; pp_str_prefix(K, _) ; pp_chr_prefix(K, _) ), !.
 pp_spell_marked([], []).
 pp_spell_marked([X|Xs], Cs) :- pp_unwrap(X, T, _), pp_spell(T, C1), pp_spell_marked_(Xs, C2), append(C1, C2, Cs).
 pp_spell_marked_([], []).
@@ -558,6 +600,7 @@ pp_spell(tok(chr, C, _), Cs) :- !, pp_escape([C], 39, raw, E), append([39|E], [3
 pp_spell(tok(K, S, _), Cs) :- pp_str_prefix(K, P), !, pp_lit_x(K, X), pp_escape(S, 34, X, E), append(P, [34|E], Cs0), append(Cs0, [34], Cs).   % L"...", u"...", U"..." (0.93: the prefixed literals)
 pp_spell(tok(K, C, _), Cs) :- pp_chr_prefix(K, P), !, pp_lit_x(K, X), pp_escape([C], 39, X, E), append(P, [39|E], Cs0), append(Cs0, [39], Cs).
 pp_spell(tok(p, P, _), Cs) :- !, atom_codes(P, Cs).
+pp_spell(tok(other, C, _), [C]) :- !.   % a character that begins no token (0.210)
 pp_spell(tok(_, V, _), Cs) :- ( atom(V) -> atom_codes(V, Cs) ; number(V) -> number_codes(V, Cs) ; Cs = [] ).
 pp_spell(_, []).
 pp_dec_suffix(dec32, [0'd, 0'f]).  pp_dec_suffix(dec64, [0'd, 0'd]).  pp_dec_suffix(dec128, [0'd, 0'l]).
@@ -655,7 +698,7 @@ pp_do_line(W, R, L) :- W \== [], number_codes(N, W), pp_current_file(F0), nb_get
 pp_do_line(_, _, _).
 pp_ws([C|Cs], R) :- ( C =:= 32 ; C =:= 9 ), !, pp_ws(Cs, R).
 pp_ws(Cs, Cs).
-pp_word([C|Cs], [C|W], R) :- ( C >= 0'a, C =< 0'z ; C >= 0'A, C =< 0'Z ; C =:= 0'_ ; C >= 0'0, C =< 0'9 ; C >= 128 ), !, pp_word(Cs, W, R).   % a macro's name past ASCII (0.196)
+pp_word([C|Cs], [C|W], R) :- ( C >= 0'a, C =< 0'z ; C >= 0'A, C =< 0'Z ; C =:= 0'_ ; C >= 0'0, C =< 0'9 ; C >= 128 ; C =:= 0'$ ), !, pp_word(Cs, W, R).   % a macro's name past ASCII (0.196), with `$' (0.210)
 pp_word(Cs, [], Cs).
 %% #define NAME body | #define NAME(params) body -- function-like when `(' follows the name at once
 pp_do_define(Rest) :-
@@ -1768,6 +1811,7 @@ ccl_pp_spell_tok(ullong, N, Out, Rest) :- !, pp_int_codes(N, Cs), append(Cs, [0'
 ccl_pp_spell_tok(bitint, N, Out, Rest) :- !, pp_int_codes(N, Cs), append(Cs, [0'w, 0'b|Rest], Out).        % C23's `wb' and `uwb' (0.93): the suffix was lost in the flattened text
 ccl_pp_spell_tok(ubitint, N, Out, Rest) :- !, pp_int_codes(N, Cs), append(Cs, [0'u, 0'w, 0'b|Rest], Out).
 ccl_pp_spell_tok(pp, A, [35|Out], Rest) :- !, atom_codes(A, Cs), append(Cs, Rest, Out).
+ccl_pp_spell_tok(other, C, [C|Rest], Rest) :- !.   % a character that begins no token (0.210)
 ccl_pp_spell_tok(cocolog, A, Out, Rest) :- !, atom_codes('#cocolog', H), atom_codes(A, Cs), atom_codes('#end', E), append(H, [10|Cs], O1), append(O1, [10|E], O2), append(O2, Rest, Out).
 ccl_pp_spell_tok(imag, F, Out, Rest) :- !, number_codes(F, Cs), append(Cs, [0'i|Rest], Out).                   % the imaginary literal spelled back, `2.0i' (0.101)
 ccl_pp_spell_tok(imagf, F, Out, Rest) :- !, number_codes(F, Cs), append(Cs, [0'i, 0'f|Rest], Out).

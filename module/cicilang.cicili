@@ -261,7 +261,7 @@
   ;; ccl_version(-Atom): THE VERSION. Every commit raises it (owner's rule),
   ;; one number per change; `cicili --version' prints it with LLVM's.
   (func ccl_p_version ((coco_engine * e) (size_t g)) (out int)
-        (return (coco_m_unify_atom e (coco_m_arg e g 0) "0.209")))
+        (return (coco_m_unify_atom e (coco_m_arg e g 0) "0.210")))
 
   ;; ccl_cocolog_version(-Atom): the engine's own version text, from the
   ;; running binary (coco_version_text is cocolog's, resolved at load like
@@ -297,7 +297,7 @@
     (member size_t k_imag) (member size_t k_imagf) (member size_t k_imagl) (member size_t k_imagi) (member size_t k_imagui) (member size_t k_imagli) (member size_t k_imaguli) (member size_t k_imaglli) (member size_t k_imagulli) (member int imag)
     (member size_t k_wstr) (member size_t k_u16str) (member size_t k_u32str) (member size_t k_wchr) (member size_t k_u16chr) (member size_t k_u32chr)
     (member size_t k_u8str) (member size_t k_u8chr)
-    (member size_t k_chr) (member size_t k_p) (member size_t k_pp) (member size_t k_cocolog) (member size_t k_num) (member size_t l_sp))
+    (member size_t k_chr) (member size_t k_p) (member size_t k_pp) (member size_t k_cocolog) (member size_t k_num) (member size_t l_sp) (member size_t k_other))
 
   ;; the code at i, -1 past the end
   (static) (func ccl_lx_at ((ccl_lx * x) (size_t i)) (out int)
@@ -316,7 +316,7 @@
         (return (+ (- c 65) 10)))
   ;; an identifier's character (0.196): a letter, `_', and every byte of a character past ASCII (the DCG's ccl_alpha/1)
   (static) (func ccl_lx_alpha ((int c)) (out int)
-        (return (or (and (>= c 97) (<= c 122)) (or (and (>= c 65) (<= c 90)) (or (== c 95) (>= c 128))))))
+        (return (or (and (>= c 97) (<= c 122)) (or (and (>= c 65) (<= c 90)) (or (== c 95) (or (>= c 128) (== c 36)))))))   ; `$' a letter (0.210), as clang and gcc have it
   (static) (func ccl_lx_alnum ((int c)) (out int) (return (or (ccl_lx_alpha c) (ccl_lx_digit c))))
   (static) (func ccl_lx_trimc ((int c)) (out int) (return (or (== c 32) (or (== c 9) (== c 13)))))
 
@@ -349,6 +349,11 @@
           (set (nth 1 args) v)
           (set (nth 2 args) (coco_m_new_int (-> x e) line))
           (ccl_lx_push x (coco_make (-> x m) "tok" 3 args))))
+  ;; in the preprocessor's mode a character that begins no token is one of its own, tok(other, Code, L) (C17 6.4/1's last
+  ;; kind; 0.210), as the DCG's ccl_pp_token//3 has it
+  (static) (func ccl_lx_other ((ccl_lx * x))
+        (ccl_lx_tok x (-> x k_other) (coco_m_new_int (-> x e) (ccl_lx_at x (-> x i))) (-> x line))
+        (set (-> x i) (+ (-> x i) 1)))
   ;; the token at nt wrapped h(T, ['$sp']), the list the call's one (mode `punctsp', 0.209)
   (static) (func ccl_lx_mark ((ccl_lx * x) (size_t nt))
         (let ((size_t args [2]))
@@ -1029,7 +1034,8 @@
   (func ccl_p_lex_native ((coco_engine * e) (size_t g)) (out int)
         (let ((ccl_lx * x . #'(cast (ccl_lx *) (malloc (sizeof ccl_lx))))
               (i64 line0 . 0) (const char * mode . nil) (const char * lang . nil)
-              (size_t toks . 0) (size_t rest . 0) (int oom . 0) (size_t at . 0) (size_t nt . 0) (int sp . 0) (size_t sp1 [1]))
+              (size_t toks . 0) (size_t rest . 0) (int oom . 0) (size_t at . 0) (size_t nt . 0) (int sp . 0) (size_t sp1 [1])
+              (size_t t0 . 0) (i64 l0 . 0))
           (if (== x nil) (return (coco_m_resource_error e "memory")))
           (if (not (coco_m_is_atom e (coco_m_arg e g 0)))
               (block (free x) (return (coco_m_type_error e "atom" (coco_m_arg e g 0)))))
@@ -1101,13 +1107,17 @@
           (set (-> x k_pp) (coco_m_new_atom e "pp"))
           (set (-> x k_cocolog) (coco_m_new_atom e "cocolog"))
           (set (-> x k_num) (coco_m_new_atom e "num"))
+          (set (-> x k_other) (coco_m_new_atom e "other"))
           (set (nth 0 sp1) (coco_m_new_atom e "$sp"))
           (set (-> x l_sp) (coco_m_list e sp1 1))
           (ccl_lx_layout x)
           (set sp 1)
           (while (< (-> x i) (-> x n))
             (set nt (-> x ntoks))
-            (if (not (ccl_lx_token x)) break)
+            (set t0 (-> x i))
+            (set l0 (-> x line))
+            (if (not (ccl_lx_token x))
+                (if (-> x punct) (block (set (-> x i) t0) (set (-> x line) l0) (ccl_lx_other x)) break))
             (if (-> x oom) break)
             (if (and (-> x marks) sp) (ccl_lx_mark x nt))
             (set at (-> x i))

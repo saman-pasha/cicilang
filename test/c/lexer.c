@@ -47,8 +47,8 @@ int café = 3, caf\u00e9x = 4, \u00e9t\u00e9 = 5, πΔ字 = 6, x\U0001F600 = 7; 
 %:define DG(x) %:x %:%: x
 int dg<:2:> = <%1, 2%>, lt = A<::B> + C<:::D + E<::>F + G<::H; /* the digraphs (C 6.4.6/3, [lex.digraph]; 0.201): `<:' `:>' `<%' `%>' `%:' `%:%:', and C++'s `<::' before no `:' or `>', `<' then `::', in both lexers */
 int alt = a and b or not c bitand d bitor compl e xor f, alt2 = (x and_eq 1, x or_eq 2, x xor_eq 3, x not_eq 4); /* C++'s alternative tokens: punctuators in C++, names in C (0.201), in both lexers */
-int last = 1;
+int last = 1, dollar$ = 2, $lead = 3; /* `$' a letter in a name (0.210), as clang and gcc have it */
 #if 0
-this is not C but the lexer reads it: @ $ ` are where it stops
+this is not C but the lexers read it: @ and ` stop the reader mode, and in the preprocessor mode they are tokens of their own (0.210)
 #endif
 const char *pfx = u8"utf8" "plain"; const int *w = L"wide" u"u16" U"u32"; int wc = L'w' + u'x' + U'y' + u8'z'; /* C11's prefixed literals, in both lexers */
