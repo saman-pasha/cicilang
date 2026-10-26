@@ -133,7 +133,7 @@
 
 :- use_module(library(ccl_infer)).
 
-ccl_check_units(Units) :- ccl_ensure_globals, ccl_scope_init, ck_note_units(Units), ck_units(Units).
+ccl_check_units(Units) :- ccl_ensure_globals, ccl_scope_init, catch(retractall('$ir_hlib'(_)), _, true), ck_note_units(Units), ck_units(Units).   % no lowering's library functions (0.212)
 ccl_check_noted(Units) :- ck_units(Units).                            % on the table the caller built
 ck_note_units([]).
 ck_note_units([unit(Is)|Us]) :- ccl_items_note_program(Is), ck_note_units(Us).
@@ -142,9 +142,12 @@ ck_units([unit(Is)|Us]) :- ck_items(Is), ck_units(Us).
 ck_trace(T) :- ( nb_current('$cpp_trace', yes) -> print(T), nl ; true ).
 ck_items([]).
 ck_items([function(L, _, Ret, Name, Params, _, Body)|Is]) :- !,
-    ( ccl_lang(cpp), cpp_library_function(Name) -> true ; \+ \+ ck_function(L, Ret, Name, Params, Body) -> true ; ck_trace(check_failed(Name)), fail ),   % a library header's function: C++'s rules, not these (ccl_cpp); inside `\+ \+', so a function's walk is reclaimed; one that merely FAILS says its name under the trace (0.108)
+    ( ck_library_fn(Name) -> true ; \+ \+ ck_function(L, Ret, Name, Params, Body) -> true ; ck_trace(check_failed(Name)), fail ),   % a library header's function: C++'s rules, not these (ccl_cpp); inside `\+ \+', so a function's walk is reclaimed; one that merely FAILS says its name under the trace (0.108)
     ck_items(Is).
 ck_items([_|Is]) :- ck_items(Is).
+%% a library's function, its code not the program's: C++'s (cpp_library_function/1), and in C one that a library's header
+%% defines and the unit uses, lowered with it (ir_header_defs/2, '$ir_hlib'/1; 0.212)
+ck_library_fn(Name) :- ( ccl_lang(cpp) -> cpp_library_function(Name) ; catch('$ir_hlib'(Name), _, fail) ).
 
 %% ---- state: frames of Key-State, innermost first; with each frame its defers ----------
 ck_function(L, Ret, Name, Params0, Body) :-

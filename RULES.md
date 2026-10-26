@@ -160,7 +160,7 @@ that changes a rule edits the rule here, in its topic, and writes its entry in `
 - The compile gate. `test/compile.pl`, one process over the user's store, reads, checks, lowers, compiles at `-O1` and
   links every `test/c/run/*.c` at its `NAME.std` level (`c_level`). It expects every `test/c/safe/*.c` refused.
   `test/compile.sh` runs each binary as `NAME arg1 arg2` against `NAME.expect`, and compares each refusal with
-  `safe/NAME.expect`. There are 141 run and 47 safe fixtures at 0.211. (M2, M3, 0.57)
+  `safe/NAME.expect`. There are 142 run and 47 safe fixtures at 0.212. (M2, M3, 0.57)
 - The driver gate. `test/driver.sh` makes 41 checks of `bin/cicilang` over the user's store (the two decimal checks are
   skipped where no gcc with decimal floating types is installed), the variadic calls of every kind both ways against
   clang among them (`test/c/link/va_*.c`, 0.131), and Apple's arm64 expansion of `va_arg` of an aggregate against
@@ -2184,6 +2184,24 @@ that changes a rule edits the rule here, in its topic, and writes its entry in `
   unit's inline variables: the class is emitted at its registration, and the guarded initializations its emission adds
   are set apart (`cpp_hdr_pre_apart/2`, `'$cpp_hdr_pre'(C, Ss)`) until `cpp_header_fns` meets the class -- they ran
   before every variable of the header. The C++ gate's two units. (0.192)
+- THE DEFINITIONS A C HEADER MAKES ARE THE UNIT'S (C17 6.9/5 and 6.9.2/2, an included header's text being the
+  translation unit's own; 0.212; `ir_header_defs/2`, after `ir_block_tags/2` in `ccl_ir_units/2`): its functions and its
+  objects are lowered with the unit's own, as clang emits them -- the program's own header's external definitions always
+  (a function neither `static` nor `inline`, an object neither `static` nor `extern`), a `static` function or object
+  where the unit names it, and what such a definition names in turn (`ir_refs/3`, `ir_hdr_grow/6`), the C library's
+  `static` ones alike (a header under a system path or among the compiler's own, or one that such a header includes:
+  `ir_hdr_lib_path/1`; glibc's `__bswap_32` behind `bswap_32` and `htobe32`, `<stdbit.h>`'s `stdc_*`), and C99's inline
+  definition (`inline` alone, 6.7.4/7) `available_externally` -- the external definition is another unit's, as clang has
+  it at every level, or this one's where the program declares the function without `inline` (`extern inline int
+  sq(int);`, `ir_hdr_link/3`). A library header's other definitions, GNU's `extern inline` among them, are the C
+  library's. A definition of a raw-read header is taken from the header the program includes, read preprocessed
+  (`ir_hdr_resolve/2`, `ccl_pp_parse/4`, once a process and level): raw, a body keeps an `#if`'s lines as `directive/2`
+  statements and its macros unexpanded -- glibc's `__bswap_16` returned both `__builtin_bswap16(x)` and
+  `__bswap_constant_16(x)` --, and an inner header read alone may refuse to be (bits/byteswap.h's `#error`). The
+  definitions go first, a unit of their own, so a header's object meets the program's tentative definition of it as in
+  one unit (`ir_globals/2`); a name the program defines is its own. None was emitted: a call of one, and a use of such
+  an object, was an undefined symbol at the link, and `c23b.c`'s calls of `<stdbit.h>`'s functions linked to glibc
+  2.39's own `stdc_*`. `test/c/run/hdrdefs.c` over `hdrdefs.h`. (0.212)
 
 ### Resolution and the inclusion path
 
@@ -2351,14 +2369,14 @@ that changes a rule edits the rule here, in its topic, and writes its entry in `
 
 ### The versions
 
-- `ccl_reader_version/1` (`library/ccl_syntax.pl`, now 154): bump it for any grammar change to what a read gives, and
+- `ccl_reader_version/1` (`library/ccl_syntax.pl`, now 159): bump it for any grammar change to what a read gives, and
   for any change to what the AST beside a summary holds (item or member terms, `cpp_index_name/2`,
   `cpp_template_name/2`, `ccl_flat_items/3`, the namespace keys). Keep the reason in its comment. Why: the store and the
   summaries are keyed by it, and a stale read is served silently (`sizeof(std::string)` read 40). (M1, 0.89, 0.112,
   0.117)
 - A reader bump makes every summary cold; `test/libcxx.sh` rewrites them. `test/reader.pl`'s `k16` (a cached read is
   the same AST as a fresh one) goes RED on a grammar change without a bump. (0.93, 0.105)
-- `ccl_lowering_version/1` (`library/ccl_ir.pl`, now 116): bump it whenever the check or the lowering changes what it
+- `ccl_lowering_version/1` (`library/ccl_ir.pl`, now 121): bump it whenever the check or the lowering changes what it
   emits, however small -- 0.120 bumped it for the ORDER of the drain functions alone. Why: `dr_ir/3` serves the old IR
   otherwise. Either bump starts the C store afresh. (M4, 0.103, 0.120)
 
@@ -9586,16 +9604,16 @@ A lambda is a class of its captures (`library/ccl_cpp.pl`). A fixture named alon
 - Ubuntu 24.04 on x86_64 (clang and LLVM 18, glibc, libc++ 18 and 21) is a host since 0.87. Every gate but the C++ one
   is GREEN there since 0.93, and all seven since 0.95. Every step from 0.93 on is gated there, but the save points
   0.112, 0.113, 0.117, 0.122 to 0.125, 0.130, 0.131 and 0.143 (0.143's C gates and cross gate ran, its libc++ gates did
-  not; the others were gated by the steps after them). The last full run is 0.210's, over cocolog 2.12.0 (the Findings),
-  on one tree, over fresh HOMEs: over libc++ 18 all nine GREEN (the flow gate's one finding in 137 s, reader 6 s,
-  compile 27 s, driver 20 s, objects 6 s, proof, the cross gate in 428 s with its C++ part for aarch64, the library read
-  in 785 s (198 other headers warmed), the C++ gate in 1642 s with 795 of 805 fixtures ok, the skips are `atomicref`,
+  not; the others were gated by the steps after them). The last full run is 0.211's, over cocolog 2.12.0 (the Findings),
+  on one tree, over fresh HOMEs: over libc++ 18 all nine GREEN (the flow gate's one finding in 179 s, reader 6 s,
+  compile 33 s, driver 23 s, objects 7 s, proof, the cross gate in 490 s with its C++ part for aarch64, the library read
+  in 819 s (198 other headers warmed), the C++ gate in 1689 s with 797 of 807 fixtures ok, the skips are `atomicref`,
   `atomicrefalign`, `ftm23b`, `ftm26b`, `joinwith`, `stdflatmap`, `stdoptionalref`, `tzone`, `vbaseof` and
   `zipadjacent`, the two units, the 29 refusals, the four of the safe part and the four static assertions); over libc++
-  21 the library read (the phase 696 s) and the C++ gate (about 1770 s, 803 of 805 ok, the skips `stdoptionalref` and
-  `zipadjacent`) GREEN -- the C gates do not read libc++. The headers' reads, summed, took 2954 s over 221 over libc++
-  18 and 2618 s over 21; the fixtures' builds 5639 s over 795 and 6109 s over 803. The chains of 0.165 to 0.203 and of
-  0.205 to 0.210 are in HISTORY.md, 0.166 to 0.204 and 0.206 to 0.211. Two libc++ passes are one gate:
+  21 the library read (the phase 695 s) and the C++ gate (about 1675 s, 805 of 807 ok, the skips `stdoptionalref` and
+  `zipadjacent`) GREEN -- the C gates do not read libc++. The headers' reads, summed, took 3088 s over 221 over libc++
+  18 and 2617 s over 21; the fixtures' builds 5808 s over 797 and 5742 s over 805. The chains of 0.165 to 0.203 and of
+  0.205 to 0.211 are in HISTORY.md, 0.166 to 0.204 and 0.206 to 0.212. Two libc++ passes are one gate:
   `LLVM=/usr/lib/llvm-18` and `LLVM=/usr/lib/llvm-21` choose the tree the chain reads and links. libc++ 22 (the newest
   tree, which a run without `$LLVM` reads) is no gate: 0.182 built its vector and its C++23 views by hand
   (`zipadjacent.cpp`, which its `.needs` skips over 18 and 21), and `stdoptionalref` passes there. The run before
@@ -9675,7 +9693,10 @@ A lambda is a class of its captures (`library/ccl_cpp.pl`). A fixture named alon
   no token (`ppexample4.c`), C23's `__VA_OPT__` examples (`ppvaopt.c`, `-std=c23`) -- and `$` in names (`dollar.c`).
   Since 0.211: a token's spelling in `#x` -- a literal's escapes and prefix, a digraph, a name past ASCII in UTF-8, a
   body's `%:` and `%:%:` operators, a `#line` name past ASCII in `__FILE__` (`spelling.c`) -- and a computed `#include`,
-  `__has_include`, `__has_embed` and `#embed` over a macro (`ppinclude.c`, `-std=c23`).
+  `__has_include`, `__has_embed` and `#embed` over a macro (`ppinclude.c`, `-std=c23`). Since 0.212: the definitions a
+  header makes -- the program's own header's static and static inline functions, a static object, an external definition
+  and an object, C99's inline definition made external by the unit's declaration, the C library's static inline
+  functions behind `bswap_32`, `bswap_16`, `bswap_64` and `htobe32` (`hdrdefs.c`).
 - The C library is the host's. The compiler's own freestanding headers are in `library/include/` (`<stdarg.h>`,
   `<stdatomic.h>`, `<complex.h>`, `<stdckdint.h>`, `<stdbit.h>`, `<limits.h>`, `<tgmath.h>` and six more).
 - The language's own additions run: `:=`, patterns, `name { }` structs and `format`, `print`, `println`
@@ -10383,7 +10404,10 @@ and an argument's `##` no operator, `__VA_OPT__` over the expanded argument; the
 no token one of its own, `$` a letter); the fourteenth, a token's spelling, is 0.211's (the Lexers topic: a literal, a
 digraph and an alternative token spelled as written in the preprocessor's mode; the Macro expansion topic: a body's `%:`
 and `%:%:` its operators, a string's bytes from its spelling -- and what its probes found: a computed `#include` and its
-header name, in the user's file and in a header, and the operand of `__has_include` and `__has_embed` macro-replaced).
+header name, in the user's file and in a header, and the operand of `__has_include` and `__has_embed` macro-replaced);
+the fifteenth, what 0.211's probes found, is 0.212's (the Includes topic: the definitions a C header makes, its
+functions and its objects, the program's own header's and the C library's static ones, a raw read's definition taken
+preprocessed).
 
 1. C++'S CORE LANGUAGE, WHAT 0.205 LEFT: clang's `TnDa` for a placeholder's argument in a function template's symbol is
    not spelled, which no symbol here needs (the program's functions keep this compiler's names); and a library header's
@@ -10425,11 +10449,8 @@ header name, in the user's file and in a header, and the operand of `__has_inclu
 7. THE BY-VALUE PARAMETERS, WHAT 0.206 LEFT: done -- the caller destroys a by-value parameter of a class with a
    destructor at the end of its full-expression since 0.207, as the Itanium C++ ABI and clang have it, and every
    temporary of a statement is destroyed on unwinding where it was built (the Classes topic).
-8. THE FUNCTIONS A C HEADER DEFINES (0.211's probes): in C no function that a header defines is emitted -- a `static`
-   one, a `static inline` one or an external definition in the program's own header, and the C library's `static
-   __inline` ones, `__bswap_32` behind `<byteswap.h>`'s `bswap_32` --, so a call of one is an undefined symbol at the
-   link, where clang emits each one the unit uses (C17 6.9/5: an included header's text is the translation unit's). A
-   C++ program's own header's inline functions are emitted since 0.41 (the Includes topic).
+8. THE FUNCTIONS A C HEADER DEFINES, which 0.211's probes found: done at 0.212 (the Includes topic), its objects with
+   them. A header's function is lowered at its header's line in the unit's file: `-g` names the unit's file for it.
 
 ### C++ language
 
@@ -10519,11 +10540,13 @@ header name, in the user's file and in a header, and the operand of `__has_inclu
 
 ### The safe part
 
-- A library header's functions are not checked (`cpp_library_function/1`, `'$cpp_libfn'`): 0.45's decision, which
-  the owner confirmed at 0.190. A borrow handed INTO a library object is not followed: `int x = 5; std::vector<int *>
-  v; v.push_back(&x); return v;` and `int x = 5; return std::function<int()>([&x] { return x; });` compile and run
-  (measured at 0.190), where the same borrow returned without the library class is `borrow_escapes`. The owner decided
-  at 0.190 to close that gap at the boundary (The owner's decisions of 0.190, below).
+- A library header's functions are not checked (`cpp_library_function/1`, `'$cpp_libfn'`): 0.45's decision, which the
+  owner confirmed at 0.190; in C, a library header's function that the unit uses and lowers with it is not either
+  (`ck_library_fn/1`, `'$ir_hlib'/1`; 0.212), and the program's own header's are checked as its file's are. A borrow
+  handed INTO a library object is not followed: `int x = 5; std::vector<int *> v; v.push_back(&x); return v;` and `int x
+  = 5; return std::function<int()>([&x] { return x; });` compile and run (measured at 0.190), where the same borrow
+  returned without the library class is `borrow_escapes`. The owner decided at 0.190 to close that gap at the boundary
+  (The owner's decisions of 0.190, below).
 - A closure held in a `std::function` is not followed: it is the library's discipline (0.100).
 - A direct `std::allocator::allocate` and `allocator_traits<A>::allocate(a, n)` are accepted: a library member's or
   static function's plain pointer result borrows the object it takes by reference (`ck_borrows_from`, 0.91, 0.117;

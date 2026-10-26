@@ -14172,3 +14172,58 @@ stringized name past ASCII is UTF-8: a string that a header's body stringizes ch
 header, its name joined by the marks of white space: what the user's file's read holds changes). Lowering 120,
 unchanged.
 
+
+## 0.212 — the audit's fifteenth group: the definitions a C header makes are the unit's -- the program's own header's functions and objects, the C library's static inline functions, C99's inline definition; a raw read's definition taken preprocessed; 0.211's chain
+
+**0.212: the fifteenth group of the audit of C17 to C23 and C++17 to C++26, what 0.211's probes found: in C no function
+and no object that a header defines was emitted (C17 6.9/5 and 6.9.2/2: an included header's text is the translation
+unit's own). And 0.211's chain.**
+
+- THE PROBES: a program's own header with a `static inline` function, a `static` function and object, an external
+  definition and an object, C99's inline definition, and `<byteswap.h>`'s and `<endian.h>`'s macros over glibc's `static
+  __inline` functions (`hdrdefs.c`; clang and gcc agree, and clang at -O0 and -O1). 0.211 lowered the unit's own items
+  alone: each call of a header's function was a `declare` and an undefined symbol at the link (`hd_twice`, `hd_count`,
+  `hd_ext`, `__bswap_32`), and `c23b.c`'s calls of `<stdbit.h>`'s `static inline` functions linked only because glibc
+  2.39 defines `stdc_leading_zeros_ui` and kin itself.
+- THE DEFINITIONS A C HEADER MAKES ARE THE UNIT'S (`ir_header_defs/2` after `ir_block_tags/2` in `ccl_ir_units/2`): the
+  program's own header's external definitions always, a `static` function or object where the unit names it and what
+  such a definition names in turn (`ir_refs/3`, `ir_hdr_grow/6`), the C library's `static` ones alike -- a header under
+  a system path or among the compiler's own, or one that such a header includes (`ir_hdr_lib_path/1`) --, and C99's
+  inline definition `available_externally`, or this unit's external definition where the program declares the function
+  without `inline` (6.7.4/7; `ir_hdr_link/3`, `define available_externally` in `ir_function/7`). A library header's
+  other definitions, GNU's `extern inline` among them, are the C library's. The definitions go first, a unit of their
+  own, so a header's object meets the program's tentative definition of it as in one unit: `int e_g = 7;` in a header
+  and `int e_g;` in the file is 7. The safe part checks the program's own header's functions and not the library's
+  (`ck_library_fn/1`, `'$ir_hlib'/1`).
+- A RAW READ'S DEFINITION IS TAKEN PREPROCESSED: a C header is read raw first, and a raw body keeps an `#if`'s lines as
+  `directive/2` statements and its macros unexpanded -- glibc's `__bswap_16` returned `__builtin_bswap16(x)` and then
+  `__bswap_constant_16(x)`, `undeclared('__bswap_constant_16')` --, so the definition comes from the header the program
+  includes, read preprocessed once a process and level (`ir_hdr_resolve/2`, `ir_hdr_pp_items/2` over `ccl_pp_parse/4`);
+  an inner header read alone may refuse to be (bits/byteswap.h's `#error "Never use <bits/byteswap.h> directly"`). A
+  body's macro that calls another of the header's functions takes that one too (`CALL(x)` over `e_helper`), an object's
+  initializer is expanded (`SEED(4)`), and an `#ifdef`'s arm is the one that holds.
+- MEASURED AGAINST CLANG: C99's inline definition with no external one is an undefined symbol at -O0 and inlined at -O1,
+  in both compilers.
+- FOUND AND LEFT: a header's function is lowered at its header's line in the unit's file, so `-g` names the unit's file
+  for it (Not done's item 8).
+- FIXTURES: 1 C (`hdrdefs.c` over `hdrdefs.h`), seen to pass, its output clang's and gcc's; 0.211 fails it at the link.
+- THE CHAIN OF 0.211, over its commit (9e993bd) and fresh HOMEs, on cocolog 2.12.0: over libc++ 18 all nine gates GREEN
+  -- the flow gate 179 s (its one finding), reader 6 s, compile 33 s, driver 23 s, objects 7 s, proof, cross 490 s, the
+  library read 819 s (the 23 asserted reads whole, 198 other headers warmed), the C++ gate 1689 s, 797 of 807 fixtures
+  ok and 10 skipped by their needs --; over libc++ 21 the library read (its phase 695 s) and the C++ gate GREEN in about
+  1675 s, 805 of 807 ok, 2 skipped (`stdoptionalref.cpp`, `zipadjacent.cpp`). The headers' reads summed 3088 s over 221
+  and 2617 s; the fixtures' builds 5808 s over 797 and 5742 s over 805.
+- COMMITTED BEFORE ITS CHAIN, and it claims nothing GREEN but this, over the worktree and fresh HOMEs, on cocolog
+  2.12.0: over libc++ 18 all nine gates GREEN -- the flow gate 154 s (its one finding), reader 6 s, compile 31 s (142
+  run fixtures and 47 refusals), driver 23 s, objects 6 s, proof, cross 456 s (142 C fixtures, 5 ABI checks, 24 C++
+  fixtures and 3 C++ checks for aarch64), the library read 826 s (the 23 asserted reads whole, 198 other headers
+  warmed), the C++ gate 1692 s, 797 of 807 fixtures ok and 10 skipped by their needs --; over libc++ 21 the library read
+  (its phase 715 s) and the C++ gate GREEN in about 1645 s, 805 of 807 ok, 2 skipped (`stdoptionalref.cpp`,
+  `zipadjacent.cpp`). The headers' reads summed 3148 s over 221 over libc++ 18 and 2707 s over 21; the fixtures' builds
+  6067 s over 797 and 6040 s over 805. The next commit carries the chain's numbers.
+- `RULES.md`: the Includes topic (the definitions a C header makes); the safe part (the library's functions in C); the
+  versions (now 159 and 121); the C gates' count; the Hosts (0.211's chain); What runs; Not done (the audit's fifteenth
+  group, item 8). `CLAUDE.md`: the versions, the fixture's header.
+
+Reader 159, unchanged. Lowering 121 (the definitions a C header makes are the unit's: what a C unit emits changes).
+
