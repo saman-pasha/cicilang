@@ -68,7 +68,16 @@ ccl_unit_cache(Path, How, Unit) :- ccl_unit_key(Path, K), nb_setval(K, How-Unit)
 %% A UNIT IS READ ONCE PER PROCESS AT EACH LEVEL (0.99): the key carries the language's level, since a header's forms are the
 %% level's -- `<stddef.h>' read for a C17 fixture and served to a C23 one in the same process gave it `typeof(id(nullptr))' for
 %% `nullptr_t' (the compile gate builds every fixture in one process, and the new `atomic.c' put a C17 read of the header first)
-ccl_unit_key(Path, K) :- ( ccl_lang(cpp) -> ccl_std(Std) ; nb_current('$ccl_trigraphs', yes) -> ccl_c_std(S0), atom_concat(S0, t, Std) ; ccl_c_std(Std) ), atomic_list_concat(['$ccl_unit:', Path, '@', Std], K).
+ccl_unit_key(Path, K) :- ccl_read_level(Std), atomic_list_concat(['$ccl_unit:', Path, '@', Std], K).
+%% THE READ'S LEVEL, in each key of a read -- the unit cache, the header macros' memo, the store: C++'s level, or C's with
+%% `t' where trigraphs are read and `i' in an ISO mode (0.214: __STRICT_ANSI__ changes what glibc declares in C, and
+%% -std=c23 and -std=gnu23 read one key). C++'s keys and its summaries' take no mode: neither libc++ nor glibc under the
+%% _GNU_SOURCE that clang++ predefines reads otherwise for it
+ccl_read_level(Std) :- ( ccl_lang(cpp) -> ccl_std(S1) ; ccl_c_std(S0), ( nb_current('$ccl_trigraphs', yes) -> T = t ; T = '' ), ( nb_current('$ccl_iso', yes) -> I = i ; I = '' ), atomic_list_concat([S0, T, I], S1) ),
+    ccl_ftm_tag(F), ( F == '' -> Std = S1 ; atom_concat(S1, F, Std) ).
+%% ... AND THE PROGRAM'S FEATURE-TEST MACROS (0.214; '$pp_ftm', pp_ftm_find/1), folded: a header read under the file's
+%% `_POSIX_C_SOURCE' is another read, in both languages; nothing where the file defines none
+ccl_ftm_tag(T) :- ( nb_current('$pp_ftm', L), L \== [] -> term_to_atom(L, A), atom_codes(A, Cs), ccl_fold(Cs, 7, 131, S1), ccl_fold(Cs, 13, 137, S2), atomic_list_concat(['@f', S1, '-', S2], T) ; T = '' ).
 ccl_reading(Path) :- ccl_global('$ccl_reading', L, []), memberchk(Path, L).
 ccl_reading_push(Path) :- ccl_global('$ccl_reading', L, []), nb_setval('$ccl_reading', [Path|L]).
 ccl_reading_pop(Path) :- ccl_global('$ccl_reading', L, []), ccl_delete_one(L, Path, L1), nb_setval('$ccl_reading', L1).
@@ -103,7 +112,7 @@ ccl_kb_items_goal(Path, K, I, It, T) :- ccl_kb_items(Path, F), T =.. [F, K, I, I
 ccl_kb_forget_items(Path) :- ccl_kb_items_goal(Path, _, _, _, T), retractall(T).
 ccl_kb_forget_file(Path) :- ccl_kb_ready, retractall('$ccl_ast'(Path, _, _)), ccl_kb_forget_items(Path), retractall('$ccl_hmeta'(Path, _, _)), ccl_kb_hm(Path, F), T =.. [F, _, _, _], retractall(T).
 
-ccl_read_file(File, AST, Rest) :- ccl_ensure_globals, ccl_set_lang(File), ( nb_current('$ccl_reading', []) -> nb_setval('$ccl_src_file', File) ; true ), ccl_read_file_(File, AST, Rest).   % the file as the compiler was given it: a source location's, and C's `__PRETTY_FUNCTION__' reads its text (0.166)
+ccl_read_file(File, AST, Rest) :- ccl_ensure_globals, ccl_set_lang(File), ( nb_current('$ccl_reading', []) -> nb_setval('$ccl_src_file', File), pp_ftm_find(File) ; true ), ccl_read_file_(File, AST, Rest).   % the file as the compiler was given it: a source location's, and C's `__PRETTY_FUNCTION__' reads its text (0.166)
 %% the language of the file read: C++ by its extension (or forced, cicilang++), C by .c
 ccl_set_lang(File) :-
     (   nb_getval('$ccl_lang_forced', F), F \== none -> nb_setval('$ccl_lang', F)
@@ -120,7 +129,7 @@ ccl_read_file_(File, AST, Rest) :-
     nb_setval('$ccl_far', F),
     ( Rest == [] -> ccl_kb_remember(File, top, AST) ; true ).
 
-ccl_kb_key(Path, key(T, V)) :- once(catch(time_file(Path, T), _, fail)), ccl_reader_version(V0), ( ccl_lang(cpp) -> ccl_std(S), V = cpp(V0, S) ; ccl_c_std(CS), nb_current('$ccl_trigraphs', yes) -> V = c(V0, CS, trigraphs) ; ccl_c_std(CS), CS =\= 17 -> V = c(V0, CS) ; V = V0 ).   % a C read at -std=c23 is not the C17 read: <stddef.h> declares nullptr_t and unreachable() at that level only, and the store serves a header's macros and items by this key
+ccl_kb_key(Path, key(T, V)) :- once(catch(time_file(Path, T), _, fail)), ccl_reader_version(V0), ccl_read_level(L), ( ccl_lang(cpp) -> V = cpp(V0, L) ; L == '17' -> V = V0 ; V = c(V0, L) ).   % a C read at -std=c23 is not the C17 read: <stddef.h> declares nullptr_t and unreachable() at that level only, and the store serves a header's macros and items by this key
 ccl_std(S) :- ( nb_current('$ccl_std', S0) -> S = S0 ; S = 17 ).   % a C++ read is not the C read; the time asked every time (0.4 ms): the gate touches a file mid-process and expects the miss
 ccl_kb_forget :- ccl_kb_ready, findall(P, '$ccl_ast'(P, _, _), Ps), ccl_kb_forget_each(Ps), retractall('$ccl_ast'(_, _, _)).
 ccl_kb_forget_each([]).
@@ -431,7 +440,7 @@ ccl_unit_templates_note(_).
 %% involved: it cannot hold units this size (RULES.md's findings).
 ccl_sum_dir(D) :- ( catch(os_env('HOME', H), _, fail) -> true ; H = '/tmp' ), atom_concat(H, '/.cicilang/cpp', D).
 ccl_sum_file(Path, F) :-
-    ccl_sum_dir(D), ccl_std(Std), ccl_cmdline_key(CK), ccl_target_key(TK), ccl_config_key(GK), atomic_list_concat([Path, '@', Std, CK, TK, GK], Keyed), atom_codes(Keyed, Cs), ccl_fold(Cs, 7, 131, S1), ccl_fold(Cs, 13, 137, S2),   % one summary per level, and per set of command-line macros (0.112): a header read under `-DNDEBUG' is another header
+    ccl_sum_dir(D), ccl_std(Std), ccl_cmdline_key(CK), ccl_target_key(TK), ccl_config_key(GK), ccl_ftm_tag(FK), atomic_list_concat([Path, '@', Std, CK, TK, GK, FK], Keyed), atom_codes(Keyed, Cs), ccl_fold(Cs, 7, 131, S1), ccl_fold(Cs, 13, 137, S2),   % one summary per level, and per set of command-line macros (0.112): a header read under `-DNDEBUG' is another header
     ( sub_atom(Path, B, _, 0, Base), sub_atom(Path, B1, 1, _, '/'), B1 < B, \+ sub_atom(Base, _, _, _, '/') -> true ; Base = Path ),
     atomic_list_concat([D, '/', Base, '-', S1, '-', S2, '.sum'], F).
 ccl_cmdline_key(K) :- ( nb_current('$pp_cmdline', L), L \== [] -> msort(L, L1), term_to_atom(L1, A), atom_concat('@', A, K) ; K = '' ).
@@ -727,7 +736,7 @@ ccl_header_macros_ready(Spec, From) :-
 %% which reads it as before. A child runs in a session of its own (proc_spawn/2), so a build killed from outside does not
 %% take it along: `ulimit -t' holds its own CPU time to 1800 s. One cold header is read in the build's own process.
 ccl_cold_headers_read(Specs, From) :-
-    (   ccl_lang(cpp), nb_current('$ccl_children', opts(Opts)),
+    (   ccl_lang(cpp), nb_current('$ccl_children', opts(Opts0)), ( nb_current('$pp_ftm', FT), FT \== [] -> Opts = [ftm(FT)|Opts0] ; Opts = Opts0 ),   % the program's feature-test macros too (0.214)
         ccl_cold_headers(Specs, From, [], Cold), Cold = [_, _|_], ccl_jobs(J), J >= 2
     ->  get_time(T0), catch(ccl_kids_run(Cold, From, Opts, J), _, true), get_time(T1),
         findall(F, ( member(_-Path, Cold), ccl_sum_file(Path, F), ccl_sum_forget(F), ccl_sum_valid(F) ), Fs),   % forgotten: the check parsed it before its child wrote it
@@ -789,7 +798,7 @@ ccl_header_macros_known(Path, Kind) :- ccl_hm_key(Path, K), nb_current(K, Kind),
 %% THE MEMO IS PER LEVEL, as the unit cache is (ccl_unit_key): a header's macros at -std=c23 are not its C17 ones (0.99;
 %% keyed by the path alone, a C17 fixture after a C23 one in one process was served the C23 rows' key, whose rows a later
 %% read had retracted -- `undeclared(EOF)' in the compile gate, never alone)
-ccl_hm_key(Path, K) :- ( ccl_lang(cpp) -> ccl_std(Std) ; nb_current('$ccl_trigraphs', yes) -> ccl_c_std(S0), atom_concat(S0, t, Std) ; ccl_c_std(Std) ), atomic_list_concat(['$ccl_hm:', Path, '@', Std], K).
+ccl_hm_key(Path, K) :- ccl_read_level(Std), atomic_list_concat(['$ccl_hm:', Path, '@', Std], K).
 %% indexed: a summary's, as facts '$ccl_hml'(Name, Path, raw(Line)) -- an
 %% assert is 2 us and the lookup by name 3 us, where a global per name cost
 %% 25 us each for 1200 names; a fact is a store row under --embed, which the

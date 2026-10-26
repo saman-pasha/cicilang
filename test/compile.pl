@@ -33,8 +33,9 @@ build_one(N, Dir, D) :-
 
 c_level(Dir, N) :- atomic_list_concat([Dir, '/', N, '.std'], F),
     (   exists_file(F), read_file_to_codes(F, Cs), atom_codes(A, Cs), atom_number_prefix(A, V) -> nb_setval('$ccl_c_std', V),
-        ( V < 23, sub_atom(A, 0, 6, _, '-std=c') -> nb_setval('$ccl_trigraphs', yes) ; nb_setval('$ccl_trigraphs', no) )   % an ISO level before C23 reads trigraphs, as bin/cicilang's -std=c17 does
-    ;   nb_setval('$ccl_c_std', 17), nb_setval('$ccl_trigraphs', no) ).
+        ( V < 23, sub_atom(A, 0, 6, _, '-std=c') -> nb_setval('$ccl_trigraphs', yes) ; nb_setval('$ccl_trigraphs', no) ),   % an ISO level before C23 reads trigraphs, as bin/cicilang's -std=c17 does
+        ( sub_atom(A, 0, 6, _, '-std=c') -> nb_setval('$ccl_iso', yes) ; nb_setval('$ccl_iso', no) )   % an ISO level predefines __STRICT_ANSI__, as bin/cicilang's -std=c17 and -std=c23 do (0.214)
+    ;   nb_setval('$ccl_c_std', 17), nb_setval('$ccl_trigraphs', no), nb_setval('$ccl_iso', no) ).
 atom_number_prefix(A, V) :- atom_codes(A, Cs), findall(C, ( member(C, Cs), C >= 0'0, C =< 0'9 ), Ds), Ds \== [], number_codes(V, Ds).
 refuse_all([], _).
 refuse_all([N|Ns], Dir) :- refuse_one(N, Dir), refuse_all(Ns, Dir).

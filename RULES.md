@@ -160,8 +160,8 @@ that changes a rule edits the rule here, in its topic, and writes its entry in `
 - The compile gate. `test/compile.pl`, one process over the user's store, reads, checks, lowers, compiles at `-O1` and
   links every `test/c/run/*.c` at its `NAME.std` level (`c_level`). It expects every `test/c/safe/*.c` refused.
   `test/compile.sh` runs each binary as `NAME arg1 arg2` against `NAME.expect`, and compares each refusal with
-  `safe/NAME.expect`. There are 143 run and 47 safe fixtures at 0.213. (M2, M3, 0.57)
-- The driver gate. `test/driver.sh` makes 42 checks of `bin/cicilang` over the user's store (the two decimal checks are
+  `safe/NAME.expect`. There are 148 run and 47 safe fixtures at 0.214. (M2, M3, 0.57)
+- The driver gate. `test/driver.sh` makes 43 checks of `bin/cicilang` over the user's store (the two decimal checks are
   skipped where no gcc with decimal floating types is installed), the variadic calls of every kind both ways against
   clang among them (`test/c/link/va_*.c`, 0.131), and Apple's arm64 expansion of `va_arg` of an aggregate against
   clang's, both retargeted to this host (`test/c/link/va_darwin.c`, 0.160). They cover what `-o`, `-c`, `-S`,
@@ -248,7 +248,7 @@ that changes a rule edits the rule here, in its topic, and writes its entry in `
 ### The C++ gate: test/cpp.sh
 
 - `test/cpp.sh` runs in this order: `test/cpp.pl` in one `--local` process; four checks of the command; every
-  `test/cpp/run/*.cpp` as a pool job (807 at 0.211); `classes.cpp` and `templates.cpp` built and run; the refusals, each
+  `test/cpp/run/*.cpp` as a pool job (811 at 0.214); `classes.cpp` and `templates.cpp` built and run; the refusals, each
   at the level its `test/cpp/NAME.flags` names, else C++17 (0.164). (0.105, 0.164)
 - `test/cpp.pl` runs 46 numbered checks, `c1` to `c46`, then reads Cicili's six C++ files whole (`test/cpp/objects.cpp`,
   `emit_report.cpp`, `specialise.cpp`, `syntax.cpp`, `torch.cpp`, `torch-fragment.cpp`). `c34` checks the Itanium
@@ -376,8 +376,9 @@ that changes a rule edits the rule here, in its topic, and writes its entry in `
   (M2, 0.93)
 - `NAME.flags` gives a C++ fixture its level (`-std=c++20`, `-std=c++23`, `-std=c++26`), a refusal of `test/cpp/` too
   (0.164); without one it builds at C++17. It may name `-fno-rtti` beside the level (0.191: `nortti.cpp` and three
-  refusals), or `-fno-exceptions` (0.193: `noexcgrow.cpp` and two refusals). `NAME.std` gives a C fixture its level (`-std=c23`); an ISO level before C23
-  (`-std=c17`) turns trigraphs on, as `bin/cicilang` does. (0.42, 0.57, 0.108)
+  refusals), or `-fno-exceptions` (0.193: `noexcgrow.cpp` and two refusals). `NAME.std` gives a C fixture its level
+  (`-std=c23`); an ISO level (`-std=c17`, `-std=c23`) is an ISO mode, `'$ccl_iso'`, and before C23 it turns trigraphs
+  on, as `bin/cicilang` does (`c_level` in `test/compile.pl`). (0.42, 0.57, 0.108, 0.214)
 - `NAME.stdin` is the input of a fixture that reads (`stdcin`, `stdcinld`, `stdget`, `stdgetline`, `stdistream`,
   `stdistream2`, `stdws`, `stdtie`); the others read `/dev/null`. (0.75, 0.115, 0.136)
 - `NAME.needs` holds a preprocessor condition over the library's own macros. `ccl_needs_met` runs a four-line file
@@ -567,35 +568,42 @@ that changes a rule edits the rule here, in its topic, and writes its entry in `
 
   | Flag | Option |
   |---|---|
-  | `c++17` `c++20` `c++23` `c++26` (and `gnu++`, `1z` `2a` `2b` `2c`) | `std(17)` ... `std(26)` |
-  | `c23`, `gnu23`, `c2x`, `gnu2x` | `cstd(23)` |
-  | `c17`, `c18`, `iso9899:2017`, `iso9899:2018` | `cstd(17)`, `trigraphs` |
-  | `c11`, `iso9899:2011`; `c99`, `iso9899:1999` | `cstd(11)`; `cstd(99)`; `trigraphs` |
+  | `c++17` `c++20` `c++23` `c++26` (and `1z` `2a` `2b` `2c`) | `std(17)` ... `std(26)`, `iso` |
+  | `gnu++17` `gnu++20` `gnu++23` `gnu++26` (and `gnu++1z` ... `gnu++2c`) | `std(17)` ... `std(26)` |
+  | `c23`, `c2x` | `cstd(23)`, `iso` |
+  | `gnu23`, `gnu2x` | `cstd(23)` |
+  | `c17`, `c18`, `iso9899:2017`, `iso9899:2018` | `cstd(17)`, `trigraphs`, `iso` |
+  | `c11`, `iso9899:2011`; `c99`, `iso9899:1999` | `cstd(11)`; `cstd(99)`; `trigraphs`, `iso` |
   | `gnu17`, `gnu18`; `gnu11`; `gnu99` | `cstd(17)`; `cstd(11)`; `cstd(99)` |
 
-  The ISO C modes read trigraphs and the GNU modes do not, as clang. `-trigraphs` alone turns them on. A C++ level before
-  17 is refused, and so are C89 and C90. (0.42, 0.57, 0.108)
+  The ISO C modes read trigraphs before C23 and the GNU modes do not, as clang. `-trigraphs` alone turns them on. An ISO
+  mode is the option `iso` (0.214), `'$ccl_iso'`: it predefines `__STRICT_ANSI__` and not GNU's `linux` and `unix` (the
+  Predefined macros topic), `typeof` is a name of the program's where its level has no such keyword, and in C `asm` (the
+  Declarators topic), and a C read's keys carry it (the Includes topic); no `-std`, and every `gnu` form, is a GNU mode,
+  as clang's default is. THE LAST `-std=` WINS, its level and its mode, as clang's (0.214, `bin/cicilang`'s `lvl`): the
+  first level stood, and an earlier ISO form's `trigraphs`; the driver gate's check builds `-std=c17 -std=gnu17` and the
+  reverse. A C++ level before 17 is refused, and so are C89 and C90. (0.42, 0.57, 0.108, 0.214)
 
 ### `ccl_drive/2`
 
 - `ccl_drive/2` is `once(dr_drive(Inputs, Options))`. Why: cocolog's query loop asks for a second answer, and a stray
   choicepoint prints everything again. It sets `'$ccl_lang_forced'` and `'$ccl_lang'`, `'$ccl_std'` (default 17),
-  `'$ccl_c_std'` (default 17) and `'$ccl_trigraphs'`, and asserts a `ccl_include_dir/1` per `-I`: `dr_setup/2`, the
-  options as a run of the command sets them (0.188). (M4, 0.108, 0.188)
+  `'$ccl_c_std'` (default 17), `'$ccl_trigraphs'` and `'$ccl_iso'` (0.214), and asserts a `ccl_include_dir/1` per `-I`:
+  `dr_setup/2`, the options as a run of the command sets them (0.188). (M4, 0.108, 0.188, 0.214)
 - THE COLD LIBRARY HEADERS OF A C++ BUILD ARE READ BY PROCESSES OF THEIR OWN (0.188, the owner's design): `dr_drive`
   keeps the build's options in `'$ccl_children'`, and before the file's run its prescan (`ccl_pp_prescan/1`) finds the
   library headers it names (`<name>`, `#include_next`, a header unit's `import`) that no valid summary serves
   (`ccl_cold_headers/4`). Where two or more are cold it starts a cocolog for each (`ccl_cold_headers_read/2`,
   `ccl_kids/4` over `proc_spawn/2`), J at a time (`ccl_jobs/1`: `$CICILANG_JOBS`, else the machine's processors,
-  `os_cpus/1`; 1 turns it off), each running `ccl_drive_header/3` -- the build's options set by `dr_setup/2`, then the
-  header read as the prescan reads it and its summary written -- and waits for them all; the prescan then serves each
-  header from its summary. Since 0.186 a header's read does not depend on what the process read before it, so the
-  summaries are the ones the build writes alone (0.188's nets: the same, file for file). One cold header is read in the
-  build's own process; a process past 1800 s is killed, its session by signal 9, and one that writes no summary leaves
-  its header to the build. `-v` names each process and says how many summaries they wrote. A C build and `-E` start
-  none, and a library header that only the program's own header names is read in the build's own process.
-  `aliasptr.cpp`'s eight cold headers over libc++ 18: 52.8 s where the build alone takes 96.5 s, the same CPU time,
-  peak 562 MB over six processes. (0.188)
+  `os_cpus/1`; 1 turns it off), each running `ccl_drive_header/3` -- the build's options set by `dr_setup/2`, the
+  program's feature-test macros among them (`ftm(L)`, 0.214), then the header read as the prescan reads it and its
+  summary written -- and waits for them all; the prescan then serves each header from its summary. Since 0.186 a
+  header's read does not depend on what the process read before it, so the summaries are the ones the build writes alone
+  (0.188's nets: the same, file for file). One cold header is read in the build's own process; a process past 1800 s is
+  killed, its session by signal 9, and one that writes no summary leaves its header to the build. `-v` names each
+  process and says how many summaries they wrote. A C build and `-E` start none, and a library header that only the
+  program's own header names is read in the build's own process. `aliasptr.cpp`'s eight cold headers over libc++ 18:
+  52.8 s where the build alone takes 96.5 s, the same CPU time, peak 562 MB over six processes. (0.188, 0.214)
 - ANOTHER MACHINE (0.131): `target(T)` sets it before anything reads it (`dr_set_target/1`): the arch from the triple's
   first word (`aarch64` or `arm64` is `arm64`, `x86_64`), the OS from a word in it (`linux`; `apple`, `darwin`, `macos`
   are `darwin`); `'$ccl_target'` = `target(Arch, OS, Triple)`, and the globals every machine question reads --
@@ -1103,33 +1111,41 @@ that changes a rule edits the rule here, in its topic, and writes its entry in `
 - The predefined macros are `pp_predef(Name, Table, Text)` facts, from the reference compiler's `-dM -E` per level,
   answered BY NAME on a miss (`pp_predef_macro/3`), never defined in bulk. Why: defining them cost 25 ms a run. (M5)
 - The order: the level's table (C++ `pp_std_table/2`: `cpp26`, `cpp23`, `cpp20`, newest first; C `pp_c_std_table/2`:
-  `c23`, then its OS's own, `c23_linux` or `c23_darwin`, `pp_c_os_table/2`, 0.194), the TARGET's own (`pp_target_table/1`,
-  `<os>_<arch>`, 0.131), `any`, the OS (`pp_os/1`), the arch (`pp_arch/1`), C++'s `cpp_rtti` and `cpp_eh` unless
-  `-fno-rtti` and `-fno-exceptions`, C++ on Linux's `cpp_linux` (0.194: `_GNU_SOURCE`, as clang++ and g++ predefine it,
-  so glibc declares its GNU extensions -- libc++'s `condition_variable::wait_until` calls `pthread_cond_clockwait`, and
-  `strtol` is glibc's C23 one by an asm label, the Declarators topic), `cpp`, and C's own `c`. A target's own table is
-  clang's `-dM -E` for that machine where it differs from what the other tables answer, the tables having been taken
-  from a clang on macOS: `linux_arm64` (0.131) -- `__CHAR_UNSIGNED__`, `__WCHAR_UNSIGNED__` and `unsigned int`, the
-  quad's `__LDBL_*`, `__SIZEOF_LONG_DOUBLE__` 16, `__BIGGEST_ALIGNMENT__` 16, the generic armv8's features, and
-  `'$undef'`, no macro, for Apple's names (`__arm64__`, `__ARM_NEON__`, the M1's `__ARM_FEATURE_*`) -- and `linux_x86_64`
-  (0.194, clang 22's on this box): the 64-bit types `long` (`ld` formats, `L` constants), `__USER_LABEL_PREFIX__`
-  empty (glibc's asm labels spell it), `wint_t` unsigned (the shipped `char_traits<wchar_t>::int_type`, `j` in a symbol:
-  `wistringstream::ignore` did not link), the default CPU k8's features (no SSE3, SSSE3, SSE4.1, LAHF, 16-byte
-  compare-and-swap), math errno on (no `__NO_MATH_ERRNO__`), and Apple's nullability spellings no macros; both Linux tables hold what
-  Linux has on either machine. A macro whose value differs between C and C++ is the language tables'. `__cplusplus` is
-  201703L, 202002L, 202302L or 202400L. `__STDC_VERSION__` is C's alone (0.194: C++ had it too), 201710L (C11, C99
-  too), 202311L at C23, where `__CHAR8_TYPE__`, `__FLT_NORM_MAX__` and kin and `<inttypes.h>`'s binary formats are
-  predefined as clang 22 has them; `__FLT_EVAL_METHOD__` is 0. A header's `__STDC_VERSION_*_H__` is the header's own
-  (C23 7.x.1: `<stddef.h>`, `<limits.h>`, `<stdarg.h>`, `<float.h>`, `<stdatomic.h>`, `<stdbit.h>` and `<stdckdint.h>`
-  here), never predefined: five were, which neither clang nor gcc predefines. A FUNCTION-LIKE PREDEFINED MACRO
-  (`__INT64_C(c)` and kin) is the fact whose name holds its parameter list as clang writes it, `'__INT64_C(c)'`, asked
-  by the name alone where no object-like one is (0.194): `__INT64_C(5)` was a call of an undeclared function. The rows
-  of 0.194 were made by a script over clang's `-dM -E` (`o279/gentab.py`, session scratch). `predefs.c`,
-  `gnusource.cpp`. (0.57, 0.93, 0.131, 0.194)
+  `c23`, then its OS's own, `c23_linux` or `c23_darwin`, `pp_c_os_table/2`, 0.194), the TARGET's own
+  (`pp_target_table/1`, `<os>_<arch>`, 0.131), `any`, the OS (`pp_os/1`), the arch (`pp_arch/1`), C++'s `cpp_rtti` and
+  `cpp_eh` unless `-fno-rtti` and `-fno-exceptions`, C++ on Linux's `cpp_linux` (0.194: `_GNU_SOURCE`, as clang++ and
+  g++ predefine it, so glibc declares its GNU extensions -- libc++'s `condition_variable::wait_until` calls
+  `pthread_cond_clockwait`, and `strtol` is glibc's C23 one by an asm label, the Declarators topic), an ISO mode's `iso`
+  (0.214: `__STRICT_ANSI__`, which clang predefines under `-std=c17`, `-std=c23`, `-std=c++20` and kin and not under
+  their `gnu` forms or no `-std`: glibc then defines no `_DEFAULT_SOURCE` in C and declares ISO C's names alone --
+  `strdup` before C23, `fileno`, `M_PI` and `htobe32` are POSIX's and BSD's, and every mode declared them; in C++ the
+  `_GNU_SOURCE` of `cpp_linux` keeps them), a GNU mode's `gnu_<os>` and C++'s `cpp_gnu` (`pp_gnu_table/1`, 0.214:
+  `linux` and `unix`, the spelling outside the implementation's names that an ISO mode leaves to the program, Linux
+  only, and g++'s `__GLIBCXX_TYPE_INT_N_0` and `__GLIBCXX_BITSIZE_INT_N_0`, which every mode predefined), `cpp`, and C's
+  own `c`. A target's own table is clang's `-dM -E` for that machine where it differs from what the other tables answer,
+  the tables having been taken from a clang on macOS: `linux_arm64` (0.131) -- `__CHAR_UNSIGNED__`, `__WCHAR_UNSIGNED__`
+  and `unsigned int`, the quad's `__LDBL_*`, `__SIZEOF_LONG_DOUBLE__` 16, `__BIGGEST_ALIGNMENT__` 16, the generic
+  armv8's features, and `'$undef'`, no macro, for Apple's names (`__arm64__`, `__ARM_NEON__`, the M1's
+  `__ARM_FEATURE_*`) -- and `linux_x86_64` (0.194, clang 22's on this box): the 64-bit types `long` (`ld` formats, `L`
+  constants), `__USER_LABEL_PREFIX__` empty (glibc's asm labels spell it), `wint_t` unsigned (the shipped
+  `char_traits<wchar_t>::int_type`, `j` in a symbol: `wistringstream::ignore` did not link), the default CPU k8's
+  features (no SSE3, SSSE3, SSE4.1, LAHF, 16-byte compare-and-swap), math errno on (no `__NO_MATH_ERRNO__`), and Apple's
+  nullability spellings no macros; both Linux tables hold what Linux has on either machine. A macro whose value differs
+  between C and C++ is the language tables'. `__cplusplus` is 201703L, 202002L, 202302L or 202400L. `__STDC_VERSION__`
+  is C's alone (0.194: C++ had it too), 201710L (C11, C99 too), 202311L at C23, where `__CHAR8_TYPE__`,
+  `__FLT_NORM_MAX__` and kin and `<inttypes.h>`'s binary formats are predefined as clang 22 has them;
+  `__FLT_EVAL_METHOD__` is 0. A header's `__STDC_VERSION_*_H__` is the header's own (C23 7.x.1: `<stddef.h>`,
+  `<limits.h>`, `<stdarg.h>`, `<float.h>`, `<stdatomic.h>`, `<stdbit.h>` and `<stdckdint.h>` here), never predefined:
+  five were, which neither clang nor gcc predefines. A FUNCTION-LIKE PREDEFINED MACRO (`__INT64_C(c)` and kin) is the
+  fact whose name holds its parameter list as clang writes it, `'__INT64_C(c)'`, asked by the name alone where no
+  object-like one is (0.194): `__INT64_C(5)` was a call of an undeclared function. The rows of 0.194 were made by a
+  script over clang's `-dM -E` (`o279/gentab.py`, session scratch). `predefs.c`, `gnusource.cpp`; `strictansi.c`
+  (`-std=c17`), `gnumode.c`, `strictansi.cpp` (`-std=c++20`), `gnumode.cpp`. (0.57, 0.93, 0.131, 0.194, 0.214)
 - The OS and the arch are the HOST's -- the module's compile-time `ccl_host_os/1`, `ccl_host_arch/1` (`uname` only
-  without it), cached in `'$pp_os'`, `'$pp_arch'` -- or the target's, which `--target` puts there first (0.131). `darwin` holds the Apple rows (`__APPLE__`, `__MACH__`,
-  `TARGET_OS_*`); `linux` holds `__linux__`, `__gnu_linux__`, `__unix__`, `__ELF__`, `__PIE__` and kin. Why: Linux
-  compiled as a Mac. (0.93)
+  without it), cached in `'$pp_os'`, `'$pp_arch'` -- or the target's, which `--target` puts there first (0.131).
+  `darwin` holds the Apple rows (`__APPLE__`, `__MACH__`, `TARGET_OS_*`); `linux` holds `__linux__`, `__gnu_linux__`,
+  `__unix__`, `__ELF__`, `__PIE__` and kin, and `gnu_linux` a GNU mode's `linux` and `unix` (0.214). Why: Linux compiled
+  as a Mac. (0.93, 0.214)
 
 ### Configuration chosen through the macros
 
@@ -1194,16 +1210,38 @@ that changes a rule edits the rule here, in its topic, and writes its entry in `
   every macro is expanded. A character that begins no token and reaches the reader throws `lexical(L)` at its line
   (0.210: a line that did not lex whole threw it, a character that `#` took among them; the Lexers topic). Reader `k86`,
   `k71`; `test/c/run/macros.c`, `test/c/run/pp.c`. (M5, 0.210)
-- A run is not re-entrant, so `ccl_pp_prescan/1` first sends each literal `#include`, and each C++ header-unit
-  `import`, to `ccl_header_macros_ready/2` (the header by `ccl_include_read/2`, then `ccl_header_macros/2`). The
-  table's kind is memoized per level in `'$ccl_hm:<Path>@<Level>'` (`ccl_hm_key/2`, `t` appended with trigraphs).
-  (0.99, 0.110)
+- A run is not re-entrant, so `ccl_pp_prescan/1` first sends each literal `#include`, and each C++ header-unit `import`,
+  to `ccl_header_macros_ready/2` (the header by `ccl_include_read/2`, then `ccl_header_macros/2`). The table's kind is
+  memoized per level in `'$ccl_hm:<Path>@<Level>'` (`ccl_hm_key/2` over `ccl_read_level/1`, `t` appended with trigraphs
+  and `i` in an ISO mode, 0.214). (0.99, 0.110, 0.214)
 - A COMPUTED `#include` IN THE USER'S FILE (C17 6.10.2/4; 0.211) is passed on with the name it resolved to
   (`pp_inc_text/4`), since the reader reads no name from `#include INC`: the header's declarations were lost with its
   macros. The prescan knows no computed name, so the macros of a header that one names and that the prescan did not make
   ready are made ready after the run, and the file is run again, once for each such header new to the file
   (`ccl_pp_top_run/4` over `'$pp_late'`, which `pp_do_include/6` fills and `pp_reset/0` empties; `pp_new_specs/3`).
   `test/c/run/ppinclude.c`, `test/cpp/run/ppinclude.cpp`: a local header and a library header named by a macro. (0.211)
+- THE PROGRAM'S FEATURE-TEST MACROS CONFIGURE EVERY HEADER'S READ (0.214; POSIX 2.2.1, glibc's `features.h`): a name of
+  `pp_ftm_name/1`'s -- glibc's and POSIX's feature-test macros (`_GNU_SOURCE`, `_DEFAULT_SOURCE`, `_POSIX_C_SOURCE`,
+  `_XOPEN_SOURCE`, `_FILE_OFFSET_BITS` and kin), Apple's, and every `__STDC_WANT_*` and `_LIBCPP_*` name -- that the
+  user's file, or a local header it includes, defines or undefines before its first system `#include` is read by every
+  header as a `-D` or a `-U` is: `'$pp_ftm'`, a list of `N-def(Params, Codes)` and `N-undef` where they differ from the
+  predefined macros and the command line's (`pp_ftm_state/1`), which a header's run asks before the command line's
+  (`pp_outer_macro/3`; the user's file's own run defines them itself), which every key of a read folds (`ccl_ftm_tag/1`
+  in `ccl_read_level/1` and `ccl_sum_file/2`: the unit cache, the header macros' memo, the store, the C++ summaries'
+  names), and which the processes for cold headers are given (`ftm(L)`, `dr_setup/2`). They are found before the read
+  (`pp_ftm_find/1`, from `ccl_read_file/3`, so the store's key of the file is the right one) by one run of the file that
+  stops at its first system `#include` (`pp_do_include/6` throws `pp_prologue(State)`), or at its end where its own
+  lines include none; a file whose lines before it define none of the names and include no local header is not run
+  (`pp_prologue_scan/3`). A header was read standalone under the predefined macros alone: under `-std=c17` `#define
+  _POSIX_C_SOURCE 200809L` gave no `strdup`, and `hdrdefs.c`'s `#define _DEFAULT_SOURCE` no `htobe32`; in a GNU mode the
+  names that `_GNU_SOURCE` alone gives were missing. A name defined after the file's first system `#include` configures
+  no header's read. `ftmacro.c` (`-std=c17`, over `ftmacro.h`). (0.214)
+- `<assert.h>` DEFINES `assert` BY `NDEBUG` AS IT STANDS AT EACH INCLUSION (C17 7.2/1, [cassert.syn]; 0.214;
+  `pp_assert_include/1`): in the user's file an `#include <assert.h>` or `<cassert>` defines `assert` as `((void)0)`
+  where `NDEBUG` is defined, glibc's `assert_perror` with it, and else as the header's table has it, which is read with
+  no `NDEBUG` (no name of `pp_ftm_name/1`'s). The table alone answered: `#define NDEBUG` before the include still
+  asserted, in 0.213 and before it. An inclusion through another header asks no `NDEBUG`, and under `-DNDEBUG` the table
+  is the header's `NDEBUG` form, which `#undef NDEBUG` does not undo. `ndebug.c`, `ndebug.cpp`. (0.214)
 - A header's macro reaches the run BY NAME on first use (`pp_macro/3`, `pp_defined/1`). The run's own `'$pp:<Name>'`
   comes first; a miss is kept until the next include (`'$pp_ninc'`). Then `pp_outer_macro/3` asks the predefined
   macros (no header redefines one), then the headers, the last included first (`pp_header_macro/3`). Why:
@@ -1262,15 +1300,22 @@ that changes a rule edits the rule here, in its topic, and writes its entry in `
   `limits.h` by `#include_next` where there is one. Why: glibc asks the compiler's header for them, so `INT_MAX` was
   undefined on Linux. (0.93, 0.194)
 - `float.h` (from the predefined macros), `stdbool.h` and `iso646.h` (C only), `stdalign.h`, `stdnoreturn.h`. (M2)
-  `float.h` holds C11's limits too, under clang's guard (0.154): `FLT_TRUE_MIN`, `DBL_TRUE_MIN`, `LDBL_TRUE_MIN`, the three
-  `_DECIMAL_DIG` and the three `_HAS_SUBNORM`, and C99's `DECIMAL_DIG`; `LDBL_TRUE_MIN` was undefined. Since 0.194
-  `FLT_ROUNDS` is the CURRENT rounding direction, `__builtin_flt_rounds()` (LLVM's `llvm.get.rounding`, which
-  `fesetround` moves; it was 1), `FLT_EVAL_METHOD` is `__FLT_EVAL_METHOD__`, and C23's own come under clang's guards:
-  `FLT_SNAN`, `DBL_SNAN` and `LDBL_SNAN` over `__builtin_nans*` (a signaling NaN, the Lowering's floating constants),
-  `FLT_NORM_MAX` and kin, `*_IS_IEC_60559`, `__STDC_VERSION_FLOAT_H__`, and `INFINITY` and `NAN`, which `<math.h>` defines
-  too (taken away first, as clang's and gcc's headers do). `stdarg.h` and `stdatomic.h` define their own
-  `__STDC_VERSION_*_H__` at C23, and `stdatomic.h` `atomic_char8_t` and `ATOMIC_CHAR8_T_LOCK_FREE`, and no
-  `ATOMIC_VAR_INIT` in C23, which removed it. `c23float.c` (`-std=c23`).
+  `stdbool.h` defines `bool`, `true` and `false` before C23 alone (0.214; C23 7.18: they are keywords there, as in
+  clang's and gcc's headers; `true` was the int 1, `c23bool.c`). `float.h` holds C11's limits too, under clang's guard
+  (0.154): `FLT_TRUE_MIN`, `DBL_TRUE_MIN`, `LDBL_TRUE_MIN`, the three `_DECIMAL_DIG` and the three `_HAS_SUBNORM`, and
+  C99's `DECIMAL_DIG`; `LDBL_TRUE_MIN` was undefined. Since 0.194 `FLT_ROUNDS` is the CURRENT rounding direction,
+  `__builtin_flt_rounds()` (LLVM's `llvm.get.rounding`, which `fesetround` moves; it was 1), `FLT_EVAL_METHOD` is
+  `__FLT_EVAL_METHOD__`, and C23's own come under clang's guards: `FLT_SNAN`, `DBL_SNAN` and `LDBL_SNAN` over
+  `__builtin_nans*` (a signaling NaN, the Lowering's floating constants), `FLT_NORM_MAX` and kin, `*_IS_IEC_60559`,
+  `__STDC_VERSION_FLOAT_H__`, and `INFINITY` and `NAN`, which `<math.h>` defines too (taken away first, as clang's and
+  gcc's headers do). IN C++ THEY COME BY THE LEVEL ALONE, never by the mode (0.214): C++26's `<cfloat>` is C23's
+  `<float.h>` without the normalized maxima and the conformance -- `__STDC_VERSION_FLOAT_H__`, `INFINITY`, `NAN` and the
+  signaling NaNs (P3348R4, [cfloat.syn]) -- and C++17's to C++23's is C17's, in both modes, as clang 18 and gcc have it;
+  clang 21's `gnu++` modes add the normalized maxima. Why: a C++ read is one for both modes (the C++ summary cache
+  topic), and clang's guard asks `__STRICT_ANSI__`, which gave C23's names to every C++ level. `cfloat26.cpp`
+  (`-std=c++26`, its reference clang++ over the four names defined on its command line). `stdarg.h` and `stdatomic.h`
+  define their own `__STDC_VERSION_*_H__` at C23, and `stdatomic.h` `atomic_char8_t` and `ATOMIC_CHAR8_T_LOCK_FREE`, and
+  no `ATOMIC_VAR_INIT` in C23, which removed it. `c23float.c` (`-std=c23`).
 - `stdckdint.h` (C23 7.20): `ckd_add`, `ckd_sub`, `ckd_mul` over `__builtin_*_overflow`. `stdbit.h` (C23 7.18): the
   suffixed functions over the bit builtins, the generic forms through `_Generic`. (0.93)
 - `stdatomic.h` (C11 7.17) over the `__c11_atomic_*` builtins, as clang's: the `atomic_*` typedefs through `_Atomic(T)`,
@@ -1364,8 +1409,8 @@ that changes a rule edits the rule here, in its topic, and writes its entry in `
   `Loop()(1, 2);` is a call. Why: it read as a declaration of nothing initialized by `(1, 2)`, the call was dropped, and
   libc++'s `ranges::copy` copied nothing. `test/cpp/run/tempcallstmt.cpp`. (0.115)
 - `ccl_sto_pick/2` picks the deciding storage word. Why: `static inline constexpr` lost `static`. (0.44)
-- AN ASM LABEL IS THE SYMBOL A DECLARATION STANDS FOR (0.194; GCC's `asm` labels, which clang reads): `int f(void)
-  __asm__("g");` and `extern long strtol(...) __asm__ ("" "__isoc23_strtol");` -- string literals alone, joined
+- AN ASM LABEL IS THE SYMBOL A DECLARATION STANDS FOR (0.194; GCC's `asm` labels, which clang reads; 0.214): `int
+  f(void) __asm__("g");` and `extern long strtol(...) __asm__ ("" "__isoc23_strtol");` -- string literals alone, joined
   (`ccl_asm_string//1`) -- are noted as the attribute goes past (`'$ccl_asm'`) and taken by the init-declarator
   (`ccl_asm_take/3`) as the qualifier `asm(Name, Sym)` where a tie stands (`ccl_add_asm/4`: through an array to its
   element, through a function to its result). The label names its OWNER: a type taken from the declaration (`auto g =
@@ -1375,7 +1420,10 @@ that changes a rule edits the rule here, in its topic, and writes its entry in `
   the lowering spells it wherever it spells the name (`ir_gname/3`, `ir_fn_sym/2`: a definition, a declare line, a call,
   an address in a constant). It was dropped: glibc's C23 and GNU redirects were not taken -- `strtol` is
   `__isoc23_strtol` at C23 and in C++ (`_GNU_SOURCE`), which reads a `0b` prefix -- and a program's own label did not
-  link. `asmlabel.c`, `asmlabel23.c` (`-std=c23`), `gnusource.cpp`.
+  link. `asm` itself is the label's keyword `__asm__` in a GNU C mode and in every C++ mode, a name of the program's
+  under `-std=c17` and `-std=c23`, as clang reads it (0.214, `ccl_asm_keyword/0` in `ccl_attr_word/1`,
+  `ccl_gnu_attr_//0` and `ccl_gnu_word/1`): it was a name everywhere, and `int f(void) asm("g");` a syntax error.
+  `asmlabel.c`, `asmlabel23.c` (`-std=c23`), `gnusource.cpp`, `gnumode.c`, `gnumode.cpp`.
 - GCC'S `packed` AND `aligned` ATTRIBUTES ARE KEPT (0.203; GCC's manual, Common Type and Variable Attributes, which
   clang reads), noted as the attribute goes past, as `vector_size` is (`ccl_layout_note//0`; `ccl_layout_clear/0` at a
   block's start, at a member list's end and after a parameter), and taken where they stand: on a struct or a union,
@@ -1418,12 +1466,15 @@ that changes a rule edits the rule here, in its topic, and writes its entry in `
   which failed, a defect of 0.203. The layout is the Object layout topic's. Reader 154, 155. `test/c/run/packed.c`,
   `packattr.c`, `packunion.c`, `aligntd.c`, `packenum.c`, `packlead.c`, `gnuattrc.c` (C23),
   `test/cpp/run/packedcpp.cpp`, `packnonpod.cpp`, `gnuattr.cpp`, `leadattr.cpp`. (0.203, 0.205)
-- `__attribute__((...))` and every other `__asm("...")` are read and dropped (`ccl_gnu_attr`). `typeof`, `__typeof__`, `__typeof`
-  and `typeof_unqual` are type specifiers at every level (`ccl_typeof//1`; `typeof_unqual(X)` is
-  `typeof(unqual(X))`). `(^b)` is `block(Q, T)`. (0.93) `__extension__` before an expression is the expression
-  (`ccl_unary_`), and before a block's alias declaration it is dropped (C++ only; reader 127, 0.136): libc++ 21's
-  linear_congruential_engine writes `__extension__ using __calc_type = unsigned __int128;` in a function body, the read of
-  `<random>` stopped there -- silently, a partial read -- and `mt19937` was no type (`stdrandom.cpp` over libc++ 21).
+- `__attribute__((...))` and every other `__asm("...")` are read and dropped (`ccl_gnu_attr`). `__typeof__` and
+  `__typeof` are type specifiers at every level, `typeof` in C23 and in a GNU mode, and `typeof_unqual` in C23 alone, as
+  clang has them (`ccl_typeof//1` over `ccl_typeof_word/1`, 0.214: under `-std=c17` and `-std=c++20` `typeof` is a name
+  of the program's, and in C17 and C++ `typeof_unqual` is; both were keywords everywhere, and `int typeof = 1;` was
+  refused; `strictansi.c`, `strictansi.cpp`); `typeof_unqual(X)` is `typeof(unqual(X))`. `(^b)` is `block(Q, T)`. (0.93)
+  `__extension__` before an expression is the expression (`ccl_unary_`), and before a block's alias declaration it is
+  dropped (C++ only; reader 127, 0.136): libc++ 21's linear_congruential_engine writes `__extension__ using __calc_type
+  = unsigned __int128;` in a function body, the read of `<random>` stopped there -- silently, a partial read -- and
+  `mt19937` was no type (`stdrandom.cpp` over libc++ 21).
 - A nullability word (`_Nonnull`, `_Nullable`, `_Null_unspecified`, `__nonnull` ...) is read and dropped, bare or with
   an argument list (`ccl_gnu_attr`). Why: glibc's `__nonnull(params)` arrives as `_Nonnull ( ( 1 ) )`; read bare, it
   stopped `<stdio.h>` at `fclose`, and `printf` was undeclared. (0.87)
@@ -2142,9 +2193,12 @@ that changes a rule edits the rule here, in its topic, and writes its entry in `
 - `ccl_include_read/2` tries the cycle guard (the global `'$ccl_reading'`, `ccl_reading/1`), the process cache
   (`ccl_unit_cached`), the store (`ccl_kb_cached/3`), then `ccl_read_unit/3`. It stores a read unless it is
   `unreadable`, a summary, or a C++ header read preprocessed. (M4)
-- The process cache keys a unit by its path AND its level (`ccl_unit_key`: `'$ccl_unit:<Path>@<Level>'`, `t` appended
-  in a trigraph mode), listed in `'$ccl_unit_paths'`. Why: `<stddef.h>` differs at C23, and one gate process builds
-  both levels. (0.99, 0.108)
+- The process cache keys a unit by its path AND its level (`ccl_unit_key` over `ccl_read_level/1`:
+  `'$ccl_unit:<Path>@<Level>'`, `t` appended in a trigraph mode and `i` in an ISO mode, 0.214; in C++ the level alone;
+  in both, `@f` and a fold of the program's feature-test macros where it defines one, `ccl_ftm_tag/1`), listed in
+  `'$ccl_unit_paths'`. So is the memo of a C header read preprocessed for its definitions (`ir_hdr_pp_items/2`, 0.214).
+  Why: `<stddef.h>` differs at C23, glibc declares ISO C's names alone in an ISO mode, and one gate process builds both
+  levels and both modes. (0.99, 0.108, 0.214)
 - A plain header is read raw first (`ccl_parse_file`). Only if raw stops does `ccl_pp_parse/4` preprocess THAT file; its
   macros are then remembered (`ccl_kb_remember_macros/3`). A lexical error makes the include `unreadable`. (M1, M5)
 - A C++ library header (kind `system`, `next` included; `'$ccl_inc_kind'`) is never read raw. A valid summary serves it;
@@ -2233,8 +2287,18 @@ that changes a rule edits the rule here, in its topic, and writes its entry in `
   `<limits.h>` and `<float.h>` have one path for every machine, so a host's summary of one was valid for a target's read
   (its deps unchanged) and served it the host's limits. It takes the CONFIGURATION too (0.191, `ccl_config_key/1`): a
   header read under `-fno-rtti` or `-fno-exceptions` (0.193) is read under other macros from the same files, `@no-rtti`
-  and `@no-exceptions` in its key; the default configuration adds nothing to the key. (M5, 0.42, 0.112, 0.161, 0.191,
-  0.193)
+  and `@no-exceptions` in its key; the default configuration adds nothing to the key. And it takes the PROGRAM'S
+  FEATURE-TEST MACROS (0.214, `ccl_ftm_tag/1`): a header read under the file's `_LIBCPP_ENABLE_EXPERIMENTAL` or an empty
+  `_GNU_SOURCE` is another read. (M5, 0.42, 0.112, 0.161, 0.191, 0.193, 0.214)
+- A C++ READ TAKES NO MODE (0.214): a summary's key carries no ISO mark, and one summary serves `-std=c++20` and
+  `-std=gnu++20` alike, the library read's warm (`-std=c++NN`, an ISO mode) serving the fixtures of no `-std`. Measured:
+  clang++ preprocesses every public header of libc++ 18 and 21 (130 and 131) to the same text under `-std=c++17` and
+  `-std=gnu++17`, and under `-std=c++26` and `-std=gnu++26`; their macros differ only in the predefined names, clang's
+  `<stdbool.h>`'s GNU `_Bool` and clang 21's `<float.h>` -- libc++ never asks `__STRICT_ANSI__`, and glibc declares the
+  same under the `_GNU_SOURCE` that clang++ predefines on Linux. This compiler's own `<float.h>` takes C++'s names by
+  the level alone for it (the compiler's own headers topic), and its `<stdbool.h>` defines no `_Bool` in C++. Keyed by
+  the mode, nearly every summary would be read twice: 24 of 26 headers include `<float.h>`. Not measured on macOS.
+  (0.214)
 - A summary is one term per line (`ccl_sum_write/4`, `ccl_sum_chunks`): `sum(Path, key(V, cpp(Std)))`, a
   `dep(File, Time)` per file the preprocessor pulled, then `decl/2`, `typedef/2`, `tag/2` (bodies dropped,
   `ccl_sum_slim/2`), `enum/2`, `tname/1`, `template/1`, `ftemplate/1` and `nothrow/1` (0.193: a free function the
@@ -2326,8 +2390,11 @@ that changes a rule edits the rule here, in its topic, and writes its entry in `
   predicate, `'$ccl_items:<Path>'(Key, Index, Item)` (`ccl_kb_items/2`). Why one per file: a writing process grows the
   store by the written predicate's row count. An include is stored as `ref(Path, How)` and relinked through
   `ccl_include_read/2`. `ccl_kb_ready/0` declares `'$ccl_ast'/3` and `'$ccl_hmeta'/3`. (M4)
-- `ccl_kb_key/2` gives `key(MTime, V)`: `V` is the reader version for C17, `c(V, CS)` for another C level,
-  `c(V, CS, trigraphs)` in a trigraph mode, `cpp(V, Std)` in C++. `time_file/2` is asked at every key. (0.93, 0.108)
+- `ccl_kb_key/2` gives `key(MTime, V)`: `V` is the reader version for C17's GNU mode, `c(V, L)` for another C level or
+  mode, `L` the atom of `ccl_read_level/1` (`'17ti'` under `-std=c17`, `'23i'` under `-std=c23`, `'23'` under
+  `-std=gnu23`, and its `@f` tag of the program's feature-test macros; 0.214: `-std=c23` and `-std=gnu23` read one key,
+  and `-std=c17` the key of `-std=c17 -trigraphs`), `cpp(V, Std)` in C++. The IR cache's signature folds these keys
+  (`dr_ir_sig/3`), so an ISO build's IR is its own. `time_file/2` is asked at every key. (0.93, 0.108, 0.214)
 - `ccl_kb_cached/3` serves a unit on the same key, every dep at its key, and the item count matching. An item over the
   clause budget (`resource_error(clause_length)`) leaves the file uncached (`ccl_kb_remember/3`). The user's file is
   stored as `top` only when it reads whole. (M4)
@@ -2371,7 +2438,7 @@ that changes a rule edits the rule here, in its topic, and writes its entry in `
 
 ### The versions
 
-- `ccl_reader_version/1` (`library/ccl_syntax.pl`, now 160): bump it for any grammar change to what a read gives, and
+- `ccl_reader_version/1` (`library/ccl_syntax.pl`, now 161): bump it for any grammar change to what a read gives, and
   for any change to what the AST beside a summary holds (item or member terms, `cpp_index_name/2`,
   `cpp_template_name/2`, `ccl_flat_items/3`, the namespace keys). Keep the reason in its comment. Why: the store and the
   summaries are keyed by it, and a stale read is served silently (`sizeof(std::string)` read 40). (M1, 0.89, 0.112,
@@ -9611,16 +9678,16 @@ A lambda is a class of its captures (`library/ccl_cpp.pl`). A fixture named alon
 - Ubuntu 24.04 on x86_64 (clang and LLVM 18, glibc, libc++ 18 and 21) is a host since 0.87. Every gate but the C++ one
   is GREEN there since 0.93, and all seven since 0.95. Every step from 0.93 on is gated there, but the save points
   0.112, 0.113, 0.117, 0.122 to 0.125, 0.130, 0.131 and 0.143 (0.143's C gates and cross gate ran, its libc++ gates did
-  not; the others were gated by the steps after them). The last full run is 0.212's, over cocolog 2.12.0 (the Findings),
-  on one tree, over fresh HOMEs: over libc++ 18 all nine GREEN (the flow gate's one finding in 157 s, reader 6 s,
-  compile 32 s, driver 23 s, objects 6 s, proof, the cross gate in 457 s with its C++ part for aarch64, the library read
-  in 834 s (198 other headers warmed), the C++ gate in 1623 s with 797 of 807 fixtures ok, the skips are `atomicref`,
+  not; the others were gated by the steps after them). The last full run is 0.213's, over cocolog 2.12.0 (the Findings),
+  on one tree, over fresh HOMEs: over libc++ 18 all nine GREEN (the flow gate's one finding in 153 s, reader 5 s,
+  compile 30 s, driver 22 s, objects 6 s, proof, the cross gate in 471 s with its C++ part for aarch64, the library read
+  in 858 s (198 other headers warmed), the C++ gate in 1677 s with 797 of 807 fixtures ok, the skips are `atomicref`,
   `atomicrefalign`, `ftm23b`, `ftm26b`, `joinwith`, `stdflatmap`, `stdoptionalref`, `tzone`, `vbaseof` and
   `zipadjacent`, the two units, the 29 refusals, the four of the safe part and the four static assertions); over libc++
-  21 the library read (the phase 680 s) and the C++ gate (about 1725 s, 805 of 807 ok, the skips `stdoptionalref` and
-  `zipadjacent`) GREEN -- the C gates do not read libc++. The headers' reads, summed, took 3173 s over 221 over libc++
-  18 and 2565 s over 21; the fixtures' builds 5582 s over 797 and 5887 s over 805. The chains of 0.165 to 0.203 and of
-  0.205 to 0.212 are in HISTORY.md, 0.166 to 0.204 and 0.206 to 0.213. Two libc++ passes are one gate:
+  21 the library read (the phase 736 s) and the C++ gate (about 1670 s, 805 of 807 ok, the skips `stdoptionalref` and
+  `zipadjacent`) GREEN -- the C gates do not read libc++. The headers' reads, summed, took 3238 s over 221 over libc++
+  18 and 2782 s over 21; the fixtures' builds 5734 s over 797 and 5796 s over 805. The chains of 0.165 to 0.203 and of
+  0.205 to 0.213 are in HISTORY.md, 0.166 to 0.204 and 0.206 to 0.214. Two libc++ passes are one gate:
   `LLVM=/usr/lib/llvm-18` and `LLVM=/usr/lib/llvm-21` choose the tree the chain reads and links. libc++ 22 (the newest
   tree, which a run without `$LLVM` reads) is no gate: 0.182 built its vector and its C++23 views by hand
   (`zipadjacent.cpp`, which its `.needs` skips over 18 and 21), and `stdoptionalref` passes there. The run before
@@ -9637,10 +9704,13 @@ A lambda is a class of its captures (`library/ccl_cpp.pl`). A fixture named alon
 
 ### C
 
-- C17 is the default level, and `-std=c23` gives C23. C99 and C11 are accepted, and the ISO modes read trigraphs.
-  C89 and C90 are refused (`bin/cicilang`, `cstd(N)`) (0.57, 0.108).
+- C17 is the default level, and `-std=c23` gives C23. C99 and C11 are accepted, and the ISO modes read trigraphs before
+  C23; since 0.214 they predefine `__STRICT_ANSI__`, so glibc declares ISO C's names alone, and `typeof` is a name of
+  the program's before C23, where `linux` and `unix` are not predefined. C89 and C90 are refused (`bin/cicilang`,
+  `cstd(N)`) (0.57, 0.108).
 - C17 and C23 are whole (0.93). `test/c/run/*.c` gates them, at C17 unless a fixture's `NAME.std` names a level:
-  `c17rest.c` and `cforms.c` at C17, `trigraphs.c` at `-std=c17`, `c23.c`, `c23b.c` and `c23pp.c` at C23.
+  `c17rest.c` and `cforms.c` at C17, `trigraphs.c` and `strictansi.c` at `-std=c17`, `c23.c`, `c23b.c` and `c23pp.c` at
+  C23.
 - Since 0.143: a negative zero in every floating constant (`negzero.c`), and infinities and NaNs folded as clang folds
   them, the literals past the largest double and the builtins behind `INFINITY`, `HUGE_VAL` and `NAN` among them
   (`fpspecial.c`).
@@ -9704,7 +9774,10 @@ A lambda is a class of its captures (`library/ccl_cpp.pl`). A fixture named alon
   header makes -- the program's own header's static and static inline functions, a static object, an external definition
   and an object, C99's inline definition made external by the unit's declaration, the C library's static inline
   functions behind `bswap_32`, `bswap_16`, `bswap_64` and `htobe32` (`hdrdefs.c`). Since 0.213: a macro's name spelled
-  with a universal character name (`ucnmacro.c`).
+  with a universal character name (`ucnmacro.c`). Since 0.214: an ISO mode's `__STRICT_ANSI__` and the names it leaves
+  to the program (`strictansi.c`), a GNU mode's own names and its `asm` label (`gnumode.c`), C23's `true` after
+  `<stdbool.h>` (`c23bool.c`), the program's feature-test macros (`ftmacro.c`) and `NDEBUG` at each inclusion of
+  `<assert.h>` (`ndebug.c`).
 - The C library is the host's. The compiler's own freestanding headers are in `library/include/` (`<stdarg.h>`,
   `<stdatomic.h>`, `<complex.h>`, `<stdckdint.h>`, `<stdbit.h>`, `<limits.h>`, `<tgmath.h>` and six more).
 - The language's own additions run: `:=`, patterns, `name { }` structs and `format`, `print`, `println`
@@ -10416,7 +10489,14 @@ header name, in the user's file and in a header, and the operand of `__has_inclu
 the fifteenth, what 0.211's probes found, is 0.212's (the Includes topic: the definitions a C header makes, its
 functions and its objects, the program's own header's and the C library's static ones, a raw read's definition taken
 preprocessed); the sixteenth, two of the small ones, is 0.213's (the Lexers topic: a macro's name spelled with a
-universal character name; the Debug information topic: a definition a C header makes described in its header).
+universal character name; the Debug information topic: a definition a C header makes described in its header); the
+seventeenth, the ISO modes, is 0.214's (the Predefined macros topic: `__STRICT_ANSI__` in an ISO mode, `linux`, `unix`
+and `__GLIBCXX_TYPE_INT_N_0` in a GNU mode; the Includes topic: a C read's keys carry the mode, a C++ read takes none;
+the Declarators topic: `typeof` and `typeof_unqual` by the language, the level and the mode, and `asm` the label's
+keyword in a GNU C mode and in C++; the Arguments topic: the last `-std=` wins; the compiler's own headers topic:
+`<float.h>` in C++ by the level alone, C++26's `<cfloat>` C23's, `<stdbool.h>` at C23 -- and what its probes found: the
+topic of the user's file and the headers' macros, the program's feature-test macros and `NDEBUG` at each inclusion of
+`<assert.h>`).
 
 1. C++'S CORE LANGUAGE, WHAT 0.205 LEFT: clang's `TnDa` for a placeholder's argument in a function template's symbol is
    not spelled, which no symbol here needs (the program's functions keep this compiler's names); and a library header's
@@ -10438,12 +10518,11 @@ universal character name; the Debug information topic: a definition a C header m
    is a letter to the lexers, one that no level takes in an identifier included --; `__has_attribute` answers 0 for
    every attribute, `packed` and `aligned` among them, where clang answers 1, since an answer of 1 moves glibc's and
    libc++'s headers onto roads that no gate has read (an enum's `aligned` and GNU's alignment of an expression are done,
-   0.205); an ISO mode (`-std=c17`, `-std=c++17`) predefines `__STRICT_ANSI__` in clang and the GNU modes do not -- it
-   needs the mode in the C store's key and the C++ summaries' keys, since `-std=c23` and `-std=gnu23` read one key now;
-   `decltype(x)` and `alignof(decltype(x))` of an aligned variable keep its alignment, the qualifier `aligned(E)`
-   sitting in its type, where the alignment is the entity's ([dcl.align]); clang's C extension that types a conditional
-   of two incompatible pointers as `void *`, with a warning, is not modelled. (A generic atomic builtin over an object
-   that is no lock-free width calls libatomic, which the link names since 0.208, the driver topic.)
+   0.205); an ISO mode predefines `__STRICT_ANSI__` since 0.214 (the Predefined macros topic); `decltype(x)` and
+   `alignof(decltype(x))` of an aligned variable keep its alignment, the qualifier `aligned(E)` sitting in its type,
+   where the alignment is the entity's ([dcl.align]); clang's C extension that types a conditional of two incompatible
+   pointers as `void *`, with a warning, is not modelled. (A generic atomic builtin over an object that is no lock-free
+   width calls libatomic, which the link names since 0.208, the driver topic.)
 6. libc++'S FACILITIES BY THEIR FEATURE-TEST MACROS, WHAT 0.206 LEFT: done -- a literal in a stringized argument is
    spelled as written since 0.211, its escapes and a raw string's delimiters kept (the Lexers topic), and so are an
    alternative token and a multi-character constant. Done at 0.209: `#x` keeps a space only where white space stood (the
@@ -10458,6 +10537,14 @@ universal character name; the Debug information topic: a definition a C header m
    temporary of a statement is destroyed on unwinding where it was built (the Classes topic).
 8. THE FUNCTIONS A C HEADER DEFINES, which 0.211's probes found: done at 0.212 (the Includes topic), its objects with
    them. Under `-g` it is described in its header since 0.213 (the Debug information topic).
+9. THE ISO MODES AND THE PROGRAM'S CONFIGURATION, WHAT 0.214 LEFT: a feature-test macro defined after the file's first
+   system `#include` configures no header's read; a local header's `__STDC_WANT_*` and `_LIBCPP_*` names are seen where
+   the file uses them, or where `pp_ftm_fixed/1` names them; a header that the program's own header includes reads
+   `NDEBUG` as its table has it, and under `-DNDEBUG` an `#undef NDEBUG` before `<assert.h>` does not undo it. GNU's
+   inline assembly is refused by a syntax error, not by name -- `__asm__("...")` at file scope, `asm` and `__asm__`
+   statements in a block -- where clang assembles it (C17 J.5.10; C++'s asm-declaration is conditionally-supported,
+   [dcl.asm]); the label's bare `asm` is read since 0.214. macOS is not measured: Apple's libc chooses its names by
+   `_ANSI_SOURCE`, `_POSIX_C_SOURCE` and `_DARWIN_C_SOURCE`, and its headers' reads under the ISO modes are no gate's.
 
 ### C++ language
 

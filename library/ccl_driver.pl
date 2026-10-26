@@ -38,6 +38,8 @@ dr_setup(Options, Flags) :-
     ( memberchk(std(Std), Options) -> nb_setval('$ccl_std', Std) ; nb_setval('$ccl_std', 17) ),                                       % -std=c++20: the level libc++ keys on
     ( memberchk(cstd(CStd), Options) -> nb_setval('$ccl_c_std', CStd) ; nb_setval('$ccl_c_std', 17) ),                                 % -std=c23: C's own level, the forms and __STDC_VERSION__
     ( memberchk(trigraphs, Options) -> nb_setval('$ccl_trigraphs', yes) ; nb_setval('$ccl_trigraphs', no) ),                          % -std=c99/c11/c17 (ISO, not gnu) or -trigraphs: phase 1's nine sequences, as clang
+    ( memberchk(iso, Options) -> nb_setval('$ccl_iso', yes) ; nb_setval('$ccl_iso', no) ),                                                % -std=c17, c23, c++20 ... (ISO, not gnu): __STRICT_ANSI__, as clang (0.214)
+    ( memberchk(ftm(FT), Options) -> nb_setval('$pp_ftm', FT) ; nb_setval('$pp_ftm', []) ),                                          % a cold header's process: the program's feature-test macros (0.214, pp_ftm_find/1)
     ( memberchk(no_rtti, Options) -> nb_setval('$ccl_rtti', no) ; nb_setval('$ccl_rtti', yes) ),                                       % -fno-rtti (0.191): libc++'s no-RTTI configuration, the program's typeid refused
     ( memberchk(no_exceptions, Options) -> nb_setval('$ccl_exceptions', no) ; nb_setval('$ccl_exceptions', yes) ),                     % -fno-exceptions (0.193): libc++'s no-exceptions configuration, the program's throw and try refused
     ( memberchk(target(Tg), Options) -> dr_set_target(Tg) ; true ),                % --target=TRIPLE (0.131): another machine's macros, headers, types, ABI, back end and linker

@@ -14266,3 +14266,101 @@ a header's definitions in the unit's file (item 8, 0.212's) -- and 0.212's chain
 Reader 160 (a universal character name in a macro's name is the character it names: a read that names one changes).
 Lowering 122 (under `-g` a definition a C header makes is described in its header's file).
 
+
+## 0.214 — the audit's seventeenth group, the ISO modes: `__STRICT_ANSI__` and a GNU mode's own names, `typeof` and `asm` by the mode, the last `-std=` winning, a C read's keys by the mode and a C++ read by none, C++26's `<cfloat>`; and what its probes found: the program's feature-test macros configure every header's read, `NDEBUG` at each inclusion of `<assert.h>`, `<stdbool.h>` at C23; 0.213's chain
+
+**0.214: the seventeenth group of the audit of C17 to C23 and C++17 to C++26: the ISO modes, which Not done's item 5
+left since 0.206 -- clang predefines `__STRICT_ANSI__` under `-std=c17`, `-std=c23`, `-std=c++20` and kin, and no mode
+here did -- and what its probes found; and 0.213's chain.**
+
+- THE PROBES: clang's `-dM -E` of an empty file under each ISO mode and its GNU form, at every level of both languages,
+  over clang 18 and 21: an ISO mode adds `__STRICT_ANSI__` and takes away `linux` and `unix`, and in C++ g++'s
+  `__GLIBCXX_TYPE_INT_N_0` and `__GLIBCXX_BITSIZE_INT_N_0`; here every mode had the GNU names and none
+  `__STRICT_ANSI__`. In C glibc then declares ISO C's names alone: the macros of 21 C headers number 1571 under
+  `-std=c17` and 1970 under `-std=gnu17`. In C++ nothing else changes: every public header of libc++ 18 and 21 (130 and
+  131) preprocesses to the same text under `-std=c++17` and `-std=gnu++17`, and under `-std=c++26` and `-std=gnu++26`,
+  and their macros differ in the predefined names, clang's `<stdbool.h>`'s GNU `_Bool` and clang 21's `<float.h>` alone.
+  clang takes `typeof` for a name of the program's under `-std=c17` and `-std=c++20`, and `typeof_unqual` in C17 and
+  C++, reads `asm` as `__asm__` in a GNU C mode and in every C++ mode, and its last `-std=` wins.
+- AN ISO MODE PREDEFINES `__STRICT_ANSI__` (the option `iso` of `bin/cicilang`'s ISO forms, `'$ccl_iso'`;
+  `pp_predef('__STRICT_ANSI__', iso, '1')`), and a GNU mode -- every `gnu` form and no `-std` -- `linux` and `unix` on
+  Linux and C++'s two `__GLIBCXX_*` names (the tables `gnu_linux` and `cpp_gnu`, `pp_gnu_table/1`). glibc then defines
+  no `_DEFAULT_SOURCE` in C: `strdup` before C23, `fileno`, `M_PI` and `htobe32` are the program's names to take
+  (`strictansi.c`), and in C++ the `_GNU_SOURCE` that clang++ predefines keeps them (`strictansi.cpp`).
+- A C READ'S KEYS CARRY THE MODE (`ccl_read_level/1`: the level, `t` with trigraphs, `i` in an ISO mode): the unit
+  cache's, the header macros' memo, the store's (`ccl_kb_key/2`) and so the IR cache's signature, and the memo of a C
+  header read preprocessed for its definitions (`ir_hdr_pp_items/2`, 0.212's, which took the level alone). `-std=c23`
+  and `-std=gnu23` read one key.
+- A C++ READ TAKES NO MODE: the summaries' keys carry none, and the library read's warm (`-std=c++NN`, an ISO mode)
+  serves the fixtures of no `-std`. Keyed by the mode, nearly every summary would be read twice: 24 of 26 headers
+  include `<float.h>`. The compiler's own `<float.h>` asked `__STRICT_ANSI__` for C23's names in C++ too (clang's
+  guard), and gave them to every C++ level: in C++ they come by the level alone now, C++26's `<cfloat>` being C23's
+  without the normalized maxima and the conformance (P3348R4: `__STDC_VERSION_FLOAT_H__`, `INFINITY`, `NAN` and the
+  signaling NaNs), C++17's to C++23's C17's, in both modes, as clang 18 and gcc have them (`cfloat26.cpp`, its reference
+  clang++ over the four names defined on its command line; `gnumode.cpp`).
+- `typeof`, `typeof_unqual` AND `asm` BY THE LANGUAGE, THE LEVEL AND THE MODE (`ccl_typeof_word/1`,
+  `ccl_asm_keyword/0`): `typeof` a keyword in C23 and in a GNU mode, a name of the program's under `-std=c17` and
+  `-std=c++20`; `typeof_unqual` C23's alone; `asm` the label's `__asm__` in a GNU C mode and in C++. The first two were
+  keywords everywhere (`int typeof = 1;` refused), and `asm` a name everywhere (`int f(void) asm("g");` a syntax error;
+  `gnumode.c`, `gnumode.cpp`).
+- THE LAST `-std=` WINS, its level and its mode, as clang's (`bin/cicilang`'s `lvl`): the first level stood, and an
+  earlier ISO form's `trigraphs`. The driver gate's new check builds `-std=c17 -std=gnu17` and the reverse, each its own
+  IR in the store (43 checks).
+- WHAT ITS PROBES FOUND, first: `hdrdefs.c` (0.212's), which defines `_DEFAULT_SOURCE` before its includes, met
+  `undeclared(htobe32)` under its `-std=c17`, and `#define _POSIX_C_SOURCE 200809L` gave no `strdup`: a C header's read
+  and its macro table were made standalone, under the predefined macros alone, and no macro the file defines before its
+  includes reached them. THE PROGRAM'S FEATURE-TEST MACROS CONFIGURE EVERY HEADER'S READ now: a name of
+  `pp_ftm_name/1`'s -- glibc's and POSIX's feature-test macros, Apple's, every `__STDC_WANT_*` and `_LIBCPP_*` name --
+  that the file, or a local header it includes, defines or undefines before its first system `#include` is read by every
+  header as a `-D` is (`'$pp_ftm'`, `pp_ftm_state/1`; a header's run asks it first, `pp_outer_macro/3`), folded into
+  every key of a read (`ccl_ftm_tag/1` in `ccl_read_level/1` and `ccl_sum_file/2`), and given to the processes for cold
+  headers (`ftm(L)`). It is found before the read by one run of the file that stops at that include (`pp_ftm_find/1`,
+  `pp_do_include/6` throwing `pp_prologue(State)`), and a file whose lines before it define none of the names and
+  include no local header is not run (`pp_prologue_scan/3`). Probed against clang: `_GNU_SOURCE` and `asprintf`,
+  `_POSIX_C_SOURCE` and `strdup`, a local header that defines `_GNU_SOURCE`, a local header that includes `<string.h>`,
+  each at no `-std` and at `-std=c17`; a C++ build whose `_GNU_SOURCE` differs from the predefined one gives its three
+  cold headers to processes of their own under it, and its summaries are found (`ftmacro.c`).
+- Second: `#define NDEBUG` before `<assert.h>` still asserted, in 0.213 and before it (C17 7.2/1). `<assert.h>` DEFINES
+  `assert` BY `NDEBUG` AS IT STANDS AT EACH INCLUSION now (`pp_assert_include/1`): an inclusion of `<assert.h>` or
+  `<cassert>` in the user's file defines `assert` as `((void)0)` where `NDEBUG` is defined, glibc's `assert_perror` with
+  it, and else as the header's table has it (`ndebug.c`, `ndebug.cpp`: `NDEBUG` defined, then undefined and the header
+  included again).
+- Third: at C23 the compiler's own `<stdbool.h>` made `true` the int 1, where C23's `true` is a keyword of type `bool`
+  (C23 7.18; clang's and gcc's headers define no macro there): `sizeof(true)` was 4. It defines the three before C23
+  alone (`c23bool.c`).
+- FOUND AND LEFT (Not done's item 9): a feature-test macro defined after the file's first system `#include`, a header
+  that the program's own header includes and its `NDEBUG`, `#undef NDEBUG` under `-DNDEBUG`; GNU's inline assembly
+  refused by a syntax error, not by name (`__asm__("...")` at file scope, `asm` and `__asm__` statements); macOS not
+  measured.
+- FIXTURES: 5 C (`strictansi.c` and `ftmacro.c` at `-std=c17`, the second over `ftmacro.h`; `gnumode.c`, `c23bool.c` at
+  `-std=c23`, `ndebug.c`) and 4 C++ (`strictansi.cpp` at `-std=c++20`, `gnumode.cpp`, `cfloat26.cpp` at `-std=c++26`,
+  `ndebug.cpp`), seen to pass over libc++ 18 and 21, their output clang's, and gcc's for C; 0.213 fails each of them but
+  `ftmacro.c`, which it builds in the GNU mode it took for every level. One check of the driver gate, 43 now.
+- THE CHAIN OF 0.213, over its commit (b305538) and fresh HOMEs, on cocolog 2.12.0: over libc++ 18 all nine gates GREEN
+  -- the flow gate 153 s (its one finding), reader 5 s, compile 30 s, driver 22 s, objects 6 s, proof, cross 471 s (175
+  checks), the library read 858 s (the 23 asserted reads whole, 198 other headers warmed), the C++ gate 1677 s, 797 of
+  807 fixtures ok and 10 skipped by their needs --; over libc++ 21 the library read (its phase 736 s) and the C++ gate
+  GREEN in about 1670 s, 805 of 807 ok, 2 skipped (`stdoptionalref.cpp`, `zipadjacent.cpp`). The headers' reads summed
+  3238 s over 221 and 2782 s; the fixtures' builds 5734 s over 797 and 5796 s over 805.
+- COMMITTED BEFORE ITS CHAIN, and it claims nothing GREEN but this, over the worktree and fresh HOMEs, on cocolog
+  2.12.0: over libc++ 18 all nine gates GREEN -- the flow gate 142 s (its one finding), reader 6 s, compile 34 s (148
+  run fixtures and 47 refusals), driver 24 s (43 checks), objects 6 s, proof, cross 447 s (148 C fixtures, 5 ABI checks,
+  24 C++ fixtures and 3 C++ checks for aarch64), the library read 779 s (the 23 asserted reads whole, 203 other headers
+  warmed), the C++ gate 1603 s, 801 of 811 fixtures ok and 10 skipped by their needs --; over libc++ 21 the library read
+  (its phase 667 s) and the C++ gate GREEN in about 1585 s, 809 of 811 ok, 2 skipped (`stdoptionalref.cpp`,
+  `zipadjacent.cpp`). The headers' reads summed 2977 s over 226 over libc++ 18 and 2492 s over 226 over 21; the
+  fixtures' builds 5553 s over 801 and 5623 s over 809. The next commit carries the chain's numbers.
+- `RULES.md`: the Arguments topic (the `-std=` table, the ISO mode, the last `-std=` winning); `ccl_drive/2`'s globals;
+  the predefined macros (the ISO and the GNU tables, the OS's); the topic of the user's file and the headers' macros
+  (the program's feature-test macros, `NDEBUG` at each inclusion); the compiler's own headers (`<float.h>` in C++,
+  `<stdbool.h>` at C23); the Declarators topic (`typeof`, `typeof_unqual`, the asm label's `asm`); the Includes topics
+  (the keys, a C++ read by no mode, the summaries' key, the cold headers' processes); the fixtures' `NAME.std`; the
+  gates' counts; the versions (now 161 and 122); the Hosts (0.213's chain); What runs; Not done (the audit's seventeenth
+  group, items 5 and 9). `CLAUDE.md`: the versions, the fixtures' companion headers. `README.md`: C's default mode and
+  the ISO modes.
+
+Reader 161 (an ISO mode predefines `__STRICT_ANSI__` and a GNU mode `linux` and `unix`; a C read's keys carry the mode,
+and every read's the program's feature-test macros; `typeof`, `typeof_unqual` and `asm` by the language, the level and
+the mode; `assert` by `NDEBUG` at each inclusion: what a read gives changes). Lowering 122, unchanged: an ISO build's IR
+is kept apart through the read's keys, which the IR cache's signature folds.
+

@@ -46,22 +46,29 @@
 #if (defined(__STDC_VERSION__) && __STDC_VERSION__ >= 199901L) || !defined(__STRICT_ANSI__) || (defined(__cplusplus) && __cplusplus >= 201103L)
 #define DECIMAL_DIG __DECIMAL_DIG__
 #endif
-/* C23 5.2.5.3.2 and 5.2.5.3.3 (0.194), under clang's guard: the signaling NaNs and the normalized maxima; the types'
-   conformance to IEC 60559, as gcc's header has it; at C23 the version and INFINITY and NAN, which <math.h> defines too
-   (clang's and gcc's float.h take them away first, so the two spellings meet no redefinition) */
-#if (defined(__STDC_VERSION__) && __STDC_VERSION__ >= 202311L) || !defined(__STRICT_ANSI__)
-#define FLT_SNAN (__builtin_nansf(""))
-#define DBL_SNAN (__builtin_nans(""))
-#define LDBL_SNAN (__builtin_nansl(""))
+/* C23 5.2.5.3.2 and 5.2.5.3.3 (0.194), under clang's guard in C: the signaling NaNs and the normalized maxima; the
+   types' conformance to IEC 60559, as gcc's header has it; at C23 the version and INFINITY and NAN, which <math.h>
+   defines too (clang's and gcc's float.h take them away first, so the two spellings meet no redefinition). C++ takes
+   them by its level alone, never by its mode (0.214: a C++ read is the same under -std=c++20 and -std=gnu++20, and one
+   summary of a library header serves both): C++26's <cfloat> is C23's without the normalized maxima and the
+   conformance (P3348R4), C++17's to C++23's is C17's */
+#if (defined(__STDC_VERSION__) && __STDC_VERSION__ >= 202311L) || (!defined(__STRICT_ANSI__) && !defined(__cplusplus))
 #define FLT_NORM_MAX __FLT_NORM_MAX__
 #define DBL_NORM_MAX __DBL_NORM_MAX__
 #define LDBL_NORM_MAX __LDBL_NORM_MAX__
 #endif
+#if (defined(__STDC_VERSION__) && __STDC_VERSION__ >= 202311L) || (!defined(__STRICT_ANSI__) && !defined(__cplusplus)) || (defined(__cplusplus) && __cplusplus > 202302L)
+#define FLT_SNAN (__builtin_nansf(""))
+#define DBL_SNAN (__builtin_nans(""))
+#define LDBL_SNAN (__builtin_nansl(""))
+#endif
 #if defined(__STDC_VERSION__) && __STDC_VERSION__ >= 202311L
-#define __STDC_VERSION_FLOAT_H__ 202311L
 #define FLT_IS_IEC_60559 1
 #define DBL_IS_IEC_60559 1
 #define LDBL_IS_IEC_60559 1
+#endif
+#if (defined(__STDC_VERSION__) && __STDC_VERSION__ >= 202311L) || (defined(__cplusplus) && __cplusplus > 202302L)
+#define __STDC_VERSION_FLOAT_H__ 202311L
 #undef INFINITY
 #undef NAN
 #define INFINITY (__builtin_inff())

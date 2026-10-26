@@ -197,7 +197,7 @@ ir_hdr_take([C|Cs], Ds, T0, T, R0, R) :- C = c(X, N, K, _, Lib, s(_, _, P)),
 %% (bits/byteswap.h's `#error'); where the preprocessed read has no such definition, the raw one stands
 ir_hdr_resolve(c(_, N, K, I, _, s(Top, raw, _)), I1) :- !, ( ir_hdr_pp_items(Top, Is), ir_hdr_find(K, N, I, Is, I2) -> I1 = I2 ; I1 = I ).
 ir_hdr_resolve(c(_, _, _, I, _, _), I).
-ir_hdr_pp_items(P, Is) :- ccl_c_std(Std), atomic_list_concat(['$ir_hpp:', P, '@', Std], Key),
+ir_hdr_pp_items(P, Is) :- ccl_read_level(Std), atomic_list_concat(['$ir_hpp:', P, '@', Std], Key),   % the read's level and mode (0.214): an ISO mode's header declares other names
     ( nb_current(Key, U) -> true ; ( catch(ccl_pp_parse(P, U, _, _), _, fail) -> true ; U = none ), nb_setval(Key, U) ), U = unit(Is).
 ir_hdr_find(K, N, Raw, Is, I) :- member(I0, Is), ir_hdr_flat(I0, I1), ir_hdr_found(K, N, Raw, I1, I), !.
 ir_hdr_found(fn, N, _, I, I) :- I = function(_, _, _, N, _, _, B), B \== none.

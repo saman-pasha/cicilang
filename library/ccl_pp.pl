@@ -99,6 +99,55 @@ pp_prescan_specs([line(_, A)|Ls], Specs) :-
     pp_prescan_specs(Ls, Specs1).
 pp_prescan_ready([], _).
 pp_prescan_ready([Spec|Specs], Path) :- ( catch(ccl_header_macros_ready(Spec, Path), _, true) -> true ; true ), pp_prescan_ready(Specs, Path).
+%% THE PROGRAM'S FEATURE-TEST MACROS (0.214): a name of pp_ftm_name/1's that the user's file, or a local header it
+%% includes, defines or undefines before its first system #include configures every header's read, as the command
+%% line's -D and -U do (POSIX 2.2.1: a program defines _POSIX_C_SOURCE before any header; glibc's features.h, C's
+%% __STDC_WANT_*, libc++'s _LIBCPP_*). `'$pp_ftm'' holds them, N-def(Params, Codes) or N-undef where they differ from
+%% the predefined macros and the command line's: a header's run asks them first (pp_outer_macro/3), every key of a read
+%% folds them (ccl_read_level/1, ccl_sum_file/2), and the processes for cold headers are given them. A header was read
+%% standalone under the predefined macros alone, so under -std=c17 `#define _POSIX_C_SOURCE 200809L' gave no strdup.
+%% They are found by one run of the file that stops at its first system #include (pp_do_include/6 throws
+%% pp_prologue(State)), or at its end where it has none; a file whose lines before it define none and include no local
+%% header is not run
+pp_ftm_find(Path) :-
+    nb_setval('$pp_ftm', []), pp_source(Path, Lines), pp_prologue_scan(Lines, Locals, Asks),
+    (   Asks == yes
+    ->  pp_prescan_ready(Locals, Path), ( nb_current('$pp_warnings', W0) -> true ; W0 = [] ), nb_setval('$pp_prologue', yes),
+        catch(( ccl_pp_run(Path, yes, _, _) -> pp_ftm_state(St1), E = pp_prologue(St1) ; true ), E, true),
+        nb_setval('$pp_prologue', no), nb_setval('$pp_warnings', W0),
+        ( nonvar(E), E = pp_prologue(St) -> nb_setval('$pp_ftm', St) ; true )
+    ;   true ).
+%% the lines before the first system #include: the local headers they include, and whether one of them is such a header
+%% or defines or undefines a name of pp_ftm_name/1's
+pp_prologue_scan([], [], no).
+pp_prologue_scan([line(_, A)|Ls], Locals, Asks) :-
+    (   pp_directive_line(A, Body), pp_ws(Body, B1), pp_word(B1, W, Rest), atom_codes(D, W)
+    ->  (   ( D == include ; D == include_next ), pp_ws(Rest, R1), pp_inc_name(R1, Spec)
+        ->  ( D == include, Spec = local(_) -> Locals = [Spec|L1], Asks = yes, pp_prologue_scan(Ls, L1, _) ; Locals = [], Asks = no )
+        ;   ( D == define ; D == undef ), pp_ws(Rest, R2), pp_word(R2, W2, _), W2 \== [], atom_codes(N, W2), pp_ftm_name(N)
+        ->  Asks = yes, pp_prologue_scan(Ls, Locals, _)
+        ;   pp_prologue_scan(Ls, Locals, Asks) )
+    ;   pp_import_line(A, _) -> Locals = [], Asks = no
+    ;   pp_prologue_scan(Ls, Locals, Asks) ).
+%% the names a library header asks the program for: glibc's and POSIX's feature-test macros, Apple's, C's old C++ ones
+%% and every __STDC_WANT_* and _LIBCPP_* name. NDEBUG is <assert.h>'s alone, at each inclusion (pp_assert_include/1)
+pp_ftm_name(N) :- pp_ftm_fixed(N), !.
+pp_ftm_name(N) :- atom(N), ( sub_atom(N, 0, _, _, '__STDC_WANT_') ; sub_atom(N, 0, _, _, '_LIBCPP_') ), !.
+pp_ftm_fixed(N) :- member(N, ['_GNU_SOURCE', '_DEFAULT_SOURCE', '_BSD_SOURCE', '_SVID_SOURCE', '_POSIX_SOURCE', '_POSIX_C_SOURCE',
+    '_XOPEN_SOURCE', '_XOPEN_SOURCE_EXTENDED', '_ISOC99_SOURCE', '_ISOC11_SOURCE', '_ISOC2X_SOURCE', '_ISOC23_SOURCE',
+    '_LARGEFILE_SOURCE', '_LARGEFILE64_SOURCE', '_FILE_OFFSET_BITS', '_TIME_BITS', '_ATFILE_SOURCE', '_DYNAMIC_STACK_SIZE_SOURCE',
+    '_REENTRANT', '_THREAD_SAFE', '_FORTIFY_SOURCE', '_DARWIN_C_SOURCE', '_ANSI_SOURCE', '_NONSTD_SOURCE',
+    '__STDC_FORMAT_MACROS', '__STDC_LIMIT_MACROS', '__STDC_CONSTANT_MACROS']).
+%% the state at the stop: each such name the run defined, undefined, or took from a local header's table, where that is
+%% not what the predefined macros and the command line give
+pp_ftm_state(St) :-
+    nb_getval('$pp_names', Ns0), findall(N, ( pp_ftm_fixed(N) ; member(N, Ns0), pp_ftm_name(N) ), Ns1), sort(Ns1, Ns),
+    findall(N-D, ( member(N, Ns), pp_ftm_own(N, D), \+ pp_ftm_base(N, D) ), St).
+pp_ftm_own(N, D) :- pp_key(N, K), nb_getval('$pp_gen', G), ( nb_current(K, V) -> true ; V = none ),
+    (   V = mac(G, Ps, codes(Cs), _) -> D = def(Ps, Cs)
+    ;   V == undef(G) -> D = undef
+    ;   pp_header_macro(N, Ps, Cs) -> D = def(Ps, Cs) ).
+pp_ftm_base(N, D) :- ( pp_cmdline(N, B) -> true ; pp_predef_macro(N, Ps, Cs) -> B = def(Ps, Cs) ; B = undef ), D == B.
 %% A HEADER UNIT'S MACROS ARE THE IMPORTER'S ([module.import]/5; 0.110): `import "h";' and `import <h>;' (and `export
 %% import') make the header's macros visible after the line, as an #include does -- the line itself is passed on for
 %% the reader, which reads the header as the include it amounts to
@@ -158,7 +207,8 @@ pp_defined_(_, G, N) :- ( pp_outer_macro(N, _, _) -> true ; pp_key(N, K), pp_not
 %% name list takes it, as a #define would) or a predefined one (never listed:
 %% a header's table is the header's own)
 pp_outer_macro(N, Ps, Cs) :-                                                       % the predefined first: no header redefines one
-    (   pp_cmdline(N, D) -> ( D = def(Ps, Cs) -> pp_set_macro(N, Ps, Cs) ; pp_header_macro(N, Ps, Cs), pp_define(N, Ps, Cs) )   % THE COMMAND LINE'S FIRST (0.112): `-DN=v' defines N before every file, `-UN' takes away a predefined one (a header may still define it)
+    (   \+ nb_getval('$pp_top', yes), nb_current('$pp_ftm', F), F \== [], memberchk(N-D, F) -> ( D = def(Ps, Cs) -> pp_set_macro(N, Ps, Cs) ; pp_header_macro(N, Ps, Cs), pp_define(N, Ps, Cs) )   % THE PROGRAM'S FEATURE-TEST MACROS (0.214, pp_ftm_find/1) in a header's run, the file's after the command line's
+    ;   pp_cmdline(N, D) -> ( D = def(Ps, Cs) -> pp_set_macro(N, Ps, Cs) ; pp_header_macro(N, Ps, Cs), pp_define(N, Ps, Cs) )   % THE COMMAND LINE'S FIRST (0.112): `-DN=v' defines N before every file, `-UN' takes away a predefined one (a header may still define it)
     ;   pp_predef_macro(N, Ps, Cs) -> pp_set_macro(N, Ps, Cs)
     ;   pp_header_macro(N, Ps, Cs), pp_define(N, Ps, Cs) ).
 %% -D and -U, as clang reads them: `-DN' is N defined as 1, `-DN=v' as v, `-D"F(x)=x+1"' a function-like macro; `-UN'
@@ -185,6 +235,8 @@ pp_predef_macro(N, obj, Cs) :-
     ;   ccl_lang(cpp), \+ nb_current('$ccl_rtti', no), pp_predef(N, cpp_rtti, T) -> true   % RTTI unless -fno-rtti (0.191)
     ;   ccl_lang(cpp), \+ nb_current('$ccl_exceptions', no), pp_predef(N, cpp_eh, T) -> true   % exceptions unless -fno-exceptions (0.193)
     ;   ccl_lang(cpp), pp_os(linux), pp_predef(N, cpp_linux, T) -> true                % C++ on Linux's own (0.194): _GNU_SOURCE
+    ;   nb_current('$ccl_iso', yes), pp_predef(N, iso, T) -> true                         % an ISO mode's own (0.214): __STRICT_ANSI__
+    ;   \+ nb_current('$ccl_iso', yes), pp_gnu_table(Tab), pp_predef(N, Tab, T) -> true    % a GNU mode's own (0.214): linux and unix, C++'s __GLIBCXX_TYPE_INT_N_0
     ;   ccl_lang(cpp), pp_predef(N, cpp, T)
     ;   ccl_lang(c), pp_predef(N, c, T) ),                                            % C's own beyond the levels' (0.117): __SIZEOF_INT128__
     atom_codes(T, Cs).
@@ -196,6 +248,8 @@ pp_target_table(TT) :- pp_os(O), pp_arch(A), atomic_list_concat([O, '_', A], TT)
 %% C's levels, the newest first: what -std=c23 answers where C17's table would
 pp_c_std_table(S, c23) :- S >= 23.
 pp_c_os_table(CTab, OTab) :- pp_os(O), atomic_list_concat([CTab, '_', O], OTab).   % c23_linux, c23_darwin
+pp_gnu_table(Tab) :- pp_os(O), atom_concat(gnu_, O, Tab).   % gnu_linux; gnu_darwin has no row
+pp_gnu_table(cpp_gnu) :- ccl_lang(cpp).
 %% the tables a level sees beyond cpp's (C++17's): the newest first
 pp_std_table(S, cpp26) :- S >= 26.
 pp_std_table(S, cpp23) :- S >= 23.
@@ -762,10 +816,11 @@ pp_do_include(Rest, How, Body, L, Out0, Out) :-
     !,
     ( How == next -> Spec = next(Spec0) ; Spec = Spec0 ),
     pp_current_file(From),
+    ( nb_getval('$pp_top', yes), nb_current('$pp_prologue', yes), pp_spec_system(Spec) -> pp_ftm_state(St), throw(pp_prologue(St)) ; true ),   % the file's first system #include ends pp_ftm_find/1's run (0.214)
     (   ccl_resolve_include(Spec, From, Path)
     ->  (   sub_atom(Path, _, 3, 0, '.pl') -> pp_inc_text(Cmp, Spec, Body, Text), Out0 = [tok(pp, Text, L)|Out]
         ;   nb_getval('$pp_top', yes) -> pp_inc_text(Cmp, Spec, Body, Text), Out0 = [tok(pp, Text, L)|Out],
-                                        (   ccl_header_macros_known(Path, _) -> nb_getval('$pp_hdrs', Hs), nb_setval('$pp_hdrs', [Path|Hs]), nb_getval('$pp_ninc', I0), I1 is I0 + 1, nb_setval('$pp_ninc', I1)
+                                        (   ccl_header_macros_known(Path, _) -> nb_getval('$pp_hdrs', Hs), nb_setval('$pp_hdrs', [Path|Hs]), nb_getval('$pp_ninc', I0), I1 is I0 + 1, nb_setval('$pp_ninc', I1), pp_assert_include(Spec)
                                         ;   Cmp == yes -> nb_getval('$pp_late', Lt), nb_setval('$pp_late', [Spec|Lt])
                                         ;   true )
         ;   nb_getval('$pp_once', O), memberchk(Path, O) -> Out0 = Out
@@ -773,6 +828,17 @@ pp_do_include(Rest, How, Body, L, Out0, Out) :-
     ;   nb_getval('$pp_top', yes) -> pp_inc_text(Cmp, Spec, Body, Text), Out0 = [tok(pp, Text, L)|Out]      % nowhere: the reader says `missing'
     ;   Out0 = Out ).
 pp_do_include(_, _, _, _, Out, Out).
+pp_spec_system(system(_)).
+pp_spec_system(next(_)).
+%% <assert.h> DEFINES assert BY NDEBUG AS IT STANDS AT EACH INCLUSION (C17 7.2/1, [cassert]; 0.214): in the user's file an
+%% #include of <assert.h> or <cassert> defines assert as ((void)0) where NDEBUG is defined, and glibc's assert_perror
+%% with it, else as the header's table has it, which is read with no NDEBUG. The table alone answered, and
+%% `#define NDEBUG' before the include still asserted. An inclusion through another header asks no NDEBUG
+pp_assert_include(system(H)) :- memberchk(H, ['assert.h', cassert]), !,
+    (   pp_defined('NDEBUG') -> atom_codes('((void)0)', Cs), pp_define(assert, [expr], Cs), ( pp_header_macro(assert_perror, _, _) -> pp_define(assert_perror, [errnum], Cs) ; true )
+    ;   pp_header_macro(assert, Ps, Cs) -> pp_define(assert, Ps, Cs), ( pp_header_macro(assert_perror, Ps2, Cs2) -> pp_define(assert_perror, Ps2, Cs2) ; true )
+    ;   true ).
+pp_assert_include(_).
 %% the directive passed on to the reader: as written, or a computed one with the name it resolved to (0.211: the reader
 %% read no name from `#include INC', and the header's declarations were lost with its macros)
 pp_inc_text(no, _, Body, Text) :- !, atom_codes(Text, [35|Body]).
@@ -1193,8 +1259,8 @@ pp_predef('__LONG_MAX__', any, '9223372036854775807L').
 pp_predef('__LONG_WIDTH__', any, '64').
 pp_predef('__LP64__', any, '1').
 pp_predef('__MACH__', darwin, '1').
-pp_predef('__linux__', linux, '1').  pp_predef('__linux', linux, '1').  pp_predef(linux, linux, '1').  pp_predef('__gnu_linux__', linux, '1').
-pp_predef('__unix__', linux, '1').   pp_predef('__unix', linux, '1').   pp_predef(unix, linux, '1').   pp_predef('__ELF__', linux, '1').
+pp_predef('__linux__', linux, '1').  pp_predef('__linux', linux, '1').  pp_predef('__gnu_linux__', linux, '1').
+pp_predef('__unix__', linux, '1').   pp_predef('__unix', linux, '1').   pp_predef('__ELF__', linux, '1').
 pp_predef('__PIE__', linux, '2').    pp_predef('__pie__', linux, '2').
 pp_predef('__MEMORY_SCOPE_CLUSTR', any, '5').
 pp_predef('__MEMORY_SCOPE_DEVICE', any, '1').
@@ -1717,6 +1783,18 @@ pp_predef('__tune_k8__', linux_x86_64, '1').
 %% there, as g++ does, so glibc declares its GNU extensions to C++ (libc++'s condition_variable::wait_until calls
 %% pthread_cond_clockwait, which glibc declares under __USE_GNU)
 pp_predef('_GNU_SOURCE', cpp_linux, '1').
+%% AN ISO MODE PREDEFINES __STRICT_ANSI__ (0.214), as clang does under -std=c17, c23, c++17 ... and not under gnu17, gnu23,
+%% gnu++17 or no -std: glibc then defines no _DEFAULT_SOURCE in C, and declares ISO C's names alone (`strdup' before C23,
+%% `htobe32', `M_PI' are POSIX's and BSD's), where it declared every name in every mode; in C++ the _GNU_SOURCE that clang++
+%% predefines on Linux keeps them
+pp_predef('__STRICT_ANSI__', iso, '1').
+%% ... AND A GNU MODE HAS NAMES OF ITS OWN (0.214), the tables pp_gnu_table/1 names, as clang has them: `linux' and `unix',
+%% the spelling outside the implementation's names, which an ISO mode leaves to the program (Linux only), and in C++ g++'s
+%% `__GLIBCXX_TYPE_INT_N_0', `__int128' as libstdc++'s extended integer type; every mode predefined them
+pp_predef(linux, gnu_linux, '1').
+pp_predef(unix, gnu_linux, '1').
+pp_predef('__GLIBCXX_BITSIZE_INT_N_0', cpp_gnu, '128').
+pp_predef('__GLIBCXX_TYPE_INT_N_0', cpp_gnu, '__int128').
 pp_predef('__DEPRECATED', cpp, '1').
 %% EXCEPTIONS, AS clang++ HAS THEM (0.193, the owner's decision of 0.190): `#if defined(__cpp_exceptions) &&
 %% __cpp_exceptions >= 199711L' decides libc++'s exceptions configuration (_LIBCPP_HAS_NO_EXCEPTIONS in libc++ 18,
@@ -1725,8 +1803,6 @@ pp_predef('__DEPRECATED', cpp, '1').
 %% thrower in its headers' code aborts with a message, as this compiler built it from 0.50 to 0.192. A program's own
 %% `throw', `try' and `catch' run since 0.108.
 pp_predef('__EXCEPTIONS', cpp_eh, '1').
-pp_predef('__GLIBCXX_BITSIZE_INT_N_0', cpp, '128').
-pp_predef('__GLIBCXX_TYPE_INT_N_0', cpp, '__int128').
 pp_predef('__GNUC_GNU_INLINE__', cpp, '1').
 pp_predef('__GNUG__', cpp, '4').
 pp_predef('__GXX_EXPERIMENTAL_CXX0X__', cpp, '1').

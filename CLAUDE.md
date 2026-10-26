@@ -12,8 +12,8 @@ the fixture that gates it, and why. The bullet ends with the version that made t
 edits the rule in `RULES.md`, in its topic, and writes its entry in `HISTORY.md`. Read the topic of `RULES.md` that
 covers the code before the code is changed.
 
-At 0.213 the versions are: the module 0.213 (`ccl_p_version` in `module/cicilang.cicili`, `bin/cicilang --version`),
-the reader 160 (`ccl_reader_version/1`, `library/ccl_syntax.pl`) and the lowering 122 (`ccl_lowering_version/1`,
+At 0.214 the versions are: the module 0.214 (`ccl_p_version` in `module/cicilang.cicili`, `bin/cicilang --version`),
+the reader 161 (`ccl_reader_version/1`, `library/ccl_syntax.pl`) and the lowering 122 (`ccl_lowering_version/1`,
 `library/ccl_ir.pl`).
 
 Build and prove, always in this order (or all of it, `sh test/gates.sh`):
@@ -328,7 +328,7 @@ test/c/inc/                 the -I fixture: uses_box.c over box.h
 test/c/link/                two files linked into one program; the ABI against clang-built code (abi_main.c,
                             abi_helper.c), variadic calls (va_main.c, va_func.c, va.h), the decimal ABI against gcc
 test/c/run/                 C programs built and run: NAME.c, NAME.expect, NAME.std; pp_defs.h, fileconst.h,
-                            ppinclude.h, hdrdefs.h, embed.txt, empty.txt
+                            ppinclude.h, hdrdefs.h, ftmacro.h, embed.txt, empty.txt
 test/c/safe/                C programs the safe part refuses: NAME.c, NAME.expect
 test/cpp/                   the C++ reader's fixtures and the refusals; hidem.cppm for modhidden.cpp
 test/cpp/link/              the C++ ABI checks of the C++ gate and the cross gate: abi_helper.cpp, memptr_helper.cpp and

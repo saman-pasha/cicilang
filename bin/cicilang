@@ -47,7 +47,7 @@ kb_prepare() {                        # one awk for both versions, read for the 
   if [ "$runs" -ge 64 ]; then [ -f "$1/data.bin" ] && "$C" --embed "$1" vacuum > /dev/null 2>&1 < /dev/null; runs=0; fi
   echo "$runs" > "$1.runs"
 }
-inputs=""; opts=""; out=""; opt=""; verbose=""; defs=""; gdbg=""; tgt=""; rtti=""; eh=""
+inputs=""; opts=""; out=""; opt=""; verbose=""; defs=""; gdbg=""; tgt=""; rtti=""; eh=""; lvl=""
 [ "${CICILANG_LANG:-c}" = cpp ] && opts="$opts lang(cpp),"
 need() { [ $# -ge 2 ] || { echo "$me: error: argument to '$1' is missing" >&2; exit 1; }; }
 q() { case $1 in *\'*) printf "'%s'" "$(printf '%s' "$1" | sed "s/'/\\\\'/g")" ;; *) printf "'%s'" "$1" ;; esac; }
@@ -69,18 +69,23 @@ while [ $# -gt 0 ]; do
     -I) need "$@"; shift; opts="$opts include($(q "$1"))," ;;
     -I*) opts="$opts include($(q "${1#-I}"))," ;;
     -l*|-L*|-shared|-Wl,*|-framework|-static|-rdynamic|-fPIC|-pthread|-m*) case "$1" in -framework) need "$@"; opts="$opts link('-framework'),"; shift ;; esac; opts="$opts link($(q "$1"))," ;;
-    -std=c++17|-std=gnu++17|-std=c++1z|-std=gnu++1z) opts="$opts std(17)," ;;   # the language level: C++17 the baseline, then the majors
-    -std=c++20|-std=gnu++20|-std=c++2a|-std=gnu++2a) opts="$opts std(20)," ;;
-    -std=c++23|-std=gnu++23|-std=c++2b|-std=gnu++2b) opts="$opts std(23)," ;;
-    -std=c++26|-std=gnu++26|-std=c++2c|-std=gnu++2c) opts="$opts std(26)," ;;
+    -std=c++17|-std=c++1z) lvl="std(17), iso," ;;   # the language level: C++17 the baseline, then the majors; an ISO mode predefines __STRICT_ANSI__ (0.214)
+    -std=gnu++17|-std=gnu++1z) lvl="std(17)," ;;
+    -std=c++20|-std=c++2a) lvl="std(20), iso," ;;
+    -std=gnu++20|-std=gnu++2a) lvl="std(20)," ;;
+    -std=c++23|-std=c++2b) lvl="std(23), iso," ;;
+    -std=gnu++23|-std=gnu++2b) lvl="std(23)," ;;
+    -std=c++26|-std=c++2c) lvl="std(26), iso," ;;
+    -std=gnu++26|-std=gnu++2c) lvl="std(26)," ;;
     -std=c++*|-std=gnu++*) echo "$me: error: unsupported C++ standard '$1' (C++17 and later)" >&2; exit 1 ;;
-    -std=c23|-std=gnu23|-std=c2x|-std=gnu2x) opts="$opts cstd(23)," ;;          # C's level: C17 the baseline, C23 the forms below
-    -std=c17|-std=c18|-std=iso9899:2017|-std=iso9899:2018) opts="$opts cstd(17), trigraphs," ;;   # the ISO modes read trigraphs, the GNU ones do not (clang's rule)
-    -std=gnu17|-std=gnu18) opts="$opts cstd(17)," ;;
-    -std=c11|-std=iso9899:2011) opts="$opts cstd(11), trigraphs," ;;
-    -std=gnu11) opts="$opts cstd(11)," ;;
-    -std=c99|-std=iso9899:1999) opts="$opts cstd(99), trigraphs," ;;
-    -std=gnu99) opts="$opts cstd(99)," ;;
+    -std=c23|-std=c2x) lvl="cstd(23), iso," ;;          # C's level: C17 the baseline, C23 the forms below
+    -std=gnu23|-std=gnu2x) lvl="cstd(23)," ;;
+    -std=c17|-std=c18|-std=iso9899:2017|-std=iso9899:2018) lvl="cstd(17), trigraphs, iso," ;;   # the ISO modes read trigraphs before C23, the GNU ones do not (clang's rule)
+    -std=gnu17|-std=gnu18) lvl="cstd(17)," ;;
+    -std=c11|-std=iso9899:2011) lvl="cstd(11), trigraphs, iso," ;;
+    -std=gnu11) lvl="cstd(11)," ;;
+    -std=c99|-std=iso9899:1999) lvl="cstd(99), trigraphs, iso," ;;
+    -std=gnu99) lvl="cstd(99)," ;;
     -trigraphs) opts="$opts trigraphs," ;;
     -std=c89|-std=c90|-std=gnu89|-std=gnu90|-std=iso9899:1990) echo "$me: error: unsupported C standard '$1' (C99 and later)" >&2; exit 1 ;;
     -D) need "$@"; shift; opts="$opts define($(q "$1")),"; defs=1 ;;   # a macro on the command line (0.112): it changes what every header reads, so the run keeps no store
@@ -106,6 +111,7 @@ while [ $# -gt 0 ]; do
   shift
 done
 [ -n "$inputs" ] || { echo "$me: error: no input files" >&2; exit 1; }
+[ -n "$lvl" ] && opts="$opts $lvl"   # the last -std wins, as clang: its level and its mode (0.214)
 [ -n "$gdbg" ] && opts="$opts $gdbg"
 [ -n "$rtti" ] && opts="$opts $rtti"
 [ -n "$eh" ] && opts="$opts $eh"
