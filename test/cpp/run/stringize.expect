@@ -1,0 +1,13 @@
+std::vector<int> v{1,2}
+2 + 1 +b 8
+x ,y, z
+1 2 3
+[]
+1 +
+a +
+std::string("a b\t")
+a operator<=>
+a<b>c :: d
+[&](int x) { return x; }
+u8"u" L'w'
+exit 0

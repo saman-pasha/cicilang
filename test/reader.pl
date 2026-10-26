@@ -338,22 +338,25 @@ k83 :- check('pp_defs.h is preprocessed (its false group is not C): #if/#elif/#e
       member(enumerator('PP_ZERO', int(7)), Es), member(enumerator('PP_LINE', int(40)), Es) )).
 
 %% the native lexer (module/cicilang.cicili) against the DCG (ccl_lex//2), on
-%% the corners fixture in both modes and both languages, the real fixtures,
-%% and the SDK's headers: the same tokens, the same rest
-k84 :- check('the native lexer gives the DCG\'s tokens and rest on lexer.c (line/punct, c/cpp), rich.c, cocolog.c, btree_del.c, classes.cpp, cdefs.h, math.h',
+%% the corners fixture in every mode and both languages, the real fixtures,
+%% and the SDK's headers: the same tokens, the same rest; the preprocessor's
+%% marked mode (0.209, ccl_lex_marked//2) its marks of white space too
+k84 :- check('the native lexer gives the DCG\'s tokens and rest on lexer.c (line/punct/punctsp, c/cpp), rich.c, cocolog.c, btree_del.c, classes.cpp, cdefs.h, math.h',
     ( c('lexer.c', Lex), c('rich.c', Rich), c('cocolog.c', Coc), c('run/btree_del.c', Bt), c('../cpp/classes.cpp', Cls),
       lex_same(Lex, line, c), lex_same(Lex, punct, c), lex_same(Lex, line, cpp), lex_same(Lex, punct, cpp),
+      lex_same(Lex, punctsp, c), lex_same(Lex, punctsp, cpp), lex_same(Cls, punctsp, cpp),
       lex_same(Rich, line, c), lex_same(Coc, line, c), lex_same(Bt, line, c), lex_same(Cls, line, cpp),
-      lex_sdk('sys/cdefs.h', line, c), lex_sdk('sys/cdefs.h', punct, c), lex_sdk('math.h', punct, c) )).
+      lex_sdk('sys/cdefs.h', line, c), lex_sdk('sys/cdefs.h', punct, c), lex_sdk('math.h', punct, c), lex_sdk('math.h', punctsp, c) )).
 k85 :- check('and the native lexer is the one the reader runs',
     ( nb_getval('$ccl_lexer', native) )).
 lex_sdk(Name, Mode, Lang) :- ( ccl_include_path(Ds), member(D, Ds), atomic_list_concat([D, '/', Name], F), exists_file(F) -> lex_same(F, Mode, Lang) ; true ).
 lex_same(File, Mode, Lang) :-
     nb_getval('$ccl_hash', M0), nb_getval('$ccl_lang', L0),
-    nb_setval('$ccl_hash', Mode), nb_setval('$ccl_lang', Lang),
-    read_file_to_codes(File, Cs), phrase(ccl_lex(1, T1), Cs, R1), atom_codes(A, Cs), ccl_lex_native(A, 1, Mode, Lang, T2, R2),
+    ( Mode == punctsp -> H = punct, G = ccl_lex_marked(1, T1) ; H = Mode, G = ccl_lex(1, T1) ),
+    nb_setval('$ccl_hash', H), nb_setval('$ccl_lang', Lang),
+    read_file_to_codes(File, Cs), phrase(G, Cs, R1), atom_codes(A, Cs), ccl_lex_native(A, 1, Mode, Lang, T2, R2),
     nb_setval('$ccl_hash', M0), nb_setval('$ccl_lang', L0),
-    T1 == T2, R1 == R2, T1 = [_|_].
+    T1 == T2, R1 == R2, T1 = [_|_], ( Mode == punctsp -> memberchk(h(_, ['$sp']), T1), memberchk(tok(_, _, _), T1) ; true ).
 
 k87 :- check('C23 (-std=c23): constexpr a constant that folds, enum : unsigned char, [[maybe_unused]], typeof, static_assert with and without a message, _Static_assert',
     ( unit_c('run/c23.c', 23, unit(Is)),

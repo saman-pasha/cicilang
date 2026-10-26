@@ -13953,3 +13953,72 @@ Reader 156, unchanged: no grammar and no AST change. Lowering 120 (a compound as
 compare-exchange of any type through temporaries; an atomic pointer atomic, its addition one `atomicrmw` over an i64;
 an address constant a symbol and a byte offset; a braced argument to a reference to an array of objects a temporary
 array of them; a parameter naming a given and a deduced template parameter deduced).
+
+## 0.209 — the audit's twelfth group: `#x` keeps a space only where white space stood, an empty expansion's and argument's white space passed on, a variadic argument's commas as written, `#__VA_OPT__`; a literal in a stringized argument escaped once; 0.208's chain
+
+**0.209: the twelfth group of the audit of C17 to C23 and C++17 to C++26: what 0.208 left in Not done item 6, the white
+space of a stringized argument, and what its probes found. Each fixture prints clang's and gcc's output, which agree on
+every case a fixture holds, or clang++'s over libc++ 18 and 21. And 0.208's chain.**
+
+- `#x` KEEPS A SPACE ONLY WHERE WHITE SPACE STOOD between two tokens of its argument, none before the first or after the
+  last (C17 6.10.3.2/2, [cpp.stringize]/2; `pp_stringize/2` over `pp_spell_marked/2`). It spelled a space between every
+  two tokens (`pp_spell_all/2`): `S(a+b)` was `"a + b"`, `S(f(1,2))` `"f ( 1 , 2 )"`, and an `assert`'s message so. THE
+  TOKENS CARRY THE MARK: the preprocessor's text lines and macro bodies are lexed in a marked mode of both lexers
+  (`ccl_lex_atom_marked/4`, the DCG's `ccl_lex_marked//2`, the native mode `punctsp`), where each token that layout
+  precedes, and the text's first, is `h(T, ['$sp'])` -- the stream's own form, the mark at the hide set's head, a name
+  no macro has, so every road of the stream that unwraps an element reads it as before; a macro body's token holds its
+  mark in its line, 1 or 0, which a body's tokens never used (`pp_lex_mbody/2`: `pp_wrap/6` gives every token of an
+  expansion the invocation's line). Reader `k84` compares the two lexers in the marked mode too.
+- THE RULES ARE THE REFERENCE COMPILERS' (`pp_wrap/6`, `pp_push/4`, `pp_reline_marks/3`, `pp_expand_marked/2` and
+  `pp_toks/6`'s mode `marks`, the substitution's `spmark`), which agree on every case of the probes but one: an
+  expansion's first token takes the white space before the macro's name, each other its own; an argument's first token
+  the white space before its parameter, each other its own, through the argument's expansion too; an expansion of
+  nothing passes the name's to the token after it (`a E+b` with `E` empty is `"a +b"`), an empty argument its
+  parameter's (`G(a,)` over `S(x y+)` is `"a +"`), past the end of the body too (`XS(G5()+b)` over `G5(x)` as `a x` is
+  `"a +b"`), and an empty `__VA_OPT__` its own (`S([a __VA_OPT__(__VA_ARGS__)])` of `1` is `"[1 ]"`); a `__VA_OPT__`
+  group's first token takes the white space before `__VA_OPT__` or keeps its own -- clang's rule, where gcc gives it the
+  former alone, the one case they differ. A VARIADIC ARGUMENT'S COMMAS ARE THE INVOCATION'S (`pp_args/10` keeps the
+  separators apart, `pp_join_commas/3` joins by them): each was a comma of no white space, `SV(a ,b)` `"a,b"` where both
+  compilers spell `"a ,b"`.
+- C++20'S AND C23'S `#__VA_OPT__(...)`: the group substituted and pasted, then stringized, `""` where the variadic
+  arguments have no token. It was a `#` and the group's tokens.
+- A LITERAL IN A STRINGIZED ARGUMENT WAS ESCAPED TWICE, the probes' finding: `pp_stringize/2` escaped the spelling that
+  `pp_spell/2` had escaped, and `S("x y")` printed `\"x y\"`, where both compilers print `"x y"` -- a string token holds
+  its value, and the value of the stringized literal is the argument's spelling. And `pp_spell/2` left a tab, a
+  character constant's quote and every other control character raw: `S("a\tb")` held a tab. ONE ESCAPER SPELLS EVERY
+  LITERAL (`pp_escape/4`): `#x`, `##`, a directive's text and `-E`, whose own (`ccl_pp_spell_str/3`) it replaces -- the
+  literal's quote and `\` escaped, the named escapes `\n \t \r \a \b \f \v`, `\0` where no octal digit follows, three
+  octal digits for another control character, and past ASCII a narrow literal's bytes as they are and a wide one's code
+  point in UTF-8, or for `-E`'s file `\NNN` below 256 and `\u{...}` above, as before. A literal is spelled from its
+  value, so `"\x41"` is `"A"`, where clang keeps the spelling (Not done item 6).
+- MEASURED: a cold read of `<map>` with `<string>` and one of `<format>` at C++20 took 27 s and 28 s with 0.208's
+  library, 28 s and 27 s with this one (fresh HOMEs, one after the other); the library read's reads summed 7.6 % more
+  over libc++ 18 and 1.7 % more over 21 than in 0.208's chain (below), which the next chain measures again. The case
+  where the reference compilers differ gives clang's answer here (`VO(1, 2)` over `S(a+__VA_OPT__( x))`, `"1+ x"`; a
+  probe, no fixture).
+- FIXTURES: 4 C (`stringize.c`, `stringize2.c`; `stringizeva.c` and `stringizevo.c` at C23) and 1 C++ (`stringize.cpp`,
+  C++20), each seen to pass, the C++ one over libc++ 18 and 21, the C ones on aarch64 under qemu too (the cross gate).
+- THE CHAIN OF 0.208, over its commit (b9c1d9c) and fresh HOMEs, on cocolog 2.12.0: over libc++ 18 all nine gates GREEN
+  -- the flow gate 135 s (its one finding), reader 4 s, compile 25 s, driver 19 s, objects 5 s, proof, cross 384 s, the
+  library read 674 s (the 23 asserted reads whole, 198 other headers warmed), the C++ gate 1495 s, 793 of 803 fixtures
+  ok and 10 skipped by their needs --; over libc++ 21 the library read 591 s and the C++ gate GREEN in about 1520 s, 801
+  of 803 ok, 2 skipped (`stdoptionalref.cpp`, `zipadjacent.cpp`). The headers' reads summed 2515 s over 221 and 2205 s;
+  the fixtures' builds 5151 s over 793 and 5241 s over 801. cocolog 2.12.0 mends 0.208's finding, `sub_atom/5`'s
+  quadratic seek: 0.001 s over 100 KB, 0.009 s over 1 MB.
+- COMMITTED BEFORE ITS CHAIN, and it claims nothing GREEN but this, over the worktree and fresh HOMEs, on cocolog
+  2.12.0: over libc++ 18 all nine gates GREEN -- the flow gate 137 s (its one finding), reader 5 s, compile 25 s (135
+  run fixtures and 47 refusals), driver 20 s (41 checks), objects 5 s, proof, cross 402 s (135 C fixtures, 5 ABI checks,
+  24 C++ fixtures and 3 C++ checks for aarch64), the library read 713 s (the 23 asserted reads whole, 198 other headers
+  warmed), the C++ gate 1427 s, 794 of 804 fixtures ok and 10 skipped by their needs --; over libc++ 21 the library read
+  602 s and the C++ gate GREEN in about 1460 s, 802 of 804 ok, 2 skipped (`stdoptionalref.cpp`, `zipadjacent.cpp`). The
+  headers' reads summed 2705 s over 221 over libc++ 18 (2515 s in 0.208's chain: the next chain measures it again) and
+  2243 s over 21 (2205 s); the fixtures' builds 5142 s over 794 and 5300 s over 802. The next commit carries the chain's
+  numbers.
+- `RULES.md`: the lexers (the marked mode, `k84`); the preprocessor (the white space of `#x`, the escaper, `-E`'s
+  literals, `pp_toks/6` and `pp_wrap/6`); the C gates' count; the C++ gate's count; the Findings (cocolog 2.12.0's
+  `sub_atom/5`); the Hosts (0.208's chain); What runs; Not done (item 6, the audit's twelfth group). `CLAUDE.md`: the
+  versions.
+
+Reader 157 (a stringized argument keeps a space only where white space stood, and `#__VA_OPT__` is stringized: a string
+that a header's body stringizes changes). Lowering 120, unchanged: no change to what the check and the lowering emit for
+a tree, and the reader's bump starts the store afresh.

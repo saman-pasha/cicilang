@@ -261,7 +261,7 @@
   ;; ccl_version(-Atom): THE VERSION. Every commit raises it (owner's rule),
   ;; one number per change; `cicili --version' prints it with LLVM's.
   (func ccl_p_version ((coco_engine * e) (size_t g)) (out int)
-        (return (coco_m_unify_atom e (coco_m_arg e g 0) "0.208")))
+        (return (coco_m_unify_atom e (coco_m_arg e g 0) "0.209")))
 
   ;; ccl_cocolog_version(-Atom): the engine's own version text, from the
   ;; running binary (coco_version_text is cocolog's, resolved at load like
@@ -289,7 +289,7 @@
   (struct ccl_lx
     (member coco_engine * e) (member coco_machine * m)
     (member const char * s) (member size_t n) (member size_t i) (member i64 line)
-    (member int punct) (member int cpp)
+    (member int punct) (member int cpp) (member int marks)
     (member size_t * toks) (member size_t ntoks) (member size_t cap)
     (member char * buf) (member size_t bn) (member size_t bcap) (member int oom)
     (member size_t k_id) (member size_t k_kw) (member size_t k_int) (member size_t k_float) (member size_t k_floatf) (member size_t k_floatl) (member size_t k_floatudl) (member size_t k_dec32) (member size_t k_dec64) (member size_t k_dec128) (member int fsfx) (member size_t k_str)
@@ -297,7 +297,7 @@
     (member size_t k_imag) (member size_t k_imagf) (member size_t k_imagl) (member size_t k_imagi) (member size_t k_imagui) (member size_t k_imagli) (member size_t k_imaguli) (member size_t k_imaglli) (member size_t k_imagulli) (member int imag)
     (member size_t k_wstr) (member size_t k_u16str) (member size_t k_u32str) (member size_t k_wchr) (member size_t k_u16chr) (member size_t k_u32chr)
     (member size_t k_u8str) (member size_t k_u8chr)
-    (member size_t k_chr) (member size_t k_p) (member size_t k_pp) (member size_t k_cocolog) (member size_t k_num))
+    (member size_t k_chr) (member size_t k_p) (member size_t k_pp) (member size_t k_cocolog) (member size_t k_num) (member size_t l_sp))
 
   ;; the code at i, -1 past the end
   (static) (func ccl_lx_at ((ccl_lx * x) (size_t i)) (out int)
@@ -349,6 +349,13 @@
           (set (nth 1 args) v)
           (set (nth 2 args) (coco_m_new_int (-> x e) line))
           (ccl_lx_push x (coco_make (-> x m) "tok" 3 args))))
+  ;; the token at nt wrapped h(T, ['$sp']), the list the call's one (mode `punctsp', 0.209)
+  (static) (func ccl_lx_mark ((ccl_lx * x) (size_t nt))
+        (let ((size_t args [2]))
+          (if (or (-> x oom) (<= (-> x ntoks) nt)) (return))
+          (set (nth 0 args) (nth nt (-> x toks)))
+          (set (nth 1 args) (-> x l_sp))
+          (set (nth nt (-> x toks)) (coco_make (-> x m) "h" 2 args))))
   (static) (func ccl_lx_putc ((ccl_lx * x) (int c))
         (if (or (-> x oom) (and (>= (+ (-> x bn) 2) (-> x bcap)) (not (ccl_lx_grow_buf x)))) (return))
         (set (nth (-> x bn) (-> x buf)) (cast char c))
@@ -1022,7 +1029,7 @@
   (func ccl_p_lex_native ((coco_engine * e) (size_t g)) (out int)
         (let ((ccl_lx * x . #'(cast (ccl_lx *) (malloc (sizeof ccl_lx))))
               (i64 line0 . 0) (const char * mode . nil) (const char * lang . nil)
-              (size_t toks . 0) (size_t rest . 0) (int oom . 0))
+              (size_t toks . 0) (size_t rest . 0) (int oom . 0) (size_t at . 0) (size_t nt . 0) (int sp . 0) (size_t sp1 [1]))
           (if (== x nil) (return (coco_m_resource_error e "memory")))
           (if (not (coco_m_is_atom e (coco_m_arg e g 0)))
               (block (free x) (return (coco_m_type_error e "atom" (coco_m_arg e g 0)))))
@@ -1035,7 +1042,10 @@
           (set (-> x i) 0)
           (set (-> x line) line0)
           (set mode (coco_m_atom e (coco_m_arg e g 2)))
-          (set (-> x punct) (? (and (!= mode nil) (== 0 (strcmp mode "punct"))) 1 0))
+          ;; mode `punctsp' (0.209): punct's, each token that layout precedes, and the text's first, wrapped `h(T, ['$sp'])', the
+          ;; preprocessor's stream form -- the white space a stringized argument keeps (C17 6.10.3.2/2); the DCG's ccl_lex_m//3
+          (set (-> x punct) (? (and (!= mode nil) (or (== 0 (strcmp mode "punct")) (== 0 (strcmp mode "punctsp")))) 1 0))
+          (set (-> x marks) (? (and (!= mode nil) (== 0 (strcmp mode "punctsp"))) 1 0))
           (set lang (coco_m_atom e (coco_m_arg e g 3)))
           (set (-> x cpp) (? (and (!= lang nil) (== 0 (strcmp lang "cpp"))) 1 0))
           (set (-> x oom) 0)
@@ -1091,11 +1101,18 @@
           (set (-> x k_pp) (coco_m_new_atom e "pp"))
           (set (-> x k_cocolog) (coco_m_new_atom e "cocolog"))
           (set (-> x k_num) (coco_m_new_atom e "num"))
+          (set (nth 0 sp1) (coco_m_new_atom e "$sp"))
+          (set (-> x l_sp) (coco_m_list e sp1 1))
           (ccl_lx_layout x)
+          (set sp 1)
           (while (< (-> x i) (-> x n))
+            (set nt (-> x ntoks))
             (if (not (ccl_lx_token x)) break)
             (if (-> x oom) break)
-            (ccl_lx_layout x))
+            (if (and (-> x marks) sp) (ccl_lx_mark x nt))
+            (set at (-> x i))
+            (ccl_lx_layout x)
+            (set sp (? (> (-> x i) at) 1 0)))
           (if (not (-> x oom)) (set toks (coco_m_list e (-> x toks) (-> x ntoks))))
           ;; the rest in the run's text units, as atom_codes/2 gives the text's codes and the DCG reads them (0.196): a token's
           ;; body is its bytes, but past ASCII the rest's codes are its characters, which ccl_line_of/3 finds in the file's

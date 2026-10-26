@@ -1,0 +1,26 @@
+a +b
+a +b
+a
+a
+a +b
++x
++ x
+<q>
+< q>
+a c
+a +
+a +b
+a ,b
+a, b
+a,b
+a , b
++ xy
++y
+"a b"
+
+ab
+a b
+a b
+a b
+"a\tb" '\n' '\'' "\\" "q\"" "\0" '\r' "it's"
+exit 0
