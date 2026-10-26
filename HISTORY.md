@@ -14227,3 +14227,42 @@ unit's own). And 0.211's chain.**
 
 Reader 159, unchanged. Lowering 121 (the definitions a C header makes are the unit's: what a C unit emits changes).
 
+
+## 0.213 — the audit's sixteenth group, two of the small ones: a macro's name spelled with a universal character name; a definition a C header makes described in its header under `-g`; 0.212's chain
+
+**0.213: the sixteenth group of the audit of C17 to C23 and C++17 to C++26: two of the small limits that Not done listed
+-- the preprocessor's word reader took no universal character name (Not done's item 5, since 0.196), and `-g` described
+a header's definitions in the unit's file (item 8, 0.212's) -- and 0.212's chain.**
+
+- A UNIVERSAL CHARACTER NAME IN A MACRO'S NAME is the character it names (C17 6.4.3 and 6.4.2.1, as the lexers read one
+  in an identifier since 0.196; `pp_word/3` over `ccl_ucn//1`): `#define caf\u00e9 3` is the macro `café`, in `#ifdef`,
+  `#ifndef`, `#undef` and a parameter's name alike. The word reader stopped at the `\`: the macro was `caf`, a parameter
+  `x\u00e9` was `x` and its uses `undeclared('xé')`. `ucnmacro.c` (clang's and gcc's output; 0.212 refuses it).
+- A DEFINITION A C HEADER MAKES IS DESCRIBED IN ITS HEADER under `-g` (`ir_dbg_def_file/2` over `'$ir_hfile'/2`, which
+  `ir_header_defs/2` notes; `ir_dbg_hfile/2`, a `DIFile` made once a header): its subprogram, its lexical blocks, its
+  variables and its static locals (`'$ir_dbg_file'`), and a header's object, at the header's line; they named the unit's
+  file at the header's line. The path's split into its directory and its name is written once (`ir_dbg_dir_base/3`, the
+  unit's own file's too). The driver gate reads it back with `llvm-dwarfdump`: a function and an object of `dbgh.h` name
+  `dbgh.h` (2; 0.212 gives 0). A C++ program's own header's functions name the unit's file still.
+- FIXTURES: 1 C (`ucnmacro.c`), seen to pass, and one check of the driver gate, 42 now.
+- THE CHAIN OF 0.212, over its commit (4babe69) and fresh HOMEs, on cocolog 2.12.0: over libc++ 18 all nine gates GREEN
+  -- the flow gate 157 s (its one finding), reader 6 s, compile 32 s, driver 23 s, objects 6 s, proof, cross 457 s (174
+  checks), the library read 834 s (the 23 asserted reads whole, 198 other headers warmed), the C++ gate 1623 s, 797 of
+  807 fixtures ok and 10 skipped by their needs --; over libc++ 21 the library read (its phase 680 s) and the C++ gate
+  GREEN in about 1725 s, 805 of 807 ok, 2 skipped (`stdoptionalref.cpp`, `zipadjacent.cpp`). The headers' reads summed
+  3173 s over 221 and 2565 s; the fixtures' builds 5582 s over 797 and 5887 s over 805.
+- COMMITTED BEFORE ITS CHAIN, and it claims nothing GREEN but this, over the worktree and fresh HOMEs, on cocolog
+  2.12.0: over libc++ 18 all nine gates GREEN -- the flow gate 149 s (its one finding), reader 5 s, compile 30 s (143
+  run fixtures and 47 refusals), driver 21 s (42 checks), objects 6 s, proof, cross 433 s (143 C fixtures, 5 ABI checks,
+  24 C++ fixtures and 3 C++ checks for aarch64), the library read 783 s (the 23 asserted reads whole, 198 other headers
+  warmed), the C++ gate 1549 s, 797 of 807 fixtures ok and 10 skipped by their needs --; over libc++ 21 the library read
+  (its phase 686 s) and the C++ gate GREEN in about 1555 s, 805 of 807 ok, 2 skipped (`stdoptionalref.cpp`,
+  `zipadjacent.cpp`). The headers' reads summed 3007 s over 221 over libc++ 18 and 2588 s over 21; the fixtures' builds
+  5557 s over 797 and 5669 s over 805. The next commit carries the chain's numbers.
+- `RULES.md`: the Lexers topic (a macro's name with a universal character name); the Debug information topic (a header's
+  definition in its header); the driver gate's count; the C gates' count; the versions (now 160 and 122); the Hosts
+  (0.212's chain); What runs; Not done (the audit's sixteenth group, items 5 and 8). `CLAUDE.md`: the versions.
+
+Reader 160 (a universal character name in a macro's name is the character it names: a read that names one changes).
+Lowering 122 (under `-g` a definition a C header makes is described in its header's file).
+

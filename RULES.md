@@ -160,8 +160,8 @@ that changes a rule edits the rule here, in its topic, and writes its entry in `
 - The compile gate. `test/compile.pl`, one process over the user's store, reads, checks, lowers, compiles at `-O1` and
   links every `test/c/run/*.c` at its `NAME.std` level (`c_level`). It expects every `test/c/safe/*.c` refused.
   `test/compile.sh` runs each binary as `NAME arg1 arg2` against `NAME.expect`, and compares each refusal with
-  `safe/NAME.expect`. There are 142 run and 47 safe fixtures at 0.212. (M2, M3, 0.57)
-- The driver gate. `test/driver.sh` makes 41 checks of `bin/cicilang` over the user's store (the two decimal checks are
+  `safe/NAME.expect`. There are 143 run and 47 safe fixtures at 0.213. (M2, M3, 0.57)
+- The driver gate. `test/driver.sh` makes 42 checks of `bin/cicilang` over the user's store (the two decimal checks are
   skipped where no gcc with decimal floating types is installed), the variadic calls of every kind both ways against
   clang among them (`test/c/link/va_*.c`, 0.131), and Apple's arm64 expansion of `va_arg` of an aggregate against
   clang's, both retargeted to this host (`test/c/link/va_darwin.c`, 0.160). They cover what `-o`, `-c`, `-S`,
@@ -749,14 +749,16 @@ that changes a rule edits the rule here, in its topic, and writes its entry in `
 - `$` IS A LETTER of a name in both lexers and in a macro's name (`ccl_alpha/1`, `ccl_lx_alpha`, `pp_word/3`; C17
   6.4.2.1/3's implementation-defined characters, as clang and gcc take it in both languages; 0.210): `int a$b`, `#define
   M$ 3`, `$lead(1)`. It was a lexical error. `test/c/run/dollar.c`; reader `k84` over `test/c/lexer.c`. (0.210)
-- AN IDENTIFIER PAST ASCII (C23 6.4.2.1, C++23 [lex.name]; 0.196): a letter, `_`, a digit after the first, a character past
-  ASCII -- the bytes of its UTF-8 to the native lexer -- and a universal character name past ASCII, `caf\u00e9` the
+- AN IDENTIFIER PAST ASCII (C23 6.4.2.1, C++23 [lex.name]; 0.196): a letter, `_`, a digit after the first, a character
+  past ASCII -- the bytes of its UTF-8 to the native lexer -- and a universal character name past ASCII, `caf\u00e9` the
   identifier `café`, its UTF-8 in the atom (`ccl_word//2`, `ccl_id_first//2`, `ccl_id_more//1`, `ccl_ucn_codes/3`;
   natively `ccl_lx_alpha`, `ccl_lx_id_ucn`, `ccl_lx_word`); the preprocessor reads a macro's name past ASCII too
-  (`pp_word/3`), never one spelled with a universal character name. XID_Start and XID_Continue are not told apart, as no
-  valid program needs them told. They were ASCII alone, and `int café = 3;` was a lexical error where clang reads it in
-  C17 and C++17 too. A symbol past ASCII is spelled quoted (the Lowering's topic) and the mangler counts bytes (the
-  Itanium mangler's topic). `test/c/run/identutf8.c`, `test/cpp/run/identutf8.cpp`. (0.196)
+  (`pp_word/3`), and one spelled with a universal character name since 0.213 (`pp_word/3` over `ccl_ucn//1`: `#define
+  caf\u00e9 3` is the macro `café`, in `#ifdef`, `#ifndef`, `#undef` and a parameter's name alike; it named `caf`,
+  `test/c/run/ucnmacro.c`). XID_Start and XID_Continue are not told apart, as no valid program needs them told. They
+  were ASCII alone, and `int café = 3;` was a lexical error where clang reads it in C17 and C++17 too. A symbol past
+  ASCII is spelled quoted (the Lowering's topic) and the mangler counts bytes (the Itanium mangler's topic).
+  `test/c/run/identutf8.c`, `test/cpp/run/identutf8.cpp`. (0.196, 0.213)
 - THE DIGRAPHS ([lex.digraph], C 6.4.6/3; 0.201): `<:`, `:>`, `<%`, `%>`, `%:` and `%:%:` are `[`, `]`, `{`, `}`, `#`
   and `##` in both lexers and both languages (`ccl_punct//1`'s first clauses, `ccl_token//3` for `%:` and `%:%:`;
   natively `ccl_lx_dg`, `ccl_lx_dgp` and the first branch of `ccl_lx_token`), and a line that begins with `%:` is a
@@ -2369,14 +2371,14 @@ that changes a rule edits the rule here, in its topic, and writes its entry in `
 
 ### The versions
 
-- `ccl_reader_version/1` (`library/ccl_syntax.pl`, now 159): bump it for any grammar change to what a read gives, and
+- `ccl_reader_version/1` (`library/ccl_syntax.pl`, now 160): bump it for any grammar change to what a read gives, and
   for any change to what the AST beside a summary holds (item or member terms, `cpp_index_name/2`,
   `cpp_template_name/2`, `ccl_flat_items/3`, the namespace keys). Keep the reason in its comment. Why: the store and the
   summaries are keyed by it, and a stale read is served silently (`sizeof(std::string)` read 40). (M1, 0.89, 0.112,
   0.117)
 - A reader bump makes every summary cold; `test/libcxx.sh` rewrites them. `test/reader.pl`'s `k16` (a cached read is
   the same AST as a fresh one) goes RED on a grammar change without a bump. (0.93, 0.105)
-- `ccl_lowering_version/1` (`library/ccl_ir.pl`, now 121): bump it whenever the check or the lowering changes what it
+- `ccl_lowering_version/1` (`library/ccl_ir.pl`, now 122): bump it whenever the check or the lowering changes what it
   emits, however small -- 0.120 bumped it for the ORDER of the drain functions alone. Why: `dr_ir/3` serves the old IR
   otherwise. Either bump starts the C store afresh. (M4, 0.103, 0.120)
 
@@ -8553,6 +8555,11 @@ A lambda is a class of its captures (`library/ccl_cpp.pl`). A fixture named alon
   is left without one. A location is made once per line, column, scope and function (`'$ir_dbg_locs'`, `at(Line, Column,
   Scope, Ref)`). A declaration sets the line too (`ir_stmt(declaration(L, ...))`): its initializer's calls are its own.
   (0.128, 0.161)
+- A DEFINITION A C HEADER MAKES IS DESCRIBED IN ITS HEADER (0.213; `ir_dbg_def_file/2` over `'$ir_hfile'/2`, which
+  `ir_header_defs/2` notes): its subprogram, its lexical blocks, its variables and its static locals name a `DIFile` of
+  the header (`ir_dbg_hfile/2`, made once a header, `'$ir_dbg_hfiles'`; `'$ir_dbg_file'` the current function's), and so
+  does a header's object, at the header's line; they named the unit's file at the header's line. The driver gate's check
+  reads it back with `llvm-dwarfdump`. A C++ program's own header's functions name the unit's file still. (0.213)
 - A STATEMENT'S COLUMN (0.161): every instruction of a statement has the column where the statement begins on its line,
   the one clang gives its first instruction or its last: a declaration's at its first declared NAME (the store, and the
   variable's `llvm.dbg.declare` at its name's column: a parameter's on the function's line), a call statement's at its
@@ -9604,16 +9611,16 @@ A lambda is a class of its captures (`library/ccl_cpp.pl`). A fixture named alon
 - Ubuntu 24.04 on x86_64 (clang and LLVM 18, glibc, libc++ 18 and 21) is a host since 0.87. Every gate but the C++ one
   is GREEN there since 0.93, and all seven since 0.95. Every step from 0.93 on is gated there, but the save points
   0.112, 0.113, 0.117, 0.122 to 0.125, 0.130, 0.131 and 0.143 (0.143's C gates and cross gate ran, its libc++ gates did
-  not; the others were gated by the steps after them). The last full run is 0.211's, over cocolog 2.12.0 (the Findings),
-  on one tree, over fresh HOMEs: over libc++ 18 all nine GREEN (the flow gate's one finding in 179 s, reader 6 s,
-  compile 33 s, driver 23 s, objects 7 s, proof, the cross gate in 490 s with its C++ part for aarch64, the library read
-  in 819 s (198 other headers warmed), the C++ gate in 1689 s with 797 of 807 fixtures ok, the skips are `atomicref`,
+  not; the others were gated by the steps after them). The last full run is 0.212's, over cocolog 2.12.0 (the Findings),
+  on one tree, over fresh HOMEs: over libc++ 18 all nine GREEN (the flow gate's one finding in 157 s, reader 6 s,
+  compile 32 s, driver 23 s, objects 6 s, proof, the cross gate in 457 s with its C++ part for aarch64, the library read
+  in 834 s (198 other headers warmed), the C++ gate in 1623 s with 797 of 807 fixtures ok, the skips are `atomicref`,
   `atomicrefalign`, `ftm23b`, `ftm26b`, `joinwith`, `stdflatmap`, `stdoptionalref`, `tzone`, `vbaseof` and
   `zipadjacent`, the two units, the 29 refusals, the four of the safe part and the four static assertions); over libc++
-  21 the library read (the phase 695 s) and the C++ gate (about 1675 s, 805 of 807 ok, the skips `stdoptionalref` and
-  `zipadjacent`) GREEN -- the C gates do not read libc++. The headers' reads, summed, took 3088 s over 221 over libc++
-  18 and 2617 s over 21; the fixtures' builds 5808 s over 797 and 5742 s over 805. The chains of 0.165 to 0.203 and of
-  0.205 to 0.211 are in HISTORY.md, 0.166 to 0.204 and 0.206 to 0.212. Two libc++ passes are one gate:
+  21 the library read (the phase 680 s) and the C++ gate (about 1725 s, 805 of 807 ok, the skips `stdoptionalref` and
+  `zipadjacent`) GREEN -- the C gates do not read libc++. The headers' reads, summed, took 3173 s over 221 over libc++
+  18 and 2565 s over 21; the fixtures' builds 5582 s over 797 and 5887 s over 805. The chains of 0.165 to 0.203 and of
+  0.205 to 0.212 are in HISTORY.md, 0.166 to 0.204 and 0.206 to 0.213. Two libc++ passes are one gate:
   `LLVM=/usr/lib/llvm-18` and `LLVM=/usr/lib/llvm-21` choose the tree the chain reads and links. libc++ 22 (the newest
   tree, which a run without `$LLVM` reads) is no gate: 0.182 built its vector and its C++23 views by hand
   (`zipadjacent.cpp`, which its `.needs` skips over 18 and 21), and `stdoptionalref` passes there. The run before
@@ -9696,7 +9703,8 @@ A lambda is a class of its captures (`library/ccl_cpp.pl`). A fixture named alon
   `__has_include`, `__has_embed` and `#embed` over a macro (`ppinclude.c`, `-std=c23`). Since 0.212: the definitions a
   header makes -- the program's own header's static and static inline functions, a static object, an external definition
   and an object, C99's inline definition made external by the unit's declaration, the C library's static inline
-  functions behind `bswap_32`, `bswap_16`, `bswap_64` and `htobe32` (`hdrdefs.c`).
+  functions behind `bswap_32`, `bswap_16`, `bswap_64` and `htobe32` (`hdrdefs.c`). Since 0.213: a macro's name spelled
+  with a universal character name (`ucnmacro.c`).
 - The C library is the host's. The compiler's own freestanding headers are in `library/include/` (`<stdarg.h>`,
   `<stdatomic.h>`, `<complex.h>`, `<stdckdint.h>`, `<stdbit.h>`, `<limits.h>`, `<tgmath.h>` and six more).
 - The language's own additions run: `:=`, patterns, `name { }` structs and `format`, `print`, `println`
@@ -10407,7 +10415,8 @@ and `%:%:` its operators, a string's bytes from its spelling -- and what its pro
 header name, in the user's file and in a header, and the operand of `__has_include` and `__has_embed` macro-replaced);
 the fifteenth, what 0.211's probes found, is 0.212's (the Includes topic: the definitions a C header makes, its
 functions and its objects, the program's own header's and the C library's static ones, a raw read's definition taken
-preprocessed).
+preprocessed); the sixteenth, two of the small ones, is 0.213's (the Lexers topic: a macro's name spelled with a
+universal character name; the Debug information topic: a definition a C header makes described in its header).
 
 1. C++'S CORE LANGUAGE, WHAT 0.205 LEFT: clang's `TnDa` for a placeholder's argument in a function template's symbol is
    not spelled, which no symbol here needs (the program's functions keep this compiler's names); and a library header's
@@ -10423,20 +10432,18 @@ preprocessed).
    `std::inplace_vector`, `std::hive`) is nothing to compile. The limit its probes met: `test/census.sh` reads a header
    at C++17 whatever `CCL_CENSUS_STD` says (a stringized alternative token spells as written since 0.211). A program's
    own `get` beside `std::tuple` builds since 0.205 (`ownget.cpp`).
-5. SMALL ONES: the lexers' limits of 0.196 -- a macro's name spelled with a universal character name (`#define caf\u00e9
-   1`) is not read, since the preprocessor's own word reader takes the bytes past ASCII and no escape; a name spelled
-   with one is stringized as its character, `#x` of `caf\u00e9` `"café"` where clang keeps `"caf\u00e9"` (a literal, a
-   multi-character constant among them, is spelled as written since 0.211); XID_Start and XID_Continue are not told
-   apart: every character past ASCII is a letter to the lexers, one that no level takes in an identifier included --;
-   `__has_attribute` answers 0 for every attribute, `packed` and `aligned` among them, where clang answers 1, since an
-   answer of 1 moves glibc's and libc++'s headers onto roads that no gate has read (an enum's `aligned` and GNU's
-   alignment of an expression are done, 0.205); an ISO mode (`-std=c17`, `-std=c++17`) predefines `__STRICT_ANSI__` in
-   clang and the GNU modes do not -- it needs the mode in the C store's key and the C++ summaries' keys, since
-   `-std=c23` and `-std=gnu23` read one key now; `decltype(x)` and `alignof(decltype(x))` of an aligned variable keep
-   its alignment, the qualifier `aligned(E)` sitting in its type, where the alignment is the entity's ([dcl.align]);
-   clang's C extension that types a conditional of two incompatible pointers as `void *`, with a warning, is not
-   modelled. (A generic atomic builtin over an object that is no lock-free width calls libatomic, which the link names
-   since 0.208, the driver topic.)
+5. SMALL ONES: the lexers' limits of 0.196 -- a name spelled with a universal character name is stringized as its
+   character, `#x` of `caf\u00e9` `"café"` where clang keeps `"caf\u00e9"` (a literal, a multi-character constant among
+   them, is spelled as written since 0.211); XID_Start and XID_Continue are not told apart: every character past ASCII
+   is a letter to the lexers, one that no level takes in an identifier included --; `__has_attribute` answers 0 for
+   every attribute, `packed` and `aligned` among them, where clang answers 1, since an answer of 1 moves glibc's and
+   libc++'s headers onto roads that no gate has read (an enum's `aligned` and GNU's alignment of an expression are done,
+   0.205); an ISO mode (`-std=c17`, `-std=c++17`) predefines `__STRICT_ANSI__` in clang and the GNU modes do not -- it
+   needs the mode in the C store's key and the C++ summaries' keys, since `-std=c23` and `-std=gnu23` read one key now;
+   `decltype(x)` and `alignof(decltype(x))` of an aligned variable keep its alignment, the qualifier `aligned(E)`
+   sitting in its type, where the alignment is the entity's ([dcl.align]); clang's C extension that types a conditional
+   of two incompatible pointers as `void *`, with a warning, is not modelled. (A generic atomic builtin over an object
+   that is no lock-free width calls libatomic, which the link names since 0.208, the driver topic.)
 6. libc++'S FACILITIES BY THEIR FEATURE-TEST MACROS, WHAT 0.206 LEFT: done -- a literal in a stringized argument is
    spelled as written since 0.211, its escapes and a raw string's delimiters kept (the Lexers topic), and so are an
    alternative token and a multi-character constant. Done at 0.209: `#x` keeps a space only where white space stood (the
@@ -10450,7 +10457,7 @@ preprocessed).
    destructor at the end of its full-expression since 0.207, as the Itanium C++ ABI and clang have it, and every
    temporary of a statement is destroyed on unwinding where it was built (the Classes topic).
 8. THE FUNCTIONS A C HEADER DEFINES, which 0.211's probes found: done at 0.212 (the Includes topic), its objects with
-   them. A header's function is lowered at its header's line in the unit's file: `-g` names the unit's file for it.
+   them. Under `-g` it is described in its header since 0.213 (the Debug information topic).
 
 ### C++ language
 

@@ -731,6 +731,9 @@ pp_do_line(W, R, L) :- W \== [], number_codes(N, W), pp_current_file(F0), nb_get
 pp_do_line(_, _, _).
 pp_ws([C|Cs], R) :- ( C =:= 32 ; C =:= 9 ), !, pp_ws(Cs, R).
 pp_ws(Cs, Cs).
+%% A UNIVERSAL CHARACTER NAME IN A MACRO'S NAME is the character it names (C17 6.4.3, 6.4.2.1; 0.213), as the lexers read
+%% one in an identifier (ccl_ucn//1): `#define caf\u00e9 1' named `caf' and was `café' nowhere
+pp_word([92|Cs0], [U|W], R) :- phrase(ccl_ucn(U), Cs0, Cs), U >= 128, !, pp_word(Cs, W, R).
 pp_word([C|Cs], [C|W], R) :- ( C >= 0'a, C =< 0'z ; C >= 0'A, C =< 0'Z ; C =:= 0'_ ; C >= 0'0, C =< 0'9 ; C >= 128 ; C =:= 0'$ ), !, pp_word(Cs, W, R).   % a macro's name past ASCII (0.196), with `$' (0.210)
 pp_word(Cs, [], Cs).
 %% #define NAME body | #define NAME(params) body -- function-like when `(' follows the name at once
