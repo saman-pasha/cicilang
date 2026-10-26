@@ -14093,3 +14093,82 @@ leaves the answer open; the two compilers agree on every line the fixtures hold.
 Reader 158 (an argument's tokens keep their hide sets and a function-like expansion's meets its closing parenthesis's,
 an object-like macro's `##` pastes and an argument's does not, `__VA_OPT__` asks the expanded argument, a character that
 begins no token is one of its own, `$` a letter: what an expansion gives changes). Lowering 120, unchanged.
+
+## 0.211 — the audit's fourteenth group: a token's spelling in `#x` -- a literal, a digraph and an alternative token spelled as written, a body's `%:` and `%:%:` its operators, a string's bytes from its spelling; a computed `#include` and the operand of `__has_include` macro-replaced; the cost of 0.209's marks measured again; 0.210's chain
+
+**0.211: the fourteenth group of the audit of C17 to C23 and C++17 to C++26: a token that `#x` takes is spelled as it
+was written (C17 6.10.3.2/2, [cpp.stringize]/2: "the spelling of the preprocessing token"), what the probes of 0.201 and
+0.206 had left in Not done; what this step's probes found older, a computed `#include` (C17 6.10.2/4) and a C header's
+functions, the second left for a step of its own; and 0.210's chain.**
+
+- THE PROBES: `#x` of literals, digraphs, alternative tokens, raw strings, multi-character constants and names past
+  ASCII, through clang, gcc and this compiler, then as run fixtures (`spelling.c`, `spelling.cpp`; clang and gcc agree
+  on every line). 0.210 spelled each token's value: `"\x41" "\101" '\4'` was `"A" "A" '\004'`, `'ab'` `24930`, `'é'`
+  `50089`, `U'\U0001F600'` the character, `<: :> <% %> %: %:%:` `[ ] { } # ##`, the standard's `join(x, y)` over
+  digraphs `x ## y`, `café` one byte for its `é`, `a and b` `a && b`, `R"(a\b)"` `"a\\b"`; and a `#line` name past ASCII
+  gave `__FILE__` one byte a character.
+- A TOKEN IS SPELLED AS WRITTEN in the preprocessor's mode, as a number is since 0.108: a string or character literal is
+  `tok(lit, Spelling, L)`, a digraph `tok(dg, Spelling, L)` and C++'s alternative token `tok(alt, Spelling, L)` in both
+  lexers (`ccl_pp_spelled/4` in `ccl_pp_token//3`, `ccl_consumed/3`; natively `ccl_lx_is_lit`, `ccl_lx_spell_lit` and
+  the kinds `k_lit`, `k_dg` and `k_alt`), and `pp_norm/2` makes the reader's token from the spelling where the
+  preprocessor's tokens end (`pp_finish/2`), in `#if` (`pp_normalize/2`) and in the operand of `__has_include` and
+  `__has_embed` (`pp_norm_all/2`). A BODY'S `%:` AND `%:%:` ARE ITS OPERATORS `#` and `##` (`pp_body_ops/3` in
+  `pp_macro_/6`), `%:` in a function-like macro's body alone; an object-like macro's `%:` is a digraph, so `#define HH
+  %: %:%: %:` pastes the one token `%:%:`. The lexers made the reader's tokens, values, which `pp_spell/2` spelled
+  again; the token's spelling was gone before `#x` met it. Reader `k84` compares the two lexers on `test/c/lexer.c`'s
+  literals, digraphs and alternative tokens in `punct` mode.
+- A STRING'S BYTES FROM ITS SPELLING'S CHARACTERS: `#x` makes the string the UTF-8 of its spelling (`pp_utf8_bytes/2`),
+  a narrow literal's bytes are spelled as the characters of their UTF-8 sequences, a byte of none `\NNN`
+  (`pp_escape_utf8/5` in `pp_escape/4`'s `raw` mode), and `__FILE__` is the name's bytes (`ccl_atom_bytes/2`).
+- A COMPUTED `#include` (C17 6.10.2/4, [cpp.include]/7), which the probes of the literals' change met: the header's name
+  is joined by the marks of white space (`pp_computed_codes/2` over `pp_expand_marked/2` and `pp_spell_marked/2`), as
+  clang and gcc join `<` NAME `>`, where a space stood between every two tokens -- `#define SYS <stdint.h>` named `
+  stdint . h `, and nothing was included, in a header or in the user's file; `#embed` takes its name so too. IN THE
+  USER'S FILE the directive is passed on with the name it resolved to (`pp_inc_text/4`): the reader read no name from
+  `#include INC`, and the header's declarations were lost with its macros (`not lowered yet: undeclared('PROBE_H')`,
+  `typedef(int8_t)`). The prescan knows no computed name, and a run is not re-entrant, so the macros of a header that a
+  computed include names and the prescan did not make ready are made ready after the run, and the file is run again,
+  once for each such header new to the file (`ccl_pp_top_run/4`, `'$pp_late'`, `pp_new_specs/3`). THE OPERAND OF
+  `__has_include` AND `__has_embed` is macro-replaced where it begins with no header name (C23 6.10.1/4's second form,
+  [cpp.cond]/4; `pp_has_args/2`): `__has_include(INC)` and `__has_embed(INC)` were 0.
+- FOUND AND LEFT (Not done's item 8): in C no function that a header defines is emitted -- the program's own header's
+  `static`, `static inline` and external definitions, and the C library's `static __inline` ones, `__bswap_32` behind
+  `<byteswap.h>`'s `bswap_32` --, so a call of one is an undefined symbol at the link, where clang emits each one the
+  unit uses (C17 6.9/5). The C fixture's header holds a macro, a type and a constant; the C++ one a function, which C++
+  emits since 0.41.
+- MEASURED, 0.209'S COST AGAIN: 0.210 recorded that the marks of white space cost about 4 % of a cold read's CPU, from
+  reads one library after the other; alternating rounds (`cicilang++ -std=c++20 -fsyntax-only` over `<map>`, a fresh
+  HOME each, `ptime.py`, session scratch) gave 31.0 s of CPU at the least and 33.6 s at the median with 0.208's library,
+  31.8 s and 33.4 s with 0.209's and 32.4 s and 33.6 s with 0.210's: the cost is below the box's noise, and the 4 % was
+  its drift. 0.211's spelled tokens, the same rounds against 0.210: 0.210 34.4, 33.3, 34.5 and 36.3 s, 0.211 33.4, 31.9,
+  32.5 and 34.5 s -- 33.3 s and 34.5 s at the least and the median against 31.9 s and 33.0 s.
+- FIXTURES: 2 C (`spelling.c`; `ppinclude.c` at C23, the standard's EXAMPLE of `INCFILE`, over `ppinclude.h`) and 2 C++
+  (`spelling.cpp`; `ppinclude.cpp` over its `ppinclude.h`), each seen to pass, the C++ ones over libc++ 18 and 21, and
+  0.210 failing each; the C ones' outputs clang's, `ppinclude.c`'s clang 21's (clang 18 has no `#embed`), and gcc's the
+  same where gcc reads the file.
+- THE CHAIN OF 0.210, over its commit (369ab0e) and fresh HOMEs, on cocolog 2.12.0: over libc++ 18 all nine gates GREEN
+  -- the flow gate 137 s (its one finding), reader 6 s, compile 27 s, driver 20 s, objects 6 s, proof, cross 428 s, the
+  library read 785 s (the 23 asserted reads whole, 198 other headers warmed), the C++ gate 1642 s, 795 of 805 fixtures
+  ok and 10 skipped by their needs --; over libc++ 21 the library read (its phase 696 s) and the C++ gate GREEN in about
+  1770 s, 803 of 805 ok, 2 skipped (`stdoptionalref.cpp`, `zipadjacent.cpp`). The headers' reads summed 2954 s over 221
+  and 2618 s; the fixtures' builds 5639 s over 795 and 6109 s over 803. The flattened text of `<map>`'s closure (`-E`)
+  was the same byte for byte under 0.209's and 0.210's libraries.
+- COMMITTED BEFORE ITS CHAIN, and it claims nothing GREEN but this, over the worktree and fresh HOMEs, on cocolog
+  2.12.0: over libc++ 18 all nine gates GREEN -- the flow gate 166 s (its one finding), reader 6 s, compile 34 s (141
+  run fixtures and 47 refusals), driver 24 s, objects 6 s, proof, cross 458 s (141 C fixtures, 5 ABI checks, 24 C++
+  fixtures and 3 C++ checks for aarch64), the library read 792 s (the 23 asserted reads whole, 198 other headers
+  warmed), the C++ gate 1549 s, 797 of 807 fixtures ok and 10 skipped by their needs --; over libc++ 21 the library read
+  (its phase 669 s) and the C++ gate GREEN in about 1590 s, 805 of 807 ok, 2 skipped (`stdoptionalref.cpp`,
+  `zipadjacent.cpp`). The headers' reads summed 3006 s over 221 over libc++ 18 and 2508 s over 21; the fixtures' builds
+  5595 s over 797 and 5792 s over 805. The next commit carries the chain's numbers.
+- `RULES.md`: the lexers (a token spelled as written, the digraphs, the alternative tokens); the preprocessor (a
+  computed `#include`, a body's `%:` and `%:%:`, a literal in `#x`, a string's bytes, the marks' cost, `__has_include`'s
+  operand, the user's file's computed include, `-E`); the C gates' count; the C++ gate's count; the Hosts (0.210's
+  chain); What runs; Not done (the audit's fourteenth group, items 4, 5 and 6, the new item 8). `CLAUDE.md`: the
+  versions, the fixtures' headers.
+
+Reader 159 (a literal, a digraph and an alternative token are spelled as written in the preprocessor's mode, and a
+stringized name past ASCII is UTF-8: a string that a header's body stringizes changes; a computed `#include` names its
+header, its name joined by the marks of white space: what the user's file's read holds changes). Lowering 120,
+unchanged.
+

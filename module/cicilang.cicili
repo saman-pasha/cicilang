@@ -261,7 +261,7 @@
   ;; ccl_version(-Atom): THE VERSION. Every commit raises it (owner's rule),
   ;; one number per change; `cicili --version' prints it with LLVM's.
   (func ccl_p_version ((coco_engine * e) (size_t g)) (out int)
-        (return (coco_m_unify_atom e (coco_m_arg e g 0) "0.210")))
+        (return (coco_m_unify_atom e (coco_m_arg e g 0) "0.211")))
 
   ;; ccl_cocolog_version(-Atom): the engine's own version text, from the
   ;; running binary (coco_version_text is cocolog's, resolved at load like
@@ -297,7 +297,8 @@
     (member size_t k_imag) (member size_t k_imagf) (member size_t k_imagl) (member size_t k_imagi) (member size_t k_imagui) (member size_t k_imagli) (member size_t k_imaguli) (member size_t k_imaglli) (member size_t k_imagulli) (member int imag)
     (member size_t k_wstr) (member size_t k_u16str) (member size_t k_u32str) (member size_t k_wchr) (member size_t k_u16chr) (member size_t k_u32chr)
     (member size_t k_u8str) (member size_t k_u8chr)
-    (member size_t k_chr) (member size_t k_p) (member size_t k_pp) (member size_t k_cocolog) (member size_t k_num) (member size_t l_sp) (member size_t k_other))
+    (member size_t k_chr) (member size_t k_p) (member size_t k_pp) (member size_t k_cocolog) (member size_t k_num) (member size_t l_sp) (member size_t k_other)
+    (member size_t k_lit) (member size_t k_dg) (member size_t k_alt))
 
   ;; the code at i, -1 past the end
   (static) (func ccl_lx_at ((ccl_lx * x) (size_t i)) (out int)
@@ -377,6 +378,30 @@
           (while (< k to)
             (if (!= (ccl_lx_at x k) 39) (ccl_lx_putc x (ccl_lx_at x k)))
             (set k (+ k 1)))))
+  ;; in the preprocessor's mode a literal is spelled as written, tok(lit, Spelling, L) (0.211), as ccl_pp_spelled/4 has
+  ;; it: the token at t0 begins with a quote, with u8, L, u or U and a quote, or in C++ with R and a quote after one of them
+  (static) (func ccl_lx_is_lit ((ccl_lx * x) (size_t t0)) (out int)
+        (let ((int c0 . 0) (int c1 . 0) (int c2 . 0) (int c3 . 0))
+          (set c0 (ccl_lx_at x t0))
+          (set c1 (ccl_lx_at x (+ t0 1)))
+          (set c2 (ccl_lx_at x (+ t0 2)))
+          (set c3 (ccl_lx_at x (+ t0 3)))
+          (if (or (== c0 34) (== c0 39)) (return 1))
+          (if (and (or (== c0 76) (or (== c0 117) (== c0 85))) (or (== c1 34) (== c1 39))) (return 1))
+          (if (and (== c0 117) (and (== c1 56) (or (== c2 34) (== c2 39)))) (return 1))
+          (if (not (-> x cpp)) (return 0))
+          (if (and (== c0 82) (== c1 34)) (return 1))
+          (if (and (or (== c0 76) (or (== c0 117) (== c0 85))) (and (== c1 82) (== c2 34))) (return 1))
+          (if (and (== c0 117) (and (== c1 56) (and (== c2 82) (== c3 34)))) (return 1))
+          (return 0)))
+  ;; ... the token pushed at nt made so, its spelling the text from t0 to i
+  (static) (func ccl_lx_spell_lit ((ccl_lx * x) (size_t nt) (size_t t0) (i64 l0))
+        (set (-> x bn) 0)
+        (if (> (-> x bcap) 0) (set (nth 0 (-> x buf)) 0))
+        (ccl_lx_puts x t0 (-> x i))
+        (if (-> x oom) (return))
+        (set (-> x ntoks) nt)
+        (ccl_lx_tok x (-> x k_lit) (coco_m_new_atom (-> x e) (-> x buf)) l0))
   ;; a code list from n bytes
   (static) (func ccl_lx_codes ((ccl_lx * x) (const char * p) (size_t n)) (out size_t)
         (let ((size_t * items . #'(cast (size_t *) (malloc (* (+ n 1) (sizeof size_t))))) (size_t lst . 0) (size_t k . 0))
@@ -848,7 +873,8 @@
           (set kw (ccl_lx_in ccl_lx_ckw (-> x buf)))
           (if (and (not kw) (-> x cpp)) (set kw (ccl_lx_in ccl_lx_cppkw (-> x buf))))
           (set alt (? (and (not kw) (-> x cpp)) (ccl_lx_index ccl_lx_alt (-> x buf)) -1))
-          (cond ((>= alt 0) (ccl_lx_tok x (-> x k_p) (coco_m_new_atom (-> x e) (nth alt ccl_lx_altp)) line))   ; C++'s alternative tokens are punctuators (0.201, ccl_alt_token/2)
+          (cond ((and (>= alt 0) (-> x punct)) (ccl_lx_tok x (-> x k_alt) (coco_m_new_atom (-> x e) (-> x buf)) line))   ; ... spelled as written in the preprocessor's mode (0.211)
+                ((>= alt 0) (ccl_lx_tok x (-> x k_p) (coco_m_new_atom (-> x e) (nth alt ccl_lx_altp)) line))   ; C++'s alternative tokens are punctuators (0.201, ccl_alt_token/2)
                 (#t (ccl_lx_tok x (? kw (-> x k_kw) (-> x k_id)) (coco_m_new_atom (-> x e) (-> x buf)) line)))
           (set (-> x i) j)))
 
@@ -866,7 +892,9 @@
           (while (!= (nth k ccl_lx_dg) nil)
             (if (and (== 0 (strncmp p (nth k ccl_lx_dg) 2))
                      (not (and (== k 0) (and (-> x cpp) (and (== (nth 2 p) 58) (and (!= (nth 3 p) 58) (!= (nth 3 p) 62)))))))
-                (block (ccl_lx_tok x (-> x k_p) (coco_m_new_atom (-> x e) (nth k ccl_lx_dgp)) line)
+                (block (if (-> x punct)   ; spelled as written in the preprocessor's mode (0.211), tok(dg, Spelling, L)
+                           (ccl_lx_tok x (-> x k_dg) (coco_m_new_atom (-> x e) (nth k ccl_lx_dg)) line)
+                           (ccl_lx_tok x (-> x k_p) (coco_m_new_atom (-> x e) (nth k ccl_lx_dgp)) line))
                        (set (-> x i) (+ (-> x i) 2))
                        (return 1)))
             (set k (+ k 1)))
@@ -1002,8 +1030,8 @@
           (cond
             ((and (== c 37) (== (ccl_lx_at x (+ (-> x i) 1)) 58))   ; `%:%:' and `%:' are `##' and `#' (C 6.4.6/3, [lex.digraph]; 0.201): the operators, or a `#' line
              (cond ((and (-> x punct) (and (== (ccl_lx_at x (+ (-> x i) 2)) 37) (== (ccl_lx_at x (+ (-> x i) 3)) 58)))
-                    (ccl_lx_tok x (-> x k_p) (coco_m_new_atom (-> x e) "##") line) (set (-> x i) (+ (-> x i) 4)))
-                   ((-> x punct) (ccl_lx_tok x (-> x k_p) (coco_m_new_atom (-> x e) "#") line) (set (-> x i) (+ (-> x i) 2)))
+                    (ccl_lx_tok x (-> x k_dg) (coco_m_new_atom (-> x e) "%:%:") line) (set (-> x i) (+ (-> x i) 4)))
+                   ((-> x punct) (ccl_lx_tok x (-> x k_dg) (coco_m_new_atom (-> x e) "%:") line) (set (-> x i) (+ (-> x i) 2)))
                    (#t (set (-> x i) (+ (-> x i) 1)) (ccl_lx_hash x line)))
              (return 1))
             ((and (-> x punct) (== c 35))
@@ -1108,6 +1136,9 @@
           (set (-> x k_cocolog) (coco_m_new_atom e "cocolog"))
           (set (-> x k_num) (coco_m_new_atom e "num"))
           (set (-> x k_other) (coco_m_new_atom e "other"))
+          (set (-> x k_lit) (coco_m_new_atom e "lit"))
+          (set (-> x k_dg) (coco_m_new_atom e "dg"))
+          (set (-> x k_alt) (coco_m_new_atom e "alt"))
           (set (nth 0 sp1) (coco_m_new_atom e "$sp"))
           (set (-> x l_sp) (coco_m_list e sp1 1))
           (ccl_lx_layout x)
@@ -1117,7 +1148,8 @@
             (set t0 (-> x i))
             (set l0 (-> x line))
             (if (not (ccl_lx_token x))
-                (if (-> x punct) (block (set (-> x i) t0) (set (-> x line) l0) (ccl_lx_other x)) break))
+                (if (-> x punct) (block (set (-> x i) t0) (set (-> x line) l0) (ccl_lx_other x)) break)
+                (if (and (-> x punct) (ccl_lx_is_lit x t0)) (ccl_lx_spell_lit x nt t0 l0)))
             (if (-> x oom) break)
             (if (and (-> x marks) sp) (ccl_lx_mark x nt))
             (set at (-> x i))

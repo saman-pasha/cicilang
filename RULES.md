@@ -160,7 +160,7 @@ that changes a rule edits the rule here, in its topic, and writes its entry in `
 - The compile gate. `test/compile.pl`, one process over the user's store, reads, checks, lowers, compiles at `-O1` and
   links every `test/c/run/*.c` at its `NAME.std` level (`c_level`). It expects every `test/c/safe/*.c` refused.
   `test/compile.sh` runs each binary as `NAME arg1 arg2` against `NAME.expect`, and compares each refusal with
-  `safe/NAME.expect`. There are 139 run and 47 safe fixtures at 0.210. (M2, M3, 0.57)
+  `safe/NAME.expect`. There are 141 run and 47 safe fixtures at 0.211. (M2, M3, 0.57)
 - The driver gate. `test/driver.sh` makes 41 checks of `bin/cicilang` over the user's store (the two decimal checks are
   skipped where no gcc with decimal floating types is installed), the variadic calls of every kind both ways against
   clang among them (`test/c/link/va_*.c`, 0.131), and Apple's arm64 expansion of `va_arg` of an aggregate against
@@ -248,8 +248,8 @@ that changes a rule edits the rule here, in its topic, and writes its entry in `
 ### The C++ gate: test/cpp.sh
 
 - `test/cpp.sh` runs in this order: `test/cpp.pl` in one `--local` process; four checks of the command; every
-  `test/cpp/run/*.cpp` as a pool job (805 at 0.210); `classes.cpp` and `templates.cpp` built and run; the refusals,
-  each at the level its `test/cpp/NAME.flags` names, else C++17 (0.164). (0.105, 0.164)
+  `test/cpp/run/*.cpp` as a pool job (807 at 0.211); `classes.cpp` and `templates.cpp` built and run; the refusals, each
+  at the level its `test/cpp/NAME.flags` names, else C++17 (0.164). (0.105, 0.164)
 - `test/cpp.pl` runs 46 numbered checks, `c1` to `c46`, then reads Cicili's six C++ files whole (`test/cpp/objects.cpp`,
   `emit_report.cpp`, `specialise.cpp`, `syntax.cpp`, `torch.cpp`, `torch-fragment.cpp`). `c34` checks the Itanium
   mangler on nine symbols, with no class registered. `unit_at(Std, Name, U)` sets `'$ccl_std'` for one read: `c22` to
@@ -705,7 +705,8 @@ that changes a rule edits the rule here, in its topic, and writes its entry in `
   differed by the bytes past ASCII after it. `ccl_line_of/3` finds the rest in the file's codes. (0.196)
 - `'$ccl_hash'` is the mode. In `line` mode (the reader's) a `#` line is one `tok(pp, Text, L)`, continuations joined.
   In `punct` mode (the preprocessor's) `#` and `##` are punctuators and a number is `tok(num, Spelling, L)`, so
-  `200112L` pastes whole; a pp-number may start with a dot. (M5, 0.108)
+  `200112L` pastes whole; a pp-number may start with a dot; a literal, a digraph and an alternative token are spelled as
+  written there too (0.211, below). (M5, 0.108, 0.211)
 - THE PREPROCESSOR'S MARKED LEX (0.209; `ccl_lex_atom_marked/4` over `ccl_lex_marked//2`, natively the mode `punctsp`):
   a text line and a macro body are lexed in `punct` mode with each token that layout precedes -- blanks, a comment, a
   newline -- and the text's first wrapped `h(T, ['$sp'])`, the preprocessor's stream form, the mark of the white space
@@ -721,6 +722,19 @@ that changes a rule edits the rule here, in its topic, and writes its entry in `
   reaches the reader, `lexical(L)` at its line (`ccl_pp_top/3`; reader `k71`). Both lexers stopped there: the user's
   file was refused at the line even where the character was a macro's argument that `#` takes, and a header's line lost
   its rest. The `line` mode stops there still. `test/c/run/ppexample.c`, `ppexample4.c`. (0.210)
+- A TOKEN IS SPELLED AS WRITTEN IN THE PREPROCESSOR'S MODE, as a number is (C17 6.10.3.2/2 and [cpp.stringize]/2: `#x`
+  gives "the spelling of the preprocessing token"; 0.211): a string or character literal is `tok(lit, Spelling, L)` --
+  its prefix, its escapes, a raw string's delimiters, a multi-character constant's characters --, a digraph `tok(dg,
+  Spelling, L)` and C++'s alternative token `tok(alt, Spelling, L)`, the spelling an atom of the codes the token took,
+  in both lexers (`ccl_pp_spelled/4` in `ccl_pp_token//3`, `ccl_consumed/3`; natively `ccl_lx_is_lit` and
+  `ccl_lx_spell_lit` in the main loop, the kinds `k_lit`, `k_dg` and `k_alt` in `ccl_lx_word`, `ccl_lx_punct` and
+  `ccl_lx_token`). The reader's token is made from the spelling where the preprocessor's tokens end (`pp_norm/2` in
+  `pp_finish/2`: a literal lexed again in `line` mode, a digraph and an alternative token their punctuator,
+  `pp_digraph/2`, `ccl_alt_token/2`), and so are `#if`'s (`pp_normalize/2`) and the operand of `__has_include` and
+  `__has_embed` (`pp_norm_all/2`). The lexers made the reader's token, its value, and `#x` spelled `"\x41"` as `"A"`,
+  `'ab'` as `24930`, `R"(a\b)"` as `"a\\b"`, `<:` as `[` and `and` as `&&`. A macro body's `%:` and `%:%:` stay its
+  operators (the Macro expansion topic). Reader `k84` over `test/c/lexer.c`; `test/c/run/spelling.c`,
+  `test/cpp/run/spelling.cpp`. (0.211)
 - The DCG lexer writes `"`, `'` and `\` as 34, 39 and 92, never `0'"` or `0''`, which read badly in cocolog. (M1)
 
 ### Keywords and punctuators
@@ -743,19 +757,19 @@ that changes a rule edits the rule here, in its topic, and writes its entry in `
   valid program needs them told. They were ASCII alone, and `int café = 3;` was a lexical error where clang reads it in
   C17 and C++17 too. A symbol past ASCII is spelled quoted (the Lowering's topic) and the mangler counts bytes (the
   Itanium mangler's topic). `test/c/run/identutf8.c`, `test/cpp/run/identutf8.cpp`. (0.196)
-- THE DIGRAPHS ([lex.digraph], C 6.4.6/3; 0.201): `<:`, `:>`, `<%`, `%>`, `%:` and `%:%:` are `[`, `]`, `{`, `}`, `#` and
-  `##` in both lexers and both languages (`ccl_punct//1`'s first clauses, `ccl_token//3` for `%:` and `%:%:`; natively
-  `ccl_lx_dg`, `ccl_lx_dgp` and the first branch of `ccl_lx_token`), and a line that begins with `%:` is a directive
-  (`pp_hash_intro/2` in `pp_line_mark/3` and `pp_directive_line/2`; the `line` mode reads it as a `#` line). In C++ `<::`
-  is `<` and then `::` unless the next character is `:` or `>` ([lex.pptoken]/3.2: `std::vector<::X>`; `ccl_dg_lt/2`).
-  They were no tokens, a lexical error. `-E` spells the punctuator. `test/c/run/digraphs.c`; reader `k84` over
-  `test/c/lexer.c`. (0.201)
+- THE DIGRAPHS ([lex.digraph], C 6.4.6/3; 0.201): `<:`, `:>`, `<%`, `%>`, `%:` and `%:%:` are `[`, `]`, `{`, `}`, `#`
+  and `##` in both lexers and both languages (`ccl_punct//1`'s first clauses, `ccl_token//3` for `%:` and `%:%:`;
+  natively `ccl_lx_dg`, `ccl_lx_dgp` and the first branch of `ccl_lx_token`), and a line that begins with `%:` is a
+  directive (`pp_hash_intro/2` in `pp_line_mark/3` and `pp_directive_line/2`; the `line` mode reads it as a `#` line).
+  In C++ `<::` is `<` and then `::` unless the next character is `:` or `>` ([lex.pptoken]/3.2: `std::vector<::X>`;
+  `ccl_dg_lt/2`). They were no tokens, a lexical error. `-E` spells the punctuator, and `#x` the digraph as written
+  since 0.211 (the Two lexers topic). `test/c/run/digraphs.c`; reader `k84` over `test/c/lexer.c`. (0.201, 0.211)
 - C++'S ALTERNATIVE TOKENS ([lex.digraph]/2, [lex.key]/2; 0.201): `and`, `and_eq`, `bitand`, `bitor`, `compl`, `not`,
-  `not_eq`, `or`, `or_eq`, `xor` and `xor_eq` are the punctuators `&&`, `&=`, `&`, `|`, `~`, `!`, `!=`, `||`, `|=`, `^` and
-  `^=` in C++ in both lexers, never a name (`ccl_alt_token/2` in `ccl_word//2`; natively `ccl_lx_alt`, `ccl_lx_altp` in
-  `ccl_lx_word`); C has them as `<iso646.h>`'s macros. They were identifiers, and `bool t = true and not false;` was
-  refused. A stringized one spells its punctuator, `#x` of `and` `"&&"` where clang spells `"and"` (Not done).
-  `alttokens.cpp`, `hdrrest.cpp`. (0.201)
+  `not_eq`, `or`, `or_eq`, `xor` and `xor_eq` are the punctuators `&&`, `&=`, `&`, `|`, `~`, `!`, `!=`, `||`, `|=`, `^`
+  and `^=` in C++ in both lexers, never a name (`ccl_alt_token/2` in `ccl_word//2`; natively `ccl_lx_alt`, `ccl_lx_altp`
+  in `ccl_lx_word`); C has them as `<iso646.h>`'s macros. They were identifiers, and `bool t = true and not false;` was
+  refused. A stringized one spells as written since 0.211, `#x` of `and` `"and"` as clang spells it, where it spelled
+  its punctuator, `"&&"` (the Two lexers topic). `alttokens.cpp`, `hdrrest.cpp`, `spelling.cpp`. (0.201, 0.211)
 - A `#cocolog` line takes every line up to the `#end` line, or the file's end, raw into one `tok(cocolog, Text, L)`
   (`ccl_cocolog_body//3`, `ccl_lx_cocolog`). (M1b)
 
@@ -960,6 +974,12 @@ that changes a rule edits the rule here, in its topic, and writes its entry in `
 - In a header's run an `#include` (literal, or through the macros) is preprocessed in place; a `.pl` is passed on as
   `tok(pp, ...)`; one found nowhere is nothing. `#include_next` searches past the includer's directory. `#pragma` is
   nothing but `once`; `_Pragma("...")` goes with its operand. (M5)
+- A COMPUTED `#include` (C17 6.10.2/4, [cpp.include]/7; 0.211): the directive's tokens are lexed marked, macro-replaced
+  and spelled with a space only where white space stood (`pp_computed_codes/2` over `pp_expand_marked/2` and
+  `pp_spell_marked/2`), and the header's name is read from that text, as clang and gcc join `<` NAME `>`; `#embed` takes
+  its name so too. A space stood between every two tokens: `#define SYS <stdint.h>` named ` stdint . h `, and nothing
+  was included, in a header or in the user's file (the User's file topic). `test/c/run/ppinclude.c` (C23: the standard's
+  EXAMPLE of `INCFILE`, `#embed INCFILE`), `test/cpp/run/ppinclude.cpp`. (0.211)
 - `#line N "file"` (C 6.10.4) and GNU's `# N "file"` set the presumed line and file per file (`pp_presumed`,
   `'$pp_linemap'`) for `__LINE__` and `__FILE__`; a diagnostic names the physical place. (0.108)
 - In the user's file `#error` throws `pp_error(L, Text)`, and `#warning` goes to `'$pp_warnings'`, printed by the
@@ -994,6 +1014,10 @@ that changes a rule edits the rule here, in its topic, and writes its entry in `
   y` was `21y` with `x` a macro (`x1y`); the standard's `join(x, y)` over `hash_hash` gave its `"x ## y"` only as the
   two defects met, an argument's `##` pasting the two `#` that the body had left. `ppexample.c`, `ppexample.cpp`.
   (0.210)
+- A BODY'S `%:%:` AND `%:` ARE ITS OPERATORS `##` AND `#` (C17 6.4.6/3, [lex.digraph]/2; 0.211; `pp_body_ops/3` in
+  `pp_macro_/6`), `%:` in a function-like macro's body, where `#` is the stringizing operator; an object-like macro's
+  `%:` and a text line's are digraphs, spelled as written: `#define HH %: %:%: %:` pastes the one token `%:%:`, and the
+  standard's `join(x, y)` over it is `"x %:%: y"`, as clang and gcc give. `test/c/run/spelling.c`. (0.211)
 - `__VA_OPT__` ASKS THE VARIADIC ARGUMENT AFTER ITS EXPANSION (the examples of C23 6.10.5.1 and [cpp.subst]; 0.210;
   `pp_va_present/1`): `F(EMP)` over `F(...) f(0 __VA_OPT__(,) __VA_ARGS__)` with `EMP` empty is `f(0)`, where the
   argument as written gave `f(0 , )`; one that holds no name is not expanded for the question. `test/c/run/ppvaopt.c`
@@ -1015,14 +1039,21 @@ that changes a rule edits the rule here, in its topic, and writes its entry in `
   pasted group stringized, `""` where the variadic arguments have no token; it was a `#` and the group. A LITERAL IN THE
   ARGUMENT IS SPELLED WITH ITS ESCAPES ONCE (`pp_escape/4`, the one escaper of `#x`, `##`, a directive's text and `-E`):
   `S("x y")` printed `\"x y\"`, its text escaped a second time, and a tab, a character constant's quote and a control
-  character were spelled raw. A literal is spelled from its value: `"\x41"` is `"A"`, where clang keeps the spelling
-  (Not done). A `\` of no literal (a character that begins no token, the Lexers topic) begins an escape of the string
-  made: the argument's text, a literal's quote and `\` escaped, is read back as a string's body (`pp_str_decode/3`;
-  0.210), so the standard's `str(: @\n)` is `": @"` and a new-line. The marks cost about 4 % of a cold read's CPU
-  (0.210's measure: `<map>` 28.5 s against 29.9 s, `<sstream>` 29.6 s against 31.7 s, `<list>` 27.7 s against 27.4 s,
-  `<thread>` 30.0 s against 31.2 s, 0.208's library against 0.209's, one at a time), where the C++ gate's reads summed 6
-  % more. `test/c/run/stringize.c`, `stringize2.c`, `stringizeva.c` and `stringizevo.c` (C23),
-  `test/cpp/run/stringize.cpp` (C++20). (0.209, 0.210)
+  character were spelled raw. A literal is spelled as written (0.211; the Lexers topic): `"\x41"` is `"\x41"`, each
+  quote and `\` of it escaped once, where it was spelled from its value, `"A"`. A `\` of no literal (a character that
+  begins no token, the Lexers topic) begins an escape of the string made: the argument's text, a literal's quote and `\`
+  escaped, is read back as a string's body (`pp_str_decode/3`; 0.210), so the standard's `str(: @\n)` is `": @"` and a
+  new-line. What the marks cost is below the box's noise: alternating rounds of a cold `<map>` at C++20 (`cicilang++
+  -fsyntax-only`, a fresh HOME each, four rounds) took 31.0 s of CPU at the least and 33.6 s at the median with 0.208's
+  library, 31.8 s and 33.4 s with 0.209's and 32.4 s and 33.6 s with 0.210's; 0.210's record of about 4 %, one library's
+  reads after the other's, measured the box's drift (0.211). `test/c/run/stringize.c`, `stringize2.c`, `stringizeva.c`
+  and `stringizevo.c` (C23), `test/cpp/run/stringize.cpp` (C++20). (0.209, 0.210, 0.211)
+- `#x` MAKES A STRING'S BYTES FROM ITS SPELLING'S CHARACTERS (0.211): the string is the UTF-8 of the spelling
+  (`pp_utf8_bytes/2` in `pp_stringize/2`), and a narrow literal's bytes are spelled as the characters their UTF-8
+  sequences are, a byte of none `\NNN` (`pp_escape_utf8/5`, `pp_utf8_tail/5`, in `pp_escape/4`'s `raw` mode), so
+  `S(café)`, `S("café")` and `XS(S(café))` hold the bytes of `café`, where the name's `é` was one byte, 0xE9, and
+  clang's two. `__FILE__` is a string's bytes too (`ccl_atom_bytes/2`): a `#line` name past ASCII was one byte a
+  character. `test/c/run/spelling.c`. (0.211)
 - `#if` (`pp_eval/1`): `defined` and the built-ins (`pp_defined_pass/2`), the expansion, the built-ins again; a name
   left is 0 and `true` 1 (`pp_normalize`); then `ccl_cond_expr//1` and `ccl_const_eval/2`. What does not evaluate is
   false. The evaluation is C's `#if` arithmetic (C 6.10.1/4): `pp_eval_/1` sets `'$ccl_cv_pp'` around it, and every
@@ -1032,21 +1063,23 @@ that changes a rule edits the rule here, in its topic, and writes its entry in `
   INT_MAX (the Integer literals topic) is signed in `#if` (`pp_normalize/2`), as clang evaluates `#if 0x80000000 > -1`.
   `pp_norm/2` puts the lexer's mode back before its answer meets the caller's: a bound answer that did not unify left
   the mode `line` behind it. `littype.c`. (M5, 0.128, 0.201)
-- Built-ins (`pp_builtin_answer/3`): `__has_include(_next)` resolve for real (`ccl_resolve_include/3`);
-  `__has_builtin` and `__is_identifier` 1 (libc++'s other branch is an `#error`), but `__has_builtin(__builtin_common_type)`
-  0 (`pp_no_builtin/1`, a table of the builtins this compiler does not model: libc++ 21 then flattens `common_type` on its own
-  specializations, the ones libc++ 18 has, and not on clang's builtin class template; reader 118; 0.126), and
-  `__has_builtin(__builtin_clear_padding)` 0 (0.194), GCC's, which no clang of 18, 21 and 22 has: libc++ 21's atomic_ref
-  then clears no padding and compares the whole object, the branch clang++'s build takes; `__has_embed` 1
-  found, 2 empty, 0 nowhere; `__has_c_attribute` (C only) the standard attributes' dates (`pp_c_attribute/2`), and
-  `__has_cpp_attribute` (C++ only) its standard attributes' values, clang 21's at every level (`pp_cpp_attribute/2`, 0.198:
-  `nodiscard` 201907, `no_unique_address` 201803 ...), a scoped one 0 -- it was 0 for every attribute, and libc++ 18 laid out
-  its algorithm results, its views, `shared_ptr`'s array control blocks and its format buffers without
-  `[[no_unique_address]]`: `sizeof(std::ranges::in_in_result<E, int>)` 8 where clang++'s build has 4 (`nualayout.cpp`; the
-  Object layout topic's empty data member is the rest of it); these questions and `__has_builtin`, `__has_feature` and kin
-  are answered in a text line too (`pp_text_builtin/1`, 0.198), as clang answers them (`hascppattr.cpp`: the name was
-  undeclared); `__is_target_arch`, `_vendor`, `_os`, `_environment` per host; every other `__has_*` 0, the plainest path,
-  the one the reader reads best. (0.93, 0.198)
+- Built-ins (`pp_builtin_answer/3`): `__has_include(_next)` resolve for real (`ccl_resolve_include/3`), their operand
+  and `__has_embed`'s macro-replaced where it begins with no header name (C23 6.10.1/4's second form, [cpp.cond]/4;
+  `pp_has_args/2`, 0.211: `__has_include(INC)` was 0); `__has_builtin` and `__is_identifier` 1 (libc++'s other branch is
+  an `#error`), but `__has_builtin(__builtin_common_type)` 0 (`pp_no_builtin/1`, a table of the builtins this compiler
+  does not model: libc++ 21 then flattens `common_type` on its own specializations, the ones libc++ 18 has, and not on
+  clang's builtin class template; reader 118; 0.126), and `__has_builtin(__builtin_clear_padding)` 0 (0.194), GCC's,
+  which no clang of 18, 21 and 22 has: libc++ 21's atomic_ref then clears no padding and compares the whole object, the
+  branch clang++'s build takes; `__has_embed` 1 found, 2 empty, 0 nowhere; `__has_c_attribute` (C only) the standard
+  attributes' dates (`pp_c_attribute/2`), and `__has_cpp_attribute` (C++ only) its standard attributes' values, clang
+  21's at every level (`pp_cpp_attribute/2`, 0.198: `nodiscard` 201907, `no_unique_address` 201803 ...), a scoped one 0
+  -- it was 0 for every attribute, and libc++ 18 laid out its algorithm results, its views, `shared_ptr`'s array control
+  blocks and its format buffers without `[[no_unique_address]]`: `sizeof(std::ranges::in_in_result<E, int>)` 8 where
+  clang++'s build has 4 (`nualayout.cpp`; the Object layout topic's empty data member is the rest of it); these
+  questions and `__has_builtin`, `__has_feature` and kin are answered in a text line too (`pp_text_builtin/1`, 0.198),
+  as clang answers them (`hascppattr.cpp`: the name was undeclared); `__is_target_arch`, `_vendor`, `_os`,
+  `_environment` per host; every other `__has_*` 0, the plainest path, the one the reader reads best. (0.93, 0.198,
+  0.211)
 - A SCOPED ATTRIBUTE IS ANSWERED BY ITS VENDOR'S LIST (0.205; `pp_cpp_attr_value/2`, `pp_attr_vendor/2`,
   `pp_vendor_attribute/2`): `__has_cpp_attribute(gnu::N)` and `__has_cpp_attribute(clang::N)` -- `__gnu__::` and
   `_Clang::` too, the spellings libc++ writes, the name with or without its underscores, and `__has_c_attribute(gnu::N)`
@@ -1163,6 +1196,12 @@ that changes a rule edits the rule here, in its topic, and writes its entry in `
   `import`, to `ccl_header_macros_ready/2` (the header by `ccl_include_read/2`, then `ccl_header_macros/2`). The
   table's kind is memoized per level in `'$ccl_hm:<Path>@<Level>'` (`ccl_hm_key/2`, `t` appended with trigraphs).
   (0.99, 0.110)
+- A COMPUTED `#include` IN THE USER'S FILE (C17 6.10.2/4; 0.211) is passed on with the name it resolved to
+  (`pp_inc_text/4`), since the reader reads no name from `#include INC`: the header's declarations were lost with its
+  macros. The prescan knows no computed name, so the macros of a header that one names and that the prescan did not make
+  ready are made ready after the run, and the file is run again, once for each such header new to the file
+  (`ccl_pp_top_run/4` over `'$pp_late'`, which `pp_do_include/6` fills and `pp_reset/0` empties; `pp_new_specs/3`).
+  `test/c/run/ppinclude.c`, `test/cpp/run/ppinclude.cpp`: a local header and a library header named by a macro. (0.211)
 - A header's macro reaches the run BY NAME on first use (`pp_macro/3`, `pp_defined/1`). The run's own `'$pp:<Name>'`
   comes first; a miss is kept until the next include (`'$pp_ninc'`). Then `pp_outer_macro/3` asks the predefined
   macros (no header redefines one), then the headers, the last included first (`pp_header_macro/3`). Why:
@@ -1190,14 +1229,15 @@ that changes a rule edits the rule here, in its topic, and writes its entry in `
   follows, `\NNN` for another control character and past ASCII below 256, `\u{...}` above (0.209: `\'` was escaped in a
   string too, and the other control characters were `\NNN`). Why: the census reads the flattened text. (0.44, 0.209)
 - Every token spells back as the reader takes it (`ccl_pp_spell_tok/4`, `pp_spell/2`), a character that begins no token
-  as itself (0.210). The suffixes stay: `u`, `l`, `ul`, `wb`, `uwb`, `f`, `L`, and the imaginary `i`, `if`, `ui`, `li`,
-  `uli` (`pp_imag_suffix/2`). A literal keeps its prefix (`pp_str_prefix/2`). A literal past 2^60 spells as its digits
-  (`pp_int_codes/2`). A float spells as the fewest digits that read back as the same double, cocolog 1.10.28's writer,
-  and an infinite one as `1e999` (`pp_float_codes/2`; 0.143): every float past 1.0e308 was `1e999`, so `__DBL_MAX__` and
-  `1.5e308` became infinities, and a float of 16 or 17 digits came back another double. A long double literal spells as
-  its text and its suffix (0.154: `L`, an imaginary one `il`), where it spelled the double it held (`__LDBL_MAX__` was
-  `1.7976931348623157e308L`). A `#cocolog` block spells whole. The driver gate compiles the text with clang, a line of
-  long double literals among it (0.154). (0.108, 0.143, 0.154)
+  as itself (0.210); a literal, a digraph and an alternative token spelled as written are the reader's tokens by then
+  (`pp_finish/2`; 0.211). The suffixes stay: `u`, `l`, `ul`, `wb`, `uwb`, `f`, `L`, and the imaginary `i`, `if`, `ui`,
+  `li`, `uli` (`pp_imag_suffix/2`). A literal keeps its prefix (`pp_str_prefix/2`). A literal past 2^60 spells as its
+  digits (`pp_int_codes/2`). A float spells as the fewest digits that read back as the same double, cocolog 1.10.28's
+  writer, and an infinite one as `1e999` (`pp_float_codes/2`; 0.143): every float past 1.0e308 was `1e999`, so
+  `__DBL_MAX__` and `1.5e308` became infinities, and a float of 16 or 17 digits came back another double. A long double
+  literal spells as its text and its suffix (0.154: `L`, an imaginary one `il`), where it spelled the double it held
+  (`__LDBL_MAX__` was `1.7976931348623157e308L`). A `#cocolog` block spells whole. The driver gate compiles the text
+  with clang, a line of long double literals among it (0.154). (0.108, 0.143, 0.154)
 
 ### The compiler's own headers
 
@@ -9546,16 +9586,16 @@ A lambda is a class of its captures (`library/ccl_cpp.pl`). A fixture named alon
 - Ubuntu 24.04 on x86_64 (clang and LLVM 18, glibc, libc++ 18 and 21) is a host since 0.87. Every gate but the C++ one
   is GREEN there since 0.93, and all seven since 0.95. Every step from 0.93 on is gated there, but the save points
   0.112, 0.113, 0.117, 0.122 to 0.125, 0.130, 0.131 and 0.143 (0.143's C gates and cross gate ran, its libc++ gates did
-  not; the others were gated by the steps after them). The last full run is 0.209's, over cocolog 2.12.0 (the Findings),
-  on one tree, over fresh HOMEs: over libc++ 18 all nine GREEN (the flow gate's one finding in 140 s, reader 5 s,
-  compile 26 s, driver 20 s, objects 6 s, proof, the cross gate in 397 s with its C++ part for aarch64, the library read
-  in 713 s (198 other headers warmed), the C++ gate in 1552 s with 794 of 804 fixtures ok, the skips are `atomicref`,
+  not; the others were gated by the steps after them). The last full run is 0.210's, over cocolog 2.12.0 (the Findings),
+  on one tree, over fresh HOMEs: over libc++ 18 all nine GREEN (the flow gate's one finding in 137 s, reader 6 s,
+  compile 27 s, driver 20 s, objects 6 s, proof, the cross gate in 428 s with its C++ part for aarch64, the library read
+  in 785 s (198 other headers warmed), the C++ gate in 1642 s with 795 of 805 fixtures ok, the skips are `atomicref`,
   `atomicrefalign`, `ftm23b`, `ftm26b`, `joinwith`, `stdflatmap`, `stdoptionalref`, `tzone`, `vbaseof` and
   `zipadjacent`, the two units, the 29 refusals, the four of the safe part and the four static assertions); over libc++
-  21 the library read (the phase 630 s) and the C++ gate (about 1550 s, 802 of 804 ok, the skips `stdoptionalref` and
-  `zipadjacent`) GREEN -- the C gates do not read libc++. The headers' reads, summed, took 2665 s over 221 over libc++
-  18 and 2355 s over 21; the fixtures' builds 5303 s over 794 and 5319 s over 802. The chains of 0.165 to 0.203 and of
-  0.205 to 0.209 are in HISTORY.md, 0.166 to 0.204 and 0.206 to 0.210. Two libc++ passes are one gate:
+  21 the library read (the phase 696 s) and the C++ gate (about 1770 s, 803 of 805 ok, the skips `stdoptionalref` and
+  `zipadjacent`) GREEN -- the C gates do not read libc++. The headers' reads, summed, took 2954 s over 221 over libc++
+  18 and 2618 s over 21; the fixtures' builds 5639 s over 795 and 6109 s over 803. The chains of 0.165 to 0.203 and of
+  0.205 to 0.210 are in HISTORY.md, 0.166 to 0.204 and 0.206 to 0.211. Two libc++ passes are one gate:
   `LLVM=/usr/lib/llvm-18` and `LLVM=/usr/lib/llvm-21` choose the tree the chain reads and links. libc++ 22 (the newest
   tree, which a run without `$LLVM` reads) is no gate: 0.182 built its vector and its C++23 views by hand
   (`zipadjacent.cpp`, which its `.needs` skips over 18 and 21), and `stdoptionalref` passes there. The run before
@@ -9633,6 +9673,9 @@ A lambda is a class of its captures (`library/ccl_cpp.pl`). A fixture named alon
   each expansion stringized -- rescanning, names their own expansions left unexpanded, placemarkers, `##` in an
   object-like macro and from an argument, the variadic forms (`ppexample.c`), its EXAMPLE 4 with a character that begins
   no token (`ppexample4.c`), C23's `__VA_OPT__` examples (`ppvaopt.c`, `-std=c23`) -- and `$` in names (`dollar.c`).
+  Since 0.211: a token's spelling in `#x` -- a literal's escapes and prefix, a digraph, a name past ASCII in UTF-8, a
+  body's `%:` and `%:%:` operators, a `#line` name past ASCII in `__FILE__` (`spelling.c`) -- and a computed `#include`,
+  `__has_include`, `__has_embed` and `#embed` over a macro (`ppinclude.c`, `-std=c23`).
 - The C library is the host's. The compiler's own freestanding headers are in `library/include/` (`<stdarg.h>`,
   `<stdatomic.h>`, `<complex.h>`, `<stdckdint.h>`, `<stdbit.h>`, `<limits.h>`, `<tgmath.h>` and six more).
 - The language's own additions run: `:=`, patterns, `name { }` structs and `format`, `print`, `println`
@@ -9689,6 +9732,8 @@ A lambda is a class of its captures (`library/ccl_cpp.pl`). A fixture named alon
   (two virtual overloads of one name and arity, one overridden), `virtualdefault` (a virtual call that leaves a defaulted
   argument out), `anonparam` (an unnamed by-value parameter destroyed), `rangeadl` (a range-for by the free `begin` and
   `end` of two namespaces), `downcast` (`static_cast` from a second base to the derived class, a pointer and a reference).
+- Forms of 0.211: `spelling` (an alternative token, a raw string, a literal and a digraph stringized as written),
+  `ppinclude` (a computed `#include` of a library header and of the program's own, `__has_include` over a macro).
 - Forms of 0.205, what the audit's Not done list held: `protoreq` (C++20: a prototype's trailing requires-clause and a
   member's defined out of its class; the scoped vendor attributes in `#if`), `specbound` (a partial specialization's
   value parameter typed from an array's bound), `lambdanx` (a lambda's noexcept, a generic one's condition,
@@ -10318,24 +10363,27 @@ promise after its state, a program's `get` beside `std::tuple` -- and what their
 a class typedef's alignment, a struct's own value named by its tag, a typedef's conditional noexcept, `noexcept(B)`
 deducing B, and a noexcept function given to a template over a plain function pointer, refused since 0.199); the tenth,
 libc++'s facilities by their feature-test macros and C23's library, is 0.206's (the What runs topic: each `__cpp_lib_*`
-macro that libc++ 18 and 21 define from C++17 to C++26, its facility exercised, and C23's library over glibc -- and
-what their probes found: `std::nullptr_t` a type of its own in both languages, a class's `final`, four traits the
-library asks the compiler, a floating atomic's addition, an atomic of a struct aligned at its size and moved as one
-integer, the byte swaps, an initializer_list's array of objects built in place, a local initializer_list and `auto x =
-{a, b}`, a braced argument by value the parameter and one to a reference to an array, `decltype` of a member and of a
-template-id's arguments, a declaration's noexcept merged with its definition, the nearer base breaking a tie, a lambda
-as a braced list's item, a callee written `std::move(f)`, a recursive class's implicit copy made once, and a C library
-function's pointer result a borrow of its first argument); the eleventh, what the tenth left, is 0.208's (a braced
-argument to a reference to an array of objects, every read-modify-write of an `_Atomic` object one, an `_Atomic` object
-of any size atomic, a pointer's atomic addition, an atomic pointer -- and what their probes found: the address constants
-at file scope, a parameter naming a given and a deduced template parameter, libatomic named at the link); the twelfth,
-the white space of `#x`, is 0.209's (the Macro expansion topic of the preprocessor: a space only where white space
-stood, an empty expansion's and an empty argument's passed on, a variadic argument's commas as written, C++20's and
-C23's `#__VA_OPT__` -- and what its probes found: a literal in a stringized argument escaped twice); the thirteenth,
-the preprocessor by the standards' own examples, is 0.210's (the Macro expansion topic: the hide sets of Prosser's
-algorithm, an argument's tokens keeping theirs and a function-like expansion's met with its closing parenthesis's,
-`##` in an object-like macro and an argument's `##` no operator, `__VA_OPT__` over the expanded argument; the Lexers
-topic: a character that begins no token one of its own, `$` a letter).
+macro that libc++ 18 and 21 define from C++17 to C++26, its facility exercised, and C23's library over glibc -- and what
+their probes found: `std::nullptr_t` a type of its own in both languages, a class's `final`, four traits the library
+asks the compiler, a floating atomic's addition, an atomic of a struct aligned at its size and moved as one integer, the
+byte swaps, an initializer_list's array of objects built in place, a local initializer_list and `auto x = {a, b}`, a
+braced argument by value the parameter and one to a reference to an array, `decltype` of a member and of a template-id's
+arguments, a declaration's noexcept merged with its definition, the nearer base breaking a tie, a lambda as a braced
+list's item, a callee written `std::move(f)`, a recursive class's implicit copy made once, and a C library function's
+pointer result a borrow of its first argument); the eleventh, what the tenth left, is 0.208's (a braced argument to a
+reference to an array of objects, every read-modify-write of an `_Atomic` object one, an `_Atomic` object of any size
+atomic, a pointer's atomic addition, an atomic pointer -- and what their probes found: the address constants at file
+scope, a parameter naming a given and a deduced template parameter, libatomic named at the link); the twelfth, the white
+space of `#x`, is 0.209's (the Macro expansion topic of the preprocessor: a space only where white space stood, an empty
+expansion's and an empty argument's passed on, a variadic argument's commas as written, C++20's and C23's `#__VA_OPT__`
+-- and what its probes found: a literal in a stringized argument escaped twice); the thirteenth, the preprocessor by the
+standards' own examples, is 0.210's (the Macro expansion topic: the hide sets of Prosser's algorithm, an argument's
+tokens keeping theirs and a function-like expansion's met with its closing parenthesis's, `##` in an object-like macro
+and an argument's `##` no operator, `__VA_OPT__` over the expanded argument; the Lexers topic: a character that begins
+no token one of its own, `$` a letter); the fourteenth, a token's spelling, is 0.211's (the Lexers topic: a literal, a
+digraph and an alternative token spelled as written in the preprocessor's mode; the Macro expansion topic: a body's `%:`
+and `%:%:` its operators, a string's bytes from its spelling -- and what its probes found: a computed `#include` and its
+header name, in the user's file and in a header, and the operand of `__has_include` and `__has_embed` macro-replaced).
 
 1. C++'S CORE LANGUAGE, WHAT 0.205 LEFT: clang's `TnDa` for a placeholder's argument in a function template's symbol is
    not spelled, which no symbol here needs (the program's functions keep this compiler's names); and a library header's
@@ -10348,36 +10396,40 @@ topic: a character that begins no token one of its own, `$` a letter).
 4. libc++'S FACILITIES, WHAT 0.201 LEFT: every standard header of libc++ 18 and 21 is included by a fixture; the
    Technical Specifications' `<experimental/...>` headers and GNU's `<ext/hash_map>` and `<ext/hash_set>` are no level
    of the standard, and a facility neither tree ships (`<stacktrace>`, `<spanstream>`, `<generator>`, `<text_encoding>`,
-   `std::inplace_vector`, `std::hive`) is nothing to compile. The limits its probes met: a stringized alternative token
-   spells its punctuator; `test/census.sh` reads a header at C++17 whatever `CCL_CENSUS_STD` says. A program's own `get`
-   beside `std::tuple` builds since 0.205 (`ownget.cpp`).
-5. SMALL ONES: the lexers' three limits of 0.196 -- a macro's name spelled with a universal character name (`#define
-   caf\u00e9 1`) is not read, since the preprocessor's own word reader takes the bytes past ASCII and no escape; a
-   multi-character constant stringized (`#x` of `'ab'`) spells its value, `"24930"`, where clang spells `"'ab'"`;
-   XID_Start and XID_Continue are not told apart: every character past ASCII is a letter to the lexers, one that no
-   level takes in an identifier included --; `__has_attribute` answers 0 for every attribute, `packed` and `aligned`
-   among them, where clang answers 1, since an answer of 1 moves glibc's and libc++'s headers onto roads that no gate
-   has read (an enum's `aligned` and GNU's alignment of an expression are done, 0.205); an ISO mode (`-std=c17`,
-   `-std=c++17`) predefines `__STRICT_ANSI__` in clang and the GNU modes do not -- it needs the mode in the C store's
-   key and the C++ summaries' keys, since `-std=c23` and `-std=gnu23` read one key now; `decltype(x)` and
-   `alignof(decltype(x))` of an aligned variable keep its alignment, the qualifier `aligned(E)` sitting in its type,
-   where the alignment is the entity's ([dcl.align]); clang's C extension that types a conditional of two incompatible
-   pointers as `void *`, with a warning, is not modelled. (A generic atomic builtin over an object that is no lock-free
-   width calls libatomic, which the link names since 0.208, the driver topic.)
-6. libc++'S FACILITIES BY THEIR FEATURE-TEST MACROS, WHAT 0.206 LEFT: a literal in a stringized argument is spelled from
-   its value, so an escape keeps its meaning and not its spelling -- `#x` of `"\x41"` is `"\"A\""` where clang keeps
-   `"\"\\x41\""`, and a raw string literal spells as an ordinary one; the tokens hold values, and the spelling is the
-   reader's no longer (a stringized alternative token and a multi-character constant alike, items 4 and 5). Done at
-   0.209: `#x` keeps a space only where white space stood (the Macro expansion topic of the preprocessor); done at
-   0.208: a braced argument to a reference to an array of objects (the Classes topic), every read-modify-write of an
-   `_Atomic` object one and an `_Atomic` object of any size atomic (the Atomics topic; its layout gcc's, where clang
-   rounds it up). No defect: a class's table is emitted where its key function is only declared, so a program that
-   declares a virtual function, never defines it and never makes an object of the class links with clang and fails here
-   -- a virtual function that is not pure is odr-used ([basic.def.odr]/8), and a program that never defines one is
-   ill-formed, no diagnostic required (/10).
+   `std::inplace_vector`, `std::hive`) is nothing to compile. The limit its probes met: `test/census.sh` reads a header
+   at C++17 whatever `CCL_CENSUS_STD` says (a stringized alternative token spells as written since 0.211). A program's
+   own `get` beside `std::tuple` builds since 0.205 (`ownget.cpp`).
+5. SMALL ONES: the lexers' limits of 0.196 -- a macro's name spelled with a universal character name (`#define caf\u00e9
+   1`) is not read, since the preprocessor's own word reader takes the bytes past ASCII and no escape; a name spelled
+   with one is stringized as its character, `#x` of `caf\u00e9` `"café"` where clang keeps `"caf\u00e9"` (a literal, a
+   multi-character constant among them, is spelled as written since 0.211); XID_Start and XID_Continue are not told
+   apart: every character past ASCII is a letter to the lexers, one that no level takes in an identifier included --;
+   `__has_attribute` answers 0 for every attribute, `packed` and `aligned` among them, where clang answers 1, since an
+   answer of 1 moves glibc's and libc++'s headers onto roads that no gate has read (an enum's `aligned` and GNU's
+   alignment of an expression are done, 0.205); an ISO mode (`-std=c17`, `-std=c++17`) predefines `__STRICT_ANSI__` in
+   clang and the GNU modes do not -- it needs the mode in the C store's key and the C++ summaries' keys, since
+   `-std=c23` and `-std=gnu23` read one key now; `decltype(x)` and `alignof(decltype(x))` of an aligned variable keep
+   its alignment, the qualifier `aligned(E)` sitting in its type, where the alignment is the entity's ([dcl.align]);
+   clang's C extension that types a conditional of two incompatible pointers as `void *`, with a warning, is not
+   modelled. (A generic atomic builtin over an object that is no lock-free width calls libatomic, which the link names
+   since 0.208, the driver topic.)
+6. libc++'S FACILITIES BY THEIR FEATURE-TEST MACROS, WHAT 0.206 LEFT: done -- a literal in a stringized argument is
+   spelled as written since 0.211, its escapes and a raw string's delimiters kept (the Lexers topic), and so are an
+   alternative token and a multi-character constant. Done at 0.209: `#x` keeps a space only where white space stood (the
+   Macro expansion topic of the preprocessor); done at 0.208: a braced argument to a reference to an array of objects
+   (the Classes topic), every read-modify-write of an `_Atomic` object one and an `_Atomic` object of any size atomic
+   (the Atomics topic; its layout gcc's, where clang rounds it up). No defect: a class's table is emitted where its key
+   function is only declared, so a program that declares a virtual function, never defines it and never makes an object
+   of the class links with clang and fails here -- a virtual function that is not pure is odr-used ([basic.def.odr]/8),
+   and a program that never defines one is ill-formed, no diagnostic required (/10).
 7. THE BY-VALUE PARAMETERS, WHAT 0.206 LEFT: done -- the caller destroys a by-value parameter of a class with a
    destructor at the end of its full-expression since 0.207, as the Itanium C++ ABI and clang have it, and every
    temporary of a statement is destroyed on unwinding where it was built (the Classes topic).
+8. THE FUNCTIONS A C HEADER DEFINES (0.211's probes): in C no function that a header defines is emitted -- a `static`
+   one, a `static inline` one or an external definition in the program's own header, and the C library's `static
+   __inline` ones, `__bswap_32` behind `<byteswap.h>`'s `bswap_32` --, so a call of one is an undefined symbol at the
+   link, where clang emits each one the unit uses (C17 6.9/5: an included header's text is the translation unit's). A
+   C++ program's own header's inline functions are emitted since 0.41 (the Includes topic).
 
 ### C++ language
 

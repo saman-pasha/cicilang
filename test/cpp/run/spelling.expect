@@ -1,0 +1,6 @@
+a and b or not c bitand d bitor compl e xor f and_eq or_eq xor_eq not_eq
+R"(a\b)" R"x(q"z)x" u8R"(r)" LR"(w)" uR"(v)" UR"(t)"
+'ab' "\x41" <: :> <% %> %:
+a and b
+1 -1 2 x\ny
+exit 0

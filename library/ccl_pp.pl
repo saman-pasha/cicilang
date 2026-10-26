@@ -68,7 +68,7 @@ pp_mt_quoted([C|Cs], Q, [C|Out], R) :- pp_mt_quoted(Cs, Q, Out, R).
 %% directive item; a `#cocolog ... #end' block is the reader's, one token of
 %% its raw lines; a `.pl' include is the reader's macro file. A line that
 %% does not lex whole is the lexical error it always was.
-ccl_pp_top(Path, Tokens, Files) :- nb_setval('$pp_warnings', []), ccl_pp_prescan(Path), ccl_pp_run(Path, yes, Tokens, Files), ( memberchk(tok(other, _, L), Tokens) -> throw(lexical(L)) ; true ).   % the warnings are the run's, read by the driver after the read (pp_reset leaves them: a nested header's run must not wipe the file's)
+ccl_pp_top(Path, Tokens, Files) :- nb_setval('$pp_warnings', []), ccl_pp_prescan(Path), ccl_pp_top_run(Path, [], Tokens, Files), ( memberchk(tok(other, _, L), Tokens) -> throw(lexical(L)) ; true ).   % the warnings are the run's, read by the driver after the read (pp_reset leaves them: a nested header's run must not wipe the file's)
 ccl_pp_run(Path, Top, Tokens, Files) :-
     ccl_ensure_globals, pp_reset, nb_setval('$pp_top', Top),
     nb_setval('$ccl_hash', punct),                                                   % the run lexes in the preprocessor's mode: `#' a punctuator, a number as spelled
@@ -77,6 +77,15 @@ ccl_pp_run(Path, Top, Tokens, Files) :-
     ( var(E) -> true ; E == failed -> fail ; throw(E) ),
     pp_finish(Out, Tokens),
     nb_getval('$pp_files', Fs), reverse(Fs, Files).
+%% A COMPUTED #include IN THE USER'S FILE (C17 6.10.2/4; 0.211): the header that a macro names is known only in the run,
+%% and a run is not re-entrant, so the macros of one that the prescan did not make ready are made ready after the run
+%% and the file is run again, once for each such header new to the file (pp_do_include/6 lists them in '$pp_late')
+ccl_pp_top_run(Path, Tried, Tokens, Files) :-
+    ccl_pp_run(Path, yes, Tokens0, Files0), nb_getval('$pp_late', Late0), reverse(Late0, Late1), pp_new_specs(Late1, Tried, Late),
+    (   Late \== [] -> pp_prescan_ready(Late, Path), nb_setval('$pp_warnings', []), append(Tried, Late, Tried1), ccl_pp_top_run(Path, Tried1, Tokens, Files)
+    ;   Tokens = Tokens0, Files = Files0 ).
+pp_new_specs([], _, []).
+pp_new_specs([S|Ss], Seen, New) :- ( memberchk(S, Seen) -> New = New1, Seen1 = Seen ; New = [S|New1], Seen1 = [S|Seen] ), pp_new_specs(Ss, Seen1, New1).
 %% the includes a file names, their headers read and their macros made ready, in the file's order; the cold library
 %% headers among them first read by processes of their own, where there are two or more (0.188; ccl_cold_headers_read/2)
 ccl_pp_prescan(Path) :- pp_source(Path, Lines), pp_prescan_specs(Lines, Specs), ccl_cold_headers_read(Specs, Path), pp_prescan_ready(Specs, Path).
@@ -111,7 +120,7 @@ pp_macro_terms([N|Ns], G, Ms) :-
 pp_reset :-
     ( nb_current('$pp_gen', G0) -> G is G0 + 1 ; G = 1 ), nb_setval('$pp_gen', G),
     nb_setval('$pp_names', []), nb_setval('$pp_files', []), nb_setval('$pp_once', []), nb_setval('$pp_stack', []), nb_setval('$pp_linemap', []),
-    nb_setval('$pp_counter', 0), nb_setval('$pp_outs', 0), nb_setval('$pp_errors', []), nb_setval('$pp_paste', no), nb_setval('$pp_top', no), nb_setval('$pp_hdrs', []), nb_setval('$pp_ninc', 0).
+    nb_setval('$pp_counter', 0), nb_setval('$pp_outs', 0), nb_setval('$pp_errors', []), nb_setval('$pp_paste', no), nb_setval('$pp_top', no), nb_setval('$pp_hdrs', []), nb_setval('$pp_ninc', 0), nb_setval('$pp_late', []).
 pp_key(N, K) :- atom_concat('$pp:', N, K).
 %% a macro: its parameters (obj for an object-like one; va(N) the variadic
 %% one) and its body -- the codes as defined, the tokens once used
@@ -123,7 +132,7 @@ pp_undefine(N) :- nb_getval('$pp_gen', G), pp_key(N, K), nb_setval(K, undef(G)).
 %% through, the last first), defined into the run on that first use; one
 %% undefined in this run stays so
 pp_macro(N, Ps, Body) :- pp_key(N, K), nb_getval('$pp_gen', G), ( nb_current(K, V) -> true ; V = none ), pp_macro_(V, G, N, K, Ps, Body).
-pp_macro_(mac(G, Ps, C, T0), G, _, K, Ps, Body) :- !, ( T0 == none -> C = codes(Cs), pp_lex_mbody(Cs, Body0), pp_obj_paste(Ps, Body0, Body), nb_setval(K, mac(G, Ps, C, Body)) ; Body = T0 ).
+pp_macro_(mac(G, Ps, C, T0), G, _, K, Ps, Body) :- !, ( T0 == none -> C = codes(Cs), pp_lex_mbody(Cs, Body1), pp_body_ops(Ps, Body1, Body0), pp_obj_paste(Ps, Body0, Body), nb_setval(K, mac(G, Ps, C, Body)) ; Body = T0 ).
 pp_macro_(undef(G), G, _, _, _, _) :- !, fail.
 pp_macro_(nomac(G, I), G, _, _, _, _) :- nb_getval('$pp_ninc', I), !, fail.                 % a miss remembered, good until the next include
 pp_macro_(_, G, N, K, Ps, Body) :- ( pp_outer_macro(N, Ps, Cs) -> pp_macro_(mac(G, Ps, codes(Cs), none), G, N, K, Ps, Body) ; pp_note_miss(K, G), fail ).
@@ -132,6 +141,14 @@ pp_note_miss(K, G) :- nb_getval('$pp_ninc', I), nb_setval(K, nomac(G, I)).
 %% `#define AB a ## b' is `ab' and `# ## #' the one token `##'. They were the tokens as written, and the reader met `##'
 pp_obj_paste(obj, B0, B) :- memberchk(tok(p, '##', _), B0), !, pp_paste(B0, B).
 pp_obj_paste(_, B, B).
+%% A BODY'S `%:%:' AND `%:' ARE ITS OPERATORS `##' and `#' (C17 6.4.6/3; 0.211), `%:' in a function-like macro's, where
+%% it is the stringizing one; anywhere else the digraph is spelled as written
+pp_body_ops(Ps, B0, B) :- memberchk(tok(dg, _, _), B0), !, pp_body_ops_(B0, Ps, B).
+pp_body_ops(_, B, B).
+pp_body_ops_([], _, []).
+pp_body_ops_([tok(dg, '%:%:', M)|Ts], Ps, [tok(p, '##', M)|Us]) :- !, pp_body_ops_(Ts, Ps, Us).
+pp_body_ops_([tok(dg, '%:', M)|Ts], Ps, [tok(p, '#', M)|Us]) :- Ps \== obj, !, pp_body_ops_(Ts, Ps, Us).
+pp_body_ops_([T|Ts], Ps, [T|Us]) :- pp_body_ops_(Ts, Ps, Us).
 pp_defined(N) :- ( pp_builtin_name(N) -> true ; pp_key(N, K), nb_getval('$pp_gen', G), ( nb_current(K, V) -> true ; V = none ), pp_defined_(V, G, N) ).
 pp_defined_(mac(G, _, _, _), G, _) :- !.
 pp_defined_(undef(G), G, _) :- !, fail.
@@ -423,7 +440,7 @@ pp_hs_meet(_, [], []) :- !.
 pp_hs_meet([], _, []).
 pp_hs_meet([N|Ns], RHS, Out) :- ( memberchk(N, RHS) -> Out = [N|Out1] ; Out = Out1 ), pp_hs_meet(Ns, RHS, Out1).
 pp_builtin_obj('__LINE__', L, [tok(int, P, L)]) :- pp_presumed(L, P, _).
-pp_builtin_obj('__FILE__', L, [tok(str, Cs, L)]) :- pp_presumed(L, _, F), atom_codes(F, Cs).
+pp_builtin_obj('__FILE__', L, [tok(str, Cs, L)]) :- pp_presumed(L, _, F), ccl_atom_bytes(F, Cs).   % a string's value in bytes (0.211)
 pp_builtin_obj('__COUNTER__', L, [tok(int, C, L)]) :- nb_getval('$pp_counter', C), C1 is C + 1, nb_setval('$pp_counter', C1).
 pp_builtin_obj('__DATE__', L, [tok(str, Cs, L)]) :- atom_codes('Jan  1 2026', Cs).
 pp_builtin_obj('__TIME__', L, [tok(str, Cs, L)]) :- atom_codes('00:00:00', Cs).
@@ -565,7 +582,10 @@ pp_glued(H, [T|Ts], [h(T, H)|Ws]) :- pp_glued(H, Ts, Ws).
 pp_glued(_, [], []).
 %% `#x': the argument spelled, a space where white space stood between two of its tokens, none before the first or after
 %% the last (C17 6.10.3.2/2; 0.209: it was a space between every two)
-pp_stringize(Arg, Cs) :- pp_spell_marked(Arg, Cs0), ( member(X, Arg), pp_unwrap(X, tok(other, 92, _), _) -> pp_str_decode(Arg, Cs0, Cs) ; Cs = Cs0 ).
+pp_stringize(Arg, Cs) :- pp_spell_marked(Arg, Cs1), pp_utf8_bytes(Cs1, Cs0), ( member(X, Arg), pp_unwrap(X, tok(other, 92, _), _) -> pp_str_decode(Arg, Cs0, Cs) ; Cs = Cs0 ).
+%% ... in bytes, a string's value, the spelling in characters (0.211: `S(caf\u00e9)' gave the byte 0xE9 for its `\u00e9')
+pp_utf8_bytes([], []).
+pp_utf8_bytes([C|Cs], Bs) :- ( C < 128 -> Bs = [C|Bs1] ; ccl_utf8(C, Bs, Bs1) ), pp_utf8_bytes(Cs, Bs1).
 %% ... the string's value is that spelling, a literal's quote and `\' escaped only to be read back; a `\' of no literal
 %% begins an escape of the string made (0.210: the standard's `str(: @\n)' is ": @" and a new-line), so the spelling is
 %% escaped where it is a literal's and read as a string's body
@@ -574,7 +594,7 @@ pp_str_decode(Arg, Cs0, Cs) :- pp_spell_esc(Arg, E), append([34|E], [34], Q), at
 pp_spell_esc([], []).
 pp_spell_esc([X|Xs], Cs) :- pp_unwrap(X, T, _), pp_spell(T, C0), ( pp_lit_kind(T) -> pp_escape(C0, 34, raw, C1) ; C1 = C0 ), pp_spell_esc(Xs, C2),
     ( Xs = [X1|_], pp_unwrap(X1, _, ['$sp'|_]) -> append(C1, [0' |C2], Cs) ; append(C1, C2, Cs) ).
-pp_lit_kind(tok(K, _, _)) :- ( K == str ; K == chr ; pp_str_prefix(K, _) ; pp_chr_prefix(K, _) ), !.
+pp_lit_kind(tok(K, _, _)) :- ( K == lit ; K == str ; K == chr ; pp_str_prefix(K, _) ; pp_chr_prefix(K, _) ), !.
 pp_spell_marked([], []).
 pp_spell_marked([X|Xs], Cs) :- pp_unwrap(X, T, _), pp_spell(T, C1), pp_spell_marked_(Xs, C2), append(C1, C2, Cs).
 pp_spell_marked_([], []).
@@ -616,14 +636,19 @@ pp_lit_x(_, raw).
 %% below 256 and \u{...} above. An escape `\x41' is spelled `A', its value. `#x' escaped a second time the text this
 %% escapes (`S("x y")' printed \"x y\"), and pp_spell/2 left a tab, a character constant and a control character raw
 pp_escape([], _, _, []).
+pp_escape([C|Cs], Q, X, Es) :- pp_escape_utf8(C, X, Cs, U, Cs1), !, Es = [U|Es1], pp_escape(Cs1, Q, X, Es1).
 pp_escape([C|Cs], Q, X, Es) :- pp_escape_c(C, Q, X, Cs, Es, Es1), pp_escape(Cs, Q, X, Es1).
+%% a narrow literal's bytes are spelled in characters (0.211): a UTF-8 sequence its character, a byte of none three octal
+%% digits below (pp_escape_c/6), so `#x' and `##' read the spelling as the characters they are
+pp_escape_utf8(C, raw, Cs, U, Cs1) :- C >= 0xC2, C =< 0xF4, ( C < 0xE0 -> N = 1, U0 is C /\ 0x1F ; C < 0xF0 -> N = 2, U0 is C /\ 0x0F ; N = 3, U0 is C /\ 0x07 ), pp_utf8_tail(N, Cs, U0, U, Cs1), U >= 0x80.
+pp_utf8_tail(0, Cs, U, U, Cs) :- !.
+pp_utf8_tail(N, [B|Cs], U0, U, Cs1) :- B >= 0x80, B =< 0xBF, U1 is (U0 << 6) \/ (B /\ 0x3F), N1 is N - 1, pp_utf8_tail(N1, Cs, U1, U, Cs1).
 pp_escape_c(Q, Q, _, _, [92, Q|R], R) :- !.
 pp_escape_c(92, _, _, _, [92, 92|R], R) :- !.
 pp_escape_c(C, _, _, _, [92, N|R], R) :- pp_named_escape(C, N), !.
 pp_escape_c(0, _, _, Cs, [92, 0'0|R], R) :- \+ ( Cs = [D|_], D >= 0'0, D =< 0'7 ), !.
-pp_escape_c(C, _, X, _, [92, O1, O2, O3|R], R) :- ( C < 32 ; C =:= 127 ; X == esc, C >= 128, C < 256 ), !, O1 is 0'0 + C // 64, O2 is 0'0 + (C // 8) mod 8, O3 is 0'0 + C mod 8.   % \NNN: three octal digits, which no digit after can extend
+pp_escape_c(C, _, X, _, [92, O1, O2, O3|R], R) :- ( C < 32 ; C =:= 127 ; X \== wide, C >= 128, C < 256 ), !, O1 is 0'0 + C // 64, O2 is 0'0 + (C // 8) mod 8, O3 is 0'0 + C mod 8.   % \NNN: three octal digits, which no digit after can extend
 pp_escape_c(C, _, esc, _, Out, R) :- C >= 256, !, atom_codes('\\u{', H), ccl_pp_hexn(C, Hs), append(H, Hs, O1), append(O1, [125|R], Out).                     % a code point: \u{...}
-pp_escape_c(C, _, wide, _, Es, R) :- C >= 128, !, ccl_utf8(C, Es, R).
 pp_escape_c(C, _, _, _, [C|R], R).
 pp_named_escape(10, 0'n).   pp_named_escape(9, 0't).   pp_named_escape(13, 0'r).   pp_named_escape(7, 0'a).
 pp_named_escape(8, 0'b).   pp_named_escape(12, 0'f).   pp_named_escape(11, 0'v).
@@ -642,7 +667,15 @@ pp_relined([], _, []).
 pp_relined([tok(K, V, _)|Ts], L, [tok(K, V, L)|Us]) :- pp_relined(Ts, L, Us).
 pp_norm(tok(num, Cs, L), tok(int, V, L)) :- pp_plain_int(Cs), !, ccl_int_value(Cs, V).   % ... through the reader's one door, so a literal past 2^60 is big(Atom) here too (0.94)   % a plain decimal, most of them: no lexer run
 pp_norm(tok(num, Cs, L), T) :- !, nb_getval('$ccl_hash', M), nb_setval('$ccl_hash', line), atom_codes(A, Cs), ( ccl_lex_atom(A, 0, [tok(K, V, _)], []) -> T0 = tok(K, V, L) ; T0 = tok(int, 0, L) ), nb_setval('$ccl_hash', M), T = T0.   % the mode restored before the answer meets the caller's (0.201)
+%% A TOKEN SPELLED AS WRITTEN (0.211; the lexers' ccl_pp_spelled/4): the reader's token from its spelling -- a literal read
+%% again in the reader's mode, a digraph and an alternative token their punctuator
+pp_norm(tok(lit, A, L), T) :- !, nb_getval('$ccl_hash', M), nb_setval('$ccl_hash', line), ( ccl_lex_atom(A, 0, [tok(K, V, _)], []) -> T0 = tok(K, V, L) ; T0 = tok(str, [], L) ), nb_setval('$ccl_hash', M), T = T0.
+pp_norm(tok(dg, A, L), tok(p, P, L)) :- !, pp_digraph(A, P).
+pp_norm(tok(alt, A, L), tok(p, P, L)) :- !, ccl_alt_token(A, P).
 pp_norm(T, T).
+pp_digraph('<:', '[').   pp_digraph(':>', ']').   pp_digraph('<%', '{').   pp_digraph('%>', '}').   pp_digraph('%:', '#').   pp_digraph('%:%:', '##').
+pp_norm_all([], []).
+pp_norm_all([T|Ts], [U|Us]) :- pp_norm(T, U), pp_norm_all(Ts, Us).
 
 %% ---- directives -------------------------------------------------------------
 pp_directive(Body, L, Ls, Ls1, Out0, Out) :-
@@ -721,20 +754,29 @@ pp_param_names_([P|Ps], Names) :-
 %% is a macro file, the reader's own: the directive is passed on as a token
 pp_do_include(Rest, How, Body, L, Out0, Out) :-
     pp_ws(Rest, R1),
-    (   pp_inc_name(R1, Spec0) -> true
-    ;   pp_lex_body(R1, Ts), pp_expand_all(Ts, Es), pp_spell_all(Es, ECs), pp_inc_name(ECs, Spec0) ),
+    (   pp_inc_name(R1, Spec0) -> Cmp = no
+    ;   pp_computed_codes(R1, ECs), pp_inc_name(ECs, Spec0), Cmp = yes ),
     !,
     ( How == next -> Spec = next(Spec0) ; Spec = Spec0 ),
     pp_current_file(From),
     (   ccl_resolve_include(Spec, From, Path)
-    ->  (   sub_atom(Path, _, 3, 0, '.pl') -> atom_codes(Text, [35|Body]), Out0 = [tok(pp, Text, L)|Out]
-        ;   nb_getval('$pp_top', yes) -> atom_codes(Text, [35|Body]), Out0 = [tok(pp, Text, L)|Out],
-                                        ( ccl_header_macros_known(Path, _) -> nb_getval('$pp_hdrs', Hs), nb_setval('$pp_hdrs', [Path|Hs]), nb_getval('$pp_ninc', I0), I1 is I0 + 1, nb_setval('$pp_ninc', I1) ; true )
+    ->  (   sub_atom(Path, _, 3, 0, '.pl') -> pp_inc_text(Cmp, Spec, Body, Text), Out0 = [tok(pp, Text, L)|Out]
+        ;   nb_getval('$pp_top', yes) -> pp_inc_text(Cmp, Spec, Body, Text), Out0 = [tok(pp, Text, L)|Out],
+                                        (   ccl_header_macros_known(Path, _) -> nb_getval('$pp_hdrs', Hs), nb_setval('$pp_hdrs', [Path|Hs]), nb_getval('$pp_ninc', I0), I1 is I0 + 1, nb_setval('$pp_ninc', I1)
+                                        ;   Cmp == yes -> nb_getval('$pp_late', Lt), nb_setval('$pp_late', [Spec|Lt])
+                                        ;   true )
         ;   nb_getval('$pp_once', O), memberchk(Path, O) -> Out0 = Out
         ;   nb_setval('$pp_mt_line', L), pp_include_file(Path, Out0, Out) )
-    ;   nb_getval('$pp_top', yes) -> atom_codes(Text, [35|Body]), Out0 = [tok(pp, Text, L)|Out]      % nowhere: the reader says `missing'
+    ;   nb_getval('$pp_top', yes) -> pp_inc_text(Cmp, Spec, Body, Text), Out0 = [tok(pp, Text, L)|Out]      % nowhere: the reader says `missing'
     ;   Out0 = Out ).
 pp_do_include(_, _, _, _, Out, Out).
+%% the directive passed on to the reader: as written, or a computed one with the name it resolved to (0.211: the reader
+%% read no name from `#include INC', and the header's declarations were lost with its macros)
+pp_inc_text(no, _, Body, Text) :- !, atom_codes(Text, [35|Body]).
+pp_inc_text(yes, Spec, _, Text) :- ccl_spec_text(Spec, ST), ( Spec = next(_) -> D = '#include_next ' ; D = '#include ' ), atom_concat(D, ST, Text).
+%% A COMPUTED NAME (C17 6.10.2/4): the operand macro-replaced and spelled, a space only where white space stood, as clang
+%% and gcc join `<' NAME `>' (0.211: a space between every two tokens, and `#define SYS <stdint.h>' named ` stdint . h ')
+pp_computed_codes(R1, ECs) :- atom_codes(A, R1), ( ccl_lex_atom_marked(A, 0, Ts, _) -> true ; Ts = [] ), pp_expand_marked(Ts, Es), pp_spell_marked(Es, ECs).
 %% C23's (and C++26's) `#embed "file" [limit(N)] [prefix(toks)] [suffix(toks)] [if_empty(toks)]': the resource's bytes
 %% as a comma-separated list of integers where the directive stood -- in the user's file and in a header alike, since
 %% the bytes ARE the meaning and the reader has no node for one. The name resolves as an #include's does (a quoted
@@ -743,7 +785,7 @@ pp_do_include(_, _, _, _, Out, Out).
 pp_do_embed(Rest, _, L, Out0, Out) :-
     pp_ws(Rest, R1),
     (   pp_inc_name(R1, Spec), pp_inc_rest(R1, R2) -> true
-    ;   pp_lex_body(R1, Ts), pp_expand_all(Ts, Es), pp_spell_all(Es, ECs), pp_inc_name(ECs, Spec), pp_inc_rest(ECs, R2) ),
+    ;   pp_computed_codes(R1, ECs), pp_inc_name(ECs, Spec), pp_inc_rest(ECs, R2) ),
     !,
     pp_current_file(From),
     (   ccl_resolve_include(Spec, From, Path) -> true ; pp_spec_name(Spec, N), atom_concat('#embed: no such resource: ', N, M), throw(pp_error(L, M)) ),
@@ -775,7 +817,7 @@ pp_embed_word(W, K) :- memberchk(W-K, [limit-limit, '__limit__'-limit, prefix-pr
 pp_embed_param(limit, Args, limit(N)) :- !, pp_expand_all(Args, Es), pp_normalize(Es, Ns), phrase(ccl_cond_expr(E), Ns, _), ccl_const_eval(E, N).
 pp_embed_param(K, Args, P) :- P =.. [K, Args].
 %% `__has_embed("file")' in an #if: found (1), empty (2), nowhere (0) -- the values __STDC_EMBED_* name
-pp_has_embed(Args, V) :-
+pp_has_embed(Args0, V) :- pp_has_args(Args0, Args),
     (   Args = [tok(str, S, _)|_] -> atom_codes(N, S), Spec = local(N)
     ;   pp_angle_name(Args, N) -> Spec = system(N)
     ;   fail ),
@@ -900,13 +942,18 @@ pp_vendor_attribute(clang, A) :- memberchk(A, [always_inline, noinline, warn_unu
     standalone_debug, no_specializations, capability, scoped_lockable, acquire_capability, acquire_shared_capability, release_capability,
     release_shared_capability, try_acquire_capability, try_acquire_shared_capability, requires_capability, ptrauth_vtable_pointer, assume,
     nomerge, noduplicate, optnone, minsize, unavailable, no_sanitize, disable_tail_calls, suppress, unsafe_buffer_usage]).
-pp_has_include(Args, How, V) :-
+pp_has_include(Args0, How, V) :- pp_has_args(Args0, Args),
     (   Args = [tok(str, S, _)] -> atom_codes(N, S), Spec0 = local(N)
     ;   pp_angle_name(Args, N) -> Spec0 = system(N)
     ;   fail ),
     ( How == next -> Spec = next(Spec0) ; Spec = Spec0 ),
     pp_current_file(From), ( ccl_resolve_include(Spec, From, _) -> V = 1 ; V = 0 ).
 pp_has_include(_, _, 0).
+%% the operand of __has_include and __has_embed as written, or macro-replaced where it begins with no header name (C23
+%% 6.10.1/4's second form, [cpp.cond]/4; 0.211: `__has_include(INC)' was 0)
+pp_has_args(Args0, Args) :- pp_norm_all(Args0, Args1), ( pp_name_first(Args1) -> Args = Args1 ; pp_expand_all(Args0, Es), pp_norm_all(Es, Args) ).
+pp_name_first([tok(str, _, _)|_]) :- !.
+pp_name_first([tok(p, '<', _)|_]).
 pp_angle_name([tok(p, '<', _)|Ts], N) :- pp_angle_(Ts, Cs), atom_codes(N, Cs).
 pp_angle_([tok(p, '>', _)], []) :- !.
 pp_angle_([T|Ts], Cs) :- pp_spell(T, C1), pp_angle_(Ts, C2), append(C1, C2, Cs).
