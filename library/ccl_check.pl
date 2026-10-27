@@ -153,7 +153,7 @@ ck_library_fn(Name) :- ( ccl_lang(cpp) -> cpp_library_function(Name) ; catch('$i
 ck_function(L, Ret, Name, Params0, Body) :-
     ck_ref_params(Params0, Params),                                      % C++: a reference parameter is a borrow, as a pointer is
     nb_setval('$ck_fn', Name), nb_setval('$ck_ret', Ret), nb_setval('$ck_line', L), nb_setval('$ck_loops', []), nb_setval('$ck_trys', []), nb_setval('$ck_ties', []), nb_setval('$ck_statics', []), nb_setval('$ck_arrays', []),
-    nb_setval('$ck_arrlocals', []), ck_note_arrparams(Params),
+    nb_setval('$ck_arrlocals', []), nb_setval('$ck_ref_binds', []), ck_note_arrparams(Params),
     ccl_scope_push, ccl_declare_params(Params),
     ck_param_names(Params, Names), nb_setval('$ck_params', Names),
     (   ccl_tie_of(Ret, RY)
@@ -271,10 +271,29 @@ ck_carries_(T) :- ccl_members_of(T, Ms), member(member(MT, MN, _), Ms), MN \== '
 %% initializer and a return -- ask this test beside it. A closure that holds `&x' of a local and leaves the function
 %% is borrow_escapes, where a dangling reference compiled and ran (the hole 0.59 named).
 ck_borrowing_type(T) :- ck_carries_type(T), !.
-ck_borrowing_type(T) :- ccl_lang(cpp), ck_closure_type(T).
+ck_borrowing_type(T) :- ccl_lang(cpp), ck_closure_type(T), !.
+ck_borrowing_type(T) :- ck_holds_lib_borrow(T).
 ck_closure_type(T) :- ccl_resolve_type(T, base(_, [struct(N, _)])), atom(N), atom_concat('lambda.', _, N), !.
 ck_library_class(N) :- atom(N), catch(cpp_lib_class(N), _, fail).
 ck_library_root(P) :- ccl_lang(cpp), atom(P), ccl_type_of(id(P), T), T \== unknown, catch(ccl_resolve_type(T, base(_, [struct(N, _)])), _, fail), ck_library_class(N).   % a borrow rooted at a local of a library class's type
+%% A LIBRARY OBJECT THAT HOLDS BORROWS (0.216; the owner's decision of 0.190): an instance whose template arguments carry a
+%% pointer, a reference or a closure -- `std::vector<int *>', `std::pair<int *, int>', an iterator over raw pointers, a map
+%% of functions -- or a view or a holder of a callable by its nature (ck_lib_view/1). The safe part follows the borrows it
+%% is handed (ck_lib_store/4) and the ones its value carries out (ck_borrows_from/3), as a closure's; its own memory stays
+%% the library's (0.45's decision): a `std::string' or a `std::vector<int>' holds no borrow, and no rule of the owners asks
+%% one, `ck_carries_/1' keeping a library class opaque, so a library object is never loose memory nor `untied'
+ck_holds_lib_borrow(T) :- ccl_lang(cpp), catch(ccl_resolve_type(T, T1), _, fail), ck_holds_lib_borrow_(T1).
+ck_holds_lib_borrow_(base(_, [struct(N, _)])) :- atom(N), ck_library_class(N), !, ck_lib_borrowing(N).
+ck_holds_lib_borrow_(T) :- T = base(_, [struct(_, _)]), !, ccl_members_of(T, Ms), member(member(MT, MN, _), Ms), MN \== '$vptr', ck_holds_lib_borrow(MT), !.   % a class of the program's holding such an object by value: `struct S { std::vector<int *> v; }'
+ck_holds_lib_borrow_(arr(_, E)) :- ck_holds_lib_borrow(E).
+ck_lib_borrowing(N) :- atom_concat('$ck_lb:', N, K), ( nb_current(K, V) -> true ; nb_setval(K, no), ( ck_lib_borrowing_(N) -> V = yes ; V = no ), nb_setval(K, V) ), V == yes.   % `no' while it is asked: `struct Node { std::vector<Node> kids; }' asks itself
+ck_lib_borrowing_(N) :- catch('$cpp_inst'(N, inst(T, Args)), _, fail), ( ck_lib_view(T) -> true ; member(A, Args), ck_lib_arg_carries(A) ), !.
+ck_lib_view(T) :- memberchk(T, [basic_string_view, span, reference_wrapper, function, move_only_function, copyable_function, function_ref, ref_view, mdspan]).
+ck_lib_arg_carries(A) :- compound(A), catch(ccl_resolve_type(A, A1), _, fail), ck_lib_arg_carries_(A1).
+ck_lib_arg_carries_(ptr(_, F)) :- !, \+ catch(ccl_resolve_type(F, fn(_, _, _)), _, fail).
+ck_lib_arg_carries_(ref(_, _)) :- !.
+ck_lib_arg_carries_(rref(_, _)) :- !.
+ck_lib_arg_carries_(base(Q, [struct(M, Ms)])) :- atom(M), ( atom_concat('lambda.', _, M) -> true ; ck_library_class(M) -> ck_lib_borrowing(M) ; ck_carries_type(base(Q, [struct(M, Ms)])) -> true ; ck_holds_lib_borrow(base(Q, [struct(M, Ms)])) ).
 
 %% the own fields of a variable: N->f under an own pointer to a struct, N.f in a
 %% struct held by value; a member held by value opens its own fields too
@@ -451,10 +470,16 @@ ck_ref_as_ptr(T, T).
 ck_ref_decl(N, T0, Init0, T, Init) :-
     (   ck_ref_as_ptr(T0, T), T \== T0
     ->  nb_getval('$ck_refs', Rs), nb_setval('$ck_refs', [N|Rs]),
-        ( ck_lvalue_form(Init0) -> Init = addr(Init0) ; Init = none )
+        ( ck_lvalue_form(Init0) -> Init = addr(Init0), ck_ref_bind(N, Init0) ; Init = none )
     ;   T = T0, Init = Init0,
         ( nb_getval('$ck_refs', Rs), memberchk(N, Rs) -> ccl_delete_one(Rs, N, Rs1), nb_setval('$ck_refs', Rs1) ; true ) ).
 ck_is_ref(N) :- nb_getval('$ck_refs', Rs), memberchk(N, Rs).
+%% the place a local reference was bound to, the latest binding of the name first: where a library object reached
+%% through it lives (ck_lib_root/3, 0.216)
+ck_ref_bind(N, E) :- ( ck_mentions(E, N) -> true ; ( nb_current('$ck_ref_binds', Bs) -> true ; Bs = [] ), nb_setval('$ck_ref_binds', [N-E|Bs]) ).
+ck_ref_bound(N, E) :- nb_current('$ck_ref_binds', Bs), memberchk(N-E, Bs).
+ck_mentions(id(N), N) :- !.
+ck_mentions(E, N) :- compound(E), E =.. [_|As], member(A, As), ck_mentions(A, N), !.
 ck_lvalue_form(id(_)).
 ck_lvalue_form(scoped(_, _)).
 ck_lvalue_form(index(_, _)).
@@ -709,6 +734,12 @@ ck_borrows_from(cond(_, A, B), St, P) :- !, ( ck_borrows_from(A, St, P) -> true 
 ck_borrows_from(comma(_, B), St, P) :- !, ck_borrows_from(B, St, P).
 ck_borrows_from(stmt_expr(block(Is)), St, P) :- append(_, [expr(_, id(N))], Is), atom(N), ( atom_concat('$at', _, N) ; atom_concat('$new', _, N) ),   % A NEW-EXPRESSION'S RESULT, `$new', what its block's allocation borrows (alloc/3, 0.202); A PLACEMENT NEW'S RESULT is the address it was given (0.112): the desugaring's `$at', declared in the block from that address and never assigned again, borrows what the address borrows -- `int *p = new (buf) int(7)' over a local buffer had read as a loose pointer, `plain pointer not consumed'
     member(declaration(_, _, _, Vs), Is), memberchk(var(N, _, I), Vs), I \== none, !, ck_borrows_from(I, St, P).
+%% A LIBRARY OBJECT MADE IN A BLOCK BORROWS WHAT ITS MEMBERS ARE HANDED THERE (0.216, ck_lib_handed/4): the desugaring's
+%% `$tmp' or `$ret', declared in the block and built there by the library's constructor -- `return std::function<int()>([&x]
+%% { return x; })', `std::string_view(buf)', the move out of a parameter by value `return v' -- is a borrow of what its
+%% arguments borrow, the closure's captures among them
+ck_borrows_from(stmt_expr(block(Is)), St, P) :- append(_, [expr(_, id(N))], Is), atom(N), member(declaration(_, _, _, Vs), Is), memberchk(var(N, _, _), Vs),
+    member(expr(_, call(id(F), [addr(id(N))|As])), Is), atom(F), cpp_library_function(F), ck_lib_handed(As, none, St, P), !.
 ck_borrows_from(stmt_expr(block(Is)), St, P) :- append(_, [expr(_, E)], Is), !, ck_borrows_from(E, St, P).
 ck_borrows_from(alloc(_, _, Call), St, P) :- !, ck_borrows_from(Call, St, P).   % A NEW-EXPRESSION'S BLOCK borrows what its allocation function's result borrows (0.202): an arena's `void *operator new(std::size_t, Arena &a) tie a' hands back memory of `a'
 %% A CLOSURE BORROWS WHAT ITS CAPTURES BORROW (0.100): the desugaring makes a lambda a compound literal of the
@@ -732,6 +763,12 @@ ck_borrows_from(call(id(F), [nullptr|As]), St, P) :- ccl_lang(cpp), atom(F), cpp
 %% ... AND A LIBRARY FUNCTION'S POINTER RESULT BORROWS WHAT ITS POINTER ARGUMENTS BORROW (0.117), the first that borrows anything:
 %% `std::construct_at(p + 2, 42)' hands back its first argument, `std::find' a place in its range -- not fresh memory
 ck_borrows_from(call(id(F), Args), St, P) :- ccl_lang(cpp), atom(F), cpp_library_function(F), member(A, Args), A \== nullptr, ck_borrows_from(A, St, P), !.
+%% ... AND WHAT A FREE LIBRARY FUNCTION ANSWERS OVER AN OBJECT IT TAKES BY REFERENCE BORROWS THAT OBJECT (0.216; the owner's
+%% decision of 0.190): `Del *d = std::get_deleter<Del>(sp)' points into sp's control block, `std::ref(x)' refers to x,
+%% `std::data(v)' into v -- an object that holds no borrow of its own, a pointer's or a view's value being the clause above's.
+%% The deleter's pointer was fresh memory, `plain pointer not consumed', and a returned `std::ref' of a local compiled
+ck_borrows_from(call(id(F), Args), St, P) :- ccl_lang(cpp), atom(F), cpp_library_function(F), catch(ccl_declared(F, fn(_, Ps, _)), _, fail),
+    ck_ref_object(Args, Ps, E), ck_path_root(E, R), \+ ( catch(ccl_type_of(E, ET), _, fail), ET \== unknown, ck_borrowing_type(ET) ), !, ck_borrow_of(R, St, P).
 ck_borrows_from(call(id(F), [A|_]), St, P) :- atom(F), ck_library_borrow(F), !, ck_borrows_from(A, St, P).   % a place in its first argument's object (0.206, ck_library_borrow/1)
 ck_borrows_from(call(F, Args), St, P) :- ck_callee_sig(F, fn(R, _, _)), \+ ck_own_type(R), ck_call_tie(call(F, Args), St, P0), !, P = P0.
 %% A C LIBRARY FUNCTION WHOSE POINTER RESULT LIES IN ITS FIRST ARGUMENT'S OBJECT (C17 7.24.2, 7.24.3, 7.24.5, 7.24.6.1,
@@ -743,10 +780,84 @@ ck_library_borrow(F) :- atom_concat('__builtin_', G, F), !, ck_library_borrow(G)
 ck_library_borrow(F) :- memberchk(F, [memcpy, memmove, memset, memccpy, memchr, strcpy, strncpy, strcat, strncat, strchr, strrchr, strpbrk, strstr,
     wmemcpy, wmemmove, wmemset, wmemchr, wcscpy, wcsncpy, wcscat, wcsncat, wcschr, wcsrchr, wcspbrk, wcsstr,
     stpcpy, stpncpy, wcpcpy, wcpncpy, mempcpy, wmempcpy, memrchr, rawmemchr, strchrnul]).
-ck_ref_object([A|_], [param(T, _)|_], A) :- ccl_resolve_type(T, ref(_, _)), !.
+ck_ref_object([A|_], [param(T, _)|_], A) :- catch(ccl_resolve_type(T, ref(_, _)), _, fail), !.
 ck_ref_object([_|As], [_|Ps], E) :- ck_ref_object(As, Ps, E).
 ck_borrow_of(R, St, P) :- ck_state(St, R, S), !, ( ck_borrow_source(R, S, P) -> true ; P = R ).
 ck_borrow_of(R, _, R).
+%% A LIBRARY OBJECT BORROWS WHAT IT IS HANDED (0.216; the owner's decision of 0.190): a library member's call -- its
+%% constructor, `push_back', `insert', `operator=', the assignment through `operator[]' -- whose object holds borrows
+%% (ck_holds_lib_borrow/1) and whose arguments borrow (ck_lib_handed/4) stores the borrow in the object: a local object
+%% becomes a borrow of it, so returning it obeys the borrow rules (ck_no_escape/2, `borrow_escapes') and it dangles where
+%% that local's scope ends; an object that outlives the function -- through a reference or pointer parameter, `this', a
+%% global or a static (ck_lib_where/2) -- that is handed a borrow of this function's own local is `borrow_stored'. A
+%% parameter's borrow and static storage may go anywhere, as they may leave by a return. `int x = 5; std::vector<int *> v; v.push_back(&x); return v;' and
+%% `return std::function<int()>([&x] { return x; })' compiled and ran, each handing out a dead local
+ck_lib_store(F, [A0|As], St0, St) :- ccl_lang(cpp), atom(F), ck_lib_holder(A0, Obj), cpp_library_function(F), ck_lib_member(F), ck_lib_obj_type(Obj, T),
+    ck_holds_lib_borrow(T), \+ ck_lib_no_store(F), ck_lib_self(Obj, Self), ck_lib_handed(As, Self, St0, P), !, ck_lib_store_into(Obj, P, join, call(id(F), [A0|As]), St0, St).
+ck_lib_store(_, _, St, St).
+%% the object a member's call is on: `this', or the element another member answers by reference (`m[k] = f' stores into m,
+%% `g[0].push_back(&x)' into g); a free function's arguments are not its objects (`std::copy(a.begin(), a.end(), o)')
+ck_lib_holder(addr(call(id(G), As)), Obj) :- !, ck_lib_holder(call(id(G), As), Obj).
+ck_lib_holder(addr(Obj), Obj) :- !.
+ck_lib_holder(id(P), deref(id(P))) :- atom(P), !.
+ck_lib_holder(call(id(G), [A|_]), Obj) :- atom(G), cpp_library_function(G), ck_lib_member(G), ck_lib_holder(A, Obj).
+ck_lib_member(F) :- catch(ccl_declared(F, fn(_, [param(_, this)|_], _)), _, fail).
+%% its type as the check sees it, a reference the pointer it is: `s.v' over a reference parameter s is `s->v'
+ck_lib_obj_type(Obj, T) :- ck_lib_through_refs(Obj, Obj1), catch(ccl_type_of(Obj1, T), _, fail), T \== unknown.
+ck_lib_through_refs(id(R), deref(id(R))) :- atom(R), ck_is_ref(R), !.
+ck_lib_through_refs(member(E, F), member(E1, F)) :- !, ck_lib_through_refs(E, E1).
+ck_lib_through_refs(index(E, I), index(E1, I)) :- !, ck_lib_through_refs(E, E1).
+ck_lib_through_refs(E, E).
+%% a member that stores nothing it is handed: a const one, and the lookups and the erasures by their names
+ck_lib_no_store(F) :- catch(ccl_declared(F, fn(_, [param(ptr(_, base(Q, _)), this)|_], _)), _, fail), memberchk(const, Q), !.
+ck_lib_no_store(F) :- member(W, ['.find.', '.count.', '.contains.', '.lower_bound.', '.upper_bound.', '.equal_range.', '.erase.']), sub_atom(F, _, _, _, W), !.
+%% where the object lives: R the variable of its storage, V `own' where R holds it by value and `ref' where R is a pointer
+%% or a reference parameter it is reached through; a local reference is the place it was bound to (ck_ref_bound/2)
+ck_lib_root(id(N), R, V) :- atom(N), ck_is_ref(N), \+ ck_is_param(N), !, ck_ref_bound(N, E), ck_lib_root(E, R, V).
+ck_lib_root(id(N), N, V) :- atom(N), !, ( ck_is_ref(N) -> V = ref ; V = own ).
+ck_lib_root(member(E, _), R, V) :- !, ck_lib_root(E, R, V).
+ck_lib_root(index(E, _), R, V) :- !, ck_lib_root(E, R, V0), ( ck_lib_obj_type(E, T), catch(ccl_resolve_type(T, arr(_, _)), _, fail) -> V = V0 ; V = ref ).
+ck_lib_root(deref(id(N)), N, ref) :- atom(N), !.
+ck_lib_root(arrow(id(N), _), N, ref) :- atom(N).
+%% where a store lands: local(R) in a local object; `out' in one that outlives the function -- a parameter's referent,
+%% `this', a global, a static; `unknown' through a local pointer, or a reference bound to a call's result (`for (auto &row :
+%% g)'), which the check does not follow
+ck_lib_where(Obj, W) :- ck_lib_root(Obj, R, V), !,
+    (   V == own, ck_is_local(R) -> W = local(R)
+    ;   V == ref, ck_is_local(R), \+ ck_is_param(R) -> W = unknown
+    ;   W = out ).
+ck_lib_where(_, unknown).
+%% the object's own variable, whose borrow is left out of what it is handed (`v.insert(v.begin(), &x)')
+ck_lib_self(Obj, Self) :- ( ck_lib_root(Obj, R, _) -> Self = R ; Self = none ).
+%% what an object is handed: its arguments' borrows (an initializer list's items for the list), its own (Self, its
+%% storage's root) left out; of several, the one that cannot leave the function -- a borrow of a local here -- first
+ck_lib_handed(As, Self, St, P) :- findall(P0, ( member(A, As), ck_lib_arg_borrow(A, St, P0), P0 \== Self ), Ps), Ps = [P1|_], ( member(P, Ps), ck_short_lived(P) -> true ; P = P1 ).
+ck_lib_arg_borrow(A, St, P) :- ck_il_items(A, Items), !, member(item(_, V), Items), ck_borrows_from(V, St, P).
+ck_lib_arg_borrow(A, St, P) :- ck_borrows_from(A, St, P).
+ck_il_items(stmt_expr(block(Is)), Items) :- member(declaration(_, _, _, Vs), Is), member(var(IL, _, init(Items)), Vs), atom(IL), atom_concat('$il', _, IL), !.   % the desugaring's array under a list
+%% a borrow that can dangle while the function runs: of a local of its own, no parameter, no static storage -- the one a
+%% join keeps (ck_merge_state/3) and an object that outlives the function may not hold
+ck_short_lived(P) :- atom(P), ck_is_local(P), \+ ck_is_param(P).
+ck_lib_store_into(Obj, P, Mode, Form, St0, St) :- ck_lib_where(Obj, W),
+    (   W = local(R) -> ( ck_state(St0, R, S0) -> ( Mode == join -> ck_lib_more(S0, P, S) ; S = borrow(P) ), ck_set(St0, R, S, St) ; ck_declare_at(St0, R, borrow(P), St) )
+    ;   W == out, ck_short_lived(P) -> ( ck_slot_name(Obj, N) -> true ; ck_name(Obj, N) ), ck_fail(borrow_stored, N, Form)
+    ;   St = St0 ).
+%% a borrow joined to what an object holds: a dangling one stays, two borrows as a join keeps them (ck_merge_state/3)
+ck_lib_more(dangling(P0), _, dangling(P0)) :- !.
+ck_lib_more(borrow(P0), P, S) :- !, ck_merge_state(borrow(P0), borrow(P), S).
+ck_lib_more(_, P, borrow(P)).
+ck_lib_dtor(F) :- atom(F), sub_atom(F, _, _, _, '.dtor.'), cpp_library_function(F).
+%% A MEMBER THAT REPLACES WHAT ITS OBJECT HOLDS (0.216): `operator=', `assign', `clear', `reset' -- the old borrows are not
+%% read, a dangling one among them, and what the member is handed, read where the object still held its old value (`sv =
+%% sv.substr(1)' borrows what sv borrowed), is all the object holds after; nothing handed, it holds nothing. A view
+%% given a new string after the old one died was `use of a borrow after its owner was consumed'
+ck_lib_replacing(F, A0, Obj) :- ccl_lang(cpp), atom(F), ck_lib_replace_name(F), cpp_library_function(F), ck_lib_member(F), ck_lib_holder(A0, Obj),
+    ck_lib_obj_type(Obj, T), ck_holds_lib_borrow(T).
+ck_lib_replace_name(F) :- member(W, ['.assign.', '.clear.', '.reset.']), sub_atom(F, _, _, _, W), !.
+ck_lib_replace(Obj, F, Args, St0, St1, St) :- Args = [_|As], ck_lib_self(Obj, Self),
+    (   ck_lib_handed(As, Self, St0, P) -> ck_lib_store_into(Obj, P, replace, call(id(F), Args), St1, St)
+    ;   ck_lib_where(Obj, local(R)), ck_state(St1, R, _) -> ck_set(St1, R, anchor, St)
+    ;   St = St1 ).
 ck_call_tie(call(F, Args), St, P) :-
     ck_callee_sig(F, fn(R, Ps, _)), ccl_tie_of(R, Y),
     (   ck_param_index(Ps, Y, 1, I) -> ccl_nth(I, Args, A0), ( ccl_nth(I, Ps, param(PT, _)), ( PT = ref(_, _) ; PT = rref(_, _) ) -> A = addr(A0) ; A = A0 ), ck_borrows_from(A, St, P)   % a result tied to a REFERENCE parameter borrows the object the reference binds, its argument (0.202): `void *operator new(std::size_t, Arena &a) tie a' over `new (ar) S' borrows `ar'
@@ -796,9 +907,11 @@ ck_merge_owners([N-Sa|T], Ob, [N-Sc|T1]) :- ( memberchk(N-Sb, Ob) -> ck_merge_st
 ck_merge_state(S, S, S) :- !.
 ck_merge_state(dangling(P), _, dangling(P)) :- !.
 ck_merge_state(_, dangling(P), dangling(P)) :- !.
-ck_merge_state(borrow(P), borrow(_), borrow(P)) :- !.
+ck_merge_state(borrow(P), borrow(Q), borrow(R)) :- !, ( \+ ck_short_lived(P), ck_short_lived(Q) -> R = Q ; R = P ).   % a local's borrow beside a parameter's or static storage's: the local's is what can dangle (0.216)
 ck_merge_state(loose, borrow(P), borrow(P)) :- !.                   % fresh memory on one path, a borrow on the other: the borrow is what can dangle
 ck_merge_state(borrow(P), loose, borrow(P)) :- !.
+ck_merge_state(anchor, borrow(P), borrow(P)) :- !.                  % a library object anchored on one path, holding a borrow on the other (0.216)
+ck_merge_state(borrow(P), anchor, borrow(P)) :- !.
 ck_merge_state(none, S, S) :- !.                    % a plain pointer, bound on one side only: bound
 ck_merge_state(S, none, S) :- !.
 ck_merge_state(null, live, live) :- !.
@@ -1002,9 +1115,11 @@ ck_into_plain(Name, R, Form, St0, St) :-
     ;   Kind = borrow(P) -> (   ck_state(St0, P, anchor) -> ck_expr(R, St0, St)
                             ;   P = static(_) -> ck_expr(R, St0, St)
                             ;   ck_state(St0, P, loose) -> ck_fail(untied, Name, Form)             % stored, still nobody's
+                            ;   ck_il_slot(Name) -> ck_expr(R, St0, St)   % AN INITIALIZER LIST'S ARRAY hands its items to the library object, which holds the borrow (ck_lib_handed/4, 0.216): `std::vector<int *> v{p}' over a parameter p was borrow_stored
                             ;   ck_fail(borrow_stored, P, Form) )
     ;   Kind == null -> ck_expr(R, St0, St)
     ;   ( ck_static_value(R) -> true ; ck_fail(untied, Name, Form) ), ck_expr(R, St0, St) ).
+ck_il_slot(Name) :- atom(Name), atom_concat('$il', _, Name).
 %% a slot's name for a diagnostic: a path, `*p', `a[]', else the expression
 ck_slot_name(E, N) :- ck_path(E, N), !.
 ck_slot_name(deref(E), N) :- ck_slot_name(E, N0), atom(N0), !, atom_concat('*', N0, N).
@@ -1352,7 +1467,10 @@ ck_expr(delete_array(E), St0, St) :- !, ck_expr(call(id(free), [E]), St0, St).
 ck_expr(delete_poly(E, D, _), St0, St) :- !, ck_expr(D, St0, St1), ck_expr(call(id(free), [E]), St1, St).   % the destructor, then the free of the complete object (0.108)
 ck_expr(alloc(_, _, Call), St0, St) :- !, ( Call = call(_, As) -> ck_exprs(As, St0, St) ; St = St0 ).   % a new-expression's block (0.202): the allocation function's arguments read, the block fresh
 ck_expr(dealloc(D, _, X), St0, St) :- !, ( D == none -> St1 = St0 ; ck_expr(D, St0, St1) ), ck_expr(call(id(free), [X]), St1, St).   % a delete-expression (0.202): the destructor, then the block given back -- a free of the pointer to the check
-ck_expr(call(id(F), Args), St0, St) :- !, ck_args(Args, id(F), St0, St).
+ck_expr(call(id(F), [addr(_)]), St, St) :- ck_lib_dtor(F), !.   % a library object's destructor reads nothing it holds (0.216)
+ck_expr(call(id(F), [A0|As]), St0, St) :- ck_lib_replacing(F, A0, Obj), !,   % what it held replaced: not read (0.216)
+    ( A0 = addr(P0), ck_path(P0, _) -> St0a = St0 ; ck_expr(A0, St0, St0a) ), ck_args_(As, id(F), 2, St0a, St1), ck_lib_replace(Obj, F, [A0|As], St0, St1, St).
+ck_expr(call(id(F), Args), St0, St) :- !, ck_args(Args, id(F), St0, St1), ck_lib_store(F, Args, St1, St).   % what a library object is handed it holds (0.216)
 ck_expr(call(F, Args), St0, St) :- !,
     ck_expr(F, St0, St1),
     ( ccl_type_of(F, FT), ck_fn_params(FT, Ps) -> ck_args(Args, params(Ps), St1, St) ; ck_exprs(Args, St1, St) ).
@@ -1377,11 +1495,17 @@ ck_expr(assign('=', id(N), R), St0, St) :- ( ck_state(St0, N, _) ; ck_is_local(N
     ;   St2 = St1 ),
     ( ck_local_type(N, T) -> true ; T = unknown ),
     ( ck_state(St2, N, loose) -> ck_fail(unconsumed, N, assign('=', id(N), R)) ; true ),      % overwritten, its memory still nobody's
-    (   T \== unknown, ck_carries_type(T), ck_borrows_from(R, St1, P) -> ck_rebind(St2, N, borrow(P), St)   % read before the parameter was unbound
+    (   T \== unknown, ck_borrowing_type(T), ck_borrows_from(R, St1, P) -> ck_rebind(St2, N, borrow(P), St)   % read before the parameter was unbound; a library object a trivial assignment copies (`sv = s', 0.216) as a pointer
     ;   T \== unknown, ck_is_pointer_type(T), ck_fresh_value(R) -> ck_rebind(St2, N, loose, St)
     ;   ck_state(St2, N, S), ( S = borrow(_) ; S = dangling(_) ; S == loose ) -> ck_rebind(St2, N, none, St), ( T \== unknown -> ck_no_owner_behind(N, T, R, assign('=', id(N), R)) ; true )
     ;   T \== unknown, \+ ck_state(St2, N, _) -> ck_no_owner_behind(N, T, R, assign('=', id(N), R)), St = St2
     ;   St = St2 ).
+%% A STORE THROUGH A LIBRARY MEMBER (0.216): `m[k] = &x' and `v[0] = &y' write what a library object holds, through the
+%% reference its member answers; the object holds the borrow as its own member calls do (ck_lib_store/4)
+ck_expr(assign('=', call(id(G), [A0|As]), R), St0, St) :- atom(G), cpp_library_function(G), ck_lib_member(G), ck_lib_holder(A0, Obj),
+    ck_lib_obj_type(Obj, T), ck_holds_lib_borrow(T), !,
+    ck_expr(R, St0, St1), ck_exprs([A0|As], St1, St2), ck_lib_self(Obj, Self),
+    ( ck_lib_handed([R|As], Self, St2, P) -> ck_lib_store_into(Obj, P, join, assign('=', call(id(G), [A0|As]), R), St2, St) ; St = St2 ).
 ck_expr(assign('=', L, R), St0, St) :- !,
     ( ck_path(R, RK), ck_by_value(R), ck_has_array_under(St0, RK) -> ck_fail(own_array_by_value, RK, assign('=', L, R)) ; true ),
     (   ccl_type_of(L, T), T \== unknown

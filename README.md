@@ -261,7 +261,10 @@ a constructor's `this` starts with unset own fields and must complete
 them before it is handed to a function, a destructor's caller takes the
 fields as moved. libc++'s own
 bodies keep raw pointers by their own discipline and are not checked;
-the program's are, wherever they are instantiated from.
+the program's are, wherever they are instantiated from. A library
+object that holds borrows -- a vector of pointers, a view, a
+`std::function`, an iterator -- borrows what it is handed, so returning
+it, or storing it where it outlives a local, obeys the borrow rules.
 
 ## Macros: `#include "m.pl"` and `#cocolog ... #end`
 

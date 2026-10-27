@@ -14459,3 +14459,104 @@ and a `features.h` name counts at the first header that reads the C library; a d
 linkage specification extern: what a read gives changes). Lowering 123 (GNU's inline assembly lowered, `module asm`
 lines and calls of an inline asm: what a unit emits changes).
 
+## 0.216 — the safe part at the library's boundary, the owner's decision 3 of 0.190: a library object borrows what it is handed, and returning or storing it obeys the borrow rules; what its probes found: a value of another class assigned through its own conversion operator, a join of two borrows keeps a local's; 0.215's chain
+
+**0.216: the third of the owner's decisions of 0.190, on the owner's word ("Do what do you recommend") -- the safe part
+at the library's boundary, 0.45's decision standing (the library's bodies are not checked) -- and 0.215's chain.**
+
+- THE PROBES, at 0.215, each against clang++ 18 over libc++ 18: `int x = 5; std::vector<int *> v; v.push_back(&x);
+  return v;`, `return [&x] { return x; };` as a `std::function<int()>`, `return std::string_view(buf)` over a local
+  array, `return s;` as a `std::string_view` of a local `std::string`, `return v.begin();` over a local vector, `return
+  std::ref(x);`, a `std::pair<int *, int>` and a `std::span<int>` of locals, `m[3] = &x`, `v[0] = &y`, `f = [&z] {...}`
+  and `std::vector<int *> v{&w}` each returned -- every one compiled and ran, handing out a dead local;
+  `s.v.push_back(&x)` through a reference parameter stored a local's address in the caller's vector, accepted. What may
+  pass was refused: `Del *d = std::get_deleter<Del>(sp)` was `plain pointer not consumed`, the deleter's address fresh
+  memory where it lies in sp's control block.
+- A LIBRARY OBJECT THAT HOLDS BORROWS (`ck_holds_lib_borrow/1`, in `ck_borrowing_type/1` beside a pointer's and a
+  closure's): an instance whose template arguments carry a pointer, a reference, a closure or such an object
+  (`std::vector<int *>`, `std::pair<int *, int>`, `std::map<int, int *>`, a vector's iterator over its raw pointers,
+  `std::vector<std::vector<int *>>`), a view or a holder of a callable by its nature (`ck_lib_view/1`:
+  `basic_string_view`, `span`, `reference_wrapper`, `function`, `move_only_function`, `copyable_function`,
+  `function_ref`, `ref_view`, `mdspan`), an array of them, and a class of the program's holding one by value. A
+  `std::string` or a `std::vector<int>` holds none; the owners' rules keep a library class opaque (`ck_carries_/1`), so
+  a library object is never loose memory nor `untied`. Each instance's answer is kept for the run
+  (`ck_lib_borrowing/1`), `no` while it is asked: `struct Node { std::vector<Node> kids; }` asks itself.
+- IT BORROWS WHAT IT IS HANDED (`ck_lib_store/4`, after a call's arguments are walked): a library member's call on such
+  an object -- its constructor, `push_back`, `insert`, `emplace`, `operator=`, an assignment through the reference that
+  `operator[]` or `at` answers (`ck_expr/3` on `assign('=', call(...), R)`) -- stores its arguments' borrows
+  (`ck_lib_handed/4`: an initializer list's items for the list, the object's own borrow left out, a local's before a
+  parameter's), so returning the object is `borrow_escapes` and it dangles where that local's scope ends. A const
+  member, and the lookups and erasures by their names, store nothing (`ck_lib_no_store/1`); a free function's arguments
+  are not its objects (`ck_lib_member/1`: `std::copy(a.begin(), a.end(), std::back_inserter(b))` stores nothing in a).
+- WHERE A STORE LANDS (`ck_lib_where/2` over `ck_lib_root/3`): in a local object -- a local's own, a member of a local
+  struct, an element of a local array, a by-value parameter -- whose state takes the borrow; in one that outlives the
+  function -- through a reference or pointer parameter, `this`, a global, a static -- where a borrow of this function's
+  own local is `borrow_stored`, and a parameter's borrow or static storage may go, as by a return; or nowhere the check
+  follows, through a local pointer or a reference bound to a call's result (`for (auto &row : g)`). A local reference is
+  the place it was bound to (`ck_ref_bind/2`, `ck_ref_bound/2`, kept per function by `ck_ref_decl/5`): `auto &r = s.v;
+  r.push_back(&x);` stores into s, and through a reference bound to a reference parameter out.
+- A MEMBER THAT REPLACES WHAT ITS OBJECT HOLDS (`ck_lib_replacing/3`, `ck_lib_replace/6`): `operator=`, `assign`,
+  `clear` and `reset` read no old borrow of the object, a dangling one among them, and the object holds what the member
+  is handed -- read where it held its old value, so `sv = sv.substr(1)` borrows what sv borrowed -- or nothing. A
+  trivial assignment of such an object (`sv = s`, the desugaring's plain `assign`) rebinds it as a pointer's does. A
+  library object's destructor reads nothing it holds (`ck_lib_dtor/1`), and a join of an anchored object and one holding
+  a borrow is the borrow.
+- WHAT A LIBRARY OBJECT'S VALUE CARRIES OUT (`ck_borrows_from/3`): a library object made in a block -- the desugaring's
+  `$tmp` or `$ret`, built there by the library (`std::string_view(buf)`, `std::function<int()>([&x] {...})`, a by-value
+  parameter moved out by `return v`) -- borrows what its members are handed there; a free library function's result over
+  an object it takes by reference borrows that object where the object holds no borrow of its own (`ck_ref_object/3`, a
+  type it cannot resolve no answer now): `std::get_deleter<Del>(sp)`, `std::ref(x)`, `std::begin(v)`.
+- WHAT ITS PROBES FOUND: `sv = s` of a `std::string` into a `std::string_view` was `ir_parse_failed: invalid cast
+  opcode`, 0.215 too: the assignment had no road for a value of another class whose own conversion operator makes the
+  target, and the lowering cast the string's struct to the view's. A VALUE OF ANOTHER CLASS ASSIGNED CONVERTS THROUGH
+  ITS CONVERSION OPERATOR where the target class has no destructor and no converting constructor takes it
+  ([over.match.copy]/1.2; `cpp_expr(assign('=', ...))`, after the converting constructor's road). `std::vector<int *>
+  v{p}` over a parameter p was `borrow_stored`, the desugaring's `$il` array a slot the check could not follow: AN
+  INITIALIZER LIST'S ARRAY HANDS ITS ITEMS TO THE LIBRARY OBJECT (`ck_il_slot/1` in `ck_into_plain/5`), loose memory
+  there still `untied`. A JOIN OF TWO BORROWS KEPT THE FIRST, so an object or a pointer that borrowed a parameter on one
+  path and a local on the other could leave: it keeps a local's before a parameter's or static storage's now, the one
+  that can dangle (`ck_merge_state/3`, `ck_short_lived/1`), as a borrow already beat loose memory. C's safe part stores
+  an anchored local's address into a slot that outlives the function and returns a struct by value that holds one (Not
+  done).
+- FIXTURES: 11 refusals of the C++ gate's safe part -- `libvec.cpp`, `libfn.cpp`, `libview.cpp`, `libiter.cpp`,
+  `libref.cpp`, `libmap.cpp`, `libstruct.cpp`, `libbyval.cpp` and `libassign.cpp` with `a borrow leaves the function`,
+  `libstored.cpp` and `libmember.cpp` with `a borrow stored where it cannot be followed` -- and 1 run fixture,
+  `libborrow.cpp`, what the rules let through (the caller's objects, by-value captures, a literal's view, a parameter's
+  iterator, `get_deleter`, stores through references that stay in the function, a const lookup, contents replaced after
+  the old ones died, `sv = s`), clang++'s output over libc++ and libstdc++ -- and 1 C refusal,
+  `test/c/safe/borrow_join.c`, the join. Seen to pass over libc++ 18 and 21. 0.215 builds ten of the eleven C++
+  refusals, two of which read a dead local at run time (`libfn`, `libref` exit 1), gives `libassign.cpp` invalid IR,
+  refuses `libborrow.cpp` (`borrow_stored` at `std::vector<int *> v{p}`) and accepts `borrow_join.c`.
+- THE NET, the C++ gate over the worktree before the fixtures, over libc++ 18 and a HOME seeded from 0.215's chain by a
+  copy that lost the files' times, so that the pool's four lanes read many headers again: 802 of 813 fixtures ok, 10
+  skipped by their needs, and `stdcharconv.cpp` failed with output the gate does not keep. Alone it builds and prints
+  what it should over that HOME, over a cold one and as the gate builds it; the gates below ran it again, and it passed
+  in both of their passes.
+- THE CHAIN OF 0.215, over its commit (af526f4) and fresh HOMEs, on cocolog 2.12.0, in pieces across two restarts of the
+  machine (4 CPUs after them): over libc++ 18 all nine gates GREEN -- the flow gate 105 s (its one finding), reader 4 s,
+  compile 27 s (150 run fixtures and 47 refusals), driver 20 s (44 checks), objects 4 s, proof, cross 306 s (183 checks:
+  150 C fixtures, 5 ABI checks, 25 C++ fixtures and 3 C++ checks), the library read 483 s (the 23 asserted reads whole,
+  203 other headers warmed), the C++ gate 1072 s, 803 of 813 fixtures ok and 10 skipped by their needs, run again over
+  the same HOME after a restart stopped the first --; over libc++ 21 the library read (its phase 386 s) and the C++ gate
+  GREEN in about 1085 s, 811 of 813 ok, 2 skipped (`stdoptionalref.cpp`, `zipadjacent.cpp`). The headers' reads summed
+  1767 s over 226 over libc++ 18 and 1389 s over 226 over 21; the fixtures' builds 3466 s over 803 and 3571 s over 811.
+- GATED BEFORE ITS COMMIT, over the worktree and fresh HOMEs, on cocolog 2.12.0: all nine gates GREEN over libc++ 18 --
+  the flow gate 76 s (its one finding), reader 4 s, compile 17 s (150 run fixtures and 48 refusals), driver 14 s (44
+  checks), objects 3 s, proof, cross 236 s (150 C fixtures, 5 ABI checks, 25 C++ fixtures and 3 C++ checks for aarch64),
+  the library read 368 s (the 23 asserted reads whole, 203 other headers warmed), the C++ gate 876 s, 804 of 814
+  fixtures ok and 10 skipped by their needs, its safe part's 15 refusals among its checks --; over libc++ 21 the library
+  read (its phase 320 s) and the C++ gate GREEN in about 886 s, 812 of 814 ok, 2 skipped (`stdoptionalref.cpp`,
+  `zipadjacent.cpp`). The headers' reads summed 1321 s over 226 over libc++ 18 and 1139 s over 226 over 21; the
+  fixtures' builds 2972 s over 804 and 3064 s over 812. It is committed before its chain; the next commit carries the
+  chain's numbers.
+- `RULES.md`: the safe part's topics (what the C++ forms mean to the check: a library object that holds borrows, what it
+  is handed, where a store lands, a member that replaces, what its value carries out, an initializer list's array; a
+  reference's binding; a join; what is refused), the Classes topic (an assignment through the value's conversion
+  operator), Closures and the safe part, the C++ gate's refusals, What runs, the versions (lowering 124), the Hosts
+  (0.215's chain), Not done (the owner's decisions of 0.190: the third done; the safe part's limits and C's two holes).
+  `CLAUDE.md`: the versions. `README.md`: the safe part at the library's boundary.
+
+Lowering 124 (the safe part follows the borrows a library object holds, and refuses one that leaves or is stored where
+it outlives its local; a value of another class assigned through its own conversion operator: what the check accepts and
+what a unit emits change). The reader stays 162.
+
