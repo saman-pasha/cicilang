@@ -122,12 +122,18 @@ ccl_lang_of_file(F, cpp) :- member(E, ['.cpp', '.cc', '.cxx', '.C', '.hpp', '.hh
 ccl_lang_of_file(F, c) :- sub_atom(F, _, _, 0, '.c'), !.
 ccl_read_file_(File, AST, Rest) :-
     ccl_kb_cached(File, top, AST0), !, AST = AST0, Rest = [], nb_setval('$ccl_far', 0).
+%% A FILE WHOSE OWN RUN CHANGED ITS CONFIGURATION IS NOT KEPT (0.215): its key in the store is made before its read,
+%% under the feature-test macros found before its first system #include (pp_ftm_find/1), and a `__STDC_WANT_*' name it
+%% defines after that changes them in its run (ccl_pp_top_run/4); kept under the key after the read, it was never served
+%% and written again at every build. It is read at every build, its headers served from the store, its IR too (dr_ir/3)
 ccl_read_file_(File, AST, Rest) :-
+    ( nb_current('$pp_ftm', FT0) -> true ; FT0 = [] ),
     catch(catch(ccl_pp_top(File, Tokens, _), lexical(L), throw(error(syntax_error(cicilang_ast(File, lexical, line(L))), cicilang_ast(File)))),   % the user's file through the preprocessor
           pp_error(PL, PM), throw(error(pp_error(PM), here(File, PL)))),                                                                     % its own #error, an #embed of nothing
     ccl_with_file(File, ( ccl_unit(Tokens, AST, Rest), ccl_farthest(F) )),
     nb_setval('$ccl_far', F),
-    ( Rest == [] -> ccl_kb_remember(File, top, AST) ; true ).
+    ( nb_current('$pp_ftm', FT1) -> true ; FT1 = [] ),
+    ( Rest == [], FT1 == FT0 -> ccl_kb_remember(File, top, AST) ; true ).
 
 ccl_kb_key(Path, key(T, V)) :- once(catch(time_file(Path, T), _, fail)), ccl_reader_version(V0), ccl_read_level(L), ( ccl_lang(cpp) -> V = cpp(V0, L) ; L == '17' -> V = V0 ; V = c(V0, L) ).   % a C read at -std=c23 is not the C17 read: <stddef.h> declares nullptr_t and unreachable() at that level only, and the store serves a header's macros and items by this key
 ccl_std(S) :- ( nb_current('$ccl_std', S0) -> S = S0 ; S = 17 ).   % a C++ read is not the C read; the time asked every time (0.4 ms): the gate touches a file mid-process and expects the miss

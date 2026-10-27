@@ -77,7 +77,7 @@ if [ -f "$XS/include/c++/v1/vector" ] && [ -f "$XS/lib/libc++.so.1" ] && [ -n "$
              "$CR/lambdas.cpp" "$CR/bag.cpp" "$CR/stdvector.cpp" "$CR/stdstring.cpp" "$CR/stdmap.cpp" "$CR/stdunorderedmap.cpp" \
              "$CR/exceptions.cpp" "$CR/rtti.cpp" "$CR/virtualbase.cpp" "$CR/multibase3.cpp" "$CR/memfnptr.cpp" "$CR/memfnadj.cpp" \
              "$CR/ldouble.cpp" "$CR/charpromote.cpp" "$CR/int128.cpp" "$CR/cogenerator.cpp" "$CR/stdvariant.cpp" "$CR/memptrnull.cpp" \
-             "$CR/vector.cpp"; do
+             "$CR/vector.cpp" "$CR/gnuasm.cpp"; do
     n=$(basename "$src" .cpp); dir=$(dirname "$src"); fl=""; [ -f "$dir/$n.flags" ] && fl=$(cat "$dir/$n.flags")
     inp="$dir/$n.stdin"; [ -f "$inp" ] || inp=/dev/null
     ( cd "$dir" && ccl_xcapped "$CXX" $T $fl "$src" -o "$D/x$n" ) > "$D/x$n.log" 2>&1 < /dev/null

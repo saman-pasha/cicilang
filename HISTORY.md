@@ -14364,3 +14364,98 @@ and every read's the program's feature-test macros; `typeof`, `typeof_unqual` an
 the mode; `assert` by `NDEBUG` at each inclusion: what a read gives changes). Lowering 122, unchanged: an ISO build's IR
 is kept apart through the read's keys, which the IR cache's signature folds.
 
+## 0.215 — two of what 0.214 left: a feature-test macro counts where clang's headers read it, after the file's first system `#include` too; GNU's inline assembly read and lowered as clang lowers it; and what its probes found: a declaration directly contained in a linkage specification extern; 0.214's chain
+
+**0.215: two items of Not done's item 9, which 0.214 left, on the owner's word -- a feature-test macro defined after the
+file's first system `#include` did not reach the headers, and GNU's inline assembly was refused by a syntax error, not
+by name -- and 0.214's chain.**
+
+- THE PROBES, against clang 18 and gcc 13 over glibc 2.39: `_GNU_SOURCE` or `_POSIX_C_SOURCE` defined after `#include
+  <stdio.h>` gives `<string.h>` nothing under `-std=c17`, since glibc reads `features.h` once, at the first header that
+  reads the C library; after `<stddef.h>`, `<stdarg.h>`, `<stdbool.h>`, `<float.h>`, `<iso646.h>`, `<stdalign.h>`,
+  `<stdnoreturn.h>` or `<stdckdint.h>`, clang's own headers that read none of it, the name configures the next header,
+  and after `<stdatomic.h>` (clang's reads `<stdint.h>`), `<stdbit.h>` (glibc's), `<limits.h>`, `<stdint.h>`,
+  `<inttypes.h>`, `<complex.h>` or `<tgmath.h>` it does not. A `__STDC_WANT_*` name defined after `<stdio.h>` reaches
+  `<string.h>` and `<stdlib.h>` included after it, since every glibc header asks it again (`bits/libc-header-start.h`):
+  `asprintf` and `strfromf32` under `-std=c17`. clang++ takes a late `_LIBCPP_ENABLE_CXX17_REMOVED_AUTO_PTR` before
+  `<memory>`, and not a late `_LIBCPP_ENABLE_CXX17_REMOVED_FEATURES`, which `__config` reads once. autoconf's `config.h`
+  (Python's and PHP's in `/usr/include`) defines the nine `__STDC_WANT_*` names glibc asks. The inline assembly: clang's
+  IR of each form on x86-64 and AArch64 -- a file-scope `asm` as `module asm` lines, basic asm, extended asm's outputs
+  by value and by address (`=r`, `=rm`, `=m`, `=&r`, `=a` and `=d` as `={ax}` and `={dx}`, `=q`), its inputs (`r`, `m`,
+  `i`, `g` as `imr`, a tie `0`), its in-out operands (`+r` as `=r,0`, `+rm` and `+g` as `=*rm,0` and `=*imr,0` with the
+  value loaded, `+m` as `=*m,*m`), its named operands, the modifiers (`%b1`, `%w0`), `%=`, `%%` and `$`, the clobbers
+  before x86's implicit three, a register variable's operand its own register (`register int r asm("eax")` as
+  `={eax},{eax}`); clang refuses `asm volatile` at file scope and a bare `asm` under `-std=c17`. Here every form was a
+  syntax error, and in C++ a file-scope `asm(...)` was read as an attribute before the next declaration and dropped.
+- A FEATURE-TEST MACRO COUNTS WHERE CLANG'S HEADERS READ IT (`pp_ftm_fixed/1`, `pp_ftm_each/1`): glibc's and POSIX's
+  feature-test macros and Apple's as they stand at the file's first `#include` of a header that reads the C library
+  (`pp_spec_clib/1`, `pp_ftm_free_header/1`: in C every system header but clang's eight that read none of it; in C++
+  every one), found before the read as 0.214 found them, the prologue's run now reading past `#include <stdarg.h>` and
+  kin (`pp_prologue_scan/3`, `pp_ftm_at_include/1`); every `__STDC_WANT_*` and `_LIBCPP_*` name as it stands at the
+  file's last system `#include` (`pp_ftm_at_include/1`, `pp_ftm_result/1`): the file's own `#define` and `#undef` of
+  them (`'$pp_ftm_defs'`, `pp_ftm_note/1`) and the nine `__STDC_WANT_*` names glibc asks wherever they are defined, a
+  local header among them (`pp_ftm_want/1`). Where the top run finds a configuration other than the one its headers were
+  read under, the file is run again under it, its headers made ready again (`ccl_pp_top_run/4`, twice at most). It is
+  one configuration for the file: a header included before such a definition is read under it too, where clang's is not
+  (Not done's item 9).
+- A FILE WHOSE OWN RUN CHANGED ITS CONFIGURATION IS NOT KEPT IN THE STORE (`ccl_read_file_/3`): its key is made before
+  the read, so it was kept under a key no later build asks and written again at every build; it is read at every build,
+  its headers and its IR served.
+- GNU'S INLINE ASSEMBLY IS READ (`ccl_gnu_asm_stmt//1`, the first clause of `ccl_external//3`): at file scope, in a
+  namespace and in a linkage block `asm ( string ) ;` is `gnu_asm_file(L, Text)`; in a block `asm [volatile] [inline]
+  [goto] ( template [: outputs [: inputs [: clobbers [: labels]]]] ) ;` is `gnu_asm(L, basic(Text))` or `gnu_asm(L,
+  ext(Quals, Text, Outputs, Inputs, Clobbers, Labels))`, an operand `op(Name, Constraint, Expr)`, `::` two colons. The
+  word is `ccl_asm_word//0`, which the asm label's reader shares now, and the text `ccl_asm_text//1`, under
+  `ccl_asm_string//1` too.
+- AND LOWERED AS CLANG LOWERS IT (`ir_asm/1`, `ir_module_asm/1`): a file-scope asm's lines are `module asm` lines; a
+  statement is a call of an inline asm, its template in LLVM's spelling (`ir_asm_tpl/3`), its constraints the outputs'
+  (by value, or `=*` over the address where memory is allowed), the inputs', each in-out output's input, the clobbers
+  and x86-64's implicit three, `sideeffect` where `volatile` says so or nothing is output; x86's register letters as
+  LLVM's registers, and a register variable's operand its own register (`ir_asm_regvar/2`, clang's
+  AddVariableConstraints), so a system call's `register long r10 asm("r10")` is `{r10}`. `asm goto` is refused by name,
+  `asm_goto`. `gnuasm.c`'s 26 asm lines are clang's on x86-64 and on AArch64, up to the order of the functions and the
+  names of the values.
+- WHAT ITS PROBES FOUND: `extern "C" int ccl_ns_val;` at namespace scope, `gnuasm.cpp`'s declaration of the symbol its
+  file-scope asm defines, was a definition, `symbol 'ccl_ns_val' is already defined`. A DECLARATION DIRECTLY CONTAINED
+  IN A LINKAGE SPECIFICATION IS EXTERN for whether it defines ([dcl.link]/7; `ccl_linkage_extern/2`): `extern "C" int
+  g;` declares g, `extern "C" int a, b = 2;` declares a and defines b, and the braced form's `int k;` defines k, as
+  clang++ has them. The defect was older than this step: `extern "C" int g;` and then `int g = 5;` gave g 0
+  (`linkdecl.cpp`). libc++'s unbraced `extern "C" double lgamma_r(double, int*);` is such a declaration.
+- THE SAFE PART (`ck_asm_ops/3`, `ck_asm_outs/1`): an asm statement's inputs are read and its outputs written, and an
+  output whose value carries a pointer is refused by name, `asm_pointer_output`. The C++ desugaring walks the operands
+  (`cpp_asm_ops/3`).
+- FIXTURES: 2 C (`gnuasm.c`, which defines an object by a file-scope asm and runs every form above, its x86-64 and its
+  AArch64 forms printing alike, clang's and gcc's output on both machines; `ftlate.c` at `-std=c17`) and 2 C++
+  (`gnuasm.cpp`: an asm-declaration in a linkage block and in a namespace, asm in a member function, a function template
+  and a lambda, `::` among its colons; `linkdecl.cpp`), seen to pass over libc++ 18 and 21, and on aarch64 under qemu;
+  0.214 fails each, a syntax error, `undeclared(strdup)`, and `linkdecl.cpp`'s silent `0 3 0 2 0 7 42` where clang++
+  prints `5 3 4 2 0 7 42`. `gnuasm.cpp` joins the cross gate's C++ list (25). One check of the driver gate (44): asm
+  goto and a pointer output refused by name.
+- THE CHAIN OF 0.214, over its commit (fd12e91) and fresh HOMEs, on cocolog 2.12.0: over libc++ 18 all nine gates GREEN
+  -- the flow gate 140 s (its one finding), reader 5 s, compile 33 s (148 run fixtures and 47 refusals), driver 23 s (43
+  checks), objects 6 s, proof, cross 439 s (180 checks: 148 C fixtures, 5 ABI checks, 24 C++ fixtures and 3 C++ checks),
+  the library read 740 s (the 23 asserted reads whole, 203 other headers warmed), the C++ gate 1546 s, 801 of 811
+  fixtures ok and 10 skipped by their needs --; over libc++ 21 the library read (its phase 627 s) and the C++ gate GREEN
+  in about 1600 s, 809 of 811 ok, 2 skipped (`stdoptionalref.cpp`, `zipadjacent.cpp`). The headers' reads summed 2792 s
+  over 226 over libc++ 18 and 2329 s over 226 over 21; the fixtures' builds 5152 s over 801 and 5329 s over 809.
+- GATED BEFORE ITS COMMIT, over the worktree and fresh HOMEs, on cocolog 2.12.0: all nine gates GREEN over libc++ 18 --
+  the flow gate 133 s (its one finding), reader 5 s, compile 33 s (150 run fixtures and 47 refusals), driver 24 s (44
+  checks), objects 6 s, proof, cross 414 s (150 C fixtures, 5 ABI checks, 25 C++ fixtures and 3 C++ checks for aarch64),
+  the library read 724 s (the 23 asserted reads whole, 203 other headers warmed), the C++ gate 1473 s, 803 of 813
+  fixtures ok and 10 skipped by their needs --; over libc++ 21 the library read (its phase 642 s) and the C++ gate GREEN
+  in about 1510 s, 811 of 813 ok, 2 skipped (`stdoptionalref.cpp`, `zipadjacent.cpp`). The headers' reads summed 2738 s
+  over 226 over libc++ 18 and 2393 s over 226 over 21; the fixtures' builds 5116 s over 803 and 5330 s over 811. It is
+  committed before its chain; the next commit carries the chain's numbers.
+- `RULES.md`: the topic of the user's file and the headers' macros (where a feature-test macro counts); the C store (a
+  file whose run changed its configuration not kept); the Declarators topic (GNU's inline assembly read); the
+  Declarations topic of the C++ reader (a linkage specification's declaration extern); the lowering's new topic, GNU's
+  inline assembly; What is refused (an asm output that carries a pointer); the gates' counts, the cross gate's C++ list;
+  the versions (now 162 and 123); the Hosts (0.214's chain); What runs; Not done (the audit's eighteenth group, item 9).
+  `CLAUDE.md`: the versions. `README.md`: C's inline assembly and the feature-test macros where clang reads them.
+
+Reader 162 (GNU's inline assembly read, where it was a syntax error and in C++ a file-scope one an attribute dropped; a
+`__STDC_WANT_*` or `_LIBCPP_*` name the file defines after its first system `#include` configures the headers' reads,
+and a `features.h` name counts at the first header that reads the C library; a declaration directly contained in a
+linkage specification extern: what a read gives changes). Lowering 123 (GNU's inline assembly lowered, `module asm`
+lines and calls of an inline asm: what a unit emits changes).
+

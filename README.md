@@ -38,11 +38,14 @@ rules of the code by topic; `HISTORY.md` is the record of every step.
   own type), GCC's and clang's vector types (`vector_size`,
   `ext_vector_type`: their operators lane by lane, their lanes, masks,
   conversions and builtins, crossing a call as clang passes them), and
-  trigraphs and `__STRICT_ANSI__` in the ISO modes. C17 in a GNU mode is
-  the default, as clang's; `-std=c17` is its ISO mode and `-std=c23` gives
-  C23. The program's feature-test macros (`_POSIX_C_SOURCE`,
-  `_GNU_SOURCE` ...) and `NDEBUG` reach the C library's headers as they do
-  under clang.
+  trigraphs and `__STRICT_ANSI__` in the ISO modes, and GNU's inline
+  assembly (a file-scope `asm`, and `asm` statements with outputs, inputs,
+  clobbers, named operands and register variables, lowered as clang lowers
+  them). C17 in a GNU mode is the default, as clang's; `-std=c17` is its
+  ISO mode and `-std=c23` gives C23. The program's feature-test macros
+  (`_POSIX_C_SOURCE`, `_GNU_SOURCE`, `__STDC_WANT_LIB_EXT2__` ...) and
+  `NDEBUG` reach the C library's headers as they do under clang, each
+  where clang's headers read it.
 * **C++17, C++20, C++23 and C++26.** Classes, virtual dispatch, multiple
   and virtual inheritance, templates with partial specialization, SFINAE,
   concepts and `requires`, lambdas (generic, capturing `this` and `*this`),

@@ -5357,6 +5357,7 @@ cpp_stmt_(Ctx, bindings(L, Ref, Ns0, E0), S) :- !,
         findall(declaration(L, none, base([], [auto]), [var(N, VTn, member(id(Tmp), M))]), ( nth1(I, Ns, N), nth1(I, Ms, M-MT), N \== '_', cpp_binding_vt(MT, VT, VTn) ), Decls) ),   % A BINDING TO A REFERENCE MEMBER IS A REFERENCE ([dcl.struct.bind]: its type is the tuple element's, `B &'): libc++'s __find_equal answers `pair<__end_node_pointer, __node_base_pointer &>', and `auto [__parent, __child]' then STORES THE NEW NODE THROUGH __child -- copied, the pointer went nowhere and the tree balanced a null root
     cpp_stmts(Ctx, [declaration(L, none, TT, [var(Tmp, TT, '$cpp_walked'(E))])|Decls], Ss), S = '$splice'(Ss).   % THE INITIALIZER WALKED ONCE (0.132): handed on desugared and walked again, its temporary's declaration was default-constructed before its constructor ran, and `const auto [b, e] = ranges::subrange{sv};' asked subrange for a constructor from the whole statement expression
 cpp_stmt_(Ctx, expr(L, E), expr(L, E1)) :- !, cpp_expr(Ctx, E, E1).
+cpp_stmt_(Ctx, gnu_asm(L, ext(Qs, T, Os, Is, Cs, Ls)), gnu_asm(L, ext(Qs, T, Os1, Is1, Cs, Ls))) :- !, cpp_asm_ops(Ctx, Os, Os1), cpp_asm_ops(Ctx, Is, Is1).   % GNU's asm statement (0.215): its operands desugared
 cpp_stmt_(Ctx, assume(L, E), assume(L, E1)) :- !, cpp_expr(Ctx, E, E1).                       % C++23's [[assume(e)]]
 cpp_stmt_(_, using(_, enum(_)), empty) :- !.                                                    % C++20: the enumerators are in scope already (a namespace flattens)
 cpp_stmt_(Ctx, defer(L, Vs, Body), defer(L, Vs, Body1)) :- !, cpp_stmt(Ctx, Body, Body1).
@@ -5486,6 +5487,8 @@ cpp_stmt_(Ctx, case(L, E, S), case(L, E2, S1)) :- !, cpp_expr(Ctx, E, E1),   % A
 cpp_stmt_(Ctx, default(L, S), default(L, S1)) :- !, cpp_stmt(Ctx, S, S1).
 cpp_stmt_(Ctx, static_assert(L, E, M), static_assert(L, E, M)) :- !, cpp_static_assert(Ctx, L, E, M).
 cpp_stmt_(_, S, S).
+cpp_asm_ops(_, [], []).
+cpp_asm_ops(Ctx, [op(N, C, E)|Os], [op(N, C, E1)|Os1]) :- cpp_expr(Ctx, E, E1), cpp_asm_ops(Ctx, Os, Os1).
 %% A C++ STATIC ASSERTION IS CHECKED (0.198; [dcl.pre]/10): the program's own, where its condition folds -- at file scope, in a block and in
 %% an instance's body, which a discarded `if constexpr' branch never is (P2593: `static_assert(false)' there is no error); a library
 %% header's are trusted, its traits being this compiler's. It was read and never asked: `static_assert(sizeof(int) == 8);' compiled.

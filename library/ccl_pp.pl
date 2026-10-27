@@ -80,9 +80,14 @@ ccl_pp_run(Path, Top, Tokens, Files) :-
 %% A COMPUTED #include IN THE USER'S FILE (C17 6.10.2/4; 0.211): the header that a macro names is known only in the run,
 %% and a run is not re-entrant, so the macros of one that the prescan did not make ready are made ready after the run
 %% and the file is run again, once for each such header new to the file (pp_do_include/6 lists them in '$pp_late')
+%% ... AND AGAIN UNDER THE PROGRAM'S CONFIGURATION (0.215, pp_ftm_result/1) where the run found one other than the one
+%% its headers were read under -- a feature-test macro the file defines after its first system #include -- the headers
+%% made ready under it and the computed ones tried afresh; twice at most
 ccl_pp_top_run(Path, Tried, Tokens, Files) :-
     ccl_pp_run(Path, yes, Tokens0, Files0), nb_getval('$pp_late', Late0), reverse(Late0, Late1), pp_new_specs(Late1, Tried, Late),
     (   Late \== [] -> pp_prescan_ready(Late, Path), nb_setval('$pp_warnings', []), append(Tried, Late, Tried1), ccl_pp_top_run(Path, Tried1, Tokens, Files)
+    ;   pp_ftm_result(C), ( nb_current('$pp_ftm', C0) -> true ; C0 = [] ), C \== C0, ( nb_current('$pp_ftm_reruns', R) -> true ; R = 0 ), R < 2
+    ->  R1 is R + 1, nb_setval('$pp_ftm_reruns', R1), nb_setval('$pp_ftm', C), ccl_pp_prescan(Path), nb_setval('$pp_warnings', []), ccl_pp_top_run(Path, [], Tokens, Files)
     ;   Tokens = Tokens0, Files = Files0 ).
 pp_new_specs([], _, []).
 pp_new_specs([S|Ss], Seen, New) :- ( memberchk(S, Seen) -> New = New1, Seen1 = Seen ; New = [S|New1], Seen1 = [S|Seen] ), pp_new_specs(Ss, Seen1, New1).
@@ -99,55 +104,90 @@ pp_prescan_specs([line(_, A)|Ls], Specs) :-
     pp_prescan_specs(Ls, Specs1).
 pp_prescan_ready([], _).
 pp_prescan_ready([Spec|Specs], Path) :- ( catch(ccl_header_macros_ready(Spec, Path), _, true) -> true ; true ), pp_prescan_ready(Specs, Path).
-%% THE PROGRAM'S FEATURE-TEST MACROS (0.214): a name of pp_ftm_name/1's that the user's file, or a local header it
-%% includes, defines or undefines before its first system #include configures every header's read, as the command
-%% line's -D and -U do (POSIX 2.2.1: a program defines _POSIX_C_SOURCE before any header; glibc's features.h, C's
-%% __STDC_WANT_*, libc++'s _LIBCPP_*). `'$pp_ftm'' holds them, N-def(Params, Codes) or N-undef where they differ from
-%% the predefined macros and the command line's: a header's run asks them first (pp_outer_macro/3), every key of a read
-%% folds them (ccl_read_level/1, ccl_sum_file/2), and the processes for cold headers are given them. A header was read
-%% standalone under the predefined macros alone, so under -std=c17 `#define _POSIX_C_SOURCE 200809L' gave no strdup.
-%% They are found by one run of the file that stops at its first system #include (pp_do_include/6 throws
-%% pp_prologue(State)), or at its end where it has none; a file whose lines before it define none and include no local
-%% header is not run
+%% THE PROGRAM'S FEATURE-TEST MACROS (0.214, 0.215): a name of pp_ftm_name/1's that the user's file, or a local header it
+%% includes, defines or undefines configures every header's read, as the command line's -D and -U do (POSIX 2.2.1,
+%% glibc's features.h, C's __STDC_WANT_*, libc++'s _LIBCPP_*). `'$pp_ftm'' holds them, N-def(Params, Codes) or N-undef
+%% where they differ from the predefined macros and the command line's: a header's run asks them first
+%% (pp_outer_macro/3), every key of a read folds them (ccl_read_level/1, ccl_sum_file/2), and the processes for cold
+%% headers are given them. As clang has it, a name of pp_ftm_fixed/1's counts as it stands at the file's first #include
+%% of a header that reads the C library (pp_spec_clib/1): glibc reads features.h once, and a later definition reaches no
+%% header. A name of pp_ftm_each/1's counts as it stands at the file's last system #include (0.215): every glibc header
+%% asks __STDC_WANT_* again (bits/libc-header-start.h), and libc++'s headers their _LIBCPP_ENABLE_* names. It is one
+%% configuration for the file, so a header included before such a definition is read under it too. The fixed names'
+%% state comes before the read (pp_ftm_find/1, so the store's key of the file is the right one), from one run of the
+%% file that stops at its first #include of a header that reads the C library (pp_do_include/6 throws
+%% pp_prologue(State)), or at its end where it has none; a file whose lines before it define none of the names and
+%% include no local header is not run. The others' come from the top run (pp_ftm_at_include/1, pp_ftm_result/1), which
+%% runs the file again where they differ from what its headers were read under (ccl_pp_top_run/4)
 pp_ftm_find(Path) :-
-    nb_setval('$pp_ftm', []), pp_source(Path, Lines), pp_prologue_scan(Lines, Locals, Asks),
+    nb_setval('$pp_ftm', []), nb_setval('$pp_ftm_reruns', 0), pp_source(Path, Lines), pp_prologue_scan(Lines, Locals, Asks),
     (   Asks == yes
     ->  pp_prescan_ready(Locals, Path), ( nb_current('$pp_warnings', W0) -> true ; W0 = [] ), nb_setval('$pp_prologue', yes),
         catch(( ccl_pp_run(Path, yes, _, _) -> pp_ftm_state(St1), E = pp_prologue(St1) ; true ), E, true),
         nb_setval('$pp_prologue', no), nb_setval('$pp_warnings', W0),
         ( nonvar(E), E = pp_prologue(St) -> nb_setval('$pp_ftm', St) ; true )
     ;   true ).
-%% the lines before the first system #include: the local headers they include, and whether one of them is such a header
-%% or defines or undefines a name of pp_ftm_name/1's
+%% the lines before the first #include of a header that reads the C library: the local headers they include, and
+%% whether one of them is such a header or defines or undefines a name of pp_ftm_name/1's
 pp_prologue_scan([], [], no).
 pp_prologue_scan([line(_, A)|Ls], Locals, Asks) :-
     (   pp_directive_line(A, Body), pp_ws(Body, B1), pp_word(B1, W, Rest), atom_codes(D, W)
     ->  (   ( D == include ; D == include_next ), pp_ws(Rest, R1), pp_inc_name(R1, Spec)
-        ->  ( D == include, Spec = local(_) -> Locals = [Spec|L1], Asks = yes, pp_prologue_scan(Ls, L1, _) ; Locals = [], Asks = no )
+        ->  (   D == include, Spec = local(_) -> Locals = [Spec|L1], Asks = yes, pp_prologue_scan(Ls, L1, _)
+            ;   D == include, \+ pp_spec_clib(Spec) -> pp_prologue_scan(Ls, Locals, Asks)
+            ;   Locals = [], Asks = no )
         ;   ( D == define ; D == undef ), pp_ws(Rest, R2), pp_word(R2, W2, _), W2 \== [], atom_codes(N, W2), pp_ftm_name(N)
         ->  Asks = yes, pp_prologue_scan(Ls, Locals, _)
         ;   pp_prologue_scan(Ls, Locals, Asks) )
     ;   pp_import_line(A, _) -> Locals = [], Asks = no
     ;   pp_prologue_scan(Ls, Locals, Asks) ).
-%% the names a library header asks the program for: glibc's and POSIX's feature-test macros, Apple's, C's old C++ ones
-%% and every __STDC_WANT_* and _LIBCPP_* name. NDEBUG is <assert.h>'s alone, at each inclusion (pp_assert_include/1)
+%% the names a library header asks the program for: glibc's and POSIX's feature-test macros and Apple's, which
+%% features.h and its kin read once (pp_ftm_fixed/1), and every __STDC_WANT_* and _LIBCPP_* name, which a header asks at
+%% its own inclusion (pp_ftm_each/1). NDEBUG is <assert.h>'s alone, at each inclusion (pp_assert_include/1)
 pp_ftm_name(N) :- pp_ftm_fixed(N), !.
-pp_ftm_name(N) :- atom(N), ( sub_atom(N, 0, _, _, '__STDC_WANT_') ; sub_atom(N, 0, _, _, '_LIBCPP_') ), !.
+pp_ftm_name(N) :- pp_ftm_each(N).
+pp_ftm_each(N) :- atom(N), ( sub_atom(N, 0, _, _, '__STDC_WANT_') ; sub_atom(N, 0, _, _, '_LIBCPP_') ), !.
 pp_ftm_fixed(N) :- member(N, ['_GNU_SOURCE', '_DEFAULT_SOURCE', '_BSD_SOURCE', '_SVID_SOURCE', '_POSIX_SOURCE', '_POSIX_C_SOURCE',
     '_XOPEN_SOURCE', '_XOPEN_SOURCE_EXTENDED', '_ISOC99_SOURCE', '_ISOC11_SOURCE', '_ISOC2X_SOURCE', '_ISOC23_SOURCE',
     '_LARGEFILE_SOURCE', '_LARGEFILE64_SOURCE', '_FILE_OFFSET_BITS', '_TIME_BITS', '_ATFILE_SOURCE', '_DYNAMIC_STACK_SIZE_SOURCE',
     '_REENTRANT', '_THREAD_SAFE', '_FORTIFY_SOURCE', '_DARWIN_C_SOURCE', '_ANSI_SOURCE', '_NONSTD_SOURCE',
     '__STDC_FORMAT_MACROS', '__STDC_LIMIT_MACROS', '__STDC_CONSTANT_MACROS']).
-%% the state at the stop: each such name the run defined, undefined, or took from a local header's table, where that is
-%% not what the predefined macros and the command line give
-pp_ftm_state(St) :-
-    nb_getval('$pp_names', Ns0), findall(N, ( pp_ftm_fixed(N) ; member(N, Ns0), pp_ftm_name(N) ), Ns1), sort(Ns1, Ns),
-    findall(N-D, ( member(N, Ns), pp_ftm_own(N, D), \+ pp_ftm_base(N, D) ), St).
+%% a header that reads the C library (0.215): in C every system header but those of clang's that include nothing of it
+%% (pp_ftm_free_header/1), so `#include <stdarg.h>' before `#define _GNU_SOURCE' keeps it for <string.h> after, as in
+%% clang; clang's <stdatomic.h> reads <stdint.h>, and <stdbit.h> is glibc's. In C++ every one, libc++'s __config
+%% reading features.h
+pp_spec_clib(Spec) :- pp_spec_system(Spec), \+ ( ccl_lang(c), Spec = system(H), pp_ftm_free_header(H) ).
+pp_ftm_free_header(H) :- memberchk(H, ['stddef.h', 'stdarg.h', 'stdbool.h', 'float.h', 'iso646.h', 'stdalign.h', 'stdnoreturn.h', 'stdckdint.h']).
+%% the state, against the predefined macros and the command line's: of pp_ftm_fixed/1's names and pp_ftm_want/1's, what
+%% the run defined, undefined, or took from a local header's table; of the other names of pp_ftm_each/1's, what the file
+%% itself defined or undefined ('$pp_ftm_defs', pp_ftm_note/1), since a library header's table defines _LIBCPP_* names
+pp_ftm_state(St) :- pp_ftm_fixed_state(F), pp_ftm_each_state(E), append(F, E, St0), msort(St0, St).
+pp_ftm_fixed_state(St) :- findall(N-D, ( pp_ftm_fixed(N), pp_ftm_own(N, D), \+ pp_ftm_base(N, D) ), St).
+pp_ftm_each_state(St) :- nb_getval('$pp_ftm_defs', Ns0), findall(N, pp_ftm_want(N), Ws), append(Ws, Ns0, Ns1), sort(Ns1, Ns), findall(N-D, ( member(N, Ns), pp_ftm_own(N, D), \+ pp_ftm_base(N, D) ), St).
+%% the __STDC_WANT_* names glibc's headers ask (bits/libc-header-start.h; LIB_EXT1 in <string.h> and kin), which no
+%% system header defines and a local one may: autoconf's config.h defines them
+pp_ftm_want(N) :- member(N, ['__STDC_WANT_LIB_EXT1__', '__STDC_WANT_LIB_EXT2__', '__STDC_WANT_IEC_60559_EXT__', '__STDC_WANT_IEC_60559_BFP_EXT__',
+    '__STDC_WANT_IEC_60559_DFP_EXT__', '__STDC_WANT_IEC_60559_FUNCS_EXT__', '__STDC_WANT_IEC_60559_TYPES_EXT__', '__STDC_WANT_IEC_60559_ATTRIBS_EXT__',
+    '__STDC_WANT_MATH_SPEC_FUNCS__']).
 pp_ftm_own(N, D) :- pp_key(N, K), nb_getval('$pp_gen', G), ( nb_current(K, V) -> true ; V = none ),
     (   V = mac(G, Ps, codes(Cs), _) -> D = def(Ps, Cs)
     ;   V == undef(G) -> D = undef
     ;   pp_header_macro(N, Ps, Cs) -> D = def(Ps, Cs) ).
 pp_ftm_base(N, D) :- ( pp_cmdline(N, B) -> true ; pp_predef_macro(N, Ps, Cs) -> B = def(Ps, Cs) ; B = undef ), D == B.
+%% at a system #include of the top run: pp_ftm_find/1's run stops at the first that reads the C library; the real run
+%% notes the state of pp_ftm_each/1's names, the last kept (0.215)
+pp_ftm_at_include(Spec) :-
+    (   nb_current('$pp_prologue', yes) -> ( pp_spec_clib(Spec) -> pp_ftm_state(St), throw(pp_prologue(St)) ; true )
+    ;   pp_ftm_each_state(E), nb_setval('$pp_ftm_last', E) ).
+%% the configuration the top run found (0.215): the fixed names' as pp_ftm_find/1 found them, the others' at the last
+%% system #include, at the run's end where it met none -- the fixed names are not taken again, since a local header's
+%% table made under them lacks what it defines only where they are undefined (`#ifndef _GNU_SOURCE')
+pp_ftm_result(C) :-
+    ( nb_current('$pp_ftm', C0) -> true ; C0 = [] ), findall(N-D, ( member(N-D, C0), pp_ftm_fixed(N) ), F),
+    ( nb_getval('$pp_ftm_last', E), E \== none -> true ; pp_ftm_each_state(E) ),
+    append(F, E, C1), msort(C1, C).
+%% a #define or #undef of the user's file (the top run) of a name of pp_ftm_each/1's, noted for pp_ftm_each_state/1
+pp_ftm_note(Rest) :- ( nb_getval('$pp_top', yes), pp_ws(Rest, R1), pp_word(R1, W, _), W \== [], atom_codes(N, W), pp_ftm_each(N) -> nb_getval('$pp_ftm_defs', Ns), nb_setval('$pp_ftm_defs', [N|Ns]) ; true ).
 %% A HEADER UNIT'S MACROS ARE THE IMPORTER'S ([module.import]/5; 0.110): `import "h";' and `import <h>;' (and `export
 %% import') make the header's macros visible after the line, as an #include does -- the line itself is passed on for
 %% the reader, which reads the header as the include it amounts to
@@ -169,7 +209,8 @@ pp_macro_terms([N|Ns], G, Ms) :-
 pp_reset :-
     ( nb_current('$pp_gen', G0) -> G is G0 + 1 ; G = 1 ), nb_setval('$pp_gen', G),
     nb_setval('$pp_names', []), nb_setval('$pp_files', []), nb_setval('$pp_once', []), nb_setval('$pp_stack', []), nb_setval('$pp_linemap', []),
-    nb_setval('$pp_counter', 0), nb_setval('$pp_outs', 0), nb_setval('$pp_errors', []), nb_setval('$pp_paste', no), nb_setval('$pp_top', no), nb_setval('$pp_hdrs', []), nb_setval('$pp_ninc', 0), nb_setval('$pp_late', []).
+    nb_setval('$pp_counter', 0), nb_setval('$pp_outs', 0), nb_setval('$pp_errors', []), nb_setval('$pp_paste', no), nb_setval('$pp_top', no), nb_setval('$pp_hdrs', []), nb_setval('$pp_ninc', 0), nb_setval('$pp_late', []),
+    nb_setval('$pp_ftm_last', none), nb_setval('$pp_ftm_defs', []).   % the program's configuration as the top run finds it (0.215)
 pp_key(N, K) :- atom_concat('$pp:', N, K).
 %% a macro: its parameters (obj for an object-like one; va(N) the variadic
 %% one) and its body -- the codes as defined, the tokens once used
@@ -735,8 +776,8 @@ pp_norm_all([T|Ts], [U|Us]) :- pp_norm(T, U), pp_norm_all(Ts, Us).
 pp_directive(Body, L, Ls, Ls1, Out0, Out) :-
     pp_ws(Body, B1), pp_word(B1, W, Rest), atom_codes(D, W),
     pp_directive_(D, Rest, Body, L, Ls, Ls1, Out0, Out).
-pp_directive_(define, Rest, Body, L, Ls, Ls, Out0, Out) :- !, ( pp_do_define(Rest) -> true ; true ), ( pp_mt_on -> pp_mt_define(Rest, L) ; true ), pp_pass(Body, L, Out0, Out).
-pp_directive_(undef, Rest, Body, L, Ls, Ls, Out0, Out) :- !, pp_ws(Rest, R1), pp_word(R1, W, _), atom_codes(N, W), pp_undefine(N), ( pp_mt_on -> pp_mt_note(undef(L, N)) ; true ), pp_pass(Body, L, Out0, Out).
+pp_directive_(define, Rest, Body, L, Ls, Ls, Out0, Out) :- !, ( pp_do_define(Rest) -> true ; true ), ( pp_mt_on -> pp_mt_define(Rest, L) ; true ), pp_ftm_note(Rest), pp_pass(Body, L, Out0, Out).
+pp_directive_(undef, Rest, Body, L, Ls, Ls, Out0, Out) :- !, pp_ws(Rest, R1), pp_word(R1, W, _), atom_codes(N, W), pp_undefine(N), ( pp_mt_on -> pp_mt_note(undef(L, N)) ; true ), pp_ftm_note(Rest), pp_pass(Body, L, Out0, Out).
 pp_directive_(include, Rest, Body, L, Ls, Ls, Out0, Out) :- !, pp_do_include(Rest, plain, Body, L, Out0, Out).
 pp_directive_(include_next, Rest, Body, L, Ls, Ls, Out0, Out) :- !, pp_do_include(Rest, next, Body, L, Out0, Out).
 pp_directive_(cocolog, _, _, L, Ls, Ls1, Out0, Out) :- nb_getval('$pp_top', yes), !, pp_cocolog_block(Ls, L, Ls1, Out0, Out).
@@ -816,7 +857,7 @@ pp_do_include(Rest, How, Body, L, Out0, Out) :-
     !,
     ( How == next -> Spec = next(Spec0) ; Spec = Spec0 ),
     pp_current_file(From),
-    ( nb_getval('$pp_top', yes), nb_current('$pp_prologue', yes), pp_spec_system(Spec) -> pp_ftm_state(St), throw(pp_prologue(St)) ; true ),   % the file's first system #include ends pp_ftm_find/1's run (0.214)
+    ( nb_getval('$pp_top', yes), pp_spec_system(Spec) -> pp_ftm_at_include(Spec) ; true ),   % the program's configuration at each system #include (0.214, 0.215)
     (   ccl_resolve_include(Spec, From, Path)
     ->  (   sub_atom(Path, _, 3, 0, '.pl') -> pp_inc_text(Cmp, Spec, Body, Text), Out0 = [tok(pp, Text, L)|Out]
         ;   nb_getval('$pp_top', yes) -> pp_inc_text(Cmp, Spec, Body, Text), Out0 = [tok(pp, Text, L)|Out],

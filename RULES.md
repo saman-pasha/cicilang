@@ -160,8 +160,8 @@ that changes a rule edits the rule here, in its topic, and writes its entry in `
 - The compile gate. `test/compile.pl`, one process over the user's store, reads, checks, lowers, compiles at `-O1` and
   links every `test/c/run/*.c` at its `NAME.std` level (`c_level`). It expects every `test/c/safe/*.c` refused.
   `test/compile.sh` runs each binary as `NAME arg1 arg2` against `NAME.expect`, and compares each refusal with
-  `safe/NAME.expect`. There are 148 run and 47 safe fixtures at 0.214. (M2, M3, 0.57)
-- The driver gate. `test/driver.sh` makes 43 checks of `bin/cicilang` over the user's store (the two decimal checks are
+  `safe/NAME.expect`. There are 150 run and 47 safe fixtures at 0.215. (M2, M3, 0.57)
+- The driver gate. `test/driver.sh` makes 44 checks of `bin/cicilang` over the user's store (the two decimal checks are
   skipped where no gcc with decimal floating types is installed), the variadic calls of every kind both ways against
   clang among them (`test/c/link/va_*.c`, 0.131), and Apple's arm64 expansion of `va_arg` of an aggregate against
   clang's, both retargeted to this host (`test/c/link/va_darwin.c`, 0.160). They cover what `-o`, `-c`, `-S`,
@@ -200,16 +200,16 @@ that changes a rule edits the rule here, in its topic, and writes its entry in `
   newest `/usr/lib/llvm-NN`, at `/usr/aarch64-linux-gnu` plus that path, where Debian's and Ubuntu's arm64 packages put
   it when extracted there (`dpkg-deb -x` of `libc++-18-dev`, `libc++1-18`, `libc++abi-18-dev`, `libc++abi1-18`,
   `libunwind-18` and `libunwind-18-dev`: apt installs no package of another architecture without multiarch) -- the cross
-  gate builds 24 C++ fixtures with `cicilang++ --target=aarch64-linux-gnu` and with clang++ over that same libc++, runs
+  gate builds 25 C++ fixtures with `cicilang++ --target=aarch64-linux-gnu` and with clang++ over that same libc++, runs
   both under qemu and compares them, then three checks against clang++'s code on that machine, the C++ gate's own:
   classes by value, pointers to member functions both ways, and a by-value parameter destroyed by the caller both ways
-  (0.207; `test/cpp/link/`). Each C++ build has a time and a memory cap of
-  its own (`CROSS_SECS` 1800, `CROSS_MB` 2800: its summaries are the target's, cold in every chain); without the tree
-  the part is a SKIP line. 87 C fixtures (85 at 0.167) and 5 checks at 0.179, 24 C++ fixtures (`vector.cpp` since
-  0.162) and 2 checks at 0.167 (3 since 0.207), 703 s in 0.164's chain, peak 535 MB, the C++ part cold (its summaries are that
-  machine's own, read afresh in every
-  chain's fresh HOME); 151 s in 0.166's, 150 s in 0.167's, 143 s in 0.168's, 139 s in 0.171's and 145 s in 0.172's, peaks 437 MB, 436 MB, 365 MB,
-  387 MB and 390 MB, over a HOME that 0.165's chain had warmed. (0.131, 0.161, 0.207)
+  (0.207; `test/cpp/link/`). Each C++ build has a time and a memory cap of its own (`CROSS_SECS` 1800, `CROSS_MB` 2800:
+  its summaries are the target's, cold in every chain); without the tree the part is a SKIP line. 87 C fixtures (85 at
+  0.167) and 5 checks at 0.179, 24 C++ fixtures (`vector.cpp` since 0.162; 25 since 0.215, `gnuasm.cpp`) and 2 checks at
+  0.167 (3 since 0.207), 703 s in 0.164's chain, peak 535 MB, the C++ part cold (its summaries are that machine's own,
+  read afresh in every chain's fresh HOME); 151 s in 0.166's, 150 s in 0.167's, 143 s in 0.168's, 139 s in 0.171's and
+  145 s in 0.172's, peaks 437 MB, 436 MB, 365 MB, 387 MB and 390 MB, over a HOME that 0.165's chain had warmed. (0.131,
+  0.161, 0.207, 0.215)
 - The proof. `proof/run.sh` has clang turn `proof/forty2.ll` into a binary that prints `cicilang reaches C` and exits
   42. (M0)
 
@@ -248,7 +248,7 @@ that changes a rule edits the rule here, in its topic, and writes its entry in `
 ### The C++ gate: test/cpp.sh
 
 - `test/cpp.sh` runs in this order: `test/cpp.pl` in one `--local` process; four checks of the command; every
-  `test/cpp/run/*.cpp` as a pool job (811 at 0.214); `classes.cpp` and `templates.cpp` built and run; the refusals, each
+  `test/cpp/run/*.cpp` as a pool job (813 at 0.215); `classes.cpp` and `templates.cpp` built and run; the refusals, each
   at the level its `test/cpp/NAME.flags` names, else C++17 (0.164). (0.105, 0.164)
 - `test/cpp.pl` runs 46 numbered checks, `c1` to `c46`, then reads Cicili's six C++ files whole (`test/cpp/objects.cpp`,
   `emit_report.cpp`, `specialise.cpp`, `syntax.cpp`, `torch.cpp`, `torch-fragment.cpp`). `c34` checks the Itanium
@@ -1220,22 +1220,36 @@ that changes a rule edits the rule here, in its topic, and writes its entry in `
   ready are made ready after the run, and the file is run again, once for each such header new to the file
   (`ccl_pp_top_run/4` over `'$pp_late'`, which `pp_do_include/6` fills and `pp_reset/0` empties; `pp_new_specs/3`).
   `test/c/run/ppinclude.c`, `test/cpp/run/ppinclude.cpp`: a local header and a library header named by a macro. (0.211)
-- THE PROGRAM'S FEATURE-TEST MACROS CONFIGURE EVERY HEADER'S READ (0.214; POSIX 2.2.1, glibc's `features.h`): a name of
-  `pp_ftm_name/1`'s -- glibc's and POSIX's feature-test macros (`_GNU_SOURCE`, `_DEFAULT_SOURCE`, `_POSIX_C_SOURCE`,
-  `_XOPEN_SOURCE`, `_FILE_OFFSET_BITS` and kin), Apple's, and every `__STDC_WANT_*` and `_LIBCPP_*` name -- that the
-  user's file, or a local header it includes, defines or undefines before its first system `#include` is read by every
+- THE PROGRAM'S FEATURE-TEST MACROS CONFIGURE EVERY HEADER'S READ (0.214, 0.215; POSIX 2.2.1, glibc's `features.h`): a
+  name of `pp_ftm_name/1`'s that the user's file, or a local header it includes, defines or undefines is read by every
   header as a `-D` or a `-U` is: `'$pp_ftm'`, a list of `N-def(Params, Codes)` and `N-undef` where they differ from the
   predefined macros and the command line's (`pp_ftm_state/1`), which a header's run asks before the command line's
   (`pp_outer_macro/3`; the user's file's own run defines them itself), which every key of a read folds (`ccl_ftm_tag/1`
   in `ccl_read_level/1` and `ccl_sum_file/2`: the unit cache, the header macros' memo, the store, the C++ summaries'
-  names), and which the processes for cold headers are given (`ftm(L)`, `dr_setup/2`). They are found before the read
-  (`pp_ftm_find/1`, from `ccl_read_file/3`, so the store's key of the file is the right one) by one run of the file that
-  stops at its first system `#include` (`pp_do_include/6` throws `pp_prologue(State)`), or at its end where its own
-  lines include none; a file whose lines before it define none of the names and include no local header is not run
-  (`pp_prologue_scan/3`). A header was read standalone under the predefined macros alone: under `-std=c17` `#define
-  _POSIX_C_SOURCE 200809L` gave no `strdup`, and `hdrdefs.c`'s `#define _DEFAULT_SOURCE` no `htobe32`; in a GNU mode the
-  names that `_GNU_SOURCE` alone gives were missing. A name defined after the file's first system `#include` configures
-  no header's read. `ftmacro.c` (`-std=c17`, over `ftmacro.h`). (0.214)
+  names), and which the processes for cold headers are given (`ftm(L)`, `dr_setup/2`). A NAME COUNTS WHERE CLANG'S
+  HEADERS READ IT (0.215): glibc's and POSIX's feature-test macros and Apple's (`pp_ftm_fixed/1`: `_GNU_SOURCE`,
+  `_DEFAULT_SOURCE`, `_POSIX_C_SOURCE`, `_XOPEN_SOURCE`, `_FILE_OFFSET_BITS` and kin) as they stand at the file's first
+  `#include` of a header that reads the C library, since glibc reads `features.h` once (`pp_spec_clib/1`: in C every
+  system header but those of clang's that read none of it, `<stddef.h>`, `<stdarg.h>`, `<stdbool.h>`, `<float.h>`,
+  `<iso646.h>`, `<stdalign.h>`, `<stdnoreturn.h>` and `<stdckdint.h>`, `pp_ftm_free_header/1` -- clang's `<stdatomic.h>`
+  reads `<stdint.h>` and `<stdbit.h>` is glibc's --; in C++ every one, libc++'s `__config` reading `features.h`); every
+  `__STDC_WANT_*` and `_LIBCPP_*` name (`pp_ftm_each/1`) as it stands at the file's last system `#include`, since
+  glibc's headers ask `__STDC_WANT_*` at each inclusion (`bits/libc-header-start.h`) and libc++'s their own
+  `_LIBCPP_ENABLE_*` names. The first are found before the read (`pp_ftm_find/1`, from `ccl_read_file/3`, so the store's
+  key of the file is the right one) by one run of the file that stops at that `#include` (`pp_do_include/6` through
+  `pp_ftm_at_include/1` throws `pp_prologue(State)`), or at its end where it has none; a file whose lines before it
+  define none of the names and include no local header is not run (`pp_prologue_scan/3`, which reads past `#include
+  <stdarg.h>` and kin). The others are what the top run found at its last system `#include` (`pp_ftm_at_include/1`,
+  `pp_ftm_result/1`): the file's own `#define` and `#undef` of them (`'$pp_ftm_defs'`, `pp_ftm_note/1`), and the nine
+  `__STDC_WANT_*` names that glibc asks wherever they are defined, a local header among them (`pp_ftm_want/1`:
+  autoconf's `config.h` defines them, and no system header does, where libc++'s define `_LIBCPP_*` names); where they
+  differ from what the headers were read under, the file is run again under them, its headers made ready again
+  (`ccl_pp_top_run/4`, twice at most). It is one configuration for the file: a header included before such a definition
+  is read under it too, where clang's is not. A header was read standalone under the predefined macros alone until
+  0.214: under `-std=c17` `#define _POSIX_C_SOURCE 200809L` gave no `strdup`, and `hdrdefs.c`'s `#define
+  _DEFAULT_SOURCE` no `htobe32`; and until 0.215 a name defined after the file's first system `#include` configured no
+  header's read, a `__STDC_WANT_*` name and a name after `<stdarg.h>` among them. `ftmacro.c` (`-std=c17`, over
+  `ftmacro.h`), `ftlate.c` (`-std=c17`). (0.214, 0.215)
 - `<assert.h>` DEFINES `assert` BY `NDEBUG` AS IT STANDS AT EACH INCLUSION (C17 7.2/1, [cassert.syn]; 0.214;
   `pp_assert_include/1`): in the user's file an `#include <assert.h>` or `<cassert>` defines `assert` as `((void)0)`
   where `NDEBUG` is defined, glibc's `assert_perror` with it, and else as the header's table has it, which is read with
@@ -1424,6 +1438,17 @@ that changes a rule edits the rule here, in its topic, and writes its entry in `
   under `-std=c17` and `-std=c23`, as clang reads it (0.214, `ccl_asm_keyword/0` in `ccl_attr_word/1`,
   `ccl_gnu_attr_//0` and `ccl_gnu_word/1`): it was a name everywhere, and `int f(void) asm("g");` a syntax error.
   `asmlabel.c`, `asmlabel23.c` (`-std=c23`), `gnusource.cpp`, `gnumode.c`, `gnumode.cpp`.
+- GNU'S INLINE ASSEMBLY IS READ (0.215; GCC's manual, How to Use Inline Assembly Language in C Code, which clang reads;
+  C17 J.5.10, C++'s asm-declaration [dcl.asm]): at file scope, in a namespace and in a linkage block `asm ( string ) ;`
+  is the module's, `gnu_asm_file(L, Text)` (the first clause of `ccl_external//3`, before C++'s leading attributes); in
+  a block `asm [volatile] [inline] [goto] ( template [: outputs [: inputs [: clobbers [: labels]]]] ) ;` is a statement
+  (`ccl_gnu_asm_stmt//1`, in `ccl_block_item//3` and `ccl_statement//2`): `gnu_asm(L, basic(Text))` where no colon
+  follows the template, else `gnu_asm(L, ext(Quals, Text, Outputs, Inputs, Clobbers, Labels))`, an operand `op(Name,
+  Constraint, Expr)` with its symbolic name or `none`, and `::` two colons (`ccl_asm_sections//3`). The word is
+  `__asm__`, `__asm`, or `asm` where `ccl_asm_keyword/0` makes it one (`ccl_asm_word//0`, which the label's reader
+  shares), the text the joined literals (`ccl_asm_text//1`, under `ccl_asm_string//1` too). Both were syntax errors, and
+  in C++ a file-scope one was taken for a leading attribute and dropped. Its lowering is the Lowering's topic of inline
+  assembly, its check the safe part's What is refused. `gnuasm.c`, `gnuasm.cpp`. (0.215)
 - GCC'S `packed` AND `aligned` ATTRIBUTES ARE KEPT (0.203; GCC's manual, Common Type and Variable Attributes, which
   clang reads), noted as the attribute goes past, as `vector_size` is (`ccl_layout_note//0`; `ccl_layout_clear/0` at a
   block's start, at a member list's end and after a parameter), and taken where they stand: on a struct or a union,
@@ -2040,7 +2065,11 @@ that changes a rule edits the rule here, in its topic, and writes its entry in `
 
 - `extern "C"` keeps its block, `extern_c(L, Items)` (`ccl_linkage_block`). `extern "C++"` is transparent: its items are
   spliced where it stood (`ccl_spliced` -> `'$splice'`). Why: as one item, libc++'s `<math.h>` put `namespace std` under
-  the C marker. (0.71)
+  the C marker. A DECLARATION DIRECTLY CONTAINED IN ONE IS EXTERN for whether it defines ([dcl.link]/7; 0.215;
+  `ccl_linkage_extern/2`): `extern "C" int g;` declares g, and `extern "C" int a, b = 2;` is a declaration of a and a
+  definition of b, where the braced form's `int k;` defines k. Each such declaration was a definition: `int g = 5;`
+  after it was g's second, and g read 0 (`linkdecl.cpp`), and a file-scope asm's definition of the symbol clashed with
+  it (`gnuasm.cpp`). (0.71, 0.215)
 - A namespace is `namespace(L, N | inline(N), Items)`. `namespace A::B { }` and `namespace A::inline B { }` nest
   (`ccl_ns_segs//1`, `ccl_ns_nest/4`). A namespace alias is `using(L, namespace_alias(N, Q))`, which does nothing, since
   namespaces flatten. (0.100, 0.109)
@@ -2397,7 +2426,11 @@ that changes a rule edits the rule here, in its topic, and writes its entry in `
   (`dr_ir_sig/3`), so an ISO build's IR is its own. `time_file/2` is asked at every key. (0.93, 0.108, 0.214)
 - `ccl_kb_cached/3` serves a unit on the same key, every dep at its key, and the item count matching. An item over the
   clause budget (`resource_error(clause_length)`) leaves the file uncached (`ccl_kb_remember/3`). The user's file is
-  stored as `top` only when it reads whole. (M4)
+  stored as `top` only when it reads whole, and only where its own run left its configuration as it was found before the
+  read (0.215, `ccl_read_file_/3`): its key is made before the read, and a `__STDC_WANT_*` name it defines after its
+  first system `#include` changes the configuration in the run (the topic of the user's file and the headers' macros),
+  so it was kept under a key no later build asks, and written again at every build. Such a file is read at every build,
+  its headers and its IR served from the store. (M4, 0.215)
 - A header's macro table is stored per level: `'$ccl_hmacros:<Path>'(Name, Key, macro(...))` rows, `'$dep'` rows, and
   the index `'$ccl_hmeta'(Path, Key, meta(N, ND))`. `ccl_kb_remember_macros/3` replaces only that level's rows. The
   process memo is `'$ccl_hm:<Path>@<Level>'` (`ccl_hm_key`). Why: a C23 read retracted the C17 rows. (0.99, 0.108)
@@ -2438,14 +2471,14 @@ that changes a rule edits the rule here, in its topic, and writes its entry in `
 
 ### The versions
 
-- `ccl_reader_version/1` (`library/ccl_syntax.pl`, now 161): bump it for any grammar change to what a read gives, and
+- `ccl_reader_version/1` (`library/ccl_syntax.pl`, now 162): bump it for any grammar change to what a read gives, and
   for any change to what the AST beside a summary holds (item or member terms, `cpp_index_name/2`,
   `cpp_template_name/2`, `ccl_flat_items/3`, the namespace keys). Keep the reason in its comment. Why: the store and the
   summaries are keyed by it, and a stale read is served silently (`sizeof(std::string)` read 40). (M1, 0.89, 0.112,
   0.117)
 - A reader bump makes every summary cold; `test/libcxx.sh` rewrites them. `test/reader.pl`'s `k16` (a cached read is
   the same AST as a fresh one) goes RED on a grammar change without a bump. (0.93, 0.105)
-- `ccl_lowering_version/1` (`library/ccl_ir.pl`, now 122): bump it whenever the check or the lowering changes what it
+- `ccl_lowering_version/1` (`library/ccl_ir.pl`, now 123): bump it whenever the check or the lowering changes what it
   emits, however small -- 0.120 bumped it for the ORDER of the drain functions alone. Why: `dr_ir/3` serves the old IR
   otherwise. Either bump starts the C store afresh. (M4, 0.103, 0.120)
 
@@ -7935,6 +7968,10 @@ A lambda is a class of its captures (`library/ccl_cpp.pl`). A fixture named alon
   (0.138; until then, into a block or over any owner's declaration where an owner lived, 0.133). `goto_over_defer` is a
   `goto` over a `defer` or a C++ local with a destructor (0.138). `not_checked` is a form the walk cannot follow: a range-for over a non-array, a `continue` in a switch
   with no loop, a goto whose label no walk reached, a body whose labels' states do not settle in eight walks. (M3, 0.133)
+- AN ASM OUTPUT THAT CARRIES A POINTER IS REFUSED BY NAME (0.215; `ck_asm_outs/1`): an asm statement's inputs are read
+  and its outputs written, as an expression's operands are (`ck_asm_ops/3`), and an output whose value carries a pointer
+  (`ck_carries_type/1`: a pointer, an array of them, a struct holding one) throws `not_lowered(asm_pointer_output)`,
+  since the safe part follows no pointer that an asm makes. Basic asm names no operand. The driver gate's check. (0.215)
 - A statement form the check does not know throws `not_lowered(F)` from the last `ck_stmt` clause. Every
   `test/c/safe/NAME.c` is refused with the error its `.expect` names (`test/compile.pl`). (M3, 0.32)
 
@@ -8609,6 +8646,31 @@ A lambda is a class of its captures (`library/ccl_cpp.pl`). A fixture named alon
   vector 19. glibc's `<tgmath.h>` asks it where the compiler is no GCC 8. `tgmath.c`.
 - libc++'s memory builtins become the C library's `memcpy`, `memmove` and `memset` in the desugaring;
   `ir_cpp_prelude/0` declares them when the file did not. (0.60)
+
+### GNU's inline assembly
+
+- A FILE-SCOPE ASM IS THE MODULE'S (0.215; `ir_module_asm/1`): each line of its text is a `module asm "..."` line at the
+  module's head (`'$ir_masm'`, `ir_assemble/1`), as clang emits it, a last newline making no empty line. `gnuasm.c`
+  defines an object so on each host, `gnuasm.cpp` in a linkage block and in a namespace. (0.215)
+- AN ASM STATEMENT IS A CALL OF AN INLINE ASM, as clang lowers it (0.215; `ir_asm/1`). Basic asm is its text with `$`
+  doubled (`ir_asm_dollars/2`), a side effect, its constraints the target's implicit clobbers alone. Extended asm's
+  template takes `%N` and `%[name]` as `$N`, `%mN` and `%m[name]` as `${N:m}`, `%=` as `${:uid}`, `%%` as `%` and `$` as
+  `$$` (`ir_asm_tpl/3`). Its constraints are the outputs' -- a register output `=` and its letters, the call's result,
+  one value or a struct of them stored to their places (`ir_asm_stores/4`); an output whose constraint allows memory
+  (`m`, `o`, `V`, `<`, `>`, `g`, and `Q` on AArch64) `=*` and its letters over the output's address, `ptr
+  elementtype(T)` -- then the inputs' -- a tie by number as written and by `[name]` as the output's number, one that
+  allows only memory `*` over its address, else a value, `g` as `imr` (`ir_asm_letters/2`) -- then each in-out output's
+  input: its number and its value loaded where it allows a register (`+rm` and `+g` too), `*` over the same address
+  where it allows only memory (`ir_asm_ties/3`) -- then the clobbers, `~{name}` with a leading `%` dropped
+  (`ir_asm_clobbers/2`), and on x86-64 `~{dirflag},~{fpsr},~{flags}` (`ir_asm_implicit/1`; none on AArch64). x86's `a`,
+  `b`, `c`, `d`, `S` and `D` are `{ax}` and kin (`ir_asm_x86_reg/2`), and A REGISTER VARIABLE'S OPERAND ITS OWN
+  REGISTER, as clang's AddVariableConstraints has it (`ir_asm_regvar/2`): a local given an asm label -- `register long
+  r10 asm("r10")`, a system call's argument -- is `{r10}` where a register is asked, an in-out one's input too unless it
+  is early-clobbered; it was the register LLVM chose. It is `sideeffect` where `volatile` says so or it has no output.
+  `asm goto` is refused by name, `asm_goto` (the driver gate's check). The probes held each form's text to clang's
+  (`=r,0,r`, `=*rm,0`, `=*m,*m`, `=r,=r,0,1`, `={ax},={dx}`, `={eax},{eax}`, `${0:w}`): `gnuasm.c`'s 26 asm lines are
+  clang's on both machines, and it prints what clang's and gcc's builds print on x86-64 and on aarch64 Linux under qemu.
+  Lowering 123. `gnuasm.c`, `gnuasm.cpp`, which the cross gate runs too. (0.215)
 
 ### Debug information (`-g`)
 
@@ -9678,16 +9740,16 @@ A lambda is a class of its captures (`library/ccl_cpp.pl`). A fixture named alon
 - Ubuntu 24.04 on x86_64 (clang and LLVM 18, glibc, libc++ 18 and 21) is a host since 0.87. Every gate but the C++ one
   is GREEN there since 0.93, and all seven since 0.95. Every step from 0.93 on is gated there, but the save points
   0.112, 0.113, 0.117, 0.122 to 0.125, 0.130, 0.131 and 0.143 (0.143's C gates and cross gate ran, its libc++ gates did
-  not; the others were gated by the steps after them). The last full run is 0.213's, over cocolog 2.12.0 (the Findings),
-  on one tree, over fresh HOMEs: over libc++ 18 all nine GREEN (the flow gate's one finding in 153 s, reader 5 s,
-  compile 30 s, driver 22 s, objects 6 s, proof, the cross gate in 471 s with its C++ part for aarch64, the library read
-  in 858 s (198 other headers warmed), the C++ gate in 1677 s with 797 of 807 fixtures ok, the skips are `atomicref`,
+  not; the others were gated by the steps after them). The last full run is 0.214's, over cocolog 2.12.0 (the Findings),
+  on one tree, over fresh HOMEs: over libc++ 18 all nine GREEN (the flow gate's one finding in 140 s, reader 5 s,
+  compile 33 s, driver 23 s, objects 6 s, proof, the cross gate in 439 s with its C++ part for aarch64, the library read
+  in 740 s (203 other headers warmed), the C++ gate in 1546 s with 801 of 811 fixtures ok, the skips are `atomicref`,
   `atomicrefalign`, `ftm23b`, `ftm26b`, `joinwith`, `stdflatmap`, `stdoptionalref`, `tzone`, `vbaseof` and
   `zipadjacent`, the two units, the 29 refusals, the four of the safe part and the four static assertions); over libc++
-  21 the library read (the phase 736 s) and the C++ gate (about 1670 s, 805 of 807 ok, the skips `stdoptionalref` and
-  `zipadjacent`) GREEN -- the C gates do not read libc++. The headers' reads, summed, took 3238 s over 221 over libc++
-  18 and 2782 s over 21; the fixtures' builds 5734 s over 797 and 5796 s over 805. The chains of 0.165 to 0.203 and of
-  0.205 to 0.213 are in HISTORY.md, 0.166 to 0.204 and 0.206 to 0.214. Two libc++ passes are one gate:
+  21 the library read (the phase 627 s) and the C++ gate (about 1600 s, 809 of 811 ok, the skips `stdoptionalref` and
+  `zipadjacent`) GREEN -- the C gates do not read libc++. The headers' reads, summed, took 2792 s over 226 over libc++
+  18 and 2329 s over 21; the fixtures' builds 5152 s over 801 and 5329 s over 809. The chains of 0.165 to 0.203 and of
+  0.205 to 0.214 are in HISTORY.md, 0.166 to 0.204 and 0.206 to 0.215. Two libc++ passes are one gate:
   `LLVM=/usr/lib/llvm-18` and `LLVM=/usr/lib/llvm-21` choose the tree the chain reads and links. libc++ 22 (the newest
   tree, which a run without `$LLVM` reads) is no gate: 0.182 built its vector and its C++23 views by hand
   (`zipadjacent.cpp`, which its `.needs` skips over 18 and 21), and `stdoptionalref` passes there. The run before
@@ -9700,7 +9762,7 @@ A lambda is a class of its captures (`library/ccl_cpp.pl`). A fixture named alon
   (`ccl_long_double/1`; `test/c/run/ldouble.c`, `test/cpp/run/ldouble.cpp`) (0.108, 0.131).
 - LINUX ON AARCH64 IS A TARGET (0.131): `cicilang --target=aarch64-linux-gnu` builds C for it on this x86-64 box, and
   the cross gate runs every C fixture and the ABI checks under qemu against clang's and gcc's builds; and C++ over that
-  machine's libc++ 18 under the sysroot since 0.161: 24 C++ fixtures and the two C++ ABI checks against clang++.
+  machine's libc++ 18 under the sysroot since 0.161: 25 C++ fixtures and the three C++ ABI checks against clang++.
 
 ### C
 
@@ -9777,7 +9839,9 @@ A lambda is a class of its captures (`library/ccl_cpp.pl`). A fixture named alon
   with a universal character name (`ucnmacro.c`). Since 0.214: an ISO mode's `__STRICT_ANSI__` and the names it leaves
   to the program (`strictansi.c`), a GNU mode's own names and its `asm` label (`gnumode.c`), C23's `true` after
   `<stdbool.h>` (`c23bool.c`), the program's feature-test macros (`ftmacro.c`) and `NDEBUG` at each inclusion of
-  `<assert.h>` (`ndebug.c`).
+  `<assert.h>` (`ndebug.c`). Since 0.215: GNU's inline assembly, a file-scope asm and the statement's forms with a
+  register variable among them, on x86-64 and on aarch64 (`gnuasm.c`), and a feature-test macro defined after the file's
+  first system `#include` where clang's headers read it (`ftlate.c`, `-std=c17`).
 - The C library is the host's. The compiler's own freestanding headers are in `library/include/` (`<stdarg.h>`,
   `<stdatomic.h>`, `<complex.h>`, `<stdckdint.h>`, `<stdbit.h>`, `<limits.h>`, `<tgmath.h>` and six more).
 - The language's own additions run: `:=`, patterns, `name { }` structs and `format`, `print`, `println`
@@ -10249,6 +10313,9 @@ A lambda is a class of its captures (`library/ccl_cpp.pl`). A fixture named alon
 - Coroutines: `cogenerator`, `cotask`, `coeager`, `coawait`, `coawaitop`, `cotemplate`, `cotraits`. Modules: `modules`
   (it imports `mathm.cppm`, which imports `basem.cppm`), `headerunit`, `hdrinline`. Also the array cookie
   (`arraycookie`), trailing return types (`trailing`) and CTAD (`stdctad`, `deduceguide`) (0.108, 0.110).
+- GNU's inline assembly in C++ (0.215): `gnuasm` (an asm-declaration in a linkage block and in a namespace, asm in a
+  member function, a function template and a lambda, on x86-64 and on aarch64 through the cross gate), and a declaration
+  directly contained in a linkage specification extern, `linkdecl`.
 - `test/cpp.sh` checks that twenty-eight programs are refused by name (`coro.cpp`, `concept_fail.cpp`,
   `constrained_fail.cpp`, `lambda_const.cpp`, `lambda_method.cpp`, `bind_const.cpp`, the eleven `access_*.cpp`,
   `abstract.cpp`, `modhidden.cpp`, `basenodefault.cpp`, `enumnotconst.cpp`, since 0.164 `fmtindex.cpp` and
@@ -10496,7 +10563,11 @@ the Declarators topic: `typeof` and `typeof_unqual` by the language, the level a
 keyword in a GNU C mode and in C++; the Arguments topic: the last `-std=` wins; the compiler's own headers topic:
 `<float.h>` in C++ by the level alone, C++26's `<cfloat>` C23's, `<stdbool.h>` at C23 -- and what its probes found: the
 topic of the user's file and the headers' macros, the program's feature-test macros and `NDEBUG` at each inclusion of
-`<assert.h>`).
+`<assert.h>`); the eighteenth, two of what 0.214 left, is 0.215's (the topic of the user's file and the headers' macros:
+a feature-test macro counts where clang's headers read it, after the file's first system `#include` too; the Declarators
+topic and the lowering's topic of inline assembly: GNU's inline assembly read and lowered, a register variable's
+register among it -- and what its probes found: a declaration directly contained in a linkage specification extern, the
+Declarations topic of the C++ reader).
 
 1. C++'S CORE LANGUAGE, WHAT 0.205 LEFT: clang's `TnDa` for a placeholder's argument in a function template's symbol is
    not spelled, which no symbol here needs (the program's functions keep this compiler's names); and a library header's
@@ -10537,14 +10608,20 @@ topic of the user's file and the headers' macros, the program's feature-test mac
    temporary of a statement is destroyed on unwinding where it was built (the Classes topic).
 8. THE FUNCTIONS A C HEADER DEFINES, which 0.211's probes found: done at 0.212 (the Includes topic), its objects with
    them. Under `-g` it is described in its header since 0.213 (the Debug information topic).
-9. THE ISO MODES AND THE PROGRAM'S CONFIGURATION, WHAT 0.214 LEFT: a feature-test macro defined after the file's first
-   system `#include` configures no header's read; a local header's `__STDC_WANT_*` and `_LIBCPP_*` names are seen where
-   the file uses them, or where `pp_ftm_fixed/1` names them; a header that the program's own header includes reads
-   `NDEBUG` as its table has it, and under `-DNDEBUG` an `#undef NDEBUG` before `<assert.h>` does not undo it. GNU's
-   inline assembly is refused by a syntax error, not by name -- `__asm__("...")` at file scope, `asm` and `__asm__`
-   statements in a block -- where clang assembles it (C17 J.5.10; C++'s asm-declaration is conditionally-supported,
-   [dcl.asm]); the label's bare `asm` is read since 0.214. macOS is not measured: Apple's libc chooses its names by
-   `_ANSI_SOURCE`, `_POSIX_C_SOURCE` and `_DARWIN_C_SOURCE`, and its headers' reads under the ISO modes are no gate's.
+9. THE ISO MODES AND THE PROGRAM'S CONFIGURATION, WHAT 0.215 LEFT: a feature-test macro defined after the file's first
+   system `#include` counts since 0.215 where clang's headers read it, and GNU's inline assembly is read and lowered
+   (the topic of the user's file and the headers' macros; the lowering's topic of inline assembly). What is left: the
+   configuration is one for the file, so a header included before a `__STDC_WANT_*` or `_LIBCPP_*` definition is read
+   under it too, and a late `_LIBCPP_*` name that libc++'s `__config` reads once
+   (`_LIBCPP_ENABLE_CXX17_REMOVED_FEATURES`, `_LIBCPP_ENABLE_EXPERIMENTAL`) reaches the headers where clang++'s does
+   not; a local header's `_LIBCPP_*` names, and a `__STDC_WANT_*` name that glibc does not ask, configure no header's
+   read; a file that defines such a name after its first system `#include` is read at every build (the C store topic); a
+   header that the program's own header includes reads `NDEBUG` as its table has it, and under `-DNDEBUG` an `#undef
+   NDEBUG` before `<assert.h>` does not undo it. `asm goto` is refused by name (`asm_goto`), and so is an asm output
+   that carries a pointer (`asm_pointer_output`, the safe part's); a register variable's register is the operand's only,
+   as an asm operand. macOS is not measured: Apple's libc chooses its names by `_ANSI_SOURCE`, `_POSIX_C_SOURCE` and
+   `_DARWIN_C_SOURCE`, its headers' reads under the ISO modes are no gate's, and `gnuasm.c` and `gnuasm.cpp` name its
+   sections and its symbols' underscore without a run there.
 
 ### C++ language
 
