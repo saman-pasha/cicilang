@@ -43,6 +43,12 @@ if [ "$got" = "exit 0" ]; then echo "ok   cicilang++ -fsyntax-only reads a file 
 mkdir -p "$D/coldhome"; said=$(HOME="$D/coldhome" CICILANG_JOBS=4 "$ROOT/bin/cicilang++" -v "$ROOT/test/cpp/run/stdcstdlib.cpp" -o cold 2>&1)
 nk=$(printf '%s\n' "$said" | grep -ac 'in a process of its own'); got=$(./cold < /dev/null; echo "exit $?")
 if [ "$nk" = 5 ] && printf '%s\n' "$said" | grep -aq ': 5 summaries written' && [ "$got" = "$(cat "$ROOT/test/cpp/run/stdcstdlib.expect")" ]; then echo "ok   a cold build reads its five library headers by processes of their own, four at a time, and its binary prints what it should"; else echo "FAIL the cold headers by processes of their own"; echo "     got  $nk processes; $(printf '%s\n' "$said" | grep -a 'summaries written' | cut -c1-160); $(printf '%s' "$got" | tail -1)"; failures=$((failures + 1)); fi
+# A HEADER READ IN THE BUILD'S OWN PROCESS AFTER ANOTHER SERVED FROM ITS SUMMARY (0.218): stdcharconv.cpp over a summary
+# directory of the check's own, where a build of charconvfirst.cpp left <charconv>'s summary and the rest of its headers
+# are cold, one process reading them in turn (CICILANG_JOBS=1) -- <system_error>'s read took `__traits' from <charconv>'s
+mkdir -p "$D/mixhome"; HOME="$D/mixhome" CICILANG_JOBS=1 "$ROOT/bin/cicilang++" "$ROOT/test/cpp/charconvfirst.cpp" -o mixfirst > /dev/null 2>&1
+got=$(HOME="$D/mixhome" CICILANG_JOBS=1 "$ROOT/bin/cicilang++" "$ROOT/test/cpp/run/stdcharconv.cpp" -o mix 2>&1 && ./mix < /dev/null; echo "exit $?")
+if [ "$got" = "$(cat "$ROOT/test/cpp/run/stdcharconv.expect")" ]; then echo "ok   a header read in the build's own process after another was served from its summary is registered as a served one is (stdcharconv.cpp, <charconv> warm, the rest cold)"; else echo "FAIL a header read in the build's own process after another served from its summary (stdcharconv.cpp, <charconv> warm, the rest cold)"; echo "     got  $(printf '%s' "$got" | tr '\n' '|' | cut -c1-300)"; failures=$((failures + 1)); fi
 # TWO UNITS BUILT APART (0.192): test/cpp/link/units_a.cpp and units_b.cpp, each built by cicilang++ -c in a process of its own,
 # then linked -- each unit's closures, local classes, unnamed namespace, static functions and their type information are its own,
 # and the header's (units.h) inline variables and inline static members are one object each, constructed and destroyed once

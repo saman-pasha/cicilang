@@ -282,7 +282,7 @@ cpp_register_units(Units) :-
     nb_setval('$cpp_nontrivial', []), nb_setval('$cpp_req_ctx', none), nb_setval('$cpp_nv', none), nb_setval('$cpp_lconsts', []),
     cpp_reset('$cpp_acc'/3), cpp_reset('$cpp_afriend'/2), cpp_reset('$cpp_bacc'/3), cpp_reset('$cpp_static_abi'/1), nb_setval('$cpp_body_ctx', none), nb_setval('$cpp_cur_fn', none), nb_setval('$cpp_acc_scope', none), nb_setval('$cpp_obj_expr', none),   % the access of a program class's members and its friends (0.117)
     cpp_reset('$cpp_concept'/2), cpp_reset('$cpp_ccm'/3), cpp_reset('$cpp_vtm'/3), cpp_reset('$cpp_friend_in'/3),   % the concepts by name, and the memos of a concept's satisfaction and a variable template's value (0.112)
-    cpp_reset('$cpp_ctype'/3), cpp_reset('$cpp_sinit'/3), cpp_reset('$cpp_encl'/2),
+    cpp_reset('$cpp_ctype'/3), cpp_reset('$cpp_sinit'/3), cpp_reset('$cpp_sinline'/2), cpp_reset('$cpp_encl'/2),
     cpp_reset('$cpp_lazy_c'/1), cpp_reset('$cpp_lazy_p'/1), nb_setval('$cpp_eh_used', no), nb_setval('$cpp_hdr_loaded', []), nb_setval('$cpp_budget', 0), nb_setval('$cpp_depth', 0), nb_setval('$cpp_class_ctx', none), ( catch(abolish('$cpp_hdr'/2), _, true) -> true ; true ), dynamic('$cpp_hdr'/2), dynamic('$cpp_hdr_ast'/2),
     cpp_reset('$cpp_lib'/1), cpp_reset('$cpp_libfn'/1), cpp_reset('$cpp_math_decl'/1), cpp_reset('$cpp_nested_tmpl'/3), cpp_reset('$cpp_implicit_copy'/3), cpp_reset('$cpp_promoted'/1), cpp_reset('$cpp_deferred'/4), cpp_reset('$cpp_base_named'/1), cpp_reset('$cpp_implicit_assign'/3), nb_setval('$cpp_in_lib', no),
     cpp_reset('$cpp_nxdef'/4), cpp_reset('$cpp_nxsrc'/3), cpp_reset('$cpp_nxval'/2), cpp_reset('$cpp_nxmval'/3), nb_setval('$cpp_nx_def', none), nb_setval('$cpp_nx_evaluating', []),   % the conditional noexcepts (0.199)
@@ -841,6 +841,7 @@ cpp_register_([template(L, TPs, Item)|Is]) :- !,
     (   TPs = [_|_], cpp_mct_def(Item, C, L1, K, N0, Bs, NMs) -> cpp_nested_template_put(C, L1, TPs, K, N0, Bs, NMs)   % a MEMBER CLASS TEMPLATE of a PLAIN class, defined out of it (0.201, cpp_mct_def/7)
     ;   TPs = [_|_], cpp_mdef_item(Item, C, none, Member) -> cpp_mdef_put(C, [], none, template(L, TPs, Member)), cpp_refresh_mts(C)   % a MEMBER TEMPLATE of a PLAIN class, defined out of it (0.117): `template <class F> T::T(F f, int x) : v(f(x)) {}' -- kept as a member template of the class, its body given to the declaration already registered
     ;   cpp_mdef_item(Item, C, Pattern, Member) -> cpp_mdef_put(C, TPs, Pattern, Member)                                           % a member DEFINED out of its class, by the class's name
+    ;   TPs = [_|_], nb_getval('$cpp_in_lib', no), cpp_static_noinit_item(Item, C, Pattern, Member) -> cpp_mdef_put(C, TPs, Pattern, Member)   % the PROGRAM's static data member of a class template defined out of it with no initializer (0.218, cpp_static_noinit_item/4)
     ;   TPs == [], cpp_fspec_item(Item, FN, FArgs) -> assertz('$cpp_fspec'(FN, FArgs, Item))                                      % an EXPLICIT SPECIALIZATION of a function template (0.129): no candidate, the body of the instance it matches (cpp_fspec_for)
     ;   cpp_spec_name(Item, N, Pattern) -> cpp_spec_put(N, TPs, Pattern, Item)                                                     % a partial or full specialization, by its pattern
     ;   cpp_template_name(Item, N) -> cpp_template_put(N, TPs, Item)
@@ -848,7 +849,7 @@ cpp_register_([template(L, TPs, Item)|Is]) :- !,
     cpp_register_(Is).
 cpp_register_([function(L, Sto, Ret, N, Ps, V, Body)|Is]) :- atom(N), cpp_auto_params(Ps, 0, Ps1, TPs), TPs \== [], !,    % C++20: an abbreviated function template, a template of invented parameters
     cpp_template_put(N, TPs, function(L, Sto, Ret, N, Ps1, V, Body)), cpp_register_(Is).
-cpp_register_([include(_, _, file(_, preprocessed, unit(Js)))|Is]) :- !, cpp_index_header(Js), cpp_register_(Is).   % a library header, flattened: indexed by name, each item registered when a name is first asked for
+cpp_register_([include(_, _, file(P, preprocessed, unit(Js)))|Is]) :- !, ( cpp_read_now_summarized(P, F) -> cpp_load_ast(F) ; cpp_index_header(Js) ), cpp_register_(Is).   % a library header, flattened: indexed by name, each item registered when a name is first asked for -- from the AST its read wrote, where there is one (0.218, below)
 cpp_register_([include(_, _, file(_, summary, summary(F)))|Is]) :- !, cpp_load_ast(F), cpp_register_(Is).              % served from its summary: its items from the AST file beside it (ccl_ast_write)
 cpp_register_([include(_, _, file(_, _, unit(Js)))|Is]) :- !, cpp_register_header(Js), cpp_register_(Is).   % a header read whole (the program's own): its classes and templates
 cpp_register_(I) :- \+ ( I == [] ; I = [_|_] ), !, cpp_register_([I]).
@@ -881,6 +882,14 @@ cpp_register_([declare(L, base(Q, [struct(N, Ms)]))|Is]) :- atom(N), Ms \== none
 cpp_register_([declare(L, base(_, [union(N, Ms)]))|Is]) :- atom(N), N \== anon, cpp_union_class_members(Ms), \+ cpp_class_l(N, _), !,
     ( '$cpp_union'(N) -> true ; assertz('$cpp_union'(N)) ), cpp_trace(union_class(N)), cpp_register_class(union, L, N, [], Ms), cpp_register_(Is).
 cpp_register_([_|Is]) :- cpp_register_(Is).
+%% A HEADER READ IN THE BUILD'S OWN PROCESS IS REGISTERED AS ONE SERVED FROM ITS SUMMARY IS (0.218): its read wrote the summary
+%% and the AST beside it (ccl_read_unit/3), and its items come from that AST, in the include's order among the headers served
+%% from theirs. Indexed apart, as '$cpp_hdr' facts that cpp_hdr_item/2 asks first, its items took a flattened name from a
+%% header included before it: `<system_error>' read cold after `<charconv>' was served warm gave `__traits' to `<variant>'s
+%% `__variant_detail::__traits<_Types...>' over `<charconv>'s `__itoa::__traits<_Tp>', and `std::from_chars' was refused,
+%% `instance_refused(..., no_member_type('__traits.unsigned', type))', where a warm build and a build of every header cold
+%% in turn compiled it. A read that wrote no summary is indexed as before; the read notes what it wrote (ccl_note_read_wrote/2)
+cpp_read_now_summarized(P, F) :- atom(P), nb_current('$ccl_read_wrote', L), memberchk(P-F, L), ccl_ast_file(F, A), exists_file(A), !.
 %% A MEMBER CLASS TEMPLATE OF A PLAIN CLASS DEFINED OUT OF IT (0.201): `template <class _Extents> class layout_left::mapping
 %% { ... };' of libc++'s <mdspan>, the class declaring `template <class _Extents> class mapping;' -- registered as the member
 %% class template it is (cpp_nested_template_put/7), where the road of a member template defined out of a plain class kept
@@ -1123,6 +1132,33 @@ cpp_qualify_name(N, K, tmpl(N, As), tmpl(K, As)) :- !.
 %% a name QUALIFIED by a namespace whose items were indexed apart (above): `__function::__value_func<...>'
 cpp_ns_key(Path, N, K) :- Path \== c, findall(S, ( member(S, Path), atom(S), S \== global ), NP), length(NP, Len), between(0, Len, J), L1 is Len - J, L1 > 0, cpp_last_n(NP, L1, Sfx), atomic_list_concat(Sfx, '.', Ns),   % the path's SUFFIXES, longest first (0.112: a collided name's key may be longer than its innermost namespace)
     atomic_list_concat([Ns, '.', N], K), ( cpp_hdr_item(K, _) -> true ; catch('$cpp_ns_own'(K), _, fail) ), !.   % a header's key, or the program's own (cpp_ns_resolve)
+%% A QUALIFIED CLASS NAME THAT TWO HEADERS' READS DECLARE IN TWO NAMESPACES (0.218): a read keys apart only the names that collide
+%% in it (cpp_ns_quals/2), so `__traits' is bare in <string>'s read, std::__variant_detail's (<string> holds <variant>'s
+%% implementation), and bare in <charconv>'s, std::__itoa's; the first header's item answered the bare name, and `#include
+%% <string>' before `#include <charconv>' refused std::from_chars, `instance_refused(..., no_member_type('__traits.unsigned',
+%% type))', where `__itoa::__traits<_Tp>' meant <charconv>'s. A qualified class name whose own key no read made (cpp_ns_key/3)
+%% takes, where the bare name's items stand in two or more namespaces, the qualifier names one of them and the first item is
+%% another's, that namespace's items under the key one read would have given them (cpp_ns_unique_suffix/3), renamed as such a
+%% read renames them (cpp_qualify_item/4, cpp_rename_names/3). The AST beside a summary writes each item's namespace path after
+%% it ('$cpp_hdr_ast_ns', ccl_ast_write), so the items and the paths pair one to one, or nothing is done; a header indexed in
+%% the process ('$cpp_hdr') is left as it was. Classes and class templates only: a namespace's functions and objects overload
+%% and are found by other roads (std::abs is std's and std::__math's). NOT DONE: an UNQUALIFIED use inside the namespace whose
+%% item is not the first still finds the first header's. The first item's path is asked first, and a qualifier it ends with
+%% (`std::vector', `std::basic_string', most names) stops there: the bare name is that namespace's already
+cpp_cross_key(Path, N, K) :-
+    findall(S, ( member(S, Path), atom(S), S \== global ), Q), Q \== [],
+    once('$cpp_hdr_ast_ns'(N, P1)), cpp_ns_named_path(P1, First), \+ append(_, Q, First), \+ '$cpp_hdr'(N, _),
+    findall(P, '$cpp_hdr_ast_ns'(N, P), Ps),
+    findall(NP, ( member(P, Ps), cpp_ns_named_path(P, NP) ), NPs), sort(NPs, Ds),
+    findall(D, ( member(D, Ds), append(_, Q, D) ), [Dk]),
+    cpp_ns_unique_suffix(Dk, Ds, Ns), atomic_list_concat([Ns, '.', N], K),
+    (   catch('$cpp_hdr_ast'(K, _), _, fail) -> true
+    ;   findall(I, '$cpp_hdr_ast'(N, I), Is), length(Is, Len), length(NPs, Len),
+        findall(I, ( nth1(J, NPs, Dk), nth1(J, Is, I) ), Ks), Ks \== [], forall(member(I, Ks), cpp_cross_class_item(I)),
+        forall(member(I0, Ks), ( ( cpp_qualify_item(N, K, I0, I1) -> true ; I1 = I0 ), cpp_rename_names(I1, [N-K], I2), assertz('$cpp_hdr_ast'(K, I2)) )),
+        once(( nth1(J0, NPs, Dk), nth1(J0, Ps, P0) )), assertz('$cpp_hdr_ast_ns'(K, P0)) ).
+cpp_cross_class_item(template(_, _, I)) :- !, cpp_cross_class_item(I).
+cpp_cross_class_item(declare(_, base(_, [S]))) :- functor(S, F, _), memberchk(F, [class, struct, union]).
 %% a name the outer namespace also declares as a function (a plain overload or a function template): the fallback of a keyed qualified call
 cpp_bare_fn(F) :- ( ccl_declared(F, fn(_, _, _)) ; catch('$cpp_fn'(F, _, _, _, _), _, fail) ; catch('$cpp_tmpl'(F, _, Item), _, fail), cpp_fn_item(Item, _) ), !.
 %% the NAMESPACE PATH is kept beside each indexed name ('$cpp_hdr_ns'), since a function a header only
@@ -2741,7 +2777,7 @@ cpp_slot_def(C, '$dtor_del', K, Name) :- !, cpp_slot_impl(C, '$dtor', K, Name).
 cpp_slot_def(C, M, K, Name) :- cpp_class(C, cls(B, _, Ms, _, _, _)),
     ( cpp_slot_method(C, Ms, M, K, Qs, Ps) -> \+ memberchk(pure, Qs), cpp_mangle_q(C, M, Qs, Ps, Name) ; B \== none, cpp_slot_def(B, M, K, Name) ).
 cpp_split_members([], [], [], []).
-cpp_split_members([member(T0, N, _)|Ms], Data, [N-T|Ss], Ds) :- cpp_static_type(T0, T), !, cpp_split_members(Ms, Data, Ss, Ds).
+cpp_split_members([member(T0, N, _)|Ms], Data, [N-T|Ss], Ds) :- cpp_static_type(T0, T1), !, cpp_static_inline_take(N, T1, T), cpp_split_members(Ms, Data, Ss, Ds).
 cpp_split_members([member(T0, N, W0)|Ms], [member(T, N, W)|Data], Ss, Ds) :- !, ( cpp_class_ctx(C), cpp_type_names_call(C, T0) -> T = T0 ; cpp_type(T0, T1), cpp_fold_aligned(T1, T) ), cpp_bit_width(W0, W), cpp_split_members(Ms, Data, Ss, Ds).   % a type that names a call waits for the class's record (cpp_member_types_now, 0.136)
 cpp_split_members([default_init(N, E)|Ms], Data, Ss, [N-E|Ds]) :- !, cpp_split_members(Ms, Data, Ss, Ds).
 cpp_split_members([_|Ms], Data, Ss, Ds) :- cpp_split_members(Ms, Data, Ss, Ds).
@@ -2752,6 +2788,14 @@ cpp_static_type(base(Q, S), base(Q1, S)) :- memberchk(static, Q), !, ccl_delete_
 cpp_static_type(ptr(Q, T0), ptr(Q, T)) :- !, cpp_static_type(T0, T).
 cpp_static_type(arr(N, T0), arr(N, T)) :- !, cpp_static_type(T0, T).
 cpp_static_type(ref(Q, T0), ref(Q, T)) :- !, cpp_static_type(T0, T).
+%% AN INLINE STATIC WITH NO INITIALIZER (0.218; the reader's `inline' beside `static', ccl_inline_statics/3): noted for its
+%% class, '$cpp_sinline'(C, N), and the word taken off its type, which every use of the member reads
+cpp_static_inline_take(N, T1, T) :- cpp_static_inline_type(T1, T), !, ( cpp_class_ctx(C) -> ( catch('$cpp_sinline'(C, N), _, fail) -> true ; assertz('$cpp_sinline'(C, N)) ) ; true ).
+cpp_static_inline_take(_, T, T).
+cpp_static_inline_type(base(Q, S), base(Q1, S)) :- memberchk(inline, Q), !, ccl_delete_one(Q, inline, Q1).
+cpp_static_inline_type(ptr(Q, T0), ptr(Q, T)) :- !, cpp_static_inline_type(T0, T).
+cpp_static_inline_type(arr(N, T0), arr(N, T)) :- !, cpp_static_inline_type(T0, T).
+cpp_static_inline_type(ref(Q, T0), ref(Q, T)) :- cpp_static_inline_type(T0, T).
 %% A BITFIELD KEEPS ITS WIDTH, folded in the class's words as an array's bound is: libc++'s string is `unsigned char
 %% __is_long_ : 1; unsigned char __size_ : 7;' in its short form and `size_type __is_long_ : 1; size_type __cap_ :
 %% sizeof(size_type) * CHAR_BIT - 1;' in its long one -- with the widths dropped each was a whole byte or word, the
@@ -3518,7 +3562,8 @@ cpp_item(declaration(L, Sto, B, Vs0), Out) :- member(var(scoped(Path, _), _, _),
     findall(V1, ( member(V, Vs0), ( V = var(scoped(P, N), T, I), cpp_member_path_class(P, C) -> V1 = var(scoped([C], N), T, I) ; V1 = V ) ), Vs), cpp_item(declaration(L, Sto, B, Vs), Out).
 cpp_item(declaration(L, Sto, B, Vs), Out) :- Vs = [_, _|_], member(var(scoped([C], _), _, _), Vs), cpp_class_l(C, _), !,
     findall(declaration(L, Sto, B, [V]), member(V, Vs), Ds), cpp_items(Ds, Out).
-cpp_item(declaration(L, Sto, B, [var(scoped([C], N), T, Init)]), [declaration(L, Sto1, B, Vs1)]) :- cpp_class_l(C, _), !,
+cpp_item(declaration(L, Sto, B, [var(scoped([C], N), T0, Init)]), [declaration(L, Sto1, B, Vs1)]) :- cpp_class_l(C, _), !,
+    ( catch(cpp_in_class(C, cpp_type(T0, T1)), _, fail) -> T = T1 ; T = T0 ),   % ITS TYPE RESOLVED IN ITS CLASS'S SCOPE (0.218; [basic.scope.class]): `std::vector<int> K::all;' reached the lowering as `typedef(scoped([std], tmpl(vector, ...)))', and no constructor ran; `int K::arr[N]' over the class's N was `global_init(arr(id('N'), ...))'; a type it does not resolve goes on as before
     atomic_list_concat([C, '.', N], Name), cpp_with_access_scope(C, cpp_expr(none, Init, Init1)),   % the initializer is in the class's scope ([basic.scope.class]): its private statics are the program's to name (0.117)
     cpp_static_object_init(C, Sto, Name, T, Init, Init1, Init2),                                    % a class-typed one constructed (0.186)
     cpp_dynamic_scalars(L, C, Sto, B, [var(Name, T, Init)], [var(Name, T, Init2)], Vs1), ( Sto == inline -> Sto1 = linkonce ; Sto1 = Sto ).   % an inline one linkonce (0.192); a const one keeps its class's external linkage
@@ -4656,6 +4701,7 @@ cpp_static_decls(L, C, [N-T0|Ss], [D|Ds]) :- cpp_static_name(C, N, Name), cpp_re
     ;   cpp_static_floating_late(C, N, T, E) -> D = declaration(L, linkonce, T, [var(Name, T, none)]), cpp_dynamic_assign(L, C, linkonce, Name, E)
     ;   cpp_static_scalar_late(C, N, T, E) -> D = declaration(L, linkonce, T, [var(Name, T, none)]), cpp_dynamic_assign(L, C, linkonce, Name, E)
     ;   cpp_static_dynamic(C, N, T, E, TC) -> D = declaration(L, linkonce, T, [var(Name, T, none)]), cpp_dynamic_init(C, linkonce, Name, T, TC, E)
+    ;   \+ cpp_sinit(C, N, _), catch('$cpp_sinline'(C, N), _, fail) -> D = declaration(L, linkonce, T, [var(Name, T, none)]), cpp_static_default_init(C, Name, T)   % an inline one with no initializer (0.218, below)
     ;   D = declaration(L, extern, T, [var(Name, T, none)]) ),
     cpp_static_decls(L, C, Ss, Ds).
 %% A STATIC DATA MEMBER OF CLASS TYPE INITIALIZED IN ITS CLASS (an inline variable, every unit's) IS DESTROYED AT EXIT, once (0.192):
@@ -4666,6 +4712,13 @@ cpp_static_decls(L, C, [N-T0|Ss], [D|Ds]) :- cpp_static_name(C, N, Name), cpp_re
 %% format string names, stays declared and not defined, as 0.112 left it (`no_constructor('array.__compile_time_handle.char.2', 2)')
 cpp_static_dtor_reg(Name, T) :- ( cpp_class_of_type(T, TC), cpp_dtor(TC, DName) -> cpp_gdtor_reg(Name, DName, Reg), cpp_ginit_add(linkonce, Name, [Reg]) ; true ).
 cpp_static_dynamic(C, N, T, ID, TC) :- cpp_sinit(C, N, E), cpp_class_of_type(T, TC), cpp_has_ctors(TC), \+ cpp_aggregate_class(TC), ( cpp_prvalue_init(T, E, IP) -> ID = IP ; ID = E ).
+%% AN INLINE STATIC DATA MEMBER WITH NO INITIALIZER IS ITS CLASS'S DEFINITION (0.218; [class.static.data]/4, [dcl.init]/7), every
+%% unit's, linkonce, DEFAULT-INITIALIZED: a class with a constructor that is no trivial default one constructed before main in
+%% its class's words under the variable's guard, its destructor registered (cpp_dynamic_init/6, no initializer: the default
+%% constructor), as a namespace-scope one is (cpp_global_object/5); any other type its zero bytes, a destructor registered
+%% all the same. `struct K { static inline std::vector<int> all; };' was declared `extern' and its first use failed at the link
+cpp_static_default_init(C, Name, T) :- cpp_class_of_type(T, TC), cpp_has_ctors(TC), \+ cpp_trivial_default(TC), !, cpp_dynamic_init(C, linkonce, Name, T, TC, none).
+cpp_static_default_init(_, Name, T) :- cpp_static_dtor_reg(Name, T).
 %% A STATIC MEMBER DECLARED `auto' TAKES THE TYPE OF ITS INITIALIZER ([dcl.spec.auto]), desugared in its class's words:
 %% libc++'s `_IterOps<_RangeAlgPolicy>' writes `static constexpr auto __iter_move = ranges::iter_move;', a customization
 %% point object, and every ranges algorithm calls through it.
@@ -8856,6 +8909,10 @@ cpp_type(base(Q, [typedef(scoped(Path, tmpl(N, Args)))]), T) :-                 
 %% to tell `__function::__maybe_derive_from_unary_function<_Rp(_ArgTypes...)>' from the `std::' one of that name
 cpp_type(base(Q, [typedef(scoped(Path, tmpl(N, Args)))]), T) :- atom(N), cpp_ns_key(Path, N, K), !, cpp_type(base(Q, [typedef(tmpl(K, Args))]), T).
 cpp_type(base(Q, [typedef(scoped(Path, N))]), T) :- atom(N), cpp_ns_key(Path, N, K), !, cpp_type(base(Q, [typedef(K)]), T).
+%% ... or, where two headers' reads declare the name in two namespaces and no read keyed it apart, by the qualifier's namespace's
+%% items under a key of their own (0.218, cpp_cross_key/3): `__itoa::__traits<_Tp>' after <string>'s `__variant_detail::__traits'
+cpp_type(base(Q, [typedef(scoped(Path, tmpl(N, Args)))]), T) :- atom(N), is_list(Path), cpp_cross_key(Path, N, K), !, cpp_type(base(Q, [typedef(tmpl(K, Args))]), T).
+cpp_type(base(Q, [typedef(scoped(Path, N))]), T) :- atom(N), is_list(Path), cpp_cross_key(Path, N, K), !, cpp_type(base(Q, [typedef(K)]), T).
 cpp_type(base(Q, [typedef(K)]), T) :- atom(K), cpp_hdr_keyed_typedef(K, T0), !, cpp_merge_quals(Q, T0, T1), cpp_type(T1, T).   % A HEADER'S KEYED TYPEDEF is its definition (0.201): `std::pmr::string', `pmr.string' (cpp_ns_typedef_quals/3)
 cpp_type(base(Q, [typedef(tmpl(N, Args))]), T) :- atom(N), cpp_using_type_key(N, template, K), !, cpp_type(base(Q, [typedef(tmpl(K, Args))]), T).   % a header's keyed CLASS TEMPLATE named bare through a using of its namespace (0.161; below)
 cpp_type(base(Q, [typedef(X)]), T) :- cpp_template_id(X, N, [C, A, B]), cpp_conditional_alias(N), catch(cpp_targ_value(C, CV), _, fail), cpp_truth(CV, Tr), !,   % THE ARM THE CONDITION TAKES, and only that one (0.136): `__writer_container<void>' in libc++'s `__writer_selector' is never completed
@@ -9322,12 +9379,24 @@ cpp_member_defs(N, Name, Args, Ms0, Ms) :- cpp_mdef_types(Ms0, [], Map), nb_setv
     cpp_static_defs(N, Name, Args, Ms1, Ms).
 %% the initializers of the class's STATIC members defined out of it, as defaults of the members (the reader writes default_init(N, E) for one written in the class)
 cpp_static_defs(N, Name, Args, Ms1, Ms) :-
-    findall(default_init(SN, Init), ( '$cpp_mdef'(N, static_def(SN), TPs, Pat, Item), cpp_static_def_init(Item, SN, Init0),
+    findall(default_init(SN, Init), ( '$cpp_mdef'(N, static_def(SN), TPs, Pat, Item), cpp_static_def_init(Item, SN, Init0), Init0 \== none,
                                        member(member(MT, SN, _), Ms1), cpp_static_type(MT, _), \+ memberchk(default_init(SN, _), Ms1),
                                        cpp_mdef_bind(Pat, Args, TPs, B), cpp_subst(Init0, [N-base([], [typedef(Name)])|B], Init) ), Ds),
-    append(Ms1, Ds, Ms).
+    findall(SN, ( '$cpp_mdef'(N, static_def(SN), TPs, Pat, Item), cpp_static_def_init(Item, SN, none), cpp_mdef_bind(Pat, Args, TPs, _) ), Bare),
+    cpp_static_noinit_defs(Bare, Ms1, Ms2), append(Ms2, Ds, Ms).
 cpp_static_def_init(template(_, _, I), SN, Init) :- !, cpp_static_def_init(I, SN, Init).
 cpp_static_def_init(static_def(SN, Init), SN, Init).
+%% THE PROGRAM'S STATIC DATA MEMBER OF A CLASS TEMPLATE DEFINED OUT OF IT WITH NO INITIALIZER (0.218; [temp.inst]/3, [dcl.init]/7):
+%% `template <class T> std::vector<T> R<T>::items;' -- kept by the class's name as static_def(N, none), and each instance
+%% defines the member as an inline one with no initializer is defined, linkonce and default-initialized: the member's type
+%% takes `inline' beside `static' (ccl_static_inline_qual/2), which the class's registration notes (cpp_static_inline_take/3).
+%% It was kept nowhere, and `R<int>::items' was an undefined symbol at the link. A library header's (`template <...>
+%% locale::id num_get<...>::id;') stays the class's declaration: libc++ instantiates its own (`extern template class')
+cpp_static_noinit_item(declaration(_, _, _, [var(scoped(Path, N), T, none)]), C, Pat, static_def(N, none)) :-
+    atom(N), \+ T = fn(_, _, _), cpp_mdef_class(Path, C, Pat), Pat \== none.
+cpp_static_noinit_defs([], Ms, Ms) :- !.
+cpp_static_noinit_defs(Bare, Ms0, Ms) :-
+    findall(M, ( member(M0, Ms0), ( M0 = member(T0, SN, W), memberchk(SN, Bare), \+ memberchk(default_init(SN, _), Ms0), ccl_static_inline_qual(T0, T) -> M = member(T, SN, W) ; M = M0 ) ), Ms).
 %% the class's own typedefs AS ITS MEMBER LIST HAS THEM, substituted with the instance's arguments: the merge runs before
 %% the instance is registered, so the registry knows none of them yet, and the kinds are compared against these
 cpp_mdef_types(Ms, Map0, Map) :- findall(A-T, ( member(typedef(_, Vs), Ms), member(var(A, T, _), Vs) ), Own), append(Own, Map0, Map).

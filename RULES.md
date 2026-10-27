@@ -248,7 +248,7 @@ that changes a rule edits the rule here, in its topic, and writes its entry in `
 ### The C++ gate: test/cpp.sh
 
 - `test/cpp.sh` runs in this order: `test/cpp.pl` in one `--local` process; four checks of the command; every
-  `test/cpp/run/*.cpp` as a pool job (816 at 0.217); `classes.cpp` and `templates.cpp` built and run; the refusals, each
+  `test/cpp/run/*.cpp` as a pool job (819 at 0.218); `classes.cpp` and `templates.cpp` built and run; the refusals, each
   at the level its `test/cpp/NAME.flags` names, else C++17 (0.164). (0.105, 0.164)
 - `test/cpp.pl` runs 46 numbered checks, `c1` to `c46`, then reads Cicili's six C++ files whole (`test/cpp/objects.cpp`,
   `emit_report.cpp`, `specialise.cpp`, `syntax.cpp`, `torch.cpp`, `torch-fragment.cpp`). `c34` checks the Itanium
@@ -270,20 +270,24 @@ that changes a rule edits the rule here, in its topic, and writes its entry in `
   the summaries in under 8 s; `cicilang++ -fsyntax-only classes.cpp` says nothing and exits 0; (0.188) a cold build
   reads its library headers by processes of their own -- `stdcstdlib.cpp`'s five, over a summary directory of the
   check's own, four at a time: `-v` names five processes and five summaries written, and the binary prints its
-  `.expect`; (0.192) two units built apart, each by `cicilang++ -c` in a process of its own, link and print clang++'s
-  output (`test/cpp/link/units_a.cpp`, `units_b.cpp` over `units.h`, against `units.expect`): each unit's closures,
-  local classes, unnamed namespace, static functions and their type information its own, the header's inline variables
-  and inline static members one object each, constructed and destroyed once; and (0.135) classes cross
-  a call between code that clang++ built and code that cicilang++ built as the Itanium ABI lays them (`test/cpp/link/`:
-  `abi_helper.cpp` built by `$LLVM`'s clang++, else the one on the path, linked with `abi_main.cpp`; a base's tail
-  padding reused, the table pointer first; no clang++ is a SKIP line); and (0.161) pointers to member functions cross
-  such a call both ways -- a virtual and a plain member of a first and of a second base, an override, a null one
-  (`memptr_helper.cpp` by clang++, `memptr_main.cpp` by cicilang++); and (0.207) a by-value parameter of a class with a
-  destructor crosses such a call both ways and is destroyed once, by the caller, at the end of its full-expression --
-  a prvalue and a copy handed to clang++'s callee, a prvalue and a copy handed by clang++'s caller (`byval_helper.cpp`
-  by clang++, `byval_main.cpp` by cicilang++, over `byval.h`; clang++ 18 and 21 and g++ print the same line). After
-  the fixtures, `classes.cpp` builds and exits 34, and `templates.cpp` exits 10. (M5, 0.34, 0.35, 0.135, 0.161, 0.188,
-  0.192, 0.207)
+  `.expect`; (0.218) a header read in the build's own process after another was served from its summary is registered as
+  a served one is -- `stdcharconv.cpp` over a summary directory of the check's own, where a build of
+  `test/cpp/charconvfirst.cpp` left `<charconv>`'s summary and the rest of its headers are cold, read in turn by one
+  process (`CICILANG_JOBS=1`), prints its `.expect` (0.217 refuses it, `no_member_type('__traits.unsigned', type)`);
+  (0.192) two units built apart, each by `cicilang++ -c` in a process of its own, link and print clang++'s output
+  (`test/cpp/link/units_a.cpp`, `units_b.cpp` over `units.h`, against `units.expect`): each unit's closures, local
+  classes, unnamed namespace, static functions and their type information its own, the header's inline variables and
+  inline static members one object each, constructed and destroyed once; and (0.135) classes cross a call between code
+  that clang++ built and code that cicilang++ built as the Itanium ABI lays them (`test/cpp/link/`: `abi_helper.cpp`
+  built by `$LLVM`'s clang++, else the one on the path, linked with `abi_main.cpp`; a base's tail padding reused, the
+  table pointer first; no clang++ is a SKIP line); and (0.161) pointers to member functions cross such a call both ways
+  -- a virtual and a plain member of a first and of a second base, an override, a null one (`memptr_helper.cpp` by
+  clang++, `memptr_main.cpp` by cicilang++); and (0.207) a by-value parameter of a class with a destructor crosses such
+  a call both ways and is destroyed once, by the caller, at the end of its full-expression -- a prvalue and a copy
+  handed to clang++'s callee, a prvalue and a copy handed by clang++'s caller (`byval_helper.cpp` by clang++,
+  `byval_main.cpp` by cicilang++, over `byval.h`; clang++ 18 and 21 and g++ print the same line). After the fixtures,
+  `classes.cpp` builds and exits 34, and `templates.cpp` exits 10. (M5, 0.34, 0.35, 0.135, 0.161, 0.188, 0.192, 0.207,
+  0.218)
 - The fixture builds assume a warm cache: a build that only reads summaries is safe in parallel, and a cold flatten
   under load is not. `CPP_JOBS=1` makes the gate serial. A HOME whose cache was copied from another tree or another HOME
   is not warm (the summary cache topic, 0.217). (0.105, 0.217)
@@ -2383,9 +2387,21 @@ that changes a rule edits the rule here, in its topic, and writes its entry in `
 
 - `ccl_ast_write` writes `'$cpp_hdr_ast'(Key, Item)` and `'$cpp_hdr_ast_ns'(Key, Path)` for each item that
   `cpp_index_name/2` names (`ccl_ast_lines`), a hundred items at a time inside `\+ \+` (`ccl_ast_chunks`). (0.45, 0.71)
-- A flattened read is indexed into `'$cpp_hdr'(Name, Item)` facts (`cpp_index_header/1`). A summary-served one consults
-  the `.ast.pl` (`cpp_load_ast/1`; `ensure_loaded/1` has no line limit). `cpp_hdr_item/2` answers from both, so a warm
-  run needs no flatten. `cpp_hdr_load/1` registers a name's items on its first ask. (0.45, 0.78)
+- A flattened read whose summary was not written is indexed into `'$cpp_hdr'(Name, Item)` facts (`cpp_index_header/1`).
+  A summary-served one consults the `.ast.pl` (`cpp_load_ast/1`; `ensure_loaded/1` has no line limit). `cpp_hdr_item/2`
+  answers from both, so a warm run needs no flatten. `cpp_hdr_load/1` registers a name's items on its first ask. (0.45,
+  0.78, 0.218)
+- A HEADER READ IN THE BUILD'S OWN PROCESS IS REGISTERED AS ONE SERVED FROM ITS SUMMARY IS (0.218;
+  `cpp_read_now_summarized/2` in `cpp_register_/1`, over the read's note `ccl_note_read_wrote/2`, a global): its read
+  wrote the summary and the AST beside it (`ccl_read_unit/3`), and its items come from that AST (`cpp_load_ast/1`), in
+  the include's order among the headers served from theirs. Indexed apart, as the `'$cpp_hdr'` facts that
+  `cpp_hdr_item/2` answers first, its items took a flattened name from a header included before it and served warm:
+  `<system_error>` read cold after `<charconv>` gave `__traits` to `<variant>`'s `__variant_detail::__traits<_Types...>`
+  over `<charconv>`'s `__itoa::__traits<_Tp>`, and `std::from_chars` was refused,
+  `instance_refused('__from_chars_atoi.c2.int.0', no_member_type('__traits.unsigned', type))`, where a warm build and a
+  build of every header cold in turn compiled it (0.217's net, over 0.216 too). A build's headers read in processes of
+  their own were served from their summaries already (0.188). The C++ gate's check of the command: `stdcharconv.cpp`
+  with `<charconv>` warm and the rest cold. (0.218)
 - `ccl_flat_items/3` gives `in(Path, Item)`. `extern "C"` items, and a namespace inside such a block, stand under `c`.
   An inline namespace's segment is `inline(N)`. `std::rel_ops`'s items are keyed `rel_ops.<name>`, never bare (0.136; the
   libc++ topic).
@@ -2490,14 +2506,14 @@ that changes a rule edits the rule here, in its topic, and writes its entry in `
 
 ### The versions
 
-- `ccl_reader_version/1` (`library/ccl_syntax.pl`, now 162): bump it for any grammar change to what a read gives, and
+- `ccl_reader_version/1` (`library/ccl_syntax.pl`, now 163): bump it for any grammar change to what a read gives, and
   for any change to what the AST beside a summary holds (item or member terms, `cpp_index_name/2`,
   `cpp_template_name/2`, `ccl_flat_items/3`, the namespace keys). Keep the reason in its comment. Why: the store and the
   summaries are keyed by it, and a stale read is served silently (`sizeof(std::string)` read 40). (M1, 0.89, 0.112,
   0.117)
 - A reader bump makes every summary cold; `test/libcxx.sh` rewrites them. `test/reader.pl`'s `k16` (a cached read is
   the same AST as a fresh one) goes RED on a grammar change without a bump. (0.93, 0.105)
-- `ccl_lowering_version/1` (`library/ccl_ir.pl`, now 125): bump it whenever the check or the lowering changes what it
+- `ccl_lowering_version/1` (`library/ccl_ir.pl`, now 126): bump it whenever the check or the lowering changes what it
   emits, however small -- 0.120 bumped it for the ORDER of the drain functions alone. Why: `dr_ir/3` serves the old IR
   otherwise. Either bump starts the C store afresh. (M4, 0.103, 0.120)
 
@@ -3532,8 +3548,19 @@ free. A const method adds `.c`, a ref-qualified one `.r` or `.rr` after it: each
   its class whose initializer does not fold is a `linkonce` zero assigned before main the same way (0.160;
   `cpp_static_scalar_late/4`, an integral, enumeration or pointer type): an unfolded call as a template's value argument
   keys its instance by its spelling (`targ_raw`), and `S<half(4.0)>::v` was an `extern` declaration that nothing
-  defined. `targstatic.cpp`. Any other static is an `extern` declaration, which the link names when nothing defines it.
-  (0.45, 0.90, 0.101, 0.109, 0.143, 0.160)
+  defined. `targstatic.cpp`. An inline one with no initializer is its class's definition (0.218, below). Any other
+  static is an `extern` declaration, which the link names when nothing defines it. (0.45, 0.90, 0.101, 0.109, 0.143,
+  0.160, 0.218)
+- AN INLINE STATIC DATA MEMBER WITH NO INITIALIZER IS ITS CLASS'S DEFINITION (0.218; [class.static.data]/4,
+  [dcl.init]/7): the reader keeps `inline` beside `static` in its type's qualifiers (`ccl_inline_statics/3` over the
+  specifiers' storage words, `ccl_sto_words/1`: `ccl_sto_pick/2` keeps one word, `static`), the class's registration
+  notes the member and takes the word off its type (`cpp_static_inline_take/3`, `'$cpp_sinline'/2`), and
+  `cpp_static_decls/4` defines it `linkonce`, default-initialized (`cpp_static_default_init/3`): a class with a
+  constructor that is no trivial default one constructed before main in its class's words, under the variable's guard,
+  its destructor registered (`cpp_dynamic_init/6` with no initializer), as a namespace-scope object is; any other type
+  its zero bytes, a destructor registered all the same. `static inline std::vector<int> later;` was declared `extern`,
+  defined nowhere, and its first use failed at the link -- an `int` and the program's own class too. One with an
+  initializer keeps its roads above. `staticlib.cpp`, `staticdefs.cpp`. (0.218)
 - A braced initializer of a class WITH constructors is the constructor's, never the aggregate road
   (`cpp_ctor_class_type/1` guards `cpp_static_aggregate`). Why: libc++'s `__bool_strings<char>::__true{"true"}`, a
   `basic_string_view`, took the literal as its pointer and 0 as its size, and `std::format("{}", true)` printed
@@ -3562,7 +3589,13 @@ free. A const method adds `.c`, a ref-qualified one `.r` or `.rr` after it: each
 - A library class's static that the header declares and does not define is named by its Itanium symbol
   (`cpp_static_name`); one with its initializer in the class is defined here as `C.N` (`cpp_static_here`). (0.73, 0.90)
 - Out of the class, `int Counter::made = 0` is the global `Counter.made` (`cpp_item`). Several declarators, `int
-  Tag::made = 0, Tag::gone = 0;`, become one item each; else `member_of_class` reached the lowering. (0.33, 0.101)
+  Tag::made = 0, Tag::gone = 0;`, become one item each; else `member_of_class` reached the lowering. ITS TYPE IS
+  RESOLVED IN ITS CLASS'S SCOPE (0.218; `cpp_type/2` under `cpp_in_class/2` in the `cpp_item` clause of a member's
+  definition, [basic.scope.class]; a type it does not resolve goes on as before): `std::vector<int> K::all;` and
+  `std::string K::name = "abc";` reached the lowering as `typedef(scoped([std], tmpl(vector, ...)))`, `not lowered yet`
+  at their definition or in a member function that names them, and no constructor ran (`cpp_global_object/5` met no
+  class); `int K::arr[N] = {1, 2, 3};` over the class's `N` was `global_init(arr(id('N'), ...))`. A class the program
+  names directly needed no resolution. `staticlib.cpp`, `staticdefs.cpp`. (0.33, 0.101, 0.218)
 - A folded static const KEEPS THE MEMBER'S TYPE where it stands in an expression (`cpp_static_value/3`,
   `cpp_typed_const/4`): an arithmetic type other than `int` makes it `cast(T, int(K))`, an enumeration excepted. Else
   `static const long long v = -3;` named `A::v` was the INT literal -3 passed to a variadic call as an int
@@ -4751,7 +4784,14 @@ free. A const method adds `.c`, a ref-qualified one `.r` or `.rr` after it: each
   (`cpp_mdef_item/4`, the pattern required), and the instance takes the initializer as the member's own default
   (`cpp_static_defs/5`, `cpp_static_def_init/3`: substituted with the instance's arguments, `default_init(SN, Init)`
   unless the class wrote one), so it folds as one written in the class does. The header's index keys it under the class
-  (reader 114). Unmerged, `deque<int>::begin()` read an undefined symbol. `tmplstatic.cpp`, `stddeque.cpp`. (0.117)
+  (reader 114). Unmerged, `deque<int>::begin()` read an undefined symbol. `tmplstatic.cpp`, `stddeque.cpp`. THE
+  PROGRAM'S ONE WITH NO INITIALIZER (0.218; `cpp_static_noinit_item/4` in `cpp_register_/1`, where the library flag is
+  `no`, and `cpp_static_noinit_defs/3`): `template <class T> std::vector<T> R<T>::items;` is kept as `static_def(N,
+  none)`, and each instance defines the member as an inline one with no initializer is defined -- its type takes
+  `inline` beside `static` (`ccl_static_inline_qual/2`). It was kept nowhere, and `R<int>::items` was an undefined
+  symbol at the link, an `int` and an array too. A library header's (libc++'s `template <...> locale::id
+  num_get<...>::id;`) stays the class's declaration: libc++ instantiates its own (`extern template class`).
+  `staticdefs.cpp`. (0.117, 0.218)
 - A definition whose template parameters AGREE with the declaration's, in the class's words, comes first
   (`cpp_mdef_match` agree then any; `cpp_tparams_alike`, `cpp_mdef_types`). Differently named parameters are renamed to
   the declaration's ([temp.mem]; `cpp_align_tparams`). The declaration lends its template-parameter defaults where the
@@ -7312,6 +7352,20 @@ A lambda is a class of its captures (`library/ccl_cpp.pl`). A fixture named alon
   where <string> was unread it won the name from the class template that <iosfwd> declares: its body names
   `std::basic_string<_CharT, _Traits, polymorphic_allocator<_CharT>>`, which resolved through it again without end, and
   a call over `const std::string &` ran to the memory cap with no trace line (`fwdstring.cpp`). (0.88, 0.112, 0.181)
+- A QUALIFIED CLASS NAME THAT TWO HEADERS' READS DECLARE IN TWO NAMESPACES takes its namespace's items (0.218;
+  `cpp_cross_key/3` in `cpp_type/2`, after `cpp_ns_key/3`): a read keys apart only the names that collide in it, so
+  `__traits` is bare in `<string>`'s read (std::__variant_detail's: `<string>` holds `<variant>`'s implementation) and
+  bare in `<charconv>`'s (std::__itoa's), and the first header's item answered the bare name -- `#include <string>`,
+  `<memory>`, `<algorithm>` or `<system_error>` before `#include <charconv>` refused `std::from_chars`,
+  `instance_refused(..., no_member_type('__traits.unsigned', type))`, where `__itoa::__traits<_Tp>` meant `<charconv>`'s
+  (over 0.217 too). Where the qualifier's own key is no read's, the bare name's first item stands in another namespace,
+  and the qualifier names one of the others, that namespace's items are kept under the key one read would have given
+  them (`cpp_ns_unique_suffix/3`: `__itoa.__traits`), renamed as such a read renames them (`cpp_qualify_item/4`,
+  `cpp_rename_names/3`), with their path. The AST beside a summary writes each item's path right after it, so the items
+  and the paths of a name pair one to one, or nothing is done; a header indexed in the process (`'$cpp_hdr'`) is left as
+  it was. The first item's path is asked first, and a qualifier it ends with (`std::vector`, most names) stops there.
+  Classes and class templates only: a namespace's functions and objects overload and are found by other roads
+  (`std::abs` is std's and std::__math's). An unqualified use is Not done. `charconvorder.cpp`. (0.218)
 - An ENUM's tag and an unscoped enum's enumerators collide as names do (0.127; `cpp_ns_enum_name/2` in
   `cpp_ns_resolve`, `cpp_qualify_enum/4`): keyed and renamed in the deeper namespace, a qualified enumerator `n2::x`
   taken by its key (`cpp_expr`'s clause before the enumerator road), `n2::Mode::Fast` through the tag's key
@@ -9916,20 +9970,22 @@ A lambda is a class of its captures (`library/ccl_cpp.pl`). A fixture named alon
 - Ubuntu 24.04 on x86_64 (clang and LLVM 18, glibc, libc++ 18 and 21) is a host since 0.87. Every gate but the C++ one
   is GREEN there since 0.93, and all seven since 0.95. Every step from 0.93 on is gated there, but the save points
   0.112, 0.113, 0.117, 0.122 to 0.125, 0.130, 0.131 and 0.143 (0.143's C gates and cross gate ran, its libc++ gates did
-  not; the others were gated by the steps after them). The last full run is 0.216's, over cocolog 2.12.0 (the Findings),
-  on one tree, over fresh HOMEs: over libc++ 18 all nine GREEN (the flow gate's one finding in 77 s, reader 4 s, compile
-  18 s, driver 13 s, objects 3 s, proof, the cross gate in 228 s with its C++ part for aarch64, the library read in 370
-  s (203 other headers warmed), the C++ gate in 873 s with 804 of 814 fixtures ok, the skips are `atomicref`,
-  `atomicrefalign`, `ftm23b`, `ftm26b`, `joinwith`, `stdflatmap`, `stdoptionalref`, `tzone`, `vbaseof` and
-  `zipadjacent`, the two units, the 29 refusals, the 15 of the safe part and the four static assertions); over libc++ 21
-  the library read (the phase 324 s) and the C++ gate (about 892 s, 812 of 814 ok, the skips `stdoptionalref` and
-  `zipadjacent`) GREEN -- the C gates do not read libc++. The headers' reads, summed, took 1343 s over 226 over libc++
-  18 and 1153 s over 21; the fixtures' builds 3006 s over 804 and 3074 s over 812. The chains of 0.165 to 0.203 and of
-  0.205 to 0.216 are in HISTORY.md, 0.166 to 0.204 and 0.206 to 0.217. Two libc++ passes are one gate:
-  `LLVM=/usr/lib/llvm-18` and `LLVM=/usr/lib/llvm-21` choose the tree the chain reads and links. libc++ 22 (the newest
-  tree, which a run without `$LLVM` reads) is no gate: 0.182 built its vector and its C++23 views by hand
-  (`zipadjacent.cpp`, which its `.needs` skips over 18 and 21), and `stdoptionalref` passes there. The run before
-  0.121's (0.118, 0.119) found, over 0.117, two defects and one stale check of `test/cpp.pl` (c20, above).
+  not; the others were gated by the steps after them). The last full run is 0.217's, over cocolog 2.12.0 (the Findings),
+  on one tree, over fresh HOMEs, on a box that ran at about half its speed after the container's restart (every gate
+  took about twice its time of 0.216's chain, the flow gate and the reads too, which 0.217 did not change): over libc++
+  18 all nine GREEN (the flow gate's one finding in 151 s, reader 6 s, compile 37 s, driver 28 s, objects 6 s, proof,
+  the cross gate in 438 s with its C++ part for aarch64, the library read in 717 s (203 other headers warmed), the C++
+  gate in 1735 s with 806 of 816 fixtures ok, the skips are `atomicref`, `atomicrefalign`, `ftm23b`, `ftm26b`,
+  `joinwith`, `stdflatmap`, `stdoptionalref`, `tzone`, `vbaseof` and `zipadjacent`, the two units, the 29 refusals, the
+  33 of the safe part and the four static assertions); over libc++ 21 the library read (the phase 642 s) and the C++
+  gate (about 1700 s, 814 of 816 ok, the skips `stdoptionalref` and `zipadjacent`) GREEN -- the C gates do not read
+  libc++. The headers' reads, summed, took 2727 s over 226 over libc++ 18 and 2426 s over 21; the fixtures' builds 5723
+  s over 806 and 5593 s over 814. The chains of 0.165 to 0.203 and of 0.205 to 0.217 are in HISTORY.md, 0.166 to 0.204
+  and 0.206 to 0.218. Two libc++ passes are one gate: `LLVM=/usr/lib/llvm-18` and `LLVM=/usr/lib/llvm-21` choose the
+  tree the chain reads and links. libc++ 22 (the newest tree, which a run without `$LLVM` reads) is no gate: 0.182 built
+  its vector and its C++23 views by hand (`zipadjacent.cpp`, which its `.needs` skips over 18 and 21), and
+  `stdoptionalref` passes there. The run before 0.121's (0.118, 0.119) found, over 0.117, two defects and one stale
+  check of `test/cpp.pl` (c20, above).
 - The host sets the predefined macros (`ccl_host_os/1` and `ccl_host_arch/1` in the module), the inclusion path
   (Debian's `/usr/lib/llvm-NN`, the multiarch directory) and the link (`-lc++` and `-lm` on Linux) (0.87, 0.93, 0.100).
 - A struct passed or returned by value crosses a call as clang's x86-64 code expects, in both directions, with the
@@ -10503,6 +10559,12 @@ A lambda is a class of its captures (`library/ccl_cpp.pl`). A fixture named alon
   copy among a parameter's borrows), `flowstores` (a function keeping its parameter in a global vector and in a static
   local one, given static storage's address; a view member set by a member, over a string that outlives its use and over
   a static one; a vector by reference given a local's address, used while the local lives).
+- Static data members and the include order (0.218): `staticlib` (a vector, a string with an initializer and a map
+  defined out of the class; a vector, a string and an int inline in it with no initializer; used from static and
+  non-static members and from `main`), `staticdefs` (a class template's members defined out of it with no initializer,
+  an inline vector in a class template, the program's class with a constructor and a destructor inline, a class over a
+  map, inline arrays and two declarators, definitions whose types name the class's own words), `charconvorder`
+  (`<string>` and `<variant>` before `<charconv>`: `std::to_chars`, `std::from_chars` and a variant).
 - `test/cpp.sh` checks that twenty-nine programs are refused by name (`coro.cpp`, `concept_fail.cpp`,
   `constrained_fail.cpp`, `lambda_const.cpp`, `lambda_method.cpp`, `bind_const.cpp`, the eleven `access_*.cpp`,
   `abstract.cpp`, `modhidden.cpp`, `basenodefault.cpp`, `enumnotconst.cpp`, since 0.164 `fmtindex.cpp` and
@@ -10808,21 +10870,17 @@ Declarations topic of the C++ reader).
 
 ### C++ language
 
-- A STATIC DATA MEMBER OF A LIBRARY CLASS, found by 0.217's probes, over 0.216 too: its out-of-class definition --
-  `std::vector<int> K::all;`, `std::string K::name = "abc";` -- is `not lowered yet: typedef(scoped([std], tmpl(vector,
-  [base([], [int])])))`, at file scope or in a member function that names it, and `inline static std::vector<int> all;`
-  is never defined, so the link names it; a static data member of the program's own class type builds. No fixture had
-  one.
-- A HEADER READ IN THE BUILD'S OWN PROCESS AFTER ANOTHER WAS SERVED FROM ITS SUMMARY CAN TAKE A FLATTENED NAME THAT THE
-  OTHER'S ITEMS USE, found by 0.217's net, over 0.216 too: `stdcharconv.cpp` built with `<charconv>`'s summary warm and
-  `<system_error>`'s cold -- the build's one cold header, read in its own process (two or more go to processes of their
-  own, `ccl_cold_headers_read/2`) -- is `not lowered yet: instance_refused('__from_chars_atoi.c2.int.0',
-  no_member_type('__traits.unsigned', type))`: `<system_error>`'s read declares `<variant>`'s
-  `__variant_detail::__traits<_Types...>` under the bare name, a collision being keyed within one read only
-  (`cpp_ns_quals/2`), and its class template, registered in the process, takes the name from `<charconv>`'s
-  `__itoa::__traits<_Tp>`, which the summary serves by its AST's order of loading. Warm, and fully cold (each header
-  read in the process in turn), it builds and prints what it should, so no gate meets it: the library read warms every
-  header first.
+- A NAME THAT TWO HEADERS' READS DECLARE IN TWO NAMESPACES, NAMED UNQUALIFIED INSIDE THE NAMESPACE WHOSE ITEM IS NOT THE
+  FIRST, takes the first header's item (found by 0.218's probes, over 0.217 too): a read keys apart only the names that
+  collide in it (`cpp_ns_quals/2`), and 0.218 takes a QUALIFIED class name to its namespace's items (`cpp_cross_key/3`),
+  not an unqualified name, a function or an object. `#include <charconv>` before `#include <variant>` refuses
+  `std::variant<int>`, `base_not_registered('__copy_assignment.__traits.int.__traits.int.__copy_assignable_trait',
+  '__impl.int')`: `<variant>`'s `__traits<_Types...>`, named bare inside std::__variant_detail, takes `<charconv>`'s
+  `__itoa::__traits<_Tp>`, the bare name's first item; `std::variant<int, double>` builds. Over libc++ 18's 226
+  summaries 33 bare names stand in two or more namespaces across the reads, a C declaration's path apart (`__fn` of five
+  customization points, the five `__cpp17_*` iterator concepts, `__traits` of `<variant>`, `<charconv>` and `<format>`,
+  `__base`, ranges' `size`, `data`, `empty` and kin beside std's). The whole road keys an item by its namespace in the
+  AST and finds an unqualified name from the item's own namespace out, as C++ does ([basic.lookup.unqual]). (0.218)
 - A library class's consteval constructor's check runs at compile time since 0.164 where the evaluator takes it (the
   Constant evaluation topic: `basic_format_string`'s format parse); a check it cannot take leaves the format string to
   the library's run-time parser, which no check of the format fixtures does since 0.168 (over libc++ 18 and 21). A

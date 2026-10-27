@@ -218,7 +218,7 @@ ccl_ensure_globals :-
     ; nb_setval('$ccl_file', none), ccl_env_put([]), nb_setval('$ccl_far', 0), nb_setval('$ccl_macros', []),
       nb_setval('$ccl_scope', []), ccl_tabs_reset, nb_setval('$ccl_enums', []), nb_setval('$ccl_consts', []), ccl_tables_changed,
       nb_setval('$ccl_expansions', []), nb_setval('$ccl_incpath', none), nb_setval('$ccl_kb_ready', no), nb_setval('$ccl_reading', []),
-      nb_setval('$ccl_macro_files', []), nb_setval('$ccl_std_macros', none), nb_setval('$ccl_gensym', 0), nb_setval('$ccl_unit_paths', []),
+      nb_setval('$ccl_macro_files', []), nb_setval('$ccl_std_macros', none), nb_setval('$ccl_gensym', 0), nb_setval('$ccl_unit_paths', []), nb_setval('$ccl_read_wrote', []),
       nb_setval('$ccl_lang', c), nb_setval('$ccl_lang_forced', none), ccl_fn_templates_put([]), nb_setval('$ccl_class', []), nb_setval('$ccl_inc_kind', local), nb_setval('$ccl_hash', line), nb_setval('$ccl_lib_unit', no),
       nb_setval('$ccl_targ', 0), nb_setval('$ccl_tmpl_depth', 0), nb_setval('$ccl_tt_pending', []), nb_setval('$ccl_tt_frames', []), nb_setval('$ccl_vparams', []), nb_setval('$ccl_vhead', []),
       ( nb_current('$ccl_std', _) -> true ; nb_setval('$ccl_std', 17) ),
@@ -391,7 +391,7 @@ ccl_read_unit(Path, How, Unit) :-
     ;   ccl_lib_unit(ccl_seed_read(ccl_pp_parse(Path, U1, Info1, Files), U1)), How = preprocessed, ccl_partial(U1, Info1, Unit),
         ccl_sum_dir_ready,   % THE DIRECTORY FIRST (0.106): 0.100 put the AST's write before the summary's, whose mkdir made the directory, so in a fresh or wiped cache the first header's AST met no directory and was lost
         (   catch(ccl_ast_write(F, U1), E, ( ccl_ast_trace(ast_not_written(Path, E)), fail ))   % NO SUMMARY WITHOUT ITS AST (0.106): the recovery
-        ->  ( catch(ccl_sum_write(F, Path, Files, U1), _, fail) -> true ; true )                   % used to SUCCEED, so an exception read as a written AST
+        ->  ( catch(ccl_sum_write(F, Path, Files, U1), _, fail) -> ccl_note_read_wrote(Path, F) ; true )   % used to SUCCEED, so an exception read as a written AST
         ;   ccl_ast_trace(ast_not_written(Path)) ) ).                                              % and a valid summary stood with no template bodies behind it   % THE SUMMARY IS WRITTEN LAST (0.100): it is the validity key, so a run killed while it writes the AST (the slow one) leaves no summary and the next run flattens again -- written first, a killed run left a valid .sum beside no .ast.pl, and every program over that header refused template_without_body
 ccl_read_unit(Path, How, Unit) :-
     ccl_parse_file(Path, U0, Info0),
@@ -399,6 +399,9 @@ ccl_read_unit(Path, How, Unit) :-
     ;   ccl_pp_parse(Path, U1, Info1, Files) -> How = preprocessed, ccl_partial(U1, Info1, Unit), ccl_pp_macros(Ms), ccl_kb_remember_macros(Path, Files, Ms)
     ;   How = raw, ccl_partial(U0, Info0, Unit) ).
 
+%% A READ THAT WROTE ITS HEADER'S SUMMARY AND AST IS NOTED FOR THE PROCESS (0.218), in a global as the units read here are: the
+%% desugaring registers the header's items from that AST, as a served header's are (cpp_read_now_summarized/2)
+ccl_note_read_wrote(Path, F) :- ccl_global('$ccl_read_wrote', L, []), ( memberchk(Path-F, L) -> true ; nb_setval('$ccl_read_wrote', [Path-F|L]) ).
 %% a LIBRARY header's read is the library's, not the program's: the standard macros (format, print, println, clone)
 %% are the program's global names and never fire inside it -- libc++'s <format> calls its own `format(c, ctx)'
 %% (0.99); '$ccl_lib_unit' is read by ccl_unit, restored on success, failure and a throw
