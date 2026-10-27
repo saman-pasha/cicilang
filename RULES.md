@@ -248,7 +248,7 @@ that changes a rule edits the rule here, in its topic, and writes its entry in `
 ### The C++ gate: test/cpp.sh
 
 - `test/cpp.sh` runs in this order: `test/cpp.pl` in one `--local` process; four checks of the command; every
-  `test/cpp/run/*.cpp` as a pool job (814 at 0.216); `classes.cpp` and `templates.cpp` built and run; the refusals, each
+  `test/cpp/run/*.cpp` as a pool job (816 at 0.217); `classes.cpp` and `templates.cpp` built and run; the refusals, each
   at the level its `test/cpp/NAME.flags` names, else C++17 (0.164). (0.105, 0.164)
 - `test/cpp.pl` runs 46 numbered checks, `c1` to `c46`, then reads Cicili's six C++ files whole (`test/cpp/objects.cpp`,
   `emit_report.cpp`, `specialise.cpp`, `syntax.cpp`, `torch.cpp`, `torch-fragment.cpp`). `c34` checks the Itanium
@@ -285,7 +285,8 @@ that changes a rule edits the rule here, in its topic, and writes its entry in `
   the fixtures, `classes.cpp` builds and exits 34, and `templates.cpp` exits 10. (M5, 0.34, 0.35, 0.135, 0.161, 0.188,
   0.192, 0.207)
 - The fixture builds assume a warm cache: a build that only reads summaries is safe in parallel, and a cold flatten
-  under load is not. `CPP_JOBS=1` makes the gate serial. (0.105)
+  under load is not. `CPP_JOBS=1` makes the gate serial. A HOME whose cache was copied from another tree or another HOME
+  is not warm (the summary cache topic, 0.217). (0.105, 0.217)
 - `ccl_fixture NAME` builds with `NAME.flags`, capped at `CPP_FIXTURE_SECS` (2400 s) by `ccl_capped`. Past the cap,
   `ccl_kill_tree` kills the tree, and the verdict line itself reads `FAIL NAME.cpp: TIMEOUT after N s`, so no diff
   hides it. It runs the binary on `NAME.stdin` or `/dev/null`, compares with `NAME.expect`, and writes its verdict to
@@ -344,8 +345,16 @@ that changes a rule edits the rule here, in its topic, and writes its entry in `
   string), `libiter.cpp` (an iterator into a local vector), `libref.cpp` (`std::ref`), `libmap.cpp` (`m[3] = &x`),
   `libstruct.cpp` (a struct's vector member), `libbyval.cpp` (a by-value parameter moved out) and `libassign.cpp` (`sv =
   s`) with `a borrow leaves the function`, `libstored.cpp` (the caller's vector through a reference) and `libmember.cpp`
-  (a member's vector) with `a borrow stored where it cannot be followed`. `test/cpp/control.cpp` (a `try`) builds now,
-  and only `test/cpp.pl` reads it. (0.100, 0.108)
+  (a member's vector) with `a borrow stored where it cannot be followed`; and since 0.217 eighteen more:
+  `libiterdangle.cpp`, `libptrdangle.cpp` and `libtwolocals.cpp` (an iterator, a pointer and a vector used after the
+  local they borrow ended) with `use of a borrow after its owner was consumed`; `librowstore.cpp` (a store through a
+  range-for's reference), `libmemberview.cpp` (a view member), `byvalref.cpp` (a reference to a parameter by value),
+  `flowmember.cpp`, `flowwrap.cpp`, `flowfree.cpp` and `flowview.cpp` (what a function of the program stores of its
+  parameters), `freeswap.cpp`, `freefill.cpp` and `freecopy.cpp` (`std::swap`, `std::fill`, `std::copy`), `addrview.cpp`
+  (the address of a local view) with `a borrow leaves the function`; `refparamfield.cpp` (a member through a reference
+  parameter), `flowout.cpp`, `flowglobalvec.cpp` and `flowstaticlocal.cpp` (a function's store where it outlives its
+  caller) with `a borrow stored where it cannot be followed`. `test/cpp/control.cpp` (a `try`) builds now, and only
+  `test/cpp.pl` reads it. (0.100, 0.108, 0.216, 0.217)
 - `test/cpp/sassertfail.cpp` must be refused with `static assertion failed: wrong size`, `test/cpp/sassertinst.cpp` with
   `static assertion failed: one byte` (0.198: a false static assertion of the program at file scope, and in an instance
   of a function template), `test/cpp/memassert.cpp` with `static assertion failed: int is eight` and
@@ -2364,6 +2373,11 @@ that changes a rule edits the rule here, in its topic, and writes its entry in `
   temporary name their appends were mixed. THE TEXT GOES OUT AS ATOMS (0.188): the atoms `term_to_atom/2` makes,
   joined up to 16,000 characters an append (`ccl_append_parts/2`), a longer one as its codes, since
   `append_file_from_codes/2` copies an atom through 64 KB and raises past it; each was made into codes first. (0.188)
+- A SUMMARY BELONGS TO ITS TREE AND ITS HOME (0.217's finding): its deps name this compiler's own `library/include/`
+  headers by their path in the tree (`<stddef.h>`), and its `.big.pl` names its `.sum` by the HOME's path
+  (`'$ccl_sum_big'(F, I, T)`), so a cache copied to another tree or another HOME is read again there, header by header.
+  0.216's and 0.217's nets seeded a worktree's HOME from a chain's, and their pools read most headers cold, under load
+  -- 0.216 put it down to a copy that lost the files' times.
 
 ### The AST beside the summary and the header index
 
@@ -2483,7 +2497,7 @@ that changes a rule edits the rule here, in its topic, and writes its entry in `
   0.117)
 - A reader bump makes every summary cold; `test/libcxx.sh` rewrites them. `test/reader.pl`'s `k16` (a cached read is
   the same AST as a fresh one) goes RED on a grammar change without a bump. (0.93, 0.105)
-- `ccl_lowering_version/1` (`library/ccl_ir.pl`, now 124): bump it whenever the check or the lowering changes what it
+- `ccl_lowering_version/1` (`library/ccl_ir.pl`, now 125): bump it whenever the check or the lowering changes what it
   emits, however small -- 0.120 bumped it for the ORDER of the drain functions alone. Why: `dr_ir/3` serves the old IR
   otherwise. Either bump starts the C store afresh. (M4, 0.103, 0.120)
 
@@ -7683,12 +7697,15 @@ A lambda is a class of its captures (`library/ccl_cpp.pl`). A fixture named alon
   yet, or a field of a struct from malloc), `moved` or `partial`. Other keys hold `borrow(P)`, `dangling(P)`,
   `anchor`, `loose`, `array` or `none`. (M3)
 - A join (`ck_merge/3`) keeps equal states. `null` beside `live` is `live`. `null` or `unset` beside `moved` is `moved`.
-  `unset` beside `null` is `unset`. `dangling` wins, `borrow` beats `loose`, two borrows keep a local's before a
-  parameter's or static storage's, the one that can dangle (0.216; `ck_short_lived/1`: a pointer that borrowed a
-  parameter on one path and a local on the other left the function, accepted; `test/c/safe/borrow_join.c`), else the
-  first, an anchor beside a borrow is the borrow (0.216: a library object anchored on one path that holds a borrow on
-  the other), and `none` gives the other side. Any other pair is `partial`, which is refused on use and counts as a
-  leak. (M3)
+  `unset` beside `null` is `unset`. `dangling` wins, `borrow` beats `loose`, two borrows keep the one that dangles first
+  (`ck_first_to_dangle/3`): a local's before a parameter's or static storage's (0.216; `ck_short_lived/1`: a pointer
+  that borrowed a parameter on one path and a local on the other left the function, accepted;
+  `test/c/safe/borrow_join.c`), of two locals the inner one (0.217), else the first, an anchor beside a borrow is the
+  borrow (0.216: a library object anchored on one path that holds a borrow on the other), and `none` gives the other
+  side. Any other pair is `partial`, which is refused on use and counts as a leak. A JOIN KEEPS A KEY THAT ONE SIDE MADE
+  IN AN OUTER FRAME (0.217; `ck_only_in/3` in `ck_merge_frames/3`): what a local holds, declared from inside a branch or
+  a loop's body in the frame of the local whose storage it is, was lost where the join took the other side's keys alone
+  (`test/cpp/librowstore.cpp`). (M3, 0.216, 0.217)
 - A scope's end runs its defers last first (`ck_run_defers/3`). Then `ck_leaks/2` demands each owner consumed
   (`owner_leaked`; a loose pointer is `unconsumed`). Then every borrow of the closing frame's keys dangles
   (`ck_scope_end/2`). A `return` does the same for every frame. (M3)
@@ -7739,8 +7756,10 @@ A lambda is a class of its captures (`library/ccl_cpp.pl`). A fixture named alon
   value. A borrow is `borrow_stored`, unless it borrows a loose pointer: the slot then takes that memory over
   (`ck_retarget/4`). A live owner assigned is `owner_overwritten`. An owner from an own FIELD has complete fields
   (`ck_complete_rest/4`). Fields move or fill only for a struct held BY VALUE (`ck_by_value/1`). (M3)
-- `ck_into_plain/5` assigns a plain slot. An owner is `owner_stored`. A borrow is `borrow_stored`, unless it borrows an
-  anchor or static storage. A fresh non-static value or a loose pointer is `untied`. (M3)
+- `ck_into_plain/6` assigns a plain slot. An owner is `owner_stored`. A borrow is `borrow_stored`, unless it borrows an
+  anchor or static storage; an anchor's borrow is held where the slot is a local's own storage and `borrow_stored` where
+  the slot outlives the function since 0.217 (What a local's storage holds, below). A fresh non-static value or a loose
+  pointer is `untied`. (M3, 0.217)
 - `ck_fill/6` gives a struct by value a whole value. The fields move over from a struct, come item by item from a list
   (`ck_init_slots/5`), or are all live from a call. (M3)
 - A struct with owners handed BY VALUE hands them to the callee's copy, as a copy does. They move at the call
@@ -7765,8 +7784,10 @@ A lambda is a class of its captures (`library/ccl_cpp.pl`). A fixture named alon
   caller's (`ck_consume_or_use/3`, first clause), as `c_str` is. (0.41)
 - A return (`ck_no_escape/2`) checks a value whose type carries a pointer, or a closure. A loose pointer and static
   storage may leave. With a result tie, only what lies within it leaves (`tie_mismatch`); without one, a borrow of a
-  parameter or a global. Any other borrow is `borrow_escapes`. A conditional returns either arm, a comma its right
-  side. (M3, 0.44)
+  pointer or reference parameter's referent or of a global. A PARAMETER BY VALUE IS THE CALLEE'S OWN STORAGE (0.217;
+  `ck_param_storage/1` in `ck_short_lived/1` and `ck_ret_borrow/5`): its address returned is `borrow_escapes` -- `int
+  *f(int n) { return &n; }` was accepted, the parameter counted as the caller's (`test/c/safe/param_addr_escapes.c`).
+  Any other borrow is `borrow_escapes`. A conditional returns either arm, a comma its right side. (M3, 0.44, 0.217)
 - A copy of a null pointer, or of a local with no ownership state, is `null` (`ck_plain_copy/2` in `ck_kind/3`). In a
   declaration this holds only for a pointer-typed local, so `int x = n` makes no owner. `test/c/run/nullcopy.c`.
   (0.99, 0.100)
@@ -7786,6 +7807,54 @@ A lambda is a class of its captures (`library/ccl_cpp.pl`). A fixture named alon
   n)` was `plain pointer not consumed`. `stdc23.c`. (0.206)
 - A function pointer and a pointer to member are code, which the check never follows (`ck_is_pointer_type/1`,
   `ck_carries_/1`). Else `int (*f)(int) = c ? a : b` was a loose pointer. (0.100)
+
+### What a local's storage holds
+
+- WHAT A LOCAL'S STORAGE HOLDS IS KEPT UNDER KEYS OF ITS OWN (0.217; `ck_hold_key/6`, `ck_held_key/3`,
+  `ck_declare_under/5`): the borrow stored in a pointer, a pointer member or a view under its own path (`q`, `s.p`,
+  `s.sv`), and what a library container or an array holds, or its elements hold, under `$held` below it (`v.$held`,
+  `s.v.$held`, `a.$held`) -- each key in the state frame of the local whose storage it is, so it ends with that local's
+  scope. The holder's own key stays its storage's: `&s`, `v.begin()` and a reference bound to v borrow the local itself
+  and dangle when it ends, and what it holds dangles when the held local ends. Until 0.217 C kept a local's address in a
+  member with no state at all, and a library object's own key took the borrow it was handed (0.216), so `it = v.begin()`
+  over `std::vector<int *> v{&x}` borrowed x, not v, and an iterator or a pointer into v used after v ended was accepted
+  (`test/cpp/libiterdangle.cpp`, `libptrdangle.cpp`; `test/c/safe/field_dangles.c`, `array_dangles.c`; refused).
+- A HOLDER'S VALUE CARRIES WHAT IT HOLDS (0.217; `ck_held_borrow/3`, `ck_holder/1` over `'$ck_holders'`, in
+  `ck_borrows_from/3` on a holder and on an array's element): the borrow that dangles first of all it holds, so a
+  return, a copy and a library object handed it obey the borrow rules: `struct S mk(void) { int x = 1; struct S s; s.p =
+  &x; return s; }` is `borrow_escapes` (`field_escapes.c`, `nested_field.c`, `struct_copy_escapes.c`;
+  `test/cpp/libmemberview.cpp`). A READ OF A HOLDER WHOLE -- copied, handed on, returned, a library member called on it
+  -- reads what it holds, a dangling borrow `borrow_after_move` (`ck_held_read/2`), and a member's read reads what that
+  member holds, not its siblings' (`ck_base_read/3`, `ck_lval_use/3`): `*s.p` after x's block is refused, `s.n` is not.
+- WHERE A STORE LANDS (0.217; `ck_where/3` over `ck_resolve/3` and `ck_root/3`): a place is followed to the storage it
+  names -- a local reference to the place it was bound to, a call's result among them (`ck_ref_bind/2` keeps every
+  binding: `for (auto &row : g) row.push_back(&b)` stores in g, `test/cpp/librowstore.cpp`); a local pointer to the
+  local it borrows where the types agree (`ck_points_to/3`: `p->f` over `p = &s` is `s.f`, `p[i]` over `p = a` is
+  `a[i]`, a pointer into a library container is in the container; `field_via_ptr.c`); an element a library member
+  answers, to its holder, and through an iterator or a view to what that borrows (`ck_lib_holder/3`) -- and is `local`,
+  a local's own storage by value, a parameter by value's among them; `out`, storage that outlives the function, through
+  a pointer or a reference parameter, `this`, a global or a static; or `unknown`, through a pointer the check does not
+  follow. 0.216's `ck_lib_where/2` answered for a library member's object alone, and followed no local pointer and no
+  call's result.
+- C'S PLAIN SLOT (0.217; `ck_into_plain/6`, `ck_anchor_stored/5`): an anchored local's address stored where the slot is
+  a local's own storage is held there; where the slot outlives the function -- through a pointer parameter, a global,
+  `*pp` -- it is `borrow_stored` (`store_out_param.c`, `store_global.c`, `store_through_pp.c`); through a pointer the
+  check does not follow it is accepted, as C has had it. An initializer's slot lands in the variable it initializes, a
+  static's outliving the function (`ck_init_where/3`; `init_escapes.c`). Until 0.217 an anchor's borrow went into any
+  slot: `void put(struct S *s) { int x = 1; s->p = &x; }` compiled, the finding of 0.216's probes. A C++ slot through a
+  reference, whose type the walk did not know, is refused a local's address too and is otherwise unchecked as before
+  (`ck_ref_slot/5`; `test/cpp/refparamfield.cpp`); a library value assigned to a member or an element is held as a
+  library member's store is (`ck_into_lib_slot/5`: `s.sv = str`). `test/c/run/fieldsok.c` builds what the rules let C
+  keep and prints clang's and gcc's output.
+- OF SEVERAL BORROWS, THE ONE THAT DANGLES FIRST (0.217; `ck_first_to_dangle/3`, `ck_first_of/2`): of a join's, a
+  holder's, what a library member is handed -- a local's before a parameter's or static storage's (0.216), and of two
+  locals the inner one, whose scope ends first (`ck_inner_of/2`): a vector given `&a` and then an inner block's `&b`
+  kept a's, and was used after b's end unseen (`test/cpp/libtwolocals.cpp`).
+- THE ADDRESS OF A LOCAL IS A BORROW OF THE LOCAL (0.217; `ck_borrows_from/3` on `addr(id(N))`): of an anchored one, an
+  owner's slot, and one that holds a borrow -- a pointer, a view, an iterator. `&p` over `int *p = q` answered what p
+  points to, so `int **f(int *q) { int *p = q; return &p; }` and the address of a local view of a static string returned
+  were accepted, each a dead local's address (`test/c/safe/addr_escapes.c`, `test/cpp/addrview.cpp`, refused). A pointer
+  parameter's address still answers its referent: the parameter's key stands for the caller's object (Not done).
 
 ### Ties
 
@@ -7826,7 +7895,7 @@ A lambda is a class of its captures (`library/ccl_cpp.pl`). A fixture named alon
   end or a return, or overwritten, it is `unconsumed`. A rebind lands in the variable's own frame (`ck_declare_at/4`).
   `test/c/safe/unconsumed.c`. (M3)
 - `untied` ("no owner behind") is a slot the check cannot follow, given a fresh value or a loose pointer: a struct by
-  value (`ck_no_owner_behind/4`), or a field, an element, `*p`, a global or an initializer item (`ck_into_plain/5`,
+  value (`ck_no_owner_behind/4`), or a field, an element, `*p`, a global or an initializer item (`ck_into_plain/6`,
   named by `ck_slot_label/4`). `test/c/safe/untied.c`. (M3)
 - `ck_va_value/1` lists what is never fresh: a value read by `va_arg` (the caller's), a C99 compound literal (the
   block's object), a `dynamic_cast`'s result, an exception's storage, a coroutine's frame, promise or noop handle.
@@ -7868,17 +7937,18 @@ A lambda is a class of its captures (`library/ccl_cpp.pl`). A fixture named alon
   is its `for` (`ccl_for_each_as_for/2`). (0.32)
 - A reference is the pointer it is (`ck_ref_params/2`, `ck_ref_decl/5`). A reference parameter is a borrow. A local
   bound to an lvalue borrows `addr(Init)`; one bound to a call has no state. The place a local reference is bound to is
-  kept for the function (`ck_ref_bind/2`, `ck_ref_bound/2`; 0.216): a library object reached through it is the place's
-  (below). (0.32, 0.216)
+  kept for the function (`ck_ref_bind/2`, `ck_ref_bound/2`; 0.216): a store through it lands in the place (What a
+  local's storage holds), and since 0.217 every binding is kept, a call's result among them. (0.32, 0.216, 0.217)
 - A BY-VALUE PARAMETER OF A CLASS WITH A DESTRUCTOR IS THE CALLEE'S OBJECT TO THE CHECK (0.207; `ck_param_dtors/3` in
   `ck_function/5`): the caller destroys it since 0.207 (the Classes topic), and the callee's code has no defer of its
   destructor; the walk takes one at the body's head all the same, as the desugaring's own defer was before, so its
   owners may be moved from (`push(T x) { v.push_back(move(x)); }`) and are consumed at every exit. With no defer, `int
   len(Name n)` over a class with an `own` member was `owner leaked` (`copies.cpp`); as a borrow, as a reference
   parameter is, the move was `move of a non-owner` (`bag.cpp`, `member.cpp`).
-- `'$ck_refs'` names the function's references, and a use of one is a use of its referent: `x = v` is `*x = v`, and
-  `&x` is the pointer held. `r.f` is keyed `r->f` (`ck_path/2`). A reference result is a borrow out (`'$ck_ret'`,
-  `ck_no_escape/2`); a reference to a non-parameter local is `borrow_escapes`. (0.32, 0.44)
+- `'$ck_refs'` names the function's references, and a use of one is a use of its referent: `x = v` is `*x = v`, and `&x`
+  is the pointer held. `r.f` is keyed `r->f` (`ck_path/2`). A reference result is a borrow out (`'$ck_ret'`,
+  `ck_no_escape/2`); a reference to a local is `borrow_escapes`, a parameter by value among them since 0.217 (`int
+  &f(int n) { return n; }`, `test/cpp/byvalref.cpp`). (0.32, 0.44, 0.217)
 - Every `delete` consumes as `free`: plain, `[]`, polymorphic, and past an array cookie -- `dealloc/3` after its
   destructor's walk (0.202). `new` is fresh. A new-expression's block is the allocation function's bytes
   (`ck_alloc_mode/2` on `alloc(Mode, _, _)`: `garbage` for a struct's own fields `unset`, a zeroed block `null`; the
@@ -7928,40 +7998,73 @@ A lambda is a class of its captures (`library/ccl_cpp.pl`). A fixture named alon
   `ck_expr/3`): a library member's call on such an object -- its constructor, `push_back`, `insert`, `emplace`,
   `operator=`, and an assignment through the reference `operator[]` or `at` answers (`ck_expr/3` on `assign('=',
   call(...), R)`) -- stores its arguments' borrows (`ck_lib_handed/4`: an initializer list's items for the list, the
-  object's own borrow left out, a local's before a parameter's), joined to what the object held as a join keeps them
-  (`ck_lib_more/3`): a local object becomes a borrow of it, so returning the object obeys the borrow rules
-  (`borrow_escapes`) and it dangles where that local's scope ends. A const member, and the lookups and erasures by their
-  names (`find`, `count`, `contains`, `lower_bound`, `upper_bound`, `equal_range`, `erase`), store nothing
-  (`ck_lib_no_store/1`); a free function's arguments are not its objects (`ck_lib_member/1`): `std::copy(a.begin(),
-  a.end(), std::back_inserter(b))` stores nothing in a. `int x = 5; std::vector<int *> v; v.push_back(&x); return v;`
-  and `return std::function<int()>([&x] { return x; });` compiled and ran, each handing out a dead local;
-  `test/cpp/libvec.cpp`, `libmap.cpp`, `libstruct.cpp`, `libbyval.cpp`, refused.
-- WHERE A STORE LANDS (0.216; `ck_lib_where/2` over `ck_lib_root/3`): in a local object -- a local's own, a member of a
-  local struct, an element of a local array, a by-value parameter --, whose state takes the borrow; in one that outlives
-  the function -- reached through a reference or pointer parameter, `this`, a global, a static --, where a borrow of
-  this function's own local is `borrow_stored` (`libstored.cpp`, `libmember.cpp`, refused) and a parameter's borrow or
-  static storage may go, as they may leave by a return; or nowhere the check follows, through a local pointer or a
-  reference bound to a call's result (`for (auto &row : g)`). A local reference is the place it was bound to, so `auto
-  &r = s.v; r.push_back(&x);` stores into s, and one bound to a reference parameter stores out.
-- A MEMBER THAT REPLACES WHAT ITS OBJECT HOLDS (0.216; `ck_lib_replacing/3`, `ck_lib_replace/6`): `operator=`, `assign`,
-  `clear` and `reset` read no old borrow of the object, a dangling one among them, and the object holds what the member
-  is handed -- read where it held its old value, so `sv = sv.substr(1)` borrows what sv borrowed -- or nothing. A view
-  given a new string after the old one died, and a vector cleared and refilled in a loop, were `use of a borrow after
-  its owner was consumed`. A TRIVIAL ASSIGNMENT of such an object, the desugaring's plain `assign` (`sv = s`), rebinds
-  it as a pointer's does (`ck_borrowing_type/1` in the `assign` clause of `ck_expr/3`; `libassign.cpp`, refused). A
-  library object's destructor reads nothing it holds (`ck_lib_dtor/1`).
+  object's own borrow left out, the one that dangles first), joined to what the object held as a join keeps them
+  (`ck_lib_more/3`) and held under the object's own `$held` key since 0.217 (`ck_lib_store_into/6`; What a local's
+  storage holds), where 0.216 made the object's own key the borrow: returning the object obeys the borrow rules
+  (`borrow_escapes`), and what it holds dangles where that local's scope ends. A const member, and the lookups and
+  erasures by their names (`find`, `count`, `contains`, `lower_bound`, `upper_bound`, `equal_range`, `erase`, and since
+  0.217 `at`, `rfind`, the `find_first_of` family, `starts_with`, `ends_with`, `compare`, `remove`, `remove_if` and
+  `extract`), store nothing (`ck_lib_no_store/1`), and an assignment through `at` stores the value, not the key; a free
+  function's arguments are not its objects (`ck_lib_member/1`): `std::copy(a.begin(), a.end(), std::back_inserter(b))`
+  stores nothing in a, and what the free functions that store do is below (0.217). `int x = 5; std::vector<int *> v;
+  v.push_back(&x); return v;` and `return std::function<int()>([&x] { return x; });` compiled and ran, each handing out
+  a dead local; `test/cpp/libvec.cpp`, `libmap.cpp`, `libstruct.cpp`, `libbyval.cpp`, refused.
+- WHERE A LIBRARY OBJECT'S STORE LANDS (0.216, 0.217; `ck_where/3`, the topic What a local's storage holds): in a local
+  object -- a local's own, a member of a local struct, an element of a local array, a by-value parameter, reached by
+  name, through a local reference or a local pointer that borrows it, or as the holder of an element a member answers
+  --, which holds the borrow; in one that outlives the function -- reached through a reference or a pointer parameter,
+  `this`, a global, a static --, where a borrow of this function's own local is `borrow_stored` (`libstored.cpp`,
+  `libmember.cpp`, refused) and a parameter's borrow or static storage may go, as they may leave by a return; or nowhere
+  the check follows, through a pointer it does not follow. A local reference is the place it was bound to, so `auto &r =
+  s.v; r.push_back(&x);` stores into s, `for (auto &row : g) row.push_back(&x)` into g since 0.217 (`librowstore.cpp`,
+  refused), and one bound to a reference parameter stores out.
+- A MEMBER THAT REPLACES WHAT ITS OBJECT HOLDS (0.216; `ck_lib_replacing/4`, `ck_lib_replace/6`, `ck_unhold/3`):
+  `operator=`, `assign`, `clear` and `reset` read no old borrow of the object, a dangling one among them, and the object
+  holds what the member is handed -- read where it held its old value, so `sv = sv.substr(1)` borrows what sv borrowed
+  -- or nothing. A view given a new string after the old one died, and a vector cleared and refilled in a loop, were
+  `use of a borrow after its owner was consumed`. A TRIVIAL ASSIGNMENT of such an object, the desugaring's plain
+  `assign` (`sv = s`), rebinds it as a pointer's does (`ck_borrowing_type/1` in the `assign` clause of `ck_expr/3`;
+  `libassign.cpp`, refused). A library object's destructor reads nothing it holds (`ck_lib_dtor/1`).
 - WHAT A LIBRARY OBJECT'S VALUE CARRIES OUT (0.216; `ck_borrows_from/3`): one made in a block -- the desugaring's `$tmp`
   or `$ret`, declared and built there by the library: `std::string_view(buf)`, `std::function<int()>([&x] {...})`, a
   by-value parameter moved out by `return v` -- borrows what its members are handed there. A FREE LIBRARY FUNCTION'S
   RESULT OVER AN OBJECT IT TAKES BY REFERENCE BORROWS THAT OBJECT where the object holds no borrow of its own
   (`ck_ref_object/3`): `Del *d = std::get_deleter<Del>(sp)` points into sp's control block, where it was fresh memory,
-  `plain pointer not consumed`; `std::ref(x)` refers to x (`libref.cpp`, refused); `std::begin(v)` into v. A view of a
-  local string (`libview.cpp`) and an iterator into a local vector (`libiter.cpp`) are a member's results, the clause on
-  `call(id(F), [addr(E)|_])` below.
-- AN INITIALIZER LIST'S ARRAY HANDS ITS ITEMS TO THE LIBRARY OBJECT (0.216; `ck_il_slot/1` in `ck_into_plain/5`): a
+  `plain pointer not consumed`; `std::ref(x)` refers to x (`libref.cpp`, refused); `std::begin(v)` into v. A LIBRARY
+  FUNCTION'S RESULT OVER A CONTAINER IT TAKES BY LVALUE REFERENCE BORROWS THE CONTAINER, never what it holds (0.217;
+  `ck_lib_container_arg/3`): `std::begin(v)` over a `std::vector<int *>` is an iterator into v. A view of a local string
+  (`libview.cpp`) and an iterator into a local vector (`libiter.cpp`) are a member's results, the clause on `call(id(F),
+  [addr(E)|_])` below.
+- AN INITIALIZER LIST'S ARRAY HANDS ITS ITEMS TO THE LIBRARY OBJECT (0.216; `ck_il_slot/1` in `ck_into_plain/6`): a
   borrow in the desugaring's `$il` array is the object's to hold (`ck_lib_handed/4`), never `borrow_stored`:
-  `std::vector<int *> v{p}` over a parameter p was refused. Loose memory there is still `untied`. `libborrow.cpp` builds
-  what the rules above let through and prints clang++'s output over libc++ and libstdc++.
+  `std::vector<int *> v{p}` over a parameter p was refused. Loose memory there is still `untied`. `libborrow.cpp`, and
+  `libborrow2.cpp` since 0.217, build what the rules above let through and print clang++'s output over libc++ and
+  libstdc++.
+- A FREE LIBRARY FUNCTION THAT STORES (0.217; `ck_lib_free_store/4`), known by its template's name, the instance's name
+  up to its first key (`ck_lib_base_name/2`): `std::swap(a, b)` and `std::exchange(o, n)` give each object what the
+  other held; `std::fill`, `fill_n`, `replace`, `replace_if`, `uninitialized_fill` and `uninitialized_fill_n` put their
+  value's borrow in the range's container; `std::copy` and its kin -- `copy_n`, `copy_if`, `copy_backward`, `move`,
+  `move_backward`, `reverse_copy`, `unique_copy`, the `replace_copy` and `remove_copy` forms, the `uninitialized_`
+  copies and moves, `rotate_copy`, `merge` and the set operations -- put what the source ranges' containers hold in the
+  destination's (`ck_lib_container_of/3`: the object of a member's iterator, of `std::back_inserter`'s and
+  `std::begin`'s, an array, what an iterator or a pointer borrows). `std::swap(a, b)` over a vector holding `&x` and
+  another returned, `std::fill(v.begin(), v.end(), &x)` and a copy into a back inserter stored nothing until 0.217
+  (`test/cpp/freeswap.cpp`, `freefill.cpp`, `freecopy.cpp`, refused).
+- WHAT A FUNCTION OF THE PROGRAM STORES OF ITS PARAMETERS, ITS CALL STORES (0.217; `ck_flows/1`, `ck_flow_store/4`):
+  before the walk, over the program's own functions, a store of a parameter's value that the function itself accepts --
+  a library member's (`items.push_back(w)`), a library value's (`sv = v` over a view member) -- into an object or a slot
+  reached through another parameter that is a pointer or a reference is a flow `flow(F, J, I)`, and one into a global's
+  or a static's object a flow `flow(F, J, out(G))` (`ck_flow_target/5`, `ck_flow_root/3`, `ck_flow_slot_root/3`,
+  `ck_flow_out_slot/4` over the body's own names, `ck_body_locals/2`); the flows are closed over the calls among the
+  functions, eight rounds at most (`ck_flows_close/4`). A call of a function with a flow holds, in what the caller hands
+  for the holder, the borrow of what it hands for the stored one, as a library member's store does (`ck_flow_apply/6`),
+  and a borrow of the caller's local handed to a flow out is `borrow_stored`: `Registry r; r.add(&w); return r;` and `V
+  w; w.set(s); return w;` are `borrow_escapes`, `r.add(&w)` over a reference parameter r and `reg(&x)` over `void
+  reg(int *p) { g.push_back(p); }` `borrow_stored`; until 0.217 the call stored nothing. A PLAIN POINTER'S STORE NEEDS
+  NO FLOW, nor does C: a pointer parameter's borrow stored anywhere -- a member through `this` or another parameter,
+  `*pp`, a reference's referent, a global -- is `borrow_stored` in the function itself (`ck_into_plain/6`), as it was
+  before 0.217. Fixtures: `flowmember.cpp`, `flowwrap.cpp`, `flowfree.cpp`, `flowview.cpp`, `flowout.cpp`,
+  `flowglobalvec.cpp`, `flowstaticlocal.cpp`; `test/cpp/run/flowstores.cpp` builds what the flows let through.
 - A POINTER TO CONST THAT A C++ LIBRARY FUNCTION RETURNS FROM NO POINTER ARGUMENT is the library's own storage, static to
   the check (`ck_static_value/1`, `ck_pointer_arg/1`; 0.138): `const time_zone *ny = locate_zone("America/New_York");`
   was fresh memory, `plain pointer not consumed`, where the zone lives in the database libc++ keeps for the whole run. A
@@ -8036,7 +8139,15 @@ A lambda is a class of its captures (`library/ccl_cpp.pl`). A fixture named alon
   since the safe part follows no pointer that an asm makes. Basic asm names no operand. The driver gate's check. (0.215)
 - A LIBRARY OBJECT'S BORROW IS REFUSED AS A POINTER'S (0.216): `borrow_escapes` where the object leaves the function,
   `borrow_stored` where one that outlives the function is handed a borrow of its local, `borrow_after_move` where it is
-  used after that local's scope (the topic above). The C++ gate's eleven `test/cpp/lib*.cpp`.
+  used after that local's scope (the topic above). The C++ gate's eleven `test/cpp/lib*.cpp`, and its eighteen of 0.217
+  (the C++ gate topic).
+- WHAT A LOCAL'S STORAGE HOLDS IS REFUSED AS A POINTER'S BORROW (0.217; the topic What a local's storage holds):
+  `borrow_escapes` where the holder leaves the function -- a struct, an array, a library object a function filled, and a
+  local's own address --, `borrow_stored` where a local's address is stored, directly or by a function the program
+  calls, in a slot that outlives the function, `borrow_after_move` where what a holder holds is read after the held
+  local's scope. The C gate's twelve: `store_out_param.c`, `store_global.c`, `store_through_pp.c`, `field_escapes.c`,
+  `field_via_ptr.c`, `field_dangles.c`, `nested_field.c`, `init_escapes.c`, `struct_copy_escapes.c`,
+  `param_addr_escapes.c`, `array_dangles.c`, `addr_escapes.c`.
 - A statement form the check does not know throws `not_lowered(F)` from the last `ck_stmt` clause. Every
   `test/c/safe/NAME.c` is refused with the error its `.expect` names (`test/compile.pl`). (M3, 0.32)
 
@@ -9805,21 +9916,20 @@ A lambda is a class of its captures (`library/ccl_cpp.pl`). A fixture named alon
 - Ubuntu 24.04 on x86_64 (clang and LLVM 18, glibc, libc++ 18 and 21) is a host since 0.87. Every gate but the C++ one
   is GREEN there since 0.93, and all seven since 0.95. Every step from 0.93 on is gated there, but the save points
   0.112, 0.113, 0.117, 0.122 to 0.125, 0.130, 0.131 and 0.143 (0.143's C gates and cross gate ran, its libc++ gates did
-  not; the others were gated by the steps after them). The last full run is 0.215's, over cocolog 2.12.0 (the
-  Findings), on one tree, over fresh HOMEs, in pieces across two restarts of the machine: over libc++ 18 all nine GREEN
-  (the flow gate's one finding in 105 s, reader 4 s, compile 27 s, driver 20 s, objects 4 s, proof, the cross gate in
-  306 s with its C++ part for aarch64, the library read in 483 s (203 other headers warmed), the C++ gate in 1072 s
-  with 803 of 813 fixtures ok, the skips are `atomicref`, `atomicrefalign`, `ftm23b`, `ftm26b`, `joinwith`,
-  `stdflatmap`, `stdoptionalref`, `tzone`, `vbaseof` and `zipadjacent`, the two units, the 29 refusals, the four of the
-  safe part and the four static assertions); over libc++ 21 the library read (the phase 386 s) and the C++ gate (about
-  1085 s, 811 of 813 ok, the skips `stdoptionalref` and `zipadjacent`) GREEN -- the C gates do not read libc++. The
-  headers' reads, summed, took 1767 s over 226 over libc++ 18 and 1389 s over 21; the fixtures' builds 3466 s over 803
-  and 3571 s over 811. The chains of 0.165 to 0.203 and of 0.205 to 0.215 are in HISTORY.md, 0.166 to 0.204 and 0.206
-  to 0.216. Two libc++ passes are one gate: `LLVM=/usr/lib/llvm-18` and `LLVM=/usr/lib/llvm-21` choose the tree the
-  chain reads and links. libc++ 22 (the newest tree, which a run without `$LLVM` reads) is no gate: 0.182 built its
-  vector and its C++23 views by hand (`zipadjacent.cpp`, which its `.needs` skips over 18 and 21), and `stdoptionalref`
-  passes there. The run before 0.121's (0.118, 0.119) found, over 0.117, two defects and one stale check of
-  `test/cpp.pl` (c20, above).
+  not; the others were gated by the steps after them). The last full run is 0.216's, over cocolog 2.12.0 (the Findings),
+  on one tree, over fresh HOMEs: over libc++ 18 all nine GREEN (the flow gate's one finding in 77 s, reader 4 s, compile
+  18 s, driver 13 s, objects 3 s, proof, the cross gate in 228 s with its C++ part for aarch64, the library read in 370
+  s (203 other headers warmed), the C++ gate in 873 s with 804 of 814 fixtures ok, the skips are `atomicref`,
+  `atomicrefalign`, `ftm23b`, `ftm26b`, `joinwith`, `stdflatmap`, `stdoptionalref`, `tzone`, `vbaseof` and
+  `zipadjacent`, the two units, the 29 refusals, the 15 of the safe part and the four static assertions); over libc++ 21
+  the library read (the phase 324 s) and the C++ gate (about 892 s, 812 of 814 ok, the skips `stdoptionalref` and
+  `zipadjacent`) GREEN -- the C gates do not read libc++. The headers' reads, summed, took 1343 s over 226 over libc++
+  18 and 1153 s over 21; the fixtures' builds 3006 s over 804 and 3074 s over 812. The chains of 0.165 to 0.203 and of
+  0.205 to 0.216 are in HISTORY.md, 0.166 to 0.204 and 0.206 to 0.217. Two libc++ passes are one gate:
+  `LLVM=/usr/lib/llvm-18` and `LLVM=/usr/lib/llvm-21` choose the tree the chain reads and links. libc++ 22 (the newest
+  tree, which a run without `$LLVM` reads) is no gate: 0.182 built its vector and its C++23 views by hand
+  (`zipadjacent.cpp`, which its `.needs` skips over 18 and 21), and `stdoptionalref` passes there. The run before
+  0.121's (0.118, 0.119) found, over 0.117, two defects and one stale check of `test/cpp.pl` (c20, above).
 - The host sets the predefined macros (`ccl_host_os/1` and `ccl_host_arch/1` in the module), the inclusion path
   (Debian's `/usr/lib/llvm-NN`, the multiarch directory) and the link (`-lc++` and `-lm` on Linux) (0.87, 0.93, 0.100).
 - A struct passed or returned by value crosses a call as clang's x86-64 code expects, in both directions, with the
@@ -9907,13 +10017,14 @@ A lambda is a class of its captures (`library/ccl_cpp.pl`). A fixture named alon
   `<stdbool.h>` (`c23bool.c`), the program's feature-test macros (`ftmacro.c`) and `NDEBUG` at each inclusion of
   `<assert.h>` (`ndebug.c`). Since 0.215: GNU's inline assembly, a file-scope asm and the statement's forms with a
   register variable among them, on x86-64 and on aarch64 (`gnuasm.c`), and a feature-test macro defined after the file's
-  first system `#include` where clang's headers read it (`ftlate.c`, `-std=c17`).
+  first system `#include` where clang's headers read it (`ftlate.c`, `-std=c17`). Since 0.217: what the safe part lets C
+  keep in a struct's member and an array, a pointer read from a member among it (`fieldsok.c`).
 - The C library is the host's. The compiler's own freestanding headers are in `library/include/` (`<stdarg.h>`,
   `<stdatomic.h>`, `<complex.h>`, `<stdckdint.h>`, `<stdbit.h>`, `<limits.h>`, `<tgmath.h>` and six more).
 - The language's own additions run: `:=`, patterns, `name { }` structs and `format`, `print`, `println`
   (`surface.c`), `defer` (`defers.c`), `#cocolog` (`cocolog.c`), `tie` (`tie.c`), `clone` (`clone.c`), `own` and
   `move` (`owners.c`, `own_fields.c`, `btree.c`, `btree_del.c`).
-- The safe part refuses each of the 48 programs in `test/c/safe/` with the error that its `.expect` names.
+- The safe part refuses each of the 60 programs in `test/c/safe/` with the error that its `.expect` names.
 
 ### C++ levels
 
@@ -10386,14 +10497,20 @@ A lambda is a class of its captures (`library/ccl_cpp.pl`). A fixture named alon
   `std::function`, a literal's view, a parameter's iterator, `get_deleter`, stores through references that stay in the
   function, a const lookup, a view and vectors given new contents after the old ones died, `sv = s` through the string's
   conversion operator).
+- The safe part's records (0.217): `libborrow2` (an iterator and a pointer into a vector of pointers used while it
+  lives, stores through a range-for's references, a member of the program's class storing its parameter, a member
+  storing a copy, a sort with a comparator over a local by reference, a find of a local's address, a swap, a fill and a
+  copy among a parameter's borrows), `flowstores` (a function keeping its parameter in a global vector and in a static
+  local one, given static storage's address; a view member set by a member, over a string that outlives its use and over
+  a static one; a vector by reference given a local's address, used while the local lives).
 - `test/cpp.sh` checks that twenty-nine programs are refused by name (`coro.cpp`, `concept_fail.cpp`,
   `constrained_fail.cpp`, `lambda_const.cpp`, `lambda_method.cpp`, `bind_const.cpp`, the eleven `access_*.cpp`,
   `abstract.cpp`, `modhidden.cpp`, `basenodefault.cpp`, `enumnotconst.cpp`, since 0.164 `fmtindex.cpp` and
   `fmttype.cpp`, since 0.191 `typeidnortti.cpp`, `dyncastnortti.cpp` and `dpcnortti.cpp` under `-fno-rtti`, and since
   0.193 `thrownoexc.cpp` and `trynoexc.cpp` under `-fno-exceptions`, since 0.198 `access_varfriend.cpp` at C++26;
   `diamond.cpp` builds since 0.171 and is gone) and that the safe part refuses `escape.cpp`, `thisunset.cpp`,
-  `gotopastdtor.cpp`, `tryowner.cpp` and since 0.216 the eleven `lib*.cpp` whose library object holds a local's borrow
-  beyond its scope.
+  `gotopastdtor.cpp`, `tryowner.cpp` since 0.216 the eleven `lib*.cpp` whose library object holds a local's borrow
+  beyond its scope, and since 0.217 eighteen more (the C++ gate topic).
 
 ### libc++ headers read whole
 
@@ -10691,6 +10808,21 @@ Declarations topic of the C++ reader).
 
 ### C++ language
 
+- A STATIC DATA MEMBER OF A LIBRARY CLASS, found by 0.217's probes, over 0.216 too: its out-of-class definition --
+  `std::vector<int> K::all;`, `std::string K::name = "abc";` -- is `not lowered yet: typedef(scoped([std], tmpl(vector,
+  [base([], [int])])))`, at file scope or in a member function that names it, and `inline static std::vector<int> all;`
+  is never defined, so the link names it; a static data member of the program's own class type builds. No fixture had
+  one.
+- A HEADER READ IN THE BUILD'S OWN PROCESS AFTER ANOTHER WAS SERVED FROM ITS SUMMARY CAN TAKE A FLATTENED NAME THAT THE
+  OTHER'S ITEMS USE, found by 0.217's net, over 0.216 too: `stdcharconv.cpp` built with `<charconv>`'s summary warm and
+  `<system_error>`'s cold -- the build's one cold header, read in its own process (two or more go to processes of their
+  own, `ccl_cold_headers_read/2`) -- is `not lowered yet: instance_refused('__from_chars_atoi.c2.int.0',
+  no_member_type('__traits.unsigned', type))`: `<system_error>`'s read declares `<variant>`'s
+  `__variant_detail::__traits<_Types...>` under the bare name, a collision being keyed within one read only
+  (`cpp_ns_quals/2`), and its class template, registered in the process, takes the name from `<charconv>`'s
+  `__itoa::__traits<_Tp>`, which the summary serves by its AST's order of loading. Warm, and fully cold (each header
+  read in the process in turn), it builds and prints what it should, so no gate meets it: the library read warms every
+  header first.
 - A library class's consteval constructor's check runs at compile time since 0.164 where the evaluator takes it (the
   Constant evaluation topic: `basic_format_string`'s format parse); a check it cannot take leaves the format string to
   the library's run-time parser, which no check of the format fixtures does since 0.168 (over libc++ 18 and 21). A
@@ -10780,18 +10912,18 @@ Declarations topic of the C++ reader).
 - A library header's functions are not checked (`cpp_library_function/1`, `'$cpp_libfn'`): 0.45's decision, which the
   owner confirmed at 0.190; in C, a library header's function that the unit uses and lowers with it is not either
   (`ck_library_fn/1`, `'$ir_hlib'/1`; 0.212), and the program's own header's are checked as its file's are. What a
-  library object holds is followed since 0.216 (the safe part's topic), with these limits: a store through a local
-  pointer, or through a reference bound to a call's result (`for (auto &row : g) row.push_back(&x)`), is not followed; a
-  free library function's arguments are not its objects, so `std::fill(v.begin(), v.end(), &x)` and `std::swap(v, w)`
-  move no borrow; what a function of the program, or a member of the program's class, stores of its parameters is not
-  followed at its call (`k.add(&x)` over `void add(int *p) { v.push_back(p); }`); a lookup is known by its member's
-  name, and another non-const member's argument counts as stored; an object keeps one borrow, as a pointer does -- of
-  two locals the first --, so a vector given the addresses of two locals dangles with the first's scope only.
-- C'S SAFE PART, FOUND BY 0.216'S PROBES: an anchored local's address stored into a slot that outlives the function -- a
-  caller's struct through a pointer parameter, `void put(struct S *s) { int x = 1; s->p = &x; }` -- is accepted
-  (`ck_into_plain/5` takes an anchor's borrow into any slot), and so is a struct by value holding one, returned (`struct
-  S mk(void) { int x = 1; struct S s; s.p = &x; return s; }`); clang compiles both, and a caller that reads the slot
-  reads a dead local. Where a library object's store lands (`ck_lib_where/2`) is the shape of the cure.
+  library object holds is followed since 0.216, and what a local's storage holds, where a store lands and what a
+  function of the program stores since 0.217 (the safe part's topics), with these limits: a store through a pointer the
+  check does not follow -- a call's result, an own pointer's pointee, a pointer member (`s.p->q = &x`), a local pointer
+  whose type is not the borrowed local's -- is accepted; a flow is found by the forms alone, so a store of a value
+  computed from a parameter (`p + 1`, `&p->f`), through a pointer the function computes, or into an object reached
+  through a pointer member is none, and a copy constructor's member stores carry nothing; a container, an array and a
+  whole struct each hold one `$held` key, so what one element or one member of a copy holds is what all of them hold; a
+  free library function stores by its template's name, the swaps, fills and copies of `<algorithm>` and `<utility>`, and
+  any other stores nothing; a slot reached through a reference whose type the walk does not know is checked for a
+  local's address only; a lookup is known by its member's name, and another non-const member's argument counts as
+  stored; a pointer parameter's address answers its referent, so `int **f(int *p) { return &p; }` returns the
+  parameter's own storage unrefused.
 - A direct `std::allocator::allocate` and `allocator_traits<A>::allocate(a, n)` are accepted: a library member's or
   static function's plain pointer result borrows the object it takes by reference (`ck_borrows_from`, 0.91, 0.117;
   `stdallocator.cpp`).

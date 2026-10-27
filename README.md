@@ -217,9 +217,15 @@ once on every path: by `free`, `fclose`, `move(p)` into another owner or as
 an argument, `return p`, or a callee whose parameter is `own`. A borrow is
 a plain pointer whose value came from an owner: `q = p + 1`, `&p->x`,
 `a->name`. It dangles the moment the owner is consumed, may not be
-returned, and may not be stored where the check cannot follow it. A plain
-pointer parameter is a borrow of the caller's: readable, passable,
-returnable, never stored, freed or moved. A struct's own fields are owners
+returned, and may not be stored where the check cannot follow it. A
+local's address is a borrow too: a struct's member, an array's element or
+a library object given one holds it, so the holder returned, or read after
+the local's scope, is refused, and so is the address stored where it
+outlives the function -- through a pointer parameter, in a global; a
+function that keeps its parameter in a library object makes its call keep
+it there. A plain pointer parameter is a borrow of the caller's: readable,
+passable, returnable, never stored, freed or moved; a parameter by value
+is the callee's own. A struct's own fields are owners
 named by their path (`p->name`, `c.inner.name`) and go with the struct.
 `x tie y` declares that `x` lives within `y`: a tied value is a borrow of
 `y`, a tied owner must be consumed before `y` is, a result tie on a
