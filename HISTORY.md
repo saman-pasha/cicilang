@@ -216,6 +216,7 @@ One row per step, in version order: the step's title, what it did and its gate n
 | 0.219 | the Not done records: an unqualified class name that two headers' reads declare in two namespaces registered in its own namespace's words, a class declared and not defined renamed with the rest; the address of a pointer or array parameter its own storage; C's conditional of two object pointers; and what its probes found: a namespace-scope object not seen by its own class's members, a header's deleted function called -- `<compare>`'s customization point objects; a record found done already; 0.218's chain | `#include <charconv>` before `<variant>` refused `std::variant<int>`, over 0.218 too; the step's first form met `template_without_body('__function.__base')` with `<string>` before `<functional>`; `std::strong_order(1, 2)`, `std::weak_order`, `std::partial_order` and the fallbacks ran past the memory cap over libc++ 18 and were refused `undeclared('__strong_order.strong_order')` over 21, no fixture calling them; in C `int **f(int *p) { return &p; }` was accepted and `_Generic` over a conditional of an `int *` and a `float *` chose the default; `typeof` and `decltype` of an aligned variable were done since 0.203 and 0.206; a stringized universal character name differs from clang's in the `-E` text alone; left: a function or an object across the reads, a program's function named as a library object, a call through a temporary function object whose `operator()` is constrained | gated before its commit: all nine gates GREEN over libc++ 18 (the C++ gate 811 of 821 ok, 10 skipped) and the two libc++ gates over 21 (819 of 821 ok, 2 skipped); it carries 0.218's chain: all nine gates GREEN over libc++ 18, the two libc++ gates over 21 |
 | 0.220 | the chain of 0.219 | no library file changed: the numbers of 0.219's chain; 0.219 costs a warm build a second at most (`stdstringstream` and `formatton` built by 0.218 and by 0.219 in turn); the flow gate's one finding, which the owner asked about: the call of `'$ccl_sum_big'/3` in `ccl_sum_bigs_/3`, a table that a summary's `.big.pl` file defines at run time, no defect | all nine gates GREEN over libc++ 18 in 0.219's chain (811 of 821 C++ fixtures ok), the two libc++ gates over 21 (819 of 821); the headers' reads summed 1987 s and 1752 s (0.218's 2791 s and 2462 s), the fixtures' builds 4139 s and 4412 s; before its commit the reader, compile, driver and objects gates and the proof GREEN over its module |
 | 0.221 | the Not done list, on the owner's word and in one commit: a call through an object whose `operator()` nothing fits refused; the program's names beside the library's keyed apart and found by argument-dependent lookup (through pointers, template arguments and bases), a call qualified by std taking none of the program's functions and no object of another namespace; a name of both kinds across the reads; `TnDa`; the C level by its year; `__has_attribute`; an identifier's characters and the white space past ASCII by the level; a library header's static assertions; a value computed from a parameter followed; NDEBUG under -DNDEBUG; the C++ IR cache | over 0.220: `std::max(2, 3)` beside the program's `max` printed 5, `ranges::transform` over libc++ 21 was refused after `<algorithm>`, C99's `__STDC_VERSION__` was C17's, every attribute answered 0, every character past ASCII was a letter, `std::get<5>` of an array of 3 compiled, `out.push_back(&p->v)` let a local escape, `#undef NDEBUG` under -DNDEBUG asserted nothing; the nets and the first run of the gates found, each older: the roads of `operator()` without the argument pass, a fixed template argument matching any type, a class's assertion thrown out of its registration, `T{}` of a scalar typedef the int 0, a plain struct named as a qualified base, a scalar typedef argument naming a second instance, `is_unsigned_v<char8_t>` false; the IR cache's key holds the versions, not the code | gated before its commit, the second run over fresh HOMEs: all nine gates GREEN over libc++ 18 (the C++ gate 826 of 836 ok, 10 skipped) and the two libc++ gates over 21 (834 of 836 ok, 2 skipped); the first run RED in the driver gate (two failures) and in the C++ gate over 21 (three), each fixed |
+| 0.222 | the chain of 0.221; the feedback for cocolog | no library file changed: the numbers of 0.221's chain; the feedback for cocolog, at the owner's word, sent to its session -- `time_file/2` drops the fraction of a second, which three caches key on; no integer past 64 bits; no `consult/1` and `load_files/2` --, each probed on cocolog 2.12.0; two notes out of date corrected, `atom_chars/2`'s one-byte character and the pool's reason | all nine gates GREEN over libc++ 18 in 0.221's chain (826 of 836 C++ fixtures ok), the two libc++ gates over 21 (834 of 836); the headers' reads summed 1663 s and 1468 s, the fixtures' builds 4026 s and 4109 s; before its commit the flow, reader, compile, driver and objects gates and the proof GREEN over its module |
 
 ## M5 — the C++ mode
 
@@ -15095,3 +15096,53 @@ The module 0.221. The reader 164 (an identifier's characters and the white space
 level, `__has_attribute`, the C level by its year and C99's and C11's `__STDC_VERSION__`, `<assert.h>`'s own read under
 -DNDEBUG: what a read holds changes). The lowering 129, after 128 in the step's first part (what the desugaring and the
 lowering emit and what the check accepts change).
+
+## 0.222 — the chain of 0.221; the feedback for cocolog sent to its session; two notes out of date
+
+**0.222: 0.221's chain ended, all GREEN. Committed after it on the owner's word ("commit and push"), with no library
+file changed: its numbers are this step, with the feedback for cocolog that the owner asked for ("if you have any
+feedback for cocolog send it to The Coco session") and two notes of this repository that the feedback's probe showed out
+of date.**
+
+THE CHAIN OF 0.221, on the checkout of its commit (44ae388; module 0.221, reader 164, lowering 129, over cocolog
+2.12.0), its two modules built, over fresh HOMEs, from 15:04:20 UTC: over libc++ 18 all nine gates GREEN -- the flow
+gate 88 s (its one finding, `test/flow.expect`'s), reader 4 s (94 checks), compile 23 s (156 run fixtures and 61
+refusals), driver 20 s (48 checks), objects 5 s, the proof, the cross gate 287 s (189 checks), the library read 451 s
+(the 23 asserted reads whole, 203 other headers warmed, none failed), the C++ gate 1234 s with 826 of 836 fixtures ok
+and 10 skipped by their needs, the two units, the 30 refusals, the 35 of the safe part and the eight static assertions,
+to 15:39:32 UTC --; over libc++ 21 the library read (its phase 399 s, to 15:46:11 UTC) and the C++ gate GREEN in about
+1234 s, 834 of 836 ok, 2 skipped (`stdoptionalref.cpp`, `zipadjacent.cpp`), to 16:06:45 UTC. The two C++ gates' 1234 s
+are two clocks' readings, the chain's own over libc++ 18 and the log's times over 21, alike by chance. The headers'
+reads summed 1663 s over 226 over libc++ 18 and 1468 s over 21 (0.221's gates before its commit 1618 s and 1432 s); the
+fixtures' builds 4026 s over 826 and 4109 s over 834 (3963 s and 4165 s). The numbers are the chain's, wall clock.
+
+THE FEEDBACK FOR COCOLOG. A probe on cocolog 2.12.0 (d71af1e), one run alone under the caps, asked each limit that the
+Findings hold open: `time_file/2` of a file touched at 12:00:00.75 answers `1793188800.0`, its fraction dropped;
+`X is 2 ** 64`, `X is 1 << 63` and `X is 10 ** 18 * 997` raise `evaluation_error(int_overflow)`, the flag `bounded` true
+and `max_integer` 2^63 - 1; `consult/1` as a goal and `load_files/2` raise `existence_error(procedure, ...)`; and
+`atom_chars/2` joins `['é', b]` to `'éb'` and splits `'é€'` in two, where the Findings said a character in such a list
+is one byte. The first three went to the cocolog session, `time_file/2` first: the three caches keyed on a file's time
+(the C store's `ccl_kb_key/2`, a C++ summary's `ccl_deps_hold/1`, 0.221's IR cache `dr_cxx_key_deps/2`) serve an old
+entry when the file changes within the second of its last read, and `test/reader.pl` waits 1.1 s before its touch; then
+the integers (the `ccl_w_*` limbs and `big(Atom)` could go with bignums) and the two loaders, each of no urgency; with
+the numbers of the chain, the flow gate's one finding (no defect of the chart) and the note of ours that the probe found
+old. `SendMessage` reached no session of that name (it lists the sessions of this machine), so the feedback went as a
+scheduled task of the owner's account bound to that session, run once at 16:14:35 UTC and spent (`run_once_fired`), as
+the cocolog session sends its own news to this one. That session rebuilt cocolog 2.12.1 today; this repository's gates
+ran on 2.12.0.
+
+TWO NOTES OUT OF DATE, corrected: the Findings' `atom_chars/2` (a character one byte, which 2.12.0 no longer holds), and
+the pool's reason, in `test/parlib.sh`'s head and in its topic, which said that cocolog has no garbage collector -- it
+collects its heap since 1.8.36 (the Findings); the pool gates on memory because a build holds hundreds of megabytes and
+a header's cold read more.
+
+GATED BEFORE ITS COMMIT: the module rebuilt with its version (`cicilang 0.222`), and over it and a fresh HOME, from
+16:19:45 UTC, the flow gate (105 s, its one finding; it sources `test/parlib.sh`), the reader gate (4 s), the compile
+gate (28 s, 156 run fixtures and 61 refusals), the driver gate (23 s, 48 checks, `--version` among them), the objects
+gate (5 s) and the proof GREEN. The cross gate and the two libc++ gates did not run: of what they read only the comment
+lines of `test/parlib.sh`'s head changed, which the flow gate's pool read.
+
+- `RULES.md`: the Hosts bullet of What runs (the chain of 0.221), the Findings (`time_file/2`, the integers, the two
+  loaders, `atom_chars/2`), the pool's topic. `CLAUDE.md`: the versions. `test/parlib.sh`: its head.
+
+Reader 164 and lowering 129, as 0.221 left them.

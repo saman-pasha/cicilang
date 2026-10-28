@@ -387,8 +387,9 @@ that changes a rule edits the rule here, in its topic, and writes its entry in `
 
 - `ccl_pool NMAX LAUNCH_MB HARD_MB` reads one shell line per job from its standard input. It starts a job only while
   fewer than NMAX run and the summed RSS of every `cocolog … query` and `cocolog … run` on the box (`ccl_cocolog_rss`)
-  is under LAUNCH_MB. It gates on memory because cocolog has no garbage collector and a build peaks in gigabytes. A
-  run is counted since 0.148: `library(flow/debug)`'s probes and replays under `CPP_WHY=1` are `cocolog run`s, in
+  is under LAUNCH_MB. It gates on memory because a build holds hundreds of megabytes and a header's cold read more:
+  cocolog collects its heap since 1.8.36 (the Findings), but what stays live is that large (0.222). A run is counted
+  since 0.148: `library(flow/debug)`'s probes and replays under `CPP_WHY=1` are `cocolog run`s, in
   process groups of their own. (0.105, 0.148)
 - Past HARD_MB the pool kills every cocolog query and run on the box with `pkill -9` and returns 1, a RED. The
   defaults are 4 jobs, 9000 MB and 14000 MB: `CPP_JOBS`, `CPP_LAUNCH_MB`, `CPP_HARD_MB` in `test/cpp.sh`, the `LX_`
@@ -9839,8 +9840,9 @@ A lambda is a class of its captures (`library/ccl_cpp.pl`). A fixture named alon
   `max_integer` 2^63 - 1. Through 1.15.0 they were 61-bit and `is/2` wrapped in silence. cicilang leans on neither: a
   literal past 2^60 is `big(Atom)` in both lexers, the constant evaluator computes 64 bits and more over base-2^30
   limbs (`ccl_w_*`, the 64-bit arithmetic topic), and `dr_fold/4` keeps two folds under 2^31; the chain of 0.157 is
-  GREEN on 2.1.0, the library unchanged.
-  (0.94, 0.157) Through 1.13.7 `X >> N` and `X << N` took N modulo 64, as the machine's shift does (measured at 0.154
+  GREEN on 2.1.0, the library unchanged. On 2.12.0 `X is 2 ** 64`, `X is 1 << 63` and `X is 10 ** 18 * 997` raise
+  `int_overflow` still; told to cocolog's owner at 0.222, a request of no urgency. (0.94, 0.157, 0.222)
+  Through 1.13.7 `X >> N` and `X << N` took N modulo 64, as the machine's shift does (measured at 0.154
   and 0.155 on 1.13.3): `1 >> 64` was 1, `1 >> 128` 1, `255 >> 64` 255 and `1 >> -1` 0, where SWI answers 0, 0, 0 and 2,
   and `1 << 64` 1 and `1 << 65` 2, where the 61-bit wrap of the true value is 0: cocolog shifted two C `i64` values
   (`lib/solve.cicili`'s `is/2`, `lib/kb.cicili`'s compiled arithmetic), a shift that C leaves undefined for a count past
@@ -9954,8 +9956,10 @@ A lambda is a class of its captures (`library/ccl_cpp.pl`). A fixture named alon
   /path/bad.pl:2:15: Syntax error: ...`. (0.93, 0.148)
 - Through 1.11.7 `atom_chars/2` and `number_chars/2`, joining a list, crashed the process (SIGSEGV, exit 139) where
   its first or second element was no one-byte character, and failed silently on a list of 4096 or more; since 1.11.8
-  they raise `type_error(character, X)` or `instantiation_error` and join any length. A character is one byte: a
-  non-ASCII letter in such a list is an error, where SWI takes it. No file of cicilang calls either. (0.148)
+  they raise `type_error(character, X)` or `instantiation_error` and join any length. A character was one byte, a
+  letter past ASCII in such a list an error where SWI takes it; 2.12.0 takes any character, as SWI does:
+  `atom_chars(A, ['é', b])` joins `'éb'`, and `atom_chars('é€', L)` splits it in two (0.222). No file of cicilang
+  calls either. (0.148, 0.222)
 - `cocolog --embed run FILE goal` consults FILE into the store, and a module's clauses do not reach the knowledge base
   (1.2.18): a gate program is loaded by `ensure_loaded/1` from a `query` (`reader_main`, `compile_main`, `cpp_main`).
   Every dynamic predicate asserted at run time persists under `--embed`. A second `ensure_loaded/1` replaces a file's
@@ -9976,7 +9980,12 @@ A lambda is a class of its captures (`library/ccl_cpp.pl`). A fixture named alon
   and since 2.1.0 `=@=/2`, `\=@=/2` and `subsumes_term/2`; `current_prolog_flag/2` answers ten flags, by name only
   (an unbound flag enumerates none): `executable`, `argv`, `os_argv`, `double_quotes`, since 1.13.0 `text_units`, and
   since 2.0.0 `bounded`, `max_integer`, `min_integer`, `max_tagged_integer` and `min_tagged_integer` (the cell's
-  2^60 - 1 and -2^60). `time_file/2` answers whole seconds.
+  2^60 - 1 and -2^60). `time_file/2` answers whole seconds: on 2.12.0 a float with its fraction dropped (a file touched
+  at 12:00:00.75 answers `1793188800.0`; 0.222). So a file that changes within the second of its last read leaves the
+  three caches keyed on its time served old -- the C store (`ccl_kb_key/2`), a C++ summary's dependencies
+  (`ccl_deps_hold/1`) and the C++ IR cache (`dr_cxx_key_deps/2`) --, and `test/reader.pl` waits 1.1 s before its
+  touch. Raised with cocolog's owner at 0.222, the most useful of three requests: with it the integers past 64 bits
+  and `consult/1` and `load_files/2`, which 2.12.0 still lacks, each of no urgency. (0.140, 0.142, 0.222)
 - `nb_getval/2` of an unset global throws an existence error. `nb_current(K, V)` (1.12.0) fails there in one inference;
   a bound K that is no atom raises `type_error(atom, K)`, and an unbound K enumerates the globals, so a key is made
   bound before the read. A global that may be unset is read through `ccl_global/3` (with a default) or `nb_current/2`
@@ -10234,17 +10243,17 @@ A lambda is a class of its captures (`library/ccl_cpp.pl`). A fixture named alon
 - Ubuntu 24.04 on x86_64 (clang and LLVM 18, glibc, libc++ 18 and 21) is a host since 0.87. Every gate but the C++ one
   is GREEN there since 0.93, and all seven since 0.95. Every step from 0.93 on is gated there, but the save points
   0.112, 0.113, 0.117, 0.122 to 0.125, 0.130, 0.131 and 0.143 (0.143's C gates and cross gate ran, its libc++ gates did
-  not; the others were gated by the steps after them). The last full run is 0.221's, before its commit, over cocolog
-  2.12.0 (the Findings), on its work tree, over fresh HOMEs: over libc++ 18 all nine GREEN (the flow gate's one finding
-  in 91 s, reader 4 s, compile 23 s, driver 19 s, objects 4 s, proof, the cross gate in 284 s with its C++ part for
-  aarch64, the library read in 443 s (203 other headers warmed), the C++ gate in 1209 s with 826 of 836 fixtures ok,
-  the skips are `atomicref`, `atomicrefalign`, `ftm23b`, `ftm26b`, `joinwith`, `stdflatmap`, `stdoptionalref`,
-  `tzone`, `vbaseof` and `zipadjacent`, the two units, the 30 refusals, the 35 of the safe part and the eight static
-  assertions); over libc++ 21 the library read (the phase 390 s) and the C++ gate (about 1261 s, 834 of 836 ok,
-  the skips `stdoptionalref` and `zipadjacent`) GREEN -- the C gates do not read libc++. The headers' reads, summed,
-  took 1618 s over 226 over libc++ 18 and 1432 s over 21; the fixtures' builds 3963 s over 826 and 4165 s over
-  834. The chains of 0.165 to 0.203 and of 0.205 to 0.219 are in HISTORY.md, 0.166 to 0.204 and 0.206 to 0.220;
-  0.221's runs after its commit. Two libc++ passes are one gate: `LLVM=/usr/lib/llvm-18` and
+  not; the others were gated by the steps after them). The last full run is 0.221's chain, over its commit (44ae388)
+  and cocolog 2.12.0 (the Findings), on a clean tree with its two modules built, over fresh HOMEs: over libc++ 18 all
+  nine GREEN (the flow gate's one finding in 88 s, reader 4 s, compile 23 s, driver 20 s, objects 5 s, proof, the cross
+  gate in 287 s with its C++ part for aarch64, the library read in 451 s (203 other headers warmed), the C++ gate in
+  1234 s with 826 of 836 fixtures ok, the skips are `atomicref`, `atomicrefalign`, `ftm23b`, `ftm26b`, `joinwith`,
+  `stdflatmap`, `stdoptionalref`, `tzone`, `vbaseof` and `zipadjacent`, the two units, the 30 refusals, the 35 of the
+  safe part and the eight static assertions); over libc++ 21 the library read (the phase 399 s) and the C++ gate (about
+  1234 s, 834 of 836 ok, the skips `stdoptionalref` and `zipadjacent`) GREEN -- the C gates do not read libc++. The
+  headers' reads, summed, took 1663 s over 226 over libc++ 18 and 1468 s over 21; the fixtures' builds 4026 s over 826
+  and 4109 s over 834. The chains of 0.165 to 0.203, of 0.205 to 0.219 and of 0.221 are in HISTORY.md, 0.166 to 0.204,
+  0.206 to 0.220 and 0.222. Two libc++ passes are one gate: `LLVM=/usr/lib/llvm-18` and
   `LLVM=/usr/lib/llvm-21` choose the tree the chain reads and links. libc++ 22 (the newest tree, which a run without
   `$LLVM` reads) is no gate: 0.182 built its vector and its C++23 views by hand (`zipadjacent.cpp`, which its `.needs`
   skips over 18 and 21), and `stdoptionalref` passes there. The run before 0.121's (0.118, 0.119) found, over 0.117, two
