@@ -214,6 +214,7 @@ One row per step, in version order: the step's title, what it did and its gate n
 | 0.217 | the safe part's Not done records: what a local's storage holds kept under keys of its own; a local's address refused where it outlives the function, C's plain slots among them; a store followed through references, local pointers and iterators; the borrow that dangles first; a parameter's own storage and a local's own address; what a function of the program and a free library function store; 0.216's chain | in C the safe part accepted a local's address stored through a pointer parameter, in a global or in a returned struct; it accepted `return &n;` over a parameter by value; 0.216 accepted a store through a loop's reference, `std::swap`, `std::fill`, `std::copy` or a program's function; it accepted an iterator into a dead vector, and the program crashed; a join lost a key that one side made; found older, in Not done: a static data member of a library class, and `stdcharconv.cpp`'s failure in one cache state that no gate meets | gated before its commit: all nine gates GREEN over libc++ 18 (the C++ gate 806 of 816 ok, 10 skipped) and the two libc++ gates over 21 (814 of 816 ok, 2 skipped); it carries 0.216's chain: all nine gates GREEN over libc++ 18, the two libc++ gates over 21 |
 | 0.218 | the two defects 0.217 found: a static data member of a library class, its definition out of the class resolved in the class's scope and an inline one with no initializer its class's definition; a header read in the build's own process registered from the AST its read wrote; and what its probes found: a class template's static member defined out of it with no initializer, a qualified class name that two headers' reads declare in two namespaces; the index's rows for 0.209 to 0.218; 0.217's chain | `std::vector<int> K::all;` was not lowered, and a `static inline` member with no initializer was undefined at the link; `int K::arr[N]` over the class's `N` was not lowered; a class template's static member defined out of it with no initializer was undefined; `<system_error>` read in the process after `<charconv>` was served took its `__traits`; `#include <string>`, `<memory>`, `<algorithm>` or `<system_error>` before `<charconv>` refused `std::from_chars`, cold or warm, over 0.217 too; 33 bare names stand in two or more namespaces across libc++ 18's reads; an unqualified use of such a name stays Not done (`std::variant<int>` after `<charconv>`); the box ran 0.217's chain at about half its speed; the index had no rows after 0.208 | gated before its commit: all nine gates GREEN over libc++ 18 (the C++ gate 809 of 819 ok, 10 skipped) and the two libc++ gates over 21 (817 of 819 ok, 2 skipped); it carries 0.217's chain: all nine gates GREEN over libc++ 18, the two libc++ gates over 21 |
 | 0.219 | the Not done records: an unqualified class name that two headers' reads declare in two namespaces registered in its own namespace's words, a class declared and not defined renamed with the rest; the address of a pointer or array parameter its own storage; C's conditional of two object pointers; and what its probes found: a namespace-scope object not seen by its own class's members, a header's deleted function called -- `<compare>`'s customization point objects; a record found done already; 0.218's chain | `#include <charconv>` before `<variant>` refused `std::variant<int>`, over 0.218 too; the step's first form met `template_without_body('__function.__base')` with `<string>` before `<functional>`; `std::strong_order(1, 2)`, `std::weak_order`, `std::partial_order` and the fallbacks ran past the memory cap over libc++ 18 and were refused `undeclared('__strong_order.strong_order')` over 21, no fixture calling them; in C `int **f(int *p) { return &p; }` was accepted and `_Generic` over a conditional of an `int *` and a `float *` chose the default; `typeof` and `decltype` of an aligned variable were done since 0.203 and 0.206; a stringized universal character name differs from clang's in the `-E` text alone; left: a function or an object across the reads, a program's function named as a library object, a call through a temporary function object whose `operator()` is constrained | gated before its commit: all nine gates GREEN over libc++ 18 (the C++ gate 811 of 821 ok, 10 skipped) and the two libc++ gates over 21 (819 of 821 ok, 2 skipped); it carries 0.218's chain: all nine gates GREEN over libc++ 18, the two libc++ gates over 21 |
+| 0.220 | the chain of 0.219 | no library file changed: the numbers of 0.219's chain; 0.219 costs a warm build a second at most (`stdstringstream` and `formatton` built by 0.218 and by 0.219 in turn); the flow gate's one finding, which the owner asked about: the call of `'$ccl_sum_big'/3` in `ccl_sum_bigs_/3`, a table that a summary's `.big.pl` file defines at run time, no defect | all nine gates GREEN over libc++ 18 in 0.219's chain (811 of 821 C++ fixtures ok), the two libc++ gates over 21 (819 of 821); the headers' reads summed 1987 s and 1752 s (0.218's 2791 s and 2462 s), the fixtures' builds 4139 s and 4412 s; before its commit the reader, compile, driver and objects gates and the proof GREEN over its module |
 
 ## M5 — the C++ mode
 
@@ -14899,4 +14900,54 @@ Lowering 127 (an unqualified class name over two headers' reads renamed in its i
 unseen by its own class, a header's deleted function refused: what the desugaring emits changes; a pointer or array
 parameter's address its own storage: what the check accepts changes; C's conditional of two object pointers: a type the
 inference answers changes). The reader stays 163.
+
+## 0.220 — the chain of 0.219
+
+**0.220: 0.219's chain ended, all GREEN. Committed after it on the owner's word ("commit and push"), with no library
+file changed: its numbers are this step, with a measurement of what 0.219 costs a build, and the owner's question of the
+flow gate's one finding answered.**
+
+THE CHAIN OF 0.219, on the checkout of its commit (a70ee4b; module 0.219, reader 163, lowering 127, over cocolog
+2.12.0), its two modules built, over fresh HOMEs, from 00:36:15 UTC: over libc++ 18 all nine gates GREEN -- the flow
+gate 109 s (its one finding, `test/flow.expect`'s), reader 4 s, compile 27 s (153 run fixtures and 61 refusals), driver
+20 s (44 checks), objects 5 s, the proof, the cross gate 325 s (186 checks), the library read 536 s (the 23 asserted
+reads whole, 203 other headers warmed, none failed), the C++ gate 1282 s with 811 of 821 fixtures ok and 10 skipped by
+their needs, the two units, the 29 refusals, the 33 of the safe part and the four static assertions, to 01:14:43 UTC --;
+over libc++ 21 the library read (its phase 471 s, to 01:22:35 UTC) and the C++ gate GREEN in about 1341 s, 819 of 821
+ok, 2 skipped (`stdoptionalref.cpp`, `zipadjacent.cpp`), to 01:44:56 UTC. The headers' reads summed 1987 s over 226 over
+libc++ 18 and 1752 s over 21 (0.218's chain 2791 s and 2462 s); the fixtures' builds 4139 s over 811 and 4412 s over 819
+(0.218's 5542 s over 809 and 5504 s over 817). The numbers are the chain's, wall clock.
+
+WHAT 0.219 COSTS A BUILD: every time of the chain is 0.71 to 0.83 of 0.218's chain's, and the headers' reads, which
+0.219 does not change, 0.71; but the 809 and 817 builds that both chains made took 0.744 of 0.218's over libc++ 18 and
+0.799 over 21, the 37 and 36 that took 30 s or more at 0.218 0.709 and 0.797. 0.219 registers each header's items
+through a table of the names across the reads (`cpp_hdr_load_items/2`, `cpp_cross_table/1`), made once for the ASTs
+loaded, so the difference over libc++ 21 could have been its cost. Measured alone: warm builds over libc++ 21 and the
+chain's HOME (its summaries serve both, the reader 163 in both), by 0.218 (`chain218`) and by 0.219 (`chain219`) in
+turn, twice each, one at a time under the caps -- `stdstringstream.cpp` 51.3 s and 45.9 s on the first round (the first
+build met a cold disk cache), 41.6 s and 42.6 s on the second; `formatton.cpp` 30.2 s and 29.2 s, then 28.1 s and 29.1
+s; each output the fixture's. 0.219 costs a build no more than the spread of the runs themselves, a second at most, and
+the rest of the difference over libc++ 21 is the box's own, its speed changed between the passes of the chain (over
+libc++ 18 the long builds' 0.709 is the reads' 0.712).
+
+THE FLOW GATE'S ONE FINDING, which the owner asked about, the one key of `test/flow.expect` since 0.160:
+`unknown_procedure warning library/ccl_include.pl ccl_sum_bigs_/3 '$ccl_sum_big'/3`. `ccl_sum_bigs_/3` asks
+`'$ccl_sum_big'(F, I, T)` for each line `big(I)` of a summary, a term too long for one line (0.112: `term_to_atom/2`
+reads through an 8 KB buffer in cocolog), and no file of the library defines that table: each summary's `.big.pl` file
+does, loaded by `ensure_loaded/1` at run time (`ccl_sum_bigs_in/3`) from a path made from the summary's. The chart reads
+the library and runs nothing, so it cannot see the clauses of a file whose path is made at run time; the call is under a
+`catch/3` that takes its existence error, so it is a warning, not an error (cocolog 1.11.4's answer to 0.144's report).
+It is no defect: a `big(I)` with no clause behind it stays in the terms and makes the summary invalid (`ccl_sum_valid`),
+so the header is read again rather than served short. The gate holds the key so that any other finding is RED, and a
+finding that goes must leave the file in its own step. 0.219 met no other finding and no limit of the flow library: each
+of its four edits of the library charted GREEN (121 to 142 s), its chain too (109 s).
+
+GATED BEFORE ITS COMMIT: the module rebuilt with its version (`cicilang 0.220`), and over it and a fresh HOME the reader
+gate (5 s), the compile gate (25 s, 153 run fixtures and 61 refusals), the driver gate (19 s, 44 checks, `--version`
+among them), the objects gate (5 s) and the proof GREEN. The flow gate, the cross gate and the two libc++ gates did not
+run: no file that they read changed but the version's string.
+
+- `RULES.md`: the Hosts bullet of What runs (the chain of 0.219). `CLAUDE.md`: the versions.
+
+Reader 163 and lowering 127, as 0.219 left them.
 

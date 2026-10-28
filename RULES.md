@@ -10013,21 +10013,22 @@ A lambda is a class of its captures (`library/ccl_cpp.pl`). A fixture named alon
 - Ubuntu 24.04 on x86_64 (clang and LLVM 18, glibc, libc++ 18 and 21) is a host since 0.87. Every gate but the C++ one
   is GREEN there since 0.93, and all seven since 0.95. Every step from 0.93 on is gated there, but the save points
   0.112, 0.113, 0.117, 0.122 to 0.125, 0.130, 0.131 and 0.143 (0.143's C gates and cross gate ran, its libc++ gates did
-  not; the others were gated by the steps after them). The last full run is 0.218's, over cocolog 2.12.0 (the Findings),
-  on one tree, over fresh HOMEs: over libc++ 18 all nine GREEN (the flow gate's one finding in 137 s, reader 6 s,
-  compile 33 s, driver 24 s, objects 6 s, proof, the cross gate in 422 s with its C++ part for aarch64, the library read
-  in 731 s (203 other headers warmed), the C++ gate in 1709 s with 809 of 819 fixtures ok, the skips are `atomicref`,
+  not; the others were gated by the steps after them). The last full run is 0.219's, over cocolog 2.12.0 (the Findings),
+  on one tree, over fresh HOMEs: over libc++ 18 all nine GREEN (the flow gate's one finding in 109 s, reader 4 s,
+  compile 27 s, driver 20 s, objects 5 s, proof, the cross gate in 325 s with its C++ part for aarch64, the library read
+  in 536 s (203 other headers warmed), the C++ gate in 1282 s with 811 of 821 fixtures ok, the skips are `atomicref`,
   `atomicrefalign`, `ftm23b`, `ftm26b`, `joinwith`, `stdflatmap`, `stdoptionalref`, `tzone`, `vbaseof` and
   `zipadjacent`, the two units, the 29 refusals, the 33 of the safe part and the four static assertions); over libc++ 21
-  the library read (the phase 648 s) and the C++ gate (about 1690 s, 817 of 819 ok, the skips `stdoptionalref` and
-  `zipadjacent`) GREEN -- the C gates do not read libc++. The headers' reads, summed, took 2791 s over 226 over libc++
-  18 and 2462 s over 21; the fixtures' builds 5542 s over 809 and 5504 s over 817, the box at about half the speed it
-  had before the container's restart that 0.217's chain met (every time about twice 0.216's). The chains of 0.165 to
-  0.203 and of 0.205 to 0.218 are in HISTORY.md, 0.166 to 0.204 and 0.206 to 0.219. Two libc++ passes are one gate:
-  `LLVM=/usr/lib/llvm-18` and `LLVM=/usr/lib/llvm-21` choose the tree the chain reads and links. libc++ 22 (the newest
-  tree, which a run without `$LLVM` reads) is no gate: 0.182 built its vector and its C++23 views by hand
-  (`zipadjacent.cpp`, which its `.needs` skips over 18 and 21), and `stdoptionalref` passes there. The run before
-  0.121's (0.118, 0.119) found, over 0.117, two defects and one stale check of `test/cpp.pl` (c20, above).
+  the library read (the phase 471 s) and the C++ gate (about 1341 s, 819 of 821 ok, the skips `stdoptionalref` and
+  `zipadjacent`) GREEN -- the C gates do not read libc++. The headers' reads, summed, took 1987 s over 226 over libc++
+  18 and 1752 s over 21; the fixtures' builds 4139 s over 811 and 4412 s over 819, every time 0.71 to 0.83 of 0.218's
+  chain's: the box ran faster after the container's restarts, and warm builds by 0.218 and by 0.219 in turn took the
+  same within a second (0.220's entry in HISTORY.md). The chains of 0.165 to 0.203 and of 0.205 to 0.219 are in
+  HISTORY.md, 0.166 to 0.204 and 0.206 to 0.220. Two libc++ passes are one gate: `LLVM=/usr/lib/llvm-18` and
+  `LLVM=/usr/lib/llvm-21` choose the tree the chain reads and links. libc++ 22 (the newest tree, which a run without
+  `$LLVM` reads) is no gate: 0.182 built its vector and its C++23 views by hand (`zipadjacent.cpp`, which its `.needs`
+  skips over 18 and 21), and `stdoptionalref` passes there. The run before 0.121's (0.118, 0.119) found, over 0.117, two
+  defects and one stale check of `test/cpp.pl` (c20, above).
 - The host sets the predefined macros (`ccl_host_os/1` and `ccl_host_arch/1` in the module), the inclusion path
   (Debian's `/usr/lib/llvm-NN`, the multiarch directory) and the link (`-lc++` and `-lm` on Linux) (0.87, 0.93, 0.100).
 - A struct passed or returned by value crosses a call as clang's x86-64 code expects, in both directions, with the
