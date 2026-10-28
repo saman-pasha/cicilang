@@ -130,6 +130,18 @@ dr_preprocess(F, Options) :-
 %% its AST reaches, the lowering's version and the host. A file whose signature
 %% matches is served: not read again for its check and lowering, the check
 %% having passed when the IR was made. A file whose check fails stores nothing.
+%% ... AND A C++ FILE'S IR AS A FILE BESIDE THE SUMMARIES (0.221; the owner's decision 4 of 0.190: C++'s reads never use the store),
+%% ~/.cicilang/cpp/ir/<name>-<fold>-<fold>.ll, keyed as the store's signature is -- the lowering's version, the host, -g's kind --
+%% and by what a C++ read is read under, the summaries' own key (the reader's version, the level, the command line's macros, the
+%% target, the RTTI and exceptions configuration, the program's feature-test macros), the file's text, and each file its AST
+%% reaches by its time: a local header, a macro file, a library header and its summary, which is written again where one of its
+%% deps moved. A file whose check fails keeps nothing, and one that names `__DATE__', `__TIME__' or `__TIMESTAMP__' none, its
+%% text being its build's. The file is written under a name of its own and renamed into place (ccl_tmp_name/2), so two builds
+%% at once never read half of one. CICILANG_NO_IR_CACHE set builds uncached: the gates set it (test/config.sh), and their
+%% builds are their fixtures' own
+dr_ir(F, AST, IR) :- ccl_lang(cpp), dr_cxx_ir_on, dr_cxx_ir_file(F, AST, P), !,
+    (   catch(dr_cxx_ir_read(P, IR0), _, fail) -> dr_say(['served ', F, ' from the IR cache']), IR = IR0
+    ;   dr_say(['check and lower ', F]), cicilang_ir([AST], IR), catch(dr_cxx_ir_write(P, IR), _, true) ).
 dr_ir(F, AST, IR) :-
     dr_ir_ready, dr_ir_sig(F, AST, Sig),
     (   dr_ir_cached(F, Sig, IR0) -> dr_say(['served ', F, ' from the store']), IR = IR0
@@ -175,6 +187,30 @@ dr_chunks(Codes, [A|As]) :- dr_take(3500, Codes, Head, Tail), atom_codes(A, Head
 dr_take(0, T, [], T) :- !.
 dr_take(_, [], [], []) :- !.
 dr_take(K, [C|Cs], [C|H], T) :- K1 is K - 1, dr_take(K1, Cs, H, T).
+dr_cxx_ir_on :- \+ ( catch(os_env('CICILANG_NO_IR_CACHE', V), _, fail), V \== '' ).
+dr_cxx_ir_file(F, AST, P) :-
+    read_file_to_codes(F, Cs), \+ dr_text_dated(Cs), ccl_fold(Cs, 7, 131, T1), ccl_fold(Cs, 13, 137, T2),
+    ccl_lowering_version(LV), ccl_reader_version(RV), ir_arch_init, ir_arch(Arch), ccl_std(Std), ccl_cmdline_key(CK), ccl_target_key(TK),
+    ccl_config_key(GK), ccl_ftm_tag(FK),
+    ( nb_current('$ccl_debug', Dbg0) -> true ; Dbg0 = none ), ( nb_current('$ccl_debug_kind', DK) -> true ; DK = none ),
+    ( nb_current('$ccl_debug_macros', events(_)) -> DM = macros ; DM = none ),
+    dr_unit_deps(AST, Ds0), sort(Ds0, Ds), dr_cxx_key_deps(Ds, Keys0), sort(Keys0, Keys),
+    term_to_atom(cxxir(LV, RV, Arch, Std, CK, TK, GK, FK, Dbg0-DK, DM, F, T1-T2, Keys), A), atom_codes(A, Ks),
+    ccl_fold(Ks, 7, 131, S1), ccl_fold(Ks, 13, 137, S2),
+    ccl_sum_dir(SD), atomic_list_concat(Parts, '/', F), last(Parts, Base), atomic_list_concat([SD, '/ir/', Base, '-', S1, '-', S2, '.ll'], P).
+%% A KEY THAT A COLD READ AND A WARM ONE GIVE ALIKE (0.221): a library header read cold is its preprocessed unit, whose items
+%% name no file, and served it is its summary, the header and the summary's file -- so the key of the first build, over a
+%% cold read, was never met again. A library header stands for the files its summary records (`dep(P, T)', the files its
+%% preprocessor pulled, with their times), a summary's own file for nothing, any other file for itself with its time
+dr_cxx_key_deps([], []).
+dr_cxx_key_deps([D|Ds], Ks) :- sub_atom(D, _, _, 0, '.sum'), !, dr_cxx_key_deps(Ds, Ks).
+dr_cxx_key_deps([D|Ds], Ks) :- ccl_sum_file(D, F), exists_file(F), catch(ccl_sum_terms(F, Terms), _, fail),
+    findall(P-T, member(dep(P, T), Terms), Ps), Ps \== [], !, dr_cxx_key_deps(Ds, K1), append(Ps, K1, Ks).
+dr_cxx_key_deps([D|Ds], [D-T|Ks]) :- ( catch(time_file(D, T0), _, fail) -> T = T0 ; T = none ), dr_cxx_key_deps(Ds, Ks).
+dr_text_dated(Cs) :- atom_codes(A, Cs), ( sub_atom(A, _, _, _, '__DATE__') ; sub_atom(A, _, _, _, '__TIME__') ; sub_atom(A, _, _, _, '__TIMESTAMP__') ), !.
+dr_cxx_ir_read(P, IR) :- exists_file(P), read_file_to_codes(P, Cs), Cs \== [], atom_codes(IR, Cs).
+dr_cxx_ir_write(P, IR) :- ccl_sum_dir(SD), atomic_list_concat(['mkdir -p \'', SD, '/ir\''], Mk), once(catch(proc_run(Mk, 10000, _, _), _, true)),
+    atom_codes(IR, Cs), ccl_tmp_name(P, T), write_file_from_codes(T, Cs), rename_file(T, P).
 dr_ll(F, Options, Flags, Objs, Objs1) :-
     read_file_to_codes(F, Cs), atom_codes(IR, Cs), dr_emit(F, IR, Options, Flags, Objs, Objs1).
 dr_emit(F, IR, Options, Flags, Objs, Objs1) :-
@@ -210,6 +246,11 @@ dr_report(F, error(E, W)) :- !, once(dr_diag(F, E, W)).
 dr_report(F, E) :- once(dr_error(F, 0, [E])).
 dr_diag(_, syntax_error(cicilang_ast(File, line(L), near(N))), _) :- !, dr_error(File, L, ['syntax error: could not read this item (gave up near line ', N, ')']).
 dr_diag(_, syntax_error(cicilang_ast(File, lexical, line(L))), _) :- !, dr_error(File, L, ['lexical error']).
+%% A CHARACTER PAST ASCII THAT BEGINS NO TOKEN (0.221), named as clang names it: one that may follow in an identifier at the
+%% level and not begin one, `not allowed at the start of an identifier', any other `not allowed in an identifier'
+dr_diag(_, syntax_error(cicilang_ast(File, char(C), line(L))), _) :- !, dr_hex4(C, H),
+    ( catch(ccl_id_cp(more, C), _, fail) -> W = ' not allowed at the start of an identifier' ; W = ' not allowed in an identifier' ),
+    dr_error(File, L, ['character <U+', H, '>', W]).
 dr_diag(F, cannot_infer(N, E), here(_, L)) :- !, dr_error(F, L, ['cannot infer the type of ', N, ' from ', E]).
 dr_diag(F, pp_error(M), here(_, L)) :- !, dr_error(F, L, [M]).                      % the file's own #error, its text; an #embed of nothing
 dr_diag(F, static_assert_failed(T), here(_, L)) :- !, ( T == '' -> dr_error(F, L, ['static assertion failed']) ; dr_error(F, L, ['static assertion failed: ', T]) ).
@@ -230,6 +271,12 @@ dr_diag(F, no_embedded_llvm, _) :- !, dr_error(F, 0, ['the embedded LLVM is not 
 dr_diag(F, cocolog_error(Msg), _) :- !, dr_error(F, 0, ['LLVM: ', Msg]).            % the embedded LLVM's refusal
 dr_diag(F, link_failed(Msg), _) :- !, dr_error(F, 0, ['link: ', Msg]).
 dr_diag(F, E, W) :- dr_error(F, 0, [E, ' ', W]).
+%% a code point as clang writes it after `U+': upper-case hex digits, four at the least
+dr_hex4(C, H) :- dr_hex_digits(C, Ds0), dr_pad4(Ds0, Ds), atom_codes(H, Ds).
+dr_hex_digits(C, [D]) :- C < 16, !, dr_hex_digit(C, D).
+dr_hex_digits(C, Ds) :- Q is C // 16, R is C mod 16, dr_hex_digits(Q, Ds0), dr_hex_digit(R, D), append(Ds0, [D], Ds).
+dr_hex_digit(V, D) :- ( V < 10 -> D is 0'0 + V ; D is 0'A + V - 10 ).
+dr_pad4(Ds0, Ds) :- length(Ds0, N), ( N < 4 -> dr_pad4([0'0|Ds0], Ds) ; Ds = Ds0 ).
 dr_kind(use_after_move, 'use after move of') :- !.
 dr_kind(owner_unset, 'owner used before it was given anything:') :- !.
 dr_kind(borrow_after_move, 'use of a borrow after its owner was consumed:') :- !.

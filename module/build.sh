@@ -34,6 +34,15 @@ TAB=$(printf '\t')
   awk -F"'" '/^ccl_uname_range\(/ { v = $3; sub(/^, /, "", v); sub(/\).*$/, "", v); printf "{\"%s\", %s},\n", $2, v }' "$ROOT/library/ccl_uninames.pl"
   echo "};"
 } > "$HERE/ccl_uninames.h"
+# the identifier's characters past ASCII and the white space past ASCII, spelled ONCE from library/ccl_xid.pl (0.221): a table of
+# ranges a set, ascending, for the native lexer's binary search
+{
+  for s in xs xc c11 c11n c99 c99n ws; do
+    echo "static const unsigned ccl_xid_$s[][2] = {"
+    awk -v s="$s" -F'[(), ]+' '$1 == "ccl_xid" && $2 == s { printf "{%s, %s},\n", $3, $4 }' "$ROOT/library/ccl_xid.pl"
+    echo "};"
+  done
+} > "$HERE/ccl_xid.h"
 mkdir -p "$OUT"
 ( cd "$CICILI" && sbcl --script cicili.lisp --release "$HERE/cicilang.cicili" )
 "$CC" -shared -fPIC -O2 -Wno-unused-function \

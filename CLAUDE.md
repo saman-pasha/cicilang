@@ -12,8 +12,8 @@ the fixture that gates it, and why. The bullet ends with the version that made t
 edits the rule in `RULES.md`, in its topic, and writes its entry in `HISTORY.md`. Read the topic of `RULES.md` that
 covers the code before the code is changed.
 
-At 0.220 the versions are: the module 0.220 (`ccl_p_version` in `module/cicilang.cicili`, `bin/cicilang --version`),
-the reader 163 (`ccl_reader_version/1`, `library/ccl_syntax.pl`) and the lowering 127 (`ccl_lowering_version/1`,
+At 0.221 the versions are: the module 0.221 (`ccl_p_version` in `module/cicilang.cicili`, `bin/cicilang --version`),
+the reader 164 (`ccl_reader_version/1`, `library/ccl_syntax.pl`) and the lowering 129 (`ccl_lowering_version/1`,
 `library/ccl_ir.pl`).
 
 Build and prove, always in this order (or all of it, `sh test/gates.sh`):
@@ -244,7 +244,8 @@ In `RULES.md`:
   and the push is `git push git@github.com:saman-pasha/cicilang.git main:main`; a session given another branch pushes
   there. (from the start, 0.101)
 - Never commit build output or scratch: `library/*.so`, `module/*.c` (but `module/bidrt.c`, a source: `.gitignore` excepts it, 0.138), `module/*.o`, `module/sdk.cicili`,
-  `module/ccl_uninames.h`, `proof/forty2`, `proof/*.o`, `KB/`, `*.log` (`.gitignore`). (from the start, 0.103)
+  `module/ccl_uninames.h`, `module/ccl_xid.h`, `proof/forty2`, `proof/*.o`, `KB/`, `*.log` (`.gitignore`). (from the
+  start, 0.103, 0.221)
 
 ## Where things are
 
@@ -264,13 +265,16 @@ module/cicilang.cicili      library(cicilang), in Cicili. The C side: ccl_versio
                             Prolog half: the four cicilang_ doors and the objects layer
 module/ccl_llvm.cicili      library(ccl_llvm), the embedded LLVM over llvm-c: ccl_llvm_version/1, ccl_llvm_triple/1,
                             ccl_llvm_check/2, ccl_llvm_compile/3 (parse, verify, target, passes, object)
-module/build.sh             writes ccl_uninames.h, transpiles cicilang.cicili, compiles library/cicilang.so
+module/build.sh             writes ccl_uninames.h and ccl_xid.h, transpiles cicilang.cicili, compiles
+                            library/cicilang.so
 module/build-llvm.sh        transpiles ccl_llvm.cicili, compiles library/ccl_llvm.so against LLVM's C API
 module/gen-uninames.pl      writes library/ccl_uninames.pl from Perl's Unicode::UCD
+module/gen-xid.pl           writes library/ccl_xid.pl: an identifier's characters past ASCII by the level and the white
+                            space past ASCII (Perl's Unicode::UCD, the Annex D lists), as clang 18 and 21 take them
 module/bidrt.c              a decimal floating value to and from a 128-bit integer, in C (0.137)
 module/gen-bidrt.sh, gen-bidrt.pl
                             compile bidrt.c with cicilang and write library/ccl_bidrt.pl
-module/cicilang.c, ccl_llvm.c, ccl_uninames.h, sdk.cicili
+module/cicilang.c, ccl_llvm.c, ccl_uninames.h, ccl_xid.h, sdk.cicili
                             made by the builds, never committed (sdk.cicili links to cocolog's lib/sdk.cicili)
 
 library/ccl_syntax.pl       the DCG lexer (the specification and the fallback), the parser, the symbol table kept
@@ -287,6 +291,9 @@ library/ccl_build.pl        ccl_compile/3 through the embedded LLVM, ccl_link/3 
 library/ccl_driver.pl       ccl_drive/2: the command's steps, the diagnostics in clang's shape, the IR cache dr_ir/3
 library/ccl_bidrt.pl        the decimal conversions of a 128-bit integer as IR text, generated from module/bidrt.c
 library/ccl_uninames.pl     the \N{NAME} table, generated: Unicode 15.0.0's names and aliases, loaded on the first \N{
+library/ccl_xid.pl          an identifier's characters past ASCII by the language and its level, and the white space
+                            past ASCII, generated (0.221): ccl_xid(Set, Lo, Hi), loaded on the first character past
+                            ASCII
 library/cicilang.so, ccl_llvm.so
                             built by the two module scripts, never committed
 library/include/            the compiler's own freestanding headers: each COCOLOG_LIBRARY directory's include/, after
@@ -350,10 +357,11 @@ tutorials/01..03-*.pl       the objects layer's lessons; goal main, last line do
 ### Outside the repository
 
 - `~/.cicilang/` is the user's cache. `KB` is the C store (`$CICILANG_KB` names another) and `KB.version` its stamp,
-  `Reader.Lowering`. `cpp/` holds the C++ summaries, one `<name>-<fold>-<fold>.sum` per header and level, with
-  `.ast.pl` (one `'$cpp_hdr_ast'(Name, Item)` clause per named item) and `.mac` (the header's macros) beside it.
+  `Reader.Lowering`. `cpp/` holds the C++ summaries, one `<name>-<fold>-<fold>.sum` per header and level, with `.ast.pl`
+  (one `'$cpp_hdr_ast'(Name, Item)` clause per named item) and `.mac` (the header's macros) beside it, and `cpp/ir/`
+  each C++ file's IR, `<name>-<fold>-<fold>.ll` (0.221; `CICILANG_NO_IR_CACHE` set builds uncached, as every gate does).
   `fixture-times`, `header-times` and `flow-times` keep the pools' timings, outside the `cpp/` that the library read
-  wipes. (0.105, 0.144)
+  wipes. (0.105, 0.144, 0.221)
 - The neighbours' checkouts are `$CICILI` and `$COCOLOG`, by default `~/Projects/GitHub/<name>`. Nothing names
   ZiguratIP's checkout: it is reached only as cocolog's store. (from the start)
 - The guard, watchdog, probe and trace scripts that `HISTORY.md` names (`scratchpad/guard.sh`, `watch.sh`, `gate.sh`,

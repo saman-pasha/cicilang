@@ -68,7 +68,7 @@ pp_mt_quoted([C|Cs], Q, [C|Out], R) :- pp_mt_quoted(Cs, Q, Out, R).
 %% directive item; a `#cocolog ... #end' block is the reader's, one token of
 %% its raw lines; a `.pl' include is the reader's macro file. A line that
 %% does not lex whole is the lexical error it always was.
-ccl_pp_top(Path, Tokens, Files) :- nb_setval('$pp_warnings', []), ccl_pp_prescan(Path), ccl_pp_top_run(Path, [], Tokens, Files), ( memberchk(tok(other, _, L), Tokens) -> throw(lexical(L)) ; true ).   % the warnings are the run's, read by the driver after the read (pp_reset leaves them: a nested header's run must not wipe the file's)
+ccl_pp_top(Path, Tokens, Files) :- nb_setval('$pp_warnings', []), ccl_pp_prescan(Path), ccl_pp_top_run(Path, [], Tokens, Files), ( memberchk(tok(other, C, L), Tokens) -> ( integer(C), C >= 128 -> throw(lexical_char(L, C)) ; throw(lexical(L)) ) ; true ).   % the warnings are the run's, read by the driver after the read (pp_reset leaves them: a nested header's run must not wipe the file's)
 ccl_pp_run(Path, Top, Tokens, Files) :-
     ccl_ensure_globals, pp_reset, nb_setval('$pp_top', Top),
     nb_setval('$ccl_hash', punct),                                                   % the run lexes in the preprocessor's mode: `#' a punctuator, a number as spelled
@@ -249,9 +249,16 @@ pp_defined_(_, G, N) :- ( pp_outer_macro(N, _, _) -> true ; pp_key(N, K), pp_not
 %% a header's table is the header's own)
 pp_outer_macro(N, Ps, Cs) :-                                                       % the predefined first: no header redefines one
     (   \+ nb_getval('$pp_top', yes), nb_current('$pp_ftm', F), F \== [], memberchk(N-D, F) -> ( D = def(Ps, Cs) -> pp_set_macro(N, Ps, Cs) ; pp_header_macro(N, Ps, Cs), pp_define(N, Ps, Cs) )   % THE PROGRAM'S FEATURE-TEST MACROS (0.214, pp_ftm_find/1) in a header's run, the file's after the command line's
-    ;   pp_cmdline(N, D) -> ( D = def(Ps, Cs) -> pp_set_macro(N, Ps, Cs) ; pp_header_macro(N, Ps, Cs), pp_define(N, Ps, Cs) )   % THE COMMAND LINE'S FIRST (0.112): `-DN=v' defines N before every file, `-UN' takes away a predefined one (a header may still define it)
+    ;   pp_cmdline(N, D), \+ pp_ndebug_hidden(N) -> ( D = def(Ps, Cs) -> pp_set_macro(N, Ps, Cs) ; pp_header_macro(N, Ps, Cs), pp_define(N, Ps, Cs) )   % THE COMMAND LINE'S FIRST (0.112): `-DN=v' defines N before every file, `-UN' takes away a predefined one (a header may still define it)
     ;   pp_predef_macro(N, Ps, Cs) -> pp_set_macro(N, Ps, Cs)
     ;   pp_header_macro(N, Ps, Cs), pp_define(N, Ps, Cs) ).
+%% ... BUT NOT NDEBUG IN THE READ OF <assert.h>'S OWN TABLE (0.221; C17 7.2/1: assert is defined by NDEBUG as it stands at each
+%% inclusion, pp_assert_include/1): in the run whose first file is <assert.h> or <cassert> the command line's NDEBUG is no macro,
+%% so the table holds the asserting `assert' and `__assert_fail', and each inclusion in the user's file applies NDEBUG there.
+%% Under -DNDEBUG the table held `assert' as ((void)0) and no `__assert_fail', and `#undef NDEBUG' before `#include
+%% <assert.h>' left the program's assertions out where clang's build asserts. A header that includes <assert.h> in its own
+%% run sees the command line's NDEBUG, as clang's does
+pp_ndebug_hidden('NDEBUG') :- nb_current('$pp_stack', St), St \== [], last(St, Root), atom(Root), ( sub_atom(Root, _, _, 0, '/assert.h') ; sub_atom(Root, _, _, 0, '/cassert') ), !.
 %% -D and -U, as clang reads them: `-DN' is N defined as 1, `-DN=v' as v, `-D"F(x)=x+1"' a function-like macro; `-UN'
 %% undefines N, the later of a -D and a -U of one name winning. The list is a process's own global, read where a
 %% name's macro is first looked for, so a header's table made in the same process is made under it too.
@@ -286,8 +293,11 @@ pp_predef_macro(N, obj, Cs) :-
 %% were facts no lookup reached, and `__INT64_C(5)' was a call of an undeclared function
 pp_predef_macro(N, [c], Cs) :- atom_concat(N, '(c)', FN), pp_predef_macro(FN, obj, Cs).
 pp_target_table(TT) :- pp_os(O), pp_arch(A), atomic_list_concat([O, '_', A], TT).
-%% C's levels, the newest first: what -std=c23 answers where C17's table would
-pp_c_std_table(S, c23) :- S >= 23.
+%% C's levels, the newest first: what -std=c23 answers where C17's table would -- and C11's and C99's own `__STDC_VERSION__'
+%% (0.221; C11 6.10.8.1, C99 6.10.8): C17's 201710L answered -std=c11, and -std=c99, taken for C23 by `S >= 23', C23's 202311L
+pp_c_std_table(S, c23) :- ccl_c_year(S, Y), Y >= 2023, !.
+pp_c_std_table(11, c11) :- !.
+pp_c_std_table(99, c99).
 pp_c_os_table(CTab, OTab) :- pp_os(O), atomic_list_concat([CTab, '_', O], OTab).   % c23_linux, c23_darwin
 pp_gnu_table(Tab) :- pp_os(O), atom_concat(gnu_, O, Tab).   % gnu_linux; gnu_darwin has no row
 pp_gnu_table(cpp_gnu) :- ccl_lang(cpp).
@@ -828,9 +838,11 @@ pp_ws([C|Cs], R) :- ( C =:= 32 ; C =:= 9 ), !, pp_ws(Cs, R).
 pp_ws(Cs, Cs).
 %% A UNIVERSAL CHARACTER NAME IN A MACRO'S NAME is the character it names (C17 6.4.3, 6.4.2.1; 0.213), as the lexers read
 %% one in an identifier (ccl_ucn//1): `#define caf\u00e9 1' named `caf' and was `café' nowhere
-pp_word([92|Cs0], [U|W], R) :- phrase(ccl_ucn(U), Cs0, Cs), U >= 128, !, pp_word(Cs, W, R).
-pp_word([C|Cs], [C|W], R) :- ( C >= 0'a, C =< 0'z ; C >= 0'A, C =< 0'Z ; C =:= 0'_ ; C >= 0'0, C =< 0'9 ; C >= 128 ; C =:= 0'$ ), !, pp_word(Cs, W, R).   % a macro's name past ASCII (0.196), with `$' (0.210)
+pp_word([92|Cs0], [U|W], R) :- phrase(ccl_ucn(U), Cs0, Cs), U >= 128, pp_wide_id(U), !, pp_word(Cs, W, R).
+pp_word([C|Cs], [C|W], R) :- ( C >= 0'a, C =< 0'z ; C >= 0'A, C =< 0'Z ; C =:= 0'_ ; C >= 0'0, C =< 0'9 ; C =:= 0'$ ), !, pp_word(Cs, W, R).   % with `$' (0.210)
+pp_word([C|Cs], [C|W], R) :- C >= 128, pp_wide_id(C), !, pp_word(Cs, W, R).   % a macro's name past ASCII (0.196), as the lexers take it at the level (0.221)
 pp_word(Cs, [], Cs).
+pp_wide_id(C) :- ( ccl_text_chars -> ccl_id_cp(more, C) ; true ).   % read in bytes, a byte past ASCII as before
 %% #define NAME body | #define NAME(params) body -- function-like when `(' follows the name at once
 pp_do_define(Rest) :-
     pp_ws(Rest, R1), pp_word(R1, W, R2), W \== [], atom_codes(N, W),
@@ -987,6 +999,14 @@ pp_builtin_answer('__has_embed', Args, V) :- !, pp_has_embed(Args, V).
 %% build lays its views' members `[[__no_unique_address__]]' (libc++ 21 writes the attribute whatever the answer)
 pp_builtin_answer('__has_c_attribute', Args, V) :- ccl_lang(c), !, ( pp_attr_name(Args, N), ( atom(N) -> pp_c_attribute(N, V0) ; N = scoped(S, A), pp_attr_vendor(S, gnu), pp_vendor_attribute(gnu, A), V0 = 1 ) -> V = V0 ; V = 0 ).   % ... a GNU one too (0.205, below), as clang answers it in C
 pp_builtin_answer('__has_cpp_attribute', Args, V) :- ccl_lang(cpp), !, ( pp_attr_name(Args, N), pp_cpp_attr_value(N, V0) -> V = V0 ; V = 0 ).
+%% ... AND GCC'S `__has_attribute(x)' 1 FOR AN ATTRIBUTE THIS COMPILER RECOGNIZES IN THE `__attribute__((x))' FORM (0.221; clang's
+%% answer for each attribute it knows): one it honours -- `packed', `aligned', `vector_size', `ext_vector_type' -- and one
+%% whose meaning is a diagnostic, an optimization's hint or the debug information, which reading and dropping implements (the
+%% `gnu' list of `__has_cpp_attribute', 0.205), its name with or without its underscores; 0 for any other, `weak', `section',
+%% `constructor', `cleanup' and `visibility' among them, which the reader drops and a program would lean on. It was 0 for every
+%% attribute: a program's `#if __has_attribute(packed)' took its other branch, a layout clang's build does not lay, and libc++
+%% defined `_LIBCPP_PACKED', `_LIBCPP_NOALIAS' and `_LIBCPP_NOINLINE' as nothing where clang++'s build writes the attributes
+pp_builtin_answer('__has_attribute', Args, V) :- !, ( pp_attr_name(Args, N), atom(N), pp_gnu_attribute(N) -> V = 1 ; V = 0 ).
 %% `__has_extension(c_atomic)' answers 1 (0.100): libc++ decides its <atomic> by `__has_feature(cxx_atomic) ||
 %% __has_extension(c_atomic) || __has_keyword(_Atomic)', and with all three 0 it defines NO implementation
 %% (`template_without_body(__cxx_atomic_base_impl)'); this compiler has C11's `_Atomic(T)' and the `__c11_atomic_*'
@@ -1006,6 +1026,8 @@ pp_builtin_answer('__is_target_vendor', [tok(_, V0, _)], V) :- !, pp_os(O), ( O 
 pp_builtin_answer('__is_target_environment', [tok(_, E, _)], V) :- !, pp_os(O), ( O == linux, E == gnu -> V = 1 ; V = 0 ).
 pp_builtin_answer('__is_target_os', [tok(_, OS, _)], V) :- !, pp_os(O), ( O == darwin, memberchk(OS, [macos, darwin, macosx]) -> V = 1 ; O == linux, OS == linux -> V = 1 ; V = 0 ).
 pp_builtin_answer(_, _, 0).                                                       % features, attributes, warnings, modules: the plainest path
+pp_gnu_attribute(N) :- pp_vendor_attribute(gnu, N), !.
+pp_gnu_attribute(N) :- memberchk(N, [vector_size, ext_vector_type]).
 
 %% THE BUILTINS LIBC++ HAS A FALLBACK FOR AND THIS COMPILER DOES NOT PROVIDE (0.126). Every other `__has_builtin' is 1 (the
 %% lowering and the desugaring answer them, and libc++'s other branch is often an #error). libc++ 21 writes
@@ -1372,6 +1394,9 @@ pp_predef('__STDC_NO_THREADS__', darwin, '1').
 pp_predef('__STDC_UTF_16__', any, '1').
 pp_predef('__STDC_UTF_32__', any, '1').
 pp_predef('__STDC_VERSION__', c, '201710L').   % C's alone (0.194): clang++ defines no __STDC_VERSION__, and in the `any' table C++ had it
+%% ---- C11 and C99 (-std=c11, -std=c99): the level's own, answered before C17's (0.221) ----------------
+pp_predef('__STDC_VERSION__', c11, '201112L').
+pp_predef('__STDC_VERSION__', c99, '199901L').
 %% ---- C23 (-std=c23): the level's own macros, answered before C17's ------------------------------
 pp_predef('__STDC_VERSION__', c23, '202311L').
 pp_predef('__STDC_EMBED_NOT_FOUND__', c23, '0').

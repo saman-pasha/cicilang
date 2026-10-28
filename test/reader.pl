@@ -349,6 +349,24 @@ k84 :- check('the native lexer gives the DCG\'s tokens and rest on lexer.c (line
       lex_sdk('sys/cdefs.h', line, c), lex_sdk('sys/cdefs.h', punct, c), lex_sdk('math.h', punct, c), lex_sdk('math.h', punctsp, c) )).
 k85 :- check('and the native lexer is the one the reader runs',
     ( nb_getval('$ccl_lexer', native) )).
+k94 :- check('an identifier\'s characters past ASCII by the language and its level, and the white space past ASCII (0.221): the native lexer gives the DCG\'s tokens -- a, the euro sign and b one name in C17 and C11, a name, tok(other, 8364) and a name in C23 and C++; a middle dot first a name in C17 and tok(other, 183) in C++; a combining acute after x one name in C11 and the name x and tok(other, 769) in C99; a no-break space two names',
+    ( lex_both([105,110,116,32,97,8364,98,59], c, 17, T1), T1 = [tok(kw, int, 1), tok(id, A1, 1), tok(p, ';', 1)], atom_codes(A1, [97,8364,98]),
+      lex_both([105,110,116,32,97,8364,98,59], c, 11, T1),
+      lex_both([105,110,116,32,97,8364,98,59], c, 23, T2), T2 = [tok(kw, int, 1), tok(id, a, 1), tok(other, 8364, 1), tok(id, b, 1), tok(p, ';', 1)],
+      lex_both([105,110,116,32,97,8364,98,59], cpp, 17, T2),
+      lex_both([105,110,116,32,183,120,59], c, 17, T3), T3 = [tok(kw, int, 1), tok(id, A3, 1), tok(p, ';', 1)], atom_codes(A3, [183,120]),
+      lex_both([105,110,116,32,183,120,59], cpp, 23, T4), T4 = [tok(kw, int, 1), tok(other, 183, 1), tok(id, x, 1), tok(p, ';', 1)],
+      lex_both([105,110,116,32,120,769,59], c, 11, T5), T5 = [tok(kw, int, 1), tok(id, A5, 1), tok(p, ';', 1)], atom_codes(A5, [120,769]),
+      lex_both([105,110,116,32,120,769,59], c, 99, T6), T6 = [tok(kw, int, 1), tok(id, x, 1), tok(other, 769, 1), tok(p, ';', 1)],
+      lex_both([105,110,116,32,97,160,98,59], c, 23, T7), T7 = [tok(kw, int, 1), tok(id, a, 1), tok(id, b, 1), tok(p, ';', 1)],
+      lex_both([105,110,116,32,97,12288,98,59], cpp, 17, T7) )).
+%% the codes lexed by both lexers in the preprocessor's mode, in the language at the C level: the same tokens, all of the text
+lex_both(Cs, Lang, Std, T) :-
+    ccl_ensure_globals, nb_getval('$ccl_hash', M0), nb_getval('$ccl_lang', L0), ( nb_current('$ccl_c_std', S0) -> true ; S0 = 17 ),
+    nb_setval('$ccl_hash', punct), nb_setval('$ccl_lang', Lang), nb_setval('$ccl_c_std', Std),
+    ( phrase(ccl_lex(1, T1), Cs, R1), atom_codes(A, Cs), ccl_lex_lang(Lg), ccl_lex_native(A, 1, punct, Lg, T2, R2) -> Ok = true ; Ok = false ),
+    nb_setval('$ccl_hash', M0), nb_setval('$ccl_lang', L0), nb_setval('$ccl_c_std', S0),
+    Ok == true, T1 == T2, R1 == [], R2 == [], T = T1.
 lex_sdk(Name, Mode, Lang) :- ( ccl_include_path(Ds), member(D, Ds), atomic_list_concat([D, '/', Name], F), exists_file(F) -> lex_same(F, Mode, Lang) ; true ).
 lex_same(File, Mode, Lang) :-
     nb_getval('$ccl_hash', M0), nb_getval('$ccl_lang', L0),
@@ -521,6 +539,7 @@ t_checks :-
     section('the lexer, native: ccl_lex_native/6 token for token with the DCG'),
     k84,
     k85,
+    k94,
     section('the user\'s file through the preprocessor: its macros, and the headers\' macros'),
     k86,
     k87,

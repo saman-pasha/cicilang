@@ -76,6 +76,15 @@ EOF2
 check "-D and -U define and undefine before every file, <assert.h>'s NDEBUG among them" "$("$CICILI" -DGREETING='"hi"' '-DSQUARE(x)=((x)*(x))' -DLEVEL=3 -DNDEBUG -DGONE -UGONE defs.c -o defs && ./defs)" "hi
 49 3
 after"
+# UNDER -DNDEBUG AN `#undef NDEBUG' BEFORE <assert.h> ASSERTS AGAIN (C17 7.2/1; 0.221): the header's own read sees no NDEBUG
+cat > ndebugundef.c <<'EOF2'
+#undef NDEBUG
+#include <assert.h>
+#include <stdio.h>
+int main(void) { printf("before\n"); fflush(stdout); assert(1 == 2); printf("after\n"); return 0; }
+EOF2
+check "-DNDEBUG: an #undef NDEBUG before <assert.h> asserts again" "$("$CICILI" -DNDEBUG ndebugundef.c -o ndebugundef && { ( ./ndebugundef ) 2>/dev/null; echo "exit $?"; })" "before
+exit 134"
 check "-E: a floating literal's text reads back as the same value, as clang reads the source" "$(printf 'int printf(const char *, ...);\nint main(void) {\n  double a = __DBL_MAX__, b = 1.5e308, c = 0.30000000000000004, d = 2.2250738585072014e-308, e = 4.9406564584124654e-324, f = 1e999;\n  float g = __FLT_MAX__, h = 1.17549435e-38f;\n  printf("%%a %%a %%a %%a %%a %%a %%a %%a\\n", a, b, c, d, e, f, (double) g, (double) h);\n  return 0;\n}\n' > et.c; "$CICILI" -E et.c -o et.e.c && clang -w et.e.c -o ete && ./ete > ete.out && clang -w et.c -o etr && ./etr > etr.out && cmp -s ete.out etr.out && echo same)" "same"
 check "-E: a long double literal's text reads back as the same value, as clang reads the source" "$(printf 'int printf(const char *, ...);\nint main(void) {\n  long double a = __LDBL_MAX__, b = __LDBL_MIN__, c = __LDBL_DENORM_MIN__, d = 0.1L, e = 0x1.8p1L, f = 1e999L;\n  _Complex long double g = 0.1Li;\n  printf("%%La %%La %%La %%La %%La %%La %%La\\n", a, b, c, d, e, f, __imag__ g);\n  return 0;\n}\n' > etl.c; "$CICILI" -E etl.c -o etl.e.c && clang -w etl.e.c -o etle && ./etle > etle.out && clang -w etl.c -o etlr && ./etlr > etlr.out && cmp -s etle.out etlr.out && echo same)" "same"   # 0.154: the text kept, where -E spelled the double the literal held
 check "-ast-dump prints the unit" "$("$CICILI" -ast-dump "$R/run/forty2.c" | grep -c '^unit(\[function(')" "1"
@@ -99,6 +108,11 @@ check "a plain pointer never consumed is refused; one freed is not" "$(printf '#
 check "GNU's asm goto, and an asm output that carries a pointer, are refused by name (0.215)" "$(printf 'int main(void) {\n  asm goto("jmp %%l0" :::: out);\n  return 1;\nout:\n  return 0;\n}\n' > asmgoto.c; "$CICILI" -c asmgoto.c 2>&1 | head -1; printf 'int main(void) {\n  int x = 0, *p = &x;\n  asm("" : "=r"(p));\n  return *p;\n}\n' > asmptr.c; "$CICILI" -fsyntax-only asmptr.c 2>&1 | head -1)" "asmgoto.c:2: error: not lowered yet: asm_goto (function main)
 asmptr.c:3: error: not lowered yet: asm_pointer_output (function main)"
 check "a syntax error names the file and the line" "$(printf 'int f(void) { return ; ; }\nint h( { }\n' > bad.c; "$CICILI" -c bad.c 2>&1 | head -1)" "bad.c:2: error: syntax error: could not read this item (gave up near line 2)"
+check "an identifier's characters past ASCII by the level (0.221): C17 takes the euro sign and a middle dot, C23 does not, C99 no combining mark" "$(printf 'int a\342\202\254b = 1;\n' > euro.c; printf 'int \302\267x = 1;\n' > mdot.c; printf 'int x\314\201 = 1;\n' > comb.c; "$CICILI" -std=c17 -fsyntax-only euro.c mdot.c 2>&1; echo "c17 $?"; "$CICILI" -std=c23 -fsyntax-only euro.c 2>&1 | head -1; "$CICILI" -std=c23 -fsyntax-only mdot.c 2>&1 | head -1; "$CICILI" -std=c99 -fsyntax-only comb.c 2>&1 | head -1)" "c17 0
+euro.c:1: error: character <U+20AC> not allowed in an identifier
+mdot.c:1: error: character <U+00B7> not allowed at the start of an identifier
+comb.c:1: error: character <U+0301> not allowed in an identifier"
+check "__STDC_VERSION__ by the level (0.221): C99's, C11's, C17's and C23's" "$(printf 'long v = __STDC_VERSION__;\n' > ver.c; for s in c99 c11 c17 c23; do "$CICILI" -std=$s -E ver.c | grep -o '[0-9][0-9]*[lL]'; done | tr '\n' ' ')" "199901l 201112l 201710l 202311l "
 # the store: hello.c and its headers are there by now; a build of it is seconds, not the forty of a first read
 s1=$(date +%s); "$CICILI" "$R/run/hello.c" -o hello2 >/dev/null; t_second=$(( $(date +%s) - s1 ))
 check "the store: a build of hello.c after the first is served from it, under 10 s ($t_second s)" "$( [ "$t_second" -lt 10 ] && echo served || echo "slow")" "served"
@@ -108,4 +122,15 @@ second=$("$CICILI" -v main.c lib.c -o two 2>&1 | grep -c "served .* from the sto
 touch -t 203001010000 lib.c
 third=$("$CICILI" -v main.c lib.c -o two 2>&1 | grep -ao "served main.c\|check and lower lib.c" | tr '\n' ' ')
 check "the store: a rebuild after one file changed redoes one file, the other's IR served" "$second-$third" "2-served main.c check and lower lib.c "
+# THE C++ IR CACHE (0.221): a second build of an unchanged C++ file is served its IR from ~/.cicilang/cpp/ir; a change to it
+# lowers it again
+printf '#include <cstdio>\nint main() { std::printf("ir %%d\\n", 7); return 0; }\n' > ircache.cpp
+rm -f "$HOME"/.cicilang/cpp/ir/ircache.cpp-*.ll
+irfirst=$(CICILANG_NO_IR_CACHE= "$ROOT/bin/cicilang++" -v ircache.cpp -o irc1 2>&1 | grep -ac 'served ircache.cpp from the IR cache')
+irsecond=$(CICILANG_NO_IR_CACHE= "$ROOT/bin/cicilang++" -v ircache.cpp -o irc2 2>&1 | grep -ac 'served ircache.cpp from the IR cache'; ./irc2)
+printf '#include <cstdio>\nint main() { std::printf("ir %%d\\n", 8); return 0; }\n' > ircache.cpp
+irthird=$(CICILANG_NO_IR_CACHE= "$ROOT/bin/cicilang++" -v ircache.cpp -o irc3 2>&1 | grep -ac 'served ircache.cpp from the IR cache'; ./irc3)
+check "the C++ IR cache: a rebuild is served its IR, a changed file lowered again" "$irfirst $irsecond $irthird" "0 1
+ir 7 0
+ir 8"
 if [ "$failures" -eq 0 ]; then echo "GREEN: driver"; else echo "RED: $failures failure(s)"; exit 1; fi

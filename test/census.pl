@@ -10,10 +10,11 @@
 
 census_main :- os_env('CCL_CENSUS_FLAT', F), !, census_std, ccl_lib_unit(census_flat(F)).   % a flattened library header is read as the library's (no global macros)
 census_main :-
-    os_env('CCL_CENSUS_FILE', F),
+    os_env('CCL_CENSUS_FILE', F), census_std,
     cicilang_ast(F, unit(Is)),
     forall(member(include(_, Spec, X), Is), census_include(Spec, X)).
-%% CCL_CENSUS_STD=20 reads the flattened file at that level (the forms are read at the level, 0.42)
+%% CCL_CENSUS_STD=20 reads the flattened file, or the headers of the #include lines, at that level (the forms are read at the
+%% level, 0.42; the headers' road read at C++17 whatever it said until 0.221)
 census_std :- ( os_env('CCL_CENSUS_STD', A), atom_number(A, N) -> nb_setval('$ccl_std', N) ; true ).
 
 %% a flattened file (cicilang++ -E): read as far as it reads, the stop and the farthest point shown with their tokens

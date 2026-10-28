@@ -5,6 +5,7 @@ module/*.c
 module/*.o
 module/sdk.cicili
 module/ccl_uninames.h
+module/ccl_xid.h
 # scratch stores the tutorials and gates make
 /tmp/
 *.log

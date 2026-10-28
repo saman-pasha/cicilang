@@ -49,8 +49,8 @@ out=$(cd "$ROOT" && timeout -s KILL 300 "$C" --local query "use_module(library(c
 echo "-- every library file and gate program charted from a root that calls each predicate it defines ($(awk '{ s += $3 } END { print s }' "$D/src/roots.txt") predicates)"
 
 # one job a file, the heaviest first
-loads="[library(cicilang), library(ccl_llvm), library(ccl_bidrt), library(ccl_uninames), library(ccl_format)]"
-tloads="[library(cicilang), library(ccl_llvm), library(ccl_bidrt), library(ccl_uninames), library(ccl_format), library(os), library(process), library(stream), library(flow/debug)]"
+loads="[library(cicilang), library(ccl_llvm), library(ccl_bidrt), library(ccl_uninames), library(ccl_xid), library(ccl_format)]"   # the generated tables loaded, not charted (ccl_xid: 0.221)
+tloads="[library(cicilang), library(ccl_llvm), library(ccl_bidrt), library(ccl_uninames), library(ccl_xid), library(ccl_format), library(os), library(process), library(stream), library(flow/debug)]"
 mods="['$ROOT/module/cicilang.cicili', '$ROOT/module/ccl_llvm.cicili']"
 for f in $FILES; do
   n=$(awk -v b="$f.pl" '$1 == b { print $2 }' "$D/src/roots.txt")

@@ -54,7 +54,7 @@ c_checks :-
     c34,
     c35,
     c36,
-    c37, c38, c39, c40, c41, c42, c43, c44, c45, c46.
+    c37, c38, c39, c40, c41, c42, c43, c44, c45, c46, c47.
 
 c1 :- check('namespace N { ... } is namespace(L, N, Items), nested, and anonymous',
     ( unit('names.cpp', unit(Is)), member(namespace(2, geo, Gs), Is), member(function(_, _, _, twice, _, _, _), Gs), member(namespace(_, inner, _), Gs), member(namespace(_, anon, _), Is) )).
@@ -267,6 +267,26 @@ c46 :- check('the Itanium mangler spells a VECTOR type (0.162): Dv, its lanes, _
       ita_name([], xx, [], [param(base([], [vec(ext, 2, base([], [float]))]), a), param(ref([], base([const], [vec(ext, 2, base([], [float]))])), b)], '_ZNSt3__12xxEDv2_fRKS0_'),
       ita_name([], yy, [], [param(ptr([], base([], [vec(ext, 8, base([], [bool]))])), a)], '_ZNSt3__12yyEPDv8_b'),
       ita_clear )).
+
+c47 :- check('the Itanium mangler spells a function template\'s instance by its parameters (0.221): a value of a placeholder\'s parameter after its declaration, TnDa for auto, TnDc for decltype(auto), TpTnDa before an auto pack; TnT_ for a value of a parameter\'s type, its code a candidate; a value of a plain type L...E, a type pack J...E -- as clang++ 18 and 21 spell them',
+    ( ita_facts, ita_ns([a, b, c, d, e, f, h, k, n]), dynamic('$cpp_cname'/1),   % the mangler asks the C names' table, which no desugaring filled here
+      I = base([], [int]), A = base([], [auto]),
+      (   ita_inst(e, [tparam(A, 'N', none)], ['N'-int(5)], I, [], '_ZNSt3__11eITnDaLi5EEEiv'),
+          ita_inst(k, [tparam(base([decltype_auto], [auto]), 'N', none)], ['N'-int(7)], I, [], '_ZNSt3__11kITnDcLi7EEEiv'),
+          ita_inst(h, [tparam(base([const], [auto]), 'B', none)], ['B'-bool(true)], I, [], '_ZNSt3__11hITnDaLb1EEEiv'),
+          ita_inst(n, [tparam(A, 'N', none)], ['N'-long(-3)], I, [], '_ZNSt3__11nITnDaLln3EEEiv'),
+          ita_inst(f, [tparam(vpack(A), 'Ns', none)], ['Ns'-vpack([int(1), chr(120)])], I, [], '_ZNSt3__11fITpTnDaJLi1ELc120EEEEiv'),
+          ita_inst(a, [tparam(type, 'T', none), tparam(base([], [typedef('T')]), 'V', none)], ['T'-I, 'V'-int(3)], I,
+                   [param(base([], [typedef('T')]), t), param(base([], [typedef('T')]), u)], '_ZNSt3__11aIiTnT_Li3EEEiS1_S1_'),
+          ita_inst(d, [tparam(I, 'N', none)], ['N'-int(5)], I, [], '_ZNSt3__11dILi5EEEiv'),
+          ita_inst(b, [tparam(pack, 'Ts', none)], ['Ts'-pack([I, base([], [double])])], I, [], '_ZNSt3__11bIJidEEEiv'),
+          ita_inst(c, [tparam(A, 'N', none), tparam(type, 'T', none)], ['N'-int(4), 'T'-base([], [long])], I, [param(base([], [typedef('T')]), t)], '_ZNSt3__11cITnDaLi4ElEEiT0_')
+      ->  R = true ; R = false ),
+      ita_clear, R == true )).
+ita_inst(F, TPs, B, Ret, Ps, Want) :-
+    (   cpp_ita_fn_instance(F, TPs, B, Ret, Ps, false, Got) -> true ; Got = none ),
+    (   Got == Want -> true
+    ;   write('     mangled '), write(F), write(' as '), write(Got), write(' where clang++ has '), write(Want), nl, fail ).
 
 c38 :- check('the access control\'s reader forms (0.117): friend class Auditor; is friend(L, [friend_class(Auditor)]), a lambda\'s mutable stays among its captures, and the access markers stay among a class\'s members',
     ( unit('run/accessctl.cpp', unit(Is)),

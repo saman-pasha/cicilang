@@ -27,25 +27,29 @@ rules of the code by topic; `HISTORY.md` is the record of every step.
   through the compiler's own `<stdatomic.h>`, variable length arrays, thread
   locals, wide and UTF-8 literals, variadic functions over the compiler's
   own `<stdarg.h>`, `long double` as x87's 80-bit type on x86-64 (its
-  literals exact, as clang reads them), hex floats, designated
-  initializers, anonymous members, K&R definitions, `#line`, `__int128`,
-  `va_arg` of a struct on x86-64 and arm64, the SysV argument register
-  budget, the decimal floating types as gcc builds them (to and from a
-  128-bit integer and a `_BitInt` past it through the compiler's own
-  helpers, their constants folded with infinities and NaNs), the binary
-  floating constants folded as clang folds them (a negative zero, an
-  infinity, a NaN, a long double's arithmetic, an integer operation in its
-  own type), GCC's and clang's vector types (`vector_size`,
-  `ext_vector_type`: their operators lane by lane, their lanes, masks,
-  conversions and builtins, crossing a call as clang passes them), and
-  trigraphs and `__STRICT_ANSI__` in the ISO modes, and GNU's inline
-  assembly (a file-scope `asm`, and `asm` statements with outputs, inputs,
-  clobbers, named operands and register variables, lowered as clang lowers
-  them). C17 in a GNU mode is the default, as clang's; `-std=c17` is its
-  ISO mode and `-std=c23` gives C23. The program's feature-test macros
-  (`_POSIX_C_SOURCE`, `_GNU_SOURCE`, `__STDC_WANT_LIB_EXT2__` ...) and
-  `NDEBUG` reach the C library's headers as they do under clang, each
-  where clang's headers read it.
+  literals exact, as clang reads them), hex floats, designated initializers,
+  anonymous members, K&R definitions, `#line`, `__int128`, `va_arg` of a
+  struct on x86-64 and arm64, the SysV argument register budget, the decimal
+  floating types as gcc builds them (to and from a 128-bit integer and a
+  `_BitInt` past it through the compiler's own helpers, their constants
+  folded with infinities and NaNs), the binary floating constants folded as
+  clang folds them (a negative zero, an infinity, a NaN, a long double's
+  arithmetic, an integer operation in its own type), GCC's and clang's
+  vector types (`vector_size`, `ext_vector_type`: their operators lane by
+  lane, their lanes, masks, conversions and builtins, crossing a call as
+  clang passes them), and trigraphs and `__STRICT_ANSI__` in the ISO modes,
+  and GNU's inline assembly (a file-scope `asm`, and `asm` statements with
+  outputs, inputs, clobbers, named operands and register variables, lowered
+  as clang lowers them). C17 in a GNU mode is the default, as clang's;
+  `-std=c17` is its ISO mode and `-std=c23` gives C23. The program's
+  feature-test macros (`_POSIX_C_SOURCE`, `_GNU_SOURCE`,
+  `__STDC_WANT_LIB_EXT2__` ...) and `NDEBUG` reach the C library's headers
+  as they do under clang, each where clang's headers read it (under
+  `-DNDEBUG` an `#undef NDEBUG` before `<assert.h>` asserts again). An
+  identifier takes each level's characters past ASCII (C23's and C++'s XID
+  sets, C11's and C99's Annex D), the Unicode white space clang takes is
+  blank, and `__has_attribute` answers the GNU attributes the compiler
+  keeps.
 * **C++17, C++20, C++23 and C++26.** Classes, virtual dispatch, multiple
   and virtual inheritance, templates with partial specialization, SFINAE,
   concepts and `requires`, lambdas (generic, capturing `this` and `*this`),
@@ -79,7 +83,9 @@ rules of the code by topic; `HISTORY.md` is the record of every step.
   run time, `__PRETTY_FUNCTION__` and `std::source_location` as clang++ spells them,
   definitions by namespace-qualified names, and the Itanium ABI's layout, name mangling and calling
   convention, so cicilang's objects link with clang's, on x86-64 and on
-  aarch64 Linux (pointers to member functions in ARM's form there).
+  aarch64 Linux (pointers to member functions in ARM's form there). A
+  library header's static assertions are asked, with libc++'s own message, as
+  clang++ asks them.
 * **libc++ compiled from its own headers.** Nothing of the standard
   library is written here: `std::vector`, `std::string`, `std::map`,
   `std::set`, the unordered containers, `std::optional`, `std::tuple`,
@@ -109,9 +115,11 @@ rules of the code by topic; `HISTORY.md` is the record of every step.
 * **Fast, once warm.** The C headers a program includes are read once into
   the user's knowledge base, `~/.cicilang/KB`, and served from it in every
   later run; a C++ library header is flattened once and summarized to
-  `~/.cicilang/cpp`. A built file's IR is cached beside its unit. The
-  B-tree benchmark matches clang `-O3` and beats Rust's `BTreeSet` on
-  insert and search.
+  `~/.cicilang/cpp`. A built C file's IR is cached beside its unit in the
+  knowledge base, and since 0.221 a C++ file's under `~/.cicilang/cpp/ir`: a
+  rebuild of an unchanged file is served its IR (`CICILANG_NO_IR_CACHE=1`
+  builds uncached, as every gate does). The B-tree benchmark matches clang
+  `-O3` and beats Rust's `BTreeSet` on insert and search.
 
 ## Install and build
 
@@ -153,7 +161,8 @@ cicilang -I include prog.c           cicilang -ast-dump prog.c           cicilan
 C++, C++17 the default level and `-std=c++20`, `-std=c++23`, `-std=c++26`
 the others, the link through `c++`. The exit status is 1 when there is a
 diagnostic. `cicilang -v` says each step, and `served main.c from the
-store` when a file's IR came from the cache.
+store` when a file's IR came from the cache (`served main.cpp from the IR
+cache` for a C++ file).
 
 The knowledge base is the user's, `~/.cicilang/KB` (or `$CICILANG_KB`;
 `--no-kb` keeps everything in memory). The first call is the initialization
@@ -439,7 +448,13 @@ out of it with no initializer; since 0.219 `<compare>`'s customization point
 objects (`std::strong_order`, `std::weak_order`, `std::partial_order`, and
 their fallbacks over a type with `<=>`), and a library class that two
 headers declare in two namespaces found in its own namespace whatever the
-order of the includes.
+order of the includes; since 0.221 `<compare>`'s fallbacks over a class with
+`==` and `<` alone, a function of the program's namespace with a library
+function's name (`ns::max` beside `std::max`), the library's own algorithms
+finding it by argument-dependent lookup, a global function of the program's
+with a library function's name (`max` beside `std::max`), `std::invoke` and
+the unordered containers over a transparent hash, and libc++ 21's vectorized
+`std::mismatch` and `std::find`.
 `test/libcxx.sh` reads `<vector>`, `<string>`,
 `<iostream>`, `<map>`, `<set>`, `<unordered_map>`, `<unordered_set>`,
 `<optional>`, `<memory>`, `<functional>`, `<tuple>` and `<algorithm>` whole,

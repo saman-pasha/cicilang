@@ -7,6 +7,10 @@ COCOLOG=${COCOLOG:-$HOME/Projects/GitHub/cocolog}
 C="$COCOLOG/cocolog"
 COCOLOG_LIBRARY="$ROOT/library${COCOLOG_LIBRARY:+:$COCOLOG_LIBRARY}"
 export COCOLOG_LIBRARY CICILI COCOLOG
+# every gate builds uncached: a C++ build's IR cache (~/.cicilang/cpp/ir, 0.221) is the user's, and a gate's builds are its
+# fixtures' own (the driver gate's own check of the cache unsets it for its two builds)
+CICILANG_NO_IR_CACHE=1
+export CICILANG_NO_IR_CACHE
 
 # the knowledge base every gate uses: the user's, ~/.cicilang/KB, so the system
 # headers are read once, the first run being the initialization phase, and

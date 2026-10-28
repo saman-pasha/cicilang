@@ -956,7 +956,7 @@ ccl_unsettled_type(T) :- T \== unknown, ccl_resolve_type(T, base(_, [typedef(X)]
 %% an enumerator's type: its enum in C++ where the table names a named enum still in the tag table, else an int
 %% (C's, and an unnamed enum's)
 ccl_enumerator_type(N, L, T) :- ccl_lang(cpp), ccl_enumerator_tag(N, L, Tag), ccl_tag(Tag, Ms), Ms \== none, !, T = base([], [typedef(Tag)]).
-ccl_enumerator_type(N, L, T) :- \+ ccl_lang(cpp), ccl_c_std(S), S >= 23, ccl_enumerator_tag(N, L, Tag), ccl_tag(Tag, Ms), Ms = [enum_base(B)|_], \+ ( B = base(BQ, _), memberchk(packed_enum, BQ) ), !, T = base([], [enum(Tag, Ms)]).   % C23 (6.7.2.2/15; 0.194): an enumerator of an enum with a FIXED underlying type is of the enum's type, its size the base's -- `sizeof(Y)' of `enum Big : unsigned long long' was an int's 4
+ccl_enumerator_type(N, L, T) :- \+ ccl_lang(cpp), ccl_c_at_least(23), ccl_enumerator_tag(N, L, Tag), ccl_tag(Tag, Ms), Ms = [enum_base(B)|_], \+ ( B = base(BQ, _), memberchk(packed_enum, BQ) ), !, T = base([], [enum(Tag, Ms)]).   % C23 (6.7.2.2/15; 0.194): an enumerator of an enum with a FIXED underlying type is of the enum's type, its size the base's -- `sizeof(Y)' of `enum Big : unsigned long long' was an int's 4
 ccl_enumerator_type(N, L, T) :- memberchk(N-V, L), ccl_wide_enum_value(V), !, ( V = big(A) -> ccl_big_type(A, T) ; T = base([], [long]) ).   % a value no int holds is typed as a literal of it (0.160), as the lowering spells it
 ccl_enumerator_type(_, _, base([], [int])).
 ccl_wide_enum_value(V) :- ( V = big(_) -> true ; integer(V), ( V > 2147483647 ; V < -2147483648 ) ).

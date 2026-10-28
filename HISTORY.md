@@ -215,6 +215,7 @@ One row per step, in version order: the step's title, what it did and its gate n
 | 0.218 | the two defects 0.217 found: a static data member of a library class, its definition out of the class resolved in the class's scope and an inline one with no initializer its class's definition; a header read in the build's own process registered from the AST its read wrote; and what its probes found: a class template's static member defined out of it with no initializer, a qualified class name that two headers' reads declare in two namespaces; the index's rows for 0.209 to 0.218; 0.217's chain | `std::vector<int> K::all;` was not lowered, and a `static inline` member with no initializer was undefined at the link; `int K::arr[N]` over the class's `N` was not lowered; a class template's static member defined out of it with no initializer was undefined; `<system_error>` read in the process after `<charconv>` was served took its `__traits`; `#include <string>`, `<memory>`, `<algorithm>` or `<system_error>` before `<charconv>` refused `std::from_chars`, cold or warm, over 0.217 too; 33 bare names stand in two or more namespaces across libc++ 18's reads; an unqualified use of such a name stays Not done (`std::variant<int>` after `<charconv>`); the box ran 0.217's chain at about half its speed; the index had no rows after 0.208 | gated before its commit: all nine gates GREEN over libc++ 18 (the C++ gate 809 of 819 ok, 10 skipped) and the two libc++ gates over 21 (817 of 819 ok, 2 skipped); it carries 0.217's chain: all nine gates GREEN over libc++ 18, the two libc++ gates over 21 |
 | 0.219 | the Not done records: an unqualified class name that two headers' reads declare in two namespaces registered in its own namespace's words, a class declared and not defined renamed with the rest; the address of a pointer or array parameter its own storage; C's conditional of two object pointers; and what its probes found: a namespace-scope object not seen by its own class's members, a header's deleted function called -- `<compare>`'s customization point objects; a record found done already; 0.218's chain | `#include <charconv>` before `<variant>` refused `std::variant<int>`, over 0.218 too; the step's first form met `template_without_body('__function.__base')` with `<string>` before `<functional>`; `std::strong_order(1, 2)`, `std::weak_order`, `std::partial_order` and the fallbacks ran past the memory cap over libc++ 18 and were refused `undeclared('__strong_order.strong_order')` over 21, no fixture calling them; in C `int **f(int *p) { return &p; }` was accepted and `_Generic` over a conditional of an `int *` and a `float *` chose the default; `typeof` and `decltype` of an aligned variable were done since 0.203 and 0.206; a stringized universal character name differs from clang's in the `-E` text alone; left: a function or an object across the reads, a program's function named as a library object, a call through a temporary function object whose `operator()` is constrained | gated before its commit: all nine gates GREEN over libc++ 18 (the C++ gate 811 of 821 ok, 10 skipped) and the two libc++ gates over 21 (819 of 821 ok, 2 skipped); it carries 0.218's chain: all nine gates GREEN over libc++ 18, the two libc++ gates over 21 |
 | 0.220 | the chain of 0.219 | no library file changed: the numbers of 0.219's chain; 0.219 costs a warm build a second at most (`stdstringstream` and `formatton` built by 0.218 and by 0.219 in turn); the flow gate's one finding, which the owner asked about: the call of `'$ccl_sum_big'/3` in `ccl_sum_bigs_/3`, a table that a summary's `.big.pl` file defines at run time, no defect | all nine gates GREEN over libc++ 18 in 0.219's chain (811 of 821 C++ fixtures ok), the two libc++ gates over 21 (819 of 821); the headers' reads summed 1987 s and 1752 s (0.218's 2791 s and 2462 s), the fixtures' builds 4139 s and 4412 s; before its commit the reader, compile, driver and objects gates and the proof GREEN over its module |
+| 0.221 | the Not done list, on the owner's word and in one commit: a call through an object whose `operator()` nothing fits refused; the program's names beside the library's keyed apart and found by argument-dependent lookup (through pointers, template arguments and bases), a call qualified by std taking none of the program's functions and no object of another namespace; a name of both kinds across the reads; `TnDa`; the C level by its year; `__has_attribute`; an identifier's characters and the white space past ASCII by the level; a library header's static assertions; a value computed from a parameter followed; NDEBUG under -DNDEBUG; the C++ IR cache | over 0.220: `std::max(2, 3)` beside the program's `max` printed 5, `ranges::transform` over libc++ 21 was refused after `<algorithm>`, C99's `__STDC_VERSION__` was C17's, every attribute answered 0, every character past ASCII was a letter, `std::get<5>` of an array of 3 compiled, `out.push_back(&p->v)` let a local escape, `#undef NDEBUG` under -DNDEBUG asserted nothing; the nets and the first run of the gates found, each older: the roads of `operator()` without the argument pass, a fixed template argument matching any type, a class's assertion thrown out of its registration, `T{}` of a scalar typedef the int 0, a plain struct named as a qualified base, a scalar typedef argument naming a second instance, `is_unsigned_v<char8_t>` false; the IR cache's key holds the versions, not the code | gated before its commit, the second run over fresh HOMEs: all nine gates GREEN over libc++ 18 (the C++ gate 826 of 836 ok, 10 skipped) and the two libc++ gates over 21 (834 of 836 ok, 2 skipped); the first run RED in the driver gate (two failures) and in the C++ gate over 21 (three), each fixed |
 
 ## M5 — the C++ mode
 
@@ -14951,3 +14952,146 @@ run: no file that they read changed but the version's string.
 
 Reader 163 and lowering 127, as 0.219 left them.
 
+
+## 0.221 — the Not done list: the program's names beside the library's, functions and objects across the headers' reads, the audit's records, the safe part's computed values, NDEBUG under -DNDEBUG and the C++ IR cache -- and what its nets found: the argument pass on the roads of `operator()`, a fixed template argument matched exactly, a class's static assertions once it is complete, the typed zero of `T{}`, a plain struct named as a qualified base
+
+**0.221: the Not done list, on the owner's word ("Tell me your finding in flow library, commit and push, do Not Done
+list", then "Do all Not Done works"), in one commit at the end (the owner's choice, "One commit at the end"): every
+record of `RULES.md`'s Not done read, each done or written again with what keeps it, its newest record first. Five
+parts, each probed against clang++ 18 and 21 (g++ 13 where libc++ is not asked), its nets run three at a time under the
+caps before the gates.**
+
+- PART 1, THE C++ LANGUAGE'S RECORD OF 0.219. A CALL THROUGH AN OBJECT WHOSE `operator()` NOTHING FITS IS A REFUSAL
+  (`cpp_object_unfit/3`, `no_call_operator_fits(C)`; [over.call.object]/1), which takes the candidate out where its type
+  is asked: `std::compare_strong_order_fallback` over a class with `==` and `<` alone was `not lowered yet:
+  call(compound_lit(... compare_three_way ...))` over libc++ 18 and 21. A NAME OF THE PROGRAM'S NAMESPACE THAT A LIBRARY
+  HEADER DECLARES TOO IS KEYED APART (`cpp_lib_quals/4`), the library keeping the bare name: `std::max(2, 3)` beside the
+  program's `ns::max(int, int)` printed 5 for clang's 3, the qualified `std::swap` called the program's `ns::swap`,
+  `std::abs(-4)` beside `ns::abs(int)` printed 96, and `ns::abs(-4)` beside `<cstdlib>` was `undeclared('abs.int')`.
+  ARGUMENT-DEPENDENT LOOKUP OF THE PROGRAM'S KEYED NAMES (`cpp_call_adl/4`): `std::strong_order` over `ns::Q` finds
+  `ns::strong_order`, over libc++ 18 `not lowered yet: call(id(strong_order))`. `tempobjcons.cpp`, `cmpfallback.cpp`,
+  `cmpadl.cpp` (C++20), `nslibname.cpp`.
+- PART 2, THE PROGRAM'S GLOBAL NAMES BESIDE THE LIBRARY'S. A CALL QUALIFIED BY std FINDS NONE OF THE PROGRAM'S OWN
+  FUNCTIONS OF THE NAME (`cpp_lib_qualified/3`, `cpp_fn_hidden/2`, `cpp_libq_cands/3`; [namespace.qual]/2): `int
+  max(int, int)` at file scope and `std::max(2, 3)` printed `5 5` for clang's `5 3`, a program's `template <class T> T
+  min(T, T)` answered `std::min(2, 3)`, its `swap(Box &, Box &)` the qualified `std::swap`. Argument-dependent lookup of
+  a keyed name asks a pointer's pointee's class and an instance's template arguments' classes too
+  ([basic.lookup.argdep]/3): `count(&s)` over `ns::S *` and `size(v)` over `std::vector<ns::S>` find `ns::count` and
+  `ns::size`. `nslibglobal.cpp`: 0.220 printed `5 5 5`, `3 3 3 3`, `1 2 2`, `15 103 103` for clang's `5 3 5`, `3 2 3 1`,
+  `1 2 1`, `15 103 3`.
+- PART 3, FUNCTIONS AND OBJECTS ACROSS THE HEADERS' READS. A CALL QUALIFIED BY std TAKES NO OBJECT OF ANOTHER NAMESPACE
+  (`cpp_object_elsewhere/2`, `cpp_libq_elsewhere/1`): a read keys apart only the names that collide in it, so
+  `std::reverse(b, e)` and `std::transform` beside `<ranges>`' `views::reverse` and `views::transform`, and
+  `std::for_each`, `std::mismatch` and `std::upper_bound` beside the ranges objects that `<vector>` and `<sstream>` hold
+  at C++20, went to the object's road; where nothing of std takes the call it is refused by name, `no_member_of_std(F)`
+  (`std::size(a)` at C++23 with `<algorithm>` alone, which clang++ refuses). A NAME WHOSE ITEMS ARE OF BOTH KINDS ACROSS
+  THE READS (`cpp_cross_mixed/2`): libc++ 21's `ranges::transform` read after `<algorithm>` and before `<sstream>` met
+  std::__formatter's function `__transform` and was `arity_mismatch`; `ranges::upper_bound` at C++23 alike. Over libc++
+  21's summaries these two names are the only ones, over 18's none. `xreadfns.cpp` (C++20), `xreadupper.cpp` (C++23),
+  `stdsizeonly.cpp` (refused).
+- PART 4, THE AUDIT'S RECORDS. A FUNCTION TEMPLATE'S INSTANCE IS NAMED BY ITS PARAMETERS' DECLARATIONS, as clang 18 and
+  21 spell it (Itanium 5.1.5.4's <template-param-decl>; `cpp_ita_fn_targs/5`): `TnDa` for `auto`, `TnDc` for
+  `decltype(auto)`, `TnT_` for `template <class T, T V>`, `TpTnDa` before an `auto...` pack (`test/cpp.pl`'s `c47`). THE
+  C LEVEL IS COMPARED BY THE YEAR IT NAMES (`ccl_c_year/2`): `-std=c99` and `-std=c11` predefine their own
+  `__STDC_VERSION__`, 199901L and 201112L, where both were C17's, and trigraphs and C23's `(void)` follow the year
+  (`stdc99.c`, `stdc11.c`). `__has_attribute` answers 1 for the GNU attributes the reader keeps or that change nothing
+  (`pp_gnu_attribute/1`), and libc++'s and glibc's headers take their attribute roads -- `_LIBCPP_PACKED`,
+  `_LIBCPP_NOALIAS`, `__COLD` among them -- built over libc++ 18 and 21 (`hasattr.c`, `libattr.cpp`). AN IDENTIFIER'S
+  CHARACTER PAST ASCII BY THE LANGUAGE AND ITS LEVEL (`library/ccl_xid.pl`, 1738 facts generated by `module/gen-xid.pl`
+  from Perl's Unicode 15.0 tables, Unicode 15.1's additions and clang's mathematical profile; `module/ccl_xid.h` for the
+  native lexer): XID_Start and XID_Continue at C23 and in C++, C11's Annex D in C11 and C17, C99's Annex D in C99 --
+  each set probed character by character against clang 18 and 21, which agree --, and the white space past ASCII that
+  clang takes is blank; a character no level takes is `character <U+XXXX> not allowed in an identifier` (`idchars.cpp`,
+  the reader's `k94`, the driver's check). A LIBRARY HEADER'S STATIC ASSERTION IS ASKED, except in an unevaluated walk:
+  `std::get<5>` of a `std::array<int, 3>`, `std::optional<int &>` and `std::variant<int, void>` compiled, and are
+  refused with libc++'s own message, clang's (`libassert.cpp`, `libassert2.cpp`, `libassert3.cpp`). The construction
+  table's record is no defect: a delete of an object whose construction has not finished is undefined
+  ([basic.life]/6.1).
+- PART 5, THE SAFE PART'S LIMITS, THE TOOLS' RECORDS, THE OWNER'S DECISION 4 OF 0.190. A VALUE COMPUTED FROM A PARAMETER
+  IS STORED AS THE PARAMETER IS (`ck_flow_value/3`, `ck_flow_pointee/1`): `out.push_back(&p->v)` over the caller's `&s`
+  and `out.push_back(p + 1)` over a local array compiled, and the local escaped with the vector (`flowarith.cpp`,
+  `flowarith2.cpp` refused; `flowarithok.cpp`). UNDER `-DNDEBUG` `<assert.h>`'s OWN READ SEES NO NDEBUG
+  (`pp_ndebug_hidden/1`), so an `#undef NDEBUG` before the include asserts again, as clang's build does, in C and C++
+  (the driver's check; 0.220 printed `after`). THE C++ IR CACHE (`dr_cxx_ir_file/3`, `dr_cxx_key_deps/2`): a C++ file's
+  IR is a file beside the summaries, keyed by the store's signature, by what a C++ read is read under, by the file's
+  text and by the files its read pulled with their times; a warm `stdstringstream.cpp` builds in 1.2 s served and 30.8 s
+  lowered; `CICILANG_NO_IR_CACHE` set builds uncached, as every gate does. Argument-dependent lookup of a keyed name
+  asks the classes' bases too ([basic.lookup.argdep]/3.2; `cpp_adl_base/3`): `count(d)` over a `D : ns::B` took
+  `<algorithm>`'s std::count and was `arity_mismatch` (`adlbase.cpp`).
+- WHAT THE NETS FOUND, over libc++ 18 (net 224, 206 fixtures: 198 ok, the six that need libc++ 21 skipped, two real) and
+  over 18 and 21 again (net 234, 209 fixtures: 203 ok over 18; 205 over 21, three real): (1) `ftm20.cpp` over 18: the
+  unordered containers' static assertion `__check_hash_requirements` made `std::__invoke<SHash, const std::string &>`,
+  whose `static_cast<_Fp &&>(__f)(static_cast<_Args &&>(__args)...)` calls the parameter `__f` by the road of a local
+  object, and that road -- with the roads of a namespace-scope object, a callable data member and a qualified method's
+  call -- took NO ARGUMENT PASS (`cpp_ref_args_of/3`): the IR cast the string's struct to the view's, `invalid cast
+  opcode`, an older defect (0.220 refuses `std::invoke(h, cs)` and `std::is_invocable_r_v` over such a hash, and `h(s)`
+  over `int operator()(V) const` with `S::operator V()` stored the S as a V; `memconvarg.cpp`, `invokeconv.cpp`). (2)
+  `stdstringstream.cpp` over 18: `undeclared('basic_ios.char.char_traits.wchar_t.vtable')` -- the deduction took
+  `basic_ostream<char, _Traits> &` for a wide stream, A TEMPLATE ARGUMENT THAT NAMES NO PARAMETER matched any type
+  (`cpp_targ_fixed_differs/3`; [temp.deduct.type]/8; `deducefixed.cpp`), made `basic_ostream<char,
+  char_traits<wchar_t>>`, and basic_ios's static assertion failed IN THE MIDDLE OF THE INSTANCE's registration, a probe
+  caught the throw and the instance stood half made: AN INSTANCE ASKS ITS STATIC ASSERTIONS ONCE IT IS COMPLETE
+  (`cpp_instance_body_/4`), and THE PROGRAM'S OWN FAILED ONE IS KEPT for the diagnostic (`'$cpp_assert_failed'`,
+  `cpp_kept_assert_failure/0`): `template <class T> struct B { static_assert(sizeof(T) == 1, "B needs a char"); virtual
+  ~B() {} };` under `O<wchar_t, wchar_t> o;` was refused `undeclared('B.wchar_t.vtable')` by 0.220 too
+  (`sassertvirt.cpp`). (3) `ftm23b.cpp`, `viewsmore2.cpp` and `xreadfns.cpp` over 21: `static assertion failed:
+  __countr_zero only works with unsigned types` -- libc++ 21's vectorized `std::mismatch` and `std::find` call
+  `__impl(uint8_t{})`, and `T{}` and `T()` of a scalar typedef were the int 0 (`cpp_type_call/3`), so `_MaskT := int`:
+  THE ZERO OF ITS TYPE, a cast of the zero (`zerobraced.cpp`; 0.220 printed `4` for every size). (4) On the bases'
+  fixture's road: A PLAIN STRUCT NAMED AS A BASE BY A QUALIFIED NAME, `struct D : ns::B { };`, was refused
+  `base_not_registered('B', 'D')` by 0.220 too (`cpp_note_base_atom/2`).
+- WHAT THE FIRST RUN OF THE GATES FOUND (13:13 to 13:43 UTC, over fresh HOMEs): over libc++ 18 the flow, reader and
+  compile gates GREEN and the driver gate RED with two failures -- its new `__STDC_VERSION__` check took the `l` of
+  `long` for a value (the check's own pattern, `[0-9][0-9]*[lL]` now), and its C++ IR cache check, over a fresh HOME,
+  was never served (the key below); over libc++ 21 the library read GREEN in 6.5 minutes and the C++ gate RED with three
+  failures, 831 of 836 fixtures ok and the 2 skips: (1) `execpol.cpp`: libc++ 21's pstl declares
+  `optional<__iter_diff_t<_ForwardIterator>>`, an instance named `optional.ptrdiff_t`, and returns the `optional<long>`
+  deduced from `_DiffT()`, a long since the typed zero -- two instances of one type, the one stored into the other: A
+  SCALAR TYPEDEF ARGUMENT NAMES A CLASS'S INSTANCE BY THE TYPE IT NAMES (`cpp_targ_canon/2` in `cpp_instance_name/4`;
+  before the typed zero, the int zero made an `optional<int>`, and optional's converting constructor hid the split). (2)
+  `sfinaedefs.cpp`: `n = (int) (b - a)` over two pointer parameters was a flow of b into `*this` -- a difference of two
+  pointers is a number (`ck_flow_ptr_operand/2`). (3) `u8lit20.cpp`: `static assertion failed: _Tp and _Up have to be
+  trivially lexicographically comparable` -- `std::is_unsigned_v<char8_t>` was false, `__is_signed` and `__is_unsigned`
+  answered by the specifiers written, an older defect that the library's assertion asked: BY THE INFERENCE'S OWN TEST
+  now (`ccl_int_rank/3`: `char8_t`, `char16_t`, `char32_t` unsigned, plain `char` and `wchar_t` on Linux aarch64, a
+  floating type signed). Each fixed, probed over 18 and 21 and its gate's check run alone; then the whole chain again.
+- WHAT THE IR CACHE TAUGHT: its key holds the versions, not the library's code, so a probe of a changed library is
+  served the IR of the library before it -- the first `adlbase.cpp` probe of a library without the bases' clause printed
+  the right answer from the cache; the probes run uncached since (`CICILANG_NO_IR_CACHE=1` in the scratch net and probe
+  scripts). And the driver gate's check found that the key of a first build over a cold read was never met again: a cold
+  read is the header's preprocessed unit, whose items name no file, a warm one its summary, so the dependencies
+  differed; a library header now stands for the files its summary records (`dr_cxx_key_deps/2`).
+- LEFT, written again in Not done with what keeps each: a plain call to a noexcept callee needs the callee's noexcept in
+  the lowering and a terminate guard in a library function's noexcept body; an owner live across a call that may throw,
+  outside every `try`, is the owner's to decide (a `defer` is the remedy); `-g`'s columns need a column in every token;
+  the check's cost; argument-dependent lookup through a function type's parameters, a member pointer's class and a
+  template template argument's namespace; one configuration for the whole file; macOS and Apple's arm64, no machine
+  here.
+- FIXTURES: run, `tempobjcons`, `cmpfallback`, `cmpadl`, `nslibname`, `nslibglobal`, `xreadfns`, `xreadupper`,
+  `idchars`, `libattr`, `memconvarg`, `invokeconv`, `deducefixed`, `adlbase`, `flowarithok`, `zerobraced` (C++),
+  `stdc99`, `stdc11`, `hasattr` (C); refused, `stdsizeonly`, `libassert`, `libassert2`, `libassert3`, `sassertvirt`,
+  `flowarith`, `flowarith2`; checks, `c47` (`test/cpp.pl`), `k94` (`test/reader.pl`), the driver's identifier characters
+  by the level, its `__STDC_VERSION__` by the level, its `-DNDEBUG` and its C++ IR cache. Each is clang's output, run by
+  cicilang over libc++ 18 and 21; where 0.220 differs, the entry says so above.
+- GATED BEFORE ITS COMMIT: over the worktree and fresh HOMEs, on cocolog 2.12.0, the second run, from 13:56:41 UTC: all
+  nine gates GREEN over libc++ 18 -- the flow gate 91 s (its one finding), reader 4 s (94 checks), compile 23 s (156 run
+  fixtures and 61 refusals), driver 19 s (48 checks), objects 4 s, proof, cross 284 s (189 checks), the library read 443
+  s (the 23 asserted reads whole, 203 other headers warmed), the C++ gate 1209 s with 826 of 836 fixtures ok and 10
+  skipped by their needs (the two units, the 30 refusals, the 35 of the safe part and the eight static assertions), to
+  14:31:18 UTC --; over libc++ 21 the library read (its phase 390 s) and the C++ gate GREEN in about 1261 s, 834 of 836
+  ok, 2 skipped (`stdoptionalref.cpp`, `zipadjacent.cpp`), to 14:58:49 UTC. The headers' reads summed 1618 s over 226
+  over libc++ 18 and 1432 s over 226 over 21 (0.219's chain 1987 s and 1752 s); the fixtures' builds 3963 s over 826 and
+  4165 s over 834 (0.219's chain 4139 s over 811 and 4412 s over 819).
+- `RULES.md`: the lexers (the identifier's characters by the level, the white space past ASCII), the preprocessor
+  (`__has_attribute`, the C level, NDEBUG), the C reader (the C level by its year), the IR cache, the versions, Classes
+  (a type's name called, a plain struct named as a qualified base), Templates (a fixed template argument), Overload
+  resolution (the argument pass of `operator()`), the Constants of the desugaring (the library's static assertions, an
+  instance's once complete, the program's kept), the Itanium mangler (`TnDa`), the namespaces of libc++ (keyed names,
+  the qualified calls, the cross-read names, argument-dependent lookup), the safe part (computed values), What runs, Not
+  done. `CLAUDE.md`: the versions, the files (`library/ccl_xid.pl`, `module/gen-xid.pl`, `module/ccl_xid.h`), the
+  cache's `cpp/ir/`. `README.md`: the identifiers, NDEBUG, the static assertions, the IR cache, what runs.
+
+The module 0.221. The reader 164 (an identifier's characters and the white space past ASCII by the language and its
+level, `__has_attribute`, the C level by its year and C99's and C11's `__STDC_VERSION__`, `<assert.h>`'s own read under
+-DNDEBUG: what a read holds changes). The lowering 129, after 128 in the step's first part (what the desugaring and the
+lowering emit and what the check accepts change).

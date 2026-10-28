@@ -128,7 +128,7 @@ ccl_read_file_(File, AST, Rest) :-
 %% and written again at every build. It is read at every build, its headers served from the store, its IR too (dr_ir/3)
 ccl_read_file_(File, AST, Rest) :-
     ( nb_current('$pp_ftm', FT0) -> true ; FT0 = [] ),
-    catch(catch(ccl_pp_top(File, Tokens, _), lexical(L), throw(error(syntax_error(cicilang_ast(File, lexical, line(L))), cicilang_ast(File)))),   % the user's file through the preprocessor
+    catch(catch(catch(ccl_pp_top(File, Tokens, _), lexical(L), throw(error(syntax_error(cicilang_ast(File, lexical, line(L))), cicilang_ast(File)))), lexical_char(LC, C), throw(error(syntax_error(cicilang_ast(File, char(C), line(LC))), cicilang_ast(File)))),   % the user's file through the preprocessor
           pp_error(PL, PM), throw(error(pp_error(PM), here(File, PL)))),                                                                     % its own #error, an #embed of nothing
     ccl_with_file(File, ( ccl_unit(Tokens, AST, Rest), ccl_farthest(F) )),
     nb_setval('$ccl_far', F),

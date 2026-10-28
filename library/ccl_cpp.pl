@@ -68,7 +68,14 @@
 %% specializations, a template's non-type argument deduced, `[this]' in a
 %% lambda, a lambda in a template's body before its instantiation.
 
-ccl_cpp_units(Units0, Units) :- cpp_ginit_reset, cpp_alloc_units(Units0, Units00), cpp_ns_resolve(Units00, Units1), cpp_register_units(Units1), cpp_units(Units1, Units).
+ccl_cpp_units(Units0, Units) :- cpp_ginit_reset, cpp_alloc_units(Units0, Units00), cpp_ns_resolve(Units00, Units1),
+    catch(( cpp_register_units(Units1), cpp_units(Units1, Units) ), Err, ( cpp_kept_assert_failure, throw(Err) )), cpp_kept_assert_failure.
+%% THE PROGRAM'S OWN FAILED STATIC ASSERTION IS ITS ERROR WHEREVER IT WAS ASKED (0.221; [dcl.pre]/10, [temp.inst]/3: a class template's
+%% instance asserts as it is made, in no immediate context of a deduction): the failure is kept ('$cpp_assert_failed', the first one)
+%% and reported once the units are desugared, or before a later error -- a probe that made the instance caught the throw, and the
+%% program compiled. A library header's failure is reported only where its throw comes out: what this compiler instantiates beyond
+%% what clang does is no error of the program's.
+cpp_kept_assert_failure :- ( '$cpp_assert_failed'(Text, L) -> throw(error(static_assert_failed(Text), here(none, L))) ; true ).
 %% the unit's initialization lists, empty before anything registers (0.192): the registration emits the program's own
 %% headers' classes and variables, whose statics' initializations and destructors join the first unit's lists
 cpp_ginit_reset :- nb_setval('$cpp_ginit', []), nb_setval('$cpp_ginit_pre', []), nb_setval('$cpp_ginit_fns', []).
@@ -85,7 +92,7 @@ cpp_ns_resolve(Units000, Units) :-
     findall(F, ( member(unit(Is), Units0), cpp_own_flat([], Is, F) ), Fs), append(Fs, Flat0), ccl_flat_quals(Flat0, Flat),   % a qualified declarator's namespace is the item's (ccl_flat_quals)
     findall(S, ( member(in(P0, _), Flat0), P0 \== c, member(S, P0), atom(S) ), NsL0), sort(NsL0, NsL), cpp_reset('$cpp_ns_names'/1), assertz('$cpp_ns_names'(NsL)),
     findall(N-NP, ( member(in(Path, I), Flat), ( catch(once(cpp_index_name(I, N)), _, fail) ; cpp_ns_enum_name(I, N) ), atom(N), cpp_ns_named_path(Path, NP) ), Pairs0),   % an ENUM's tag and an unscoped enum's enumerators are names of the namespace too (0.127)
-    sort(Pairs0, Pairs), cpp_ns_quals_(Pairs, Qs0), cpp_anon_quals(Pairs, Qs0, Qs),
+    sort(Pairs0, Pairs), cpp_ns_quals_(Pairs, Qs0), cpp_anon_quals(Pairs, Qs0, Qs00), cpp_lib_quals(Units0, Pairs, Qs00, Qs),   % ... and a name a library header declares too (0.221, cpp_lib_quals/4)
     cpp_reset('$cpp_dbg_ns'/2), cpp_reset('$cpp_dbg_targs'/2),                                       % -g: the namespaces of the program's own names, a function template instance's arguments (0.130)
     cpp_reset('$cpp_own_ns'/2), forall(( member(N-NP, Pairs), NP \== [] ), assertz('$cpp_own_ns'(N, NP))),   % the namespace of each of the program's own names, where argument-dependent lookup looks (cpp_adl_fn, 0.134)
     cpp_reset('$cpp_type_ns'/2), forall(( member(N-NP, Pairs), NP \== [], cpp_ns_final_name(N, NP, Qs, K) ), assertz('$cpp_type_ns'(K, NP))),   % ... and by the name it has once a collision is keyed (0.180), which the type information's names read (cpp_prog_scope/2)
@@ -98,6 +105,44 @@ cpp_ns_resolve(Units000, Units) :-
         cpp_ns_rewrite_units(Units0, Qs, Units),
         ccl_scope_init, forall(member(unit(Is1), Units), ccl_items_note_program(Is1)) ).
 cpp_ns_final_name(N, NP, Qs, K) :- ( memberchk(q(Ns, N, NP), Qs), Ns \== bare -> atomic_list_concat([Ns, '.', N], K) ; K = N ).   % a deeper namespace's item of a collided name is `<suffix>.<name>'
+%% A NAME OF THE PROGRAM'S NAMESPACE THAT A LIBRARY HEADER DECLARES TOO (0.221; [namespace.qual]/2, [basic.lookup.unqual]):
+%% the library keeps the bare name, and each named namespace of the program's that declares it is keyed as a deeper namespace
+%% of the program's own is (above), by the shortest suffix of its path that no other path declaring the name ends with, the
+%% library's paths among them -- `ns.max', `ns.abs'. Flattened bare, the program's function joined the library's overloads of
+%% the name (cpp_fn_ready/1): `std::max(1, 2)' called the program's `ns::max(int, int)' and printed 3 for clang's 2, and
+%% `ns::abs(-4)' beside <cstdlib> was `undeclared('abs.int')'. The program's global names and its names in a namespace of the
+%% library's (`namespace std { template <> struct hash<K> {...}; }') keep the bare name, as before; an operator's name is no
+%% atom here, and operators stay one set, found by their arguments. The headers' ASTs are loaded first, in the include's
+%% order, as the registration would (cpp_lib_names_load/1). An unqualified call finds a keyed function through its arguments'
+%% classes (cpp_call_adl/4), and a bare use in a namespace nested in the keyed one goes to the key (cpp_lib_outer_body/4)
+cpp_lib_quals(Units, Pairs, Qs0, Qs) :-
+    cpp_reset('$cpp_ns_libkeyed'/1),
+    findall(N, ( member(N-[S|_], Pairs), S \== std ), Ns0), sort(Ns0, Ns1),
+    (   Ns1 == [] -> Qs = Qs0
+    ;   cpp_lib_names_load(Units),
+        findall(N, ( member(N, Ns1), cpp_lib_declares(N) ), Ns),
+        (   Ns == [] -> Qs = Qs0
+        ;   findall(Q, ( member(Q, Qs0), Q = q(_, QN, _), \+ memberchk(QN, Ns) ), Qs1),
+            findall(Q, ( member(N, Ns), cpp_lib_name_quals(N, Pairs, Q) ), Qs2), append(Qs1, Qs2, Qs),
+            forall(member(N, Ns), assertz('$cpp_ns_libkeyed'(N))) ) ).
+%% each of the program's paths of the name: keyed, or bare where it is global, the library's namespace, or no suffix of it is unique
+cpp_lib_name_quals(N, Pairs, Q) :- findall(P, member(N-P, Pairs), PPs), cpp_lib_paths(N, LPs), append(PPs, LPs, All0), sort(All0, All),
+    member(P, PPs), ( P = [S|_], S \== std, cpp_ns_unique_suffix(P, All, K) -> Q = q(K, N, P) ; Q = q(bare, N, P) ).
+cpp_lib_paths(N, LPs) :- findall(NP, ( catch('$cpp_hdr_ast_ns'(N, P), _, fail), ( P == c -> NP = [] ; cpp_ns_named_path(P, NP) ) ), L0),
+    findall(NP, catch('$cpp_ns_libname'(N, NP), _, fail), L1), append(L0, L1, L2), sort(L2, LPs).
+cpp_lib_declares(N) :- ( catch('$cpp_hdr_ast_ns'(N, _), _, fail) ; catch('$cpp_ns_libname'(N, _), _, fail) ), !.
+%% the names the units' library headers declare: a served or a summarized header's AST loaded, a header flattened in the process
+%% and not summarized read for its names ('$cpp_ns_libname')
+cpp_lib_names_load(Units) :- cpp_reset('$cpp_ns_libname'/2), forall(member(unit(Is), Units), cpp_lib_names_items(Is)).
+cpp_lib_names_items([]).
+cpp_lib_names_items([I|Is]) :- cpp_lib_names_item(I), cpp_lib_names_items(Is).
+cpp_lib_names_item(include(_, _, file(_, summary, summary(F)))) :- !, cpp_load_ast(F).
+cpp_lib_names_item(include(_, _, file(P, preprocessed, unit(Js)))) :- !,
+    (   cpp_read_now_summarized(P, F) -> cpp_load_ast(F)
+    ;   cpp_own_flat([], Js, Fl), forall(( member(in(Path, I), Fl), catch(once(cpp_index_name(I, N)), _, fail), atom(N), cpp_ns_named_path(Path, NP) ), assertz('$cpp_ns_libname'(N, NP))) ).
+cpp_lib_names_item(include(_, _, file(_, raw, unit(Js)))) :- !, cpp_lib_names_items(Js).
+cpp_lib_names_item(namespace(_, _, Js)) :- is_list(Js), !, cpp_lib_names_items(Js).
+cpp_lib_names_item(_).
 %% THE UNIT'S TAG (0.192): a name that is one unit's own -- a closure's (`lambda.K'), a local class's (`N.local_K'), an unnamed
 %% namespace's -- carries it, so that two units linked together never share one: a fold of the main file's absolute path, the
 %% command line's macros, the configuration and the target, in base 36. The names were the same in every unit and emitted
@@ -175,9 +220,18 @@ cpp_ns_rewrite_items([I|Is], P, Qs, [I3|Is1]) :-
     (   catch(once(cpp_index_name(I, N)), _, fail), cpp_ns_item_path(P, I, PI), cpp_index_key(Qs, PI, N, K), K \== N, cpp_qualify_item(N, K, I, I1) -> true
     ;   cpp_ns_enum_name(I, _), cpp_ns_item_path(P, I, PI), cpp_qualify_enum(Qs, PI, I, I1) -> true
     ;   I1 = I ),
-    cpp_qualify_body(Qs, P, I1, I2),
+    cpp_qualify_body(Qs, P, I1, I20), cpp_lib_outer_body(Qs, P, I20, I2),
     ( cpp_ns_named_path(P, NP0) -> cpp_using_blocks(I2, NP0, Qs, I3) ; I3 = I2 ),   % ... and in a block, the statements after it (0.139)
     cpp_ns_rewrite_items(Is, P, Qs, Is1).
+%% A BARE USE OF A NAME KEYED APART FROM THE LIBRARY'S, IN A NAMESPACE NESTED IN ONE THAT DECLARES IT (0.221; [basic.lookup.unqual]/4,
+%% cpp_lib_quals/4): C++'s search goes from the use's namespace out, and the innermost enclosing namespace that declares the name
+%% is the one found -- `max(a, b)' inside `ns::detail' is `ns::max'. Bare, it was the library's now. A name declared in the use's
+%% own namespace is cpp_qualify_body/4's
+cpp_lib_outer_body(Qs, P, I, I1) :- cpp_ns_named_path(P, NP), NP \== [], findall(N-K, cpp_lib_outer_key(Qs, NP, N, K), Map), Map \== [], !, cpp_rename_names(I, Map, I1).
+cpp_lib_outer_body(_, _, I, I).
+cpp_lib_outer_key(Qs, NP, N, K) :- catch('$cpp_ns_libkeyed'(N), _, fail), \+ memberchk(q(_, N, NP), Qs),
+    findall(L-Ns, ( member(q(Ns, N, P0), Qs), P0 \== NP, append(P0, _, NP), length(P0, L) ), LNs), LNs \== [],
+    msort(LNs, S), last(S, _-Ns), Ns \== bare, atomic_list_concat([Ns, '.', N], K).
 %% A USING-DECLARATION OR A USING-DIRECTIVE OVER COLLIDED NAMES (0.139; [namespace.udecl], [namespace.udir]): two namespaces of
 %% the program declare one name, the outermost keeps it bare and the other's is keyed `<ns>.<name>' (above), so a bare use is the
 %% bare one's. `using b::f;' and `using namespace b;' make b's names the ones a bare use finds in the rest of their scope: the
@@ -260,7 +314,9 @@ cpp_ctype_put(C, N, T) :- asserta('$cpp_ctype'(C, N, T)).
 cpp_enclosing(C, E) :- '$cpp_encl'(C, E), !.
 cpp_sinit(C, N, E) :- '$cpp_sinit'(C, N, E), !.
 cpp_dtor_def(C) :- '$cpp_dtor_def'(C), !.
-cpp_template_put(N, TPs0, Item) :- cpp_name_anon(TPs0, TPs), assertz('$cpp_tmpl'(N, TPs, Item)).
+cpp_template_put(N, TPs0, Item) :- cpp_name_anon(TPs0, TPs), assertz('$cpp_tmpl'(N, TPs, Item)), cpp_note_own_tmpl(N, Item).
+%% the program's own function template, by its line and its body, which the merge of its defaults leaves as they are (0.221, cpp_libq_cands/3)
+cpp_note_own_tmpl(N, Item) :- ( nb_current('$cpp_in_lib', no), cpp_fn_item(Item, function(L, _, _, _, _, _, Body)) -> assertz('$cpp_own_tmplfn'(N, L, Body)) ; true ).
 cpp_spec_put(N, TPs0, Pat, Item) :- cpp_name_anon(TPs0, TPs), assertz('$cpp_spec'(N, TPs, Pat, Item)).
 cpp_mt_put(C, K, TPs0, M) :- cpp_name_anon(TPs0, TPs), assertz('$cpp_mt'(C, K, TPs, M)).
 %% AN UNNAMED TEMPLATE PARAMETER IS NAMED BY ITS POSITION at the three registration doors (`$anon1', `$anon2' ...),
@@ -277,13 +333,14 @@ cpp_instance_note(Name, What) :- assertz('$cpp_inst'(Name, What)).
 
 %% ---- the classes of the units: '$cpp_classes' = [C-cls(Base, Data, Members, Statics, Defaults) ...] --------
 cpp_register_units(Units) :-
+    cpp_reset('$cpp_assert_failed'/2),
     cpp_reset('$cpp_cls'/2), cpp_reset('$cpp_clsl'/2), cpp_reset('$cpp_sfn'/2), cpp_reset('$cpp_alloc_m'/2), cpp_reset('$cpp_sfn_pre'/2), cpp_reset('$cpp_decl'/4), cpp_reset('$cpp_sfold'/3), cpp_reset('$cpp_nenum'/1), cpp_reset('$cpp_enumv'/3), cpp_reset('$cpp_tmpl'/3), cpp_reset('$cpp_fspec'/3), cpp_reset('$cpp_spec'/4), cpp_reset('$cpp_mt'/4), cpp_reset('$cpp_inst'/2), cpp_reset('$cpp_out'/2), cpp_reset('$cpp_ownfn'/2), cpp_reset('$cpp_consteval'/1), cpp_reset('$cpp_cecheck'/3), cpp_reset('$cpp_scell'/2), cpp_reset('$cpp_mdef'/5), cpp_reset('$cpp_extern'/3), cpp_reset('$cpp_friends'/2), cpp_reset('$cpp_extra'/2), cpp_reset('$cpp_base_slot'/3), cpp_reset('$cpp_primary_moved'/2), cpp_reset('$cpp_vbase'/1), cpp_reset('$cpp_poly_extra'/3), cpp_reset('$cpp_poly_path'/3), cpp_reset('$cpp_hdrfn'/1), cpp_reset('$cpp_nv_base'/2), cpp_reset('$cpp_vb_holder'/2), cpp_reset('$cpp_lvb'/3), cpp_reset('$cpp_vprim'/2), cpp_reset('$cpp_vprim_ind'/2), cpp_reset('$cpp_vb_claim'/3),
     cpp_reset('$cpp_dflt'/2), cpp_reset('$cpp_extern_full'/3), cpp_reset('$cpp_friends_pending'/1), cpp_reset('$cpp_auto_later'/2), cpp_reset('$cpp_localcls'/2), cpp_reset('$cpp_localst'/2), cpp_reset('$cpp_closure_made'/2), cpp_reset('$cpp_lib_closure'/1), cpp_reset('$cpp_lambda_cls'/5), cpp_reset('$cpp_srcloc'/2), cpp_reset('$cpp_pf_closure'/3), cpp_reset('$cpp_pf_local'/3), cpp_reset('$cpp_srcloc_fn'/1), cpp_note_srcloc_fns(Units), nb_setval('$cpp_fsig', none), nb_setval('$cpp_dflt_site', none), nb_setval('$cpp_lambda_memo', []), cpp_reset('$cpp_dtor_def'/1), nb_setval('$cpp_lambdas', 0), nb_setval('$cpp_gen_invs', []), nb_setval('$cpp_caller', none), nb_setval('$cpp_obj_cat', none), nb_setval('$cpp_closure_this', []), nb_setval('$cpp_temps', none), nb_setval('$cpp_making', []), nb_setval('$cpp_obj_const', none),
     nb_setval('$cpp_nontrivial', []), nb_setval('$cpp_req_ctx', none), nb_setval('$cpp_nv', none), nb_setval('$cpp_lconsts', []),
     cpp_reset('$cpp_acc'/3), cpp_reset('$cpp_afriend'/2), cpp_reset('$cpp_bacc'/3), cpp_reset('$cpp_static_abi'/1), nb_setval('$cpp_body_ctx', none), nb_setval('$cpp_cur_fn', none), nb_setval('$cpp_acc_scope', none), nb_setval('$cpp_obj_expr', none),   % the access of a program class's members and its friends (0.117)
     cpp_reset('$cpp_concept'/2), cpp_reset('$cpp_ccm'/3), cpp_reset('$cpp_vtm'/3), cpp_reset('$cpp_friend_in'/3),   % the concepts by name, and the memos of a concept's satisfaction and a variable template's value (0.112)
     cpp_reset('$cpp_ctype'/3), cpp_reset('$cpp_sinit'/3), cpp_reset('$cpp_sinline'/2), cpp_reset('$cpp_encl'/2),
-    cpp_reset('$cpp_cross_map'/3), cpp_reset('$cpp_cross_none'/1), nb_setval('$cpp_ast_gen', 0), nb_setval('$cpp_cross_table', none),   % the cross-read names' memos, by the ASTs loaded (0.219, cpp_cross_table/1)
+    cpp_reset('$cpp_own_tmplfn'/3), cpp_reset('$cpp_cross_map'/3), cpp_reset('$cpp_cross_none'/1), nb_setval('$cpp_ast_gen', 0), nb_setval('$cpp_cross_table', none),   % the cross-read names' memos, by the ASTs loaded (0.219, cpp_cross_table/1)
     cpp_reset('$cpp_lazy_c'/1), cpp_reset('$cpp_lazy_p'/1), nb_setval('$cpp_eh_used', no), nb_setval('$cpp_hdr_loaded', []), nb_setval('$cpp_budget', 0), nb_setval('$cpp_depth', 0), nb_setval('$cpp_class_ctx', none), ( catch(abolish('$cpp_hdr'/2), _, true) -> true ; true ), dynamic('$cpp_hdr'/2), dynamic('$cpp_hdr_ast'/2),
     cpp_reset('$cpp_lib'/1), cpp_reset('$cpp_libfn'/1), cpp_reset('$cpp_math_decl'/1), cpp_reset('$cpp_nested_tmpl'/3), cpp_reset('$cpp_implicit_copy'/3), cpp_reset('$cpp_promoted'/1), cpp_reset('$cpp_deferred'/4), cpp_reset('$cpp_base_named'/1), cpp_reset('$cpp_implicit_assign'/3), nb_setval('$cpp_in_lib', no),
     cpp_reset('$cpp_nxdef'/4), cpp_reset('$cpp_nxsrc'/3), cpp_reset('$cpp_nxval'/2), cpp_reset('$cpp_nxmval'/3), nb_setval('$cpp_nx_def', none), nb_setval('$cpp_nx_evaluating', []),   % the conditional noexcepts (0.199)
@@ -404,16 +461,45 @@ cpp_ita_fn_instance(F, TPs, B, Ret, Ps, V, Name) :-
     atom(F), \+ cpp_c_name(F), cpp_hdr_ns(F, Path), Path = [_|_],
     cpp_ita_tparams(TPs, 0, Refs), cpp_ita_bound_args(TPs, B, Args),
     nb_setval('$cpp_ita_tps', Refs),
-    (   cpp_ita_fn_inst_(Path, F, Args, Ret, Ps, V, Name0) -> nb_setval('$cpp_ita_tps', []), Name = Name0
+    (   cpp_ita_fn_inst_(Path, F, TPs, Args, Ret, Ps, V, Name0) -> nb_setval('$cpp_ita_tps', []), Name = Name0
     ;   nb_setval('$cpp_ita_tps', []), fail ).
-cpp_ita_fn_inst_(Path, F, Args, Ret, Ps, V, Name) :-
+cpp_ita_fn_inst_(Path, F, TPs, Args, Ret, Ps, V, Name) :-
     cpp_ita_ns(Path, '', '', [], C0, T0, Subs1),
     ccl_byte_length(F, L), atomic_list_concat([C0, L, F], C1),
     cpp_ita_level(C1, T0, L, F, Subs1, T1, Subs2),                                          % the template-prefix, a candidate
-    cpp_ita_targs(Args, Subs2, _, AText, Subs3),
+    cpp_ita_fn_targs(TPs, Args, Subs2, AText, Subs3),                                       % each argument by its parameter (0.221)
     cpp_ita_type(Ret, Subs3, _, RText, Subs4),                                              % the RETURN TYPE, which only a template's encoding carries
     cpp_ita_params(Ps, V, Subs4, PText, _),
     atomic_list_concat(['_ZN', T1, 'I', AText, 'EE', RText, PText], Name).
+%% A FUNCTION TEMPLATE'S ARGUMENTS BY ITS PARAMETERS (0.221; Itanium 5.1.5.4 and its <template-param-decl>, as clang 18 and 21
+%% spell them): a type is its type and a type pack `J ... E'; a value is `L', its parameter's type, the number, `E' (0.137's
+%% cpp_ita_value/3) -- and where the parameter's type is a placeholder or another parameter, the parameter's declaration
+%% comes first and the value takes its literal's own type: `TnDa' for `auto' (its top-level const dropped, [temp.param]/5),
+%% `TnDc' for `decltype(auto)', `TnPDa' for `auto *', `Tn' and the parameter's code for `T V' (`TnT_', a substitution
+%% candidate as a parameter's code always is), `TpTnDa' before an `auto...' pack's `J ... E'. They were types alone, and an
+%% instance with a value argument took this compiler's name: `std::__1::e<5>()' of `template <auto N>' is
+%% `_ZNSt3__11eITnDaLi5EEEiv', `a<int, 3>(int, int)' of `template <class T, T V>' `_ZNSt3__11aIiTnT_Li3EEEiS1_S1_'. A value
+%% that is an address or an object (`X...E', `L_Z...E') is spelled by no clause, and the instance keeps this compiler's name
+cpp_ita_fn_targs([], [], Subs, '', Subs).
+cpp_ita_fn_targs([TP|TPs], As, Subs0, Text, Subs) :- \+ TP = tparam(_, _, _), !, cpp_ita_fn_targs(TPs, As, Subs0, Text, Subs).
+cpp_ita_fn_targs([tparam(K, _, _)|TPs], [A|As], Subs0, Text, Subs) :- cpp_ita_fn_targ(K, A, Subs0, T1, Subs1), cpp_ita_fn_targs(TPs, As, Subs1, T2, Subs), atom_concat(T1, T2, Text).
+cpp_ita_fn_targ(type, A, Subs0, T, Subs) :- !, cpp_ita_type(A, Subs0, _, T, Subs).
+cpp_ita_fn_targ(pack, A, Subs0, T, Subs) :- !, ( A = pack(As) -> true ; is_list(A), As = A ), cpp_ita_targs(As, Subs0, _, T0, Subs), atomic_list_concat(['J', T0, 'E'], T).
+cpp_ita_fn_targ(vpack(VT), A, Subs0, T, Subs) :- !, ( A = vpack(As) -> true ; A = pack(As) -> true ; is_list(A), As = A ),
+    ( cpp_ita_pdecl(VT, Subs0, D, Subs) -> atom_concat('Tp', D, P), VT1 = none ; P = '', VT1 = VT, Subs = Subs0 ), cpp_ita_values(As, VT1, T0), atomic_list_concat([P, 'J', T0, 'E'], T).
+cpp_ita_fn_targ(K, A, Subs0, T, Subs) :- cpp_ita_pdecl(K, Subs0, D, Subs), !, cpp_ita_value(A, none, V), atom_concat(D, V, T).
+cpp_ita_fn_targ(K, A, Subs, T, Subs) :- K \== template, cpp_ita_value(A, K, T).
+cpp_ita_values([], _, '').
+cpp_ita_values([A|As], VT, T) :- cpp_ita_value(A, VT, T1), cpp_ita_values(As, VT, T2), atom_concat(T1, T2, T).
+%% a value parameter's declaration where clang spells it: a placeholder's (`Da', `Dc', under `P', `R' and `O' each a candidate,
+%% an inner const `K'), or a parameter's code where its type is another of the template's parameters
+cpp_ita_pdecl(K, Subs0, D, Subs) :- cpp_has_auto(K), cpp_ita_auto_text(K, top, Subs0, X, Subs), !, atom_concat('Tn', X, D).
+cpp_ita_pdecl(base(_, [typedef(N)]), Subs0, D, Subs) :- atom(N), cpp_ita_tparam(N, Code), !, cpp_ita_tp_use(Code, Subs0, T, Subs), atom_concat('Tn', T, D).
+cpp_ita_auto_text(base(Q, [auto]), Lvl, Subs0, X, Subs) :- !,
+    ( memberchk(decltype_auto, Q) -> X = 'Dc', Subs = Subs0 ; Lvl == inner, memberchk(const, Q) -> X = 'KDa', cpp_ita_note(X, Subs0, Subs) ; X = 'Da', Subs = Subs0 ).
+cpp_ita_auto_text(ptr(_, T), _, Subs0, X, Subs) :- !, cpp_ita_auto_text(T, inner, Subs0, X0, Subs1), atom_concat('P', X0, X), cpp_ita_note(X, Subs1, Subs).
+cpp_ita_auto_text(ref(_, T), _, Subs0, X, Subs) :- !, cpp_ita_auto_text(T, inner, Subs0, X0, Subs1), atom_concat('R', X0, X), cpp_ita_note(X, Subs1, Subs).
+cpp_ita_auto_text(rref(_, T), _, Subs0, X, Subs) :- cpp_ita_auto_text(T, inner, Subs0, X0, Subs1), atom_concat('O', X0, X), cpp_ita_note(X, Subs1, Subs).
 cpp_ita_tparams([], _, []).
 cpp_ita_tparams([requires(_)|TPs], I, Rs) :- !, cpp_ita_tparams(TPs, I, Rs).
 cpp_ita_tparams([ttp(_, _)|TPs], I, Rs) :- !, cpp_ita_tparams(TPs, I, Rs).
@@ -711,7 +797,7 @@ cpp_builtin_word(W) :- memberchk(W, [void, char, short, int, long, float, double
 %% the overload an argument list names: one whose parameters take it EXACTLY (C++ prefers such a non-template
 %% to any template), else the one whose parameters fit best (cpp_pick, the methods')
 cpp_fn_exact(F, As, Ps, D) :- cpp_fn_ready(F), length(As, N),
-    findall(Ps0, ( '$cpp_fn'(F, _, Ps0, _, _), length(Ps0, N), \+ cpp_raw_params(Ps0), cpp_exact_params(Ps0, As) ), Cs), Cs = [C1|Cs1],   % AMONG THE EXACT OVERLOADS an rvalue argument takes the `T &&' one (0.122; [over.ics.rank]/3.2.3): `f(const S &)' beside `f(S &&)' for `f(S{2})' and `f(std::move(s))' -- the first declared won
+    findall(Ps0, ( '$cpp_fn'(F, _, Ps0, _, O), \+ cpp_fn_hidden(F, O), length(Ps0, N), \+ cpp_raw_params(Ps0), cpp_exact_params(Ps0, As) ), Cs), Cs = [C1|Cs1],   % AMONG THE EXACT OVERLOADS an rvalue argument takes the `T &&' one (0.122; [over.ics.rank]/3.2.3): `f(const S &)' beside `f(S &&)' for `f(S{2})' and `f(std::move(s))' -- the first declared won
     cpp_prefer_rvalue(Cs1, C1, As, Ps), cpp_fn_defined(F, Ps, D), !.
 %% A PLAIN OVERLOAD'S PARAMETERS NAME NO FREE TEMPLATE PARAMETER (0.136): a template's raw signature among the noted
 %% overloads of a name (`duration<_Rep, _Period> abs(duration<_Rep, _Period>)' beside `int abs(int)') is the template's
@@ -724,8 +810,16 @@ cpp_rvalue_binds([], [], 0).
 cpp_rvalue_binds([P|Ps], [A|As], K) :- ( P = param(T, _) ; P = param(T, _, _) ), !, ( T = rref(_, _), \+ cpp_arg_lvalue(A) -> K1 = 1 ; K1 = 0 ), cpp_rvalue_binds(Ps, As, K0), K is K0 + K1.
 cpp_rvalue_binds(_, _, 0).
 cpp_fn_best(F, As, Ps, D) :- cpp_fn_ready(F), length(As, N),
-    findall(Ps0, ( '$cpp_fn'(F, _, Ps0, _, O), cpp_fn_arity_fits(Ps0, O, N), \+ cpp_raw_params(Ps0), cpp_args_no_clash(Ps0, As) ), Cands), Cands \== [],   % the arity alone is the last resort, never a clash (as the members' is)
+    findall(Ps0, ( '$cpp_fn'(F, _, Ps0, _, O), \+ cpp_fn_hidden(F, O), cpp_fn_arity_fits(Ps0, O, N), \+ cpp_raw_params(Ps0), cpp_args_no_clash(Ps0, As) ), Cands), Cands \== [],   % the arity alone is the last resort, never a clash (as the members' is)
     cpp_pick(Cands, As, Ps), cpp_fn_defined(F, Ps, D).
+%% A CALL QUALIFIED BY THE LIBRARY'S NAMESPACE FINDS NONE OF THE PROGRAM'S OWN FUNCTIONS OF THE NAME (0.221; [namespace.qual]/2):
+%% the program's global names keep the bare name beside the library's, one overload set (cpp_lib_quals/4 keys its named
+%% namespaces' alone), so `std::max(2, 3)' beside the program's `int max(int, int)' called it, 5 for clang's 3, and the
+%% qualified `std::swap(a, b)' the program's `swap(S &, S &)'. The qualified call marks its name and the depth it is chosen
+%% at (cpp_lib_qualified/3, `'$cpp_libq''), and the program's own overloads of the name are no candidates there -- not in
+%% the bodies it instantiates, where argument-dependent lookup can find them -- unless the program declares the name in
+%% namespace std itself
+cpp_fn_hidden(F, own(_)) :- nb_current('$cpp_libq', F-D), nb_getval('$cpp_depth', D), \+ catch('$cpp_own_ns'(F, [std|_]), _, fail).
 %% an ELLIPSIS takes any number past the named parameters: `__libcpp_verbose_abort(const char *, ...)' is
 %% called with a format and its arguments, and the plain arity test found no candidate for those calls
 cpp_fn_arity_fits(Ps, O, N) :- cpp_fn_variadic(O), !, cpp_required(Ps, Min), N >= Min.
@@ -1242,9 +1336,22 @@ cpp_cross_group([N-P|L], [N-Ds|Gs]) :- cpp_cross_run(L, N, [P], Ds0, Rest), sort
 cpp_cross_run([N-P|L], N, Acc, Ds, Rest) :- !, cpp_cross_run(L, N, [P|Acc], Ds, Rest).
 cpp_cross_run(L, _, Ds, Ds, L).
 %% the renames in a namespace's items, NP-memoized for the ASTs loaded: each cross-read name whose innermost declaring namespace,
-%% from NP out, is not its first item's, to that namespace's key -- a class's or a class template's (cpp_cross_make/4 fails else)
+%% from NP out, is not its first item's, to that namespace's key -- a class's or a class template's (cpp_cross_make/4 fails else).
+%% ... AND THE FIRST ITEM'S OWN NAMESPACE TOO WHERE ANOTHER NAMESPACE'S ITEM OF THE NAME IS A FUNCTION OR AN OBJECT (0.221;
+%% [basic.lookup.unqual]/1, [basic.lookup.argdep]/3: the class that ordinary lookup finds hides them, and no argument's
+%% namespace is asked): every item of the name is loaded under the bare name, so the bare name held both kinds and a call took
+%% the function's road. libc++ 21's `inline constexpr auto transform = __transform{};' in std::ranges, read in <algorithm>
+%% before <sstream> brought std::__formatter's function template `__transform(first, last, out, op)', called it with no
+%% argument, `arity_mismatch', and every `std::ranges::transform' was refused; read after it, the class was keyed already.
+%% Over libc++ 21's summaries, `__transform' at C++20 to C++26 and `__upper_bound' (std's function, ranges' class) at C++23 and
+%% C++26; none over libc++ 18's
 cpp_cross_map(NP, T, Map) :- nb_getval('$cpp_ast_gen', G), ( catch('$cpp_cross_map'(NP, G, Map0), _, fail) -> Map = Map0 ; cpp_cross_map_(NP, T, Map), assertz('$cpp_cross_map'(NP, G, Map)) ).
-cpp_cross_map_(NP, T, Map) :- findall(N-K, ( member(N-Ds-First, T), cpp_ns_innermost(NP, Ds, Q), Q \== First, cpp_cross_make(N, Q, Ds, K) ), Map).
+cpp_cross_map_(NP, T, Map) :- findall(N-K, ( member(N-Ds-First, T), cpp_ns_innermost(NP, Ds, Q), ( Q \== First -> true ; cpp_cross_mixed(N, Q) ), cpp_cross_make(N, Q, Ds, K) ), Map).
+cpp_cross_mixed(N, Q) :- findall(I, '$cpp_hdr_ast'(N, I), Is), findall(P, '$cpp_hdr_ast_ns'(N, P), Ps), cpp_cross_zip(Is, Ps, IPs), !,
+    member(I-P, IPs), P \== c, cpp_ns_named_path(P, NP), NP \== Q, cpp_cross_value_item(I), !.
+cpp_cross_value_item(template(_, _, I)) :- !, cpp_cross_value_item(I).
+cpp_cross_value_item(function(_, _, _, _, _, _, _)).
+cpp_cross_value_item(declaration(_, _, _, _)).
 cpp_ns_innermost(NP, Ds, Q) :- findall(L-D, ( member(D, Ds), append(D, _, NP), length(D, L) ), LDs), LDs \== [], msort(LDs, S), last(S, _-Q).
 %% the out-of-class definitions of the batch, noted BEFORE any class of it registers (the class item comes first in
 %% the header, its members' bodies after it), so the class takes them as its members' bodies (cpp_lazy_class)
@@ -1334,7 +1441,7 @@ cpp_global_var(N, N) :- atom(N), catch('$cpp_ns_own'(N), _, fail), ccl_gdeclared
 cpp_callable_global(F, Name, C) :- atom(F), \+ cpp_local(F),
     ( cpp_global_var(F, Name) -> true ; ccl_gdeclared(F, T0), \+ T0 = fn(_, _, _) -> Name = F ),
     ccl_type_of(id(Name), T), T \== unknown, cpp_class_of_type(T, C), cpp_has_member(C, operator('()')), !.
-cpp_object_call(Name, C, As, call(id(MN), [Obj|As1])) :- cpp_method_on(id(Name), C, operator('()'), As, MN, _), cpp_fill_defaults(MN, As, As1), cpp_object_arg(MN, addr(id(Name)), Obj).
+cpp_object_call(Name, C, As, call(id(MN), [Obj|As2])) :- cpp_method_on(id(Name), C, operator('()'), As, MN, _), cpp_fill_defaults(MN, As, As1), cpp_ref_args_of(MN, As1, As2), cpp_object_arg(MN, addr(id(Name)), Obj).
 %% a lazy class: registered, its struct emitted, its members emitted as they are first used (the standard's rule for a
 %% template's members; a library class's methods are hundreds, a program uses three)
 cpp_lazy_class(_, _, _, _, none) :- !.                                                   % `class bad_alloc;': nothing to register or emit
@@ -1450,10 +1557,15 @@ cpp_note_bases_(extern_c(_, Js)) :- !, cpp_note_bases(Js).
 cpp_note_bases_(template(_, _, I)) :- !, cpp_note_bases_(I).
 cpp_note_bases_(include(_, _, file(_, _, unit(Js)))) :- !, cpp_note_bases(Js).      % the program's own header, read whole
 cpp_note_bases_(declare(_, base(_, [class(_, _, Bases, Ms)]))) :- !,
-    forall(( member(base(_, B0), Bases), atom(B0) ), ( cpp_note_base_name(B0), ( cpp_alias_class(B0, B1) -> cpp_note_base_name(B1) ; true ) )),   % an alias of a struct names the struct too (0.117)
+    forall(( member(base(_, B00), Bases), cpp_note_base_atom(B00, B0) ), ( cpp_note_base_name(B0), ( cpp_alias_class(B0, B1) -> cpp_note_base_name(B1) ; true ) )),   % an alias of a struct names the struct too (0.117)
     ( is_list(Ms) -> cpp_note_bases(Ms) ; true ).                                    % a nested class's bases with them
 cpp_note_bases_(_).
 cpp_note_base_name(N) :- ( '$cpp_base_named'(N) -> true ; assertz('$cpp_base_named'(N)) ).
+%% ... AND A BASE QUALIFIED BY A NAMESPACE BY ITS NAME IN THE TABLES (0.221): the namespace's key where the name collided, else its
+%% last name -- `struct D : ns::B { };' over `namespace ns { struct B { int n; }; }' promoted nothing, and D refused
+%% base_not_registered('B', 'D')
+cpp_note_base_atom(B0, B0) :- atom(B0), !.
+cpp_note_base_atom(scoped(Path, N), K) :- atom(N), is_list(Path), ( catch(cpp_ns_key(Path, N, K0), _, fail) -> K = K0 ; K = N ).
 %% A PLAIN STRUCT BOUND TO A BASE-CLAUSE TYPE PARAMETER IS A CLASS TOO (0.117): in `template <class B> struct D : B { int y; }' over
 %% `struct P { int x; }' the base clause names the PARAMETER, so cpp_note_bases -- which runs before any instance exists -- noted
 %% `B', promoted nothing, and `D<P>' refused base_not_registered(P, D.P). The instance promotes the base where it names it, before
@@ -1707,12 +1819,15 @@ cpp_register_class__(K, L, C, Bases, Ms00) :-                                   
     cpp_selected_dtor(C, Ms0, Ms, MsD),                                                          % of its prospective destructors, the one whose constraints hold (0.201)
     ( cpp_in_class(C, cpp_register_class_(K, L, C, Bases, MsD)) -> true ; cpp_refuse(L, class_not_registered(C)) ),   % its own typedefs resolve its members' types
     ( DReq == none -> true ; cpp_method_viable(C, DReq, []) -> ( '$cpp_default_ctor'(C) -> true ; assertz('$cpp_default_ctor'(C)) ) ; cpp_trace(default_ctor_unmet(C)) ),
-    cpp_member_asserts(C, Ms00),                                                                 % its static assertions, in its words (0.205)
+    ( '$cpp_inst'(C, _) -> true ; cpp_member_asserts(C, Ms00) ),                                 % its static assertions, in its words (0.205); an instance's once it is complete (cpp_instance_body_/4, 0.221)
     cpp_nested_classes(L, C, Ms).                                                                % then the nested classes themselves, the enclosing one registered so its own name resolves inside them
 %% A STATIC ASSERTION AMONG A CLASS'S MEMBERS ([class.mem]/1, [dcl.pre]/10; 0.205) is checked once the class is registered, in
-%% its words (its statics and typedefs, cpp_in_class/2), the program's own only (cpp_static_assert/4): an instance's once its
-%% template's arguments are substituted, a template's never. It was read and dropped: `struct A { static_assert(sizeof(int) ==
-%% 8); };' compiled, where clang++ refuses it.
+%% its words (its statics and typedefs, cpp_in_class/2): an instance's once its template's arguments are substituted, a template's
+%% never. It was read and dropped: `struct A { static_assert(sizeof(int) == 8); };' compiled, where clang++ refuses it.
+%% ... AND AN INSTANCE'S ONCE THE INSTANCE IS COMPLETE (0.221): its struct, its vtable and its friends emitted (cpp_instance_body_/4).
+%% Asked while it registered, a failure threw out of the middle of it, a probe that made the instance caught the throw (a candidate's
+%% check, a type resolved where it can, cpp_type_or_self/2), and the instance was left named and half made -- its destructor, emitted
+%% later, read a vtable nothing declared (`template <class T> struct B { static_assert(sizeof(T) == 1); virtual ~B() {} };').
 cpp_member_asserts(C, Ms) :- forall(member(static_assert(L, E, M), Ms), cpp_in_class(C, cpp_static_assert(none, L, E, M))).
 %% THE SELECTED DESTRUCTOR (C++20 [class.dtor]/4; 0.201): of the prospective destructors a class declares, the one whose constraints
 %% hold is its destructor, chosen once the class's typedefs are noted, in its own words (cpp_method_viable/3). libc++'s std::expected
@@ -3922,7 +4037,7 @@ cpp_expr(Ctx, braced_temp(call(F, Vs)), E) :- cpp_braced_class(F, T, C), findall
     cpp_init_list(Ctx, ET, Items, IL), cpp_temporary(T, C, [IL], E).
 cpp_expr(Ctx, braced_temp(call(F, Vs)), E) :- cpp_vector_named(F, T), !, findall(item([], V), member(V, Vs), Items), cpp_expr(Ctx, compound_lit(T, init(Items)), E).   % A BRACED VECTOR, `_VecT{x...}' (0.162): its lanes, the rest zero, as a C compound literal is
 cpp_expr(Ctx, braced_temp(X), E) :- !, cpp_expr(Ctx, X, E).
-cpp_expr(Ctx, call(F, As), E) :- !, cpp_where(args(F), cpp_exprs(Ctx, As, As1)), cpp_where(call(F), cpp_call(Ctx, F, As1, E0)), cpp_copies(E0, E1), cpp_consteval_fold(E1, E).
+cpp_expr(Ctx, call(F, As), E) :- !, cpp_where(args(F), cpp_exprs(Ctx, As, As1)), cpp_where(call(F), cpp_call_adl(Ctx, F, As1, E0)), cpp_copies(E0, E1), cpp_consteval_fold(E1, E).
 %% A MEMBER NAMED THROUGH AN OBJECT BY ITS QUALIFIED NAME ([expr.ref]/7, [class.qual]; 0.112): `b.A::v' is the member
 %% v of b's A sub-object -- a base's data member the derived class hides -- and `b.A::f()', `p->A::f()' call A's f
 %% over that sub-object and never virtually, which is 0.73's rule for a qualified call inside a class, through an
@@ -5593,10 +5708,20 @@ cpp_stmt_(_, S, S).
 cpp_asm_ops(_, [], []).
 cpp_asm_ops(Ctx, [op(N, C, E)|Os], [op(N, C, E1)|Os1]) :- cpp_expr(Ctx, E, E1), cpp_asm_ops(Ctx, Os, Os1).
 %% A C++ STATIC ASSERTION IS CHECKED (0.198; [dcl.pre]/10): the program's own, where its condition folds -- at file scope, in a block and in
-%% an instance's body, which a discarded `if constexpr' branch never is (P2593: `static_assert(false)' there is no error); a library
-%% header's are trusted, its traits being this compiler's. It was read and never asked: `static_assert(sizeof(int) == 8);' compiled.
-cpp_static_assert(Ctx, L, E, M) :- nb_getval('$cpp_in_lib', no), catch(( cpp_expr(Ctx, E, E1), cpp_const_bool(E1, V) ), _, fail), V == false, !,
-    ( ( M == none ; M = str(_) ) -> ccl_assert_text(M, Text) ; Text = '' ), throw(error(static_assert_failed(Text), here(none, L))).
+%% an instance's body, which a discarded `if constexpr' branch never is (P2593: `static_assert(false)' there is no error). It was read
+%% and never asked: `static_assert(sizeof(int) == 8);' compiled. ... AND A LIBRARY HEADER'S TOO (0.221; [temp.inst]/3, /11: an
+%% instance's static assertions are asked where it is made), where its condition folds to false, the header's line no line of the
+%% program's file: `std::get<5>' of a `std::array<int, 3>' read past the array's end where clang++ says "Index out of bounds in
+%% std::get<> (std::array)", and `std::optional<int &>', `std::variant<int, void>' and libc++ 21's `std::vector<const int>' compiled.
+%% They were trusted, never asked. An instance made in an unevaluated walk (cpp_unevaluated/1: a decltype, a noexcept operand)
+%% asks none of the library's ([temp.inst]/5: a function's definition is instantiated where it is odr-used, and an unevaluated
+%% operand odr-uses nothing), as its body is made there: `std::declval<_Tp>()' of `decltype(...)' met its guard, "std::declval
+%% can only be used in an unevaluated context", and refused `std::vector<const int>' over libc++ 18, which clang++ takes
+cpp_static_assert(Ctx, L, E, M) :- ( nb_getval('$cpp_in_lib', no) -> true ; \+ nb_current('$cpp_uneval', yes) ),
+    catch(( cpp_expr(Ctx, E, E1), cpp_const_bool(E1, V) ), _, fail), V == false, !,
+    ( ( M == none ; M = str(_) ) -> ccl_assert_text(M, Text) ; Text = '' ),
+    ( nb_getval('$cpp_in_lib', no) -> L1 = L, ( '$cpp_assert_failed'(_, _) -> true ; assertz('$cpp_assert_failed'(Text, L1)) ) ; L1 = 0 ),
+    throw(error(static_assert_failed(Text), here(none, L1))).
 cpp_static_assert(_, _, _, _).
 %% A STRUCTURED BINDING PACK (C++26, [dcl.struct.bind]/1, P1061; 0.198): `auto [a, ...xs, z] = e' -- the pack is the elements the other
 %% names leave, each a binding of its own, `xs$1' ... `xs$k'; the statements after the declaration name xs as the pack of them, a
@@ -7231,7 +7356,7 @@ cpp_call(Ctx, scoped(Path, M), As, E) :- cpp_scope_class(Path, C), cpp_method(C,
     (   Ctx \== none, \+ cpp_static_method(C, M, Name), cpp_base_hops(Ctx, C, Hops)              % ... or, INSIDE A CLASS, a qualified call of its own or a base's method: `this', through the base sub-objects, and never virtual -- libc++'s basic_ios forwards `good()' as `return ios_base::good();', which went out with a null this
     ->  ( Hops == [] -> P = id(this) ; cpp_hops(deref(id(this)), Hops, B), P = addr(B) ), cpp_object_arg(Name, P, Obj)
     ;   cpp_object_arg(Name, nullptr, Obj) ),
-    E = call(id(Name), [Obj|As1]).
+    cpp_ref_args_of(Name, As1, As2), E = call(id(Name), [Obj|As2]).
 cpp_call(_, id(N), Args, V) :- ccl_builtin_trait(N), !, cpp_trait(N, Args, V).                 % __is_same(T, U): the compiler's trait, decided here
 cpp_call(_, operator(Op), As, E) :- cpp_operator_new(Op, As, E), !.                           % `::operator new(n)' written out: the allocation the lowering already has
 cpp_call(_, scoped(_, operator(Op)), As, E) :- cpp_operator_new(Op, As, E), !.
@@ -7294,10 +7419,16 @@ cpp_call(Ctx, scoped(Path, F), As, E) :- atom(F), Path \== [], cpp_ns_key(Path, 
     ->  (   catch(cpp_call(Ctx, id(K), As, E0), error(not_lowered(W), _), ( W \= instance_refused(_, _), fail )) -> E = E0
         ;   cpp_without_using(F, cpp_call(Ctx, id(F), As, E)) )   % a QUALIFIED name: no using redirects it (0.160)
     ;   cpp_call(Ctx, id(K), As, E) ).
-cpp_call(_, scoped(Path, F), As, E) :- atom(F), \+ cpp_scope_class(Path, _), ( cpp_ns_key(Path, F, K) -> true ; K = F ), cpp_callable_global(K, Name, C), !, cpp_object_call(Name, C, As, E).   % A NAMESPACE-SCOPE OBJECT CALLED goes to its class's operator() (0.100): `ranges::iter_move(x)' is libc++'s customization point object, `inline constexpr auto iter_move = __iter_move::__fn{}', where the bare name also names the hidden friends
+cpp_call(_, scoped(Path, F), As, E) :- atom(F), \+ cpp_scope_class(Path, _), ( cpp_ns_key(Path, F, K) -> true ; K = F ), \+ ( K == F, cpp_object_elsewhere(Path, F) ), cpp_callable_global(K, Name, C), !, cpp_object_call(Name, C, As, E).   % A NAMESPACE-SCOPE OBJECT CALLED goes to its class's operator() (0.100): `ranges::iter_move(x)' is libc++'s customization point object, `inline constexpr auto iter_move = __iter_move::__fn{}', where the bare name also names the hidden friends
 cpp_call(_, scoped(Path, F), As, E) :- atom(F), \+ cpp_scope_class(Path, _), cpp_ns_key(Path, F, K), !, cpp_call(none, id(K), As, E).   % a deeper namespace's colliding name, qualified: its key
-cpp_call(_, scoped(Path, F), As, E) :- atom(F), \+ cpp_scope_class(Path, _), \+ ( cpp_class_l(F, _), cpp_class_takes(F, As) ), !, cpp_without_using(F, cpp_call(none, id(F), As, E)).   % std::swap(a, b): as the bare name would, never a member (a qualified name finds no method); a class of that name which cannot take the arguments is another namespace's
-cpp_call(_, id(F), As, call(id(Name), [Obj|As1])) :- cpp_local(F), cpp_class_of_type_of(id(F), C), cpp_method_on(id(F), C, operator('()'), As, Name, _), !, cpp_fill_defaults(Name, As, As1), cpp_object_arg(Name, addr(id(F)), Obj).   % a lambda, or any object with operator()
+cpp_call(_, scoped(Path, F), As, E) :- atom(F), \+ cpp_scope_class(Path, _), \+ ( cpp_class_l(F, _), cpp_class_takes(F, As) ), !, cpp_lib_qualified(Path, F, cpp_without_using(F, cpp_call(none, id(F), As, E))).   % std::swap(a, b): as the bare name would, never a member (a qualified name finds no method); a class of that name which cannot take the arguments is another namespace's
+%% THE ARGUMENT PASS ON A CALL THROUGH AN OBJECT'S operator() (0.221; cpp_ref_args_of), as the other member roads have it: a local
+%% object, a namespace-scope object, a callable data member and a qualified method call took their arguments as written, so a class
+%% value went to a by-value parameter of another class without its conversion function -- `h(s)' over `int operator()(V) const',
+%% with `S::operator V()', stored the S as a V, and libc++ 18's `__invoke', whose `static_cast<_Fp &&>(__f)(static_cast<_Args &&>(
+%% __args)...)' calls the parameter `__f', cast a std::string to the std::string_view of a transparent hash (`std::invoke(h, s)',
+%% `std::is_invocable_r_v'; the unordered containers' static assertion `__check_hash_requirements' makes that instance)
+cpp_call(_, id(F), As, call(id(Name), [Obj|As2])) :- cpp_local(F), cpp_class_of_type_of(id(F), C), cpp_method_on(id(F), C, operator('()'), As, Name, _), !, cpp_fill_defaults(Name, As, As1), cpp_ref_args_of(Name, As1, As2), cpp_object_arg(Name, addr(id(F)), Obj).   % a lambda, or any object with operator()
 %% A NAMESPACE-SCOPE OBJECT IS NOT SEEN BY ITS OWN CLASS'S MEMBERS (0.219; [basic.scope.pdecl]/1, [temp.res.general]/1,
 %% [basic.lookup.argdep]/4): its initializer makes its class complete first, so a member's unqualified call of its name finds
 %% what was declared before the class, and argument-dependent lookup finds functions alone. libc++ 18's `__strong_order::__fn'
@@ -7307,16 +7438,16 @@ cpp_call(_, id(F), As, call(id(Name), [Obj|As1])) :- cpp_local(F), cpp_class_of_
 %% call finds is called; none is a refusal, which takes the candidate out where its type is asked (SFINAE)
 cpp_call(Ctx, id(F), As, E) :- atom(Ctx), Ctx \== none, \+ cpp_local(F), cpp_callable_global(F, _, C), C == Ctx, !,
     ( cpp_fn_best(F, As, Ps, D) -> cpp_free_call(F, Ps, D, As, E) ; cpp_refuse(0, object_unseen_by_its_class(F, C)) ).
-cpp_call(_, id(F), As, E) :- \+ cpp_local(F), cpp_callable_global(F, Name, C), !, cpp_object_call(Name, C, As, E).   % a namespace-scope object with operator(), named bare (0.100)
+cpp_call(_, id(F), As, E) :- \+ cpp_local(F), \+ cpp_libq_elsewhere(F), cpp_callable_global(F, Name, C), !, cpp_object_call(Name, C, As, E).   % a namespace-scope object with operator(), named bare (0.100)
 cpp_call(_, scoped(Path, F), As, E) :- atom(F), catch(cpp_scope_class(Path, C0), _, fail), cpp_static_member(C0, F, SN), cpp_callable_global(SN, Name, C), !, cpp_static_use(C0, F, _), cpp_object_call(Name, C, As, E).   % A STATIC DATA MEMBER OF CLASS TYPE CALLED goes to its class's operator(): `_Ops::__iter_move(__start)' with `_Ops' the range policy's `_IterOps', whose `__iter_move' is `static constexpr auto __iter_move = ranges::iter_move;'
 cpp_call(Ctx, id(F), As, E) :- atom(F), Ctx \== none, \+ cpp_local(F), atom(Ctx), catch(cpp_static_member(Ctx, F, SN), _, fail), cpp_callable_global(SN, Name, C), !, cpp_static_use(Ctx, F, _), cpp_object_call(Name, C, As, E).   % ... named bare inside its class
 %% A DATA MEMBER THAT IS CALLABLE, named bare inside its class, is called through its own class's operator(), as a
 %% local of such a class already was: libc++'s scope guard holds the closure it was made with and its destructor
 %% writes `__func_()', which is the whole of how `basic_string' unwinds an append. The member is reached the way
 %% every bare member name is (this->f_, a base's hops with it), and the closure's call takes its address.
-cpp_call(Ctx, id(F), As, call(id(Name), [Obj|As1])) :- Ctx \== none, \+ cpp_local(F), cpp_data_member(Ctx, F, Hops),
+cpp_call(Ctx, id(F), As, call(id(Name), [Obj|As2])) :- Ctx \== none, \+ cpp_local(F), cpp_data_member(Ctx, F, Hops),
     cpp_access(id(this), F, Hops, X), cpp_class_of_type_of(X, C), cpp_method(C, operator('()'), As, Name, _), !,
-    cpp_fill_defaults(Name, As, As1), cpp_object_arg(Name, addr(X), Obj).
+    cpp_fill_defaults(Name, As, As1), cpp_ref_args_of(Name, As1, As2), cpp_object_arg(Name, addr(X), Obj).
 %% A DATA MEMBER OF POINTER-TO-FUNCTION TYPE named bare and called is a call through the pointer, as C calls one (0.112):
 %% libc++ 18's `__output_buffer::__flush()' writes `__flush_(__ptr_, __size_, __obj_)', and read as a free function the
 %% name was undeclared (`fnptrmember.cpp')
@@ -7381,6 +7512,7 @@ cpp_call(_, scoped(Path, M), As, _) :- atom(M), cpp_scope_class(Path, C), \+ cpp
     length(As, K), cpp_refuse(0, no_member(C, M, K)).
 cpp_call(_, id(F), As, E) :- !, ( cpp_fn_best(F, As, Ps, D) -> cpp_free_call(F, Ps, D, As, E)   % the overload the arguments fit best; a name with one definition keeps it, as C does
     ;   cpp_deleted_hdr_fn(F) -> cpp_refuse(0, deleted_function(F))   % A HEADER'S DELETED FUNCTION, a poison pill (0.219, cpp_deleted_hdr_fn/1)
+    ;   cpp_libq_elsewhere(F) -> cpp_refuse(0, no_member_of_std(F))   % ... AND A NAME THAT std DECLARES NOTHING OF HERE (0.221, cpp_object_elsewhere/2)
     ;   cpp_fill_defaults(F, As, As1), cpp_ref_args(F, As1, As2), E = call(id(F), As2) ).
 cpp_call(Ctx, ccast(_, R, X0), As, E) :- ( R = ref(_, T) ; R = rref(_, T) ), cpp_this_form(X0, X),   % A CALL THROUGH A CAST TO A REFERENCE CALLS THE OPERAND ([expr.static.cast]: the cast names the object, an lvalue or an xvalue; 0.93): libc++ 18's `__invoke' writes `static_cast<_Fp &&>(__f)(static_cast<_Args &&>(__args)...)', and the callee reached the lowering as the cast itself
     (   cpp_class_of_type(T, C)
@@ -7388,7 +7520,7 @@ cpp_call(Ctx, ccast(_, R, X0), As, E) :- ( R = ref(_, T) ; R = rref(_, T) ), cpp
         ( D == C -> cpp_call(Ctx, X, As, E) ; cpp_base_hops(D, C, Hops0), cpp_base_operator_call(X, C, Hops0, As, E) )
     ;   cpp_call(Ctx, X, As, E) ), !.
 cpp_call(Ctx, F, As, E) :- ( F = move(X0) -> true ; cpp_std_move_call(F, X0) ), !, cpp_call(Ctx, X0, As, E).   % ... AND THROUGH `std::move' THE OBJECT IT NAMES (0.206): libc++'s `basic_string::resize_and_overwrite' calls `std::move(__op)(data(), __n)', and the call of a `move' reached the lowering
-cpp_call(Ctx, F, As, E) :- cpp_expr(Ctx, F, F1), ( cpp_temp_call(F1, As, E0) -> E = E0 ; cpp_callee_params(F1, Ps), cpp_callee_mismatch(Ps, As) -> cpp_refuse(0, argument_mismatch) ; cpp_callee_params(F1, Ps), cpp_ref_args_(Ps, As, As1) -> E = call(F1, As1) ; E = call(F1, As) ).   % ... and A PLAIN STRUCT HANDED TO A SCALAR PARAMETER through a function pointer or reference is refused (0.127), the detection's answer
+cpp_call(Ctx, F, As, E) :- cpp_expr(Ctx, F, F1), ( cpp_temp_call(F1, As, E0) -> E = E0 ; cpp_object_unfit(F1, As, C) -> cpp_refuse(0, no_call_operator_fits(C)) ; cpp_callee_params(F1, Ps), cpp_callee_mismatch(Ps, As) -> cpp_refuse(0, argument_mismatch) ; cpp_callee_params(F1, Ps), cpp_ref_args_(Ps, As, As1) -> E = call(F1, As1) ; E = call(F1, As) ).   % ... and A PLAIN STRUCT HANDED TO A SCALAR PARAMETER through a function pointer or reference is refused (0.127), the detection's answer; AN OBJECT WHOSE operator() NOTHING FITS too (0.221, cpp_object_unfit/3)
 %% A HEADER'S DELETED FUNCTION CALLED, and no overload that fits (0.219): libc++'s poison pill, `void strong_order() =
 %% delete;' inside std::__strong_order (libc++ 21; and weak_order, partial_order, iter_move kin), stands where ordinary lookup
 %% would find the object of the outer namespace, and the call is ill-formed but by argument-dependent lookup -- a refusal,
@@ -7396,6 +7528,82 @@ cpp_call(Ctx, F, As, E) :- cpp_expr(Ctx, F, F1), ( cpp_temp_call(F1, As, E0) -> 
 %% call went on as one of an undeclared name: `decltype(strong_ordering(strong_order(t, u)))' was strong_ordering, the
 %% candidate stood, and `std::strong_order(1, 2)' was `undeclared('__strong_order.strong_order')' in its body
 cpp_deleted_hdr_fn(F) :- atom(F), \+ ccl_declared(F, fn(_, _, _)), catch(cpp_hdr_item(F, declaration(_, _, _, Vs)), _, fail), memberchk(var(F, fn(_, _, _), delete), Vs), !.
+%% A CALL THROUGH AN OBJECT WHOSE operator() NOTHING FITS IS A REFUSAL (0.221; [over.call.object]/1, [temp.deduct.general]/8):
+%% a temporary or an object of class type called, `compare_three_way()(t, u)', where no operator() of its class takes the
+%% arguments -- one whose constraint fails among them -- is ill-formed, and where its type is asked the refusal takes the
+%% candidate out. The call went on as `call(compound_lit(...), As)', of no type, and inside a functional cast, libc++'s
+%% `strong_ordering(compare_three_way()(t, u))', the candidate had the cast's type and stood: `std::strong_order' over a
+%% class with `==' and `<' and no `<=>' chose `__go(t, u, __priority_tag<0>())', and `std::compare_strong_order_fallback'
+%% over it was `not lowered yet: call(compound_lit(... compare_three_way ...))'. A class with a conversion function to a
+%% pointer or a reference to a function is left as it was ([over.call.object]/2's surrogate call functions)
+cpp_object_unfit(F1, As, C) :- cpp_class_of_type_of(F1, C), \+ cpp_method(C, operator('()'), As, _, _),
+    \+ ( cpp_class_method(C, operator(conv(T)), _, _, _, _), cpp_fn_target(T, fn(_, _, _)) ), !.
+%% ARGUMENT-DEPENDENT LOOKUP OF THE PROGRAM'S KEYED FUNCTIONS (0.221; [basic.lookup.argdep]/2, /3): a call written unqualified
+%% whose name the program's namespace keyed apart from the library's (cpp_lib_quals/4), one of whose arguments is of a class of
+%% that namespace, finds the keyed function there where it takes the arguments -- ahead of the library's of the name, which is
+%% how C++ ranks a non-template that fits beside a library template. A block-scope object or a member of the class the call is in
+%% stops it, as ordinary lookup that finds one does (/3); a C function that the walk declared again for its type in the
+%% function's frame (cpp_c_decl_current/2: `std::abs(-4)' over libc++ 21 and <algorithm>) is no block-scope name, and `abs(v)'
+%% after it in the same function went on as the C function's call. libc++ 18's `std::strong_order' over the program's `ns::Q'
+%% calls `strong_order(t, u)' inside `__strong_order::__fn', and libc++ 21's names it `__strong_order.strong_order', its poison
+%% pill's key: the bare name is asked, and the program's `ns::strong_order(const Q &, const Q &)' is the one found. A qualified
+%% call comes as `scoped(...)' and asks no argument's namespace ([basic.lookup.argdep]/1)
+cpp_call_adl(Ctx, id(F), As, E) :- atom(F), \+ cpp_block_object(F), cpp_adl_own_key(Ctx, F, As, K), cpp_adl_call(K, As, E0), !, E = E0.
+cpp_call_adl(Ctx, F, As, E) :- cpp_call(Ctx, F, As, E).
+cpp_adl_own_key(Ctx, F, As, K) :- cpp_bare_name(F, N), catch('$cpp_ns_libkeyed'(N), _, fail), \+ cpp_member_scope(Ctx, N),
+    member(A, As), cpp_adl_arg_class(A, C), cpp_own_class_ns(C, P), cpp_ns_key(P, N, K), K \== F, !.
+%% THE ARGUMENT'S ASSOCIATED CLASSES ([basic.lookup.argdep]/3): its class, a plain struct or union, or an enumeration, each of the
+%% namespace it is declared in -- a pointer's pointee's (0.221) -- and, for an instance of a class template, the classes of its
+%% template's arguments too (0.221): `count(&s)' over the program's `ns::S *' and `size(v)' over a `std::vector<ns::S>' find
+%% the program's `ns::count' and `ns::size'; ... AND A CLASS'S DIRECT AND INDIRECT BASES (/3.2; 0.221): `size(d)' over a `D :
+%% ns::B' finds `ns::size(const ns::B &)'
+cpp_adl_arg_class(A, C) :- catch(cpp_class_of_type_of(A, C0), _, fail), !, cpp_adl_assoc(C0, C).
+cpp_adl_arg_class(A, C) :- catch(cpp_arg_type(A, T), _, fail), ccl_unref(T, T1), catch(ccl_resolve_type(T1, R), _, fail),
+    ( R = ptr(_, P0) -> catch(ccl_resolve_type(P0, P), _, fail) ; P = R ), cpp_adl_type_class(P, C0), cpp_adl_assoc(C0, C).
+cpp_adl_type_class(T, C) :- catch(cpp_class_of_type(T, C), _, fail), !.
+cpp_adl_type_class(base(_, [S]), C) :- compound(S), ( S = struct(C, _) ; S = union(C, _) ; S = enum(C, _) ), atom(C), C \== anon.
+cpp_adl_assoc(C, C).
+cpp_adl_assoc(C, D) :- catch('$cpp_inst'(C, inst(_, TArgs)), _, fail), is_list(TArgs), member(TA, TArgs), compound(TA),
+    catch(ccl_resolve_type(TA, R), _, fail), cpp_adl_type_class(R, D), D \== C.
+cpp_adl_assoc(C, D) :- cpp_adl_base(C, 0, D).
+cpp_adl_base(C, K, D) :- K < 32, catch(cpp_direct_bases(C, Bs), _, fail), member(B, Bs), atom(B), ( D = B ; K1 is K + 1, cpp_adl_base(B, K1, D) ).
+%% the call qualified by the library's namespace, `std::f(...)' or `::std::f(...)', chosen with the program's own overloads of
+%% the name hidden at its depth (cpp_fn_hidden/2)
+cpp_lib_qualified(Path, F, G) :- ( Path = [std|_] ; Path = [global, std|_] ), !, nb_getval('$cpp_depth', D),
+    ( nb_current('$cpp_libq', Q0) -> true ; Q0 = none ), nb_setval('$cpp_libq', F-D),
+    ( catch(G, Ex, ( nb_setval('$cpp_libq', Q0), throw(Ex) )) -> nb_setval('$cpp_libq', Q0) ; nb_setval('$cpp_libq', Q0), fail ).
+cpp_lib_qualified(_, _, G) :- call(G).
+%% A QUALIFIED CALL TAKES NO OBJECT OF ANOTHER NAMESPACE (0.221; [namespace.qual]/2): a read keys apart only the names that collide
+%% in it, so a bare name can hold a function template of std in one header's read and an object of std::ranges or std::ranges::views
+%% in another's -- `<ranges>' holds `views::reverse' and `views::transform' bare, `<vector>' at C++20 `ranges::upper_bound' and
+%% `ranges::for_each', `<algorithm>' `ranges::size' -- and `std::reverse(b, e)' went to the object's road, the adaptor's
+%% operator(). A call qualified by std takes an object of the name only where one of the name's object items stands in std itself
+%% (the AST's paths, `'$cpp_hdr_ast_ns''; an inline namespace's segment is none, so the comparison objects of <compare> are
+%% std's); else it takes the functions' roads, and where nothing of std takes it, it is refused by name (`no_member_of_std(F)'):
+%% `std::size(a)' at C++23 with <algorithm> alone, whose read holds `ranges::size' and no `std::size', called the object, where
+%% clang++ over libc++ says "no member named 'size' in namespace 'std'". Another qualifier keeps its road (a namespace alias of
+%% the program's names no path); a keyed name is its own
+cpp_object_elsewhere(Path, F) :- findall(S, ( member(S, Path), atom(S), S \== global ), QP), last(QP, std), cpp_object_paths(F, NPs), NPs \== [],
+    \+ ( member(NP, NPs), last(NP, std) ).
+cpp_libq_elsewhere(F) :- nb_current('$cpp_libq', F-D), nb_getval('$cpp_depth', D), cpp_object_elsewhere([std], F).
+%% ... and its function templates' candidates leave the program's own out, as its overloads do (cpp_fn_hidden/2): the program's
+%% `template <class T> T max(T, T)' answered `std::max(2, 3)', 2 for clang's 3
+cpp_libq_cands(F, Cs0, Cs) :- nb_current('$cpp_libq', F-D), nb_getval('$cpp_depth', D), \+ catch('$cpp_own_ns'(F, [std|_]), _, fail),
+    catch('$cpp_own_tmplfn'(F, _, _), _, fail), !,
+    findall(TPs-Fn, ( member(TPs-Fn, Cs0), \+ ( Fn = function(L, _, _, _, _, _, Body), catch('$cpp_own_tmplfn'(F, L, Body), _, fail) ) ), Cs).
+cpp_libq_cands(_, Cs, Cs).
+cpp_object_paths(F, NPs) :- findall(I, catch('$cpp_hdr_ast'(F, I), _, fail), Is), Is \== [], findall(P, catch('$cpp_hdr_ast_ns'(F, P), _, fail), Ps),
+    cpp_cross_zip(Is, Ps, IPs), !, findall(NP, ( member(I-P, IPs), P \== c, cpp_object_item(I, F), cpp_ns_named_path(P, NP), NP \== [] ), NPs).
+cpp_object_paths(_, []).
+cpp_object_item(declaration(_, _, _, Vs), F) :- member(var(F, T, _), Vs), \+ T = fn(_, _, _), !.
+cpp_bare_name(F, N) :- atomic_list_concat(Ss, '.', F), last(Ss, N), !.
+cpp_block_object(N) :- ccl_locals(Fs), member(F, Fs), memberchk(N-T, F), T \= fn(_, _, _), !.
+cpp_member_scope(Ctx, N) :- atom(Ctx), Ctx \== none, catch(cpp_has_member(Ctx, N), _, fail), !.
+cpp_own_class_ns(C, P) :- ( catch('$cpp_inst'(C, inst(C0, _)), _, fail) -> true ; C0 = C ), atom(C0), ( catch('$cpp_type_ns'(C0, P), _, fail) ; catch('$cpp_own_ns'(C0, P), _, fail) ), is_list(P), !.
+cpp_adl_call(K, As, E) :- cpp_fn_exact(K, As, Ps, D), !, cpp_free_call(K, Ps, D, As, E).
+cpp_adl_call(K, As, E) :- catch(cpp_template(K, _, Item), _, fail), cpp_fn_item(Item, _), catch(cpp_instantiate_function(K, [], As, Name), error(not_lowered(_), _), fail), !,
+    cpp_fill_defaults(Name, As, As0), cpp_ref_args(Name, As0, As1), E = call(id(Name), As1).
+cpp_adl_call(K, As, E) :- cpp_fn_best(K, As, Ps, D), !, cpp_free_call(K, Ps, D, As, E).
 %% A TRIVIAL DESTRUCTOR'S CALL STILL EVALUATES ITS OBJECT EXPRESSION (0.136; [expr.call]/5): `(--__end_)->~value_type()' over an
 %% int, in libc++'s valarray::__clear, decrements -- dropped with the call, the loop never ended (every std::valarray's
 %% destructor). A plain name has nothing to evaluate.
@@ -7713,7 +7921,7 @@ cpp_type_call(T, As, E) :-
     ;   As = [_|_], cpp_record_type(T), \+ ( As = [X0], cpp_record_own_value(X0, T) )   % A PLAIN STRUCT OR UNION NAMED THROUGH A TYPEDEF AND GIVEN ITEMS IS ITS AGGREGATE (0.161; [dcl.init.list]/3.4, C++20's parenthesized form): `T{k}' with `typedef S T;'
     ->  findall(item([], A), member(A, As), Items), E = compound_lit(T, init(Items))                    % was a cast of k to the struct, which LLVM refused (`sext i32 to %struct.S'); the struct's own name took the tag's road (cpp_tag_takes)
     ;   As = [X] -> E = cast(T, X)
-    ;   As == [] -> cpp_zero_of(T, E)
+    ;   As == [] -> cpp_zero_of(T, Z), ( ccl_nullptr_type(T) -> E = Z ; ccl_resolve_type(T, RT) -> E = cast(RT, Z) ; E = cast(T, Z) )   % THE ZERO OF ITS TYPE (0.221; [expr.type.conv]/2): `std::uint8_t{}' was the int 0, so libc++ 21's `__impl(uint8_t{})' deduced `_MaskT := int' and `std::__countr_zero<int>' failed its static assertion -- the type RESOLVED, as a deduction takes it: cast to `ptrdiff_t' as written, the pstl's `_DiffT()' made `optional<ptrdiff_t>' beside `optional<long>', two instances of one type
     ;   fail ).
 %% A TAG'S OR A CLASS'S NAME CALLED WITH MORE ARGUMENTS THAN IT CAN TAKE IS NO TEMPORARY: namespaces flatten to
 %% bare names here, and libc++ has both `_Algorithm::__fill_n', an EMPTY tag struct used as a template argument,
@@ -9367,7 +9575,7 @@ cpp_instance_body_(N, Name, FullArgs, Item1) :-
     ( Lib \== yes, member(A, FullArgs), cpp_incomplete_arg(A) -> cpp_trace(crtp_lazy(Name)) ; true ),   % ... and so is one over a class STILL BEING REGISTERED (the CRTP, 0.110): its members name the derived class's, which exist once it is complete -- C++ instantiates a member function where it is used ([temp.inst]/4)
     (   cpp_as_lib(Lib, ( cpp_isolated(( cpp_register_class(K, L, Name, Bases, Ms),
                                         ( cpp_item(declare(L, base([], [class(K, Name, Bases, Ms)])), Items) -> true ; cpp_refuse(L, instance_not_emitted(Name)) ) )),
-                          cpp_add_instance_items(Items) ))
+                          cpp_add_instance_items(Items), cpp_isolated(cpp_member_asserts(Name, Ms)) ))   % its static assertions once it is complete (0.221)
     ->  true ; cpp_refuse(0, instance_not_emitted(Name)) ).
 %% ---- A CLASS TEMPLATE'S MEMBER DEFINED OUT OF ITS CLASS ---------------------------------------------
 %% `template <class _Tp, class _Allocator> void __vector_layout<_Tp, _Allocator>::__set_bound_using_pointer(
@@ -9890,7 +10098,7 @@ cpp_object_value(compound_lit(T, init(_))) :- cpp_class_of_type(T, _).
 cpp_instantiate_function(F, Explicit, As, Name) :- cpp_where(fn(F), cpp_instantiate_function__(F, Explicit, As, Name)).
 cpp_instantiate_function__(F, Explicit, As, Name) :-
     ( nb_getval('$cpp_trace', yes) -> findall(A-T, ( member(A, As), ( ccl_type_of(A, T0), T0 \== unknown -> T = T0 ; T = unknown ) ), ATs), cpp_trace(call_types(F, ATs)) ; true ),
-    cpp_fn_candidates(F, Cands),     % assertz: declaration order; the merged set kept per name (0.97)
+    cpp_fn_candidates(F, Cands00), cpp_libq_cands(F, Cands00, Cands),     % assertz: declaration order; the merged set kept per name (0.97)
     length(Cands, NC), ( nb_current('$cpp_first_refusal', Outer) -> true ; Outer = none ), nb_setval('$cpp_first_refusal', none),
     (   catch(cpp_holding_set(F, Explicit, As, Cands, NC, Hs), E, ( nb_setval('$cpp_first_refusal', Outer), throw(E) ))
     ->  nb_getval('$cpp_first_refusal', FirstW), nb_setval('$cpp_first_refusal', Outer)   % THE ENCLOSING CALL'S FIRST REFUSAL BACK (0.112): a candidate check makes calls of its own, each resetting the one global, and the reason reported for `std::invoke' was a nested `__sfinae_test_impl''s
@@ -10722,10 +10930,17 @@ cpp_match_targs(_, [], _, B, B) :- !.
 cpp_match_targs([P|Ps], [A|As], TPs, B0, B) :-
     (   P = base(Q, [typedef(N)]), memberchk(tparam(type, N, _), TPs)        % A TEMPLATE ARGUMENT BINDS THE TYPE AS IT IS ([temp.deduct.type]/1; 0.95): the decay is [temp.deduct.call]'s, a by-value FUNCTION parameter's, and through cpp_match `pair<_T1, _T2> &' against a map's `pair<const string, int>' bound _T1 to `string' -- invisible while the keys carried no qualifiers, refused `argument_mismatch' once they did
     ->  ( memberchk(N-Bound, B0) -> cpp_deduced_agree(N, Bound, A, B0), B1 = B0 ; cpp_pattern_quals(Q, A, A1) -> B1 = [N-A1|B0] ; B1 = B0 )
-    ;   cpp_is_type(P) -> cpp_match(P, A, TPs, B0, B1)
+    ;   cpp_is_type(P) -> \+ cpp_targ_fixed_differs(P, A, TPs), cpp_match(P, A, TPs, B0, B1)
     ;   P = id(V), memberchk(tparam(K, V, _), TPs), \+ memberchk(K, [type, pack, template]), \+ memberchk(V-_, B0) -> B1 = [V-A|B0]
     ;   B1 = B0 ),
     cpp_match_targs(Ps, As, TPs, B1, B).
+%% A TEMPLATE ARGUMENT THAT NAMES NO PARAMETER OF THE TEMPLATE IS MATCHED EXACTLY ([temp.deduct.type]/1 and /8; 0.221): the `char' of
+%% `basic_ostream<char, _Traits> &' against a `basic_ostream<wchar_t, char_traits<wchar_t>>' fails the deduction. The match took any
+%% type there, so libc++ 18's deleted `operator<<(basic_ostream<char, _Traits> &, const wchar_t *)' deduced `_Traits :=
+%% char_traits<wchar_t>' from a wide stream and made `basic_ostream<char, char_traits<wchar_t>>', whose basic_ios's static assertion
+%% fails. A type that does not resolve on either side is no difference.
+cpp_targ_fixed_differs(P, A, TPs) :- A \== unknown, cpp_tparam_names(TPs, Ns), \+ ( member(N, Ns), cpp_term_mentions(P, N) ),
+    catch(( cpp_type(P, P1), cpp_type(A, A1) ), _, fail), \+ catch(cpp_same_type(P1, A1), _, true), !.
 %% A TEMPLATE PARAMETER DEDUCED FROM TWO PARAMETERS DEDUCES ONE TYPE ([temp.deduct.type]; 0.126): the first binding stood for the
 %% second silently, so `operator/(const _Tp &, const complex<_Tp> &)' held for two `complex<double>' with `_Tp := complex<double>'
 %% and won over the candidate that deduces `_Tp := double' from both, and libc++ 21's `complex<double> / complex<double>' built a
@@ -10755,7 +10970,15 @@ cpp_decayed(ptr(_, E), ptr([], E)) :- !.   % A POINTER'S OWN QUALIFIERS GO TOO (
 cpp_decayed(T, T).
 %% the instance's name: the template's, then a key per argument
 cpp_instance_name(N0, TPs, B, Name) :- cpp_instance_base(N0, N),
-    findall(K, ( member(tparam(_, P, _), TPs), atom(P), memberchk(P-A, B), cpp_type_key(A, K) ), Ks), atomic_list_concat([N|Ks], '.', Name).
+    findall(K, ( member(tparam(_, P, _), TPs), atom(P), memberchk(P-A0, B), cpp_targ_canon(A0, A), cpp_type_key(A, K) ), Ks), atomic_list_concat([N|Ks], '.', Name).
+%% A SCALAR TYPEDEF ARGUMENT NAMES THE INSTANCE BY THE TYPE IT NAMES (0.221; [dcl.typedef]/1: a typedef-name is a synonym): libc++
+%% 21's pstl declares `optional<__iter_diff_t<_ForwardIterator>>', an instance named `optional.ptrdiff_t', and returns the
+%% `optional<_Tp>' that `__transform_reduce' deduces from `_DiffT()', a long -- two instances of one type, and the IR stored the
+%% one into the other (`execpol.cpp'). Each spelling keeps its own '$cpp_iname' entry, and both find the one instance. A class's
+%% name, an instance's, an enum and a template's parameter stay as they are
+cpp_targ_canon(base(Q, [typedef(X)]), R) :- atom(X), \+ cpp_class_l(X, _), \+ catch('$cpp_inst'(X, _), _, fail),
+    catch(ccl_resolve_type(base(Q, [typedef(X)]), R0), _, fail), R0 = base(_, S), S \== [typedef(X)], S \== [], forall(member(E, S), atom(E)), !, R = R0.
+cpp_targ_canon(A, A).
 %% AN UNNAMED TEMPLATE PARAMETER HAS NO NAME TO LOOK UP -- libc++ writes its SFINAE guard as one
 %% (`template <class _Up, class... _Args, __enable_if_t<...> = 0>') -- and `memberchk(P-A, B)' with P unbound takes
 %% whatever is FIRST in the bindings, so the instance was named one way where it was emitted and another where it
@@ -11587,8 +11810,12 @@ cpp_trait_of('__is_void', R, V) :- ( R = base(_, [void]) -> V = true ; V = false
 cpp_trait_of('__is_array', R, V) :- ( R = arr(_, _) -> V = true ; V = false ).
 cpp_trait_of('__is_class', R, V) :- ( ( R = base(_, [struct(_, _)]) ; R = base(_, [class(_, _, _, _)]) ; R = base(_, [union(_, _)]) ; R = base(_, [typedef(N)]), atom(N), ( '$cpp_inst'(N, _) ; '$cpp_iname'(_, _, N) ; cpp_class_in_progress(N) ; cpp_nested_class_named(N) ) ) -> V = true ; V = false ).   % ... AND A NESTED CLASS KNOWN BY NAME (0.132), registered or not: lazy_split_view's iterator holds `struct value_type : view_interface<value_type>', whose base asks is_class_v of it while it registers -- refused, the iterator's registration stopped before its friends, and `it != end' had no operator
 cpp_trait_of('__is_enum', R, V) :- ( ( R = base(_, [enum(_, _)]) ; R = base(_, [enum_class(_, _)]) ) -> V = true ; V = false ).
-cpp_trait_of('__is_signed', R, V) :- ( cpp_arith(R), R = base(_, S), \+ memberchk(unsigned, S), \+ memberchk(bool, S) -> V = true ; V = false ).
-cpp_trait_of('__is_unsigned', R, V) :- ( R = base(_, S), ( memberchk(unsigned, S) ; memberchk(bool, S) ) -> V = true ; V = false ).
+%% SIGNED AND UNSIGNED BY THE INFERENCE'S OWN TEST (0.221; [basic.fundamental]/9, [meta.unary.prop]: T(-1) < T(0); ccl_int_rank/3):
+%% char8_t, char16_t and char32_t are unsigned, plain char and wchar_t unsigned on Linux aarch64, a floating type signed, bool
+%% unsigned. The specifiers alone answered: `is_unsigned_v<char8_t>' was false, and libc++ 21's `__constexpr_memcmp', which every
+%% `std::u8string' comparison calls, failed its static assertion
+cpp_trait_of('__is_signed', R, V) :- ( cpp_arith(R), R = base(_, S), \+ memberchk(bool, S), ( ccl_is_float(R) -> true ; catch(ccl_int_rank(R, _, U), _, fail), U == false ) -> V = true ; V = false ).
+cpp_trait_of('__is_unsigned', R, V) :- ( cpp_arith(R), R = base(_, S), ( memberchk(bool, S) -> true ; \+ ccl_is_float(R), catch(ccl_int_rank(R, _, U), _, fail), U == true ) -> V = true ; V = false ).
 cpp_trait_of('__is_union', R, V) :- ( R = base(_, [union(_, _)]) -> V = true ; V = false ).
 cpp_trait_of('__is_function', R, V) :- ( R = fn(_, _, _) -> V = true ; V = false ).
 cpp_trait_of('__is_scalar', R, V) :- ( ( ccl_is_arith(R) ; R = ptr(_, _) ; R = memptr(_, _, _) ; R = base(_, [enum(_, _)]) ; R = base(_, [enum_class(_, _)]) ; R = base(_, [nullptr_t]) ) -> V = true ; V = false ).   % a pointer to member and `std::nullptr_t' too ([basic.types.general]/9; 0.206)
@@ -12196,7 +12423,9 @@ cpp_prvalue_type(T, T).
 %% `views::all' held for a char
 cpp_bare_template_type(T) :- ccl_unref(T, base(_, [typedef(N)])), atom(N), cpp_bare_template_name(N).
 cpp_unevaluated(G) :- ccl_global('$cpp_temps', Ts, none), nb_setval('$cpp_temps', none),
-    ( catch(G, Err, ( nb_setval('$cpp_temps', Ts), throw(Err) )) -> nb_setval('$cpp_temps', Ts) ; nb_setval('$cpp_temps', Ts), fail ).
+    ( nb_current('$cpp_uneval', U0) -> true ; U0 = no ), nb_setval('$cpp_uneval', yes),   % ... and the walk marked unevaluated (0.221, cpp_static_assert/4)
+    ( catch(G, Err, ( nb_setval('$cpp_temps', Ts), nb_setval('$cpp_uneval', U0), throw(Err) )) -> nb_setval('$cpp_temps', Ts), nb_setval('$cpp_uneval', U0)
+    ; nb_setval('$cpp_temps', Ts), nb_setval('$cpp_uneval', U0), fail ).
 cpp_concept_of(id(C), T) :- cpp_concept_holds(C, [T]).
 cpp_concept_of(tmpl(C, Args), T) :- cpp_concept_holds(C, [T|Args]).
 cpp_concept_of(scoped(_, X), T) :- cpp_concept_of(X, T).   % a QUALIFIED type-constraint, `-> std::same_as<I>': the namespaces flatten (0.112)
