@@ -435,7 +435,11 @@ of objects (`std::vector<std::list<int>> v{{1, 2}, {3}}`), and C23's library
 over glibc (`memccpy`, `strfromd`, `mbrtoc8`, `printf`'s `%b` and `%w32d`);
 since 0.218 a static data member of a library type, defined out of its class
 or `static inline` in it with no initializer, and a class template's defined
-out of it with no initializer.
+out of it with no initializer; since 0.219 `<compare>`'s customization point
+objects (`std::strong_order`, `std::weak_order`, `std::partial_order`, and
+their fallbacks over a type with `<=>`), and a library class that two
+headers declare in two namespaces found in its own namespace whatever the
+order of the includes.
 `test/libcxx.sh` reads `<vector>`, `<string>`,
 `<iostream>`, `<map>`, `<set>`, `<unordered_map>`, `<unordered_set>`,
 `<optional>`, `<memory>`, `<functional>`, `<tuple>` and `<algorithm>` whole,

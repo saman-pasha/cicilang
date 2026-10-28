@@ -213,6 +213,7 @@ One row per step, in version order: the step's title, what it did and its gate n
 | 0.216 | the safe part at the library's boundary, the owner's decision 3 of 0.190: a library object borrows what it is handed, and returning or storing it obeys the borrow rules; what its probes found: a value of another class assigned through its own conversion operator, a join of two borrows keeps a local's; 0.215's chain | the library's bodies are still not checked; at 0.215 a vector, a `std::function`, a `std::string_view`, an iterator or a `std::span` that held a local's address could leave the function, and each compiled, ran and gave out a dead local; the safe part refused `std::get_deleter`, which may pass; `sv = s` from a `std::string` gave invalid IR; `std::vector<int *> v{p}` over a parameter was `borrow_stored`; a join of two borrows kept the first; the safe part of C still accepts a local's address in a slot that outlives the function (Not done) | gated before its commit: all nine gates GREEN over libc++ 18 (the C++ gate 804 of 814 ok, 10 skipped) and the two libc++ gates over 21 (812 of 814 ok, 2 skipped); its net saw `stdcharconv.cpp` fail once; it carries 0.215's chain: all nine gates GREEN over libc++ 18, the two libc++ gates over 21 |
 | 0.217 | the safe part's Not done records: what a local's storage holds kept under keys of its own; a local's address refused where it outlives the function, C's plain slots among them; a store followed through references, local pointers and iterators; the borrow that dangles first; a parameter's own storage and a local's own address; what a function of the program and a free library function store; 0.216's chain | in C the safe part accepted a local's address stored through a pointer parameter, in a global or in a returned struct; it accepted `return &n;` over a parameter by value; 0.216 accepted a store through a loop's reference, `std::swap`, `std::fill`, `std::copy` or a program's function; it accepted an iterator into a dead vector, and the program crashed; a join lost a key that one side made; found older, in Not done: a static data member of a library class, and `stdcharconv.cpp`'s failure in one cache state that no gate meets | gated before its commit: all nine gates GREEN over libc++ 18 (the C++ gate 806 of 816 ok, 10 skipped) and the two libc++ gates over 21 (814 of 816 ok, 2 skipped); it carries 0.216's chain: all nine gates GREEN over libc++ 18, the two libc++ gates over 21 |
 | 0.218 | the two defects 0.217 found: a static data member of a library class, its definition out of the class resolved in the class's scope and an inline one with no initializer its class's definition; a header read in the build's own process registered from the AST its read wrote; and what its probes found: a class template's static member defined out of it with no initializer, a qualified class name that two headers' reads declare in two namespaces; the index's rows for 0.209 to 0.218; 0.217's chain | `std::vector<int> K::all;` was not lowered, and a `static inline` member with no initializer was undefined at the link; `int K::arr[N]` over the class's `N` was not lowered; a class template's static member defined out of it with no initializer was undefined; `<system_error>` read in the process after `<charconv>` was served took its `__traits`; `#include <string>`, `<memory>`, `<algorithm>` or `<system_error>` before `<charconv>` refused `std::from_chars`, cold or warm, over 0.217 too; 33 bare names stand in two or more namespaces across libc++ 18's reads; an unqualified use of such a name stays Not done (`std::variant<int>` after `<charconv>`); the box ran 0.217's chain at about half its speed; the index had no rows after 0.208 | gated before its commit: all nine gates GREEN over libc++ 18 (the C++ gate 809 of 819 ok, 10 skipped) and the two libc++ gates over 21 (817 of 819 ok, 2 skipped); it carries 0.217's chain: all nine gates GREEN over libc++ 18, the two libc++ gates over 21 |
+| 0.219 | the Not done records: an unqualified class name that two headers' reads declare in two namespaces registered in its own namespace's words, a class declared and not defined renamed with the rest; the address of a pointer or array parameter its own storage; C's conditional of two object pointers; and what its probes found: a namespace-scope object not seen by its own class's members, a header's deleted function called -- `<compare>`'s customization point objects; a record found done already; 0.218's chain | `#include <charconv>` before `<variant>` refused `std::variant<int>`, over 0.218 too; the step's first form met `template_without_body('__function.__base')` with `<string>` before `<functional>`; `std::strong_order(1, 2)`, `std::weak_order`, `std::partial_order` and the fallbacks ran past the memory cap over libc++ 18 and were refused `undeclared('__strong_order.strong_order')` over 21, no fixture calling them; in C `int **f(int *p) { return &p; }` was accepted and `_Generic` over a conditional of an `int *` and a `float *` chose the default; `typeof` and `decltype` of an aligned variable were done since 0.203 and 0.206; a stringized universal character name differs from clang's in the `-E` text alone; left: a function or an object across the reads, a program's function named as a library object, a call through a temporary function object whose `operator()` is constrained | gated before its commit: all nine gates GREEN over libc++ 18 (the C++ gate 811 of 821 ok, 10 skipped) and the two libc++ gates over 21 (819 of 821 ok, 2 skipped); it carries 0.218's chain: all nine gates GREEN over libc++ 18, the two libc++ gates over 21 |
 
 ## M5 — the C++ mode
 
@@ -14805,4 +14806,97 @@ defects of the same roads that this step's probes found beside them, and 0.217's
 Reader 163 (`static inline T x;` keeps `inline` beside `static`: what a read gives changes). Lowering 126 (a static data
 member's definition, an inline static with no initializer, a class template's static defined out of it, a header read in
 the process registered from its AST, a qualified class name over two namespaces: what the desugaring emits changes).
+
+## 0.219 — the Not done records: an unqualified class name that two headers' reads declare in two namespaces registered in its own namespace's words; the address of a pointer parameter its own storage; C's conditional of two object pointers; and what the probes found: an object not seen by its own class's members, a header's deleted function called -- `<compare>`'s customization point objects over libc++ 18 and 21; a record found done already; 0.218's chain
+
+**0.219: the records of Not done, on the owner's word ("do 'not done' records") -- the C++ language's record that 0.218
+made, the safe part's pointer parameter, two of the audit's small ones -- what this step's probes found on their roads,
+and 0.218's chain.**
+
+- THE PROBES, 33 reductions of 3 to 20 lines against clang 18 and clang++ 18 (the fixtures against gcc and g++ too), and
+  seven of 0.218's, built by 0.219 over libc++ 18 and 21 and by 0.218. Over 0.218: `#include <charconv>` before
+  `#include <variant>` refused `std::variant<int>` and `std::variant<std::string>`,
+  `base_not_registered('__copy_assignment.__traits.int.__traits.int.__copy_assignable_trait', '__impl.int')`, where
+  `std::variant<int, double>` built; `std::strong_order(1, 2)`, `std::weak_order`, `std::partial_order` and the three
+  fallbacks ran past the memory cap over libc++ 18, one comparison object alone in 85 to 95 s -- a program of eight
+  C++20 headers that called one of them (`mix2.cpp`) looked like a heavy build -- and were `not lowered yet:
+  undeclared('__strong_order.strong_order')` over libc++ 21; no fixture called them. In C, `int **f(int *p) { return &p;
+  }` was accepted, `g = &p` was `borrow_stored` under the name p, and `_Generic(c ? p : q, void *: 1, default: 0)` over
+  an `int *` and a `float *` chose the default (`0 0 2 1` for clang's and gcc's `1 2 1 1`). One record was found done
+  already: `typeof` and `decltype` of an aligned variable have its type's alignment, 4 over `alignas(32) int x` as clang
+  has it (0.203's `ccl_place_free/2`, 0.206's `cpp_storage_off/2`); and a name spelled with a universal character name
+  and stringized differs from clang's spelling in the `-E` text alone, the string's value the same (`café xéy` from
+  both), as the record says now.
+- A HEADER'S ITEMS ARE REGISTERED IN THEIR OWN NAMESPACE'S WORDS (`cpp_hdr_load_items/2` in `cpp_hdr_load/1`): an
+  unqualified class name in an item, that two headers' reads declare in two namespaces, is renamed to the key of the
+  namespace that C++'s lookup finds from the item's own namespace out ([basic.lookup.unqual]; `cpp_ns_innermost/3`),
+  where that is not the namespace of the bare name's first item -- the key one read would have given those items, made
+  by the qualified road's maker (`cpp_cross_make/4`, which 0.218's `cpp_cross_key/3` now calls too). The table of such
+  names, with their paths and their first items', is made once for the ASTs loaded (`cpp_cross_table/1`;
+  `cpp_ast_gen_next/0` counts the loads), each namespace's renames once (`cpp_cross_map/3`), and a key that cannot be
+  made is noted (`'$cpp_cross_none'/1`). Classes and class templates only, as 0.218's road.
+- A CLASS DECLARED AND NOT DEFINED IS RENAMED WITH THE REST (`cpp_cross_fwd_item/4`), found by this step's first form:
+  libc++'s `template <class _Fp> class __base;`, the primary of std::__function's `__base<_Rp(_ArgTypes...)>`, kept its
+  bare name, and `<string>` before `<functional>` -- which 0.218 built, the specialization matched by pattern under the
+  bare name -- met `template_without_body('__function.__base')`.
+- A NAMESPACE-SCOPE OBJECT IS NOT SEEN BY ITS OWN CLASS'S MEMBERS ([basic.scope.pdecl]/1, [temp.res.general]/1,
+  [basic.lookup.argdep]/4): libc++ 18's `__strong_order::__fn` calls `strong_order(...)` unqualified with no poison pill
+  beside it, the flattened name was the object `std::strong_order`, and the result and the noexcept of `__go` asked the
+  object's `operator()`, which asked `__go` again, the heap growing about 5 MB a round (the desugaring's trace: 11
+  instantiations, then `std::forward`'s two calls without end). Its initializer makes its class complete first, so the
+  call finds what was declared before the class, and argument-dependent lookup finds functions alone: a function of the
+  name that fits is called, none is a refusal that takes the candidate out.
+- A HEADER'S DELETED FUNCTION CALLED, WITH NO OVERLOAD THAT FITS, IS A REFUSAL (`cpp_deleted_hdr_fn/1` in `cpp_call`'s
+  last clause): libc++ 21's `void strong_order() = delete;` is declared in no table (reader 152), the renamed call went
+  on as one of an undeclared name, `decltype(strong_ordering(strong_order(t, u)))` was `strong_ordering`, and the
+  candidate stood.
+- THE ADDRESS OF A POINTER OR ARRAY PARAMETER IS A BORROW OF THE PARAMETER'S OWN STORAGE, keyed `&p` apart from p, which
+  keys the caller's referent (`ck_borrows_from/3`, `ck_param_self/1` in `ck_short_lived/1`, anchored in the outer frame
+  by `ck_param_selves/2`): a return of it is `borrow_escapes`, a store where it outlives the function `borrow_stored`,
+  and a local may hold it and hand it to a call.
+- IN C, A CONDITIONAL OF TWO OBJECT POINTERS (C17 6.5.15/6; `ccl_cond_pointers/3`): to differently qualified versions of
+  one type, a pointer to the type qualified by both arms; to incompatible types, a plain `void *`, as clang and gcc type
+  it with a warning.
+- WHAT IS LEFT, in Not done: a function or an object of a name across the reads (their overloads stay one set; 33 such
+  bare names over libc++ 18's 226 summaries); a program's function that argument-dependent lookup finds from a library
+  template, named as a library object is (`ns::strong_order` beside `std::strong_order`, one flattened name); a call
+  through a temporary function object whose `operator()` is constrained, not taken out where its type is asked
+  (`compare_three_way()(t, u)` over a class with no `<=>`, so `std::compare_strong_order_fallback` over such a class is
+  refused).
+- FIXTURES: `crossread.cpp` (`<charconv>` and `<string>` before `<variant>` and `<functional>`), `cmpcpo.cpp` (the six
+  comparison objects over ints, doubles and a class with a defaulted `<=>`, at C++20);
+  `test/c/safe/param_ptr_addr_escapes.c` (`ownership(borrow_escapes,&p)`), `test/c/run/paramaddrok.c` and
+  `test/c/run/condptrs.c` -- clang's and gcc's or g++'s output, cicilang's over libc++ 18 and 21; 0.218 refuses each C++
+  fixture and the refusal, and prints `0 0 2 1` for `condptrs.c`.
+- THE CHAIN OF 0.218, over its commit (c380ece), a clean tree with its modules built, and fresh HOMEs, on cocolog
+  2.12.0: over libc++ 18 all nine gates GREEN -- the flow gate 137 s (its one finding), reader 6 s, compile 33 s (151
+  run fixtures and 60 refusals), driver 24 s (44 checks), objects 6 s, proof, cross 422 s (184 checks), the library read
+  731 s (the 23 asserted reads whole, 203 other headers warmed), the C++ gate 1709 s, 809 of 819 fixtures ok and 10
+  skipped by their needs (the two units, the 29 refusals, the 33 of the safe part and the four static assertions) --;
+  over libc++ 21 the library read (its phase 648 s) and the C++ gate GREEN in about 1690 s, 817 of 819 ok, 2 skipped
+  (`stdoptionalref.cpp`, `zipadjacent.cpp`). The headers' reads summed 2791 s over 226 over libc++ 18 and 2462 s over
+  226 over 21; the fixtures' builds 5542 s over 809 and 5504 s over 817 -- the box at the speed it had in 0.217's chain,
+  about half of 0.216's.
+- GATED BEFORE ITS COMMIT: over the worktree and fresh HOMEs, on cocolog 2.12.0: all nine gates GREEN over libc++ 18 --
+  the flow gate 118 s (its one finding), reader 5 s, compile 30 s (153 run fixtures and 61 refusals), driver 24 s (44
+  checks), objects 5 s, proof, cross 356 s (186 checks), the library read 591 s (the 23 asserted reads whole, 203 other
+  headers warmed), the C++ gate 1391 s with 811 of 821 fixtures ok and 10 skipped by their needs --; over libc++ 21 the
+  library read (its phase 472 s) and the C++ gate GREEN in about 1325 s, 819 of 821 ok, 2 skipped (`stdoptionalref.cpp`,
+  `zipadjacent.cpp`). The headers' reads summed 2226 s over 226 over libc++ 18 and 1745 s over 226 over 21; the
+  fixtures' builds 4540 s over 811 and 4327 s over 819 -- every time about four fifths of 0.218's chain, the headers'
+  reads too, which 0.219 does not change: the box ran faster after the container's restarts. A container restart stopped
+  the first run in the C++ gate over libc++ 18 (the eight gates before it GREEN), and a second restart stopped the C++
+  gate over libc++ 21 (the library read before it GREEN); each pass ran again from a fresh HOME. The flow gate GREEN
+  after each edit of the library (121 to 142 s).
+- `RULES.md`: the gates' counts (the C gate's, which 0.217 left at 0.216's), the conditional's rules (C's two object
+  pointers), namespaces (the unqualified road, the class declared and not defined, an object not seen by its own class,
+  a header's deleted function called), the safe part (a pointer or array parameter's own storage), the versions
+  (lowering 127), What runs, Not done (the C++ language's record of what is left; the audit's small ones, two done and
+  the stringized name's difference; the safe part's record of the pointer parameter, done), the Hosts (0.218's chain).
+  `CLAUDE.md`: the versions. `README.md`: what runs in C++.
+
+Lowering 127 (an unqualified class name over two headers' reads renamed in its item's namespace's words, an object
+unseen by its own class, a header's deleted function refused: what the desugaring emits changes; a pointer or array
+parameter's address its own storage: what the check accepts changes; C's conditional of two object pointers: a type the
+inference answers changes). The reader stays 163.
 

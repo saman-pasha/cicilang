@@ -857,6 +857,7 @@ ccl_type_of(cond(_, A, B), T) :- !, ccl_type_of(A, AT), ccl_type_of(B, BT),
     ;   ccl_void_null(B), ccl_is_pointer(AT) -> T = AT
     ;   ccl_void_ptr_quals(AT, QA), ccl_is_pointer(BT) -> ccl_pointee_quals(BT, QB), ccl_cv_union(QA, QB, Q), T = ptr([], base(Q, [void]))   % a pointer to void and another: a pointer to void, qualified by both (6.5.15/6, [expr.cond]/7.3; 0.194)
     ;   ccl_void_ptr_quals(BT, QB), ccl_is_pointer(AT) -> ccl_pointee_quals(AT, QA), ccl_cv_union(QA, QB, Q), T = ptr([], base(Q, [void]))
+    ;   ccl_cond_pointers(AT, BT, T0) -> T = T0   % C's two object pointers (0.219, below)
     ;   AT \== unknown -> T = AT ; T = BT ).
 ccl_type_of(stmt_expr(block(Is)), T) :- !,            % its declarations are in scope for its last expression
     ccl_scope_push, ccl_note_items(Is),
@@ -882,6 +883,16 @@ ccl_type_of(_, unknown).
 ccl_srcloc_builtin_type(B, base([], [unsigned])) :- memberchk(B, ['__builtin_LINE', '__builtin_COLUMN']), !.
 ccl_srcloc_builtin_type(B, ptr([], base([const], [char]))) :- memberchk(B, ['__builtin_FILE', '__builtin_FILE_NAME', '__builtin_FUNCTION']).
 ccl_literal_quals(Q) :- ( ccl_lang(cpp) -> Q = [const] ; Q = [] ).
+%% C'S CONDITIONAL OF TWO OBJECT POINTERS (0.219; C17 6.5.15/6): to differently qualified versions of one type, a pointer to
+%% the type qualified by both arms; to incompatible types, a constraint violation (6.5.15/3) that clang and GCC type as a
+%% plain `void *', with a warning ("pointer type mismatch"). It took the first arm's type, so `_Generic(c ? p : q, void *: 1,
+%% default: 0)' over an `int *' and a `float *' chose the default where both compilers choose `void *'. Arms of one type, and
+%% C++ ([expr.cond]/7, the desugaring's), go on as before
+ccl_cond_pointers(AT, BT, T) :- \+ ccl_lang(cpp), catch(ccl_resolve_type(AT, ptr(_, PA0)), _, fail), catch(ccl_resolve_type(BT, ptr(_, PB0)), _, fail),
+    catch(ccl_resolve_type(PA0, PA), _, fail), catch(ccl_resolve_type(PB0, PB), _, fail), PA \= fn(_, _, _), PB \= fn(_, _, _), PA \== unknown, PB \== unknown,
+    ccl_strip_quals(PA, UA), ccl_strip_quals(PB, UB), ccl_type_canon(UA, KA), ccl_type_canon(UB, KB),
+    (   KA == KB -> ccl_pointee_quals(AT, QA), ccl_pointee_quals(BT, QB), ccl_cv_union(QA, QB, Q), \+ ( msort(QA, Q1), msort(Q, Q1) ), ccl_add_quals(Q, UA, P), T = ptr([], P)
+    ;   T = ptr([], base([], [void])) ).
 %% C's NULL POINTER CONSTANT CAST TO `void *' (6.3.2.3/3; 0.194): `(void *) E' with E an integer constant 0, or such a cast
 %% itself, as clang reads it (the pointee void, unqualified). glibc's <tgmath.h> chooses a type by `__typeof__ (0 ? (T *) 0 :
 %% (void *) (E))': T's where E is 0, and `void *' else (the rule beside it)

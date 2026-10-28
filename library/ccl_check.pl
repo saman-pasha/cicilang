@@ -166,7 +166,8 @@ ck_function(L, Ret, Name, Params0, Body) :-
     ck_borrowed_fields(Params, Borrowed), nb_setval('$ck_borrowed', Borrowed),
     ck_dying_fields(Params, Dying), nb_setval('$ck_dying_fields', Dying),
     ck_param_owners(Params, Owners),
-    ck_param_ties(Params, [], st([fr(Owners, [])]), St0),
+    ck_param_selves(Names, Selves), append(Owners, Selves, Owners1),
+    ck_param_ties(Params, [], st([fr(Owners1, [])]), St0),
     ck_param_dtors(Params, Body, Body1),
     ck_walk_body(Body1, St0, St1),
     ( St1 == dead -> true ; St1 = st([fr(Os, _)]), ck_complete_owners(Os, function_end), ck_leaks_all(St1, function_end) ),
@@ -730,6 +731,10 @@ ck_borrows_from(addr(arrow(A, _)), St, P) :- !, ck_borrows_from(A, St, P).
 ck_borrows_from(addr(deref(A)), St, P) :- !, ck_borrows_from(A, St, P).                       % &*p: what p borrows (0.132) -- a reference bound to `*it', which every `for (auto&& x : r)' over raw-pointer iterators makes (std::array, std::string_view, the empty and single views), was fresh memory, `plain pointer not consumed'
 ck_borrows_from(addr(id(N)), St, P) :- ck_is_ref(N), !, ck_state(St, N, S), ck_borrow_source(N, S, P).   % C++: &x of a reference is the pointer held
 ck_borrows_from(id(N), St, P) :- ck_is_ref(N), !, ck_local_type(N, ptr(_, RT)), ck_carries_type(RT), ck_state(St, N, S), ck_borrow_source(N, S, P).   % its value: what it refers to
+%% THE ADDRESS OF A POINTER OR ARRAY PARAMETER is a borrow of the parameter's own storage (0.219), keyed `&p' apart from p,
+%% which keys what p points to, the caller's: anchored in the function's outer frame (ck_param_selves/2) and short-lived
+%% (ck_short_lived/1). `int **f(int *p) { return &p; }' answered p's referent and was accepted, a dead parameter's address
+ck_borrows_from(addr(id(N)), _, K) :- atom(N), ck_is_param(N), \+ ck_is_ref(N), \+ ck_param_storage(N), !, atom_concat('&', N, K).
 %% THE ADDRESS OF A LOCAL is a borrow of the local: an anchored one's, an owner's slot, and one that holds a borrow -- a
 %% pointer, a view, an iterator (0.217): `&p' over `int *p = q' answered what p points to, so `int **f(int *q) { int *p = q;
 %% return &p; }' and the address of a local view of a static string returned were accepted, each a dead local's address
@@ -885,8 +890,12 @@ ck_il_items(stmt_expr(block(Is)), Items) :- member(declaration(_, _, _, Vs), Is)
 %% -- `int *f(int n) { return &n; }' was accepted, the parameter counted as the caller's --, no static storage, no pointer
 %% or reference parameter's referent; the one a join keeps (ck_merge_state/3) and an object that outlives the function may
 %% not hold
+ck_short_lived(P) :- atom(P), ck_param_self(P), !.                     % a pointer or array parameter's own storage, `&p' (0.219)
 ck_short_lived(P) :- atom(P), ck_is_local(P), ( ck_is_param(P) -> ck_param_storage(P) ; true ).
 ck_param_storage(P) :- ck_local_type(P, T), \+ ck_is_pointer_type(T), \+ catch(ccl_resolve_type(T, arr(_, _)), _, fail).
+ck_param_self(K) :- atom_concat('&', N, K), N \== '', ck_is_param(N).
+%% the outer frame's anchors of the pointer and array parameters' own storage, `&p' (0.219, the address of a parameter above)
+ck_param_selves(Names, Selves) :- findall(K-anchor, ( member(N, Names), atom(N), N \== anon, N \== this, \+ ck_is_ref(N), \+ ck_param_storage(N), atom_concat('&', N, K) ), Selves).
 %% OF SEVERAL BORROWS, THE ONE THAT DANGLES FIRST (0.217): a local's before a parameter's or static storage's (0.216), and
 %% of two locals the inner one, whose scope ends first -- a vector given `&a' and then `&b' of an inner block kept a's,
 %% and was used after b's end unseen

@@ -283,6 +283,7 @@ cpp_register_units(Units) :-
     cpp_reset('$cpp_acc'/3), cpp_reset('$cpp_afriend'/2), cpp_reset('$cpp_bacc'/3), cpp_reset('$cpp_static_abi'/1), nb_setval('$cpp_body_ctx', none), nb_setval('$cpp_cur_fn', none), nb_setval('$cpp_acc_scope', none), nb_setval('$cpp_obj_expr', none),   % the access of a program class's members and its friends (0.117)
     cpp_reset('$cpp_concept'/2), cpp_reset('$cpp_ccm'/3), cpp_reset('$cpp_vtm'/3), cpp_reset('$cpp_friend_in'/3),   % the concepts by name, and the memos of a concept's satisfaction and a variable template's value (0.112)
     cpp_reset('$cpp_ctype'/3), cpp_reset('$cpp_sinit'/3), cpp_reset('$cpp_sinline'/2), cpp_reset('$cpp_encl'/2),
+    cpp_reset('$cpp_cross_map'/3), cpp_reset('$cpp_cross_none'/1), nb_setval('$cpp_ast_gen', 0), nb_setval('$cpp_cross_table', none),   % the cross-read names' memos, by the ASTs loaded (0.219, cpp_cross_table/1)
     cpp_reset('$cpp_lazy_c'/1), cpp_reset('$cpp_lazy_p'/1), nb_setval('$cpp_eh_used', no), nb_setval('$cpp_hdr_loaded', []), nb_setval('$cpp_budget', 0), nb_setval('$cpp_depth', 0), nb_setval('$cpp_class_ctx', none), ( catch(abolish('$cpp_hdr'/2), _, true) -> true ; true ), dynamic('$cpp_hdr'/2), dynamic('$cpp_hdr_ast'/2),
     cpp_reset('$cpp_lib'/1), cpp_reset('$cpp_libfn'/1), cpp_reset('$cpp_math_decl'/1), cpp_reset('$cpp_nested_tmpl'/3), cpp_reset('$cpp_implicit_copy'/3), cpp_reset('$cpp_promoted'/1), cpp_reset('$cpp_deferred'/4), cpp_reset('$cpp_base_named'/1), cpp_reset('$cpp_implicit_assign'/3), nb_setval('$cpp_in_lib', no),
     cpp_reset('$cpp_nxdef'/4), cpp_reset('$cpp_nxsrc'/3), cpp_reset('$cpp_nxval'/2), cpp_reset('$cpp_nxmval'/3), nb_setval('$cpp_nx_def', none), nb_setval('$cpp_nx_evaluating', []),   % the conditional noexcepts (0.199)
@@ -946,7 +947,9 @@ cpp_spec_name(declare(_, base(_, [union(tmpl(N, P), _)])), N, P).
 cpp_spec_name(declaration(_, _, _, [var(tmpl(N, P), _, _)]), N, P).
 cpp_spec_name(declaration(_, _, _, [var(scoped(_, tmpl(N, P)), _, _)]), N, P).   % ... a VARIABLE template's, named with its namespace: libc++'s `__format::__enable_insertable<basic_string<_CharT>>' (0.112)
 cpp_spec_name(function(_, _, _, tmpl(N, P), _, _, _), N, P).
-cpp_load_ast(F) :- ccl_ast_file(F, A), ( exists_file(A) -> ensure_loaded(A) ; true ).
+cpp_load_ast(F) :- ccl_ast_file(F, A), ( exists_file(A) -> ensure_loaded(A), cpp_ast_gen_next ; true ).
+%% each load counted (0.219): the cross-read names' memos hold for the ASTs loaded when they were made (cpp_cross_table/1)
+cpp_ast_gen_next :- ( nb_current('$cpp_ast_gen', G0), integer(G0) -> true ; G0 = 0 ), G is G0 + 1, nb_setval('$cpp_ast_gen', G).
 cpp_hdr_item(N, I) :- '$cpp_hdr'(N, I).
 cpp_hdr_item(N, I) :- '$cpp_hdr_ast'(N, I0), ccl_float_thaw(I0, I).   % a float kept exactly in the file (0.132; ccl_float_freeze/2)
 %% '$cpp_hdr'(Name, Item): facts (found by name in microseconds; a global would copy the header at every read)
@@ -1142,21 +1145,37 @@ cpp_ns_key(Path, N, K) :- Path \== c, findall(S, ( member(S, Path), atom(S), S \
 %% read renames them (cpp_qualify_item/4, cpp_rename_names/3). The AST beside a summary writes each item's namespace path after
 %% it ('$cpp_hdr_ast_ns', ccl_ast_write), so the items and the paths pair one to one, or nothing is done; a header indexed in
 %% the process ('$cpp_hdr') is left as it was. Classes and class templates only: a namespace's functions and objects overload
-%% and are found by other roads (std::abs is std's and std::__math's). NOT DONE: an UNQUALIFIED use inside the namespace whose
-%% item is not the first still finds the first header's. The first item's path is asked first, and a qualifier it ends with
+%% and are found by other roads (std::abs is std's and std::__math's). An UNQUALIFIED use inside a namespace is renamed where its
+%% item registers (0.219, cpp_hdr_load_items/2). The first item's path is asked first, and a qualifier it ends with
 %% (`std::vector', `std::basic_string', most names) stops there: the bare name is that namespace's already
 cpp_cross_key(Path, N, K) :-
     findall(S, ( member(S, Path), atom(S), S \== global ), Q), Q \== [],
     once('$cpp_hdr_ast_ns'(N, P1)), cpp_ns_named_path(P1, First), \+ append(_, Q, First), \+ '$cpp_hdr'(N, _),
-    findall(P, '$cpp_hdr_ast_ns'(N, P), Ps),
-    findall(NP, ( member(P, Ps), cpp_ns_named_path(P, NP) ), NPs), sort(NPs, Ds),
+    findall(NP, ( '$cpp_hdr_ast_ns'(N, P), cpp_ns_named_path(P, NP) ), NPs), sort(NPs, Ds),
     findall(D, ( member(D, Ds), append(_, Q, D) ), [Dk]),
+    cpp_cross_make(N, Dk, Ds, K).
+%% THE KEY OF A NAMESPACE'S ITEMS OF A CROSS-READ NAME (0.218, 0.219): N's items whose path is Dk, kept under the key one read
+%% would have given them, the shortest suffix of Dk that no other of N's paths Ds ends with (cpp_ns_unique_suffix/3), renamed as
+%% such a read renames them, each with its path after it as the AST has it -- or the key a read made already. N's items and
+%% paths pair one to one, and every item of Dk is a class or a class template, or nothing is made -- and the key is noted, so the
+%% next namespace that asks for it does not copy N's items again ('$cpp_cross_none')
+cpp_cross_make(N, Dk, Ds, K) :-
     cpp_ns_unique_suffix(Dk, Ds, Ns), atomic_list_concat([Ns, '.', N], K),
     (   catch('$cpp_hdr_ast'(K, _), _, fail) -> true
-    ;   findall(I, '$cpp_hdr_ast'(N, I), Is), length(Is, Len), length(NPs, Len),
-        findall(I, ( nth1(J, NPs, Dk), nth1(J, Is, I) ), Ks), Ks \== [], forall(member(I, Ks), cpp_cross_class_item(I)),
-        forall(member(I0, Ks), ( ( cpp_qualify_item(N, K, I0, I1) -> true ; I1 = I0 ), cpp_rename_names(I1, [N-K], I2), assertz('$cpp_hdr_ast'(K, I2)) )),
-        once(( nth1(J0, NPs, Dk), nth1(J0, Ps, P0) )), assertz('$cpp_hdr_ast_ns'(K, P0)) ).
+    ;   catch('$cpp_cross_none'(K), _, fail) -> fail
+    ;   cpp_cross_make_(N, Dk, K) -> true
+    ;   assertz('$cpp_cross_none'(K)), fail ).
+cpp_cross_make_(N, Dk, K) :-
+    \+ '$cpp_hdr'(N, _), findall(I, '$cpp_hdr_ast'(N, I), Is), findall(P, '$cpp_hdr_ast_ns'(N, P), Ps), cpp_cross_zip(Is, Ps, IPs),
+    findall(I-P, ( member(I-P, IPs), P \== c, cpp_ns_named_path(P, Dk) ), KIs), KIs \== [], forall(member(I-_, KIs), cpp_cross_class_item(I)),
+    forall(member(I0-P0, KIs), ( ( cpp_qualify_item(N, K, I0, I1) -> true ; cpp_cross_fwd_item(N, K, I0, I1) -> true ; I1 = I0 ), cpp_rename_names(I1, [N-K], I2), assertz('$cpp_hdr_ast'(K, I2)), assertz('$cpp_hdr_ast_ns'(K, P0)) )).
+%% A CLASS DECLARED AND NOT DEFINED is renamed with the rest (0.219): libc++'s `template <class _Fp> class __base;', the
+%% primary of std::__function's `__base<_Rp(_ArgTypes...)>', kept its bare name, and the key had a specialization and no
+%% template (`template_without_body('__function.__base')' for <string> before <functional>)
+cpp_cross_fwd_item(N, K, template(L, TPs, I0), template(L, TPs, I)) :- !, cpp_cross_fwd_item(N, K, I0, I).
+cpp_cross_fwd_item(N, K, declare(L, base(Q, [S0])), declare(L, base(Q, [S]))) :- S0 =.. [F, N, none], memberchk(F, [class, struct, union]), S =.. [F, K, none].
+cpp_cross_zip([], [], []).
+cpp_cross_zip([I|Is], [P|Ps], [I-P|IPs]) :- cpp_cross_zip(Is, Ps, IPs).
 cpp_cross_class_item(template(_, _, I)) :- !, cpp_cross_class_item(I).
 cpp_cross_class_item(declare(_, base(_, [S]))) :- functor(S, F, _), memberchk(F, [class, struct, union]).
 %% a name the outer namespace also declares as a function (a plain overload or a function template): the fallback of a keyed qualified call
@@ -1196,8 +1215,37 @@ cpp_index_name(extern_template(_, declaration(_, _, _, [var(scoped(Path, _), fn(
 %% a name the registries do not have: the header's items of that name, registered now (a class as a lazy one)
 cpp_hdr_load(N) :- atom(N), cpp_hdr_item(N, _), \+ ( nb_getval('$cpp_hdr_loaded', Ls), memberchk(N, Ls) ), !,
     cpp_spend(load(N)), nb_getval('$cpp_hdr_loaded', Ls0), nb_setval('$cpp_hdr_loaded', [N|Ls0]), assertz('$cpp_lib'(N)),
-    \+ \+ ( findall(I, cpp_hdr_item(N, I), Items), cpp_note_hdr_fns(Items), cpp_note_hdr_mdefs(Items),   % inside `\+ \+': the registrations are facts and globals, the items' copies are reclaimed
+    \+ \+ ( cpp_hdr_load_items(N, Items), cpp_note_hdr_fns(Items), cpp_note_hdr_mdefs(Items),   % inside `\+ \+': the registrations are facts and globals, the items' copies are reclaimed
              cpp_where(load(N), cpp_as_lib(yes, cpp_isolated(cpp_register_lazy(Items)))) ).   % AT FILE SCOPE: a load met inside a function's body walk declared the header's functions into that function's open frame -- ccl_declare takes the innermost -- and they were gone with it: `__convert_to_integral.unsigned_long' declared in one walk, undeclared at the next call, its type unknown, and `_Size' undeducible
+%% A HEADER'S ITEMS ARE REGISTERED IN THEIR OWN NAMESPACE'S WORDS (0.219): an UNQUALIFIED class name in an item, that two headers'
+%% reads declare in two namespaces, names what C++'s lookup finds from the item's own namespace out ([basic.lookup.unqual]): the
+%% innermost of its enclosing namespaces that declares the name. Where that is not the namespace of the bare name's first item,
+%% the use goes to the key one read would have given that namespace's items (cpp_cross_make/4), as a read renames a deeper
+%% namespace's bare uses (cpp_qualify_body/4). `#include <charconv>' before `#include <variant>' refused `std::variant<int>',
+%% `base_not_registered('__copy_assignment.__traits.int.__traits.int.__copy_assignable_trait', '__impl.int')': <variant>'s
+%% `__traits<_Types...>', named bare inside std::__variant_detail, took <charconv>'s `__itoa::__traits<_Tp>', the first item.
+%% A header's items and their paths pair one to one in the AST ('$cpp_hdr_ast_ns' after each item), or the items go as they are
+cpp_hdr_load_items(N, Items) :-
+    findall(I, '$cpp_hdr'(N, I), Is1), findall(I0, '$cpp_hdr_ast'(N, I0), Is0),
+    (   Is0 \== [], findall(P, '$cpp_hdr_ast_ns'(N, P), Ps), cpp_cross_zip(Is0, Ps, IPs), cpp_cross_table(T), T \== []
+    ->  findall(I2, ( member(I0-P, IPs), ( P \== c, cpp_ns_named_path(P, NP), cpp_cross_map(NP, T, Map), Map \== [] -> cpp_rename_names(I0, Map, I2) ; I2 = I0 ) ), Is2)
+    ;   Is2 = Is0 ),
+    findall(I, ( member(I2, Is2), ccl_float_thaw(I2, I) ), Is3), append(Is1, Is3, Items).
+%% the names whose AST items stand in two or more named namespaces, each N-Ds-First (its paths, its first item's), made once for
+%% the ASTs loaded (cpp_ast_gen_next/0); a name a header indexed in the process has ('$cpp_hdr') is left out
+cpp_cross_table(T) :- nb_getval('$cpp_ast_gen', G), ( nb_current('$cpp_cross_table', G-T0) -> T = T0 ; cpp_cross_table_(T), nb_setval('$cpp_cross_table', G-T) ).
+cpp_cross_table_(T) :-
+    findall(N-NP, ( '$cpp_hdr_ast_ns'(N, P), P \== c, cpp_ns_named_path(P, NP) ), L0), msort(L0, L1), cpp_cross_group(L1, G0),
+    findall(N-Ds-First, ( member(N-Ds, G0), Ds = [_, _|_], \+ '$cpp_hdr'(N, _), once('$cpp_hdr_ast_ns'(N, P1)), cpp_ns_named_path(P1, First) ), T).
+cpp_cross_group([], []).
+cpp_cross_group([N-P|L], [N-Ds|Gs]) :- cpp_cross_run(L, N, [P], Ds0, Rest), sort(Ds0, Ds), cpp_cross_group(Rest, Gs).
+cpp_cross_run([N-P|L], N, Acc, Ds, Rest) :- !, cpp_cross_run(L, N, [P|Acc], Ds, Rest).
+cpp_cross_run(L, _, Ds, Ds, L).
+%% the renames in a namespace's items, NP-memoized for the ASTs loaded: each cross-read name whose innermost declaring namespace,
+%% from NP out, is not its first item's, to that namespace's key -- a class's or a class template's (cpp_cross_make/4 fails else)
+cpp_cross_map(NP, T, Map) :- nb_getval('$cpp_ast_gen', G), ( catch('$cpp_cross_map'(NP, G, Map0), _, fail) -> Map = Map0 ; cpp_cross_map_(NP, T, Map), assertz('$cpp_cross_map'(NP, G, Map)) ).
+cpp_cross_map_(NP, T, Map) :- findall(N-K, ( member(N-Ds-First, T), cpp_ns_innermost(NP, Ds, Q), Q \== First, cpp_cross_make(N, Q, Ds, K) ), Map).
+cpp_ns_innermost(NP, Ds, Q) :- findall(L-D, ( member(D, Ds), append(D, _, NP), length(D, L) ), LDs), LDs \== [], msort(LDs, S), last(S, _-Q).
 %% the out-of-class definitions of the batch, noted BEFORE any class of it registers (the class item comes first in
 %% the header, its members' bodies after it), so the class takes them as its members' bodies (cpp_lazy_class)
 cpp_note_hdr_mdefs([]).
@@ -7250,6 +7298,15 @@ cpp_call(_, scoped(Path, F), As, E) :- atom(F), \+ cpp_scope_class(Path, _), ( c
 cpp_call(_, scoped(Path, F), As, E) :- atom(F), \+ cpp_scope_class(Path, _), cpp_ns_key(Path, F, K), !, cpp_call(none, id(K), As, E).   % a deeper namespace's colliding name, qualified: its key
 cpp_call(_, scoped(Path, F), As, E) :- atom(F), \+ cpp_scope_class(Path, _), \+ ( cpp_class_l(F, _), cpp_class_takes(F, As) ), !, cpp_without_using(F, cpp_call(none, id(F), As, E)).   % std::swap(a, b): as the bare name would, never a member (a qualified name finds no method); a class of that name which cannot take the arguments is another namespace's
 cpp_call(_, id(F), As, call(id(Name), [Obj|As1])) :- cpp_local(F), cpp_class_of_type_of(id(F), C), cpp_method_on(id(F), C, operator('()'), As, Name, _), !, cpp_fill_defaults(Name, As, As1), cpp_object_arg(Name, addr(id(F)), Obj).   % a lambda, or any object with operator()
+%% A NAMESPACE-SCOPE OBJECT IS NOT SEEN BY ITS OWN CLASS'S MEMBERS (0.219; [basic.scope.pdecl]/1, [temp.res.general]/1,
+%% [basic.lookup.argdep]/4): its initializer makes its class complete first, so a member's unqualified call of its name finds
+%% what was declared before the class, and argument-dependent lookup finds functions alone. libc++ 18's `__strong_order::__fn'
+%% calls `strong_order(...)' unqualified, with no poison pill beside it (libc++ 21 declares `void strong_order() = delete;'),
+%% and the call went to the object `std::strong_order', whose noexcept and result asked the call again without end:
+%% `std::strong_order(1, 2)', `std::weak_order' and `std::partial_order' ran past the memory cap. A function of the name the
+%% call finds is called; none is a refusal, which takes the candidate out where its type is asked (SFINAE)
+cpp_call(Ctx, id(F), As, E) :- atom(Ctx), Ctx \== none, \+ cpp_local(F), cpp_callable_global(F, _, C), C == Ctx, !,
+    ( cpp_fn_best(F, As, Ps, D) -> cpp_free_call(F, Ps, D, As, E) ; cpp_refuse(0, object_unseen_by_its_class(F, C)) ).
 cpp_call(_, id(F), As, E) :- \+ cpp_local(F), cpp_callable_global(F, Name, C), !, cpp_object_call(Name, C, As, E).   % a namespace-scope object with operator(), named bare (0.100)
 cpp_call(_, scoped(Path, F), As, E) :- atom(F), catch(cpp_scope_class(Path, C0), _, fail), cpp_static_member(C0, F, SN), cpp_callable_global(SN, Name, C), !, cpp_static_use(C0, F, _), cpp_object_call(Name, C, As, E).   % A STATIC DATA MEMBER OF CLASS TYPE CALLED goes to its class's operator(): `_Ops::__iter_move(__start)' with `_Ops' the range policy's `_IterOps', whose `__iter_move' is `static constexpr auto __iter_move = ranges::iter_move;'
 cpp_call(Ctx, id(F), As, E) :- atom(F), Ctx \== none, \+ cpp_local(F), atom(Ctx), catch(cpp_static_member(Ctx, F, SN), _, fail), cpp_callable_global(SN, Name, C), !, cpp_static_use(Ctx, F, _), cpp_object_call(Name, C, As, E).   % ... named bare inside its class
@@ -7323,6 +7380,7 @@ cpp_call(_, scoped(_, C), As, E) :- atom(C), cpp_class_l(C, _), cpp_class_takes(
 cpp_call(_, scoped(Path, M), As, _) :- atom(M), cpp_scope_class(Path, C), \+ cpp_has_member(C, M), \+ cpp_class_typedef(C, M, _), !,
     length(As, K), cpp_refuse(0, no_member(C, M, K)).
 cpp_call(_, id(F), As, E) :- !, ( cpp_fn_best(F, As, Ps, D) -> cpp_free_call(F, Ps, D, As, E)   % the overload the arguments fit best; a name with one definition keeps it, as C does
+    ;   cpp_deleted_hdr_fn(F) -> cpp_refuse(0, deleted_function(F))   % A HEADER'S DELETED FUNCTION, a poison pill (0.219, cpp_deleted_hdr_fn/1)
     ;   cpp_fill_defaults(F, As, As1), cpp_ref_args(F, As1, As2), E = call(id(F), As2) ).
 cpp_call(Ctx, ccast(_, R, X0), As, E) :- ( R = ref(_, T) ; R = rref(_, T) ), cpp_this_form(X0, X),   % A CALL THROUGH A CAST TO A REFERENCE CALLS THE OPERAND ([expr.static.cast]: the cast names the object, an lvalue or an xvalue; 0.93): libc++ 18's `__invoke' writes `static_cast<_Fp &&>(__f)(static_cast<_Args &&>(__args)...)', and the callee reached the lowering as the cast itself
     (   cpp_class_of_type(T, C)
@@ -7331,6 +7389,13 @@ cpp_call(Ctx, ccast(_, R, X0), As, E) :- ( R = ref(_, T) ; R = rref(_, T) ), cpp
     ;   cpp_call(Ctx, X, As, E) ), !.
 cpp_call(Ctx, F, As, E) :- ( F = move(X0) -> true ; cpp_std_move_call(F, X0) ), !, cpp_call(Ctx, X0, As, E).   % ... AND THROUGH `std::move' THE OBJECT IT NAMES (0.206): libc++'s `basic_string::resize_and_overwrite' calls `std::move(__op)(data(), __n)', and the call of a `move' reached the lowering
 cpp_call(Ctx, F, As, E) :- cpp_expr(Ctx, F, F1), ( cpp_temp_call(F1, As, E0) -> E = E0 ; cpp_callee_params(F1, Ps), cpp_callee_mismatch(Ps, As) -> cpp_refuse(0, argument_mismatch) ; cpp_callee_params(F1, Ps), cpp_ref_args_(Ps, As, As1) -> E = call(F1, As1) ; E = call(F1, As) ).   % ... and A PLAIN STRUCT HANDED TO A SCALAR PARAMETER through a function pointer or reference is refused (0.127), the detection's answer
+%% A HEADER'S DELETED FUNCTION CALLED, and no overload that fits (0.219): libc++'s poison pill, `void strong_order() =
+%% delete;' inside std::__strong_order (libc++ 21; and weak_order, partial_order, iter_move kin), stands where ordinary lookup
+%% would find the object of the outer namespace, and the call is ill-formed but by argument-dependent lookup -- a refusal,
+%% which takes the candidate out where its type is asked. A deleted function is declared in no table (reader 152), and the
+%% call went on as one of an undeclared name: `decltype(strong_ordering(strong_order(t, u)))' was strong_ordering, the
+%% candidate stood, and `std::strong_order(1, 2)' was `undeclared('__strong_order.strong_order')' in its body
+cpp_deleted_hdr_fn(F) :- atom(F), \+ ccl_declared(F, fn(_, _, _)), catch(cpp_hdr_item(F, declaration(_, _, _, Vs)), _, fail), memberchk(var(F, fn(_, _, _), delete), Vs), !.
 %% A TRIVIAL DESTRUCTOR'S CALL STILL EVALUATES ITS OBJECT EXPRESSION (0.136; [expr.call]/5): `(--__end_)->~value_type()' over an
 %% int, in libc++'s valarray::__clear, decrements -- dropped with the call, the loop never ended (every std::valarray's
 %% destructor). A plain name has nothing to evaluate.
