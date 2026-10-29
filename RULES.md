@@ -70,9 +70,10 @@ that changes a rule edits the rule here, in its topic, and writes its entry in `
   `llvm@N`, libc++'s library under the keg's `lib/c++`, the hints are `brew install`, the SDK is a line of its own (the
   first of `ccl_sdk_dirs/1`'s directories with a `stdio.h`, with macOS's version and the SDK's for Apple's clang), and
   the cross gate is a skip line. (0.223, 0.224)
-- THE PINS (0.223). `test/toolchain.pins` holds the neighbours' commits and versions -- cocolog 2.13.0 `7ff2a0d`, Cicili
+- THE PINS (0.223). `test/toolchain.pins` holds the neighbours' commits and versions -- cocolog 2.14.1 `1e48013`, Cicili
   3.3.0 `9b825b7`, ZiguratIP `90d99b8` -- the embedded LLVM's major version (18) and the libc++ trees the C++ gates read
-  (18 and 21). A pin moves only on the owner's word, in the step that runs the chain over it. (0.223)
+  (18 and 21). A pin moves only on the owner's word, in the step that runs the chain over it: cocolog's moved at 0.226,
+  from 2.13.0 `7ff2a0d`. (0.223, 0.226)
 - THE CI JOB (0.223). `.github/workflows/gates.yml` runs `test/ci.sh` on GitHub's machines: `smoke` on each push to
   main and each pull request into it that changes more than the documents at the top of the tree (the toolchain, then
   the flow, reader, compile, driver and objects gates and the proof), since 0.224 on two machines, each a job of its
@@ -114,7 +115,10 @@ that changes a rule edits the rule here, in its topic, and writes its entry in `
   build the most of it), the two modules and the toolchain check 20 s, image 20260824.0517.1, Apple clang 21.0.0, the
   command line tools' SDK 26.5 --, then the six gates in 16 minutes: the flow gate GREEN in 426 s (Linux's 201 s), the
   objects gate and the proof GREEN, the reader gate one failure, the compile gate twelve, the driver gate three, each
-  one of 0.225's (HISTORY.md). (0.224, 0.225)
+  one of 0.225's (HISTORY.md). THE SECOND RUN (40904005520, on `c20dc9c`, 0.225): GREEN in 32 minutes, the setup in
+  19:39 and the six gates in 12:29 -- the flow gate in 348 s, the reader's later process served from the store (its
+  323 files, 0 s), the compile gate's 115 fixtures against clang's build and 27 against their `.expect`, 14 skipped by
+  their needs, its 61 refusals --; Linux's job in 10 minutes, the setup 6:51 and the gates 3:28. (0.224, 0.225, 0.226)
 
 ### The chain
 
@@ -9739,7 +9743,25 @@ The namespaces' rules, the program's and the library's, are `library/ccl_cpp_nam
   at 2882 MB, 1.8.38 at 591 MB. After a cocolog update the modules are rebuilt (`module/build.sh`,
   `module/build-llvm.sh`, and cocolog's `os` and `process` modules); 1.8.36 to 1.8.41 left the SDK's ABI unchanged.
   (0.46, 0.112, 0.114)
-- cocolog is at 2.13.0 since 0.223, pulled at the owner's word -- master `7ff2a0d` (`dd8b35f` first; then, at the
+- cocolog is at 2.14.1 since 0.226, pulled at the owner's word ("Yes, do it") once its CI was green on its three jobs --
+  master `1e48013`, over ZiguratIP 1.0.1 (`90d99b8`) and beside Cicili 3.3.0 (`9b825b7`), neither of which moved: 2.14.0
+  (`baeadc3`, The Coco's answer to 0.223's report) reads a file again by `consult/1`, `[File]` and `load_files/2` with
+  `if(true)` where `use_module/1` or `ensure_loaded/1` loaded it, by `if(changed)` and `if(exists)` only where it is
+  newer, and raises `existence_error` for a predicate the file no longer says and for a missing file; 2.14.1 (`e2239ea`)
+  puts a file's clauses where swipl 9.0.4's reload does (the bullet of the loaders below). Then `9c1c838` and `4bcd4d8`
+  made two of its tests' clock checks hold on Apple silicon, and `1e48013` records run 40954300686 on `4bcd4d8`, green
+  on all three jobs: the engine is `e2239ea`'s, and `1e48013` builds the binary the chain ran on, byte for byte. No file
+  of cicilang reads a file twice, so nothing here leaned on 2.13.0's loaders, and the chain of 0.226 ran GREEN over it
+  (What runs). The SDK did not change (`lib/sdk.cicili`; the engine's changes are in `lib/kb.cicili`,
+  `lib/library.cicili`, `lib/module.cicili` and `lib/solve.cicili`), and both modules were built again. The update took
+  `make` 173 s (peak 1549 MB), `make schema` 31 s and `make modules` 56 s. Measured at 0.226 as at 0.223, the least CPU
+  time of three interleaved rounds, each engine over a HOME of its own that it warmed itself, the 0.226 library on each:
+  five warm C++ builds 66.70 s on 2.13.0 and 66.90 s on 2.14.1 -- `stdvector.cpp` 4.10 s and 4.30 s, `stdmap.cpp` 6.10
+  and 6.20, `stdtuple.cpp` 14.20 and 14.20, `stdformat.cpp` 42.00 and 41.90, `counter.cpp` 0.30 and 0.30 --, each
+  build's peak the same (691 MB for `stdformat.cpp`), a fixed CPU loop between 0.81 s and 0.92 s before each build:
+  nothing measurable here; 2.13.0 built again in a scratch clone for the measurement, `make` 147 s (peak 1411 MB) and
+  `make modules` 53 s.
+  It was at 2.13.0 from 0.223, pulled at the owner's word -- master `7ff2a0d` (`dd8b35f` first; then, at the
   owner's word again, two commits of its CI and its installers, a macOS job beside Linux's, the engine the same and
   nothing built again), over ZiguratIP 1.0.1 (`90d99b8`), which did not move, beside Cicili 3.3.0 (`9b825b7`), which
   2.12.2 asks for (an older Cicili stops it at `unknown member: st_mtim of type: stat_t`): 2.12.1 (`1c25b57`) widens the
@@ -9930,7 +9952,7 @@ The namespaces' rules, the program's and the library's, are `library/ccl_cpp_nam
   added one SDK call (`coco_m_resource_error`). 1.10.22 (0.140) and 1.10.0 (0.132) were the steps before; cocolog
   1.10.6's builtins that raise where they failed (`arg/3` on an atomic term, `=..`, `assert` of what is no clause) broke
   nothing here. (0.132, 0.140, 0.142, 0.144, 0.146, 0.148, 0.149, 0.150, 0.151, 0.152, 0.155, 0.156, 0.157, 0.158,
-  0.159, 0.182)
+  0.159, 0.182, 0.223, 0.226)
 - SINCE 2.3.0 (`ee0073a`) A CALL SEES THE CLAUSES THAT STOOD WHEN IT BEGAN, ISO's logical update view, as swipl's: an
   assert or a retract while a call is open on its predicate moves nothing that call has still to try, and a new call
   sees the clauses as they are. Through 2.2.5 a retry read the live clause list: measured at 0.182, `forall(q(K),
@@ -10137,10 +10159,16 @@ The namespaces' rules, the program's and the library's, are `library/ccl_cpp_nam
   is read once; through 2.12 each was read again (a second `ensure_loaded/1` replaced the clauses, two roads made every
   clause answer twice). The library loads each such file once in a process -- a summary's `.ast.pl` and `.big.pl`
   (`cpp_load_ast/1`, `ccl_sum_bigs_in/3`), a `.pl` macro file, the three generated tables --, so the change does not
-  reach it: 0.222's tree was all GREEN on 2.13.0 (0.223). `consult/1` of a file it read before reads it again since
-  2.13.0, but not of one that `use_module/1` or `ensure_loaded/1` loaded: that file's old clauses answer on, and
-  `load_files/2` with `if(true)` keeps them too, where SWI reads the file again (probed at 0.223; no file of cicilang
-  consults). (1.2.18, 0.223)
+  reach it: 0.222's tree was all GREEN on 2.13.0 (0.223), and 0.226's on 2.14.1. `consult/1` of a file it read before
+  reads it again since 2.13.0, and since 2.14.0 of one that `use_module/1` or `ensure_loaded/1` loaded too, as
+  `load_files/2` with `if(true)` does, as SWI's do (2.13.0 kept the old clauses there: 0.223's finding, which cocolog's
+  owner took); `if(changed)` and `if(exists)` read it again only where it is newer, `if(exists)` of a missing file
+  succeeds, `[F]` and `consult/1` of one raise `existence_error(source_sink, F)`, and a predicate the file no longer
+  says raises `existence_error(procedure, PI)`. Since 2.14.1 a file read again puts its clauses where swipl 9.0.4's
+  reload does: `[1, 2]` beside an asserted `a`, read again as `[3, 4]`, is `[3, 4, a]`; an asserted clause that the new
+  text also says becomes the file's, held once, and goes when the file stops saying it; a first read appends after what
+  was asserted (`[a, 1]`). Each probed at 0.226, in one process; no file of cicilang consults or reads a file twice.
+  (1.2.18, 0.223, 0.226)
 - Seventy goal-carrying facts consulted into a store segfaulted once, and cocolog cannot reproduce it: the gate checks
   are clauses (`k1 :- check(Name, Goal).`).
 - Builtins at 1.8.1, again at 1.10.22 (0.140) and at 1.10.28 (0.142). `current_predicate/1` answers for a file the
@@ -10428,17 +10456,17 @@ The namespaces' rules, the program's and the library's, are `library/ccl_cpp_nam
 - Ubuntu 24.04 on x86_64 (clang and LLVM 18, glibc, libc++ 18 and 21) is a host since 0.87. Every gate but the C++ one
   is GREEN there since 0.93, and all seven since 0.95. Every step from 0.93 on is gated there, but the save points
   0.112, 0.113, 0.117, 0.122 to 0.125, 0.130, 0.131 and 0.143 (0.143's C gates and cross gate ran, its libc++ gates did
-  not; the others were gated by the steps after them). The last full run is 0.223's chain, over its work tree (the
-  commit's) and cocolog 2.13.0 (the Findings), its two modules built at 0.223, over fresh HOMEs: the toolchain check,
-  then over libc++ 18 all nine GREEN (the flow gate's one finding in 188 s, reader 2 s, compile 28 s, driver 23 s,
-  objects 5 s, proof, the cross gate in 326 s with its C++ part for aarch64, the library read in 534 s, the C++ gate in
-  1464 s with 826 of 836 fixtures ok, the skips are `atomicref`, `atomicrefalign`, `ftm23b`, `ftm26b`, `joinwith`,
+  not; the others were gated by the steps after them). The last full run is 0.226's chain, over its work tree (the
+  commit's) and cocolog 2.14.1 (the Findings), its two modules built at 0.226, over fresh HOMEs: the toolchain check,
+  then over libc++ 18 all nine GREEN (the flow gate's one finding in 188 s, reader 2 s, compile 31 s, driver 27 s,
+  objects 5 s, proof, the cross gate in 331 s with its C++ part for aarch64, the library read in 536 s, the C++ gate in
+  1403 s with 826 of 836 fixtures ok, the skips are `atomicref`, `atomicrefalign`, `ftm23b`, `ftm26b`, `joinwith`,
   `stdflatmap`, `stdoptionalref`, `tzone`, `vbaseof` and `zipadjacent`, the two units, the 30 refusals, the 35 of the
-  safe part and the eight static assertions); over libc++ 21 the library read (480 s) and the C++ gate (1459 s, 834 of
+  safe part and the eight static assertions); over libc++ 21 the library read (466 s) and the C++ gate (1437 s, 834 of
   836 ok, the skips `stdoptionalref` and `zipadjacent`) GREEN -- the C gates do not read libc++. The headers' reads,
-  summed, took 1997 s over 226 over libc++ 18 and 1765 s over 226 over 21; the fixtures' builds 4763 s over 826 and
-  4813 s over 834. 0.222's tree ran the same chain on 2.13.0 first, at 0.223 (HISTORY.md). The chains of 0.165 to 0.203,
-  of 0.205 to 0.219, of 0.221 and of 0.223 are in HISTORY.md, 0.166 to 0.204, 0.206 to 0.220, 0.222 and 0.223. Two
+  summed, took 1997 s over 226 over libc++ 18 and 1723 s over 226 over 21; the fixtures' builds 4560 s over 826 and
+  4728 s over 834 (0.223's on 2.13.0: 1997 s, 1765 s, 4763 s, 4813 s). The chains of 0.165 to 0.203, of 0.205 to
+  0.219, of 0.221, of 0.223 and of 0.226 are in HISTORY.md, 0.166 to 0.204, 0.206 to 0.220, 0.222, 0.223 and 0.226. Two
   libc++ passes are one gate: `LLVM=/usr/lib/llvm-18` and `LLVM=/usr/lib/llvm-21` choose the tree the chain reads and
   links. libc++ 22 (the newest tree, which a run without `$LLVM` reads) is no gate: 0.182 built its vector and its C++23
   views by hand (`zipadjacent.cpp`, which its `.needs` skips over 18 and 21), and `stdoptionalref` passes there. The run

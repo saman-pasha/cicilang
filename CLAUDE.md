@@ -12,7 +12,7 @@ the fixture that gates it, and why. The bullet ends with the version that made t
 edits the rule in `RULES.md`, in its topic, and writes its entry in `HISTORY.md`. Read the topic of `RULES.md` that
 covers the code before the code is changed.
 
-At 0.225 the versions are: the module 0.225 (`ccl_p_version` in `module/cicilang.cicili`, `bin/cicilang --version`),
+At 0.226 the versions are: the module 0.226 (`ccl_p_version` in `module/cicilang.cicili`, `bin/cicilang --version`),
 the reader 164 (`ccl_reader_version/1`, `library/ccl_syntax.pl`) and the lowering 130 (`ccl_lowering_version/1`,
 `library/ccl_ir.pl`).
 

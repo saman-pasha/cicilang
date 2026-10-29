@@ -220,6 +220,7 @@ One row per step, in version order: the step's title, what it did and its gate n
 | 0.223 | the neighbours pulled; the toolchain check, its pins and the CI job; `ccl_cpp.pl` in seventeen files | at the owner's word: cocolog 2.13.0 (`7ff2a0d`) and Cicili 3.3.0 pulled and 0.222's tree chained over them first, all GREEN; `test/toolchain.sh` and `test/toolchain.pins`, first in the chain; `test/ci.sh` and `.github/workflows/gates.yml`, shaped after cocolog's own CI; the desugaring cut by its topics into `ccl_cpp.pl` and sixteen parts, a mechanical move; the flow gate's rule of a predicate in two files; a summary's dependency times, which an update across cocolog 2.12.2 makes stale once | the IR of all 836 C++ run fixtures the same byte for byte before and after the split (826 built, 10 refused alike); five warm builds 70.10 s on 2.12.0 and 69.00 s on 2.13.0; the CI job's smoke run here GREEN (632 s and 252 s); all nine gates GREEN over libc++ 18 (826 of 836 C++ fixtures ok), the two libc++ gates over 21 (834 of 836); the flow gate 188 s where it took 105 s |
 | 0.224 | the macOS Intel job in the CI | at the owner's word: the smoke job on Ubuntu 24.04 and on macOS 26 on Intel (`macos-26-intel`), a matrix of two; `test/ci.sh` and `test/toolchain.sh` know a Mac (Homebrew's `llvm@18` from a bottle only, `gtimeout` as `timeout`, cocolog's `install-macos.sh`); a C fixture's `NAME.needs`, eleven of them; a Mac's compile gate held to clang's build; the driver gate's `-g` checks of a linked program through the object on a Mac | the CI job's smoke steps GREEN here as the job runs them (setup 881 s, gates 263 s); 0.223's first run on GitHub GREEN in 13 minutes; the Mac's job not yet run: this commit's push is its first run |
 | 0.225 | the Mac job's first run: what it found, and the store kept a row a level | at the owner's word: the Mac's first run (setup GREEN, its gates 16 failures) read and each failure reduced; `__builtin_expect`, a NaN builtin's payload, sixteen bytes lock-free on a Mac, DWARF 4's macros on a Mac (LLVM's DWARF 5 macros crash on Mach-O), an `if`'s comparison at its operator's column; the C store a row a level; three more `NAME.needs`, `NAME.ref`, two fixtures made portable; no pipe closed early | the flow gate, the four C gates, the cross gate and the C++ gate over libc++ 18 GREEN here (826 of 836), the C gates again over a fresh store after the store's change; the Mac's second run is this commit's push |
+| 0.226 | cocolog 2.14.1, and the Mac job's second run | at the owner's word: cocolog 2.13.0 to 2.14.1 (`1e48013`) once its CI was green; its loaders probed (a file read again by `consult/1` and `load_files/2`, swipl's reload order), none of cicilang's loads reached; 2.13.0 and 2.14.1 measured, five warm C++ builds 66.70 s and 66.90 s; the Mac job's second run recorded (GREEN on both machines) | the chain over libc++ 18 (all nine) and 21 (the library read and the C++ gate) GREEN, 826 and 834 of 836; a C store that 2.13.0 wrote served, the C gates GREEN over it; the Mac's third run is this commit's push |
 
 ## M5 — the C++ mode
 
@@ -15399,3 +15400,82 @@ target named (`--target=x86_64-apple-macos`) where a header was not needed.
 - RULES.md: the lock-free, `__builtin_expect`, NaN payload, column, macros, C store, reader, compile and driver gate
   rules, the companion files, the time tool, the Mac job's first run, the Hosts; Not done as it stands. Lowering 130;
   reader 164.
+
+## 0.226 — cocolog 2.14.1, and the Mac job's second run
+
+**0.226: on the owner's word ("Yes, do it"): cocolog from 2.13.0 (`7ff2a0d`) to 2.14.1 (`1e48013`) once its CI was
+green, the chain run over it before its pin moved, and the numbers of the Mac job's second run (0.225's push), which
+this commit carries.**
+
+THE MAC JOB'S SECOND RUN, 40904005520 on `c20dc9c`: both smoke jobs GREEN. The Mac's in 32:30 -- the setup in 19:39, the
+six gates in 12:29: the flow gate's one finding in 348 s, the reader GREEN with its later process served from the store
+(its 323 files, 0 s to ask it, 0 s to read), the compile gate GREEN with 115 fixtures against clang's build of each, 27
+against their `.expect`, 14 skipped by their `NAME.needs` and the 61 refusals of the safe part, the driver gate, the
+objects layer and the proof GREEN --; Linux's in 10:27, the setup 6:51 and the gates 3:28. Each of the first run's
+sixteen failures is gone on the machine that found it.
+
+COCOLOG'S SESSION WROTE three notes. At 16:55 UTC, 2.14.0 (`baeadc3`, The Coco's answer to 0.223's report): `consult/1`,
+`[File]` and `load_files/2` with `if(true)` read a module's file again, as the module; `if(changed)` and `if(exists)`
+only where it is newer; a predicate the new text drops raises `existence_error`; `[File]` of a missing file raises. At
+17:35, its CI run 40914346290 on `baeadc3` green on its three jobs (Ubuntu 24.04, Apple silicon, the Intel Mac), no fix
+needed, and master `c1930b2` (its `STATUS.md` alone). At 19:46, 2.14.1 (`e2239ea`): a file read again puts its clauses
+where swipl 9.0.4's reload does, rule by rule (its `test/files/reload_order.pl`), and three differences it states (a
+module's file read again adopts no asserted clause, a directive that asserts mid-read puts its clause before the read's
+next ones, across processes only a predicate holding the file's clauses is placed). Its CI went green at the third run,
+its `STATUS.md` records (`1e48013`, 22:00 UTC): runs 40942980399 on `e2239ea` and 40950413465 on `9c1c838` red on Apple
+silicon alone, each in a check of the clock that went green when run again alone -- `cowork`'s four workers in one round
+of wall time, `flowdebug`'s load marks, `window`'s inferences that Apple silicon's clock, in ticks of 41.67 ns, reads as
+0 --, each fixed in the tests (`9c1c838`, `4bcd4d8`), none of the three reaching the reload code; run 40954300686 on
+`4bcd4d8` green on all three jobs, red 0 (Ubuntu 24.04 in 15 minutes, Apple silicon 24, the Intel Mac 39). So the pin is
+`1e48013`, master's head, whose code is `4bcd4d8`'s and whose engine is `e2239ea`'s. This session reads no CI of
+cocolog's: its repository is not in the session's scope, so its notes and its `STATUS.md` are the record.
+
+WHAT IT REACHES HERE: nothing. No file of cicilang reads a file twice -- each is loaded once in a process by
+`ensure_loaded/1` (`cpp_load_ast/1`, `ccl_sum_bigs_in/3`, `ccl_load_macros/2`, the three generated tables, each gate
+program) --, none consults, none asks `if(changed)` or `if(exists)`, so the two things the note asked to check (code
+that relied on asserted clauses before a reconsulted file's, or on an asserted fact staying when the file that also says
+it is read again without it) have nothing to find. THE PROBE (`probe226.pl`, one process, a line each): a second
+`ensure_loaded/1` of a changed file loads nothing (`[a]`, as on 2.13.0); `consult/1` after `ensure_loaded/1` or
+`use_module/1`, and `load_files/2` with `if(true)` after `use_module/1`, read it again (`[b]`, where 2.13.0 kept `[a]`);
+`if(changed)` reads it again only where it is newer, `if(exists)` the same, and `if(exists)` of a missing file succeeds;
+`[F]` and `consult/1` of a missing file raise `existence_error(source_sink, F)`; a predicate the file no longer says
+raises `existence_error(procedure, pf/1)`; `[1, 2]` beside an asserted `a`, read again as `[3, 4]`, is `[3, 4, a]`; an
+asserted `x` the new text also says is held once (`[1, x]`) and goes when the text stops saying it (`[1]`); a first read
+after an `assertz/1` appends after it (`[a, 1]`).
+
+THE UPDATE: cocolog's checkout fast-forwarded from `7ff2a0d` to `e2239ea`, sixteen commits -- the engine's in
+`lib/kb.cicili`, `lib/library.cicili`, `lib/module.cicili` and `lib/solve.cicili`, the SDK the same, the macOS installer
+changed in a comment only --, built over Cicili 3.3.0 (`9b825b7`) and ZiguratIP 1.0.1 (`90d99b8`), neither of which
+moved: `make` 173 s (peak 1549 MB), `make schema` 31 s, `make modules` 56 s, each under a time and a memory cap; both
+modules built again. Before the push it fast-forwarded to `1e48013` -- the two commits of its tests and its `STATUS.md`,
+no source of the build changed --: `make` (148 s) made the same binary byte for byte (its sha256 `d5a04af486f08d1f...`
+before and after), both modules were built again for the toolchain check's order of times, the check GREEN under
+`TOOLCHAIN_STRICT=1` at the pin, and the four small gates and the proof GREEN over a fresh HOME (reader 2 s, compile
+31 s, driver 25 s, objects 5 s; peak 511 MB).
+
+THE CHAIN OF 0.226, over its work tree (the commit's) and cocolog 2.14.1 (`e2239ea`), its two modules built at 0.226,
+over fresh HOMEs, from 20:00:03 UTC: the toolchain check (3 s), then over libc++ 18 all nine GREEN to 20:42:09 -- the
+flow gate's one finding in 188 s, reader 2 s, compile 31 s, driver 27 s, objects 5 s, the proof, cross 331 s, the
+library read 536 s, the C++ gate 1403 s with 826 of 836 fixtures ok and 10 skipped by their needs, the two units, the 30
+refusals, the 35 of the safe part and the eight static assertions --; over libc++ 21 the library read (466 s) and the
+C++ gate (1437 s, 834 of 836 ok, 2 skipped) GREEN to 21:13:52. The headers' reads summed 1997 s over 226 over libc++ 18
+and 1723 s over 226 over 21, the fixtures' builds 4560 s over 826 and 4728 s over 834 (0.223's on 2.13.0: 1997 s,
+1765 s, 4763 s, 4813 s). A C STORE THAT 2.13.0 WROTE carries over: a copy of 0.225's fresh-store HOME (its store 592
+files, stamped `164.130` as now), asked by 2.14.1 the reader gate's question before anything wrote, answered `served`;
+then the reader, compile and driver gates over it GREEN (2 s, 28 s, 29 s; the later process served, the store's 627
+files), peak 531 MB.
+
+THE MEASUREMENT, as at 0.223: 2.13.0 built again in a scratch clone (`7ff2a0d`: `make` 147 s, peak 1411 MB, `make
+modules` 53 s), the 0.226 tree's modules serving both engines (the SDK the same), each engine over a copy of the chain's
+warm libc++ 18 HOME, round 0 warming each and not counted, rounds 1 to 3 interleaved: the least CPU time of five warm
+C++ builds 66.70 s on 2.13.0 and 66.90 s on 2.14.1 -- `stdvector.cpp` 4.10 s and 4.30 s, `stdmap.cpp` 6.10 and 6.20,
+`stdtuple.cpp` 14.20 and 14.20, `stdformat.cpp` 42.00 and 41.90, `counter.cpp` 0.30 and 0.30 --, each build's peak the
+same (691 MB for `stdformat.cpp`), every output right, a fixed CPU loop between 0.81 s and 0.92 s before each build;
+917 s in all, peak 841 MB. Nothing measurable here, as cocolog's session measured its own (a first read and a plain
+re-read cost what they did).
+
+- `test/toolchain.pins`: cocolog 2.14.1 `1e48013`. `RULES.md`: the pins, the Mac's job (its second run), the Findings
+  (cocolog 2.14.1 and its measurement, the loaders), the Hosts (the last full run). `CLAUDE.md`: the versions.
+
+The module 0.226. The reader 164 and the lowering 130, as 0.225 left them: no file of the library changed, and the
+engine's change reaches none of its loads.
