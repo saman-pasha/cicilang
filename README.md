@@ -125,15 +125,16 @@ rules of the code by topic; `HISTORY.md` is the record of every step.
 
 cicilang needs the three neighbours checked out beside it (the paths are
 the `CICILI`, `COCOLOG` and `ZIGURATIP` variables, defaulting to
-`~/Projects/GitHub/<name>`), an LLVM with its C API (Homebrew's `llvm` on
-macOS, `llvm-18-dev` or newer on Debian and Ubuntu), a `cc` and a `c++`
+`~/Projects/GitHub/<name>`), an LLVM with its C API (Homebrew's `llvm@18` or
+`llvm` on macOS, `llvm-18-dev` or newer on Debian and Ubuntu), a `cc` and a `c++`
 for the link, and libc++ for the C++ side. `test/toolchain.pins` names the
 neighbours' commits and the LLVM and libc++ versions the gates last passed
 on, and `sh test/toolchain.sh` checks a box against it, each tool's version
 printed and what to do where one is missing. `sh test/ci.sh smoke` (or
 `full`) is the CI job's own steps: it clones the neighbours at their pins,
 builds them with cocolog's installer, builds the two modules and runs the
-gates; GitHub runs it on each push (`.github/workflows/gates.yml`).
+gates; GitHub runs it on each push, on Ubuntu 24.04 and on an Intel Mac
+(`.github/workflows/gates.yml`).
 
 ```sh
 CICILI=~/Projects/GitHub/cicili COCOLOG=~/Projects/GitHub/cocolog sh module/build.sh   # -> library/cicilang.so

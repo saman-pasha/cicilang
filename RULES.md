@@ -66,20 +66,27 @@ that changes a rule edits the rule here, in its topic, and writes its entry in `
   `llvm-dwarfdump`, the libc++ trees, and as `skip` lines the cross gate's tools and gcc's decimal types. A tool missing
   or broken is `MISSING` and RED, with what to do; a neighbour off its pin is `DIFFERS`, a line, RED under
   `TOOLCHAIN_STRICT=1`; `TOOLCHAIN_TREES` names the libc++ trees asked for. Each cocolog run of it has a time cap and a
-  memory cap over its process tree (`tc_run`). It takes seconds. (0.223)
+  memory cap over its process tree (`tc_run`). It takes seconds. On a Mac (0.224) the trees are Homebrew's kegs,
+  `llvm@N`, libc++'s library under the keg's `lib/c++`, the hints are `brew install`, the SDK is a line of its own (the
+  first of `ccl_sdk_dirs/1`'s directories with a `stdio.h`, with macOS's version and the SDK's for Apple's clang), and
+  the cross gate is a skip line. (0.223, 0.224)
 - THE PINS (0.223). `test/toolchain.pins` holds the neighbours' commits and versions -- cocolog 2.13.0 `7ff2a0d`, Cicili
   3.3.0 `9b825b7`, ZiguratIP `90d99b8` -- the embedded LLVM's major version (18) and the libc++ trees the C++ gates read
   (18 and 21). A pin moves only on the owner's word, in the step that runs the chain over it. (0.223)
-- THE CI JOB (0.223). `.github/workflows/gates.yml` runs `test/ci.sh` on GitHub's Ubuntu 24.04 machines (x86-64, 4
-  CPUs, 16 GB, not root): `smoke` on each push to main and each pull request into it that changes more than the
-  documents at the top of the tree (the toolchain, then the flow, reader, compile, driver and objects gates and the
-  proof), `full` every night and on request (all nine gates over libc++ 18, then the library read and the C++ gate over
-  libc++ 21). `test/ci.sh JOB setup` installs the packages where asked (`CI_PACKAGES=1`; libc++ 21 from apt.llvm.org),
-  clones the neighbours at their pins into `CI_ROOT` (default `~/Projects/GitHub`; it moves no checkout it did not make
-  and stops at one off its pin), builds them with cocolog's own `install/install-linux.sh` (Quicklisp and the Lisp
-  systems Cicili is built from, ZiguratIP, cocolog, `make schema`, `make modules`) and takes the exports it prints for
-  a shell profile, builds the two modules and checks the toolchain strictly; `test/ci.sh JOB gates` runs the job's
-  gates; with no phase it runs both. Any Ubuntu 24.04 box runs it alike. The shape is cocolog's own CI's
+- THE CI JOB (0.223). `.github/workflows/gates.yml` runs `test/ci.sh` on GitHub's machines: `smoke` on each push to
+  main and each pull request into it that changes more than the documents at the top of the tree (the toolchain, then
+  the flow, reader, compile, driver and objects gates and the proof), since 0.224 on two machines, each a job of its
+  own that never waits for the other -- Ubuntu 24.04 (`ubuntu-24.04`: x86-64, 4 CPUs, 16 GB, not root) and macOS 26 on
+  Intel (`macos-26-intel`: x86-64, 4 CPUs, 14 GB; the owner's machine, as cocolog's CI has it) --; `full` on Linux
+  every night and on request (all nine gates over libc++ 18, then the library read and the C++ gate over libc++ 21).
+  `test/ci.sh JOB setup` installs the packages where asked (`CI_PACKAGES=1`: apt-get, libc++ 21 from apt.llvm.org; on a
+  Mac Homebrew), clones the neighbours at their pins into `CI_ROOT` (default `~/Projects/GitHub`; it moves no checkout
+  it did not make and stops at one off its pin), builds them with cocolog's own installer, `install/install-linux.sh`
+  or `install/install-macos.sh` (Quicklisp and the Lisp systems Cicili is built from, ZiguratIP, cocolog, `make
+  schema`, `make modules`), and takes the exports it prints for a shell profile, builds the two modules and checks the
+  toolchain strictly; `test/ci.sh JOB gates` runs the job's gates, the smoke job's six whatever one of them says (0.224:
+  the whole picture in one run, the verdict at the end); with no phase it runs both. Any Ubuntu 24.04 box or Intel Mac
+  on macOS 26 runs it alike. The shape is cocolog's own CI's
   (`.github/workflows/ci.yml` there, 2026-10-29): Quicklisp kept in the Actions cache, restored before the setup and
   saved after it, so a red gate does not lose it; the logs (`CI_LOGS`: the installer's, the builds', the toolchain's,
   each gate's) the run's artifact for 14 days; a table of the neighbours' commits and the gates' verdicts on the run's
@@ -87,12 +94,22 @@ that changes a rule edits the rule here, in its topic, and writes its entry in `
   request stops its last run, and main's runs each finish, each commit with its verdict. A GREEN JOB HAS NO SKIP IT DID
   NOT EXPECT: a gate that finds no cocolog or no module prints SKIP and exits 0, so each gate's output is read, and a
   line that starts with SKIP is RED but the reader gate's optional files (`SKIP FILE (not here)`) and the cross gate's
-  C++ part, which SKIPs there: no arm64 libc++ is under that machine's cross sysroot (The C gates, Not done). No macOS
-  job yet: cocolog's CI runs two since 2026-10-29, `macos-15` (Apple silicon, 3 CPUs, 7 GB) and `macos-26-intel`
-  (x86-64, 4 CPUs, 14 GB, the owner's arrangement), and this compiler has not run its gates on a Mac since 0.90 (Not
-  done). The workflow is actionlint 1.7.12-clean, the scripts
-  shellcheck 0.11.0-clean at the warning level. Run on this box as the job runs it, but for the packages (a fresh HOME
-  and `CI_ROOT`, the two phases apart): GREEN, the setup in 632 s and the six small gates in 252 s. (0.223)
+  C++ part, which SKIPs there: no arm64 libc++ is under that machine's cross sysroot (The C gates, Not done). The
+  workflow is actionlint 1.7.12-clean, the scripts shellcheck 0.11.0-clean at the warning level. Run on this box as the
+  job runs it, but for the packages (a fresh HOME and `CI_ROOT`, the two phases apart): GREEN, the setup in 632 s and
+  the six small gates in 252 s; on GitHub, its first run (40878868063, on `e92e11c`) GREEN in 13 minutes, the setup 9
+  and the gates 4. (0.223, 0.224)
+- THE MAC'S JOB (0.224). Homebrew's `llvm@18` is the embedded LLVM and the libc++ that the driver gate's C++ checks
+  read: a keg, `$(brew --prefix)/opt/llvm@18` (brew links no versioned formula), installed only from a bottle --
+  Homebrew has built no Intel bottles since September 2026 and LLVM from source is hours, so the setup stops where the
+  formula data names none for Intel (`brew info --json=v2`). The job keeps the formula data the runner image was built
+  with (`HOMEBREW_NO_AUTO_UPDATE`, as cocolog's does): the image's macOS 15 sibling, of the same day, has `llvm@18`
+  18.1.8 itself, so that day's data named an Intel bottle, where today's names arm64's and Linux's only. macOS has no
+  `timeout`, which the flow gate and the pools cap their runs with: coreutils' `gtimeout` under that one name, first on
+  PATH, from `CI_ROOT/.ci-bin`, so BSD's `date`, `sed` and `wc` stay what a Mac has (cocolog's CI). Apple's clang is the
+  compiler cocolog's installer builds with there (cocolog's `tools/cc` takes Homebrew's unversioned `llvm` only), the
+  gates' reference and the link; the C library is the SDK's (`ccl_sdk_dirs/1`: `$SDKROOT`'s, the command line tools',
+  Xcode's). The full job is Linux's: the cross gate runs under qemu-user over Debian's aarch64 sysroot. (0.224)
 
 ### The chain
 
@@ -217,7 +234,13 @@ that changes a rule edits the rule here, in its topic, and writes its entry in `
 - The compile gate. `test/compile.pl`, one process over the user's store, reads, checks, lowers, compiles at `-O1` and
   links every `test/c/run/*.c` at its `NAME.std` level (`c_level`). It expects every `test/c/safe/*.c` refused.
   `test/compile.sh` runs each binary as `NAME arg1 arg2` against `NAME.expect`, and compares each refusal with
-  `safe/NAME.expect`. There are 156 run and 61 safe fixtures at 0.221. (M2, M3, 0.57, 0.221)
+  `safe/NAME.expect`. There are 156 run and 61 safe fixtures at 0.221. A fixture whose `NAME.needs` the box's C library
+  does not meet is skipped by name and built not at all (0.224, Fixtures and their companion files). ON A MAC THE
+  REFERENCE IS CLANG'S BUILD (0.224), as the cross gate's is that machine's: Apple's C library prints some values
+  otherwise than glibc -- a subnormal's `%a`, a long double's `%La` -- and Apple's clang predefines what Linux's does
+  not (`predefs.c` holds Linux's), so there each fixture is built by clang at its `NAME.std` level too and run, and what
+  that prints is the reference, `ok NAME clang` or `ok NAME expect`; a fixture in the language's own forms, which clang
+  does not read, is held to its `.expect`. (M2, M3, 0.57, 0.221, 0.224)
 - The driver gate. `test/driver.sh` makes 48 checks of `bin/cicilang` over the user's store (the two decimal checks are
   skipped where no gcc with decimal floating types is installed), the variadic calls of every kind both ways against
   clang among them (`test/c/link/va_*.c`, 0.131), and Apple's arm64 expansion of `va_arg` of an aggregate against
@@ -237,7 +260,11 @@ that changes a rule edits the rule here, in its topic, and writes its entry in `
   0.117, the last two for the SysV register budget, `budget_*` built by clang and `bud_*` by cicilang), and vectors by
   value both ways (0.162; `test/c/link/vec_main.c`, `vec_helper.c`: 8- and 16-byte vectors, a struct of one, nine of
   them, a variadic call). The store must serve `hello.c` in under 10 s and redo only the changed one of two files. The
-  gate follows the host: `_main:` and `.dylib` on Darwin, `main:` and `.so` elsewhere. The decimal floating types cross
+  gate follows the host: `_main:` and `.dylib` on Darwin, `main:` and `.so` elsewhere; on Darwin the `-g` checks of a
+  linked program read the object that `-c` makes of the same file under the same flags (0.224: Mach-O keeps the DWARF in
+  the objects, which the link's debug map names for dsymutil, and the objects cicilang links from are gone after the
+  link), and the last `-std` check's GNU branch returns 2 without `linux + unix`, which clang's Darwin predefines in no
+  mode. The decimal floating types cross
   the ABI against gcc-built code both ways (`test/c/link/dec_main.c`, `dec_helper.c`: values, structs by value, a
   variadic call; clang has no decimal types), and twelve long double constants converted to decimal types fold to gcc's
   bits (`test/c/link/decld.c`, 0.154). Since 0.221 four more: an identifier's characters past ASCII by the level (C17's
@@ -473,6 +500,16 @@ that changes a rule edits the rule here, in its topic, and writes its entry in `
   (`__cpp_lib_optional >= 202506L`, since 0.123: libc++ 21.1.8 has no `optional<T &>`, it came with libc++ 22) and
   `joinwith.needs` (`__cpp_lib_ranges_join_with >= 202202L`, since 0.133: libc++ 18 has no `views::join_with`). (0.95,
   0.107, 0.123, 0.133)
+- A C FIXTURE'S `NAME.needs` (0.224) is a condition over the C library, asked of every one in ONE run of `bin/cicilang
+  -E` over a file that includes `<limits.h>` (so `__GLIBC__` is there where glibc is) and holds a marker each, inside
+  its `#if`, and a marker of the run's own, which must come out: a run that broke is RED, never a gate of skips. A
+  fixture whose condition fails is `skip NAME needs ...` in `test/compile.sh`, `CCL_TEST_SKIP` to `test/compile.pl`,
+  which builds it not at all, and the count after the run's lines. The first, all met on Linux: `hdrdefs`
+  (`__has_include(<byteswap.h>) && __has_include(<endian.h>)`, glibc's), `ftmacro` (`<endian.h>`), `packed`
+  (`<sys/epoll.h>`, Linux's), `cwrap`, `u16pairs` and `u8lit23` (`<uchar.h>`), `stdc23` (glibc 2.39 or later: its C23
+  functions, `%b` and `%wN`), and `dec128`, `decbitint`, `decfold` and `decimal` (`defined(__linux__)`: they call
+  libgcc's decimal runtime, `__bid_adddd3` and its kin, which Linux's `cc`, gcc, links and a Mac's, Apple's clang over
+  compiler-rt, does not; `decspecial` folds each value and calls none). (0.224)
 - `test/c/safe/NAME.expect` holds the refusal, `ownership(Kind,Name)`. (M3)
 - Inputs beside the fixtures are no fixtures: `test/c/run/pp_defs.h`, `fileconst.h` (`fileconst.c`, 0.195), `embed.txt`,
   `empty.txt`; `test/cpp/run/bag.h`
@@ -11362,15 +11399,18 @@ Declarations topic of the C++ reader).
   `libc++experimental.a` defines strongly, use no form the mangler lacks -- a pack expansion `Dp`, a `decltype` `DT` or
   `Dt`, an ABI tag `B`, a closure `Ul`, an unnamed type `Ut`, an expression `X`, an external name `L_Z` as an argument
   (the archive's weak definitions that do are instances of the headers' inline templates, which a program compiles).
-- macOS has not run the gates since 0.90, so every rule made since 0.91 is gated on Linux and libc++ 18 only. A macOS
-  job beside the Linux one is the way back (0.223). cocolog's CI runs two, GREEN since 2026-10-29: `macos-26-intel`
-  (x86-64, 4 CPUs, 14 GB, the owner's arrangement: this compiler's first host, Homebrew's sbcl poured from its last
-  Intel bottle) and `macos-15` (Apple silicon, 3 CPUs, 7 GB: this compiler's first run on Apple's arm64, whose variadic
-  calls and long double differ, above). A job needs what cocolog's met: coreutils' `gtimeout` as `timeout`, which every
-  gate runs a child under; Homebrew's prefix, `/usr/local` on Intel and `/opt/homebrew` on Apple silicon, for its LLVM
-  and libc++, and `CPATH` and `LIBRARY_PATH` for its keg-only libraries (cocolog's `install/install-macos.sh` exports
-  them); `test/toolchain.sh` and `test/ci.sh` taught Homebrew's paths where they name Debian's; and on Apple silicon a
-  pool of two lanes under caps that fit 7 GB.
+- The Mac's CI job (0.224) runs the six small gates on Intel only, and the C++ gates have not run on a Mac since 0.90,
+  so every C++ rule made since 0.91 is gated on Linux. A full job there wants Homebrew's libc++ trees, `llvm@18` and
+  `llvm@21` (or `llvm`), from bottles the formula data still names, and the C++ gate's pool under caps that fit 14 GB;
+  the cross gate stays Linux's. Apple silicon (`macos-15`, 3 CPUs, 7 GB; cocolog's CI runs it, GREEN since 2026-10-29)
+  would be this compiler's first run on Apple's arm64, whose variadic calls and long double differ (above): Homebrew's
+  prefix `/opt/homebrew`, and a pool of two lanes under caps that fit 7 GB.
+- `-g` on a Mac describes a linked program only through the objects it was linked from: Mach-O keeps the DWARF there,
+  and the link's debug map names cicilang's own objects, gone after the link, so `dsymutil` gathers nothing; clang's
+  driver runs `dsymutil` itself after its link. The driver gate reads the object `-c` makes there (0.224).
+- The decimal floating types need libgcc's decimal runtime at the link (`__bid_*`), which a Mac's `cc`, Apple's clang
+  over compiler-rt, does not link: four decimal fixtures need `defined(__linux__)` (0.224), and on a Mac a program with
+  a decimal operation does not link (`__bid_adddd3` and its kin undefined).
 - The CI job (0.223) runs the cross gate's C part only: its C++ part needs that machine's libc++ under the cross
   sysroot, which this box has by hand (`dpkg-deb -x` of the arm64 packages, The C gates) and `test/ci.sh` does not
   put there -- Ubuntu's arm64 packages are on `ports.ubuntu.com`, beside a second architecture for apt.

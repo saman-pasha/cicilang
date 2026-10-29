@@ -12,7 +12,7 @@ the fixture that gates it, and why. The bullet ends with the version that made t
 edits the rule in `RULES.md`, in its topic, and writes its entry in `HISTORY.md`. Read the topic of `RULES.md` that
 covers the code before the code is changed.
 
-At 0.223 the versions are: the module 0.223 (`ccl_p_version` in `module/cicilang.cicili`, `bin/cicilang --version`),
+At 0.224 the versions are: the module 0.224 (`ccl_p_version` in `module/cicilang.cicili`, `bin/cicilang --version`),
 the reader 164 (`ccl_reader_version/1`, `library/ccl_syntax.pl`) and the lowering 129 (`ccl_lowering_version/1`,
 `library/ccl_ir.pl`).
 
@@ -262,7 +262,8 @@ HISTORY.md                  the record of every step, verbatim, up to 0.111, and
 README.md                   what cicilang is and what runs: the commands, the four predicates, the additions, C++
 DESIGN.md                   the architecture, the neighbours' roles, the milestones M0 to M6
 .gitignore                  the build output and the scratch that are never committed
-.github/workflows/gates.yml the CI job: test/ci.sh's smoke on each push and pull request, its full job every night
+.github/workflows/gates.yml the CI job: test/ci.sh's smoke on each push and pull request, on Ubuntu 24.04 and on an
+                            Intel Mac (macOS 26, 0.224), its full job every night on Linux
 
 bin/cicilang                the command: clang's arguments, one cocolog run of ccl_drive/2 over ~/.cicilang/KB
 bin/cicilang++              cicilang for C++: CICILANG_LANG=cpp, --no-kb (in memory), every input C++, linked by c++
@@ -340,7 +341,8 @@ library/include/            the compiler's own freestanding headers: each COCOLO
 test/config.sh              sourced by every gate: the neighbours, this library first on COCOLOG_LIBRARY, the store
 test/toolchain.sh, toolchain.pins
                             the toolchain check, first in the chain: each tool's version beside the pins (0.223)
-test/ci.sh                  the CI job's steps: the neighbours cloned at the pins and built, the modules, the gates
+test/ci.sh                  the CI job's steps, on Linux or an Intel Mac: the neighbours cloned at the pins and
+                            built, the modules, the gates
 test/gates.sh               every gate in one chain
 test/parlib.sh              the memory-gated pool: ccl_pool, ccl_cocolog_rss, ccl_lpt_order, ccl_time_record
 test/flow.pl, flow.sh       the flow gate: every library file charted by cocolog's library(flow/chart), nothing run

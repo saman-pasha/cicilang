@@ -1,10 +1,18 @@
-# The gates on GitHub's machines (0.223): test/ci.sh, which any Ubuntu 24.04 box runs alike. The smoke job -- the
-# toolchain, then the flow, reader, compile, driver and objects gates and the proof -- runs on each push to main and
-# each pull request into it that changes more than the documents at the top of the tree; the full job -- all nine
-# gates over libc++ 18, then the library read and the C++ gate over libc++ 21 -- runs every night and on request.
-# Each clones the neighbours at test/toolchain.pins' commits and builds them with cocolog's installer, Quicklisp kept
-# in the Actions cache between runs; a SKIP the job does not expect is RED (test/ci.sh), and the logs are the run's
-# artifact for 14 days. The shape follows cocolog's own CI (its .github/workflows/ci.yml, 2026-10-29).
+# The gates on GitHub's machines (0.223): test/ci.sh, which any Ubuntu 24.04 box, or Intel Mac on macOS 26, runs
+# alike. The smoke job -- the toolchain, then the flow, reader, compile, driver and objects gates and the proof -- runs
+# on each push to main and each pull request into it that changes more than the documents at the top of the tree, on
+# two machines (0.224):
+#
+#   linux        ubuntu-24.04 (x86-64, 4 CPUs, 16 GB)     install/install-linux.sh, LLVM 18 and libc++ 18 from Ubuntu
+#   macos-intel  macos-26-intel (x86-64, 4 CPUs, 14 GB)   install/install-macos.sh, LLVM 18 and libc++ 18 from Homebrew
+#
+# The Intel Mac is the owner's machine, macOS 26 on x86-64, as cocolog's CI has it; Homebrew there as the runner image
+# has it (HOMEBREW_NO_AUTO_UPDATE): its formula data still names Intel bottles, which Homebrew has built none of since
+# September 2026. The full job -- all nine gates over libc++ 18, then the library read and the C++ gate over libc++ 21
+# -- runs on Linux every night and on request. Each clones the neighbours at test/toolchain.pins' commits and builds
+# them with cocolog's installer, Quicklisp kept in the Actions cache between runs; a SKIP the job does not expect is
+# RED (test/ci.sh), and the logs are the run's artifact for 14 days. The shape follows cocolog's own CI (its
+# .github/workflows/ci.yml, 2026-10-29).
 name: gates
 on:
   push:
@@ -27,13 +35,33 @@ permissions:
   contents: read
 jobs:
   smoke:
+    name: ${{ matrix.name }}
     if: github.event_name == 'push' || github.event_name == 'pull_request' || (github.event_name == 'workflow_dispatch' && inputs.job == 'smoke')
-    runs-on: ubuntu-24.04
-    timeout-minutes: 120
-    # a new push to a pull request stops its last run; main's runs each finish, each commit with its verdict
+    runs-on: ${{ matrix.runner }}
+    timeout-minutes: ${{ matrix.minutes }}
+    # a new push to a pull request stops its last run; main's runs each finish, each commit with its verdict, and one
+    # machine never waits for the other
     concurrency:
-      group: gates-smoke-${{ github.event.pull_request.number || github.ref }}
+      group: gates-smoke-${{ matrix.os }}-${{ github.event.pull_request.number || github.ref }}
       cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: linux
+            name: smoke, Ubuntu 24.04
+            runner: ubuntu-24.04
+            minutes: 120
+          # the setup is longer here: ZiguratIP's build alone took cocolog's Intel job 17 minutes
+          - os: macos-intel
+            name: smoke, macOS 26 (Intel)
+            runner: macos-26-intel
+            minutes: 180
+    env:
+      # Homebrew as the runner image has it: no update of every tap before an install (nothing on Linux)
+      HOMEBREW_NO_AUTO_UPDATE: 1
+      HOMEBREW_NO_INSTALL_CLEANUP: 1
+      HOMEBREW_NO_ENV_HINTS: 1
     steps:
       - uses: actions/checkout@v7
         with:
@@ -64,7 +92,7 @@ jobs:
         if: ${{ always() }}
         uses: actions/upload-artifact@v7
         with:
-          name: gates-logs-smoke-${{ github.run_attempt }}
+          name: gates-logs-smoke-${{ matrix.os }}-${{ github.run_attempt }}
           path: ${{ runner.temp }}/logs
           retention-days: 14
           if-no-files-found: warn

@@ -218,6 +218,7 @@ One row per step, in version order: the step's title, what it did and its gate n
 | 0.221 | the Not done list, on the owner's word and in one commit: a call through an object whose `operator()` nothing fits refused; the program's names beside the library's keyed apart and found by argument-dependent lookup (through pointers, template arguments and bases), a call qualified by std taking none of the program's functions and no object of another namespace; a name of both kinds across the reads; `TnDa`; the C level by its year; `__has_attribute`; an identifier's characters and the white space past ASCII by the level; a library header's static assertions; a value computed from a parameter followed; NDEBUG under -DNDEBUG; the C++ IR cache | over 0.220: `std::max(2, 3)` beside the program's `max` printed 5, `ranges::transform` over libc++ 21 was refused after `<algorithm>`, C99's `__STDC_VERSION__` was C17's, every attribute answered 0, every character past ASCII was a letter, `std::get<5>` of an array of 3 compiled, `out.push_back(&p->v)` let a local escape, `#undef NDEBUG` under -DNDEBUG asserted nothing; the nets and the first run of the gates found, each older: the roads of `operator()` without the argument pass, a fixed template argument matching any type, a class's assertion thrown out of its registration, `T{}` of a scalar typedef the int 0, a plain struct named as a qualified base, a scalar typedef argument naming a second instance, `is_unsigned_v<char8_t>` false; the IR cache's key holds the versions, not the code | gated before its commit, the second run over fresh HOMEs: all nine gates GREEN over libc++ 18 (the C++ gate 826 of 836 ok, 10 skipped) and the two libc++ gates over 21 (834 of 836 ok, 2 skipped); the first run RED in the driver gate (two failures) and in the C++ gate over 21 (three), each fixed |
 | 0.222 | the chain of 0.221; the feedback for cocolog | no library file changed: the numbers of 0.221's chain; the feedback for cocolog, at the owner's word, sent to its session -- `time_file/2` drops the fraction of a second, which three caches key on; no integer past 64 bits; no `consult/1` and `load_files/2` --, each probed on cocolog 2.12.0; two notes out of date corrected, `atom_chars/2`'s one-byte character and the pool's reason | all nine gates GREEN over libc++ 18 in 0.221's chain (826 of 836 C++ fixtures ok), the two libc++ gates over 21 (834 of 836); the headers' reads summed 1663 s and 1468 s, the fixtures' builds 4026 s and 4109 s; before its commit the flow, reader, compile, driver and objects gates and the proof GREEN over its module |
 | 0.223 | the neighbours pulled; the toolchain check, its pins and the CI job; `ccl_cpp.pl` in seventeen files | at the owner's word: cocolog 2.13.0 (`7ff2a0d`) and Cicili 3.3.0 pulled and 0.222's tree chained over them first, all GREEN; `test/toolchain.sh` and `test/toolchain.pins`, first in the chain; `test/ci.sh` and `.github/workflows/gates.yml`, shaped after cocolog's own CI; the desugaring cut by its topics into `ccl_cpp.pl` and sixteen parts, a mechanical move; the flow gate's rule of a predicate in two files; a summary's dependency times, which an update across cocolog 2.12.2 makes stale once | the IR of all 836 C++ run fixtures the same byte for byte before and after the split (826 built, 10 refused alike); five warm builds 70.10 s on 2.12.0 and 69.00 s on 2.13.0; the CI job's smoke run here GREEN (632 s and 252 s); all nine gates GREEN over libc++ 18 (826 of 836 C++ fixtures ok), the two libc++ gates over 21 (834 of 836); the flow gate 188 s where it took 105 s |
+| 0.224 | the macOS Intel job in the CI | at the owner's word: the smoke job on Ubuntu 24.04 and on macOS 26 on Intel (`macos-26-intel`), a matrix of two; `test/ci.sh` and `test/toolchain.sh` know a Mac (Homebrew's `llvm@18` from a bottle only, `gtimeout` as `timeout`, cocolog's `install-macos.sh`); a C fixture's `NAME.needs`, eleven of them; a Mac's compile gate held to clang's build; the driver gate's `-g` checks of a linked program through the object on a Mac | the CI job's smoke steps GREEN here as the job runs them (setup 881 s, gates 263 s); 0.223's first run on GitHub GREEN in 13 minutes; the Mac's job not yet run: this commit's push is its first run |
 
 ## M5 — the C++ mode
 
@@ -15277,3 +15278,66 @@ library read (480 s) and the C++ gate (1459 s, 834 of 836 ok, 2 skipped) GREEN t
 
 The module 0.223. The reader 164 and the lowering 129, as 0.222 left them: the split moves clauses, and what the check
 and the lowering emit is the same IR byte for byte.
+
+## 0.224 — the macOS Intel job in the CI
+
+**0.224: on the owner's word ("add the macOS Intel job to the CI"), after cocolog's CI had added one (`450b7a0`: macOS
+26 on Intel, the owner's own machine): the smoke job on two machines, Ubuntu 24.04 and macOS 26 on Intel, and what the
+gates need on a Mac. Committed before the Mac's job has run: its first run is this commit's own, and the next commit
+carries its numbers.**
+
+0.223 ON GITHUB: run 40878868063, on `e92e11c`, the smoke job GREEN in 13 minutes -- the setup in 9:13 (the packages,
+the neighbours at their pins, cocolog's installer, the two modules, the toolchain), the six small gates in 3:55 (compile
+19 s, driver 19 s, objects 4 s, the proof 0 s; the flow gate and the reader the rest). The feedback for cocolog
+(0.223's) reached its session at 13:25 UTC, at the owner's word ("send the feedback to the Coco session").
+
+WHAT COCOLOG'S MAC JOBS SHOWED (its CI at `450b7a0`, `b8812f4` and `d06692a`, read at `ee1c4c8`; the pin stays
+`7ff2a0d`): GitHub's `macos-26-intel` runner (x86-64, 4 CPUs, 14 GB; image 20260824.0517.1, macOS 26.6.1, Apple clang
+21.0.0) poured every Homebrew package it needed, sbcl 2.6.7 from its sonoma bottle, because `HOMEBREW_NO_AUTO_UPDATE`
+keeps the formula data the image was built with, which still names Intel bottles: Homebrew has built none since
+September 2026, and today's data names sbcl 2.6.9, which has none (cocolog builds it through ECL in a run by hand). Its
+install took 24 minutes, ZiguratIP's build 17 of them. macOS has no `timeout`: coreutils' `gtimeout` under that one
+name.
+
+THE EMBEDDED LLVM ON THE MAC: Homebrew's `llvm@18` 18.1.8, the pin's major. Today's formula data names bottles for
+`arm64_golden_gate`, `arm64_linux`, `arm64_sequoia`, `arm64_tahoe` and `x86_64_linux`, none for an Intel Mac, and LLVM
+from source is hours; the image's macOS 15 sibling of the same day (20260824.0482.1) has `llvm@18` 18.1.8 installed, so
+that day's data named an Intel bottle (the macOS 26 image itself has `llvm@20` 20.1.8). So the setup installs `llvm@18`
+from a bottle or not at all: it reads the bottles `brew info --json=v2` names and stops, RED, where none is an Intel
+Mac's. cocolog's `tools/cc` takes Homebrew's unversioned `llvm` only, so the keg does not change the compiler cocolog is
+built with.
+
+- `.github/workflows/gates.yml`: the smoke job a matrix of two, `linux` (`ubuntu-24.04`, 120 minutes) and `macos-intel`
+  (`macos-26-intel`, 180), each a job of its own -- its name, its concurrency group, so neither waits for the other, its
+  artifact -- under Homebrew as the image has it (`HOMEBREW_NO_AUTO_UPDATE`, `HOMEBREW_NO_INSTALL_CLEANUP`,
+  `HOMEBREW_NO_ENV_HINTS`; nothing on Linux). The full job stays Linux's.
+- `test/ci.sh`: Linux or a Mac. On a Mac the packages are Homebrew's -- `llvm@18` from a bottle only, coreutils where no
+  `gtimeout` is --, `gtimeout` is linked as `timeout` into `CI_ROOT/.ci-bin`, first on PATH, in both phases, the
+  installer is cocolog's `install/install-macos.sh` with no `CICILI_CC` (Apple's clang, as cocolog's own job builds
+  with), and LLVM is `$(brew --prefix)/opt/llvm@18` for `module/build-llvm.sh`, the toolchain check and the gates; the
+  full job on a Mac is refused by name. The smoke job runs its six gates whatever one of them says, the verdict at the
+  end: the whole picture in one run.
+- `test/toolchain.sh`: a Mac's trees (Homebrew's kegs `llvm@N`, libc++'s library under the keg's `lib/c++`), its hints
+  (`brew install`), its SDK (the first of `ccl_sdk_dirs/1`'s directories with a `stdio.h`, macOS's version and the
+  SDK's), and the cross gate a skip line. Tried on this box under a faked Mac (`uname`, `brew`, `sw_vers`, `xcrun` and
+  `xcode-select` from a scratch directory first on PATH, a keg linked to `/usr/lib/llvm-18`, `SDKROOT` over `/usr`): its
+  Mac lines, GREEN.
+- THE GATES ON A MAC, read before any run: what would not hold there. The compile gate's fixtures that include glibc's
+  or Linux's headers (`endian.h`, `byteswap.h`, `sys/epoll.h`) or `<uchar.h>`, `stdc23.c`'s glibc 2.39 functions, and
+  four decimal fixtures that call libgcc's decimal runtime (lowered and counted: `dec128` 12 functions, `decbitint` 12,
+  `decfold` 4, `decimal` 35, `decspecial` none), which a Mac's `cc`, Apple's clang over compiler-rt, does not link:
+  eleven `NAME.needs`, a condition each over the C library, asked in ONE run of `bin/cicilang -E` (a false condition
+  gives no marker: tried with `__has_include` of a missing header and `defined(__APPLE__)`), and a run that broke is
+  RED. What Apple's C library prints otherwise -- a subnormal's `%a`, a long double's `%La` -- and `predefs.c`'s Linux
+  macros: a Mac's reference is clang's build of each fixture, as the cross gate's is that machine's. The driver gate's
+  four `-g` checks of a linked program, whose DWARF Mach-O keeps in the objects: they read the object `-c` makes on a
+  Mac. And its last `-std` check's `linux + unix`, which clang's Darwin predefines in no mode: 2 without them there.
+- THE GATES HERE: the CI job's smoke steps on this box as the job runs them, but for the packages (a copy of the work
+  tree, a fresh HOME and `CI_ROOT`, the neighbours cloned at their pins and built by cocolog's installer, the two phases
+  apart): GREEN, the setup in 881 s (the clone of cocolog four minutes of it) and the six gates in 263 s (flow 201 s,
+  reader 3 s, compile 28 s, driver 25 s, objects 6 s, proof 0 s), peak 3537 MB; then the compile and driver gates as
+  committed, GREEN in 34 s and 23 s, no fixture skipped on Linux. The workflow actionlint-clean, `test/ci.sh`,
+  `test/toolchain.sh` and `test/compile.sh` shellcheck-clean at the warning level.
+- RULES.md: the CI job's bullet, a bullet for the Mac's job, the toolchain check's Mac, the compile gate's needs and the
+  Mac's reference, the driver gate's Darwin checks, the companion files' C needs, and Not done: the C++ gates on a Mac,
+  Apple silicon, `-g` through the debug map, the decimal runtime. Reader 164, lowering 129.

@@ -1,29 +1,40 @@
 #!/bin/sh
-# test/ci.sh -- THE CI JOB'S STEPS (0.223), in the repository so that any Ubuntu 24.04 box runs what the job runs
-# (.github/workflows/gates.yml): the neighbours cloned at test/toolchain.pins' commits, side by side, and built by
-# cocolog's own installer (install/install-linux.sh: Quicklisp and the Lisp systems Cicili is built from, ZiguratIP,
-# cocolog, make schema, make modules); this checkout's two modules built over them; the toolchain checked STRICTLY;
-# then the job's gates. A checkout already there at another commit is left alone and the job stops: the script never
-# moves a checkout it did not make.
+# test/ci.sh -- THE CI JOB'S STEPS (0.223), in the repository so that any Ubuntu 24.04 box, or Intel Mac on macOS 26
+# (0.224), runs what the job runs (.github/workflows/gates.yml): the neighbours cloned at test/toolchain.pins' commits,
+# side by side, and built by cocolog's own installer (install/install-linux.sh or install/install-macos.sh: Quicklisp and
+# the Lisp systems Cicili is built from, ZiguratIP, cocolog, make schema, make modules); this checkout's two modules
+# built over them; the toolchain checked STRICTLY; then the job's gates. A checkout already there at another commit is
+# left alone and the job stops: the script never moves a checkout it did not make.
 #
 #   sh test/ci.sh smoke     # the flow, reader, compile, driver and objects gates and the proof, over libc++ 18
-#   sh test/ci.sh full      # all nine over libc++ 18, then the library read and the C++ gate over libc++ 21
+#   sh test/ci.sh full      # all nine over libc++ 18, then the library read and the C++ gate over libc++ 21 (Linux)
 #   sh test/ci.sh JOB setup # the setup alone (the packages, the neighbours, the modules, the check), then
 #   sh test/ci.sh JOB gates # the job's gates alone: the workflow keeps Quicklisp in its cache between the two
-#   CI_PACKAGES=1 ...       # the system packages first, through sudo where the user is not root (the job's machine)
+#   CI_PACKAGES=1 ...       # the system packages first: apt-get, through sudo where the user is not root, or Homebrew
 #   CI_ROOT=DIR ...         # where the neighbours are, or are cloned (default $HOME/Projects/GitHub, the gates' own)
 #   CI_LOGS=DIR ...         # the logs, the run's artifact (default ${TMPDIR:-/tmp}/cicilang-ci)
 #
 # A GREEN JOB HAS NO SKIP IT DID NOT EXPECT (cocolog's CI, 2026-10-29): a gate that finds no cocolog or no module
 # prints SKIP and exits 0, and a gate's part that finds no tool prints a SKIP line, so a broken setup would read
 # GREEN. Each gate's output is read: a line that starts with SKIP is RED, but the reader gate's optional files (`SKIP
-# FILE (not here)') and, on these machines, the cross gate's C++ part (no arm64 libc++ under the sysroot).
+# FILE (not here)') and, on these machines, the cross gate's C++ part (no arm64 libc++ under the sysroot). The smoke
+# job runs its six gates whatever one of them says (0.224): the whole picture in one run, the verdict at the end.
+#
+# ON A MAC (0.224): Homebrew's llvm@18 is the embedded LLVM, a keg (brew links no versioned formula), and only from a
+# bottle -- Homebrew has built no Intel bottles since September 2026, and LLVM from source is hours, so the setup
+# stops where the formula data names none; the workflow's HOMEBREW_NO_AUTO_UPDATE keeps the data the runner image was
+# built with, which names one (cocolog's CI found sbcl so). macOS has no `timeout', which the flow gate and the pools
+# cap their runs with: coreutils' gtimeout, under that one name, in a directory of the job's own at the front of PATH,
+# so that BSD's date, sed and wc stay what a Mac has (cocolog's CI). The full job is Linux's: the cross gate runs under
+# qemu-user over Debian's aarch64 sysroot.
 set -u
 HERE=$(cd "$(dirname "$0")" && pwd)
 ROOT=$(cd "$HERE/.." && pwd)
 JOB=${1:-smoke}; PHASE=${2:-all}
 case "$JOB" in smoke|full) ;; *) echo "test/ci.sh: the job is smoke or full, not '$JOB'" >&2; exit 2 ;; esac
 case "$PHASE" in all|setup|gates) ;; *) echo "test/ci.sh: the phase is setup, gates or all, not '$PHASE'" >&2; exit 2 ;; esac
+case "$(uname -s)" in Linux) CI_OS=linux ;; Darwin) CI_OS=macos ;; *) echo "test/ci.sh: no CI job for $(uname -s)" >&2; exit 2 ;; esac
+[ "$CI_OS" = macos ] && [ "$JOB" = full ] && { echo "test/ci.sh: the full job runs on Linux, where the cross gate's qemu-user and aarch64 sysroot are" >&2; exit 2; }
 . "$HERE/toolchain.pins"
 CI_ROOT=${CI_ROOT:-$HOME/Projects/GitHub}; mkdir -p "$CI_ROOT"; CI_ROOT=$(cd "$CI_ROOT" && pwd)   # absolute: ASDF takes no other
 CI_LOGS=${CI_LOGS:-${TMPDIR:-/tmp}/cicilang-ci}; mkdir -p "$CI_LOGS"; CI_LOGS=$(cd "$CI_LOGS" && pwd)
@@ -33,9 +44,20 @@ export CICILI COCOLOG ZIGURATIP ZIGURATIP_HOME CL_SOURCE_REGISTRY
 ci_step() { printf '\n== ci: %s (%s)\n' "$1" "$(date -u +%H:%M:%S)"; }
 ci_die() { echo "RED: ci: $*"; ci_summary "RED: $*"; exit 1; }
 ci_summary() { [ -n "${GITHUB_STEP_SUMMARY:-}" ] && printf '%s\n' "$1" >> "$GITHUB_STEP_SUMMARY"; return 0; }
+# LLVM N's tree: Debian's and Ubuntu's /usr/lib/llvm-N, Homebrew's keg llvm@N
+ci_llvm() { if [ "$CI_OS" = macos ]; then echo "$(brew --prefix 2>/dev/null || echo /usr/local)/opt/llvm@$1"; else echo "/usr/lib/llvm-$1"; fi; }
+ci_timeout() {   # a Mac's timeout: gtimeout under that name, first on PATH, where no timeout is there already
+  [ "$CI_OS" = macos ] || return 0
+  command -v timeout >/dev/null 2>&1 && return 0
+  ci_gt=$(command -v gtimeout 2>/dev/null || echo "$(brew --prefix 2>/dev/null)/bin/gtimeout")
+  [ -x "$ci_gt" ] || return 0   # the toolchain check names it MISSING
+  mkdir -p "$CI_ROOT/.ci-bin" && ln -sf "$ci_gt" "$CI_ROOT/.ci-bin/timeout" && PATH="$CI_ROOT/.ci-bin:$PATH" && export PATH
+}
+ci_timeout
 
 if [ "$PHASE" != gates ]; then
-if [ "${CI_PACKAGES:-0}" = 1 ]; then
+ci_summary "**$JOB, $(uname -s) $(uname -r) on $(uname -m)**"; ci_summary ""
+if [ "${CI_PACKAGES:-0}" = 1 ] && [ "$CI_OS" = linux ]; then
   ci_step "the system packages"
   SUDO=""; [ "$(id -u)" = 0 ] || SUDO=sudo
   export DEBIAN_FRONTEND=noninteractive
@@ -59,6 +81,26 @@ if [ "${CI_PACKAGES:-0}" = 1 ]; then
   # shellcheck disable=SC2086
   $SUDO apt-get -qq install -y $ci_pk > /dev/null || ci_die "apt-get install $ci_pk"
   echo "installed: $ci_pk"
+elif [ "${CI_PACKAGES:-0}" = 1 ]; then
+  ci_step "the Homebrew packages"
+  command -v brew >/dev/null 2>&1 || ci_die "no Homebrew (https://brew.sh): the Mac's packages come from it"
+  xcode-select -p >/dev/null 2>&1 || ci_die "no Xcode command line tools (xcode-select --install): Apple's clang and the SDK"
+  brew --version | head -1
+  ci_f="llvm@$LLVM_MAJOR"
+  if ! brew list --formula "$ci_f" >/dev/null 2>&1; then
+    # the bottles this Homebrew's formula data names for it: an Intel Mac takes one that is no arm64_ and no _linux one
+    ci_tags=$(brew info --json=v2 "$ci_f" 2>/dev/null | python3 -c 'import json, sys; f = json.load(sys.stdin)["formulae"][0]; print(f["versions"]["stable"], " ".join(sorted(((f.get("bottle") or {}).get("stable") or {}).get("files", {}))))' 2>/dev/null)
+    echo "$ci_f in this Homebrew's formula data: ${ci_tags:-nothing}"
+    ci_intel=""; for t in ${ci_tags#* }; do case "$t" in arm64_*|*_linux|all) ;; *) ci_intel="$ci_intel $t" ;; esac; done
+    if [ "$(uname -m)" = x86_64 ] && [ -z "$ci_intel" ]; then
+      ci_die "$ci_f has no Intel bottle in this Homebrew's formula data (${ci_tags:-none}): it would build LLVM from source, for hours"
+    fi
+    brew install "$ci_f" || ci_die "brew install $ci_f"
+  fi
+  command -v gtimeout >/dev/null 2>&1 || command -v timeout >/dev/null 2>&1 || brew install coreutils || ci_die "brew install coreutils"
+  ci_timeout
+  echo "installed: $(brew list --versions "$ci_f"), $(timeout --version | head -1)"
+  ci_summary "Homebrew: $(brew list --versions "$ci_f"); $(timeout --version | head -1)"; ci_summary ""
 fi
 
 ci_step "the neighbours at their pins, in $CI_ROOT"
@@ -76,24 +118,27 @@ for spec in "cicili $CICILI_COMMIT" "ZiguratIP $ZIGURATIP_COMMIT" "cocolog $COCO
   echo "$ci_r at $ci_have"; ci_summary "| $ci_r | \`$ci_c\` | \`$(git -C "$ci_d" rev-parse HEAD)\` |"
 done
 
-ci_step "Cicili, ZiguratIP and cocolog built by cocolog's install/install-linux.sh"
-CICILI_CC=${CICILI_CC:-clang-$LLVM_MAJOR}; CICILI_CXX=${CICILI_CXX:-clang++-$LLVM_MAJOR}; export CICILI_CC CICILI_CXX
+ci_inst=install/install-$CI_OS.sh
+ci_step "Cicili, ZiguratIP and cocolog built by cocolog's $ci_inst"
+# Linux's clang is the distribution's clang-18; a Mac's is the one cocolog's tools/cc picks there (Apple's)
+if [ "$CI_OS" = linux ]; then CICILI_CC=${CICILI_CC:-clang-$LLVM_MAJOR}; CICILI_CXX=${CICILI_CXX:-clang++-$LLVM_MAJOR}; export CICILI_CC CICILI_CXX; fi
 ci_nopk=1; [ "${CI_PACKAGES:-0}" = 1 ] && ci_nopk=0   # the installer's own packages where this job installs packages
-{ NO_PACKAGES=$ci_nopk LOG="$CI_LOGS/install" sh "$COCOLOG/install/install-linux.sh" < /dev/null 2>&1; echo "exit $?" > "$CI_LOGS/install.rc"; } | tee "$CI_LOGS/install.out"
+{ NO_PACKAGES=$ci_nopk LOG="$CI_LOGS/install" sh "$COCOLOG/$ci_inst" < /dev/null 2>&1; echo "exit $?" > "$CI_LOGS/install.rc"; } | tee "$CI_LOGS/install.out"
 [ "$(cat "$CI_LOGS/install.rc")" = "exit 0" ] || ci_die "cocolog's installer ($(cat "$CI_LOGS/install.rc"); its logs are $CI_LOGS/install.*)"
-# THE INSTALLER'S OWN EXPORTS, the lines it prints for a shell profile (ZiguratIP's library path among them), for every
-# step after it -- the gates phase reads them back -- rather than a second copy of them here (cocolog's CI does so)
+# THE INSTALLER'S OWN EXPORTS, the lines it prints for a shell profile (ZiguratIP's library path among them, and on a
+# Mac Homebrew's CPATH and LIBRARY_PATH), for every step after it -- the gates phase reads them back -- rather than a
+# second copy of them here (cocolog's CI does so)
 grep -E '^   export [A-Za-z_][A-Za-z0-9_]*=' "$CI_LOGS/install.out" | sed 's/^   //' > "$CI_LOGS/exports.sh"
 echo "the installer's exports: $(sed 's/^export //; s/=.*//' "$CI_LOGS/exports.sh" | tr '\n' ' ')"
 . "$CI_LOGS/exports.sh"
 
 ci_step "this checkout's two modules"
 ( cd "$ROOT" && sh module/build.sh ) > "$CI_LOGS/build.log" 2>&1 || { tail -20 "$CI_LOGS/build.log"; ci_die "module/build.sh"; }
-( cd "$ROOT" && LLVM=/usr/lib/llvm-$LLVM_MAJOR sh module/build-llvm.sh ) > "$CI_LOGS/build-llvm.log" 2>&1 || { tail -20 "$CI_LOGS/build-llvm.log"; ci_die "module/build-llvm.sh"; }
+( cd "$ROOT" && LLVM=$(ci_llvm "$LLVM_MAJOR") sh module/build-llvm.sh ) > "$CI_LOGS/build-llvm.log" 2>&1 || { tail -20 "$CI_LOGS/build-llvm.log"; ci_die "module/build-llvm.sh"; }
 tail -n 1 "$CI_LOGS/build.log"; tail -n 1 "$CI_LOGS/build-llvm.log"
 
 ci_step "the toolchain, strictly"
-if [ "$JOB" = smoke ]; then ci_tc="env LLVM=/usr/lib/llvm-$LLVM_MAJOR TOOLCHAIN_TREES=$LLVM_MAJOR"; else ci_tc="env"; fi
+if [ "$JOB" = smoke ]; then ci_tc="env LLVM=$(ci_llvm "$LLVM_MAJOR") TOOLCHAIN_TREES=$LLVM_MAJOR"; else ci_tc="env"; fi
 $ci_tc TOOLCHAIN_STRICT=1 sh "$HERE/toolchain.sh" < /dev/null 2>&1 | tee "$CI_LOGS/toolchain.log"
 grep -q '^GREEN: the toolchain' "$CI_LOGS/toolchain.log" || ci_die "the toolchain (above)"
 fi
@@ -115,17 +160,17 @@ ci_run() {   # ci_run NAME CMD...: as test/gates.sh runs a gate, its GREEN or RE
 }
 if [ "$JOB" = smoke ]; then
   ci_step "the six small gates"
-  for g in flow reader compile driver objects; do ci_run "$g" env LLVM="/usr/lib/llvm-$LLVM_MAJOR" sh "$HERE/$g.sh"; [ "$ci_fail" = 0 ] || break; done
-  [ "$ci_fail" = 0 ] && ci_run proof sh "$ROOT/proof/run.sh"
+  for g in flow reader compile driver objects; do ci_run "$g" env LLVM="$(ci_llvm "$LLVM_MAJOR")" sh "$HERE/$g.sh"; done
+  ci_run proof sh "$ROOT/proof/run.sh"
 else
   ci_step "all nine gates over libc++ $LLVM_MAJOR"
-  ci_run gates env LLVM="/usr/lib/llvm-$LLVM_MAJOR" sh "$HERE/gates.sh"
+  ci_run gates env LLVM="$(ci_llvm "$LLVM_MAJOR")" sh "$HERE/gates.sh"
   for n in $LIBCXX_TREES; do
     [ "$n" = "$LLVM_MAJOR" ] && continue
     [ "$ci_fail" = 0 ] || break
     ci_step "the library read and the C++ gate over libc++ $n"
-    ci_run "libcxx $n" env LLVM="/usr/lib/llvm-$n" sh "$HERE/libcxx.sh"
-    [ "$ci_fail" = 0 ] && ci_run "cpp $n" env LLVM="/usr/lib/llvm-$n" sh "$HERE/cpp.sh"
+    ci_run "libcxx $n" env LLVM="$(ci_llvm "$n")" sh "$HERE/libcxx.sh"
+    [ "$ci_fail" = 0 ] && ci_run "cpp $n" env LLVM="$(ci_llvm "$n")" sh "$HERE/cpp.sh"
   done
 fi
 if [ "$ci_fail" = 0 ]; then echo "GREEN: ci $JOB"; else echo "RED: ci $JOB"; fi

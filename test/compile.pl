@@ -4,7 +4,9 @@
 %% are loaded once; every test/c/safe/NAME.c read and checked, expected to
 %% be refused. Each line is `built NAME', `refused NAME ownership(K, N)',
 %% `compiled NAME' (a safe one that was not refused), or `FAIL NAME: what'.
-%% test/compile.sh runs it, then runs the binaries and compares.
+%% test/compile.sh runs it, then runs the binaries and compares; the names in
+%% $CCL_TEST_SKIP, the fixtures whose NAME.needs this box's C library does not
+%% meet, it builds not at all (0.224).
 %%
 %%   CCL_TEST_ROOT=<repo> CCL_TEST_TMP=<dir> cocolog --embed <store> query "ensure_loaded('test/compile.pl'), compile_main"
 
@@ -14,7 +16,9 @@
 compile_main :-
     os_env('CCL_TEST_ROOT', Root), os_env('CCL_TEST_TMP', D),
     atom_concat(Root, '/test/c/run', RunDir), atom_concat(Root, '/test/c/safe', SafeDir),
-    c_sources(RunDir, Runs), c_sources(SafeDir, Safes),
+    c_sources(RunDir, Runs0), c_sources(SafeDir, Safes),
+    ( catch(os_env('CCL_TEST_SKIP', S), _, fail) -> atomic_list_concat(Skip, ' ', S) ; Skip = [] ),
+    findall(N, ( member(N, Runs0), \+ memberchk(N, Skip) ), Runs),
     build_all(Runs, RunDir, D),
     refuse_all(Safes, SafeDir),
     write('done'), nl.
