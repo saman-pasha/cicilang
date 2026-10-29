@@ -127,16 +127,23 @@ cicilang needs the three neighbours checked out beside it (the paths are
 the `CICILI`, `COCOLOG` and `ZIGURATIP` variables, defaulting to
 `~/Projects/GitHub/<name>`), an LLVM with its C API (Homebrew's `llvm` on
 macOS, `llvm-18-dev` or newer on Debian and Ubuntu), a `cc` and a `c++`
-for the link, and libc++ for the C++ side.
+for the link, and libc++ for the C++ side. `test/toolchain.pins` names the
+neighbours' commits and the LLVM and libc++ versions the gates last passed
+on, and `sh test/toolchain.sh` checks a box against it, each tool's version
+printed and what to do where one is missing. `sh test/ci.sh smoke` (or
+`full`) is the CI job's own steps: it clones the neighbours at their pins,
+builds them with cocolog's installer, builds the two modules and runs the
+gates; GitHub runs it on each push (`.github/workflows/gates.yml`).
 
 ```sh
 CICILI=~/Projects/GitHub/cicili COCOLOG=~/Projects/GitHub/cocolog sh module/build.sh   # -> library/cicilang.so
 LLVM=/usr/local/opt/llvm sh module/build-llvm.sh                                     # -> library/ccl_llvm.so
-sh test/flow.sh                                                                      # the flow gate: the library charted, nothing run (a minute)
+sh test/toolchain.sh                                                                 # each tool beside the pins
+sh test/flow.sh                                                                      # the flow gate: the library charted, nothing run (three minutes)
 sh test/reader.sh; sh test/compile.sh; sh test/driver.sh; sh test/objects.sh         # the C gates
 sh proof/run.sh; sh test/cross.sh                                                    # the proof, and aarch64 Linux under qemu
 sh test/libcxx.sh; sh test/cpp.sh                                                    # the C++ gates: the library read warms the cache first
-sh test/gates.sh                                                                     # all nine in one chain, the flow gate first
+sh test/gates.sh                                                                     # the check, then the nine gates
 sh test/why.sh prog.cpp                                                              # a failed build: the call where it gave up
 sh test/prof.sh prog.cpp                                                             # where a build's inferences and time go: windows along its run
 ```
@@ -336,16 +343,16 @@ Ubuntu's `/usr/lib/llvm-18` and `/usr/lib/llvm-21`, say), `$LLVM` names the tree
 whose headers are read and whose library is linked; without it the newest is read.
 
 Every C++ form is a rewrite to the C the check and the lowering have
-(`library/ccl_cpp.pl`): a class a struct with its methods over `this`, a
-virtual call a load through the table the constructor stored, a template
-an instance made on use and named by its arguments, a lambda a class of
-its captures, a temporary destroyed at the end of its statement, a
-`constexpr` call folded by an evaluator with cells for its locals. A
-member a library header declares and the shipped library defines is called
-by its Itanium symbol, and a class that is not trivially copyable crosses
-a call as the ABI has it, the caller destroying it at the end of its
-full-expression, so cicilang's code calls libc++'s and clang's, and
-theirs call cicilang's.
+(`library/ccl_cpp.pl` and its parts): a class a struct with its methods
+over `this`, a virtual call a load through the table the constructor
+stored, a template an instance made on use and named by its arguments, a
+lambda a class of its captures, a temporary destroyed at the end of its
+statement, a `constexpr` call folded by an evaluator with cells for its
+locals. A member a library header declares and the shipped library
+defines is called by its Itanium symbol, and a class that is not
+trivially copyable crosses a call as the ABI has it, the caller
+destroying it at the end of its full-expression, so cicilang's code
+calls libc++'s and clang's, and theirs call cicilang's.
 
 What runs, each fixture matching clang++ line for line (`test/cpp/run/*.cpp`):
 the standard streams (`cout`, `cin`, `getline`, the extractors and inserters
@@ -480,7 +487,10 @@ library/ccl_include.pl         #include: the inclusion path, the knowledge base,
 library/ccl_infer.pl           what a macro can ask: type inference, sizes, lookups
 library/ccl_format.pl          format, print, println, clone
 library/ccl_check.pl           the safe part: the ownership check
-library/ccl_cpp.pl             the C++ desugaring to that C
+library/ccl_cpp.pl             the C++ desugaring to that C, and its sixteen parts ccl_cpp_*.pl: namespaces,
+                               the mangler, the library's functions, classes and their layout, overloads, RTTI,
+                               initialization, statements, expressions, the constant evaluator, templates,
+                               deduction, traits, lambdas, concepts
 library/ccl_ir.pl              the lowering to LLVM IR text
 library/ccl_build.pl           cicilang_compile and cicilang_link
 library/ccl_driver.pl          what the command does: the steps, the diagnostics, the IR cache
@@ -488,6 +498,8 @@ library/include/               the compiler's own freestanding C headers
 test/reader.sh, compile.sh, driver.sh, objects.sh, proof/run.sh   the C gates
 test/cpp.sh, libcxx.sh, readhdr.pl, census.sh                     the C++ gates and their tools
 test/gates.sh, parlib.sh       every gate in one chain; the memory-gated parallel pool the C++ gates run on
+test/toolchain.sh, .pins       the toolchain check, first in the chain; the neighbours' pinned commits
+test/ci.sh, .github/workflows  the CI job's steps, and the workflow that runs them on GitHub
 test/flow.sh, flow.pl, flow.expect   the flow gate: cocolog's library(flow/chart) over the library, nothing run,
                                its findings held to the expect file
 test/why.sh, why.pl            where a failed build gave up: the build under library(flow/debug), the branch and the

@@ -3,8 +3,9 @@
 # without running anything, what will go wrong -- a call that nothing answers, a predicate defined twice, a clause
 # no call can reach, an argument free where a builtin needs it bound, a recursion that never reads input, the
 # clauses of a predicate split by another's -- each at its file, line and column. It runs FIRST in the chain and
-# takes about a minute, where the next RED of that kind cost the chain's hour: a mis-edited name, a helper given a
-# name already taken (0.141's two definitions of one predicate), a clause a cut above it makes dead.
+# takes some three minutes (0.223; under two before the desugaring was seventeen files), where the next RED of that
+# kind cost the chain's hour: a mis-edited name, a helper given a name already taken (0.141's two definitions of one
+# predicate), a clause a cut above it makes dead, a predicate in two files (0.223).
 #
 # HOW: test/flow.pl writes, for each library file, a copy with a ROOT that calls every predicate the file defines
 # (a chart starts at one call pattern). Each copy is charted with the rest of the compiler loaded -- the file itself
@@ -35,7 +36,9 @@ grep -q 'flow_module_portals' "$COCOLOG/library/flow/read.pl" 2>/dev/null || { e
 FLOW_SECS=${FLOW_SECS:-900}
 FLOW_JOBS=${FLOW_JOBS:-4}; FLOW_LAUNCH_MB=${FLOW_LAUNCH_MB:-9000}; FLOW_HARD_MB=${FLOW_HARD_MB:-14000}
 FLOW_TIMES=${FLOW_TIMES:-$HOME/.cicilang/flow-times}
-FILES="ccl_syntax ccl_pp ccl_include ccl_infer ccl_format ccl_cpp ccl_check ccl_ir ccl_build ccl_driver"
+FILES="ccl_syntax ccl_pp ccl_include ccl_infer ccl_format ccl_cpp ccl_cpp_namespace ccl_cpp_mangle ccl_cpp_library
+ccl_cpp_class ccl_cpp_layout ccl_cpp_overload ccl_cpp_virtual ccl_cpp_init ccl_cpp_stmt ccl_cpp_expr ccl_cpp_eval
+ccl_cpp_template ccl_cpp_deduce ccl_cpp_traits ccl_cpp_lambda ccl_cpp_concept ccl_check ccl_ir ccl_build ccl_driver"   # ccl_cpp and its sixteen parts (0.223)
 TFILES="reader compile cpp readhdr census libcxx flow why prof"   # THE GATES' OWN PROLOG (0.161), charted as the library is: a mis-edit in a gate
 fg_path() { case " $TFILES " in *" $1 "*) echo "test/$1.pl" ;; *) echo "library/$1.pl" ;; esac; }
 if [ -n "$FLOW_KEEP" ]; then D=$FLOW_KEEP; rm -rf "$D"; mkdir -p "$D"; else D=$(mktemp -d "${TMPDIR:-/tmp}/cicilang-flow-XXXXXX"); trap 'rm -rf "$D"' EXIT; fi
@@ -47,6 +50,14 @@ list=""; for f in $FILES $TFILES; do list="$list${list:+,}'$ROOT/$(fg_path $f)'"
 out=$(cd "$ROOT" && timeout -s KILL 300 "$C" --local query "use_module(library(cicilang)), ensure_loaded('$ROOT/test/flow.pl'), fg_roots_main([$list], '$D/src')" 2>&1 < /dev/null)
 [ -f "$D/src/roots.txt" ] || { echo "RED: the roots were not written"; printf '%s\n' "$out" | tail -10; exit 1; }
 echo "-- every library file and gate program charted from a root that calls each predicate it defines ($(awk '{ s += $3 } END { print s }' "$D/src/roots.txt") predicates)"
+# A PREDICATE IN TWO FILES is RED (0.223; fg_twice/2): one namespace, so it is one predicate read from two places,
+# which no chart sees -- the desugaring's seventeen files among the library's, a gate program beside the library
+[ -f "$D/src/twice.txt" ] || { echo "RED: the roots were written, the check of a predicate in two files was not"; exit 1; }
+if [ -s "$D/src/twice.txt" ]; then
+  echo "RED: $(wc -l < "$D/src/twice.txt" | tr -d ' ') predicate(s) defined in two files -- one namespace: each is one predicate read from two places"
+  sed 's/^/     /' "$D/src/twice.txt"; exit 1
+fi
+echo "-- no predicate defined in two files: the $(echo $FILES | wc -w | tr -d ' ') of the library, and none of them in a gate program"
 
 # one job a file, the heaviest first
 loads="[library(cicilang), library(ccl_llvm), library(ccl_bidrt), library(ccl_uninames), library(ccl_xid), library(ccl_format)]"   # the generated tables loaded, not charted (ccl_xid: 0.221)

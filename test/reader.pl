@@ -37,9 +37,10 @@ check(Name, Goal) :-
         ( nb_getval('$t_err', E), E \== none -> write('     error '), write(E), nl ; true ) ).
 c(Name, Path) :- nb_getval('$t_cdir', C), atom_concat(C, Name, Path).
 tmp(D) :- nb_getval('$t_tmp', D).                       % the wrapper's scratch directory, writable
-%% a copy of a fixture, and a touch a second later (time_file/2 is whole seconds)
+%% a copy of a fixture, and a touch 50 ms later: time_file/2 answers a file's time to the nanosecond since cocolog
+%% 2.12.2 (whole seconds before, and the wait was 1.1 s), and Linux stamps a file from its coarse clock, a tick a few ms
 copy(From, To) :- sh(cp, [From, To]).
-touch(F) :- proc_sleep(1100), sh(touch, [F]).
+touch(F) :- proc_sleep(50), sh(touch, [F]).
 sh(Cmd, Args) :- sh_line([Cmd|Args], Line), once(catch(proc_run(Line, 20000, _, 0), _, fail)).
 sh_line([], '').
 sh_line([A|As], L) :- sh_line(As, L0), atomic_list_concat(['\'', A, '\' ', L0], L).

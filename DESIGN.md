@@ -222,7 +222,8 @@ it is done (see below); the checker and the lowering take the AST from here.
   `free` under the ownership check; two programs built through
   `cicilang++`, run and checked in `test/cpp.sh`. Then classes, DESUGARED
   to that C before the check by one typed rewrite of the AST
-  (`library/ccl_cpp.pl`): a class a struct of its data members with its
+  (`library/ccl_cpp.pl` and its sixteen parts, `ccl_cpp_*.pl`, since
+  0.223): a class a struct of its data members with its
   base first, a method a function over `this`, a constructor called at
   the declaration and a destructor a defer of the scope, a static member
   a global, `new` and `delete` constructing and destroying, operators and

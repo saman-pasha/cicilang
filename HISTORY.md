@@ -217,6 +217,7 @@ One row per step, in version order: the step's title, what it did and its gate n
 | 0.220 | the chain of 0.219 | no library file changed: the numbers of 0.219's chain; 0.219 costs a warm build a second at most (`stdstringstream` and `formatton` built by 0.218 and by 0.219 in turn); the flow gate's one finding, which the owner asked about: the call of `'$ccl_sum_big'/3` in `ccl_sum_bigs_/3`, a table that a summary's `.big.pl` file defines at run time, no defect | all nine gates GREEN over libc++ 18 in 0.219's chain (811 of 821 C++ fixtures ok), the two libc++ gates over 21 (819 of 821); the headers' reads summed 1987 s and 1752 s (0.218's 2791 s and 2462 s), the fixtures' builds 4139 s and 4412 s; before its commit the reader, compile, driver and objects gates and the proof GREEN over its module |
 | 0.221 | the Not done list, on the owner's word and in one commit: a call through an object whose `operator()` nothing fits refused; the program's names beside the library's keyed apart and found by argument-dependent lookup (through pointers, template arguments and bases), a call qualified by std taking none of the program's functions and no object of another namespace; a name of both kinds across the reads; `TnDa`; the C level by its year; `__has_attribute`; an identifier's characters and the white space past ASCII by the level; a library header's static assertions; a value computed from a parameter followed; NDEBUG under -DNDEBUG; the C++ IR cache | over 0.220: `std::max(2, 3)` beside the program's `max` printed 5, `ranges::transform` over libc++ 21 was refused after `<algorithm>`, C99's `__STDC_VERSION__` was C17's, every attribute answered 0, every character past ASCII was a letter, `std::get<5>` of an array of 3 compiled, `out.push_back(&p->v)` let a local escape, `#undef NDEBUG` under -DNDEBUG asserted nothing; the nets and the first run of the gates found, each older: the roads of `operator()` without the argument pass, a fixed template argument matching any type, a class's assertion thrown out of its registration, `T{}` of a scalar typedef the int 0, a plain struct named as a qualified base, a scalar typedef argument naming a second instance, `is_unsigned_v<char8_t>` false; the IR cache's key holds the versions, not the code | gated before its commit, the second run over fresh HOMEs: all nine gates GREEN over libc++ 18 (the C++ gate 826 of 836 ok, 10 skipped) and the two libc++ gates over 21 (834 of 836 ok, 2 skipped); the first run RED in the driver gate (two failures) and in the C++ gate over 21 (three), each fixed |
 | 0.222 | the chain of 0.221; the feedback for cocolog | no library file changed: the numbers of 0.221's chain; the feedback for cocolog, at the owner's word, sent to its session -- `time_file/2` drops the fraction of a second, which three caches key on; no integer past 64 bits; no `consult/1` and `load_files/2` --, each probed on cocolog 2.12.0; two notes out of date corrected, `atom_chars/2`'s one-byte character and the pool's reason | all nine gates GREEN over libc++ 18 in 0.221's chain (826 of 836 C++ fixtures ok), the two libc++ gates over 21 (834 of 836); the headers' reads summed 1663 s and 1468 s, the fixtures' builds 4026 s and 4109 s; before its commit the flow, reader, compile, driver and objects gates and the proof GREEN over its module |
+| 0.223 | the neighbours pulled; the toolchain check, its pins and the CI job; `ccl_cpp.pl` in seventeen files | at the owner's word: cocolog 2.13.0 (`7ff2a0d`) and Cicili 3.3.0 pulled and 0.222's tree chained over them first, all GREEN; `test/toolchain.sh` and `test/toolchain.pins`, first in the chain; `test/ci.sh` and `.github/workflows/gates.yml`, shaped after cocolog's own CI; the desugaring cut by its topics into `ccl_cpp.pl` and sixteen parts, a mechanical move; the flow gate's rule of a predicate in two files; a summary's dependency times, which an update across cocolog 2.12.2 makes stale once | the IR of all 836 C++ run fixtures the same byte for byte before and after the split (826 built, 10 refused alike); five warm builds 70.10 s on 2.12.0 and 69.00 s on 2.13.0; the CI job's smoke run here GREEN (632 s and 252 s); all nine gates GREEN over libc++ 18 (826 of 836 C++ fixtures ok), the two libc++ gates over 21 (834 of 836); the flow gate 188 s where it took 105 s |
 
 ## M5 — the C++ mode
 
@@ -15146,3 +15147,133 @@ lines of `test/parlib.sh`'s head changed, which the flow gate's pool read.
   loaders, `atom_chars/2`), the pool's topic. `CLAUDE.md`: the versions. `test/parlib.sh`: its head.
 
 Reader 164 and lowering 129, as 0.221 left them.
+
+## 0.223 — the neighbours pulled; the toolchain check, its pins and the CI job; `ccl_cpp.pl` in seventeen files
+
+**0.223: on the owner's word ("First pull repos then Do both, then commit and push"), after a review of the repository
+the owner shared: the neighbours pulled and the chain run over them before anything else; then the two things this
+session recommended against the review's strongest true points -- a check of the toolchain against pinned versions with
+a CI job over it, and the C++ desugaring's one file of 12,904 lines cut into its parts -- and one commit, made when
+all was GREEN ("go ahead, commit and push when all GREEN").**
+
+THE NEIGHBOURS PULLED: Cicili first, `a9e2dcf` (3.2.0) to `9b825b7` (3.3.0: `stat`'s three times to the nanosecond, the
+suite's skips, the generated C out of its tree), since cocolog 2.12.2 and later stop at `unknown member: st_mtim` on an
+older one; ZiguratIP unmoved at `90d99b8`; cocolog `d71af1e` (2.12.0) to `dd8b35f` (2.13.0), seventeen commits: 2.12.1
+widens the trail's and the variable map's words to 64 bits, 2.12.2 answers `time_file/2` to the nanosecond and 2.13.0
+has `consult/1`, `load_files/2` and `[File]` as goals and loads a file reached by two roads once -- two of the three
+items 0.222 sent, the third (no integer past 64 bits) a divergence cocolog documents. Then, at the owner's word again
+before the CI work ("Before CI work pull cocolog, it is testing its CI Linux/macOS check them maybe usefull"), cocolog
+`7ff2a0d`: two commits of its CI -- the whole suite on GitHub with a server, a SKIP it did not expect red, a macOS job
+beside Linux's -- and of its installers (Homebrew on Apple silicon), the engine 2.13.0 the same, so nothing was built
+again for them. cocolog's master moved on during the step, to `b8812f4` (a test of its own, its CI's third job, macOS 26
+on Intel, and documents, 2.13.0 still), and ZiguratIP's to `5f058e7` (its macOS installer, 1.0.1 still): the pins stay
+at the commits this step's chain ran over. cocolog rebuilt at `dd8b35f` as before, each step under a time and a memory
+cap: `make` 177 s (peak 1831 MB), `make schema` 31 s, `make modules` 54 s; its SDK (`lib/sdk.cicili`) did not change,
+and both modules were built again over it. Cicili 3.3.0 makes both modules' C byte for byte what 3.2.0 made: 0.222's
+module sources transpiled by each, 3.2.0 from a scratch clone of `a9e2dcf` named to ASDF, `cicilang.c` 73,795 bytes and
+`ccl_llvm.c` 17,589.
+
+THE BASELINE CHAIN, before any change of this step: 0.222's tree (`7252bcc`) on cocolog 2.13.0, its modules built, over
+fresh HOMEs, from 08:18:57 UTC: over libc++ 18 all nine GREEN to 08:59:21 -- the flow gate's one finding in 105 s,
+reader 4 s, compile 27 s, driver 26 s, objects 5 s, the proof, cross 327 s, the library read 524 s, the C++ gate 1406 s
+with 826 of 836 fixtures ok and 0.221's ten skips --; over libc++ 21 the library read (469 s) and the C++ gate (1477 s,
+834 of 836 ok) GREEN to 09:31:47. The headers' reads summed 1946 s over 226 over libc++ 18 and 1733 s over 21, the
+fixtures' builds 4599 s over 826 and 4849 s over 834: 14 to 18 % above 0.221's chain on 2.12.0 (1663 s, 1468 s, 4026 s,
+4109 s), as much as this box varies on one engine -- the flow gate took 88 s in 0.221's chain and 105 s in 0.222's
+gates, both on 2.12.0. The engine is not the cause. Measured afterwards, interleaved, each engine over a HOME of its own
+that it warmed itself, the least CPU time of three rounds: five warm C++ builds 70.10 s on 2.12.0 and 69.00 s on 2.13.0,
+each build within 0 to 3 % and 2.13.0 the lower, the peaks the same, a fixed CPU loop between 0.80 s and 1.18 s before
+each build (`stdvector.cpp` 4.40 s and 4.30 s, `stdmap.cpp` 6.60 and 6.40, `stdtuple.cpp` 15.20 and 14.90,
+`stdformat.cpp` 43.60 and 43.10, `counter.cpp` 0.30 and 0.30). The first try of that measurement found a rule of the
+cache, now in `RULES.md`: over ONE HOME the engines read each other's summaries again -- `stdvector.cpp` 21 s where it
+takes 4.5 s --, since a summary's dependencies hold `time_file/2`'s answers (`ccl_deps_hold/1`, `=:=`), this compiler's
+own `library/include/*.h` among them with a fraction of a second, which 2.12.0 drops and 2.13.0 keeps; so the first
+build after an update across 2.12.2 reads its headers again, once.
+
+THE TOOLCHAIN CHECK, ITS PINS AND THE CI JOB (the review: "a version-pinned toolchain matrix", "known-good environment
+scripts", "a small CI matrix"). `test/toolchain.pins` holds the neighbours' commits and versions, the embedded LLVM's
+major version and the libc++ trees the gates read; `test/toolchain.sh` finds each tool the build and the gates need,
+prints its version beside the pins and says what to do where one is missing -- MISSING is RED, a neighbour off its pin
+DIFFERS (RED under `TOOLCHAIN_STRICT=1`), an optional part's tool a `skip` line -- each cocolog run of it under a time
+and a memory cap; `test/gates.sh` runs it first. `test/ci.sh` is the CI job's steps, in the repository so that any
+Ubuntu 24.04 box runs them: the packages where asked, the neighbours cloned at their pins (it moves no checkout it did
+not make), built by cocolog's own `install/install-linux.sh`, the two modules, the strict check, the job's gates;
+`.github/workflows/gates.yml` runs its `smoke` job on each push to main and each pull request and its `full` job every
+night and on request. FROM COCOLOG'S CI (`.github/workflows/ci.yml` there, read at the owner's word): the setup and the
+gates as two phases of `test/ci.sh`, so that Quicklisp, kept in the Actions cache, is saved after the setup even when a
+gate is red; the installer's own exports taken for every step after it; a SKIP the job does not expect RED -- a gate
+that finds no cocolog or no module prints SKIP and exits 0 --, but the reader gate's optional files and the cross gate's
+C++ part; the logs the run's artifact for 14 days; the neighbours' commits and the gates' verdicts on the run's page;
+`actions/checkout@v7`, `actions/cache@v6` and `actions/upload-artifact@v7`, the tags read from those repositories; a new
+push to a pull request stopping its last run, main's runs each finishing; the documents at the top of the tree starting
+nothing. actionlint 1.7.12 is clean on the workflow and shellcheck 0.11.0 at the warning level on the scripts. Not
+taken: a macOS job. cocolog's CI runs two, GREEN since 2026-10-29 -- `macos-26-intel` (x86-64, 4 CPUs, 14 GB, the
+owner's arrangement, this compiler's first host) and `macos-15` (Apple silicon) --, but this compiler has not run its
+gates on a Mac since 0.90, and its two scripts name Debian's paths where a Mac has Homebrew's (`RULES.md`, Not done,
+with what such a job needs). The module builds name their own Cicili checkout to ASDF (`CL_SOURCE_REGISTRY`), as
+cocolog's builds learned on 2026-10-28, so that the build and the check ask one Cicili. RUN HERE AS THE JOB RUNS IT, but
+for the packages (the box has them, and the job's apt steps want a machine of their own): a copy of the work tree with
+no build output, a fresh HOME and a fresh `CI_ROOT`, `test/ci.sh smoke setup` and then `test/ci.sh smoke gates`, two
+steps as the workflow has them, under a time cap and a memory cap: GREEN. The setup in 632 s -- the three clones at
+their pins in 8 s, cocolog's installer in about ten minutes (Quicklisp fetched and verified, the Lisp systems,
+ZiguratIP, cocolog, `make schema`, `make modules`, the query that must answer), the two modules, the strict check, every
+neighbour at its pin and the modules at 0.223 --; the gates in 252 s, flow 193 s, reader 3, compile 27, driver 23,
+objects 6 and the proof, no SKIP the job does not expect; the peak 3434 MB; the run's page its two tables, and the logs
+directory every log the artifact keeps.
+
+`ccl_cpp.pl` IN SEVENTEEN FILES (the review: "split the giant parser/lexer into files by responsibility" -- it named
+`ccl_syntax.pl`, 3,254 lines, where the desugaring held 12,904; this session's recommendation: by the topics `RULES.md`
+has, classes, templates, overload resolution, lambdas, constant evaluation and namespaces, and the owner's second word,
+"And split ccl_cpp.pl as you recommended"). A mechanical move over the file's top-level terms (`plterms.py`,
+`split_cpp.py`, scratch): each term -- a clause with the comments directly above it and the rest of its last line, where
+a comment that ends a clause's line stands -- whole in the part its first line falls in, each part one or two regions of
+the file in its order, no predicate across two parts (one cut moved, to line 3112, where `cpp_class_of_type_of/2` would
+have been split), every term and every comment block of the file found again in the parts, and the 129 comments that
+point above or below kept beside what they point at, the regions being the file's own. The first cut, sixteen files, had
+no namespaces part, the program's namespace rules in the head of `ccl_cpp.pl` and the library's keyed names in the
+library's part; the six topics recommended each have one now. `ccl_cpp.pl` keeps the head, the units, the registries and
+the walk of the items (251 lines of rules, its head comment beside them) and loads the sixteen others: `_namespace` (499
+lines: the program's lines 82 to 268, the library's 1044 to 1357), `_mangle` (362), `_library` (444), `_class` (579),
+`_layout` (998), `_overload` (573), `_virtual` (542), `_init` (834), `_stmt` (1436), `_expr` (1898), `_eval` (501),
+`_template` (1282), `_deduce` (1149), `_traits` (523), `_lambda` (393), `_concept` (570). The flow gate charts each part
+(its `FILES`). THE PROOF OF THE SPLIT. Every C++ run fixture, 836, built to LLVM IR twice IN ONE TREE PATH, 0.222's
+clean tree: first with its own `ccl_cpp.pl`, then with this step's seventeen files in its `library/` -- the only library
+files the two trees differ in; the command and both modules the same bytes, the modules at 0.222 for the comparison --
+over one warm HOME, uncached (`CICILANG_NO_IR_CACHE`), through the gates' pool: THE SAME IR BYTE FOR BYTE FOR 826
+fixtures, and the other ten, the ones whose `.needs` this box's library does not meet, refused alike, each the same
+diagnostics (four syntax errors, four `not lowered yet`, a static assertion, a plain pointer not consumed); none
+differs. 10:45 to 11:32, the builds summed 6658 s and 4428 s. A first try with the two trees side by side over one HOME
+was slow, its builds up to half again the gate's, and the two sides read their headers again in turn (69 summaries
+written in 30 minutes, each naming its own tree's `library/include/*.h`), so it was stopped and the proof made in one
+tree path; the mechanism is not proved -- 51 summaries the work tree wrote served 0.222's tree as they were -- and no
+rule is written of it. THE FLOW GATE over the twenty-six files and the nine gate programs, 5148 predicates from the
+roots (5143 before; the gate's five new helpers the difference), the same one finding: GREEN in 188 s, and in 191 s with
+the new check below, where 0.222's tree took 105 s on the same engine -- each of the seventeen jobs 5 s to 30 s, where
+the one took 69 s, since each part's chart works to its own fixed point and a call into another part is a box in it
+(`RULES.md`, the flow gate, and Not done: one chart of the seventeen as one program would give back both the time and
+the sight across them). A NEW CHECK OF THE GATE guards the split: a predicate whose clauses stand in two library files,
+or in a gate program and the library, is RED (`fg_twice/2` in `test/flow.pl`, `twice.txt` beside the roots); the tree
+has none, and in a copy of it a clause of `cpp_load_ast/1` put into `ccl_cpp_class.pl` and a `ccl_lang/1` fact put into
+`test/why.pl` were each named with both files.
+
+THE CHAIN OF 0.223, over its work tree (the commit's) and cocolog 2.13.0 (`7ff2a0d`), its two modules built at 0.223,
+over fresh HOMEs, from 11:48:53 UTC: the toolchain check (1 s), then over libc++ 18 all nine GREEN to 12:31:44 -- the
+flow gate's one finding in 188 s, reader 2 s, compile 28 s, driver 23 s, objects 5 s, the proof, cross 326 s, the
+library read 534 s, the C++ gate 1464 s with 826 of 836 fixtures ok and 10 skipped by their needs --; over libc++ 21 the
+library read (480 s) and the C++ gate (1459 s, 834 of 836 ok, 2 skipped) GREEN to 13:04:03. The headers' reads summed
+1997 s over 226 over libc++ 18 and 1765 s over 226 over 21, the fixtures' builds 4763 s over 826 and 4813 s over 834
+(the baseline's: 1946 s, 1733 s, 4599 s, 4849 s).
+
+- `RULES.md`: the gates topic (the toolchain, its pins and the CI job; the chain's first step; the flow gate's files,
+  its time and its check of a predicate in two files), the C++ summary cache (a dep's time is `time_file/2`'s), the
+  openings of Classes, Overload resolution, Lambdas and Constant evaluation (the parts), the Findings (cocolog 2.13.0,
+  Cicili 3.3.0, the measurement, `time_file/2`, the loaders, the integers), the Hosts, Not done (the macOS job, the CI
+  job's cross gate, one chart of the seventeen). `CLAUDE.md`: the versions, the build order, the pins, the flow gate's
+  time, the files. `README.md`: the build, the files. `DESIGN.md`: the desugaring's files. New: `test/toolchain.sh`,
+  `test/toolchain.pins`, `test/ci.sh`, `.github/workflows/gates.yml`, the sixteen parts `library/ccl_cpp_*.pl`.
+  `test/gates.sh`: the toolchain check first. `test/flow.sh`, `test/flow.pl`: the twenty-six files, `fg_twice/2`.
+  `test/reader.pl`: the touch 50 ms after the copy, where it was 1.1 s. `module/build.sh`, `module/build-llvm.sh`:
+  Cicili named to ASDF.
+
+The module 0.223. The reader 164 and the lowering 129, as 0.222 left them: the split moves clauses, and what the check
+and the lowering emit is the same IR byte for byte.

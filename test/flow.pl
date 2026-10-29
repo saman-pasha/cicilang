@@ -13,7 +13,8 @@
 %%       the root '$fg_all'(A1, ..., AN) :- ( p1(A1, ...) ; ... ), N the
 %%       file's largest arity, and Dir/roots.txt a line `BASE N K', K the
 %%       predicates the root calls. The root comes after the text, so every
-%%       line keeps its number.
+%%       line keeps its number. Dir/twice.txt holds each predicate that two
+%%       of the files define, a line `Name/Arity FILE ...' (fg_twice/2, 0.223).
 %%
 %%   fg_findings_main(+Src, +N, +Loads, +Mods, +Out)
 %%       Src charted from '$fg_all'/N, the files in Loads loaded first
@@ -40,10 +41,14 @@
 fg_roots_main(Files, Dir) :-
     atom_concat(Dir, '/roots.txt', RF),
     open(RF, write, RS),
-    forall(member(F, Files), fg_root_file(F, Dir, RS)),
-    close(RS).
+    fg_root_files(Files, Dir, RS, FPs),
+    close(RS),
+    fg_twice(FPs, Dir).
 
-fg_root_file(F, Dir, RS) :-
+fg_root_files([], _, _, []).
+fg_root_files([F|Fs], Dir, RS, [F-Ps|FPs]) :- fg_root_file(F, Dir, RS, Ps), fg_root_files(Fs, Dir, RS, FPs).
+
+fg_root_file(F, Dir, RS, Ps) :-
     fg_defined(F, Ps),
     fg_max_arity(Ps, 0, N),
     fg_base_name(F, Base),
@@ -107,6 +112,32 @@ fg_root_calls([Name/A|Ps], S, Pos) :-
         format(S, "~q(~w)", [Name, AT])
     ),
     fg_root_calls(Ps, S, next).
+
+%% A PREDICATE IN TWO FILES (0.223). cocolog has one namespace, so a predicate whose clauses stand in two files of the
+%% library -- or in a gate program and the library it is loaded with -- is one predicate read from two places, and no
+%% chart sees it: a chart reads one file, the rest loaded. Since 0.223 the desugaring is seventeen files, and a clause
+%% put into the wrong one is what a `discontiguous' finding is inside one file. Dir/twice.txt gets a line `Name/Arity
+%% FILE ...' for each such predicate, and test/flow.sh holds it empty. Two gate programs may share a name: each is
+%% loaded with the library alone.
+fg_twice(FPs, Dir) :-
+    findall(PI-F, ( member(F-Ps, FPs), member(PI, Ps) ), Pairs0),
+    msort(Pairs0, Pairs),
+    fg_pi_groups(Pairs, Groups),
+    atom_concat(Dir, '/twice.txt', TF),
+    open(TF, write, S),
+    forall(( member(PI-Fs, Groups), Fs = [_, _|_], once(( member(F1, Fs), fg_library_file(F1) )) ),
+           ( format(S, "~q", [PI]), forall(member(F, Fs), format(S, " ~w", [F])), nl(S) )),
+    close(S).
+
+%% the sorted PI-File pairs grouped by PI: PI-[File, ...]
+fg_pi_groups([], []).
+fg_pi_groups([PI-F|Ps], [PI-[F|Fs]|Gs]) :- fg_pi_rest(PI, Ps, Fs, Rest), fg_pi_groups(Rest, Gs).
+
+fg_pi_rest(PI, [PI1-F|Ps], [F|Fs], Rest) :- PI1 == PI, !, fg_pi_rest(PI, Ps, Fs, Rest).
+fg_pi_rest(_, Rest, [], Rest).
+
+%% a file of library/, by the directory it stands in
+fg_library_file(F) :- atomic_list_concat(Parts, '/', F), append(_, [library, _], Parts), !.
 
 fg_findings_main(Src, N, Loads, Mods, Out) :-
     flow_graph('$fg_all'/N, G, [source(Src), load(Loads), modules(Mods)]),

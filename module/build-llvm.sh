@@ -29,7 +29,9 @@ if ls "$LIBDIR"/libLLVM-C.* >/dev/null 2>&1; then LLVMLIB=-lLLVM-C; else LLVMLIB
 
 ln -sfn "$COCOLOG/lib/sdk.cicili" "$HERE/sdk.cicili"
 mkdir -p "$OUT"
-( cd "$CICILI" && sbcl --script cicili.lisp --release "$HERE/ccl_llvm.cicili" )
+# cicili.lisp loads its system through ASDF: THIS checkout's, named first, never another copy the box links (0.223;
+# a ~/common-lisp/cicili of another commit answered first in cocolog's builds, its CLAUDE.md, 2026-10-28)
+( cd "$CICILI" && CL_SOURCE_REGISTRY="$(pwd)/:${CL_SOURCE_REGISTRY:-}" sbcl --script cicili.lisp --release "$HERE/ccl_llvm.cicili" )
 "$CC" -shared -fPIC -O2 -Wno-unused-function $("$LLVM/bin/llvm-config" --cflags) \
     -o "$OUT/ccl_llvm.so" "$HERE/ccl_llvm.c" \
     $("$LLVM/bin/llvm-config" --ldflags) "$LLVMLIB" -Wl,-rpath,"$LIBDIR"

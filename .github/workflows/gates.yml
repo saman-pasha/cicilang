@@ -1,0 +1,110 @@
+# The gates on GitHub's machines (0.223): test/ci.sh, which any Ubuntu 24.04 box runs alike. The smoke job -- the
+# toolchain, then the flow, reader, compile, driver and objects gates and the proof -- runs on each push to main and
+# each pull request into it that changes more than the documents at the top of the tree; the full job -- all nine
+# gates over libc++ 18, then the library read and the C++ gate over libc++ 21 -- runs every night and on request.
+# Each clones the neighbours at test/toolchain.pins' commits and builds them with cocolog's installer, Quicklisp kept
+# in the Actions cache between runs; a SKIP the job does not expect is RED (test/ci.sh), and the logs are the run's
+# artifact for 14 days. The shape follows cocolog's own CI (its .github/workflows/ci.yml, 2026-10-29).
+name: gates
+on:
+  push:
+    branches: [main]
+    paths-ignore: ['*.md']
+  pull_request:
+    branches: [main]
+    paths-ignore: ['*.md']
+  schedule:
+    - cron: '37 2 * * *'
+  workflow_dispatch:
+    inputs:
+      job:
+        description: 'smoke or full'
+        default: 'full'
+        type: choice
+        options: [smoke, full]
+# the jobs read the repository and write nothing to it
+permissions:
+  contents: read
+jobs:
+  smoke:
+    if: github.event_name == 'push' || github.event_name == 'pull_request' || (github.event_name == 'workflow_dispatch' && inputs.job == 'smoke')
+    runs-on: ubuntu-24.04
+    timeout-minutes: 120
+    # a new push to a pull request stops its last run; main's runs each finish, each commit with its verdict
+    concurrency:
+      group: gates-smoke-${{ github.event.pull_request.number || github.ref }}
+      cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+      - name: Quicklisp, from the cache
+        id: quicklisp
+        uses: actions/cache/restore@v6
+        with:
+          path: ~/quicklisp
+          key: quicklisp-${{ runner.os }}-${{ hashFiles('test/toolchain.pins') }}
+          restore-keys: quicklisp-${{ runner.os }}-
+      - name: The packages, the neighbours at their pins, the two modules, the toolchain
+        run: CI_PACKAGES=1 sh test/ci.sh smoke setup
+        env:
+          CI_LOGS: ${{ runner.temp }}/logs
+      # kept as soon as the setup has it, so a red gate does not lose it
+      - name: Quicklisp, into the cache
+        if: steps.quicklisp.outputs.cache-hit != 'true'
+        uses: actions/cache/save@v6
+        with:
+          path: ~/quicklisp
+          key: ${{ steps.quicklisp.outputs.cache-primary-key }}
+      - name: The six small gates
+        run: sh test/ci.sh smoke gates
+        env:
+          CI_LOGS: ${{ runner.temp }}/logs
+      - name: Keep the logs
+        if: ${{ always() }}
+        uses: actions/upload-artifact@v7
+        with:
+          name: gates-logs-smoke-${{ github.run_attempt }}
+          path: ${{ runner.temp }}/logs
+          retention-days: 14
+          if-no-files-found: warn
+  full:
+    if: github.event_name == 'schedule' || (github.event_name == 'workflow_dispatch' && inputs.job == 'full')
+    runs-on: ubuntu-24.04
+    timeout-minutes: 360
+    concurrency:
+      group: gates-full-${{ github.ref }}
+      cancel-in-progress: false
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+      - name: Quicklisp, from the cache
+        id: quicklisp
+        uses: actions/cache/restore@v6
+        with:
+          path: ~/quicklisp
+          key: quicklisp-${{ runner.os }}-${{ hashFiles('test/toolchain.pins') }}
+          restore-keys: quicklisp-${{ runner.os }}-
+      - name: The packages, the neighbours at their pins, the two modules, the toolchain
+        run: CI_PACKAGES=1 sh test/ci.sh full setup
+        env:
+          CI_LOGS: ${{ runner.temp }}/logs
+      - name: Quicklisp, into the cache
+        if: steps.quicklisp.outputs.cache-hit != 'true'
+        uses: actions/cache/save@v6
+        with:
+          path: ~/quicklisp
+          key: ${{ steps.quicklisp.outputs.cache-primary-key }}
+      - name: Every gate over libc++ 18, the C++ gates over 21
+        run: sh test/ci.sh full gates
+        env:
+          CI_LOGS: ${{ runner.temp }}/logs
+      - name: Keep the logs
+        if: ${{ always() }}
+        uses: actions/upload-artifact@v7
+        with:
+          name: gates-logs-full-${{ github.run_attempt }}
+          path: ${{ runner.temp }}/logs
+          retention-days: 14
+          if-no-files-found: warn

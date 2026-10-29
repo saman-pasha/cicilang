@@ -44,7 +44,9 @@ TAB=$(printf '\t')
   done
 } > "$HERE/ccl_xid.h"
 mkdir -p "$OUT"
-( cd "$CICILI" && sbcl --script cicili.lisp --release "$HERE/cicilang.cicili" )
+# cicili.lisp loads its system through ASDF: THIS checkout's, named first, never another copy the box links (0.223;
+# a ~/common-lisp/cicili of another commit answered first in cocolog's builds, its CLAUDE.md, 2026-10-28)
+( cd "$CICILI" && CL_SOURCE_REGISTRY="$(pwd)/:${CL_SOURCE_REGISTRY:-}" sbcl --script cicili.lisp --release "$HERE/cicilang.cicili" )
 "$CC" -shared -fPIC -O2 -Wno-unused-function \
     -o "$OUT/cicilang.so" "$HERE/cicilang.c"
 echo "built $OUT/cicilang.so (Cicili at $CICILI, cocolog SDK at $COCOLOG)"

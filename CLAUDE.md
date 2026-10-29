@@ -12,7 +12,7 @@ the fixture that gates it, and why. The bullet ends with the version that made t
 edits the rule in `RULES.md`, in its topic, and writes its entry in `HISTORY.md`. Read the topic of `RULES.md` that
 covers the code before the code is changed.
 
-At 0.222 the versions are: the module 0.222 (`ccl_p_version` in `module/cicilang.cicili`, `bin/cicilang --version`),
+At 0.223 the versions are: the module 0.223 (`ccl_p_version` in `module/cicilang.cicili`, `bin/cicilang --version`),
 the reader 164 (`ccl_reader_version/1`, `library/ccl_syntax.pl`) and the lowering 129 (`ccl_lowering_version/1`,
 `library/ccl_ir.pl`).
 
@@ -20,6 +20,7 @@ Build and prove, always in this order (or all of it, `sh test/gates.sh`):
 
 ```sh
 CICILI=~/Projects/GitHub/cicili COCOLOG=~/Projects/GitHub/cocolog sh module/build.sh
+sh test/toolchain.sh
 sh test/flow.sh
 sh test/reader.sh
 sh test/compile.sh
@@ -165,10 +166,11 @@ In `RULES.md`:
   runs a pool of 40 to 50 fixtures that it can reach before the chain: `test/cpp/run/NAME.cpp` built over a warm
   cache and compared with `NAME.expect`, three at a time, ten to thirty minutes. It found 0.117's variable clash in
   `ir_args_/5` an hour before the chain would have. It is a net, not a gate: it claims nothing. (0.117)
-- Every edit to the library is followed by `sh test/flow.sh`, a minute, before anything longer runs: a call to a name
-  that a rename left behind, a helper given a name already taken, a clause that a cut above it makes dead -- each
-  named at its line, where the chain met it an hour later or never. A fixture that fails is asked `sh test/why.sh
-  FILE` before any trace is written: it names the call that gave up. (0.144)
+- Every edit to the library is followed by `sh test/flow.sh`, three minutes (under two until 0.223 cut the desugaring
+  into seventeen files), before anything longer runs: a call to a name that a rename left behind, a helper given a name
+  already taken, a clause that a cut above it makes dead, a predicate in two files -- each named at its line, where the
+  chain met it an hour later or never. A fixture that fails is asked `sh test/why.sh FILE` before any trace is written:
+  it names the call that gave up. (0.144, 0.223)
 - A step committed without its gates (on the owner's word), or before they finish, says so and claims nothing GREEN.
   The next commit carries the numbers. (0.91, 0.92, 0.110)
 - Each form is cut down to a reduction of 10 to 40 lines. The reduction is built with clang or clang++ and with
@@ -226,6 +228,10 @@ In `RULES.md`:
   lowering emits. `dr_ir/3` serves any stored IR whose signature matches, and the signature folds this version.
   (0.103)
 - A bump puts its number, its step's version and its reason at the head of the version fact's comment. (0.82, 0.89)
+- THE NEIGHBOURS' COMMITS ARE PINNED in `test/toolchain.pins` (0.223), with the embedded LLVM's version and the libc++
+  trees: a pin moves with its neighbour, on the owner's word, in the step that runs the chain over it. `sh
+  test/toolchain.sh` reports a checkout off its pin, and the CI job (`.github/workflows/gates.yml`, `test/ci.sh`) clones
+  the pins. (0.223)
 - The store's stamp `KB.version` is `Reader.Lowering`; a change of either starts the store afresh (`kb_prepare` in
   `bin/cicilang`, its twin `ccl_kb_prepare` in `test/config.sh`). A reader bump also makes every C++ summary cold.
   (M4, 0.105)
@@ -256,6 +262,7 @@ HISTORY.md                  the record of every step, verbatim, up to 0.111, and
 README.md                   what cicilang is and what runs: the commands, the four predicates, the additions, C++
 DESIGN.md                   the architecture, the neighbours' roles, the milestones M0 to M6
 .gitignore                  the build output and the scratch that are never committed
+.github/workflows/gates.yml the CI job: test/ci.sh's smoke on each push and pull request, its full job every night
 
 bin/cicilang                the command: clang's arguments, one cocolog run of ccl_drive/2 over ~/.cicilang/KB
 bin/cicilang++              cicilang for C++: CICILANG_LANG=cpp, --no-kb (in memory), every input C++, linked by c++
@@ -284,7 +291,25 @@ library/ccl_include.pl      #include: the inclusion path, the nested read, .pl m
                             cycle guard, the KB cache, the header macro tables, the C++ summaries and their AST files
 library/ccl_infer.pl        ccl_type_of/2, type resolution, sizes and layout, ccl_const_eval/2, the answer caches
 library/ccl_format.pl       the global macros format, print, println and clone
-library/ccl_cpp.pl          the C++ desugaring to C, ccl_cpp_units/2, run before the check
+library/ccl_cpp.pl          the C++ desugaring to C, ccl_cpp_units/2, run before the check: the units,
+                            the registries, the walk of the items; and its sixteen parts (0.223), each one or two
+                            regions of the one file it was, its rules in their order, a predicate whole in one part:
+  ccl_cpp_namespace.pl        the program's namespaces, and the library's keyed names, its index, the cross-read names
+  ccl_cpp_mangle.pl           the Itanium mangler
+  ccl_cpp_library.pl          the library's functions and classes, what the shipped library defines, lazy instances
+  ccl_cpp_class.pl            a class's registration: nested classes, friends, access, the special members
+  ccl_cpp_layout.pl           a class's layout: bases and virtual bases, the slots and the tables
+  ccl_cpp_overload.pl         a call's candidates and their ranking, a member's name and default arguments
+  ccl_cpp_virtual.pl          the tables and RTTI: overriders, dynamic_cast, the VTT, thunks, vbase offsets
+  ccl_cpp_init.pl             the initialization of globals, static members, bases and members
+  ccl_cpp_stmt.pl             statements and temporaries, coroutines, exceptions, local initialization
+  ccl_cpp_expr.pl             expressions (cpp_expr/3), calls and ADL, CTAD, new and delete, the allocation functions
+  ccl_cpp_eval.pl             the constant evaluator
+  ccl_cpp_template.pl         templates instantiated on use, instances, specializations, partial ordering
+  ccl_cpp_deduce.pl           deduction and substitution, a candidate's checks, the ranking of conversions
+  ccl_cpp_traits.pl           the compiler's traits
+  ccl_cpp_lambda.pl           lambdas
+  ccl_cpp_concept.pl          concepts and the function's own name (__func__, std::source_location)
 library/ccl_check.pl        the safe part: owners, moves, borrows, ties, loose pointers, own arrays
 library/ccl_ir.pl           the lowering to LLVM IR text, ccl_ir_units/2; ccl_lowering_version/1
 library/ccl_build.pl        ccl_compile/3 through the embedded LLVM, ccl_link/3 through cc or c++
@@ -313,6 +338,9 @@ library/include/            the compiler's own freestanding headers: each COCOLO
   tgmath.h                    C17 7.25's type-generic macros over <math.h> and <complex.h>, by _Generic (0.194)
 
 test/config.sh              sourced by every gate: the neighbours, this library first on COCOLOG_LIBRARY, the store
+test/toolchain.sh, toolchain.pins
+                            the toolchain check, first in the chain: each tool's version beside the pins (0.223)
+test/ci.sh                  the CI job's steps: the neighbours cloned at the pins and built, the modules, the gates
 test/gates.sh               every gate in one chain
 test/parlib.sh              the memory-gated pool: ccl_pool, ccl_cocolog_rss, ccl_lpt_order, ccl_time_record
 test/flow.pl, flow.sh       the flow gate: every library file charted by cocolog's library(flow/chart), nothing run
