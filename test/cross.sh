@@ -3,7 +3,8 @@
 # `cicilang --target=aarch64-linux-gnu' and by `clang --target=aarch64-linux-gnu', the reference -- that machine's
 # output is the reference, not this one's .expect: plain char and wchar_t are unsigned there, long double is an IEEE
 # quad -- and both binaries run under qemu-aarch64 over the cross sysroot; a fixture written in the language's own
-# forms, which clang does not read, is held to its .expect. Then the ABI both ways against aarch64-linux-gnu-gcc:
+# forms, which clang does not read, is held to its .expect, and so is one whose NAME.ref says `expect' (0.225): its
+# .expect is gcc's, where clang's build prints otherwise. Then the ABI both ways against aarch64-linux-gnu-gcc:
 # structs by value (test/c/link/abi_*.c), variadic calls of every AAPCS64 kind (test/c/link/va_*.c) and vectors by value
 # (test/c/link/vec_*.c, 0.162). Then C++ (0.161):
 # fixtures built by `cicilang++ --target' and by clang++ over that machine's libc++, and the C++ gate's ABI checks, where
@@ -30,7 +31,7 @@ echo "-- every run fixture, built for aarch64 Linux and run under qemu beside cl
 for src in "$RUN"/*.c; do
   n=$(basename "$src" .c); std=""; [ -f "$RUN/$n.std" ] && std=$(cat "$RUN/$n.std")
   ( cd "$RUN" && "$CC" $T $std "$src" -o "$D/$n" > "$D/$n.log" 2>&1 < /dev/null )
-  if ( cd "$RUN" && "$CLANG" $T -w $std "$src" -o "$D/$n.ref" -lm > /dev/null 2>&1 ); then
+  if [ "$(cat "$RUN/$n.ref" 2>/dev/null)" != expect ] && ( cd "$RUN" && "$CLANG" $T -w $std "$src" -o "$D/$n.ref" -lm > /dev/null 2>&1 ); then   # NAME.ref's `expect': its .expect, gcc's, on every machine (0.225)
     ( cd "$RUN" && $QE "$D/$n.ref" arg1 arg2 > "$D/$n.want" 2>&1 < /dev/null; echo "exit $?" >> "$D/$n.want" ); how=clang
   else cp "$RUN/$n.expect" "$D/$n.want"; how=expect; fi
   if [ ! -x "$D/$n" ]; then printf 'FAIL %-14s %s\n' "$n" "$(grep -a 'error' "$D/$n.log" | head -1 | cut -c1-140)"; failures=$((failures + 1)); continue; fi

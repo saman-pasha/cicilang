@@ -219,6 +219,7 @@ One row per step, in version order: the step's title, what it did and its gate n
 | 0.222 | the chain of 0.221; the feedback for cocolog | no library file changed: the numbers of 0.221's chain; the feedback for cocolog, at the owner's word, sent to its session -- `time_file/2` drops the fraction of a second, which three caches key on; no integer past 64 bits; no `consult/1` and `load_files/2` --, each probed on cocolog 2.12.0; two notes out of date corrected, `atom_chars/2`'s one-byte character and the pool's reason | all nine gates GREEN over libc++ 18 in 0.221's chain (826 of 836 C++ fixtures ok), the two libc++ gates over 21 (834 of 836); the headers' reads summed 1663 s and 1468 s, the fixtures' builds 4026 s and 4109 s; before its commit the flow, reader, compile, driver and objects gates and the proof GREEN over its module |
 | 0.223 | the neighbours pulled; the toolchain check, its pins and the CI job; `ccl_cpp.pl` in seventeen files | at the owner's word: cocolog 2.13.0 (`7ff2a0d`) and Cicili 3.3.0 pulled and 0.222's tree chained over them first, all GREEN; `test/toolchain.sh` and `test/toolchain.pins`, first in the chain; `test/ci.sh` and `.github/workflows/gates.yml`, shaped after cocolog's own CI; the desugaring cut by its topics into `ccl_cpp.pl` and sixteen parts, a mechanical move; the flow gate's rule of a predicate in two files; a summary's dependency times, which an update across cocolog 2.12.2 makes stale once | the IR of all 836 C++ run fixtures the same byte for byte before and after the split (826 built, 10 refused alike); five warm builds 70.10 s on 2.12.0 and 69.00 s on 2.13.0; the CI job's smoke run here GREEN (632 s and 252 s); all nine gates GREEN over libc++ 18 (826 of 836 C++ fixtures ok), the two libc++ gates over 21 (834 of 836); the flow gate 188 s where it took 105 s |
 | 0.224 | the macOS Intel job in the CI | at the owner's word: the smoke job on Ubuntu 24.04 and on macOS 26 on Intel (`macos-26-intel`), a matrix of two; `test/ci.sh` and `test/toolchain.sh` know a Mac (Homebrew's `llvm@18` from a bottle only, `gtimeout` as `timeout`, cocolog's `install-macos.sh`); a C fixture's `NAME.needs`, eleven of them; a Mac's compile gate held to clang's build; the driver gate's `-g` checks of a linked program through the object on a Mac | the CI job's smoke steps GREEN here as the job runs them (setup 881 s, gates 263 s); 0.223's first run on GitHub GREEN in 13 minutes; the Mac's job not yet run: this commit's push is its first run |
+| 0.225 | the Mac job's first run: what it found, and the store kept a row a level | at the owner's word: the Mac's first run (setup GREEN, its gates 16 failures) read and each failure reduced; `__builtin_expect`, a NaN builtin's payload, sixteen bytes lock-free on a Mac, DWARF 4's macros on a Mac (LLVM's DWARF 5 macros crash on Mach-O), an `if`'s comparison at its operator's column; the C store a row a level; three more `NAME.needs`, `NAME.ref`, two fixtures made portable; no pipe closed early | the flow gate, the four C gates, the cross gate and the C++ gate over libc++ 18 GREEN here (826 of 836), the C gates again over a fresh store after the store's change; the Mac's second run is this commit's push |
 
 ## M5 — the C++ mode
 
@@ -15341,3 +15342,60 @@ built with.
 - RULES.md: the CI job's bullet, a bullet for the Mac's job, the toolchain check's Mac, the compile gate's needs and the
   Mac's reference, the driver gate's Darwin checks, the companion files' C needs, and Not done: the C++ gates on a Mac,
   Apple silicon, `-g` through the debug map, the decimal runtime. Reader 164, lowering 129.
+
+## 0.225 — the Mac job's first run: what it found, and the store kept a row a level
+
+**0.225: the findings of the Mac job's first run (0.224's push), at the owner's word ("add the macOS Intel job to the
+CI"): five things the compiler lacked or did otherwise than clang on a Mac, a C store that kept one level of a file's
+read, fixtures that are glibc's or Linux's by nature, and what the gates read there.**
+
+THE FIRST RUN, 40888231266 on `703ba51`: Linux's smoke job GREEN; the Mac's setup GREEN in 23 minutes (Homebrew a minute
+-- `llvm@18` 18.1.8 poured from the one bottle the image's formula data names, sonoma's, in 45 s --, cocolog's installer
+21, the modules and the toolchain check 20 s), then its six gates in 16 minutes: flow GREEN in 426 s (Linux's 201 s),
+objects and the proof GREEN, the reader gate one failure, the compile gate twelve, the driver gate three. Each was read
+from the run's logs, its artifact (downloaded through `gh api`), and reduced on this box where it could be, the Mac's
+target named (`--target=x86_64-apple-macos`) where a header was not needed.
+
+- `__builtin_expect` WAS UNDECLARED IN C: Apple's `<assert.h>` writes `assert` over it, glibc's does not, so `cforms`,
+  `ndebug`, `srcbuiltins`, `stringize` and the driver gate's `-DNDEBUG` check met `undeclared(__builtin_expect)`. Now
+  `__builtin_expect` and `__builtin_expect_with_probability` answer the first operand's value as a `long` through
+  `llvm.expect.i64` (a program of both, run here, prints what clang's prints).
+- A NaN BUILTIN'S PAYLOAD: Apple's `<math.h>` writes `NAN` as `__builtin_nanf("0x7fc00000")`, and a global's initializer
+  refused it (`fpspecial`). The string is read as clang reads it, cut to the format's payload bits, and folds as
+  `nan(0)` where so cut it is none (the bits of five globals the same as clang's).
+- SIXTEEN BYTES LOCK-FREE ON A MAC: the x86-64 CPU clang's Darwin targets has `cmpxchg16b`, so
+  `__atomic_always_lock_free(16, 0)` is 1 there (`lockfree`: Apple's clang 1 0 1 1, this compiler 1 0 0 1); Linux's
+  stays 0.
+- `-fdebug-macro` ON A MAC CRASHED LLVM: DWARF 5's `.debug_macro` on Mach-O, in `emitDebugMacinfoImpl`'s
+  `emitDwarfSymbolReference` -- llc 18 and 21 both, and clang 21 itself for macOS 15 and later, where its DWARF is 5
+  (clang's for macOS 14 and before is 4, its macros `.debug_macinfo`). On a Mac the module is DWARF 4 under
+  `-fdebug-macro`, and the gate reads the `DW_MACINFO_` names there.
+- AN `if`'S COMPARISON AT ITS OPERATOR: Apple's clang 21, as clang 21 here, has no line-table row at a condition's first
+  name (`9:7` in the driver gate's program), clang 18 has both it and the operator's (`9:9`); the operator is in both,
+  and this compiler's ten rows are now within either clang's.
+- THE STORE KEPT ONE LEVEL OF A FILE'S READ: `ccl_kb_remember/3` retracted every row of the path, so the reader gate's
+  first process, whose last read of `<stdio.h>` was C23's, left its later C17 process nothing to serve -- it read
+  `<stdio.h>` again, in a second over glibc and in 18 s over Apple's headers. The later process now asks the store
+  before it reads (it answered `stale` here, the store's 62 files, 0.3 s to read), and the store keeps a row a level, as
+  a header's macros are kept since 0.99. No version moved: what a row holds is the same.
+- FIXTURES OF ONE MACHINE: `ftlate` and `strictansi` are glibc's `features.h` at work (a Mac's `<math.h>` defines `M_PI`
+  under `-std=c17`, its `<string.h>` declares `strdup`), `gnumode` Linux's `linux`, `unix` and an ELF symbol's asm
+  label: three `NAME.needs`. `aligntd` prints a `pthread_mutex_t` where no glibc is, and `c23float` whether
+  `__UINT64_FMTb__` is `uint64_t`'s own length modifier (`llb` on a Mac). `atomodd`'s `.expect` is gcc's (C17
+  7.17.7.4/2), which Apple's clang does not print: `NAME.ref` holds it to its `.expect` on every machine, the cross
+  gate's too.
+- THE MAC'S RUNNER IGNORES SIGPIPE, so `echo "$out" | grep -q` printed `echo: write error: Broken pipe` a fixture: the
+  compile gate reads files, and the setup reads brew's first line through sed. Where clang did not build a fixture that
+  differs on a Mac, the gate says what clang said.
+- cocolog's session wrote (14:24 UTC): its CI built the Intel Mac's sbcl from source through ECL, GREEN, and its clocks
+  are wall time, so on a loaded box a step the scheduler stopped is charged the pause: the time tool's topic says so.
+- THE GATES HERE, over the work tree on cocolog 2.13.0 and the HOME 0.223's chain warmed: the flow gate GREEN in 194 s,
+  the reader gate RED by its new served test -- `stale`, the finding above --, compile 28 s, driver 24 s, objects 5 s,
+  the cross gate 336 s, the C++ gate over libc++ 18 in 1390 s with 826 of 836 fixtures ok and 0.223's ten skips, all
+  GREEN but the reader; then, the store keeping a row a level, the flow gate and the C gates over a fresh HOME, as the
+  CI's machine meets them: flow 187 s, the reader 2 s (served, the store's 82 files), compile 30 s, driver 26 s, objects
+  5 s and the proof, all GREEN, no C fixture skipped on Linux. The Mac's job is this commit's push, and the next commit
+  carries its numbers.
+- RULES.md: the lock-free, `__builtin_expect`, NaN payload, column, macros, C store, reader, compile and driver gate
+  rules, the companion files, the time tool, the Mac job's first run, the Hosts; Not done as it stands. Lowering 130;
+  reader 164.

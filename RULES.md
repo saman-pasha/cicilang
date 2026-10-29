@@ -103,13 +103,18 @@ that changes a rule edits the rule here, in its topic, and writes its entry in `
   read: a keg, `$(brew --prefix)/opt/llvm@18` (brew links no versioned formula), installed only from a bottle --
   Homebrew has built no Intel bottles since September 2026 and LLVM from source is hours, so the setup stops where the
   formula data names none for Intel (`brew info --json=v2`). The job keeps the formula data the runner image was built
-  with (`HOMEBREW_NO_AUTO_UPDATE`, as cocolog's does): the image's macOS 15 sibling, of the same day, has `llvm@18`
-  18.1.8 itself, so that day's data named an Intel bottle, where today's names arm64's and Linux's only. macOS has no
-  `timeout`, which the flow gate and the pools cap their runs with: coreutils' `gtimeout` under that one name, first on
-  PATH, from `CI_ROOT/.ci-bin`, so BSD's `date`, `sed` and `wc` stay what a Mac has (cocolog's CI). Apple's clang is the
-  compiler cocolog's installer builds with there (cocolog's `tools/cc` takes Homebrew's unversioned `llvm` only), the
-  gates' reference and the link; the C library is the SDK's (`ccl_sdk_dirs/1`: `$SDKROOT`'s, the command line tools',
-  Xcode's). The full job is Linux's: the cross gate runs under qemu-user over Debian's aarch64 sysroot. (0.224)
+  with (`HOMEBREW_NO_AUTO_UPDATE`, as cocolog's does): its data names one bottle of `llvm@18` 18.1.8, sonoma's, which
+  poured in 45 s at the first run (0.224), where today's data names arm64's and Linux's only. macOS has no `timeout`,
+  which the flow gate and the pools cap their runs with: coreutils' `gtimeout` under that one name, first on PATH, from
+  `CI_ROOT/.ci-bin`, so BSD's `date`, `sed` and `wc` stay what a Mac has (cocolog's CI). Apple's clang is the compiler
+  cocolog's installer builds with there (cocolog's `tools/cc` takes Homebrew's unversioned `llvm` only), the gates'
+  reference and the link; the C library is the SDK's (`ccl_sdk_dirs/1`: `$SDKROOT`'s, the command line tools', Xcode's).
+  The full job is Linux's: the cross gate runs under qemu-user over Debian's aarch64 sysroot. THE FIRST RUN
+  (40888231266, on `703ba51`, 0.224): the setup GREEN in 23 minutes -- Homebrew 1, cocolog's installer 21 (ZiguratIP's
+  build the most of it), the two modules and the toolchain check 20 s, image 20260824.0517.1, Apple clang 21.0.0, the
+  command line tools' SDK 26.5 --, then the six gates in 16 minutes: the flow gate GREEN in 426 s (Linux's 201 s), the
+  objects gate and the proof GREEN, the reader gate one failure, the compile gate twelve, the driver gate three, each
+  one of 0.225's (HISTORY.md). (0.224, 0.225)
 
 ### The chain
 
@@ -223,8 +228,11 @@ that changes a rule edits the rule here, in its topic, and writes its entry in `
 
 - The reader gate. `test/reader.pl` runs 94 numbered checks, `k1` to `k94`, in one process over the user's store. It
   then reads five of Cicili's C files whole (`test/c/main.c`, `shared.c`, `macro.c`, `example/cimath.c`,
-  `example/numpy_example.c`); a missing one is a SKIP. `test/reader.sh` adds a second process, which must read
-  `hello.c` with its headers from the store in under 10 s. (0.93)
+  `example/numpy_example.c`); a missing one is a SKIP. `test/reader.sh` adds a second process, which must find
+  `<stdio.h>`'s row under the key a read makes now with every header it depends on unchanged -- what the read is served
+  from, asked before the read writes anything (0.225) -- then read `hello.c` with its headers from the store in under
+  10 s; it names the store's files and each part's seconds. It was fast alone, and served nothing (the C store, 0.225).
+  (0.93, 0.225)
 - Reader checks that guard rules of other sections: `k16` (a cached read equals a fresh one), `k59` and `k65`
   (`0xFFul`, `1u << 4`), `k81` (the tie), `k82` (`#cocolog`), `k83` (`pp.c` with `pp_defs.h`), `k84` (the native lexer
   gives the DCG's tokens on `test/c/lexer.c` and on real files), `k85` (the native lexer is in use), `k86` (the user's
@@ -235,12 +243,15 @@ that changes a rule edits the rule here, in its topic, and writes its entry in `
   links every `test/c/run/*.c` at its `NAME.std` level (`c_level`). It expects every `test/c/safe/*.c` refused.
   `test/compile.sh` runs each binary as `NAME arg1 arg2` against `NAME.expect`, and compares each refusal with
   `safe/NAME.expect`. There are 156 run and 61 safe fixtures at 0.221. A fixture whose `NAME.needs` the box's C library
-  does not meet is skipped by name and built not at all (0.224, Fixtures and their companion files). ON A MAC THE
-  REFERENCE IS CLANG'S BUILD (0.224), as the cross gate's is that machine's: Apple's C library prints some values
-  otherwise than glibc -- a subnormal's `%a`, a long double's `%La` -- and Apple's clang predefines what Linux's does
-  not (`predefs.c` holds Linux's), so there each fixture is built by clang at its `NAME.std` level too and run, and what
-  that prints is the reference, `ok NAME clang` or `ok NAME expect`; a fixture in the language's own forms, which clang
-  does not read, is held to its `.expect`. (M2, M3, 0.57, 0.221, 0.224)
+  does not meet is skipped by name and built not at all (0.224, Fixtures and their companion files). No pipe a reader
+  closes early (0.225): the run's answer and each output are files that grep, diff and head read, since a Mac's runner
+  ignores SIGPIPE and `echo "$out" | grep -q` printed `echo: write error: Broken pipe` a fixture. ON A MAC THE REFERENCE
+  IS CLANG'S BUILD (0.224), as the cross gate's is that machine's: Apple's C library prints some values otherwise than
+  glibc -- a subnormal's `%a`, a long double's `%La` -- and Apple's clang predefines what Linux's does not (`predefs.c`
+  holds Linux's), so there each fixture is built by clang at its `NAME.std` level too and run, and what that prints is
+  the reference, `ok NAME clang` or `ok NAME expect`; a fixture in the language's own forms, which clang does not read,
+  is held to its `.expect`, and so is one whose `NAME.ref` says `expect` (0.225), and where such a fixture differs the
+  line after the diff says what clang said. (M2, M3, 0.57, 0.221, 0.224, 0.225)
 - The driver gate. `test/driver.sh` makes 48 checks of `bin/cicilang` over the user's store (the two decimal checks are
   skipped where no gcc with decimal floating types is installed), the variadic calls of every kind both ways against
   clang among them (`test/c/link/va_*.c`, 0.131), and Apple's arm64 expansion of `va_arg` of an aggregate against
@@ -263,14 +274,14 @@ that changes a rule edits the rule here, in its topic, and writes its entry in `
   gate follows the host: `_main:` and `.dylib` on Darwin, `main:` and `.so` elsewhere; on Darwin the `-g` checks of a
   linked program read the object that `-c` makes of the same file under the same flags (0.224: Mach-O keeps the DWARF in
   the objects, which the link's debug map names for dsymutil, and the objects cicilang links from are gone after the
-  link), and the last `-std` check's GNU branch returns 2 without `linux + unix`, which clang's Darwin predefines in no
-  mode. The decimal floating types cross
-  the ABI against gcc-built code both ways (`test/c/link/dec_main.c`, `dec_helper.c`: values, structs by value, a
-  variadic call; clang has no decimal types), and twelve long double constants converted to decimal types fold to gcc's
-  bits (`test/c/link/decld.c`, 0.154). Since 0.221 four more: an identifier's characters past ASCII by the level (C17's
-  euro sign and middle dot, C23's and C99's refusals in clang's words), `__STDC_VERSION__` at C99, C11, C17 and C23, an
-  `#undef NDEBUG` before `<assert.h>` under `-DNDEBUG` asserting again, and the C++ IR cache (a rebuild served, a
-  changed file lowered again). (M4, 0.93, 0.128, 0.129, 0.154, 0.160, 0.221)
+  link), the last `-std` check's GNU branch returns 2 without `linux + unix`, which clang's Darwin predefines in no
+  mode, and the `-fdebug-macro` check reads DWARF 4's `DW_MACINFO_` names (0.225, the Lowering). The decimal floating
+  types cross the ABI against gcc-built code both ways (`test/c/link/dec_main.c`, `dec_helper.c`: values, structs by
+  value, a variadic call; clang has no decimal types), and twelve long double constants converted to decimal types fold
+  to gcc's bits (`test/c/link/decld.c`, 0.154). Since 0.221 four more: an identifier's characters past ASCII by the
+  level (C17's euro sign and middle dot, C23's and C99's refusals in clang's words), `__STDC_VERSION__` at C99, C11, C17
+  and C23, an `#undef NDEBUG` before `<assert.h>` under `-DNDEBUG` asserting again, and the C++ IR cache (a rebuild
+  served, a changed file lowered again). (M4, 0.93, 0.128, 0.129, 0.154, 0.160, 0.221)
 - The objects gate. `test/objects.sh` makes 29 checks of the objects layer, an instance that outlives its process
   among them. (from the start)
 - The cross gate (0.131). `test/cross.sh` builds every `test/c/run/*.c` with `cicilang --target=aarch64-linux-gnu` and
@@ -509,7 +520,17 @@ that changes a rule edits the rule here, in its topic, and writes its entry in `
   (`<sys/epoll.h>`, Linux's), `cwrap`, `u16pairs` and `u8lit23` (`<uchar.h>`), `stdc23` (glibc 2.39 or later: its C23
   functions, `%b` and `%wN`), and `dec128`, `decbitint`, `decfold` and `decimal` (`defined(__linux__)`: they call
   libgcc's decimal runtime, `__bid_adddd3` and its kin, which Linux's `cc`, gcc, links and a Mac's, Apple's clang over
-  compiler-rt, does not; `decspecial` folds each value and calls none). (0.224)
+  compiler-rt, does not; `decspecial` folds each value and calls none). Since 0.225 `ftlate` and `strictansi`
+  (`defined(__GLIBC__)`: glibc's `features.h` at work, which a Mac's headers have not -- its `<math.h>` defines `M_PI`
+  and its `<string.h>` declares `strdup` under `-std=c17` too) and `gnumode` (`defined(__linux__)`: `linux` and `unix`,
+  which clang's Darwin predefines in no mode, and an asm label that names an ELF symbol), and `aligntd` and `c23float`
+  print what every machine has: glibc's `__pthread_unwind_buf_t` under `#ifdef __GLIBC__`, a `pthread_mutex_t`
+  elsewhere, and whether `__UINT64_FMTb__` is the length modifier of the type of `uint64_t` (`lb` on Linux, `llb` on a
+  Mac). (0.224, 0.225)
+- `NAME.ref` holding `expect` holds a C fixture to its `.expect` on every machine, where the compile gate on a Mac and
+  the cross gate take clang's build for the reference: the `.expect` is gcc's, which clang's build does not print. One
+  exists: `atomodd` (C17 7.17.7.4/2: a failed compare-exchange writes the value it found to `*expected`; clang 18 leaves
+  it as it was, and clang 21, Apple's among them, fails the first exchange too). (0.225)
 - `test/c/safe/NAME.expect` holds the refusal, `ownership(Kind,Name)`. (M3)
 - Inputs beside the fixtures are no fixtures: `test/c/run/pp_defs.h`, `fileconst.h` (`fileconst.c`, 0.195), `embed.txt`,
   `empty.txt`; `test/cpp/run/bag.h`
@@ -633,6 +654,11 @@ that changes a rule edits the rule here, in its topic, and writes its entry in `
   one run differ -- `stdvector.cpp`'s build is 17.9 million on the debugger's clock and 17.2 million by `statistics/2`
   (0.151). cocolog 1.13.6 calls that clock's unit a STEP, each view says how many of its steps were inferences, and the
   two tools print steps since 0.155. (0.148, 0.151, 0.152, 0.153, 0.155, 0.156)
+- THE TIME VIEW'S AND THE RUN VIEW'S CLOCK IS WALL TIME (cocolog's note, 2026-10-29): a step the scheduler stopped is
+  charged the pause, to the predicate its goal names, so on a loaded box one run can name the wrong predicate the
+  costliest -- beside six busy loops on four cores cocolog's own check charged `last/2` 13.3 ms against `msort/2`'s 2.4
+  to 5.6 ms, one run in forty. A reading of which predicate cost the most is the least over a few runs, as a benchmark
+  takes its fastest round, since a pause only adds. (0.225)
 
 ## The driver and the commands
 
@@ -2624,6 +2650,11 @@ that changes a rule edits the rule here, in its topic, and writes its entry in `
 - A header's macro table is stored per level: `'$ccl_hmacros:<Path>'(Name, Key, macro(...))` rows, `'$dep'` rows, and
   the index `'$ccl_hmeta'(Path, Key, meta(N, ND))`. `ccl_kb_remember_macros/3` replaces only that level's rows. The
   process memo is `'$ccl_hm:<Path>@<Level>'` (`ccl_hm_key`). Why: a C23 read retracted the C17 rows. (0.99, 0.108)
+- A FILE'S READ IS STORED PER LEVEL TOO (0.225): `ccl_kb_remember/3` replaces the rows of the key's own level, its
+  `'$ccl_ast'` row and its items (`ccl_kb_forget_level/2`), and keeps the other levels'. Why: a C23 read of a header
+  took the place of its C17 read, and the next C17 build read it again -- the reader gate's later process was served
+  nothing, its first process's last read of `<stdio.h>` being C23's, and it was fast only because glibc's headers read
+  in a second; Apple's took 18 s on a Mac (0.224's first run). Nothing a row holds changed, so no version moved. (0.225)
 - Per-process state is a global, never a clause: the units read, the cycle guard, the macro files loaded. Why: a dynamic
   predicate persists under `--embed`. (M4)
 - `kb_prepare` (`bin/cicilang`) and its twin `ccl_kb_prepare` (`test/config.sh`) stamp `KB.version` as
@@ -9062,9 +9093,10 @@ The namespaces' rules, the program's and the library's, are `library/ccl_cpp_nam
   inference's (`void`, the exchange's `bool`). `atomicgen.c`, `atomicref.cpp` (C++20, libc++ 21).
 - GCC'S LOCK-FREE QUESTIONS (0.194): `__atomic_always_lock_free(size, ptr)` is a constant (`ccl_const_eval/2` over
   `ccl_lock_free_answer/3`): 1 for a lock-free width -- 1, 2, 4 and 8 bytes, 16 on aarch64 too (its pair loads and
-  stores; `ccl_lock_free_width/1`), where x86-64's default CPU has no 16-byte compare-and-swap -- whose pointer is null
-  or points to a type aligned to the size at least, as clang answers, 0 else; in C++ a pointer that is no null constant
-  is answered by the desugaring over its desugared form (`cpp_builtin_call/3`), since the raw form of libc++ 21's
+  stores) and on a Mac (0.225: the x86-64 CPU clang's Darwin targets has `cmpxchg16b`; `ccl_lock_free_width/1`), where
+  x86-64 Linux's default CPU has no 16-byte compare-and-swap -- whose pointer is null or points to a type aligned to the
+  size at least, as clang answers, 0 else; in C++ a pointer that is no null constant is answered by the desugaring over
+  its desugared form (`cpp_builtin_call/3`), since the raw form of libc++ 21's
   `std::addressof(__get_aligner_instance<...>::__instance)` is typed by addressof's own signature, `_Tp *`, and the raw
   fold of atomic_ref's static `is_always_lock_free` answered 0. `__atomic_is_lock_free(size, ptr)` asks the pointer's
   alignment at run time where its type does not tell, and `__c11_atomic_is_lock_free` answers 16 bytes on aarch64.
@@ -9201,6 +9233,10 @@ The namespaces' rules, the program's and the library's, are `library/ccl_cpp_nam
   `i128` over operands widened by their own signedness (`ir_widen128/4`). They store the truncated result and answer
   whether it lost anything. C23's `<stdckdint.h>` is written on them. (0.93)
 - `__builtin_unreachable()` is `unreachable`, and `[[assume(e)]]` calls `llvm.assume`. (0.93)
+- `__builtin_expect(e, c)` and `__builtin_expect_with_probability(e, c, p)` answer e's value as a `long`, through LLVM's
+  `llvm.expect.i64` over c, as clang has them (the probability dropped). Apple's `<assert.h>` writes `assert` over
+  `__builtin_expect`, so every program of a Mac that asserted met `undeclared(__builtin_expect)`; glibc's does not. In
+  C++ the desugaring answers e itself (`cpp_builtin_call/3`). (0.225)
 - A FUNCTION THAT RETURNS TWICE IS DECLARED SO, as clang declares it (0.201; `ir_returns_twice/1` in `ir_declares`):
   `setjmp`, `_setjmp`, `sigsetjmp`, `__sigsetjmp`, `savectx`, `vfork` and `getcontext` carry LLVM's `returns_twice`, which
   tells the optimizer that the call returns a second time. A local changed between the two returns keeps its value only
@@ -9229,13 +9265,18 @@ The namespaces' rules, the program's and the library's, are `library/ccl_cpp_nam
   out as Apple lays the arguments out (`va_darwin_main.c`), and the scalar forms are clang's text. `__builtin_va_list`
   is the ABI's type (`ccl_va_list_type/2`): `unsigned long[3]` on x86-64, `[4]` on AAPCS64, `char *` on Apple's arm64.
   `test/c/run/varargs.c`, `vaaggregate.c`. (0.108, 0.117, 0.160)
-- `__builtin_inf`, `huge_val` and `nan`, in double, float and long double forms (a quad's too, 0.131), are constants (`ir_float_builtin/4`),
-  as glibc's `INFINITY`, `NAN` and `HUGE_VAL` need. `__builtin_isnan`, `isinf`, `isinf_sign`, `isfinite`, `isnormal`
-  and `signbit` are `fcmp` or bit tests that answer an `int` (`ir_fp_class/1`). (0.101, 0.108) C23's SIGNALING NaNs,
-  `__builtin_nans`, `nansf` and `nansl` (`FLT_SNAN` and kin), are constants of the quiet bit clear and the bit below it
-  set, as clang spells them (0.194; `ir_float_builtin/4`, `ir_fp_snan_text/3`), and a global's fold carries one as
-  `snan(S)`: a negation flips its sign, an operation or a conversion gives the quiet NaN (IEEE 754 6.2), as gcc folds it.
-  `__builtin_flt_rounds()` is LLVM's `llvm.get.rounding`, `<float.h>`'s `FLT_ROUNDS` (0.194). `c23float.c`.
+- `__builtin_inf`, `huge_val` and `nan`, in double, float and long double forms (a quad's too, 0.131), are constants
+  (`ir_float_builtin/4`), as glibc's `INFINITY`, `NAN` and `HUGE_VAL` need. `__builtin_isnan`, `isinf`, `isinf_sign`,
+  `isfinite`, `isnormal` and `signbit` are `fcmp` or bit tests that answer an `int` (`ir_fp_class/1`). (0.101, 0.108)
+  C23's SIGNALING NaNs, `__builtin_nans`, `nansf` and `nansl` (`FLT_SNAN` and kin), are constants of the quiet bit clear
+  and the bit below it set, as clang spells them (0.194; `ir_float_builtin/4`, `ir_fp_snan_text/3`), and a global's fold
+  carries one as `snan(S)`: a negation flips its sign, an operation or a conversion gives the quiet NaN (IEEE 754 6.2),
+  as gcc folds it. `__builtin_flt_rounds()` is LLVM's `llvm.get.rounding`, `<float.h>`'s `FLT_ROUNDS` (0.194).
+  `c23float.c`. A NaN BUILTIN'S PAYLOAD (0.225) is read as clang reads it -- an integer at base 0, as strtoull reads it
+  -- and cut to the format's payload bits, its significand's but the quiet bit (`ir_nan_width/2`, `ir_nan_payload/2`):
+  one so cut to none folds as `nan(0)` in a global's initializer, where Apple's `<math.h>` writes `NAN` as
+  `__builtin_nanf("0x7fc00000")` and it was `global_init(...)`, refused; a payload that is something is not lowered
+  there yet. In a function every NaN builtin is the quiet NaN of its format.
 - `__builtin_classify_type(e)` (GCC's; 0.194) is the class of e's type, an integer constant with clang's numbers and e
   never evaluated (`ccl_type_class/2` in `library/ccl_infer.pl`, the desugaring's `cpp_builtin_call/3` over the
   argument's type, the lowering's `ir_call/4`): void 0, an integer 1 (a character type, and an enum in C), an enum in
@@ -9290,13 +9331,15 @@ The namespaces' rules, the program's and the library's, are `library/ccl_cpp_nam
 - A STATEMENT'S COLUMN (0.161): every instruction of a statement has the column where the statement begins on its line,
   the one clang gives its first instruction or its last: a declaration's at its first declared NAME (the store, and the
   variable's `llvm.dbg.declare` at its name's column: a parameter's on the function's line), a call statement's at its
-  callee (a method's at its object), an assignment's at its left side, an `if`'s at its condition's first name, a
-  loop's, a `switch`'s, a `return`'s and a jump's at its keyword (`ir_stmt_anchor/2`, which `ir_stmt/1` sets before the
-  statement is lowered, every `ir_stmt` clause being `ir_stmt_/1`'s). The anchor is found in the line's text -- the
-  debug file's lines, read once a build (`ir_dbg_src_line/2`) -- as a whole word, from the column of the statement
-  before it on that line, else from the line's start (`ir_dbg_col/2`; `ir_line/1` asks it under `-g` only), a column in
-  bytes, as clang counts; a statement whose anchor is not there -- a name the compiler made, a destructor run at a
-  closing brace -- has the column of the line's first character that is no blank (the brace). A loop's step and its
+  callee (a method's at its object), an assignment's at its left side, an `if`'s at its condition's first name -- at the
+  operator where the condition is a comparison (0.225: clang 21's line table has the branch's condition there and no row
+  at the first name, clang 18's has both; `ir_cond_anchor/2`, a `<` or `>` never a part of `->`, `<<`, `>>=` or `<=`)
+  --, a loop's, a `switch`'s, a `return`'s and a jump's at its keyword (`ir_stmt_anchor/2`, which `ir_stmt/1` sets
+  before the statement is lowered, every `ir_stmt` clause being `ir_stmt_/1`'s). The anchor is found in the line's text
+  -- the debug file's lines, read once a build (`ir_dbg_src_line/2`) -- as a whole word, from the column of the
+  statement before it on that line, else from the line's start (`ir_dbg_col/2`; `ir_line/1` asks it under `-g` only), a
+  column in bytes, as clang counts; a statement whose anchor is not there -- a name the compiler made, a destructor run
+  at a closing brace -- has the column of the line's first character that is no blank (the brace). A loop's step and its
   branch back are the loop's line and column (`ir_pos/1`, `ir_pos_set/1`): they had the body's last line. clang gives
   each EXPRESSION its own column (a load at its name, an operation at its operator), so its line table has more rows
   than this compiler's; the driver gate holds every row of a program's to one clang's table has for that line. Every
@@ -9369,6 +9412,10 @@ The namespaces' rules, the program's and the library's, are `library/ccl_cpp_nam
   and every subprogram has under `debug(lines)`, then the rest from `!5` on (`'$ir_dbg_md'`, `'$ir_dbg_n'`). A name or a
   path is escaped for a metadata string (`ir_dbg_escape/2`). Under `debug(lines)` (`ir_dbg_full/0` false) nothing but
   the subprograms, the blocks and the locations is made. (0.128, 0.130)
+- ON A MAC THE MACROS ARE DWARF 4's (0.225): under `-fdebug-macro` the module is DWARF 4 and its macros
+  `.debug_macinfo`'s, since LLVM's DWARF 5 `.debug_macro` crashes on Mach-O (18 and 21: `emitDwarfSymbolReference` in
+  `emitDebugMacinfoImpl`), and clang 21 with it for macOS 15 and later, where its DWARF is 5; clang's DWARF for macOS 14
+  and before is 4. Everywhere else, and on a Mac without `-fdebug-macro`, the module is DWARF 5. (0.225)
 - THE MACROS (0.134; `-fdebug-macro`): `ccl_pp_macro_trace/2` preprocesses the file standalone, its includes in place
   as `-E` runs them, and records each `#define` and `#undef` at its line and each file it enters and leaves, entered at
   the line of the `#include` (`pp_mt_note/1`, a global per event, `'$pp_mt:N'`, since a list would be copied whole at
@@ -10375,7 +10422,9 @@ The namespaces' rules, the program's and the library's, are `library/ccl_cpp_nam
 ### Hosts
 
 - macOS on x86-64 (Apple's SDK, Homebrew's LLVM, libc++ 21) is the first host. The seven gates last ran there at
-  0.90, all GREEN (cocolog 1.2.18). The fixtures added since 0.93 have run on Linux only.
+  0.90, all GREEN (cocolog 1.2.18). Since 0.224 the CI's Mac job runs the six small gates there, on GitHub's
+  `macos-26-intel` over Homebrew's `llvm@18` (The toolchain, its pins and the CI job); the C++ gates have run on Linux
+  only since 0.93.
 - Ubuntu 24.04 on x86_64 (clang and LLVM 18, glibc, libc++ 18 and 21) is a host since 0.87. Every gate but the C++ one
   is GREEN there since 0.93, and all seven since 0.95. Every step from 0.93 on is gated there, but the save points
   0.112, 0.113, 0.117, 0.122 to 0.125, 0.130, 0.131 and 0.143 (0.143's C gates and cross gate ran, its libc++ gates did

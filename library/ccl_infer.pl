@@ -610,7 +610,7 @@ ccl_elided_item(E, ET) :- \+ ccl_string_item(E), ccl_scalar_value_type(ET), catc
 ccl_string_item(E) :- compound(E), E =.. [K, _], memberchk(K, [str, wstr, u16str, u32str, u8str]), !.   % a string literal is a char array's VALUE (`struct N { char name[16]; int v; } g = { "global", 1 };'), though the inference types it as a pointer
 ccl_scalar_value_type(T) :- catch(ccl_resolve_type(T, T1), _, fail), ( T1 = ptr(_, _) ; ccl_is_arith(T1) ; T1 = base(_, [nullptr_t]) ), !.   % `nullptr' an item too (0.206)
 ccl_lock_free_at(K, P) :- ccl_lock_free_width(K), ( ( ccl_null_constant(P) ; P == nullptr ) -> true ; catch(ccl_type_of(P, PT), _, fail), ccl_aligned_for(PT, K) ), !.
-ccl_lock_free_width(K) :- ( memberchk(K, [1, 2, 4, 8]) -> true ; K == 16, once(catch(pp_arch(arm64), _, fail)) ).   % 16 bytes too on aarch64 (its pair loads and stores, as clang answers)
+ccl_lock_free_width(K) :- ( memberchk(K, [1, 2, 4, 8]) -> true ; K == 16, once(( catch(pp_arch(arm64), _, fail) ; catch(pp_os(darwin), _, fail) )) ).   % 16 bytes too on aarch64 (its pair loads and stores) and on a Mac (0.225: the x86-64 CPU clang's Darwin targets has cmpxchg16b), as clang answers
 %% the folded answer: in C++ a pointer that is no null constant folds nowhere here, and the desugaring answers over its
 %% desugared form (cpp_builtin_call/3): the raw form of libc++ 21's `std::addressof(__get_aligner_instance<...>::__instance)'
 %% is typed by addressof's own signature, `_Tp *', and the raw fold of atomic_ref's static `is_always_lock_free' answered 0
@@ -773,6 +773,7 @@ ccl_type_of(call(id(B), [_, _]), base([], [bool])) :- memberchk(B, ['__atomic_al
 ccl_type_of(call(id(B), _), base([], [void])) :- memberchk(B, ['__atomic_load', '__atomic_store', '__atomic_exchange']), !.   % GCC's generic atomic builtins (0.194): through pointers, no value
 ccl_type_of(call(id('__atomic_compare_exchange'), _), base([], [bool])) :- !.
 ccl_type_of(call(id('__builtin_classify_type'), [_]), base([], [int])) :- !.   % a type's class (0.194)
+ccl_type_of(call(id(B), [_, _|_]), base([], [long])) :- memberchk(B, ['__builtin_expect', '__builtin_expect_with_probability']), !.   % its first operand's value as a long (0.225): Apple's <assert.h> writes assert over __builtin_expect
 ccl_type_of(call(id(B), []), T) :- ccl_srcloc_builtin_type(B, T), !.   % clang's source-location builtins (0.201)
 ccl_type_of(call(id(B), _), base([], [int])) :- ccl_bit_builtin(B, _), !.   % the bit counts answer an int (0.129): `c ? 64 + __builtin_clzll(x) : __builtin_clzll(y)' had no type, in C as in C++ (libc++'s `__libcpp_clz(__uint128_t)')
 ccl_type_of(call(id(B), _), T) :- ccl_bswap_builtin(B, _, T), !.   % a byte swap answers the unsigned integer of its width (0.206)

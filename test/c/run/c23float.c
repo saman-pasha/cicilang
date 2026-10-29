@@ -26,7 +26,9 @@ int main(void) {
   printf("widths %d %d %d %d %d %d\n", BOOL_WIDTH, CHAR_WIDTH, SHRT_WIDTH, INT_WIDTH, LONG_WIDTH, LLONG_WIDTH);
   printf("char8 %d %d\n", (int) sizeof(__CHAR8_TYPE__), ATOMIC_CHAR8_T_LOCK_FREE);
   atomic_char8_t a8 = 7; printf("a8 %d\n", (int) atomic_load(&a8));
-  printf("fmt %s %s %s\n", __UINT8_FMTb__, __UINT32_FMTB__, __UINT64_FMTb__);
+  /* the 64-bit format's length modifier is its type's (0.225): `lb' where uint64_t is unsigned long, Linux's, `llb' where it
+     is unsigned long long, a Mac's */
+  printf("fmt %s %s %s\n", __UINT8_FMTb__, __UINT32_FMTB__, strcmp(__UINT64_FMTb__, _Generic((__UINT64_TYPE__) 0, unsigned long: "lb", unsigned long long: "llb", default: "?")) == 0 ? "the type's" : __UINT64_FMTb__);
   printf("sum %d\n", sum(3, 4, 5, 6));
   printf("bitint %d eval %d\n", BITINT_MAXWIDTH >= 128, FLT_EVAL_METHOD);
   return 0;

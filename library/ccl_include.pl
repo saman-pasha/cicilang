@@ -142,19 +142,23 @@ ccl_kb_forget_each([]).
 ccl_kb_forget_each([P|Ps]) :- ccl_kb_forget_items(P), ccl_kb_forget_each(Ps).
 
 %% remember: What and a unit (or a partial one) -> meta + one clause per item
+%% THIS LEVEL's ROWS ONLY (0.225), as a header's macros are kept (0.99): the read of a key's level replaces that level's
+%% row and items, and the other levels' stay -- a C23 read of <stdio.h> took the place of its C17 read, and the next C17
+%% build read it again (the reader gate's later process, 18 s over Apple's headers)
 ccl_kb_remember(Path, What0, Unit) :-
     ccl_kb_ready,
     (   ccl_kb_key(Path, K)
     ->  ccl_kb_what(What0, Unit, What, Items),
-        retractall('$ccl_ast'(Path, _, _)), ccl_kb_forget_items(Path),
+        K = key(_, V), retractall('$ccl_ast'(Path, key(_, V), _)), ccl_kb_forget_level(Path, V),
         ccl_kb_items(Path, F),
         (   catch(ccl_kb_store_items(Items, F, K, 0, N, [], Deps), error(resource_error(clause_length), _), fail)
         ->  assertz('$ccl_ast'(Path, K, meta(What, N, Deps)))
         ;   % an item over the store's clause budget (cocolog 1.2: an error, no
             % longer a silent loss): this file is read again next time, not cached
-            ccl_kb_forget_items(Path)
+            ccl_kb_forget_level(Path, V)
         )
     ;   true ).
+ccl_kb_forget_level(Path, V) :- ccl_kb_items_goal(Path, key(_, V), _, _, T), retractall(T).
 ccl_kb_what(top, unit(Is), top, Is) :- !.
 ccl_kb_what(included(How), unit(Is), included(How), Is) :- !.
 ccl_kb_what(included(How), partial(unit(Is), line(L), near(F)), included_partial(How, L, F), Is).

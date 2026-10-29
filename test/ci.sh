@@ -85,7 +85,7 @@ elif [ "${CI_PACKAGES:-0}" = 1 ]; then
   ci_step "the Homebrew packages"
   command -v brew >/dev/null 2>&1 || ci_die "no Homebrew (https://brew.sh): the Mac's packages come from it"
   xcode-select -p >/dev/null 2>&1 || ci_die "no Xcode command line tools (xcode-select --install): Apple's clang and the SDK"
-  brew --version | head -1
+  brew --version | sed -n 1p   # sed reads it all: head -1 closed the pipe, and a Mac's runner ignores SIGPIPE
   ci_f="llvm@$LLVM_MAJOR"
   if ! brew list --formula "$ci_f" >/dev/null 2>&1; then
     # the bottles this Homebrew's formula data names for it: an Intel Mac takes one that is no arm64_ and no _linux one
@@ -99,8 +99,8 @@ elif [ "${CI_PACKAGES:-0}" = 1 ]; then
   fi
   command -v gtimeout >/dev/null 2>&1 || command -v timeout >/dev/null 2>&1 || brew install coreutils || ci_die "brew install coreutils"
   ci_timeout
-  echo "installed: $(brew list --versions "$ci_f"), $(timeout --version | head -1)"
-  ci_summary "Homebrew: $(brew list --versions "$ci_f"); $(timeout --version | head -1)"; ci_summary ""
+  echo "installed: $(brew list --versions "$ci_f"), $(timeout --version | sed -n 1p)"
+  ci_summary "Homebrew: $(brew list --versions "$ci_f"); $(timeout --version | sed -n 1p)"; ci_summary ""
 fi
 
 ci_step "the neighbours at their pins, in $CI_ROOT"

@@ -26,7 +26,11 @@ int main(void) {
   printf("%zu %zu %zu\n", sizeof(struct PK), offsetof(struct PK, i), _Alignof(struct PK));
   printf("%zu %zu %zu %zu\n", sizeof(struct PA), offsetof(struct PA, p), offsetof(struct PA, d), _Alignof(struct PA));
   printf("%zu %zu %zu\n", sizeof(struct Q), offsetof(struct Q, p), _Alignof(CP2));
-  printf("%zu %zu\n", sizeof(__pthread_unwind_buf_t), _Alignof(__pthread_unwind_buf_t));
+#ifdef __GLIBC__
+  printf("%zu %zu\n", sizeof(__pthread_unwind_buf_t), _Alignof(__pthread_unwind_buf_t));   /* glibc's own aligned typedef */
+#else
+  printf("%zu %zu\n", sizeof(pthread_mutex_t), _Alignof(pthread_mutex_t));   /* elsewhere (0.225): a Mac's C library has no such type */
+#endif
   _Alignas(64) char loc[10]; I16 li = 4; I2 l2 = 5;
   printf("%d %d %d %d\n", (int) ((uintptr_t) g % 32), (int) ((uintptr_t) loc % 64), (int) ((uintptr_t) &gi % 16), (int) ((uintptr_t) &li % 16));
   unsigned char buf[12]; for (int k = 0; k < 12; k++) buf[k] = (unsigned char) (k + 1);
