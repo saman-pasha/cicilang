@@ -1097,6 +1097,10 @@ ccl_long_double(K) :- ( once(catch(pp_arch(A), _, fail)) -> true ; A = x86_64 ),
     ( A == arm64, once(catch(pp_os(linux), _, fail)) -> K0 = quad ; A == arm64 -> K0 = double ; K0 = x87 ), nb_setval('$ccl_ldbl', K0), K = K0.
 %% PLAIN CHAR AND wchar_t ARE UNSIGNED ON LINUX AARCH64 (AAPCS64; 0.131), as clang has them (`__CHAR_UNSIGNED__', `__WCHAR_UNSIGNED__')
 ccl_char_unsigned :- once(catch(pp_arch(arm64), _, fail)), once(catch(pp_os(linux), _, fail)).
+%% A ZERO-WIDTH BIT-FIELD ALIGNS THE STRUCT ON LINUX AARCH64 (AAPCS64; 0.244), as clang lays it (`UseZeroLengthBitfieldAlignment'):
+%% `struct { char a; int : 0; char b; }' is eight bytes aligned four there, where x86-64 and Apple's arm64 have five aligned one --
+%% the next member at four on all three
+ccl_zero_width_aligns :- once(catch(pp_arch(arm64), _, fail)), once(catch(pp_os(linux), _, fail)).
 ccl_plain_char_unsigned(S) :- ( memberchk(char, S) ; memberchk(wchar_t, S) ), \+ memberchk(signed, S), ccl_char_unsigned.
 %% A POINTER TO MEMBER FUNCTION IS ARM'S ON arm64 (0.161), Linux's and Apple's (clang's ItaniumCXXABI with UseARMMethodPtrABI):
 %% `{ ptr, adj }' with the virtual mark in adj's low bit and adj twice the `this' adjustment, ptr the slot's byte offset for a
@@ -1171,7 +1175,7 @@ ccl_members_layout_([member(T, N, W0)|Ms], Bit0, Al0, acc(Seen, EE0, Pk, All), L
         ;   Seen1 = Seen ),
         Lays = [lay(N, T, Off, none)|Lays1]
     ;   ccl_bit_width(W0, W), Seen1 = Seen, EE1 = EE0,
-        (   W =:= 0 -> ( ccl_packed_field(Pk, T1) -> Bit1 = Bit0 ; ccl_round_up(Bit0, ABits, Bit1) ), Al1 = Al0, Lays = Lays1
+        (   W =:= 0 -> ( ccl_packed_field(Pk, T1) -> Bit1 = Bit0, Al1 = Al0 ; ccl_round_up(Bit0, ABits, Bit1), ( ccl_zero_width_aligns -> Al1 is max(Al0, A) ; Al1 = Al0 ) ), Lays = Lays1
         ;   ( ccl_packed_field(Pk, T1) -> Start = Bit0 ; (Bit0 mod ABits) + W > ABits -> ccl_round_up(Bit0, ABits, Start) ; Start = Bit0 ),
             UnitStart is (Start // ABits) * ABits, Off is UnitStart // 8, BOff is Start - UnitStart,
             Bit1 is Start + W, Al1 is max(Al0, A),

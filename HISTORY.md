@@ -238,6 +238,7 @@ One row per step, in version order: the step's title, what it did and its gate n
 | 0.241 | the check's cost measured; a light record beside each template | the fifteenth item of "Do all": each phase of a build timed -- the check under 1 % of every build (0.43 s of 162 C builds' 46 s, 0.26 s of twelve C++ builds' 173 s), so no state table is due, and a warm C++ build's time its desugaring; the template registry's lookups copied whole bodies, and a light record beside each template (`'$cpp_tmplh'/4`) took 19 % of the desugaring of 30 fixtures, their IR the same; the cold read of `<thread>` profiled, flat | flow GREEN, the reader, compile, driver, objects, proof and cross gates GREEN (2 s, 11 s, 21 s, 4 s, 0 s, 205 s), the C++ gate RED in 1177 s for one check alone, 848 of 859 run fixtures ok and 11 skipped by their needs: the gate's `c45` wrote `'$cpp_tmpl'` by hand, without the light record the mangler now asks; through `cpp_template_put/3` its 54 checks GREEN alone; a local commit |
 | 0.242 | `-g`: each expression its own column | the sixteenth item of "Do all": under `-g` every instruction at the line and the column of the innermost expression being lowered, as clang's -- a name at itself, an operator at its operator, a call at its callee, a member at its name -- each statement's text aligned with the tokens of the debug file's lines, so neither the reader nor the tree carries a column; in C a statement's own places too (what follows it, a for's two branches, a block's `}`); three samples clang's sets exactly, and over 128 C run fixtures the pairs of clang's that we lack 886 where they were 3172; lowering 142 | flow GREEN after one split moved, the reader, compile, driver, objects, proof and cross gates GREEN (3 s, 28 s, 29 s, 5 s, 0 s, 216 s), the driver's columns twenty, the C++ gate GREEN in 1219 s with 848 run fixtures ok and 11 skipped; a local commit |
 | 0.243 | the decimal runtime is the compiler's own, libgcc's answer bit for bit | the seventeenth item of "Do all": every routine the lowering calls for the decimal types written in C (`module/bidrt.c`) and compiled by cicilang into `library/ccl_bidrt.pl`, each put into the module that calls it with the routines it calls, so a Mac links a decimal program; the driver gate holds it to libgcc's routines of the same names, 549,760 answers the same; the decimal fixtures lose their needs; lowering 143 | flow GREEN, the reader, compile, driver, objects, proof and cross gates GREEN (2 s, 29 s, 36 s with 53 checks, 5 s, 0 s, 201 s), the C++ gate GREEN in 1199 s with 848 run fixtures ok and 11 skipped; a local commit |
+| 0.244 | the calling conventions of x86-64, Linux's aarch64 and Apple's arm64 as clang lowers them | the eighteenth item of "Do all": Apple's arm64 proven against clang's IR, no Apple machine being here -- a narrow integer `signext` or `zeroext` on x86-64 and on Apple's arm64, `_Bool` as `i1` at a call, an Arm result of eight bytes or fewer an integer of its size and an HFA result its struct, x86-64's small aggregate with no register left an integer, Linux's aarch64 zero-width bit-field aligning its struct; the driver gate compares the three machines' conventions and layouts with clang's (`test/c/link/abi_targets.c`, `test/abisig.awk`); over the C run fixtures 857 and 809 conventions the same on the Arm machines; lowering 144 | flow GREEN, the reader, compile, driver, objects, proof and cross gates GREEN (3 s, 29 s, 39 s with 54 checks, 4 s, 0 s, 207 s), the C++ gate GREEN in 1203 s with 848 run fixtures ok and 11 skipped; a local commit |
 
 ## M5 — the C++ mode
 
@@ -16453,3 +16454,56 @@ the C++ gate GREEN in 1199 s, 848 run fixtures ok and 11 skipped by their needs 
   `CLAUDE.md`: the versions, where things are. `README.md`: the decimal types.
 
 The module 0.243. The lowering 143 (142 at 0.242): a decimal program's IR defines the routines it called. The reader 167.
+
+## 0.244 — the calling conventions of x86-64, Linux's aarch64 and Apple's arm64 as clang lowers them
+
+**0.244: the eighteenth item of "Do all" (Not done: "AAPCS64 is proven on Linux ..., not on Apple's arm64, whose variadic
+calls and long double differ"). No Apple machine is here, so Apple's arm64 is proven against clang's IR: each function's
+result and parameters with the attributes a call reads, and a table of layouts, beside x86-64's and Linux's aarch64's. What
+the comparison found is corrected on all three machines, and the driver gate holds them. A local commit.**
+
+WHAT THE COMPARISON FOUND (`s18/`, clang 18, `abi1.c`, `ext1.c`, `lay1.c`, then every C run fixture):
+
+- NARROW INTEGERS: clang marks a `_Bool`, a char, a short, an enumeration over one and a `_BitInt` below 32 bits
+  `signext` or `zeroext` on x86-64 and on Apple's arm64 -- the caller extends it, and Apple's ABI asks that of the
+  caller -- and nothing on Linux's aarch64; this compiler marked nothing anywhere, so a callee clang built on those two
+  machines could read the bits above an argument of ours.
+- `_BOOL` crossed as `i8`; clang passes it as `i1` on every machine.
+- ON BOTH ARM MACHINES a small aggregate came back as `i64` where clang's is an integer of its own size (`i8`, `i24`,
+  `i32`), and an HFA as `[k x T]` where clang's is the struct itself -- the same registers.
+- ON x86-64 an aggregate of eight bytes that found no integer register left went `byval` where clang's is an `i64`.
+- THE LAYOUT of a zero-width bit-field on Linux's aarch64 was x86-64's: AAPCS64 lets it raise the struct's alignment
+  (clang's `struct { char a; int : 0; char b; }` is 8 bytes aligned 4 there, ours was 5 aligned 1). Apple's arm64 lays it
+  as x86-64 does.
+- What agreed already: Apple's variadic calls (each argument's IR as clang's; the backend puts them on the stack), its
+  `long double` as a `double`, its signed `char` and `wchar_t`, every other layout of the table, and the predefined
+  macros of the three machines -- each of clang's names through `-E` of both, the same values but spellings (`( - 307 )`),
+  versions and `__float128`, which this compiler has not; clang 18's `__ARM_ACLE`, `__BOOL_WIDTH__` and Apple's BTI and
+  FRINT macros differ, clang 21's and 22's agree.
+
+WHAT 0.244 DOES: the marks (`ir_ext/3`, on a parameter, an argument and a result, x86-64 and Apple's arm64 only); `_Bool`
+as `i1` at a call's boundary (`ir_scalar_abi_ll/2`, truncated going and widened back, `ir_to_abi/4`, `ir_from_abi/4`); an
+Arm result of eight bytes or fewer as an integer of its size and an HFA result as its struct (`ir_aapcs_ret/3`); x86-64's
+small aggregate with no integer register left as an integer; the zero-width bit-field's alignment on Linux's aarch64
+(`ccl_zero_width_aligns/0`). THE CHECK: `test/c/link/abi_targets.c` (the three files in one, no header) built for each
+machine by cicilang and by clang to IR, every function's convention extracted by `test/abisig.awk` and the table of
+sizes, offsets and alignments compared line for line.
+
+MEASUREMENTS: before the change, Apple's arm64: 22 of 47 conventions of `abi1.c` the same (the marks, `r1`, `r3`,
+`rbits`, the HFA results), 4 of 15 of `ext1.c`; after it the three machines' `abi1.c` 47 of 47, `ext1.c` 15 of 15 and
+the layouts the same (`lay1.c`'s 56 values; Linux's aarch64 had 5, 1, 4 and 9, 1, 8 where clang has 8, 4, 4 and 16, 8,
+8). Over the C run fixtures (`fxabi.sh`): x86-64 842 of 867 conventions of 128 fixtures the same (the 25 others
+spellings of the same registers), Linux's aarch64 857 of 857, Apple's arm64 809 of 809 of 124 fixtures. The driver
+gate's check: 64 lines the same on each machine, where clang's own x86-64 and aarch64 lines differ in 46 of 63. The flow
+gate GREEN (113 s); the reader, compile, driver, objects, proof and cross gates GREEN (3 s, 29 s, 39 s with 54 checks, 4
+s, 0 s, 207 s; peak 572 MB); the C++ gate GREEN in 1203 s, 848 run fixtures ok and 11 skipped by their needs (peak 3545
+MB): libc++'s `bool` parameters cross as `i1` now, and its shipped library, which clang built, reads them so.
+
+- `library/ccl_ir.pl` (`ir_ext/3`, `ir_ext_target/0`, `ir_ext_param/3`, `ir_ext_ret/3`, `ir_scalar_abi_ll/2`, `ir_to_abi/4`,
+  `ir_from_abi/4`, `ir_aapcs_ret/3`, the parameter's and the definition's signatures, the declaration's result, the
+  call's arguments and result, the return statement, `ir_regs_take_/5`, the lowering 144), `library/ccl_infer.pl`
+  (`ccl_zero_width_aligns/0`). `test/c/link/abi_targets.c`, `test/abisig.awk`, `test/driver.sh` (the check).
+  `RULES.md`: the layout of a zero-width bit-field, How values and classes cross a call, the driver gate, Not done.
+  `CLAUDE.md`: the versions, where things are.
+
+The module 0.244. The lowering 144 (143 at 0.243): every program's IR with a narrow parameter or result differs. The reader 167.

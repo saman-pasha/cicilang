@@ -264,7 +264,7 @@ that changes a rule edits the rule here, in its topic, and writes its entry in `
   the reference, `ok NAME clang` or `ok NAME expect`; a fixture in the language's own forms, which clang does not read,
   is held to its `.expect`, and so is one whose `NAME.ref` says `expect` (0.225), and where such a fixture differs the
   line after the diff says what clang said. (M2, M3, 0.57, 0.221, 0.224, 0.225)
-- The driver gate. `test/driver.sh` makes 53 checks of `bin/cicilang` over the user's store (its decimal checks are
+- The driver gate. `test/driver.sh` makes 54 checks of `bin/cicilang` over the user's store (its decimal checks are
   skipped where no gcc with decimal floating types is installed), the variadic calls of every kind both ways against
   clang among them (`test/c/link/va_*.c`, 0.131), and Apple's arm64 expansion of `va_arg` of an aggregate against
   clang's, both retargeted to this host (`test/c/link/va_darwin.c`, 0.160). They cover what `-o`, `-c`, `-S`,
@@ -295,8 +295,9 @@ that changes a rule edits the rule here, in its topic, and writes its entry in `
   and C23, an `#undef NDEBUG` before `<assert.h>` under `-DNDEBUG` asserting again, and the C++ IR cache (a rebuild
   served, a changed file lowered again); since 0.240 four builds at once over one fresh store, built one after another
   under its lock, and one more build over it after them; since 0.243 the compiler's decimal runtime against libgcc's,
-  bit for bit (`test/c/link/decrt.c`, the Decimal floating types). (M4, 0.93, 0.128, 0.129, 0.154, 0.160, 0.221, 0.240,
-  0.242, 0.243)
+  bit for bit (`test/c/link/decrt.c`, the Decimal floating types); since 0.244 the calling conventions and layouts of
+  x86-64, Linux's aarch64 and Apple's arm64 against clang's IR (`test/c/link/abi_targets.c`, `test/abisig.awk`; How
+  values and classes cross a call). (M4, 0.93, 0.128, 0.129, 0.154, 0.160, 0.221, 0.240, 0.242, 0.243, 0.244)
 - The objects gate. `test/objects.sh` makes 29 checks of the objects layer, an instance that outlives its process
   among them. (from the start)
 - The cross gate (0.131). `test/cross.sh` builds every `test/c/run/*.c` with `cicilang --target=aarch64-linux-gnu` and
@@ -6561,7 +6562,10 @@ A lambda is a class of its captures (`library/ccl_cpp_lambda.pl`, 0.223). A fixt
 
 - A struct has its C layout with SysV packing (`ccl_members_layout/4`, cached in `'$ccl_laycache'`). Each member is
   `lay(Name, T, ByteOff, none | bits(BitOff, Width, UnitBytes) | empty)`. A bitfield that would cross an alignment
-  boundary of its type starts at the boundary; a zero width closes the unit. (M2b)
+  boundary of its type starts at the boundary; a zero width closes the unit, and on Linux's aarch64 raises the struct's
+  alignment to its type's, as AAPCS64 and clang have it (`UseZeroLengthBitfieldAlignment`; `ccl_zero_width_aligns/0`,
+  0.244): `struct { char a; int : 0; char b; }` is eight bytes aligned four there and five aligned one on x86-64 and on
+  Apple's arm64, `b` at four on all three. (M2b, 0.244)
 - A PACKED STRUCT OR UNION (GCC's `packed`, 0.203; clang's FieldPacked) lays each member at alignment one, or at what
   the member's own `aligned` says, and a packed bitfield at the next bit, whatever unit of its type it crosses, a
   zero-width one moving nothing there (`ccl_members_layout/5` in the mode `packed`, `ccl_member_align/4`,
@@ -6663,6 +6667,25 @@ A lambda is a class of its captures (`library/ccl_cpp_lambda.pl`, 0.223). A fixt
   in v0-v2, never by reference: the order was the other way round and `d24` crashed), else over 16 bytes indirect,
   else `i64`, `i128` for a 16-aligned value (an even register pair), or `[2 x i64]` (`ir_abi_/6`). Proven against
   aarch64-linux-gnu-gcc under qemu both ways by the cross gate (0.131). (M3, 0.131)
+- AS CLANG LOWERS IT, ON THREE MACHINES (0.244): a narrow integer -- a `_Bool`, a char, a short, an enumeration over one
+  and a `_BitInt` below 32 bits -- is `signext` where it is signed and `zeroext` where not, on a parameter, an argument
+  and a result, on x86-64 and on Apple's arm64, whose ABI asks it of the caller ("the caller of a function is
+  responsible for signing or zero-extending any argument with fewer than 32 bits"); Linux's AAPCS64 marks none
+  (`ir_ext/3`). A `_Bool` crosses as `i1`, as clang passes it on every machine: a byte in memory and in every value
+  here, its argument and its result truncated to `i1`, its parameter and its call's result widened back
+  (`ir_scalar_abi_ll/2`, `ir_to_abi/4`, `ir_from_abi/4`). On both Arm machines a result of eight bytes or fewer comes
+  back as an integer of its own size (three bytes an `i24`, where a parameter of them is an `i64`) and an HFA as its
+  struct itself (a parameter is the array of its members; `ir_aapcs_ret/3`); on x86-64 an aggregate of eight bytes or
+  fewer that finds no integer register left at all is an integer of its size, as clang's `getIndirectResult` has it,
+  where it was `byval`. Each put the same bytes in the same registers and slots, but the narrow integers' bits above
+  them, which a callee clang built reads on Apple's arm64 and on x86-64: the IR is now clang's. The driver gate builds
+  `test/c/link/abi_targets.c` for the three machines with cicilang and with clang to IR and compares every function's
+  convention (`test/abisig.awk`: its result and parameters, their types and the attributes a call reads -- `signext`,
+  `zeroext`, `sret`, `byval` and its alignment) and a table of sizes, offsets and alignments, line for line: 64 lines
+  each. Over the C run fixtures the conventions are clang's on Linux's aarch64 (857 of 128 fixtures) and on Apple's
+  arm64 (809 of 124 fixtures, each preprocessed once for Linux's aarch64 and that text compiled for the Apple machine by
+  both: no Apple SDK is here); on x86-64 the 25 of 867 that differ are spellings of the same registers (Not done).
+  (0.244)
 - `ir_leaves/3` gives the leaves from the same layout. A pointer to member function is two INTEGER eightbytes, and a
   complex its two components. On SysV an aggregate with a long double (`x87`) leaf goes in memory; a result of one long
   double or one complex long double comes back on the x87 stack, `%st0` or `%st0` and `%st1` (`ir_ret_abi/2`,
@@ -11969,9 +11992,15 @@ Declarations topic of the C++ reader).
 
 ### ABI and hosts
 
-- AAPCS64 is proven on Linux (the cross gate under qemu, 0.131), not on Apple's arm64, whose variadic calls and long
-  double differ: no Apple machine is on this box, and its expansion of an aggregate's `va_arg` is checked against
-  clang's on this host alone (0.160).
+- AAPCS64 is proven on Linux (the cross gate under qemu, 0.131); Apple's arm64, whose variadic calls, `long double`,
+  `char` and narrow integers differ, is proven against clang's IR here (0.244: the conventions and layouts of
+  `test/c/link/abi_targets.c`, and 809 conventions of 124 C run fixtures), not run on an Apple machine, and its
+  expansion of an aggregate's `va_arg` is checked against clang's on this host alone (0.160). On x86-64 the IR spells
+  some aggregates otherwise than clang's, with the same registers and slots: an eightbyte of one pointer as `i64`
+  (clang's `ptr`), an `int` with only padding after it in its eightbyte as `i64` (clang's `i32`), a `byval` struct's
+  tail padding, an `__int128` in registers as `i128` (clang's two `i64`) -- 25 of 867 conventions over 128 C run
+  fixtures (0.244). `bin/cicilang` refuses three of clang's arguments: `-isystem` (a CMake build passes it), `-P` and
+  `-dM`.
 - The Itanium mangler spells the forms the shipped libraries' symbols use (measured at 0.186: libc++ 18's, 21's and 22's
   `libc++.so.1` and `libc++abi.so.1`, and the 27 symbols libc++ 21's `libc++experimental.a` defines strongly), and since
   0.236 the forms a program's type information shows -- `Dp`, `DT` and `Dt`, `B`, `Ul`, `Ut`, `X`, `L_Z`, a local name
