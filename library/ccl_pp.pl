@@ -1050,7 +1050,8 @@ pp_builtin_answer('__is_target_environment', [tok(_, E, _)], V) :- !, pp_os(O), 
 pp_builtin_answer('__is_target_os', [tok(_, OS, _)], V) :- !, pp_os(O), ( O == darwin, memberchk(OS, [macos, darwin, macosx]) -> V = 1 ; O == linux, OS == linux -> V = 1 ; V = 0 ).
 pp_builtin_answer(_, _, 0).                                                       % features, attributes, warnings, modules: the plainest path
 pp_gnu_attribute(N) :- pp_vendor_attribute(gnu, N), !.
-pp_gnu_attribute(N) :- memberchk(N, [vector_size, ext_vector_type]).
+pp_gnu_attribute(N) :- memberchk(N, [vector_size, ext_vector_type]), !.
+pp_gnu_attribute(abi_tag) :- ccl_lang(cpp).   % GCC's `abi_tag' on a class, which the mangler spells (0.236); C++'s alone, as clang answers
 
 %% THE BUILTINS LIBC++ HAS A FALLBACK FOR AND THIS COMPILER DOES NOT PROVIDE (0.126). Every other `__has_builtin' is 1 (the
 %% lowering and the desugaring answer them, and libc++'s other branch is often an #error). libc++ 21 writes
@@ -1087,7 +1088,8 @@ pp_cpp_attribute(unlikely, 201803).
 %% `_Clang::__lifetimebound__', `__preferred_name__', `__no_specializations__' and the capabilities and writes them into its
 %% declarations, which the reader drops; `__no_destroy__' stays its fallback
 pp_cpp_attr_value(N, V) :- atom(N), !, pp_cpp_attribute(N, V).
-pp_cpp_attr_value(scoped(S, N), 1) :- pp_attr_vendor(S, Ns), pp_vendor_attribute(Ns, N).
+pp_cpp_attr_value(scoped(S, N), 1) :- pp_attr_vendor(S, Ns), pp_vendor_attribute(Ns, N), !.
+pp_cpp_attr_value(scoped(S, abi_tag), 1) :- pp_attr_vendor(S, gnu).   % `[[gnu::abi_tag(...)]]' (0.236)
 pp_attr_vendor(gnu, gnu).
 pp_attr_vendor(clang, clang).
 pp_attr_vendor('_Clang', clang).

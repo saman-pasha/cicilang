@@ -20,6 +20,8 @@ cpp_ns_resolve(Units000, Units) :-
     sort(Pairs0, Pairs), cpp_ns_quals_(Pairs, Qs0), cpp_anon_quals(Pairs, Qs0, Qs00), cpp_lib_quals(Units0, Pairs, Qs00, Qs),   % ... and a name a library header declares too (0.221, cpp_lib_quals/4)
     cpp_reset('$cpp_dbg_ns'/2), cpp_reset('$cpp_dbg_targs'/2),                                       % -g: the namespaces of the program's own names, a function template instance's arguments (0.130)
     cpp_reset('$cpp_own_ns'/2), forall(( member(N-NP, Pairs), NP \== [] ), assertz('$cpp_own_ns'(N, NP))),   % the namespace of each of the program's own names, where argument-dependent lookup looks (cpp_adl_fn, 0.134)
+    cpp_reset('$cpp_own_ns_full'/2), forall(( member(in(FPath, FI), Flat), FPath \== c, memberchk(inline(_), FPath), ( catch(once(cpp_index_name(FI, FN)), _, fail) ; cpp_ns_enum_name(FI, FN) ), atom(FN), cpp_ns_plain(FPath, FP) ),
+        ( '$cpp_own_ns_full'(FN, _) -> true ; assertz('$cpp_own_ns_full'(FN, FP)) )),   % ... and its whole path where an inline namespace is in it, which a local name spells (0.236: `ZN2ns2in2nfEvE1L')
     cpp_reset('$cpp_type_ns'/2), forall(( member(N-NP, Pairs), NP \== [], cpp_ns_final_name(N, NP, Qs, K) ), assertz('$cpp_type_ns'(K, NP))),   % ... and by the name it has once a collision is keyed (0.180), which the type information's names read (cpp_prog_scope/2)
     forall(( member(in(UP, declare(_, base(_, [union(UN, UMs)]))), Flat), atom(UN), UMs \== none, cpp_ns_named_path(UP, UNP), UNP \== [] ), assertz('$cpp_type_ns'(UN, UNP))),   % a plain union's too, which no index name names
     ( nb_current('$ccl_debug', file(_)) -> forall(( member(N-NP, Pairs), NP \== [], \+ '$cpp_dbg_ns'(N, _) ), assertz('$cpp_dbg_ns'(N, NP))) ; true ),

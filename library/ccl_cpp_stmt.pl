@@ -597,8 +597,14 @@ cpp_stmts(Ctx, [declare(L, base(_, [class(K, N, Bases, Ms)]))|Ss], Ts) :- atom(N
 cpp_stmts(Ctx, [declare(L, base(Q, [S0]))|Ss], Ts) :- cpp_plain_local(S0, K, N, Ms0), \+ '$cpp_localst'(_, N), !,
     (   K == struct, cpp_struct_promotes(N, Ms0)
     ->  cpp_stmts(Ctx, [declare(L, base(Q, [class(struct, N, [], Ms0)]))|Ss], Ts)
-    ;   cpp_plain_local_name(K, N, Ms0, Name, Ms), S =.. [K, Name, Ms], ccl_note_spec(S), cpp_tag_scoped_list(Ss, N, ['$deep'-yes, N-Name], Ss1),
+    ;   cpp_plain_local_name(L, K, N, Ms0, Name, Ms), S =.. [K, Name, Ms], ccl_note_spec(S), cpp_tag_scoped_list(Ss, N, ['$deep'-yes, N-Name], Ss1),
         cpp_stmts(Ctx, [declare(L, base(Q, [S]))|Ss1], Ts) ).
+%% AN UNNAMED PLAIN LOCAL STRUCT OR UNION OF THE PROGRAM'S (0.236; [class.local]) is a class of its own too: `struct { int z; } v;' in a
+%% function is named where it is met, its variables' type that name, its type information its local name, `Z2nlvE3$_0' -- it was
+%% `4anon', and two such structs of one text one type
+cpp_stmts(Ctx, [declaration(L, Sto, base(Q, [S0]), Vs)|Ss], Ts) :- Vs \== [], cpp_unnamed_local(S0, K, Ms0), \+ nb_current('$cpp_in_lib', yes), !,
+    cpp_unnamed_local_name(L, K, Ms0, Name, Ms), S =.. [K, Name, Ms], ccl_note_spec(S),
+    cpp_subst_term(S0, S, declaration(L, Sto, base(Q, [S0]), Vs), D1), cpp_stmts(Ctx, [declare(L, base([], [S])), D1|Ss], Ts).
 cpp_stmts(Ctx, [declaration(L, Sto, B, Vs)|Ss], Ts) :- B = base(_, [class(K, anon, Bases, Ms)]), !,
     cpp_local_class(L, K, anon, Bases, Ms, Name), cpp_subst_term(class(K, anon, Bases, Ms), typedef(Name), declaration(L, Sto, B, Vs), D1), cpp_stmts(Ctx, [D1|Ss], Ts).   % an UNNAMED class is the type of the declaration, its variables' types the same term
 cpp_stmts(Ctx, [S|Ss], [S1|Ts]) :- S = bindings(L, _, Ns, _), memberchk(pack(_), Ns), !,   % a structured binding pack (0.198, cpp_binding_names): the statements after it name its elements
@@ -689,20 +695,32 @@ cpp_udl_imag(if, ldbl(A), imagf(F)) :- !, cpp_text_double(A, F).
 cpp_udl_imag(il, ldbl(A), imagl(A)) :- !.
 cpp_udl_imag(S, L, _) :- cpp_refuse(0, literal_operator_not_visible(S, L)).
 cpp_text_double(A, F) :- atom_codes(A, Cs), once(phrase(ccl_number(0, tok(float, F, _)), Cs)).   % the double nearest the text, as the lexers read a decimal or a hex one
-cpp_local_class(_, K, N, Bases0, Ms0, Name) :- '$cpp_localcls'(class(K, N, Bases0, Ms0), Name), !.   % ONCE per text, as a lambda is: the result of a function is deduced from a walk of its first return, and the walk that emits meets the class again
+cpp_local_class(L, K, N, Bases0, Ms0, Name) :- cpp_local_key(L, LK), '$cpp_localcls'(LK-class(K, N, Bases0, Ms0), Name), !.   % ONCE per text, as a lambda is: the result of a function is deduced from a walk of its first return, and the walk that emits meets the class again -- and per place and function in the program's code (0.236, cpp_local_key/2)
 cpp_local_class(L, K, N, Bases0, Ms0, Name) :-
     ccl_gensym(local, G0), cpp_unit_tag(UT), ( UT == '' -> G = G0 ; atomic_list_concat([G0, '_', UT], G) ), ( N == anon -> Name = G ; atomic_list_concat([N, '.', G], Name) ),   % the unit's tag in the name (0.192)
     ( N == anon -> Bases = Bases0, Ms = Ms0 ; cpp_rename_names(Bases0, ['$deep'-yes, N-Name], Bases), cpp_rename_names(Ms0, ['$deep'-yes, N-Name], Ms) ),   % its own name inside it is the new one
-    ( N == anon -> true ; cpp_fsig_now(Encl), assertz('$cpp_pf_local'(Name, N, Encl)) ),             % the function it is written in: its members' own names (0.166)
+    cpp_fsig_now(Encl), ( N == anon -> cpp_local_note(anon, Name, Encl) ; assertz('$cpp_pf_local'(Name, N, Encl)), cpp_local_note(named(N), Name, Encl) ),   % the function it is written in: its members' own names (0.166), its local name (0.236)
     cpp_isolated(( cpp_register_class(L, Name, Bases, Ms), cpp_item(declare(L, base([], [class(K, Name, Bases, Ms)])), Its) )),
-    cpp_add_instance_items(Its), assertz('$cpp_localcls'(class(K, N, Bases0, Ms0), Name)), cpp_trace(local_class(Name)).
+    cpp_add_instance_items(Its), cpp_local_key(L, LK), assertz('$cpp_localcls'(LK-class(K, N, Bases0, Ms0), Name)), cpp_trace(local_class(Name)).
+%% A LOCAL CLASS IS ITS PLACE'S AND ITS FUNCTION'S (0.236; [class.local], [temp.inst]): two local classes of one text in two blocks or two
+%% functions, or in two instances of one function template, are two classes -- `{ struct L {}; } { struct L {}; }' was one, their type
+%% information one. Keyed by the line and the description of the function the outermost closure is made in (cpp_fsig_root/2), as a
+%% lambda in a closure's body is; the library's stay one per text
+cpp_local_key(_, lib) :- nb_current('$cpp_in_lib', yes), !.
+cpp_local_key(L, at(L, R)) :- cpp_fsig_now(F0), cpp_fsig_root(F0, R).
 cpp_plain_local(struct(N, Ms), struct, N, Ms) :- atom(N), N \== anon, is_list(Ms).   % a plain local struct or union's definition (0.201; cpp_stmts)
 cpp_plain_local(union(N, Ms), union, N, Ms) :- atom(N), N \== anon, is_list(Ms).
-cpp_plain_local_name(K, N, Ms0, Name, Ms) :- '$cpp_localst'(K-N-Ms1, Name), Ms1 == Ms0, !, cpp_plain_local_ms(N, Name, Ms0, Ms).   % ONCE per text, as a local class is
-cpp_plain_local_name(K, N, Ms0, Name, Ms) :-
+cpp_plain_local_name(L, K, N, Ms0, Name, Ms) :- cpp_local_key(L, LK), '$cpp_localst'(LK-K-N-Ms1, Name), Ms1 == Ms0, !, cpp_plain_local_ms(N, Name, Ms0, Ms).   % ONCE per text, place and function, as a local class is
+cpp_plain_local_name(L, K, N, Ms0, Name, Ms) :-
     ccl_gensym(local, G0), cpp_unit_tag(UT), ( UT == '' -> G = G0 ; atomic_list_concat([G0, '_', UT], G) ), atomic_list_concat([N, '.', G], Name),
-    assertz('$cpp_localst'(K-N-Ms0, Name)), cpp_plain_local_ms(N, Name, Ms0, Ms).
+    cpp_local_key(L, LK), assertz('$cpp_localst'(LK-K-N-Ms0, Name)), cpp_fsig_now(Encl), cpp_local_note(named(N), Name, Encl), cpp_plain_local_ms(N, Name, Ms0, Ms).
 cpp_plain_local_ms(N, Name, Ms0, Ms) :- cpp_rename_names(Ms0, ['$deep'-yes, N-Name], Ms1), cpp_plain_members(Ms1, Ms).   % its own name inside it the new one, its members' types resolved
+cpp_unnamed_local(struct(anon, Ms), struct, Ms) :- is_list(Ms).
+cpp_unnamed_local(union(anon, Ms), union, Ms) :- is_list(Ms).
+cpp_unnamed_local_name(L, K, Ms0, Name, Ms) :- cpp_local_key(L, LK), '$cpp_localst'(LK-K-anon-Ms1, Name), Ms1 == Ms0, !, cpp_plain_members(Ms0, Ms).   % once per text, place and function
+cpp_unnamed_local_name(L, K, Ms0, Name, Ms) :-
+    ccl_gensym(local, G0), cpp_unit_tag(UT), ( UT == '' -> Name = G0 ; atomic_list_concat([G0, '_', UT], Name) ),
+    cpp_local_key(L, LK), assertz('$cpp_localst'(LK-K-anon-Ms0, Name)), cpp_fsig_now(Encl), cpp_local_note(anon, Name, Encl), cpp_plain_members(Ms0, Ms).
 cpp_subst_term(Old, New, X, Y) :- ( X == Old -> Y = New ; compound(X) -> X =.. [F|As], cpp_subst_term_l(As, Old, New, Bs), Y =.. [F|Bs] ; Y = X ).
 cpp_subst_term_l([], _, _, []).
 cpp_subst_term_l([A|As], Old, New, [B|Bs]) :- cpp_subst_term(Old, New, A, B), cpp_subst_term_l(As, Old, New, Bs).

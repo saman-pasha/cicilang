@@ -516,6 +516,7 @@ ccl_layout_marker(empty_vsub(_, _)).                               % ... and an 
 ccl_layout_marker(packed(_)).                                      % GCC'S `packed' ON A STRUCT OR A UNION (0.203): its members aligned at one, a bitfield at the next bit (ccl_member_align/4)
 ccl_layout_marker('$nonpod').                                      % A CLASS THAT IS NOT A POD FOR THE PURPOSE OF LAYOUT (the Itanium ABI's term, as clang decides it; 0.135): as a base or a `[[no_unique_address]]' member it takes its DATA size and lends its tail padding (ccl_data_size/2)
 ccl_layout_marker(final_class).                                    % A CLASS DECLARED `final' (0.206): no member, the mark `__is_final' asks
+ccl_layout_marker(abi_tag(_)).                                     % A CLASS'S ABI TAGS (0.236): no member, the strings the mangler spells after its name
 %% which kind of virtual-base struct a type is: `complete' (the base laid LAST, at a place only the complete object knows)
 %% or `nv(T)' (the base elsewhere in the complete object); either is reached through the vtable, never statically
 ccl_vbase_kind(T, K) :- ccl_members_of_(T, Ms), ( memberchk(virtual_base, Ms) -> K = complete ; memberchk(virtual_base_of(VT), Ms) -> K = nv(VT) ).

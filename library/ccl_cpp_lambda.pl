@@ -22,11 +22,17 @@ cpp_lambda(Ctx, Caps, Ps0, Ret0, Body, E) :- atom(Ctx), '$cpp_closure_made'(Ctx,
 cpp_lambda(Ctx, Caps, Ps0, Ret0, Body, E) :- cpp_lambda_(Ctx, Caps, Ps0, Ret0, Body, E, Name, T, Captures, This),
     cpp_lambda_key(Ctx, Caps, Ps0, Ret0, Body, Key), nb_getval('$cpp_lambda_memo', M), nb_setval('$cpp_lambda_memo', [Key-E|M]),
     cpp_lambda_root_key(Ctx, Key, RKey), assertz('$cpp_lambda_cls'(RKey, Name, T, Captures, This)).
-cpp_lambda_key(Ctx, Caps, Ps0, Ret0, Body, k(Ctx, Caps, Ps0, Ret0, Body, Ts, F)) :- ( cpp_lambda_names_fn(Caps-Body) -> cpp_fsig_now(F) ; F = none ),   % and THE FUNCTION IT IS MADE IN where its text spells that function's name (0.166, cpp_lambda_names_fn/1)
+cpp_lambda_key(Ctx, Caps, Ps0, Ret0, Body, k(Ctx, Caps, Ps0, Ret0, Body, Ts, F)) :- ( cpp_lambda_names_fn(Caps-Body) -> cpp_fsig_now(F0), cpp_lctx(F0, F) ; cpp_lambda_instance(F) ),   % and THE FUNCTION IT IS MADE IN where its text spells that function's name (0.166, cpp_lambda_names_fn/1), or where it is an instance of the program's template (0.236)
     cpp_ids(Body, Ids0), sort(Ids0, Ids), findall(N-T, ( member(N, Ids), ( cpp_local(N) -> ccl_type_of(id(N), T) ; atom(Ctx), '$cpp_closure_made'(Ctx, _), cpp_capturable(Ctx, N, T) ) ), Ts).   % a name the lambda can capture: a local, or in a closure's body the closure's member (0.197)
 cpp_lambda_root_key(Ctx, k(_, Caps, Ps0, Ret0, Body, Ts, F), k(R, Caps, Ps0, Ret0, Body, Ts, F)) :- cpp_lambda_root(Ctx, R).
 cpp_lambda_root(Ctx, R) :- atom(Ctx), '$cpp_closure_made'(Ctx, C0), !, cpp_lambda_root(C0, R).
 cpp_lambda_root(Ctx, Ctx).
+%% A CLOSURE OF AN INSTANCE OF THE PROGRAM'S FUNCTION TEMPLATE IS THE INSTANCE'S OWN (0.236; [temp.inst], [expr.prim.lambda.closure]/1):
+%% `tf<int>' and `tf<double>' each have their lambda's class, named in each (`Z2tfIiET_S0_EUlvE_'); keyed by the description of the
+%% function the outermost closure is made in (cpp_fsig_root/2), so a lambda in a closure's body is the one the enclosing
+%% function's walk made. The library's stay one per text (0.166: std::format's closures made per instance cost fmtcheck.cpp 10 s)
+cpp_lambda_instance(F) :- \+ nb_current('$cpp_in_lib', yes), cpp_fsig_now(F0), cpp_fsig_root(F0, R), R = fsig(_, _, _, _, _, _, _, TA), TA \== none, !, F = inst(R).
+cpp_lambda_instance(none).
 %% A CLOSURE IS ONE PER ENCLOSING FUNCTION ONLY WHERE ITS TEXT SPELLS THAT FUNCTION'S NAME (0.166): a lambda whose body or
 %% captures name `__func__', `__FUNCTION__', `__PRETTY_FUNCTION__', `source_location' or `__builtin_source_location', or
 %% call a function of the program that takes a source location ('$cpp_srcloc_fn', noted with the unit's registries), is
@@ -48,19 +54,22 @@ cpp_lambda_(Ctx, Caps, Ps0, Ret0, Body, E, Name, T, Captures, This) :-
     nb_getval('$cpp_lambdas', K0), K is K0 + 1, nb_setval('$cpp_lambdas', K), cpp_unit_tag(UT), ( UT == '' -> atomic_list_concat(['lambda.', K], Name) ; atomic_list_concat(['lambda.', K, '_', UT], Name) ),   % THE UNIT'S TAG in the name (0.192, cpp_unit_tag/1)
     T = base([], [typedef(Name)]),
     cpp_lambda_sig(Caps, Ps0, Name, Ps1, TPs, Ps, SN, Self, SelfPs),
+    cpp_fsig_now(Encl), assertz('$cpp_pf_closure'(Name, Encl, Ps1)),                                   % the function it is made in, and its parameters as written: its call operator's own name (0.166)
+    ( memberchk(tparams(ETPs), Caps) -> true ; ETPs = [] ), cpp_local_note(closure(Ps1, ETPs), Name, Encl),   % and its local name (0.236, cpp_local_note/3), before its body is walked
+    ( ( memberchk(mutable, Caps) ; SN \== none ) -> OpQs = [closure] ; OpQs = [const, closure] ),   % A NON-MUTABLE LAMBDA'S CALL OPERATOR IS CONST ([expr.prim.lambda.closure]/5; 0.127): its by-value captures are const in the body, so a non-const member of one is no candidate and a non-const reference binds none
+    OpSig = fsig(member, Name, operator('()'), none, Ps1, false, OpQs, none),                      % ITS BODY IS ITS CALL OPERATOR'S where its result is deduced too (0.236): a lambda or a local class made there is named in it, `ZZ3ilfvENKUlvE_clEvEUlvE_'
     cpp_lambda_caps(Ctx, Caps, SelfPs, Body, Captures, Ms0, Items, This),
     cpp_lambda_const_check(Caps, Captures, Body),
     ( ( This = yes(EC) ; This = star(EC) ) -> cpp_note_closure_this(Name, EC) ; true ),
     findall(param(PT, N), ( member(cap(_, N, _), Caps), memberchk(N-How, Captures), cpp_cap_member_type(How, PT) ), InitPs), append(SelfPs, InitPs, RetPs),   % an init-capture's name is in scope where the result is deduced
-    (   Ret0 \== none, TPs == [], cpp_auto_result(Ret0) -> cpp_lambda_auto_ret(Ctx, Ret0, RetPs, Body, Ret)   % A WRITTEN `-> auto &&' (`-> auto &', `-> auto') IS DEDUCED AS A FUNCTION'S IS (0.132, [dcl.spec.auto]): kept as written, a caller typed the call by its decayed first return -- join_view's `auto&& __inner = [this]() -> auto&& { ... return *__get_outer(); }();' made a bitwise COPY of the inner vector, bound the reference to it and destroyed it at the scope's end, freeing the vector's own buffer (views::join crashed)
+    (   Ret0 \== none, TPs == [], cpp_auto_result(Ret0) -> cpp_with_fsig(OpSig, cpp_lambda_auto_ret(Ctx, Ret0, RetPs, Body, Ret))   % A WRITTEN `-> auto &&' (`-> auto &', `-> auto') IS DEDUCED AS A FUNCTION'S IS (0.132, [dcl.spec.auto]): kept as written, a caller typed the call by its decayed first return -- join_view's `auto&& __inner = [this]() -> auto&& { ... return *__get_outer(); }();' made a bitwise COPY of the inner vector, bound the reference to it and destroyed it at the scope's end, freeing the vector's own buffer (views::join crashed)
     ;   Ret0 \== none, TPs \== [] -> Ret = base([], [auto]), Trail = [trailing(Ret0)]   % A GENERIC LAMBDA'S WRITTEN RESULT names its own parameters (0.201): its call operator template's trailing type, made at the instance with its bindings (cpp_trailing_rets) and part of its signature -- `[](auto x) -> decltype(x + 1)' was resolved over the invented `$A1', `decltype_unknown', and libc++ 18's parallel algorithms dispatch through `[](auto &&... __args) -> decltype(std::__pstl_sort<_Policy>(...))'
     ;   Ret0 \== none -> cpp_lambda_written_ret(Ret0, RetPs, Ret)
     ;   TPs \== [] -> Ret = base([], [auto])
-    ;   cpp_lambda_ret(Ctx, RetPs, Body, Ret) ),   % IN THE ENCLOSING CONTEXT: a member named in the body is a call or an access of this, which has a type
+    ;   cpp_with_fsig(OpSig, cpp_lambda_ret(Ctx, RetPs, Body, Ret)) ),   % IN THE ENCLOSING CONTEXT: a member named in the body is a call or an access of this, which has a type
     assertz('$cpp_closure_made'(Name, Ctx)),
     ( nb_getval('$cpp_in_lib', yes) -> assertz('$cpp_lib_closure'(Name)) ; true ),   % A CLOSURE MADE IN A LIBRARY'S WALK IS THE LIBRARY'S CLASS (0.201, cpp_lib_class/1)
     ( cpp_lambda_scope(Ctx, Enc) -> asserta('$cpp_encl'(Name, Enc)) ; true ),   % A CLOSURE IS ENCLOSED BY THE CLASS IT IS MADE IN, as a nested class is: its types, statics and enumerators are in scope in the body, this captured or not -- a default argument filled inside a string's lambda, `__reset_internal_buffer(__rep __new_rep = __short())', named the nested __short and found nothing
-    ( ( memberchk(mutable, Caps) ; SN \== none ) -> OpQs = [closure] ; OpQs = [const, closure] ),   % A NON-MUTABLE LAMBDA'S CALL OPERATOR IS CONST ([expr.prim.lambda.closure]/5; 0.127): its by-value captures are const in the body, so a non-const member of one is no candidate and a non-const reference binds none
     cpp_lambda_nx(Caps, OpQs, OpQsN, FMark),   % ITS NOEXCEPT (0.205, below)
     cpp_lib_lambda_req(Caps, TPs, OpQsN, OpQs0), ( var(Trail) -> OpQs1 = OpQs0 ; append(OpQs0, Trail, OpQs1) ),
     append(Self, Ps, MPs), Op0 = method(0, OpQs1, Ret, operator('()'), MPs, false, Body),
@@ -75,7 +84,6 @@ cpp_lambda_(Ctx, Caps, Ps0, Ret0, Body, E, Name, T, Captures, This) :-
         Conv = [method(0, [const], FPT, operator(conv(FPT)), [], false, block([return(0, addr(id(Invoker)))]))]
     ;   Conv = [] ),
     append(Ms0, [Op|Conv], Ms),
-    cpp_fsig_now(Encl), assertz('$cpp_pf_closure'(Name, Encl, Ps1)),                                   % the function it is made in, and its parameters as written: its call operator's own name (0.166)
     cpp_isolated(( cpp_register_class(0, Name, [], Ms), cpp_item(declare(0, base([], [class(struct, Name, [], Ms)])), Its) )),
     cpp_add_instance_items(Its),
     ( Conv \== [] -> cpp_closure_invoker(Name, Invoker, Ret, Ps, Its) ; true ),

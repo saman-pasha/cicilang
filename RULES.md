@@ -1721,6 +1721,14 @@ that changes a rule edits the rule here, in its topic, and writes its entry in `
   which failed, a defect of 0.203. The layout is the Object layout topic's. Reader 154, 155. `test/c/run/packed.c`,
   `packattr.c`, `packunion.c`, `aligntd.c`, `packenum.c`, `packlead.c`, `gnuattrc.c` (C23),
   `test/cpp/run/packedcpp.cpp`, `packnonpod.cpp`, `gnuattr.cpp`, `leadattr.cpp`. (0.203, 0.205)
+- GCC'S `abi_tag` ON A CLASS IS KEPT (0.236, reader 167; GCC's manual, C++-Specific Variable, Function, and Type
+  Attributes; `ccl_abi_tag_note/1`): noted as `packed` is, in both spellings, `__attribute__((abi_tag("t")))` and
+  `[[gnu::abi_tag("t")]]`, and taken by a class's, a struct's or a union's head alone, the marker `abi_tag(Tags)` among
+  its members, its strings sorted and once each (`ccl_layout_grab/2`; a layout marker, `ccl_layout_marker/1`). A
+  function's tag is noted and dropped -- libc++ writes one on every hidden function (`_LIBCPP_HIDE_FROM_ABI`) -- and the
+  note set aside at a class's key never reaches the class (`ccl_layout_saved/1`). In C++ `__has_attribute(abi_tag)` and
+  `__has_cpp_attribute(gnu::abi_tag)` are 1, as clang answers them (`pp_gnu_attribute/1`). The Itanium mangler's topic
+  spells the tags. `abitagnames.cpp`. (0.236)
 - `__attribute__((...))` and every other `__asm("...")` are read and dropped (`ccl_gnu_attr`). `__typeof__` and
   `__typeof` are type specifiers at every level, `typeof` in C23 and in a GNU mode, and `typeof_unqual` in C23 alone, as
   clang has them (`ccl_typeof//1` over `ccl_typeof_word/1`, 0.214: under `-std=c17` and `-std=c++20` `typeof` is a name
@@ -2391,8 +2399,10 @@ that changes a rule edits the rule here, in its topic, and writes its entry in `
   `cap(init_ref, N, E)` for `[&n = e]`, and `cap(init_pack, N, E)` and `cap(init_ref_pack, N, E)` for `[...xs = e]` and
   `[&...xs = e]` (0.198, the Captures topic). `ccl_lambda_specs/1` keeps `mutable` among the captures (the desugaring
   reads it, 0.117) and `noexcept`, `lnx(yes | no | cond(E))` (0.205, reader 155, the Lambdas topic), and drops
-  `constexpr`, `consteval`, `static` and attributes, with or without a parameter list. (0.36, 0.43, 0.99, 0.112, 0.117,
-  0.205)
+  `constexpr`, `consteval`, `static` and attributes, with or without a parameter list. ITS PLACE IS LAST AMONG ITS
+  CAPTURES, `at(Line, K)` (0.236, reader 167; `ccl_lambda_at/2`): K counts the lambdas of the file's read from its start
+  (`ccl_with_file/2`, the count saved and put back around a nested read), so that each lambda-expression is a class of
+  its own (the Lambdas topic). (0.36, 0.43, 0.99, 0.112, 0.117, 0.205, 0.236)
 - `if (T x = e)` and `while (T x = e)` are `block([Decl, if | while])` (`ccl_cond_decl`). `for (decl : range)` is
   `for_each(L, Decl, Range, S)`. `if constexpr` is `if_constexpr(L, C, T, E)`. (0.36, 0.42, 0.44)
 - The range of a range-for may be a braced list ([stmt.ranged]; `ccl_range_expr//1`, `ccl_range_stmt/5`):
@@ -2900,30 +2910,33 @@ unless a path is given. (0.33, 0.41, 0.79, 0.82, 0.223)
   road; a member the class declares itself with the same parameter types hides the base's ([namespace.udecl]/15,
   `cpp_fwd_hidden`). `p->A::operator()(x)` reads an operator after the qualifier (`cpp_qual_name`), and a later EMPTY
   base has no sub-object and no hop (`cpp_base_hops`). `usingbase.cpp`, `overloaded.cpp`. (0.121)
-- A LOCAL CLASS ([class.local]; 0.121) -- a `struct` or `class` defined in a function body, named or not, with a
-  member function, a constructor or a base (a struct of plain data stays C's) -- is a class of the unit under a name
-  of its own, `Loc.local_7_<tag>` (`cpp_local_class/6`, from `cpp_stmts`; the unit's tag since 0.192, the Lambdas topic's
-  closure class, so that two units' `Loc.local_7` are two classes at the link): registered and emitted where the walk meets it,
-  as a closure's class is (`cpp_isolated`, `cpp_add_instance_items`), and the statements after it name it by that name
-  (`cpp_rename_names` with the mark `'$deep'`, which reaches the template arguments of a qualified name too,
-  `std::vector<Loc>`). An unnamed one is the type of its declaration (`cpp_subst_term/4`). One text is one class
-  (`'$cpp_localcls'`, reset in `cpp_register_units`): the first-return walk of an `auto` result meets the class before
-  the emission does (`cpp_first_return_in_`), and two functions' `Loc` are two classes. libc++ 18's `variant` assigns
-  an alternative through an unnamed one: `struct { void operator()(true_type) const {...} ... } __impl{this,
+- A LOCAL CLASS ([class.local]; 0.121) -- a `struct` or `class` defined in a function body, named or not, with a member
+  function, a constructor or a base (a struct of plain data stays C's) -- is a class of the unit under a name of its
+  own, `Loc.local_7_<tag>` (`cpp_local_class/6`, from `cpp_stmts`; the unit's tag since 0.192, the Lambdas topic's
+  closure class, so that two units' `Loc.local_7` are two classes at the link): registered and emitted where the walk
+  meets it, as a closure's class is (`cpp_isolated`, `cpp_add_instance_items`), and the statements after it name it by
+  that name (`cpp_rename_names` with the mark `'$deep'`, which reaches the template arguments of a qualified name too,
+  `std::vector<Loc>`). An unnamed one is the type of its declaration (`cpp_subst_term/4`). One text at one place in one
+  function is one class (`'$cpp_localcls'`, reset in `cpp_register_units`; keyed since 0.236 by its line and the
+  description of the function the outermost closure is made in, `cpp_local_key/2`, the library's by its text alone): the
+  first-return walk of an `auto` result meets the class before the emission does (`cpp_first_return_in_`), and two
+  functions' `Loc`, two blocks' and two instances' are two classes -- `{ struct L {}; } { struct L {}; }` on two lines,
+  and `loc<int>()`'s and `loc<char>()`'s, were one (`closureident.cpp`). libc++ 18's `variant` assigns an alternative
+  through an unnamed one: `struct { void operator()(true_type) const {...} ... } __impl{this,
   std::forward<_Arg>(__arg)};`. `localclass.cpp`. (0.121)
 - A PLAIN LOCAL STRUCT OR UNION is the unit's under a name of its own too (0.201; [class.local]; `cpp_plain_local/4`,
-  `cpp_plain_local_name/5`, `'$cpp_localst'/2`): the table holds one tag a name, and two functions' -- or two instances of
-  one function template's -- `struct X { T a; char b; }` had one layout, the first met: `f<double>()` read `f<int>`'s
+  `cpp_plain_local_name/5`, `'$cpp_localst'/2`): the table holds one tag a name, and two functions' -- or two instances
+  of one function template's -- `struct X { T a; char b; }` had one layout, the first met: `f<double>()` read `f<int>`'s
   `sizeof(X)`, a silent wrong answer, and libc++ 18's `std::expected` asks `__fits_in_tail_padding<_First, _Second>`, a
   lambda's local struct, of each instance (`variable_template_not_constant`). It stays C's, its members' types resolved,
-  named once per text as the instance has it (`X.local_7_<tag>`), its tag noted; one that a member of class type
-  promotes takes the local class road, as a file-scope one is promoted (`cpp_struct_promotes`). The statements after it
-  name it by its new name, by its elaborated specifier too (`struct X x`, `sizeof(union U)`: `cpp_rename_names/3`'s
-  `struct(N, none)` and `union(N, none)` under `'$deep'`); the evaluator takes its declaration as no effect. A
-  definition is a `declare` statement: one written with its declarators, `struct S { ... } s;`, the reader splits so
-  (`ccl_block_tag_split/2`, the C reader's topic), and a declaration whose type is a struct with members -- a
-  substituted template argument's, `T y = x;` -- is renamed nothing. `localstruct.cpp`, `stdexpected.cpp`,
-  `stdalgorithmstr.cpp`. (0.201)
+  named once per text, place and function as the instance has it (`X.local_7_<tag>`, `cpp_plain_local_name/6`, 0.236),
+  its tag noted; one that a member of class type promotes takes the local class road, as a file-scope one is promoted
+  (`cpp_struct_promotes`). The statements after it name it by its new name, by its elaborated specifier too (`struct X
+  x`, `sizeof(union U)`: `cpp_rename_names/3`'s `struct(N, none)` and `union(N, none)` under `'$deep'`); the evaluator
+  takes its declaration as no effect. A definition is a `declare` statement: one written with its declarators, `struct S
+  { ... } s;`, the reader splits so (`ccl_block_tag_split/2`, the C reader's topic), and a declaration whose type is a
+  struct with members -- a substituted template argument's, `T y = x;` -- is renamed nothing. `localstruct.cpp`,
+  `stdexpected.cpp`, `stdalgorithmstr.cpp`. (0.201)
 
 ### Methods and calls
 
@@ -5874,10 +5887,19 @@ A lambda is a class of its captures (`library/ccl_cpp_lambda.pl`, 0.223). A fixt
   `__FUNCTION__`, `__PRETTY_FUNCTION__`, `source_location`, `__builtin_source_location`, or a call of a function of the
   program that takes a source location (`'$cpp_srcloc_fn'`, noted with the unit's registries, `cpp_note_srcloc_fns/1`),
   so that its call operator's names are the ones of the function it is made in; a method's `auto` result is deduced
-  under the method's own description (`cpp_declare_members`), so the lambda the deduction makes is the one the
-  emission makes. Any other lambda is one class wherever its text, context and captured types are one: keyed by the
-  enclosing function every time, the closures of `std::format`'s library lambdas were made once per enclosing instance,
-  and `fmtcheck.cpp` took 72.6 s of CPU where it takes 62.2 s (0.165's library 63.1 s). (0.99, 0.166)
+  under the method's own description (`cpp_declare_members`), so the lambda the deduction makes is the one the emission
+  makes. Any other lambda is one class wherever its text, context and captured types are one: keyed by the enclosing
+  function every time, the closures of `std::format`'s library lambdas were made once per enclosing instance, and
+  `fmtcheck.cpp` took 72.6 s of CPU where it takes 62.2 s (0.165's library 63.1 s). THE KEY HOLDS THE LAMBDA'S PLACE
+  since 0.236, the reader's `at(Line, K)` among its captures: two lambda-expressions of one text are two classes
+  ([expr.prim.lambda.closure]/1) -- `std::is_same_v<decltype(a), decltype(b)>` of `auto a = [] {}; auto b = [] {};` was
+  1, and their type information one -- and A CLOSURE OF AN INSTANCE OF THE PROGRAM'S FUNCTION TEMPLATE IS THE
+  INSTANCE'S, keyed by the description of the function the outermost closure is made in (`cpp_lambda_instance/1`,
+  `cpp_fsig_root/2`): `mk<int>()` and `mk<long>()` return two types; the library's stay one per text, as above. ITS
+  RESULT IS DEDUCED AS ITS CALL OPERATOR'S BODY (0.236): that walk runs under the operator's description, the closure's
+  own (`'$cpp_pf_closure'`) noted before it, so a lambda or a local class made there is named in the operator
+  (`ZZ3ilfvENKUlvE_clEvEUlvE_`); it ran under the enclosing function's. `closureident.cpp`, `lambdanames.cpp`. (0.99,
+  0.166, 0.236)
 - A LAMBDA MADE IN A LAMBDA IS ONE CLASS WHEREVER THE OUTER ONE IS DESUGARED (0.197; `'$cpp_lambda_cls'/5`, `'$cpp_closure_made'/2`,
   `cpp_lambda_root/2`): the outer lambda's result is deduced in one walk and its body emitted in another, each with a closure
   of its own as the inner lambda's context, so the key above made two classes of one inner lambda -- `lambda.3` and `lambda.2`,
@@ -7273,9 +7295,9 @@ A lambda is a class of its captures (`library/ccl_cpp_lambda.pl`, 0.223). A fixt
   `T V` (`TnT_`, a substitution candidate), `TpTnDa` before an `auto...` pack's `J ... E`. A shipped instance's
   arguments were types alone, and one with a value argument kept this compiler's name: `std::__1::e<5>()` of `template
   <auto N>` is `_ZNSt3__11eITnDaLi5EEEiv`, `a<int, 3>(int, int)` of `template <class T, T V>`
-  `_ZNSt3__11aIiTnT_Li3EEEiS1_S1_`. A value that is an address or an object (`X...E`, `L_Z...E`) is spelled by no
-  clause, and the instance keeps this compiler's name. `test/cpp.pl`'s `c47` (nine symbols as clang++ 18 and 21 spell
-  them). (0.221)
+  `_ZNSt3__11aIiTnT_Li3EEEiS1_S1_`. A value that is an address is spelled since 0.236 (below); an array's address (`so`)
+  by no clause, and the instance keeps this compiler's name. `test/cpp.pl`'s `c47` (nine symbols as clang++ 18 and 21
+  spell them). (0.221)
 - A member is `_ZN [K] <class chain> <member> E <parameters>`, `K` for a const method; a constructor is `C1`, a
   destructor `D1` (`cpp_ita_member_name`). An operator has the ABI's code (`cpp_ita_op`: `rs`, `ls`, `pL` ...), the
   unary one with no parameter (`cpp_ita_unary`). (0.73, 0.75)
@@ -7326,6 +7348,58 @@ A lambda is a class of its captures (`library/ccl_cpp_lambda.pl`, 0.223). A fixt
   `void (*)(int (A::*)(int) const, int (A::*)(int) const)` is `PFvM1AKFiiES1_E`, and `int (*)(int)` before `int
   (A::*)(int)` `PFiiEM1AFiiE`, where it was `M1AS_`. The type information follows: `_ZTIM1AKFiiE` over `_ZTIKFiiE`.
   (0.181)
+
+- A CLASS'S ABI TAGS ARE SPELLED (0.236; the Itanium ABI's <abi-tags>, GCC's `abi_tag`, as clang spells them): `B
+  <len><tag>` after the class's name, each tag once and sorted, the name and its tags one level of a prefix
+  (`cpp_ita_src/3`, `cpp_ita_plain/3`, `cpp_abi_tags/2`; the levels `plain(N, Tags)` and `inst(N, Args, Tags)` of
+  `cpp_class_scope/3`): `1SB2v1`, `N5OuterB1x2InE`, `2TgB1tIiE`, `N2ns2Q2B1aB1qE`, libc++'s views
+  `NSt3__16ranges11single_viewB10llvm18_nuaIiEE` (18, 21 and 22 tag them so). The reader keeps the tag on a class's head
+  (the C reader's topic); registration notes it (`'$cpp_abi_tag'/2`), a plain struct's by its tag's marker, a class
+  template's instance by its template's. They were dropped, and the type information named a tagged class as an untagged
+  one. `abitagnames.cpp`. (0.236)
+- A LOCAL CLASS, A CLOSURE AND AN UNNAMED LOCAL CLASS ARE NAMED IN THEIR FUNCTION (0.236; Itanium 5.1.6 <local-name>, as
+  clang 18 spells it; `cpp_local_type_name/2`, `cpp_local_name/4`): `Z <the function's encoding> E <entity>
+  [<discriminator>]`. The encoding is read from the description the walk keeps of the function (`'$cpp_fsig'`, 0.166;
+  `cpp_lenc/4`): its namespaces, an inline one and an unnamed one (`_GLOBAL__N_1`) among them (`'$cpp_own_ns_full'/2`),
+  `L` before a static function's name, its parameters, `v` for none -- `Z2g1idE1L`, `ZN2ns2in2nfEvE1L`, `ZL2sfvE1L`; an
+  `extern "C"` function and `main` their names alone, `Z2cfE1L`, `Z4mainE1L`; a member `N [K] <class> <name> E
+  <parameters>`, a constructor `C1`, a destructor `D1`, an operator its code, a conversion function `cv <type>`
+  (`ZN1KC1EvE1L`, `ZN1KcviEvE1L`, `ZNK1K1N1mEvE1L`); a closure's call operator a member of the closure under the
+  closure's own local name (`ZZ3ilfvENKUlvE_clEvEUlvE_`). The marks it reads are the description's (`cpp_fsig_marks/3`:
+  `inline`, `static`, `c_link`; `out_of_line` on a member defined out of its class and not inline). A second local class
+  of one name in one function is `_0`, a third `_1` (`Z2g1idE1L_0`). Each is noted where it is made (`cpp_local_note/3`,
+  `'$cpp_lname'/3`). They were this compiler's names, `16L.local_1_hijdpb`. `localnames.cpp`. (0.236)
+- A CLOSURE IS NAMED AS CLANG NAMES IT (0.236; Itanium 5.1.8 <closure-type-name>): where the ABI asks one name in every
+  unit -- an inline function, a member defined in its class, a template's instance, a closure's call operator
+  (`cpp_lstable/1`) -- `Ul <lambda-sig> E [n] _`, the sig its explicit template parameters declared (`Ty`, `Tn <type>`,
+  `Tp` before a pack) and its parameters' types, an `auto` the parameter it invents (`T_` after the explicit ones), `v`
+  for none (`cpp_lsig/5`), numbered among the closures of one sig there: `UliE_`, `UliE0_`, `UlT_E_`, `UlTyT_E_`,
+  `UlDpT_E_`. An inline variable's and a static data member's under its <data-member-prefix>, `N3lamMUliE_E`,
+  `N1K2siMUllE_E` (the variable whose initializer the walk is in, `cpp_gvar_walk/3`, `cpp_with_gvar/2`). Anywhere else
+  clang gives it a name of its own, `$_N`, numbered in its function in the order the walk makes them (`Z4mainE3$_0`),
+  and one at file scope by the count of all of them made before its first name, under its namespaces (`3$_4`,
+  `N2ns3$_5E`); an unnamed local class shares the count, and is `Ut [n] _` where the function is inline (`Z2ilvEUt_`).
+  The numbers are clang's where the closures are used in the order they are made: clang numbers them as its code
+  generation first names them, so that a lambda never called nor named takes no number there. A closure made in a
+  library's walk keeps this compiler's name. `lambdanames.cpp`. (0.236)
+- AN UNNAMED CLASS OR ENUM OF A CLASS'S MEMBER is `Ut [n] _` in its class, numbered among the class's unnamed types in
+  their order (0.236; Itanium 5.1.2 <unnamed-type-name>; `cpp_unnamed_member_name/4`, its holder a class of the
+  program's or a plain struct no header declares): `N1UUt_E`, `N1UUt0_E`. It was `4anon`, every one of them.
+  `localnames.cpp`. (0.236)
+- A FUNCTION TEMPLATE'S INSTANCE IS ENCODED IN ITS PATTERN'S WORDS where a local name spells it (0.236; Itanium 5.1.5.4,
+  5.1.6 <expression>; `cpp_lenc_inst/9`, `cpp_lenc_minst/11`, `cpp_lenc_with_pattern/3`): its arguments, then its result
+  and its parameters as the pattern writes them, a template parameter `T_` -- `Z2tfIiET_S0_E1L`, `ZN1E2mtIdEEvT_E1L`; a
+  pack's expansion `Dp <type>` (`Z2pkIJidEEvDpT_E1L`), a `decltype(e)` result `DT <expression> E` (`Dt` for a name or a
+  member access), a template argument that is an expression `X <expression> E` (`Z2xeILi2EEv1AIXplT_Li1EEEE1L`), a
+  placeholder result `Da` (`decltype(auto)` `Dc`). An expression is its operator's code before its operands, the
+  function's parameter `fp_`, `fp0_` ..., a value template parameter `T_`, a literal `Li1E`, a call `cl ... E`, `sizeof`
+  `st` or `sz`, an unresolved name its source name (`cpp_ita_expr/5`); any other form is spelled by no clause, and the
+  name keeps this compiler's. `localnames.cpp`. (0.236)
+- AN ADDRESS AS A TEMPLATE ARGUMENT IS SPELLED (0.236; Itanium 5.1.5.4 <expr-primary>; `cpp_ita_value/3`,
+  `cpp_ita_extname/2`): `XadL_Z1gEE` for `&g`, `XadL_ZN2ns1hEEE` for `&ns::h`, a function by its encoding,
+  `XadL_Z2fnvEE`, named bare or by its address, a reference parameter's object `L_Z1gE`, a null pointer `L <its
+  parameter's type> 0E` (`1QILPi0EE`). The instance's type information was this compiler's name, `8Qaddridg`.
+  `abitagnames.cpp`. (0.236)
 
 ## Exceptions, RTTI, coroutines, modules, contracts and source locations
 
@@ -7538,7 +7612,9 @@ A lambda is a class of its captures (`library/ccl_cpp_lambda.pl`, 0.223). A fixt
   `cpp_class_scope_/3` over `cpp_prog_scope/2` and `'$cpp_type_ns'/2`, each type's namespace by the name it has once a
   collision is keyed (`cpp_ns_resolve/2`): `N2ns1AE`, `N5Outer5InnerE`, `3BoxIiE`, a plain struct's and a union's too
   (`N2ns1PE`). `typeid(Box<int>)` was `6Boxint`, `typeid(Outer::Inner)` `10OuterInner`, `typeid(ns::P)` `1P`, and
-  `ns::A`, keyed `ns.A` where a global `A` collides with it, `3nsA`. `rttinames.cpp`. (0.108, 0.180)
+  `ns::A`, keyed `ns.A` where a global `A` collides with it, `3nsA`. A LOCAL CLASS, A CLOSURE AND AN UNNAMED CLASS by
+  its local name since 0.236, and a tagged class with its tags (the Itanium mangler's topic). `rttinames.cpp`. (0.108,
+  0.180, 0.236)
 - A library class's type_info is the shipped
   symbol (`_ZTISt13runtime_error`), a builtin's libc++abi's (`_ZTIi`, `_ZTIPKi`); a plain struct is a root. Only a
   POLYMORPHIC library class's is shipped (0.179): libc++ exports no other, and a library class without a table has
@@ -11745,13 +11821,17 @@ Declarations topic of the C++ reader).
 - AAPCS64 is proven on Linux (the cross gate under qemu, 0.131), not on Apple's arm64, whose variadic calls and long
   double differ: no Apple machine is on this box, and its expansion of an aggregate's `va_arg` is checked against
   clang's on this host alone (0.160).
-- The Itanium mangler spells a function type, a pointer to one, an array and a pointer to member as a parameter
-  (0.117; `c37`), every builtin type (0.136; `c44`) and a vector type (0.162; `c46`). A type that none of its clauses
-  names keeps this compiler's own name, and the link names it. No shipped symbol needs one (measured at 0.186): the
-  symbols that libc++ 18's, 21's and 22's `libc++.so.1` and their `libc++abi.so.1` export, and the 27 that libc++ 21's
-  `libc++experimental.a` defines strongly, use no form the mangler lacks -- a pack expansion `Dp`, a `decltype` `DT` or
-  `Dt`, an ABI tag `B`, a closure `Ul`, an unnamed type `Ut`, an expression `X`, an external name `L_Z` as an argument
-  (the archive's weak definitions that do are instances of the headers' inline templates, which a program compiles).
+- The Itanium mangler spells the forms the shipped libraries' symbols use (measured at 0.186: libc++ 18's, 21's and 22's
+  `libc++.so.1` and `libc++abi.so.1`, and the 27 symbols libc++ 21's `libc++experimental.a` defines strongly), and since
+  0.236 the forms a program's type information shows -- `Dp`, `DT` and `Dt`, `B`, `Ul`, `Ut`, `X`, `L_Z`, a local name
+  -- as clang++ 18 spells them. What it does not spell keeps this compiler's name: an array's address as a template
+  argument (`so`), a lambda in a default argument (`d_`) and in a default member initializer (clang's `N1D2fpMUliE_E`;
+  this compiler names it in the constructor whose walk makes it), the local entities of a generic lambda's call
+  operator, a closure made in a library's walk. The `$_N` numbers are the order the walk makes the closures, where
+  clang's are the order its code generation first names them. Two local classes of one text on one line of one function
+  are one class (a local class keeps its line, no place in it). The reader drops `constexpr` on a free function, so a
+  closure there is `$_N` where clang's is `Ul`. `auto c = [] {}, d = [] {};` is not refused, where its two types differ
+  ([dcl.spec.auto]/7).
 - The Mac's CI job (0.224) runs the six small gates on Intel only, and the C++ gates have not run on a Mac since 0.90,
   so every C++ rule made since 0.91 is gated on Linux. A full job there wants Homebrew's libc++ trees, `llvm@18` and
   `llvm@21` (or `llvm`), from bottles the formula data still names, and the C++ gate's pool under caps that fit 14 GB;

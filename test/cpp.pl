@@ -54,7 +54,7 @@ c_checks :-
     c34,
     c35,
     c36,
-    c37, c38, c39, c40, c41, c42, c43, c44, c45, c46, c47.
+    c37, c38, c39, c40, c41, c42, c43, c44, c45, c46, c47, c48.
 
 c1 :- check('namespace N { ... } is namespace(L, N, Items), nested, and anonymous',
     ( unit('names.cpp', unit(Is)), member(namespace(2, geo, Gs), Is), member(function(_, _, _, twice, _, _, _), Gs), member(namespace(_, inner, _), Gs), member(namespace(_, anon, _), Is) )).
@@ -129,10 +129,10 @@ c18 :- check('for (int x : xs) and for (auto &x : xs) are for_each(L, Decl, Rang
       member(for_each(_, var(x, ref([], base([], [auto])), none), id(xs), _), B) )).
 c19 :- check('lambdas: [](int a, int b) { ... }, [k, &t](int a) mutable -> int, [=], [&]',
     ( fn_body('control.cpp', main, B),
-      member(declaration(_, _, _, [var(add, base([], [auto]), lambda([], [param(base([], [int]), a), param(_, b)], none, block([return(_, bin('+', id(a), id(b)))])))]), B),
-      member(declaration(_, _, _, [var(addk, _, lambda([cap(val, k), cap(ref, t), mutable], [param(_, a)], base([], [int]), _))]), B),   % `mutable' is kept, last among the captures (0.117)
-      member(declaration(_, _, _, [var(all, _, lambda([cap(default, '=')], [], none, _))]), B),
-      member(declaration(_, _, _, [var(refs, _, lambda([cap(default, '&')], [], none, _))]), B) )).
+      member(declaration(_, _, _, [var(add, base([], [auto]), lambda([at(_, _)], [param(base([], [int]), a), param(_, b)], none, block([return(_, bin('+', id(a), id(b)))])))]), B),
+      member(declaration(_, _, _, [var(addk, _, lambda([cap(val, k), cap(ref, t), mutable, at(_, _)], [param(_, a)], base([], [int]), _))]), B),   % `mutable' is kept after the captures (0.117), the lambda's place last (0.236)
+      member(declaration(_, _, _, [var(all, _, lambda([cap(default, '='), at(_, _)], [], none, _))]), B),
+      member(declaration(_, _, _, [var(refs, _, lambda([cap(default, '&'), at(_, _)], [], none, _))]), B) )).
 c20 :- check('try { ... } catch (Err e) { ... } catch (...) { ... }, throw Err{t}, throw 3',
     ( fn_body('control.cpp', main, B), member(try(_, block(Ts), [catch(param(base([], [typedef('Err')]), e), block(_)), catch(any, block(_))]), B),
       member(if(_, _, expr(_, throw(braced_temp(call(id('Err'), [id(t)])))), none), Ts), member(expr(_, throw(int(3))), Ts) )).   % `Err{t}' is a braced_temp since 0.117 (a class with an initializer_list constructor takes the list first)
@@ -159,7 +159,7 @@ c26 :- check('using enum Mode; for (int k = 2; int x : xs) is a block of the ini
       member(declaration(_, _, _, [var(p, _, init([item([field(x)], int(3)), item([field(y)], int(4))]))]), B) )).
 c27 :- check('auto add(auto a, auto b) is a function with auto parameters (an abbreviated template); []<typename T>(T a, T b) a lambda with its parameters among the captures',
     ( unit('cxx20.cpp', unit(Is)), member(function(_, _, base([], [auto]), add, [param(base([], [auto]), a), param(base([], [auto]), b)], _, _), Is),
-      fn_body('cxx20.cpp', main, B), member(declaration(_, _, _, [var(pick, _, lambda([tparams([tparam(type, 'T', none)])], [param(_, a), param(_, b)], none, _))]), B) )).
+      fn_body('cxx20.cpp', main, B), member(declaration(_, _, _, [var(pick, _, lambda([tparams([tparam(type, 'T', none)]), at(_, _)], [param(_, a), param(_, b)], none, _))]), B) )).
 c28 :- check('if constexpr (sizeof(int) == 4) is if_constexpr(L, C, T, E); [[likely]] before a statement is dropped',
     ( fn_body('cxx20.cpp', main, B), member(if_constexpr(_, bin('==', sizeof_type(base([], [int])), int(4)), _, _), B), member(if(_, bin('>', id(t), int(0)), _, none), B) )).
 %% C++23 (the twelfth step), read at -std=c++23
@@ -174,8 +174,8 @@ c31 :- check('g[1, 2] = 5 is index(g, args([1, 2])) at -std=c++23; 4uz is ulong(
     ( fn_body('cxx23.cpp', main, B), member(expr(_, assign('=', index(id(g), args([int(1), int(2)])), int(5))), B),
       member(declaration(_, _, _, [var(n, _, ulong(4))]), B), member(declaration(_, _, _, [var(s, _, str([65, 67]))]), B) )).
 c32 :- check('[](this auto self, int n) -> int has the closure as its explicit object parameter; [] mutable -> int { } reads without parentheses',
-    ( fn_body('cxx23.cpp', main, B), member(declaration(_, _, _, [var(fact, _, lambda([], [param(this(base([], [auto])), self), param(base([], [int]), n)], base([], [int]), _))]), B),
-      member(declaration(_, _, _, [var(sq, _, lambda([mutable], [], base([], [int]), block([return(_, int(49))])))]), B) )).   % ... `mutable' kept (0.117)
+    ( fn_body('cxx23.cpp', main, B), member(declaration(_, _, _, [var(fact, _, lambda([at(_, _)], [param(this(base([], [auto])), self), param(base([], [int]), n)], base([], [int]), _))]), B),
+      member(declaration(_, _, _, [var(sq, _, lambda([mutable, at(_, _)], [], base([], [int]), block([return(_, int(49))])))]), B) )).   % ... `mutable' kept (0.117), the place last (0.236)
 c33 :- check('auto(k) is decay_copy(k); if (using T = long; true) is a block of the alias and the if; { copy = 1; done: } ends with label(L, done, empty)',
     ( fn_body('cxx23.cpp', main, B), member(declaration(_, _, _, [var(copy, _, decay_copy(id(k)))]), B),
       member(block([typedef(_, [var('T', base([], [long]), none)]), if(_, bool(true), block([declaration(_, _, base(_, [typedef('T')]), [var(x, _, int(40))]), _]), none)]), B),
@@ -287,6 +287,33 @@ ita_inst(F, TPs, B, Ret, Ps, Want) :-
     (   cpp_ita_fn_instance(F, TPs, B, Ret, Ps, false, Got) -> true ; Got = none ),
     (   Got == Want -> true
     ;   write('     mangled '), write(F), write(' as '), write(Got), write(' where clang++ has '), write(Want), nl, fail ).
+
+c48 :- check('the Itanium mangler spells what a program\'s type information shows (0.236): a class\'s ABI tags B, a closure\'s Ul sig with its invented T_, Ty and Dp, a local name\'s entity with its discriminator, $_N and Ut, a function\'s encoding in a local name (L for internal linkage, a C name alone), a decltype in a pattern\'s words DT with fp_, an address argument XadL_Z -- as clang++ 18 spells them',
+    ( ita_clear, dynamic('$cpp_cname'/1), dynamic('$cpp_own_ns'/2), dynamic('$cpp_own_ns_full'/2),
+      I = base([], [int]), A = base([], [auto]), TT = base([], [typedef('T')]),
+      (   ita_same(cpp_ita_src(single_view, [llvm18_nua], X1), X1, '11single_viewB10llvm18_nua'),
+          ita_same(cpp_ita_src('Q2', [a, q], X2), X2, '2Q2B1aB1q'),
+          ita_same(cpp_lsig([param(A, x)], [], [], X3, _), X3, 'T_'),
+          ita_same(cpp_lsig([param(TT, x)], [tparam(type, 'T', none)], [], X4, _), X4, 'TyT_'),
+          ita_same(cpp_lsig([param(pack(A), x)], [], [], X5, _), X5, 'DpT_'),
+          ita_same(cpp_lsig([param(I, a), param(ref([], base([const], [auto])), b)], [], [], X6, _), X6, 'iRKT_'),
+          ita_same(cpp_lsig([], [], [], X7, _), X7, v),
+          ita_same(cpp_lent(c, named('L', 1), [], X8, _), X8, '1L_0'),
+          ita_same(cpp_lent(c, ul([param(I, a)], [], i, 1), [], X9, _), X9, 'UliE0_'),
+          ita_same(cpp_lent(c, anon(3), [], X10, _), X10, '3$_3'),
+          ita_same(cpp_lent(c, ut(1), [], X11, _), X11, 'Ut0_'),
+          ita_same(cpp_lenc(fsig(free, none, g1, none, [param(I, a), param(base([], [double]), b)], false, [], none), [], X12, _), X12, '2g1id'),
+          ita_same(cpp_lenc(fsig(free, none, sf, none, [], false, [static], none), [], X13, _), X13, 'L2sfv'),
+          ita_same(cpp_lenc(fsig(free, none, cf, none, [param(I, a)], false, [c_link], none), [], X14, _), X14, '2cf'),
+          ita_same(cpp_lenc_with_pattern(['T'-'T_'], [param(TT, t)], cpp_ita_type(base([], [decltype(bin(+, id(t), int(1)))]), [], _, X15, _)), X15, 'DTplfp_Li1EE'),
+          ita_same(cpp_lenc_with_pattern(['T'-'T_'], [param(TT, t)], cpp_ita_type(base([], [decltype(id(t))]), [], _, X16, _)), X16, 'Dtfp_E'),
+          ita_same(cpp_ita_value(addr(id(g)), none, X17), X17, 'XadL_Z1gEE')
+      ->  R = true ; R = false ),
+      ita_clear, R == true )).
+ita_same(Goal, Got0, Want) :-
+    (   catch(Goal, _, fail) -> Got = Got0 ; Got = none ),
+    (   Got == Want -> true
+    ;   write('     spelled '), write(Got), write(' where clang++ has '), write(Want), nl, fail ).
 
 c38 :- check('the access control\'s reader forms (0.117): friend class Auditor; is friend(L, [friend_class(Auditor)]), a lambda\'s mutable stays among its captures, and the access markers stay among a class\'s members',
     ( unit('run/accessctl.cpp', unit(Is)),

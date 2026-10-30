@@ -15,3 +15,7 @@ int vb() { S s; const S &r = s; return r.get(); }
 int ib() { return gl.n * 1000 + gc.n * 100 + UA::sc.n * 10 + UA::sl.n + iv++ + bump() * 10000; }
 const char *tb() { return typeid(S).name(); }
 bool same_b(const std::type_info &t) { return t == typeid(S); }
+static const std::type_info &tl() { auto l = [] {}; return typeid(l); }
+static const std::type_info &tq() { struct Q {}; return typeid(Q); }
+const std::type_info &tlb() { return tl(); }
+const std::type_info &tqb() { return tq(); }

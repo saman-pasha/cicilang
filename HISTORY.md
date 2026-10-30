@@ -230,6 +230,7 @@ One row per step, in version order: the step's title, what it did and its gate n
 | 0.233 | two-phase lookup in a library function's body; a nested namespace's bare use | the seventh item of "Do all": a call in a library function's body finds the program's own functions of the bare name only by argument-dependent lookup (libc++'s `iter_swap` took the program's `swap(int &, int &)`), a keyed name never hidden; a bare use in a nested namespace finds the innermost enclosing namespace's name of two of the program's; the namespaces' joined helpers meet no real call; the lowering 135 | flow GREEN, nets, the C++ gate GREEN (835 of 845); a local commit |
 | 0.234 | a library's consteval functions at compile time: no immediate function emitted, the evaluator's unions, `is_within_lifetime` | the eighth item of "Do all": the library's consteval calls were folded already and their bodies dead; no immediate function emitted; `if consteval`'s compile-time branch an immediate context; the evaluator's union by its active member and C++26's `__builtin_is_within_lifetime` (libc++ 22's `std::is_within_lifetime` folds); found: a member call over a constexpr class object does not fold; the lowering 136 | flow GREEN, a net of 56 the same, the C++ gate GREEN (836 of 847), `within.cpp` over 22 by hand; a local commit |
 | 0.235 | the virtual bases against clang: tail padding, empty bases in their order, the tables inside held bases, the VTT's names and parts | the ninth item of "Do all": a survey of 1,818 random hierarchies against clang++ 18 meets neither refusal and finds 237 shapes laid or built otherwise (147 silently); 0.235 lays 1,804 as clang does -- a held virtual base's tail padding, the route to an empty base, the empty bases in their order and every empty subobject in the way, an empty virtual base's place and slot, the tables inside a later virtual base, the VTT's names and parts, a virtual base's table stored through its slot, a base-variant form's alignment, a virtual base's name in its namespace; `empty_virtual_base_moved` where a complete object is built; the lowering 137 | flow GREEN, the survey, reader, compile, driver, objects and cross GREEN, the C++ gate GREEN in 1476 s; a local commit |
+| 0.236 | the mangler's missing forms against clang++: local names, closures, unnamed types, ABI tags, a pattern's words, addresses as arguments | the tenth item of "Do all": a program's type information named as clang++ 18 names it -- a local class `Z4mainE1L` with its discriminator, a closure `$_N` or `Ul <sig> E [n] _` (an inline variable's and a static member's under its data member prefix), an unnamed member type `Ut_`, a class's ABI tags `B`, an address argument `XadL_Z`, a function template's instance in its pattern's words (`Dp`, `DT`, `Dt`, `X`, `Da`); two lambdas of one text two types and a local class one per place and function (they were one); the type information of a type of no linkage internal; reader 167, lowering 138 | flow GREEN, the library read GREEN at reader 167, the reader, compile, driver, objects, proof and cross gates GREEN, the C++ gate's 845 builds GREEN and its checks GREEN once c48's expectation was corrected; a local commit |
 
 ## M5 — the C++ mode
 
@@ -15978,3 +15979,73 @@ line the gate adds), then GREEN in 1476 s (841 of 852 fixtures ok, 11 skipped by
   namespaces' bare uses, the Not done record of the two refusals. `CLAUDE.md`: the versions.
 
 The module 0.235. The reader 166, as 0.232 left it; the lowering 137 (136 at 0.234): the layouts and the tables.
+
+## 0.236 — the mangler's missing forms against clang++: local names, closures, unnamed types, ABI tags, a pattern's words, addresses as arguments
+
+**0.236: the tenth item of "Do all" (the Itanium mangler's forms `Ul`, `Ut`, `Dp`, `DT`/`Dt`, `B`, `X`, `L_Z`). No
+shipped symbol needs them (0.186's measure); a program's type information shows every one, and clang++ prints it:
+`typeid(l).name()` of a lambda, of a local class, of an unnamed member, of a tagged class, of a local class in a
+function template's instance. Each is spelled now as clang++ 18 spells it, and two defects found on the way are fixed:
+two lambdas of one text were one type, and two local classes of one text in two blocks too. A local commit.**
+
+WHAT A PROGRAM SAW: `names.cpp` (scratch) printed fourteen type names, every one this compiler's own --
+`14lambda3_hijdpb` for three different closures (`a` in main, `ns::nl` at file scope and `show([] {})`'s), `4anon` for
+two unnamed member types, `16L.local_1_hijdpb` for a local class, `1S` for `struct [[gnu::abi_tag("v1")]] S`,
+`8Qaddridg` for `Q<&g>` -- where clang++ prints `Z4mainE3$_0`, `N2ns3$_4E`, `Z4mainE3$_3`, `N1UUt_E`, `Z4mainE1L`,
+`1SB2v1`, `1QIXadL_Z1gEEE`.
+
+WHAT 0.236 DOES:
+
+- EACH LAMBDA-EXPRESSION IS A CLASS OF ITS OWN ([expr.prim.lambda.closure]/1): the desugaring's memo (0.99) keyed a
+  closure by its text, its context and its captured types, so `auto a = [] {}; auto b = [] {};` were one class --
+  `std::is_same_v<decltype(a), decltype(b)>` was 1 and `typeid(a) == typeid(b)` true. The reader keeps a lambda's place,
+  `at(Line, K)` last among its captures, K its count in its file's read (reader 167); the key holds it. A closure of an
+  instance of the program's function template is the instance's (the description of the function the outermost closure
+  is made in, `cpp_fsig_root/2`); the library's stay one per text (0.166's measure). A LOCAL CLASS likewise: one text
+  was one class wherever it stood; it is one per text, line and function now (`cpp_local_key/2`).
+- A LOCAL NAME, `Z <encoding> E <entity> [_n]`, from the description of the function the walk keeps since 0.166: the
+  namespaces (an inline one in the path, `'$cpp_own_ns_full'/2`), `L` for a static function, `C1`, `D1`, an operator's
+  code, `cv <type>`, an `extern "C"` function's and `main`'s names alone, a closure's call operator under the closure's
+  own name, a function template's instance in its pattern's words (`T_`, `Dp`, `DT`, `Dt`, `X`, `Da`, an expression's
+  operators, `fp_`, literals, calls). A discriminator `_0`, `_1` for a second and a third local class of one name.
+- A CLOSURE: `Ul <its parameters> E [n] _` where the ABI asks one name in every unit (an inline function, a member
+  defined in its class, a template's instance, a closure's call operator, an inline variable, a static data member),
+  numbered per parameters there; clang's own `$_N` elsewhere, in the order the walk makes them, one at file scope by the
+  count of all made before its first name. An unnamed local class shares that count, `Ut [n] _` in an inline function;
+  an unnamed plain struct of a function is named where it is met (it was a type of no name, `4anon`). The deduction of a
+  lambda's result walks its body as its call operator's, so a lambda made there is named in the operator.
+- AN UNNAMED MEMBER TYPE `Ut [n] _` in its class; A CLASS'S ABI TAGS `B <len><tag>` (the reader keeps `abi_tag` on a
+  class's head, the marker `abi_tag(Tags)`; `__has_attribute(abi_tag)` is 1 in C++); AN ADDRESS AS A TEMPLATE ARGUMENT
+  `XadL_Z ... EE`, a reference's object `L_Z ... E`, a function by its encoding, a null pointer `L <type> 0E`.
+
+WHAT STAYS (the Not done list): an array's address as an argument (`so`), a lambda in a default argument (`d_`) or in a
+default member initializer, the local entities of a generic lambda's call operator, a closure made in a library's walk;
+the `$_N` numbers follow the walk, clang's its code generation; two local classes of one text on one line are one class;
+a `constexpr` free function's closures are `$_N` (the reader drops the word); `auto c = [] {}, d = [] {};` is not
+refused.
+
+MEASUREMENTS: the names against clang++ 18 over ten scratch programs (`names.cpp`, `t1` to `t9`, `s10/`), each built and
+run beside clang++'s build (with `-stdlib=libc++` where the library's classes are named), every one the same but the
+array's address; the flow gate after each edit, GREEN each time (115 s to 145 s); the library read over libc++ 18 GREEN
+in 633 s, 223 summaries warm at reader 167; a net of the 93 run fixtures whose names hold a lambda, a local class, a
+closure, RTTI, a static, a template or a class, all the same (174 s); the reader, compile, driver and objects gates
+GREEN (3 s, 33 s, 32 s, 5 s), the proof GREEN; the cross gate GREEN (445 s), the four new fixtures the same as clang++
+18's on aarch64 under qemu; the C++ gate RED in 1531 s for one check of its own, c48, whose expectation was wrong
+(`1L_0` asked of the third class `L`, which is `1L_1`), every build GREEN (845 of 856 fixtures ok, 11 skipped by their
+needs); the check corrected, `test/cpp.pl`'s 54 checks GREEN alone (17 s).
+
+- `library/ccl_syntax.pl` (the lambda's place, the ABI tag notes, reader 167), `ccl_include.pl` (the count saved around
+  a read), `ccl_infer.pl` (the marker), `ccl_pp.pl` (`abi_tag` answered), `ccl_cpp_mangle.pl` (the ABI tags, the local
+  names, the closures, the unnamed types, the pattern's words, the addresses), `ccl_cpp_lambda.pl` (the key, the
+  deduction as the call operator's), `ccl_cpp_stmt.pl` (the local classes' keys and notes, the unnamed plain structs),
+  `ccl_cpp_class.pl` (the tags noted), `ccl_cpp.pl` (the marks of a function's description, the variable's walk, the
+  resets), `ccl_cpp_init.pl` and `ccl_cpp_layout.pl` (a static member's walk under its variable), `ccl_cpp_namespace.pl`
+  (the whole path), `ccl_cpp_virtual.pl` (the type information's names), `ccl_ir.pl` (the lowering 138).
+  `test/cpp/run/lambdanames.cpp`, `localnames.cpp`, `closureident.cpp`, `abitagnames.cpp`. `test/cpp.pl` (c48, the
+  lambdas' checks with their place `at(_, _)`), `test/cpp/link/units_a.cpp`, `units_b.cpp` and `units.expect` (two
+  units' closures, local classes and type information kept apart), `test/cross.sh` (the four fixtures). `RULES.md`: the
+  C reader's attributes, the C++ reader's lambda, the Lambdas topic, the local classes, the Itanium mangler (six
+  bullets), RTTI, Not done. `CLAUDE.md`: the versions.
+
+The module 0.236. The reader 167 (166 at 0.235): a lambda's place, a class's ABI tags. The lowering 138 (137 at 0.235):
+the type information's names.

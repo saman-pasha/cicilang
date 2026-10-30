@@ -98,7 +98,8 @@ cpp_rtti_chain(C, vmi(N, C, [b(BCh, '$base')])) :- cpp_class_l(C, cls(B, Data, _
     cpp_rtti_name(C, N), cpp_rtti_chain(B, BCh).
 cpp_rtti_chain(C, [N|Rest]) :- cpp_class_l(C, cls(B, _, _, _, _)), \+ '$cpp_vbase'(C), cpp_rtti_name(C, N),
     ( B == none -> Rest = [] ; cpp_rtti_chain(B, Rest) ).
-cpp_rtti_name(C, N) :- \+ sub_atom(C, _, _, _, '.'), \+ cpp_lib_class(C), \+ catch('$cpp_type_ns'(C, _), _, fail), !, ccl_byte_length(C, K), atomic_list_concat([K, C], N).   % a class of the program at file scope: `1A', as clang spells it; in a namespace of its own the mangler's (0.180: `N2ns1AE', which was `1A')
+cpp_rtti_name(C, N) :- cpp_local_type_name(C, N0), !, N = N0.   % A LOCAL CLASS, A CLOSURE, AN UNNAMED CLASS: its local name (0.236, the mangler's), `Z4mainE1L', `Z4mainE3$_0', `ZN1K1fEvEUlvE_'
+cpp_rtti_name(C, N) :- \+ sub_atom(C, _, _, _, '.'), \+ cpp_lib_class(C), \+ catch('$cpp_type_ns'(C, _), _, fail), !, cpp_abi_tags(C, Ts), cpp_ita_src(C, Ts, N).   % a class of the program at file scope: `1A', as clang spells it, its ABI tags after its name (0.236: `1SB2v1'); in a namespace of its own the mangler's (0.180: `N2ns1AE', which was `1A')
 cpp_rtti_name(C, N) :- once(catch(cpp_ita_type(base([], [typedef(C)]), [], _, T, _), _, fail)), atom(T), !, N = T.
 cpp_rtti_name(C, N) :- atom_codes(C, Cs), findall(X, ( member(X, Cs), X \== 0'. ), Cs1), atom_codes(A, Cs1), ccl_byte_length(A, K), atomic_list_concat([K, A], N).
 %% the type_info of a TYPE: a class's own, a builtin's the one libc++abi exports (`_ZTIi')
@@ -106,7 +107,7 @@ cpp_rtti_of_type(T0, E) :- ccl_unref(T0, T1), cpp_nullptr_param(T1), !, E = rtti
 cpp_rtti_of_type(T0, E) :- ccl_unref(T0, T1), ccl_resolve_type(T1, T2), cpp_strip_top(T2, T),
     (   cpp_class_of_type(T, C), cpp_lib_class(C), cpp_polymorphic(C), cpp_rtti_name(C, N) -> atom_concat('_ZTI', N, Sym), E = rtti(ext(Sym))   % a LIBRARY class's type_info is the one libc++ exports (`_ZTISt13runtime_error'), a POLYMORPHIC one's, whose key function the library defines; one with no table is emitted where it is used, as clang does (0.179: `_ZTINSt3__17complexIdEE', which no library exports, failed the link)
     ;   cpp_class_of_type(T, C) -> cpp_rtti_chain(C, Ch), E = rtti(Ch)
-    ;   T = base(_, [Sp]), ( Sp = struct(Tag, _) ; Sp = union(Tag, _) ), atom(Tag) -> cpp_rtti_tag_name(Tag, N), E = rtti([N])   % a plain struct or union: a root of its own, named as clang names it (0.180; a plain union's tag is a union's since 0.201, `typeid' of it was refused)
+    ;   T = base(_, [Sp]), ( Sp = struct(Tag, _) ; Sp = union(Tag, _) ), atom(Tag) -> ( Tag == anon, cpp_rtti_mangled(T, N0) -> N = N0 ; cpp_rtti_tag_name(Tag, N) ), E = rtti([N])   % a plain struct or union: a root of its own, named as clang names it (0.180; a plain union's tag is a union's since 0.201, `typeid' of it was refused)
     ;   T = base(_, S), memberchk('_Complex', S) -> cpp_complex_code(S, Code), E = rtti(fund(Code))   % A COMPLEX TYPE's (0.179): `_ZTICd', which no library exports, emitted as clang emits it -- it was the real type's, `_ZTId'
     ;   T = ptr(_, base(Q, S)), memberchk('_Complex', S) -> cpp_complex_code(S, Code), cpp_ptr_cv(Q, CV, F), atomic_list_concat(['P', CV, Code], N), E = rtti(pointer(N, F, fund(Code)))   % ... and a pointer to one, `_ZTIPKCd'
     ;   T = base(_, S), cpp_mangle_basic(S, Code) -> ( cpp_abi_fundamental(Code) -> atom_concat('_ZTI', Code, Sym), E = rtti(ext(Sym)) ; E = rtti(fund(Code)) )   % a builtin's, libc++abi's, else emitted (0.180): `_ZTIDB37_', `_ZTIDF16_'
@@ -139,7 +140,8 @@ cpp_rtti_pointee(PT, CN, I) :- cpp_class_of_type(PT, C), !, cpp_rtti_name(C, CN)
 cpp_rtti_pointee(PT, CN, [CN]) :- once(ccl_resolve_type(PT, base(_, [Sp]))), ( Sp = struct(Tag, _) ; Sp = union(Tag, _) ), atom(Tag), cpp_rtti_tag_name(Tag, CN).
 %% a plain struct's (or union's) name: the mangler's in a namespace of the program's own (0.180: `N2ns1PE'), else `1P'
 cpp_rtti_tag_name(Tag, N) :- catch('$cpp_type_ns'(Tag, _), _, fail), cpp_rtti_mangled(base([], [typedef(Tag)]), N0), !, N = N0.
-cpp_rtti_tag_name(Tag, N) :- ccl_byte_length(Tag, K), atomic_list_concat([K, Tag], N).
+cpp_rtti_tag_name(Tag, N) :- cpp_local_type_name(Tag, N0), !, N = N0.   % a local plain struct's local name (0.236)
+cpp_rtti_tag_name(Tag, N) :- cpp_abi_tags(Tag, Ts), cpp_ita_src(Tag, Ts, N).
 cpp_ptr_cv(Q, CV, F) :- ( memberchk(volatile, Q) -> V = 'V', FV = 2 ; V = '', FV = 0 ), ( memberchk(const, Q) -> K = 'K', FK = 1 ; K = '', FK = 0 ), atom_concat(V, K, CV), F is FV + FK.   % the pointee's cv, as the name spells it and __pbase_type_info's flags hold it
 cpp_strip_top(base(_, S), base([], S)) :- !.
 cpp_strip_top(ptr(_, P), ptr([], P)) :- !.

@@ -59,8 +59,10 @@ rules of the code by topic; `HISTORY.md` is the record of every step.
   `_` placeholder, class template argument deduction, pointers to members
   (a member function's `const` and ref-qualifier kept), `constexpr`
   functions evaluated at compile time over locals, aggregates, pointers and
-  `this`, RTTI (`typeid` of every type, `dynamic_cast`), exceptions (`throw`,
-  `try`, `catch`, `std::exception_ptr`), `new T[n]` of a class with the
+  `this`, RTTI (`typeid` of every type, its name as clang++ prints it -- a
+  lambda's, a local class's, an ABI-tagged class's -- and `dynamic_cast`),
+  exceptions (`throw`, `try`, `catch`, `std::exception_ptr`), `new T[n]` of a
+  class with the
   ABI's array cookie, multiple polymorphic bases with their secondary vtables,
   virtual bases reached through the vtable and laid out at the end of the
   complete object as the Itanium ABI lays them (a program class over a

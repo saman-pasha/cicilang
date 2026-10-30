@@ -298,7 +298,8 @@ cpp_set_value(E, _, E).
 %% the class (`static constexpr bool value = __v;', integral_constant's), which is its own definition, linkonce as the
 %% class's functions are, since every unit that has the class has it
 cpp_static_decls(_, _, [], []).
-cpp_static_decls(L, C, [N-T0|Ss], [D|Ds]) :- cpp_static_name(C, N, Name), cpp_resolved_type(T0, T1), cpp_static_auto(C, N, T1, T),
+cpp_static_decls(L, C, [N-T0|Ss], [D|Ds]) :- cpp_with_gvar(gv(smem(C, N), inline), cpp_static_decl(L, C, N, T0, D)), cpp_static_decls(L, C, Ss, Ds).   % its initializer's closures named under it (0.236): `N1K2siMUllE_E'
+cpp_static_decl(L, C, N, T0, D) :- cpp_static_name(C, N, Name), cpp_resolved_type(T0, T1), cpp_static_auto(C, N, T1, T),
     (   cpp_static_const(C, N, V) -> D = declaration(L, linkonce, T, [var(Name, T, V)])
     ;   \+ cpp_ctor_class_type(T), cpp_static_aggregate(C, N, I) -> D = declaration(L, linkonce, T, [var(Name, T, I)])   % never a class with constructors (0.112): `static constexpr basic_string_view<_CharT> __true{"true"}' is the constructor's, and as an aggregate its pointer took the literal and its size 0 -- std::format printed `true' as nothing
     ;   \+ cpp_ctor_class_type(T), cpp_static_agg_call(C, N, T, I) -> D = declaration(L, linkonce, T, [var(Name, T, I)])   % an aggregate from a call of its class's own constexpr function (0.201, below)
@@ -309,8 +310,7 @@ cpp_static_decls(L, C, [N-T0|Ss], [D|Ds]) :- cpp_static_name(C, N, Name), cpp_re
     ;   cpp_static_scalar_late(C, N, T, E) -> D = declaration(L, linkonce, T, [var(Name, T, none)]), cpp_dynamic_assign(L, C, linkonce, Name, E)
     ;   cpp_static_dynamic(C, N, T, E, TC) -> D = declaration(L, linkonce, T, [var(Name, T, none)]), cpp_dynamic_init(C, linkonce, Name, T, TC, E)
     ;   \+ cpp_sinit(C, N, _), catch('$cpp_sinline'(C, N), _, fail) -> D = declaration(L, linkonce, T, [var(Name, T, none)]), cpp_static_default_init(C, Name, T)   % an inline one with no initializer (0.218, below)
-    ;   D = declaration(L, extern, T, [var(Name, T, none)]) ),
-    cpp_static_decls(L, C, Ss, Ds).
+    ;   D = declaration(L, extern, T, [var(Name, T, none)]) ).
 %% A STATIC DATA MEMBER OF CLASS TYPE INITIALIZED IN ITS CLASS (an inline variable, every unit's) IS DESTROYED AT EXIT, once (0.192):
 %% one the evaluator constructs registers its destructor under its guard (cpp_ginit_add/3), and one it cannot construct is constructed
 %% before main in its class's words and registered, under the guard too -- `static inline Loud l{3};' was declared `extern', defined

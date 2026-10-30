@@ -201,18 +201,19 @@ ccl_kb_unit(included_partial(How, L, F), included(How), Is, partial(unit(Is), li
 %% globals (its typedef environment, its farthest line)
 ccl_with_file(File, Goal) :-
     ccl_save_globals(Saved),
-    nb_setval('$ccl_file', File),
+    nb_setval('$ccl_file', File), nb_setval('$ccl_lambda_seq', 0),   % the file's lambdas counted from its own start (0.236, ccl_lambda_at/2)
     ( catch(Goal, E, (ccl_restore_globals(Saved), throw(E)))
     -> ccl_restore_globals(Saved)
     ;  ccl_restore_globals(Saved), fail ).
-ccl_save_globals(g(F, E, Far, M, Sc, Gs, Td, Tg, En, Ex, Cn)) :-
+ccl_save_globals(g(F, E, Far, M, Sc, Gs, Td, Tg, En, Ex, Cn, LS)) :-
     ccl_global('$ccl_file', F, none), ccl_env_names(E), ccl_global('$ccl_far', Far, 0), ccl_global('$ccl_macros', M, []),
     ccl_global('$ccl_scope', Sc, []), ccl_tab_save('$ccl_gscope', Gs), ccl_tab_save('$ccl_typedefs', Td), ccl_tab_save('$ccl_tags', Tg),
-    ccl_global('$ccl_enums', En, []), ccl_global('$ccl_expansions', Ex, []), ccl_global('$ccl_consts', Cn, []).   % the program's named constants too (0.195)
-ccl_restore_globals(g(F, E, Far, M, Sc, Gs, Td, Tg, En, Ex, Cn)) :-
+    ccl_global('$ccl_enums', En, []), ccl_global('$ccl_expansions', Ex, []), ccl_global('$ccl_consts', Cn, []),   % the program's named constants too (0.195)
+    ccl_global('$ccl_lambda_seq', LS, 0).   % and the count of the lambdas read (0.236)
+ccl_restore_globals(g(F, E, Far, M, Sc, Gs, Td, Tg, En, Ex, Cn, LS)) :-
     nb_setval('$ccl_file', F), ccl_env_put(E), nb_setval('$ccl_far', Far), nb_setval('$ccl_macros', M),
     nb_setval('$ccl_scope', Sc), ccl_tab_restore('$ccl_gscope', Gs), ccl_tab_restore('$ccl_typedefs', Td), ccl_tab_restore('$ccl_tags', Tg), nb_setval('$ccl_enums', En),
-    ccl_tables_changed, nb_setval('$ccl_expansions', Ex), nb_setval('$ccl_consts', Cn).
+    ccl_tables_changed, nb_setval('$ccl_expansions', Ex), nb_setval('$ccl_consts', Cn), nb_setval('$ccl_lambda_seq', LS).
 %% every global is set once per process (ccl_ensure_globals/0), so reads are
 %% bare nb_getval/2: a catch/3 costs in proportion to the terms bound inside
 %% it, 37 ms with the symbol table -- a finding, in RULES.md
@@ -222,7 +223,7 @@ ccl_ensure_globals :-
     ; nb_setval('$ccl_file', none), ccl_env_put([]), nb_setval('$ccl_far', 0), nb_setval('$ccl_macros', []),
       nb_setval('$ccl_scope', []), ccl_tabs_reset, nb_setval('$ccl_enums', []), nb_setval('$ccl_consts', []), ccl_tables_changed,
       nb_setval('$ccl_expansions', []), nb_setval('$ccl_incpath', none), nb_setval('$ccl_kb_ready', no), nb_setval('$ccl_reading', []),
-      nb_setval('$ccl_macro_files', []), nb_setval('$ccl_std_macros', none), nb_setval('$ccl_gensym', 0), nb_setval('$ccl_unit_paths', []), nb_setval('$ccl_read_wrote', []),
+      nb_setval('$ccl_macro_files', []), nb_setval('$ccl_std_macros', none), nb_setval('$ccl_gensym', 0), nb_setval('$ccl_unit_paths', []), nb_setval('$ccl_read_wrote', []), nb_setval('$ccl_lambda_seq', 0),
       nb_setval('$ccl_lang', c), nb_setval('$ccl_lang_forced', none), ccl_fn_templates_put([]), nb_setval('$ccl_class', []), nb_setval('$ccl_inc_kind', local), nb_setval('$ccl_hash', line), nb_setval('$ccl_lib_unit', no),
       nb_setval('$ccl_targ', 0), nb_setval('$ccl_tmpl_depth', 0), nb_setval('$ccl_tt_pending', []), nb_setval('$ccl_tt_frames', []), nb_setval('$ccl_vparams', []), nb_setval('$ccl_vhead', []),
       ( nb_current('$ccl_std', _) -> true ; nb_setval('$ccl_std', 17) ),

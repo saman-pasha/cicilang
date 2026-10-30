@@ -278,6 +278,7 @@ cpp_ftw_list([A|As], C, TNs, Own, [B|Bs]) :- cpp_ftw(A, C, TNs, Own, B), cpp_ftw
 cpp_register_class__(K, L, C, Bases, Ms00) :-                                               % the traces fire only under '$cpp_trace'
     cpp_note_specials(C, Ms00),                                                                  % what the class DECLARES of its special members, before the record drops a deleted one (0.200)
     ( memberchk(final_class, Ms00), \+ '$cpp_final'(C) -> assertz('$cpp_final'(C)) ; true ),            % a class declared `final' (0.206): `__is_final' asks it
+    ( memberchk(abi_tag(Ts), Ms00), \+ '$cpp_abi_tag'(C, _) -> assertz('$cpp_abi_tag'(C, Ts)) ; true ),   % its ABI tags (0.236), which the mangler spells
     cpp_inherit_ctors(L, Bases, Ms00, Ms01), cpp_inherit_methods(L, C, Bases, Ms01, Ms0),
     ( cpp_norm_members(Ms0, Bases, Ms) -> true ; cpp_refuse(L, members_not_normalized(C)) ),
     %% `C() = default;' IS the implicit default constructor, and declaring it keeps the class default-constructible
