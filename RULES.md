@@ -455,7 +455,8 @@ that changes a rule edits the rule here, in its topic, and writes its entry in `
 - `test/cpp/escape.cpp` must be refused by the safe part with `a borrow leaves the function`, `test/cpp/thisunset.cpp`
   with `owner used before it was given anything` (0.133), `test/cpp/gotopastdtor.cpp` with `goto over a defer` (0.138),
   `test/cpp/tryowner.cpp` with `use after move of` (0.193: a handler entered after the body freed an owner frees it
-  again), and since 0.216 eleven programs whose library object holds a local's borrow beyond its scope: `libvec.cpp` (a
+  again), `test/cpp/throwowner.cpp` with `owner live where a call may throw, and no defer frees it` (0.237: the defer
+  rule), and since 0.216 eleven programs whose library object holds a local's borrow beyond its scope: `libvec.cpp` (a
   vector of pointers), `libfn.cpp` (a `std::function` over a reference capture), `libview.cpp` (a view of a local
   string), `libiter.cpp` (an iterator into a local vector), `libref.cpp` (`std::ref`), `libmap.cpp` (`m[3] = &x`),
   `libstruct.cpp` (a struct's vector member), `libbyval.cpp` (a by-value parameter moved out) and `libassign.cpp` (`sv =
@@ -8849,6 +8850,26 @@ The namespaces' rules, the program's and the library's, are `library/ccl_cpp_nam
   function's terminate guard is checked as its body.
   `if consteval` checks the run-time branch (`ck_stmt(ifce)`). `co_return` exits as a return does. A `dynamic_cast`
   borrows what its operand borrows. `[[assume(e)]]` only reads `e`. (0.93, 0.108)
+- THE DEFER RULE (0.237; the owner's decision, from 0.221's record; `ck_throw_point/2`, `ck_unwind/2`): in C++, where
+  the program throws (`'$cpp_throws'`), an owner live or partial where a call that may throw is made, outside every
+  `try` of its function, is freed by a defer that the unwinding runs -- the defers and the destructors of the scopes it
+  leaves, the exits a `return` takes (`ck_exit_all/2`, its form `unwind`) -- or the program is refused, `owner live
+  where a call may throw, and no defer frees it` (`owner_across_throw`). A call is a throw point after its arguments, so
+  an owner it takes is the callee's, and an object it constructs holds nothing yet: its own fields as before the call
+  (`ck_fresh_args/6`; a constructor that throws destroys what it built, [except.ctor]/3, and its object's destructor is
+  no defer before it returns). So are a new-expression's allocation, a `throw` and a `throw;`. A callee that cannot
+  throw asks nothing: one the lowering calls plainly (`ir_nothrow_callee/1`: noexcept, a destructor, a deallocation),
+  one whose type is noexcept, and a function of the C library, which reports no error by a throw
+  ([res.on.exception.handling]/2), but `qsort` and `bsearch`, which call the program's function
+  (`ck_c_library_quiet/1`). A `delete`'s destructor makes no throw point, through the table too (`ck_quiet/1`). The
+  unwinding's walk of the defers asks the leaks alone (no borrowed field complete), makes no throw point of its own (a
+  throw out of a destructor while one unwinds is `std::terminate`), and what it writes is put back
+  (`ck_walk_snapshot/1`). The remedy is the language's own: `defer(p) { delete p; }`, which runs on every exit, or a
+  callee declared `noexcept` where it cannot throw. Why: the unwinding leaves the function through its defers, and an
+  owner that none of them frees leaked, as a raw pointer does in C++, where the check called the program safe (0.193 to
+  0.236). Of the C++ run fixtures `btree.cpp` alone met it: `split_child`'s new node live across `move_upper`, now
+  `noexcept`, and `main`'s tree across every call, now deleted by a defer. `test/cpp/run/throwdefer.cpp`; refused,
+  `test/cpp/throwowner.cpp`. (0.237)
 - A HANDLER'S PARAMETER HAS A FRAME OF ITS OWN in the state as in the symbol table (0.201; `ck_catches/4`): the two are
   pushed together. AN EXIT RUNS A FRAME'S DEFERS UNDER THAT FRAME'S SYMBOL TABLE (0.201; `ck_in_state_scope/2` in
   `ck_exit_frames/2` and `ck_close_to/3`): a `return`, a `break` or a `goto` closes the state's frames one by one while
@@ -8869,10 +8890,11 @@ The namespaces' rules, the program's and the library's, are `library/ccl_cpp_nam
 ### What is refused, by name
 
 - A refusal is `error(ownership(Kind, Name, Form), where(Function, line(L)))`. `dr_diag/3` and `dr_kind/2` word it:
-  `unconsumed` reads "plain pointer not consumed", `untied` "no owner behind". The kinds: `use_after_move`,
-  `owner_unset`, `borrow_after_move`, `borrow_escapes`, `borrow_stored`, `borrow_consumed`, `borrow_incomplete`,
-  `owner_stored`, `owner_leaked`, `owner_overwritten`, `move_in_loop`, `move_of_non_owner`, `goto_with_owners`,
-  `goto_over_defer`, `tie_unknown`, `tie_outlived`, `tie_escapes`, `tie_mismatch`, `own_unbounded`, `own_array_by_value`,
+  `unconsumed` reads "plain pointer not consumed", `untied` "no owner behind", `owner_across_throw` "owner live where a
+  call may throw, and no defer frees it" (0.237). The kinds: `use_after_move`, `owner_unset`, `borrow_after_move`,
+  `borrow_escapes`, `borrow_stored`, `borrow_consumed`, `borrow_incomplete`, `owner_stored`, `owner_leaked`,
+  `owner_overwritten`, `owner_across_throw`, `move_in_loop`, `move_of_non_owner`, `goto_with_owners`, `goto_over_defer`,
+  `tie_unknown`, `tie_outlived`, `tie_escapes`, `tie_mismatch`, `own_unbounded`, `own_array_by_value`,
   `own_array_untagged`, `array_unset`, `unconsumed`, `untied`, `not_checked`. (M3)
 - The kinds not met above: `use_after_move` is a consumed owner used, freed or passed again, the double free.
   `owner_unset` is an owner used before it got a value. `move_of_non_owner` is `move` of no owner and no library value.
@@ -11403,15 +11425,15 @@ The namespaces' rules, the program's and the library's, are `library/ccl_cpp_nam
   member class writes a constructor of other parameters, copied, moved and swapped; its member's bit-fields set by a
   constructor's initializers) and `satbuiltin` (the saturating builtins and std::add_sat and std::sub_sat at C++26);
   over 22, the sixteen its first pass failed, each with its cause in the history's entry.
-- `test/cpp.sh` checks that thirty programs are refused by name (`coro.cpp`, `concept_fail.cpp`,
-  `constrained_fail.cpp`, `lambda_const.cpp`, `lambda_method.cpp`, `bind_const.cpp`, the eleven `access_*.cpp`,
-  `abstract.cpp`, `modhidden.cpp`, `basenodefault.cpp`, `enumnotconst.cpp`, since 0.164 `fmtindex.cpp` and
-  `fmttype.cpp`, since 0.191 `typeidnortti.cpp`, `dyncastnortti.cpp` and `dpcnortti.cpp` under `-fno-rtti`, and since
-  0.193 `thrownoexc.cpp` and `trynoexc.cpp` under `-fno-exceptions`, since 0.198 `access_varfriend.cpp` at C++26, since
-  0.221 `stdsizeonly.cpp` at C++23; `diamond.cpp` builds since 0.171 and is gone), that the safe part refuses
-  `escape.cpp`, `thisunset.cpp`, `gotopastdtor.cpp`, `tryowner.cpp` since 0.216 the eleven `lib*.cpp` whose library
-  object holds a local's borrow beyond its scope, since 0.217 eighteen more and since 0.221 two more, and that eight
-  false static assertions are errors, four since 0.221 (the C++ gate topic).
+- `test/cpp.sh` checks that thirty programs are refused by name (`coro.cpp`, `concept_fail.cpp`, `constrained_fail.cpp`,
+  `lambda_const.cpp`, `lambda_method.cpp`, `bind_const.cpp`, the eleven `access_*.cpp`, `abstract.cpp`, `modhidden.cpp`,
+  `basenodefault.cpp`, `enumnotconst.cpp`, since 0.164 `fmtindex.cpp` and `fmttype.cpp`, since 0.191 `typeidnortti.cpp`,
+  `dyncastnortti.cpp` and `dpcnortti.cpp` under `-fno-rtti`, and since 0.193 `thrownoexc.cpp` and `trynoexc.cpp` under
+  `-fno-exceptions`, since 0.198 `access_varfriend.cpp` at C++26, since 0.221 `stdsizeonly.cpp` at C++23; `diamond.cpp`
+  builds since 0.171 and is gone), that the safe part refuses `escape.cpp`, `thisunset.cpp`, `gotopastdtor.cpp`,
+  `tryowner.cpp`, since 0.237 `throwowner.cpp`, since 0.216 the eleven `lib*.cpp` whose library object holds a local's
+  borrow beyond its scope, since 0.217 eighteen more and since 0.221 two more, and that eight false static assertions
+  are errors, four since 0.221 (the C++ gate topic).
 
 ### libc++ headers read whole
 
@@ -11868,12 +11890,11 @@ Declarations topic of the C++ reader).
 - A direct `std::allocator::allocate` and `allocator_traits<A>::allocate(a, n)` are accepted: a library member's or
   static function's plain pointer result borrows the object it takes by reference (`ck_borrows_from`, 0.91, 0.117;
   `stdallocator.cpp`).
-- An owner live across a call that may throw, outside every `try`, is not followed on the unwinding path (0.193:
-  libc++'s calls throw now): the unwinding runs the defers and the destructors of the scopes it leaves, and an owner
-  that none of them frees leaks, as a raw pointer does in C++. The language's remedy is a `defer`, which runs on every
-  exit, the unwinding included; no rule asks for one. Whether one asks for it -- an owner live across a call that may
-  throw refused without a `defer` -- is a rule of the language, the owner's to make (0.221's record). Inside a `try`, a
-  handler is entered from any point of its body (the safe part's topic).
+- The defer rule (0.237, the safe part's topic) asks of the owners a function holds: the own fields of the object a
+  constructor builds are the object's, so a constructor's body that throws after it set one leaks it, as a raw pointer
+  member does in C++ (a member with a destructor is C++'s remedy, and a defer would free the field on the normal path
+  too); a plain pointer that holds an allocation (`loose`) is no owner and is not asked; a destructor declared
+  `noexcept(false)` is taken as one that does not throw where a `delete` calls it.
 
 ### Tools and performance
 

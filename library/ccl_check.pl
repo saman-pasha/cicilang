@@ -79,6 +79,7 @@
 %%   borrow_incomplete   an own field of a struct a parameter points to, freed or moved out and not replaced by the return
 %%   owner_stored        an owner's pointer stored into a plain slot (its ownership would be lost)
 %%   owner_leaked        an owner live, or partial, at its scope's end, at a return, or a field when its struct is freed
+%%   owner_across_throw  an owner live where a call that may throw is made outside every try, which no defer frees (C++)
 %%   move_in_loop        an owner from outside a loop consumed inside it (and not re-assigned)
 %%   move_of_non_owner   move(x) of something that is not an owner
 %%   owner_overwritten   assignment to a live owner (what it held would leak)
@@ -1641,7 +1642,7 @@ ck_exit_frames(st([]), _) :- !.
 ck_exit_frames(st([fr(Os, Ds)|Frs]), Form) :-
     ck_in_state_scope(st([fr(Os, [])|Frs]), ck_run_defers(Ds, st([fr(Os, [])|Frs]), St1)),
     (   St1 == dead -> true
-    ;   st([fr(Os1, _)|Frs1]) = St1, ( Frs1 == [] -> ck_complete_owners(Os1, Form) ; true ),
+    ;   st([fr(Os1, _)|Frs1]) = St1, ( Frs1 == [], Form \== unwind -> ck_complete_owners(Os1, Form) ; true ),   % an unwinding asks the leaks alone (0.237)
         ck_leaks(Os1, Form), ck_exit_frames(st(Frs1), Form) ).
 %% AN EXIT RUNS A FRAME'S DEFERS UNDER THAT FRAME'S SYMBOL TABLE (0.201): the state's frames and the symbol table's are
 %% pushed together, and a `return', a `break' or a `goto' closes the state's frames one by one while the symbol table
@@ -1757,16 +1758,16 @@ ck_expr(new(_, Args), St0, St) :- !, ck_exprs(Args, St0, St).
 ck_expr(new_array(_, N), St0, St) :- !, ck_expr(N, St0, St).
 ck_expr(delete(E), St0, St) :- !, ck_expr(call(id(free), [E]), St0, St).
 ck_expr(delete_array(E), St0, St) :- !, ck_expr(call(id(free), [E]), St0, St).
-ck_expr(delete_poly(E, D, _), St0, St) :- !, ck_expr(D, St0, St1), ck_expr(call(id(free), [E]), St1, St).   % the destructor, then the free of the complete object (0.108)
-ck_expr(alloc(_, _, Call), St0, St) :- !, ( Call = call(_, As) -> ck_exprs(As, St0, St) ; St = St0 ).   % a new-expression's block (0.202): the allocation function's arguments read, the block fresh
-ck_expr(dealloc(D, _, X), St0, St) :- !, ( D == none -> St1 = St0 ; ck_expr(D, St0, St1) ), ck_expr(call(id(free), [X]), St1, St).   % a delete-expression (0.202): the destructor, then the block given back -- a free of the pointer to the check
+ck_expr(delete_poly(E, D, _), St0, St) :- !, ck_quiet(ck_expr(D, St0, St1)), ck_expr(call(id(free), [E]), St1, St).   % the destructor, then the free of the complete object (0.108)
+ck_expr(alloc(_, _, Call), St0, St) :- !, ( Call = call(AF, As) -> ck_exprs(As, St0, St), ck_throw_point(AF, St) ; St = St0 ).   % a new-expression's block (0.202): the allocation function's arguments read, the block fresh
+ck_expr(dealloc(D, _, X), St0, St) :- !, ( D == none -> St1 = St0 ; ck_quiet(ck_expr(D, St0, St1)) ), ck_expr(call(id(free), [X]), St1, St).   % a delete-expression (0.202): the destructor, then the block given back -- a free of the pointer to the check
 ck_expr(call(id(F), [addr(_)]), St, St) :- ck_lib_dtor(F), !.   % a library object's destructor reads nothing it holds (0.216)
 ck_expr(call(id(F), [A0|As]), St0, St) :- ck_lib_replacing(F, A0, St0, Obj), !,   % what it held replaced: not read (0.216)
-    ( A0 = addr(P0), ck_path(P0, _) -> St0a = St0 ; ck_expr(A0, St0, St0a) ), ck_args_(As, id(F), 2, St0a, St1), ck_lib_replace(Obj, F, [A0|As], St0, St1, St).
-ck_expr(call(id(F), Args), St0, St) :- !, ck_args(Args, id(F), St0, St1), ck_lib_store(F, Args, St1, St2), ck_flow_store(F, Args, St2, St3), ck_lib_free_store(F, Args, St3, St).   % what a library object is handed it holds (0.216), what a function of the program or a free library function stores (0.217)
+    ( A0 = addr(P0), ck_path(P0, _) -> St0a = St0 ; ck_expr(A0, St0, St0a) ), ck_args_(As, id(F), 2, St0a, St1), ck_throw_point(id(F), St1), ck_lib_replace(Obj, F, [A0|As], St0, St1, St).
+ck_expr(call(id(F), Args), St0, St) :- !, ck_args(Args, id(F), St0, St1), ck_throw_point(id(F), Args, St0, St1), ck_lib_store(F, Args, St1, St2), ck_flow_store(F, Args, St2, St3), ck_lib_free_store(F, Args, St3, St).   % what a library object is handed it holds (0.216), what a function of the program or a free library function stores (0.217)
 ck_expr(call(F, Args), St0, St) :- !,
     ck_expr(F, St0, St1),
-    ( ccl_type_of(F, FT), ck_fn_params(FT, Ps) -> ck_args(Args, params(Ps), St1, St) ; ck_exprs(Args, St1, St) ).
+    ( ccl_type_of(F, FT), ck_fn_params(FT, Ps) -> ck_args(Args, params(Ps), St1, St) ; ck_exprs(Args, St1, St) ), ck_throw_point(F, St).
 %% assignment: to an owner or an own field; to a struct by value with own fields;
 %% to a tied slot; to a local plain pointer (a borrow, or not); to any other
 %% place, by its type
@@ -1819,8 +1820,8 @@ ck_expr(offsetof(_, _), St, St) :- !.
 ck_expr(contract_violation(_, _, _), St, St) :- !.
 ck_expr(rtti(_), St, St) :- !.                                                     % RTTI's nodes (0.108)
 ck_expr(eh_alloc(_), St, St) :- !.                                                 % an exception's storage, handed to __cxa_throw (0.108)
-ck_expr(eh_throw(P, _, _), St0, St) :- !, ck_expr(P, St0, St).
-ck_expr(eh_rethrow, St, St) :- !.
+ck_expr(eh_throw(P, _, _), St0, St) :- !, ck_expr(P, St0, St), ck_throw_point(throw, St).   % a throw unwinds as a call that throws (0.237)
+ck_expr(eh_rethrow, St, St) :- !, ck_throw_point(throw, St).   % ... and `throw;' (0.237)
 ck_expr(eh_terminate, St, St) :- !.
 ck_expr(rtti_dyn(X), St0, St) :- !, ck_expr(X, St0, St).
 ck_expr(dyncast(X, _, _, _), St0, St) :- !, ck_expr(X, St0, St).
@@ -1928,3 +1929,41 @@ ck_consumes(id(fclose), 1) :- !.
 ck_consumes(id(realloc), 1) :- !.                                    % the old block goes; the result is the new owner
 ck_consumes(id(F), I) :- ccl_declared(F, T), ck_fn_params(T, Ps), ccl_nth(I, Ps, param(PT, _)), ck_own_type(PT).
 ck_consumes(params(Ps), I) :- ccl_nth(I, Ps, param(PT, _)), ck_own_type(PT).
+%% ---- THE DEFER RULE (0.237; the owner's decision, from 0.221's record) -----------------------------------------------
+%% In C++ an owner live where a call that may throw is made, outside every `try' of its function, is freed by a defer
+%% that the unwinding runs, or the program is refused, `owner_across_throw': the unwinding leaves the function through
+%% the defers and the destructors of the scopes it leaves -- the exits a `return' takes (ck_exit_all/2) -- and an owner
+%% none of them frees leaks, as a raw pointer does in C++. It asks where the program throws (`$cpp_throws'), an owner
+%% live or partial. A callee that cannot throw asks nothing: one the lowering calls plainly (ir_nothrow_callee/1:
+%% noexcept, a destructor, a deallocation), one whose type is noexcept, and a function of the C library, which reports
+%% no error by a throw ([res.on.exception.handling]/2) but `qsort' and `bsearch', which call the program's function. A
+%% `throw' and a `throw;' ask as a call that throws. Inside a `try' its handler is entered from the call
+%% (ck_try_note/1). The state is the one after the call's arguments: an owner the call takes is the callee's. The walk
+%% of the defers writes what a walk writes; it is put back after it (ck_walk_snapshot/1)
+ck_throw_point(F, St) :- ccl_lang(cpp), nb_current('$cpp_throws', yes), St = st(_), nb_current('$ck_trys', []), \+ nb_current('$ck_unwinding', yes), ck_live_owner(St), ck_may_throw(F), !, ck_unwind(F, St).
+ck_throw_point(_, _).   % ... and a defer's own calls on that path make none: a throw out of a destructor while one unwinds is std::terminate
+%% ... where an object the call constructs holds nothing yet: its own fields as they were before the call (a constructor
+%% that throws destroys what it built, [except.ctor]/3; its object's destructor is no defer before it returns)
+ck_throw_point(F, Args, St0, St1) :- ( ck_live_owner(St1) -> ck_fresh_args(Args, F, 1, St0, St1, StT), ck_throw_point(F, StT) ; true ).
+ck_fresh_args([], _, _, _, St, St).
+ck_fresh_args([A|As], F, I, St0, St1, St) :-
+    ( ck_fresh_param(F, I), ck_arg_base(A, K), ck_own_under(St1, K, Fs), Fs \== [] -> ck_restore_keys(Fs, St0, St1, St2) ; St2 = St1 ),
+    I1 is I + 1, ck_fresh_args(As, F, I1, St0, St2, St).
+ck_restore_keys([], _, St, St).
+ck_restore_keys([K|Ks], St0, St1, St) :- ( ck_state(St0, K, S) -> ck_set(St1, K, S, St2) ; St2 = St1 ), ck_restore_keys(Ks, St0, St2, St).
+ck_may_throw(throw) :- !.
+ck_may_throw(id(free)) :- !, fail.   % the check's own spelling of a delete's deallocation
+ck_may_throw(id(N)) :- atom(N), ( catch(ir_nothrow_callee(N), _, fail) -> true ; ck_c_library_quiet(N) ), !, fail.
+ck_may_throw(F) :- \+ ( catch(ccl_type_of(F, T), _, fail), ccl_resolve_type(T, RT), ( RT = ptr(_, fn(_, _, Q)) ; RT = fn(_, _, Q) ), nonvar(Q), Q = q(_, Qs), memberchk(noexcept, Qs) ).
+ck_c_library_quiet(N) :- catch(cpp_header_c_name(N), _, fail), \+ memberchk(N, [qsort, bsearch]).
+ck_unwind(F, St) :- nb_getval('$ck_line', L), ck_walk_snapshot(Snap), nb_getval('$ck_loops', Lps), nb_setval('$ck_unwinding', yes),
+    ( catch(ck_exit_all(St, unwind), E, true) -> true ; true ),
+    nb_setval('$ck_unwinding', no), nb_setval('$ck_loops', Lps), ck_walk_restore(Snap), nb_setval('$ck_line', L),
+    ( nonvar(E), E = error(ownership(owner_leaked, N, _), _) -> ck_throw_form(F, Form), ck_fail(owner_across_throw, N, Form) ; true ).
+ck_throw_form(throw, throw) :- !.
+ck_throw_form(id(N), call(N)) :- !.
+ck_throw_form(F, call(F)).
+ck_live_owner(st(Frs)) :- member(fr(Os, _), Frs), member(_-S, Os), ( S == live ; S == partial ), !.
+%% a delete's destructor makes no throw point: a destructor does not throw ([except.spec]/8), through the table too
+ck_quiet(G) :- ( nb_current('$ck_unwinding', U) -> true ; U = no ), nb_setval('$ck_unwinding', yes),
+    ( catch(G, E, true) -> R = ok ; R = failed ), nb_setval('$ck_unwinding', U), R == ok, ( var(E) -> true ; throw(E) ).

@@ -268,6 +268,7 @@ Refused, each naming the statement's line:
 | `use_after_move` | a consumed owner is read, passed or freed again (the double free) |
 | `owner_unset` | an owner is used before it was given anything |
 | `owner_leaked` | an owner is live at its scope's end or a `return`, on any path |
+| `owner_across_throw` | in C++, an owner is live where a call that may throw is made, outside every `try`, and no `defer` frees it (0.237) |
 | `owner_overwritten` | assignment to a live owner |
 | `owner_stored` | an owner's pointer stored into a plain slot |
 | `move_in_loop` | an owner from outside a loop consumed inside it and not re-owned |
@@ -288,7 +289,11 @@ In C++ the same check reads the desugared program: a class with a
 destructor is never copied, a temporary dies at the end of its statement,
 a constructor's `this` starts with unset own fields and must complete
 them before it is handed to a function, a destructor's caller takes the
-fields as moved. libc++'s own
+fields as moved. An exception leaves a function through its `defer`
+blocks and destructors, so an owner live where a call may throw, outside
+every `try`, needs a `defer` that frees it (`defer(p) { delete p; }`),
+or the callee declared `noexcept` (0.237); the C library's functions do
+not throw. libc++'s own
 bodies keep raw pointers by their own discipline and are not checked;
 the program's are, wherever they are instantiated from. A library
 object that holds borrows -- a vector of pointers, a view, a

@@ -231,6 +231,7 @@ One row per step, in version order: the step's title, what it did and its gate n
 | 0.234 | a library's consteval functions at compile time: no immediate function emitted, the evaluator's unions, `is_within_lifetime` | the eighth item of "Do all": the library's consteval calls were folded already and their bodies dead; no immediate function emitted; `if consteval`'s compile-time branch an immediate context; the evaluator's union by its active member and C++26's `__builtin_is_within_lifetime` (libc++ 22's `std::is_within_lifetime` folds); found: a member call over a constexpr class object does not fold; the lowering 136 | flow GREEN, a net of 56 the same, the C++ gate GREEN (836 of 847), `within.cpp` over 22 by hand; a local commit |
 | 0.235 | the virtual bases against clang: tail padding, empty bases in their order, the tables inside held bases, the VTT's names and parts | the ninth item of "Do all": a survey of 1,818 random hierarchies against clang++ 18 meets neither refusal and finds 237 shapes laid or built otherwise (147 silently); 0.235 lays 1,804 as clang does -- a held virtual base's tail padding, the route to an empty base, the empty bases in their order and every empty subobject in the way, an empty virtual base's place and slot, the tables inside a later virtual base, the VTT's names and parts, a virtual base's table stored through its slot, a base-variant form's alignment, a virtual base's name in its namespace; `empty_virtual_base_moved` where a complete object is built; the lowering 137 | flow GREEN, the survey, reader, compile, driver, objects and cross GREEN, the C++ gate GREEN in 1476 s; a local commit |
 | 0.236 | the mangler's missing forms against clang++: local names, closures, unnamed types, ABI tags, a pattern's words, addresses as arguments | the tenth item of "Do all": a program's type information named as clang++ 18 names it -- a local class `Z4mainE1L` with its discriminator, a closure `$_N` or `Ul <sig> E [n] _` (an inline variable's and a static member's under its data member prefix), an unnamed member type `Ut_`, a class's ABI tags `B`, an address argument `XadL_Z`, a function template's instance in its pattern's words (`Dp`, `DT`, `Dt`, `X`, `Da`); two lambdas of one text two types and a local class one per place and function (they were one); the type information of a type of no linkage internal; reader 167, lowering 138 | flow GREEN, the library read GREEN at reader 167, the reader, compile, driver, objects, proof and cross gates GREEN, the C++ gate's 845 builds GREEN and its checks GREEN once c48's expectation was corrected; a local commit |
+| 0.237 | the defer rule: an owner live where a call may throw is freed by a defer, or the program is refused | the eleventh item of "Do all", the owner's decision: in C++ an owner live where a call that may throw is made, outside every `try`, with no `defer` that frees it, is `owner_across_throw`; a throw point after a call's arguments, an allocation, a `throw`; a noexcept callee and the C library ask nothing; an object a constructor builds holds nothing there; `btree.cpp` met it (a `noexcept` helper, a defer in `main`); lowering 139 | flow GREEN, the reader, compile, driver, objects, proof and cross gates GREEN (4 s, 30 s, 26 s, 5 s, 0 s, 211 s), `throwdefer` the same on aarch64 under qemu, the C++ gate GREEN in 1355 s; a local commit |
 
 ## M5 — the C++ mode
 
@@ -16049,3 +16050,59 @@ needs); the check corrected, `test/cpp.pl`'s 54 checks GREEN alone (17 s).
 
 The module 0.236. The reader 167 (166 at 0.235): a lambda's place, a class's ABI tags. The lowering 138 (137 at 0.235):
 the type information's names.
+
+## 0.237 — the defer rule: an owner live where a call may throw is freed by a defer, or the program is refused
+
+**0.237: the eleventh item of "Do all", the owner's decision (2026-10-29, "Yes, refuse it"; 0.221's record asked it). In
+C++, an owner live where a call that may throw is made, outside every `try` of its function, with no `defer` that frees
+it, is refused: `owner live where a call may throw, and no defer frees it`. A local commit.**
+
+WHAT A PROGRAM SAW: `own int *p = new int(4); std::string s(1000, 'x'); delete p;` was accepted, and `p` leaked where
+the string's constructor threw `std::bad_alloc`: the unwinding left `main` through its defers and destructors, and none
+of them freed `p`. 0.193 recorded it when libc++'s calls began to throw; the check called the program safe.
+
+WHAT 0.237 DOES:
+
+- A THROW POINT (`ck_throw_point/2`): a call after its arguments, a new-expression's allocation, a `throw` and a
+  `throw;` -- in C++, where the program throws (`'$cpp_throws'`), outside every `try` of the function, with an owner
+  live or partial. The unwinding is walked as a `return`'s exits are (`ck_exit_all/2`, the form `unwind`): each frame's
+  defers and destructors, the innermost first, then the leaks; an owner that leaks there is `owner_across_throw`
+  (`ck_unwind/2`).
+- A CALLEE THAT CANNOT THROW asks nothing: one the lowering calls plainly (`ir_nothrow_callee/1`, 0.232: noexcept, a
+  destructor, a deallocation), one whose type is noexcept, and a function of the C library, which reports no error by a
+  throw ([res.on.exception.handling]/2), but `qsort` and `bsearch`, which call the program's function. glibc declares
+  `printf` and `puts` without `__THROW`, so the lowering's test alone refused every `printf` beside an owner. A
+  `delete`'s destructor makes no throw point, through the table too (`ck_quiet/1`), and neither does the unwinding's own
+  walk of the defers, which asks the leaks alone and whose writes are put back (`ck_walk_snapshot/1`, the loops).
+- AN OBJECT A CALL CONSTRUCTS HOLDS NOTHING AT ITS THROW POINT (`ck_fresh_args/6`): its own fields are as before the
+  call. The first net refused `bag.cpp`, `copies.cpp` and `stdvectorown.cpp` for the fields of the object that the
+  constructor itself made (`Name r(t)`, a temporary `Name("...")`): a constructor that throws destroys what it built
+  ([except.ctor]/3), and the object's destructor is no defer before the constructor returns.
+
+WHAT THE RULE FOUND: of the 16 C++ fixtures with `own` in their code, `btree.cpp` alone -- `split_child`'s new node `z`
+live across `move_upper`, which moves keys and children and cannot throw (now declared `noexcept`), and `main`'s tree
+`t` live across every call (now `defer(t) { delete t; }` in place of the last `delete t;`). `thisunset.cpp` and
+`tryowner.cpp` keep their refusals.
+
+WHAT STAYS (the Not done list): the own fields of the object a constructor builds are not asked (a constructor's body
+that throws after it set one leaks it, as a raw pointer member does in C++); a plain pointer that holds an allocation
+(`loose`) is no owner; a destructor declared `noexcept(false)` is taken as one that does not throw under a `delete`.
+
+MEASUREMENTS: a net of the 16 C++ fixtures with `own` in their code, lowered to IR (30 s): `bag`, `btree`, `copies` and
+`stdvectorown` refused, three of them for a constructor's own object; the second net (31 s), `btree` alone; `btree` and
+`throwdefer` built and run, the same as their `.expect`, and `throwowner` refused; the flow gate GREEN after each edit
+(102 s to 104 s); the reader, compile, driver, objects, proof and cross gates GREEN (4 s, 30 s, 26 s, 5 s, 0 s, 211 s),
+`throwdefer` the same on aarch64 under qemu; the C++ gate GREEN in 1355 s (846 of 857 fixtures ok, 11 skipped by their
+needs; `throwowner` refused by name).
+
+- `library/ccl_check.pl` (the throw points, `ck_throw_point/2,4`, `ck_may_throw/1`, `ck_c_library_quiet/1`,
+  `ck_unwind/2`, `ck_fresh_args/6`, `ck_quiet/1`; an unwinding's exit asks no borrowed field complete), `ccl_driver.pl`
+  (the words), `ccl_ir.pl` (the lowering 139). `test/cpp/run/throwdefer.cpp` (an owner freed by a defer on the
+  unwinding, one freed in a `try`'s handler, a `noexcept` callee and the C library asking nothing; its `.expect` from
+  clang++ 18's build of the same program with a destructor in the defer's place), `test/cpp/throwowner.cpp` (refused,
+  `test/cpp.sh`'s pairs), `test/cpp/run/btree.cpp` (`noexcept`, a defer), `test/cross.sh` (`throwdefer.cpp` on aarch64).
+  `RULES.md`: the safe part (the rule, the kinds, the gate's refusals), What runs, Not done. `README.md`: the table of
+  refusals, the C++ paragraph. `CLAUDE.md`: the versions.
+
+The module 0.237. The lowering 139 (138 at 0.236): the check refuses what it accepted, so a stored IR of such a program
+is not served. The reader 167.

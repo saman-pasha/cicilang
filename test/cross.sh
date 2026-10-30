@@ -80,7 +80,7 @@ if [ -f "$XS/include/c++/v1/vector" ] && [ -f "$XS/lib/libc++.so.1" ] && [ -n "$
              "$CR/ldouble.cpp" "$CR/charpromote.cpp" "$CR/int128.cpp" "$CR/cogenerator.cpp" "$CR/stdvariant.cpp" "$CR/memptrnull.cpp" \
              "$CR/vector.cpp" "$CR/gnuasm.cpp" "$CR/asmgoto.cpp" "$CR/vbtailpad.cpp" "$CR/vbempty.cpp" "$CR/vbtables.cpp" \
              "$CR/emptybaseorder.cpp" "$CR/vbasens.cpp" "$CR/lambdanames.cpp" "$CR/localnames.cpp" "$CR/closureident.cpp" \
-             "$CR/abitagnames.cpp"; do
+             "$CR/abitagnames.cpp" "$CR/throwdefer.cpp"; do
     n=$(basename "$src" .cpp); dir=$(dirname "$src"); fl=""; [ -f "$dir/$n.flags" ] && fl=$(cat "$dir/$n.flags")
     inp="$dir/$n.stdin"; [ -f "$inp" ] || inp=/dev/null
     ( cd "$dir" && ccl_xcapped "$CXX" $T $fl "$src" -o "$D/x$n" ) > "$D/x$n.log" 2>&1 < /dev/null

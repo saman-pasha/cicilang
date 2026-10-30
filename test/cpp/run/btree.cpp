@@ -12,7 +12,7 @@ static own node *new_leaf() { return (own node *) calloc(1, sizeof(node)); }
 static own node *new_inner() { own node *x = (own node *) calloc(1, sizeof(node) + MAXC * sizeof(node *)); x->nc = MAXC; return x; }
 static int scan(node *x, int k) { int i = 0; for (int j = 0; j < x->n; j++) i += x->key[j] < k; return i; }
 static int find(node *x, int k) { int i = 0; while (i < x->n && x->key[i] < k) i++; return i; }
-static void move_upper(node *y, node *z) {
+static void move_upper(node *y, node *z) noexcept {   // no throw while split_child's z is live (the defer rule, 0.237)
     z->n = MINK;
     for (int j = 0; j < MINK; j++) z->key[j] = y->key[j + T];
     if (y->nc) for (int j = 0; j < T; j++) z->C[j] = move(y->C[j + T]);
@@ -140,6 +140,7 @@ static int key_of(int i) { return (int) ((unsigned) i * (unsigned) 2654435761); 
 int main() {
     int n = 20000;
     own BTree *t = new BTree();
+    defer(t) { delete t; }   // every exit deletes the tree, an exception's too (the defer rule, 0.237)
     for (int i = 0; i < n; i++) t->insert(key_of(i));
     int found = 0;
     for (int i = n / 2; i < n / 2 + n; i++) found += t->contains(key_of(i));
@@ -148,6 +149,5 @@ int main() {
     for (int i = 0; i < n; i++) left += t->contains(key_of(i));
     for (int i = 1; i < n; i += 2) t->remove(key_of(i));
     printf("found %d left %d end %d\n", found, left, t->end());
-    delete t;
     return 0;
 }

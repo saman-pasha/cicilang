@@ -298,6 +298,7 @@ dr_kind(own_array_untagged, 'an own array in a struct without a tag (the drain i
 dr_kind(array_unset, 'an own array not zeroed at birth (calloc, or an initializer):') :- !.
 dr_kind(unconsumed, 'plain pointer not consumed:') :- !.
 dr_kind(owner_leaked, 'owner leaked:') :- !.
+dr_kind(owner_across_throw, 'owner live where a call may throw, and no defer frees it:') :- !.   % the defer rule (0.237)
 dr_kind(move_in_loop, 'owner consumed inside a loop:') :- !.
 dr_kind(move_of_non_owner, 'move of a non-owner:') :- !.
 dr_kind(owner_overwritten, 'owner overwritten while live:') :- !.
