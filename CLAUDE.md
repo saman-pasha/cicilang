@@ -12,7 +12,7 @@ the fixture that gates it, and why. The bullet ends with the version that made t
 edits the rule in `RULES.md`, in its topic, and writes its entry in `HISTORY.md`. Read the topic of `RULES.md` that
 covers the code before the code is changed.
 
-At 0.229 the versions are: the module 0.229 (`ccl_p_version` in `module/cicilang.cicili`, `bin/cicilang --version`),
+At 0.230 the versions are: the module 0.230 (`ccl_p_version` in `module/cicilang.cicili`, `bin/cicilang --version`),
 the reader 165 (`ccl_reader_version/1`, `library/ccl_syntax.pl`) and the lowering 132 (`ccl_lowering_version/1`,
 `library/ccl_ir.pl`).
 
@@ -166,11 +166,11 @@ In `RULES.md`:
   runs a pool of 40 to 50 fixtures that it can reach before the chain: `test/cpp/run/NAME.cpp` built over a warm
   cache and compared with `NAME.expect`, three at a time, ten to thirty minutes. It found 0.117's variable clash in
   `ir_args_/5` an hour before the chain would have. It is a net, not a gate: it claims nothing. (0.117)
-- Every edit to the library is followed by `sh test/flow.sh`, three minutes (under two until 0.223 cut the desugaring
-  into seventeen files), before anything longer runs: a call to a name that a rename left behind, a helper given a name
-  already taken, a clause that a cut above it makes dead, a predicate in two files -- each named at its line, where the
-  chain met it an hour later or never. A fixture that fails is asked `sh test/why.sh FILE` before any trace is written:
-  it names the call that gave up. (0.144, 0.223)
+- Every edit to the library is followed by `sh test/flow.sh`, two minutes (three while the desugaring's seventeen files
+  were charted apart, 0.223 to 0.229), before anything longer runs: a call to a name that a rename left behind, a helper
+  given a name already taken, a clause that a cut above it makes dead, a predicate in two files -- each named at its
+  line, where the chain met it an hour later or never. A fixture that fails is asked `sh test/why.sh FILE` before any
+  trace is written: it names the call that gave up. (0.144, 0.223, 0.230)
 - A step committed without its gates (on the owner's word), or before they finish, says so and claims nothing GREEN.
   The next commit carries the numbers. (0.91, 0.92, 0.110)
 - Each form is cut down to a reduction of 10 to 40 lines. The reduction is built with clang or clang++ and with

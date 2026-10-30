@@ -16,6 +16,14 @@
 %%       line keeps its number. Dir/twice.txt holds each predicate that two
 %%       of the files define, a line `Name/Arity FILE ...' (fg_twice/2, 0.223).
 %%
+%%   fg_roots_main(+Files, +join(Base, Parts), +Dir)
+%%       ... and the files Parts JOINED, in their order, into Dir/Base, with
+%%       one root after them that calls every predicate they define: a line
+%%       `Base N K' more in Dir/roots.txt, and Dir/joined.txt a line `FILE
+%%       FIRST LAST' for each part, the lines of Dir/Base its text holds, by
+%%       which test/flow.sh puts each finding back at its part's own line
+%%       (0.230: the desugaring's seventeen files charted as ONE program).
+%%
 %%   fg_findings_main(+Src, +N, +Loads, +Mods, +Out)
 %%       Src charted from '$fg_all'/N, the files in Loads loaded first
 %%       (the rest of the compiler: a call into it is then no unknown
@@ -38,10 +46,13 @@
 
 :- use_module(library(stream)).
 
-fg_roots_main(Files, Dir) :-
+fg_roots_main(Files, Dir) :- fg_roots_main(Files, none, Dir).
+
+fg_roots_main(Files, Join, Dir) :-
     atom_concat(Dir, '/roots.txt', RF),
     open(RF, write, RS),
     fg_root_files(Files, Dir, RS, FPs),
+    (   Join = join(Base, Parts) -> fg_join(Parts, Dir, Base, RS) ; true ),
     close(RS),
     fg_twice(FPs, Dir).
 
@@ -71,6 +82,49 @@ fg_root_file(F, Dir, RS, Ps) :-
 fg_base_name(F, Base) :-
     atomic_list_concat(Parts, '/', F),
     last(Parts, Base).
+
+%% THE PARTS JOINED (0.230): each part's text in its order, a newline after one that ends without it, then the root
+%% over every predicate they define; each part's line range is counted as its text is written
+fg_join(Parts, Dir, Base, RS) :-
+    atomic_list_concat([Dir, '/', Base], Out),
+    atom_concat(Dir, '/joined.txt', JF),
+    open(Out, write, S),
+    open(JF, write, JS),
+    fg_join_parts(Parts, S, JS, 1, [], Ps0),
+    close(JS),
+    reverse(Ps0, Ps),
+    fg_max_arity(Ps, 0, N),
+    fg_root_args(1, N, Args),
+    atomic_list_concat(Args, ',', ArgText),
+    (   N =:= 0 -> format(S, "~n'$fg_all' :-~n    (   ", [])
+    ;   format(S, "~n'$fg_all'(~w) :-~n    (   ", [ArgText])
+    ),
+    fg_root_calls(Ps, S, first),
+    format(S, "~n    ).~n", []),
+    close(S),
+    length(Ps, K),
+    format(RS, "~w ~w ~w~n", [Base, N, K]).
+
+fg_join_parts([], _, _, _, Ps, Ps).
+fg_join_parts([F|Fs], S, JS, First, Acc0, Ps) :-
+    fg_defined(F, FPs),
+    fg_add_new(FPs, Acc0, Acc1),
+    read_file_to_codes(F, Codes),
+    format(S, "~s", [Codes]),
+    (   append(_, [0'\n], Codes) -> true ; nl(S) ),
+    fg_newlines(Codes, 0, NL0),
+    (   append(_, [0'\n], Codes) -> NL = NL0 ; NL is NL0 + 1 ),
+    Last is First + NL - 1,
+    format(JS, "~w ~w ~w~n", [F, First, Last]),
+    Next is Last + 1,
+    fg_join_parts(Fs, S, JS, Next, Acc1, Ps).
+
+%% the predicates not yet met, kept newest first as fg_read_heads/3 keeps them
+fg_add_new([], Acc, Acc).
+fg_add_new([PI|PIs], Acc0, Acc) :- ( memberchk(PI, Acc0) -> Acc1 = Acc0 ; Acc1 = [PI|Acc0] ), fg_add_new(PIs, Acc1, Acc).
+
+fg_newlines([], N, N).
+fg_newlines([C|Cs], N0, N) :- ( C =:= 0'\n -> N1 is N0 + 1 ; N1 = N0 ), fg_newlines(Cs, N1, N).
 
 %% every Name/Arity the file's clauses define, in the order they first stand
 %% (a grammar rule's arity is its nonterminal's plus 2)

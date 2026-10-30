@@ -160,21 +160,19 @@ that changes a rule edits the rule here, in its topic, and writes its entry in `
   starts at one call pattern, so `test/flow.pl`'s `fg_roots_main/2` writes a copy of each file with a root,
   `'$fg_all'/N`, that calls each predicate the file defines with free arguments: 3538 predicates in the ten files at
   0.161 (3938 in all at 0.167, 4003 at 0.173, 4038 at 0.175, 4048 at 0.178, 4066 at 0.179, 4074 at 0.180, 4092 at 0.181,
-  4094 at 0.182, 4101 at 0.185, 4109 at 0.186, 4128 at 0.187, 4151 at 0.188, 5148 at 0.223 in the twenty-six files
-  since `ccl_cpp.pl` was cut into seventeen, the gate programs' among them; each step's in HISTORY.md), and since
-  0.161 the 220 of the nine gate programs, `test/reader.pl`, `compile.pl`, `cpp.pl`, `readhdr.pl`, `census.pl`,
-  `libcxx.pl`, `flow.pl`,
-  `why.pl` and `prof.pl` (`TFILES`), each charted with the compiler and the flow and process libraries loaded, nothing
-  stubbed (no gate program is a library file); their first chart found a predicate split by another's clauses
-  (`census_main/0`) and a call of `print_message/2`, which cocolog does not have, in the recovery of a `catch/3` in
-  `readhdr.pl` and
-  `libcxx.pl`: a read that raised would have raised again there, an existence error where the FAIL line stands. Each
-  copy is charted with the rest of the compiler loaded (`flow_graph/3`'s `load(Files)`), and the file itself is stubbed
-  out of the library path (an empty file of its name first on `COCOLOG_LIBRARY`), so that its clauses are read once. A
-  helper of the gate takes the prefix `fg_`: cocolog has one namespace, and a helper named `flow_trim/2` joined
-  `library/flow/read.pl`'s own and failed the chart far from the cause. Since cocolog 1.11.4 the chart refuses by name a
-  file IT READS that defines a predicate of the flow library; the gate's own Prolog is loaded by the query, not read by
-  the chart, so the prefix still guards it. (0.144, 0.146)
+  4094 at 0.182, 4101 at 0.185, 4109 at 0.186, 4128 at 0.187, 4151 at 0.188, 5148 at 0.223 in the twenty-six files since
+  `ccl_cpp.pl` was cut into seventeen, the gate programs' among them, 5178 at 0.230; each step's in HISTORY.md), and
+  since 0.161 the 220 of the nine gate programs, `test/reader.pl`, `compile.pl`, `cpp.pl`, `readhdr.pl`, `census.pl`,
+  `libcxx.pl`, `flow.pl`, `why.pl` and `prof.pl` (`TFILES`), each charted with the compiler and the flow and process
+  libraries loaded, nothing stubbed (no gate program is a library file); their first chart found a predicate split by
+  another's clauses (`census_main/0`) and a call of `print_message/2`, which cocolog does not have, in the recovery of a
+  `catch/3` in `readhdr.pl` and `libcxx.pl`: a read that raised would have raised again there, an existence error where
+  the FAIL line stands. Each copy is charted with the rest of the compiler loaded (`flow_graph/3`'s `load(Files)`), and
+  the file itself is stubbed out of the library path (an empty file of its name first on `COCOLOG_LIBRARY`), so that its
+  clauses are read once. A helper of the gate takes the prefix `fg_`: cocolog has one namespace, and a helper named
+  `flow_trim/2` joined `library/flow/read.pl`'s own and failed the chart far from the cause. Since cocolog 1.11.4 the
+  chart refuses by name a file IT READS that defines a predicate of the flow library; the gate's own Prolog is loaded by
+  the query, not read by the chart, so the prefix still guards it. (0.144, 0.146)
 - The chart is given the two modules' Cicili sources as `modules([...])` (cocolog 1.11.4; `flow_graph/3` in
   `fg_findings_main/5`). It reads each `("name" N cfun)` dispatch row of a module as a C predicate, with the modes of
   the module's header line (`;;;; name(+A, -B)`; `module/cicilang.cicili` names five, `module/ccl_llvm.cicili` four),
@@ -185,16 +183,24 @@ that changes a rule edits the rule here, in its topic, and writes its entry in `
   rows of the C predicates and a `:- dynamic` line for each of the 73 tables (`fg_modules_main/2`,
   `fg_dynamic_main/2`): without them 1221 of the 1291 findings of `ccl_cpp.pl` were unknown procedures. On 1.11.4 the
   two ways give the same findings, key for key, and the gate's own are gone. (0.144, 0.146)
-- One job a file in the memory-gated pool (`ccl_pool`; `FLOW_JOBS` 4, `FLOW_LAUNCH_MB` 9000, `FLOW_HARD_MB` 14000),
-  the longest first by `~/.cicilang/flow-times`, each under `FLOW_SECS` (900 s): `ccl_cpp.pl` 47 s, `ccl_ir.pl` 46 s,
+- One job a file in the memory-gated pool (`ccl_pool`; `FLOW_JOBS` 4, `FLOW_LAUNCH_MB` 9000, `FLOW_HARD_MB` 14000), the
+  longest first by `~/.cicilang/flow-times`, each under `FLOW_SECS` (900 s): `ccl_cpp.pl` 47 s, `ccl_ir.pl` 46 s,
   `ccl_driver.pl` 33 s, `test/compile.pl` 32 s, `ccl_syntax.pl` 30 s, the others under 22 s; the gate 74 s and 2795 MB
-  over its four lanes at 0.172 (71 s at 0.171, 68 s at 0.168, 78 s at 0.167, 75 s at 0.166, 82 s at 0.164, 92 s at 0.161; 55 s over the
-  library alone at 0.144). A file that is not charted is RED. Since 0.223 the desugaring's seventeen files are
-  seventeen jobs, 5 s to 30 s each (`ccl_cpp_namespace.pl` 5 s, `ccl_cpp_init.pl` and `ccl_cpp_stmt.pl` 30 s), where
-  the one file took 69 s in 0.223's baseline: a call from one part into another is a box in each part's chart, as a
-  call into another library file always was, and each chart works to its own fixed point (cocolog's `flow_analyse/4`:
-  no budget, a pair widened after 16 changes). The gate took 188 s and 191 s over its four lanes at 0.223, where 0.222's
-  tree took 105 s on the same engine; the same findings (Not done). (0.144, 0.161, 0.223)
+  over its four lanes at 0.172 (71 s at 0.171, 68 s at 0.168, 78 s at 0.167, 75 s at 0.166, 82 s at 0.164, 92 s at
+  0.161; 55 s over the library alone at 0.144). A file that is not charted is RED. From 0.223 to 0.229 the desugaring's
+  seventeen files were seventeen jobs, 5 s to 36 s each, where the one file took 69 s in 0.223's baseline: a call from
+  one part into another was a box in each part's chart, as a call into another library file always is, and each chart
+  worked to its own fixed point (cocolog's `flow_analyse/4`: no budget, a pair widened after 16 changes); the gate took
+  188 s and 191 s over its four lanes at 0.223, where 0.222's tree took 105 s on the same engine. THE SEVENTEEN ARE ONE
+  PROGRAM, ONE JOB, SINCE 0.230: `fg_roots_main/3` joins them, in their order, into `ccl_cpp_all.pl` with one root over
+  their 2301 predicates, and writes `joined.txt`, a line `FILE FIRST LAST` for each part, the lines of the joined text
+  that hold it; the job stubs all seventeen out of the library path, and the gate puts each finding back at its part's
+  own file and line, so the keys are the parts' as before. Four defects seeded in four parts of a copy (an unknown
+  procedure in `ccl_cpp_namespace.pl`, a dead clause in `ccl_cpp_stmt.pl`, a free variable into `is/2` in
+  `ccl_cpp_eval.pl`, a left recursion in `ccl_cpp_concept.pl`) were each named at its part's file, line and column. The
+  joined chart takes 89 s in the pool (66 s and 1713 MB alone), the gate 132 s and 4320 MB over its four lanes, where
+  0.229's took 205 s and 2994 MB on the same box, its seventeen charts 435 s of the lanes' time; the same findings.
+  (0.144, 0.161, 0.223, 0.230)
 - A PREDICATE IN TWO FILES IS RED (0.223, `fg_twice/2` in `test/flow.pl`): cocolog has one namespace, so a predicate
   whose clauses stand in two library files, or in a gate program and the library it is loaded with, is one predicate
   read from two places, and no chart sees it -- a chart reads one file, the rest loaded. With the desugaring in
@@ -11658,7 +11664,5 @@ Declarations topic of the C++ reader).
   2701 s over four lanes (0.120, 0.184, 0.187, 0.188, 0.189).
 - The flow gate charts the twenty-six hand-written files of `library/` (ten until 0.223) and the nine gate programs of
   `test/` (0.161): the three generated tables (`ccl_bidrt.pl`, `ccl_uninames.pl`, `ccl_xid.pl`) are loaded, not charted.
-  `test/why.sh` is no gate. Each of the desugaring's seventeen files is charted apart (0.223), a call from one part into
-  another a box, so a chart no longer sees across them, and the gate takes some 190 s where the one file let it take
-  105 s; charting the seventeen as ONE program, each finding mapped back to its file's lines, would give back both. Not
-  done.
+  `test/why.sh` is no gate. The desugaring's seventeen files are one program in the chart since 0.230, as the one file
+  was before 0.223, each finding at its part's line (the flow gate's topic).

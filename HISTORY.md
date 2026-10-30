@@ -224,6 +224,7 @@ One row per step, in version order: the step's title, what it did and its gate n
 | 0.227 | libc++ 22, a third tree of the gates | on the owner's word ("Do all", "Yes, add libc++ 22", "Commit each, push at end"): the sixteen failures of libc++ 22's first pass, six causes, each fixed -- a function's name chosen once the header's functions of it joined, a union's copies asked of its members' copies, a capture by reference of an array and a reference member bound to a literal, the saturating builtins, a C declaration in C++'s words, a qualified call of a function two reads define in two namespaces; the trees side by side, apt's one and the others unpacked, here and in the CI's full job | the net over 18 (61 SAME), the chain over libc++ 18 (all nine), 21 and 22 (the library read and the C++ gate) GREEN, 829, 837 and 839 of 839; a local commit |
 | 0.228 | `#x` keeps a name's universal character name, and `-E` writes tokens as written | the second item of "Do all": a name written with a universal character name keeps that spelling for `#x` -- in a text line, in a macro's body --, `#x` makes a literal of its spelling, and `-E` writes a literal, a number, a digraph and an alternative token as written, as clang does; the reader 165 | the gates over 18 GREEN (reader, compile, driver, cross, the library read, the C++ gate 829 of 839), two new driver checks against clang's `-E`; a container restart between them; a local commit |
 | 0.229 | argument-dependent lookup through a compound type's parts | the third item of "Do all": a keyed name's argument-dependent lookup asks every associated class and namespace of [basic.lookup.argdep]/3 -- a function type's parameters and result, a pointer to member's class and member, an array's element, a template template argument's namespace --, each part resolved in the desugaring's words; the lowering 132 | flow GREEN, a net of 45 the same, the C++ gate over 18 GREEN (830 of 840); a local commit |
+| 0.230 | the flow gate charts the desugaring's seventeen files as one program | the fourth item of "Do all": the seventeen parts joined, in their order, into one copy with one root over their 2301 predicates, one job, each finding put back at its part's own file and line (`joined.txt`); four seeded defects named at their parts' lines | the flow gate GREEN in 132 s and 113 s, where 0.229's took 205 s on the same box; a local commit |
 
 ## M5 — the C++ mode
 
@@ -15651,3 +15652,40 @@ is the desugaring's, and the reader is 0.228's.
   `CLAUDE.md`: the versions. `test/cpp/run/adlparts.cpp`.
 
 The module 0.229. The reader 165, as 0.228 left it; the lowering 132 (131 at 0.227): a call may take another function.
+
+## 0.230 — the flow gate charts the desugaring's seventeen files as one program
+
+**0.230: the fourth item of "Do all" (the Not done record of the tools: the flow gate charted each of the desugaring's
+seventeen files apart since 0.223, a call from one part into another a box, and took some 190 s where the one file let
+it take 105 s). The seventeen are one program again in the chart, each finding put back at its part's own file and line.
+A local commit.**
+
+THE ROAD: `fg_roots_main/3` (`test/flow.pl`) takes `join(Base, Parts)` beside the files: `fg_join/4` writes the parts'
+text, in their order, into `ccl_cpp_all.pl`, a newline after a part that ends without one, then one root `'$fg_all'/14`
+over the 2301 predicates they define (`fg_add_new/3` keeps each once, in the order it first stands); `fg_join_parts/6`
+counts each part's lines as it writes them (`fg_newlines/3`) and writes `joined.txt`, a line `FILE FIRST LAST` a part.
+`test/flow.sh` charts the nine other library files alone, as before, and the joined program as ONE job with all
+seventeen parts stubbed out of the library path (each read once, from the joined text); its awk puts each finding of the
+joined chart back at the part whose lines hold it, its line counted from the part's first, so a key names the part's
+file as the keys of 0.223 to 0.229 did and `test/flow.expect` is unchanged. A part's own copy is still written, for the
+check of a predicate in two files, and not charted; the count of the predicates skips them (5178, where the first count
+gave 7479 with the parts twice).
+
+THE PROOF OF THE MAP: four defects seeded at the end of four parts of a copy of the tree -- an unknown procedure in
+`ccl_cpp_namespace.pl` (line 523), a dead clause in `ccl_cpp_stmt.pl` (1442), a free variable into `is/2` in
+`ccl_cpp_eval.pl` (506), a left recursion in `ccl_cpp_concept.pl` (574) -- were each named at that file, line and
+column, the gate RED with them (114 s).
+
+MEASUREMENTS, over libc++ 18's warm HOME, one box, one run after the other: the gate of 0.230 GREEN in 132 s, its pool's
+peak 4320 MB over four lanes, the joined chart 89 s in the pool (66 s and 1713 MB alone, under the one run's 2800 MB);
+the gate of 0.229 (a worktree of its commit) GREEN in 205 s, peak 2994 MB, its seventeen charts 5 s to 36 s each, 435 s
+of the lanes' time. The same one finding, `test/flow.expect`'s. Over the tree as committed (the count mended): GREEN in
+113 s, the joined chart 74 s. The box ran faster than after the restart of 0.228's step (265 s for 0.229's gate then),
+so the times of the two steps are not compared.
+
+- `test/flow.pl` (`fg_roots_main/3`, `fg_join/4`, `fg_join_parts/6`, `fg_add_new/3`, `fg_newlines/3`), `test/flow.sh`
+  (`PARTS`, `JOINED`, `ALONE`, the joined job, the map back to the parts' lines, the count). `RULES.md`: the flow gate's
+  topic (the pool's bullet, the count), the Not done record of the tools. `CLAUDE.md`: the flow gate's time, the
+  versions. `README.md`: the flow gate's time.
+
+The module 0.230. The reader 165 and the lowering 132, as 0.229 left them: nothing the compiler does changes.

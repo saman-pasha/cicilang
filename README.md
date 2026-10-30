@@ -140,7 +140,7 @@ gates; GitHub runs it on each push, on Ubuntu 24.04 and on an Intel Mac
 CICILI=~/Projects/GitHub/cicili COCOLOG=~/Projects/GitHub/cocolog sh module/build.sh   # -> library/cicilang.so
 LLVM=/usr/local/opt/llvm sh module/build-llvm.sh                                     # -> library/ccl_llvm.so
 sh test/toolchain.sh                                                                 # each tool beside the pins
-sh test/flow.sh                                                                      # the flow gate: the library charted, nothing run (three minutes)
+sh test/flow.sh                                                                      # the flow gate: the library charted, nothing run (two minutes)  
 sh test/reader.sh; sh test/compile.sh; sh test/driver.sh; sh test/objects.sh         # the C gates
 sh proof/run.sh; sh test/cross.sh                                                    # the proof, and aarch64 Linux under qemu
 sh test/libcxx.sh; sh test/cpp.sh                                                    # the C++ gates: the library read warms the cache first
