@@ -1,0 +1,10 @@
+-- e1
+C0 at 8 8 8
+-- e2
+E at 4
+-- e4
+size 12 Y at 4 y 5 x 6
+-- e7
+size 12 E at 8 P at 0 e at 0 x 4 t 5
+size 2 B at 1
+exit 0

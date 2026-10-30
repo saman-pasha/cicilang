@@ -343,7 +343,7 @@ cpp_vb_member(N) :- atom(N), ( N == '$vb' -> true ; sub_atom(N, 0, 4, _, '$vb$')
 %% `$vb', the shared base not laid out)
 cpp_has_nv_form(C) :- ( cpp_vbase_dynamic(C) -> true ; '$cpp_vb_holder'(C, _) -> true ).   % one answer: a holder of two virtual bases was two (0.178)
 cpp_nv_form(C, Data2, NVData) :- cpp_vbase_dynamic(C), !, cpp_nv_data(C, Data2, NVData).
-cpp_nv_form(C, Data2, NVData) :- '$cpp_vb_holder'(C, _), !, findall(M, ( member(M, Data2), \+ ( M = member(_, N, _), cpp_vb_member(N) ) ), NVData).
+cpp_nv_form(C, Data2, NVData) :- '$cpp_vb_holder'(C, _), !, findall(M, ( member(M, Data2), \+ ( M = member(_, N, _), cpp_vb_member(N) ), M \= empty_vsub(_, _) ), NVData).   % no empty virtual base either (0.235): a base-variant form holds no virtual base
 cpp_shared_vbase(Bs, V) :- append(_, [X|Ys], Bs), member(Y, Ys), cpp_vbases_of(X, VX), cpp_vbases_of(Y, VY), member(V, VX), memberchk(V, VY), !.
 cpp_diamond_shaped(C) :- cpp_vbases_of(C, Vs), msort(Vs, S), append(_, [X, Y|_], S), X == Y, !.   % the type information's __diamond_shaped_mask: a virtual base reached twice below the class, as clang sets it (0.163)
 cpp_vbases_of(C, Vs) :- cpp_class_l(C, _), !, cpp_bases_written(C, Bs), cpp_vbases_walk(Bs, Vs).   % in the order the bases were WRITTEN, a later virtual one among them (0.172)
@@ -753,14 +753,21 @@ cpp_user_copy_ctor(C) :- cpp_class(C, cls(_, _, Ms, _, _, _)), member(M, Ms), M 
 %% `__max_align_impl' from six `alignas'-carrying EMPTY bases and asking alignof of it; with their
 %% alignment dropped it answered 1, and std::function's inline buffer was aligned by it.
 cpp_base_layout(C, Base, Data, Data2) :- cpp_base_layout_(C, Base, Data, Data00), cpp_vptr_first(C, Data00, Data0),
-    findall(member(VT, VN, none), ( '$cpp_vb_holder'(C, V), \+ cpp_empty_class(V), \+ '$cpp_vb_claim'(C, V, _), \+ cpp_vb_at_self(C, V), cpp_vb_name(C, V, VN), ( cpp_vb_nv(V) -> cpp_nv_tag(V, VNV), VT = base([], [struct(VNV, none)]) ; VT = base([], [typedef(V)]) ) ), VMs), append(Data0, VMs, Data10),   % the virtual bases it holds, each once, last, in their order (0.171) -- an empty one none, at the object's own address (0.172), one with virtual bases of its own its `.nv' form (0.173)
-    cpp_vbase_refs(C, Refs), append(Data10, Refs, Data1),   % each later virtual base's slot, a pseudo-member of no storage reached through the table (0.172)
-    cpp_empty_base_align(C, Base, Al), append(Data1, Al, Data2).
+    findall(member(VT, VN, W), ( '$cpp_vb_holder'(C, V), \+ '$cpp_vb_claim'(C, V, _), \+ cpp_vb_at_self(C, V), cpp_vb_name(C, V, VN), ( cpp_empty_class(V) -> VT = base([], [typedef(V)]), W = no_unique_address ; W = none, ( cpp_vb_nv(V) -> cpp_nv_tag(V, VNV), VT = base([], [struct(VNV, none)]) ; VT = base([], [typedef(V)]) ) ) ), VMs), append(Data0, VMs, Data10),   % the virtual bases it holds, each once, last, in their order (0.171) -- one with virtual bases of its own its `.nv' form (0.173), an EMPTY one a member of no storage (0.235; it had none, at the object's own address, 0.172): offset 0, or past the data where an empty subobject of its type lies at 0 already, as the ABI places it (2.4 III over II.3; ccl_members_layout/5) -- `C2 : C0, C1' over `C1 : virtual C0' lays the virtual C0 at 8, sixteen bytes, as clang does, where it shared offset 0 with the plain C0 in eight
+    cpp_vbase_refs(C, Refs0), cpp_every_vbase_refs(C, ERefs), append(Refs0, ERefs, Refs), append(Data10, Refs, Data1),   % each later virtual base's slot, a pseudo-member of no storage reached through the table (0.172), and every virtual base's (0.235)
+    cpp_empty_base_align(C, Base, Data1, Al), append(Data1, Al, Data2).
 cpp_vbase_refs(C, Refs) :- ( '$cpp_lvb'(C, _, _) -> findall(vbase_ref(S, base([], [typedef(V)]), Off), ( '$cpp_lvb'(C, V, S), S \== none, cpp_lvb_off(C, V, Off) ), Refs) ; Refs = [] ).
+%% ... EVERY VIRTUAL BASE IS REACHED THROUGH THE TABLE (0.235): a slot `$base$v<I>' for each, its vbase offset at its place
+%% (cpp_vbase_ref_name/3), so a pointer converts to an empty one where the sub-object lies in any object -- the pointer was kept,
+%% the address of the sub-object it named, where the base lies at the complete object's address or past its data (ir_base_route/3)
+%% -- and a base variant stores a virtual base's table there (cpp_vtt_stores/3): a static cast of `this', which took a plain base of
+%% the class too, where it has one of that class
+cpp_every_vbase_refs(C, Refs) :- findall(vbase_ref(N, base([], [typedef(V)]), Off), ( cpp_vbases_of(C, Vs0), cpp_first_each(Vs0, Vs), member(V, Vs), cpp_vbase_ref_name(C, V, N), cpp_lvb_off(C, V, Off) ), Refs).
+cpp_vbase_ref_name(C, V, N) :- cpp_vbases_of(C, Vs0), cpp_first_each(Vs0, Vs), nth1(I, Vs, V0), V0 == V, !, catch(cpp_lvb_off(C, V, _), _, fail), atomic_list_concat(['$base$v', I], N).
 %% the place of a later virtual base's offset in the class's table: -24 - 8I for its I-th slot
 cpp_lvb_off(C, V, Off) :- cpp_vb_slots(C, Vs), once(nth0(I, Vs, V)), Off is -24 - 8 * I.
-cpp_empty_base_align(C, Base, Ms) :- findall(align_as(int(A)), ( cpp_empty_base(C, Base, B), catch(cpp_base_align(B, A), _, fail), A > 1 ), Ms0),
-    findall(empty_sub(base([], [typedef(B)])), cpp_empty_base(C, Base, B), Es), append(Ms0, Es, Ms).   % ... and its PLACE, offset 0 (0.199): a member of its type is put past it (ccl_empty_seed/2)
+cpp_empty_base_align(C, Base, Data, Ms) :- findall(align_as(int(A)), ( cpp_empty_base(C, Base, B), catch(cpp_base_align(B, A), _, fail), A > 1 ), Ms0),
+    findall(E, ( cpp_empty_base(C, Base, B), ( cpp_empty_vbase(C, Base, B) -> \+ cpp_empty_held(C, B), cpp_nv_last(Data, After), E = empty_vsub(base([], [typedef(B)]), After) ; cpp_empty_after(C, Base, B, After), E = empty_sub(base([], [typedef(B)]), After) ) ), Es), append(Ms0, Es, Ms).   % ... and its PLACE (0.199): a member of its type is put past it -- laid after the base before it, in the bases' order (0.235; ccl_empty_bases_at/11) -- a VIRTUAL one marked apart (0.235): it lies at the complete object's address, not at the class's own where the class is a base, so the lowering's route to an empty base stops at no class that names it (ir_empty_base_of/2)
 %% THE TABLE POINTER COMES FIRST (the Itanium ABI 2.4 I; 0.135): a class that introduces its table has no primary base -- none of
 %% its bases has a table, or cpp_primary_first would have moved that one to the front, where it shares the pointer -- and its own
 %% pointer lies at offset 0, the bases after it: `struct D : B { virtual void f(); int x; }' over `struct B { int b; }' lays B at 8
@@ -773,6 +780,48 @@ cpp_vptr_first(_, Ds, Ds).
 cpp_base_align(B, A) :- ccl_resolve_type(base([], [typedef(B)]), T), ccl_size_align(T, _, A).   % RESOLVED first: ccl_size_align takes a resolved type, and a bare name simply fails it
 cpp_empty_base(_, Base, Base) :- Base \== none, cpp_empty_class(Base).
 cpp_empty_base(C, _, B) :- '$cpp_extra'(C, Es), member(B, Es), cpp_empty_class(B).
+%% AN EMPTY VIRTUAL BASE THE CLASS DOES NOT HOLD AS A MEMBER lies at the complete object's address (0.172), and where an empty
+%% subobject of its type lies there already in the class's non-virtual part, the ABI moves it past the data (2.4 III over II.3),
+%% which this model does not do for one of no member: the class's virtual FIRST base of the 0.110 model, or one inside such a base --
+%% `C2 : virtual C0, C1' over `C1 : C0' is sixteen bytes to clang, the virtual C0 at 8, and was eight here. REFUSED by name (0.235),
+%% `empty_virtual_base_moved(C, V)', where a COMPLETE object of the class is constructed (cpp_ctor/3; '$cpp_bad_layout'(C, V)): as
+%% a base the class lays only its base-variant form, which holds no virtual base. One the class holds is placed so (cpp_base_layout/4)
+cpp_empty_vbases_laid(_, C, Data) :-
+    (   cpp_vbases_of(C, Vs0), cpp_first_each(Vs0, Vs), member(V, Vs), cpp_empty_class(V)
+    ->  findall(M, ( member(M, Data), M \= empty_vsub(_, _), \+ ( M = member(_, N, _), ( cpp_vb_member(N) ; N == '$base', '$cpp_vbase'(C) ) ) ), NV),
+        ( catch(ccl_class_empty_subs(base([], [struct('$nv_part', NV)]), Subs0), _, fail) -> true ; Subs0 = [] ),
+        findall(S, ( member(X, Vs), \+ cpp_empty_class(X), catch(cpp_vbase_loc(C, X, H), _, fail), H == [], cpp_self_subs(X, S) ), SelfSubs),   % ... and a nearly empty primary virtual base at the class's own address, whose empty subobjects no member lays
+        append([Subs0|SelfSubs], Subs),
+        forall(( member(V1, Vs), cpp_empty_class(V1), memberchk(V1-0, Subs), \+ cpp_empty_held_past(C, V1, Data) ), cpp_bad_layout(C, V1, Data)),
+        forall(( catch(ccl_members_layout(Data, Lays, _, _), _, fail), member(lay('$vempty'(V2), _, Off2, empty), Lays), Off2 > 0 ), cpp_bad_layout(C, V2, Data))   % one it does not hold, which the walk moved: no member gives the place
+    ;   true ).
+%% ... WHERE A PROGRAM CAN SEE IT: such a base meets one of its own type, so it is ambiguous, and no conversion names its address;
+%% the complete object's SIZE differs where the ABI's place past the data passes the model's size, and its functions see `this'
+%% where it or a base of it declares any (0.235): `C2 : virtual C1, C0' over `C1 : virtual C0 { int m; virtual int f(); }' is
+%% 32 bytes either way, the virtual C0 at 28 to clang and at 0 here, and builds
+cpp_bad_layout(C, V, Data) :-
+    (   cpp_fns_see_this(V) -> true
+    ;   catch(ccl_members_layout(Data, _, Size, Align, DSize), _, fail), catch(ccl_resolve_type(base([], [typedef(V)]), VT), _, fail),
+        ccl_empty_subs(VT, VSubs), ( catch(ccl_class_empty_subs(base([], [struct('$whole', Data)]), Seen), _, fail) -> true ; Seen = [] ),
+        ccl_empty_step(VSubs, 1, Seen, DSize, O), E is max(Size, O + 1), ccl_round_up(E, Align, Size1), Size1 =\= Size ),
+    !, ( '$cpp_bad_layout'(C, V) -> true ; assertz('$cpp_bad_layout'(C, V)) ).
+cpp_bad_layout(_, _, _).
+cpp_fns_see_this(V) :- cpp_class(V, cls(B, _, Ms, _, _, _)), ( member(M, Ms), ( M = ctor(_, _, _, _, _) ; M = dtor(_, _, _) ; M = method(_, _, _, _, _, _, _) ; M = template(_, _, _) ) -> true ; B \== none, cpp_fns_see_this(B) -> true ; '$cpp_extra'(V, Es), member(E, Es), cpp_fns_see_this(E) ), !.
+cpp_self_subs(X, Subs) :- ( cpp_nv_tag(X, XNV), catch(ccl_tag(XNV, Ms), _, fail), is_list(Ms) -> true ; catch(ccl_tag(X, Ms), _, fail), is_list(Ms) ), catch(ccl_class_empty_subs(base([], [struct(X, Ms)]), Subs), _, fail), !.
+cpp_self_subs(_, []).
+%% an empty virtual base the class holds, its member laid past offset 0 by the walk (a conflict there seen)
+cpp_empty_held_past(C, V, Data) :- cpp_empty_held(C, V), cpp_vb_name(C, V, VN), catch(ccl_members_layout(Data, Lays, _, _), _, fail), memberchk(lay(VN, _, Off, empty), Lays), Off > 0.
+cpp_empty_vbase(C, Base, B) :- B == Base, !, '$cpp_vbase'(C).
+cpp_empty_vbase(C, _, B) :- '$cpp_lvb'(C, B, _).
+%% the last member of a class's non-virtual part, after which an empty virtual base it does not hold is laid -- before those it holds,
+%% at offset 0 or past the data, so the held ones meet its empty subobjects there (0.235): `C2 : virtual C1, virtual C0' over `C1 : C0'
+%% lays the held C0 at 16, past C1's own C0 at 0, as clang does; the model kept the first virtual base, empty, out of the walk
+cpp_nv_last(Data, After) :- findall(N, ( member(member(_, N, _), Data), \+ cpp_vb_member(N) ), Ns), ( last(Ns, After) -> true ; After = start ).
+%% the member of the plain base laid before the empty base B, in the bases' order -- the first base, then the later ones -- or `start'
+cpp_empty_after(C, Base, B, After) :- ( '$cpp_extra'(C, Es) -> true ; Es = [] ), append(Before, [B0|_], [Base|Es]), B0 == B, !,
+    findall(N, ( member(X, Before), X \== none, \+ cpp_empty_class(X), cpp_plain_base_member(C, Base, X, N) ), Ns), ( last(Ns, After) -> true ; After = start ).
+cpp_plain_base_member(C, Base, X, '$base') :- X == Base, !, \+ '$cpp_vbase'(C), \+ '$cpp_vprim'(C, _).
+cpp_plain_base_member(C, _, X, Slot) :- '$cpp_base_slot'(C, X, Slot), \+ '$cpp_lvb'(C, X, _).
 cpp_base_layout_(_, none, Data, Data) :- !.
 %% ... AND AN EMPTY BASE HAS NO SUB-OBJECT AT ALL ([class]/4, the empty base optimization), which is
 %% what the extra empty bases have had since 0.71: the derived class takes no byte for it, the base's
@@ -796,7 +845,7 @@ cpp_vbase_dynamic(C) :- '$cpp_vbase'(C), cpp_class_l(C, cls(_, Data, _, _, _)), 
 %% ... and its BASE-SUBOBJECT form, `C.nv': the class without the shared base, which a diamond's later path embeds
 cpp_nv_tag(C, NV) :- atom_concat(C, '.nv', NV).
 cpp_nv_data(C, Data2, NVData) :- cpp_class_l(C, cls(Base, _, _, _, _)),
-    findall(M, ( member(M, Data2), M \= member(_, '$base', _), M \== virtual_base, \+ ( M = member(_, N, _), cpp_vb_member(N) ) ), Ms0), append(Ms0, [virtual_base_of(base([], [typedef(Base)]))], NVData).   % ... and the later virtual bases it holds (0.172)
+    findall(M, ( member(M, Data2), M \= member(_, '$base', _), M \== virtual_base, \+ ( M = member(_, N, _), cpp_vb_member(N) ), M \= empty_vsub(_, _) ), Ms0), append(Ms0, [virtual_base_of(base([], [typedef(Base)]))], NVData).   % ... and the later virtual bases it holds (0.172)
 %% `alignas' travels with the tag, its expression folded in the class's own words as a bitfield's width and
 %% an array's bound are: `union alignas(_Align) type { ... }' in an instance of libc++'s aligned_storage
 %% states an alignment the layout must know wherever the tag is noted from (ccl_align_as).

@@ -745,7 +745,7 @@ ccl_slim_members([M|Ms], [M|Ms1]) :- ccl_slim_members(Ms, Ms1).
 %% the answer caches of ccl_typedef_of/2, ccl_tag/2 and ccl_members_layout/4 (ccl_infer), emptied when a table is written
 ccl_tables_changed :-
     ccl_named_caches(Ps), ccl_forget_named(Ps),
-    nb_setval('$ccl_laycache', []), nb_setval('$ir_tcache', []), nb_setval('$ir_abicache', []).
+    nb_setval('$ccl_laycache', []), nb_setval('$ccl_esubcache', []), nb_setval('$ir_tcache', []), nb_setval('$ir_abicache', []).
 ccl_forget_named([]).
 ccl_forget_named([P|Ps]) :- ccl_cache_index(P, IK), nb_setval(IK, []), ccl_forget_named(Ps).
 %% ---- the bulk noter: a whole unit tree into the tables, each set once ------------

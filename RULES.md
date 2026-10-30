@@ -6651,9 +6651,14 @@ A lambda is a class of its captures (`library/ccl_cpp_lambda.pl`, 0.223). A fixt
   H { int x; }` 8 for 4, and `std::is_empty_v<H>` and `std::is_empty_v<E>` of a plain `struct E {}` were 0.
   `nuaempty.cpp`, `nualayout.cpp`. (0.89, 0.198)
 - An empty base (`cpp_empty_class`: no data, no slots) has no sub-object, as the first base (`cpp_base_layout_`) or a
-  later one (`cpp_extra_bases_`). Its address is the object's (`cpp_base_place`, `cpp_base_src`, `cpp_base_hop`); a
-  memberwise copy names it by a reference cast. It keeps its alignment as `align_as(int(A))` (`cpp_empty_base_align`):
-  libc++'s `__max_align_impl` derives from six empty `alignas` bases. (0.71, 0.89)
+  later one (`cpp_extra_bases_`). The desugaring takes the object's address for it (`cpp_base_place`, `cpp_base_src`,
+  `cpp_base_hop`); a memberwise copy names it by a reference cast. It keeps its alignment as `align_as(int(A))`
+  (`cpp_empty_base_align/4`): libc++'s `__max_align_impl` derives from six empty `alignas` bases. A POINTER CONVERTS TO
+  IT AT ITS PLACE (0.235; `ir_base_route/3` over `ir_empty_base_of/3`): the route ends at the class that names it,
+  through its place `$empty'(Tag)` (the walk's entry of no element, the bullet of `[[no_unique_address]]` below) -- the
+  pointer was kept, the object's address, wherever the base lay: `E *` of `D : B, C` over `C : E { int y; }` was 0 for
+  clang's 4, and `C0 *` of `C3 : virtual C1` over `C1 : C0 { ... }` the object's address for C1's. `emptybaseorder.cpp`.
+  (0.71, 0.89, 0.235)
 - A base's names are found through `cpp_base_scope/2`, the first base, then each later one (`'$cpp_extra'`): typedefs,
   static constants, statics, `cpp_has_member` and methods. `cpp_extra_method` takes the object's address for an empty
   base, `'$cpp_base_slot'` for one with storage. `ctype<char> : locale::facet, ctype_base`. (0.71, 0.88)
@@ -6667,16 +6672,22 @@ A lambda is a class of its captures (`library/ccl_cpp_lambda.pl`, 0.223). A fixt
   (`cpp_pod_mark/3`, at registration and at the struct's emission, since the passes note the tags again from the items).
 - A BASE OR A `[[no_unique_address]]` MEMBER OF A CLASS THAT IS NO POD TAKES ITS DATA SIZE, and what follows lies in its
   TAIL PADDING ([intro.object]/7, the Itanium ABI 2.4 II.2; 0.135): `ccl_members_layout/5` advances past such a member
-  (`ccl_overlapping/2`: `$base`, `$base$K`, the `[[no_unique_address]]` mark) by `ccl_data_size/2` -- a non-POD class's
-  bytes up to the end of its last data member (the walk's own data size, `DSize`), any other type's whole size -- and the
-  class's size still covers the sub-object's. `struct D : B { int y; }` over `struct B { virtual int f(); int x; }` lays y
-  at 12 in sixteen bytes, as clang does, where it lay at 16 in twenty-four; `struct B { B() {} int a; char c; }; struct D :
-  B { char d; }` lays d at 5. `itaniumlayout.cpp`, and the C++ gate's ABI check against clang++.
+  (`ccl_overlapping/2`: `$base`, `$base$K`, a held virtual base's `$vb` and `$vb$K` since 0.235, the
+  `[[no_unique_address]]` mark) by `ccl_data_size/2` -- a non-POD class's bytes up to the end of its last data member
+  (the walk's own data size, `DSize`), any other type's whole size -- and the class's size still covers the
+  sub-object's, A BASE'S BY ITS NON-VIRTUAL SIZE (0.235; 2.4 II.2; `ccl_base_extent/4`: the empty virtual bases a base
+  laid whole holds at its end are none of it). `struct D : B { int y; }` over `struct B { virtual int f(); int x; }`
+  lays y at 12 in sixteen bytes, as clang does, where it lay at 16 in twenty-four; `struct B { B() {} int a; char c; };
+  struct D : B { char d; }` lays d at 5; a virtual base lies in the tail padding of the virtual base before it (`C4 :
+  C3` over `C3 : virtual C2, virtual C1, C0` and `C2 : C1 { virtual int f2(); }`, 32 bytes, was 40).
+  `itaniumlayout.cpp`, `vbtailpad.cpp`, and the C++ gate's ABI check against clang++.
 - Its LLVM element is a PACKED struct of the base's own elements up to its data size (`ir_packed_base/3`,
-  `ir_packed_shape/4` over `ir_shape/8` in the mode `packed`), `<{ ptr, i32 }>`; its members are reached through the base's
-  own type from its address, as any base's are. A struct holding one ends with `[0 x i64]` (`ir_align_forcer/2`, the
-  class's alignment), which keeps the alignment LLVM would otherwise take from it. A global's constant spells the base in
-  its packed shape (`ir_gpacked/3`).
+  `ir_packed_shape/4` over `ir_shape/8` in the mode `packed`), `<{ ptr, i32 }>`; its members are reached through the
+  base's own type from its address, as any base's are. A struct holding one ends with `[0 x i64]` (`ir_align_forcer/2`,
+  the class's alignment), which keeps the alignment LLVM would otherwise take from it -- and so does one holding a `.nv`
+  base, whose element is its bytes, aligned at one (0.235; `ir_lays_ll_align/2`): `C3.nv` over a `C2.nv` of twelve bytes
+  and an int was aligned at four to LLVM, and `C4 : C2, C3, C0` laid C3 at 12 where C lays it at 16 (`vbtailpad.cpp`). A
+  global's constant spells the base in its packed shape (`ir_gpacked/3`).
 - A WHOLE STORE OF A CLASS THAT LENDS ITS TAIL PADDING WRITES ITS DATA SIZE ALONE (`ir_overlap_store/2`, `ir_store_data/5`;
   0.135), as clang copies an object that may be a base sub-object: through a temporary and `llvm.memcpy`, a zero through
   `llvm.memset` (an aggregate's zero first, `ir_init/3`). `NP &r = nd; r = NP(5, 'z');` keeps nd's own member in NP's tail.
@@ -6706,20 +6717,32 @@ A lambda is a class of its captures (`library/ccl_cpp_lambda.pl`, 0.223). A fixt
   `nounique.cpp`. (0.89, 0.96)
 - An empty marked member lies where Itanium 2.4 II.3 puts it (`ccl_empty_offset`, `ccl_empty_step`): at 0, unless an
   empty subobject of its type is there; then at the data size rounded to its alignment, stepping by it. It takes no data
-  bytes and keeps its alignment. The size is the larger of the data and the end of the empty subobjects
-  (`acc(Seen, EmptyEnd)`). A plain member of an empty class counts as one in the way. `nounique2.cpp` (C++20). An empty
-  subobject INSIDE an empty member counts too, at its own offset (0.198; `ccl_empty_subs/2`, clang's EmptySubobjectMap):
-  `struct T { [[no_unique_address]] E e; [[no_unique_address]] H h; }` lays h at 1, H's E in the way at 0, where it lay at 0
-  in one byte. AN EMPTY BASE IS IN THE WAY TOO (0.199, lowering 112): it lies at offset 0 and takes no byte, and the
-  class's tag carries it as the layout marker `empty_sub(T)` (`cpp_empty_base_align/3`), which seeds the walk's empty
-  subobjects (`ccl_empty_seed/2`, and `ccl_empty_subs/2` of a class over one); a `[[no_unique_address]]` member of its
-  type and a PLAIN member of an empty class of its type step past it, as clang's EmptySubobjectMap has them, and a
+  bytes and keeps its alignment. The size is the larger of the data and the end of the empty subobjects (`acc(Seen,
+  EmptyEnd)`). A plain member of an empty class counts as one in the way. `nounique2.cpp` (C++20). An empty subobject
+  INSIDE an empty member counts too, at its own offset (0.198; `ccl_empty_subs/2`, clang's EmptySubobjectMap): `struct T
+  { [[no_unique_address]] E e; [[no_unique_address]] H h; }` lays h at 1, H's E in the way at 0, where it lay at 0 in
+  one byte. AN EMPTY BASE IS IN THE WAY TOO (0.199, lowering 112): it takes no byte, and the class's tag carries it as
+  the layout marker `empty_sub(T, After)` (`cpp_empty_base_align/4`), which the walk lays IN THE BASES' ORDER (0.235;
+  `ccl_empty_bases_at/11`; After is the member of the plain base before it, `cpp_empty_after/4`, or `start`): at offset
+  0, or where an empty subobject of its type lies there already, past the data, on by its alignment -- a base before it
+  keeps offset 0 and the empty base moves (`C3 : C1, C0` over `C1 : C0 { virtual int f1(); int m; }` lays C0 at 12, 24
+  bytes, as clang does; every empty base lay at 0 first, the walk's seed until 0.235) --, its place the walk's entry
+  `$empty'(Tag)` (`ccl_empty_seed/2`, and `ccl_empty_subs/2` of a class over one); a `[[no_unique_address]]` member of
+  its type and a PLAIN member of an empty class of its type step past it, as clang's EmptySubobjectMap has them, and a
   member's offset and `offsetof` take the layout over the tag's own list, its markers in (`ccl_offset_member_of/4`,
   `cpp_offsetof/4`): `struct X : E { [[no_unique_address]] E e; }` is 2 bytes, e at 1, `struct Z : E { E e; }` too, and
   `struct R : E { virtual void v(); [[no_unique_address]] E e; }` 16 bytes, e at 8, where each laid e at 0 a byte or 8
   smaller than clang++. `nuaempty.cpp`, `emptybase.cpp` (C++20). (0.96, 0.198, 0.199)
 - An empty marked member has no LLVM element. Its map entry is `m(N, empty(Off), T, empty)`, and `ir_member_slot`
   addresses it by byte offset (`getelementptr inbounds i8`). (0.96)
+- THE EMPTY SUBOBJECTS OF A BASE OR A MEMBER THAT IS NOT EMPTY ARE IN THE WAY TOO (0.235; the Itanium ABI 2.4 II.3,
+  clang's EmptySubobjectMap; [intro.object]/9: two subobjects of one type never at one address): each empty base and
+  member of the class at its place, with those inside each base or member of class type at its own
+  (`ccl_class_empty_subs/2`, a union's none) -- such a base or member lies where none of them meets an empty subobject
+  of its type already there, on by its alignment, and they join the walk's. `struct X : E, Y { int x; }` over `struct Y
+  : E { int y; }` lays Y at 4, its E apart from X's own at 0, in twelve bytes, as clang lays it, where Y lay at 0 in
+  eight; `struct T : P, E` over `struct P { E e; int x; }` lays the base E at 8, past P's member, and `I : A, B` over `B
+  : A`, all empty, is two bytes, B at 1. `emptybaseorder.cpp`. (0.235)
 
 ### Base sub-objects
 
@@ -7095,6 +7118,48 @@ A lambda is a class of its captures (`library/ccl_cpp_lambda.pl`, 0.223). A fixt
   base-variant struct `B.nv`, which the path's copy constructor does not take -- `base_constructor(B)` refused the implicit
   copy of every diamond), and the assignment assigns each path through the object cast to it (`cpp_assign_base_dst/4`), the
   shared base through the paths, as C++ allows ([class.copy.assign]/12). `diamondcopy.cpp`.
+- AN EMPTY VIRTUAL BASE THE CLASS HOLDS IS A MEMBER OF NO STORAGE (0.235; it had none, at the object's own address,
+  0.172; `cpp_base_layout/4`), `$vb` or `$vb$K` in the holders' order, `[[no_unique_address]]`: the walk lays it at
+  offset 0, or past the data where an empty subobject of its type lies at 0 already, as the ABI places a virtual base
+  (2.4 III over II.3) -- `C2 : C0, C1` over `C1 : virtual C0` lays the virtual C0 at 8, sixteen bytes, as clang does,
+  where it shared offset 0 with the plain C0 in eight. It is built there (`cpp_vb_place/3`), and the tables' vbase
+  offset is its place (`cpp_vbase_entry/5` over `cpp_empty_held/2`). One the class does not hold -- its virtual FIRST
+  base of the 0.110 model, or one inside such a base -- is laid by the walk after the non-virtual part, before those it
+  holds, at offset 0 or past the data (`empty_vsub(T, After)`, `cpp_nv_last/2`; its entry `$vempty'(Tag)`, no route's),
+  and the empty subobjects of a nearly empty primary virtual base, at the class's own address, start the walk
+  (`ccl_vprim_seed/2`). Where such a base is laid past offset 0, or meets an empty subobject of its type the walk does
+  not see, no member gives its place, and a COMPLETE OBJECT of the class is refused by name,
+  `empty_virtual_base_moved(C, V)` (`cpp_empty_vbases_laid/3` notes `'$cpp_bad_layout'(C, V)` at registration,
+  `cpp_ctor/3` refuses where the object is built): as a base the class lays its base-variant form, which holds no
+  virtual base. `vbempty.cpp`. (0.235)
+- EVERY VIRTUAL BASE IS REACHED THROUGH THE TABLE (0.235; `cpp_every_vbase_refs/2`): a slot `$base$v<I>`, a
+  pseudo-member of no storage, its vbase offset at its place in the class's table (`cpp_vbase_ref_name/3`), in the class
+  and its `.nv` form -- a pointer converts to an EMPTY one where the sub-object lies in any object, the pointer kept
+  until 0.235 (`C1 *c = o; C0 *d = c;` over `C2 : virtual C1` and `C1 : virtual C0`, C0 empty, was C1's address for
+  clang's 0), and a base variant stores a virtual base's table there (`cpp_vtt_stores/3`): a static cast of `this` took
+  a plain base of the virtual base's class too, where the class has one -- `C4 : virtual C1, virtual C2, C0` over `C1 :
+  virtual C0` stored C0's construction table in its own plain C0, its table pointer, and its base variant crashed. A
+  virtual first base of the 0.110 model with a table and no virtual function holds the class's own secondary table
+  (`'$cpp_poly_extra'`, `cpp_has_table/1` where it asked `cpp_polymorphic/1`): it kept its own, whose offsets are its
+  complete object's. `vbempty.cpp`, `vbtables.cpp`. (0.235)
+- THE TABLES INSIDE A LATER VIRTUAL BASE ARE AT THE MEMBER THAT HOLDS IT (0.235; `cpp_inherit_later_poly_extras/1` over
+  `cpp_held_slot/4`): its slot `$base$K` is a pseudo-member reached through the table, whose offset no table's offset to
+  top can be written with -- `C3 : virtual C2, C1` over `C2 : C0, C1` was refused `global_init(neg(offsetof(C3,
+  $base$2.$base$2)))` for C2's second base, which lies at `$vb.$base$2`. THE VTT NAMES A VIRTUAL BASE'S CONSTRUCTION
+  TABLE BY ITS PLACE where it has no other name (`cpp_vb_table_name/3`: the virtual first base of the 0.110 model,
+  `$base`, and one inside it, `$base.$base`; `cpp_ctor_vb_table/6` designates it by its hops), and a virtual base with
+  no name is refused, `vtt_entry_unnamed(C, X, V)` (`cpp_vtt_own/4`): its entry was left out, and every later part of
+  the VTT read one place off -- `C3 : virtual C0, virtual C2` over `C2 : C1, C0` and `C1 : virtual C0` handed C2's base
+  variant two entries of its four, and it crashed. A VIRTUAL BASE TAKES THE VIRTUAL BASE'S PART of the VTT
+  (`cpp_vtt_vpass/5`, `cpp_vtt_varg/3`: the last part of its class, the virtual bases' parts after the plain ones'): `C4
+  : C3, C1` over `C3 : virtual C1` handed the virtual C1 the plain C1's part. A NEARLY EMPTY PRIMARY VIRTUAL BASE's
+  pseudo-member `$base` lies at the complete object's own address, offset 0 in the tables that name its sub-objects
+  (`ccl_offset_member_of/4`; not in a base-variant form, where the complete object claims it). `vbtables.cpp`. (0.235)
+- 0.235'S SURVEY: 1,818 random hierarchies (383 of three to six classes, 1,435 of three to eight; plain and virtual
+  bases, empty classes, members, virtual functions), each built by clang++ 18 and by cicilang++, run, and compared --
+  the size, every unique base's offset, its members read and written, its virtual call. The committed 0.234 laid 349 and
+  1,232 of them as clang does; 0.235 lays 381 and 1,423 of the 1,435 (1,804 of the 1,818, from 1,581), refuses 10 by
+  name and differs in four (the Not done list).
 
 ### Pointers to members
 
@@ -7808,13 +7873,15 @@ The namespaces' rules, the program's and the library's, are `library/ccl_cpp_nam
   basic_string<char>;` were one name in the flat table, `basic_string` bare inside pmr was std's class template, and
   `std::pmr::string s("hello", &mr);` found no constructor. `stdpmr.cpp`. (0.201)
 - A bare use in the deeper namespace is rewritten to the key (`cpp_qualify_body`, `cpp_rename_names`; a header's in
-  `cpp_index_flat`), base clauses included (`base(Access, N)`, `base(Access, virtual(N))`), unless the item declares the
-  name (`cpp_declared_names`: vector's own `begin()`). `nscollide2.cpp`. A CLASS DECLARES ITS MEMBERS' NAMES, and a
-  function, a method, a constructor, a destructor and a lambda their parameters' and their locals', each inside itself
-  only (0.182; `cpp_rename_names/3` stops at each, `cpp_declared_names/3`): libc++ 22's `__adjacent_transform::__fn` has
-  an `operator()(_Range &&, _Fn &&__fn)`, the search went through that member's parameters (an operator's name is no
-  atom, and the method rule took an atom), and the class's base `__range_adaptor_closure<__fn<_Np>>` kept the bare
-  `__fn`, another namespace's: `template_without_body('__fn')` for every `views::adjacent_transform`. Reader 136.
+  `cpp_index_flat`), base clauses included (`base(Access, N)`, a virtual one's access `virtual(Access)` since 0.235 --
+  `cpp_base_access/1` took no such access, and `b::D : virtual B` took `a::B`, the first class of that name, as did a
+  template's substitution of `D<T> : virtual T`, which kept `T`; `vbasens.cpp`), unless the item declares the name
+  (`cpp_declared_names`: vector's own `begin()`). `nscollide2.cpp`. A CLASS DECLARES ITS MEMBERS' NAMES, and a function,
+  a method, a constructor, a destructor and a lambda their parameters' and their locals', each inside itself only
+  (0.182; `cpp_rename_names/3` stops at each, `cpp_declared_names/3`): libc++ 22's `__adjacent_transform::__fn` has an
+  `operator()(_Range &&, _Fn &&__fn)`, the search went through that member's parameters (an operator's name is no atom,
+  and the method rule took an atom), and the class's base `__range_adaptor_closure<__fn<_Np>>` kept the bare `__fn`,
+  another namespace's: `template_without_body('__fn')` for every `views::adjacent_transform`. Reader 136.
   `nsparamname.cpp`. (0.100, 0.101, 0.182)
 - The program's own collisions follow the same rule before registration (`cpp_ns_resolve`, `'$cpp_ns_own'`): the units
   are rewritten and the table built again; a declared-only function keeps its shipped name. `nscollide.cpp`. (0.100)
@@ -11602,16 +11669,25 @@ Declarations topic of the C++ reader).
   evaluation topic). `std::source_location::current()` is answered since 0.166. (0.110, 0.164, 0.168, 0.234)
 - A later virtual base or a path whose virtual bases cannot be laid as a `.nv` form is refused by name,
   `virtual_base_over_virtual_base(C, V)` or `virtual_base_laid_otherwise(C, P)`; since 0.173 no shape the probes tried
-  meets either -- a later virtual base with virtual bases of its own (`X : B, virtual V` over `V : virtual A`) and a path
-  that reaches an empty virtual base further in (`X : P, virtual A` over `P : Q` and `Q : virtual E`), each refused at
-  0.172, build as clang lays them. A NEARLY EMPTY virtual base is the primary base since 0.174 (the Itanium ABI's II.1b),
-  the one clang chooses since 0.175, a stolen one and one further in since 0.176, and a holder lays it where a base
-  sub-object takes it as its primary, and one whose own virtual bases lie outside it since 0.178 (`C : virtual I` over
-  `I : virtual A`, A with data). A primary table's slots are in the ABI's order since 0.177. Since 0.171
-  every class over virtual bases through its paths has the Itanium layout, since 0.172 every class with a later virtual
-  base too, since 0.173 one whose later virtual base has virtual bases of its own, and every base-variant sub-object at
-  any depth is built under construction tables of its own, its secondary pointers among them (0.110, 0.117, 0.160,
-  0.163, 0.171, 0.172, 0.173, 0.174, 0.175, 0.176, 0.177, 0.178).
+  meets either -- a later virtual base with virtual bases of its own (`X : B, virtual V` over `V : virtual A`) and a
+  path that reaches an empty virtual base further in (`X : P, virtual A` over `P : Q` and `Q : virtual E`), each refused
+  at 0.172, build as clang lays them -- and 0.235's survey of 1,818 random hierarchies meets neither (the Virtual bases
+  topic: what it found, and what 0.235 does). What it leaves: four shapes of the 1,435 laid otherwise than clang,
+  silently, each where an empty base meets a nearly empty primary virtual base or a virtual base laid further in, which
+  no member lays -- `C4 : C3, virtual C1` over `C3 : C1, virtual C2`, `C2 : C1 { virtual int f2(); }` and `C1 : C0`, all
+  empty but C2's pointer (clang moves the virtual C1 past the C1 of C3's nearly empty primary, 24 bytes for 16), the
+  nearly empty `C0` of `C3 : virtual C2, virtual C1, virtual C0` over `C1, C2 : virtual C0` (at 0 for clang's 16), and
+  two of eight classes (a virtual base past an empty subobject the walk does not see); seven refused by name,
+  `empty_virtual_base_moved(C, V)`, where a complete object is built and its size differs; and three refused `not
+  lowered yet`, a held base's `$vb` that a claim lays elsewhere and an offset through a base-variant form's nearly empty
+  primary, which only the complete object's tables can name. A NEARLY EMPTY virtual base is the primary base since 0.174
+  (the Itanium ABI's II.1b), the one clang chooses since 0.175, a stolen one and one further in since 0.176, and a
+  holder lays it where a base sub-object takes it as its primary, and one whose own virtual bases lie outside it since
+  0.178 (`C : virtual I` over `I : virtual A`, A with data). A primary table's slots are in the ABI's order since 0.177.
+  Since 0.171 every class over virtual bases through its paths has the Itanium layout, since 0.172 every class with a
+  later virtual base too, since 0.173 one whose later virtual base has virtual bases of its own, and every base-variant
+  sub-object at any depth is built under construction tables of its own, its secondary pointers among them (0.110,
+  0.117, 0.160, 0.163, 0.171, 0.172, 0.173, 0.174, 0.175, 0.176, 0.177, 0.178, 0.235).
 
 ### libc++ modules
 

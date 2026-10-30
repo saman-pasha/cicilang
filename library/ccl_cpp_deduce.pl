@@ -894,6 +894,7 @@ cpp_subst_tparams([tparam(K, P, D)|TPs], B, [tparam(K1, P, D1)|Qs]) :- !, ( cpp_
 cpp_subst_tparams([requires(R)|TPs], B, [requires(R1)|Qs]) :- !, cpp_subst(R, B, R1), cpp_subst_tparams(TPs, B, Qs).
 cpp_subst_tparams([ttp(N, I)|TPs], B, [ttp(N, I1)|Qs]) :- !, cpp_shadow(I, B, B1), cpp_subst_tparams(I, B1, I1), cpp_subst_tparams(TPs, B, Qs).   % a template template parameter's own list (0.185): its defaults take the class's bindings too
 cpp_subst_tparams([X|TPs], B, [X|Qs]) :- cpp_subst_tparams(TPs, B, Qs).
+cpp_base_access(virtual(A)) :- !, cpp_base_access(A).   % ... a VIRTUAL base's (0.235): the reader writes `base(virtual(Access), Name)', and its name was neither renamed in its namespace nor substituted for a template parameter -- `b::D : virtual B' took `a::B', the first class of that name
 cpp_base_access(A) :- memberchk(A, [none, public, private, protected]).
 cpp_bound_base(tname(X), X) :- !.
 cpp_bound_base(base(_, [typedef(X)]), X) :- !.

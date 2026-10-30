@@ -528,25 +528,26 @@ cpp_vb_calls_all([V|Vs], L, C, B, Inits, Calls) :- ( V == B, '$cpp_vbase'(C) -> 
     cpp_vb_calls_all(Vs, L, C, B, Inits, Calls0), append(Call1, Calls0, Calls).
 cpp_vb_cleanup(V, L, C, B, Cl) :-
     (   V == B, '$cpp_vbase'(C) -> cpp_first_base_cleanup(L, C, B, Cl)   % the virtual first base where the destructor destroys it (cpp_dtor_body/4's FirstDtor)
-    ;   findall(expr(L, call(id(VName), VArgs)), ( cpp_dtor(V, VName0), cpp_vb_place(C, V, VPl), cpp_vb_dtor_name(V, VName0, VName), VName \== '$no_dtor', cpp_vtt_pass(C, V, VName, [VPl], VArgs) ), D),
+    ;   findall(expr(L, call(id(VName), VArgs)), ( cpp_dtor(V, VName0), cpp_vb_place(C, V, VPl), cpp_vb_dtor_name(V, VName0, VName), VName \== '$no_dtor', cpp_vtt_vpass(C, V, VName, [VPl], VArgs) ), D),
         ( D == [] -> Cl = [] ; Cl = [eh_cleanup(L, block(D))] ) ).
 cpp_vb_dtors([], _, _, _, _, []).
 cpp_vb_dtors([V|Vs], L, C, B, FirstDtor, Out) :-
     (   V == B, '$cpp_vbase'(C) -> D = FirstDtor
-    ;   findall(expr(L, call(id(VName), VArgs)), ( cpp_dtor(V, VName0), cpp_vb_place(C, V, VPl), cpp_vb_dtor_name(V, VName0, VName), VName \== '$no_dtor', cpp_vtt_pass(C, V, VName, [VPl], VArgs) ), D) ),
+    ;   findall(expr(L, call(id(VName), VArgs)), ( cpp_dtor(V, VName0), cpp_vb_place(C, V, VPl), cpp_vb_dtor_name(V, VName0, VName), VName \== '$no_dtor', cpp_vtt_vpass(C, V, VName, [VPl], VArgs) ), D) ),
     cpp_vb_dtors(Vs, L, C, B, FirstDtor, Out0), append(D, Out0, Out).
 %% the held virtual bases built where they lie, each from its initializer in the class, else by its default constructor
 cpp_vb_calls([], _, _, _, []).
 cpp_vb_calls([V|Vs], L, C, Inits, Calls) :- cpp_vb_place(C, V, VPl),
     ( memberchk(init(V, VArgs), Inits) -> true ; VArgs = [] ),
     (   cpp_base_ctor(V, VArgs, VName0) -> cpp_fill_defaults(VName0, VArgs, VArgs1),
-        ( cpp_vb_nv(V) -> atom_concat(VName0, '.nv', VName), cpp_vtt_pass(C, V, VName, [VPl|VArgs1], CArgs) ; VName = VName0, CArgs = [VPl|VArgs1] ),   % one with virtual bases of its own by its base variant and its part of the VTT (0.173)
+        ( cpp_vb_nv(V) -> atom_concat(VName0, '.nv', VName), cpp_vtt_vpass(C, V, VName, [VPl|VArgs1], CArgs) ; VName = VName0, CArgs = [VPl|VArgs1] ),   % one with virtual bases of its own by its base variant and its part of the VTT (0.173)
         Call = [expr(L, call(id(VName), CArgs))]
     ;   VArgs == [], \+ cpp_no_default_ctor(V) -> Call = []
     ;   cpp_refuse(L, base_constructor(V)) ),
     cpp_vb_calls(Vs, L, C, Inits, Calls0), append(Call, Calls0, Calls).
 %% where a held virtual base lies in the complete object: its member, an empty one the object's own address (0.172) -- by a cast
 %% through `void *', which takes no base route: the base is built before any table is stored (0.173)
+cpp_vb_place(C, V, addr(arrow(this, VN))) :- cpp_empty_held(C, V), !, cpp_vb_name(C, V, VN).   % an empty one the class holds at its member (0.235)
 cpp_vb_place(C, V, P) :- ( ( cpp_empty_class(V) ; cpp_vb_at_self(C, V) ) -> P = cast(ptr([], base([], [typedef(V)])), cast(ptr([], base([], [void])), id(this))) ; '$cpp_vb_claim'(C, V, H) -> cpp_poly_access(H, Acc), P = cast(ptr([], base([], [typedef(V)])), cast(ptr([], base([], [void])), addr(Acc))) ; cpp_vb_name(C, V, VN), P = addr(arrow(this, VN)) ).   % ... a claimed one at its claimant's address (0.174), one at the class's own address there (0.178)
 cpp_memberwise_src(copy, E, E).
 cpp_memberwise_src(move, E, move(E)).

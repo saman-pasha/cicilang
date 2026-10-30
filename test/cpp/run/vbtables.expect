@@ -1,0 +1,52 @@
+-- s87
+size 72
+C2 at 24 m 201 f 1002
+C2.m0 208
+-- s274
+size 56
+C1 at 32 f 1001
+C2 at 32 f 1002
+C3.m0 301
+-- s75
+size 80
+C2 at 64
+C4 at 40 m 401 m 402 f 1004
+C4.m0 408
+C4.m1 409
+-- s170
+size 72
+C0 at 24 m 1 m 2 f 1000
+C2 at 40 f 1002
+C3 at 0
+C0.m0 8
+C0.m1 9
+C4.m0 401
+-- t2297
+size 152
+C4 at 0 f 1004
+C5.m0 501
+C5.m1 502
+-- t2210
+size 48
+C1 at 16
+C3 at 0
+C4 at 32 f 1004
+C6 at 24 m 601
+C6.m0 608
+C7.m0 701
+C7.m1 702
+-- t1162
+size 16
+C1 at 0 f 1001
+C2 at 0 f 1002
+C4 at 0 f 1004
+C5.m0 501
+-- t2077
+size 32
+C1 at 20 m 101
+C2 at 0
+C3 at 0
+C1.m0 108
+C4.m0 401
+C4.m1 402
+exit 0

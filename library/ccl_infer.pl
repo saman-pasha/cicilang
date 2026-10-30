@@ -511,7 +511,8 @@ ccl_layout_marker(align_as(_)).
 ccl_layout_marker(virtual_base).                                   % a class whose FIRST base is VIRTUAL (0.110): its `$base' is reached through the vtable's vbase offset
 ccl_layout_marker(virtual_base_of(_)).                             % ... and its base-subobject form `C.nv', the shared base not laid out (a diamond's later path)
 ccl_layout_marker(vbase_ref(_, _, _)).                           % A LATER VIRTUAL BASE's slot `$base$K' (0.172): a pseudo-member of no storage, reached through the table's vbase offset at its place
-ccl_layout_marker(empty_sub(_)).                                   % AN EMPTY BASE at offset 0 (0.199): no storage, an empty subobject in the way of a member of its type (ccl_empty_seed/2)
+ccl_layout_marker(empty_sub(_, _)).                                % AN EMPTY BASE (0.199): no storage, an empty subobject in the way of a member of its type -- laid after the base member it names, or first (0.235; ccl_empty_bases_at/11)
+ccl_layout_marker(empty_vsub(_, _)).                               % ... and an EMPTY VIRTUAL BASE the class does not hold (0.235): laid after the non-virtual part -- a plain base takes offset 0 before it -- and no route of the lowering stops at a class that names it
 ccl_layout_marker(packed(_)).                                      % GCC'S `packed' ON A STRUCT OR A UNION (0.203): its members aligned at one, a bitfield at the next bit (ccl_member_align/4)
 ccl_layout_marker('$nonpod').                                      % A CLASS THAT IS NOT A POD FOR THE PURPOSE OF LAYOUT (the Itanium ABI's term, as clang decides it; 0.135): as a base or a `[[no_unique_address]]' member it takes its DATA size and lends its tail padding (ccl_data_size/2)
 ccl_layout_marker(final_class).                                    % A CLASS DECLARED `final' (0.206): no member, the mark `__is_final' asks
@@ -1088,6 +1089,7 @@ ccl_offset_walk([i(I)|Ss], T, Acc, Off) :- ccl_resolve_type(T, arr(_, E)), ccl_c
 ccl_offset_member_of(R, N, MT, MO) :- ccl_members_of(R, Ms), ( R = base(_, [union(_, _)]) -> findall(lay(M, T, 0, none), member(member(T, M, _), Ms), Lays) ; ( ccl_members_of_(R, Ms0) -> true ; Ms0 = Ms ), ccl_members_layout(Ms0, Lays, _, _) ),   % the layout over the members AS THE TAG HOLDS THEM, its markers in (0.199: an empty base's place moves a member)
     ( memberchk(lay(N, MT, MO, _), Lays) -> true
     ; member(lay(A, AT, AO, _), Lays), ccl_anon_member(A), ccl_resolve_type(AT, AR), ccl_offset_member_of(AR, N, MT, O2), MO is AO + O2 ), !.
+ccl_offset_member_of(R, '$base', MT, 0) :- ccl_members_of_(R, Ms), memberchk(vbase_ref('$base', MT, _), Ms), \+ memberchk(virtual_base_of(_), Ms), !.   % A NEARLY EMPTY PRIMARY VIRTUAL BASE, `$base' of no storage, lies at the COMPLETE object's own address (0.235; the Itanium ABI 2.4 II.1b) -- the tables that name its sub-objects are the complete object's: `C5 : virtual C4' over a nearly empty C4 refused `global_init(offsetof(C5, $base.$base))' for C4's construction table. Not in a base-variant form, where the complete object claims it (cpp_vbase_loc/3): such a table is refused by name still
 ccl_anon_member(A) :- atom(A), sub_atom(A, 0, _, _, '$anon'), !.
 ccl_long_double(K) :- nb_current('$ccl_ldbl', K0), !, K = K0.
 ccl_long_double(K) :- ( once(catch(pp_arch(A), _, fail)) -> true ; A = x86_64 ),   % the target's (0.131): an IEEE quad on Linux aarch64, a double on Apple's arm64, x87's on x86-64
@@ -1114,12 +1116,35 @@ ccl_struct_layout(Ms, _, _, N, Al) :- ccl_members_layout(Ms, _, N, Al).
 %% a struct's layout is asked at every member access: kept per member list
 ccl_members_layout(Ms, Lays, Size, Align) :- ccl_members_layout(Ms, Lays, Size, Align, _).
 ccl_members_layout(Ms, Lays, Size, Align, DSize) :- ccl_cached('$ccl_laycache', Ms, lay(Lays, Size, Align, DSize), ccl_members_layout_nocache(Ms, Lays, Size, Align, DSize)).   % ... and the DATA SIZE beside them (0.135): the bytes up to the end of the last data member, the tail padding left out
-ccl_members_layout_nocache(Ms, Lays, Size, Align, DSize) :- ccl_empty_seed(Ms, Seen0), ( memberchk(packed(_), Ms) -> Pk = packed ; Pk = natural ),   % a PACKED struct (GCC's, 0.203)
-    ccl_members_layout_(Ms, 0, 1, acc(Seen0, 0, Pk), Lays, Bits, Align, EE), DSize is (Bits + 7) // 8, Bytes is max(DSize, EE), ccl_round_up(Bytes, Align, Size).
-%% THE EMPTY BASES' SUBOBJECTS start the walk's (0.199; the Itanium ABI 2.4 II.3, clang's EmptySubobjectMap): an empty base lies at
-%% offset 0 and takes no byte, and a member of its type -- `[[no_unique_address]]' or plain -- is put past it: `struct X : E {
-%% [[no_unique_address]] E e; }' is two bytes, e at 1, `struct Z : E { E e; }' too, as clang++ lays them; e lay at 0
-ccl_empty_seed(Ms, Seen) :- findall(Tg-R, ( member(empty_sub(T), Ms), ccl_resolve_type(T, T1), ccl_empty_layout(T1), ccl_empty_subs(T1, Ss), member(Tg-R, Ss) ), Seen).
+ccl_members_layout_nocache(Ms, Lays, Size, Align, DSize) :- ( memberchk(packed(_), Ms) -> Pk = packed ; Pk = natural ),   % a PACKED struct (GCC's, 0.203)
+    ccl_vprim_seed(Ms, SeenP), ccl_empty_bases_at(Ms, start, 0, 1, SeenP, 0, Seen0, EE0, Al0, Lays0, Lays1),
+    ccl_members_layout_(Ms, 0, Al0, acc(Seen0, EE0, Pk, Ms), Lays1, Bits, Align, EE), Lays = Lays0, DSize is (Bits + 7) // 8, Bytes is max(DSize, EE), ccl_round_up(Bytes, Align, Size).
+%% THE EMPTY BASES ARE PLACED IN THE BASES' ORDER (0.199; their order since 0.235; the Itanium ABI 2.4 II.3, clang's EmptySubobjectMap):
+%% the class marks each `empty_sub(T, After)', After the member of the base before it, or `start' (cpp_empty_base_align/3), and the
+%% walk lays it there -- at offset 0, or where an empty subobject of its type lies at 0 already, past the data, on by its alignment --
+%% taking no byte, its place a layout entry `$empty'(Tag)' of no element, which the lowering's route to it walks (ir_base_route/3).
+%% A member of its type, `[[no_unique_address]]' or plain, is put past it: `struct X : E { [[no_unique_address]] E e; }' is two bytes,
+%% e at 1, `struct Z : E { E e; }' too, as clang++ lays them; e lay at 0. A base before it keeps offset 0 and the empty base moves: `C3
+%% : C1, C0' over `C1 : C0 { virtual int f1(); int m; }' lays C1 at 0 and the C0 at 12, 24 bytes, as clang does -- every empty base lay
+%% at 0 first, and the walk moved C1 to 8, 32 bytes (0.235's first form)
+ccl_empty_bases_at(Ms, After, Bit0, Al0, Seen0, EE0, Seen, EE, Al, Lays0, Lays) :-
+    findall(K-T, ( member(M, Ms), ( M = empty_sub(T, A), K = '$empty' ; M = empty_vsub(T, A), K = '$vempty' ), A == After ), Ts), ccl_empty_bases_place(Ts, Bit0, Al0, Seen0, EE0, Seen, EE, Al, Lays0, Lays).
+ccl_empty_bases_place([], _, Al, Seen, EE, Seen, EE, Al, Lays, Lays).
+ccl_empty_bases_place([K-T|Ts], Bit0, Al0, Seen0, EE0, Seen, EE, Al, [lay(KT, T, Off, empty)|Lays0], Lays) :-
+    ccl_resolve_type(T, T1), ccl_empty_layout(T1), ccl_size_align(T1, S, A), !, ccl_empty_tag(T1, Tag), KT =.. [K, Tag],   % a virtual one `$vempty'(Tag)', no route's
+    ccl_empty_subs(T1, Subs), ccl_empty_offset(Subs, A, Bit0, Seen0, Off), ccl_subs_at(Subs, Off, Seen0, Seen1), EE1 is max(EE0, Off + S), Al1 is max(Al0, A),
+    ccl_empty_bases_place(Ts, Bit0, Al1, Seen1, EE1, Seen, EE, Al, Lays0, Lays).
+ccl_empty_bases_place([_|Ts], Bit0, Al0, Seen0, EE0, Seen, EE, Al, Lays0, Lays) :- ccl_empty_bases_place(Ts, Bit0, Al0, Seen0, EE0, Seen, EE, Al, Lays0, Lays).
+%% A NEARLY EMPTY PRIMARY VIRTUAL BASE lies at the class's own address, laid first (the Itanium ABI 2.4 II.1b; 0.235): it has no member
+%% -- its slot `vbase_ref('$base', ...)' -- and its empty subobjects start the walk: `C5 : virtual C4' over `C4 : virtual C0, C2' and
+%% `C2 : C1, C0' lays the virtual C0 that C5 holds at 12, past C2's own C0 at 0, as clang does, where it shared offset 0
+ccl_vprim_seed(Ms, Seen) :- memberchk(vbase_ref('$base', VT, _), Ms), \+ memberchk(virtual_base_of(_), Ms),
+    catch(ccl_resolve_type(VT, base(_, [struct(V, _)])), _, fail), atom(V), atom_concat(V, '.nv', VNV),
+    ( catch(ccl_resolve_type(base([], [struct(VNV, none)]), T1), _, fail), T1 = base(_, [struct(_, M1)]), is_list(M1) -> true ; ccl_resolve_type(VT, T1) ),
+    ccl_class_empty_subs(T1, Seen), !.
+ccl_vprim_seed(_, []).
+%% the empty subobjects of the empty bases a class marks, each at the place its own layout gives it (ccl_empty_subs/2)
+ccl_empty_seed(Ms, Seen) :- ccl_members_layout(Ms, Lays, _, _), findall(Tg-R1, ( member(lay('$empty'(_), T, O, empty), Lays), ccl_resolve_type(T, T1), ccl_empty_subs(T1, Ss), member(Tg-R, Ss), R1 is O + R ), Seen).
 %% THE EMPTY SUBOBJECTS PLACED SO FAR travel with the walk (acc(Seen, EmptyEnd): the empty subobjects' tags and offsets,
 %% and the byte past the last of them), since an EMPTY `[[no_unique_address]]' MEMBER IS PLACED BY THE ABI'S RULE
 %% (Itanium 2.4 II.3, measured against clang++, 0.96): at offset ZERO, whatever lies there, unless an empty subobject of
@@ -1127,8 +1152,8 @@ ccl_empty_seed(Ms, Seen) :- findall(Tg-R, ( member(empty_sub(T), Ms), ccl_resolv
 %% while such a subobject is in the way. It takes no bytes of the data, and the class's size still covers its byte.
 %% `struct { int x; [[no_unique_address]] E a, b; }' is `a' at 0, `b' at 4, eight bytes; `struct { [[no_unique_address]]
 %% E a; char c; }' one byte, `c' at 0. Before, such a member lay one past the members before it (0.89's not-done).
-ccl_members_layout_([], Bits, Al, acc(_, EE, _), [], Bits, Al, EE).
-ccl_members_layout_([member(T, N, W0)|Ms], Bit0, Al0, acc(Seen, EE0, Pk), Lays, Bits, Al, EE) :-
+ccl_members_layout_([], Bits, Al, acc(_, EE, _, _), [], Bits, Al, EE).
+ccl_members_layout_([member(T, N, W0)|Ms], Bit0, Al0, acc(Seen, EE0, Pk, All), Lays, Bits, Al, EE) :-
     ccl_resolve_type(T, T1), ccl_size_align(T1, S, A0), !, ccl_member_align(Pk, T1, A0, A), ABits is A * 8,   % a member that has a size is laid, ONCE (0.201): the last clause skips only one that has none
     (   W0 == no_unique_address, ccl_empty_layout(T1)
     ->  ccl_empty_subs(T1, Subs), ccl_empty_offset(Subs, A, Bit0, Seen, Off), Bit1 = Bit0, Al1 is max(Al0, A),   % no bytes, its ALIGNMENT kept -- libc++ marks every container's allocator and comparator with it
@@ -1136,9 +1161,13 @@ ccl_members_layout_([member(T, N, W0)|Ms], Bit0, Al0, acc(Seen, EE0, Pk), Lays, 
         Lays = [lay(N, T, Off, empty)|Lays1]
     ;   ccl_plain_width(W0)
     ->  ccl_round_up(Bit0, ABits, B10), Off0 is B10 // 8, Al1 is max(Al0, A),
-        ( ccl_lang(cpp), ccl_empty_layout(T1) -> ccl_empty_subs(T1, Subs0), ccl_empty_step(Subs0, A, Seen, Off0, Off), B1 is Off * 8 ; Off = Off0, B1 = B10 ),   % a plain member of an empty class past an empty subobject of its type (0.199)
-        ( ccl_overlapping(N, W0), ccl_overlap_size(T1, S, DS) -> Bit1 is B1 + DS * 8, EE1 is max(EE0, Off + S) ; Bit1 is B1 + S * 8, EE1 = EE0 ),   % a base or a `[[no_unique_address]]' member of a class that is no POD takes its DATA size (0.135, below)
-        ( ccl_empty_layout(T1) -> ccl_empty_subs(T1, Subs), ccl_subs_at(Subs, Off, Seen, Seen1) ; Seen1 = Seen ),   % a plain member of an empty class is an empty subobject too, and its byte is in the way of a marked one of its type
+        (   ccl_lang(cpp), ccl_empty_layout(T1) -> ccl_empty_subs(T1, Subs0), ccl_empty_step(Subs0, A, Seen, Off0, Off), B1 is Off * 8   % a plain member of an empty class past an empty subobject of its type (0.199)
+        ;   ccl_lang(cpp), Seen \== [], ccl_class_empty_subs(T1, Subs0), Subs0 \== [] -> ccl_empty_step(Subs0, A, Seen, Off0, Off), B1 is Off * 8   % ... and a base or a member of a class that is not empty, past one of the empty subobjects IN it (0.235, ccl_class_empty_subs/2)
+        ;   Off = Off0, B1 = B10 ),
+        ( ccl_overlapping(N, W0), ccl_overlap_size(T1, S, DS) -> Bit1 is B1 + DS * 8, ccl_base_extent(N, T1, S, SE), EE1 is max(EE0, Off + SE) ; Bit1 is B1 + S * 8, EE1 = EE0 ),   % a base or a `[[no_unique_address]]' member of a class that is no POD takes its DATA size (0.135, below)
+        (   ccl_empty_layout(T1) -> ccl_empty_subs(T1, Subs), ccl_subs_at(Subs, Off, Seen, Seen1)   % a plain member of an empty class is an empty subobject too, and its byte is in the way of a marked one of its type
+        ;   ccl_lang(cpp), ccl_class_empty_subs(T1, Subs), Subs \== [] -> ccl_subs_at(Subs, Off, Seen, Seen1)   % ... and so are the empty subobjects in a base or a member that is not empty (0.235)
+        ;   Seen1 = Seen ),
         Lays = [lay(N, T, Off, none)|Lays1]
     ;   ccl_bit_width(W0, W), Seen1 = Seen, EE1 = EE0,
         (   W =:= 0 -> ( ccl_packed_field(Pk, T1) -> Bit1 = Bit0 ; ccl_round_up(Bit0, ABits, Bit1) ), Al1 = Al0, Lays = Lays1
@@ -1146,7 +1175,8 @@ ccl_members_layout_([member(T, N, W0)|Ms], Bit0, Al0, acc(Seen, EE0, Pk), Lays, 
             UnitStart is (Start // ABits) * ABits, Off is UnitStart // 8, BOff is Start - UnitStart,
             Bit1 is Start + W, Al1 is max(Al0, A),
             Lays = [lay(N, T, Off, bits(BOff, W, S))|Lays1] ) ),
-    ccl_members_layout_(Ms, Bit1, Al1, acc(Seen1, EE1, Pk), Lays1, Bits, Al, EE).
+    ccl_empty_bases_at(All, N, Bit1, Al1, Seen1, EE1, Seen2, EE2, Al2, Lays1, Lays2),   % the empty bases after this one (0.235)
+    ccl_members_layout_(Ms, Bit1, Al2, acc(Seen2, EE2, Pk, All), Lays2, Bits, Al, EE).
 %% A LAYOUT IS OVER DATA MEMBERS: a C++ class's tag carries its constructors, methods and typedefs beside them, and
 %% a nested one reaches the layout as the reader gave it -- libc++'s `union __rep' has three constructors.
 ccl_members_layout_([_|Ms], Bit0, Al0, Acc, Lays, Bits, Al, EE) :- ccl_members_layout_(Ms, Bit0, Al0, Acc, Lays, Bits, Al, EE).
@@ -1184,6 +1214,18 @@ ccl_empty_subs(T1, [Tag-0|Subs]) :- ccl_empty_tag(T1, Tag),
     ;   Subs = Subs0 ).
 ccl_subs_at([], _, Seen, Seen).
 ccl_subs_at([Tg-R|Ss], Off, Seen0, [Tg-O|Seen]) :- O is Off + R, ccl_subs_at(Ss, Off, Seen0, Seen).
+%% THE EMPTY SUBOBJECTS OF A CLASS THAT IS NOT EMPTY (0.235; the Itanium ABI 2.4 II.3, clang's EmptySubobjectMap): its empty bases at
+%% offset 0 and each empty member at its offset, with theirs, and those inside each base or member of a class at that one's offset. A
+%% base or a member that is not empty is placed where none of them meets an empty subobject of its type already there, on by its
+%% alignment, and they are in the way of what follows ([intro.object]/9: two subobjects of one type are never at one address): `struct
+%% X : E, Y { int x; }' over `struct Y : E { int y; }' lays Y at 4, its E apart from X's own at 0, in twelve bytes, as clang lays it,
+%% where Y lay at 0, its E at X's, in eight. A union's members are no such subobjects
+ccl_class_empty_subs(T1, Subs) :- T1 = base(_, [struct(_, Ms)]), is_list(Ms), memberchk(member(_, _, _), Ms), \+ ccl_empty_layout(T1),
+    ( nb_current('$ccl_esubcache', _) -> true ; nb_setval('$ccl_esubcache', []) ),
+    ccl_cached('$ccl_esubcache', Ms, Subs, ccl_class_empty_subs_(Ms, Subs)).
+ccl_class_empty_subs_(Ms, Subs) :- ccl_members_layout(Ms, Lays, _, _, _),   % the empty bases' places among them (`$empty'(Tag)')
+    findall(Tg-R1, ( member(lay(_, MT, O, K), Lays), K \= bits(_, _, _), catch(ccl_resolve_type(MT, MT1), _, fail),
+                     ( ccl_empty_layout(MT1) -> ccl_empty_subs(MT1, Ss) ; ccl_class_empty_subs(MT1, Ss) ), member(Tg-R, Ss), R1 is O + R ), Subs).
 ccl_subs_clash(Subs, C, Seen) :- member(Tg-R, Subs), O is C + R, memberchk(Tg-O, Seen), !.
 ccl_plain_width(none).
 ccl_plain_width(no_unique_address).                                              % the mark is no bitfield width: a member carrying it over a type with bytes lies where it always did
@@ -1195,7 +1237,15 @@ ccl_plain_width(no_unique_address).                                             
 %% which class is one and marks the other `$nonpod', cpp_layout_pod/7); the class's own size still covers the sub-object's.
 ccl_overlapping(_, no_unique_address) :- !.
 ccl_overlapping(N, _) :- atom(N), ( N == '$base' -> true ; sub_atom(N, 0, 6, _, '$base$') ), !.
+ccl_overlapping(N, _) :- atom(N), ( N == '$vb' -> true ; sub_atom(N, 0, 4, _, '$vb$') ), !.   % ... and a VIRTUAL base the class holds (0.235): the next one lies in its tail padding, as clang lays it
 ccl_overlap_size(T1, S, DS) :- once(ccl_data_size(T1, DS)), DS > 0, DS < S.
+%% ... AND A BASE'S EXTENT IN THE CLASS'S SIZE IS ITS NON-VIRTUAL SIZE (0.235; the Itanium ABI 2.4 II.2): the empty virtual bases a
+%% base laid whole holds at its end are none of it -- the 0.110 model's virtual first base `C2' over `C2 : C0, C1' and `C1 : virtual
+%% C0' holds its virtual C0 at 16, past the plain one at 0, and `C3 : virtual C2' was 40 bytes for clang's 32
+ccl_base_extent(N, T1, S, SE) :- atom(N), ( N == '$base' ; sub_atom(N, 0, 6, _, '$base$') ), T1 = base(_, [struct(_, Ms)]), is_list(Ms),
+    memberchk(member(_, VN, no_unique_address), Ms), atom(VN), sub_atom(VN, 0, 3, _, '$vb'), !,
+    findall(M, ( member(M, Ms), \+ ( M = member(_, VN1, no_unique_address), atom(VN1), sub_atom(VN1, 0, 3, _, '$vb') ) ), Ms1), ccl_members_layout(Ms1, _, SE, _).
+ccl_base_extent(_, _, S, S).
 %% THE DATA SIZE of a type (the ABI's dsize; clang's `__datasizeof'): a class that is no POD, its bytes up to the end of its last
 %% data member (an empty one's 0); any other type, and a diamond path's base-subobject form (its size is its data size already),
 %% its whole size

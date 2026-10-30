@@ -157,6 +157,7 @@ cpp_base_ctor(B, BArgs, BName) :- nb_setval('$cpp_base_ctor', yes),
     ( catch(cpp_ctor(B, BArgs, BName), E, ( nb_setval('$cpp_base_ctor', no), throw(E) )) -> nb_setval('$cpp_base_ctor', no) ; nb_setval('$cpp_base_ctor', no), fail ).
 cpp_slot_pure(C, M, K) :- cpp_class(C, cls(B, _, Ms, _, _, _)),   % the slot's implementation is the PURE declaration itself ([class.abstract]; 0.99: cpp_slot_impl answered it as an implementation, so an abstract class was constructed and the link named nothing)
     ( cpp_slot_method(C, Ms, M, K, Qs, _) -> memberchk(pure, Qs) ; B \== none, cpp_slot_pure(B, M, K) ).
+cpp_ctor(C, _, _) :- \+ nb_current('$cpp_base_ctor', yes), '$cpp_bad_layout'(C, V), !, cpp_refuse(0, empty_virtual_base_moved(C, V)).   % A COMPLETE OBJECT OF A CLASS THIS MODEL LAYS OTHERWISE than the ABI (0.235; cpp_empty_vbases_laid/3): refused by name where it is built
 cpp_ctor(C, [E0], Name) :- ( E0 = move(E) -> true ; E = E0 ), cpp_own_value(E, C, Cat), !,   % THE CLASS'S OWN VALUE takes its COPY or MOVE constructor, written or implicit, and never another constructor taking a class ([over.best.ics]): `ostreambuf_iterator(ostream_type &)' had taken an ostreambuf_iterator in the copy road's aggregate, and the stream buffer's pointer was the iterator's bytes
     cpp_not_abstract(C),
     (   cpp_class(C, cls(_, _, Ms, _, _, _)), findall(Ps, ( member(ctor(_, Qs, Ps, _, _), Ms), cpp_copy_or_move(C, Ps), cpp_method_viable(C, Qs, Ps) ), Cands), Cands \== []

@@ -229,6 +229,7 @@ One row per step, in version order: the step's title, what it did and its gate n
 | 0.232 | a call of a callee that does not throw is a plain call; each definition its own noexcept | the sixth item of "Do all": a noexcept callee's call a plain one marked `nounwind`, a noexcept body the desugaring does not guard guarded by the lowering, a destructor noexcept by its subobjects; found: the guard read the name, not the definition (an overload of a noexcept name terminated), a static member's call, a library template's instance; a library member's condition evaluated at its emission broke eleven builds, so a condition is the program's alone; an unnamed asm operand `''`; the reader 166, the lowering 134 | the C++ gate RED (11), then GREEN (833 of 843); flow, reader, compile, driver, cross GREEN; `stdstringstream` 225 invokes where 0.231 made 284; a local commit |
 | 0.233 | two-phase lookup in a library function's body; a nested namespace's bare use | the seventh item of "Do all": a call in a library function's body finds the program's own functions of the bare name only by argument-dependent lookup (libc++'s `iter_swap` took the program's `swap(int &, int &)`), a keyed name never hidden; a bare use in a nested namespace finds the innermost enclosing namespace's name of two of the program's; the namespaces' joined helpers meet no real call; the lowering 135 | flow GREEN, nets, the C++ gate GREEN (835 of 845); a local commit |
 | 0.234 | a library's consteval functions at compile time: no immediate function emitted, the evaluator's unions, `is_within_lifetime` | the eighth item of "Do all": the library's consteval calls were folded already and their bodies dead; no immediate function emitted; `if consteval`'s compile-time branch an immediate context; the evaluator's union by its active member and C++26's `__builtin_is_within_lifetime` (libc++ 22's `std::is_within_lifetime` folds); found: a member call over a constexpr class object does not fold; the lowering 136 | flow GREEN, a net of 56 the same, the C++ gate GREEN (836 of 847), `within.cpp` over 22 by hand; a local commit |
+| 0.235 | the virtual bases against clang: tail padding, empty bases in their order, the tables inside held bases, the VTT's names and parts | the ninth item of "Do all": a survey of 1,818 random hierarchies against clang++ 18 meets neither refusal and finds 237 shapes laid or built otherwise (147 silently); 0.235 lays 1,804 as clang does -- a held virtual base's tail padding, the route to an empty base, the empty bases in their order and every empty subobject in the way, an empty virtual base's place and slot, the tables inside a later virtual base, the VTT's names and parts, a virtual base's table stored through its slot, a base-variant form's alignment, a virtual base's name in its namespace; `empty_virtual_base_moved` where a complete object is built; the lowering 137 | flow GREEN, the survey, reader, compile, driver, objects and cross GREEN, the C++ gate GREEN in 1476 s; a local commit |
 
 ## M5 — the C++ mode
 
@@ -15897,3 +15898,83 @@ the safe part, the static assertions.
   library's consteval functions. `CLAUDE.md`: the versions.
 
 The module 0.234. The reader 166, as 0.232 left it; the lowering 136 (135 at 0.233): no immediate function emitted.
+
+## 0.235 — the virtual bases against clang: tail padding, empty bases in their order, the tables inside held bases, the VTT's names and parts
+
+**0.235: the ninth item of "Do all" (the two refusals of a virtual base laid otherwise: implement, or prove that no
+shape reaches them). A survey of 1,818 random hierarchies against clang++ 18 meets neither refusal. It found 237 shapes
+that the committed 0.234 laid or built otherwise than clang: 147 silently (a wrong size, offset or member, or a crash)
+and 90 refused `not lowered yet`. 0.235 lays 1,804 of the 1,818 as clang does. A local commit.**
+
+THE SURVEY (`$B/doall/s9`, scratch): `gen.py` makes a hierarchy of three to six classes (383 seeds), and of three to
+eight (1,435 more), each class over one to three earlier ones, each base plain or virtual, each class with zero to two
+int members and a virtual function or none; `main` makes the last class with `new`, prints its size, each unique base's
+offset with its members read and written and its virtual call, and each member through a `static_cast`. clang++ 18
+builds the reference; cicilang++ builds and runs each (0.4 s a shape), three at a time, under the caps. The committed
+0.234 laid 349 of the first 383 as clang does (20 different, 14 refused `not lowered yet: global_init(...)`), and 1,232
+of the 1,435 (127 different, 76 refused). Neither `virtual_base_over_virtual_base` nor `virtual_base_laid_otherwise` was
+met.
+
+WHAT IT FOUND, AND WHAT 0.235 DOES, each reduced to a few lines and held against clang's record layout
+(`-fdump-record-layouts`):
+
+- A HELD VIRTUAL BASE KEPT ITS TAIL PADDING: `ccl_overlapping/2` took `$base` and `$base$K` alone, and the next virtual
+  base lay past the whole of the one before -- `C4 : C3` over `C3 : virtual C2, virtual C1, C0` and `C2 : C1 { virtual
+  int f2(); }` was 40 bytes for clang's 32. `$vb` and `$vb$K` take their data size now.
+- A POINTER TO AN EMPTY BASE STAYED THE OBJECT'S: the lowering's route found no member for an empty base and kept the
+  pointer -- `E *` of `D : B, C` over `C : E { int y; }` was 0 for clang's 4 (no virtual base needed), and `C0 *` of `C3
+  : virtual C1` over `C1 : C0 { ... }` the object's address for C1's. The route ends at the class that names the empty
+  base, at its place (`ir_empty_base_of/3`, `$empty'(Tag)`).
+- THE TABLES INSIDE A LATER VIRTUAL BASE were named through its slot, a pseudo-member reached through the table, whose
+  offset no table's offset to top can be written with: `global_init(neg(offsetof(C3, $base$2.$base$2)))`, 14 of the
+  first 383 refused. They are at the member that holds the base (`cpp_held_slot/4`).
+- THE VTT LEFT OUT AN ENTRY where a virtual base had no table name -- the virtual first base of the 0.110 model, and one
+  inside it -- and every later part was read one place off: a crash in a base variant. Such a table is named by its
+  place (`$base`, `$base.$base`), and one with no name is refused, `vtt_entry_unnamed(C, X, V)`. A VIRTUAL BASE OF THE
+  CLASS OF A PLAIN BASE took the plain one's part (`C4 : C3, C1` over `C3 : virtual C1`); it takes its own
+  (`cpp_vtt_vpass/5`). A BASE VARIANT STORED A VIRTUAL BASE'S TABLE through a static cast of `this`, which took a plain
+  base of that class where the class has one, and overwrote the class's own table pointer; every virtual base has a slot
+  `$base$v<I>` now, and the store goes through it.
+- A BASE-VARIANT FORM'S ALIGNMENT: a struct over a `.nv` base, written as its bytes, was aligned at four to LLVM where C
+  aligns it at eight (`C3.nv` over a `C2.nv` and an int), and the class laid it at 12 for C's 16 -- three crashes and a
+  wrong offset. The alignment forcer sees the bytes now (`ir_lays_ll_align/2`).
+- EMPTY SUBOBJECTS OF ONE TYPE AT ONE ADDRESS ([intro.object]/9): an empty virtual base had no place of its own, and lay
+  at the complete object's address beside a plain base's empty base of its type (`C2 : C0, C1` over `C1 : virtual C0`, 8
+  bytes for 16); a base that is not empty was laid over an earlier empty base of a type inside it (`struct X : E, Y`
+  over `Y : E { int y; }`, Y at 0 for clang's 4, eight bytes for twelve). The walk keeps every empty subobject of the
+  bases and members it lays, those inside the ones that are not empty too (`ccl_class_empty_subs/2`), lays the empty
+  bases in the bases' order (`empty_sub(T, After)`, `ccl_empty_bases_at/11`), an empty virtual base the class holds as a
+  member of no storage, one it does not hold after its non-virtual part, and a nearly empty primary virtual base's empty
+  subobjects first (`ccl_vprim_seed/2`). A base's extent is its non-virtual size (`ccl_base_extent/4`). Where the model
+  cannot move an empty virtual base it does not hold, a complete object of the class is refused by name,
+  `empty_virtual_base_moved(C, V)` -- where it is BUILT (`cpp_ctor/3`): at registration it refused six shapes that build
+  the class only as a base, where its layout is clang's.
+- A VIRTUAL BASE'S NAME was never renamed in its namespace, nor substituted for a template parameter: the reader writes
+  its access `virtual(Access)`, and `cpp_base_access/1` took no such access -- `b::D : virtual B` took `a::B`, the first
+  class of that name, and `D<T> : virtual T` kept `T`. Found where the fixtures put shapes in namespaces of one file.
+
+WHAT STAYS (the Not done list): four shapes of the 1,435 laid otherwise than clang, silently, each where an empty base
+meets a nearly empty primary virtual base or a virtual base laid further in, which no member lays; seven refused by
+name, `empty_virtual_base_moved(C, V)`, where a complete object is built and its size differs; three refused `not
+lowered yet` (a held base's `$vb` that a claim lays elsewhere, an offset through a base-variant form's nearly empty
+primary).
+
+MEASUREMENTS: the survey, three at a time under the caps: 383 shapes in 65 s and 1,435 in 230 s, 0.4 s a shape, peak 337
+MB, each against the committed library's outcome -- none worse; the flow gate after each edit, RED once
+(`cpp_empty_held/2` between two clauses of `cpp_vbase_entry/5`, joined), then GREEN (135 s, 108 s); the reader, compile,
+driver and objects gates GREEN (61 s together); the cross gate GREEN (215 s), the five new fixtures the same as clang++
+18's on aarch64 under qemu; the C++ gate RED at first, its five new fixtures only (their `.expect` files lacked the exit
+line the gate adds), then GREEN in 1476 s (841 of 852 fixtures ok, 11 skipped by their needs).
+
+- `library/ccl_infer.pl` (the walk: the empty bases in order, the empty subobjects of a class, `$vb` overlapping, a
+  base's extent, the primary virtual base's seed, the pseudo-member's offset), `ccl_ir.pl` (the route to an empty base,
+  the alignment forcer), `ccl_cpp_layout.pl` (the held empty virtual bases, the slots, the markers, the refusal's note),
+  `ccl_cpp_virtual.pl` (the held slot, the VTT's names, parts and stores), `ccl_cpp_init.pl` (an empty held base's
+  place), `ccl_cpp_class.pl` (the note at registration, the first base's secondary table), `ccl_cpp_overload.pl` (the
+  refusal where a complete object is built), `ccl_cpp_deduce.pl` (`cpp_base_access/1`), `ccl_cpp.pl`
+  (`'$cpp_bad_layout'` reset), `ccl_syntax.pl` (the new cache's reset). `test/cpp/run/vbtailpad.cpp`, `vbempty.cpp`,
+  `vbtables.cpp`, `emptybaseorder.cpp`, `vbasens.cpp`, each in the cross gate's C++ list too. `RULES.md`: the Object
+  layout topic (the empty base, the tail padding, the packed base), the Virtual bases topic (four bullets), the
+  namespaces' bare uses, the Not done record of the two refusals. `CLAUDE.md`: the versions.
+
+The module 0.235. The reader 166, as 0.232 left it; the lowering 137 (136 at 0.234): the layouts and the tables.

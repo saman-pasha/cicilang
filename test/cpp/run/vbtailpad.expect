@@ -1,0 +1,49 @@
+-- s13
+size 32
+C2 at 16 f 1002
+C3 at 0
+-- s301
+size 48
+C0 at 36 m 1 m 2
+C2 at 16 m 201 m 202
+C0.m0 8
+C0.m1 9
+C2.m0 208
+C2.m1 209
+-- s347
+size 72
+C3 at 16 m 301 f 1003
+C3.m0 308
+C4.m0 401
+-- s133
+size 88
+C2 at 32 m 201 m 202
+C4 at 72 m 401 m 402
+C2.m0 208
+C2.m1 209
+C4.m0 408
+C4.m1 409
+C5.m0 501
+-- s186
+size 64
+C0 at 32 m 1 m 2 f 1000
+C2 at 16 m 201
+C3 at 0 m 301 f 1003
+C0.m0 8
+C0.m1 9
+C2.m0 208
+C3.m0 308
+-- s227
+size 56
+C0 at 40 m 1 m 2 f 1000
+C1 at 24
+C2 at 24 m 201 m 202 f 1002
+C3 at 0 m 301 f 1003
+C0.m0 8
+C0.m1 9
+C2.m0 208
+C2.m1 209
+C3.m0 308
+C5.m0 501
+C5.m1 502
+exit 0

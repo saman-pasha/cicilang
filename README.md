@@ -71,6 +71,8 @@ rules of the code by topic; `HISTORY.md` is the record of every step.
   primary base, the one clang chooses, stolen or further in, its own
   virtual bases inside it or outside, a virtual
   base's own vcall offsets, the slots of a primary table in the ABI's order,
+  empty bases and empty virtual bases where the ABI places them, a virtual
+  base in the tail padding of the one before it,
   and the base-variant constructors and destructors built under
   construction vtables of their own at any depth, from a VTT,
   `noexcept` enforced (a noexcept callee's call a plain one, as clang's),

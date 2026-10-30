@@ -574,11 +574,12 @@ cpp_register_class_(K, L, C, Bases0, Ms) :-
         ( cpp_member_types(Data0a, Data0) -> true ; cpp_refuse(L, member_types(C)) ), append(VPtr, Data0, Data),
         retractall('$cpp_cls'(C, _)), retractall('$cpp_clsl'(C, _)), retractall('$cpp_sfn'(C, _)), retractall('$cpp_decl'(C, _, _, _)), cpp_class_put(C, cls(Base, Data, Ms, Statics, Defaults, Slots)) ),   % the record REPLACED
     cpp_note_claims(C),   % the virtual bases a base sub-object takes as its primary (0.174)
-    ( '$cpp_vbase'(C), \+ '$cpp_vprim'(C, _), Base \== none, cpp_polymorphic(Base), \+ cpp_empty_class(Base), \+ '$cpp_poly_extra'(C, Base, '$base') -> assertz('$cpp_poly_extra'(C, Base, '$base')) ; true ),
+    ( '$cpp_vbase'(C), \+ '$cpp_vprim'(C, _), Base \== none, cpp_has_table(Base), \+ cpp_empty_class(Base), \+ '$cpp_poly_extra'(C, Base, '$base') -> assertz('$cpp_poly_extra'(C, Base, '$base')) ; true ),   % ... one with a table and no virtual function too, a table of virtual bases' offsets (0.235): it kept its own, whose offsets are its complete object's
     cpp_inherit_poly_extras(C, Base),   % A POLYMORPHIC VIRTUAL BASE is a sub-object with a table of its own (0.110): this class's SECONDARY table goes in it, the base's slots with this class's overriders behind thunks, the offset to the complete object and this class's type_info -- it had kept the base's own table, so `pa->f()' through the base called the base's f and typeid named the base
     cpp_note_nontrivial(C, Base, Data, Ms, Slots),
     ( cpp_layout_pod(K, C, Bases, Ms, Data, Defaults, Slots) -> true ; '$cpp_nonpod'(C) -> true ; assertz('$cpp_nonpod'(C)) ),
     cpp_base_layout(C, Base, Data, Data1), cpp_align_tag(C, Ms, Data1, Data20), cpp_pod_mark(C, Data20, Data2),
+    cpp_empty_vbases_laid(L, C, Data2),   % an empty virtual base this model cannot move refused by name (0.235)
     ( '$cpp_union'(C) -> Tagged = [union_tag|Data2] ; Tagged = Data2 ), ccl_note_tag(C, Tagged),
     ( cpp_nv_form(C, Data2, NVData) -> cpp_nv_tag(C, NV), ccl_note_tag(NV, NVData) ; true ),   % the struct (or UNION) it becomes, in the table at once: its members have types while its methods are walked
     cpp_in_class(C, ( cpp_with_sigdecl(C, cpp_declare_members(Ms, C)), cpp_declare_statics(Statics, C) )).   % its signatures name instances of its own template as names only (cpp_sig_waits, 0.136)
