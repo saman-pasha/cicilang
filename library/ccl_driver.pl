@@ -117,8 +117,10 @@ dr_macro_trace(F, Options) :-
     ;   nb_setval('$ccl_debug_macros', none) ).
 %% the file through the preprocessor standalone -- its includes pulled in, every macro
 %% expanded -- spelled back as text (ccl_pp_spell/2): to -o FILE, else the answer itself
-dr_preprocess(F, Options) :-
-    ccl_ensure_globals, ccl_set_lang(F), ccl_pp_file(F, Tokens, _), ccl_pp_spell(Tokens, Codes),
+dr_preprocess(F, Options) :-   % ... its literals, numbers, digraphs and alternative tokens as written (0.228, pp_norm_toks/2)
+    ccl_ensure_globals, ccl_set_lang(F), nb_setval('$pp_spelled_out', yes),
+    ( catch(ccl_pp_file(F, Tokens, _), E, ( nb_setval('$pp_spelled_out', no), throw(E) )) -> nb_setval('$pp_spelled_out', no) ; nb_setval('$pp_spelled_out', no), fail ),
+    ccl_pp_spell(Tokens, Codes),
     (   memberchk(out(O), Options) -> write_file_from_codes(O, Codes)
     ;   atom_codes(A, Codes), write(A) ).
 %% ---- the IR beside the units in the store (M4) ----------------------------------------

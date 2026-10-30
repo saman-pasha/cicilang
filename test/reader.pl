@@ -341,7 +341,9 @@ k83 :- check('pp_defs.h is preprocessed (its false group is not C): #if/#elif/#e
 %% the native lexer (module/cicilang.cicili) against the DCG (ccl_lex//2), on
 %% the corners fixture in every mode and both languages, the real fixtures,
 %% and the SDK's headers: the same tokens, the same rest; the preprocessor's
-%% marked mode (0.209, ccl_lex_marked//2) its marks of white space too
+%% marked mode (0.209, ccl_lex_marked//2) its marks of white space too -- the
+%% DCG's mark of a name's spelling aside, '$ucn' (0.228): a line that writes
+%% one is the DCG's alone (ccl_lex_atom_marked/4)
 k84 :- check('the native lexer gives the DCG\'s tokens and rest on lexer.c (line/punct/punctsp, c/cpp), rich.c, cocolog.c, btree_del.c, classes.cpp, cdefs.h, math.h',
     ( c('lexer.c', Lex), c('rich.c', Rich), c('cocolog.c', Coc), c('run/btree_del.c', Bt), c('../cpp/classes.cpp', Cls),
       lex_same(Lex, line, c), lex_same(Lex, punct, c), lex_same(Lex, line, cpp), lex_same(Lex, punct, cpp),
@@ -375,7 +377,19 @@ lex_same(File, Mode, Lang) :-
     nb_setval('$ccl_hash', H), nb_setval('$ccl_lang', Lang),
     read_file_to_codes(File, Cs), phrase(G, Cs, R1), atom_codes(A, Cs), ccl_lex_native(A, 1, Mode, Lang, T2, R2),
     nb_setval('$ccl_hash', M0), nb_setval('$ccl_lang', L0),
-    T1 == T2, R1 == R2, T1 = [_|_], ( Mode == punctsp -> memberchk(h(_, ['$sp']), T1), memberchk(tok(_, _, _), T1) ; true ).
+    lex_no_ucn(T1, T1a), T1a == T2, R1 == R2, T1 = [_|_], ( Mode == punctsp -> memberchk(h(_, ['$sp']), T1), memberchk(tok(_, _, _), T1) ; true ).
+lex_no_ucn([], []).
+lex_no_ucn([h(T, Ms)|Xs], [Y|Ys]) :- !, findall(M, ( member(M, Ms), M \= '$ucn'(_) ), Ms1), ( Ms1 == [] -> Y = T ; Y = h(T, Ms1) ), lex_no_ucn(Xs, Ys).
+lex_no_ucn([X|Xs], [X|Ys]) :- lex_no_ucn(Xs, Ys).
+%% A NAME WRITTEN WITH A UNIVERSAL CHARACTER NAME in the marked mode (0.228): the token the name's, marked with its
+%% spelling for `#x', `S(caf\u00e9) x' over codes, and the line the DCG's
+k95 :- check('a name written with a universal character name is marked with its spelling in the preprocessor\'s marked mode, h(tok(id, N, L), [\'$ucn\'(Spelling)]), which #x spells (0.228); such a line is the DCG\'s',
+    ( Cs = [83,40,99,97,102,92,117,48,48,101,57,41,32,120], atom_codes(A, Cs), ccl_ucn_text(A),
+      ccl_ensure_globals, nb_getval('$ccl_hash', M0), nb_getval('$ccl_lang', L0), ( nb_current('$ccl_c_std', S0) -> true ; S0 = 17 ),
+      nb_setval('$ccl_hash', punct), nb_setval('$ccl_lang', c), nb_setval('$ccl_c_std', 17),
+      ( ccl_lex_atom_marked(A, 1, T, R) -> true ; T = none ), nb_setval('$ccl_hash', M0), nb_setval('$ccl_lang', L0), nb_setval('$ccl_c_std', S0),
+      R == [], T = [h(tok(id, 'S', 1), ['$sp']), tok(p, '(', 1), h(tok(id, N, 1), ['$ucn'(Sp)]), tok(p, ')', 1), h(tok(id, x, 1), ['$sp'])],
+      atom_codes(N, [99,97,102,233]), atom_codes(Sp, [99,97,102,92,117,48,48,101,57]) )).
 
 k87 :- check('C23 (-std=c23): constexpr a constant that folds, enum : unsigned char, [[maybe_unused]], typeof, static_assert with and without a message, _Static_assert',
     ( unit_c('run/c23.c', 23, unit(Is)),
@@ -541,6 +555,7 @@ t_checks :-
     k84,
     k85,
     k94,
+    k95,
     section('the user\'s file through the preprocessor: its macros, and the headers\' macros'),
     k86,
     k87,

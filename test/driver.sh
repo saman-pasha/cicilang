@@ -122,7 +122,12 @@ check "an identifier's characters past ASCII by the level (0.221): C17 takes the
 euro.c:1: error: character <U+20AC> not allowed in an identifier
 mdot.c:1: error: character <U+00B7> not allowed at the start of an identifier
 comb.c:1: error: character <U+0301> not allowed in an identifier"
-check "__STDC_VERSION__ by the level (0.221): C99's, C11's, C17's and C23's" "$(printf 'long v = __STDC_VERSION__;\n' > ver.c; for s in c99 c11 c17 c23; do "$CICILI" -std=$s -E ver.c | grep -o '[0-9][0-9]*[lL]'; done | tr '\n' ' ')" "199901l 201112l 201710l 202311l "
+check "__STDC_VERSION__ by the level (0.221): C99's, C11's, C17's and C23's" "$(printf 'long v = __STDC_VERSION__;\n' > ver.c; for s in c99 c11 c17 c23; do "$CICILI" -std=$s -E ver.c | grep -o '[0-9][0-9]*[lL]'; done | tr '\n' ' ')" "199901L 201112L 201710L 202311L "   # a number as written since 0.228, as clang's -E writes it
+# -E AS CLANG WRITES IT (0.228): a literal, a number, a digraph and an alternative token as written, a name written with a
+# universal character name its character, and `#x' of such a name its spelling -- the text compared with clang's, white space
+# aside (test/c/espell.c, test/cpp/espell.cpp)
+check "-E writes literals, numbers, digraphs and #x as clang -E does (0.228)" "$("$CICILI" -E "$R/espell.c" | tr -d ' \t\n')" "$(clang -E -P "$R/espell.c" | tr -d ' \t\n')"
+check "... and in C++ alternative tokens, raw strings and named characters (0.228)" "$("$ROOT/bin/cicilang++" -std=c++23 -E "$ROOT/test/cpp/espell.cpp" | tr -d ' \t\n')" "$(clang++ -std=c++23 -E -P "$ROOT/test/cpp/espell.cpp" | tr -d ' \t\n')"
 # the store: hello.c and its headers are there by now; a build of it is seconds, not the forty of a first read
 s1=$(date +%s); "$CICILI" "$R/run/hello.c" -o hello2 >/dev/null; t_second=$(( $(date +%s) - s1 ))
 check "the store: a build of hello.c after the first is served from it, under 10 s ($t_second s)" "$( [ "$t_second" -lt 10 ] && echo served || echo "slow")" "served"

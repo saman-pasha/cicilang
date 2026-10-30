@@ -222,7 +222,7 @@ pp_undefine(N) :- nb_getval('$pp_gen', G), pp_key(N, K), nb_setval(K, undef(G)).
 %% through, the last first), defined into the run on that first use; one
 %% undefined in this run stays so
 pp_macro(N, Ps, Body) :- pp_key(N, K), nb_getval('$pp_gen', G), ( nb_current(K, V) -> true ; V = none ), pp_macro_(V, G, N, K, Ps, Body).
-pp_macro_(mac(G, Ps, C, T0), G, _, K, Ps, Body) :- !, ( T0 == none -> C = codes(Cs), pp_lex_mbody(Cs, Body1), pp_body_ops(Ps, Body1, Body0), pp_obj_paste(Ps, Body0, Body), nb_setval(K, mac(G, Ps, C, Body)) ; Body = T0 ).
+pp_macro_(mac(G, Ps, C, T0), G, _, K, Ps, Body) :- !, ( T0 == none -> C = codes(Cs), pp_lex_mbody(Cs, Ps, Body1), pp_body_ops(Ps, Body1, Body0), pp_obj_paste(Ps, Body0, Body), nb_setval(K, mac(G, Ps, C, Body)) ; Body = T0 ).
 pp_macro_(undef(G), G, _, _, _, _) :- !, fail.
 pp_macro_(nomac(G, I), G, _, _, _, _) :- nb_getval('$pp_ninc', I), !, fail.                 % a miss remembered, good until the next include
 pp_macro_(_, G, N, K, Ps, Body) :- ( pp_outer_macro(N, Ps, Cs) -> pp_macro_(mac(G, Ps, codes(Cs), none), G, N, K, Ps, Body) ; pp_note_miss(K, G), fail ).
@@ -460,11 +460,16 @@ pp_lex_line(N, A, Toks) :-
     ;   Toks = [] ).
 pp_lex_body(Codes, Toks) :- atom_codes(A, Codes), ( ccl_lex_atom(A, 0, T, _) -> Toks = T ; Toks = [] ).
 %% A MACRO'S BODY (0.209): each token's mark in its line, 1 where white space came before it -- a body's tokens have no
-%% line of their own, pp_wrap/6 gives them the invocation's
-pp_lex_mbody(Codes, Toks) :- atom_codes(A, Codes), ( ccl_lex_atom_marked(A, 0, T, _) -> pp_body_marks(T, Toks) ; Toks = [] ).
-pp_body_marks([], []).
-pp_body_marks([h(tok(K, V, _), _)|Xs], [tok(K, V, 1)|Ts]) :- !, pp_body_marks(Xs, Ts).
-pp_body_marks([tok(K, V, _)|Xs], [tok(K, V, 0)|Ts]) :- pp_body_marks(Xs, Ts).
+%% line of their own, pp_wrap/6 gives them the invocation's. A NAME WRITTEN WITH A UNIVERSAL CHARACTER NAME keeps its
+%% spelling (0.228, ccl_ucn_mark/4) as an argument's token keeps its marks, h(tok(K, V, Mark), ['$ucn'(Spelling)]), which
+%% the expansion's hide set joins (pp_body_el/6), so `#x' spells it as written -- a parameter's name aside, which its
+%% argument replaces
+pp_lex_mbody(Codes, Ps, Toks) :- atom_codes(A, Codes), ( ccl_lex_atom_marked(A, 0, T, _) -> pp_body_marks(T, Ps, Toks) ; Toks = [] ).
+pp_body_marks([], _, []).
+pp_body_marks([h(tok(K, V, _), Ms)|Xs], Ps, [T|Ts]) :- !, ( memberchk('$sp', Ms) -> M = 1 ; M = 0 ),
+    ( memberchk('$ucn'(A), Ms), \+ pp_param_name(V, Ps) -> T = h(tok(K, V, M), ['$ucn'(A)]) ; T = tok(K, V, M) ), pp_body_marks(Xs, Ps, Ts).
+pp_body_marks([tok(K, V, _)|Xs], Ps, [tok(K, V, 0)|Ts]) :- pp_body_marks(Xs, Ps, Ts).
+pp_param_name(V, Ps) :- Ps \== obj, ( memberchk(V, Ps) ; memberchk(va(V), Ps) ), !.
 
 %% ---- the run: files, lines, tokens ----------------------------------------------
 %% a file whose whole text is one `#ifndef X ... #endif' with X defined by
@@ -527,15 +532,19 @@ pp_toks(M, [X|Xs], Ls, Ls1, Out0, Out) :-
 pp_pragma_op(Xs, Ls, Rest, Ls1) :- pp_paren_next(Xs, Ls, Xs0, Ls0), pp_collect_args(Xs0, Ls0, _, _, _, Rest, Ls1).
 %% a name that is a macro: its expansion, hidden from itself, pushed back for the rescan; the name's mark of white space
 %% the expansion's first token's (pp_wrap/6)
-pp_expand(N, L, HS, Xs, Ls, Xs1, Ls) :- pp_builtin_obj(N, L, Body), !, pp_mark_of(HS, M0, HS1), pp_wrap(Body, M0, [N|HS1], L, W, _), append(W, Xs, Xs1).
+pp_expand(N, L, HS, Xs, Ls, Xs1, Ls) :- pp_builtin_obj(N, L, Body), !, pp_name_marks(HS, M0, HS1), pp_wrap(Body, M0, [N|HS1], L, W, _), append(W, Xs, Xs1).
 pp_expand(N, L, HS, Xs, Ls, Xs1, Ls1) :- pp_text_builtin(N), pp_paren_next(Xs, Ls, Xs0, Ls0), !,   % A FEATURE QUESTION IN A TEXT LINE (0.198), as clang answers one: `__has_cpp_attribute(nodiscard)' in an expression was a call of nothing
-    pp_collect_args(Xs0, Ls0, Args0, _, _, Rest, Ls1), ( Args0 = [A0] -> pp_strip(A0, Args) ; Args = [] ), pp_builtin_answer(N, Args, V), pp_mark_of(HS, M0, HS1), pp_wrap([tok(int, V, L)], M0, [N|HS1], L, W, _), append(W, Rest, Xs1).
+    pp_collect_args(Xs0, Ls0, Args0, _, _, Rest, Ls1), ( Args0 = [A0] -> pp_strip(A0, Args) ; Args = [] ), pp_builtin_answer(N, Args, V), pp_name_marks(HS, M0, HS1), pp_wrap([tok(int, V, L)], M0, [N|HS1], L, W, _), append(W, Rest, Xs1).
 pp_expand(N, L, HS, Xs, Ls, Xs1, Ls1) :-
-    pp_macro(N, Ps, Body), pp_mark_of(HS, M0, HS1),
+    pp_macro(N, Ps, Body), pp_name_marks(HS, M0, HS1),
     (   Ps == obj -> pp_wrap(Body, M0, [N|HS1], L, W, ME), pp_push(W, ME, Xs, Xs1), Ls1 = Ls
     ;   pp_paren_next(Xs, Ls, Xs0, Ls0) -> pp_collect_args(Xs0, Ls0, Args0, RSeps, RP, Rest, Ls1), pp_fit_args(Ps, Args0, RSeps, Args), pp_subst(Body, Ps, Args, Subst), pp_rparen_meet(RP, HS1, HS2), pp_wrap(Subst, M0, [N|HS2], L, W, ME), pp_push(W, ME, Rest, Xs1) ).
 pp_mark_of(['$sp'|HS], 1, HS) :- !.
 pp_mark_of(HS, 0, HS).
+%% ... and the name's spelling none of the expansion's (0.228): `#define caf\u00e9 1' gives `1', spelled `1'
+pp_name_marks(HS, M0, HS1) :- pp_mark_of(HS, M0, HS0), ( memberchk('$ucn'(_), HS0) -> pp_no_ucn(HS0, HS1) ; HS1 = HS0 ).
+pp_no_ucn([], []).
+pp_no_ucn([X|Xs], Ys) :- ( X = '$ucn'(_) -> Ys = Ys1 ; Ys = [X|Ys1] ), pp_no_ucn(Xs, Ys1).
 %% A FUNCTION-LIKE MACRO'S EXPANSION IS HIDDEN FROM WHAT ITS NAME AND ITS CLOSING `)' BOTH ARE (0.210; the hide sets of
 %% Prosser's algorithm, as clang and gcc expand): `NIL(G_1)(arg)' expands G_1, out of NIL's expansion, and NIL again --
 %% the name's hide set alone kept NIL hidden there, and `G_0(42)' gave `NIL(42)' where both give `42'
@@ -554,7 +563,7 @@ pp_text_builtin(N) :- memberchk(N, ['__has_cpp_attribute', '__has_c_attribute', 
 %% what __LINE__ and __FILE__ answer (0.108); a diagnostic still names the physical place
 pp_presumed(L, P, F) :- pp_current_file(F0), nb_getval('$pp_linemap', M), ( memberchk(F0-lm(D, F1), M) -> P is L + D, F = F1 ; P = L, F = F0 ).
 %% AN EXPANSION'S TOKENS (0.209): at the invocation's line L, hidden from the name (HS), the first with the name's mark of
-%% white space M0, each other with its own -- its line in a body (pp_lex_mbody/2) -- or the one an empty argument left before
+%% white space M0, each other with its own -- its line in a body (pp_lex_mbody/3) -- or the one an empty argument left before
 %% it (spmark); the mark the hide set's head, '$sp'. ME is the mark that the token after the expansion takes: an expansion
 %% of nothing passes the name's on, a last empty argument its own (clang and gcc: `a E+b' with E empty is "a +b")
 pp_wrap([], M0, _, _, [], M0).
@@ -613,12 +622,12 @@ pp_join_commas([A|As], Ss, J) :- ( Ss = [S|Ss1] -> true ; S = tok(p, ',', 0), Ss
 %% it or `##' pastes it -- then the pastes
 pp_subst(Body, Ps, Args, Out) :- pp_subst_(Body, Ps, Args, S0), pp_paste(S0, Out).
 pp_subst_([], _, _, []).
-pp_subst_([tok(p, '#', L), tok(K, P, _)|Bs], Ps, Args, [tok(str, Cs, L)|Out]) :- ( K == id ; K == kw ), pp_param(P, Ps, Args, Arg), !, pp_stringize(Arg, Cs), pp_subst_(Bs, Ps, Args, Out).
+pp_subst_([tok(p, '#', L), tok(K, P, _)|Bs], Ps, Args, [T|Out]) :- ( K == id ; K == kw ), pp_param(P, Ps, Args, Arg), !, pp_stringize(Arg, L, T), pp_subst_(Bs, Ps, Args, Out).
 %% C++20's and C23's `#__VA_OPT__(tokens)' (0.209): the group substituted and pasted, stringized; "" where the variadic
 %% argument has no token (clang and gcc)
-pp_subst_([tok(p, '#', L), tok(id, '__VA_OPT__', _), tok(p, '(', _)|Bs], Ps, Args, [tok(str, Cs, L)|Out]) :- memberchk(va(VP), Ps), pp_va_group(Bs, 1, [], G, Rest), !,
-    (   pp_param(VP, Ps, Args, Arg), pp_va_present(Arg) -> pp_subst_(G, Ps, Args, G1), pp_paste(G1, G2), pp_wrap(G2, 0, [], 0, W, _), pp_stringize(W, Cs)
-    ;   Cs = [] ),
+pp_subst_([tok(p, '#', L), tok(id, '__VA_OPT__', _), tok(p, '(', _)|Bs], Ps, Args, [T|Out]) :- memberchk(va(VP), Ps), pp_va_group(Bs, 1, [], G, Rest), !,
+    (   pp_param(VP, Ps, Args, Arg), pp_va_present(Arg) -> pp_subst_(G, Ps, Args, G1), pp_paste(G1, G2), pp_wrap(G2, 0, [], 0, W, _), pp_stringize(W, L, T)
+    ;   pp_stringize([], L, T) ),
     nb_setval('$pp_paste', no), pp_subst_(Rest, Ps, Args, Out).
 %% C23's and C++20's `__VA_OPT__(tokens)': the group substituted where the variadic argument has tokens, a
 %% placemarker where it has none ([cpp.subst]) -- `#define LOG(f, ...) printf(f __VA_OPT__(,) __VA_ARGS__)'; the
@@ -657,7 +666,7 @@ pp_param_index([_|Ps], P, I0, I) :- I1 is I0 + 1, pp_param_index(Ps, P, I1, I).
 pp_reline_all([], _, []).
 pp_reline_all([T|Ts], L, [T1|Ts1]) :- pp_reline(T, L, T1), pp_reline_all(Ts, L, Ts1).
 %% AN ARGUMENT'S TOKENS IN A BODY'S FORM, h(tok(K, V, Mark), HideSet) (0.209, 0.210): the mark in the line, as a body's
-%% own token has it (pp_lex_mbody/2), the first the parameter's M; the hide set the token's own, which the expansion's
+%% own token has it (pp_lex_mbody/3), the first the parameter's M; the hide set the token's own, which the expansion's
 %% joins (pp_wrap/6), so a name that its own expansion left unexpanded stays so (C17 6.10.3.4/2: `id(obj)' over `#define
 %% obj obj+1' was `obj+1+1'); and a `##' that an argument brings is no operator to pp_paste/2 (C17 6.10.3.3/3: `# ## #'
 %% through two arguments)
@@ -686,19 +695,20 @@ pp_glued([], Ts, Ts) :- !.
 pp_glued(H, [T|Ts], [h(T, H)|Ws]) :- pp_glued(H, Ts, Ws).
 pp_glued(_, [], []).
 %% `#x': the argument spelled, a space where white space stood between two of its tokens, none before the first or after
-%% the last (C17 6.10.3.2/2; 0.209: it was a space between every two)
-pp_stringize(Arg, Cs) :- pp_spell_marked(Arg, Cs1), pp_utf8_bytes(Cs1, Cs0), ( member(X, Arg), pp_unwrap(X, tok(other, 92, _), _) -> pp_str_decode(Arg, Cs0, Cs) ; Cs = Cs0 ).
-%% ... in bytes, a string's value, the spelling in characters (0.211: `S(caf\u00e9)' gave the byte 0xE9 for its `\u00e9')
-pp_utf8_bytes([], []).
-pp_utf8_bytes([C|Cs], Bs) :- ( C < 128 -> Bs = [C|Bs1] ; ccl_utf8(C, Bs, Bs1) ), pp_utf8_bytes(Cs, Bs1).
-%% ... the string's value is that spelling, a literal's quote and `\' escaped only to be read back; a `\' of no literal
-%% begins an escape of the string made (0.210: the standard's `str(: @\n)' is ": @" and a new-line), so the spelling is
-%% escaped where it is a literal's and read as a string's body
-pp_str_decode(Arg, Cs0, Cs) :- pp_spell_esc(Arg, E), append([34|E], [34], Q), atom_codes(A, Q), nb_getval('$ccl_hash', M), nb_setval('$ccl_hash', line),
-    ( catch(ccl_lex_atom(A, 0, [tok(str, Cs1, _)], []), _, fail) -> Cs = Cs1 ; Cs = Cs0 ), nb_setval('$ccl_hash', M).
+%% the last (C17 6.10.3.2/2; 0.209: it was a space between every two). A STRING LITERAL SPELLED AS WRITTEN (0.228),
+%% tok(lit, Spelling, L), as the source's literals are (0.211): its spelling the argument's, a literal's quotes and `\'
+%% escaped and the rest as written ([cpp.stringize]/2), a name written with a universal character name as written
+%% (ccl_ucn_mark/4); its value the reader's read of that spelling (pp_norm/2), so a `\' of no literal begins an escape
+%% of the string made -- the standard's `str(: @\n)' is ": @" and a new-line (0.210) -- and `S(caf\u00e9)' is
+%% "caf\u00e9", whose value is the string café, as clang has both; -E writes the spelling. It was the string's value, spelled
+%% from its characters, and -E wrote `"caf\303\251"'
+pp_stringize(Arg, L, tok(lit, A, L)) :- pp_spell_esc(Arg, E), append([34|E], [34], Q), atom_codes(A, Q).
 pp_spell_esc([], []).
-pp_spell_esc([X|Xs], Cs) :- pp_unwrap(X, T, _), pp_spell(T, C0), ( pp_lit_kind(T) -> pp_escape(C0, 34, raw, C1) ; C1 = C0 ), pp_spell_esc(Xs, C2),
+pp_spell_esc([X|Xs], Cs) :- pp_unwrap(X, T, HS), pp_spell_as(T, HS, C0), ( pp_lit_kind(T) -> pp_escape(C0, 34, spell, C1) ; C1 = C0 ), pp_spell_esc(Xs, C2),
     ( Xs = [X1|_], pp_unwrap(X1, _, ['$sp'|_]) -> append(C1, [0' |C2], Cs) ; append(C1, C2, Cs) ).
+%% a token's spelling: a name's as written where a universal character name wrote it, else its own
+pp_spell_as(_, HS, Cs) :- memberchk('$ucn'(A), HS), !, atom_codes(A, Cs).
+pp_spell_as(T, _, Cs) :- pp_spell(T, Cs).
 pp_lit_kind(tok(K, _, _)) :- ( K == lit ; K == str ; K == chr ; pp_str_prefix(K, _) ; pp_chr_prefix(K, _) ), !.
 pp_spell_marked([], []).
 pp_spell_marked([X|Xs], Cs) :- pp_unwrap(X, T, _), pp_spell(T, C1), pp_spell_marked_(Xs, C2), append(C1, C2, Cs).
@@ -750,6 +760,7 @@ pp_utf8_tail(0, Cs, U, U, Cs) :- !.
 pp_utf8_tail(N, [B|Cs], U0, U, Cs1) :- B >= 0x80, B =< 0xBF, U1 is (U0 << 6) \/ (B /\ 0x3F), N1 is N - 1, pp_utf8_tail(N1, Cs, U1, U, Cs1).
 pp_escape_c(Q, Q, _, _, [92, Q|R], R) :- !.
 pp_escape_c(92, _, _, _, [92, 92|R], R) :- !.
+pp_escape_c(C, _, spell, _, [C|R], R) :- !.   % ... `#x' of a literal (spell, 0.228): its quotes and `\' escaped, the rest as written ([cpp.stringize]/2)
 pp_escape_c(C, _, _, _, [92, N|R], R) :- pp_named_escape(C, N), !.
 pp_escape_c(0, _, _, Cs, [92, 0'0|R], R) :- \+ ( Cs = [D|_], D >= 0'0, D =< 0'7 ), !.
 pp_escape_c(C, _, X, _, [92, O1, O2, O3|R], R) :- ( C < 32 ; C =:= 127 ; X \== wide, C >= 128, C < 256 ), !, O1 is 0'0 + C // 64, O2 is 0'0 + (C // 8) mod 8, O3 is 0'0 + C mod 8.   % \NNN: three octal digits, which no digit after can extend
@@ -765,6 +776,11 @@ pp_finish_([X|Xs], Out, Tail) :- pp_unwrap(X, T0, _), pp_norm_toks(T0, Ts), appe
 %% A USER-DEFINED LITERAL is a pp-number with its suffix in it, `5_km' or `1500ms' (0.117): the lexer cuts it in two, the number
 %% and the suffix's identifier, which the reader reads as one literal (ccl_udl). It was `tok(int, 0)' -- the lexer's answer was not
 %% ONE token -- and every user-defined literal read as zero.
+%% -E WRITES A LITERAL, A NUMBER, A DIGRAPH AND AN ALTERNATIVE TOKEN AS WRITTEN (0.228; dr_preprocess/2 sets
+%% '$pp_spelled_out'), as clang's -E does: `"\x41"' stays `"\x41"', `0x1F' `0x1F', `<:' `<:' and `and' `and', where -E
+%% wrote the reader's token, `"A"', `31', `[' and `&&'. Only the output keeps them: a directive's condition reads the
+%% reader's tokens (pp_normalize/2)
+pp_norm_toks(tok(K, A, L), [tok(K, A, L)]) :- memberchk(K, [lit, num, dg, alt]), nb_current('$pp_spelled_out', yes), !.
 pp_norm_toks(tok(num, Cs, L), Ts) :- \+ pp_plain_int(Cs), nb_getval('$ccl_hash', M), nb_setval('$ccl_hash', line), atom_codes(A, Cs),
     ( ccl_lex_atom(A, 0, Ts0, []), Ts0 = [_, _|_] -> pp_relined(Ts0, L, Ts), nb_setval('$ccl_hash', M) ; nb_setval('$ccl_hash', M), fail ), !.
 pp_norm_toks(T0, [T]) :- pp_norm(T0, T).
@@ -773,11 +789,18 @@ pp_relined([tok(K, V, _)|Ts], L, [tok(K, V, L)|Us]) :- pp_relined(Ts, L, Us).
 pp_norm(tok(num, Cs, L), tok(int, V, L)) :- pp_plain_int(Cs), !, ccl_int_value(Cs, V).   % ... through the reader's one door, so a literal past 2^60 is big(Atom) here too (0.94)   % a plain decimal, most of them: no lexer run
 pp_norm(tok(num, Cs, L), T) :- !, nb_getval('$ccl_hash', M), nb_setval('$ccl_hash', line), atom_codes(A, Cs), ( ccl_lex_atom(A, 0, [tok(K, V, _)], []) -> T0 = tok(K, V, L) ; T0 = tok(int, 0, L) ), nb_setval('$ccl_hash', M), T = T0.   % the mode restored before the answer meets the caller's (0.201)
 %% A TOKEN SPELLED AS WRITTEN (0.211; the lexers' ccl_pp_spelled/4): the reader's token from its spelling -- a literal read
-%% again in the reader's mode, a digraph and an alternative token their punctuator
-pp_norm(tok(lit, A, L), T) :- !, nb_getval('$ccl_hash', M), nb_setval('$ccl_hash', line), ( ccl_lex_atom(A, 0, [tok(K, V, _)], []) -> T0 = tok(K, V, L) ; T0 = tok(str, [], L) ), nb_setval('$ccl_hash', M), T = T0.
+%% again in the reader's mode, a digraph and an alternative token their punctuator. A literal that `#x' made and that does
+%% not read back as one token -- a `\' of no literal before no escape's letter -- is its body's bytes, as it was (0.210,
+%% 0.228)
+pp_norm(tok(lit, A, L), T) :- !, nb_getval('$ccl_hash', M), nb_setval('$ccl_hash', line),
+    ( catch(ccl_lex_atom(A, 0, [tok(K, V, _)], []), _, fail) -> T0 = tok(K, V, L) ; pp_lit_body(A, Bs) -> T0 = tok(str, Bs, L) ; T0 = tok(str, [], L) ), nb_setval('$ccl_hash', M), T = T0.
 pp_norm(tok(dg, A, L), tok(p, P, L)) :- !, pp_digraph(A, P).
 pp_norm(tok(alt, A, L), tok(p, P, L)) :- !, ccl_alt_token(A, P).
 pp_norm(T, T).
+pp_lit_body(A, Bs) :- atom_codes(A, [34|Cs0]), append(Cs, [34], Cs0), !, pp_utf8_bytes(Cs, Bs).
+%% ... in bytes, a string's value, the spelling in characters (0.211: `S(caf\u00e9)' gave the byte 0xE9 for its `\u00e9')
+pp_utf8_bytes([], []).
+pp_utf8_bytes([C|Cs], Bs) :- ( C < 128 -> Bs = [C|Bs1] ; ccl_utf8(C, Bs, Bs1) ), pp_utf8_bytes(Cs, Bs1).
 pp_digraph('<:', '[').   pp_digraph(':>', ']').   pp_digraph('<%', '{').   pp_digraph('%>', '}').   pp_digraph('%:', '#').   pp_digraph('%:%:', '##').
 pp_norm_all([], []).
 pp_norm_all([T|Ts], [U|Us]) :- pp_norm(T, U), pp_norm_all(Ts, Us).
@@ -2004,6 +2027,7 @@ ccl_pp_spell_tok(bitint, N, Out, Rest) :- !, pp_int_codes(N, Cs), append(Cs, [0'
 ccl_pp_spell_tok(ubitint, N, Out, Rest) :- !, pp_int_codes(N, Cs), append(Cs, [0'u, 0'w, 0'b|Rest], Out).
 ccl_pp_spell_tok(pp, A, [35|Out], Rest) :- !, atom_codes(A, Cs), append(Cs, Rest, Out).
 ccl_pp_spell_tok(other, C, [C|Rest], Rest) :- !.   % a character that begins no token (0.210)
+ccl_pp_spell_tok(num, Cs, Out, Rest) :- !, append(Cs, Rest, Out).   % a number as written, -E's (0.228, pp_norm_toks/2)
 ccl_pp_spell_tok(cocolog, A, Out, Rest) :- !, atom_codes('#cocolog', H), atom_codes(A, Cs), atom_codes('#end', E), append(H, [10|Cs], O1), append(O1, [10|E], O2), append(O2, Rest, Out).
 ccl_pp_spell_tok(imag, F, Out, Rest) :- !, number_codes(F, Cs), append(Cs, [0'i|Rest], Out).                   % the imaginary literal spelled back, `2.0i' (0.101)
 ccl_pp_spell_tok(imagf, F, Out, Rest) :- !, number_codes(F, Cs), append(Cs, [0'i, 0'f|Rest], Out).

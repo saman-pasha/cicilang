@@ -928,6 +928,15 @@ that changes a rule edits the rule here, in its topic, and writes its entry in `
   `int café = 3;` was a lexical error where clang reads it in C17 and C++17 too. A symbol past ASCII is spelled quoted
   (the Lowering's topic) and the mangler counts bytes (the Itanium mangler's topic). `test/c/run/identutf8.c`,
   `test/cpp/run/identutf8.cpp`. (0.196, 0.213)
+- A NAME WRITTEN WITH A UNIVERSAL CHARACTER NAME KEEPS ITS SPELLING FOR `#x` (0.228; [cpp.stringize]/2: the spelling of
+  each preprocessing token, as clang keeps it): in the preprocessor's marked mode a line that holds a `\` before `u`,
+  `U` or `N` is the DCG's (`ccl_ucn_text/1` in `ccl_lex_atom_marked/4`), which marks such a name `h(tok(id, N, L),
+  ['$ucn'(Spelling)])` (`ccl_ucn_mark/4` in `ccl_lex_m//3`, beside the mark of white space, `ccl_sp_mark/3`), and a
+  macro's body keeps the mark of a name that is no parameter (`pp_body_marks/3`); the macros, the reader and `-E` take
+  the token, the name its character, and `#x` spells it as written (`pp_spell_as/3`): `S(caf\u00e9)` is `"caf\u00e9"`,
+  whose value is the string `café`, and `X(S(caf\u00e9))` is `"\"caf\\u00e9\""`, where both spelled the character. A
+  macro named so expands with no mark of its name (`pp_name_marks/3`). Reader `k84` compares the two lexers without the
+  mark, and `k95` holds it; `test/c/run/ucnspell.c`. (0.228)
 - AN IDENTIFIER'S CHARACTER PAST ASCII BY THE LANGUAGE AND ITS LEVEL (0.221; C23 6.4.2.1 and [lex.name]: UAX #31's
   XID_Start first and XID_Continue after, at C23 and at every C++ level; C11 Annex D in C11 and C17, D.2's not first;
   C99 Annex D in C99, its digits not first (6.4.2.1/3); `ccl_id_cp/2`, `ccl_id_level/1` over `library/ccl_xid.pl`,
@@ -1218,9 +1227,9 @@ that changes a rule edits the rule here, in its topic, and writes its entry in `
   argument as written gave `f(0 , )`; one that holds no name is not expanded for the question. `test/c/run/ppvaopt.c`
   (C23), `test/cpp/run/ppexample.cpp`. (0.210)
 - `#x` KEEPS A SPACE ONLY WHERE WHITE SPACE STOOD between two of its argument's tokens, none before the first or after
-  the last (C17 6.10.3.2/2, [cpp.stringize]/2; 0.209; `pp_stringize/2` over `pp_spell_marked/2`). The mark rides in the
+  the last (C17 6.10.3.2/2, [cpp.stringize]/2; 0.209; `pp_stringize/3` over `pp_spell_esc/2`). The mark rides in the
   stream: a text line's token that white space precedes is `h(T, ['$sp'])` (the Lexers topic), a macro body's token
-  holds it in its line, 1 or 0 (`pp_lex_mbody/2`: a body's tokens take the invocation's line from `pp_wrap/6`), and an
+  holds it in its line, 1 or 0 (`pp_lex_mbody/3`: a body's tokens take the invocation's line from `pp_wrap/6`), and an
   expansion's token has `'$sp'` at its hide set's head, which no macro is named. The rules are clang's and gcc's, which
   agree on each but one: an expansion's first token takes the white space before the macro's name, each other its own
   (`pp_wrap/6`); an argument's first token takes the white space before its parameter, each other its own, through the
@@ -1237,18 +1246,25 @@ that changes a rule edits the rule here, in its topic, and writes its entry in `
   character were spelled raw. A literal is spelled as written (0.211; the Lexers topic): `"\x41"` is `"\x41"`, each
   quote and `\` of it escaped once, where it was spelled from its value, `"A"`. A `\` of no literal (a character that
   begins no token, the Lexers topic) begins an escape of the string made: the argument's text, a literal's quote and `\`
-  escaped, is read back as a string's body (`pp_str_decode/3`; 0.210), so the standard's `str(: @\n)` is `": @"` and a
-  new-line. What the marks cost is below the box's noise: alternating rounds of a cold `<map>` at C++20 (`cicilang++
-  -fsyntax-only`, a fresh HOME each, four rounds) took 31.0 s of CPU at the least and 33.6 s at the median with 0.208's
-  library, 31.8 s and 33.4 s with 0.209's and 32.4 s and 33.6 s with 0.210's; 0.210's record of about 4 %, one library's
-  reads after the other's, measured the box's drift (0.211). `test/c/run/stringize.c`, `stringize2.c`, `stringizeva.c`
-  and `stringizevo.c` (C23), `test/cpp/run/stringize.cpp` (C++20). (0.209, 0.210, 0.211)
+  escaped, is read back as a string's body (`pp_norm/2` since 0.228; 0.210), so the standard's `str(: @\n)` is `": @"`
+  and a new-line. What the marks cost is below the box's noise: alternating rounds of a cold `<map>` at C++20
+  (`cicilang++ -fsyntax-only`, a fresh HOME each, four rounds) took 31.0 s of CPU at the least and 33.6 s at the median
+  with 0.208's library, 31.8 s and 33.4 s with 0.209's and 32.4 s and 33.6 s with 0.210's; 0.210's record of about 4 %,
+  one library's reads after the other's, measured the box's drift (0.211). `test/c/run/stringize.c`, `stringize2.c`,
+  `stringizeva.c` and `stringizevo.c` (C23), `test/cpp/run/stringize.cpp` (C++20). (0.209, 0.210, 0.211)
 - `#x` MAKES A STRING'S BYTES FROM ITS SPELLING'S CHARACTERS (0.211): the string is the UTF-8 of the spelling
   (`pp_utf8_bytes/2` in `pp_stringize/2`), and a narrow literal's bytes are spelled as the characters their UTF-8
   sequences are, a byte of none `\NNN` (`pp_escape_utf8/5`, `pp_utf8_tail/5`, in `pp_escape/4`'s `raw` mode), so
   `S(café)`, `S("café")` and `XS(S(café))` hold the bytes of `café`, where the name's `é` was one byte, 0xE9, and
   clang's two. `__FILE__` is a string's bytes too (`ccl_atom_bytes/2`): a `#line` name past ASCII was one byte a
   character. `test/c/run/spelling.c`. (0.211)
+- `#x` MAKES A STRING LITERAL SPELLED AS WRITTEN (0.228), `tok(lit, Spelling, L)`, as the source's literals are (0.211):
+  its spelling the argument's -- a literal's quotes and `\` escaped and the rest of it as written (`pp_escape/4`'s
+  `spell` mode), a name written with a universal character name as written (the Lexers topic) --, its value the reader's
+  read of that spelling (`pp_norm/2`, which reads every literal of the stream so), so a `\` of no literal begins an
+  escape of the string made and a literal that does not read back as one token is its body's bytes (`pp_lit_body/2`,
+  `pp_utf8_bytes/2`). It was the string's value, spelled from its characters (`pp_str_decode/3`, gone), and `-E` wrote
+  the value's bytes, `"caf\303\251"` for `S(caf\u00e9)`. `test/c/run/ucnspell.c`. (0.228)
 - `#if` (`pp_eval/1`): `defined` and the built-ins (`pp_defined_pass/2`), the expansion, the built-ins again; a name
   left is 0 and `true` 1 (`pp_normalize`); then `ccl_cond_expr//1` and `ccl_const_eval/2`. What does not evaluate is
   false. The evaluation is C's `#if` arithmetic (C 6.10.1/4): `pp_eval_/1` sets `'$ccl_cv_pp'` around it, and every
@@ -1482,14 +1498,23 @@ that changes a rule edits the rule here, in its topic, and writes its entry in `
   string too, and the other control characters were `\NNN`). Why: the census reads the flattened text. (0.44, 0.209)
 - Every token spells back as the reader takes it (`ccl_pp_spell_tok/4`, `pp_spell/2`), a character that begins no token
   as itself (0.210); a literal, a digraph and an alternative token spelled as written are the reader's tokens by then
-  (`pp_finish/2`; 0.211). The suffixes stay: `u`, `l`, `ul`, `wb`, `uwb`, `f`, `L`, and the imaginary `i`, `if`, `ui`,
-  `li`, `uli` (`pp_imag_suffix/2`). A literal keeps its prefix (`pp_str_prefix/2`). A literal past 2^60 spells as its
-  digits (`pp_int_codes/2`). A float spells as the fewest digits that read back as the same double, cocolog 1.10.28's
-  writer, and an infinite one as `1e999` (`pp_float_codes/2`; 0.143): every float past 1.0e308 was `1e999`, so
-  `__DBL_MAX__` and `1.5e308` became infinities, and a float of 16 or 17 digits came back another double. A long double
-  literal spells as its text and its suffix (0.154: `L`, an imaginary one `il`), where it spelled the double it held
-  (`__LDBL_MAX__` was `1.7976931348623157e308L`). A `#cocolog` block spells whole. The driver gate compiles the text
-  with clang, a line of long double literals among it (0.154). (0.108, 0.143, 0.154)
+  (`pp_finish/2`; 0.211), but in `-E`'s own text since 0.228 (below). The suffixes stay: `u`, `l`, `ul`, `wb`, `uwb`,
+  `f`, `L`, and the imaginary `i`, `if`, `ui`, `li`, `uli` (`pp_imag_suffix/2`). A literal keeps its prefix
+  (`pp_str_prefix/2`). A literal past 2^60 spells as its digits (`pp_int_codes/2`). A float spells as the fewest digits
+  that read back as the same double, cocolog 1.10.28's writer, and an infinite one as `1e999` (`pp_float_codes/2`;
+  0.143): every float past 1.0e308 was `1e999`, so `__DBL_MAX__` and `1.5e308` became infinities, and a float of 16 or
+  17 digits came back another double. A long double literal spells as its text and its suffix (0.154: `L`, an imaginary
+  one `il`), where it spelled the double it held (`__LDBL_MAX__` was `1.7976931348623157e308L`). A `#cocolog` block
+  spells whole. The driver gate compiles the text with clang, a line of long double literals among it (0.154). (0.108,
+  0.143, 0.154)
+- `-E` WRITES A LITERAL, A NUMBER, A DIGRAPH AND AN ALTERNATIVE TOKEN AS WRITTEN (0.228), as clang's `-E` writes them:
+  `dr_preprocess/2` sets `'$pp_spelled_out'`, and the stream's end keeps their spelling (`pp_norm_toks/2`, the spelling
+  written by `ccl_pp_spell_tok/4`), so `"\x41"` stays `"\x41"`, `0x1F` `0x1F`, `010` `010`, `<:` `<:`, `and` `and` and
+  `__STDC_VERSION__` `201710L`, where `-E` wrote the reader's token (`"A"`, `31`, `8`, `[`, `&&`, `201710l`); a
+  directive's condition reads the reader's tokens still (`pp_normalize/2`). A name written with a universal character
+  name is written as its character, and its stringized spelling as written, as clang writes both. The driver gate
+  compares `-E` of `test/c/espell.c` and of `test/cpp/espell.cpp` (C++23) with clang's `-E -P`, white space aside.
+  (0.228)
 
 ### The compiler's own headers
 
@@ -11397,20 +11422,20 @@ Declarations topic of the C++ reader).
    the headers of its #include lines at the level `CCL_CENSUS_STD` names since 0.221 (`census_std/0` on both its roads),
    where it read them at C++17 whatever it said (a stringized alternative token spells as written since 0.211). A
    program's own `get` beside `std::tuple` builds since 0.205 (`ownget.cpp`).
-5. SMALL ONES: the lexers' limit of 0.196 -- a name spelled with a universal character name is stringized as its
-   character, `#x` of `caf\u00e9` `"café"` where clang keeps `"caf\u00e9"` (a literal, a multi-character constant among
-   them, is spelled as written since 0.211). Done at 0.221: an identifier's characters past ASCII are each level's sets
-   (XID_Start and XID_Continue at C23 and in C++, Annex D's in C11, C17 and C99), the white space past ASCII that clang
-   takes is blank (the Keywords and punctuators topic), and `__has_attribute` answers 1 for the GNU attributes the
-   reader keeps or that change nothing (the Configuration chosen through the macros topic); an enum's `aligned` and
-   GNU's alignment of an expression are done at 0.205; an ISO mode predefines `__STRICT_ANSI__` since 0.214 (the
-   Predefined macros topic); `typeof` and `decltype` of an aligned variable are its type, as clang has them, since 0.203
-   and 0.206 (0.219's probes: `_Alignof(__typeof__(x))` and `alignof(decltype(x))` 4 over `alignas(32) int x`, 16 over a
-   typedef aligned at 16); clang's C extension that types a conditional of two incompatible object pointers as `void *`
-   is done at 0.219 (the conditional's rules of the Overload resolution topic); a name stringized as its character is
-   the string that clang's spelling gives, the `-E` text apart (0.219's probe: `café xéy` from both). (A generic atomic
-   builtin over an object that is no lock-free width calls libatomic, which the link names since 0.208, the driver
-   topic.)
+5. SMALL ONES: done -- a name spelled with a universal character name keeps that spelling for `#x` since 0.228 (the
+   Lexers topic), as a literal, a multi-character constant among them, has since 0.211, and `-E` writes a literal, a
+   number, a digraph and an alternative token as written (the `-E` topic). Done at 0.221: an identifier's characters
+   past ASCII are each level's sets (XID_Start and XID_Continue at C23 and in C++, Annex D's in C11, C17 and C99), the
+   white space past ASCII that clang takes is blank (the Keywords and punctuators topic), and `__has_attribute` answers
+   1 for the GNU attributes the reader keeps or that change nothing (the Configuration chosen through the macros topic);
+   an enum's `aligned` and GNU's alignment of an expression are done at 0.205; an ISO mode predefines `__STRICT_ANSI__`
+   since 0.214 (the Predefined macros topic); `typeof` and `decltype` of an aligned variable are its type, as clang has
+   them, since 0.203 and 0.206 (0.219's probes: `_Alignof(__typeof__(x))` and `alignof(decltype(x))` 4 over `alignas(32)
+   int x`, 16 over a typedef aligned at 16); clang's C extension that types a conditional of two incompatible object
+   pointers as `void *` is done at 0.219 (the conditional's rules of the Overload resolution topic); a name stringized
+   as its character is the string that clang's spelling gives (0.219's probe: `café xéy` from both), and the `-E` text
+   is clang's too since 0.228, white space aside. (A generic atomic builtin over an object that is no lock-free width
+   calls libatomic, which the link names since 0.208, the driver topic.)
 6. libc++'S FACILITIES BY THEIR FEATURE-TEST MACROS, WHAT 0.206 LEFT: done -- a literal in a stringized argument is
    spelled as written since 0.211, its escapes and a raw string's delimiters kept (the Lexers topic), and so are an
    alternative token and a multi-character constant. Done at 0.209: `#x` keeps a space only where white space stood (the

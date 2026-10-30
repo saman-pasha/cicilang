@@ -222,6 +222,7 @@ One row per step, in version order: the step's title, what it did and its gate n
 | 0.225 | the Mac job's first run: what it found, and the store kept a row a level | at the owner's word: the Mac's first run (setup GREEN, its gates 16 failures) read and each failure reduced; `__builtin_expect`, a NaN builtin's payload, sixteen bytes lock-free on a Mac, DWARF 4's macros on a Mac (LLVM's DWARF 5 macros crash on Mach-O), an `if`'s comparison at its operator's column; the C store a row a level; three more `NAME.needs`, `NAME.ref`, two fixtures made portable; no pipe closed early | the flow gate, the four C gates, the cross gate and the C++ gate over libc++ 18 GREEN here (826 of 836), the C gates again over a fresh store after the store's change; the Mac's second run is this commit's push |
 | 0.226 | cocolog 2.14.1, and the Mac job's second run | at the owner's word: cocolog 2.13.0 to 2.14.1 (`1e48013`) once its CI was green; its loaders probed (a file read again by `consult/1` and `load_files/2`, swipl's reload order), none of cicilang's loads reached; 2.13.0 and 2.14.1 measured, five warm C++ builds 66.70 s and 66.90 s; the Mac job's second run recorded (GREEN on both machines) | the chain over libc++ 18 (all nine) and 21 (the library read and the C++ gate) GREEN, 826 and 834 of 836; a C store that 2.13.0 wrote served, the C gates GREEN over it; the Mac's third run is this commit's push |
 | 0.227 | libc++ 22, a third tree of the gates | on the owner's word ("Do all", "Yes, add libc++ 22", "Commit each, push at end"): the sixteen failures of libc++ 22's first pass, six causes, each fixed -- a function's name chosen once the header's functions of it joined, a union's copies asked of its members' copies, a capture by reference of an array and a reference member bound to a literal, the saturating builtins, a C declaration in C++'s words, a qualified call of a function two reads define in two namespaces; the trees side by side, apt's one and the others unpacked, here and in the CI's full job | the net over 18 (61 SAME), the chain over libc++ 18 (all nine), 21 and 22 (the library read and the C++ gate) GREEN, 829, 837 and 839 of 839; a local commit |
+| 0.228 | `#x` keeps a name's universal character name, and `-E` writes tokens as written | the second item of "Do all": a name written with a universal character name keeps that spelling for `#x` -- in a text line, in a macro's body --, `#x` makes a literal of its spelling, and `-E` writes a literal, a number, a digraph and an alternative token as written, as clang does; the reader 165 | the gates over 18 GREEN (reader, compile, driver, cross, the library read, the C++ gate 829 of 839), two new driver checks against clang's `-E`; a container restart between them; a local commit |
 
 ## M5 — the C++ mode
 
@@ -15569,3 +15570,48 @@ library read (461 s) and the C++ gate (1427 s, all 839 ok, none skipped) GREEN t
 The module 0.227. The reader 164, as 0.221 left it; the lowering 131 (130 at 0.225): what the check and the lowering
 emit changes -- a capture by reference of an array, a reference member bound to a string literal, the saturating
 builtins, a C declaration's types resolved where it is called.
+
+## 0.228 — `#x` keeps a name's universal character name, and `-E` writes tokens as written
+
+**0.228: the second item of "Do all" (Not done item 5, its last part): a name written with a universal character name
+keeps that spelling for `#x`, and `-E` writes a literal, a number, a digraph and an alternative token as written, as
+clang's `-E` writes them. A local commit.**
+
+THE PROBES, clang 18, 21 and 22 alike: `S(caf\u00e9)` is `"caf\u00e9"`, whose value is `café` (5 bytes), and
+`X(S(caf\u00e9))` `"\"caf\\u00e9\""` (11 bytes), where cicilang spelled the character, `"café"` (7 bytes);
+`S(caf\U000000E9)` keeps its `\U` too, and a macro's body keeps a name's spelling (`#define Y caf\u00e9`, `X(X(Y))` is
+`"\"caf\\u00e9\""`). clang's `-E` writes such a name as its character, `int café = 7;`, and writes a literal (`"\x41"`,
+`'ab'`, `L'\u00e9'`, `R"x(a\nb)x"`), a number (`0x1F`, `010`, `0x1p4`, `201710L`), a digraph (`<:`, `<%`) and an
+alternative token (`and`, `bitor`) as written, where cicilang's `-E` wrote the reader's token (`"A"`, `31`, `8`, `[`,
+`&&`) and a stringized UCN's bytes as octal escapes.
+
+THE ROAD: in the preprocessor's marked mode a line that holds a `\` before `u`, `U` or `N` is lexed by the DCG
+(`ccl_ucn_text/1`), whose `ccl_lex_m//3` marks such a name with its spelling, `h(tok(id, N, L), ['$ucn'(Spelling)])`,
+beside the mark of white space (`ccl_sp_mark/3`); a macro's body keeps the mark for a name that is no parameter
+(`pp_lex_mbody/3`, `pp_body_marks/3`), and an expansion takes no mark of its macro's name (`pp_name_marks/3`: `#define
+caf\u00e9x 5` stringized through `X` is `"5"`). `#x` makes a literal of its spelling, `tok(lit, Spelling, L)`, read back
+as the source's literals are (`pp_stringize/3` over `pp_spell_esc/2` and `pp_spell_as/3`; `pp_str_decode/3` gone). `-E`
+sets `'$pp_spelled_out'`, and the stream's end keeps a literal's, a number's, a digraph's and an alternative token's
+spelling (`pp_norm_toks/2`); the first draft kept them in `pp_norm/2`, which `#if` reads too, and `#if 'A' == 65` would
+have read a spelling.
+
+THE GATES' CHANGES: the reader gate's `k84` compares the native lexer with the DCG without the `'$ucn'` mark, which the
+DCG alone makes, and `k95` holds the mark; the driver gate's `__STDC_VERSION__` check reads `201710L` (the number as
+written), and two new checks compare `-E` of `test/c/espell.c` and `test/cpp/espell.cpp` (C++23) with clang's `-E -P`,
+white space aside. `test/c/run/ucnspell.c`, its `.expect` clang's.
+
+MEASUREMENTS: over the work tree, over a fresh HOME (the reader's bump starts the store and the summaries afresh): the
+flow gate GREEN after each edit (183 s, 177 s); reader, compile (218 checks, `ucnspell` among them), driver (its two new
+checks and the `L` among them) and cross (309 s, `ucnspell` under qemu beside clang's build) GREEN; the reader gate RED
+at first, `k84` -- the native lexer has no `'$ucn'` mark, by design -- and the new `k95`, which expected a line's first
+token unmarked (the marked mode marks it); both mended and GREEN. THE CONTAINER RESTARTED during the library read (its
+disk kept: the work tree, the scratch, the neighbours, the three libc++ trees); then the flow gate (278 s), the library
+read over libc++ 18 (761 s, cold) and the C++ gate (1902 s, 829 of 839 fixtures ok, the same 10 skipped by their needs,
+the two units, the 30 refusals, the 35 of the safe part, the eight static assertions) GREEN. The box ran slower after
+the restart: the flow gate over the same library took 278 s where it took 177 s before it.
+
+- `RULES.md`: the Lexers topic (a name's spelling), the Macro expansion topic (`#x` a literal spelled as written), the
+  `-E` topic, Not done item 5. `CLAUDE.md`: the versions.
+
+The module 0.228. The reader 165 (164 at 0.221): a string that a header's body stringizes changes, and the store and
+every C++ summary start afresh; the lowering 131, as 0.227 left it.
