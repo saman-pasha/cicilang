@@ -252,14 +252,14 @@ c44 :- check('the Itanium mangler spells the rest of the builtin types (0.136): 
       ita_clear )).
 
 c45 :- check('the Itanium mangler spells a VALUE template argument (0.137): L, the parameter\'s type, the number (n before a negative one), E -- ratio<1, 1000000000> is 5ratioILl1ELl1000000000EE, the template name a substitution candidate, a bool Lb1E -- as clang++ 18 spells them',
-    ( ita_facts, dynamic('$cpp_tmpl'/3), ita_ns([ratio, flag]),
-      assertz('$cpp_tmpl'(ratio, [tparam(base([], [long]), '_Num', none), tparam(base([], [long]), '_Den', none)], none)),
+    ( ita_facts, ita_ns([ratio, flag]),   % the template through the registry's door, its light record beside it (0.241)
+      cpp_template_put(ratio, [tparam(base([], [long]), '_Num', none), tparam(base([], [long]), '_Den', none)], none),
       assertz('$cpp_inst'('ratio.1.1000000000', inst(ratio, [int(1), int(1000000000)]))), assertz('$cpp_inst'('ratio.m1.2', inst(ratio, [int(-1), int(2)]))),
       assertz('$cpp_inst'('flag.1', inst(flag, [bool(true)]))), assertz('$cpp_inst'('flag.0', inst(flag, [bool(false)]))),
       (   ita_name([], rr, [], [param(base([], [typedef('ratio.1.1000000000')]), a), param(base([], [typedef('ratio.m1.2')]), b)], '_ZNSt3__12rrENS_5ratioILl1ELl1000000000EEENS0_ILln1ELl2EEE'),
           ita_name([], ss, [], [param(base([], [typedef('flag.1')]), a), param(base([], [typedef('flag.0')]), b)], '_ZNSt3__12ssENS_4flagILb1EEENS0_ILb0EEE')
       ->  R = true ; R = false ),
-      retractall('$cpp_tmpl'(ratio, _, _)), ita_clear, R == true )).
+      retractall('$cpp_tmpl'(ratio, _, _)), retractall('$cpp_tmplh'(ratio, _, _, _)), ita_clear, R == true )).
 
 c46 :- check('the Itanium mangler spells a VECTOR type (0.162): Dv, its lanes, _ and its element, a substitution candidate -- a vector_size(16) of int Dv4_i, an ext_vector_type(2) of float Dv2_f, a bool ext_vector_type(8) Dv8_b -- as clang++ 18 spells them',
     ( ita_facts,

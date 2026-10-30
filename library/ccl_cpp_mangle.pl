@@ -141,7 +141,7 @@ cpp_ita_chain([inst(N, Args, Ts)|Ls], C0, T0, Subs0, C, T, Subs) :-
     cpp_ita_chain(Ls, C2, T2, Subs3, C, T, Subs).
 %% A VALUE TEMPLATE ARGUMENT (0.137; Itanium 5.1.5.4): `L', the template parameter's type (else the literal's), the number
 %% (`n' before a negative one), `E' -- `ratio<1, 1000000000>' is `5ratioILl1ELl1000000000EE', a bool `Lb1E'
-cpp_ita_targs_t(N, Args, Subs0, Canon, Text, Subs) :- ( atom(N), catch('$cpp_tmpl'(N, TPs, _), _, fail) -> cpp_ita_vtypes(TPs, VTs) ; VTs = [] ), cpp_ita_targs_v(Args, VTs, Subs0, Canon, Text, Subs).
+cpp_ita_targs_t(N, Args, Subs0, Canon, Text, Subs) :- ( atom(N), catch('$cpp_tmplh'(N, TPs, _, _), _, fail) -> cpp_ita_vtypes(TPs, VTs) ; VTs = [] ), cpp_ita_targs_v(Args, VTs, Subs0, Canon, Text, Subs).
 cpp_ita_vtypes([], []).
 cpp_ita_vtypes([requires(_)|TPs], VTs) :- !, cpp_ita_vtypes(TPs, VTs).
 cpp_ita_vtypes([ttp(_, _)|TPs], VTs) :- !, cpp_ita_vtypes(TPs, VTs).
@@ -398,8 +398,7 @@ cpp_ita_src(N, Ts, Src) :- ccl_byte_length(N, L), findall(B, ( member(T, Ts), cc
 cpp_ita_plain(C, Last, Lv) :- ( cpp_abi_tags(C, Ts), Ts \== [] -> Lv = plain(Last, Ts) ; Lv = plain(Last) ).
 cpp_abi_tags(C, Ts) :- atom(C), catch('$cpp_abi_tag'(C, Ts0), _, fail), !, Ts = Ts0.
 cpp_abi_tags(C, Ts) :- atom(C), catch(ccl_tag(C, Ms), _, fail), is_list(Ms), memberchk(abi_tag(Ts0), Ms), !, Ts = Ts0.
-cpp_abi_tags(N, Ts) :- atom(N), catch('$cpp_tmpl'(N, _, Item), _, fail), cpp_template_class_def(Item), Item = declare(_, base(_, [S])),
-    ( S = class(_, _, _, Ms) ; S = struct(_, Ms) ; S = union(_, Ms) ), is_list(Ms), memberchk(abi_tag(Ts0), Ms), !, Ts = Ts0.   % a class template's, for its instances
+cpp_abi_tags(N, Ts) :- atom(N), catch('$cpp_tmplh'(N, _, class_def, tags(Ts0)), _, fail), !, Ts = Ts0.   % a class template's, for its instances (the light record, 0.241)
 cpp_abi_tags(_, []).
 %% ---- LOCAL NAMES AND CLOSURES (0.236; Itanium 5.1.6 <local-name>, 5.1.8 <closure-type-name>, as clang 18 spells them) ----
 %% A local class, a closure and an unnamed local class are named in their function: `Z <its encoding> E <entity>

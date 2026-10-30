@@ -235,6 +235,7 @@ One row per step, in version order: the step's title, what it did and its gate n
 | 0.238 | the safe part's limits: an allocator's block is the program's, an arithmetic return takes no block, the store limits probed | the twelfth item of "Do all": `std::allocator<T>::allocate` and `allocator_traits<A>::allocate` answer fresh memory that `deallocate` takes back (an own pointer may hold it, a plain one must give it back); a `return` of an arithmetic value takes no loose block; the store limits probed one by one and recorded; lowering 140 | flow GREEN, the reader, compile, driver, objects and proof gates GREEN (2 s, 30 s, 29 s, 4 s, 0 s), `loose_arith.c` refused, the C++ gate GREEN in 1349 s; a local commit |
 | 0.239 | a header read under the configuration at its own #include | the thirteenth item of "Do all" (Not done's item 9): each `#include` of the user's file read under the program's configuration as it stands there (`__config`'s names at the first C++ `#include`, `NDEBUG` for the program's own header, a local header's own names); a name taken from a header taken again after the next `#include`; a file that defines such a name late kept in the store; lowering 141 | flow GREEN, the reader, compile, driver, objects, proof and cross gates GREEN (4 s, 33 s, 29 s, 5 s, 0 s, 235 s), `ftmorder` and `ndebuglocal` the same as clang's build on aarch64 under qemu, the C++ gate GREEN in 1404 s; a local commit |
 | 0.240 | one build at a time over the store; the C++ IR stays files | the fourteenth item of "Do all" (the owner's decision 4 of 0.190 left a store for the C++ IR until parallel writes were measured): cocolog's store takes one writer at a time -- a commit refused, a writer hung, rows lost without a word, a store left unreadable, builds dead of a bus error -- so `bin/cicilang` holds `KB.lock` around a build over the store, and the C++ IR stays files | the reader, compile, driver, objects, proof and cross gates GREEN (3 s, 91 s over a C store that the gate started afresh -- the stamp it found was not this library's -- where 0.239's warm one took 33 s, 28 s with 52 checks, 4 s, 0 s, 345 s); a local commit |
+| 0.241 | the check's cost measured; a light record beside each template | the fifteenth item of "Do all": each phase of a build timed -- the check under 1 % of every build (0.43 s of 162 C builds' 46 s, 0.26 s of twelve C++ builds' 173 s), so no state table is due, and a warm C++ build's time its desugaring; the template registry's lookups copied whole bodies, and a light record beside each template (`'$cpp_tmplh'/4`) took 19 % of the desugaring of 30 fixtures, their IR the same; the cold read of `<thread>` profiled, flat | flow GREEN, the reader, compile, driver, objects, proof and cross gates GREEN (2 s, 11 s, 21 s, 4 s, 0 s, 205 s), the C++ gate RED in 1177 s for one check alone, 848 of 859 run fixtures ok and 11 skipped by their needs: the gate's `c45` wrote `'$cpp_tmpl'` by hand, without the light record the mangler now asks; through `cpp_template_put/3` its 54 checks GREEN alone; a local commit |
 
 ## M5 — the C++ mode
 
@@ -16276,3 +16277,63 @@ through the changed `bin/cicilang`.
   `CLAUDE.md`: the versions, the user's cache. `README.md`: the knowledge base.
 
 The module 0.240. The reader 167 and the lowering 141: neither a read nor what the lowering emits changed.
+
+## 0.241 — the check's cost measured; a light record beside each template, its lookups 19 % of a warm build's desugaring
+
+**0.241: the fifteenth item of "Do all" (Not done: the check's cost, "a further cut needs the state as a per-function
+table"; a C++ build's time, "what is left is mostly the reader's own cold flattening"). Each phase of a build was timed:
+the check is under 1 % of every build, so no table is due, and a warm C++ build's time is its desugaring. The profile of
+that desugaring found the cut: a light record beside each template, which the lookups that want no item ask. The cold
+read of a header was profiled too; its profile is flat. A local commit.**
+
+WHAT THE MEASUREMENT FOUND (`s15/`, a timer around each phase in a scratch copy of the library, `phases.sh`):
+
+- C: the 161 run fixtures and the B-tree benchmark, each built once without the store (`--no-kb`): the read 43.0 s
+  (cold, the C library's headers each time), the C forms' passes 0.61 s, the check 0.43 s, the lowering 2.02 s; the
+  check 12 ms at most (`btree_del.c`, 11 ms the benchmark).
+- C++: twelve run fixtures (`vbempty`, `vbtables`, `vbtailpad`, `btree`, `prettyfn`, `initlistobj`, `ftm20`, `stdtuple`,
+  `memfnq`, `stdvector`, `stdstringstream`, `lambdas`), each built twice and the second, its headers warm, counted: the
+  read of the summaries 9.1 s, the desugaring 133.8 s, the check 0.26 s, the lowering 29.5 s -- `ftm20` 42.5 s of
+  desugaring, `stdstringstream` 36.8 s, `initlistobj` 33.9 s.
+- THE CHECK'S WALK is linear: a loop is walked once (`ck_loop_with_step/4`), and a lookup is a `memberchk/2` over a
+  frame's keys. The redesign the record asked for is not due.
+
+WHAT THE PROFILE OF THE DESUGARING FOUND (the RUN view of `stdstringstream.cpp`'s warm build, `profrun.sh`, 42.9 s
+untraced): the retries of `'$cpp_tmpl'/3` 7.4 s (17.3 %) and its own steps 1.0 s, then `findall/3` 3.8 s, `nb_setval/2`
+2.2 s, `cpp_type/2`'s retries 2.1 s. The registry held 831 templates under 156 names (`get` 128, `operator<<` 51,
+`operator>>` 29, `basic_string` 9, three of them its 81 KB definition from three summaries; `tcount.pl`). Counters in
+the scratch copy: the class template's lookup asked 89,907 times, the mangler's two questions 44,475 and 43,209, the
+function candidates 573. Each copied items: cocolog finds a clause by its first argument at 0.25 us whatever the table
+(`idx.pl`, 20 or 20,000 clauses), and a call COPIES what it answers -- one fact with a 10,000-element item 100 us, the
+fifty of one key walked 4.5 ms, the fiftieth chosen by a small second argument 98 us (`copy.pl`): a bound small argument
+passes a clause by without copying the large one.
+
+WHAT 0.241 DOES -- THE LIGHT TEMPLATE RECORD: `cpp_template_put/3` writes beside each `'$cpp_tmpl'(Name, Params, Item)`
+clause, in its order, `'$cpp_tmplh'(Name, Params, Kind, Tags)` (`cpp_tmpl_kind/2`: `class_def`, `defined`, `other`;
+`cpp_tmpl_tags/3`: a class definition's `abi_tag`). The class template's lookup chooses by it and copies the chosen item
+alone (`cpp_tmpl_item/4`), its defaults merged from the light records; the mangler reads a template's parameters and
+tags from it; the function candidates count it; the questions that want no item ask it.
+
+THE COLD READ (`coldrun.sh`, the program `#include <thread>`, C++17 over libc++ 21, a fresh HOME, one process): 20.3 s;
+in the RUN view 18.3 s and 205.2 million steps, flat -- `nb_setval/2` 6.5 % (876,074 calls), `=/2` 4.6 %, `atom_codes/2`
+3.0 % (1.48 million calls), `pp_word/3` 3.0 %, `nb_getval/2` 2.5 %. No cut was made there.
+
+MEASUREMENTS: the phases and the profiles above (`s15/`); the IR of 30 C++ run fixtures the same, byte for byte, over
+the two libraries (the old five desugaring files and the new, swapped in one scratch tree over one warm HOME, `ab.sh`),
+and their desugaring 129.2 s where it took 158.7 s (`stdstringstream` 24.5 s against 37.4 s, `ftm20` 37.3 against 43.4,
+`initlistobj` 28.7 against 33.3, `adlbase` 2.1 against 3.3; one run each); `stdstringstream.cpp`'s RUN view 30.0 s where
+it was 42.9 s, the retries of `'$cpp_tmpl'/3` 0.16 s; the flow gate GREEN (its one finding, 100 s); the reader, compile,
+driver, objects, proof and cross gates GREEN (2 s, 11 s, 21 s, 4 s, 0 s, 205 s); peak 397 MB; the C++ gate RED in 1177 s
+for one check alone, 848 of 859 run fixtures ok and 11 skipped by their needs: the gate's `c45` wrote `'$cpp_tmpl'` by
+hand, without the light record the mangler now asks; through `cpp_template_put/3` its 54 checks GREEN alone (13 s), and
+the flow gate GREEN again (85 s).
+
+- `library/ccl_cpp.pl` (`cpp_template_put/3`, `cpp_tmpl_kind/2`, `cpp_tmpl_tags/3`, the reset), `ccl_cpp_template.pl`
+  (`cpp_class_template/3,4`, `cpp_tmpl_item/4`, `cpp_fn_candidates/2`, `cpp_incomplete_instance/2`), `ccl_cpp_mangle.pl`
+  (`cpp_ita_targs_t/6`, `cpp_abi_tags/2`), `ccl_cpp_expr.pl` (four questions of a name's templates). `test/cpp.pl`:
+  `c45` registers its template through `cpp_template_put/3`, so its light record is there. `RULES.md`: the Templates
+  topic's registries, the Time and memory topic (the registries, the light template record, the check's cost), Not done
+  (the check's cost gone; a C++ build's time). `CLAUDE.md`: the versions.
+
+The module 0.241. The reader 167 and the lowering 141: what the desugaring answers is the same, so no read and no IR
+moved.

@@ -4240,10 +4240,11 @@ unless a path is given. (0.33, 0.41, 0.79, 0.82, 0.223)
 - A template instantiates where it is used. Every type the walk meets goes through `cpp_type/2`, which turns a
   template-id into its instance's name. The table built before the walk holds template-ids raw; `cpp_class_of_type_/2`
   instantiates one on sight, and a rewritten typedef is noted at once (`ccl_note_typedefs`). (0.35)
-- The registries are facts, one row per name: `'$cpp_tmpl'(N, TPs, Item)`, `'$cpp_spec'(N, TPs, Pattern, Item)`,
-  `'$cpp_mt'(C, Key, TPs, M)`, `'$cpp_mdef'(C, Key, TPs, Pattern, M)`, `'$cpp_inst'(Name, What)`, `'$cpp_out'(Item)`
-  (`cpp_reset/1`; written by `cpp_template_put/3`, `cpp_spec_put/4`, `cpp_mt_put/4`). A template item emits nothing.
-  Why: a global list is copied at every lookup. (0.35, 0.44)
+- The registries are facts, one row per name: `'$cpp_tmpl'(N, TPs, Item)` with its light record `'$cpp_tmplh'(N, TPs,
+  Kind, Tags)` beside it (0.241, the Time and memory topic), `'$cpp_spec'(N, TPs, Pattern, Item)`, `'$cpp_mt'(C, Key,
+  TPs, M)`, `'$cpp_mdef'(C, Key, TPs, Pattern, M)`, `'$cpp_inst'(Name, What)`, `'$cpp_out'(Item)` (`cpp_reset/1`;
+  written by `cpp_template_put/3`, `cpp_spec_put/4`, `cpp_mt_put/4`). A template item emits nothing. Why: a global list
+  is copied at every lookup. (0.35, 0.44, 0.241)
 - `cpp_instantiate_class/3`: an instance asked again answers its name (`'$cpp_iname'(N, Args, Name)`, arguments
   compared with `==`). Else `cpp_class_template/3` gives the primary, a definition first, defaults merged from the
   other declarations (`cpp_merge_defaults`), or refuses `template_without_body(N)`. `cpp_bind_targs/3` binds,
@@ -9932,9 +9933,9 @@ The namespaces' rules, the program's and the library's, are `library/ccl_cpp_nam
   typedefs alone were copied 38,777 times in a `std::vector` build (1.5 of its 9.6 s), and the heap those copies leave is
   what a nested engine does not collect. `test/cpp.pl` sets `'$cpp_encl'` for its mangler check. (0.120)
 - The C++ registries that hold bodies are facts, cleared in `cpp_register_units/1`: `'$cpp_cls'`, `'$cpp_clsl'`,
-  `'$cpp_tmpl'`, `'$cpp_spec'`, `'$cpp_mt'`, `'$cpp_inst'`, `'$cpp_out'`, `'$cpp_hdr'`, and the concepts,
+  `'$cpp_tmpl'`, `'$cpp_tmplh'`, `'$cpp_spec'`, `'$cpp_mt'`, `'$cpp_inst'`, `'$cpp_out'`, `'$cpp_hdr'`, and the concepts,
   `'$cpp_concept'(N, concept(TPs, E))`. C's tables stay globals (a clause is a store row under `--embed`); C++ runs
-  `--local`. (0.44, 0.112, 0.120)
+  `--local`. (0.44, 0.112, 0.120, 0.241)
 - THE LIGHT CLASS RECORD (0.120): a class's record `'$cpp_cls'(C, cls(Base, Data, Members, Statics, Defaults, Slots))` is
   97% its members (every method with its body), so a lookup that wanted only the base copied the whole class:
   `cpp_base_scope/2` alone asked 44,764 times in a `std::vector` build, 2.6 of its 9.6 s. `cpp_class_put/2` writes beside
@@ -9954,6 +9955,22 @@ The namespaces' rules, the program's and the library's, are `library/ccl_cpp_nam
   where they were 102,737 (0.78 s against 7.57 s), and with `counter.cpp` the five builds 50.09 s where they took
   58.02 s; the 34 fixtures 275.7 s where they took 385.1 s, one run each, a string's and a stream's build near half
   (`stdstringstream.cpp` 38.1 s against 68.6 s).
+- THE LIGHT TEMPLATE RECORD (0.241): a template's item is its whole body -- libc++ 18's `basic_string` 81 KB, registered
+  three times in a build of `stdstringstream.cpp`, from three summaries -- and a call of a fact copies what it answers.
+  cocolog finds a clause by its first argument, and a bound small argument passes a clause by without copying a large
+  one (measured on 2.14.1: one fact with a 10,000-element item 100 us a call, the fifty of one key walked 4.5 ms, the
+  fiftieth chosen by its second argument 98 us). `cpp_template_put/3` writes beside each `'$cpp_tmpl'(Name, Params,
+  Item)` clause, in its order, `'$cpp_tmplh'(Name, Params, Kind, Tags)`: Kind `class_def`, `defined` or `other`
+  (`cpp_tmpl_kind/2`), Tags `tags(Ts)` where a class's definition holds `abi_tag(Ts)`, else `none` (`cpp_tmpl_tags/3`).
+  The class template's lookup (`cpp_class_template/3`) chooses by the light record and copies the chosen item alone
+  (`cpp_tmpl_item/4`: the item's parameters, bound, pass every other clause by), and merges the defaults from the light
+  records; the mangler reads a template's parameters and tags from it (`cpp_ita_targs_t/6`, `cpp_abi_tags/2`);
+  `cpp_fn_candidates/2` counts it; a question of a name's templates that wants no item asks it. A caller that wants the
+  items still asks `'$cpp_tmpl'/3`. In a warm build of `stdstringstream.cpp` the lookup was asked 89,907 times and the
+  mangler 87,684, and the retries of `'$cpp_tmpl'/3` were 7.4 s of the run's 42.9 s (the RUN view); with the light
+  record 0.16 s of 30.0 s. Over 30 C++ run fixtures the IR is the same, byte for byte, and the desugaring took 129.2 s
+  where it took 158.7 s (`stdstringstream` 24.5 s against 37.4 s, `ftm20` 37.3 against 43.4, `initlistobj` 28.7 against
+  33.3).
 - Per-process state is a global, never a dynamic clause (`'$ccl_reading'`, `'$ccl_macro_files'`, `'$ccl_unit_paths'`):
   a dynamic predicate persists under `--embed`.
 - No header's macro table is parsed whole: a macro reaches a preprocessor run by name, on first use
@@ -10063,8 +10080,11 @@ The namespaces' rules, the program's and the library's, are `library/ccl_cpp_nam
   preprocessed in turn, for ten minutes.
 - The lowering caches `ir_type/2` and `ir_abi/2` per type term; `ir_expr/4` carries the LLVM type beside the C type;
   `ir_join/3` is `atomic_list_concat/3`.
-- The inference is at its floor. The check's cost is `ck_expr`'s walk, a `ck_in` lookup per node over the threaded
-  `st(Frames)`; a further cut is a redesign (a state table per function, or the lookups in C).
+- The inference is at its floor. THE CHECK IS A SMALL PART OF A BUILD (measured at 0.241, a timer around each phase in a
+  scratch copy of the library): over the 161 C run fixtures and the B-tree benchmark, built without the store, 0.43 s of
+  46.1 s -- the cold read 43.0 s, the lowering 2.0 s -- and 12 ms at most (`btree_del.c`); over twelve C++ run fixtures,
+  their headers warm, 0.26 s of 172.7 s, where the desugaring took 133.8 s and the lowering 29.5 s. Its walk is linear:
+  a loop is walked once, and a lookup is a `memberchk/2` over a frame's keys (`ck_in/2`). No state table is due. (0.241)
 - The host's arch and OS come from the module (`ccl_host_arch/1`, `ccl_host_os/1`), `uname` only without it. A build's
   only spawns are the link (`ccl_sh/3`), for a C++ summary `mkdir -p` (`ccl_sum_dir_ready`), and, for two or more cold
   library headers of a C++ build, a cocolog for each (0.188, the driver's topic).
@@ -11978,8 +11998,6 @@ Declarations topic of the C++ reader).
   predicate per file serves. The owner decided at 0.190 that a C++ build keeps its IR as files beside the summaries,
   which it does since 0.221 (the IR cache topic); and a store takes one writer at a time (measured at 0.240, the
   Findings), where `make -j` runs C++ builds at once.
-- The check's cost is its expression walk. The next cut needs the state as a per-function table, or the lookups in C
-  (2026-09-06).
 - A call of a callee that does not throw is a plain call since 0.232 (the Exceptions topic); until then a call under a
   `try` or a scope with defers was an `invoke` whatever its callee, with a landing pad it never used, and libc++'s
   exceptions configuration (0.193) made every C++ program's calls so: eight warm builds took 5.2 % more CPU than
@@ -11992,17 +12010,25 @@ Declarations topic of the C++ reader).
   not), nor a library function whose noexcept is a condition (the Exceptions topic: evaluated at its emission it met
   calls no binding settles); and a call through a pointer to a noexcept function type is an invoke.
 - A C++ build's time was its first deductions and its instantiations (0.98), and, found at 0.120, the COPIES of the
-  desugaring's own tables and class records (the Time and memory topic): the slowest fixture, `viewsall.cpp`, took 1760 s
-  of the C++ gate's 2400 s cap in the gate's pool at 0.115 and 1357 s at 0.118, and takes 211 s now; the sum of the 388
-  fixtures' builds went from 11,775 s to 2,936 s, the gate from 2989 s to 908 s over four lanes, its pool's peak from 9034
-  MB to 1675 MB (0.120). What is left is mostly the reader's own cold flattening of a header, 2.4 to 2.7 times faster
-  since 0.184 (its item loop: the 114 headers' reads summed 4313 s over libc++ 18 in 0.181's chain), 1.5 times faster
-  again since 0.187 (the sets as the whole record and the grammar's looks: 1349 s in 0.187's chain, 1802 s in 0.186's)
-  and faster again since 0.188 (999 s in 0.188's chain; seven headers' texts read in 71.9 s where 0.186's library read
-  them in 133.7 s and 0.187's in 90.0 s, the trees the same); and since 0.188 a build's cold headers are read by
-  processes of their own, at once (the driver's topic). In 0.188's chain the slowest builds were `fmtrange` (109 s over
-  libc++ 18) and `fmtchrono2` (97 s over 21), `viewsall` 72 s and 76 s, and the 600 and 602 builds summed 2638 s and
-  2701 s over four lanes (0.120, 0.184, 0.187, 0.188, 0.189).
+  desugaring's own tables and class records (the Time and memory topic): the slowest fixture, `viewsall.cpp`, took 1760
+  s of the C++ gate's 2400 s cap in the gate's pool at 0.115 and 1357 s at 0.118, and takes 211 s now; the sum of the
+  388 fixtures' builds went from 11,775 s to 2,936 s, the gate from 2989 s to 908 s over four lanes, its pool's peak
+  from 9034 MB to 1675 MB (0.120). A WARM BUILD'S TIME IS ITS DESUGARING (0.241: 133.8 s of twelve fixtures' 172.7 s,
+  the lowering 29.5 s, the summaries' reads 9.1 s, the check 0.26 s), less 19 % since the light template record (the
+  Time and memory topic); its next leaders spread over the copies of globals and the retries of `cpp_type/2` (in
+  `stdstringstream.cpp`'s RUN view, 30.0 s: `nb_setval/2` 7.1 %, `cpp_type/2`'s retries 6.6 %, `member/2` 6.2 %,
+  `nb_getval/2` 4.5 %). What is left of a COLD build is mostly the reader's own cold flattening of a header, 2.4 to 2.7
+  times faster since 0.184 (its item loop: the 114 headers' reads summed 4313 s over libc++ 18 in 0.181's chain), 1.5
+  times faster again since 0.187 (the sets as the whole record and the grammar's looks: 1349 s in 0.187's chain, 1802 s
+  in 0.186's) and faster again since 0.188 (999 s in 0.188's chain; seven headers' texts read in 71.9 s where 0.186's
+  library read them in 133.7 s and 0.187's in 90.0 s, the trees the same); and since 0.188 a build's cold headers are
+  read by processes of their own, at once (the driver's topic). In 0.188's chain the slowest builds were `fmtrange` (109
+  s over libc++ 18) and `fmtchrono2` (97 s over 21), `viewsall` 72 s and 76 s, and the 600 and 602 builds summed 2638 s
+  and 2701 s over four lanes. THE COLD READ OF `<thread>` (0.241; libc++ 21, C++17, one process, the light template
+  record in): 20.3 s, and in the RUN view 18.3 s and 205.2 million steps, where 0.188's on cocolog 2.11.0 took 17.3 s
+  and 170.3 million; the view is flat -- `nb_setval/2` 6.5 % (876,074 calls), `=/2` 4.6 %, `atom_codes/2` 3.0 % (1.48
+  million calls), `pp_word/3` 3.0 %, `nb_getval/2` 2.5 % -- and offers no cut. (0.120, 0.184, 0.187, 0.188, 0.189,
+  0.241)
 - The flow gate charts the twenty-six hand-written files of `library/` (ten until 0.223) and the nine gate programs of
   `test/` (0.161): the three generated tables (`ccl_bidrt.pl`, `ccl_uninames.pl`, `ccl_xid.pl`) are loaded, not charted.
   `test/why.sh` is no gate. The desugaring's seventeen files are one program in the chart since 0.230, as the one file

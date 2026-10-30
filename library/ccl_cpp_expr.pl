@@ -472,10 +472,10 @@ cpp_nx_call(T, C) :- compound(T), T \= noexcept_expr(_), T \= lambda(_, _, _, _)
 %% `void g(TH) noexcept' and `TH(int)' that may throw was 1, as was `noexcept(h(TH(1)))'
 cpp_nx_throwing(_, call(F0, As)) :- As \== [], cpp_nx_given_targs(F0, F, TAs), length(As, N), cpp_nx_tmpl_params(F, N, TPs, Ps0),
     catch(cpp_bind_targs(TPs, TAs, B), _, fail), cpp_subst(Ps0, B, Ps), cpp_nx_args_init_throw(Ps, As), !.
-cpp_nx_throwing(_, call(id(F), As)) :- As \== [], atom(F), \+ cpp_local(F), \+ '$cpp_tmpl'(F, _, _), \+ ccl_fn_template(F), length(As, N),
+cpp_nx_throwing(_, call(id(F), As)) :- As \== [], atom(F), \+ cpp_local(F), \+ '$cpp_tmplh'(F, _, _, _), \+ ccl_fn_template(F), length(As, N),
     findall(K-Ps, ( '$cpp_fn'(F, K, Ps, _, _), length(Ps, N) ), [K0-Ps0|KPs]), \+ ( member(K1-_, KPs), K1 \== K0 ),
     cpp_nx_args_init_throw(Ps0, As), !.
-cpp_nx_throwing(Ctx, call(id(F), As)) :- As \== [], atom(F), \+ cpp_local(F), \+ '$cpp_tmpl'(F, _, _), \+ ccl_fn_template(F), length(As, N),   % ... AND OF THE OVERLOAD THE CALL RESOLVES TO where several take as many (0.205): `noexcept(ov3(1))' over `void ov3(TH) noexcept;' and `void ov3(const char *) noexcept;' was 1
+cpp_nx_throwing(Ctx, call(id(F), As)) :- As \== [], atom(F), \+ cpp_local(F), \+ '$cpp_tmplh'(F, _, _, _), \+ ccl_fn_template(F), length(As, N),   % ... AND OF THE OVERLOAD THE CALL RESOLVES TO where several take as many (0.205): `noexcept(ov3(1))' over `void ov3(TH) noexcept;' and `void ov3(const char *) noexcept;' was 1
     findall(K, ( '$cpp_fn'(F, K, Ps, _, _), length(Ps, N) ), Ks), sort(Ks, [_, _|_]),
     cpp_nx_instance_params(Ctx, call(id(F), As), Ps0), cpp_nx_args_init_throw(Ps0, As), !.
 cpp_nx_throwing(_, call(id(C), As)) :- cpp_nx_class_named(C, T), cpp_nx_arg_values(As, ATs), \+ cpp_nothrow_q(cpp_nothrow_ctor(T, ATs)), !.
@@ -493,7 +493,7 @@ cpp_nx_throwing(_, call(id(F), _)) :- atom(F), \+ cpp_local(F), \+ ccl_nothrow(F
 cpp_nx_throwing(_, call(member(O, M), As)) :- atom(M), ( cpp_class_of_type_of(O, C) -> true ; cpp_nx_value_class(O, C) ), cpp_nx_method_call_throws(C, M, As).   % the object a temporary too (0.205): `noexcept(P().h())' of `void h() noexcept(false)' was 1, the inference typing no class's name called
 cpp_nx_throwing(_, call(arrow(P, M), As)) :- atom(M), ccl_type_of(P, T), ccl_unref(T, ptr(_, PT)), cpp_class_of_type(PT, C), cpp_nx_method_call_throws(C, M, As).
 cpp_nx_throwing(_, call(scoped(Path, M), As)) :- atom(M), Path \== [], catch(cpp_scope_class(Path, C), _, fail), atom(C), cpp_nx_method_call_throws(C, M, As).   % A STATIC MEMBER CALLED THROUGH ITS CLASS (0.205): `noexcept(O::s(1))'
-cpp_nx_throwing(Ctx, call(F0, As)) :- As \== [], \+ cpp_nx_given_targs(F0, _, _), cpp_nx_fn_named(F0, F), \+ cpp_local(F), ( '$cpp_tmpl'(F, _, _) -> true ; ccl_fn_template(F) ),   % A FUNCTION TEMPLATE'S CALL WITH ITS ARGUMENTS DEDUCED (0.205): the parameters of the instance the call resolves to, initialized from its arguments -- `noexcept(dt(1, 2))' over `template <class T> void dt(T, TH) noexcept' and a `TH(int)' that may throw was 1
+cpp_nx_throwing(Ctx, call(F0, As)) :- As \== [], \+ cpp_nx_given_targs(F0, _, _), cpp_nx_fn_named(F0, F), \+ cpp_local(F), ( '$cpp_tmplh'(F, _, _, _) -> true ; ccl_fn_template(F) ),   % A FUNCTION TEMPLATE'S CALL WITH ITS ARGUMENTS DEDUCED (0.205): the parameters of the instance the call resolves to, initialized from its arguments -- `noexcept(dt(1, 2))' over `template <class T> void dt(T, TH) noexcept' and a `TH(int)' that may throw was 1
     cpp_nx_instance_params(Ctx, call(F0, As), Ps), cpp_nx_args_init_throw(Ps, As), !.
 cpp_nx_throwing(_, call(F, _)) :- cpp_nx_pointer_callee(F, FT), \+ cpp_fn_type_nx(FT).   % A CALL THROUGH A POINTER OR A REFERENCE TO A FUNCTION (0.198; [except.spec]/3): its type says, `void (*q)() noexcept' does not throw and `void (*p)()' may -- every such call was taken as noexcept
 cpp_nx_throwing(_, call(F, _)) :- ( F = memptr_get(_, PM) ; F = memptr_arrow(_, PM) ), cpp_nx_memptr_fn(PM, FT), \+ cpp_fn_type_nx(FT).   % ... and THROUGH A POINTER TO MEMBER FUNCTION, `(o.*pm)(args)' (0.198): the member function type's own noexcept
@@ -671,7 +671,7 @@ cpp_nx_fn_item(template(_, _, I)) :- cpp_nx_fn_item(I).
 cpp_term_mentions_functor(T, F) :- compound(T), ( functor(T, F, _) -> true ; T =.. [_|As], member(A, As), cpp_term_mentions_functor(A, F) ), !.
 %% THE AWAITER ([expr.await]/3.3; 0.110): the awaitable's `operator co_await', a member or a free one, where it has one
 cpp_coro_awaiter(_, Op0, call(member(Op0, operator(co_await)), [])) :- cpp_coro_class(Op0, C), cpp_has_member(C, operator(co_await)), !.
-cpp_coro_awaiter(Ctx, Op0, Op) :- cpp_free_operator(co_await, [_], FN), ( '$cpp_fn'(FN, _, _, _, _) -> true ; '$cpp_tmpl'(FN, _, _) ), catch(cpp_expr(Ctx, Op0, A), _, fail), catch(cpp_free_operator_call(co_await, A, [], Op1), _, fail), !, Op = Op1.
+cpp_coro_awaiter(Ctx, Op0, Op) :- cpp_free_operator(co_await, [_], FN), ( '$cpp_fn'(FN, _, _, _, _) -> true ; '$cpp_tmplh'(FN, _, _, _) ), catch(cpp_expr(Ctx, Op0, A), _, fail), catch(cpp_free_operator_call(co_await, A, [], Op1), _, fail), !, Op = Op1.
 cpp_coro_awaiter(_, Op, Op).
 cpp_coro_class(E, C) :- catch(cpp_arg_type(E, T), _, fail), T \== unknown, ccl_unref(T, T1), cpp_class_of_type(T1, C), !.
 %% `*e' OF AN ARITHMETIC VALUE IS ILL-FORMED, and a detection reads it (0.126): libc++ 18's `__invoke' for a pointer to a data member given an

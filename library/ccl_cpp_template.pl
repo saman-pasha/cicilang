@@ -23,11 +23,15 @@ cpp_template(N, TPs, Item) :- cpp_hdr_join(N), '$cpp_tmpl'(N, TPs, Item).
 %% the lookup found it and never loaded libc++'s inserters, and every string went to the `const void *' member
 cpp_hdr_join(N) :- ( atom(N), cpp_hdr_item(N, _) -> ( cpp_hdr_load(N) -> true ; true ) ; true ).
 %% a class template's primary: the definition when one was read after a forward declaration
-cpp_class_template(N, TPs, Item) :- ( '$cpp_tmpl'(N, _, _) -> true ; cpp_hdr_load(N) ),
-    (   '$cpp_tmpl'(N, TPs0, Item), cpp_template_class_def(Item) -> true            % a class's definition first (std::pmr::vector, an alias, shares the flattened name)
-    ;   '$cpp_tmpl'(N, TPs0, Item), cpp_template_defined(Item) -> true
-    ;   '$cpp_tmpl'(N, TPs0, Item) -> true ),
-    findall(N-tmpl(TPs2, It2), '$cpp_tmpl'(N, TPs2, It2), Ts), cpp_merge_defaults(N, TPs0, Ts, TPs).
+cpp_class_template(N, TPs, Item) :- ( '$cpp_tmplh'(N, _, _, _) -> true ; cpp_hdr_load(N) ),   % the light record (cpp_tmpl_kind/2): no item copied but the one chosen (0.241)
+    (   '$cpp_tmplh'(N, TPs0, class_def, _) -> K = class_def                    % a class's definition first (std::pmr::vector, an alias, shares the flattened name)
+    ;   '$cpp_tmplh'(N, TPs0, defined, _) -> K = defined
+    ;   '$cpp_tmplh'(N, TPs0, _, _) -> K = any ),
+    cpp_tmpl_item(N, TPs0, K, Item),
+    findall(N-tmpl(TPs2, x), '$cpp_tmplh'(N, TPs2, _, _), Ts), cpp_merge_defaults(N, TPs0, Ts, TPs).
+%% the item of the first clause of the kind the light record chose: its parameters, bound, pass every other clause by without its item
+cpp_tmpl_item(N, TPs, any, Item) :- !, '$cpp_tmpl'(N, TPs, Item), !.
+cpp_tmpl_item(N, TPs, K, Item) :- '$cpp_tmpl'(N, TPs, Item), cpp_tmpl_kind(Item, K), !.
 %% TWO CLASS TEMPLATES OF ONE FLATTENED NAME, from two headers' summaries (0.117): `<variant>' defines `template <class _Tp, size_t _Idx>
 %% struct __overload' in `std::__variant_detail', and `<__algorithm/copy_move_common.h>' `template <class _F1, class _F2> struct __overload
 %% : _F1, _F2' in `std' -- the namespace keys (cpp_ns_quals) tell two paths apart only inside ONE flattened unit, and `<iterator>' pulls
@@ -35,8 +39,8 @@ cpp_class_template(N, TPs, Item) :- ( '$cpp_tmpl'(N, _, _) -> true ; cpp_hdr_loa
 %% `std::vector<int> v = {1, 2, 3}', found the wrong `__overload' (arity_mismatch). Where the name has class templates of DIFFERENT
 %% parameter kinds, the first whose parameters bind the arguments is the one (C++ has the namespaces; the flattening lost them).
 cpp_class_template(N, Args, TPs, Item) :-
+    findall(K0, ( '$cpp_tmplh'(N, TPs0, class_def, _), cpp_tparam_kinds(TPs0, K0) ), Ks0), sort(Ks0, Ks), Ks = [_, _|_],   % the kinds from the light record (0.241)
     findall(K-(TPs1-Item1), ( '$cpp_tmpl'(N, TPs1, Item1), cpp_template_class_def(Item1), cpp_tparam_kinds(TPs1, K) ), Rows),
-    findall(K, member(K-_, Rows), Ks0), sort(Ks0, Ks), Ks = [_, _|_],
     member(_-(TPs-Item), Rows), cpp_kinds_fit(TPs, Args), catch(cpp_bind_targs(TPs, Args, _), error(not_lowered(_), _), fail), !.
 cpp_class_template(N, _, TPs, Item) :- cpp_class_template(N, TPs, Item).
 cpp_tparam_kinds([], []).
@@ -547,7 +551,7 @@ cpp_unexpanded_pack(pack_zip(_, _)).
 %% libc++ dispatches its algorithms on `__specialized_algorithm<_Algorithm::__fill_n, __single_iterator<_It>>',
 %% and `__single_iterator' is declared only -- a tag, never an object. The instance is its NAME and its arguments,
 %% which is what a specialization's pattern matches on; asking it for a member finds no class and refuses there.
-cpp_incomplete_instance(N, _) :- '$cpp_tmpl'(N, _, I), cpp_template_defined(I), !, cpp_refuse(0, template_without_body(N)).   % a body registered elsewhere and not taken: the old diagnostic
+cpp_incomplete_instance(N, _) :- '$cpp_tmplh'(N, _, K, _), K \== other, !, cpp_refuse(0, template_without_body(N)).   % a body registered elsewhere and not taken: the old diagnostic
 cpp_incomplete_instance(_, Name) :- cpp_trace(incomplete(Name)).
 %% AN INSTANCE WHOSE BASE IS STILL BEING REGISTERED WAITS FOR IT (0.117): naming `__list_node<int, void *>' as the pointee of a typedef
 %% instantiates it, and its base `__list_node_base<int, void *>' is the class whose registration asked for that typedef -- C++ asks no
@@ -1140,7 +1144,7 @@ cpp_instantiate_function__(F, Explicit, As, Name) :-
 %% their closure, and every one of `stdtuple''s 188 calls of it rebuilt the merged set -- each candidate's parameter key
 %% computed against every other's, 9216 key resolutions a call, 0.36 s before the first candidate was even tried. The
 %% set is kept per name and remade only where the count of the name's templates has moved (a header loaded since).
-cpp_fn_candidates(F, Cands) :- cpp_hdr_join(F), findall(x, '$cpp_tmpl'(F, _, _), Xs), length(Xs, N), atom_concat('$cpp_fncands:', F, K),
+cpp_fn_candidates(F, Cands) :- cpp_hdr_join(F), aggregate_all(count, '$cpp_tmplh'(F, _, _, _), N), atom_concat('$cpp_fncands:', F, K),
     (   nb_current(K, cands(N, Cands0)) -> Cands = Cands0
     ;   findall(TPs-Fn, ( '$cpp_tmpl'(F, TPs, Item), cpp_fn_item(Item, Fn) ), Cands0), cpp_dedupe_candidates(Cands0, Cands1), cpp_fn_merge_defaults(F, Cands1, Cands), nb_setval(K, cands(N, Cands)) ).
 %% ONE FUNCTION TEMPLATE DECLARED TWICE IS ONE CANDIDATE (0.126): a header's items come from every summary that flattened it, and `<format>' and `<string>' each hold libc++
