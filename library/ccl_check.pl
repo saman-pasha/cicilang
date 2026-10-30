@@ -1263,9 +1263,11 @@ ck_stmt(case(_, _, S), St0, St) :- !, ck_stmt(S, St0, St).
 ck_stmt(default(_, S), St0, St) :- !, ck_stmt(S, St0, St).
 %% GNU'S ASM STATEMENT (0.215): its inputs are read and its outputs written, as an expression's operands are; an output
 %% whose value carries a pointer (ck_carries_type/1: a pointer, an array of them, a struct holding one) is refused by
-%% name, since the safe part follows no pointer that an asm makes
+%% name, since the safe part follows no pointer that an asm makes. `asm goto''s labels (0.231) are each a `goto''s edge,
+%% the state after the outputs brought to the label, and the state falls through to the next statement too
 ck_stmt(gnu_asm(L, basic(_)), St, St) :- !, ck_line(L).
-ck_stmt(gnu_asm(L, ext(_, _, Os, Is, _, _)), St0, St) :- !, ck_line(L), ck_asm_ops(Is, St0, St1), ck_asm_outs(Os), ck_asm_ops(Os, St1, St).
+ck_stmt(gnu_asm(L, ext(_, _, Os, Is, _, Ls)), St0, St) :- !, ck_line(L), ck_asm_ops(Is, St0, St1), ck_asm_outs(Os), ck_asm_ops(Os, St1, St),
+    ck_asm_gotos(Ls, L, St).   % `asm goto' (0.231): an edge to each of its labels, as a `goto' makes, and the state falls through too
 ck_stmt(S, _, _) :- functor(S, F, _), nb_getval('$ck_fn', Fn), nb_getval('$ck_line', L), throw(error(not_lowered(F), where(Fn, line(L)))).   % a form of C++'s later steps
 ck_asm_ops([], St, St).
 ck_asm_ops([op(_, _, E)|Os], St0, St) :- ck_expr(E, St0, St1), ck_asm_ops(Os, St1, St).
@@ -1274,6 +1276,8 @@ ck_asm_outs([op(_, _, E)|Os]) :-
     (   catch(ccl_type_of(E, T), _, fail), T \== unknown, catch(ck_carries_type(T), _, fail)
     ->  nb_getval('$ck_fn', Fn), nb_getval('$ck_line', L), throw(error(not_lowered(asm_pointer_output), where(Fn, line(L))))
     ;   ck_asm_outs(Os) ).
+ck_asm_gotos([], _, _).
+ck_asm_gotos([Lb|Ls], L, St) :- ck_goto(Lb, L, St), ck_asm_gotos(Ls, L, St).
 ck_catches([], _, St, St).
 ck_catches([catch(K, B)|Cs], St0, Acc, St) :- ( K == any ; K == terminate ), !, ck_stmt(B, St0, S1), ck_merge(Acc, S1, Acc1), ck_catches(Cs, St0, Acc1, St).
 %% A HANDLER'S PARAMETER HAS A FRAME OF ITS OWN, in the state as in the symbol table (0.201): the two are pushed together,

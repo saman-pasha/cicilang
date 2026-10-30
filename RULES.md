@@ -314,11 +314,11 @@ that changes a rule edits the rule here, in its topic, and writes its entry in `
   classes by value, pointers to member functions both ways, and a by-value parameter destroyed by the caller both ways
   (0.207; `test/cpp/link/`). Each C++ build has a time and a memory cap of its own (`CROSS_SECS` 1800, `CROSS_MB` 2800:
   its summaries are the target's, cold in every chain); without the tree the part is a SKIP line. 87 C fixtures (85 at
-  0.167) and 5 checks at 0.179, 24 C++ fixtures (`vector.cpp` since 0.162; 25 since 0.215, `gnuasm.cpp`) and 2 checks at
-  0.167 (3 since 0.207), 703 s in 0.164's chain, peak 535 MB, the C++ part cold (its summaries are that machine's own,
-  read afresh in every chain's fresh HOME); 151 s in 0.166's, 150 s in 0.167's, 143 s in 0.168's, 139 s in 0.171's and
-  145 s in 0.172's, peaks 437 MB, 436 MB, 365 MB, 387 MB and 390 MB, over a HOME that 0.165's chain had warmed. (0.131,
-  0.161, 0.207, 0.215)
+  0.167) and 5 checks at 0.179, 24 C++ fixtures (`vector.cpp` since 0.162; 25 since 0.215, `gnuasm.cpp`; 26 since 0.231,
+  `asmgoto.cpp`) and 2 checks at 0.167 (3 since 0.207), 703 s in 0.164's chain, peak 535 MB, the C++ part cold (its
+  summaries are that machine's own, read afresh in every chain's fresh HOME); 151 s in 0.166's, 150 s in 0.167's, 143 s
+  in 0.168's, 139 s in 0.171's and 145 s in 0.172's, peaks 437 MB, 436 MB, 365 MB, 387 MB and 390 MB, over a HOME that
+  0.165's chain had warmed. (0.131, 0.161, 0.207, 0.215)
 - The proof. `proof/run.sh` has clang turn `proof/forty2.ll` into a binary that prints `cicilang reaches C` and exits
   42. (M0)
 
@@ -8674,7 +8674,10 @@ The namespaces' rules, the program's and the library's, are `library/ccl_cpp_nam
 - AN ASM OUTPUT THAT CARRIES A POINTER IS REFUSED BY NAME (0.215; `ck_asm_outs/1`): an asm statement's inputs are read
   and its outputs written, as an expression's operands are (`ck_asm_ops/3`), and an output whose value carries a pointer
   (`ck_carries_type/1`: a pointer, an array of them, a struct holding one) throws `not_lowered(asm_pointer_output)`,
-  since the safe part follows no pointer that an asm makes. Basic asm names no operand. The driver gate's check. (0.215)
+  since the safe part follows no pointer that an asm makes: a rule and not a gap (0.231), the owner's rule that every
+  pointer has an ownership path, which an asm's pointer has not. Basic asm names no operand. The driver gate's check.
+  AN `ASM GOTO`'S LABELS ARE EACH A `goto`'S EDGE (0.231; `ck_asm_gotos/3`): the state after the outputs is brought to
+  each label, as `ck_goto/3` brings a goto's, and falls through to the next statement too. (0.215, 0.231)
 - A LIBRARY OBJECT'S BORROW IS REFUSED AS A POINTER'S (0.216): `borrow_escapes` where the object leaves the function,
   `borrow_stored` where one that outlives the function is handed a borrow of its local, `borrow_after_move` where it is
   used after that local's scope (the topic above). The C++ gate's eleven `test/cpp/lib*.cpp`, and its eighteen of 0.217
@@ -9404,11 +9407,30 @@ The namespaces' rules, the program's and the library's, are `library/ccl_cpp_nam
   `b`, `c`, `d`, `S` and `D` are `{ax}` and kin (`ir_asm_x86_reg/2`), and A REGISTER VARIABLE'S OPERAND ITS OWN
   REGISTER, as clang's AddVariableConstraints has it (`ir_asm_regvar/2`): a local given an asm label -- `register long
   r10 asm("r10")`, a system call's argument -- is `{r10}` where a register is asked, an in-out one's input too unless it
-  is early-clobbered; it was the register LLVM chose. It is `sideeffect` where `volatile` says so or it has no output.
-  `asm goto` is refused by name, `asm_goto` (the driver gate's check). The probes held each form's text to clang's
-  (`=r,0,r`, `=*rm,0`, `=*m,*m`, `=r,=r,0,1`, `={ax},={dx}`, `={eax},{eax}`, `${0:w}`): `gnuasm.c`'s 26 asm lines are
-  clang's on both machines, and it prints what clang's and gcc's builds print on x86-64 and on aarch64 Linux under qemu.
-  Lowering 123. `gnuasm.c`, `gnuasm.cpp`, which the cross gate runs too. (0.215)
+  is early-clobbered; it was the register LLVM chose. ELSEWHERE THE VARIABLE IS AN ORDINARY LOCAL, a rule and not a gap
+  (0.231): GCC's manual gives the register to the asm operand alone ("the only supported use for this feature is to
+  specify registers for input and output operands when calling Extended asm", Specifying Registers for Local
+  Variables), and clang lowers it so. It is `sideeffect` where `volatile` says so or it has no output. The probes held
+  each form's text to clang's (`=r,0,r`, `=*rm,0`, `=*m,*m`, `=r,=r,0,1`, `={ax},={dx}`, `={eax},{eax}`, `${0:w}`):
+  `gnuasm.c`'s 26 asm lines are clang's on both machines, and it prints what clang's and gcc's builds print on x86-64 and
+  on aarch64 Linux under qemu. Lowering 123. `gnuasm.c`, `gnuasm.cpp`, which the cross gate runs too. (0.215, 0.231)
+- `ASM GOTO` IS A `callbr`, AS CLANG LOWERS IT (0.231; `ir_asm/2`; it was refused by name, `asm_goto`). Its labels are
+  operands after the outputs, the inputs and the in-out ties, `!i` each, so the template's `%lN` is `${N:l}` and
+  `%l[name]` the label's number among them: a label by its name is looked up among the labels alone
+  (`ir_asm_opref/5`), since an operand without a name is `none` to the reader and `%l[none]` met the first such
+  operand. The call goes on to a block of its own that takes the outputs (`ir_asm_taken/3`), or to a block of each
+  label's that takes them too and goes to the label as a `goto` does (`ir_asm_goto_edges/6`). AN EDGE RUNS NO CLEANUP
+  (`ir_asm_goto/3`): a jump that would run a frame's body at its exit -- a destructor, a `defer`, an own array's drain,
+  a handler's end -- is refused, `asm_goto_over_defer(L)`, as clang refuses it ("cannot jump from this asm goto
+  statement to one of its possible targets", for a destructor in C++ and for `__attribute__((cleanup))` in C; g++ 13
+  takes it and runs no destructor); a label behind is asked at the asm, one ahead where it is lowered, its edge's
+  trampoline marked (`'$ir_asm_tramps'`). Leaving a VLA's scope runs nothing and is taken, as clang takes it; entering
+  one, or passing a defer forward, is refused as a goto's is (`ir_skip_check/5`). `asmgoto.c`'s three templates and
+  constraints are clang 18's, character for character, and it prints what clang's build prints on x86-64 and on
+  aarch64 Linux under qemu; `asmgoto.cpp` jumps in a function whose local has a destructor, the label in the local's
+  own scope, and in a method with an output and a label by its name, as clang++ and g++ 13 print, the cross gate's too.
+  The driver gate's two checks: an `asm goto` compiled, and the refusal over a `defer` and over a C++ destructor.
+  Lowering 133. (0.231)
 
 ### Debug information (`-g`)
 
@@ -10656,7 +10678,8 @@ The namespaces' rules, the program's and the library's, are `library/ccl_cpp_nam
   `<assert.h>` (`ndebug.c`). Since 0.215: GNU's inline assembly, a file-scope asm and the statement's forms with a
   register variable among them, on x86-64 and on aarch64 (`gnuasm.c`), and a feature-test macro defined after the file's
   first system `#include` where clang's headers read it (`ftlate.c`, `-std=c17`). Since 0.217: what the safe part lets C
-  keep in a struct's member and an array, a pointer read from a member among it (`fieldsok.c`).
+  keep in a struct's member and an array, a pointer read from a member among it (`fieldsok.c`). Since 0.231: GNU's `asm
+  goto`, a jump by a label's number and by its name, with an output, out of a block (`asmgoto.c`).
 - The C library is the host's. The compiler's own freestanding headers are in `library/include/` (`<stdarg.h>`,
   `<stdatomic.h>`, `<complex.h>`, `<stdckdint.h>`, `<stdbit.h>`, `<limits.h>`, `<tgmath.h>` and six more).
 - The language's own additions run: `:=`, patterns, `name { }` structs and `format`, `print`, `println`
@@ -11475,10 +11498,11 @@ Declarations topic of the C++ reader).
    read; a file that defines such a name after its first system `#include` is read at every build (the C store topic); a
    header that the program's own header includes reads `NDEBUG` as its table has it (under `-DNDEBUG` an `#undef NDEBUG`
    before `<assert.h>` asserts again since 0.221, the topic of the user's file and the headers' macros). `asm goto` is
-   refused by name (`asm_goto`), and so is an asm output that carries a pointer (`asm_pointer_output`, the safe part's);
-   a register variable's register is the operand's only, as an asm operand. macOS is not measured: Apple's libc chooses
-   its names by `_ANSI_SOURCE`, `_POSIX_C_SOURCE` and `_DARWIN_C_SOURCE`, its headers' reads under the ISO modes are no
-   gate's, and `gnuasm.c` and `gnuasm.cpp` name its sections and its symbols' underscore without a run there.
+   lowered since 0.231; an asm output that carries a pointer is refused by the owner's rule of ownership paths, and a
+   register variable's register is an asm operand's alone, as GCC's manual gives it: two rules, not gaps (the safe
+   part's topic, the lowering's topic of inline assembly). macOS is not measured: Apple's libc chooses its names by
+   `_ANSI_SOURCE`, `_POSIX_C_SOURCE` and `_DARWIN_C_SOURCE`, its headers' reads under the ISO modes are no gate's, and
+   `gnuasm.c` and `gnuasm.cpp` name its sections and its symbols' underscore without a run there.
 
 ### C++ language
 

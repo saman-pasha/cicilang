@@ -225,6 +225,7 @@ One row per step, in version order: the step's title, what it did and its gate n
 | 0.228 | `#x` keeps a name's universal character name, and `-E` writes tokens as written | the second item of "Do all": a name written with a universal character name keeps that spelling for `#x` -- in a text line, in a macro's body --, `#x` makes a literal of its spelling, and `-E` writes a literal, a number, a digraph and an alternative token as written, as clang does; the reader 165 | the gates over 18 GREEN (reader, compile, driver, cross, the library read, the C++ gate 829 of 839), two new driver checks against clang's `-E`; a container restart between them; a local commit |
 | 0.229 | argument-dependent lookup through a compound type's parts | the third item of "Do all": a keyed name's argument-dependent lookup asks every associated class and namespace of [basic.lookup.argdep]/3 -- a function type's parameters and result, a pointer to member's class and member, an array's element, a template template argument's namespace --, each part resolved in the desugaring's words; the lowering 132 | flow GREEN, a net of 45 the same, the C++ gate over 18 GREEN (830 of 840); a local commit |
 | 0.230 | the flow gate charts the desugaring's seventeen files as one program | the fourth item of "Do all": the seventeen parts joined, in their order, into one copy with one root over their 2301 predicates, one job, each finding put back at its part's own file and line (`joined.txt`); four seeded defects named at their parts' lines | the flow gate GREEN in 132 s and 113 s, where 0.229's took 205 s on the same box; a local commit |
+| 0.231 | `asm goto` lowered as a callbr; the asm records made rules | the fifth item of "Do all": GNU's `asm goto` a `callbr` as clang's, its labels after the operands, `%l[name]` among the labels alone; an edge that would run a cleanup refused, `asm_goto_over_defer`, as clang refuses it; an asm's pointer output and a register variable's register rules, not gaps; the lowering 133 | flow, compile (219), driver and cross (192) GREEN over 18, the C++ fixtures by the net; a local commit |
 
 ## M5 — the C++ mode
 
@@ -15689,3 +15690,53 @@ so the times of the two steps are not compared.
   versions. `README.md`: the flow gate's time.
 
 The module 0.230. The reader 165 and the lowering 132, as 0.229 left them: nothing the compiler does changes.
+
+## 0.231 — `asm goto` lowered as a callbr; the asm records made rules
+
+**0.231: the fifth item of "Do all" (Not done item 9, the ISO modes and the configuration: `asm goto` was refused by
+name, `asm_goto`; an asm output that carries a pointer was refused, and a register variable's register was the operand's
+only). GNU's `asm goto` is lowered as clang lowers it, a `callbr`; an edge that would run a cleanup is refused, as clang
+refuses it; the two other records are rules, not gaps. A local commit.**
+
+THE ROAD: `ir_asm/2` (the asm statement's line beside it) lowers `asm goto` as a `callbr` -- the labels operands after
+the outputs, the inputs and the in-out ties, `!i` each; `to label` the fall-through block, which takes the outputs
+(`ir_asm_taken/3`), and `[label ...]` a block of each label's, which takes them too and goes to the label as a `goto`
+does (`ir_asm_goto_edges/6`). The check walks each label as a `goto`'s edge (`ck_asm_gotos/3`), and the state falls
+through too.
+
+WHAT THE PROBES FOUND: (1) `asmgoto.c`'s `pick` failed in LLVM, `invalid operand in inline asm: '... jz ${0:l}'`: the
+reader names an operand without a name `none`, and `%l[none]` met the first such operand, where the label `none` is the
+third; a label by its name is looked up among the labels alone now (`ir_asm_opref/5`, `label(N)` in the names). An
+operand NAMED `[none]` is still met as the first unnamed one by `%[none]` (since 0.215): its cure is the reader's, under
+step 6's bump. (2) clang++ refuses an `asm goto` whose jump leaves the scope of a local with a destructor, and clang an
+`__attribute__((cleanup))` local's in C ("cannot jump from this asm goto statement to one of its possible targets"),
+while g++ 13 takes it and runs NO destructor: such an edge is refused here, `asm_goto_over_defer(L)` (`ir_asm_goto/3`):
+a label behind at the asm, one ahead where it is lowered, its edge's trampoline marked (`'$ir_asm_tramps'`,
+`ir_trampolines/3`); a jump out of a VLA's scope runs nothing and is taken, as clang takes it. Three C refusals
+(forward, backward, a `defer` after the label) and one C++ were each named at the asm's line; a jump in the defer's own
+frame and one out of a VLA's scope ran right. (3) During the step the C store served the IR of the first draft: the
+lowering's version was the same, so the signature was (`dr_ir/3`); the store was emptied before the gates. (4)
+`test/cross.sh` takes `$LLVM`, else the newest `/usr/lib/llvm-NN`, for its C++ part: with libc++ 22 on this box since
+0.227 the newest is 22, and the arm64 tree is 18's only, so the part was SKIPPED (108 s) until `LLVM=/usr/lib/llvm-18`
+was set, as 0.228's run had it.
+
+THE TWO RECORDS: an asm output that carries a pointer stays refused (`asm_pointer_output`) by the owner's rule that
+every pointer has an ownership path, which an asm's pointer has not; a register variable's register is an asm operand's
+alone, as GCC's manual gives it ("the only supported use for this feature is to specify registers for input and output
+operands when calling Extended asm") and as clang lowers it. Both are rules in their topics now.
+
+MEASUREMENTS, over libc++ 18's HOME: the flow gate GREEN after each edit (112 s, 114 s, 108 s; 5184 predicates);
+`asmgoto.c`'s three `callbr` lines clang 18's, character for character, and its output clang's; the compile gate GREEN
+(219 checks, 29 s), the driver gate GREEN (27 s, its two checks of `asm goto` among them), the cross gate GREEN (325 s,
+191 checks, and 291 s, 192, with `asmgoto.cpp` in its C++ part); `asmgoto.cpp` and `gnuasm.cpp` the same as their
+`.expect` over libc++ 18 by the net. The C++ gate and the library read were not run: the change reaches C++ through an
+asm statement alone, whose two fixtures the net and the cross gate built; the chain of the last step runs them. The box
+restarted twice during the step, its disk kept.
+
+- `library/ccl_ir.pl` (`ir_asm/2`, `ir_asm_goto_labels/2`, `ir_asm_goto_edges/6`, `ir_asm_taken/3`, `ir_asm_goto/3`,
+  `ir_frames_run/1`, `ir_asm_opref/5`, `ir_trampolines/3`), `library/ccl_check.pl` (`ck_asm_gotos/3`).
+  `test/c/run/asmgoto.c`, `test/cpp/run/asmgoto.cpp`, the driver gate's two checks, the cross gate's C++ list.
+  `RULES.md`: the lowering's topic of inline assembly, the safe part's, What runs, the cross gate, Not done item 9.
+  `CLAUDE.md`: the versions. `README.md`.
+
+The module 0.231. The reader 165, as 0.228 left it; the lowering 133 (132 at 0.229): `asm goto` lowered.

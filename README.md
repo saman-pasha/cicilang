@@ -39,8 +39,9 @@ rules of the code by topic; `HISTORY.md` is the record of every step.
   lane, their lanes, masks, conversions and builtins, crossing a call as
   clang passes them), and trigraphs and `__STRICT_ANSI__` in the ISO modes,
   and GNU's inline assembly (a file-scope `asm`, and `asm` statements with
-  outputs, inputs, clobbers, named operands and register variables, lowered
-  as clang lowers them). C17 in a GNU mode is the default, as clang's;
+  outputs, inputs, clobbers, named operands and register variables, and
+  `asm goto` to its labels, lowered as clang lowers them). C17 in a GNU mode
+  is the default, as clang's;
   `-std=c17` is its ISO mode and `-std=c23` gives C23. The program's
   feature-test macros (`_POSIX_C_SOURCE`, `_GNU_SOURCE`,
   `__STDC_WANT_LIB_EXT2__` ...) and `NDEBUG` reach the C library's headers
