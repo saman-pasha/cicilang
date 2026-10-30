@@ -236,6 +236,7 @@ One row per step, in version order: the step's title, what it did and its gate n
 | 0.239 | a header read under the configuration at its own #include | the thirteenth item of "Do all" (Not done's item 9): each `#include` of the user's file read under the program's configuration as it stands there (`__config`'s names at the first C++ `#include`, `NDEBUG` for the program's own header, a local header's own names); a name taken from a header taken again after the next `#include`; a file that defines such a name late kept in the store; lowering 141 | flow GREEN, the reader, compile, driver, objects, proof and cross gates GREEN (4 s, 33 s, 29 s, 5 s, 0 s, 235 s), `ftmorder` and `ndebuglocal` the same as clang's build on aarch64 under qemu, the C++ gate GREEN in 1404 s; a local commit |
 | 0.240 | one build at a time over the store; the C++ IR stays files | the fourteenth item of "Do all" (the owner's decision 4 of 0.190 left a store for the C++ IR until parallel writes were measured): cocolog's store takes one writer at a time -- a commit refused, a writer hung, rows lost without a word, a store left unreadable, builds dead of a bus error -- so `bin/cicilang` holds `KB.lock` around a build over the store, and the C++ IR stays files | the reader, compile, driver, objects, proof and cross gates GREEN (3 s, 91 s over a C store that the gate started afresh -- the stamp it found was not this library's -- where 0.239's warm one took 33 s, 28 s with 52 checks, 4 s, 0 s, 345 s); a local commit |
 | 0.241 | the check's cost measured; a light record beside each template | the fifteenth item of "Do all": each phase of a build timed -- the check under 1 % of every build (0.43 s of 162 C builds' 46 s, 0.26 s of twelve C++ builds' 173 s), so no state table is due, and a warm C++ build's time its desugaring; the template registry's lookups copied whole bodies, and a light record beside each template (`'$cpp_tmplh'/4`) took 19 % of the desugaring of 30 fixtures, their IR the same; the cold read of `<thread>` profiled, flat | flow GREEN, the reader, compile, driver, objects, proof and cross gates GREEN (2 s, 11 s, 21 s, 4 s, 0 s, 205 s), the C++ gate RED in 1177 s for one check alone, 848 of 859 run fixtures ok and 11 skipped by their needs: the gate's `c45` wrote `'$cpp_tmpl'` by hand, without the light record the mangler now asks; through `cpp_template_put/3` its 54 checks GREEN alone; a local commit |
+| 0.242 | `-g`: each expression its own column | the sixteenth item of "Do all": under `-g` every instruction at the line and the column of the innermost expression being lowered, as clang's -- a name at itself, an operator at its operator, a call at its callee, a member at its name -- each statement's text aligned with the tokens of the debug file's lines, so neither the reader nor the tree carries a column; in C a statement's own places too (what follows it, a for's two branches, a block's `}`); three samples clang's sets exactly, and over 128 C run fixtures the pairs of clang's that we lack 886 where they were 3172; lowering 142 | flow GREEN after one split moved, the reader, compile, driver, objects, proof and cross gates GREEN (3 s, 28 s, 29 s, 5 s, 0 s, 216 s), the driver's columns twenty, the C++ gate GREEN in 1219 s with 848 run fixtures ok and 11 skipped; a local commit |
 
 ## M5 — the C++ mode
 
@@ -16337,3 +16338,59 @@ the flow gate GREEN again (85 s).
 
 The module 0.241. The reader 167 and the lowering 141: what the desugaring answers is the same, so no read and no IR
 moved.
+
+## 0.242 — `-g`: each expression its own column
+
+**0.242: the sixteenth item of "Do all" (Not done: "a location has its STATEMENT's column, where clang gives each expression
+its own -- that would need a column in every token and every node of the tree"). Under `-g` every instruction has the line
+and the column of the innermost expression being lowered, as clang's: the statement's expressions are aligned with the
+tokens of its text, from the debug file's lines, so neither the reader nor the tree changed. A local commit.**
+
+WHAT CLANG DOES (`s16/`, clang 18 on small programs, instruction by instruction): a name's load at the name, an operator's
+instruction at the operator, a call at its callee's first token, a member's address and load at the member's name, an index
+at its first token (`gw.a[0]` at `gw`), a conditional's branches and its phi at its condition's first token, an assignment's
+store at `=`, a compound assignment's and an increment's load, operation and store at the operator; a branch after an
+expression statement at its first token, a for's init branch at the init's first token, the body's end of a for with no step
+at the loop, and what follows a block at its `}` (clang ends its lexical block there). Our instructions came in the same
+order with the statement's column each (0.161).
+
+WHAT 0.242 DOES:
+
+- THE ALIGNMENT (`ir_xstmt_frame/2`, `ir_xa/4`): each statement of a function described in the unit's file is aligned with
+  the tokens of its text -- the debug file's lines lexed once a build with their columns in bytes (`ir_xtoks_ready/0`, a
+  comment across lines no token) -- from the token after the statement before it, on the statement's own line; its
+  expressions' nodes get their places in a frame. A do-while's condition is aligned when it is lowered, after the body.
+- THE PLACE OF WHAT IS EMITTED (`ir_xenter/2`, `ir_xleave/1`): `ir_expr/4`, `ir_lval/4` and `ir_cond/2` are wrappers under
+  `-g` (their clauses now `ir_expr_/4`, `ir_lval_/4`, `ir_cond_/2`): each takes its node from the top frame, sets its line
+  and column, and gives the parent's back after; a node the lowering made has no pair and leaves the place as it is. A
+  constant clang's builder folds and a cast have no place of their own; an instruction whose operands are all constants
+  takes its statement's anchor (`ir_dbg_const_ins/1`).
+- THE STATEMENT'S PLACES: an aligned expression statement's own column, for what follows it, its first token; a declarator's
+  store at its name (`ir_xvar/1`); a for's init branch at the init (`ir_xkey/1`); a for with no step branches back at the
+  loop; what follows a block, and a switch's body, at its `}` -- after the block's last statement where every statement of
+  it aligned, else the one `}` of the closing line the reader noted (`b(First, Close)`).
+- A statement that does not align -- a macro's expansion, a form the desugaring made -- keeps 0.161's column.
+
+MEASUREMENTS: (`s16/`, clang 18 and clang++ 18, `-g -O0`, instruction by instruction): three samples of 11 to 13 lines
+(`cols.c`, `forms.c`, `forms2.c`: names, operators, calls, members, indexes, conditionals, the loops, a switch, a
+do-while, the compound assignments) have clang's sets of a line and a column exactly, 50, 44 and 50 pairs. Every C run
+fixture built under `-g` by the old lowering and the new, all 161; the 128 that clang builds too compared: the
+instructions the same once the debug metadata is set aside, in `abi_libc`, `ftlate` and `stdc23` the module's `declare`
+of `llvm.dbg.declare` at another place among the declarations; of clang's 5237 pairs we lacked 3172 and lack 886, and
+ours outside clang's are 221 where they were 110 -- each a difference of the lowering at an expression's right place (a
+constant global's member load clang folds, `creal` and `cimag` as calls, a bit-field's no-op `getelementptr`, a switch
+over a constant, `fmuladd`, `wcslen` and `wcscmp` as builtins, a `ret` after a `noreturn` call). 30 C++ run fixtures
+under `cicilang++ -g`, the 28 clang++ builds compared: the instructions the same in all; of clang++'s 3575 pairs we
+lacked 2531 and lack 2004, ours outside 648 where they were 656. The flow gate RED once, `ir_xqual/3` between
+`ir_xa_/4`'s clauses: moved behind the last, GREEN (100 s). The reader, compile, driver, objects, proof and cross gates
+GREEN (3 s, 28 s over a C store the lowering's bump started afresh, 29 s with 52 checks -- the columns' check `0 20` --,
+5 s, 0 s, 216 s; peak 562 MB); the C++ gate GREEN in 1219 s, 848 run fixtures ok and 11 skipped by their needs (peak
+4170 MB).
+
+- `library/ccl_ir.pl` (the wrappers, the alignment and the lexer of the debug file's lines, the statement's frame,
+  `ir_line/1`, the block's end, the for's two branches, `ir_dbg_loc_of/4`, the lowering 142). `test/driver.sh`: the check of
+  the columns, twenty rows where it had ten. `RULES.md`: the lowering's `-g` (an expression's own column), the driver gate,
+  Not done. `CLAUDE.md`: the versions.
+
+The module 0.242. The lowering 142 (141 at 0.239): a `-g` IR's metadata differs, so a stored one is not served -- the C store's
+own serving of the old IR to a second library in one probe showed it. The reader 167: the tree is the same.

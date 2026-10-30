@@ -269,7 +269,7 @@ that changes a rule edits the rule here, in its topic, and writes its entry in `
   clang's, both retargeted to this host (`test/c/link/va_darwin.c`, 0.160). They cover what `-o`, `-c`, `-S`,
   `-emit-llvm`, `-shared`, `-I`, `-ast-dump`, `-fsyntax-only`, `-g` and `-gline-tables-only` make (read back by
   `llvm-dwarfdump`, from `$PATH` or `$LLVM/bin`: the statements' lines and the file's name; each row's column one that
-  clang's line table has for that line, ten of them, 0.161; the variables, a struct's members and an enum's enumerators,
+  clang's line table has for that line, twenty since 0.242; the variables, a struct's members and an enum's enumerators,
   their names sorted; no variable under `-gline-tables-only`; a C++ static data member declared in its class, its
   definition naming that declaration, through `cicilang++ -g -c`, 0.133; under `-fdebug-macro` a file's and its header's
   macros at their lines, as clang's object has them, and the predefined ones at line 0, 0.134; a destructor at its
@@ -293,7 +293,7 @@ that changes a rule edits the rule here, in its topic, and writes its entry in `
   level (C17's euro sign and middle dot, C23's and C99's refusals in clang's words), `__STDC_VERSION__` at C99, C11, C17
   and C23, an `#undef NDEBUG` before `<assert.h>` under `-DNDEBUG` asserting again, and the C++ IR cache (a rebuild
   served, a changed file lowered again); since 0.240 four builds at once over one fresh store, built one after another
-  under its lock, and one more build over it after them. (M4, 0.93, 0.128, 0.129, 0.154, 0.160, 0.221, 0.240)
+  under its lock, and one more build over it after them. (M4, 0.93, 0.128, 0.129, 0.154, 0.160, 0.221, 0.240, 0.242)
 - The objects gate. `test/objects.sh` makes 29 checks of the objects layer, an instance that outlives its process
   among them. (from the start)
 - The cross gate (0.131). `test/cross.sh` builds every `test/c/run/*.c` with `cicilang --target=aarch64-linux-gnu` and
@@ -9744,10 +9744,38 @@ The namespaces' rules, the program's and the library's, are `library/ccl_cpp_nam
   statement before it on that line, else from the line's start (`ir_dbg_col/2`; `ir_line/1` asks it under `-g` only), a
   column in bytes, as clang counts; a statement whose anchor is not there -- a name the compiler made, a destructor run
   at a closing brace -- has the column of the line's first character that is no blank (the brace). A loop's step and its
-  branch back are the loop's line and column (`ir_pos/1`, `ir_pos_set/1`): they had the body's last line. clang gives
-  each EXPRESSION its own column (a load at its name, an operation at its operator), so its line table has more rows
-  than this compiler's; the driver gate holds every row of a program's to one clang's table has for that line. Every
-  location was column 1.
+  branch back are the loop's line and column (`ir_pos/1`, `ir_pos_set/1`): they had the body's last line. Since 0.242
+  each EXPRESSION has its own column (the next rule): the statement's column is what a statement that does not align
+  with its tokens keeps, and what an instruction of constants takes in C. Every location was column 1. (0.161, 0.242)
+- AN EXPRESSION'S OWN COLUMN (0.242): every instruction has the line and the column of the innermost expression being
+  lowered, as clang's: a name's load at the name (a qualified name's at its first token, `std::printf` at `std`), an
+  operator's instruction at its operator -- an assignment's store at `=`, a compound assignment's and an increment's
+  load, operation and store at the operator --, a call at its callee's first token, a member's address and load at the
+  member's name, an index at its first token (`gw.a[0]` at `gw`), a conditional's branches and its phi at its
+  condition's first token, a comma's at the `,`. The reader and the tree carry no column: each statement of a function
+  described in the unit's file is aligned with the tokens of its text (`ir_xstmt_frame/2`, `ir_xstmt/4`, `ir_xa/4`) --
+  the debug file's lines lexed once a build (`ir_xtoks_ready/0`, `'$ir_xl:Line'`; a column in bytes, as clang counts; a
+  comment across lines no token) --, from the token after the statement before it, on the statement's own line, and each
+  node of its expressions gets its place in a frame, `n(Position, Begin, Kids)`. `ir_expr/4`, `ir_lval/4` and
+  `ir_cond/2` are wrappers under `-g` (their clauses are `ir_expr_/4`, `ir_lval_/4` and `ir_cond_/2`): each takes its
+  node from the top frame and sets its place (`ir_xenter/2`), and gives the parent's back after (`ir_xleave/1`); a node
+  the lowering made has no place and leaves the parent's. A do-while's condition is aligned when it is lowered, after
+  the body (`ir_xlazy/4`). A cast has no place of its own, nor has a constant -- a literal, an enumerator, `sizeof`, an
+  operator over constants (`ir_xconst/1`) --, since clang's builder folds it; in C an instruction whose operands are all
+  constants (`sext i32 0 to i64`, a `getelementptr` of a global by constant indices) takes its statement's place
+  (`ir_dbg_const_ins/1`, `ir_dbg_loc_of/4`). IN C THE STATEMENT'S OWN PLACES are clang's too: what follows an expression
+  statement at its first token (`'$ir_xstart'`, `ir_line/1`), a for's init branch at the init's first token
+  (`ir_xkey/1`), the branch back of a for with no step at the `for`, and what follows a block or a switch's body -- a
+  loop's branch, a destructor, the last `ret` -- at its `}`, where clang ends its lexical block (`ir_xblock_end/2`: the
+  `}` after the cursor where every statement of the block aligned, else the one `}` of the closing line the reader
+  noted, `b(First, Close)`); clang++'s rows there differ, and C++ keeps 0.161's. A declarator's store is at its name in
+  both (`ir_xvar/1`). A statement that does not align -- a macro's expansion, a form the desugaring made -- keeps
+  0.161's column (`'$ir_xmiss'` counts it, and a block with one such statement takes its `}` from the line the reader
+  noted). Against clang 18 over 128 C run fixtures (`HISTORY.md`): of clang's 5237 pairs of a line and a column this
+  lowering lacked 3172 and lacks 886; its 221 pairs outside clang's are differences of the lowering, at their
+  expressions' right places (a constant global's member load clang folds, `creal`, a bit-field's no-op `getelementptr`,
+  a `ret` after a `noreturn` call); the instructions are the same, their `!dbg` moved. The driver gate holds a program's
+  twenty rows to clang's table. Lowering 142. (0.242)
 - THE PROLOGUE HAS NO LOCATION (0.130): the parameters' stores (`ir_run_lines/1` under `'$ir_dbg_prologue'`) carry no
   `!dbg`, as clang's have none, since LLVM puts the prologue's end, where a debugger stops at a breakpoint on the
   function, at the first instruction with a location: with the function's line on the stores, gdb stopped before them
@@ -11987,11 +12015,13 @@ Declarations topic of the C++ reader).
 - `bin/cicilang` accepts and ignores `-W`, `-f...` and `-pedantic` (owner's rule: clang's arguments, no new flags).
   `-D` and `-U` define and undefine (0.112), and `-fexperimental-library` turns libc++'s experimental part on (0.138); a
   run with any of them keeps no C store.
-- `-g` (0.130) leaves out what clang's has beyond the variables, the types and the scopes: a location has its
-  STATEMENT's column (0.161), where clang gives each expression its own -- that would need a column in every token and
-  every node of the tree, which the reader has not (a token is `tok(Kind, Value, Line)`). A destructor at a scope's end
-  has the closing brace's line since 0.139. The macros are described under `-fdebug-macro` (0.134; `-g3` alone describes
-  none in either compiler).
+- `-g` (0.130) leaves out what clang's has beyond the variables, the types and the scopes: an expression has its own
+  column since 0.242, but a statement whose text does not align with its tokens -- a macro's expansion, a form the C++
+  desugaring made -- keeps its statement's column (0.161), C++ keeps 0.161's places for what follows a statement and a
+  block, and an instruction that this lowering emits where clang folds it or emits another (a constant global's member
+  load, `creal`, a bit-field's no-op `getelementptr`) has a row that clang's table has not. A destructor at a scope's
+  end has the closing brace's line since 0.139. The macros are described under `-fdebug-macro` (0.134; `-g3` alone
+  describes none in either compiler).
 - A C++ read never uses the store: `cicilang++` runs `--no-kb` (M5), its cache the summary and the AST beside it (0.35,
   0.45). The reason written then, a store write quadratic past about 30,000 rows, is gone (linear on cocolog 2.2.5,
   measured at 0.161: the Findings); a process that adds a row to a predicate still rewrites all of it, which one
