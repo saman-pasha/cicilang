@@ -974,16 +974,31 @@ cpp_adl_own_key(Ctx, F, As, K) :- cpp_bare_name(F, N), catch('$cpp_ns_libkeyed'(
 %% namespace it is declared in -- a pointer's pointee's (0.221) -- and, for an instance of a class template, the classes of its
 %% template's arguments too (0.221): `count(&s)' over the program's `ns::S *' and `size(v)' over a `std::vector<ns::S>' find
 %% the program's `ns::count' and `ns::size'; ... AND A CLASS'S DIRECT AND INDIRECT BASES (/3.2; 0.221): `size(d)' over a `D :
-%% ns::B' finds `ns::size(const ns::B &)'
+%% ns::B' finds `ns::size(const ns::B &)'; ... AND A COMPOUND TYPE'S PARTS (0.229; /3.3, /3.5 to /3.7): a pointer's and an
+%% array's element, a function type's parameters and its result, a pointer to member's class and its member's type --
+%% `count(take)' over a `void take(ns::S)', `find(make)' over a `ns::S make()', `sort(&ns::M::x)', `size(arr)' over a
+%% `ns::S[2]' -- AND A TEMPLATE TEMPLATE ARGUMENT'S NAMESPACE (/3.2): `data(Holder<ns::Box>{})' over a global `Holder'
 cpp_adl_arg_class(A, C) :- catch(cpp_class_of_type_of(A, C0), _, fail), !, cpp_adl_assoc(C0, C).
 cpp_adl_arg_class(A, C) :- catch(cpp_arg_type(A, T), _, fail), ccl_unref(T, T1), catch(ccl_resolve_type(T1, R), _, fail),
-    ( R = ptr(_, P0) -> catch(ccl_resolve_type(P0, P), _, fail) ; P = R ), cpp_adl_type_class(P, C0), cpp_adl_assoc(C0, C).
+    cpp_adl_type_classes(R, 0, C0), cpp_adl_assoc(C0, C).
 cpp_adl_type_class(T, C) :- catch(cpp_class_of_type(T, C), _, fail), !.
 cpp_adl_type_class(base(_, [S]), C) :- compound(S), ( S = struct(C, _) ; S = union(C, _) ; S = enum(C, _) ), atom(C), C \== anon.
 cpp_adl_assoc(C, C).
 cpp_adl_assoc(C, D) :- catch('$cpp_inst'(C, inst(_, TArgs)), _, fail), is_list(TArgs), member(TA, TArgs), compound(TA),
-    catch(ccl_resolve_type(TA, R), _, fail), cpp_adl_type_class(R, D), D \== C.
+    ( TA = tname(D) -> atom(D) ; catch(ccl_resolve_type(TA, R), _, fail), cpp_adl_type_class(R, D) ), D \== C.
 cpp_adl_assoc(C, D) :- cpp_adl_base(C, 0, D).
+%% a type's associated classes, its parts' too, some levels deep (a pointer to a function returning a pointer ...)
+cpp_adl_type_classes(T, _, C) :- cpp_adl_type_class(T, C).
+cpp_adl_type_classes(T, K, C) :- K < 6, cpp_adl_type_part(T, P0), cpp_adl_resolve(P0, P), K1 is K + 1, cpp_adl_type_classes(P, K1, C).
+cpp_adl_type_part(ptr(_, P), P).
+cpp_adl_type_part(arr(_, E), E).
+cpp_adl_type_part(fn(R, _, _), R).
+cpp_adl_type_part(fn(_, Ps, _), P) :- is_list(Ps), member(param(P, _), Ps).
+cpp_adl_type_part(memptr(X, _, _), base([], [typedef(X)])).
+cpp_adl_type_part(memptr(_, _, M), M).
+%% ... a part as the declaration wrote it, resolved in the desugaring's words first: a function's parameter `ns::S' is
+%% scoped([ns], 'S'), which the table's resolution alone does not name
+cpp_adl_resolve(P0, P) :- ( catch(cpp_type(P0, P1), _, fail) -> true ; P1 = P0 ), catch(ccl_resolve_type(P1, P), _, fail).
 cpp_adl_base(C, K, D) :- K < 32, catch(cpp_direct_bases(C, Bs), _, fail), member(B, Bs), atom(B), ( D = B ; K1 is K + 1, cpp_adl_base(B, K1, D) ).
 %% the call qualified by the library's namespace, `std::f(...)' or `::std::f(...)', chosen with the program's own overloads of
 %% the name hidden at its depth (cpp_fn_hidden/2)

@@ -223,6 +223,7 @@ One row per step, in version order: the step's title, what it did and its gate n
 | 0.226 | cocolog 2.14.1, and the Mac job's second run | at the owner's word: cocolog 2.13.0 to 2.14.1 (`1e48013`) once its CI was green; its loaders probed (a file read again by `consult/1` and `load_files/2`, swipl's reload order), none of cicilang's loads reached; 2.13.0 and 2.14.1 measured, five warm C++ builds 66.70 s and 66.90 s; the Mac job's second run recorded (GREEN on both machines) | the chain over libc++ 18 (all nine) and 21 (the library read and the C++ gate) GREEN, 826 and 834 of 836; a C store that 2.13.0 wrote served, the C gates GREEN over it; the Mac's third run is this commit's push |
 | 0.227 | libc++ 22, a third tree of the gates | on the owner's word ("Do all", "Yes, add libc++ 22", "Commit each, push at end"): the sixteen failures of libc++ 22's first pass, six causes, each fixed -- a function's name chosen once the header's functions of it joined, a union's copies asked of its members' copies, a capture by reference of an array and a reference member bound to a literal, the saturating builtins, a C declaration in C++'s words, a qualified call of a function two reads define in two namespaces; the trees side by side, apt's one and the others unpacked, here and in the CI's full job | the net over 18 (61 SAME), the chain over libc++ 18 (all nine), 21 and 22 (the library read and the C++ gate) GREEN, 829, 837 and 839 of 839; a local commit |
 | 0.228 | `#x` keeps a name's universal character name, and `-E` writes tokens as written | the second item of "Do all": a name written with a universal character name keeps that spelling for `#x` -- in a text line, in a macro's body --, `#x` makes a literal of its spelling, and `-E` writes a literal, a number, a digraph and an alternative token as written, as clang does; the reader 165 | the gates over 18 GREEN (reader, compile, driver, cross, the library read, the C++ gate 829 of 839), two new driver checks against clang's `-E`; a container restart between them; a local commit |
+| 0.229 | argument-dependent lookup through a compound type's parts | the third item of "Do all": a keyed name's argument-dependent lookup asks every associated class and namespace of [basic.lookup.argdep]/3 -- a function type's parameters and result, a pointer to member's class and member, an array's element, a template template argument's namespace --, each part resolved in the desugaring's words; the lowering 132 | flow GREEN, a net of 45 the same, the C++ gate over 18 GREEN (830 of 840); a local commit |
 
 ## M5 — the C++ mode
 
@@ -15615,3 +15616,38 @@ the restart: the flow gate over the same library took 278 s where it took 177 s 
 
 The module 0.228. The reader 165 (164 at 0.221): a string that a header's body stringizes changes, and the store and
 every C++ summary start afresh; the lowering 131, as 0.227 left it.
+
+## 0.229 — argument-dependent lookup through a compound type's parts
+
+**0.229: the third item of "Do all" (the Not done record of the names across the reads, its last sentence): a keyed
+name's argument-dependent lookup asks every associated class and namespace of [basic.lookup.argdep]/3 -- a function
+type's parameters and result, a pointer to member's class and its member's type, an array's element, a template template
+argument's namespace -- where 0.221 asked an argument's class, its pointee's, its template arguments' and its bases'. A
+local commit.**
+
+THE PROBE, `adlparts.cpp` (clang++ 18, 21 and 22: `1 2 3 4 5 6`): six calls, each of a name that <algorithm> or
+<iterator> also declares in std -- `count(take)` over `void take(ns::S)`, `find(make)` over `ns::S make()`,
+`sort(&ns::M::x)`, `fill(&ns::M::f)`, `size(arr)` over `ns::S arr[2]`, `data(Holder<ns::Box>{})` over a global `template
+<template <class> class> struct Holder` -- each finding ns's function by its argument's type alone. 0.228 refused four
+(`arity_mismatch`: std's template the one candidate), printed 2 for `size(arr)` (std::size of the array, where clang's 5
+is ns's) and refused `data` (`no_member`).
+
+THE ROAD: `cpp_adl_arg_class/2` walks the argument's resolved type (`cpp_adl_type_classes/3` over `cpp_adl_type_part/2`,
+six levels at most) and `cpp_adl_assoc/2` takes a template template argument `tname(D)` as its class. THE FIRST DRAFT
+found five of the six: `count(take)` still refused, since the parameter of `take` is `scoped([ns], 'S')` in the declared
+type, which `ccl_resolve_type/2` does not name -- a part is resolved in the desugaring's words first
+(`cpp_adl_resolve/2` over `cpp_type/2`). The trace that showed it: under `'$cpp_trace'`, `call_types(count,
+[id(take)-fn(..., [param(... scoped([ns], S) ...)])])` and the one candidate `count` refused; `find(make)` went to
+`ns.find` at once.
+
+MEASUREMENTS: over the work tree and libc++ 18, over 0.228's warm HOME (the reader unchanged, the summaries kept): the
+flow gate GREEN (265 s); `adlparts` the same as clang++'s; the net of 45 fixtures that reach a keyed name or ask
+argument-dependent lookup, 45 the same as their `.expect` (284 s); the C++ gate GREEN in 1724 s, 830 of 840 fixtures ok
+(`adlparts` among them), the same 10 skipped by their needs, the two units, the 30 refusals, the 35 of the safe part,
+the eight static assertions. The reader, compile, driver and cross gates and the library read were not run: the change
+is the desugaring's, and the reader is 0.228's.
+
+- `RULES.md`: the Overload resolution topic (the associated classes), the Not done record of the names across the reads.
+  `CLAUDE.md`: the versions. `test/cpp/run/adlparts.cpp`.
+
+The module 0.229. The reader 165, as 0.228 left it; the lowering 132 (131 at 0.227): a call may take another function.

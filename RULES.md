@@ -7802,7 +7802,16 @@ The namespaces' rules, the program's and the library's, are `library/ccl_cpp_nam
   step took out of the bare name's set, and `std::size(v)` is the library's, where 0.220 called `ns::size`.
   `nslibglobal.cpp`: 0.220 printed `5 5 5`, `3 3 3 3`, `1 2 2` and `15 103 103` for clang's `5 3 5`, `3 2 3 1`, `1 2 1`
   and `15 103 3`. `count(d)` over a `D : ns::B` and `count(&e)` over an `E : D` find `ns::count`, where `<algorithm>`'s
-  std::count was taken and refused `arity_mismatch`. `adlbase.cpp`. (0.221)
+  std::count was taken and refused `arity_mismatch`. `adlbase.cpp`. ... AND A COMPOUND TYPE'S PARTS AND A TEMPLATE
+  TEMPLATE ARGUMENT'S NAMESPACE (0.229; /3.2, /3.3, /3.5 to /3.7; `cpp_adl_type_classes/3` over `cpp_adl_type_part/2`,
+  each part resolved in the desugaring's words, `cpp_adl_resolve/2`, and a template template argument `tname(D)` in
+  `cpp_adl_assoc/2`): a pointer's and an array's element, a function type's parameters and result, a pointer to member's
+  class and its member's type, some levels deep -- `count(take)` over a `void take(ns::S)`, `find(make)` over a `ns::S
+  make()`, `sort(&ns::M::x)`, `fill(&ns::M::f)`, `size(arr)` over a `ns::S[2]` -- and `data(Holder<ns::Box>{})` over a
+  global `template <template <class> class> struct Holder`. 0.228 refused four of them (`arity_mismatch`: std's template
+  of the name the one candidate), gave 2 for `size(arr)` where clang gives 5 (std::size of the array), and refused
+  `data` (`no_member`); a parameter written `ns::S` is `scoped([ns], 'S')` in the declared type, which the table's
+  resolution alone does not name, and the first draft of the step found no class there. `adlparts.cpp`. (0.221, 0.229)
 - A USING-DECLARATION OR A USING-DIRECTIVE OF THE PROGRAM over such names ([namespace.udecl], [namespace.udir]; 0.139),
   at file scope, in a namespace or in a block, makes the names it brings the ones a bare use finds in the rest of its
   scope: the keyed ones are renamed to their keys in the items or statements that follow (`cpp_using_map/4`,
@@ -11480,9 +11489,10 @@ Declarations topic of the C++ reader).
   own (the libc++ topic), and an unqualified call still joins the set. THE PROGRAM'S GLOBAL FUNCTIONS are hidden from a
   call qualified by std (0.221), not from an
   unqualified call in a library template, where C++ finds them only by argument-dependent lookup. ARGUMENT-DEPENDENT
-  LOOKUP of a keyed name asks the classes of the arguments, of their pointees, of their templates' arguments and their
-  bases (0.221), not a function type's parameters and result, a member pointer's class or a template template argument's
-  namespace ([basic.lookup.argdep]/3). (0.218, 0.219, 0.221, 0.227)
+  LOOKUP of a keyed name asks every associated class and namespace of [basic.lookup.argdep]/3 since 0.229: the
+  arguments', their pointees', their templates' arguments', their bases' (0.221), a function type's parameters and
+  result, a member pointer's class and a template template argument's namespace (the Overload resolution topic). (0.218,
+  0.219, 0.221, 0.227, 0.229)
 - A library class's consteval constructor's check runs at compile time since 0.164 where the evaluator takes it (the
   Constant evaluation topic: `basic_format_string`'s format parse); a check it cannot take leaves the format string to
   the library's run-time parser, which no check of the format fixtures does since 0.168 (over libc++ 18 and 21). A
