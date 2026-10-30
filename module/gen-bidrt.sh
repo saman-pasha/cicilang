@@ -1,6 +1,7 @@
 #!/bin/sh
-# gen-bidrt.sh: compiles module/bidrt.c with cicilang (C23, -O1, the IR text) and writes library/ccl_bidrt.pl through
-# module/gen-bidrt.pl (0.137). Run it after a change to bidrt.c; the generated file is committed.
+# gen-bidrt.sh: compiles module/bidrt.c, the compiler's decimal runtime, with cicilang (C23, -O1, the IR text) and writes
+# library/ccl_bidrt.pl through module/gen-bidrt.pl (0.137, 0.243). Run it after a change to bidrt.c; the generated file is
+# committed.
 set -e
 HERE=$(cd "$(dirname "$0")" && pwd)
 ROOT=$(dirname "$HERE")

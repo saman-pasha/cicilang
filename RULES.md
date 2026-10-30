@@ -50,10 +50,11 @@ that changes a rule edits the rule here, in its topic, and writes its entry in `
   15.0.0, with Unicode 15.1's additions and clang's mathematical notation profile, C11's Annex D and C99's from the
   generator's own lists, 1738 facts. Never edit the table by hand; `module/build.sh` spells `module/ccl_xid.h` from it,
   and the flow gate loads it, not charted. (0.221)
-- `sh module/gen-bidrt.sh` makes `library/ccl_bidrt.pl`, the decimal conversions of a 128-bit integer: cicilang
-  compiles `module/bidrt.c` (C23, `-O1`, the IR text) and `module/gen-bidrt.pl` writes one fact per function and per
+- `sh module/gen-bidrt.sh` makes `library/ccl_bidrt.pl`, the compiler's decimal runtime (0.243; the decimal conversions
+  of a 128-bit integer at 0.137): cicilang compiles `module/bidrt.c` (C23, `-O1`, the IR text) and `module/gen-bidrt.pl`
+  writes one fact per function, its text made `internal`, one per function naming the functions it calls, and one per
   declaration. Run it after a change to `bidrt.c` or to what the lowering emits for it; never edit the table by hand.
-  (0.137)
+  (0.137, 0.243)
 
 ### The toolchain, its pins and the CI job
 
@@ -263,7 +264,7 @@ that changes a rule edits the rule here, in its topic, and writes its entry in `
   the reference, `ok NAME clang` or `ok NAME expect`; a fixture in the language's own forms, which clang does not read,
   is held to its `.expect`, and so is one whose `NAME.ref` says `expect` (0.225), and where such a fixture differs the
   line after the diff says what clang said. (M2, M3, 0.57, 0.221, 0.224, 0.225)
-- The driver gate. `test/driver.sh` makes 52 checks of `bin/cicilang` over the user's store (the two decimal checks are
+- The driver gate. `test/driver.sh` makes 53 checks of `bin/cicilang` over the user's store (its decimal checks are
   skipped where no gcc with decimal floating types is installed), the variadic calls of every kind both ways against
   clang among them (`test/c/link/va_*.c`, 0.131), and Apple's arm64 expansion of `va_arg` of an aggregate against
   clang's, both retargeted to this host (`test/c/link/va_darwin.c`, 0.160). They cover what `-o`, `-c`, `-S`,
@@ -293,7 +294,9 @@ that changes a rule edits the rule here, in its topic, and writes its entry in `
   level (C17's euro sign and middle dot, C23's and C99's refusals in clang's words), `__STDC_VERSION__` at C99, C11, C17
   and C23, an `#undef NDEBUG` before `<assert.h>` under `-DNDEBUG` asserting again, and the C++ IR cache (a rebuild
   served, a changed file lowered again); since 0.240 four builds at once over one fresh store, built one after another
-  under its lock, and one more build over it after them. (M4, 0.93, 0.128, 0.129, 0.154, 0.160, 0.221, 0.240, 0.242)
+  under its lock, and one more build over it after them; since 0.243 the compiler's decimal runtime against libgcc's,
+  bit for bit (`test/c/link/decrt.c`, the Decimal floating types). (M4, 0.93, 0.128, 0.129, 0.154, 0.160, 0.221, 0.240,
+  0.242, 0.243)
 - The objects gate. `test/objects.sh` makes 29 checks of the objects layer, an instance that outlives its process
   among them. (from the start)
 - The cross gate (0.131). `test/cross.sh` builds every `test/c/run/*.c` with `cicilang --target=aarch64-linux-gnu` and
@@ -533,15 +536,14 @@ that changes a rule edits the rule here, in its topic, and writes its entry in `
   which builds it not at all, and the count after the run's lines. The first, all met on Linux: `hdrdefs`
   (`__has_include(<byteswap.h>) && __has_include(<endian.h>)`, glibc's), `ftmacro` (`<endian.h>`), `packed`
   (`<sys/epoll.h>`, Linux's), `cwrap`, `u16pairs` and `u8lit23` (`<uchar.h>`), `stdc23` (glibc 2.39 or later: its C23
-  functions, `%b` and `%wN`), and `dec128`, `decbitint`, `decfold` and `decimal` (`defined(__linux__)`: they call
-  libgcc's decimal runtime, `__bid_adddd3` and its kin, which Linux's `cc`, gcc, links and a Mac's, Apple's clang over
-  compiler-rt, does not; `decspecial` folds each value and calls none). Since 0.225 `ftlate` and `strictansi`
-  (`defined(__GLIBC__)`: glibc's `features.h` at work, which a Mac's headers have not -- its `<math.h>` defines `M_PI`
-  and its `<string.h>` declares `strdup` under `-std=c17` too) and `gnumode` (`defined(__linux__)`: `linux` and `unix`,
-  which clang's Darwin predefines in no mode, and an asm label that names an ELF symbol), and `aligntd` and `c23float`
-  print what every machine has: glibc's `__pthread_unwind_buf_t` under `#ifdef __GLIBC__`, a `pthread_mutex_t`
-  elsewhere, and whether `__UINT64_FMTb__` is the length modifier of the type of `uint64_t` (`lb` on Linux, `llb` on a
-  Mac). (0.224, 0.225)
+  functions, `%b` and `%wN`), and until 0.243 `dec128`, `decbitint`, `decfold` and `decimal` (`defined(__linux__)`: they
+  called libgcc's decimal runtime, which a Mac's `cc` does not link; the runtime is the compiler's since, the Decimal
+  floating types). Since 0.225 `ftlate` and `strictansi` (`defined(__GLIBC__)`: glibc's `features.h` at work, which a
+  Mac's headers have not -- its `<math.h>` defines `M_PI` and its `<string.h>` declares `strdup` under `-std=c17` too)
+  and `gnumode` (`defined(__linux__)`: `linux` and `unix`, which clang's Darwin predefines in no mode, and an asm label
+  that names an ELF symbol), and `aligntd` and `c23float` print what every machine has: glibc's `__pthread_unwind_buf_t`
+  under `#ifdef __GLIBC__`, a `pthread_mutex_t` elsewhere, and whether `__UINT64_FMTb__` is the length modifier of the
+  type of `uint64_t` (`lb` on Linux, `llb` on a Mac). (0.224, 0.225)
 - `NAME.ref` holding `expect` holds a C fixture to its `.expect` on every machine, where the compile gate on a Mac and
   the cross gate take clang's build for the reference: the `.expect` is gcc's, which clang's build does not print. One
   exists: `atomodd` (C17 7.17.7.4/2: a failed compare-exchange writes the value it found to `*expected`; clang 18 leaves
@@ -9334,35 +9336,54 @@ The namespaces' rules, the program's and the library's, are `library/ccl_cpp_nam
 - C23's `_Decimal32`, `_Decimal64` and `_Decimal128` run as gcc builds them (0.129; read and sized since 0.93, refused by
   name until 0.129). A value is its BID encoding (IEEE 754-2008's binary integer decimal) CARRIED in LLVM as a `float`, a
   `double` and an `fp128` (`ir_base` through `ir_dec_ll/2`) -- never computed on as one -- so the SysV ABI passes it
-  where gcc does, in an SSE register, the `fp128` in one. Every operation is a call of libgcc's decimal runtime, which `cc`
-  links (`ir_dec_call/5` declares each): `+ - * /` are `__bid_add<k>3` ... (k `sd`, `dd` or `td`; `ir_dec_arith/6`,
-  another operator refused, `decimal_operator(Op)`); a comparison is `__bid_<eq|ne|lt|le|gt|ge><k>2`, whose long answer's
-  sign tells (`ir_dec_cmp/6`); a truth test is the `ne` against the carrier's zero, whose all-zero bits are a decimal zero
-  (`ir_dec_nonzero/4`, in `ir_cond/2` and `ir_to_bool/4`); `++` and `--` add the kind's one (`ir_step_`); a negation flips
-  the sign bit, as gcc does (`ir_dec_negate/4`). (0.129)
-- The conversions (`ir_dec_convert/6`, a clause of `ir_convert/6`): between decimal kinds `__bid_extend<f><t>2` and
-  `__bid_trunc<f><t>2`; to and from an integer the width's routine, `si` for 32 bits and below (`__bid_floatsidd`,
-  `__bid_fixunsddsi` ...) and `di` for 64, a 128-bit integer through the compiler's own helpers (below); to and from a
-  standard floating type `sf`, `df`, `xf` (a `_Float16` through a float), named `extend` or `trunc` by the formats' widths
-  -- between formats of one width a decimal truncates to binary and a binary extends to decimal, as libgcc names them;
-  to a bool the test. (0.129)
+  where gcc does, in an SSE register, the `fp128` in one. Every operation is a call of a routine of the decimal runtime,
+  libgcc's until 0.243 and the compiler's own since (below), libgcc's routines by name, `__ccl_bid_`
+  for `__bid_` (`ir_dec_call/5`): `+ - * /` are `__ccl_bid_add<k>3` ... (k `sd`, `dd` or `td`; `ir_dec_arith/6`, another
+  operator refused, `decimal_operator(Op)`); a comparison is `__ccl_bid_<eq|ne|lt|le|gt|ge><k>2`, whose long answer's
+  sign tells, as libgcc's (`ir_dec_cmp/6`); a truth test is the `ne` against the carrier's zero, whose all-zero bits are
+  a decimal zero (`ir_dec_nonzero/4`, in `ir_cond/2` and `ir_to_bool/4`); `++` and `--` add the kind's one (`ir_step_`);
+  a negation flips the sign bit, as gcc does (`ir_dec_negate/4`). (0.129, 0.243)
+- The conversions (`ir_dec_convert/6`, a clause of `ir_convert/6`): between decimal kinds `__ccl_bid_extend<f><t>2` and
+  `__ccl_bid_trunc<f><t>2`; to and from an integer the width's routine, `si` for 32 bits and below
+  (`__ccl_bid_floatsidd`, `__ccl_bid_fixunsddsi` ...) and `di` for 64, a 128-bit integer through the compiler's own
+  helpers (below); to and from a standard floating type `sf`, `df`, `xf`, `tf` (a `_Float16` through a float), named
+  `extend` or `trunc` by the formats' widths -- between formats of one width a decimal truncates to binary and a binary
+  extends to decimal, as libgcc names them; to a bool the test. (0.129, 0.243)
+- THE DECIMAL RUNTIME IS THE COMPILER'S (0.243): every routine the lowering calls -- the arithmetic, the comparisons,
+  the conversions between the decimal kinds, to and from the integers and to and from `float`, `double`, the x87's and
+  the quad's formats (a quad's bits carried in a `_Decimal128`, whose carrier is the same `fp128`) -- is written in C,
+  from the IEEE 754-2008 decimal formats, in `module/bidrt.c`, and compiled by cicilang itself into
+  `library/ccl_bidrt.pl` (`module/gen-bidrt.sh`); a call notes its routine's definition in the module, internal, and the
+  definitions of the routines it calls (`ir_dec_rt/1` over `ccl_bidrt_calls/2`, each once), so a machine without
+  libgcc's decimal runtime -- a Mac -- links a decimal program, and two objects that call one routine link. A value is
+  taken apart into its class, sign, quantum exponent and coefficient (a non-canonical one a zero, as IEEE 754 has it),
+  the result made exactly in integers -- a big one of 64-bit limbs where 128 bits do not hold it: the quad's least
+  subnormal has 11,529 significant decimal digits -- and rounded ONCE, half to even, into its format (`ccl_dec_round`,
+  `ccl_bin_round`): an exact result keeps the operation's preferred exponent where its digits fit (the lesser for a sum,
+  the sum for a product, the difference for a quotient, zero for a conversion from an integer or a binary format), an
+  inexact one has the kind's digits; a NaN operand answers itself made quiet, an invalid operation the quiet NaN. The
+  runtime has no named type: a struct's would meet the program's own in its module. AS LIBGCC'S, BIT FOR BIT: the driver
+  gate builds `bidrt.c` with cicilang and links it with `test/c/link/decrt.c`, which gcc builds and which gives libgcc's
+  routine of each name and the compiler's the same operands -- random ones of every class, ties of the rounding, the
+  binary formats' whole exponent ranges, the integers' edges --, 549,760 answers the same. Not held: a NaN's payload
+  (libgcc's own plumbing, which C reads nowhere), a non-canonical coefficient's conversion to a binary format (libgcc's
+  reads it as it is), and an unsigned conversion of 2^31 to 32 bits or of 2^63 to 64, which libgcc answers 0, mapping
+  its `integer indefinite' to 0, and the runtime answers the value. The decimal fixtures need nothing since (they needed
+  `defined(__linux__)`, 0.224). Lowering 143. (0.243)
 - A 128-BIT INTEGER CONVERTS TO AND FROM A DECIMAL (0.137): libgcc has no `__bid_floattidd` nor `__bid_fixddti`, and
-  gcc's own link of such a conversion fails. The routines are the compiler's, written in C (`module/bidrt.c`) and
-  compiled by cicilang itself into IR text (`library/ccl_bidrt.pl`, generated, `ccl_bidrt_text(Name, Text)`); the first
-  such conversion of a module notes every function of it, internal, and the declarations of the libgcc routines they
-  call (`ir_dec_rt128/0`, loaded once by `ir_bidrt_ready/0` as the Unicode table is), so two objects that convert link.
-  `__ccl_bid_float[uns]ti<k>` rounds the integer's magnitude ONCE, half to even, to the kind's digits in integer
-  arithmetic, then builds the value from a 64-bit conversion and exact products by ten; `__ccl_bid_fix[uns]<k>ti`
-  decodes the BID coefficient and exponent and scales toward zero. A `_BitInt` of 65 to 128 bits widens to `i128` first;
-  one PAST 128 bits goes through the runtime's limb routines (0.160; `__ccl_bid_floatbitint<k>`,
-  `__ccl_bid_fix<k>bitint`, over its 64-bit limbs the least first and its width, negative for a signed one, as libgcc's
-  own `_BitInt` conversions take them, which libgcc 13 does not have): to a decimal the magnitude divided by ten while
-  it passes 128 bits, the digits taken off kept for the one rounding; from one the coefficient scaled into the limbs
-  toward zero and the bits past the width dropped. It was refused, `decimal_conversion(From, To)`.
-  `test/c/run/decbitint.c`, the values Python's `decimal` module's (no gcc here reads a `_BitInt` with the decimal
-  types). They are a runtime of the compiler, as libgcc's, and no part of the standard library. `test/c/run/dec128.c`
-  (gcc's build over the same helpers, the values checked against Python's `decimal`; on aarch64 under qemu too). (0.137,
-  0.160)
+  gcc's own link of such a conversion fails. The routines are the compiler's, the decimal runtime's first (the previous
+  rule; its table loaded once by `ir_bidrt_ready/0`, as the Unicode table is). `__ccl_bid_float[uns]ti<k>` rounds the
+  integer's magnitude ONCE, half to even, to the kind's digits in integer arithmetic (it built the value from libgcc's
+  operations until 0.243); `__ccl_bid_fix[uns]<k>ti` decodes the BID coefficient and exponent and scales toward zero. A
+  `_BitInt` of 65 to 128 bits widens to `i128` first; one PAST 128 bits goes through the runtime's limb routines (0.160;
+  `__ccl_bid_floatbitint<k>`, `__ccl_bid_fix<k>bitint`, over its 64-bit limbs the least first and its width, negative
+  for a signed one, as libgcc's own `_BitInt` conversions take them, which libgcc 13 does not have): to a decimal the
+  magnitude divided by ten while it passes 128 bits, the digits taken off kept for the one rounding; from one the
+  coefficient scaled into the limbs toward zero and the bits past the width dropped. It was refused,
+  `decimal_conversion(From, To)`. `test/c/run/decbitint.c`, the values Python's `decimal` module's (no gcc here reads a
+  `_BitInt` with the decimal types). They are a runtime of the compiler, as libgcc's, and no part of the standard
+  library. `test/c/run/dec128.c` (gcc's build over the same helpers, the values checked against Python's `decimal`; on
+  aarch64 under qemu too). (0.137, 0.160, 0.243)
 - A literal is encoded here, exactly (`ir_dec_literal/3`): its text's digits and exponent (`ir_dec_parse/3`), rounded half
   to even past the kind's precision (7, 16, 34 digits; `ir_dec_round_to/5`), an exponent past the greatest clamped by
   padding with zeros where the coefficient holds them, else an infinity, one past the least rounded away (`ir_dec_fit/3`),
@@ -9404,8 +9425,8 @@ The namespaces' rules, the program's and the library's, are `library/ccl_cpp_nam
   On Linux aarch64 it is an IEEE quad (`ccl_long_double(quad)`, 0.131): `fp128`, 16 bytes aligned 16, its constants in
   `0xL` hex (`ir_quad/2` from a double, `ir_dec_binary_bits_text/5` from the bits: the low 64 bits, then the sign, the 15
   exponent bits and the fraction's top 48), its arithmetic libgcc's soft quad routines, its complex runtime `__multc3` and
-  `__divtc3`, a decimal's conversions `tf` (`__bid_extendddtf`); on Apple's arm64 a `double`. An HFA of quads is in the
-  SIMD registers. `test/c/run/ldouble.c`, `test/cpp/run/ldouble.cpp`. (0.108, 0.131)
+  `__divtc3`, a decimal's conversions `tf` (`__ccl_bid_extendddtf`); on Apple's arm64 a `double`. An HFA of quads is in
+  the SIMD registers. `test/c/run/ldouble.c`, `test/cpp/run/ldouble.cpp`. (0.108, 0.131)
 - A LONG DOUBLE LITERAL IS ITS TEXT ROUNDED ONCE TO THE LONG DOUBLE'S OWN FORMAT (0.154; `ir_ld_value/2`), to nearest, ties
   to even, as clang reads it: an x87's 64 significant bits, a quad's 113, the format's subnormals and infinity
   (`ir_fp_inf_bits/6` names the format by its LLVM type). A decimal text is its digits times 5^E times 2^E, or divided by
@@ -11971,9 +11992,9 @@ Declarations topic of the C++ reader).
 - `-g` on a Mac describes a linked program only through the objects it was linked from: Mach-O keeps the DWARF there,
   and the link's debug map names cicilang's own objects, gone after the link, so `dsymutil` gathers nothing; clang's
   driver runs `dsymutil` itself after its link. The driver gate reads the object `-c` makes there (0.224).
-- The decimal floating types need libgcc's decimal runtime at the link (`__bid_*`), which a Mac's `cc`, Apple's clang
-  over compiler-rt, does not link: four decimal fixtures need `defined(__linux__)` (0.224), and on a Mac a program with
-  a decimal operation does not link (`__bid_adddd3` and its kin undefined).
+- The decimal runtime (0.243) rounds half to even alone -- C23's `fe_dec_setround` is no part of glibc, so a program
+  here has no way to ask another direction --, keeps no exception flag (libgcc keeps its own, which no standard function
+  reads), and makes a NaN's payload its own way, not as libgcc's plumbing does.
 - The CI job (0.223) runs the cross gate's C part only: its C++ part needs that machine's libc++ under the cross
   sysroot, which this box has by hand (`dpkg-deb -x` of the arm64 packages, The C gates) and `test/ci.sh` does not
   put there -- Ubuntu's arm64 packages are on `ports.ubuntu.com`, beside a second architecture for apt.

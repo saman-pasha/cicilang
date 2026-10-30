@@ -237,6 +237,7 @@ One row per step, in version order: the step's title, what it did and its gate n
 | 0.240 | one build at a time over the store; the C++ IR stays files | the fourteenth item of "Do all" (the owner's decision 4 of 0.190 left a store for the C++ IR until parallel writes were measured): cocolog's store takes one writer at a time -- a commit refused, a writer hung, rows lost without a word, a store left unreadable, builds dead of a bus error -- so `bin/cicilang` holds `KB.lock` around a build over the store, and the C++ IR stays files | the reader, compile, driver, objects, proof and cross gates GREEN (3 s, 91 s over a C store that the gate started afresh -- the stamp it found was not this library's -- where 0.239's warm one took 33 s, 28 s with 52 checks, 4 s, 0 s, 345 s); a local commit |
 | 0.241 | the check's cost measured; a light record beside each template | the fifteenth item of "Do all": each phase of a build timed -- the check under 1 % of every build (0.43 s of 162 C builds' 46 s, 0.26 s of twelve C++ builds' 173 s), so no state table is due, and a warm C++ build's time its desugaring; the template registry's lookups copied whole bodies, and a light record beside each template (`'$cpp_tmplh'/4`) took 19 % of the desugaring of 30 fixtures, their IR the same; the cold read of `<thread>` profiled, flat | flow GREEN, the reader, compile, driver, objects, proof and cross gates GREEN (2 s, 11 s, 21 s, 4 s, 0 s, 205 s), the C++ gate RED in 1177 s for one check alone, 848 of 859 run fixtures ok and 11 skipped by their needs: the gate's `c45` wrote `'$cpp_tmpl'` by hand, without the light record the mangler now asks; through `cpp_template_put/3` its 54 checks GREEN alone; a local commit |
 | 0.242 | `-g`: each expression its own column | the sixteenth item of "Do all": under `-g` every instruction at the line and the column of the innermost expression being lowered, as clang's -- a name at itself, an operator at its operator, a call at its callee, a member at its name -- each statement's text aligned with the tokens of the debug file's lines, so neither the reader nor the tree carries a column; in C a statement's own places too (what follows it, a for's two branches, a block's `}`); three samples clang's sets exactly, and over 128 C run fixtures the pairs of clang's that we lack 886 where they were 3172; lowering 142 | flow GREEN after one split moved, the reader, compile, driver, objects, proof and cross gates GREEN (3 s, 28 s, 29 s, 5 s, 0 s, 216 s), the driver's columns twenty, the C++ gate GREEN in 1219 s with 848 run fixtures ok and 11 skipped; a local commit |
+| 0.243 | the decimal runtime is the compiler's own, libgcc's answer bit for bit | the seventeenth item of "Do all": every routine the lowering calls for the decimal types written in C (`module/bidrt.c`) and compiled by cicilang into `library/ccl_bidrt.pl`, each put into the module that calls it with the routines it calls, so a Mac links a decimal program; the driver gate holds it to libgcc's routines of the same names, 549,760 answers the same; the decimal fixtures lose their needs; lowering 143 | flow GREEN, the reader, compile, driver, objects, proof and cross gates GREEN (2 s, 29 s, 36 s with 53 checks, 5 s, 0 s, 201 s), the C++ gate GREEN in 1199 s with 848 run fixtures ok and 11 skipped; a local commit |
 
 ## M5 — the C++ mode
 
@@ -16394,3 +16395,61 @@ GREEN (3 s, 28 s over a C store the lowering's bump started afresh, 29 s with 52
 
 The module 0.242. The lowering 142 (141 at 0.239): a `-g` IR's metadata differs, so a stored one is not served -- the C store's
 own serving of the old IR to a second library in one probe showed it. The reader 167: the tree is the same.
+
+## 0.243 — the decimal runtime is the compiler's own, libgcc's answer bit for bit
+
+**0.243: the seventeenth item of "Do all" (Not done: "The decimal floating types need libgcc's decimal runtime at the link
+(`__bid_*`), which a Mac's `cc` ... does not link"). Every routine the lowering calls for `_Decimal32`, `_Decimal64` and
+`_Decimal128` is now the compiler's: `module/bidrt.c`, written in C from the IEEE 754-2008 decimal formats, compiled by
+cicilang itself into `library/ccl_bidrt.pl`, its routines put into the module that calls them. It is proved on Linux
+against libgcc's routines of the same names, bit for bit, in the driver gate. A local commit.**
+
+WHAT LIBGCC'S RUNTIME DOES (`s17/`, gcc 13.3 and its libgcc, probes and a tester over both): the arithmetic keeps
+IEEE 754-2008's preferred exponents (`1.0 + 1.00` is `200E-2`, `6.0 / 2.0` is `3E0`, `10 / 1000` is `1E-2`); a binary
+value converts exactly where its digits fit, at the exponent nearest zero (`100.0` is `100E0`, `0.25` is `25E-2`, `1e20`
+is `1000000000000000E5`), else to the kind's digits (`0.1` is `1000000000000000E-16`); a comparison answers a long as its
+glue sets it (`lt` -1 or 0, `le` -1 or 1, `gt` 1 or 0, `ge` 1 or -1, `eq` and `ne` 0 where equal); rounding is half to
+even, the one direction a program here can have (libgcc's is a global only `__dfp_set_round` sets), and its exception
+flags are its own, which no standard function reads. Its faults, which the runtime does not copy: an unsigned conversion
+maps its `integer indefinite' to 0, so `(unsigned) 2147483648.dd` is 0 (and 2^63 to 64 bits); a conversion to a binary
+format reads a non-canonical coefficient as it is (an infinity where IEEE 754 has a zero); a NaN's payload is its own
+plumbing (its `_Decimal32` arithmetic goes through `_Decimal64` and loses it; a binary NaN's payload shifted).
+
+WHAT 0.243 DOES:
+
+- THE RUNTIME (`module/bidrt.c`, 588 lines): a value taken apart into its class, sign, quantum exponent and coefficient
+  (`ccl_dec_get`; a non-canonical coefficient a zero), the result made exactly in integers -- a big one of 64-bit limbs
+  where 128 bits do not hold it (`ccl_bn_*`: a sum's operands aligned within twice the digits and two, else the lesser one
+  a sticky digit and a borrow; a quotient past 10^p with its remainder; a binary value's exact digits, the quad's least
+  subnormal 11,529 of them; a decimal over a power of ten by a long division in base two) -- and rounded ONCE, half to
+  even (`ccl_dec_round`, `ccl_bin_round`). The 128-bit and `_BitInt` conversions of 0.137 and 0.160 round through it too,
+  where they built the value from libgcc's operations. No named type: its first table used two structs, which no module
+  defines -- every decimal fixture failed in LLVM's parser, `base element of getelementptr must be sized` -- and a struct
+  of its own would meet a program's anonymous ones; the parts are scalars, the x87 value a union with two limbs.
+- THE CALLS (`ir_dec_rt/1`): a routine by libgcc's name with `__ccl_bid_` for `__bid_`, its definition noted in the module,
+  internal, with the definitions of the routines it calls (`ccl_bidrt_calls/2`, which `module/gen-bidrt.pl` writes beside
+  each text), each once; a quad's bits ride in a `_Decimal128`, whose carrier is the same `fp128`. `ir_dec_rt128/0`, which
+  noted every helper at the first 128-bit conversion, is gone.
+- THE PROOF (`test/c/link/decrt.c`): gcc builds the tester, which gives libgcc's routine and the compiler's of each name the
+  same operands -- random ones of every class, ties of the rounding, every exponent of the binary formats over small odd
+  significands, the integers' edges --; the driver gate links it with `bidrt.c` as `cicilang -c` makes it.
+- The decimal fixtures need nothing: `dec128`, `decbitint`, `decfold` and `decimal` lose their `defined(__linux__)`.
+
+MEASUREMENTS: the runtime built by gcc against libgcc over three seeds of 20,000 rounds of every routine, then ties and
+the binary formats' exponent ranges: 0 of 5,040,000 and 0 of 1,977,340 answers differ, once a NaN was held to its class
+and sign and a conversion to a binary format to canonical operands; the same runtime as cicilang compiles it (`-O0`,
+`-O1`, `-O2`), linked with the gcc-built tester: 0 of 717,340 differ at each level; cicilang compiles `bidrt.c` in about
+a second, 171 functions, no declaration. A decimal program now carries the routines it calls: `decimal.c`'s module 96 of
+them (its object 41,912 bytes), `dec128.c`'s 41. The flow gate GREEN (104 s); the reader, compile, driver, objects,
+proof and cross gates GREEN (2 s, 29 s, 36 s with 53 checks -- the runtime's `0 of 549760 differ, 110 routines` --, 5 s,
+0 s, 201 s; peak 572 MB), the five decimal fixtures ok on x86-64 and on aarch64 under qemu over the compiler's runtime;
+the C++ gate GREEN in 1199 s, 848 run fixtures ok and 11 skipped by their needs (peak 4203 MB).
+
+- `module/bidrt.c` (the runtime), `module/gen-bidrt.pl` (the calls' facts), `module/gen-bidrt.sh`, `library/ccl_bidrt.pl`
+  (generated: 171 functions, 213 KB), `library/ccl_ir.pl` (`ir_dec_rt/1`, `ir_dec_rt_note/1`, the routines' names, the
+  lowering 143). `test/c/link/decrt.c`, `test/driver.sh` (the runtime's check). `test/c/run/dec128.needs`,
+  `decbitint.needs`, `decfold.needs`, `decimal.needs` removed. `RULES.md`: the generator, the needs, the driver gate, the
+  Decimal floating types (the calls, the conversions, the runtime, the 128-bit integer), the quad's conversions, Not done.
+  `CLAUDE.md`: the versions, where things are. `README.md`: the decimal types.
+
+The module 0.243. The lowering 143 (142 at 0.242): a decimal program's IR defines the routines it called. The reader 167.

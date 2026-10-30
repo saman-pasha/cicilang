@@ -12,8 +12,8 @@ the fixture that gates it, and why. The bullet ends with the version that made t
 edits the rule in `RULES.md`, in its topic, and writes its entry in `HISTORY.md`. Read the topic of `RULES.md` that
 covers the code before the code is changed.
 
-At 0.242 the versions are: the module 0.242 (`ccl_p_version` in `module/cicilang.cicili`, `bin/cicilang --version`),
-the reader 167 (`ccl_reader_version/1`, `library/ccl_syntax.pl`) and the lowering 142 (`ccl_lowering_version/1`,
+At 0.243 the versions are: the module 0.243 (`ccl_p_version` in `module/cicilang.cicili`, `bin/cicilang --version`),
+the reader 167 (`ccl_reader_version/1`, `library/ccl_syntax.pl`) and the lowering 143 (`ccl_lowering_version/1`,
 `library/ccl_ir.pl`).
 
 Build and prove, always in this order (or all of it, `sh test/gates.sh`):
@@ -279,7 +279,7 @@ module/build-llvm.sh        transpiles ccl_llvm.cicili, compiles library/ccl_llv
 module/gen-uninames.pl      writes library/ccl_uninames.pl from Perl's Unicode::UCD
 module/gen-xid.pl           writes library/ccl_xid.pl: an identifier's characters past ASCII by the level and the white
                             space past ASCII (Perl's Unicode::UCD, the Annex D lists), as clang 18 and 21 take them
-module/bidrt.c              a decimal floating value to and from a 128-bit integer, in C (0.137)
+module/bidrt.c              the compiler's decimal runtime, in C: every routine the lowering calls (0.137, 0.243)
 module/gen-bidrt.sh, gen-bidrt.pl
                             compile bidrt.c with cicilang and write library/ccl_bidrt.pl
 module/cicilang.c, ccl_llvm.c, ccl_uninames.h, ccl_xid.h, sdk.cicili
@@ -315,7 +315,7 @@ library/ccl_check.pl        the safe part: owners, moves, borrows, ties, loose p
 library/ccl_ir.pl           the lowering to LLVM IR text, ccl_ir_units/2; ccl_lowering_version/1
 library/ccl_build.pl        ccl_compile/3 through the embedded LLVM, ccl_link/3 through cc or c++
 library/ccl_driver.pl       ccl_drive/2: the command's steps, the diagnostics in clang's shape, the IR cache dr_ir/3
-library/ccl_bidrt.pl        the decimal conversions of a 128-bit integer as IR text, generated from module/bidrt.c
+library/ccl_bidrt.pl        the decimal runtime as IR text, generated from module/bidrt.c
 library/ccl_uninames.pl     the \N{NAME} table, generated: Unicode 15.0.0's names and aliases, loaded on the first \N{
 library/ccl_xid.pl          an identifier's characters past ASCII by the language and its level, and the white space
                             past ASCII, generated (0.221): ccl_xid(Set, Lo, Hi), loaded on the first character past
@@ -363,7 +363,8 @@ test/census.pl, census.sh   where the reader stops in a header or in a flattened
 test/c/                     the reader's fixtures: hello.c, rich.c, lexer.c, macros.c with macros.pl, pp.c ...
 test/c/inc/                 the -I fixture: uses_box.c over box.h
 test/c/link/                two files linked into one program; the ABI against clang-built code (abi_main.c,
-                            abi_helper.c), variadic calls (va_main.c, va_func.c, va.h), the decimal ABI against gcc
+                            abi_helper.c), variadic calls (va_main.c, va_func.c, va.h), the decimal ABI against gcc,
+                            the decimal runtime against libgcc's (decrt.c, 0.243)
 test/c/run/                 C programs built and run: NAME.c, NAME.expect, NAME.std, NAME.needs (0.224), NAME.ref
                             (0.225); pp_defs.h, fileconst.h, ppinclude.h, hdrdefs.h, ftmacro.h, embed.txt, empty.txt
 test/c/safe/                C programs the safe part refuses: NAME.c, NAME.expect

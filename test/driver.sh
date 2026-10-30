@@ -43,7 +43,8 @@ check "decimal values cross the ABI both ways, as gcc has it" "$(gcc -c "$R/link
 2"
 check "a long double constant converted to a decimal type folds as gcc folds it" "$("$CICILI" "$R/link/decld.c" -o decld && ./decld > decld.out && gcc -w "$R/link/decld.c" -o decld_ref && ./decld_ref > decld_ref.out && cmp -s decld.out decld_ref.out && echo same && wc -l < decld.out | tr -d ' ')" "same
 12"   # 0.154: LDBL_MAX, LDBL_MIN, 0.1L, 1.0L / 3.0L ... from the long double's exact value; it was refused while the literal held a double's value
-else echo "skip  decimal values across the ABI: no gcc with decimal floating types"; echo "skip  a long double constant to a decimal type: no gcc with decimal floating types"; fi
+check "the compiler's decimal runtime answers as libgcc's, bit for bit" "$("$CICILI" -c -std=c23 -O1 "$ROOT/module/bidrt.c" -o bidrt.o && gcc -std=gnu2x -O1 -w "$R/link/decrt.c" bidrt.o -o decrt && ./decrt 3000 | tail -1)" "0 of 549760 differ, 110 routines"   # 0.243: module/bidrt.c as cicilang compiles it, every routine the lowering calls, against libgcc's of the same name (test/c/link/decrt.c)
+else echo "skip  decimal values across the ABI: no gcc with decimal floating types"; echo "skip  a long double constant to a decimal type: no gcc with decimal floating types"; echo "skip  the decimal runtime against libgcc's: no gcc with decimal floating types"; fi
 check "-I adds to the inclusion path (a typedef from box.h)" "$("$CICILI" -I "$R/inc" "$R/inc/uses_box.c" -o boxed && ./boxed)" "42"
 check "-shared -O1 makes a library" "$("$CICILI" -shared -O1 "$R/link/lib.c" -o libtwice.$SO && file libtwice.$SO | grep -c "$SOTEXT")" "1"
 printf '#warning mind the gap\nint main(void) { return 3; }\n' > warn.c

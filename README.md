@@ -30,9 +30,10 @@ rules of the code by topic; `HISTORY.md` is the record of every step.
   literals exact, as clang reads them), hex floats, designated initializers,
   anonymous members, K&R definitions, `#line`, `__int128`, `va_arg` of a
   struct on x86-64 and arm64, the SysV argument register budget, the decimal
-  floating types as gcc builds them (to and from a 128-bit integer and a
-  `_BitInt` past it through the compiler's own helpers, their constants
-  folded with infinities and NaNs), the binary floating constants folded as
+  floating types as gcc builds them, over the compiler's own decimal runtime
+  that answers as libgcc's, bit for bit (to and from a 128-bit integer and a
+  `_BitInt` past it too, their constants folded with infinities and NaNs),
+  the binary floating constants folded as
   clang folds them (a negative zero, an infinity, a NaN, a long double's
   arithmetic, an integer operation in its own type), GCC's and clang's
   vector types (`vector_size`, `ext_vector_type`: their operators lane by
