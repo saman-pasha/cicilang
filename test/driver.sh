@@ -150,4 +150,12 @@ irthird=$(CICILANG_NO_IR_CACHE= "$ROOT/bin/cicilang++" -v ircache.cpp -o irc3 2>
 check "the C++ IR cache: a rebuild is served its IR, a changed file lowered again" "$irfirst $irsecond $irthird" "0 1
 ir 7 0
 ir 8"
+# ONE BUILD AT A TIME OVER THE STORE (0.240): four builds at once over one fresh store take KB.lock in turn -- without it
+# three died of a bus error and the store was left so damaged that every later build failed -- and one more build over
+# that store after them runs; no lock is left
+pk="$D/kbpar"
+for n in hello forty2 owners btree; do ( CICILANG_KB="$pk" "$CICILI" "$R/run/$n.c" -o "par_$n" > "par_$n.log" 2>&1 < /dev/null ) & done; wait
+par=$(for n in hello forty2 owners btree; do if [ -x "par_$n" ]; then echo "$n built"; else echo "$n failed"; fi; done | tr '\n' ' ')
+after=$(CICILANG_KB="$pk" "$CICILI" "$R/run/hello.c" -o parlast 2>&1 && ./parlast; ls -d "$pk.lock" 2>/dev/null)
+check "builds at once over one store take its lock in turn, the store sound after" "$par/$after" "hello built forty2 built owners built btree built /hello, cicilang"
 if [ "$failures" -eq 0 ]; then echo "GREEN: driver"; else echo "RED: $failures failure(s)"; exit 1; fi

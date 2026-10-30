@@ -263,7 +263,7 @@ that changes a rule edits the rule here, in its topic, and writes its entry in `
   the reference, `ok NAME clang` or `ok NAME expect`; a fixture in the language's own forms, which clang does not read,
   is held to its `.expect`, and so is one whose `NAME.ref` says `expect` (0.225), and where such a fixture differs the
   line after the diff says what clang said. (M2, M3, 0.57, 0.221, 0.224, 0.225)
-- The driver gate. `test/driver.sh` makes 48 checks of `bin/cicilang` over the user's store (the two decimal checks are
+- The driver gate. `test/driver.sh` makes 52 checks of `bin/cicilang` over the user's store (the two decimal checks are
   skipped where no gcc with decimal floating types is installed), the variadic calls of every kind both ways against
   clang among them (`test/c/link/va_*.c`, 0.131), and Apple's arm64 expansion of `va_arg` of an aggregate against
   clang's, both retargeted to this host (`test/c/link/va_darwin.c`, 0.160). They cover what `-o`, `-c`, `-S`,
@@ -292,7 +292,8 @@ that changes a rule edits the rule here, in its topic, and writes its entry in `
   to gcc's bits (`test/c/link/decld.c`, 0.154). Since 0.221 four more: an identifier's characters past ASCII by the
   level (C17's euro sign and middle dot, C23's and C99's refusals in clang's words), `__STDC_VERSION__` at C99, C11, C17
   and C23, an `#undef NDEBUG` before `<assert.h>` under `-DNDEBUG` asserting again, and the C++ IR cache (a rebuild
-  served, a changed file lowered again). (M4, 0.93, 0.128, 0.129, 0.154, 0.160, 0.221)
+  served, a changed file lowered again); since 0.240 four builds at once over one fresh store, built one after another
+  under its lock, and one more build over it after them. (M4, 0.93, 0.128, 0.129, 0.154, 0.160, 0.221, 0.240)
 - The objects gate. `test/objects.sh` makes 29 checks of the objects layer, an instance that outlives its process
   among them. (from the start)
 - The cross gate (0.131). `test/cross.sh` builds every `test/c/run/*.c` with `cicilang --target=aarch64-linux-gnu` and
@@ -679,8 +680,9 @@ that changes a rule edits the rule here, in its topic, and writes its entry in `
 ### The commands
 
 - `bin/cicilang` takes clang's arguments (owner's rule: no new flags to learn). It makes one options list and runs
-  `ccl_drive/2` in ONE cocolog process: over `--embed $CICILANG_KB` (default `~/.cicilang/KB`) after `kb_prepare`, or
-  `--local` under `--no-kb`. (M4, 0.108)
+  `ccl_drive/2` in ONE cocolog process: over `--embed $CICILANG_KB` (default `~/.cicilang/KB`) after `kb_prepare`,
+  holding the store's lock from before it to its end (`kb_lock`, the C store's topic), or `--local` under `--no-kb`.
+  (M4, 0.108, 0.240)
 - `bin/cicilang++` is `bin/cicilang` with `CICILANG_LANG=cpp` (`lang(cpp)`), `CICILANG_ME=cicilang++` and `--no-kb`.
   (M5)
 - Under `CICILANG_GOAL=FILE` the command writes the goal its arguments make, `ccl_drive(Inputs, Options)`, into FILE
@@ -2752,6 +2754,15 @@ that changes a rule edits the rule here, in its topic, and writes its entry in `
   measure the change and not the store's history. Why: a process that writes a predicate rewrites all of it, and the
   dead rows of every edited file's read and IR stayed on disk until a version moved. A vacuum of a 25 MB store takes
   0.4 s. A missing or damaged store is not vacuumed (`data.bin` is asked first). (0.128)
+- ONE BUILD AT A TIME OVER THE STORE (0.240; `kb_lock` in `bin/cicilang`): a build over the store holds `KB.lock` from
+  before `kb_prepare` to its end -- a directory made in one step (`mkdir`), the build's process id in `KB.lock/pid`,
+  removed when the build ends or is stopped by a signal it can catch. A build that finds the lock waits, 0.2 s a turn,
+  and takes over a lock whose process is gone or which is an hour old (a build killed by `SIGKILL` leaves its lock).
+  Why: cocolog's store takes one writer at a time (the Findings) -- four builds at once over one fresh store, and three
+  died of a bus error and every later build over that store failed (`dynamic: out of memory`) until it was removed;
+  under the lock the four build one after another, each program prints what it should, and the store stays sound (the
+  driver gate's check). A build under `--no-kb` (`cicilang++`), `-D` or `--target` runs `--local` and takes no lock; the
+  gates' own cocolog runs over the store take none, since they run one at a time. (0.240)
 
 - A FLOAT IS STORED EXACTLY (0.132): cocolog writes a float with 15 digits (the Findings), so every float of a stored
   read is frozen to integers before the write, `'$fz'(Item)` with each float `'$fl'(M, E)`, M x 2^E exactly, M odd
@@ -2790,17 +2801,21 @@ that changes a rule edits the rule here, in its topic, and writes its entry in `
   `CICILANG_NO_IR_CACHE` set builds uncached: `test/config.sh` sets it, so every gate's builds are its fixtures' own,
   and the driver gate's check of the cache unsets it for its builds. The key holds the versions, not the library's code:
   a library changed and its versions not bumped is served the old IR -- a probe of a changed library runs uncached.
+- THE C++ IR STAYS A FILE A BUILD (0.240; the owner's decision 4 of 0.190 left the store until parallel writes to one
+  store were measured): cocolog's store takes one writer at a time (the Findings), where a whole file renamed into place
+  takes any number of builds at once, as `make -j` runs them. A C++ build runs `--local`: it holds no lock and waits on
+  none, where a store would put every C++ build of a `make -j` behind one lock. (0.240)
 
 ### The versions
 
-- `ccl_reader_version/1` (`library/ccl_syntax.pl`, now 164): bump it for any grammar change to what a read gives, and
+- `ccl_reader_version/1` (`library/ccl_syntax.pl`, now 167): bump it for any grammar change to what a read gives, and
   for any change to what the AST beside a summary holds (item or member terms, `cpp_index_name/2`,
   `cpp_template_name/2`, `ccl_flat_items/3`, the namespace keys). Keep the reason in its comment. Why: the store and the
   summaries are keyed by it, and a stale read is served silently (`sizeof(std::string)` read 40). (M1, 0.89, 0.112,
   0.117)
 - A reader bump makes every summary cold; `test/libcxx.sh` rewrites them. `test/reader.pl`'s `k16` (a cached read is
   the same AST as a fresh one) goes RED on a grammar change without a bump. (0.93, 0.105)
-- `ccl_lowering_version/1` (`library/ccl_ir.pl`, now 129): bump it whenever the check or the lowering changes what it
+- `ccl_lowering_version/1` (`library/ccl_ir.pl`, now 141): bump it whenever the check or the lowering changes what it
   emits, however small -- 0.120 bumped it for the ORDER of the drain functions alone. Why: `dr_ir/3` serves the old IR
   otherwise. Either bump starts the C store afresh. (M4, 0.103, 0.120)
 
@@ -10553,6 +10568,16 @@ The namespaces' rules, the program's and the library's, are `library/ccl_cpp_nam
   text also says becomes the file's, held once, and goes when the file stops saying it; a first read appends after what
   was asserted (`[a, 1]`). Each probed at 0.226, in one process; no file of cicilang consults or reads a file twice.
   (1.2.18, 0.223, 0.226)
+- THE STORE TAKES ONE WRITER AT A TIME (2.14.1; measured at 0.240 over fresh stores): processes that assert into one
+  store at once, each 40 chunks of 3500 characters under a predicate of its own, as `dr_ir/3` keeps a C file's IR, then
+  read them back. One writer had its rows back in 0.02 s, and the store held them. Of three at once, one commit was
+  refused (`the store refused it: sequence has no row: it was never created, or this transaction cannot see it`), one
+  writer hung until killed at 600 s, and the store was left unreadable (`hexmap ends inside the chunk`); of six, two
+  said their rows were back and the store kept the first's alone, the second's lost without a word; a run of four did
+  not end before the cap killed it at 400 s. Four `bin/cicilang` builds at once over one fresh store: three died of a
+  bus error, and every later build failed (`dynamic: out of memory`) until the store was removed. Worked around by
+  `bin/cicilang`'s lock (the C store's topic); the C++ IR stays files (the IR cache topic). Not yet raised with
+  cocolog's owner: its session took no message at 0.240. (0.240)
 - Seventy goal-carrying facts consulted into a store segfaulted once, and cocolog cannot reproduce it: the gate checks
   are clauses (`k1 :- check(Name, Goal).`).
 - Builtins at 1.8.1, again at 1.10.22 (0.140) and at 1.10.28 (0.142). `current_predicate/1` answers for a file the
@@ -11618,8 +11643,8 @@ The four questions put to the owner at 0.190, each answered by the recommendatio
 are done: the first, RTTI in libc++ on by default, at 0.191, the second, exceptions in libc++ on by default, at 0.193
 (the Configuration chosen through the macros topic), the third, the safe part at the library's boundary, at 0.216 (the
 safe part's topic of what the C++ forms mean to the check), and the fourth, the C++ IR cache, at 0.221 (the IR cache
-topic): a C++ build keeps each file's IR as a file beside the summaries, and the gates build uncached. A store for it
-comes only after parallel writes to one store are measured.
+topic): a C++ build keeps each file's IR as a file beside the summaries, and the gates build uncached. 0.240 measured
+parallel writes to one store, and the IR stays files: cocolog's store takes one writer at a time (the IR cache topic).
 
 ### The audit of C17 to C23 and C++17 to C++26, in the order it is done
 
@@ -11951,7 +11976,8 @@ Declarations topic of the C++ reader).
   0.45). The reason written then, a store write quadratic past about 30,000 rows, is gone (linear on cocolog 2.2.5,
   measured at 0.161: the Findings); a process that adds a row to a predicate still rewrites all of it, which one
   predicate per file serves. The owner decided at 0.190 that a C++ build keeps its IR as files beside the summaries,
-  which it does since 0.221 (the IR cache topic).
+  which it does since 0.221 (the IR cache topic); and a store takes one writer at a time (measured at 0.240, the
+  Findings), where `make -j` runs C++ builds at once.
 - The check's cost is its expression walk. The next cut needs the state as a per-function table, or the lookups in C
   (2026-09-06).
 - A call of a callee that does not throw is a plain call since 0.232 (the Exceptions topic); until then a call under a

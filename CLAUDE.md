@@ -12,7 +12,7 @@ the fixture that gates it, and why. The bullet ends with the version that made t
 edits the rule in `RULES.md`, in its topic, and writes its entry in `HISTORY.md`. Read the topic of `RULES.md` that
 covers the code before the code is changed.
 
-At 0.239 the versions are: the module 0.239 (`ccl_p_version` in `module/cicilang.cicili`, `bin/cicilang --version`),
+At 0.240 the versions are: the module 0.240 (`ccl_p_version` in `module/cicilang.cicili`, `bin/cicilang --version`),
 the reader 167 (`ccl_reader_version/1`, `library/ccl_syntax.pl`) and the lowering 141 (`ccl_lowering_version/1`,
 `library/ccl_ir.pl`).
 
@@ -386,12 +386,12 @@ tutorials/01..03-*.pl       the objects layer's lessons; goal main, last line do
 
 ### Outside the repository
 
-- `~/.cicilang/` is the user's cache. `KB` is the C store (`$CICILANG_KB` names another) and `KB.version` its stamp,
-  `Reader.Lowering`. `cpp/` holds the C++ summaries, one `<name>-<fold>-<fold>.sum` per header and level, with `.ast.pl`
-  (one `'$cpp_hdr_ast'(Name, Item)` clause per named item) and `.mac` (the header's macros) beside it, and `cpp/ir/`
-  each C++ file's IR, `<name>-<fold>-<fold>.ll` (0.221; `CICILANG_NO_IR_CACHE` set builds uncached, as every gate does).
-  `fixture-times`, `header-times` and `flow-times` keep the pools' timings, outside the `cpp/` that the library read
-  wipes. (0.105, 0.144, 0.221)
+- `~/.cicilang/` is the user's cache. `KB` is the C store (`$CICILANG_KB` names another), `KB.version` its stamp,
+  `Reader.Lowering`, and `KB.lock` the lock a build over it holds (0.240). `cpp/` holds the C++ summaries, one
+  `<name>-<fold>-<fold>.sum` per header and level, with `.ast.pl` (one `'$cpp_hdr_ast'(Name, Item)` clause per named
+  item) and `.mac` (the header's macros) beside it, and `cpp/ir/` each C++ file's IR, `<name>-<fold>-<fold>.ll` (0.221;
+  `CICILANG_NO_IR_CACHE` set builds uncached, as every gate does). `fixture-times`, `header-times` and `flow-times` keep
+  the pools' timings, outside the `cpp/` that the library read wipes. (0.105, 0.144, 0.221, 0.240)
 - The neighbours' checkouts are `$CICILI` and `$COCOLOG`, by default `~/Projects/GitHub/<name>`. Nothing names
   ZiguratIP's checkout: it is reached only as cocolog's store. (from the start)
 - The guard, watchdog, probe and trace scripts that `HISTORY.md` names (`scratchpad/guard.sh`, `watch.sh`, `gate.sh`,

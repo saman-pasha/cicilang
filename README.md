@@ -182,13 +182,15 @@ The knowledge base is the user's, `~/.cicilang/KB` (or `$CICILANG_KB`;
 `--no-kb` keeps everything in memory). The first call is the initialization
 phase, reading the C standard library's headers once. It is stamped with
 the reader's and the lowering's versions and starts afresh when either
-changes. `cicilang++` keeps its headers as summaries under
-`~/.cicilang/cpp`, one per header and level. Where two or more of the
-library headers a C++ file names have no summary yet, `cicilang++` reads
-each of them in a process of its own, as many at a time as the machine
-has processors (`CICILANG_JOBS=N` sets another number; `1` reads them in
-the build's own process), and the build then reads their summaries:
-`cicilang++ -v` names each process.
+changes. Builds over it take turns, `make -j`'s too: each holds
+`~/.cicilang/KB.lock` while it runs, since the store takes one writer at a
+time. `cicilang++` keeps its headers as summaries under `~/.cicilang/cpp`,
+one per header and level. Where two or more of the library headers a C++
+file names have no summary yet, `cicilang++` reads each of them in a
+process of its own, as many at a time as the machine has processors
+(`CICILANG_JOBS=N` sets another number; `1` reads them in the build's own
+process), and the build then reads their summaries: `cicilang++ -v` names
+each process.
 
 ## The compiler, in four predicates
 

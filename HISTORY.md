@@ -234,6 +234,7 @@ One row per step, in version order: the step's title, what it did and its gate n
 | 0.237 | the defer rule: an owner live where a call may throw is freed by a defer, or the program is refused | the eleventh item of "Do all", the owner's decision: in C++ an owner live where a call that may throw is made, outside every `try`, with no `defer` that frees it, is `owner_across_throw`; a throw point after a call's arguments, an allocation, a `throw`; a noexcept callee and the C library ask nothing; an object a constructor builds holds nothing there; `btree.cpp` met it (a `noexcept` helper, a defer in `main`); lowering 139 | flow GREEN, the reader, compile, driver, objects, proof and cross gates GREEN (4 s, 30 s, 26 s, 5 s, 0 s, 211 s), `throwdefer` the same on aarch64 under qemu, the C++ gate GREEN in 1355 s; a local commit |
 | 0.238 | the safe part's limits: an allocator's block is the program's, an arithmetic return takes no block, the store limits probed | the twelfth item of "Do all": `std::allocator<T>::allocate` and `allocator_traits<A>::allocate` answer fresh memory that `deallocate` takes back (an own pointer may hold it, a plain one must give it back); a `return` of an arithmetic value takes no loose block; the store limits probed one by one and recorded; lowering 140 | flow GREEN, the reader, compile, driver, objects and proof gates GREEN (2 s, 30 s, 29 s, 4 s, 0 s), `loose_arith.c` refused, the C++ gate GREEN in 1349 s; a local commit |
 | 0.239 | a header read under the configuration at its own #include | the thirteenth item of "Do all" (Not done's item 9): each `#include` of the user's file read under the program's configuration as it stands there (`__config`'s names at the first C++ `#include`, `NDEBUG` for the program's own header, a local header's own names); a name taken from a header taken again after the next `#include`; a file that defines such a name late kept in the store; lowering 141 | flow GREEN, the reader, compile, driver, objects, proof and cross gates GREEN (4 s, 33 s, 29 s, 5 s, 0 s, 235 s), `ftmorder` and `ndebuglocal` the same as clang's build on aarch64 under qemu, the C++ gate GREEN in 1404 s; a local commit |
+| 0.240 | one build at a time over the store; the C++ IR stays files | the fourteenth item of "Do all" (the owner's decision 4 of 0.190 left a store for the C++ IR until parallel writes were measured): cocolog's store takes one writer at a time -- a commit refused, a writer hung, rows lost without a word, a store left unreadable, builds dead of a bus error -- so `bin/cicilang` holds `KB.lock` around a build over the store, and the C++ IR stays files | the reader, compile, driver, objects, proof and cross gates GREEN (3 s, 91 s over a C store that the gate started afresh -- the stamp it found was not this library's -- where 0.239's warm one took 33 s, 28 s with 52 checks, 4 s, 0 s, 345 s); a local commit |
 
 ## M5 — the C++ mode
 
@@ -16227,3 +16228,51 @@ The module 0.239. The lowering 141 (140 at 0.238): a program's declarations and 
 under its own configuration, so neither a stored IR nor a stored read is served -- the store's stamp is
 `Reader.Lowering`, so the C store starts afresh (a file such as `ndebuglocal.c` was kept at 0.238 with its old read).
 The reader 167: a C++ summary is a header's read under one configuration, the same content as before.
+
+## 0.240 — one build at a time over the store; the C++ IR stays files
+
+**0.240: the fourteenth item of "Do all" (Not done: the fourth of the owner's decisions of 0.190 left a store for the
+C++ IR until parallel writes to one store were measured). They were measured: cocolog's store takes one writer at a
+time. The C++ IR stays a file a build, and `bin/cicilang` holds the store's lock, so builds at once over one store take
+turns. A local commit.**
+
+WHAT THE MEASUREMENT FOUND (`s14/`, cocolog 2.14.1, each over a fresh store):
+
+- WRITERS AT ONCE (`w.pl`, `run.sh J K`): each process asserts 40 chunks of 3500 characters under a predicate of its
+  own, as `dr_ir/3` keeps a C file's IR, and reads them back; then one reader counts each writer's rows in the store.
+  One writer: its rows back in 0.02 s, and the store held them. Three at once: one commit refused (`the store refused
+  it: sequence has no row: it was never created, or this transaction cannot see it`), one writer hung until killed at
+  600 s, and the store left unreadable (`hexmap ends inside the chunk`). Six at once: two writers said their 40 rows
+  were back, and the store kept the first's alone -- the second's lost without a word. A run of four did not end before
+  its cap killed it at 400 s.
+- BUILDS AT ONCE (`par_nolock.sh`, `bin/cicilang` without the lock): four builds (`hello`, `ftmorder`, `ndebuglocal`,
+  `owners`) at once over one fresh store, then the four one after another over it: three of the four at once died of a
+  bus error, and each later build failed (`dynamic: out of memory`) -- the store was damaged until removed.
+
+WHAT 0.240 DOES:
+
+- ONE BUILD AT A TIME OVER THE STORE (`kb_lock` in `bin/cicilang`): a build over the store holds `KB.lock` from before
+  `kb_prepare` to its end, a directory made in one step with the build's process id in it; a build that finds it waits,
+  and takes over a lock whose process is gone or which is an hour old. Under it (`par.sh`) the four builds at once took
+  turns, and each of the eight programs printed what its `.expect` holds (2 s at once, 1 s one after another), no lock
+  left. A `--local` build (`cicilang++`, `-D`, `--target`) takes none, and the gates' own runs over the store, one at a
+  time, take none.
+- THE C++ IR STAYS A FILE A BUILD (the IR cache topic): a whole file renamed into place takes any number of builds at
+  once, as `make -j` runs them, where a store would put them all behind one lock.
+- THE DRIVER GATE'S CHECK: four builds at once over a fresh store, then one more over it; each built, the last ran, and
+  no lock was left.
+
+The finding is written for cocolog's owner (the Findings); cocolog's session took no message at 0.240, so it goes with a
+later step.
+
+MEASUREMENTS: the measurement above (`s14/`); the flow gate not run, since no library file changed; the reader, compile,
+driver, objects, proof and cross gates GREEN (3 s, 91 s over a C store that the gate started afresh -- the stamp it
+found was not this library's -- where 0.239's warm one took 33 s, 28 s with 52 checks, 4 s, 0 s, 345 s); peak 571 MB;
+the C++ gate not run: a C++ build runs `--local` and never reaches the lock, and the driver gate's C++ checks build
+through the changed `bin/cicilang`.
+
+- `bin/cicilang` (`kb_lock`), `test/driver.sh` (the check). `RULES.md`: the commands, the driver gate, the C store, the
+  IR cache, the versions topic (its two numbers, behind since before 0.227, now 167 and 141), the Findings, Not done.
+  `CLAUDE.md`: the versions, the user's cache. `README.md`: the knowledge base.
+
+The module 0.240. The reader 167 and the lowering 141: neither a read nor what the lowering emits changed.
