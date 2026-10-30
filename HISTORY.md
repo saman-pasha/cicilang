@@ -233,6 +233,7 @@ One row per step, in version order: the step's title, what it did and its gate n
 | 0.236 | the mangler's missing forms against clang++: local names, closures, unnamed types, ABI tags, a pattern's words, addresses as arguments | the tenth item of "Do all": a program's type information named as clang++ 18 names it -- a local class `Z4mainE1L` with its discriminator, a closure `$_N` or `Ul <sig> E [n] _` (an inline variable's and a static member's under its data member prefix), an unnamed member type `Ut_`, a class's ABI tags `B`, an address argument `XadL_Z`, a function template's instance in its pattern's words (`Dp`, `DT`, `Dt`, `X`, `Da`); two lambdas of one text two types and a local class one per place and function (they were one); the type information of a type of no linkage internal; reader 167, lowering 138 | flow GREEN, the library read GREEN at reader 167, the reader, compile, driver, objects, proof and cross gates GREEN, the C++ gate's 845 builds GREEN and its checks GREEN once c48's expectation was corrected; a local commit |
 | 0.237 | the defer rule: an owner live where a call may throw is freed by a defer, or the program is refused | the eleventh item of "Do all", the owner's decision: in C++ an owner live where a call that may throw is made, outside every `try`, with no `defer` that frees it, is `owner_across_throw`; a throw point after a call's arguments, an allocation, a `throw`; a noexcept callee and the C library ask nothing; an object a constructor builds holds nothing there; `btree.cpp` met it (a `noexcept` helper, a defer in `main`); lowering 139 | flow GREEN, the reader, compile, driver, objects, proof and cross gates GREEN (4 s, 30 s, 26 s, 5 s, 0 s, 211 s), `throwdefer` the same on aarch64 under qemu, the C++ gate GREEN in 1355 s; a local commit |
 | 0.238 | the safe part's limits: an allocator's block is the program's, an arithmetic return takes no block, the store limits probed | the twelfth item of "Do all": `std::allocator<T>::allocate` and `allocator_traits<A>::allocate` answer fresh memory that `deallocate` takes back (an own pointer may hold it, a plain one must give it back); a `return` of an arithmetic value takes no loose block; the store limits probed one by one and recorded; lowering 140 | flow GREEN, the reader, compile, driver, objects and proof gates GREEN (2 s, 30 s, 29 s, 4 s, 0 s), `loose_arith.c` refused, the C++ gate GREEN in 1349 s; a local commit |
+| 0.239 | a header read under the configuration at its own #include | the thirteenth item of "Do all" (Not done's item 9): each `#include` of the user's file read under the program's configuration as it stands there (`__config`'s names at the first C++ `#include`, `NDEBUG` for the program's own header, a local header's own names); a name taken from a header taken again after the next `#include`; a file that defines such a name late kept in the store; lowering 141 | flow GREEN, the reader, compile, driver, objects, proof and cross gates GREEN (4 s, 33 s, 29 s, 5 s, 0 s, 235 s), `ftmorder` and `ndebuglocal` the same as clang's build on aarch64 under qemu, the C++ gate GREEN in 1404 s; a local commit |
 
 ## M5 — the C++ mode
 
@@ -16159,3 +16160,70 @@ GREEN in 1349 s (847 of 858 fixtures ok, 11 skipped by their needs; `allocleak` 
   done. `CLAUDE.md`: the versions.
 
 The module 0.238. The lowering 140 (139 at 0.237): the check refuses what it accepted. The reader 167.
+
+## 0.239 — a header read under the configuration at its own #include
+
+**0.239: the thirteenth item of "Do all" (Not done's item 9, what 0.215 left). A header is read under the program's
+configuration as it stands at the header's own `#include`, as clang reads a guarded header at its first inclusion: the
+feature-test macros that glibc reads once as the file's prologue found them, libc++'s `__config` names as they stood at
+the first C++ `#include`, every other `__STDC_WANT_*` and `_LIBCPP_*` name as it stands there, and `NDEBUG` for the
+program's own header. A local commit.**
+
+WHAT A PROGRAM SAW (`s13/`, each against clang 18's build):
+
+- `#include <string.h>`, `#define __STDC_WANT_LIB_EXT2__ 1`, `#include <stdio.h>`, printing `__GLIBC_USE_LIB_EXT2` after
+  each (`-std=c17`): `1 1` where clang has `0 1` -- one configuration for the file, the last system `#include`'s
+  (0.215), so `<string.h>` read the later definition too.
+- `#include <cstdio>`, `#define _LIBCPP_ENABLE_CXX20_REMOVED_FEATURES`, `#include <memory>`: libc++ 18's
+  `_LIBCPP_ENABLE_CXX20_REMOVED_ALLOCATOR_MEMBERS` defined, where clang++'s first `#include` had read `__config` already
+  and defined none.
+- `#define NDEBUG` before `#include "ndebuglocal.h"`, whose inline function asserts: the program aborted, where clang's
+  build prints `-1` -- the program's own header read `<assert.h>` without the file's `NDEBUG`.
+
+WHAT 0.239 DOES:
+
+- THE CONFIGURATION AT EACH `#include` (`pp_inc_config/2`): `'$pp_ftm'` stays the file's prologue's; each `#include` of
+  the top run gets its own, noted by its line for the reader (`'$pp_inc_cfgs'`), its header passed on as `Path-Cfg`
+  (`pp_hdr_known/3`), late where its table under it is not ready (`Spec-Cfg`, made ready, the file run again). The rerun
+  under the last system `#include`'s configuration (`pp_ftm_result/1`, twice at most) is gone.
+- `__config`'S NAMES ARE PINNED AT THE FIRST C++ SYSTEM `#include` (`pp_cfg_lib_pinned/3`): the names come from the
+  conditions of the `__config` the include path finds (`pp_cfg_names/1`; 59 in libc++ 18's), once a process.
+- A LOCAL HEADER'S OWN `__STDC_WANT_*` AND `_LIBCPP_*` DEFINITIONS are the file's from its `#include` on
+  (`pp_local_each_names/1`, from its own `#define` and `#undef` lines), and its read sees `NDEBUG` as the file has it.
+- THE READER reads an `#include` under its configuration (`ccl_inc_cfg_at/2`, `pp_with_cfg/2`); the lowering's
+  preprocessed read of a raw-read header asks it by the header's path (`ccl_note_path_cfg/2`, `ir_hdr_pp_items/2`) --
+  the first probe of `ndebuglocal.c` took the inline function's body from a read without `NDEBUG` and its declarations
+  from one with it: `undeclared('__assert_fail')`.
+- THE STORE keeps such an include as `ref(P, How, Cfg)`, its dep under Cfg, so a file that defines a name late is kept
+  and served; it was read at every build from 0.215.
+- A NAME THE FILE TOOK FROM A HEADER IS TAKEN AGAIN AFTER ITS NEXT `#include` (`pp_refetch_hdr_names/0`): the newest
+  header's definition stands -- `__GLIBC_USE_LIB_EXT2` kept the first header's 0 after `<stdio.h>` defined it 1.
+- A SUMMARY'S MACRO TABLE IS KEYED BY ITS MEMO KEY (`indexed(TK)`, `list(KL)`), which folds the configuration: keyed by
+  the path, two configurations of one header in a process mixed.
+
+WHAT STAYS (the Not done list): a local header's own `#include`s are read under the configuration at the program's
+`#include` of it, not at theirs; a C++ program's own header that calls `assert` in an inline function is refused
+`undeclared(assert)` -- its raw read keeps the call, and the C++ side takes no preprocessed body as C's does; 0.226
+refuses it too.
+
+MEASUREMENTS: the probes on 0.238 (`s13/`, each built and run beside clang 18's build): `ftmorder` 1 1 3 (clang 0 1 3),
+`libcppfirst` reading the late name (clang++ not), `ndebuglocal` aborting (clang -1); on the change, each the same as
+clang's after three corrections the probes found (a directive line is `d(Text)`, which the `__config` scan had skipped;
+the first header's `__GLIBC_USE_LIB_EXT2` kept after the next; the lowering's preprocessed read of a raw-read header
+under the file's configuration), and served from the store the same, its includes kept with their configurations; the
+flow gate GREEN after each edit (99 s to 139 s); the reader, compile, driver, objects, proof and cross gates GREEN (4 s,
+33 s, 29 s, 5 s, 0 s, 235 s), `ftmorder` and `ndebuglocal` the same as clang's build on aarch64 under qemu; the library
+read GREEN (524 s); the C++ gate GREEN in 1404 s (848 of 859 fixtures ok, 11 skipped by their needs).
+
+- `library/ccl_pp.pl` (`pp_inc_config/2`, `pp_cfg_lib_pinned/3`, `pp_cfg_names/1`, `pp_note_inc_cfg/2`, `pp_with_cfg/2`,
+  `pp_local_each_names/1`, `pp_hdr_known/3`, `pp_ready_one/2`, the re-fetch, the top run's reruns), `ccl_include.pl`
+  (`ccl_inc_cfg_at/2`, `ccl_note_path_cfg/2`, the tables' keys, the store's references and deps), `ccl_syntax.pl` (the
+  `include` item under its configuration), `ccl_ir.pl` (`ir_hdr_pp_items/2`, the lowering 141). `test/c/run/ftmorder.c`
+  (`-std=c17`, `defined(__GLIBC__)`), `ndebuglocal.c` over `ndebuglocal.h`, `test/cpp/run/libcppfirst.cpp` (C++20).
+  `RULES.md`: the user's file and the headers' macros (four bullets), the C++ summary cache, the C store, the
+  definitions a C header makes, the store's memory topic, Not done. `CLAUDE.md`: the versions.
+
+The module 0.239. The lowering 141 (140 at 0.238): a program's declarations and macros differ where a header is read
+under its own configuration, so neither a stored IR nor a stored read is served -- the store's stamp is
+`Reader.Lowering`, so the C store starts afresh (a file such as `ndebuglocal.c` was kept at 0.238 with its old read).
+The reader 167: a C++ summary is a header's read under one configuration, the same content as before.

@@ -1216,7 +1216,8 @@ ccl_external(Env0, Env, I) --> ccl_cpp, ccl_id(export), !, ccl_external(Env0, En
 ccl_external(Env, Env, static_assert(L, E, M)) --> ccl_c_or_cpp, ccl_line(L), ccl_word(static_assert), !, ccl_static_assert(L, E, M).   % C++11's and C23's: static_assert(e, "msg"), the message optional
 ccl_external(Env, Env, static_assert(L, E, M)) --> ccl_line(L), ccl_kw('_Static_assert'), !, ccl_static_assert(L, E, M).                    % C11's spelling
 ccl_external(Env0, Env, include(L, Spec, R)) --> [tok(pp, Text, L)], { ccl_include_spec(Text, Spec) }, !,
-    { ccl_include(Spec, R), ccl_include_typedefs(R, Env0, Env), ccl_include_macros(R), ccl_include_scope(R), ccl_include_constants(Spec, R) }.   % a program's own header's named constants (0.195)
+    { G = ( ccl_include(Spec, R), ccl_include_typedefs(R, Env0, Env), ccl_include_macros(R), ccl_include_scope(R), ccl_include_constants(Spec, R) ),   % a program's own header's named constants (0.195)
+      ( ccl_inc_cfg_at(L, Cfg) -> pp_with_cfg(Cfg, G), ccl_note_path_cfg(R, Cfg) ; call(G) ) }.   % under the configuration at the #include (0.239)
 %% name { members }  at file scope is  typedef struct name { members } name;  (owner's rule)
 ccl_external(Env0, [N|Env0], T) --> ccl_line(L), ccl_id(N), ccl_peek(p, '{'), !,
     ccl_p('{'), ccl_members(Env0, Ms), ccl_p('}'), ( ccl_p(';'), ! ; [] ),

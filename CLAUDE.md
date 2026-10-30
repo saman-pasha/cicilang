@@ -12,8 +12,8 @@ the fixture that gates it, and why. The bullet ends with the version that made t
 edits the rule in `RULES.md`, in its topic, and writes its entry in `HISTORY.md`. Read the topic of `RULES.md` that
 covers the code before the code is changed.
 
-At 0.238 the versions are: the module 0.238 (`ccl_p_version` in `module/cicilang.cicili`, `bin/cicilang --version`),
-the reader 167 (`ccl_reader_version/1`, `library/ccl_syntax.pl`) and the lowering 140 (`ccl_lowering_version/1`,
+At 0.239 the versions are: the module 0.239 (`ccl_p_version` in `module/cicilang.cicili`, `bin/cicilang --version`),
+the reader 167 (`ccl_reader_version/1`, `library/ccl_syntax.pl`) and the lowering 141 (`ccl_lowering_version/1`,
 `library/ccl_ir.pl`).
 
 Build and prove, always in this order (or all of it, `sh test/gates.sh`):

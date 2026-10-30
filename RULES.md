@@ -1459,36 +1459,58 @@ that changes a rule edits the rule here, in its topic, and writes its entry in `
   key of the file is the right one) by one run of the file that stops at that `#include` (`pp_do_include/6` through
   `pp_ftm_at_include/1` throws `pp_prologue(State)`), or at its end where it has none; a file whose lines before it
   define none of the names and include no local header is not run (`pp_prologue_scan/3`, which reads past `#include
-  <stdarg.h>` and kin). The others are what the top run found at its last system `#include` (`pp_ftm_at_include/1`,
-  `pp_ftm_result/1`): the file's own `#define` and `#undef` of them (`'$pp_ftm_defs'`, `pp_ftm_note/1`), and the nine
-  `__STDC_WANT_*` names that glibc asks wherever they are defined, a local header among them (`pp_ftm_want/1`:
-  autoconf's `config.h` defines them, and no system header does, where libc++'s define `_LIBCPP_*` names); where they
-  differ from what the headers were read under, the file is run again under them, its headers made ready again
-  (`ccl_pp_top_run/4`, twice at most). It is one configuration for the file: a header included before such a definition
-  is read under it too, where clang's is not. A header was read standalone under the predefined macros alone until
-  0.214: under `-std=c17` `#define _POSIX_C_SOURCE 200809L` gave no `strdup`, and `hdrdefs.c`'s `#define
-  _DEFAULT_SOURCE` no `htobe32`; and until 0.215 a name defined after the file's first system `#include` configured no
-  header's read, a `__STDC_WANT_*` name and a name after `<stdarg.h>` among them. `ftmacro.c` (`-std=c17`, over
-  `ftmacro.h`), `ftlate.c` (`-std=c17`). (0.214, 0.215)
+  <stdarg.h>` and kin). The others count at each `#include` (below): the file's own `#define` and `#undef` of them
+  (`'$pp_ftm_defs'`, `pp_ftm_note/1`), a local header's own (`pp_local_each_names/1`, from its `#define` and `#undef`
+  lines, since its table holds what the library headers it includes define too), and the nine `__STDC_WANT_*` names that
+  glibc asks wherever they are defined (`pp_ftm_want/1`: autoconf's `config.h` defines them, and no system header does,
+  where libc++'s define `_LIBCPP_*` names). A header was read standalone under the predefined macros alone until 0.214:
+  under `-std=c17` `#define _POSIX_C_SOURCE 200809L` gave no `strdup`, and `hdrdefs.c`'s `#define _DEFAULT_SOURCE` no
+  `htobe32`; and until 0.215 a name defined after the file's first system `#include` configured no header's read, a
+  `__STDC_WANT_*` name and a name after `<stdarg.h>` among them. `ftmacro.c` (`-std=c17`, over `ftmacro.h`), `ftlate.c`
+  (`-std=c17`). (0.214, 0.215, 0.239)
+- A HEADER IS READ UNDER THE CONFIGURATION AT ITS OWN `#include` (0.239; C17 7.1.2/4, `the macros defined at the point
+  of the inclusion'; `pp_inc_config/2`), as clang reads a guarded header at its first inclusion: the names of
+  `pp_ftm_fixed/1`'s as the file's prologue found them (`'$pp_ftm'`); the `_LIBCPP_*` names that libc++'s `__config`
+  reads as they stood at the file's first C++ system `#include` (`'$pp_cfg_lib'`, `pp_cfg_lib_pinned/3`: `__config` is
+  read once; `pp_cfg_names/1` takes the names in its conditions from the `__config` the include path finds, 59 in libc++
+  18's); every other name of `pp_ftm_each/1`'s as it stands at this `#include`; and for a local header `NDEBUG` too,
+  which its own `<assert.h>` reads. The top run notes each `#include`'s configuration by its line (`pp_note_inc_cfg/2`,
+  `'$pp_inc_cfgs'`), passes a header on as `Path-Cfg` where it differs from the file's (`'$pp_hdrs'`, `pp_hdr_known/3`),
+  and a header whose table under it is not ready is late, `Spec-Cfg`, made ready under it and the file run again
+  (`ccl_pp_top_run/4`, `pp_ready_one/2`). The reader reads the `#include` under it (`ccl_inc_cfg_at/2`, `pp_with_cfg/2`
+  in the reader's `include` item), keeps it by the header's path for the lowering (`ccl_note_path_cfg/2`,
+  `'$ccl_path_cfgs'`), whose preprocessed read of a raw-read header asks it (`ir_hdr_pp_items/2`), and the store keeps
+  it in the include's reference (the C store topic). The file's own configuration stays its prologue's. Why: it was one
+  configuration for the file, the last system `#include`'s (0.215), so `<string.h>` before `#define
+  __STDC_WANT_LIB_EXT2__ 1` read it, a late `_LIBCPP_ENABLE_CXX20_REMOVED_FEATURES` reached every libc++ header where
+  clang++'s first `#include` had read `__config` already, and the program's own header's `<assert.h>` asserted under the
+  file's `#define NDEBUG`. `ftmorder.c` (`-std=c17`: `0 1 3`, as clang), `ndebuglocal.c` over `ndebuglocal.h`,
+  `test/cpp/run/libcppfirst.cpp` (C++20). (0.239)
 - `<assert.h>` DEFINES `assert` BY `NDEBUG` AS IT STANDS AT EACH INCLUSION (C17 7.2/1, [cassert.syn]; 0.214;
   `pp_assert_include/1`): in the user's file an `#include <assert.h>` or `<cassert>` defines `assert` as `((void)0)`
   where `NDEBUG` is defined, glibc's `assert_perror` with it, and else as the header's table has it, which is read with
   no `NDEBUG` (no name of `pp_ftm_name/1`'s). The table alone answered: `#define NDEBUG` before the include still
-  asserted, in 0.213 and before it. An inclusion through another header asks no `NDEBUG`. UNDER `-DNDEBUG` THE HEADER'S
-  OWN READ SEES NO `NDEBUG` (0.221; `pp_ndebug_hidden/1` in `pp_outer_macro`: in the run whose first file is
-  `<assert.h>` or `<cassert>` the command line's `NDEBUG` is no macro), so its table holds the asserting `assert`, and
-  an `#undef NDEBUG` before the include asserts again, as clang's build does: it left the program's assertions out.
-  `ndebug.c`, `ndebug.cpp`, the driver gate's `-DNDEBUG` check. (0.214, 0.221)
+  asserted, in 0.213 and before it. An inclusion through a library header asks no `NDEBUG`; one through the program's
+  own header reads it there since 0.239 (the bullet above). UNDER `-DNDEBUG` THE HEADER'S OWN READ SEES NO `NDEBUG`
+  (0.221; `pp_ndebug_hidden/1` in `pp_outer_macro`: in the run whose first file is `<assert.h>` or `<cassert>` the
+  command line's `NDEBUG` is no macro), so its table holds the asserting `assert`, and an `#undef NDEBUG` before the
+  include asserts again, as clang's build does: it left the program's assertions out. `ndebug.c`, `ndebug.cpp`, the
+  driver gate's `-DNDEBUG` check. (0.214, 0.221, 0.239)
 - A header's macro reaches the run BY NAME on first use (`pp_macro/3`, `pp_defined/1`). The run's own `'$pp:<Name>'`
-  comes first; a miss is kept until the next include (`'$pp_ninc'`). Then `pp_outer_macro/3` asks the predefined
-  macros (no header redefines one), then the headers, the last included first (`pp_header_macro/3`). Why:
-  `<stdio.h>` brings 1200 macros, and a file uses a dozen. (M5)
-- No table is parsed whole. `indexed` (C++): the `.mac` file beside the summary, `mnames([...])` lines of up to a
-  hundred names, then `macro(N, Ps, text(A))` lines as written; `ccl_mac_lines/3` splits it, `ccl_hml_assert/3`
-  asserts `'$ccl_hml'(Name, Path, raw(Line))`, and `pp_raw_macro/4` parses a line into a fresh term when asked.
-  `store(Key)` (C): rows `'$ccl_hmacros:<Path>'(Name, Key, macro(...))` (`ccl_kb_macro/5`), a row per closure file
-  under `'$dep'`, the index `'$ccl_hmeta'(Path, Key, meta(N, ND))` (`ccl_kb_macros_cached/2`). `list`: a table the
-  store refused, in `'$ccl_hmlist:<Path>'`. (M5)
+  comes first; a miss is kept until the next include (`'$pp_ninc'`). Then `pp_outer_macro/3` asks the predefined macros
+  (no header redefines one), then the headers, the last included first (`pp_header_macro/3`). Why: `<stdio.h>` brings
+  1200 macros, and a file uses a dozen. A NAME TAKEN FROM A HEADER IS TAKEN AGAIN AFTER THE FILE'S NEXT `#include`
+  (0.239; `pp_note_hdr_name/1`, `pp_refetch_hdr_names/0`), so the newest header's definition stands, as a header's text
+  redefines it in clang: glibc's `libc-header-start.h` defines `__GLIBC_USE_LIB_EXT2` again at each header, and the
+  first header's value had stayed; a name the file defines or undefines is its own from there (`pp_drop_hdr_name/1`).
+  (M5, 0.239)
+- No table is parsed whole. `indexed(TK)` (C++): the `.mac` file beside the summary, `mnames([...])` lines of up to a
+  hundred names, then `macro(N, Ps, text(A))` lines as written; `ccl_mac_lines/3` splits it, `ccl_hml_assert/3` asserts
+  `'$ccl_hml'(Name, TK, raw(Line))`, TK the table's memo key, which folds the level and the configuration (0.239: under
+  the path, two configurations of one header mixed), and `pp_raw_macro/4` parses a line into a fresh term when asked;
+  `list(KL)` a table the store would not take, under the same key. `store(Key)` (C): rows `'$ccl_hmacros:<Path>'(Name,
+  Key, macro(...))` (`ccl_kb_macro/5`), a row per closure file under `'$dep'`, the index `'$ccl_hmeta'(Path, Key,
+  meta(N, ND))` (`ccl_kb_macros_cached/2`). `list`: a table the store refused, in `'$ccl_hmlist:<Path>'`. (M5)
 - `ccl_kb_remember_macros/3` replaces only this level's rows. Why: a C23 read retracted the C17 rows, and `macros.c`
   met `undeclared(EOF)` in the gate's order. (0.99)
 - A table that no cache holds comes from one standalone run (`ccl_pp_file/3`, `ccl_pp_macros/1`), once per store; a
@@ -2534,13 +2556,14 @@ that changes a rule edits the rule here, in its topic, and writes its entry in `
   it at every level, or this one's where the program declares the function without `inline` (`extern inline int
   sq(int);`, `ir_hdr_link/3`). A library header's other definitions, GNU's `extern inline` among them, are the C
   library's. A definition of a raw-read header is taken from the header the program includes, read preprocessed
-  (`ir_hdr_resolve/2`, `ccl_pp_parse/4`, once a process and level): raw, a body keeps an `#if`'s lines as `directive/2`
-  statements and its macros unexpanded -- glibc's `__bswap_16` returned both `__builtin_bswap16(x)` and
-  `__bswap_constant_16(x)` --, and an inner header read alone may refuse to be (bits/byteswap.h's `#error`). The
-  definitions go first, a unit of their own, so a header's object meets the program's tentative definition of it as in
-  one unit (`ir_globals/2`); a name the program defines is its own. None was emitted: a call of one, and a use of such
-  an object, was an undefined symbol at the link, and `c23b.c`'s calls of `<stdbit.h>`'s functions linked to glibc
-  2.39's own `stdc_*`. `test/c/run/hdrdefs.c` over `hdrdefs.h`. (0.212)
+  (`ir_hdr_resolve/2`, `ccl_pp_parse/4`, once a process and level, under the configuration at its `#include` since
+  0.239, `ir_hdr_pp_items/2`): raw, a body keeps an `#if`'s lines as `directive/2` statements and its macros unexpanded
+  -- glibc's `__bswap_16` returned both `__builtin_bswap16(x)` and `__bswap_constant_16(x)` --, and an inner header read
+  alone may refuse to be (bits/byteswap.h's `#error`). The definitions go first, a unit of their own, so a header's
+  object meets the program's tentative definition of it as in one unit (`ir_globals/2`); a name the program defines is
+  its own. None was emitted: a call of one, and a use of such an object, was an undefined symbol at the link, and
+  `c23b.c`'s calls of `<stdbit.h>`'s functions linked to glibc 2.39's own `stdc_*`. `test/c/run/hdrdefs.c` over
+  `hdrdefs.h`. (0.212)
 
 ### Resolution and the inclusion path
 
@@ -2609,7 +2632,8 @@ that changes a rule edits the rule here, in its topic, and writes its entry in `
   (`basic_string` 56 KB, `tuple`, `vector`, `pair`) were dropped silently, so a summary-served run's tag table lacked
   them. (0.112)
 - The `.mac` holds `mnames([...])` lines of at most 100 names, then one `macro(N, Ps, text(A))` line per macro as
-  written. The lines become `'$ccl_hml'(Name, Path, raw(Line))` facts, parsed on first use (`pp_raw_macro/4`). (M5)
+  written. The lines become `'$ccl_hml'(Name, TK, raw(Line))` facts, TK the table's memo key (0.239), parsed on first
+  use (`pp_raw_macro/4`). (M5)
 - The write order is fixed (`ccl_read_unit`): `ccl_sum_dir_ready` (`mkdir -p`); the AST (`ccl_ast_write`); only then the
   `.mac`, the `.big.pl` and, LAST, the `.sum`. `ccl_write_whole/2` writes a temporary name and renames it. A failed AST
   write is traced (`ast_not_written(Path)`) and leaves no summary. Why: the `.sum` is the validity key, and a valid one
@@ -2704,11 +2728,12 @@ that changes a rule edits the rule here, in its topic, and writes its entry in `
   (`dr_ir_sig/3`), so an ISO build's IR is its own. `time_file/2` is asked at every key. (0.93, 0.108, 0.214)
 - `ccl_kb_cached/3` serves a unit on the same key, every dep at its key, and the item count matching. An item over the
   clause budget (`resource_error(clause_length)`) leaves the file uncached (`ccl_kb_remember/3`). The user's file is
-  stored as `top` only when it reads whole, and only where its own run left its configuration as it was found before the
-  read (0.215, `ccl_read_file_/3`): its key is made before the read, and a `__STDC_WANT_*` name it defines after its
-  first system `#include` changes the configuration in the run (the topic of the user's file and the headers' macros),
-  so it was kept under a key no later build asks, and written again at every build. Such a file is read at every build,
-  its headers and its IR served from the store. (M4, 0.215)
+  stored as `top` when it reads whole, under the key made before the read; an `#include` of it read under a
+  configuration of its own (0.239, the topic of the user's file and the headers' macros) is kept as `include(L, S,
+  ref(P, How, Cfg))`, its dep as `cfg(P, Cfg)-Key`, the key made under Cfg (`ccl_kb_flatten/4`), and is linked and
+  checked under it (`ccl_kb_link/2`, `ccl_kb_deps_fresh/1`). From 0.215 to 0.238 a file that defined such a name after
+  its first system `#include` changed its own configuration in the run and was not kept: it was read at every build.
+  (M4, 0.215, 0.239)
 - A header's macro table is stored per level: `'$ccl_hmacros:<Path>'(Name, Key, macro(...))` rows, `'$dep'` rows, and
   the index `'$ccl_hmeta'(Path, Key, meta(N, ND))`. `ccl_kb_remember_macros/3` replaces only that level's rows. The
   process memo is `'$ccl_hm:<Path>@<Level>'` (`ccl_hm_key`). Why: a C23 read retracted the C17 rows. (0.99, 0.108)
@@ -9917,7 +9942,7 @@ The namespaces' rules, the program's and the library's, are `library/ccl_cpp_nam
 - Per-process state is a global, never a dynamic clause (`'$ccl_reading'`, `'$ccl_macro_files'`, `'$ccl_unit_paths'`):
   a dynamic predicate persists under `--embed`.
 - No header's macro table is parsed whole: a macro reaches a preprocessor run by name, on first use
-  (`pp_outer_macro/3`, `pp_header_macro/3`). In C++ it is a fact, `'$ccl_hml'(Name, Path, raw(Line))`, parsed when
+  (`pp_outer_macro/3`, `pp_header_macro/3`). In C++ it is a fact, `'$ccl_hml'(Name, TK, raw(Line))`, parsed when
   asked (`pp_raw_macro/4`); in C it is the store's row under its name (`ccl_kb_macro/5`).
 
 ### Caches of the symbol table
@@ -11732,16 +11757,15 @@ Declarations topic of the C++ reader).
    them. Under `-g` it is described in its header since 0.213 (the Debug information topic).
 9. THE ISO MODES AND THE PROGRAM'S CONFIGURATION, WHAT 0.215 LEFT: a feature-test macro defined after the file's first
    system `#include` counts since 0.215 where clang's headers read it, and GNU's inline assembly is read and lowered
-   (the topic of the user's file and the headers' macros; the lowering's topic of inline assembly). What is left: the
-   configuration is one for the file, so a header included before a `__STDC_WANT_*` or `_LIBCPP_*` definition is read
-   under it too, and a late `_LIBCPP_*` name that libc++'s `__config` reads once
-   (`_LIBCPP_ENABLE_CXX17_REMOVED_FEATURES`, `_LIBCPP_ENABLE_EXPERIMENTAL`) reaches the headers where clang++'s does
-   not; a local header's `_LIBCPP_*` names, and a `__STDC_WANT_*` name that glibc does not ask, configure no header's
-   read; a file that defines such a name after its first system `#include` is read at every build (the C store topic); a
-   header that the program's own header includes reads `NDEBUG` as its table has it (under `-DNDEBUG` an `#undef NDEBUG`
-   before `<assert.h>` asserts again since 0.221, the topic of the user's file and the headers' macros). `asm goto` is
-   lowered since 0.231; an asm output that carries a pointer is refused by the owner's rule of ownership paths, and a
-   register variable's register is an asm operand's alone, as GCC's manual gives it: two rules, not gaps (the safe
+   (the topic of the user's file and the headers' macros; the lowering's topic of inline assembly). Since 0.239 a header
+   is read under the configuration at its own `#include` (`__config`'s names at the first, a local header's own names,
+   `NDEBUG` for the program's own header), and a file that defines such a name late is kept in the store. What is left:
+   a local header's own `#include`s are read under the configuration at the program's `#include` of it, not at theirs,
+   so a name the local header defines between two of them reaches both; and a C++ program's own header that calls a
+   macro of a header it includes in an inline function -- `assert` -- is refused `undeclared(assert)`: its raw read
+   keeps the call, and the C++ side takes no preprocessed body as C's does (`ir_hdr_resolve/2`), at 0.226 too. `asm
+   goto` is lowered since 0.231; an asm output that carries a pointer is refused by the owner's rule of ownership paths,
+   and a register variable's register is an asm operand's alone, as GCC's manual gives it: two rules, not gaps (the safe
    part's topic, the lowering's topic of inline assembly). macOS is not measured: Apple's libc chooses its names by
    `_ANSI_SOURCE`, `_POSIX_C_SOURCE` and `_DARWIN_C_SOURCE`, its headers' reads under the ISO modes are no gate's, and
    `gnuasm.c` and `gnuasm.cpp` name its sections and its symbols' underscore without a run there.

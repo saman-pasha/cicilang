@@ -96,7 +96,8 @@ ccl_macro_note(Path, Preds) :- ccl_global('$ccl_macro_files', L, []), nb_setval(
 %% by ccl_kb_items/2 (the '$ccl_item'(Path, ...) below reads '$ccl_items:Path'(...)):
 %%      '$ccl_ast'(Path, Key, meta(What, Count, Deps))
 %%      '$ccl_item'(Path, Key, Index, Item)     Item's include(L, S, file(P, How, U))
-%%                                              stored as include(L, S, ref(P, How))
+%%                                              stored as include(L, S, ref(P, How)), or
+%%                                              ref(P, How, Cfg) under its own configuration (0.239)
 %%    What is top | included(How) | included_partial(How, Line, Near); Deps is
 %%    [DepPath-DepKey ...], each checked against the header's current key on
 %%    load; a count that does not match (an item too big to store) is a miss.
@@ -112,7 +113,7 @@ ccl_kb_items_goal(Path, K, I, It, T) :- ccl_kb_items(Path, F), T =.. [F, K, I, I
 ccl_kb_forget_items(Path) :- ccl_kb_items_goal(Path, _, _, _, T), retractall(T).
 ccl_kb_forget_file(Path) :- ccl_kb_ready, retractall('$ccl_ast'(Path, _, _)), ccl_kb_forget_items(Path), retractall('$ccl_hmeta'(Path, _, _)), ccl_kb_hm(Path, F), T =.. [F, _, _, _], retractall(T).
 
-ccl_read_file(File, AST, Rest) :- ccl_ensure_globals, ccl_set_lang(File), ( nb_current('$ccl_reading', []) -> nb_setval('$ccl_src_file', File), pp_ftm_find(File) ; true ), ccl_read_file_(File, AST, Rest).   % the file as the compiler was given it: a source location's, and C's `__PRETTY_FUNCTION__' reads its text (0.166)
+ccl_read_file(File, AST, Rest) :- ccl_ensure_globals, ccl_set_lang(File), ( nb_current('$ccl_reading', []) -> nb_setval('$ccl_src_file', File), nb_setval('$ccl_path_cfgs', []), nb_setval('$pp_inc_cfgs', []), pp_ftm_find(File) ; true ), ccl_read_file_(File, AST, Rest).   % the file as the compiler was given it: a source location's, and C's `__PRETTY_FUNCTION__' reads its text (0.166)
 %% the language of the file read: C++ by its extension (or forced, cicilang++), C by .c
 ccl_set_lang(File) :-
     (   nb_getval('$ccl_lang_forced', F), F \== none -> nb_setval('$ccl_lang', F)
@@ -150,7 +151,7 @@ ccl_kb_remember(Path, What0, Unit) :-
     (   ccl_kb_key(Path, K)
     ->  ccl_kb_what(What0, Unit, What, Items),
         K = key(_, V), retractall('$ccl_ast'(Path, key(_, V), _)), ccl_kb_forget_level(Path, V),
-        ccl_kb_items(Path, F),
+        ccl_kb_items(Path, F), ( What0 == top -> nb_setval('$ccl_kb_top', yes) ; nb_setval('$ccl_kb_top', no) ),
         (   catch(ccl_kb_store_items(Items, F, K, 0, N, [], Deps), error(resource_error(clause_length), _), fail)
         ->  assertz('$ccl_ast'(Path, K, meta(What, N, Deps)))
         ;   % an item over the store's clause budget (cocolog 1.2: an error, no
@@ -168,6 +169,9 @@ ccl_kb_store_items([I|Is], F, K, N0, N, D0, Deps) :-
     T =.. [F, K, N0, I1], assertz(T),
     N1 is N0 + 1,
     ccl_kb_store_items(Is, F, K, N1, N, D1, Deps).
+ccl_kb_flatten(include(L, S, file(P, How, _)), include(L, S, ref(P, How, Cfg)), D0, D) :- nb_current('$ccl_kb_top', yes), ccl_inc_cfg_at(L, Cfg),
+    ( nb_current('$pp_ftm', C0) -> true ; C0 = [] ), Cfg \== C0, !,   % AN INCLUDE OF THE USER'S FILE UNDER A CONFIGURATION OF ITS OWN (0.239): kept, its key made under it
+    ( pp_with_cfg(Cfg, ccl_kb_key(P, PK)) -> D = [cfg(P, Cfg)-PK|D0] ; D = D0 ).
 ccl_kb_flatten(include(L, S, file(P, How, _)), include(L, S, ref(P, How)), D0, D) :- !,
     ( ccl_kb_key(P, PK) -> D = [P-PK|D0] ; D = D0 ).
 ccl_kb_flatten(include(L, S, macros(P, Preds)), include(L, S, macros(P, Preds)), D0, D) :- !,
@@ -186,11 +190,13 @@ ccl_kb_cached(Path, What, Unit) :-
     ccl_kb_link(Items0, Items),
     ccl_kb_unit(What0, What, Items, Unit).
 ccl_kb_deps_fresh([]).
+ccl_kb_deps_fresh([cfg(P, Cfg)-PK|Ds]) :- !, pp_with_cfg(Cfg, ccl_kb_key(P, PK)), ccl_kb_deps_fresh(Ds).   % under its include's configuration (0.239)
 ccl_kb_deps_fresh([P-PK|Ds]) :- ccl_kb_key(P, PK), ccl_kb_deps_fresh(Ds).
 ccl_kb_values([], []).
 ccl_kb_values([_-V0|T], [V|Vs]) :- ccl_float_thaw(V0, V), ccl_kb_values(T, Vs).
 ccl_kb_link([], []).
 ccl_kb_link([include(L, S, ref(P, _))|T], [include(L, S, R)|Ls]) :- !, ccl_include_read(P, R), ccl_kb_link(T, Ls).
+ccl_kb_link([include(L, S, ref(P, _, Cfg))|T], [include(L, S, R)|Ls]) :- !, pp_with_cfg(Cfg, ccl_include_read(P, R)), ccl_note_path_cfg(R, Cfg), ccl_kb_link(T, Ls).   % under its own configuration (0.239)
 ccl_kb_link([I|T], [I|Ls]) :- ccl_kb_link(T, Ls).
 ccl_kb_unit(top, top, Is, unit(Is)).
 ccl_kb_unit(included(How), included(How), Is, unit(Is)).
@@ -257,6 +263,14 @@ ccl_include(Spec, R) :-
     (   ccl_resolve_include(Spec, From, Path)
     ->  ( sub_atom(Path, _, 3, 0, '.pl') -> ccl_load_macros(Path, Preds), R = macros(Path, Preds) ; ccl_inc_kind(Spec, Kind), nb_setval('$ccl_inc_kind', Kind), ccl_include_read(Path, R) )
     ;   R = missing ).
+%% THE CONFIGURATION AT AN #include OF THE USER'S FILE (0.239; pp_inc_config/2), which its top run noted by line: the
+%% reader reads the header under it; a header's own includes are read under the header's
+ccl_inc_cfg_at(L, Cfg) :- ccl_global('$ccl_reading', Rd, []), Rd == [], nb_current('$pp_inc_cfgs', Cs), memberchk(L-Cfg, Cs), !.
+%% ... and kept by the header's path for the file's lowering ('$ccl_path_cfgs', made afresh at each file's read), whose
+%% preprocessed read of a raw-read header reads it under the same (ir_hdr_pp_items/2)
+ccl_note_path_cfg(file(P, _, _), Cfg) :- atom(P), !, ( nb_current('$ccl_path_cfgs', Ps) -> true ; Ps = [] ), nb_setval('$ccl_path_cfgs', [P-Cfg|Ps]).
+ccl_note_path_cfg(_, _).
+ccl_path_cfg(P, Cfg) :- nb_current('$ccl_path_cfgs', Ps), memberchk(P-Cfg, Ps), !.
 ccl_inc_kind(system(_), system) :- !.
 ccl_inc_kind(next(_), system) :- !.
 ccl_inc_kind(_, local).
@@ -802,7 +816,7 @@ ccl_spec_text(local(N), T) :- !, atomic_list_concat(['"', N, '"'], T).
 ccl_spec_text(next(S), T) :- !, ccl_spec_text(S, T).
 ccl_spec_text(S, T) :- term_to_atom(S, T).
 
-%% the table's kind: indexed (every name in '$ccl_hml:<Name>', Path-Def) or
+%% the table's kind: indexed(TK) (every name in '$ccl_hml'(Name, TK, Def), TK the memo's key) or
 %% store(Key) (answered by name from the rows); nothing of a header in neither
 ccl_header_macros(Path, Kind) :-
     ccl_hm_key(Path, K),
@@ -813,21 +827,22 @@ ccl_header_macros_known(Path, Kind) :- ccl_hm_key(Path, K), nb_current(K, Kind),
 %% keyed by the path alone, a C17 fixture after a C23 one in one process was served the C23 rows' key, whose rows a later
 %% read had retracted -- `undeclared(EOF)' in the compile gate, never alone)
 ccl_hm_key(Path, K) :- ccl_read_level(Std), atomic_list_concat(['$ccl_hm:', Path, '@', Std], K).
-%% indexed: a summary's, as facts '$ccl_hml'(Name, Path, raw(Line)) -- an
+%% indexed(TK): a summary's, as facts '$ccl_hml'(Name, TK, raw(Line)), TK the memo's key (0.239: the path, which two
+%% configurations of one header shared) -- an
 %% assert is 2 us and the lookup by name 3 us, where a global per name cost
 %% 25 us each for 1200 names; a fact is a store row under --embed, which the
 %% C++ mode never runs over (cicilang++ is --no-kb). store(Key): the rows.
 %% list: a header the store would not take, its macros in a global, searched.
-ccl_header_macros_(Path, indexed) :- ccl_lang(cpp), ccl_sum_file(Path, F), ccl_sum_valid(F), ccl_mac_file(F, M), exists_file(M), !, ccl_mac_lines(M, Names, Raws), dynamic('$ccl_hml'/3), ccl_hml_assert(Names, Raws, Path).
+ccl_header_macros_(Path, indexed(TK)) :- ccl_lang(cpp), ccl_sum_file(Path, F), ccl_sum_valid(F), ccl_mac_file(F, M), exists_file(M), !, ccl_hm_key(Path, TK), ccl_mac_lines(M, Names, Raws), dynamic('$ccl_hml'/3), ccl_hml_assert(Names, Raws, TK).
 ccl_header_macros_(Path, store(K)) :- ccl_kb_macros_cached(Path, K), !.
 ccl_header_macros_(Path, Kind) :-
     ccl_pp_file(Path, _, Files), ccl_pp_macros(Ms), ccl_kb_remember_macros(Path, Files, Ms),
     (   ccl_kb_macros_cached(Path, K) -> Kind = store(K)
-    ;   atom_concat('$ccl_hmlist:', Path, KL), nb_setval(KL, Ms), Kind = list ).
+    ;   ccl_hm_key(Path, TK), atom_concat('$ccl_hmlist:', TK, KL), nb_setval(KL, Ms), Kind = list(KL) ).
 ccl_hml_assert([], _, _) :- !.
 ccl_hml_assert(_, [], _) :- !.
 ccl_hml_assert([N|Ns], [R|Rs], Path) :- assertz('$ccl_hml'(N, Path, raw(R))), ccl_hml_assert(Ns, Rs, Path).
-ccl_hml_list(Path, N, Ps, A) :- atom_concat('$ccl_hmlist:', Path, KL), nb_getval(KL, Ms), memberchk(macro(N, Ps, text(A)), Ms).
+ccl_hml_list(KL, N, Ps, A) :- nb_getval(KL, Ms), memberchk(macro(N, Ps, text(A)), Ms).
 %% the store's rows for a header's macros: one predicate per header, as the
 %% items, a row per macro under its NAME (the lookup is by name) and a dep row
 %% per file of the closure under '$dep' (no identifier)
