@@ -220,7 +220,21 @@ dr_emit(F, IR, Options, Flags, Objs, Objs1) :-
     ;   memberchk(emit_llvm, Options) -> dr_out(F, Options, ll, Out), dr_say(['write ', Out]), atom_codes(IR, Cs), write_file_from_codes(Out, Cs), Objs = Objs1
     ;   memberchk(assembly, Options) -> dr_out(F, Options, s, Out), dr_say(['assemble ', Out]), dr_compile(F, IR, Out, ['-S'|Flags]), Objs = Objs1
     ;   memberchk(compile_only, Options) -> dr_out(F, Options, o, Out), dr_say(['compile ', Out]), dr_compile(F, IR, Out, Flags), Objs = Objs1
-    ;   tmp_file(cicilang, T), atom_concat(T, '.o', Out), dr_say(['compile ', F]), ( dr_compile(F, IR, Out, Flags) -> Objs = [Out|Objs1] ; Objs = Objs1 ) ).
+    ;   dr_link_obj(F, Options, Out), dr_say(['compile ', F]), ( dr_compile(F, IR, Out, Flags) -> Objs = [Out|Objs1] ; Objs = Objs1 ) ).
+%% THE OBJECTS A MAC'S DEBUG MAP NAMES ARE KEPT (0.245): Mach-O keeps a program's DWARF in the objects it was linked from, and the
+%% link writes a debug map that names them, which a debugger reads, and dsymutil, which clang's driver runs after its link and
+%% this compiler does not (no LLVM binary: the owner's rule). So under -g on a Mac a source's object outlives the build, in the
+%% user's cache as the store is (~/.cicilang/objects/<fold>-<fold>/<stem>-<fold>.o, keyed by the output's absolute path and the
+%% source's), each build of the same program writing it again; anywhere else, and without -g, it is a temporary file
+dr_link_obj(F, Options, Out) :-
+    (   ( memberchk(debug, Options) ; memberchk(debug(_), Options) ), catch(pp_os(darwin), _, fail)
+    ->  ( memberchk(out(O), Options) -> true ; O = 'a.out' ), dr_abs_path(O, AO), atom_codes(AO, OCs), dr_fold(OCs, 7, 131, S1), dr_fold(OCs, 13, 137, S2),
+        ( catch(os_env('HOME', H), _, fail) -> true ; H = '/tmp' ), atomic_list_concat([H, '/.cicilang/objects/', S1, '-', S2], Dir),
+        atomic_list_concat(['mkdir -p \'', Dir, '\''], Mk), once(catch(proc_run(Mk, 10000, _, _), _, true)),
+        dr_abs_path(F, AF), atom_codes(AF, FCs), dr_fold(FCs, 7, 131, S3),
+        dr_basename(F, Base), ( sub_atom(Base, B, _, A, '.'), A > 0, \+ ( sub_atom(Base, B1, _, _, '.'), B1 > B ) -> sub_atom(Base, 0, B, _, Stem) ; Stem = Base ),
+        atomic_list_concat([Dir, '/', Stem, '-', S3, '.o'], Out)
+    ;   tmp_file(cicilang, T), atom_concat(T, '.o', Out) ).
 dr_compile(F, IR, Out, Flags) :- dr_catch(cicilang_compile(IR, Out, Flags), E, (dr_report(F, E), fail)).
 %% the output name: -o, else the input's basename with the new extension, in the working directory
 dr_out(_, Options, _, Out) :- memberchk(out(Out), Options), !.

@@ -239,6 +239,7 @@ One row per step, in version order: the step's title, what it did and its gate n
 | 0.242 | `-g`: each expression its own column | the sixteenth item of "Do all": under `-g` every instruction at the line and the column of the innermost expression being lowered, as clang's -- a name at itself, an operator at its operator, a call at its callee, a member at its name -- each statement's text aligned with the tokens of the debug file's lines, so neither the reader nor the tree carries a column; in C a statement's own places too (what follows it, a for's two branches, a block's `}`); three samples clang's sets exactly, and over 128 C run fixtures the pairs of clang's that we lack 886 where they were 3172; lowering 142 | flow GREEN after one split moved, the reader, compile, driver, objects, proof and cross gates GREEN (3 s, 28 s, 29 s, 5 s, 0 s, 216 s), the driver's columns twenty, the C++ gate GREEN in 1219 s with 848 run fixtures ok and 11 skipped; a local commit |
 | 0.243 | the decimal runtime is the compiler's own, libgcc's answer bit for bit | the seventeenth item of "Do all": every routine the lowering calls for the decimal types written in C (`module/bidrt.c`) and compiled by cicilang into `library/ccl_bidrt.pl`, each put into the module that calls it with the routines it calls, so a Mac links a decimal program; the driver gate holds it to libgcc's routines of the same names, 549,760 answers the same; the decimal fixtures lose their needs; lowering 143 | flow GREEN, the reader, compile, driver, objects, proof and cross gates GREEN (2 s, 29 s, 36 s with 53 checks, 5 s, 0 s, 201 s), the C++ gate GREEN in 1199 s with 848 run fixtures ok and 11 skipped; a local commit |
 | 0.244 | the calling conventions of x86-64, Linux's aarch64 and Apple's arm64 as clang lowers them | the eighteenth item of "Do all": Apple's arm64 proven against clang's IR, no Apple machine being here -- a narrow integer `signext` or `zeroext` on x86-64 and on Apple's arm64, `_Bool` as `i1` at a call, an Arm result of eight bytes or fewer an integer of its size and an HFA result its struct, x86-64's small aggregate with no register left an integer, Linux's aarch64 zero-width bit-field aligning its struct; the driver gate compares the three machines' conventions and layouts with clang's (`test/c/link/abi_targets.c`, `test/abisig.awk`); over the C run fixtures 857 and 809 conventions the same on the Arm machines; lowering 144 | flow GREEN, the reader, compile, driver, objects, proof and cross gates GREEN (3 s, 29 s, 39 s with 54 checks, 4 s, 0 s, 207 s), the C++ gate GREEN in 1203 s with 848 run fixtures ok and 11 skipped; a local commit |
+| 0.245 | -g on a Mac: the objects the debug map names are kept | the nineteenth item of "Do all": under `-g` on a Mac each source's object goes to `~/.cicilang/objects`, where the link's debug map names it, instead of a temporary file gone after the link (no `dsymutil`: an LLVM binary); the driver gate's `-g` checks on a Mac read it through the debug map, and a 55th check holds it there | flow GREEN, the reader, compile, driver, objects, proof and cross gates GREEN (2 s, 13 s, 29 s, 5 s, 0 s, 206 s); the C++ gate not run (the change reaches a Mac's `-g` link alone); a local commit |
 
 ## M5 — the C++ mode
 
@@ -16507,3 +16508,29 @@ MB): libc++'s `bool` parameters cross as `i1` now, and its shipped library, whic
   `CLAUDE.md`: the versions, where things are.
 
 The module 0.244. The lowering 144 (143 at 0.243): every program's IR with a narrow parameter or result differs. The reader 167.
+
+## 0.245 — -g on a Mac: the objects the debug map names are kept
+
+**0.245: the nineteenth item of "Do all" (Not done: "`-g` on a Mac describes a linked program only through the objects it
+was linked from: ... the link's debug map names cicilang's own objects, gone after the link, so `dsymutil` gathers
+nothing"). Under `-g` on a Mac each source's object now goes into the user's cache, where the debug map's path stays
+true, and the driver gate's `-g` checks there read it through the debug map. No `dsymutil` runs: it is an LLVM binary
+(the owner's rule). A local commit.**
+
+WHAT 0.245 DOES: `dr_link_obj/3` (the driver's link step): under `-g` or `-gline-tables-only` with a Mac the target, an
+object at `~/.cicilang/objects/<fold>-<fold>/<stem>-<fold>.o` (the output's absolute path folded, then the source's),
+`mkdir -p` first, as the summaries' directory is made; else the temporary file as before. The driver gate's `dw` reads a
+Mac's linked program's DWARF from the object its debug map names (`nm -pa`, the `OSO` entry), where it compiled one with
+`-c`, and a 55th check on a Mac holds it there with the program's lines (`kept`); elsewhere a `skip` line.
+
+MEASUREMENTS: on this box, `cicilang -g --target=x86_64-apple-macos forty2.c -o prog`: the object at
+`$HOME/.cicilang/objects/459423156-2047790436/forty2-701416075.o`, a `Mach-O 64-bit x86_64 object`, the link refused by
+Linux's `cc` as it must be; a Linux `-g` build runs (exit 42) and an Apple build without `-g` both keep none. The flow
+gate GREEN (102 s); the reader, compile, driver, objects, proof and cross gates GREEN (2 s, 13 s, 29 s with 54 checks and
+the Mac's `skip` line, 5 s, 0 s, 206 s; peak 443 MB). The C++ gate was not run: the change reaches a Mac's `-g` link
+alone, which no Linux build takes, and the full chain of step 21 runs it. A Mac's run of the check is the CI's.
+
+- `library/ccl_driver.pl` (`dr_link_obj/3`, `dr_emit/6`). `test/driver.sh` (`dw`, the check). `RULES.md`: the Debug
+  information topic (the objects kept), the driver gate, Not done. `CLAUDE.md`: the versions, the user's cache.
+
+The module 0.245. The reader 167 and the lowering 144: no read and no IR changed.

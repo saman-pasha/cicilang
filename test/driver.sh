@@ -93,13 +93,17 @@ check "-E: a floating literal's text reads back as the same value, as clang read
 check "-E: a long double literal's text reads back as the same value, as clang reads the source" "$(printf 'int printf(const char *, ...);\nint main(void) {\n  long double a = __LDBL_MAX__, b = __LDBL_MIN__, c = __LDBL_DENORM_MIN__, d = 0.1L, e = 0x1.8p1L, f = 1e999L;\n  _Complex long double g = 0.1Li;\n  printf("%%La %%La %%La %%La %%La %%La %%La\\n", a, b, c, d, e, f, __imag__ g);\n  return 0;\n}\n' > etl.c; "$CICILI" -E etl.c -o etl.e.c && clang -w etl.e.c -o etle && ./etle > etle.out && clang -w etl.c -o etlr && ./etlr > etlr.out && cmp -s etle.out etlr.out && echo same)" "same"   # 0.154: the text kept, where -E spelled the double the literal held
 check "-ast-dump prints the unit" "$("$CICILI" -ast-dump "$R/run/forty2.c" | grep -c '^unit(\[function(')" "1"
 DD=$(command -v llvm-dwarfdump || echo "${LLVM:-/usr/lib/llvm-18}/bin/llvm-dwarfdump")   # -g (0.128): the line table, read by LLVM's own reader
-# MACH-O KEEPS THE DWARF IN THE OBJECTS (0.224): a Mac's link writes a debug map that names them, for dsymutil to gather
-# the DWARF from, and the objects cicilang links from are its own, gone after the link -- so on a Mac a check of a
-# program's DWARF reads the object that -c makes of the same file under the same flags; ELF's link carries it over
+# MACH-O KEEPS THE DWARF IN THE OBJECTS (0.224): a Mac's link writes a debug map that names them, for a debugger and for
+# dsymutil to gather the DWARF from; since 0.245 cicilang keeps them where the map names them (~/.cicilang/objects), so on
+# a Mac a check of a program's DWARF reads the object its debug map names (`nm -pa': its OSO entry); ELF's link carries it
 dw() {   # dw PROGRAM SOURCE FLAGS...: the file whose DWARF a -g check of PROGRAM reads
-  _dw_p=$1; _dw_s=$2; shift 2
-  case $(uname -s) in Darwin) "$CICILI" "$@" -c "$_dw_s" -o "$_dw_p.o" > /dev/null 2>&1; echo "$_dw_p.o" ;; *) echo "$_dw_p" ;; esac
+  _dw_p=$1
+  case $(uname -s) in Darwin) nm -pa "$_dw_p" | awk '/ OSO /{print $NF; exit}' ;; *) echo "$_dw_p" ;; esac
 }
+case $(uname -s) in
+  Darwin) check "-g on a Mac: the link's debug map names the object it read, kept for the debugger (0.245)" "$("$CICILI" -g "$R/run/forty2.c" -o dbgmap > /dev/null 2>&1 && o=$(dw dbgmap) && [ -f "$o" ] && "$DD" --debug-line "$o" | grep -q forty2.c && echo kept)" "kept" ;;
+  *) echo "skip  -g on a Mac: the debug map's objects (ELF's link carries the DWARF over)" ;;
+esac
 check "-g: line tables, a line per statement, the file named" "$(printf '#include <stdio.h>\n\nstatic int twice(int x) {\n  int y = x * 2;\n  return y;\n}\n\nint main(void) {\n  int a = twice(21);\n  printf("%%d\\n", a);\n  return 0;\n}\n' > dbg.c; "$CICILI" -g dbg.c -o dbg && ./dbg && f=$(dw dbg dbg.c -g) && "$DD" --debug-line "$f" | grep -c 'name: "dbg.c"' && "$DD" --debug-line "$f" | awk '/^0x/ { print $2 }' | sort -n -u | tr '\n' ' ')" "42
 1
 3 4 5 8 9 10 11 "

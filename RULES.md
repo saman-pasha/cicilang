@@ -284,20 +284,21 @@ that changes a rule edits the rule here, in its topic, and writes its entry in `
   value both ways (0.162; `test/c/link/vec_main.c`, `vec_helper.c`: 8- and 16-byte vectors, a struct of one, nine of
   them, a variadic call). The store must serve `hello.c` in under 10 s and redo only the changed one of two files. The
   gate follows the host: `_main:` and `.dylib` on Darwin, `main:` and `.so` elsewhere; on Darwin the `-g` checks of a
-  linked program read the object that `-c` makes of the same file under the same flags (0.224: Mach-O keeps the DWARF in
-  the objects, which the link's debug map names for dsymutil, and the objects cicilang links from are gone after the
-  link), the last `-std` check's GNU branch returns 2 without `linux + unix`, which clang's Darwin predefines in no
-  mode, and the `-fdebug-macro` check reads DWARF 4's `DW_MACINFO_` names (0.225, the Lowering). The decimal floating
-  types cross the ABI against gcc-built code both ways (`test/c/link/dec_main.c`, `dec_helper.c`: values, structs by
-  value, a variadic call; clang has no decimal types), and twelve long double constants converted to decimal types fold
-  to gcc's bits (`test/c/link/decld.c`, 0.154). Since 0.221 four more: an identifier's characters past ASCII by the
-  level (C17's euro sign and middle dot, C23's and C99's refusals in clang's words), `__STDC_VERSION__` at C99, C11, C17
-  and C23, an `#undef NDEBUG` before `<assert.h>` under `-DNDEBUG` asserting again, and the C++ IR cache (a rebuild
-  served, a changed file lowered again); since 0.240 four builds at once over one fresh store, built one after another
-  under its lock, and one more build over it after them; since 0.243 the compiler's decimal runtime against libgcc's,
-  bit for bit (`test/c/link/decrt.c`, the Decimal floating types); since 0.244 the calling conventions and layouts of
-  x86-64, Linux's aarch64 and Apple's arm64 against clang's IR (`test/c/link/abi_targets.c`, `test/abisig.awk`; How
-  values and classes cross a call). (M4, 0.93, 0.128, 0.129, 0.154, 0.160, 0.221, 0.240, 0.242, 0.243, 0.244)
+  linked program read the object its debug map names, which cicilang keeps since 0.245 (Mach-O keeps the DWARF in the
+  objects; at 0.224 they read an object `-c` made, those of the link being gone after it), and one more check holds it
+  there, a 55th (a `skip` line elsewhere), the last `-std` check's GNU branch returns 2 without `linux + unix`, which
+  clang's Darwin predefines in no mode, and the `-fdebug-macro` check reads DWARF 4's `DW_MACINFO_` names (0.225, the
+  Lowering). The decimal floating types cross the ABI against gcc-built code both ways (`test/c/link/dec_main.c`,
+  `dec_helper.c`: values, structs by value, a variadic call; clang has no decimal types), and twelve long double
+  constants converted to decimal types fold to gcc's bits (`test/c/link/decld.c`, 0.154). Since 0.221 four more: an
+  identifier's characters past ASCII by the level (C17's euro sign and middle dot, C23's and C99's refusals in clang's
+  words), `__STDC_VERSION__` at C99, C11, C17 and C23, an `#undef NDEBUG` before `<assert.h>` under `-DNDEBUG` asserting
+  again, and the C++ IR cache (a rebuild served, a changed file lowered again); since 0.240 four builds at once over one
+  fresh store, built one after another under its lock, and one more build over it after them; since 0.243 the compiler's
+  decimal runtime against libgcc's, bit for bit (`test/c/link/decrt.c`, the Decimal floating types); since 0.244 the
+  calling conventions and layouts of x86-64, Linux's aarch64 and Apple's arm64 against clang's IR
+  (`test/c/link/abi_targets.c`, `test/abisig.awk`; How values and classes cross a call). (M4, 0.93, 0.128, 0.129, 0.154,
+  0.160, 0.221, 0.240, 0.242, 0.243, 0.244, 0.245)
 - The objects gate. `test/objects.sh` makes 29 checks of the objects layer, an instance that outlives its process
   among them. (from the start)
 - The cross gate (0.131). `test/cross.sh` builds every `test/c/run/*.c` with `cicilang --target=aarch64-linux-gnu` and
@@ -9771,6 +9772,16 @@ The namespaces' rules, the program's and the library's, are `library/ccl_cpp_nam
   is left without one. A location is made once per line, column, scope and function (`'$ir_dbg_locs'`, `at(Line, Column,
   Scope, Ref)`). A declaration sets the line too (`ir_stmt(declaration(L, ...))`): its initializer's calls are its own.
   (0.128, 0.161)
+- ON A MAC THE OBJECTS THE DEBUG MAP NAMES ARE KEPT (0.245; `dr_link_obj/3`, the driver): Mach-O keeps a program's DWARF
+  in the objects it was linked from, and the link writes a debug map that names them, which a debugger reads, and
+  `dsymutil`, which clang's driver runs after its link and this compiler does not (no LLVM binary: the owner's rule).
+  Under `-g` or `-gline-tables-only` on a Mac each source's object goes into the user's cache, as the store does --
+  `~/.cicilang/objects/<fold>-<fold>/<stem>-<fold>.o`, keyed by the output's absolute path and the source's -- where it
+  outlives the build, each build of the same program writing it again; elsewhere, and without `-g`, it is a temporary
+  file, as it was, whose DWARF an ELF link carries over. The driver gate reads a linked program's DWARF on a Mac from
+  the object its debug map names (`nm -pa`, its `OSO` entry), and checks that it is there with the program's lines; it
+  read an object that `-c` made of the same file (0.224). On this box the object is made under
+  `--target=x86_64-apple-macos` (a Mach-O object), whose link Linux's `cc` refuses. (0.245)
 - A DEFINITION A C HEADER MAKES IS DESCRIBED IN ITS HEADER (0.213; `ir_dbg_def_file/2` over `'$ir_hfile'/2`, which
   `ir_header_defs/2` notes): its subprogram, its lexical blocks, its variables and its static locals name a `DIFile` of
   the header (`ir_dbg_hfile/2`, made once a header, `'$ir_dbg_hfiles'`; `'$ir_dbg_file'` the current function's), and so
@@ -12018,9 +12029,10 @@ Declarations topic of the C++ reader).
   the cross gate stays Linux's. Apple silicon (`macos-15`, 3 CPUs, 7 GB; cocolog's CI runs it, GREEN since 2026-10-29)
   would be this compiler's first run on Apple's arm64, whose variadic calls and long double differ (above): Homebrew's
   prefix `/opt/homebrew`, and a pool of two lanes under caps that fit 7 GB.
-- `-g` on a Mac describes a linked program only through the objects it was linked from: Mach-O keeps the DWARF there,
-  and the link's debug map names cicilang's own objects, gone after the link, so `dsymutil` gathers nothing; clang's
-  driver runs `dsymutil` itself after its link. The driver gate reads the object `-c` makes there (0.224).
+- `-g` on a Mac (0.245) keeps the objects the debug map names in `~/.cicilang/objects` and makes no `.dSYM` (`dsymutil`
+  is an LLVM binary): a program copied to another machine is debugged there without its DWARF, and the cache keeps an
+  object until it is cleared. The rule is proven on this box as far as the object (a Mach-O one, under `--target`), and
+  on a Mac by the driver gate's check, which the CI's Mac jobs run.
 - The decimal runtime (0.243) rounds half to even alone -- C23's `fe_dec_setround` is no part of glibc, so a program
   here has no way to ask another direction --, keeps no exception flag (libgcc keeps its own, which no standard function
   reads), and makes a NaN's payload its own way, not as libgcc's plumbing does.
