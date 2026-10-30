@@ -694,7 +694,10 @@ ck_path_root(index(X, _), R) :- ck_path_root(X, R).
 ck_path_root(deref(X), R) :- ck_path_root(X, R).
 %% a loose pointer's memory taken: by free, a return, a slot, an owner
 ck_consume_loose(St0, P, St) :- ck_set(St0, P, none, St1), ck_dangle(St1, P, St).
-ck_loose_taken(E, St0, St) :- ( ck_borrows_from(E, St0, P), ck_state(St0, P, loose) -> ck_set(St0, P, none, St) ; St = St0 ).
+ck_loose_taken(E, St0, St) :- ( ck_carries_none(E) -> St = St0 ; ck_borrows_from(E, St0, P), ck_state(St0, P, loose) -> ck_set(St0, P, none, St) ; St = St0 ).
+%% ... NEVER BY AN ARITHMETIC VALUE (0.238): `return p[0] - 1' hands the caller an int, and the block stays the function's
+%% to give back -- it was taken, and the leak never seen. A class's value may take it (a `unique_ptr' made from it)
+ck_carries_none(E) :- catch(ccl_type_of(E, T), _, fail), T \== unknown, catch(ccl_resolve_type(T, T1), _, fail), ccl_is_arith(T1).
 %% the borrows of a loose pointer, once an owner holds its memory, borrow the owner
 ck_retarget(st(Frs), P, Key, st(Frs1)) :- ck_retarget_frames(Frs, P, Key, Frs1).
 ck_retarget_frames([], _, _, []).
@@ -775,6 +778,7 @@ ck_borrows_from(compound_lit(_, init(Items)), St, P) :- member(item(_, V), Items
 %% rule refused it at the scope's end (`plain pointer not consumed'). The library's discipline is its own
 %% (0.45's decision), and what its member hands back points INTO the object -- which is what a borrow says,
 %% so the lifetime rules still hold rather than the pointer being merely exempted.
+ck_borrows_from(call(id(F), _), _, _) :- ccl_lang(cpp), ck_lib_allocate(F), !, fail.   % ... BUT AN ALLOCATOR'S BLOCK, fresh memory (0.238, ck_lib_allocate/1)
 ck_borrows_from(call(id(F), [addr(E)|_]), St, P) :- ccl_lang(cpp), atom(F), cpp_library_function(F), ck_path_root(E, R), !, ck_borrow_of(R, St, P).
 %% ... AND SO IS WHAT A LIBRARY STATIC FUNCTION ANSWERS OVER AN OBJECT IT TAKES BY REFERENCE (0.117): a static member takes a null
 %% `this' first, and the object is the first argument whose parameter is a reference -- `std::allocator_traits<A>::allocate(a, n)'
@@ -840,7 +844,7 @@ ck_lib_through_refs(E, E).
 ck_lib_no_store(F) :- catch(ccl_declared(F, fn(_, [param(ptr(_, base(Q, _)), this)|_], _)), _, fail), memberchk(const, Q), !.
 ck_lib_no_store(F) :- member(W, ['.find.', '.count.', '.contains.', '.lower_bound.', '.upper_bound.', '.equal_range.', '.erase.', '.at.', '.rfind.',
     '.find_first_of.', '.find_last_of.', '.find_first_not_of.', '.find_last_not_of.', '.starts_with.', '.ends_with.', '.compare.', '.remove.',
-    '.remove_if.', '.extract.']), sub_atom(F, _, _, _, W), !.
+    '.remove_if.', '.extract.', '.deallocate.']), sub_atom(F, _, _, _, W), !.
 %% WHERE A PLACE LIVES (0.217): ck_resolve/3 follows a place to the storage it names -- a local reference to the place it
 %% was bound to (ck_ref_bound/2), a local pointer to the local it borrows now where the types agree (`p->f' over `p = &s'
 %% is `s.f'; a pointer into a library container is in the container), an element a library member answers to its holder
@@ -1892,7 +1896,7 @@ ck_args_([], _, _, St, St).
 ck_args_([A|As], Callee, I, St0, St) :-
     ( ck_path(A, AK), ck_by_value(A), ck_has_array_under(St0, AK) -> ck_fail(own_array_by_value, AK, call(Callee, [A|As])) ; true ),
     (   ck_consumes(Callee, I)
-    ->  ( Callee = id(F), memberchk(F, [free, fclose]) -> How = free ; How = move ),
+    ->  ( Callee = id(F), ( memberchk(F, [free, fclose]) ; ck_lib_deallocate(F, _) ) -> How = free ; How = move ),
         ( Callee = id(_) -> Form = call(Callee, [A|As]) ; Form = call(pointer, [A|As]) ),
         ck_strip_move(A, A1),
         (   ck_owner_path(St0, A1, K)
@@ -1927,6 +1931,7 @@ ck_this_handed_unset(A, Callee, I, St, F) :- ck_arg_base(A, K), atom(K), ( K == 
 ck_consumes(id(free), 1) :- !.
 ck_consumes(id(fclose), 1) :- !.
 ck_consumes(id(realloc), 1) :- !.                                    % the old block goes; the result is the new owner
+ck_consumes(id(F), I) :- ccl_lang(cpp), ck_lib_deallocate(F, J), !, I == J.   % an allocator's block given back (0.238)
 ck_consumes(id(F), I) :- ccl_declared(F, T), ck_fn_params(T, Ps), ccl_nth(I, Ps, param(PT, _)), ck_own_type(PT).
 ck_consumes(params(Ps), I) :- ccl_nth(I, Ps, param(PT, _)), ck_own_type(PT).
 %% ---- THE DEFER RULE (0.237; the owner's decision, from 0.221's record) -----------------------------------------------
@@ -1967,3 +1972,15 @@ ck_live_owner(st(Frs)) :- member(fr(Os, _), Frs), member(_-S, Os), ( S == live ;
 %% a delete's destructor makes no throw point: a destructor does not throw ([except.spec]/8), through the table too
 ck_quiet(G) :- ( nb_current('$ck_unwinding', U) -> true ; U = no ), nb_setval('$ck_unwinding', yes),
     ( catch(G, E, true) -> R = ok ; R = failed ), nb_setval('$ck_unwinding', U), R == ok, ( var(E) -> true ; throw(E) ).
+%% ---- AN ALLOCATOR'S BLOCK IS FRESH MEMORY (0.238) ----------------------------------------------------------------------
+%% `std::allocator<T>::allocate(n)' and `std::allocator_traits<A>::allocate(a, n)' ([allocator.members]/4,
+%% [allocator.traits.members]/1) answer storage the program holds until `deallocate' gives it back ([allocator.members]/9):
+%% an own pointer may hold it, and a plain one must give it back (`unconsumed'); `deallocate(p, n)' takes p as a free
+%% does (ck_consumes/2), its own fields consumed first, and the allocator holds nothing it is handed back
+%% (ck_lib_no_store/1). It was a borrow of the allocator (0.91, 0.117): a block never given back, or given back twice,
+%% was accepted, and an own pointer could not hold one (`borrow_stored'). The member's own name and its class's: the
+%% member's function `allocator.T.allocate.size_t', the static one `allocator_traits.A.allocate. ...', whose block is
+%% its third argument after the null `this' and the allocator
+ck_lib_allocate(F) :- atom(F), ck_lib_alloc_member(F, allocate), cpp_library_function(F).
+ck_lib_deallocate(F, I) :- atom(F), ck_lib_alloc_member(F, deallocate), cpp_library_function(F), ( sub_atom(F, 0, _, _, 'allocator_traits.') -> I = 3 ; I = 2 ).
+ck_lib_alloc_member(F, M) :- ( sub_atom(F, 0, _, _, 'allocator.') ; sub_atom(F, 0, _, _, 'allocator_traits.') ), atomic_list_concat(['.', M, '.'], Wd), sub_atom(F, _, _, _, Wd), !.

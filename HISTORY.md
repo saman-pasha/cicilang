@@ -232,6 +232,7 @@ One row per step, in version order: the step's title, what it did and its gate n
 | 0.235 | the virtual bases against clang: tail padding, empty bases in their order, the tables inside held bases, the VTT's names and parts | the ninth item of "Do all": a survey of 1,818 random hierarchies against clang++ 18 meets neither refusal and finds 237 shapes laid or built otherwise (147 silently); 0.235 lays 1,804 as clang does -- a held virtual base's tail padding, the route to an empty base, the empty bases in their order and every empty subobject in the way, an empty virtual base's place and slot, the tables inside a later virtual base, the VTT's names and parts, a virtual base's table stored through its slot, a base-variant form's alignment, a virtual base's name in its namespace; `empty_virtual_base_moved` where a complete object is built; the lowering 137 | flow GREEN, the survey, reader, compile, driver, objects and cross GREEN, the C++ gate GREEN in 1476 s; a local commit |
 | 0.236 | the mangler's missing forms against clang++: local names, closures, unnamed types, ABI tags, a pattern's words, addresses as arguments | the tenth item of "Do all": a program's type information named as clang++ 18 names it -- a local class `Z4mainE1L` with its discriminator, a closure `$_N` or `Ul <sig> E [n] _` (an inline variable's and a static member's under its data member prefix), an unnamed member type `Ut_`, a class's ABI tags `B`, an address argument `XadL_Z`, a function template's instance in its pattern's words (`Dp`, `DT`, `Dt`, `X`, `Da`); two lambdas of one text two types and a local class one per place and function (they were one); the type information of a type of no linkage internal; reader 167, lowering 138 | flow GREEN, the library read GREEN at reader 167, the reader, compile, driver, objects, proof and cross gates GREEN, the C++ gate's 845 builds GREEN and its checks GREEN once c48's expectation was corrected; a local commit |
 | 0.237 | the defer rule: an owner live where a call may throw is freed by a defer, or the program is refused | the eleventh item of "Do all", the owner's decision: in C++ an owner live where a call that may throw is made, outside every `try`, with no `defer` that frees it, is `owner_across_throw`; a throw point after a call's arguments, an allocation, a `throw`; a noexcept callee and the C library ask nothing; an object a constructor builds holds nothing there; `btree.cpp` met it (a `noexcept` helper, a defer in `main`); lowering 139 | flow GREEN, the reader, compile, driver, objects, proof and cross gates GREEN (4 s, 30 s, 26 s, 5 s, 0 s, 211 s), `throwdefer` the same on aarch64 under qemu, the C++ gate GREEN in 1355 s; a local commit |
+| 0.238 | the safe part's limits: an allocator's block is the program's, an arithmetic return takes no block, the store limits probed | the twelfth item of "Do all": `std::allocator<T>::allocate` and `allocator_traits<A>::allocate` answer fresh memory that `deallocate` takes back (an own pointer may hold it, a plain one must give it back); a `return` of an arithmetic value takes no loose block; the store limits probed one by one and recorded; lowering 140 | flow GREEN, the reader, compile, driver, objects and proof gates GREEN (2 s, 30 s, 29 s, 4 s, 0 s), `loose_arith.c` refused, the C++ gate GREEN in 1349 s; a local commit |
 
 ## M5 — the C++ mode
 
@@ -16106,3 +16107,55 @@ needs; `throwowner` refused by name).
 
 The module 0.237. The lowering 139 (138 at 0.236): the check refuses what it accepted, so a stored IR of such a program
 is not served. The reader 167.
+
+## 0.238 — the safe part's limits: an allocator's block is the program's, an arithmetic return takes no block, the store limits probed
+
+**0.238: the twelfth item of "Do all", the safe part's limits of the Not done list. An allocator's block is fresh
+memory: `std::allocator<T>::allocate` and `allocator_traits<A>::allocate` answer storage the program holds until
+`deallocate` gives it back. A loose block is no longer taken by a `return` of an arithmetic value. The store-following
+limits were probed one by one, and the record says what each probe found. A local commit.**
+
+WHAT A PROGRAM SAW: `std::allocator<int> a; int *p = a.allocate(4); p[0] = 1; return p[0] - 1;` was accepted twice over:
+the block was a borrow of `a` (0.117), so nothing asked for it back, and `return p[0] - 1` took the block over, as if
+the caller got it -- with `malloc` in `allocate`'s place the leak was unseen too (a C++ probe, `leakmalloc.cpp`; C's
+`return` is the same clause). `own int *p = a.allocate(4)` was refused (`a borrow stored where it cannot be followed`),
+so the double `deallocate` of `allocdouble.cpp` never reached its check.
+
+WHAT 0.238 DOES:
+
+- AN ALLOCATOR'S BLOCK IS FRESH MEMORY (`ck_lib_allocate/1`, `ck_lib_deallocate/2`): `allocate`'s result borrows
+  nothing, so an own pointer holds it and a plain one must give it back (`unconsumed`); `deallocate(p, n)` takes `p` as
+  a free does (`ck_consumes/2`), the second argument of the member, the third of `allocator_traits`' static after the
+  null `this` and the allocator; the allocator holds nothing it is handed back (`ck_lib_no_store/1`). The check knows
+  them by the member's name and its class's (`allocator.int.allocate.size_t`).
+- A `return` TAKES A LOOSE BLOCK ONLY BY A VALUE THAT CAN HOLD IT (`ck_carries_none/1`): an arithmetic value cannot; a
+  class's value may (a `unique_ptr` made from it), and a pointer's does.
+
+WHAT THE PROBES FOUND (`s12/`, a program a limit, on 0.237): a local's address stored through an own pointer's pointee
+and the owner returned, stored through a pointer member (`s.p->q = &x`), stored through a pointer the function computes
+(`int **slot = &h.p; *slot = &x`), held by a copy of a holder that is returned, and stored by `std::generate` -- each
+accepted where the borrow outlives its local; a map's one `$held` key kept the borrow of an element the program had
+erased, and a read after the local's end was refused. They stay in the Not done list with these words: following an own
+pointer's pointee asks every move, return and store of the owner to carry what it holds, a step of its own.
+
+WHAT STAYS (the Not done list): a `polymorphic_allocator`'s block and a `memory_resource`'s are borrows of the object
+that hands them out; the store limits above.
+
+MEASUREMENTS: the probes on 0.237 (`s12/`, each lowered to IR, under 5 s each): `allocown` and `allocdouble` refused
+(`borrow_stored`), `allocleak` and `leakmalloc` accepted, `lim1` to `lim5` accepted, `lim6` refused; on the change,
+`allocown` built and run the same as clang++ 18's build, `allocleak`, `allocdouble`, `leakmalloc` refused; a net of the
+71 C++ fixtures that hold an allocation in a plain pointer, lowered to IR (66 s): every one accepted as before,
+`throwowner` and `tryowner` refused as before; the flow gate GREEN after each edit (98 s to 99 s); the reader, compile,
+driver, objects and proof gates GREEN (2 s, 30 s, 29 s, 4 s, 0 s), `loose_arith.c` refused; the cross gate not run: the
+change is the check's alone, which no target changes, and the compile gate checks every C run fixture; the C++ gate
+GREEN in 1349 s (847 of 858 fixtures ok, 11 skipped by their needs; `allocleak` and `allocdouble` refused by name).
+
+- `library/ccl_check.pl` (`ck_lib_allocate/1`, `ck_lib_deallocate/2`, `ck_lib_alloc_member/2`, the clause of
+  `ck_borrows_from/3` before the library's members, `ck_consumes/2`, a deallocation's `free`, `ck_lib_no_store/1`,
+  `ck_loose_taken/3` over `ck_carries_none/1`), `ccl_ir.pl` (the lowering 140). `test/cpp/run/allocown.cpp` (its
+  `.expect` from clang++ 18's build of the same program with a plain pointer for the own one), `test/cpp/allocleak.cpp`
+  and `allocdouble.cpp` (refused, `test/cpp.sh`'s pairs), `test/c/safe/loose_arith.c`. `RULES.md`: the safe part (the
+  library's static functions, the allocator's block, the loose pointer's return, the gate's refusals), What runs, Not
+  done. `CLAUDE.md`: the versions.
+
+The module 0.238. The lowering 140 (139 at 0.237): the check refuses what it accepted. The reader 167.

@@ -456,22 +456,24 @@ that changes a rule edits the rule here, in its topic, and writes its entry in `
   with `owner used before it was given anything` (0.133), `test/cpp/gotopastdtor.cpp` with `goto over a defer` (0.138),
   `test/cpp/tryowner.cpp` with `use after move of` (0.193: a handler entered after the body freed an owner frees it
   again), `test/cpp/throwowner.cpp` with `owner live where a call may throw, and no defer frees it` (0.237: the defer
-  rule), and since 0.216 eleven programs whose library object holds a local's borrow beyond its scope: `libvec.cpp` (a
-  vector of pointers), `libfn.cpp` (a `std::function` over a reference capture), `libview.cpp` (a view of a local
-  string), `libiter.cpp` (an iterator into a local vector), `libref.cpp` (`std::ref`), `libmap.cpp` (`m[3] = &x`),
-  `libstruct.cpp` (a struct's vector member), `libbyval.cpp` (a by-value parameter moved out) and `libassign.cpp` (`sv =
-  s`) with `a borrow leaves the function`, `libstored.cpp` (the caller's vector through a reference) and `libmember.cpp`
-  (a member's vector) with `a borrow stored where it cannot be followed`; and since 0.217 eighteen more:
-  `libiterdangle.cpp`, `libptrdangle.cpp` and `libtwolocals.cpp` (an iterator, a pointer and a vector used after the
-  local they borrow ended) with `use of a borrow after its owner was consumed`; `librowstore.cpp` (a store through a
-  range-for's reference), `libmemberview.cpp` (a view member), `byvalref.cpp` (a reference to a parameter by value),
-  `flowmember.cpp`, `flowwrap.cpp`, `flowfree.cpp` and `flowview.cpp` (what a function of the program stores of its
-  parameters), `freeswap.cpp`, `freefill.cpp` and `freecopy.cpp` (`std::swap`, `std::fill`, `std::copy`), `addrview.cpp`
-  (the address of a local view) with `a borrow leaves the function`; `refparamfield.cpp` (a member through a reference
-  parameter), `flowout.cpp`, `flowglobalvec.cpp` and `flowstaticlocal.cpp` (a function's store where it outlives its
-  caller) with `a borrow stored where it cannot be followed`. `test/cpp/control.cpp` (a `try`) builds now, and only
-  `test/cpp.pl` reads it. Since 0.221 two more: `flowarith.cpp` and `flowarith2.cpp` (a value computed from a pointer
-  parameter, `&p->v` and `p + 1`) with `a borrow leaves the function`. (0.100, 0.108, 0.216, 0.217, 0.221)
+  rule), `test/cpp/allocleak.cpp` with `plain pointer not consumed` and `allocdouble.cpp` with `use after move of`
+  (0.238: an allocator's block), and since 0.216 eleven programs whose library object holds a local's borrow beyond its
+  scope: `libvec.cpp` (a vector of pointers), `libfn.cpp` (a `std::function` over a reference capture), `libview.cpp` (a
+  view of a local string), `libiter.cpp` (an iterator into a local vector), `libref.cpp` (`std::ref`), `libmap.cpp`
+  (`m[3] = &x`), `libstruct.cpp` (a struct's vector member), `libbyval.cpp` (a by-value parameter moved out) and
+  `libassign.cpp` (`sv = s`) with `a borrow leaves the function`, `libstored.cpp` (the caller's vector through a
+  reference) and `libmember.cpp` (a member's vector) with `a borrow stored where it cannot be followed`; and since 0.217
+  eighteen more: `libiterdangle.cpp`, `libptrdangle.cpp` and `libtwolocals.cpp` (an iterator, a pointer and a vector
+  used after the local they borrow ended) with `use of a borrow after its owner was consumed`; `librowstore.cpp` (a
+  store through a range-for's reference), `libmemberview.cpp` (a view member), `byvalref.cpp` (a reference to a
+  parameter by value), `flowmember.cpp`, `flowwrap.cpp`, `flowfree.cpp` and `flowview.cpp` (what a function of the
+  program stores of its parameters), `freeswap.cpp`, `freefill.cpp` and `freecopy.cpp` (`std::swap`, `std::fill`,
+  `std::copy`), `addrview.cpp` (the address of a local view) with `a borrow leaves the function`; `refparamfield.cpp` (a
+  member through a reference parameter), `flowout.cpp`, `flowglobalvec.cpp` and `flowstaticlocal.cpp` (a function's
+  store where it outlives its caller) with `a borrow stored where it cannot be followed`. `test/cpp/control.cpp` (a
+  `try`) builds now, and only `test/cpp.pl` reads it. Since 0.221 two more: `flowarith.cpp` and `flowarith2.cpp` (a
+  value computed from a pointer parameter, `&p->v` and `p + 1`) with `a borrow leaves the function`. (0.100, 0.108,
+  0.216, 0.217, 0.221)
 - `test/cpp/sassertfail.cpp` must be refused with `static assertion failed: wrong size`, `test/cpp/sassertinst.cpp` with
   `static assertion failed: one byte` (0.198: a false static assertion of the program at file scope, and in an instance
   of a function template), `test/cpp/memassert.cpp` with `static assertion failed: int is eight` and
@@ -8633,9 +8635,10 @@ The namespaces' rules, the program's and the library's, are `library/ccl_cpp_nam
   when it is not none, an initializer list, null, static, rooted under an unfollowed reference, or a `ck_va_value/1`
   form (`ck_fresh_value/1`). (M3)
 - `free`, `fclose`, `realloc` and an own parameter consume a loose pointer (`ck_consume_loose/3`), and its borrows
-  dangle. A `return` takes it (`ck_loose_taken/3`), and an own slot takes it over (`ck_retarget/4`). Left at a scope's
-  end or a return, or overwritten, it is `unconsumed`. A rebind lands in the variable's own frame (`ck_declare_at/4`).
-  `test/c/safe/unconsumed.c`. (M3)
+  dangle. A `return` takes it (`ck_loose_taken/3`) -- NOT BY AN ARITHMETIC VALUE (0.238; `ck_carries_none/1`: `return
+  p[0] - 1` hands the caller an int, and the block was taken and its leak unseen; `test/c/safe/loose_arith.c`) --, and
+  an own slot takes it over (`ck_retarget/4`). Left at a scope's end or a return, or overwritten, it is `unconsumed`. A
+  rebind lands in the variable's own frame (`ck_declare_at/4`). `test/c/safe/unconsumed.c`. (M3)
 - `untied` ("no owner behind") is a slot the check cannot follow, given a fresh value or a loose pointer: a struct by
   value (`ck_no_owner_behind/4`), or a field, an element, `*p`, a global or an initializer item (`ck_into_plain/6`,
   named by `ck_slot_label/4`). `test/c/safe/untied.c`. (M3)
@@ -8827,12 +8830,20 @@ The namespaces' rules, the program's and the library's, are `library/ccl_cpp_nam
   library-class local may be consumed (`ck_library_root/1` in `ck_args_/5`): `delete u.release()`.
   `test/cpp/run/stduniqueptr.cpp`. (0.91, 0.94)
 - A library STATIC function's pointer result is a borrow of the object it takes by reference (`ck_borrows_from` on
-  `call(id(F), [nullptr|As])`, the leading null being the static's `this`; `ck_ref_object/3`): `allocator_traits<A>::
-  allocate(a, n)` borrows `a`. A library function's pointer result borrows what its pointer arguments borrow
-  (`call(id(F), Args)`): `std::construct_at(p + 2, 42)` returns `p + 2`. `stdallocator.cpp`, `stduninit.cpp`
-  (`-std=c++20`: `construct_at`, `destroy`, `destroy_n`, `destroy_at`, `uninitialized_copy`, `_fill`, `_fill_n`,
-  `_move`, `_default_construct`, `_value_construct_n`). A direct `allocate` was refused as a loose pointer until 0.117.
-  (0.117)
+  `call(id(F), [nullptr|As])`, the leading null being the static's `this`; `ck_ref_object/3`), an allocator's block
+  aside (below). A library function's pointer result borrows what its pointer arguments borrow (`call(id(F), Args)`):
+  `std::construct_at(p + 2, 42)` returns `p + 2`. `stdallocator.cpp`, `stduninit.cpp` (`-std=c++20`: `construct_at`,
+  `destroy`, `destroy_n`, `destroy_at`, `uninitialized_copy`, `_fill`, `_fill_n`, `_move`, `_default_construct`,
+  `_value_construct_n`). A direct `allocate` was refused as a loose pointer until 0.117. (0.117)
+- AN ALLOCATOR'S BLOCK IS FRESH MEMORY (0.238; `ck_lib_allocate/1`, `ck_lib_deallocate/2`):
+  `std::allocator<T>::allocate(n)` and `std::allocator_traits<A>::allocate(a, n)` answer storage the program holds until
+  `deallocate` gives it back ([allocator.members]/4, /9; [allocator.traits.members]/1): an own pointer may hold it, a
+  plain one must give it back (`unconsumed`), and `deallocate(p, n)` takes p as a free does (`ck_consumes/2`), its own
+  fields consumed first; the allocator holds nothing it is handed back (`ck_lib_no_store/1`). The member's name and its
+  class's tell them (`allocator.T.allocate.size_t`; the static one's block is its third argument, after the null `this`
+  and the allocator). Why: the block was a borrow of the allocator (0.91, 0.117), so one never given back, or given back
+  twice, was accepted, and an own pointer could not hold one (`borrow_stored`). `test/cpp/run/allocown.cpp`; refused,
+  `test/cpp/allocleak.cpp` and `allocdouble.cpp`. (0.238)
 - An address under a reference that the check does not follow is no fresh value (`ck_ref_rooted/1`):
   `const auto &[k, v] = *it` binds a plain value. (0.79)
 - A closure is a compound literal of its captures, and it borrows what they borrow (`ck_borrows_from/3` on
@@ -11431,9 +11442,9 @@ The namespaces' rules, the program's and the library's, are `library/ccl_cpp_nam
   `dyncastnortti.cpp` and `dpcnortti.cpp` under `-fno-rtti`, and since 0.193 `thrownoexc.cpp` and `trynoexc.cpp` under
   `-fno-exceptions`, since 0.198 `access_varfriend.cpp` at C++26, since 0.221 `stdsizeonly.cpp` at C++23; `diamond.cpp`
   builds since 0.171 and is gone), that the safe part refuses `escape.cpp`, `thisunset.cpp`, `gotopastdtor.cpp`,
-  `tryowner.cpp`, since 0.237 `throwowner.cpp`, since 0.216 the eleven `lib*.cpp` whose library object holds a local's
-  borrow beyond its scope, since 0.217 eighteen more and since 0.221 two more, and that eight false static assertions
-  are errors, four since 0.221 (the C++ gate topic).
+  `tryowner.cpp`, since 0.237 `throwowner.cpp`, since 0.238 `allocleak.cpp` and `allocdouble.cpp`, since 0.216 the
+  eleven `lib*.cpp` whose library object holds a local's borrow beyond its scope, since 0.217 eighteen more and since
+  0.221 two more, and that eight false static assertions are errors, four since 0.221 (the C++ gate topic).
 
 ### libc++ headers read whole
 
@@ -11886,10 +11897,16 @@ Declarations topic of the C++ reader).
   copies of `<algorithm>` and `<utility>`, and any other stores nothing; a slot reached through a reference whose type
   the walk does not know is checked for a local's address only; a lookup is known by its member's name, and another
   non-const member's argument counts as stored. A pointer parameter's address is the parameter's own storage since 0.219
-  (the safe part's topic of borrows and parameters).
-- A direct `std::allocator::allocate` and `allocator_traits<A>::allocate(a, n)` are accepted: a library member's or
-  static function's plain pointer result borrows the object it takes by reference (`ck_borrows_from`, 0.91, 0.117;
-  `stdallocator.cpp`).
+  (the safe part's topic of borrows and parameters). EACH WAS PROBED AT 0.238, a program a limit: a local's address
+  stored through an own pointer's pointee and the owner returned, stored through a pointer member (`s.p->q = &x`),
+  stored through a pointer the function computes (`int **slot = &h.p; *slot = &x`), held by a copy of a holder that is
+  returned, and stored by `std::generate` -- each accepted where the borrow outlives its local; and a map's one `$held`
+  key kept the borrow of an element the program had erased, so a read after the local's end was refused
+  (`borrow_after_move`) where nothing dangled. Following an own pointer's pointee asks every move, return and store of
+  the owner to carry what it holds.
+- A `std::pmr::polymorphic_allocator`'s block and a `memory_resource`'s are borrows of the object that hands them out,
+  as any library member's plain pointer result is (`ck_borrows_from`, 0.91, 0.117): only `std::allocator`'s and
+  `allocator_traits`' blocks are the program's own since 0.238 (the safe part's topic).
 - The defer rule (0.237, the safe part's topic) asks of the owners a function holds: the own fields of the object a
   constructor builds are the object's, so a constructor's body that throws after it set one leaks it, as a raw pointer
   member does in C++ (a member with a destructor is C++'s remedy, and a defer would free the field on the normal path
