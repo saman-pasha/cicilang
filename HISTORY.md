@@ -226,6 +226,7 @@ One row per step, in version order: the step's title, what it did and its gate n
 | 0.229 | argument-dependent lookup through a compound type's parts | the third item of "Do all": a keyed name's argument-dependent lookup asks every associated class and namespace of [basic.lookup.argdep]/3 -- a function type's parameters and result, a pointer to member's class and member, an array's element, a template template argument's namespace --, each part resolved in the desugaring's words; the lowering 132 | flow GREEN, a net of 45 the same, the C++ gate over 18 GREEN (830 of 840); a local commit |
 | 0.230 | the flow gate charts the desugaring's seventeen files as one program | the fourth item of "Do all": the seventeen parts joined, in their order, into one copy with one root over their 2301 predicates, one job, each finding put back at its part's own file and line (`joined.txt`); four seeded defects named at their parts' lines | the flow gate GREEN in 132 s and 113 s, where 0.229's took 205 s on the same box; a local commit |
 | 0.231 | `asm goto` lowered as a callbr; the asm records made rules | the fifth item of "Do all": GNU's `asm goto` a `callbr` as clang's, its labels after the operands, `%l[name]` among the labels alone; an edge that would run a cleanup refused, `asm_goto_over_defer`, as clang refuses it; an asm's pointer output and a register variable's register rules, not gaps; the lowering 133 | flow, compile (219), driver and cross (192) GREEN over 18, the C++ fixtures by the net; a local commit |
+| 0.232 | a call of a callee that does not throw is a plain call; each definition its own noexcept | the sixth item of "Do all": a noexcept callee's call a plain one marked `nounwind`, a noexcept body the desugaring does not guard guarded by the lowering, a destructor noexcept by its subobjects; found: the guard read the name, not the definition (an overload of a noexcept name terminated), a static member's call, a library template's instance; a library member's condition evaluated at its emission broke eleven builds, so a condition is the program's alone; an unnamed asm operand `''`; the reader 166, the lowering 134 | the C++ gate RED (11), then GREEN (833 of 843); flow, reader, compile, driver, cross GREEN; `stdstringstream` 225 invokes where 0.231 made 284; a local commit |
 
 ## M5 — the C++ mode
 
@@ -15740,3 +15741,72 @@ restarted twice during the step, its disk kept.
   `CLAUDE.md`: the versions. `README.md`.
 
 The module 0.231. The reader 165, as 0.228 left it; the lowering 133 (132 at 0.229): `asm goto` lowered.
+
+## 0.232 — a call of a callee that does not throw is a plain call; each definition its own noexcept
+
+**0.232: the sixth item of "Do all" (the Not done record of the tools: a call under a `try` or a scope with defers was
+an `invoke` whatever its callee). A call of a callee that does not throw is a plain call marked `nounwind`, as clang's;
+a noexcept body that the desugaring does not guard is guarded by the lowering; a destructor that says nothing is
+noexcept by its subobjects; and, found on the way, a free function's noexcept is its definition's own. An asm operand
+without a name is `''`. A local commit.**
+
+THE ROAD (the step's first form, staged at 01:30): the desugaring notes each function it emits noexcept in the set
+`'$cpp_nxfns'` -- a member by its qualifiers (`cpp_nx_note_member/4`), a destructor by `cpp_dtor_nothrow/1`
+([except.spec]/8, /9: its noexcept, else every potentially constructed subobject's destructor; the reader keeps a
+method's `noexcept(false)` as `noexcept(bool(false))`), a free function by the condition its emission is handed
+(`cpp_nx_note_fn/4`); the lowering makes a call of such a callee, of a C function a header declares noexcept, and of a
+deallocation function ([except.spec]/10) a plain call (`ir_nothrow_callee/1`, `ir_emit_call/4`'s `nothrow(Callee)`,
+`ir_plain_call/5`), and guards a noexcept body that calls or throws where the desugaring did not (`ir_nx_guard/4`: a
+library's function, a constructor, a destructor). `nxplaincall.cpp` (clang++ 18 and 22 alike): a constructor's member
+initializer that throws in a `noexcept` constructor, a destructor that says nothing and throws, a class template's
+`noexcept` member -- each `terminate` in a child process --, `~F() noexcept(false)` caught, and a plain call of a
+`noexcept` function under a `try` with a local's destructor.
+
+WHAT THE PROBES FOUND: (1) THE GUARD READ THE NAME, NOT THE DEFINITION (0.110 to 0.231): `cpp_fn_nx_guarded(none, N,
+...)` asked the name's set (`ccl_nothrow/1`), so `void f(double)` beside `void f(int) noexcept` was guarded by
+terminate, and 0.231 aborted where clang++'s caller catches (`nxoverguard.cpp`); a function template's overload alike,
+through the instance's storage that the name's set gave. A free function's plain noexcept is its definition's own now,
+`nxif(bool(true), Sto)` (`ccl_nx_sto/3`, reader 166), as its conditional one has been since 0.199, and the noexcept
+operator answers false for the program's definition that says nothing (`cpp_nx_named_value/2`; `noexcept(f(1.5))` was
+1). (2) A STATIC MEMBER'S CALL went by its ABI's own `ir_call` clause, which did not ask the callee
+(`numeric_limits<long>::max()`, `P::s()`). (3) A LIBRARY FUNCTION TEMPLATE'S INSTANCE was never noted (`std::forward`,
+`std::__to_address`): its pattern's plain noexcept left no mark; the library's definitions carry their own `bool(true)`
+too, in the summaries. (4) With the template's own `bool(true)` the operator's conditional road took `noexcept(dt(1,
+2))` over `template <class T> void dt(T, TH) noexcept`, and its cut on a true condition kept the clause that asks the
+arguments' initialization from running: it commits on a false value alone (`nxcalls.cpp`). (5) THE C++ GATE RED, 11
+FAILURES: `not lowered yet: typedef('_Fn') (function forward.c1._Fn)` in eight of them (`viewtake.cpp` and the views,
+`stdbindfront.cpp`, `nualayout.cpp`) and the others' builds alike -- evaluating each LIBRARY member's noexcept condition
+where it is emitted reached, through a trait's unevaluated `__invoke`, `__bind_back_op::operator()`'s
+`noexcept(noexcept(std::invoke(std::forward<_Fn>(__f), ...)))` with `_Fn` bound to nothing, and the instance it made was
+emitted. A bisection: the operator's cut put back, still RED; the notes kept to the program's functions, GREEN. A
+condition is evaluated for the program's function alone, as its guard evaluates it; a library function is noted by a
+plain noexcept or its definition's own `bool(true)` (`cpp_nx_said_nothrow/3`). (6) THE TRUE COST: `stdvector.cpp`'s IR
+is 6.1 % larger than 0.231's -- the library's noexcept bodies have the terminate guard that 0.231 lacked, each a handler
+and a pad, with an invoke at each call in them of a callee not known to be noexcept, as clang++'s terminate pads have.
+
+THE ASM OPERAND (step 5's finding): the reader names an operand without a name `''`, which no C name is; it was `none`,
+and `%[none]` met the first unnamed operand (`asmnone.c`, clang's `12 7` on x86-64 and gcc's under qemu).
+
+MEASUREMENTS over libc++ 18, the reader's bump making every summary cold: the library read GREEN, cold, in 810 s and
+again in 822 s with the library's marker; `stdstringstream.cpp` 225 invokes where 0.231 made 284 and clang++ 198, its IR
+710,278 bytes where 0.231's was 718,542 (1.2 % smaller); `stdvector.cpp` 32 where 0.231 made 34 and clang++ 30, its IR
+275,104 bytes where 0.231's was 259,247 (6.1 % larger); the flow gate GREEN after each edit (152 s, 153 s, 165 s, 165 s,
+160 s, 157 s; 5198 predicates); the reader gate GREEN (96 checks), the compile gate (220, `asmnone` among them) and the
+driver gate GREEN; the C++ gate RED at first (2173 s, the eleven failures of (5)), then GREEN in 2077 s, 833 of 843
+fixtures ok, the same 10 skipped by their needs, the two units, the 30 refusals, the 35 of the safe part, the eight
+static assertions; nets over the warm cache -- 49 fixtures that throw, catch or say noexcept, the 18 noexcept fixtures,
+the eleven and the 18 again -- all the same as their `.expect` but for the RED's; the cross gate GREEN in 487 s, 193
+checks, `asmnone` under qemu among them, its C++ part over libc++ 18. The net compares a program's standard output alone
+since this step, as the gate does: a terminate path writes libc++abi's line to the standard error, clang++'s too.
+
+- `library/ccl_syntax.pl` (`ccl_nx_sto/3`, `ccl_method_quals//1`, `ccl_asm_operand//1`), `library/ccl_cpp.pl`,
+  `ccl_cpp_init.pl`, `ccl_cpp_expr.pl` (the notes, `cpp_dtor_nothrow/1`, `cpp_fn_nx_guarded/4`, `cpp_nx_named_value/2`,
+  `cpp_nx_throwing/2`), `ccl_cpp_deduce.pl` (the instance's storage), `library/ccl_ir.pl` (`ir_nothrow_callee/1`,
+  `ir_emit_call/4`, `ir_plain_call/5`, `ir_nx_guard/4`, the static member's call). `test/cpp/run/nxplaincall.cpp`,
+  `nxoverguard.cpp`, `test/c/run/asmnone.c`. `RULES.md`: the Exceptions topic (the plain call, the enforcement), the C++
+  reader's noexcept, the noexcept operator, the asm statement's reading, the Not done record of the tools. `CLAUDE.md`:
+  the versions. `README.md`.
+
+The module 0.232. The reader 166 (165 at 0.228): a definition's plain noexcept on its storage, a method's
+`noexcept(false)` kept, an unnamed asm operand `''`: every summary starts afresh. The lowering 134 (133 at 0.231): a
+call of a callee that does not throw is plain, a noexcept body guarded.

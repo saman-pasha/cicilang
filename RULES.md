@@ -1673,7 +1673,8 @@ that changes a rule edits the rule here, in its topic, and writes its entry in `
   a block `asm [volatile] [inline] [goto] ( template [: outputs [: inputs [: clobbers [: labels]]]] ) ;` is a statement
   (`ccl_gnu_asm_stmt//1`, in `ccl_block_item//3` and `ccl_statement//2`): `gnu_asm(L, basic(Text))` where no colon
   follows the template, else `gnu_asm(L, ext(Quals, Text, Outputs, Inputs, Clobbers, Labels))`, an operand `op(Name,
-  Constraint, Expr)` with its symbolic name or `none`, and `::` two colons (`ccl_asm_sections//3`). The word is
+  Constraint, Expr)` with its symbolic name or `''` (`none` until 0.232, reader 166: an operand NAMED `[none]` was met
+  by `%[none]` as the first unnamed one, `asmnone.c`), and `::` two colons (`ccl_asm_sections//3`). The word is
   `__asm__`, `__asm`, or `asm` where `ccl_asm_keyword/0` makes it one (`ccl_asm_word//0`, which the label's reader
   shares), the text the joined literals (`ccl_asm_text//1`, under `ccl_asm_string//1` too). Both were syntax errors, and
   in C++ a file-scope one was taken for a leading attribute and dropped. Its lowering is the Lowering's topic of inline
@@ -2277,10 +2278,13 @@ that changes a rule edits the rule here, in its topic, and writes its entry in `
   `noexcept(E)` is its CONDITION, `cond(E)` (0.199, reader 151; `ccl_nx_arg//1`; one the expression rule cannot read is
   yes, as every condition was until 0.199), which a method keeps as the qualifier `noexcept(E)` and a free function's
   definition as `nxif(E, Sto)` in its storage slot (`ccl_nx_sto/3`; a member defined out of its class has its class's
-  declaration, and a function TYPE's condition is yes). A free function's name joins the set `'$ccl_nxs'`
-  (`ccl_note_nx`, `ccl_nothrow/1`; a list until 0.188, copied whole at each name added: 1,068 times in a read of
-  `<thread>`'s text, 68 us each), a conditional one too, for a call the desugaring cannot resolve. A method keeps
-  `noexcept` among its qualifiers. (0.110, 0.188, 0.199)
+  declaration, and a function TYPE's condition is yes). Since 0.232 (reader 166) a free function's PLAIN noexcept is its
+  definition's too, `nxif(bool(true), Sto)`, the program's and a library header's, and a method's `noexcept(false)` is
+  kept as the qualifier `noexcept(bool(false))`, so a destructor that says it may throw is told from one that says
+  nothing (the Exceptions topic). A free function's name joins the set `'$ccl_nxs'` (`ccl_note_nx`, `ccl_nothrow/1`; a
+  list until 0.188, copied whole at each name added: 1,068 times in a read of `<thread>`'s text, 68 us each), a
+  conditional one too, for a call the desugaring cannot resolve. A method keeps `noexcept` among its qualifiers. (0.110,
+  0.188, 0.199)
 - A pointer to member is its own node ([dcl.mptr]): `memptr(C, Qs)` in the pointer list (`ccl_pointers`), and `memptr(C,
   Q, T)` once applied (`ccl_apply_pointers`). `&C::f` of a STATIC member function is an ordinary pointer to function
   ([expr.unary.op]/3; 0.160), the thunk its name as a value is (`cpp_static_thunk`): it took the member pointer road, `{
@@ -7262,6 +7266,21 @@ A lambda is a class of its captures (`library/ccl_cpp_lambda.pl`, 0.223). A fixt
   configuration (0.193), a call under a `try` or a scope with defers is an `invoke` (`ir_invoke_needed`). Its landing pad (`ir_landing_pad`, personality `__gxx_personality_v0`) lists the
   handlers' type_infos and `cleanup`, runs the defers of the scopes it leaves (`ir_unwind_to`), tests the selector with
   `llvm.eh.typeid.for`, and else resumes. Code run while unwinding makes plain calls. (0.108)
+- A CALL OF A CALLEE THAT DOES NOT THROW IS A PLAIN CALL, marked `nounwind` as clang marks it (0.232;
+  `ir_nothrow_callee/1`, `ir_emit_call/4`'s `nothrow(Callee)`, `ir_plain_call/5`): no landing pad and no entry of the
+  call-site table, so an exception that breaks the callee's noexcept meets the personality routine's terminate where the
+  caller has a table, and the callee's own guard where it has none (the enforcement below). A callee that does not
+  throw: a function the desugaring emitted noexcept (`'$cpp_nxfns'`: a member -- a constructor and a static member among
+  them -- by its qualifiers, `cpp_nx_note_member/4`; a destructor by `cpp_dtor_nothrow/1`; a free function and a
+  function template's instance by its definition's own condition, `cpp_nx_note_fn/4`; a library function of one
+  declaration by its summary's set), a C function a header declares noexcept (glibc's `__THROW`), and a deallocation
+  function ([except.spec]/10). A CONDITION IS EVALUATED FOR THE PROGRAM'S FUNCTION ALONE, as its guard evaluates it
+  (`cpp_nx_said_nothrow/3`): a library function is noted by a plain `noexcept` or its definition's own `bool(true)`, a
+  library destructor's `noexcept(E)` unevaluated -- evaluated where each was emitted, libc++'s ranges closures met calls
+  no binding settles (`__bind_back_op::operator()`'s `noexcept(noexcept(std::invoke(std::forward<_Fn>(__f), ...)))`
+  under a trait's unevaluated `__invoke` made `std::forward<_Fn>` with `_Fn` bound to nothing), and eleven fixtures of
+  the C++ gate failed to build. It was an invoke under a `try` or a scope with defers whatever its callee (the Not done
+  record of the tools). `nxplaincall.cpp`, `nxoverguard.cpp`. (0.232)
 - A CLEANUP RUN AT A NORMAL EXIT RUNS UNDER WHAT IS LEFT TO RUN AND UNDER THE TRIES THAT ENCLOSE ITS FRAME (0.201;
   `ir_run_exit/2`, `ir_run_exit_bodies/3`, `ir_tries_within/3`): while a frame's defers run at a block's end, a `return`,
   a `break`, a `continue` or a `goto`, the defer stack holds the bodies not run yet and the frames outside, so a call in
@@ -7313,12 +7332,25 @@ A lambda is a class of its captures (`library/ccl_cpp_lambda.pl`, 0.223). A fixt
   exceptions configuration (0.193), libc++'s code throwing: a noexcept function that makes a call or throws has its body
   in a `try` with a `terminate` handler (`cpp_nx_wrap`). It calls `std::terminate` and runs no destructor on the way
   (`ir_unwind_to`), as clang's pad does. `noexcept.cpp`. A CONDITIONAL noexcept guards the body only where its condition
-  holds for the instance (0.199; `cpp_fn_nx_guarded/4`, `cpp_qs_guarded/4`):
-  `template <class T> void thrower(T v) noexcept(sizeof(T) > 100) { throw (int) v; }` throws to its caller.
-  `nxguard.cpp`. A body that throws with no call (`void d(int v) noexcept { if (v > 0) throw v; }`, a method's alike)
-  and an instance of the program's function template declared `noexcept` are guarded too (0.199; `cpp_nx_may_throw/1`,
-  the instance's storage `nxif(bool(true), Sto)`: the set `'$ccl_nxs'` holds the template's name, never an instance's):
-  each let its exception leave it, where clang++ calls `std::terminate`. `nxplain.cpp`. (0.110, 0.199)
+  holds for the instance (0.199; `cpp_fn_nx_guarded/4`, `cpp_qs_guarded/4`): `template <class T> void thrower(T v)
+  noexcept(sizeof(T) > 100) { throw (int) v; }` throws to its caller. `nxguard.cpp`. A body that throws with no call
+  (`void d(int v) noexcept { if (v > 0) throw v; }`, a method's alike) and an instance of the program's function
+  template declared `noexcept` are guarded too (0.199; `cpp_nx_may_throw/1`, the instance's storage `nxif(bool(true),
+  Sto)`: the set `'$ccl_nxs'` holds the template's name, never an instance's): each let its exception leave it, where
+  clang++ calls `std::terminate`. `nxplain.cpp`. Since 0.232 the instance's storage is its pattern's own
+  `nxif(bool(true), Sto)`, as A FREE FUNCTION'S NOEXCEPT IS ITS DEFINITION'S OWN (the C++ reader's `ccl_nx_sto/3`,
+  reader 166): the name's set guarded every overload of the name, so `void f(double)` beside `void f(int) noexcept`
+  called `std::terminate` where clang++'s caller catches its exception, and a function template's overload alike
+  (`nxoverguard.cpp`). A NOEXCEPT BODY THE DESUGARING DOES NOT GUARD IS GUARDED BY THE LOWERING (0.232;
+  `ir_nx_guard/4`): a function whose calls are plain (`'$cpp_nxfns'`) and whose body calls or throws -- a library's
+  member and free function, a constructor, a destructor -- is lowered inside a handler of kind `terminate`, so an
+  exception that breaks its noexcept ends there and never passes its caller's cleanups. A DESTRUCTOR THAT SAYS NOTHING
+  IS NOEXCEPT BY ITS SUBOBJECTS ([except.spec]/8, /9; `cpp_dtor_nothrow/1`): its `noexcept`, or a condition that holds
+  -- the reader keeps a method's `noexcept(false)` as `noexcept(bool(false))` --, else each potentially constructed
+  subobject's destructor, a base's, a member's of a class with one, an array element's, asked once a class
+  (`'$cpp_dtor_nx'`): `~E() { throw n; }` terminates, `~F() noexcept(false)` throws to its handler; a constructor's
+  member initializer that throws in a `noexcept` constructor and a class template's `noexcept` member terminate, each in
+  a child process of `nxplaincall.cpp`. (0.110, 0.199, 0.232)
 - `noexcept(e)` is false when e holds a `throw` or calls a function that is not noexcept (`cpp_nx_throws`): a program's
   free function not in `'$ccl_nxs'`, or a method with no noexcept overload of its name; and since 0.193 a library's: a
   free function or function template a header declares, called by its name or a qualified one, not in `'$ccl_lnxs'`
@@ -7344,7 +7376,12 @@ A lambda is a class of its captures (`library/ccl_cpp_lambda.pl`, 0.223). A fixt
   CALL OF AN OBJECT OF CLASS TYPE ([over.call]: its `operator()`'s, a closure's among them; `cpp_nx_object_class/2` --
   libc++'s `__invoke` calls `static_cast<_Fp &&>(__f)(...)`), and of a temporary of a class named by a typedef
   (`std::string("x")`, whose constructor from a `const char *` may throw; `cpp_nx_class_named/2`). Each was 1 where
-  clang++ answers 0. `nxcalls.cpp`, `nxtemp.cpp`. (0.110, 0.188, 0.193, 0.200, 0.205)
+  clang++ answers 0. `nxcalls.cpp`, `nxtemp.cpp`. Since 0.232 A CALL OF THE PROGRAM'S DEFINITION THAT SAYS NOTHING is
+  false whatever another overload of its name says (`cpp_nx_named_value/2`: each definition carries its own noexcept):
+  `noexcept(f(1.5))` over `void f(double)` beside `void f(int) noexcept` was 1 (`nxoverguard.cpp`); and a callee whose
+  condition holds still has its arguments' initialization asked, the program's plain noexcept being a condition too
+  (`noexcept(dt(1, 2))` over `template <class T> void dt(T, TH) noexcept`, `nxcalls.cpp`). (0.110, 0.188, 0.193, 0.200,
+  0.205, 0.232)
 - A CALL OF A FUNCTION WITH A CONDITIONAL NOEXCEPT ([except.spec]/2, /13; 0.199, reader 151, lowering 112): the
   condition is evaluated for each specialization. The desugaring substitutes it with an instance's bindings, its packs'
   among them (`cpp_subst_nxsto/3`), keeps it beside the emitted function's name (`'$cpp_nxdef'`; `'$cpp_nxsrc'` for a
@@ -11665,15 +11702,17 @@ Declarations topic of the C++ reader).
   which it does since 0.221 (the IR cache topic).
 - The check's cost is its expression walk. The next cut needs the state as a per-function table, or the lookups in C
   (2026-09-06).
-- A call under a `try` or a scope with defers is an `invoke` whatever its callee (`ir_invoke_needed`): one declared
-  noexcept, a C function among them, gets a landing pad it never uses. libc++'s exceptions configuration (0.193) made
-  every C++ program's calls so: eight warm builds take 5.2 % more CPU than 0.192's, and the IR of `stdstringstream.cpp`
-  is 42 % larger (256 invokes), of `stdvector.cpp` 14 % (42). A plain call needs two things the lowering has not
-  (0.221's record): the callee's noexcept -- a declared function's own type carries none (reader 150: the suffix is the
-  declaration's, `ccl_own_fn_nx`), and the program's noexcept definitions and the summaries' `nothrow` names are the
-  desugaring's tables -- and a terminate guard in a LIBRARY function's noexcept body, which only the program's have
-  (`cpp_nx_wrap`): without it a plain call lets an exception that breaks the callee's noexcept pass the caller's
-  cleanups.
+- A call of a callee that does not throw is a plain call since 0.232 (the Exceptions topic); until then a call under a
+  `try` or a scope with defers was an `invoke` whatever its callee, with a landing pad it never used, and libc++'s
+  exceptions configuration (0.193) made every C++ program's calls so: eight warm builds took 5.2 % more CPU than
+  0.192's, and the IR of `stdstringstream.cpp` was 42 % larger (256 invokes), of `stdvector.cpp` 14 % (42). Over libc++
+  18 at 0.232: `stdstringstream.cpp` makes 225 invokes where 0.231 made 284 and clang++ 198, its IR 1.2 % smaller;
+  `stdvector.cpp` 32 where 0.231 made 34 and clang++ 30, its IR 6.1 % larger -- the terminate guards of the library's
+  noexcept bodies, which 0.231 lacked (`ir_nx_guard/4`), each a handler and a pad, with an invoke at each call in them
+  of a callee not known to be noexcept. What is left: an implicit special member is not noted (clang++ knows it noexcept
+  by what it calls), nor a library function declared and not defined (its summary's set names it, the emission does
+  not), nor a library function whose noexcept is a condition (the Exceptions topic: evaluated at its emission it met
+  calls no binding settles); and a call through a pointer to a noexcept function type is an invoke.
 - A C++ build's time was its first deductions and its instantiations (0.98), and, found at 0.120, the COPIES of the
   desugaring's own tables and class records (the Time and memory topic): the slowest fixture, `viewsall.cpp`, took 1760 s
   of the C++ gate's 2400 s cap in the gate's pool at 0.115 and 1357 s at 0.118, and takes 211 s now; the sum of the 388

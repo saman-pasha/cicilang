@@ -478,7 +478,7 @@ cpp_nx_throwing(Ctx, call(id(F), As)) :- As \== [], atom(F), \+ cpp_local(F), \+
     findall(K, ( '$cpp_fn'(F, K, Ps, _, _), length(Ps, N) ), Ks), sort(Ks, [_, _|_]),
     cpp_nx_instance_params(Ctx, call(id(F), As), Ps0), cpp_nx_args_init_throw(Ps0, As), !.
 cpp_nx_throwing(_, call(id(C), As)) :- cpp_nx_class_named(C, T), cpp_nx_arg_values(As, ATs), \+ cpp_nothrow_q(cpp_nothrow_ctor(T, ATs)), !.
-cpp_nx_throwing(Ctx, call(F0, As)) :- cpp_nx_fn_named(F0, F), cpp_nx_maybe_cond(F), cpp_nx_callee_value(Ctx, call(F0, As), V), !, V == false.
+cpp_nx_throwing(Ctx, call(F0, As)) :- cpp_nx_fn_named(F0, F), cpp_nx_maybe_cond(F), cpp_nx_callee_value(Ctx, call(F0, As), V), V == false, !.   % a condition that holds says the callee does not throw, and the clauses below still ask its arguments' initialization (0.232: the program's plain noexcept is a condition too, `noexcept(dt(1, 2))' over `void dt(T, TH) noexcept' false)
 %% ... and `__builtin_invoke(f, args...)' (0.199; libc++ 21's `is_nothrow_invocable' asks `noexcept(__builtin_invoke(...))'): the
 %% callable's own type says -- a pointer or a reference to a function its noexcept mark, a pointer to member function its
 %% member function type's, a pointer to data member never throws, a class its call operator's declarations
@@ -579,6 +579,7 @@ cpp_nx_callee_value(Ctx, Call, V) :- catch(cpp_unevaluated(cpp_expr(Ctx, Call, D
 cpp_nx_named_value(C, V) :- '$cpp_nxval'(C, V0), !, V = V0.
 cpp_nx_named_value(C, V) :- '$cpp_nxdef'(C, Cx, E, Ps), !, cpp_nx_cond_value(Cx, E, Ps, V), assertz('$cpp_nxval'(C, V)).
 cpp_nx_named_value(C, V) :- '$cpp_nxsrc'(N, Ps, E), cpp_nx_src_name(N, Ps, C1), C1 == C, !, cpp_nx_cond_value(none, E, Ps, V), assertz('$cpp_nxval'(C, V)).
+cpp_nx_named_value(C, false) :- '$cpp_fn'(N, _, Ps, yes, own(_)), cpp_nx_src_name(N, Ps, C1), C1 == C, !.   % THE PROGRAM'S DEFINITION THAT SAYS NOTHING (0.232): each carries its own noexcept (ccl_nx_sto/3), so `noexcept(f(1.5))' over `void f(double)' beside `void f(int) noexcept' is false, where the name's set answered true
 cpp_nx_src_name(operator(Op), Ps, C) :- !, cpp_free_operator(Op, Ps, N0), catch(cpp_fn_name(N0, Ps, yes, C), _, fail).
 cpp_nx_src_name(N, Ps, C) :- atom(N), catch(cpp_fn_name(N, Ps, yes, C), _, fail).
 cpp_nx_note_src(N, Ps, nxif(E, _)) :- !, assertz('$cpp_nxsrc'(N, Ps, E)).
@@ -603,13 +604,56 @@ cpp_qs_nothrow(_, Qs, _) :- memberchk(noexcept, Qs), !.
 cpp_qs_nothrow(C, Qs, Ps) :- memberchk(noexcept(E), Qs), !, cpp_nx_member_value(C, E, Ps, true).
 cpp_nx_member_value(C, E, Ps, V) :- '$cpp_nxmval'(C, K, V0), K == E-Ps, !, V = V0.
 cpp_nx_member_value(C, E, Ps, V) :- cpp_nx_cond_value(C, E, Ps, V0), assertz('$cpp_nxmval'(C, E-Ps, V0)), V = V0.
+%% THE FUNCTIONS EMITTED NOEXCEPT (0.232), whose calls the lowering makes plain (ir_nothrow_callee/1, '$cpp_nxfns') and
+%% whose bodies it guards where the desugaring has not (ir_nx_guard/4): a member, a constructor among them, by its own
+%% qualifiers (cpp_qs_nothrow/3); a destructor by cpp_dtor_nothrow/1; a free function by the condition its emission was
+%% handed -- the plain noexcept among them, its definition's own (ccl_nx_sto/3) --, else a library function's by its
+%% name's noexcept where the name is of one declaration -- its own emitted name, an overload's keyed name aside, since a
+%% summary notes a noexcept by the name. A CONDITION IS EVALUATED FOR THE PROGRAM'S FUNCTION ALONE, as its guard evaluates
+%% it: a library member's, evaluated where it was emitted, met calls no binding settles -- libc++'s ranges closures,
+%% `__bind_back_op::operator()''s `noexcept(noexcept(std::invoke(std::forward<_Fn>(__f), ...)))' under a trait's
+%% unevaluated `__invoke', made `std::forward<_Fn>' with `_Fn' bound to nothing, and the build failed --, so a library
+%% function is noted by a plain noexcept, or its definition's own `bool(true)'. Only where exceptions are on: elsewhere
+%% no call is an invoke
+cpp_nx_note_member(C, Qs, Ps, Fs) :- nb_current('$cpp_throws', yes), cpp_nx_said_nothrow(C, Qs, Ps), !, cpp_nx_note_items(Fs).
+cpp_nx_note_member(_, _, _, _).
+cpp_nx_note_dtor(C, Fs) :- nb_current('$cpp_throws', yes), cpp_dtor_nothrow(C), !, cpp_nx_note_items(Fs).
+cpp_nx_note_dtor(_, _).
+cpp_nx_note_fn(NxD, N, Name, Ps) :- nb_current('$cpp_throws', yes), cpp_fn_nothrow_def(NxD, N, Name, Ps), !, ccl_set_add('$cpp_nxfns', Name).
+cpp_nx_note_fn(_, _, _, _).
+cpp_fn_nothrow_def(def(_, E), _, _, _) :- E == bool(true), !.
+cpp_fn_nothrow_def(def(Cx, E), _, _, Ps) :- !, nb_getval('$cpp_in_lib', no), cpp_nx_cond_value(Cx, E, Ps, true).
+cpp_fn_nothrow_def(none, N, N, _) :- nb_current('$cpp_in_lib', yes), ccl_lib_nothrow(N), \+ '$cpp_nxsrc'(N, _, _), !.   % a library function by its summary's set; the program's definition carries its own (ccl_nx_sto/3)
+cpp_nx_said_nothrow(_, Qs, _) :- memberchk(noexcept, Qs), !.
+cpp_nx_said_nothrow(C, Qs, Ps) :- nb_getval('$cpp_in_lib', no), cpp_qs_nothrow(C, Qs, Ps).
+cpp_nx_note_items([]).
+cpp_nx_note_items([F|Fs]) :- ( cpp_nx_item_name(F, N) -> ccl_set_add('$cpp_nxfns', N) ; true ), cpp_nx_note_items(Fs).
+cpp_nx_item_name(function(_, _, _, N, _, _, _), N) :- atom(N).
+cpp_nx_item_name(declaration(_, _, _, [var(N, fn(_, _, _), _)]), N) :- atom(N).
+%% A DESTRUCTOR THAT DOES NOT THROW (0.232; [except.spec]/8, /9): its `noexcept', or a condition that holds -- the reader
+%% keeps `noexcept(false)' as the condition `false' --; else, the implicit destructor's and a written one's that says
+%% nothing, each potentially constructed subobject's destructor: a base's and a member's of a class with one, an array's
+%% element's, a variant member none. Asked once a class ('$cpp_dtor_nx')
+cpp_dtor_nothrow(C) :- cpp_dtor_nothrow(C, 0).
+cpp_dtor_nothrow(C, _) :- '$cpp_dtor_nx'(C, V), !, V == yes.
+cpp_dtor_nothrow(C, K) :- ( K < 24, cpp_dtor_nothrow_(C, K) -> V = yes ; V = no ), assertz('$cpp_dtor_nx'(C, V)), V == yes.
+cpp_dtor_nothrow_(C, K) :- catch(cpp_class(C, cls(B, Data, Ms, _, _, _)), _, fail),
+    (   memberchk(dtor(_, Qs, _), Ms), memberchk(noexcept, Qs) -> true
+    ;   memberchk(dtor(_, Qs, _), Ms), memberchk(noexcept(E), Qs) -> ( E = bool(B) -> B == true ; \+ cpp_lib_class(C), cpp_nx_member_value(C, E, [], true) )   % a library class's condition unevaluated, as a member's (cpp_nx_note_member/4)
+    ;   cpp_parts_dtor_nothrow(C, B, Data, K) ).
+cpp_parts_dtor_nothrow(C, B, Data, K) :- K1 is K + 1,
+    \+ ( cpp_dtor_base(C, B, D), \+ cpp_dtor_nothrow(D, K1) ),
+    \+ ( member(member(MT, _, _), Data), cpp_elem_class(MT, MC), catch(cpp_dtor(MC, _), _, fail), \+ cpp_dtor_nothrow(MC, K1) ).
+cpp_dtor_base(_, B, B) :- atom(B), B \== none, catch(cpp_dtor(B, _), _, fail).
+cpp_dtor_base(C, _, E) :- '$cpp_base_slot'(C, E, _), catch(cpp_dtor(E, _), _, fail).
+cpp_dtor_base(C, _, V) :- '$cpp_vb_holder'(C, V), catch(cpp_dtor(V, _), _, fail).
 %% a method's body guarded by terminate (cpp_nx_wrap/3): `noexcept', or a condition that holds, asked only where a guard
 %% can stand (the program's code where it throws, a body that calls)
 cpp_qs_guarded(_, Qs, _, _) :- memberchk(noexcept, Qs), !.
 cpp_qs_guarded(C, Qs, Params, block(Is)) :- memberchk(noexcept(E), Qs), nb_current('$cpp_throws', yes), nb_getval('$cpp_in_lib', no), cpp_nx_may_throw(Is), !,
     cpp_nx_member_value(C, E, Params, true).
-%% ... and a free function's: its name noted noexcept, or the condition its emission was handed
-cpp_fn_nx_guarded(none, N, _, _) :- !, ccl_nothrow(N).
+%% ... and a free function's: the condition its emission was handed, the program's plain noexcept `bool(true)' since 0.232
+%% (ccl_nx_sto/3); a definition that says nothing is no guard's, whatever another overload of its name says
 cpp_fn_nx_guarded(def(Cx, E), _, Ps, block(Is)) :- nb_current('$cpp_throws', yes), nb_getval('$cpp_in_lib', no), cpp_nx_may_throw(Is), cpp_nx_cond_value(Cx, E, Ps, true).
 cpp_nx_def_take(D) :- ( nb_current('$cpp_nx_def', D0), D0 \== none -> nb_setval('$cpp_nx_def', none), D = D0 ; D = none ).
 %% `__builtin_invoke(f, ...)' throws as calling f does, by f's type

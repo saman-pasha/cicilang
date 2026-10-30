@@ -335,8 +335,7 @@ cpp_instantiate_function_(F, TPs, B, L, Sto, Ret, Ps, V, Body, Name) :-
 cpp_instantiate_function_emit(F, TPs, B, L0, Sto00, Ret, Ps, V0, Body, Name) :-
     cpp_lib_origin(F, Lib), cpp_nx_sto(Sto00, StoP, Cond0),
     cpp_where(subst(F), cpp_subst(fn(Ret, Ps, nxb(Cond0, Body)), B, fn(Ret10, Ps10, nxb(Cond10, Body10)))),   % ITS NOEXCEPT CONDITION TOO (0.199), under the instance's bindings, the parameter packs' among them
-    (   Cond10 \== none -> Sto0 = nxif(Cond10, StoP)
-    ;   Lib == no, ccl_nothrow(F) -> Sto0 = nxif(bool(true), StoP)   % ... and a PLAIN noexcept of the program's template, its instance's own (0.199): the instance's name was no name the set holds, and its body no guard's
+    (   Cond10 \== none -> Sto0 = nxif(Cond10, StoP)   % the program's plain noexcept among them, its pattern's own `bool(true)' since 0.232 (ccl_nx_sto/3), where the name's set answered for every overload of the name
     ;   Sto0 = StoP ),
     (   cpp_fspec_for(F, TPs, B, Ret10, Ps10, function(L, Sto, Ret1, _, Ps1, V, Body1)) -> cpp_trace(explicit_specialization(F, Name)), ISig = fsig(free, none, F, Ret1, Ps1, V, [], none)   % the instance IS the explicit specialization (0.129)
     ;   L = L0, Sto = Sto0, Ret1 = Ret10, Ps1 = Ps10, V = V0, Body1 = Body10, ISig = fsig(free, none, F, Ret, Ps, V0, [], ta(TPs, B)) ),   % what its own name says (0.166): the pattern, with its arguments

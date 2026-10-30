@@ -73,7 +73,8 @@ rules of the code by topic; `HISTORY.md` is the record of every step.
   base's own vcall offsets, the slots of a primary table in the ABI's order,
   and the base-variant constructors and destructors built under
   construction vtables of their own at any depth, from a VTT,
-  `noexcept` enforced, trailing return types, access control for
+  `noexcept` enforced (a noexcept callee's call a plain one, as clang's),
+  trailing return types, access control for
   the program's own classes, deducing `this` on a class's methods, user-defined
   literals, `mutable` lambdas checked, placement `new[]`, arrays of arrays of
   objects, scalar globals initialized before `main`, braced temporaries through

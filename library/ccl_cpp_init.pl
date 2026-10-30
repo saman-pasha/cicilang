@@ -402,21 +402,21 @@ cpp_member_fns([method(L, Qs, Ret0, M, Ps, V, Body)|Ms], C, B, Ds, [F|Fs]) :- !,
     (   Body == none -> F = declaration(L, none, Ret, [var(Name, fn(Ret, Params, V), none)])
     ;   ( cpp_qs_guarded(C, Qs, Params, Body) -> cpp_nx_wrap(L, Body, BodyG) ; BodyG = Body ), cpp_with_fsig(Sig, cpp_method_body(C, Ret, Params, BodyG, Body1)) -> F = function(L, none, Ret, Name, Params, V, Body1)
     ;   cpp_trace(method_body_failed(C, M)), fail ),
-    cpp_note_consteval(C, Qs, Name),
+    cpp_note_consteval(C, Qs, Name), cpp_nx_note_member(C, Qs, Ps, [F]),
     cpp_member_fns(Ms, C, B, Ds, Fs).
 cpp_member_fns([ctor(_, Qs, Ps, _, _)|Ms], C, B, Ds, Fs) :- memberchk(requires(_), Qs), \+ cpp_method_viable(C, Qs, Ps), !, cpp_member_fns(Ms, C, B, Ds, Fs).   % a constructor whose constraints are unmet is not instantiated ([temp.inst]/11; 0.112)
-cpp_member_fns([ctor(L, _, Ps, _, none)|Ms], C, B, Ds, [F|Fs]) :- !,                     % DECLARED, not defined: libc++'s bad_alloc() lives in the shipped binary -- a declaration, as a method and a destructor already were
+cpp_member_fns([ctor(L, Qs, Ps, _, none)|Ms], C, B, Ds, [F|Fs]) :- !,                     % DECLARED, not defined: libc++'s bad_alloc() lives in the shipped binary -- a declaration, as a method and a destructor already were
     cpp_mangle(C, C, Ps, Name), cpp_plain_params(Ps, Ps1), cpp_this_type(C, [], [fresh], ThisT), Params = [param(ThisT, this)|Ps1],
-    F = declaration(L, none, base([], [void]), [var(Name, fn(base([], [void]), Params, false), none)]),
+    F = declaration(L, none, base([], [void]), [var(Name, fn(base([], [void]), Params, false), none)]), cpp_nx_note_member(C, Qs, Ps, [F]),
     cpp_member_fns(Ms, C, B, Ds, Fs).
 cpp_member_fns([ctor(L, Qs, Ps, Inits, Body0)|Ms], C, B, Ds, Fs) :- memberchk(consteval, Qs), Body0 \== block([]), cpp_lib_class(C), !,   % A LIBRARY CLASS'S CONSTEVAL CONSTRUCTOR: its body is a compile-time CHECK (basic_format_string parses the format string against the arguments' kinds) -- the run-time constructor initializes the members, and the whole body is kept as the CHECK TWIN the evaluator runs where the object is made (cpp_ce_twin, cpp_ce_check; 0.164)
     cpp_ce_twin(L, C, B, Ds, Ps, Inits, Body0), cpp_member_fns([ctor(L, Qs, Ps, Inits, block([]))|Ms], C, B, Ds, Fs).
 cpp_member_fns([ctor(L, Qs, Ps, Inits, Body)|Ms], C, B, Ds, Out) :- !,
     cpp_ctor_fn(L, C, B, Ds, Ps, Inits, Body, F), cpp_nv_twin(C, F, cpp_ctor_fn(L, C, B, Ds, Ps, Inits, Body, F2), F2, Out, Fs),
-    ( F = function(_, _, _, CName, _, _, _) -> cpp_note_consteval(C, Qs, CName) ; true ),
+    ( F = function(_, _, _, CName, _, _, _) -> cpp_note_consteval(C, Qs, CName) ; true ), cpp_nx_note_member(C, Qs, Ps, [F]),
     cpp_member_fns(Ms, C, B, Ds, Fs).
 cpp_member_fns([dtor(L, _, Body)|Ms], C, B, Ds, Fs) :- !,
-    cpp_dtor_fn(L, C, Body, F), cpp_nv_twin(C, F, cpp_dtor_fn(L, C, Body, F2), F2, Fs, Fs1),
+    cpp_dtor_fn(L, C, Body, F), cpp_nv_twin(C, F, cpp_dtor_fn(L, C, Body, F2), F2, Fs, Fs1), cpp_nx_note_dtor(C, [F]),
     cpp_member_fns(Ms, C, B, Ds, Fs1).
 cpp_member_fns([_|Ms], C, B, Ds, Fs) :- cpp_member_fns(Ms, C, B, Ds, Fs).
 %% THE PROGRAM'S CONSTEVAL MEMBER FUNCTION AND CONSTRUCTOR ARE IMMEDIATE ([dcl.constexpr]/13; 0.112), as its free one has
