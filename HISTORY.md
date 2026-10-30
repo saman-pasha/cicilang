@@ -228,6 +228,7 @@ One row per step, in version order: the step's title, what it did and its gate n
 | 0.231 | `asm goto` lowered as a callbr; the asm records made rules | the fifth item of "Do all": GNU's `asm goto` a `callbr` as clang's, its labels after the operands, `%l[name]` among the labels alone; an edge that would run a cleanup refused, `asm_goto_over_defer`, as clang refuses it; an asm's pointer output and a register variable's register rules, not gaps; the lowering 133 | flow, compile (219), driver and cross (192) GREEN over 18, the C++ fixtures by the net; a local commit |
 | 0.232 | a call of a callee that does not throw is a plain call; each definition its own noexcept | the sixth item of "Do all": a noexcept callee's call a plain one marked `nounwind`, a noexcept body the desugaring does not guard guarded by the lowering, a destructor noexcept by its subobjects; found: the guard read the name, not the definition (an overload of a noexcept name terminated), a static member's call, a library template's instance; a library member's condition evaluated at its emission broke eleven builds, so a condition is the program's alone; an unnamed asm operand `''`; the reader 166, the lowering 134 | the C++ gate RED (11), then GREEN (833 of 843); flow, reader, compile, driver, cross GREEN; `stdstringstream` 225 invokes where 0.231 made 284; a local commit |
 | 0.233 | two-phase lookup in a library function's body; a nested namespace's bare use | the seventh item of "Do all": a call in a library function's body finds the program's own functions of the bare name only by argument-dependent lookup (libc++'s `iter_swap` took the program's `swap(int &, int &)`), a keyed name never hidden; a bare use in a nested namespace finds the innermost enclosing namespace's name of two of the program's; the namespaces' joined helpers meet no real call; the lowering 135 | flow GREEN, nets, the C++ gate GREEN (835 of 845); a local commit |
+| 0.234 | a library's consteval functions at compile time: no immediate function emitted, the evaluator's unions, `is_within_lifetime` | the eighth item of "Do all": the library's consteval calls were folded already and their bodies dead; no immediate function emitted; `if consteval`'s compile-time branch an immediate context; the evaluator's union by its active member and C++26's `__builtin_is_within_lifetime` (libc++ 22's `std::is_within_lifetime` folds); found: a member call over a constexpr class object does not fold; the lowering 136 | flow GREEN, a net of 56 the same, the C++ gate GREEN (836 of 847), `within.cpp` over 22 by hand; a local commit |
 
 ## M5 — the C++ mode
 
@@ -15851,3 +15852,48 @@ C gates were not run: the change is the desugaring's.
   versions.
 
 The module 0.233. The reader 166, as 0.232 left it; the lowering 135 (134 at 0.232): a call may take another function.
+
+## 0.234 — a library's consteval functions at compile time: no immediate function emitted, the evaluator's unions, `is_within_lifetime`
+
+**0.234: the eighth item of "Do all" (the Not done record of the library's consteval functions: they ran at run time,
+their values the same). A library's consteval free functions are folded where they are called, as the program's are, and
+since this step no immediate function is emitted, as clang emits none; `if consteval`'s compile-time branch is an
+immediate function context; the evaluator takes a union by its active member and answers C++26's
+`__builtin_is_within_lifetime`, so libc++ 22's `std::is_within_lifetime` folds. A local commit.**
+
+THE MEASURE FIRST: the IR of `stdformat.cpp`, `fmtchrono.cpp` and `viewiota.cpp` over libc++ 18 holds the instances of
+`__buffer_size` (four kinds, three integer types) and `__determine_arg_t` DEFINED and CALLED NOWHERE -- the free
+functions' calls were folded already, their emission noting them (`'$cpp_consteval'`) --, and
+`__get_wider_signed::__call`, a library class's consteval member, defined and called nowhere (its calls stand in
+`decltype`). The record's "run at run time" met no call.
+
+THE PROBE, `within.cpp` (C++26, libc++ 22; clang++ 22: `0 1 1 1`): a class with an anonymous union whose constexpr
+`has_value()` asks `std::is_within_lifetime(&b)` in `if consteval`, and a consteval function over a local's address.
+0.233 refused it: `consteval_call_not_constant('is_within_lifetime.bool')`, the call in the compile-time branch of `if
+consteval`, which C++23 makes an immediate function context and the desugaring did not (`'$cpp_in_ifce'`,
+`cpp_immediate_context/0`); then the evaluator had no `__builtin_is_within_lifetime`, and no union: a union member was
+the scalar 0. THE ROAD: a union's value is its active member, `uni(none)` or `uni(F-V)` (`cpp_eval_agg_kind/2`,
+`cpp_eval_agg_init/5`, `cpp_eval_at/3`, `cpp_eval_upd/4`, `cpp_eval_has_members/1`), and the builtin asks whether the
+pointer's object is alive, a union's member where it is the active one (`cpp_eval_alive/1`); the lowering emits no
+function of `'$cpp_consteval'` (`ir_item/1`), so `is_within_lifetime`'s body, a builtin no run time has, is never
+lowered. `ceunion.cpp` (C++23, libc++ 18): a named union's local and a class's anonymous union through constexpr
+functions, each in a static assertion that a false value fails, and `if consteval` over a consteval call of a parameter.
+
+WHAT THE PROBES FOUND: `ccl_global/3` reads a key it does not know and raises, its default unused: the first form of the
+immediate context took it for a default and met `existence_error(variable, '$cpp_in_ifce')`. And A MEMBER CALL OVER A
+CONSTEXPR OBJECT OF CLASS TYPE DOES NOT FOLD: `static_assert(p.get() == 6)` over `constexpr P p(5)` passes where clang++
+refuses it (a static assertion is checked where it folds); through a constexpr function that makes the object, it folds
+-- recorded in the static assertion's rule.
+
+MEASUREMENTS over libc++ 18, the HOME of 0.232: the flow gate GREEN after each edit (171 s, 177 s, 180 s, 172 s; 5205
+predicates); `within.cpp` the same as clang++ 22's over libc++ 22 (a fresh HOME); a net of 56 fixtures over consteval,
+unions, `source_location`, format and the views, all the same; the C++ gate GREEN in 2067 s, 836 of 847 fixtures ok, 11
+skipped by their needs (`within.cpp` the eleventh: libc++ 18 has no `is_within_lifetime`), the two units, the refusals,
+the safe part, the static assertions.
+
+- `library/ccl_cpp_eval.pl` (the union, `cpp_eval_alive/1`, the builtin), `ccl_cpp_stmt.pl` (`if consteval`'s branch),
+  `ccl_cpp_expr.pl` (`cpp_immediate_context/0`), `ccl_ir.pl` (`ir_item/1`). `test/cpp/run/within.cpp` (`.needs`),
+  `ceunion.cpp`. `RULES.md`: the Constant evaluation topic, the static assertion's rule, the Not done record of the
+  library's consteval functions. `CLAUDE.md`: the versions.
+
+The module 0.234. The reader 166, as 0.232 left it; the lowering 136 (135 at 0.233): no immediate function emitted.

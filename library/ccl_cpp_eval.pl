@@ -250,6 +250,7 @@ cpp_eval_reduce(call(id(strlen), [A]), Env, int(N)) :- cpp_eval_reduce(A, Env, '
 cpp_eval_reduce(call(id(wcslen), [A]), Env, int(N)) :- cpp_eval_reduce(A, Env, '$val'(P)), P = ptr(_, _), cpp_eval_strlen(P, 0, N), !.   % ... and `wcslen', `char_traits<wchar_t>::length' (0.115)
 cpp_eval_reduce(cast(T, E), Env, R) :- cpp_eval_ptr_cast(T, E, Env, R), !.   % A CAST TO A POINTER TYPE keeps the pointer the evaluator holds (0.126): libc++ 21's `__constexpr_strlen' counts through `__builtin_strlen(reinterpret_cast<const char *>(__str))' where the evaluator's `__libcpp_is_constant_evaluated()' is false, and a pointer wrapped in a cast was none to `strlen' above -- `std::string_view s{"true"}' of a constant did not fold, the static member stayed undefined (constsv.cpp, staticsv.cpp)
 cpp_eval_reduce(ccast(_, T, E), Env, R) :- cpp_eval_ptr_cast(T, E, Env, R), !.   % ... by a C++ NAMED cast too, which the desugaring keeps as `ccast(reinterpret, T, E)': the evaluator saw none of the two forms until 0.126's second clause
+cpp_eval_reduce(call(id('__builtin_is_within_lifetime'), [P]), Env, int(R)) :- cpp_eval_expr(P, Env, A), A = ptr(_, _), !, ( cpp_eval_alive(A) -> R = 1 ; R = 0 ).   % C++26's std::is_within_lifetime (0.234)
 cpp_eval_reduce(call(id(F), [X|Rest]), Env, int(R)) :- cpp_bitcount(F, Dir, W0), cpp_eval_bitcount(Dir, W0, X, Rest, Env, R), !.   % THE BIT COUNTS (0.126): libc++ 21 writes `__countl_zero' as `__builtin_clzg(__t, numeric_limits<_Tp>::digits)' and its radix sort's `static constexpr auto __radix_size = std::__bit_log2<uint64_t>(...)' folds through the evaluator -- the desugaring folded a count of a CONSTANT argument alone (cpp_builtin_call), and the argument here is the callee's parameter (stdalgorithm6.cpp)
 cpp_eval_reduce(call(id(F), [X]), Env, int(R)) :- ccl_bswap_builtin(F, W, _), W =< 32, cpp_eval_reduce(X, Env, XR), cpp_eval_value(XR, V), integer(V), !, U is V /\ ((1 << W) - 1), cpp_bswap_bits(U, W, R).   % A BYTE SWAP of 16 or 32 bits (0.206): a constant expression, as std::byteswap is
 cpp_eval_reduce(bin(Op, A, B), Env, R) :- !, cpp_eval_reduce(A, Env, A1), cpp_eval_reduce(B, Env, B1), cpp_eval_bin_rest(Op, A1, B1, R).
@@ -355,6 +356,7 @@ cpp_eval_init_items([], []).
 cpp_eval_init_items([X|Xs], [item([], T)|Ts]) :- cpp_eval_init_term(X, T), !, cpp_eval_init_items(Xs, Ts).
 cpp_eval_agg_kind(T, arr(B, ET)) :- ccl_resolve_type(T, arr(B, ET)), !.
 cpp_eval_agg_kind(T, obj(Ms)) :- ccl_resolve_type(T, T1), ( T1 = base(_, [struct(_, Ms0)]), Ms0 \== none ; T1 = base(_, [class(_, _, _, _)]) ), !, ccl_members_of(T1, Ms).
+cpp_eval_agg_kind(T, uni(Ms)) :- ccl_resolve_type(T, base(_, [union(_, Ms)])), is_list(Ms), !.   % A UNION (0.234): its value the ACTIVE member, `uni(F-V)', or none
 cpp_eval_init(T, Init, Env0, Env, V) :- cpp_eval_agg_kind(T, K), !, cpp_eval_agg_init(K, Init, Env0, Env, V).
 cpp_eval_init(T, Init, Env, Env, P) :- cpp_eval_ref_type(T), ( Init = init([item(_, E)]) -> true ; E = Init ), E \= init(_), E \== none, \+ cpp_eval_address_item(E, T, Env), !, cpp_eval_arg(T, E, Env, '$val'(P)).   % A REFERENCE MEMBER BINDS ITS ITEM (0.168): its slot holds the item's address (a prvalue's in a cell of its own), as the lowering binds it (ir_init_sub); a closure's item is that address already
 cpp_eval_init(_, none, Env, Env, 0) :- !.
@@ -381,6 +383,8 @@ cpp_eval_agg_init(arr(B, ET), init(Items), Env0, Env, arr(L)) :- !, cpp_eval_ite
     ( B == none -> K = N0 ; cpp_eval_expr(B, Env0, K), integer(K), K >= N0 ), P is K - N0, cpp_eval_zero(ET, Z), length(Pad, P), cpp_eval_all(Pad, Z), append(L0, Pad, L).
 cpp_eval_agg_init(arr(_, _), E, Env0, Env, V) :- cpp_eval_effect(E, Env0, Env, V), V = arr(_).
 cpp_eval_agg_init(obj(Ms), Init, Env, Env, obj(Ps)) :- ( Init == none ; Init == init([]) ), !, cpp_eval_members_zero(Ms, Ps).
+cpp_eval_agg_init(uni(_), Init, Env, Env, uni(none)) :- ( Init == none ; Init == init([]) ), !.   % A UNION'S VALUE IS ITS ACTIVE MEMBER (0.234; [class.union]/2): none until one is written,
+cpp_eval_agg_init(uni([member(MT, F, _)|_]), init([item([], E)]), Env0, Env, uni(F-V)) :- !, cpp_eval_init(MT, E, Env0, Env, V).   % ... a braced item the first member's
 cpp_eval_agg_init(obj(Ms), init(Items), Env0, Env, obj(Ps)) :- !, cpp_eval_members_zero(Ms, Ps0), cpp_eval_fields(Items, Ms, 0, Ps0, Env0, Env, Ps).
 cpp_eval_agg_init(obj(Ms), compound_lit(_, I), Env0, Env, V) :- !, cpp_eval_agg_init(obj(Ms), I, Env0, Env, V).
 cpp_eval_agg_init(obj(_), E, Env0, Env, V) :- cpp_eval_effect(E, Env0, Env, V), V = obj(_).
@@ -418,8 +422,8 @@ cpp_eval_addr(id(N), _, ptr(cell(Id), [])) :- cpp_global_agg(N, V), atom_concat(
 cpp_eval_addr(index(P, I), Env, A) :- cpp_eval_expr(I, Env, K), integer(K),
     (   cpp_eval_addr(P, Env, ptr(C, Path)), cpp_eval_load(ptr(C, Path), arr(_)) -> append(Path, [K], Path1), A = ptr(C, Path1)
     ;   cpp_eval_expr(P, Env, PV), PV = ptr(_, _), cpp_eval_padd(PV, K, A) ).
-cpp_eval_addr(member(P, F), Env, A) :- cpp_eval_addr(P, Env, ptr(C, Path)), cpp_eval_load(ptr(C, Path), obj(_)), append(Path, [F], Path1), cpp_eval_ref_through(member(P, F), Env, ptr(C, Path1), A).
-cpp_eval_addr(arrow(P, F), Env, A) :- cpp_eval_expr(P, Env, ptr(C, Path)), cpp_eval_load(ptr(C, Path), obj(_)), append(Path, [F], Path1), cpp_eval_ref_through(arrow(P, F), Env, ptr(C, Path1), A).
+cpp_eval_addr(member(P, F), Env, A) :- cpp_eval_addr(P, Env, ptr(C, Path)), cpp_eval_load(ptr(C, Path), W), cpp_eval_has_members(W), append(Path, [F], Path1), cpp_eval_ref_through(member(P, F), Env, ptr(C, Path1), A).
+cpp_eval_addr(arrow(P, F), Env, A) :- cpp_eval_expr(P, Env, ptr(C, Path)), cpp_eval_load(ptr(C, Path), W), cpp_eval_has_members(W), append(Path, [F], Path1), cpp_eval_ref_through(arrow(P, F), Env, ptr(C, Path1), A).
 cpp_eval_addr(deref(P), Env, A) :- cpp_eval_expr(P, Env, A), A = ptr(_, _).
 cpp_eval_addr(move(E), Env, A) :- cpp_eval_addr(E, Env, A).
 cpp_eval_addr(ccast(_, T, E), Env, ptr(C, Path1)) :- cpp_eval_ref_type(T), cpp_eval_addr(E, Env, ptr(C, Path)), cpp_eval_base_path(T, E, Env, Hops), !, append(Path, Hops, Path1).   % A CAST TO A BASE'S REFERENCE names the base sub-object (0.168): libc++'s `std::get<I>(t)' is `static_cast<__tuple_leaf<I, T> &>(t.__base_).get()', the I-th leaf a later base of `__tuple_impl', and the cast named the whole object, which has no `__value_' of its own
@@ -427,6 +431,13 @@ cpp_eval_addr(ccast(_, T, E), Env, A) :- cpp_eval_ref_type(T), cpp_eval_addr(E, 
 cpp_eval_addr(cast(T, E), Env, A) :- cpp_eval_ref_type(T), cpp_eval_addr(E, Env, A).
 cpp_eval_addr(id(N), Env, ptr(cell(Id), [])) :- \+ memberchk(N-_, Env), cpp_eval_static_cell(N, Id).
 cpp_eval_addr(call(id(F), Args), Env, A) :- cpp_eval_ref_fn(F), cpp_eval_fn(F, Params, Ss), !, cpp_eval_args(Params, Args, Env, Args1), cpp_eval_call(F, Params, Ss, Args1, A), A = ptr(_, _).   % a call of a function that returns a reference: its referent (0.168)
+%% an object whose members an address goes into: a class's, and a union's, through its active member or one written next (0.234)
+cpp_eval_has_members(obj(_)).
+cpp_eval_has_members(uni(_)).
+%% AN OBJECT WITHIN ITS LIFETIME (0.234; C++26 [meta.const.eval], `__builtin_is_within_lifetime'): a union's member is
+%% where it is the active one; any other object the pointer reaches is
+cpp_eval_alive(ptr(cell(Id), Path)) :- append(Pre, [F], Path), atom(F), cpp_eval_load(ptr(cell(Id), Pre), uni(U)), !, U = G-_, G == F.
+cpp_eval_alive(P) :- cpp_eval_load(P, _).
 %% A CLASS'S STATIC CONSTANT AS A PLACE (0.164): `basic_format_string's `__types_' and `__handles_', whose `.data()' the
 %% check hands its context -- the static's initializer desugared in its class, its type resolved there, its value built
 %% by the evaluator (the handles by the lambdas called in place) into a cell once per unit (`'$cpp_scell'(Name, Id)'),
@@ -442,9 +453,12 @@ cpp_eval_load(ptr(cell(Id), Path), V) :- cpp_ec_get(Id, W), cpp_eval_at(W, Path,
 cpp_eval_at(V, [], V) :- !.
 cpp_eval_at(arr(L), [K|P], V) :- integer(K), K >= 0, nth0(K, L, X), cpp_eval_at(X, P, V).
 cpp_eval_at(obj(Ps), [F|P], V) :- atom(F), memberchk(F-X, Ps), cpp_eval_at(X, P, V).
+cpp_eval_at(uni(G-X), [F|P], V) :- atom(F), F == G, cpp_eval_at(X, P, V).   % the active member alone is read: another's read is no constant expression (0.234)
 cpp_eval_upd(_, [], V, V) :- !.
 cpp_eval_upd(arr(L), [K|P], V, arr(L1)) :- integer(K), K >= 0, nth0(K, L, X), cpp_eval_upd(X, P, V, X1), cpp_eval_put(K, L, X1, L1).
 cpp_eval_upd(obj(Ps), [F|P], V, obj(Ps1)) :- atom(F), memberchk(F-X, Ps), cpp_eval_upd(X, P, V, X1), cpp_eval_put_field(F, X1, Ps, Ps1).
+cpp_eval_upd(uni(G-X), [F|P], V, uni(F-X1)) :- atom(F), F == G, !, cpp_eval_upd(X, P, V, X1).
+cpp_eval_upd(uni(_), [F], V, uni(F-V)) :- atom(F).   % a member written whole is the active one (0.234; [class.union]/6)
 cpp_eval_store_ptr(ptr(cell(Id), Path), V) :- cpp_ec_get(Id, W0), cpp_eval_upd(W0, Path, V, W1), cpp_ec_put(Id, W1).
 cpp_eval_decay(arr(_), ptr(C, Path), '$val'(ptr(C, Path1))) :- !, append(Path, [0], Path1).                   % an array is a pointer to its first element
 cpp_eval_decay(V, _, R) :- cpp_eval_lit(V, R).

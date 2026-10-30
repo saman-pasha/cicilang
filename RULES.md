@@ -1941,7 +1941,9 @@ that changes a rule edits the rule here, in its topic, and writes its entry in `
   instantiation takes. (0.57, 0.198) The fold is asked ONCE (`once(ccl_const_eval(E, V))`, 0.117): `sizeof` of a struct
   had alternatives (16, 0, 0, 0), the test `V =:= 0` failed on the first and backtracked into a 0, and
   `_Static_assert(sizeof(T) == 16, ...)` over `struct { char c; long v; }` failed since 0.57. `sizeof`, `sizeof_type`
-  and `alignof_type` answer one value in `ccl_const_eval/2` now. `test/c/run/sizeofassert.c`. (0.117)
+  and `alignof_type` answer one value in `ccl_const_eval/2` now. `test/c/run/sizeofassert.c`. (0.117) A member call over
+  a constexpr OBJECT of class type does not fold -- `static_assert(p.get() == 6)` over `constexpr P p(5)` passes where
+  clang++ refuses it (0.234's probe); through a constexpr function that makes the object it folds.
 
 ### The language's own forms
 
@@ -6429,8 +6431,12 @@ A lambda is a class of its captures (`library/ccl_cpp_lambda.pl`, 0.223). A fixt
 - A static data member of class type initialized in its class is built so and emitted `linkonce`
   (`cpp_static_constructed/4`): `strong_ordering::less`. (0.101)
 - In a body, a class local and a temporary use cells too: the declaration, then the constructor over its address. (0.99)
-- A call of the program's `consteval` free function folds to a scalar or refuses `consteval_call_not_constant(F)`
-  ([dcl.constexpr]/13; `'$cpp_consteval'`, `cpp_free_call/5`). `consteval.cpp`. (0.99)
+- A call of a `consteval` free function -- the program's, and a library header's, noted where its instance is emitted --
+  folds to a scalar or refuses `consteval_call_not_constant(F)` ([dcl.constexpr]/13; `'$cpp_consteval'`,
+  `cpp_free_call/5`). `consteval.cpp`. AN IMMEDIATE FUNCTION IS NOT EMITTED (0.234; [dcl.constexpr]/2; `ir_item/1`), as
+  clang emits none: every call of it is folded or refused, and libc++ 18's `__buffer_size` and `__determine_arg_t`
+  instances were defined in `stdformat.cpp`'s IR and called nowhere -- and libc++ 22's `is_within_lifetime` holds a
+  builtin no run time has. (0.99, 0.234)
 - So does the program's consteval member function, static or not (`cpp_note_consteval/3` where the method is emitted,
   `cpp_consteval_fold/2` after every call), and its consteval constructor builds a local at compile time
   (`cpp_eval_construct` in `cpp_decl_pieces`: the object's value is the local's initializer). `constevalm.cpp`. (0.112)
@@ -6438,8 +6444,19 @@ A lambda is a class of its captures (`library/ccl_cpp_lambda.pl`, 0.223). A fixt
   consteval function that does not fold stays a call in a consteval function's body, and in an instance of a function
   template that is being made it makes that instance immediate (`'$cpp_consteval'`, trace `immediate_escalated`), whose
   own calls its callers fold: `template <class T> constexpr int prop(T x) { return cev(x); }` and `prop(4)` are 5. A
-  template's instance is escalated whether or not it is declared constexpr (the reader keeps no such mark on a function),
-  where clang++ refuses the program. `cevescalate.cpp`.
+  template's instance is escalated whether or not it is declared constexpr (the reader keeps no such mark on a
+  function), where clang++ refuses the program. `cevescalate.cpp`. AND `IF CONSTEVAL`'S COMPILE-TIME BRANCH (0.234;
+  C++23 [expr.const]/16; `'$cpp_in_ifce'` while the desugaring walks it): a consteval call there that does not fold
+  stands for the evaluator, which takes that branch -- libc++ 22's `std::is_within_lifetime(&b)` inside a constexpr
+  member's `if consteval` was refused `consteval_call_not_constant` (`within.cpp`, `ceunion.cpp`).
+- THE EVALUATOR TAKES A UNION BY ITS ACTIVE MEMBER (0.234; [class.union]/2, /6; `cpp_eval_agg_kind/2`'s `uni(Ms)`): a
+  union's value is `uni(none)` until a member is written and `uni(F-V)` after; a read of another member is no constant
+  expression (`cpp_eval_at/3`), a member written whole is the active one (`cpp_eval_upd/4`), and an address goes through
+  it (`cpp_eval_has_members/1`) -- a named union's local and a class's anonymous union, whose member a constructor
+  assigns. It was the scalar 0, and no union member was evaluated at compile time. C++26's
+  `__builtin_is_within_lifetime(p)` answers whether p's object is alive, a union's member where it is the active one
+  (`cpp_eval_alive/1`), so libc++ 22's `std::is_within_lifetime` folds: `within.cpp` (C++26, libc++ 22) prints clang++
+  22's `0 1 1 1`. `ceunion.cpp` (C++23). (0.234)
 - A LIBRARY CLASS'S CONSTEVAL CONSTRUCTOR IS RUN AT COMPILE TIME where its object is made ([dcl.constexpr]/13,
   [expr.const]; 0.164; dropped from 0.110 to 0.163): `basic_format_string`'s parses the format string against the
   arguments' kinds, through `__format::__vformat_to` over a `__compile_time_basic_format_context`, and libc++ 21's
@@ -11577,9 +11594,12 @@ Declarations topic of the C++ reader).
 - A library class's consteval constructor's check runs at compile time since 0.164 where the evaluator takes it (the
   Constant evaluation topic: `basic_format_string`'s format parse); a check it cannot take leaves the format string to
   the library's run-time parser, which no check of the format fixtures does since 0.168 (over libc++ 18 and 21). A
-  library's other consteval functions run at run time, as before -- their values are the same, and only a call that is
-  no constant expression would differ, which libc++'s own calls are not (0.110, 0.164, 0.168); the program's own fold
-  (0.99, 0.112). `std::source_location::current()` is answered since 0.166.
+  library's consteval free functions fold where they are called, as the program's do (their instance's emission notes
+  them), and none is emitted since 0.234; a library CLASS's consteval members -- the views' iterator tags,
+  `__get_wider_signed::__call` -- are no immediate functions here (`cpp_note_consteval/3` leaves them out): their calls
+  stand in unevaluated operands (`decltype(__call())`), and none was called at run time in the IR of `stdformat.cpp`,
+  `fmtchrono.cpp` and `viewiota.cpp` (0.234). C++26's `std::is_within_lifetime` folds since 0.234 (the Constant
+  evaluation topic). `std::source_location::current()` is answered since 0.166. (0.110, 0.164, 0.168, 0.234)
 - A later virtual base or a path whose virtual bases cannot be laid as a `.nv` form is refused by name,
   `virtual_base_over_virtual_base(C, V)` or `virtual_base_laid_otherwise(C, P)`; since 0.173 no shape the probes tried
   meets either -- a later virtual base with virtual bases of its own (`X : B, virtual V` over `V : virtual A`) and a path

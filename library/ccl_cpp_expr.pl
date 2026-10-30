@@ -388,6 +388,7 @@ cpp_consteval_fold(E, E).
 %% cev was refused `consteval_call_not_constant(cev)'. A non-constexpr template is escalated too (P2564 asks the constexpr specifier, which
 %% the reader keeps on no function), a program that is ill-formed and that clang++ refuses.
 cpp_immediate_context :- nb_current('$cpp_fsig', S0), cpp_fsig_unwrap(S0, fsig(_, _, _, R, _, _, Qs, _)), ( nonvar(R), R = base(Q, _), memberchk(consteval, Q) -> true ; is_list(Qs), memberchk(consteval, Qs) ), !.
+cpp_immediate_context :- nb_current('$cpp_in_ifce', yes), !.   % `if consteval''s compile-time branch (0.234, cpp_stmt_/3)
 cpp_immediate_context :- nb_current('$cpp_cur_fn', Cur), atom(Cur), nb_getval('$cpp_making', Ms), memberchk(Cur, Ms), !,
     ( '$cpp_consteval'(Cur) -> true ; assertz('$cpp_consteval'(Cur)), cpp_trace(immediate_escalated(Cur)) ).
 cpp_qual_object(X, Path, C, B) :-

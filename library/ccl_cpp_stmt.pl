@@ -195,10 +195,15 @@ cpp_stmt_(Ctx, if_constexpr(L, C, T, E), Out) :- !,                             
     ;   cpp_stmt(Ctx, T, T1), ( E == none -> E1 = none ; cpp_stmt(Ctx, E, E1) ), Out = if(L, C1, T1, E1) ).
 %% C++23's `if consteval': BOTH branches are kept, `ifce(L, CompileTime, RunTime)' -- the lowering and the check take
 %% the run-time one, the constexpr evaluator the compile-time one (0.108: the evaluator had only the run-time
-%% branch, so a consteval function's fold took the wrong road)
+%% branch, so a consteval function's fold took the wrong road). THE COMPILE-TIME BRANCH IS AN IMMEDIATE FUNCTION CONTEXT
+%% (0.234; C++23 [expr.const]/16): a consteval function's call there that does not fold stands, for the evaluator to take
+%% where it takes the branch (cpp_immediate_context/0) -- libc++ 22's `std::is_within_lifetime(&b)' inside a constexpr
+%% member's `if consteval' was refused `consteval_call_not_constant'
 cpp_stmt_(Ctx, if_consteval(L, Neg, T, E), ifce(L, CT1, RT1)) :- !,
     ( Neg == yes -> RT = T, CT = E ; RT = E, CT = T ),
-    ( CT == none -> CT1 = empty ; cpp_stmt(Ctx, CT, CT1) ), ( RT == none -> RT1 = empty ; cpp_stmt(Ctx, RT, RT1) ).
+    ( CT == none -> CT1 = empty ; ( nb_current('$cpp_in_ifce', I0) -> true ; I0 = no ), nb_setval('$cpp_in_ifce', yes),
+      ( catch(cpp_stmt(Ctx, CT, CT1), X, ( nb_setval('$cpp_in_ifce', I0), throw(X) )) -> nb_setval('$cpp_in_ifce', I0) ; nb_setval('$cpp_in_ifce', I0), fail ) ),
+    ( RT == none -> RT1 = empty ; cpp_stmt(Ctx, RT, RT1) ).
 %% ---- C++20 COROUTINES (0.108; refused by name since 0.42) ---------------------------------------------------
 %% A function whose body holds co_await, co_yield or co_return is made the skeleton the lowering takes
 %% (`cpp_coro_skeleton', before the walk): the promise `$promise' of `R::promise_type' declared, `coro_begin',
