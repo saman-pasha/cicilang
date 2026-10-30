@@ -148,13 +148,14 @@ cpp_ns_rewrite_items([I|Is], P, Qs, [I3|Is1]) :-
     cpp_qualify_body(Qs, P, I1, I20), cpp_lib_outer_body(Qs, P, I20, I2),
     ( cpp_ns_named_path(P, NP0) -> cpp_using_blocks(I2, NP0, Qs, I3) ; I3 = I2 ),   % ... and in a block, the statements after it (0.139)
     cpp_ns_rewrite_items(Is, P, Qs, Is1).
-%% A BARE USE OF A NAME KEYED APART FROM THE LIBRARY'S, IN A NAMESPACE NESTED IN ONE THAT DECLARES IT (0.221; [basic.lookup.unqual]/4,
-%% cpp_lib_quals/4): C++'s search goes from the use's namespace out, and the innermost enclosing namespace that declares the name
-%% is the one found -- `max(a, b)' inside `ns::detail' is `ns::max'. Bare, it was the library's now. A name declared in the use's
-%% own namespace is cpp_qualify_body/4's
-cpp_lib_outer_body(Qs, P, I, I1) :- cpp_ns_named_path(P, NP), NP \== [], findall(N-K, cpp_lib_outer_key(Qs, NP, N, K), Map), Map \== [], !, cpp_rename_names(I, Map, I1).
+%% A BARE USE OF A KEYED NAME IN A NAMESPACE NESTED IN ONE THAT DECLARES IT (0.221; [basic.lookup.unqual]/4, cpp_lib_quals/4):
+%% C++'s search goes from the use's namespace out, and the innermost enclosing namespace that declares the name is the one found
+%% -- `max(a, b)' inside `ns::detail' is `ns::max', which was the library's bare one. Since 0.233 a name two of the program's
+%% namespaces declare too: `helper(5)' inside `b::c' is `b::helper', which was the global one, keeping the bare name. A name
+%% declared in the use's own namespace is cpp_qualify_body/4's
+cpp_lib_outer_body(Qs, P, I, I1) :- cpp_ns_named_path(P, NP), NP \== [], findall(N-K, cpp_lib_outer_key(Qs, NP, N, K), Map0), sort(Map0, Map), Map \== [], !, cpp_rename_names(I, Map, I1).
 cpp_lib_outer_body(_, _, I, I).
-cpp_lib_outer_key(Qs, NP, N, K) :- catch('$cpp_ns_libkeyed'(N), _, fail), \+ memberchk(q(_, N, NP), Qs),
+cpp_lib_outer_key(Qs, NP, N, K) :- member(q(_, N, _), Qs), \+ memberchk(q(_, N, NP), Qs),
     findall(L-Ns, ( member(q(Ns, N, P0), Qs), P0 \== NP, append(P0, _, NP), length(P0, L) ), LNs), LNs \== [],
     msort(LNs, S), last(S, _-Ns), Ns \== bare, atomic_list_concat([Ns, '.', N], K).
 %% A USING-DECLARATION OR A USING-DIRECTIVE OVER COLLIDED NAMES (0.139; [namespace.udecl], [namespace.udir]): two namespaces of

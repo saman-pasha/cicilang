@@ -227,6 +227,7 @@ One row per step, in version order: the step's title, what it did and its gate n
 | 0.230 | the flow gate charts the desugaring's seventeen files as one program | the fourth item of "Do all": the seventeen parts joined, in their order, into one copy with one root over their 2301 predicates, one job, each finding put back at its part's own file and line (`joined.txt`); four seeded defects named at their parts' lines | the flow gate GREEN in 132 s and 113 s, where 0.229's took 205 s on the same box; a local commit |
 | 0.231 | `asm goto` lowered as a callbr; the asm records made rules | the fifth item of "Do all": GNU's `asm goto` a `callbr` as clang's, its labels after the operands, `%l[name]` among the labels alone; an edge that would run a cleanup refused, `asm_goto_over_defer`, as clang refuses it; an asm's pointer output and a register variable's register rules, not gaps; the lowering 133 | flow, compile (219), driver and cross (192) GREEN over 18, the C++ fixtures by the net; a local commit |
 | 0.232 | a call of a callee that does not throw is a plain call; each definition its own noexcept | the sixth item of "Do all": a noexcept callee's call a plain one marked `nounwind`, a noexcept body the desugaring does not guard guarded by the lowering, a destructor noexcept by its subobjects; found: the guard read the name, not the definition (an overload of a noexcept name terminated), a static member's call, a library template's instance; a library member's condition evaluated at its emission broke eleven builds, so a condition is the program's alone; an unnamed asm operand `''`; the reader 166, the lowering 134 | the C++ gate RED (11), then GREEN (833 of 843); flow, reader, compile, driver, cross GREEN; `stdstringstream` 225 invokes where 0.231 made 284; a local commit |
+| 0.233 | two-phase lookup in a library function's body; a nested namespace's bare use | the seventh item of "Do all": a call in a library function's body finds the program's own functions of the bare name only by argument-dependent lookup (libc++'s `iter_swap` took the program's `swap(int &, int &)`), a keyed name never hidden; a bare use in a nested namespace finds the innermost enclosing namespace's name of two of the program's; the namespaces' joined helpers meet no real call; the lowering 135 | flow GREEN, nets, the C++ gate GREEN (835 of 845); a local commit |
 
 ## M5 — the C++ mode
 
@@ -15810,3 +15811,43 @@ since this step, as the gate does: a terminate path writes libc++abi's line to t
 The module 0.232. The reader 166 (165 at 0.228): a definition's plain noexcept on its storage, a method's
 `noexcept(false)` kept, an unnamed asm operand `''`: every summary starts afresh. The lowering 134 (133 at 0.231): a
 call of a callee that does not throw is plain, a noexcept body guarded.
+
+## 0.233 — two-phase lookup in a library function's body; a nested namespace's bare use
+
+**0.233: the seventh item of "Do all" (the Not done record of the names across the reads and the program's). A call in a
+library function's body finds the program's own functions of the bare name only by argument-dependent lookup, and a bare
+use in a nested namespace finds the innermost enclosing namespace's name of two of the program's. The internal helpers
+that an unqualified call joins across two of libc++'s namespaces meet no real call. A local commit.**
+
+THE PROBE, `twophase.cpp` (clang++ over libc++ 18: `1 2 4 3 7 5 10 11`): libc++'s `iter_swap` and `reverse` call
+`swap(*a, *b)` unqualified; the program's global `swap(int &, int &)` is no candidate for two ints, its `swap(G &, G &)`
+is for its own G. 0.232 printed `12 13`: the program's overloads joined the library's bare name, and its exact `swap(int
+&, int &)` won. THE ROAD: `cpp_fn_hidden/3` (in `cpp_fn_exact/4` and `cpp_fn_best/4`) and `cpp_lib_unq_cands/4` (the
+function templates' candidates) leave the program's own functions of a bare name out in a library function's body
+(`'$cpp_in_lib'`), unless an argument has a class of the function's own namespace among its associated classes
+(`cpp_adl_reaches_own/2` over `cpp_adl_arg_class/2`). Its first form asked the global namespace alone and hid `ns.swap`
+too, which argument-dependent lookup had found by its key: `nslibname.cpp`'s `std::iter_swap` over `ns::V` printed `2 3
+1` for `2 3 2` in the net; a keyed name is no ordinary lookup's, and is never hidden so.
+
+THE NAMESPACES' HELPERS: in libc++ 18, 21 and 22 every call of the free helpers that two namespaces declare
+(`__transform`, `__fill`, `__vprint_unicode`, `__vprint_nonunicode`) is qualified; the unqualified uses are their
+definitions, the format buffer's own members of the names, and a parameter named `__transform` in the parallel backends
+-- no real call meets the joined set. THE PROGRAM'S OWN CASE, `nsouter.cpp` (clang++: `11 22 22 22 7 33`): a function
+and a class that two of the program's namespaces and the global one declare, used bare inside `b::c` and `b::c::d`, are
+`b`'s; 0.232 took the global ones, the bare names. `cpp_lib_outer_key/4` took a name keyed apart from the library's
+alone; it takes every keyed name now, the innermost enclosing namespace that declares it deciding, and a local of the
+name still shadows it.
+
+MEASUREMENTS over libc++ 18, the HOME of 0.232 (warm at reader 166): the flow gate GREEN after each edit (158 s, 173 s,
+173 s); the probes the same as clang++'s; a net of 44 fixtures of names, lookup and the library's containers the same
+but `nslibname` (the first form's, above), then the ten it touches the same; the C++ gate GREEN in 2117 s, 835 of 845
+fixtures ok, the same 10 skipped by their needs, the two units, the refusals, the safe part, the static assertions. The
+C gates were not run: the change is the desugaring's.
+
+- `library/ccl_cpp_library.pl` (`cpp_fn_hidden/3`), `ccl_cpp_expr.pl` (`cpp_lib_unq_cands/4`, `cpp_adl_reaches_own/2`,
+  `cpp_own_class_path/2`), `ccl_cpp_template.pl` (the template candidates), `ccl_cpp_namespace.pl`
+  (`cpp_lib_outer_key/4`). `test/cpp/run/twophase.cpp`, `nsouter.cpp`. `RULES.md`: the Overload resolution topic
+  (two-phase lookup), the namespaces' topic (the nested use), the Not done record of the names. `CLAUDE.md`: the
+  versions.
+
+The module 0.233. The reader 166, as 0.232 left it; the lowering 135 (134 at 0.232): a call may take another function.

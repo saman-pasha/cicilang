@@ -1115,7 +1115,7 @@ cpp_object_value(compound_lit(T, init(_))) :- cpp_class_of_type(T, _).
 cpp_instantiate_function(F, Explicit, As, Name) :- cpp_where(fn(F), cpp_instantiate_function__(F, Explicit, As, Name)).
 cpp_instantiate_function__(F, Explicit, As, Name) :-
     ( nb_getval('$cpp_trace', yes) -> findall(A-T, ( member(A, As), ( ccl_type_of(A, T0), T0 \== unknown -> T = T0 ; T = unknown ) ), ATs), cpp_trace(call_types(F, ATs)) ; true ),
-    cpp_fn_candidates(F, Cands00), cpp_libq_cands(F, Cands00, Cands),     % assertz: declaration order; the merged set kept per name (0.97)
+    cpp_fn_candidates(F, Cands00), cpp_libq_cands(F, Cands00, Cands01), cpp_lib_unq_cands(F, As, Cands01, Cands),     % assertz: declaration order; the merged set kept per name (0.97); the program's own hidden as cpp_fn_hidden/3 hides them (0.233)
     length(Cands, NC), ( nb_current('$cpp_first_refusal', Outer) -> true ; Outer = none ), nb_setval('$cpp_first_refusal', none),
     (   catch(cpp_holding_set(F, Explicit, As, Cands, NC, Hs), E, ( nb_setval('$cpp_first_refusal', Outer), throw(E) ))
     ->  nb_getval('$cpp_first_refusal', FirstW), nb_setval('$cpp_first_refusal', Outer)   % THE ENCLOSING CALL'S FIRST REFUSAL BACK (0.112): a candidate check makes calls of its own, each resetting the one global, and the reason reported for `std::invoke' was a nested `__sfinae_test_impl''s

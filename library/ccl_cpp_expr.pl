@@ -1069,6 +1069,12 @@ cpp_libq_cands(F, Cs0, Cs) :- nb_current('$cpp_libq', F-D), nb_getval('$cpp_dept
     catch('$cpp_own_tmplfn'(F, _, _), _, fail), !,
     findall(TPs-Fn, ( member(TPs-Fn, Cs0), \+ ( Fn = function(L, _, _, _, _, _, Body), catch('$cpp_own_tmplfn'(F, L, Body), _, fail) ) ), Cs).
 cpp_libq_cands(_, Cs, Cs).
+%% ... and IN A LIBRARY FUNCTION'S BODY its function templates' candidates leave the program's own out but by argument-dependent
+%% lookup (0.233; two-phase lookup, cpp_fn_hidden/3)
+cpp_lib_unq_cands(F, As, Cs0, Cs) :- nb_current('$cpp_in_lib', yes), \+ sub_atom(F, _, _, _, '.'), \+ catch('$cpp_own_ns'(F, [std|_]), _, fail),
+    catch('$cpp_own_tmplfn'(F, _, _), _, fail), \+ cpp_adl_reaches_own(F, As), !,
+    findall(TPs-Fn, ( member(TPs-Fn, Cs0), \+ ( Fn = function(L, _, _, _, _, _, Body), catch('$cpp_own_tmplfn'(F, L, Body), _, fail) ) ), Cs).
+cpp_lib_unq_cands(_, _, Cs, Cs).
 cpp_object_paths(F, NPs) :- findall(I, catch('$cpp_hdr_ast'(F, I), _, fail), Is), Is \== [], findall(P, catch('$cpp_hdr_ast_ns'(F, P), _, fail), Ps),
     cpp_cross_zip(Is, Ps, IPs), !, findall(NP, ( member(I-P, IPs), P \== c, cpp_object_item(I, F), cpp_ns_named_path(P, NP), NP \== [] ), NPs).
 cpp_object_paths(_, []).
@@ -1077,6 +1083,12 @@ cpp_bare_name(F, N) :- atomic_list_concat(Ss, '.', F), last(Ss, N), !.
 cpp_block_object(N) :- ccl_locals(Fs), member(F, Fs), memberchk(N-T, F), T \= fn(_, _, _), !.
 cpp_member_scope(Ctx, N) :- atom(Ctx), Ctx \== none, catch(cpp_has_member(Ctx, N), _, fail), !.
 cpp_own_class_ns(C, P) :- ( catch('$cpp_inst'(C, inst(C0, _)), _, fail) -> true ; C0 = C ), atom(C0), ( catch('$cpp_type_ns'(C0, P), _, fail) ; catch('$cpp_own_ns'(C0, P), _, fail) ), is_list(P), !.
+%% an argument one of whose associated classes is the program's, of the namespace the program's function F is declared in, the
+%% global one where it names none (0.233; two-phase lookup, cpp_fn_hidden/3): a class, a union or an enumeration no library
+%% header declares
+cpp_adl_reaches_own(F, As) :- ( catch('$cpp_own_ns'(F, FP0), _, fail) -> FP = FP0 ; FP = [] ), member(A, As), cpp_adl_arg_class(A, C), cpp_own_class_path(C, CP), CP == FP, !.
+cpp_own_class_path(C, P) :- ( catch('$cpp_inst'(C, inst(C0, _)), _, fail) -> true ; C0 = C ), atom(C0), \+ cpp_lib_class(C0), \+ cpp_lib_class(C),
+    ( cpp_own_class_ns(C, P0) -> P = P0 ; P = [] ).
 cpp_adl_call(K, As, E) :- cpp_fn_exact(K, As, Ps, D), !, cpp_free_call(K, Ps, D, As, E).
 cpp_adl_call(K, As, E) :- catch(cpp_template(K, _, Item), _, fail), cpp_fn_item(Item, _), catch(cpp_instantiate_function(K, [], As, Name), error(not_lowered(_), _), fail), !,
     cpp_fill_defaults(Name, As, As0), cpp_ref_args(Name, As0, As1), E = call(id(Name), As1).

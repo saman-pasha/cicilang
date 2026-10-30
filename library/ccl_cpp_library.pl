@@ -27,7 +27,7 @@ cpp_builtin_word(W) :- memberchk(W, [void, char, short, int, long, float, double
 %% the overload an argument list names: one whose parameters take it EXACTLY (C++ prefers such a non-template
 %% to any template), else the one whose parameters fit best (cpp_pick, the methods')
 cpp_fn_exact(F, As, Ps, D) :- cpp_fn_ready(F), length(As, N),
-    findall(Ps0, ( '$cpp_fn'(F, _, Ps0, _, O), \+ cpp_fn_hidden(F, O), length(Ps0, N), \+ cpp_raw_params(Ps0), cpp_exact_params(Ps0, As) ), Cs), Cs = [C1|Cs1],   % AMONG THE EXACT OVERLOADS an rvalue argument takes the `T &&' one (0.122; [over.ics.rank]/3.2.3): `f(const S &)' beside `f(S &&)' for `f(S{2})' and `f(std::move(s))' -- the first declared won
+    findall(Ps0, ( '$cpp_fn'(F, _, Ps0, _, O), \+ cpp_fn_hidden(F, O, As), length(Ps0, N), \+ cpp_raw_params(Ps0), cpp_exact_params(Ps0, As) ), Cs), Cs = [C1|Cs1],   % AMONG THE EXACT OVERLOADS an rvalue argument takes the `T &&' one (0.122; [over.ics.rank]/3.2.3): `f(const S &)' beside `f(S &&)' for `f(S{2})' and `f(std::move(s))' -- the first declared won
     cpp_prefer_rvalue(Cs1, C1, As, Ps), cpp_fn_defined(F, Ps, D), !.
 %% A PLAIN OVERLOAD'S PARAMETERS NAME NO FREE TEMPLATE PARAMETER (0.136): a template's raw signature among the noted
 %% overloads of a name (`duration<_Rep, _Period> abs(duration<_Rep, _Period>)' beside `int abs(int)') is the template's
@@ -40,7 +40,7 @@ cpp_rvalue_binds([], [], 0).
 cpp_rvalue_binds([P|Ps], [A|As], K) :- ( P = param(T, _) ; P = param(T, _, _) ), !, ( T = rref(_, _), \+ cpp_arg_lvalue(A) -> K1 = 1 ; K1 = 0 ), cpp_rvalue_binds(Ps, As, K0), K is K0 + K1.
 cpp_rvalue_binds(_, _, 0).
 cpp_fn_best(F, As, Ps, D) :- cpp_fn_ready(F), length(As, N),
-    findall(Ps0, ( '$cpp_fn'(F, _, Ps0, _, O), \+ cpp_fn_hidden(F, O), cpp_fn_arity_fits(Ps0, O, N), \+ cpp_raw_params(Ps0), cpp_args_no_clash(Ps0, As) ), Cands), Cands \== [],   % the arity alone is the last resort, never a clash (as the members' is)
+    findall(Ps0, ( '$cpp_fn'(F, _, Ps0, _, O), \+ cpp_fn_hidden(F, O, As), cpp_fn_arity_fits(Ps0, O, N), \+ cpp_raw_params(Ps0), cpp_args_no_clash(Ps0, As) ), Cands), Cands \== [],   % the arity alone is the last resort, never a clash (as the members' is)
     cpp_pick(Cands, As, Ps), cpp_fn_defined(F, Ps, D).
 %% A CALL QUALIFIED BY THE LIBRARY'S NAMESPACE FINDS NONE OF THE PROGRAM'S OWN FUNCTIONS OF THE NAME (0.221; [namespace.qual]/2):
 %% the program's global names keep the bare name beside the library's, one overload set (cpp_lib_quals/4 keys its named
@@ -50,6 +50,15 @@ cpp_fn_best(F, As, Ps, D) :- cpp_fn_ready(F), length(As, N),
 %% the bodies it instantiates, where argument-dependent lookup can find them -- unless the program declares the name in
 %% namespace std itself
 cpp_fn_hidden(F, own(_)) :- nb_current('$cpp_libq', F-D), nb_getval('$cpp_depth', D), \+ catch('$cpp_own_ns'(F, [std|_]), _, fail).
+%% TWO-PHASE LOOKUP (0.233; [temp.dep.candidate], [basic.lookup.argdep]): a call in a LIBRARY function's body -- libc++'s
+%% unqualified `swap(*__a, *__b)' in `iter_swap' -- finds the program's own functions of the bare name only by
+%% argument-dependent lookup, where an argument has a class of the function's own namespace among its associated classes
+%% (cpp_adl_reaches_own/2): the program's global `swap(int &, int &)' took the library's two ints, where clang++'s `iter_swap'
+%% and `reverse' leave it uncalled and its `swap(G &, G &)' is found for G (`twophase.cpp'). A keyed name (`ns.swap') is
+%% one argument-dependent lookup or a qualifier found (cpp_call_adl/4), never ordinary lookup's
+cpp_fn_hidden(F, O, _) :- cpp_fn_hidden(F, O), !.
+cpp_fn_hidden(F, own(_), As) :- nb_current('$cpp_in_lib', yes), \+ sub_atom(F, _, _, _, '.'), \+ catch('$cpp_own_ns'(F, [std|_]), _, fail),
+    \+ cpp_adl_reaches_own(F, As).
 %% an ELLIPSIS takes any number past the named parameters: `__libcpp_verbose_abort(const char *, ...)' is
 %% called with a format and its arguments, and the plain arity test found no candidate for those calls
 cpp_fn_arity_fits(Ps, O, N) :- cpp_fn_variadic(O), !, cpp_required(Ps, Min), N >= Min.

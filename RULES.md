@@ -7811,10 +7811,12 @@ The namespaces' rules, the program's and the library's, are `library/ccl_cpp_nam
   word: `std::max(1, 2)` called the program's `ns::max(int, int)`, 3 for clang's 2, and the qualified `std::swap(a, b)`
   the program's `ns::swap`; `ns::abs(-4)` beside `<cstdlib>` was `undeclared('abs.int')`. A BARE USE IN A NAMESPACE
   NESTED IN ONE THAT DECLARES THE NAME goes to that one's key, the innermost enclosing namespace that declares it
-  ([basic.lookup.unqual]/4; `cpp_lib_outer_body/4`): `max(1, 2)` inside `ns::detail` is `ns::max`. The program's global
-  names and its names in a namespace of the library's (`namespace std { template <> struct hash<K> ...}`) keep the bare
-  name, as before; an operator's name is no atom here, and operators stay one set, found by their arguments.
-  `nslibname.cpp`. (0.221)
+  ([basic.lookup.unqual]/4; `cpp_lib_outer_body/4`): `max(1, 2)` inside `ns::detail` is `ns::max`; and since 0.233 a
+  name two of the program's own namespaces declare (`cpp_lib_outer_key/4`): `helper(5)` inside `b::c` is `b::helper`,
+  which was the global one that keeps the bare name, a class alike, a local of the name shadowing it (`nsouter.cpp`).
+  The program's global names and its names in a namespace of the library's (`namespace std { template <> struct hash<K>
+  ...}`) keep the bare name, as before; an operator's name is no atom here, and operators stay one set, found by their
+  arguments. `nslibname.cpp`. (0.221, 0.233)
 - ARGUMENT-DEPENDENT LOOKUP OF THE PROGRAM'S KEYED NAMES (0.221; [basic.lookup.argdep]/2, /3; `cpp_call_adl/4` in
   `cpp_expr(call(...))`): a call written unqualified whose name the program keyed apart from the library's, one of whose
   arguments is of a class, a plain struct or union, or an enumeration of the program's namespace (`cpp_adl_arg_class/2`,
@@ -7843,18 +7845,28 @@ The namespaces' rules, the program's and the library's, are `library/ccl_cpp_nam
   [basic.lookup.argdep]/3, /3.2; `cpp_adl_arg_class/2`, `cpp_adl_assoc/2`, `cpp_adl_base/3`): `count(&s)` over the
   program's `ns::S *` and `size(v)` over a `std::vector<ns::S>` find `ns::count` and `ns::size`, which the keys of this
   step took out of the bare name's set, and `std::size(v)` is the library's, where 0.220 called `ns::size`.
-  `nslibglobal.cpp`: 0.220 printed `5 5 5`, `3 3 3 3`, `1 2 2` and `15 103 103` for clang's `5 3 5`, `3 2 3 1`, `1 2 1`
-  and `15 103 3`. `count(d)` over a `D : ns::B` and `count(&e)` over an `E : D` find `ns::count`, where `<algorithm>`'s
-  std::count was taken and refused `arity_mismatch`. `adlbase.cpp`. ... AND A COMPOUND TYPE'S PARTS AND A TEMPLATE
-  TEMPLATE ARGUMENT'S NAMESPACE (0.229; /3.2, /3.3, /3.5 to /3.7; `cpp_adl_type_classes/3` over `cpp_adl_type_part/2`,
-  each part resolved in the desugaring's words, `cpp_adl_resolve/2`, and a template template argument `tname(D)` in
-  `cpp_adl_assoc/2`): a pointer's and an array's element, a function type's parameters and result, a pointer to member's
-  class and its member's type, some levels deep -- `count(take)` over a `void take(ns::S)`, `find(make)` over a `ns::S
-  make()`, `sort(&ns::M::x)`, `fill(&ns::M::f)`, `size(arr)` over a `ns::S[2]` -- and `data(Holder<ns::Box>{})` over a
-  global `template <template <class> class> struct Holder`. 0.228 refused four of them (`arity_mismatch`: std's template
-  of the name the one candidate), gave 2 for `size(arr)` where clang gives 5 (std::size of the array), and refused
-  `data` (`no_member`); a parameter written `ns::S` is `scoped([ns], 'S')` in the declared type, which the table's
-  resolution alone does not name, and the first draft of the step found no class there. `adlparts.cpp`. (0.221, 0.229)
+- TWO-PHASE LOOKUP: A CALL IN A LIBRARY FUNCTION'S BODY FINDS THE PROGRAM'S OWN FUNCTIONS OF THE BARE NAME ONLY BY
+  ARGUMENT-DEPENDENT LOOKUP (0.233; [temp.dep.candidate], [basic.lookup.argdep]; `cpp_fn_hidden/3` in `cpp_fn_exact/4`
+  and `cpp_fn_best/4`, `cpp_lib_unq_cands/4` over the function templates' candidates, `cpp_adl_reaches_own/2`): where an
+  argument has a class of the function's own namespace among its associated classes, the global namespace for a global
+  function. libc++'s `iter_swap` and `reverse` call `swap(*a, *b)` unqualified, and the program's global `swap(int &,
+  int &)` took their two ints -- `12 13` for clang++'s `10 11` -- where its `swap(G &, G &)` is found for its own G. A
+  keyed name (`ns.swap`) is one argument-dependent lookup or a qualifier found, and is not hidden so: `std::iter_swap`
+  over `ns::V` calls `ns::swap` (`nslibname.cpp`). A program's function declared before the header whose template calls
+  it, which C++'s lookup at the template's definition sees where namespace std declares no function of the name, is not
+  told apart. `twophase.cpp`. (0.233) `nslibglobal.cpp`: 0.220 printed `5 5 5`, `3 3 3 3`, `1 2 2` and `15 103 103` for
+  clang's `5 3 5`, `3 2 3 1`, `1 2 1` and `15 103 3`. `count(d)` over a `D : ns::B` and `count(&e)` over an `E : D` find
+  `ns::count`, where `<algorithm>`'s std::count was taken and refused `arity_mismatch`. `adlbase.cpp`. ... AND A
+  COMPOUND TYPE'S PARTS AND A TEMPLATE TEMPLATE ARGUMENT'S NAMESPACE (0.229; /3.2, /3.3, /3.5 to /3.7;
+  `cpp_adl_type_classes/3` over `cpp_adl_type_part/2`, each part resolved in the desugaring's words,
+  `cpp_adl_resolve/2`, and a template template argument `tname(D)` in `cpp_adl_assoc/2`): a pointer's and an array's
+  element, a function type's parameters and result, a pointer to member's class and its member's type, some levels deep
+  -- `count(take)` over a `void take(ns::S)`, `find(make)` over a `ns::S make()`, `sort(&ns::M::x)`, `fill(&ns::M::f)`,
+  `size(arr)` over a `ns::S[2]` -- and `data(Holder<ns::Box>{})` over a global `template <template <class> class> struct
+  Holder`. 0.228 refused four of them (`arity_mismatch`: std's template of the name the one candidate), gave 2 for
+  `size(arr)` where clang gives 5 (std::size of the array), and refused `data` (`no_member`); a parameter written
+  `ns::S` is `scoped([ns], 'S')` in the declared type, which the table's resolution alone does not name, and the first
+  draft of the step found no class there. `adlparts.cpp`. (0.221, 0.229)
 - A USING-DECLARATION OR A USING-DIRECTIVE OF THE PROGRAM over such names ([namespace.udecl], [namespace.udir]; 0.139),
   at file scope, in a namespace or in a block, makes the names it brings the ones a bare use finds in the rest of its
   scope: the keyed ones are renamed to their keys in the items or statements that follow (`cpp_using_map/4`,
@@ -11553,13 +11565,15 @@ Declarations topic of the C++ reader).
   using-declarations, and internal helpers it does not -- libc++ 18's `__transform`, `__fill`, `__vprint_unicode` and
   `__vprint_nonunicode`, libc++ 21's and 22's `__fill`, each of std and of std::__formatter or std::__print -- where the
   arguments' types choose; since 0.227 a call qualified by the namespace, as libc++ calls them, takes that namespace's
-  own (the libc++ topic), and an unqualified call still joins the set. THE PROGRAM'S GLOBAL FUNCTIONS are hidden from a
-  call qualified by std (0.221), not from an
-  unqualified call in a library template, where C++ finds them only by argument-dependent lookup. ARGUMENT-DEPENDENT
-  LOOKUP of a keyed name asks every associated class and namespace of [basic.lookup.argdep]/3 since 0.229: the
-  arguments', their pointees', their templates' arguments', their bases' (0.221), a function type's parameters and
-  result, a member pointer's class and a template template argument's namespace (the Overload resolution topic). (0.218,
-  0.219, 0.221, 0.227, 0.229)
+  own (the libc++ topic), and an unqualified call still joins the set -- which meets no real call: every call of those
+  helpers in libc++ 18, 21 and 22 is qualified, the unqualified uses being their definitions, the format buffer's own
+  members of the names and a parameter named `__transform` (0.233). THE PROGRAM'S GLOBAL FUNCTIONS are hidden from a
+  call qualified by std (0.221) and, but by argument-dependent lookup, from a call in a library function's body (0.233,
+  two-phase lookup, the Overload resolution topic), and a bare use in a nested namespace finds the innermost enclosing
+  namespace's name of two of the program's (0.233). ARGUMENT-DEPENDENT LOOKUP of a keyed name asks every associated
+  class and namespace of [basic.lookup.argdep]/3 since 0.229: the arguments', their pointees', their templates'
+  arguments', their bases' (0.221), a function type's parameters and result, a member pointer's class and a template
+  template argument's namespace (the Overload resolution topic). (0.218, 0.219, 0.221, 0.227, 0.229, 0.233)
 - A library class's consteval constructor's check runs at compile time since 0.164 where the evaluator takes it (the
   Constant evaluation topic: `basic_format_string`'s format parse); a check it cannot take leaves the format string to
   the library's run-time parser, which no check of the format fixtures does since 0.168 (over libc++ 18 and 21). A
