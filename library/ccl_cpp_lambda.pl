@@ -216,15 +216,21 @@ cpp_self_type(ref(Q, T0), Name, ref(Q, T)) :- !, cpp_self_type(T0, Name, T).
 cpp_self_type(rref(Q, T0), Name, ref(Q, T)) :- !, cpp_self_type(T0, Name, T).
 cpp_self_type(T, _, T).
 %% the captures, Name-val(Type) | Name-ref(Type): the ones named, then, under a default, every enclosing local the body names
+%% A CAPTURE BY REFERENCE REFERS TO THE ENTITY'S OWN TYPE ([expr.prim.lambda.capture]/12; 0.227): an array stays an array and a
+%% `const' stays, where a capture by copy decays. Decayed, libc++ 22's `emplace_back' lambda captured its `const char (&)[6]'
+%% argument as a reference to a `const char *', which no address of an array binds: the member was bound to a temporary holding the
+%% address (ir_init_sub/4), and the string was made from the temporary's bytes
 cpp_captures(Ctx, Caps, Ps, Body, Captures) :-
-    findall(N-How, ( member(cap(K, N), Caps), ( K == val ; K == ref ), cpp_capturable(Ctx, N, CT), CT \== unknown, cpp_decayed(CT, CT1), ( K == val -> How = val(CT1) ; How = ref(CT1) ) ), Explicit0),
+    findall(N-How, ( member(cap(K, N), Caps), ( K == val ; K == ref ), cpp_capturable(Ctx, N, CT), CT \== unknown, cpp_capture_how(K, CT, How) ), Explicit0),
     findall(N-How, ( member(cap(K, N, E), Caps), cpp_init_capture(Ctx, K, E, How) ), Inits),
     append(Explicit0, Inits, Explicit),
     (   memberchk(cap(default, D), Caps)
-    ->  cpp_lambda_free(Ps, Body, Names),
-        findall(N-How, ( member(N, Names), \+ memberchk(N-_, Explicit), cpp_capturable(Ctx, N, CT), CT \== unknown, cpp_decayed(CT, CT1), ( D == '=' -> How = val(CT1) ; How = ref(CT1) ) ), Implicit)
+    ->  cpp_lambda_free(Ps, Body, Names), ( D == '=' -> DK = val ; DK = ref ),
+        findall(N-How, ( member(N, Names), \+ memberchk(N-_, Explicit), cpp_capturable(Ctx, N, CT), CT \== unknown, cpp_capture_how(DK, CT, How) ), Implicit)
     ;   Implicit = [] ),
     append(Explicit, Implicit, Captures).
+cpp_capture_how(val, CT, val(CT1)) :- cpp_decayed(CT, CT1).
+cpp_capture_how(ref, CT, ref(CT1)) :- ccl_unref(CT, CT1).
 %% A NAME A LAMBDA CAN CAPTURE is a local of the function it is made in or -- inside a closure's operator() -- a capture of that
 %% closure ([expr.prim.lambda.capture]/9; 0.117): `[a] { return [a] { return a + 1; }(); }' and the default captures of
 %% `[=] { return [=] { return a * b; }(); }' named the outer closure's members, which are no locals, so the inner lambda captured

@@ -178,7 +178,7 @@ cpp_register_units(Units) :-
     cpp_reset('$cpp_acc'/3), cpp_reset('$cpp_afriend'/2), cpp_reset('$cpp_bacc'/3), cpp_reset('$cpp_static_abi'/1), nb_setval('$cpp_body_ctx', none), nb_setval('$cpp_cur_fn', none), nb_setval('$cpp_acc_scope', none), nb_setval('$cpp_obj_expr', none),   % the access of a program class's members and its friends (0.117)
     cpp_reset('$cpp_concept'/2), cpp_reset('$cpp_ccm'/3), cpp_reset('$cpp_vtm'/3), cpp_reset('$cpp_friend_in'/3),   % the concepts by name, and the memos of a concept's satisfaction and a variable template's value (0.112)
     cpp_reset('$cpp_ctype'/3), cpp_reset('$cpp_sinit'/3), cpp_reset('$cpp_sinline'/2), cpp_reset('$cpp_encl'/2),
-    cpp_reset('$cpp_own_tmplfn'/3), cpp_reset('$cpp_cross_map'/3), cpp_reset('$cpp_cross_none'/1), nb_setval('$cpp_ast_gen', 0), nb_setval('$cpp_cross_table', none),   % the cross-read names' memos, by the ASTs loaded (0.219, cpp_cross_table/1)
+    cpp_reset('$cpp_own_tmplfn'/3), cpp_reset('$cpp_cross_map'/3), cpp_reset('$cpp_cross_none'/2), cpp_reset('$cpp_cross_made'/2), nb_setval('$cpp_ast_gen', 0), nb_setval('$cpp_cross_table', none),   % the cross-read names' memos, by the ASTs loaded (0.219, cpp_cross_table/1)
     cpp_reset('$cpp_lazy_c'/1), cpp_reset('$cpp_lazy_p'/1), nb_setval('$cpp_eh_used', no), nb_setval('$cpp_hdr_loaded', []), nb_setval('$cpp_budget', 0), nb_setval('$cpp_depth', 0), nb_setval('$cpp_class_ctx', none), ( catch(abolish('$cpp_hdr'/2), _, true) -> true ; true ), dynamic('$cpp_hdr'/2), dynamic('$cpp_hdr_ast'/2),
     cpp_reset('$cpp_lib'/1), cpp_reset('$cpp_libfn'/1), cpp_reset('$cpp_math_decl'/1), cpp_reset('$cpp_nested_tmpl'/3), cpp_reset('$cpp_implicit_copy'/3), cpp_reset('$cpp_promoted'/1), cpp_reset('$cpp_deferred'/4), cpp_reset('$cpp_base_named'/1), cpp_reset('$cpp_implicit_assign'/3), nb_setval('$cpp_in_lib', no),
     cpp_reset('$cpp_nxdef'/4), cpp_reset('$cpp_nxsrc'/3), cpp_reset('$cpp_nxval'/2), cpp_reset('$cpp_nxmval'/3), nb_setval('$cpp_nx_def', none), nb_setval('$cpp_nx_evaluating', []),   % the conditional noexcepts (0.199)
@@ -247,7 +247,11 @@ cpp_c_name(N) :- '$cpp_cname'(N), !.
 %% different parameters and this item is one of them
 cpp_fn_name(F, _, _, F) :- cpp_c_name(F), !.
 cpp_fn_name(F, Ps, no, Name) :- cpp_mangled_name(F, Ps, Name), !.                        % declared here and DEFINED in the shipped library: its own C++ symbol
-cpp_fn_name(F, Ps, yes, Name) :- cpp_fn_overloaded(F), !, cpp_params_key(Ps, K), atomic_list_concat([F, '.', K], Name).
+%% ... AFTER THE HEADER'S FUNCTIONS OF THE NAME HAVE JOINED ITS SET (cpp_hdr_join/1; 0.227), as a call's resolution has them
+%% (cpp_fn_ready/1): libc++ 22 defines a plain `std::swap(exception_ptr &, exception_ptr &)', registered at the first call of
+%% `std::swap' -- the program's `void swap(Box &, Box &)' was emitted as `swap' before its body made that call, and `main''s
+%% call named `swap.Box_r.Box_r', declared nowhere
+cpp_fn_name(F, Ps, yes, Name) :- cpp_hdr_join(F), cpp_fn_overloaded(F), !, cpp_params_key(Ps, K), atomic_list_concat([F, '.', K], Name).
 cpp_fn_name(F, _, _, F).
 
 %% ---- items ----------------------------------------------------------------------

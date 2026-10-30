@@ -119,13 +119,23 @@ cpp_free_call_(F, Ps, D, As, call(id(Name), As2)) :-
     cpp_fill_defaults(Name, As, As1), cpp_ref_args(Name, As1, As2).
 %% a mangled name is nothing this compiler defines, so the unit needs its PROTOTYPE: the item the lowering
 %% takes a `declare' line from, emitted once, and the symbol table's entry so the call has a type
-cpp_use_mangled(F, _, Name) :- Name == F, !.
+cpp_use_mangled(F, _, Name) :- Name == F, !, cpp_use_cdecl(F).
 cpp_use_mangled(F, Ps, Name) :-
     (   '$cpp_fn'(F, _, Ps, no, decl(Ret0, V)), \+ cpp_instance_done(Name)
     ->  cpp_instance_note(Name, mangled), cpp_resolved_type(Ret0, Ret), cpp_resolved_params(Ps, Ps1),   % ITS TYPES RESOLVED, as a header's inline function's are (0.58): libc++ declares `string to_string(int)' and the passes rebuild the tables from the summary, where `string' is the raw alias -- `std::to_string(x) + "!"' then deduced nothing for `operator+(const basic_string<_CharT, _Traits, _Allocator> &, const _CharT *)', and the concatenation stayed a raw `+' on a struct
         cpp_params_bare(Ps1, Ps2), ccl_gdeclare([Name-fn(Ret, Ps2, V)]), cpp_note_defaults(Name, Ps),   % DECLARED AT FILE SCOPE (0.117), not in the innermost frame -- an instance's body walk is one, and the name was noted done: the second function that called `__thread_local_data()' met a call of no type, and `.set_pointer(...)' on it no_member. Its DEFAULT ARGUMENTS under the symbol it is called by (0.108): stoi's `size_t *__idx = nullptr, int __base = 10'
         cpp_as_lib(yes, cpp_add_instance_items([function(0, extern, Ret, Name, Ps2, V, none)]))
     ;   true ).
+%% A C FUNCTION A HEADER DECLARES IN C++'S WORDS (0.227): libc++ 22 declares `void *__cxa_allocate_exception(std::size_t)
+%% throw();' in `extern "C"' inside namespace __cxxabiv1, and the table held the type as the reader left it, `typedef(scoped([std],
+%% size_t))', which the lowering cannot type -- std::make_exception_ptr was refused. Where it is first called (here, and on the
+%% plain call's road, cpp_call/4) its types are resolved and it is declared again, as a mangled declaration is above; its name
+%% stays its own. A name with a definition is left as it is: its definition declares it (cpp_item/2, cpp_use_fn/3)
+cpp_use_cdecl(F) :- atom(F), \+ '$cpp_fn'(F, _, _, yes, _), ccl_declared(F, fn(Ret0, Ps, V)), cpp_mentions_scoped(fn(Ret0, Ps)), \+ cpp_instance_done(F), !,
+    cpp_instance_note(F, cdecl), cpp_resolved_type(Ret0, Ret), cpp_resolved_params(Ps, Ps1), cpp_params_bare(Ps1, Ps2), ccl_gdeclare([F-fn(Ret, Ps2, V)]),
+    cpp_as_lib(yes, cpp_add_instance_items([function(0, extern, Ret, F, Ps2, V, none)])).   % the item too, which the table is built again from after the desugaring
+cpp_use_cdecl(_).
+cpp_mentions_scoped(T) :- compound(T), ( T = scoped(_, _) -> true ; T =.. [_|As], member(A, As), cpp_mentions_scoped(A) ), !.
 %% A LIBRARY HEADER'S FREE FUNCTION IS EMITTED WHERE IT IS CALLED, as its classes and its templates already are:
 %% libc++ writes ten `__convert_to_integral' overloads, one per integer type, and a program calls one -- the others
 %% would drag in what this compiler cannot lower (`__int128_t') for nothing.

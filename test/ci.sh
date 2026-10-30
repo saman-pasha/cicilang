@@ -7,7 +7,7 @@
 # left alone and the job stops: the script never moves a checkout it did not make.
 #
 #   sh test/ci.sh smoke     # the flow, reader, compile, driver and objects gates and the proof, over libc++ 18
-#   sh test/ci.sh full      # all nine over libc++ 18, then the library read and the C++ gate over libc++ 21 (Linux)
+#   sh test/ci.sh full      # all nine over libc++ 18, then the library read and the C++ gate over 21 and 22 (Linux)
 #   sh test/ci.sh JOB setup # the setup alone (the packages, the neighbours, the modules, the check), then
 #   sh test/ci.sh JOB gates # the job's gates alone: the workflow keeps Quicklisp in its cache between the two
 #   CI_PACKAGES=1 ...       # the system packages first: apt-get, through sudo where the user is not root, or Homebrew
@@ -54,6 +54,23 @@ ci_timeout() {   # a Mac's timeout: gtimeout under that name, first on PATH, whe
   mkdir -p "$CI_ROOT/.ci-bin" && ln -sf "$ci_gt" "$CI_ROOT/.ci-bin/timeout" && PATH="$CI_ROOT/.ci-bin:$PATH" && export PATH
 }
 ci_timeout
+# ONE LIBC++ TREE BESIDE THE OTHERS (0.227): every libc++-N-dev package, Ubuntu's and apt.llvm.org's, provides and conflicts
+# with libc++-x.y-dev, and apt.llvm.org's runtimes are one package, libc++1, so apt holds one tree at a time -- the full job's
+# one install of 18's and 21's could not be made, and 22's install here removed 21's. A tree past LLVM_MAJOR's is unpacked:
+# its packages, development and runtime, fetched at its own apt source's version; its headers under /usr/lib/llvm-N/include
+# and its runtime libraries, as files, under /usr/lib/llvm-N/lib, which the link names with its rpath (ccl_link_libs)
+ci_unpack_libcxx() {
+  ci_v=$(apt-cache madison "libc++-$1-dev" 2>/dev/null | awk 'NR == 1 { print $3 }')
+  [ -n "$ci_v" ] || ci_die "no libc++-$1-dev in the apt sources"
+  ci_d=$(mktemp -d) || ci_die "mktemp"
+  ( cd "$ci_d" && apt-get -qq download "libc++-$1-dev=$ci_v" "libc++abi-$1-dev=$ci_v" "libunwind-$1-dev=$ci_v" "libc++1=$ci_v" "libc++abi1=$ci_v" "llvm-libunwind1=$ci_v" ) > /dev/null 2>&1 \
+    || ci_die "apt-get download of libc++ $1 ($ci_v)"
+  for ci_f in "$ci_d"/*.deb; do dpkg-deb -x "$ci_f" "$ci_d/root" || ci_die "dpkg-deb -x $ci_f"; done
+  $SUDO mkdir -p "/usr/lib/llvm-$1/include" "/usr/lib/llvm-$1/lib" || ci_die "mkdir /usr/lib/llvm-$1"
+  $SUDO cp -a "$ci_d/root/usr/lib/llvm-$1/include/." "/usr/lib/llvm-$1/include/" || ci_die "the headers of libc++ $1"
+  $SUDO cp -a "$ci_d"/root/usr/lib/*-linux-gnu/libc++* "$ci_d"/root/usr/lib/*-linux-gnu/libunwind* "/usr/lib/llvm-$1/lib/" || ci_die "the libraries of libc++ $1"
+  rm -rf "$ci_d"; echo "unpacked: libc++ $1 ($ci_v) under /usr/lib/llvm-$1"
+}
 
 if [ "$PHASE" != gates ]; then
 ci_summary "**$JOB, $(uname -s) $(uname -r) on $(uname -m)**"; ci_summary ""
@@ -74,13 +91,16 @@ if [ "${CI_PACKAGES:-0}" = 1 ] && [ "$CI_OS" = linux ]; then
         curl -fsSL https://apt.llvm.org/llvm-snapshot.gpg.key | $SUDO gpg --dearmor -o /usr/share/keyrings/llvm-apt.gpg
         echo "deb [signed-by=/usr/share/keyrings/llvm-apt.gpg] https://apt.llvm.org/noble/ llvm-toolchain-noble-$n main" | $SUDO tee "/etc/apt/sources.list.d/llvm$n.list" > /dev/null
       fi
-      [ "$n" = "$LLVM_MAJOR" ] || ci_pk="$ci_pk libc++-$n-dev libc++abi-$n-dev libunwind-$n-dev clang-$n"
+      [ "$n" = "$LLVM_MAJOR" ] || ci_pk="$ci_pk clang-$n"
     done
   fi
   $SUDO apt-get -qq update || ci_die "apt-get update"
   # shellcheck disable=SC2086
   $SUDO apt-get -qq install -y $ci_pk > /dev/null || ci_die "apt-get install $ci_pk"
   echo "installed: $ci_pk"
+  if [ "$JOB" = full ]; then
+    for n in $LIBCXX_TREES; do [ "$n" = "$LLVM_MAJOR" ] || ci_unpack_libcxx "$n"; done
+  fi
 elif [ "${CI_PACKAGES:-0}" = 1 ]; then
   ci_step "the Homebrew packages"
   command -v brew >/dev/null 2>&1 || ci_die "no Homebrew (https://brew.sh): the Mac's packages come from it"

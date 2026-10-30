@@ -721,6 +721,10 @@ ccl_bit_builtin('__builtin_popcountg', ctpop).  ccl_bit_builtin('__builtin_popco
 %% each answers the unsigned integer of its width (the lowering's ir_call/4 reads this table: LLVM's `llvm.bswap'); they were undeclared
 ccl_bswap_builtin('__builtin_bswap16', 16, base([], [unsigned, short])).  ccl_bswap_builtin('__builtin_bswap32', 32, base([], [unsigned, int])).
 ccl_bswap_builtin('__builtin_bswap64', 64, base([], [unsigned, long])).   ccl_bswap_builtin('__builtin_bswap128', 128, base([], [unsigned, '__int128'])).
+%% THE SATURATING SUM AND DIFFERENCE (0.227), clang's `__builtin_elementwise_add_sat' and `__builtin_elementwise_sub_sat' over two
+%% integers, which libc++ 22 writes std::add_sat and std::sub_sat on (from `_LIBCPP_CLANG_VER >= 2101'): each answers its first
+%% operand's type, the exact value clamped to that type's range (the lowering's ir_call/4 reads this table: `llvm.sadd.sat' and kin)
+ccl_sat_builtin('__builtin_elementwise_add_sat', add).  ccl_sat_builtin('__builtin_elementwise_sub_sat', sub).
 ccl_size_type(T) :- ( ccl_typedef_of(size_t, _) -> T = base([], [typedef(size_t)]) ; T = base([], [unsigned, long]) ).
 ccl_sizeof_expr(sizeof(_)).
 ccl_sizeof_expr(sizeof_type(_)).
@@ -777,6 +781,7 @@ ccl_type_of(call(id(B), [_, _|_]), base([], [long])) :- memberchk(B, ['__builtin
 ccl_type_of(call(id(B), []), T) :- ccl_srcloc_builtin_type(B, T), !.   % clang's source-location builtins (0.201)
 ccl_type_of(call(id(B), _), base([], [int])) :- ccl_bit_builtin(B, _), !.   % the bit counts answer an int (0.129): `c ? 64 + __builtin_clzll(x) : __builtin_clzll(y)' had no type, in C as in C++ (libc++'s `__libcpp_clz(__uint128_t)')
 ccl_type_of(call(id(B), _), T) :- ccl_bswap_builtin(B, _, T), !.   % a byte swap answers the unsigned integer of its width (0.206)
+ccl_type_of(call(id(B), [X, _]), T) :- ccl_sat_builtin(B, _), !, ccl_type_of(X, T0), ccl_unref(T0, T).   % a saturating sum or difference answers its first operand's type (0.227)
 ccl_type_of(call(id(B), _), T) :- ccl_float_builtin_type(B, T), !.
 ccl_type_of(call(id(B), [_]), base([], [int])) :- memberchk(B, ['__builtin_isnan', '__builtin_isinf', '__builtin_isinf_sign', '__builtin_isfinite', '__builtin_signbit', '__builtin_isnormal']), !.   % glibc's classification macros (0.101)                                   % INFINITY, NAN, HUGE_VAL (0.101)
 ccl_type_of(call(id('__builtin_complex'), [A, _]), T) :- ccl_type_of(A, AT), AT \== unknown, !, ccl_complex_of(AT, T).   % C11's CMPLX and I, in the compiler's <complex.h> (0.100)   % C23's <stdckdint.h> is written on them

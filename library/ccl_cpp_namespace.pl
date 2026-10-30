@@ -397,21 +397,37 @@ cpp_cross_key(Path, N, K) :-
     once('$cpp_hdr_ast_ns'(N, P1)), cpp_ns_named_path(P1, First), \+ append(_, Q, First), \+ '$cpp_hdr'(N, _),
     findall(NP, ( '$cpp_hdr_ast_ns'(N, P), cpp_ns_named_path(P, NP) ), NPs), sort(NPs, Ds),
     findall(D, ( member(D, Ds), append(_, Q, D) ), [Dk]),
-    cpp_cross_make(N, Dk, Ds, K).
+    cpp_cross_make(class, N, Dk, Ds, K).
+%% A QUALIFIED CALL OF A FUNCTION THAT TWO HEADERS' READS DEFINE IN TWO NAMESPACES takes its namespace's functions (0.227;
+%% [namespace.qual]/2: the lookup set of a qualified name is the namespace's own declarations): every item of a name is loaded
+%% under the bare name, one overload set. libc++ 22's <algorithm> holds std's `__fill(first, last, value)', its second
+%% parameter a deduced sentinel, and with <format> read before it `__formatter::__fill(out, n, c)' over a difference took it,
+%% the closer match: its body compared two back_insert_iterators (`no_operator(!=)'), std::format's `__formattable_with'
+%% answered false and `static assertion failed' (xreadupper.cpp, over 22 only: 21's std::__fill took a fourth argument, its
+%% iterator tag). A qualifier that is not std, naming one of the name's namespaces where others have items too, takes that
+%% namespace's functions under the key one read would have given them (cpp_cross_make/5); std's own set is its items and the
+%% ones its using-declarations bring (std::abs is std::__math's), so std keeps the bare name
+cpp_cross_fn_key(Path, N, K) :-
+    findall(S, ( member(S, Path), atom(S), S \== global ), Q), Q \== [], Q \== [std], \+ '$cpp_hdr'(N, _),
+    findall(NP, ( catch('$cpp_hdr_ast_ns'(N, P), _, fail), P \== c, cpp_ns_named_path(P, NP) ), NPs), sort(NPs, Ds), Ds = [_, _|_],
+    findall(D, ( member(D, Ds), append(_, Q, D) ), [Dk]),
+    cpp_cross_make(function, N, Dk, Ds, K).
 %% THE KEY OF A NAMESPACE'S ITEMS OF A CROSS-READ NAME (0.218, 0.219): N's items whose path is Dk, kept under the key one read
 %% would have given them, the shortest suffix of Dk that no other of N's paths Ds ends with (cpp_ns_unique_suffix/3), renamed as
 %% such a read renames them, each with its path after it as the AST has it -- or the key a read made already. N's items and
-%% paths pair one to one, and every item of Dk is a class or a class template, or nothing is made -- and the key is noted, so the
-%% next namespace that asks for it does not copy N's items again ('$cpp_cross_none')
-cpp_cross_make(N, Dk, Ds, K) :-
+%% paths pair one to one, and every item of Dk is of the Kind asked -- a class or a class template, or a defined function or
+%% function template (0.227, above) -- or nothing is made, and the key is noted for that kind, so the next namespace that asks
+%% for it does not copy N's items again ('$cpp_cross_none'). A key made already is taken, a read's or this road's, but one made
+%% for the other kind ('$cpp_cross_made'): the class road's renames of a namespace's bare uses never go to a function key
+cpp_cross_make(Kind, N, Dk, Ds, K) :-
     cpp_ns_unique_suffix(Dk, Ds, Ns), atomic_list_concat([Ns, '.', N], K),
-    (   catch('$cpp_hdr_ast'(K, _), _, fail) -> true
-    ;   catch('$cpp_cross_none'(K), _, fail) -> fail
-    ;   cpp_cross_make_(N, Dk, K) -> true
-    ;   assertz('$cpp_cross_none'(K)), fail ).
-cpp_cross_make_(N, Dk, K) :-
+    (   catch('$cpp_hdr_ast'(K, _), _, fail) -> \+ ( catch('$cpp_cross_made'(Other, K), _, fail), Other \== Kind )
+    ;   catch('$cpp_cross_none'(Kind, K), _, fail) -> fail
+    ;   cpp_cross_make_(Kind, N, Dk, K) -> assertz('$cpp_cross_made'(Kind, K))
+    ;   assertz('$cpp_cross_none'(Kind, K)), fail ).
+cpp_cross_make_(Kind, N, Dk, K) :-
     \+ '$cpp_hdr'(N, _), findall(I, '$cpp_hdr_ast'(N, I), Is), findall(P, '$cpp_hdr_ast_ns'(N, P), Ps), cpp_cross_zip(Is, Ps, IPs),
-    findall(I-P, ( member(I-P, IPs), P \== c, cpp_ns_named_path(P, Dk) ), KIs), KIs \== [], forall(member(I-_, KIs), cpp_cross_class_item(I)),
+    findall(I-P, ( member(I-P, IPs), P \== c, cpp_ns_named_path(P, Dk) ), KIs), KIs \== [], forall(member(I-_, KIs), cpp_cross_kind_item(Kind, I)),
     forall(member(I0-P0, KIs), ( ( cpp_qualify_item(N, K, I0, I1) -> true ; cpp_cross_fwd_item(N, K, I0, I1) -> true ; I1 = I0 ), cpp_rename_names(I1, [N-K], I2), assertz('$cpp_hdr_ast'(K, I2)), assertz('$cpp_hdr_ast_ns'(K, P0)) )).
 %% A CLASS DECLARED AND NOT DEFINED is renamed with the rest (0.219): libc++'s `template <class _Fp> class __base;', the
 %% primary of std::__function's `__base<_Rp(_ArgTypes...)>', kept its bare name, and the key had a specialization and no
@@ -420,8 +436,9 @@ cpp_cross_fwd_item(N, K, template(L, TPs, I0), template(L, TPs, I)) :- !, cpp_cr
 cpp_cross_fwd_item(N, K, declare(L, base(Q, [S0])), declare(L, base(Q, [S]))) :- S0 =.. [F, N, none], memberchk(F, [class, struct, union]), S =.. [F, K, none].
 cpp_cross_zip([], [], []).
 cpp_cross_zip([I|Is], [P|Ps], [I-P|IPs]) :- cpp_cross_zip(Is, Ps, IPs).
-cpp_cross_class_item(template(_, _, I)) :- !, cpp_cross_class_item(I).
-cpp_cross_class_item(declare(_, base(_, [S]))) :- functor(S, F, _), memberchk(F, [class, struct, union]).
+cpp_cross_kind_item(Kind, template(_, _, I)) :- !, cpp_cross_kind_item(Kind, I).
+cpp_cross_kind_item(class, declare(_, base(_, [S]))) :- functor(S, F, _), memberchk(F, [class, struct, union]).
+cpp_cross_kind_item(function, function(_, _, _, _, _, _, B)) :- B \== none.   % a declared-only function is the shipped library's symbol, and keeps its name
 %% a name the outer namespace also declares as a function (a plain overload or a function template): the fallback of a keyed qualified call
 cpp_bare_fn(F) :- ( ccl_declared(F, fn(_, _, _)) ; catch('$cpp_fn'(F, _, _, _, _), _, fail) ; catch('$cpp_tmpl'(F, _, Item), _, fail), cpp_fn_item(Item, _) ), !.
 %% the NAMESPACE PATH is kept beside each indexed name ('$cpp_hdr_ns'), since a function a header only
@@ -496,7 +513,7 @@ cpp_cross_run(L, _, Ds, Ds, L).
 %% Over libc++ 21's summaries, `__transform' at C++20 to C++26 and `__upper_bound' (std's function, ranges' class) at C++23 and
 %% C++26; none over libc++ 18's
 cpp_cross_map(NP, T, Map) :- nb_getval('$cpp_ast_gen', G), ( catch('$cpp_cross_map'(NP, G, Map0), _, fail) -> Map = Map0 ; cpp_cross_map_(NP, T, Map), assertz('$cpp_cross_map'(NP, G, Map)) ).
-cpp_cross_map_(NP, T, Map) :- findall(N-K, ( member(N-Ds-First, T), cpp_ns_innermost(NP, Ds, Q), ( Q \== First -> true ; cpp_cross_mixed(N, Q) ), cpp_cross_make(N, Q, Ds, K) ), Map).
+cpp_cross_map_(NP, T, Map) :- findall(N-K, ( member(N-Ds-First, T), cpp_ns_innermost(NP, Ds, Q), ( Q \== First -> true ; cpp_cross_mixed(N, Q) ), cpp_cross_make(class, N, Q, Ds, K) ), Map).
 cpp_cross_mixed(N, Q) :- findall(I, '$cpp_hdr_ast'(N, I), Is), findall(P, '$cpp_hdr_ast_ns'(N, P), Ps), cpp_cross_zip(Is, Ps, IPs), !,
     member(I-P, IPs), P \== c, cpp_ns_named_path(P, NP), NP \== Q, cpp_cross_value_item(I), !.
 cpp_cross_value_item(template(_, _, I)) :- !, cpp_cross_value_item(I).

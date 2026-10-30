@@ -221,6 +221,7 @@ One row per step, in version order: the step's title, what it did and its gate n
 | 0.224 | the macOS Intel job in the CI | at the owner's word: the smoke job on Ubuntu 24.04 and on macOS 26 on Intel (`macos-26-intel`), a matrix of two; `test/ci.sh` and `test/toolchain.sh` know a Mac (Homebrew's `llvm@18` from a bottle only, `gtimeout` as `timeout`, cocolog's `install-macos.sh`); a C fixture's `NAME.needs`, eleven of them; a Mac's compile gate held to clang's build; the driver gate's `-g` checks of a linked program through the object on a Mac | the CI job's smoke steps GREEN here as the job runs them (setup 881 s, gates 263 s); 0.223's first run on GitHub GREEN in 13 minutes; the Mac's job not yet run: this commit's push is its first run |
 | 0.225 | the Mac job's first run: what it found, and the store kept a row a level | at the owner's word: the Mac's first run (setup GREEN, its gates 16 failures) read and each failure reduced; `__builtin_expect`, a NaN builtin's payload, sixteen bytes lock-free on a Mac, DWARF 4's macros on a Mac (LLVM's DWARF 5 macros crash on Mach-O), an `if`'s comparison at its operator's column; the C store a row a level; three more `NAME.needs`, `NAME.ref`, two fixtures made portable; no pipe closed early | the flow gate, the four C gates, the cross gate and the C++ gate over libc++ 18 GREEN here (826 of 836), the C gates again over a fresh store after the store's change; the Mac's second run is this commit's push |
 | 0.226 | cocolog 2.14.1, and the Mac job's second run | at the owner's word: cocolog 2.13.0 to 2.14.1 (`1e48013`) once its CI was green; its loaders probed (a file read again by `consult/1` and `load_files/2`, swipl's reload order), none of cicilang's loads reached; 2.13.0 and 2.14.1 measured, five warm C++ builds 66.70 s and 66.90 s; the Mac job's second run recorded (GREEN on both machines) | the chain over libc++ 18 (all nine) and 21 (the library read and the C++ gate) GREEN, 826 and 834 of 836; a C store that 2.13.0 wrote served, the C gates GREEN over it; the Mac's third run is this commit's push |
+| 0.227 | libc++ 22, a third tree of the gates | on the owner's word ("Do all", "Yes, add libc++ 22", "Commit each, push at end"): the sixteen failures of libc++ 22's first pass, six causes, each fixed -- a function's name chosen once the header's functions of it joined, a union's copies asked of its members' copies, a capture by reference of an array and a reference member bound to a literal, the saturating builtins, a C declaration in C++'s words, a qualified call of a function two reads define in two namespaces; the trees side by side, apt's one and the others unpacked, here and in the CI's full job | the net over 18 (61 SAME), the chain over libc++ 18 (all nine), 21 and 22 (the library read and the C++ gate) GREEN, 829, 837 and 839 of 839; a local commit |
 
 ## M5 — the C++ mode
 
@@ -15479,3 +15480,92 @@ re-read cost what they did).
 
 The module 0.226. The reader 164 and the lowering 130, as 0.225 left them: no file of the library changed, and the
 engine's change reaches none of its loads.
+
+## 0.227 — libc++ 22, a third tree of the gates
+
+**0.227: on the owner's word ("Do all": every item of the Not done list; "Yes, add libc++ 22": a third tree the gates
+read; "Commit each, push at end"): libc++ 22.1.8 joins 18 and 21, here and in the CI's full job. Each of the sixteen
+fixtures its first pass failed is reduced to its cause and fixed; the pins hold `LIBCXX_TREES="18 21 22"`. A local
+commit: the push comes at the end of the list.**
+
+THE FIRST PASS over 22 (0.226's tree, a fresh HOME): the library read GREEN; the C++ gate 820 of 836, sixteen failures,
+six causes, each reduced to 10 to 30 lines and built with clang++-22 beside cicilang++:
+
+1. `undeclared('swap.Box_r.Box_r')` (`noexceptlib`, `nslibglobal`, `stdnames`). libc++ 22's
+   `<__exception/exception_ptr.h>` defines a plain `std::swap(exception_ptr &, exception_ptr &)`, in namespace std
+   itself, registered at the first call of `std::swap`; the program's `void swap(Box &, Box &)` was named `swap` before
+   its body made that call, and `main`'s call named the overload `swap.Box_r.Box_r`. The name is chosen once the
+   header's functions of it have joined the set (`cpp_hdr_join/1` in `cpp_fn_name/4`).
+2. `instance_refused('swap.c14...', no_member_type('enable_if.0.void', type))` (`fsrest`, `stdalgorithmstr`,
+   `stdoptionalstring`, `stdvariant`; `ftm17`'s `swappable 1 0`). libc++ 22's string holds `union __rep { __short __s;
+   __long __l; __rep() = default; __rep(__short); __rep(__long); __rep(__uninitialized_tag); }`, and `__long` writes
+   `__long() = default` beside `__long(__alloc_result, size_type)`. The traits deleted a union's copies where a variant
+   member's class was not TRIVIAL (any written constructor); [class.copy.ctor]/10 asks the member's copies. So
+   `is_move_constructible<__rep>` was false, and the `std::swap(__rep_, __str.__rep_)` of string's member swap had no
+   candidate. `cpp_copies_trivial/1` asks the copies (`unioncopies.cpp`). `is_trivially_copyable` of a class with a
+   written constructor of other parameters still answers 0 where clang answers 1: the traits' one triviality test, kept.
+3. Garbage text (`parenaggr2`, `stdmisc`, `stdpmr`, `strlit`; `stdthread`'s segmentation fault). libc++ 22's
+   `vector::emplace_back` calls `std::__if_likely_else(__end < __cap_, [&] { __emplace_back_assume_capacity(
+   std::forward<_Args>(__args)...); ++__end; }, ...)`, and `emplace_back("hello")` forwards a `const char (&)[6]` from a
+   capture. The capture by reference had a DECAYED member type, a reference to a `const char *`; its item `addr(id(a))`,
+   a pointer to the array, was no address item of that type (`ir_address_item/2` compared `ref(arr(...))` with the
+   member's type unreferenced), so the member was bound to a temporary holding the address, and the string was made from
+   the temporary's bytes. A capture by reference refers to the entity's own type ([expr.prim.lambda.capture]/12;
+   `cpp_capture_how/3`), and `ir_address_item/2` reads the pointee through a reference, as the evaluator's
+   `cpp_eval_item_pointee/3` does. Found on the way: an aggregate's reference to an array bound to a string literal made
+   the same temporary (`struct H { const char (&r)[4]; } h{"abc"};`); a literal is an lvalue of its array type and binds
+   directly (`ir_bind_into/3`). Both were wrong before 22 too, unreached by a fixture. `lambdaarrref.cpp`.
+4. `undeclared('__builtin_elementwise_add_sat')` (`ftm26`). From `_LIBCPP_CLANG_VER >= 2101` libc++ 22 writes
+   `__add_sat` and `__sub_sat` on clang's saturating builtins: `llvm.sadd.sat`, `llvm.uadd.sat`, `llvm.ssub.sat`,
+   `llvm.usub.sat` now (`ccl_sat_builtin/2`). `satbuiltin.cpp`.
+5. `typedef(scoped([std], size_t))` (`stdfuture`). libc++ 22 declares `void *__cxa_allocate_exception(std::size_t)
+   throw();` in `extern "C"` inside namespace __cxxabiv1 (21 wrote `size_t`); the C table kept the reader's type, which
+   the lowering cannot type. A declared C function's types are resolved where it is first called, and its declaration
+   item added (`cpp_use_cdecl/1`): the table is built again from the desugaring's output, so a declaration made in the
+   desugaring alone was lost (the first attempt).
+6. `static assertion failed` (`xreadupper`, `<format>` before `<algorithm>` at C++23). libc++ 22's std::__fill takes
+   `(first, last, value)` with a deduced sentinel (21's took a fourth argument, its iterator tag), and every item of a
+   name is loaded under the bare name: `__formatter::__fill(out, __width_ - __size, c)` took std's, the closer match by
+   its exact sentinel, whose body compares two back_insert_iterators; `__formattable_with<int, format_context>` answered
+   false (`std::declval<const F &>().format(...)` in a `decltype` named the refusal: `no_operator('!=')`). A call
+   qualified by a namespace that is not std takes that namespace's functions ([namespace.qual]/2; `cpp_cross_fn_key/3`,
+   the class road's `cpp_cross_make/5` of the kind asked). The first attempt met the class road's note: it had tried the
+   key `__formatter.__fill` for its renames, failed (function items) and noted it as none, and the function road read
+   the note -- the notes are per kind now, and the class road takes no key the function road made.
+
+THE TREES SIDE BY SIDE: installing `libc++-22-dev` here removed `libc++-21-dev`. Every `libc++-N-dev`, Ubuntu's and
+apt.llvm.org's, provides and conflicts with `libc++-x.y-dev`, and apt.llvm.org's runtimes are one package, `libc++1`:
+apt holds one tree at a time. 21's six packages (`libc++-21-dev`, `libc++abi-21-dev`, `libunwind-21-dev`, `libc++1`,
+`libc++abi1`, `llvm-libunwind1`, 1:21.1.8) were fetched and unpacked under `/usr/lib/llvm-21`, the runtime libraries as
+files beside the headers; 18's was unpacked so already. The CI's full job asked apt for 18's and 21's together, which
+could never be installed; it has never run on GitHub (the repository's record holds no scheduled and no requested run of
+`gates.yml`). `test/ci.sh` unpacks every tree past LLVM 18's now (`ci_unpack_libcxx`).
+
+THE NET, over libc++ 18 before the chain: the 61 fixtures the six causes reach -- the noexcept and swap ones, the
+lambdas and the captures, the unions and the strings, the formats, the qualified calls across the reads, the C
+declarations -- built over a warm cache and compared with their `.expect`, three at a time: 61 SAME. The sixteen of the
+first pass over 22, built again over 0.227: 16 SAME; the three new fixtures SAME over 18, 21 and 22. The flow gate GREEN
+(180 s) after the last edit.
+
+THE CHAIN OF 0.227, over its work tree (the commit's) and cocolog 2.14.1 (`1e48013`), its two modules built at 0.227,
+over fresh HOMEs, from 01:06:54 UTC: the toolchain check (2 s), then over libc++ 18 all nine GREEN to 01:48:14 -- the
+flow gate's one finding in 186 s, reader 2 s, compile 30 s, driver 26 s, objects 4 s, the proof, cross 327 s, the
+library read 522 s, the C++ gate 1381 s with 829 of 839 fixtures ok and 10 skipped by their needs, the two units, the 30
+refusals, the 35 of the safe part and the eight static assertions --; over libc++ 21 the library read (457 s) and the
+C++ gate (1401 s, 837 of 839 ok, `stdoptionalref` and `zipadjacent` skipped) GREEN to 02:19:12; over libc++ 22 the
+library read (461 s) and the C++ gate (1427 s, all 839 ok, none skipped) GREEN to 02:50:40. The headers' reads summed
+1949 s over 226 over libc++ 18, 1679 s over 226 over 21 and 1693 s over 226 over 22, the fixtures' builds 4500 s over
+829, 4624 s over 837 and 4737 s over 839 (0.226's: 1997 s, 1723 s, 4560 s, 4728 s).
+
+- `test/toolchain.pins`: `LIBCXX_TREES="18 21 22"`. `test/ci.sh`: the trees past LLVM 18's unpacked
+  (`ci_unpack_libcxx`), apt.llvm.org's `clang-N` for each. `.github/workflows/gates.yml`: the full job's step names the
+  three trees. `RULES.md`: the pins and the CI job, the link's libraries (one tree apt's, the others unpacked), the name
+  of a function the header's functions of the name have joined, the captures by reference, a union's copies, a reference
+  member bound to a string literal, the saturating builtins, a C declaration in C++'s words, the qualified call across
+  the reads, the Not done record of the names across the reads, What runs, the Hosts, the C++23 views over 22.
+  `README.md`: the three trees. `CLAUDE.md`: the versions. The fixtures `lambdaarrref.cpp`, `unioncopies.cpp` (C++20)
+  and `satbuiltin.cpp` (C++26).
+
+The module 0.227. The reader 164, as 0.221 left it; the lowering 131 (130 at 0.225): what the check and the lowering
+emit changes -- a capture by reference of an array, a reference member bound to a string literal, the saturating
+builtins, a C declaration's types resolved where it is called.

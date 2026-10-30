@@ -9,7 +9,8 @@
 # The Intel Mac is the owner's machine, macOS 26 on x86-64, as cocolog's CI has it; Homebrew there as the runner image
 # has it (HOMEBREW_NO_AUTO_UPDATE): its formula data still names Intel bottles, which Homebrew has built none of since
 # September 2026. The full job -- all nine gates over libc++ 18, then the library read and the C++ gate over libc++ 21
-# -- runs on Linux every night and on request. Each clones the neighbours at test/toolchain.pins' commits and builds
+# and over libc++ 22 (0.227), each tree past 18 unpacked beside the others (test/ci.sh) -- runs on Linux every night and
+# on request. Each clones the neighbours at test/toolchain.pins' commits and builds
 # them with cocolog's installer, Quicklisp kept in the Actions cache between runs; a SKIP the job does not expect is
 # RED (test/ci.sh), and the logs are the run's artifact for 14 days. The shape follows cocolog's own CI (its
 # .github/workflows/ci.yml, 2026-10-29).
@@ -124,7 +125,7 @@ jobs:
         with:
           path: ~/quicklisp
           key: ${{ steps.quicklisp.outputs.cache-primary-key }}
-      - name: Every gate over libc++ 18, the C++ gates over 21
+      - name: Every gate over libc++ 18, the C++ gates over 21 and 22
         run: sh test/ci.sh full gates
         env:
           CI_LOGS: ${{ runner.temp }}/logs

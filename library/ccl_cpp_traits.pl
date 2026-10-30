@@ -264,11 +264,18 @@ cpp_parts_copyable(C, K) :- cpp_class_l(C, cls(_, Data, _, _, _)), !, ( cpp_dire
 cpp_parts_copyable(_, _).
 cpp_part_copyable(T0, K) :- catch(ccl_resolve_type(T0, T), _, fail), !, ( T = arr(_, E) -> cpp_part_copyable(E, K) ; cpp_class_of_type(T, D) -> cpp_special_there(D, K) ; true ).
 cpp_part_copyable(_, _).
-%% A UNION'S VARIANT MEMBER OF A CLASS THAT IS NOT TRIVIAL deletes the union's implicit copy, move and copy and move assignment
-%% ([class.copy.ctor]/10, [class.copy.assign]/7; 0.200): `union U { std::string s; int i; U() {} ~U() {} };' was copy-constructible
+%% A UNION'S VARIANT MEMBER OF A CLASS WHOSE COPIES ARE NOT TRIVIAL deletes the union's implicit copy, move and copy and move
+%% assignment ([class.copy.ctor]/10, [class.copy.assign]/7; 0.200): `union U { std::string s; int i; U() {} ~U() {} };' was
+%% copy-constructible. THE MEMBER'S COPIES, NOT THE MEMBER'S CLASS (0.227): a constructor of other parameters is no copy, and libc++
+%% 22's string holds `union __rep { __short __s; __long __l; ... }' over `__long() = default' beside `__long(__alloc_result,
+%% size_type)' -- asked whether `__long' is a trivial class, the union was neither movable nor assignable, and the `std::swap' of
+%% two strings' `__rep_' was no candidate (`no_member_type(enable_if.0.void, type)')
 cpp_union_untrivial(C, Data) :- '$cpp_union'(C), member(member(MT, N, _), Data), \+ sub_atom(N, 0, 1, _, '$'), \+ cpp_part_trivial(MT), !.
-cpp_part_trivial(T0) :- catch(ccl_resolve_type(T0, T), _, fail), !, ( T = arr(_, E) -> cpp_part_trivial(E) ; cpp_class_of_type(T, D) -> cpp_trivial_class(D) ; true ).
+cpp_part_trivial(T0) :- catch(ccl_resolve_type(T0, T), _, fail), !, ( T = arr(_, E) -> cpp_part_trivial(E) ; cpp_class_of_type(T, D) -> cpp_copies_trivial(D) ; true ).
 cpp_part_trivial(_).
+%% a class's copies are trivial ([class.copy.ctor]/11, [class.copy.assign]/9): it writes no copy or move constructor, no `operator='
+%% and no destructor, and its parts need none
+cpp_copies_trivial(C) :- cpp_class(C, cls(_, _, Ms, _, _, _)), \+ cpp_user_copy_ctor(C), \+ member(dtor(_, _, _), Ms), \+ member(method(_, _, _, operator('='), _, _, _), Ms), \+ cpp_implicit_dtor_needed(C).
 %% A SCALAR FROM ONE VALUE ([dcl.init]/17.7, [over.match.conv]): what converts to it implicitly, and by direct-initialization a
 %% class value's `explicit' conversion function too and a null pointer to `bool' ([conv.bool])
 cpp_scalar_constructible(T1, F) :- cpp_value_cat(F, _, X),

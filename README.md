@@ -93,9 +93,9 @@ rules of the code by topic; `HISTORY.md` is the record of every step.
   `std::bind`, `<algorithm>`, `std::cout`, `std::cin`, `std::getline`,
   `std::stringstream`, `std::fstream`, `std::bitset`, `std::complex`,
   `std::span`, `std::byte` and the manipulators all compile from libc++'s
-  own bodies and run, on Linux with libc++ 18 and with libc++ 21 (the gates run both, `LLVM=/usr/lib/llvm-18` and
-  `LLVM=/usr/lib/llvm-21` choose the tree), on aarch64 Linux under qemu over that machine's libc++ 18 in the cross
-  sysroot, and, as of 0.90, on macOS (libc++ 21).
+  own bodies and run, on Linux with libc++ 18, with libc++ 21 and, since 0.227, with libc++ 22 (the gates run the three,
+  `LLVM=/usr/lib/llvm-18`, `-21` or `-22` chooses the tree), on aarch64 Linux under qemu over that machine's libc++ 18
+  in the cross sysroot, and, as of 0.90, on macOS (libc++ 21).
 * **The safe part.** `own` pointers are linear and `move` hands them on. A
   borrow dangles when its owner is consumed and may not escape. A struct's
   own fields are owners that go with it. A plain pointer parameter is a
@@ -405,7 +405,7 @@ message, as clang++ refuses it; since 0.179 `<chrono>`'s durations, clocks
 and time points with their literals (`1500ms`, `3us`), and `<complex>`'s
 (`3i`, `2.0if`); since 0.182, over libc++ 22, `std::vector` and the C++23
 views that tree adds (`pairwise`, `adjacent`, `zip_transform`,
-`adjacent_transform`), built by hand: no gate reads that tree; since 0.191
+`adjacent_transform`), a gate's tree since 0.227; since 0.191
 libc++ with RTTI, as clang++ builds it, and its no-RTTI configuration under
 `-fno-rtti`, `std::any` and `std::any_cast` in both, and a `shared_ptr` with
 a deleter; since 0.192 programs of several units built apart: each unit's

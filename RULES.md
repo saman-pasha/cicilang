@@ -72,16 +72,17 @@ that changes a rule edits the rule here, in its topic, and writes its entry in `
   the cross gate is a skip line. (0.223, 0.224)
 - THE PINS (0.223). `test/toolchain.pins` holds the neighbours' commits and versions -- cocolog 2.14.1 `1e48013`, Cicili
   3.3.0 `9b825b7`, ZiguratIP `90d99b8` -- the embedded LLVM's major version (18) and the libc++ trees the C++ gates read
-  (18 and 21). A pin moves only on the owner's word, in the step that runs the chain over it: cocolog's moved at 0.226,
-  from 2.13.0 `7ff2a0d`. (0.223, 0.226)
+  (18, 21 and 22, the third since 0.227). A pin moves only on the owner's word, in the step that runs the chain over it:
+  cocolog's moved at 0.226, from 2.13.0 `7ff2a0d`. (0.223, 0.226, 0.227)
 - THE CI JOB (0.223). `.github/workflows/gates.yml` runs `test/ci.sh` on GitHub's machines: `smoke` on each push to
   main and each pull request into it that changes more than the documents at the top of the tree (the toolchain, then
   the flow, reader, compile, driver and objects gates and the proof), since 0.224 on two machines, each a job of its
   own that never waits for the other -- Ubuntu 24.04 (`ubuntu-24.04`: x86-64, 4 CPUs, 16 GB, not root) and macOS 26 on
   Intel (`macos-26-intel`: x86-64, 4 CPUs, 14 GB; the owner's machine, as cocolog's CI has it) --; `full` on Linux
-  every night and on request (all nine gates over libc++ 18, then the library read and the C++ gate over libc++ 21).
-  `test/ci.sh JOB setup` installs the packages where asked (`CI_PACKAGES=1`: apt-get, libc++ 21 from apt.llvm.org; on a
-  Mac Homebrew), clones the neighbours at their pins into `CI_ROOT` (default `~/Projects/GitHub`; it moves no checkout
+  every night and on request (all nine gates over libc++ 18, then the library read and the C++ gate over libc++ 21 and
+  over 22, 0.227). `test/ci.sh JOB setup` installs the packages where asked (`CI_PACKAGES=1`: apt-get, each libc++ tree
+  past LLVM 18's unpacked from apt.llvm.org's packages, below; on a Mac Homebrew), clones the neighbours at their pins
+  into `CI_ROOT` (default `~/Projects/GitHub`; it moves no checkout
   it did not make and stops at one off its pin), builds them with cocolog's own installer, `install/install-linux.sh`
   or `install/install-macos.sh` (Quicklisp and the Lisp systems Cicili is built from, ZiguratIP, cocolog, `make
   schema`, `make modules`), and takes the exports it prints for a shell profile, builds the two modules and checks the
@@ -818,7 +819,14 @@ that changes a rule edits the rule here, in its topic, and writes its entry in `
   the program was READ from, ` -L<root>/lib -Wl,-rpath,<root>/lib -lc++` (`ccl_cxx_dirs`): two or three libc++ are
   installed side by side on the Ubuntu box (`/usr/lib/llvm-18`, `-21`, `-22`), chosen by `$LLVM`, and the headers of one
   with the library of another do not link. Without `$LLVM` the NEWEST tree is read, 22 here: the gates run with
-  `LLVM=/usr/lib/llvm-18` and `LLVM=/usr/lib/llvm-21`. LIBC++ABI IS NAMED after `-lc++` where the tree has one (0.181;
+  `LLVM=/usr/lib/llvm-18`, `-21` and `-22`. ONE TREE IS APT'S, THE OTHERS UNPACKED (0.227): every `libc++-N-dev`,
+  Ubuntu's and apt.llvm.org's, provides and conflicts with `libc++-x.y-dev`, and apt.llvm.org's runtimes are one
+  package, `libc++1`, so apt holds one tree at a time -- installing 22's removed 21's here, and the full job's one
+  install of 18's and 21's could never be made. A tree beside apt's is its packages, development and runtime, fetched at
+  its own source's version and unpacked, the headers under `<root>/include` and the runtime libraries, as files, under
+  `<root>/lib` (`ci_unpack_libcxx` in `test/ci.sh`; by hand here, 18 and 21 beside 22), which the link names with its
+  rpath.
+  LIBC++ABI IS NAMED after `-lc++` where the tree has one (0.181;
   ` -lc++abi`, `ccl_cxxabi_lib/2`): libc++ 18's `libc++.so` is a linker script, `INPUT(libc++.so.1 -lc++abi -lunwind)`,
   which names it, and libc++ 21's and 22's is the library itself, so the link through g++ found the program's
   `__cxa_throw`, `__cxa_begin_catch`, personality and type information in libstdc++, g++'s own runtime, while libc++'s
@@ -826,7 +834,7 @@ that changes a rule edits the rule here, in its topic, and writes its entry in `
   (`exceptionptr.cpp`). Over libc++ 18 the libraries and their bindings are the same as without. For another machine
   (0.161), ` -lm` in C and, in C++, its libc++ under the sysroot: ` -L<sysroot><root>/lib
   -Wl,-rpath-link,<sysroot><root>/lib -Wl,-rpath,<root>/lib -lc++ -lm`, the rpath where that machine keeps the library,
-  which `qemu-aarch64 -L <sysroot>` finds under the sysroot. (0.93, 0.100, 0.122, 0.161, 0.181)
+  which `qemu-aarch64 -L <sysroot>` finds under the sysroot. (0.93, 0.100, 0.122, 0.161, 0.181, 0.227)
 - LIBATOMIC IS NAMED AT THE LINK WHERE AN OBJECT CALLS IT (0.208; `ccl_note_libatomic/1` in `ccl_compile/3`,
   `ccl_libatomic_lib/2` in `ccl_link/3`), on Linux, this machine's or another's, as libm is: the compiled IR is asked
   for a call of libatomic's routines (`@__atomic_` -- an atomic object of a size that is no lock-free width, an x86
@@ -5655,8 +5663,12 @@ is in `test/cpp/run/`.
   and `f(unsigned long n)` defined stay one function. The definition kept the plain name, the table holds one type a
   name, the first declared, and `g("abc")` after `int g(const Inc &);` passed the literal's address for the reference
   (8 where clang++ prints 97); a declared `g(double)` gave LLVM a pointer converted to a double; two units that
-  define `g(int)` and `g(const char *)` beside a declaration of the other did not link (`declfirst.cpp`). (0.56, 0.61,
-  0.181)
+  define `g(int)` and `g(const char *)` beside a declaration of the other did not link (`declfirst.cpp`). THE NAME IS
+  CHOSEN ONCE THE HEADER'S FUNCTIONS OF IT HAVE JOINED THE SET (0.227; `cpp_hdr_join/1` in `cpp_fn_name/4`), as a call's
+  resolution has them (`cpp_fn_ready/1`): libc++ 22 defines a plain `std::swap(exception_ptr &, exception_ptr &)`,
+  registered at the first call of `std::swap`, and the program's `void swap(Box &, Box &)` was emitted as `swap` before
+  its body made that call, while `main`'s call named `swap.Box_r.Box_r`, declared nowhere (`noexceptlib.cpp`,
+  `nslibglobal.cpp` and `stdnames.cpp` over 22). (0.56, 0.61, 0.181, 0.227)
 - An EXACT overload has as many parameters as arguments, each one, resolved (`cpp_type_or_self/2`), unreffed and bare,
   equal to its argument's type (`cpp_arg_exact/2`); a function is exact for a function pointer of its type. (0.56, 0.78)
 - A header's templates and functions of a name join the program's on the first ask (`cpp_hdr_join/1` in
@@ -5886,7 +5898,12 @@ A lambda is a class of its captures (`library/ccl_cpp_lambda.pl`, 0.223). A fixt
 ### Captures
 
 - `cpp_captures/5` gives each capture `Name-val(T)` (the local's type decayed) or `Name-ref(T)` (a `ref([], T)` member;
-  `cpp_cap_member_type/2`). (0.36)
+  `cpp_cap_member_type/2`). A CAPTURE BY REFERENCE REFERS TO THE ENTITY'S OWN TYPE ([expr.prim.lambda.capture]/12;
+  0.227, `cpp_capture_how/3`): the entity's type unreferenced, an array an array and a `const` kept, where a capture by
+  copy decays. Decayed, libc++ 22's `emplace_back` lambda, `[&] {
+  __emplace_back_assume_capacity(std::forward<_Args>(__args)...); }`, captured its `const char (&)[6]` argument as a
+  reference to a `const char *`, which the address of an array does not bind (the lowering's reference member rules),
+  and `sizeof` of a captured array was a pointer's. `lambdaarrref.cpp`. (0.36, 0.227)
 - A default capture takes each enclosing local the body names, less its parameters and own declarations, kept where
   `cpp_local/1` (`cpp_lambda_free/3`): by value for `[=]`, by reference for `[&]`. (0.36)
 - An init-capture is a member named by the capture ([expr.prim.lambda.capture]/6; `cpp_init_capture/4`): `[n = e]`
@@ -7584,7 +7601,13 @@ A lambda is a class of its captures (`library/ccl_cpp_lambda.pl`, 0.223). A fixt
   definition); an overload set goes by its target (`cpp_conv_to`). One the header only DECLARES, of one declaration, is
   the shipped library's: its Itanium symbol, declared (0.201; `cpp_use_mangled/3`) -- `<barrier>` hands
   `&__destroy_barrier_algorithm_base` to a unique_ptr as its deleter, and the plain name was an undefined symbol at the
-  link. `stdsync.cpp`. (0.78, 0.99, 0.201)
+  link. `stdsync.cpp`. A C FUNCTION A HEADER DECLARES IN C++'S WORDS takes its types resolved where it is first called
+  (0.227; `cpp_use_cdecl/1`, on the free call's road and the plain call's, `cpp_call/4`): libc++ 22 declares `void
+  *__cxa_allocate_exception(std::size_t) throw();` in `extern "C"` inside namespace __cxxabiv1, and the table held the
+  type as the reader left it, `typedef(scoped([std], size_t))`, which the lowering cannot type --
+  std::make_exception_ptr was refused (`stdfuture.cpp` over 22). It is declared again, its name its own, and its
+  declaration item added, as a mangled one's is, since the table is built again from the desugaring's output; a name
+  with a definition is left to the definition. (0.78, 0.99, 0.201, 0.227)
 - A header's C++17 inline variable, which no library exports (`__digits_base_10`), is a `linkonce` global of the
   program that names it (`cpp_lazy_inline_var`), its initializer desugared; an `auto` one takes the initializer's type
   (`ranges::iter_move`). A global of an empty class is its zero bytes, with no constructor run (`nullopt`,
@@ -7670,6 +7693,19 @@ The namespaces' rules, the program's and the library's, are `library/ccl_cpp_nam
   `<algorithm>` at C++23 did the same to `std::ranges::upper_bound`, std's function `__upper_bound` beside ranges'
   class. Over libc++ 21's summaries these two names are the only ones, at C++20 to C++26; over libc++ 18's there is
   none. `xreadfns.cpp` (C++20), `xreadupper.cpp` (C++23). (0.219, 0.221)
+- A QUALIFIED CALL OF A FUNCTION THAT TWO HEADERS' READS DEFINE IN TWO NAMESPACES takes its namespace's functions
+  (0.227; [namespace.qual]/2, the lookup set of a qualified name is the namespace's own declarations;
+  `cpp_cross_fn_key/3` in `cpp_call/4`, after the keyed road): every item of a name is loaded under the bare name, one
+  overload set. libc++ 22's <algorithm> holds std's `__fill(first, last, value)`, its second parameter a deduced
+  sentinel (21's took a fourth, its iterator tag), and <format> read before it made `__formatter::__fill(out, n, c)`
+  over a difference take std's, the closer match: its body compared two back_insert_iterators (`no_operator(!=)`),
+  `__formattable_with<int, format_context>` answered false and std::format met `static assertion failed`
+  (`xreadupper.cpp` over 22). A qualifier that is not std, naming one of the name's namespaces where others have items
+  too, takes that namespace's defined functions and function templates under the key one read would have given them
+  (`cpp_cross_make/5`, the class road's maker, of the kind asked); std's own set is its items and the ones its
+  using-declarations bring (std::abs is std::__math's), so std keeps the bare name. A key that cannot be made is noted
+  per kind (`'$cpp_cross_none'/2`), and the class road's renames take no key the function road made
+  (`'$cpp_cross_made'/2`). (0.227)
 - An ENUM's tag and an unscoped enum's enumerators collide as names do (0.127; `cpp_ns_enum_name/2` in
   `cpp_ns_resolve`, `cpp_qualify_enum/4`): keyed and renamed in the deeper namespace, a qualified enumerator `n2::x`
   taken by its key (`cpp_expr`'s clause before the enumerator road), `n2::Mode::Fast` through the tag's key
@@ -8009,8 +8045,13 @@ The namespaces' rules, the program's and the library's, are `library/ccl_cpp_nam
   deleted by a declared move constructor or move assignment; the implicit move is not declared beside a declared copy
   constructor, copy or move assignment or destructor, and an rvalue then takes the copy; a defaulted or implicit one is
   deleted where a base, an empty one among them, or a data member cannot copy or move (`cpp_parts_copyable/2`), and a
-  union's where a variant member's class is not trivial (`cpp_union_untrivial/2`; [class.copy.ctor]/6, /8, /10,
-  [over.match.funcs]/8). From other values a constructor takes them (`cpp_ctor_takes/2`): a written one, `explicit` or not,
+  union's where a variant member's copies are not trivial (`cpp_union_untrivial/2`; [class.copy.ctor]/6, /8, /10,
+  [over.match.funcs]/8): its class writes a copy or move constructor, an `operator=` or a destructor, or its parts need
+  one (`cpp_copies_trivial/1`, 0.227) -- a constructor of other parameters is no copy, and libc++ 22's string holds
+  `union __rep { __short __s; __long __l; ... }` over `__long() = default` beside `__long(__alloc_result, size_type)`:
+  asked whether `__long` was a trivial class, the union could neither move nor be assigned, and `std::swap` of two
+  strings' `__rep_` had no candidate (`unioncopies.cpp`). From other values a constructor takes them
+  (`cpp_ctor_takes/2`): a written one, `explicit` or not,
   whose parameters take them in order, or a constructor template whose parameters deduce from them, a pack its elements
   (`cpp_deduce_pack/5`), its defaults, its constraints and its requires-clause holding, whose substituted parameters take
   them (`cpp_tmpl_type_ok/4`: a `std::nullptr_t` parameter a `std::nullptr_t` alone, `cpp_nullptr_arg/1`, and a non-const
@@ -8033,7 +8074,7 @@ The namespaces' rules, the program's and the library's, are `library/ccl_cpp_nam
   &, int>` and `is_assignable_v<int, int>` were 1. A value the tables cannot type keeps the old answer
   (`cpp_untyped_arg/1`). `std::tie(a, std::ignore) = f()` still takes `__ignore_type`'s assignment template.
   `valtraits.cpp`, `valtraits20.cpp` (C++20), `valtraitsown.cpp`, `valtraitsconv.cpp`, `valtraitsspecial.cpp`,
-  `valtraitsmore.cpp`. (0.46, 0.90, 0.93, 0.200)
+  `valtraitsmore.cpp`. (0.46, 0.90, 0.93, 0.200, 0.227)
 - AN AGGREGATE IS CONSTRUCTIBLE FROM ITS ELEMENTS' VALUES from C++20 on ([meta.unary.prop]: `T t(declval<Args>()...)`, P0960;
   0.197; `cpp_agg_constructible/2` ahead of `cpp_constructible/2`'s clauses): as many values as it has elements at most -- its
   direct bases, then its data members, a union its first member -- each convertible to its element in order;
@@ -8838,6 +8879,14 @@ The namespaces' rules, the program's and the library's, are `library/ccl_cpp_nam
   `__value_visitor<_Visitor>{std::forward<_Visitor>(__visitor)}` of `std::visit` has `_Visitor &&` as its one member.
   The item a CLOSURE gives its reference member is the captured object's address already (`cpp_closure_value`, `[&x]`
   and `[this]`) and is stored as it is (`ir_address_item/2`, by type). `varvisit.cpp`. (0.121)
+- A CAPTURED REFERENCE'S ITEM IS ITS REFERENT'S ADDRESS TOO, and A STRING LITERAL BINDS A REFERENCE TO AN ARRAY DIRECTLY
+  (0.227): `addr(id(a))` of a reference `a` points at the referent, so `ir_address_item/2` reads its pointee through the
+  reference, as the evaluator's `cpp_eval_item_pointee/3` does -- compared as `ref(arr(...))` with the member's
+  `arr(...)`, the capture was bound to a temporary holding the address, the body's `std::forward<A>(a)` read the
+  temporary's bytes as the array, and libc++ 22's `emplace_back("hello")` made a string of an address; and a string
+  literal is an lvalue of its array type ([expr.prim.literal]/1, [dcl.init.ref]/5.1; `ir_bind_into/3`), its own global,
+  where `struct H { const char (&r)[4]; } h{"abc"};` bound a temporary holding its address. A reference to a pointer
+  still binds the temporary of the pointer the literal converts to. `lambdaarrref.cpp`. (0.227)
 
 - A PRVALUE IS CONSTRUCTED IN THE OBJECT IT INITIALIZES (C++17, [class.copy.elision]/1; 0.121). The desugaring hands a
   fresh temporary on as the statement expression that built it, its declaration inside the block and its name last
@@ -9233,6 +9282,12 @@ The namespaces' rules, the program's and the library's, are `library/ccl_cpp_nam
   which the inference, the lowering's `ir_call/4` and the desugaring's evaluator read): each answers the unsigned integer
   of its width, its argument converted to that width first, and a constant 16- or 32-bit swap folds in a constant
   expression (`cpp_bswap_bits/3`). C++23's `std::byteswap` is written on them; they were undeclared. `ftm23.cpp`.
+- THE SATURATING SUM AND DIFFERENCE, clang's `__builtin_elementwise_add_sat` and `__builtin_elementwise_sub_sat` over
+  two integers, ARE `llvm.sadd.sat.iN`, `llvm.uadd.sat.iN`, `llvm.ssub.sat.iN` and `llvm.usub.sat.iN` (0.227;
+  `ccl_sat_builtin/2`, one table, which the inference and the lowering's `ir_call/4` read): the result has the first
+  operand's type, both operands converted to it, signed or unsigned as it is. libc++ 22 writes std::add_sat and
+  std::sub_sat on them from `_LIBCPP_CLANG_VER >= 2101`, and they were undeclared (`ftm26.cpp` over 22). The evaluator
+  folds neither, as it folds no overflow builtin, 21's road. `satbuiltin.cpp`.
 - The overflow builtins (`__builtin_add_overflow` and kin, `ccl_overflow_builtin/2`) compute the exact result in
   `i128` over operands widened by their own signedness (`ir_widen128/4`). They store the truncated result and answer
   whether it lost anything. C23's `<stdckdint.h>` is written on them. (0.93)
@@ -10453,24 +10508,26 @@ The namespaces' rules, the program's and the library's, are `library/ccl_cpp_nam
   0.90, all GREEN (cocolog 1.2.18). Since 0.224 the CI's Mac job runs the six small gates there, on GitHub's
   `macos-26-intel` over Homebrew's `llvm@18` (The toolchain, its pins and the CI job); the C++ gates have run on Linux
   only since 0.93.
-- Ubuntu 24.04 on x86_64 (clang and LLVM 18, glibc, libc++ 18 and 21) is a host since 0.87. Every gate but the C++ one
-  is GREEN there since 0.93, and all seven since 0.95. Every step from 0.93 on is gated there, but the save points
+- Ubuntu 24.04 on x86_64 (clang and LLVM 18, glibc, libc++ 18, 21 and 22) is a host since 0.87. Every gate but the C++
+  one is GREEN there since 0.93, and all seven since 0.95. Every step from 0.93 on is gated there, but the save points
   0.112, 0.113, 0.117, 0.122 to 0.125, 0.130, 0.131 and 0.143 (0.143's C gates and cross gate ran, its libc++ gates did
-  not; the others were gated by the steps after them). The last full run is 0.226's chain, over its work tree (the
-  commit's) and cocolog 2.14.1 (the Findings), its two modules built at 0.226, over fresh HOMEs: the toolchain check,
-  then over libc++ 18 all nine GREEN (the flow gate's one finding in 188 s, reader 2 s, compile 31 s, driver 27 s,
-  objects 5 s, proof, the cross gate in 331 s with its C++ part for aarch64, the library read in 536 s, the C++ gate in
-  1403 s with 826 of 836 fixtures ok, the skips are `atomicref`, `atomicrefalign`, `ftm23b`, `ftm26b`, `joinwith`,
+  not; the others were gated by the steps after them). The last full run is 0.227's chain, over its work tree (the
+  commit's) and cocolog 2.14.1 (the Findings), its two modules built at 0.227, over fresh HOMEs: the toolchain check,
+  then over libc++ 18 all nine GREEN (the flow gate's one finding in 186 s, reader 2 s, compile 30 s, driver 26 s,
+  objects 4 s, proof, the cross gate in 327 s with its C++ part for aarch64, the library read in 522 s, the C++ gate in
+  1381 s with 829 of 839 fixtures ok, the skips are `atomicref`, `atomicrefalign`, `ftm23b`, `ftm26b`, `joinwith`,
   `stdflatmap`, `stdoptionalref`, `tzone`, `vbaseof` and `zipadjacent`, the two units, the 30 refusals, the 35 of the
-  safe part and the eight static assertions); over libc++ 21 the library read (466 s) and the C++ gate (1437 s, 834 of
-  836 ok, the skips `stdoptionalref` and `zipadjacent`) GREEN -- the C gates do not read libc++. The headers' reads,
-  summed, took 1997 s over 226 over libc++ 18 and 1723 s over 226 over 21; the fixtures' builds 4560 s over 826 and
-  4728 s over 834 (0.223's on 2.13.0: 1997 s, 1765 s, 4763 s, 4813 s). The chains of 0.165 to 0.203, of 0.205 to
-  0.219, of 0.221, of 0.223 and of 0.226 are in HISTORY.md, 0.166 to 0.204, 0.206 to 0.220, 0.222, 0.223 and 0.226. Two
-  libc++ passes are one gate: `LLVM=/usr/lib/llvm-18` and `LLVM=/usr/lib/llvm-21` choose the tree the chain reads and
-  links. libc++ 22 (the newest tree, which a run without `$LLVM` reads) is no gate: 0.182 built its vector and its C++23
-  views by hand (`zipadjacent.cpp`, which its `.needs` skips over 18 and 21), and `stdoptionalref` passes there. The run
-  before 0.121's (0.118, 0.119) found, over 0.117, two defects and one stale check of `test/cpp.pl` (c20, above).
+  safe part and the eight static assertions); over libc++ 21 the library read (457 s) and the C++ gate (1401 s, 837 of
+  839 ok, the skips `stdoptionalref` and `zipadjacent`) GREEN, and over libc++ 22 the library read (461 s) and the C++
+  gate (1427 s, 839 of 839 ok, none skipped) GREEN -- the C gates do not read libc++. The headers' reads, summed, took
+  1949 s over 226 over libc++ 18, 1679 s over 226 over 21 and 1693 s over 226 over 22; the fixtures' builds 4500 s over
+  829, 4624 s over 837 and 4737 s over 839 (0.226's: 1997 s, 1723 s, 4560 s, 4728 s). The chains of 0.165 to 0.203, of
+  0.205 to 0.219, of 0.221, of 0.223, of 0.226 and of 0.227 are in HISTORY.md, 0.166 to 0.204, 0.206 to 0.220, 0.222,
+  0.223, 0.226 and 0.227. Three libc++ passes are one gate (0.227): `LLVM=/usr/lib/llvm-18`, `LLVM=/usr/lib/llvm-21` and
+  `LLVM=/usr/lib/llvm-22` choose the tree the chain reads and links, apt's one and the two unpacked beside it (the
+  link's libraries, the driver topic). 0.182 built libc++ 22's vector and its C++23 views by hand (`zipadjacent.cpp`,
+  which its `.needs` skips over 18 and 21), a gate's since 0.227. The run before 0.121's (0.118, 0.119) found, over
+  0.117, two defects and one stale check of `test/cpp.pl` (c20, above).
 - The host sets the predefined macros (`ccl_host_os/1` and `ccl_host_arch/1` in the module), the inclusion path
   (Debian's `/usr/lib/llvm-NN`, the multiarch directory) and the link (`-lc++` and `-lm` on Linux) (0.87, 0.93, 0.100).
 - A struct passed or returned by value crosses a call as clang's x86-64 code expects, in both directions, with the
@@ -11069,6 +11126,11 @@ The namespaces' rules, the program's and the library's, are `library/ccl_cpp_nam
   C++20), `flowarithok` (a value computed from a pointer parameter, stored while its pointee lives), `idchars` (an
   identifier's characters past ASCII at every C++ level) and `libattr` (libc++'s and glibc's `__has_attribute` roads);
   in C `stdc99` and `stdc11` (each level's `__STDC_VERSION__` and its forms) and `hasattr`.
+- libc++ 22, a third tree (0.227): `lambdaarrref` (a reference to an array captured by reference and forwarded, a
+  captured array's size, a reference member bound to a string literal, a captured const), `unioncopies` (a union whose
+  member class writes a constructor of other parameters, copied, moved and swapped; its member's bit-fields set by a
+  constructor's initializers) and `satbuiltin` (the saturating builtins and std::add_sat and std::sub_sat at C++26);
+  over 22, the sixteen its first pass failed, each with its cause in the history's entry.
 - `test/cpp.sh` checks that thirty programs are refused by name (`coro.cpp`, `concept_fail.cpp`,
   `constrained_fail.cpp`, `lambda_const.cpp`, `lambda_method.cpp`, `bind_const.cpp`, the eleven `access_*.cpp`,
   `abstract.cpp`, `modhidden.cpp`, `basenodefault.cpp`, `enumnotconst.cpp`, since 0.164 `fmtindex.cpp` and
@@ -11388,12 +11450,14 @@ Declarations topic of the C++ reader).
   operators (std's beside std::chrono's, std::filesystem's and std::pmr's) and 16 and 19 math functions (std's complex
   overloads beside std::__math's), which C++ joins too, by argument-dependent lookup and libc++'s own
   using-declarations, and internal helpers it does not -- libc++ 18's `__transform`, `__fill`, `__vprint_unicode` and
-  `__vprint_nonunicode`, libc++ 21's `__fill`, each of std and of std::__formatter or std::__print -- where the
-  arguments' types choose. THE PROGRAM'S GLOBAL FUNCTIONS are hidden from a call qualified by std (0.221), not from an
+  `__vprint_nonunicode`, libc++ 21's and 22's `__fill`, each of std and of std::__formatter or std::__print -- where the
+  arguments' types choose; since 0.227 a call qualified by the namespace, as libc++ calls them, takes that namespace's
+  own (the libc++ topic), and an unqualified call still joins the set. THE PROGRAM'S GLOBAL FUNCTIONS are hidden from a
+  call qualified by std (0.221), not from an
   unqualified call in a library template, where C++ finds them only by argument-dependent lookup. ARGUMENT-DEPENDENT
   LOOKUP of a keyed name asks the classes of the arguments, of their pointees, of their templates' arguments and their
   bases (0.221), not a function type's parameters and result, a member pointer's class or a template template argument's
-  namespace ([basic.lookup.argdep]/3). (0.218, 0.219, 0.221)
+  namespace ([basic.lookup.argdep]/3). (0.218, 0.219, 0.221, 0.227)
 - A library class's consteval constructor's check runs at compile time since 0.164 where the evaluator takes it (the
   Constant evaluation topic: `basic_format_string`'s format parse); a check it cannot take leaves the format string to
   the library's run-time parser, which no check of the format fixtures does since 0.168 (over libc++ 18 and 21). A
@@ -11420,8 +11484,8 @@ Declarations topic of the C++ reader).
   `elements`, `drop_while`, `as_rvalue`, `repeat`, `join`, `split`, `lazy_split` and `ranges::to`, and since 0.133 `join_with`
   at libc++ 21. The other C++23 views are in neither libc++ 18 nor 21 (their `__ranges/` has no `adjacent`, `chunk`,
   `slide`, `stride`, `enumerate`, `cartesian_product`, `as_const`); libc++ 22 has `adjacent`, `pairwise`,
-  `zip_transform` and `adjacent_transform`, which run since 0.182 (`zipadjacent.cpp`, built over libc++ 22 by hand: no
-  gate reads that tree). The read of its `<ranges>` was never the cost (25 s and 184 MB alone at 0.182): the
+  `zip_transform` and `adjacent_transform`, which run since 0.182 (`zipadjacent.cpp`, a gate's over libc++ 22 since
+  0.227). The read of its `<ranges>` was never the cost (25 s and 184 MB alone at 0.182): the
   desugaring of any `std::vector` over libc++ 22 ran past the cap (0.136, 0.180), which 0.182 mended (the template
   template parameters' and the member alias templates' topics). `chunk`, `slide`, `stride`, `enumerate`,
   `cartesian_product` and `as_const` are in none of the three trees.
