@@ -1,19 +1,24 @@
-# The gates on GitHub's machines (0.223): test/ci.sh, which any Ubuntu 24.04 box, or Intel Mac on macOS 26, runs
-# alike. The smoke job -- the toolchain, then the flow, reader, compile, driver and objects gates and the proof -- runs
-# on each push to main and each pull request into it that changes more than the documents at the top of the tree, on
-# two machines (0.224):
+# The gates on GitHub's machines (0.223): test/ci.sh, which any Ubuntu 24.04 box, or Mac on macOS 26 (Intel) or 15
+# (Apple silicon), runs alike. The smoke job -- the toolchain, then the flow, reader, compile, driver and objects gates
+# and the proof -- runs on each push to main and each pull request into it that changes more than the documents at the
+# top of the tree, on three machines (0.224, 0.246):
 #
 #   linux        ubuntu-24.04 (x86-64, 4 CPUs, 16 GB)     install/install-linux.sh, LLVM 18 and libc++ 18 from Ubuntu
 #   macos-intel  macos-26-intel (x86-64, 4 CPUs, 14 GB)   install/install-macos.sh, LLVM 18 and libc++ 18 from Homebrew
+#   macos-arm    macos-15 (arm64, 3 CPUs, 7 GB)           install/install-macos.sh, LLVM 18 and libc++ 18 from Homebrew
 #
 # The Intel Mac is the owner's machine, macOS 26 on x86-64, as cocolog's CI has it; Homebrew there as the runner image
 # has it (HOMEBREW_NO_AUTO_UPDATE): its formula data still names Intel bottles, which Homebrew has built none of since
-# September 2026. The full job -- all nine gates over libc++ 18, then the library read and the C++ gate over libc++ 21
-# and over libc++ 22 (0.227), each tree past 18 unpacked beside the others (test/ci.sh) -- runs on Linux every night and
-# on request. Each clones the neighbours at test/toolchain.pins' commits and builds
-# them with cocolog's installer, Quicklisp kept in the Actions cache between runs; a SKIP the job does not expect is
-# RED (test/ci.sh), and the logs are the run's artifact for 14 days. The shape follows cocolog's own CI (its
-# .github/workflows/ci.yml, 2026-10-29).
+# September 2026. Apple silicon (0.246) is this compiler's first run on Apple's arm64: the driver gate holds that
+# machine's conventions to clang's IR on every machine (0.244), and there the compile gate runs each program beside
+# Apple clang's build of it; cocolog's CI runs that machine too. The full job -- all nine gates over libc++ 18, the
+# cross gate's C++ part over that machine's libc++ (0.246), then the library read and the C++ gate over libc++ 21 and
+# over libc++ 22 (0.227), each tree past 18 unpacked beside the others (test/ci.sh) -- runs on Linux every night and on
+# request; so does the C++ job, the library read and the C++ gate over libc++ 18 on the Intel Mac (0.246), where they
+# had not run since 0.90. Each clones the neighbours at test/toolchain.pins' commits and builds them with cocolog's
+# installer, Quicklisp kept in the Actions cache between runs; a SKIP the job does not expect is RED (test/ci.sh), and
+# the logs are the run's artifact for 14 days. The shape follows cocolog's own CI (its .github/workflows/ci.yml,
+# 2026-10-29).
 name: gates
 on:
   push:
@@ -27,10 +32,10 @@ on:
   workflow_dispatch:
     inputs:
       job:
-        description: 'smoke or full'
+        description: 'smoke, full or cpp'
         default: 'full'
         type: choice
-        options: [smoke, full]
+        options: [smoke, full, cpp]
 # the jobs read the repository and write nothing to it
 permissions:
   contents: read
@@ -57,6 +62,10 @@ jobs:
           - os: macos-intel
             name: smoke, macOS 26 (Intel)
             runner: macos-26-intel
+            minutes: 180
+          - os: macos-arm
+            name: smoke, macOS 15 (Apple silicon)
+            runner: macos-15
             minutes: 180
     env:
       # Homebrew as the runner image has it: no update of every tap before an install (nothing on Linux)
@@ -134,6 +143,50 @@ jobs:
         uses: actions/upload-artifact@v7
         with:
           name: gates-logs-full-${{ github.run_attempt }}
+          path: ${{ runner.temp }}/logs
+          retention-days: 14
+          if-no-files-found: warn
+  cpp:
+    if: github.event_name == 'schedule' || (github.event_name == 'workflow_dispatch' && inputs.job == 'cpp')
+    runs-on: macos-26-intel
+    timeout-minutes: 360
+    concurrency:
+      group: gates-cpp-${{ github.ref }}
+      cancel-in-progress: false
+    env:
+      HOMEBREW_NO_AUTO_UPDATE: 1
+      HOMEBREW_NO_INSTALL_CLEANUP: 1
+      HOMEBREW_NO_ENV_HINTS: 1
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+      - name: Quicklisp, from the cache
+        id: quicklisp
+        uses: actions/cache/restore@v6
+        with:
+          path: ~/quicklisp
+          key: quicklisp-${{ runner.os }}-${{ hashFiles('test/toolchain.pins') }}
+          restore-keys: quicklisp-${{ runner.os }}-
+      - name: The packages, the neighbours at their pins, the two modules, the toolchain
+        run: CI_PACKAGES=1 sh test/ci.sh cpp setup
+        env:
+          CI_LOGS: ${{ runner.temp }}/logs
+      - name: Quicklisp, into the cache
+        if: steps.quicklisp.outputs.cache-hit != 'true'
+        uses: actions/cache/save@v6
+        with:
+          path: ~/quicklisp
+          key: ${{ steps.quicklisp.outputs.cache-primary-key }}
+      - name: The library read and the C++ gate over libc++ 18
+        run: sh test/ci.sh cpp gates
+        env:
+          CI_LOGS: ${{ runner.temp }}/logs
+      - name: Keep the logs
+        if: ${{ always() }}
+        uses: actions/upload-artifact@v7
+        with:
+          name: gates-logs-cpp-${{ github.run_attempt }}
           path: ${{ runner.temp }}/logs
           retention-days: 14
           if-no-files-found: warn

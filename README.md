@@ -138,10 +138,11 @@ for the link, and libc++ for the C++ side. `test/toolchain.pins` names the
 neighbours' commits and the LLVM and libc++ versions the gates last passed
 on, and `sh test/toolchain.sh` checks a box against it, each tool's version
 printed and what to do where one is missing. `sh test/ci.sh smoke` (or
-`full`) is the CI job's own steps: it clones the neighbours at their pins,
-builds them with cocolog's installer, builds the two modules and runs the
-gates; GitHub runs it on each push, on Ubuntu 24.04 and on an Intel Mac
-(`.github/workflows/gates.yml`).
+`full`, or `cpp`) is the CI jobs' own steps: it clones the neighbours at
+their pins, builds them with cocolog's installer, builds the two modules
+and runs the gates; GitHub runs the smoke job on each push, on Ubuntu
+24.04, on an Intel Mac and on Apple silicon, and the full job (Linux) and
+the C++ job (the Intel Mac) every night (`.github/workflows/gates.yml`).
 
 ```sh
 CICILI=~/Projects/GitHub/cicili COCOLOG=~/Projects/GitHub/cocolog sh module/build.sh   # -> library/cicilang.so

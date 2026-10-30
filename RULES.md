@@ -77,31 +77,41 @@ that changes a rule edits the rule here, in its topic, and writes its entry in `
   cocolog's moved at 0.226, from 2.13.0 `7ff2a0d`. (0.223, 0.226, 0.227)
 - THE CI JOB (0.223). `.github/workflows/gates.yml` runs `test/ci.sh` on GitHub's machines: `smoke` on each push to
   main and each pull request into it that changes more than the documents at the top of the tree (the toolchain, then
-  the flow, reader, compile, driver and objects gates and the proof), since 0.224 on two machines, each a job of its
-  own that never waits for the other -- Ubuntu 24.04 (`ubuntu-24.04`: x86-64, 4 CPUs, 16 GB, not root) and macOS 26 on
-  Intel (`macos-26-intel`: x86-64, 4 CPUs, 14 GB; the owner's machine, as cocolog's CI has it) --; `full` on Linux
-  every night and on request (all nine gates over libc++ 18, then the library read and the C++ gate over libc++ 21 and
-  over 22, 0.227). `test/ci.sh JOB setup` installs the packages where asked (`CI_PACKAGES=1`: apt-get, each libc++ tree
-  past LLVM 18's unpacked from apt.llvm.org's packages, below; on a Mac Homebrew), clones the neighbours at their pins
-  into `CI_ROOT` (default `~/Projects/GitHub`; it moves no checkout
-  it did not make and stops at one off its pin), builds them with cocolog's own installer, `install/install-linux.sh`
-  or `install/install-macos.sh` (Quicklisp and the Lisp systems Cicili is built from, ZiguratIP, cocolog, `make
-  schema`, `make modules`), and takes the exports it prints for a shell profile, builds the two modules and checks the
-  toolchain strictly; `test/ci.sh JOB gates` runs the job's gates, the smoke job's six whatever one of them says (0.224:
-  the whole picture in one run, the verdict at the end); with no phase it runs both. Any Ubuntu 24.04 box or Intel Mac
-  on macOS 26 runs it alike. The shape is cocolog's own CI's
+  the flow, reader, compile, driver and objects gates and the proof), since 0.224 on two machines and since 0.246 on
+  three, each a job of its own that never waits for the others -- Ubuntu 24.04 (`ubuntu-24.04`: x86-64, 4 CPUs, 16 GB,
+  not root), macOS 26 on Intel (`macos-26-intel`: x86-64, 4 CPUs, 14 GB; the owner's machine, as cocolog's CI has it)
+  and macOS 15 on Apple silicon (`macos-15`: arm64, 3 CPUs, 7 GB; 0.246, cocolog's CI runs it too) --; `full` on Linux
+  every night and on request (all nine gates over libc++ 18, the cross gate's C++ part among them since 0.246, then the
+  library read and the C++ gate over libc++ 21 and over 22, 0.227); `cpp` on the Intel Mac every night and on request
+  (0.246: the library read and the C++ gate over libc++ 18, three lanes, a launch below 6000 MB summed, the pool killed
+  past 10000, caps that fit 14 GB). `test/ci.sh JOB setup` installs the packages where asked (`CI_PACKAGES=1`: apt-get,
+  each libc++ tree past LLVM 18's unpacked from apt.llvm.org's packages, and in the full job that machine's libc++ under
+  the cross sysroot, both below; on a Mac Homebrew), clones the neighbours at their pins into `CI_ROOT` (default
+  `~/Projects/GitHub`; it moves no checkout it did not make and stops at one off its pin), builds them with cocolog's
+  own installer, `install/install-linux.sh` or `install/install-macos.sh` (Quicklisp and the Lisp systems Cicili is
+  built from, ZiguratIP, cocolog, `make schema`, `make modules`), and takes the exports it prints for a shell profile,
+  builds the two modules and checks the toolchain strictly; `test/ci.sh JOB gates` runs the job's gates, the smoke job's
+  six whatever one of them says (0.224: the whole picture in one run, the verdict at the end); with no phase it runs
+  both. THE SMOKE JOB'S FLOW GATE TAKES ITS POOL BY THE MACHINE'S MEMORY (0.246): four lanes under 9000 and 14000 MB
+  summed where it has 12 GB or more, else two lanes, a launch below 3500 MB, the pool killed past 5500 -- on this box,
+  two lanes wide, its peak was 3224 MB and the gate GREEN in 192 s, four lanes wide 4504 MB. Any Ubuntu 24.04 box or Mac
+  on macOS 26 (Intel) or 15 (Apple silicon) runs it alike. The shape is cocolog's own CI's
   (`.github/workflows/ci.yml` there, 2026-10-29): Quicklisp kept in the Actions cache, restored before the setup and
   saved after it, so a red gate does not lose it; the logs (`CI_LOGS`: the installer's, the builds', the toolchain's,
   each gate's) the run's artifact for 14 days; a table of the neighbours' commits and the gates' verdicts on the run's
   page; the jobs read the repository and write nothing to it (`permissions: contents: read`), a new push to a pull
   request stops its last run, and main's runs each finish, each commit with its verdict. A GREEN JOB HAS NO SKIP IT DID
   NOT EXPECT: a gate that finds no cocolog or no module prints SKIP and exits 0, so each gate's output is read, and a
-  line that starts with SKIP is RED but the reader gate's optional files (`SKIP FILE (not here)`) and the cross gate's
-  C++ part, which SKIPs there: no arm64 libc++ is under that machine's cross sysroot (The C gates, Not done). The
-  workflow is actionlint 1.7.12-clean, the scripts shellcheck 0.11.0-clean at the warning level. Run on this box as the
+  line that starts with SKIP is RED but the reader gate's optional files (`SKIP FILE (not here)`). The cross gate's C++
+  part, a SKIP there until 0.246, is held as the rest now that the full job puts that machine's libc++ under the cross
+  sysroot (`ci_arm64_libcxx`): the six arm64 packages of LLVM 18's libc++ (The C gates) from `ports.ubuntu.com`, where
+  Ubuntu serves arm64, fetched by an apt of the job's own -- that one source and both architectures, its lists and its
+  cache in a directory of its own, the runner's sources and dpkg left as they are -- and extracted by `dpkg-deb -x`; run
+  on this box into a scratch sysroot, the same files as this box's tree. The workflow is actionlint 1.7.12-clean, the
+  scripts shellcheck 0.11.0-clean at the warning level (0.223, again at 0.246). Run on this box as the
   job runs it, but for the packages (a fresh HOME and `CI_ROOT`, the two phases apart): GREEN, the setup in 632 s and
   the six small gates in 252 s; on GitHub, its first run (40878868063, on `e92e11c`) GREEN in 13 minutes, the setup 9
-  and the gates 4. (0.223, 0.224)
+  and the gates 4. (0.223, 0.224, 0.246)
 - THE MAC'S JOB (0.224). Homebrew's `llvm@18` is the embedded LLVM and the libc++ that the driver gate's C++ checks
   read: a keg, `$(brew --prefix)/opt/llvm@18` (brew links no versioned formula), installed only from a bottle --
   Homebrew has built no Intel bottles since September 2026 and LLVM from source is hours, so the setup stops where the
@@ -112,15 +122,18 @@ that changes a rule edits the rule here, in its topic, and writes its entry in `
   `CI_ROOT/.ci-bin`, so BSD's `date`, `sed` and `wc` stay what a Mac has (cocolog's CI). Apple's clang is the compiler
   cocolog's installer builds with there (cocolog's `tools/cc` takes Homebrew's unversioned `llvm` only), the gates'
   reference and the link; the C library is the SDK's (`ccl_sdk_dirs/1`: `$SDKROOT`'s, the command line tools', Xcode's).
-  The full job is Linux's: the cross gate runs under qemu-user over Debian's aarch64 sysroot. THE FIRST RUN
-  (40888231266, on `703ba51`, 0.224): the setup GREEN in 23 minutes -- Homebrew 1, cocolog's installer 21 (ZiguratIP's
-  build the most of it), the two modules and the toolchain check 20 s, image 20260824.0517.1, Apple clang 21.0.0, the
-  command line tools' SDK 26.5 --, then the six gates in 16 minutes: the flow gate GREEN in 426 s (Linux's 201 s), the
-  objects gate and the proof GREEN, the reader gate one failure, the compile gate twelve, the driver gate three, each
-  one of 0.225's (HISTORY.md). THE SECOND RUN (40904005520, on `c20dc9c`, 0.225): GREEN in 32 minutes, the setup in
-  19:39 and the six gates in 12:29 -- the flow gate in 348 s, the reader's later process served from the store (its
-  323 files, 0 s), the compile gate's 115 fixtures against clang's build and 27 against their `.expect`, 14 skipped by
-  their needs, its 61 refusals --; Linux's job in 10 minutes, the setup 6:51 and the gates 3:28. (0.224, 0.225, 0.226)
+  The full job is Linux's: the cross gate runs under qemu-user over Debian's aarch64 sysroot. On Apple silicon (0.246)
+  Homebrew's prefix is `/opt/homebrew` and `llvm@18`'s bottle is arm64's, which the Intel check leaves alone; its 7 GB
+  holds the smoke job, the flow gate's pool two lanes wide (THE CI JOB), and the C++ job runs on the Intel Mac. THE
+  FIRST RUN (40888231266, on `703ba51`, 0.224): the setup GREEN in 23 minutes -- Homebrew 1, cocolog's installer 21
+  (ZiguratIP's build the most of it), the two modules and the toolchain check 20 s, image 20260824.0517.1, Apple clang
+  21.0.0, the command line tools' SDK 26.5 --, then the six gates in 16 minutes: the flow gate GREEN in 426 s (Linux's
+  201 s), the objects gate and the proof GREEN, the reader gate one failure, the compile gate twelve, the driver gate
+  three, each one of 0.225's (HISTORY.md). THE SECOND RUN (40904005520, on `c20dc9c`, 0.225): GREEN in 32 minutes, the
+  setup in 19:39 and the six gates in 12:29 -- the flow gate in 348 s, the reader's later process served from the store
+  (its 323 files, 0 s), the compile gate's 115 fixtures against clang's build and 27 against their `.expect`, 14 skipped
+  by their needs, its 61 refusals --; Linux's job in 10 minutes, the setup 6:51 and the gates 3:28. (0.224, 0.225,
+  0.226, 0.246)
 
 ### The chain
 
@@ -314,8 +327,9 @@ that changes a rule edits the rule here, in its topic, and writes its entry in `
 - C++ FOR THAT MACHINE (0.161): where its libc++ is under the sysroot -- the tree cicilang++ reads, `$LLVM` or the
   newest `/usr/lib/llvm-NN`, at `/usr/aarch64-linux-gnu` plus that path, where Debian's and Ubuntu's arm64 packages put
   it when extracted there (`dpkg-deb -x` of `libc++-18-dev`, `libc++1-18`, `libc++abi-18-dev`, `libc++abi1-18`,
-  `libunwind-18` and `libunwind-18-dev`: apt installs no package of another architecture without multiarch) -- the cross
-  gate builds 25 C++ fixtures with `cicilang++ --target=aarch64-linux-gnu` and with clang++ over that same libc++, runs
+  `libunwind-18` and `libunwind-18-dev`: apt installs no package of another architecture without multiarch; the CI's
+  full job fetches them from `ports.ubuntu.com` by an apt of its own, 0.246) -- the cross gate builds 25 C++ fixtures
+  with `cicilang++ --target=aarch64-linux-gnu` and with clang++ over that same libc++, runs
   both under qemu and compares them, then three checks against clang++'s code on that machine, the C++ gate's own:
   classes by value, pointers to member functions both ways, and a by-value parameter destroyed by the caller both ways
   (0.207; `test/cpp/link/`). Each C++ build has a time and a memory cap of its own (`CROSS_SECS` 1800, `CROSS_MB` 2800:
@@ -324,7 +338,7 @@ that changes a rule edits the rule here, in its topic, and writes its entry in `
   `asmgoto.cpp`) and 2 checks at 0.167 (3 since 0.207), 703 s in 0.164's chain, peak 535 MB, the C++ part cold (its
   summaries are that machine's own, read afresh in every chain's fresh HOME); 151 s in 0.166's, 150 s in 0.167's, 143 s
   in 0.168's, 139 s in 0.171's and 145 s in 0.172's, peaks 437 MB, 436 MB, 365 MB, 387 MB and 390 MB, over a HOME that
-  0.165's chain had warmed. (0.131, 0.161, 0.207, 0.215)
+  0.165's chain had warmed. (0.131, 0.161, 0.207, 0.215, 0.246)
 - The proof. `proof/run.sh` has clang turn `proof/forty2.ll` into a binary that prints `cicilang reaches C` and exits
   42. (M0)
 
@@ -12023,12 +12037,13 @@ Declarations topic of the C++ reader).
   are one class (a local class keeps its line, no place in it). The reader drops `constexpr` on a free function, so a
   closure there is `$_N` where clang's is `Ul`. `auto c = [] {}, d = [] {};` is not refused, where its two types differ
   ([dcl.spec.auto]/7).
-- The Mac's CI job (0.224) runs the six small gates on Intel only, and the C++ gates have not run on a Mac since 0.90,
-  so every C++ rule made since 0.91 is gated on Linux. A full job there wants Homebrew's libc++ trees, `llvm@18` and
-  `llvm@21` (or `llvm`), from bottles the formula data still names, and the C++ gate's pool under caps that fit 14 GB;
-  the cross gate stays Linux's. Apple silicon (`macos-15`, 3 CPUs, 7 GB; cocolog's CI runs it, GREEN since 2026-10-29)
-  would be this compiler's first run on Apple's arm64, whose variadic calls and long double differ (above): Homebrew's
-  prefix `/opt/homebrew`, and a pool of two lanes under caps that fit 7 GB.
+- The CI's jobs of 0.246 -- the smoke job on Apple silicon, the C++ job on the Intel Mac, the cross gate's C++ part in
+  the full job -- are checked here as far as this box reaches: the arm64 packages fetched and extracted as the job does
+  them, the flow gate GREEN under the small machine's caps, the workflow and the script lint-clean. Their first runs on
+  GitHub come with the push; until they are GREEN every C++ rule made since 0.91 is gated on Linux alone, and Apple's
+  arm64 is proven against clang's IR (0.244), not by a program run there. The C++ job reads libc++ 18 alone, not
+  Homebrew's later trees (`llvm@21`, `llvm`), and the C++ gates do not run on Apple silicon, whose 7 GB holds the smoke
+  job.
 - `-g` on a Mac (0.245) keeps the objects the debug map names in `~/.cicilang/objects` and makes no `.dSYM` (`dsymutil`
   is an LLVM binary): a program copied to another machine is debugged there without its DWARF, and the cache keeps an
   object until it is cleared. The rule is proven on this box as far as the object (a Mach-O one, under `--target`), and
@@ -12036,9 +12051,6 @@ Declarations topic of the C++ reader).
 - The decimal runtime (0.243) rounds half to even alone -- C23's `fe_dec_setround` is no part of glibc, so a program
   here has no way to ask another direction --, keeps no exception flag (libgcc keeps its own, which no standard function
   reads), and makes a NaN's payload its own way, not as libgcc's plumbing does.
-- The CI job (0.223) runs the cross gate's C part only: its C++ part needs that machine's libc++ under the cross
-  sysroot, which this box has by hand (`dpkg-deb -x` of the arm64 packages, The C gates) and `test/ci.sh` does not
-  put there -- Ubuntu's arm64 packages are on `ports.ubuntu.com`, beside a second architecture for apt.
 
 ### The safe part
 

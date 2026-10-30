@@ -240,6 +240,7 @@ One row per step, in version order: the step's title, what it did and its gate n
 | 0.243 | the decimal runtime is the compiler's own, libgcc's answer bit for bit | the seventeenth item of "Do all": every routine the lowering calls for the decimal types written in C (`module/bidrt.c`) and compiled by cicilang into `library/ccl_bidrt.pl`, each put into the module that calls it with the routines it calls, so a Mac links a decimal program; the driver gate holds it to libgcc's routines of the same names, 549,760 answers the same; the decimal fixtures lose their needs; lowering 143 | flow GREEN, the reader, compile, driver, objects, proof and cross gates GREEN (2 s, 29 s, 36 s with 53 checks, 5 s, 0 s, 201 s), the C++ gate GREEN in 1199 s with 848 run fixtures ok and 11 skipped; a local commit |
 | 0.244 | the calling conventions of x86-64, Linux's aarch64 and Apple's arm64 as clang lowers them | the eighteenth item of "Do all": Apple's arm64 proven against clang's IR, no Apple machine being here -- a narrow integer `signext` or `zeroext` on x86-64 and on Apple's arm64, `_Bool` as `i1` at a call, an Arm result of eight bytes or fewer an integer of its size and an HFA result its struct, x86-64's small aggregate with no register left an integer, Linux's aarch64 zero-width bit-field aligning its struct; the driver gate compares the three machines' conventions and layouts with clang's (`test/c/link/abi_targets.c`, `test/abisig.awk`); over the C run fixtures 857 and 809 conventions the same on the Arm machines; lowering 144 | flow GREEN, the reader, compile, driver, objects, proof and cross gates GREEN (3 s, 29 s, 39 s with 54 checks, 4 s, 0 s, 207 s), the C++ gate GREEN in 1203 s with 848 run fixtures ok and 11 skipped; a local commit |
 | 0.245 | -g on a Mac: the objects the debug map names are kept | the nineteenth item of "Do all": under `-g` on a Mac each source's object goes to `~/.cicilang/objects`, where the link's debug map names it, instead of a temporary file gone after the link (no `dsymutil`: an LLVM binary); the driver gate's `-g` checks on a Mac read it through the debug map, and a 55th check holds it there | flow GREEN, the reader, compile, driver, objects, proof and cross gates GREEN (2 s, 13 s, 29 s, 5 s, 0 s, 206 s); the C++ gate not run (the change reaches a Mac's `-g` link alone); a local commit |
+| 0.246 | the CI: Apple silicon, the Mac's C++ gates, the cross gate's C++ part | the twentieth item of "Do all": the smoke job on a third machine, Apple silicon (`macos-15`, 7 GB, the flow gate's pool two lanes wide there); a `cpp` job on the Intel Mac every night, the library read and the C++ gate over libc++ 18 under caps that fit 14 GB; the full job's cross sysroot given that machine's libc++ from `ports.ubuntu.com` by an apt of the job's own, so the cross gate's C++ part runs and its SKIP is RED; none run on GitHub yet | the toolchain check and the flow gate GREEN (99 s; two lanes wide 192 s, peak 3224 MB), the reader, compile, driver, objects, proof and cross gates GREEN (2 s, 12 s, 28 s, 4 s, 0 s, 208 s); the arm64 fetch run as written into a scratch sysroot, the same files; the C++ gate not run (no library file changed); a local commit |
 
 ## M5 — the C++ mode
 
@@ -16534,3 +16535,42 @@ alone, which no Linux build takes, and the full chain of step 21 runs it. A Mac'
   information topic (the objects kept), the driver gate, Not done. `CLAUDE.md`: the versions, the user's cache.
 
 The module 0.245. The reader 167 and the lowering 144: no read and no IR changed.
+
+## 0.246 — the CI: Apple silicon, the Mac's C++ gates, the cross gate's C++ part
+
+**0.246: the twentieth item of "Do all" (Not done: "The Mac's CI job (0.224) runs the six small gates on Intel only, and
+the C++ gates have not run on a Mac since 0.90 ..." and "The CI job (0.223) runs the cross gate's C part only ..."). The
+workflow gets a third smoke machine, Apple silicon, and a C++ job on the Intel Mac, and the full job puts the arm64
+libc++ under the cross sysroot, so the cross gate's C++ part runs there. None of them has run on GitHub yet: their first
+runs come with the push of step 21, and the commit after it carries what they find. A local commit.**
+
+WHAT 0.246 DOES:
+
+- `.github/workflows/gates.yml`: the smoke job's third machine, `macos-15` (Apple silicon: arm64, 3 CPUs, 7 GB, 180
+  minutes), which cocolog's CI runs too; a `cpp` job on `macos-26-intel` every night and on request (`workflow_dispatch`
+  takes `smoke`, `full` or `cpp`), 360 minutes, its Quicklisp from the same cache as the other Macs' (the tree holds no
+  compiled file, so the two Macs share one key, as cocolog's CI has it).
+- `test/ci.sh cpp`: the setup as the smoke job's, the toolchain checked over LLVM 18's tree alone, then the library read
+  and the C++ gate over libc++ 18 under caps that fit 14 GB -- three lanes, a launch below 6000 MB summed, the pool
+  killed past 10000.
+- `ci_arm64_libcxx` (the full job): the six arm64 packages of LLVM 18's libc++ from `ports.ubuntu.com`, fetched by an
+  apt of the job's own -- that one source and both architectures, its lists and its cache in a temporary directory, the
+  runner's sources and dpkg left as they are -- and extracted under `/usr/aarch64-linux-gnu`; a SKIP of the cross gate's
+  C++ part is RED now, as every other SKIP the job does not expect.
+- The smoke job's flow gate takes its pool by the machine's memory: below 12 GB, two lanes, a launch below 3500 MB, the
+  pool killed past 5500.
+
+MEASUREMENTS: `ci_arm64_libcxx` run as written on this box (as root, the sysroot a scratch directory): the six packages
+of 1:18.1.3-1ubuntu1 fetched and extracted, the tree the same files as this box's
+`/usr/aarch64-linux-gnu/usr/lib/llvm-18` and its multiarch libraries, the temporary directory removed. The flow gate two
+lanes wide under 3500 and 5500 MB: GREEN in 192 s, peak 3224 MB (four lanes wide: 99 s, peak 4461 MB). `test/ci.sh`
+shellcheck 0.11.0-clean at the warning level and the workflow actionlint 1.7.12-clean. The toolchain check GREEN; the
+flow gate GREEN (99 s); the reader, compile, driver, objects, proof and cross gates GREEN (2 s, 12 s, 28 s with 54
+checks and the Mac's `skip` line, 4 s, 0 s, 208 s with its C++ part, 36 fixtures and 3 checks; peak 429 MB). The C++
+gate was not run: no library file changed, and the full chain of step 21 runs it.
+
+- `test/ci.sh` (the `cpp` job, `ci_arm64_libcxx`, the flow gate's pool by the memory, the SKIP of the cross gate's C++
+  part RED), `.github/workflows/gates.yml` (the Apple silicon machine, the `cpp` job). `RULES.md`: the CI job, the Mac's
+  job, the cross gate's C++ part, Not done. `CLAUDE.md`: the versions, where things are. `README.md`: the CI's jobs.
+
+The module 0.246. The reader 167 and the lowering 144: no read and no IR changed.

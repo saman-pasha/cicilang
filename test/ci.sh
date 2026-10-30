@@ -1,13 +1,15 @@
 #!/bin/sh
-# test/ci.sh -- THE CI JOB'S STEPS (0.223), in the repository so that any Ubuntu 24.04 box, or Intel Mac on macOS 26
-# (0.224), runs what the job runs (.github/workflows/gates.yml): the neighbours cloned at test/toolchain.pins' commits,
-# side by side, and built by cocolog's own installer (install/install-linux.sh or install/install-macos.sh: Quicklisp and
-# the Lisp systems Cicili is built from, ZiguratIP, cocolog, make schema, make modules); this checkout's two modules
-# built over them; the toolchain checked STRICTLY; then the job's gates. A checkout already there at another commit is
-# left alone and the job stops: the script never moves a checkout it did not make.
+# test/ci.sh -- THE CI JOB'S STEPS (0.223), in the repository so that any Ubuntu 24.04 box, or Mac -- Intel on macOS 26
+# (0.224), Apple silicon on macOS 15 (0.246) -- runs what the job runs (.github/workflows/gates.yml): the neighbours
+# cloned at test/toolchain.pins' commits, side by side, and built by cocolog's own installer (install/install-linux.sh
+# or install/install-macos.sh: Quicklisp and the Lisp systems Cicili is built from, ZiguratIP, cocolog, make schema,
+# make modules); this checkout's two modules built over them; the toolchain checked STRICTLY; then the job's gates. A
+# checkout already there at another commit is left alone and the job stops: the script never moves a checkout it did
+# not make.
 #
 #   sh test/ci.sh smoke     # the flow, reader, compile, driver and objects gates and the proof, over libc++ 18
 #   sh test/ci.sh full      # all nine over libc++ 18, then the library read and the C++ gate over 21 and 22 (Linux)
+#   sh test/ci.sh cpp       # the library read and the C++ gate over libc++ 18, under caps that fit a Mac (0.246)
 #   sh test/ci.sh JOB setup # the setup alone (the packages, the neighbours, the modules, the check), then
 #   sh test/ci.sh JOB gates # the job's gates alone: the workflow keeps Quicklisp in its cache between the two
 #   CI_PACKAGES=1 ...       # the system packages first: apt-get, through sudo where the user is not root, or Homebrew
@@ -17,8 +19,9 @@
 # A GREEN JOB HAS NO SKIP IT DID NOT EXPECT (cocolog's CI, 2026-10-29): a gate that finds no cocolog or no module
 # prints SKIP and exits 0, and a gate's part that finds no tool prints a SKIP line, so a broken setup would read
 # GREEN. Each gate's output is read: a line that starts with SKIP is RED, but the reader gate's optional files (`SKIP
-# FILE (not here)') and, on these machines, the cross gate's C++ part (no arm64 libc++ under the sysroot). The smoke
-# job runs its six gates whatever one of them says (0.224): the whole picture in one run, the verdict at the end.
+# FILE (not here)'). The full job puts that machine's libc++ under the cross sysroot for the cross gate's C++ part
+# (0.246: Ubuntu's arm64 packages, from ports.ubuntu.com). The smoke job runs its six gates whatever one of them says
+# (0.224): the whole picture in one run, the verdict at the end.
 #
 # ON A MAC (0.224): Homebrew's llvm@18 is the embedded LLVM, a keg (brew links no versioned formula), and only from a
 # bottle -- Homebrew has built no Intel bottles since September 2026, and LLVM from source is hours, so the setup
@@ -31,7 +34,7 @@ set -u
 HERE=$(cd "$(dirname "$0")" && pwd)
 ROOT=$(cd "$HERE/.." && pwd)
 JOB=${1:-smoke}; PHASE=${2:-all}
-case "$JOB" in smoke|full) ;; *) echo "test/ci.sh: the job is smoke or full, not '$JOB'" >&2; exit 2 ;; esac
+case "$JOB" in smoke|full|cpp) ;; *) echo "test/ci.sh: the job is smoke, full or cpp, not '$JOB'" >&2; exit 2 ;; esac
 case "$PHASE" in all|setup|gates) ;; *) echo "test/ci.sh: the phase is setup, gates or all, not '$PHASE'" >&2; exit 2 ;; esac
 case "$(uname -s)" in Linux) CI_OS=linux ;; Darwin) CI_OS=macos ;; *) echo "test/ci.sh: no CI job for $(uname -s)" >&2; exit 2 ;; esac
 [ "$CI_OS" = macos ] && [ "$JOB" = full ] && { echo "test/ci.sh: the full job runs on Linux, where the cross gate's qemu-user and aarch64 sysroot are" >&2; exit 2; }
@@ -71,6 +74,26 @@ ci_unpack_libcxx() {
   $SUDO cp -a "$ci_d"/root/usr/lib/*-linux-gnu/libc++* "$ci_d"/root/usr/lib/*-linux-gnu/libunwind* "/usr/lib/llvm-$1/lib/" || ci_die "the libraries of libc++ $1"
   rm -rf "$ci_d"; echo "unpacked: libc++ $1 ($ci_v) under /usr/lib/llvm-$1"
 }
+# THE CROSS GATE'S C++ PART (0.246): that machine's libc++ of LLVM_MAJOR under the sysroot, where test/cross.sh reads it
+# ($SYS/usr/lib/llvm-N). Ubuntu serves arm64 from ports.ubuntu.com, not from its own archive: the packages are fetched by
+# an apt of the job's own -- that one source and both architectures, its lists and cache in a directory of its own, the
+# machine's sources and dpkg left as they are -- and extracted, as on the gates' box (the same files, 0.246)
+ci_arm64_libcxx() {
+  ci_a=$(mktemp -d) || ci_die "mktemp"
+  mkdir -p "$ci_a/parts" "$ci_a/lists/partial" "$ci_a/cache/archives/partial" "$ci_a/deb" || ci_die "mkdir $ci_a"
+  printf 'Types: deb\nURIs: http://ports.ubuntu.com/ubuntu-ports\nSuites: noble noble-updates\nComponents: main universe\nArchitectures: arm64\nSigned-By: /usr/share/keyrings/ubuntu-archive-keyring.gpg\n' > "$ci_a/parts/ports-arm64.sources"
+  ci_o="-o Dir::Etc::SourceList=/dev/null -o Dir::Etc::SourceParts=$ci_a/parts -o Dir::State::Lists=$ci_a/lists -o Dir::Cache=$ci_a/cache"
+  ci_o="$ci_o -o APT::Architectures::=amd64 -o APT::Architectures::=arm64 -o Debug::NoLocking=1"
+  # shellcheck disable=SC2086
+  $SUDO apt-get -qq $ci_o update > "$ci_a/update.log" 2>&1 || { tail -5 "$ci_a/update.log"; ci_die "apt-get update of ports.ubuntu.com (arm64)"; }
+  # shellcheck disable=SC2086
+  ( cd "$ci_a/deb" && $SUDO apt-get -qq $ci_o download "libc++-$LLVM_MAJOR-dev:arm64" "libc++1-$LLVM_MAJOR:arm64" "libc++abi-$LLVM_MAJOR-dev:arm64" \
+      "libc++abi1-$LLVM_MAJOR:arm64" "libunwind-$LLVM_MAJOR:arm64" "libunwind-$LLVM_MAJOR-dev:arm64" ) > "$ci_a/download.log" 2>&1 \
+    || { tail -5 "$ci_a/download.log"; ci_die "apt-get download of the arm64 libc++ $LLVM_MAJOR"; }
+  for ci_f in "$ci_a"/deb/*.deb; do $SUDO dpkg-deb -x "$ci_f" /usr/aarch64-linux-gnu || ci_die "dpkg-deb -x $ci_f"; done
+  echo "unpacked: the arm64 libc++ $LLVM_MAJOR under /usr/aarch64-linux-gnu: $(cd "$ci_a/deb" && ls | tr '\n' ' ')"
+  $SUDO rm -rf "$ci_a"
+}
 
 if [ "$PHASE" != gates ]; then
 ci_summary "**$JOB, $(uname -s) $(uname -r) on $(uname -m)**"; ci_summary ""
@@ -100,6 +123,7 @@ if [ "${CI_PACKAGES:-0}" = 1 ] && [ "$CI_OS" = linux ]; then
   echo "installed: $ci_pk"
   if [ "$JOB" = full ]; then
     for n in $LIBCXX_TREES; do [ "$n" = "$LLVM_MAJOR" ] || ci_unpack_libcxx "$n"; done
+    ci_arm64_libcxx
   fi
 elif [ "${CI_PACKAGES:-0}" = 1 ]; then
   ci_step "the Homebrew packages"
@@ -158,7 +182,7 @@ ci_step "this checkout's two modules"
 tail -n 1 "$CI_LOGS/build.log"; tail -n 1 "$CI_LOGS/build-llvm.log"
 
 ci_step "the toolchain, strictly"
-if [ "$JOB" = smoke ]; then ci_tc="env LLVM=$(ci_llvm "$LLVM_MAJOR") TOOLCHAIN_TREES=$LLVM_MAJOR"; else ci_tc="env"; fi
+if [ "$JOB" != full ]; then ci_tc="env LLVM=$(ci_llvm "$LLVM_MAJOR") TOOLCHAIN_TREES=$LLVM_MAJOR"; else ci_tc="env"; fi
 $ci_tc TOOLCHAIN_STRICT=1 sh "$HERE/toolchain.sh" < /dev/null 2>&1 | tee "$CI_LOGS/toolchain.log"
 grep -q '^GREEN: the toolchain' "$CI_LOGS/toolchain.log" || ci_die "the toolchain (above)"
 fi
@@ -171,7 +195,7 @@ ci_run() {   # ci_run NAME CMD...: as test/gates.sh runs a gate, its GREEN or RE
   ci_n=$1; shift; ci_s=$(date +%s); ci_l="$CI_LOGS/gate-$(echo "$ci_n" | tr ' ' '-').log"
   { "$@" < /dev/null 2>&1; echo "exit $?" > "$ci_l.rc"; } | tee "$ci_l"
   ci_rc=$(sed 's/^exit //' "$ci_l.rc"); ci_e=$(( $(date +%s) - ci_s ))
-  ci_skip=$(grep -a '^SKIP' "$ci_l" | grep -av '^SKIP [^ ]* (not here)$' | grep -av '^SKIP the C++ part: no libc++ of aarch64' || true)
+  ci_skip=$(grep -a '^SKIP' "$ci_l" | grep -av '^SKIP [^ ]* (not here)$' || true)
   if [ "$ci_rc" -eq 0 ] && [ -z "$ci_skip" ]; then echo "== $ci_n: GREEN in ${ci_e} s"; ci_summary "| $ci_n | GREEN | $ci_e |"
   elif [ "$ci_rc" -eq 0 ]; then
     echo "== $ci_n: RED in ${ci_e} s, a SKIP this job does not expect:"; printf '%s\n' "$ci_skip" | sed 's/^/     /'
@@ -180,8 +204,22 @@ ci_run() {   # ci_run NAME CMD...: as test/gates.sh runs a gate, its GREEN or RE
 }
 if [ "$JOB" = smoke ]; then
   ci_step "the six small gates"
-  for g in flow reader compile driver objects; do ci_run "$g" env LLVM="$(ci_llvm "$LLVM_MAJOR")" sh "$HERE/$g.sh"; done
+  # THE FLOW GATE'S POOL BY THE MACHINE'S MEMORY (0.246): four lanes under 9000 and 14000 MB summed fit 14 GB and more;
+  # Apple silicon's runner has 7 GB, where the pool takes two lanes, a launch below 3500 MB, the pool killed past 5500
+  # (on the gates' box: four lanes wide its peak was 4504 MB, at 0.245; two lanes wide 3224 MB, GREEN in 192 s, at 0.246)
+  if [ "$CI_OS" = macos ]; then ci_mb=$(( $(sysctl -n hw.memsize) / 1048576 )); else ci_mb=$(awk '/^MemTotal:/ { print int($2 / 1024) }' /proc/meminfo); fi
+  ci_pool=""; [ "${ci_mb:-0}" -lt 12000 ] && ci_pool="FLOW_JOBS=2 FLOW_LAUNCH_MB=3500 FLOW_HARD_MB=5500"
+  echo "this machine's memory: $ci_mb MB; the flow gate's pool: ${ci_pool:-its defaults}"
+  # shellcheck disable=SC2086
+  for g in flow reader compile driver objects; do ci_run "$g" env LLVM="$(ci_llvm "$LLVM_MAJOR")" $ci_pool sh "$HERE/$g.sh"; done
   ci_run proof sh "$ROOT/proof/run.sh"
+elif [ "$JOB" = cpp ]; then
+  # THE C++ JOB (0.246): the C++ gates on a Mac, where they had not run since 0.90 -- the library read, then the C++ gate,
+  # over LLVM_MAJOR's libc++ (Homebrew's keg), each pool under caps that fit the runner's 14 GB: three lanes, a launch below
+  # 6000 MB summed, the pool killed past 10000
+  ci_step "the library read and the C++ gate over libc++ $LLVM_MAJOR"
+  ci_run "libcxx $LLVM_MAJOR" env LLVM="$(ci_llvm "$LLVM_MAJOR")" LX_JOBS=3 LX_LAUNCH_MB=6000 LX_HARD_MB=10000 sh "$HERE/libcxx.sh"
+  [ "$ci_fail" = 0 ] && ci_run "cpp $LLVM_MAJOR" env LLVM="$(ci_llvm "$LLVM_MAJOR")" CPP_JOBS=3 CPP_LAUNCH_MB=6000 CPP_HARD_MB=10000 sh "$HERE/cpp.sh"
 else
   ci_step "all nine gates over libc++ $LLVM_MAJOR"
   ci_run gates env LLVM="$(ci_llvm "$LLVM_MAJOR")" sh "$HERE/gates.sh"
