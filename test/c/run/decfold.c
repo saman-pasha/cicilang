@@ -1,7 +1,8 @@
 /* A decimal floating constant folded as gcc folds it (C23 6.3.1.4, 6.3.1.5, IEEE 754-2008): a global's initializer
    is computed at compile time -- the arithmetic of decimal constants, a binary floating constant converted to a
    decimal type and a decimal constant to a binary one, each rounded to its type -- and its bits are printed: the BID
-   encoding of the decimal ones, %a of the binary ones; a long double from a decimal constant is compared with the
+   encoding of the decimal ones, %a of the binary ones (a subnormal one by its bits: glibc's %a writes the smallest
+   0x0.0000000000001p-1022, Apple's 0x1p-1074); a long double from a decimal constant is compared with the
    conversion the program makes at run time (libgcc's), since its format is the machine's. */
 #include <stdio.h>
 #include <string.h>
@@ -53,14 +54,15 @@ long double ld = 9.999999999999999999999999999999999e6144dl;
 static void bits64(const char *s, _Decimal64 x) { unsigned long long u; memcpy(&u, &x, 8); printf("%s %016llx\n", s, u); }
 static void bits32(const char *s, _Decimal32 x) { unsigned u; memcpy(&u, &x, 4); printf("%s %08x\n", s, u); }
 static void bits128(const char *s, _Decimal128 x) { unsigned long long u[2]; memcpy(u, &x, 16); printf("%s %016llx%016llx\n", s, u[1], u[0]); }
+static unsigned long long dbits(double x) { unsigned long long u; memcpy(&u, &x, 8); return u; }
 int main(void) {
   bits64("a", a); bits64("b", b); bits32("c", c); bits128("d", d); bits64("e", e); bits64("f", f); bits64("g", g);
   bits64("h", h); bits64("i", i); bits32("j", j); bits128("k", k); bits64("l", l); bits64("m", m); bits64("n", n);
   bits64("o", o); bits32("p", p); bits128("q", q); bits64("r", r); bits32("s", s); bits64("t", t); bits128("u", u);
   bits64("v", v); bits64("w", w); bits32("x", x); bits64("y", y); bits32("z", z); bits64("n0", n0); bits128("n1", n1);
   bits32("n2", n2);
-  printf("%a %a %a %a %a %a\n", g1, (double) g2, g3, g5, g6, g7);
-  printf("%a %a %a %a %a %a\n", g8, (double) g9, g10, g11, g12, g13);
+  printf("%a %a %a %#llx %a %a\n", g1, (double) g2, g3, dbits(g5), g6, g7);
+  printf("%a %a %a %#llx %a %a\n", g8, (double) g9, g10, dbits(g11), g12, g13);
   volatile _Decimal64 va = 0.1dd; volatile _Decimal128 vb = -1.dl / 3, vc = 1e-4940dl, vd = 9.999999999999999999999999999999999e6144dl;
   printf("%d %d %d %d\n", la == (long double) va, lb == (long double) vb, lc == (long double) vc, ld == (long double) vd);
   return 0;

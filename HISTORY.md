@@ -241,6 +241,7 @@ One row per step, in version order: the step's title, what it did and its gate n
 | 0.244 | the calling conventions of x86-64, Linux's aarch64 and Apple's arm64 as clang lowers them | the eighteenth item of "Do all": Apple's arm64 proven against clang's IR, no Apple machine being here -- a narrow integer `signext` or `zeroext` on x86-64 and on Apple's arm64, `_Bool` as `i1` at a call, an Arm result of eight bytes or fewer an integer of its size and an HFA result its struct, x86-64's small aggregate with no register left an integer, Linux's aarch64 zero-width bit-field aligning its struct; the driver gate compares the three machines' conventions and layouts with clang's (`test/c/link/abi_targets.c`, `test/abisig.awk`); over the C run fixtures 857 and 809 conventions the same on the Arm machines; lowering 144 | flow GREEN, the reader, compile, driver, objects, proof and cross gates GREEN (3 s, 29 s, 39 s with 54 checks, 4 s, 0 s, 207 s), the C++ gate GREEN in 1203 s with 848 run fixtures ok and 11 skipped; a local commit |
 | 0.245 | -g on a Mac: the objects the debug map names are kept | the nineteenth item of "Do all": under `-g` on a Mac each source's object goes to `~/.cicilang/objects`, where the link's debug map names it, instead of a temporary file gone after the link (no `dsymutil`: an LLVM binary); the driver gate's `-g` checks on a Mac read it through the debug map, and a 55th check holds it there | flow GREEN, the reader, compile, driver, objects, proof and cross gates GREEN (2 s, 13 s, 29 s, 5 s, 0 s, 206 s); the C++ gate not run (the change reaches a Mac's `-g` link alone); a local commit |
 | 0.246 | the CI: Apple silicon, the Mac's C++ gates, the cross gate's C++ part | the twentieth item of "Do all": the smoke job on a third machine, Apple silicon (`macos-15`, 7 GB, the flow gate's pool two lanes wide there); a `cpp` job on the Intel Mac every night, the library read and the C++ gate over libc++ 18 under caps that fit 14 GB; the full job's cross sysroot given that machine's libc++ from `ports.ubuntu.com` by an apt of the job's own, so the cross gate's C++ part runs and its SKIP is RED; none run on GitHub yet | the toolchain check and the flow gate GREEN (99 s; two lanes wide 192 s, peak 3224 MB), the reader, compile, driver, objects, proof and cross gates GREEN (2 s, 12 s, 28 s, 4 s, 0 s, 208 s); the arm64 fetch run as written into a scratch sysroot, the same files; the C++ gate not run (no library file changed); a local commit |
+| 0.247 | the chain of step 21, the push, and what the CI's first runs on the two Macs found | the twenty-first item of "Do all": the chain over 0.246's tree (all nine gates over libc++ 18, 848 run fixtures ok; the C++ gates over 21 and 22, 856 and 859 ok), the push of 0.227 to 0.246, the CI's run of it (Linux GREEN, the Intel Mac one failure, Apple silicon 155); a variadic call's function type the callee's, its fixed parameters then `...` (Apple's arm64 passes a variadic argument on the stack), `test/abisig.awk` keeping it; an asm label on Darwin spelled `\01` first; four tests made machine-neutral; lowering 145 | flow GREEN, the reader, compile, driver, objects, proof and cross gates GREEN (3 s, 29 s, 38 s, 4 s, 0 s, 208 s), the C++ gate GREEN in 1237 s with 848 run fixtures ok and 11 skipped; 812 conventions of 125 C run fixtures clang's for Apple's arm64; a commit and a push |
 
 ## M5 — the C++ mode
 
@@ -16574,3 +16575,74 @@ gate was not run: no library file changed, and the full chain of step 21 runs it
   job, the cross gate's C++ part, Not done. `CLAUDE.md`: the versions, where things are. `README.md`: the CI's jobs.
 
 The module 0.246. The reader 167 and the lowering 144: no read and no IR changed.
+
+## 0.247 — the chain of step 21, the push, and what the CI's first runs on the two Macs found
+
+**0.247: the twenty-first item of "Do all": the full chain over the work tree, the one push of the twenty local commits
+(0.227 to 0.246), and the CI's first runs of 0.246's jobs, whose findings this step corrects. A commit and a push on the
+plan's word ("Commit each, push at end": the CI's items get their first runs with the push, and fixes follow).**
+
+THE CHAIN (on 0.246's tree, cocolog 2.14.1, a fresh HOME a tree): over libc++ 18 the toolchain check and all nine gates
+GREEN -- flow 105 s, reader 3 s, compile 29 s, driver 36 s, objects 4 s, proof 0 s, cross 323 s with its C++ part over
+that machine's libc++, the library read 467 s, the C++ gate 1266 s with 848 run fixtures ok and 11 skipped by their
+needs --; over libc++ 21 the library read (435 s) and the C++ gate GREEN, 856 ok and 3 skipped; over libc++ 22 (439 s)
+GREEN, 859 ok and none skipped; 96 minutes, peak 4418 MB. THE PUSH: `3f69d47..dc16a80` on main, the twenty commits at
+once; the remote answers from its new place, `saman-pasha/cicilang`.
+
+THE CI'S RUN OF THE PUSH (41146211555): Linux's smoke job GREEN, the setup in 6:37 and the gates in 2:25. The Intel
+Mac's setup GREEN in 24:22, its gates in 16:21: the compile gate's one failure, `decfold.c`. Apple silicon's
+(`macos-15`, Apple clang 17.0.0, 7168 MB, the flow gate's pool two lanes wide) setup GREEN in 10:36, its gates in 5:58:
+flow GREEN in 153 s, reader GREEN in 10 s, objects and the proof GREEN, the compile gate 142 failures and the driver
+gate 13. The night before, the full job of 0.226 (41029713469) had stopped in its setup in 9 s, `apt-get install`
+refusing `libc++-21-dev` beside `libc++-18-dev`: 0.227's `test/ci.sh` installs no libc++ past 18 (it unpacks them), and
+`apt-get -s` of 0.246's list resolves here; the full job and the C++ job run first the night after this push.
+
+WHAT THEY FOUND, each reduced here (no Apple machine is here: the IR for `arm64-apple-macos` against clang's, and Mach-O
+objects read by `llvm-dwarfdump`):
+
+- A VARIADIC CALL'S FUNCTION TYPE listed every argument as a fixed parameter, `call i32 (ptr, ptr, i32, ...)
+  @printf(...)` where clang's is `call i32 (ptr, ...)`. The type tells the backend which arguments are variadic: x86-64
+  and Linux's aarch64 pass both kinds in the same registers, Apple's arm64 passes a variadic one on the stack, so there
+  printf read what the registers held -- `hello.c` printed `hello, `, numbers came out as addresses -- in most of the
+  155 failures. 0.244's comparison did not see it: `test/abisig.awk` (and the survey's comparator) dropped a variadic
+  call's function type as no part of the convention, where it is the part that decides it.
+- AN ASM LABEL on Darwin took LLVM's `_` like a C name: Apple's headers write the `_` themselves
+  (`__DARWIN_ALIAS(fputs)` is `__asm("_" "fputs")`), so `fputs` was `__fputs`, which no library defines; clang spells a
+  label `@"\01_fputs"`, which tells LLVM to add nothing. No fixture called such a function: `asmlabel.c`'s labels met
+  their C names on a Mac, where clang's build of it did not link.
+- `sizeofassert.c` asserted a struct of a `char` and a `long double` 32 bytes aligned 16; on Apple's arm64 a `long
+  double` is a `double`, and clang refuses it too.
+- THE `-g` COLUMN CHECK on Apple silicon had one row of 23 outside clang's, 9:9 -- the `>` of `if (s > 3)`, the column
+  of the `if`'s branch since 0.225 -- reproduced here for the Apple target whatever the call's fix: clang 18 and Apple's
+  clang 17 put an `if`'s branch at the condition's first token, clang 21 and 22 at its operator, as this compiler does,
+  and arm64's instruction selection joins the compare to the branch at the branch's column, where x86-64 keeps the
+  compare a row of its own (9:9 in every version).
+- THE ASM GOTO CHECK wrote x86's `jmp`, which Apple silicon's assembler refuses.
+- `decfold.c` (the Intel Mac): Apple's `%a` writes a subnormal normalized, `0x1p-1074` where glibc's writes
+  `0x0.0000000000001p-1022`; clang has no decimal types, so the fixture is held to its `.expect`, glibc's.
+
+WHAT 0.247 DOES: the call's function type is the callee's, its fixed parameters then `...` (`ir_call_/6`; the variadic
+tail of `ir_args_/5` adds no type; a callee of no fixed parameter `(...)`), and `test/abisig.awk` keeps a variadic
+call's function type, `[FIXED, ...]`; on Darwin an asm label is spelled `\01` first (`ir_asm_sym/2`, under `ir_gname/3`
+and `ir_fn_sym/2`); `sizeofassert.c` asserts the struct twice a `long double` and aligned as one; `asmlabel.c` spells
+its labels with `__USER_LABEL_PREFIX__`; `decfold.c` prints its two subnormal doubles by their bits; the driver gate's
+`-g` column check reads x86-64 objects on Apple silicon (`--target=x86_64-apple-macos`) and its asm goto check jumps
+with the machine's `b` there.
+
+MEASUREMENTS: the driver gate's check of the three machines with the new `test/abisig.awk`: over 0.246's lowering all
+three differ (the calls of `printf` and `vsum`), over 0.247's the same, 64 lines each. Over the C run fixtures for
+Apple's arm64 (125 fixtures, each preprocessed for Linux's aarch64 as at 0.244, calls with their function types): 812
+conventions the same as clang's, none different (`tgmath.c` fails to lower clang's own `<tgmath.h>` text, as at 0.244).
+An asm label's symbols for `arm64-apple-macos`, `x86_64-apple-macos` and `x86_64-linux-gnu`: clang's, each. The `-g`
+column check with x86-64 Mach-O objects: none of 20 rows outside clang 18's, 21's or 22's. The flow gate GREEN after
+each library edit (107 s, 105 s); the reader, compile, driver (54 checks), objects, proof and cross gates GREEN (3 s, 29
+s, 38 s, 4 s, 0 s, 208 s; peak 573 MB); the C++ gate GREEN in 1237 s, 848 run fixtures ok and 11 skipped by their needs
+(peak 3714 MB); the flow gate GREEN again after the version comment (104 s).
+
+- `library/ccl_ir.pl` (`ir_call_/6`, `ir_args_/5`, `ir_asm_sym/2`, `ir_gname/3`, `ir_fn_sym/2`, the lowering 145),
+  `test/abisig.awk`, `test/driver.sh`, `test/c/run/sizeofassert.c`, `asmlabel.c`, `decfold.c` and its `.expect`.
+  `RULES.md`: the driver gate, the Mac's job, the asm label, How values and classes cross a call, A statement's column,
+  Not done. `CLAUDE.md`: the versions.
+
+The module 0.247. The lowering 145 (144 at 0.244): every variadic call's IR differs, and on Darwin an asm label's. The
+reader 167.

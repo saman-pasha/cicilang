@@ -54,16 +54,21 @@ function result(h,    n, w, k, out, attrs) {
   }
   return out attrs
 }
-# a define, a declare or a call: `KIND NAME RESULT (PARAMS)'
-function sig(kind, s, at,    name, k, e, head) {
+# a define, a declare or a call: `KIND NAME RESULT (PARAMS)', and a variadic call's function type before its arguments,
+# `[FIXED, ...]' (0.247): which arguments the backend passes as variadic -- on Apple's arm64 on the stack
+function sig(kind, s, at,    name, k, e, head, ft, o) {
   match(substr(s, at), /@[-A-Za-z0-9_.$"]+\(/)
   if (RSTART == 0) return
-  k = at + RSTART - 1; name = substr(s, k + 1, RLENGTH - 2)
+  o = RLENGTH; k = at + RSTART - 1; name = substr(s, k + 1, o - 2)
   if (name ~ /^llvm\./) return
-  e = close_of(s, k + RLENGTH - 1)
+  e = close_of(s, k + o - 1)
   head = substr(s, at, k - at)
-  if (kind == "call") { head = trim(head); if (substr(head, length(head), 1) == ")") { sub(/\([^()]*\)$/, "", head) } }   # a variadic call's function type
-  print kind " " name " " result(head) " (" items(substr(s, k + RLENGTH, e - k - RLENGTH)) ")"
+  ft = ""
+  if (kind == "call") {
+    head = trim(head)
+    if (substr(head, length(head), 1) == ")" && match(head, /\([^()]*\)$/)) { ft = " [" items(substr(head, RSTART + 1, RLENGTH - 2)) "]"; head = substr(head, 1, RSTART - 1) }
+  }
+  print kind " " name " " result(head) ft " (" items(substr(s, k + o, e - k - o)) ")"
 }
 /^define / { sig("def", $0, 8); next }
 /^declare / { sig("def", $0, 9); next }

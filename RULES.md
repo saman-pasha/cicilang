@@ -132,8 +132,17 @@ that changes a rule edits the rule here, in its topic, and writes its entry in `
   three, each one of 0.225's (HISTORY.md). THE SECOND RUN (40904005520, on `c20dc9c`, 0.225): GREEN in 32 minutes, the
   setup in 19:39 and the six gates in 12:29 -- the flow gate in 348 s, the reader's later process served from the store
   (its 323 files, 0 s), the compile gate's 115 fixtures against clang's build and 27 against their `.expect`, 14 skipped
-  by their needs, its 61 refusals --; Linux's job in 10 minutes, the setup 6:51 and the gates 3:28. (0.224, 0.225,
-  0.226, 0.246)
+  by their needs, its 61 refusals --; Linux's job in 10 minutes, the setup 6:51 and the gates 3:28. THE RUN OF 0.246's
+  PUSH (41146211555, on `dc16a80`), the first on Apple silicon (Apple clang 17.0.0): its setup GREEN in 10:36, the six
+  gates in 5:58 -- the flow gate GREEN in 153 s two lanes wide on 7168 MB, the reader gate in 10 s, objects and the
+  proof GREEN, the compile gate 142 failures and the driver gate 13, most of them a program's output wrong where printf
+  printed a variadic argument: the arguments went in registers where Apple's arm64 reads them from the stack (How values
+  and classes cross a call); besides, an asm label's prefix (The C reader), `sizeofassert.c`'s `long double` of 16
+  bytes, an `if`'s column (A statement's column) and the asm goto check's x86 `jmp`, each corrected at 0.247, and the
+  run of 0.247's push tells what else they hid; the Intel Mac's setup in 24:22 and its gates in 16:21, `decfold.c`'s one
+  failure (Apple's `%a` writes a subnormal normalized, `0x1p-1074` where glibc's writes `0x0.0000000000001p-1022`: the
+  fixture prints those two by their bits since 0.247); Linux's job GREEN, the setup 6:37 and the gates 2:25. (0.224,
+  0.225, 0.226, 0.246, 0.247)
 
 ### The chain
 
@@ -310,8 +319,11 @@ that changes a rule edits the rule here, in its topic, and writes its entry in `
   fresh store, built one after another under its lock, and one more build over it after them; since 0.243 the compiler's
   decimal runtime against libgcc's, bit for bit (`test/c/link/decrt.c`, the Decimal floating types); since 0.244 the
   calling conventions and layouts of x86-64, Linux's aarch64 and Apple's arm64 against clang's IR
-  (`test/c/link/abi_targets.c`, `test/abisig.awk`; How values and classes cross a call). (M4, 0.93, 0.128, 0.129, 0.154,
-  0.160, 0.221, 0.240, 0.242, 0.243, 0.244, 0.245)
+  (`test/c/link/abi_targets.c`, `test/abisig.awk`; How values and classes cross a call), a variadic call's function type
+  among them since 0.247. On Apple silicon the `-g` column check reads x86-64 objects (`--target=x86_64-apple-macos`,
+  0.247: arm64 joins an `if`'s compare to its branch, whose column is clang's version, A statement's column), and the
+  asm goto check jumps with the machine's `b` where elsewhere `jmp` (0.247). (M4, 0.93, 0.128, 0.129, 0.154, 0.160,
+  0.221, 0.240, 0.242, 0.243, 0.244, 0.245, 0.247)
 - The objects gate. `test/objects.sh` makes 29 checks of the objects layer, an instance that outlives its process
   among them. (from the start)
 - The cross gate (0.131). `test/cross.sh` builds every `test/c/run/*.c` with `cicilang --target=aarch64-linux-gnu` and
@@ -1710,8 +1722,13 @@ that changes a rule edits the rule here, in its topic, and writes its entry in `
   `__isoc23_strtol` at C23 and in C++ (`_GNU_SOURCE`), which reads a `0b` prefix -- and a program's own label did not
   link. `asm` itself is the label's keyword `__asm__` in a GNU C mode and in every C++ mode, a name of the program's
   under `-std=c17` and `-std=c23`, as clang reads it (0.214, `ccl_asm_keyword/0` in `ccl_attr_word/1`,
-  `ccl_gnu_attr_//0` and `ccl_gnu_word/1`): it was a name everywhere, and `int f(void) asm("g");` a syntax error.
-  `asmlabel.c`, `asmlabel23.c` (`-std=c23`), `gnusource.cpp`, `gnumode.c`, `gnumode.cpp`.
+  `ccl_gnu_attr_//0` and `ccl_gnu_word/1`): it was a name everywhere, and `int f(void) asm("g");` a syntax error. ON
+  DARWIN A LABEL IS SPELLED `\01` FIRST (0.247, `ir_asm_sym/2`; GCC's manual, Controlling Names Used in Assembler Code),
+  as clang spells it, which tells LLVM to add nothing: a Mach-O C name takes `_`, LLVM's global prefix, and a label is
+  the assembler's symbol itself -- Apple's headers write the `_` (`__DARWIN_ALIAS(fputs)` is `__asm("_" "fputs")`) -- so
+  it had taken a second one, `__fputs`, which no library defines, and a program's label had met the C name it does not
+  stand for. `asmlabel.c` (its labels spell `__USER_LABEL_PREFIX__` since 0.247, `_` on a Mac), `asmlabel23.c`
+  (`-std=c23`), `gnusource.cpp`, `gnumode.c`, `gnumode.cpp`.
 - GNU'S INLINE ASSEMBLY IS READ (0.215; GCC's manual, How to Use Inline Assembly Language in C Code, which clang reads;
   C17 J.5.10, C++'s asm-declaration [dcl.asm]): at file scope, in a namespace and in a linkage block `asm ( string ) ;`
   is the module's, `gnu_asm_file(L, Text)` (the first clause of `ccl_external//3`, before C++'s leading attributes); in
@@ -6701,6 +6718,17 @@ A lambda is a class of its captures (`library/ccl_cpp_lambda.pl`, 0.223). A fixt
   arm64 (809 of 124 fixtures, each preprocessed once for Linux's aarch64 and that text compiled for the Apple machine by
   both: no Apple SDK is here); on x86-64 the 25 of 867 that differ are spellings of the same registers (Not done).
   (0.244)
+- A VARIADIC CALL'S FUNCTION TYPE IS THE CALLEE'S (0.247): its fixed parameters, then `...` -- `call i32 (ptr, ...)
+  @printf(ptr @.str, ptr %s, i32 42)`, as clang's -- and the arguments past them follow as the variadic ones
+  (`ir_call_/6`; the variadic tail of `ir_args_/5` adds no type to it; a callee of no fixed parameter is `(...)`). The
+  type tells the backend which arguments are variadic, and the call had listed every argument as a fixed one: x86-64 and
+  Linux's aarch64 pass both kinds in the same registers, but Apple's arm64 passes a variadic argument on the stack, so a
+  program built for it read what the registers held -- `printf("hello, %s\n", "cicilang")` printed `hello, ` (the CI's
+  first run on Apple silicon, 0.246's push). 0.244's comparison with clang's IR did not see it: `test/abisig.awk`
+  dropped a variadic call's function type, and keeps it now, `[FIXED, ...]` before the arguments, so the driver gate's
+  check of the three machines tells it (over 0.246's lowering all three differ). Over the C run fixtures for Apple's
+  arm64, 812 conventions are clang's, the calls with their function types among them (125 fixtures, each preprocessed
+  for Linux's aarch64 as at 0.244). (0.247)
 - `ir_leaves/3` gives the leaves from the same layout. A pointer to member function is two INTEGER eightbytes, and a
   complex its two components. On SysV an aggregate with a long double (`x87`) leaf goes in memory; a result of one long
   double or one complex long double comes back on the x87 stack, `%st0` or `%st0` and `%st1` (`ir_ret_abi/2`,
@@ -9806,16 +9834,19 @@ The namespaces' rules, the program's and the library's, are `library/ccl_cpp_nam
   variable's `llvm.dbg.declare` at its name's column: a parameter's on the function's line), a call statement's at its
   callee (a method's at its object), an assignment's at its left side, an `if`'s at its condition's first name -- at the
   operator where the condition is a comparison (0.225: clang 21's line table has the branch's condition there and no row
-  at the first name, clang 18's has both; `ir_cond_anchor/2`, a `<` or `>` never a part of `->`, `<<`, `>>=` or `<=`)
-  --, a loop's, a `switch`'s, a `return`'s and a jump's at its keyword (`ir_stmt_anchor/2`, which `ir_stmt/1` sets
-  before the statement is lowered, every `ir_stmt` clause being `ir_stmt_/1`'s). The anchor is found in the line's text
-  -- the debug file's lines, read once a build (`ir_dbg_src_line/2`) -- as a whole word, from the column of the
-  statement before it on that line, else from the line's start (`ir_dbg_col/2`; `ir_line/1` asks it under `-g` only), a
-  column in bytes, as clang counts; a statement whose anchor is not there -- a name the compiler made, a destructor run
-  at a closing brace -- has the column of the line's first character that is no blank (the brace). A loop's step and its
-  branch back are the loop's line and column (`ir_pos/1`, `ir_pos_set/1`): they had the body's last line. Since 0.242
-  each EXPRESSION has its own column (the next rule): the statement's column is what a statement that does not align
-  with its tokens keeps, and what an instruction of constants takes in C. Every location was column 1. (0.161, 0.242)
+  at the first name, clang 18's has both; `ir_cond_anchor/2`, a `<` or `>` never a part of `->`, `<<`, `>>=` or `<=`;
+  0.247: clang 18 and Apple's clang 17 put the branch at the condition's first token and clang 21 and 22 at its
+  operator, and on arm64 the compare joins the branch at the branch's column, so there the line table shows clang's
+  version alone) --, a loop's, a `switch`'s, a `return`'s and a jump's at its keyword (`ir_stmt_anchor/2`, which
+  `ir_stmt/1` sets before the statement is lowered, every `ir_stmt` clause being `ir_stmt_/1`'s). The anchor is found in
+  the line's text -- the debug file's lines, read once a build (`ir_dbg_src_line/2`) -- as a whole word, from the column
+  of the statement before it on that line, else from the line's start (`ir_dbg_col/2`; `ir_line/1` asks it under `-g`
+  only), a column in bytes, as clang counts; a statement whose anchor is not there -- a name the compiler made, a
+  destructor run at a closing brace -- has the column of the line's first character that is no blank (the brace). A
+  loop's step and its branch back are the loop's line and column (`ir_pos/1`, `ir_pos_set/1`): they had the body's last
+  line. Since 0.242 each EXPRESSION has its own column (the next rule): the statement's column is what a statement that
+  does not align with its tokens keeps, and what an instruction of constants takes in C. Every location was column 1.
+  (0.161, 0.242, 0.247)
 - AN EXPRESSION'S OWN COLUMN (0.242): every instruction has the line and the column of the innermost expression being
   lowered, as clang's: a name's load at the name (a qualified name's at its first token, `std::printf` at `std`), an
   operator's instruction at its operator -- an assignment's store at `=`, a compound assignment's and an increment's
@@ -12019,13 +12050,14 @@ Declarations topic of the C++ reader).
 
 - AAPCS64 is proven on Linux (the cross gate under qemu, 0.131); Apple's arm64, whose variadic calls, `long double`,
   `char` and narrow integers differ, is proven against clang's IR here (0.244: the conventions and layouts of
-  `test/c/link/abi_targets.c`, and 809 conventions of 124 C run fixtures), not run on an Apple machine, and its
-  expansion of an aggregate's `va_arg` is checked against clang's on this host alone (0.160). On x86-64 the IR spells
-  some aggregates otherwise than clang's, with the same registers and slots: an eightbyte of one pointer as `i64`
-  (clang's `ptr`), an `int` with only padding after it in its eightbyte as `i64` (clang's `i32`), a `byval` struct's
-  tail padding, an `__int128` in registers as `i128` (clang's two `i64`) -- 25 of 867 conventions over 128 C run
-  fixtures (0.244). `bin/cicilang` refuses three of clang's arguments: `-isystem` (a CMake build passes it), `-P` and
-  `-dM`.
+  `test/c/link/abi_targets.c`; 0.247: 812 conventions of 125 C run fixtures, a variadic call's function type among them)
+  and ran first on the CI's Apple silicon job at 0.246's push, whose findings 0.247 corrects; the run of 0.247's push is
+  the first over them, and until it is GREEN no program is proven to run there. Its expansion of an aggregate's `va_arg`
+  is checked against clang's on this host alone (0.160). On x86-64 the IR spells some aggregates otherwise than clang's,
+  with the same registers and slots: an eightbyte of one pointer as `i64` (clang's `ptr`), an `int` with only padding
+  after it in its eightbyte as `i64` (clang's `i32`), a `byval` struct's tail padding, an `__int128` in registers as
+  `i128` (clang's two `i64`) -- 25 of 867 conventions over 128 C run fixtures (0.244). `bin/cicilang` refuses three of
+  clang's arguments: `-isystem` (a CMake build passes it), `-P` and `-dM`.
 - The Itanium mangler spells the forms the shipped libraries' symbols use (measured at 0.186: libc++ 18's, 21's and 22's
   `libc++.so.1` and `libc++abi.so.1`, and the 27 symbols libc++ 21's `libc++experimental.a` defines strongly), and since
   0.236 the forms a program's type information shows -- `Dp`, `DT` and `Dt`, `B`, `Ul`, `Ut`, `X`, `L_Z`, a local name
@@ -12037,13 +12069,12 @@ Declarations topic of the C++ reader).
   are one class (a local class keeps its line, no place in it). The reader drops `constexpr` on a free function, so a
   closure there is `$_N` where clang's is `Ul`. `auto c = [] {}, d = [] {};` is not refused, where its two types differ
   ([dcl.spec.auto]/7).
-- The CI's jobs of 0.246 -- the smoke job on Apple silicon, the C++ job on the Intel Mac, the cross gate's C++ part in
-  the full job -- are checked here as far as this box reaches: the arm64 packages fetched and extracted as the job does
-  them, the flow gate GREEN under the small machine's caps, the workflow and the script lint-clean. Their first runs on
-  GitHub come with the push; until they are GREEN every C++ rule made since 0.91 is gated on Linux alone, and Apple's
-  arm64 is proven against clang's IR (0.244), not by a program run there. The C++ job reads libc++ 18 alone, not
-  Homebrew's later trees (`llvm@21`, `llvm`), and the C++ gates do not run on Apple silicon, whose 7 GB holds the smoke
-  job.
+- The smoke job's first runs on the two Macs (0.246's push, The Mac's job) were RED -- the Intel Mac by one fixture,
+  Apple silicon by 155 failures, each corrected at 0.247 --, and the run of 0.247's push is the first over the
+  corrections. The full job, with the cross gate's C++ part over that machine's libc++ (0.246), and the C++ job on the
+  Intel Mac run first the night after 0.247's push: until they are GREEN every C++ rule made since 0.91 is gated on
+  Linux alone. The C++ job reads libc++ 18 alone, not Homebrew's later trees (`llvm@21`, `llvm`), and the C++ gates do
+  not run on Apple silicon, whose 7 GB holds the smoke job.
 - `-g` on a Mac (0.245) keeps the objects the debug map names in `~/.cicilang/objects` and makes no `.dSYM` (`dsymutil`
   is an LLVM binary): a program copied to another machine is debugged there without its DWARF, and the cache keeps an
   object until it is cleared. The rule is proven on this box as far as the object (a Mach-O one, under `--target`), and

@@ -13,7 +13,7 @@ _Static_assert(sizeof(struct S) == 12, "padding");
 union V { char c[5]; int i; };
 _Static_assert(sizeof(union V) == 8 && _Alignof(union V) == 4, "union");
 struct X { char c; long double ld; };
-_Static_assert(sizeof(struct X) == 32 && _Alignof(struct X) == 16, "long double");
+_Static_assert(sizeof(struct X) == 2 * sizeof(long double) && _Alignof(struct X) == _Alignof(long double), "long double");   /* 32 and 16 where it is 16 bytes, 16 and 8 on Apple's arm64 */
 struct B { unsigned a : 3; unsigned b : 5; short s; int c; };
 _Static_assert(sizeof(struct B) == 8, "bitfields");
 struct F { int n; int d[]; };
