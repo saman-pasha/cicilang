@@ -5,6 +5,13 @@
 #include <wchar.h>
 #define S_(x) #x
 #define S(x) S_(x)
+#ifndef __INT64_C   /* clang 19 and earlier predefine none (clang 20 does), Apple's clang 17 among them, nor does a Mac's <stdint.h>: the
+                       reference builds its own of __INT64_C_SUFFIX__, which every clang has (0.248) -- this compiler predefines it */
+#define P_(a, b) a ## b
+#define P(a, b) P_(a, b)
+#define __INT64_C(c) P(c, __INT64_C_SUFFIX__)
+#define __UINT64_C(c) P(c, __UINT64_C_SUFFIX__)
+#endif
 int main(void) {
   printf("stdc %ld\n", (long) __STDC_VERSION__);
   printf("c64 %d %d\n", (int) sizeof(__INT64_C(5)), (int) sizeof(__UINT64_C(5)));

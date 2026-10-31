@@ -17,7 +17,12 @@ long double g_above = 1.00000000000000000005421010862427522170037264004349708557
 double d_tenth = 0.1L, d_third = (double) 1 / 3, d_sub = 1e-320L, d_ld = (double) LDBL_MIN;
 float f_tenth = 0.1L, f_tiny = 1e-50L;
 int i_trunc = 2.9L, i_neg = -2.9L;
-unsigned long long u_max = 18446744073709551615.0L;
+#if LDBL_MANT_DIG >= 64
+unsigned long long u_max = 18446744073709551615.0L;   /* exact in an x87's 64 bits and a quad's 113 */
+#else
+unsigned long long u_max = 18446744073709549568.0L;   /* where a long double is a double (Apple's arm64), 2^64 - 1 rounds to 2^64,
+                                                         out of range (C 6.3.1.4): 2^64 - 2048, the largest double below it (0.248) */
+#endif
 long long ll_big = -9007199254740993.0L;
 _Bool b_half = 0.5L;
 _Complex long double z = 1.5L + 2.5Li, z2 = 0.1Li;

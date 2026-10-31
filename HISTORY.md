@@ -242,6 +242,7 @@ One row per step, in version order: the step's title, what it did and its gate n
 | 0.245 | -g on a Mac: the objects the debug map names are kept | the nineteenth item of "Do all": under `-g` on a Mac each source's object goes to `~/.cicilang/objects`, where the link's debug map names it, instead of a temporary file gone after the link (no `dsymutil`: an LLVM binary); the driver gate's `-g` checks on a Mac read it through the debug map, and a 55th check holds it there | flow GREEN, the reader, compile, driver, objects, proof and cross gates GREEN (2 s, 13 s, 29 s, 5 s, 0 s, 206 s); the C++ gate not run (the change reaches a Mac's `-g` link alone); a local commit |
 | 0.246 | the CI: Apple silicon, the Mac's C++ gates, the cross gate's C++ part | the twentieth item of "Do all": the smoke job on a third machine, Apple silicon (`macos-15`, 7 GB, the flow gate's pool two lanes wide there); a `cpp` job on the Intel Mac every night, the library read and the C++ gate over libc++ 18 under caps that fit 14 GB; the full job's cross sysroot given that machine's libc++ from `ports.ubuntu.com` by an apt of the job's own, so the cross gate's C++ part runs and its SKIP is RED; none run on GitHub yet | the toolchain check and the flow gate GREEN (99 s; two lanes wide 192 s, peak 3224 MB), the reader, compile, driver, objects, proof and cross gates GREEN (2 s, 12 s, 28 s, 4 s, 0 s, 208 s); the arm64 fetch run as written into a scratch sysroot, the same files; the C++ gate not run (no library file changed); a local commit |
 | 0.247 | the chain of step 21, the push, and what the CI's first runs on the two Macs found | the twenty-first item of "Do all": the chain over 0.246's tree (all nine gates over libc++ 18, 848 run fixtures ok; the C++ gates over 21 and 22, 856 and 859 ok), the push of 0.227 to 0.246, the CI's run of it (Linux GREEN, the Intel Mac one failure, Apple silicon 155); a variadic call's function type the callee's, its fixed parameters then `...` (Apple's arm64 passes a variadic argument on the stack), `test/abisig.awk` keeping it; an asm label on Darwin spelled `\01` first; four tests made machine-neutral; lowering 145 | flow GREEN, the reader, compile, driver, objects, proof and cross gates GREEN (3 s, 29 s, 38 s, 4 s, 0 s, 208 s), the C++ gate GREEN in 1237 s with 848 run fixtures ok and 11 skipped; 812 conventions of 125 C run fixtures clang's for Apple's arm64; a commit and a push |
+| 0.248 | a struct's temporary as long as its pieces, and the cross gate at -O1 | the CI's run of 0.247's push: the Intel Mac and Linux GREEN, Apple silicon four compile fixtures RED; a temporary holding a struct and its pieces as long as the longer (AAPCS64's `[2 x i64]` of 9 to 15 bytes and `i64` of 8 or fewer passed a struct-sized temporary's end, undefined at -O1: `unionbits.c`, and on Linux's aarch64 `packed.c`); the cross gate at -O1; `ldconst.c`, `c23float.c` and `predefs.c` right on every machine; lowering 146 | flow GREEN, the reader, compile, driver, objects, proof and cross (at -O1) gates GREEN (2 s, 28 s, 36 s, 4 s, 0 s, 202 s), the C++ gate GREEN in 1204 s with 848 run fixtures ok and 11 skipped; a commit and a push |
 
 ## M5 — the C++ mode
 
@@ -16646,3 +16647,54 @@ s, 38 s, 4 s, 0 s, 208 s; peak 573 MB); the C++ gate GREEN in 1237 s, 848 run fi
 
 The module 0.247. The lowering 145 (144 at 0.244): every variadic call's IR differs, and on Darwin an asm label's. The
 reader 167.
+
+## 0.248 — a struct's temporary as long as its pieces, and the cross gate at -O1
+
+**0.248: what the CI's run of 0.247's push found (41153998535, on `e148dee`): the Intel Mac's smoke job GREEN, Linux's
+GREEN, Apple silicon's RED by four fixtures of its compile gate -- each reduced here and corrected. One of them is a
+fault of every Arm machine that the cross gate had not seen, building at -O0. A commit and a push, as the CI's fixes
+go.**
+
+THE RUN: the Intel Mac's setup in 20:22 and its gates in 11:05 (flow 211 s, reader 26 s, compile 199 s, driver 212 s,
+objects 17 s), Apple clang 21.0.0; Linux's setup in 6:28 and its gates in 2:29; Apple silicon's setup in 11:34 and its
+gates in 5:43 (Apple clang 17.0.0, flow 158 s two lanes wide, reader 11 s, compile 82 s, driver 84 s with all its
+checks, the variadic calls both ways among them, objects 7 s), the compile gate's 208 fixtures but four ok -- 117
+against clang's build, 29 against their `.expect`, 11 skipped by their needs.
+
+WHAT IT FOUND:
+
+- `unionbits.c`: a 12-byte struct that a function returns lost its last `int` at -O1. AAPCS64 passes a composite of 9 to
+  15 bytes as `[2 x i64]`, 16 bytes, and one of 8 or fewer as an `i64`; the four places where pieces meet a struct's
+  memory -- the call's result, an argument, the return and a parameter -- made a temporary of the struct's own type, so
+  the pieces' load or store passed its end, and the optimizer took the bytes past it for no value. Reproduced here on
+  Linux's aarch64 under qemu: `unionbits` printed `3` at -O0 and garbage at -O1 and -O2; the cross gate, at -O1, then
+  failed `unionbits.c` and `packed.c` (a packed struct of 7 bytes as an `i64`). Clang's coerced loads and stores take a
+  temporary as long as the longer of the two.
+- `ldconst.c`: `unsigned long long u_max = 18446744073709551615.0L` -- exact in an x87's 64 bits and a quad's 113, but
+  Apple's `long double` is a `double`, which rounds it to 2^64, out of range: undefined (C 6.3.1.4). Clang's fold
+  saturates, as LLVM's APFloat converts (`18446744073709551615`); this compiler's wraps (0.108; `0`).
+- `c23float.c`: no clang's `<float.h>` has C23's signaling NaNs (18, 21 and 22 read here), so the fixture is held to its
+  `.expect` everywhere, an output the same on x86-64 and Linux's aarch64 -- but for `LDBL_NORM_MAX`, which is a
+  `double`'s on Apple's arm64.
+- `predefs.c`: Apple's clang 17, as clang 18 and 19, predefines no `__INT64_C` (clang 20 does) and a Mac's `<stdint.h>`
+  has none, so clang built no reference and the fixture was held to Linux's `.expect`.
+
+WHAT 0.248 DOES: a temporary that holds a struct and its pieces is `[E x i8]` where the pieces' extent E passes the
+struct's size (`ir_cover_ll/4`, `ir_pieces_extent/2`, `ir_piece_bytes/2`, at the four places); the cross gate builds its
+C fixtures at -O1, ours and clang's, as the compile gate builds; `ldconst.c` takes 2^64 - 2048 where a `long double` has
+fewer than 64 bits of mantissa; `c23float.c` prints whether `LDBL_NORM_MAX` is `LDBL_MAX`; `predefs.c` gives a reference
+without `__INT64_C` its own, of `__INT64_C_SUFFIX__`, which every clang predefines. The wrap of an out-of-range constant
+conversion stays (Not done).
+
+MEASUREMENTS: the cross gate at -O1 over 0.247's lowering: `unionbits` and `packed` RED (226 s); over 0.248's GREEN (205
+s, then 202 s with the fixtures). The flow gate GREEN (112 s); the reader, compile, driver, objects and proof gates
+GREEN (2 s, 28 s, 36 s, 4 s, 0 s; peak 572 MB); the C++ gate GREEN in 1204 s, 848 run fixtures ok and 11 skipped by
+their needs (peak 3906 MB).
+
+- `library/ccl_ir.pl` (`ir_cover_ll/4`, `ir_pieces_extent/2`, `ir_piece_bytes/2`, `ir_call_/6`, `ir_arg_parts/5`, the
+  return, `ir_param_sig/6`, the lowering 146), `test/cross.sh`, `test/c/run/c23float.c` and its `.expect`, `predefs.c`,
+  `ldconst.c`. `RULES.md`: How values and classes cross a call, the cross gate, the Mac's job, Not done. `CLAUDE.md`:
+  the versions.
+
+The module 0.248. The lowering 146 (145 at 0.247): an Arm program's IR with a struct by value whose pieces pass its size
+differs. The reader 167.

@@ -27,11 +27,13 @@ D=$(mktemp -d "${TMPDIR:-/tmp}/cicilang-cross-XXXXXX")
 trap 'rm -rf "$D"' EXIT
 QE="qemu-aarch64 -L $SYS"; T=--target=aarch64-linux-gnu; CC="$ROOT/bin/cicilang"; RUN="$ROOT/test/c/run"; LINK="$ROOT/test/c/link"
 failures=0
-echo "-- every run fixture, built for aarch64 Linux and run under qemu beside clang's build"
+# AT -O1, AS THE COMPILE GATE BUILDS (0.248): an IR that is undefined only under the optimizer -- a struct's pieces loaded past
+# the end of its temporary, which AAPCS64's `[2 x i64]' of a 12-byte struct made -- ran at -O0 and printed garbage at -O1
+echo "-- every run fixture, built for aarch64 Linux at -O1 and run under qemu beside clang's build"
 for src in "$RUN"/*.c; do
   n=$(basename "$src" .c); std=""; [ -f "$RUN/$n.std" ] && std=$(cat "$RUN/$n.std")
-  ( cd "$RUN" && "$CC" $T $std "$src" -o "$D/$n" > "$D/$n.log" 2>&1 < /dev/null )
-  if [ "$(cat "$RUN/$n.ref" 2>/dev/null)" != expect ] && ( cd "$RUN" && "$CLANG" $T -w $std "$src" -o "$D/$n.ref" -lm > /dev/null 2>&1 ); then   # NAME.ref's `expect': its .expect, gcc's, on every machine (0.225)
+  ( cd "$RUN" && "$CC" $T -O1 $std "$src" -o "$D/$n" > "$D/$n.log" 2>&1 < /dev/null )
+  if [ "$(cat "$RUN/$n.ref" 2>/dev/null)" != expect ] && ( cd "$RUN" && "$CLANG" $T -O1 -w $std "$src" -o "$D/$n.ref" -lm > /dev/null 2>&1 ); then   # NAME.ref's `expect': its .expect, gcc's, on every machine (0.225)
     ( cd "$RUN" && $QE "$D/$n.ref" arg1 arg2 > "$D/$n.want" 2>&1 < /dev/null; echo "exit $?" >> "$D/$n.want" ); how=clang
   else cp "$RUN/$n.expect" "$D/$n.want"; how=expect; fi
   if [ ! -x "$D/$n" ]; then printf 'FAIL %-14s %s\n' "$n" "$(grep -a 'error' "$D/$n.log" | head -1 | cut -c1-140)"; failures=$((failures + 1)); continue; fi

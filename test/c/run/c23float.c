@@ -22,7 +22,7 @@ int main(void) {
   double la = DBL_SNAN; bits("la", &la, 8); float lb = FLT_SNAN; bits("lb", &lb, 4); long double lc = LDBL_SNAN; ldbits("lc", &lc);
   printf("rounds %d", FLT_ROUNDS); fesetround(FE_UPWARD); printf(" %d", FLT_ROUNDS); fesetround(FE_TOWARDZERO); printf(" %d", FLT_ROUNDS);
   fesetround(FE_DOWNWARD); printf(" %d", FLT_ROUNDS); fesetround(FE_TONEAREST); printf(" %d\n", FLT_ROUNDS);
-  printf("%g %g %Lg\n", FLT_NORM_MAX, DBL_NORM_MAX, LDBL_NORM_MAX);
+  printf("%g %g %d\n", FLT_NORM_MAX, DBL_NORM_MAX, LDBL_NORM_MAX == LDBL_MAX);   /* a long double's maximum is the machine's: an x87's, a quad's, a double's on Apple's arm64 (0.248) */
   printf("widths %d %d %d %d %d %d\n", BOOL_WIDTH, CHAR_WIDTH, SHRT_WIDTH, INT_WIDTH, LONG_WIDTH, LLONG_WIDTH);
   printf("char8 %d %d\n", (int) sizeof(__CHAR8_TYPE__), ATOMIC_CHAR8_T_LOCK_FREE);
   atomic_char8_t a8 = 7; printf("a8 %d\n", (int) atomic_load(&a8));

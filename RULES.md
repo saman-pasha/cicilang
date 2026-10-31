@@ -141,8 +141,14 @@ that changes a rule edits the rule here, in its topic, and writes its entry in `
   bytes, an `if`'s column (A statement's column) and the asm goto check's x86 `jmp`, each corrected at 0.247, and the
   run of 0.247's push tells what else they hid; the Intel Mac's setup in 24:22 and its gates in 16:21, `decfold.c`'s one
   failure (Apple's `%a` writes a subnormal normalized, `0x1p-1074` where glibc's writes `0x0.0000000000001p-1022`: the
-  fixture prints those two by their bits since 0.247); Linux's job GREEN, the setup 6:37 and the gates 2:25. (0.224,
-  0.225, 0.226, 0.246, 0.247)
+  fixture prints those two by their bits since 0.247); Linux's job GREEN, the setup 6:37 and the gates 2:25. THE RUN OF
+  0.247's PUSH (41153998535, on `e148dee`): the Intel Mac GREEN, the setup in 20:22 and the gates in 11:05 (the flow
+  gate 211 s, the compile gate 199 s, the driver gate 212 s); Linux's GREEN, the setup 6:28 and the gates 2:29; Apple
+  silicon's setup in 11:34 and its gates in 5:43, all GREEN but the compile gate's four of 208 -- `unionbits.c` (a
+  struct's pieces past its temporary, How values and classes cross a call), `ldconst.c` (2^64 - 1 is no double),
+  `c23float.c` and `predefs.c` (held to Linux's `.expect`: no clang's `<float.h>` has C23's signaling NaNs, and Apple's
+  clang 17 predefines no `__INT64_C`), each corrected at 0.248 -- its driver gate GREEN with all its checks, the
+  variadic calls both ways among them. (0.224, 0.225, 0.226, 0.246, 0.247, 0.248)
 
 ### The chain
 
@@ -327,15 +333,17 @@ that changes a rule edits the rule here, in its topic, and writes its entry in `
 - The objects gate. `test/objects.sh` makes 29 checks of the objects layer, an instance that outlives its process
   among them. (from the start)
 - The cross gate (0.131). `test/cross.sh` builds every `test/c/run/*.c` with `cicilang --target=aarch64-linux-gnu` and
-  with `clang --target=aarch64-linux-gnu`, runs both under `qemu-aarch64 -L /usr/aarch64-linux-gnu` and compares them:
-  that machine's output is the reference, not this one's `.expect` (plain char and `wchar_t` are unsigned there, `long
-  double` an IEEE quad). A fixture in the language's own forms, which clang does not read, is held to its `.expect`.
-  Then five checks against `aarch64-linux-gnu-gcc`: structs by value both ways (`test/c/link/abi_*.c`), variadic calls
-  of every AAPCS64 kind both ways (`test/c/link/va_*.c`: an int, a long, a double, a long double, an HFA of doubles and
-  of floats, a struct past 16 bytes, an eight-byte struct, a 16-aligned `__int128` struct, the general and the SIMD
-  registers run out) and vectors by value both ways (0.162, `test/c/link/vec_*.c`). It SKIPs without `qemu-aarch64`,
-  `aarch64-linux-gnu-gcc` and the sysroot (Debian and Ubuntu: `qemu-user`, `gcc-aarch64-linux-gnu`,
-  `libc6-dev-arm64-cross`) or without clang. `ldconst.c` holds the quad's literals to clang's there. (0.131, 0.154)
+  with `clang --target=aarch64-linux-gnu`, both at -O1 as the compile gate builds since 0.248 (at -O0 an IR undefined
+  only under the optimizer ran: a struct's pieces past its temporary, How values and classes cross a call), runs both
+  under `qemu-aarch64 -L /usr/aarch64-linux-gnu` and compares them: that machine's output is the reference, not this
+  one's `.expect` (plain char and `wchar_t` are unsigned there, `long double` an IEEE quad). A fixture in the language's
+  own forms, which clang does not read, is held to its `.expect`. Then five checks against `aarch64-linux-gnu-gcc`:
+  structs by value both ways (`test/c/link/abi_*.c`), variadic calls of every AAPCS64 kind both ways
+  (`test/c/link/va_*.c`: an int, a long, a double, a long double, an HFA of doubles and of floats, a struct past 16
+  bytes, an eight-byte struct, a 16-aligned `__int128` struct, the general and the SIMD registers run out) and vectors
+  by value both ways (0.162, `test/c/link/vec_*.c`). It SKIPs without `qemu-aarch64`, `aarch64-linux-gnu-gcc` and the
+  sysroot (Debian and Ubuntu: `qemu-user`, `gcc-aarch64-linux-gnu`, `libc6-dev-arm64-cross`) or without clang.
+  `ldconst.c` holds the quad's literals to clang's there. (0.131, 0.154)
 - C++ FOR THAT MACHINE (0.161): where its libc++ is under the sysroot -- the tree cicilang++ reads, `$LLVM` or the
   newest `/usr/lib/llvm-NN`, at `/usr/aarch64-linux-gnu` plus that path, where Debian's and Ubuntu's arm64 packages put
   it when extracted there (`dpkg-deb -x` of `libc++-18-dev`, `libc++1-18`, `libc++abi-18-dev`, `libc++abi1-18`,
@@ -6729,6 +6737,15 @@ A lambda is a class of its captures (`library/ccl_cpp_lambda.pl`, 0.223). A fixt
   check of the three machines tells it (over 0.246's lowering all three differ). Over the C run fixtures for Apple's
   arm64, 812 conventions are clang's, the calls with their function types among them (125 fixtures, each preprocessed
   for Linux's aarch64 as at 0.244). (0.247)
+- A TEMPORARY THAT HOLDS A STRUCT AND ITS PIECES IS AS LONG AS THE LONGER (0.248), as clang's coerced loads and stores
+  have it: AAPCS64 passes a composite of 8 bytes or fewer as an `i64` and one of 9 to 15 as `[2 x i64]`, longer than the
+  struct, and each of the four places where pieces meet a struct's memory -- the call's result, an argument, the return
+  and a parameter -- made a temporary of the struct's own type, so a piece's load or store passed its end. That is no
+  defined value: at -O1 a 12-byte struct returned on an Arm machine lost its last `int` (`unionbits.c` on Apple silicon,
+  the CI's run of 0.247's push; on Linux's aarch64 too, where the cross gate built at -O0) and a packed one of 7 bytes
+  its tail (`packed.c`). The temporary is `[E x i8]` where the pieces' extent E passes the struct's size
+  (`ir_cover_ll/4`, `ir_pieces_extent/2`, `ir_piece_bytes/2`); a piece of no known size leaves the struct's own type,
+  and x86-64's pieces never pass it (an eightbyte's piece is as long as the bytes it holds). (0.248)
 - `ir_leaves/3` gives the leaves from the same layout. A pointer to member function is two INTEGER eightbytes, and a
   complex its two components. On SysV an aggregate with a long double (`x87`) leaf goes in memory; a result of one long
   double or one complex long double comes back on the x87 stack, `%st0` or `%st0` and `%st1` (`ir_ret_abi/2`,
@@ -12058,6 +12075,11 @@ Declarations topic of the C++ reader).
   after it in its eightbyte as `i64` (clang's `i32`), a `byval` struct's tail padding, an `__int128` in registers as
   `i128` (clang's two `i64`) -- 25 of 867 conventions over 128 C run fixtures (0.244). `bin/cicilang` refuses three of
   clang's arguments: `-isystem` (a CMake build passes it), `-P` and `-dM`.
+- A floating constant converted to an integer type it does not fit wraps (0.108, `ccl_w_cast/3`), where clang's fold
+  saturates, as LLVM's APFloat converts (the type's maximum, its minimum or 0, a NaN 0): both are allowed, the
+  conversion being undefined (C 6.3.1.4), but a program that does it prints otherwise than clang's. 0.248 met it in
+  `ldconst.c` on Apple's arm64, whose `long double` rounds 2^64 - 1 to 2^64, and made that fixture's constant one in
+  range there.
 - The Itanium mangler spells the forms the shipped libraries' symbols use (measured at 0.186: libc++ 18's, 21's and 22's
   `libc++.so.1` and `libc++abi.so.1`, and the 27 symbols libc++ 21's `libc++experimental.a` defines strongly), and since
   0.236 the forms a program's type information shows -- `Dp`, `DT` and `Dt`, `B`, `Ul`, `Ut`, `X`, `L_Z`, a local name
@@ -12070,11 +12092,12 @@ Declarations topic of the C++ reader).
   closure there is `$_N` where clang's is `Ul`. `auto c = [] {}, d = [] {};` is not refused, where its two types differ
   ([dcl.spec.auto]/7).
 - The smoke job's first runs on the two Macs (0.246's push, The Mac's job) were RED -- the Intel Mac by one fixture,
-  Apple silicon by 155 failures, each corrected at 0.247 --, and the run of 0.247's push is the first over the
-  corrections. The full job, with the cross gate's C++ part over that machine's libc++ (0.246), and the C++ job on the
-  Intel Mac run first the night after 0.247's push: until they are GREEN every C++ rule made since 0.91 is gated on
-  Linux alone. The C++ job reads libc++ 18 alone, not Homebrew's later trees (`llvm@21`, `llvm`), and the C++ gates do
-  not run on Apple silicon, whose 7 GB holds the smoke job.
+  Apple silicon by 155 failures, each corrected at 0.247 --; at 0.247's push the Intel Mac's was GREEN and Apple
+  silicon's RED by four fixtures, corrected at 0.248, whose push runs it again. The full job, with the cross gate's C++
+  part over that machine's libc++ (0.246), and the C++ job on the Intel Mac run first the night after 0.247's push (at
+  02:37 UTC): until they are GREEN every C++ rule made since 0.91 is gated on Linux alone. The C++ job reads libc++ 18
+  alone, not Homebrew's later trees (`llvm@21`, `llvm`), and the C++ gates do not run on Apple silicon, whose 7 GB holds
+  the smoke job.
 - `-g` on a Mac (0.245) keeps the objects the debug map names in `~/.cicilang/objects` and makes no `.dSYM` (`dsymutil`
   is an LLVM binary): a program copied to another machine is debugged there without its DWARF, and the cache keeps an
   object until it is cleared. The rule is proven on this box as far as the object (a Mach-O one, under `--target`), and
