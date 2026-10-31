@@ -28,7 +28,8 @@ ccl_note_libatomic(_).
 %% quadratic in the atom's length (2.11.6: 5.5 s over 100 KB), and the build of a C++ fixture's IR of megabytes did not end
 ccl_ir_has(IR, S) :- ( atom(IR) -> A = IR ; string(IR) -> atom_string(A, IR) ), atomic_list_concat(Ps, S, A), Ps = [_, _|_], !.
 
-ccl_link(Objects, Flags, Out) :-
+ccl_link(Objects, Flags0, Out) :-
+    ccl_link_flags(Flags0, Flags),
     ccl_words(Objects, Os), ccl_words(Flags, F),
     ccl_linker(Ld),
     ccl_link_libs(Libs0), ccl_libatomic_lib(Libs0, Libs),
@@ -38,6 +39,17 @@ ccl_link(Objects, Flags, Out) :-
 %% ... `-latomic' on Linux, this machine's or another's, once for the objects compiled since the last link
 ccl_libatomic_lib(Libs0, Libs) :- nb_current('$ccl_latomic', yes), nb_setval('$ccl_latomic', no), ( ccl_cross_target(_, linux) ; \+ ccl_cross_target(_, _), ccl_host_os(linux) ), !, atom_concat(Libs0, ' -latomic', Libs).
 ccl_libatomic_lib(Libs, Libs).
+%% THE EXPERIMENTAL LIBRARY OF THE TREE THE PROGRAM WAS READ FROM (0.251): `-lc++experimental' (-fexperimental-library) is
+%% that tree's archive, by its path -- Root/lib/c++, as Homebrew keeps libc++, or Root/lib. libc++'s experimental part has no
+%% stable ABI and follows the tree's configuration: Homebrew's llvm@18 builds libc++ with the libdispatch PSTL backend, whose
+%% `__dispatch_apply' and `__partition_chunks' are in that archive, and a Mac's link, which names no directory of the tree
+%% (its runtime is the system's libc++), found the parallel algorithms' symbols nowhere (execpol.cpp). On Linux the link
+%% names the tree's lib (ccl_link_libs), and the path is the archive -lc++experimental found there.
+ccl_link_flags([], []).
+ccl_link_flags([F0|Fs0], [F|Fs]) :- ccl_link_flag(F0, F), ccl_link_flags(Fs0, Fs).
+ccl_link_flag('-lc++experimental', A) :- ccl_lang(cpp), catch(ccl_cxx_dirs([D]), _, fail), atom_concat(Root, '/include/c++/v1', D),
+    member(Sub, ['/lib/c++/libc++experimental.a', '/lib/libc++experimental.a']), atom_concat(Root, Sub, A), exists_file(A), !.
+ccl_link_flag(F, F).
 
 %% THE LINKER: cc, or c++ for cicilang++; for another machine (dr_set_target/1) its cross gcc, `aarch64-linux-gnu-gcc' (0.131)
 ccl_linker(Ld) :- ccl_cross_target(A, O), ccl_cross_prefix(A, O, P), !, ( ccl_lang(cpp) -> atom_concat(P, '-g++', Ld) ; atom_concat(P, '-gcc', Ld) ).

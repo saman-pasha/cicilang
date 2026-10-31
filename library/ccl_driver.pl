@@ -285,8 +285,18 @@ dr_diag(F, compile_failed(Msg), _) :- !, dr_error(F, 0, ['LLVM: ', Msg]).
 dr_diag(F, unknown_target(T), _) :- !, dr_error(F, 0, ['unknown target triple \'', T, '\'']).
 dr_diag(F, no_embedded_llvm, _) :- !, dr_error(F, 0, ['the embedded LLVM is not built: LLVM=... sh module/build-llvm.sh']).
 dr_diag(F, cocolog_error(Msg), _) :- !, dr_error(F, 0, ['LLVM: ', Msg]).            % the embedded LLVM's refusal
-dr_diag(F, link_failed(Msg), _) :- !, dr_error(F, 0, ['link: ', Msg]).
+dr_diag(F, link_failed(Msg), _) :- !, dr_link_lines(Msg, Ls), ( Ls = [L1|Rest] -> true ; L1 = Msg, Rest = [] ), dr_error(F, 0, ['link: ', L1]), dr_link_notes(F, Rest).
 dr_diag(F, E, W) :- dr_error(F, 0, [E, ' ', W]).
+%% A FAILED LINK'S LINES (0.251): the linker's message is many lines, and the command passes on only a line that holds
+%% `: error: ', `: warning: ' or `: note: ' (bin/cicilang): the first line is the error and each line after it a note, so
+%% the symbols the linker names after its first line reach the user -- a Mac's `Undefined symbols for architecture x86_64:'
+%% and GNU ld's `in function ...:' had stood alone, the symbols dropped (execpol.cpp and gnusource.cpp on the Intel Mac).
+dr_link_lines(Msg, Ls) :- atomic_list_concat(Ls0, '\n', Msg), dr_nonempty(Ls0, Ls).
+dr_nonempty([], []).
+dr_nonempty([''|Ls0], Ls) :- !, dr_nonempty(Ls0, Ls).
+dr_nonempty([L|Ls0], [L|Ls]) :- dr_nonempty(Ls0, Ls).
+dr_link_notes(_, []).
+dr_link_notes(F, [L|Ls]) :- write(F), write(': note: link: '), write(L), nl, dr_link_notes(F, Ls).
 %% a code point as clang writes it after `U+': upper-case hex digits, four at the least
 dr_hex4(C, H) :- dr_hex_digits(C, Ds0), dr_pad4(Ds0, Ds), atom_codes(H, Ds).
 dr_hex_digits(C, [D]) :- C < 16, !, dr_hex_digit(C, D).

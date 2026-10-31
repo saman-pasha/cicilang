@@ -119,6 +119,14 @@ that changes a rule edits the rule here, in its topic, and writes its entry in `
   read 603 s, the C++ gate 1368 s: 848 run fixtures ok, 11 skipped by their needs), then over libc++ 21 the library read
   in 536 s and the C++ gate in 1421 s (856 ok, 3 skipped), over 22 in 547 s and 1449 s (859 ok, none skipped). (0.223,
   0.224, 0.246, 0.249)
+- A FAILED UPLOAD LOSES THE LOGS ONLY, AND A MAC'S CRASH REPORTS ARE KEPT (0.251): each job's `Keep the logs` step is
+  `continue-on-error`, so the gates' step alone decides a job's verdict -- the Intel Mac's smoke job on 0.250
+  (41210431407) ran its six gates GREEN (`GREEN: ci smoke`) and was RED by its upload, `Failed to CreateArtifact: Unable
+  to make request: ENOTFOUND`, GitHub's artifact service out of the runner's reach. And on a Mac `test/ci.sh` copies the
+  crash reports its gates made (`~/Library/Logs/DiagnosticReports`, those newer than the gates' start: `ci_crashes`)
+  into the logs, `crash/`: there the C library ends a program by `abort()` with no line of its own where a check fails
+  -- `_FORTIFY_SOURCE`'s, the stack protector's: `abort_report_np` writes the reason to the crash log alone -- and three
+  fixtures that died there showed `exit N` and nothing else (Not done).
 - THE MAC'S JOB (0.224). Homebrew's `llvm@18` is the embedded LLVM and the libc++ that the driver gate's C++ checks
   read: a keg, `$(brew --prefix)/opt/llvm@18` (brew links no versioned formula), installed only from a bottle --
   Homebrew has built no Intel bottles since September 2026 and LLVM from source is hours, so the setup stops where the
@@ -178,7 +186,14 @@ that changes a rule edits the rule here, in its topic, and writes its entry in `
   and 11 skipped by their needs, and 35 failures: `stdrandom.cpp` by its run's cap, as foreseen; 22 programs with a
   stream, six of them showing `use of undefined type named 'struct.fpos.mbstate_t'` and the rest cut off by the diff (A
   struct that a declaration alone names is defined); seven that printed glibc's values (A fixture's output is every
-  machine's); and five whose cause no line showed (Not done). (0.224, 0.225, 0.226, 0.246, 0.247, 0.248, 0.249, 0.250)
+  machine's); and five whose cause no line showed (Not done). THE RUNS OF 0.250 (`972fd6d`): the push's smoke run
+  (41210431407) GREEN on Linux and Apple silicon, the Intel Mac's six gates GREEN (setup 23:45, gates 14:20) and its job
+  RED by the upload (A failed upload loses the logs only); the C++ job (41210455555, by hand) the library read GREEN in
+  1840 s (1159 s on 0.249: the runner's pace) and the C++ gate RED -- 984 run fixtures ok, 12 skipped by their needs, 6
+  failures: `cwrap.cpp` (`undeclared(mbrtoc16)`: a Mac has no `<uchar.h>`), `execpol.cpp` and `gnusource.cpp` (a link
+  with undefined symbols, which the log did not name: A failed link's lines), and `stdfuture.cpp`, `stdoptional4.cpp`
+  and `stdpmr.cpp`, which build and whose programs end at once with no line on stderr (Not done). (0.224, 0.225, 0.226,
+  0.246, 0.247, 0.248, 0.249, 0.250, 0.251)
 
 ### The chain
 
@@ -480,10 +495,12 @@ that changes a rule edits the rule here, in its topic, and writes its entry in `
   -s KILL`, as the library read caps its reads -- past it the verdict reads `FAIL NAME.cpp: TIMEOUT after N s, its
   binary's run never finished`, where a run that never ended held its lane and the pool's end waited for it --, compares
   with `NAME.expect`, and writes its verdict to `$RES/NAME.res`; a build that failed adds its first error lines under
-  the diff (0.250), which the diff's six lines do not reach where a fixture prints more. With `CPP_PROGRESS` naming a
-  file (0.249), `ccl_fixture_run` appends there each fixture's start and its verdict's line as they come, the clock
-  first: a pool stopped from outside leaves them behind, where its verdicts, printed at its end, are never written (the
-  CI's jobs set it into their logs). (0.93, 0.94, 0.105, 0.249)
+  the diff (0.250), which the diff's six lines do not reach where a fixture prints more, a failed link its notes too,
+  the symbols it names, and a run that failed its last line, `exit N` (0.251), which the diff cut off where a fixture
+  prints six lines or more. With `CPP_PROGRESS` naming a file (0.249), `ccl_fixture_run` appends there each fixture's
+  start and its verdict's line as they come, the clock first: a pool stopped from outside leaves them behind, where its
+  verdicts, printed at its end, are never written (the CI's jobs set it into their logs). (0.93, 0.94, 0.105, 0.249,
+  0.250, 0.251)
 - A FIXTURE'S OUTPUT IS EVERY MACHINE'S (0.250): where the C library or the platform decides a value, a fixture prints
   whether the value is the machine's own -- `_SC_PAGESIZE`, 30 on glibc and 29 on macOS (`enumcross.cpp`); the C
   library's `noexcept`, glibc's `__THROW` and none on macOS (`noexceptlib.cpp`); Apple's packing of a non-POD member
@@ -614,10 +631,20 @@ that changes a rule edits the rule here, in its topic, and writes its entry in `
   `stdistream2`, `stdws`, `stdtie`); the others read `/dev/null`. (0.75, 0.115, 0.136)
 - `NAME.needs` holds a preprocessor condition over the library's own macros. `ccl_needs_met` runs a four-line file
   that includes `<version>` through `cicilang++ -E` with the fixture's flags, and looks for a marker. When the box's
-  library fails it, the verdict is `skip NAME.cpp: needs ...`, never a RED. Two exist: `stdoptionalref.needs`
-  (`__cpp_lib_optional >= 202506L`, since 0.123: libc++ 21.1.8 has no `optional<T &>`, it came with libc++ 22) and
-  `joinwith.needs` (`__cpp_lib_ranges_join_with >= 202202L`, since 0.133: libc++ 18 has no `views::join_with`). (0.95,
-  0.107, 0.123, 0.133)
+  library fails it, the verdict is `skip NAME.cpp: needs ...`, never a RED. Fourteen exist at 0.251. Eleven name a
+  facility of the library by its feature-test macro, or its version: `stdoptionalref.needs` (`__cpp_lib_optional >=
+  202506L`, since 0.123: libc++ 21.1.8 has no `optional<T &>`, it came with libc++ 22), `joinwith.needs`
+  (`__cpp_lib_ranges_join_with >= 202202L`, since 0.133: libc++ 18 has no `views::join_with`), `atomicref`,
+  `atomicrefalign`, `ftm23b`, `ftm26b`, `stdflatmap`, `tzone`, `vbaseof`, `within` and `zipadjacent`. Three name the
+  machine, where its C library or its platform is what the fixture is about: `gnumode.needs` (`defined(__linux__)`,
+  0.250), `gnusource.needs` (`defined(__GLIBC__)`, 0.251: glibc's GNU functions and C23 redirects, `wint_t` unsigned,
+  and an asm label that names an ELF symbol -- a Mac's symbol takes a `_`, and the Intel Mac's link failed) and
+  `cuchar.needs` (`!defined(__APPLE__)`, 0.251: Apple's C library has no `<uchar.h>`, so libc++'s `using ::mbrtoc16
+  _LIBCPP_USING_IF_EXISTS` declares nothing there and a call of `std::mbrtoc16` is refused, by clang++ as by cicilang++
+  -- libc++'s own `<uchar.h>` test fails on Apple by its XFAIL, and the C fixture `cwrap.c` needs
+  `__has_include(<uchar.h>)` since 0.224; in C++ that names libc++'s own `<uchar.h>`, there on every machine).
+  `<version>` brings `__GLIBC__` on Linux: libc++'s configuration includes `<features.h>` there. (0.95, 0.107, 0.123,
+  0.133, 0.250, 0.251)
 - A C FIXTURE'S `NAME.needs` (0.224) is a condition over the C library, asked of every one in ONE run of `bin/cicilang
   -E` over a file that includes `<limits.h>` (so `__GLIBC__` is there where glibc is) and holds a marker each, inside
   its `#if`, and a marker of the run's own, which must come out: a run that broke is RED, never a gate of skips. A
@@ -790,9 +817,11 @@ that changes a rule edits the rule here, in its topic, and writes its entry in `
 - `-W -f* -pedantic`, an unknown `-std=` and an unknown `-g` form are accepted and ignored. Any other dash argument is
   `unknown argument`. `-fexperimental-library` acts (0.138), as clang++'s does: libc++ asks
   `__has_feature(experimental_library)`, which answers 0 here, so the command defines what that answer defines,
-  `define('_LIBCPP_ENABLE_EXPERIMENTAL')`, and links `-lc++experimental` and `-lc++abi` (the archive names libc++abi's
-  symbols directly); a run with it keeps no C store, as with `-D`. libc++'s time zones (`tzone.cpp`, libc++ 21; libc++
-  18 has none, `tzone.needs`), syncstream and the rest of its experimental part. `--version` prints the versions of cicilang, cocolog and LLVM; `-h` prints the help. (M4, 0.108)
+  `define('_LIBCPP_ENABLE_EXPERIMENTAL')`, and links `-lc++experimental` -- the archive of the tree the program was read
+  from, by its path (0.251, Compile and link) -- and `-lc++abi` (the archive names libc++abi's symbols directly); a run
+  with it keeps no C store, as with `-D`. libc++'s time zones (`tzone.cpp`, libc++ 21; libc++
+  18 has none, `tzone.needs`), syncstream and the rest of its experimental part. `--version` prints the versions of
+  cicilang, cocolog and LLVM; `-h` prints the help. (M4, 0.108, 0.251)
 - `-fno-rtti` acts (0.191), as clang++'s does: the option `no_rtti`, libc++'s no-RTTI configuration and `typeid`
   refused (the Configuration chosen through the macros topic); `-frtti`, the default, takes it back, and the last of
   the two on the line wins (`bin/cicilang`'s `rtti`).
@@ -915,7 +944,11 @@ that changes a rule edits the rule here, in its topic, and writes its entry in `
 - `cicilang_compile/3` goes through the embedded LLVM only, `library(ccl_llvm)` (owner's rule: no clang, no LLVM
   binary). Where it is not built, the error names `module/build-llvm.sh`. (M5)
 - `cicilang_link/3` (`ccl_link/3`) runs `cc` in C or `c++` in C++ over the objects, the link flags and
-  `ccl_link_libs/1`. A failed link is `link: ` with the linker's output. (M2, M5)
+  `ccl_link_libs/1`. A failed link is `link: ` with the linker's first line, and A FAILED LINK'S LINES (0.251;
+  `dr_link_lines/2`, `dr_link_notes/2`) each after it a `note: link: `: the command passes on only the lines of an
+  error, a warning or a note (Diagnostics), and the symbols a linker names after its first line -- a Mac's `Undefined
+  symbols for architecture x86_64:`, GNU ld's `in function ...:` -- had been dropped, two of the Intel Mac's failed
+  links naming none. (M2, M5, 0.251)
 - `ccl_link_libs/1`: on Linux, ` -lc++` for C++ and ` -lm` for C; on macOS, nothing. Why: on Linux `c++` is g++, whose
   library is libstdc++, and glibc keeps `sqrt`, `creal` and `cabs` in libm. The C++ link names the library of the tree
   the program was READ from, ` -L<root>/lib -Wl,-rpath,<root>/lib -lc++` (`ccl_cxx_dirs`): two or three libc++ are
@@ -937,6 +970,17 @@ that changes a rule edits the rule here, in its topic, and writes its entry in `
   (0.161), ` -lm` in C and, in C++, its libc++ under the sysroot: ` -L<sysroot><root>/lib
   -Wl,-rpath-link,<sysroot><root>/lib -Wl,-rpath,<root>/lib -lc++ -lm`, the rpath where that machine keeps the library,
   which `qemu-aarch64 -L <sysroot>` finds under the sysroot. (0.93, 0.100, 0.122, 0.161, 0.181, 0.227)
+- THE EXPERIMENTAL LIBRARY OF THE TREE (0.251; `ccl_link_flags/2`, `ccl_link_flag/2`): `-lc++experimental`
+  (`-fexperimental-library`) is the archive of the tree the program was read from, by its path -- `<root>/lib/c++`,
+  where Homebrew keeps libc++, or `<root>/lib` -- in the link flags. libc++'s experimental part has no stable ABI and
+  follows its tree's configuration: Homebrew's `llvm@18` builds libc++ on macOS with the libdispatch PSTL backend
+  (`-DLIBCXX_PSTL_CPU_BACKEND=libdispatch`, its formula), and LLVM 18 puts that backend's `__dispatch_apply` and
+  `__partition_chunks` in `libc++experimental.a`; a Mac's link names no directory of the tree (its runtime is the
+  system's libc++), and `execpol.cpp`'s parallel algorithms were undefined symbols on the CI's Intel Mac. On Linux the
+  link names the tree's `lib`, and the path is the archive `-lc++experimental` found there. Proved here over a copy of
+  the 18 tree whose `__config_site` names the libdispatch backend, in Homebrew's layout, its `lib/c++` archive holding
+  LLVM 18's `pstl/libdispatch.cpp` over a stand-in `dispatch_apply_f` that runs each chunk on a thread of its own: 0.250
+  failed the link in `__dispatch_apply`, and 0.251 prints `execpol.expect`, as clang++ does over the same tree.
 - LIBATOMIC IS NAMED AT THE LINK WHERE AN OBJECT CALLS IT (0.208; `ccl_note_libatomic/1` in `ccl_compile/3`,
   `ccl_libatomic_lib/2` in `ccl_link/3`), on Linux, this machine's or another's, as libm is: the compiled IR is asked
   for a call of libatomic's routines (`@__atomic_` -- an atomic object of a size that is no lock-free width, an x86
@@ -11379,16 +11423,16 @@ The namespaces' rules, the program's and the library's, are `library/ccl_cpp_nam
   unique_ptr, string from iterators; `sizeof` of a member type through `decltype`), `fnptrded` (a pointer to function's
   parts deduced from a function's name), `lamret` (a generic lambda's written result over its own pack), `scalarmove`
   (C++20: `std::move` of a scalar an xvalue), `xvcast` (a cast to a scalar reference in every place a value stands),
-  `srcbuiltins` (clang's source-location builtins, glibc's `assert` in C++), `cwrap` (the C library through
-  `<csetjmp>`, `<csignal>`, `<cfenv>`, `<clocale>`, `<cinttypes>`, `<cuchar>` and `<cassert>`), `hdrrest` (the
-  standard headers no other fixture includes: `<cerrno>`, `<cfloat>`, `<cstdarg>`, `<cwctype>`, `<ratio>`, `<version>`,
-  and C++17's deprecated `<ccomplex>`, `<ciso646>`, `<cstdalign>`, `<cstdbool>`, `<ctgmath>`, `<codecvt>` and
-  `<strstream>`), `alttokens` (the alternative tokens and the digraphs, `<::`), `enumattr` (an attribute after `enum`),
-  `castzero` (`int()` and `char{}` written), `stdnames` (the program's functions named as std's function templates),
-  `blocktag` (local structs of one tag in two functions, in a block and a nested one), `newthrow`, `throwinit` and
-  `vbthrow` (a throwing initialization: a new-expression's block freed, an array's elements and a virtual base
-  destroyed, a delegated object destroyed, a static local tried again), `staticlocal` (a function-local static scalar
-  with a run-time initializer).
+  `srcbuiltins` (clang's source-location builtins, glibc's `assert` in C++), `cwrap` (the C library through `<csetjmp>`,
+  `<csignal>`, `<cfenv>`, `<clocale>`, `<cinttypes>` and `<cassert>`), `cuchar` (`<cuchar>`'s conversions, cwrap's until
+  0.251, skipped on a Mac), `hdrrest` (the standard headers no other fixture includes: `<cerrno>`, `<cfloat>`,
+  `<cstdarg>`, `<cwctype>`, `<ratio>`, `<version>`, and C++17's deprecated `<ccomplex>`, `<ciso646>`, `<cstdalign>`,
+  `<cstdbool>`, `<ctgmath>`, `<codecvt>` and `<strstream>`), `alttokens` (the alternative tokens and the digraphs,
+  `<::`), `enumattr` (an attribute after `enum`), `castzero` (`int()` and `char{}` written), `stdnames` (the program's
+  functions named as std's function templates), `blocktag` (local structs of one tag in two functions, in a block and a
+  nested one), `newthrow`, `throwinit` and `vbthrow` (a throwing initialization: a new-expression's block freed, an
+  array's elements and a virtual base destroyed, a delegated object destroyed, a static local tried again),
+  `staticlocal` (a function-local static scalar with a run-time initializer).
 - Forms of 0.200, the traits of one value: `valtraits` (`is_convertible`, `is_constructible` and `is_assignable` over
   `std::string`, `string_view`, `vector`, `optional`, `unique_ptr`, `shared_ptr`, `function` and `pair`), `valtraits20`
   (C++20: the program's explicit, converting and two-parameter constructors; `tuple`, `variant`, `any` and `string_view`;
@@ -11450,11 +11494,11 @@ The namespaces' rules, the program's and the library's, are `library/ccl_cpp_nam
   and an enumerator, a local constant in a lambda and a generic lambda, an inner block's constant ended), `enumcross` (an
   enumerator over another enum's, a header's and a file-scope constant, in a block's enum too).
 - Forms of 0.194: `gnusource` (C++ on Linux with `_GNU_SOURCE`: glibc's GNU functions declared, its C23 `strtol` by an
-  asm label, `wint_t` unsigned), `enumbase` (an underlying type named through its namespace), `enumelab` (an enum named
-  by its elaborated specifier the base's size), `alignmember` (`alignas` before a member and a global; a member's
-  alignment over a template parameter; `std::array<T, 0>`), `atomicref` (C++20's `std::atomic_ref`, libc++ 21),
-  `vbaseof` (C++26's `std::is_virtual_base_of`, libc++ 21), `cachenames` (a class, an alias, a function's result and a
-  namespace's variable named `names`).
+  asm label, `wint_t` unsigned; glibc's alone, skipped elsewhere since 0.251), `enumbase` (an underlying type named
+  through its namespace), `enumelab` (an enum named by its elaborated specifier the base's size), `alignmember`
+  (`alignas` before a member and a global; a member's alignment over a template parameter; `std::array<T, 0>`),
+  `atomicref` (C++20's `std::atomic_ref`, libc++ 21), `vbaseof` (C++26's `std::is_virtual_base_of`, libc++ 21),
+  `cachenames` (a class, an alias, a function's result and a namespace's variable named `names`).
 - Forms of 0.193, libc++ in its exceptions configuration: `ehlib` (the library's throws caught by the program -- a
   vector's and a map's `at`, an optional's `value`, an empty `std::function` called, a variant's wrong alternative,
   `substr`, `stoi` -- the destructors of the scopes left run on the way, `std::bad_cast` and `std::bad_typeid`),
@@ -11863,8 +11907,9 @@ The namespaces' rules, the program's and the library's, are `library/ccl_cpp_nam
   `<system_error>` and `<typeindex>` (`stdmisc`, C++20), over libc++ 21 `<flat_map>` and `<flat_set>` (`stdflatmap`,
   C++23, which its `.needs` skips over libc++ 18), `<syncstream>` (`syncs`, C++20 under `-fexperimental-library`), C++23's
   `<stdatomic.h>` (`stdatom23`), and the execution policies over the parallel algorithms (`execpol`, C++20 under
-  `-fexperimental-library`: libc++'s PSTL over the backend this box's libc++ is configured with, its std::thread one, which
-  runs each algorithm in the calling thread). With them every standard header of libc++ 18 and 21 is
+  `-fexperimental-library`: libc++'s PSTL over the backend this box's libc++ is configured with, its std::thread one,
+  which runs each algorithm in the calling thread; on a Mac Homebrew's libdispatch one, whose two functions are the
+  tree's experimental archive's, 0.251). With them every standard header of libc++ 18 and 21 is
   included by a fixture.
 
 ### Benchmarks
@@ -12164,18 +12209,20 @@ Declarations topic of the C++ reader).
   are one class (a local class keeps its line, no place in it). The reader drops `constexpr` on a free function, so a
   closure there is `$_N` where clang's is `Ul`. `auto c = [] {}, d = [] {};` is not refused, where its two types differ
   ([dcl.spec.auto]/7).
-- The C++ job on the Intel Mac has finished no GREEN run: its first was held by `stdrandom.cpp`'s first draw and its
-  second (on 0.249) failed 35 fixtures (The Mac's job), 30 of them met at 0.250 -- sixteen of the 22 stream programs'
-  presumed, their log showing no error line. Five are open, their cause unknown: `cwrap.cpp` (its build failed in two
-  seconds, <cuchar> and <csignal> among its headers), `execpol.cpp` (libc++'s parallel algorithms, over libdispatch on
-  Apple), `stdfuture.cpp` and `stdpmr.cpp` (their builds failed; a stream may be in their headers' reach), and
-  `stdoptional4.cpp`, whose binary aborts there with no message, where here it runs clean under libc++ 18's debug
-  assertions; 0.250's run shows a failed build's error lines. On a Mac a C++ program is linked by `c++` against the
-  system's libc++, not the tree whose headers it was read from (`ccl_link_libs/1` names no library there; on Linux the
-  tree's own since 0.122, where the two disagreed): not measured there. The C++ job reads libc++ 18 alone, not
-  Homebrew's later trees (`llvm@21`, `llvm`), and the C++ gates do not run on Apple silicon, whose 7 GB holds the smoke
-  job: a C++ rule is gated on Linux over libc++ 18, 21 and 22 (the full job GREEN since its first run, The CI job), and
-  on Apple's arm64 by the driver gate's C++ checks alone.
+- The C++ job on the Intel Mac has finished no GREEN run: its first was held by `stdrandom.cpp`'s first draw, its second
+  (on 0.249) failed 35 fixtures and its third (on 0.250) 6 (The Mac's job), of which 0.251 meets three: `cwrap.cpp` (its
+  `<cuchar>` part `cuchar.cpp`, skipped on a Mac), `execpol.cpp` (the tree's experimental archive) and `gnusource.cpp`
+  (glibc's alone). Three are open: `stdfuture.cpp`, `stdoptional4.cpp` and `stdpmr.cpp` build there, and each program
+  ends at once and writes no line to stderr -- `stdoptional4`'s `exit 134`, SIGABRT; the other two's exit cut off by the
+  diff, shown since 0.251 --, where here each runs clean, and `stdoptional4`'s object built over libc++ 18 runs clean
+  over the library of libc++ 18, 21 and 22 alike: a Mac's C library ends a program so where a check of its own fails
+  (`abort_report_np`), and the job keeps the crash reports since 0.251, which name the reason and the stack. On a Mac a
+  C++ program is linked by `c++` against the system's libc++, not the tree whose headers it was read from
+  (`ccl_link_libs/1` names no library there; on Linux the tree's own since 0.122, where the two disagreed), its
+  experimental archive alone the tree's (0.251). The C++ job reads libc++ 18 alone, not Homebrew's later trees
+  (`llvm@21`, `llvm`), and the C++ gates do not run on Apple silicon, whose 7 GB holds the smoke job: a C++ rule is
+  gated on Linux over libc++ 18, 21 and 22 (the full job GREEN since its first run, The CI job), and on Apple's arm64 by
+  the driver gate's C++ checks alone.
 - `__builtin_trap()` is not lowered (`undeclared('__builtin_trap')`), nor clang 19's `__builtin_verbose_trap(category,
   message)`, while `__has_builtin` answers 1 for both: a program built with one of libc++'s hardening modes, whose
   assertions call them (`-D_LIBCPP_HARDENING_MODE=_LIBCPP_HARDENING_MODE_FAST`), is refused; the debug mode's go through

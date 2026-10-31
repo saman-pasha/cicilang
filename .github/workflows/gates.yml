@@ -100,6 +100,7 @@ jobs:
           CI_LOGS: ${{ runner.temp }}/logs
       - name: Keep the logs
         if: ${{ always() }}
+        continue-on-error: true   # the gates' step decides the job: a failed upload (0.250's ENOTFOUND on the Intel Mac) loses the logs only
         uses: actions/upload-artifact@v7
         with:
           name: gates-logs-smoke-${{ matrix.os }}-${{ github.run_attempt }}
@@ -140,6 +141,7 @@ jobs:
           CI_LOGS: ${{ runner.temp }}/logs
       - name: Keep the logs
         if: ${{ always() }}
+        continue-on-error: true   # the gates' step decides the job: a failed upload (0.250's ENOTFOUND on the Intel Mac) loses the logs only
         uses: actions/upload-artifact@v7
         with:
           name: gates-logs-full-${{ github.run_attempt }}
@@ -184,6 +186,7 @@ jobs:
           CI_LOGS: ${{ runner.temp }}/logs
       - name: Keep the logs
         if: ${{ always() }}
+        continue-on-error: true   # the gates' step decides the job: a failed upload (0.250's ENOTFOUND on the Intel Mac) loses the logs only
         uses: actions/upload-artifact@v7
         with:
           name: gates-logs-cpp-${{ github.run_attempt }}

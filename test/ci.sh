@@ -191,6 +191,17 @@ fi
 [ -f "$CI_LOGS/exports.sh" ] && . "$CI_LOGS/exports.sh"
 ci_fail=0
 ci_summary ""; ci_summary "| gate | verdict | seconds |"; ci_summary "|---|---|---|"
+# A CRASH'S REPORT (0.251): on a Mac the C library ends a program by abort() with no line of its own where a check fails
+# (_FORTIFY_SOURCE's, the stack protector's: the reason goes to the crash log alone), and macOS keeps a report of each
+# crash, its reason and its stack, in ~/Library/Logs/DiagnosticReports -- the job keeps those its gates made in its logs
+ci_crash_dir="$HOME/Library/Logs/DiagnosticReports"; : > "$CI_LOGS/gates.start"
+ci_crashes() {
+  [ "$CI_OS" = macos ] && [ -d "$ci_crash_dir" ] || return 0
+  find "$ci_crash_dir" -type f -newer "$CI_LOGS/gates.start" > "$CI_LOGS/crash.list" 2>/dev/null
+  [ -s "$CI_LOGS/crash.list" ] || return 0
+  mkdir -p "$CI_LOGS/crash"; while IFS= read -r ci_cf; do cp "$ci_cf" "$CI_LOGS/crash/"; done < "$CI_LOGS/crash.list"
+  echo "the crash reports of this job's gates, kept in the logs (crash/): $(sed 's|.*/||' "$CI_LOGS/crash.list" | tr '\n' ' ')"
+}
 ci_run() {   # ci_run NAME CMD...: as test/gates.sh runs a gate, its GREEN or RED line and its time; its SKIPs read
   ci_n=$1; shift; ci_s=$(date +%s); ci_l="$CI_LOGS/gate-$(echo "$ci_n" | tr ' ' '-').log"
   { "$@" < /dev/null 2>&1; echo "exit $?" > "$ci_l.rc"; } | tee "$ci_l"
@@ -232,5 +243,6 @@ else
     [ "$ci_fail" = 0 ] && ci_run "cpp $n" env LLVM="$(ci_llvm "$n")" CPP_PROGRESS="$CI_LOGS/cpp-progress-$n.log" sh "$HERE/cpp.sh"
   done
 fi
+ci_crashes
 if [ "$ci_fail" = 0 ]; then echo "GREEN: ci $JOB"; else echo "RED: ci $JOB"; fi
 exit "$ci_fail"

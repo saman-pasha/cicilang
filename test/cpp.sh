@@ -128,8 +128,11 @@ ccl_fixture() {
     ccl_time_record "$CPP_TIMES" "$n" "$secs"   # a PASSING build's seconds only, for the next run's longest-first order: a failure's time says nothing of the cost
   else { echo "FAIL $n.cpp"; echo "$got" | diff "$ROOT/test/cpp/run/$n.expect" - 2>&1 | head -6 | sed 's/^/     /'
          # A BUILD THAT FAILED SAYS WHY (0.250): its first error lines, which the diff's six lines do not reach where the
-         # fixture prints more -- the CI's C++ job on the Intel Mac failed twenty fixtures whose cause no line showed
-         if [ "$bst" -ne 0 ]; then printf '%s\n' "$bout" | grep -a 'error' | head -3 | cut -c1-300 | sed 's/^/     the build: /'; fi
+         # fixture prints more -- the CI's C++ job on the Intel Mac failed twenty fixtures whose cause no line showed -- and
+         # a failed link's notes, the symbols it names (0.251); a RUN that failed says how it ended, its `exit N' (0.251),
+         # which the diff cut off where the fixture prints six lines or more (stdfuture.cpp, stdpmr.cpp on the Intel Mac)
+         if [ "$bst" -ne 0 ]; then printf '%s\n' "$bout" | grep -a -E 'error|: note: link: ' | head -6 | cut -c1-300 | sed 's/^/     the build: /'
+         else echo "     the run: $(printf '%s\n' "$got" | tail -1)"; fi
          # CPP_WHY=1 (0.144): a BUILD that failed is built again under library(flow/debug) by test/why.sh, and its account --
          # the calls the error was raised through, the failed call down the path that got furthest -- joins the verdict
          if [ -n "$CPP_WHY" ] && [ "$bst" -ne 0 ]; then sh "$HERE/why.sh" $flags "$src" 2>&1 | sed -n '/^-- the error was raised\|^-- the run did not raise/,$p' | grep -v '^-- every call\|^-- peak' | sed 's/^/     /'; fi; } > "$r"; fi

@@ -6,10 +6,9 @@
 #include <csignal>
 #include <cstdio>
 #include <cstring>
-#include <cuchar>
 #include <cwchar>
 // the C library through the C++ headers that no fixture reached: <csetjmp>, <csignal>, <cfenv>, <clocale>,
-// <cinttypes>, <cuchar>, <cassert>
+// <cinttypes>, <cassert>; <cuchar> is cuchar.cpp's, which a Mac skips (its C library has no <uchar.h>, 0.251)
 static std::jmp_buf env;
 static volatile std::sig_atomic_t got = 0;
 extern "C" void handler(int s) { got = s; }
@@ -43,14 +42,6 @@ int main() {
   std::printf("%jd %jd %jd %jd\n", m, d.quot, d.rem, std::imaxabs(-9));
   std::printf("%s\n", std::setlocale(LC_ALL, "C"));
   std::printf("[%s]\n", std::localeconv()->decimal_point);
-  char16_t c16;
-  std::mbstate_t st{};
-  std::size_t n = std::mbrtoc16(&c16, "A", 1, &st);
-  std::printf("%zu %d\n", n, (int) c16);
-  char out[8];
-  std::mbstate_t st2{};
-  std::size_t k = std::c32rtomb(out, U'Z', &st2);
-  std::printf("%zu %c\n", k, out[0]);
   std::printf("%zu\n", std::wcslen(L"wide"));
   return 0;
 }

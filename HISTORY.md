@@ -245,6 +245,7 @@ One row per step, in version order: the step's title, what it did and its gate n
 | 0.248 | a struct's temporary as long as its pieces, and the cross gate at -O1 | the CI's run of 0.247's push: the Intel Mac and Linux GREEN, Apple silicon four compile fixtures RED; a temporary holding a struct and its pieces as long as the longer (AAPCS64's `[2 x i64]` of 9 to 15 bytes and `i64` of 8 or fewer passed a struct-sized temporary's end, undefined at -O1: `unionbits.c`, and on Linux's aarch64 `packed.c`); the cross gate at -O1; `ldconst.c`, `c23float.c` and `predefs.c` right on every machine; lowering 146 | flow GREEN, the reader, compile, driver, objects, proof and cross (at -O1) gates GREEN (2 s, 28 s, 36 s, 4 s, 0 s, 202 s), the C++ gate GREEN in 1204 s with 848 run fixtures ok and 11 skipped; a commit and a push |
 | 0.249 | what the CI's first C++ job on the Mac found: a run with no cap, a pool with no voice | the CI's runs of 0.248: the smoke job GREEN on the three machines (Apple silicon's first), the full job's first run GREEN (all nine gates over libc++ 18, the cross gate's C++ part among them; the C++ gates over 21 and 22, 856 and 859 ok); the C++ job's first run on the Intel Mac stopped by GitHub at six hours, its pool silent after half its fixtures, its by-value check RED (Homebrew's clang++ found no `<stdio.h>`); a fixture's run capped at 300 s, the pool's long waits said with its processes, the CI's C++ gates keeping their progress, the reference clang++ given the SDK on a Mac | flow GREEN (126 s), the C++ gate GREEN in 1387 s with 848 run fixtures ok and 11 skipped, the reader, compile, driver, objects, proof and cross gates GREEN (2 s, 33 s, 40 s, 5 s, 0 s, 352 s); a commit and a push |
 | 0.250 | what the C++ job on the Mac found: a static past its type, a struct named by a declaration alone | the CI's C++ job on the Intel Mac, its first two runs: `stdrandom.cpp`'s first draw never ended (a library class's static constant kept its raw fold, `__independent_bits_engine::_Rp` 2^32 where a 32-bit `uint_fast32_t` makes it 0: now converted to the static's type, `stdrandom32.cpp`); 22 programs with a stream failed LLVM's parse on `fpos<mbstate_t>`, a struct a declaration alone names (now the declarations are spelled before the structs are taken, `declstruct.cpp`); seven fixtures made every machine's; a failed build's lines under its FAIL; five open; lowering 147 | flow GREEN (124 s), the C++ gates GREEN over libc++ 18, 21 and 22 (1375 s, 1425 s, 1420 s; 849, 857 and 860 run fixtures ok), the reader, compile, driver, objects, proof and cross gates GREEN (4 s, 32 s, 44 s, 5 s, 0 s, 222 s); a commit and a push |
+| 0.251 | the Mac's C++ job on 0.250: the tree's experimental archive, a failed link's lines, two fixtures made Linux's | the CI's runs of 0.250: the smoke run GREEN but the Intel Mac's upload (ENOTFOUND; the uploads `continue-on-error` now); the C++ job 984 ok, 6 FAIL (35 on 0.249): `-lc++experimental` the tree's archive by its path (Homebrew's libdispatch PSTL backend, reproduced over a copy of the 18 tree), a failed link's lines as notes, `cuchar.cpp` split from `cwrap.cpp` and skipped on a Mac, `gnusource.needs` glibc's; three open (silent ends), the Mac's crash reports kept | flow GREEN (119 s), the C++ gates GREEN over libc++ 18, 21 and 22 (1362 s, 1387 s, 1400 s; 850, 858 and 861 run fixtures ok), the reader, compile, driver, objects, proof and cross gates GREEN (2 s, 32 s, 43 s, 4 s, 0 s, 224 s); a commit and a push |
 
 ## M5 — the C++ mode
 
@@ -16854,3 +16855,71 @@ s, 5 s, 0 s, 222 s; peak 573 MB).
 
 The module 0.250. The lowering 147 (146 at 0.248): a program's IR that names a library class's static of 32 bits or
 fewer whose fold passed its type, or a struct that a declaration alone names, differs. The reader 167.
+
+## 0.251 — the Mac's C++ job on 0.250: the tree's experimental archive, a failed link's lines, two fixtures made Linux's
+
+**0.251: the CI's runs of 0.250. The smoke run GREEN on Linux and Apple silicon, the Intel Mac's six gates GREEN and its
+job RED by the upload of its logs. The C++ job on the Intel Mac: 984 run fixtures ok and 6 failures, where 0.249's run
+had 35. Three are met here, each reproduced or confirmed first: `execpol.cpp` links the experimental archive of the tree
+it was read from, `cwrap.cpp` gives its `<cuchar>` part to a fixture a Mac skips, and `gnusource.cpp` is glibc's alone.
+Three are open, programs that end at once with no line: the job keeps a Mac's crash reports from now on. A commit and a
+push, as the CI's fixes go.**
+
+THE RUNS:
+
+- The smoke run of 0.250's push (41210431407): Linux GREEN (setup 8:40, gates 2:52), Apple silicon GREEN (11:38, 5:57);
+  the Intel Mac's six gates GREEN (setup 23:45, gates 14:20, `GREEN: ci smoke`) and its job RED by its last step, the
+  upload: `Failed to CreateArtifact: Unable to make request: ENOTFOUND`, GitHub's artifact service out of the runner's
+  reach. Not run again: the gates had passed.
+- The C++ job on 0.250 (41210455555, by hand): its setup in 21:13, the library read GREEN in 1840 s (1159 s on 0.249:
+  the runner's pace), the C++ gate RED -- 984 run fixtures ok, 12 skipped by their needs, 6 failures, the build's lines
+  under each failed build (0.250's report).
+
+WHAT IT FOUND, AND WHAT 0.251 DOES:
+
+- `cwrap.cpp`: `not lowered yet: undeclared(mbrtoc16)`, as foreseen. Apple's C library has no `<uchar.h>` (libc++'s own
+  `<uchar.h>` test fails on Apple by its XFAIL; the C fixture `cwrap.c` has needed `__has_include(<uchar.h>)` since
+  0.224), so libc++'s `using ::mbrtoc16 _LIBCPP_USING_IF_EXISTS` declares nothing and clang++ refuses the call too.
+  Here `__has_attribute(using_if_exists)` answers 0, the macro is empty, and a using-declaration of a name the C library
+  lacks is taken in silence (a reduction ran). NOW `cwrap.cpp` keeps its other headers and `cuchar.cpp` the conversions
+  (`mbrtoc16`, `c32rtomb`, `mbrtoc32`, `c16rtomb`), `cuchar.needs` `!defined(__APPLE__)`; each prints its `.expect`
+  over libc++ 18, 21 and 22 here, and clang++ 18 the same over 18.
+- `execpol.cpp` and `gnusource.cpp`: `error: link: Undefined symbols for architecture x86_64:`, the symbols themselves
+  not in the log. `bin/cicilang` passes on only the lines of an error, a warning or a note, and the linker's message
+  after its first line was dropped. NOW a failed link's first line is the error and each line after it a `note: link:`
+  (`dr_link_lines/2`, `dr_link_notes/2`; here an undefined `nowhere_fn` is named), and the C++ gate shows a failed
+  link's notes and a failed run's `exit N`, which the diff had cut off.
+- `execpol.cpp`: Homebrew's `llvm@18` formula builds libc++ on macOS with `-DLIBCXX_PSTL_CPU_BACKEND=libdispatch` into
+  `lib/c++`, and LLVM 18 puts `pstl/libdispatch.cpp` -- `__dispatch_apply`, `__partition_chunks` -- in
+  `libc++experimental.a`; a Mac's link names no directory of the tree. Reproduced here: a copy of the 18 tree whose
+  `__config_site` names the libdispatch backend, in Homebrew's layout, its `lib/c++` archive holding LLVM 18's
+  `libdispatch.cpp` over a stand-in `dispatch_apply_f` that runs each chunk on a thread of its own, its `lib` archive
+  without: 0.250 failed the link in `__dispatch_apply`. NOW `-lc++experimental` is the archive of the tree the program
+  was read from, by its path (`ccl_link_flags/2`), and `execpol.cpp` prints its `.expect` over that tree, as clang++
+  does: the libdispatch backend's code compiles right here.
+- `gnusource.cpp` is glibc's by its own first line: `_GNU_SOURCE`, glibc's GNU functions and C23 redirects, `wint_t`
+  unsigned, and an asm label that names an ELF symbol, where a Mac's symbol takes a `_`. NOW `gnusource.needs`
+  `defined(__GLIBC__)` (`<version>` brings `<features.h>` on Linux).
+- OPEN: `stdfuture.cpp`, `stdoptional4.cpp` and `stdpmr.cpp` build on the Mac, and each program ends at once and writes
+  no line to stderr (`stdoptional4`'s `exit 134`, SIGABRT), where binaries' stderr reaches the log (`libc++abi:
+  terminating due to uncaught exception of type int`, `noexcept.cpp`'s). Here each runs clean, and `stdoptional4`'s
+  object built over libc++ 18 runs clean over the library of libc++ 18, 21 and 22. A Mac's C library ends a program so
+  where a check of its own fails (`abort_report_np`: the reason goes to the crash log alone); `_FORTIFY_SOURCE` is 0 for
+  the program here. NOW on a Mac `test/ci.sh` keeps the crash reports its gates made (`ci_crashes`), and each job's
+  upload step is `continue-on-error`, so the gates' step alone decides a job's verdict.
+
+MEASUREMENTS: `execpol.cpp` over the Homebrew-layout copy of the 18 tree: 0.250 fails the link (`in function
+__dispatch_apply...`), 0.251 builds it in 26 s and it prints its `.expect`, as clang++ 18 does. `cuchar.cpp` and
+`cwrap.cpp` print their `.expect` over libc++ 18, 21 and 22. The flow gate GREEN after the library's edits (119 s). The
+gates over 0.251: the C++ gates GREEN over libc++ 18, 21 and 22 (1362 s, 1387 s, 1400 s; 850, 858 and 861 run fixtures
+ok, 11, 3 and 0 skipped by their needs; `cuchar`, `cwrap`, `execpol` and `gnusource` ok on each), the reader, compile,
+driver, objects, proof and cross gates GREEN (2 s, 32 s, 43 s, 4 s, 0 s, 224 s).
+
+- `library/ccl_build.pl` (`ccl_link/3`, `ccl_link_flags/2`, `ccl_link_flag/2`), `library/ccl_driver.pl` (`dr_diag/3`,
+  `dr_link_lines/2`, `dr_nonempty/2`, `dr_link_notes/2`), `test/cpp.sh` (a failed link's notes, a failed run's exit),
+  `test/ci.sh` (`ci_crashes`), `.github/workflows/gates.yml` (the uploads `continue-on-error`), `test/cpp/run/cwrap.cpp`
+  and its `.expect`, `cuchar.cpp`, `.expect` and `.needs`, `gnusource.cpp` and `gnusource.needs`. `RULES.md`: the CI
+  job, the Mac's job, the arguments, Compile and link, the C++ gate, the needs, the run fixtures, Not done. `CLAUDE.md`:
+  the versions.
+
+The module 0.251. The lowering 147 and the reader 167 stay: no IR changes.

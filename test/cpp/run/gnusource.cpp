@@ -1,3 +1,5 @@
+// glibc's alone, so gnusource.needs is defined(__GLIBC__) (0.251): a Mac's clang predefines no _GNU_SOURCE, its wint_t
+// is signed, and a symbol there takes a `_' that the asm label below does not name -- the Intel Mac's link failed.
 // C++ ON LINUX, AS clang++ PREDEFINES IT (0.194): _GNU_SOURCE, so glibc declares its GNU functions -- libc++'s
 // condition_variable::wait_until needs pthread_cond_clockwait -- and its C23 redirects (strtol is __isoc23_strtol by an asm
 // label, which reads `0b'); no __STDC_VERSION__; wint_t unsigned, as the shipped wistringstream::ignore is mangled
