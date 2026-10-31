@@ -11,6 +11,6 @@ int arr[Y];
 int main() {
     enum D { V = Y * 2 };
     std::printf("%d %d %d %d %d %zu\n", (int) Y, (int) Z, (int) W, (int) W2, (int) V, sizeof arr);
-    std::printf("%d\n", (int) SC);
+    std::printf("%d\n", (int) (SC == _SC_PAGESIZE + 1));   // the C library's value: 30 on glibc, 29 on macOS (0.250)
     return 0;
 }

@@ -166,7 +166,19 @@ that changes a rule edits the rule here, in its topic, and writes its entry in `
   thirty minutes -- `noexcept.cpp`, the 419th of 859 in the order of their names, wrote its line at 04:08 -- and nothing
   after, until GitHub stopped the job at its six hours (08:48): a run that never ended, or a pool that waited for
   memory, which nothing told apart. Since 0.249 a fixture's run has its cap, a pool that waits says why, and the job
-  keeps its progress, so the next run names what held it. (0.224, 0.225, 0.226, 0.246, 0.247, 0.248, 0.249)
+  keeps its progress. WHAT HELD IT (0.250): the run of `stdrandom.cpp`'s binary, which GitHub's clean-up of the night's
+  C++ job, cancelled, named as an orphan process (`bin_stdrandom`) -- `uint_fast32_t` is 32 bits on macOS, and a library
+  class's static of 32 bits had been folded past its type (A static constant holds its type's value). The night's run on
+  `cb8d4e8` (41186054090) came at 08:47, 6 h 10 min late: its full job GREEN again, its C++ job cancelled at 10:43, the
+  same commit as the first and without the diagnostics, which held the concurrency group `gates-cpp-<ref>` that the run
+  on 0.249 waited in. THE RUN OF 0.249's PUSH (41190441406, on `f3910a8`): GREEN on the three machines -- the Intel
+  Mac's setup in 26:10 and its gates in 12:30 (flow 321 s, compile 196 s, driver 192 s), Apple silicon's 11:03 and 5:40
+  (141, 94, 87 s), Linux's 6:27 and 2:23 (92, 18, 29 s). THE C++ JOB'S RUN ON 0.249 (41190452988, by hand): its setup in
+  16:40, the library read GREEN in 1159 s, the C++ gate RED in 3492 s -- the by-value check GREEN, 813 run fixtures ok
+  and 11 skipped by their needs, and 35 failures: `stdrandom.cpp` by its run's cap, as foreseen; 22 programs with a
+  stream, six of them showing `use of undefined type named 'struct.fpos.mbstate_t'` and the rest cut off by the diff (A
+  struct that a declaration alone names is defined); seven that printed glibc's values (A fixture's output is every
+  machine's); and five whose cause no line showed (Not done). (0.224, 0.225, 0.226, 0.246, 0.247, 0.248, 0.249, 0.250)
 
 ### The chain
 
@@ -435,7 +447,8 @@ that changes a rule edits the rule here, in its topic, and writes its entry in `
   s over a warm HOME: `CCL_TEST_ROOT` and `CCL_TEST_TMP` set, `cocolog --local query "ensure_loaded('test/cpp.pl'),
   cpp_main"`; without the two variables it answers `false.` and names no line. (0.119)
 - The command's checks: `hello.cpp` built through `cicilang++` prints `hello, cicilang++`; a second build is served from
-  the summaries in under 8 s; `cicilang++ -fsyntax-only classes.cpp` says nothing and exits 0; (0.188) a cold build
+  the summaries in under 8 s; `cicilang++ -fsyntax-only classes.cpp` says nothing and exits 0; (0.250) `declstruct.cpp`
+  compiles with `-c`, a struct that a declaration alone names defined in the module; (0.188) a cold build
   reads its library headers by processes of their own -- `stdcstdlib.cpp`'s five, over a summary directory of the
   check's own, four at a time: `-v` names five processes and five summaries written, and the binary prints its
   `.expect`; (0.218) a header read in the build's own process after another was served from its summary is registered as
@@ -457,7 +470,7 @@ that changes a rule edits the rule here, in its topic, and writes its entry in `
   clang++ is given the SDK (`-isysroot`, `xcrun --show-sdk-path`; 0.249): Homebrew's llvm@18 found no `<stdio.h>` on the
   CI's Intel Mac, so `byval.h`'s `#include <cstdio>` failed and the check with it; and a helper that does not build says
   why under the check's FAIL (`ccl_ref_cxx`, `ccl_ref_said`). After the fixtures, `classes.cpp` builds and exits 34, and
-  `templates.cpp` exits 10. (M5, 0.34, 0.35, 0.135, 0.161, 0.188, 0.192, 0.207, 0.218, 0.249)
+  `templates.cpp` exits 10. (M5, 0.34, 0.35, 0.135, 0.161, 0.188, 0.192, 0.207, 0.218, 0.249, 0.250)
 - The fixture builds assume a warm cache: a build that only reads summaries is safe in parallel, and a cold flatten
   under load is not. `CPP_JOBS=1` makes the gate serial. A HOME whose cache was copied from another tree or another HOME
   is not warm (the summary cache topic, 0.217). (0.105, 0.217)
@@ -466,10 +479,20 @@ that changes a rule edits the rule here, in its topic, and writes its entry in `
   hides it. It runs the binary on `NAME.stdin` or `/dev/null`, capped since 0.249 at `CPP_RUN_SECS` (300 s) by `timeout
   -s KILL`, as the library read caps its reads -- past it the verdict reads `FAIL NAME.cpp: TIMEOUT after N s, its
   binary's run never finished`, where a run that never ended held its lane and the pool's end waited for it --, compares
-  with `NAME.expect`, and writes its verdict to `$RES/NAME.res`. With `CPP_PROGRESS` naming a file (0.249),
-  `ccl_fixture_run` appends there each fixture's start and its verdict's line as they come, the clock first: a pool
-  stopped from outside leaves them behind, where its verdicts, printed at its end, are never written (the CI's jobs set
-  it into their logs). (0.93, 0.94, 0.105, 0.249)
+  with `NAME.expect`, and writes its verdict to `$RES/NAME.res`; a build that failed adds its first error lines under
+  the diff (0.250), which the diff's six lines do not reach where a fixture prints more. With `CPP_PROGRESS` naming a
+  file (0.249), `ccl_fixture_run` appends there each fixture's start and its verdict's line as they come, the clock
+  first: a pool stopped from outside leaves them behind, where its verdicts, printed at its end, are never written (the
+  CI's jobs set it into their logs). (0.93, 0.94, 0.105, 0.249)
+- A FIXTURE'S OUTPUT IS EVERY MACHINE'S (0.250): where the C library or the platform decides a value, a fixture prints
+  whether the value is the machine's own -- `_SC_PAGESIZE`, 30 on glibc and 29 on macOS (`enumcross.cpp`); the C
+  library's `noexcept`, glibc's `__THROW` and none on macOS (`noexceptlib.cpp`); Apple's packing of a non-POD member
+  (`packnonpod.cpp`) --, takes off what the machine adds (`streamlay.cpp`: a file stream's two `mbstate_t`, 8 bytes on
+  glibc and 128 on macOS), prints a subnormal `long double` by its bits (`ldlimits.cpp`: Apple's `%La` writes it
+  normalized), asks the heap through the machine's own call (`newthrow.cpp`: `mallinfo2` on glibc,
+  `malloc_zone_statistics` on macOS), or is skipped where its subject is another machine's (`gnumode.needs`:
+  `defined(__linux__)`, GNU mode's `linux` and `unix`). The CI's C++ job on the Intel Mac failed the seven where they
+  printed glibc's values; each prints the same lines over libc++ 18, 21 and 22 here.
 - `CPP_WHY=1 sh test/cpp.sh` (0.144): a fixture whose BUILD failed is built again by `test/why.sh` (Where a build gave
   up, below), and its account -- the calls the error was raised through, the branch that raised it, then the failed
   call down the path that got furthest -- joins the verdict, under the diff. It costs two more builds of each such
@@ -6339,6 +6362,18 @@ A lambda is a class of its captures (`library/ccl_cpp_lambda.pl`, 0.223). A fixt
   the static was named, and a fold asked each static its initializer names twice (the typed constant's road asks again):
   libc++'s `__log2_imp<_Xp, _Rp>::value = _Xp & (1ULL << _Rp) ? _Rp : __log2_imp<_Xp, _Rp - 1>::value`, 32 levels for a
   32-bit engine, was 2^32 folds, and `<random>` never finished (killed at 1500 s since 0.117). `stdrandom.cpp`.
+- A STATIC CONSTANT HOLDS ITS TYPE'S VALUE (0.250): its fold is converted to the static's own type before it is
+  remembered (`cpp_static_held/4`), as C++ converts an initializer to the declared type ([conv.integral]). The type is
+  the class record's (`cpp_static_shape/4`), resolved in the class where its spelling alone does not resolve -- a
+  class's typedef --, once per static. A library class's statics keep their raw type (`cpp_declare_statics/2`), where
+  `cpp_typed_const/4` gives no cast, so a value past the type had stood as it was folded: libc++'s
+  `__independent_bits_engine<_Engine, unsigned>::_Rp = _Engine::max() - _Engine::min() + _Working_result_type(1)` over a
+  32-bit engine -- `mt19937` and `minstd_rand` where `uint_fast32_t` is 32 bits, as on macOS, 64 on glibc -- is 0, and
+  was 2^32, so `integral_constant<bool, _Rp != 0>` chose the overload that draws until a value is below `__y0_`, 0:
+  `stdrandom.cpp`'s first draw never ended on the CI's Intel Mac (The Mac's job). A type of 32 bits or fewer wraps
+  (`ccl_w_wrap/4`); a 64-bit static keeps its fold, `npos = -1` used as -1 throughout. `stdrandom32.cpp`: the engines as
+  macOS defines them, on every machine, and `std::independent_bits_engine`, whose `_Rp` is the same; over 0.249 its
+  first draw hung.
 - A class's own static shadows a global enumerator in a static's initializer ([basic.lookup.unqual];
   `cpp_shadowing_static/2`): no raw fold. `stdmanip.cpp`. Why: `ios_base::floatfield` read `chars_format`'s values.
   (0.94)
@@ -6653,6 +6688,14 @@ A lambda is a class of its captures (`library/ccl_cpp_lambda.pl`, 0.223). A fixt
   run (split where no byte is shared), and padding where C's offset passes LLVM's and up to `ccl_tag_size`. The map
   `m(Name, Index, T, none | bf(RunLL, BitOff, Width, Signed))` goes to `'$ir_maps'`. A struct is named once
   (`%struct.Tag`, `'$ir_structs'`); an anonymous one is keyed by its members (`'$ir_anons'`). (M2b, 0.89)
+- A STRUCT THAT A DECLARATION ALONE NAMES IS DEFINED (0.250): `ir_assemble/1` spells the module's declarations
+  (`ir_declares/3`) before it takes the struct definitions, since a declaration's types are noted as it is spelled
+  (`ir_struct/3`). A class of more than 16 bytes by value is `ptr byval(%struct...)` on x86-64, and macOS's
+  `fpos<mbstate_t>` -- 136 bytes, its `mbstate_t` a 128-byte union where glibc's is 8 bytes and passes in two registers
+  -- is `basic_streambuf::seekpos`'s parameter, declared in a stream's table: `use of undefined type named
+  'struct.fpos.mbstate_t'` failed the CI's C++ job on the Intel Mac in every program with a stream.
+  `test/cpp/declstruct.cpp`, built with `-c` by the C++ gate: an anonymous union's typedef as the argument, as macOS's
+  is, and the instance named by the declaration alone.
 - A STRUCT THAT LLVM CANNOT LAY AS C DOES IS LLVM'S PACKED ONE (0.203; `ir_lays_unaligned/1`): where C lays a member at
   an offset that is no multiple of its LLVM alignment -- a packed struct's, a packed member -- the shape is `<{ ... }>`,
   every padding explicit, and a member is loaded and stored at the alignment its place has, the largest power of two
@@ -12121,15 +12164,23 @@ Declarations topic of the C++ reader).
   are one class (a local class keeps its line, no place in it). The reader drops `constexpr` on a free function, so a
   closure there is `$_N` where clang's is `Ul`. `auto c = [] {}, d = [] {};` is not refused, where its two types differ
   ([dcl.spec.auto]/7).
-- The C++ job on the Intel Mac has finished no run: its first (41161604702, on 0.248) was stopped by GitHub at its six
-  hours, its fixture pool held after half its fixtures (The Mac's job), and the night's run on the same commit
-  (41186054090) meets the same; 0.249 caps each fixture's run, gives the pool a voice and keeps its progress, so the
-  next run names what held it. On a Mac a C++ program is linked by `c++` against the system's libc++, not the tree whose
-  headers it was read from (`ccl_link_libs/1` names no library there; on Linux the tree's own since 0.122, where the two
-  disagreed): not measured there. The C++ job reads libc++ 18 alone, not Homebrew's later trees (`llvm@21`, `llvm`), and
-  the C++ gates do not run on Apple silicon, whose 7 GB holds the smoke job: a C++ rule is gated on Linux over libc++
-  18, 21 and 22 (the full job GREEN since its first run, The CI job), and on Apple's arm64 by the driver gate's C++
-  checks alone.
+- The C++ job on the Intel Mac has finished no GREEN run: its first was held by `stdrandom.cpp`'s first draw and its
+  second (on 0.249) failed 35 fixtures (The Mac's job), 30 of them met at 0.250 -- sixteen of the 22 stream programs'
+  presumed, their log showing no error line. Five are open, their cause unknown: `cwrap.cpp` (its build failed in two
+  seconds, <cuchar> and <csignal> among its headers), `execpol.cpp` (libc++'s parallel algorithms, over libdispatch on
+  Apple), `stdfuture.cpp` and `stdpmr.cpp` (their builds failed; a stream may be in their headers' reach), and
+  `stdoptional4.cpp`, whose binary aborts there with no message, where here it runs clean under libc++ 18's debug
+  assertions; 0.250's run shows a failed build's error lines. On a Mac a C++ program is linked by `c++` against the
+  system's libc++, not the tree whose headers it was read from (`ccl_link_libs/1` names no library there; on Linux the
+  tree's own since 0.122, where the two disagreed): not measured there. The C++ job reads libc++ 18 alone, not
+  Homebrew's later trees (`llvm@21`, `llvm`), and the C++ gates do not run on Apple silicon, whose 7 GB holds the smoke
+  job: a C++ rule is gated on Linux over libc++ 18, 21 and 22 (the full job GREEN since its first run, The CI job), and
+  on Apple's arm64 by the driver gate's C++ checks alone.
+- `__builtin_trap()` is not lowered (`undeclared('__builtin_trap')`), nor clang 19's `__builtin_verbose_trap(category,
+  message)`, while `__has_builtin` answers 1 for both: a program built with one of libc++'s hardening modes, whose
+  assertions call them (`-D_LIBCPP_HARDENING_MODE=_LIBCPP_HARDENING_MODE_FAST`), is refused; the debug mode's go through
+  `__libcpp_verbose_abort` and build. Found at 0.250: the libc++ trees here ship with hardening off, and on the Intel
+  Mac 813 fixtures built, which a hardened tree's assertions would have refused.
 - `-g` on a Mac (0.245) keeps the objects the debug map names in `~/.cicilang/objects` and makes no `.dSYM` (`dsymutil`
   is an LLVM binary): a program copied to another machine is debugged there without its DWARF, and the cache keeps an
   object until it is cleared. The rule is proven on this box as far as the object (a Mach-O one, under `--target`), and

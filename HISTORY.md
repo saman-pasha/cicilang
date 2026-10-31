@@ -244,6 +244,7 @@ One row per step, in version order: the step's title, what it did and its gate n
 | 0.247 | the chain of step 21, the push, and what the CI's first runs on the two Macs found | the twenty-first item of "Do all": the chain over 0.246's tree (all nine gates over libc++ 18, 848 run fixtures ok; the C++ gates over 21 and 22, 856 and 859 ok), the push of 0.227 to 0.246, the CI's run of it (Linux GREEN, the Intel Mac one failure, Apple silicon 155); a variadic call's function type the callee's, its fixed parameters then `...` (Apple's arm64 passes a variadic argument on the stack), `test/abisig.awk` keeping it; an asm label on Darwin spelled `\01` first; four tests made machine-neutral; lowering 145 | flow GREEN, the reader, compile, driver, objects, proof and cross gates GREEN (3 s, 29 s, 38 s, 4 s, 0 s, 208 s), the C++ gate GREEN in 1237 s with 848 run fixtures ok and 11 skipped; 812 conventions of 125 C run fixtures clang's for Apple's arm64; a commit and a push |
 | 0.248 | a struct's temporary as long as its pieces, and the cross gate at -O1 | the CI's run of 0.247's push: the Intel Mac and Linux GREEN, Apple silicon four compile fixtures RED; a temporary holding a struct and its pieces as long as the longer (AAPCS64's `[2 x i64]` of 9 to 15 bytes and `i64` of 8 or fewer passed a struct-sized temporary's end, undefined at -O1: `unionbits.c`, and on Linux's aarch64 `packed.c`); the cross gate at -O1; `ldconst.c`, `c23float.c` and `predefs.c` right on every machine; lowering 146 | flow GREEN, the reader, compile, driver, objects, proof and cross (at -O1) gates GREEN (2 s, 28 s, 36 s, 4 s, 0 s, 202 s), the C++ gate GREEN in 1204 s with 848 run fixtures ok and 11 skipped; a commit and a push |
 | 0.249 | what the CI's first C++ job on the Mac found: a run with no cap, a pool with no voice | the CI's runs of 0.248: the smoke job GREEN on the three machines (Apple silicon's first), the full job's first run GREEN (all nine gates over libc++ 18, the cross gate's C++ part among them; the C++ gates over 21 and 22, 856 and 859 ok); the C++ job's first run on the Intel Mac stopped by GitHub at six hours, its pool silent after half its fixtures, its by-value check RED (Homebrew's clang++ found no `<stdio.h>`); a fixture's run capped at 300 s, the pool's long waits said with its processes, the CI's C++ gates keeping their progress, the reference clang++ given the SDK on a Mac | flow GREEN (126 s), the C++ gate GREEN in 1387 s with 848 run fixtures ok and 11 skipped, the reader, compile, driver, objects, proof and cross gates GREEN (2 s, 33 s, 40 s, 5 s, 0 s, 352 s); a commit and a push |
+| 0.250 | what the C++ job on the Mac found: a static past its type, a struct named by a declaration alone | the CI's C++ job on the Intel Mac, its first two runs: `stdrandom.cpp`'s first draw never ended (a library class's static constant kept its raw fold, `__independent_bits_engine::_Rp` 2^32 where a 32-bit `uint_fast32_t` makes it 0: now converted to the static's type, `stdrandom32.cpp`); 22 programs with a stream failed LLVM's parse on `fpos<mbstate_t>`, a struct a declaration alone names (now the declarations are spelled before the structs are taken, `declstruct.cpp`); seven fixtures made every machine's; a failed build's lines under its FAIL; five open; lowering 147 | flow GREEN (124 s), the C++ gates GREEN over libc++ 18, 21 and 22 (1375 s, 1425 s, 1420 s; 849, 857 and 860 run fixtures ok), the reader, compile, driver, objects, proof and cross gates GREEN (4 s, 32 s, 44 s, 5 s, 0 s, 222 s); a commit and a push |
 
 ## M5 — the C++ mode
 
@@ -16771,3 +16772,85 @@ last job. The flow gate GREEN in 126 s over the new pool (peak 4693 MB). The C++
   compiler, a fixture's run, the progress), the pool, Not done. `CLAUDE.md`: the versions, `test/parlib.sh`.
 
 The module 0.249. The reader 167 and the lowering 146 stay: no library file changed.
+
+## 0.250 — what the C++ job on the Mac found: a static past its type, a struct named by a declaration alone
+
+**0.250: the CI's C++ job on the Intel Mac, its first two runs. The first was held by `stdrandom.cpp`'s first draw,
+which never ended: a library class's static constant kept the raw fold of its initializer, past its type, and where
+`uint_fast32_t` is 32 bits, as on macOS, libc++'s `__independent_bits_engine::_Rp` is 0 in C++ and was 2^32 here. The
+second, on 0.249, ran to its end and failed 35 fixtures: that one by its new cap, 22 programs with a stream on a struct
+that a declaration alone names, seven fixtures that printed glibc's values, and five still open. Each corrected cause
+was reproduced on Linux first. A commit and a push, as the CI's fixes go.**
+
+THE RUNS:
+
+- The night's run on `cb8d4e8` (41186054090) came at 08:47, 6 h 10 min late: its full job GREEN again (the setup 9:27,
+  all nine gates over libc++ 18 in 2314 s, the C++ gates over 21 and 22 in 1325 s and 1354 s). Its C++ job, on the
+  commit that had hung and without 0.249's diagnostics, held the concurrency group `gates-cpp-<ref>`, in which the run
+  of 0.249 (41190452988, dispatched at 09:52) waited; cancelled at 10:43, its job's clean-up named the process that had
+  never ended: `Terminate orphan process: pid (30013) (bin_stdrandom)`.
+- The run of 0.249's push (41190441406): GREEN on the three machines -- the Intel Mac's setup in 26:10 and its gates in
+  12:30 (flow 321 s, compile 196 s, driver 192 s), Apple silicon's 11:03 and 5:40 (141, 94, 87 s), Linux's 6:27 and 2:23
+  (92, 18, 29 s).
+- The C++ job on 0.249 (41190452988): its setup in 16:40, the library read GREEN in 1159 s, the C++ gate RED in 3492 s
+  -- the by-value check GREEN (the SDK given), 813 run fixtures ok, 11 skipped by their needs, 35 failures, the progress
+  file whole in the artifact (`cpp-progress-18.log`).
+
+WHAT IT FOUND, AND WHAT 0.250 DOES:
+
+- `stdrandom.cpp`: `TIMEOUT after 300 s, its binary's run never finished`, as foreseen from the clean-up's orphan. By
+  reductions on this box with `uint32_t` engines, as macOS's `mt19937` and `minstd_rand`: the fixture over them hung at
+  its first `d(g)`; libc++'s own `std::__independent_bits_engine<mt32, unsigned>` hung at its first draw, where a
+  verbatim copy of it written as the program's class drew 6, as clang++'s does; and the library instance's IR held `icmp
+  eq i64 4294967296, 0` in its constructor and `__eval.true_type` alone. `_Rp = _Engine::max() - _Engine::min() +
+  _Working_result_type(1)` is 0 in a 32-bit type ([conv.integral]), so libc++ draws by `__eval(false_type)`; folded as
+  2^32, `integral_constant<bool, _Rp != 0>` chose `__eval(true_type)`, whose loop draws until a value is below `__y0_`,
+  0. A program's class gives each static its type at registration and `cpp_typed_const/4` its cast; a library class's
+  statics keep their raw type (`cpp_declare_statics/2`: resolving them all at registration took `std::format` past 3.5
+  GB, 0.115). On glibc `uint_fast32_t` is 64 bits and 2^32 that type's value. NOW a static constant's fold is converted
+  to the static's own type before it is kept (`cpp_static_held/4` in `cpp_static_const/3`): the class record's type
+  (`cpp_split_members`' `N-T`), resolved in the class where its spelling alone does not (`cpp_static_shape/4`), once per
+  static; one of 32 bits or fewer wraps (`ccl_w_wrap/4`), a 64-bit one keeps its fold (`npos = -1` is used as -1
+  throughout). `stdrandom32.cpp`: the engines as macOS defines them, on every machine, and
+  `std::independent_bits_engine`.
+- 22 PROGRAMS WITH A STREAM: `use of undefined type named 'struct.fpos.mbstate_t'` at LLVM's parse, in the declaration
+  of `basic_streambuf::seekpos` (six showed it; in sixteen the diff's six lines cut it off). macOS's `mbstate_t` is a
+  128-byte union, so `fpos<mbstate_t>` is 136 bytes and passes as `ptr byval(%struct.fpos.mbstate_t)`; glibc's is 8
+  bytes and `fpos` passes in two registers, its struct never named. Reproduced here in nine lines: an anonymous union's
+  typedef as the argument and the instance named by a declared function alone. `ir_assemble/1` took the struct
+  definitions before it spelled the declarations, and a declaration notes its types as it spells them (`ir_struct/3`).
+  NOW the declarations are spelled first. `test/cpp/declstruct.cpp`, built with `-c` by the C++ gate.
+- SEVEN FIXTURES PRINTED GLIBC'S VALUES, each the Mac's own answer correct: `enumcross.cpp` (`_SC_PAGESIZE`, 29 there),
+  `noexceptlib.cpp` (`strlen` is `noexcept` through glibc's `__THROW`, not on macOS), `packnonpod.cpp` (Apple's
+  platforms keep packing a non-POD member, as the fixture's comment says), `streamlay.cpp` (a file stream's two
+  `mbstate_t`, 240 bytes more there), `ldlimits.cpp` (Apple's `%La` writes a subnormal normalized), `newthrow.cpp`
+  (glibc's `mallinfo2`) and `gnumode.cpp` (`linux` and `unix` predefined on Linux alone). NOW each prints whether the
+  value is the machine's, takes off what the machine adds, prints the subnormal by its bits, asks the heap by the
+  machine's call (`malloc_zone_statistics` on macOS), or is skipped elsewhere (`gnumode.needs`: `defined(__linux__)`).
+  clang++ 18 prints each one's `.expect` here.
+- FIVE ARE OPEN: `cwrap.cpp` (its build failed in two seconds), `execpol.cpp`, `stdfuture.cpp`, `stdpmr.cpp` (their
+  builds failed; their lines were cut off) and `stdoptional4.cpp` (its binary aborts there with no message; here it runs
+  clean under libc++ 18's debug assertions). NOW a failed build's first error lines stand under its FAIL, so 0.250's run
+  names them.
+- FOUND ON THE WAY: `__builtin_trap()` is not lowered, nor clang 19's `__builtin_verbose_trap`, and `__has_builtin`
+  answers 1 for both, so a program built with one of libc++'s hardening modes is refused (Not done). And a hand build
+  without `CICILANG_NO_IR_CACHE` is served the IR stored under the same lowering version: the reorder's first test read
+  the IR stored before it and looked like no change -- every gate sets the variable.
+
+MEASUREMENTS: `stdrandom32.cpp` built by clang++ 18, 21 and 22 prints the same lines; by 0.249 it hung at its first
+draw; by 0.250 it prints clang++'s lines over libc++ 18, 21 and 22. The nine-line `declstruct.cpp` failed LLVM's parse
+over 0.249 and compiles over 0.250. The seven changed fixtures print their `.expect` by clang++ 18 and by 0.250. The
+flow gate GREEN after each library edit (124 s). The C++ gates over the whole step GREEN: over libc++ 18 in 1375 s (849
+run fixtures ok, 11 skipped by their needs, the -c check of declstruct.cpp ok), over 21 in 1425 s (857 ok, 3 skipped),
+over 22 in 1420 s (860 ok), peak 3791 MB; before the struct's correction and the fixtures, 1398 s, 1322 s and 1347 s.
+With the module 0.250 the reader, compile, driver and objects gates, the proof and the cross gate GREEN (4 s, 32 s, 44
+s, 5 s, 0 s, 222 s; peak 573 MB).
+
+- `library/ccl_cpp_layout.pl` (`cpp_static_const/3`, `cpp_static_held/4`, `cpp_static_shape/4`), `library/ccl_ir.pl`
+  (`ir_assemble/1`, the lowering 147), `test/cpp.sh` (the `-c` check, a failed build's lines),
+  `test/cpp/declstruct.cpp`, `test/cpp/run/stdrandom32.cpp` and its `.expect`, the seven fixtures, `gnumode.needs`.
+  `RULES.md`: Constants of the desugaring, Structs, unions and bitfields, the C++ gate, The Mac's job, Not done.
+  `CLAUDE.md`: the versions.
+
+The module 0.250. The lowering 147 (146 at 0.248): a program's IR that names a library class's static of 32 bits or
+fewer whose fold passed its type, or a struct that a declaration alone names, differs. The reader 167.

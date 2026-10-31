@@ -38,6 +38,10 @@ s1=$(date +%s); "$ROOT/bin/cicilang++" "$ROOT/test/cpp/hello.cpp" -o hello2 >/de
 if [ "$t1" -lt 8 ] && [ "$n" -ge 1 ]; then echo "ok   a second build reads stdio.h's summary from ~/.cicilang/cpp, no preprocessing ($t1 s, $n summaries)"; else echo "FAIL a second build is served from the summary cache"; echo "     got  $t1 s, $n summaries"; failures=$((failures + 1)); fi
 got=$("$ROOT/bin/cicilang++" -fsyntax-only "$ROOT/test/cpp/classes.cpp" 2>&1; echo "exit $?")
 if [ "$got" = "exit 0" ]; then echo "ok   cicilang++ -fsyntax-only reads a file of classes, and says nothing"; else echo "FAIL cicilang++ -fsyntax-only classes.cpp"; echo "     got  $got"; failures=$((failures + 1)); fi
+# A STRUCT THAT A DECLARATION ALONE NAMES IS DEFINED (0.250): declstruct.cpp's 136-byte instance by value in a declared function
+# only -- macOS's fpos<mbstate_t> in basic_streambuf::seekpos, `use of undefined type' in every stream program on the Intel Mac
+got=$("$ROOT/bin/cicilang++" -c "$ROOT/test/cpp/declstruct.cpp" -o declstruct.o 2>&1; echo "exit $?")
+if [ "$got" = "exit 0" ]; then echo "ok   a struct that a declaration alone names by value is defined in the module (declstruct.cpp, -c)"; else echo "FAIL a struct that a declaration alone names (declstruct.cpp, -c)"; echo "     got  $(printf '%s' "$got" | head -2 | cut -c1-300)"; failures=$((failures + 1)); fi
 # THE COLD HEADERS OF A BUILD, EACH READ BY A PROCESS OF ITS OWN (0.188): stdcstdlib.cpp's five library headers, cold in a
 # summary directory of the check's own (its HOME), read by five processes four at a time, then the build and its binary
 mkdir -p "$D/coldhome"; said=$(HOME="$D/coldhome" CICILANG_JOBS=4 "$ROOT/bin/cicilang++" -v "$ROOT/test/cpp/run/stdcstdlib.cpp" -o cold 2>&1)
@@ -123,6 +127,9 @@ ccl_fixture() {
   if [ "$got" = "$(cat "$ROOT/test/cpp/run/$n.expect")" ]; then echo "ok   $n.cpp: built through cicilang++, runs, and prints what it should" > "$r"
     ccl_time_record "$CPP_TIMES" "$n" "$secs"   # a PASSING build's seconds only, for the next run's longest-first order: a failure's time says nothing of the cost
   else { echo "FAIL $n.cpp"; echo "$got" | diff "$ROOT/test/cpp/run/$n.expect" - 2>&1 | head -6 | sed 's/^/     /'
+         # A BUILD THAT FAILED SAYS WHY (0.250): its first error lines, which the diff's six lines do not reach where the
+         # fixture prints more -- the CI's C++ job on the Intel Mac failed twenty fixtures whose cause no line showed
+         if [ "$bst" -ne 0 ]; then printf '%s\n' "$bout" | grep -a 'error' | head -3 | cut -c1-300 | sed 's/^/     the build: /'; fi
          # CPP_WHY=1 (0.144): a BUILD that failed is built again under library(flow/debug) by test/why.sh, and its account --
          # the calls the error was raised through, the failed call down the path that got furthest -- joins the verdict
          if [ -n "$CPP_WHY" ] && [ "$bst" -ne 0 ]; then sh "$HERE/why.sh" $flags "$src" 2>&1 | sed -n '/^-- the error was raised\|^-- the run did not raise/,$p' | grep -v '^-- every call\|^-- peak' | sed 's/^/     /'; fi; } > "$r"; fi

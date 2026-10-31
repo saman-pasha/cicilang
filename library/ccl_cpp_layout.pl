@@ -127,7 +127,7 @@ cpp_class_typedef(C, N, T) :- cpp_class_typedef(C, N, T, _).
 cpp_class_typedef(C, N, T, C) :- '$cpp_ctype'(C, N, T), !.
 cpp_class_typedef(C, N, T, Def) :- cpp_base_scope(C, B), cpp_class_typedef(B, N, T, Def).
 cpp_class_typedef(C, N, T, Def) :- cpp_enclosing(C, Enc), cpp_class_typedef(Enc, N, T, Def).   % a nested class sees the enclosing one's types, its inherited ones with them
-cpp_static_const(C, N, V) :- cpp_sinit(C, N, E), !, ( catch('$cpp_sfold'(C, N, V0), _, fail) -> V = V0 ; cpp_fold_static(C, N, E, V0), ( ground(V0) -> assertz('$cpp_sfold'(C, N, V0)) ; true ), V = V0 ).   % ONCE PER CLASS AND NAME (0.136; below)
+cpp_static_const(C, N, V) :- cpp_sinit(C, N, E), !, ( catch('$cpp_sfold'(C, N, V0), _, fail) -> V = V0 ; cpp_fold_static(C, N, E, V1), cpp_static_held(C, N, V1, V0), ( ground(V0) -> assertz('$cpp_sfold'(C, N, V0)) ; true ), V = V0 ).   % ONCE PER CLASS AND NAME (0.136), IN ITS OWN TYPE (0.250; both below)
 cpp_static_const(C, N, V) :- cpp_base_scope(C, B), cpp_static_const(B, N, V).       % inherited: is_move_constructible<T>::value is integral_constant's
 cpp_static_const(C, N, V) :- cpp_enclosing(C, Enc), cpp_static_const(Enc, N, V).   % a NESTED class sees the enclosing one's statics, as it sees its types: libc++'s `basic_string::__long' divides by its holder's `__endian_factor'
 %% ... AND THE CONSTANT KEEPS THE MEMBER'S TYPE where it stands in an expression (0.117): `static const long long v = -3;' named `A::v' was the
@@ -139,6 +139,20 @@ cpp_typed_const(C, N, int(K), E) :- cpp_static_decl_type(C, N, T), !, E = cast(T
 cpp_typed_const(_, _, V, V).
 cpp_static_decl_type(C, N, base([], Sp)) :-
     catch(( cpp_static_member(C, N, SN), ccl_declared(SN, T0), ccl_resolve_type(T0, T1), T1 = base(_, Sp0), findall(X, ( member(X, Sp0), X \== static ), Sp), Sp \== [], Sp \== [int], cpp_arith(base([], Sp)) ), _, fail).
+%% A STATIC CONSTANT HOLDS ITS TYPE'S VALUE (0.250): its fold is converted to the static's own type before it is kept, as C++
+%% converts an initializer to the declared type. A library class's statics keep their raw type (cpp_declare_statics: resolving
+%% them all at registration took std::format past 3.5 GB), where cpp_typed_const gives no cast, so a value past the type
+%% stood as it was folded: libc++'s `__independent_bits_engine<_Engine, unsigned>::_Rp = _Engine::max() - _Engine::min() +
+%% _Working_result_type(1)' over a 32-bit engine -- mt19937 where uint_fast32_t is 32 bits, as on macOS -- is 0 in C++ and was
+%% 2^32 here, so `integral_constant<bool, _Rp != 0>' chose the overload that draws until a value is below 0, and the CI's C++
+%% job on the Intel Mac never finished `stdrandom.cpp' (`stdrandom32.cpp' holds it on every machine). The type is the class
+%% record's (cpp_split_members), resolved in the class where its spelling alone does not resolve (a class's typedef), once
+%% per static; one of 32 bits or fewer wraps, and a 64-bit static keeps its fold (`npos = -1' is used as -1 throughout).
+cpp_static_held(C, N, int(K), int(K1)) :- ( integer(K) ; K = big(_) ), cpp_static_shape(C, N, Bits, Signed), Bits =< 32, !, ccl_w_wrap(K, Bits, Signed, K1).
+cpp_static_held(_, _, V, V).
+cpp_static_shape(C, N, Bits, Signed) :- catch(cpp_class_l(C, cls(_, _, Ss, _, _)), _, fail), memberchk(N-T0, Ss), !,
+    (   catch(( ccl_resolve_type(T0, T1), ccl_cast_shape(T1, Bits, Signed) ), _, fail) -> true
+    ;   catch(( cpp_in_class(C, cpp_type(T0, T2)), ccl_resolve_type(T2, T3), ccl_cast_shape(T3, Bits, Signed) ), _, fail) ).
 %% a static const's initializer: a constant as it stands, else DESUGARED in the class's own words -- a detection
 %% idiom reads `decltype(__test<_Tp>(nullptr, ...))::value', which is a constant only after the overload is picked.
 %% A guard per name, since folding it may ask for it again.
