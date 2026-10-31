@@ -59,20 +59,27 @@ if [ "$got" = "$(cat "$ROOT/test/cpp/link/units.expect")" ]; then echo "ok   two
 # ($LLVM's clang++, else the one on the path), linked with abi_main.cpp built by cicilang++ -- a base's tail padding reused
 # and the table pointer first, values and sizes crossing the call both ways. No clang++: a SKIP, named.
 CXXREF=clang++; [ -n "$LLVM" ] && [ -x "$LLVM/bin/clang++" ] && CXXREF="$LLVM/bin/clang++"
+# ON A MAC THE REFERENCE CLANG++ IS GIVEN THE SDK (0.249): Homebrew's llvm@18 found no C library's headers on the CI's Intel
+# Mac, so byval.h's `#include <cstdio>' failed and the by-value check with it, while the two helpers that include nothing
+# built -- Apple's clang has its SDK of its own, and cicilang finds one (ccl_sdk_dirs/1). A helper that does not build says
+# why, under the check's FAIL (its errors had gone to /dev/null).
+CXXSDK=""; [ "$(uname -s)" = Darwin ] && CXXSDK=$(xcrun --show-sdk-path 2>/dev/null) && [ -d "$CXXSDK" ] || CXXSDK=""
+ccl_ref_cxx() { "$CXXREF" ${CXXSDK:+-isysroot "$CXXSDK"} -std=c++17 -w -c "$ROOT/test/cpp/link/$1.cpp" -o "$1.o" > "$1.log" 2>&1; }   # ccl_ref_cxx NAME: test/cpp/link/NAME.cpp into NAME.o, its errors in NAME.log
+ccl_ref_said() { [ -f "$1.o" ] || echo "     $1.cpp did not build: $(head -3 "$1.log" | tr '\n' ' ' | cut -c1-300)"; }
 if command -v "$CXXREF" > /dev/null 2>&1; then
-  "$CXXREF" -std=c++17 -w -c "$ROOT/test/cpp/link/abi_helper.cpp" -o abi_helper.o 2>/dev/null
+  ccl_ref_cxx abi_helper
   got=$("$ROOT/bin/cicilang++" "$ROOT/test/cpp/link/abi_main.cpp" abi_helper.o -o abi 2>&1 && ./abi)
-  if [ "$got" = "1 2 3 60 | 245 | 8 8 | 16 16" ]; then echo "ok   classes cross a call to clang++'s code as the Itanium ABI lays them (a base's tail padding, the table pointer first)"; else echo "FAIL the class layout against clang++'s (test/cpp/link)"; echo "     got  $got"; failures=$((failures + 1)); fi
+  if [ "$got" = "1 2 3 60 | 245 | 8 8 | 16 16" ]; then echo "ok   classes cross a call to clang++'s code as the Itanium ABI lays them (a base's tail padding, the table pointer first)"; else echo "FAIL the class layout against clang++'s (test/cpp/link)"; echo "     got  $got"; ccl_ref_said abi_helper; failures=$((failures + 1)); fi
   # ... AND POINTERS TO MEMBER FUNCTIONS BOTH WAYS (0.161): memptr_helper.cpp by clang++, memptr_main.cpp by cicilang++ -- a
   # virtual member, a second base's adjustment, an override of its virtual, the null pointer
-  "$CXXREF" -std=c++17 -w -c "$ROOT/test/cpp/link/memptr_helper.cpp" -o memptr_helper.o 2>/dev/null
+  ccl_ref_cxx memptr_helper
   got=$("$ROOT/bin/cicilang++" "$ROOT/test/cpp/link/memptr_main.cpp" memptr_helper.o -o memptr 2>&1 && ./memptr)
-  if [ "$got" = "11 21 53 42 63 | 11 21 53 42 63 | 1 0 0 1" ]; then echo "ok   pointers to member functions cross a call to clang++'s code both ways ({ ptr, adj } as the Itanium ABI has it)"; else echo "FAIL pointers to member functions against clang++'s (test/cpp/link/memptr_*.cpp)"; echo "     got  $got"; failures=$((failures + 1)); fi
+  if [ "$got" = "11 21 53 42 63 | 11 21 53 42 63 | 1 0 0 1" ]; then echo "ok   pointers to member functions cross a call to clang++'s code both ways ({ ptr, adj } as the Itanium ABI has it)"; else echo "FAIL pointers to member functions against clang++'s (test/cpp/link/memptr_*.cpp)"; echo "     got  $got"; ccl_ref_said memptr_helper; failures=$((failures + 1)); fi
   # ... AND A BY-VALUE PARAMETER OF A CLASS WITH A DESTRUCTOR BOTH WAYS (0.207): byval_helper.cpp by clang++, byval_main.cpp
   # by cicilang++ -- a prvalue and a copy each way, each object destroyed once, by the caller, after its full-expression
-  "$CXXREF" -std=c++17 -w -c "$ROOT/test/cpp/link/byval_helper.cpp" -o byval_helper.o 2>/dev/null
+  ccl_ref_cxx byval_helper
   got=$("$ROOT/bin/cicilang++" "$ROOT/test/cpp/link/byval_main.cpp" byval_helper.o -o byval 2>&1 && ./byval)
-  if [ "$got" = "[1] ~T(1) [102] ~T(102) ~T(2) ~T(103) ~T(3) ~T(3) [212] live 0" ]; then echo "ok   a by-value parameter of a class with a destructor crosses a call to clang++'s code both ways, destroyed once by the caller after its full-expression (the Itanium ABI)"; else echo "FAIL a by-value parameter against clang++'s code (test/cpp/link/byval_*.cpp)"; echo "     got  $got"; failures=$((failures + 1)); fi
+  if [ "$got" = "[1] ~T(1) [102] ~T(102) ~T(2) ~T(103) ~T(3) ~T(3) [212] live 0" ]; then echo "ok   a by-value parameter of a class with a destructor crosses a call to clang++'s code both ways, destroyed once by the caller after its full-expression (the Itanium ABI)"; else echo "FAIL a by-value parameter against clang++'s code (test/cpp/link/byval_*.cpp)"; echo "     got  $got"; ccl_ref_said byval_helper; failures=$((failures + 1)); fi
 else echo "SKIP the class layout, the member pointers and the by-value parameters against clang++'s: no clang++"; fi
 echo "-- M6, in steps: C++ that is C with names, classes, virtual, templates, lambdas, the B-tree the C++ way, a bag of names, members of class type, C++20, C++23, template template parameters, overloads as C++ chooses, libc++'s std::swap -- built and run (test/cpp/run/NAME.cpp against NAME.expect), in parallel over the pool"
 # A FIXTURE'S BUILD HAS A TIME CAP (0.93): on libc++ 18 two <algorithm> fixtures ran past thirty minutes, and a gate with no
@@ -81,6 +88,11 @@ echo "-- M6, in steps: C++ that is C with names, classes, virtual, templates, la
 # cocolog is the command's grandchild, so a signal to the command alone leaves it running -- and the fixture FAILs with
 # `TIMEOUT after N s', which names the environment's cost rather than hiding it.
 CPP_FIXTURE_SECS=${CPP_FIXTURE_SECS:-2400}
+# ... AND ITS RUN TOO (0.249): the binary's run is killed past CPP_RUN_SECS (300 s) by `timeout -s KILL', as the library
+# read caps its reads, and the fixture FAILs with `TIMEOUT after N s' and its run named.
+# The CI's first C++ job on the Intel Mac (41161604702) built half its fixtures in thirty minutes, then its pool waited until
+# GitHub stopped the job at six hours: a run that never ends holds its lane, and the pool's end waits for every job.
+CPP_RUN_SECS=${CPP_RUN_SECS:-300}
 CPP_JOBS=${CPP_JOBS:-4}; CPP_LAUNCH_MB=${CPP_LAUNCH_MB:-9000}; CPP_HARD_MB=${CPP_HARD_MB:-14000}
 ccl_needs_met() {   # ccl_needs_met COND [flags]: does the box's library meet a preprocessor condition? <version> is the library's smallest header, and the marker survives -E only where COND holds
   _nd_cond=$1; shift; _nd_f=$(mktemp -t needs.XXXXXX.cpp)   # its OWN names: sh has no locals, and `r' here overwrote ccl_fixture's result path, so a skip verdict went to a file named 1 (0.107)
@@ -104,7 +116,9 @@ ccl_fixture() {
   if [ -f "$ROOT/test/cpp/run/$n.needs" ] && ! ccl_needs_met "$(cat "$ROOT/test/cpp/run/$n.needs")" $flags; then   # A FIXTURE BEYOND THE BOX'S LIBRARY IS SKIPPED BY NAME (0.95): NAME.needs holds a preprocessor condition over the library's own macros (`_LIBCPP_VERSION >= 210000': optional<T &> is C++26's and libc++ 18 refuses it), and a box whose library fails it prints the fixture as skipped -- neither ok nor a failure, never a RED for what the environment lacks
     echo "skip $n.cpp: needs $(cat "$ROOT/test/cpp/run/$n.needs"), which this box's library does not meet" > "$r"; return; fi
   t0=$(date +%s); bout=$(ccl_capped "$CPP_FIXTURE_SECS" "$ROOT/bin/cicilang++" $flags "$src" -o "$D/bin_$n"); bst=$?; secs=$(( $(date +%s) - t0 ))
-  if [ "$bst" -eq 0 ]; then got=$(printf '%s' "$bout"; "$D/bin_$n" < "$inp"; echo "exit $?"); else got=$bout; fi
+  if [ "$bst" -eq 0 ]; then t1=$(date +%s); got=$(printf '%s' "$bout"; timeout -s KILL "$CPP_RUN_SECS" "$D/bin_$n" < "$inp"; echo "exit $?")
+    if [ $(( $(date +%s) - t1 )) -ge "$CPP_RUN_SECS" ]; then echo "FAIL $n.cpp: TIMEOUT after $CPP_RUN_SECS s, its binary's run never finished (killed: the environment's cost or a wait for ever, named rather than hidden)" > "$r"; return; fi
+  else got=$bout; fi
   case "$got" in *"TIMEOUT after"*) echo "FAIL $n.cpp: $(printf '%s' "$got" | tail -1), the build never finished (the environment's cost, named rather than hidden)" > "$r"; return ;; esac
   if [ "$got" = "$(cat "$ROOT/test/cpp/run/$n.expect")" ]; then echo "ok   $n.cpp: built through cicilang++, runs, and prints what it should" > "$r"
     ccl_time_record "$CPP_TIMES" "$n" "$secs"   # a PASSING build's seconds only, for the next run's longest-first order: a failure's time says nothing of the cost
@@ -113,11 +127,19 @@ ccl_fixture() {
          # the calls the error was raised through, the failed call down the path that got furthest -- joins the verdict
          if [ -n "$CPP_WHY" ] && [ "$bst" -ne 0 ]; then sh "$HERE/why.sh" $flags "$src" 2>&1 | sed -n '/^-- the error was raised\|^-- the run did not raise/,$p' | grep -v '^-- every call\|^-- peak' | sed 's/^/     /'; fi; } > "$r"; fi
 }
+# A POOL STOPPED FROM OUTSIDE SAYS WHERE IT WAS (0.249): with CPP_PROGRESS naming a file, each fixture's start and its
+# verdict's line are appended there as they come, the clock first -- the verdicts are printed when the pool ends, and the CI's
+# C++ job on the Intel Mac was stopped at its six hours with none of them written, so nothing named the fixture that held it
+ccl_fixture_run() {
+  [ -z "$CPP_PROGRESS" ] || echo "$(date +%H:%M:%S) start $1" >> "$CPP_PROGRESS"
+  ccl_fixture "$1"
+  [ -z "$CPP_PROGRESS" ] || echo "$(date +%H:%M:%S) $(head -1 "$RES/$1.res" 2>/dev/null | cut -c1-160)" >> "$CPP_PROGRESS"
+}
 # LONGEST FIRST: the fixtures ordered by their last recorded build time, heaviest first (the unknown
 # ones before them), so a heavy fixture never starts last and holds the gate alone at its end
 CPP_TIMES=${CPP_TIMES:-$HOME/.cicilang/fixture-times}
 names=$(for src in "$ROOT"/test/cpp/run/*.cpp; do basename "$src" .cpp; done | ccl_lpt_order "$CPP_TIMES")
-{ for n in $names; do echo "ccl_fixture $n"; done; } | ccl_pool "$CPP_JOBS" "$CPP_LAUNCH_MB" "$CPP_HARD_MB"
+{ for n in $names; do echo "ccl_fixture_run $n"; done; } | ccl_pool "$CPP_JOBS" "$CPP_LAUNCH_MB" "$CPP_HARD_MB"
 pool_rc=$?
 skipped=0
 for n in $(printf '%s\n' $names | sort); do   # collect the verdicts in a stable order, count failures and skips

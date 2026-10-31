@@ -25,6 +25,7 @@ ccl_pool_alive() {   # keep only still-running PIDs in $_pids, set _running to t
 ccl_pool() {
   _nmax=$1; _launch=$2; _hard=$3; _pids=""; _killed=0
   while IFS= read -r _job || [ -n "$_job" ]; do
+    _waited=0
     while :; do
       ccl_pool_alive
       _rss=$(ccl_cocolog_rss)
@@ -33,13 +34,23 @@ ccl_pool() {
         pkill -9 -f "[c]ocolog .*(query|run )" 2>/dev/null; _killed=1; break
       fi
       if [ "$_running" -lt "$_nmax" ] && [ "$_rss" -lt "$_launch" ]; then break; fi
-      sleep 1
+      sleep 1; _waited=$((_waited + 1))
+      [ $((_waited % 600)) -eq 0 ] && ccl_pool_said "the next job has waited $((_waited / 60)) min"
     done
     [ "$_killed" -eq 1 ] && break
     eval "$_job" < /dev/null & _pids="$_pids $!"   # NO JOB READS THE POOL'S INPUT (0.106): that input IS the job list, and cocolog's query loop reads its stdin -- a build swallowed the lines queued behind it, and stdoptionalref ran never
   done
+  _waited=0   # the end waits for every job; past ten minutes it says so, every ten
+  while ccl_pool_alive; [ "$_running" -gt 0 ]; do sleep 1; _waited=$((_waited + 1)); [ $((_waited % 600)) -eq 0 ] && ccl_pool_said "the pool's end has waited $((_waited / 60)) min"; done
   for _p in $_pids; do wait "$_p" 2>/dev/null; done
   return $_killed
+}
+# A POOL THAT WAITS LONG SAYS WHY (0.249), on its standard error every ten minutes of one wait: the jobs running, the summed
+# RSS against the launch cap, and the cocolog processes, the largest first -- the CI's C++ job on the Intel Mac waited four
+# hours and forty minutes in silence, and its log could not tell a job that never ended from memory that never came back
+ccl_pool_said() {
+  echo "POOL: $1: $_running of $_nmax jobs running, cocolog's RSS $(ccl_cocolog_rss) MB (a launch below $_launch)" >&2
+  ps -eo pid,rss,etime,args 2>/dev/null | awk '/[c]ocolog .*(query|run )/' | sort -k2,2nr | head -5 | cut -c1-200 | sed 's/^/POOL:   /' >&2
 }
 
 # LONGEST FIRST (LPT): a pool's wall clock is its last job's end, so the heaviest jobs go first

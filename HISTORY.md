@@ -243,6 +243,7 @@ One row per step, in version order: the step's title, what it did and its gate n
 | 0.246 | the CI: Apple silicon, the Mac's C++ gates, the cross gate's C++ part | the twentieth item of "Do all": the smoke job on a third machine, Apple silicon (`macos-15`, 7 GB, the flow gate's pool two lanes wide there); a `cpp` job on the Intel Mac every night, the library read and the C++ gate over libc++ 18 under caps that fit 14 GB; the full job's cross sysroot given that machine's libc++ from `ports.ubuntu.com` by an apt of the job's own, so the cross gate's C++ part runs and its SKIP is RED; none run on GitHub yet | the toolchain check and the flow gate GREEN (99 s; two lanes wide 192 s, peak 3224 MB), the reader, compile, driver, objects, proof and cross gates GREEN (2 s, 12 s, 28 s, 4 s, 0 s, 208 s); the arm64 fetch run as written into a scratch sysroot, the same files; the C++ gate not run (no library file changed); a local commit |
 | 0.247 | the chain of step 21, the push, and what the CI's first runs on the two Macs found | the twenty-first item of "Do all": the chain over 0.246's tree (all nine gates over libc++ 18, 848 run fixtures ok; the C++ gates over 21 and 22, 856 and 859 ok), the push of 0.227 to 0.246, the CI's run of it (Linux GREEN, the Intel Mac one failure, Apple silicon 155); a variadic call's function type the callee's, its fixed parameters then `...` (Apple's arm64 passes a variadic argument on the stack), `test/abisig.awk` keeping it; an asm label on Darwin spelled `\01` first; four tests made machine-neutral; lowering 145 | flow GREEN, the reader, compile, driver, objects, proof and cross gates GREEN (3 s, 29 s, 38 s, 4 s, 0 s, 208 s), the C++ gate GREEN in 1237 s with 848 run fixtures ok and 11 skipped; 812 conventions of 125 C run fixtures clang's for Apple's arm64; a commit and a push |
 | 0.248 | a struct's temporary as long as its pieces, and the cross gate at -O1 | the CI's run of 0.247's push: the Intel Mac and Linux GREEN, Apple silicon four compile fixtures RED; a temporary holding a struct and its pieces as long as the longer (AAPCS64's `[2 x i64]` of 9 to 15 bytes and `i64` of 8 or fewer passed a struct-sized temporary's end, undefined at -O1: `unionbits.c`, and on Linux's aarch64 `packed.c`); the cross gate at -O1; `ldconst.c`, `c23float.c` and `predefs.c` right on every machine; lowering 146 | flow GREEN, the reader, compile, driver, objects, proof and cross (at -O1) gates GREEN (2 s, 28 s, 36 s, 4 s, 0 s, 202 s), the C++ gate GREEN in 1204 s with 848 run fixtures ok and 11 skipped; a commit and a push |
+| 0.249 | what the CI's first C++ job on the Mac found: a run with no cap, a pool with no voice | the CI's runs of 0.248: the smoke job GREEN on the three machines (Apple silicon's first), the full job's first run GREEN (all nine gates over libc++ 18, the cross gate's C++ part among them; the C++ gates over 21 and 22, 856 and 859 ok); the C++ job's first run on the Intel Mac stopped by GitHub at six hours, its pool silent after half its fixtures, its by-value check RED (Homebrew's clang++ found no `<stdio.h>`); a fixture's run capped at 300 s, the pool's long waits said with its processes, the CI's C++ gates keeping their progress, the reference clang++ given the SDK on a Mac | flow GREEN (126 s), the C++ gate GREEN in 1387 s with 848 run fixtures ok and 11 skipped, the reader, compile, driver, objects, proof and cross gates GREEN (2 s, 33 s, 40 s, 5 s, 0 s, 352 s); a commit and a push |
 
 ## M5 — the C++ mode
 
@@ -16698,3 +16699,75 @@ their needs (peak 3906 MB).
 
 The module 0.248. The lowering 146 (145 at 0.247): an Arm program's IR with a struct by value whose pieces pass its size
 differs. The reader 167.
+
+## 0.249 — what the CI's first C++ job on the Mac found: a run with no cap, a pool with no voice
+
+**0.249: the CI's runs of 0.248 (`cb8d4e8`): the smoke job GREEN on the three machines, Apple silicon's first; the full
+job's first run GREEN; the C++ job's first run on the Intel Mac stopped by GitHub at its six hours, its fixture pool
+silent for four hours and forty minutes after half its fixtures, and its by-value check RED. The gate now caps a
+fixture's run, its pool says why it waits, the CI keeps the pool's progress, and the reference clang++ gets the SDK on a
+Mac. A commit and a push, as the CI's fixes go; the C++ job's next run, by hand on this commit, names what held it.**
+
+THE RUNS:
+
+- The smoke run of 0.248's push (41159599663): GREEN on the three machines, Apple silicon's first -- its setup in 10:55
+  and its gates in 6:22 (flow 177 s, reader 10 s, compile 99 s with 120 fixtures against clang's build and 30 against
+  their `.expect`, driver 87 s, objects 9 s); the Intel Mac's setup in 18:28 and its gates in 9:26 (175, 21, 172, 183,
+  15 s); Linux's setup in 10:33 and its gates in 3:37 (140, 3, 30, 40, 4 s).
+- The full job's first run (41161601663, started by hand at 02:48 UTC; the night's schedule came at 08:47, 6 h 10 min
+  late): GREEN, the setup in 7:34 (the package install that failed at 0.226's night, and the arm64 libc++ under the
+  cross sysroot) and the gates in 1:45:48. Over libc++ 18 all nine in 2395 s: toolchain 1, flow 108 (its one finding
+  `flow.expect`'s), reader 2, compile 22, driver 31, objects 4, proof 0, cross 256 (161 C fixtures at -O1; the C++
+  part's 34 fixtures beside clang++'s build and 2 against their `.expect`, its three ABI checks), the library read 603
+  (203 headers warmed over four lanes), the C++ gate 1368 (848 run fixtures ok, 11 skipped by their needs). Over libc++
+  21 the library read in 536 s and the C++ gate in 1421 s (856 ok, 3 skipped); over 22 in 547 s and 1449 s (859 ok, none
+  skipped).
+- The C++ job's first run (41161604702, by hand with the full job's): its setup in 20:30; the library read GREEN in 1505
+  s over three lanes (Linux's 603 s over four; a Mac's flattened `<vector>` holds 1102 items, Linux's 810, the SDK's C
+  headers being larger); the one-process checks GREEN at 03:36; the command's checks but one GREEN by 03:38; then the
+  fixture pool, in the order of the names on a box with no timings: `contracts.cpp` (the 133rd) wrote its contract's
+  line at 03:43 and `noexcept.cpp` (the 419th of 859) its `terminating` line at 04:08 -- on Linux those two came at 1
+  and 8.5 minutes of a 22-minute pool, so the Mac ran about three and a half times slower and was due near 05:00 -- and
+  nothing after, until GitHub stopped the job at 08:48:28. Its "Keep the logs" step ran: the artifact holds the library
+  read's and the gate's logs up to then, and no verdict of the pool, which prints them at its end.
+
+WHAT IT FOUND:
+
+- THE BY-VALUE CHECK'S HELPER DID NOT BUILD: `byval_helper.o: error: no such file or directory`. Homebrew's clang++ 18,
+  the reference compiler of the tree read, found no C library's headers on the runner: `byval.h` includes `<cstdio>`,
+  while the two other helpers, which built, include nothing of the system. Its errors had gone to `/dev/null`.
+- A FIXTURE'S RUN HAD NO CAP. A build is capped at 2400 s (0.93), the run of its binary was not, and the pool's end
+  waits for every job; a run that never ends holds its lane and the gate for ever. The six fixtures after `noexcept.cpp`
+  that block on another thread or an atomic -- `stdatomic20`, `stdfuture`, `stdjthread`, `stdshmutex`, `stdsync`,
+  `stdthread` -- are where a Mac could differ: there a C++ program is linked by `c++` against the system's libc++, not
+  the libc++ 18 whose headers it was read from (`ccl_link_libs/1` names no library on a Mac; on Linux the tree's own
+  since 0.122). That is a record, not a cause found.
+- THE POOL'S WAITS HAD NO VOICE. A pool that waits for memory before a launch (a stray process holding it) and one whose
+  end waits for a job that never ends print the same: nothing. The log could not tell them apart.
+
+WHAT 0.249 DOES:
+
+- `test/cpp.sh`: a fixture's run is capped at `CPP_RUN_SECS` (300 s) by `timeout -s KILL`, as the library read caps its
+  reads; past it the verdict is `FAIL NAME.cpp: TIMEOUT after N s, its binary's run never finished`. `ccl_fixture_run`
+  appends each fixture's start and its verdict's line to `CPP_PROGRESS`, where that names a file. On a Mac the reference
+  clang++ is given the SDK (`-isysroot "$(xcrun --show-sdk-path)"`), and a helper that does not build says why under the
+  check's FAIL (`ccl_ref_cxx`, `ccl_ref_said`).
+- `test/parlib.sh`: every ten minutes of one wait, for a launch or for the last jobs at its end, the pool prints on its
+  standard error the jobs running, the summed RSS against the launch cap, and the five largest cocolog processes with
+  their ages (`ccl_pool_said`); its end watches its jobs by `kill -0` each second, then reaps them.
+- `test/ci.sh`: each C++ gate a job runs writes its progress into the logs (`cpp-progress-N.log`), which the artifact
+  keeps when GitHub stops a job.
+
+MEASUREMENTS: the new logic over four scratch fixtures, a stand-in `cicilang++` building them with `cc` and a cap of 3
+s: the one that sleeps FAILs `TIMEOUT after 3 s` in 6 s, the plain one is ok, the one that reads its `.stdin` is ok, the
+one that aborts keeps its `exit 134` through `timeout`; the progress file holds each start and verdict. A pool of `sleep
+5`, `sleep 1` and `echo` one lane wide, its interval made 2 s, said `the next job has waited` twice and ended with its
+last job. The flow gate GREEN in 126 s over the new pool (peak 4693 MB). The C++ gate over libc++ 18 GREEN in 1387 s:
+848 run fixtures ok, 11 skipped by their needs, the by-value check ok, its progress file 859 starts and 859 verdicts
+(peak 3584 MB). With the module 0.249, the reader, compile, driver and objects gates, the proof and the cross gate GREEN
+(2 s, 33 s, 40 s, 5 s, 0 s, 352 s; peak 573 MB).
+
+- `test/cpp.sh`, `test/parlib.sh`, `test/ci.sh`. `RULES.md`: The CI job, The Mac's job, the C++ gate (the reference
+  compiler, a fixture's run, the progress), the pool, Not done. `CLAUDE.md`: the versions, `test/parlib.sh`.
+
+The module 0.249. The reader 167 and the lowering 146 stay: no library file changed.

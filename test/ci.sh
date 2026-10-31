@@ -216,19 +216,20 @@ if [ "$JOB" = smoke ]; then
 elif [ "$JOB" = cpp ]; then
   # THE C++ JOB (0.246): the C++ gates on a Mac, where they had not run since 0.90 -- the library read, then the C++ gate,
   # over LLVM_MAJOR's libc++ (Homebrew's keg), each pool under caps that fit the runner's 14 GB: three lanes, a launch below
-  # 6000 MB summed, the pool killed past 10000
+  # 6000 MB summed, the pool killed past 10000. Each C++ gate the CI runs writes its fixtures' starts and verdicts as they
+  # come into the logs (CPP_PROGRESS, 0.249), which the artifact keeps when GitHub stops a job at its six hours
   ci_step "the library read and the C++ gate over libc++ $LLVM_MAJOR"
   ci_run "libcxx $LLVM_MAJOR" env LLVM="$(ci_llvm "$LLVM_MAJOR")" LX_JOBS=3 LX_LAUNCH_MB=6000 LX_HARD_MB=10000 sh "$HERE/libcxx.sh"
-  [ "$ci_fail" = 0 ] && ci_run "cpp $LLVM_MAJOR" env LLVM="$(ci_llvm "$LLVM_MAJOR")" CPP_JOBS=3 CPP_LAUNCH_MB=6000 CPP_HARD_MB=10000 sh "$HERE/cpp.sh"
+  [ "$ci_fail" = 0 ] && ci_run "cpp $LLVM_MAJOR" env LLVM="$(ci_llvm "$LLVM_MAJOR")" CPP_JOBS=3 CPP_LAUNCH_MB=6000 CPP_HARD_MB=10000 CPP_PROGRESS="$CI_LOGS/cpp-progress-$LLVM_MAJOR.log" sh "$HERE/cpp.sh"
 else
   ci_step "all nine gates over libc++ $LLVM_MAJOR"
-  ci_run gates env LLVM="$(ci_llvm "$LLVM_MAJOR")" sh "$HERE/gates.sh"
+  ci_run gates env LLVM="$(ci_llvm "$LLVM_MAJOR")" CPP_PROGRESS="$CI_LOGS/cpp-progress-$LLVM_MAJOR.log" sh "$HERE/gates.sh"
   for n in $LIBCXX_TREES; do
     [ "$n" = "$LLVM_MAJOR" ] && continue
     [ "$ci_fail" = 0 ] || break
     ci_step "the library read and the C++ gate over libc++ $n"
     ci_run "libcxx $n" env LLVM="$(ci_llvm "$n")" sh "$HERE/libcxx.sh"
-    [ "$ci_fail" = 0 ] && ci_run "cpp $n" env LLVM="$(ci_llvm "$n")" sh "$HERE/cpp.sh"
+    [ "$ci_fail" = 0 ] && ci_run "cpp $n" env LLVM="$(ci_llvm "$n")" CPP_PROGRESS="$CI_LOGS/cpp-progress-$n.log" sh "$HERE/cpp.sh"
   done
 fi
 if [ "$ci_fail" = 0 ]; then echo "GREEN: ci $JOB"; else echo "RED: ci $JOB"; fi

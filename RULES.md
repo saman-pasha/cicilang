@@ -111,7 +111,14 @@ that changes a rule edits the rule here, in its topic, and writes its entry in `
   scripts shellcheck 0.11.0-clean at the warning level (0.223, again at 0.246). Run on this box as the
   job runs it, but for the packages (a fresh HOME and `CI_ROOT`, the two phases apart): GREEN, the setup in 632 s and
   the six small gates in 252 s; on GitHub, its first run (40878868063, on `e92e11c`) GREEN in 13 minutes, the setup 9
-  and the gates 4. (0.223, 0.224, 0.246)
+  and the gates 4. Each C++ gate a job runs writes its fixtures' starts and verdicts into the logs as they come
+  (`CPP_PROGRESS`, 0.249), which the artifact keeps when GitHub stops a job at its six hours. THE FULL JOB'S FIRST RUN
+  (41161601663, on `cb8d4e8`, 0.248, started by hand at 02:48 UTC: the night's schedule came at 08:47, as GitHub's
+  schedules come late): GREEN, the setup in 7:34 (the arm64 libc++ fetched and extracted among it) and the gates in
+  1:45:48 -- all nine over libc++ 18 in 2395 s (the flow gate 108 s, the cross gate 256 s with its C++ part, the library
+  read 603 s, the C++ gate 1368 s: 848 run fixtures ok, 11 skipped by their needs), then over libc++ 21 the library read
+  in 536 s and the C++ gate in 1421 s (856 ok, 3 skipped), over 22 in 547 s and 1449 s (859 ok, none skipped). (0.223,
+  0.224, 0.246, 0.249)
 - THE MAC'S JOB (0.224). Homebrew's `llvm@18` is the embedded LLVM and the libc++ that the driver gate's C++ checks
   read: a keg, `$(brew --prefix)/opt/llvm@18` (brew links no versioned formula), installed only from a bottle --
   Homebrew has built no Intel bottles since September 2026 and LLVM from source is hours, so the setup stops where the
@@ -148,7 +155,18 @@ that changes a rule edits the rule here, in its topic, and writes its entry in `
   struct's pieces past its temporary, How values and classes cross a call), `ldconst.c` (2^64 - 1 is no double),
   `c23float.c` and `predefs.c` (held to Linux's `.expect`: no clang's `<float.h>` has C23's signaling NaNs, and Apple's
   clang 17 predefines no `__INT64_C`), each corrected at 0.248 -- its driver gate GREEN with all its checks, the
-  variadic calls both ways among them. (0.224, 0.225, 0.226, 0.246, 0.247, 0.248)
+  variadic calls both ways among them. THE RUN OF 0.248's PUSH (41159599663, on `cb8d4e8`): GREEN on the three machines,
+  Apple silicon's first -- its setup in 10:55 and its gates in 6:22 (the flow gate 177 s, the compile gate 99 s, 120
+  fixtures against clang's build and 30 against their `.expect`, the driver gate 87 s); the Intel Mac's setup in 18:28
+  and its gates in 9:26 (175 s, 172 s, 183 s); Linux's setup in 10:33 and its gates in 3:37. THE C++ JOB'S FIRST RUN
+  (41161604702, on `cb8d4e8`, started by hand with the full job's): its setup in 20:30; the library read GREEN in 1505 s
+  over three lanes (Linux's 603 s over four; the SDK's C headers make a Mac's flattened `<vector>` 1102 items, Linux's
+  810); the one-process checks GREEN; the by-value check RED, Homebrew's clang++ having found no `<stdio.h>` (the
+  reference compiler is given the SDK since 0.249, The C++ gate); then the fixture pool built half its fixtures in
+  thirty minutes -- `noexcept.cpp`, the 419th of 859 in the order of their names, wrote its line at 04:08 -- and nothing
+  after, until GitHub stopped the job at its six hours (08:48): a run that never ended, or a pool that waited for
+  memory, which nothing told apart. Since 0.249 a fixture's run has its cap, a pool that waits says why, and the job
+  keeps its progress, so the next run names what held it. (0.224, 0.225, 0.226, 0.246, 0.247, 0.248, 0.249)
 
 ### The chain
 
@@ -435,16 +453,23 @@ that changes a rule edits the rule here, in its topic, and writes its entry in `
   clang++, `memptr_main.cpp` by cicilang++); and (0.207) a by-value parameter of a class with a destructor crosses such
   a call both ways and is destroyed once, by the caller, at the end of its full-expression -- a prvalue and a copy
   handed to clang++'s callee, a prvalue and a copy handed by clang++'s caller (`byval_helper.cpp` by clang++,
-  `byval_main.cpp` by cicilang++, over `byval.h`; clang++ 18 and 21 and g++ print the same line). After the fixtures,
-  `classes.cpp` builds and exits 34, and `templates.cpp` exits 10. (M5, 0.34, 0.35, 0.135, 0.161, 0.188, 0.192, 0.207,
-  0.218)
+  `byval_main.cpp` by cicilang++, over `byval.h`; clang++ 18 and 21 and g++ print the same line). On a Mac the reference
+  clang++ is given the SDK (`-isysroot`, `xcrun --show-sdk-path`; 0.249): Homebrew's llvm@18 found no `<stdio.h>` on the
+  CI's Intel Mac, so `byval.h`'s `#include <cstdio>` failed and the check with it; and a helper that does not build says
+  why under the check's FAIL (`ccl_ref_cxx`, `ccl_ref_said`). After the fixtures, `classes.cpp` builds and exits 34, and
+  `templates.cpp` exits 10. (M5, 0.34, 0.35, 0.135, 0.161, 0.188, 0.192, 0.207, 0.218, 0.249)
 - The fixture builds assume a warm cache: a build that only reads summaries is safe in parallel, and a cold flatten
   under load is not. `CPP_JOBS=1` makes the gate serial. A HOME whose cache was copied from another tree or another HOME
   is not warm (the summary cache topic, 0.217). (0.105, 0.217)
 - `ccl_fixture NAME` builds with `NAME.flags`, capped at `CPP_FIXTURE_SECS` (2400 s) by `ccl_capped`. Past the cap,
   `ccl_kill_tree` kills the tree, and the verdict line itself reads `FAIL NAME.cpp: TIMEOUT after N s`, so no diff
-  hides it. It runs the binary on `NAME.stdin` or `/dev/null`, compares with `NAME.expect`, and writes its verdict to
-  `$RES/NAME.res`. (0.93, 0.94, 0.105)
+  hides it. It runs the binary on `NAME.stdin` or `/dev/null`, capped since 0.249 at `CPP_RUN_SECS` (300 s) by `timeout
+  -s KILL`, as the library read caps its reads -- past it the verdict reads `FAIL NAME.cpp: TIMEOUT after N s, its
+  binary's run never finished`, where a run that never ended held its lane and the pool's end waited for it --, compares
+  with `NAME.expect`, and writes its verdict to `$RES/NAME.res`. With `CPP_PROGRESS` naming a file (0.249),
+  `ccl_fixture_run` appends there each fixture's start and its verdict's line as they come, the clock first: a pool
+  stopped from outside leaves them behind, where its verdicts, printed at its end, are never written (the CI's jobs set
+  it into their logs). (0.93, 0.94, 0.105, 0.249)
 - `CPP_WHY=1 sh test/cpp.sh` (0.144): a fixture whose BUILD failed is built again by `test/why.sh` (Where a build gave
   up, below), and its account -- the calls the error was raised through, the branch that raised it, then the failed
   call down the path that got furthest -- joins the verdict, under the diff. It costs two more builds of each such
@@ -541,6 +566,11 @@ that changes a rule edits the rule here, in its topic, and writes its entry in `
 - The pool tracks its children by PID with `kill -0`, because dash has no `jobs -r`. It matches `[c]ocolog`, never
   its own shell. Every job runs with `< /dev/null`: the pool's input is the job list, and a build once swallowed the
   lines queued behind it. (0.105, 0.106)
+- A POOL THAT WAITS LONG SAYS WHY (0.249): every ten minutes of one wait -- for a lane or for memory before a launch, or
+  for its last jobs at its end, which it watches by `kill -0` each second before it reaps them -- it prints on its
+  standard error the jobs running, the summed RSS against the launch cap, and the five largest cocolog processes with
+  their ages (`ccl_pool_said`). The CI's C++ job on the Intel Mac waited four hours and forty minutes in silence, and
+  its log could not tell a job that never ended from memory that never came back. (0.249)
 - The jobs run longest first. `ccl_lpt_order FILE` sorts lines by the recorded seconds of their first word, the
   unknown keys first. `ccl_time_record FILE KEY SECS` appends a line, and the last line per key wins. Only a passing
   build's, a good read's or a good chart's seconds are recorded, in `~/.cicilang/fixture-times` (`CPP_TIMES`),
@@ -12091,13 +12121,15 @@ Declarations topic of the C++ reader).
   are one class (a local class keeps its line, no place in it). The reader drops `constexpr` on a free function, so a
   closure there is `$_N` where clang's is `Ul`. `auto c = [] {}, d = [] {};` is not refused, where its two types differ
   ([dcl.spec.auto]/7).
-- The smoke job's first runs on the two Macs (0.246's push, The Mac's job) were RED -- the Intel Mac by one fixture,
-  Apple silicon by 155 failures, each corrected at 0.247 --; at 0.247's push the Intel Mac's was GREEN and Apple
-  silicon's RED by four fixtures, corrected at 0.248, whose push runs it again. The full job, with the cross gate's C++
-  part over that machine's libc++ (0.246), and the C++ job on the Intel Mac run first the night after 0.247's push (at
-  02:37 UTC): until they are GREEN every C++ rule made since 0.91 is gated on Linux alone. The C++ job reads libc++ 18
-  alone, not Homebrew's later trees (`llvm@21`, `llvm`), and the C++ gates do not run on Apple silicon, whose 7 GB holds
-  the smoke job.
+- The C++ job on the Intel Mac has finished no run: its first (41161604702, on 0.248) was stopped by GitHub at its six
+  hours, its fixture pool held after half its fixtures (The Mac's job), and the night's run on the same commit
+  (41186054090) meets the same; 0.249 caps each fixture's run, gives the pool a voice and keeps its progress, so the
+  next run names what held it. On a Mac a C++ program is linked by `c++` against the system's libc++, not the tree whose
+  headers it was read from (`ccl_link_libs/1` names no library there; on Linux the tree's own since 0.122, where the two
+  disagreed): not measured there. The C++ job reads libc++ 18 alone, not Homebrew's later trees (`llvm@21`, `llvm`), and
+  the C++ gates do not run on Apple silicon, whose 7 GB holds the smoke job: a C++ rule is gated on Linux over libc++
+  18, 21 and 22 (the full job GREEN since its first run, The CI job), and on Apple's arm64 by the driver gate's C++
+  checks alone.
 - `-g` on a Mac (0.245) keeps the objects the debug map names in `~/.cicilang/objects` and makes no `.dSYM` (`dsymutil`
   is an LLVM binary): a program copied to another machine is debugged there without its DWARF, and the cache keeps an
   object until it is cleared. The rule is proven on this box as far as the object (a Mach-O one, under `--target`), and
