@@ -443,7 +443,7 @@ cpp_implicit_dtor_(L, C, function(L, none, base([], [void]), Name, Params, false
     ( cpp_nv_body(C) -> true ; ccl_declare(Name, fn(base([], [void]), Params, false)) ),   % the base variant is declared under its own name (cpp_nv_twin)
     cpp_dtor_body(L, C, block([]), Body0), cpp_method_body(C, Params, Body0, Body1).
 cpp_dtor(C, Name) :- cpp_own_dtor(C, Name), !.
-cpp_dtor(C, Name) :- cpp_class_l(C, cls(B, _, _, _, _)), B \== none, cpp_dtor(B, Name).      % none of its own: the base's runs on it (the base at offset 0)
+cpp_dtor(C, Name) :- cpp_class_l(C, cls(B, _, _, _, _)), B \== none, cpp_dtor(B, Name0), cpp_base_dtor_name(C, Name0, Name).      % none of its own: the base's runs on it (the base at offset 0), the base-object one where the library ships it (0.252)
 cpp_own_dtor(C, Name) :- cpp_class(C, cls(_, _, Ms, _, _, _)), ( memberchk(dtor(_, _, _), Ms) ; cpp_dtor_def(C) ; cpp_implicit_dtor_needed(C) ), !,
     ( memberchk(dtor(_, _, Body), Ms) -> true ; Body = implicit ), cpp_dtor_name(C, Body, Name), cpp_use_member(C, Name).
 cpp_arity_fits(Ps, N) :- length(Ps, Max), Max >= N, cpp_required(Ps, Min), Min =< N.

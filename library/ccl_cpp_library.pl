@@ -430,6 +430,14 @@ cpp_member_mangled(C, dtor(_, _, Body), Name) :- cpp_dtor_name(C, Body, Name).
 %% running `std::cout << "hello"', the link named exactly these.
 cpp_dtor_name(C, none, Name) :- atom(C), cpp_lib_class(C), cpp_class_scope(C, Path, Chain), catch(cpp_ita_function(Path, Chain, '$dtor', [], [], false, Name), _, fail), !.
 cpp_dtor_name(C, _, Name) :- atomic_list_concat([C, '.dtor.0'], Name).
+%% ... AND A BASE SUB-OBJECT IS DESTROYED BY THE BASE-OBJECT DESTRUCTOR, the Itanium ABI's `D2' (0.252): the same code
+%% as `D1' where the class has no virtual base, and on ELF one symbol, clang's alias -- but a Mach-O library keeps two, and
+%% the complete-object one of an ABSTRACT class, which no complete object can call, is a trap there: `ud2'. libc++'s
+%% `__assoc_sub_state' destroyed its `__shared_count' base, and `monotonic_buffer_resource' its `memory_resource', through
+%% `D1', and on the Mac each died of SIGILL (stdfuture.cpp, stdpmr.cpp). A class with a virtual base keeps its `D1': its
+%% `D2' takes the VTT (cpp_nv_dtor/4 names its base-variant form).
+cpp_base_dtor_name(C, N1, N2) :- atom(N1), sub_atom(N1, 0, _, _, '_ZN'), atom_concat(P, 'D1Ev', N1), cpp_vbases_of(C, Vs), Vs == [], !, atom_concat(P, 'D2Ev', N2).
+cpp_base_dtor_name(_, N, N).
 %% a header's items: its templates registered, its classes registered AND emitted into the unit (once), as an instance is
 %% (a library header's summary carries names, not bodies: libc++'s templates do not instantiate yet)
 cpp_register_header([]).

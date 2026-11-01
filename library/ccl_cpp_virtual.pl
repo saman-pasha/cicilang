@@ -547,14 +547,15 @@ cpp_dtor_body(L, C, block(Body), block(Body1)) :-
 %% (`~basic_ostream<wchar_t>()', out of class and not hidden) has none to call, and its definition in the header is empty
 %% (0.117): the destructor of a stream base has nothing to do but the virtual base's, which the holder destroys, so the call is
 %% left out and `std::wstringstream' (a diamond libc++ does not ship for wchar_t) is destroyed. Any other shipped path destructor
-%% keeps the `.nv' name and is refused at the link.
+%% keeps the `.nv' name and is refused at the link. Any other base's destructor the library ships is its base-object one, `D2'
+%% (cpp_base_dtor_name/3, 0.252).
 cpp_nv_dtor(C, E, Name0, Name) :-
     (   '$cpp_nv_base'(C, E)
     ->  ( sub_atom(Name0, 0, _, _, '_ZN'), cpp_empty_header_dtor(E) -> Name = '$no_dtor' ; atom_concat(Name0, '.nv', Name) )
-    ;   Name = Name0 ).
+    ;   cpp_base_dtor_name(E, Name0, Name) ).
 cpp_empty_header_dtor(E) :- '$cpp_inst'(E, inst(N, _)), '$cpp_mdef'(N, '$dtor', _, _, Item0), cpp_mdef_inner(Item0, dtor(_, _, block([]))), !.
-%% the destructor of a held virtual base: a base-variant one's `.nv' form, as a path's (cpp_nv_dtor/4; 0.173)
-cpp_vb_dtor_name(V, Name0, Name) :- ( cpp_vb_nv(V) -> ( sub_atom(Name0, 0, _, _, '_ZN'), cpp_empty_header_dtor(V) -> Name = '$no_dtor' ; atom_concat(Name0, '.nv', Name) ) ; Name = Name0 ).
+%% the destructor of a held virtual base: a base-variant one's `.nv' form, as a path's (cpp_nv_dtor/4; 0.173), else its base-object one (0.252)
+cpp_vb_dtor_name(V, Name0, Name) :- ( cpp_vb_nv(V) -> ( sub_atom(Name0, 0, _, _, '_ZN'), cpp_empty_header_dtor(V) -> Name = '$no_dtor' ; atom_concat(Name0, '.nv', Name) ) ; cpp_base_dtor_name(V, Name0, Name) ).
 %% ... AND A DESTRUCTOR STORES ITS OWN CLASS'S TABLES FIRST ([class.cdtor]/4, the Itanium ABI's destructor; 0.112): while
 %% it runs the object's dynamic type is its class, so a virtual call in it, or in a base's destructor after it, reaches
 %% that class's override and never one of a derived class whose members are already destroyed -- `~A() { f(); }'

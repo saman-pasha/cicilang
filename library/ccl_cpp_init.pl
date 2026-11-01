@@ -416,7 +416,7 @@ cpp_member_fns([ctor(L, Qs, Ps, Inits, Body)|Ms], C, B, Ds, Out) :- !,
     ( F = function(_, _, _, CName, _, _, _) -> cpp_note_consteval(C, Qs, CName) ; true ), cpp_nx_note_member(C, Qs, Ps, [F]),
     cpp_member_fns(Ms, C, B, Ds, Fs).
 cpp_member_fns([dtor(L, _, Body)|Ms], C, B, Ds, Fs) :- !,
-    cpp_dtor_fn(L, C, Body, F), cpp_nv_twin(C, F, cpp_dtor_fn(L, C, Body, F2), F2, Fs, Fs1), cpp_nx_note_dtor(C, [F]),
+    cpp_dtor_fn(L, C, Body, F), cpp_nv_twin(C, F, cpp_dtor_fn(L, C, Body, F2), F2, Fs, Fs0), cpp_base_dtor_decl(C, F, BFs), append(BFs, Fs1, Fs0), cpp_nx_note_dtor(C, [F|BFs]),
     cpp_member_fns(Ms, C, B, Ds, Fs1).
 cpp_member_fns([_|Ms], C, B, Ds, Fs) :- cpp_member_fns(Ms, C, B, Ds, Fs).
 %% THE PROGRAM'S CONSTEVAL MEMBER FUNCTION AND CONSTRUCTOR ARE IMMEDIATE ([dcl.constexpr]/13; 0.112), as its free one has
@@ -454,6 +454,10 @@ cpp_dtor_fn(L, C, Body, F) :-
     cpp_dtor_name(C, Body, Name), cpp_this_type(C, [], [dying], ThisT), cpp_vtt_params(C, [param(ThisT, this)], Params),
     (   Body == none -> F = declaration(L, none, base([], [void]), [var(Name, fn(base([], [void]), Params, false), none)])
     ;   cpp_with_fsig(fsig(dtor, C, C, none, [], false, [], none), ( cpp_dtor_body(L, C, Body, Body0), cpp_method_body(C, Params, Body0, Body1) )), F = function(L, none, base([], [void]), Name, Params, false, Body1) ).
+%% a destructor the library ships is declared twice (0.252): its complete-object form, and its base-object form, `D2', which
+%% a base sub-object's destruction calls (cpp_base_dtor_name/3); an unused declaration emits nothing
+cpp_base_dtor_decl(C, declaration(L, S, R, [var(N1, FT, I)]), [declaration(L, S, R, [var(N2, FT, I)])]) :- cpp_base_dtor_name(C, N1, N2), N2 \== N1, !.
+cpp_base_dtor_decl(_, _, []).
 %% a constructor's body: the base's constructor, then every member from its
 %% initializer, else its default, in the members' order; then the body
 %% A FUNCTION-TRY-BLOCK ([except.pre]/1, [except.handle]/15; 0.201): `C() try : m(x) { ... } catch (...) { ... }' -- the

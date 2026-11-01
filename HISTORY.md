@@ -246,6 +246,7 @@ One row per step, in version order: the step's title, what it did and its gate n
 | 0.249 | what the CI's first C++ job on the Mac found: a run with no cap, a pool with no voice | the CI's runs of 0.248: the smoke job GREEN on the three machines (Apple silicon's first), the full job's first run GREEN (all nine gates over libc++ 18, the cross gate's C++ part among them; the C++ gates over 21 and 22, 856 and 859 ok); the C++ job's first run on the Intel Mac stopped by GitHub at six hours, its pool silent after half its fixtures, its by-value check RED (Homebrew's clang++ found no `<stdio.h>`); a fixture's run capped at 300 s, the pool's long waits said with its processes, the CI's C++ gates keeping their progress, the reference clang++ given the SDK on a Mac | flow GREEN (126 s), the C++ gate GREEN in 1387 s with 848 run fixtures ok and 11 skipped, the reader, compile, driver, objects, proof and cross gates GREEN (2 s, 33 s, 40 s, 5 s, 0 s, 352 s); a commit and a push |
 | 0.250 | what the C++ job on the Mac found: a static past its type, a struct named by a declaration alone | the CI's C++ job on the Intel Mac, its first two runs: `stdrandom.cpp`'s first draw never ended (a library class's static constant kept its raw fold, `__independent_bits_engine::_Rp` 2^32 where a 32-bit `uint_fast32_t` makes it 0: now converted to the static's type, `stdrandom32.cpp`); 22 programs with a stream failed LLVM's parse on `fpos<mbstate_t>`, a struct a declaration alone names (now the declarations are spelled before the structs are taken, `declstruct.cpp`); seven fixtures made every machine's; a failed build's lines under its FAIL; five open; lowering 147 | flow GREEN (124 s), the C++ gates GREEN over libc++ 18, 21 and 22 (1375 s, 1425 s, 1420 s; 849, 857 and 860 run fixtures ok), the reader, compile, driver, objects, proof and cross gates GREEN (4 s, 32 s, 44 s, 5 s, 0 s, 222 s); a commit and a push |
 | 0.251 | the Mac's C++ job on 0.250: the tree's experimental archive, a failed link's lines, two fixtures made Linux's | the CI's runs of 0.250: the smoke run GREEN but the Intel Mac's upload (ENOTFOUND; the uploads `continue-on-error` now); the C++ job 984 ok, 6 FAIL (35 on 0.249): `-lc++experimental` the tree's archive by its path (Homebrew's libdispatch PSTL backend, reproduced over a copy of the 18 tree), a failed link's lines as notes, `cuchar.cpp` split from `cwrap.cpp` and skipped on a Mac, `gnusource.needs` glibc's; three open (silent ends), the Mac's crash reports kept | flow GREEN (119 s), the C++ gates GREEN over libc++ 18, 21 and 22 (1362 s, 1387 s, 1400 s; 850, 858 and 861 run fixtures ok), the reader, compile, driver, objects, proof and cross gates GREEN (2 s, 32 s, 43 s, 4 s, 0 s, 224 s); a commit and a push |
+| 0.252 | what the CI's runs of 0.251 found: an abstract base destroyed whole, temporaries a deduction left behind | the night's run on 0.251: the Mac's C++ job 844 ok and 3 FAIL, each named by its crash report -- `stdfuture.cpp` and `stdpmr.cpp` SIGILL in libc++'s complete-object destructor of an abstract class, which a Mach-O library makes a trap (a base sub-object now destroyed by the base-object destructor, D2; `absbase.cpp`), `stdoptional4.cpp` SIGABRT under `operator delete` -- and the full job's first RED, `stdoptional4.cpp` exit 139 on Linux (temporaries of a member's `auto` deduction left in the caller: now deduced unevaluated; `autotemp.cpp`); two runs by hand lost their runner; lowering 148 | flow GREEN (116 s), the C++ gates GREEN over libc++ 18, 21 and 22 (1349 s, 1330 s, 1389 s; 852, 860 and 863 run fixtures ok), the reader, compile, driver, objects, proof and cross gates GREEN (2 s, 33 s, 42 s, 4 s, 0 s, 231 s); a commit and a push |
 
 ## M5 — the C++ mode
 
@@ -16923,3 +16924,77 @@ driver, objects, proof and cross gates GREEN (2 s, 32 s, 43 s, 4 s, 0 s, 224 s).
   the versions.
 
 The module 0.251. The lowering 147 and the reader 167 stay: no IR changes.
+
+## 0.252 — what the CI's runs of 0.251 found: an abstract base destroyed whole, temporaries a deduction left behind
+
+**0.252: the CI's runs of 0.251. The smoke run GREEN on the three machines. The C++ job by hand lost its runner twice;
+the night's run held it: on the Intel Mac 844 run fixtures ok and 3 failures, each named by the crash report the job now
+keeps, and on Linux the full job's first RED, one of the three. Both causes are met here, each reproduced first: a base
+sub-object of a class the library ships is destroyed by the base-object destructor, `D2`, and a member's `auto` result
+is deduced unevaluated. A commit and a push, as the CI's fixes go.**
+
+THE RUNS:
+
+- The smoke run of 0.251's push (41231033327): GREEN on the three machines -- Apple silicon (setup 8:19, gates 4:32),
+  Linux (10:53, 3:36), the Intel Mac (17:43, 8:57, its upload ok).
+- The C++ job on 0.251 by hand (41231054220): its runner lost twice, "The hosted runner lost communication with the
+  server" -- in its setup after 55 min, before any gate, and, run again once as the rules allow, in its gates after 2 h
+  8 min (0.250's whole gate step took 1 h 51 min) --, each time with no log and no artifact. Not run a third time.
+- The night's run on 0.251 (41294024255, at 09:38 UTC, 7 h after its schedule): the C++ job on the Intel Mac held its
+  runner -- the library read GREEN (its pool 1120 s over three lanes) and the C++ gate RED, 844 run fixtures ok, 14
+  skipped by their needs, 3 failures: `stdfuture.cpp`, `stdoptional4.cpp`, `stdpmr.cpp`. The full job on Linux RED, its
+  first: eight gates over libc++ 18 GREEN (the flow gate 143 s, the cross gate 354 s, the library read 843 s) and the
+  C++ gate RED in 1847 s, 849 ok, 12 skipped, `stdoptional4.cpp` ended by SIGSEGV (`exit 139`); a RED stops the job, so
+  the gates over libc++ 21 and 22 did not run.
+
+WHAT IT FOUND, AND WHAT 0.252 DOES:
+
+- `stdfuture.cpp` and `stdpmr.cpp`: SIGILL (`EXC_BAD_INSTRUCTION`) four bytes into
+  `std::__1::__shared_count::~__shared_count()` and `std::__1::pmr::memory_resource::~memory_resource()` of
+  `libc++.1.dylib`, called from `__assoc_sub_state.dtor.0` and `unsynchronized_pool_resource.dtor.0`. Both classes are
+  abstract, and the library ships both destructors; this compiler called such a destructor by its complete-object
+  symbol, `D1`, for a base sub-object too. On ELF clang makes `D1` an alias of the base-object destructor, `D2`: one
+  symbol. On Mach-O the two are apart, and clang emits an abstract class's `D1` as a trap, `ud2`, since no complete
+  object of the class exists -- clang++ 18 with `-mno-constructor-aliases` shows the same here, `ud2` in `_ZN1AD1Ev` of
+  a class with a pure virtual function. Reproduced here: a preloaded library whose `D1` of four abstract classes traps
+  (`__shared_count`, `__shared_weak_count`, `memory_resource`, `error_category`) ended 0.251's builds of both by SIGILL.
+  NOW a base sub-object's destructor is the base-object one where the class has no virtual base
+  (`cpp_base_dtor_name/3`): a destructor's and a constructor's cleanup's call of a base's (`cpp_nv_dtor/4`,
+  `cpp_vb_dtor_name/3`), and the destructor that a class with none of its own takes from its base (`cpp_dtor/2`); the
+  two forms are declared together (`cpp_base_dtor_decl/3`), both noted nothrow where the class's destructor is. Under
+  the trap, 0.252's builds of both print their `.expect`. Each Linux tree's `libc++.so.1` and `libc++abi.so.1` define a
+  `D2` beside every `D1` but the thunks' (ten in `libc++.so.1`, the streams' `_ZThn` and `_ZTv` forms); on the Mac,
+  clang's own code calls `D2` for every class derived from a library class, so the library exports it. A complete object
+  still takes `D1`: the table that this compiler makes for the abstract `memory_resource` keeps it in its destructor's
+  slot, where no call reaches it, since no object of the class is ever whole. `absbase.cpp` holds the case that the two
+  fixtures do not: a class of the program over `memory_resource` and over `error_category`, with no destructor of its
+  own, destroyed through its base's -- 0.251's build ends by SIGILL under the trap, 0.252's prints what clang++'s does.
+- `stdoptional4.cpp`: SIGABRT on the Mac, `abort` from `malloc_report` under `operator delete` -- a `free` of a pointer
+  that malloc did not give --, and SIGSEGV on the CI's Ubuntu. libc++'s `optional<int>::transform` returns `auto`;
+  deduced where the call instantiates it, its first return, `optional<_Up>(__optional_construct_from_invoke_tag{},
+  ...)`, was desugared in `main`'s statement, and the temporaries that the walk registered there (two
+  `optional<string>`) were destroyed at the statement's end, never constructed. valgrind showed it here, "Conditional
+  jump or move depends on uninitialised value(s)" in `__optional_destruct_base<string>::dtor.0` called from `main`,
+  where the stack read as a disengaged `optional` and the program ran clean. A lambda's deduction has been unevaluated
+  since 0.206 (`c_api_make(std::out_ptr(up))`); a member's was not. NOW a member's `auto`, `auto &` and `auto &&` result
+  is deduced with its first return walked unevaluated (`cpp_unevaluated/1` in `cpp_method_auto_ret/4` and
+  `cpp_method_ref_ret/8`): `main` holds no such temporary, and valgrind is silent over `stdoptional4` and its two
+  reductions (4, 3 and 2 reports before). `autotemp.cpp` shows it on any machine: a destructor that prints, under a
+  member template's `auto` and `auto &` results -- 0.251's build prints four `drop` lines more, of values never set.
+
+MEASUREMENTS: under the trap, 0.251's builds of `stdfuture`, `stdpmr` and `absbase` end by SIGILL (`exit 132`) over
+libc++ 18, and 0.252's print their `.expect` -- `stdpmr` and `absbase` over libc++ 21 and 22 too. valgrind over
+`stdoptional4`'s binary over libc++ 18: 4 reports for 0.251's, none for 0.252's. `autotemp` and `absbase` print what
+clang++ 18's builds print. The flow gate GREEN after the library's edits (116 s). The gates over 0.252: the C++ gates
+GREEN over libc++ 18, 21 and 22 (1349 s, 1330 s, 1389 s; 852, 860 and 863 run fixtures ok, 11, 3 and 0 skipped by their
+needs; `absbase`, `autotemp`, `stdfuture`, `stdoptional4` and `stdpmr` ok on each), the reader, compile, driver,
+objects, proof and cross gates GREEN (2 s, 33 s, 42 s, 4 s, 0 s, 231 s).
+
+- `library/ccl_cpp_library.pl` (`cpp_base_dtor_name/3`), `library/ccl_cpp_virtual.pl` (`cpp_nv_dtor/4`,
+  `cpp_vb_dtor_name/3`), `library/ccl_cpp_overload.pl` (`cpp_dtor/2`), `library/ccl_cpp_init.pl` (`cpp_member_fns/5`'s
+  destructor, `cpp_base_dtor_decl/3`), `library/ccl_cpp_layout.pl` (`cpp_method_auto_ret/4`, `cpp_method_ref_ret/8`),
+  `library/ccl_ir.pl` (the lowering 148), `test/cpp/run/absbase.cpp` and `autotemp.cpp` and their `.expect`. `RULES.md`:
+  the CI job, the Mac's job, the deduced result, a library class's destructor, Not done. `CLAUDE.md`: the versions.
+
+The module 0.252, the lowering 148: a program's IR that destroys such a base or calls such a member differs. The reader
+167 stays.

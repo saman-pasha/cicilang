@@ -1,0 +1,7 @@
+make 13
+got 13
+make 20
+drop 20
+store 21
+drop 13
+exit 0

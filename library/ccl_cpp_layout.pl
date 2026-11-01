@@ -969,13 +969,18 @@ cpp_method_ret(_, Ret0, Params, _, Ret) :- ( cpp_has_decltype(Ret0) -> cpp_with_
 %% ... the deductions in a frame of their own (cpp_in_frame, 0.133): THE PARAMETERS DECLARED BEFORE THE BLOCK TYPEDEFS ARE RESOLVED (0.121): `using alt_type =
 %% remove_cvref_t<decltype(__alt)>;' names a parameter, and resolved outside its scope it was untyped; the locals before the return declared on the way, a
 %% discarded `if constexpr' branch never entered (the lambda's rule)
+%% ... AND THE RETURN'S EXPRESSION WALKED UNEVALUATED (cpp_unevaluated/1, 0.252), as the lambda's is since 0.206: a temporary it
+%% makes is no temporary of the statement whose call asked for the member's result. `std::optional<int>::transform' to a
+%% string, deduced in main's statement, registered two `optional<string>' temporaries there, and the statement's end
+%% destroyed both, never constructed: a `free' of garbage -- exit 139 on Ubuntu's libc++ 18, a malloc abort on the Mac
+%% (stdoptional4.cpp)
 cpp_method_auto_ret(C, Params, Body0, Ret) :- ccl_declare_params(Params), cpp_body_typedefs(Body0, Body),
     (   cpp_first_return_in(C, Body, E)
-    ->  cpp_expr(C, E, E1), ( cpp_deduced_ret(E1, T), T \== unknown -> cpp_decayed(T, Ret) ; Ret = none )
+    ->  cpp_unevaluated(cpp_expr(C, E, E1)), ( cpp_deduced_ret(E1, T), T \== unknown -> cpp_decayed(T, Ret) ; Ret = none )
     ;   Ret = base([], [void]) ).
 cpp_method_ref_ret(C, Ret0, K, Q, QA, Params, Body0, Ret) :- ccl_declare_params(Params), cpp_body_typedefs(Body0, Body),
     (   cpp_first_return_in(C, Body, E)
-    ->  cpp_expr(C, E, E1), ( cpp_lvalue(E1), \+ cpp_xvalue_object(E1) -> Lv = yes ; Lv = no ),
+    ->  cpp_unevaluated(cpp_expr(C, E, E1)), ( cpp_lvalue(E1), \+ cpp_xvalue_object(E1) -> Lv = yes ; Lv = no ),
         ( cpp_deduced_ret(E1, T0), T0 \== unknown -> ccl_unref(T0, T1), cpp_merge_quals(QA, T1, T), cpp_ref_auto_result(K, Q, T, Lv, Ret) ; Ret = none )
     ;   Ret = Ret0 ).
 cpp_has_decltype(base(_, [decltype(_)])) :- !.
