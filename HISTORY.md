@@ -247,6 +247,7 @@ One row per step, in version order: the step's title, what it did and its gate n
 | 0.250 | what the C++ job on the Mac found: a static past its type, a struct named by a declaration alone | the CI's C++ job on the Intel Mac, its first two runs: `stdrandom.cpp`'s first draw never ended (a library class's static constant kept its raw fold, `__independent_bits_engine::_Rp` 2^32 where a 32-bit `uint_fast32_t` makes it 0: now converted to the static's type, `stdrandom32.cpp`); 22 programs with a stream failed LLVM's parse on `fpos<mbstate_t>`, a struct a declaration alone names (now the declarations are spelled before the structs are taken, `declstruct.cpp`); seven fixtures made every machine's; a failed build's lines under its FAIL; five open; lowering 147 | flow GREEN (124 s), the C++ gates GREEN over libc++ 18, 21 and 22 (1375 s, 1425 s, 1420 s; 849, 857 and 860 run fixtures ok), the reader, compile, driver, objects, proof and cross gates GREEN (4 s, 32 s, 44 s, 5 s, 0 s, 222 s); a commit and a push |
 | 0.251 | the Mac's C++ job on 0.250: the tree's experimental archive, a failed link's lines, two fixtures made Linux's | the CI's runs of 0.250: the smoke run GREEN but the Intel Mac's upload (ENOTFOUND; the uploads `continue-on-error` now); the C++ job 984 ok, 6 FAIL (35 on 0.249): `-lc++experimental` the tree's archive by its path (Homebrew's libdispatch PSTL backend, reproduced over a copy of the 18 tree), a failed link's lines as notes, `cuchar.cpp` split from `cwrap.cpp` and skipped on a Mac, `gnusource.needs` glibc's; three open (silent ends), the Mac's crash reports kept | flow GREEN (119 s), the C++ gates GREEN over libc++ 18, 21 and 22 (1362 s, 1387 s, 1400 s; 850, 858 and 861 run fixtures ok), the reader, compile, driver, objects, proof and cross gates GREEN (2 s, 32 s, 43 s, 4 s, 0 s, 224 s); a commit and a push |
 | 0.252 | what the CI's runs of 0.251 found: an abstract base destroyed whole, temporaries a deduction left behind | the night's run on 0.251: the Mac's C++ job 844 ok and 3 FAIL, each named by its crash report -- `stdfuture.cpp` and `stdpmr.cpp` SIGILL in libc++'s complete-object destructor of an abstract class, which a Mach-O library makes a trap (a base sub-object now destroyed by the base-object destructor, D2; `absbase.cpp`), `stdoptional4.cpp` SIGABRT under `operator delete` -- and the full job's first RED, `stdoptional4.cpp` exit 139 on Linux (temporaries of a member's `auto` deduction left in the caller: now deduced unevaluated; `autotemp.cpp`); two runs by hand lost their runner; lowering 148 | flow GREEN (116 s), the C++ gates GREEN over libc++ 18, 21 and 22 (1349 s, 1330 s, 1389 s; 852, 860 and 863 run fixtures ok), the reader, compile, driver, objects, proof and cross gates GREEN (2 s, 33 s, 42 s, 4 s, 0 s, 231 s); a commit and a push |
+| 0.253 | the CI's runs of 0.252: every job GREEN, the Mac's C++ job's first | the smoke run GREEN on the three machines; the C++ job on the Intel Mac GREEN, its first (849 run fixtures ok, 14 skipped by their needs; `stdfuture`, `stdoptional4`, `stdpmr`, `absbase` and `autotemp` ok); the full job GREEN (852, 860 and 863 run fixtures ok over libc++ 18, 21 and 22); Not done's item of the C++ job its limits alone; a record step, no library change | the reader, compile, driver, objects and proof gates GREEN (6 s, 15 s, 32 s, 4 s, 0 s); the library is 0.252's; a commit and a push |
 
 ## M5 — the C++ mode
 
@@ -16998,3 +16999,33 @@ objects, proof and cross gates GREEN (2 s, 33 s, 42 s, 4 s, 0 s, 231 s).
 
 The module 0.252, the lowering 148: a program's IR that destroys such a base or calls such a member differs. The reader
 167 stays.
+
+## 0.253 — the CI's runs of 0.252: every job GREEN, the Mac's C++ job's first
+
+**0.253: the record of the CI's runs of 0.252 (`c8011d0`). Every job GREEN: the smoke run on the three machines, the
+full job on Linux, and the C++ job on the Intel Mac, its first GREEN run -- the three fixtures that the night's run on
+0.251 failed there now pass. A record step: the docs and the version, no library change.**
+
+THE RUNS:
+
+- The smoke run of 0.252's push (41312299306): GREEN on the three machines -- Linux (setup 7:00, gates 2:47), Apple
+  silicon (10:56, 5:16), the Intel Mac (30:24, 12:31).
+- The C++ job on 0.252 by hand (41312323233): GREEN, its first. The setup in 22:52; the library read GREEN, its pool
+  1351 s over three lanes; the C++ gate GREEN, 849 run fixtures ok and 14 skipped by their needs, its pool from 14:30 to
+  15:35 UTC; the step in 1:36:26. `stdfuture.cpp`, `stdoptional4.cpp` and `stdpmr.cpp` ok, and `absbase.cpp` and
+  `autotemp.cpp`. The crash reports that the job kept: the aborts that `contracts.cpp` and `noexcept.cpp` expect
+  (`exit 134`), `gtimeout`'s beside them, and the system's own processes'.
+- The full job on 0.252 by hand (41312325556): GREEN. The setup in 10:56, the gates in 2:18:21 -- over libc++ 18 all
+  nine (the flow gate 141 s, the cross gate 342 s, the library read 821 s, the C++ gate 1796 s: 852 run fixtures ok, 12
+  skipped by their needs), over 21 the library read (its pool 714 s over four lanes) and the C++ gate (860 ok, 3
+  skipped), over 22 (726 s; 863 ok, none skipped). The five fixtures of 0.252 ok in each tree.
+
+WHAT 0.253 DOES: `RULES.md` records the runs (the CI job, the Mac's job), and Not done's item of the Mac's C++ job keeps
+its limits alone: libc++ 18 read, the system's libc++ at the link, no C++ gate on Apple silicon. `CLAUDE.md`: the
+versions.
+
+MEASUREMENTS: The small gates over 0.253, the module rebuilt with its version: the reader, compile, driver, objects and
+proof gates GREEN (6 s, 15 s, 32 s, 4 s, 0 s; the driver gate's `--version` check among them). The library is 0.252's,
+and its gates are 0.252's entry's.
+
+The module 0.253. The lowering 148 and the reader 167 stay: no library change.

@@ -123,7 +123,10 @@ that changes a rule edits the rule here, in its topic, and writes its entry in `
   by their needs, `stdoptional4.cpp` ended by SIGSEGV (`exit 139`): temporaries that a member's `auto` deduction had
   left in `main`'s statement, destroyed there and never constructed (A deduced result's first return is typed
   unevaluated); here the stack read as a disengaged `optional` and the program ran clean. A RED stops the job: the gates
-  over 21 and 22 did not run. (0.223, 0.224, 0.246, 0.249, 0.252)
+  over 21 and 22 did not run. ON 0.252 (41312325556, by hand) GREEN again: the setup in 10:56 and the gates in 2:18:21
+  -- over libc++ 18 the flow gate 141 s, the cross gate 342 s, the library read 821 s and the C++ gate 1796 s (852 run
+  fixtures ok, 12 skipped by their needs), over 21 the library read and the C++ gate (860 ok, 3 skipped), over 22 (863
+  ok, none skipped). (0.223, 0.224, 0.246, 0.249, 0.252, 0.253)
 - A FAILED UPLOAD LOSES THE LOGS ONLY, AND A MAC'S CRASH REPORTS ARE KEPT (0.251): each job's `Keep the logs` step is
   `continue-on-error`, so the gates' step alone decides a job's verdict -- the Intel Mac's smoke job on 0.250
   (41210431407) ran its six gates GREEN (`GREEN: ci smoke`) and was RED by its upload, `Failed to CreateArtifact: Unable
@@ -207,7 +210,13 @@ that changes a rule edits the rule here, in its topic, and writes its entry in `
   `memory_resource::~memory_resource()`, libc++.1.dylib's complete-object destructors of two abstract classes, called
   from `__assoc_sub_state.dtor.0` and `unsynchronized_pool_resource.dtor.0` (A base sub-object is destroyed by its
   base-object destructor), and `stdoptional4.cpp` SIGABRT, `malloc_report` under `operator delete` (A deduced result's
-  first return is typed unevaluated). (0.224, 0.225, 0.226, 0.246, 0.247, 0.248, 0.249, 0.250, 0.251, 0.252)
+  first return is typed unevaluated). THE RUNS OF 0.252 (`c8011d0`): the push's smoke run (41312299306) GREEN on the
+  three machines -- Linux (setup 7:00, gates 2:47), Apple silicon (10:56, 5:16), the Intel Mac (30:24, 12:31); THE C++
+  JOB GREEN, ITS FIRST (41312323233, by hand): the setup in 22:52, the library read GREEN (its pool 1351 s over three
+  lanes) and the C++ gate GREEN, 849 run fixtures ok and 14 skipped by their needs -- `stdfuture.cpp`,
+  `stdoptional4.cpp` and `stdpmr.cpp` among them, and `absbase.cpp` and `autotemp.cpp` --, the step in 1:36:26; its
+  crash reports the two aborts that `contracts.cpp` and `noexcept.cpp` expect (`exit 134`) and the system's own. (0.224,
+  0.225, 0.226, 0.246, 0.247, 0.248, 0.249, 0.250, 0.251, 0.252, 0.253)
 
 ### The chain
 
@@ -12242,19 +12251,12 @@ Declarations topic of the C++ reader).
   are one class (a local class keeps its line, no place in it). The reader drops `constexpr` on a free function, so a
   closure there is `$_N` where clang's is `Ul`. `auto c = [] {}, d = [] {};` is not refused, where its two types differ
   ([dcl.spec.auto]/7).
-- The C++ job on the Intel Mac has finished no GREEN run: its first was held by `stdrandom.cpp`'s first draw, its second
-  (on 0.249) failed 35 fixtures, its third (on 0.250) 6, of which 0.251 met three -- `cwrap.cpp` (its `<cuchar>` part
-  `cuchar.cpp`, skipped on a Mac), `execpol.cpp` (the tree's experimental archive) and `gnusource.cpp` (glibc's alone)
-  --, and its fourth (the night's on 0.251; two runs by hand lost their runner) the other three, `stdfuture.cpp`,
-  `stdoptional4.cpp` and `stdpmr.cpp`, which its crash reports named and 0.252 meets (The Mac's job): an abstract base
-  of the library destroyed by its complete-object destructor, a trap there, and temporaries that a member's `auto`
-  deduction left in the caller. Whether the job is GREEN on 0.252 is its next run's to say. On a Mac a C++ program is
-  linked by `c++` against the system's libc++, not the tree whose headers it was read from (`ccl_link_libs/1` names no
-  library there; on Linux the tree's own since 0.122, where the two disagreed), its experimental archive alone the
-  tree's (0.251). The C++ job reads libc++ 18 alone, not Homebrew's later trees (`llvm@21`, `llvm`), and the C++ gates
-  do not run on Apple silicon, whose 7 GB holds the smoke job: a C++ rule is gated on Linux over libc++ 18, 21 and 22
-  (the full job GREEN from its first run to 0.250's, and RED on 0.251's by `stdoptional4.cpp`, which 0.252 meets: The CI
-  job), and on Apple's arm64 by the driver gate's C++ checks alone.
+- On a Mac a C++ program is linked by `c++` against the system's libc++, not the tree whose headers it was read from
+  (`ccl_link_libs/1` names no library there; on Linux the tree's own since 0.122, where the two disagreed), its
+  experimental archive alone the tree's (0.251). The Mac's C++ job reads libc++ 18 alone, not Homebrew's later trees
+  (`llvm@21`, `llvm`), and the C++ gates do not run on Apple silicon, whose 7 GB holds the smoke job: a C++ rule is
+  gated on Linux over libc++ 18, 21 and 22 (the full job: The CI job), on the Intel Mac over libc++ 18 (the C++ job,
+  GREEN on 0.252, its first: The Mac's job), and on Apple's arm64 by the driver gate's C++ checks alone.
 - `__builtin_trap()` is not lowered (`undeclared('__builtin_trap')`), nor clang 19's `__builtin_verbose_trap(category,
   message)`, while `__has_builtin` answers 1 for both: a program built with one of libc++'s hardening modes, whose
   assertions call them (`-D_LIBCPP_HARDENING_MODE=_LIBCPP_HARDENING_MODE_FAST`), is refused; the debug mode's go through
