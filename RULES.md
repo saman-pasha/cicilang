@@ -71,10 +71,12 @@ that changes a rule edits the rule here, in its topic, and writes its entry in `
   `llvm@N`, libc++'s library under the keg's `lib/c++`, the hints are `brew install`, the SDK is a line of its own (the
   first of `ccl_sdk_dirs/1`'s directories with a `stdio.h`, with macOS's version and the SDK's for Apple's clang), and
   the cross gate is a skip line. (0.223, 0.224)
-- THE PINS (0.223). `test/toolchain.pins` holds the neighbours' commits and versions -- cocolog 2.14.1 `1e48013`, Cicili
-  3.3.0 `9b825b7`, ZiguratIP `90d99b8` -- the embedded LLVM's major version (18) and the libc++ trees the C++ gates read
+- THE PINS (0.223). `test/toolchain.pins` holds the neighbours' commits and versions -- cocolog 3.16.0 `e965a6e`, Cicili
+  3.3.0 `3ba2ca4`, ZiguratIP `5f058e7` -- the embedded LLVM's major version (18) and the libc++ trees the C++ gates read
   (18, 21 and 22, the third since 0.227). A pin moves only on the owner's word, in the step that runs the chain over it:
-  cocolog's moved at 0.226, from 2.13.0 `7ff2a0d`. (0.223, 0.226, 0.227)
+  cocolog's moved at 0.226, from 2.13.0 `7ff2a0d`, and at 0.254, from 2.14.1 `1e48013`, beside Cicili's (from `9b825b7`,
+  its `.gitignore` alone) and ZiguratIP's (from `90d99b8`, its Mac install alone) (the Findings). (0.223, 0.226, 0.227,
+  0.254)
 - THE CI JOB (0.223). `.github/workflows/gates.yml` runs `test/ci.sh` on GitHub's machines: `smoke` on each push to
   main and each pull request into it that changes more than the documents at the top of the tree (the toolchain, then
   the flow, reader, compile, driver and objects gates and the proof), since 0.224 on two machines and since 0.246 on
@@ -4547,7 +4549,11 @@ unless a path is given. (0.33, 0.41, 0.79, 0.82, 0.223)
   minus sign, and `Val<-X>` and `Val<X>` over `template <long long N>` were one instance, `shiftwrap.cpp`). (0.42, 0.74,
   0.199)
 - A key carries `const` and `volatile` and no other qualifier (no `own`, `tie`, `fresh`, marker). Why:
-  `is_const<const int>` was `is_const<int>`, and `__tuple_like_ext<const T>` derived from itself. (0.95)
+  `is_const<const int>` was `is_const<int>`, and `__tuple_like_ext<const T>` derived from itself. THEY ARE ASKED OF THE
+  QUALIFIER LIST WITHOUT BINDING IT (0.254; `cpp_q_in/2` in `cpp_cv_key/2` and a pointer's key): cocolog 3.0.0's
+  `memberchk/2` binds an open tail, as swipl's does, where 2.x failed there, and `operator bool` looked up by a type
+  whose qualifiers were unbound was keyed `op.conv_const_volatile_bool`, its declaration `op.conv_bool` (`ldouble.cpp`'s
+  `sentry`, `cogenerator.cpp`'s `coroutine_handle`: undeclared). (0.95, 0.254)
 - An integer type has ONE spelling, the shortest, in keys and comparisons ([basic.fundamental]/2; `cpp_int_spelling/2`
   in `cpp_type_key` and `cpp_canon_specs`): `signed int` and `signed` are `int`, `long int` is `long`, `unsigned int`
   is `unsigned`; `signed char` stays apart from `char`. Fixture: `intspell.cpp`. Why: `__libcpp_is_signed_integer
@@ -10298,7 +10304,11 @@ The namespaces' rules, the program's and the library's, are `library/ccl_cpp_nam
   list. A typedef, a tag or a file-scope name `names` asked twice took the list as its type, since 2026-09-06 (`typedef
   int names;` refused `phase(check)`, a class `names` lowered as `type([names])`), and a C global `names` took it as its
   asm label at 0.194, whose lowering asks the label of every global (`memory.c` in the compile gate's one process).
-  `test/c/run/cachenames.c`, `test/cpp/run/cachenames.cpp`.
+  A NAME THAT IS NO ATOM IS KEYED BY ITS WRITING (0.254; `ccl_cache_key/3`, `term_to_atom/2`): `ck_has_own_array/1` asks
+  of a union whose tag is a template-id, libc++ 18's `__union<_DestructibleTrait, _Index>`; cocolog 2.x gave
+  `atom_concat/3` a term's writing as its text, and 3.0.0 raises `type_error(atomic, T)` there, as swipl does
+  (`stdvector.cpp` and nine more of the cross gate's C++ part stopped). `test/c/run/cachenames.c`,
+  `test/cpp/run/cachenames.cpp`.
 - `ccl_tables_changed/0` empties the small caches and the index of each `ccl_named_caches/1` prefix wherever a table
   is written (the noters, a summary's note, `ccl_scope_init/0`, `ccl_with_file/2`'s restore). `ccl_sum_forget/1`
   empties `'$ccl_sumload:'`.
@@ -10466,7 +10476,28 @@ The namespaces' rules, the program's and the library's, are `library/ccl_cpp_nam
   at 2882 MB, 1.8.38 at 591 MB. After a cocolog update the modules are rebuilt (`module/build.sh`,
   `module/build-llvm.sh`, and cocolog's `os` and `process` modules); 1.8.36 to 1.8.41 left the SDK's ABI unchanged.
   (0.46, 0.112, 0.114)
-- cocolog is at 2.14.1 since 0.226, pulled at the owner's word ("Yes, do it") once its CI was green on its three jobs --
+- cocolog is at 3.16.0 since 0.254, pulled at the owner's word ("Pull repos", and "Yes" to the chain over it) -- master
+  `e965a6e`, over ZiguratIP 1.0.1 (`5f058e7`, its Mac install alone moved) beside Cicili 3.3.0 (`3ba2ca4`, its
+  `.gitignore` alone): 47 commits past 2.14.1 and a major, which cocolog's 3.0.0 says can stop a program that worked.
+  2.16.1: `atom_length/2` and `string_length/2` raise for a term that is no text. 3.0.0: `[]` is no atom and is not
+  `'[]'`, the text builtins raise swipl 9.0.4's errors for a compound or a list (`atom_concat/3` and `sub_atom/5` refuse
+  a list), `memberchk/2` binds an open tail and raises `type_error(list, _)` for a non-list, an error carries its
+  context. 3.0.3 and 3.0.4: the store's lock (THE STORE TAKES ONE WRITER AT A TIME, below). 3.1.0: a program's clause
+  for a system predicate takes it over, and a syntax error skips its clause where it ended the load. 3.2.0: the reader
+  as swipl's. 3.4.0 to 3.7.0: where a load looks, `include/1`, a load directive's load, `initialization/2`. 3.10.0:
+  syntax errors as swipl's. 3.12.0: `f()`. 3.13.0: grammar rules translated as swipl's `boot/dcg.pl`. 3.14.0:
+  `term_expansion/2` and `goal_expansion/2` at a load. 3.15.0: `clause/2` answers the compiled clause, `retractall/1`
+  declares a predicate dynamic. 3.16.0: `library(stream)`'s errors. Searched first: the library's `'[]'` is the
+  subscript operator's name, quoted alike wherever it stands; it defines no `term_expansion/2` or `goal_expansion/2`,
+  sets no `double_quotes`, and gives `atom_concat/3` and `sub_atom/5` no list. The chain then found two places, each
+  kept as 2.x answered it: a cache keyed a term by `atom_concat/3` (the named caches' bullet, `ccl_cache_key/3`), and a
+  type's key asked `memberchk/2` of an open qualifier list (the keys' bullet, `cpp_q_in/2`). And the reader is 168: a
+  summary or a store that 2.x wrote holds the subscript operator's name as `[]`, which 3.x reads back as the empty list
+  (probed: `t(operator([]))` gives `[]`, no atom), so every one starts afresh. The update took `make` 171 s (peak
+  1698 MB), `make schema` 28 s and `make modules` 48 s; both modules were built again. The chain over it GREEN, over
+  fresh HOMEs (What runs). (0.254)
+- cocolog was at 2.14.1 from 0.226 to 0.253, pulled at the owner's word ("Yes, do it") once its CI was green on its
+  three jobs --
   master `1e48013`, over ZiguratIP 1.0.1 (`90d99b8`) and beside Cicili 3.3.0 (`9b825b7`), neither of which moved: 2.14.0
   (`baeadc3`, The Coco's answer to 0.223's report) reads a file again by `consult/1`, `[File]` and `load_files/2` with
   `if(true)` where `use_module/1` or `ensure_loaded/1` loaded it, by `if(changed)` and `if(exists)` only where it is
@@ -10900,8 +10931,17 @@ The namespaces' rules, the program's and the library's, are `library/ccl_cpp_nam
   said their rows were back and the store kept the first's alone, the second's lost without a word; a run of four did
   not end before the cap killed it at 400 s. Four `bin/cicilang` builds at once over one fresh store: three died of a
   bus error, and every later build failed (`dynamic: out of memory`) until the store was removed. Worked around by
-  `bin/cicilang`'s lock (the C store's topic); the C++ IR stays files (the IR cache topic). Not yet raised with
-  cocolog's owner: its session took no message at 0.240. (0.240)
+  `bin/cicilang`'s lock (the C store's topic); the C++ IR stays files (the IR cache topic). MET SINCE COCOLOG 3.0.3
+  (`348a036`, which names this finding; 3.0.4, `3f3356e`, times the wait by the clock): the store's open takes
+  `DIR/lock` by flock(2), held to the process's last close, so the processes over one store run in turn; a second one
+  waits, saying once past two seconds `the store in DIR is in use by process N; waiting for it`, or with
+  `COCOLOG_STORE_WAIT=0` refuses at once, exit 1, `cannot open the embedded store at DIR -- the store is in use by
+  process N`; a damaged store says so where it is opened (`the store in DIR is damaged: ...`). Raised with cocolog's
+  owner at 0.253 by a task fired into its session (its session takes no peer message), and answered within the minute.
+  Measured here on 3.16.0 with the same script (0.254): one, three, four and six writers at once each had their 40 rows
+  back and the reader found 40 for each, in 0.07 to 0.22 s; the wait and the refusal as said. `bin/cicilang`'s lock
+  stays, harmless: the store's own is taken inside it. One case cocolog keeps silent: an emptied hexmap opens as an
+  empty store. (0.240, 0.254)
 - Seventy goal-carrying facts consulted into a store segfaulted once, and cocolog cannot reproduce it: the gate checks
   are clauses (`k1 :- check(Name, Goal).`).
 - Builtins at 1.8.1, again at 1.10.22 (0.140) and at 1.10.28 (0.142). `current_predicate/1` answers for a file the
@@ -11189,8 +11229,14 @@ The namespaces' rules, the program's and the library's, are `library/ccl_cpp_nam
 - Ubuntu 24.04 on x86_64 (clang and LLVM 18, glibc, libc++ 18, 21 and 22) is a host since 0.87. Every gate but the C++
   one is GREEN there since 0.93, and all seven since 0.95. Every step from 0.93 on is gated there, but the save points
   0.112, 0.113, 0.117, 0.122 to 0.125, 0.130, 0.131 and 0.143 (0.143's C gates and cross gate ran, its libc++ gates did
-  not; the others were gated by the steps after them). The last full run is 0.227's chain, over its work tree (the
-  commit's) and cocolog 2.14.1 (the Findings), its two modules built at 0.227, over fresh HOMEs: the toolchain check,
+  not; the others were gated by the steps after them). The last full run is 0.254's chain, over its work tree (the
+  commit's) and cocolog 3.16.0 (the Findings), its two modules built over it, over fresh HOMEs: the toolchain check
+  strict against the pins, then over libc++ 18 all nine GREEN (the flow gate's one finding in 105 s, reader 2 s, compile
+  30 s, driver 39 s, objects 5 s, proof, the cross gate in 344 s with its C++ part for aarch64, the library read in
+  491 s, the C++ gate in 1384 s with 852 fixtures ok and 11 skipped by their needs); over libc++ 21 the library read
+  (445 s) and the C++ gate (1429 s, 860 ok, 3 skipped) GREEN, and over libc++ 22 the library read (432 s) and the C++
+  gate (1409 s, 863 ok, 0 skipped) GREEN. 0.227's chain, over cocolog 2.14.1, its two modules built at 0.227, over fresh
+  HOMEs: the toolchain check,
   then over libc++ 18 all nine GREEN (the flow gate's one finding in 186 s, reader 2 s, compile 30 s, driver 26 s,
   objects 4 s, proof, the cross gate in 327 s with its C++ part for aarch64, the library read in 522 s, the C++ gate in
   1381 s with 829 of 839 fixtures ok, the skips are `atomicref`, `atomicrefalign`, `ftm23b`, `ftm26b`, `joinwith`,
@@ -11200,8 +11246,9 @@ The namespaces' rules, the program's and the library's, are `library/ccl_cpp_nam
   gate (1427 s, 839 of 839 ok, none skipped) GREEN -- the C gates do not read libc++. The headers' reads, summed, took
   1949 s over 226 over libc++ 18, 1679 s over 226 over 21 and 1693 s over 226 over 22; the fixtures' builds 4500 s over
   829, 4624 s over 837 and 4737 s over 839 (0.226's: 1997 s, 1723 s, 4560 s, 4728 s). The chains of 0.165 to 0.203, of
-  0.205 to 0.219, of 0.221, of 0.223, of 0.226 and of 0.227 are in HISTORY.md, 0.166 to 0.204, 0.206 to 0.220, 0.222,
-  0.223, 0.226 and 0.227. Three libc++ passes are one gate (0.227): `LLVM=/usr/lib/llvm-18`, `LLVM=/usr/lib/llvm-21` and
+  0.205 to 0.219, of 0.221, of 0.223, of 0.226, of 0.227 and of 0.254 are in HISTORY.md, 0.166 to 0.204, 0.206 to 0.220,
+  0.222, 0.223, 0.226, 0.227 and 0.254. Three libc++ passes are one gate (0.227): `LLVM=/usr/lib/llvm-18`,
+  `LLVM=/usr/lib/llvm-21` and
   `LLVM=/usr/lib/llvm-22` choose the tree the chain reads and links, apt's one and the two unpacked beside it (the
   link's libraries, the driver topic). 0.182 built libc++ 22's vector and its C++23 views by hand (`zipadjacent.cpp`,
   which its `.needs` skips over 18 and 21), a gate's since 0.227. The run before 0.121's (0.118, 0.119) found, over

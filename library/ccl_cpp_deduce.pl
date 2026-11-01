@@ -727,7 +727,7 @@ cpp_type_key(vpack(L), K) :- !, cpp_type_key(pack(L), K).
 %% resolved its base to itself. `const' and `volatile' key -- `const_int', `int_pc' for `int *const' -- and nothing
 %% else in a qualifier list does (own, tie, fresh, the markers).
 cpp_type_key(base(Q, S0), K) :- !, ( cpp_int_spelling(S0, S) -> true ; S = S0 ), findall(W, ( member(X, S), cpp_spec_key(X, W) ), Ws), cpp_cv_key(Q, CV), append(CV, Ws, Ws1), atomic_list_concat(Ws1, '_', K).
-cpp_type_key(ptr(Q, T), K) :- !, cpp_type_key(T, K0), findall(C, ( member(X-C, [const-c, volatile-v]), memberchk(X, Q) ), Cs), atomic_list_concat([K0, '_p'|Cs], K).
+cpp_type_key(ptr(Q, T), K) :- !, cpp_type_key(T, K0), findall(C, ( member(X-C, [const-c, volatile-v]), cpp_q_in(X, Q) ), Cs), atomic_list_concat([K0, '_p'|Cs], K).
 cpp_type_key(ref(_, T), K) :- !, cpp_type_key(T, K0), atom_concat(K0, '_r', K).
 cpp_type_key(rref(_, T), K) :- !, cpp_type_key(T, K0), atom_concat(K0, '_rr', K).
 cpp_type_key(arr(B, T), K) :- !, cpp_type_key(T, K0), ( catch(once(ccl_const_eval(B, V)), _, fail), integer(V) -> atomic_list_concat([K0, '_a', V], K) ; atom_concat(K0, '_a', K) ).   % ITS BOUND IS PART OF IT (0.167): `T &' over an `int[3]' and an `int[5]' named one instance, and the second read the first's sizeof

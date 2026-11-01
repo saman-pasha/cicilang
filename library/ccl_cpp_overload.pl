@@ -508,7 +508,12 @@ cpp_param_fn_type(base(Q, S), base(Q1, S)) :- !, cpp_no_cv(Q, Q1).
 cpp_param_fn_type(ptr(Q, T), ptr(Q1, T)) :- !, cpp_no_cv(Q, Q1).
 cpp_param_fn_type(T, T).
 cpp_no_cv(Q, Q1) :- findall(X, ( member(X, Q), X \== const, X \== volatile ), Q1).
-cpp_cv_key(Q, CV) :- findall(X, ( member(X, [const, volatile]), memberchk(X, Q) ), CV).
+cpp_cv_key(Q, CV) :- findall(X, ( member(X, [const, volatile]), cpp_q_in(X, Q) ), CV).
+%% A QUALIFIER OF A LIST THAT MAY BE OPEN, asked without binding it (0.254): cocolog 3.0.0's memberchk/2 binds an open tail,
+%% as swipl's does, where 2.x failed there -- a conversion function looked up by a type whose qualifiers are unbound,
+%% `operator bool', was keyed `op.conv_const_volatile_bool', where its declaration is `op.conv_bool' (ldouble.cpp's
+%% sentry, cogenerator.cpp's coroutine_handle: undeclared)
+cpp_q_in(X, Q) :- nonvar(Q), Q = [Y|T], ( Y == X -> true ; cpp_q_in(X, T) ).
 cpp_free_operator(Op, Ps, Name) :- cpp_alloc_op(Op), cpp_alloc_shape(Ps, Sh), cpp_alloc_sym(Op, Sh, Name), !.   % A REPLACEABLE ALLOCATION OR DEALLOCATION FUNCTION IS ITS ITANIUM SYMBOL (0.202; [replacement.functions]): the program's `void *operator new(std::size_t)' is `_Znwm', which replaces the library's at the link
 cpp_free_operator(Op, Ps, Name) :- length(Ps, K), cpp_op_word(Op, W), atomic_list_concat(['op.', W, '.', K], Name).
 cpp_op_word('+', plus) :- !.        cpp_op_word('-', minus) :- !.       cpp_op_word('*', times) :- !.       cpp_op_word('/', divide) :- !.     cpp_op_word('%', modulo) :- !.

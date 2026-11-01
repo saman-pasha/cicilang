@@ -248,6 +248,7 @@ One row per step, in version order: the step's title, what it did and its gate n
 | 0.251 | the Mac's C++ job on 0.250: the tree's experimental archive, a failed link's lines, two fixtures made Linux's | the CI's runs of 0.250: the smoke run GREEN but the Intel Mac's upload (ENOTFOUND; the uploads `continue-on-error` now); the C++ job 984 ok, 6 FAIL (35 on 0.249): `-lc++experimental` the tree's archive by its path (Homebrew's libdispatch PSTL backend, reproduced over a copy of the 18 tree), a failed link's lines as notes, `cuchar.cpp` split from `cwrap.cpp` and skipped on a Mac, `gnusource.needs` glibc's; three open (silent ends), the Mac's crash reports kept | flow GREEN (119 s), the C++ gates GREEN over libc++ 18, 21 and 22 (1362 s, 1387 s, 1400 s; 850, 858 and 861 run fixtures ok), the reader, compile, driver, objects, proof and cross gates GREEN (2 s, 32 s, 43 s, 4 s, 0 s, 224 s); a commit and a push |
 | 0.252 | what the CI's runs of 0.251 found: an abstract base destroyed whole, temporaries a deduction left behind | the night's run on 0.251: the Mac's C++ job 844 ok and 3 FAIL, each named by its crash report -- `stdfuture.cpp` and `stdpmr.cpp` SIGILL in libc++'s complete-object destructor of an abstract class, which a Mach-O library makes a trap (a base sub-object now destroyed by the base-object destructor, D2; `absbase.cpp`), `stdoptional4.cpp` SIGABRT under `operator delete` -- and the full job's first RED, `stdoptional4.cpp` exit 139 on Linux (temporaries of a member's `auto` deduction left in the caller: now deduced unevaluated; `autotemp.cpp`); two runs by hand lost their runner; lowering 148 | flow GREEN (116 s), the C++ gates GREEN over libc++ 18, 21 and 22 (1349 s, 1330 s, 1389 s; 852, 860 and 863 run fixtures ok), the reader, compile, driver, objects, proof and cross gates GREEN (2 s, 33 s, 42 s, 4 s, 0 s, 231 s); a commit and a push |
 | 0.253 | the CI's runs of 0.252: every job GREEN, the Mac's C++ job's first | the smoke run GREEN on the three machines; the C++ job on the Intel Mac GREEN, its first (849 run fixtures ok, 14 skipped by their needs; `stdfuture`, `stdoptional4`, `stdpmr`, `absbase` and `autotemp` ok); the full job GREEN (852, 860 and 863 run fixtures ok over libc++ 18, 21 and 22); Not done's item of the C++ job its limits alone; a record step, no library change | the reader, compile, driver, objects and proof gates GREEN (6 s, 15 s, 32 s, 4 s, 0 s); the library is 0.252's; a commit and a push |
+| 0.254 | cocolog 3.16.0: the pins moved, two places of the library kept as 2.x answered them, the reader 168 | cocolog 2.14.1 to 3.16.0 (a major: [] apart from '[]', the text builtins and memberchk/2 as swipl's), Cicili and ZiguratIP to their masters; the chain found a cache that keyed a term by atom_concat/3 (ccl_cache_key/3) and a type's key that asked memberchk/2 of an open list (cpp_q_in/2); the reader 168, since 2.x's summaries spell the subscript operator `[]', the empty list under 3.x; cocolog 3.0.3 meets 0.240's store finding, measured here | flow GREEN (105 s); over libc++ 18 all nine GREEN (the cross gate 344 s, the library read 491 s, the C++ gate 1384 s, 852 run fixtures ok); the C++ gates over 21 and 22 GREEN (1429 s and 1409 s; 860 and 863 ok); a commit and a push |
 
 ## M5 — the C++ mode
 
@@ -17029,3 +17030,70 @@ proof gates GREEN (6 s, 15 s, 32 s, 4 s, 0 s; the driver gate's `--version` chec
 and its gates are 0.252's entry's.
 
 The module 0.253. The lowering 148 and the reader 167 stay: no library change.
+
+## 0.254 — cocolog 3.16.0: the pins moved, two places of the library kept as 2.x answered them, the reader 168
+
+**0.254: the neighbours to their masters, on the owner's word ("Pull repos", then "Yes" to the chain over them): cocolog
+2.14.1 to 3.16.0, a major; Cicili and ZiguratIP to commits that change nothing here. The first chain over 3.16.0 was RED
+at the cross gate's C++ part: 3.0.0 made two of 2.x's quiet answers swipl's -- a term given to `atom_concat/3` as text
+raises, and `memberchk/2` binds an open list -- and the library leaned on each once. Both places now answer as they did.
+The reader is 168, since a summary or a store that 2.x wrote reads back otherwise under 3.x. cocolog 3.0.3 meets 0.240's
+store finding, measured here. The chain GREEN over fresh HOMEs; the pins moved.**
+
+THE NEIGHBOURS:
+
+- cocolog `1e48013` (2.14.1) to `e965a6e` (3.16.0), 47 commits; Cicili `9b825b7` to `3ba2ca4` (its `.gitignore`);
+  ZiguratIP `90d99b8` to `5f058e7` (its install on a Mac). cocolog built again: `make` 171 s (peak 1698 MB), `make
+  schema` 28 s, `make modules` 48 s; both modules of cicilang built again.
+- What 3.x changes, by cocolog's own commits: 2.16.1, `atom_length/2` and `string_length/2` raise for a term that is no
+  text; 3.0.0 (a major: "a program that worked can stop working"), `[]` is no atom and is not `'[]'`, the text builtins
+  raise swipl 9.0.4's errors for a compound or a list, `memberchk/2` binds an open tail and raises for a non-list, an
+  error carries its context; 3.0.3 and 3.0.4, the store's lock; 3.1.0, a program's clause for a system predicate takes
+  it over, a syntax error skips its clause; 3.2.0, the reader as swipl's; 3.4.0 to 3.7.0, the loads; 3.10.0, syntax
+  errors; 3.12.0, `f()`; 3.13.0, grammar rules as swipl's `boot/dcg.pl`; 3.14.0, `term_expansion/2` and
+  `goal_expansion/2` at a load; 3.15.0, `clause/2` and `retractall/1`; 3.16.0, `library(stream)`'s errors.
+- Searched before the chain: the library's `'[]'` is the subscript operator's name, quoted alike wherever it stands; it
+  defines no `term_expansion/2` or `goal_expansion/2`, sets no `double_quotes`, and gives `atom_concat/3` and
+  `sub_atom/5` no list.
+
+WHAT THE CHAIN FOUND, AND WHAT 0.254 DOES:
+
+- Over 3.16.0 the toolchain check (strict, the new pins), the flow gate (118 s, its one finding), the reader, compile,
+  driver and objects gates and the proof were GREEN at once; the cross gate RED, ten of its C++ part's fixtures failed.
+  `sh test/why.sh stdvector.cpp` named the first: `ck_has_own_array/1` asks the named cache about a union whose tag is a
+  template-id, libc++ 18's `__union<_DestructibleTrait, _Index>`, and `ccl_cached_named/4` made its key by
+  `atom_concat('$ck_oa:', tmpl('__union', ...), K)` -- under 2.x the term's writing, under 3.x `type_error(atomic, T)`.
+  NOW a name that is no atom is keyed by its writing (`ccl_cache_key/3`, `term_to_atom/2`): the key 2.x made.
+- Eight of the ten built then; `ldouble.cpp` and `cogenerator.cpp` stopped on
+  `undeclared('...op.conv_const_volatile_bool.0')`. `cpp_cv_key/2` asked `memberchk(const, Q)` and `memberchk(volatile,
+  Q)` of a conversion type whose qualifiers were unbound, `operator bool` looked up: 2.x failed both, the key
+  `conv_bool`, the declaration's; 3.x binds the open list twice. NOW a key's qualifiers are asked without binding the
+  list (`cpp_q_in/2`, in `cpp_cv_key/2` and a pointer's key). All ten print their `.expect`.
+- Then over libc++ 18 on a fresh HOME the library read GREEN (496 s), the C++ gate GREEN (1414 s, 852 ok, 11 skipped by
+  their needs, none failed) and the cross gate GREEN (349 s): the two places were all that 3.x reached.
+- A SUMMARY OR A STORE THAT 2.x WROTE READS BACK OTHERWISE: under 2.x `[]` and `'[]'` were one atom, written `[]`, and
+  libc++ 18's summaries on this box spelled the subscript operator `operator([])` 5666 times in 440 files; under 3.16.0
+  `t(operator([]))` reads back with the empty list, no atom, and a user's warm cache would have lost `operator[]`. The
+  chain cannot show it (fresh HOMEs), nor the CI (no cache). NOW the reader is 168: every store and every summary of 2.x
+  starts afresh.
+- THE STORE'S WRITERS: cocolog 3.0.3 (`348a036`, which names 0.240's finding) and 3.0.4 (`3f3356e`) meet its three
+  requests. The owner had the finding sent to cocolog's session, which takes no peer message, by a task fired into it
+  (at 0.253, 18:12 UTC); its reply came within the minute. Measured here on 3.16.0 with 0.240's script: one, three, four
+  and six writers at once each had their 40 rows back, and the reader found 40 for each, in 0.07 to 0.22 s; with one
+  process holding the store, a second with `COCOLOG_STORE_WAIT=0` exited 1 with `cannot open the embedded store at DIR
+  -- the store is in use by process N`, and a third waited (`... in use by process N; waiting for it`) and read the
+  holder's row after it. `bin/cicilang`'s lock stays: harmless.
+
+MEASUREMENTS: the chain of 0.254 over its work tree, cocolog 3.16.0 and fresh HOMEs: the toolchain check strict, then
+over libc++ 18 all nine GREEN -- the flow gate 105 s, reader 2 s, compile 30 s, driver 39 s, objects 5 s, proof, the
+cross gate 344 s, the library read 491 s, the C++ gate 1384 s (852 ok, 11 skipped by their needs); over libc++ 21 the
+library read 445 s and the C++ gate 1429 s (860 ok, 3 skipped); over libc++ 22 432 s and 1409 s (863 ok, 0 skipped). The
+flow gate after each library edit: 108 s and 104 s.
+
+- `test/toolchain.pins` (cocolog `e965a6e` 3.16.0, Cicili `3ba2ca4`, ZiguratIP `5f058e7`), `library/ccl_infer.pl`
+  (`ccl_cached_named/4`, `ccl_cache_key/3`), `library/ccl_cpp_overload.pl` (`cpp_cv_key/2`, `cpp_q_in/2`),
+  `library/ccl_cpp_deduce.pl` (`cpp_type_key/2`'s pointer), `library/ccl_syntax.pl` (the reader 168). `RULES.md`: the
+  pins, a key's qualifiers, the named caches, the Findings (cocolog 3.16.0, the store), What runs. `CLAUDE.md`: the
+  versions.
+
+The module 0.254, the reader 168. The lowering 148 stays: the IR is what 2.x's was.

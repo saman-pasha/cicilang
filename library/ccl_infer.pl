@@ -45,11 +45,15 @@ ccl_cached(Cache, Key, Value, Goal) :-
 %% copies what it answers); the names found are an index of atoms
 ccl_cached_named(Prefix, Name, Value, Goal) :-
     ccl_cache_index(Prefix, IK), nb_getval(IK, Names),
-    (   memberchk(Name, Names), atom_concat(Prefix, Name, K), nb_getval(K, V0), V0 \== '$ccl_recheck' -> V0 \== '$ccl_miss', Value = V0
+    (   memberchk(Name, Names), ccl_cache_key(Prefix, Name, K), nb_getval(K, V0), V0 \== '$ccl_recheck' -> V0 \== '$ccl_miss', Value = V0
     ;   atom(Name), var(Value), ccl_caches_misses(Prefix)
     ->  atom_concat(Prefix, Name, K), ( memberchk(Name, Names) -> Names1 = Names ; Names1 = [Name|Names] ),
         ( call(Goal) -> nb_setval(K, Value), nb_setval(IK, Names1) ; nb_setval(K, '$ccl_miss'), nb_setval(IK, Names1), fail )
-    ;   once(Goal), atom_concat(Prefix, Name, K), nb_setval(K, Value), ( memberchk(Name, Names) -> true ; nb_setval(IK, [Name|Names]) ) ).   % one answer, as a hit gives (0.178)
+    ;   once(Goal), ccl_cache_key(Prefix, Name, K), nb_setval(K, Value), ( memberchk(Name, Names) -> true ; nb_setval(IK, [Name|Names]) ) ).   % one answer, as a hit gives (0.178)
+%% THE KEY OF A NAME THAT IS NO ATOM (0.254) is the prefix and the name's writing, the key cocolog 2.x made of a compound
+%% given to atom_concat/3 as text; 3.0.0 raises type_error(atomic, T) there, as swipl does -- the check's own-array cache
+%% (ck_has_own_array/1) is asked of a union whose tag is a template-id, libc++ 18's `__union<_DestructibleTrait, _Index>'
+ccl_cache_key(Prefix, Name, K) :- ( atomic(Name) -> atom_concat(Prefix, Name, K) ; term_to_atom(Name, T), atom_concat(Prefix, T, K) ).
 %% THE INDEX OF A NAMED CACHE IS A GLOBAL THAT NO NAME'S OWN IS (0.194): '$ccl_cidx' and the prefix, where the prefix and
 %% any name begin with the prefix. It was the prefix and `names', which is the global of the name `names' too: the first
 %% ask of that name wrote its value there and the index over it, and every later ask answered the index, a list of names
