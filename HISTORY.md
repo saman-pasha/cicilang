@@ -249,6 +249,7 @@ One row per step, in version order: the step's title, what it did and its gate n
 | 0.252 | what the CI's runs of 0.251 found: an abstract base destroyed whole, temporaries a deduction left behind | the night's run on 0.251: the Mac's C++ job 844 ok and 3 FAIL, each named by its crash report -- `stdfuture.cpp` and `stdpmr.cpp` SIGILL in libc++'s complete-object destructor of an abstract class, which a Mach-O library makes a trap (a base sub-object now destroyed by the base-object destructor, D2; `absbase.cpp`), `stdoptional4.cpp` SIGABRT under `operator delete` -- and the full job's first RED, `stdoptional4.cpp` exit 139 on Linux (temporaries of a member's `auto` deduction left in the caller: now deduced unevaluated; `autotemp.cpp`); two runs by hand lost their runner; lowering 148 | flow GREEN (116 s), the C++ gates GREEN over libc++ 18, 21 and 22 (1349 s, 1330 s, 1389 s; 852, 860 and 863 run fixtures ok), the reader, compile, driver, objects, proof and cross gates GREEN (2 s, 33 s, 42 s, 4 s, 0 s, 231 s); a commit and a push |
 | 0.253 | the CI's runs of 0.252: every job GREEN, the Mac's C++ job's first | the smoke run GREEN on the three machines; the C++ job on the Intel Mac GREEN, its first (849 run fixtures ok, 14 skipped by their needs; `stdfuture`, `stdoptional4`, `stdpmr`, `absbase` and `autotemp` ok); the full job GREEN (852, 860 and 863 run fixtures ok over libc++ 18, 21 and 22); Not done's item of the C++ job its limits alone; a record step, no library change | the reader, compile, driver, objects and proof gates GREEN (6 s, 15 s, 32 s, 4 s, 0 s); the library is 0.252's; a commit and a push |
 | 0.254 | cocolog 3.16.0: the pins moved, two places of the library kept as 2.x answered them, the reader 168 | cocolog 2.14.1 to 3.16.0 (a major: [] apart from '[]', the text builtins and memberchk/2 as swipl's), Cicili and ZiguratIP to their masters; the chain found a cache that keyed a term by atom_concat/3 (ccl_cache_key/3) and a type's key that asked memberchk/2 of an open list (cpp_q_in/2); the reader 168, since 2.x's summaries spell the subscript operator `[]', the empty list under 3.x; cocolog 3.0.3 meets 0.240's store finding, measured here | flow GREEN (105 s); over libc++ 18 all nine GREEN (the cross gate 344 s, the library read 491 s, the C++ gate 1384 s, 852 run fixtures ok); the C++ gates over 21 and 22 GREEN (1429 s and 1409 s; 860 and 863 ok); a commit and a push |
+| 0.255 | cocolog 3.18.0: the pins moved, the chain GREEN with no change to the library | cocolog 3.16.0 to 3.18.0 (3.17.0: stream counters and encodings, a load that warns of singletons and of split clauses; 3.18.0: listing/1 and portray_clause/1 as swipl's); the library sets no encoding, calls neither, and is loaded as a library, muted; the chain GREEN with no change; the record of 0.254's CI runs, every job GREEN, and of the full job's skips, 11 and not 12 | flow GREEN (152 s); over libc++ 18 all nine GREEN (the cross gate 498 s, the library read 738 s, the C++ gate 2113 s, 852 run fixtures ok); the C++ gates over 21 and 22 GREEN (2034 s and 2056 s; 860 and 863 ok); the times this host's, an A/B of 3.16.0 against 3.18.0 here; the toolchain check strict with the pins moved, the small gates over the module 0.255; a commit and a push |
 
 ## M5 — the C++ mode
 
@@ -17097,3 +17098,79 @@ flow gate after each library edit: 108 s and 104 s.
   versions.
 
 The module 0.254, the reader 168. The lowering 148 stays: the IR is what 2.x's was.
+
+## 0.255 — cocolog 3.18.0: the pins moved, the chain GREEN with no change to the library
+
+**0.255: cocolog to its master on the owner's word ("Pull repos and run the chain over 3.18.0", then "move the pins,
+commit and push when all GREEN"): 3.16.0 to 3.18.0, six commits; Cicili and ZiguratIP had none. The chain over it GREEN
+with no change to the library, over fresh HOMEs; the pins moved. And the record of the CI's runs of 0.254, the first
+over cocolog 3.x: every job GREEN.**
+
+THE NEIGHBOURS:
+
+- cocolog `e965a6e` (3.16.0) to `914e98a`: 3.17.0 (`3d8f2d8`), `library(stream)`'s counters (`character_count/2`,
+  `line_count/2`, `line_position/2`, `is_stream/1`, `stream_position_data/3`) and its encodings (`iso_latin_1`, `octet`
+  and `ascii` applied to a text read and write, UTF-8 the default), and a load that warns as swipl's of singleton
+  variables and of a predicate's clauses not together; 3.18.0 (`4ed4e55`), `listing/1` and `portray_clause/1` laid out
+  as swipl's; then `portray_clause/1`'s mode row in `library(flow)`'s chart, a thread's stack of 8 MB on macOS, a
+  banner, and a review of `library(ray)`. Built again: `make` 249 s (peak 1721 MB), `make schema` 42 s, `make modules`
+  69 s; both modules of cicilang in both checkouts (`module/build-llvm.sh` takes `LLVM=/usr/lib/llvm-18` on this box).
+- cocolog's master moved on while the chain ran -- 3.19.0 (`0979598`), 3.19.1 (`b35b25b`), 3.19.2 (`81579bd`), each told
+  by cocolog's session in a task fired into this one: single-sided rules, every encoding swipl names, swipl's second
+  block of singleton warnings, a qualified clause that is no clause refused. The pins take what the chain ran,
+  `914e98a`.
+- Searched before the chain: the library sets no stream's encoding and calls neither `listing/1` nor `portray_clause/1`.
+  Its files are loaded as a library, and cocolog loads a library with its store muted (`lb_load_again`,
+  `coco_store_mute`): a muted load warns of no singleton. The flow gate holds a predicate's clauses together since
+  0.160. A C program and a C++ program built and ran with no line but their own.
+
+WHAT THE CHAIN FOUND: nothing to change. Every gate GREEN at its first run, no fixture failed, and no gate printed a
+load warning: the two `warning:` lines are the `#warning` fixture's and clang's note in the proof, as over 3.16.0. THE
+CACHES OF 3.16.0 SERVE 3.18.0: a C store that 3.16.0 wrote (its stamp 168.148) built a program that 3.18.0 then linked
+and ran; 3.16.0's summaries of `stdvector.cpp`'s headers -- the `.ast.pl` files among them, which the desugaring loads
+by `ensure_loaded/1`, unmuted, their variables written `_G` and so passed over by the singleton check -- built it under
+3.18.0 in 5.2 s with the IR cache off, its `.expect` printed and nothing on stderr; and a C file with a `.pl` macro file
+(`test/c/macros.c`) printed nothing on stderr. So the reader stays 168.
+
+THE CI OF 0.254 (`34045dc`), the first over cocolog 3.x, the neighbours cloned at the pins and built by cocolog's own
+install scripts:
+
+- The smoke run (41350104448): GREEN on the three machines -- Linux (setup 11:13, gates 3:42), Apple silicon (11:37,
+  4:40), the Intel Mac (22:27, 12:22).
+- The C++ job on the Intel Mac (41350130505, by hand): GREEN. The setup in 25:26 (ZiguratIP's build 16 minutes of it);
+  the library read GREEN in 1686 s over three lanes; the C++ gate GREEN in 4933 s, 849 run fixtures ok and 14 skipped by
+  their needs; the step in 1:50:20 (0.252's: 1:36:26).
+- The full job on Linux (41350134090, by hand): GREEN. The setup in 11:54, the gates in 2:23:39 (0.252's: 2:18:21) --
+  over libc++ 18 all nine (the flow gate 150 s, the cross gate 354 s, the library read 850 s, the C++ gate 1862 s: 852
+  run fixtures ok, 11 skipped by their needs), over 21 the library read 745 s and the C++ gate 1895 s (860 ok, 3
+  skipped), over 22 749 s and 1933 s (863 ok, none skipped).
+- The nights' runs of 2 and 3 November on 0.254 (41424346934, 41615311497) GREEN, and the owner's `b8f2b4a` (the Apache
+  License 2.0, `LICENSE` alone) GREEN by its smoke run (41618819628) and the night's of 4 November (41809933467).
+- A CORRECTION: `RULES.md`'s CI bullet gave the full job's runs on 0.251 and on 0.252 "12 skipped by their needs"; 11
+  fixtures skip there, as the gate's own line says (`-- 11 fixture(s) skipped`); the job's twelfth `skip` line is the
+  driver gate's Mac-only `-g` check. 849 ok, one RED and 11 skipped are 0.251's 861 fixtures; 852 and 11, 0.252's 863.
+- The report to cocolog's session, by a task fired into it (08:30 UTC, 5 November): the chain and the CI over 3.16.0,
+  the two places of 0.254, the store measured, and one note for its 3.0.0 text, that a term 2.x wrote as text holding
+  `'[]'` reads back as `[]` under 3.x -- its `STATUS.md` names the rest of what 0.254 met.
+
+MEASUREMENTS: the chain of 0.255 over its work tree (the library of 0.254), cocolog 3.18.0 and fresh HOMEs, the pins of
+0.254 (the toolchain check GREEN, cocolog 2 off its pin): over libc++ 18 all nine GREEN -- the flow gate 152 s, reader
+4 s, compile 42 s, driver 51 s, objects 7 s, proof, the cross gate 498 s, the library read 738 s, the C++ gate 2113 s
+(852 ok, 11 skipped by their needs); over libc++ 21 the library read 720 s and the C++ gate 2034 s (860 ok, 3 skipped);
+over libc++ 22 696 s and 2056 s (863 ok, 0 skipped); in 6245 s, its peak 4359 MB. THE TIMES ARE 30 TO 62 % ABOVE 0.254's
+CHAIN (the flow gate 105 s, compile 30 s, driver 39 s, the cross gate 344 s, the library reads 491, 445 and 432 s, the
+C++ gates 1384, 1429 and 1409 s), AND THE HOST MADE THEM SO, NOT COCOLOG: this container started again on 5 November on
+another machine (an Intel Xeon at 2.80 GHz, four CPUs), and on it cocolog 3.16.0, built in a worktree of its own (`make`
+and `make modules`; `make schema` writes ZiguratIP's shared home and was left out) with cicilang's two modules built
+against it, runs as 3.18.0 does, the runs alternated (`ab318.sh`): the compile gate over a fresh HOME 40.2 s and 41.6 s;
+`stdvector.cpp` built cold, its headers read, 28.6 s and 29.2 s against 26.3 s and 31.8 s; a C program's build over a
+warm HOME 193 to 242 ms against 186 to 274 ms (one run 649 ms); a consult of 18001 clauses 70 to 101 ms against 72 to
+86 ms; 18 MB written through `format/3` 519 to 697 ms against 519 to 562 ms. The suspect before the A/B was 3.17.0's: a
+first load builds the reload table that a re-read alone built before (`coco_consult_owned` given `seen`), for the
+warning of clauses not together; its cost does not show. With the pins moved, the toolchain check strict GREEN, and over
+the module 0.255 the reader, compile, driver and objects gates and the proof GREEN (4 s, 45 s, 54 s, 7 s, 1 s).
+
+- `test/toolchain.pins` (cocolog `914e98a` 3.18.0). `RULES.md`: the pins, the CI job (0.254's runs, the correction), the
+  Findings (cocolog 3.18.0), What runs. `CLAUDE.md`: the versions.
+
+The module 0.255. The reader 168 and the lowering 148 stay: what a read holds and what the lowering emits are 3.16.0's.
