@@ -71,12 +71,12 @@ that changes a rule edits the rule here, in its topic, and writes its entry in `
   `llvm@N`, libc++'s library under the keg's `lib/c++`, the hints are `brew install`, the SDK is a line of its own (the
   first of `ccl_sdk_dirs/1`'s directories with a `stdio.h`, with macOS's version and the SDK's for Apple's clang), and
   the cross gate is a skip line. (0.223, 0.224)
-- THE PINS (0.223). `test/toolchain.pins` holds the neighbours' commits and versions -- cocolog 3.18.0 `914e98a`, Cicili
+- THE PINS (0.223). `test/toolchain.pins` holds the neighbours' commits and versions -- cocolog 3.19.2 `81579bd`, Cicili
   3.3.0 `3ba2ca4`, ZiguratIP `5f058e7` -- the embedded LLVM's major version (18) and the libc++ trees the C++ gates read
   (18, 21 and 22, the third since 0.227). A pin moves only on the owner's word, in the step that runs the chain over it:
   cocolog's moved at 0.226, from 2.13.0 `7ff2a0d`, at 0.254, from 2.14.1 `1e48013`, beside Cicili's (from `9b825b7`, its
-  `.gitignore` alone) and ZiguratIP's (from `90d99b8`, its Mac install alone), and at 0.255, from 3.16.0 `e965a6e` (the
-  Findings). (0.223, 0.226, 0.227, 0.254, 0.255)
+  `.gitignore` alone) and ZiguratIP's (from `90d99b8`, its Mac install alone), at 0.255, from 3.16.0 `e965a6e`, and at
+  0.256, from 3.18.0 `914e98a` (the Findings). (0.223, 0.226, 0.227, 0.254, 0.255, 0.256)
 - THE CI JOB (0.223). `.github/workflows/gates.yml` runs `test/ci.sh` on GitHub's machines: `smoke` on each push to
   main and each pull request into it that changes more than the documents at the top of the tree (the toolchain, then
   the flow, reader, compile, driver and objects gates and the proof), since 0.224 on two machines and since 0.246 on
@@ -132,8 +132,9 @@ that changes a rule edits the rule here, in its topic, and writes its entry in `
   and the gates in 2:23:39 -- over libc++ 18 the flow gate 150 s, the cross gate 354 s, the library read 850 s and the
   C++ gate 1862 s (852 ok, 11 skipped), over 21 the library read 745 s and the C++ gate 1895 s (860 ok, 3 skipped), over
   22 749 s and 1933 s (863 ok, none skipped). Until 0.255 this bullet gave the runs on 0.251 and on 0.252 twelve skips:
-  the job's twelfth `skip` line is the driver gate's Mac-only `-g` check. (0.223, 0.224, 0.246, 0.249, 0.252, 0.253,
-  0.255)
+  the job's twelfth `skip` line is the driver gate's Mac-only `-g` check. ON 0.255 (42019054827, by hand) the full job
+  waited 50 minutes for a runner, which the night's run held, and was in its gates at 0.256's commit. (0.223, 0.224,
+  0.246, 0.249, 0.252, 0.253, 0.255, 0.256)
 - A FAILED UPLOAD LOSES THE LOGS ONLY, AND A MAC'S CRASH REPORTS ARE KEPT (0.251): each job's `Keep the logs` step is
   `continue-on-error`, so the gates' step alone decides a job's verdict -- the Intel Mac's smoke job on 0.250
   (41210431407) ran its six gates GREEN (`GREEN: ci smoke`) and was RED by its upload, `Failed to CreateArtifact: Unable
@@ -226,8 +227,11 @@ that changes a rule edits the rule here, in its topic, and writes its entry in `
   RUNS OF 0.254 (`34045dc`), the first over cocolog 3.x: the push's smoke run (41350104448) GREEN on the three machines
   -- Linux (setup 11:13, gates 3:42), Apple silicon (11:37, 4:40), the Intel Mac (22:27, 12:22); the C++ job
   (41350130505, by hand) GREEN: the setup in 25:26 (ZiguratIP's build 16 minutes of it), the library read in 1686 s over
-  three lanes, the C++ gate in 4933 s, 849 run fixtures ok and 14 skipped by their needs, the step in 1:50:20. (0.224,
-  0.225, 0.226, 0.246, 0.247, 0.248, 0.249, 0.250, 0.251, 0.252, 0.253, 0.255)
+  three lanes, the C++ gate in 4933 s, 849 run fixtures ok and 14 skipped by their needs, the step in 1:50:20. THE RUNS
+  OF 0.255 (`d4b56ed`), over cocolog 3.18.0: the push's smoke run (42019010994) GREEN on the three machines -- Linux
+  (setup 9:16, gates 3:37), Apple silicon (8:13, 4:21), the Intel Mac (24:44, 10:22); the C++ job (42019049479, by
+  hand), its setup in 39:13, was in its gates at 0.256's commit. (0.224, 0.225, 0.226, 0.246, 0.247, 0.248, 0.249,
+  0.250, 0.251, 0.252, 0.253, 0.255, 0.256)
 
 ### The chain
 
@@ -10485,7 +10489,24 @@ The namespaces' rules, the program's and the library's, are `library/ccl_cpp_nam
   at 2882 MB, 1.8.38 at 591 MB. After a cocolog update the modules are rebuilt (`module/build.sh`,
   `module/build-llvm.sh`, and cocolog's `os` and `process` modules); 1.8.36 to 1.8.41 left the SDK's ABI unchanged.
   (0.46, 0.112, 0.114)
-- cocolog is at 3.18.0 since 0.255, pulled at the owner's word ("Pull repos and run the chain over 3.18.0", then "move
+- cocolog is at 3.19.2 since 0.256, pulled at the owner's word ("Pull repos and run the chain over 3.19.2", then "move
+  the pins, commit and push when all GREEN") -- master `81579bd`, three commits past 3.18.0, over ZiguratIP 1.0.1
+  (`5f058e7`) beside Cicili 3.3.0 (`3ba2ca4`), neither moved. 3.19.0: `Head => Body` and `Head, Guard => Body` are
+  swipl's single-sided rules, where a rule was `Head :- !, Body`; `library(stream)` applies every encoding swipl names
+  (UTF-16 in either order, `wchar_t`, a byte-order mark written and read) and adds `set_stream/2`, `byte_count/2` and
+  the `encoding` and `bom` properties; `write_term/2` honours `spacing(next_argument)` and `priority(P)`; `foreach/2`
+  works, and `library(lists)`' second `ord_intersection/3` and `ord_subtract/3` are gone. 3.19.1: A LOAD PRINTS SWIPL'S
+  SECOND BLOCK OF WARNINGS -- a singleton-marked variable that appears more than once, a singleton in a branch or under
+  `\+`, a test that is always false. 3.19.2: a load and `assertz/1` refuse a qualified clause that is no clause.
+  Searched first: no `=>` stands outside a quoted atom, the library defines none of those predicates, gives
+  `write_term/2` no option and calls no `set_stream/2`; the summaries' `.ast.pl` files, which `ensure_loaded/1` loads
+  unmuted, hold no variable at all (the 736 files that the chain wrote over the three trees, 2280897 clauses, and the
+  probes' two; every `_X` name in them is a quoted atom, libc++'s own), so no load warning can fire there; C and C++
+  builds, cold and warm, and a C file with a `.pl` macro file printed nothing on stderr. The chain over it GREEN with no
+  change to the library, over fresh HOMEs (What runs). A C store and C++ summaries that 3.18.0 wrote serve 3.19.2: the
+  same programs, and nothing on stderr. The update took `make` 249 s (peak 1741 MB), `make schema` 36 s and
+  `make modules` 61 s; both modules were built again. The reader stays 168 and the lowering 148. (0.256)
+- cocolog was at 3.18.0 at 0.255, pulled at the owner's word ("Pull repos and run the chain over 3.18.0", then "move
   the pins, commit and push when all GREEN") -- master `914e98a`, six commits past 3.16.0, over ZiguratIP 1.0.1
   (`5f058e7`) beside Cicili 3.3.0 (`3ba2ca4`), neither moved. 3.17.0: `library(stream)`'s counters (`character_count/2`,
   `line_count/2`, `line_position/2`, `is_stream/1`, `stream_position_data/3`) and its encodings (`iso_latin_1`, `octet`
@@ -11255,9 +11276,15 @@ The namespaces' rules, the program's and the library's, are `library/ccl_cpp_nam
 - Ubuntu 24.04 on x86_64 (clang and LLVM 18, glibc, libc++ 18, 21 and 22) is a host since 0.87. Every gate but the C++
   one is GREEN there since 0.93, and all seven since 0.95. Every step from 0.93 on is gated there, but the save points
   0.112, 0.113, 0.117, 0.122 to 0.125, 0.130, 0.131 and 0.143 (0.143's C gates and cross gate ran, its libc++ gates did
-  not; the others were gated by the steps after them). The last full run is 0.255's chain, over its work tree (the
-  library of 0.254) and cocolog 3.18.0 (the Findings), its two modules built over it, over fresh HOMEs: the toolchain
-  check against 0.254's pins (cocolog 2 off them), then over libc++ 18 all nine GREEN (the flow gate's one finding in
+  not; the others were gated by the steps after them). The last full run is 0.256's chain, over its work tree (the
+  library of 0.255) and cocolog 3.19.2 (the Findings), its two modules built over it, over fresh HOMEs: the toolchain
+  check against 0.255's pins (cocolog 2 off them), then over libc++ 18 all nine GREEN (the flow gate's one finding in
+  157 s, reader 4 s, compile 42 s, driver 52 s, objects 7 s, proof, the cross gate in 497 s with its C++ part for
+  aarch64, the library read in 731 s, the C++ gate in 1942 s with 852 fixtures ok and 11 skipped by their needs); over
+  libc++ 21 the library read (677 s) and the C++ gate (1942 s, 860 ok, 3 skipped) GREEN, and over libc++ 22 the library
+  read (673 s) and the C++ gate (2147 s, 863 ok, 0 skipped) GREEN; with the pins moved, the toolchain check strict
+  GREEN. 0.255's chain, over cocolog 3.18.0, its work tree the library of 0.254: the toolchain check against 0.254's
+  pins (cocolog 2 off them), then over libc++ 18 all nine GREEN (the flow gate's one finding in
   152 s, reader 4 s, compile 42 s, driver 51 s, objects 7 s, proof, the cross gate in 498 s with its C++ part for
   aarch64, the library read in 738 s, the C++ gate in 2113 s with 852 fixtures ok and 11 skipped by their needs); over
   libc++ 21 the library read (720 s) and the C++ gate (2034 s, 860 ok, 3 skipped) GREEN, and over libc++ 22 the library
@@ -11278,8 +11305,8 @@ The namespaces' rules, the program's and the library's, are `library/ccl_cpp_nam
   gate (1427 s, 839 of 839 ok, none skipped) GREEN -- the C gates do not read libc++. The headers' reads, summed, took
   1949 s over 226 over libc++ 18, 1679 s over 226 over 21 and 1693 s over 226 over 22; the fixtures' builds 4500 s over
   829, 4624 s over 837 and 4737 s over 839 (0.226's: 1997 s, 1723 s, 4560 s, 4728 s). The chains of 0.165 to 0.203, of
-  0.205 to 0.219, of 0.221, of 0.223, of 0.226, of 0.227, of 0.254 and of 0.255 are in HISTORY.md, 0.166 to 0.204, 0.206
-  to 0.220, 0.222, 0.223, 0.226, 0.227, 0.254 and 0.255. Three libc++ passes are one gate (0.227):
+  0.205 to 0.219, of 0.221, of 0.223, of 0.226, of 0.227, of 0.254, of 0.255 and of 0.256 are in HISTORY.md, 0.166 to
+  0.204, 0.206 to 0.220, 0.222, 0.223, 0.226, 0.227, 0.254, 0.255 and 0.256. Three libc++ passes are one gate (0.227):
   `LLVM=/usr/lib/llvm-18`,
   `LLVM=/usr/lib/llvm-21` and
   `LLVM=/usr/lib/llvm-22` choose the tree the chain reads and links, apt's one and the two unpacked beside it (the

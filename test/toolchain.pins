@@ -1,10 +1,10 @@
-# test/toolchain.pins -- the toolchain the gates were last GREEN on (0.255). test/toolchain.sh checks the box against it,
+# test/toolchain.pins -- the toolchain the gates were last GREEN on (0.256). test/toolchain.sh checks the box against it,
 # and test/ci.sh -- the CI job's steps, .github/workflows/gates.yml -- clones the neighbours at these commits. A pin moves
 # only on the owner's word, in the step that runs the chain over it (CLAUDE.md: the neighbours, and the versions).
 CICILI_COMMIT=3ba2ca4
 CICILI_VERSION=3.3.0
-COCOLOG_COMMIT=914e98a
-COCOLOG_VERSION=3.18.0
+COCOLOG_COMMIT=81579bd
+COCOLOG_VERSION=3.19.2
 ZIGURATIP_COMMIT=5f058e7
 # the embedded LLVM (module/build-llvm.sh, over llvm-c) and the C gates' clang
 LLVM_MAJOR=18

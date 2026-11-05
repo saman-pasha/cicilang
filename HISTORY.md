@@ -250,6 +250,7 @@ One row per step, in version order: the step's title, what it did and its gate n
 | 0.253 | the CI's runs of 0.252: every job GREEN, the Mac's C++ job's first | the smoke run GREEN on the three machines; the C++ job on the Intel Mac GREEN, its first (849 run fixtures ok, 14 skipped by their needs; `stdfuture`, `stdoptional4`, `stdpmr`, `absbase` and `autotemp` ok); the full job GREEN (852, 860 and 863 run fixtures ok over libc++ 18, 21 and 22); Not done's item of the C++ job its limits alone; a record step, no library change | the reader, compile, driver, objects and proof gates GREEN (6 s, 15 s, 32 s, 4 s, 0 s); the library is 0.252's; a commit and a push |
 | 0.254 | cocolog 3.16.0: the pins moved, two places of the library kept as 2.x answered them, the reader 168 | cocolog 2.14.1 to 3.16.0 (a major: [] apart from '[]', the text builtins and memberchk/2 as swipl's), Cicili and ZiguratIP to their masters; the chain found a cache that keyed a term by atom_concat/3 (ccl_cache_key/3) and a type's key that asked memberchk/2 of an open list (cpp_q_in/2); the reader 168, since 2.x's summaries spell the subscript operator `[]', the empty list under 3.x; cocolog 3.0.3 meets 0.240's store finding, measured here | flow GREEN (105 s); over libc++ 18 all nine GREEN (the cross gate 344 s, the library read 491 s, the C++ gate 1384 s, 852 run fixtures ok); the C++ gates over 21 and 22 GREEN (1429 s and 1409 s; 860 and 863 ok); a commit and a push |
 | 0.255 | cocolog 3.18.0: the pins moved, the chain GREEN with no change to the library | cocolog 3.16.0 to 3.18.0 (3.17.0: stream counters and encodings, a load that warns of singletons and of split clauses; 3.18.0: listing/1 and portray_clause/1 as swipl's); the library sets no encoding, calls neither, and is loaded as a library, muted; the chain GREEN with no change; the record of 0.254's CI runs, every job GREEN, and of the full job's skips, 11 and not 12 | flow GREEN (152 s); over libc++ 18 all nine GREEN (the cross gate 498 s, the library read 738 s, the C++ gate 2113 s, 852 run fixtures ok); the C++ gates over 21 and 22 GREEN (2034 s and 2056 s; 860 and 863 ok); the times this host's, an A/B of 3.16.0 against 3.18.0 here; the toolchain check strict with the pins moved, the small gates over the module 0.255; a commit and a push |
+| 0.256 | cocolog 3.19.2: the pins moved, the chain GREEN with no change to the library | cocolog 3.18.0 to 3.19.2 (3.19.0: single-sided rules, every stream encoding, set_stream/2; 3.19.1: swipl's second block of load warnings; 3.19.2: a qualified clause that is no clause refused); the summaries' .ast.pl files hold no variable, so no load warning fires; the chain GREEN with no change; the record of 0.255's CI runs | flow GREEN (157 s); over libc++ 18 all nine GREEN (the cross gate 497 s, the library read 731 s, the C++ gate 1942 s, 852 run fixtures ok); the C++ gates over 21 and 22 GREEN (1942 s and 2147 s; 860 and 863 ok); the toolchain check strict with the pins moved, the small gates over the module 0.256; a commit and a push |
 
 ## M5 — the C++ mode
 
@@ -17174,3 +17175,66 @@ the module 0.255 the reader, compile, driver and objects gates and the proof GRE
   Findings (cocolog 3.18.0), What runs. `CLAUDE.md`: the versions.
 
 The module 0.255. The reader 168 and the lowering 148 stay: what a read holds and what the lowering emits are 3.16.0's.
+
+## 0.256 — cocolog 3.19.2: the pins moved, the chain GREEN with no change to the library
+
+**0.256: cocolog to its master on the owner's word ("Pull repos and run the chain over 3.19.2", then "move the pins,
+commit and push when all GREEN"): 3.18.0 to 3.19.2, three commits; Cicili and ZiguratIP had none. The chain over it
+GREEN with no change to the library, over fresh HOMEs; the pins moved. And the record of the CI's runs of 0.255.**
+
+THE NEIGHBOURS:
+
+- cocolog `914e98a` (3.18.0) to `81579bd`: 3.19.0 (`0979598`), `Head => Body` and `Head, Guard => Body` as swipl's
+  single-sided rules (the head matches without binding the call, and a call no rule matches raises
+  `existence_error(matching_rule, Goal)`; through 3.18.0 a rule was `Head :- !, Body`), every encoding swipl names in
+  `library(stream)` (UTF-16 in either order, `wchar_t`, a byte-order mark written and read) with `set_stream/2`,
+  `byte_count/2` and the `encoding` and `bom` properties, the console's position counted by the engine (two new SDK
+  entries), `write_term/2`'s `spacing(next_argument)` and `priority(P)`, `foreach/2`, `'$skip_list'/3` and
+  `'$unbind_template'/1`, and `library(lists)`' second `ord_intersection/3` and `ord_subtract/3` gone; 3.19.1
+  (`b35b25b`), swipl's second block of load warnings -- `Singleton-marked variable appears more than once`,
+  `Singleton variable in branch`, `Singleton variable in \+`, `Test is always false` -- and a consult of fewer
+  instructions for a clause of many variables; 3.19.2 (`81579bd`), a load and `assertz/1` refuse a qualified clause that
+  is no clause, as swipl 9.0.4 does. Each came told by cocolog's session in a task fired into this one. Built again:
+  `make` 249 s (peak 1741 MB), `make schema` 36 s, `make modules` 61 s; both modules of cicilang in both checkouts.
+- Searched before the chain: no `=>` stands outside a quoted atom in the library or a gate program, the library defines
+  none of the predicates 3.19.0 changes, gives `write_term/2` no option and calls no `set_stream/2`. THE SUMMARIES' AST
+  FILES, which the desugaring loads by `ensure_loaded/1`, unmuted, were the one place 3.19.1's warnings could reach.
+  They hold no variable at all: every name of the form `_X` in them is a quoted atom, libc++'s own (`'_Tp'`), and the
+  738 files of the chain and the probes -- 2280897 clauses over the three trees -- have no name outside a quoted atom
+  that a reader takes for a variable (`astvars.py`), so no load warning can fire there. 0.255's entry said their
+  variables are written `_G`: they have none, and a first count here, which left the quotes in, took the atoms for
+  variables. A C build, `stdvector.cpp` built cold (28 s) and warm (6 s, the IR cache off, its `.expect` printed) and
+  `test/c/macros.c` with its `.pl` macro file printed nothing on stderr.
+
+WHAT THE CHAIN FOUND: nothing to change. Every gate GREEN at its first run, no fixture failed, and no gate printed a
+load warning: no `Singleton`, `Test is always false` or not-together line in any of the chain's logs, and the two
+`warning:` lines are the `#warning` fixture's and clang's note in the proof, as before. THE CACHES OF 3.18.0 SERVE
+3.19.2: over 0.255's chain's HOME, a C store that 3.18.0 wrote (its stamp 168.148) built a program that ran (exit 3),
+and its summaries built `stdvector.cpp` in 7 s with the IR cache off, its `.expect` printed and nothing on stderr. So
+the reader stays 168.
+
+THE CI OF 0.255 (`d4b56ed`), over cocolog 3.18.0 at its pins:
+
+- The smoke run (42019010994): GREEN on the three machines -- Linux (setup 9:16, gates 3:37), Apple silicon (8:13,
+  4:21), the Intel Mac (24:44, 10:22).
+- The C++ job on the Intel Mac (42019049479, by hand): its setup in 39:13, its gates from 12:08 UTC, still running at
+  this commit; 0.254's step took 1:50:20.
+- The full job on Linux (42019054827, by hand): it waited until 12:17 UTC for a runner, which the night's run of 5
+  November on `b8f2b4a` held (42005273413, GREEN at 12:17); its setup in 9:44, its gates from 12:27 UTC, still running
+  at this commit.
+- The two long jobs' record comes with the next commit.
+
+MEASUREMENTS: the chain of 0.256 over its work tree (the library of 0.255), cocolog 3.19.2 and fresh HOMEs, the pins of
+0.255 (the toolchain check GREEN, cocolog 2 off its pin): over libc++ 18 all nine GREEN -- the flow gate 157 s, reader
+4 s, compile 42 s, driver 52 s, objects 7 s, proof, the cross gate 497 s, the library read 731 s, the C++ gate 1942 s
+(852 ok, 11 skipped by their needs); over libc++ 21 the library read 677 s and the C++ gate 1942 s (860 ok, 3 skipped);
+over libc++ 22 673 s and 2147 s (863 ok, 0 skipped); in 6084 s, its peak 4172 MB. The times are 0.255's on this host,
+within 8 % either way: the C++ gates 1942, 1942 and 2147 s against 2113, 2034 and 2056 s, the library reads 731, 677 and
+673 s against 738, 720 and 696 s, the whole chain 6084 s against 6245 s. With the pins moved, the toolchain check strict
+GREEN, and over the module 0.256 the reader, compile, driver and objects gates and the proof GREEN (4 s, 44 s, 55 s,
+8 s, 1 s).
+
+- `test/toolchain.pins` (cocolog `81579bd` 3.19.2). `RULES.md`: the pins, the CI job and the Mac's job (0.255's runs),
+  the Findings (cocolog 3.19.2), What runs. `CLAUDE.md`: the versions.
+
+The module 0.256. The reader 168 and the lowering 148 stay: what a read holds and what the lowering emits are 3.18.0's.
