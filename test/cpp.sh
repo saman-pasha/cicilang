@@ -181,5 +181,17 @@ for pair in "sassertfail:static assertion failed: wrong size" "sassertinst:stati
   got=$("$ROOT/bin/cicilang++" -c "$ROOT/test/cpp/$n.cpp" -o "$n.o" 2>&1; echo "exit $?")
   case "$got" in *"$what"*"exit 1"*) echo "ok   $n.cpp is refused: $what" ;; *) echo "FAIL $n.cpp should be refused with '$what'"; echo "     got  $got" | head -3; failures=$((failures + 1)) ;; esac
 done
+echo "-- and the program's static assertion whose condition does not fold is an error, in clang's words (0.257)"
+for n in sassertunfold constleak constdblfree constuseafter; do   # a throw caught in a constant evaluation (C++26's P3068, not done); a block the evaluation still holds where it ends, one freed twice, one read after its free (C++20's transient allocation)
+  what="static assertion expression is not an integral constant expression"
+  got=$("$ROOT/bin/cicilang++" -std=c++20 -c "$ROOT/test/cpp/$n.cpp" -o "$n.o" 2>&1; echo "exit $?")
+  case "$got" in *"$what"*"exit 1"*) echo "ok   $n.cpp is refused: $what" ;; *) echo "FAIL $n.cpp should be refused with '$what'"; echo "     got  $got" | head -3; failures=$((failures + 1)) ;; esac
+done
+echo "-- and a call of a deleted function is an error, in clang's words, its reason after (0.257)"
+for pair in "delfree:call to deleted function 'g': call g(long)" "delmember:call to deleted member function 'f'" "delstatic:call to deleted function 'f'" "delctor:call to deleted constructor of 'ns::W<char>': no int" "delcopy:call to deleted constructor of 'S'" "delimplcopy:call to implicitly-deleted copy constructor of 'std::unique_ptr<int>'" "deltmpl:call to deleted function 'h'" "delop:overload resolution selected deleted operator '==': compare v" "delassign:overload resolution selected deleted operator '='" "delimplassign:object of type 'std::unique_ptr<int>' cannot be assigned because its copy assignment operator is implicitly deleted" "deldefcopy:call to implicitly-deleted copy constructor of 'DefCopy'" "deldefassign:object of type 'DA' cannot be assigned because its copy assignment operator is implicitly deleted"; do   # a free function, a member, a static member, a constructor, a copy, the implicit copy, a template, a free operator, an assignment, the implicit assignment, a defaulted copy and a defaulted assignment defined as deleted
+  n=${pair%%:*}; what=${pair#*:}
+  got=$("$ROOT/bin/cicilang++" -std=c++26 -c "$ROOT/test/cpp/$n.cpp" -o "$n.o" 2>&1; echo "exit $?")
+  case "$got" in *"$what"*"exit 1"*) echo "ok   $n.cpp is refused: $what" ;; *) echo "FAIL $n.cpp should be refused with '$what'"; echo "     got  $got" | head -3; failures=$((failures + 1)) ;; esac
+done
 [ "$skipped" -gt 0 ] && echo "-- $skipped fixture(s) skipped: beyond this box's library (NAME.needs)"
 if [ "$failures" -eq 0 ]; then echo "GREEN: cicilang++"; else echo "RED: $failures failure(s)"; exit 1; fi

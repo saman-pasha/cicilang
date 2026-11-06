@@ -103,8 +103,13 @@ cpp_concept_of(scoped(_, X), T) :- cpp_concept_of(X, T).   % a QUALIFIED type-co
 cpp_const_bool(E, V) :- ccl_const_eval(E, N), !, ( N =\= 0 -> V = true ; V = false ).
 cpp_const_bool(bool(B), B) :- !.
 cpp_const_bool(tmpl(C, Args), V) :- atom(C), '$cpp_concept'(C, _), !, ( cpp_concept_holds(C, Args) -> V = true ; V = false ).
-cpp_const_bool(E, V) :- compound(E), cpp_has_call(E), catch(cpp_const_value(E, K), _, fail), !, ( K = bool(V0) -> V = V0 ; integer(K), K =\= 0 -> V = true ; K = big(_) -> V = true ; V = false ).   % A CONSTEXPR CALL decides it too, through the evaluator (0.112): libc++ 18's `if constexpr (__format::__use_packed_format_arg_store(sizeof...(_Args)))' kept both branches, and the other one named a member the store does not have
+cpp_const_bool(E, V) :- compound(E), ( cpp_has_call(E) -> true ; cpp_reads_member(E) ), catch(cpp_const_value(E, K), _, fail), !, ( K = bool(V0) -> V = V0 ; integer(K), K =\= 0 -> V = true ; K = big(_) -> V = true ; V = false ).   % A CONSTEXPR CALL decides it too, through the evaluator (0.112): libc++ 18's `if constexpr (__format::__use_packed_format_arg_store(sizeof...(_Args)))' kept both branches, and the other one named a member the store does not have
 %% ... AND ONE INSIDE THE CONDITION (0.197): cpp_const_value/2 folds each call where it sits; libc++ 21's pair writes `explicit(!_CheckArgs::template __is_implicit<_U1 const &, _U2 const &>())', and `!f()' was no constant, so the converting constructor was never explicit
+%% ... AND A MEMBER OF A CONSTANT OBJECT, with no call (0.257): `static_assert(q.a + q.b == 7)' over `constexpr Q q{3, 4}' -- the evaluator
+%% folds it (cpp_const_fold/2 of a member), but it was asked only where the condition held a call, so the assertion passed unasked,
+%% and was refused once a condition that does not fold was (cpp_static_assert/4)
+cpp_reads_member(member(_, F)) :- atom(F), !.
+cpp_reads_member(T) :- compound(T), T =.. [_|As], member(A, As), cpp_reads_member(A), !.
 %% a plain struct or union (no registered class) value that an lvalue names: the type of `std::move(x)'s cast, `S &&'
 cpp_plain_xvalue(X, rref([], T)) :- cpp_lvalue(X), ccl_type_of(X, T0), T0 \== unknown, ccl_unref(T0, T), ccl_resolve_type(T, R), R = base(RQ, [Tag]), \+ memberchk(const, RQ), T = base(TQ, _), \+ memberchk(const, TQ), ( Tag = struct(_, _) ; Tag = union(_, _) ), \+ cpp_class_of_type(T, _), \+ cpp_holds_owners(T).
 cpp_scalar_xvalue(X, rref([], T)) :- cpp_lvalue(X), ccl_type_of(X, T0), T0 \== unknown, ccl_unref(T0, T), catch(ccl_resolve_type(T, R), _, fail), ( R = ptr(_, _) ; ccl_is_arith(R) ), !.   % an lvalue of arithmetic, enumeration or pointer type (0.201)

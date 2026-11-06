@@ -210,11 +210,11 @@ c35 :- check('C++20 and C++23 (0.93): operator== and operator<=> read `= default
       member(assume(_, bin('>', id(n), int(0))), B),
       member(declaration(_, none, base(Q, [auto]), [var(s, _, int(7))]), B), memberchk(constrained('Small', []), Q),
       member(declaration(_, none, _, [var(d, _, E)]), B), in(float(1.5), E) )).
-c36 :- check('C++26 (0.93): Ts...[0] is pack_index(Ts, 0) in a type and args...[1] in an expression; = delete("why") is a deleted body; a second `_\' is renamed; if (auto [code] = e) is a block of the temporary, the binding and the test; pre/post and the relocation words are dropped',
+c36 :- check('C++26 (0.93, 0.257): Ts...[0] is pack_index(Ts, 0) in a type and args...[1] in an expression; = delete("why") is a deleted body with its reason, deleted(why); a second `_\' is renamed; if (auto [code] = e) is a block of the temporary, the binding and the test; pre/post and the relocation words are dropped',
     ( unit_at(26, 'run/cxx26.cpp', unit(Is)),
       in(class(struct, 'First', _, FMs), Is), in(pack_index('Ts', int(0)), FMs),
       member(template(_, _, function(_, _, _, second, _, _, block(SB))), Is), member(return(_, pack_index(id(args), int(1))), SB),
-      member(declare(_, base(_, [class(struct, 'NoCopy', _, NMs)])), Is), member(ctor(_, _, [param(ref(_, _), _)], _, delete), NMs),
+      member(declare(_, base(_, [class(struct, 'NoCopy', _, NMs)])), Is), member(ctor(_, _, [param(ref(_, _), _)], _, deleted('no copies')), NMs),
       in(class(struct, 'Friendly', _, _), Is),
       member(function(_, _, _, inc, [param(_, x)], _, block(_)), Is),
       member(function(_, _, _, main, _, _, block(B)), Is),

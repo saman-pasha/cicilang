@@ -119,7 +119,7 @@ cpp_int_spelling_([char, unsigned], [unsigned, char]).
 cpp_int_spelling_(['__int128'], ['__int128']).
 cpp_int_spelling_(['__int128', signed], ['__int128']).   % `signed __int128' is __int128 (0.198): libc++'s make_signed_t<unsigned __int128> is `[signed, __int128]', and a static assertion of int128lib.cpp that it is __int128 failed once C++'s were checked
 cpp_int_spelling_(['__int128', unsigned], [unsigned, '__int128']).
-cpp_free_call(F, Ps, D, As, E) :- cpp_free_call_(F, Ps, D, As, E0),
+cpp_free_call(F, Ps, D, As, E) :- cpp_deleted_call(F, Ps, As), cpp_free_call_(F, Ps, D, As, E0),   % a deleted function chosen is refused (0.257): every road of a free call comes here
     (   E0 = call(id(Name), _), '$cpp_consteval'(Name)                                             % a consteval function is EVALUATED AT COMPILE TIME ([dcl.constexpr]/13; 0.99: it ran at run time like constexpr since 0.42)
     ->  ( cpp_const_fold(E0, V), cpp_eval_scalar(V) -> ( integer(V) -> E = int(V) ; E = V ) ; cpp_immediate_context -> E = E0 ; cpp_refuse(0, consteval_call_not_constant(F)) )
     ;   E = E0 ).

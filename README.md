@@ -87,7 +87,10 @@ rules of the code by topic; `HISTORY.md` is the record of every step.
   coroutines (`co_await`, `co_yield`, `co_return`, `operator co_await`,
   `std::coroutine_traits`, over LLVM's coroutine intrinsics), modules
   (`export module`, `import`, header units, exports enforced), contracts enforced at
-  run time, `__PRETTY_FUNCTION__` and `std::source_location` as clang++ spells them,
+  run time, a call of a deleted function refused in clang's words, with C++26's
+  reason, C++20's constant evaluation of virtual calls, dynamic_cast, new and
+  delete, std::vector and std::string in a static assertion, `__PRETTY_FUNCTION__`
+  and `std::source_location` as clang++ spells them,
   definitions by namespace-qualified names, and the Itanium ABI's layout, name mangling and calling
   convention, so cicilang's objects link with clang's, on x86-64 and on
   aarch64 Linux (pointers to member functions in ARM's form there). A
@@ -175,7 +178,9 @@ cicilang -I include prog.c           cicilang -ast-dump prog.c           cicilan
 
 `cicilang++` is `cicilang` for C++: the same arguments, every input read as
 C++, C++17 the default level and `-std=c++20`, `-std=c++23`, `-std=c++26`
-the others, the link through `c++`. The exit status is 1 when there is a
+the others, the link through `c++`. A level neither command takes is refused, in
+clang's words: C89, C2y, C++14 and before, a value clang does not name, and a
+level of the other language than an input's. The exit status is 1 when there is a
 diagnostic. `cicilang -v` says each step, and `served main.c from the
 store` when a file's IR came from the cache (`served main.cpp from the IR
 cache` for a C++ file).

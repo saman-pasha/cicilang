@@ -270,6 +270,7 @@ dr_diag(_, syntax_error(cicilang_ast(File, char(C), line(L))), _) :- !, dr_hex4(
 dr_diag(F, cannot_infer(N, E), here(_, L)) :- !, dr_error(F, L, ['cannot infer the type of ', N, ' from ', E]).
 dr_diag(F, pp_error(M), here(_, L)) :- !, dr_error(F, L, [M]).                      % the file's own #error, its text; an #embed of nothing
 dr_diag(F, static_assert_failed(T), here(_, L)) :- !, ( T == '' -> dr_error(F, L, ['static assertion failed']) ; dr_error(F, L, ['static assertion failed: ', T]) ).
+dr_diag(F, static_assert_unfolded, here(_, L)) :- !, dr_error(F, L, ['static assertion expression is not an integral constant expression']).   % a condition that does not fold, in clang's words (0.257)
 dr_diag(F, no_member(What, T), here(_, L)) :- !, dr_error(F, L, ['no member ', What, ' in ', T]).
 dr_diag(F, macro_error(M, here(_, L)), _) :- !, dr_error(F, L, ['macro: ', M]).
 %% an error inside a macro: the call site, then where it went wrong in the macro
@@ -280,6 +281,8 @@ dr_diag(F, macro_failed(N, As), here(_, L, in_macro(P, MF))) :- !,
 dr_diag(F, macro_error(N, As, E), _) :- !, dr_prolog_error(E, Text), dr_error(F, 0, ['in the expansion of macro \'', N, '\' on ', As, ': ', Text]).
 dr_diag(F, macro_failed(N, As), _) :- !, dr_error(F, 0, ['macro \'', N, '\' failed on ', As]).
 dr_diag(F, ownership(Kind, N, Form), where(Fn, line(L))) :- !, dr_kind(Kind, Text), dr_error(F, L, [Text, ' ''', N, ''' in ', Form, ' (function ', Fn, ')']).
+dr_diag(F, not_lowered(deleted_call(K, N, Why)), where(_, line(L))) :- !, dr_deleted_text(K, N, T0),   % A CALL OF A DELETED FUNCTION (0.257), in clang's words, its reason after
+    ( Why == none -> T = T0 ; atomic_list_concat([T0, ': ', Why], T) ), dr_error(F, L, [T]).
 dr_diag(F, not_lowered(What), where(Fn, line(L))) :- !, dr_error(F, L, ['not lowered yet: ', What, ' (function ', Fn, ')']).
 dr_diag(F, compile_failed(Msg), _) :- !, dr_error(F, 0, ['LLVM: ', Msg]).
 dr_diag(F, unknown_target(T), _) :- !, dr_error(F, 0, ['unknown target triple \'', T, '\'']).
@@ -287,6 +290,18 @@ dr_diag(F, no_embedded_llvm, _) :- !, dr_error(F, 0, ['the embedded LLVM is not 
 dr_diag(F, cocolog_error(Msg), _) :- !, dr_error(F, 0, ['LLVM: ', Msg]).            % the embedded LLVM's refusal
 dr_diag(F, link_failed(Msg), _) :- !, dr_link_lines(Msg, Ls), ( Ls = [L1|Rest] -> true ; L1 = Msg, Rest = [] ), dr_error(F, 0, ['link: ', L1]), dr_link_notes(F, Rest).
 dr_diag(F, E, W) :- dr_error(F, 0, [E, ' ', W]).
+%% what clang says of a call that chooses a deleted function (0.257, cpp_deleted_call/3, cpp_deleted_member_check/4,
+%% cpp_deleted_ctor_check/2, cpp_deleted_operator/3): the function by its own name, a class as clang spells it
+dr_deleted_text(function, N, T) :- !, dr_short_name(N, S), atomic_list_concat(['call to deleted function \'', S, '\''], T).
+dr_deleted_text(member, N, T) :- !, dr_short_name(N, S), atomic_list_concat(['call to deleted member function \'', S, '\''], T).
+dr_deleted_text(operator(Op), _, T) :- !, atomic_list_concat(['overload resolution selected deleted operator \'', Op, '\''], T).
+dr_deleted_text(ctor, C, T) :- !, dr_class_spelled(C, S), atomic_list_concat(['call to deleted constructor of \'', S, '\''], T).
+dr_deleted_text(implicit_copy, C, T) :- !, dr_class_spelled(C, S), atomic_list_concat(['call to implicitly-deleted copy constructor of \'', S, '\''], T).
+dr_deleted_text(implicit_assign, C, T) :- dr_class_spelled(C, S), atomic_list_concat(['object of type \'', S, '\' cannot be assigned because its copy assignment operator is implicitly deleted'], T).
+dr_short_name(N, S) :- atom(N), atomic_list_concat(Ps, '.', N), last(Ps, S0), S0 \== '', !, S = S0.
+dr_short_name(N, N).
+dr_class_spelled(C, S) :- catch(cpp_pf_class(C, S0), _, fail), !, S = S0.
+dr_class_spelled(C, C).
 %% A FAILED LINK'S LINES (0.251): the linker's message is many lines, and the command passes on only a line that holds
 %% `: error: ', `: warning: ' or `: note: ' (bin/cicilang): the first line is the error and each line after it a note, so
 %% the symbols the linker names after its first line reach the user -- a Mac's `Undefined symbols for architecture x86_64:'

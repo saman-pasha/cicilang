@@ -61,11 +61,12 @@ kb_lock() {
   echo $$ > "$1.lock/pid"
   trap 'rm -rf "$KB.lock"' EXIT; trap 'rm -rf "$KB.lock"; exit 1' INT TERM HUP
 }
-inputs=""; opts=""; out=""; opt=""; verbose=""; defs=""; gdbg=""; tgt=""; rtti=""; eh=""; lvl=""
+inputs=""; opts=""; out=""; opt=""; verbose=""; defs=""; gdbg=""; tgt=""; rtti=""; eh=""; lvl=""; stdarg=""; stdlang=""; hasc=""; hascpp=""
 [ "${CICILANG_LANG:-c}" = cpp ] && opts="$opts lang(cpp),"
 need() { [ $# -ge 2 ] || { echo "$me: error: argument to '$1' is missing" >&2; exit 1; }; }
 q() { case $1 in *\'*) printf "'%s'" "$(printf '%s' "$1" | sed "s/'/\\\\'/g")" ;; *) printf "'%s'" "$1" ;; esac; }
 while [ $# -gt 0 ]; do
+  case "$1" in -std=c++*|-std=gnu++*) stdarg="$1"; stdlang=cpp ;; -std=*) stdarg="$1"; stdlang=c ;; esac   # the last -std= and its language, asked of the inputs after the loop (0.257)
   case "$1" in
     --version) "$C" --local query "use_module(library(cicilang)), ccl_version(V), ( catch(ccl_cocolog_version(CV), _, fail) -> true ; CV = '?' ), ( catch(use_module(library(ccl_llvm)), _, fail), catch(ccl_llvm_version(L), _, fail) -> true ; L = 'not built' ), write('cicilang '), write(V), write(' (cocolog '), write(CV), write('; LLVM '), write(L), write(')'), nl" 2>/dev/null | grep -a "^cicilang"; exit 0 ;;
     -h|--help) sed -n '2,15p' "$0" | sed 's/^# \{0,1\}//'; exit 0 ;;
@@ -91,17 +92,19 @@ while [ $# -gt 0 ]; do
     -std=gnu++23|-std=gnu++2b) lvl="std(23)," ;;
     -std=c++26|-std=c++2c) lvl="std(26), iso," ;;
     -std=gnu++26|-std=gnu++2c) lvl="std(26)," ;;
-    -std=c++*|-std=gnu++*) echo "$me: error: unsupported C++ standard '$1' (C++17 and later)" >&2; exit 1 ;;
-    -std=c23|-std=c2x) lvl="cstd(23), iso," ;;          # C's level: C17 the baseline, C23 the forms below
+    -std=c++*|-std=gnu++*) echo "$me: error: unsupported C++ standard '$1' (C++17 to C++26)" >&2; exit 1 ;;
+    -std=c23|-std=c2x|-std=iso9899:2024) lvl="cstd(23), iso," ;;          # C's level: C17 the baseline, C23 the forms below
     -std=gnu23|-std=gnu2x) lvl="cstd(23)," ;;
     -std=c17|-std=c18|-std=iso9899:2017|-std=iso9899:2018) lvl="cstd(17), trigraphs, iso," ;;   # the ISO modes read trigraphs before C23, the GNU ones do not (clang's rule)
     -std=gnu17|-std=gnu18) lvl="cstd(17)," ;;
-    -std=c11|-std=iso9899:2011) lvl="cstd(11), trigraphs, iso," ;;
-    -std=gnu11) lvl="cstd(11)," ;;
-    -std=c99|-std=iso9899:1999) lvl="cstd(99), trigraphs, iso," ;;
-    -std=gnu99) lvl="cstd(99)," ;;
+    -std=c11|-std=c1x|-std=iso9899:2011|-std=iso9899:201x) lvl="cstd(11), trigraphs, iso," ;;
+    -std=gnu11|-std=gnu1x) lvl="cstd(11)," ;;
+    -std=c99|-std=c9x|-std=iso9899:1999|-std=iso9899:199x) lvl="cstd(99), trigraphs, iso," ;;
+    -std=gnu99|-std=gnu9x) lvl="cstd(99)," ;;
     -trigraphs) opts="$opts trigraphs," ;;
-    -std=c89|-std=c90|-std=gnu89|-std=gnu90|-std=iso9899:1990) echo "$me: error: unsupported C standard '$1' (C99 and later)" >&2; exit 1 ;;
+    -std=c89|-std=c90|-std=gnu89|-std=gnu90|-std=iso9899:1990|-std=iso9899:199409) echo "$me: error: unsupported C standard '$1' (C99 to C23)" >&2; exit 1 ;;
+    -std=c2y|-std=gnu2y) echo "$me: error: unsupported C standard '$1' (C99 to C23)" >&2; exit 1 ;;   # C2y, the draft after C23, is no level here (0.257): it was ignored, and the default level built the file
+    -std=*) echo "$me: error: invalid value '${1#-std=}' in '$1'" >&2; exit 1 ;;   # a level clang does not name, in clang's words: no -std= is ignored (0.257)
     -D) need "$@"; shift; opts="$opts define($(q "$1")),"; defs=1 ;;   # a macro on the command line (0.112): it changes what every header reads, so the run keeps no store
     -D*) opts="$opts define($(q "${1#-D}")),"; defs=1 ;;
     -U) need "$@"; shift; opts="$opts undef($(q "$1")),"; defs=1 ;;
@@ -118,13 +121,19 @@ while [ $# -gt 0 ]; do
     -fexceptions|-fcxx-exceptions) eh="" ;;   # libc++ with exceptions, as clang++ has them (0.193); the last of these four wins
     -fno-exceptions|-fno-cxx-exceptions) eh="no_exceptions," ;;   # libc++'s no-exceptions configuration, as clang++ -fno-exceptions (0.193)
     -fexperimental-library) opts="$opts define('_LIBCPP_ENABLE_EXPERIMENTAL'), link('-lc++experimental'), link('-lc++abi'),"; defs=1 ;;   # libc++'s experimental part, as clang++ (0.138)
-    -W*|-f*|-std=*|-pedantic|-g*) ;;   # accepted for clang's sake
+    -W*|-f*|-pedantic|-g*) ;;   # accepted for clang's sake
     -*) echo "$me: error: unknown argument: '$1'" >&2; exit 1 ;;
-    *) inputs="$inputs $(q "$1"),";;
+    *) inputs="$inputs $(q "$1"),"; case "$1" in *.c) hasc=1 ;; *.cpp|*.cc|*.cxx|*.C|*.cppm|*.ccm|*.cxxm|*.ixx|*.mpp) hascpp=1 ;; esac ;;
   esac
   shift
 done
 [ -n "$inputs" ] || { echo "$me: error: no input files" >&2; exit 1; }
+# A LEVEL OF THE OTHER LANGUAGE IS REFUSED, as clang refuses it (0.257): `-std=c++20' over a C file, `-std=c17' in C++ -- each was
+# taken and ignored, and the file built at its language's default level
+if [ -n "$stdarg" ]; then
+  if [ "$stdlang" = c ]; then case "${CICILANG_LANG:-c}:$hascpp" in cpp:*|*:1) echo "$me: error: invalid argument '$stdarg' not allowed with 'C++'" >&2; exit 1 ;; esac
+  elif [ "${CICILANG_LANG:-c}" != cpp ] && [ -n "$hasc" ]; then echo "$me: error: invalid argument '$stdarg' not allowed with 'C'" >&2; exit 1; fi
+fi
 [ -n "$lvl" ] && opts="$opts $lvl"   # the last -std wins, as clang: its level and its mode (0.214)
 [ -n "$gdbg" ] && opts="$opts $gdbg"
 [ -n "$rtti" ] && opts="$opts $rtti"

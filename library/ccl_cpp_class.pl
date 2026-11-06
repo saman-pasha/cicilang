@@ -320,13 +320,18 @@ cpp_drop_unmet_dtors(C, [M|Ms], [M|Ms1]) :- cpp_drop_unmet_dtors(C, Ms, Ms1).
 %% each constructor declared deleted. The class's record drops a member `= delete' and keeps a defaulted one as the implicit one,
 %% so it does not say what the class declared, which decides whether the implicit copy and move are there and whether one is
 %% deleted (cpp_special_there/2). Which of them is a copy or a move is asked once the class is registered (cpp_sdecl/3).
-cpp_note_specials(C, Ms) :- retractall('$cpp_sdecl'(C, _, _, _)), retractall('$cpp_dctor'(C, _)), retractall('$cpp_cpok'(C, _, _)),
+%% ... AND EACH MEMBER FUNCTION AND CONSTRUCTOR DECLARED DELETED, with its reason (0.257): `'$cpp_mem_del'(C, Name, Qs, Ps, Why)', a
+%% constructor's Name `'$ctor'', which a call's resolution asks (cpp_deleted_member_wins/4)
+cpp_note_specials(C, Ms) :- retractall('$cpp_sdecl'(C, _, _, _)), retractall('$cpp_dctor'(C, _)), retractall('$cpp_cpok'(C, _, _)), retractall('$cpp_mem_del'(C, _, _, _, _)),
     forall(( member(M, Ms), cpp_special_decl(M, What, P, Body) ), assertz('$cpp_sdecl'(C, What, P, Body))),
-    forall(member(ctor(_, _, Ps, _, delete), Ms), assertz('$cpp_dctor'(C, Ps))).
+    forall(( member(ctor(_, _, Ps, _, B), Ms), ccl_deleted_body(B, _) ), assertz('$cpp_dctor'(C, Ps))),
+    forall(( member(M, Ms), cpp_deleted_member(M, N, Qs, Ps, Why) ), assertz('$cpp_mem_del'(C, N, Qs, Ps, Why))).
 cpp_special_decl(ctor(_, _, [P|Ps], _, B), ctor, P, K) :- forall(member(Q, Ps), Q = param(_, _, _)), cpp_body_kind(B, K).
 cpp_special_decl(method(_, _, _, operator('='), [P], _, B), assign, P, K) :- cpp_body_kind(B, K).
 cpp_special_decl(dtor(_, _, B), dtor, none, K) :- cpp_body_kind(B, K).
-cpp_body_kind(B, K) :- ( B == delete -> K = delete ; B == default -> K = default ; K = user ).
+cpp_body_kind(B, K) :- ( ccl_deleted_body(B, _) -> K = delete ; B == default -> K = default ; K = user ).
+cpp_deleted_member(method(_, Qs, _, N, Ps, _, B), N, Qs, Ps, Why) :- ccl_deleted_body(B, Why).
+cpp_deleted_member(ctor(_, Qs, Ps, _, B), '$ctor', Qs, Ps, Why) :- ccl_deleted_body(B, Why).
 %% INHERITING CONSTRUCTORS: `using Base::Base;' in a class body gives the class every constructor of its base --
 %% each synthesized here as a constructor of the same parameters (the base's words resolved, the defaults kept,
 %% an unnamed parameter named) whose initializer hands them to the base and whose body is empty; the base's copy
@@ -337,11 +342,11 @@ cpp_inherit_ctors(L, [base(_, B0)], Ms0, Ms) :-
     member(using(_, name(U)), Ms0), cpp_using_last(U, N), catch(cpp_base_name(B0, Base), _, fail), ( cpp_own_name(Base, N) -> true ; cpp_alias_names_base(Ms0, N, Base) -> true ; cpp_tmpl_head(B0, N) ), !,   % `using __base::__base;' through the class's own alias (optional's storage chain); `using __perfect_forward<_Op, _Args...>::__perfect_forward;' through an ALIAS TEMPLATE's name, the base clause's own head (libc++'s bind_front, 0.100)
     cpp_class(Base, cls(_, _, BMs, _, _, _)),
     findall(ctor(L, Qs, Ps1, [init(Base, Args)], block([])),
-            ( member(ctor(_, Qs0, Ps0, _, Body), BMs), Body \== delete, \+ cpp_copy_or_move(Base, Ps0),
+            ( member(ctor(_, Qs0, Ps0, _, Body), BMs), \+ ccl_deleted_body(Body, _), \+ cpp_copy_or_move(Base, Ps0),
               cpp_in_class(Base, cpp_named_params(Ps0, 1, Ps1, Args)), ( memberchk(explicit, Qs0) -> Qs = [explicit] ; memberchk(explicit(XE), Qs0) -> Qs = [explicit(XE)] ; Qs = [] ) ),
             Ctors),
     findall(template(L, TPs, ctor(L, Qs, Ps1, [init(Base, Args)], block([]))),                                   % ... AND THE BASE'S CONSTRUCTOR TEMPLATES ([namespace.udecl]): optional's storage chain inherits, level by level, `template <class... _Args> __optional_destruct_base(in_place_t, _Args &&...)', and without them `optional(_Up &&)' found no base constructor
-            ( member(template(_, TPs, ctor(_, Qs0, Ps0, _, Body)), BMs), Body \== delete,
+            ( member(template(_, TPs, ctor(_, Qs0, Ps0, _, Body)), BMs), \+ ccl_deleted_body(Body, _),
               cpp_named_params_t(Ps0, 1, Ps1, Args), ( memberchk(explicit, Qs0) -> Qs = [explicit] ; memberchk(explicit(XE), Qs0) -> Qs = [explicit(XE)] ; Qs = [] ) ),
             TCtors),
     append(Ms0, Ctors, Ms1), append(Ms1, TCtors, Ms), length(Ctors, NC), length(TCtors, NT), cpp_trace(inherit(Base, NC, NT)).
@@ -372,7 +377,7 @@ cpp_fwd_member(Base, N, Ms0, L, F) :-
     cpp_class(Base, cls(_, _, BMs, _, _, _)), \+ ( cpp_class_l(Base, cls(_, _, _, _, Slots)), member(slot(N, _, _, _, _), Slots) ),
     (   member(method(_, Qs0, Ret, N, Ps0, V, Body0), BMs), TPs = none, TNs = []
     ;   member(template(_, TPs, method(_, Qs0, Ret, N, Ps0, V, Body0)), BMs), cpp_tparam_names(TPs, TNs) ),
-    Body0 \== delete, Body0 \== default, \+ memberchk(static, Qs0), \+ memberchk(virtual, Qs0), \+ memberchk(pure, Qs0), \+ memberchk(requires(_), Qs0), \+ memberchk(explicit_this(_, _), Qs0),
+    \+ ccl_deleted_body(Body0, _), Body0 \== default, \+ memberchk(static, Qs0), \+ memberchk(virtual, Qs0), \+ memberchk(pure, Qs0), \+ memberchk(requires(_), Qs0), \+ memberchk(explicit_this(_, _), Qs0),
     \+ cpp_fwd_hidden(Ms0, N, Ps0),
     findall(Q, ( member(Q, Qs0), ( Q == const ; Q == noexcept ; Q = noexcept(_) ; Q = refq(_) ; Q = trailing(_) ) ), Qs1),
     ( memberchk(closure, Qs0), \+ memberchk(const, Qs1) -> Qs = [const|Qs1] ; Qs = Qs1 ),   % a lambda's operator() is const unless mutable, which the closure mark stands for

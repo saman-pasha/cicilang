@@ -561,7 +561,7 @@ cpp_norm_members_([method(L, Qs, Ret0, operator(Op), Ps, V, default)|Ms], K, Out
     ->  cpp_defaulted_cmp('==', L, Qs, base([], [bool]), Ps, V, All, M2), Out = [M1, M2|Ms1]
     ;   Out = [M1|Ms1] ),
     cpp_norm_members_(Ms, K, Ms1).
-cpp_norm_members_([M|Ms], K, Ms1) :- cpp_member_body(M, B), ( B == delete ; B == default ), !, cpp_norm_members_(Ms, K, Ms1).   % `= delete': not there; `= default': the implicit one
+cpp_norm_members_([M|Ms], K, Ms1) :- cpp_member_body(M, B), ( ccl_deleted_body(B, _) ; B == default ), !, cpp_norm_members_(Ms, K, Ms1).   % `= delete': not there; `= default': the implicit one
 cpp_norm_members_([method(L, Qs, Ret, M, Ps, V, pure)|Ms], K, [method(L, [pure|Qs], Ret, M, Ps, V, none)|Ms1]) :- !, cpp_norm_members_(Ms, K, Ms1).
 cpp_norm_members_([method(L, Qs, Ret, M, [param(this(T), N)|Ps], V, Body)|Ms], K, [method(L, [explicit_this(N, T)|Qs], Ret, M, Ps, V, Body)|Ms1]) :- !, cpp_norm_members_(Ms, K, Ms1).
 cpp_norm_members_([template(L, TPs, method(L2, Qs, Ret, M, [param(this(T), N)|Ps], V, Body))|Ms], K, [template(L, TPs, method(L2, [explicit_this(N, T)|Qs], Ret, M, Ps, V, Body))|Ms1]) :- !, cpp_norm_members_(Ms, K, Ms1).   % ... a member TEMPLATE's too (0.117): `template <class Self> int get(this Self &&self)'

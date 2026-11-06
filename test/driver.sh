@@ -61,6 +61,10 @@ printf 'struct S { int a; _Static_assert(sizeof(int) == 8, "eight"); };\nint mai
 sasmout=$("$CICILI" sasm.c -o sasm 2>&1 >/dev/null); sasmcode=$?
 check "a false static assertion among a struct's members is an error" "$(echo "$sasmout" | head -1; echo "exit $sasmcode")" "sasm.c:1: error: static assertion failed: eight
 exit 1"   # 0.205: a static_assert-declaration is a struct-declaration (C11 6.7.2.1/1); it was a syntax error
+printf 'int n = 1;\n_Static_assert(n == 1, "constant");\nint main(void) { return 0; }\n' > sanf.c
+sanfout=$("$CICILI" sanf.c -o sanf 2>&1 >/dev/null); sanfcode=$?
+check "a static assertion whose condition does not fold is an error, in clang's words (0.257)" "$(echo "$sanfout" | head -1; echo "exit $sanfcode")" "sanf.c:2: error: static assertion expression is not an integral constant expression
+exit 1"   # it passed unasked: a condition that does not fold was no failure
 cat > defs.c <<'EOF2'
 #include <stdio.h>
 #include <assert.h>
@@ -139,6 +143,11 @@ euro.c:1: error: character <U+20AC> not allowed in an identifier
 mdot.c:1: error: character <U+00B7> not allowed at the start of an identifier
 comb.c:1: error: character <U+0301> not allowed in an identifier"
 check "__STDC_VERSION__ by the level (0.221): C99's, C11's, C17's and C23's" "$(printf 'long v = __STDC_VERSION__;\n' > ver.c; for s in c99 c11 c17 c23; do "$CICILI" -std=$s -E ver.c | grep -o '[0-9][0-9]*[lL]'; done | tr '\n' ' ')" "199901L 201112L 201710L 202311L "   # a number as written since 0.228, as clang's -E writes it
+check "no -std= is ignored (0.257): clang's old names take their levels; C2y, a value clang does not name and a level of the other language are refused, in clang's words" "$(for s in c1x gnu9x iso9899:201x iso9899:2024; do "$CICILI" -std=$s -E ver.c | grep -o '[0-9][0-9]*[lL]'; done | paste -s -d ' ' -; for s in c2y foo c++20; do "$CICILI" -std=$s -E ver.c 2>&1; done; printf 'int main() { return 0; }\n' > stdok.cpp; "$ROOT/bin/cicilang++" -std=c17 -fsyntax-only stdok.cpp 2>&1)" "201112L 199901L 201112L 202311L
+cicilang: error: unsupported C standard '-std=c2y' (C99 to C23)
+cicilang: error: invalid value 'foo' in '-std=foo'
+cicilang: error: invalid argument '-std=c++20' not allowed with 'C'
+cicilang++: error: invalid argument '-std=c17' not allowed with 'C++'"
 # -E AS CLANG WRITES IT (0.228): a literal, a number, a digraph and an alternative token as written, a name written with a
 # universal character name its character, and `#x' of such a name its spelling -- the text compared with clang's, white space
 # aside (test/c/espell.c, test/cpp/espell.cpp)

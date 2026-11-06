@@ -226,10 +226,15 @@ cpp_eval_construct(T, CName, Args, V) :- cpp_eval_agg_kind(T, K), cpp_eval_agg_i
 cpp_fold_const_inits_(_, _, [], []).
 cpp_fold_const_inits_(Sto, [R|Rs], [var(N, T, I)|Vs], [var(N, T, I1)|Ws]) :-
     (   cpp_global_object(Sto, N, T, I, C) -> cpp_global_ctor_init(Sto, R, N, T, C, I, I1)   % `constexpr V g(3, 4);' (0.99); else at run time, before main (0.112)
-    ;   I = call(_, _), catch(cpp_eval_agg_kind(T, _), _, fail), catch(cpp_eval_init(T, I, [], _, AV), _, fail), cpp_eval_init_term(AV, I2) -> I1 = I2   % `constexpr P origin = make(7);': the aggregate the call answers, as its initializer (0.98)
-    ;   I = call(_, _), \+ ccl_resolve_type(T, arr(_, _)), once(( between(1, 2, _), catch(cpp_with_ce(cpp_const_value(I, K)), _, fail) )) -> ( K = bool(_) -> I1 = K ; integer(K) -> I1 = int(K) ; K = big(_) -> I1 = int(K) ; I1 = I ) ; I1 = I ),   % TWICE: the first attempt EMITS the library instances the call runs through (`numeric_limits<size_t>::max()'), and only the second sees them -- `inline constexpr size_t dynamic_extent' was a run-time initialization, no constant for a pattern (0.117)
+    ;   cpp_init_call(I), catch(cpp_eval_agg_kind(T, _), _, fail), catch(cpp_eval_init(T, I, [], _, AV), _, fail), cpp_eval_init_term(AV, I2) -> I1 = I2   % `constexpr P origin = make(7);': the aggregate the call answers, as its initializer (0.98)
+    ;   cpp_init_call(I), \+ ccl_resolve_type(T, arr(_, _)), once(( between(1, 2, _), catch(cpp_with_ce(cpp_const_value(I, K)), _, fail) )) -> ( K = bool(_) -> I1 = K ; integer(K) -> I1 = int(K) ; K = big(_) -> I1 = int(K) ; I1 = I ) ; I1 = I ),   % TWICE: the first attempt EMITS the library instances the call runs through (`numeric_limits<size_t>::max()'), and only the second sees them -- `inline constexpr size_t dynamic_extent' was a run-time initialization, no constant for a pattern (0.117)
     ( atom(N), I1 \== none, catch(cpp_eval_agg_kind(T, _), _, fail) -> atom_concat('$cpp_gagg:', N, GK), nb_setval(GK, agg(T, I1, global)) ; true ),   % a constant aggregate: a value for the constexpr evaluator (0.97)
     cpp_fold_const_inits_(Sto, Rs, Vs, Ws).
+%% AN INITIALIZER THE EVALUATOR RUNS: a call, or an IMMEDIATELY INVOKED LAMBDA (0.257), `constexpr auto c = [] { return 3 + 4; }();',
+%% which the desugaring makes a statement expression -- the closure a temporary, then its operator()'s call -- and which was no
+%% constant, so a static assertion over c was refused once a condition that does not fold was (cpp_note_const/4 too)
+cpp_init_call(call(_, _)).
+cpp_init_call(stmt_expr(_)).
 %% auto parameters become invented type parameters, in order: `$A1', `$A2' ...
 cpp_auto_params(Ps, K, Ps1, TPs) :-
     cpp_auto_params_(Ps, K, Ps1, TPs0, Rs),
@@ -285,7 +290,7 @@ cpp_fold_enumerators(L, [E|Es0], K, Seen, [E|Es]) :- cpp_fold_enumerators(L, Es0
 %% the argument as nothing and took the `const char *' constructor
 cpp_declare_resolved(Name, Ret0, Ret, Ps1, V) :- ( Ret \== Ret0, atom(Name) -> ccl_declare(Name, fn(Ret, Ps1, V)) ; true ).
 cpp_vars(_, [], []).
-cpp_vars(Ctx, [var(N, fn(R0, Ps, V), I)|Vs], [var(N, fn(R, Ps1, V), I)|Ws]) :- !, cpp_type(R0, R), cpp_plain_params(Ps, Ps1), cpp_vars(Ctx, Vs, Ws).
+cpp_vars(Ctx, [var(N, fn(R0, Ps, V), I0)|Vs], [var(N, fn(R, Ps1, V), I)|Ws]) :- !, ( nonvar(I0), I0 = deleted(_) -> I = delete ; I = I0 ), cpp_type(R0, R), cpp_plain_params(Ps, Ps1), cpp_vars(Ctx, Vs, Ws).   % a reason the C passes never see (0.257)
 cpp_vars(Ctx, [var(N, T0, I)|Vs], [var(N, T, I1)|Ws]) :- cpp_type(T0, T1), cpp_expr(Ctx, I, I10), cpp_init_convs(T1, I10, I11), cpp_set_value(I11, T1, I1),   % an aggregate's class items converted to its scalar members (cpp_init_convs, 0.168); an overload set chosen by the type (cpp_set_value/3, 0.181)
     ( cpp_has_auto(T1), I1 \== none -> ( ccl_type_of(I1, IT), IT \== unknown -> cpp_auto_deduce(T1, IT, T) ; cpp_refuse(0, auto(N)) ), ( atom(N), ccl_locals([]) -> ccl_gdeclare([N-T]), ccl_tables_changed ; true ) ; T = T1 ),   % a namespace-scope `auto' object, `inline constexpr auto twice = fn{};' ([dcl.spec.auto]: deduced from its initializer), where the lowering met `auto'
     cpp_vars(Ctx, Vs, Ws).
@@ -473,7 +478,7 @@ cpp_ctor_body(L, C, B, Defaults, memberwise(S, Kind), block([]), Out) :- !,     
         ( B \== none -> cpp_base_src(B, S, BPl), cpp_memberwise_base_src(C, B, Kind, S, BPl, BSrc), Inits0 = [init(B, [BSrc])|MInits] ; Inits0 = MInits ),
         findall(init(V, [VSrc]), ( '$cpp_vb_holder'(C, V), cpp_memberwise_base_src(C, V, Kind, S, _, VSrc0), cpp_vbase_src(V, Kind, S, VSrc0, VSrc) ), VInits),   % each of several (0.171) -- A DIAMOND'S SHARED BASE is copied from the source's (0.135), never default-built -- reached through the source's table (0.163): the source may be a sub-object of a larger class, whose virtual base lies where that class put it (`D d2 = e;')
         append(Inits0, EInits, Inits1), append(VInits, Inits1, Inits),
-        cpp_ctor_body(L, C, B, Defaults, Inits, block([]), Out) ).
+        cpp_memberwise_making(cpp_ctor_body(L, C, B, Defaults, Inits, block([]), Out)) ).   % its parts asked nothing: a defaulted copy whose part does not copy is deleted, no error (0.257)
 cpp_ctor_body(L, C, _, _, Inits0, block(Body), block([expr(L, call(id(DName), [id(this)|DArgs1]))|Body1])) :-
     cpp_norm_inits(Inits0, Inits), member(init(N, DArgs), Inits), atom(N), cpp_own_name(C, N), !,   % A DELEGATING CONSTRUCTOR (C++11): the other constructor over this, and nothing else initialized -- pair's piecewise constructor delegates to its private one with the index sequences
     ( cpp_ctor(C, DArgs, DName) -> true ; length(DArgs, K), cpp_refuse(L, no_constructor(C, K)) ), cpp_fill_defaults(DName, DArgs, DArgs0), cpp_ref_args_of(DName, DArgs0, DArgs1),

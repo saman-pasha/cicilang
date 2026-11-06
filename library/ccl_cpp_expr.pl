@@ -181,7 +181,7 @@ cpp_expr(Ctx, assign('=', A, init(Items)), E) :- \+ ( member(item(D, _), Items),
     \+ catch(cpp_method(C, operator('='), [init(Items)], _, _), error(not_lowered(_), _), fail), !,
     findall(V, member(item(_, V), Items), Vs), ( Vs == [] -> T = call(id(C), []) ; T = braced_temp(call(id(C), Vs)) ),
     cpp_expr(Ctx, assign('=', A, T), E).
-cpp_expr(Ctx, assign('=', A, B), E) :- !, cpp_expr(Ctx, A, A1), cpp_expr(Ctx, B, B10), cpp_assign_sliced(A1, B10, B1),
+cpp_expr(Ctx, assign('=', A, B), E) :- !, cpp_expr(Ctx, A, A1), cpp_expr(Ctx, B, B10), cpp_assign_sliced(A1, B10, B1), cpp_deleted_assign_check(A1, B1),
     (   cpp_class_of_type_of(A1, C), cpp_assign_from_own(B1, C, B0), \+ cpp_written_copy_assign(C),   % THE IMPLICIT COPY OR MOVE ASSIGNMENT where the class writes operator= for other types only (0.112)
         ( ( cpp_dtor(C, _) ; cpp_dynamic_class(C) ) -> cpp_implicit_assign(C, B1, Name) ; Name = none )   % ... made where it can be: a class holding OWNERS takes the roads below (`d[n] = move(x)', the holder's fresh slot); A CLASS WITH A TABLE assigns memberwise (0.135, cpp_dynamic_class/1)
     ->  ( Name \== none -> cpp_object_arg(Name, addr(A1), Obj), cpp_ref_args_of(Name, [B1], [B2]), cpp_rhs_first(call(id(Name), [Obj, B2]), E) ; E = assign('=', A1, B0) )
@@ -991,6 +991,19 @@ cpp_call(Ctx, F, As, E) :- cpp_expr(Ctx, F, F1), ( cpp_temp_call(F1, As, E0) -> 
 %% call went on as one of an undeclared name: `decltype(strong_ordering(strong_order(t, u)))' was strong_ordering, the
 %% candidate stood, and `std::strong_order(1, 2)' was `undeclared('__strong_order.strong_order')' in its body
 cpp_deleted_hdr_fn(F) :- atom(F), \+ ccl_declared(F, fn(_, _, _)), catch(cpp_hdr_item(F, declaration(_, _, _, Vs)), _, fail), memberchk(var(F, fn(_, _, _), delete), Vs), !.
+%% A CALL THAT CHOOSES A DELETED FUNCTION IS REFUSED, in clang's words and with its reason (0.257; [dcl.fct.def.delete]/2, P2573):
+%% `call to deleted function 'g': call g(long)'. The deleted declaration was a candidate, chosen by the arguments it fits
+%% best, and its call named a function nothing defines -- `not lowered yet: undeclared(g)'. Asked in the program's own code
+%% alone: a library body here is made where clang makes none, and libc++'s poison pills answer its own lookups
+%% ... AND A DELETED FUNCTION TEMPLATE whose parameters are its own type parameters, `template <class T> void f(T) = delete;' beside
+%% `void f(int)' -- the idiom that refuses every conversion: it deduces the arguments' own types, so it wins wherever the plain
+%% overload chosen is no exact match ([over.match.best]/2.4 prefers a non-template only where the conversions tie). Noted with
+%% the program's functions ('$cpp_tmpl_del', cpp_note_fns/1); it was no candidate at all, and `f(1.5)' called f(int)
+cpp_deleted_call(F, Ps, As) :- nb_getval('$cpp_in_lib', no), !,
+    (   cpp_params_key(Ps, K), '$cpp_fn_del'(F, K, Why) -> cpp_refuse_stmt(deleted_call(function, F, Why))
+    ;   length(As, N), '$cpp_tmpl_del'(F, N, Why), \+ cpp_exact_params(Ps, As) -> cpp_refuse_stmt(deleted_call(function, F, Why))
+    ;   true ).
+cpp_deleted_call(_, _, _).
 %% A CALL THROUGH AN OBJECT WHOSE operator() NOTHING FITS IS A REFUSAL (0.221; [over.call.object]/1, [temp.deduct.general]/8):
 %% a temporary or an object of class type called, `compare_three_way()(t, u)', where no operator() of its class takes the
 %% arguments -- one whose constraint fails among them -- is ill-formed, and where its type is asked the refusal takes the
@@ -1525,8 +1538,10 @@ cpp_operator(Op, A, Args, Plain, E) :-
     ;   Plain \== none, cpp_builtin_via_conv(A, Args, Plain, E0)
     ->  E = E0
     ;   Plain \== none, \+ memberchk(Op, ['!', '&&', '||']), ( cpp_op_operand(A) ; Args = [B], cpp_op_operand(B) )   % ... never for `!', `&&' and `||', whose class operand converts contextually through its operator bool AFTER this road (0.72's rule 19, cpp_to_bool): `return !__f;' is how std::function compares with nullptr
-    ->  cpp_refuse(0, no_operator(Op))   % AN OPERATOR OVER A CLASS OPERAND THAT NO ROAD ANSWERS IS ILL-FORMED (0.94): kept as the raw form it read as an `int' in a `decltype', so libc++ 18's constraint on `operator==(const optional<_Tp> &, const _Up &)', `is_convertible_v<decltype(declval<const _Tp &>() == declval<const _Up &>()), bool>', HELD for `int == nullopt_t' and that generic candidate beat the `nullopt_t' one, whose body then met the same `int == nullopt_t' (stdoptional2: `type(unknown)' in the lowering); refused, a constraint's decltype is the substitution failure C++ has there, and elsewhere the defect is named
+    ->  ( cpp_deleted_operator(Op, [A|Args], Why) -> cpp_refuse_stmt(deleted_call(operator(Op), Op, Why)) ; cpp_refuse(0, no_operator(Op)) )   % AN OPERATOR OVER A CLASS OPERAND THAT NO ROAD ANSWERS IS ILL-FORMED (0.94): kept as the raw form it read as an `int' in a `decltype', so libc++ 18's constraint on `operator==(const optional<_Tp> &, const _Up &)', `is_convertible_v<decltype(declval<const _Tp &>() == declval<const _Up &>()), bool>', HELD for `int == nullopt_t' and that generic candidate beat the `nullopt_t' one, whose body then met the same `int == nullopt_t' (stdoptional2: `type(unknown)' in the lowering); refused, a constraint's decltype is the substitution failure C++ has there, and elsewhere the defect is named
     ;   E = Plain ).
+%% a free operator declared deleted, for operands of this number, in the program's own code (0.257, cpp_note_op_del/3)
+cpp_deleted_operator(Op, Operands, Why) :- nb_getval('$cpp_in_lib', no), length(Operands, K), '$cpp_op_del'(Op, K, Why), !.
 %% A BUILT-IN OPERATOR OVER A CLASS WITH A CONVERSION FUNCTION TO AN ARITHMETIC TYPE ([over.match.oper]/3.3, [over.built]; 0.117) is the
 %% operator on what the function gives: `count += v[i]' over a vector<bool>'s `__bit_reference' (its `operator bool'), `m * 2' over a
 %% `Meters' with `operator double'. Only after the class's own operators and the free ones have answered nothing, and only a

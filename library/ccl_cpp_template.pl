@@ -712,8 +712,13 @@ cpp_mdef_match(Mode, N, Name, Args, Where, M0, Ps, Ps1, M1) :-
     cpp_mdef_inner(Item0, Item1), cpp_align_tparams(M0, Item1, Item), cpp_mdef_bind(Pat, Args, TPs, B),
     cpp_subst(Item, [N-base([], [typedef(Name)])|B], M1a), cpp_member_shape(M1a, K1, Ps1, B1), cpp_same_member_key(Name, K, K1, M1a, M1), B1 \== none, cpp_params_key(Ps1, PK), cpp_member_const(M0, CK), cpp_member_const(M1, CK),   % ... of the same constness: `find(const _Key &)' and `find(const _Key &) const' are two members, each with its own body out of class
     cpp_member_req(M0, RQ), cpp_member_req(M1, RQ),                      % ... and the same trailing requires-clause (0.205, below)
-    \+ cpp_extern_shipped(N, Args, Where, K, PK, Item),                  % ... unless the shipped library DEFINES it (below): the member stays declared, and is called by its symbol
+    ( cpp_extern_shipped(N, Args, Where, K, PK, Item) -> cpp_note_shipped_def(Name, K, PK, M1), fail ; true ),   % ... unless the shipped library DEFINES it (below): the member stays declared, and is called by its symbol -- its definition kept for the constant evaluator alone (0.257)
     ( Mode == agree -> cpp_tparams_agree(Name, M0, M1) ; true ).
+%% A SHIPPED MEMBER'S DEFINITION, KEPT FOR THE CONSTANT EVALUATOR (0.257): the instance's member as its definition writes it, keyed by
+%% the instance, the member and its parameters -- never merged, so the program still calls the library's symbol; a constant
+%% evaluation desugars it where it calls the symbol (cpp_eval_shipped_fn/5). basic_string<char>'s `__init(const char *, size_t)',
+%% which `std::string s = "hello"' calls, had no body the evaluator could run
+cpp_note_shipped_def(C, K, PK, M) :- retractall('$cpp_shipped_def'(C, K, PK, _)), assertz('$cpp_shipped_def'(C, K, PK, M)).
 %% A DEFINITION OUT OF THE CLASS IS THE DECLARATION WHOSE TRAILING REQUIRES-CLAUSE IS ITS OWN (0.205; [class.mfct]/2, [temp.over.link]/7:
 %% two declarations with requires-clauses that are not equivalent declare two functions): `int g() requires (sizeof(T) > 1); int g()
 %% requires (sizeof(T) == 1);' key alike, and the first definition met served both declarations -- `kc.g()' of a `K<char>' ran the

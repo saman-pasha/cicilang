@@ -87,7 +87,7 @@ ccl_enum_value(N, V) :- nb_getval('$ccl_enums', L), memberchk(N-V, L).
 %% THE PROGRAM'S NAMED CONSTANTS (0.195), a table of their own beside the enumerators' ('$ccl_consts', Name-Value, newest
 %% first; ccl_note_own_constants/1): an object is no enumerator to the passes that ask one (`decltype((K))' is a reference,
 %% an enumerator is a prvalue), and a library header's are not in it, as a summary carries none
-ccl_named_constant(N, V) :- nb_current('$ccl_consts', L), memberchk(N-V0, L), !, V = V0.
+ccl_named_constant(N, V) :- nb_current('$ccl_consts', L), memberchk(N-V0, L), !, V0 \= agg(_, _), V = V0.   % a structure's aggregate is no integer (0.257, ccl_const_agg/3)
 %% AN ENUMERATOR'S TYPE IS ITS ENUM IN C++ ([dcl.enum]/5; 0.127), and the enum's name is a type. The table that keeps
 %% the values ('$ccl_enums', Name-Value) keeps the enum too, as an entry of its own, `'$t'(Name)-Tag', beside the value;
 %% and a SCOPED enum's tag as `'$s'(Tag)-1' (C++ asks it: a scoped enum converts to nothing implicitly). An entry of
@@ -145,8 +145,17 @@ ccl_const_eval(call(id('__atomic_always_lock_free'), [S, P]), V) :- !, ccl_const
 %% GCC'S `__builtin_classify_type(e)' (0.194): the class of e's type, an integer constant, clang's numbers -- glibc's <tgmath.h>
 %% chooses its function by it where the compiler is no GCC 8 (clang's `__GNUC__' is 4). It was no builtin
 ccl_const_eval(call(id('__builtin_classify_type'), [E]), V) :- !, catch(ccl_type_of(E, T), _, fail), T \== unknown, ccl_type_class(T, V).
+%% GCC'S `__builtin_constant_p(e)' (0.257): 1 where e folds, else 0, as clang folds it in a constant expression -- a static
+%% assertion over it passed unasked until a condition that does not fold was refused (ccl_assert_holds/3), and then refused
+ccl_const_eval(call(id('__builtin_constant_p'), [E]), V) :- !, ( ccl_const_eval(E, _) -> V = 1 ; V = 0 ).
 ccl_const_eval(noexcept_expr(E), 1) :- ( atomic(E) ; E = id(_) ; compound(E), functor(E, F, 1), memberchk(F, [int, uint, long, ulong, chr, bool, float, str]) ), !.   % only an operand that can throw nothing, a literal or a name, folds raw (0.199): the desugaring answers a call -- every `noexcept(e)' was 1 here since 0.109, when no library function threw, and libc++'s `__nothrow_invokable_r_imp<...>::value', a static of `noexcept(std::__invoke(...))', was folded raw, so `is_nothrow_invocable_v<void (*)()>' held
 ccl_const_eval(offsetof(T, D), V) :- !, ccl_offsetof(T, D, V).
+%% A MEMBER OF A NAMED CONSTANT OF STRUCTURE TYPE IS A NAMED CONSTANT (0.257; C23 6.6/7, "even recursively"): `cp.y' over `constexpr
+%% struct P cp = {1, 2};' is its initializer's item for y, by position or by designator, converted to y's type, and 0 where the
+%% list names none (6.7.10/11). A C program's such object is noted beside its integers, `agg(T, Items)', which no integer use takes
+%% (ccl_note_own_constant/1, ccl_note_block_constants/2; ccl_named_constant/2 and ccl_frame_constant/3 pass it by). It was no
+%% constant: a static assertion over it passed unasked until one that does not fold was refused (ccl_assert_holds/3)
+ccl_const_eval(member(O, F), V) :- atom(F), ccl_agg_member(O, F, MT, E), !, ( E == none -> V = 0 ; E = init(_) -> fail ; ccl_const_eval(cast(MT, E), V) ).
 ccl_const_eval(alignof_type(T), V) :- !, once(( ccl_resolve_type(T, T1), ccl_size_align(T1, _, V) )).   % `alignof(T)' ([expr.alignof]): the alignment the layout already computes
 ccl_const_eval(alignof_expr(E), V) :- !, once(( ccl_type_of(E, T), T \== unknown, ccl_resolve_type(T, T1), ccl_size_align(T1, _, V) )).   % GNU's `__alignof__(e)' (0.205): the alignment of the object it names, its declared `_Alignas' with it, else its type's
 ccl_const_eval(sizeof(E), V) :- !, ( ccl_literal_bytes(E, V) -> true ; once(( ccl_type_of(E, T), ccl_size_of(T, V) )) ).   % a string literal's bytes (0.103)
@@ -157,6 +166,17 @@ ccl_const_eval(cond(C, A, B), V) :- !, ccl_const_eval(C, CV), ( CV \== 0 -> ccl_
 %% (a name the tables lack) keeps the mathematical shift.
 ccl_const_eval(bin('<<', A, B), V) :- !, ccl_const_eval(A, X), ccl_const_eval(B, Y), ccl_const_op('<<', X, Y, V0), ccl_shl_wrap(A, V0, V).
 ccl_const_eval(bin(Op, A, B), V) :- ccl_const_eval(A, X), ccl_const_eval(B, Y), ccl_const_op(Op, X, Y, V0), ccl_cv_binary(Op, A, B, X, Y, V0, V).
+%% the aggregate a named constant of structure type holds, its own or a member's that is one in turn: its type and its items
+ccl_const_agg(id(N), T, Items) :- !, ccl_locals(Ls), ( ccl_frame_with(Ls, N, Fr) -> memberchk('$cv'(N)-A, Fr) ; nb_current('$ccl_consts', L), memberchk(N-A, L) ), A = agg(T, Items).
+ccl_const_agg(member(O, F), MT, Items) :- atom(F), ccl_agg_member(O, F, MT, init(Items)).
+%% the member F of the aggregate O names: its type, and the item that initializes it, the last that does, or none; a bit-field
+%% and a nested designator are no constant here
+ccl_agg_member(O, F, MT, E) :- ccl_const_agg(O, T, Items), ccl_agg_struct(T), ccl_members_of(T, Ms), ccl_member_pos(Ms, F, 0, I),
+    I1 is I + 1, ccl_nth(I1, Ms, member(MT, F, W)), W == none, ccl_agg_slots(Items, Ms, 0, Slots),
+    ( findall(X, member(I-X, Slots), Xs), last(Xs, E0) -> E = E0 ; E = none ).
+ccl_agg_slots([], _, _, []).
+ccl_agg_slots([item(Ds, X)|Is], Ms, C, [P-X|Ss]) :- ( Ds == [] -> P = C ; Ds = [field(G)], ccl_member_pos(Ms, G, 0, P) ), C1 is P + 1, ccl_agg_slots(Is, Ms, C1, Ss).
+ccl_agg_struct(T) :- catch(ccl_resolve_type(T, RT), _, fail), RT = base(_, [S]), compound(S), functor(S, struct, 2).
 %% ... a `const' local with a constant initializer IS the constant (0.63's rule 11, `cpp_note_const'): libc++'s `__mu' writes
 %% `const size_t __indx = is_placeholder<_Ti>::value - 1;' and indexes a tuple by it, and refused as a shadow it never folded.
 %% A LOCAL SHADOWS A CONSTANT UNLESS IT IS ITSELF ONE (0.195): a `const' local was taken for one whatever it held, so a
@@ -169,7 +189,7 @@ ccl_const_eval(bin(Op, A, B), V) :- ccl_const_eval(A, X), ccl_const_eval(B, Y), 
 %% for what the walk makes apart from its frames: a lambda's body uses one with no capture ([expr.prim.lambda.capture]/7).
 %% A name no frame holds is the file's: a named constant (ccl_named_constant/2), else an enumerator.
 ccl_frame_with([F|Fs], N, F1) :- ( ( memberchk(N-_, F) ; memberchk('$cv'(N)-_, F) ) -> F1 = F ; ccl_frame_with(Fs, N, F1) ).
-ccl_frame_constant(F, N, V) :- memberchk('$cv'(N)-V0, F), V = V0.
+ccl_frame_constant(F, N, V) :- memberchk('$cv'(N)-V0, F), V0 \= agg(_, _), V = V0.   % ... nor in a block's frame (0.257)
 ccl_body_constant(N, V) :- nb_current('$cpp_lconsts', LC), memberchk(N-V0, LC), !, V = V0.
 %% UNSIGNED ARITHMETIC WRAPS, AND A NEGATIVE OPERAND OF AN UNSIGNED OPERATION IS CONVERTED FIRST (0.128; C 6.3.1.8, 6.2.5/9,
 %% [expr.arith.conv], [basic.fundamental]/2): `~0u / 3' folded to 0 -- `~0u' was -1 and -1 / 3 is 0 -- where it is 0x55555555, `0u - 1' was

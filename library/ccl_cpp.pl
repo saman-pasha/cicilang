@@ -100,7 +100,7 @@ ccl_cpp_units(Units0, Units) :- cpp_ginit_reset, cpp_alloc_units(Units0, Units00
 %% and reported once the units are desugared, or before a later error -- a probe that made the instance caught the throw, and the
 %% program compiled. A library header's failure is reported only where its throw comes out: what this compiler instantiates beyond
 %% what clang does is no error of the program's.
-cpp_kept_assert_failure :- ( '$cpp_assert_failed'(Text, L) -> throw(error(static_assert_failed(Text), here(none, L))) ; true ).
+cpp_kept_assert_failure :- ( '$cpp_assert_failed'(Err, L) -> throw(error(Err, here(none, L))) ; true ).   % Err: static_assert_failed(Text), or static_assert_unfolded (0.257)
 %% the unit's initialization lists, empty before anything registers (0.192): the registration emits the program's own
 %% headers' classes and variables, whose statics' initializations and destructors join the first unit's lists
 cpp_ginit_reset :- nb_setval('$cpp_ginit', []), nb_setval('$cpp_ginit_pre', []), nb_setval('$cpp_ginit_fns', []).
@@ -183,6 +183,8 @@ cpp_instance_note(Name, What) :- assertz('$cpp_inst'(Name, What)).
 %% ---- the classes of the units: '$cpp_classes' = [C-cls(Base, Data, Members, Statics, Defaults) ...] --------
 cpp_register_units(Units) :-
     cpp_reset('$cpp_assert_failed'/2),
+    cpp_reset('$cpp_fn_del'/3), cpp_reset('$cpp_mem_del'/5), cpp_reset('$cpp_op_del'/3), cpp_reset('$cpp_tmpl_del'/3),   % the deleted functions, members, operators and templates (0.257)
+    cpp_reset('$cpp_vtab'/3), cpp_reset('$cpp_shipped_def'/4), cpp_reset('$cpp_shipped_name'/4),   % the tables' slots and the shipped members' definitions, for the constant evaluator (0.257)
     cpp_reset('$cpp_cls'/2), cpp_reset('$cpp_clsl'/2), cpp_reset('$cpp_sfn'/2), cpp_reset('$cpp_alloc_m'/2), cpp_reset('$cpp_sfn_pre'/2), cpp_reset('$cpp_decl'/4), cpp_reset('$cpp_sfold'/3), cpp_reset('$cpp_nenum'/1), cpp_reset('$cpp_enumv'/3), cpp_reset('$cpp_tmpl'/3), cpp_reset('$cpp_tmplh'/4), cpp_reset('$cpp_fspec'/3), cpp_reset('$cpp_spec'/4), cpp_reset('$cpp_mt'/4), cpp_reset('$cpp_inst'/2), cpp_reset('$cpp_out'/2), cpp_reset('$cpp_ownfn'/2), cpp_reset('$cpp_consteval'/1), cpp_reset('$cpp_cecheck'/3), cpp_reset('$cpp_scell'/2), cpp_reset('$cpp_mdef'/5), cpp_reset('$cpp_extern'/3), cpp_reset('$cpp_friends'/2), cpp_reset('$cpp_extra'/2), cpp_reset('$cpp_base_slot'/3), cpp_reset('$cpp_primary_moved'/2), cpp_reset('$cpp_vbase'/1), cpp_reset('$cpp_poly_extra'/3), cpp_reset('$cpp_poly_path'/3), cpp_reset('$cpp_hdrfn'/1), cpp_reset('$cpp_nv_base'/2), cpp_reset('$cpp_vb_holder'/2), cpp_reset('$cpp_bad_layout'/2), cpp_reset('$cpp_lvb'/3), cpp_reset('$cpp_vprim'/2), cpp_reset('$cpp_vprim_ind'/2), cpp_reset('$cpp_vb_claim'/3),
     cpp_reset('$cpp_dflt'/2), cpp_reset('$cpp_extern_full'/3), cpp_reset('$cpp_friends_pending'/1), cpp_reset('$cpp_auto_later'/2), cpp_reset('$cpp_localcls'/2), cpp_reset('$cpp_localst'/2), cpp_reset('$cpp_closure_made'/2), cpp_reset('$cpp_lib_closure'/1), cpp_reset('$cpp_lambda_cls'/5), cpp_reset('$cpp_srcloc'/2), cpp_reset('$cpp_pf_closure'/3), cpp_reset('$cpp_pf_local'/3), cpp_reset('$cpp_lname'/3), cpp_reset('$cpp_lcount'/2), cpp_reset('$cpp_lgid'/2), cpp_reset('$cpp_nolink'/1), cpp_reset('$cpp_srcloc_fn'/1), cpp_note_srcloc_fns(Units), nb_setval('$cpp_fsig', none), nb_setval('$cpp_dflt_site', none), nb_setval('$cpp_lambda_memo', []), cpp_reset('$cpp_dtor_def'/1), nb_setval('$cpp_lambdas', 0), nb_setval('$cpp_gen_invs', []), nb_setval('$cpp_caller', none), nb_setval('$cpp_obj_cat', none), nb_setval('$cpp_closure_this', []), nb_setval('$cpp_temps', none), nb_setval('$cpp_making', []), nb_setval('$cpp_obj_const', none),
     nb_setval('$cpp_nontrivial', []), nb_setval('$cpp_req_ctx', none), nb_setval('$cpp_nv', none), nb_setval('$cpp_lconsts', []),
@@ -236,7 +238,8 @@ cpp_note_fns([]).
 cpp_note_fns([namespace(_, _, Js)|Is]) :- !, cpp_note_fns(Js), cpp_note_fns(Is).
 cpp_note_fns([extern_c(_, Js)|Is]) :- !, cpp_c_names(Js), cpp_note_fns(Js), cpp_note_fns(Is).      % extern "C": C linkage, never a mangled name
 cpp_note_fns([function(_, Sto, Ret, N, Ps, V, Body)|Is]) :- atom(N), !, cpp_fn_origin(Ret, V, Body, O), cpp_fn_put(N, Ps, Body, O), cpp_nx_note_src(N, Ps, Sto), cpp_note_fns(Is).
-cpp_note_fns([declaration(_, _, _, Vs)|Is]) :- !, forall(member(var(N, fn(Ret, Ps, V), _), Vs), ( atom(N) -> cpp_fn_put(N, Ps, none, decl(Ret, V)) ; true )), cpp_note_fns(Is).
+cpp_note_fns([declaration(_, _, _, Vs)|Is]) :- !, forall(member(var(N, fn(Ret, Ps, V), I), Vs), ( atom(N) -> cpp_fn_put(N, Ps, none, decl(Ret, V)), cpp_note_fn_del(N, Ps, I) ; N = operator(Op) -> cpp_note_op_del(Op, Ps, I) ; true )), cpp_note_fns(Is).
+cpp_note_fns([template(_, TPs, declaration(_, _, _, Vs))|Is]) :- !, forall(( member(var(N, fn(_, Ps, _), I), Vs), atom(N), ccl_deleted_body(I, Why), cpp_tparams_only(Ps, TPs) ), cpp_note_tmpl_del(N, Ps, Why)), cpp_note_fns(Is).   % a deleted function template of the idiom (0.257, cpp_deleted_call/3)
 cpp_note_fns([_|Is]) :- cpp_note_fns(Is).
 cpp_fn_origin(Ret, V, none, decl(Ret, V)) :- !.                                          % what a DECLARATION alone can say: the result and the ellipsis a mangled name needs
 cpp_fn_origin(_, V, _, own(V)).                                                          % the program's own definition keeps its ELLIPSIS (0.100): `int f(...)' beside a template had the origin `own' alone, so the arity test never fitted it and a call the template rightly refused had no plain overload to fall to
@@ -250,6 +253,21 @@ cpp_note_hdr_fns([function(L, Sto, Ret, operator(Op), Ps, V, Body)|Is]) :- Body 
 cpp_note_hdr_fns([I|Is]) :- cpp_note_fns([I]), cpp_note_hdr_fns(Is).
 cpp_fn_put(N, Ps, Body, Origin) :- ( Body == none -> D = no ; D = yes ), cpp_params_key(Ps, K),
     ( '$cpp_fn'(N, K, _, D, _) -> true ; assertz('$cpp_fn'(N, K, Ps, D, Origin)) ).
+%% A FUNCTION DECLARED DELETED (0.257): `'$cpp_fn_del'(N, Key, Why)', its reason or none, which a call that chooses it asks
+%% (cpp_deleted_call/3). It is a candidate as any declaration is ([over.match]/2: a deleted function takes part in overload
+%% resolution), and chosen it was called by a name nothing defines: `undeclared(g)'
+cpp_note_fn_del(N, Ps, I) :- ( ccl_deleted_body(I, Why) -> cpp_params_key(Ps, K), ( '$cpp_fn_del'(N, K, _) -> true ; assertz('$cpp_fn_del'(N, K, Why)) ) ; true ).
+%% ... and a free OPERATOR declared deleted, by its operator and its number of operands, `'$cpp_op_del'(Op, K, Why)', which the
+%% operator's road asks where nothing else answers it (cpp_deleted_operator/3): it is no candidate there, and the operator was
+%% refused `not lowered yet: no_operator(==)'
+cpp_note_op_del(Op, Ps, I) :- ( ccl_deleted_body(I, Why) -> length(Ps, K), ( '$cpp_op_del'(Op, K, _) -> true ; assertz('$cpp_op_del'(Op, K, Why)) ) ; true ).
+%% ... and a deleted function TEMPLATE whose every parameter is one of its own type parameters, by value, `const T &' or `T &&',
+%% by its name and its number of parameters (cpp_deleted_call/3)
+cpp_note_tmpl_del(N, Ps, Why) :- length(Ps, K), ( '$cpp_tmpl_del'(N, K, _) -> true ; assertz('$cpp_tmpl_del'(N, K, Why)) ).
+cpp_tparams_only(Ps, TPs) :- Ps \== [], findall(T, ( member(P, TPs), P = tparam(_, T, _), atom(T) ), Ts), forall(member(P, Ps), ( ( P = param(PT, _) ; P = param(PT, _, _) ), cpp_tparam_shaped(PT, Ts) )).
+cpp_tparam_shaped(base(_, [typedef(T)]), Ts) :- memberchk(T, Ts), !.
+cpp_tparam_shaped(ref([], base([const], [typedef(T)])), Ts) :- memberchk(T, Ts), !.
+cpp_tparam_shaped(rref([], base([], [typedef(T)])), Ts) :- memberchk(T, Ts).
 cpp_c_names([]).
 cpp_c_names([I|Is]) :- ( cpp_item_name(I, N) -> asserta('$cpp_cname'(N)) ; true ), cpp_c_names(Is).
 cpp_item_name(function(_, _, _, N, _, _, _), N) :- atom(N).
@@ -290,6 +308,7 @@ cpp_item(declare(L, base(Q, [class(_, C0, _, _)])), Items) :- !, ( cpp_class_ite
     ( cpp_nv_form(C, Data2, NVData) -> cpp_nv_tag(C, NV), Fns = [declare(L, base([], [struct(NV, NVData)]))|FnsA] ; Fns = FnsA ),   % the base-subobject form beside the class (0.110), a holder's too (0.163)
     (   Slots == [], \+ cpp_has_table(C) -> Items = [declare(L, base(Q, [Spec]))|Fns]   % a class with no slot has a table still where it holds a virtual base (0.160): the base's offset, the offset to top, the type_info
     ;   cpp_vt_struct(L, C, Slots, VtDecl), cpp_vtable(L, C, Slots, Tables00), nb_getval('$cpp_pthunks', PTh), append(PTh, Tables00, Tables0), cpp_secondary_tables(L, C, Secs0), cpp_ctor_tables(L, C, CTs), append(Secs0, CTs, Secs), append(Tables0, Secs, Tables),
+        forall(( member(Fn, Tables), Fn = function(_, _, _, FN, _, _, _) ), assertz('$cpp_ownfn'(FN, Fn))),   % ... and the functions its tables name, its deleting destructor and its thunks, where a virtual call in a constant evaluation finds them (0.257)
         Items = [VtDecl, declare(L, base(Q, [Spec]))|Fns1x], append(Fns, Tables, Fns1x) ).
 %% A FREE FUNCTION'S CONDITIONAL NOEXCEPT (0.199; [except.spec]/2): `nxif(E, Sto)' in its storage slot (the reader's
 %% ccl_nx_sto/3) is taken off where the function is emitted, and E goes to the emission's own clause below through

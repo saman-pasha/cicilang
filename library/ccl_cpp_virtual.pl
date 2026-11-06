@@ -37,7 +37,12 @@ cpp_vtable(L, C, Slots, [declare(L, base([], [struct(VTP, VMs)])),
     ( cpp_vbase_offsets(C, C, none, VBOs) -> cpp_vbo_fields(VBOs, 0, VBMs, VBItems), append(VBMs, PMs, VMs), append(VBItems, PItems, VItems) ; VMs = PMs, VItems = PItems ),   % one vbase offset a slot (0.171)
     ( catch(cpp_rtti_chain(C, Ch), _, fail) -> TI = rtti(Ch) ; TI = nullptr ),
     findall(item([], E)-Fs, ( member(slot(M, K, Ret, Ps, V), Slots), cpp_primary_entry(L, C, M, K, Ret, Ps, V, E, Fs) ), EFs),
-    findall(I, member(I-_, EFs), Items), findall(F, ( member(_-Fs, EFs), member(F, Fs) ), PThunks), nb_setval('$cpp_pthunks', PThunks).
+    findall(I, member(I-_, EFs), Items), findall(F, ( member(_-Fs, EFs), member(F, Fs) ), PThunks), nb_setval('$cpp_pthunks', PThunks),
+    cpp_note_vtab(Name, Slots, Items).
+%% A TABLE'S SLOTS AND ENTRIES, NOTED FOR THE CONSTANT EVALUATOR (0.257): a slot's name and the function its entry names, in the
+%% table's order -- a virtual call in a constant evaluation reads them where a run reads the table (cpp_eval_reduce/3 of a slot)
+cpp_note_vtab(Name, Slots, Items) :- findall(SN, ( member(slot(M, K, _, _, _), Slots), cpp_slot_name(M, K, SN) ), Names),
+    retractall('$cpp_vtab'(Name, _, _)), assertz('$cpp_vtab'(Name, Names, Items)).
 %% THE FINAL OVERRIDER FROM ANOTHER PATH OF A DIAMOND ([class.virtual]/2, 0.110): a method of the shared virtual base
 %% that the primary chain leaves as it is and a later path overrides is that path's, reached by a thunk moving `this'
 %% to the path's sub-object -- `C::g' through `A *' or `B *' in `struct D : B, C'
@@ -400,6 +405,7 @@ cpp_secondary_table(L, C, N, S, Items) :-
     ( cpp_vbase_offsets(C, N, VK, Off, dyn(C, []), VBOs) -> cpp_vbo_fields(VBOs, 0, VBMs, VBItems), append(VBMs, PMs, VMs), append(VBItems, PItems, VItems) ; VMs = PMs, VItems = PItems ),
     Decl = declare(L, base([], [struct(VTP, VMs)])),
     Table = declaration(L, static, base([], [struct(VTP, none)]), [var(TName, base([], [struct(VTP, none)]), init(VItems))]),
+    cpp_note_vtab(TName, NSlots, SlotItems),   % ... and a secondary table's (0.257)
     append(Thunks, [Decl, Table], Items).
 cpp_thunk_entry(L, C, _, S, M, K, Ret, Ps, V, Off, ThisT, _, id(E), Fs) :- cpp_final_impl(C, M, K, IE, Sub), !,   % a diamond's final overrider: the table's own sub-object's directly, another path's through a thunk
     (   Sub == S -> E = IE, Fs = []
