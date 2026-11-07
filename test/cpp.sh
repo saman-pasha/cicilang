@@ -53,6 +53,16 @@ if [ "$nk" = 5 ] && printf '%s\n' "$said" | grep -aq ': 5 summaries written' && 
 mkdir -p "$D/mixhome"; HOME="$D/mixhome" CICILANG_JOBS=1 "$ROOT/bin/cicilang++" "$ROOT/test/cpp/charconvfirst.cpp" -o mixfirst > /dev/null 2>&1
 got=$(HOME="$D/mixhome" CICILANG_JOBS=1 "$ROOT/bin/cicilang++" "$ROOT/test/cpp/run/stdcharconv.cpp" -o mix 2>&1 && ./mix < /dev/null; echo "exit $?")
 if [ "$got" = "$(cat "$ROOT/test/cpp/run/stdcharconv.expect")" ]; then echo "ok   a header read in the build's own process after another was served from its summary is registered as a served one is (stdcharconv.cpp, <charconv> warm, the rest cold)"; else echo "FAIL a header read in the build's own process after another served from its summary (stdcharconv.cpp, <charconv> warm, the rest cold)"; echo "     got  $(printf '%s' "$got" | tr '\n' '|' | cut -c1-300)"; failures=$((failures + 1)); fi
+# A SUMMARY DIRECTORY MOVED TO ANOTHER HOME SERVES ITS HEADERS (0.259): longterms.cpp's <utility> and <tuple>, each summary
+# with a long term in its clause file, read cold in a HOME of the check's own; the .cicilang moved to another HOME, the
+# second build reads no header again -- no process of its own, no summary written -- and its binary prints what it should.
+# The clauses named the summary by its full path, so a moved one matched none: both headers read by processes of their
+# own, `0 summaries written', then each read again in the build's own process
+mkdir -p "$D/longhome" "$D/movedhome"; HOME="$D/longhome" "$ROOT/bin/cicilang++" "$ROOT/test/cpp/longterms.cpp" -o long1 > /dev/null 2>&1
+nb=$(ls "$D/longhome/.cicilang/cpp/"*.big.pl 2>/dev/null | wc -l | tr -d ' '); mv "$D/longhome/.cicilang" "$D/movedhome/.cicilang" && touch "$D/longmark" && sleep 1
+said=$(HOME="$D/movedhome" "$ROOT/bin/cicilang++" -v "$ROOT/test/cpp/longterms.cpp" -o long2 2>&1); got=$(./long2 < /dev/null; echo "exit $?")
+nk=$(printf '%s\n' "$said" | grep -ac 'in a process of its own'); nw=$(find "$D/movedhome/.cicilang/cpp" -newer "$D/longmark" -name '*.sum' 2>/dev/null | wc -l | tr -d ' ')
+if [ "$nb" -ge 2 ] && [ "$nk" = 0 ] && [ "$nw" = 0 ] && [ "$got" = "$(printf '7 7\nexit 0')" ]; then echo "ok   a summary directory moved to another HOME serves its headers, their long terms read from the clause files beside them: none read again (longterms.cpp, $nb clause files)"; else echo "FAIL a summary directory moved to another HOME (longterms.cpp)"; echo "     got  $nb clause files, $nk processes of their own, $nw summaries written again; $(printf '%s' "$got" | tr '\n' '|' | cut -c1-200)"; failures=$((failures + 1)); fi
 # TWO UNITS BUILT APART (0.192): test/cpp/link/units_a.cpp and units_b.cpp, each built by cicilang++ -c in a process of its own,
 # then linked -- each unit's closures, local classes, unnamed namespace, static functions and their type information are its own,
 # and the header's (units.h) inline variables and inline static members are one object each, constructed and destroyed once

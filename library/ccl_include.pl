@@ -633,7 +633,9 @@ ccl_sum_terms_out([T0|Ts], [L, '.\n'|Out]) :- ccl_float_freeze(T0, T), term_to_a
 %% basic_string 56 KB, tuple, vector, pair: twelve lines of <vector>'s summary -- were written whole and dropped
 %% SILENTLY at the read, and a summary-served run's tag table lacked them. ensure_loaded/1 has no such limit (the AST
 %% beside the summary is read so). Only while a .sum is written (`'$ccl_sum_bigs''); the .mac's lines stay as they were.
-%% The clauses of the big terms are kept as atoms, the newest first, and joined when the summary is done.
+%% The clauses of the big terms are kept as atoms, the newest first, and joined when the summary is done. The 8 KB read
+%% has been gone since cocolog 1.10.6 (`term_to_atom/2 take text of any length'); the clause file stays, as the store's
+%% form, and since 0.259 it is read as text, a clause at a time (ccl_big_terms/2), never loaded.
 ccl_sum_line(T, A, L) :- atom_length(A, N), N > 8000, nb_current('$ccl_sum_bigs', big(F, I, Bs)), !,
     term_to_atom('$ccl_sum_big'(F, I, T), C), I1 is I + 1, nb_setval('$ccl_sum_bigs', big(F, I1, ['.\n', C|Bs])), term_to_atom(big(I), L).
 ccl_sum_line(_, A, A).
@@ -663,13 +665,24 @@ ccl_sum_terms(F, Terms) :-
     (   nb_current(K, T0), T0 \== none -> Terms = T0
     ;   read_file_to_codes(F, Codes), atom_codes(A, Codes), atomic_list_concat(Lines, '\n', A), ccl_sum_lines(Lines, Terms0),
         ccl_sum_bigs_in(F, Terms0, Terms1), ccl_float_thaw_list(Terms1, Terms), nb_setval(K, Terms) ).
-%% the long terms back from the clause file beside the summary; a `big(I)' with no clause behind it stays, and makes
-%% the summary invalid (ccl_sum_valid), so the header is read again rather than served short
-ccl_sum_bigs_in(F, Ts0, Ts) :- memberchk(big(_), Ts0), !, ccl_big_file(F, B), ( exists_file(B) -> ensure_loaded(B) ; true ), ccl_sum_bigs_(Ts0, F, Ts).
+%% the long terms back from the clause file beside the summary, READ AS TEXT, a clause at a time, none of them put in the
+%% database (0.259): ensure_loaded/1 put them there, keyed by the summary's full path, and cocolog never reads again a
+%% file it has loaded -- so a ~/.cicilang moved to another path matched none of them (absbase.cpp's four headers with a
+%% long term read by processes of their own, `0 summaries written', then each read again in the build's process: 94 s,
+%% 22 s over a fresh store), and a summary written again in the process (its header's child, ccl_cold_headers_read/2)
+%% was served with the long terms of the summary the process had read before it. A `big(I)' with no clause behind it
+%% stays, and makes the summary invalid (ccl_sum_valid), so the header is read again rather than served short
+ccl_sum_bigs_in(F, Ts0, Ts) :- memberchk(big(_), Ts0), !, ccl_big_file(F, B), ( exists_file(B) -> ccl_big_terms(B, Bigs) ; Bigs = [] ), ccl_sum_bigs_(Ts0, Bigs, Ts).
 ccl_sum_bigs_in(_, Ts, Ts).
 ccl_sum_bigs_([], _, []).
-ccl_sum_bigs_([big(I)|Ts0], F, [T|Ts]) :- catch('$ccl_sum_big'(F, I, T0), _, fail), !, T = T0, ccl_sum_bigs_(Ts0, F, Ts).
-ccl_sum_bigs_([T|Ts0], F, [T|Ts]) :- ccl_sum_bigs_(Ts0, F, Ts).
+ccl_sum_bigs_([big(I)|Ts0], Bigs, [T|Ts]) :- memberchk(I-T0, Bigs), !, T = T0, ccl_sum_bigs_(Ts0, Bigs, Ts).
+ccl_sum_bigs_([T|Ts0], Bigs, [T|Ts]) :- ccl_sum_bigs_(Ts0, Bigs, Ts).
+%% a clause file's long terms, I-T for each '$ccl_sum_big'(_, I, T) in it: the clauses split at their full stops (a line
+%% end in a quoted atom is written `\n', so none is inside a clause), each read by term_to_atom/2 into a fresh term (it
+%% compares a bound one), which takes a text of any length since cocolog 1.10.6; a clause that does not read is none
+ccl_big_terms(B, Bigs) :- read_file_to_codes(B, Cs), atom_codes(A, Cs), atomic_list_concat(Cls, '.\n', A), ccl_big_terms_(Cls, Bigs).
+ccl_big_terms_([], []).
+ccl_big_terms_([C|Cs], Bigs) :- ( C \== '', catch(term_to_atom(X, C), _, fail), X = '$ccl_sum_big'(_, I, T) -> Bigs = [I-T|Bigs1] ; Bigs = Bigs1 ), ccl_big_terms_(Cs, Bigs1).
 ccl_sum_forget(F) :- atom_concat('$ccl_sum:', F, K), nb_setval(K, none), ccl_cache_index('$ccl_sumload:', IK), nb_setval(IK, []).
 ccl_sum_lines([], []).
 ccl_sum_lines([L|Ls], Ts) :-                                                  % every position bound: a free one enumerates, 0.7 ms a line

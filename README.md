@@ -143,7 +143,9 @@ the `CICILI`, `COCOLOG` and `ZIGURATIP` variables, defaulting to
 for the link, and libc++ for the C++ side. `test/toolchain.pins` names the
 neighbours' commits and the LLVM and libc++ versions the gates last passed
 on, and `sh test/toolchain.sh` checks a box against it, each tool's version
-printed and what to do where one is missing. `sh test/ci.sh smoke` (or
+printed and what to do where one is missing; cocolog is taken at its latest
+master every time, and its pin moves with the step that runs the gates over
+it. `sh test/ci.sh smoke` (or
 `full`, or `cpp`) is the CI jobs' own steps: it clones the neighbours at
 their pins, builds them with cocolog's installer, builds the two modules
 and runs the gates; GitHub runs the smoke job on each push, on Ubuntu

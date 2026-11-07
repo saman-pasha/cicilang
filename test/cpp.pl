@@ -54,7 +54,9 @@ c_checks :-
     c34,
     c35,
     c36,
-    c37, c38, c39, c40, c41, c42, c43, c44, c45, c46, c47, c48.
+    c37, c38, c39, c40, c41, c42, c43, c44, c45, c46, c47, c48,
+    section('the summary cache (0.259): a summary\'s long terms read from its clause file as text'),
+    c49.
 
 c1 :- check('namespace N { ... } is namespace(L, N, Items), nested, and anonymous',
     ( unit('names.cpp', unit(Is)), member(namespace(2, geo, Gs), Is), member(function(_, _, _, twice, _, _, _), Gs), member(namespace(_, inner, _), Gs), member(namespace(_, anon, _), Is) )).
@@ -353,6 +355,25 @@ c43 :- check('a using-declaration over a pack is using(L, pack(Q)) (0.121, reade
     ( unit('run/overloaded.cpp', unit(Is)),
       member(template(_, [tparam(pack, 'Ts', none)], declare(_, base(_, [class(struct, overloaded, [base(_, pack('Ts'))], Ms)]))), Is),
       member(using(_, pack(scoped(['Ts'], operator('()')))), Ms) )).
+
+%% A SUMMARY'S LONG TERMS ARE READ FROM ITS CLAUSE FILE AS TEXT (0.259; ccl_sum_bigs_in/3, ccl_big_terms/2): two summaries
+%% of two lines each, the second `big(0)', in the check's own directory. The first one's clause names the summary by
+%% another path, as a ~/.cicilang moved since it was written does: ensure_loaded/1 matched none and left `big(0)'. The
+%% second one's clause file is written again after a read, and the summary read again in the process: ensure_loaded/1
+%% never read the new file, and the old term came back.
+c49 :- check('a summary\'s long term comes from its clause file, read as text (0.259): a clause that names the summary by another path (a moved ~/.cicilang) is served, and a clause file written again in the process gives its new term when the summary is read again',
+    ( os_env('CCL_TEST_TMP', D), ccl_reader_version(V),
+      c49_sum(D, 'sumbig-1-2', V, '/elsewhere/sumbig-1-2.sum', t(old), F1), ccl_sum_terms(F1, [_, T1]), T1 == t(old),
+      c49_sum(D, 'sumbig-3-4', V, own, t(old), F2), ccl_sum_terms(F2, [_, T2]), T2 == t(old),
+      c49_sum(D, 'sumbig-3-4', V, own, t(new), _), ccl_sum_terms(F2, [_, T3]), T3 == t(new) )).
+%% c49_sum(Dir, Name, V, Key, T, F): Dir/Name.sum, its lines `sum(...)' at the reader's version V and `big(0)', and its
+%% clause file Dir/Name.big.pl, whose one clause holds T under Key (`own': the summary's path); forgotten, so the next
+%% read parses it
+c49_sum(D, N, V, K, T, F) :-
+    atomic_list_concat([D, '/', N, '.sum'], F), atomic_list_concat([D, '/', N, '.big.pl'], B), ( K == own -> P = F ; P = K ),
+    term_to_atom(sum('/x/sumbig', key(V, cpp(17))), L1), atomic_list_concat([L1, '.\nbig(0).\n'], S), atom_codes(S, SC), write_file_from_codes(F, SC),
+    term_to_atom('$ccl_sum_big'(P, 0, T), C0), atom_concat(C0, '.\n', C), atom_codes(C, CC), write_file_from_codes(B, CC),
+    ccl_sum_forget(F).
 
 %% ---- real C++ from the neighbours: Cicili's emitted C++, read entirely ----------------------
 c_real :-

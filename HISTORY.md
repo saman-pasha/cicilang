@@ -253,6 +253,7 @@ One row per step, in version order: the step's title, what it did and its gate n
 | 0.256 | cocolog 3.19.2: the pins moved, the chain GREEN with no change to the library | cocolog 3.18.0 to 3.19.2 (3.19.0: single-sided rules, every stream encoding, set_stream/2; 3.19.1: swipl's second block of load warnings; 3.19.2: a qualified clause that is no clause refused); the summaries' .ast.pl files hold no variable, so no load warning fires; the chain GREEN with no change; the record of 0.255's CI runs | flow GREEN (157 s); over libc++ 18 all nine GREEN (the cross gate 497 s, the library read 731 s, the C++ gate 1942 s, 852 run fixtures ok); the C++ gates over 21 and 22 GREEN (1942 s and 2147 s; 860 and 863 ok); the toolchain check strict with the pins moved, the small gates over the module 0.256; a commit and a push |
 | 0.257 | a static assertion that does not fold, a call of a deleted function and an unknown -std= are refused | the owner's three defects: a static assertion's condition that does not fold refused in clang's words (and the C23 constexpr structure's member, a block's enumerator, __builtin_constant_p and a constant object's member made to fold); a call of a deleted function -- free, member, static, constructor, copy, assignment, operator, the template idiom, a defaulted copy deleted -- refused with clang's words and C++26's reason, where most were no refusal at all; no -std= ignored; and on the owner's choice C++20's constant evaluation for the assertions the C++ gate found refused: try, unions, new and delete, virtual calls, dynamic_cast, std::vector, std::string; a local's noted aggregate kept in its frame, which a parameter of its name in a later function read (a wrong build since 0.104), a constexpr body's free names the file's, never its caller's locals (a wrong build in 0.256), and an immediately invoked lambda's constant; the record of 0.256's CI runs | the flow gate; over libc++ 18 all nine GREEN (the C++ gate 1443 s, 857 ok); the C++ gates over 21 and 22 GREEN (865 and 868 ok); a commit and a push |
 | 0.258 | the limits of 0.257's rules: deleted templates and moves, floats and plain calls in a constant evaluation | the fifteen limits 0.257 recorded, on the owner's word: a deleted function template, explicit specialization and member template candidates, a deleted move asked wherever an xvalue is copied, a plain struct with a reference or const member not assigned, the program's class's deleted constructor asked in the library's body at the program's line; in a constant evaluation floating arithmetic, a later base's dynamic_cast and thunk, an array new's cookie, the allocation's family, ::operator new std::allocator's alone, an unseen object bound to a reference, the evaluator's own instances dropped where unnamed; only a constexpr aggregate a value; a closure's body reading its function's constants; __builtin_types_compatible_p in C; and a sixteenth the probes found, a call of a function that is not constexpr refused; three wrong builds older than the step (an instance read its caller's constant, a later base's pointer compared with the object's, out-of-class constexpr members unseen by the evaluator); the record of 0.257's CI runs | the flow gate; over libc++ 18 all nine GREEN (the C++ gate 1347 s, 865 ok); the C++ gates over 21 and 22 GREEN (873 and 876 ok); a commit and a push |
+| 0.259 | cocolog 3.37.0: the pins moved, an object's names declared apart, a summary's long terms read as text | cocolog from 3.19.4 to its latest master, 3.37.0, on the owner's word and by the owner's new rule ("Use latest cocolog everytime"), its master taken four times while the step ran; the pins moved, ZiguratIP's with them (1.0.2); every load silent, on the owner's word: the tutorials' objects declare their names apart; 3.28.0's retract/1 answers again, so two loops take every clause (a second member waiting for its class's friends was refused); a defect older than the step: a summary's long terms, loaded as clauses keyed by the summary's path and never loaded again, were not served from a moved ~/.cicilang and came back stale after a child wrote the summary again -- read as text now, and the flow gate with no finding; the record of 0.258's CI | the flow gate; over libc++ 18 all nine GREEN (the C++ gate 1254 s, 866 ok); the C++ gates over 21 and 22 GREEN (874 and 877 ok); a commit and a push |
 
 ## M5 — the C++ mode
 
@@ -17604,3 +17605,88 @@ program's text defined with no constexpr) and the lowering 150 (what the desugar
 constexpr is no constant, only a constexpr aggregate is a value, a closure reads its function's constants, the evaluator
 computes with floating values, the library's body asks a deleted constructor of the program's class, and the evaluator's
 own instances that nothing names are no items).
+
+## 0.259 — cocolog 3.37.0: the pins moved, an object's names declared apart, a summary's long terms read as text
+
+**0.259: cocolog from 3.19.4 (`f7b0389`, which 0.258's chain ran on; the pins at 3.19.2, `81579bd`) to its latest
+master, 3.37.0 (`74183ae`), on the owner's word ("Do it", after cocolog's report of 3.33.0) and by the rule the owner
+gave while the step ran ("Use latest cocolog everytime", in `CLAUDE.md` now); the pins moved, ZiguratIP's with them
+(`5f058e7` to `2a65f81`, 1.0.2), and Cicili's stays (`3ba2ca4`). Twenty-eight commits of cocolog's. Its master moved
+four times while the step ran -- 3.33.0 (`a605949`), 3.34.0 (`d4ad532`), 3.34.1 (`d05a545`), then 3.35.0 to 3.37.0 while
+this machine was restarted -- and each was taken before the chain; during the chain it moved to 3.39.0 (`22fbc08`), the
+next step's (3.38.0's `clause/2` of a predicate written in C raises, which each of the objects layer's three calls
+catches; 3.39.0 changes `repeat/0`, which nothing of cicilang's calls). On the owner's word ("I there is any warning fix
+it befor next chain") every load is silent. A test of a store that 3.19.4 wrote found a defect of cicilang's own, older
+than the step, and it is fixed.**
+
+WHAT OF COCOLOG'S CHANGES REACHES CICILANG. 3.28.0's `retract/1` answers again on backtracking, as swipl's, so a
+`forall(retract(P), G)` takes every clause of P, where through 3.27 it took the first alone. Two loops of the library
+are such: `cpp_declare_later/1`, which declares the members whose deduced results waited for their class's friends --
+`autofriend2.cpp` (two members over the hidden friend `operator+`, a third over both) was refused `auto_result` on
+3.19.4 and builds as clang builds it now -- and the end of `cpp_register_units/1`, which puts back every header class's
+set-apart static initializations (`'$cpp_hdr_pre'`), the first class's alone through 3.27. 3.35.0 reads and writes names
+past ASCII as swipl's: `writeq/1` and `term_to_atom/2` write `été` bare, where they quoted it, and the reader takes it.
+The summaries, the AST files and the store hold such names so and read them back, and the fixtures with names past ASCII
+-- ten C ones in the compile gate, and `idchars.cpp`, `identutf8.cpp`, `u8lit.cpp`, `u8lit20.cpp` and `widesv.cpp` --
+print what they printed. 3.36.0's `abolish/1` takes a predicate's declarations too, so that a later call raises
+`existence_error`: each of the library's two calls is followed by a declaration (`cpp_reset/1`'s `dynamic/1`, and
+`end_object`'s `discontiguous/1` since this step). 3.33.0 changed the module SDK's sink hook
+(`coco_m_sink_column_install`, in cocolog's report): neither of cicilang's modules installs one, and both were built
+again over 3.33.0, 3.34.1 and 3.37.0. The rest calls nothing of cicilang's (the Findings of `RULES.md`).
+
+THE LOAD WARNINGS. Every library file in one process, then the eleven gate programs and macro files and the three
+tutorials each consulted alone, each run capped, over 3.34.1 and again over 3.37.0: one finding, in two tutorials, which
+3.19.4 gives too -- `Clauses of state/1 are not together in the source-file` and of `reset/0`
+(`tutorials/01-objects.pl`), of `state/1` and `area/1` (`03-modules.pl`). An object's clauses are its own: `end_object`
+makes its methods of them and takes them away, and the next object of the file defines its own `state/1`. So
+`end_object` declares the names that the object took discontiguous (`'$ccl_apart'/1`), and every load is silent.
+
+A SUMMARY'S LONG TERMS, a defect since 0.112 that the test of the old store met. A copy of 0.258's HOME over libc++ 18
+(the summaries that 3.19.4 wrote) served `absbase.cpp` in 98 s, where a fresh store took 22 s, and four of its five
+summaries were written again. A summary's long terms go to the clause file beside it, `'$ccl_sum_big'(F, I, T)` with F
+the summary's full path, which `ensure_loaded/1` put in the database: in a copy at another path no clause matched. And
+cocolog never reads again a file it has loaded (`ensure_loaded/1` of a file changed after its first load gave the old
+clause, on 3.34.1). So the build that found the four summaries stale gave their headers to processes of their own and,
+`-v` over a second copy,
+`the 4 cold headers given to processes of their own, 4 at a time: 0 summaries written in 20.7 s`: the summaries that the
+children wrote were stale to it too, by the clauses it had loaded before, and it read each header again itself (94 s).
+Where the path is the same -- a libc++ updated under a warm store -- the old clauses MATCH: a summary that a header's
+child wrote again was served with the long terms of the summary before it (in one process, a `basic_string` term changed
+by hand came back after its clause file was written again and the summary read again, `ccl_sum_forget/1` and
+`ccl_sum_terms/2`). The builds stayed right, those terms being class templates' tags, which the AST serves; nothing
+guarded that. The 8 KB read that made the clause file (0.112) has been gone since cocolog 1.10.6 (`c5605a0`:
+`term_to_atom/2` takes a text of any length; a 57 KB clause of `<vector>`'s file reads): the file stays, the store's
+form, and is read as text now, a clause at a time, nothing put in the database (`ccl_big_terms/2`). The reader stays
+170: what the store holds is the same. Two checks gate it: `test/cpp.pl`'s `c49` (a clause that names its summary by
+another path is served, and a clause file written again gives its new term; FAIL over 0.258's library), and
+`test/cpp.sh`'s moved-store check (`test/cpp/longterms.cpp`'s `<utility>` and `<tuple>`, read cold, the `.cicilang`
+moved to another HOME: 0.258's library read both again, 19 s, by two processes of their own and two summaries written
+again; 0.259's reads none, 2 s). The flow gate's one finding, the call of the clause file's table, goes with it:
+`test/flow.expect` is empty, and the gate GREEN with no finding.
+
+THE NETS before the chain: over 3.34.1 the flow gate GREEN (159 s, 89 s over the work tree, and 95 s with no finding
+after the fix), the reader, compile, driver and objects gates GREEN, `autofriend2.cpp` as clang's build; over 3.37.0 the
+toolchain check strict GREEN with the pins moved, the flow gate GREEN with no finding (86 s), the reader 3 s, compile
+25 s (225 C run fixtures ok), driver 35 s, objects 5 s, the C++ fixtures past ASCII, `autofriend2.cpp`,
+`constmeminit.cpp` and `absbase.cpp` as their `.expect`, `c49` and the moved-store check by hand. After the fix, over
+3.37.0, a copy of that HOME at another path served `absbase.cpp` in 7 s with no summary written again (19 s over a fresh
+store), and `addrconst.c` from the C store that 3.19.4 wrote: the caches of 3.19.4 serve 3.37.0.
+
+MEASUREMENTS: cocolog's update over 3.34.1 took `make` 175 s (peak 2079 MB), `make schema` 27 s and `make modules` 48 s;
+over 3.37.0 177 s (peak 2218 MB), 24 s and 42 s. The chain of 0.259 over its work tree, cocolog 3.37.0 and ZiguratIP
+1.0.2 at the moved pins (the toolchain check strict GREEN) and fresh HOMEs: over libc++ 22 the library read 360 s and
+the C++ gate 1297 s (877 ok, none skipped); over libc++ 21 346 s and 1298 s (874 ok, 3 skipped); over libc++ 18 all nine
+GREEN -- the flow gate 87 s with no finding, reader 2 s, compile 24 s, driver 33 s, objects 5 s, proof, the cross gate
+301 s, the library read 403 s, the C++ gate 1254 s (866 ok, 11 skipped by their needs); in 5411 s, where 0.258's took
+5949 s.
+
+THE CI OF 0.258 (`77e39d8`), over cocolog 3.19.2 at its pins: the smoke run (42331812343) GREEN on the three machines --
+Linux (setup 11:12, gates 3:49), Apple silicon (11:42, 5:36), the Intel Mac (19:35, 12:51); no job of the night had run
+at the commit when 0.259 was written.
+
+- `module/cicilang.cicili`: `end_object` declares an object's names discontiguous (`'$ccl_apart'/1`).
+  `library/ccl_include.pl`: a summary's clause file read as text (`ccl_big_terms/2`). `test/cpp.sh`: the moved-store
+  check; `test/cpp.pl`: `c49`; `test/cpp/longterms.cpp`, `test/cpp/run/autofriend2.cpp`; `test/flow.expect`, empty;
+  `test/toolchain.pins`, cocolog 3.37.0 and ZiguratIP 1.0.2. `RULES.md`, `CLAUDE.md`, `README.md`.
+
+The module 0.259; the reader 170 and the lowering 150 stay (what a cached read holds and what is emitted are the same).

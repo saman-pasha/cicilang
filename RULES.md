@@ -71,12 +71,14 @@ that changes a rule edits the rule here, in its topic, and writes its entry in `
   `llvm@N`, libc++'s library under the keg's `lib/c++`, the hints are `brew install`, the SDK is a line of its own (the
   first of `ccl_sdk_dirs/1`'s directories with a `stdio.h`, with macOS's version and the SDK's for Apple's clang), and
   the cross gate is a skip line. (0.223, 0.224)
-- THE PINS (0.223). `test/toolchain.pins` holds the neighbours' commits and versions -- cocolog 3.19.2 `81579bd`, Cicili
-  3.3.0 `3ba2ca4`, ZiguratIP `5f058e7` -- the embedded LLVM's major version (18) and the libc++ trees the C++ gates read
-  (18, 21 and 22, the third since 0.227). A pin moves only on the owner's word, in the step that runs the chain over it:
-  cocolog's moved at 0.226, from 2.13.0 `7ff2a0d`, at 0.254, from 2.14.1 `1e48013`, beside Cicili's (from `9b825b7`, its
-  `.gitignore` alone) and ZiguratIP's (from `90d99b8`, its Mac install alone), at 0.255, from 3.16.0 `e965a6e`, and at
-  0.256, from 3.18.0 `914e98a` (the Findings). (0.223, 0.226, 0.227, 0.254, 0.255, 0.256)
+- THE PINS (0.223). `test/toolchain.pins` holds the neighbours' commits and versions -- cocolog 3.37.0 `74183ae`, Cicili
+  3.3.0 `3ba2ca4`, ZiguratIP 1.0.2 `2a65f81` -- the embedded LLVM's major version (18) and the libc++ trees the C++
+  gates read (18, 21 and 22, the third since 0.227). A pin moves in the step that runs the chain over it, and since
+  0.259 cocolog is taken at its latest master every time (the owner's rule, `CLAUDE.md`), so that its pin moves in each
+  step that finds a new one: cocolog's moved at 0.226, from 2.13.0 `7ff2a0d`, at 0.254, from 2.14.1 `1e48013`, beside
+  Cicili's (from `9b825b7`, its `.gitignore` alone) and ZiguratIP's (from `90d99b8`, its Mac install alone), at 0.255,
+  from 3.16.0 `e965a6e`, at 0.256, from 3.18.0 `914e98a`, and at 0.259, from 3.19.2 `81579bd`, beside ZiguratIP's (from
+  `5f058e7`, 1.0.1) (the Findings). (0.223, 0.226, 0.227, 0.254, 0.255, 0.256, 0.259)
 - THE CI JOB (0.223). `.github/workflows/gates.yml` runs `test/ci.sh` on GitHub's machines: `smoke` on each push to
   main and each pull request into it that changes more than the documents at the top of the tree (the toolchain, then
   the flow, reader, compile, driver and objects gates and the proof), since 0.224 on two machines and since 0.246 on
@@ -245,8 +247,10 @@ that changes a rule edits the rule here, in its topic, and writes its entry in `
   fixture. THE RUNS OF 0.257 (`0698a88`), over cocolog 3.19.2 at its pins: the push's smoke run (42306189119) GREEN on
   the three machines -- Linux (setup 11:51, gates 3:52), Apple silicon (12:17, 6:46), the Intel Mac (22:46, 14:16); the
   C++ job (42306262379, by hand) GREEN, its setup in 27:09, the library read 1377 s and the C++ gate 6224 s (854 ok, 14
-  skipped), the step 2:06:43. (0.224, 0.225, 0.226, 0.246, 0.247, 0.248, 0.249, 0.250, 0.251, 0.252, 0.253, 0.255,
-  0.256, 0.257, 0.258)
+  skipped), the step 2:06:43. THE RUNS OF 0.258 (`77e39d8`), over cocolog 3.19.2 at its pins: the push's smoke run
+  (42331812343) GREEN on the three machines -- Linux (setup 11:12, gates 3:49), Apple silicon (11:42, 5:36), the Intel
+  Mac (19:35, 12:51); no job of the night had run at the commit when 0.259 was written. (0.224, 0.225, 0.226, 0.246,
+  0.247, 0.248, 0.249, 0.250, 0.251, 0.252, 0.253, 0.255, 0.256, 0.257, 0.258, 0.259)
 
 ### The chain
 
@@ -355,12 +359,14 @@ that changes a rule edits the rule here, in its topic, and writes its entry in `
   not meet is RED too, so that a finding fixed leaves the file in the same step and a later edit cannot bring it back
   unseen. `FLOW_UPDATE=1` writes the expect file from the run, after every new line is read; `FLOW_KEEP=DIR` keeps the
   copies, the logs and each file's findings. (0.144, 0.146)
-- `test/flow.expect` at 0.160 holds one key -- the 124 `discontiguous` splits of 0.146, all true, are gone with the
-  regroup of 0.160 -- a warning, the call of `'$ccl_sum_big'/3` in `ccl_sum_bigs_/3`, a table that a summary's `.big.pl`
-  file defines when `ensure_loaded/1` loads it at run time, under a `catch/3` that takes its existence error. The seven
-  false findings of 0.144 are gone on cocolog 1.11.4, which answered the report of them: `format(atom(A), ...)` binds A
-  (`ir_fp_nan/1`, `ir_neg_zero/1`), text made from text binds every argument (`cpp_dbg_op_spell/2`, whose W
-  `atomic_list_concat/3`'s split binds), and the call under the catch is the warning above. (0.144, 0.146, 0.160)
+- `test/flow.expect` is EMPTY since 0.259. From 0.160 it held one key -- the 124 `discontiguous` splits of 0.146, all
+  true, gone with the regroup of 0.160 -- a warning, the call of `'$ccl_sum_big'/3` in `ccl_sum_bigs_/3`, a table that a
+  summary's `.big.pl` file defined when `ensure_loaded/1` loaded it at run time, under a `catch/3` that took its
+  existence error; since 0.259 that file is read as text and nothing calls the table (Includes, summaries and the
+  store). The seven false findings of 0.144 are gone on cocolog 1.11.4, which answered the report of them:
+  `format(atom(A), ...)` binds A (`ir_fp_nan/1`, `ir_neg_zero/1`), text made from text binds every argument
+  (`cpp_dbg_op_spell/2`, whose W `atomic_list_concat/3`'s split binds), and the call under the catch was the warning
+  above. (0.144, 0.146, 0.160, 0.259)
 
 ### The C gates
 
@@ -430,6 +436,13 @@ that changes a rule edits the rule here, in its topic, and writes its entry in `
   0.221, 0.240, 0.242, 0.243, 0.244, 0.245, 0.247)
 - The objects gate. `test/objects.sh` makes 29 checks of the objects layer, an instance that outlives its process
   among them. (from the start)
+- AN OBJECT'S NAMES ARE DECLARED APART (0.259; `'$ccl_apart'/1`, called by `end_object` in `module/cicilang.cicili`):
+  the clauses between `object(Name)` and `end_object` are the object's -- `end_object` collects them, makes its methods
+  of them and takes them away (`'$ccl_define'/2`) -- so a later object of the same file defines its own `state/1` or
+  `reset/0`, which cocolog's load took, by swipl's rule, for the clauses of one predicate set apart:
+  `Clauses of state/1 are not together in the source-file` at each load of `tutorials/01-objects.pl` (`state/1`,
+  `reset/0`) and `03-modules.pl` (`state/1`, `area/1`), on 3.19.4 too. `end_object` declares each name that the object
+  took discontiguous, and the loads are silent. (0.259)
 - The cross gate (0.131). `test/cross.sh` builds every `test/c/run/*.c` with `cicilang --target=aarch64-linux-gnu` and
   with `clang --target=aarch64-linux-gnu`, both at -O1 as the compile gate builds since 0.248 (at -O0 an IR undefined
   only under the optimizer ran: a struct's pieces past its temporary, How values and classes cross a call), runs both
@@ -497,7 +510,7 @@ that changes a rule edits the rule here, in its topic, and writes its entry in `
 - `test/cpp.sh` runs in this order: `test/cpp.pl` in one `--local` process; four checks of the command; every
   `test/cpp/run/*.cpp` as a pool job (836 at 0.221); `classes.cpp` and `templates.cpp` built and run; the refusals, each
   at the level its `test/cpp/NAME.flags` names, else C++17 (0.164). (0.105, 0.164)
-- `test/cpp.pl` runs 47 numbered checks, `c1` to `c47`, then reads Cicili's six C++ files whole (`test/cpp/objects.cpp`,
+- `test/cpp.pl` runs 49 numbered checks, `c1` to `c49`, then reads Cicili's six C++ files whole (`test/cpp/objects.cpp`,
   `emit_report.cpp`, `specialise.cpp`, `syntax.cpp`, `torch.cpp`, `torch-fragment.cpp`). `c34` checks the Itanium
   mangler on nine symbols, with no class registered. `unit_at(Std, Name, U)` sets `'$ccl_std'` for one read: `c22` to
   `c28` read `cxx20.cpp`, `c29` to `c33` `cxx23.cpp`, and `c35`, `c36` the run fixtures `cxx20cmp.cpp`, `cxx23b.cpp`,
@@ -507,8 +520,10 @@ that changes a rule edits the rule here, in its topic, and writes its entry in `
   defined out of its class (`convout.cpp`), `c42` the parenthesized functional cast and `using typename`
   (`parencast.cpp`, `usingtypename.cpp`) and `c43` the pack using-declaration `using Ts::operator()...;`
   (`overloaded.cpp`). `c37` also spells three symbols with `volatile`, and `c46` three with a vector type (0.162);
-  `c47` nine instances of function templates by their parameters' declarations (0.221). (0.93, 0.117, 0.121, 0.162,
-  0.221)
+  `c47` nine instances of function templates by their parameters' declarations (0.221), `c48` the mangler's forms of
+  what a program's type information shows (0.236), and `c49` a summary's long terms read from its clause file as text --
+  a clause that names the summary by another path, and a clause file written again in the process (0.259). (0.93, 0.117,
+  0.121, 0.162, 0.221, 0.236, 0.259)
 - A numbered check reads the AST by its SHAPE, so a reader node that moves moves its check in the same step: `throw Err{t}`
   has read `throw(braced_temp(call(id('Err'), [id(t)])))` since 0.117 and `c20` expected the plain call until 0.119 -- a
   RED that only this gate can show, so a step that does not run it leaves the check stale. `test/cpp.pl` alone runs in 15
@@ -523,6 +538,10 @@ that changes a rule edits the rule here, in its topic, and writes its entry in `
   a served one is -- `stdcharconv.cpp` over a summary directory of the check's own, where a build of
   `test/cpp/charconvfirst.cpp` left `<charconv>`'s summary and the rest of its headers are cold, read in turn by one
   process (`CICILANG_JOBS=1`), prints its `.expect` (0.217 refuses it, `no_member_type('__traits.unsigned', type)`);
+  (0.259) a summary directory moved to another HOME serves its headers -- `test/cpp/longterms.cpp`'s `<utility>` and
+  `<tuple>`, each summary with a long term in its clause file, read cold in a HOME of the check's own, then the
+  `.cicilang` moved to another HOME: the second build's `-v` names no process of its own, no summary is written again,
+  and the binary prints `7 7` (0.258's library read both headers again, by two processes, then in the build's own);
   (0.192) two units built apart, each by `cicilang++ -c` in a process of its own, link and print clang++'s output
   (`test/cpp/link/units_a.cpp`, `units_b.cpp` over `units.h`, against `units.expect`): each unit's closures, local
   classes, unnamed namespace, static functions and their type information its own, the header's inline variables and
@@ -538,10 +557,11 @@ that changes a rule edits the rule here, in its topic, and writes its entry in `
   clang++ is given the SDK (`-isysroot`, `xcrun --show-sdk-path`; 0.249): Homebrew's llvm@18 found no `<stdio.h>` on the
   CI's Intel Mac, so `byval.h`'s `#include <cstdio>` failed and the check with it; and a helper that does not build says
   why under the check's FAIL (`ccl_ref_cxx`, `ccl_ref_said`). After the fixtures, `classes.cpp` builds and exits 34, and
-  `templates.cpp` exits 10. (M5, 0.34, 0.35, 0.135, 0.161, 0.188, 0.192, 0.207, 0.218, 0.249, 0.250)
+  `templates.cpp` exits 10. (M5, 0.34, 0.35, 0.135, 0.161, 0.188, 0.192, 0.207, 0.218, 0.249, 0.250, 0.259)
 - The fixture builds assume a warm cache: a build that only reads summaries is safe in parallel, and a cold flatten
-  under load is not. `CPP_JOBS=1` makes the gate serial. A HOME whose cache was copied from another tree or another HOME
-  is not warm (the summary cache topic, 0.217). (0.105, 0.217)
+  under load is not. `CPP_JOBS=1` makes the gate serial. A HOME whose cache was copied from another tree is not warm
+  (the summary cache topic, 0.217); one copied from another HOME of the same tree is warm since 0.259. (0.105, 0.217,
+  0.259)
 - `ccl_fixture NAME` builds with `NAME.flags`, capped at `CPP_FIXTURE_SECS` (2400 s) by `ccl_capped`. Past the cap,
   `ccl_kill_tree` kills the tree, and the verdict line itself reads `FAIL NAME.cpp: TIMEOUT after N s`, so no diff
   hides it. It runs the binary on `NAME.stdin` or `/dev/null`, capped since 0.249 at `CPP_RUN_SECS` (300 s) by `timeout
@@ -2764,7 +2784,10 @@ that changes a rule edits the rule here, in its topic, and writes its entry in `
   static members are initialized at the class's place among them, in the order of their definitions, as clang orders a
   unit's inline variables: the class is emitted at its registration, and the guarded initializations its emission adds
   are set apart (`cpp_hdr_pre_apart/2`, `'$cpp_hdr_pre'(C, Ss)`) until `cpp_header_fns` meets the class -- they ran
-  before every variable of the header. The C++ gate's two units. (0.192)
+  before every variable of the header. The C++ gate's two units. What no walk of its header put back goes back at the
+  end of the unit's registration (`cpp_register_units/1`:
+  `forall(retract('$cpp_hdr_pre'(_, Ps)), cpp_ginit_pre_put(Ps))`): every class's since cocolog 3.28.0, whose
+  `retract/1` answers again, the first class's alone through 3.27 (the Findings). (0.192, 0.259)
 - THE DEFINITIONS A C HEADER MAKES ARE THE UNIT'S (C17 6.9/5 and 6.9.2/2, an included header's text being the
   translation unit's own; 0.212; `ir_header_defs/2`, after `ir_block_tags/2` in `ccl_ir_units/2`): its functions and its
   objects are lowered with the unit's own, as clang emits them -- the program's own header's external definitions always
@@ -2846,11 +2869,20 @@ that changes a rule edits the rule here, in its topic, and writes its entry in `
 - `ccl_sum_lines/2` parses a line with `term_to_atom/2` into a FRESH variable, since a bound term is compared, not
   unified. (M5)
 - A term whose text passes 8000 characters goes to `<name>-<fold>.big.pl` beside the summary as
-  `'$ccl_sum_big'(F, I, T)`, and its line is `big(I)` (`ccl_sum_line/3`); the reader consults that file and puts each
-  term back in its place (`ccl_sum_bigs_in/3`), and a `big(I)` left with no clause makes the summary invalid. Why:
-  cocolog's `term_to_atom/2` reads through an 8 KB buffer, and twelve `tag(...)` lines of `<vector>`'s summary
-  (`basic_string` 56 KB, `tuple`, `vector`, `pair`) were dropped silently, so a summary-served run's tag table lacked
-  them. (0.112)
+  `'$ccl_sum_big'(F, I, T)`, and its line is `big(I)` (`ccl_sum_line/3`); the reader READS THAT FILE AS TEXT, a clause
+  at a time (0.259; `ccl_big_terms/2`: the clauses split at their full stops, each read by `term_to_atom/2` into a fresh
+  term), puts each term back in its place (`ccl_sum_bigs_in/3`), and a `big(I)` left with no clause makes the summary
+  invalid. Why the file: cocolog's `term_to_atom/2` read through an 8 KB buffer, and twelve `tag(...)` lines of
+  `<vector>`'s summary (`basic_string` 56 KB, `tuple`, `vector`, `pair`) were dropped silently, so a summary-served
+  run's tag table lacked them; the buffer has been gone since cocolog 1.10.6 (`term_to_atom/2` takes a text of any
+  length: a 57 KB clause reads), and the file stays, the store's form. Why as text: `ensure_loaded/1` put the clauses in
+  the database, keyed by the summary's full path, and cocolog never reads again a file it has loaded. So in a
+  `~/.cicilang` moved to another path no clause matched: `absbase.cpp`'s four headers with a long term were read by
+  processes of their own, the build counted `0 summaries written` and read each again itself -- 94 s, where a fresh
+  store takes 22 s. And a summary that a header's child wrote again while the build ran was served with the long terms
+  that the build had read before (a `basic_string` term changed by hand came back after its file was written again; the
+  builds stayed right, those terms being class templates' tags, which the AST serves). `test/cpp.sh`'s moved-store check
+  (`test/cpp/longterms.cpp`) and `test/cpp.pl`'s `c49`. (0.112, 0.259)
 - The `.mac` holds `mnames([...])` lines of at most 100 names, then one `macro(N, Ps, text(A))` line per macro as
   written. The lines become `'$ccl_hml'(Name, TK, raw(Line))` facts, TK the table's memo key (0.239), parsed on first
   use (`pp_raw_macro/4`). (M5)
@@ -2864,11 +2896,12 @@ that changes a rule edits the rule here, in its topic, and writes its entry in `
   temporary name their appends were mixed. THE TEXT GOES OUT AS ATOMS (0.188): the atoms `term_to_atom/2` makes,
   joined up to 16,000 characters an append (`ccl_append_parts/2`), a longer one as its codes, since
   `append_file_from_codes/2` copies an atom through 64 KB and raises past it; each was made into codes first. (0.188)
-- A SUMMARY BELONGS TO ITS TREE AND ITS HOME (0.217's finding): its deps name this compiler's own `library/include/`
-  headers by their path in the tree (`<stddef.h>`), and its `.big.pl` names its `.sum` by the HOME's path
-  (`'$ccl_sum_big'(F, I, T)`), so a cache copied to another tree or another HOME is read again there, header by header.
-  0.216's and 0.217's nets seeded a worktree's HOME from a chain's, and their pools read most headers cold, under load
-  -- 0.216 put it down to a copy that lost the files' times.
+- A SUMMARY BELONGS TO ITS TREE (0.217's finding): its deps name this compiler's own `library/include/` headers by their
+  path in the tree (`<stddef.h>`), so a cache copied to another tree is read again there, header by header. It belonged
+  to its HOME too until 0.259: its `.big.pl` named its `.sum` by the HOME's path (`'$ccl_sum_big'(F, I, T)`), which the
+  reader asks no more (above), so a HOME moved or copied to another path is warm. 0.216's and 0.217's nets seeded a
+  worktree's HOME from a chain's, and their pools read most headers cold, under load -- 0.216 put it down to a copy that
+  lost the files' times. (0.217, 0.259)
 
 ### The AST beside the summary and the header index
 
@@ -4347,7 +4380,12 @@ unless a path is given. (0.33, 0.41, 0.79, 0.82, 0.223)
   (`'$cpp_auto_later'`, once a member) and deduced and declared once the friends are, in the class's words; refused
   again, the refusal is the class's. libc++ 21's `__ra_iterator`, flat_set's iterator, writes `decltype(auto)
   operator[](difference_type __n) const { return *(*this + __n); }` over the friend `operator+`, and every
-  `std::flat_set` was `auto_result(__ra_iterator...)`. `autofriend.cpp` (C++20), `stdflatmap.cpp`. (0.201)
+  `std::flat_set` was `auto_result(__ra_iterator...)`. EVERY MEMBER THAT WAITED IS DECLARED
+  (`forall(retract('$cpp_auto_later'(C, ...)), ...)`): cocolog's `retract/1` answers again on backtracking since 3.28.0,
+  as swipl's, and through 3.27 the loop took the first alone, so that the second member waiting in a class was refused
+  `auto_result` -- `autofriend2.cpp`'s `operator[]` and `at` over the friend `operator+`, and a third member over both,
+  refused on 3.19.4 and built as clang builds it on 3.34.1 and 3.37.0. `autofriend.cpp`, `autofriend2.cpp` (C++20),
+  `stdflatmap.cpp`. (0.201, 0.259)
 - A plain hidden friend of the program's class is declared at file scope and emitted with the class
   (`'$cpp_friends'`, `cpp_item`). One of a library class is a lazy header function emitted where it is called, its
   types resolved and its body walked in the class (`'$cpp_friend_in'`, 0.112). Why: filter_view's iterator
@@ -10806,7 +10844,40 @@ The namespaces' rules, the program's and the library's, are `library/ccl_cpp_nam
   at 2882 MB, 1.8.38 at 591 MB. After a cocolog update the modules are rebuilt (`module/build.sh`,
   `module/build-llvm.sh`, and cocolog's `os` and `process` modules); 1.8.36 to 1.8.41 left the SDK's ABI unchanged.
   (0.46, 0.112, 0.114)
-- cocolog is at 3.19.2 since 0.256, pulled at the owner's word ("Pull repos and run the chain over 3.19.2", then "move
+- cocolog is at 3.37.0 since 0.259, taken at its latest master by the owner's rule ("Use latest cocolog everytime";
+  `CLAUDE.md`) -- `74183ae`, twenty-eight commits past 3.19.2 (0.258's chain ran on 3.19.4 as checked out), over
+  ZiguratIP 1.0.2 (`2a65f81`: a row's chain read inside its page's hexmap slice) beside Cicili 3.3.0 (`3ba2ca4`), which
+  did not move. Its master moved four times while the step ran (3.33.0, 3.34.0, 3.34.1, then 3.35.0 to 3.37.0), and each
+  was taken before the chain; during the chain it moved to 3.39.0 (`22fbc08`), the next step's: 3.38.0's `clause/2` of a
+  predicate written in C raises, which each of the objects layer's three calls catches, and 3.39.0 changes `repeat/0`,
+  which nothing of cicilang's calls. What reaches cicilang: 3.28.0's `retract/1` ANSWERS AGAIN on backtracking and
+  `clause/2` sees the clauses that stood when it began, as swipl's, so that `forall(retract(P), G)` takes every clause
+  of P, where through 3.27 it took the first alone -- `cpp_declare_later/1` declares every member that waited for its
+  class's friends (`autofriend2.cpp`, refused `auto_result` on 3.19.4; Friends) and `cpp_register_units/1` puts back
+  every header class's set-apart static initializations (`'$cpp_hdr_pre'`; How the library is compiled); THE LOADS'
+  WARNINGS, which 3.19.5 makes by swipl's two passes, said `Clauses of state/1 are not together in the source-file` of
+  the tutorials' objects, on 3.19.4 too: `end_object` declares the names an object took discontiguous now
+  (`'$ccl_apart'/1`; the objects gate), and every load of the library, of the eleven gate programs and macro files and
+  of the three tutorials is silent over 3.34.1 and 3.37.0; 3.35.0 READS AND WRITES NAMES PAST ASCII AS SWIPL'S (`été` an
+  atom, `Été` a variable; `writeq/1` and `term_to_atom/2` write such an atom bare, where they quoted it): the summaries,
+  the AST files and the store hold such names bare and read them back, and the fixtures with names past ASCII (ten C
+  ones in the compile gate, and `idchars.cpp`, `identutf8.cpp`, `u8lit.cpp`, `u8lit20.cpp`, `widesv.cpp`) print what
+  they printed; 3.36.0's `abolish/1` takes a predicate's declarations too, so that a later call raises
+  `existence_error`, and of a library's predicate only the program's clauses: each of the library's two calls is
+  followed by a declaration (`cpp_reset/1`'s `dynamic/1`, `end_object`'s `discontiguous/1`). The rest calls nothing of
+  cicilang's: swipl's control constructs `$/1`, `G@M` and `$/0` (3.20.0, 3.21.0); no choice point at the last answer of
+  `member/2`, `select/3`, `nth0/3`, `nth1/3`, `between/3`, `library(apply)`, `current_op/3`, `current_predicate/1`,
+  `predicate_property/2` and `sub_atom/5` (3.22.0 to 3.25.0); a call keyed on another argument where the first cannot
+  choose (3.24.0); `library(lists)` and `library(error)` as swipl's clauses (3.26.0, 3.29.0); `arg/3`, `char_type/2`,
+  `code_type/2` and `get_assoc/3` (3.29.0 to 3.31.0); a search past the stack limit stopped (3.32.0, 1 GB by default: no
+  run of the chain met it); `format/2`'s columns and `~@` (3.33.0, 3.34.0; the module SDK's sink hook answers a column
+  now, and neither module installs one); `op/3` of a name of any length (3.34.1); a damaged store's message (3.36.1);
+  `listing/1`'s argument (3.37.0). A C store and C++ summaries that 3.19.4 wrote serve 3.37.0, at another path too since
+  the fix of 0.259 (`absbase.cpp` in 7 s, no summary written again; 19 s over a fresh store). The update to 3.37.0 took
+  `make` 177 s (peak 2218 MB), `make schema` 24 s and `make modules` 42 s (to 3.34.1 175 s, peak 2079 MB, 27 s and
+  48 s); both modules were built again over each. The chain over it GREEN (What runs). The reader stays 170 and the
+  lowering 150. (0.259)
+- cocolog was at 3.19.2 at 0.256, pulled at the owner's word ("Pull repos and run the chain over 3.19.2", then "move
   the pins, commit and push when all GREEN") -- master `81579bd`, three commits past 3.18.0, over ZiguratIP 1.0.1
   (`5f058e7`) beside Cicili 3.3.0 (`3ba2ca4`), neither moved. 3.19.0: `Head => Body` and `Head, Guard => Body` are
   swipl's single-sided rules, where a rule was `Head :- !, Body`; `library(stream)` applies every encoding swipl names
@@ -11271,22 +11342,24 @@ The namespaces' rules, the program's and the library's, are `library/ccl_cpp_nam
   calls either. (0.148, 0.222)
 - `cocolog --embed run FILE goal` consults FILE into the store, and a module's clauses do not reach the knowledge base
   (1.2.18): a gate program is loaded by `ensure_loaded/1` from a `query` (`reader_main`, `compile_main`, `cpp_main`).
-  Every dynamic predicate asserted at run time persists under `--embed`. A file's clauses stay in the process,
-  unstored. Since 2.13.0 a second `ensure_loaded/1` of a file loads nothing, as SWI's does, even where the file changed
-  in between, and a file reached by two roads -- two spellings of one path, or `run F` and then `ensure_loaded(F)` --
-  is read once; through 2.12 each was read again (a second `ensure_loaded/1` replaced the clauses, two roads made every
-  clause answer twice). The library loads each such file once in a process -- a summary's `.ast.pl` and `.big.pl`
-  (`cpp_load_ast/1`, `ccl_sum_bigs_in/3`), a `.pl` macro file, the three generated tables --, so the change does not
-  reach it: 0.222's tree was all GREEN on 2.13.0 (0.223), and 0.226's on 2.14.1. `consult/1` of a file it read before
-  reads it again since 2.13.0, and since 2.14.0 of one that `use_module/1` or `ensure_loaded/1` loaded too, as
-  `load_files/2` with `if(true)` does, as SWI's do (2.13.0 kept the old clauses there: 0.223's finding, which cocolog's
-  owner took); `if(changed)` and `if(exists)` read it again only where it is newer, `if(exists)` of a missing file
-  succeeds, `[F]` and `consult/1` of one raise `existence_error(source_sink, F)`, and a predicate the file no longer
-  says raises `existence_error(procedure, PI)`. Since 2.14.1 a file read again puts its clauses where swipl 9.0.4's
-  reload does: `[1, 2]` beside an asserted `a`, read again as `[3, 4]`, is `[3, 4, a]`; an asserted clause that the new
-  text also says becomes the file's, held once, and goes when the file stops saying it; a first read appends after what
-  was asserted (`[a, 1]`). Each probed at 0.226, in one process; no file of cicilang consults or reads a file twice.
-  (1.2.18, 0.223, 0.226)
+  Every dynamic predicate asserted at run time persists under `--embed`. A file's clauses stay in the process, unstored.
+  Since 2.13.0 a second `ensure_loaded/1` of a file loads nothing, as SWI's does, even where the file changed in
+  between, and a file reached by two roads -- two spellings of one path, or `run F` and then `ensure_loaded(F)` -- is
+  read once; through 2.12 each was read again (a second `ensure_loaded/1` replaced the clauses, two roads made every
+  clause answer twice). The library loads each such file once in a process -- a summary's `.ast.pl` (`cpp_load_ast/1`,
+  after the build's children have written it), a `.pl` macro file, the three generated tables --, so the change does not
+  reach it: 0.222's tree was all GREEN on 2.13.0 (0.223), and 0.226's on 2.14.1. A summary's `.big.pl` was loaded so too
+  until 0.259, and the change did reach it: a build read a summary before its header's child wrote it again, and then
+  served the new summary with the old long terms (Includes, summaries and the store); 0.259 reads that file as text.
+  `consult/1` of a file it read before reads it again since 2.13.0, and since 2.14.0 of one that `use_module/1` or
+  `ensure_loaded/1` loaded too, as `load_files/2` with `if(true)` does, as SWI's do (2.13.0 kept the old clauses there:
+  0.223's finding, which cocolog's owner took); `if(changed)` and `if(exists)` read it again only where it is newer,
+  `if(exists)` of a missing file succeeds, `[F]` and `consult/1` of one raise `existence_error(source_sink, F)`, and a
+  predicate the file no longer says raises `existence_error(procedure, PI)`. Since 2.14.1 a file read again puts its
+  clauses where swipl 9.0.4's reload does: `[1, 2]` beside an asserted `a`, read again as `[3, 4]`, is `[3, 4, a]`; an
+  asserted clause that the new text also says becomes the file's, held once, and goes when the file stops saying it; a
+  first read appends after what was asserted (`[a, 1]`). Each probed at 0.226, in one process; no file of cicilang
+  consults or loads a file twice. (1.2.18, 0.223, 0.226, 0.259)
 - THE STORE TAKES ONE WRITER AT A TIME (2.14.1; measured at 0.240 over fresh stores): processes that assert into one
   store at once, each 40 chunks of 3500 characters under a predicate of its own, as `dr_ir/3` keeps a C file's IR, then
   read them back. One writer had its rows back in 0.02 s, and the store held them. Of three at once, one commit was
@@ -11435,10 +11508,12 @@ The namespaces' rules, the program's and the library's, are `library/ccl_cpp_nam
   the new edit runs over a HOME of its own, or the version is bumped. Over the old cache, `deque` missed its
   out-of-class statics (a link error, then a segmentation fault) and `<thread>` its operator, after both were fixed.
   (0.117)
-- A COPIED HOME IS NO WARM HOME (0.156): a summary's `.big.pl` names its `.sum` by the absolute path
-  (`'$ccl_sum_big'(File, I, T)`), so in a HOME copied to another path every summary that holds a big term is no longer
-  valid and its header is read again (`<vector>`: 88 s where a warm build takes 3 s). Warm a HOME where it stays, and
-  give a probe a HOME of its own, warmed there.
+- A COPIED HOME WAS NO WARM HOME (0.156, until 0.259): a summary's `.big.pl` named its `.sum` by the absolute path
+  (`'$ccl_sum_big'(File, I, T)`), so in a HOME copied to another path every summary that holds a big term was no longer
+  valid and its header was read again (`<vector>`: 88 s where a warm build takes 3 s). Since 0.259 the reader asks that
+  path no more, and a HOME moved or copied is warm (`test/cpp.sh`'s moved-store check); a cache copied to another tree
+  is still cold where a summary's deps name the tree's own headers (A summary belongs to its tree). A probe still takes
+  a HOME of its own: what a HOME holds is served (below). (0.156, 0.259)
 - Remove what a run can be served: a probe's HOME first (a leftover summary is served and nothing reaches the index),
   the binary before the build (a failed build ran the last one under its heading), and bump the lowering version with
   every change to what is emitted (`dr_ir/3` serves the stored IR). (0.44, 0.89, 0.103)
@@ -11593,8 +11668,14 @@ The namespaces' rules, the program's and the library's, are `library/ccl_cpp_nam
 - Ubuntu 24.04 on x86_64 (clang and LLVM 18, glibc, libc++ 18, 21 and 22) is a host since 0.87. Every gate but the C++
   one is GREEN there since 0.93, and all seven since 0.95. Every step from 0.93 on is gated there, but the save points
   0.112, 0.113, 0.117, 0.122 to 0.125, 0.130, 0.131 and 0.143 (0.143's C gates and cross gate ran, its libc++ gates did
-  not; the others were gated by the steps after them). The last full run is 0.258's chain, over its work tree and
-  cocolog 3.19.4 and ZiguratIP 1.0.2 as checked out (the toolchain check GREEN, 3 off the pins, which stay at 3.19.2),
+  not; the others were gated by the steps after them). The last full run is 0.259's chain, over its work tree and
+  cocolog 3.37.0 and ZiguratIP 1.0.2 at the pins moved to them (the toolchain check strict GREEN), its two modules built
+  over them, over fresh HOMEs: over libc++ 18 all nine GREEN (the flow gate with no finding in 87 s, reader 2 s, compile
+  24 s, driver 33 s, objects 5 s, proof, the cross gate in 301 s with its C++ part for aarch64, the library read in
+  403 s, the C++ gate in 1254 s with 866 fixtures ok and 11 skipped by their needs); over libc++ 21 the library read
+  (346 s) and the C++ gate (1298 s, 874 ok, 3 skipped) GREEN, and over libc++ 22 the library read (360 s) and the C++
+  gate (1297 s, 877 ok, none skipped) GREEN. 0.258's chain, over its work tree and cocolog 3.19.4 and ZiguratIP 1.0.2 as
+  checked out (the toolchain check GREEN, 3 off the pins, which stay at 3.19.2),
   its two modules built over it, over fresh HOMEs: over libc++ 18 all nine GREEN (the flow gate's one finding in 162 s,
   reader 2 s, compile 31 s, driver 35 s, objects 5 s, proof, the cross gate in 327 s with its C++ part for aarch64, the
   library read in 421 s, the C++ gate in 1347 s with 865 fixtures ok and 11 skipped by their needs); over libc++ 21 the

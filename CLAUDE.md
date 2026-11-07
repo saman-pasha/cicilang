@@ -12,7 +12,7 @@ the fixture that gates it, and why. The bullet ends with the version that made t
 edits the rule in `RULES.md`, in its topic, and writes its entry in `HISTORY.md`. Read the topic of `RULES.md` that
 covers the code before the code is changed.
 
-At 0.258 the versions are: the module 0.258 (`ccl_p_version` in `module/cicilang.cicili`, `bin/cicilang --version`),
+At 0.259 the versions are: the module 0.259 (`ccl_p_version` in `module/cicilang.cicili`, `bin/cicilang --version`),
 the reader 170 (`ccl_reader_version/1`, `library/ccl_syntax.pl`) and the lowering 150 (`ccl_lowering_version/1`,
 `library/ccl_ir.pl`).
 
@@ -232,6 +232,10 @@ In `RULES.md`:
   trees: a pin moves with its neighbour, on the owner's word, in the step that runs the chain over it. `sh
   test/toolchain.sh` reports a checkout off its pin, and the CI job (`.github/workflows/gates.yml`, `test/ci.sh`) clones
   the pins. (0.223)
+- COCOLOG IS TAKEN AT ITS LATEST MASTER EVERY TIME (owner's rule, 0.259: "Use latest cocolog everytime"): a step pulls
+  cocolog's master, builds it, its schema and its modules and this repository's two modules over it, reads what its new
+  commits change, and runs the chain over it; its pin, and ZiguratIP's where cocolog's build takes a new one, moves in
+  the step's commit. A master that moves while a step runs is taken before the step's chain. (0.259)
 - The store's stamp `KB.version` is `Reader.Lowering`; a change of either starts the store afresh (`kb_prepare` in
   `bin/cicilang`, its twin `ccl_kb_prepare` in `test/config.sh`). A reader bump also makes every C++ summary cold.
   (M4, 0.105)
