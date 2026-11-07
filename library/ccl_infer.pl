@@ -1044,6 +1044,27 @@ ccl_place_free_q([], []).
 ccl_place_free_q([X|Xs], Ys) :- ( ( X == packed ; X = aligned(_) ; X = ualign(_) ) -> Ys = Ys1 ; Ys = [X|Ys1] ), ccl_place_free_q(Xs, Ys1).
 ccl_canon_specs([], []).
 ccl_canon_specs([S|Ss], [K|Ks]) :- ( S = struct(Tag, _) -> K = struct(Tag) ; S = union(Tag, _) -> K = union(Tag) ; S = enum(Tag, _) -> K = enum(Tag) ; K = S ), ccl_canon_specs(Ss, Ks).
+%% GCC'S __builtin_types_compatible_p(T1, T2) IN C (0.258; GCC's manual, Other Builtins; C17 6.2.7): 1 where the two types, their top
+%% qualifiers set aside, are compatible, else 0 -- an integer constant, which `_Static_assert' and an array's bound take. Two types are
+%% where their canonical forms (ccl_type_canon/2, `_Generic''s) are one, arrays where their elements are and a bound is unknown or both
+%% are equal, pointers where they point to compatible types of the same qualifiers, functions where their results and parameters are,
+%% and an enumeration with the integer type its values have -- its fixed one (C23), else `unsigned int' where none is negative and `int'
+%% where one is, as clang and GCC choose (6.7.2.2/4) -- never with another enumeration. The reader refused the builtin as a syntax
+%% error (0.257's limits); C++ has none, and clang++ refuses it
+ccl_types_compat(T1, T2, V) :- ( ccl_compat_canon(T1, K1), ccl_compat_canon(T2, K2), ccl_canon_compat(K1, K2) -> V = 1 ; V = 0 ).
+ccl_compat_canon(T, K) :- ccl_resolve_type(T, R), ccl_strip_quals(R, R1), ccl_type_canon(R1, K).
+ccl_canon_compat(K, K) :- !.
+ccl_canon_compat(arr(N1, E1), arr(N2, E2)) :- !, ( integer(N1), integer(N2) -> N1 =:= N2 ; true ), ccl_canon_compat(E1, E2).
+ccl_canon_compat(ptr(A), ptr(B)) :- !, ccl_canon_compat(A, B).
+ccl_canon_compat(fn(R1, P1, V), fn(R2, P2, V)) :- !, ccl_canon_compat(R1, R2), ccl_canon_compat_list(P1, P2).
+ccl_canon_compat(base(Q, [enum(Tag)]), base(Q, S)) :- !, S \= [enum(_)], ccl_enum_compat_specs(Tag, S).
+ccl_canon_compat(base(Q, S), base(Q, [enum(Tag)])) :- S \= [enum(_)], ccl_enum_compat_specs(Tag, S).
+ccl_canon_compat_list([], []).
+ccl_canon_compat_list([A|As], [B|Bs]) :- ccl_canon_compat(A, B), ccl_canon_compat_list(As, Bs).
+ccl_enum_compat_specs(Tag, S) :- ccl_tag(Tag, Es), is_list(Es),
+    (   memberchk(enum_base(B), Es) -> ccl_type_canon(B, base(_, S0))
+    ;   ( member(enumerator(N, _), Es), ccl_enum_value(N, V), ( integer(V) -> V < 0 ; true ) ) -> S0 = [int]
+    ;   S0 = [int, unsigned] ), !, S == S0.
 ccl_decay(T, D) :- ccl_resolve_type(T, T1), ( T1 = arr(_, E) -> D = ptr([], E) ; T1 = fn(_, _, _) -> D = ptr([], T1) ; D = T ).
 
 %% ---- sizes, LP64 ---------------------------------------------------------------------

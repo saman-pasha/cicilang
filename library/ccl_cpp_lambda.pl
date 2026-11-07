@@ -84,7 +84,7 @@ cpp_lambda_(Ctx, Caps, Ps0, Ret0, Body, E, Name, T, Captures, This) :-
         Conv = [method(0, [const], FPT, operator(conv(FPT)), [], false, block([return(0, addr(id(Invoker)))]))]
     ;   Conv = [] ),
     append(Ms0, [Op|Conv], Ms),
-    cpp_isolated(( cpp_register_class(0, Name, [], Ms), cpp_item(declare(0, base([], [class(struct, Name, [], Ms)])), Its) )),
+    cpp_note_encl_consts(Name), cpp_isolated(( cpp_register_class(0, Name, [], Ms), cpp_item(declare(0, base([], [class(struct, Name, [], Ms)])), Its) )),
     cpp_add_instance_items(Its),
     ( Conv \== [] -> cpp_closure_invoker(Name, Invoker, Ret, Ps, Its) ; true ),
     cpp_closure_value(T, Name, Ms0, Items, E).

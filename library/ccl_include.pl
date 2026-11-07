@@ -113,7 +113,7 @@ ccl_kb_items_goal(Path, K, I, It, T) :- ccl_kb_items(Path, F), T =.. [F, K, I, I
 ccl_kb_forget_items(Path) :- ccl_kb_items_goal(Path, _, _, _, T), retractall(T).
 ccl_kb_forget_file(Path) :- ccl_kb_ready, retractall('$ccl_ast'(Path, _, _)), ccl_kb_forget_items(Path), retractall('$ccl_hmeta'(Path, _, _)), ccl_kb_hm(Path, F), T =.. [F, _, _, _], retractall(T).
 
-ccl_read_file(File, AST, Rest) :- ccl_ensure_globals, ccl_set_lang(File), ( nb_current('$ccl_reading', []) -> nb_setval('$ccl_src_file', File), nb_setval('$ccl_path_cfgs', []), nb_setval('$pp_inc_cfgs', []), pp_ftm_find(File) ; true ), ccl_read_file_(File, AST, Rest).   % the file as the compiler was given it: a source location's, and C's `__PRETTY_FUNCTION__' reads its text (0.166)
+ccl_read_file(File, AST, Rest) :- ccl_ensure_globals, ccl_set_lang(File), ( nb_current('$ccl_reading', []) -> nb_setval('$ccl_src_file', File), nb_setval('$ccl_path_cfgs', []), nb_setval('$pp_inc_cfgs', []), pp_ftm_find(File), dynamic('$ccl_plainfn'/2), retractall('$ccl_plainfn'(_, _)) ; true ), ccl_read_file_(File, AST, Rest).   % the file as the compiler was given it: a source location's, and C's `__PRETTY_FUNCTION__' reads its text (0.166)
 %% the language of the file read: C++ by its extension (or forced, cicilang++), C by .c
 ccl_set_lang(File) :-
     (   nb_getval('$ccl_lang_forced', F), F \== none -> nb_setval('$ccl_lang', F)

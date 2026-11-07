@@ -112,7 +112,11 @@ cpp_member_key(method(_, _, _, M, _, _, _), M).
 cpp_member_key(ctor(_, _, _, _, _), ctor).
 cpp_member_key(typedef(_, [var(N, _, _)|_]), N).      % a member ALIAS template: `template <class A, class B> using _Select = ...' inside its class
 %% the class whose members are being declared, walked or emitted: a bare name in them may be its typedef
-cpp_in_class(C, Goal) :- nb_getval('$cpp_class_ctx', C0), nb_setval('$cpp_class_ctx', C), ( catch(Goal, E, (nb_setval('$cpp_class_ctx', C0), throw(E))) -> nb_setval('$cpp_class_ctx', C0) ; nb_setval('$cpp_class_ctx', C0), fail ).
+cpp_in_class(C, Goal) :- nb_getval('$cpp_class_ctx', C0), nb_setval('$cpp_class_ctx', C), cpp_lconsts_now(LC0), ( atom(C), catch('$cpp_encl_consts'(C, LC), _, fail) -> nb_setval('$cpp_lconsts', LC) ; true ),
+    ( catch(Goal, E, (cpp_in_class_back(C0, LC0), throw(E))) -> cpp_in_class_back(C0, LC0) ; cpp_in_class_back(C0, LC0), fail ).
+%% A CLOSURE'S OR A LOCAL CLASS'S MEMBERS SEE THE CONSTANTS OF THE FUNCTION IT IS MADE IN (0.258; [expr.prim.lambda.capture]/7, [class.local]/1:
+%% a read of a constant is no odr-use), noted where the class is made (cpp_note_encl_consts/1): its walk is isolated, which sets them aside
+cpp_in_class_back(C0, LC0) :- nb_setval('$cpp_class_ctx', C0), nb_setval('$cpp_lconsts', LC0).
 %% THE ARGUMENTS ARE THE CALLER'S: a candidate's parameters are read in the callee's class (0.65), and an argument
 %% that must be DESUGARED to be typed (cpp_arg_type) is read in the CALLER's -- `__pointer_alloc_traits::allocate(__npa,
 %% __nbc)' names the hash table's own alias, which resolved to nothing in unique_ptr's words, so the conditional
@@ -498,7 +502,7 @@ cpp_alloc_members([template(L, TPs, M0)|Ms0], [template(L, TPs, M)|Ms]) :- M0 = 
     cpp_alloc_members([M0], [M]), cpp_alloc_members(Ms0, Ms).
 cpp_alloc_members([M|Ms0], [M|Ms]) :- cpp_alloc_members(Ms0, Ms).
 cpp_default_vdtor_([], []).
-cpp_default_vdtor_([dtor(L, Qs, default)|Ms], [dtor(L, Qs, block([]))|Ms1]) :- !, cpp_default_vdtor_(Ms, Ms1).
+cpp_default_vdtor_([dtor(L, Qs, default)|Ms], [dtor(L, [defaulted|Qs], block([]))|Ms1]) :- !, cpp_default_vdtor_(Ms, Ms1).   % marked: a defaulted destructor is constexpr where it can be (0.258, cpp_note_nce/4)
 cpp_default_vdtor_([M|Ms], [M|Ms1]) :- cpp_default_vdtor_(Ms, Ms1).
 cpp_raw_bases_virtual_dtor(Bases) :- member(base(_, B0), Bases), catch(cpp_base_name(B0, B), _, fail), cpp_bases_virtual_dtor([B]), !.
 %% A MEMBER FUNCTION WITH AN `auto' PARAMETER IS A MEMBER FUNCTION TEMPLATE ([dcl.fct]/22), its invented parameters
@@ -561,11 +565,14 @@ cpp_norm_members_([method(L, Qs, Ret0, operator(Op), Ps, V, default)|Ms], K, Out
     ->  cpp_defaulted_cmp('==', L, Qs, base([], [bool]), Ps, V, All, M2), Out = [M1, M2|Ms1]
     ;   Out = [M1|Ms1] ),
     cpp_norm_members_(Ms, K, Ms1).
+cpp_norm_members_([template(L, TPs, M0)|Ms], K, [template(L, TPs, M1)|Ms1]) :- nb_getval('$cpp_in_lib', no), cpp_member_body(M0, B), ccl_deleted_body(B, Why), cpp_member_rebody(M0, '$deleted'(Why), M1), !, cpp_norm_members_(Ms, K, Ms1).   % THE PROGRAM'S DELETED MEMBER TEMPLATE stays a candidate, refused where it is chosen (0.258, cpp_deleted_body_check/3): dropped, `s.f(1.5)' over `template <class T> void f(T) = delete; void f(int)' called f(int)
 cpp_norm_members_([M|Ms], K, Ms1) :- cpp_member_body(M, B), ( ccl_deleted_body(B, _) ; B == default ), !, cpp_norm_members_(Ms, K, Ms1).   % `= delete': not there; `= default': the implicit one
 cpp_norm_members_([method(L, Qs, Ret, M, Ps, V, pure)|Ms], K, [method(L, [pure|Qs], Ret, M, Ps, V, none)|Ms1]) :- !, cpp_norm_members_(Ms, K, Ms1).
 cpp_norm_members_([method(L, Qs, Ret, M, [param(this(T), N)|Ps], V, Body)|Ms], K, [method(L, [explicit_this(N, T)|Qs], Ret, M, Ps, V, Body)|Ms1]) :- !, cpp_norm_members_(Ms, K, Ms1).
 cpp_norm_members_([template(L, TPs, method(L2, Qs, Ret, M, [param(this(T), N)|Ps], V, Body))|Ms], K, [template(L, TPs, method(L2, [explicit_this(N, T)|Qs], Ret, M, Ps, V, Body))|Ms1]) :- !, cpp_norm_members_(Ms, K, Ms1).   % ... a member TEMPLATE's too (0.117): `template <class Self> int get(this Self &&self)'
 cpp_norm_members_([M|Ms], K, [M|Ms1]) :- cpp_norm_members_(Ms, K, Ms1).
+cpp_member_rebody(method(L, Qs, R, N, Ps, V, _), B, method(L, Qs, R, N, Ps, V, B)).
+cpp_member_rebody(ctor(L, Qs, Ps, I, _), B, ctor(L, Qs, Ps, I, B)).
 %% AN ANONYMOUS STRUCT'S `packed' IS ITS MEMBERS', NEVER ITS HOLDER'S (0.203): its members are the holder's, and GCC's `packed' on it
 %% packs each of them, a member's own `packed' (ccl_packed_field/2) -- libc++ 21's string writes `struct _LIBCPP_PACKED { size_type
 %% __is_long_ : 1; size_type __cap_ : 63; };' in its `__long', and the marker, carried into `__long', packed the whole string at one

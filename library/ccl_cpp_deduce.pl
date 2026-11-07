@@ -337,14 +337,15 @@ cpp_instantiate_function_emit(F, TPs, B, L0, Sto00, Ret, Ps, V0, Body, Name) :-
     cpp_where(subst(F), cpp_subst(fn(Ret, Ps, nxb(Cond0, Body)), B, fn(Ret10, Ps10, nxb(Cond10, Body10)))),   % ITS NOEXCEPT CONDITION TOO (0.199), under the instance's bindings, the parameter packs' among them
     (   Cond10 \== none -> Sto0 = nxif(Cond10, StoP)   % the program's plain noexcept among them, its pattern's own `bool(true)' since 0.232 (ccl_nx_sto/3), where the name's set answered for every overload of the name
     ;   Sto0 = StoP ),
-    (   cpp_fspec_for(F, TPs, B, Ret10, Ps10, function(L, Sto, Ret1, _, Ps1, V, Body1)) -> cpp_trace(explicit_specialization(F, Name)), ISig = fsig(free, none, F, Ret1, Ps1, V, [], none)   % the instance IS the explicit specialization (0.129)
+    (   cpp_fspec_for(F, TPs, B, Ret10, Ps10, function(L, Sto, Ret1, _, Ps1, V, Body1)) -> cpp_deleted_body_check(Body1, function, F), cpp_trace(explicit_specialization(F, Name)), ISig = fsig(free, none, F, Ret1, Ps1, V, [], none)   % the instance IS the explicit specialization (0.129)
     ;   L = L0, Sto = Sto0, Ret1 = Ret10, Ps1 = Ps10, V = V0, Body1 = Body10, ISig = fsig(free, none, F, Ret, Ps, V0, [], ta(TPs, B)) ),   % what its own name says (0.166): the pattern, with its arguments
     cpp_as_lib(Lib, ( cpp_with_fsig(inst(Name, ISig), cpp_isolated(( cpp_plain_params(Ps1, Ps2), ( Ret1 = base(_, [auto]) -> cpp_lambda_ret(Ps2, Body1, Ret2) ; cpp_decltype_ret(Ret1, Ps1, Ret2) -> true ; cpp_type(Ret1, Ret2) ),
                                      ccl_declare(Name, fn(Ret2, Ps2, V)), cpp_note_defaults(Name, Ps1),
                                      ( Body1 == none -> cpp_nx_sto(Sto, StoD, CondD), ( CondD == none -> true ; assertz('$cpp_nxdef'(Name, none, CondD, Ps2)) ),
                                                         Items = [declaration(L, StoD, Ret2, [var(Name, fn(Ret2, Ps2, V), none)])]   % declared, not defined: a declaration, never a bodyless function
                                      ; cpp_item(function(L, Sto, Ret2, Name, Ps1, V, Body1), Items) ) ))),
-                      cpp_add_instance_items(Items) )).
+                      cpp_add_instance_items(Items) )),
+    ( Lib == no, cpp_plain_fn(L, F) -> cpp_nce_name(Name) ; true ).   % the program's template defined with no constexpr: its instance is no constexpr function (0.258, cpp_note_nce/4)
 cpp_bind_targs(TPs, Args, B) :- cpp_bind_targs_(TPs, Args, [], B0), ( memberchk(ttp(_, _), TPs) -> cpp_ttp_binds(TPs, B0, B1) ; B1 = B0 ), cpp_vbinds_typed(TPs, B1, B).   % a template template parameter's own list (0.185): bound after the rest, past a pack, which ends the walk; a value parameter's argument of its type (0.199, cpp_vbinds_typed/3)
 cpp_bind_targs_([], _, B, B).
 cpp_bind_targs_([requires(_)|TPs], Args, Acc, B) :- !, cpp_bind_targs_(TPs, Args, Acc, B).
@@ -1058,7 +1059,7 @@ cpp_member_template_id(Path, M, C) :- atom(M), cpp_scope_class(Path, C), '$cpp_m
 cpp_member_explicit_instance(C, M, Explicit, Name) :- cpp_where(member(C, M), cpp_member_explicit_instance_(C, M, Explicit, Name)).
 cpp_member_explicit_instance_(C, M, Explicit, Name) :-
     findall(TPs-Mem, '$cpp_mt'(C, M, TPs, Mem), Cands), Cands \== [],
-    (   cpp_member_explicit_candidate(Cands, C, M, Explicit, TPs, method(L, Qs, Ret, M, Ps, V, Body), B) -> true
+    (   cpp_member_explicit_candidate(Cands, C, M, Explicit, TPs, method(L, Qs, Ret, M, Ps, V, Body), B) -> ( memberchk(static, Qs) -> DK = function ; DK = member ), cpp_deleted_body_check(Body, DK, M)
     ;   cpp_refuse(0, no_matching_template(M)) ),
     cpp_instance_name(M, TPs, B, MName), cpp_subst(method(L, Qs, Ret, M, Ps, V, Body), B, method(_, Qs1, Ret1, _, Ps1, _, Body1)),
     cpp_mangle_q(C, MName, Qs1, Ps1, Name),
@@ -1104,7 +1105,7 @@ cpp_make_member(Name, C, L, Qs, Ret1, MName, Ps1, V, Body1) :-
 cpp_variadic_member(_-method(_, _, _, _, _, true, _)).
 cpp_try_member(Cands, C, Explicit, As, Name) :-
     cpp_member_holding(Cands, C, Explicit, As, Hs), Hs \== [],
-    cpp_fewest_conversions(Hs, [h(_, TPs, method(L, Qs, Ret, M, Ps, V, Body), B, _)|_]),           % the fewest conversions, the first declared among equals (the object's constness ordered the list)
+    cpp_fewest_conversions(Hs, [h(_, TPs, method(L, Qs, Ret, M, Ps, V, Body), B, _)|_]), ( memberchk(static, Qs) -> DK = function ; DK = member ), cpp_deleted_body_check(Body, DK, M),   % the fewest conversions, the first declared among equals (the object's constness ordered the list)
     cpp_instance_name(M, TPs, B, MName), cpp_subst(method(L, Qs, Ret, M, Ps, V, Body), B, method(_, Qs1, Ret1, _, Ps1, _, Body1)),
     cpp_mangle_q(C, MName, Qs1, Ps1, Name), cpp_trace(member_holds(C, Name)),   % the member template's instance chosen, with its deduced keys, NAMED BY ITS SUBSTITUTED QUALIFIERS (0.114): the `.rq<fold>' of a constrained member (0.112) folded the raw clause here and the substituted one where the instance is declared, so the call named nothing (ranges::begin over an array, `rangesarray.cpp')
     (   cpp_instance_done(Name) -> true
@@ -1129,7 +1130,7 @@ cpp_member_template_ctor(C, As, Name) :-
     cpp_try_ctor(Cands, C, As, Name).
 cpp_try_ctor(Cands, C, As, Name) :-
     cpp_ctor_holding(Cands, C, As, Hs), Hs \== [],
-    cpp_fewest_conversions(Hs, [h(_, _, ctor(L, Qs, Ps, Inits, Body), B, _)|_]),                    % the fewest conversions, the first declared among equals
+    cpp_fewest_conversions(Hs, [h(_, _, ctor(L, Qs, Ps, Inits, Body), B, _)|_]), cpp_deleted_body_check(Body, ctor, C),   % the fewest conversions, the first declared among equals
     cpp_subst(ctor(L, Qs, Ps, Inits, Body), B, ctor(_, _, Ps1, Inits1, Body1)), cpp_mangle(C, C, Ps1, Name), cpp_trace(ctor_holds(Name)),
         (   cpp_instance_done(Name) -> true
         ;   cpp_making(Name) -> true                                    % in progress: the NAME is all a recursive ask needs

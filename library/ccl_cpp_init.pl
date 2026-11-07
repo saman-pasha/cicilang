@@ -31,7 +31,7 @@ cpp_redeclare_globals([var(N, T0, _)|Vs], [var(_, T, _)|Ws]) :-
 %% twice(21);' reached the lowering as a call in a global's initializer (0.88's cpp_global_const folds such a name
 %% where a CONSTANT is asked for, and the lowering never asks). Only where the fold answers: any other initializer
 %% stays what it was.
-cpp_fold_const_inits(base(Q, _), Sto, Rs, Vs, Ws) :- memberchk(const, Q), !, cpp_fold_const_inits_(Sto, Rs, Vs, Ws).
+cpp_fold_const_inits(base(Q, S), Sto, Rs, Vs, Ws) :- memberchk(const, Q), !, ( cpp_agg_usable(base(Q, S)) -> U = yes ; U = no ), cpp_fold_const_inits_(U, Sto, Rs, Vs, Ws).
 cpp_fold_const_inits(_, Sto, Rs, Vs, Ws) :- cpp_fold_ctor_inits_(Sto, Rs, Vs, Ws).
 %% A GLOBAL OF A CLASS WITH A CONSTRUCTOR IS CONSTRUCTED AT COMPILE TIME ([basic.start.static]: constant initialization
 %% where the constructor is constexpr and its arguments constant; 0.99): the constructor runs in the evaluator over a
@@ -223,13 +223,14 @@ cpp_agg_member(_, yes(X), X) :- !.
 cpp_agg_member(_, no, init([])).
 cpp_eval_construct(T, CName, Args, V) :- cpp_eval_agg_kind(T, K), cpp_eval_agg_init(K, none, [], _, Z), cpp_ec_new(Z, Id), Env = ['$obj'-'$cell'(Id), '$t'('$obj')-T],
     cpp_eval_reduce(call(id(CName), [addr(id('$obj'))|Args]), Env, R), R \= call(_, _), cpp_ec_get(Id, V).
-cpp_fold_const_inits_(_, _, [], []).
-cpp_fold_const_inits_(Sto, [R|Rs], [var(N, T, I)|Vs], [var(N, T, I1)|Ws]) :-
+cpp_fold_const_inits_(_, _, _, [], []).
+cpp_fold_const_inits_(U, Sto, [R|Rs], [var(N, T, I)|Vs], [var(N, T, I1)|Ws]) :-
     (   cpp_global_object(Sto, N, T, I, C) -> cpp_global_ctor_init(Sto, R, N, T, C, I, I1)   % `constexpr V g(3, 4);' (0.99); else at run time, before main (0.112)
     ;   cpp_init_call(I), catch(cpp_eval_agg_kind(T, _), _, fail), catch(cpp_eval_init(T, I, [], _, AV), _, fail), cpp_eval_init_term(AV, I2) -> I1 = I2   % `constexpr P origin = make(7);': the aggregate the call answers, as its initializer (0.98)
     ;   cpp_init_call(I), \+ ccl_resolve_type(T, arr(_, _)), once(( between(1, 2, _), catch(cpp_with_ce(cpp_const_value(I, K)), _, fail) )) -> ( K = bool(_) -> I1 = K ; integer(K) -> I1 = int(K) ; K = big(_) -> I1 = int(K) ; I1 = I ) ; I1 = I ),   % TWICE: the first attempt EMITS the library instances the call runs through (`numeric_limits<size_t>::max()'), and only the second sees them -- `inline constexpr size_t dynamic_extent' was a run-time initialization, no constant for a pattern (0.117)
-    ( atom(N), I1 \== none, catch(cpp_eval_agg_kind(T, _), _, fail) -> atom_concat('$cpp_gagg:', N, GK), nb_setval(GK, agg(T, I1, global)) ; true ),   % a constant aggregate: a value for the constexpr evaluator (0.97)
-    cpp_fold_const_inits_(Sto, Rs, Vs, Ws).
+    ( U == yes, atom(N), I1 \== none, catch(cpp_eval_agg_kind(T, _), _, fail) -> atom_concat('$cpp_gagg:', N, GK), nb_setval(GK, agg(T, I1, global)) ; true ),
+    ( U == yes, atom(N), I1 \== none, cpp_eval_note_flt(T, I1, FV) -> atom_concat('$cpp_gflt:', N, FK), nb_setval(FK, FV) ; true ),   % a constexpr floating one's value (0.258, cpp_eval_flt_const/2)   % a constant aggregate: a value for the constexpr evaluator (0.97)
+    cpp_fold_const_inits_(U, Sto, Rs, Vs, Ws).
 %% AN INITIALIZER THE EVALUATOR RUNS: a call, or an IMMEDIATELY INVOKED LAMBDA (0.257), `constexpr auto c = [] { return 3 + 4; }();',
 %% which the desugaring makes a statement expression -- the closure a temporary, then its operator()'s call -- and which was no
 %% constant, so a static assertion over c was refused once a condition that does not fold was (cpp_note_const/4 too)
@@ -399,6 +400,7 @@ cpp_member_fns([method(L, Qs, Ret0, M, Ps, V, Body)|Ms], C, B, Ds, [F|Fs]) :- me
     ( memberchk(closure, Qs) -> Ctx = self(C, N) ; Ctx = none ),                                                           % a lambda's captures are reached through it
     (   Body == none -> F = declaration(L, none, Ret, [var(Name, fn(Ret, Params, V), none)])
     ;   cpp_with_fsig(Sig, cpp_method_body(Ctx, Ret, Params, Body, Body1)), F = function(L, none, Ret, Name, Params, V, Body1) ),
+    cpp_note_nce(C, Qs, Body, Name),
     cpp_member_fns(Ms, C, B, Ds, Fs).
 cpp_member_fns([method(L, Qs, Ret0, M, Ps, V, Body)|Ms], C, B, Ds, [F|Fs]) :- !,
     cpp_mangle_q(C, M, Qs, Ps, Name), cpp_plain_params(Ps, Ps1), cpp_this_type(C, Qs, ThisT), Params = [param(ThisT, this)|Ps1],
@@ -407,7 +409,7 @@ cpp_member_fns([method(L, Qs, Ret0, M, Ps, V, Body)|Ms], C, B, Ds, [F|Fs]) :- !,
     (   Body == none -> F = declaration(L, none, Ret, [var(Name, fn(Ret, Params, V), none)])
     ;   ( cpp_qs_guarded(C, Qs, Params, Body) -> cpp_nx_wrap(L, Body, BodyG) ; BodyG = Body ), cpp_with_fsig(Sig, cpp_method_body(C, Ret, Params, BodyG, Body1)) -> F = function(L, none, Ret, Name, Params, V, Body1)
     ;   cpp_trace(method_body_failed(C, M)), fail ),
-    cpp_note_consteval(C, Qs, Name), cpp_nx_note_member(C, Qs, Ps, [F]),
+    cpp_note_consteval(C, Qs, Name), cpp_note_nce(C, Qs, Body, Name), cpp_nx_note_member(C, Qs, Ps, [F]),
     cpp_member_fns(Ms, C, B, Ds, Fs).
 cpp_member_fns([ctor(_, Qs, Ps, _, _)|Ms], C, B, Ds, Fs) :- memberchk(requires(_), Qs), \+ cpp_method_viable(C, Qs, Ps), !, cpp_member_fns(Ms, C, B, Ds, Fs).   % a constructor whose constraints are unmet is not instantiated ([temp.inst]/11; 0.112)
 cpp_member_fns([ctor(L, Qs, Ps, _, none)|Ms], C, B, Ds, [F|Fs]) :- !,                     % DECLARED, not defined: libc++'s bad_alloc() lives in the shipped binary -- a declaration, as a method and a destructor already were
@@ -418,10 +420,11 @@ cpp_member_fns([ctor(L, Qs, Ps, Inits, Body0)|Ms], C, B, Ds, Fs) :- memberchk(co
     cpp_ce_twin(L, C, B, Ds, Ps, Inits, Body0), cpp_member_fns([ctor(L, Qs, Ps, Inits, block([]))|Ms], C, B, Ds, Fs).
 cpp_member_fns([ctor(L, Qs, Ps, Inits, Body)|Ms], C, B, Ds, Out) :- !,
     cpp_ctor_fn(L, C, B, Ds, Ps, Inits, Body, F), cpp_nv_twin(C, F, cpp_ctor_fn(L, C, B, Ds, Ps, Inits, Body, F2), F2, Out, Fs),
-    ( F = function(_, _, _, CName, _, _, _) -> cpp_note_consteval(C, Qs, CName) ; true ), cpp_nx_note_member(C, Qs, Ps, [F]),
+    ( F = function(_, _, _, CName, _, _, _) -> cpp_note_consteval(C, Qs, CName), cpp_note_nce(C, Qs, Body, CName) ; true ), cpp_nx_note_member(C, Qs, Ps, [F]),
     cpp_member_fns(Ms, C, B, Ds, Fs).
-cpp_member_fns([dtor(L, _, Body)|Ms], C, B, Ds, Fs) :- !,
+cpp_member_fns([dtor(L, DQs, Body)|Ms], C, B, Ds, Fs) :- !,
     cpp_dtor_fn(L, C, Body, F), cpp_nv_twin(C, F, cpp_dtor_fn(L, C, Body, F2), F2, Fs, Fs0), cpp_base_dtor_decl(C, F, BFs), append(BFs, Fs1, Fs0), cpp_nx_note_dtor(C, [F|BFs]),
+    ( F = function(_, _, _, DName, _, _, _), is_list(DQs) -> cpp_note_nce(C, DQs, Body, DName) ; true ),
     cpp_member_fns(Ms, C, B, Ds, Fs1).
 cpp_member_fns([_|Ms], C, B, Ds, Fs) :- cpp_member_fns(Ms, C, B, Ds, Fs).
 %% THE PROGRAM'S CONSTEVAL MEMBER FUNCTION AND CONSTRUCTOR ARE IMMEDIATE ([dcl.constexpr]/13; 0.112), as its free one has
@@ -429,6 +432,18 @@ cpp_member_fns([_|Ms], C, B, Ds, Fs) :- cpp_member_fns(Ms, C, B, Ds, Fs).
 %% `consteval_call_not_constant'. A library class's constructor is checked through its twin since 0.164 (below,
 %% cpp_ce_twin/7 and cpp_ce_check/3: basic_format_string's format parse); its other consteval members run at run time.
 cpp_note_consteval(C, Qs, Name) :- ( memberchk(consteval, Qs), \+ cpp_lib_class(C), \+ '$cpp_consteval'(Name) -> assertz('$cpp_consteval'(Name)) ; true ).
+%% A FUNCTION OF THE PROGRAM'S THAT IS NOT CONSTEXPR (0.258; [expr.const]/5.2: an invocation of a function that is not constexpr is
+%% no core constant expression) is noted by its C name, '$cpp_nce'(Name), and a constant evaluation does not call it
+%% (cpp_eval_call/5, 0.72's road in cpp_const_fold/2): `int g() { return 3; } static_assert(g() == 3);' built where clang++ refuses
+%% it, and so did a constexpr function's call of a plain member and a virtual call of a plain overrider. A member says so by its
+%% qualifiers, and a free function or a member defined out of its class by the reader's note of its definition (ccl_note_plain_fn/3).
+%% A lambda's call operator is constexpr ([expr.prim.lambda.closure]/5), and what the desugaring makes itself -- the implicit
+%% members, the thunks, the tables' functions, the evaluator's bodies -- is noted nothing. A library's function is never noted:
+%% the evaluator takes libc++'s run-time branches where its `__libcpp_is_constant_evaluated()' is false
+cpp_note_nce(C, Qs, Body, Name) :- ( nonvar(Body), Body = block(_), \+ memberchk(constexpr, Qs), \+ memberchk(consteval, Qs), \+ memberchk(closure, Qs), \+ memberchk(defaulted, Qs), \+ cpp_lib_class(C) -> cpp_nce_name(Name) ; true ).
+cpp_note_nce_free(L, N, Name) :- ( nb_current('$cpp_in_lib', no), cpp_plain_fn(L, N) -> cpp_nce_name(Name) ; true ).
+cpp_nce_name(Name) :- ( atom(Name), \+ '$cpp_nce'(Name) -> assertz('$cpp_nce'(Name)) ; true ).
+cpp_plain_fn(L, N) :- ccl_fn_key(N, K), catch('$ccl_plainfn'(L, K), _, fail), !.
 %% THE CHECK TWIN (0.164): the library's consteval constructor desugared WHOLE -- its member initializers and its body --
 %% under the name `<CName>.ce', a function the evaluator finds ('$cpp_ownfn') and the lowering never sees, recorded as
 %% `'$cpp_cecheck'(CName, Twin, C)'. A twin the desugaring refuses leaves the constructor unchecked, as it was until 0.163.
@@ -483,7 +498,7 @@ cpp_ctor_body(L, C, _, _, Inits0, block(Body), block([expr(L, call(id(DName), [i
     cpp_norm_inits(Inits0, Inits), member(init(N, DArgs), Inits), atom(N), cpp_own_name(C, N), !,   % A DELEGATING CONSTRUCTOR (C++11): the other constructor over this, and nothing else initialized -- pair's piecewise constructor delegates to its private one with the index sequences
     ( cpp_ctor(C, DArgs, DName) -> true ; length(DArgs, K), cpp_refuse(L, no_constructor(C, K)) ), cpp_fill_defaults(DName, DArgs, DArgs0), cpp_ref_args_of(DName, DArgs0, DArgs1),
     ( cpp_dtor(C, Dt) -> Body1 = [eh_cleanup(L, block([expr(L, call(id(Dt), [id(this)]))]))|Body] ; Body1 = Body ).   % ... ITS BODY THAT THROWS DESTROYS THE OBJECT its target completed ([except.ctor]/4; 0.201): the class's destructor, by a cleanup only the unwinding runs
-cpp_ctor_body(L, C, B, Defaults, Inits0, block(Body), block(Pre)) :-
+cpp_ctor_body(L, C, B, Defaults, Inits0, block(Body), block(['$inits'(Pre)|Body])) :-   % THE PROLOGUE IS ONE STATEMENT (0.258), the program's body after it: the desugaring's own initializations, which ask no deleted assignment (cpp_assign_ask/2)
     cpp_norm_inits(Inits0, Inits), cpp_inits_known(L, C, B, Inits),
     (   '$cpp_vb_holder'(C, _), \+ cpp_nv_body(C)                                          % A DIAMOND'S HOLDER builds the shared base first, where it lies, then stores its tables, so every path's base-variant constructor reaches it -- its own base variant builds none (0.163)
     ->  cpp_vb_build_all(C, B, Vs), cpp_vb_calls_all(Vs, L, C, B, Inits, VCall),   % every held base, in the order the standard builds them (0.171, 0.173) -- the virtual first base in its place among them (0.175), where it was built first (0.172)
@@ -496,8 +511,8 @@ cpp_ctor_body(L, C, B, Defaults, Inits0, block(Body), block(Pre)) :-
     cpp_bases_in_order(C, FirstCall, ExGs, BaseCalls), append(BaseCalls, Pre1, Pre00),   % each base WITH storage of its own, in declaration order
     ( cpp_nv_body(C) -> cpp_vtt_stores(L, C, Store) ; cpp_vptr_store(L, C, Store) ), append(Store, Pre2, Pre1),   % the base variant stores the tables of the VTT it was handed, its bases built (0.172)
     cpp_class_l(C, cls(_, Data0, _, _, _)),
-    (   '$cpp_union'(C) -> cpp_union_inits(Data0, Inits, Defaults, Data), cpp_member_inits(Data, Inits, Defaults, L, Pre2, Body)
-    ;   cpp_member_inits_cl(Data0, Inits, Defaults, L, Pre2, Body) ).   % each member destroyed if what follows throws (0.201); a union's members are no object's to destroy
+    (   '$cpp_union'(C) -> cpp_union_inits(Data0, Inits, Defaults, Data), cpp_member_inits(Data, Inits, Defaults, L, Pre2, [])
+    ;   cpp_member_inits_cl(Data0, Inits, Defaults, L, Pre2, []) ).   % each member destroyed if what follows throws (0.201); a union's members are no object's to destroy
 %% A CONSTRUCTOR THAT THROWS DESTROYS WHAT IT HAS BUILT ([except.ctor]/3; 0.201): each base and each member with a destructor, once
 %% built, is followed by a cleanup that only an exception's unwinding runs, `eh_cleanup(L, Body)' (the lowering's eh_only defer,
 %% ir_stmt_(eh_cleanup)), so a throw from a later member's initializer or from the body destroys the built ones in the reverse of

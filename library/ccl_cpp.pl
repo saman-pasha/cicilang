@@ -108,8 +108,22 @@ cpp_units([], []).
 cpp_units([unit(Is0)|Us0], [unit(Is)|Us]) :- nb_setval('$cpp_relops', none), nb_setval('$cpp_cplxlit', none), nb_setval('$cpp_usings', []), nb_setval('$cpp_using_skip', []),cpp_items(Is0, Is1a), cpp_ginit_items(Is1a, Is1), cpp_flush_instances(Is1, Is2), cpp_name_anon_items(Is2, Is), cpp_units(Us0, Us).
 %% the instances made while the unit was walked join its items; walking them may make more
 cpp_flush_instances(Is0, Is) :-
-    findall(I, '$cpp_out'(_, I), New),
-    ( New == [] -> Is = Is0 ; cpp_reset('$cpp_out'/2), append(Is0, New, Is1), cpp_flush_instances(Is1, Is) ).
+    findall(I, '$cpp_out'(_, I), New0), cpp_drop_evonly(Is0, New0, New),
+    ( New0 == [] -> Is = Is0 ; cpp_reset('$cpp_out'/2), append(Is0, New, Is1), cpp_flush_instances(Is1, Is) ).
+%% AN INSTANCE THE EVALUATOR ALONE MADE IS NO ITEM WHERE NOTHING NAMES IT (0.258, cpp_eval_only/1): the functions marked '$cpp_evonly'
+%% are kept where an item of the unit or a kept one names them (`id(Name)' anywhere in it), the rest dropped and their instance notes
+%% with them, so that a later use makes them again. Nothing is walked where nothing is marked
+cpp_drop_evonly(_, New, New) :- \+ catch('$cpp_evonly'(_), _, fail), !.
+cpp_drop_evonly(Is0, New, Kept) :- cpp_reset('$cpp_ref'/1),
+    findall(K-I, ( member(I, New), I = function(_, _, _, K, _, _, _), '$cpp_evonly'(K), '$cpp_inst'(K, _) ), Ev),   % an instance a later use makes again
+    forall(( member(I, Is0) ; member(I, New), \+ ( I = function(_, _, _, K, _, _, _), memberchk(K-_, Ev) ) ), cpp_note_refs(I)),
+    cpp_evonly_live(Ev, Live),
+    findall(I, ( member(I, New), \+ ( I = function(_, _, _, K, _, _, _), memberchk(K-_, Ev), \+ memberchk(K, Live) ) ), Kept),
+    forall(( member(K-_, Ev), \+ memberchk(K, Live) ), retractall('$cpp_inst'(K, _))), cpp_reset('$cpp_evonly'/1), cpp_reset('$cpp_ref'/1).
+cpp_evonly_live(Ev, Live) :- ( select(K-I, Ev, Ev1), '$cpp_ref'(K) -> cpp_note_refs(I), cpp_evonly_live(Ev1, Live1), Live = [K|Live1] ; Live = [] ).
+cpp_note_refs(T) :- ( T = id(N) -> ( atom(N), \+ '$cpp_ref'(N) -> assertz('$cpp_ref'(N)) ; true ) ; compound(T) -> T =.. [_|As], cpp_note_refs_list(As) ; true ).
+cpp_note_refs_list([]).
+cpp_note_refs_list([A|As]) :- cpp_note_refs(A), cpp_note_refs_list(As).
 %% the registries that hold class and template BODIES are facts, one row per name: a global list would be copied
 %% whole at every lookup (nb_getval copies), and libc++'s bodies are megabytes (the finding in RULES.md)
 cpp_reset(F/A) :- ( catch(abolish(F/A), _, true) -> true ; true ), dynamic(F/A).
@@ -183,7 +197,8 @@ cpp_instance_note(Name, What) :- assertz('$cpp_inst'(Name, What)).
 %% ---- the classes of the units: '$cpp_classes' = [C-cls(Base, Data, Members, Statics, Defaults) ...] --------
 cpp_register_units(Units) :-
     cpp_reset('$cpp_assert_failed'/2),
-    cpp_reset('$cpp_fn_del'/3), cpp_reset('$cpp_mem_del'/5), cpp_reset('$cpp_op_del'/3), cpp_reset('$cpp_tmpl_del'/3),   % the deleted functions, members, operators and templates (0.257)
+    cpp_reset('$cpp_nce'/1), cpp_reset('$cpp_encl_consts'/2), cpp_reset('$cpp_evonly'/1), cpp_reset('$cpp_ref'/1),   % the program's functions that are not constexpr, which a constant evaluation does not call (0.258, cpp_note_nce/4); a closure's enclosing constants (0.258)
+    cpp_reset('$cpp_fn_del'/3), cpp_reset('$cpp_mem_del'/5), cpp_reset('$cpp_op_del'/3),   % the deleted functions, members and operators (0.257); a deleted template is a candidate (0.258, cpp_deleted_fn_item/2)
     cpp_reset('$cpp_vtab'/3), cpp_reset('$cpp_shipped_def'/4), cpp_reset('$cpp_shipped_name'/4),   % the tables' slots and the shipped members' definitions, for the constant evaluator (0.257)
     cpp_reset('$cpp_cls'/2), cpp_reset('$cpp_clsl'/2), cpp_reset('$cpp_sfn'/2), cpp_reset('$cpp_alloc_m'/2), cpp_reset('$cpp_sfn_pre'/2), cpp_reset('$cpp_decl'/4), cpp_reset('$cpp_sfold'/3), cpp_reset('$cpp_nenum'/1), cpp_reset('$cpp_enumv'/3), cpp_reset('$cpp_tmpl'/3), cpp_reset('$cpp_tmplh'/4), cpp_reset('$cpp_fspec'/3), cpp_reset('$cpp_spec'/4), cpp_reset('$cpp_mt'/4), cpp_reset('$cpp_inst'/2), cpp_reset('$cpp_out'/2), cpp_reset('$cpp_ownfn'/2), cpp_reset('$cpp_consteval'/1), cpp_reset('$cpp_cecheck'/3), cpp_reset('$cpp_scell'/2), cpp_reset('$cpp_mdef'/5), cpp_reset('$cpp_extern'/3), cpp_reset('$cpp_friends'/2), cpp_reset('$cpp_extra'/2), cpp_reset('$cpp_base_slot'/3), cpp_reset('$cpp_primary_moved'/2), cpp_reset('$cpp_vbase'/1), cpp_reset('$cpp_poly_extra'/3), cpp_reset('$cpp_poly_path'/3), cpp_reset('$cpp_hdrfn'/1), cpp_reset('$cpp_nv_base'/2), cpp_reset('$cpp_vb_holder'/2), cpp_reset('$cpp_bad_layout'/2), cpp_reset('$cpp_lvb'/3), cpp_reset('$cpp_vprim'/2), cpp_reset('$cpp_vprim_ind'/2), cpp_reset('$cpp_vb_claim'/3),
     cpp_reset('$cpp_dflt'/2), cpp_reset('$cpp_extern_full'/3), cpp_reset('$cpp_friends_pending'/1), cpp_reset('$cpp_auto_later'/2), cpp_reset('$cpp_localcls'/2), cpp_reset('$cpp_localst'/2), cpp_reset('$cpp_closure_made'/2), cpp_reset('$cpp_lib_closure'/1), cpp_reset('$cpp_lambda_cls'/5), cpp_reset('$cpp_srcloc'/2), cpp_reset('$cpp_pf_closure'/3), cpp_reset('$cpp_pf_local'/3), cpp_reset('$cpp_lname'/3), cpp_reset('$cpp_lcount'/2), cpp_reset('$cpp_lgid'/2), cpp_reset('$cpp_nolink'/1), cpp_reset('$cpp_srcloc_fn'/1), cpp_note_srcloc_fns(Units), nb_setval('$cpp_fsig', none), nb_setval('$cpp_dflt_site', none), nb_setval('$cpp_lambda_memo', []), cpp_reset('$cpp_dtor_def'/1), nb_setval('$cpp_lambdas', 0), nb_setval('$cpp_gen_invs', []), nb_setval('$cpp_caller', none), nb_setval('$cpp_obj_cat', none), nb_setval('$cpp_closure_this', []), nb_setval('$cpp_temps', none), nb_setval('$cpp_making', []), nb_setval('$cpp_obj_const', none),
@@ -239,7 +254,6 @@ cpp_note_fns([namespace(_, _, Js)|Is]) :- !, cpp_note_fns(Js), cpp_note_fns(Is).
 cpp_note_fns([extern_c(_, Js)|Is]) :- !, cpp_c_names(Js), cpp_note_fns(Js), cpp_note_fns(Is).      % extern "C": C linkage, never a mangled name
 cpp_note_fns([function(_, Sto, Ret, N, Ps, V, Body)|Is]) :- atom(N), !, cpp_fn_origin(Ret, V, Body, O), cpp_fn_put(N, Ps, Body, O), cpp_nx_note_src(N, Ps, Sto), cpp_note_fns(Is).
 cpp_note_fns([declaration(_, _, _, Vs)|Is]) :- !, forall(member(var(N, fn(Ret, Ps, V), I), Vs), ( atom(N) -> cpp_fn_put(N, Ps, none, decl(Ret, V)), cpp_note_fn_del(N, Ps, I) ; N = operator(Op) -> cpp_note_op_del(Op, Ps, I) ; true )), cpp_note_fns(Is).
-cpp_note_fns([template(_, TPs, declaration(_, _, _, Vs))|Is]) :- !, forall(( member(var(N, fn(_, Ps, _), I), Vs), atom(N), ccl_deleted_body(I, Why), cpp_tparams_only(Ps, TPs) ), cpp_note_tmpl_del(N, Ps, Why)), cpp_note_fns(Is).   % a deleted function template of the idiom (0.257, cpp_deleted_call/3)
 cpp_note_fns([_|Is]) :- cpp_note_fns(Is).
 cpp_fn_origin(Ret, V, none, decl(Ret, V)) :- !.                                          % what a DECLARATION alone can say: the result and the ellipsis a mangled name needs
 cpp_fn_origin(_, V, _, own(V)).                                                          % the program's own definition keeps its ELLIPSIS (0.100): `int f(...)' beside a template had the origin `own' alone, so the arity test never fitted it and a call the template rightly refused had no plain overload to fall to
@@ -261,13 +275,6 @@ cpp_note_fn_del(N, Ps, I) :- ( ccl_deleted_body(I, Why) -> cpp_params_key(Ps, K)
 %% operator's road asks where nothing else answers it (cpp_deleted_operator/3): it is no candidate there, and the operator was
 %% refused `not lowered yet: no_operator(==)'
 cpp_note_op_del(Op, Ps, I) :- ( ccl_deleted_body(I, Why) -> length(Ps, K), ( '$cpp_op_del'(Op, K, _) -> true ; assertz('$cpp_op_del'(Op, K, Why)) ) ; true ).
-%% ... and a deleted function TEMPLATE whose every parameter is one of its own type parameters, by value, `const T &' or `T &&',
-%% by its name and its number of parameters (cpp_deleted_call/3)
-cpp_note_tmpl_del(N, Ps, Why) :- length(Ps, K), ( '$cpp_tmpl_del'(N, K, _) -> true ; assertz('$cpp_tmpl_del'(N, K, Why)) ).
-cpp_tparams_only(Ps, TPs) :- Ps \== [], findall(T, ( member(P, TPs), P = tparam(_, T, _), atom(T) ), Ts), forall(member(P, Ps), ( ( P = param(PT, _) ; P = param(PT, _, _) ), cpp_tparam_shaped(PT, Ts) )).
-cpp_tparam_shaped(base(_, [typedef(T)]), Ts) :- memberchk(T, Ts), !.
-cpp_tparam_shaped(ref([], base([const], [typedef(T)])), Ts) :- memberchk(T, Ts), !.
-cpp_tparam_shaped(rref([], base([], [typedef(T)])), Ts) :- memberchk(T, Ts).
 cpp_c_names([]).
 cpp_c_names([I|Is]) :- ( cpp_item_name(I, N) -> asserta('$cpp_cname'(N)) ; true ), cpp_c_names(Is).
 cpp_item_name(function(_, _, _, N, _, _, _), N) :- atom(N).
@@ -302,13 +309,13 @@ cpp_item(declare(L, base(Q, [class(_, C0, _, _)])), Items) :- !, ( cpp_class_ite
     ( \+ cpp_implicit_ctor_needed(C) -> Fns2 = [] ; cpp_in_class(C, cpp_implicit_ctor(L, C, Base, Defaults, Fns2)) -> cpp_mangle(C, C, [], ICName), cpp_instance_note(ICName, C) ; cpp_trace(item_implicit_ctor(C)), fail ),   % ... and the implicit one is NOTED where the class emits it, so a later naming does not emit it again (cpp_use_member takes a written `C()' of a lazy class by the same name: two identical definitions, which LLVM refuses)
     ( \+ cpp_implicit_dtor_needed(C) -> Fns3 = [] ; cpp_in_class(C, cpp_implicit_dtor(L, C, Fns3)) -> cpp_nx_note_dtor(C, Fns3) ; cpp_trace(item_implicit_dtor(C)), fail ),   % BOTH IMPLICIT MEMBERS ARE MADE IN THE CLASS (0.113), as its written members are: a default member initializer is written in the class's words ([class.mem]/7, a complete-class context), and libc++'s view sentinels write `sentinel_t<_Base> __end_ = sentinel_t<_Base>();' over their own alias `_Base' -- made outside, the implicit constructor named nothing and the instance was not emitted. `sentbase.cpp'.
     append(Fns0, Fns1, Fns01), append(Fns01, Fns2, Fns012), append(Fns012, Fns3, FnsA),
-    forall(( member(Fn, FnsA), Fn = function(_, _, _, FN, _, _, _) ), assertz('$cpp_ownfn'(FN, Fn))),   % a class's methods, where the constexpr evaluator finds them: `q.sum()' over a constant q (0.98)
+    cpp_own_fns(FnsA),   % a class's methods, where the constexpr evaluator finds them: `q.sum()' over a constant q (0.98)
     cpp_align_tag(C, Ms, Data1, Data20), cpp_pod_mark(C, Data20, Data2),   % the `$nonpod' mark rides with the struct (0.135): the passes note the tags again from the items
     ( '$cpp_union'(C) -> Spec = union(C, [union_tag|Data2]) ; Spec = struct(C, Data2) ),   % a union-class shares its members' storage, and its tag says so wherever it is noted from (ccl_is_union_tag)
     ( cpp_nv_form(C, Data2, NVData) -> cpp_nv_tag(C, NV), Fns = [declare(L, base([], [struct(NV, NVData)]))|FnsA] ; Fns = FnsA ),   % the base-subobject form beside the class (0.110), a holder's too (0.163)
     (   Slots == [], \+ cpp_has_table(C) -> Items = [declare(L, base(Q, [Spec]))|Fns]   % a class with no slot has a table still where it holds a virtual base (0.160): the base's offset, the offset to top, the type_info
     ;   cpp_vt_struct(L, C, Slots, VtDecl), cpp_vtable(L, C, Slots, Tables00), nb_getval('$cpp_pthunks', PTh), append(PTh, Tables00, Tables0), cpp_secondary_tables(L, C, Secs0), cpp_ctor_tables(L, C, CTs), append(Secs0, CTs, Secs), append(Tables0, Secs, Tables),
-        forall(( member(Fn, Tables), Fn = function(_, _, _, FN, _, _, _) ), assertz('$cpp_ownfn'(FN, Fn))),   % ... and the functions its tables name, its deleting destructor and its thunks, where a virtual call in a constant evaluation finds them (0.257)
+        cpp_own_fns(Tables),   % ... and the functions its tables name, its deleting destructor and its thunks, where a virtual call in a constant evaluation finds them (0.257)
         Items = [VtDecl, declare(L, base(Q, [Spec]))|Fns1x], append(Fns, Tables, Fns1x) ).
 %% A FREE FUNCTION'S CONDITIONAL NOEXCEPT (0.199; [except.spec]/2): `nxif(E, Sto)' in its storage slot (the reader's
 %% ccl_nx_sto/3) is taken off where the function is emitted, and E goes to the emission's own clause below through
@@ -338,17 +345,20 @@ cpp_item(declaration(L, Sto, B, [var(scoped([C], N), T0, Init)]), [declaration(L
 cpp_item(function(L, Sto, Ret, scoped([C], M), Ps, V, Body), [function(L, Sto0, Ret, Name, [param(ThisT, this)|Ps1], V, Body1)]) :- cpp_class_l(C, _), !,
     cpp_sto_quals(Sto, Qs, Sto0), cpp_mangle_q(C, M, Qs, Ps, Name), cpp_plain_params(Ps, Ps1), cpp_this_type(C, Qs, ThisT),
     cpp_pf_decl_quals(C, M, Ps, Qs, FQs0), ( cpp_sto_word(Sto, inline) -> FQs = FQs0 ; FQs = [out_of_line|FQs0] ),   % defined out of its class and not inline: its closures are clang's `$_N' (0.236)
-    cpp_with_fsig(fsig(member, C, M, Ret, Ps, V, FQs, none), cpp_method_body(C, Ret, [param(ThisT, this)|Ps1], Body, Body1)).
+    cpp_with_fsig(fsig(member, C, M, Ret, Ps, V, FQs, none), cpp_method_body(C, Ret, [param(ThisT, this)|Ps1], Body, Body1)),
+    cpp_own_fns([function(L, Sto0, Ret, Name, [param(ThisT, this)|Ps1], V, Body1)]), cpp_note_nce_free(L, M, Name).
 cpp_item(ctor_def(L, C0, Qs0, Ps, Inits, Body), Out) :- Body \== none, catch(cpp_class_item_name(C0, C), _, fail), cpp_class(C, cls(B, _, _, _, Ds, _)), !,   % A CONSTRUCTOR DEFINED OUT OF ITS CLASS (0.133): `P::P() { v = 3; }', `P::P(int k) : v(k) {}', `Outer::Inner::Inner()' -- the catch-all clause passed the item through raw, the lowering made nothing of it, and every call named `P.P.0', defined nowhere (a link error; no fixture had one). Built as an in-class one is (cpp_ctor_fn: the bases, the table pointer, the member initializers, the body), its declaration in the class a declaration
     cpp_take_pattern(Qs0, _, Qs),
-    cpp_ctor_fn(L, C, B, Ds, Ps, Inits, Body, F), cpp_nv_twin(C, F, cpp_ctor_fn(L, C, B, Ds, Ps, Inits, Body, F2), F2, Out, []),
-    ( F = function(_, _, _, CName, _, _, _) -> cpp_note_consteval(C, Qs, CName) ; true ).
-cpp_item(dtor_def(L, C0, _, Body), [function(L, none, base([], [void]), Name, [param(ThisT, this)], false, Body1)]) :- ( catch(cpp_class_item_name(C0, C), _, fail) -> true ; C = C0 ), !,   % a nested class's by its dotted name too (0.133)
-    atomic_list_concat([C, '.dtor.0'], Name), cpp_this_type(C, [], [dying], ThisT), cpp_with_fsig(fsig(dtor, C, C, none, [], false, [], none), ( cpp_dtor_body(L, C, Body, Body0), cpp_method_body(C, [param(ThisT, this)], Body0, Body1) )).
+    cpp_ctor_fn(L, C, B, Ds, Ps, Inits, Body, F), cpp_nv_twin(C, F, cpp_ctor_fn(L, C, B, Ds, Ps, Inits, Body, F2), F2, Out, []), cpp_own_fns(Out),
+    ( F = function(_, _, _, CName, _, _, _) -> cpp_note_consteval(C, Qs, CName), cpp_note_nce(C, Qs, Body, CName) ; true ).
+cpp_item(dtor_def(L, C0, _, Body),[function(L, none, base([], [void]), Name, [param(ThisT, this)], false, Body1)]) :- ( catch(cpp_class_item_name(C0, C), _, fail) -> true ; C = C0 ), !,   % a nested class's by its dotted name too (0.133)
+    atomic_list_concat([C, '.dtor.0'], Name), cpp_this_type(C, [], [dying], ThisT), cpp_with_fsig(fsig(dtor, C, C, none, [], false, [], none), ( cpp_dtor_body(L, C, Body, Body0), cpp_method_body(C, [param(ThisT, this)], Body0, Body1) )),
+    cpp_own_fns([function(L, none, base([], [void]), Name, [param(ThisT, this)], false, Body1)]).
 cpp_item(function(L, Sto, Ret0, operator(Op), Ps, V, Body), [function(L, Sto, Ret, Name, Ps1, V, Body1)]) :- !,   % the result type resolved, as a plain function's is: a program's friend inserter returns `std::ostream &'
     cpp_nx_def_take(_), cpp_free_operator(Op, Ps, N0), cpp_fn_name(N0, Ps, yes, Name), cpp_plain_params(Ps, Ps1),
     ( Ret0 = base(_, [auto]) -> cpp_lambda_ret(Ps1, Body, Ret), ccl_declare(Name, fn(Ret, Ps1, V)) ; cpp_decltype_ret(Ret0, Ps, Ret) -> ccl_declare(Name, fn(Ret, Ps1, V)) ; cpp_type_or_self(Ret0, Ret), cpp_declare_resolved(Name, Ret0, Ret, Ps1, V) ),   % an `auto' operator DEDUCES, as a plain function does (0.113): `friend auto operator<=>(...)'
-    cpp_fsig_marks(Sto, operator(Op), FMs), cpp_with_fsig(fsig(free, none, operator(Op), Ret0, Ps, V, FMs, none), cpp_with_fn(operator(Op), cpp_method_body(none, Ret, Ps1, Body, Body1))).
+    cpp_fsig_marks(Sto, operator(Op), FMs), cpp_with_fsig(fsig(free, none, operator(Op), Ret0, Ps, V, FMs, none), cpp_with_fn(operator(Op), cpp_method_body(none, Ret, Ps1, Body, Body1))),
+    cpp_own_fns([function(L, Sto, Ret, Name, Ps1, V, Body1)]), cpp_note_nce_free(L, operator(Op), Name).
 cpp_item(function(_, _, _, N, Ps, _, _), []) :- atom(N), cpp_auto_params(Ps, 0, _, TPs), TPs \== [], !.   % an abbreviated template: instantiated on use
 cpp_item(function(L, Sto, Ret0, N, Ps, V, Body), [function(L, Sto, Ret, Name, Ps1, V, Body1)]) :- !,
     cpp_nx_def_take(NxD),                                                                          % its conditional noexcept (0.199), from the clause above
@@ -358,7 +368,7 @@ cpp_item(function(L, Sto, Ret0, N, Ps, V, Body), [function(L, Sto, Ret, Name, Ps
     ( cpp_fn_nx_guarded(NxD, N, Ps1, Body) -> cpp_nx_wrap(L, Body, BodyG) ; BodyG = Body ), cpp_with_fsig(Sig, cpp_with_fn(N, cpp_method_body(none, Ret, Ps1, BodyG, Body1))),   % the function's own name is what a friend declaration names (0.117)
     cpp_nx_note_fn(NxD, N, Name, Ps1),   % noexcept: its calls are plain (0.232)
     assertz('$cpp_ownfn'(Name, function(L, Sto, Ret, Name, Ps1, V, Body1))),   % THE PROGRAM'S OWN FUNCTION, DESUGARED, where a constant fold can find it (0.95): `constexpr int N = twice(21);' at file scope
-    ( Ret0 = base(Q0, _), memberchk(consteval, Q0) -> assertz('$cpp_consteval'(Name)) ; true ).   % C++20's IMMEDIATE FUNCTION: every call of it is folded (cpp_free_call), or refused (0.99)
+    ( Ret0 = base(Q0, _), memberchk(consteval, Q0) -> assertz('$cpp_consteval'(Name)) ; true ), cpp_note_nce_free(L, N, Name).   % C++20's IMMEDIATE FUNCTION: every call of it is folded (cpp_free_call), or refused (0.99)
 cpp_item(declare(L, base(Q, [struct(N, Ms)])), Items) :- atom(N), '$cpp_promoted'(N), !, cpp_item(declare(L, base(Q, [class(struct, N, [], Ms)])), Items), cpp_trace(promoted_items(N, Items)).   % promoted at registration (cpp_struct_promotes)
 cpp_item(declare(L, base(Q, [union(N, Ms)])), Items) :- atom(N), '$cpp_union'(N), cpp_class_l(N, _), cpp_union_class_members(Ms), !, cpp_item(declare(L, base(Q, [class(union, N, [], Ms)])), Items).   % a union class (cpp_register_): its struct, its members as functions
 cpp_item(declare(L, base(Q, [struct(N, Ms)])), [declare(L, base(Q, [struct(N, Ms1)]))]) :- atom(N), Ms \== none, !,       % a plain struct: its member types resolved in place (`std::size_t n')
@@ -381,3 +391,8 @@ cpp_item(declare(L, base(Q, [E0])), [declare(L, base(Q, [E]))]) :- compound(E0),
     cpp_enum_unfolded(Es0, 0, []), !, functor(E0, F, 2), cpp_fold_enumerators(L, Es0, 0, [], Es), E =.. [F, Tag, Es].
 cpp_item(static_assert(L, E, M), [static_assert(L, E, M)]) :- !, cpp_static_assert(none, L, E, M).   % checked (0.198, cpp_static_assert/4)
 cpp_item(I, [I]).
+%% THE PROGRAM'S FUNCTIONS WHERE THE EVALUATOR FINDS THEM ('$cpp_ownfn', 0.95, 0.98): a class's members and the functions its tables name,
+%% a free function, and since 0.258 a member and a constructor defined out of the class and a free operator -- `constexpr int S::m5() const
+%% {...}', `constexpr T2::T2(int k) : w(k * 2) {}' and `constexpr bool operator<(const S &, const S &)' had no body to it, and a static
+%% assertion over a call of one, which clang++ takes, was refused (since 0.257) or passed unasked (before it)
+cpp_own_fns(Fns) :- forall(( member(Fn, Fns), Fn = function(_, _, _, FN, _, _, _), atom(FN) ), assertz('$cpp_ownfn'(FN, Fn))).

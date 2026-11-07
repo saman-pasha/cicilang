@@ -38,7 +38,8 @@ rules of the code by topic; `HISTORY.md` is the record of every step.
   arithmetic, an integer operation in its own type), GCC's and clang's
   vector types (`vector_size`, `ext_vector_type`: their operators lane by
   lane, their lanes, masks, conversions and builtins, crossing a call as
-  clang passes them), and trigraphs and `__STRICT_ANSI__` in the ISO modes,
+  clang passes them), GCC's `__builtin_types_compatible_p`, and trigraphs
+  and `__STRICT_ANSI__` in the ISO modes,
   and GNU's inline assembly (a file-scope `asm`, and `asm` statements with
   outputs, inputs, clobbers, named operands and register variables, and
   `asm goto` to its labels, lowered as clang lowers them). C17 in a GNU mode
@@ -87,9 +88,11 @@ rules of the code by topic; `HISTORY.md` is the record of every step.
   coroutines (`co_await`, `co_yield`, `co_return`, `operator co_await`,
   `std::coroutine_traits`, over LLVM's coroutine intrinsics), modules
   (`export module`, `import`, header units, exports enforced), contracts enforced at
-  run time, a call of a deleted function refused in clang's words, with C++26's
-  reason, C++20's constant evaluation of virtual calls, dynamic_cast, new and
-  delete, std::vector and std::string in a static assertion, `__PRETTY_FUNCTION__`
+  run time, a call of a deleted function or template refused in clang's words,
+  with C++26's reason, C++20's constant evaluation of virtual calls,
+  dynamic_cast, new and delete, floating arithmetic, std::vector and
+  std::string in a static assertion, which refuses a call of a function that
+  is not constexpr, `__PRETTY_FUNCTION__`
   and `std::source_location` as clang++ spells them,
   definitions by namespace-qualified names, and the Itanium ABI's layout, name mangling and calling
   convention, so cicilang's objects link with clang's, on x86-64 and on

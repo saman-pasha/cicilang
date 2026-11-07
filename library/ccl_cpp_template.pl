@@ -448,8 +448,12 @@ cpp_wtake(0, _, []) :- !.
 cpp_wtake(_, [], []) :- !.
 cpp_wtake(N, [X|Xs], [X|Ys]) :- N1 is N - 1, cpp_wtake(N1, Xs, Ys).
 cpp_isolated(Goal) :- cpp_with_obj_const(none, cpp_with_obj_cat(none, cpp_with_obj_expr(none, cpp_line_kept(cpp_isolated_(Goal))))).   % NOR THE CALLER'S OBJECT (0.115), below; its expression too (0.117)
-cpp_isolated_(Goal) :- nb_getval('$ccl_scope', S), nb_setval('$ccl_scope', []), ccl_global('$cpp_caller', Cl, none), nb_setval('$cpp_caller', none),
-    ( catch(Goal, E, (nb_setval('$ccl_scope', S), nb_setval('$cpp_caller', Cl), throw(E))) -> nb_setval('$ccl_scope', S), nb_setval('$cpp_caller', Cl) ; nb_setval('$ccl_scope', S), nb_setval('$cpp_caller', Cl), fail ).   % ON A THROW TOO: SFINAE throws and catches by design, and a lost scope left the CALLER's own locals untyped
+cpp_isolated_(Goal) :- nb_getval('$ccl_scope', S), nb_setval('$ccl_scope', []), ccl_global('$cpp_caller', Cl, none), nb_setval('$cpp_caller', none), cpp_lconsts_now(LC), nb_setval('$cpp_lconsts', []),
+    ( catch(cpp_assign_ask(yes, Goal), E, (cpp_isolated_back(S, Cl, LC), throw(E))) -> cpp_isolated_back(S, Cl, LC) ; cpp_isolated_back(S, Cl, LC), fail ).   % ON A THROW TOO: SFINAE throws and catches by design, and a lost scope left the CALLER's own locals untyped
+%% ... NOR THE WALK'S LOCAL CONSTANTS (0.258): an instance's body made while a function is walked read that function's `const int K = 5;'
+%% where its own K is the file's, as the evaluator's body did until 0.257; a closure and a local class get theirs back where their
+%% members are walked (cpp_in_class/2, '$cpp_encl_consts')
+cpp_isolated_back(S, Cl, LC) :- nb_setval('$ccl_scope', S), nb_setval('$cpp_caller', Cl), nb_setval('$cpp_lconsts', LC).
 %% ... AND AN ISOLATED WALK HAS NO CALLER (0.112): an instance or a member emitted while an outer overload set is scored
 %% (cpp_as_callee) kept that scoring's caller, so cpp_arg_type read the walk's own arguments in the outer caller's
 %% words -- `m.push_back({})' over a vector of vectors made vector<int>'s default constructor, whose default member
@@ -480,7 +484,8 @@ cpp_in_frame(Goal) :- nb_getval('$ccl_scope', S0), cpp_lconsts_now(LC0), ccl_sco
 cpp_frame_back(S0, LC0) :- nb_setval('$ccl_scope', S0), nb_setval('$cpp_lconsts', LC0).
 cpp_lconsts_now(LC) :- ( nb_current('$cpp_lconsts', LC0) -> LC = LC0 ; LC = [] ).
 cpp_add_instance_items(Items) :- cpp_linkonce(Items, Items1), forall(member(I, Items1), ( cpp_item_key(I, K), assertz('$cpp_out'(K, I)) )),
-    ( nb_getval('$cpp_in_lib', yes) -> forall(member(function(_, _, _, Name, _, _, _), Items1), assertz('$cpp_libfn'(Name))) ; true ).
+    ( nb_getval('$cpp_in_lib', yes) -> forall(member(function(_, _, _, Name, _, _, _), Items1), assertz('$cpp_libfn'(Name))) ; true ),
+    ( nb_current('$cpp_evonly_mode', yes) -> forall(( member(function(_, _, _, Name, _, _, _), Items1), atom(Name), \+ '$cpp_evonly'(Name) ), assertz('$cpp_evonly'(Name))) ; true ).   % the evaluator's own (0.258, cpp_eval_only/1)
 %% THE EMITTED ITEMS BY NAME (0.165): '$cpp_out'(Key, Item), a function under its name and any other item under '', so
 %% that the evaluator finds a function by the first argument (cpp_eval_fn/3, cpp_const_fold/2) -- the table was found by
 %% its item's functor alone, and each ask scanned every function the walk had emitted -- 14.5 % of a std::visit build's
@@ -1130,12 +1135,12 @@ cpp_instantiate_function__(F, Explicit, As, Name) :-
     ->  nb_getval('$cpp_first_refusal', FirstW), nb_setval('$cpp_first_refusal', Outer)   % THE ENCLOSING CALL'S FIRST REFUSAL BACK (0.112): a candidate check makes calls of its own, each resetting the one global, and the reason reported for `std::invoke' was a nested `__sfinae_test_impl''s
     ;   nb_setval('$cpp_first_refusal', Outer), fail ),
     (   Hs == [] -> ( FirstW == none -> cpp_refuse(0, no_matching_template(F)) ; cpp_refuse(0, FirstW) )   % none fit: the first one's reason
-    ;   cpp_fewest_conversions(Hs, Hs1), cpp_defined_first(Hs1, Hs2), cpp_most_special_fn(Hs2, Hs2, h(K, TPs, function(L, Sto, Ret, _, Ps, V, Body), B, _)),
+    ;   cpp_fewest_conversions(Hs, Hs1), cpp_defined_first(Hs1, Hs2), cpp_most_special_fn(Hs2, Hs2, h(K, TPs, function(L, Sto, Ret, _, Ps, V, Body), B, _)), cpp_deleted_body_check(Body, function, F),
         ( NC =:= 1 -> FN = F ; atomic_list_concat([F, '.c', K], FN) ),
         (   Body == none, cpp_ita_fn_instance(F, TPs, B, Ret, Ps, V, Name0) -> Name = Name0   % declared here, DEFINED in the shipped library: its own C++ symbol
         ;   cpp_instance_name(FN, TPs, B, Name) ),
         catch(cpp_instantiate_function_(F, TPs, B, L, Sto, Ret, Ps, V, Body, Name), error(not_lowered(W), H),
-              ( W = instance_refused(_, _) -> throw(error(not_lowered(W), H)) ; throw(error(not_lowered(instance_refused(Name, W)), H)) )) ).   % A CANDIDATE HELD, and its body refused: the refusal is THAT, named
+              ( ( W = instance_refused(_, _) ; W = deleted_call(_, _, _) ) -> throw(error(not_lowered(W), H)) ; throw(error(not_lowered(instance_refused(Name, W)), H)) )) ).   % A CANDIDATE HELD, and its body refused: the refusal is THAT, named -- a deleted specialization chosen is the call's own (0.258)
 %% ... and not a chance for the plain overloads of the name (cpp_call's template road, cpp_free_operator_call): the
 %% getline<char, ...> that held and whose body refused `auto &' fell through to C's getline(char **, size_t *, FILE *),
 %% three arguments alike, and the stream and the string went to it as pointers

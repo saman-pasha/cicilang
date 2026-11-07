@@ -58,13 +58,22 @@ cpp_method(C, M, Args, Name, Hops) :-
 %% candidates, and a call that one wins is refused in clang's words: a member function's, a static one's as a function's, an
 %% operator's. Asked in the program's own code alone, as a free function's is (cpp_deleted_call/3)
 cpp_deleted_member_check(C, M, Args, Cands0) :-
-    (   nb_getval('$cpp_in_lib', no), '$cpp_mem_del'(C, M, _, _, _), length(Args, N),
-        findall(Qs-Ps-Why, ( '$cpp_mem_del'(C, M, Qs, Ps, Why), cpp_arity_fits(Ps, N), cpp_const_viable(Qs) ), Ds), Ds \== [],
+    (   nb_getval('$cpp_in_lib', no), ( '$cpp_mem_del'(C, M, _, _, _) ; cpp_deleted_mt(C, M, _, _) ), !, cpp_deleted_members(C, M, Args, Ds), Ds \== [],
         findall(Qs-Ps, member(Qs-Ps-_, Ds), DCands), append(Cands0, DCands, All),
         cpp_as_callee(C, ( findall(Q-Ps, ( member(Q-Ps, All), cpp_args_fit(Ps, Args) ), [C1|Cs]), cpp_pick_q([C1|Cs], Args, Qs1-Ps1) )),
-        memberchk(Qs1-Ps1-Why, Ds)
+        \+ memberchk(Qs1-Ps1, Cands0), memberchk(Qs1-Ps1-Why, Ds)   % a live member of the chosen signature is the non-template a tie prefers
     ->  ( M = operator(Op) -> Kind = operator(Op) ; memberchk(static, Qs1) -> Kind = function ; Kind = member ), cpp_refuse_stmt(deleted_call(Kind, M, Why))
     ;   true ).
+%% the deleted members of the name that take so many arguments, `Qs-Ps-Why': the plain ones the record dropped, and ITS DELETED MEMBER
+%% TEMPLATES' INSTANCES, each deduced from the arguments and its parameters substituted (0.258) -- after the live ones in the ranking,
+%% so that a non-template ties first ([over.match.best]/2.4): `s.f(1.5)' over `template <class T> void f(T) = delete; void f(int)'
+%% chooses the template's f<double>, an exact match, and is refused
+cpp_deleted_members(C, M, Args, Ds) :- length(Args, N),
+    findall(Qs-Ps-Why, ( '$cpp_mem_del'(C, M, Qs, Ps, Why), cpp_arity_fits(Ps, N), cpp_const_viable(Qs) ), Ds1),
+    findall(Qs1-Ps1-Why, ( cpp_deleted_mt(C, M, TPs, Mem), Mem = method(_, Qs, _, _, Ps, _, '$deleted'(Why)), cpp_arity_fits(Ps, N), cpp_const_viable(Qs),
+                           cpp_member_holding([TPs-Mem], C, [], Args, [h(_, _, _, B, _)]), cpp_subst(fn(Qs, Ps), B, fn(Qs1, Ps1)) ), Ds2),
+    append(Ds1, Ds2, Ds).
+cpp_deleted_mt(C, M, TPs, Mem) :- catch('$cpp_mt'(C, M, TPs, Mem), _, fail), Mem = method(_, _, _, _, _, _, B), nonvar(B), B = '$deleted'(_).
 %% ... AND A CONSTRUCTOR (0.257): a constructor declared deleted that the arguments choose, `S s(42)' over `S(int) = delete; S(long)';
 %% and the copy of an lvalue of the class whose copy constructor is deleted, `S b = a' -- declared so, it was dropped from the
 %% record and the class's own value took the implicit memberwise copy; implicitly so ([class.copy.ctor]/6, /10: the class
@@ -74,27 +83,50 @@ cpp_deleted_member_check(C, M, Args, Cands0) :-
 %% ([dcl.init]/17.6.1), a base sub-object's construction is its class's, and a defaulted copy's own body asks nothing of its parts
 %% (cpp_memberwise_making/1)
 cpp_deleted_ctor_check(C, Args) :-
-    (   nb_getval('$cpp_in_lib', no), \+ nb_current('$cpp_base_ctor', yes), \+ nb_current('$cpp_memberwise', yes) -> true ; fail ), !,
+    (   cpp_deleted_asked(C), \+ nb_current('$cpp_base_ctor', yes), \+ nb_current('$cpp_memberwise', yes) -> true ; fail ), !,
     (   \+ cpp_class_prvalue_arg(C, Args), '$cpp_mem_del'(C, '$ctor', _, _, _), cpp_class(C, cls(_, _, Ms, _, _, _)), length(Args, N),
         findall(Qs-Ps-Why, ( '$cpp_mem_del'(C, '$ctor', Qs, Ps, Why), cpp_arity_fits(Ps, N) ), Ds), Ds \== [],
         findall(Qs-Ps, ( member(ctor(_, Qs, Ps, _, _), Ms), cpp_arity_fits(Ps, N), cpp_method_viable(C, Qs, Ps) ), Live),
         findall(Qs-Ps, member(Qs-Ps-_, Ds), DCands), append(Live, DCands, All),
         cpp_as_callee(C, ( findall(Q-Ps, ( member(Q-Ps, All), cpp_args_fit(Ps, Args) ), [C1|Cs]), cpp_pick_q([C1|Cs], Args, Qs1-Ps1) )),
         memberchk(Qs1-Ps1-Why, Ds)
-    ->  cpp_refuse_stmt(deleted_call(ctor, C, Why))
+    ->  cpp_refuse_prog(deleted_call(ctor, C, Why))
     ;   Args = [E0], cpp_own_value(E0, C, lvalue), \+ ( cpp_sdecl(C, copy_ctor, B0), B0 \== default ), \+ cpp_special_there(C, copy)
-    ->  cpp_refuse_stmt(deleted_call(implicit_copy, C, none))
+    ->  cpp_refuse_prog(deleted_call(implicit_copy, C, none))
+    ;   Args = [E0], \+ cpp_class_prvalue_arg(C, Args), cpp_own_value(E0, C, rvalue), \+ cpp_special_there(C, move), cpp_move_kind(C, MK), MK \== deleted,
+        \+ ( cpp_sdecl(C, copy_ctor, B1), B1 \== default )
+    ->  cpp_refuse_prog(deleted_call(implicit_copy, C, none))   % ... AND AN XVALUE WHOSE MOVE IS NO CANDIDATE (0.258; [over.match.funcs]/8: a defaulted move defined as deleted is none), so that the copy it falls to is implicitly deleted: `S b = std::move(a)' over a member whose move is deleted -- the record dropped both, and the safe part refused a move of a non-owner, or the class's bytes were copied
     ;   true ).
 cpp_deleted_ctor_check(_, _).
+%% A DELETED CONSTRUCTOR OF THE PROGRAM'S CLASS IS ASKED IN THE LIBRARY'S BODY TOO (0.258): `v.push_back(a)' over a std::vector<NC>
+%% whose element's copy is deleted copied a's bytes through std::__construct_at, where clang++ refuses the call (`no matching function
+%% for call to __construct_at', its SFINAE over the construction). A library class's own deleted members steer libc++'s lookups, and
+%% this compiler makes instances clang++ does not: they are asked in the program's code alone, as before
+cpp_deleted_asked(C) :- ( nb_getval('$cpp_in_lib', no) -> true ; atom(C), \+ cpp_lib_class(C) ).
 %% one argument, a prvalue of the class: a temporary, a call's value -- no lvalue, no `std::move', no cast to a reference
 cpp_class_prvalue_arg(C, [E]) :- cpp_class_of_type_of(E, C), \+ cpp_arg_lvalue(E), E \= move(_), \+ E = ccast(_, rref(_, _), _), \+ E = ccast(_, ref(_, _), _).
 %% ... AND A LOCAL'S COPY FROM AN LVALUE, which makes the implicit copy itself (cpp_ctor_args/4): refused where the class's copy is
 %% deleted, implicitly or as declared (cpp_special_there/2) -- `S b = a' over `struct S { S(S &&); };' copied a's members
 cpp_copy_not_deleted(C) :-
-    (   nb_getval('$cpp_in_lib', no), \+ nb_current('$cpp_memberwise', yes), \+ cpp_special_there(C, copy)
+    (   cpp_deleted_asked(C), \+ nb_current('$cpp_memberwise', yes), \+ cpp_special_there(C, copy)
     ->  (   cpp_sdecl(C, copy_ctor, delete)   % declared deleted: clang's `call to deleted constructor', its reason after
-        ->  ( '$cpp_mem_del'(C, '$ctor', _, [P], Why0), cpp_sdecl_param(ctor, P, C, ref) -> Why = Why0 ; Why = none ), cpp_refuse_stmt(deleted_call(ctor, C, Why))
-        ;   cpp_refuse_stmt(deleted_call(implicit_copy, C, none)) )
+        ->  ( '$cpp_mem_del'(C, '$ctor', _, [P], Why0), cpp_sdecl_param(ctor, P, C, ref) -> Why = Why0 ; Why = none ), cpp_refuse_prog(deleted_call(ctor, C, Why))
+        ;   cpp_refuse_prog(deleted_call(implicit_copy, C, none)) )
+    ;   true ).
+%% ... AND FROM AN XVALUE (0.258): the move where it is a candidate, else the copy it falls to ([over.match.funcs]/8: a defaulted move
+%% defined as deleted is none) -- refused where the move is declared deleted, or the copy is deleted as declared or implicitly: `S b =
+%% std::move(a)' over `struct S { M m; }' with M's move deleted lowered a's bytes, and the safe part refused a move of a non-owner
+cpp_move_not_deleted(C) :-
+    (   cpp_deleted_asked(C), \+ nb_current('$cpp_memberwise', yes), \+ cpp_special_there(C, move)
+    ->  (   cpp_move_kind(C, deleted) -> cpp_refuse_prog(deleted_call(ctor, C, none))
+        ;   cpp_copy_not_deleted(C) )
+    ;   true ).
+%% ... AND A CLASS WHOSE RECORD HOLDS NO CONSTRUCTOR, initialized by the plain road from an object of its own (0.258): `= default'
+%% and `= delete' leave no constructor in the record, so `M b = std::move(a)' over `M(M &&) = delete' and `S b = a' over a member of
+%% such a class were C's copies of the bytes -- the first refused by the safe part as a move of a non-owner, the second built
+cpp_plain_copy_check(T, E) :-
+    (   cpp_class_of_type(T, C), cpp_class_of_type_of(E, C)
+    ->  ( cpp_lvalue(E) -> cpp_copy_not_deleted(C) ; E = move(X), cpp_lvalue(X) -> cpp_move_not_deleted(C) ; true )
     ;   true ).
 %% A DEFAULTED COPY'S OWN BODY IS MADE WITH ITS CLASS, deleted or not (cpp_ctor_body/7 of `memberwise'): it asks no check of its parts,
 %% since a defaulted copy whose part does not copy is DEFINED AS DELETED ([class.copy.ctor]/10), no error where nothing calls it --
@@ -105,12 +137,27 @@ cpp_memberwise_making(G) :- ( nb_current('$cpp_memberwise', W) -> true ; W = no 
 %% ... AND AN ASSIGNMENT whose deleted operator= the source chooses (cpp_expr/3 of `='): the class's record has no operator= left, so
 %% `a = b' over `S &operator=(const S &) = delete' assigned as C's struct does
 cpp_deleted_assign_check(A1, B1) :-
-    (   nb_getval('$cpp_in_lib', no), cpp_class_of_type_of(A1, C), '$cpp_mem_del'(C, operator('='), _, _, _), cpp_class(C, cls(_, _, Ms, _, _, _))
+    (   nb_current('$cpp_assign_ask', no) -> true   % an initialization the desugaring writes as an assignment: no assignment of the program's (0.258, cpp_assign_ask/2)
+    ;   nb_getval('$cpp_in_lib', no), cpp_class_of_type_of(A1, C), '$cpp_mem_del'(C, operator('='), _, _, _), cpp_class(C, cls(_, _, Ms, _, _, _))
     ->  findall(Qs-Ps, ( member(method(_, Qs, _, operator('='), Ps, _, _), Ms), cpp_arity_fits(Ps, 1), cpp_const_viable(Qs), cpp_method_viable(C, Qs, Ps) ), Cands0),
         cpp_deleted_member_check(C, operator('='), [B1], Cands0)
     ;   nb_getval('$cpp_in_lib', no), cpp_class_of_type_of(A1, C), cpp_class_of_type_of(B1, C), cpp_arg_lvalue(B1), \+ ( cpp_sdecl(C, copy_assign, B0), B0 \== default ), \+ cpp_assign_special(C, copy)
     ->  cpp_refuse_stmt(deleted_call(implicit_assign, C, none))   % ... and from an lvalue where the copy assignment is implicitly deleted ([class.copy.assign]/2, /7): `a = b' of two unique_ptrs moved from b; a defaulted one whose part does not assign, alike
+    ;   nb_getval('$cpp_in_lib', no), cpp_class_of_type_of(A1, C), cpp_class_of_type_of(B1, C), \+ cpp_arg_lvalue(B1), \+ cpp_assign_special(C, move), cpp_move_assign_kind(C, MK), MK \== deleted,
+        \+ ( cpp_sdecl(C, copy_assign, B2), B2 \== default )
+    ->  cpp_refuse_stmt(deleted_call(implicit_assign, C, none))   % ... and from an rvalue whose move assignment is no candidate, the copy assignment it falls to implicitly deleted (0.258; [over.match.funcs]/8): `a = std::move(b)' over a defaulted move assignment whose member's is deleted
+    ;   nb_getval('$cpp_in_lib', no), \+ cpp_class_of_type_of(A1, _), catch(ccl_type_of(A1, TA), _, fail), TA \== unknown, cpp_plain_unassignable(TA), cpp_plain_tag(TA, Tag)
+    ->  cpp_refuse_stmt(deleted_call(implicit_assign, Tag, none))   % ... and A PLAIN STRUCT whose data member is a reference or a const object (0.258; [class.copy.assign]/7, cpp_plain_unassignable/1): `a = b' over `struct R { int &r; };' was C's copy of the struct, where clang refuses it
     ;   true ).
+cpp_plain_tag(T, Tag) :- catch(ccl_resolve_type(T, base(_, [S])), _, fail), compound(S), arg(1, S, Tag), atom(Tag), Tag \== anon.
+%% AN INITIALIZATION THE DESUGARING WRITES AS AN ASSIGNMENT ASKS NO DELETED ASSIGNMENT (0.258; [class.base.init], [dcl.init]: it
+%% constructs, which no copy assignment does): a constructor's prologue -- its bases, its tables, each member from its initializer or
+%% its default, a zero -- is walked with the asking off ('$cpp_assign_ask', cpp_ctor_body/7's `'$inits'(Pre)'), and an isolated
+%% walk inside it, an instance's or a closure's body, with it on (cpp_isolated_/1): `: cb_(c)' over a closure that captures by
+%% reference was refused as the assignment of a struct with a reference member (cpp_plain_unassignable/1), and so was `: a(x)'
+%% over `struct R { int &r; }' -- a method's `a = y' is refused still
+cpp_assign_ask(Ask, G) :- ( nb_current('$cpp_assign_ask', W) -> true ; W = yes ), nb_setval('$cpp_assign_ask', Ask),
+    ( catch(G, E, ( nb_setval('$cpp_assign_ask', W), throw(E) )) -> nb_setval('$cpp_assign_ask', W) ; nb_setval('$cpp_assign_ask', W), fail ).
 cpp_implicit_copy_ctor(C, Kind, Name) :- '$cpp_implicit_copy'(C, Kind, Name), !.
 %% ... IN PROGRESS WHILE IT IS MADE ('$cpp_making', as every emission is; 0.206): a member's copy may copy the class again --
 %% `struct Node { int v; std::vector<Node> kids; };' copies its vector, whose copy constructs each element by the class's
@@ -646,3 +693,7 @@ cpp_this_type(C, Quals, Marks, ptr([], base(Q, [typedef(C)]))) :- ( memberchk(co
 cpp_refuse(L, What) :- ( nb_getval('$cpp_trace', yes) -> ( nb_current('$cpp_wstack', W), W \== off -> true ; nb_current('$cpp_where', W) -> true ; W = top ), cpp_trace(refuse(What, in(W))) ; true ), throw(error(not_lowered(What), where(file, line(L)))).   % the breadcrumb STACK (0.87's, eight frames) where it is kept, not the innermost frame alone: `in(class(__base))' named the class being loaded where the constraint that refused was two headers away (0.93)
 %% a refusal at the line of the statement being walked ('$cpp_line', cpp_stmt/3), 0 outside one (0.257)
 cpp_refuse_stmt(What) :- ( nb_current('$cpp_line', L) -> true ; L = 0 ), cpp_refuse(L, What).
+%% A REFUSAL MET IN THE LIBRARY'S BODY OVER THE PROGRAM'S CLASS IS SAID AT THE PROGRAM'S LINE (0.258): the line of the program's
+%% statement whose walk entered the library ('$cpp_prog_line', cpp_as_lib/2), where clang++ notes `in instantiation of ... requested
+%% here' -- the library's own line named the program's file (cpp_deleted_asked/1)
+cpp_refuse_prog(What) :- ( nb_getval('$cpp_in_lib', yes), nb_current('$cpp_prog_line', L), integer(L), L > 0 -> cpp_refuse(L, What) ; cpp_refuse_stmt(What) ).

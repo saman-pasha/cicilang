@@ -181,7 +181,8 @@ cpp_register_([concept(_, N, E)|Is]) :- !, asserta('$cpp_concept'(N, concept([],
 %% test/cpp/run/autohead.cpp). The abbreviated function template with no head is the clause below (0.42).
 cpp_register_([template(L, TPs0, function(FL, Sto, Ret, N, Ps, V, Body))|Is]) :- atom(N), cpp_auto_params(Ps, 0, Ps1, ATPs), ATPs \== [], !,
     append(TPs0, ATPs, TPs), cpp_register_([template(L, TPs, function(FL, Sto, Ret, N, Ps1, V, Body))|Is]).
-cpp_register_([template(L, TPs, Item)|Is]) :- !,
+cpp_register_([template(L, TPs, Item0)|Is]) :- !,
+    ( nb_getval('$cpp_in_lib', no), cpp_deleted_fn_item(Item0, Item1) -> Item = Item1 ; Item = Item0 ),   % the program's deleted function template or explicit specialization, a candidate (0.258)
     (   TPs = [_|_], cpp_mct_def(Item, C, L1, K, N0, Bs, NMs) -> cpp_nested_template_put(C, L1, TPs, K, N0, Bs, NMs)   % a MEMBER CLASS TEMPLATE of a PLAIN class, defined out of it (0.201, cpp_mct_def/7)
     ;   TPs = [_|_], cpp_mdef_item(Item, C, none, Member) -> cpp_mdef_put(C, [], none, template(L, TPs, Member)), cpp_refresh_mts(C)   % a MEMBER TEMPLATE of a PLAIN class, defined out of it (0.117): `template <class F> T::T(F f, int x) : v(f(x)) {}' -- kept as a member template of the class, its body given to the declaration already registered
     ;   cpp_mdef_item(Item, C, Pattern, Member) -> cpp_mdef_put(C, TPs, Pattern, Member)                                           % a member DEFINED out of its class, by the class's name
@@ -226,6 +227,13 @@ cpp_register_([declare(L, base(Q, [struct(N, Ms)]))|Is]) :- atom(N), Ms \== none
 cpp_register_([declare(L, base(_, [union(N, Ms)]))|Is]) :- atom(N), N \== anon, cpp_union_class_members(Ms), \+ cpp_class_l(N, _), !,
     ( '$cpp_union'(N) -> true ; assertz('$cpp_union'(N)) ), cpp_trace(union_class(N)), cpp_register_class(union, L, N, [], Ms), cpp_register_(Is).
 cpp_register_([_|Is]) :- cpp_register_(Is).
+%% THE PROGRAM'S DELETED FUNCTION TEMPLATE IS A CANDIDATE (0.258; [over.match]/2, [dcl.fct.def.delete]/2): its declaration is the function
+%% item whose body is `'$deleted'(Why)', deduced and ranked as any template's, and refused where it is chosen
+%% (cpp_deleted_body_check/3) -- so is an explicit specialization `= delete', which an instance takes as its body (cpp_fspec_for/6).
+%% It was no candidate (a deleted declaration is in no table, reader 152) but in 0.257's idiom of its own type parameters:
+%% `template <class T> void h(T *) = delete;' beside `void h(int *)' let `h(&d)' of a double build, and `template <> int
+%% p<int>(int) = delete;' ran the primary's body. The library's are left as they were: its poison pills steer its own lookups
+cpp_deleted_fn_item(declaration(L, Sto, _, [var(N, fn(Ret, Ps, V), I)]), function(L, Sto, Ret, N, Ps, V, '$deleted'(Why))) :- nonvar(I), ccl_deleted_body(I, Why), !.
 %% A HEADER READ IN THE BUILD'S OWN PROCESS IS REGISTERED AS ONE SERVED FROM ITS SUMMARY IS (0.218): its read wrote the summary
 %% and the AST beside it (ccl_read_unit/3), and its items come from that AST, in the include's order among the headers served
 %% from theirs. Indexed apart, as '$cpp_hdr' facts that cpp_hdr_item/2 asks first, its items took a flattened name from a
@@ -300,7 +308,14 @@ cpp_note_hdr_mdefs([I|Is]) :- ( I \= template(_, _, _), cpp_mdef_item(I, C, Pat,
 %% member, an instance of the header's template, whatever such a walk emits) is marked '$cpp_libfn'(Name) and the
 %% check skips it, while the program's own functions, its own templates' instances included, wherever they are
 %% instantiated from, are checked as always. The lowering lowers both.
-cpp_as_lib(Flag, Goal) :- nb_getval('$cpp_in_lib', Was), nb_setval('$cpp_in_lib', Flag), ( catch(Goal, E, ( nb_setval('$cpp_in_lib', Was), throw(E) )) -> nb_setval('$cpp_in_lib', Was) ; nb_setval('$cpp_in_lib', Was), fail ).
+cpp_as_lib(Flag, Goal) :- nb_getval('$cpp_in_lib', Was), cpp_lib_depth_in(Flag, D0), nb_setval('$cpp_in_lib', Flag),
+    ( catch(Goal, E, ( cpp_lib_back(Was, D0), throw(E) )) -> cpp_lib_back(Was, D0) ; cpp_lib_back(Was, D0), fail ).
+%% THE DEPTH OF THE LIBRARY'S WALKS (0.258): the outermost one keeps the line of the program's statement it starts from
+%% ('$cpp_prog_line'), where a refusal over the program's class in the library's body is said (cpp_refuse_prog/1); a walk of the
+%% program's class made inside the library's is no program statement, and named the library's line 305
+cpp_lib_depth_in(yes, D0) :- !, ( nb_current('$cpp_lib_depth', D0) -> true ; D0 = 0 ), ( D0 =:= 0, nb_current('$cpp_line', PL) -> nb_setval('$cpp_prog_line', PL) ; true ), D1 is D0 + 1, nb_setval('$cpp_lib_depth', D1).
+cpp_lib_depth_in(_, none).
+cpp_lib_back(Was, D0) :- nb_setval('$cpp_in_lib', Was), ( D0 == none -> true ; nb_setval('$cpp_lib_depth', D0) ).
 cpp_lib_origin(N, Flag) :- ( '$cpp_lib'(N) -> Flag = yes ; '$cpp_nested_tmpl'(EC, _, N), cpp_lib_class(EC) -> Flag = yes ; Flag = no ).   % a MEMBER class template of a library class is the library's (0.113): transform_view's `__iterator<_Const>', checked as the program's, refused its `__parent_(std::addressof(__parent))'
 cpp_lib_class(C) :- ( '$cpp_lazy_c'(C) -> true ; '$cpp_lib'(C) -> true ; '$cpp_inst'(C, inst(N, _)), '$cpp_lib'(N) ).   % a LIBRARY class is lazy; a lazy class is not always the library's (0.127: the program's instances are lazy too, '$cpp_lazy_p')
 cpp_lib_class(C) :- '$cpp_lib_closure'(C), !.   % A CLOSURE MADE IN A LIBRARY'S WALK (0.201): a generic lambda's call operator template is instantiated where it is called, and its instance took the class's origin -- the program's, for a closure made in a free function template of a header: libc++ 18's `__pstl_transform_reduce' makes `[__transform, __reduce](auto __brick_first, auto __brick_last, _Tp __brick_init) { ... std::move(__transform) ... }', checked as the program's, `move of a non-owner'

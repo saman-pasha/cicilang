@@ -252,6 +252,7 @@ One row per step, in version order: the step's title, what it did and its gate n
 | 0.255 | cocolog 3.18.0: the pins moved, the chain GREEN with no change to the library | cocolog 3.16.0 to 3.18.0 (3.17.0: stream counters and encodings, a load that warns of singletons and of split clauses; 3.18.0: listing/1 and portray_clause/1 as swipl's); the library sets no encoding, calls neither, and is loaded as a library, muted; the chain GREEN with no change; the record of 0.254's CI runs, every job GREEN, and of the full job's skips, 11 and not 12 | flow GREEN (152 s); over libc++ 18 all nine GREEN (the cross gate 498 s, the library read 738 s, the C++ gate 2113 s, 852 run fixtures ok); the C++ gates over 21 and 22 GREEN (2034 s and 2056 s; 860 and 863 ok); the times this host's, an A/B of 3.16.0 against 3.18.0 here; the toolchain check strict with the pins moved, the small gates over the module 0.255; a commit and a push |
 | 0.256 | cocolog 3.19.2: the pins moved, the chain GREEN with no change to the library | cocolog 3.18.0 to 3.19.2 (3.19.0: single-sided rules, every stream encoding, set_stream/2; 3.19.1: swipl's second block of load warnings; 3.19.2: a qualified clause that is no clause refused); the summaries' .ast.pl files hold no variable, so no load warning fires; the chain GREEN with no change; the record of 0.255's CI runs | flow GREEN (157 s); over libc++ 18 all nine GREEN (the cross gate 497 s, the library read 731 s, the C++ gate 1942 s, 852 run fixtures ok); the C++ gates over 21 and 22 GREEN (1942 s and 2147 s; 860 and 863 ok); the toolchain check strict with the pins moved, the small gates over the module 0.256; a commit and a push |
 | 0.257 | a static assertion that does not fold, a call of a deleted function and an unknown -std= are refused | the owner's three defects: a static assertion's condition that does not fold refused in clang's words (and the C23 constexpr structure's member, a block's enumerator, __builtin_constant_p and a constant object's member made to fold); a call of a deleted function -- free, member, static, constructor, copy, assignment, operator, the template idiom, a defaulted copy deleted -- refused with clang's words and C++26's reason, where most were no refusal at all; no -std= ignored; and on the owner's choice C++20's constant evaluation for the assertions the C++ gate found refused: try, unions, new and delete, virtual calls, dynamic_cast, std::vector, std::string; a local's noted aggregate kept in its frame, which a parameter of its name in a later function read (a wrong build since 0.104), a constexpr body's free names the file's, never its caller's locals (a wrong build in 0.256), and an immediately invoked lambda's constant; the record of 0.256's CI runs | the flow gate; over libc++ 18 all nine GREEN (the C++ gate 1443 s, 857 ok); the C++ gates over 21 and 22 GREEN (865 and 868 ok); a commit and a push |
+| 0.258 | the limits of 0.257's rules: deleted templates and moves, floats and plain calls in a constant evaluation | the fifteen limits 0.257 recorded, on the owner's word: a deleted function template, explicit specialization and member template candidates, a deleted move asked wherever an xvalue is copied, a plain struct with a reference or const member not assigned, the program's class's deleted constructor asked in the library's body at the program's line; in a constant evaluation floating arithmetic, a later base's dynamic_cast and thunk, an array new's cookie, the allocation's family, ::operator new std::allocator's alone, an unseen object bound to a reference, the evaluator's own instances dropped where unnamed; only a constexpr aggregate a value; a closure's body reading its function's constants; __builtin_types_compatible_p in C; and a sixteenth the probes found, a call of a function that is not constexpr refused; three wrong builds older than the step (an instance read its caller's constant, a later base's pointer compared with the object's, out-of-class constexpr members unseen by the evaluator); the record of 0.257's CI runs | the flow gate; over libc++ 18 all nine GREEN (the C++ gate 1347 s, 865 ok); the C++ gates over 21 and 22 GREEN (873 and 876 ok); a commit and a push |
 
 ## M5 — the C++ mode
 
@@ -17448,3 +17449,158 @@ median fixture where 0.255's was 1.62 -- 0.255's runner, its setup slow too (39:
 The module 0.257, the reader 169 (`= delete("why")` read as `deleted(Why)`, and a C read refuses an assertion that does
 not fold) and the lowering 149 (a C23 `constexpr` structure's member and a block's enumerator fold where the lowering
 asks a constant, and the desugaring refuses what it took and folds C++20's constant evaluation).
+
+## 0.258 — the limits of 0.257's rules: deleted templates and moves, floats and plain calls in a constant evaluation
+
+**0.258: the fifteen limits that 0.257 recorded in Not done (THE LIMITS OF 0.257'S RULES), fixed on the owner's word
+("fix the not done items, commit and push when all GREEN"), and a sixteenth that their probes found: a static assertion
+over a call of a function that is not constexpr passed, where clang refuses it. Each form was reduced to a probe of 2 to
+32 lines, built with clang 18, clang 22 and cicilang, and the outputs compared line by line. Two of the fifteen were
+agreement, no limit: a throw caught in a constant evaluation (C++26's P3068) and a construction through a VTT (a class
+with a virtual base has no constexpr constructor) are refused by clang++ 22 too. The probes found three wrong builds
+older than the step.**
+
+THE DELETED FUNCTIONS (four limits). A deleted function template and a deleted explicit specialization of the program's
+are candidates now: the declaration is the function item whose body is `'$deleted'(Why)` (`cpp_deleted_fn_item/2`),
+deduced and ranked as any template is, and refused where it is chosen (`cpp_deleted_body_check/3`),
+`call to deleted function 'h'`; 0.257's idiom (`'$cpp_tmpl_del'`, a template of its own type parameters ranked by its
+arity alone) is gone with it. `template <class T> void h(T *) = delete;` beside `void h(int *)` let `h(&d)` over a
+double build, and `template <> int p<int>(int) = delete;` ran the primary's body. A deleted member template stays among
+its class's members (`cpp_norm_members_/3` dropped it) and is ranked after the live members, so that a non-template ties
+first (`cpp_deleted_members/4`): `s.f(1.5)` over `template <class T> void f(T) = delete; void f(int)` called f(int). A
+copy from an xvalue whose move is no candidate -- declared deleted, or defaulted and deleted because a member's move is
+deleted ([over.match.funcs]/8) -- falls to the copy and is refused where that is deleted (`cpp_move_not_deleted/1`), and
+so is an assignment from one: `S b = std::move(a)` over a member whose move is deleted copied a's bytes, or the safe
+part refused it as a move of a non-owner. A class whose record holds no constructor, its copy or move `= delete` or
+`= default`, initialized by the plain road from an object of its own, is asked the same (`cpp_plain_copy_check/2`). A
+plain struct with a reference or `const` member is not assigned ([class.copy.assign]/7, `cpp_plain_unassignable/1`):
+`a = b` over `struct R { int &r; };` was C's copy of the struct -- the probe `dL5` of 0.257, which built, is refused now
+as clang refuses it.
+
+AND IN THE LIBRARY'S BODY: a construction of the program's class there is asked (`cpp_deleted_asked/1`) and refused at
+the line of the program's statement whose walk entered the library (`cpp_refuse_prog/1`, `'$cpp_prog_line'`, which the
+outermost `cpp_as_lib/2` keeps by `'$cpp_lib_depth'`; the first form named libc++'s line 305, where a walk of the
+program's class made inside the library's had kept the library's line): `v.push_back(a)` over a `std::vector<NC>` whose
+element's copy is deleted copied a's bytes through `std::__construct_at`. clang++ refuses the instance,
+`no matching function for call to '__construct_at'` at libc++'s line; cicilang names the deleted constructor at the
+program's, `vectorcopy.cpp:3: error: call to deleted constructor of 'NC'` (Not done: the words differ). A library
+class's own deleted members are asked in the program's code alone, as before: they steer libc++'s own lookups. Thirteen
+refusals (`test/cpp/deltmplfn.cpp` to `vectorcopy2.cpp`) and two programs: `deletedok2.cpp`, what the rules leave
+callable, and `movevector.cpp`, a class whose copy is deleted moved through `std::vector` and `std::optional`.
+
+THE FUNCTIONS THAT ARE NOT CONSTEXPR (the sixteenth): `int g() { return 3; } static_assert(g() == 3);` built where clang
+refuses it ([expr.const]/5.2), and so did a constexpr function's call of a plain member, of a plain constructor and of a
+plain template's instance, and a virtual call of a plain overrider. The program's function defined with no `constexpr`
+is noted, `'$cpp_nce'(Name)`: a member by its qualifiers (`cpp_note_nce/4`); a free function, a free operator and a
+member defined out of its class by the reader's note of its definition (`'$ccl_plainfn'(Line, Key)`,
+`ccl_note_plain_fn/3`: the declarator's fold drops the word from the result's type); an instance of the program's plain
+template where it is made. Neither the evaluator nor 0.72's road calls it (`cpp_eval_nce/1`). A lambda's call operator
+is constexpr; what the desugaring makes itself -- the implicit members, the thunks, the tables' functions, a defaulted
+destructor -- is noted nothing, and a library's function never. The first form noted a defaulted virtual destructor's
+empty body, which the desugaring writes for it, and two probes of the later base regressed (`l6a`, `l6c`); the body is
+marked `defaulted` now (`cpp_default_vdtor_/2`).
+
+EVERY SHAPE OF A CONSTEXPR FUNCTION, probed beside the rule above, found a gap that 0.257 opened: a member and a
+constructor defined out of the class and a free operator had no body where the evaluator looks (`'$cpp_ownfn'`), so
+`static_assert(s.m5() == 5)` over `constexpr int S::m5() const { return 5; }`, which clang takes, was refused by 0.257
+and passed unasked before it. They are noted with the others now (`cpp_own_fns/1`); `constexprshapes.cpp` holds the
+shapes: a member and a constructor defined out of the class, a free operator, a member template, a virtual member, a
+lambda, a consteval function, a namespace's functions and template.
+
+ONLY A CONSTEXPR AGGREGATE IS USABLE IN CONSTANT EXPRESSIONS ([expr.const]/4):
+`const A a = {3, 4}; static_assert(a.x == 3);` built where clang refuses it, at block and at file scope, and so did a
+`const double`'s read. The declaration's specifiers decide (`cpp_agg_usable/1`: the declarator's type has lost the
+word); a library's `const` tables stay values.
+
+A CLOSURE'S BODY AND A LOCAL CLASS'S MEMBERS READ THEIR FUNCTION'S CONSTANTS with no capture
+([expr.prim.lambda.capture]/7, [basic.def.odr]/5): the walk's constants are noted where the class is made
+(`'$cpp_encl_consts'`) and given back to its members' walk (`cpp_in_class/2`) -- a `const` or `constexpr` integer, a
+`constexpr` floating object, a `constexpr` object's member (`cpp_encl_agg_member/4`); they were `undeclared(n)`. ON THE
+WAY, A WRONG BUILD: an isolated walk set the caller's scopes aside and not the walk's constants, so an instance made
+while a function is walked read that function's:
+`template <class T> int g(T) { int a[n]; return sizeof(a) / sizeof(int) + n; }` over the file's `constexpr int n = 1`,
+called from `int f0() { const int n = 5; return g(0) + n; }`, sized its array by the caller's 5 and printed 11, where
+clang's build prints 7 (`cpp_isolated_/1` sets them aside now). An argument bound to a reference that the evaluation
+does not see is never read (P2280): `int x = 2; static_assert(gk3(x) == 1);` over
+`constexpr int gk3(const int &) { return K; }` folds, where the evaluator failed for want of x's address (`'$unseen'`).
+0.72's road binds an argument as its value where it folds in the caller's scope, and folds the body with that scope set
+aside (`cpp_road_args/2`, `cpp_eval_body_scope/1`). `closureconsts.cpp` holds them.
+
+FLOATING ARITHMETIC IN A CONSTANT EVALUATION: a `float` or a `double` value is `flt(Kind, X)`, a float's rounded to its
+24 bits; a literal, a cast, a parameter, a local, a return and a store make one; the operations, the comparisons, `-`,
+`!`, `++` and the compound assignments compute with them, the operands converted to their common type and the operation
+done as the lowering folds a constant (`cpp_eval_fbin/4` over `ir_fp_op/4`); a conversion to an integer truncates toward
+zero; a division by zero and a NaN are no constant, as clang refuses them, and an overflow is the infinity clang folds.
+A `constexpr` floating object is a value (`'$cvf'(N)` in its frame, `'$cpp_gflt:N'` at file scope), and a static
+assertion that compares floating values is asked (`cpp_has_float_cmp/1`; `static_assert(0.1 + 0.2 != 0.3)` was refused
+as one that does not fold). The first form of the comparison's fold recursed without end through `cpp_eval_value` (two
+probes killed at the memory cap); it reduces the comparison itself now. `constexprfloat.cpp` prints clang's digits to
+the last (`%.17g`). A `long double` and a `_Float16` are no value here (Not done).
+
+A LATER BASE: a pointer to a class converted to its base's or its derived class's pointer is converted as the lowering
+converts it (`cpp_eval_conv_ptr/5`); a virtual call through a later base's table runs the thunk, whose step back to its
+object is taken off the path; `dynamic_cast` takes the complete object down every base's step (`cpp_eval_top/2`). A
+WRONG BUILD older than the step, at run time: `pb == &d` over `struct D : A, B` compared the B sub-object's address with
+the object's and was false, where clang's build prints 1; the two pointers are compared in the composite pointer type
+now ([expr.eq]/3, `cpp_ptr_composite/5`). `dyncastlate.cpp`.
+
+AN ARRAY NEW OF A CLASS WITH A DESTRUCTOR: the block is one cell of the cookie and the elements (the Itanium ABI's 2.7),
+so the desugaring's `_Znam(8 + n * sizeof(T))`, the count stored at its start and `delete[]`'s read of it are steps over
+that cell, and every `*p` is a place; a block is held by its allocation function's family, and `delete p` over
+`new T[2]` is no constant ([expr.delete]/2). A direct `::operator new` is `std::allocator`'s alone ([expr.const]/5.18).
+`constexprcookie.cpp`; `cookiedelete.cpp`, `opnewconst.cpp` refused.
+
+AN INSTANCE THE EVALUATOR ALONE MAKES is no item where nothing names it (`cpp_eval_only/1`, `cpp_drop_evonly/3`):
+`std::string s = "hello"; s += " world";` in a static assertion emitted 107 functions of basic_string's internals that
+no code calls -- 286 definitions, where the program without the assertion has 179; it has 179 now.
+
+GCC'S `__builtin_types_compatible_p(T1, T2)` is read in C, the integer constant 1 or 0 (`ccl_types_compat/3`): tags,
+typedefs, an enumeration and its integer type as clang chooses it, pointers, functions and arrays, a top-level qualifier
+set aside (`typescompat.c`, as clang's build prints).
+
+THE FIRST CHAIN, over fresh HOMEs and over libc++ 22 first, was RED over 22 at two fixtures, two defects of the step's
+own rules, and was stopped there: `nestedahead.cpp`'s `: cb_(static_cast<C2 &&>(c))` over a closure that captures
+`[&hits]` was refused as the assignment of `main()::(anonymous class)`, whose copy assignment is implicitly deleted --
+the desugaring writes a member's initialization as an assignment, and the plain struct's rule asked it as one of the
+program's. A constructor's prologue -- its bases, its tables, its members' initializations -- is one statement now,
+`'$inits'(Pre)`, walked as a splice with the asking off (`cpp_assign_ask/2`), and an isolated walk inside it with the
+asking on: `constmeminit.cpp` (members initialized from a class with a `const` member and from a struct with a reference
+member) builds as clang's build does, and a method's assignment over such a member is refused still
+(`delmethassign.cpp`, which 0.257 built). And `within.cpp`'s
+`static_assert(!none.has_value() && yes.has_value() && live())` FAILED: the step's unseen object took `none`, a
+constexpr local whose value the evaluator knows, so `std::is_within_lifetime(&b)` read an unseen cell and answered false
+-- a wrong answer. An object whose value the evaluator knows is seen now, as before the step, and the builtin over an
+unseen cell is no constant. The two fixtures, the probes and the nearest fixtures built as their `.expect` (twenty-one),
+the flow gate GREEN; the chain ran a second time over fresh HOMEs: its numbers are below.
+
+THE NETS before the chain: the flow gate GREEN after each edit of the library (fifteen runs); the C++ run fixtures that
+the rules reach (135), built over the warm HOME of the 3.19.4 chain and libc++ 18 and compared with their `.expect` as
+the C++ gate compares them, 133 ok (`ftm26b.cpp` and `within.cpp` need libc++ 22); the 90 probes of 0.257 as before but
+`dL5`, refused now as clang refuses it; the step's 99 probes, 0.257's fixtures among them, as clang's builds, or refused
+in clang's words where clang refuses them.
+
+MEASUREMENTS: the chain of 0.258 over its work tree, cocolog 3.19.4 and ZiguratIP 1.0.2 as checked out (the toolchain
+check GREEN, 3 off the pins, which stay at 3.19.2) and fresh HOMEs: over libc++ 22 the library read 503 s and the C++
+gate 1379 s (876 ok, none skipped); over libc++ 21 373 s and 1362 s (873 ok, 3 skipped); over libc++ 18 all nine GREEN
+-- the flow gate 162 s, reader 2 s, compile 31 s, driver 35 s, objects 5 s, proof, the cross gate 327 s, the library
+read 421 s, the C++ gate 1347 s (865 ok, 11 skipped by their needs); in 5949 s.
+
+THE CI OF 0.257 (`0698a88`), over cocolog 3.19.2 at its pins: the smoke run (42306189119) GREEN on the three machines --
+Linux (setup 11:51, gates 3:52), Apple silicon (12:17, 6:46), the Intel Mac (22:46, 14:16); the full job (42306258394)
+GREEN, the gates in 2:29:12 (the C++ gate 1978, 2015 and 2047 s; 857, 865 and 868 ok); the Mac's C++ job (42306262379)
+GREEN, the step in 2:06:43 (the library read 1377 s and the C++ gate 6224 s; 854 ok, 14 skipped).
+
+- `library/ccl_syntax.pl`, `ccl_include.pl`, `ccl_infer.pl`: `__builtin_types_compatible_p`, the note of a plain
+  definition. `library/ccl_cpp*.pl`: the deleted templates, moves and plain structs, the library's body, the functions
+  that are not constexpr, the evaluator's functions, the usable aggregates, a closure's constants, the isolated walk's
+  constants, the composite pointer type, the evaluator's own instances. `library/ccl_cpp_eval.pl`: floating arithmetic,
+  a later base, the cookie and the family, `::operator new`, the unseen objects, 0.72's road. `test/cpp.sh`: twenty-five
+  refusals; `test/c/run/typescompat.c`, `test/cpp/run/constexprshapes.cpp`, `constexprfloat.cpp`, `closureconsts.cpp`,
+  `dyncastlate.cpp`, `constexprcookie.cpp`, `deletedok2.cpp`, `movevector.cpp`, `constmeminit.cpp`. `RULES.md`,
+  `CLAUDE.md`, `README.md`.
+
+The module 0.258, the reader 170 (`__builtin_types_compatible_p` read in C, and a C++ read notes a function of the
+program's text defined with no constexpr) and the lowering 150 (what the desugaring emits changes: a call that is not
+constexpr is no constant, only a constexpr aggregate is a value, a closure reads its function's constants, the evaluator
+computes with floating values, the library's body asks a deleted constructor of the program's class, and the evaluator's
+own instances that nothing names are no items).

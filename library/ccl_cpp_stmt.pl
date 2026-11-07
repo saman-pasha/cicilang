@@ -161,6 +161,7 @@ cpp_class_glvalue(X) :- ( cpp_lvalue(X) -> true ; cpp_xvalue_object(X) ).
 cpp_stmt_(_, '$in_class'(C, B), B1) :- !, cpp_in_class(C, cpp_stmt(C, B, B1)).   % a friend template's body in its class (0.115; cpp_friend_tmpl_words)
 cpp_stmt_(Ctx, block(Is), block(Js)) :- !, cpp_in_frame(cpp_stmts(Ctx, Is, Js)).
 cpp_stmt_(Ctx, '$splice'(Is), '$splice'(Js)) :- !, cpp_stmts(Ctx, Is, Js).
+cpp_stmt_(Ctx, '$inits'(Is), '$splice'(Js)) :- !, cpp_assign_ask(no, cpp_stmts(Ctx, Is, Js)).   % A CONSTRUCTOR'S PROLOGUE (0.258, cpp_ctor_body/7): its block's statements, which initialize and assign nothing the program wrote
 cpp_stmt_(Ctx, declaration(L, Sto, B, Vs), S) :- !, cpp_decl_stmt(Ctx, L, Sto, B, Vs, S).
 %% A STRUCTURED BINDING THE READER DEFERRED (bindings/4): the initializer desugared and typed, a temporary of that
 %% type (a reference to it for `auto &'), then one `auto' declaration per name from the class's data members by
@@ -708,7 +709,7 @@ cpp_local_class(L, K, N, Bases0, Ms0, Name) :-
     ccl_gensym(local, G0), cpp_unit_tag(UT), ( UT == '' -> G = G0 ; atomic_list_concat([G0, '_', UT], G) ), ( N == anon -> Name = G ; atomic_list_concat([N, '.', G], Name) ),   % the unit's tag in the name (0.192)
     ( N == anon -> Bases = Bases0, Ms = Ms0 ; cpp_rename_names(Bases0, ['$deep'-yes, N-Name], Bases), cpp_rename_names(Ms0, ['$deep'-yes, N-Name], Ms) ),   % its own name inside it is the new one
     cpp_fsig_now(Encl), ( N == anon -> cpp_local_note(anon, Name, Encl) ; assertz('$cpp_pf_local'(Name, N, Encl)), cpp_local_note(named(N), Name, Encl) ),   % the function it is written in: its members' own names (0.166), its local name (0.236)
-    cpp_isolated(( cpp_register_class(L, Name, Bases, Ms), cpp_item(declare(L, base([], [class(K, Name, Bases, Ms)])), Its) )),
+    cpp_note_encl_consts(Name), cpp_isolated(( cpp_register_class(L, Name, Bases, Ms), cpp_item(declare(L, base([], [class(K, Name, Bases, Ms)])), Its) )),
     cpp_add_instance_items(Its), cpp_local_key(L, LK), assertz('$cpp_localcls'(LK-class(K, N, Bases0, Ms0), Name)), cpp_trace(local_class(Name)).
 %% A LOCAL CLASS IS ITS PLACE'S AND ITS FUNCTION'S (0.236; [class.local], [temp.inst]): two local classes of one text in two blocks or two
 %% functions, or in two instances of one function template, are two classes -- `{ struct L {}; } { struct L {}; }' was one, their type
@@ -948,7 +949,7 @@ cpp_decl_pieces(Ctx, L, Sto, B, [var(N, T0, I)|Vs], Pieces) :-
         ;   Args == [], cpp_trivial_default(C) -> Pieces = [declaration(L, Sto, B, [var(N, T, none)])|P1]        % nothing to construct
         ;   Args = [E], cpp_class_of_type_of(E, C), \+ cpp_dtor(C, _) -> Pieces = [declaration(L, Sto, B, [var(N, T, E)])|P1]   % the implicit copy, bitwise
         ;   cpp_refuse(L, no_constructor(C, NA)) )
-    ;   cpp_trace(plain_init(N, T, I)), cpp_plain_init(I, T, I0), cpp_expr(Ctx, I0, I0w), cpp_init_convs(T, I0w, I00), cpp_conv_to(I00, T, I10), ccl_declare(N, T), cpp_note_const(N, T, I10, I1),   % a scalar from a class value: its conversion operator
+    ;   cpp_trace(plain_init(N, T, I)), cpp_plain_init(I, T, I0), cpp_expr(Ctx, I0, I0w), cpp_plain_copy_check(T, I0w), cpp_init_convs(T, I0w, I00), cpp_conv_to(I00, T, I10), ccl_declare(N, T), cpp_note_const(B, N, T, I10, I1),   % a scalar from a class value: its conversion operator
         ( cpp_binds_const_lvalue(T, I1) -> cpp_refuse(L, binds_const(N)) ; true ),
         ( cpp_class_of_type(T, C0), cpp_dtor(C0, _), cpp_lvalue(I1) -> cpp_refuse(L, copy_of_a_class_with_destructor(C0)) ; true ),   % two owners of one buffer
         (   Sto \== static, Sto \== extern, cpp_ext_temp(T, I1, X, XT, XD)   % A TEMPORARY BOUND TO A NAMED REFERENCE LIVES AS LONG AS THE REFERENCE ([class.temporary]/6; 0.112): it is a hidden local `$ext_K', the prvalue elided into it, destroyed by a defer at the scope's end where the statement's end had destroyed it (`const Tag &a = Tag(1)' dangled) or nothing had (`Tag &&b = make(2)')
@@ -1034,7 +1035,7 @@ cpp_size_by_init(T, _, T).
 %% ITS INITIALIZER IS MANIFESTLY CONSTANT-EVALUATED ([expr.const]/20; 0.197): a `const' integral local initialized by a
 %% constant expression is usable in constant expressions, so its call is folded with std::is_constant_evaluated() true
 %% (cpp_with_ce/1) and the folded value IS the initializer -- `constexpr bool ce = std::is_constant_evaluated();' was 0
-cpp_note_const(N, T, I, I1) :- ccl_resolve_type(T, R), R = base(Q, _), memberchk(const, Q), \+ ccl_is_float(R),
+cpp_note_const(_, N, T, I, I1) :- ccl_resolve_type(T, R), R = base(Q, _), memberchk(const, Q), \+ ccl_is_float(R),
     (   ccl_const_eval(I, V) -> I1 = I
     ;   cpp_init_call(I), catch(cpp_with_ce(cpp_const_value(I, V0)), _, fail) -> ( V0 = bool(B) -> ( B == true -> V = 1 ; V = 0 ) ; V = V0 ),   % a CONSTEXPR CALL folds through the evaluator (0.104): libc++'s `constexpr _CCC __cat = __compute_comp_type(__type_kinds);'
         ( integer(V) -> I1 = int(V) ; V = big(_) -> I1 = int(V) ; I1 = I )
@@ -1043,11 +1044,18 @@ cpp_note_const(N, T, I, I1) :- ccl_resolve_type(T, R), R = base(Q, _), memberchk
 %% A `const' LOCAL AGGREGATE WITH A CONSTANT INITIALIZER IS A VALUE TO THE CONSTEXPR EVALUATOR (0.104), as a file-scope
 %% one has been since 0.97 (cpp_note_local_agg/3): libc++'s `__get_comp_type' writes `constexpr _CCC __type_kinds[] =
 %% {_StrongOrd, __type_to_enum<_Ts>()...};' and hands it to a constexpr function by reference
-cpp_note_const(N, T, I, I) :- I \== none, atom(N), cpp_const_agg_type(T), !,
+cpp_note_const(B, N, T, I, I) :- I \== none, atom(N), cpp_agg_usable(B), cpp_eval_note_flt(T, I, V), !, ccl_declare('$cvf'(N), V), cpp_lconst_push('$cvf'(N)-V).   % A CONSTEXPR FLOATING LOCAL's value (0.258, cpp_eval_flt_const/2)
+cpp_note_const(B, N, T, I, I) :- I \== none, atom(N), cpp_const_agg_type(T), cpp_agg_usable(B), !,
     (   catch(cpp_eval_init(T, I, [], _, _), Err, ( cpp_trace(const_agg_error(N, Err)), fail ))
     ->  cpp_note_local_agg(N, T, I), cpp_trace(const_local_agg(N))
     ;   cpp_trace(const_agg_not_folded(N, I)), cpp_agg_items_trace(I) ).
-cpp_note_const(_, _, I, I).
+cpp_note_const(_, _, _, I, I).
+%% AN AGGREGATE OF THE PROGRAM'S IS USABLE IN CONSTANT EXPRESSIONS ONLY WHERE IT IS `constexpr' ([expr.const]/4; 0.258): `const A a =
+%% {3, 4}; static_assert(a.x == 3);' built where clang++ refuses it, at file scope too (cpp_fold_const_inits/5). A `const' one is no
+%% value to the evaluator, and its name hides an outer one still; the declaration's specifiers say it (the declarator's type has
+%% lost the word, ccl_constexpr_fold/2). The library's `const' tables stay values, as they were
+cpp_agg_usable(_) :- nb_current('$cpp_in_lib', yes), !.
+cpp_agg_usable(base(Q, _)) :- memberchk(constexpr, Q).
 %% A CONSTEXPR LOCAL OF CLASS TYPE IS A VALUE TO THE EVALUATOR (0.257; [dcl.constexpr]/10: its initialization is a constant
 %% expression): its constructor run by the evaluator where it is declared, manifestly constant-evaluated (cpp_eval_construct/4),
 %% and the VALUE itself noted as a const local aggregate's initializer is (`'$value'(V)': a union's value has no initializer's
@@ -1063,7 +1071,7 @@ cpp_note_constexpr_object(_, _, _, _).
 %% was a global keyed by the name, `'$cpp_gagg:N'' marked `local', and read wherever ANY local of the name was in scope:
 %% `int g(P p) { const int y = sq(p.x); ... }' after `constexpr P p(3, 4);' -- or `const P p = {3, 4};' since 0.104 -- in an
 %% earlier function folded y from that object, 9 where it is 25; and a local note overwrote a file-scope constant's of the name
-cpp_note_local_agg(N, T, Init) :- ccl_declare('$lagg'(N), agg(T, Init)).
+cpp_note_local_agg(N, T, Init) :- ccl_declare('$lagg'(N), agg(T, Init)), cpp_lconst_push('$lagg'(N)-agg(T, Init)).   % ... and the walk's, for a closure's body (0.258, cpp_encl_agg_member/4)
 %% THE EVALUATION OF A CONSTANT EXPRESSION, std::is_constant_evaluated() and __libcpp_is_constant_evaluated() true in it
 %% ('$cpp_eval_ce', cpp_eval_reduce/3), the flag put back as it was on success, failure and throw (0.197)
 cpp_with_ce(G) :- ( nb_current('$cpp_eval_ce', W) -> true ; W = off ), nb_setval('$cpp_eval_ce', on),
@@ -1074,6 +1082,7 @@ cpp_with_ce(G) :- ( nb_current('$cpp_eval_ce', W) -> true ; W = off ), nb_setval
 %% and of the walk's own list ('$cpp_lconsts', ccl_body_constant/2), which a lambda's body reads, its frames set aside;
 %% both leave where the block's walk ends, however it ends (cpp_in_frame/1, cpp_with_fsig/2).
 cpp_lconst_push(P) :- cpp_lconsts_now(L), nb_setval('$cpp_lconsts', [P|L]).
+cpp_note_encl_consts(C) :- cpp_lconsts_now(LC), ( LC == [] -> true ; retractall('$cpp_encl_consts'(C, _)), assertz('$cpp_encl_consts'(C, LC)) ).   % a closure's or a local class's (0.258, cpp_in_class/2)
 cpp_agg_items_trace(init(Items)) :- !, forall(member(item(_, E), Items), ( catch(cpp_eval_effect(E, [], _, V), Err, ( V = error(Err) )) -> cpp_trace(agg_item(E, V)) ; cpp_trace(agg_item(E, failed)) )).   % under the trace: which item of a const aggregate the evaluator cannot take
 cpp_agg_items_trace(_).
 cpp_const_agg_type(T) :- catch(cpp_eval_agg_kind(T, _), _, fail), ccl_resolve_type(T, R), ( R = arr(_, ET) -> ccl_resolve_type(ET, base(Q, _)) ; R = base(Q, _) ), memberchk(const, Q).
@@ -1277,7 +1286,7 @@ cpp_ctor_args(Ctx, E, C, [E2]) :- cpp_expr(Ctx, E, E10), cpp_xvalue_move(E10, E1
     ;   cpp_lvalue(E1), \+ cpp_written_copy_ctor(C), cpp_implicit_copy_here(C), \+ cpp_holds_owners(base([], [typedef(C)])), cpp_copy_not_deleted(C), cpp_implicit_copy_ctor(C, copy, _) -> E2 = E1   % THE IMPLICIT COPY, made on demand ([class.copy.ctor]) for a local of THE PROGRAM'S OWN class: `Grid2 g4 = g3' over a promoted struct; never for a class holding owners, whose copy the safe part refuses below; for a LIBRARY class only where it has a destructor (cpp_implicit_copy_here/1, 0.201), whose copy is never bitwise -- any other comes through its own lazy road (made here, basic_string's `__rep' got a copy constructor while its union had not been emitted: a load of `[0 x i8]'); and asked of the WRITTEN copy and move constructors, never the implicit ones made already (0.201: the implicit copy made first kept the implicit move from being made, and the reverse)
     ;   E1 = move(X), cpp_lvalue(X), \+ cpp_written_copy_ctor(C), cpp_implicit_copy_here(C), \+ cpp_holds_owners(base([], [typedef(C)])), cpp_implicit_rvalue_kind(C, K), cpp_implicit_copy_ctor(C, K, _) -> ( K == move -> E2 = E1 ; E2 = X )   % ... and the implicit move, or the copy where the class declares no implicit move ([class.copy.ctor]/8, cpp_implicit_rvalue_kind/2)
     ;   \+ cpp_lvalue(E1), \+ ( E1 = move(X1), cpp_lvalue(X1) ) -> E2 = E1                     % A PRVALUE IS THE OBJECT (C++17 elides the copy), the caller's elision takes it -- where this FAILED, after its walk had registered the initializer's temporaries, and the caller walked it again: `Tag t = plus(Tag(1), 5)' destroyed a second, never-built temporary (0.112)
-    ;   ( cpp_lvalue(E1) -> cpp_copy_not_deleted(C) ; true ), fail ).                            % an lvalue with no copy constructor is refused below -- one whose copy is deleted refused here (0.257): it fell to a C struct's copy
+    ;   ( cpp_lvalue(E1) -> cpp_copy_not_deleted(C) ; E1 = move(X2), cpp_lvalue(X2) -> cpp_move_not_deleted(C) ; true ), fail ).                            % an lvalue with no copy constructor is refused below -- one whose copy is deleted refused here (0.257): it fell to a C struct's copy
 %% AN XVALUE NAMES AN OBJECT, as `std::move(x)' does ([basic.lval]): `static_cast<T &&>(x)' over an lvalue is the move
 %% node for the constructor's choice (0.112) -- read as a prvalue it was elided, the local made the bytes of x, and a
 %% vector so initialized freed its buffer twice

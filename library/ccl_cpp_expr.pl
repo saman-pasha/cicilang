@@ -47,6 +47,8 @@ cpp_expr(Ctx, id(N), E) :- !,
     ;   Ctx == none, cpp_class_ctx(Cx), cpp_static_use(Cx, N, Name) -> E = id(Name)
     ;   cpp_closure_this(Ctx, EC), cpp_data_member(EC, N, Hops) -> cpp_closure_member(N, Hops, E)   % a lambda's captured this: the enclosing object's member
     ;   cpp_closure_this(Ctx, EC), cpp_static_use(EC, N, Name) -> E = id(Name)
+    ;   cpp_lconsts_now(LCf), memberchk('$cvf'(N)-flt(FK, FX), LCf) -> ( FK == float -> E = cast(base([], [float]), float(FX)) ; E = float(FX) )   % ... a floating one's too
+    ;   ccl_body_constant(N, V0), V0 \= agg(_, _) -> E = int(V0)                              % A CONSTANT OF THE FUNCTION A CLOSURE OR A LOCAL CLASS IS MADE IN, read with no capture (0.258; [expr.prim.lambda.capture]/7): its value -- `undeclared(n)' in the body's function
     ;   cpp_static_fn_value(Ctx, N, E0) -> E = E0                                           % A STATIC MEMBER FUNCTION NAMED BARE AS A VALUE (0.126), below
     ;   cpp_using_key(N, K), cpp_using_value(K, E0) -> E = E0                                  % A HEADER'S KEYED OBJECT OR FUNCTION NAMED BARE through a using of its namespace (0.161; cpp_using_value)
     ;   cpp_global_const(N, V) -> E = V                                                       % a file-scope `const' of integral type with a constant initializer: the constant (below)
@@ -132,6 +134,7 @@ cpp_expr(Ctx, call(F, As), E) :- !, cpp_where(args(F), cpp_exprs(Ctx, As, As1)),
 %% object. The qualifier names the object's class or a base of it; anything else is refused by name.
 cpp_expr(Ctx, member(X, scoped(Path, N)), E) :- atom(N), !, cpp_expr(Ctx, X, X1), cpp_qual_object(X1, Path, C, B), cpp_qual_member(B, C, N, E).
 cpp_expr(Ctx, arrow(X, scoped(Path, N)), E) :- atom(N), !, cpp_expr(Ctx, X, X0), cpp_arrow_object(X0, X1), cpp_qual_object(deref(X1), Path, C, B), cpp_qual_member(B, C, N, E).
+cpp_expr(Ctx, member(id(P), F), int(V)) :- cpp_encl_agg_member(Ctx, P, F, V), !.   % A MEMBER OF A CONSTEXPR OBJECT OF THE ENCLOSING FUNCTION, read in a closure's body with no capture (0.258): its value
 cpp_expr(Ctx, member(X, N), E) :- !, cpp_expr(Ctx, X, X1),
     ( nb_getval('$cpp_in_lib', no), cpp_class_of_type_of(X1, CA) -> cpp_check_access_obj(Ctx, CA, N) ; true ),   % the member's access, where the program names it (0.117)
     (   cpp_class_of_type_of(X1, C), cpp_data_member(C, N, Hops), Hops \== [] -> cpp_hops(X1, Hops, B), cpp_xvalue_member(member(B, N), E)
@@ -174,7 +177,7 @@ cpp_expr(Ctx, not(A), E)    :- !, cpp_expr(Ctx, A, A1), cpp_to_bool(A1, A2), cpp
 cpp_expr(Ctx, neg(A), E)    :- !, cpp_expr(Ctx, A, A1), cpp_operator('-', A1, [], neg(A1), E).
 cpp_expr(Ctx, bitnot(A), E) :- !, cpp_expr(Ctx, A, A1), cpp_operator('~', A1, [], bitnot(A1), E).
 cpp_expr(Ctx, bin(Op, A, B), E) :- memberchk(Op, ['&&', '||']), !, cpp_expr(Ctx, A, A1), cpp_cond_branch(Ctx, B, B0, Tb), cpp_cond_flag(Tb, B0, B1), cpp_to_bool(A1, A2), cpp_to_bool(B1, B2), cpp_operator(Op, A1, [B1], bin(Op, A2, B2), E).   % the right operand's temporaries flagged (cpp_cond_branch, 0.201)
-cpp_expr(Ctx, bin(Op, A, B), E) :- !, cpp_expr(Ctx, A, A1), cpp_expr(Ctx, B, B1), cpp_operator(Op, A1, [B1], bin(Op, A1, B1), E).
+cpp_expr(Ctx, bin(Op, A, B), E) :- !, cpp_expr(Ctx, A, A1), cpp_expr(Ctx, B, B1), cpp_ptr_composite(Op, A1, B1, A2, B2), cpp_operator(Op, A1, [B1], bin(Op, A2, B2), E).
 cpp_expr(Ctx, bind_ref(A, B), bind_ref(A1, B1)) :- !, cpp_expr(Ctx, A, A1), cpp_expr(Ctx, B, B1).   % a reference member BOUND in a constructor: the slot takes the address
 cpp_expr(Ctx, assign(Op, A, B), E) :- Op \== '=', !, cpp_expr(Ctx, A, A1), cpp_expr(Ctx, B, B1), cpp_operator(Op, A1, [B1], assign(Op, A1, B1), E0), cpp_rhs_first(E0, E).
 cpp_expr(Ctx, assign('=', A, init(Items)), E) :- \+ ( member(item(D, _), Items), D \== [] ), cpp_expr(Ctx, A, A1), cpp_class_of_type_of(A1, C),   % A BRACED LIST ASSIGNED TO A CLASS ([expr.ass]/9; 0.132): where the class's own operator= takes no list, `x = {a, b}' is `x = C{a, b}', the temporary through the constructors, then the assignment -- libc++'s split_view writes `__next_ = {__cur_, __cur_};' over a subrange, and the list reached the lowering
@@ -246,6 +249,20 @@ cpp_expr(_, u8str(S), u8str(S)) :- !.   % C++20's u8 literal (0.196)
 cpp_expr(Ctx, cond(C, A, B), cond(C2, A1, B1)) :- !, cpp_expr(Ctx, C, C1), cpp_to_bool(C1, C2), cpp_cond_branch(Ctx, A, A0, Ta0), cpp_cond_branch(Ctx, B, B0, Tb0),
     cpp_cond_copy_arm(A0, B0, Ta0, A00, Ta), cpp_cond_copy_arm(B0, A0, Tb0, B00, Tb), cpp_cond_flag(Ta, A00, A1), cpp_cond_flag(Tb, B00, B1).   % each arm's temporaries flagged (cpp_cond_branch, 0.201), an lvalue arm beside a prvalue arm copied (cpp_cond_copy_arm); THE CONDITION CONTEXTUALLY CONVERTED TO BOOL ([expr.cond]/1; 0.137), through a class's `operator bool' as `if' and `!' have it: `l ? 1 : 0' over an `optional' compared the struct with zero
 cpp_expr(Ctx, E, E1) :- E =.. [F|As], cpp_exprs(Ctx, As, Bs), E1 =.. [F|Bs].
+%% A CONSTEXPR OBJECT OF THE FUNCTION A CLOSURE OR A LOCAL CLASS IS MADE IN (0.258): its note is in the walk's constants
+%% (cpp_note_local_agg/3, '$cpp_encl_consts'), and a member read through its name, which is neither a local nor a capture
+%% there, is the member's value -- `[] { return p.x; }' over `constexpr P p(5, 6);' named p, undeclared in the body's function
+cpp_encl_agg_member(Ctx, P, F, V) :- atom(P), atom(F), \+ cpp_local(P), \+ cpp_ctx_names(Ctx, P), cpp_lconsts_now(LC), memberchk('$lagg'(P)-agg(T, Init), LC),
+    catch(cpp_agg_value(T, Init, obj(Ps)), _, fail), memberchk(F-V, Ps), cpp_eval_scalar(V).
+cpp_ctx_names(self(C, _), P) :- !, cpp_data_member(C, P, []).
+cpp_ctx_names(C, P) :- C \== none, atom(C), cpp_data_member(C, P, _).
+%% TWO POINTERS TO A CLASS AND ITS BASE COMPARED IN THE COMPOSITE POINTER TYPE (0.258; [expr.eq]/3, [expr.rel]/3): the derived one
+%% converted to the base's pointer first, as a cast converts it (ir_convert/6 adds a later base's offset) -- `pb == &d' over the
+%% second base of `struct D : A, B' compared the B sub-object's address with the object's and was false where it is true
+cpp_ptr_composite(Op, A, B, A2, B2) :- memberchk(Op, ['==', '!=', '<', '>', '<=', '>=']), cpp_class_ptr_of(A, CA), cpp_class_ptr_of(B, CB), CA \== CB,
+    ( cpp_derives(CA, CB) -> A2 = cast(ptr([], base([const], [typedef(CB)])), A), B2 = B ; cpp_derives(CB, CA) -> B2 = cast(ptr([], base([const], [typedef(CA)])), B), A2 = A ), !.
+cpp_ptr_composite(_, A, B, A, B).
+cpp_class_ptr_of(E, C) :- catch(ccl_type_of(E, T), _, fail), T \== unknown, catch(ccl_resolve_type(T, ptr(_, PT)), _, fail), catch(cpp_class_of_type(PT, C), _, fail).
 
 %% ---- expressions, bottom up ----------------------------------------------------------
 cpp_exprs(_, [], []).
@@ -945,6 +962,7 @@ cpp_call(_, id(F), As, E) :- \+ cpp_local(F), cpp_template(F, _, Item), cpp_fn_i
     (   catch(cpp_instantiate_function(F, [], As, Name), error(not_lowered(W), _), ( nb_setval('$cpp_fn_refusal', W), fail ))
     ->  cpp_fill_defaults(Name, As, As0), cpp_ref_args(Name, As0, As1), E = call(id(Name), As1)   % THE INSTANCE'S DEFAULTS FILLED (0.93, as at the explicit call above), then THE ARGUMENT PASS RUNS ON A TEMPLATE'S INSTANCE TOO (the free road's since 0.79): a class value where the instance's parameter wants another class goes through its conversion operator, and `std::__concatenate_strings(a.get_allocator(), __lhs, __rhs)' -- whose parameters are `__type_identity_t<basic_string_view<...>>' -- stored a basic_string's bytes into a string_view, which LLVM refused
     ;   nb_getval('$cpp_fn_refusal', W0), W0 = instance_refused(_, _) -> cpp_refuse(0, W0)        % a template HELD and its body refused: no plain overload stands in for it
+    ;   nb_getval('$cpp_fn_refusal', W2), W2 = deleted_call(_, _, _) -> cpp_refuse_prog(W2)            % a DELETED template or specialization chosen (0.258): no plain overload stands in for it either, and the call's line is the refusal's
     ;   cpp_fn_best(F, As, Ps, D) -> cpp_free_call(F, Ps, D, As, E)                                % no template held: the plain overloads of the name, ONE overload set with them
     ;   nb_getval('$cpp_fn_refusal', W1), ( W1 == none -> cpp_refuse(0, no_matching_template(F)) ; cpp_refuse(0, W1) ) ).
 cpp_call(Ctx, id(N), As, E) :- Ctx \== none, \+ cpp_local(N), cpp_class_typedef(Ctx, N, T0),   % a class-scope TYPE named bare inside its class: `__destroy_vector(*this)' a nested class, `size_type(~0)' a cast
@@ -995,15 +1013,15 @@ cpp_deleted_hdr_fn(F) :- atom(F), \+ ccl_declared(F, fn(_, _, _)), catch(cpp_hdr
 %% `call to deleted function 'g': call g(long)'. The deleted declaration was a candidate, chosen by the arguments it fits
 %% best, and its call named a function nothing defines -- `not lowered yet: undeclared(g)'. Asked in the program's own code
 %% alone: a library body here is made where clang makes none, and libc++'s poison pills answer its own lookups
-%% ... AND A DELETED FUNCTION TEMPLATE whose parameters are its own type parameters, `template <class T> void f(T) = delete;' beside
-%% `void f(int)' -- the idiom that refuses every conversion: it deduces the arguments' own types, so it wins wherever the plain
-%% overload chosen is no exact match ([over.match.best]/2.4 prefers a non-template only where the conversions tie). Noted with
-%% the program's functions ('$cpp_tmpl_del', cpp_note_fns/1); it was no candidate at all, and `f(1.5)' called f(int)
-cpp_deleted_call(F, Ps, As) :- nb_getval('$cpp_in_lib', no), !,
-    (   cpp_params_key(Ps, K), '$cpp_fn_del'(F, K, Why) -> cpp_refuse_stmt(deleted_call(function, F, Why))
-    ;   length(As, N), '$cpp_tmpl_del'(F, N, Why), \+ cpp_exact_params(Ps, As) -> cpp_refuse_stmt(deleted_call(function, F, Why))
-    ;   true ).
+%% A deleted function template is a candidate of its own since 0.258 (cpp_deleted_fn_item/2): 0.257's idiom, a template of its own type
+%% parameters ranked by its arity alone ('$cpp_tmpl_del'), is gone with it
+cpp_deleted_call(F, Ps, _) :- nb_getval('$cpp_in_lib', no), !,
+    ( cpp_params_key(Ps, K), '$cpp_fn_del'(F, K, Why) -> cpp_refuse_stmt(deleted_call(function, F, Why)) ; true ).
 cpp_deleted_call(_, _, _).
+%% A DELETED CANDIDATE CHOSEN IS REFUSED, in clang's words and with its reason (0.258): a function template's, an explicit
+%% specialization's, a member template's (cpp_deleted_fn_item/2, cpp_norm_members_/3). Where a substitution asks the call, the
+%% refusal takes the candidate out, as any refusal there does ([temp.deduct.general]/8: a deleted function chosen is a failure)
+cpp_deleted_body_check(Body, Kind, N) :- ( nonvar(Body), Body = '$deleted'(Why) -> cpp_refuse_stmt(deleted_call(Kind, N, Why)) ; true ).
 %% A CALL THROUGH AN OBJECT WHOSE operator() NOTHING FITS IS A REFUSAL (0.221; [over.call.object]/1, [temp.deduct.general]/8):
 %% a temporary or an object of class type called, `compare_three_way()(t, u)', where no operator() of its class takes the
 %% arguments -- one whose constraint fails among them -- is ill-formed, and where its type is asked the refusal takes the
@@ -1671,7 +1689,7 @@ cpp_new(Spec, T, As, E) :- \+ cpp_class_of_type(T, _), \+ ccl_resolve_type(T, ar
     cpp_new_block(Spec, T, garbage, P, [expr(0, assign('=', deref(id(P)), compound_lit(T, init(Items))))], E).
 cpp_new(Spec, T, As, E) :- cpp_class_of_type(T, C), cpp_has_ctors(C), !, ( As == [], cpp_value_zeroes(C) -> M = zeroed ; M = garbage ), cpp_new_ctor(Spec, M, T, C, As, E).
 cpp_new(Spec, T, [], E) :- !, cpp_new_zeroed(Spec, T, E).
-cpp_new(Spec, T, [A], E) :- !, ccl_gensym('$new', P), cpp_new_block(Spec, T, garbage, P, [expr(0, assign('=', deref(id(P)), A))], E).   % `new T(v)' of a type with no constructor: v stored
+cpp_new(Spec, T, [A], E) :- !, cpp_plain_copy_check(T, A), ccl_gensym('$new', P), cpp_new_block(Spec, T, garbage, P, [expr(0, assign('=', deref(id(P)), A))], E).   % `new T(v)' of a type with no constructor: v stored
 cpp_new(_, T, _, _) :- cpp_refuse(0, new_with_constructor(T)).
 %% `new T()' and `new T{}' VALUE-INITIALIZE (0.127; [expr.new]/24, [dcl.init]/8): a scalar is its zero and a type with nothing to
 %% construct every byte zero (the zeroed block, whose own fields the check takes as null), a class whose default constructor is not
