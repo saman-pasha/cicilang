@@ -390,6 +390,14 @@ argument's tokens, and its C text reads them where it puts them. So
 `sort_by(v, a, b, a > b)` puts the comparison into its loop, with no function
 pointer. `test/c/run/unread.c` is the example.
 
+The safe part finds iterator invalidation at compile time (0.265): a call
+that takes a struct by a plain pointer, not to const, may replace its own
+fields, so a pointer into them is not used after it. `int *p = v.data;
+push(v, 1); *p` is refused, "use of a borrow after a call that may replace
+its owner", where `at(v, 0)` and `len(v)`, whose pointee is const, keep `p`.
+`&v.data[i]` is a borrow of the buffer, as `v.data + i` is.
+`test/c/run/elemborrow.c` is the example.
+
 `format`, `print`, `println` and `clone` are global macros, there in every
 program without an include (`library/ccl_format.pl`). The format string
 has Rust's holes, each becoming the `printf` conversion of its argument's

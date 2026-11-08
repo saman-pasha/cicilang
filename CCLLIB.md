@@ -249,6 +249,15 @@ Found by three probes on 2026-11-07:
   plain pointer to a struct with own fields may replace them (`ck_complete_owners/2`), so it must end the caller's
   borrows of them.
 - Done when: both programs refused in `test/c/safe/`, and the right forms accepted in `test/c/run/`.
+- DONE AT 0.265 (`RULES.md`, the safe part's topic of borrows): `&a[i]` over a pointer is `a + i`, so `&v.data[0]` is a
+  borrow of the buffer; a call that takes the struct by a plain pointer whose pointee is not const ends the caller's
+  borrows of its own fields, `borrow_after_call` ("use of a borrow after a call that may replace its owner"):
+  `test/c/safe/borrow_after_grow.c`, `borrow_after_push.c`, `elem_after_push.c`, `grow_through_ptr.c` refused, and
+  `test/c/run/elemborrow.c` builds the right forms, `at` and `len` (const) keeping a borrow, `push` ending it. A const
+  pointee keeps the borrows because an own field of a const object is no modifiable lvalue now, refused in clang's words
+  (`const_replace.c`, `const_local.c`). The probes found a third defect, fixed with it: `int *f(int *p) { return &p[1];
+  }` was `a borrow leaves the function` since 0.219.
+- WHAT 0.265 LEAVES (Not done): both rules are C's until phase 0.10; C's const constraint is held for own fields alone.
 
 ### 0.9 Operators on instances
 

@@ -84,6 +84,10 @@ check "an argument taken unread that does not read where the macro's text puts i
 unread_place.c:3: note: the macro is plus_one in unread_bad.pl, called on unread('int z')
 cicilang: 1 error(s)
 exit 1"
+bpout=$("$CICILI" "$R/safe/borrow_after_push.c" -o bap 2>&1); bpcode=$?
+check "a borrow of a vector's buffer used after a push, which may realloc it, is refused at its line, in words of its own (0.265)" "$(echo "$bpout" | sed "s|$R/safe/||g"; echo "exit $bpcode")" "borrow_after_push.c:10: error: use of a borrow after a call that may replace its owner: 'p' in borrowed_from('v.data') (function main)
+cicilang: 1 error(s)
+exit 1"
 cat > defs.c <<'EOF2'
 #include <stdio.h>
 #include <assert.h>

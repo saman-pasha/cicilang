@@ -259,6 +259,7 @@ One row per step, in version order: the step's title, what it did and its gate n
 | 0.262 | autodrop: an object of a type macro's instance is dropped where its scope ends | the next item of CCLLIB.md's phase 0, on the owner's decision (autodrop): an instance's <name>_drop(<name> *) is its drop, its parameter marked dying; a defer of the drop after each automatic object, run at every exit, the last declared first; zero for an object with no initializer; a parameter by value the callee's; an object named whole by value moved, move(v), which leaves it zero; refused: a use after a move, a drop by hand, an owner taken out, a copy the reader does not move, a temporary thrown away, a new value over a full object, a drop that frees nothing; two older gaps closed (what a braced list does not name is null to the check; a case label past a defer) | the flow gate; over libc++ 18 all nine GREEN (the C++ gate 1249 s, 866 ok); the C++ gates over 21 and 22 GREEN (874 and 877 ok); a commit and a push |
 | 0.263 | list and map literals: `[int; 5, 3, 9]` and `[int:double; 5: 1.25]` in C | the next item of CCLLIB.md's phase 0, on the owner's decisions (a literal gives its types before a ;, a map's two types K:V): a `[' begins a C primary; the place gives the literal its type -- a declaration's, the left side of =, a call's parameter, a return's -- and := makes vector<T> or map<K, V> of its types or its elements' usual conversions; the value a call of the instance's <name>_from over compound literals, an empty one the empty object; refused at the read: narrowing as C++'s braced lists, two equal constant keys, no types to name, mixed items, a target that is no instance, no common type, a variadic argument, other types, no type macro; two macro files that define one predicate collide in one process (recorded) | the flow gate; over libc++ 18 all nine GREEN (the C++ gate 1286 s, 866 ok); the C++ gates over 21 and 22 GREEN (874 and 877 ok); a commit and a push |
 | 0.264 | arguments read after the outer macro: `loop(m, 3, println("m = {}", m))` in C | the next item of CCLLIB.md's phase 0: unread(B) at a place of a macro's clause head takes that argument unread, its tokens, and the macro's C text reads them where it puts them, after the text declares its names; the reader splits the call's arguments at the commas outside brackets; refused at the call: an unread argument given back, one that does not read where the text puts it, and in C++ by name; found and fixed: a for's init names stayed in the reader's scope after the loop, and a C text's type stand-in reached the AST (x := at(v, 1) not lowered since 0.261) | the flow gate; over libc++ 18 all nine GREEN (the C++ gate 1286 s, 866 ok); the C++ gates over 21 and 22 GREEN (874 and 877 ok); a commit and a push |
+| 0.265 | two safety rules: `&v.data[0]` a borrow of the buffer, and a call that may replace it ends the borrows | the next item of CCLLIB.md's phase 0, in C: &a[i] over a pointer is a + i (an element's address a borrow of the buffer; return &p[1] of a parameter taken, refused since 0.219); a call that takes a struct by a plain pointer, not to const, ends the caller's borrows of its own fields, borrow_after_call -- iterator invalidation at compile time; an own field of a const object is no modifiable lvalue, refused in clang's words | the flow gate; over libc++ 18 all nine GREEN (the C++ gate 1272 s, 866 ok); the C++ gates over 21 and 22 GREEN (874 and 877 ok); a commit and a push |
 
 ## M5 — the C++ mode
 
@@ -18031,3 +18032,61 @@ over 21 and 22 in 2:36:20) and the C++ job on the Intel Mac (setup 23:23; the li
 The module 0.264; the reader 175 (an argument taken unread, a `for`'s scope, the stand-ins resolved); the lowering 151
 stays (the check and the lowering are as 0.263 left them; a program whose read changes is read again under the reader
 175).
+
+## 0.265 — two safety rules: `&v.data[0]` a borrow of the buffer, and a call that may replace it ends the borrows
+
+**0.265: the next item of `CCLLIB.md`'s phase 0, 0.8, on the owner's word ("Commit and push after every task finished,
+continue"): two rules of the safe part that a `vector<int>` needs -- an element's address is a borrow of the buffer, and
+a call that may replace the buffer ends the borrows of it: iterator invalidation, found at compile time. Both are C's;
+ccllib comes to cicilang++ at phase 0.10. The chain ran over cocolog 3.37.0 at the pins, as 0.264's did.**
+
+`&a[i]` OVER A POINTER IS `a + i` (C17 6.5.2.1/2, 6.5.3.2/3). The check traced the address of an element as the address
+of its array: `&v.data[0]` traced `&v`, a struct that borrows nothing, so `int *p = &v.data[0];` was fresh memory and
+refused, `plain pointer not consumed`. Over a pointer -- a member, a parameter (an array parameter is a pointer,
+6.7.6.3/7) or a local pointer -- it is a place in what the pointer points to now, its borrow (`ck_points_into/1` in
+`ck_borrows_from/3`); an array keeps the old trace. The probes found a third defect of the same clause, since 0.219:
+`int *second(int *p) { return &p[1]; }` traced the parameter's own storage and was refused, `a borrow leaves the
+function`, where `p + 1` was taken. It is taken now.
+
+A CALL THAT MAY REPLACE A STRUCT'S OWN FIELDS ENDS THE CALLER'S BORROWS OF THEM. A callee that takes a struct by a plain
+pointer may free and replace its own fields (the rule of `'$ck_borrowed'` since M3), and the caller's borrows of them
+lived on: `int *p = v.data; grow(&v); printf("%d", *p);` read what grow's `realloc` freed and printed 7, and `push(v,
+1)` over a `vector<int>` likewise. After such a call, all its arguments read, the borrows of the struct's own fields
+dangle (`ck_replaced_args/5`), and a use is `borrow_after_call`, "use of a borrow after a call that may replace its
+owner" (`ck_fail_dangling/2`; a later move or free of the field gives the use back to `borrow_after_move`). A struct
+handed by its address or by a pointer that borrows it counts; a const pointee, a variadic argument, a constructor's and
+a drop's `this` do not; a callee with no prototype does.
+
+A CONST POINTEE KEEPS THE BORROWS, so `at(v, 0)` and `len(v)` keep a pointer into the buffer -- but only because the
+callee cannot replace an own field through it. It could: cicilang took `void bad_set(const buf *b) { free(b->data);
+b->data = malloc(4); }`, which clang refuses (C17 6.5.16/2: the left operand is no modifiable lvalue). An own field of a
+const object is refused now in clang's words, `cannot assign to variable 'b' with const-qualified type 'const buf *'`
+(`ck_const_owner_slot/1`, `ck_c_type_text/2`, the driver's clause for `assign_to_const`); a free alone leaves the field
+moved and is refused at the return already, `borrow_incomplete`.
+
+THE NETS before the chain, over the work tree and fresh HOMEs: the compile gate GREEN, 246 checks (six safe fixtures
+refused by their kinds, `elemborrow.c` printing what clang's build of its hand expansion prints); the reader gate GREEN,
+134; the driver gate GREEN, 62 (the message of `borrow_after_call`); the flow gate GREEN with no finding (94 s, peak
+4104 MB); no C++ net: each rule asks `\+ ccl_lang(cpp)` first (the new clause of `ck_borrows_from/3`,
+`ck_replaced_arg/5`, `ck_const_owner_slot/1`), so a C++ verdict is 0.264's, which the chain's C++ gates hold.
+
+MEASUREMENTS: the chain of 0.265 over its work tree, cocolog 3.37.0 and ZiguratIP 1.0.2 at the pins and fresh HOMEs:
+over libc++ 22 the library read 379 s and the C++ gate 1349 s (877 ok, none skipped); over libc++ 21 358 s and 1286 s
+(874 ok, 3 skipped); over libc++ 18 all nine GREEN -- the flow gate 86 s with no finding, reader 3 s, compile 26 s,
+driver 37 s, objects 5 s, proof, the cross gate 312 s, the library read 412 s, the C++ gate 1272 s (866 ok, 11 skipped
+by their needs); in 5527 s.
+
+THE CI OF 0.264 (`f0998e1`), over cocolog 3.37.0 at its pins: its smoke run (42490043446) GREEN on the three machines --
+Linux (setup 10:05, gates 3:39), Apple silicon (10:58, 5:54), the Intel Mac (19:28, 10:49).
+
+- `library/ccl_check.pl`: `ck_points_into/1` and the clause of `&a[i]` over a pointer in `ck_borrows_from/3`;
+  `ck_replaced_args/5`, `ck_replaced_arg/5`, `ck_replaced_base/3`, `ck_may_replace/2` after a call's arguments;
+  `ck_fail_dangling/2` at the three places that report a dangling borrow, `'$ck_replaced'`; `ck_const_owner_slot/1`,
+  `ck_const_place/1`, `ck_c_type_text/2`. `library/ccl_driver.pl`: `borrow_after_call`'s words and `assign_to_const`'s
+  clang words. `library/ccl_ir.pl`: the lowering 152. `test/c/safe/borrow_after_grow.c`, `borrow_after_push.c`,
+  `elem_after_push.c`, `grow_through_ptr.c`, `const_replace.c`, `const_local.c` and their `.expect`;
+  `test/c/run/elemborrow.c`, `elemborrow.expect`; `test/driver.sh`: the message of `borrow_after_call`. `RULES.md`,
+  `CLAUDE.md`, `README.md`, `CCLLIB.md`.
+
+The module 0.265; the reader 175 stays; the lowering 152 (the check's verdicts change, so a stored IR of a program that
+it now refuses is not served).

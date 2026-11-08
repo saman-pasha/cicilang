@@ -9335,8 +9335,8 @@ The namespaces' rules, the program's and the library's, are `library/ccl_cpp_nam
   clause for `addr(id(N))`, `ck_param_self/1` in `ck_short_lived/1`), keyed `&p` apart from p, which keys what p points
   to, the caller's, and anchored in the function's outer frame (`ck_param_selves/2`): a return of it is `borrow_escapes`
   (`ownership(borrow_escapes,&p)`), a store where it outlives the function `borrow_stored`, and a local may hold it and
-  hand it to a call. `int **f(int *p) { return &p; }` answered p's referent and was accepted.
-  `test/c/safe/param_ptr_addr_escapes.c`, `test/c/run/paramaddrok.c`. (0.219)
+  hand it to a call. `int **f(int *p) { return &p; }` answered p's referent and was accepted. In C, `&p[i]` is `p + i`,
+  the caller's (0.265, below). `test/c/safe/param_ptr_addr_escapes.c`, `test/c/run/paramaddrok.c`. (0.219, 0.265)
 - A copy of a null pointer, or of a local with no ownership state, is `null` (`ck_plain_copy/2` in `ck_kind/3`). In a
   declaration this holds only for a pointer-typed local, so `int x = n` makes no owner. `test/c/run/nullcopy.c`.
   (0.99, 0.100)
@@ -9356,6 +9356,29 @@ The namespaces' rules, the program's and the library's, are `library/ccl_cpp_nam
   n)` was `plain pointer not consumed`. `stdc23.c`. (0.206)
 - A function pointer and a pointer to member are code, which the check never follows (`ck_is_pointer_type/1`,
   `ck_carries_/1`). Else `int (*f)(int) = c ? a : b` was a loose pointer. (0.100)
+- **`&a[i]` OVER A POINTER IS `a + i`** (0.265; `CCLLIB.md`'s phase 0.8, in C; C17 6.5.2.1/2, 6.5.3.2/3): a place in what
+  the pointer points to, its borrow (`ck_borrows_from/3` over `ck_points_into/1`) -- a pointer member's, `&v.data[0]` of
+  an own buffer a borrow of `v.data`; a parameter's, a pointer or an array that C adjusts to one (6.7.6.3/7), the
+  caller's; a local pointer's, what it borrows. The address was traced as `&a`'s: `&v.data[0]` traced `&v`, a struct
+  that borrows nothing, and was fresh memory, `plain pointer not consumed`; `int *f(int *p) { return &p[1]; }` traced
+  the parameter's own storage (0.219) and was `borrow_escapes`, where `p + 1` was taken. An array, and a pointer whose
+  borrow the check does not trace, keep `&a`'s. `test/c/run/elemborrow.c`. (0.265)
+- **A CALL THAT MAY REPLACE A STRUCT'S OWN FIELDS ENDS THE CALLER'S BORROWS OF THEM** (0.265; `CCLLIB.md`'s phase 0.8,
+  in C): a struct handed by a plain pointer -- its address, or a pointer that borrows it -- to a parameter whose pointee
+  is not const may have its own fields freed and replaced by the callee (`'$ck_borrowed'` above), so after the call, all
+  its arguments read, what the caller borrowed of them dangles (`ck_replaced_args/5`), and a use is `borrow_after_call`
+  (`ck_fail_dangling/2`, which a later move or free of the field gives back to `borrow_after_move`): `int *p = v.data;
+  grow(&v); *p` read the buffer that grow's `realloc` freed, and `push(v, 1)` over a `vector<int>` likewise -- iterator
+  invalidation, found at compile time. A const pointee, a variadic argument, a constructor's and a drop's `this` end
+  none; a callee with no prototype may replace them. `test/c/safe/borrow_after_grow.c`, `borrow_after_push.c`,
+  `elem_after_push.c`, `grow_through_ptr.c`; `test/c/run/elemborrow.c` keeps a borrow across `at` and `len`, whose
+  pointee is const, and takes a new one after `push`; the driver gate's message. (0.265)
+- **AN OWN FIELD OF A CONST OBJECT IS NO MODIFIABLE LVALUE** (C17 6.5.16/2; 0.265, in C): its assignment is refused in
+  clang's words, `cannot assign to variable 'b' with const-qualified type 'const buf *'` (`ck_const_owner_slot/1`;
+  through `->` the object is const where the pointee is, through `.` where its own type or its object is), so a callee
+  whose pointee is const cannot replace what the caller borrowed, and the rule above keeps those borrows. cicilang took
+  `free(b->data); b->data = malloc(4);` over a `const buf *b`, which clang refuses; a free alone leaves the field
+  moved, `borrow_incomplete` at the return. `test/c/safe/const_replace.c`, `const_local.c`. (0.265)
 
 ### What a local's storage holds
 
@@ -9741,7 +9764,9 @@ The namespaces' rules, the program's and the library's, are `library/ccl_cpp_nam
 
 - A refusal is `error(ownership(Kind, Name, Form), where(Function, line(L)))`. `dr_diag/3` and `dr_kind/2` word it:
   `unconsumed` reads "plain pointer not consumed", `untied` "no owner behind", `owner_across_throw` "owner live where a
-  call may throw, and no defer frees it" (0.237). The kinds: `use_after_move`, `owner_unset`, `borrow_after_move`,
+  call may throw, and no defer frees it" (0.237), `borrow_after_call` "use of a borrow after a call that may replace its
+  owner" (0.265), and `assign_to_const` in clang's words, "cannot assign to variable 'b' with const-qualified type 'const
+  buf *'" (0.265). The kinds: `use_after_move`, `owner_unset`, `borrow_after_move`, `borrow_after_call`, `assign_to_const`,
   `borrow_escapes`, `borrow_stored`, `borrow_consumed`, `borrow_incomplete`, `owner_stored`, `owner_leaked`,
   `owner_overwritten`, `owner_across_throw`, `move_in_loop`, `move_of_non_owner`, `goto_with_owners`, `goto_over_defer`,
   `tie_unknown`, `tie_outlived`, `tie_escapes`, `tie_mismatch`, `own_unbounded`, `own_array_by_value`,
@@ -13039,6 +13064,11 @@ Declarations topic of the C++ reader).
   borrow, `borrow_stored`, so `[5: "me"]` waits for ccllib's string (phase 1a). A map compares its keys with `==`, so a
   key must be a scalar. `FOO([int; 1, 2])` of a `#define` macro is two arguments, as a compound literal is: written
   `FOO(([int; 1, 2]))`.
+- THE SAFETY RULES OF 0.265, THEIR LIMITS (`CCLLIB.md`'s phase 0.8): both are C's; C++ keeps `&a[i]` as `&a`'s and no
+  call ends a borrow of an own field -- a method of the program's class that may replace one leaves the caller's
+  borrows standing -- until ccllib comes to cicilang++ (phase 0.10). C's constraint on a const lvalue is held for an
+  own field alone: another member, an element or a scalar written through a const path is taken, as before; and a
+  callee built elsewhere that casts the const away is not seen.
 - AN ARGUMENT TAKEN UNREAD, ITS LIMITS (0.264; `CCLLIB.md`'s phase 0.7): cicilang++ refuses such a call by name until
   ccllib comes to C++ (phase 0.10), and a DCG macro (`name(R) --> ...`) takes no argument unread. The split knows
   brackets, and `<...>` after a type macro's or a typed call's name: a `>` in parentheses inside the list closes it

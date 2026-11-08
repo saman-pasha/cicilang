@@ -281,6 +281,7 @@ dr_diag(F, macro_failed(N, As), here(_, L, in_macro(P, MF))) :- !,
     dr_error(F, L, ['macro \'', N, '\' failed: no result for these arguments']), dr_note_macro(F, L, P, MF, As).
 dr_diag(F, macro_error(N, As, E), _) :- !, dr_prolog_error(E, Text), dr_error(F, 0, ['in the expansion of macro \'', N, '\' on ', As, ': ', Text]).
 dr_diag(F, macro_failed(N, As), _) :- !, dr_error(F, 0, ['macro \'', N, '\' failed on ', As]).
+dr_diag(F, ownership(assign_to_const, N, const_type(T)), where(_, line(L))) :- !, dr_error(F, L, ['cannot assign to variable ''', N, ''' with const-qualified type ''', T, '''']).   % clang's words (0.265)
 dr_diag(F, ownership(Kind, N, Form), where(Fn, line(L))) :- !, dr_kind(Kind, Text), dr_error(F, L, [Text, ' ''', N, ''' in ', Form, ' (function ', Fn, ')']).
 dr_diag(F, not_lowered(deleted_call(K, N, Why)), where(_, line(L))) :- !, dr_deleted_text(K, N, T0),   % A CALL OF A DELETED FUNCTION (0.257), in clang's words, its reason after
     ( Why == none -> T = T0 ; atomic_list_concat([T0, ': ', Why], T) ), dr_error(F, L, [T]).
@@ -322,6 +323,7 @@ dr_pad4(Ds0, Ds) :- length(Ds0, N), ( N < 4 -> dr_pad4([0'0|Ds0], Ds) ; Ds = Ds0
 dr_kind(use_after_move, 'use after move of') :- !.
 dr_kind(owner_unset, 'owner used before it was given anything:') :- !.
 dr_kind(borrow_after_move, 'use of a borrow after its owner was consumed:') :- !.
+dr_kind(borrow_after_call, 'use of a borrow after a call that may replace its owner:') :- !.   % a struct's own field, handed by a plain pointer (0.265)
 dr_kind(borrow_escapes, 'a borrow leaves the function:') :- !.
 dr_kind(borrow_stored, 'a borrow stored where it cannot be followed:') :- !.
 dr_kind(borrow_consumed, 'a borrow consumed:') :- !.
