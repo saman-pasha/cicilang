@@ -258,6 +258,7 @@ One row per step, in version order: the step's title, what it did and its gate n
 | 0.261 | type macros: vector<int> in C, its instance made once in the unit, linkonce | the next items of CCLLIB.md's phase 0, together, on the owner's decisions (C++'s form for a type, implicit linkonce): a macro file's type_vector/3 makes vector<int> a type wherever a type stands, its arguments by C++'s template grammar (vector<vector<int>>, inplace<double, 8>), max<double>(a, b) a function macro's explicit types; each instance made once in the unit at its first use, at file scope before the item that used it (ccl_hoist/1), its functions linkonce_odr, so two units that both make it link; a read that met an instance kept in no cache; two defects of the first builds fixed (an unbound list of instances in making, the preprocessor's header reads making instances that no AST holds); the safe part refuses a container of owners' push (the plan's open decision 2) | the flow gate; over libc++ 18 all nine GREEN (the C++ gate 1304 s, 866 ok); the C++ gates over 21 and 22 GREEN (874 and 877 ok); a commit and a push |
 | 0.262 | autodrop: an object of a type macro's instance is dropped where its scope ends | the next item of CCLLIB.md's phase 0, on the owner's decision (autodrop): an instance's <name>_drop(<name> *) is its drop, its parameter marked dying; a defer of the drop after each automatic object, run at every exit, the last declared first; zero for an object with no initializer; a parameter by value the callee's; an object named whole by value moved, move(v), which leaves it zero; refused: a use after a move, a drop by hand, an owner taken out, a copy the reader does not move, a temporary thrown away, a new value over a full object, a drop that frees nothing; two older gaps closed (what a braced list does not name is null to the check; a case label past a defer) | the flow gate; over libc++ 18 all nine GREEN (the C++ gate 1249 s, 866 ok); the C++ gates over 21 and 22 GREEN (874 and 877 ok); a commit and a push |
 | 0.263 | list and map literals: `[int; 5, 3, 9]` and `[int:double; 5: 1.25]` in C | the next item of CCLLIB.md's phase 0, on the owner's decisions (a literal gives its types before a ;, a map's two types K:V): a `[' begins a C primary; the place gives the literal its type -- a declaration's, the left side of =, a call's parameter, a return's -- and := makes vector<T> or map<K, V> of its types or its elements' usual conversions; the value a call of the instance's <name>_from over compound literals, an empty one the empty object; refused at the read: narrowing as C++'s braced lists, two equal constant keys, no types to name, mixed items, a target that is no instance, no common type, a variadic argument, other types, no type macro; two macro files that define one predicate collide in one process (recorded) | the flow gate; over libc++ 18 all nine GREEN (the C++ gate 1286 s, 866 ok); the C++ gates over 21 and 22 GREEN (874 and 877 ok); a commit and a push |
+| 0.264 | arguments read after the outer macro: `loop(m, 3, println("m = {}", m))` in C | the next item of CCLLIB.md's phase 0: unread(B) at a place of a macro's clause head takes that argument unread, its tokens, and the macro's C text reads them where it puts them, after the text declares its names; the reader splits the call's arguments at the commas outside brackets; refused at the call: an unread argument given back, one that does not read where the text puts it, and in C++ by name; found and fixed: a for's init names stayed in the reader's scope after the loop, and a C text's type stand-in reached the AST (x := at(v, 1) not lowered since 0.261) | the flow gate; over libc++ 18 all nine GREEN (the C++ gate 1286 s, 866 ok); the C++ gates over 21 and 22 GREEN (874 and 877 ok); a commit and a push |
 
 ## M5 — the C++ mode
 
@@ -17967,3 +17968,66 @@ Linux (setup 11:52, gates 3:40), Apple silicon (13:50, 7:07), the Intel Mac (20:
 
 The module 0.263; the reader 174 (the literal's grammar); the lowering 151 stays (what is emitted for a program that
 0.262 built is the same).
+
+## 0.264 — arguments read after the outer macro: `loop(m, 3, println("m = {}", m))` in C
+
+**0.264: the next item of `CCLLIB.md`'s phase 0, 0.7, on the owner's word ("Commit and push after every task finished,
+continue"): a macro takes an argument unread and reads it after it declares its names. Two defects of earlier steps that
+its fixture met are fixed with it. The chain ran over cocolog 3.37.0 at the pins, as 0.263's did.**
+
+THE FORM. A macro's clause head with `unread(B)` at a place takes that argument unread: the reader gives the macro the
+argument's tokens, and the macro's C text reads them where it puts them, a hole bound to `unread(B)`. The include layer
+notes the places from the heads (`ccl_pl_unread/4`): `unread(CName, Arity, Places)` beside the macro's `macro/3`. At the
+`(` of such a call -- in an expression, a typed call and at file scope -- the reader splits the arguments at the commas
+outside brackets to the `)` that closes the call, a type macro's or a typed call's `<...>` kept whole
+(`ccl_unread_ahead/7`), and reads each other argument as a call reads it. The text puts the tokens in place of the
+hole's stand-in, at their own lines (`ccl_ctext_unread/3`), and reads them with itself: `println("m = {}", m)` in
+`loop`'s body formats the loop's `int m`, which the argument read first stopped with `cannot_format(m)`. The plan's
+first example, `sort_by(v, a, b, a > b)`, puts the comparison into an insertion sort's loop, with no function pointer.
+The record of the expansion names an unread argument by its text, `unread('println("m = {}", m)')`.
+
+WHAT IS REFUSED, at the call: a macro that gives back an argument that it took unread; an unread argument that does not
+read where the text puts it, found where the text reads with the argument's stand-in instead; in C++, the call of a
+macro that takes an argument unread, by name, until ccllib comes to cicilang++ (phase 0.10).
+
+WHAT THE FIXTURE FOUND, two defects of earlier steps, each fixed before the fixtures. First, a `for`'s init names stayed
+in the reader's scope after the loop (since the start: the reader read a `for` with no scope of its own): after `double
+m = 0.5; for (int m = 0; ...) ...;`, `println("{}", m)` printed the double by `%d` -- 362829248 in the probe, and the
+main checkout at 0.262 printed such a value too -- and `x := m` was an `int`. A `for` is a block now (C17 6.8.5/5,
+[stmt.for]/1). Second, a type that the reader's tables hold through a C text's type hole reached the AST as the hole's
+stand-in (since 0.261): `vector<int>`'s struct, read from C text, keeps `own ccl_hole_1_T *data` in the tag table, and
+its `at` gives `ccl_hole_1_T`, so `x := at(v, 1);` and a macro's element type made of them were `not lowered yet:
+typedef(ccl_hole_1_T)`. Where a unit read a C text, its items are walked at the end, each stand-in its type
+(`ccl_unhole_items/3`).
+
+THE NETS before the chain, over the work tree and fresh HOMEs: the reader gate GREEN, 134 checks (`k125` to `k133`); the
+compile gate GREEN, 239 (`unread.c` prints what clang's build of its hand expansion prints, line for line); the driver
+gate GREEN, 61 (an argument that does not read where the text puts it, the note naming it by its text); the flow gate
+GREEN with no finding (101 s, peak 4277 MB); the A/B net over libc++ 18: 47 C++ run fixtures that have `for` loops
+lowered to IR by 0.263 and by 0.264 over warm caches, the same IR in all 47 -- ten differ in a closure's name alone,
+`lambda.K_<tag>`, whose tag folds the source's absolute path (`cpp_unit_tag/1`), and the two work trees' paths differ.
+
+MEASUREMENTS: the chain of 0.264 over its work tree, cocolog 3.37.0 and ZiguratIP 1.0.2 at the pins and fresh HOMEs:
+over libc++ 22 the library read 381 s and the C++ gate 1343 s (877 ok, none skipped); over libc++ 21 356 s and 1291 s
+(874 ok, 3 skipped); over libc++ 18 all nine GREEN -- the flow gate 90 s with no finding, reader 2 s, compile 26 s,
+driver 35 s, objects 4 s, proof, the cross gate 310 s, the library read 421 s, the C++ gate 1286 s (866 ok, 11 skipped
+by their needs); in 5546 s.
+
+THE CI OF 0.263 (`fefeb87`), over cocolog 3.37.0 at its pins: its smoke run (42481570873) GREEN on the three machines --
+Linux (setup 7:29, gates 2:26), Apple silicon (11:49, 6:33), the Intel Mac (23:49, 13:34). The nightly run of 0.261
+(`07acdc8`, 42467127874) was GREEN too: the full job on Linux (setup 12:11; every gate over libc++ 18 and the C++ gates
+over 21 and 22 in 2:36:20) and the C++ job on the Intel Mac (setup 23:23; the library read and the C++ gate over libc++
+18 in 1:39:20).
+
+- `library/ccl_syntax.pl`: `ccl_unread_call//3`, `ccl_unread_ahead/7`, `ccl_unread_split/4` and its parts,
+  `ccl_unread_read/4`, `ccl_macro_args//3` at the three places of a call, `ccl_unread_back/5`, `ccl_noted_args/2` and
+  `ccl_toks_text/2`; the C text's hole `unread(Tokens)` (`ccl_ctext_put/6`, `ccl_ctext_unread/3`, the read's message); a
+  `for`'s scope; `ccl_unhole_items/3` at a unit's end; the reader 175. `library/ccl_include.pl`: `ccl_pl_unread/4` in
+  the heads of a macro file. `test/reader.pl`: `k125` to `k133`; `test/driver.sh`: an argument that does not read where
+  the text puts it; `test/c/run/unread.c`, `unread.pl`, `unread.expect`; `test/c/unread_back.c`, `unread_place.c`,
+  `unread_bad.pl`, `forscope.c`; `test/cpp/unread_cpp.cpp`. `RULES.md` (and 0.263's literal bullets moved from the head
+  of the C++ reader's topic to the C reader's macro topic), `CLAUDE.md`, `README.md`, `CCLLIB.md`.
+
+The module 0.264; the reader 175 (an argument taken unread, a `for`'s scope, the stand-ins resolved); the lowering 151
+stays (the check and the lowering are as 0.263 left them; a program whose read changes is read again under the reader
+175).

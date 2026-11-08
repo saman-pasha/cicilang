@@ -340,7 +340,7 @@ ccl_pl_quoted(Q, [C|T]) --> [C], ccl_pl_quoted(Q, T).
 ccl_pl_heads([], []).
 ccl_pl_heads([Text|Ts], Preds) :-
     (   catch(term_to_atom(Term, Text), _, fail), ccl_pl_head(Term, P)
-    ->  ccl_pl_heads(Ts, Ps), ( memberchk(P, Ps) -> Preds = Ps ; Preds = [P|Ps] )
+    ->  ccl_pl_heads(Ts, Ps0), ccl_pl_unread(Term, P, Ps0, Ps), ( memberchk(P, Ps) -> Preds = Ps ; Preds = [P|Ps] )
     ;   ccl_pl_heads(Ts, Preds) ).
 ccl_pl_head((:- _), _) :- !, fail.
 ccl_pl_head((H --> _), macro(C, N, dcg)) :- !, ccl_pl_functor(H, N, _), ccl_macro_cname(N, C).
@@ -348,6 +348,15 @@ ccl_pl_head((H :- _), macro(C, N, A)) :- !, ccl_pl_functor(H, N, A), ccl_macro_c
 ccl_pl_head(H, macro(C, N, A)) :- ccl_pl_functor(H, N, A), ccl_macro_cname(N, C).
 ccl_pl_functor(H, N, A) :- ( H = (M, _), callable(M) -> functor(M, N, A) ; functor(H, N, A) ), atom(N).
 ccl_macro_cname(N, C) :- ( atom_concat(ccl_macro_, C0, N) -> C = C0 ; C = N ).
+%% AN ARGUMENT TAKEN UNREAD (0.264; CCLLIB.md's phase 0.7): a clause head with unread(_) at a place makes that argument
+%% of the macro, at that arity, come unread -- its tokens -- so that the macro reads it after it declares its names
+%% (ccl_unread_ahead/6 in library(ccl_syntax)); the entry unread(CName, Arity, Places) stands beside the macro's macro/3,
+%% the places of all its clauses joined
+ccl_pl_unread(Term, macro(C, _, A), Ps0, Ps) :-
+    integer(A), ( Term = (H :- _) -> true ; H = Term ), compound(H), functor(H, _, A),
+    findall(I, ( between(1, A, I), arg(I, H, X), nonvar(X), X = unread(_) ), Is), Is \== [], !,
+    ( select(unread(C, A, Js), Ps0, Ps1) -> append(Js, Is, K0), sort(K0, Ks), Ps = [unread(C, A, Ks)|Ps1] ; Ps = [unread(C, A, Is)|Ps0] ).
+ccl_pl_unread(_, _, Ps, Ps).
 
 ccl_register_macros(Preds) :- ccl_global('$ccl_macros', M0, []), append(Preds, M0, M), nb_setval('$ccl_macros', M).
 

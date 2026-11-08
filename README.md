@@ -383,6 +383,13 @@ instance's `<name>_from` makes the value from the elements. A narrowing
 element (`[int; 1.5]`) and two equal keys are refused.
 `test/c/run/literal.c` is the example.
 
+A macro can take an argument unread (0.264) and read it after it declares
+its names: `unread(B)` at that place of its clause head gives it the
+argument's tokens, and its C text reads them where it puts them. So
+`loop(m, 3, println("m = {}", m))` formats the loop's `int m`, and
+`sort_by(v, a, b, a > b)` puts the comparison into its loop, with no function
+pointer. `test/c/run/unread.c` is the example.
+
 `format`, `print`, `println` and `clone` are global macros, there in every
 program without an include (`library/ccl_format.pl`). The format string
 has Rust's holes, each becoming the `printf` conversion of its argument's

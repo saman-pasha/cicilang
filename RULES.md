@@ -2167,6 +2167,10 @@ that changes a rule edits the rule here, in its topic, and writes its entry in `
 - `ccl_resolve_base/3` leaves a template-id typedef raw (an `atom(N)` guard before the named cache). (0.35)
 - In C++ an included unit's class, struct and enum class names join the includer's Env (`ccl_items_typedefs`), so
   `Name &s` parses. (0.41)
+- **A `for` IS A BLOCK** (C17 6.8.5/5, [stmt.for]/1; 0.264): the names that its init declares end with it, as a compound
+  statement's do (`ccl_push_scope` around `ccl_for_rest//3`). After `double m = 0.5; for (int m = 0; m < 2; m++) ...;`
+  the loop's `int m` stayed in the reader's scope, so `println("{}", m)` printed the double by `%d` and `x := m` was an
+  `int`; the lowering had its own scope and lowered the rest right. Reader `k131`; `test/c/run/unread.c`. (0.264)
 
 ### C's language levels
 
@@ -2281,7 +2285,8 @@ that changes a rule edits the rule here, in its topic, and writes its entry in `
   scope, `ccl_c_expr/3` as one expression and `ccl_c_type/3` as a type name (`ccl_ctext/4`, `library/ccl_syntax.pl`).
   The text is lexed by the reader's lexer (`ccl_tokens/3`) and read by its grammar in the read that runs -- its typedef
   names, tags, scope and macros -- so a text calls a macro, and what it declares the rest of the file uses. A hole is
-  `@Name` outside a literal and a comment, bound in `Holes` as `Name = type(T)`, `expr(E)`, `stmt(S)` or `name(Atom)`;
+  `@Name` outside a literal and a comment, bound in `Holes` as `Name = type(T)`, `expr(E)`, `stmt(S)`, `name(Atom)` or
+  `unread(Tokens)`, an argument that the macro took unread, whose tokens the text reads in its place (0.264);
   `@{Name}` pastes a name hole into an identifier (`@{N}_push`). A type hole is a typedef name of its own while the text
   is read, `ccl_hole_Q_Name` (Q the text's number), and in the AST its type, the qualifiers before it joining it as a
   typedef's do (C17 6.7.8/3: `const @T *` over `int *` is a pointer to `int *const`); an expression hole is a name
@@ -2291,7 +2296,7 @@ that changes a rule edits the rule here, in its topic, and writes its entry in `
   file-scope read; the expansions that the text made are noted with the program's arguments, the stand-ins replaced
   (`ccl_ctext_expansions/2`). Reader `k96` to `k102`; `test/c/run/ctext.c` over its `ctext.pl`: a vector of int (its
   struct, its push and its access) at file scope, a swap through a fresh name, a statement twice, a text that calls a
-  macro twice. (0.260)
+  macro twice. (0.260, 0.264)
 - A text that does not lex or read, a hole that `Holes` does not bind, and a paste of a hole that is no name hole throw
   `error(ctext_error(Message), _)`, which the macro's expansion reports at its call, with the macro and its file:
   `ctext_bad.c:2: error: in the expansion of macro 'bad_items': C text: the text does not read as file-scope items (its
@@ -2384,6 +2389,34 @@ that changes a rule edits the rule here, in its topic, and writes its entry in `
   `error(list_literal(Message), here(File, Line))`, which the driver writes as clang writes an error. Reader `k124`. A
   literal where no place gives a type, a conditional's branch, is refused by the check, `not lowered yet:
   list_literal_with_no_type_given`; the driver gate holds it. (0.263)
+- **AN ARGUMENT READ AFTER THE MACRO** (0.264; `CCLLIB.md`'s phase 0.7): a macro whose clause head has `unread(_)` at a
+  place takes that argument unread -- the reader passes `unread(Tokens)`, the argument's tokens -- and reads it where its
+  C text puts it, a hole bound to it (`b = unread(B)`), after the text declares the names that the argument uses, so a
+  macro in the argument sees them: `loop(m, 3, println("m = {}", m))` formats the loop's `int m`, where the argument read
+  first stopped with `cannot_format(m)`, and `sort_by(v, a, b, a > b)` puts the comparison into its loop, no function
+  pointer. A macro file's entries hold `unread(CName, Arity, Places)` beside the macro's `macro/3` (`ccl_pl_unread/4`),
+  the places of all its clauses joined. At the `(` of a call of such a macro, in an expression, a typed call
+  (`f<int>(...)`, the types first) and at file scope (`ccl_unread_call//3`, `ccl_macro_args//3`), the arguments are split
+  at the commas outside brackets to the `)` that closes the call (`ccl_unread_ahead/7`, `ccl_unread_split/4`) -- a type
+  macro's or a typed call's `<...>` kept whole -- the marked ones taken unread and each other one read as a call reads
+  it; a macro that marks no place at the call's arity reads its arguments as before. The tokens keep their own lines in
+  the text (`ccl_ctext_unread/3`), a call in an unread argument takes its own unread argument (a loop in a loop's body),
+  and the record of the expansion names an unread argument by its text (`ccl_noted_args/2`): `note: the macro is loop
+  in unread.pl, called on id(m), int(3), unread('println("m = {}", m)')`. Reader `k125` to `k129`;
+  `test/c/run/unread.c` over `tvector.pl` and `unread.pl`, which prints what clang's build of its hand expansion
+  prints. (0.264)
+- REFUSED AT THE CALL (0.264): a macro that gives back an argument that it took unread (`ccl_unread_back/5`: `the macro
+  keep gives back an argument that it took unread: a C text reads it`); an unread argument that does not read where the
+  text puts it, found where the text reads with the argument's stand-in instead (`C text: an argument taken unread does
+  not read where the text puts it, in an expression`); in C++, a call of a macro that takes an argument unread at its
+  arity, by name (`the macro loop takes an argument unread, which cicilang reads in C and cicilang++ does not yet`,
+  `CCLLIB.md`'s phase 0.10). Reader `k132`, `k133`; the driver gate. (0.264)
+- **A TYPE HOLE'S STAND-IN LEAVES NO AST** (0.264): the reader's tables keep a C text's type hole as its typedef name
+  `ccl_hole_Q_Name`, so a type that a macro or `:=` asks of them -- a member of an instance's struct, `own @T *data`, the
+  result of its `at` -- named it, and a macro's AST or a `:=` declaration took it to the lowering, which knows no such
+  typedef: `x := at(v, 1);` was `not lowered yet: typedef(ccl_hole_1_T)` since 0.261. Where the unit read a C text, its
+  items -- an included file's are its own read's -- are walked at the end, and each such name is its type, the
+  qualifiers before it joining it (`ccl_unhole_items/3`). Reader `k130`. (0.264)
 
 ## The C++ reader
 
@@ -13000,12 +13033,18 @@ Declarations topic of the C++ reader).
   destroys it in the caller at the end of the full expression: a printed drop comes before the caller's next output,
   which ccllib in cicilang++ (phase 0.10) meets.
 - LITERALS' LIMITS (0.263; `CCLLIB.md`'s phase 0.6): a literal has its type only where a declaration, `=`, a call's
-  parameter or a return gives it, and at `:=`; a conditional's branch, a comma's operand and a macro's argument hold it
-  untaken (a macro sees `list_lit/3`), and a literal at file scope is a call that no constant initializer takes. A
+  parameter or a return gives it, and at `:=`; a conditional's branch, a comma's operand and a macro's argument that it
+  reads first hold it untaken (a macro sees `list_lit/3`), and a literal at file scope is a call that no constant initializer takes. A
   container of plain pointers takes no literal of them: `map<int, char *>`'s put stores its parameter's pointer, a
   borrow, `borrow_stored`, so `[5: "me"]` waits for ccllib's string (phase 1a). A map compares its keys with `==`, so a
   key must be a scalar. `FOO([int; 1, 2])` of a `#define` macro is two arguments, as a compound literal is: written
   `FOO(([int; 1, 2]))`.
+- AN ARGUMENT TAKEN UNREAD, ITS LIMITS (0.264; `CCLLIB.md`'s phase 0.7): cicilang++ refuses such a call by name until
+  ccllib comes to C++ (phase 0.10), and a DCG macro (`name(R) --> ...`) takes no argument unread. The split knows
+  brackets, and `<...>` after a type macro's or a typed call's name: a `>` in parentheses inside the list closes it
+  early. A text that puts an unread argument twice reads it twice, its macros run twice, as a `#define` macro's argument
+  is expanded where each `#` of it stands. C++'s other init-statements (`if (int x = f(); x)`, `switch`, `while`'s
+  condition) still leave their names in the reader's scope after the statement, as `for`'s did before 0.264.
 - TWO MACRO FILES THAT DEFINE ONE PREDICATE, IN ONE PROCESS (found at 0.263): a macro file's predicates are the
   process's, consulted once, so a second file that defines a name the first defines is not its own there -- the reader
   gate and the compile gate read every fixture in one process, and `literal.pl`'s own `type_vector/3` was `tvector.pl`'s

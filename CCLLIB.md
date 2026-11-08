@@ -226,6 +226,19 @@ element  : expression  |  key ':' expression        a key is a conditional expre
 A macro can take an argument unread and read it after it declares its names. Today the inner macro runs first:
 `loop(m, println("{}", m))` stops with `cannot_format(m)`, where a plain expression in the same place works.
 
+- DONE AT 0.264 (`RULES.md`, the topic of the macro files): `unread(B)` at a place of a macro's clause head takes that
+  argument unread, its tokens; a C text's hole bound to `unread(B)` reads them where the text puts them, after the text
+  declares its names. `test/c/run/unread.c` over `unread.pl`: `loop(m, 3, println("m = {}", m))`, a loop in a loop's
+  body, `each(v, x, ...)` over a `vector<int>`, `sum_by(v, x, x * x)` as a value, and this plan's
+  `sort_by(v, a, b, a > b)`, the comparison put into the loop; it prints what clang's build of its hand expansion prints.
+  Refused at the call: a macro that gives the argument back unread, and an argument that does not read where the text
+  puts it. Two defects that the fixture met are fixed with it: the reader's scope kept a `for`'s init names after the
+  loop (`println` of the outer `double m` printed it by `%d`), and a type that the reader's tables held through a C
+  text's type hole reached the AST as the hole's stand-in (`x := at(v, 1);` was `not lowered yet:
+  typedef(ccl_hole_1_T)` since 0.261).
+- WHAT 0.264 LEAVES (Not done): cicilang++ refuses such a call by name until phase 0.10; a DCG macro takes no argument
+  unread; a text that puts an unread argument twice reads it twice.
+
 ### 0.8 Two safety rules
 
 Found by three probes on 2026-11-07:

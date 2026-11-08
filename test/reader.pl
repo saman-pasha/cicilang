@@ -470,6 +470,48 @@ k124 :- check('a literal is refused at its line in clang\'s manner: narrowing, t
       lit_refused('lit_types.c', 6, 'the literal\'s types are not those of the type it makes'),
       lit_refused('lit_nomacro.c', 4, 'a list literal needs the type macro vector (its macro file included)') )).
 
+%% ARGUMENTS READ AFTER THE MACRO (0.264; CCLLIB.md's phase 0.7): test/c/run/unread.c over its unread.pl, unread_*.c over
+%% unread_bad.pl, forscope.c
+k125 :- check('a clause head\'s unread(_) marks its place: the macro file\'s entries hold unread(Name, Arity, Places) beside its macro/3',
+    ( unit('run/unread.c', unit(Is)), member(include(_, local('unread.pl'), macros(_, Ps)), Is),
+      memberchk(unread(loop, 4, [3]), Ps), memberchk(unread(each, 4, [3]), Ps), memberchk(unread(sum_by, 4, [3]), Ps),
+      memberchk(unread(sort_by, 5, [4]), Ps), memberchk(macro(loop, loop, 4), Ps), \+ memberchk(unread(ur_elem, _, _), Ps) )).
+
+k126 :- check('an argument taken unread is read where the macro\'s C text puts it, after the text declares its names: println in loop\'s body formats the loop\'s int m',
+    ( fn_body('run/unread.c', main, B), atom_codes('m = %d\n', S1),
+      sub_t(for(_, decl(base([], [int]), [var(m, base([], [int]), int(0))]), bin(<, id(m), int(3)), postinc(id(m)), block([expr(_, call(id(printf), [str(S1), id(m)]))])), B) )).
+
+k127 :- check('the loop\'s m hides the block\'s double m in the body alone: inner m by %d, outer m by %g after the loop, and a plain for\'s k too',
+    ( fn_body('run/unread.c', main, B), atom_codes('inner m = %d\n', S1), atom_codes('outer m = %g\n', S2), atom_codes('k = %g\n', S3),
+      sub_t(call(id(printf), [str(S1), id(m)]), B), sub_t(call(id(printf), [str(S2), id(m)]), B), sub_t(call(id(printf), [str(S3), id(k)]), B) )).
+
+k128 :- check('an unread argument holds a macro that takes its own unread -- a loop in a loop\'s body -- and a block with := in it',
+    ( fn_body('run/unread.c', main, B), atom_codes('%d %d\n', S1), atom_codes('y = %g\n', S2),
+      sub_t(call(id(printf), [str(S1), id(i), id(j)]), B), sub_t(var(y, base([], [double]), _), B), sub_t(call(id(printf), [str(S2), id(y)]), B) )).
+
+k129 :- check('the record of an expansion names an unread argument by its text',
+    ( unit('run/unread.c', unit(Is)), append(_, ['$expansions'(Es)], Is), memberchk(expansion(_, loop, [id(m), int(3), unread('println("m = {}", m)')]), Es) )).
+
+k130 :- check('a type that the reader\'s tables hold through a C text\'s type hole is its type in the AST: := of an instance\'s at, each\'s element, no ccl_hole_ name left',
+    ( unit('run/unread.c', unit(Is)), fn_body('run/unread.c', main, B), sub_t(var(w, base([], [int]), _), B), sub_t(var(x, base([], [int]), _), B),
+      \+ ( member(I, Is), I \= include(_, _, _), sub_t(typedef(H), I), atom(H), atom_concat(ccl_hole_, _, H) ) )).
+
+k131 :- check('a for is a block: the name its init declares ends with it, and := after the loop takes the outer double',
+    ( fn_body('forscope.c', main, B), sub_t(var(x, base([], [double]), id(m)), B) )).
+
+k132 :- check('a macro that gives back an argument it took unread, and an unread argument that does not read where the text puts it, are refused at the call',
+    ( c('unread_back.c', P1), catch(cicilang_ast(P1, _), error(macro_error(M1, here(P1, 3)), _), true),
+      M1 == 'the macro keep gives back an argument that it took unread: a C text reads it, `@x\' with x = the argument',
+      c('unread_place.c', P2), c('unread_bad.pl', MF),
+      catch(cicilang_ast(P2, _), error(macro_error(plus_one, [unread('int z')], error(ctext_error(M2), _)), here(P2, 3, in_macro(plus_one, MF))), true),
+      M2 == 'C text: an argument taken unread does not read where the text puts it, in an expression' )).
+
+k133 :- check('cicilang++ refuses by name a macro that takes an argument unread: cicilang reads it in C (CCLLIB.md\'s phase 0.10)',
+    ( c('../cpp/unread_cpp.cpp', P), nb_getval('$ccl_lang', L0), nb_setval('$ccl_lang', cpp),
+      catch(cicilang_ast(P, _), E, true), nb_setval('$ccl_lang', L0),
+      nonvar(E), E = error(macro_error(M, here(P, 4)), _),
+      M == 'the macro loop takes an argument unread, which cicilang reads in C and cicilang++ does not yet (CCLLIB.md\'s phase 0.10)' )).
+
 k110 :- check('a type macro that fails, two instances that one name names, and a typed call of a macro with no typed form are refused at the use',
     ( c('tmacro_fail.c', P1), c('tmacro.pl', M), catch(cicilang_ast(P1, _), error(E1, here(P1, 3, in_macro(type_none, M))), true), E1 == macro_failed(none, [base([], [int])]),
       c('tmacro_same.c', P2), catch(cicilang_ast(P2, _), error(macro_error(pair, _, error(ctext_error(T2), _)), here(P2, 7, _)), true),
@@ -729,6 +771,16 @@ t_checks :-
     k122,
     k123,
     k124,
+    section('arguments read after the outer macro: loop(m, 3, println("{}", m)) (0.264)'),
+    k125,
+    k126,
+    k127,
+    k128,
+    k129,
+    k130,
+    k131,
+    k132,
+    k133,
     section('the preprocessor, in cocolog: a header raw cannot take'),
     k83,
     section('the lexer, native: ccl_lex_native/6 token for token with the DCG'),

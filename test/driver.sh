@@ -79,6 +79,11 @@ check "a list literal where no place gives it a type, a conditional's branch, is
 lit_noplace.c:8: note: expanded from macro 'vector' on base([],[int])
 cicilang: 1 error(s)
 exit 1"
+upout=$("$CICILI" "$R/unread_place.c" -o unrp 2>&1); upcode=$?
+check "an argument taken unread that does not read where the macro's text puts it is refused at the call, the note naming the argument by its text (0.264)" "$(echo "$upout" | sed "s|$R/||g"; echo "exit $upcode")" "unread_place.c:3: error: in the expansion of macro 'plus_one': C text: an argument taken unread does not read where the text puts it, in an expression
+unread_place.c:3: note: the macro is plus_one in unread_bad.pl, called on unread('int z')
+cicilang: 1 error(s)
+exit 1"
 cat > defs.c <<'EOF2'
 #include <stdio.h>
 #include <assert.h>
