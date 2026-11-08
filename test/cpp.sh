@@ -174,10 +174,10 @@ got=$("$ROOT/bin/cicilang++" "$ROOT/test/cpp/templates.cpp" -o templates 2>&1 &&
 if [ "$got" = "exit 10" ]; then echo "ok   templates.cpp, the reader's fixture (a function and two class templates, an alias, a template in a namespace), builds and exits 10"; else echo "FAIL templates.cpp should build and exit 10"; echo "     got  $got" | head -3; failures=$((failures + 1)); fi
 # CCLLIB IN CICILANG++ (0.267; CCLLIB.md's phase 0.10): a ccllib run fixture of test/c/run, its macro file's C text in
 # the part that C and C++ share, built as C++ by cicilang++, prints what its cicilang build prints, NAME.expect --
-# ctext.c's C text and autodrop.c's drops at every way out of a scope; tvector.c waits for its header tvhdr2.h, which a
-# C++ build reads preprocessed and the desugaring takes for a library header (RULES.md's Not done)
+# ctext.c's C text and autodrop.c's drops at every way out of a scope; tvector.c's type macros in the program's own
+# headers, tvhdr.h and tvhdr2.h, which a C++ build reads as it reads the program's file (0.268)
 echo "-- ccllib in cicilang++: a ccllib run fixture of test/c/run built as C++ prints what its C build prints (CCLLIB.md's phase 0.10)"
-for n in ctext autodrop; do
+for n in ctext autodrop tvector; do
   got=$(ccl_capped "$CPP_FIXTURE_SECS" "$ROOT/bin/cicilang++" "$ROOT/test/c/run/$n.c" -o "$D/ccl_$n" && { timeout -s KILL "$CPP_RUN_SECS" "$D/ccl_$n" < /dev/null; echo "exit $?"; })
   if [ "$got" = "$(cat "$ROOT/test/c/run/$n.expect")" ]; then echo "ok   $n.c, built as C++ by cicilang++, prints what its C build prints"
   else echo "FAIL $n.c built as C++ by cicilang++"; echo "$got" | diff "$ROOT/test/c/run/$n.expect" - 2>&1 | head -6 | cut -c1-300 | sed 's/^/     /'; failures=$((failures + 1)); fi

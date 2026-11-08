@@ -301,10 +301,13 @@ A type macro gives its instances operators that the reader writes as calls: `v[i
   one instance link. Found and fixed with it: a terminate handler did not end its path in the check; and a hole of
   C's, a null own field that a call may fill was null after the call, so `buf v = {0, NULL}; grow(&v);` leaked with
   no refusal (`test/c/safe/null_filled.c`).
-- WHAT 0.267 LEAVES: `tvector.c` in C++, which two older faults of cicilang++ with the program's own headers stop (a
-  header read preprocessed is a library header to the desugaring, its functions defined twice; a function-like macro
-  of the header not expanded where it reads as a call): the next step. Then list literals beside a lambda's
-  introducer, the operators, an argument taken unread and the safety rules of 0.265 to 0.267 in C++.
+- DONE AT 0.268 (`RULES.md`, the topic of includes): in C++ the program's own header is read as the program's file is
+  -- its directives run, its macros expanded, its includes passed on to the reader -- so a header that reads only
+  through the preprocessor is the program's, its functions defined once, and a header's function that uses the
+  header's own macro holds the expansion. Both faults were older than ccllib. The C++ gate builds `tvector.c` with
+  cicilang++ too, its type macros in the program's own headers `tvhdr.h` and `tvhdr2.h`.
+- WHAT 0.268 LEAVES: list literals beside a lambda's introducer, the operators, an argument taken unread and the safety
+  rules of 0.265 to 0.267 in C++.
 
 ### Order
 

@@ -262,6 +262,7 @@ One row per step, in version order: the step's title, what it did and its gate n
 | 0.265 | two safety rules: `&v.data[0]` a borrow of the buffer, and a call that may replace it ends the borrows | the next item of CCLLIB.md's phase 0, in C: &a[i] over a pointer is a + i (an element's address a borrow of the buffer; return &p[1] of a parameter taken, refused since 0.219); a call that takes a struct by a plain pointer, not to const, ends the caller's borrows of its own fields, borrow_after_call -- iterator invalidation at compile time; an own field of a const object is no modifiable lvalue, refused in clang's words | the flow gate; over libc++ 18 all nine GREEN (the C++ gate 1272 s, 866 ok); the C++ gates over 21 and 22 GREEN (874 and 877 ok); a commit and a push |
 | 0.266 | operators on instances: `a + b`, `a == b`, `v[i]`, `out << x` and `in >> x` in C | the next item of CCLLIB.md's phase 0, in C: where the left operand or the object of [] is an object of an instance's type, the reader writes the operator as the call of the function that its type macro defines for it (_add, _eq, _lt, _index, _shl_<word>, _shr_<word>), an operand by its address where the parameter is a pointer; refused by name where the macro defines none, an rvalue or another type where the address goes, an instance on the right only; the fixture found a hole: a result tied to a struct with own fields was a borrow of the struct, so a place that [] answered outlived the insertion's realloc -- a borrow of the fields now | the flow gate; over libc++ 18 all nine GREEN (the C++ gate 1238 s, 866 ok); the C++ gates over 21 and 22 GREEN (874 and 877 ok); a commit and a push |
 | 0.267 | ccllib in cicilang++, parts 1 and 2: `vector<int>`, `max<double>`, C text and autodrop in C++ | the first two parts of CCLLIB.md's phase 0.10: a type macro's unqualified name and a typed function macro in C++, outside a library header's read; a C text's functions noexcept in C++; the empty object of = {0} in C++'s check; autodrop in C++ with the check's rules of 0.262, run where an exception unwinds too; the C++ gate builds ctext.c and autodrop.c with cicilang++; found and fixed: a terminate handler did not end its path, and a hole of C's (a null own field that a call may fill stayed null); recorded: two older faults with the program's own headers in C++ | the flow gate; over libc++ 18 all nine GREEN (the C++ gate 1235 s, 866 ok); the C++ gates over 21 and 22 GREEN (874 and 877 ok); a commit and a push |
+| 0.268 | the program's own header in C++, read as the program's file is: `tvector.c` in C++ | the next part of CCLLIB.md's phase 0.10: in C++ the program's own header goes through the preprocessor in the user's file's mode -- its directives run, its macros expanded, its includes passed on to the reader -- where it was read raw (a function of the header kept the header's own macro unexpanded, `undeclared('TWICE')`, `assert` alike) or flattened (a library header to the desugaring AND the program's, each function defined twice); the C++ gate builds tvector.c with cicilang++; hdrmacro.cpp, reader k141 | the flow gate; over libc++ 18 all nine GREEN (the C++ gate 1242 s, 867 ok); the C++ gates over 21 and 22 GREEN (875 and 878 ok); a commit and a push |
 
 ## M5 — the C++ mode
 
@@ -18267,3 +18268,65 @@ Linux (setup 9:56, gates 3:07), Apple silicon (13:03, 7:35), the Intel Mac (23:2
 
 The module 0.267; the reader 177 (what a read gives changes); the lowering 154 (the check's verdicts change, so a stored
 IR of a program that it now refuses is not served).
+
+## 0.268 — the program's own header in C++, read as the program's file is: `tvector.c` in C++
+
+**0.268: the next part of `CCLLIB.md`'s phase 0.10, on the owner's word ("Commit and push after every task finished,
+continue"): the two faults of cicilang++ with the program's own headers that 0.267 recorded, older than ccllib, had one
+cause, the header's read, raw or flattened. In C++ the program's own header is read as the program's file is now, and
+the C++ gate builds `tvector.c` with cicilang++. The chain ran over cocolog 3.37.0 at the pins, as 0.267's did.**
+
+THE FAULTS. `c2.cpp` over `lh2.h` (`#define DECL(t, n) t n`, a `static inline int twice_h`, an `int plain_h`,
+`DECL(static int, hcount) = 3;`): the header does not read raw (the use of `DECL`), so the include layer read it
+preprocessed, one token stream with each header that it includes in it (`ccl_pp_parse/4`), and the desugaring took that
+unit for a library header's (`cpp_register_/1` to `cpp_index_header/1`: each function defined on use, out of the safe
+part's walk) AND for the program's (`cpp_include_fns/1` to `cpp_header_fns/1`): `invalid redefinition of function
+'twice_h'` at LLVM, as `vector_long_push` was in `tvector.c`'s `tvhdr2.h`. `c1.cpp` over `lh.h` (`#define TWICE(x) ((x)
+* 2)` and `static inline int twice_h(int x) { return TWICE(x); }`): the header reads raw whole, and raw a body keeps a
+macro's call as a call -- `not lowered yet: undeclared('TWICE')`. C prints the values of both: its lowering takes a raw
+read's definitions from the header read preprocessed (`ir_hdr_resolve/2`) and a flattened header's items by the library
+flag (`ir_header_defs/2`). C++ runs neither (`ccl_ir_units/2`): its desugaring takes the headers.
+
+THE READ. In C++ a header under no system path and not among the compiler's own (`ccl_own_header/1`, over
+`ir_hdr_lib_path/1`) is read through the preprocessor in the user's file's mode (`ccl_pp_own_parse/3`, a clause of
+`ccl_read_unit/3` before the raw one): its includes are read first and their macros made ready (`ccl_pp_prescan/1`),
+then its run with `'$pp_top'` yes -- its directives run, its macros expanded, each `#include` passed on to the reader,
+which reads that header apart (a library's from its summary), a `.pl` include the reader's macro file -- then the read
+of its tokens. Its unit holds the header's own items and an include item for each header that it includes, the shape of
+a raw read whole: `raw`, which the desugaring takes for the program's. A run is a generation of the macros
+(`pp_reset/0`), so the header is read in its includer's prescan, before the includer's own run; the includer's
+configurations at its includes, by its lines, are put back after it (`'$pp_inc_cfgs'`, `'$pp_cfg_lib'`), however it
+ends. A read that is not whole, or that throws, goes the old way, raw first. The header's macros reach its includer as a
+raw-read header's do (`ccl_header_macros/2`). The same read expands `assert` in such a header's inline function, the C++
+part of Not done item 9 (`undeclared(assert)` since 0.226).
+
+THE FIXTURES. `test/cpp/run/hdrmacro.cpp` over `hdrmacro.h` (a function that uses the header's own function-like macro)
+and `hdrmacro2.h` (a header that reads only through the preprocessor: a static inline function, an external one, an
+object declared through the header's own macro), its `.expect` from clang++'s build; reader check `k141` (both headers'
+units `raw`, `twice_h`'s body with no call of `TWICE`, `hcount` of 3); `tvector` in the C++ gate's list of ccllib run
+fixtures built by cicilang++. Every other C++ fixture with a header of the program's own reads it so now -- `bag.h`,
+`hunit.h` (an include and a header unit), `ppinclude.h` (a computed include), the module units, the link pairs' headers:
+each built by cicilang++ over libc++ 18 prints what it must -- c1.cpp and c2.cpp (the two faults' reductions),
+hdrmacro.cpp, ah.cpp (`assert' in the header's inline function: 8), tvector.c, bag.cpp and member.cpp (bag.h),
+hdrinline.cpp and headerunit.cpp (hunit.h), ppinclude.cpp, modules.cpp (the module units), ctext.c and autodrop.c,
+modhidden.cpp refused `undeclared(hidden)' as before, the two units of units.h linked, and abi, memptr and byval against
+clang++'s helpers: 18 of 18.
+
+THE NETS before the chain, over the work tree and fresh HOMEs: the reader gate GREEN, 142 checks; the flow gate GREEN
+with no finding (88 s, peak 4166 MB).
+
+MEASUREMENTS: the chain of 0.268 over its work tree, cocolog 3.37.0 and ZiguratIP 1.0.2 at the pins and fresh HOMEs:
+over libc++ 22 the library read 365 s and the C++ gate 1297 s (878 ok, none skipped); over libc++ 21 355 s and 1247 s
+(875 ok, 3 skipped); over libc++ 18 all nine GREEN -- the flow gate 86 s with no finding, reader 3 s, compile 26 s,
+driver 36 s, objects 4 s, proof, the cross gate 309 s, the library read 397 s, the C++ gate 1242 s (867 ok, 11 skipped
+by their needs); in 5368 s.
+
+THE CI OF 0.267 (`5f23db0`), over cocolog 3.37.0 at its pins: its smoke run (42517139332) GREEN on the three machines --
+Linux (setup 7:45, gates 2:39), Apple silicon (11:51, 5:51), the Intel Mac (16:26, 9:09).
+
+- `library/ccl_include.pl`: the clause of `ccl_read_unit/3` for the program's own header in C++, `ccl_own_header/1`,
+  `ccl_pp_own_parse/3`. `library/ccl_syntax.pl`: the reader 178. `test/cpp/run/hdrmacro.cpp`, `hdrmacro.h`,
+  `hdrmacro2.h`, `hdrmacro.expect`; `test/reader.pl`: `k141`; `test/cpp.sh`: `tvector` in the list of ccllib's run
+  fixtures built as C++. `RULES.md`, `CLAUDE.md`, `README.md`, `CCLLIB.md`.
+
+The module 0.268; the reader 178 (what a read gives changes); the lowering 154 stays.

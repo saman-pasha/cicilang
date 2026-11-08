@@ -2343,7 +2343,8 @@ that changes a rule edits the rule here, in its topic, and writes its entry in `
   mark, `ccl_inst_once/2`): a call of one is no throw point for the safe part's defer rule, where `vec_int_push(&v, x)`
   over an own buffer was `owner live where a call may throw, and no defer frees it`, and the lowering makes it a plain
   call. Two C++ units that both make `vector<int>` link, its functions linkonce_odr there too. The C++ gate builds
-  `test/c/run/ctext.c` and `autodrop.c` with cicilang++ and compares each with its `.expect`. (0.267)
+  `test/c/run/ctext.c`, `autodrop.c` and `tvector.c` (0.268: its headers `tvhdr.h` and `tvhdr2.h` read as the
+  program's file is, the topic of includes) with cicilang++ and compares each with its `.expect`. (0.267, 0.268)
 - **A READ THAT MADE OR MET AN INSTANCE IS KEPT IN NEITHER CACHE** (0.261): what it holds is its unit's -- the instance
   where the unit first used it, a later use naming it alone -- so neither the process's cache nor the store keeps such
   a header's read or such a file's (`ccl_include_read/2`, `ccl_read_file_/3`, over a count of the instances met,
@@ -2925,6 +2926,24 @@ that changes a rule edits the rule here, in its topic, and writes its entry in `
   levels and both modes. (0.99, 0.108, 0.214)
 - A plain header is read raw first (`ccl_parse_file`). Only if raw stops does `ccl_pp_parse/4` preprocess THAT file; its
   macros are then remembered (`ccl_kb_remember_macros/3`). A lexical error makes the include `unreadable`. (M1, M5)
+- IN C++ THE PROGRAM'S OWN HEADER IS READ AS THE PROGRAM'S FILE IS (0.268; the clause of `ccl_read_unit/3` before the
+  raw one, `ccl_pp_own_parse/3`): a header under no system path and not among the compiler's own (`ccl_own_header/1`
+  over `ir_hdr_lib_path/1`) goes through the preprocessor in the user's file's mode, `'$pp_top'` yes -- its directives
+  run, its macros expanded, each `#include` passed on to the reader, which reads that header apart (a library's from its
+  summary), a `.pl` include the reader's macro file. Its unit, the header's own items and an include item for each
+  header that it includes, is `raw`, which the desugaring takes for the program's (`cpp_register_header/1`,
+  `cpp_header_fns/1`, `cpp_anon_ns_items/3`). The header is read in its includer's prescan, before the includer's own run
+  (a run is a generation of the macros, `pp_reset/0`), and the includer's configurations at its includes are put back
+  after it (`'$pp_inc_cfgs'`, `'$pp_cfg_lib'`). A read that is not whole, or that throws, goes the old way, raw first;
+  the header's macros reach its includer as a raw-read header's do (`ccl_header_macros/2`). Why: read raw, a function of
+  the header kept the header's own macro unexpanded -- `TWICE(x)` a call of nothing, `not lowered yet:
+  undeclared('TWICE')`, and `assert` of the `<cassert>` that it includes alike (Not done item 9 until 0.268); read
+  flattened, a header that reads only preprocessed (`tvhdr2.h`'s `DECL(static int, hcount)`) was one token stream with
+  each header that it includes in it, which the desugaring took for a library's (`cpp_index_header/1`: each function
+  defined on use, out of the safe part's walk) AND for the program's (`cpp_include_fns/1`): each of its functions defined
+  twice, `invalid redefinition of function` at LLVM. C keeps its reads: its lowering takes a raw read's definitions from
+  the header read preprocessed (`ir_hdr_resolve/2`). `test/cpp/run/hdrmacro.cpp` over `hdrmacro.h` and `hdrmacro2.h`,
+  reader check `k141`, `test/c/run/tvector.c` built as C++. (0.268)
 - A C++ library header (kind `system`, `next` included; `'$ccl_inc_kind'`) is never read raw. A valid summary serves it;
   else it is flattened and read once (`ccl_read_unit`). Why: raw, each of `<sstream>`'s headers failed and was
   preprocessed in turn. (M5)
@@ -12913,9 +12932,9 @@ Declarations topic of the C++ reader).
    is read under the configuration at its own `#include` (`__config`'s names at the first, a local header's own names,
    `NDEBUG` for the program's own header), and a file that defines such a name late is kept in the store. What is left:
    a local header's own `#include`s are read under the configuration at the program's `#include` of it, not at theirs,
-   so a name the local header defines between two of them reaches both; and a C++ program's own header that calls a
-   macro of a header it includes in an inline function -- `assert` -- is refused `undeclared(assert)`: its raw read
-   keeps the call, and the C++ side takes no preprocessed body as C's does (`ir_hdr_resolve/2`), at 0.226 too. `asm
+   so a name the local header defines between two of them reaches both. A C++ program's own header that calls a macro
+   of a header it includes in an inline function -- `assert` -- was refused `undeclared(assert)` until 0.268, its raw
+   read keeping the call: it is read as the program's file is now (the topic of includes). `asm
    goto` is lowered since 0.231; an asm output that carries a pointer is refused by the owner's rule of ownership paths,
    and a register variable's register is an asm operand's alone, as GCC's manual gives it: two rules, not gaps (the safe
    part's topic, the lowering's topic of inline assembly). macOS is not measured: Apple's libc chooses its names by
@@ -13150,16 +13169,11 @@ Declarations topic of the C++ reader).
   early. A text that puts an unread argument twice reads it twice, its macros run twice, as a `#define` macro's argument
   is expanded where each `#` of it stands. C++'s other init-statements (`if (int x = f(); x)`, `switch`, `while`'s
   condition) still leave their names in the reader's scope after the statement, as `for`'s did before 0.264.
-- CCLLIB IN CICILANG++, WHAT 0.267 LEAVES (`CCLLIB.md`'s phase 0.10): list literals, the operators on instances, an
-  argument taken unread and the safety rules of 0.265 to 0.267 are C's. `tvector.c` is not yet among the C++ gate's
-  ccllib fixtures, for two faults of cicilang++ with the program's own headers that it met, older than ccllib: a header
-  that the reader must read preprocessed (`tvhdr2.h`'s `DECL(static int, hcount)`) is a library header to the
-  desugaring (`cpp_register_/1`, `cpp_lib_names_item/1` over any `file(_, preprocessed, _)`), so each function that it
-  defines is defined on use and with the unit, twice -- `invalid redefinition of function 'vector_long_push'`, and a
-  plain `static inline int twice_h` beside a `#define` alike; and a function-like macro that the header defines and
-  uses where it reads as a call is not expanded, since the raw read reads whole -- `undeclared('TWICE')`, where C
-  prints its value. cicilang++ takes `int *p = realloc(...)` with no cast, which clang++ refuses ([conv.ptr]/2
-  converts a `T *` to `void *`, not back): the macro files cast, as C++ asks.
+- CCLLIB IN CICILANG++, WHAT 0.268 LEAVES (`CCLLIB.md`'s phase 0.10): list literals, the operators on instances, an
+  argument taken unread and the safety rules of 0.265 to 0.267 are C's. cicilang++ takes `int *p = realloc(...)` with
+  no cast, which clang++ refuses ([conv.ptr]/2 converts a `T *` to `void *`, not back): the macro files cast, as C++
+  asks. A program's own header that does not read whole in C++ through the preprocessor in the file's mode goes the old
+  way (0.268): raw, its macros unexpanded, or flattened, a library header to the desugaring.
 - OPERATORS ON INSTANCES, THEIR LIMITS (0.266; `CCLLIB.md`'s phase 0.9): the unary operators (`-a`, `!a`, `*it`,
   `++it`) and the compound assignments over an instance (`a += b`) are no calls, and `%`, `&`, `|` and `^` are not in
   the table; the left operand decides, so `2 * a` is refused where C++ finds a free `operator*(double, pt)`; the word of

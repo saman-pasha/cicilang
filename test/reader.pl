@@ -554,6 +554,16 @@ k140 :- check('an instance\'s operator is refused at its line by name: one its t
       op_refused('op_shr.c', 9, 'the operator >> of tbuf_char reads into its right operand, which is no lvalue'),
       op_refused('op_word.c', 9, 'the operator << of tbuf_char is not defined: its type macro defines no tbuf_char_shl_float') )).
 
+%% THE PROGRAM'S OWN HEADER IN C++ (0.268): test/cpp/run/hdrmacro.cpp over hdrmacro.h, read raw whole before, and
+%% hdrmacro2.h, which reads only through the preprocessor and was read flattened
+k141 :- check('in C++ the program\'s own header is read as its file is: its function holds its own macro\'s expansion, and one that reads only through the preprocessor is its own items, its object declared through its own macro',
+    ( c('../cpp/run/hdrmacro.cpp', P), nb_getval('$ccl_lang', L0), nb_setval('$ccl_lang', cpp),
+      ( catch(cicilang_ast(P, U), _, fail) -> nb_setval('$ccl_lang', L0) ; nb_setval('$ccl_lang', L0), fail ), U = unit(Is),
+      member(include(_, local('hdrmacro.h'), file(_, raw, unit(H1))), Is), member(function(_, _, _, twice_h, _, _, B1), H1),
+      sub_t(int(2), B1), \+ sub_t(id('TWICE'), B1),
+      member(include(_, local('hdrmacro2.h'), file(_, raw, unit(H2))), Is), member(function(_, _, _, plain_h, _, _, _), H2),
+      sub_t(var(hcount, _, int(3)), H2) )).
+
 k110 :- check('a type macro that fails, two instances that one name names, and a typed call of a macro with no typed form are refused at the use',
     ( c('tmacro_fail.c', P1), c('tmacro.pl', M), catch(cicilang_ast(P1, _), error(E1, here(P1, 3, in_macro(type_none, M))), true), E1 == macro_failed(none, [base([], [int])]),
       c('tmacro_same.c', P2), catch(cicilang_ast(P2, _), error(macro_error(pair, _, error(ctext_error(T2), _)), here(P2, 7, _)), true),
@@ -831,6 +841,8 @@ t_checks :-
     k138,
     k139,
     k140,
+    section('in C++ the program\'s own header is read as its file is (0.268)'),
+    k141,
     section('the preprocessor, in cocolog: a header raw cannot take'),
     k83,
     section('the lexer, native: ccl_lex_native/6 token for token with the DCG'),

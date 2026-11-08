@@ -428,6 +428,21 @@ ccl_read_unit(Path, How, Unit) :-
         (   catch(ccl_ast_write(F, U1), E, ( ccl_ast_trace(ast_not_written(Path, E)), fail ))   % NO SUMMARY WITHOUT ITS AST (0.106): the recovery
         ->  ( catch(ccl_sum_write(F, Path, Files, U1), _, fail) -> ccl_note_read_wrote(Path, F) ; true )   % used to SUCCEED, so an exception read as a written AST
         ;   ccl_ast_trace(ast_not_written(Path)) ) ).                                              % and a valid summary stood with no template bodies behind it   % THE SUMMARY IS WRITTEN LAST (0.100): it is the validity key, so a run killed while it writes the AST (the slow one) leaves no summary and the next run flattens again -- written first, a killed run left a valid .sum beside no .ast.pl, and every program over that header refused template_without_body
+%% THE PROGRAM'S OWN HEADER IN C++ IS READ AS THE PROGRAM'S FILE IS (0.268): its directives run and its macros expanded,
+%% each #include passed on to the reader, which reads that header apart (a library's from its summary) -- the mode of
+%% ccl_pp_top/3, '$pp_top' yes. Its unit holds the header's own items and an include item for each header that it
+%% includes, the shape of a raw read whole, which the desugaring takes for the program's (cpp_register_header/1,
+%% cpp_header_fns/1). Read raw, a function of the header kept a macro of the header unexpanded, `TWICE(x)' a call of
+%% nothing (`undeclared'); and a header that read only preprocessed was one token stream with each header that it
+%% includes in it, which the desugaring took for a library's (cpp_index_header/1) AND for the program's
+%% (cpp_include_fns/1), each of its functions defined twice (`invalid redefinition' at LLVM). C keeps its reads: its
+%% lowering takes a raw read's definitions from the header read preprocessed (ir_hdr_resolve/2). A read that is not
+%% whole goes the old way, raw first
+ccl_read_unit(Path, How, Unit) :-
+    ccl_lang(cpp), ccl_own_header(Path), ccl_global('$ccl_instances', I0, []),
+    (   catch(ccl_pp_own_parse(Path, U, Info), _, fail), Info == whole -> true
+    ;   nb_setval('$ccl_instances', I0), fail ), !,
+    How = raw, Unit = U.
 %% THE RAW ATTEMPT'S INSTANCES GO WITH IT (0.261): a type macro's instance made by a raw read that did not read whole
 %% stands in no AST, so the preprocessed read starts from the unit's instances before the attempt, and the raw partial
 %% read that stays keeps its own
@@ -438,6 +453,19 @@ ccl_read_unit(Path, How, Unit) :-
     (   Info0 == whole -> How = raw, Unit = U0
     ;   nb_setval('$ccl_instances', I0), ccl_pp_parse(Path, U1, Info1, Files) -> How = preprocessed, ccl_partial(U1, Info1, Unit), ccl_pp_macros(Ms), ccl_kb_remember_macros(Path, Files, Ms)
     ;   nb_setval('$ccl_instances', I1), How = raw, ccl_partial(U0, Info0, Unit) ).
+%% the program's own header: one under no system path and not among the compiler's own (ir_hdr_lib_path/1)
+ccl_own_header(P) :- atom(P), \+ ir_hdr_lib_path(P).
+%% the header through the preprocessor in the program file's mode: its includes read first and their macros made ready
+%% (ccl_pp_prescan/1), then its run and the read of its tokens. A run is a generation of the macros (pp_reset/0), so the
+%% header is read in its includer's prescan, before the includer's own run; the includer's configurations at its
+%% includes, by its lines, are put back after it ('$pp_inc_cfgs', '$pp_cfg_lib'), however it ends
+ccl_pp_own_parse(Path, unit(Is), Info) :-
+    ( nb_current('$pp_inc_cfgs', C0) -> true ; C0 = [] ), ( nb_current('$pp_cfg_lib', L0) -> true ; L0 = none ),
+    (   catch(( ccl_pp_prescan(Path), ccl_pp_top_run(Path, [], Tokens, _), \+ memberchk(tok(other, _, _), Tokens),
+                ccl_with_file(Path, ( ccl_unit(Tokens, unit(Is), Rest), ccl_rest_info(Rest, Info) )) ), E, true)
+    ->  R = ok ; R = failed ),
+    nb_setval('$pp_inc_cfgs', C0), nb_setval('$pp_cfg_lib', L0),
+    ( nonvar(E) -> throw(E) ; R == ok ).
 
 %% A READ THAT WROTE ITS HEADER'S SUMMARY AND AST IS NOTED FOR THE PROCESS (0.218), in a global as the units read here are: the
 %% desugaring registers the header's items from that AST, as a served header's are (cpp_read_now_summarized/2)
