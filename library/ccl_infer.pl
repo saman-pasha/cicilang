@@ -22,6 +22,11 @@
 %%   ccl_c_stmts(+Text, +Holes, -Stmts)   as block items in the call's scope; ccl_c_expr(+Text, +Holes, -Expr),
 %%   ccl_c_type(+Text, +Holes, -Type)     as an expression, as a type name. Holes: Name = type(T), expr(E), stmt(S)
 %%                                        or name(Atom), written @Name in the text; @{Name} pastes a name hole
+%%   type_NAME(+Args, -Type, -Items)  a macro file's TYPE MACRO (0.261): NAME<args> in C is Type, the instance
+%%                                    that Items define, made once in a unit, at file scope, its functions linkonce
+%%   ccl_instance_name(+Base, +Args, -Name)  the instance's name, Base and each argument's word (vector_int)
+%%   ccl_type_word(+Type, -Word)      a type's word: int, ulong, ptr_char, const_char, point_t
+%%   ccl_hoist(+Items)                items at file scope, before the item that the reader reads now
 %%
 %% Types are the AST's: base(Quals, Specs), ptr(Quals, T), arr(Size, T),
 %% fn(Ret, Params, Variadic), block(Quals, T); and unknown.
@@ -461,6 +466,35 @@ ccl_gensym(Prefix, Atom) :-
     ccl_ensure_globals, nb_getval('$ccl_gensym', N0), N is N0 + 1, nb_setval('$ccl_gensym', N),
     atomic_list_concat([Prefix, '_', N], Atom).
 ccl_macro_error(Msg) :- ccl_here(F, L), throw(error(macro_error(Msg, here(F, L)), _)).
+%% AN INSTANCE'S NAME (0.261; CCLLIB.md's phase 0.2): the type macro's name and its arguments' words, `vector<int>'
+%% vector_int, `map<ulong, char *>' map_ulong_ptr_char -- readable, and the same in every unit, which the link needs. A
+%% type's word: a basic type's short word (uint, ulong, llong, ldouble ...), a typedef's or a tag's name, ptr_ before a
+%% pointer's target, a qualifier's word before what it qualifies (const_char, own_int); a value its digits
+ccl_instance_name(Base, As, N) :- ccl_arg_words(As, Ws), atomic_list_concat([Base|Ws], '_', N).
+ccl_arg_words([], []).
+ccl_arg_words([A|As], [W|Ws]) :- ( integer(A) -> W = A ; A = int(V), integer(V) -> W = V ; ccl_type_word(A, W) ), ccl_arg_words(As, Ws).
+ccl_type_word(base(Q, Ss), W) :- !, ccl_specs_word(Ss, W0), ccl_quals_word(Q, W0, W).
+ccl_type_word(ptr(Q, T), W) :- !, ccl_type_word(T, W0), atom_concat(ptr_, W0, W1), ccl_quals_word(Q, W1, W).
+ccl_type_word(arr(int(N), T), W) :- !, ccl_type_word(T, W0), atomic_list_concat([arr, N, W0], '_', W).
+ccl_type_word(T, _) :- term_to_atom(T, A), atom_concat('no word for the type ', A, M), ccl_macro_error(M).
+ccl_quals_word([], W, W) :- !.
+ccl_quals_word(Q, W0, W) :- findall(X, ( member(X, [own, const, volatile, restrict, '_Atomic']), memberchk(X, Q) ), Xs), append(Xs, [W0], Ws), atomic_list_concat(Ws, '_', W).
+ccl_specs_word([typedef(N)], N) :- !.
+ccl_specs_word([S], N) :- compound(S), functor(S, F, 2), memberchk(F, [struct, union, enum]), arg(1, S, N), atom(N), !.
+ccl_specs_word(Ss, W) :- msort(Ss, S), ccl_basic_word(S, W), !.
+ccl_specs_word(Ss, _) :- term_to_atom(Ss, A), atom_concat('no word for the type ', A, M), ccl_macro_error(M).
+%% the basic types' words, by their specifiers sorted: the spellings of one type, one word
+ccl_basic_word([char], char).                ccl_basic_word([char, signed], schar).         ccl_basic_word([char, unsigned], uchar).
+ccl_basic_word([short], short).              ccl_basic_word([int, short], short).           ccl_basic_word([short, signed], short).
+ccl_basic_word([int, short, signed], short). ccl_basic_word([short, unsigned], ushort).     ccl_basic_word([int, short, unsigned], ushort).
+ccl_basic_word([int], int).                  ccl_basic_word([signed], int).                 ccl_basic_word([int, signed], int).
+ccl_basic_word([unsigned], uint).            ccl_basic_word([int, unsigned], uint).
+ccl_basic_word([long], long).                ccl_basic_word([int, long], long).             ccl_basic_word([long, signed], long).
+ccl_basic_word([int, long, signed], long).   ccl_basic_word([long, unsigned], ulong).       ccl_basic_word([int, long, unsigned], ulong).
+ccl_basic_word([long, long], llong).         ccl_basic_word([int, long, long], llong).      ccl_basic_word([long, long, signed], llong).
+ccl_basic_word([int, long, long, signed], llong).  ccl_basic_word([long, long, unsigned], ullong).  ccl_basic_word([int, long, long, unsigned], ullong).
+ccl_basic_word([float], float).              ccl_basic_word([double], double).              ccl_basic_word([double, long], ldouble).
+ccl_basic_word(['_Bool'], bool).             ccl_basic_word([bool], bool).                  ccl_basic_word([void], void).
 
 %% ---- resolving ------------------------------------------------------------------
 %% a typedef resolves to its end in one step: the chain (size_t -> __darwin_size_t

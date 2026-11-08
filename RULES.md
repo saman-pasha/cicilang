@@ -2298,6 +2298,44 @@ that changes a rule edits the rule here, in its topic, and writes its entry in `
   line 3)`. The line is the text's own, the farthest that the reader reached, as a file's read names it
   (`ccl_ctext_read/5`). The error or the failure of a macro that a text called is passed on as it is
   (`ccl_macro_ball/1`): its report is the nearer one. Reader `k103`, `k104`; the driver gate. (0.260)
+- **A TYPE MACRO IS A TYPE IN C++'S FORM** (0.261; `CCLLIB.md`'s phase 0.2, the owner's decision: "for type use c++
+  format `vector<int> v;`"): a macro file's `type_vector(Args, Type, Items)` makes `vector<int>` a type of C, wherever a
+  type stands -- a declaration, a member, a parameter, a result, a cast, `sizeof`, a typedef, another list
+  (`vector<vector<int>>`, `>>` closing two). The specifiers read a name that the registry holds as `type_N/3`, then `<`
+  (`ccl_tmacro_spec//2` in `ccl_specs_type//7`), and its arguments as C++ writes a template's (`ccl_targs//2`): types and
+  constant expressions, `inplace<double, 8>`. C reads no `name < type`, so the form is never a comparison; C++ keeps its
+  templates (the clause is C's alone). The macro gets the types as written, and names the instance from them:
+  `ccl_instance_name(vector, [T], N)` gives `vector_int`, `vector_ulong`, `vector_ptr_char`, `map_int_point_t` --
+  readable, and the same in every unit (`ccl_type_word/2`: a basic type's one word for its spellings, `ccl_basic_word/2`;
+  a typedef's or a tag's name; `ptr_` before a pointer's target; a qualifier's word before what it qualifies). Its items
+  are C text (`ccl_c_items/3`). Reader `k105`, `k107`; `test/c/run/tvector.c` over its `tvector.pl`. (0.261)
+- **THE INSTANCE IS MADE ONCE IN THE UNIT, AT ITS FIRST USE, AND STANDS AT FILE SCOPE** (0.261; phases 0.3 and 0.4):
+  `ccl_tmacro_instance/5` keeps the unit's instances (`'$ccl_instances'`, emptied at a top file's read and after the
+  preprocessor's run, whose reads of the headers made instances that no AST holds: `ccl_inst_reset/0`); a later use, in
+  the file or in a header that the unit includes, names the instance alone. The items go before the item that the
+  reader reads now -- a function whose body used the type, the declaration of a member -- in order: a macro gives
+  items for file scope to `ccl_hoist/1`, and each item of each item loop takes its own (`ccl_hoist_open/1`,
+  `ccl_hoist_close/3` in `ccl_externals/4`), a C text's items its own too. A use met while its own instance is made is
+  refused by name (`'$ccl_inst_making'`), and so are two instances that one name names (`pair<a_b, c>` and `pair<a,
+  b_c>`, `ccl_inst_unique/5`), where C would take the second struct for the first; a type macro's error and failure
+  name the use and the macro file, as a macro's do. A header's raw read that does not read whole gives its instances
+  back (`ccl_read_unit/3`), so that the preprocessed read makes them again: the raw attempt's AST is dropped, and its
+  instances stood in none (`tvhdr2.h`). Reader `k105`, `k106`, `k110`, `k111`. (0.261)
+- **AN INSTANCE'S FUNCTIONS ARE LINKONCE** (0.261; the owner's decision: "for linkonce use implicit"): a function that
+  the instance defines with no storage word is `linkonce` (`ccl_inst_linkonce/2`), `define linkonce_odr` as a C++
+  template's is, so that every unit that uses `vector<int>` defines `vector_int_push` and the link keeps one; a
+  program's own header's linkonce function is the unit's always, as its external definitions are (`ir_hdr_mode/2`).
+  The driver gate links two units that both make `vector<int>` (`test/c/link/inst_a.c`, `inst_b.c`). (0.261)
+- **A READ THAT MADE OR MET AN INSTANCE IS KEPT IN NEITHER CACHE** (0.261): what it holds is its unit's -- the instance
+  where the unit first used it, a later use naming it alone -- so neither the process's cache nor the store keeps such
+  a header's read or such a file's (`ccl_include_read/2`, `ccl_read_file_/3`, over a count of the instances met,
+  `ccl_inst_mark/1` and `ccl_inst_since/1`), and each unit reads it again; a header that met none is kept as before.
+  Reader `k109`; `test/c/run/tvector.c` over `tvhdr.h`, a header that makes `vector<int>`, built in the compile gate's
+  one process beside every other fixture. (0.261)
+- **EXPLICIT TYPES FOR A FUNCTION MACRO** (0.261; phase 0.2): `max<double>(a, b)` in C is the macro `max` called with
+  `types([double])` before its arguments (`ccl_typed_call/5`, a clause of `ccl_primary_//3` before a name's own): a
+  name that the registry holds as a macro, `<` types or constants `>`, then `(`. A macro with no clause of that arity
+  is refused: `macro: the macro twice takes no types before its 1 argument(s)`. Reader `k108`, `k110`. (0.261)
 
 ## The C++ reader
 
@@ -12866,6 +12904,12 @@ Declarations topic of the C++ reader).
 - `bin/cicilang` accepts and ignores `-W`, `-f...` and `-pedantic` (owner's rule: clang's arguments, no new flags).
   `-D` and `-U` define and undefine (0.112), and `-fexperimental-library` turns libc++'s experimental part on (0.138); a
   run with any of them keeps no C store.
+- CCLLIB'S CONTAINERS OF OWNERS AND ITS DROP (found at 0.260 and 0.261: `CCLLIB.md`'s open decision 2, and the
+  autodrop that the owner decided on 2026-11-08, phase 0.5): an
+  element with an own field stored into an instance's own buffer is no move of the field (`vector<vector<int>>`'s push
+  is refused, `owner leaked: 'x.data'`), and a drop function that frees its caller's owner through `&v` is refused in
+  the callee (`a borrowed struct's own field not whole at the return`), or in the caller (`owner leaked: 'v.data'`)
+  where it puts NULL back. `test/c/run/tvector.c` frees each buffer in `main`.
 - A MISSING `#include` IS PASSED OVER (found at 0.260): the read holds `include(L, Spec, missing)` and goes on (the
   Includes topic), so `#include "nope.h"` before a `main` that uses nothing of it builds with no message, and a program
   that uses the header fails later, at the first name it declares; clang stops at the line, `fatal error: 'nope.h' file

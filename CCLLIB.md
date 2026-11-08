@@ -132,10 +132,19 @@ the file reader gives, and the typedef name joins the environment.
   macro: `max<double>(a, b)`.
 - A value parameter as C++26's `inplace_vector<int, 8>`: the first `>` that is not nested closes the list.
 
+- DONE AT 0.261 with 0.3 and 0.4 (`RULES.md`, the topic of the macro files): `type_N/3` read where a type stands
+  (`ccl_tmacro_spec//2`), its arguments by C++'s template grammar, `max<double>(a, b)` a typed call
+  (`ccl_typed_call/5`), the instance's name from its arguments' words (`ccl_instance_name/3`, `ccl_type_word/2`). Reader
+  `k105` to `k111`, `test/c/run/tvector.c` over `tvector.pl`, `tvhdr.h` and `tvhdr2.h`. `vector<vector<int>>` reads, and
+  the safe part refuses its push: an element with an own field stored into the buffer is no move of the field (open
+  decision 2; autodrop, 0.5, drops the elements).
+
 ### 0.3 Items at file scope from a macro
 
 A macro used in a function or in a type puts its items at file scope, before the item that the reader reads now, in
 order. Today a macro's list result is spliced where the macro stands.
+
+- DONE AT 0.261: `ccl_hoist/1`, and each item of each item loop takes its own (`ccl_externals/4`).
 
 ### 0.4 Implicit instances, `linkonce_odr`
 
@@ -143,6 +152,10 @@ order. Today a macro's list result is spliced where the macro stands.
 - Its functions and objects have the `linkonce` storage that the lowering has (`define linkonce_odr`), as C++
   templates have.
 - Done when: two units that both use `vector<int>` link and run (as `test/cpp/link/units_*.cpp` for C++).
+- DONE AT 0.261: the unit's table (`ccl_tmacro_instance/5`), emptied at a top file's read and after the
+  preprocessor's run; the instance's functions `linkonce` (`ccl_inst_linkonce/2`); a read that made or met an instance
+  kept in no cache, since what it holds is its unit's; a header's raw attempt that does not read whole gives its
+  instances back. The driver gate links `test/c/link/inst_a.c` and `inst_b.c`.
 
 ### 0.5 Autodrop (the owner's decision of 2026-11-08)
 

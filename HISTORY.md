@@ -255,6 +255,7 @@ One row per step, in version order: the step's title, what it did and its gate n
 | 0.258 | the limits of 0.257's rules: deleted templates and moves, floats and plain calls in a constant evaluation | the fifteen limits 0.257 recorded, on the owner's word: a deleted function template, explicit specialization and member template candidates, a deleted move asked wherever an xvalue is copied, a plain struct with a reference or const member not assigned, the program's class's deleted constructor asked in the library's body at the program's line; in a constant evaluation floating arithmetic, a later base's dynamic_cast and thunk, an array new's cookie, the allocation's family, ::operator new std::allocator's alone, an unseen object bound to a reference, the evaluator's own instances dropped where unnamed; only a constexpr aggregate a value; a closure's body reading its function's constants; __builtin_types_compatible_p in C; and a sixteenth the probes found, a call of a function that is not constexpr refused; three wrong builds older than the step (an instance read its caller's constant, a later base's pointer compared with the object's, out-of-class constexpr members unseen by the evaluator); the record of 0.257's CI runs | the flow gate; over libc++ 18 all nine GREEN (the C++ gate 1347 s, 865 ok); the C++ gates over 21 and 22 GREEN (873 and 876 ok); a commit and a push |
 | 0.259 | cocolog 3.37.0: the pins moved, an object's names declared apart, a summary's long terms read as text | cocolog from 3.19.4 to its latest master, 3.37.0, on the owner's word and by the owner's new rule ("Use latest cocolog everytime"), its master taken four times while the step ran; the pins moved, ZiguratIP's with them (1.0.2); every load silent, on the owner's word: the tutorials' objects declare their names apart; 3.28.0's retract/1 answers again, so two loops take every clause (a second member waiting for its class's friends was refused); a defect older than the step: a summary's long terms, loaded as clauses keyed by the summary's path and never loaded again, were not served from a moved ~/.cicilang and came back stale after a child wrote the summary again -- read as text now, and the flow gate with no finding; the record of 0.258's CI | the flow gate; over libc++ 18 all nine GREEN (the C++ gate 1254 s, 866 ok); the C++ gates over 21 and 22 GREEN (874 and 877 ok); a commit and a push |
 | 0.260 | C text: a macro writes C with holes, ccllib's first step; an absolute #include found | on the owner's word, the plan of ccllib in CCLLIB.md (a standard library for cicilang's C as cocolog macros: `vector<int> v;` in C++'s form, implicit linkonce instances, C text first) and the first item of its phase 0: ccl_c_items, ccl_c_stmts, ccl_c_expr and ccl_c_type read C text with @holes by the reader's own grammar in the read that runs, every token at the call's line, a text's error at the call with the macro, its file and the text's own line; its run fixture met the drop, which the owner then decided (autodrop), and the owner's three runs for every comparison joined the plan; a defect older than the step: an absolute path in #include was never found (the reader 171); a missing #include passed over, recorded in Not done; the record of 0.259's CI | the flow gate; over libc++ 18 all nine GREEN (the C++ gate 1346 s, 866 ok); the C++ gates over 21 and 22 GREEN (874 and 877 ok); a commit and a push |
+| 0.261 | type macros: vector<int> in C, its instance made once in the unit, linkonce | the next items of CCLLIB.md's phase 0, together, on the owner's decisions (C++'s form for a type, implicit linkonce): a macro file's type_vector/3 makes vector<int> a type wherever a type stands, its arguments by C++'s template grammar (vector<vector<int>>, inplace<double, 8>), max<double>(a, b) a function macro's explicit types; each instance made once in the unit at its first use, at file scope before the item that used it (ccl_hoist/1), its functions linkonce_odr, so two units that both make it link; a read that met an instance kept in no cache; two defects of the first builds fixed (an unbound list of instances in making, the preprocessor's header reads making instances that no AST holds); the safe part refuses a container of owners' push (the plan's open decision 2) | the flow gate; over libc++ 18 all nine GREEN (the C++ gate 1304 s, 866 ok); the C++ gates over 21 and 22 GREEN (874 and 877 ok); a commit and a push |
 
 ## M5 — the C++ mode
 
@@ -17774,8 +17775,63 @@ C++ gate over libc++ 18 in 1:45:00).
   `test/reader.pl`: `k96` to `k104`; `test/driver.sh`: two checks; `test/c/run/ctext.c`, `ctext.pl`, `ctext.expect`;
   `test/c/ctext.pl`, `uses_ctext.c`, `ctext_bad.c`, `ctext_nohole.c`. `RULES.md`, `CLAUDE.md`, `README.md`.
 
-Committed and pushed with 0.261 on the owner's word ("Commit and push after every task finished, continue"), which
-is the rule of the commits now (`CLAUDE.md`): each finished step is committed and pushed, then the next begins.
+Committed and pushed by itself on the owner's word ("Commit and push after every task finished, continue"), as
+`f61d07e`, and 0.261 after it: the word is the rule of the commits now (`CLAUDE.md`), each finished step committed and
+pushed, then the next begun.
 
 The module 0.260; the reader 171 (an absolute `#include` found, which a cached read held `missing`); the lowering 150
 stays (what is emitted for a program that 0.259 built is the same).
+
+## 0.261 — type macros: vector<int> in C, its instance made once in the unit, linkonce
+
+**0.261: the next items of `CCLLIB.md`'s phase 0, which the plan takes together ("`vector<int>` needs all three"), on
+the owner's word ("start phase 0") and the owner's decisions ("for type use c++ format `vector<int> v;`", "for linkonce
+use implicit"): 0.2, a type macro in C++'s form and a function macro's explicit types; 0.3, a macro's items at file
+scope; 0.4, one implicit instance a unit, its functions `linkonce_odr`. The chain ran over cocolog 3.37.0 at the pins,
+as 0.260's did.**
+
+THE TYPE MACRO. A macro file's `type_vector(Args, Type, Items)` makes `vector<int>` a type of C wherever a type stands:
+the specifiers read a name that the registry holds as `type_N/3`, then `<`, and the arguments by the C++ reader's
+template grammar (`ccl_targs//2`), so `vector<vector<int>>` closes two lists with `>>` and `inplace<double, 8>` takes a
+constant. The macro gets the types as written and names its instance by `ccl_instance_name/3` -- `vector_int`,
+`vector_point_t`, `vector_vector_int`, `inplace_double_8`: one word a basic type for its spellings (`unsigned long int`
+and `long unsigned` are `ulong`), a typedef's or a tag's name, `ptr_` before a pointer's target. Its items are C text
+(0.260's doors). `max<double>(a, b)` calls a function macro with `types([double])` before its arguments; C reads no
+`name < type`, and a macro's name is no variable's. The test of each identifier of an expression looks at two tokens
+first.
+
+THE INSTANCE, ONCE IN THE UNIT. The unit's table makes each instance at its first use; its items stand at file scope
+before the item that used it -- the function whose parameter or body names the type -- and each item of each item loop
+takes its own (`ccl_hoist/1`). A read that met an instance holds what is its unit's, so neither cache keeps it; a header
+that met none is kept as before. The first builds found three defects, each fixed before the fixtures: a test of the
+table in an if-then-else bound the list of instances in making and failed, and the else branch stored the unbound
+variable, so the next use read as "uses itself"; the preprocessor's run over the top file reads each header for its
+macros, so a header's instance was made by a read whose AST nobody keeps, and the parse's read of the header found it
+made and gave no items (`not lowered yet: undeclared(vector_int_len)`): the table starts again after that run; and a
+header that the raw read does not take whole is read again preprocessed, after a raw attempt whose instances stood in no
+AST (over a copy of the library without the fix, neither the header nor the file held `vector_int`): the attempt gives
+its instances back (`tvhdr2.h`, `k111`). Two units that both make `vector<int>` link: the instance's functions are
+`define linkonce_odr`, weak symbols, one of each kept.
+
+WHAT THE SAFE PART SAYS (the plan's open decision 2): `vector<vector<int>>` reads, and its push is refused, `owner
+leaked: 'x.data'`: an element with an own field stored into the buffer is no move of the field. The fixture keeps to
+elements with no owner, and frees each buffer in `main` (autodrop is the plan's phase 0.5).
+
+THE NETS before the chain, over the work tree: the reader's sixteen new checks of 0.260 and 0.261 ok, the seven of 0.261
+each FAIL over 0.260's library; `tvector.c` prints what clang's build of its hand expansion prints; the three refusals
+in clang's shape; the two units linked.
+
+MEASUREMENTS: the chain of 0.261 over its work tree, cocolog 3.37.0 and ZiguratIP 1.0.2 at the pins and fresh HOMEs:
+over libc++ 22 the library read 386 s and the C++ gate 1351 s (877 ok, none skipped); over libc++ 21 373 s and 1340 s
+(874 ok, 3 skipped); over libc++ 18 all nine GREEN -- the flow gate 88 s with no finding, reader 3 s, compile 29 s,
+driver 39 s, objects 5 s, proof, the cross gate 326 s, the library read 441 s, the C++ gate 1304 s (866 ok, 11 skipped
+by their needs); in 5686 s.
+
+- `library/ccl_syntax.pl`: `ccl_tmacro_spec//2` and the instance table, `ccl_hoist/1` and the item loop's part,
+  `ccl_typed_call/5`, the reader 172. `library/ccl_infer.pl`: `ccl_instance_name/3`, `ccl_type_word/2`.
+  `library/ccl_include.pl`: the table's start, a read that met an instance kept in no cache. `test/reader.pl`: `k105` to
+  `k111`; `test/driver.sh`: two units linked; `test/c/run/tvector.c`, `tvector.pl`, `tvhdr.h`, `tvhdr2.h`,
+  `tvector.expect`; `test/c/tmacro.pl`, `tmacro_fail.c`, `tmacro_same.c`, `tmacro_typed.c`; `test/c/link/inst_a.c`,
+  `inst_b.c`. `RULES.md`, `CLAUDE.md`, `README.md`, `CCLLIB.md`.
+
+The module 0.261; the reader 172 (the grammar takes type macros and typed calls); the lowering 150 stays.

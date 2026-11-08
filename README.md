@@ -359,6 +359,14 @@ static void @{N}_push(@N *v, @T x) {
 }", ['N' = name(N), 'T' = type(T)], Items).
 ```
 
+A type macro (0.261) makes such a type in C++'s form. `type_vector(Args, Type,
+Items)` in a macro file makes `vector<int> v;` a type wherever a type stands,
+`vector<vector<int>>` and `inplace<double, 8>` among them. The instance, its
+struct and its functions, is made once in the unit at its first use and stands
+at file scope before the item that used it; its functions are `linkonce_odr`,
+so two units that both use `vector<int>` link. `max<double>(a, b)` calls a
+function macro with its types first. `test/c/run/tvector.c` is the example.
+
 `format`, `print`, `println` and `clone` are global macros, there in every
 program without an include (`library/ccl_format.pl`). The format string
 has Rust's holes, each becoming the `printf` conversion of its argument's

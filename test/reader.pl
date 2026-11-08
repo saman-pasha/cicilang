@@ -370,6 +370,45 @@ k103 :- check('a text that does not read stops the read at the call, with the ma
 k104 :- check('a hole that Holes does not bind is refused by its name: C text: no hole @y',
     ( c('ctext_nohole.c', P), catch(cicilang_ast(P, _), error(macro_error(no_hole, [id(k)], error(ctext_error(T), _)), here(P, 2, _)), true), T == 'C text: no hole @y' )).
 
+%% TYPE MACROS (0.261; CCLLIB.md's phases 0.2 to 0.4): test/c/run/tvector.c over its tvector.pl and tvhdr.h, and
+%% tmacro_fail.c, tmacro_same.c and tmacro_typed.c over test/c/tmacro.pl
+sub_t(X, X).
+sub_t(X, T) :- compound(T), T =.. [_|As], member(A, As), sub_t(X, A).
+top_items(Is, Ts) :- findall(T, ( member(I, Is), ( I = function(L, S, _, F, _, _, _) -> T = fn(L, S, F) ; I = typedef(L, [var(N, _, _)]) -> T = td(L, N) ) ), Ts).
+
+k105 :- check('vector<T> in C: each instance -- its typedef and its functions -- stands at file scope before the first item that used it, once in the unit: vector<double> before sum, which main uses again; vector<point_t> and inplace<double, 8> before main',
+    ( unit('run/tvector.c', unit(Is)), top_items(Is, Ts),
+      Ts == [td(6, point_t), td(7, vector_double), fn(7, linkonce, vector_double_push), fn(7, linkonce, vector_double_at), fn(7, linkonce, vector_double_len), fn(7, static, sum),
+             td(18, vector_point_t), fn(18, linkonce, vector_point_t_push), fn(18, linkonce, vector_point_t_at), fn(18, linkonce, vector_point_t_len), td(22, inplace_double_8), fn(12, none, main)] )).
+
+k106 :- check('an instance that a header made stands in the header\'s unit, its functions linkonce, and the unit that includes it names it alone: vector<int> in tvhdr.h',
+    ( unit('run/tvector.c', unit(Is)), member(include(_, local('tvhdr.h'), file(_, _, unit(Hs))), Is), top_items(Hs, Ts),
+      Ts == [td(3, vector_int), fn(3, linkonce, vector_int_push), fn(3, linkonce, vector_int_at), fn(3, linkonce, vector_int_len), fn(3, static, ivec_sum)],
+      \+ member(typedef(_, [var(vector_int, _, _)]), Is) )).
+
+k107 :- check('a value argument, inplace<double, 8>, is an array\'s bound; sizeof(vector<int>) and the cast (vector<int> *)0 name the instance made',
+    ( unit('run/tvector.c', unit(Is)), member(typedef(_, [var(inplace_double_8, base([], [struct(inplace_double_8, Ms)]), none)]), Is),
+      memberchk(member(arr(int(8), base([], [double])), a, none), Ms), fn_body('run/tvector.c', main, B),
+      sub_t(sizeof_type(base([], [typedef(vector_int)])), B), sub_t(cast(ptr([], base([], [typedef(vector_int)])), int(0)), B) )).
+
+k108 :- check('explicit types for a function macro: max<double>(3, 2.5) is the macro called with types([double]) first; max(4, 7) its other clause',
+    ( fn_body('run/tvector.c', main, B), D = base([], [double]),
+      sub_t(cond(bin('>', cast(D, int(3)), cast(D, float(2.5))), cast(D, int(3)), cast(D, float(2.5))), B), sub_t(cond(bin('>', int(4), int(7)), int(4), int(7)), B) )).
+
+k109 :- check('a read that made or met an instance is kept in neither cache, the header\'s nor the file\'s, where a header that met none is',
+    ( c('run/tvector.c', P), c('run/tvhdr.h', H), unit('run/tvector.c', _), ccl_kb_ready,
+      \+ '$ccl_ast'(P, _, _), \+ '$ccl_ast'(H, _, _), \+ ccl_unit_cached(H, _, _), '$ccl_ast'(S, _, meta(included(_), _, _)), sub_atom(S, _, _, 0, '/stdlib.h') )).
+
+k111 :- check('a header that the raw read does not take whole is read preprocessed, and its unit holds the instance that the raw attempt made and dropped: vector<long> in tvhdr2.h, once in the program',
+    ( unit('run/tvector.c', unit(Is)), member(include(_, local('tvhdr2.h'), file(_, preprocessed, U)), Is), ( U = unit(Hs) ; U = partial(unit(Hs), _, _) ), !,
+      member(typedef(_, [var(vector_long, _, _)]), Hs), findall(x, ( sub_t(T, Is), nonvar(T), T = typedef(_, [var(vector_long, _, _)]) ), Xs), length(Xs, 1) )).
+
+k110 :- check('a type macro that fails, two instances that one name names, and a typed call of a macro with no typed form are refused at the use',
+    ( c('tmacro_fail.c', P1), c('tmacro.pl', M), catch(cicilang_ast(P1, _), error(E1, here(P1, 3, in_macro(type_none, M))), true), E1 == macro_failed(none, [base([], [int])]),
+      c('tmacro_same.c', P2), catch(cicilang_ast(P2, _), error(macro_error(pair, _, error(ctext_error(T2), _)), here(P2, 7, _)), true),
+      T2 == 'the instance\'s type is the type of pair<a_b, c>\'s instance',
+      c('tmacro_typed.c', P3), catch(cicilang_ast(P3, _), error(macro_error(T3, here(P3, 3)), _), true), T3 == 'the macro twice takes no types before its 1 argument(s)' )).
+
 k83 :- check('pp_defs.h is preprocessed (its false group is not C): #if/#elif/#else, defined, __has_include, ##, #, __VA_ARGS__, a continuation, __LINE__',
     ( unit('pp.c', unit([include(1, local('pp_defs.h'), file(_, preprocessed, unit(Is)))|_])),
       member(typedef(_, [var(mytype, base([], [int]), none)]), Is),
@@ -600,6 +639,14 @@ t_checks :-
     k102,
     k103,
     k104,
+    section('type macros: vector<int> in C, its instance made once in the unit, linkonce (0.261)'),
+    k105,
+    k106,
+    k107,
+    k108,
+    k109,
+    k110,
+    k111,
     section('the preprocessor, in cocolog: a header raw cannot take'),
     k83,
     section('the lexer, native: ccl_lex_native/6 token for token with the DCG'),

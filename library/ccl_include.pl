@@ -113,7 +113,9 @@ ccl_kb_items_goal(Path, K, I, It, T) :- ccl_kb_items(Path, F), T =.. [F, K, I, I
 ccl_kb_forget_items(Path) :- ccl_kb_items_goal(Path, _, _, _, T), retractall(T).
 ccl_kb_forget_file(Path) :- ccl_kb_ready, retractall('$ccl_ast'(Path, _, _)), ccl_kb_forget_items(Path), retractall('$ccl_hmeta'(Path, _, _)), ccl_kb_hm(Path, F), T =.. [F, _, _, _], retractall(T).
 
-ccl_read_file(File, AST, Rest) :- ccl_ensure_globals, ccl_set_lang(File), ( nb_current('$ccl_reading', []) -> nb_setval('$ccl_src_file', File), nb_setval('$ccl_path_cfgs', []), nb_setval('$pp_inc_cfgs', []), pp_ftm_find(File), dynamic('$ccl_plainfn'/2), retractall('$ccl_plainfn'(_, _)) ; true ), ccl_read_file_(File, AST, Rest).   % the file as the compiler was given it: a source location's, and C's `__PRETTY_FUNCTION__' reads its text (0.166)
+ccl_read_file(File, AST, Rest) :- ccl_ensure_globals, ccl_set_lang(File), ( nb_current('$ccl_reading', []) -> nb_setval('$ccl_src_file', File), nb_setval('$ccl_path_cfgs', []), nb_setval('$pp_inc_cfgs', []), pp_ftm_find(File), dynamic('$ccl_plainfn'/2), retractall('$ccl_plainfn'(_, _)), ccl_inst_reset ; true ), ccl_read_file_(File, AST, Rest).   % the file as the compiler was given it: a source location's, and C's `__PRETTY_FUNCTION__' reads its text (0.166)
+%% a unit's type macro instances (0.261): none at its start, each made once in it (ccl_tmacro_instance/5)
+ccl_inst_reset :- nb_setval('$ccl_instances', []), nb_setval('$ccl_inst_making', []), nb_setval('$ccl_hoist', []).
 %% the language of the file read: C++ by its extension (or forced, cicilang++), C by .c
 ccl_set_lang(File) :-
     (   nb_getval('$ccl_lang_forced', F), F \== none -> nb_setval('$ccl_lang', F)
@@ -126,15 +128,18 @@ ccl_read_file_(File, AST, Rest) :-
 %% A FILE WHOSE OWN RUN CHANGED ITS CONFIGURATION IS NOT KEPT (0.215): its key in the store is made before its read,
 %% under the feature-test macros found before its first system #include (pp_ftm_find/1), and a `__STDC_WANT_*' name it
 %% defines after that changes them in its run (ccl_pp_top_run/4); kept under the key after the read, it was never served
-%% and written again at every build. It is read at every build, its headers served from the store, its IR too (dr_ir/3)
+%% and written again at every build. It is read at every build, its headers served from the store, its IR too (dr_ir/3).
+%% NOR IS A READ THAT MADE OR MET A TYPE MACRO'S INSTANCE (0.261): what it holds is the unit's -- an instance stands where the
+%% unit first used it, and a later use names it alone (ccl_tmacro_instance/5) -- so it is read again in each unit
 ccl_read_file_(File, AST, Rest) :-
-    ( nb_current('$pp_ftm', FT0) -> true ; FT0 = [] ),
+    ( nb_current('$pp_ftm', FT0) -> true ; FT0 = [] ), ccl_inst_mark(IM),
     catch(catch(catch(ccl_pp_top(File, Tokens, _), lexical(L), throw(error(syntax_error(cicilang_ast(File, lexical, line(L))), cicilang_ast(File)))), lexical_char(LC, C), throw(error(syntax_error(cicilang_ast(File, char(C), line(LC))), cicilang_ast(File)))),   % the user's file through the preprocessor
           pp_error(PL, PM), throw(error(pp_error(PM), here(File, PL)))),                                                                     % its own #error, an #embed of nothing
+    ( nb_current('$ccl_reading', []) -> ccl_inst_reset ; true ),   % THE INSTANCES THAT THE PREPROCESSOR'S READS MADE ARE NOBODY'S (0.261): its run reads each header for its macros, and the parse reads one that met an instance again
     ccl_with_file(File, ( ccl_unit(Tokens, AST, Rest), ccl_farthest(F) )),
     nb_setval('$ccl_far', F),
     ( nb_current('$pp_ftm', FT1) -> true ; FT1 = [] ),
-    ( Rest == [], FT1 == FT0 -> ccl_kb_remember(File, top, AST) ; true ).
+    ( Rest == [], FT1 == FT0, \+ ccl_inst_since(IM) -> ccl_kb_remember(File, top, AST) ; true ).
 
 ccl_kb_key(Path, key(T, V)) :- once(catch(time_file(Path, T), _, fail)), ccl_reader_version(V0), ccl_read_level(L), ( ccl_lang(cpp) -> V = cpp(V0, L) ; L == '17' -> V = V0 ; V = c(V0, L) ).   % a C read at -std=c23 is not the C17 read: <stddef.h> declares nullptr_t and unreachable() at that level only, and the store serves a header's macros and items by this key
 ccl_std(S) :- ( nb_current('$ccl_std', S0) -> S = S0 ; S = 17 ).   % a C++ read is not the C read; the time asked every time (0.4 ms): the gate touches a file mid-process and expects the miss
@@ -232,6 +237,7 @@ ccl_ensure_globals :-
       nb_setval('$ccl_macro_files', []), nb_setval('$ccl_std_macros', none), nb_setval('$ccl_gensym', 0), nb_setval('$ccl_unit_paths', []), nb_setval('$ccl_read_wrote', []), nb_setval('$ccl_lambda_seq', 0),
       nb_setval('$ccl_lang', c), nb_setval('$ccl_lang_forced', none), ccl_fn_templates_put([]), nb_setval('$ccl_class', []), nb_setval('$ccl_inc_kind', local), nb_setval('$ccl_hash', line), nb_setval('$ccl_lib_unit', no),
       nb_setval('$ccl_targ', 0), nb_setval('$ccl_tmpl_depth', 0), nb_setval('$ccl_tt_pending', []), nb_setval('$ccl_tt_frames', []), nb_setval('$ccl_vparams', []), nb_setval('$ccl_vhead', []),
+      nb_setval('$ccl_instances', []), nb_setval('$ccl_inst_making', []), nb_setval('$ccl_inst_count', 0), nb_setval('$ccl_hoist', []),
       ( nb_current('$ccl_std', _) -> true ; nb_setval('$ccl_std', 17) ),
       ccl_seed_template_names(Seed), ccl_templates_put(Seed),
       ( catch(ccl_lex_native('', 1, line, c, _, _), _, fail) -> nb_setval('$ccl_lexer', native) ; nb_setval('$ccl_lexer', dcg) ),
@@ -386,11 +392,12 @@ ccl_include_read(Path, cyclic(Path)) :- ccl_reading(Path), !.
 ccl_include_read(Path, file(Path, How, Unit)) :- ccl_unit_cached(Path, How, Unit), !.
 ccl_include_read(Path, file(Path, How, Unit)) :- ccl_kb_cached(Path, included(How), Unit), !, ccl_unit_cache(Path, How, Unit).
 ccl_include_read(Path, file(Path, How, Unit)) :-
-    ccl_reading_push(Path),
+    ccl_reading_push(Path), ccl_inst_mark(IM),
     ( catch(ccl_read_unit(Path, How0, Unit0), _, fail) -> How = How0, Unit = Unit0 ; How = unreadable, Unit = none ),
     ccl_reading_pop(Path),
-    ccl_unit_cache(Path, How, Unit),
-    ( How == unreadable -> true ; How == summary -> true ; ccl_lang(cpp), How == preprocessed -> true ; ccl_kb_remember(Path, included(How), Unit) ).
+    (   ccl_inst_since(IM) -> true   % A READ THAT MADE OR MET A TYPE MACRO'S INSTANCE (0.261) is the unit's: kept in neither cache
+    ;   ccl_unit_cache(Path, How, Unit),
+        ( How == unreadable -> true ; How == summary -> true ; ccl_lang(cpp), How == preprocessed -> true ; ccl_kb_remember(Path, included(How), Unit) ) ).
 %% a preprocessed C++ header stays in the process: <cstdio> alone is 2700
 %% items, and cocolog's store takes a writing process's rows at a cost that
 %% follows their count, never reclaiming a dead one -- five minutes and 187 MB
@@ -412,11 +419,16 @@ ccl_read_unit(Path, How, Unit) :-
         (   catch(ccl_ast_write(F, U1), E, ( ccl_ast_trace(ast_not_written(Path, E)), fail ))   % NO SUMMARY WITHOUT ITS AST (0.106): the recovery
         ->  ( catch(ccl_sum_write(F, Path, Files, U1), _, fail) -> ccl_note_read_wrote(Path, F) ; true )   % used to SUCCEED, so an exception read as a written AST
         ;   ccl_ast_trace(ast_not_written(Path)) ) ).                                              % and a valid summary stood with no template bodies behind it   % THE SUMMARY IS WRITTEN LAST (0.100): it is the validity key, so a run killed while it writes the AST (the slow one) leaves no summary and the next run flattens again -- written first, a killed run left a valid .sum beside no .ast.pl, and every program over that header refused template_without_body
+%% THE RAW ATTEMPT'S INSTANCES GO WITH IT (0.261): a type macro's instance made by a raw read that did not read whole
+%% stands in no AST, so the preprocessed read starts from the unit's instances before the attempt, and the raw partial
+%% read that stays keeps its own
 ccl_read_unit(Path, How, Unit) :-
+    ccl_global('$ccl_instances', I0, []),
     ccl_parse_file(Path, U0, Info0),
+    ccl_global('$ccl_instances', I1, []),
     (   Info0 == whole -> How = raw, Unit = U0
-    ;   ccl_pp_parse(Path, U1, Info1, Files) -> How = preprocessed, ccl_partial(U1, Info1, Unit), ccl_pp_macros(Ms), ccl_kb_remember_macros(Path, Files, Ms)
-    ;   How = raw, ccl_partial(U0, Info0, Unit) ).
+    ;   nb_setval('$ccl_instances', I0), ccl_pp_parse(Path, U1, Info1, Files) -> How = preprocessed, ccl_partial(U1, Info1, Unit), ccl_pp_macros(Ms), ccl_kb_remember_macros(Path, Files, Ms)
+    ;   nb_setval('$ccl_instances', I1), How = raw, ccl_partial(U0, Info0, Unit) ).
 
 %% A READ THAT WROTE ITS HEADER'S SUMMARY AND AST IS NOTED FOR THE PROCESS (0.218), in a global as the units read here are: the
 %% desugaring registers the header's items from that AST, as a served header's are (cpp_read_now_summarized/2)
