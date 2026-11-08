@@ -564,6 +564,14 @@ k141 :- check('in C++ the program\'s own header is read as its file is: its func
       member(include(_, local('hdrmacro2.h'), file(_, raw, unit(H2))), Is), member(function(_, _, _, plain_h, _, _, _), H2),
       sub_t(var(hcount, _, int(3)), H2) )).
 
+%% LIST AND MAP LITERALS IN C++ (0.269): test/cpp/lit_cpp.cpp, literals beside a lambda's introducer
+k142 :- check('in C++ a [ whose ] no lambda\'s introducer would have after it is a list or map literal, the lambdas beside them read as lambdas, and an attribute\'s [[ after a declarator holds no literal',
+    ( unit('../cpp/lit_cpp.cpp', U), \+ sub_t(list_lit(_, _, _), U), fn_body('../cpp/lit_cpp.cpp', main, B),
+      sub_t(var(v, _, call(id(vector_int_from), [compound_lit(arr(int(3), _), init(_)), int(3)])), B),
+      sub_t(var(w, _, call(id(vector_double_from), [compound_lit(arr(int(2), _), init(_)), int(2)])), B),
+      sub_t(var(e, _, compound_lit(_, init([item([], int(0))]))), B), sub_t(var(m, _, call(id(map_int_double_from), _)), B),
+      sub_t(var(f, _, lambda(_, [param(_, a)], _, _)), B), sub_t(var(g, _, lambda(_, [], _, _)), B) )).
+
 k110 :- check('a type macro that fails, two instances that one name names, and a typed call of a macro with no typed form are refused at the use',
     ( c('tmacro_fail.c', P1), c('tmacro.pl', M), catch(cicilang_ast(P1, _), error(E1, here(P1, 3, in_macro(type_none, M))), true), E1 == macro_failed(none, [base([], [int])]),
       c('tmacro_same.c', P2), catch(cicilang_ast(P2, _), error(macro_error(pair, _, error(ctext_error(T2), _)), here(P2, 7, _)), true),
@@ -843,6 +851,8 @@ t_checks :-
     k140,
     section('in C++ the program\'s own header is read as its file is (0.268)'),
     k141,
+    section('list and map literals in C++, beside a lambda\'s introducer (0.269)'),
+    k142,
     section('the preprocessor, in cocolog: a header raw cannot take'),
     k83,
     section('the lexer, native: ccl_lex_native/6 token for token with the DCG'),

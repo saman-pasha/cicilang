@@ -2343,8 +2343,9 @@ that changes a rule edits the rule here, in its topic, and writes its entry in `
   mark, `ccl_inst_once/2`): a call of one is no throw point for the safe part's defer rule, where `vec_int_push(&v, x)`
   over an own buffer was `owner live where a call may throw, and no defer frees it`, and the lowering makes it a plain
   call. Two C++ units that both make `vector<int>` link, its functions linkonce_odr there too. The C++ gate builds
-  `test/c/run/ctext.c`, `autodrop.c` and `tvector.c` (0.268: its headers `tvhdr.h` and `tvhdr2.h` read as the
-  program's file is, the topic of includes) with cicilang++ and compares each with its `.expect`. (0.267, 0.268)
+  `test/c/run/ctext.c`, `autodrop.c`, `tvector.c` (0.268: its headers `tvhdr.h` and `tvhdr2.h` read as the
+  program's file is, the topic of includes) and `literal.c` (0.269) with cicilang++ and compares each with its `.expect`.
+  (0.267, 0.268, 0.269)
 - **A READ THAT MADE OR MET AN INSTANCE IS KEPT IN NEITHER CACHE** (0.261): what it holds is its unit's -- the instance
   where the unit first used it, a later use naming it alone -- so neither the process's cache nor the store keeps such
   a header's read or such a file's (`ccl_include_read/2`, `ccl_read_file_/3`, over a count of the instances met,
@@ -2395,6 +2396,21 @@ that changes a rule edits the rule here, in its topic, and writes its entry in `
   2)`); an empty one is the empty object, `(T){0}`; `vector<int> e = [];` takes its type from its place, and `a := [];`
   must name it, `[int;]`. Reader `k118` to `k123`; `test/c/run/literal.c` over `tvector.pl` and `literal.pl`, which
   prints what clang's build of its hand expansion prints. (0.263)
+- **A LIST OR MAP LITERAL IN C++** (0.269; `CCLLIB.md`'s phase 0.10): there `[` begins a lambda's introducer too, so a
+  primary `[` begins a literal where its brackets cannot be one -- the token after the `]` that closes them, brackets,
+  parentheses and braces counted (`ccl_brackets_close/3`), is none that follows an introducer (`ccl_lambda_follows/1`:
+  `(`, `{`, `<`, `->`, `[[`, `mutable`, `constexpr`, `consteval`, `static`, `noexcept`, `requires`, a GNU attribute), as
+  `[int; 5, 3];`, `count([4, 5])` and `= [];` have it (`ccl_cpp_list_ahead//0`, a clause before the lambda's). Not in a
+  library header's read, whose `[` is a lambda's, and `[[` begins no literal ([dcl.attr.grammar]/7: two `[` tokens begin
+  an attribute). The literal is then C's, its type from its place, its value the instance's `<name>_from` over a compound
+  literal, which the desugaring takes as C. Reader `k142` over `test/cpp/lit_cpp.cpp`; `test/c/run/literal.c` built as
+  C++. (0.269)
+- **`[[` IS NO ARRAY'S DECLARATOR** where it begins an attribute, in C++ and in C from C23 ([dcl.attr.grammar]/7, C23
+  6.7.12.1; `ccl_no_attr_ahead//0` before the array's clause of `ccl_suffix//2`): a declarator's suffixes stop at it, and
+  the attribute is read as before. The array's clause took `int *data() [[clang::lifetimebound]]`'s outer `[` and read
+  its bound at the inner one, where a lambda's introducer failed until 0.269, and the list literal of 0.269 read
+  `[clang::lifetimebound]` there: a function that answers an array of the literal's size, `invalid cast opcode for cast
+  from 'ptr' to '[0 x ptr]'` at LLVM. The C++ gate's net found it (`vendorattr.cpp`). Reader `k142`. (0.269)
 - A LITERAL'S ELEMENT CONVERTS TO ITS SLOT, A NARROWING ONE REFUSED, as C++'s braced lists refuse it ([dcl.init.list]/7;
   `ccl_lit_narrows/3`): a floating value to an integer type; a wider floating type to a narrower one unless a constant;
   an integer value that is no constant to a floating type; an integer to an integer type that cannot hold it, unless a
@@ -13169,8 +13185,9 @@ Declarations topic of the C++ reader).
   early. A text that puts an unread argument twice reads it twice, its macros run twice, as a `#define` macro's argument
   is expanded where each `#` of it stands. C++'s other init-statements (`if (int x = f(); x)`, `switch`, `while`'s
   condition) still leave their names in the reader's scope after the statement, as `for`'s did before 0.264.
-- CCLLIB IN CICILANG++, WHAT 0.268 LEAVES (`CCLLIB.md`'s phase 0.10): list literals, the operators on instances, an
-  argument taken unread and the safety rules of 0.265 to 0.267 are C's. cicilang++ takes `int *p = realloc(...)` with
+- CCLLIB IN CICILANG++, WHAT 0.269 LEAVES (`CCLLIB.md`'s phase 0.10): the operators on instances, an argument taken
+  unread and the safety rules of 0.265 to 0.267 are C's. In C++ a list literal's first element is no list literal: two
+  `[` tokens begin an attribute there ([dcl.attr.grammar]/7), so `[[int; 1], [int; 2]]` reads as no literal. cicilang++ takes `int *p = realloc(...)` with
   no cast, which clang++ refuses ([conv.ptr]/2 converts a `T *` to `void *`, not back): the macro files cast, as C++
   asks. A program's own header that does not read whole in C++ through the preprocessor in the file's mode goes the old
   way (0.268): raw, its macros unexpanded, or flattened, a library header to the desugaring.

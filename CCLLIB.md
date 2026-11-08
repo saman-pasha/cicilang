@@ -306,8 +306,12 @@ A type macro gives its instances operators that the reader writes as calls: `v[i
   through the preprocessor is the program's, its functions defined once, and a header's function that uses the
   header's own macro holds the expansion. Both faults were older than ccllib. The C++ gate builds `tvector.c` with
   cicilang++ too, its type macros in the program's own headers `tvhdr.h` and `tvhdr2.h`.
-- WHAT 0.268 LEAVES: list literals beside a lambda's introducer, the operators, an argument taken unread and the safety
-  rules of 0.265 to 0.267 in C++.
+- DONE AT 0.269 (`RULES.md`, the topic of the language's own forms): list and map literals in C++, beside a lambda's
+  introducer: a `[` begins a literal where the `]` that closes it is followed by none of what follows an introducer, so
+  `v := [int; 5, 3, 9];`, `vector<int> e = [];` and `count([4, 5])` read as in C and the lambdas beside them as lambdas.
+  The C++ gate builds `literal.c` with cicilang++ too. `[[` begins an attribute in C++, so a literal's first element is
+  no literal there.
+- WHAT 0.269 LEAVES: the operators, an argument taken unread and the safety rules of 0.265 to 0.267 in C++.
 
 ### Order
 

@@ -263,6 +263,7 @@ One row per step, in version order: the step's title, what it did and its gate n
 | 0.266 | operators on instances: `a + b`, `a == b`, `v[i]`, `out << x` and `in >> x` in C | the next item of CCLLIB.md's phase 0, in C: where the left operand or the object of [] is an object of an instance's type, the reader writes the operator as the call of the function that its type macro defines for it (_add, _eq, _lt, _index, _shl_<word>, _shr_<word>), an operand by its address where the parameter is a pointer; refused by name where the macro defines none, an rvalue or another type where the address goes, an instance on the right only; the fixture found a hole: a result tied to a struct with own fields was a borrow of the struct, so a place that [] answered outlived the insertion's realloc -- a borrow of the fields now | the flow gate; over libc++ 18 all nine GREEN (the C++ gate 1238 s, 866 ok); the C++ gates over 21 and 22 GREEN (874 and 877 ok); a commit and a push |
 | 0.267 | ccllib in cicilang++, parts 1 and 2: `vector<int>`, `max<double>`, C text and autodrop in C++ | the first two parts of CCLLIB.md's phase 0.10: a type macro's unqualified name and a typed function macro in C++, outside a library header's read; a C text's functions noexcept in C++; the empty object of = {0} in C++'s check; autodrop in C++ with the check's rules of 0.262, run where an exception unwinds too; the C++ gate builds ctext.c and autodrop.c with cicilang++; found and fixed: a terminate handler did not end its path, and a hole of C's (a null own field that a call may fill stayed null); recorded: two older faults with the program's own headers in C++ | the flow gate; over libc++ 18 all nine GREEN (the C++ gate 1235 s, 866 ok); the C++ gates over 21 and 22 GREEN (874 and 877 ok); a commit and a push |
 | 0.268 | the program's own header in C++, read as the program's file is: `tvector.c` in C++ | the next part of CCLLIB.md's phase 0.10: in C++ the program's own header goes through the preprocessor in the user's file's mode -- its directives run, its macros expanded, its includes passed on to the reader -- where it was read raw (a function of the header kept the header's own macro unexpanded, `undeclared('TWICE')`, `assert` alike) or flattened (a library header to the desugaring AND the program's, each function defined twice); the C++ gate builds tvector.c with cicilang++; hdrmacro.cpp, reader k141 | the flow gate; over libc++ 18 all nine GREEN (the C++ gate 1242 s, 867 ok); the C++ gates over 21 and 22 GREEN (875 and 878 ok); a commit and a push |
+| 0.269 | list and map literals in C++, beside a lambda's introducer: `literal.c` in C++ | the next part of CCLLIB.md's phase 0.10: in C++ a `[` begins a list or map literal where the `]` that closes it is followed by none of what follows a lambda's introducer, outside a library header's read, so `v := [int; 5, 3, 9];` and `= [];` read as in C and the lambdas beside them as lambdas; a `[[` is no array's declarator (vendorattr.cpp, which the net found); the C++ gate builds literal.c with cicilang++; lit_cpp.cpp, reader k142 | the flow gate; over libc++ 22 the library read and the C++ gate GREEN (878 ok); the chain stopped in its libc++ 21 part on the owner's word; a commit and a push |
 
 ## M5 — the C++ mode
 
@@ -18330,3 +18331,64 @@ Linux (setup 7:45, gates 2:39), Apple silicon (11:51, 5:51), the Intel Mac (16:2
   fixtures built as C++. `RULES.md`, `CLAUDE.md`, `README.md`, `CCLLIB.md`.
 
 The module 0.268; the reader 178 (what a read gives changes); the lowering 154 stays.
+
+## 0.269 — list and map literals in C++, beside a lambda's introducer: `literal.c` in C++
+
+**0.269: the next part of `CCLLIB.md`'s phase 0.10, on the owner's word ("Commit and push after every task finished,
+continue"): in C++ a `[` that begins a primary was always a lambda's introducer, and `[int; 5, 3, 9]` a syntax error. It
+begins a list or map literal now where its brackets cannot be an introducer, and the C++ gate builds `literal.c` with
+cicilang++. The chain ran over cocolog 3.37.0 at the pins, as 0.268's did.**
+
+THE READ. The lambda's clause of `ccl_primary_//3` cut at C++'s `[` at once. A clause before it reads a literal where
+the token after the `]` that closes the brackets -- brackets, parentheses and braces counted on the way
+(`ccl_brackets_close/3`) -- is none that follows a lambda's introducer (`ccl_lambda_follows/1`: `(`, `{`, `<`, `->`, an
+attribute's `[[`, `mutable`, `constexpr`, `consteval`, `static`, `noexcept`, `requires`, a GNU attribute), as `[int; 5,
+3, 9];`, `count([4, 5, 6, 7])`, `return [0.5, 1.5, 2.5];` and `vector<int> e = [];` have it (`ccl_cpp_list_ahead//0`,
+which reads nothing). A library header's read keeps its `[` for lambdas, and `[[` begins no literal: two `[` tokens
+begin an attribute in C++ ([dcl.attr.grammar]/7), so a literal's first element is no literal there. The literal is then
+C's: its type from its place, the hooks in the grammar that both languages share (a block's declaration, `:=`, `=`, a
+call's argument, a return), and its value the instance's `<name>_from` over a compound literal, which the desugaring
+passes on as C.
+
+THE ATTRIBUTE AFTER A DECLARATOR. The C++ gate's net over the probe copy found one failure, `vendorattr.cpp`: `invalid
+cast opcode for cast from 'ptr' to '[0 x ptr]'` at LLVM. Its `int *data() [[clang::lifetimebound]] { return &x; }` met
+the array's clause of `ccl_suffix//2`, which took the attribute's outer `[` and read the array's bound at the inner one:
+until 0.269 a lambda's introducer failed there and the clause gave the brackets back, and 0.269's literal read
+`[clang::lifetimebound]` -- a function that answered an array of the literal's size. A `[[` is no array's declarator now
+where it begins an attribute, in C++ and in C from C23 ([dcl.attr.grammar]/7, C23 6.7.12.1; `ccl_no_attr_ahead//0`): the
+suffixes stop at it, and the attribute is read as before. Over the probe copy with the fix the 24 C++ run fixtures that
+hold `[[` and the 3 C ones (`c23.c`, `enumattr.c`, `gnuattrc.c`) print what they should, `vendorattr.cpp` among them,
+and an attribute after a declarator-id (`int z [[maybe_unused]] = 2;`) reads.
+
+THE PROBES. Without a library header, the names that the instances' C text calls declared by hand (`size_t`, `realloc`,
+`free`): `vector<int> v = [int; 5, 3]`, `v := [int; 5, 3, 9]`, a map literal, an empty one and a lambda beside them,
+each the length or the count it must give; `test/cpp/lit_cpp.cpp` exits 8. A first probe that included no `<stdlib.h>`
+met `no_member(len, vector_int)` in the instance's own function, with 0.268 as well: the C text's `size_t` was no type
+there. The program must declare what the text uses, as `tvector.c` does.
+
+THE FIXTURES. `test/cpp/lit_cpp.cpp`, reader check `k142` (the literals' calls of `vector_int_from`,
+`vector_double_from` and `map_int_double_from`, the empty object, the two lambdas, and no literal left in the unit
+beside a member function whose declarator an attribute follows); `literal` in the C++ gate's list of ccllib run fixtures
+built by cicilang++, whose build prints what its C build prints.
+
+THE NETS before the chain: the flow gate over the work tree GREEN with no finding (86 s, peak 4229 MB); over the probe
+copy (the reader 178 over a warm HOME), `literal.c` built by cicilang++ prints what its C build prints, and the C++ gate
+gave 866 ok, 11 skipped by their needs, and one failure, `vendorattr.cpp` (the attribute after a declarator, above).
+With the fix, the 24 C++ run fixtures that hold `[[` and the 3 C ones print what they should, `lit_cpp.cpp` with its
+attribute exits 8, and the reader gate is GREEN, 143 checks.
+
+THE CHAIN of 0.269 over its work tree, cocolog 3.37.0 and ZiguratIP 1.0.2 at the pins and fresh HOMEs, was stopped in
+its libc++ 21 part when the owner asked for the commit ("For now commit and push and pause"): over libc++ 22 the library
+read GREEN in 361 s and the C++ gate GREEN in 1283 s (878 ok, none skipped); over libc++ 21 the library read GREEN in
+346 s, its C++ gate stopped in its pool; the libc++ 18 part, all nine gates, did not run. The step claims nothing GREEN
+but these and the nets above, and the next chain, over the tree of 0.270, which holds this step, carries the rest.
+
+THE CI OF 0.268 (`eb1ed69`), over cocolog 3.37.0 at its pins: its smoke run (42524863685) GREEN on the three machines --
+Linux (setup 7:17, gates 2:32), Apple silicon (10:28, 6:31), the Intel Mac (17:45, 10:39).
+
+- `library/ccl_syntax.pl`: the C++ literal's clause of `ccl_primary_//3` before the lambda's, `ccl_cpp_list_ahead//0`,
+  `ccl_brackets_close/3`, `ccl_lambda_follows/1`; `ccl_no_attr_ahead//0` in the array's clause of `ccl_suffix//2`; the
+  reader 179. `test/cpp/lit_cpp.cpp`; `test/reader.pl`: `k142`; `test/cpp.sh`: `literal` in the list of ccllib's run
+  fixtures built as C++. `RULES.md`, `CLAUDE.md`, `README.md`, `CCLLIB.md`.
+
+The module 0.269; the reader 179 (what a read gives changes); the lowering 154 stays.
