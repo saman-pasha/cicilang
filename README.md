@@ -398,6 +398,15 @@ its owner", where `at(v, 0)` and `len(v)`, whose pointee is const, keep `p`.
 `&v.data[i]` is a borrow of the buffer, as `v.data + i` is.
 `test/c/run/elemborrow.c` is the example.
 
+A type macro gives its instances operators (0.266): over an instance, the
+reader writes `a + b`, `a == b`, `a < b`, `v[i]`, `out << x` and `in >> x` as
+the calls of the functions that its type macro names for them --
+`<name>_add`, `_eq`, `_lt`, `_index`, `_shl_<word>` and `_shr_<word>` -- and
+refuses an operator that the macro does not define. A `[]` that answers a
+place in the object's buffer is tied to the object, so `int *p = &m[3];
+m[9] = 1; *p` is refused, as a use after a push is.
+`test/c/run/operators.c` is the example.
+
 `format`, `print`, `println` and `clone` are global macros, there in every
 program without an include (`library/ccl_format.pl`). The format string
 has Rust's holes, each becoming the `printf` conversion of its argument's

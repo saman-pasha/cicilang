@@ -814,7 +814,16 @@ ck_borrows_from(call(id(F), Args), St, P) :- ccl_lang(cpp), atom(F), cpp_library
 ck_borrows_from(call(id(F), Args), St, P) :- ccl_lang(cpp), atom(F), cpp_library_function(F), catch(ccl_declared(F, fn(_, Ps, _)), _, fail),
     ck_ref_object(Args, Ps, E), ck_path_root(E, R), \+ ( catch(ccl_type_of(E, ET), _, fail), ET \== unknown, ( ck_carries_type(ET) ; ck_value_like(ET) ) ), !, ck_borrow_of(R, St, P).
 ck_borrows_from(call(id(F), [A|_]), St, P) :- atom(F), ck_library_borrow(F), !, ck_borrows_from(A, St, P).   % a place in its first argument's object (0.206, ck_library_borrow/1)
-ck_borrows_from(call(F, Args), St, P) :- ck_callee_sig(F, fn(R, _, _)), \+ ck_own_type(R), ck_call_tie(call(F, Args), St, P0), !, P = P0.
+ck_borrows_from(call(F, Args), St, P) :- ck_callee_sig(F, fn(R, _, _)), \+ ck_own_type(R), ck_call_tie(call(F, Args), St, P0), !, ck_tied_own(call(F, Args), St, P0, P).
+%% A RESULT TIED TO A STRUCT WITH OWN FIELDS IS A BORROW OF THEM (0.266; CCLLIB.md's phase 0.9, in C): `V *f(S *s, ...)
+%% tie s' over `&x', or over a pointer that borrows x, may answer a place in a buffer that x owns -- `&m[k]' over a
+%% dictionary, `*dict_index(&m, k)' -- so its borrow is of an own field of x, the first that the state holds, which a
+%% call that may replace x's own fields ends with the others (ck_replaced_args/5), as a move or a drop of x ends it. It
+%% was a borrow of x, which no such call ends: `int *p = &m[3]; m[9] = 1; *p' read the buffer that the insertion's
+%% realloc freed
+ck_tied_own(call(F, Args), St, _, P) :- \+ ccl_lang(cpp), ck_callee_sig(F, fn(R, Ps, _)), ccl_tie_of(R, Y), ck_param_index(Ps, Y, 1, I),
+    ccl_nth(I, Args, A), ck_replaced_base(A, St, K), ck_own_under(St, K, [P|_]), !.
+ck_tied_own(_, _, P, P).
 %% a pointer's value, not an array's storage, for `&a[i]' (0.265): a pointer-typed place, or a parameter
 ck_points_into(id(N)) :- atom(N), ck_is_param(N), \+ ck_is_ref(N), !.
 ck_points_into(A) :- catch(ccl_type_of(A, T), _, fail), T \== unknown, catch(ccl_resolve_type(T, T1), _, fail), T1 = ptr(_, _).

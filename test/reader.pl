@@ -512,6 +512,48 @@ k133 :- check('cicilang++ refuses by name a macro that takes an argument unread:
       nonvar(E), E = error(macro_error(M, here(P, 4)), _),
       M == 'the macro loop takes an argument unread, which cicilang reads in C and cicilang++ does not yet (CCLLIB.md\'s phase 0.10)' )).
 
+%% OPERATORS ON INSTANCES (0.266; CCLLIB.md's phase 0.9): test/c/run/operators.c over its topers.pl, op_ptr.c and the
+%% refusals op_*.c
+k134 :- check('+ and - over an instance are the calls of its type macro\'s _add and _sub, by value as their parameters are, and a + b + c chains on the value',
+    ( fn_body('run/operators.c', main, B),
+      sub_t(var(c, _, call(id(pt_double_add), [id(a), id(b)])), B), sub_t(var(d, _, call(id(pt_double_sub), [id(c), id(a)])), B),
+      sub_t(var(e, _, call(id(pt_double_add), [call(id(pt_double_add), [id(a), id(b)]), id(c)])), B) )).
+
+k135 :- check('the comparisons over an instance are its _eq and _lt by address, as their parameters are: != the negated _eq, > _lt of the operands swapped, <= and >= the negated _lt',
+    ( fn_body('run/operators.c', main, B), A = addr(id(a)), Y = addr(id(b)),
+      sub_t(call(id(printf), [_, call(id(pt_double_eq), [A, Y]), _, not(call(id(pt_double_eq), [A, Y])), call(id(pt_double_lt), [A, Y]),
+          call(id(pt_double_lt), [Y, A]), call(id(pt_double_lt), [Y, A]), not(call(id(pt_double_lt), [A, A])), not(call(id(pt_double_lt), [Y, A]))]), B) )).
+
+k136 :- check('v[i] over an instance is *<name>_index(&v, i), an lvalue -- assigned, compound-assigned, incremented, its address kept -- and an array member\'s [] stays C\'s',
+    ( fn_body('run/operators.c', main, B), M = deref(call(id(dict_int_int_index), [addr(id(m)), int(3)])),
+      sub_t(assign('=', deref(call(id(ring_int_4_index), [addr(id(r)), id(i)])), _), B),
+      sub_t(assign('+=', deref(call(id(ring_int_4_index), [addr(id(r)), int(1)])), int(5)), B),
+      sub_t(var(q, _, addr(deref(call(id(ring_int_4_index), [addr(id(r)), int(2)])))), B),
+      sub_t(postinc(M), B), sub_t(var(slot, _, addr(M)), B), sub_t(index(member(id(r), a), int(0)), B) )).
+
+k137 :- check('out << x is <name>_shl_<word>(out, x), the word of x\'s type, and chains on the pointer it answers; in >> x is <name>_shr_<word>(in, &x)',
+    ( fn_body('run/operators.c', main, B), atom_codes('a = ', S1),
+      sub_t(call(id(tbuf_char_shl_int), [call(id(tbuf_char_shl_ptr_char), [addr(id(out)), str(S1)]), int(3)]), B),
+      sub_t(call(id(tbuf_char_shl_double), [_, float(2.5)]), B),
+      sub_t(call(id(tbuf_char_shr_int), [call(id(tbuf_char_shr_int), [addr(id(in)), addr(id(p))]), addr(id(n))]), B) )).
+
+k138 :- check('s + t over a text whose _add takes pointers is its call over the operands\' addresses, and the new text is dropped where its scope ends',
+    ( fn_body('run/operators.c', main, B),
+      sub_t(var(st, _, call(id(tbuf_char_add), [addr(id(s)), addr(id(t))])), B), sub_t(defer(_, ['$autodrop'(st)], _), B) )).
+
+k139 :- check('+ over a pointer to an instance is C\'s pointer arithmetic, == and > over two such pointers C\'s comparisons, + over ints C\'s',
+    ( fn_body('op_ptr.c', main, B), sub_t(var(pq, _, bin('+', id(pp), int(1))), B), sub_t(bin('==', id(pq), bin('+', id(pp), int(1))), B),
+      sub_t(bin('>', id(pq), id(pp)), B), sub_t(var(k, _, bin('+', int(2), int(3))), B) )).
+
+op_refused(F, L, M) :- c(F, P), catch(cicilang_ast(P, _), error(macro_error(M0, here(P, L0)), _), true), L0 == L, M0 == M.
+k140 :- check('an instance\'s operator is refused at its line by name: one its type macro does not define, an rvalue where its address goes, an operand of another type, no instance on the left, >> into no lvalue, a type whose word names no function',
+    ( op_refused('op_undefined.c', 5, 'the operator * of pt_double is not defined: its type macro defines no pt_double_mul'),
+      op_refused('op_rvalue.c', 6, 'the operator == of pt_double takes the address of its operand, which is no lvalue: name it first'),
+      op_refused('op_type.c', 6, 'the operator == of pt_double takes an object of pt_double, which its operand is not'),
+      op_refused('op_left.c', 5, 'the operator + of pt_double takes the object on its left'),
+      op_refused('op_shr.c', 9, 'the operator >> of tbuf_char reads into its right operand, which is no lvalue'),
+      op_refused('op_word.c', 9, 'the operator << of tbuf_char is not defined: its type macro defines no tbuf_char_shl_float') )).
+
 k110 :- check('a type macro that fails, two instances that one name names, and a typed call of a macro with no typed form are refused at the use',
     ( c('tmacro_fail.c', P1), c('tmacro.pl', M), catch(cicilang_ast(P1, _), error(E1, here(P1, 3, in_macro(type_none, M))), true), E1 == macro_failed(none, [base([], [int])]),
       c('tmacro_same.c', P2), catch(cicilang_ast(P2, _), error(macro_error(pair, _, error(ctext_error(T2), _)), here(P2, 7, _)), true),
@@ -781,6 +823,14 @@ t_checks :-
     k131,
     k132,
     k133,
+    section('operators on instances: a + b, a == b, v[i], out << x, in >> x (0.266)'),
+    k134,
+    k135,
+    k136,
+    k137,
+    k138,
+    k139,
+    k140,
     section('the preprocessor, in cocolog: a header raw cannot take'),
     k83,
     section('the lexer, native: ccl_lex_native/6 token for token with the DCG'),

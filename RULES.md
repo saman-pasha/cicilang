@@ -2417,6 +2417,28 @@ that changes a rule edits the rule here, in its topic, and writes its entry in `
   typedef: `x := at(v, 1);` was `not lowered yet: typedef(ccl_hole_1_T)` since 0.261. Where the unit read a C text, its
   items -- an included file's are its own read's -- are walked at the end, and each such name is its type, the
   qualifiers before it joining it (`ccl_unhole_items/3`). Reader `k130`. (0.264)
+- **OPERATORS ON INSTANCES** (0.266; `CCLLIB.md`'s phase 0.9): in C, where the left operand of `+ - * / == != < > <=
+  >= << >>`, or the object of `[]`, is an object of an instance's type -- the instance's struct, through any typedef
+  (`ccl_iop_inst/2`) -- the reader writes the operator as the call of the function that the instance's items define for
+  it, named as its drop and its `<name>_from` are (`ccl_iop_binary/4`, `ccl_iop_index/3`, the table `ccl_iop_word/3`):
+  `v[i]` is `*<name>_index(&v, i)`, an lvalue; `a == b` is `<name>_eq(a, b)` and `a != b` its `!`; `a < b` is
+  `<name>_lt(a, b)`, `a > b` `lt(b, a)`, `a <= b` `!lt(b, a)` and `a >= b` `!lt(a, b)`; `+ - * /` are `_add`, `_sub`,
+  `_mul`, `_div`; `out << x` is `<name>_shl_<word>(out, x)` and `in >> x` `<name>_shr_<word>(in, &x)`, the word of x's
+  type decayed and unqualified (`ccl_type_word/2`: `int`, `double`, `ptr_char`), and on the left of `<<` and `>>` a
+  pointer to the instance is taken too, so that `out << a << b` chains on the pointer that `<<` answers. An operand goes
+  by its address where the function's parameter is a pointer to the instance, by its value where it is not
+  (`ccl_iop_arg/5`): the macro decides, and `a + b + c` chains by value. A pointer to an instance keeps C's pointer
+  arithmetic and comparisons, an array member's `[]` is C's, and C++ keeps its own operators (phase 0.10). A `[]` that
+  answers a place in a buffer that the object owns is written `tie` its object (the safe part's topic of borrows).
+  Reader `k134` to `k139`; `test/c/run/operators.c` over `topers.pl` -- a point, a ring, a dictionary, a text -- which
+  prints what clang's build of its hand expansion prints, its allocations all freed. (0.266)
+- REFUSED AT THE OPERATOR (0.266), `macro_error(Message, here(File, Line))`: an operator that the instance's type macro
+  does not define (`the operator * of pt_double is not defined: its type macro defines no pt_double_mul`), a `<<` of a
+  type whose word names no function among them (`tbuf_char_shl_float`: a float is not promoted, as no prototype
+  converts it); an operand that is no lvalue where its address goes (`(a + b) == c`, `name it first`); an operand of
+  another type there (`a == 0`, which C would take for a null pointer); an instance on the right of an operator whose
+  left operand is none (`1 + a`, which was `not lowered yet: type(unknown)`); a right operand of `>>` that is no lvalue.
+  Reader `k140`; the driver gate. (0.266)
 
 ## The C++ reader
 
@@ -9373,6 +9395,16 @@ The namespaces' rules, the program's and the library's, are `library/ccl_cpp_nam
   none; a callee with no prototype may replace them. `test/c/safe/borrow_after_grow.c`, `borrow_after_push.c`,
   `elem_after_push.c`, `grow_through_ptr.c`; `test/c/run/elemborrow.c` keeps a borrow across `at` and `len`, whose
   pointee is const, and takes a new one after `push`; the driver gate's message. (0.265)
+- **A RESULT TIED TO A STRUCT WITH OWN FIELDS IS A BORROW OF THEM** (0.266; `CCLLIB.md`'s phase 0.9, in C): the result
+  of `V *f(S *s, ...) tie s` over `&x`, or over a pointer that borrows x, may be a place in a buffer that x owns --
+  `&m[k]` over a dictionary, `&*dict_int_int_index(&m, k)` -- so it is a borrow of an own field of x, the first that
+  the check's state holds (`ck_tied_own/4`), which a call that may replace x's own fields ends with the others (the rule
+  above), as a move or a drop of x ends it. It was a borrow of x, which no such call ends: `int *p = &m[3]; m[9] = 1;
+  *p` read the buffer that the insertion's `realloc` had freed, and ran. The message names that field
+  (`borrowed_from('m.vals')`). A result tied to a struct with no own fields stays a borrow of it (`ring<int, 4>`'s
+  `[]`). `test/c/safe/index_after_insert.c`,
+  `tied_after_call.c`; `test/c/run/operators.c` keeps such a place and reads it before the next call; the driver gate's
+  message. (0.266)
 - **AN OWN FIELD OF A CONST OBJECT IS NO MODIFIABLE LVALUE** (C17 6.5.16/2; 0.265, in C): its assignment is refused in
   clang's words, `cannot assign to variable 'b' with const-qualified type 'const buf *'` (`ck_const_owner_slot/1`;
   through `->` the object is const where the pointee is, through `.` where its own type or its object is), so a callee
@@ -13075,6 +13107,12 @@ Declarations topic of the C++ reader).
   early. A text that puts an unread argument twice reads it twice, its macros run twice, as a `#define` macro's argument
   is expanded where each `#` of it stands. C++'s other init-statements (`if (int x = f(); x)`, `switch`, `while`'s
   condition) still leave their names in the reader's scope after the statement, as `for`'s did before 0.264.
+- OPERATORS ON INSTANCES, THEIR LIMITS (0.266; `CCLLIB.md`'s phase 0.9): the unary operators (`-a`, `!a`, `*it`,
+  `++it`) and the compound assignments over an instance (`a += b`) are no calls, and `%`, `&`, `|` and `^` are not in
+  the table; the left operand decides, so `2 * a` is refused where C++ finds a free `operator*(double, pt)`; the word of
+  `<<`'s operand is its exact type's, so a `const char *` asks `_shl_ptr_const_char` beside a literal's `_shl_ptr_char`;
+  a result tied to a struct with own fields is a borrow of one of them, so a hand free of another does not end it, as
+  none did before 0.266; C++ keeps its own operators until ccllib comes to cicilang++ (phase 0.10).
 - TWO MACRO FILES THAT DEFINE ONE PREDICATE, IN ONE PROCESS (found at 0.263): a macro file's predicates are the
   process's, consulted once, so a second file that defines a name the first defines is not its own there -- the reader
   gate and the compile gate read every fixture in one process, and `literal.pl`'s own `type_vector/3` was `tvector.pl`'s

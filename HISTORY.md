@@ -260,6 +260,7 @@ One row per step, in version order: the step's title, what it did and its gate n
 | 0.263 | list and map literals: `[int; 5, 3, 9]` and `[int:double; 5: 1.25]` in C | the next item of CCLLIB.md's phase 0, on the owner's decisions (a literal gives its types before a ;, a map's two types K:V): a `[' begins a C primary; the place gives the literal its type -- a declaration's, the left side of =, a call's parameter, a return's -- and := makes vector<T> or map<K, V> of its types or its elements' usual conversions; the value a call of the instance's <name>_from over compound literals, an empty one the empty object; refused at the read: narrowing as C++'s braced lists, two equal constant keys, no types to name, mixed items, a target that is no instance, no common type, a variadic argument, other types, no type macro; two macro files that define one predicate collide in one process (recorded) | the flow gate; over libc++ 18 all nine GREEN (the C++ gate 1286 s, 866 ok); the C++ gates over 21 and 22 GREEN (874 and 877 ok); a commit and a push |
 | 0.264 | arguments read after the outer macro: `loop(m, 3, println("m = {}", m))` in C | the next item of CCLLIB.md's phase 0: unread(B) at a place of a macro's clause head takes that argument unread, its tokens, and the macro's C text reads them where it puts them, after the text declares its names; the reader splits the call's arguments at the commas outside brackets; refused at the call: an unread argument given back, one that does not read where the text puts it, and in C++ by name; found and fixed: a for's init names stayed in the reader's scope after the loop, and a C text's type stand-in reached the AST (x := at(v, 1) not lowered since 0.261) | the flow gate; over libc++ 18 all nine GREEN (the C++ gate 1286 s, 866 ok); the C++ gates over 21 and 22 GREEN (874 and 877 ok); a commit and a push |
 | 0.265 | two safety rules: `&v.data[0]` a borrow of the buffer, and a call that may replace it ends the borrows | the next item of CCLLIB.md's phase 0, in C: &a[i] over a pointer is a + i (an element's address a borrow of the buffer; return &p[1] of a parameter taken, refused since 0.219); a call that takes a struct by a plain pointer, not to const, ends the caller's borrows of its own fields, borrow_after_call -- iterator invalidation at compile time; an own field of a const object is no modifiable lvalue, refused in clang's words | the flow gate; over libc++ 18 all nine GREEN (the C++ gate 1272 s, 866 ok); the C++ gates over 21 and 22 GREEN (874 and 877 ok); a commit and a push |
+| 0.266 | operators on instances: `a + b`, `a == b`, `v[i]`, `out << x` and `in >> x` in C | the next item of CCLLIB.md's phase 0, in C: where the left operand or the object of [] is an object of an instance's type, the reader writes the operator as the call of the function that its type macro defines for it (_add, _eq, _lt, _index, _shl_<word>, _shr_<word>), an operand by its address where the parameter is a pointer; refused by name where the macro defines none, an rvalue or another type where the address goes, an instance on the right only; the fixture found a hole: a result tied to a struct with own fields was a borrow of the struct, so a place that [] answered outlived the insertion's realloc -- a borrow of the fields now | the flow gate; over libc++ 18 all nine GREEN (the C++ gate 1238 s, 866 ok); the C++ gates over 21 and 22 GREEN (874 and 877 ok); a commit and a push |
 
 ## M5 — the C++ mode
 
@@ -18090,3 +18091,76 @@ Linux (setup 10:05, gates 3:39), Apple silicon (10:58, 5:54), the Intel Mac (19:
 
 The module 0.265; the reader 175 stays; the lowering 152 (the check's verdicts change, so a stored IR of a program that
 it now refuses is not served).
+
+## 0.266 — operators on instances: `a + b`, `a == b`, `v[i]`, `out << x` and `in >> x` in C
+
+**0.266: the next item of `CCLLIB.md`'s phase 0, 0.9, on the owner's word ("Commit and push after every task finished,
+continue"): a type macro gives its instances operators, which the reader writes as the calls of the functions that the
+instance's items define for them, as it calls `<name>_drop` and `<name>_from`. In C; C++ keeps its own operators until
+phase 0.10. The chain ran over cocolog 3.37.0 at the pins, as 0.265's did.**
+
+THE OPERATOR IS A CALL. Where the left operand of `+ - * / == != < > <= >= << >>`, or the object of `[]`, is an object
+of an instance's type -- the instance's struct, through any typedef (`ccl_iop_inst/2`) -- the reader writes the operator
+as the call of the function named for it in the table `ccl_iop_word/3` (`ccl_iop_binary/4` in `ccl_binary_rest//3`,
+`ccl_iop_index/3` at `[`): `v[i]` is `*<name>_index(&v, i)`, an lvalue that is assigned, compound-assigned, incremented
+and taken the address of; `a == b` is `<name>_eq(a, b)` and `a != b` its `!`; `a < b` is `<name>_lt(a, b)`, `a > b`
+`lt(b, a)`, `a <= b` `!lt(b, a)` and `a >= b` `!lt(a, b)`; `+ - * /` are `_add`, `_sub`, `_mul` and `_div`; `out << x`
+is `<name>_shl_<word>(out, x)` and `in >> x` `<name>_shr_<word>(in, &x)`, the word of x's type decayed and unqualified
+(`ccl_type_word/2`: `int`, `double`, `ptr_char`), and on the left of `<<` and `>>` a pointer to the instance is taken
+too, so that `out << "a = " << 3` chains on the pointer that `<<` answers. An operand goes by its address where the
+function's parameter is a pointer to the instance, and by its value where it is not (`ccl_iop_arg/5`): the macro
+decides, and `a + b + c` chains by value over a point whose `_add` takes values. A pointer to an instance keeps C's
+pointer arithmetic and comparisons, and an array member's `[]` is C's.
+
+REFUSED BY NAME AT THE OPERATOR, `macro_error(Message, here(File, Line))`: an operator that the type macro does not
+define (`the operator * of pt_double is not defined: its type macro defines no pt_double_mul`), and a `<<` of a type
+whose word names no function among them (a float asks `_shl_float`, as no prototype promotes it); where the address
+goes, an operand that is no lvalue (`(a + b) == c`, `name it first`) or one of another type (`a == 0`, which C would
+take for a null pointer and pass); an instance on the right of an operator whose left operand is none (`1 + a`, which
+was `not lowered yet: type(unknown)`); a right operand of `>>` that is no lvalue. The first probe met a defect of the
+step's own: an instance's record keeps the macro's name first (`inst(pt, [double], Type, Drop)`), so the function was
+looked for as `pt_add`; the name is its type's now (`ccl_inst_type_name/2`).
+
+THE FIXTURE FOUND A HOLE IN THE SAFE PART. A dictionary's `[]` answers a place in its buffer, `&m->vals[i]`, which the
+check refused as a borrow that leaves the function until the function was written `tie m`. Then `int *p = &m[3]; for
+(int i = 10; i < 20; i++) m[i] = i; printf("%d\n", *p);` was taken, and it printed what the insertions' `realloc` had
+left there (1956217625): the tied result was a borrow of m, and 0.265's rule ends the borrows of m's own fields, not of
+m. A result tied to a struct with own fields is a borrow of one of them now, the first that the check's state holds
+(`ck_tied_own/4` in `ck_borrows_from/3`), which a call that may replace the fields ends with the others, as a move or a
+drop of the struct ends it: `borrow_after_call`, `borrowed_from('m.vals')`. A result tied to a struct with no own fields
+stays a borrow of it, so a ring's `[]` keeps its place across calls. `test/c/safe/index_after_insert.c` and
+`tied_after_call.c` (with no type macro) are refused; `operators.c` keeps a place that `[]` answers and reads it before
+the next call. A probe of mine that read `m[3]` in the same `printf` as the kept place was refused too, and rightly: a
+`[]` of this dictionary may insert.
+
+THE FIXTURE, `test/c/run/operators.c` over `topers.pl`: a point with `+`, `-` and the six comparisons, a ring and a
+dictionary with `[]`, a text with `<<`, `>>` and `+`. It prints what clang's build of its hand expansion prints, line
+for line, and under valgrind both builds free all ten of their allocations. `test/c/op_ptr.c` keeps C's operators over a
+pointer to a point; `test/c/op_*.c` are the six refusals.
+
+THE NETS before the chain, over the work tree and fresh HOMEs: the compile gate GREEN, 249 checks; the reader gate
+GREEN, 141 (`k134` to `k140`; one of mine was wrong at first, a pattern whose variable its first match bound); the
+driver gate GREEN, 64 (the messages of an undefined operator and of the dictionary's place); the flow gate GREEN with no
+finding (92 s, peak 4155 MB). No C++ net: each change asks `\+ ccl_lang(cpp)` first, so a C++ read and a C++ verdict are
+0.265's, which the chain's C++ gates hold.
+
+MEASUREMENTS: the chain of 0.266 over its work tree, cocolog 3.37.0 and ZiguratIP 1.0.2 at the pins and fresh HOMEs:
+over libc++ 22 the library read 357 s and the C++ gate 1293 s (877 ok, none skipped); over libc++ 21 355 s and 1260 s
+(874 ok, 3 skipped); over libc++ 18 all nine GREEN -- the flow gate 84 s with no finding, reader 3 s, compile 26 s,
+driver 37 s, objects 4 s, proof, the cross gate 306 s, the library read 402 s, the C++ gate 1238 s (866 ok, 11 skipped
+by their needs); in 5367 s.
+
+THE CI OF 0.265 (`b1a0e63`), over cocolog 3.37.0 at its pins: its smoke run (42498146437) GREEN on the three machines --
+Linux (setup 9:56, gates 3:33), Apple silicon (12:01, 6:09), the Intel Mac (19:27, 9:12).
+
+- `library/ccl_syntax.pl`: `ccl_iop_index/3`, `ccl_iop_binary/4`, `ccl_iop_word/3`, `ccl_iop_make/5`, `ccl_iop_inst/2`,
+  `ccl_iop_ptr_inst/2`, `ccl_iop_inst_type/2`, `ccl_iop_fn/4`, `ccl_iop_args/5`, `ccl_iop_arg/5`, `ccl_iop_lvalue/1`,
+  `ccl_iop_fail/1`, called in `ccl_binary_rest//3` and at `[` in `ccl_postfix_p//3`; the reader 176.
+  `library/ccl_check.pl`: `ck_tied_own/4` in `ck_borrows_from/3`. `library/ccl_ir.pl`: the lowering 153.
+  `test/c/run/operators.c`, `operators.expect`, `topers.pl`; `test/c/op_undefined.c`, `op_rvalue.c`, `op_type.c`,
+  `op_left.c`, `op_shr.c`, `op_word.c`, `op_ptr.c`; `test/c/safe/index_after_insert.c`, `tied_after_call.c` and their
+  `.expect`; `test/reader.pl`: `k134` to `k140`; `test/driver.sh`: two messages. `RULES.md`, `CLAUDE.md`, `README.md`,
+  `CCLLIB.md`.
+
+The module 0.266; the reader 176 (what a read gives changes); the lowering 153 (the check's verdicts change, so a stored
+IR of a program that it now refuses is not served).

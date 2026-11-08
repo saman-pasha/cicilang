@@ -264,6 +264,25 @@ Found by three probes on 2026-11-07:
 A type macro gives its instances operators that the reader writes as calls: `v[i]`, `m[k]`, `a == b`, `a < b`,
 `s + t`, `out << x`, `in >> x`. iostreams needs `<<` and `>>`.
 
+- DONE AT 0.266 (`RULES.md`, the topic of the macro files): where the left operand, or the object of `[]`, is an object
+  of an instance's type, the reader writes the operator as the call of the function that the instance's items define
+  for it, named as its drop is: `v[i]` is `*<name>_index(&v, i)`, an lvalue; `==` and `!=` are `<name>_eq` and its
+  `!`; `< > <= >=` are `<name>_lt`, its operands swapped or its value negated; `+ - * /` are `_add`, `_sub`, `_mul`,
+  `_div`; `out << x` is `<name>_shl_<word>(out, x)`, `in >> x` `<name>_shr_<word>(in, &x)`, the word of x's type, and
+  `out << a << b` chains on the pointer that `<<` answers. An operand goes by its address where the function's
+  parameter is a pointer, by value where it is not. `test/c/run/operators.c` over `topers.pl` -- a point with
+  arithmetic and comparisons, a ring and a dictionary with `[]`, a text with `<<`, `>>` and `+` -- prints what clang's
+  build of its hand expansion prints. Refused at the operator: one that the macro does not define, an rvalue or an
+  operand of another type where the address goes, an instance on the right only, `>>` into no lvalue. The fixture found
+  a hole, closed with it: a result tied to a struct with own fields was a borrow of the struct, so `int *p = &m[3];
+  m[9] = 1; *p` read the buffer that the insertion freed; it is a borrow of the struct's own fields now, which a call
+  that may replace them ends (`test/c/safe/index_after_insert.c`, `tied_after_call.c`).
+- WHAT 0.266 LEAVES (Not done): the unary operators (`-a`, `!a`, `*it`, `++it`) and the compound assignments over an
+  instance (`a += b`) are no calls; `%`, `&`, `|` and `^` are not in the table; the left operand decides, so `2 * a`
+  is refused; the word of `<<`'s operand is its exact type's, so a `const char *` asks `_shl_ptr_const_char`; a tied
+  result's borrow is of one own field, so a hand free of another does not end it, as before; C++ keeps its own
+  operators until phase 0.10.
+
 ### 0.10 ccllib in cicilang++ (the owner's decision of 2026-11-08)
 
 - cicilang++ reads the same macro files: a type macro where no template of its name is visible (`vector<int>` over

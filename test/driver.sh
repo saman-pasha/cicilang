@@ -88,6 +88,14 @@ bpout=$("$CICILI" "$R/safe/borrow_after_push.c" -o bap 2>&1); bpcode=$?
 check "a borrow of a vector's buffer used after a push, which may realloc it, is refused at its line, in words of its own (0.265)" "$(echo "$bpout" | sed "s|$R/safe/||g"; echo "exit $bpcode")" "borrow_after_push.c:10: error: use of a borrow after a call that may replace its owner: 'p' in borrowed_from('v.data') (function main)
 cicilang: 1 error(s)
 exit 1"
+opout=$("$CICILI" "$R/op_undefined.c" -o opu 2>&1); opcode=$?
+check "an operator that the instance's type macro does not define is refused at its line, the function it would call named (0.266)" "$(echo "$opout" | sed "s|$R/||g"; echo "exit $opcode")" "op_undefined.c:5: error: macro: the operator * of pt_double is not defined: its type macro defines no pt_double_mul
+cicilang: 1 error(s)
+exit 1"
+iaout=$("$CICILI" "$R/safe/index_after_insert.c" -o iai 2>&1); iacode=$?
+check "a place that a dictionary's [] answers, kept and read after an insertion that may realloc the buffer, is refused at its line (0.266)" "$(echo "$iaout" | sed "s|$R/safe/||g"; echo "exit $iacode")" "index_after_insert.c:13: error: use of a borrow after a call that may replace its owner: 'p' in borrowed_from('m.vals') (function main)
+cicilang: 1 error(s)
+exit 1"
 cat > defs.c <<'EOF2'
 #include <stdio.h>
 #include <assert.h>
