@@ -372,6 +372,7 @@ dr_prolog_error(error(existence_error(procedure, PI), _), T) :- !, dr_join(['the
 dr_prolog_error(error(type_error(Ty, C), _), T) :- !, dr_join(['expected a ', Ty, ', got ', C], T).
 dr_prolog_error(error(instantiation_error, _), T) :- !, T = 'an argument was left unbound'.
 dr_prolog_error(error(macro_error(M, _), _), T) :- !, dr_join(['the macro said: ', M], T).
+dr_prolog_error(error(ctext_error(M), _), M) :- !.   % a C text that the macro read (0.260): the message names its own line
 dr_prolog_error(error(E, _), T) :- !, dr_join(['it threw ', E], T).
 dr_prolog_error(E, T) :- dr_join(['it threw ', E], T).
 dr_join(Parts, A) :- dr_join_codes(Parts, Cs), atom_codes(A, Cs).

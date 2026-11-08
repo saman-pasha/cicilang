@@ -254,6 +254,7 @@ One row per step, in version order: the step's title, what it did and its gate n
 | 0.257 | a static assertion that does not fold, a call of a deleted function and an unknown -std= are refused | the owner's three defects: a static assertion's condition that does not fold refused in clang's words (and the C23 constexpr structure's member, a block's enumerator, __builtin_constant_p and a constant object's member made to fold); a call of a deleted function -- free, member, static, constructor, copy, assignment, operator, the template idiom, a defaulted copy deleted -- refused with clang's words and C++26's reason, where most were no refusal at all; no -std= ignored; and on the owner's choice C++20's constant evaluation for the assertions the C++ gate found refused: try, unions, new and delete, virtual calls, dynamic_cast, std::vector, std::string; a local's noted aggregate kept in its frame, which a parameter of its name in a later function read (a wrong build since 0.104), a constexpr body's free names the file's, never its caller's locals (a wrong build in 0.256), and an immediately invoked lambda's constant; the record of 0.256's CI runs | the flow gate; over libc++ 18 all nine GREEN (the C++ gate 1443 s, 857 ok); the C++ gates over 21 and 22 GREEN (865 and 868 ok); a commit and a push |
 | 0.258 | the limits of 0.257's rules: deleted templates and moves, floats and plain calls in a constant evaluation | the fifteen limits 0.257 recorded, on the owner's word: a deleted function template, explicit specialization and member template candidates, a deleted move asked wherever an xvalue is copied, a plain struct with a reference or const member not assigned, the program's class's deleted constructor asked in the library's body at the program's line; in a constant evaluation floating arithmetic, a later base's dynamic_cast and thunk, an array new's cookie, the allocation's family, ::operator new std::allocator's alone, an unseen object bound to a reference, the evaluator's own instances dropped where unnamed; only a constexpr aggregate a value; a closure's body reading its function's constants; __builtin_types_compatible_p in C; and a sixteenth the probes found, a call of a function that is not constexpr refused; three wrong builds older than the step (an instance read its caller's constant, a later base's pointer compared with the object's, out-of-class constexpr members unseen by the evaluator); the record of 0.257's CI runs | the flow gate; over libc++ 18 all nine GREEN (the C++ gate 1347 s, 865 ok); the C++ gates over 21 and 22 GREEN (873 and 876 ok); a commit and a push |
 | 0.259 | cocolog 3.37.0: the pins moved, an object's names declared apart, a summary's long terms read as text | cocolog from 3.19.4 to its latest master, 3.37.0, on the owner's word and by the owner's new rule ("Use latest cocolog everytime"), its master taken four times while the step ran; the pins moved, ZiguratIP's with them (1.0.2); every load silent, on the owner's word: the tutorials' objects declare their names apart; 3.28.0's retract/1 answers again, so two loops take every clause (a second member waiting for its class's friends was refused); a defect older than the step: a summary's long terms, loaded as clauses keyed by the summary's path and never loaded again, were not served from a moved ~/.cicilang and came back stale after a child wrote the summary again -- read as text now, and the flow gate with no finding; the record of 0.258's CI | the flow gate; over libc++ 18 all nine GREEN (the C++ gate 1254 s, 866 ok); the C++ gates over 21 and 22 GREEN (874 and 877 ok); a commit and a push |
+| 0.260 | C text: a macro writes C with holes, ccllib's first step; an absolute #include found | on the owner's word, the plan of ccllib in CCLLIB.md (a standard library for cicilang's C as cocolog macros: `vector<int> v;` in C++'s form, implicit linkonce instances, C text first) and the first item of its phase 0: ccl_c_items, ccl_c_stmts, ccl_c_expr and ccl_c_type read C text with @holes by the reader's own grammar in the read that runs, every token at the call's line, a text's error at the call with the macro, its file and the text's own line; its run fixture met the drop, which the owner then decided (autodrop), and the owner's three runs for every comparison joined the plan; a defect older than the step: an absolute path in #include was never found (the reader 171); a missing #include passed over, recorded in Not done; the record of 0.259's CI | the flow gate; over libc++ 18 all nine GREEN (the C++ gate 1346 s, 866 ok); the C++ gates over 21 and 22 GREEN (874 and 877 ok); a commit and a push |
 
 ## M5 — the C++ mode
 
@@ -17690,3 +17691,91 @@ at the commit when 0.259 was written.
   `test/toolchain.pins`, cocolog 3.37.0 and ZiguratIP 1.0.2. `RULES.md`, `CLAUDE.md`, `README.md`.
 
 The module 0.259; the reader 170 and the lowering 150 stay (what a cached read holds and what is emitted are the same).
+
+## 0.260 — C text: a macro writes C with holes, ccllib's first step; an absolute #include found
+
+**0.260: on the owner's word ("Yes, add it to the phase 0 plan, C-text is important ... write the plan in .md file start
+phase 0"), the plan of ccllib in `CCLLIB.md`, and the first item of its phase 0: a macro writes C text with holes, and
+the reader reads the text with its own grammar. ccllib is the owner's: a standard library for cicilang's C, written as
+cocolog macros, that gives a C developer what libc++ gives without C++'s thousands of defined types and its template
+handling. The chain ran over cocolog 3.37.0 at the pins: its master is at 3.39.0 (`22fbc08`), which the owner takes on a
+later word ("further i will tell you to pull latest cocolog and rebuild"). A defect older than the step is fixed, an
+absolute path in `#include`, and one is recorded, a missing `#include` passed over.**
+
+THE PLAN, `CCLLIB.md`. Why: a 13-line C++23 program over libc++ 22 (`vector<int>`, `push_back`, `sort`, `map<int,
+string>`, `cout`) is 79,322 lines after the preprocessor, with 1,050 class and struct names, 858 of them with `_` first;
+clang++ 22 -O0 makes 76 types, 292 functions and 7,305 lines of IR in 1.3 s, cicilang++ over warm summaries 361 types,
+919 functions and 19,537 lines in 36 s (peak 615 MB). The owner's decisions of 2026-11-07: the library covers what C++
+has, the streams included, the library before C++23 first; a type is spelled as C++ spells it, `vector<int> v;`; a
+literal gives its types before a `;`, `[int; 5, 3, 9]` and `[int, string; 5: "me", 3: "you"]`; an instance is implicit,
+made once by each unit that uses it as `linkonce_odr`; C text first. On 2026-11-08 the owner decided two more, which the
+plan holds: ccllib objects have autodrop -- the compiler drops each object of an instance type at its scope's end, as
+C++ runs a destructor -- and every comparison has three runs, the ccllib program built by cicilang as C and by
+cicilang++ as C++, and its twin over libc++ 22 by clang++. Four decisions are open (the place, containers of owners,
+member calls, a literal or a global of an instance type at file scope). Phase 0 is ten items of cicilang, in order: C
+text, type macros in C++'s form, a macro's items at file scope, implicit instances, autodrop, the literals, arguments
+read after the outer macro, two safety rules, operators on instances, ccllib in cicilang++; phases 1 to 4 are the
+library before C++23 (its most used part first), its rest, C++23 and C++26; each program of phase 1 is built and
+measured in the three runs.
+
+THE DOORS (`ccl_c_items/3`, `ccl_c_stmts/3`, `ccl_c_expr/3`, `ccl_c_type/3`, over `ccl_ctext/4` in
+`library/ccl_syntax.pl`). The text is lexed by the reader's lexer and read by its grammar in the read that runs: its
+typedef names, tags, scope and macros. Probed first on a `typedef struct` with an own member and a static function: the
+AST that the file reader gives, and the typedef name in the environment. A hole is `@Name`, bound as `type(T)`,
+`expr(E)`, `stmt(S)` or `name(Atom)`; `@{Name}` pastes a name. A type hole is a typedef name of its own while the text
+is read, so `@T x` reads as a declaration, and in the AST its type, the qualifiers before it joining it (`const @T *`
+over `int *` a pointer to `int *const`, as C17 6.7.8/3 has a typedef); an expression hole a name declared with its type,
+so a macro that the text calls can ask its type; a statement hole its statement. Every token has the call's line. The
+item's globals are put back after the text (22 of them: the item, the layout marks, the farthest line, C++'s marks), the
+scope after a file-scope read. The first build found the record of expansions holding the stand-ins (`expansion(12,
+twice, [id(ccl_hole_5_x)])`, which a later note would print): they are replaced by the program's arguments now. A text's
+error is its own ball, `ctext_error(Message)`, reported at the call with the macro and its file, and with the text's own
+line (the line that a file's read of the same text names, 3, where the missing `;` is on 2); a macro's error inside a
+text that another macro read is passed on as it is.
+
+WHAT THE RUN FIXTURE FOUND OF THE SAFE PART (`test/c/run/ctext.c`, `5 25 4 3 10 12 2` as computed by hand): a vector's
+`drop` that frees its own buffer through the struct's pointer is refused, `a borrowed struct's own field not whole at
+the return: 'v->data'`, and with `v->data = NULL` after the free `main` is refused, `owner leaked: 'v.data'`: the check
+does not see that a callee freed an owner of its caller's. The owner then decided autodrop (the plan's phase 0.5), for
+which the check takes a drop as the release of the object's owners; the fixture frees `v.data` in `main`, as the safe
+part's own fixtures do.
+
+AN ABSOLUTE PATH IN `#include`, a defect older than the step: a driver check of the C text's error named the macro file
+by its absolute path and got `syntax error: could not read this item`. `ccl_resolve_include/3` joined the path to the
+includer's directory, so neither a macro file nor a header so named was ever found (on 0.259, `#include "/x/absh.h"`
+built until `not lowered yet: undeclared(twice_h)`, where clang's build prints 42). The path is the file as it is
+written now, as clang and gcc take it (C17 6.10.2 leaves the place to the implementation). A read that 0.259 cached held
+`missing` for such an include, which the store would serve again: the reader 171.
+
+A MISSING `#include` IS PASSED OVER, found beside it and recorded in Not done: `#include "nope.h"` before a `main` that
+uses nothing of it builds with no message, where clang stops, `fatal error: 'nope.h' file not found`. The read holds
+`missing` and goes on; to refuse it changes what every read holds, the library's reads among them, a step of its own.
+
+THE NETS before the chain, over the work tree and a fresh HOME: the flow gate GREEN with no finding (91 s, peak 3722
+MB); the reader gate GREEN, 105 checks (3 s; the nine new ones, `k96` to `k104`, each FAIL over 0.259's library); the
+compile gate GREEN, 226 C run fixtures (28 s); the driver gate GREEN, 58 checks (40 s; the C text's error in clang's
+shape, the absolute `#include`).
+
+MEASUREMENTS: the chain of 0.260 over its work tree, cocolog 3.37.0 and ZiguratIP 1.0.2 at the pins (the toolchain check
+strict GREEN) and fresh HOMEs: over libc++ 22 the library read 395 s and the C++ gate 1368 s (877 ok, none skipped);
+over libc++ 21 394 s and 1359 s (874 ok, 3 skipped); over libc++ 18 all nine GREEN -- the flow gate 85 s with no
+finding, reader 3 s, compile 25 s, driver 37 s, objects 4 s, proof, the cross gate 320 s, the library read 435 s, the
+C++ gate 1346 s (866 ok, 11 skipped by their needs); in 5773 s, where 0.259's took 5411 s.
+
+THE CI OF 0.259 (`176831a`), over cocolog 3.37.0 at its pins: the smoke run (42364613160) GREEN on the three machines --
+Linux (setup 12:06, gates 3:26), Apple silicon (13:33, 6:41), the Intel Mac (22:51, 9:55). The night's run at 0.258
+(`77e39d8`, 42358657975), over cocolog 3.19.2 at its pins: GREEN, the full job on Linux (setup 7:03, every gate over
+libc++ 18 and the C++ gates over 21 and 22 in 1:22:30) and the C++ job on the Intel Mac (21:02, the library read and the
+C++ gate over libc++ 18 in 1:45:00).
+
+- `CCLLIB.md`, the plan. `library/ccl_syntax.pl`: the four doors (`ccl_ctext/4` and its helpers), a macro's ball passed
+  on (`ccl_macro_ball/1`), the reader 171. `library/ccl_include.pl`: an absolute path (`ccl_resolve_include/3`).
+  `library/ccl_driver.pl`: a C text's message. `library/ccl_infer.pl`: the doors in the macro author's list.
+  `test/reader.pl`: `k96` to `k104`; `test/driver.sh`: two checks; `test/c/run/ctext.c`, `ctext.pl`, `ctext.expect`;
+  `test/c/ctext.pl`, `uses_ctext.c`, `ctext_bad.c`, `ctext_nohole.c`. `RULES.md`, `CLAUDE.md`, `README.md`.
+
+Committed and pushed with 0.261 on the owner's word ("Commit and push after every task finished, continue"), which
+is the rule of the commits now (`CLAUDE.md`): each finished step is committed and pushed, then the next begins.
+
+The module 0.260; the reader 171 (an absolute `#include` found, which a cached read held `missing`); the lowering 150
+stays (what is emitted for a program that 0.259 built is the same).

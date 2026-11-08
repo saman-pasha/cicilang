@@ -18,6 +18,10 @@
 %%   ccl_gensym(+Prefix, -Atom)       a fresh identifier for a macro's temporary
 %%   ccl_here(-File, -Line)           where the parser is
 %%   ccl_macro_error(+Message)        stop the read with a message and the place
+%%   ccl_c_items(+Text, +Holes, -Items)   C text read as file-scope items (0.260, library(ccl_syntax));
+%%   ccl_c_stmts(+Text, +Holes, -Stmts)   as block items in the call's scope; ccl_c_expr(+Text, +Holes, -Expr),
+%%   ccl_c_type(+Text, +Holes, -Type)     as an expression, as a type name. Holes: Name = type(T), expr(E), stmt(S)
+%%                                        or name(Atom), written @Name in the text; @{Name} pastes a name hole
 %%
 %% Types are the AST's: base(Quals, Specs), ptr(Quals, T), arr(Size, T),
 %% fn(Ret, Params, Variadic), block(Quals, T); and unknown.

@@ -2276,6 +2276,28 @@ that changes a rule edits the rule here, in its topic, and writes its entry in `
   })`, a fresh owner, so an own parameter takes the copy and `p` stays the caller's. It refuses a non-pointer
   (`cannot_clone`), a pointee with an own member (`cannot_clone_own_members`, `ccl_has_own_member/1`) and a file with
   no `malloc` (`clone_needs_malloc`). `test/c/run/clone.c`. (M3)
+- **A MACRO WRITES C TEXT WITH HOLES** (0.260; `CCLLIB.md`'s phase 0.1, the first step of ccllib on the owner's word):
+  `ccl_c_items(Text, Holes, Items)` reads the text as file-scope items, `ccl_c_stmts/3` as block items in the call's
+  scope, `ccl_c_expr/3` as one expression and `ccl_c_type/3` as a type name (`ccl_ctext/4`, `library/ccl_syntax.pl`).
+  The text is lexed by the reader's lexer (`ccl_tokens/3`) and read by its grammar in the read that runs -- its typedef
+  names, tags, scope and macros -- so a text calls a macro, and what it declares the rest of the file uses. A hole is
+  `@Name` outside a literal and a comment, bound in `Holes` as `Name = type(T)`, `expr(E)`, `stmt(S)` or `name(Atom)`;
+  `@{Name}` pastes a name hole into an identifier (`@{N}_push`). A type hole is a typedef name of its own while the text
+  is read, `ccl_hole_Q_Name` (Q the text's number), and in the AST its type, the qualifiers before it joining it as a
+  typedef's do (C17 6.7.8/3: `const @T *` over `int *` is a pointer to `int *const`); an expression hole is a name
+  declared with its type, then its AST; a statement hole `@S;` is its statement (`ccl_ctext_subst/3`). Every token takes
+  the line of the macro's call. The text is lexed, never preprocessed: the program's `#define`s do not reach it. The
+  globals of the item that the reader reads are put back after the text (`ccl_ctext_keys/1`), the scope after a
+  file-scope read; the expansions that the text made are noted with the program's arguments, the stand-ins replaced
+  (`ccl_ctext_expansions/2`). Reader `k96` to `k102`; `test/c/run/ctext.c` over its `ctext.pl`: a vector of int (its
+  struct, its push and its access) at file scope, a swap through a fresh name, a statement twice, a text that calls a
+  macro twice. (0.260)
+- A text that does not lex or read, a hole that `Holes` does not bind, and a paste of a hole that is no name hole throw
+  `error(ctext_error(Message), _)`, which the macro's expansion reports at its call, with the macro and its file:
+  `ctext_bad.c:2: error: in the expansion of macro 'bad_items': C text: the text does not read as file-scope items (its
+  line 3)`. The line is the text's own, the farthest that the reader reached, as a file's read names it
+  (`ccl_ctext_read/5`). The error or the failure of a macro that a text called is passed on as it is
+  (`ccl_macro_ball/1`): its report is the nearer one. Reader `k103`, `k104`; the driver gate. (0.260)
 
 ## The C++ reader
 
@@ -2826,6 +2848,11 @@ that changes a rule edits the rule here, in its topic, and writes its entry in `
   `sys/cdefs.h` live there, and without them `__THROW` and `__wur` stayed unexpanded. (0.87)
 - `#include_next` searches past the directory the includer was found in (`ccl_resolve_include(next(_), ...)`,
   `ccl_dirs_after`). (M5)
+- AN ABSOLUTE PATH IS THE FILE AS IT IS WRITTEN (0.260): `#include "/x/y.h"` and `#include </x/y.h>` name that file
+  (`ccl_resolve_include/3`'s second clause), as clang and gcc take them (C17 6.10.2/2-3 leaves the place to the
+  implementation). Until 0.260 the path was joined to the includer's directory and never found, the include `missing`:
+  a program built until the first name that the header declares (`not lowered yet: undeclared(twice_h)`), and a macro
+  file named so was no macro file. The driver gate. (0.260)
 
 ### The C++ summary cache
 
@@ -12839,6 +12866,11 @@ Declarations topic of the C++ reader).
 - `bin/cicilang` accepts and ignores `-W`, `-f...` and `-pedantic` (owner's rule: clang's arguments, no new flags).
   `-D` and `-U` define and undefine (0.112), and `-fexperimental-library` turns libc++'s experimental part on (0.138); a
   run with any of them keeps no C store.
+- A MISSING `#include` IS PASSED OVER (found at 0.260): the read holds `include(L, Spec, missing)` and goes on (the
+  Includes topic), so `#include "nope.h"` before a `main` that uses nothing of it builds with no message, and a program
+  that uses the header fails later, at the first name it declares; clang stops at the line, `fatal error: 'nope.h' file
+  not found`. To refuse it changes what every read holds, the library's reads among them, whose missing headers no gate
+  has counted: a step of its own.
 - `-g` (0.130) leaves out what clang's has beyond the variables, the types and the scopes: an expression has its own
   column since 0.242, but a statement whose text does not align with its tokens -- a macro's expansion, a form the C++
   desugaring made -- keeps its statement's column (0.161), C++ keeps 0.161's places for what follows a statement and a

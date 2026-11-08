@@ -337,6 +337,28 @@ sum_rest(A, A) --> [].
 int main(void) { printf("%d %d\n", twice(21), sum(1, 2, 3, 4)); return 0; }   /* 42 10 */
 ```
 
+A macro can also write C text with holes (0.260, the first step of the plan in
+`CCLLIB.md`: a standard library for cicilang's C, written as macros).
+`ccl_c_items(Text, Holes, Items)` reads the text as file-scope items,
+`ccl_c_stmts/3` as statements in the call's scope, `ccl_c_expr/3` as an
+expression and `ccl_c_type/3` as a type name, with the reader's own grammar
+in the read that runs: the program's typedefs, tags and macros are known to
+the text, and what the text declares is known to the program. A hole is
+`@Name`, bound as `type(T)`, `expr(E)`, `stmt(S)` or `name(Atom)`; `@{Name}`
+pastes a name into an identifier. The text is lexed, not preprocessed, so the
+program's `#define`s do not reach it, and all of it takes the call's line:
+
+```prolog
+%% vec_of(0); at file scope: the type vec_int and its function vec_int_push
+vec_of(X, Items) :-
+    ccl_type_of(X, T), T = base(_, [W]), atom_concat(vec_, W, N),
+    ccl_c_items("typedef struct @N { size_t len, cap; own @T *data; } @N;
+static void @{N}_push(@N *v, @T x) {
+    if (v->len == v->cap) { v->cap = v->cap ? 2 * v->cap : 4; v->data = realloc(v->data, v->cap * sizeof(@T)); }
+    v->data[v->len++] = x;
+}", ['N' = name(N), 'T' = type(T)], Items).
+```
+
 `format`, `print`, `println` and `clone` are global macros, there in every
 program without an include (`library/ccl_format.pl`). The format string
 has Rust's holes, each becoming the `printf` conversion of its argument's
@@ -535,6 +557,7 @@ test/c/, test/cpp/             the fixtures: what runs, what is refused, what is
 bench/btree, bench/compile     the B-tree and the compile-time benchmarks
 tutorials/                     the objects layer's lessons
 DESIGN.md, CLAUDE.md           the architecture; how the repository is worked on, the owner's rules
+CCLLIB.md                      the plan of ccllib, the standard library of cicilang's C as macros
 RULES.md                       the rules of the code, by topic: the gates, each pass, what runs, what is not done
 HISTORY.md                     the record of every step: what it did, what it found, its gate numbers
 ```
@@ -560,4 +583,5 @@ a format string whose compile-time check the evaluator cannot take (the
 library's own run-time parser checks it); the range adaptors not named;
 a `\N{...}` abbreviation
 alias (`\N{NUL}`, which clang refuses too); the arm64 ABI on Apple's machines
-(Linux on aarch64 is proven under qemu, C and C++). Each is named in `RULES.md`'s Not done with where it stops.
+(Linux on aarch64 is proven under qemu, C and C++); a missing `#include`, which
+the read passes over with no message where clang stops. Each is named in `RULES.md`'s Not done with where it stops.

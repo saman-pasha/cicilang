@@ -887,6 +887,7 @@ ccl_kb_macros_cached(Path, K) :-
 
 %% ---- the path ----------------------------------------------------------------
 ccl_resolve_include(path(P), _, P) :- !, exists_file(P).                       % a module's interface unit, found by ccl_module_path (0.108)
+ccl_resolve_include(Spec, _, N) :- ( Spec = local(N) ; Spec = system(N) ), sub_atom(N, 0, 1, _, '/'), !, exists_file(N).   % AN ABSOLUTE PATH, as it is written (0.260), as clang and gcc take it (the place is the implementation's, C17 6.10.2/2-3): it was joined to the includer's directory and never found
 ccl_resolve_include(local(N), From, Path) :-
     From \== none, file_directory_name(From, Dir), atomic_list_concat([Dir, '/', N], P0), exists_file(P0), !, Path = P0.
 ccl_resolve_include(Spec, _, Path) :-

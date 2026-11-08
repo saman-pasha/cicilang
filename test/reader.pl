@@ -329,6 +329,47 @@ k82 :- check('#cocolog ... #end defines macros in place: a clause, a rule, a DCG
       fn_body('cocolog.c', f, B), member(return(_, bin('+', bin('*', id(a), int(2)), bin('*', id(a), id(a)))), B),
       fn_body('cocolog.c', g, B2), member(expr(_, call(id(puts), [str(S)])), B2), atom_codes(A, S), A == 'hi bob' )).
 
+%% C TEXT (0.260; CCLLIB.md's phase 0.1): test/c/run/ctext.c over its ctext.pl, and test/c/uses_ctext.c, ctext_bad.c and
+%% ctext_nohole.c over test/c/ctext.pl
+k96 :- check('C text at file scope: vec_of(0); is the text\'s typedef and two functions, each at the call\'s line 4, @{N}_push a pasted name, own @T *data an own int pointer',
+    ( unit('run/ctext.c', unit(Is)),
+      append(_, [typedef(4, [var(vec_int, base([], [struct(vec_int, Ms)]), none)]),
+                 function(4, static, base([], [void]), vec_int_push, [param(ptr([], base([], [typedef(vec_int)])), v), param(base([], [int]), x)], false, _),
+                 function(4, static, base([], [int]), vec_int_at, [param(ptr([], base([const], [typedef(vec_int)])), v), param(base([], [typedef(size_t)]), i)], false, _)|_], Is),
+      memberchk(member(ptr([], base([own], [int])), data, none), Ms) )).
+
+k97 :- check('a type hole in sizeof(@T) is the type, and @T in the text\'s comment is no hole',
+    ( unit('run/ctext.c', unit(Is)), member(function(_, _, _, vec_int_push, _, _, block(B)), Is), member(if(4, _, block(Then), none), B),
+      member(expr(4, assign('=', arrow(id(v), data), call(id(realloc), [arrow(id(v), data), bin('*', arrow(id(v), cap), sizeof_type(base([], [int])))]))), Then) )).
+
+k98 :- check('C text as an expression: twice(a + 1) is (a + 1) * 2, the hole\'s AST in its place; quad(b), a text that calls twice twice, is b * 2 * 2',
+    ( fn_body('run/ctext.c', main, B), member(expr(12, call(id(printf), As)), B),
+      memberchk(bin('*', bin('+', id(a), int(1)), int(2)), As), memberchk(bin('*', bin('*', id(b), int(2)), int(2)), As) )).
+
+k99 :- check('C text as statements: swap_any(a, b); is a block whose temporary is a fresh name (a name hole); repeat2(n++); is the statement hole twice',
+    ( fn_body('run/ctext.c', main, B),
+      member(block([declaration(9, none, base([], [int]), [var(T, base([], [int]), id(a))]), expr(9, assign('=', id(a), id(b))), expr(9, assign('=', id(b), id(T)))]), B), sub_atom(T, 0, 2, _, t_),
+      member(block([expr(11, postinc(id(n))), expr(11, postinc(id(n)))]), B) )).
+
+k100 :- check('the expansions that a text made name the program\'s arguments -- twice on b, and on b * 2 -- and no stand-in of a hole is left in the unit',
+    ( unit('run/ctext.c', unit(Is)), append(_, ['$expansions'(Es)], Is),
+      memberchk(expansion(12, twice, [id(b)]), Es), memberchk(expansion(12, twice, [bin('*', id(b), int(2))]), Es),
+      findall(I, ( member(I, Is), I \= include(_, _, _) ), Own), term_to_atom(Own, A), \+ sub_atom(A, _, _, _, ccl_hole_) )).
+
+k101 :- check('C text as a type name: const @T * over int * is a pointer to a const pointer to int, the qualifier joining the hole\'s type as a typedef\'s does (C17 6.7.8/3)',
+    ( fn_body('uses_ctext.c', g, B), member(declaration(_, _, _, [var(t, _, str(S))]), B), codes_atom(S, 'ptr([],ptr([const],base([],[int])))') )).
+
+k102 :- check('a hole in a literal is none ("@x and @{y}" with no hole bound), and the program\'s #define N 99 does not reach a text: @x + N is 1 + N',
+    ( fn_body('uses_ctext.c', g, B), member(declaration(_, _, _, [var(s, _, str(S))]), B), codes_atom(S, '@x and @{y}'),
+      member(return(_, bin('+', int(1), id('N'))), B) )).
+
+k103 :- check('a text that does not read stops the read at the call, with the macro, its file and the text\'s own line: bad_items at line 2, the text\'s line 3',
+    ( c('ctext_bad.c', P), c('ctext.pl', M), catch(cicilang_ast(P, _), error(macro_error(bad_items, [int(0)], error(ctext_error(T), _)), here(P, 2, in_macro(bad_items, M))), true),
+      T == 'C text: the text does not read as file-scope items (its line 3)' )).
+
+k104 :- check('a hole that Holes does not bind is refused by its name: C text: no hole @y',
+    ( c('ctext_nohole.c', P), catch(cicilang_ast(P, _), error(macro_error(no_hole, [id(k)], error(ctext_error(T), _)), here(P, 2, _)), true), T == 'C text: no hole @y' )).
+
 k83 :- check('pp_defs.h is preprocessed (its false group is not C): #if/#elif/#else, defined, __has_include, ##, #, __VA_ARGS__, a continuation, __LINE__',
     ( unit('pp.c', unit([include(1, local('pp_defs.h'), file(_, preprocessed, unit(Is)))|_])),
       member(typedef(_, [var(mytype, base([], [int]), none)]), Is),
@@ -549,6 +590,16 @@ t_checks :-
     k81,
     section('a #cocolog block'),
     k82,
+    section('C text: a macro writes C with holes, which the reader reads (0.260)'),
+    k96,
+    k97,
+    k98,
+    k99,
+    k100,
+    k101,
+    k102,
+    k103,
+    k104,
     section('the preprocessor, in cocolog: a header raw cannot take'),
     k83,
     section('the lexer, native: ccl_lex_native/6 token for token with the DCG'),

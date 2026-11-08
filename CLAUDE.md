@@ -12,8 +12,8 @@ the fixture that gates it, and why. The bullet ends with the version that made t
 edits the rule in `RULES.md`, in its topic, and writes its entry in `HISTORY.md`. Read the topic of `RULES.md` that
 covers the code before the code is changed.
 
-At 0.259 the versions are: the module 0.259 (`ccl_p_version` in `module/cicilang.cicili`, `bin/cicilang --version`),
-the reader 170 (`ccl_reader_version/1`, `library/ccl_syntax.pl`) and the lowering 150 (`ccl_lowering_version/1`,
+At 0.260 the versions are: the module 0.260 (`ccl_p_version` in `module/cicilang.cicili`, `bin/cicilang --version`),
+the reader 171 (`ccl_reader_version/1`, `library/ccl_syntax.pl`) and the lowering 150 (`ccl_lowering_version/1`,
 `library/ccl_ir.pl`).
 
 Build and prove, always in this order (or all of it, `sh test/gates.sh`):
@@ -242,7 +242,9 @@ In `RULES.md`:
 
 ### Commits
 
-- Commit and push only when the owner asks. (from the start)
+- EVERY FINISHED STEP IS COMMITTED AND PUSHED, then the next begins (owner's rule, 0.260: "Commit and push after every
+  task finished, continue"): a step whose chain is GREEN, with its docs. Until 0.259 a commit waited for the owner's
+  word. (from the start, 0.260)
 - Every commit raises the version (owner's rule): the string in `ccl_p_version` (`module/cicilang.cicili`) becomes
   `0.N`, one more than the last commit's. Rebuild after it, because the `.so` carries it; `bin/cicilang --version`
   shows it. (from the start)
@@ -265,6 +267,7 @@ RULES.md                    the rules of the code as they stand, by topic
 HISTORY.md                  the record of every step, verbatim, up to 0.111, and the entries from 0.112 on
 README.md                   what cicilang is and what runs: the commands, the four predicates, the additions, C++
 DESIGN.md                   the architecture, the neighbours' roles, the milestones M0 to M6
+CCLLIB.md                   the plan of ccllib, the standard library of cicilang's C as cocolog macros (0.260)
 .gitignore                  the build output and the scratch that are never committed
 .github/workflows/gates.yml the CI jobs: test/ci.sh's smoke on each push and pull request, on Ubuntu 24.04, an Intel
                             Mac (macOS 26, 0.224) and Apple silicon (macOS 15, 0.246); every night its full job on
@@ -367,14 +370,16 @@ test/readhdr.pl             one asserted header read whole at a level, in its ow
 test/libcxx.pl              the library read's old one-process form; no gate runs it
 test/warm.sh                a shim that runs test/libcxx.sh
 test/census.pl, census.sh   where the reader stops in a header or in a flattened file, and what it read
-test/c/                     the reader's fixtures: hello.c, rich.c, lexer.c, macros.c with macros.pl, pp.c ...
+test/c/                     the reader's fixtures: hello.c, rich.c, lexer.c, macros.c with macros.pl, pp.c ...;
+                            uses_ctext.c, ctext_bad.c and ctext_nohole.c over ctext.pl, the C text's (0.260)
 test/c/inc/                 the -I fixture: uses_box.c over box.h
 test/c/link/                two files linked into one program; the ABI against clang-built code (abi_main.c,
                             abi_helper.c), variadic calls (va_main.c, va_func.c, va.h), the decimal ABI against gcc,
                             the decimal runtime against libgcc's (decrt.c, 0.243), three machines' calling conventions
                             and layouts against clang's (abi_targets.c, 0.244)
 test/c/run/                 C programs built and run: NAME.c, NAME.expect, NAME.std, NAME.needs (0.224), NAME.ref
-                            (0.225); pp_defs.h, fileconst.h, ppinclude.h, hdrdefs.h, ftmacro.h, embed.txt, empty.txt
+                            (0.225); pp_defs.h, fileconst.h, ppinclude.h, hdrdefs.h, ftmacro.h, embed.txt, empty.txt;
+                            ctext.pl, the macro file of ctext.c (0.260)
 test/c/safe/                C programs the safe part refuses: NAME.c, NAME.expect
 test/cpp/                   the C++ reader's fixtures and the refusals; hidem.cppm for modhidden.cpp
 test/cpp/link/              the C++ ABI checks of the C++ gate and the cross gate: abi_helper.cpp, memptr_helper.cpp and

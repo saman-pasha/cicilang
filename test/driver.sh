@@ -65,6 +65,14 @@ printf 'int n = 1;\n_Static_assert(n == 1, "constant");\nint main(void) { return
 sanfout=$("$CICILI" sanf.c -o sanf 2>&1 >/dev/null); sanfcode=$?
 check "a static assertion whose condition does not fold is an error, in clang's words (0.257)" "$(echo "$sanfout" | head -1; echo "exit $sanfcode")" "sanf.c:2: error: static assertion expression is not an integral constant expression
 exit 1"   # it passed unasked: a condition that does not fold was no failure
+ctout=$("$CICILI" -fsyntax-only "$R/ctext_bad.c" 2>&1); ctcode=$?
+check "a C text that does not read: the macro's call, the macro, its file, the text's own line (0.260)" "$(echo "$ctout" | sed "s|$R/||g"; echo "exit $ctcode")" "ctext_bad.c:2: error: in the expansion of macro 'bad_items': C text: the text does not read as file-scope items (its line 3)
+ctext_bad.c:2: note: the macro is bad_items in ctext.pl, called on int(0)
+cicilang: 1 error(s)
+exit 1"
+printf 'int twice_h(int x) { return 2 * x; }\n' > absh.h
+printf '#include <stdio.h>\n#include "%s/absh.h"\nint main(void) { printf("%%d\\n", twice_h(21)); return 0; }\n' "$(pwd)" > absinc.c
+check "an #include of an absolute path finds the file, as clang does (0.260)" "$("$CICILI" absinc.c -o absinc 2>&1 && ./absinc)" "42"   # the path was joined to the includer's directory: the header was never read, and the build failed later at undeclared(twice_h)
 cat > defs.c <<'EOF2'
 #include <stdio.h>
 #include <assert.h>
