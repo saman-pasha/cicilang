@@ -2360,6 +2360,30 @@ that changes a rule edits the rule here, in its topic, and writes its entry in `
   (`ccl_amv_stmt/3`), which the lowering takes and then zeroes (the lowering's topic), so that its drop frees nothing.
   `sizeof`, `typeof` and `alignof` are not entered, a member read off the object is no move, and a later declaration of
   the name hides the object from the walk. Reader `k115`, `k117`. (0.262)
+- **A LIST OR MAP LITERAL** (0.263; `CCLLIB.md`'s phase 0.6, the owner's decision: "a literal gives its types before a
+  `;`", and "Use : in map literal type section"): in C, `[int; 5, 3, 9]`, `[int:double; 5: 1.25, 3: 2.5]`, and with no
+  types `[1, 2.5]` and `[5: 1.25]`, a trailing comma taken; `[` begins a primary, read as `list_lit(L, Types, Items)`
+  (`ccl_list_literal//1`), an item `el(E)` or `kv(K, V)`, a key a conditional expression. The place where it stands
+  gives its type (`ccl_lit_resolve/3`): a declaration's declared type (`ccl_lit_vars/2`), the left side of `=`
+  (`ccl_lit_assign/4`), a call's parameter (`ccl_lit_args/3`), a return's function's result (`ccl_lit_return/2`); at
+  `:=` and in a `for`'s head with no type the container is `vector<T>`, or `map<K, V>` for key: value items, made as
+  `vector<T>` in a type makes it, its types the literal's or its elements' by C's usual conversions (`ccl_lit_infer/4`).
+  The value is a call of the instance's `<name>_from` over the compound literal of the elements and their count,
+  `vector_int_from((int[3]){5, 3, 9}, 3)`, a map's over its keys' and its values' (`map_int_double_from(keys, values,
+  2)`); an empty one is the empty object, `(T){0}`; `vector<int> e = [];` takes its type from its place, and `a := [];`
+  must name it, `[int;]`. Reader `k118` to `k123`; `test/c/run/literal.c` over `tvector.pl` and `literal.pl`, which
+  prints what clang's build of its hand expansion prints. (0.263)
+- A LITERAL'S ELEMENT CONVERTS TO ITS SLOT, A NARROWING ONE REFUSED, as C++'s braced lists refuse it ([dcl.init.list]/7;
+  `ccl_lit_narrows/3`): a floating value to an integer type; a wider floating type to a narrower one unless a constant;
+  an integer value that is no constant to a floating type; an integer to an integer type that cannot hold it, unless a
+  constant that fits (cocolog's integers are of 64 bits, so a constant fits any 64-bit type it holds). Refused at the
+  read in clang's manner too: two equal constant keys (a key that is no constant is taken, and the map keeps the first
+  value, as std::map does); an empty literal at `:=`; elements beside key: value pairs; a place whose type is no
+  instance (`int x = [1];`); elements of no common type; a literal as a variadic argument or one with no parameter,
+  which would make a value that nobody drops; types other than the place's; no type macro `vector` or `map` loaded.
+  `error(list_literal(Message), here(File, Line))`, which the driver writes as clang writes an error. Reader `k124`. A
+  literal where no place gives a type, a conditional's branch, is refused by the check, `not lowered yet:
+  list_literal_with_no_type_given`; the driver gate holds it. (0.263)
 
 ## The C++ reader
 
@@ -12975,6 +12999,18 @@ Declarations topic of the C++ reader).
   is not dropped (open decision 4). A parameter by value is dropped by the callee, where C++ (Itanium ABI 3.1.2.3)
   destroys it in the caller at the end of the full expression: a printed drop comes before the caller's next output,
   which ccllib in cicilang++ (phase 0.10) meets.
+- LITERALS' LIMITS (0.263; `CCLLIB.md`'s phase 0.6): a literal has its type only where a declaration, `=`, a call's
+  parameter or a return gives it, and at `:=`; a conditional's branch, a comma's operand and a macro's argument hold it
+  untaken (a macro sees `list_lit/3`), and a literal at file scope is a call that no constant initializer takes. A
+  container of plain pointers takes no literal of them: `map<int, char *>`'s put stores its parameter's pointer, a
+  borrow, `borrow_stored`, so `[5: "me"]` waits for ccllib's string (phase 1a). A map compares its keys with `==`, so a
+  key must be a scalar. `FOO([int; 1, 2])` of a `#define` macro is two arguments, as a compound literal is: written
+  `FOO(([int; 1, 2]))`.
+- TWO MACRO FILES THAT DEFINE ONE PREDICATE, IN ONE PROCESS (found at 0.263): a macro file's predicates are the
+  process's, consulted once, so a second file that defines a name the first defines is not its own there -- the reader
+  gate and the compile gate read every fixture in one process, and `literal.pl`'s own `type_vector/3` was `tvector.pl`'s
+  (`the type vector_double takes no literal`). A program built alone meets one file per name; the fixtures share
+  `tvector.pl`, and ccllib has one file per type.
 - A PLAIN STRUCT HANDED BY ITS ADDRESS AFTER A MOVE OF ITS OWNERS (found at 0.262): `person d = c; show(&c);` is
   accepted, and `show` reads `c.name`, which `d` holds; for an object of a type that has a drop it is refused since
   0.262 (`use_after_move`).

@@ -257,6 +257,7 @@ One row per step, in version order: the step's title, what it did and its gate n
 | 0.260 | C text: a macro writes C with holes, ccllib's first step; an absolute #include found | on the owner's word, the plan of ccllib in CCLLIB.md (a standard library for cicilang's C as cocolog macros: `vector<int> v;` in C++'s form, implicit linkonce instances, C text first) and the first item of its phase 0: ccl_c_items, ccl_c_stmts, ccl_c_expr and ccl_c_type read C text with @holes by the reader's own grammar in the read that runs, every token at the call's line, a text's error at the call with the macro, its file and the text's own line; its run fixture met the drop, which the owner then decided (autodrop), and the owner's three runs for every comparison joined the plan; a defect older than the step: an absolute path in #include was never found (the reader 171); a missing #include passed over, recorded in Not done; the record of 0.259's CI | the flow gate; over libc++ 18 all nine GREEN (the C++ gate 1346 s, 866 ok); the C++ gates over 21 and 22 GREEN (874 and 877 ok); a commit and a push |
 | 0.261 | type macros: vector<int> in C, its instance made once in the unit, linkonce | the next items of CCLLIB.md's phase 0, together, on the owner's decisions (C++'s form for a type, implicit linkonce): a macro file's type_vector/3 makes vector<int> a type wherever a type stands, its arguments by C++'s template grammar (vector<vector<int>>, inplace<double, 8>), max<double>(a, b) a function macro's explicit types; each instance made once in the unit at its first use, at file scope before the item that used it (ccl_hoist/1), its functions linkonce_odr, so two units that both make it link; a read that met an instance kept in no cache; two defects of the first builds fixed (an unbound list of instances in making, the preprocessor's header reads making instances that no AST holds); the safe part refuses a container of owners' push (the plan's open decision 2) | the flow gate; over libc++ 18 all nine GREEN (the C++ gate 1304 s, 866 ok); the C++ gates over 21 and 22 GREEN (874 and 877 ok); a commit and a push |
 | 0.262 | autodrop: an object of a type macro's instance is dropped where its scope ends | the next item of CCLLIB.md's phase 0, on the owner's decision (autodrop): an instance's <name>_drop(<name> *) is its drop, its parameter marked dying; a defer of the drop after each automatic object, run at every exit, the last declared first; zero for an object with no initializer; a parameter by value the callee's; an object named whole by value moved, move(v), which leaves it zero; refused: a use after a move, a drop by hand, an owner taken out, a copy the reader does not move, a temporary thrown away, a new value over a full object, a drop that frees nothing; two older gaps closed (what a braced list does not name is null to the check; a case label past a defer) | the flow gate; over libc++ 18 all nine GREEN (the C++ gate 1249 s, 866 ok); the C++ gates over 21 and 22 GREEN (874 and 877 ok); a commit and a push |
+| 0.263 | list and map literals: `[int; 5, 3, 9]` and `[int:double; 5: 1.25]` in C | the next item of CCLLIB.md's phase 0, on the owner's decisions (a literal gives its types before a ;, a map's two types K:V): a `[' begins a C primary; the place gives the literal its type -- a declaration's, the left side of =, a call's parameter, a return's -- and := makes vector<T> or map<K, V> of its types or its elements' usual conversions; the value a call of the instance's <name>_from over compound literals, an empty one the empty object; refused at the read: narrowing as C++'s braced lists, two equal constant keys, no types to name, mixed items, a target that is no instance, no common type, a variadic argument, other types, no type macro; two macro files that define one predicate collide in one process (recorded) | the flow gate; over libc++ 18 all nine GREEN (the C++ gate 1286 s, 866 ok); the C++ gates over 21 and 22 GREEN (874 and 877 ok); a commit and a push |
 
 ## M5 — the C++ mode
 
@@ -17904,3 +17905,65 @@ the Intel Mac (20:50, 11:38).
 
 The module 0.262; the reader 173 (the drop, the defers, the moves); the lowering 151 (what the check emits, and a move
 of an object that has a drop zeroes it).
+
+## 0.263 — list and map literals: `[int; 5, 3, 9]` and `[int:double; 5: 1.25]` in C
+
+**0.263: the next item of `CCLLIB.md`'s phase 0, 0.6, on the owner's decision of 2026-11-07 ("a literal gives its types
+before a `;`"), and on the owner's words ("Commit and push after every task finished, continue"; and, while the chain
+ran, "Use : in map literal type section '[int:string; 1:"me", 2:"you"]'"): a list or map literal in C, its type taken
+from the place where it stands. The chain ran over cocolog 3.37.0 at the pins, as 0.262's did.**
+
+THE GRAMMAR. In C a `[` begins a primary: `[int; 5, 3, 9]`, `[int:double; 5: 1.25, 3: 2.5]`, and with no types `[1,
+2.5]` and `[5: 1.25]`, a trailing comma taken, `[int;]` an empty one (`ccl_list_literal//1`). The first chain of the
+step ran over `[int, double; ...]`; the owner's word put a colon between a map's two types, and that chain was stopped
+and run again; `[int, double; ...]` is refused now, `a map literal's types are written with a colon: [K:V; k: v]`. It is
+read as `list_lit(L, Types, Items)`, an item `el(E)` or `kv(K, V)`, a key a conditional expression. C has no other `[`
+at the start of an expression, so nothing else changes.
+
+THE TYPE FROM THE PLACE. A declaration's declared type, the left side of `=`, a call's parameter and a return's
+function's result give the literal its type (`ccl_lit_resolve/3`); at `:=` it is `vector<T>`, or `map<K, V>` for key:
+value items, made as `vector<T>` in a type makes it, the types the literal's or its elements' by C's usual conversions.
+The value is a call of the instance's `<name>_from` -- the plan's "literal hook" -- over the compound literal of the
+elements and their count, `vector_int_from((int[3]){5, 3, 9}, 3)`, a map's over its keys and its values; an empty one is
+the empty object. So `vector<int> e = [];` takes its type from the declaration, and `a := [];` must name it.
+
+WHAT IS REFUSED, at the read and in clang's manner: a narrowing element, as C++'s braced lists refuse it
+([dcl.init.list]/7) -- a floating value to an integer type, a wider floating type to a narrower one unless a constant,
+an integer value that is no constant to a floating type, an integer that the slot cannot hold; two equal constant keys
+(a key that is no constant is taken, and the map keeps the first value, as std::map does); an empty literal at `:=`; a
+map's types written with a comma; elements beside pairs; a place whose type is no instance; elements of no common type;
+a literal as a variadic argument, which would make a value that nobody drops; types other than the place's; no type
+macro loaded. A literal where no place gives a type, a conditional's branch, is refused by the check by name.
+
+WHAT THE PROBES AND THE GATES FOUND, each fixed before the fixtures: the range test of a 64-bit slot overflowed
+cocolog's integers of 64 bits (`1 << 64`, `int_overflow`); the narrowing test asked `ccl_const_eval/2`, which folds the
+integers alone, so `[float; 1.5]` was refused (a floating literal is a constant now); the probe's C text used `NULL`,
+which a C text does not see, as 0.260 has it (the program's macros do not reach the text). The reader gate, which reads
+every fixture in one process, found that two macro files that define one predicate collide there: the first `literal.pl`
+defined its own `type_vector/3`, and the gate took `tvector.pl`'s, which had no `_from` (`the type vector_double takes
+no literal`). `tvector.pl`'s vector has its `_from` now, and `literal.pl` holds the map alone; recorded in Not done.
+
+THE NETS before the chain, over the work tree and fresh HOMEs: the flow gate GREEN with no finding (86 s); the reader
+gate GREEN, 125 checks (`k118` to `k124`, twelve refusals, `k105` and `k106` with the vector's `_from`); the compile
+gate GREEN (`literal.c` prints what clang's build of its hand expansion prints, line for line); the driver gate GREEN,
+60 checks (a literal where no place gives a type).
+
+MEASUREMENTS: the chain of 0.263 over its work tree, cocolog 3.37.0 and ZiguratIP 1.0.2 at the pins and fresh HOMEs:
+over libc++ 22 the library read 372 s and the C++ gate 1358 s (877 ok, none skipped); over libc++ 21 375 s and 1302 s
+(874 ok, 3 skipped); over libc++ 18 all nine GREEN -- the flow gate 88 s with no finding, reader 2 s, compile 27 s,
+driver 39 s, objects 4 s, proof, the cross gate 312 s, the library read 409 s, the C++ gate 1286 s (866 ok, 11 skipped
+by their needs); in 5576 s.
+
+THE CI OF 0.262 (`318deaf`), over cocolog 3.37.0 at its pins: its smoke run (42472761307) GREEN on the three machines --
+Linux (setup 11:52, gates 3:40), Apple silicon (13:50, 7:07), the Intel Mac (20:53, 9:39).
+
+- `library/ccl_syntax.pl`: `ccl_list_literal//1` and its grammar, `ccl_lit_resolve/3` and its helpers
+  (`ccl_lit_container/7`, `ccl_lit_make/6`, `ccl_lit_narrows/3`, `ccl_lit_keys_unique/2`), the places (`ccl_lit_vars/2`,
+  `ccl_lit_assign/4`, `ccl_lit_args/3`, `ccl_lit_return/2`, the function's result around its body), the reader 174.
+  `library/ccl_check.pl`: a literal with no type given refused by name. `library/ccl_driver.pl`: a literal's message.
+  `test/reader.pl`: `k118` to `k124`; `test/driver.sh`: a literal where no place gives a type; `test/c/run/literal.c`,
+  `literal.pl`, `literal.expect`, `tvector.pl` with its `_from`; `test/c/lit_*.c`, `lit_comma.c` among them. `RULES.md`,
+  `CLAUDE.md`, `README.md`, `CCLLIB.md`.
+
+The module 0.263; the reader 174 (the literal's grammar); the lowering 151 stays (what is emitted for a program that
+0.262 built is the same).

@@ -30,7 +30,8 @@ reads only plain C. "Cheaper" is measured, never claimed: each phase 1 program i
 
 - The library covers what C++ has, iostreams included: first the library before C++23, then C++23 and C++26.
 - Types are spelled as in C++: `vector<int> v;`, `map<int, string> m;`.
-- A literal gives its types before a `;`: `[int; 5, 3, 9]` is a sequence, `[int, string; 5: "me", 3: "you"]` a map.
+- A literal gives its types before a `;`: `[int; 5, 3, 9]` is a sequence, `[int:string; 5: "me", 3: "you"]` a map; a
+  map's two types are written with a colon (2026-11-08: "Use : in map literal type section").
 - Instances are implicit: each unit that uses `vector<int>` makes it once, as `linkonce_odr`, and the linker keeps one.
 - C-text comes first: a macro author writes C text with holes, and the reader reads it.
 - cocolog is pulled and built again on the owner's word (until then it stays 3.37.0, `74183ae`).
@@ -60,7 +61,7 @@ Open decisions:
 int main(void) {
     v := [int; 5, 3, 9];                       // vector<int>, inferred
     vector<double> w = [1, 2.5];               // the declared type gives the element type
-    m := [int, string; 5: "me", 3: "you"];     // map<int, string>
+    m := [int:string; 5: "me", 3: "you"];      // map<int, string>
     push(v, 1);
     sort(v);                                   // the instance for vector<int>, found by v's type
     sort_by(w, a, b, a > b);                   // an expression, put into the loop: no function pointer
@@ -193,7 +194,7 @@ order. Today a macro's list result is spliced where the macro stands.
 
 ```
 literal  : '[' types ';' elements? ']'  |  '[' elements ']'
-types    : type-name  |  type-name ',' type-name
+types    : type-name  |  type-name ':' type-name
 elements : element (',' element)* ','?
 element  : expression  |  key ':' expression        a key is a conditional expression
 ```
@@ -201,11 +202,24 @@ element  : expression  |  key ':' expression        a key is a conditional expre
 - `:=` infers the container: one type `vector<T>`, two types `map<K, V>`. A declared type picks it:
   `set<int> s = [3, 1, 2];`, `unordered_map<int, string> u = [5: "me"];`.
 - With no types the elements give them by C's usual conversions: `[1, 2.5]` is `vector<double>`; `[5: "me"]` holds
-  static strings, `char *`. An empty literal names its types: `[int;]`, `[int, string;]`.
+  static strings, `char *`. An empty literal names its types: `[int;]`, `[int:string;]`.
 - Each element converts to the element type; a narrowing conversion is refused (`[int; 1.5]`), as C++'s braced
   lists refuse it. Two equal constant keys are refused; at run time the first stays, as `std::map` keeps it.
 - The type macro's literal hook makes the value: one call over a compound literal.
 - `FOO([int; 1, 2])` of a `#define` macro is two arguments, as a compound literal is: written `FOO(([int; 1, 2]))`.
+- DONE AT 0.263 (`RULES.md`, the topic of the macro files): the grammar above in C, `[` a primary
+  (`ccl_list_literal//1`); the type from the place -- a declaration's declared type, the left side of `=`, a call's
+  parameter, a return's function's result -- and at `:=` `vector<T>` or `map<K, V>`, the types the literal's or its
+  elements' by the usual conversions; the value a call of the instance's `<name>_from` over compound literals
+  (`vector_int_from((int[3]){5, 3, 9}, 3)`, a map's over its keys and its values), an empty one the empty object;
+  narrowing refused as C++'s braced lists refuse it, two equal constant keys refused, a key given twice at run time
+  keeping its first value. `test/c/run/literal.c` over `tvector.pl` and `literal.pl` prints what clang's build of its
+  hand expansion prints; reader `k118` to `k124` hold the forms and eleven refusals. The "literal hook" is the
+  instance's function `<name>_from(const T *, size_t)`, a map's `<name>_from(const K *, const V *, size_t)`.
+- WHAT 0.263 LEAVES (Not done): a literal where no place gives its type (a conditional's branch, a macro's argument) is
+  refused by name, and one at file scope is no constant; a container of plain pointers (`map<int, char *>`, `[5: "me"]`)
+  is refused by the borrow rules until ccllib's `string` (phase 1a); `set<int>` and `unordered_map` wait for their type
+  macros (phase 1a).
 
 ### 0.7 Arguments read after the outer macro
 

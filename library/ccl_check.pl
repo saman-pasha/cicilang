@@ -1786,6 +1786,7 @@ ck_read(K, S) :- ( memberchk(S, [live, null, none, anchor, loose, array]) -> tru
 ck_expr(_, dead, dead) :- !.
 ck_expr(E, St, St) :- \+ compound(E), !.                                          % an operator, a number, a name as a field
 ck_expr(member(C, F), _, _) :- \+ ccl_lang(cpp), ck_dropped_value(C), !, ck_fail(dropped_temporary, temporary, member(C, F)).   % a member of a call's value that has a drop (0.262)
+ck_expr(list_lit(L, _, _), _, _) :- !, nb_getval('$ck_fn', Fn), throw(error(not_lowered(list_literal_with_no_type_given), where(Fn, line(L)))).   % a literal where no place gives it a type (0.263)
 ck_expr(id(N), St, St) :- !, ( ck_state(St, N, S) -> ck_read(N, S) ; true ), ck_held_read(St, N).   % what a holder's storage holds is read with it (0.217)
 ck_expr(int(_), St, St) :- !.
 ck_expr(uint(_), St, St) :- !.

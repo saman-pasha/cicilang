@@ -270,6 +270,7 @@ dr_diag(_, syntax_error(cicilang_ast(File, char(C), line(L))), _) :- !, dr_hex4(
 dr_diag(F, cannot_infer(N, E), here(_, L)) :- !, dr_error(F, L, ['cannot infer the type of ', N, ' from ', E]).
 dr_diag(F, pp_error(M), here(_, L)) :- !, dr_error(F, L, [M]).                      % the file's own #error, its text; an #embed of nothing
 dr_diag(F, static_assert_failed(T), here(_, L)) :- !, ( T == '' -> dr_error(F, L, ['static assertion failed']) ; dr_error(F, L, ['static assertion failed: ', T]) ).
+dr_diag(F, list_literal(M), here(_, L)) :- !, dr_error(F, L, [M]).   % a list or map literal refused at its read (0.263)
 dr_diag(F, static_assert_unfolded, here(_, L)) :- !, dr_error(F, L, ['static assertion expression is not an integral constant expression']).   % a condition that does not fold, in clang's words (0.257)
 dr_diag(F, no_member(What, T), here(_, L)) :- !, dr_error(F, L, ['no member ', What, ' in ', T]).
 dr_diag(F, macro_error(M, here(_, L)), _) :- !, dr_error(F, L, ['macro: ', M]).

@@ -375,6 +375,14 @@ moves, `w = v`, `f(v)`, `return v`, and the move leaves it empty; using it
 again before it gets a value, or dropping it by hand, is refused.
 `test/c/run/autodrop.c` is the example.
 
+A list or map literal (0.263) makes an instance's value: `v := [int; 5, 3,
+9];` is a `vector<int>`, `m := [int:double; 5: 1.25, 3: 2.5];` a
+`map<int, double>`, `vector<double> w = [1, 2.5];` takes the declared type,
+and a call's argument, the left side of `=` and a return take theirs. The
+instance's `<name>_from` makes the value from the elements. A narrowing
+element (`[int; 1.5]`) and two equal keys are refused.
+`test/c/run/literal.c` is the example.
+
 `format`, `print`, `println` and `clone` are global macros, there in every
 program without an include (`library/ccl_format.pl`). The format string
 has Rust's holes, each becoming the `printf` conversion of its argument's

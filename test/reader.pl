@@ -379,13 +379,13 @@ top_items(Is, Ts) :- findall(T, ( member(I, Is), ( I = function(L, S, _, F, _, _
 k105 :- check('vector<T> in C: each instance -- its typedef and its functions -- stands at file scope before the first item that used it, once in the unit: vector<double> before sum, which main uses again; vector<point_t> and inplace<double, 8> before main',
     ( unit('run/tvector.c', unit(Is)), top_items(Is, Ts),
       Ts == [td(6, point_t), td(7, vector_double), fn(7, linkonce, vector_double_push), fn(7, linkonce, vector_double_at), fn(7, linkonce, vector_double_len),
-             fn(7, linkonce, vector_double_drop), fn(7, static, sum),
-             td(18, vector_point_t), fn(18, linkonce, vector_point_t_push), fn(18, linkonce, vector_point_t_at), fn(18, linkonce, vector_point_t_len), fn(18, linkonce, vector_point_t_drop),
+             fn(7, linkonce, vector_double_drop), fn(7, linkonce, vector_double_from), fn(7, static, sum),
+             td(18, vector_point_t), fn(18, linkonce, vector_point_t_push), fn(18, linkonce, vector_point_t_at), fn(18, linkonce, vector_point_t_len), fn(18, linkonce, vector_point_t_drop), fn(18, linkonce, vector_point_t_from),
              td(22, inplace_double_8), fn(12, none, main)] )).
 
 k106 :- check('an instance that a header made stands in the header\'s unit, its functions linkonce, and the unit that includes it names it alone: vector<int> in tvhdr.h',
     ( unit('run/tvector.c', unit(Is)), member(include(_, local('tvhdr.h'), file(_, _, unit(Hs))), Is), top_items(Hs, Ts),
-      Ts == [td(3, vector_int), fn(3, linkonce, vector_int_push), fn(3, linkonce, vector_int_at), fn(3, linkonce, vector_int_len), fn(3, linkonce, vector_int_drop), fn(3, static, ivec_sum)],
+      Ts == [td(3, vector_int), fn(3, linkonce, vector_int_push), fn(3, linkonce, vector_int_at), fn(3, linkonce, vector_int_len), fn(3, linkonce, vector_int_drop), fn(3, linkonce, vector_int_from), fn(3, static, ivec_sum)],
       \+ member(typedef(_, [var(vector_int, _, _)]), Is) )).
 
 k107 :- check('a value argument, inplace<double, 8>, is an array\'s bound; sizeof(vector<int>) and the cast (vector<int> *)0 name the instance made',
@@ -429,6 +429,46 @@ k116 :- check('a for\'s object of a type that has a drop is a block\'s declarati
 k117 :- check('a later declaration of the name hides an autodropped object from the walk of the moves: an int named like it is not moved',
     ( unit('adshadow.c', unit(Is)), member(function(_, _, _, main, _, _, block(B)), Is),
       member(block(In), B), sub_t(call(id(use), [id(a)]), In), sub_t(call(id(take), [move(id(a))]), B) )).
+
+%% LIST AND MAP LITERALS (0.263; CCLLIB.md's phase 0.6): test/c/run/literal.c over its literal.pl, and test/c/lit_*.c
+k118 :- check('a literal at := with its types named is vector<T>: a call of vector_int_from over the compound literal of its elements and their count',
+    ( fn_body('run/literal.c', main, B), I = base([], [int]),
+      sub_t(call(id(vector_int_from), [compound_lit(arr(int(3), I), init([item([], int(5)), item([], int(3)), item([], int(9))])), int(3)]), B) )).
+
+k119 :- check('a literal takes a declaration\'s declared type, its elements converted to the element type: [1, 2.5] of a vector<double>',
+    ( fn_body('run/literal.c', main, B), D = base([], [double]),
+      sub_t(call(id(vector_double_from), [compound_lit(arr(int(2), D), init([item([], int(1)), item([], float(2.5))])), int(2)]), B) )).
+
+k120 :- check('a key: value literal at := with its types K:V named is map<K, V>: a call of map_int_double_from over its keys and its values',
+    ( fn_body('run/literal.c', main, B), I = base([], [int]), D = base([], [double]),
+      sub_t(call(id(map_int_double_from), [compound_lit(arr(int(2), I), init([item([], int(5)), item([], int(3))])), compound_lit(arr(int(2), D), init([item([], float(1.25)), item([], float(2.5))])), int(2)]), B) )).
+
+k121 :- check('an empty literal is the empty object of the type its place gives: [] and [int;] of a vector<int>',
+    ( fn_body('run/literal.c', main, B), V = base([], [typedef(vector_int)]), E = compound_lit(V, init([item([], int(0))])),
+      sub_t(var(e, _, E), B), sub_t(var(e2, _, E), B) )).
+
+k122 :- check('a literal takes the type of a call\'s parameter, of the left side of =, and of a return\'s function',
+    ( fn_body('run/literal.c', main, B), fn_body('run/literal.c', halves, H),
+      sub_t(call(id(count), [call(id(vector_int_from), _)]), B), sub_t(assign('=', id(x), call(id(vector_long_from), _)), B),
+      sub_t(return(_, call(id(vector_double_from), _)), H) )).
+
+k123 :- check('a key given twice, one of the two no constant, is taken -- the map keeps the first at run time, as std::map does -- and so is a trailing comma',
+    ( fn_body('run/literal.c', main, B), sub_t(call(id(map_int_int_from), [compound_lit(arr(int(3), _), init([item([], id(k)), item([], int(1)), item([], int(2))])), _, int(3)]), B) )).
+
+lit_refused(F, L, M) :- c(F, P), catch(cicilang_ast(P, _), error(list_literal(M0), here(P, L0)), true), L0 == L, M0 == M.
+k124 :- check('a literal is refused at its line in clang\'s manner: narrowing, two equal constant keys, no types to name, map types with a comma, mixed items, a type that is no instance, no common type, a variadic argument, other types than the declared one, no type macro',
+    ( lit_refused('lit_narrow.c', 6, 'narrowing conversion of an element of the literal from double to int'),
+      lit_refused('lit_narrow2.c', 6, 'narrowing conversion of an element of the literal from long to int'),
+      lit_refused('lit_char.c', 6, 'narrowing conversion of an element of the literal from int to char'),
+      lit_refused('lit_keys.c', 6, 'two equal keys in a map literal: 1'),
+      lit_refused('lit_empty.c', 6, 'an empty literal names its types: [int;] or [int:double;]'),
+      lit_refused('lit_comma.c', 6, 'a map literal\'s types are written with a colon: [K:V; k: v]'),
+      lit_refused('lit_mixed.c', 6, 'a literal\'s items are all elements or all key: value pairs'),
+      lit_refused('lit_target.c', 6, 'a list literal makes a type macro\'s instance, not int'),
+      lit_refused('lit_common.c', 6, 'the elements of a literal with no types have no common type: name its types'),
+      lit_refused('lit_vararg.c', 7, 'a list literal as an argument takes its parameter\'s type, and this argument has no parameter'),
+      lit_refused('lit_types.c', 6, 'the literal\'s types are not those of the type it makes'),
+      lit_refused('lit_nomacro.c', 4, 'a list literal needs the type macro vector (its macro file included)') )).
 
 k110 :- check('a type macro that fails, two instances that one name names, and a typed call of a macro with no typed form are refused at the use',
     ( c('tmacro_fail.c', P1), c('tmacro.pl', M), catch(cicilang_ast(P1, _), error(E1, here(P1, 3, in_macro(type_none, M))), true), E1 == macro_failed(none, [base([], [int])]),
@@ -681,6 +721,14 @@ t_checks :-
     k115,
     k116,
     k117,
+    section('list and map literals: [int; 5, 3, 9], [int:double; 5: 1.25] (0.263)'),
+    k118,
+    k119,
+    k120,
+    k121,
+    k122,
+    k123,
+    k124,
     section('the preprocessor, in cocolog: a header raw cannot take'),
     k83,
     section('the lexer, native: ccl_lex_native/6 token for token with the DCG'),
