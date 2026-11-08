@@ -12,8 +12,8 @@ the fixture that gates it, and why. The bullet ends with the version that made t
 edits the rule in `RULES.md`, in its topic, and writes its entry in `HISTORY.md`. Read the topic of `RULES.md` that
 covers the code before the code is changed.
 
-At 0.266 the versions are: the module 0.266 (`ccl_p_version` in `module/cicilang.cicili`, `bin/cicilang --version`),
-the reader 176 (`ccl_reader_version/1`, `library/ccl_syntax.pl`) and the lowering 153 (`ccl_lowering_version/1`,
+At 0.267 the versions are: the module 0.267 (`ccl_p_version` in `module/cicilang.cicili`, `bin/cicilang --version`),
+the reader 177 (`ccl_reader_version/1`, `library/ccl_syntax.pl`) and the lowering 154 (`ccl_lowering_version/1`,
 `library/ccl_ir.pl`).
 
 Build and prove, always in this order (or all of it, `sh test/gates.sh`):
@@ -394,7 +394,8 @@ test/c/run/                 C programs built and run: NAME.c, NAME.expect, NAME.
 test/c/safe/                C programs the safe part refuses: NAME.c, NAME.expect; dropnone.pl, the macro file of
                             drop_leaks.c (0.262); borrow_after_grow.c, borrow_after_push.c, elem_after_push.c,
                             grow_through_ptr.c, const_replace.c and const_local.c, the safety rules of 0.265;
-                            index_after_insert.c and tied_after_call.c, a tied result's borrow (0.266)
+                            index_after_insert.c and tied_after_call.c, a tied result's borrow (0.266);
+                            null_filled.c, a null own field that a call fills (0.267)
 test/cpp/                   the C++ reader's fixtures and the refusals; hidem.cppm for modhidden.cpp; unread_cpp.cpp,
                             the reader gate's C++ refusal of an argument taken unread (0.264)
 test/cpp/link/              the C++ ABI checks of the C++ gate and the cross gate: abi_helper.cpp, memptr_helper.cpp and

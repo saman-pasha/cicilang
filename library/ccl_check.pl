@@ -197,7 +197,7 @@ ck_is_borrowed_field(N) :- nb_getval('$ck_borrowed', Bs), memberchk(N, Bs).
 ck_complete_owners([], _).
 ck_complete_owners([N-S|Os], Form) :-
     ( ck_is_borrowed_field(N), \+ ck_is_dying_field(N), \+ memberchk(S, [live, null, array]) -> ck_fail(borrow_incomplete, N, Form) ; true ),
-    ( \+ ccl_lang(cpp), ck_is_dying_field(N), memberchk(S, [live, partial]) -> ck_fail(owner_leaked, N, Form) ; true ),   % a C drop frees what its object owns (0.262)
+    ( ck_is_dying_field(N), \+ ( ccl_lang(cpp), sub_atom(N, 0, _, _, 'this->') ), memberchk(S, [live, partial]) -> ck_fail(owner_leaked, N, Form) ; true ),   % a drop frees what its object owns (0.262; in C++ too, 0.267: an instance's drop, whose dying parameter is no destructor's `this')
     ck_complete_owners(Os, Form).
 %% C++ (M6): a constructor's `this' points at fresh storage -- its own fields
 %% start unset, and must be live or null when it returns -- and a destructor's
@@ -368,7 +368,7 @@ ck_type_rules(N, T, Form) :-
     ;   T1 = base(_, [struct(_, _)]) -> ( ck_has_own_array(T1) -> ck_fail(own_array_by_value, N, Form) ; true )
     ;   true ).
 %% AN ARRAY OF OBJECTS THAT HAVE A DROP (0.262) is not done: nothing drops its elements, so it is refused by name
-ck_no_dropped_array(arr(_, ET)) :- \+ ccl_lang(cpp), ck_dropped_elem(ET), !,
+ck_no_dropped_array(arr(_, ET)) :- ck_dropped_elem(ET), !,
     nb_getval('$ck_fn', Fn), nb_getval('$ck_line', L), throw(error(not_lowered(array_of_objects_with_a_drop), where(Fn, line(L)))).
 ck_no_dropped_array(_).
 ck_dropped_elem(T) :- ck_type_drop(T, _), !.
@@ -1245,7 +1245,7 @@ ck_stmt(include(_, _, _), St, St) :- !.
 ck_stmt(static_assert(_, _, _), St, St) :- !.
 ck_stmt(expr(_, bind_ref(_, E)), St0, St) :- !, ck_expr(E, St0, St).   % a REFERENCE MEMBER BOUND: the object outlives its holder, as a reference capture's does -- the safe part follows neither
 ck_stmt(empty, St, St) :- !.
-ck_stmt(expr(L, E), _, _) :- \+ ccl_lang(cpp), ck_dropped_value(E), !, ck_line(L), ck_fail(dropped_temporary, temporary, E).   % a call's value that has a drop, thrown away (0.262)
+ck_stmt(expr(L, E), _, _) :- ck_dropped_value(E), !, ck_line(L), ck_fail(dropped_temporary, temporary, E).   % a call's value that has a drop, thrown away (0.262)
 ck_stmt(expr(L, E), St0, St) :- !, ck_line(L), ck_anchor_addrs(E, St0, St1), ck_expr(E, St1, St).
 ck_stmt(defer(L, ['$autodrop'(V)], _), St0, St) :- !, ck_line(L), ck_defer(St0, '$autodrop'(L, V), St).   % an object's drop (0.262): its mark is the defer
 ck_stmt('$autodrop'(_, V), St0, St) :- !, ck_autodrop(V, St0, St).
@@ -1337,7 +1337,11 @@ ck_asm_outs([op(_, _, E)|Os]) :-
 ck_asm_gotos([], _, _).
 ck_asm_gotos([Lb|Ls], L, St) :- ck_goto(Lb, L, St), ck_asm_gotos(Ls, L, St).
 ck_catches([], _, St, St).
-ck_catches([catch(K, B)|Cs], St0, Acc, St) :- ( K == any ; K == terminate ), !, ck_stmt(B, St0, S1), ck_merge(Acc, S1, Acc1), ck_catches(Cs, St0, Acc1, St).
+%% A TERMINATE HANDLER ENDS THE PATH (0.267): std::terminate does not return, so what the handler's entry held reaches no
+%% later statement -- it was merged after the try, and a noexcept function's guard (cpp_nx_wrap) gave its body's entry
+%% state to the function's end: `void vector_int_drop(vector_int *v) { free(v->data); }' in C++ left `v->data' live there
+ck_catches([catch(terminate, _)|Cs], St0, Acc, St) :- !, ck_catches(Cs, St0, Acc, St).
+ck_catches([catch(K, B)|Cs], St0, Acc, St) :- K == any, !, ck_stmt(B, St0, S1), ck_merge(Acc, S1, Acc1), ck_catches(Cs, St0, Acc1, St).
 %% A HANDLER'S PARAMETER HAS A FRAME OF ITS OWN, in the state as in the symbol table (0.201): the two are pushed together,
 %% and a defer of a frame outside the handler that an exit from inside it runs -- a `return' in the handler over a local's
 %% destructor -- names its local by the symbol table's frame, which the state did not have: the check failed with no word.
@@ -1518,8 +1522,11 @@ ck_fill(Key, T, R, Form, St0, St) :-
 ck_set_live(St, [], _, St).
 ck_set_live(St0, [K|Ks], Form, St) :- ( ck_state(St0, K, live) -> ck_fail(owner_overwritten, K, Form) ; ck_set(St0, K, live, St1) ), ck_set_live(St1, Ks, Form, St).
 %% WHAT A BRACED LIST DOES NOT NAME IS ZERO (C17 6.7.9/21; 0.262): an own field the list leaves out is null, as a
-%% static object's is -- `vector_int v = {0};', autodrop's empty object, left `data' unset, garbage to the check
-ck_unlisted_null(St0, Key, St) :- \+ ccl_lang(cpp), ck_own_under(St0, Key, Fs), !, ck_unset_null(Fs, St0, St).
+%% static object's is -- `vector_int v = {0};', autodrop's empty object, left `data' unset, garbage to the check. In C++
+%% too (0.267; [dcl.init.aggr]/5, an element the list leaves out copy-initialized from `{}'): a list that reaches the
+%% check is an aggregate's with no default member initializer, as the desugaring writes one that has them member by
+%% member, so `vector_int v = {0};' in an instance's C text read by cicilang++ is the empty object there as well
+ck_unlisted_null(St0, Key, St) :- ck_own_under(St0, Key, Fs), !, ck_unset_null(Fs, St0, St).
 ck_unlisted_null(St, _, St).
 ck_unset_null([], St, St).
 ck_unset_null([F|Fs], St0, St) :- ( ck_state(St0, F, unset) -> ck_set(St0, F, null, St1) ; St1 = St0 ), ck_unset_null(Fs, St1, St).
@@ -1806,7 +1813,7 @@ ck_read(K, S) :- ( memberchk(S, [live, null, none, anchor, loose, array]) -> tru
 %% the generic way with its field name as a child
 ck_expr(_, dead, dead) :- !.
 ck_expr(E, St, St) :- \+ compound(E), !.                                          % an operator, a number, a name as a field
-ck_expr(member(C, F), _, _) :- \+ ccl_lang(cpp), ck_dropped_value(C), !, ck_fail(dropped_temporary, temporary, member(C, F)).   % a member of a call's value that has a drop (0.262)
+ck_expr(member(C, F), _, _) :- ck_dropped_value(C), !, ck_fail(dropped_temporary, temporary, member(C, F)).   % a member of a call's value that has a drop (0.262)
 ck_expr(list_lit(L, _, _), _, _) :- !, nb_getval('$ck_fn', Fn), throw(error(not_lowered(list_literal_with_no_type_given), where(Fn, line(L)))).   % a literal where no place gives it a type (0.263)
 ck_expr(id(N), St, St) :- !, ( ck_state(St, N, S) -> ck_read(N, S) ; true ), ck_held_read(St, N).   % what a holder's storage holds is read with it (0.217)
 ck_expr(int(_), St, St) :- !.
@@ -1975,8 +1982,13 @@ ck_args(Args, Callee, St0, St) :- ck_arg_ties(Args, Callee, St0), ck_args_(Args,
 ck_replaced_args([], _, _, St, St).
 ck_replaced_args([A|As], Callee, I, St0, St) :- ck_replaced_arg(A, Callee, I, St0, St1), I1 is I + 1, ck_replaced_args(As, Callee, I1, St1, St).
 ck_replaced_arg(A, Callee, I, St0, St) :- \+ ccl_lang(cpp), ck_replaced_base(A, St0, K), ck_may_replace(Callee, I),
-    ck_own_under(St0, K, Fs), Fs \== [], !, ck_dangle_all(St0, Fs, St), ck_note_replaced(Fs).
+    ck_own_under(St0, K, Fs), Fs \== [], !, ck_dangle_all(St0, Fs, St1), ck_note_replaced(Fs), ck_null_filled(Fs, St1, St).
 ck_replaced_arg(_, _, _, St, St).
+%% A NULL OWN FIELD THAT SUCH A CALL MAY FILL IS LIVE AFTER IT (0.267): the callee returns the field live or null
+%% (ck_complete_owners/2), so the caller holds an owner it must free or drop -- `buf v = {0, NULL}; grow(&v); return 0;'
+%% was taken, and grow's `realloc(NULL, n)' leaked, as `vector<int> v; push(v, 1);' would without autodrop
+ck_null_filled([], St, St).
+ck_null_filled([F|Fs], St0, St) :- ( ck_state(St0, F, null) -> ck_set(St0, F, live, St1) ; St1 = St0 ), ck_null_filled(Fs, St1, St).
 %% the keys whose borrows a call made dangle, so a use says why (ck_fail_dangling/2); a later dangle of a key by a move or
 %% a free takes its note away
 ck_note_replaced(Fs) :- ( nb_current('$ck_replaced', Rs0) -> true ; Rs0 = [] ), append(Fs, Rs0, Rs), nb_setval('$ck_replaced', Rs).
@@ -2054,19 +2066,24 @@ ck_args_([A|As], Callee, I, St0, St) :-
 %% empty, and the safe part takes it as gone until it is given a value again; a parameter that may change it (its
 %% pointee not const) may fill an own field it found null, so a null one is live after the call, which a later
 %% assignment over it must not lose (`owner_overwritten'), and its drop frees
-ck_dropped_arg(addr(E), Callee, I, Form, St0, St) :- \+ ccl_lang(cpp), \+ ck_dying_param(Callee, I), ck_arg_base(addr(E), K),
+ck_dropped_arg(addr(E), Callee, I, Form, St0, St) :- \+ ck_dying_param(Callee, I), ck_arg_base(addr(E), K),
     ( ck_autodropped(St0, K) -> true ; catch(ccl_type_of(E, T), _, fail), T \== unknown, ck_type_drop(T, _) ),
     ck_own_under(St0, K, Fs), Fs \== [], !,
     ( member(F, Fs), ck_state(St0, F, S), memberchk(S, [moved, partial]) -> ck_fail(use_after_move, F, Form) ; true ),
     ( ck_param_const_pointee(Callee, I) -> St = St0 ; ck_null_live(Fs, St0, St) ).
 ck_dropped_arg(_, _, _, _, St, St).
-%% A DROP BY HAND, in C (0.262): of an object that its scope drops it is refused, `dropped_by_hand' -- the scope would
-%% drop it again -- and of an object moved on some path, `use_after_move': its owners went with the move
-ck_hand_drop(A, Callee, I, Form, St) :- \+ ccl_lang(cpp), ck_dying_param(Callee, I), ck_arg_base(A, K), !,
+%% A DROP BY HAND (0.262; in C++ too, 0.267): of an object that its scope drops it is refused, `dropped_by_hand' -- the
+%% scope would drop it again -- and of an object moved on some path, `use_after_move': its owners went with the move. A
+%% C++ destructor's `this' is no drop by hand (ck_dtor_this/2): the desugaring calls the destructor where the object's
+%% life ends, a moved object's too, which the move left empty -- `v.push(Name("gamma"))' destroys the moved temporary,
+%% and bag.cpp and member.cpp were refused `use after move' in 0.267's first form
+ck_hand_drop(A, Callee, I, Form, St) :- ck_dying_param(Callee, I), \+ ck_dtor_this(Callee, I), ck_arg_base(A, K), !,
     (   ck_autodropped(St, K) -> ck_fail(dropped_by_hand, K, Form)
     ;   ck_own_under(St, K, Fs), member(F, Fs), ck_state(St, F, S), memberchk(S, [moved, partial]) -> ck_fail(use_after_move, F, Form)
     ;   true ).
 ck_hand_drop(_, _, _, _, _).
+%% a C++ destructor's dying parameter, its `this' (cpp_this_type/4 with the mark dying), where an instance's drop names its own
+ck_dtor_this(Callee, I) :- ccl_lang(cpp), ck_callee_params(Callee, Ps), ccl_nth(I, Ps, param(_, this)), !.
 ck_param_const_pointee(Callee, I) :- ck_callee_params(Callee, Ps), ccl_nth(I, Ps, param(PT, _)), catch(ccl_resolve_type(PT, ptr(_, base(Q, _))), _, fail), memberchk(const, Q), !.
 ck_null_live([], St, St).
 ck_null_live([F|Fs], St0, St) :- ( ck_state(St0, F, null) -> ck_set(St0, F, live, St1) ; St1 = St0 ), ck_null_live(Fs, St1, St).

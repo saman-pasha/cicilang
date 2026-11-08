@@ -16,7 +16,7 @@ type_tbuf([T], base([], [typedef(N)]), Items) :- ccl_instance_name(tbuf, [T], N)
     ccl_c_items("typedef struct @N { size_t len, cap, at; own @T *data; } @N;
 static void @{N}_put(@N *b, const char *s) {
     size_t n = strlen(s);
-    if (b->len + n + 1 > b->cap) { b->cap = 2 * (b->len + n + 1); b->data = realloc(b->data, b->cap); }
+    if (b->len + n + 1 > b->cap) { b->cap = 2 * (b->len + n + 1); b->data = (@T *)realloc(b->data, b->cap); }
     memcpy(b->data + b->len, s, n + 1); b->len += n;
 }
 @N *@{N}_shl_ptr_char(@N *b, char *s) { @{N}_put(b, s); return b; }
@@ -36,7 +36,7 @@ type_dict([K, V], base([], [typedef(N)]), Items) :- ccl_instance_name(dict, [K, 
     ccl_c_items("typedef struct @N { size_t len, cap; own @K *keys; own @V *vals; } @N;
 @V *@{N}_index(@N *m, @K k) tie m {
     for (size_t i = 0; i < m->len; i++) if (m->keys[i] == k) return &m->vals[i];
-    if (m->len == m->cap) { m->cap = m->cap ? 2 * m->cap : 4; m->keys = realloc(m->keys, m->cap * sizeof(@K)); m->vals = realloc(m->vals, m->cap * sizeof(@V)); }
+    if (m->len == m->cap) { m->cap = m->cap ? 2 * m->cap : 4; m->keys = (@K *)realloc(m->keys, m->cap * sizeof(@K)); m->vals = (@V *)realloc(m->vals, m->cap * sizeof(@V)); }
     m->keys[m->len] = k; m->vals[m->len] = 0; return &m->vals[m->len++];
 }
 size_t @{N}_size(const @N *m) { return m->len; }

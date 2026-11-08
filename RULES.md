@@ -2308,12 +2308,18 @@ that changes a rule edits the rule here, in its topic, and writes its entry in `
   type stands -- a declaration, a member, a parameter, a result, a cast, `sizeof`, a typedef, another list
   (`vector<vector<int>>`, `>>` closing two). The specifiers read a name that the registry holds as `type_N/3`, then `<`
   (`ccl_tmacro_spec//2` in `ccl_specs_type//7`), and its arguments as C++ writes a template's (`ccl_targs//2`): types and
-  constant expressions, `inplace<double, 8>`. C reads no `name < type`, so the form is never a comparison; C++ keeps its
-  templates (the clause is C's alone). The macro gets the types as written, and names the instance from them:
+  constant expressions, `inplace<double, 8>`. C reads no `name < type`, so the form is never a comparison. IN C++ TOO
+  (0.267; `CCLLIB.md`'s phase 0.10): a type macro's unqualified name is the macro's in the user's file and the headers
+  that its read takes in, the clause before the C++ type's; a library header's read holds no macro (`ccl_unit/3` empties
+  the registry, `'$ccl_lib_unit'`), so `<vector>`'s own `vector<_Tp, _Alloc>` stays the template's, and so does
+  `std::vector<int>`, a qualified name. The test was not a known template: a C++ read starts from
+  `ccl_seed_template_names/1`, `vector` and `map` among them. The macro gets the types as written, and names the instance from them:
   `ccl_instance_name(vector, [T], N)` gives `vector_int`, `vector_ulong`, `vector_ptr_char`, `map_int_point_t` --
   readable, and the same in every unit (`ccl_type_word/2`: a basic type's one word for its spellings, `ccl_basic_word/2`;
   a typedef's or a tag's name; `ptr_` before a pointer's target; a qualifier's word before what it qualifies). Its items
-  are C text (`ccl_c_items/3`). Reader `k105`, `k107`; `test/c/run/tvector.c` over its `tvector.pl`. (0.261)
+  are C text (`ccl_c_items/3`), read in the unit's language: written in the part that C and C++ share, `(@T
+  *)realloc(...)` with its cast, the test fixtures' macro files are read by cicilang++ as they are. Reader `k105`,
+  `k107`; `test/c/run/tvector.c` over its `tvector.pl`. (0.261, 0.267)
 - **THE INSTANCE IS MADE ONCE IN THE UNIT, AT ITS FIRST USE, AND STANDS AT FILE SCOPE** (0.261; phases 0.3 and 0.4):
   `ccl_tmacro_instance/5` keeps the unit's instances (`'$ccl_instances'`, emptied at a top file's read and after the
   preprocessor's run, whose reads of the headers made instances that no AST holds: `ccl_inst_reset/0`); a later use, in
@@ -2331,6 +2337,13 @@ that changes a rule edits the rule here, in its topic, and writes its entry in `
   template's is, so that every unit that uses `vector<int>` defines `vector_int_push` and the link keeps one; a
   program's own header's linkonce function is the unit's always, as its external definitions are (`ir_hdr_mode/2`).
   The driver gate links two units that both make `vector<int>` (`test/c/link/inst_a.c`, `inst_b.c`). (0.261)
+- **A C TEXT'S FUNCTIONS ARE NOEXCEPT IN C++** (0.267; `CCLLIB.md`'s phase 0.10): the text is C, which throws nothing,
+  so each function that a C text's items define takes noexcept's mark in C++, its storage word under it,
+  `nxif(bool(true), linkonce)` (`ccl_ctext_nx/3` at the end of `ccl_ctext/4`; `ccl_inst_linkonce/2` looks through the
+  mark, `ccl_inst_once/2`): a call of one is no throw point for the safe part's defer rule, where `vec_int_push(&v, x)`
+  over an own buffer was `owner live where a call may throw, and no defer frees it`, and the lowering makes it a plain
+  call. Two C++ units that both make `vector<int>` link, its functions linkonce_odr there too. The C++ gate builds
+  `test/c/run/ctext.c` and `autodrop.c` with cicilang++ and compares each with its `.expect`. (0.267)
 - **A READ THAT MADE OR MET AN INSTANCE IS KEPT IN NEITHER CACHE** (0.261): what it holds is its unit's -- the instance
   where the unit first used it, a later use naming it alone -- so neither the process's cache nor the store keeps such
   a header's read or such a file's (`ccl_include_read/2`, `ccl_read_file_/3`, over a count of the instances met,
@@ -2340,7 +2353,9 @@ that changes a rule edits the rule here, in its topic, and writes its entry in `
 - **EXPLICIT TYPES FOR A FUNCTION MACRO** (0.261; phase 0.2): `max<double>(a, b)` in C is the macro `max` called with
   `types([double])` before its arguments (`ccl_typed_call/5`, a clause of `ccl_primary_//3` before a name's own): a
   name that the registry holds as a macro, `<` types or constants `>`, then `(`. A macro with no clause of that arity
-  is refused: `macro: the macro twice takes no types before its 1 argument(s)`. Reader `k108`, `k110`. (0.261)
+  is refused: `macro: the macro twice takes no types before its 1 argument(s)`. In C++ too (0.267), outside a library
+  header's read: the clause stands before the C++ qualified name's, which read `max` alone and then `<` as less-than,
+  so `double` stopped the read. Reader `k108`, `k110`. (0.261, 0.267)
 - **AN INSTANCE'S DROP** (0.262; `CCLLIB.md`'s phase 0.5): the function `<name>_drop(<name> *)` that the instance's
   items define, `<name>` its type's name, is its drop (`ccl_inst_drop/4`); the instance's record keeps it, `inst(N,
   Args, Type, Drop)`, `none` where the items define no such function (`inplace<double, 8>`). The drop's parameter is
@@ -2357,8 +2372,9 @@ that changes a rule edits the rule here, in its topic, and writes its entry in `
   C++'s default constructor makes an empty vector, so `vector<int> v;` is one. A parameter by value of such a type is
   the callee's, a defer of its drop at the body's head (`ccl_autodrop_fn/4`); a `for`'s declaration of one is a block's
   around the loop, dropped where the loop ends. A static, an extern, a thread-local and a global object are not
-  dropped. Reader `k113`, `k114`, `k116`; `test/c/run/autodrop.c`, which clang's build of its hand expansion matches
-  line for line. (0.262)
+  dropped. In C++ too (0.267): the defer runs where an exception unwinds past the scope as well, so the drop runs where
+  a destructor would (the safe part's topic of autodrop). Reader `k113`, `k114`, `k116`; `test/c/run/autodrop.c`, which
+  clang's build of its hand expansion matches line for line, and which the C++ gate builds as C++. (0.262, 0.267)
 - **AN OBJECT NAMED WHOLE BY VALUE MOVES** (0.262): after a function's body is read, a walk wraps each autodropped
   object named whole where its value is taken -- an initializer, the right side of `=`, a call's argument, a return's
   value, a braced list's item, a conditional's branch or a comma's right side there -- in `move(...)`
@@ -9405,6 +9421,13 @@ The namespaces' rules, the program's and the library's, are `library/ccl_cpp_nam
   `[]`). `test/c/safe/index_after_insert.c`,
   `tied_after_call.c`; `test/c/run/operators.c` keeps such a place and reads it before the next call; the driver gate's
   message. (0.266)
+- **A NULL OWN FIELD THAT SUCH A CALL MAY FILL IS LIVE AFTER IT** (0.267, in C; `ck_null_filled/3` in
+  `ck_replaced_arg/5`): the callee returns the struct's own fields live or null (`ck_complete_owners/2`), and one that
+  was null may hold a buffer now -- `realloc(NULL, n)` allocates -- so the caller holds an owner that it must free or
+  drop. 0.262 made it so for an object of a type that has a drop (`ck_dropped_arg/6`); a plain struct's field stayed
+  null: `buf v = {0, NULL}; grow(&v); return 0;` was taken, and valgrind found grow's 16 bytes lost. A probe of
+  cicilang++ met it (`vector<int>`'s push over a vector whose buffer was `nullptr`), and it is C's as 0.265's rule is.
+  `test/c/safe/null_filled.c`. (0.267)
 - **AN OWN FIELD OF A CONST OBJECT IS NO MODIFIABLE LVALUE** (C17 6.5.16/2; 0.265, in C): its assignment is refused in
   clang's words, `cannot assign to variable 'b' with const-qualified type 'const buf *'` (`ck_const_owner_slot/1`;
   through `->` the object is const where the pointee is, through `.` where its own type or its object is), so a callee
@@ -9542,10 +9565,11 @@ The namespaces' rules, the program's and the library's, are `library/ccl_cpp_nam
   defer marked `'$autodrop'(V)` as the drop of V (`ck_autodrop/3`): V's own fields are gone there, each live, null,
   moved or partial -- a move left it zero, and its drop frees what is there -- and their borrows dangle; one still
   unset is refused, `owner_unset`. So an object that its scope drops leaks nothing and needs no free. (0.262)
-- A drop (a function whose parameter's pointee is `dying`) may free what its object owns, and in C it must:
-  an own field of the object left live or partial at an exit of the drop is `owner_leaked`, `'v->data'` (a drop that
-  frees nothing, `test/c/safe/drop_leaks.c`); `if (v->data) free(v->data);` passes, as the null test makes it.
-  (0.262)
+- A drop (a function whose parameter's pointee is `dying`) may free what its object owns, and it must: an own field
+  of the object left live or partial at an exit of the drop is `owner_leaked`, `'v->data'` (a drop that frees nothing,
+  `test/c/safe/drop_leaks.c`); `if (v->data) free(v->data);` passes, as the null test makes it. In C++ the rule holds
+  for a dying parameter that is no destructor's `this` (0.267): an instance's drop; a destructor keeps C++'s own rules.
+  (0.262, 0.267)
 - REFUSED, each a fixture of `test/c/safe/` over `test/c/run/tvector.pl` (0.262):
   `dropped_by_hand`, an object that its scope drops, dropped by hand -- it would be dropped twice
   (`ck_hand_drop/5`; `drop_by_hand.c`); `dropped_copied`, one copied whole where the reader did not move it, a
@@ -9560,20 +9584,39 @@ The namespaces' rules, the program's and the library's, are `library/ccl_cpp_nam
   (`drop_moved.c`); a parameter whose pointee is not const may fill an own field that it found null, so a null one is
   live after the call -- a later assignment over it is `owner_overwritten` (`drop_overwritten.c`), and a member of a
   plain struct so filled leaks where it is not dropped by hand, `owner_leaked` (`drop_member.c`). A drop by hand of a
-  moved object is `use_after_move` (`ck_hand_drop/5`). (0.262)
+  moved object is `use_after_move` (`ck_hand_drop/5`). In C++ a destructor's `this` is no drop by hand
+  (`ck_dtor_this/2`, 0.267): the desugaring calls the destructor where an object's life ends, a moved object's too,
+  which the move left empty -- `v.push(Name("gamma"))` destroys the moved temporary (`test/cpp/run/bag.cpp`,
+  `member.cpp`). (0.262, 0.267)
 - WHAT A BRACED LIST DOES NOT NAME IS ZERO (C17 6.7.9/21; 0.262; `ck_unlisted_null/3`): an own field that a C
   initializer's list leaves out is null, as a static object's is; it was unset, garbage to the check, and autodrop's
-  empty object, `= {0}`, was refused at its first use. (0.262)
+  empty object, `= {0}`, was refused at its first use. In C++ too (0.267; [dcl.init.aggr]/5, an element that the list
+  leaves out copy-initialized from `{}`): a list that reaches the check is an aggregate's with no default member
+  initializer, since the desugaring writes one that has them member by member, so an instance's `@N v = {0};` read by
+  cicilang++ is the empty object there as well. (0.262, 0.267)
 - A CASE LABEL AFTER A DEFER OF THE SWITCH'S OWN BLOCK (0.262; `ck_switch_defers/2`) -- a `defer`, an object's drop, a
   C++ local's destructor, a C23 declaration after a label among them -- is refused, `goto_over_defer`, `'case 2'`: the
   jump from the switch passes the defer, which runs at the block's end all the same, over an object never set (C++'s
   [stmt.dcl]/3, "jump bypasses variable initialization"). A plain `defer` before a later label was accepted until
   0.262. `drop_switch.c`. (0.262)
+- **AUTODROP IN C++** (0.267; `CCLLIB.md`'s phase 0.10): the reader's autodrop and its moves, and the rules of this
+  topic, hold in cicilang++ as in C -- an instance's object dropped at each exit of its scope, a drop by hand, a
+  temporary that has a drop and an array of such objects refused, a moved one handed by its address `use_after_move`;
+  a C++ destructor's call is no drop by hand (`ck_dtor_this/2`) -- and the drop also runs where an exception unwinds
+  past the scope, since a landing pad runs the defers of the
+  scopes that it leaves: where a destructor would run. The C++ gate builds `test/c/run/autodrop.c` with cicilang++ and
+  compares it with `autodrop.expect`; probes over a vector declared empty, one returned and copied, one handed by
+  value, and one that an exception unwinds past, each free all that they allocate under valgrind. (0.267)
 
 ### What the C++ forms mean to the check
 
 - The check sees the desugared C. `scoped(_, N)` is `id(N)`, a C++ cast is its operand, and a range-for over an array
   is its `for` (`ccl_for_each_as_for/2`). (0.32)
+- A TERMINATE HANDLER ENDS ITS PATH (0.267; `ck_catches/4`): `std::terminate` does not return, so what a handler of
+  kind `terminate` -- a noexcept function's guard, `cpp_nx_wrap` -- starts from reaches no later statement. It was
+  merged after its `try`, so the body's entry state reached the function's end: `void vector_int_drop(vector_int *v)
+  { free(v->data); }`, noexcept as a C text's function is in C++, left `v->data` live there, `owner_leaked`. The try's
+  clause said so already; the handler's clause now does it. (0.267)
 - A reference is the pointer it is (`ck_ref_params/2`, `ck_ref_decl/5`). A reference parameter is a borrow. A local
   bound to an lvalue borrows `addr(Init)`; one bound to a call has no state. The place a local reference is bound to is
   kept for the function (`ck_ref_bind/2`, `ck_ref_bound/2`; 0.216): a store through it lands in the place (What a
@@ -13107,6 +13150,16 @@ Declarations topic of the C++ reader).
   early. A text that puts an unread argument twice reads it twice, its macros run twice, as a `#define` macro's argument
   is expanded where each `#` of it stands. C++'s other init-statements (`if (int x = f(); x)`, `switch`, `while`'s
   condition) still leave their names in the reader's scope after the statement, as `for`'s did before 0.264.
+- CCLLIB IN CICILANG++, WHAT 0.267 LEAVES (`CCLLIB.md`'s phase 0.10): list literals, the operators on instances, an
+  argument taken unread and the safety rules of 0.265 to 0.267 are C's. `tvector.c` is not yet among the C++ gate's
+  ccllib fixtures, for two faults of cicilang++ with the program's own headers that it met, older than ccllib: a header
+  that the reader must read preprocessed (`tvhdr2.h`'s `DECL(static int, hcount)`) is a library header to the
+  desugaring (`cpp_register_/1`, `cpp_lib_names_item/1` over any `file(_, preprocessed, _)`), so each function that it
+  defines is defined on use and with the unit, twice -- `invalid redefinition of function 'vector_long_push'`, and a
+  plain `static inline int twice_h` beside a `#define` alike; and a function-like macro that the header defines and
+  uses where it reads as a call is not expanded, since the raw read reads whole -- `undeclared('TWICE')`, where C
+  prints its value. cicilang++ takes `int *p = realloc(...)` with no cast, which clang++ refuses ([conv.ptr]/2
+  converts a `T *` to `void *`, not back): the macro files cast, as C++ asks.
 - OPERATORS ON INSTANCES, THEIR LIMITS (0.266; `CCLLIB.md`'s phase 0.9): the unary operators (`-a`, `!a`, `*it`,
   `++it`) and the compound assignments over an instance (`a += b`) are no calls, and `%`, `&`, `|` and `^` are not in
   the table; the left operand decides, so `2 * a` is refused where C++ finds a free `operator*(double, pt)`; the word of

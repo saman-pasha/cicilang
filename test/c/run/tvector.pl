@@ -7,7 +7,7 @@ type_vector([T], base([], [typedef(N)]), Items) :-
     ccl_instance_name(vector, [T], N),
     ccl_c_items("typedef struct @N { size_t len, cap; own @T *data; } @N;
 void @{N}_push(@N *v, @T x) {
-    if (v->len == v->cap) { v->cap = v->cap ? 2 * v->cap : 4; v->data = realloc(v->data, v->cap * sizeof(@T)); }
+    if (v->len == v->cap) { v->cap = v->cap ? 2 * v->cap : 4; v->data = (@T *)realloc(v->data, v->cap * sizeof(@T)); }
     v->data[v->len++] = x;
 }
 @T @{N}_at(const @N *v, size_t i) { return v->data[i]; }

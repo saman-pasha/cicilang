@@ -7,7 +7,7 @@ type_map([K, V], base([], [typedef(N)]), Items) :-
     ccl_c_items("typedef struct @N { size_t len, cap; own @K *keys; own @V *vals; } @N;
 void @{N}_put(@N *m, @K k, @V v) {
     for (size_t i = 0; i < m->len; i++) if (m->keys[i] == k) return;
-    if (m->len == m->cap) { m->cap = m->cap ? 2 * m->cap : 4; m->keys = realloc(m->keys, m->cap * sizeof(@K)); m->vals = realloc(m->vals, m->cap * sizeof(@V)); }
+    if (m->len == m->cap) { m->cap = m->cap ? 2 * m->cap : 4; m->keys = (@K *)realloc(m->keys, m->cap * sizeof(@K)); m->vals = (@V *)realloc(m->vals, m->cap * sizeof(@V)); }
     m->keys[m->len] = k; m->vals[m->len++] = v;
 }
 @N @{N}_from(const @K *k, const @V *v, size_t n) { @N m = {0}; for (size_t i = 0; i < n; i++) @{N}_put(&m, k[i], v[i]); return m; }

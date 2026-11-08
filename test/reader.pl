@@ -338,9 +338,9 @@ k96 :- check('C text at file scope: vec_of(0); is the text\'s typedef and two fu
                  function(4, static, base([], [int]), vec_int_at, [param(ptr([], base([const], [typedef(vec_int)])), v), param(base([], [typedef(size_t)]), i)], false, _)|_], Is),
       memberchk(member(ptr([], base([own], [int])), data, none), Ms) )).
 
-k97 :- check('a type hole in sizeof(@T) is the type, and @T in the text\'s comment is no hole',
+k97 :- check('a type hole in sizeof(@T) is the type, and in a cast (@T *), and @T in the text\'s comment is no hole',
     ( unit('run/ctext.c', unit(Is)), member(function(_, _, _, vec_int_push, _, _, block(B)), Is), member(if(4, _, block(Then), none), B),
-      member(expr(4, assign('=', arrow(id(v), data), call(id(realloc), [arrow(id(v), data), bin('*', arrow(id(v), cap), sizeof_type(base([], [int])))]))), Then) )).
+      member(expr(4, assign('=', arrow(id(v), data), cast(ptr([], base([], [int])), call(id(realloc), [arrow(id(v), data), bin('*', arrow(id(v), cap), sizeof_type(base([], [int])))])))), Then) )).
 
 k98 :- check('C text as an expression: twice(a + 1) is (a + 1) * 2, the hole\'s AST in its place; quad(b), a text that calls twice twice, is b * 2 * 2',
     ( fn_body('run/ctext.c', main, B), member(expr(12, call(id(printf), As)), B),

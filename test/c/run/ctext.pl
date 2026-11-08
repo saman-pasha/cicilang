@@ -5,7 +5,7 @@ vec_of(X, Items) :-
     ccl_type_of(X, T), T = base(_, [W]), atom_concat(vec_, W, N),
     ccl_c_items("typedef struct @N { size_t len, cap; own @T *data; } @N;
 static void @{N}_push(@N *v, @T x) {
-    if (v->len == v->cap) { v->cap = v->cap ? 2 * v->cap : 4; v->data = realloc(v->data, v->cap * sizeof(@T)); }
+    if (v->len == v->cap) { v->cap = v->cap ? 2 * v->cap : 4; v->data = (@T *)realloc(v->data, v->cap * sizeof(@T)); }
     v->data[v->len++] = x;   /* @T in a comment is no hole */
 }
 static @T @{N}_at(const @N *v, size_t i) { return v->data[i]; }", ['N' = name(N), 'T' = type(T)], Items).

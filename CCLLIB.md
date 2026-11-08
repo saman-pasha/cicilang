@@ -291,6 +291,20 @@ A type macro gives its instances operators that the reader writes as calls: `v[i
   keeps.
 - The instances are `linkonce_odr` there too; autodrop runs where a destructor would.
 - Done when: each ccllib run fixture, built by cicilang++, prints what its cicilang build prints.
+- DONE AT 0.267, PARTS 1 AND 2 (`RULES.md`, the topic of the macro files and the safe part's of autodrop): a type
+  macro's unqualified name in C++, outside a library header's read (a C++ read starts from template names that hold
+  `vector` and `map`, so "no template is visible" was no test); a typed function macro in C++; a C text's functions
+  noexcept in C++, linkonce under the mark; the empty object of `= {0}` in C++'s check; the macro files' `realloc`
+  cast; autodrop in C++, its moves and the check's rules of 0.262 -- the drop runs where an exception unwinds past the
+  scope too, as a C++ landing pad runs the defers of the scopes that it leaves. The C++ gate builds
+  `test/c/run/ctext.c` and `autodrop.c` with cicilang++ and compares each with its `.expect`; two C++ units that make
+  one instance link. Found and fixed with it: a terminate handler did not end its path in the check; and a hole of
+  C's, a null own field that a call may fill was null after the call, so `buf v = {0, NULL}; grow(&v);` leaked with
+  no refusal (`test/c/safe/null_filled.c`).
+- WHAT 0.267 LEAVES: `tvector.c` in C++, which two older faults of cicilang++ with the program's own headers stop (a
+  header read preprocessed is a library header to the desugaring, its functions defined twice; a function-like macro
+  of the header not expanded where it reads as a call): the next step. Then list literals beside a lambda's
+  introducer, the operators, an argument taken unread and the safety rules of 0.265 to 0.267 in C++.
 
 ### Order
 

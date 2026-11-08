@@ -261,6 +261,7 @@ One row per step, in version order: the step's title, what it did and its gate n
 | 0.264 | arguments read after the outer macro: `loop(m, 3, println("m = {}", m))` in C | the next item of CCLLIB.md's phase 0: unread(B) at a place of a macro's clause head takes that argument unread, its tokens, and the macro's C text reads them where it puts them, after the text declares its names; the reader splits the call's arguments at the commas outside brackets; refused at the call: an unread argument given back, one that does not read where the text puts it, and in C++ by name; found and fixed: a for's init names stayed in the reader's scope after the loop, and a C text's type stand-in reached the AST (x := at(v, 1) not lowered since 0.261) | the flow gate; over libc++ 18 all nine GREEN (the C++ gate 1286 s, 866 ok); the C++ gates over 21 and 22 GREEN (874 and 877 ok); a commit and a push |
 | 0.265 | two safety rules: `&v.data[0]` a borrow of the buffer, and a call that may replace it ends the borrows | the next item of CCLLIB.md's phase 0, in C: &a[i] over a pointer is a + i (an element's address a borrow of the buffer; return &p[1] of a parameter taken, refused since 0.219); a call that takes a struct by a plain pointer, not to const, ends the caller's borrows of its own fields, borrow_after_call -- iterator invalidation at compile time; an own field of a const object is no modifiable lvalue, refused in clang's words | the flow gate; over libc++ 18 all nine GREEN (the C++ gate 1272 s, 866 ok); the C++ gates over 21 and 22 GREEN (874 and 877 ok); a commit and a push |
 | 0.266 | operators on instances: `a + b`, `a == b`, `v[i]`, `out << x` and `in >> x` in C | the next item of CCLLIB.md's phase 0, in C: where the left operand or the object of [] is an object of an instance's type, the reader writes the operator as the call of the function that its type macro defines for it (_add, _eq, _lt, _index, _shl_<word>, _shr_<word>), an operand by its address where the parameter is a pointer; refused by name where the macro defines none, an rvalue or another type where the address goes, an instance on the right only; the fixture found a hole: a result tied to a struct with own fields was a borrow of the struct, so a place that [] answered outlived the insertion's realloc -- a borrow of the fields now | the flow gate; over libc++ 18 all nine GREEN (the C++ gate 1238 s, 866 ok); the C++ gates over 21 and 22 GREEN (874 and 877 ok); a commit and a push |
+| 0.267 | ccllib in cicilang++, parts 1 and 2: `vector<int>`, `max<double>`, C text and autodrop in C++ | the first two parts of CCLLIB.md's phase 0.10: a type macro's unqualified name and a typed function macro in C++, outside a library header's read; a C text's functions noexcept in C++; the empty object of = {0} in C++'s check; autodrop in C++ with the check's rules of 0.262, run where an exception unwinds too; the C++ gate builds ctext.c and autodrop.c with cicilang++; found and fixed: a terminate handler did not end its path, and a hole of C's (a null own field that a call may fill stayed null); recorded: two older faults with the program's own headers in C++ | the flow gate; over libc++ 18 all nine GREEN (the C++ gate 1235 s, 866 ok); the C++ gates over 21 and 22 GREEN (874 and 877 ok); a commit and a push |
 
 ## M5 — the C++ mode
 
@@ -18163,4 +18164,106 @@ Linux (setup 9:56, gates 3:33), Apple silicon (12:01, 6:09), the Intel Mac (19:2
   `CCLLIB.md`.
 
 The module 0.266; the reader 176 (what a read gives changes); the lowering 153 (the check's verdicts change, so a stored
+IR of a program that it now refuses is not served).
+
+## 0.267 — ccllib in cicilang++, parts 1 and 2: `vector<int>`, `max<double>`, C text and autodrop in C++
+
+**0.267: the first two parts of `CCLLIB.md`'s phase 0.10, on the owner's word ("Commit and push after every task
+finished, continue") and the owner's decision of 2026-11-08 (cicilang++ reads the same macro files; autodrop runs where
+a destructor would): a type macro, a typed function macro, a macro's C text and autodrop in C++, and the C++ gate's
+first ccllib fixtures, `ctext.c` and `autodrop.c` built as C++. The probes met a hole of C's safe part and a fault of
+the check's C++ path, each closed with it, and two older faults of cicilang++ with the program's own headers, recorded
+for the next step. The chain ran over cocolog 3.37.0 at the pins, as 0.266's did.**
+
+A TYPE MACRO IN C++. The first probe, `vector<int> v;` over `tvector.pl` read as C++, gave `typedef(tmpl(vector,
+[int]))`, a template-id of an unknown template. The type macro's clause stands before the C++ type's in
+`ccl_specs_type//7` now. Its first guard, no known template of the name, was no test: a C++ read starts from
+`ccl_seed_template_names/1`, which holds `vector`, `map`, `set` and others, so `vector` was always known. The guard is a
+type macro's name outside a library header's read: a library header's read holds no macro (`ccl_unit/3` empties the
+registry, `'$ccl_lib_unit'`), so `<vector>`'s own `vector<_Tp, _Alloc>` stays the template's, and `std::vector<int>` is
+a qualified name, which the clause does not read. The instance's items are read by the C++ reader, as the unit's
+language is.
+
+THREE MORE FORMS. `max<double>(3, 2.5)` stopped the read with a syntax error in C++: the C++ qualified name's clause
+came before the typed call's and read `max` alone, then `<` as less-than, then `double`. The typed call's clause stands
+first now, outside a library header's read (`ccl_typed_call_ahead//1` had asked `\+ ccl_lang(cpp)`). The check refused
+the instance's `@N v = {0};` in C++, `owner used before it was given anything: 'v.data'`: 0.262's rule that a braced
+list's unnamed own fields are null was C's alone. A probe of a struct with a default member initializer showed that the
+desugaring writes such an aggregate member by member, so a list that reaches the check is one with no default member
+initializer, whose unnamed elements C++ copy-initializes from `{}` ([dcl.init.aggr]/5): `ck_unlisted_null/3` holds in
+C++ too. And `ctext.c` as C++ was `owner live where a call may throw, and no defer frees it` at `vec_int_push(&v, x)`
+(0.237's defer rule): a function of a C text is a C++ function that may throw. A C text is C, which throws nothing, so
+each function that its items define takes noexcept's mark in C++, `nxif(bool(true), S)` (`ccl_ctext_nx/3`); an
+instance's linkonce looks through the mark (`ccl_inst_once/2`). The macro files cast `realloc`'s result, `(@T *)`, the
+part that C and C++ share (reader `k97` holds the cast); cicilang++ took the uncast one, which clang++ refuses
+([conv.ptr]/2): recorded.
+
+A NULL OWN FIELD THAT A CALL FILLS. A C++ probe whose `vector<int>` was never dropped leaked with no refusal, where a
+plain struct's own field that leaks is refused in C++ as in C. The vector's buffer was `nullptr`, and `push` filled it:
+after a call that may replace a struct's own fields (0.265), the caller kept a null field null. The hole is C's: `buf v
+= {0, NULL}; grow(&v); return 0;` was taken, and valgrind found grow's 16 bytes lost. The callee returns the fields live
+or null (`ck_complete_owners/2`), so a null one is live after such a call, an owner to free or drop (`ck_null_filled/3`
+in `ck_replaced_arg/5`): `owner leaked: 'v.data'`, `test/c/safe/null_filled.c`. A probe over a HOME with an older store
+took the stored IR at first: its signature folds the lowering version, bumped now to 154.
+
+AUTODROP IN C++. The reader's autodrop (`ccl_autodrop_decl/2`, `ccl_autodrop_fn/4`) and its moves run in C++ now, and so
+do the check's rules of 0.262 (`ck_hand_drop/5`, `ck_dropped_arg/6`, `ck_no_dropped_array/1`, the temporaries' two
+clauses): a C++ landing pad runs the defers of the scopes that it leaves, so the drop runs where a destructor would, an
+exception's unwinding included. The first try, with the reader's half alone, freed a vector that a probe also dropped by
+hand twice at run time; with the check's half, the drop by hand is refused as in C. The drop's own rule, that it frees
+what its object owns, holds in C++ for a dying parameter that is no destructor's `this`. Probes over a vector declared
+empty, one returned and copied, one handed by value, one that an exception unwinds past, a temporary, a member read off
+a temporary and an array: each as in C, and each that runs frees all that it allocates under valgrind.
+
+A TERMINATE HANDLER DID NOT END ITS PATH. With the drop's rule in C++, the correct `void vector_int_drop(vector_int *v)
+{ free(v->data); }` was refused, `owner leaked: 'v->data'`: noexcept, its body was in a `try` with a `terminate` handler
+(`cpp_nx_wrap`), and `ck_catches/4` merged the handler's path -- the body's entry state -- after the `try`, though
+`std::terminate` does not return and the try's own clause said that the handler ends the path. It ends it now.
+
+A DESTRUCTOR IS NO DROP BY HAND. The C++ gate run over the work tree before the chain, as a net, found the drop by
+hand's rule in C++ (`ck_hand_drop/5`) refusing `test/cpp/run/bag.cpp`, `use after move of '$tmp_1.d' in
+call(id('Name.dtor.0'), ...)`, and `member.cpp` alike: the desugaring calls a C++ destructor where an object's life
+ends, a moved object's too (`v.push(Name("gamma"))` destroys the moved temporary), and the move left that object empty.
+The rule takes no destructor's `this` now (`ck_dtor_this/2`), and an instance's drop by hand stays refused in C++. The
+net of 55 run fixtures had held neither.
+
+THE GATE. The C++ gate builds `test/c/run/ctext.c` and `autodrop.c` with cicilang++ and compares each with its
+`.expect`. Two C++ units that both make `vector<int>` link (a probe): the instance's functions are linkonce_odr in C++
+too. `tvector.c` built as C++ met two faults of cicilang++ with the program's own headers, older than ccllib: a header
+that the reader must read preprocessed (`tvhdr2.h`'s `DECL(static int, hcount)`) is a library header to the desugaring
+(`cpp_register_/1` and `cpp_lib_names_item/1` take any `file(_, preprocessed, _)` for one), so each function that it
+defines is defined on use and with the unit -- `invalid redefinition of function 'vector_long_push'` at LLVM, and a
+plain `static inline int twice_h` beside a `#define` alike; and a function-like macro that such a header defines and
+uses where it reads as a call is never expanded, since the raw read reads whole -- `undeclared('TWICE')`, where C prints
+the value. Each is the next step's, with `tvector.c` in the C++ list; such a header's unit can hold flattened text, so
+the fix is no rename of the read's kind.
+
+THE NETS before the chain, over the work tree and fresh HOMEs: the reader gate GREEN, 141 checks; the compile gate
+GREEN, 250 (`null_filled.c` refused by its kind); the driver gate GREEN, 64; the flow gate GREEN with no finding (90 s,
+peak 4010 MB); `ctext.c` and `autodrop.c` built as C++ print what their C builds print (libc++ 18, a fresh HOME); the
+net of 55 C++ run fixtures, each built by cicilang++ and compared with its .expect (every noexcept function's guard
+meets the terminate handler's new clause, and autodrop's rules came to C++): 55 ok, the slowest built in 20 s; and the
+C++ gate over libc++ 18 as a net, which found the drop by hand's rule refusing bag.cpp and member.cpp (above): GREEN
+after the fix, 866 run fixtures ok in 1279 s.
+
+MEASUREMENTS: the chain of 0.267 over its work tree, cocolog 3.37.0 and ZiguratIP 1.0.2 at the pins and fresh HOMEs:
+over libc++ 22 the library read 363 s and the C++ gate 1299 s (877 ok, none skipped); over libc++ 21 360 s and 1299 s
+(874 ok, 3 skipped); over libc++ 18 all nine GREEN -- the flow gate 86 s with no finding, reader 2 s, compile 26 s,
+driver 36 s, objects 4 s, proof, the cross gate 300 s, the library read 404 s, the C++ gate 1235 s (866 ok, 11 skipped
+by their needs); in 5415 s.
+
+THE CI OF 0.266 (`429b3ce`), over cocolog 3.37.0 at its pins: its smoke run (42509439780) GREEN on the three machines --
+Linux (setup 9:56, gates 3:07), Apple silicon (13:03, 7:35), the Intel Mac (23:21, 12:32).
+
+- `library/ccl_syntax.pl`: `ccl_tmacro_spec//2` first in `ccl_specs_type//7`, outside a library header's read;
+  `ccl_typed_call_ahead//1` and the typed call's clause before the C++ qualified name's; `ccl_ctext_nx/3` and
+  `ccl_ctext_nx_items/2`; `ccl_inst_once/2`; `ccl_autodrop_decl/2` and `ccl_autodrop_fn/4` in C++; the reader 177.
+  `library/ccl_check.pl`: `ck_unlisted_null/3`, `ck_hand_drop/5` (a destructor's `this` apart, `ck_dtor_this/2`),
+  `ck_dropped_arg/6`, `ck_no_dropped_array/1`, the temporaries' clauses and the drop's rule in `ck_complete_owners/2` in
+  C++; `ck_null_filled/3`; a terminate handler's clause of `ck_catches/4`. `library/ccl_ir.pl`: the lowering 154.
+  `test/c/run/tvector.pl`, `ctext.pl`, `literal.pl`, `topers.pl`: the casts; `test/reader.pl`: `k97`;
+  `test/c/safe/null_filled.c` and its `.expect`; `test/cpp.sh`: the section of ccllib's run fixtures built as C++.
+  `RULES.md`, `CLAUDE.md`, `README.md`, `CCLLIB.md`.
+
+The module 0.267; the reader 177 (what a read gives changes); the lowering 154 (the check's verdicts change, so a stored
 IR of a program that it now refuses is not served).
