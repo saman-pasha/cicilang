@@ -11,7 +11,8 @@ type_ring([T, int(K)], base([], [typedef(N)]), Items) :- ccl_instance_name(ring,
     ccl_c_items("typedef struct @N { size_t head; @T a[@k]; } @N;
 @T *@{N}_index(@N *r, size_t i) tie r { return &r->a[(r->head + i) % @k]; }", ['N' = name(N), 'T' = type(T), k = name(KA)], Items).
 %% tbuf<char>: text, << writes a string, an int or a double into it and answers it, so that << chains; >> reads an int;
-%% s + t a new text, s's and then t's
+%% s + t a new text, s's and then t's. A string literal is `char *' in C and `const char *' in C++ ([lex.string]/10), so
+%% << takes both (0.270): cicilang++ builds this file's operators.c
 type_tbuf([T], base([], [typedef(N)]), Items) :- ccl_instance_name(tbuf, [T], N),
     ccl_c_items("typedef struct @N { size_t len, cap, at; own @T *data; } @N;
 static void @{N}_put(@N *b, const char *s) {
@@ -20,6 +21,7 @@ static void @{N}_put(@N *b, const char *s) {
     memcpy(b->data + b->len, s, n + 1); b->len += n;
 }
 @N *@{N}_shl_ptr_char(@N *b, char *s) { @{N}_put(b, s); return b; }
+@N *@{N}_shl_ptr_const_char(@N *b, const char *s) { @{N}_put(b, s); return b; }
 @N *@{N}_shl_int(@N *b, int x) { char t[32]; snprintf(t, sizeof t, \"%d\", x); @{N}_put(b, t); return b; }
 @N *@{N}_shl_double(@N *b, double x) { char t[64]; snprintf(t, sizeof t, \"%g\", x); @{N}_put(b, t); return b; }
 @N *@{N}_shr_int(@N *b, int *x) {

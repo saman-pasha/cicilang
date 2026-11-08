@@ -311,7 +311,13 @@ A type macro gives its instances operators that the reader writes as calls: `v[i
   `v := [int; 5, 3, 9];`, `vector<int> e = [];` and `count([4, 5])` read as in C and the lambdas beside them as lambdas.
   The C++ gate builds `literal.c` with cicilang++ too. `[[` begins an attribute in C++, so a literal's first element is
   no literal there.
-- WHAT 0.269 LEAVES: the operators, an argument taken unread and the safety rules of 0.265 to 0.267 in C++.
+- DONE AT 0.270 (`RULES.md`, the topic of the language's own forms): the operators on instances and an argument taken
+  unread in C++. An instance's operator is its type macro's where the macro defines the function, and C++'s own where
+  it does not -- the program's `operator*` over an instance, an instance on the right alone (`2.0 * b`) -- an operand of
+  a reference type the object it refers to. A C++ string literal is `const char[N]`, so `topers.pl` gives `<<` a
+  `const char *` too. The C++ gate builds `operators.c` and `unread.c` with cicilang++, and runs
+  `test/cpp/run/opcpp.cpp`, the macro's operators beside the program's.
+- WHAT 0.270 LEAVES: the safety rules of 0.265 to 0.267 in C++.
 
 ### Order
 

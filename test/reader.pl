@@ -506,11 +506,9 @@ k132 :- check('a macro that gives back an argument it took unread, and an unread
       catch(cicilang_ast(P2, _), error(macro_error(plus_one, [unread('int z')], error(ctext_error(M2), _)), here(P2, 3, in_macro(plus_one, MF))), true),
       M2 == 'C text: an argument taken unread does not read where the text puts it, in an expression' )).
 
-k133 :- check('cicilang++ refuses by name a macro that takes an argument unread: cicilang reads it in C (CCLLIB.md\'s phase 0.10)',
-    ( c('../cpp/unread_cpp.cpp', P), nb_getval('$ccl_lang', L0), nb_setval('$ccl_lang', cpp),
-      catch(cicilang_ast(P, _), E, true), nb_setval('$ccl_lang', L0),
-      nonvar(E), E = error(macro_error(M, here(P, 4)), _),
-      M == 'the macro loop takes an argument unread, which cicilang reads in C and cicilang++ does not yet (CCLLIB.md\'s phase 0.10)' )).
+k133 :- check('in C++ too a macro reads an argument that it takes unread where its C text puts it: loop(m, 2, f(m)) is a for whose body calls f with the loop\'s m (0.270)',
+    ( fn_body('../cpp/unread_cpp.cpp', main, B),
+      sub_t(for(_, decl(_, [var(m, _, int(0))]), bin(<, id(m), int(2)), postinc(id(m)), block([expr(_, call(id(f), [id(m)]))])), B) )).
 
 %% OPERATORS ON INSTANCES (0.266; CCLLIB.md's phase 0.9): test/c/run/operators.c over its topers.pl, op_ptr.c and the
 %% refusals op_*.c
@@ -571,6 +569,13 @@ k142 :- check('in C++ a [ whose ] no lambda\'s introducer would have after it is
       sub_t(var(w, _, call(id(vector_double_from), [compound_lit(arr(int(2), _), init(_)), int(2)])), B),
       sub_t(var(e, _, compound_lit(_, init([item([], int(0))]))), B), sub_t(var(m, _, call(id(map_int_double_from), _)), B),
       sub_t(var(f, _, lambda(_, [param(_, a)], _, _)), B), sub_t(var(g, _, lambda(_, [], _, _)), B) )).
+
+%% OPERATORS ON INSTANCES IN C++ (0.270): test/cpp/run/opcpp.cpp over test/c/run/topers.pl
+k143 :- check('in C++ an instance\'s operator is its type macro\'s where the macro defines the function, an operand of a reference type the object it refers to, and C++\'s own where the macro defines none or the instance is on the right alone',
+    ( fn_body('../cpp/run/opcpp.cpp', main, B), fn_body('../cpp/run/opcpp.cpp', same, S),
+      sub_t(var(c, _, call(id(pt_double_add), [id(a), id(b)])), B), sub_t(var(d, _, bin(*, id(a), _)), B), sub_t(var(e, _, bin(*, _, id(b))), B),
+      sub_t(deref(call(id(ring_int_4_index), [addr(id(r)), int(1)])), B),
+      sub_t(call(id(pt_double_eq), [addr(id(p)), addr(id(q))]), S) )).
 
 k110 :- check('a type macro that fails, two instances that one name names, and a typed call of a macro with no typed form are refused at the use',
     ( c('tmacro_fail.c', P1), c('tmacro.pl', M), catch(cicilang_ast(P1, _), error(E1, here(P1, 3, in_macro(type_none, M))), true), E1 == macro_failed(none, [base([], [int])]),
@@ -853,6 +858,8 @@ t_checks :-
     k141,
     section('list and map literals in C++, beside a lambda\'s introducer (0.269)'),
     k142,
+    section('operators on instances in C++ (0.270)'),
+    k143,
     section('the preprocessor, in cocolog: a header raw cannot take'),
     k83,
     section('the lexer, native: ccl_lex_native/6 token for token with the DCG'),

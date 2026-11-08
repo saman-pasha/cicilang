@@ -12,8 +12,8 @@ the fixture that gates it, and why. The bullet ends with the version that made t
 edits the rule in `RULES.md`, in its topic, and writes its entry in `HISTORY.md`. Read the topic of `RULES.md` that
 covers the code before the code is changed.
 
-At 0.269 the versions are: the module 0.269 (`ccl_p_version` in `module/cicilang.cicili`, `bin/cicilang --version`),
-the reader 179 (`ccl_reader_version/1`, `library/ccl_syntax.pl`) and the lowering 154 (`ccl_lowering_version/1`,
+At 0.270 the versions are: the module 0.270 (`ccl_p_version` in `module/cicilang.cicili`, `bin/cicilang --version`),
+the reader 180 (`ccl_reader_version/1`, `library/ccl_syntax.pl`) and the lowering 154 (`ccl_lowering_version/1`,
 `library/ccl_ir.pl`).
 
 Build and prove, always in this order (or all of it, `sh test/gates.sh`):
@@ -397,7 +397,7 @@ test/c/safe/                C programs the safe part refuses: NAME.c, NAME.expec
                             index_after_insert.c and tied_after_call.c, a tied result's borrow (0.266);
                             null_filled.c, a null own field that a call fills (0.267)
 test/cpp/                   the C++ reader's fixtures and the refusals; hidem.cppm for modhidden.cpp; unread_cpp.cpp,
-                            the reader gate's C++ refusal of an argument taken unread (0.264); lit_cpp.cpp, list and map
+                            an argument taken unread in C++ (0.264, read since 0.270); lit_cpp.cpp, list and map
                             literals beside the lambdas in C++ (0.269)
 test/cpp/link/              the C++ ABI checks of the C++ gate and the cross gate: abi_helper.cpp, memptr_helper.cpp and
                             byval_helper.cpp built by clang++, abi_main.cpp, memptr_main.cpp and byval_main.cpp by
@@ -405,7 +405,8 @@ test/cpp/link/              the C++ ABI checks of the C++ gate and the cross gat
                             over units.h, both by cicilang++, units.expect
 test/cpp/run/               C++ programs built and run: NAME.cpp, .expect, .flags, .stdin, .needs; bag.h, hunit.h,
                             ppinclude.h, basem.cppm and mathm.cppm (for modules.cpp), embed26.txt; hdrmacro.h and
-                            hdrmacro2.h, of hdrmacro.cpp (0.268)
+                            hdrmacro2.h, of hdrmacro.cpp (0.268); opcpp.cpp over ../../c/run/topers.pl, operators on
+                            instances in C++ (0.270)
 
 proof/forty2.ll, run.sh     M0: hand-written IR through clang to a binary that prints a line and exits 42
 proof/forty2                made by proof/run.sh, never committed

@@ -2344,8 +2344,8 @@ that changes a rule edits the rule here, in its topic, and writes its entry in `
   over an own buffer was `owner live where a call may throw, and no defer frees it`, and the lowering makes it a plain
   call. Two C++ units that both make `vector<int>` link, its functions linkonce_odr there too. The C++ gate builds
   `test/c/run/ctext.c`, `autodrop.c`, `tvector.c` (0.268: its headers `tvhdr.h` and `tvhdr2.h` read as the
-  program's file is, the topic of includes) and `literal.c` (0.269) with cicilang++ and compares each with its `.expect`.
-  (0.267, 0.268, 0.269)
+  program's file is, the topic of includes), `literal.c` (0.269), `operators.c` and `unread.c` (0.270) with cicilang++
+  and compares each with its `.expect`. (0.267, 0.268, 0.269, 0.270)
 - **A READ THAT MADE OR MET AN INSTANCE IS KEPT IN NEITHER CACHE** (0.261): what it holds is its unit's -- the instance
   where the unit first used it, a later use naming it alone -- so neither the process's cache nor the store keeps such
   a header's read or such a file's (`ccl_include_read/2`, `ccl_read_file_/3`, over a count of the instances met,
@@ -2437,13 +2437,16 @@ that changes a rule edits the rule here, in its topic, and writes its entry in `
   and the record of the expansion names an unread argument by its text (`ccl_noted_args/2`): `note: the macro is loop
   in unread.pl, called on id(m), int(3), unread('println("m = {}", m)')`. Reader `k125` to `k129`;
   `test/c/run/unread.c` over `tvector.pl` and `unread.pl`, which prints what clang's build of its hand expansion
-  prints. (0.264)
+  prints. IN C++ TOO (0.270; `CCLLIB.md`'s phase 0.10), where cicilang++ refused the call by name from 0.264: the C
+  text that reads the argument is read by the C++ reader, a template's `<...>` kept whole in the split. Reader `k133`
+  over `test/cpp/unread_cpp.cpp` (`loop(m, 2, f(m))`, a `for` whose body calls `f(m)`); the C++ gate builds
+  `unread.c` with cicilang++. (0.264, 0.270)
 - REFUSED AT THE CALL (0.264): a macro that gives back an argument that it took unread (`ccl_unread_back/5`: `the macro
   keep gives back an argument that it took unread: a C text reads it`); an unread argument that does not read where the
   text puts it, found where the text reads with the argument's stand-in instead (`C text: an argument taken unread does
-  not read where the text puts it, in an expression`); in C++, a call of a macro that takes an argument unread at its
-  arity, by name (`the macro loop takes an argument unread, which cicilang reads in C and cicilang++ does not yet`,
-  `CCLLIB.md`'s phase 0.10). Reader `k132`, `k133`; the driver gate. (0.264)
+  not read where the text puts it, in an expression`). Reader `k132`; the driver gate. In C++ the call itself was
+  refused by name from 0.264 to 0.269 (`the macro loop takes an argument unread, which cicilang reads in C and
+  cicilang++ does not yet`). (0.264, 0.270)
 - **A TYPE HOLE'S STAND-IN LEAVES NO AST** (0.264): the reader's tables keep a C text's type hole as its typedef name
   `ccl_hole_Q_Name`, so a type that a macro or `:=` asks of them -- a member of an instance's struct, `own @T *data`, the
   result of its `at` -- named it, and a macro's AST or a `:=` declaration took it to the lowering, which knows no such
@@ -2461,17 +2464,32 @@ that changes a rule edits the rule here, in its topic, and writes its entry in `
   pointer to the instance is taken too, so that `out << a << b` chains on the pointer that `<<` answers. An operand goes
   by its address where the function's parameter is a pointer to the instance, by its value where it is not
   (`ccl_iop_arg/5`): the macro decides, and `a + b + c` chains by value. A pointer to an instance keeps C's pointer
-  arithmetic and comparisons, an array member's `[]` is C's, and C++ keeps its own operators (phase 0.10). A `[]` that
-  answers a place in a buffer that the object owns is written `tie` its object (the safe part's topic of borrows).
-  Reader `k134` to `k139`; `test/c/run/operators.c` over `topers.pl` -- a point, a ring, a dictionary, a text -- which
-  prints what clang's build of its hand expansion prints, its allocations all freed. (0.266)
+  arithmetic and comparisons, and an array member's `[]` is C's. A `[]` that answers a place in a buffer that the
+  object owns is written `tie` its object (the safe part's topic of borrows). Reader `k134` to `k139`;
+  `test/c/run/operators.c` over `topers.pl` -- a point, a ring, a dictionary, a text -- which prints what clang's build
+  of its hand expansion prints, its allocations all freed. (0.266)
+- **OPERATORS ON INSTANCES IN C++** (0.270; `CCLLIB.md`'s phase 0.10): cicilang++ writes an instance's operator as
+  cicilang does where the type macro defines the operator's function (`ccl_iop_ours/1`, the name by `ccl_iop_fname/4`);
+  where it defines none, the operator is C++'s own, which the desugaring looks up -- the program's `operator*(pt<double>,
+  double)`, or the library's -- and so is an operator whose instance is on the right alone (`2.0 * b`, the program's
+  `operator*(double, pt<double>)`), which C refuses. An operand of a reference type is the object it refers to ([expr.type]/1): `p == q` over two
+  `const pt<double> &` is `pt_double_eq(&p, &q)`. A string literal is `const char[N]` in C++ ([lex.string]/10), so
+  `out << "x"` asks `<name>_shl_ptr_const_char`, which `topers.pl` defines beside C's `_shl_ptr_char`. A library
+  header's read takes no instance's operator (`ccl_lib_unit/1`): it knows no instance of the program's. An operator that
+  neither the macro nor the program defines is refused by the desugaring, `a / b` with no `_div` `not lowered yet:
+  no_operator(/)`; until 0.270 every operator over an instance was C++'s own, and `a + b` over `pt<double>` was so
+  refused, `no_operator(+)`. Reader
+  `k143` over `test/cpp/run/opcpp.cpp` (the macro's `+`, `==` and `[]` beside the program's two `operator*`), which the
+  C++ gate builds and runs; the C++ gate builds `operators.c` with cicilang++. (0.270)
 - REFUSED AT THE OPERATOR (0.266), `macro_error(Message, here(File, Line))`: an operator that the instance's type macro
   does not define (`the operator * of pt_double is not defined: its type macro defines no pt_double_mul`), a `<<` of a
   type whose word names no function among them (`tbuf_char_shl_float`: a float is not promoted, as no prototype
   converts it); an operand that is no lvalue where its address goes (`(a + b) == c`, `name it first`); an operand of
   another type there (`a == 0`, which C would take for a null pointer); an instance on the right of an operator whose
   left operand is none (`1 + a`, which was `not lowered yet: type(unknown)`); a right operand of `>>` that is no lvalue.
-  Reader `k140`; the driver gate. (0.266)
+  Reader `k140`; the driver gate. In C++ (0.270) the refusals of an operator whose function the macro defines stand --
+  no lvalue or another type where the address goes, `>>` into no lvalue -- and the others are C++'s own operator, which
+  the desugaring finds or refuses. (0.266, 0.270)
 
 ## The C++ reader
 
@@ -13179,14 +13197,14 @@ Declarations topic of the C++ reader).
   borrows standing -- until ccllib comes to cicilang++ (phase 0.10). C's constraint on a const lvalue is held for an
   own field alone: another member, an element or a scalar written through a const path is taken, as before; and a
   callee built elsewhere that casts the const away is not seen.
-- AN ARGUMENT TAKEN UNREAD, ITS LIMITS (0.264; `CCLLIB.md`'s phase 0.7): cicilang++ refuses such a call by name until
-  ccllib comes to C++ (phase 0.10), and a DCG macro (`name(R) --> ...`) takes no argument unread. The split knows
+- AN ARGUMENT TAKEN UNREAD, ITS LIMITS (0.264; `CCLLIB.md`'s phase 0.7): a DCG macro (`name(R) --> ...`) takes no
+  argument unread. The split knows
   brackets, and `<...>` after a type macro's or a typed call's name: a `>` in parentheses inside the list closes it
   early. A text that puts an unread argument twice reads it twice, its macros run twice, as a `#define` macro's argument
   is expanded where each `#` of it stands. C++'s other init-statements (`if (int x = f(); x)`, `switch`, `while`'s
   condition) still leave their names in the reader's scope after the statement, as `for`'s did before 0.264.
-- CCLLIB IN CICILANG++, WHAT 0.269 LEAVES (`CCLLIB.md`'s phase 0.10): the operators on instances, an argument taken
-  unread and the safety rules of 0.265 to 0.267 are C's. In C++ a list literal's first element is no list literal: two
+- CCLLIB IN CICILANG++, WHAT 0.270 LEAVES (`CCLLIB.md`'s phase 0.10): the safety rules of 0.265 to 0.267 are C's. In
+  C++ a list literal's first element is no list literal: two
   `[` tokens begin an attribute there ([dcl.attr.grammar]/7), so `[[int; 1], [int; 2]]` reads as no literal. cicilang++ takes `int *p = realloc(...)` with
   no cast, which clang++ refuses ([conv.ptr]/2 converts a `T *` to `void *`, not back): the macro files cast, as C++
   asks. A program's own header that does not read whole in C++ through the preprocessor in the file's mode goes the old
@@ -13196,7 +13214,8 @@ Declarations topic of the C++ reader).
   the table; the left operand decides, so `2 * a` is refused where C++ finds a free `operator*(double, pt)`; the word of
   `<<`'s operand is its exact type's, so a `const char *` asks `_shl_ptr_const_char` beside a literal's `_shl_ptr_char`;
   a result tied to a struct with own fields is a borrow of one of them, so a hand free of another does not end it, as
-  none did before 0.266; C++ keeps its own operators until ccllib comes to cicilang++ (phase 0.10).
+  none did before 0.266. In C++ (0.270) the type macro's function goes first where it is defined: a program that
+  defines its own `operator==` over an instance whose macro defines `_eq` calls the macro's.
 - TWO MACRO FILES THAT DEFINE ONE PREDICATE, IN ONE PROCESS (found at 0.263): a macro file's predicates are the
   process's, consulted once, so a second file that defines a name the first defines is not its own there -- the reader
   gate and the compile gate read every fixture in one process, and `literal.pl`'s own `type_vector/3` was `tvector.pl`'s

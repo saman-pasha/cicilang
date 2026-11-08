@@ -264,6 +264,7 @@ One row per step, in version order: the step's title, what it did and its gate n
 | 0.267 | ccllib in cicilang++, parts 1 and 2: `vector<int>`, `max<double>`, C text and autodrop in C++ | the first two parts of CCLLIB.md's phase 0.10: a type macro's unqualified name and a typed function macro in C++, outside a library header's read; a C text's functions noexcept in C++; the empty object of = {0} in C++'s check; autodrop in C++ with the check's rules of 0.262, run where an exception unwinds too; the C++ gate builds ctext.c and autodrop.c with cicilang++; found and fixed: a terminate handler did not end its path, and a hole of C's (a null own field that a call may fill stayed null); recorded: two older faults with the program's own headers in C++ | the flow gate; over libc++ 18 all nine GREEN (the C++ gate 1235 s, 866 ok); the C++ gates over 21 and 22 GREEN (874 and 877 ok); a commit and a push |
 | 0.268 | the program's own header in C++, read as the program's file is: `tvector.c` in C++ | the next part of CCLLIB.md's phase 0.10: in C++ the program's own header goes through the preprocessor in the user's file's mode -- its directives run, its macros expanded, its includes passed on to the reader -- where it was read raw (a function of the header kept the header's own macro unexpanded, `undeclared('TWICE')`, `assert` alike) or flattened (a library header to the desugaring AND the program's, each function defined twice); the C++ gate builds tvector.c with cicilang++; hdrmacro.cpp, reader k141 | the flow gate; over libc++ 18 all nine GREEN (the C++ gate 1242 s, 867 ok); the C++ gates over 21 and 22 GREEN (875 and 878 ok); a commit and a push |
 | 0.269 | list and map literals in C++, beside a lambda's introducer: `literal.c` in C++ | the next part of CCLLIB.md's phase 0.10: in C++ a `[` begins a list or map literal where the `]` that closes it is followed by none of what follows a lambda's introducer, outside a library header's read, so `v := [int; 5, 3, 9];` and `= [];` read as in C and the lambdas beside them as lambdas; a `[[` is no array's declarator (vendorattr.cpp, which the net found); the C++ gate builds literal.c with cicilang++; lit_cpp.cpp, reader k142 | the flow gate; over libc++ 22 the library read and the C++ gate GREEN (878 ok); the chain stopped in its libc++ 21 part on the owner's word; a commit and a push |
+| 0.270 | operators on instances and arguments taken unread in C++: `operators.c` and `unread.c` in C++ | the next part of CCLLIB.md's phase 0.10: in C++ an instance's operator is the call of its type macro's function where the macro defines one, and C++'s own where it does not (the program's operator*, an instance on the right alone), an operand of a reference type the object it refers to; a macro's argument taken unread is read where its C text puts it, where cicilang++ refused the call; topers.pl's `_shl_ptr_const_char`; opcpp.cpp, reader k143, k133 changed; the C++ gate builds operators.c and unread.c with cicilang++ | the flow gate; the reader gate and a small net over a probe copy; no chain, on the owner's word; a commit and a push |
 
 ## M5 — the C++ mode
 
@@ -18392,3 +18393,53 @@ Linux (setup 7:17, gates 2:32), Apple silicon (10:28, 6:31), the Intel Mac (17:4
   fixtures built as C++. `RULES.md`, `CLAUDE.md`, `README.md`, `CCLLIB.md`.
 
 The module 0.269; the reader 179 (what a read gives changes); the lowering 154 stays.
+
+## 0.270 — operators on instances and arguments taken unread in C++: `operators.c` and `unread.c` in C++
+
+**0.270: the next part of `CCLLIB.md`'s phase 0.10, on the owner's word ("Commit and push after every task finished,
+continue"): in C++ an instance's operator was C++'s own, so `a + b` over `pt<double>` was refused, and a call of a macro
+that takes an argument unread was refused by name. cicilang++ reads both as cicilang does now, and the C++ gate builds
+`operators.c` and `unread.c` with cicilang++. No chain ran: the step was committed on the owner's word ("For now commit
+and push and pause").**
+
+THE OPERATORS. `ccl_iop_index/3` and `ccl_iop_binary/4` held `\+ ccl_lang(cpp)` at their heads. In C++ they write the
+operator as C does where the type macro defines its function (`ccl_iop_ours/1`, the name from `ccl_iop_fname/4`, which
+`ccl_iop_make/5` takes too), and leave it C++'s own where the macro defines none -- the program's `operator*(pt<double>,
+double)` or the library's, which the desugaring looks up -- and where the instance is on the right alone (`2.0 * b`),
+which C refuses by name. An operand of a reference type is the object it refers to ([expr.type]/1): `ccl_iop_inst/2`
+looks through `ref` and `rref`, so `p == q` over two `const pt<double> &` is `pt_double_eq(&p, &q)`. A library header's
+read takes no instance's operator (`'$ccl_lib_unit'`). A C++ string literal is `const char[N]` ([lex.string]/10), so
+`out << "a = "` asks `tbuf_char_shl_ptr_const_char`: `topers.pl` defines it beside C's `_shl_ptr_char`, which is the
+limit of 0.266 that the word of `<<`'s operand is its exact type's.
+
+THE UNREAD ARGUMENTS. `ccl_unread_ahead/7` threw `macro_error` in C++ after its split; without the throw, the C text
+that reads the argument is read by the C++ reader, as the rest of the text is.
+
+THE PROBES, over a probe copy (the reader 178 over a warm HOME): `test/cpp/run/opcpp.cpp` prints what it must, and
+`operators.c` and `unread.c` built by cicilang++ print what their C builds print, each at its first build; their C
+builds print what they printed. `auto c = a + b; c == d` reads as the instance's `+` and `==` too (it prints 1). An
+operator that neither the macro nor the program defines is refused by the desugaring, by name: `a / b` with no `_div`,
+`not lowered yet: no_operator(/)`; the 0.269 tree refused `a + b` so, `no_operator(+)`.
+
+THE FIXTURES. `test/cpp/run/opcpp.cpp` (the macro's `+`, `==` over references and `[]` beside the program's two
+`operator*`), which the C++ gate builds and runs; reader check `k143` over it; `k133` changed: `loop(m, 2, f(m))` in
+`test/cpp/unread_cpp.cpp` is a `for` whose body calls `f(m)`, where it held the refusal; `operators` and `unread` in the
+C++ gate's list of ccllib run fixtures built by cicilang++, each of whose builds prints what its C build prints.
+
+THE NETS before the commit: the flow gate over the work tree GREEN with no finding (85 s, peak 4099 MB); over the probe
+copy the reader gate GREEN, 144 checks, and a small net -- each ccllib run fixture of `test/c/run` built by cicilang and
+by cicilang++, `opcpp.cpp` and `hdrmacro.cpp` -- whose builds print what they should, but `elemborrow.c` built as C++:
+it is refused, `a borrow leaves the function: '&p'`, as 0.265's safety rules are C's (Not done); the C++ gate does not
+build it.
+
+NO CHAIN RAN for this step, and it claims nothing GREEN but the nets above: the next chain, over this tree, carries the
+rest, 0.269's too, whose chain was stopped in its libc++ 21 part. The CI of 0.269 (`479d0a8`) and of this step run after
+their pushes, and the next commit records them.
+
+- `library/ccl_syntax.pl`: `ccl_iop_index/3`, `ccl_iop_binary/4` and `ccl_iop_make/5` in C++ too, `ccl_iop_fname/4`,
+  `ccl_iop_ours/1`, `ccl_iop_inst/2` through a reference and outside a library header's read; `ccl_unread_ahead/7`
+  without its C++ refusal; the reader 180. `test/c/run/topers.pl`: `_shl_ptr_const_char`. `test/cpp/run/opcpp.cpp`,
+  `opcpp.expect`; `test/reader.pl`: `k133`, `k143`; `test/cpp.sh`: `operators` and `unread` in the list of ccllib's run
+  fixtures built as C++. `RULES.md`, `CLAUDE.md`, `README.md`, `CCLLIB.md`.
+
+The module 0.270; the reader 180 (what a read gives changes); the lowering 154 stays.

@@ -412,9 +412,12 @@ macro, `max<double>(a, b)`, a macro's C text, whose functions are noexcept in
 C++, and autodrop, which runs where an exception unwinds past the scope too.
 In C++ the program's own header is read as the program's file is (0.268): its
 macros are expanded and its includes read apart. List and map literals read
-in C++ too (0.269), beside the lambdas. The C++ gate builds
-`test/c/run/ctext.c`, `autodrop.c`, `tvector.c` and `literal.c` as C++ and
-compares their output with their C builds'.
+in C++ too (0.269), beside the lambdas. So do the operators on instances and
+the arguments that a macro reads after its call (0.270): where the type macro
+defines no function for an operator, the operator is C++'s own, so a program
+can give an instance an `operator*` of its own. The C++ gate builds
+`test/c/run/ctext.c`, `autodrop.c`, `tvector.c`, `literal.c`, `operators.c`
+and `unread.c` as C++ and compares their output with their C builds'.
 
 `format`, `print`, `println` and `clone` are global macros, there in every
 program without an include (`library/ccl_format.pl`). The format string
