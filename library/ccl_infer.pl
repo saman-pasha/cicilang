@@ -23,7 +23,11 @@
 %%   ccl_c_type(+Text, +Holes, -Type)     as an expression, as a type name. Holes: Name = type(T), expr(E), stmt(S)
 %%                                        or name(Atom), written @Name in the text; @{Name} pastes a name hole
 %%   type_NAME(+Args, -Type, -Items)  a macro file's TYPE MACRO (0.261): NAME<args> in C is Type, the instance
-%%                                    that Items define, made once in a unit, at file scope, its functions linkonce
+%%                                    that Items define, made once in a unit, at file scope, its functions linkonce;
+%%                                    a function <name>_drop(<name> *) among Items is the instance's DROP (0.262),
+%%                                    run on each of its objects where the object's scope ends (autodrop)
+%%   ccl_autodrop_type(+Type, -Drop)  the drop of Type, an instance's type that has one (a container's drop of its
+%%                                    elements calls it)
 %%   ccl_instance_name(+Base, +Args, -Name)  the instance's name, Base and each argument's word (vector_int)
 %%   ccl_type_word(+Type, -Word)      a type's word: int, ulong, ptr_char, const_char, point_t
 %%   ccl_hoist(+Items)                items at file scope, before the item that the reader reads now

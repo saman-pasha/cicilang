@@ -256,6 +256,7 @@ One row per step, in version order: the step's title, what it did and its gate n
 | 0.259 | cocolog 3.37.0: the pins moved, an object's names declared apart, a summary's long terms read as text | cocolog from 3.19.4 to its latest master, 3.37.0, on the owner's word and by the owner's new rule ("Use latest cocolog everytime"), its master taken four times while the step ran; the pins moved, ZiguratIP's with them (1.0.2); every load silent, on the owner's word: the tutorials' objects declare their names apart; 3.28.0's retract/1 answers again, so two loops take every clause (a second member waiting for its class's friends was refused); a defect older than the step: a summary's long terms, loaded as clauses keyed by the summary's path and never loaded again, were not served from a moved ~/.cicilang and came back stale after a child wrote the summary again -- read as text now, and the flow gate with no finding; the record of 0.258's CI | the flow gate; over libc++ 18 all nine GREEN (the C++ gate 1254 s, 866 ok); the C++ gates over 21 and 22 GREEN (874 and 877 ok); a commit and a push |
 | 0.260 | C text: a macro writes C with holes, ccllib's first step; an absolute #include found | on the owner's word, the plan of ccllib in CCLLIB.md (a standard library for cicilang's C as cocolog macros: `vector<int> v;` in C++'s form, implicit linkonce instances, C text first) and the first item of its phase 0: ccl_c_items, ccl_c_stmts, ccl_c_expr and ccl_c_type read C text with @holes by the reader's own grammar in the read that runs, every token at the call's line, a text's error at the call with the macro, its file and the text's own line; its run fixture met the drop, which the owner then decided (autodrop), and the owner's three runs for every comparison joined the plan; a defect older than the step: an absolute path in #include was never found (the reader 171); a missing #include passed over, recorded in Not done; the record of 0.259's CI | the flow gate; over libc++ 18 all nine GREEN (the C++ gate 1346 s, 866 ok); the C++ gates over 21 and 22 GREEN (874 and 877 ok); a commit and a push |
 | 0.261 | type macros: vector<int> in C, its instance made once in the unit, linkonce | the next items of CCLLIB.md's phase 0, together, on the owner's decisions (C++'s form for a type, implicit linkonce): a macro file's type_vector/3 makes vector<int> a type wherever a type stands, its arguments by C++'s template grammar (vector<vector<int>>, inplace<double, 8>), max<double>(a, b) a function macro's explicit types; each instance made once in the unit at its first use, at file scope before the item that used it (ccl_hoist/1), its functions linkonce_odr, so two units that both make it link; a read that met an instance kept in no cache; two defects of the first builds fixed (an unbound list of instances in making, the preprocessor's header reads making instances that no AST holds); the safe part refuses a container of owners' push (the plan's open decision 2) | the flow gate; over libc++ 18 all nine GREEN (the C++ gate 1304 s, 866 ok); the C++ gates over 21 and 22 GREEN (874 and 877 ok); a commit and a push |
+| 0.262 | autodrop: an object of a type macro's instance is dropped where its scope ends | the next item of CCLLIB.md's phase 0, on the owner's decision (autodrop): an instance's <name>_drop(<name> *) is its drop, its parameter marked dying; a defer of the drop after each automatic object, run at every exit, the last declared first; zero for an object with no initializer; a parameter by value the callee's; an object named whole by value moved, move(v), which leaves it zero; refused: a use after a move, a drop by hand, an owner taken out, a copy the reader does not move, a temporary thrown away, a new value over a full object, a drop that frees nothing; two older gaps closed (what a braced list does not name is null to the check; a case label past a defer) | the flow gate; over libc++ 18 all nine GREEN (the C++ gate 1249 s, 866 ok); the C++ gates over 21 and 22 GREEN (874 and 877 ok); a commit and a push |
 
 ## M5 — the C++ mode
 
@@ -17835,3 +17836,71 @@ by their needs); in 5686 s.
   `inst_b.c`. `RULES.md`, `CLAUDE.md`, `README.md`, `CCLLIB.md`.
 
 The module 0.261; the reader 172 (the grammar takes type macros and typed calls); the lowering 150 stays.
+
+## 0.262 — autodrop: an object of a type macro's instance is dropped where its scope ends
+
+**0.262: the next item of `CCLLIB.md`'s phase 0, 0.5, on the owner's decision of 2026-11-08 ("ccllib objects have
+autodrop") and the owner's word ("Commit and push after every task finished, continue"): an instance's drop, and each
+object of its type dropped where its scope ends, on every way out of it, as C++ runs a destructor. Nothing is freed by
+hand. The chain ran over cocolog 3.37.0 at the pins, as 0.261's did.**
+
+THE DROP. A function `<name>_drop(<name> *)` among an instance's items is its drop (`ccl_inst_drop/4`), and the
+instance's record keeps it, `inst(N, Args, Type, Drop)`. Its parameter's pointee is marked `dying`, the mark of a C++
+destructor's `this`, so that the safe part lets the drop free what its object owns -- the rule that 0.260's run fixture
+met, `a borrowed struct's own field not whole at the return` -- and takes a call of it as the end of the object's
+owners. In C a drop must free them: one that leaves an owner live is `owner leaked: 'v->data'`.
+
+AUTODROP. The reader puts a defer of the drop after each automatic object's declaration, marked `'$autodrop'(V)`
+(`ccl_autodrop_decl/2`), and the defer rule that exists does the rest: the lowering runs it at the block's end, a
+`return`, a `break`, a `continue` and a `goto`, the last declared first, and the check takes the mark as the drop. An
+object declared with no initializer is given zero, the empty object, so `vector<int> v;` is an empty vector. A parameter
+by value is the callee's, a defer at the body's head; a `for`'s object is a block's declaration around the loop. A
+static, an extern and a global object are not dropped.
+
+THE MOVES. An object named whole by value -- an initializer, the right side of `=`, a call's argument, a return's value
+-- moves: a walk over each body read wraps it in `move(v)` (`ccl_amv_stmt/3`). The lowering's `move` nulled a struct's
+own fields since M3; for a type that has a drop it zeroes the object whole now, so a moved vector's length is 0 and its
+drop frees nothing (`ir_moved_behind/3`). The safe part takes a moved object as gone: handed by its address before it
+gets a value again, it is `use after move`.
+
+WHAT THE PROBES FOUND, each fixed before the fixtures, over 26 reductions: the check took `vector_int v = {0};` as an
+own field unset, where C has it null (C17 6.7.9/21: what a braced list does not name is zero); `push(a, 1)` filled a
+null buffer through a pointer and the check kept it null, so `a = make(2)` lost the old buffer: a null field handed to a
+parameter that may change it is live after the call; a `for`'s object, and a vector held as a member of a plain struct,
+leaked with no word; `make(4);` threw its buffer away with no word: refused now, `dropped_temporary`, since nothing
+drops a temporary yet; and a `case` label past an object's declaration ran the drop over an object never set. That last
+one is older than the step: a plain `defer` before a later `case` label was accepted too, and both are refused now,
+`goto_over_defer`, as C++ refuses the jump ([stmt.dcl]/3). One more is recorded in Not done: a plain struct handed by
+its address after its owners moved (`person d = c; show(&c);`) is accepted. A probe built over a store that an earlier
+probe filled served the earlier IR (the same text and the same lowering version): the probes ran over a fresh HOME after
+that, as the gates do.
+
+THE NETS before the chain, over the work tree and fresh HOMEs: the flow gate GREEN with no finding (83 s); the reader
+gate GREEN, 118 checks (the six new, `k112` to `k117`); the compile gate GREEN, 237 checks (`autodrop.c` prints what
+clang's build of its hand expansion prints, line for line; `tvector.c` frees nothing; the nine refusals); the driver
+gate GREEN, 59 checks, after `test/c/link/inst_a.c` lost its free of `v.data`, which autodrop refuses (`dropped_field`).
+
+MEASUREMENTS: the chain of 0.262 over its work tree, cocolog 3.37.0 and ZiguratIP 1.0.2 at the pins and fresh HOMEs:
+over libc++ 22 the library read 361 s and the C++ gate 1300 s (877 ok, none skipped); over libc++ 21 350 s and 1268 s
+(874 ok, 3 skipped); over libc++ 18 all nine GREEN -- the flow gate 83 s with no finding, reader 2 s, compile 25 s,
+driver 35 s, objects 4 s, proof, the cross gate 305 s, the library read 402 s, the C++ gate 1249 s (866 ok, 11 skipped
+by their needs); in 5387 s.
+
+THE CI OF 0.260 AND 0.261, over cocolog 3.37.0 at its pins: 0.260's smoke run (`f61d07e`, 42463450277) GREEN on the
+three machines -- Linux (setup 9:44, gates 2:51), Apple silicon (10:52, 5:50), the Intel Mac (26:01, 11:36); 0.261's
+smoke run (`07acdc8`, 42463576671) GREEN on the three machines too -- Linux (6:58, 2:22), Apple silicon (11:22, 5:44),
+the Intel Mac (20:50, 11:38).
+
+- `library/ccl_syntax.pl`: `ccl_inst_drop/4`, `ccl_autodrop_type/2`, `ccl_autodrop_decl/2`, `ccl_autodrop_fn/4`, the
+  walk `ccl_amv_*`, the reader 173. `library/ccl_check.pl`: `ck_autodrop/3`, `ck_autodropped/2`, `ck_hand_drop/5`,
+  `ck_dropped_copy/3`, `ck_dropped_field/3`, `ck_dropped_arg/6`, `ck_dropped_value/1`, `ck_no_dropped_array/1`,
+  `ck_type_drop/2`, `ck_unlisted_null/3`, `ck_switch_defers/2`, a drop's leaks in `ck_complete_owners/2`.
+  `library/ccl_ir.pl`: `ir_moved_behind/3`, the lowering 151. `library/ccl_driver.pl`: four messages.
+  `library/ccl_infer.pl`: the drop in the macro author's list. `test/reader.pl`: `k112` to `k117`, `k105` and `k106`
+  with the drops; `test/c/adshadow.c`; `test/c/run/autodrop.c`, `autodrop.pl`, `autodrop.expect`; `tvector.pl` with a
+  drop, `tvector.c` freeing nothing; `test/c/link/inst_a.c`; `test/c/safe/drop_moved.c`, `drop_by_hand.c`,
+  `drop_field.c`, `drop_copied.c`, `drop_temporary.c`, `drop_overwritten.c`, `drop_switch.c`, `drop_member.c`,
+  `drop_leaks.c` over `dropnone.pl`, and their `.expect`. `RULES.md`, `CLAUDE.md`, `README.md`, `CCLLIB.md`.
+
+The module 0.262; the reader 173 (the drop, the defers, the moves); the lowering 151 (what the check emits, and a move
+of an object that has a drop zeroes it).

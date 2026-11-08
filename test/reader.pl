@@ -378,12 +378,14 @@ top_items(Is, Ts) :- findall(T, ( member(I, Is), ( I = function(L, S, _, F, _, _
 
 k105 :- check('vector<T> in C: each instance -- its typedef and its functions -- stands at file scope before the first item that used it, once in the unit: vector<double> before sum, which main uses again; vector<point_t> and inplace<double, 8> before main',
     ( unit('run/tvector.c', unit(Is)), top_items(Is, Ts),
-      Ts == [td(6, point_t), td(7, vector_double), fn(7, linkonce, vector_double_push), fn(7, linkonce, vector_double_at), fn(7, linkonce, vector_double_len), fn(7, static, sum),
-             td(18, vector_point_t), fn(18, linkonce, vector_point_t_push), fn(18, linkonce, vector_point_t_at), fn(18, linkonce, vector_point_t_len), td(22, inplace_double_8), fn(12, none, main)] )).
+      Ts == [td(6, point_t), td(7, vector_double), fn(7, linkonce, vector_double_push), fn(7, linkonce, vector_double_at), fn(7, linkonce, vector_double_len),
+             fn(7, linkonce, vector_double_drop), fn(7, static, sum),
+             td(18, vector_point_t), fn(18, linkonce, vector_point_t_push), fn(18, linkonce, vector_point_t_at), fn(18, linkonce, vector_point_t_len), fn(18, linkonce, vector_point_t_drop),
+             td(22, inplace_double_8), fn(12, none, main)] )).
 
 k106 :- check('an instance that a header made stands in the header\'s unit, its functions linkonce, and the unit that includes it names it alone: vector<int> in tvhdr.h',
     ( unit('run/tvector.c', unit(Is)), member(include(_, local('tvhdr.h'), file(_, _, unit(Hs))), Is), top_items(Hs, Ts),
-      Ts == [td(3, vector_int), fn(3, linkonce, vector_int_push), fn(3, linkonce, vector_int_at), fn(3, linkonce, vector_int_len), fn(3, static, ivec_sum)],
+      Ts == [td(3, vector_int), fn(3, linkonce, vector_int_push), fn(3, linkonce, vector_int_at), fn(3, linkonce, vector_int_len), fn(3, linkonce, vector_int_drop), fn(3, static, ivec_sum)],
       \+ member(typedef(_, [var(vector_int, _, _)]), Is) )).
 
 k107 :- check('a value argument, inplace<double, 8>, is an array\'s bound; sizeof(vector<int>) and the cast (vector<int> *)0 name the instance made',
@@ -402,6 +404,31 @@ k109 :- check('a read that made or met an instance is kept in neither cache, the
 k111 :- check('a header that the raw read does not take whole is read preprocessed, and its unit holds the instance that the raw attempt made and dropped: vector<long> in tvhdr2.h, once in the program',
     ( unit('run/tvector.c', unit(Is)), member(include(_, local('tvhdr2.h'), file(_, preprocessed, U)), Is), ( U = unit(Hs) ; U = partial(unit(Hs), _, _) ), !,
       member(typedef(_, [var(vector_long, _, _)]), Hs), findall(x, ( sub_t(T, Is), nonvar(T), T = typedef(_, [var(vector_long, _, _)]) ), Xs), length(Xs, 1) )).
+
+%% AUTODROP (0.262; CCLLIB.md's phase 0.5): test/c/run/autodrop.c over its autodrop.pl, and test/c/run/tvector.c
+k112 :- check('an instance\'s drop, <name>_drop(<name> *) among its items, has its parameter\'s pointee marked dying, as a C++ destructor\'s this',
+    ( unit('run/tvector.c', unit(Is)), member(function(_, linkonce, base([], [void]), vector_double_drop, [param(ptr([], base([dying], [typedef(vector_double)])), v)], false, _), Is),
+      member(function(_, linkonce, _, vector_point_t_drop, [param(ptr([], base([dying], [typedef(vector_point_t)])), v)], false, _), Is) )).
+
+k113 :- check('a block\'s object of a type that has a drop is given zero where it has no initializer, and a defer of its drop follows its declaration, the object its mark',
+    ( fn_body('run/tvector.c', main, B), V = base([], [typedef(vector_int)]),
+      append(_, [declaration(13, none, V, [var(v, V, init([item([], int(0))]))]), defer(13, ['$autodrop'(v)], block([expr(13, call(id(vector_int_drop), [addr(id(v))]))]))|_], B),
+      \+ ( member(D, B), D = defer(_, ['$autodrop'(b)], _) ) )).
+
+k114 :- check('a parameter by value of a type that has a drop is the callee\'s: a defer of its drop at the body\'s head',
+    ( fn_body('run/autodrop.c', take, [defer(_, ['$autodrop'(t)], block([expr(_, call(id(track_int_drop), [addr(id(t))]))]))|_]) )).
+
+k115 :- check('an object named whole by value moves: an initializer, a call\'s argument and a return\'s value are move(...); a member read off it is not',
+    ( fn_body('run/autodrop.c', main, B), fn_body('run/autodrop.c', pass, P),
+      sub_t(var(n, _, move(id(m))), B), sub_t(call(id(take), [move(id(k))]), B), sub_t(return(_, move(id(t))), P),
+      \+ sub_t(move(id(x)), B), sub_t(member(id(x), val), B) )).
+
+k116 :- check('a for\'s object of a type that has a drop is a block\'s declaration around the loop, dropped where the loop ends',
+    ( fn_body('run/autodrop.c', main, B), member(block([declaration(_, none, _, [var(f, _, _)]), defer(_, ['$autodrop'(f)], _), for(_, none, _, _, _)]), B) )).
+
+k117 :- check('a later declaration of the name hides an autodropped object from the walk of the moves: an int named like it is not moved',
+    ( unit('adshadow.c', unit(Is)), member(function(_, _, _, main, _, _, block(B)), Is),
+      member(block(In), B), sub_t(call(id(use), [id(a)]), In), sub_t(call(id(take), [move(id(a))]), B) )).
 
 k110 :- check('a type macro that fails, two instances that one name names, and a typed call of a macro with no typed form are refused at the use',
     ( c('tmacro_fail.c', P1), c('tmacro.pl', M), catch(cicilang_ast(P1, _), error(E1, here(P1, 3, in_macro(type_none, M))), true), E1 == macro_failed(none, [base([], [int])]),
@@ -647,6 +674,13 @@ t_checks :-
     k109,
     k110,
     k111,
+    section('autodrop: an object of a type that has a drop, dropped where its scope ends (0.262)'),
+    k112,
+    k113,
+    k114,
+    k115,
+    k116,
+    k117,
     section('the preprocessor, in cocolog: a header raw cannot take'),
     k83,
     section('the lexer, native: ccl_lex_native/6 token for token with the DCG'),

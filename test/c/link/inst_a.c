@@ -7,6 +7,5 @@ int main(void) {
     push(v, 7);
     int s = fill(&v, 4);
     printf("%zu %d %d\n", len(v), at(v, 0), s);
-    free(v.data);
     return 0;
 }

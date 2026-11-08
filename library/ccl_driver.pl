@@ -343,6 +343,10 @@ dr_kind(move_of_non_owner, 'move of a non-owner:') :- !.
 dr_kind(owner_overwritten, 'owner overwritten while live:') :- !.
 dr_kind(goto_with_owners, 'goto over the declaration of fresh memory or of an own array:') :- !.
 dr_kind(goto_over_defer, 'goto over a defer (or a local with a destructor) to label') :- !.
+dr_kind(dropped_by_hand, 'an object that its scope drops, dropped by hand:') :- !.   % autodrop (0.262)
+dr_kind(dropped_copied, 'an object that its scope drops, copied whole (move it):') :- !.
+dr_kind(dropped_field, 'an owner inside an object that its scope drops, taken out:') :- !.
+dr_kind(dropped_temporary, 'a value that has a drop, given no name (nothing drops it):') :- !.
 dr_kind(K, K).
 %% the user's file's `#warning' lines, printed after its read in clang's shape (they count as no error)
 dr_pp_warnings :-

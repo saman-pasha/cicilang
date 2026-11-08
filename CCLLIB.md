@@ -171,6 +171,23 @@ order. Today a macro's list result is spliced where the macro stands.
 - A global of an instance type: open decision 4.
 - Done when: `test/c/run/tvector.c` frees nothing by hand and the check passes; refused in `test/c/safe/`: a use after a
   move, a second drop by hand; run fixtures: a `return`, a `break` and a `goto` out of a block drop what it declared.
+- DONE AT 0.262 (`RULES.md`, the topic of the macro files and the safe part's topic of autodrop): the drop
+  `<name>_drop(<name> *)` found among the instance's items and its parameter marked `dying` (`ccl_inst_drop/4`); a defer
+  of the drop after each automatic object's declaration, marked `'$autodrop'(V)`, which the lowering runs at every exit
+  and the check takes as the end of V's owners; zero for an object declared with no initializer, so `vector<int> v;` is
+  an empty vector; a parameter by value the callee's; a `for`'s object dropped where the loop ends; an object named
+  whole by value moved, `move(v)`, which leaves it zero, so its drop frees nothing. `test/c/run/autodrop.c` prints what
+  clang's build of its hand expansion prints (a return, a break, a continue, a goto and a block's end, the last declared
+  first, a moved object's drop printing nothing), and `tvector.c` frees nothing. Refused in `test/c/safe/`: a use after
+  a move (`drop_moved.c`), a drop by hand (`drop_by_hand.c`), an owner taken out (`drop_field.c`), a copy that the
+  reader does not move (`drop_copied.c`), a temporary thrown away (`drop_temporary.c`), a new value over a full object
+  (`drop_overwritten.c`), a case label past a declaration (`drop_switch.c`), a member of a plain struct not dropped
+  (`drop_member.c`) and a drop that frees nothing (`drop_leaks.c`).
+- WHAT 0.262 LEAVES (Not done): a temporary is not dropped (refused); a member of such a type in a plain struct is not
+  dropped with it; an array of such objects is refused; an assignment does not drop the old value first (refused while
+  the object may hold memory), where C++'s assignment does; a global is not dropped (open decision 4). A parameter by
+  value is dropped by the callee, where C++ destroys it in the caller at the end of the full expression -- a difference
+  of the order of the output that phase 0.10 meets.
 
 ### 0.6 List and map literals
 

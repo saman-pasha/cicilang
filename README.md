@@ -367,6 +367,14 @@ at file scope before the item that used it; its functions are `linkonce_odr`,
 so two units that both use `vector<int>` link. `max<double>(a, b)` calls a
 function macro with its types first. `test/c/run/tvector.c` is the example.
 
+An instance's function `<name>_drop(<name> *)` is its drop, and each object of
+the type is dropped where its scope ends (autodrop, 0.262), on every way out
+of it, the last declared first, as C++ runs a destructor: nothing is freed by
+hand. `vector<int> v;` is an empty vector. An object used whole by value
+moves, `w = v`, `f(v)`, `return v`, and the move leaves it empty; using it
+again before it gets a value, or dropping it by hand, is refused.
+`test/c/run/autodrop.c` is the example.
+
 `format`, `print`, `println` and `clone` are global macros, there in every
 program without an include (`library/ccl_format.pl`). The format string
 has Rust's holes, each becoming the `printf` conversion of its argument's

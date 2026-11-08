@@ -2336,6 +2336,30 @@ that changes a rule edits the rule here, in its topic, and writes its entry in `
   `types([double])` before its arguments (`ccl_typed_call/5`, a clause of `ccl_primary_//3` before a name's own): a
   name that the registry holds as a macro, `<` types or constants `>`, then `(`. A macro with no clause of that arity
   is refused: `macro: the macro twice takes no types before its 1 argument(s)`. Reader `k108`, `k110`. (0.261)
+- **AN INSTANCE'S DROP** (0.262; `CCLLIB.md`'s phase 0.5): the function `<name>_drop(<name> *)` that the instance's
+  items define, `<name>` its type's name, is its drop (`ccl_inst_drop/4`); the instance's record keeps it, `inst(N,
+  Args, Type, Drop)`, `none` where the items define no such function (`inplace<double, 8>`). The drop's parameter is
+  marked as a C++ destructor's `this` is, its pointee `dying` (`ccl_inst_dying/2`, in the definition and a prototype),
+  so that the safe part lets it free what the object owns and takes a call of it as the end of the object's owners (the
+  safe part's topic of autodrop). A macro author asks a type's drop by `ccl_autodrop_type/2` (a container's drop of its
+  elements). Reader `k112`. (0.262)
+- **AUTODROP: AN OBJECT IS DROPPED WHERE ITS SCOPE ENDS** (0.262; the owner's decision of 2026-11-08: "ccllib objects
+  have autodrop"): a block's automatic object of a type that has a drop -- a declaration with no storage word, `auto`
+  or `register`, of the type itself or a typedef of it, `:=` too (`ccl_autodrop_decl/2`) -- is followed by a defer of
+  its drop, `defer(L, ['$autodrop'(V)], block([expr(L, call(id(D), [addr(id(V))]))]))`, which the lowering runs at
+  every exit of the block -- its end, `return`, `break`, `continue`, `goto` -- the last declared first, as C++ runs a
+  destructor; the mark is the check's. Declared with no initializer it is given zero, `= {0}`: the empty object, as
+  C++'s default constructor makes an empty vector, so `vector<int> v;` is one. A parameter by value of such a type is
+  the callee's, a defer of its drop at the body's head (`ccl_autodrop_fn/4`); a `for`'s declaration of one is a block's
+  around the loop, dropped where the loop ends. A static, an extern, a thread-local and a global object are not
+  dropped. Reader `k113`, `k114`, `k116`; `test/c/run/autodrop.c`, which clang's build of its hand expansion matches
+  line for line. (0.262)
+- **AN OBJECT NAMED WHOLE BY VALUE MOVES** (0.262): after a function's body is read, a walk wraps each autodropped
+  object named whole where its value is taken -- an initializer, the right side of `=`, a call's argument, a return's
+  value, a braced list's item, a conditional's branch or a comma's right side there -- in `move(...)`
+  (`ccl_amv_stmt/3`), which the lowering takes and then zeroes (the lowering's topic), so that its drop frees nothing.
+  `sizeof`, `typeof` and `alignof` are not entered, a member read off the object is no move, and a later declaration of
+  the name hides the object from the walk. Reader `k115`, `k117`. (0.262)
 
 ## The C++ reader
 
@@ -9400,6 +9424,40 @@ The namespaces' rules, the program's and the library's, are `library/ccl_cpp_nam
   case, and `leaks` finds nothing in them. `slots.c` gates a local own array, `flex.c` a flexible member. The `own_*`,
   `flex_unbounded` and `array_unset` programs in `test/c/safe/` are refused. (M3)
 
+### Objects that have a drop (autodrop)
+
+- AN OBJECT'S DROP RUNS AT EACH EXIT OF ITS SCOPE (0.262; the reader's topic of the macro files): the walk takes the
+  defer marked `'$autodrop'(V)` as the drop of V (`ck_autodrop/3`): V's own fields are gone there, each live, null,
+  moved or partial -- a move left it zero, and its drop frees what is there -- and their borrows dangle; one still
+  unset is refused, `owner_unset`. So an object that its scope drops leaks nothing and needs no free. (0.262)
+- A drop (a function whose parameter's pointee is `dying`) may free what its object owns, and in C it must:
+  an own field of the object left live or partial at an exit of the drop is `owner_leaked`, `'v->data'` (a drop that
+  frees nothing, `test/c/safe/drop_leaks.c`); `if (v->data) free(v->data);` passes, as the null test makes it.
+  (0.262)
+- REFUSED, each a fixture of `test/c/safe/` over `test/c/run/tvector.pl` (0.262):
+  `dropped_by_hand`, an object that its scope drops, dropped by hand -- it would be dropped twice
+  (`ck_hand_drop/5`; `drop_by_hand.c`); `dropped_copied`, one copied whole where the reader did not move it, a
+  statement expression's value (`ck_dropped_copy/3`, in `ck_move_out/4` and `ck_fill/6`; `drop_copied.c`);
+  `dropped_field`, an owner inside one taken out -- freed, moved, handed to an own parameter, returned
+  (`ck_dropped_field/3`; `drop_field.c`); `dropped_temporary`, a call's value whose type has a drop thrown away by an
+  expression statement or a cast to void, or a member read off it, since nothing drops a temporary yet
+  (`ck_dropped_value/1`; `drop_temporary.c`); and an array of objects that have a drop, `not lowered yet:
+  array_of_objects_with_a_drop` (`ck_no_dropped_array/1`). (0.262)
+- AN OBJECT OF A TYPE THAT HAS A DROP HANDED BY ITS ADDRESS (0.262; `ck_dropped_arg/6`): a moved one is refused,
+  `use_after_move` -- the move left it empty, and the safe part takes it as gone until it is given a value again
+  (`drop_moved.c`); a parameter whose pointee is not const may fill an own field that it found null, so a null one is
+  live after the call -- a later assignment over it is `owner_overwritten` (`drop_overwritten.c`), and a member of a
+  plain struct so filled leaks where it is not dropped by hand, `owner_leaked` (`drop_member.c`). A drop by hand of a
+  moved object is `use_after_move` (`ck_hand_drop/5`). (0.262)
+- WHAT A BRACED LIST DOES NOT NAME IS ZERO (C17 6.7.9/21; 0.262; `ck_unlisted_null/3`): an own field that a C
+  initializer's list leaves out is null, as a static object's is; it was unset, garbage to the check, and autodrop's
+  empty object, `= {0}`, was refused at its first use. (0.262)
+- A CASE LABEL AFTER A DEFER OF THE SWITCH'S OWN BLOCK (0.262; `ck_switch_defers/2`) -- a `defer`, an object's drop, a
+  C++ local's destructor, a C23 declaration after a label among them -- is refused, `goto_over_defer`, `'case 2'`: the
+  jump from the switch passes the defer, which runs at the block's end all the same, over an object never set (C++'s
+  [stmt.dcl]/3, "jump bypasses variable initialization"). A plain `defer` before a later label was accepted until
+  0.262. `drop_switch.c`. (0.262)
+
 ### What the C++ forms mean to the check
 
 - The check sees the desugared C. `scoped(_, N)` is `id(N)`, a C++ cast is its operand, and a range-for over an array
@@ -9870,7 +9928,9 @@ The namespaces' rules, the program's and the library's, are `library/ccl_cpp_nam
   slot (`ir_bind_ref/2`). (0.36, 0.61)
 - `move(E)` is E, with two exceptions. An own array's element is loaded and its slot nulled. A struct lvalue with own
   fields has them nulled behind it, nested structs too (`ir_null_own_fields/2`, `ir_has_own_fields/1`), so its
-  destructor frees nothing. (M3, 0.40)
+  destructor frees nothing; in C an object of a type that has a drop is zeroed whole, `store <T> zeroinitializer`
+  (`ir_moved_behind/3`, 0.262): the empty object that its declaration with no initializer makes, its plain fields
+  saying it is empty (a moved vector's length is 0, as a moved std::vector's size is). (M3, 0.40, 0.262)
 - A new-expression's block is `alloc(Mode, T, Call)` (0.202): the allocation function's call, then, for `zeroed(Size)`,
   an `llvm.memset` of Size bytes over the block, for `nzeroed(Size)` the same where the block is not null
   (`ir_zero_bytes/2`). A delete-expression is `dealloc(Destroy, Free, X)`: where X is not null, Destroy, the drain of
@@ -12904,12 +12964,20 @@ Declarations topic of the C++ reader).
 - `bin/cicilang` accepts and ignores `-W`, `-f...` and `-pedantic` (owner's rule: clang's arguments, no new flags).
   `-D` and `-U` define and undefine (0.112), and `-fexperimental-library` turns libc++'s experimental part on (0.138); a
   run with any of them keeps no C store.
-- CCLLIB'S CONTAINERS OF OWNERS AND ITS DROP (found at 0.260 and 0.261: `CCLLIB.md`'s open decision 2, and the
-  autodrop that the owner decided on 2026-11-08, phase 0.5): an
-  element with an own field stored into an instance's own buffer is no move of the field (`vector<vector<int>>`'s push
-  is refused, `owner leaked: 'x.data'`), and a drop function that frees its caller's owner through `&v` is refused in
-  the callee (`a borrowed struct's own field not whole at the return`), or in the caller (`owner leaked: 'v.data'`)
-  where it puts NULL back. `test/c/run/tvector.c` frees each buffer in `main`.
+- CCLLIB'S CONTAINERS OF OWNERS (found at 0.261: `CCLLIB.md`'s open decision 2): an element with an own field stored
+  into an instance's own buffer is no move of the field (`vector<vector<int>>`'s push is refused, `owner leaked:
+  'x.data'`). The drop that 0.260's fixture met is autodrop's since 0.262.
+- AUTODROP'S LIMITS (0.262; `CCLLIB.md`'s phase 0.5): a temporary of a type that has a drop is not dropped -- `make(4);`
+  and `make(4).len` are refused, `dropped_temporary`, where C++ destroys one at the end of its full expression; a
+  member of such a type in a plain struct is not dropped with the struct (its buffer leaks unless it is dropped by
+  hand, `owner_leaked`); an array of such objects is refused; an assignment to such an object drops nothing first, so
+  one that may hold memory is `owner_overwritten`, where C++'s assignment frees the old value; a global of such a type
+  is not dropped (open decision 4). A parameter by value is dropped by the callee, where C++ (Itanium ABI 3.1.2.3)
+  destroys it in the caller at the end of the full expression: a printed drop comes before the caller's next output,
+  which ccllib in cicilang++ (phase 0.10) meets.
+- A PLAIN STRUCT HANDED BY ITS ADDRESS AFTER A MOVE OF ITS OWNERS (found at 0.262): `person d = c; show(&c);` is
+  accepted, and `show` reads `c.name`, which `d` holds; for an object of a type that has a drop it is refused since
+  0.262 (`use_after_move`).
 - A MISSING `#include` IS PASSED OVER (found at 0.260): the read holds `include(L, Spec, missing)` and goes on (the
   Includes topic), so `#include "nope.h"` before a `main` that uses nothing of it builds with no message, and a program
   that uses the header fails later, at the first name it declares; clang stops at the line, `fatal error: 'nope.h' file

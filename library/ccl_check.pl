@@ -195,6 +195,7 @@ ck_is_borrowed_field(N) :- nb_getval('$ck_borrowed', Bs), memberchk(N, Bs).
 ck_complete_owners([], _).
 ck_complete_owners([N-S|Os], Form) :-
     ( ck_is_borrowed_field(N), \+ ck_is_dying_field(N), \+ memberchk(S, [live, null, array]) -> ck_fail(borrow_incomplete, N, Form) ; true ),
+    ( \+ ccl_lang(cpp), ck_is_dying_field(N), memberchk(S, [live, partial]) -> ck_fail(owner_leaked, N, Form) ; true ),   % a C drop frees what its object owns (0.262)
     ck_complete_owners(Os, Form).
 %% C++ (M6): a constructor's `this' points at fresh storage -- its own fields
 %% start unset, and must be live or null when it returns -- and a destructor's
@@ -360,9 +361,19 @@ ck_has_array_under(St, K) :- ck_under_states(St, K, Ps), member(A-_, Ps), ck_is_
 ck_type_rules(N, T, Form) :-
     ck_bounds_ok(T, N, Form),
     ccl_resolve_type(T, T1),
+    ck_no_dropped_array(T1),
     (   T1 = ptr(_, PT) -> ck_array_struct_ok(PT, N, Form)
     ;   T1 = base(_, [struct(_, _)]) -> ( ck_has_own_array(T1) -> ck_fail(own_array_by_value, N, Form) ; true )
     ;   true ).
+%% AN ARRAY OF OBJECTS THAT HAVE A DROP (0.262) is not done: nothing drops its elements, so it is refused by name
+ck_no_dropped_array(arr(_, ET)) :- \+ ccl_lang(cpp), ck_dropped_elem(ET), !,
+    nb_getval('$ck_fn', Fn), nb_getval('$ck_line', L), throw(error(not_lowered(array_of_objects_with_a_drop), where(Fn, line(L)))).
+ck_no_dropped_array(_).
+ck_dropped_elem(T) :- ck_type_drop(T, _), !.
+ck_dropped_elem(T) :- catch(ccl_resolve_type(T, R), _, fail), R = arr(_, ET), ck_dropped_elem(ET).
+%% the drop of a type, as the program's symbol table has it: <tag>_drop, its one parameter a dying pointer (0.262)
+ck_type_drop(T, D) :- catch(ccl_resolve_type(T, R), _, fail), R = base(_, [struct(Tag, _)]), atom(Tag), atom_concat(Tag, '_drop', D),
+    catch(ccl_declared(D, FT), _, fail), FT = fn(_, [param(PT, _)], _), ck_this_marker(PT, dying), !.
 ck_bounds_ok(T, N, Form) :- ccl_resolve_type(T, T1), ck_bounds_ok_(T1, N, Form).
 ck_bounds_ok_(arr(NE, ET), N, Form) :- !, ( ck_own_type(ET), \+ ck_const(NE, _) -> ck_fail(own_unbounded, N, Form) ; true ), ck_bounds_ok(ET, N, Form).
 ck_bounds_ok_(ptr(_, ET), N, Form) :- !,
@@ -1213,7 +1224,10 @@ ck_stmt(include(_, _, _), St, St) :- !.
 ck_stmt(static_assert(_, _, _), St, St) :- !.
 ck_stmt(expr(_, bind_ref(_, E)), St0, St) :- !, ck_expr(E, St0, St).   % a REFERENCE MEMBER BOUND: the object outlives its holder, as a reference capture's does -- the safe part follows neither
 ck_stmt(empty, St, St) :- !.
+ck_stmt(expr(L, E), _, _) :- \+ ccl_lang(cpp), ck_dropped_value(E), !, ck_line(L), ck_fail(dropped_temporary, temporary, E).   % a call's value that has a drop, thrown away (0.262)
 ck_stmt(expr(L, E), St0, St) :- !, ck_line(L), ck_anchor_addrs(E, St0, St1), ck_expr(E, St1, St).
+ck_stmt(defer(L, ['$autodrop'(V)], _), St0, St) :- !, ck_line(L), ck_defer(St0, '$autodrop'(L, V), St).   % an object's drop (0.262): its mark is the defer
+ck_stmt('$autodrop'(_, V), St0, St) :- !, ck_autodrop(V, St0, St).
 ck_stmt(defer(L, _, Body), St0, St) :- !, ck_line(L), ck_defer(St0, Body, St).
 ck_stmt(eh_cleanup(_, _), St, St) :- !.   % a constructor's cleanup of what it built, run only while an exception unwinds (0.201): the check follows no unwinding path
 ck_stmt(eh_drop(_, _), St, St) :- !.   % ... and a statement's temporary's, dropped at its end (0.207)
@@ -1260,6 +1274,7 @@ ck_stmt(label(Ln, L, S), St0, St) :- !, ck_label_in(L, Ln, St0, StL), ck_stmt(S,
 ck_stmt(switch(L, E, S), St0, St) :- !, ck_line(L),
     ck_expr(E, St0, St1),
     ( S = block(Is) -> true ; Is = [S] ),
+    ck_switch_defers(Is, no),
     ccl_scope_push, ck_bpath_push, ck_push(St1, St2), ck_loop_enter(St2, switch), ck_switch_items(Is, St2, St2, St3), ck_loop_leave(Brk),
     ck_merge_all([St3|Brk], St4), ( ck_has_default(Is) -> St5 = St4 ; ck_merge(St4, St2, St5) ),
     ck_scope_end(St5, St), ck_bpath_pop, ccl_scope_pop.
@@ -1274,6 +1289,23 @@ ck_stmt(gnu_asm(L, basic(_)), St, St) :- !, ck_line(L).
 ck_stmt(gnu_asm(L, ext(_, _, Os, Is, _, Ls)), St0, St) :- !, ck_line(L), ck_asm_ops(Is, St0, St1), ck_asm_outs(Os), ck_asm_ops(Os, St1, St),
     ck_asm_gotos(Ls, L, St).   % `asm goto' (0.231): an edge to each of its labels, as a `goto' makes, and the state falls through too
 ck_stmt(S, _, _) :- functor(S, F, _), nb_getval('$ck_fn', Fn), nb_getval('$ck_line', L), throw(error(not_lowered(F), where(Fn, line(L)))).   % a form of C++'s later steps
+%% AN OBJECT'S DROP AT AN EXIT (0.262; library(ccl_syntax)'s ccl_autodrop_decl/2): the drop of V ran, so V's own fields
+%% are gone, each live, null, moved or partial -- a move left it null behind (the lowering's `move'), and the drop frees
+%% what is there -- and what borrowed them dangles; an unset one is garbage, refused
+ck_autodrop(_, dead, dead) :- !.
+ck_autodrop(V, St0, St) :-
+    ( ck_own_under(St0, V, Fs) -> true ; Fs = [] ),
+    ( member(F, Fs), ck_state(St0, F, unset) -> ck_fail(owner_unset, F, drop(V)) ; true ),
+    ck_set_all(St0, Fs, moved, St1), ck_dangle_all(St1, Fs, St).
+%% an AUTODROPPED object (0.262): one whose drop is a defer of a frame of the walk -- the innermost frame that holds the
+%% name, or a field of it, decides (a later object of the name in an inner block hides the outer one)
+ck_autodropped(st(Frs), R) :- atom(R), ck_autodropped_(Frs, R).
+ck_autodropped_([fr(Os, Ds)|Frs], R) :- ( memberchk('$autodrop'(_, R), Ds) -> true ; ck_frame_holds(Os, R) -> fail ; ck_autodropped_(Frs, R) ).
+ck_frame_holds(Os, R) :- member(K-_, Os), ( K == R -> true ; atom(K), atom_concat(R, Sfx, K), ( sub_atom(Sfx, 0, 1, _, '.') ; sub_atom(Sfx, 0, 2, _, '->') ) ), !.
+%% A CALL'S VALUE THAT HAS A DROP AND NO NAME (0.262): thrown away by an expression statement or a cast to void, or a
+%% member read off it, it would leak, since nothing drops a temporary yet: refused, `dropped_temporary'
+ck_dropped_value(cast(_, E)) :- !, ck_dropped_value(E).
+ck_dropped_value(call(F, As)) :- catch(ccl_type_of(call(F, As), T), _, fail), T \== unknown, ck_type_drop(T, _).
 ck_asm_ops([], St, St).
 ck_asm_ops([op(_, _, E)|Os], St0, St) :- ck_expr(E, St0, St1), ck_asm_ops(Os, St1, St).
 ck_asm_outs([]).
@@ -1325,6 +1357,17 @@ ck_switch_items([default(_, S)|Is], Entry, St0, St) :- !, ck_merge(St0, Entry, S
 ck_switch_items([S|Is], Entry, St0, St) :- ck_stmt(S, St0, St1), ck_switch_items(Is, Entry, St1, St).
 ck_has_default(Is) :- member(default(_, _), Is), !.
 ck_has_default(Is) :- member(case(_, _, S), Is), ck_has_default([S]), !.
+%% A CASE LABEL AFTER A DEFER OF THE SWITCH'S OWN BLOCK (0.262) -- a `defer', an object's drop, a C++ local's destructor
+%% -- is refused, `goto_over_defer': the jump from the switch passes the defer, which runs at the block's end all the
+%% same, over an object never set (C++'s [stmt.dcl]/3, "jump bypasses variable initialization")
+ck_switch_defers([], _).
+ck_switch_defers([I|Is], Seen) :- ( I = case(L, E, S) ; I = default(L, S), E = default ), !,
+    ( Seen == yes -> ck_line(L), ck_case_label(E, N), ck_fail(goto_over_defer, N, I) ; true ), ck_switch_defers([S|Is], Seen).
+ck_switch_defers([defer(_, _, _)|Is], _) :- !, ck_switch_defers(Is, yes).
+ck_switch_defers(['$splice'(Ss)|Is], Seen) :- !, append(Ss, Is, Is1), ck_switch_defers(Is1, Seen).   % C23's declaration after a label, and its object's drop
+ck_switch_defers([_|Is], Seen) :- ck_switch_defers(Is, Seen).
+ck_case_label(default, default) :- !.
+ck_case_label(E, N) :- ( E = int(V) -> true ; E = chr(V) -> true ; V = '...' ), atomic_list_concat([case, ' ', V], N).
 
 %% ---- declarations -----------------------------------------------------------------------
 %% every local joins the symbol table (the types of paths come from it); an own
@@ -1447,12 +1490,18 @@ ck_under_root(R0, P, Key, R) :- atom_concat(P, Sfx, R0), ( sub_atom(Sfx, 0, 1, _
 %% call or anything else, fresh: every own field live
 ck_fill(Key, T, R, Form, St0, St) :-
     ck_no_array_copy(St0, Key, Form),
-    (   R = init(Items) -> ck_init_slots(Items, T, Key, St0, St)
-    ;   R = compound_lit(_, init(Items)) -> ck_init_slots(Items, T, Key, St0, St)
-    ;   ck_path(R, P), ck_under_states(St0, P, Src), Src \== [] -> ck_expr(R, St0, St1), ck_move_fields(St1, Src, P, Key, Form, St)
+    (   R = init(Items) -> ck_init_slots(Items, T, Key, St0, St0a), ck_unlisted_null(St0a, Key, St)
+    ;   R = compound_lit(_, init(Items)) -> ck_init_slots(Items, T, Key, St0, St0a), ck_unlisted_null(St0a, Key, St)
+    ;   ck_path(R, P), ck_under_states(St0, P, Src), Src \== [] -> ck_dropped_copy(St0, [P], Form), ck_expr(R, St0, St1), ck_move_fields(St1, Src, P, Key, Form, St)
     ;   ck_expr(R, St0, St1), ck_own_under(St1, Key, Ks), ck_set_live(St1, Ks, Form, St) ).
 ck_set_live(St, [], _, St).
 ck_set_live(St0, [K|Ks], Form, St) :- ( ck_state(St0, K, live) -> ck_fail(owner_overwritten, K, Form) ; ck_set(St0, K, live, St1) ), ck_set_live(St1, Ks, Form, St).
+%% WHAT A BRACED LIST DOES NOT NAME IS ZERO (C17 6.7.9/21; 0.262): an own field the list leaves out is null, as a
+%% static object's is -- `vector_int v = {0};', autodrop's empty object, left `data' unset, garbage to the check
+ck_unlisted_null(St0, Key, St) :- \+ ccl_lang(cpp), ck_own_under(St0, Key, Fs), !, ck_unset_null(Fs, St0, St).
+ck_unlisted_null(St, _, St).
+ck_unset_null([], St, St).
+ck_unset_null([F|Fs], St0, St) :- ( ck_state(St0, F, unset) -> ck_set(St0, F, null, St1) ; St1 = St0 ), ck_unset_null(Fs, St1, St).
 ck_move_fields(St, [], _, _, _, St).
 ck_move_fields(St0, [SK-SS|Ps], P, Key, Form, St) :- \+ ck_owner_state(SS), !,          % a tied field, an anchor: copied, re-rooted
     atom_concat(P, Suffix, SK), atom_concat(Key, Suffix, TK), ck_reroot(SS, P, Key, SS1), ck_set_if(St0, TK, SS1, St1),
@@ -1688,13 +1737,17 @@ ck_by_value(E) :- ccl_type_of(E, T), T \== unknown, \+ ck_is_pointer_type(T).
 %% moved; nothing tied to it may still hold memory; then it and they are moved,
 %% and their borrows dangle
 ck_consume(K, How, Form, St0, St, Prior) :-
-    ck_state(St0, K, Prior),
+    ck_dropped_field(St0, K, Form), ck_state(St0, K, Prior),
     ( Prior == live -> true ; Prior == null -> true ; Prior == unset -> ck_fail(owner_unset, K, Form) ; ck_fail(use_after_move, K, Form) ),
     ck_own_under(St0, K, Fs),
     ( Prior == null -> true ; ck_fields_consumable(Fs, How, St0, Form) ),
     ck_tied_consumed(St0, K, Form),
     ck_set(St0, K, moved, St1), ck_set_all(St1, Fs, moved, St2),
     ck_under(St2, K, All), ck_dangle_all(St2, [K|All], St).
+%% AN OWNER INSIDE AN AUTODROPPED OBJECT TAKEN OUT (0.262) -- freed, moved, handed to an own parameter, returned -- is
+%% refused, `dropped_field': the object's drop frees what the field holds at the scope's end. The instance's own
+%% functions reach the fields through a pointer, the borrow rules' (the field whole again at the return)
+ck_dropped_field(St, K, Form) :- ( atom(K), ck_key_root(K, R), R \== K, ck_autodropped(St, R) -> ck_fail(dropped_field, K, Form) ; true ).
 ck_fields_consumable([], _, _, _).
 ck_fields_consumable([F|Fs], How, St, Form) :-
     ck_state(St, F, S),
@@ -1704,7 +1757,14 @@ ck_fields_consumable([F|Fs], How, St, Form) :-
     ;   ck_fail(use_after_move, F, Form) ),
     ck_fields_consumable(Fs, How, St, Form).
 %% a struct by value moved out (returned, passed to an own parameter): its fields go, complete
-ck_move_out(St0, Fs, Form, St) :- ck_fields_consumable(Fs, move, St0, Form), ck_set_all(St0, Fs, moved, St1), ck_dangle_all(St1, Fs, St).
+ck_move_out(St0, Fs, Form, St) :- ck_dropped_copy(St0, Fs, Form), ck_fields_consumable(Fs, move, St0, Form), ck_set_all(St0, Fs, moved, St1), ck_dangle_all(St1, Fs, St).
+%% AN AUTODROPPED OBJECT COPIED WHOLE (0.262) is refused, `dropped_copied': the copy and the object would both be
+%% dropped. The reader moves it where it names it by value (ccl_amv_stmt/3), move(v), which leaves it null behind; what
+%% the reader cannot see as a copy -- a statement expression's value -- stays one
+ck_dropped_copy(St, [F|_], Form) :- \+ ck_moved_form(Form), ck_key_root(F, R), ck_autodropped(St, R), !, ck_fail(dropped_copied, R, Form).
+ck_dropped_copy(_, _, _).
+ck_moved_form(move(_)) :- !.
+ck_moved_form(call(_, [move(_)|_])).
 %% the borrows of a consumed owner dangle, in every frame
 ck_dangle_all(St, [], St).
 ck_dangle_all(St0, [K|Ks], St) :- ck_dangle(St0, K, St1), ck_dangle_all(St1, Ks, St).
@@ -1725,6 +1785,7 @@ ck_read(K, S) :- ( memberchk(S, [live, null, none, anchor, loose, array]) -> tru
 %% the generic way with its field name as a child
 ck_expr(_, dead, dead) :- !.
 ck_expr(E, St, St) :- \+ compound(E), !.                                          % an operator, a number, a name as a field
+ck_expr(member(C, F), _, _) :- \+ ccl_lang(cpp), ck_dropped_value(C), !, ck_fail(dropped_temporary, temporary, member(C, F)).   % a member of a call's value that has a drop (0.262)
 ck_expr(id(N), St, St) :- !, ( ck_state(St, N, S) -> ck_read(N, S) ; true ), ck_held_read(St, N).   % what a holder's storage holds is read with it (0.217)
 ck_expr(int(_), St, St) :- !.
 ck_expr(uint(_), St, St) :- !.
@@ -1911,13 +1972,35 @@ ck_args_([A|As], Callee, I, St0, St) :-
     ;   ck_strip_move(A, A1), ck_path(A1, K), ck_by_value(A1), ck_own_under(St0, K, Fs), Fs \== [], ck_param_by_value(Callee, I)   % a struct with owners handed by value: its fields go to the callee's copy
     ->  ck_expr(A1, St0, St1a), ck_move_out(St1a, Fs, call(Callee, [A|As]), St1)
     ;   ck_expr(A, St0, St1) ),
+    ck_hand_drop(A, Callee, I, call(Callee, [A|As]), St0),   % a drop by hand: of an object that its scope drops, or of a moved one (0.262)
     (   ck_dying_param(Callee, I), ck_arg_base(A, K), ck_own_under(St1, K, Fs), Fs \== []                % a destructor ran: the object's own fields are gone
     ->  ck_set_all(St1, Fs, moved, St1m), ck_dangle_all(St1m, Fs, St1d)
     ;   ck_fresh_param(Callee, I), ck_arg_base(A, K), ck_own_under(St1, K, Fs), Fs \== []               % a constructor ran: the object's own fields are live (or null, as good)
     ->  ck_set_all(St1, Fs, live, St1d)
     ;   St1d = St1 ),
-    ( ck_this_handed_unset(A, Callee, I, St1d, F) -> ck_fail(owner_unset, F, call(Callee, [A|As])) ; true ),
-    I1 is I + 1, ck_args_(As, Callee, I1, St1d, St).
+    ck_dropped_arg(A, Callee, I, call(Callee, [A|As]), St1d, St1e),
+    ( ck_this_handed_unset(A, Callee, I, St1e, F) -> ck_fail(owner_unset, F, call(Callee, [A|As])) ; true ),
+    I1 is I + 1, ck_args_(As, Callee, I1, St1e, St).
+%% AN AUTODROPPED OBJECT HANDED BY ITS ADDRESS (0.262): a moved one is refused, `use_after_move' -- the move left it
+%% empty, and the safe part takes it as gone until it is given a value again; a parameter that may change it (its
+%% pointee not const) may fill an own field it found null, so a null one is live after the call, which a later
+%% assignment over it must not lose (`owner_overwritten'), and its drop frees
+ck_dropped_arg(addr(E), Callee, I, Form, St0, St) :- \+ ccl_lang(cpp), \+ ck_dying_param(Callee, I), ck_arg_base(addr(E), K),
+    ( ck_autodropped(St0, K) -> true ; catch(ccl_type_of(E, T), _, fail), T \== unknown, ck_type_drop(T, _) ),
+    ck_own_under(St0, K, Fs), Fs \== [], !,
+    ( member(F, Fs), ck_state(St0, F, S), memberchk(S, [moved, partial]) -> ck_fail(use_after_move, F, Form) ; true ),
+    ( ck_param_const_pointee(Callee, I) -> St = St0 ; ck_null_live(Fs, St0, St) ).
+ck_dropped_arg(_, _, _, _, St, St).
+%% A DROP BY HAND, in C (0.262): of an object that its scope drops it is refused, `dropped_by_hand' -- the scope would
+%% drop it again -- and of an object moved on some path, `use_after_move': its owners went with the move
+ck_hand_drop(A, Callee, I, Form, St) :- \+ ccl_lang(cpp), ck_dying_param(Callee, I), ck_arg_base(A, K), !,
+    (   ck_autodropped(St, K) -> ck_fail(dropped_by_hand, K, Form)
+    ;   ck_own_under(St, K, Fs), member(F, Fs), ck_state(St, F, S), memberchk(S, [moved, partial]) -> ck_fail(use_after_move, F, Form)
+    ;   true ).
+ck_hand_drop(_, _, _, _, _).
+ck_param_const_pointee(Callee, I) :- ck_callee_params(Callee, Ps), ccl_nth(I, Ps, param(PT, _)), catch(ccl_resolve_type(PT, ptr(_, base(Q, _))), _, fail), memberchk(const, Q), !.
+ck_null_live([], St, St).
+ck_null_live([F|Fs], St0, St) :- ( ck_state(St0, F, null) -> ck_set(St0, F, live, St1) ; St1 = St0 ), ck_null_live(Fs, St1, St).
 %% `this' HANDED OUT OF A CONSTRUCTOR (0.133; "not followed" since 0.37): a constructor's own fields start unset (the
 %% `fresh' mark), and a function given `this' -- a method called in the body, a helper, `register(this)' -- takes the
 %% object as complete, its owners live or null, and may read or free one that holds garbage: `Q::Q() { look(this); buf

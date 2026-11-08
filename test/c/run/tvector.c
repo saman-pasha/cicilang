@@ -10,7 +10,7 @@ static double sum(const vector<double> *v) {
     return s;
 }
 int main(void) {
-    vector<int> v = { 0, 0, NULL };
+    vector<int> v;
     for (int i = 1; i <= 5; i++) push(v, i * i);
     vector<double> w = { 0, 0, NULL };
     push(w, 1.5);
@@ -28,9 +28,5 @@ int main(void) {
     push(lv, 30L);
     push(lv, 12L);
     printf("%ld %d\n", lsum(&lv), hcount);
-    free(lv.data);
-    free(v.data);
-    free(w.data);
-    free(ps.data);
     return 0;
 }
