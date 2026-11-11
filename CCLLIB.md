@@ -198,6 +198,11 @@ order. Today a macro's list result is spliced where the macro stands.
   the object may hold memory), where C++'s assignment does; a global is not dropped (open decision 4). A parameter by
   value is dropped by the callee, where C++ destroys it in the caller at the end of the full expression -- a difference
   of the order of the output that phase 0.10 meets.
+- AT 0.287, before the string: AN ASSIGNMENT OVER AN OBJECT THAT ITS SCOPE DROPS, NAMED BY ITS NAME, DROPS THE OLD VALUE
+  FIRST -- the right side's value, the drop, the store --, so `s = t`, `s = "abc"` and `s = s + t` free what s held, as
+  C++'s assignment does. Through a pointer, to a member and to an element an assignment stays C's store, which a type's
+  own functions need; the value of such an assignment is not taken again (`b = a = make()` freed one buffer twice, with
+  no refusal, until then). `test/c/run/dropassign.c`.
 
 ### 0.6 List and map literals
 
@@ -359,8 +364,8 @@ A type macro gives its instances operators that the reader writes as calls: `v[i
   word of x's type first (`<name>_of_ptr_char` for a text), where C++ has constructors: `bitset<8> b = 0x0f;`, `string s
   = "abc";`. C reads no such initializer, so nothing that C reads changes.
 - WHAT IT LEAVES (Not done): an array of objects and a member of the program's own struct are not given zero; an
-  argument of a call and a `return` are not converted; an assignment over an object that has a drop drops nothing first,
-  which a string's `s = t` needs.
+  argument of a call and a `return` are not converted; an assignment over an object that has a drop dropped nothing
+  first until 0.287 (phase 0.5).
 
 ### Order
 

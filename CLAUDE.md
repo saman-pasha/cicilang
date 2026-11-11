@@ -12,8 +12,8 @@ the fixture that gates it, and why. The bullet ends with the version that made t
 edits the rule in `RULES.md`, in its topic, and writes its entry in `HISTORY.md`. Read the topic of `RULES.md` that
 covers the code before the code is changed.
 
-At 0.286 the versions are: the module 0.286 (`ccl_p_version` in `module/cicilang.cicili`, `bin/cicilang --version`),
-the reader 185 (`ccl_reader_version/1`, `library/ccl_syntax.pl`) and the lowering 158 (`ccl_lowering_version/1`,
+At 0.287 the versions are: the module 0.287 (`ccl_p_version` in `module/cicilang.cicili`, `bin/cicilang --version`),
+the reader 185 (`ccl_reader_version/1`, `library/ccl_syntax.pl`) and the lowering 159 (`ccl_lowering_version/1`,
 `library/ccl_ir.pl`).
 
 Build and prove, always in this order (or all of it, `sh test/gates.sh`):
@@ -458,12 +458,15 @@ test/c/run/                 C programs built and run: NAME.c, NAME.expect, NAME.
                             functions made at their first call, its calls by name, a macro file's C header (0.274);
                             owncopy.c, a copy loop into an owned buffer (0.274); topers2.pl, of operators2.c: the
                             operators of part 2 -- % & | ^, - and ~, the compound assignments, [] as a value (0.284);
-                            tborn.pl, of born.c: an object born zero, and made of a value of another type (0.285)
+                            tborn.pl, of born.c: an object born zero, and made of a value of another type (0.285);
+                            dropassign.c over autodrop.pl: an assignment that drops its object's old value (0.287)
 test/c/safe/                C programs the safe part refuses: NAME.c, NAME.expect; dropnone.pl, the macro file of
                             drop_leaks.c (0.262); borrow_after_grow.c, borrow_after_push.c, elem_after_push.c,
                             grow_through_ptr.c, const_replace.c and const_local.c, the safety rules of 0.265;
                             index_after_insert.c and tied_after_call.c, a tied result's borrow (0.266);
-                            null_filled.c, a null own field that a call fills (0.267)
+                            null_filled.c, a null own field that a call fills (0.267); assign_dangles.c,
+                            assign_value.c, assign_arg.c and assign_return.c, an assignment over an object that its
+                            scope drops (0.287)
 test/cpp/                   the C++ reader's fixtures and the refusals; hidem.cppm for modhidden.cpp; unread_cpp.cpp,
                             an argument taken unread in C++ (0.264, read since 0.270); lit_cpp.cpp, list and map
                             literals beside the lambdas in C++ (0.269); callreplace.cpp, refreplace.cpp,

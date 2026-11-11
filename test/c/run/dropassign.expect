@@ -1,0 +1,32 @@
+make a.2
+drop a.1
+a a.2 2
+next of a.2
+drop a.2
+a next 3
+drop next
+a b.1 10
+a b.1 10
+make e.1
+make e.2
+drop e.1
+make e.3
+drop e.2
+make e.4
+drop e.3
+e e.4 2
+make arg
+make param.new
+drop arg
+drop param.new
+param 42
+make inner.a2
+drop inner.a
+inner inner.a2
+drop inner.a2
+make a.3
+drop b.1
+a a.3 3
+drop e.4
+drop a.3
+exit 0

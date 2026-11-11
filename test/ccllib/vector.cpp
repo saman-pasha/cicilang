@@ -92,6 +92,13 @@ int main(int argc, char **argv) {
     std::vector<bool> bs;
     bs.push_back(1); bs.push_back(0); bs.push_back(1);
     std::printf("%d %d %d %zu\n", (int)bs.at(0), (int)bs.at(1), (int)bs[2], bs.size());
+    d = {9.5, 8.5};
+    std::printf("%g %zu\n", d.back(), d.size());
+    w = u;
+    w = {4, 5};
+    u = std::move(w);
+    u = u;
+    show("assigned", &u);
     std::printf("%ld\n", total(std::move(v)));
     return 0;
 }

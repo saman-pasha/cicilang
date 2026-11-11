@@ -281,6 +281,7 @@ One row per step, in version order: the step's title, what it did and its gate n
 | 0.284 | Operators on instances, part 2: `%` and the bit operators, the unary `-` and `~`, the compound assignments, the right operand's word, `[]` as a value | what 0.266 left, which ccllib's bitset and string need: the reader writes `%` and the bit operators over an instance as its type macro's _mod, _and, _or and _xor, `-a` and `~a` as _neg and _compl, a compound assignment as the call of its own function (`a += b` is <name>_add_assign(&a, b)); a function named with the word of the right operand's type goes before the plain one; `>>` takes its right operand by value where the parameter is no pointer; `v[i]` is a value where the macro defines _item, and `v[i] = x` its _set_item; in C and in C++; found on the way: at -std=c++23 an instance's `v[i]` was C++'s own and every ccllib program with an index was refused, and the ccllib gate builds each program at the twin's level too; reader 183 | the flow gate; the reader, compile and driver gates and the ccllib gate over libc++ 22, over one fresh HOME; the ccllib gate over libc++ 21 and 18; eleven C++ fixtures over instances by hand; no chain, by the owner's rule of 0.271; a commit and a push |
 | 0.285 | An instance's birth: an object with no initializer is given zero, and an object is made of a value of another type | two reader rules that ccllib's bitset and string need, in C and in C++: a block's automatic object of any instance's type declared with no initializer is given zero, one of a type with no drop too (C++'s bitset is born empty; over the tree before, a mask was born with the bytes of its storage); `T a = x;` and `a = x`, where x has a type that is not the instance's, are <name>_of(x), the function named with the word of x's type first; in C a type macro with no _of is refused by name; reader 184 | the flow gate; the reader, compile and driver gates and the ccllib gate over libc++ 22, over one fresh HOME; the ccllib gate over libc++ 21 and 18; twelve C++ fixtures over instances by hand; no chain, by the owner's rule of 0.271; a commit and a push |
 | 0.286 | ccllib's `<bitset.pl>`; a record where another type is needed, and the address of an element that is a value, are refused by name | `std::bitset` for cicilang's C, the seventeenth type of phase 1a: a struct of words of 64 bits with no heap and no drop, 32 functions, the bits of its last word past the count zero after each; the rules held to a model at nine counts of bits, nineteen copies broken on purpose each reported; `&b[i]` over an element that `[]` gives as a value was the address of a temporary and is refused by name (reader 185); a struct of another type where a struct is needed, a number where one is and a unary `-` or `~` over one went to LLVM, and the lowering refuses each at its line (`no conversion from 'bitset_12' to 'bitset_8'`; lowering 158) | the flow gate; the reader, compile and driver gates and the ccllib gate over libc++ 22, over one fresh HOME; the ccllib gate over libc++ 21 and 18; a pool of the light C++ run fixtures; twelve C++ fixtures over instances by hand; no chain, by the owner's rule of 0.271; a commit and a push |
+| 0.287 | An assignment over an object that its scope drops drops the old value first; two holes of the safe part closed | the rule that ccllib's string needs: `a = x` over an object that its scope drops, named by its name, is the right side's value, the object's drop, the store (the lowering notes the marked defers, the check drops the old fields in its model; it was `owner_overwritten` where the object held memory); the value of such an assignment taken again (`b = a = make(3)`) made two owners of one buffer, freed twice at run time with no refusal, and is `dropped_copied` now; an object with own fields that hides another of its name was refused at its declaration, and is taken; lowering 159 | the flow gate; the reader, compile and driver gates and the ccllib gate over libc++ 22, over one fresh HOME; the ccllib gate over libc++ 21 and 18; the pool of the light C++ run fixtures; thirteen C++ fixtures over instances by hand; no chain, by the owner's rule of 0.271; a commit and a push |
 
 ## M5 — the C++ mode
 
@@ -19864,3 +19865,92 @@ object is `ps`. `RULES.md` has the right name now.
   gate, Not done), `CLAUDE.md`, `README.md`, `CCLLIB.md`.
 
 The module 0.286, the reader 185 and the lowering 158.
+
+## 0.287 — an assignment over an object that its scope drops drops the old value first; two holes of the safe part closed
+
+**0.287: the rule that ccllib's string needs before its module. `a = x` over an object that its scope drops, named by
+its name, makes the right side's value, drops what the object held, and stores the value, as C++'s assignment frees the
+old value; until now the check refused it where the object held memory (`owner_overwritten`). The step's probes found
+two holes of the safe part in the pushed tree, and it closes both: the value of such an assignment taken again (`b = a =
+make(3)`) made two owners of one buffer, freed twice at run time with no refusal; and an object with own fields that
+hides another of its name was refused at its declaration. The lowering's version is 159; the reader's stays 185.
+Committed with its nets; the chain runs when the ccllib task is finished (the owner's rule of 0.271).**
+
+WHY NOW. `std::string` is assigned all the time: `s = t`, `s = "abc"`, `s = s + t`. 0.262 left the assignment over an
+object that has a drop as C's store, and the safe part refused it where the object might hold memory; 0.285 named it as
+the next step's.
+
+THE RULE: AN ASSIGNMENT OVER AN OBJECT THAT ITS SCOPE DROPS, NAMED BY ITS NAME -- a block's object, a `for`'s, a
+parameter by value -- IS THE RIGHT SIDE'S VALUE, THE OBJECT'S DROP, THE STORE, in that order. The right side reads the
+old value before it goes, so `a = clone(a)` and `s = s + t` are good; `a = a` keeps its value, since the reader moves an
+object named whole by value and the drop then meets the empty object that the move left; `a = b` moves b, as before. The
+lowering notes each defer that the reader marked `'$autodrop'(V)` with the place of its object (`'$ir_autodrops'`, a
+list a function), and an assignment whose left side is a name asks `ir_autodropped/2` for the innermost object of that
+name. The check walks the right side, then takes the object's own fields as gone, as at an exit of its scope
+(`ck_autodrop/3` from `ck_fill/7`), then gives them their new states: a borrow of the old buffer that is used after the
+assignment is refused, `use of a borrow after its owner was consumed`.
+
+A PROGRAM THAT WAS TAKEN RUNS AS IT DID. The check took such an assignment only where the object held nothing, and there
+the drop frees nothing: the cost is one call. No form of the reader changes, and no kept read.
+
+THE CHECK AND THE LOWERING MUST AGREE on which objects these are, or the check takes an overwrite that the lowering does
+not free. Both read the same marked defers, and the lowering refuses by name a marked defer that it cannot note (`not
+lowered yet: autodrop_of(v)`), where it would have gone on with a store alone.
+
+WHAT STAYS C'S STORE: an assignment through a pointer, to a member of a plain struct and to an element. A type's own
+functions write their object's bytes so -- a swap by three stores, the store of a slot that holds no object yet --, and
+a drop there would free what another object holds. A member that may hold memory is `owner_overwritten`, as before
+(`test/c/safe/drop_overwritten.c` is that case now). Through a pointer parameter the old value is lost with no message:
+`*p = t` over a live vector builds, and valgrind counts 16 bytes lost; the pushed tree did the same. It is in the Not
+done list, and it is a question for the owner: a program's own code wants C++'s assignment there, and a type macro's
+text wants C's store.
+
+THE FIRST HOLE THAT THE PROBES FOUND: THE VALUE OF SUCH AN ASSIGNMENT, TAKEN AGAIN. `b = a = make(3)`, `eat(a =
+make(3))` over a parameter by value and `return a = make(3)` copy a whole: the reader moves an object named whole by
+value, and an assignment is no name. Two objects held one buffer and each scope's end freed it -- `free(): double free
+detected` at run time, as C and as C++, over the pushed tree of 0.286 too, and the check said nothing. It is refused now
+where a value is taken -- what fills an object, a call's argument, a return's value, a braced list's item --, `an object
+that its scope drops, copied whole (move it): 'a'` (`ck_dropped_assign/3`). An assignment as a statement, in a `for`'s
+parts, under a comma at the statement's level and in a branch is good, as it was.
+
+THE SECOND: AN OBJECT WITH OWN FIELDS THAT HIDES ANOTHER OF ITS NAME. `vector<int> v = [4, 5];` in a block inside the
+scope of another `v` was refused at its declaration, `owner overwritten while live: 'v.data'`, over the pushed tree: a
+false refusal of a good program. The check's list of the fields under a name (`ck_under_states/3`) took the keys of
+every frame, so the inner object had the outer one's fields too, each key twice, and its first value met the outer
+object's live field. A key that an inner frame holds hides the same key of an outer one now (`ck_innermost/3`), as a
+lookup of one key reads the innermost. A plain owner and a plain struct given a braced list passed before, since their
+rules ask one key.
+
+THE FIXTURES. `test/c/run/dropassign.c` over `autodrop.pl`, whose `track<T>` prints the name that its drop frees: an
+assignment of a call's value, of a value that reads the old one, of another object, of the object itself; over an object
+born empty; in a loop, each turn dropping the value before; over a parameter by value; over an object that hides another
+of its name; in a branch. Its 31 lines are those of clang's build of its hand expansion, as C and as C++, at `-O0` and
+at `-O2`, and every block is freed under valgrind. `test/c/safe/`: `assign_dangles.c`, `assign_value.c`, `assign_arg.c`
+and `assign_return.c`, and `drop_overwritten.c` over a member. `test/ccllib/vector.c` and its twin have five assignments
+more -- a literal, a copy, another vector, the vector itself --, and the three runs print the same lines. The C++ gate's
+list of the C fixtures that it builds as C++ has `dropassign.c`.
+
+FOUND BESIDE THE STEP, no part of it (Not done): `(b = x).len`, a member read off the value of an assignment, is `not
+lowered yet: lvalue(assign(...))`, where C reads the member of the value.
+
+WHAT IS LEFT (Not done): the assignment through a pointer, to a member and to an element, as above; the value of an
+assignment over such an object is refused, where C++ copies -- ccllib has no copy that is not asked for, `clone(a)`.
+
+THE NETS, over the work tree: the flow gate GREEN with no finding (160 s, peak 4218 MB); over one fresh HOME the reader
+gate (159 checks, 4 s), the compile gate (260 checks, 32 s), the driver gate (68 checks, 47 s) and the ccllib gate over
+libc++ 22 (178 checks, 458 s), each GREEN; the ccllib gate GREEN over libc++ 21 and 18 too, each over a fresh HOME (447
+s and 465 s; 178 checks each, none skipped): 13 programs in three runs, 46 refused, 4 alone. FOR THE LOWERING'S CHANGE,
+which every assignment to a name reaches, the pool of the C++ run fixtures that include no header but the small C ones,
+three at a time over a fresh HOME and libc++ 22: 361 fixtures, and each prints its expected lines (42 s, peak 470 MB).
+By hand, since the C++ gate runs with the chain: the ten C fixtures that the C++ gate builds as C++ (`dropassign` among
+them) and `test/cpp/run/opcpp.cpp`, `elemborrowpp.cpp` and `borrowkeep.cpp` print their expected lines, and its refusals
+over a macro file are refused (13 checks, 6 s).
+
+NO CHAIN RAN for this step (the owner's rule of 0.271), and it claims nothing GREEN but the nets above. No CI job ran.
+
+- `library/ccl_ir.pl`: `ir_expr_/4`'s assignment over a noted object, `ir_autodropped/2`, the defer's note, the
+  lowering's version. `library/ccl_check.pl`: `ck_fill/7`, `ck_fill_drop/4`, `ck_dropped_assign/3`, `ck_under_states/3`,
+  `ck_innermost/3`. `test/cpp.sh`: `dropassign` in its list. The fixtures. `RULES.md` (the safe part's topic of autodrop
+  and of the state, the lowering's values, Not done), `CLAUDE.md`, `README.md`, `CCLLIB.md`.
+
+The module 0.287, the reader 185 as it was, the lowering 159.

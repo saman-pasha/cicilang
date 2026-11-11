@@ -422,6 +422,13 @@ type macro's `<name>_of(x)`, the name with the word of x's type first:
 `mask<12> c = "1010";` is `mask_12_of_ptr_char("1010")`.
 `test/c/run/born.c` is the example.
 
+An assignment over an object that its scope drops, named by its name, drops
+what the object held (0.287), as C++'s assignment frees the old value:
+`v = [1, 2];`, `v = clone(w);` and `v = w;`, which moves `w`. The right
+side is made first, so `v = clone(v)` is good. The value of such an
+assignment is not taken again: `b = a = make()` is refused.
+`test/c/run/dropassign.c` is the example.
+
 A struct of one type where a struct of another is needed is refused by name
 (0.286), at its line: `no conversion from 'struct B' to 'struct A'`, in an
 assignment, an initializer, an argument and a `return`, and so are a number

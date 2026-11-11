@@ -2448,9 +2448,10 @@ that changes a rule edits the rule here, in its topic, and writes its entry in `
   call. Two C++ units that both make `vector<int>` link, its functions linkonce_odr there too. The C++ gate builds
   `test/c/run/ctext.c`, `autodrop.c`, `tvector.c` (0.268: its headers `tvhdr.h` and `tvhdr2.h` read as the program's
   file is, the topic of includes), `literal.c` (0.269), `operators.c` and `unread.c` (0.270), `lazy.c` (0.274),
-  `operators2.c` (0.284) and `born.c` (0.285) with cicilang++ and compares each with its `.expect`; `elemborrow.c` is
-  `test/cpp/run/elemborrowpp.cpp` there (0.272), its plain functions noexcept: C++'s defer rule refuses a plain struct's
-  live owner across a call that may throw. (0.267, 0.268, 0.269, 0.270, 0.272, 0.274, 0.284, 0.285)
+  `operators2.c` (0.284), `born.c` (0.285) and `dropassign.c` (0.287) with cicilang++ and compares each with its
+  `.expect`; `elemborrow.c` is `test/cpp/run/elemborrowpp.cpp` there (0.272), its plain functions noexcept: C++'s defer
+  rule refuses a plain struct's live owner across a call that may throw. (0.267, 0.268, 0.269, 0.270, 0.272, 0.274,
+  0.284, 0.285, 0.287)
 - **A READ THAT MADE OR MET AN INSTANCE IS KEPT IN NEITHER CACHE** (0.261): what it holds is its unit's -- the instance
   where the unit first used it, a later use naming it alone -- so neither the process's cache nor the store keeps such
   a header's read or such a file's (`ccl_include_read/2`, `ccl_read_file_/3`, over a count of the instances met,
@@ -2529,7 +2530,8 @@ that changes a rule edits the rule here, in its topic, and writes its entry in `
   value, a braced list's item, a conditional's branch or a comma's right side there -- in `move(...)`
   (`ccl_amv_stmt/3`), which the lowering takes and then zeroes (the lowering's topic), so that its drop frees nothing.
   `sizeof`, `typeof` and `alignof` are not entered, a member read off the object is no move, and a later declaration of
-  the name hides the object from the walk. Reader `k115`, `k117`. (0.262)
+  the name hides the object from the walk. An assignment over such an object drops its old value first, and its value is
+  not taken again (0.287; the safe part's topic of autodrop). Reader `k115`, `k117`. (0.262, 0.287)
 - **A LIST OR MAP LITERAL** (0.263; `CCLLIB.md`'s phase 0.6, the owner's decision: "a literal gives its types before a
   `;`", and "Use : in map literal type section"): in C, `[int; 5, 3, 9]`, `[int:double; 5: 1.25, 3: 2.5]`, and with no
   types `[1, 2.5]` and `[5: 1.25]`, a trailing comma taken; `[` begins a primary, read as `list_lit(L, Types, Items)`
@@ -9974,6 +9976,13 @@ in the first topic (The ccllib gate).
   `dead` marks a path that ended. An owner is `live`, `null` (free, move and overwrite are fine), `unset` (no value
   yet, or a field of a struct from malloc), `moved` or `partial`. Other keys hold `borrow(P)`, `dangling(P)`,
   `anchor`, `loose`, `array` or `none`. (M3)
+- A KEY THAT AN INNER FRAME HOLDS HIDES THE SAME KEY OF AN OUTER ONE (0.287): `ck_state/3` reads the innermost frame
+  that has a key, and the list of the keys under a base (`ck_under_states/3`, which `ck_own_under/3` and `ck_under/3`
+  ask) took those of every frame, so an object with own fields that a block declares under the name of an outer one had
+  the outer's fields too, each key twice. `vector<int> v = [4, 5];` in a block inside the scope of another `v` was
+  refused at its declaration, `owner overwritten while live: 'v.data'`: its first value met the outer object's live
+  field. `ck_innermost/3` keeps the first of each key. A plain owner and a plain struct given a braced list passed
+  before, since their rules ask one key. `test/c/run/dropassign.c`'s inner `a`. (0.287)
 - A join (`ck_merge/3`) keeps equal states. `null` beside `live` is `live`. `null` or `unset` beside `moved` is `moved`.
   `unset` beside `null` is `unset`. `dangling` wins, `borrow` beats `loose`, two borrows keep the one that dangles first
   (`ck_first_to_dangle/3`): a local's before a parameter's or static storage's (0.216; `ck_short_lived/1`: a pointer
@@ -10292,6 +10301,37 @@ in the first topic (The ccllib gate).
   defer marked `'$autodrop'(V)` as the drop of V (`ck_autodrop/3`): V's own fields are gone there, each live, null,
   moved or partial -- a move left it zero, and its drop frees what is there -- and their borrows dangle; one still
   unset is refused, `owner_unset`. So an object that its scope drops leaks nothing and needs no free. (0.262)
+- **AN ASSIGNMENT OVER AN OBJECT THAT ITS SCOPE DROPS, NAMED BY ITS NAME, DROPS THE OLD VALUE FIRST** (0.287; what C++'s
+  assignment does, and what a string's `s = t` needs): `a = x` over a block's object, a `for`'s or a parameter by value
+  is the right side's value, the object's drop, the store, in that order. So the right side reads the old value before
+  it goes (`a = clone(a)`, `s = s + t`), `a = a` keeps its value -- the reader moved the right side, and the drop meets
+  the empty object that the move left --, and `a = b` moves b. THE LOWERING notes each defer marked `'$autodrop'(V)`
+  with the place of its object (`'$ir_autodrops'`, a list a function; `ir_stmt_/1`'s clause of the marked defer), and an
+  assignment whose left side is a name asks `ir_autodropped/2` for the innermost object of that name: `ir_expr(R)`, the
+  place, the conversion, the call of the drop, the store. THE CHECK walks the right side, then takes the object's own
+  fields as gone, as at an exit of its scope (`ck_fill/7` with `over`, `ck_fill_drop/4` over `ck_autodrop/3`), then
+  gives them their new states: no `owner_overwritten`, and a borrow of the old buffer that is used after the assignment
+  is `borrow_after_move` (`test/c/safe/assign_dangles.c`). THE TWO AGREE ON WHICH OBJECTS THESE ARE by the same marked
+  defers; a marked defer that the lowering cannot note -- another shape of its body, an object that no frame holds -- is
+  refused by name, `not lowered yet: autodrop_of(v)`, where a store alone would lose what the check took as dropped. A
+  PROGRAM THAT WAS TAKEN RUNS AS IT DID: the check took such an assignment only where the object held nothing, and there
+  the drop frees nothing. WHAT STAYS C'S STORE: an assignment through a pointer, to a member of a plain struct and to an
+  element -- a type's own functions write their object's bytes so (a swap by three stores, the store of a slot that
+  holds no object yet), and a drop there would free what another object holds; a member that may hold memory is
+  `owner_overwritten` (`drop_overwritten.c`). `test/c/run/dropassign.c` over `autodrop.pl`, whose drop prints the name
+  that it frees -- a call's value, a value that reads the old one, another object, the object itself, an object born
+  empty, a loop, a parameter by value, an object that hides another, a branch -- prints what clang's build of its hand
+  expansion prints, as C and, by the C++ gate, as C++, and frees every block; `test/ccllib/vector.c` and its twin assign
+  a literal, a copy, another vector and the vector itself. Lowering 159. (0.287)
+- **THE VALUE OF AN ASSIGNMENT OVER AN OBJECT THAT ITS SCOPE DROPS IS NOT TAKEN** (0.287; a hole of the safe part until
+  then): `b = a = make(3)`, `eat(a = make(3))` over a parameter by value and `return a = make(3)` copy a whole -- the
+  reader moves an object named whole by value, and an assignment is no name --, so two objects held one buffer and each
+  scope's end freed it: `free(): double free detected` at run time, as C and as C++, with no refusal.
+  `ck_dropped_assign/3` refuses it where a value is taken -- what fills an object (`ck_fill/7`), a call's argument
+  (`ck_args_/5`), a return's value, a braced list's item (`ck_init_slot/7`); under a cast, a conditional's branch and a
+  comma's right side too (`ck_assign_under/2`) --, `dropped_copied`, the object's name: `an object that its scope drops,
+  copied whole (move it): 'a'`. An assignment as a statement, in a `for`'s parts, under a comma at the statement's level
+  and in a branch is good. `test/c/safe/assign_value.c`, `assign_arg.c`, `assign_return.c`. (0.287)
 - A drop (a function whose parameter's pointee is `dying`) may free what its object owns, and it must: an own field
   of the object left live or partial at an exit of the drop is `owner_leaked`, `'v->data'` (a drop that frees nothing,
   `test/c/safe/drop_leaks.c`); `if (v->data) free(v->data);` passes, as the null test makes it. In C++ the rule holds
@@ -10309,12 +10349,12 @@ in the first topic (The ccllib gate).
 - AN OBJECT OF A TYPE THAT HAS A DROP HANDED BY ITS ADDRESS (0.262; `ck_dropped_arg/6`): a moved one is refused,
   `use_after_move` -- the move left it empty, and the safe part takes it as gone until it is given a value again
   (`drop_moved.c`); a parameter whose pointee is not const may fill an own field that it found null, so a null one is
-  live after the call -- a later assignment over it is `owner_overwritten` (`drop_overwritten.c`), and a member of a
-  plain struct so filled leaks where it is not dropped by hand, `owner_leaked` (`drop_member.c`). A drop by hand of a
-  moved object is `use_after_move` (`ck_hand_drop/5`). In C++ a destructor's `this` is no drop by hand
-  (`ck_dtor_this/2`, 0.267): the desugaring calls the destructor where an object's life ends, a moved object's too,
-  which the move left empty -- `v.push(Name("gamma"))` destroys the moved temporary (`test/cpp/run/bag.cpp`,
-  `member.cpp`). (0.262, 0.267)
+  live after the call -- its scope's drop frees it, and since 0.287 an assignment over it drops it first; a member of a
+  plain struct so filled, which no scope drops, is `owner_overwritten` where it is assigned (`drop_overwritten.c`) and
+  leaks where it is not dropped by hand, `owner_leaked` (`drop_member.c`). A drop by hand of a moved object is
+  `use_after_move` (`ck_hand_drop/5`). In C++ a destructor's `this` is no drop by hand (`ck_dtor_this/2`, 0.267): the
+  desugaring calls the destructor where an object's life ends, a moved object's too, which the move left empty --
+  `v.push(Name("gamma"))` destroys the moved temporary (`test/cpp/run/bag.cpp`, `member.cpp`). (0.262, 0.267, 0.287)
 - WHAT A BRACED LIST DOES NOT NAME IS ZERO (C17 6.7.9/21; 0.262; `ck_unlisted_null/3`): an own field that a C
   initializer's list leaves out is null, as a static object's is; it was unset, garbage to the check, and autodrop's
   empty object, `= {0}`, was refused at its first use. In C++ too (0.267; [dcl.init.aggr]/5, an element that the list
@@ -10834,6 +10874,9 @@ in the first topic (The ccllib gate).
   destructor frees nothing; in C an object of a type that has a drop is zeroed whole, `store <T> zeroinitializer`
   (`ir_moved_behind/3`, 0.262): the empty object that its declaration with no initializer makes, its plain fields
   saying it is empty (a moved vector's length is 0, as a moved std::vector's size is). (M3, 0.40, 0.262)
+- AN ASSIGNMENT OVER AN OBJECT THAT ITS SCOPE DROPS, NAMED BY ITS NAME, CALLS THE OBJECT'S DROP BETWEEN THE RIGHT SIDE'S
+  VALUE AND THE STORE (0.287; a clause of `ir_expr_/4` before the plain assignment's, `ir_autodropped/2` over the defers
+  marked `'$autodrop'(V)`): the rule and its reasons are in the safe part's topic of autodrop. (0.287)
 - A new-expression's block is `alloc(Mode, T, Call)` (0.202): the allocation function's call, then, for `zeroed(Size)`,
   an `llvm.memset` of Size bytes over the block, for `nzeroed(Size)` the same where the block is not null
   (`ir_zero_bytes/2`). A delete-expression is `dealloc(Destroy, Free, X)`: where X is not null, Destroy, the drain of
@@ -13896,13 +13939,17 @@ Declarations topic of the C++ reader).
   element, was refused for it (`a borrow leaves the function`), which functions made at their first call no longer
   meet. The rule is the owner's: what a container's own text may do with its elements, and how its drop drops them.
 - AUTODROP'S LIMITS (0.262; `CCLLIB.md`'s phase 0.5): a temporary of a type that has a drop is not dropped -- `make(4);`
-  and `make(4).len` are refused, `dropped_temporary`, where C++ destroys one at the end of its full expression; a
-  member of such a type in a plain struct is not dropped with the struct (its buffer leaks unless it is dropped by
-  hand, `owner_leaked`); an array of such objects is refused; an assignment to such an object drops nothing first, so
-  one that may hold memory is `owner_overwritten`, where C++'s assignment frees the old value; a global of such a type
-  is not dropped (open decision 4). A parameter by value is dropped by the callee, where C++ (Itanium ABI 3.1.2.3)
-  destroys it in the caller at the end of the full expression: a printed drop comes before the caller's next output,
-  which ccllib in cicilang++ (phase 0.10) meets.
+  and `make(4).len` are refused, `dropped_temporary`, where C++ destroys one at the end of its full expression; a member
+  of such a type in a plain struct is not dropped with the struct (its buffer leaks unless it is dropped by hand,
+  `owner_leaked`); an array of such objects is refused; an assignment over such an object drops its old value first
+  where the object is named by its name (0.287), and THROUGH A POINTER, TO A MEMBER OF A PLAIN STRUCT AND TO AN ELEMENT
+  IT IS C'S STORE: a member that may hold memory is `owner_overwritten`, and through a pointer parameter the old value
+  is lost with no message (`*p = t` over a live vector builds, and valgrind counts 16 bytes lost; found at 0.287, in the
+  tree before it too) -- a program's own code wants C++'s assignment there and a type macro's text wants the store, and
+  nothing tells the two apart yet (a question for the owner); the value of an assignment over such an object is refused
+  (`b = a = make()`), where C++ copies; a global of such a type is not dropped (open decision 4). A parameter by value
+  is dropped by the callee, where C++ (Itanium ABI 3.1.2.3) destroys it in the caller at the end of the full expression:
+  a printed drop comes before the caller's next output, which ccllib in cicilang++ (phase 0.10) meets.
 - LITERALS' LIMITS (0.263; `CCLLIB.md`'s phase 0.6): a literal has its type only where a declaration, `=`, a call's
   parameter or a return gives it, and at `:=`; a conditional's branch, a comma's operand and a macro's argument that it
   reads first hold it untaken (a macro sees `list_lit/3`), and a literal at file scope is a call that no constant initializer takes. A
@@ -13946,13 +13993,15 @@ Declarations topic of the C++ reader).
   an object that `malloc` gave are not given zero, where C++ makes each element and each member empty; a value of
   another type makes an instance in a block's declaration, a `for`'s and an assignment only -- an argument of a call and
   a `return` are not converted, where C++ converts each by a constructor that is not explicit --, and at file scope its
-  `_of` is no constant; `T a(x)` and `T a{x}` are C++'s own; an assignment over an object that has a drop drops nothing
-  first (autodrop's limits).
+  `_of` is no constant; `T a(x)` and `T a{x}` are C++'s own; an assignment over an object that has a drop, named by its
+  name, drops the old value first since 0.287 (the safe part's topic of autodrop).
 - A BITSET, ITS LIMITS (0.286): no `to_string` (ccllib's string comes later), no hash and no stream operator; the text
   that makes one takes no place, no count and no other characters than 0 and 1, which C++'s constructor takes; a number
   is no operand of its operators (`b == 5`, `b &= 5`), which C++ takes through its constructor; `set`, `reset` and
   `flip` give nothing back; `~b[i]` is C's `~` of the int 0 or 1, where C++'s is the other bit; a list literal makes
   none, since a literal's slots have the type of the instance's first argument, which is the count here.
+- A MEMBER READ OFF THE VALUE OF AN ASSIGNMENT IS NOT LOWERED (found at 0.287): `(b = x).len` over two structs is `not
+  lowered yet: lvalue(assign(...))`, where C reads the member of the assignment's value.
 - THE ADDRESS OF A CALL'S RESULT IS TAKEN, IN C AND IN C++ (found at 0.286): `get(&f())` over `int f(void)` builds and
   runs -- the lowering gives the address of a temporary that holds the result --, where clang and clang++ say `cannot
   take the address of an rvalue of type 'int'`. The address of an element that an instance's `[]` gives as a value is

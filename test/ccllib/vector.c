@@ -95,6 +95,15 @@ int main(int argc, char **argv) {
     vector<bool> bs;
     push_back(bs, 1); push_back(bs, 0); push_back(bs, 1);
     printf("%d %d %d %zu\n", (int)at(bs, 0), (int)at(bs, 1), (int)bs[2], size(bs));
+    /* an assignment over a vector drops what the vector held (0.287): a literal, a copy, another vector, which moves,
+       and itself */
+    d = [9.5, 8.5];
+    printf("%g %zu\n", back(d), size(d));
+    w = clone(u);
+    w = [4, 5];
+    u = w;
+    u = u;
+    show("assigned", &u);
     printf("%ld\n", total(v));
     return 0;
 }

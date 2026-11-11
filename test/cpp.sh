@@ -179,11 +179,11 @@ if [ "$got" = "exit 10" ]; then echo "ok   templates.cpp, the reader's fixture (
 # map literals beside the lambda's introducer (0.269); operators.c's operators on instances and unread.c's arguments
 # taken unread (0.270); lazy.c's functions made at their first call and its calls by name (0.274); operators2.c's
 # `& | ^ ~ %', compound assignments, typed names and `[]' as a value (0.284); born.c's objects given zero and made of a
-# value of another type (0.285). elemborrow.c is
+# value of another type (0.285); dropassign.c's assignments, each dropping its object's old value (0.287). elemborrow.c is
 # test/cpp/run/elemborrowpp.cpp there (0.272): its plain functions noexcept, since C++'s defer rule refuses a plain
 # struct's live owner across a call that may throw
 echo "-- ccllib in cicilang++: a ccllib run fixture of test/c/run built as C++ prints what its C build prints (CCLLIB.md's phase 0.10)"
-for n in ctext autodrop tvector literal operators operators2 born unread lazy; do
+for n in ctext autodrop tvector literal operators operators2 born dropassign unread lazy; do
   got=$(ccl_capped "$CPP_FIXTURE_SECS" "$ROOT/bin/cicilang++" "$ROOT/test/c/run/$n.c" -o "$D/ccl_$n" && { timeout -s KILL "$CPP_RUN_SECS" "$D/ccl_$n" < /dev/null; echo "exit $?"; })
   if [ "$got" = "$(cat "$ROOT/test/c/run/$n.expect")" ]; then echo "ok   $n.c, built as C++ by cicilang++, prints what its C build prints"
   else echo "FAIL $n.c built as C++ by cicilang++"; echo "$got" | diff "$ROOT/test/c/run/$n.expect" - 2>&1 | head -6 | cut -c1-300 | sed 's/^/     /'; failures=$((failures + 1)); fi

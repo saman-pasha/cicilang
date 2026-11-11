@@ -442,9 +442,16 @@ ck_base_path(K, B) :-
 %% the keys under a base: its fields, at any depth; the own ones among them
 ck_under(st(Frs), Base, Keys) :- ck_under_states(st(Frs), Base, Ps), ck_keys(Ps, Keys).
 ck_own_under(St, Base, Keys) :- ck_under_states(St, Base, Ps), ck_own_keys(Ps, Keys).
+%% A KEY THAT AN INNER FRAME HOLDS HIDES THE SAME KEY OF AN OUTER ONE (0.287), as ck_state/3 reads the innermost: an object
+%% with own fields declared in a block under the name of an outer one had the outer's fields under its base too, each key
+%% twice, and its first value was `owner_overwritten' over the outer object's live field -- `vector<int> v' in a block
+%% inside the scope of another `v' was refused at its declaration
 ck_under_states(st(Frs), Base, Ps) :-
     atom_concat(Base, '.', P1), atom_concat(Base, '->', P2),
-    findall(K-S, ( member(fr(Os, _), Frs), member(K-S, Os), atom(K), ( sub_atom(K, 0, _, _, P1) ; sub_atom(K, 0, _, _, P2) ) ), Ps).
+    findall(K-S, ( member(fr(Os, _), Frs), member(K-S, Os), atom(K), ( sub_atom(K, 0, _, _, P1) ; sub_atom(K, 0, _, _, P2) ) ), Ps0),
+    ck_innermost(Ps0, [], Ps).
+ck_innermost([], _, []).
+ck_innermost([K-S|Ps], Seen, Out) :- ( memberchk(K, Seen) -> Out = Out1 ; Out = [K-S|Out1] ), ck_innermost(Ps, [K|Seen], Out1).
 ck_keys([], []).
 ck_keys([K-_|T], [K|Ks]) :- ck_keys(T, Ks).
 ck_own_keys([], []).
@@ -1288,7 +1295,7 @@ ck_stmt(coro_return(L), St0, dead) :- !, ck_line(L), ck_exit_all(St0, return).
 ck_stmt(coro_suspend(L, _, E, _), St0, St) :- !, ck_line(L), ck_expr(E, St0, St).
 ck_stmt(coro_done(L, _), _, dead) :- !, ck_line(L).
 ck_stmt(return(L, move(E)), St0, St) :- nb_getval('$ck_ret', Ret), ck_ref_as_ptr(Ret, RP), RP \== Ret, !, ck_stmt(return(L, E), St0, St).   % `return std::move(x);' WITH A REFERENCE RESULT IS A CAST ([expr.static.cast]; 0.132): `T &&' bound to x, which stays the caller's -- nothing moves, and the reference leaves as any other does (a parameter's referent, never a local's); it was refused `move_of_non_owner' for a reference parameter
-ck_stmt(return(L, E), St0, dead) :- !, ck_line(L), ck_anchor_addrs(E, St0, St1), ck_no_escape(E, St1), ck_consume_or_use(E, St1, St2), ck_exit_all(St2, return(E)).
+ck_stmt(return(L, E), St0, dead) :- !, ck_line(L), ck_dropped_assign(E, St0, return(E)), ck_anchor_addrs(E, St0, St1), ck_no_escape(E, St1), ck_consume_or_use(E, St1, St2), ck_exit_all(St2, return(E)).
 ck_stmt(break(L), St0, dead) :- !, ck_line(L), ck_exit_to_loop(St0, break).
 ck_stmt(continue(L), St0, dead) :- !, ck_line(L), ck_exit_to_loop(St0, continue).
 ck_stmt(goto(Ln, L), St, dead) :- !, ck_line(Ln), ck_goto(L, Ln, St).
@@ -1514,12 +1521,21 @@ ck_under_root(R0, P, Key, R) :- atom_concat(P, Sfx, R0), ( sub_atom(Sfx, 0, 1, _
 %% a struct by value with own fields receives a whole value: from another such
 %% struct its fields move over; from an initializer list, item by item; from a
 %% call or anything else, fresh: every own field live
-ck_fill(Key, T, R, Form, St0, St) :-
-    ck_no_array_copy(St0, Key, Form),
-    (   R = init(Items) -> ck_init_slots(Items, T, Key, St0, St0a), ck_unlisted_null(St0a, Key, St)
-    ;   R = compound_lit(_, init(Items)) -> ck_init_slots(Items, T, Key, St0, St0a), ck_unlisted_null(St0a, Key, St)
-    ;   ck_path(R, P), ck_under_states(St0, P, Src), Src \== [] -> ck_dropped_copy(St0, [P], Form), ck_expr(R, St0, St1), ck_move_fields(St1, Src, P, Key, Form, St)
-    ;   ck_expr(R, St0, St1), ck_own_under(St1, Key, Ks), ck_set_live(St1, Ks, Form, St) ).
+%% AN ASSIGNMENT OVER AN OBJECT THAT ITS SCOPE DROPS (0.287; `Over' is `over', and `new' for a declaration): the lowering
+%% makes the right side's value, runs the object's drop and stores (ir_expr_(assign('=', id(N), R))), so the old value's
+%% fields go as they do at an exit of the scope (ck_autodrop/3: each gone, what borrowed them dangles) AFTER the right
+%% side is walked and BEFORE the fields take their new states -- `a = clone(a)' reads a live, `a = b' is no
+%% `owner_overwritten', and a borrow of the old buffer used after it is refused. A braced list's items are walked after
+%% the drop
+ck_fill(Key, T, R, Form, St0, St) :- ck_fill(Key, T, R, Form, new, St0, St).
+ck_fill(Key, T, R, Form, Over, St0, St) :-
+    ck_no_array_copy(St0, Key, Form), ck_dropped_assign(R, St0, Form),
+    (   R = init(Items) -> ck_fill_drop(Over, Key, St0, St0d), ck_init_slots(Items, T, Key, St0d, St0a), ck_unlisted_null(St0a, Key, St)
+    ;   R = compound_lit(_, init(Items)) -> ck_fill_drop(Over, Key, St0, St0d), ck_init_slots(Items, T, Key, St0d, St0a), ck_unlisted_null(St0a, Key, St)
+    ;   ck_path(R, P), ck_under_states(St0, P, Src), Src \== [] -> ck_dropped_copy(St0, [P], Form), ck_expr(R, St0, St1), ck_fill_drop(Over, Key, St1, St1d), ck_move_fields(St1d, Src, P, Key, Form, St)
+    ;   ck_expr(R, St0, St1), ck_fill_drop(Over, Key, St1, St1d), ck_own_under(St1d, Key, Ks), ck_set_live(St1d, Ks, Form, St) ).
+ck_fill_drop(new, _, St, St) :- !.
+ck_fill_drop(over, Key, St0, St) :- ck_autodrop(Key, St0, St).
 ck_set_live(St, [], _, St).
 ck_set_live(St0, [K|Ks], Form, St) :- ( ck_state(St0, K, live) -> ck_fail(owner_overwritten, K, Form) ; ck_set(St0, K, live, St1) ), ck_set_live(St1, Ks, Form, St).
 %% WHAT A BRACED LIST DOES NOT NAME IS ZERO (C17 6.7.9/21; 0.262): an own field the list leaves out is null, as a
@@ -1566,6 +1582,7 @@ ck_member_at([member(MT, F, _)|_], F, I, MT, I) :- !.
 ck_member_at([_|Ms], F, I0, MT, I) :- I1 is I0 + 1, ck_member_at(Ms, F, I1, MT, I).
 ck_init_slot(init(Sub), SlotT, Key, _, _, St0, St) :- !, ck_init_slots(Sub, SlotT, Key, St0, St).
 ck_init_slot(V, SlotT, Key, Name, W, St0, St) :-
+    ck_dropped_assign(V, St0, init(V)),   % a braced list's item takes a value too (0.287)
     (   SlotT \== unknown, ck_own_type(SlotT) -> ck_into_own(Key, V, init(V), St0, St, _)
     ;   Key \== none, ck_tied_to(Key, Root) -> ck_into_tied(Key, Root, V, init(V), St0, St)
     ;   SlotT \== unknown, ck_carries_type(SlotT) -> ck_into_plain(Name, V, init(V), W, St0, St)
@@ -1792,6 +1809,16 @@ ck_move_out(St0, Fs, Form, St) :- ck_dropped_copy(St0, Fs, Form), ck_fields_cons
 %% the reader cannot see as a copy -- a statement expression's value -- stays one
 ck_dropped_copy(St, [F|_], Form) :- \+ ck_moved_form(Form), ck_key_root(F, R), ck_autodropped(St, R), !, ck_fail(dropped_copied, R, Form).
 ck_dropped_copy(_, _, _).
+%% THE VALUE OF AN ASSIGNMENT OVER AN OBJECT THAT ITS SCOPE DROPS IS NOT TAKEN (0.287): `b = a = make(3)' and `eat(a =
+%% make(3))' copied a whole -- the reader moves an object named whole by value, and an assignment is no name --, so two
+%% objects held one buffer and the program freed it twice, with no refusal. Refused where a value is taken: what fills
+%% an object (ck_fill/7), a call's argument, a return's value, a braced list's item; `dropped_copied', the object's name
+ck_dropped_assign(E, St, Form) :- ck_assign_under(E, V), ck_autodropped(St, V), !, ck_fail(dropped_copied, V, Form).
+ck_dropped_assign(_, _, _).
+ck_assign_under(assign('=', id(V), _), V) :- atom(V), !.
+ck_assign_under(cast(_, E), V) :- !, ck_assign_under(E, V).
+ck_assign_under(cond(_, A, B), V) :- !, ( ck_assign_under(A, V) -> true ; ck_assign_under(B, V) ).
+ck_assign_under(comma(_, B), V) :- !, ck_assign_under(B, V).
 ck_moved_form(move(_)) :- !.
 ck_moved_form(call(_, [move(_)|_])).
 %% the borrows of a consumed owner dangle, in every frame
@@ -1874,7 +1901,9 @@ ck_expr(assign('=', L, R), St0, St) :- ck_owner_path(St0, L, K), !,
     ck_const_owner_slot(L),
     ck_into_own(K, R, assign('=', L, R), St0, St1, _), ck_base_use(L, St1, St).
 ck_expr(assign('=', L, R), St0, St) :- ck_path(L, K), ck_by_value(L), ck_own_under(St0, K, [_|_]), !,
-    ( ccl_type_of(L, T) -> true ; T = unknown ), ck_fill(K, T, R, assign('=', L, R), St0, St1), ck_base_use(L, St1, St).
+    ( ccl_type_of(L, T) -> true ; T = unknown ),
+    ( L = id(V), ck_autodropped(St0, V) -> Over = over ; Over = new ),   % an object that its scope drops, named by its name: its old value is dropped first (0.287)
+    ck_fill(K, T, R, assign('=', L, R), Over, St0, St1), ck_base_use(L, St1, St).
 ck_expr(assign('=', L, R), St0, St) :- ck_path(L, K), ck_tied_to(K, Root), !,
     ck_into_tied(K, Root, R, assign('=', L, R), St0, St1), ck_base_use(L, St1, St).
 ck_expr(assign('=', L, R), St0, St) :- ck_own_elem(L, K), !,                 % an element: an own slot; the old one freed by the lowering
@@ -2056,6 +2085,7 @@ ck_param_tied(Callee, I) :- ck_callee_params(Callee, Ps), ccl_nth(I, Ps, param(P
 ck_args_([], _, _, St, St).
 ck_args_([A|As], Callee, I, St0, St) :-
     ( ck_path(A, AK), ck_by_value(A), ck_has_array_under(St0, AK) -> ck_fail(own_array_by_value, AK, call(Callee, [A|As])) ; true ),
+    ck_dropped_assign(A, St0, call(Callee, [A|As])),
     (   ck_consumes(Callee, I)
     ->  ( Callee = id(F), ( memberchk(F, [free, fclose]) ; ck_lib_deallocate(F, _) ) -> How = free ; How = move ),
         ( Callee = id(_) -> Form = call(Callee, [A|As]) ; Form = call(pointer, [A|As]) ),
