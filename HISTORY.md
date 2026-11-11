@@ -267,6 +267,7 @@ One row per step, in version order: the step's title, what it did and its gate n
 | 0.270 | operators on instances and arguments taken unread in C++: `operators.c` and `unread.c` in C++ | the next part of CCLLIB.md's phase 0.10: in C++ an instance's operator is the call of its type macro's function where the macro defines one, and C++'s own where it does not (the program's operator*, an instance on the right alone), an operand of a reference type the object it refers to; a macro's argument taken unread is read where its C text puts it, where cicilang++ refused the call; topers.pl's `_shl_ptr_const_char`; opcpp.cpp, reader k143, k133 changed; the C++ gate builds operators.c and unread.c with cicilang++ | the flow gate; the reader gate and a small net over a probe copy; no chain, on the owner's word; a commit and a push |
 | 0.271 | no CI job on a push or at night; the gates when the ccllib task is finished | the owner's rules: "Do not run github CI after each change" and "disable nightly run" -- gates.yml without its `push` and `schedule` events, the jobs on a pull request and on request --, and "just try to finish ccllib task then gates" -- the task's steps committed with their probes, the chain over the finished task; the CI's nightly full job over 0.270's tree, GREEN twice, carries the gates of 0.269 and 0.270; a record step, no library change | the toolchain, reader, compile, driver, objects and proof gates over this step's tree; a commit and a push |
 | 0.272 | the safety rules of 0.265 to 0.267 in C++: phase 0.10 is done | the last part of CCLLIB.md's phase 0.10: in C++ too `&a[i]` over a pointer is a borrow of what it borrows, a call that may replace an object's own fields ends the caller's borrows of them (a member function that is not const, a reference parameter, a local reference; a const member function and a reference to const keep them), a tied result is a borrow of the own fields, a null own field that such a call may fill is live, and an own field of a const object is not assigned, in clang++'s words; seven refusals, borrowkeep.cpp and elemborrowpp.cpp; the lowering 155 | the flow gate; the reader, compile, driver and objects gates; the C++ gate over libc++ 22 as the net; no chain, by the owner's rule of 0.271; a commit and a push |
+| 0.273 | the first proof after phase 0: `vector<int>` in the three runs, and the ccllib gate | CCLLIB.md's first proof: test/ccllib/first.c over first.pl (push, at, len, sort, dropped where its scope ends) built by cicilang as C and by cicilang++ as C++, and its twin over std:: by clang++, print the same lines and free every block; test/ccllib.sh, the chain's tenth gate, runs the three and prints their costs (test/cost.c); over libc++ 22: 0.24 s, 2 types, 21 functions and an 11.5 KB object against the twin's 0.67 s, 35, 229 and 126 KB | the ccllib gate over libc++ 22, 21 and 18; no chain, by the owner's rule of 0.271; a commit and a push |
 
 ## M5 — the C++ mode
 
@@ -18557,3 +18558,82 @@ nothing GREEN but the nets above.
   C++. The nine fixtures. `RULES.md`, `CLAUDE.md`, `README.md`, `CCLLIB.md`.
 
 The module 0.272; the reader 180 stays; the lowering 155 (the check's verdicts change in C++).
+
+## 0.273 — the first proof after phase 0: `vector<int>` in the three runs, and the ccllib gate
+
+**0.273: `CCLLIB.md`'s first proof. One ccllib program -- a `vector<int>` with `push`, `at`, `len` and `sort`, dropped
+where its scope ends, made by a macro file of phase 0's means alone -- is built by cicilang as C and by cicilang++ as
+C++, and its twin over `std::vector` and `std::sort` by clang++ over libc++: the three print the same lines, and each
+frees every block. A new gate, `test/ccllib.sh`, runs the three and prints what each costs; it is the chain's tenth.
+Over libc++ 22 the ccllib builds are below the twin in every cost that the plan names. Committed with its nets; the
+chain runs when the ccllib task is finished (the owner's rule of 0.271).**
+
+THE PROGRAM. `test/ccllib/first.c` over `first.pl`: `type_vector/3` gives the struct and its functions as C text, the
+generic calls `push`, `at`, `len` and `sort` find the instance by the type of their first argument, `[int; 5, 3, 9]` and
+`[double; 2.5, -1, 0.25]` are its literals, and `sum(v)` takes a vector by value, a move. `first.cpp` is the same
+program over `std::`. `at` stops the program at an index past the end (`abort`), where `std::vector::at` throws, and
+`push` where no memory is left. `sort` was a heap sort first, then a quicksort about the median of three with Hoare's
+partition, an insertion sort for sixteen elements or less and a heap sort past `2 * log2(len)` partitions: sorting
+2,000,000 numbers at `-O2` took 0.16 s where the twin took 0.08 s, since libc++ 22's `std::sort` has a partition with no
+branch on a comparison for arithmetic types, in its shared library. `first.pl`'s partition has none now -- each element
+is given a place, and the count goes on by the comparison's value -- and what equals the pivot of the range before it is
+passed over in one pass; the same run takes 0.06 s. A scratch program sorted 2,600 vectors by it -- eight shapes
+(random, rising, falling, all equal, four values, a hill, seventeen values, negative values), every length to 70 and to
+700 by 61, 300,000 too, the inner sort called with a depth of 0, 1 and 2 to reach the heap sort -- and found each in
+order with its sum.
+
+THE GATE. `test/ccllib.sh` builds each `test/ccllib/NAME.c` with `bin/cicilang` and with `bin/cicilang++` and its twin
+`NAME.cpp` with the tree's clang++ (`-std=c++23 -stdlib=libc++`, the tree's run path), and holds the three to
+`NAME.expect`, which the twin made; with `NAME.count` the three print the same line for the longer run; where valgrind
+is, each runs under it with no error and no block left. Then it prints the costs, a line a run, measured by
+`test/cost.c` (the wall clock, and `wait4`'s largest resident size), which cc builds. A changed `.expect` gave three
+FAIL lines with their differences, `RED: ccllib (3 failure(s))` and exit 1. `test/gates.sh` runs it last, and the CI's
+full job installs valgrind for it.
+
+THE COSTS over libc++ 22 on the gates' box (4 CPUs), a fresh HOME warm from the checks, the twin by clang++ 22.1.8, the
+builds at `-O0`, the best of seven:
+
+```
+run                       build s      MB  types  functions   lines  object B    run s      MB
+cicilang, C                 0.243   109.6      2         21    1818     11512    0.329    40.0
+cicilang++, C++             0.459   135.1      2         21    2089     13152    0.281    39.8
+clang++ 22.1.8, std::       0.667   140.3     35        229    5573    126040    0.382    67.0
+```
+
+The run is `first 10000000` built at `-O2`; the two ccllib builds run the same code, and their times lay between 0.28
+and 0.34 s from one gate run to the next. The nearest cost is the peak of cicilang++'s build, 135 MB against the twin's
+140 MB; over libc++ 21 the twin's peak, 129 to 133 MB, is under it. Over libc++ 21 the twin: 0.744 s, 129.4 MB, 30
+types, 216 functions, 5,310 lines, 119,600 B, the run 0.387 s; over libc++ 18 (clang++ 18.1.3): 0.944 s, 148.6 MB, 34
+types, 268 functions, 6,181 lines, 142,296 B, the run 0.762 s. cicilang++ building the twin itself, over libc++ 22 and
+warm summaries: 9.2 s, 309 MB, 224 types, 681 functions, 14,397 lines, 92,008 B, its run 0.43 s -- no run of the three,
+and what ccllib takes away from a cicilang++ user.
+
+WHAT IT FOUND.
+- A MACRO NAMED AS A PREDICATE OF COCOLOG'S. `sort(V, R) :- ...` in the macro file gave `in the expansion of macro
+  'sort': expected a list, got id(v)`: cocolog's `sort/2` answered. It is written `ccl_macro_sort`, as `format` is. A
+  probe of other names: `length(V, R)` goes to the builtin too; `append(V, W, R)`, `reverse(V, R)` and `last(V, R)` join
+  cocolog's own predicates -- the macro's call is answered, and `append([1], [2], X)` has three answers after the load.
+  No load refuses such a head (Not done).
+- `NULL` IN A C TEXT. `not lowered yet: undeclared('NULL')`: the text is lexed, never preprocessed (0.260's rule), so a
+  header's macro is no name in it; `first.pl` writes `0`. `stdout`, `EOF` and `errno` are such names (Not done: phase
+  1d).
+- THE TWIN'S RUNTIME. clang++ of a tree links its libc++ and leaves the run to the system's: the gate gives the twin the
+  tree's run path, as cicilang++'s link does (0.122), so that the twin over libc++ 18 runs libc++ 18's `std::sort`.
+- A C BUILD'S PEAK FOLLOWS THE STORE: 110 MB over a fresh HOME, 313 MB over the store of a HOME that many reads had
+  filled.
+- A CHECK THAT WAS NO RULE. The gate's first form held that the IR calls each drop that it defines; a unit that makes an
+  instance and holds no object of it defines a drop that nothing calls. The check is valgrind's.
+
+THE NETS, over the work tree: the ccllib gate over libc++ 22, 21 and 18, each over a fresh HOME, GREEN in 21 s, 21 s and
+25 s (five checks each: the C build, the C++ build, the twin, the longer run, valgrind; none skipped). No file of the
+library changed, so the flow gate did not run.
+
+NO CHAIN RAN for this step (the owner's rule of 0.271), and it claims nothing GREEN but the nets above. No CI job ran:
+the full job's new package and its tenth gate wait for a run on request.
+
+- `test/ccllib.sh`, `test/cost.c`, `test/ccllib/first.c`, `first.pl`, `first.cpp`, `first.expect`, `first.count`.
+  `test/gates.sh`: the ccllib gate last. `test/ci.sh`: valgrind among the full job's packages, `all ten gates`.
+  `.github/workflows/gates.yml`: its comment. `RULES.md` (the ccllib gate's topic, the chain, the macro files, Not
+  done), `CLAUDE.md`, `README.md`, `CCLLIB.md`.
+
+The module 0.273; the reader 180 and the lowering 155 stay.

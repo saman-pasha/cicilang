@@ -8,7 +8,7 @@
 # not make.
 #
 #   sh test/ci.sh smoke     # the flow, reader, compile, driver and objects gates and the proof, over libc++ 18
-#   sh test/ci.sh full      # all nine over libc++ 18, then the library read and the C++ gate over 21 and 22 (Linux)
+#   sh test/ci.sh full      # all ten over libc++ 18, then the library read and the C++ gate over 21 and 22 (Linux)
 #   sh test/ci.sh cpp       # the library read and the C++ gate over libc++ 18, under caps that fit a Mac (0.246)
 #   sh test/ci.sh JOB setup # the setup alone (the packages, the neighbours, the modules, the check), then
 #   sh test/ci.sh JOB gates # the job's gates alone: the workflow keeps Quicklisp in its cache between the two
@@ -107,7 +107,8 @@ if [ "${CI_PACKAGES:-0}" = 1 ] && [ "$CI_OS" = linux ]; then
   # driver gate builds a C++ file too (its IR cache check), so the smoke job reads the libc++ of LLVM_MAJOR
   ci_pk="build-essential git sbcl clang clang-$LLVM_MAJOR llvm llvm-$LLVM_MAJOR-dev libc++-$LLVM_MAJOR-dev libc++abi-$LLVM_MAJOR-dev libunwind-$LLVM_MAJOR-dev"
   if [ "$JOB" = full ]; then
-    ci_pk="$ci_pk qemu-user gcc-aarch64-linux-gnu g++-aarch64-linux-gnu libc6-dev-arm64-cross"
+    # valgrind (0.273): the ccllib gate runs each of its three runs under it, where it is
+    ci_pk="$ci_pk qemu-user gcc-aarch64-linux-gnu g++-aarch64-linux-gnu libc6-dev-arm64-cross valgrind"
     for n in $LIBCXX_TREES; do
       # a tree the distribution does not ship comes from apt.llvm.org, the LLVM project's own packages
       if [ "$n" != "$LLVM_MAJOR" ] && ! apt-cache show "libc++-$n-dev" >/dev/null 2>&1; then
@@ -233,7 +234,7 @@ elif [ "$JOB" = cpp ]; then
   ci_run "libcxx $LLVM_MAJOR" env LLVM="$(ci_llvm "$LLVM_MAJOR")" LX_JOBS=3 LX_LAUNCH_MB=6000 LX_HARD_MB=10000 sh "$HERE/libcxx.sh"
   [ "$ci_fail" = 0 ] && ci_run "cpp $LLVM_MAJOR" env LLVM="$(ci_llvm "$LLVM_MAJOR")" CPP_JOBS=3 CPP_LAUNCH_MB=6000 CPP_HARD_MB=10000 CPP_PROGRESS="$CI_LOGS/cpp-progress-$LLVM_MAJOR.log" sh "$HERE/cpp.sh"
 else
-  ci_step "all nine gates over libc++ $LLVM_MAJOR"
+  ci_step "all ten gates over libc++ $LLVM_MAJOR"
   ci_run gates env LLVM="$(ci_llvm "$LLVM_MAJOR")" CPP_PROGRESS="$CI_LOGS/cpp-progress-$LLVM_MAJOR.log" sh "$HERE/gates.sh"
   for n in $LIBCXX_TREES; do
     [ "$n" = "$LLVM_MAJOR" ] && continue

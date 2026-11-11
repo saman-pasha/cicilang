@@ -87,8 +87,9 @@ that changes a rule edits the rule here, in its topic, and writes its entry in `
   gates and the proof), since 0.224 on two machines and since 0.246 on three, each a job of its own that never waits for
   the others -- Ubuntu 24.04 (`ubuntu-24.04`: x86-64, 4 CPUs, 16 GB, not root), macOS 26 on Intel (`macos-26-intel`:
   x86-64, 4 CPUs, 14 GB; the owner's machine, as cocolog's CI has it) and macOS 15 on Apple silicon (`macos-15`: arm64,
-  3 CPUs, 7 GB; 0.246, cocolog's CI runs it too) --; `full` on Linux on request (all nine gates over libc++ 18, the
-  cross gate's C++ part among them since 0.246, then the library read and the C++ gate over libc++ 21 and over 22,
+  3 CPUs, 7 GB; 0.246, cocolog's CI runs it too) --; `full` on Linux on request (all ten gates over libc++ 18, the
+  cross gate's C++ part among them since 0.246 and the ccllib gate the tenth since 0.273, valgrind among the job's
+  packages for it, then the library read and the C++ gate over libc++ 21 and over 22,
   0.227); `cpp` on the Intel Mac on request (0.246: the library read and the C++ gate over libc++ 18, three lanes, a
   launch below 6000 MB summed, the pool killed past 10000, caps that fit 14 GB). `test/ci.sh JOB setup` installs the
   packages where asked (`CI_PACKAGES=1`: apt-get,
@@ -259,11 +260,12 @@ that changes a rule edits the rule here, in its topic, and writes its entry in `
 
 - `sh test/gates.sh` runs the toolchain check first (0.223), then the flow gate (`test/flow.sh`), then the reader,
   compile, driver and objects gates, the proof and the cross gate one after another, then the library read
-  (`test/libcxx.sh`), then the C++ gate (`test/cpp.sh`): nine gates after the check. Each prints `== NAME: GREEN in N s`
-  or `== NAME: RED (exit N) in N s`. The first RED stops the chain, by its exit status, never by a log read. A full pass
-  prints `ALL GREEN`. The flow gate is first because it runs nothing and takes a minute: a mis-edit that it can see (a
-  call that nothing answers, a name given twice) stops the chain there, where the C++ gate met it after an hour. (0.105,
-  0.144)
+  (`test/libcxx.sh`), then the C++ gate (`test/cpp.sh`), then the ccllib gate (`test/ccllib.sh`, 0.273): ten gates
+  after the check. Each prints `== NAME: GREEN in N s` or `== NAME: RED (exit N) in N s`. The first RED stops the
+  chain, by its exit status, never by a log read. A full pass prints `ALL GREEN`. The flow gate is first because it
+  runs nothing and takes a minute: a mis-edit that it can see (a call that nothing answers, a name given twice) stops
+  the chain there, where the C++ gate met it after an hour. The ccllib gate is last: its C++ builds read the summaries
+  that the library read left warm. (0.105, 0.144, 0.273)
 - THE CHAIN RUNS OVER A LIBC++: `LLVM=/usr/lib/llvm-18 sh test/gates.sh` and `LLVM=/usr/lib/llvm-21 sh test/gates.sh` (or the
   last two gates alone at 21: `test/libcxx.sh`, `test/cpp.sh`; the C gates do not read libc++). The tree is read and linked
   (`ccl_cxx_dirs`); without `$LLVM` the newest installed one is, libc++ 22 on the Ubuntu box, which no gate has run. The
@@ -272,7 +274,8 @@ that changes a rule edits the rule here, in its topic, and writes its entry in `
 - `GATES_JOBS` (default 4) sets `FLOW_JOBS`, `LX_JOBS` and `CPP_JOBS`, the lanes of the three parallel phases. (0.105,
   0.144)
 - By hand: build, then `test/flow.sh`, `test/reader.sh`, `test/compile.sh`, `test/driver.sh`, `test/objects.sh`,
-  `proof/run.sh`, `test/cross.sh`; then `test/libcxx.sh` before `test/cpp.sh`. (0.105, 0.144)
+  `proof/run.sh`, `test/cross.sh`; then `test/libcxx.sh` before `test/cpp.sh`; then `test/ccllib.sh`. (0.105, 0.144,
+  0.273)
 - A gate prints `SKIP` and exits 0 when it finds no `$COCOLOG/cocolog` or no `library/cicilang.so`, and the chain
   prints GREEN for it; the flow gate also without cocolog's `library/flow/chart.pl` and `tables.pl` (`make modules`
   writes the tables). A SKIP is no GREEN line: build first. (from the start, 0.144)
@@ -667,6 +670,50 @@ that changes a rule edits the rule here, in its topic, and writes its entry in `
 - A gate that dies says so. Without a GREEN or RED line from `test/cpp.pl`, `test/cpp.sh` prints
   `RED: the gate did not finish (query exit N)` and the last 20 raw lines. `test/reader.sh` and `test/compile.sh`
   print `RED: the gate did not finish`. (0.85)
+
+### The ccllib gate: test/ccllib.sh
+
+- **THE THREE RUNS** (0.273; `CCLLIB.md`'s Tests and measures, the owner's decision of 2026-11-08): each program of
+  `test/ccllib/` is one ccllib program, `NAME.c`, and its twin over `std::`, `NAME.cpp`. `bin/cicilang` builds `NAME.c`
+  as C, `bin/cicilang++` builds the same file as C++, and the reference clang++ -- `$LLVM`'s, else the one on the path,
+  as the C++ gate finds it, on a Mac with the SDK -- builds the twin at `-std=c++23 -stdlib=libc++` (`CCLLIB_STD` names
+  another level), its run path the tree's `lib` where the tree has a libc++, as cicilang++'s link names it. The three
+  print the same lines, `NAME.expect`, which the twin made; with `NAME.count`, the count of a longer run (`first
+  10000000`), the three print the same line for that run too. A box where no clang++ builds a three-line `<vector>`
+  program over libc++ prints `SKIP NAME.cpp (not here)` and holds the two cicilang builds to the `.expect`. (0.273)
+- EVERY BLOCK IS FREED: where valgrind is, each of the three runs under it (`--leak-check=full`), as it stands and,
+  with a `NAME.count`, with a count of 5000 -- no error, and `All heap blocks were freed`: each object is dropped where
+  its scope ends, a moved one by who took it (the autodrop of 0.262, whose own fixtures the compile gate runs on every
+  machine). No valgrind: `SKIP NAME.valgrind (not here)`, the form that the CI takes for what a machine lacks; the full
+  job installs valgrind (`test/ci.sh`). (0.273)
+- A build has a cap of `CCLLIB_SECS` (600) and a run of `CCLLIB_RUN_SECS` (120), each by `timeout -s KILL`; the gate
+  runs under an outside cap, as the small gates do. Its builds are serial, so a cold summary is read safely by the
+  first C++ build; the chain runs the gate last, over the summaries that the library read left. (0.273)
+- THE COSTS ARE A RECORD, NO CHECK: after the checks the gate prints a line a run -- the program's build (the best of
+  `CCLLIB_REPEAT`, 3: its seconds, and the megabytes of its largest process), the IR's types (`%N = type`), functions
+  (`define`) and lines (`-emit-llvm`), the object's bytes (`-c`), and the longer run built at `-O2` (its seconds and
+  megabytes). `test/cost.c` measures, built by cc, since a measure is not made by what it measures: `cost FILE CMD
+  ARG...` writes the wall clock and `wait4`'s `ru_maxrss` -- the largest resident size among the command's processes
+  that were waited for, kilobytes on Linux and bytes on a Mac -- and returns the command's status. The twin's command is
+  a file of the gate's own, so that `cost` runs it as it runs the two others. The store and the summaries are the
+  HOME's, warm from the checks' builds, and a C build's peak follows the store: 110 MB over a fresh HOME, 313 MB over a
+  store of many reads. `CCLLIB_COSTS=0` prints no costs; a cc that does not build `test/cost.c` is named, and nothing
+  is measured. (0.273)
+- **THE FIRST PROOF AFTER PHASE 0** (0.273; `CCLLIB.md`'s Order): `test/ccllib/first.c` over its macro file `first.pl`
+  -- `vector<T>` with `push`, `at`, `len` and `sort`: a type macro's instance (0.261), its literal's `from` (0.263), its
+  drop (0.262), all of it C text (0.260) -- built as C and as C++, and `first.cpp`, the same program over `std::vector`
+  and `std::sort`. `at` stops the program at an index past the end (`abort`), where `std::vector::at` throws, and `push`
+  where no memory is left. `sort` is `std::sort`'s kind over `<`, in place and with no function pointer: a quicksort
+  about the median of three whose partition has no branch on a comparison (a place is given always, the count goes on
+  by the comparison's value), an insertion sort for sixteen elements or less, a heap sort for a range that `2 *
+  log2(len)` partitions did not end; what equals the pivot of the range before it is passed over in one pass. The gate
+  is GREEN over libc++ 22, 21 and 18 and fresh HOMEs (21 s, 21 s, 25 s). The costs over libc++ 22, the twin by clang++
+  22.1.8, the best of seven: cicilang's C build 0.24 s and 110 MB, an IR of 2 types, 21 functions and 1,818 lines, an
+  object of 11,512 bytes; cicilang++'s C++ build 0.46 s and 135 MB, 2 types, 21 functions, 2,089 lines, 13,152 bytes;
+  the twin 0.67 s and 140 MB, 35 types, 229 functions, 5,573 lines, 126,040 bytes. `first 10000000` at `-O2`: 0.28 to
+  0.34 s and 40 MB for the two ccllib builds, 0.38 s and 67 MB for the twin (a vector that grows by `realloc` holds one
+  buffer where `std::vector` holds two). cicilang++ builds the twin itself, over libc++ 22 and warm summaries, in 9.2 s
+  and 309 MB: 224 types, 681 functions, 14,397 lines, 92,008 bytes. (0.273)
 
 ### The pool: test/parlib.sh
 
@@ -2263,6 +2310,12 @@ that changes a rule edits the rule here, in its topic, and writes its entry in `
   (`ccl_macro_cname/2`). `ccl_load_macros/2` loads by `ensure_loaded/1` and records `'$ccl_macro_files'`;
   `ccl_pl_clauses/2` finds the heads by splitting the text and `term_to_atom/2` per clause, since `current_predicate/1`
   does not list consulted clauses. `ccl_with_file/2` saves and restores the registry. (M1b)
+- A MACRO NAMED AS A PREDICATE OF COCOLOG'S IS WRITTEN `ccl_macro_NAME` (found at 0.273, the first proof's `sort`): a
+  macro file's clauses are the process's, and cocolog has one namespace. A clause `sort(V, R) :- ...` or `length(V, R)`
+  gives a builtin nothing: the builtin answers the call, `in the expansion of macro 'sort': expected a list, got
+  id(v)`. A clause `append(V, W, R)`, `reverse(V, R)` or `last(V, R)` is one more clause of cocolog's own predicate: it
+  answers the macro's call, and after it `append([1], [2], X)` has three answers, in the compiler's own calls too. No
+  load refuses such a head yet (Not done). (0.273)
 - A macro's error carries both places, `here(File, Line, in_macro(Pred, MacroFile))` on `macro_failed/2` and
   `macro_error/3` (`ccl_macro_file/2`). Each expansion is `expansion(Line, Name, Args)` in `'$ccl_expansions'`; the
   unit ends with `'$expansions'(List)`, and the driver adds `note: expanded from macro` (`dr_remember_expansions/1`).
@@ -13256,6 +13309,16 @@ Declarations topic of the C++ reader).
   gate and the compile gate read every fixture in one process, and `literal.pl`'s own `type_vector/3` was `tvector.pl`'s
   (`the type vector_double takes no literal`). A program built alone meets one file per name; the fixtures share
   `tvector.pl`, and ccllib has one file per type.
+- A MACRO FILE'S CLAUSE FOR A PREDICATE THAT EXISTS IS NOT REFUSED AT THE LOAD (found at 0.273; the topic of the macro
+  files): a head that names a builtin of cocolog's is never called, and one that names a predicate of cocolog's library
+  or of the compiler's joins it, with one answer more for every caller. `ccl_macro_NAME` is the cure that an author
+  must know; a load that names the clash, the two files of the item above among its cases, is a step of its own, with
+  every fixture's macro files read against it.
+- A C TEXT AND A HEADER'S MACROS (found at 0.273): a C text is lexed, never preprocessed (0.260), so `NULL`, `EOF`,
+  `INT_MAX`, `errno` and, on a Mac, `stdout` are no names in it -- `not lowered yet: undeclared('NULL')` at the
+  instance's use; `first.pl` writes `0`. ccllib's iostreams over C's stdio (phase 1d) need such names: a road for them
+  (the text's identifiers looked up in the unit's macro table, or a hole that the macro fills from it) comes with the
+  first module that needs one.
 - A PLAIN STRUCT HANDED BY ITS ADDRESS AFTER A MOVE OF ITS OWNERS (found at 0.262): `person d = c; show(&c);` is
   accepted, and `show` reads `c.name`, which `d` holds; for an object of a type that has a drop it is refused since
   0.262 (`use_after_move`).

@@ -338,6 +338,37 @@ A type macro gives its instances operators that the reader writes as calls: `v[i
 first proof after phase 0: `vector<int>` with `push`, `at`, `len` and `sort`, dropped at its scope's end, in the three
 runs.
 
+### The first proof (0.273)
+
+`test/ccllib/first.c` over its macro file `first.pl`, and its twin `first.cpp` over `std::vector` and `std::sort`: the
+three runs print the same lines, with a count of 10,000,000 too, and under valgrind each frees every block
+(`sh test/ccllib.sh`, the ccllib gate, GREEN over libc++ 22, 21 and 18). The costs over libc++ 22 on the gates' box
+(4 CPUs), the twin by clang++ 22.1.8 at `-std=c++23`, the builds at `-O0` and the best of seven:
+
+| | build | peak | IR types | IR functions | IR lines | object | `first 10000000` at `-O2` | its peak |
+|---|---|---|---|---|---|---|---|---|
+| cicilang, C | 0.24 s | 110 MB | 2 | 21 | 1,818 | 11,512 B | 0.28 to 0.34 s | 40 MB |
+| cicilang++, C++ | 0.46 s | 135 MB | 2 | 21 | 2,089 | 13,152 B | 0.28 to 0.34 s | 40 MB |
+| clang++ 22, `std::` | 0.67 s | 140 MB | 35 | 229 | 5,573 | 126,040 B | 0.38 s | 67 MB |
+| cicilang++, `std::` | 9.2 s | 309 MB | 224 | 681 | 14,397 | 92,008 B | 0.43 s | 67 MB |
+
+The last line is no run of the three: cicilang++ building the twin itself, over warm summaries, which is what a
+cicilang++ user pays for libc++ and what ccllib takes away. The nearest cost of the three is the peak of cicilang++'s
+build, which the twin's over libc++ 21 is under (129 to 133 MB). Over libc++ 18 the twin costs more: by clang++
+18.1.3, 0.94 s, 149 MB, 34 types, 268 functions, 6,181 lines, 142,296 B, and 0.76 s for the run.
+
+What the proof found for phase 1:
+
+- `sort`'s partition has no branch on a comparison, as libc++ 22's has none for arithmetic types: with a plain
+  quicksort the run took twice the twin's time (0.16 s against 0.08 s for 2,000,000), with this one 0.06 s.
+- `at` checks its index and stops the program, where C++ throws; `push` stops it where no memory is left.
+- A vector that grows by `realloc` holds one buffer where `std::vector` holds two: 40 MB against 67 MB.
+- A macro named as a predicate of cocolog's is written `ccl_macro_NAME`: `sort(V, R)` gave the call to cocolog's
+  `sort/2`, and `append(V, W, R)` joins cocolog's own `append/3` (`RULES.md`, the topic of the macro files and Not
+  done). ccllib's generic calls are written so.
+- A C text is not preprocessed, so `NULL` is no name in it, and `stdout`, `EOF` and `errno` are none either: phase 1d
+  needs a road for them (`RULES.md`, Not done).
+
 ## Phase 1: the library before C++23, the most used part first
 
 - 1a. Containers and strings: `vector`, `array`, `deque`, `list`, `forward_list`, `map`, `set`, `multimap`,
@@ -379,8 +410,11 @@ against the borrow rules first).
 
 - THREE RUNS (the owner's decision of 2026-11-08): every comparison builds one ccllib program by cicilang as C and by
   cicilang++ as C++ (phase 0.10), and its twin that uses `std::` by clang++ over libc++ 22. The three print the same
-  lines; the twin makes the `.expect`.
+  lines; the twin makes the `.expect`. THE CCLLIB GATE runs them (0.273, `sh test/ccllib.sh`, the chain's last gate):
+  `test/ccllib/NAME.c`, its twin `NAME.cpp`, `NAME.expect`, and `NAME.count` for a longer run; where valgrind is, each
+  run frees every block.
 - SAFETY: what the safe part must refuse goes into `test/c/safe/`.
 - COST, for each program, of each of the three runs: the build time, the IR's types and functions and lines, the
-  object's size, the peak memory, and the run's own time. Phase 1 sets its targets from the first programs.
+  object's size, the peak memory, and the run's own time. Phase 1 sets its targets from the first programs. The gate
+  prints them, a line a run, measured by `test/cost.c`; they are a record and no check.
 - The flow gate charts `library/ccllib/*.pl` with the library.

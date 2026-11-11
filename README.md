@@ -161,7 +161,8 @@ sh test/flow.sh                                                                 
 sh test/reader.sh; sh test/compile.sh; sh test/driver.sh; sh test/objects.sh         # the C gates
 sh proof/run.sh; sh test/cross.sh                                                    # the proof, and aarch64 Linux under qemu
 sh test/libcxx.sh; sh test/cpp.sh                                                    # the C++ gates: the library read warms the cache first
-sh test/gates.sh                                                                     # the check, then the nine gates
+sh test/ccllib.sh                                                                    # ccllib's programs in their three runs, and what each costs
+sh test/gates.sh                                                                     # the check, then the ten gates
 sh test/why.sh prog.cpp                                                              # a failed build: the call where it gave up
 sh test/prof.sh prog.cpp                                                             # where a build's inferences and time go: windows along its run
 ```
@@ -425,6 +426,16 @@ an own field is not assigned through a const object. The C++ gate builds
 and `unread.c` as C++ and compares their output with their C builds';
 `test/cpp/run/elemborrowpp.cpp` is `elemborrow.c` the C++ way.
 
+The first proof of the plan (0.273) is `test/ccllib/first.c`: a
+`vector<int>` with `push`, `at`, `len` and `sort`, made by the macro file
+beside it. cicilang builds it as C, cicilang++ builds it as C++, and
+clang++ builds its twin over `std::vector` and `std::sort`; the three print
+the same lines, and under valgrind each frees every block
+(`sh test/ccllib.sh`). Over libc++ 22 the C build takes 0.24 s and makes an
+IR of 2 types and 21 functions and an object of 11.5 KB, where clang++'s
+build of the twin takes 0.67 s and makes 35 types, 229 functions and
+126 KB; sorting ten million numbers takes each about a third of a second.
+
 `format`, `print`, `println` and `clone` are global macros, there in every
 program without an include (`library/ccl_format.pl`). The format string
 has Rust's holes, each becoming the `printf` conversion of its argument's
@@ -641,7 +652,8 @@ HISTORY.md                     the record of every step: what it did, what it fo
 * **Nothing of the standard library is the compiler's own.** The C
   freestanding headers are the one exception; libc++ compiles as it is.
 * **Nothing is claimed before its GREEN line.** A rule is a check in a
-  gate; every commit runs the nine gates and raises the version.
+  gate; every commit raises the version, and the ten gates run over
+  each finished task.
 
 ## Not done
 

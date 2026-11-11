@@ -13,7 +13,7 @@
 # has it (HOMEBREW_NO_AUTO_UPDATE): its formula data still names Intel bottles, which Homebrew has built none of since
 # September 2026. Apple silicon (0.246) is this compiler's first run on Apple's arm64: the driver gate holds that
 # machine's conventions to clang's IR on every machine (0.244), and there the compile gate runs each program beside
-# Apple clang's build of it; cocolog's CI runs that machine too. The full job -- all nine gates over libc++ 18, the
+# Apple clang's build of it; cocolog's CI runs that machine too. The full job -- all ten gates over libc++ 18, the
 # cross gate's C++ part over that machine's libc++ (0.246), then the library read and the C++ gate over libc++ 21 and
 # over libc++ 22 (0.227), each tree past 18 unpacked beside the others (test/ci.sh) -- runs on Linux on request; so
 # does the C++ job, the library read and the C++ gate over libc++ 18 on the Intel Mac (0.246), where they had not run

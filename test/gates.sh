@@ -11,8 +11,11 @@
 # the two phases that took five hours between them -- a serial warm and a serial libc++ read
 # of the same headers -- are one parallel read, and the C++ gate's 176 builds run four at a
 # time instead of one. Each phase names its checks, seconds and peak; a RED stops the chain.
+# The CCLLIB gate comes last (0.273): each program of test/ccllib in its three runs -- built by cicilang
+# as C and by cicilang++ as C++, over the summaries that the library read left warm, and its twin over
+# std:: by the tree's clang++ (test/ccllib.sh).
 #
-#   sh test/gates.sh                     # the toolchain check, then all nine, in one chain
+#   sh test/gates.sh                     # the toolchain check, then all ten, in one chain
 #   GATES_JOBS=3 sh test/gates.sh        # narrower parallelism (a smaller box)
 HERE=$(cd "$(dirname "$0")" && pwd)
 . "$HERE/config.sh"
@@ -35,5 +38,6 @@ run proof    sh "$HERE/../proof/run.sh" || exit 1
 run cross    sh "$HERE/cross.sh"   || exit 1   # another machine (0.131): aarch64 Linux under qemu, a SKIP without the cross tools
 run libcxx   sh "$HERE/libcxx.sh"  || exit 1
 run cpp      sh "$HERE/cpp.sh"     || exit 1
+run ccllib   sh "$HERE/ccllib.sh"  || exit 1   # last (0.273): ccllib's programs in their three runs, seconds
 [ "$fail" -eq 0 ] && echo "ALL GREEN" || echo "SOME RED"
 exit "$fail"

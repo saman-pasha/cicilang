@@ -12,7 +12,7 @@ the fixture that gates it, and why. The bullet ends with the version that made t
 edits the rule in `RULES.md`, in its topic, and writes its entry in `HISTORY.md`. Read the topic of `RULES.md` that
 covers the code before the code is changed.
 
-At 0.272 the versions are: the module 0.272 (`ccl_p_version` in `module/cicilang.cicili`, `bin/cicilang --version`),
+At 0.273 the versions are: the module 0.273 (`ccl_p_version` in `module/cicilang.cicili`, `bin/cicilang --version`),
 the reader 180 (`ccl_reader_version/1`, `library/ccl_syntax.pl`) and the lowering 155 (`ccl_lowering_version/1`,
 `library/ccl_ir.pl`).
 
@@ -30,6 +30,7 @@ sh proof/run.sh
 sh test/cross.sh
 sh test/libcxx.sh
 sh test/cpp.sh
+sh test/ccllib.sh
 ```
 
 ## Contents
@@ -376,6 +377,9 @@ test/objects.sh             the objects layer's gate
 test/cross.sh               another machine's gate: every C run fixture and the ABI on aarch64 Linux, under qemu
 test/cpp.pl, cpp.sh         the C++ gate
 test/libcxx.sh              the library read: the asserted headers read whole, and the C++ cache's warm
+test/ccllib.sh              the ccllib gate (0.273): each program of test/ccllib in its three runs -- cicilang as
+                            C, cicilang++ as C++, its twin over std:: by clang++ -- and what each run costs
+test/cost.c                 what a command costs, for the ccllib gate: the wall clock and the largest resident size
 test/readhdr.pl             one asserted header read whole at a level, in its own process
 test/libcxx.pl              the library read's old one-process form; no gate runs it
 test/warm.sh                a shim that runs test/libcxx.sh
@@ -420,6 +424,9 @@ test/cpp/run/               C++ programs built and run: NAME.cpp, .expect, .flag
                             hdrmacro2.h, of hdrmacro.cpp (0.268); opcpp.cpp over ../../c/run/topers.pl, operators on
                             instances in C++ (0.270); borrowkeep.cpp, and elemborrowpp.cpp over
                             ../../c/run/tvector.pl, what the safety rules let C++ keep (0.272)
+test/ccllib/                the three runs' programs: NAME.c, a ccllib program; NAME.cpp, its twin over std::;
+                            NAME.expect, what the twin prints; NAME.count, the count of the run that the costs time;
+                            first.c over first.pl, the first proof after phase 0 (0.273)
 
 proof/forty2.ll, run.sh     M0: hand-written IR through clang to a binary that prints a line and exits 42
 proof/forty2                made by proof/run.sh, never committed
