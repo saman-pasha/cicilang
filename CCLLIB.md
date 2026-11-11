@@ -435,6 +435,24 @@ elements with no pointer in them, each one a step.
 program. What a cicilang build costs here is its floor, the first proof's 0.24 s and 110 MB. The unit is a third of the
 twin's, and the count run takes a third of its time.
 
+### 1a, `deque.pl` (0.276)
+
+`deque<T>` is a ring: a buffer whose capacity is a power of two, with a head, so each end takes and gives an element in
+constant time and `d[i]` is one mask away; `insert` and `erase` move the elements of the nearer end. 36 functions and
+the drop. There is no `begin`, `end` or `data`, and a push at an end ends the borrows of the buffer, where C++ keeps a
+reference over it. `test/ccllib/deque.c`, its twin over `std::deque`, three programs of `test/ccllib/safe/`; its count
+run ends with a walk of chance over the operations at a place. The costs over libc++ 22, as above:
+
+| | build | peak | IR types | IR functions | IR lines | object | `deque 10000000` at `-O2` | its peak |
+|---|---|---|---|---|---|---|---|---|
+| cicilang, C | 0.35 s | 124 MB | 4 | 61 | 3,723 | 27,568 B | 0.09 s | 65 MB |
+| cicilang++, C++ | 1.08 s | 166 MB | 4 | 61 | 4,649 | 31,944 B | 0.09 s | 65 MB |
+| clang++ 22, `std::` | 0.60 s | 127 MB | 83 | 715 | 26,588 | 450,752 B | 0.09 s | 66 MB |
+
+The unit holds 61 functions where the twin's holds 715, and the three runs take the same time and memory. cicilang++'s
+build is the dearest again, 1.08 s and 166 MB against clang++'s 0.60 s and 127 MB for the twin, three times the C build:
+phase 1's first target, as the vector's program showed.
+
 ### The parts of phase 1
 
 - 1a. Containers and strings: `vector`, `array`, `deque`, `list`, `forward_list`, `map`, `set`, `multimap`,

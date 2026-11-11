@@ -270,6 +270,7 @@ One row per step, in version order: the step's title, what it did and its gate n
 | 0.273 | the first proof after phase 0: `vector<int>` in the three runs, and the ccllib gate | CCLLIB.md's first proof: test/ccllib/first.c over first.pl (push, at, len, sort, dropped where its scope ends) built by cicilang as C and by cicilang++ as C++, and its twin over std:: by clang++, print the same lines and free every block; test/ccllib.sh, the chain's tenth gate, runs the three and prints their costs (test/cost.c); over libc++ 22: 0.24 s, 2 types, 21 functions and an 11.5 KB object against the twin's 0.67 s, 35, 229 and 126 KB | the ccllib gate over libc++ 22, 21 and 18; no chain, by the owner's rule of 0.271; a commit and a push |
 | 0.274 | ccllib's first module, `<vector.pl>`: functions made at their first call, and the call by name | CCLLIB.md's phase 1a begins: library/ccllib/vector.pl, std::vector's whole surface by C++'s names; a call finds its function by the type of its first argument (push_back(v, 1) is vector_int_push_back(&v, 1)), the count of the arguments telling two forms apart; each function of an instance is made at its first call (fn_N/3); a macro file's NAME.pl.h comes with it; the safe part takes a copy loop into an own buffer, refused before; a vector's element with a pointer in it is refused by name; the reader 181, the lowering 156 | the flow gate; the reader, compile, driver and objects gates; the ccllib gate; the library read and the C++ gate over libc++ 22; no chain, by the owner's rule of 0.271; a commit and a push |
 | 0.275 | ccllib's `<array.pl>`, and one file for what the modules share | CCLLIB.md's phase 1a goes on: library/ccllib/array.pl, std::array as a struct of one C array, a value with no heap and no drop, 16 functions; library/ccllib/ccllib.pl holds what two modules need, loaded by a directive of each (ccllib_plain_element/2, the refusal of an element that holds a pointer); no file of the compiler changed | the flow gate; the ccllib gate over libc++ 22, 21 and 18; no chain, by the owner's rule of 0.271; a commit and a push |
+| 0.276 | ccllib's `<deque.pl>`: a ring | CCLLIB.md's phase 1a goes on: library/ccllib/deque.pl, std::deque over a ring whose capacity is a power of two, each end in constant time, insert and erase by a move of the nearer end, 36 functions; no begin, end or data, and a push at an end ends the borrows of the buffer; the count run of its program ends with a walk of chance over the operations at a place; no file of the compiler changed | the flow gate; the ccllib gate over libc++ 22, 21 and 18; no chain, by the owner's rule of 0.271; a commit and a push |
 
 ## M5 — the C++ mode
 
@@ -18786,9 +18787,9 @@ clang++ 22.1.8, std::       0.209   106.3     12         68    1664     36072   
 
 The run is `array 100000000` at `-O2`.
 
-THE NETS, over the work tree: the flow gate GREEN with no finding (112 s, peak 4142 MB), `library/ccllib/ccllib.pl`,
-`vector.pl` and `array.pl` charted; the ccllib gate GREEN over libc++ 22, 21 and 18, each over a fresh HOME (60 s, 60 s
-and 65 s; 35 checks each, none skipped): 3 programs in three runs, 10 refused. No other gate reads a file that changed.
+THE NETS, over the work tree: the flow gate GREEN with no finding (115 s, peak 4068 MB), `library/ccllib/ccllib.pl`,
+`vector.pl` and `array.pl` charted; the ccllib gate GREEN over libc++ 22, 21 and 18, each over a fresh HOME (60 s, 61 s
+and 64 s; 35 checks each, none skipped): 3 programs in three runs, 10 refused. No other gate reads a file that changed.
 
 NO CHAIN RAN for this step (the owner's rule of 0.271), and it claims nothing GREEN but the nets above. No CI job ran.
 
@@ -18796,3 +18797,66 @@ NO CHAIN RAN for this step (the owner's rule of 0.271), and it claims nothing GR
   `CFILES`. The fixtures. `RULES.md` (the topic of ccllib, the ccllib gate), `CLAUDE.md`, `README.md`, `CCLLIB.md`.
 
 The module 0.275; the reader 181 and the lowering 156 as they were: no file of the compiler changed.
+
+## 0.276 — ccllib's `<deque.pl>`: a ring
+
+**0.276: `CCLLIB.md`'s phase 1a goes on. `#include <deque.pl>` gives a C program `std::deque`: 36 functions by C++'s
+names over a ring, each end in constant time. No file of the compiler changed. Committed with its nets; the chain runs
+when the ccllib task is finished (the owner's rule of 0.271).**
+
+THE MODULE. `library/ccllib/deque.pl`: `type_deque/3` gives `deque_T`, a struct of a length, a capacity, a head and an
+own buffer, and its drop. The buffer is a ring: its capacity is a power of two, and the element at the place i is
+`data[(head + i) & (cap - 1)]`. `push_front` steps the head back and `push_back` writes after the last element, each
+`pop` is the reverse, and no element moves. The ring grows in its place by twice (`realloc`), and the part of it that
+went round the old end is put after it (`__grow`). `insert` and `erase` at a place move the elements of the nearer end
+(`__open`), as C++'s do: `insert(d, 1, x)` moves one element. `fn_deque/3` over a table of 38 C texts, two of them inner
+helpers.
+
+WHAT DIFFERS FROM C++, beside what differs for the vector. There is no `begin`, `end` or `data`: a ring is not one run
+of memory, a loop goes by the index, and `begin(d)` is refused by name. `&d[i]` is a borrow that each function over a
+deque not const ends, a push at an end among them: C++ keeps a reference to an element over `push_back` and
+`push_front`, since its deque is a table of blocks and no element moves, and a ring moves its elements when it grows.
+There is no `capacity` and no `reserve`, as `std::deque` has none.
+
+A WALK OF CHANCE IN THE COUNT RUN. After the run that the costs time -- ten million numbers in at the back, each fourth
+out at the front, some in at the front, then a copy, an `erase_value`, an insert and an erase -- the program walks
+300,000 operations that a generator chooses: both ends, an insert and an erase at a place of one element and of several,
+a read and a write at a place, `resize`, `shrink_to_fit`, the three ranges. What each step leaves is put into one
+number, and the three runs print the same number for each count; under valgrind a walk of 5,000 leaves no block. The
+list's and the forward list's programs have such a walk too, with a place that the walk keeps.
+
+THE FIXTURES. `test/ccllib/deque.c` over `int`, `double` and a plain struct, its twin `deque.cpp` over `std::deque`,
+`deque.expect`, `deque.count` (10,000,000); `test/ccllib/safe/deque_after_push_front.c` (`use of a borrow after a call
+that may replace its owner`), `deque_of_pointers.c` and `deque_no_begin.c` (`deque_int has no function begin`; in C++
+`undeclared(begin)`), each refused as C and as C++.
+
+THE COSTS of `deque.c` over libc++ 22 on the gates' box, the twin by clang++ 22.1.8, the builds at `-O0`, the best of
+three:
+
+```
+run                       build s      MB  types  functions   lines  object B    run s      MB
+cicilang, C                 0.345   124.0      4         61    3723     27568    0.085    64.7
+cicilang++, C++             1.080   166.4      4         61    4649     31944    0.089    64.7
+clang++ 22.1.8, std::       0.598   127.4     83        715   26588    450752    0.090    65.6
+```
+
+The run is `deque 10000000` at `-O2`. cicilang's C build takes 0.35 s where clang++ takes 0.60 s for the twin, and the
+unit holds 61 functions in 28 KB where the twin's holds 715 in 451 KB. cicilang++'s build is the dearest of the three,
+1.08 s and 166 MB against 0.60 s and 127 MB: the cost that phase 1 has to bring down (`CCLLIB.md`). The three runs take
+the same time, 0.09 s, and the same memory, 65 MB.
+
+THE ENTRY OF 0.275 carried the times of its nets' first run (112 s for the flow gate; 60 s, 60 s and 65 s for the ccllib
+gate), which came before a comment of `array.pl` changed. The run over its final tree, all GREEN too, took 115 s and 60
+s, 61 s and 64 s, and the entry has those now.
+
+THE NETS, over the work tree: the flow gate GREEN with no finding (117 s, peak 4477 MB), `library/ccllib/deque.pl`
+charted with the three other files of ccllib; the ccllib gate GREEN over libc++ 22, 21 and 18, each over a fresh HOME
+(85 s, 87 s and 91 s; 46 checks each, none skipped): 4 programs in three runs, 13 refused. No other gate reads a file
+that changed.
+
+NO CHAIN RAN for this step (the owner's rule of 0.271), and it claims nothing GREEN but the nets above. No CI job ran.
+
+- `library/ccllib/deque.pl`, `deque.pl.h`. `test/flow.sh`: `CFILES`. The fixtures. `RULES.md` (the topic of ccllib),
+  `HISTORY.md` (this entry, and the times of 0.275's), `CLAUDE.md`, `README.md`, `CCLLIB.md`.
+
+The module 0.276; the reader 181 and the lowering 156 as they were: no file of the compiler changed.

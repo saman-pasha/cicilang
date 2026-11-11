@@ -9489,6 +9489,32 @@ in the first topic (The ccllib gate).
   The unit is smaller (35 functions and 11 KB against 68 and 36 KB) and the count run faster (0.17 s against 0.54 s).
   (0.275)
 
+### deque.pl
+
+- `deque<T>` is `deque_T`, a struct of a length, a capacity, a head and an own buffer. The buffer is A RING: its
+  capacity is a power of two and the element at the place i is `data[(head + i) & (cap - 1)]`, so each end takes and
+  gives an element in constant time, no element moves for it, and `d[i]` is one mask away. The ring grows in its place
+  by twice (`realloc`), and the part of it that went round the old end is put after it (`__grow`). The surface of
+  `std::deque`, 36 functions and the drop: `size`, `len`, `empty`, `max_size`, `shrink_to_fit`; `at`, `d[i]` (`_index`),
+  `front`, `back`; `push_back`, `push`, `emplace_back`, `push_front`, `emplace_front`, `pop_back`, `pop`, `pop_front`,
+  `clear`; `insert` (two forms), `emplace`, `insert_range`, `append_range`, `prepend_range`, `erase` (two forms),
+  `erase_value`, `resize` (two forms), `assign`, `assign_range`, `swap`; `clone`; `==` and `<` and what follows from
+  them. `insert` and `erase` at a place move the elements of the nearer end (`__open`), as C++'s do. (0.276)
+- WHAT DIFFERS FROM C++, beside what differs for the vector (the move, `clone`, the stop past the end, `pop_back` and
+  `pop_front` that give the element): THERE IS NO `begin`, `end` OR `data` -- a ring is not one run of memory, a loop
+  goes by the index, and `begin(d)` is refused by name, `deque_int has no function begin`
+  (`test/ccllib/safe/deque_no_begin.c`). `&d[i]` is a borrow tied to the deque, which each function that takes the deque
+  not as const ends, A PUSH AT AN END AMONG THEM: C++ keeps a reference to an element over `push_back` and `push_front`,
+  since its deque is a table of blocks and no element moves, and a ring moves its elements when it grows
+  (`deque_after_push_front.c`). There is no `capacity` and no `reserve`, as `std::deque` has none. (0.276)
+- `test/ccllib/deque.c` over `int`, `double` and a plain struct, and its twin `deque.cpp` over `std::deque`. ITS COUNT
+  RUN ENDS WITH A WALK OF CHANCE: 300,000 operations that a generator chooses -- both ends, an insert and an erase at a
+  place of one element and of several, a read and a write at a place, `resize`, `shrink_to_fit`, the ranges -- and what
+  each step leaves is put into one number, which the three runs print the same; the list's programs have such a walk
+  with a place that it keeps. Over libc++ 22 the unit holds 61 functions in 28 KB where the twin's holds 715 in 451 KB,
+  the C build takes 0.35 s against clang++'s 0.60 s, cicilang++'s 1.08 s and 166 MB against 127 MB, and the three runs
+  take the same time and memory (0.09 s, 65 MB). (0.276)
+
 ## The safe part
 
 ### The check in the build

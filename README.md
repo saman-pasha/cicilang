@@ -453,6 +453,12 @@ the example.
 `begin`, `end`, `data`, `size` and the comparisons are there;
 `test/ccllib/array.c` is the example.
 
+`#include <deque.pl>` gives `std::deque` (0.276): `push_back`, `push_front`,
+`pop_front`, `d[i]`, `insert`, `erase` and the rest of the C++ names. It is
+a ring, so each end takes and gives an element in constant time; a loop goes
+by the index, and `&d[i]` is a borrow that the next push ends.
+`test/ccllib/deque.c` is the example.
+
 `format`, `print`, `println` and `clone` are global macros, there in every
 program without an include (`library/ccl_format.pl`). The format string
 has Rust's holes, each becoming the `printf` conversion of its argument's
