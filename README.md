@@ -148,9 +148,10 @@ master every time, and its pin moves with the step that runs the gates over
 it. `sh test/ci.sh smoke` (or
 `full`, or `cpp`) is the CI jobs' own steps: it clones the neighbours at
 their pins, builds them with cocolog's installer, builds the two modules
-and runs the gates; GitHub runs the smoke job on each push, on Ubuntu
-24.04, on an Intel Mac and on Apple silicon, and the full job (Linux) and
-the C++ job (the Intel Mac) every night (`.github/workflows/gates.yml`).
+and runs the gates; GitHub runs the smoke job on each pull request and on
+request, on Ubuntu 24.04, on an Intel Mac and on Apple silicon, and the
+full job (Linux) and the C++ job (the Intel Mac) on request
+(`.github/workflows/gates.yml`). No job runs on a push or at night (0.271).
 
 ```sh
 CICILI=~/Projects/GitHub/cicili COCOLOG=~/Projects/GitHub/cocolog sh module/build.sh   # -> library/cicilang.so

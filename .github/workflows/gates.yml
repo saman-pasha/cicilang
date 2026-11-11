@@ -1,7 +1,9 @@
 # The gates on GitHub's machines (0.223): test/ci.sh, which any Ubuntu 24.04 box, or Mac on macOS 26 (Intel) or 15
 # (Apple silicon), runs alike. The smoke job -- the toolchain, then the flow, reader, compile, driver and objects gates
-# and the proof -- runs on each push to main and each pull request into it that changes more than the documents at the
-# top of the tree, on three machines (0.224, 0.246):
+# and the proof -- runs on each pull request into main that changes more than the documents at the top of the tree, and
+# on request, on three machines (0.224, 0.246). NO JOB RUNS ON A PUSH OR AT NIGHT (the owner's rules, 0.271: "Do not run
+# github CI after each change", then "disable nightly run"): the smoke job ran on each push to main from 0.223 to 0.270,
+# three machines a commit, and the full job and the C++ job each night (`schedule', cron `37 2 * * *').
 #
 #   linux        ubuntu-24.04 (x86-64, 4 CPUs, 16 GB)     install/install-linux.sh, LLVM 18 and libc++ 18 from Ubuntu
 #   macos-intel  macos-26-intel (x86-64, 4 CPUs, 14 GB)   install/install-macos.sh, LLVM 18 and libc++ 18 from Homebrew
@@ -13,22 +15,17 @@
 # machine's conventions to clang's IR on every machine (0.244), and there the compile gate runs each program beside
 # Apple clang's build of it; cocolog's CI runs that machine too. The full job -- all nine gates over libc++ 18, the
 # cross gate's C++ part over that machine's libc++ (0.246), then the library read and the C++ gate over libc++ 21 and
-# over libc++ 22 (0.227), each tree past 18 unpacked beside the others (test/ci.sh) -- runs on Linux every night and on
-# request; so does the C++ job, the library read and the C++ gate over libc++ 18 on the Intel Mac (0.246), where they
-# had not run since 0.90. Each clones the neighbours at test/toolchain.pins' commits and builds them with cocolog's
+# over libc++ 22 (0.227), each tree past 18 unpacked beside the others (test/ci.sh) -- runs on Linux on request; so
+# does the C++ job, the library read and the C++ gate over libc++ 18 on the Intel Mac (0.246), where they had not run
+# since 0.90. Each clones the neighbours at test/toolchain.pins' commits and builds them with cocolog's
 # installer, Quicklisp kept in the Actions cache between runs; a SKIP the job does not expect is RED (test/ci.sh), and
 # the logs are the run's artifact for 14 days. The shape follows cocolog's own CI (its .github/workflows/ci.yml,
 # 2026-10-29).
 name: gates
 on:
-  push:
-    branches: [main]
-    paths-ignore: ['*.md']
   pull_request:
     branches: [main]
     paths-ignore: ['*.md']
-  schedule:
-    - cron: '37 2 * * *'
   workflow_dispatch:
     inputs:
       job:
@@ -42,11 +39,11 @@ permissions:
 jobs:
   smoke:
     name: ${{ matrix.name }}
-    if: github.event_name == 'push' || github.event_name == 'pull_request' || (github.event_name == 'workflow_dispatch' && inputs.job == 'smoke')
+    if: github.event_name == 'pull_request' || (github.event_name == 'workflow_dispatch' && inputs.job == 'smoke')
     runs-on: ${{ matrix.runner }}
     timeout-minutes: ${{ matrix.minutes }}
-    # a new push to a pull request stops its last run; main's runs each finish, each commit with its verdict, and one
-    # machine never waits for the other
+    # a new push to a pull request stops its last run; a run on request finishes, and one machine never waits for the
+    # other
     concurrency:
       group: gates-smoke-${{ matrix.os }}-${{ github.event.pull_request.number || github.ref }}
       cancel-in-progress: ${{ github.event_name == 'pull_request' }}
@@ -108,7 +105,7 @@ jobs:
           retention-days: 14
           if-no-files-found: warn
   full:
-    if: github.event_name == 'schedule' || (github.event_name == 'workflow_dispatch' && inputs.job == 'full')
+    if: github.event_name == 'workflow_dispatch' && inputs.job == 'full'
     runs-on: ubuntu-24.04
     timeout-minutes: 360
     concurrency:
@@ -149,7 +146,7 @@ jobs:
           retention-days: 14
           if-no-files-found: warn
   cpp:
-    if: github.event_name == 'schedule' || (github.event_name == 'workflow_dispatch' && inputs.job == 'cpp')
+    if: github.event_name == 'workflow_dispatch' && inputs.job == 'cpp'
     runs-on: macos-26-intel
     timeout-minutes: 360
     concurrency:

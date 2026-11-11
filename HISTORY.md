@@ -265,6 +265,7 @@ One row per step, in version order: the step's title, what it did and its gate n
 | 0.268 | the program's own header in C++, read as the program's file is: `tvector.c` in C++ | the next part of CCLLIB.md's phase 0.10: in C++ the program's own header goes through the preprocessor in the user's file's mode -- its directives run, its macros expanded, its includes passed on to the reader -- where it was read raw (a function of the header kept the header's own macro unexpanded, `undeclared('TWICE')`, `assert` alike) or flattened (a library header to the desugaring AND the program's, each function defined twice); the C++ gate builds tvector.c with cicilang++; hdrmacro.cpp, reader k141 | the flow gate; over libc++ 18 all nine GREEN (the C++ gate 1242 s, 867 ok); the C++ gates over 21 and 22 GREEN (875 and 878 ok); a commit and a push |
 | 0.269 | list and map literals in C++, beside a lambda's introducer: `literal.c` in C++ | the next part of CCLLIB.md's phase 0.10: in C++ a `[` begins a list or map literal where the `]` that closes it is followed by none of what follows a lambda's introducer, outside a library header's read, so `v := [int; 5, 3, 9];` and `= [];` read as in C and the lambdas beside them as lambdas; a `[[` is no array's declarator (vendorattr.cpp, which the net found); the C++ gate builds literal.c with cicilang++; lit_cpp.cpp, reader k142 | the flow gate; over libc++ 22 the library read and the C++ gate GREEN (878 ok); the chain stopped in its libc++ 21 part on the owner's word; a commit and a push |
 | 0.270 | operators on instances and arguments taken unread in C++: `operators.c` and `unread.c` in C++ | the next part of CCLLIB.md's phase 0.10: in C++ an instance's operator is the call of its type macro's function where the macro defines one, and C++'s own where it does not (the program's operator*, an instance on the right alone), an operand of a reference type the object it refers to; a macro's argument taken unread is read where its C text puts it, where cicilang++ refused the call; topers.pl's `_shl_ptr_const_char`; opcpp.cpp, reader k143, k133 changed; the C++ gate builds operators.c and unread.c with cicilang++ | the flow gate; the reader gate and a small net over a probe copy; no chain, on the owner's word; a commit and a push |
+| 0.271 | no CI job on a push or at night; the gates when the ccllib task is finished | the owner's rules: "Do not run github CI after each change" and "disable nightly run" -- gates.yml without its `push` and `schedule` events, the jobs on a pull request and on request --, and "just try to finish ccllib task then gates" -- the task's steps committed with their probes, the chain over the finished task; the CI's nightly full job over 0.270's tree, GREEN twice, carries the gates of 0.269 and 0.270; a record step, no library change | the toolchain, reader, compile, driver, objects and proof gates over this step's tree; a commit and a push |
 
 ## M5 — the C++ mode
 
@@ -18443,3 +18444,50 @@ their pushes, and the next commit records them.
   fixtures built as C++. `RULES.md`, `CLAUDE.md`, `README.md`, `CCLLIB.md`.
 
 The module 0.270; the reader 180 (what a read gives changes); the lowering 154 stays.
+
+## 0.271 — no CI job on a push or at night; the gates when the ccllib task is finished
+
+**0.271: three words of the owner, and a record; no library file changes. "Do not run github CI after each change" and
+"disable nightly run": the workflow loses its `push` and its `schedule` events. "just try to finish ccllib task then
+gates": the steps of the ccllib task are committed with their probes, and the chain runs over the finished task. 0.269
+and 0.270, committed before a full chain, have their gates from the CI: two nights' full jobs over 0.270's tree, each
+GREEN.**
+
+NO CI JOB ON A PUSH OR AT NIGHT. `.github/workflows/gates.yml` named `push` and `schedule` among its events: the smoke
+job ran on each push to main from 0.223 to 0.270, three machines a commit, two of them Macs -- the six pushes of 0.265
+to 0.270, on 2026-11-08, ran eighteen jobs -- and the full job on Linux and the C++ job on the Intel Mac ran each night,
+twice over 0.270's tree, which no push had changed. Both events are gone, and the jobs' conditions with them: the smoke
+job runs on a pull request into main and on request, the full job and the C++ job on request. No step starts a job by
+hand.
+
+THE GATES WHEN THE TASK IS FINISHED. The chain takes an hour and a half on this box, and one ran after each step. On the
+owner's word the steps of the ccllib task are each committed and pushed with their probes, their nets and the flow gate,
+each saying that its chain did not run and claiming nothing GREEN but those; the chain runs over the finished task, and
+its commit carries the numbers.
+
+THE GATES OF 0.269 AND 0.270. Both were committed on the owner's word ("For now commit and push and pause") before a
+full chain, and their entries left the rest to the next chain. The CI ran it: the nightly full job over 0.270's tree
+(`323cd38`), which holds both steps -- every gate over libc++ 18, then the library read and the C++ gate over libc++ 21
+and over 22, on Ubuntu 24.04 -- ended `GREEN: ci full` on 2026-11-09 and again on 2026-11-10, and the C++ job on the
+Intel Mac was GREEN both nights. A chain on this box over the same tree, started on the owner's word to go on
+("Continue"), was stopped on the word above after 25 minutes: over libc++ 22 its library read was GREEN in 408 s, and
+its C++ gate's pool had 407 run fixtures ok and none failed.
+
+THE CI OF 0.269 (`479d0a8`), over cocolog 3.37.0 at its pins: its smoke run (42531725682) GREEN on the three machines --
+Linux (setup 8:23, gates 3:03), Apple silicon (8:36, 4:48), the Intel Mac (23:54, 16:40).
+
+THE CI OF 0.270 (`323cd38`): its smoke run (42531798092) GREEN on the three machines -- Linux (setup 10:09, gates 3:06),
+Apple silicon (11:33, 5:41), the Intel Mac (18:15, 9:19). Its two nightly runs were GREEN too, each the full job on
+Linux (every gate over libc++ 18 and the C++ gates over 21 and 22) and the C++ job on the Intel Mac (the library read
+and the C++ gate over libc++ 18): on 2026-11-09 (42599367627) the full job in 1:29:41 after a setup of 8:16 and the C++
+job in 1:24:15 after 18:07; on 2026-11-10 (42798098351) in 2:39:21 after 19:14 and in 1:48:16 after 27:22.
+
+THE GATES OF THIS STEP, over its work tree, whose library is 0.270's and whose module says 0.271, and a fresh HOME: the
+toolchain check GREEN, then the reader gate (3 s), the compile gate (31 s), the driver gate (43 s), the objects gate (5
+s) and the proof, each GREEN.
+
+- `.github/workflows/gates.yml`: no `push` event and no `schedule`, the three jobs' conditions, its comments.
+  `RULES.md`: the CI job's rule. `README.md`. `CLAUDE.md`: the owner's rules, the versions, the workflow's line.
+  `module/cicilang.cicili`: the version. `HISTORY.md`: this entry and its row.
+
+The module 0.271; the reader 180 and the lowering 154 stay.

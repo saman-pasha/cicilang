@@ -12,7 +12,7 @@ the fixture that gates it, and why. The bullet ends with the version that made t
 edits the rule in `RULES.md`, in its topic, and writes its entry in `HISTORY.md`. Read the topic of `RULES.md` that
 covers the code before the code is changed.
 
-At 0.270 the versions are: the module 0.270 (`ccl_p_version` in `module/cicilang.cicili`, `bin/cicilang --version`),
+At 0.271 the versions are: the module 0.271 (`ccl_p_version` in `module/cicilang.cicili`, `bin/cicilang --version`),
 the reader 180 (`ccl_reader_version/1`, `library/ccl_syntax.pl`) and the lowering 154 (`ccl_lowering_version/1`,
 `library/ccl_ir.pl`).
 
@@ -255,6 +255,16 @@ In `RULES.md`:
 
   and the push is `git push git@github.com:saman-pasha/cicilang.git main:main`; a session given another branch pushes
   there. (from the start, 0.101)
+- THE CI DOES NOT RUN AFTER EACH CHANGE, NOR AT NIGHT (owner's rules, 0.271: "Do not run github CI after each change",
+  then "disable nightly run"): a push starts no job and no night does -- `.github/workflows/gates.yml` has no `push` and
+  no `schedule` event -- and no step starts one by hand. The smoke job runs on a pull request and on request, the full
+  job and the C++ job on request. The proof of the work is the chain on this box. From 0.223 to 0.270 each push ran the
+  smoke job on three machines and each night the full job and the C++ job, and each step's entry recorded its runs.
+  (0.271)
+- THE GATES RUN WHEN THE TASK IS FINISHED (owner's rule, 0.271: "just try to finish ccllib task then gates"): the steps
+  of the ccllib task are each committed and pushed with their probes, their nets and the flow gate, each saying that
+  its chain did not run and claiming nothing GREEN but those; the chain runs over the finished task, and its commit
+  carries the numbers. (0.271)
 - Never commit build output or scratch: `library/*.so`, `module/*.c` (but `module/bidrt.c`, a source: `.gitignore` excepts it, 0.138), `module/*.o`, `module/sdk.cicili`,
   `module/ccl_uninames.h`, `module/ccl_xid.h`, `proof/forty2`, `proof/*.o`, `KB/`, `*.log` (`.gitignore`). (from the
   start, 0.103, 0.221)
@@ -269,9 +279,9 @@ README.md                   what cicilang is and what runs: the commands, the fo
 DESIGN.md                   the architecture, the neighbours' roles, the milestones M0 to M6
 CCLLIB.md                   the plan of ccllib, the standard library of cicilang's C as cocolog macros (0.260)
 .gitignore                  the build output and the scratch that are never committed
-.github/workflows/gates.yml the CI jobs: test/ci.sh's smoke on each push and pull request, on Ubuntu 24.04, an Intel
-                            Mac (macOS 26, 0.224) and Apple silicon (macOS 15, 0.246); every night its full job on
-                            Linux and its C++ job on the Intel Mac (0.246)
+.github/workflows/gates.yml the CI jobs: test/ci.sh's smoke on each pull request and on request, on Ubuntu 24.04, an
+                            Intel Mac (macOS 26, 0.224) and Apple silicon (macOS 15, 0.246); on request its full job
+                            on Linux and its C++ job on the Intel Mac (0.246); no job on a push or at night (0.271)
 
 bin/cicilang                the command: clang's arguments, one cocolog run of ccl_drive/2 over ~/.cicilang/KB
 bin/cicilang++              cicilang for C++: CICILANG_LANG=cpp, --no-kb (in memory), every input C++, linked by c++

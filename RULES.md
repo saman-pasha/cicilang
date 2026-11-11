@@ -79,16 +79,19 @@ that changes a rule edits the rule here, in its topic, and writes its entry in `
   Cicili's (from `9b825b7`, its `.gitignore` alone) and ZiguratIP's (from `90d99b8`, its Mac install alone), at 0.255,
   from 3.16.0 `e965a6e`, at 0.256, from 3.18.0 `914e98a`, and at 0.259, from 3.19.2 `81579bd`, beside ZiguratIP's (from
   `5f058e7`, 1.0.1) (the Findings). (0.223, 0.226, 0.227, 0.254, 0.255, 0.256, 0.259)
-- THE CI JOB (0.223). `.github/workflows/gates.yml` runs `test/ci.sh` on GitHub's machines: `smoke` on each push to
-  main and each pull request into it that changes more than the documents at the top of the tree (the toolchain, then
-  the flow, reader, compile, driver and objects gates and the proof), since 0.224 on two machines and since 0.246 on
-  three, each a job of its own that never waits for the others -- Ubuntu 24.04 (`ubuntu-24.04`: x86-64, 4 CPUs, 16 GB,
-  not root), macOS 26 on Intel (`macos-26-intel`: x86-64, 4 CPUs, 14 GB; the owner's machine, as cocolog's CI has it)
-  and macOS 15 on Apple silicon (`macos-15`: arm64, 3 CPUs, 7 GB; 0.246, cocolog's CI runs it too) --; `full` on Linux
-  every night and on request (all nine gates over libc++ 18, the cross gate's C++ part among them since 0.246, then the
-  library read and the C++ gate over libc++ 21 and over 22, 0.227); `cpp` on the Intel Mac every night and on request
-  (0.246: the library read and the C++ gate over libc++ 18, three lanes, a launch below 6000 MB summed, the pool killed
-  past 10000, caps that fit 14 GB). `test/ci.sh JOB setup` installs the packages where asked (`CI_PACKAGES=1`: apt-get,
+- THE CI JOB (0.223). `.github/workflows/gates.yml` runs `test/ci.sh` on GitHub's machines, ON REQUEST AND ON A PULL
+  REQUEST ALONE (the owner's rules, 0.271: "Do not run github CI after each change", then "disable nightly run"; from
+  0.223 to 0.270 each push to main ran the smoke job, three machines a commit, and each night ran the full job and the
+  C++ job, and each step's entry recorded its runs): `smoke` on each pull request into main that changes more than the
+  documents at the top of the tree, and on request (the toolchain, then the flow, reader, compile, driver and objects
+  gates and the proof), since 0.224 on two machines and since 0.246 on three, each a job of its own that never waits for
+  the others -- Ubuntu 24.04 (`ubuntu-24.04`: x86-64, 4 CPUs, 16 GB, not root), macOS 26 on Intel (`macos-26-intel`:
+  x86-64, 4 CPUs, 14 GB; the owner's machine, as cocolog's CI has it) and macOS 15 on Apple silicon (`macos-15`: arm64,
+  3 CPUs, 7 GB; 0.246, cocolog's CI runs it too) --; `full` on Linux on request (all nine gates over libc++ 18, the
+  cross gate's C++ part among them since 0.246, then the library read and the C++ gate over libc++ 21 and over 22,
+  0.227); `cpp` on the Intel Mac on request (0.246: the library read and the C++ gate over libc++ 18, three lanes, a
+  launch below 6000 MB summed, the pool killed past 10000, caps that fit 14 GB). `test/ci.sh JOB setup` installs the
+  packages where asked (`CI_PACKAGES=1`: apt-get,
   each libc++ tree past LLVM 18's unpacked from apt.llvm.org's packages, and in the full job that machine's libc++ under
   the cross sysroot, both below; on a Mac Homebrew), clones the neighbours at their pins into `CI_ROOT` (default
   `~/Projects/GitHub`; it moves no checkout it did not make and stops at one off its pin), builds them with cocolog's
@@ -250,7 +253,7 @@ that changes a rule edits the rule here, in its topic, and writes its entry in `
   skipped), the step 2:06:43. THE RUNS OF 0.258 (`77e39d8`), over cocolog 3.19.2 at its pins: the push's smoke run
   (42331812343) GREEN on the three machines -- Linux (setup 11:12, gates 3:49), Apple silicon (11:42, 5:36), the Intel
   Mac (19:35, 12:51); no job of the night had run at the commit when 0.259 was written. (0.224, 0.225, 0.226, 0.246,
-  0.247, 0.248, 0.249, 0.250, 0.251, 0.252, 0.253, 0.255, 0.256, 0.257, 0.258, 0.259)
+  0.247, 0.248, 0.249, 0.250, 0.251, 0.252, 0.253, 0.255, 0.256, 0.257, 0.258, 0.259, 0.271)
 
 ### The chain
 
