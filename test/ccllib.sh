@@ -3,7 +3,9 @@
 # program of test/ccllib is one ccllib program, NAME.c, and its twin over std::, NAME.cpp: cicilang builds NAME.c as C,
 # cicilang++ builds it as C++, and the reference clang++ ($LLVM's, else the one on the path) builds the twin over its
 # libc++. The three print the same lines, NAME.expect, which the twin made; with NAME.count, a count for a longer run
-# (`first 2000000'), the three print the same lines for that run too.
+# (`first 2000000'), the three print the same lines for that run too. cicilang++ builds NAME.c AT THE TWIN'S LEVEL too
+# (0.284; CCLLIB_STD, c++23), and that build prints NAME.expect: until then an instance's `v[i]' was C++'s own at
+# C++23, where a subscript takes a list of arguments, and every ccllib program with an index was refused there.
 #
 # EVERY BLOCK IS FREED: where valgrind is, each of the three runs under it with no error and no block left, the longer
 # run with a count of 5000 too -- an object is dropped where its scope ends, a moved one by who took it (the autodrop of
@@ -84,6 +86,13 @@ for src in "$T"/*.c; do
       else bad "$n.c, built as $as, prints what its twin prints" "$(diff "$want" "$D/${n}_$how.out" 2>&1)"; fi
     else bad "$n.c builds as $as" "$(cat "$D/${n}_$how.log")"; rm -f "$D/${n}_$how"; fi
   done
+  # the C++ build at the twin's level (0.284)
+  if timeout -s KILL "$CCLLIB_SECS" "$ROOT/bin/cicilang++" "-std=$CCLLIB_STD" "$src" -o "$D/${n}_std" > "$D/${n}_std.log" 2>&1 < /dev/null; then
+    ccl_ran "$D/${n}_std" "$D/${n}_std.out"
+    if cmp -s "$D/${n}_std.out" "$want"; then ok "$n.c, built as C++ at the twin's level ($CCLLIB_STD), prints what its twin prints"
+    else bad "$n.c, built as C++ at the twin's level ($CCLLIB_STD), prints what its twin prints" "$(diff "$want" "$D/${n}_std.out" 2>&1)"; fi
+  else bad "$n.c builds as C++ at the twin's level ($CCLLIB_STD)" "$(cat "$D/${n}_std.log")"; fi
+  rm -f "$D/${n}_std"
   # the twin, which made NAME.expect
   if [ "$twin" = yes ]; then
     if ccl_twin "$T/$n.cpp" -o "$D/${n}_twin" > "$D/${n}_twin.log" 2>&1; then

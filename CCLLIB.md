@@ -286,11 +286,18 @@ A type macro gives its instances operators that the reader writes as calls: `v[i
   a hole, closed with it: a result tied to a struct with own fields was a borrow of the struct, so `int *p = &m[3];
   m[9] = 1; *p` read the buffer that the insertion freed; it is a borrow of the struct's own fields now, which a call
   that may replace them ends (`test/c/safe/index_after_insert.c`, `tied_after_call.c`).
-- WHAT 0.266 LEAVES (Not done): the unary operators (`-a`, `!a`, `*it`, `++it`) and the compound assignments over an
-  instance (`a += b`) are no calls; `%`, `&`, `|` and `^` are not in the table; the left operand decides, so `2 * a`
-  is refused; the word of `<<`'s operand is its exact type's, so a `const char *` asks `_shl_ptr_const_char`; a tied
-  result's borrow is of one own field, so a hand free of another does not end it, as before; C++ keeps its own
-  operators until phase 0.10.
+- PART 2, DONE AT 0.284 (what `bitset` and `string` need): `% & | ^` are `_mod`, `_and`, `_or` and `_xor`; `-a` and `~a`
+  are `_neg` and `_compl`; a compound assignment is the call of its own function, `a += b` `<name>_add_assign(&a, b)`,
+  which changes the object in its place; A FUNCTION NAMED WITH THE WORD OF THE RIGHT OPERAND'S TYPE GOES BEFORE THE
+  PLAIN ONE (`x + 3` `<name>_add_int`, `x += 10` `<name>_add_assign_int`), so an operator has several forms by its right
+  operand, as C++'s overloads give it; a shift by a number is the plain `_shl` and `_shr`; `v[i]` is a value where the
+  macro defines `_item`, and `v[i] = x` its `_set_item`. `test/c/run/operators2.c` over `topers2.pl`. At C++23 an
+  instance's `v[i]` was C++'s own, and every ccllib program with an index was refused there: the step found it, and the
+  ccllib gate builds each program at the twin's level too.
+- WHAT IS LEFT (Not done): `!a`, `*it`, `++it` and `it++` are no calls; `>` and `<=` take no typed name; the left
+  operand decides, so `2 * a` is refused; the word of an operand is its exact type's, so a `const char *` asks
+  `_shl_ptr_const_char`; a tied result's borrow is of one own field, so a hand free of another does not end it, as
+  before.
 
 ### 0.10 ccllib in cicilang++ (the owner's decision of 2026-11-08)
 

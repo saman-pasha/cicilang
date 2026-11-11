@@ -681,7 +681,10 @@ that changes a rule edits the rule here, in its topic, and writes its entry in `
   another level), its run path the tree's `lib` where the tree has a libc++, as cicilang++'s link names it. The three
   print the same lines, `NAME.expect`, which the twin made; with `NAME.count`, the count of a longer run (`first
   10000000`), the three print the same line for that run too. A box where no clang++ builds a three-line `<vector>`
-  program over libc++ prints `SKIP NAME.cpp (not here)` and holds the two cicilang builds to the `.expect`. (0.273)
+  program over libc++ prints `SKIP NAME.cpp (not here)` and holds the two cicilang builds to the `.expect`. cicilang++
+  builds `NAME.c` AT THE TWIN'S LEVEL too (0.284; `-std=$CCLLIB_STD`, c++23), and that build prints `NAME.expect`: no
+  gate built a ccllib program at C++23 until then, where an instance's `v[i]` was C++'s own (the macro files' topic).
+  (0.273, 0.284)
 - EVERY BLOCK IS FREED: where valgrind is, each of the three runs under it (`--leak-check=full`), as it stands and,
   with a `NAME.count`, with a count of 5000 -- no error, and `All heap blocks were freed`: each object is dropped where
   its scope ends, a moved one by who took it (the autodrop of 0.262, whose own fixtures the compile gate runs on every
@@ -2436,11 +2439,11 @@ that changes a rule edits the rule here, in its topic, and writes its entry in `
   mark, `ccl_inst_once/2`): a call of one is no throw point for the safe part's defer rule, where `vec_int_push(&v, x)`
   over an own buffer was `owner live where a call may throw, and no defer frees it`, and the lowering makes it a plain
   call. Two C++ units that both make `vector<int>` link, its functions linkonce_odr there too. The C++ gate builds
-  `test/c/run/ctext.c`, `autodrop.c`, `tvector.c` (0.268: its headers `tvhdr.h` and `tvhdr2.h` read as the
-  program's file is, the topic of includes), `literal.c` (0.269), `operators.c` and `unread.c` (0.270) and `lazy.c`
-  (0.274) with cicilang++ and compares each with its `.expect`; `elemborrow.c` is `test/cpp/run/elemborrowpp.cpp`
-  there (0.272), its plain functions noexcept: C++'s defer rule refuses a plain struct's live owner across a call that
-  may throw. (0.267, 0.268, 0.269, 0.270, 0.272, 0.274)
+  `test/c/run/ctext.c`, `autodrop.c`, `tvector.c` (0.268: its headers `tvhdr.h` and `tvhdr2.h` read as the program's
+  file is, the topic of includes), `literal.c` (0.269), `operators.c` and `unread.c` (0.270), `lazy.c` (0.274) and
+  `operators2.c` (0.284) with cicilang++ and compares each with its `.expect`; `elemborrow.c` is
+  `test/cpp/run/elemborrowpp.cpp` there (0.272), its plain functions noexcept: C++'s defer rule refuses a plain struct's
+  live owner across a call that may throw. (0.267, 0.268, 0.269, 0.270, 0.272, 0.274, 0.284)
 - **A READ THAT MADE OR MET AN INSTANCE IS KEPT IN NEITHER CACHE** (0.261): what it holds is its unit's -- the instance
   where the unit first used it, a later use naming it alone -- so neither the process's cache nor the store keeps such
   a header's read or such a file's (`ccl_include_read/2`, `ccl_read_file_/3`, over a count of the instances met,
@@ -2460,13 +2463,13 @@ that changes a rule edits the rule here, in its topic, and writes its entry in `
   instance of the unit, the macro answers for Name and the unit has not made it: the items are read now, marked as an
   instance's are (`ccl_inst_linkonce/2`) and stand at file scope before the item read now (`ccl_hoist/1`). It is asked
   by a call by name (the next rule), by a plain call of the full name -- so the text of one function calls another,
-  `@{N}_reserve(v, n)`, which is made first --, by an operator (`ccl_iop_ours/1`, `ccl_iop_fn/4`), by a literal
-  (`ccl_lit_from/3`) and by `clone`. The unit's made functions are `fn(F)` beside its instances in `'$ccl_instances'`,
-  and a name that no macro answers for is `nofn(F)`, so each is asked once and a read that gives its instances back
-  gives these back with them. The macro's failure is no error: it has no function of that name; its error names the
-  call and the macro file, as a type macro's does (`ccl_inst_fn_make/5`). The drop is the type's, made with it: an
-  object exists before any call. Reader `k144`; `test/c/run/lazy.c` over `lazy.pl`, whose `stack_int_never` no unit
-  holds, built as C and, by the C++ gate, as C++; ccllib's `vector.pl`. (0.274)
+  `@{N}_reserve(v, n)`, which is made first --, by an operator (`ccl_iop_declared/2`), by a literal (`ccl_lit_from/3`)
+  and by `clone`. The unit's made functions are `fn(F)` beside its instances in `'$ccl_instances'`, and a name that no
+  macro answers for is `nofn(F)`, so each is asked once and a read that gives its instances back gives these back with
+  them. The macro's failure is no error: it has no function of that name; its error names the call and the macro file,
+  as a type macro's does (`ccl_inst_fn_make/5`). The drop is the type's, made with it: an object exists before any call.
+  Reader `k144`; `test/c/run/lazy.c` over `lazy.pl`, whose `stack_int_never` no unit holds, built as C and, by the C++
+  gate, as C++; ccllib's `vector.pl`. (0.274)
 - **A CALL OF AN INSTANCE'S FUNCTION BY ITS OWN NAME** (0.274; `CCLLIB.md`: a generic call finds its instance by the
   type of its argument): `push_back(v, 1)`, where `v` is an object of an instance's type or a pointer to one and no
   macro is named `push_back`, is `vector_int_push_back(&v, 1)` where the instance has that function, declared or made
@@ -2604,18 +2607,18 @@ that changes a rule edits the rule here, in its topic, and writes its entry in `
   `test/c/run/operators.c` over `topers.pl` -- a point, a ring, a dictionary, a text -- which prints what clang's build
   of its hand expansion prints, its allocations all freed. (0.266)
 - **OPERATORS ON INSTANCES IN C++** (0.270; `CCLLIB.md`'s phase 0.10): cicilang++ writes an instance's operator as
-  cicilang does where the type macro defines the operator's function (`ccl_iop_ours/1`, the name by `ccl_iop_fname/4`);
-  where it defines none, the operator is C++'s own, which the desugaring looks up -- the program's `operator*(pt<double>,
-  double)`, or the library's -- and so is an operator whose instance is on the right alone (`2.0 * b`, the program's
-  `operator*(double, pt<double>)`), which C refuses. An operand of a reference type is the object it refers to ([expr.type]/1): `p == q` over two
-  `const pt<double> &` is `pt_double_eq(&p, &q)`. A string literal is `const char[N]` in C++ ([lex.string]/10), so
-  `out << "x"` asks `<name>_shl_ptr_const_char`, which `topers.pl` defines beside C's `_shl_ptr_char`. A library
-  header's read takes no instance's operator (`ccl_lib_unit/1`): it knows no instance of the program's. An operator that
-  neither the macro nor the program defines is refused by the desugaring, `a / b` with no `_div` `not lowered yet:
-  no_operator(/)`; until 0.270 every operator over an instance was C++'s own, and `a + b` over `pt<double>` was so
-  refused, `no_operator(+)`. Reader
-  `k143` over `test/cpp/run/opcpp.cpp` (the macro's `+`, `==` and `[]` beside the program's two `operator*`), which the
-  C++ gate builds and runs; the C++ gate builds `operators.c` with cicilang++. (0.270)
+  cicilang does where the type macro defines the operator's function (`ccl_iop_declared/2`, the name by
+  `ccl_iop_pick/6`; 0.284); where it defines none, the operator is C++'s own, which the desugaring looks up -- the
+  program's `operator*(pt<double>, double)`, or the library's -- and so is an operator whose instance is on the right
+  alone (`2.0 * b`, the program's `operator*(double, pt<double>)`), which C refuses. An operand of a reference type is
+  the object it refers to ([expr.type]/1): `p == q` over two `const pt<double> &` is `pt_double_eq(&p, &q)`. A string
+  literal is `const char[N]` in C++ ([lex.string]/10), so `out << "x"` asks `<name>_shl_ptr_const_char`, which
+  `topers.pl` defines beside C's `_shl_ptr_char`. A library header's read takes no instance's operator
+  (`ccl_lib_unit/1`): it knows no instance of the program's. An operator that neither the macro nor the program defines
+  is refused by the desugaring, `a / b` with no `_div` `not lowered yet: no_operator(/)`; until 0.270 every operator
+  over an instance was C++'s own, and `a + b` over `pt<double>` was so refused, `no_operator(+)`. Reader `k143` over
+  `test/cpp/run/opcpp.cpp` (the macro's `+`, `==` and `[]` beside the program's two `operator*`), which the C++ gate
+  builds and runs; the C++ gate builds `operators.c` with cicilang++. (0.270, 0.284)
 - REFUSED AT THE OPERATOR (0.266), `macro_error(Message, here(File, Line))`: an operator that the instance's type macro
   does not define (`the operator * of pt_double is not defined: its type macro defines no pt_double_mul`), a `<<` of a
   type whose word names no function among them (`tbuf_char_shl_float`: a float is not promoted, as no prototype
@@ -2625,6 +2628,40 @@ that changes a rule edits the rule here, in its topic, and writes its entry in `
   Reader `k140`; the driver gate. In C++ (0.270) the refusals of an operator whose function the macro defines stand --
   no lvalue or another type where the address goes, `>>` into no lvalue -- and the others are C++'s own operator, which
   the desugaring finds or refuses. (0.266, 0.270)
+- **OPERATORS ON INSTANCES, PART 2** (0.284; what 0.266 left, which a set of bits and a string need): THE TABLE HAS `% &
+  | ^` TOO, `<name>_mod`, `_and`, `_or` and `_xor` (`ccl_iop_word/3`). A FUNCTION NAMED WITH THE WORD OF THE RIGHT
+  OPERAND'S TYPE GOES FIRST, and the plain one after it (`ccl_iop_pick/6`, `ccl_iop_typed/4`): `x + 3` is
+  `<name>_add_int(x, 3)` where the type macro defines it, else `<name>_add`; `x == 1` is `<name>_eq_int` and `x != 1`
+  its `!`. `<<` and `>>` had the typed name as their one form; it is every operator's now whose function takes the right
+  operand second -- all but `>` and `<=`, whose `_lt` takes it first --, and `<<` and `>>` have the plain form after it,
+  so `b << 3` is `<name>_shl(b, 3)`, a shift by a number. C has no overloads, and a call by name tells two forms by the
+  count of their arguments; an operator has two operands always, so the type of the second tells its forms. THE RIGHT
+  OPERAND OF `>>` goes by its address where the function's parameter is a pointer -- a stream reads into it, an lvalue
+  --, and by its value where it is not (`ccl_iop_right/5`). `-a` AND `~a` are `<name>_neg(a)` and `<name>_compl(a)`
+  (`ccl_iop_unary/4`). A COMPOUND ASSIGNMENT IS THE CALL OF ITS OWN FUNCTION: `a += b` is `<name>_add_assign(&a, b)`,
+  and `-= *= /= %= &= |= ^= <<= >>=` go by the words `sub`, `mul`, `div`, `mod`, `and`, `or`, `xor`, `shl` and `shr`,
+  the typed name first (`ccl_iop_assign/4`: `x += 10` is `<name>_add_assign_int`). It changes the object in its place;
+  `a = a + b` in its stead would make a second object and assign it over a live one. `v[i]` IS A VALUE where the type
+  macro defines `<name>_item` and no `_index` (`ccl_iop_index_/4`): an element that has no address, as one bit of a set
+  of bits; `v[i] = x` is then `<name>_set_item(&v, i, x)`. Each function is made at its first use, an operator's as a
+  call's (`ccl_iop_declared/2` over `ccl_inst_ensure/1`). In C++ each form is the type macro's where the macro defines
+  its function, and C++'s own operator where it does not. Each of the three hooks -- `ccl_iop_binary/4`,
+  `ccl_iop_unary/4` after a unary operator's operand, `ccl_iop_assign/4` after an assignment's right side -- begins with
+  the instance of its operand (`ccl_iop_inst/2`), which fails at once in a unit that has no instance. REFUSED BY NAME at
+  the operator's line: in C a compound assignment, a unary operator and `% & | ^` that the type macro does not define
+  (`the operator += of pt_double is not defined: its type macro defines no pt_double_add_assign`); in C and in C++ a
+  compound assignment of an element that `[]` gives as a value (`the operator |= of an element of bits_12 is not
+  defined: v[i] is a value there, and v[i] = x writes one`), and an assignment of one where the macro defines no
+  `_set_item`. Reader `k148` to `k153`, the refusals over `test/c/op_assign.c`, `op_unary.c`, `op_bit.c`, `op_item.c`
+  and `op_item_set.c`; `test/c/run/operators2.c` over `topers2.pl` -- a set of bits in a word; a number in a struct, its
+  functions made at their first use; a word whose bits `[]` reads -- prints what clang's build of its hand expansion
+  prints, as C and, by the C++ gate, as C++. Reader 183. (0.284)
+- **AT C++23 AN INSTANCE'S `v[i]` IS THE TYPE MACRO'S TOO** (0.284): C++23 reads a subscript's arguments as a list
+  (`a[i, j]`), and that clause of the reader (`ccl_postfix_p//3`) gave `index(A, I)` for one argument with no look at
+  the instance, where the clause of the levels before it asks `ccl_iop_index/3`. So `bin/cicilang++ -std=c++23` refused
+  every ccllib program that has an index, `not lowered yet: no_operator('[]')`, since 0.270; no gate built one at that
+  level. The clause asks `ccl_iop_index/3` for one argument now, and THE CCLLIB GATE BUILDS EACH PROGRAM AS C++ AT THE
+  TWIN'S LEVEL TOO (the topic of the ccllib gate). (0.284)
 
 ## The C++ reader
 
@@ -13780,13 +13817,21 @@ Declarations topic of the C++ reader).
   to `void *`, not back): the macro files cast, as C++ asks. A program's own header that does not read whole in C++
   through the preprocessor in the file's mode goes the old way (0.268): raw, its macros unexpanded, or flattened, a
   library header to the desugaring. The safety rules' limits in C++ are the item above.
-- OPERATORS ON INSTANCES, THEIR LIMITS (0.266; `CCLLIB.md`'s phase 0.9): the unary operators (`-a`, `!a`, `*it`,
-  `++it`) and the compound assignments over an instance (`a += b`) are no calls, and `%`, `&`, `|` and `^` are not in
-  the table; the left operand decides, so `2 * a` is refused where C++ finds a free `operator*(double, pt)`; the word of
-  `<<`'s operand is its exact type's, so a `const char *` asks `_shl_ptr_const_char` beside a literal's `_shl_ptr_char`;
-  a result tied to a struct with own fields is a borrow of one of them, so a hand free of another does not end it, as
-  none did before 0.266. In C++ (0.270) the type macro's function goes first where it is defined: a program that
-  defines its own `operator==` over an instance whose macro defines `_eq` calls the macro's.
+- OPERATORS ON INSTANCES, THEIR LIMITS (0.266; `CCLLIB.md`'s phase 0.9): `!a`, `*it`, `++it` and `it++` over an instance
+  are no calls (`-a`, `~a`, the compound assignments and `% & | ^` are, since 0.284); `>` and `<=` take no function
+  named with the word of their right operand, since their `_lt` takes it first; a compound assignment of an element that
+  `[]` gives as a value is refused (`b[i] |= 1`), and such an element has no address; the left operand decides, so `2 *
+  a` is refused where C++ finds a free `operator*(double, pt)`; the word of `<<`'s operand is its exact type's, so a
+  `const char *` asks `_shl_ptr_const_char` beside a literal's `_shl_ptr_char`; a result tied to a struct with own
+  fields is a borrow of one of them, so a hand free of another does not end it, as none did before 0.266. In C++ (0.270)
+  the type macro's function goes first where it is defined: a program that defines its own `operator==` over an instance
+  whose macro defines `_eq` calls the macro's.
+- IN C A UNARY `-` OR `~` OVER A PLAIN STRUCT REACHES LLVM (found at 0.284, beside the operators over instances):
+  `struct P q = -p;` is lowered as `sub nsw %struct.P 0, ...`, and the embedded LLVM refuses the IR in its parser's
+  words (`integer constant must have integer type`), where clang says `invalid argument type 'struct P' to unary
+  expression`; a compound assignment and a binary operator over two structs are `not lowered yet: type(unknown)`, where
+  clang says `invalid operands to binary expression`. The program is refused either way, by no words of this compiler's:
+  the check or the lowering is to refuse each by name.
 - TWO MACRO FILES THAT DEFINE ONE PREDICATE, IN ONE PROCESS (found at 0.263): a macro file's predicates are the
   process's, consulted once, so a second file that defines a name the first defines is not its own there -- the reader
   gate and the compile gate read every fixture in one process, and `literal.pl`'s own `type_vector/3` was `tvector.pl`'s

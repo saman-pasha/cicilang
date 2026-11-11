@@ -407,7 +407,13 @@ the calls of the functions that its type macro names for them --
 refuses an operator that the macro does not define. A `[]` that answers a
 place in the object's buffer is tied to the object, so `int *p = &m[3];
 m[9] = 1; *p` is refused, as a use after a push is.
-`test/c/run/operators.c` is the example.
+`test/c/run/operators.c` is the example. Since 0.284 `% & | ^`, the unary
+`-` and `~` and the compound assignments are calls too (`<name>_mod`, `_and`,
+`_or`, `_xor`, `_neg`, `_compl`, `_add_assign` ...): `a += b` changes the
+object in its place. A function named with the word of the right operand's
+type goes first, so `x + 3` is `<name>_add_int` where the macro defines it,
+and `v[i]` is a value where the macro defines `_item`, with `v[i] = x` its
+`_set_item`. `test/c/run/operators2.c` is the example.
 
 cicilang++ reads the same macro files (0.267): `vector<int>` over a type
 macro, `max<double>(a, b)`, a macro's C text, whose functions are noexcept in

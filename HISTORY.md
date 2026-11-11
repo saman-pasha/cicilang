@@ -278,6 +278,7 @@ One row per step, in version order: the step's title, what it did and its gate n
 | 0.281 | ccllib's `<set.pl>` and `<map.pl>`: the ordered containers, one B-tree in an arena | CCLLIB.md's phase 1a goes on: library/ccllib/set.pl and map.pl over tree.pl, std::set, std::multiset, std::map and std::multimap as ONE text, a B-tree whose nodes stand in one own buffer, 26, 26, 33 and 27 functions; an insert that finds its key and an erase that finds none change nothing; a place ends where the tree takes a new entry or loses one, where C++'s iterator stays, and a place used after that stops the program; the order is a function's name, the type's last argument; the gate's new part, the programs that stand alone: what stops a ccllib program (41 cases over every module) and the rules of the tree; no file of the compiler changed | the flow gate; the ccllib gate over libc++ 22, 21 and 18; no chain, by the owner's rule of 0.271; a commit and a push |
 | 0.282 | The files that a macro file loads are its unit's: the store and the kept IR name them | a macro file may load another by a directive, as ccllib's `<set.pl>` loads tree.pl; a unit kept in the store, its IR there and a C++ file's kept IR named the macro file alone, so a change of the loaded file did not reach a program built before it (found at the next module's tests: its C build was served the old IR); ccl_macro_loads/2 gives the loaded files at any depth, the three caches name them, and the user's file names each macro file that its includes reach; the driver gate's check, in C and in C++; reader 182 | the flow gate; the reader, compile and driver gates and the ccllib gate over libc++ 22, over one fresh HOME; no chain, by the owner's rule of 0.271; a commit and a push |
 | 0.283 | ccllib's `<unordered_set.pl>` and `<unordered_map.pl>`: the unordered containers, one hash table of open addressing | CCLLIB.md's phase 1a goes on: library/ccllib/unordered_set.pl and unordered_map.pl over table.pl, std::unordered_set, std::unordered_multiset, std::unordered_map and std::unordered_multimap as ONE text, a hash table whose slots stand in one own buffer, 27, 28, 34 and 29 functions; a key that is no number names its hash's function and its equality's, the type's last arguments; a multi container's entries of one key have a hash each; a place ends as a tree's, and always at rehash and reserve; the rules of the table read from its fields, and four copies broken on purpose, each reported; the step's proofs found two stop cases under the table's limit and a reserve and a rehash that ended a place at some sizes only; a finding: an object is for the build box's CPU, and valgrind 3.22 does not know AVX-512; no file of the compiler changed | the flow gate; the ccllib gate over libc++ 22, 21 and 18; no chain, by the owner's rule of 0.271; a commit and a push |
+| 0.284 | Operators on instances, part 2: `%` and the bit operators, the unary `-` and `~`, the compound assignments, the right operand's word, `[]` as a value | what 0.266 left, which ccllib's bitset and string need: the reader writes `%` and the bit operators over an instance as its type macro's _mod, _and, _or and _xor, `-a` and `~a` as _neg and _compl, a compound assignment as the call of its own function (`a += b` is <name>_add_assign(&a, b)); a function named with the word of the right operand's type goes before the plain one; `>>` takes its right operand by value where the parameter is no pointer; `v[i]` is a value where the macro defines _item, and `v[i] = x` its _set_item; in C and in C++; found on the way: at -std=c++23 an instance's `v[i]` was C++'s own and every ccllib program with an index was refused, and the ccllib gate builds each program at the twin's level too; reader 183 | the flow gate; the reader, compile and driver gates and the ccllib gate over libc++ 22, over one fresh HOME; the ccllib gate over libc++ 21 and 18; eleven C++ fixtures over instances by hand; no chain, by the owner's rule of 0.271; a commit and a push |
 
 ## M5 — the C++ mode
 
@@ -19512,3 +19513,110 @@ NO CHAIN RAN for this step (the owner's rule of 0.271), and it claims nothing GR
   ccllib, the embedded LLVM, the Findings, Not done), `CLAUDE.md`, `README.md`, `CCLLIB.md`.
 
 The module 0.283; the reader 182 and the lowering 156 as they were: no file of the compiler changed.
+
+## 0.284 — operators on instances, part 2: `% & | ^`, the unary `-` and `~`, the compound assignments, the right operand's word, `[]` as a value
+
+**0.284: what 0.266 left of the operators that a type macro gives its instances, which the next modules of ccllib need
+-- a set of bits its `& | ^ ~ << >>` and their assignments, a string its `+=` and an operand of several types. The
+reader writes each as the call of the function that the type macro defines for it, in C and in C++. The step found a
+defect of the pushed tree on its way: at `-std=c++23` an instance's `v[i]` was C++'s own operator, and every ccllib
+program with an index was refused there. The reader's version is 183. Committed with its nets; the chain runs when the
+ccllib task is finished (the owner's rule of 0.271).**
+
+WHY NOW. `CCLLIB.md`'s phase 1a comes to `bitset` and `string`. C++ gives a bitset no names for its set operations but
+the operators, and a string is appended to by `+=`, with a string, a literal or a character on its right. 0.266 wrote `+
+- * / == != < > <= >= << >>` and `[]` over an instance as calls, one function an operator; its Not done list named the
+rest. A module written before this step would have had names of its own for C++'s operators, and would have changed them
+after it.
+
+THE TABLE HAS `% & | ^` TOO: `a % b` is `<name>_mod(a, b)`, `a & b` `<name>_and`, `a | b` `<name>_or`, `a ^ b`
+`<name>_xor` (`ccl_iop_word/3`).
+
+A FUNCTION NAMED WITH THE WORD OF THE RIGHT OPERAND'S TYPE GOES FIRST, and the plain one after it (`ccl_iop_pick/6`): `x
++ 3` is `<name>_add_int(x, 3)` where the type macro defines it, else `<name>_add(x, 3)`; `x == 1` is `<name>_eq_int` and
+`x != 1` its negation. `<<` and `>>` had the typed name as their one form (0.266: `out << 3` is `<name>_shl_int`); it is
+every operator's now whose function takes the right operand second -- all but `>` and `<=`, whose `_lt` takes it first
+--, and `<<` and `>>` have the plain form after it, so `b << 3` is `<name>_shl(b, 3)`, a shift by a number. C has no
+overloads, and the call by name tells two forms by the count of their arguments; an operator has two operands always, so
+the type of the second tells its forms.
+
+THE RIGHT OPERAND OF `>>` goes by its address where the function's parameter is a pointer -- a stream reads into it, and
+it is an lvalue --, and by its value where it is not (`ccl_iop_right/5`). 0.266 took the address always, so `b >> 3` was
+refused.
+
+`-a` AND `~a` are `<name>_neg(a)` and `<name>_compl(a)` (`ccl_iop_unary/4`).
+
+A COMPOUND ASSIGNMENT IS THE CALL OF ITS OWN FUNCTION: `a += b` is `<name>_add_assign(&a, b)`, and `-= *= /= %= &= |= ^=
+<<= >>=` go by the words `sub`, `mul`, `div`, `mod`, `and`, `or`, `xor`, `shl` and `shr`, the typed name first
+(`ccl_iop_assign/4`: `x += 10` is `<name>_add_assign_int`). It changes the object in its place. `a = a + b` in its stead
+would make a second object and assign it over a live one, which the safe part refuses for an object that has a drop, and
+an append to a string would copy the string each time.
+
+`v[i]` IS A VALUE where the type macro defines `<name>_item` and no `_index`: an element that has no address, as one bit
+of a set of bits. `v[i] = x` is then `<name>_set_item(&v, i, x)`. `_index` stays what it was, a place in the object's
+buffer, tied to the object.
+
+IN C++ each form is the type macro's where the macro defines its function, and C++'s own operator where it does not, as
+0.270 made the first operators: a program's `operator+=` over an instance stays the program's.
+
+REFUSED BY NAME, at the operator's line. In C: a compound assignment, a unary operator and `& | ^ %` that the type macro
+does not define -- `the operator += of pt_double is not defined: its type macro defines no pt_double_add_assign`.
+Before, `a += b` and `a & b` over an instance were `not lowered yet: type(unknown)`, and `-a` reached LLVM, which
+refused its IR (`sub nsw %struct.pt_double 0, ...`); a unary `-` or `~` over a plain struct of the program's does so
+still (Not done). In C and in C++: a compound assignment of an element that `[]` gives as a value (`b[1] |= 1`: `the
+operator |= of an element of bits_12 is not defined: v[i] is a value there, and v[i] = x writes one`), and an assignment
+of one where the macro defines no `_set_item`.
+
+A DEFECT OF THE PUSHED TREE, FOUND ON THE WAY: AT C++23 AN INSTANCE'S `v[i]` WAS C++'S OWN. C++23 reads a subscript's
+arguments as a list (`a[i, j]`), and the reader's clause for it gave `index(A, I)` for one argument with no look at the
+instance; the clause of the levels before it asked `ccl_iop_index/3`. So `bin/cicilang++ -std=c++23 test/ccllib/array.c`
+was refused, `not lowered yet: no_operator('[]')`, and `map.c` with it: every ccllib program that has an index, since
+0.270. No gate built a ccllib program at C++23 -- the twins are built at that level, the programs at cicilang++'s own.
+The clause asks `ccl_iop_index/3` now; the twelve programs of `test/ccllib`, its three programs that stand alone and
+four fixtures of `test/c/run` build at C++23 and print their expected lines. THE CCLLIB GATE BUILDS EACH PROGRAM AS C++
+AT THE TWIN'S LEVEL TOO (`CCLLIB_STD`, c++23), and that build prints `NAME.expect`: twelve checks more a tree.
+
+THE CODE. `library/ccl_syntax.pl`: `ccl_iop_binary/4` asks `ccl_iop_pick/6` for the function and `ccl_iop_make/8` writes
+the call; `ccl_iop_declared/2` gives an instance's function that the unit has, declared or made now by
+`ccl_inst_ensure/1` -- an operator's function is made at its first use, as a call's is --, and stands where
+`ccl_iop_ours/1`, `ccl_iop_fn/4` and `ccl_iop_fname/4` stood. The unary operators and the assignment ask
+`ccl_iop_unary/4` and `ccl_iop_assign/4` after they read their operands. Each of the three begins with the instance of
+its operand (`ccl_iop_inst/2`), which fails at once in a unit that has no instance: a program with no type macro reads
+as before.
+
+THE FIXTURE: `test/c/run/operators2.c` over `topers2.pl`. `bits<12>` is a set of bits in a word: `& | ^ ~ << >>` by
+value, their five assignments in the object's place, `b[i]` a bit's value and `b[i] = x`. `num<int>` and `num<double>`
+are a number in a struct, whose functions are made at their first use (`fn_num/3`): `%`, the unary `-`, `+` and `==`
+with a number and with an int (`_add_int`, `_eq_int`), and `+= -= *= /= %=`; `num<double>` never asks for `%`, which a
+double has not, so its `_mod` is never made. `peek<8>` reads a bit by `[]` and writes none. It prints what clang's build
+of its hand expansion prints, as C and as C++. The reader gate has six checks more, `k148` to `k153`, over the calls
+that the reader writes and over five refusals, `test/c/op_assign.c`, `op_unary.c`, `op_bit.c`, `op_item.c` and
+`op_item_set.c`; the C++ gate's list of the C fixtures that it builds as C++ has `operators2.c`.
+
+WHAT IT COSTS. Each `% & | ^`, unary `-` and `~` and each assignment of a unit that has an instance asks its operand's
+type now, as each `+` and `==` did. Over the ccllib gate's costs, libc++ 21 and a fresh HOME for each gate, the twelve C
+builds take 5.59 s in sum at 0.283 and 5.63 s at 0.284, and the twelve C++ builds 15.51 s and 15.64 s: under one
+hundredth more, where one row differs by a tenth of a second from run to run. Each program's IR has the types, the
+functions and the lines that it had, and its object the bytes.
+
+WHAT IS LEFT (Not done): `!a`, `*it`, `++it` and `it++` over an instance are no calls; `>` and `<=` take no typed name;
+a compound assignment of an element that `[]` gives as a value is refused, and so is its address; the left operand
+decides, so `2 * a` is refused in C. And found beside the step, no part of it: in C a unary `-` or `~` over a plain
+struct is lowered (`sub nsw %struct.P 0, ...`) and the embedded LLVM refuses the IR in its parser's words, where clang
+says `invalid argument type 'struct P' to unary expression`; the program is refused either way.
+
+THE NETS, over the work tree: the flow gate GREEN with no finding (167 s, peak 3987 MB); over one fresh HOME the reader
+gate (154 checks, 4 s), the compile gate (253 checks, 33 s), the driver gate (66 checks, 49 s) and the ccllib gate over
+libc++ 22 (152 checks, 435 s), each GREEN; the ccllib gate GREEN over libc++ 21 and 18 too, each over a fresh HOME (412
+s and 416 s; 152 checks each, none skipped): 12 programs in three runs, 37 refused, 3 alone. By hand, since the C++ gate
+runs with the chain: the eight C fixtures that the C++ gate builds as C++ (`ctext`, `autodrop`, `tvector`, `literal`,
+`operators`, `operators2`, `unread`, `lazy`) and `test/cpp/run/opcpp.cpp`, `elemborrowpp.cpp` and `borrowkeep.cpp` print
+their expected lines over libc++ 22.
+
+NO CHAIN RAN for this step (the owner's rule of 0.271), and it claims nothing GREEN but the nets above. No CI job ran.
+
+- `library/ccl_syntax.pl`: the operators over instances, the reader's version. `test/reader.pl`: `k148` to `k153`.
+  `test/ccllib.sh`: the C++ build at the twin's level. `test/cpp.sh`: `operators2` in its list. The fixtures. `RULES.md`
+  (the macro files' topic, the ccllib gate, Not done), `CLAUDE.md`, `README.md`, `CCLLIB.md`.
+
+The module 0.284, the reader 183; the lowering 156 as it was.

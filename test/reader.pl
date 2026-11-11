@@ -601,6 +601,48 @@ k146 :- check('a macro file\'s NAME.pl.h is included with it, before it: lazy.c,
 k147 :- check('in C a name that neither the instance nor the program has is refused at its line, by name',
     op_refused('lazy_nofn.c', 5, 'stack_int has no function pusj: its type macro defines no stack_int_pusj')).
 
+%% OPERATORS ON INSTANCES, PART 2 (0.284; what 0.266 left): test/c/run/operators2.c over its topers2.pl, and the
+%% refusals op_assign.c, op_unary.c, op_bit.c, op_item.c and op_item_set.c
+k148 :- check('& | ^ and % over an instance are its type macro\'s _and, _or, _xor and _mod, and the unary ~ and - its _compl and _neg',
+    ( fn_body('run/operators2.c', main, B),
+      sub_t(var(c, _, call(id(bits_12_and), [id(a), id(b)])), B), sub_t(var(d, _, call(id(bits_12_or), [id(a), id(b)])), B),
+      sub_t(var(e, _, call(id(bits_12_xor), [id(a), id(b)])), B), sub_t(var(f, _, call(id(bits_12_compl), [id(a)])), B),
+      sub_t(var(z, _, call(id(num_int_mod), [id(x), id(y)])), B), sub_t(var(w, _, call(id(num_int_neg), [id(x)])), B) )).
+
+k149 :- check('a shift of an instance by a number is its plain _shl and _shr, the right operand of >> by its value where the parameter is no pointer, and the shifts chain',
+    ( fn_body('run/operators2.c', main, B),
+      sub_t(var(g, _, call(id(bits_12_shl), [id(a), int(6)])), B), sub_t(var(h, _, call(id(bits_12_shr), [id(a), int(2)])), B),
+      sub_t(var(k, _, call(id(bits_12_shr), [call(id(bits_12_shl), [call(id(bits_12_or), [id(a), id(b)]), int(1)]), int(3)])), B),
+      sub_t(call(id(bits_12_shr), [id(a), id(n)]), B) )).
+
+k150 :- check('a compound assignment over an instance is the call of its own function over the object\'s address: a &= b, a <<= 4, x *= y, x %= y',
+    ( fn_body('run/operators2.c', main, B), A = addr(id(a)), X = addr(id(x)),
+      sub_t(call(id(bits_12_and_assign), [A, id(b)]), B), sub_t(call(id(bits_12_or_assign), [A, id(d)]), B),
+      sub_t(call(id(bits_12_xor_assign), [A, id(b)]), B), sub_t(call(id(bits_12_shl_assign), [A, int(4)]), B),
+      sub_t(call(id(bits_12_shr_assign), [A, int(1)]), B), sub_t(call(id(num_int_sub_assign), [X, id(y)]), B),
+      sub_t(call(id(num_int_mul_assign), [X, id(y)]), B), sub_t(call(id(num_int_div_assign), [X, id(t)]), B),
+      sub_t(call(id(num_int_mod_assign), [X, id(y)]), B), \+ sub_t(assign(_, id(a), _), B), \+ sub_t(assign(_, id(x), _), B) )).
+
+k151 :- check('the function named with the word of the right operand\'s type goes before the plain one: x + 3 is _add_int, x == 1 _eq_int and x != 1 its negation, x += 10 _add_assign_int; x + y, x == y and x += y are the plain ones',
+    ( fn_body('run/operators2.c', main, B), X = addr(id(x)),
+      sub_t(var(t, _, call(id(num_int_add_int), [id(x), int(3)])), B), sub_t(var(s, _, call(id(num_int_add), [id(x), id(y)])), B),
+      sub_t(call(id(printf), [_, _, call(id(num_int_eq_int), [X, int(1)]), not(call(id(num_int_eq_int), [X, int(1)])), call(id(num_int_eq), [X, addr(id(y))]), _]), B),
+      sub_t(call(id(num_int_add_assign_int), [X, int(10)]), B), sub_t(call(id(num_int_add_assign), [X, id(y)]), B),
+      sub_t(call(id(num_double_add_assign_int), [addr(id(p)), int(2)]), B) )).
+
+k152 :- check('b[i] over an instance whose type macro defines _item and no _index is the item\'s value, and b[i] = x the call of its _set_item',
+    ( fn_body('run/operators2.c', main, B), O = addr(id(b)),
+      sub_t(call(id(bits_12_set_item), [O, int(0), int(1)]), B), sub_t(call(id(bits_12_set_item), [O, int(5), int(0)]), B),
+      sub_t(call(id(bits_12_set_item), [O, int(11), call(id(bits_12_item), [O, int(2)])]), B),
+      sub_t(call(id(printf), [_, _, call(id(bits_12_item), [O, int(0)]), _, _]), B), sub_t(call(id(peek_8_item), [addr(id(q)), int(2)]), B) )).
+
+k153 :- check('refused at its line by name: a compound assignment, a unary operator and & that the type macro does not define; a compound assignment of an element that [] gives as a value; an assignment of one where the macro defines no _set_item',
+    ( op_refused('op_assign.c', 5, 'the operator += of pt_double is not defined: its type macro defines no pt_double_add_assign'),
+      op_refused('op_unary.c', 5, 'the operator - of pt_double is not defined: its type macro defines no pt_double_neg'),
+      op_refused('op_bit.c', 5, 'the operator & of pt_double is not defined: its type macro defines no pt_double_and'),
+      op_refused('op_item.c', 6, 'the operator |= of an element of bits_12 is not defined: v[i] is a value there, and v[i] = x writes one'),
+      op_refused('op_item_set.c', 6, 'an element of peek_8 is not assigned: its type macro defines no peek_8_set_item') )).
+
 k110 :- check('a type macro that fails, two instances that one name names, and a typed call of a macro with no typed form are refused at the use',
     ( c('tmacro_fail.c', P1), c('tmacro.pl', M), catch(cicilang_ast(P1, _), error(E1, here(P1, 3, in_macro(type_none, M))), true), E1 == macro_failed(none, [base([], [int])]),
       c('tmacro_same.c', P2), catch(cicilang_ast(P2, _), error(macro_error(pair, _, error(ctext_error(T2), _)), here(P2, 7, _)), true),
@@ -889,6 +931,13 @@ t_checks :-
     k145,
     k146,
     k147,
+    section('operators on instances, part 2: % & | ^, the unary - and ~, the compound assignments, the right operand\'s word, [] as a value (0.284)'),
+    k148,
+    k149,
+    k150,
+    k151,
+    k152,
+    k153,
     section('the preprocessor, in cocolog: a header raw cannot take'),
     k83,
     section('the lexer, native: ccl_lex_native/6 token for token with the DCG'),
