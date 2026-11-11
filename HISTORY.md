@@ -269,6 +269,7 @@ One row per step, in version order: the step's title, what it did and its gate n
 | 0.272 | the safety rules of 0.265 to 0.267 in C++: phase 0.10 is done | the last part of CCLLIB.md's phase 0.10: in C++ too `&a[i]` over a pointer is a borrow of what it borrows, a call that may replace an object's own fields ends the caller's borrows of them (a member function that is not const, a reference parameter, a local reference; a const member function and a reference to const keep them), a tied result is a borrow of the own fields, a null own field that such a call may fill is live, and an own field of a const object is not assigned, in clang++'s words; seven refusals, borrowkeep.cpp and elemborrowpp.cpp; the lowering 155 | the flow gate; the reader, compile, driver and objects gates; the C++ gate over libc++ 22 as the net; no chain, by the owner's rule of 0.271; a commit and a push |
 | 0.273 | the first proof after phase 0: `vector<int>` in the three runs, and the ccllib gate | CCLLIB.md's first proof: test/ccllib/first.c over first.pl (push, at, len, sort, dropped where its scope ends) built by cicilang as C and by cicilang++ as C++, and its twin over std:: by clang++, print the same lines and free every block; test/ccllib.sh, the chain's tenth gate, runs the three and prints their costs (test/cost.c); over libc++ 22: 0.24 s, 2 types, 21 functions and an 11.5 KB object against the twin's 0.67 s, 35, 229 and 126 KB | the ccllib gate over libc++ 22, 21 and 18; no chain, by the owner's rule of 0.271; a commit and a push |
 | 0.274 | ccllib's first module, `<vector.pl>`: functions made at their first call, and the call by name | CCLLIB.md's phase 1a begins: library/ccllib/vector.pl, std::vector's whole surface by C++'s names; a call finds its function by the type of its first argument (push_back(v, 1) is vector_int_push_back(&v, 1)), the count of the arguments telling two forms apart; each function of an instance is made at its first call (fn_N/3); a macro file's NAME.pl.h comes with it; the safe part takes a copy loop into an own buffer, refused before; a vector's element with a pointer in it is refused by name; the reader 181, the lowering 156 | the flow gate; the reader, compile, driver and objects gates; the ccllib gate; the library read and the C++ gate over libc++ 22; no chain, by the owner's rule of 0.271; a commit and a push |
+| 0.275 | ccllib's `<array.pl>`, and one file for what the modules share | CCLLIB.md's phase 1a goes on: library/ccllib/array.pl, std::array as a struct of one C array, a value with no heap and no drop, 16 functions; library/ccllib/ccllib.pl holds what two modules need, loaded by a directive of each (ccllib_plain_element/2, the refusal of an element that holds a pointer); no file of the compiler changed | the flow gate; the ccllib gate over libc++ 22, 21 and 18; no chain, by the owner's rule of 0.271; a commit and a push |
 
 ## M5 — the C++ mode
 
@@ -18739,3 +18740,59 @@ NO CHAIN RAN for this step (the owner's rule of 0.271), and it claims nothing GR
   gates, Not done), `CLAUDE.md`, `README.md`, `CCLLIB.md`.
 
 The module 0.274; the reader 181 (what a read holds changes); the lowering 156 (the check's verdict changes).
+
+## 0.275 — ccllib's `<array.pl>`, and one file for what the modules share
+
+**0.275: `CCLLIB.md`'s phase 1a goes on. `#include <array.pl>` gives a C program `std::array`: `array<int, 4> a = [5, 3,
+9];` is a struct of four ints, a value with no heap and no drop. `library/ccllib/ccllib.pl` holds what two modules need,
+written once, and a module loads it by a directive. No file of the compiler changed. Committed with its nets; the chain
+runs when the ccllib task is finished (the owner's rule of 0.271).**
+
+THE MODULE. `library/ccllib/array.pl`: `type_array/3` gives `array_T_N`, a struct of one C array of N elements, and no
+drop, so the object is a plain value: `b := a` and `f(a)` copy it, as `std::array`'s do, where an object of every other
+instance's type moves, and autodrop has nothing to do. `fn_array/3` over a table of 16 C texts by name: `size`, `len`,
+`max_size`, `empty`, `at`, `a[i]`, `front`, `back`, `data`, `begin`, `end`, `fill`, `swap`, the literal's `_from`, and
+`_eq` and `_lt` for the comparisons. `at` and `a[i]` stop the program past the end; a literal fills the first elements
+and the rest is zero; N is one at least, since C has no array of none.
+
+WHAT THE MODULES SHARE. The vector's refusal of an element that holds a pointer is the array's too, and each container's
+after it. A macro file's predicates are the process's, and the flow gate refuses a predicate in two files, so the clause
+is written once, `ccllib_plain_element/2` in `library/ccllib/ccllib.pl`, and each module begins with `:-
+ensure_loaded(library(ccllib/ccllib)).`. The reader loads a macro file by cocolog's `ensure_loaded/1`, which runs the
+directive, and it takes no macro from one (`ccl_pl_head/2`): the compiler did not change. No program includes the shared
+file, so its predicates are no macros. The flow gate charts it and each module over it; a probe showed that the chart
+follows the directive: a module that calls a name the shared file has not, `ccllib_plain_elemen`, is `unknown_procedure`
+at the module's line.
+
+WHAT IT FOUND. `<array>` IS A LIGHT HEADER: clang++ builds the twin in 0.21 s and 106 MB, where cicilang's C build takes
+0.24 s and 113 MB and cicilang++'s 0.37 s and 129 MB. It is the first program whose twin costs less to build than both
+ccllib builds, and what it costs is the floor of a cicilang build: the first proof's program, 2 types and 21 functions,
+took 0.24 s and 110 MB too. The unit is smaller than the twin's and the count run takes a third of its time.
+
+THE FIXTURES. `test/ccllib/array.c` over `int`, `double` and a plain struct, its twin `array.cpp`, `array.expect`,
+`array.count` (100,000,000: two arrays of 64 numbers changed and compared that many times);
+`test/ccllib/safe/array_leaves.c` (`&a[0]` returned from the function that holds the array: `a borrow leaves the
+function`), `array_of_pointers.c` and `array_of_none.c`, each refused as C and as C++.
+
+THE COSTS of `array.c` over libc++ 22 on the gates' box, the twin by clang++ 22.1.8, the builds at `-O0`, the best of
+three:
+
+```
+run                       build s      MB  types  functions   lines  object B    run s      MB
+cicilang, C                 0.242   112.8      5         35    1044     11160    0.167     1.7
+cicilang++, C++             0.370   128.8      5         35    1147     11160    0.172     1.7
+clang++ 22.1.8, std::       0.209   106.3     12         68    1664     36072    0.535     3.1
+```
+
+The run is `array 100000000` at `-O2`.
+
+THE NETS, over the work tree: the flow gate GREEN with no finding (112 s, peak 4142 MB), `library/ccllib/ccllib.pl`,
+`vector.pl` and `array.pl` charted; the ccllib gate GREEN over libc++ 22, 21 and 18, each over a fresh HOME (60 s, 60 s
+and 65 s; 35 checks each, none skipped): 3 programs in three runs, 10 refused. No other gate reads a file that changed.
+
+NO CHAIN RAN for this step (the owner's rule of 0.271), and it claims nothing GREEN but the nets above. No CI job ran.
+
+- `library/ccllib/array.pl`, `array.pl.h`, `ccllib.pl`. `library/ccllib/vector.pl`: the shared refusal. `test/flow.sh`:
+  `CFILES`. The fixtures. `RULES.md` (the topic of ccllib, the ccllib gate), `CLAUDE.md`, `README.md`, `CCLLIB.md`.
+
+The module 0.275; the reader 181 and the lowering 156 as they were: no file of the compiler changed.

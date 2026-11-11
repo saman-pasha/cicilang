@@ -447,6 +447,12 @@ compile time. An element is a value with no pointer in it; a vector of
 vectors waits for a rule on containers of owners. `test/ccllib/vector.c` is
 the example.
 
+`#include <array.pl>` gives `std::array` (0.275): `array<int, 4> a = [5, 3,
+9];` is a struct of four ints, a value with no heap and no drop, which
+`b := a` and `f(a)` copy. `a[i]`, `at`, `front`, `back`, `fill`, `swap`,
+`begin`, `end`, `data`, `size` and the comparisons are there;
+`test/ccllib/array.c` is the example.
+
 `format`, `print`, `println` and `clone` are global macros, there in every
 program without an include (`library/ccl_format.pl`). The format string
 has Rust's holes, each becoming the `printf` conversion of its argument's

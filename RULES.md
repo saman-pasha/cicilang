@@ -704,8 +704,8 @@ that changes a rule edits the rule here, in its topic, and writes its entry in `
   as C and by `bin/cicilang++` as C++ (`-c`, exit 1) with the words of `NAME.expect`, of `NAME.expect.cpp` where C++
   has words of its own (`no_function.c`: C names the instance, C++ says `undeclared(push_front)`). They stand there and
   not in `test/c/safe/`: the compile gate reads its fixtures in one process, where the fixtures' `type_vector/3` and
-  ccllib's would be one predicate (Not done). The gate's last line counts them, `GREEN: ccllib (2 program(s) in three
-  runs, 7 refused)`. (0.274)
+  ccllib's would be one predicate (Not done). The gate's last line counts them, `GREEN: ccllib (N program(s) in three
+  runs, M refused)`. (0.274)
 - **THE FIRST PROOF AFTER PHASE 0** (0.273; `CCLLIB.md`'s Order): `test/ccllib/first.c` over its macro file `first.pl`
   -- `vector<T>` with `push`, `at`, `len` and `sort`: a type macro's instance (0.261), its literal's `from` (0.263), its
   drop (0.262), all of it C text (0.260) -- built as C and as C++, and `first.cpp`, the same program over `std::vector`
@@ -9423,6 +9423,13 @@ in the first topic (The ccllib gate).
   Its predicates have the prefix `ccllib_` but the two that the reader asks by name. The flow gate charts each
   (`CFILES` in `test/flow.sh`). A text is written in the part that C and C++ share; a null pointer is `0`, since no
   header's macro is a name in a text. (0.274)
+- WHAT TWO MODULES NEED IS WRITTEN ONCE, in `library/ccllib/ccllib.pl` (0.275): a module loads it by a directive, `:-
+  ensure_loaded(library(ccllib/ccllib)).` -- the reader loads a macro file by cocolog's `ensure_loaded/1`, which runs
+  the directive, and takes no macro from one (`ccl_pl_head/2`); no program includes the file, so its predicates are no
+  macros. The flow gate charts it, and each module over it: a call of a name that it has not is `unknown_procedure` at
+  the module's line, and a predicate in two modules is RED (`fg_twice/2`), which is why the file is. Its first predicate
+  is `ccllib_plain_element(What, T)`, the refusal of an element that holds a pointer, in each container's words (`a
+  vector's element is a value with no pointer in it, and W holds one`). (0.275)
 - THE NAMES ARE C++'S (`push_back`, `size`, `empty`, `insert`, `erase`): a call finds its function by the type of its
   first argument, so no macro is named as a function is. Where C++ tells two forms by their arguments' types, the
   count tells them (`resize(v, n)` and `resize(v, n, x)`; `insert(v, i, x)` and `insert(v, i, n, x)`; `erase(v, i)` and
@@ -9446,7 +9453,8 @@ in the first topic (The ccllib gate).
   element that it takes away. `vector<bool>` is a vector of `bool`, a byte an element. (0.274)
 - AN ELEMENT IS A VALUE WITH NO POINTER IN IT: a scalar, an enum, a plain struct of those. A vector of vectors, of
   owned pointers or of borrowed ones is refused where its type is written, `a vector's element is a value with no
-  pointer in it, and vector_int holds one` (`ccl_holds_pointer/1`): the owner's rule on containers of owners is open
+  pointer in it, and vector_int holds one` (`ccllib_plain_element/2` over `ccl_holds_pointer/1`): the owner's rule on
+  containers of owners is open
   (`CCLLIB.md`'s decision 2). The refusal is the module's own: with functions made at their first call the safe part
   sees `push_back` alone, takes the move of the element into the buffer, and the drop, which frees the buffer, would
   leak what the elements own. (0.274)
@@ -9460,6 +9468,26 @@ in the first topic (The ccllib gate).
   twin `vector.cpp` over `std::vector` prints the same lines. Its unit holds 67 functions for four instances, where the
   twin's holds 519; two units that call different functions of `vector<int>` link, one kept of what both made
   (`test/c/link/vec_a.c`, `vec_b.c`, the driver gate). (0.274)
+
+### array.pl
+
+- `array<T, N>` is `array_T_N`, a struct of one C array of N elements: no heap and NO DROP, so its object is a plain
+  value -- `b := a` and `f(a)` copy it, as `std::array`'s do, where an object of every other instance's type moves, and
+  autodrop has nothing to do. `array<int, 4> a = [5, 3, 9];` fills the first three elements and the rest is zero
+  (`_from`). The surface of `std::array`, 16 functions: `size`, `len`, `max_size`, `empty`; `at`, `a[i]` (`_index`),
+  `front`, `back`, `data`, `begin`, `end`; `fill`, `swap`; `==` and `<` and what follows from them (`_eq`, `_lt`).
+  (0.275)
+- WHAT DIFFERS FROM C++: `at(a, i)` and `a[i]` stop the program (`abort`) at an index past the end, and a literal of
+  more elements than N does, which C++ refuses where it is written; an element is a value with no pointer in it, as a
+  vector's is; N is one at least, `an array has one element at least`, since C has no array of none. `begin(a)`,
+  `end(a)`, `data(a)` and `&a[i]` are borrows tied to the array: one that leaves the function that holds the array is
+  refused, `a borrow leaves the function` (`test/ccllib/safe/array_leaves.c`, `array_of_pointers.c`,
+  `array_of_none.c`). (0.275)
+- `test/ccllib/array.c` over `int`, `double` and a plain struct, and its twin `array.cpp` over `std::array`. THE TWIN'S
+  BUILD COSTS LESS HERE: `<array>` is a light header, and clang++ 22 builds the twin in 0.21 s and 106 MB where cicilang
+  takes 0.24 s and 113 MB and cicilang++ 0.37 s and 129 MB, the floor of a cicilang build (the first proof's cost too).
+  The unit is smaller (35 functions and 11 KB against 68 and 36 KB) and the count run faster (0.17 s against 0.54 s).
+  (0.275)
 
 ## The safe part
 

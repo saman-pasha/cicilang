@@ -392,6 +392,8 @@ What the proof found for phase 1:
   declarations that its text calls.
 - THE NAMES ARE C++'S; `push`, `pop` and `len`, the short names of this plan's examples, stand beside `push_back`,
   `pop_back` and `size`. A place is an index where C++ takes an iterator.
+- WHAT TWO MODULES NEED IS WRITTEN ONCE (0.275): `library/ccllib/ccllib.pl`, which a module loads by a directive. No
+  program includes it, and the flow gate refuses a predicate that two modules define.
 
 ### 1a, `vector.pl` (0.274)
 
@@ -416,6 +418,24 @@ DECISION 2 STANDS BEFORE THE CONTAINERS OF OWNERS: `vector<string>`, `vector<vec
 every container of pointers need the owner's rule on containers of owners. `vector.pl` refuses such an element by name
 until then; with functions made at their first call, nothing else would refuse it. The other modules of 1a go on over
 elements with no pointer in them, each one a step.
+
+### 1a, `array.pl` (0.275)
+
+`array<T, N>` is a struct of one C array: a value with no heap and no drop, which `b := a` and `f(a)` copy as
+`std::array`'s do. 16 functions. `test/ccllib/array.c` over `int`, `double` and a plain struct, its twin over
+`std::array`, and three programs of `test/ccllib/safe/`. The costs over libc++ 22, as above, the run `array 100000000`:
+
+| | build | peak | IR types | IR functions | IR lines | object | `array 100000000` at `-O2` | its peak |
+|---|---|---|---|---|---|---|---|---|
+| cicilang, C | 0.24 s | 113 MB | 5 | 35 | 1,044 | 11,160 B | 0.17 s | 2 MB |
+| cicilang++, C++ | 0.37 s | 129 MB | 5 | 35 | 1,147 | 11,160 B | 0.17 s | 2 MB |
+| clang++ 22, `std::` | 0.21 s | 106 MB | 12 | 68 | 1,664 | 36,072 B | 0.54 s | 3 MB |
+
+`<array>` is a light header: clang++ builds the twin for less than cicilang builds the ccllib program, the first such
+program. What a cicilang build costs here is its floor, the first proof's 0.24 s and 110 MB. The unit is a third of the
+twin's, and the count run takes a third of its time.
+
+### The parts of phase 1
 
 - 1a. Containers and strings: `vector`, `array`, `deque`, `list`, `forward_list`, `map`, `set`, `multimap`,
   `multiset`, `unordered_map`, `unordered_set` and their multi forms, `stack`, `queue`, `priority_queue`, `bitset`,

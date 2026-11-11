@@ -24,11 +24,9 @@
 %%     them;
 %%   vector<bool> is a vector of bool, one byte an element.
 %% The buffer grows by twice (realloc), so n push_backs cost O(n).
+:- ensure_loaded(library(ccllib/ccllib)).
 type_vector([T], base([], [typedef(N)]), Items) :-
-    ccl_instance_name(vector, [T], N),
-    (   ccl_holds_pointer(T)
-    ->  ccl_arg_words([T], [W]), atomic_list_concat(['a vector''s element is a value with no pointer in it, and ', W, ' holds one'], M), ccl_macro_error(M)
-    ;   true ),
+    ccl_instance_name(vector, [T], N), ccllib_plain_element('a vector''s element', T),
     ccl_c_items("typedef struct @N { size_t len, cap; own @T *data; } @N;
 void @{N}_drop(@N *v) { free(v->data); }", ['N' = name(N), 'T' = type(T)], Items).
 fn_vector(Name, [T], Items) :-
