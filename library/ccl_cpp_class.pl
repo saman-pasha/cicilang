@@ -151,7 +151,7 @@ cpp_check_access(Ctx, C, N) :- cpp_check_access(Ctx, C, N, none).
 %% ... and named through an OBJECT of class C (`x.m', `p->m'), where a protected non-static member asks the object's class too
 cpp_check_access_obj(Ctx, C, N) :- cpp_check_access(Ctx, C, N, obj(C)).
 cpp_check_access(Ctx, C, N, Obj) :-
-    (   nb_getval('$cpp_in_lib', no), atom(C), ( atom(N) ; N = operator(_) ), cpp_acc_owner(C, N, Owner, A), A \== public, \+ cpp_may_access(Ctx, Owner, A, N, Obj)
+    (   nb_getval('$cpp_in_lib', no), atom(C), ( atom(N) ; N = operator(_) ), cpp_acc_owner(C, N, Owner, A), A \== (public), \+ cpp_may_access(Ctx, Owner, A, N, Obj)
     ->  ( nb_current('$cpp_line', L) -> true ; L = 0 ), cpp_refuse(L, access(A, Owner, N))
     ;   true ).
 %% the class on C's way down through its bases that declares N, and the access it has AS A MEMBER OF C: a base's private member stays

@@ -530,11 +530,36 @@ ccl_read_unit(Path, How, Unit) :-
 %% read that stays keeps its own
 ccl_read_unit(Path, How, Unit) :-
     ccl_global('$ccl_instances', I0, []),
-    ccl_parse_file(Path, U0, Info0),
+    ( catch(ccl_parse_file(Path, U0, Info0), _, fail) -> true ; U0 = unit([]), Info0 = stopped(1, near(1)) ),   % A RAW READ THAT THROWS GOES ON TO THE PREPROCESSED READ (0.290; below)
     ccl_global('$ccl_instances', I1, []),
-    (   Info0 == whole -> How = raw, Unit = U0
+    (   Info0 == whole, \+ ccl_raw_cut_inside(U0) -> How = raw, Unit = U0
+    ;   Info0 == whole                                                    % whole, with a header inside that was not read whole (0.290; below)
+    ->  (   nb_setval('$ccl_instances', I0), catch(ccl_pp_parse(Path, U1, Info1, Files), _, fail), Info1 == whole
+        ->  How = preprocessed, Unit = U1, ccl_pp_macros(Ms), ccl_kb_remember_macros(Path, Files, Ms)
+        ;   nb_setval('$ccl_instances', I1), How = raw, Unit = U0 )
     ;   nb_setval('$ccl_instances', I0), ccl_pp_parse(Path, U1, Info1, Files) -> How = preprocessed, ccl_partial(U1, Info1, Unit), ccl_pp_macros(Ms), ccl_kb_remember_macros(Path, Files, Ms)
     ;   nb_setval('$ccl_instances', I1), How = raw, ccl_partial(U0, Info0, Unit) ).
+%% A RAW READ THAT THROWS (0.290). The raw read is an attempt: it runs no directive, so it reads the lines of each
+%% branch of a conditional, and its errors may be those of a branch that no build takes. TWO SUCH ERRORS WERE THE
+%% HEADER'S END. The raw lexer ends a directive at its line's end, and C ends it where a comment that began on the line
+%% ends (C17 5.1.1.2: a comment is a space before a directive is one): glibc's <netdb.h> has `#  define AI_IDN 0x0040
+%% /* IDN encode input (assuming it is encoded' with `in the current locale's character set)' on the next line, whose
+%% apostrophe begins a character constant that never ends, and the raw read threw `lexical(Path)'. And glibc's
+%% <sys/cdefs.h> has, under an `#if' that no x86 build takes, `_Static_assert (0, "IEEE 128-bits long double requires
+%% redirection on this platform");', which the raw read met as a declaration: `static_assert_failed'. Nothing caught
+%% either here, and ccl_include_read/2 took the header as `unreadable' with no message: no name of <netdb.h> was
+%% declared (`struct addrinfo', `getaddrinfo', `struct hostent'), where the preprocessed read takes each header whole.
+%% A raw attempt that throws is an empty partial read now, whatever it throws, and the preprocessed read follows it, as
+%% it follows a raw read that stopped: an error that is the header's own is thrown again there.
+%% A RAW READ THAT IS WHOLE, WITH A HEADER INSIDE IT THAT WAS NOT READ WHOLE, GOES ON TOO (0.290; in C): glibc's
+%% <getopt.h> is directives alone -- <features.h>, a macro, <bits/getopt_core.h>, <bits/getopt_ext.h> --, so its raw
+%% read is whole; each of the two headers inside is then read apart, with no macro of its includer's (`__BEGIN_DECLS',
+%% `__THROW', which <features.h> brought), and stops at its first declaration: `struct option' and `getopt_long' were
+%% unknown, with no message. The preprocessed read of the includer reads them in its text, under its macros; it is
+%% taken where it is whole, and the raw read stays where it is not -- a header of the program's whose own items are all
+%% read keeps them, where a text that stops inside a header that it includes would lose those after the #include. In
+%% C++ a system header is flattened whole, and the program's own header has its own read (0.268): they are as they were
+ccl_raw_cut_inside(unit(Is)) :- \+ ccl_lang(cpp), member(include(_, _, file(_, H, U)), Is), ( H == unreadable ; U = partial(_, _, _) ), !.
 %% the program's own header: one under no system path and not among the compiler's own (ir_hdr_lib_path/1)
 ccl_own_header(P) :- atom(P), \+ ir_hdr_lib_path(P).
 %% the header through the preprocessor in the program file's mode: its includes read first and their macros made ready

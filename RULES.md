@@ -1110,7 +1110,31 @@ that changes a rule edits the rule here, in its topic, and writes its entry in `
 - A diagnostic is clang's `file:line: error: what` (`dr_error/3`). `dr_report/2` hands the error term to
   `once(dr_diag/3)`, one clause per term; `once/1` because the callers' recovery fails after the report. An error on a
   macro-expanded line gets `note: expanded from macro ...` (`dr_remember_expansions/1`); an error inside a macro gets a
-  note that names the macro's file (`dr_note_macro`). (M1b, M4)
+  note that names the macro's file (`dr_note_macro`). The reader's own refusal, `refusal(M, here(F, L))`
+  (`ccl_refuse/1`, 0.290), is printed as `M` at its line, with no `macro:` before it. (M1b, M4, 0.290)
+- **A HEADER THAT WAS NOT FOUND, NOT READ, OR NOT READ TO ITS END, IS NAMED WHERE THE BUILD FAILS** (0.290;
+  `dr_unread_notes/2`, `dr_missing_in/3`, `dr_unread_in/3`): the include layer goes on over a file that it does not find
+  (`missing`), over a header that no read takes (`unreadable`) and over one whose read stopped (`partial`), with no
+  message (the topic of includes), and the program then fails at the first name that the header would have declared --
+  `undeclared(getaddrinfo)`, `typedef(foo_t)`, `struct(nope)` -- with no word of why. Where the check or the lowering
+  failed, the driver prints a note for each such include of the unit after the errors, at the line of the `#include` in
+  the program's file: `m.c:2: note: 'nope.h' file not found: nothing that it declares is known` (clang's words for the
+  file), `note: the header P could not be read: nothing that it declares is known`, `note: the read of the header
+  ./stop.h stopped at its line 2: what it declares after that line is not known`. A header's own includes are walked for
+  the last two. A FILE THAT WAS NOT FOUND IS NAMED FOR AN `#include` OF THE PROGRAM'S FILE ALONE: that file is read
+  preprocessed, so the directive is one that the program meets -- one in a group that `#if 0` skips is not named --,
+  where a header read raw keeps the directives of each branch of its conditionals, and a file that one of them does not
+  find may be one that no build asks. A build with no error prints no note (Not done: a missing `#include` is passed
+  over). THE NOTE IS TRUE OF ITS HEADER, NOT OF THE ERROR: it names a header of the unit whose read was cut, whatever
+  the error is. Its first runs named `<sys/cdefs.h>` under an error of a program over `<limits.h>`, and two headers of
+  `<getopt.h>` -- two defects of the reads, corrected with it (the topic of includes). Three checks of the driver gate,
+  one of them that no header of the C library is named under an error that is not its own. (0.290)
+- **THE OUTPUT FILE'S DIRECTORY IS ASKED BEFORE THE BUILD** (0.290; `dr_out_dir_missing/3`, in `dr_drive/2`): `-c ok.c
+  -o no/such/dir/ok.o` built the whole unit and then printed the embedded LLVM's words, `LLVM: emit_failed: No such file
+  or directory`, which name no path; the run ended there, and the command printed that line a second time in place of
+  the count of the errors. With `-o` a path whose directory is not there, nothing is built: `no/such/dir/ok.o: error:
+  unable to open the output file: no such directory 'no/such/dir'`, then `cicilang: 1 error(s)`. A check of the driver
+  gate. (0.290)
 - The user's own `#error` is an error (`dr_diag(F, pp_error(M), ...)`). Its `#warning` lines print after the read as
   `file:line: warning: text` (`dr_pp_warnings`) and count as no error. (0.93)
 - One `awk` pass in `bin/cicilang` splits the answer. `: error: `, `: warning: ` and `: note: ` lines go to stderr. The
@@ -2347,6 +2371,17 @@ that changes a rule edits the rule here, in its topic, and writes its entry in `
   [char]))`. `move(E)` is a node, read at the macro door (`ccl_call_or_macro/3`). Reader `k75`, `k76`. (M3)
 - `own` is a keyword in both languages, so a C++ member or variable named `own` does not read: the qualifier takes it
   (found when a fixture of 0.121 used it, and renamed). (0.121)
+- **`own` WHERE ONLY A NAME CAN STAND IS REFUSED BY NAME** (0.290; `ccl_primary_//3`, `ccl_refuse/1`): `static int
+  get(const v *own) { return own->a; }` declares an own pointer with no name -- `own` is the qualifier of the
+  parameter's type --, and the body's `own->a` named nothing. The first error was the safe part's, `a borrow consumed:
+  'x'` at a call of `get` in another function: true of the parameter as it was read, and no word of the cause. `own` as
+  a primary expression before a token that only an operand stands before (`->`, `.`, `[`, `]`, `)`, `;`, `,`, `=`, `+`,
+  `-`, `/`, `%`, a comparison operator, `&&`, `||`, `?`, `:`, `++`, `--`, `+=`, `-=`) is refused at its line: `` `own'
+  is the owner's word and names no object: a parameter written `T *own' is an own pointer with no name (write `T *own
+  NAME', or another name for a plain pointer)``. `ccl_refuse/1` throws `error(refusal(M, here(F, L)), _)`, the reader's
+  own refusal: the driver prints `M` at the line with no `macro:` before it, which `ccl_iop_fail/1`'s messages have, and
+  it goes out of a macro's expansion as a macro's own error does (`ccl_macro_ball/1`). Reader `k162`, over
+  `test/c/own_name.c`. (0.290)
 - **`x tie y` is the tie** (owner's rule, and the spelling): x lives within y. `tie` is CONTEXTUAL, read only where a
   tie can stand and only before a name (`ccl_id(tie), ccl_id(Y)`), so `std::tie` and a C variable `tie` are untouched.
   `ccl_tie//2` reads it after a declarator (init-declarator, member, parameter, function definition before `{`),
@@ -2457,10 +2492,11 @@ that changes a rule edits the rule here, in its topic, and writes its entry in `
   call. Two C++ units that both make `vector<int>` link, its functions linkonce_odr there too. The C++ gate builds
   `test/c/run/ctext.c`, `autodrop.c`, `tvector.c` (0.268: its headers `tvhdr.h` and `tvhdr2.h` read as the program's
   file is, the topic of includes), `literal.c` (0.269), `operators.c` and `unread.c` (0.270), `lazy.c` (0.274),
-  `operators2.c` (0.284), `born.c` (0.285), `dropassign.c` (0.287) and `typednames.c` (0.288) with cicilang++ and
-  compares each with its `.expect`; `elemborrow.c` is `test/cpp/run/elemborrowpp.cpp` there (0.272), its plain functions
-  noexcept: C++'s defer rule refuses a plain struct's live owner across a call that may throw. (0.267, 0.268, 0.269,
-  0.270, 0.272, 0.274, 0.284, 0.285, 0.287, 0.288)
+  `operators2.c` (0.284), `born.c` (0.285), `dropassign.c` (0.287), `typednames.c` (0.288), and `contswitch.c` and
+  `loadedptr.c`, two programs of plain C (0.290), with cicilang++ and compares each with its `.expect`; `elemborrow.c`
+  is `test/cpp/run/elemborrowpp.cpp` there (0.272), its plain functions noexcept: C++'s defer rule refuses a plain
+  struct's live owner across a call that may throw. (0.267, 0.268, 0.269, 0.270, 0.272, 0.274, 0.284, 0.285, 0.287,
+  0.288, 0.290)
 - **A READ THAT MADE OR MET AN INSTANCE IS KEPT IN NEITHER CACHE** (0.261): what it holds is its unit's -- the instance
   where the unit first used it, a later use naming it alone -- so neither the process's cache nor the store keeps such
   a header's read or such a file's (`ccl_include_read/2`, `ccl_read_file_/3`, over a count of the instances met,
@@ -2548,10 +2584,15 @@ that changes a rule edits the rule here, in its topic, and writes its entry in `
   `name_arg_ptr.c`, `name_arg_other.c` and `name_arg_count.c`; `test/ccllib/safe/swap_number.c`, `swap_other.c`,
   `splice_text.c`, `insert_count.c` and `push_back_count.c`, as C and as C++. (0.288)
 - **A MACRO FILE'S C HEADER** (0.274): `NAME.pl.h` beside `NAME.pl` is included with it, before it, where the directive
-  stands (`ccl_external//3` gives the two includes as one splice, `ccl_include_item/5`): the declarations that the
-  macro file's C text calls, so that a program includes the macro file alone -- `<vector.pl>` brings `<stdlib.h>`'s
-  `realloc`, `free` and `abort`. The header's macros do not reach the program's text: the preprocessor passes a `.pl`
-  on and reads no header for it. Reader `k146`; `test/c/run/lazy.c`, which names no `<stdlib.h>`. (0.274)
+  stands (`ccl_external//3` gives the two includes as one splice, `ccl_include_item/5`): the declarations that the macro
+  file's C text calls, so that a program includes the macro file alone -- `<vector.pl>` brings `<stdlib.h>`'s `realloc`,
+  `free` and `abort`. The header's macros do not reach the program's text: the preprocessor passes a `.pl` on and reads
+  no header for it. Reader `k146`; `test/c/run/lazy.c`, which names no `<stdlib.h>`. THE HEADER IS INCLUDED BY ITS
+  ABSOLUTE PATH (0.290; `ccl_abs_file/2`): the macro file's path is as the inclusion path gave it -- relative to the
+  working directory under a relative `-I` --, and the include that the reader makes is a quoted one, looked for from the
+  including file's directory first. With `-I inc` and the program in `src/`, `inc/rel.pl.h` was asked for as
+  `src/inc/rel.pl.h`, not found, and passed over with no message: the macro file loaded, and each name of its header was
+  `undeclared`. A check of the driver gate. (0.274, 0.290)
 - **CCLLIB'S DIRECTORY IS ON THE PATH** (0.274): each `COCOLOG_LIBRARY` directory's `ccllib/` (`ccl_ccllib_dirs/2` in
   `ccl_include_path/1`), behind the user's directories and the library's own, before the toolchain's, so `#include
   <vector.pl>` finds `library/ccllib/vector.pl`. A macro author asks whether a type's value holds a pointer to memory
@@ -3228,7 +3269,38 @@ that changes a rule edits the rule here, in its topic, and writes its entry in `
   Why: `<stddef.h>` differs at C23, glibc declares ISO C's names alone in an ISO mode, and one gate process builds both
   levels and both modes. (0.99, 0.108, 0.214)
 - A plain header is read raw first (`ccl_parse_file`). Only if raw stops does `ccl_pp_parse/4` preprocess THAT file; its
-  macros are then remembered (`ccl_kb_remember_macros/3`). A lexical error makes the include `unreadable`. (M1, M5)
+  macros are then remembered (`ccl_kb_remember_macros/3`). A RAW READ THAT THROWS IS AN EMPTY READ THAT STOPPED (0.290;
+  `ccl_read_unit/3` catches each error of `ccl_parse_file/3`), and the preprocessed read follows it as it follows any
+  raw read that stopped; only where that read fails too is the include `unreadable`. The raw read is an attempt: it runs
+  no directive, so it reads the lines of each branch of a conditional, and its error may be that of a branch that no
+  build takes; an error that is the header's own is thrown again by the preprocessed read. Until 0.290 an error of the
+  raw read went up to `ccl_include_read/2`, which took the header as `unreadable` with no message. A LEXICAL ERROR:
+  glibc's `<netdb.h>` was dropped whole. Its line 605 is a `#define` whose comment goes on for two lines more, the raw
+  lexer ends a directive at its line's end (`ccl_pp_line//3`; Not done), and the comment's next line, `in the current
+  locale's character set)`, has an apostrophe that begins a character constant with no end. `struct addrinfo`, `struct
+  hostent` and `getaddrinfo` were unknown, and nothing said why. Of the 10,038 `.h` files under `/usr/include` on the
+  box of 0.290, 114 have a `#define` line that leaves a comment open; where the comment's later lines lex as code the
+  raw read stops at them and the preprocessed read takes the header, and in nine the comment goes on with a line that is
+  no C tokens. Each of the nine was dropped whole (`<netdb.h>`, `<db.h>`, `<linux/tcp.h>`, `<linux/openat2.h>`,
+  `<linux/pkt_cls.h>`, `<linux/jffs2.h>`, `<linux/raid/md_p.h>`, `<drm/radeon_drm.h>`, `<valgrind/memcheck.h>`) and is
+  read now, eight whole and the last to its line 228. `test/c/run/netdbhdr.c`. A STATIC ASSERTION OF A BRANCH THAT NO
+  BUILD TAKES: `<sys/cdefs.h>`, which `<limits.h>`, `<stdint.h>` and `<features.h>` hold, was `unreadable` in every
+  build: under an `#if` that no x86 build takes it has `_Static_assert (0, "IEEE 128-bits long double requires
+  redirection on this platform");`, which the raw read met as a declaration (`static_assert_failed`). It declares
+  nothing, so nothing was lost but its read. A RAW READ THAT IS WHOLE, WITH A HEADER INSIDE IT THAT WAS NOT READ WHOLE,
+  GOES ON TOO (0.290; in C; `ccl_raw_cut_inside/1`): glibc's `<getopt.h>` is directives alone -- `<features.h>`, a
+  macro, `<bits/getopt_core.h>`, `<bits/getopt_ext.h>` --, so its raw read is whole; each of the two headers inside was
+  then read apart, with no macro of its includer's (`__BEGIN_DECLS`, `__THROW`), and stopped at its first declaration,
+  so that `struct option` and `getopt_long` were unknown (`not lowered yet: struct(option)`), with no word of the
+  header. The preprocessed read of the includer reads them in its text, under its macros; it is taken where it is whole,
+  and the raw read stays where it is not -- a header of the program's whose own items are all read keeps them. In C++ a
+  system header is flattened whole and the program's own header has its own read (0.268): they are as they were.
+  `test/c/run/getopthdr.c`; a check of the driver gate, on Linux. THE READS OF 274 HEADERS OF THIS BOX WERE COMPARED
+  BETWEEN 0.289 AND THIS TREE, each `.h` file directly under `/usr/include` and under its `sys`, `netinet`, `arpa` and
+  `net`, included alone: 249 are read the same way, with the same headers inside cut or unread (seventeen of them in
+  part on both trees, each a C++ header or an inner header that is not included alone), and 25 differ, each for a reason
+  above -- `<sys/cdefs.h>` and twenty headers that hold it, `<netdb.h>` and `<db.h>`, and `<getopt.h>` and `<z3.h>`,
+  whose inner headers were read apart. (M1, M5, 0.290)
 - IN C++ THE PROGRAM'S OWN HEADER IS READ AS THE PROGRAM'S FILE IS (0.268; the clause of `ccl_read_unit/3` before the
   raw one, `ccl_pp_own_parse/3`): a header under no system path and not among the compiler's own (`ccl_own_header/1`
   over `ir_hdr_lib_path/1`) goes through the preprocessor in the user's file's mode, `'$pp_top'` yes -- its directives
@@ -3267,7 +3339,10 @@ that changes a rule edits the rule here, in its topic, and writes its entry in `
   library call by the library's declarations and a program's own function by the program's (the Exceptions topic).
   (0.186, 0.193)
 - A partial read is silent: `ccl_partial` gives `partial(U, line(L), near(F))`, and a library header's summary and AST
-  hold what was read. `test/census.sh` on the flattened header (`cicilang++ -E`) names the stop. (0.44)
+  hold what was read. `test/census.sh` on the flattened header (`cicilang++ -E`) names the stop. A BUILD THAT FAILS
+  NAMES IT (0.290; `dr_unread_notes/2`, the driver's topic): under the errors, a note at the `#include` of the program's
+  file names each header whose read stopped, each that no read took, and each file that an `#include` of the program's
+  file did not find. A build with no error says nothing still. (0.44, 0.290)
 - `ccl_with_file/2` saves and restores around a nested read, on success, failure and a throw: `'$ccl_file'`, the
   env's names (`ccl_env_names/1`, put back by `ccl_env_put/1`), `'$ccl_far'`, `'$ccl_macros'`, the tables
   (`'$ccl_scope'`, `'$ccl_gscope'`, `'$ccl_typedefs'`, `'$ccl_tags'`; the last three bucket by bucket, `ccl_tab_save/2`
@@ -10057,7 +10132,16 @@ in the first topic (The ccllib gate).
   (`ck_scope_end/2`). A `return` does the same for every frame. (M3)
 - A loop may not consume an owner from outside it, unless the iteration owns it again by its end
   (`ck_no_moves_across/3`, `move_in_loop`). `break` and `continue` close the frames inside the loop and join its exits
-  (`'$ck_loops'`). A `switch` merges its entry state at each case label. (M3)
+  (`'$ck_loops'`). A `switch` merges its entry state at each case label, and a `break` in it is its own. A `continue` IS
+  ITS NEAREST LOOP'S, PAST ANY SWITCH (0.290; `ck_exit_to_loop/2`, `ck_continue_to/3`): its frames are closed down to
+  that loop's, so the defers of the loop's body run there and an owner of the body that is live there is leaked there
+  (`owner_leaked`), and its state joins that loop's exits. Until 0.290 a `continue` in a `switch` in a loop closed its
+  frames down to the SWITCH's and handed the loop a state with the frames of the switch and of the body still open; the
+  loop's join met frame stacks of two lengths, `ck_merge_frames/3` failed, and the check stopped with no line -- `not
+  lowered yet: phase(check) (function file)` for every such program, with one `continue` as with two. No fixture had
+  one. `test/c/run/contswitch.c` (a while, a for whose step still runs, a do-while, a switch in a switch, a block in a
+  case, a defer of the body, an owner freed before the continue; as C and as C++); `test/c/safe/cont_switch_leak.c`.
+  (M3, 0.290)
 - A `goto` IS AN EDGE OF THE FLOW (0.133; `ck_walk_body`, `'$ck_bpath'`, `'$ck_fwd'`, `'$ck_back'`, `'$ck_seed'`): every
   frame the check pushes has an id, and a label is where a goto's state -- the frames it leaves closed, their defers run,
   their owners consumed or leaked, their borrows dangling, as a `break` closes them -- joins the state that falls
@@ -10085,8 +10169,14 @@ in the first topic (The ccllib gate).
 - `ck_consume/6` consumes by its `How`. `free` needs the own fields consumed first (`owner_leaked` names the field).
   `move` needs them live or null (`owner_unset`, `use_after_move`) and moves them along. Then the owner's borrows
   dangle (`ck_dangle/3`). (M3)
-- A null test refines an owner and its own fields (`ck_refine/4`, `ck_set_null/3`). `!p` and `p == NULL` make them
-  null on the then path; `p` and `p != NULL` do so on the else path. (M3)
+- A null test refines an owner and its own fields (`ck_refine/4`, `ck_set_null/3`). `!p` and `p == NULL` make them null
+  on the then path; `p` and `p != NULL` do so on the else path. A PLAIN LOCAL THAT HOLDS FRESH MEMORY IS REFINED TOO
+  (0.290): on the path where a loose pointer is null it holds nothing (`ck_set_null/3` makes it `null`), so `FILE *f =
+  fopen(path, "r"); if (f == NULL) return -1;` returns with nothing to consume -- until 0.290 it was `unconsumed` at the
+  `return`, and `README.md`'s own lines were refused. Where the two paths join, null on one and loose on the other is
+  loose (`ck_merge_state/3`): `if (!p) puts("none");` with no free after it is `unconsumed` as before
+  (`test/c/safe/loose_null_test.c`), and `if (f) fclose(f);` with nothing after it, refused until 0.290, is taken
+  (`test/c/run/loadedptr.c`). (M3, 0.290)
 - A statement expression's last value is consumed when it is an owner. That is how `clone`'s copy leaves its block.
   (M3)
 
@@ -10105,7 +10195,8 @@ in the first topic (The ccllib gate).
 - `ck_into_plain/6` assigns a plain slot. An owner is `owner_stored`. A borrow is `borrow_stored`, unless it borrows an
   anchor or static storage; an anchor's borrow is held where the slot is a local's own storage and `borrow_stored` where
   the slot outlives the function since 0.217 (What a local's storage holds, below). A fresh non-static value or a loose
-  pointer is `untied`. (M3, 0.217)
+  pointer is `untied`; a value read out of a plain slot is not fresh, and goes in as a plain local's copy does (0.290;
+  `ck_loaded_value/1`, the topic of loose pointers below). (M3, 0.217, 0.290)
 - **AN ELEMENT OF AN OWN BUFFER THAT CARRIES NO POINTER IS A PLAIN VALUE'S SLOT** (0.274): `own int *data` puts `own`
   with the pointee (`ck_own_type/1`), so `b->data[i]` has the type `own int`, and the assignment by the place's type
   (the last clause of `ck_expr/3`'s `=`) took it for an own slot: `b->data[i] = q[i]` over a parameter `q` was `a
@@ -10310,8 +10401,26 @@ in the first topic (The ccllib gate).
 - Owner's rule: every pointer has an ownership path, or the program is refused. There is no warning channel: `untied`
   and `unconsumed` are errors (owner's decision). (M3, 0.14)
 - A plain pointer local given a fresh value is `N-loose`, a root for borrows (`ck_borrow_source/3`). A value is fresh
-  when it is not none, an initializer list, null, static, rooted under an unfollowed reference, or a `ck_va_value/1`
-  form (`ck_fresh_value/1`). (M3)
+  when it is not none, an initializer list, null, static, rooted under an unfollowed reference, a `ck_va_value/1` form,
+  or a value read out of a plain slot (`ck_fresh_value/1`). A VALUE READ OUT OF A SLOT IS NO NEW MEMORY (0.290;
+  `ck_loaded_value/1`): an element (`a[i]`), a member (`s.m`, `p->m`), a dereference (`*p`) and a global's name, through
+  a cast, pointer arithmetic (`x + n`, `x - n`), a comma's right side, and a conditional whose two sides are neither
+  fresh. New memory comes from a call; a read gives what a slot holds, and a plain slot holds no memory of nobody's,
+  since a store of fresh memory into a field, an element, a global or `*p` is `untied`. Where the slot is in an object
+  that the check follows -- a local's storage, a parameter's object, an owner's -- the read is a borrow of it, found
+  first (`ck_borrows_from/3`), and the borrow's rules hold: `s->p = local.p;` over a held address of a local is
+  `borrow_stored` as before. THE SLOT THAT IS READ IS A PLAIN ONE (`ck_plain_read/1`, `ck_owner_in_type/1`): its type is
+  known and is no own pointer, no own array and no record with one in a member at any depth. An own slot holds memory
+  that is its owner's, and a read of one that the check does not follow -- a global own pointer, an own field of a
+  global record -- is fresh as before, so that `char *q = gbuf; gc = q;` keeps no owner's pointer in a plain slot (Not
+  done: a global owner is not followed). Until 0.290 `const char *s = names[i];` over a static table of literals was
+  `unconsumed` at the function's end, and so were a global struct's member, a global pointer's value, an element of
+  `environ` and a member through a pointer to a global record -- ten of eleven forms that were probed --, and a record
+  that holds a pointer, read out of a table by value into a local (`struct tok t = toks[i];`), was `untied`.
+  `test/c/run/loadedptr.c`, as C and as C++; refused still, `test/c/safe/loaded_or_new.c` (a conditional with `malloc`
+  on one side) and `loaded_own_alias.c` (a global owner's pointer through a local into a plain global). Three texts of
+  the check broken on purpose -- a read of any slot taken for a plain one, a conditional taken whatever its sides, a
+  record never asked for its own fields -- each pass a fixture that must be refused. (M3, 0.290)
 - `free`, `fclose`, `realloc` and an own parameter consume a loose pointer (`ck_consume_loose/3`), and its borrows
   dangle. A `return` takes it (`ck_loose_taken/3`) -- NOT BY AN ARITHMETIC VALUE (0.238; `ck_carries_none/1`: `return
   p[0] - 1` hands the caller an int, and the block was taken and its leak unseen; `test/c/safe/loose_arith.c`) --, and
@@ -10319,7 +10428,13 @@ in the first topic (The ccllib gate).
   rebind lands in the variable's own frame (`ck_declare_at/4`). `test/c/safe/unconsumed.c`. (M3)
 - `untied` ("no owner behind") is a slot the check cannot follow, given a fresh value or a loose pointer: a struct by
   value (`ck_no_owner_behind/4`), or a field, an element, `*p`, a global or an initializer item (`ck_into_plain/6`,
-  named by `ck_slot_label/4`). `test/c/safe/untied.c`. (M3)
+  named by `ck_slot_label/4`). `test/c/safe/untied.c`. A VALUE READ OUT OF A PLAIN SLOT HAS ITS OWNER BEHIND IT, OR IS
+  STATIC (0.290; `ck_loaded_value/1` in `ck_into_plain/6`; the loose pointer's bullet, above): `t->text = names[i];`, `g
+  = names[i];`, `tbl[0] = names[0];`, an initializer `{ names[i], 1 }`, each side of a conditional, and a record that
+  holds a pointer, read out of a table by value (`*out = toks[i];`, `gt = toks[i];`, `a[0] = toks[i];`) -- each was
+  `untied` until 0.290, where the same store through a local (`const char *s = names[i]; g = s;`, a plain local's copy)
+  was taken. A conditional with new memory on one side is `untied` still (`test/c/safe/loaded_or_new_store.c`), and so
+  is a record with an own field out of a table into a plain slot (`loaded_own_record.c`). (M3, 0.290)
 - `ck_va_value/1` lists what is never fresh: a value read by `va_arg` (the caller's), a C99 compound literal (the
   block's object), a `dynamic_cast`'s result, an exception's storage, a coroutine's frame, promise or noop handle.
   (0.108)
@@ -10677,8 +10792,9 @@ in the first topic (The ccllib gate).
   `owner_unset` is an owner used before it got a value. `move_of_non_owner` is `move` of no owner and no library value.
   `goto_with_owners` is a `goto` over the declaration of a plain pointer that holds fresh memory or of an own array
   (0.138; until then, into a block or over any owner's declaration where an owner lived, 0.133). `goto_over_defer` is a
-  `goto` over a `defer` or a C++ local with a destructor (0.138). `not_checked` is a form the walk cannot follow: a range-for over a non-array, a `continue` in a switch
-  with no loop, a goto whose label no walk reached, a body whose labels' states do not settle in eight walks. (M3, 0.133)
+  `goto` over a `defer` or a C++ local with a destructor (0.138). `not_checked` is a form the walk cannot follow: a
+  range-for over a non-array, a `continue` in a switch with no loop, a goto whose label no walk reached, a body whose
+  labels' states do not settle in eight walks. (M3, 0.133)
 - AN ASM OUTPUT THAT CARRIES A POINTER IS REFUSED BY NAME (0.215; `ck_asm_outs/1`): an asm statement's inputs are read
   and its outputs written, as an expression's operands are (`ck_asm_ops/3`), and an output whose value carries a pointer
   (`ck_carries_type/1`: a pointer, an array of them, a struct holding one) throws `not_lowered(asm_pointer_output)`,
@@ -11981,6 +12097,14 @@ in the first topic (The ccllib gate).
   at 2882 MB, 1.8.38 at 591 MB. After a cocolog update the modules are rebuilt (`module/build.sh`,
   `module/build-llvm.sh`, and cocolog's `os` and `process` modules); 1.8.36 to 1.8.41 left the SDK's ABI unchanged.
   (0.46, 0.112, 0.114)
+- COCOLOG 3.62 HAS `public` AND `dynamic` AS PREFIX OPERATORS, as swipl has (reported at 0.290 by a program that runs
+  this library over cocolog 3.62.0; NOT RUN HERE, whose cocolog is 3.37.0 on the owner's word): `A \== public, ...` and
+  `K \== dynamic ; ...` are no terms there, the three clauses that had them did not load -- `cpp_check_access/4` in
+  `ccl_cpp_class.pl`, `cpp_nonpublic_data/2` in `ccl_cpp_layout.pl`, `cpp_prvalue_shape/1` in `ccl_cpp_deduce.pl` --,
+  and the load's three errors were printed after every failed build. AN OPERATOR ATOM THAT STANDS BETWEEN AN INFIX
+  OPERATOR AND A COMMA, A SEMICOLON OR AN ARROW IS WRITTEN IN PARENTHESES, `(public)`, the form that standard Prolog
+  reads as the atom (3.37.0 does; 3.62 was not run). The seven places where such an atom stands before a closing
+  parenthesis (`A0 = public )`) are as they were: the report's load took them. (0.290)
 - cocolog is at 3.37.0 since 0.259, taken at its latest master by the owner's rule ("Use latest cocolog everytime";
   `CLAUDE.md`) -- `74183ae`, twenty-eight commits past 3.19.2 (0.258's chain ran on 3.19.4 as checked out), over
   ZiguratIP 1.0.2 (`2a65f81`: a row's chain read inside its page's hexmap slice) beside Cicili 3.3.0 (`3ba2ca4`), which
@@ -13956,7 +14080,9 @@ Declarations topic of the C++ reader).
   with AVX-512 stops with an illegal instruction on a CPU that has none; with `--target=TRIPLE` the CPU is the triple's
   `generic` one. A `-m` flag goes to the link alone (`bin/cicilang`), so `-march=` names no CPU for the object. The
   owner's decision: the architecture's plain CPU by default, as clang's, and the host's on `-march=native` -- or the
-  host's, as now.
+  host's, as now. A PROGRAM OF 25,000 LINES MET IT (0.290, the Ambitious session's finding 10): on a box with AVX-512 a
+  conversion of a `uint32_t` to a double is `vcvtusi2sd`, at which valgrind 3.22 ends the program with SIGILL, so that
+  no program built there runs under valgrind; its author asks for the plain CPU by default.
 
 ### The safe part
 
@@ -13989,6 +14115,24 @@ Declarations topic of the C++ reader).
   member does in C++ (a member with a destructor is C++'s remedy, and a defer would free the field on the normal path
   too); a plain pointer that holds an allocation (`loose`) is no owner and is not asked; a destructor declared
   `noexcept(false)` is taken as one that does not throw where a `delete` calls it.
+- A STRUCT THAT HOLDS CCLLIB INSTANCES IS NOT DROPPED (the Ambitious session's finding 9, 0.290; `CCLLIB.md`'s open
+  decision 6, the kin of decision 2): `typedef struct bag { vector<int> ids; int n; } bag;` with `bag b = {0};
+  push_back(b.ids, 1);` is `owner leaked: 'b.ids.data'` at the function's end, where C++ makes a destructor that drops
+  each member; the program drops each member by name under a `defer`. A drop of each member that has one -- of a local,
+  of a member of a member, of an array's elements, at an assignment over the struct -- is a rule of the language, the
+  owner's.
+- A GLOBAL OWNER IS NOT FOLLOWED (probed at 0.290, as it was before): over `static own char *gbuf;`, `char *q = gbuf;
+  use(q);` is `plain pointer not consumed: 'q'` -- the read is new memory to the check, where it is a borrow of the
+  global's --; `char *q = gbuf; take(q);` over an own parameter is taken, and `gbuf` is left with the pointer that
+  `take` freed; `struct V v = table[0]; free(v.data);` over a global table of records with an own field is taken, and
+  the table's element keeps the pointer. `gc = gbuf;` into a plain global is refused, by the words of another rule (`no
+  owner behind: 'gc'`). 0.290's rule of a value read out of a slot leaves them as they were: it is a rule of plain slots
+  (`ck_plain_read/1`).
+- A FUNCTION THAT GIVES BACK A RECORD WITH A POINTER IN IT GIVES A VALUE WITH NO OWNER BEHIND (probed at 0.290, as it
+  was before): `struct tok t = pick(i);` over `static struct tok pick(int i) { return toks[i]; }` is `no owner behind:
+  't'`. A call's result is new memory to the check, as a pointer result with no tie is, and a record cannot be consumed.
+  The program hands the record out through a pointer parameter (`*out = toks[i];`, taken since 0.290) or reads the table
+  where it needs the record.
 
 ### Tools and performance
 
@@ -14147,7 +14291,27 @@ Declarations topic of the C++ reader).
   Includes topic), so `#include "nope.h"` before a `main` that uses nothing of it builds with no message, and a program
   that uses the header fails later, at the first name it declares; clang stops at the line, `fatal error: 'nope.h' file
   not found`. To refuse it changes what every read holds, the library's reads among them, whose missing headers no gate
-  has counted: a step of its own.
+  has counted: a step of its own. Since 0.290 a build that fails names the file in a note, for an `#include` of the
+  program's file (`dr_unread_notes/2`, the driver's topic); a build with no error says nothing still.
+- A MALFORMED `#include` OF THE PROGRAM'S FILE IS PASSED OVER (found at 0.290): `#include \"x.h\"` -- a backslash before
+  each quote, which a check of the driver gate wrote by a slip of its shell -- is kept as a directive that nothing
+  reads, with no message, and the program fails at the first name of the header; clang says `expected "FILENAME" or
+  <FILENAME>`.
+- THE RAW LEXER ENDS A DIRECTIVE AT ITS LINE'S END INSIDE A COMMENT (found at 0.290; `ccl_pp_line//3`): C ends a
+  directive where a comment that begins on its line ends (C17 5.1.1.2/1: a comment is one space in phase 3, before the
+  directive is taken in phase 4). The raw read takes the comment's later lines as code: where they do not parse the read
+  stops, and where they do not lex it is an empty read that stopped (0.290); the preprocessed read, which has the rule,
+  then takes the header (the topic of includes). No read depends on the raw lexer's rule; a header whose raw read would
+  have been whole is read twice.
+- A BUILD OVER THE STORE THAT DID NOT END (the Ambitious session's finding 11, on 0.284 over cocolog 3.62.0; NOT SEEN
+  HERE): a build ran at 100% of a CPU for ten minutes with the store's lock held, after builds between which a macro
+  file was changed, and each later build over that store did the same until the store was removed (`rm -rf
+  ~/.cicilang/KB ~/.cicilang/KB.version`, the cure of a damaged store). Its author could not make it happen again over a
+  fresh store, with three sequences: a macro file changed between builds, a build that the safe part refuses, a macro
+  that writes a file. Here, twelve builds over one store and cocolog 3.37.0, the macro file, its header and the program
+  changed in turn, ended each in a second. The report asks for a check of the store, or a time cap on the wait for its
+  lock, which would name the next one: a lock is taken over where its process is gone or it is an hour old (`kb_lock`),
+  and a build that does not end holds it till then.
 - `-g` (0.130) leaves out what clang's has beyond the variables, the types and the scopes: an expression has its own
   column since 0.242, but a statement whose text does not align with its tokens -- a macro's expansion, a form the C++
   desugaring made -- keeps its statement's column (0.161), C++ keeps 0.161's places for what follows a statement and a

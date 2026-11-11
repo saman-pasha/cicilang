@@ -22,7 +22,7 @@ cpp_layout_pod(K, C, Bases, Ms, Data, Defaults, Slots) :-
 cpp_copy_assign_param(C, P) :- ( P = param(T, _) ; P = param(T, _, _) ), !, ( T = ref(_, B) -> true ; T = B ), B = base(_, [S]), ( S = typedef(N) ; S = tmpl(N, _) ), atom(N),
     ( cpp_own_name(C, N) -> true ; atom_concat('.', N, DN), atom_concat(_, DN, C) ).   % the class's own name, its template's, or a nested class's short one
 cpp_nonpublic_data([access(A)|Ms], _) :- !, cpp_nonpublic_data(Ms, A).
-cpp_nonpublic_data([member(T, _, _)|_], A) :- A \== public, \+ cpp_static_type(T, _), !.
+cpp_nonpublic_data([member(T, _, _)|_], A) :- A \== (public), \+ cpp_static_type(T, _), !.   % `(public)': an operator atom as an operand (0.290)
 cpp_nonpublic_data([_|Ms], A) :- cpp_nonpublic_data(Ms, A).
 cpp_member_not_pod(MT) :- ( MT = ref(_, _) ; MT = rref(_, _) ), !.
 cpp_member_not_pod(MT) :- catch(cpp_elem_class(MT, MC), _, fail), atom(MC), catch(ccl_tag(MC, TMs), _, fail), TMs \== none, memberchk('$nonpod', TMs), !.

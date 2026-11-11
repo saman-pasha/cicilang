@@ -56,6 +56,11 @@ Open decisions:
    this plan's examples have them; one of the two sets may go.
 4. A literal at file scope, and a global of an instance type: refused, or made before `main` and dropped after it, as
    C++ globals are.
+6. A struct of the program's own that holds instances (0.290; found by a program of 25,000 lines over ccllib): `typedef
+   struct bag { vector<int> ids; int n; } bag;` is not dropped where its scope ends -- `bag b = {0}; push_back(b.ids,
+   1);` is `owner leaked: 'b.ids.data'` --, and that program drops each member by name under a `defer`. C++ makes a
+   destructor that drops each member. The kin of decision 2: a drop of each member that has one, of a local, of a
+   member of a member and of an array's elements, and at an assignment over the struct.
 
 ## What a C developer writes
 

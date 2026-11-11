@@ -12,8 +12,8 @@ the fixture that gates it, and why. The bullet ends with the version that made t
 edits the rule in `RULES.md`, in its topic, and writes its entry in `HISTORY.md`. Read the topic of `RULES.md` that
 covers the code before the code is changed.
 
-At 0.289 the versions are: the module 0.289 (`ccl_p_version` in `module/cicilang.cicili`, `bin/cicilang --version`),
-the reader 186 (`ccl_reader_version/1`, `library/ccl_syntax.pl`) and the lowering 160 (`ccl_lowering_version/1`,
+At 0.290 the versions are: the module 0.290 (`ccl_p_version` in `module/cicilang.cicili`, `bin/cicilang --version`),
+the reader 187 (`ccl_reader_version/1`, `library/ccl_syntax.pl`) and the lowering 161 (`ccl_lowering_version/1`,
 `library/ccl_ir.pl`).
 
 Build and prove, always in this order (or all of it, `sh test/gates.sh`):
@@ -180,6 +180,12 @@ In `RULES.md`:
   their sentences compared that rebuild with clang++'s whole build of the twin; five of nine sentences were wrong in
   their direction. A build is timed after a change of its file, a cache that can serve the timed run is off or is named
   in the words, and a number that looks too good is asked what it measured before it is written.
+- A FINDING THAT ANOTHER PROGRAM'S AUTHOR REPORTS IS RUN FROM ITS REDUCTION, ITS CAUSE IS FOUND HERE, AND THE FORMS
+  BESIDE IT ARE PROBED (0.290): of thirteen findings of a program of 25,000 lines, the cause that the report supposed
+  was wrong for one (`<netdb.h>` was lost to a comment on a `#define` line, not to the feature macros) and too narrow
+  for three (every `continue` in a `switch` in a loop; ten forms of a pointer read out of a slot into a local, and each
+  store of one into a field; nine headers, not one, and two more forms of a header lost with no message, which the
+  step's own note showed). A correction of the reported form alone leaves the others to the next report.
 - Each form is cut down to a reduction of 10 to 40 lines. The reduction is built with clang or clang++ and with
   cicilang, and the outputs are compared line by line. Then it gets a fixture. (0.104, 0.108, 0.110)
 - A RULE THAT A MODULE'S WORDS STATE IS PROVED AT A SIZE WHERE IT CAN BREAK, and the proof is tried against a text that
@@ -449,7 +455,8 @@ test/c/                     the reader's fixtures: hello.c, rich.c, lexer.c, mac
                             (0.285); op_item_addr.c, the address of an element that [] gives as a value (0.286);
                             name_arg_ok.c and the refusals name_arg_num.c, name_arg_text.c, name_arg_ptr.c,
                             name_arg_other.c and name_arg_count.c over run/tnames.pl and run/lazy.pl, the arguments
-                            of a call by name and their count (0.288)
+                            of a call by name and their count (0.288); own_name.c, the word own where only a name
+                            can stand (0.290)
 test/c/inc/                 the -I fixture: uses_box.c over box.h
 test/c/link/                two files linked into one program; the ABI against clang-built code (abi_main.c,
                             abi_helper.c), variadic calls (va_main.c, va_func.c, va.h), the decimal ABI against gcc,
@@ -469,14 +476,19 @@ test/c/run/                 C programs built and run: NAME.c, NAME.expect, NAME.
                             operators of part 2 -- % & | ^, - and ~, the compound assignments, [] as a value (0.284);
                             tborn.pl, of born.c: an object born zero, and made of a value of another type (0.285);
                             dropassign.c over autodrop.pl: an assignment that drops its object's old value (0.287);
-                            tnames.pl, of typednames.c: a call by name told by an argument's type (0.288)
+                            tnames.pl, of typednames.c: a call by name told by an argument's type (0.288);
+                            contswitch.c, a continue in a switch in a loop, loadedptr.c, a pointer read out of a slot
+                            and a null test of a plain pointer, and netdbhdr.c and getopthdr.c, headers whose raw
+                            read is not the header's (0.290)
 test/c/safe/                C programs the safe part refuses: NAME.c, NAME.expect; dropnone.pl, the macro file of
                             drop_leaks.c (0.262); borrow_after_grow.c, borrow_after_push.c, elem_after_push.c,
                             grow_through_ptr.c, const_replace.c and const_local.c, the safety rules of 0.265;
                             index_after_insert.c and tied_after_call.c, a tied result's borrow (0.266);
                             null_filled.c, a null own field that a call fills (0.267); assign_dangles.c,
                             assign_value.c, assign_arg.c and assign_return.c, an assignment over an object that its
-                            scope drops (0.287)
+                            scope drops (0.287); cont_switch_leak.c, loose_null_test.c, loaded_or_new.c,
+                            loaded_or_new_store.c, loaded_own_alias.c and loaded_own_record.c, what the rules of 0.290
+                            refuse still
 test/cpp/                   the C++ reader's fixtures and the refusals; hidem.cppm for modhidden.cpp; unread_cpp.cpp,
                             an argument taken unread in C++ (0.264, read since 0.270); lit_cpp.cpp, list and map
                             literals beside the lambdas in C++ (0.269); callreplace.cpp, refreplace.cpp,

@@ -1,0 +1,11 @@
+a t0 gg r0 gp r0 bb ccc bb lit
+bb t1 gg r1 gp r1 ccc ccc bb a
+3 5
+a t0 x yy x ccc a gg ccc x yy bb r0 gp
+bb t1 yy x x bb a gg a yy x ccc r1 gp
+11 13
+bb ccc
+0 -1
+1 0
+1
+exit 0

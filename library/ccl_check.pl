@@ -693,7 +693,36 @@ ck_tie_kept(St, P, Key, Form) :- ( ck_tied_to(P, T) -> ( Key \== none, ck_within
 ck_no_owner_behind(N, T, V, Form) :-
     (   ck_carries_type(T), \+ ck_is_pointer_type(T), \+ ck_declared_tie(N, _), ck_fresh_value(V) -> ck_fail(untied, N, Form)
     ;   true ).
-ck_fresh_value(V) :- V \== none, V \= init(_), \+ ck_null(V), \+ ck_static_value(V), \+ ck_ref_rooted(V), \+ ck_va_value(V).
+ck_fresh_value(V) :- V \== none, V \= init(_), \+ ck_null(V), \+ ck_static_value(V), \+ ck_ref_rooted(V), \+ ck_va_value(V), \+ ck_loaded_value(V).
+%% A POINTER READ OUT OF A SLOT IS NO NEW MEMORY (0.290): `names[i]' over a table of string literals, `g.name', a
+%% global pointer's own value, `r->name' through a pointer that the check does not follow. New memory comes from a call;
+%% a read gives what a slot holds, and a plain slot holds no memory of nobody's -- a store of such a value into a
+%% field, an element, a global or `*p' is `untied'. Where the slot is an owner's that the check follows, the read is a
+%% borrow of it, found before this rule is asked (ck_borrows_from/3). A plain local given such a value was LOOSE, a
+%% pointer that its function must free, return or store: `const char *s = names[i]; return strlen(s);' was `plain
+%% pointer not consumed', and so was every read of a pointer from a global object into a local.
+%% THE SLOT IS A PLAIN ONE (ck_plain_read/1): an OWN slot holds memory that is its owner's, and a read of one that the
+%% check does not follow -- a global own pointer, an own field of a global record -- is as it was, new to the check, so
+%% that `char *q = gbuf; gc = q;' does not keep an owner's pointer in a plain slot. A value whose type is not known is
+%% as it was too
+ck_loaded_value(id(N)) :- atom(N), ck_is_global(N), ck_plain_read(id(N)).
+ck_loaded_value(index(A, I)) :- ck_plain_read(index(A, I)).
+ck_loaded_value(member(E, F)) :- ck_plain_read(member(E, F)).
+ck_loaded_value(arrow(E, F)) :- ck_plain_read(arrow(E, F)).
+ck_loaded_value(deref(E)) :- ck_plain_read(deref(E)).
+ck_loaded_value(cast(_, E)) :- ck_loaded_value(E).
+ck_loaded_value(ccast(_, _, E)) :- ck_loaded_value(E).
+ck_loaded_value(bin(Op, A, _)) :- memberchk(Op, ['+', '-']), ck_loaded_value(A).
+ck_loaded_value(comma(_, B)) :- ck_loaded_value(B).
+ck_loaded_value(cond(_, A, B)) :- \+ ck_fresh_value(A), \+ ck_fresh_value(B).
+ck_plain_read(E) :- catch(ccl_type_of(E, T), _, fail), T \== unknown, \+ ck_owner_in_type(T).
+%% a type that an owner's pointer is in: an own pointer, an own array, a struct by value with one in a member at any
+%% depth, an array of such
+ck_owner_in_type(T) :- ( ck_own_type(T) ; ck_own_array_type(T) ), !.
+ck_owner_in_type(T) :- catch(ccl_resolve_type(T, T1), _, fail), ck_owner_in_type_(T1), !.
+ck_owner_in_type_(T) :- ck_own_type(T).
+ck_owner_in_type_(arr(_, ET)) :- ck_owner_in_type(ET).
+ck_owner_in_type_(base(Q, [struct(N, B)])) :- catch(ccl_members_of(base(Q, [struct(N, B)]), Ms), _, fail), member(member(MT, _, _), Ms), ck_owner_in_type(MT).
 %% a value read by `va_arg' is the CALLER's argument, handed on and never this function's to consume (0.108)
 ck_va_value(va_arg(_, _)).
 ck_va_value(compound_lit(_, _)).   % C99's compound literal is an object of the enclosing block, never a fresh value to consume (0.108)
@@ -1229,6 +1258,8 @@ ck_merge_state(loose, borrow(P), borrow(P)) :- !.                   % fresh memo
 ck_merge_state(borrow(P), loose, borrow(P)) :- !.
 ck_merge_state(anchor, borrow(P), borrow(P)) :- !.                  % a library object anchored on one path, holding a borrow on the other (0.216)
 ck_merge_state(borrow(P), anchor, borrow(P)) :- !.
+ck_merge_state(null, loose, loose) :- !.               % new memory on one path, a null found by its test on the other (0.290): still to be given back
+ck_merge_state(loose, null, loose) :- !.
 ck_merge_state(none, S, S) :- !.                    % a plain pointer, bound on one side only: bound
 ck_merge_state(S, none, S) :- !.
 ck_merge_state(null, live, live) :- !.
@@ -1369,7 +1400,13 @@ ck_null_test(bin('!=', N, E), E, live) :- ck_null(N), !.
 ck_null_test(E, E, live) :- ( E = id(_) ; E = member(_, _) ; E = arrow(_, _) ), !.
 ck_set_null(E, St0, St) :-
     (   ck_path(E, K), ck_state(St0, K, S), memberchk(S, [live, partial]) -> ck_own_under(St0, K, Ks), ck_set_all(St0, [K|Ks], null, St)
+    ;   E = id(N), atom(N), ck_state(St0, N, loose) -> ck_set(St0, N, null, St)   % A LOOSE POINTER THAT IS NULL HOLDS NOTHING (0.290; below)
     ;   St = St0 ).
+%% ... AND A NULL TEST ON A PLAIN POINTER THAT HOLDS NEW MEMORY (0.290): `FILE *f = fopen(...); if (f == NULL) return -1;
+%% fclose(f);' -- the README's own lines -- was `plain pointer not consumed: 'f'' at the return, since the test refined
+%% an owner and no loose pointer. On the path where it is null it holds nothing to give back; where the paths join, null
+%% on one and loose on the other is loose (ck_merge_state/3), so `if (!p) puts("none");' with no free after it is still
+%% refused
 ck_stmts([], St, St).
 ck_stmts([S|Ss], St0, St) :- ck_try_note(St0), ck_stmt(S, St0, St1), ck_stmts(Ss, St1, St).
 %% the states a try's handlers may be entered from: one record a try open, `t(Depth, States)' in `'$ck_trys'', each state
@@ -1475,7 +1512,7 @@ ck_into_plain(Name, R, Form, W, St0, St) :-
                             ;   ck_il_slot(Name) -> ck_expr(R, St0, St)   % AN INITIALIZER LIST'S ARRAY hands its items to the library object, which holds the borrow (ck_lib_handed/4, 0.216): `std::vector<int *> v{p}' over a parameter p was borrow_stored
                             ;   ck_fail(borrow_stored, P, Form) )
     ;   Kind == null -> ck_expr(R, St0, St1), ck_unhold_at(W, St1, St)
-    ;   ( ck_static_value(R) -> true ; ck_fail(untied, Name, Form) ), ck_expr(R, St0, St1), ck_unhold_at(W, St1, St) ).
+    ;   ( ck_static_value(R) -> true ; ck_loaded_value(R) -> true ; ck_fail(untied, Name, Form) ), ck_expr(R, St0, St1), ck_unhold_at(W, St1, St) ).   % what a plain slot held goes into a plain slot (0.290, ck_loaded_value/1)
 ck_il_slot(Name) :- atom(Name), atom_concat('$il', _, Name).
 %% THE ADDRESS OF A LOCAL STORED IN A PLAIN SLOT (0.217): held where the slot is a local's own storage (ck_hold_key/6),
 %% so the local that holds it may not leave with it and dangles with it; `borrow_stored' where the slot outlives the
@@ -1613,15 +1650,21 @@ ck_frames_kept([], _, _).
 ck_frames_kept([fr(Ob, _)|Bs], [fr(Oa, _)|As], S) :-
     ( member(N-live, Ob), memberchk(N-SA, Oa), SA \== live -> ck_fail(move_in_loop, N, S) ; true ),
     ck_frames_kept(Bs, As, S).
-%% a break or continue: its state joins the loop's exits (or the switch's), the frames inside the loop closed first
-ck_exit_to_loop(St0, Kind) :-
+%% a break or continue: its state joins the loop's exits (or the switch's), the frames inside the loop closed first.
+%% A CONTINUE'S LOOP IS THE NEAREST LOOP, PAST ANY SWITCH (0.290; C17 6.8.6.2): its frames are closed down to that
+%% loop's, the switch's among them. They were closed down to the switch's alone, and the state went to the loop's exits
+%% with the frames of the switch and of the loop's body still open: the join of the loop met frame stacks of two
+%% lengths and failed, and every `continue' in a `switch' in a loop stopped the check with no line named, `not lowered
+%% yet: phase(check)'
+ck_exit_to_loop(St0, continue) :- !, nb_getval('$ck_loops', Ls), ck_continue_to(Ls, St0, Ls1), nb_setval('$ck_loops', Ls1).
+ck_exit_to_loop(St0, _) :-
     nb_getval('$ck_loops', [lp(LKind, StIn, Exits, Conts)|L]),
     st(FrsIn) = StIn, length(FrsIn, Depth), ck_close_to(St0, Depth, St1),
-    ( Kind == continue, LKind == switch -> nb_setval('$ck_loops', [lp(LKind, StIn, Exits, Conts)|L]), ck_exit_to_loop_outer(St1, L, continue)
-    ; Kind == continue -> nb_setval('$ck_loops', [lp(LKind, StIn, [St1|Exits], Conts)|L])   % a continue rejoins the head: checked as an exit too
-    ; nb_setval('$ck_loops', [lp(LKind, StIn, [St1|Exits], Conts)|L]) ).
-ck_exit_to_loop_outer(St1, [lp(K, StIn, Exits, Conts)|L], Kind) :- !, nb_setval('$ck_loops', [lp(K, StIn, [St1|Exits], Conts)|L]), true.
-ck_exit_to_loop_outer(_, [], _) :- ck_fail(not_checked, continue, continue).
+    nb_setval('$ck_loops', [lp(LKind, StIn, [St1|Exits], Conts)|L]).
+ck_continue_to([lp(switch, StIn, Exits, Conts)|L], St0, [lp(switch, StIn, Exits, Conts)|L1]) :- !, ck_continue_to(L, St0, L1).
+ck_continue_to([lp(K, StIn, Exits, Conts)|L], St0, [lp(K, StIn, [St1|Exits], Conts)|L]) :- !,   % a continue rejoins the head: checked as an exit too
+    st(FrsIn) = StIn, length(FrsIn, Depth), ck_close_to(St0, Depth, St1).
+ck_continue_to([], _, _) :- ck_fail(not_checked, continue, continue).
 %% close the frames opened inside the loop: their defers run, their owners must be consumed
 ck_close_to(St, Depth, St) :- st(Frs) = St, length(Frs, Depth), !.
 ck_close_to(St0, Depth, St) :- ck_in_state_scope(St0, ck_scope_end(St0, St1)), ck_close_to(St1, Depth, St).

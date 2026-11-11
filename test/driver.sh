@@ -178,6 +178,26 @@ check "a floating value where a pointer is needed, and a pointer where a floatin
 fpp2.c:3: error: no conversion from 'char *' to 'double'
 fpp3.c:3: error: no conversion from 'char *' to 'double'
 fpp4.c:3: error: no conversion from 'double' to 'char *'"
+# THE AMBITIOUS PROGRAM'S FINDINGS (0.290): a macro file's header under a relative -I with the program in another directory; an
+# output file whose directory is not there; a header that was not read to its end, and a file that an #include of the program
+# does not find, named under the build's error
+check "a macro file's NAME.pl.h is found under a relative -I when the program is in another directory (0.290)" "$(mkdir -p rinc rsrc && echo 'rel_unused(x).' > rinc/rel.pl && echo 'int abs(int);' > rinc/rel.pl.h && printf '#include <rel.pl>\nint main(void) { return abs(-7) - 7; }\n' > rsrc/main.c && "$CICILI" -I rinc rsrc/main.c -o relinc 2>&1 && ./relinc; echo "exit $?")" "exit 0"
+check "an output file whose directory is not there is refused by its path, before the build, and the errors are counted (0.290)" "$("$CICILI" -c "$R/run/forty2.c" -o no/such/dir/forty2.o 2>&1; echo "exit $?")" "no/such/dir/forty2.o: error: unable to open the output file: no such directory 'no/such/dir'
+cicilang: 1 error(s)
+exit 1"
+check "a header whose read stopped is named under the build's error, at its #include (0.290)" "$(printf 'int y_of_h;\nint x = ;\nint z_of_h;\n' > stop.h; printf '#include %s\nint main(void) { return z_of_h; }\n' '"stop.h"' > usestop.c; "$CICILI" -fsyntax-only usestop.c 2>&1 | head -2)" "usestop.c:2: error: not lowered yet: undeclared(z_of_h) (function main)
+usestop.c:1: note: the read of the header ./stop.h stopped at its line 2: what it declares after that line is not known"
+check "a file that an #include of the program does not find is named under the build's error, and one in a group that is skipped is not (0.290)" "$(printf '#include %s\n#if 0\n#include %s\n#endif\n#include %s\nint main(void) { return nope_value(); }\n' '"nope.h"' '"skipped.h"' '<nope/sys.h>' > usenope.c; "$CICILI" -fsyntax-only usenope.c 2>&1; echo "exit $?"; printf '#include %s\nint main(void) { return 0; }\n' '"nope.h"' > passnope.c; "$CICILI" -fsyntax-only passnope.c 2>&1; echo "exit $?")" "usenope.c:6: error: not lowered yet: undeclared(nope_value) (function main)
+usenope.c:1: note: 'nope.h' file not found: nothing that it declares is known
+usenope.c:5: note: 'nope/sys.h' file not found: nothing that it declares is known
+cicilang: 1 error(s)
+exit 1
+exit 0"
+case $(uname -s) in Linux)   # glibc's headers: <limits.h> holds <sys/cdefs.h>, whose raw read threw; <getopt.h> two headers that were read in part
+check "no header of the C library is named under an error that is not its own (0.290)" "$(printf '#include <stdio.h>\n#include <limits.h>\n#include <getopt.h>\n#include <netdb.h>\nint main(void) { return nope_value(); }\n' > nonote.c; "$CICILI" -fsyntax-only nonote.c 2>&1; echo "exit $?")" "nonote.c:5: error: not lowered yet: undeclared(nope_value) (function main)
+cicilang: 1 error(s)
+exit 1" ;;
+esac
 case $(uname -m) in arm64|aarch64) AJ=b ;; *) AJ=jmp ;; esac   # the machine's jump (0.247: an Apple silicon Mac has no `jmp')
 check "GNU's asm goto is lowered, a callbr (0.231), and an asm output that carries a pointer is refused by name (0.215)" "$(printf 'int main(void) {\n  asm goto("'"$AJ"' %%l0" :::: out);\n  return 1;\nout:\n  return 0;\n}\n' > asmgoto.c; "$CICILI" -c asmgoto.c > asmgoto.out 2>&1; echo "asm goto: exit $?"; head -1 asmgoto.out; printf 'int main(void) {\n  int x = 0, *p = &x;\n  asm("" : "=r"(p));\n  return *p;\n}\n' > asmptr.c; "$CICILI" -fsyntax-only asmptr.c 2>&1 | head -1)" "asm goto: exit 0
 asmptr.c:3: error: not lowered yet: asm_pointer_output (function main)"

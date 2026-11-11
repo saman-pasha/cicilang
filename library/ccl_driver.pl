@@ -20,7 +20,9 @@
 ccl_drive(Inputs, Options) :- once(dr_drive(Inputs, Options)).          % one answer: the query loop would re-run a second
 dr_drive(Inputs, Options) :-
     dr_setup(Options, Flags), nb_setval('$ccl_children', opts(Options)),   % a cold library header read by a process of its own (0.188)
-    dr_inputs(Inputs, Options, Flags, Objects),
+    (   dr_out_dir_missing(Options, Out0, Dir0)
+    ->  dr_error(Out0, 0, ['unable to open the output file: no such directory ''', Dir0, '''']), Objects = []
+    ;   dr_inputs(Inputs, Options, Flags, Objects) ),
     nb_getval('$dr_errors', N),
     (   N > 0 -> true
     ;   ( dr_no_link(Options) ; Objects == [] ) -> true
@@ -30,6 +32,11 @@ dr_drive(Inputs, Options) :-
         dr_catch(cicilang_link(Objects, LinkFlags, Out), E, dr_report(Out, E)) ),
     nb_getval('$dr_errors', N1),
     ( N1 =:= 0 -> write('cicilang: ok') ; write('cicilang: '), write(N1), write(' error(s)') ), nl.
+%% THE OUTPUT FILE'S DIRECTORY IS ASKED BEFORE THE BUILD (0.290): `-c ok.c -o no/such/dir/ok.o' built the whole unit and
+%% then printed the embedded LLVM's own words, `LLVM: emit_failed: No such file or directory', which name no path, and
+%% the run ended there with no count of its errors. The path and its directory are named, and nothing is built
+dr_out_dir_missing(Options, Out, D) :-
+    memberchk(out(Out), Options), atom(Out), sub_atom(Out, _, _, _, '/'), file_directory_name(Out, D), D \== '', \+ exists_directory(D).
 %% THE OPTIONS AS A RUN OF THE COMMAND SETS THEM: the language and its level, another machine, the command line's macros
 %% and directories, the compile's flags (0.188: a cold header's process sets them as its build does, ccl_drive_header/3)
 dr_setup(Options, Flags) :-
@@ -105,8 +112,31 @@ dr_c(F, Options, Flags, Objs, Objs1) :-
             ;   nb_setval('$ccl_debug', none), nb_setval('$ccl_debug_kind', none) ),
             (   dr_catch(dr_ir(F, AST, IR), E2, (dr_report(F, E2), fail))
             ->  dr_emit(F, IR, Options, Flags, Objs, Objs1)
-            ;   ( nb_getval('$dr_errors', NE), NE =:= 0 -> dr_error(F, 0, ['the check or the lowering failed without saying why']) ; true ), Objs = Objs1 ) )
+            ;   ( nb_getval('$dr_errors', NE), NE =:= 0 -> dr_error(F, 0, ['the check or the lowering failed without saying why']) ; true ),
+                dr_unread_notes(F, AST), Objs = Objs1 ) )
     ;   Objs = Objs1 ).
+%% A HEADER THAT WAS NOT FOUND, NOT READ, OR NOT READ TO ITS END, IS NAMED WHERE THE BUILD FAILS (0.290): the include
+%% layer keeps going over a file that it does not find (`missing'), over a header that no read takes (`unreadable',
+%% library(ccl_include)) and over one whose read stopped (a partial read is silent), and the program then fails at the
+%% first name that the header would have declared, `undeclared(getaddrinfo)', with no word of why. A note under the
+%% errors names each such header of the unit, at the line of its #include in the file; a build with no error says
+%% nothing of them, as before. A FILE THAT WAS NOT FOUND IS NAMED FOR AN #include OF THE PROGRAM'S FILE ALONE: that
+%% file is read preprocessed, so the directive is one that the program meets, where a header read raw keeps the
+%% directives of each branch of its conditionals, and a file that one of them does not find may be one that no build asks
+dr_unread_notes(F, unit(Is)) :- !,
+    findall(L-X, ( member(I, Is), ( dr_missing_in(I, L, X) ; dr_unread_in(I, L, X) ) ), LXs0), sort(LXs0, LXs), dr_unread_notes_(LXs, F).
+dr_unread_notes(_, _).
+dr_missing_in(include(L, Spec, missing), L, missing(N)) :- ( Spec = next(S) -> true ; S = Spec ), ( S = system(N) ; S = local(N) ), !.
+dr_unread_in(include(L, _, file(P, unreadable, _)), L, unread(P)) :- !.
+dr_unread_in(include(L, _, file(P, _, partial(unit(Js), line(Ln), _))), L, X) :- !, ( X = stopped(P, Ln) ; member(J, Js), dr_unread_in(J, _, X) ).
+dr_unread_in(include(L, _, file(_, _, unit(Js))), L, X) :- member(J, Js), dr_unread_in(J, _, X).
+dr_unread_notes_([], _).
+dr_unread_notes_([L-X|T], F) :-
+    write(F), write(':'), write(L), write(': note: '),
+    (   X = missing(N) -> write(''''), write(N), write(''' file not found: nothing that it declares is known')
+    ;   X = unread(P) -> write('the header '), write(P), write(' could not be read: nothing that it declares is known')
+    ;   X = stopped(P, Ln), write('the read of the header '), write(P), write(' stopped at its line '), write(Ln), write(': what it declares after that line is not known') ),
+    nl, dr_unread_notes_(T, F).
 
 %% -g -fdebug-macro (0.134): THE MACROS AS THE FILE AND ITS HEADERS DEFINE THEM, recorded by a standalone run of the
 %% preprocessor (ccl_pp_macro_trace/2) BEFORE the read, whose own run starts the preprocessor afresh; the lowering's
@@ -275,6 +305,7 @@ dr_diag(F, list_literal(M), here(_, L)) :- !, dr_error(F, L, [M]).   % a list or
 dr_diag(F, static_assert_unfolded, here(_, L)) :- !, dr_error(F, L, ['static assertion expression is not an integral constant expression']).   % a condition that does not fold, in clang's words (0.257)
 dr_diag(F, no_member(What, T), here(_, L)) :- !, dr_error(F, L, ['no member ', What, ' in ', T]).
 dr_diag(F, macro_error(M, here(_, L)), _) :- !, dr_error(F, L, ['macro: ', M]).
+dr_diag(F, refusal(M, here(_, L)), _) :- !, dr_error(F, L, [M]).   % the reader's own refusal by name (ccl_refuse/1, 0.290)
 %% an error inside a macro: the call site, then where it went wrong in the macro
 dr_diag(F, macro_error(N, As, E), here(_, L, in_macro(P, MF))) :- !,
     dr_prolog_error(E, Text), dr_error(F, L, ['in the expansion of macro \'', N, '\': ', Text]), dr_note_macro(F, L, P, MF, As).

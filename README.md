@@ -125,6 +125,9 @@ rules of the code by topic; `HISTORY.md` is the record of every step.
 * **clang's arguments.** `cicilang` and `cicilang++` take what `clang` and
   `clang++` take: `-c -S -E -emit-llvm -fsyntax-only -o -O0..-Oz -I -l -L
   -shared -std= -fno-rtti --version`. Diagnostics are `file:line: error: what`.
+  The default level is `-O0`, as clang's: a program over ccllib, whose
+  functions are small and many, wants `-O2`. Where a build fails, a note
+  names each header that was not found or not read to its end.
 * **Fast, once warm.** The C headers a program includes are read once into
   the user's knowledge base, `~/.cicilang/KB`, and served from it in every
   later run; a C++ library header is flattened once and summarized to

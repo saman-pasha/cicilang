@@ -228,7 +228,7 @@ cpp_prvalue_call(call(id(F), _)) :- atom(F), ccl_declared(F, fn(R, _, _)), R \= 
 cpp_prvalue_call(stmt_expr(block(Ss))) :- append(_, [expr(_, E)], Ss), cpp_prvalue_call(E).
 cpp_prvalue_shape(A) :- cpp_prvalue_call(A), !.
 cpp_prvalue_shape(stmt_expr(block(Ss))) :- append(_, [expr(_, id(N))], Ss), atom(N), ( sub_atom(N, 0, _, _, '$tmp') ; sub_atom(N, 0, _, _, '$copy') ), !.   % a temporary the desugaring made (0.201)
-cpp_prvalue_shape(A) :- ( A = ccast(K, T, _), K \== dynamic ; A = cast(T, _) ), T \= ref(_, _), T \= rref(_, _), catch(cpp_deduce_type(A, AT), _, fail), AT \= ref(_, _), AT \= rref(_, _), cpp_class_of_type(AT, _), !.   % a cast to a class: `static_cast<R>(x)', `R(x)' (0.201)
+cpp_prvalue_shape(A) :- ( A = ccast(K, T, _), K \== (dynamic) ; A = cast(T, _) ), T \= ref(_, _), T \= rref(_, _), catch(cpp_deduce_type(A, AT), _, fail), AT \= ref(_, _), AT \= rref(_, _), cpp_class_of_type(AT, _), !.   % a cast to a class: `static_cast<R>(x)', `R(x)' (0.201)
 cpp_unref_all(T, T1) :-                                                  % EVERY reference layer, INCLUDING one behind a typedef or a bound parameter:
     (   ccl_unref(T, T0), T0 \== T -> cpp_unref_all(T0, T1)              % `const deleter_type &' with `deleter_type = __destruct_n &' unreffed ONCE to the
     ;   ccl_resolve_type(T, R), ( R = ref(_, _) ; R = rref(_, _) )       % typedef and stopped there, so a REFERENCE reached the class test, which must not

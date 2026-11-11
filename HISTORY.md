@@ -284,6 +284,7 @@ One row per step, in version order: the step's title, what it did and its gate n
 | 0.287 | An assignment over an object that its scope drops drops the old value first; two holes of the safe part closed | the rule that ccllib's string needs: `a = x` over an object that its scope drops, named by its name, is the right side's value, the object's drop, the store (the lowering notes the marked defers, the check drops the old fields in its model; it was `owner_overwritten` where the object held memory); the value of such an assignment taken again (`b = a = make(3)`) made two owners of one buffer, freed twice at run time with no refusal, and is `dropped_copied` now; an object with own fields that hides another of its name was refused at its declaration, and is taken; lowering 159 | the flow gate; the reader, compile and driver gates and the ccllib gate over libc++ 22, over one fresh HOME; the ccllib gate over libc++ 21 and 18; the pool of the light C++ run fixtures; thirteen C++ fixtures over instances by hand; no chain, by the owner's rule of 0.271; a commit and a push |
 | 0.288 | A call by name is told by an argument's type; a call that fits no form of its name is refused by name | the last form of the reader before ccllib's string: a call by name asks the function named with the word of an argument's type before the plain one (`append(s, t)`, `append(s, "lit")`, `append(s, 2, '-')`), a name with a word a form of the call where its function takes the call's count of arguments; a typed name asks each word that its type asks, so one function serves C's string literal and C++'s; three holes of the call by name closed -- another count of arguments than the function takes, a number, and a C text or a pointer to another type where the function takes its object were built with no message; a floating value where a pointer is needed is refused by name; reader 186, lowering 160 | the flow gate; the reader, compile and driver gates and the ccllib gate over libc++ 22, over one fresh HOME; the ccllib gate over libc++ 21 and 18; the pool of the light C++ run fixtures; fourteen C++ fixtures over instances by hand; no chain, by the owner's rule of 0.271; a commit and a push |
 | 0.289 | The cost of a C build is the build after a change of the file; the records of 0.273 to 0.286 corrected | the ccllib gate timed a C build of one file three times over a warm store, which serves the unit's kept IR: its line was a rebuild of a file that did not change, and thirteen tables and their sentences compared it with clang++'s build of the twin; the gate times a copy of the program whose time changes before each build, and keeps the rebuild as a fourth line; the thirteen C rows measured again (0.31 s to 1.69 s after a change, 0.23 s to 0.81 s unchanged); five sentences that said that a C build cost its twin's or less, and three more in their degree, corrected | the ccllib gate over libc++ 22, 21 and 18, each over a fresh HOME of its own; no chain, by the owner's rule of 0.271; a commit and a push |
+| 0.290 | The findings of a program of 25,000 lines: eight defects corrected, each by its reduction | thirteen findings of the Ambitious session, each reduction run on 0.289: a `continue` in a `switch` in a loop stopped the check (its loop is the nearest loop, past any switch); a value read out of a plain slot is no new memory, in a local and in a store (`names[i]` over a static table was `unconsumed` in a local and `untied` in a field); a null test refines a loose pointer (the README's `fopen` lines were refused); a raw read that does not lex goes on to the preprocessed read (`<netdb.h>` and eight more headers were dropped whole); a macro file's header is included by its absolute path; the output file's directory is asked before the build; `own` where only a name can stand is refused by name; `(public)` and `(dynamic)` for cocolog 3.62, not run here; a build that fails names each header that was not found, not read, or not read to its end; findings 9, 10 and 12 are the owner's decisions; reader 187, lowering 161 | the flow gate; the reader, compile and driver gates and the ccllib gate over libc++ 22, over one fresh HOME; the ccllib gate over libc++ 21 and 18; the pool of the light C++ run fixtures; sixteen C++ fixtures by hand; no chain, by the owner's rule of 0.271; a commit and a push |
 
 ## M5 — the C++ mode
 
@@ -20179,3 +20180,199 @@ NO CHAIN RAN for this step (the owner's rule of 0.271), and it claims nothing GR
   of ccllib), `CLAUDE.md` (a rule, the gate's line of the file list), `README.md` (the first proof's cost).
 
 The module 0.289, the reader 186 and the lowering 160 as they were.
+
+## 0.290 — the findings of a program of 25,000 lines: eight defects corrected, each by its reduction
+
+**0.290: the Ambitious session, which writes a browser engine in cicilang's C over ccllib, sent thirteen findings, and
+the owner asked for their review. Each reduction was run on the tree of 0.289, and each defect was there. Eight are
+corrected: a `continue` in a `switch` in a loop stopped the check; a pointer read out of a table was new memory to the
+check, in a local and in a field; the README's own `fopen` lines were refused; `<netdb.h>` was dropped whole with no
+message; a macro file's header was lost under a relative `-I`; an output file in a directory that is not there ended the
+run in LLVM's words; the word `own` used as a name gave its error elsewhere; and three files of the library do not load
+under cocolog 3.62. A build that fails names each header that was not found, not read, or not read to its end. Three
+findings are the owner's decisions, and are in the Not done list. The reader's version is 187 and the lowering's 161.
+Committed with its nets; the chain runs when the ccllib task is finished (the owner's rule of 0.271).**
+
+WHERE THE FINDINGS CAME FROM. The message names its tree (0.284, cocolog 3.62.0) and gives a reduction for each finding,
+with what the engine does to live with it. This repository's cocolog is 3.37.0, on the owner's word, so finding 1 was
+corrected by its text and not run. The other reductions were run first on the tree of 0.289, where each still fails,
+then on this one. THE CAUSE THAT THE MESSAGE SUPPOSES WAS WRONG FOR ONE FINDING AND TOO NARROW FOR THREE: `<netdb.h>`
+was not lost to the feature macros; every `continue` in a `switch` in a loop stopped the check, at one depth as at two;
+ten of eleven forms of a pointer read from a global object into a local were refused, and each store of one into a
+field; nine headers of this box were dropped as `<netdb.h>` was; and two more forms of a header lost with no message
+stood beside it. A reduction is run, its cause is found here, and the forms beside it are probed (a rule of `CLAUDE.md`
+now).
+
+1, COCOLOG 3.62 READS `public` AND `dynamic` AS PREFIX OPERATORS, as swipl does, and `A \== public, ...` and `K \==
+dynamic ;` are then no terms: `library/ccl_cpp_class.pl`, `ccl_cpp_layout.pl` and `ccl_cpp_deduce.pl` did not load
+whole, and the three errors of the load were printed after every failed C build. The three places have `(public)` and
+`(dynamic)` now, which 3.37 reads as it read the bare atoms. A search of the library finds no other place where such an
+atom stands between an infix operator and a comma, a semicolon or an arrow; the seven places where one stands before a
+closing parenthesis (`A0 = public )`) are as they were, since the message's load took them. NOT RUN OVER 3.62: this
+box's cocolog stays at 3.37.0.
+
+2, A `continue` IN A `switch` IN A LOOP STOPPED THE CHECK, `not lowered yet: phase(check) (function file)`, with no
+line. The message's reduction has two continues at two depths; one is enough, at any depth. `ck_exit_to_loop/2` closed
+the continue's frames down to the SWITCH's and handed the state to the loop's exits with the frames of the switch and of
+the loop's body still open; the loop's join then met frame stacks of two lengths, and `ck_merge_frames/3` failed. A
+continue's loop is the nearest loop, past any switch (`ck_continue_to/3`): its frames are closed down to that loop's, so
+the body's defers run and an owner of the body that is live there is leaked there. No fixture had a `continue` in a
+`switch`. `test/c/run/contswitch.c` -- a while, a for whose step still runs, a do-while, a switch in a switch, a block
+in a case, a defer of the body, an owner freed before the continue -- prints what clang's build of its hand expansion
+prints, as C and as C++; `test/c/safe/cont_switch_leak.c` is `owner_leaked` at the continue.
+
+3, A RELATIVE `-I` LOST A MACRO FILE'S `NAME.pl.h` where the program is in another directory. The macro file's path is
+as the inclusion path gave it, relative to the working directory; the reader handed `inc/rel.pl.h` on as a quoted
+include, which is looked for from the including file's directory first, so it asked for `src/inc/rel.pl.h`, found
+nothing, and went on with no message: the macro file loaded and each name of its header was `undeclared`. The header is
+included by its absolute path (`ccl_abs_file/2`). A check of the driver gate.
+
+4, `<netdb.h>` WAS DROPPED WHOLE, AND THE CAUSE WAS NOT THE FEATURE MACROS that the message supposed: `cicilang -E` over
+the same file shows `struct addrinfo` defined. glibc's `<netdb.h>` has
+
+```c
+#  define AI_IDN	0x0040	/* IDN encode input (assuming it is encoded
+				   in the current locale's character set)
+```
+
+a comment that begins on a `#define` line and ends two lines on. C ends a directive where such a comment ends (C17
+5.1.1.2: a comment is a space before a directive is one); the raw lexer ends it at the line's end, read the next line as
+code, and met an apostrophe that begins a character constant with no end. `ccl_parse_file/3` threw `lexical(Path)`,
+nothing in `ccl_read_unit/3` caught it, and `ccl_include_read/2` took the header as `unreadable`, with no message:
+`struct addrinfo`, `struct hostent` and `getaddrinfo` were unknown. A raw read that the lexer cannot take is an empty
+read that stopped now, and the preprocessed read follows it, as it follows any raw read that stopped: `<netdb.h>` is
+read whole, 315 items. OF THE 10,038 `.h` FILES UNDER `/usr/include` ON THIS BOX, 114 have a `#define` line that leaves
+a comment open. Where the comment's later lines lex as code the raw read stops at them and the preprocessed read takes
+the header (five such headers were probed on 0.289, `<elf.h>` with 150 such lines among them, and each read whole); in
+nine the comment goes on with a line that is no C tokens -- an apostrophe, a quote --, and each of the nine was dropped
+whole: `<netdb.h>`, `<db.h>`, `<linux/tcp.h>`, `<linux/openat2.h>`, `<linux/pkt_cls.h>`, `<linux/jffs2.h>`,
+`<linux/raid/md_p.h>`, `<drm/radeon_drm.h>` and `<valgrind/memcheck.h>`. Each is read now, eight whole and the last to
+its line 228. `test/c/run/netdbhdr.c`. The raw lexer's own rule of a directive is not changed (Not done): no read
+depends on it now.
+
+THE NEW NOTE THEN SHOWED TWO MORE FORMS OF THE SAME DEFECT, each as old as the include layer. `<sys/cdefs.h>`, which
+`<limits.h>`, `<stdint.h>` and `<features.h>` hold, was `unreadable` in every build: under an `#if` that no x86 build
+takes it has `_Static_assert (0, "IEEE 128-bits long double requires redirection on this platform");`, and the raw read,
+which runs no directive, met the assertion as a declaration and threw. The header declares nothing, so nothing was lost
+but its read; the note would have named it under each error of a program over `<limits.h>`. A RAW READ THAT THROWS,
+WHATEVER IT THROWS, IS AN EMPTY READ THAT STOPPED: the raw read is an attempt, and its error may be that of a branch
+that no build takes; an error that is the header's own is thrown again by the preprocessed read. AND `<getopt.h>` IS
+DIRECTIVES ALONE, so its raw read is whole; each of the two headers that it includes was then read apart, with no macro
+of its includer's (`__BEGIN_DECLS`, `__THROW`, which `<features.h>` brought), and stopped at its first declaration:
+`struct option` and `getopt_long` were unknown -- `not lowered yet: struct(option)` on 0.289, with no word of the
+header. A RAW READ THAT IS WHOLE, WITH A HEADER INSIDE IT THAT WAS NOT READ WHOLE, GOES ON TO THE PREPROCESSED READ (in
+C; `ccl_raw_cut_inside/1`), which reads the inner headers in its text, under its macros, and is taken where it is whole.
+`test/c/run/getopthdr.c` prints clang's lines. THE READS OF 274 HEADERS OF THIS BOX WERE COMPARED BETWEEN 0.289 AND THIS
+TREE, each `.h` file directly under `/usr/include` and under its `sys`, `netinet`, `arpa` and `net`, included alone: 249
+are read the same way, with the same headers inside cut or unread (seventeen of them in part on both trees, each a C++
+header or an inner header that is not included alone), and 25 differ, each for a reason above -- `<sys/cdefs.h>` and
+twenty headers that hold it, `<netdb.h>` and `<db.h>`, and `<getopt.h>` and `<z3.h>`, whose inner headers were read
+apart.
+
+A HEADER THAT WAS NOT FOUND, NOT READ, OR NOT READ TO ITS END, IS NAMED WHERE THE BUILD FAILS (`dr_unread_notes/2`),
+since the message's author looked for the cause in the wrong place for want of one line (this paragraph's note is the
+one that showed the two forms above). Under the errors of a build, a note at the `#include` says `'nope.h' file not
+found: nothing that it declares is known`, or `the read of the header ./stop.h stopped at its line 2: what it declares
+after that line is not known`, or that the header could not be read. A file that was not found is named for an
+`#include` of the program's file alone, which is read preprocessed: one in a group that `#if 0` skips is not named,
+where a header read raw keeps the directives of each branch of its conditionals. A build with no error says nothing of
+such a header, as before: a missing `#include` is passed over there, and a partial read stays silent (`RULES.md`, the
+topic of includes, and Not done).
+
+5, A POINTER READ OUT OF A SLOT WAS NEW MEMORY TO THE CHECK. The message has `const char *s = names[argc % 2];` over a
+static table of string literals, `plain pointer not consumed: 's'`. The probes found it wider. IN A LOCAL: a global
+struct's member, a global pointer's own value, an element of `environ`, a member through a pointer to a global record --
+ten of eleven forms were refused, and the one that passed read through a parameter. IN A SLOT: `t->text = names[i];`, `g
+= names[i];`, `tbl[0] = names[0];`, an initializer `{ names[i], 1 }`, and a record that holds a pointer, read out of a
+table by value (`struct tok t = toks[i];`, `*out = toks[i];`) -- each was `no owner behind`, where the same store
+through a local (`const char *s = names[i]; g = s;`) was taken. A plain local was LOOSE where its value is new memory, a
+store asked for an owner behind a value that is new, and a value was new unless it was null, static, or a borrow of
+something that the check follows; a read from a slot is none of these. New memory comes from a call. A read gives what a
+slot holds, and a plain slot holds no memory of nobody's, since a store of new memory into a field, an element, a global
+or `*p` is `untied`; where the slot is in an object that the check follows -- a local's storage, a parameter's object,
+an owner's --, the read is a borrow of it, found first, and the borrow's rules hold as before (`s->p = local.p` over a
+held address of a local is `borrow_stored` still). `ck_loaded_value/1` takes an index, a member, an arrow, a dereference
+and a global's name out of the new values, through a cast, pointer arithmetic and a conditional whose two sides are
+neither new, for a local (`ck_fresh_value/1`) and for a store (`ck_into_plain/6`). THE SLOT THAT IS READ IS A PLAIN ONE
+(`ck_plain_read/1`): an own pointer, an own array and a record with an own field hold memory that is their owner's, and
+a read of one that the check does not follow -- a global own pointer -- is as it was, so that `char *q = gbuf; gc = q;`
+keeps no owner's pointer in a plain slot. `test/c/run/loadedptr.c`, as C and as C++, prints clang's lines. Refused
+still: `test/c/safe/loaded_or_new.c` and `loaded_or_new_store.c` (a conditional with `malloc` on one side, into a local
+and into a field), `loaded_own_alias.c` (a global owner's pointer through a local into a plain global) and
+`loaded_own_record.c` (a record with an own field out of a table into a global). THREE TEXTS OF THE CHECK BROKEN ON
+PURPOSE -- a read of any slot taken for a plain one, a conditional taken whatever its sides, a record never asked for
+its own fields -- each pass a fixture that must be refused: the first the two `loaded_own` ones, the second the two
+`loaded_or_new` ones, the third `loaded_own_record.c`.
+
+6, THE README'S OWN LINES WERE REFUSED: `FILE *f = fopen(path, "r"); if (f == NULL) return -1; defer(f) { fclose(f); }`
+was `plain pointer not consumed: 'f'` at the return. A null test refined an owner and no loose pointer. On the path
+where the pointer is null it holds nothing (`ck_set_null/3`); where the two paths join, null on one and loose on the
+other is loose (`ck_merge_state/3`), so `if (!p) puts("none");` with no free after it is refused as before
+(`test/c/safe/loose_null_test.c`), and `if (f) fclose(f);` with nothing after it, which was refused, is taken.
+
+7, AN OUTPUT FILE WHOSE DIRECTORY IS NOT THERE built the whole unit and then printed the embedded LLVM's words, `LLVM:
+emit_failed: No such file or directory`, which name no path; the run ended there, and the command printed the line a
+second time in place of the count of its errors. The driver asks for the output's directory before it builds
+(`dr_out_dir_missing/3`): `no/such/dir/ok.o: error: unable to open the output file: no such directory 'no/such/dir'`,
+and `cicilang: 1 error(s)`.
+
+8, THE WORD `own` USED AS A NAME. `static int get(const v *own) { return own->a; }` declares an own pointer with no
+name, and `own->a` read as a name that nothing declares; the first error was `a borrow consumed: 'x'` at a call in
+another function, which is true of the parameter as it was read and tells the author nothing. The reader refuses `own`
+before a token that only a name can stand before, by name, at its line (`ccl_refuse/1`, a refusal of the reader's that
+is printed with no `macro:` before it).
+
+13, THE README says that the default is `-O0`, as clang's, and that a program over ccllib wants `-O2`.
+
+THE OWNER'S DECISIONS, in the Not done list with the message's facts. 9: A STRUCT THAT HOLDS CCLLIB INSTANCES IS NOT
+DROPPED -- `typedef struct bag { vector<int> ids; int n; } bag;` with `bag b = {0}; push_back(b.ids, 1);` is `owner
+leaked: 'b.ids.data'`, and the engine drops each vector by name under a `defer`; a drop of each member, as C++ makes a
+destructor, is a rule of the kind of open decision 2. 10: WITH NO `--target` THE BUILD IS FOR THE HOST'S CPU AND ALL ITS
+FEATURES (found here at 0.283); on a machine with AVX-512 a conversion becomes `vcvtusi2sd`, on which valgrind 3.22 ends
+with SIGILL, and the binary may not run on another machine. The message asks for the generic CPU by default, as clang's,
+and I think it right. 12: the pin of cocolog is 3.37.0, and its master is 3.62.1. AND 11, for the record: a build over
+the store ran at 100% of a CPU for ten minutes with the store's lock held, after builds between which a macro file was
+changed, and each later build over that store did the same; its author removed the store, and three sequences of builds
+over a fresh one did not make it happen again. Here, twelve builds over one store and cocolog 3.37.0, the macro file,
+its header and the program changed in turn, ended each in a second.
+
+FOUND ON THE WAY, NOT CLOSED (Not done): a malformed `#include` line of the program's file (`#include \"x.h\"`, which a
+gate's own check wrote by a slip of its shell) is passed on as a directive with no message, where clang says `expected
+"FILENAME" or <FILENAME>`; the raw lexer ends a directive at its line's end inside a comment; a global owner is not
+followed, so its pointer read into a plain local is loose there (`char *q = gbuf; use(q);` is `plain pointer not
+consumed: 'q'`), as before this step; a function that returns a record with a pointer in it gives a value with no owner
+behind (`struct tok t = pick(i);`), as before.
+
+THE NETS, over the work tree: the flow gate GREEN with no finding (159 s, peak 4073 MB); over one fresh HOME the reader
+gate (163 checks, 4 s), the compile gate (271 checks, 33 s), the driver gate (74 checks, 51 s) and the ccllib gate over
+libc++ 22 (188 checks, 526 s), each GREEN; the ccllib gate GREEN over libc++ 21 and 18 too, each over a fresh HOME (492
+s and 518 s; 188 checks each, none skipped): 13 programs in three runs, 51 refused, 4 alone. FOR THE CHECK'S CHANGES,
+which every program reaches, the pool of the C++ run fixtures that include no header but the small C ones, three at a
+time over a fresh HOME and libc++ 22: 361 fixtures, and each prints its expected lines (45 s, peak 394 MB). By hand,
+since the C++ gate runs with the chain: the thirteen C fixtures that the C++ gate builds as C++ (`contswitch` and
+`loadedptr` among them) and `test/cpp/run/opcpp.cpp`, `elemborrowpp.cpp` and `borrowkeep.cpp` print their expected lines
+(16 checks, 7 s). THE NETS WERE STARTED FOUR TIMES: the first run was stopped for the note of a file that is not found,
+the second for the store of a value read from a slot and the rule of an own slot, the third for the two further forms of
+a lost header; the numbers are the fourth's, over the tree as it is committed.
+
+A NOTE ON THE RECORD, AN ERROR OF MINE: the entries of 0.286, 0.287 and 0.288 say that the net by hand also held the C++
+gate's refusals over a macro file, and count them in its checks (12, 13 and 14). The C++ gate has no refusal whose file
+includes a macro file -- the refusals of ccllib in C++ are the ccllib gate's, `test/ccllib/safe/`, refused as C and as
+C++ in each of those steps' nets --, so that part of the net found no file and counted none: its checks were the
+fixtures' alone, nine C fixtures and three C++ ones at 0.286, ten and three at 0.287, eleven and three at 0.288. The
+words were empty, and no check was lost. The part is gone from the net's script.
+
+NO CHAIN RAN for this step (the owner's rule of 0.271), and it claims nothing GREEN but the nets above. No CI job ran.
+No reply went to the Ambitious session: its message asks for none.
+
+- `library/ccl_check.pl`: `ck_exit_to_loop/2`, `ck_continue_to/3`, `ck_fresh_value/1`, `ck_loaded_value/1`,
+  `ck_plain_read/1`, `ck_owner_in_type/1`, `ck_into_plain/6`, `ck_set_null/3`, `ck_merge_state/3`.
+  `library/ccl_syntax.pl`: `ccl_primary_//3`, `ccl_refuse/1`, `ccl_abs_file/2`, the include of a macro file's header,
+  the reader's version. `library/ccl_include.pl`: `ccl_read_unit/3`, `ccl_raw_cut_inside/1`. `library/ccl_driver.pl`:
+  `dr_drive/2`, `dr_out_dir_missing/3`, `dr_unread_notes/2`, `dr_missing_in/3`, `dr_unread_in/3`, a clause of
+  `dr_diag/3`. `library/ccl_cpp_class.pl`, `ccl_cpp_layout.pl`, `ccl_cpp_deduce.pl`: an operator atom in parentheses.
+  `library/ccl_ir.pl`: the lowering's version. `test/reader.pl`: `k162`. `test/driver.sh`: five checks. `test/cpp.sh`:
+  two fixtures in its list. The fixtures. `RULES.md` (the safe part, the reader, includes, the driver, the neighbours'
+  findings, Not done), `CLAUDE.md`, `README.md`, `CCLLIB.md`.
+
+The module 0.290, the reader 187 and the lowering 161.

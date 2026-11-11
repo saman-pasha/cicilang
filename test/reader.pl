@@ -706,6 +706,11 @@ k161 :- check('where a function called by name takes a pointer to the instance, 
       op_refused('name_arg_other.c', 10, 'append of text_char takes an object of text_char, which its argument of the type stack_int is not: its type macro defines no text_char_append_stack_int'),
       op_refused('name_arg_count.c', 9, 'insert of text_char takes 3 argument(s), and the call has 2') )).
 
+%% `own' USED AS A NAME (0.290): own_name.c
+k162 :- check('the word own where only a name can stand is refused at its line by name, and a parameter named so is not read as a name',
+    ( c('own_name.c', P), catch(cicilang_ast(P, _), error(refusal(M, here(P, L)), _), true), L == 5,
+      M == '`own\' is the owner\'s word and names no object: a parameter written `T *own\' is an own pointer with no name (write `T *own NAME\', or another name for a plain pointer)' )).
+
 k110 :- check('a type macro that fails, two instances that one name names, and a typed call of a macro with no typed form are refused at the use',
     ( c('tmacro_fail.c', P1), c('tmacro.pl', M), catch(cicilang_ast(P1, _), error(E1, here(P1, 3, in_macro(type_none, M))), true), E1 == macro_failed(none, [base([], [int])]),
       c('tmacro_same.c', P2), catch(cicilang_ast(P2, _), error(macro_error(pair, _, error(ctext_error(T2), _)), here(P2, 7, _)), true),
@@ -1012,6 +1017,7 @@ t_checks :-
     k159,
     k160,
     k161,
+    k162,
     section('the preprocessor, in cocolog: a header raw cannot take'),
     k83,
     section('the lexer, native: ccl_lex_native/6 token for token with the DCG'),
