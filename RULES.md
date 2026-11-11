@@ -9573,6 +9573,36 @@ in the first topic (The ccllib gate).
   of the twin take the same 0.41 s, the twin's with less memory (119 MB against 134 MB), and cicilang++'s build is the
   dearest, 1.12 s and 163 MB. (0.278)
 
+### stack.pl and queue.pl
+
+- THE ADAPTORS ARE THEIR OWN BUFFERS, and no adaptor over another container (`stack<int, vector<int>>` is not read).
+  `stack<T>` is a buffer that grows by twice, its top at the buffer's end: `size`, `len`, `empty`, `top`, `push`,
+  `emplace`, `push_range`, `pop`, `swap`, `clone`, `==` and `<` and what follows from them, 13 functions and the drop.
+  `queue<T>` is a ring as the deque's, in at the back and out at the front: the same names, with `front` and `back` for
+  `top`, 14 functions. `priority_queue<T>` is a binary heap in a buffer that grows by twice, the element that comes out
+  first at its head, `push` sifting an element up and `pop` one down: `size`, `len`, `empty`, `top`, `push`, `emplace`,
+  `push_range`, `pop`, `swap`, `clone`, 11 functions, and no comparison of two heaps, as C++ has none. A literal makes
+  each, and a stack's last element is its top. (0.280)
+- **A COMPARISON IS A FUNCTION'S NAME, AN ARGUMENT OF THE TYPE**: `priority_queue<int, later>` names `int later(int a,
+  int b)`, which answers whether a comes out after b, as C++'s comparison type does (`std::greater` gives the least
+  first). An argument of a type macro that is no type is read as an expression (`ccl_targ//2`), so the macro gets
+  `id(later)` (`ccllib_pq_args/4`); the instance is `priority_queue_int_later`, and its sift functions' texts are made
+  with a call of `later` where the plain instance's have `<` (`ccllib_pq_lt/4`). The call is direct: the object holds no
+  pointer to a function, and the optimizer puts the comparison in line. What is no name is refused, `a priority_queue
+  takes its element's type, and after it the name of a function that compares two elements`
+  (`test/ccllib/safe/priority_queue_no_name.c`). The form waits for `set`, `map` and the algorithms. (0.280)
+- WHAT DIFFERS FROM C++, beside what differs for the vector: `pop` gives the element that it takes away, where C++'s
+  gives nothing; `top`, `front` and `back` give the element's value, and no place to write through; they and `pop` stop
+  the program on an empty one. There is no `at`, no index and no `begin` (`stack_int has no function at`,
+  `stack_no_at.c`). The order in which a priority queue gives elements that its comparison holds for equal is not C++'s
+  to the letter, and neither says which comes first. (0.280)
+- `test/ccllib/stack.c` and `queue.c`, and their twins over `std::stack`, `std::queue` and `std::priority_queue` (the
+  least first by `std::greater<int>`, a struct by a comparison's type). Over libc++ 22 the stack's unit holds 31
+  functions in 13 KB where the twin's holds 527 in 298 KB, and its run takes 0.11 s against 0.19 s; the queue's holds 62
+  in 25 KB against 631 in 357 KB, and its run takes 0.93 s against 1.39 s. The C builds take 0.27 s and 0.36 s where
+  clang++ takes 0.51 s and 1.04 s for the twins; cicilang++'s take 0.54 s and 0.86 s, the queue's under its twin's in
+  time for the first time, both over the twins' in memory. (0.280)
+
 ## The safe part
 
 ### The check in the build
@@ -13531,7 +13561,8 @@ Declarations topic of the C++ reader).
   (`the type vector_double takes no literal`). A program built alone meets one file per name; the fixtures share
   `tvector.pl`, and ccllib has one file per type. ccllib's `type_vector/3` and the fixtures' are such a pair (0.274):
   a fixture over `<vector.pl>` stands in `test/ccllib/` and `test/c/link/`, whose builds are processes of their own,
-  and in no gate that reads its fixtures in one.
+  and in no gate that reads its fixtures in one. ccllib's `type_stack/3` and `test/c/run/lazy.pl`'s are such a pair
+  too (0.280): no process reads both.
 - A MACRO FILE'S CLAUSE FOR A PREDICATE THAT EXISTS IS NOT REFUSED AT THE LOAD (found at 0.273; the topic of the macro
   files): a head that names a builtin of cocolog's is never called, and one that names a predicate of cocolog's library
   or of the compiler's joins it, with one answer more for every caller. `ccl_macro_NAME` is the cure that an author

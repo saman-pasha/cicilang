@@ -1,0 +1,1 @@
+a priority_queue takes its element's type, and after it the name of a function that compares two elements

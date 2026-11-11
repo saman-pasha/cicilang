@@ -394,6 +394,9 @@ What the proof found for phase 1:
   `pop_back` and `size`. A place is an index where C++ takes an iterator.
 - WHAT TWO MODULES NEED IS WRITTEN ONCE (0.275): `library/ccllib/ccllib.pl`, which a module loads by a directive. No
   program includes it, and the flow gate refuses a predicate that two modules define.
+- A COMPARISON IS A FUNCTION'S NAME, AN ARGUMENT OF THE TYPE (0.280): `priority_queue<int, later>`, where C++ writes the
+  comparison's type. The instance's text calls the function by its name -- a direct call, which the optimizer puts in
+  line -- and no pointer to a function is kept. The form waits for `set`, `map` and the algorithms.
 
 ### 1a, `vector.pl` (0.274)
 
@@ -490,6 +493,35 @@ for both. `size` and `len` are there, which C++'s has not. `test/ccllib/forward_
 The unit holds 79 functions where the twin's holds 313, and the count run takes half the twin's time and half its
 memory: a node is the element and one number in one buffer. The builds are as the list's: the C build and clang++'s
 build of the twin take the same time, and cicilang++'s build is the dearest, 1.12 s and 163 MB.
+
+### 1a, `stack.pl` and `queue.pl` (0.280)
+
+The adaptors are their own buffers: `stack<T>` a buffer with its top at the end, `queue<T>` a ring, `priority_queue<T>`
+a binary heap, 13, 14 and 11 functions. `pop` gives the element that it takes away. `test/ccllib/stack.c` and `queue.c`,
+their twins over `std::stack`, `std::queue` and `std::priority_queue`, four programs of `test/ccllib/safe/`. The costs
+over libc++ 22, as above:
+
+| | build | peak | IR types | IR functions | IR lines | object | `stack 30000000` at `-O2` | its peak |
+|---|---|---|---|---|---|---|---|---|
+| cicilang, C | 0.27 s | 114 MB | 4 | 31 | 1,398 | 13,112 B | 0.11 s | 78 MB |
+| cicilang++, C++ | 0.54 s | 136 MB | 4 | 31 | 1,867 | 16,192 B | 0.11 s | 78 MB |
+| clang++ 22, `std::` | 0.51 s | 125 MB | 65 | 527 | 14,716 | 297,608 B | 0.19 s | 79 MB |
+
+| | build | peak | IR types | IR functions | IR lines | object | `queue 3000000` at `-O2` | its peak |
+|---|---|---|---|---|---|---|---|---|
+| cicilang, C | 0.36 s | 125 MB | 6 | 62 | 3,294 | 24,544 B | 0.93 s | 21 MB |
+| cicilang++, C++ | 0.86 s | 164 MB | 6 | 62 | 4,194 | 30,760 B | 0.97 s | 21 MB |
+| clang++ 22, `std::` | 1.04 s | 148 MB | 86 | 631 | 17,715 | 357,480 B | 1.39 s | 21 MB |
+
+The units hold 31 and 62 functions where the twins' hold 527 and 631, and the runs take 0.11 s and 0.93 s against 0.19 s
+and 1.39 s. The C builds take half the twins' time or less. cicilang++'s build of the stack's program takes the twin's
+time, and its build of the queue's program is under the twin's for the first time, 0.86 s against 1.04 s; both take more
+memory than the twins'.
+
+THE TARGET, LOOKED AT (0.280): for the deque's program `-fsyntax-only` takes 0.33 s as C++ and 0.38 s as C, and to the
+IR the C build takes no more where the C++ build takes 0.93 s. The time is the desugaring's, and a profile shows no one
+place: each operator of an expression types its operands again, and a shortcut of that road, tried in the scratch, took
+0.11 s of 0.91 s off. The target is not one predicate's.
 
 ### The parts of phase 1
 

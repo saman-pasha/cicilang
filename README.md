@@ -471,6 +471,14 @@ with one link a node: `push_front`, `insert_after(l, p, x)`,
 `erase_after(l, p)`, `before_begin(l)`, `sort`, `unique`, `merge`,
 `reverse`. `test/ccllib/forward_list.c` is the example.
 
+`#include <stack.pl>` and `#include <queue.pl>` give `std::stack`,
+`std::queue` and `std::priority_queue` (0.280): `push(s, 7)`, `top(s)`,
+`pop(s)`, which gives the element that it takes away; `front(q)`,
+`back(q)`. A priority queue gives the greatest first, and
+`priority_queue<int, later>` takes the name of the function that orders
+it, where C++ writes the comparison's type. `test/ccllib/stack.c` and
+`queue.c` are the examples.
+
 `format`, `print`, `println` and `clone` are global macros, there in every
 program without an include (`library/ccl_format.pl`). The format string
 has Rust's holes, each becoming the `printf` conversion of its argument's

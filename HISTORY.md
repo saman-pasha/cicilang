@@ -274,6 +274,7 @@ One row per step, in version order: the step's title, what it did and its gate n
 | 0.277 | ccllib's `<list.pl>`: an arena of nodes, and a place that stays | CCLLIB.md's phase 1a goes on: library/ccllib/list.pl, std::list as nodes in one own buffer that name one another by their numbers; a place, C++'s iterator, is a node's number and stays its element's over inserts, erases of others, a sort and a reverse; 51 functions, the list's own operations among them (sort by the links, unique, merge, splice, remove, reverse); merge of a list with itself does nothing; ccllib_msort_text/5 in ccllib.pl; no file of the compiler changed | the flow gate; the ccllib gate over libc++ 22, 21 and 18; no chain, by the owner's rule of 0.271; a commit and a push |
 | 0.278 | ccllib's `<forward_list.pl>`: the list with one link a node | CCLLIB.md's phase 1a goes on: library/ccllib/forward_list.pl, std::forward_list as the list's arena with one link a node; before_begin, insert_after, erase_after, splice_after, push_front and the list's own operations, 44 functions; the list's merge sort by the links, one text for both modules; size and len, which C++'s has not; an erase of a range of no element erased, found by reading; no file of the compiler changed | the flow gate; the ccllib gate over libc++ 22, 21 and 18; no chain, by the owner's rule of 0.271; a commit and a push |
 | 0.279 | the docs of 0.278, which its commit left out | the commit of 0.278 holds the forward list and its fixtures and no doc: the script that writes a step's docs stopped at a text that it did not find, and the commands after it, joined by `;`, committed and pushed; this commit carries its rules, its entry and its lines of CLAUDE.md, README.md and CCLLIB.md, and the rule of a step's commit, which is refused where a doc is missing | none: the docs and the version; the nets of 0.278 stand for its code; a commit and a push |
+| 0.280 | ccllib's `<stack.pl>` and `<queue.pl>`: the adaptors, and a comparison's name as a type's argument | CCLLIB.md's phase 1a goes on: library/ccllib/stack.pl and queue.pl, std::stack as a buffer, std::queue as a ring, std::priority_queue as a binary heap, 13, 14 and 11 functions; priority_queue<int, later> takes the name of the function that compares, where C++ writes the comparison's type, and the heap's text calls it by its name; the cost of a cicilang++ build looked at: the desugaring's, and no one place; no file of the compiler changed | the flow gate; the ccllib gate over libc++ 22, 21 and 18; no chain, by the owner's rule of 0.271; a commit and a push |
 
 ## M5 — the C++ mode
 
@@ -19022,3 +19023,83 @@ entry of 0.278. No gate ran for this commit: it changes the docs and the version
   commit. `module/cicilang.cicili`: the version.
 
 The module 0.279; the reader 181 and the lowering 156 as they were.
+
+## 0.280 — ccllib's `<stack.pl>` and `<queue.pl>`: the adaptors, and a comparison's name as a type's argument
+
+**0.280: `CCLLIB.md`'s phase 1a goes on. `#include <stack.pl>` gives `std::stack`, and `#include <queue.pl>` gives
+`std::queue` and `std::priority_queue`: a buffer, a ring and a binary heap. `priority_queue<int, later>` takes the NAME
+of the function that compares, written where C++ writes the comparison's type, and the heap's text calls that function
+by its name, so no pointer to a function is kept or called. No file of the compiler changed. Committed with its nets;
+the chain runs when the ccllib task is finished (the owner's rule of 0.271).**
+
+THE MODULES. `library/ccllib/stack.pl`: `stack<T>` is a buffer that grows by twice, its top at the buffer's end --
+`push`, `emplace`, `push_range`, `pop`, `top`, `size`, `len`, `empty`, `swap`, `clone` and the comparisons, 13
+functions. `library/ccllib/queue.pl`: `queue<T>` is a ring as the deque's, in at the back and out at the front -- the
+same names with `front` and `back`, 14 functions; `priority_queue<T>` is a binary heap in a buffer that grows by twice,
+`push` sifting an element up and `pop` sifting one down -- `push`, `emplace`, `push_range`, `pop`, `top`, `size`, `len`,
+`empty`, `swap`, `clone`, 11 functions. A literal makes each: a stack's last element is its top.
+
+A COMPARISON'S NAME AS AN ARGUMENT OF THE TYPE. In C++ a priority queue's order is a type: `std::priority_queue<int,
+std::vector<int>, std::greater<int>>` gives the least first. Here `priority_queue<int, later>` names a function, `int
+later(int a, int b)`, which answers whether a comes out after b, as C++'s comparison does. The reader takes the name as
+it stands: an argument of a type macro that is no type is read as an expression (`ccl_targ//2`, as the count of
+`array<int, 4>` is), so the macro gets `id(later)`. The instance is `priority_queue_int_later`, and the texts of its two
+sift functions are made with a call of `later` where the plain instance's have `<` (`ccllib_pq_lt/4`). The call is a
+direct one, which the optimizer puts in line; the object holds no pointer to a function. `priority_queue<job,
+lower_rank>` orders a struct so. The form waits for `set`, `map` and the algorithms.
+
+WHAT DIFFERS FROM C++. Each of the three is its own buffer and no adaptor over another container: `stack<int,
+vector<int>>` is not read. `pop` gives the element that it takes away, where C++'s gives nothing. `top`, `front` and
+`back` give the element's value, and no place to write through. They and `pop` stop the program on an empty one. The
+order in which a priority queue gives elements that its comparison holds for equal is not C++'s to the letter; neither
+says which comes first.
+
+THE COST OF A CICILANG++ BUILD, LOOKED AT: a measurement, and no change. For the deque's program `-fsyntax-only` takes
+0.33 s as C++ and 0.38 s as C; to the IR the C build takes no more, and the C++ build takes 0.93 s. The time is the
+desugaring's. A profile (`sh test/prof.sh`) shows no one place: 10.2 million steps, with `memberchk/2`, `nb_getval/2`,
+`ccl_resolve_base/3` and `atom_concat/3` at the head, 3 to 5 % each. Each operator of an expression types its operands
+again (`cpp_operator/5` over `cpp_class_of_type_of/2`), and a shortcut of that road, tried in the scratch, took 0.11 s
+of 0.91 s off: a part and not the whole. The target of phase 1 stays open, and it is not one predicate's.
+
+THE FIXTURES. `test/ccllib/stack.c`, `stack.cpp`, `stack.expect`, `stack.count` (30,000,000: pushed, two of each three
+popped on the way, the stack emptied); `test/ccllib/queue.c`, `queue.cpp`, `queue.expect`, `queue.count` (3,000,000:
+through a queue, then through a priority queue that gives the greatest first and through one that gives the least
+first); `test/ccllib/safe/stack_of_pointers.c`, `stack_no_at.c` (`stack_int has no function at`), `queue_of_pointers.c`
+and `priority_queue_no_name.c` (`priority_queue<int, 3>`: what stands after the element's type is a function's name),
+each refused as C and as C++.
+
+THE COSTS over libc++ 22 on the gates' box, the twins by clang++ 22.1.8, the builds at `-O0`, the best of three; first
+`stack.c`, its run `stack 30000000` at `-O2`, then `queue.c`, its run `queue 3000000`:
+
+```
+run                       build s      MB  types  functions   lines  object B    run s      MB
+cicilang, C                 0.273   114.0      4         31    1398     13112    0.108    77.8
+cicilang++, C++             0.535   136.4      4         31    1867     16192    0.106    77.8
+clang++ 22.1.8, std::       0.511   124.5     65        527   14716    297608    0.188    79.4
+```
+
+```
+run                       build s      MB  types  functions   lines  object B    run s      MB
+cicilang, C                 0.360   125.3      6         62    3294     24544    0.927    20.7
+cicilang++, C++             0.863   163.5      6         62    4194     30760    0.967    20.7
+clang++ 22.1.8, std::       1.042   147.9     86        631   17715    357480    1.386    21.2
+```
+
+The stack's program: the C build takes 0.27 s where clang++ takes 0.51 s for the twin, and cicilang++'s build takes the
+twin's time, 0.54 s, with more memory, 136 MB against 125 MB; the unit holds 31 functions in 13 KB where the twin's
+holds 527 in 298 KB; the run takes 0.11 s against 0.19 s. The queue's program: cicilang++'s build is under the twin's in
+time for the first time, 0.86 s against 1.04 s, and over it in memory, 164 MB against 148 MB; the C build takes 0.36 s;
+the unit holds 62 functions in 25 KB where the twin's holds 631 in 357 KB; the run takes 0.93 s as C and 0.97 s as C++
+against 1.39 s, in the same memory.
+
+THE NETS, over the work tree: the flow gate GREEN with no finding (128 s, peak 4457 MB), `library/ccllib/stack.pl` and
+`queue.pl` charted with the six other files of ccllib; the ccllib gate GREEN over libc++ 22, 21 and 18, each over a
+fresh HOME (186 s, 183 s and 190 s; 86 checks each, none skipped): 8 programs in three runs, 23 refused. No other gate
+reads a file that changed.
+
+NO CHAIN RAN for this step (the owner's rule of 0.271), and it claims nothing GREEN but the nets above. No CI job ran.
+
+- `library/ccllib/stack.pl`, `stack.pl.h`, `queue.pl`, `queue.pl.h`. `test/flow.sh`: `CFILES`. The fixtures. `RULES.md`
+  (the topic of ccllib, Not done), `CLAUDE.md`, `README.md`, `CCLLIB.md`.
+
+The module 0.280; the reader 181 and the lowering 156 as they were: no file of the compiler changed.

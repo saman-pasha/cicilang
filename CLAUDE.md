@@ -12,7 +12,7 @@ the fixture that gates it, and why. The bullet ends with the version that made t
 edits the rule in `RULES.md`, in its topic, and writes its entry in `HISTORY.md`. Read the topic of `RULES.md` that
 covers the code before the code is changed.
 
-At 0.279 the versions are: the module 0.279 (`ccl_p_version` in `module/cicilang.cicili`, `bin/cicilang --version`),
+At 0.280 the versions are: the module 0.280 (`ccl_p_version` in `module/cicilang.cicili`, `bin/cicilang --version`),
 the reader 181 (`ccl_reader_version/1`, `library/ccl_syntax.pl`) and the lowering 156 (`ccl_lowering_version/1`,
 `library/ccl_ir.pl`).
 
@@ -353,6 +353,9 @@ library/ccllib/             ccllib, the standard library of cicilang's C (CCLLIB
   list.pl, list.pl.h          std::list (0.277): an arena of nodes; a place is a node's number, and it stays
   forward_list.pl, forward_list.pl.h
                               std::forward_list (0.278): the list's arena with one link a node
+  stack.pl, stack.pl.h        std::stack (0.280): a buffer, its top at the end
+  queue.pl, queue.pl.h        std::queue, a ring, and std::priority_queue, a heap, whose comparison is a function's
+                              name after the element's type (0.280)
   ccllib.pl                   what two modules need, written once (0.275): a module loads it by a directive, and no
                               program includes it; the refusal of an element with a pointer, the lists' sort (0.277)
 library/cicilang.so, ccl_llvm.so
@@ -448,7 +451,8 @@ test/ccllib/                the three runs' programs: NAME.c, a ccllib program; 
                             NAME.expect, what the twin prints; NAME.count, the count of the run that the costs time;
                             first.c over first.pl, the first proof after phase 0 (0.273); vector.c, the whole
                             surface of <vector.pl> (0.274); array.c, of <array.pl> (0.275); deque.c, of <deque.pl>
-                            (0.276); list.c, of <list.pl> (0.277); forward_list.c, of <forward_list.pl> (0.278)
+                            (0.276); list.c, of <list.pl> (0.277); forward_list.c, of <forward_list.pl> (0.278);
+                            stack.c and queue.c, of <stack.pl> and <queue.pl> (0.280)
 test/ccllib/safe/           ccllib programs that the safe part refuses, as C and as C++: NAME.c, NAME.expect, and
                             NAME.expect.cpp where C++ has words of its own (0.274)
 
