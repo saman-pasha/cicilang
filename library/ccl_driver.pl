@@ -282,6 +282,7 @@ dr_diag(F, macro_failed(N, As), here(_, L, in_macro(P, MF))) :- !,
 dr_diag(F, macro_error(N, As, E), _) :- !, dr_prolog_error(E, Text), dr_error(F, 0, ['in the expansion of macro \'', N, '\' on ', As, ': ', Text]).
 dr_diag(F, macro_failed(N, As), _) :- !, dr_error(F, 0, ['macro \'', N, '\' failed on ', As]).
 dr_diag(F, ownership(assign_to_const, N, const_type(T)), where(_, line(L))) :- !, dr_error(F, L, ['cannot assign to variable ''', N, ''' with const-qualified type ''', T, '''']).   % clang's words (0.265)
+dr_diag(F, ownership(assign_to_const, _, const_method(M)), where(_, line(L))) :- !, dr_error(F, L, ['cannot assign to non-static data member within const member function ''', M, '''']).   % C++: through a const member function's `this', clang's words (0.272)
 dr_diag(F, ownership(Kind, N, Form), where(Fn, line(L))) :- !, dr_kind(Kind, Text), dr_error(F, L, [Text, ' ''', N, ''' in ', Form, ' (function ', Fn, ')']).
 dr_diag(F, not_lowered(deleted_call(K, N, Why)), where(_, line(L))) :- !, dr_deleted_text(K, N, T0),   % A CALL OF A DELETED FUNCTION (0.257), in clang's words, its reason after
     ( Why == none -> T = T0 ; atomic_list_concat([T0, ': ', Why], T) ), dr_error(F, L, [T]).

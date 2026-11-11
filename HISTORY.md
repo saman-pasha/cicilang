@@ -266,6 +266,7 @@ One row per step, in version order: the step's title, what it did and its gate n
 | 0.269 | list and map literals in C++, beside a lambda's introducer: `literal.c` in C++ | the next part of CCLLIB.md's phase 0.10: in C++ a `[` begins a list or map literal where the `]` that closes it is followed by none of what follows a lambda's introducer, outside a library header's read, so `v := [int; 5, 3, 9];` and `= [];` read as in C and the lambdas beside them as lambdas; a `[[` is no array's declarator (vendorattr.cpp, which the net found); the C++ gate builds literal.c with cicilang++; lit_cpp.cpp, reader k142 | the flow gate; over libc++ 22 the library read and the C++ gate GREEN (878 ok); the chain stopped in its libc++ 21 part on the owner's word; a commit and a push |
 | 0.270 | operators on instances and arguments taken unread in C++: `operators.c` and `unread.c` in C++ | the next part of CCLLIB.md's phase 0.10: in C++ an instance's operator is the call of its type macro's function where the macro defines one, and C++'s own where it does not (the program's operator*, an instance on the right alone), an operand of a reference type the object it refers to; a macro's argument taken unread is read where its C text puts it, where cicilang++ refused the call; topers.pl's `_shl_ptr_const_char`; opcpp.cpp, reader k143, k133 changed; the C++ gate builds operators.c and unread.c with cicilang++ | the flow gate; the reader gate and a small net over a probe copy; no chain, on the owner's word; a commit and a push |
 | 0.271 | no CI job on a push or at night; the gates when the ccllib task is finished | the owner's rules: "Do not run github CI after each change" and "disable nightly run" -- gates.yml without its `push` and `schedule` events, the jobs on a pull request and on request --, and "just try to finish ccllib task then gates" -- the task's steps committed with their probes, the chain over the finished task; the CI's nightly full job over 0.270's tree, GREEN twice, carries the gates of 0.269 and 0.270; a record step, no library change | the toolchain, reader, compile, driver, objects and proof gates over this step's tree; a commit and a push |
+| 0.272 | the safety rules of 0.265 to 0.267 in C++: phase 0.10 is done | the last part of CCLLIB.md's phase 0.10: in C++ too `&a[i]` over a pointer is a borrow of what it borrows, a call that may replace an object's own fields ends the caller's borrows of them (a member function that is not const, a reference parameter, a local reference; a const member function and a reference to const keep them), a tied result is a borrow of the own fields, a null own field that such a call may fill is live, and an own field of a const object is not assigned, in clang++'s words; seven refusals, borrowkeep.cpp and elemborrowpp.cpp; the lowering 155 | the flow gate; the reader, compile, driver and objects gates; the C++ gate over libc++ 22 as the net; no chain, by the owner's rule of 0.271; a commit and a push |
 
 ## M5 — the C++ mode
 
@@ -18491,3 +18492,68 @@ s) and the proof, each GREEN.
   `module/cicilang.cicili`: the version. `HISTORY.md`: this entry and its row.
 
 The module 0.271; the reader 180 and the lowering 154 stay.
+
+## 0.272 — the safety rules of 0.265 to 0.267 in C++: phase 0.10 is done
+
+**0.272: the last part of `CCLLIB.md`'s phase 0.10. The safety rules that 0.265 to 0.267 gave C hold in C++: an
+element's address over a pointer is a borrow of what the pointer borrows; a call that may replace an object's own fields
+ends the caller's borrows of them; a result tied to a struct with own fields is a borrow of them; a null own field that
+such a call may fill is live after it; an own field of a const object is not assigned. With it each ccllib run fixture
+has its C++ build, and phase 0.10 is done. Committed with its probes and nets; the chain runs when the ccllib task is
+finished (the owner's rule of 0.271).**
+
+THE GUARDS. Four clauses of `library/ccl_check.pl` began `\+ ccl_lang(cpp)`: `ck_borrows_from/3`'s for `&a[i]`,
+`ck_tied_own/4`, `ck_replaced_arg/5` and `ck_const_owner_slot/1`. Without them a member function that is not const is
+C's callee with a plain pointer: its `this` is one, and `int *p = v.data; v.grow(); *p` is refused, where it was taken
+and read the buffer that grow's `realloc` had freed. A const member function's `this` and a constructor's and a
+destructor's are what C's const pointee and a drop's parameter are (`ck_may_replace/2`), and keep the borrows.
+
+WHAT C++ ADDS, each found by a probe that the first form took or worded wrong.
+- A REFERENCE PARAMETER. The desugaring keeps a reference: the parameter is `ref(Q, T)` and the argument the lvalue,
+  `grow2(v)` -- no `&v` for the rule to see, and `int *p = v.data; grow2(v); *p` over `void grow2(Buf &)` was taken. An
+  lvalue bound to a reference parameter is handed by its address ([dcl.init.ref]/5; `ck_by_address/4`), a tied result's
+  parameter too, and a reference to const is a const pointee (`ck_param_const_pointee/2`).
+- A LOCAL REFERENCE. `Buf &r = v; r.grow();` hands `&r`, the pointer that the check sees r as, which owns nothing: the
+  object is what r refers to (`ck_replaced_base/3`).
+- THE UNWINDING WALK. At a call that may throw the check walks the landing pad's defers (`ck_unwind/2`), and v's
+  destructor there ended `v.data` again and took the call's note with it (`'$ck_replaced'` is the function's, not the
+  path's): the refusal read `use of a borrow after its owner was consumed`. The walk gives the notes back.
+- THE CONST RULE'S WORDS. Through a const member function's `this` clang++ says `cannot assign to non-static data member
+  within const member function 'bad'`, and a reference to const is `'const Buf &'`; `r.f` over a reference is the
+  referent's field, which `ck_const_place/1` did not know, so `b.data = ...` over a `const Buf &b` was taken. cicilang++
+  held no assignment to const before this step. clang++ 18 gives the same words for each of the four forms (`-Down=`).
+
+THE PROBES, built by cicilang++: a member function that is not const, a reference parameter, a local reference and a
+result tied to a reference parameter, each refused, `use of a borrow after a call that may replace its owner: 'p' in
+borrowed_from('v.data')`; a const member function and a reference to const, each keeping the borrow; a borrow taken
+again after the call; the two const refusals; a null field filled through a reference, `owner leaked: 's.d'`, taken by
+0.271. Inside a member function a call on `this` ends the borrows of `this->data` too, as C's `grow(b)` over a parameter
+does. Of the nine C fixtures of `test/c/safe/` for these rules, five are refused as C++ with their C build's words; the
+four others, and `elemborrow.c`, meet C++'s own refusal first -- a plain struct's live owner across a call that may
+throw, the defer rule of 0.237 -- so `elemborrow.c` has a C++ form, its plain functions noexcept.
+
+THE FIXTURES. `test/cpp/callreplace.cpp`, `refreplace.cpp`, `localrefreplace.cpp`, `tiedrefreplace.cpp`,
+`constmethod.cpp`, `constrefslot.cpp`, `nullfilledref.cpp`, refused by the C++ gate; `test/cpp/run/borrowkeep.cpp`,
+which prints what clang++'s build prints, and `elemborrowpp.cpp` over `../../c/run/tvector.pl`, which prints what
+`elemborrow.c` prints; the C++ gate builds `borrow_after_push.c`, `elem_after_push.c`, `index_after_insert.c`,
+`const_replace.c` and `const_local.c` as C++.
+
+WHAT IT LEAVES (Not done): a `mutable` own member is refused in a const member function, where C++ lets it be assigned
+-- the reader keeps no `mutable` on a member; a member function cannot tie its result to its object (`tie this` does not
+read); the const rule is held for own fields alone, in C++ as in C.
+
+THE NETS, over the work tree: the flow gate GREEN with no finding (100 s, peak 4093 MB); the reader, compile, driver and
+objects gates GREEN (3 s, 30 s, 41 s, 5 s), so C's verdicts stand; the C++ gate over libc++ 22 and a warm HOME, as the
+net of the check's change, GREEN in 1382 s: 881 run fixtures ok and none skipped, no FAIL among its 1084 checks -- the
+seven refusals, the two new run fixtures and the five C fixtures built as C++ among them.
+
+NO CHAIN RAN for this step (the owner's rule of 0.271: the gates when the ccllib task is finished), and it claims
+nothing GREEN but the nets above.
+
+- `library/ccl_check.pl`: the four guards gone; `ck_by_address/4`, `ck_replaced_base/3`'s clause for a local reference,
+  `ck_param_const_pointee/2` through a reference, `ck_const_owner_slot/1` with C++'s words, `ck_const_text/3`,
+  `ck_const_place/1` over a reference, `ck_unwind/2` keeping the notes. `library/ccl_driver.pl`: the const member
+  function's message. `library/ccl_ir.pl`: the lowering 155. `test/cpp.sh`: the refusals, and the C fixtures built as
+  C++. The nine fixtures. `RULES.md`, `CLAUDE.md`, `README.md`, `CCLLIB.md`.
+
+The module 0.272; the reader 180 stays; the lowering 155 (the check's verdicts change in C++).

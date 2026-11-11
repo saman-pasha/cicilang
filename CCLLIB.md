@@ -317,7 +317,20 @@ A type macro gives its instances operators that the reader writes as calls: `v[i
   a reference type the object it refers to. A C++ string literal is `const char[N]`, so `topers.pl` gives `<<` a
   `const char *` too. The C++ gate builds `operators.c` and `unread.c` with cicilang++, and runs
   `test/cpp/run/opcpp.cpp`, the macro's operators beside the program's.
-- WHAT 0.270 LEAVES: the safety rules of 0.265 to 0.267 in C++.
+- DONE AT 0.272 (`RULES.md`, the safe part's topic of borrows): the safety rules of 0.265 to 0.267 in C++. An
+  element's address over a pointer is a borrow of what the pointer borrows; a call that may replace an object's own
+  fields ends the caller's borrows of them -- a member function that is not const, a reference parameter that is not
+  const, a call through a local reference --, and a const member function and a reference to const keep them; a result
+  tied to a struct with own fields is a borrow of them; a null own field that such a call may fill is live after it; an
+  own field of a const object is not assigned, in clang++'s words. `test/cpp/run/elemborrowpp.cpp` is `elemborrow.c`
+  the C++ way and prints what it prints; `test/cpp/run/borrowkeep.cpp` prints what clang++'s build prints; seven
+  refusals in `test/cpp/`, and five C fixtures of `test/c/safe/` refused as C++ with the same words.
+- PHASE 0.10 IS DONE WITH IT: each ccllib run fixture built by cicilang++ prints what its cicilang build prints --
+  `ctext.c`, `autodrop.c`, `tvector.c`, `literal.c`, `operators.c` and `unread.c` as they stand, `elemborrow.c` as
+  `elemborrowpp.cpp`, its plain functions noexcept, since C++'s defer rule refuses a plain struct's live owner across a
+  call that may throw.
+- WHAT PHASE 0.10 LEAVES (`RULES.md`, Not done): a `mutable` own member in a const member function; a member function's
+  result tied to its object; a list literal's first element that is a list literal.
 
 ### Order
 

@@ -416,9 +416,14 @@ macros are expanded and its includes read apart. List and map literals read
 in C++ too (0.269), beside the lambdas. So do the operators on instances and
 the arguments that a macro reads after its call (0.270): where the type macro
 defines no function for an operator, the operator is C++'s own, so a program
-can give an instance an `operator*` of its own. The C++ gate builds
+can give an instance an `operator*` of its own. The safety rules of the
+containers hold in C++ too (0.272): `int *p = v.data; v.grow(); *p` is
+refused where `grow` is a member function that is not const or takes a
+reference that is not const, a const member function keeps the borrow, and
+an own field is not assigned through a const object. The C++ gate builds
 `test/c/run/ctext.c`, `autodrop.c`, `tvector.c`, `literal.c`, `operators.c`
-and `unread.c` as C++ and compares their output with their C builds'.
+and `unread.c` as C++ and compares their output with their C builds';
+`test/cpp/run/elemborrowpp.cpp` is `elemborrow.c` the C++ way.
 
 `format`, `print`, `println` and `clone` are global macros, there in every
 program without an include (`library/ccl_format.pl`). The format string

@@ -747,8 +747,9 @@ ck_borrows_from(dyncast_ref(A, _, _, _), St, P) :- !, ck_borrows_from(A, St, P).
 %% array that C adjusts to one (6.7.6.3/7), a local pointer's. The address was traced as `&a''s: `&v.data[0]' traced &v,
 %% a struct that borrows nothing, and was fresh memory, `plain pointer not consumed'; `int *f(int *p) { return &p[1]; }'
 %% traced the parameter's own storage (0.219) and was `a borrow leaves the function', where `p + 1' was taken. An array,
-%% and a pointer whose borrow the check does not trace, keep the clause below
-ck_borrows_from(addr(index(A, _)), St, P) :- \+ ccl_lang(cpp), ck_points_into(A), ck_borrows_from(A, St, P0), !, P = P0.
+%% and a pointer whose borrow the check does not trace, keep the clause below. In C++ too (0.272; [expr.sub]/1,
+%% [expr.unary.op]/3): the desugaring leaves `[]' over a pointer alone
+ck_borrows_from(addr(index(A, _)), St, P) :- ck_points_into(A), ck_borrows_from(A, St, P0), !, P = P0.
 ck_borrows_from(addr(index(A, _)), St, P) :- !, ck_borrows_from(addr(A), St, P).             % &a[i], &c.f: what &a, &c borrow (an anchor, an owner's slot)
 ck_borrows_from(addr(member(A, _)), St, P) :- !, ck_borrows_from(addr(A), St, P).
 ck_borrows_from(addr(arrow(A, _)), St, P) :- !, ck_borrows_from(A, St, P).
@@ -820,9 +821,9 @@ ck_borrows_from(call(F, Args), St, P) :- ck_callee_sig(F, fn(R, _, _)), \+ ck_ow
 %% dictionary, `*dict_index(&m, k)' -- so its borrow is of an own field of x, the first that the state holds, which a
 %% call that may replace x's own fields ends with the others (ck_replaced_args/5), as a move or a drop of x ends it. It
 %% was a borrow of x, which no such call ends: `int *p = &m[3]; m[9] = 1; *p' read the buffer that the insertion's
-%% realloc freed
-ck_tied_own(call(F, Args), St, _, P) :- \+ ccl_lang(cpp), ck_callee_sig(F, fn(R, Ps, _)), ccl_tie_of(R, Y), ck_param_index(Ps, Y, 1, I),
-    ccl_nth(I, Args, A), ck_replaced_base(A, St, K), ck_own_under(St, K, [P|_]), !.
+%% realloc freed. In C++ too (0.272)
+ck_tied_own(call(F, Args), St, _, P) :- ck_callee_sig(F, fn(R, Ps, _)), ccl_tie_of(R, Y), ck_param_index(Ps, Y, 1, I),
+    ccl_nth(I, Args, A0), ck_by_address(A0, params(Ps), I, A), ck_replaced_base(A, St, K), ck_own_under(St, K, [P|_]), !.
 ck_tied_own(_, _, P, P).
 %% a pointer's value, not an array's storage, for `&a[i]' (0.265): a pointer-typed place, or a parameter
 ck_points_into(id(N)) :- atom(N), ck_is_param(N), \+ ck_is_ref(N), !.
@@ -1978,10 +1979,13 @@ ck_args(Args, Callee, St0, St) :- ck_arg_ties(Args, Callee, St0), ck_args_(Args,
 %% call, all its arguments read, what the caller borrowed of them dangles, as after a move: `int *p = v.data; grow(&v);
 %% *p' read the buffer that grow's realloc freed, and `push(v, 1)' over a vector<int> likewise, and both were accepted.
 %% A const pointee, a variadic argument, a constructor's and a drop's `this' end none (the drop ends the fields
-%% themselves); a callee with no prototype may replace them
+%% themselves); a callee with no prototype may replace them. IN C++ TOO (0.272; CCLLIB.md's phase 0.10): a member
+%% function that is not const takes its object by a plain `this', and a function its lvalue reference parameter by a
+%% plain pointer, so `int *p = v.data; v.grow(); *p' is refused as C's `grow(&v)' is, and a const member function and a
+%% reference to const keep the borrows, as a constructor's and a destructor's `this' do
 ck_replaced_args([], _, _, St, St).
 ck_replaced_args([A|As], Callee, I, St0, St) :- ck_replaced_arg(A, Callee, I, St0, St1), I1 is I + 1, ck_replaced_args(As, Callee, I1, St1, St).
-ck_replaced_arg(A, Callee, I, St0, St) :- \+ ccl_lang(cpp), ck_replaced_base(A, St0, K), ck_may_replace(Callee, I),
+ck_replaced_arg(A0, Callee, I, St0, St) :- ck_by_address(A0, Callee, I, A), ck_replaced_base(A, St0, K), ck_may_replace(Callee, I),
     ck_own_under(St0, K, Fs), Fs \== [], !, ck_dangle_all(St0, Fs, St1), ck_note_replaced(Fs), ck_null_filled(Fs, St1, St).
 ck_replaced_arg(_, _, _, St, St).
 %% A NULL OWN FIELD THAT SUCH A CALL MAY FILL IS LIVE AFTER IT (0.267): the callee returns the field live or null
@@ -2000,12 +2004,22 @@ ck_fail_dangling(K, P) :- ( nb_current('$ck_replaced', Rs), memberchk(P, Rs) -> 
 %% clang's words -- `cannot assign to variable 'b' with const-qualified type 'const buf *'' -- so a call whose pointee is
 %% const may not replace what the caller borrowed, and keeps those borrows (ck_may_replace/2). Through `->' the object is
 %% const where the pointee is, through `.' where its own type is or its object is. cicilang took `free(b->data); b->data =
-%% malloc(4)' over a `const buf *b', which clang refuses
-ck_const_owner_slot(L) :- \+ ccl_lang(cpp), ck_const_place(L), ck_path_root(L, N), atom(N), catch(ccl_type_of(id(N), T), _, fail), !,
-    ( catch(ck_c_type_text(T, Text), _, fail) -> true ; Text = '?' ),
-    nb_getval('$ck_fn', F), nb_getval('$ck_line', Ln), throw(error(ownership(assign_to_const, N, const_type(Text)), where(F, line(Ln)))).
+%% malloc(4)' over a `const buf *b', which clang refuses. IN C++ TOO (0.272; [dcl.type.cv]/4, [class.this]/1): a const
+%% member function's `this' points to a const object -- clang's words there, `cannot assign to non-static data member
+%% within const member function 'bad'' -- and a reference to const is spelled as one, 'const Buf &'
+ck_const_owner_slot(L) :- ck_const_place(L), ck_path_root(L, N), atom(N), catch(ccl_type_of(id(N), T), _, fail), !,
+    nb_getval('$ck_fn', F), nb_getval('$ck_line', Ln),
+    (   N == this, ccl_lang(cpp), catch(cpp_dbg_fn(F, member(_, M)), _, fail) -> What = const_method(M)
+    ;   catch(ck_const_text(N, T, Text), _, fail) -> What = const_type(Text)
+    ;   What = const_type('?') ),
+    throw(error(ownership(assign_to_const, N, What), where(F, line(Ln)))).
 ck_const_owner_slot(_).
+%% the object's type as clang writes it: a C++ reference's -- the pointer that the check sees it as (ck_ref_as_ptr/2) --
+%% is its referent's and `&'
+ck_const_text(N, ptr(_, T), Text) :- ck_is_ref(N), !, ck_c_type_text(T, B), atom_concat(B, ' &', Text).
+ck_const_text(_, T, Text) :- ck_c_type_text(T, Text).
 ck_const_place(arrow(E, _)) :- !, catch(ccl_type_of(E, T), _, fail), catch(ccl_resolve_type(T, ptr(_, P)), _, fail), ck_const_type(P).
+ck_const_place(member(id(R), F)) :- ck_is_ref(R), !, ck_const_place(arrow(id(R), F)).   % C++: r.f with r a reference is the referent's field, r->f (ck_path/2)
 ck_const_place(member(E, _)) :- ( catch(ccl_type_of(E, T), _, fail), ck_const_type(T) -> true ; ck_const_place(E) ).
 ck_const_type(T) :- ( T = base(Q, _), memberchk(const, Q) -> true ; catch(ccl_resolve_type(T, base(Q1, _)), _, fail), memberchk(const, Q1) ).
 %% a type in C's spelling, as clang names one in a message: `const buf *', `const struct S'
@@ -2017,8 +2031,13 @@ ck_c_spec_text([union(Tag, _)], T) :- atom(Tag), Tag \== anon, !, atom_concat('u
 ck_c_spec_text(S, T) :- ck_all_atoms(S), atomic_list_concat(S, ' ', T).
 ck_all_atoms([]).
 ck_all_atoms([A|As]) :- atom(A), ck_all_atoms(As).
+ck_replaced_base(addr(id(N)), St, K) :- ck_is_ref(N), ck_state(St, N, borrow(K0)), atom(K0), ck_own_under(St, K0, [_|_]), !, K = K0.   % C++: what a local reference refers to (0.272)
 ck_replaced_base(addr(E), _, K) :- ck_arg_base(addr(E), K), !.
 ck_replaced_base(id(N), St, K) :- atom(N), ck_state(St, N, borrow(K)), atom(K).
+%% C++: AN LVALUE BOUND TO A REFERENCE PARAMETER IS HANDED BY ITS ADDRESS ([dcl.init.ref]/5; 0.272): `grow2(v)' over
+%% `void grow2(Buf &)' hands v as C's `grow(&v)' does, and the rules of an object handed by its address hold for it
+ck_by_address(A, Callee, I, addr(A)) :- ccl_lang(cpp), ck_lvalue_form(A), ck_callee_params(Callee, Ps), ccl_nth(I, Ps, param(PT, _)), ( PT = ref(_, _) ; PT = rref(_, _) ), !.
+ck_by_address(A, _, _, A).
 ck_may_replace(Callee, I) :-
     (   ck_callee_params(Callee, Ps)
     ->  ccl_nth(I, Ps, param(_, _)), \+ ck_param_const_pointee(Callee, I), \+ ck_dying_param(Callee, I), \+ ck_fresh_param(Callee, I)
@@ -2084,7 +2103,8 @@ ck_hand_drop(A, Callee, I, Form, St) :- ck_dying_param(Callee, I), \+ ck_dtor_th
 ck_hand_drop(_, _, _, _, _).
 %% a C++ destructor's dying parameter, its `this' (cpp_this_type/4 with the mark dying), where an instance's drop names its own
 ck_dtor_this(Callee, I) :- ccl_lang(cpp), ck_callee_params(Callee, Ps), ccl_nth(I, Ps, param(_, this)), !.
-ck_param_const_pointee(Callee, I) :- ck_callee_params(Callee, Ps), ccl_nth(I, Ps, param(PT, _)), catch(ccl_resolve_type(PT, ptr(_, base(Q, _))), _, fail), memberchk(const, Q), !.
+ck_param_const_pointee(Callee, I) :- ck_callee_params(Callee, Ps), ccl_nth(I, Ps, param(PT, _)),
+    ( ( PT = ref(_, T) ; PT = rref(_, T) ) -> ck_const_type(T) ; catch(ccl_resolve_type(PT, ptr(_, base(Q, _))), _, fail), memberchk(const, Q) ), !.   % C++: a reference to const (0.272)
 ck_null_live([], St, St).
 ck_null_live([F|Fs], St0, St) :- ( ck_state(St0, F, null) -> ck_set(St0, F, live, St1) ; St1 = St0 ), ck_null_live(Fs, St1, St).
 %% `this' HANDED OUT OF A CONSTRUCTOR (0.133; "not followed" since 0.37): a constructor's own fields start unset (the
@@ -2131,7 +2151,9 @@ ck_may_throw(id(N)) :- atom(N), ( catch(ir_nothrow_callee(N), _, fail) -> true ;
 ck_may_throw(F) :- \+ ( catch(ccl_type_of(F, T), _, fail), ccl_resolve_type(T, RT), ( RT = ptr(_, fn(_, _, Q)) ; RT = fn(_, _, Q) ), nonvar(Q), Q = q(_, Qs), memberchk(noexcept, Qs) ).
 ck_c_library_quiet(N) :- catch(cpp_header_c_name(N), _, fail), \+ memberchk(N, [qsort, bsearch]).
 ck_unwind(F, St) :- nb_getval('$ck_line', L), ck_walk_snapshot(Snap), nb_getval('$ck_loops', Lps), nb_setval('$ck_unwinding', yes),
+    ( nb_current('$ck_replaced', Rs) -> true ; Rs = [] ),   % the unwinding path's destructors end keys that a call's note names (ck_note_replaced/1): the path that goes on keeps its notes (0.272)
     ( catch(ck_exit_all(St, unwind), E, true) -> true ; true ),
+    nb_setval('$ck_replaced', Rs),
     nb_setval('$ck_unwinding', no), nb_setval('$ck_loops', Lps), ck_walk_restore(Snap), nb_setval('$ck_line', L),
     ( nonvar(E), E = error(ownership(owner_leaked, N, _), _) -> ck_throw_form(F, Form), ck_fail(owner_across_throw, N, Form) ; true ).
 ck_throw_form(throw, throw) :- !.
