@@ -24,6 +24,7 @@
 %%
 %% The texts are the same for the four containers but for a few lines, which stand in a list with their condition
 %% (`multi-"..."', `map-"..."'): ccllib_tree_lines/3 keeps the lines of the instance.
+:- ensure_loaded(library(ccllib/ccllib)).
 ccllib_tree_type(O, Items) :-
     O = tree(_, _, _, N, K, V),
     ccllib_tree_lines(O, [
@@ -44,16 +45,8 @@ ccllib_tree_fn(O, Name, Items) :-
     ccllib_tree_holes(N, K, V, Hs), ccl_c_items(Text, Hs, Items).
 ccllib_tree_holes(N, K, none, ['N' = name(N), 'K' = type(K)]) :- !.
 ccllib_tree_holes(N, K, V, ['N' = name(N), 'K' = type(K), 'V' = type(V)]).
-%% the lines of an instance, joined: a line with a condition is kept where the condition holds
-ccllib_tree_lines(_, [], []).
-ccllib_tree_lines(O, [L|Ls], Text) :-
-    (   L = C-Codes -> ( ccllib_tree_is(C, O) -> Line = Codes ; Line = none ) ; Line = L ),
-    ccllib_tree_lines(O, Ls, Rest),
-    (   Line == none -> Text = Rest ; append(Line, [10|Rest], Text) ).
-ccllib_tree_is(set, tree(set, _, _, _, _, _)).
-ccllib_tree_is(map, tree(map, _, _, _, _, _)).
-ccllib_tree_is(unique, tree(_, unique, _, _, _, _)).
-ccllib_tree_is(multi, tree(_, multi, _, _, _, _)).
+%% the lines of an instance, joined: a line with a condition is kept where the condition holds (ccllib.pl, 0.283)
+ccllib_tree_lines(tree(Kind, Multi, _, _, _, _), Lines, Text) :- ccllib_text_lines([Kind, Multi], Lines, Text).
 %% ---- the texts, by the function's name -----------------------------------------------------------------------------
 %% -- the order of two keys: `<', or the function that the type names
 ccllib_tree_text('_lt', tree(_, _, none, _, _, _), ["static int @{N}__lt(@K a, @K b) { return a < b; }"]) :- !.

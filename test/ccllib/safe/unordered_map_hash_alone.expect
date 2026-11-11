@@ -1,0 +1,1 @@
+an unordered_map of point takes the names of two functions after its types: one that hashes a key, and one that tells whether two keys are equal

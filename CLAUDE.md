@@ -12,7 +12,7 @@ the fixture that gates it, and why. The bullet ends with the version that made t
 edits the rule in `RULES.md`, in its topic, and writes its entry in `HISTORY.md`. Read the topic of `RULES.md` that
 covers the code before the code is changed.
 
-At 0.282 the versions are: the module 0.282 (`ccl_p_version` in `module/cicilang.cicili`, `bin/cicilang --version`),
+At 0.283 the versions are: the module 0.283 (`ccl_p_version` in `module/cicilang.cicili`, `bin/cicilang --version`),
 the reader 182 (`ccl_reader_version/1`, `library/ccl_syntax.pl`) and the lowering 156 (`ccl_lowering_version/1`,
 `library/ccl_ir.pl`).
 
@@ -180,8 +180,9 @@ In `RULES.md`:
 - A RULE THAT A MODULE'S WORDS STATE IS PROVED AT A SIZE WHERE IT CAN BREAK, and the proof is tried against a text that
   breaks the rule: ccllib's tree said that a write to a key that is there ends no place, and its first cases, over trees
   of two entries, passed a text that ended the places wherever a full node stood on the way. The cases over 4000 entries
-  and the walks of chance fail that text, and a copy of the tree broken on purpose fails the program of its rules.
-  (0.281)
+  and the walks of chance fail that text, and a copy of the tree broken on purpose fails the program of its rules. EACH
+  RULE HAS A BROKEN TEXT OF ITS OWN: the hash table of 0.283 had three for its form and none for the calls that change
+  nothing, whose cases stood under the table's limit and passed the fourth. (0.281, 0.283)
 - A library module is taken at once, not function by function (owner's rule, 2026-09-13): its whole surface in one
   step, in as many fixtures as the memory cap needs. (0.78)
 - A fixture goes into `test/cpp/run/` only once it has been seen to pass. The gate globs that directory, and an
@@ -370,8 +371,16 @@ library/ccllib/             ccllib, the standard library of cicilang's C (CCLLIB
   tree.pl                     the B-tree of the four, its nodes in one own buffer (0.281): set.pl and map.pl load it
                               by a directive, and no program includes it; a place ends where the tree takes a new
                               entry or loses one
+  unordered_set.pl, unordered_set.pl.h
+                              std::unordered_set and std::unordered_multiset (0.283)
+  unordered_map.pl, unordered_map.pl.h
+                              std::unordered_map and std::unordered_multimap (0.283)
+  table.pl                    the hash table of the four, its slots in one own buffer (0.283): the two modules load
+                              it by a directive, and no program includes it; a place ends as a tree's does, and at
+                              rehash and reserve
   ccllib.pl                   what two modules need, written once (0.275): a module loads it by a directive, and no
-                              program includes it; the refusal of an element with a pointer, the lists' sort (0.277)
+                              program includes it; the refusal of an element with a pointer, the lists' sort (0.277),
+                              the lines of a text by their conditions (0.283)
 library/cicilang.so, ccl_llvm.so
                             built by the two module scripts, never committed
 library/include/            the compiler's own freestanding headers: each COCOLOG_LIBRARY directory's include/, after
@@ -468,12 +477,14 @@ test/ccllib/                the three runs' programs: NAME.c, a ccllib program; 
                             surface of <vector.pl> (0.274); array.c, of <array.pl> (0.275); deque.c, of <deque.pl>
                             (0.276); list.c, of <list.pl> (0.277); forward_list.c, of <forward_list.pl> (0.278);
                             stack.c and queue.c, of <stack.pl> and <queue.pl> (0.280); set.c and map.c, of
-                            <set.pl> and <map.pl> (0.281)
+                            <set.pl> and <map.pl> (0.281); unordered_set.c and unordered_map.c, of
+                            <unordered_set.pl> and <unordered_map.pl> (0.283)
 test/ccllib/safe/           ccllib programs that the safe part refuses, as C and as C++: NAME.c, NAME.expect, and
                             NAME.expect.cpp where C++ has words of its own (0.274)
 test/ccllib/alone/          ccllib programs with no twin, built as C and as C++ (0.281): NAME.c, NAME.expect;
                             stops.c, what stops a ccllib program, each case in a child of its own; tree_rules.c,
-                            the rules of the tree of a set and a map, read from the instance's own fields
+                            the rules of the tree of a set and a map, read from the instance's own fields;
+                            table_rules.c, the rules of the hash table of the unordered containers (0.283)
 
 proof/forty2.ll, run.sh     M0: hand-written IR through clang to a binary that prints a line and exits 42
 proof/forty2                made by proof/run.sh, never committed

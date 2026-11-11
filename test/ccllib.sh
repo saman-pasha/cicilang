@@ -21,7 +21,8 @@
 # PROGRAM -- each of its cases goes past what a container holds (an index past the end, the front of an empty one, a
 # place that a new entry of a map ended) in a child of its own, and a line says for each whether abort stopped it; C++
 # throws there, or says nothing of what follows. tree_rules.c: the rules of the tree of <set.pl> and <map.pl>, read
-# from the instance's own fields over a walk of chance.
+# from the instance's own fields over a walk of chance; table_rules.c (0.283): the rules of the hash table of
+# <unordered_set.pl> and <unordered_map.pl>, read so too.
 #
 # THE COSTS, a line a run, are a record and no check: the build of the program (the best of CCLLIB_REPEAT: its seconds
 # and the megabytes of its largest process), the IR's types, functions and lines, the object's bytes, and the longer
@@ -110,8 +111,9 @@ for src in "$T"/*.c; do
       ccl_freed "$D/${n}_$how" "$D/${n}_$how.vg" || left="$left $how"
       if [ -n "$cnt" ]; then ccl_freed "$D/${n}_$how" "$D/${n}_$how.vgl" 5000 || left="$left $how(5000)"; fi
     done
+    # an instruction that valgrind does not know stops the run with its blocks in use: the report names it (0.283)
     if [ -z "$left" ]; then ok "$n: under valgrind each run has no error and frees every block${cnt:+, with a count of 5000 too}"
-    else bad "$n: under valgrind each run has no error and frees every block" "not so:$left" "$(for h in c cpp twin; do grep -a 'ERROR SUMMARY\|definitely lost\|in use at exit' "$D/${n}_$h.vg" "$D/${n}_$h.vgl" 2>/dev/null; done)"; fi
+    else bad "$n: under valgrind each run has no error and frees every block" "not so:$left" "$(for h in c cpp twin; do grep -a 'Unrecognised instruction\|ERROR SUMMARY\|definitely lost\|in use at exit' "$D/${n}_$h.vg" "$D/${n}_$h.vgl" 2>/dev/null; done)"; fi
   else echo "SKIP $n.valgrind (not here)"; fi
 done
 [ "$nprog" -gt 0 ] || { echo "RED: ccllib (no program in test/ccllib)"; exit 1; }
@@ -130,7 +132,7 @@ if ls "$T"/safe/*.c > /dev/null 2>&1; then
 fi
 nalone=0
 if ls "$T"/alone/*.c > /dev/null 2>&1; then
-  echo "-- and the programs that stand alone, with no twin (test/ccllib/alone): what stops a ccllib program, and the rules of the tree of a set and a map, as C and as C++"
+  echo "-- and the programs that stand alone, with no twin (test/ccllib/alone): what stops a ccllib program, and the rules of the tree and of the hash table, as C and as C++"
   for src in "$T"/alone/*.c; do
     n=$(basename "$src" .c); nalone=$((nalone + 1))
     for how in c cpp; do

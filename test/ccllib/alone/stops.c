@@ -2,8 +2,9 @@
    front of an empty one, a place that is no element's or that a new entry of the map ended -- where C++ throws or is
    undefined. Each runs in a child of its own, and a line says for each whether abort stopped it: 1, and 0 for the
    cases that stay in their bounds, which no stop may meet (a tree's place over 4000 inserts that find their keys and
-   erases that find none). cicilang builds this file as C and cicilang++ as C++; both print stops.expect. It has no
-   twin: C++ throws at some of these, and says nothing of what follows the others */
+   erases that find none; a hash table's place over such calls at each of its sizes up to 4000, 0.283). cicilang
+   builds this file as C and cicilang++ as C++; both print stops.expect. It has no twin: C++ throws at some of these,
+   and says nothing of what follows the others */
 #include <signal.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -18,6 +19,8 @@
 #include <queue.pl>
 #include <set.pl>
 #include <map.pl>
+#include <unordered_set.pl>
+#include <unordered_map.pl>
 /* the child takes abort's signal and leaves with a status of its own: so no core is written and no crash is reported,
    and a stop by abort is told from a fault */
 static void on_abort(int sig) { (void)sig; _exit(77); }
@@ -108,6 +111,75 @@ static void multimap_stale(void) {
     printf("%d", value(m, p));
 }
 static void map_next_end(void) { map<int, int> m = [1: 10]; next(m, end(m)); }
+static void uset_key_end(void) { unordered_set<int> s = [1]; printf("%d", key(s, end(s))); }
+static void uset_stale(void) {
+    unordered_set<int> s = [1, 2];
+    size_t p = begin(s);
+    insert(s, 3);
+    printf("%d", key(s, p));
+}
+static void uset_reserve(void) {
+    unordered_set<int> s = [1, 2];
+    size_t p = begin(s);
+    reserve(s, 100);
+    printf("%d", key(s, p));
+}
+static void uset_reserve_small(void) {
+    unordered_set<int> s = [1, 2];
+    size_t p = begin(s);
+    reserve(s, 1);
+    printf("%d", key(s, p));
+}
+static void uset_rehash(void) {
+    unordered_set<int> s = [1, 2];
+    size_t p = begin(s);
+    rehash(s, 0);
+    printf("%d", key(s, p));
+}
+static void uset_erase_at(void) { unordered_set<int> s = [1]; size_t p = begin(s); erase(s, 1); erase_at(s, p); }
+/* a table stands at its limit where one entry more makes it again: at 6 entries, 12, 24 and on to 3072. So the calls
+   that change no entry are made at EACH size from 1 to 4000, and a place is used after them: a table of 4000 entries
+   alone stands under its limit, and passes a text that makes the table again before it looks for the key */
+static void uset_kept(void) {
+    unordered_set<int> s;
+    for (int i = 0; i < 4000; i++) {
+        insert(s, 2 * i);
+        size_t p = find(s, 2 * (i / 2));
+        insert(s, 2 * i);
+        insert(s, 0);
+        erase(s, 2 * i + 1);
+        if (key(s, p) != 2 * (i / 2)) abort();
+    }
+    if (size(s) != 4000 || !contains(s, 2470)) abort();
+}
+static void umap_at(void) { unordered_map<int, int> m = [1: 10]; printf("%d", at(m, 2)); }
+static void umap_stale(void) {
+    unordered_map<int, int> m = [1: 10];
+    size_t p = find(m, 1);
+    m[2] = 20;
+    printf("%d", value(m, p));
+}
+static void umap_next_end(void) { unordered_map<int, int> m = [1: 10]; next(m, end(m)); }
+static void umap_kept(void) {
+    unordered_map<int, int> m;
+    for (int i = 0; i < 4000; i++) {
+        m[2 * i] = i;
+        size_t p = find(m, 2 * (i / 2));
+        m[2 * i] = -i;
+        insert(m, 2 * i, 0);
+        insert_or_assign(m, 2 * i, i);
+        erase(m, 2 * i + 1);
+        set_value(m, p, i / 2);
+        if (key(m, p) != 2 * (i / 2) || value(m, p) != i / 2) abort();
+    }
+    if (size(m) != 4000 || at(m, 2470) != 1235) abort();
+}
+static void umultimap_stale(void) {
+    unordered_multimap<int, int> m = [1: 10];
+    size_t p = begin(m);
+    insert(m, 1, 11);
+    printf("%d", value(m, p));
+}
 int main(void) {
     printf("vector: at %d, index %d, front %d, pop_back %d, ", stopped(vector_at), stopped(vector_index),
            stopped(vector_front), stopped(vector_pop));
@@ -134,5 +206,17 @@ int main(void) {
     printf("a multimap's place after a second value of its key %d\n", stopped(multimap_stale));
     printf("map: a place after writes to keys that are there and erases of keys that are not %d\n",
            stopped(map_kept));
+    printf("unordered_set: the end's key %d, a place after an insert %d, erase_at of one %d\n",
+           stopped(uset_key_end), stopped(uset_stale), stopped(uset_erase_at));
+    printf("unordered_set: a place after a reserve that makes a new table %d, after one that makes none %d, ",
+           stopped(uset_reserve), stopped(uset_reserve_small));
+    printf("after rehash %d\n", stopped(uset_rehash));
+    printf("unordered_set: a place after inserts of elements that are there and erases of ones that are not %d\n",
+           stopped(uset_kept));
+    printf("unordered_map: at of no key %d, a place after a new key %d, next of the end %d; ", stopped(umap_at),
+           stopped(umap_stale), stopped(umap_next_end));
+    printf("an unordered_multimap's place after a second value of its key %d\n", stopped(umultimap_stale));
+    printf("unordered_map: a place after writes to keys that are there and erases of keys that are not %d\n",
+           stopped(umap_kept));
     return 0;
 }

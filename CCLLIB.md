@@ -227,8 +227,8 @@ element  : expression  |  key ':' expression        a key is a conditional expre
   instance's function `<name>_from(const T *, size_t)`, a map's `<name>_from(const K *, const V *, size_t)`.
 - WHAT 0.263 LEAVES (Not done): a literal where no place gives its type (a conditional's branch, a macro's argument) is
   refused by name, and one at file scope is no constant; a container of plain pointers (`map<int, char *>`, `[5: "me"]`)
-  is refused by the borrow rules until ccllib's `string` (phase 1a); `unordered_map` waits for its type macro (phase
-  1a), and `set<int>` has its own since 0.281.
+  is refused by the borrow rules until ccllib's `string` (phase 1a); `set<int>` has its type macro since 0.281 and
+  `unordered_map` since 0.283.
 
 ### 0.7 Arguments read after the outer macro
 
@@ -397,11 +397,13 @@ What the proof found for phase 1:
 - A COMPARISON IS A FUNCTION'S NAME, AN ARGUMENT OF THE TYPE (0.280): `priority_queue<int, later>`, where C++ writes the
   comparison's type. The instance's text calls the function by its name -- a direct call, which the optimizer puts in
   line -- and no pointer to a function is kept. `set<int, later>` and `map<int, double, later>` take the form too
-  (0.281); the algorithms wait for it.
-- A PLACE IS A NUMBER, AND ITS END IS CHECKED WHERE IT IS NOT C++'S (0.277, 0.281): a list's place is a node's number
-  and stays, as C++'s iterator of a list does. A tree's place holds the tree's count of changes and ENDS where the tree
-  takes a new entry or loses one, where C++'s iterator of a map stays: an arena's B-tree moves its entries. A place that
-  is used after its end stops the program, so the difference is never silent.
+  (0.281), and an unordered container's key names its hash and its equality so (0.283); the algorithms wait for it.
+- A PLACE IS A NUMBER, AND ITS END IS CHECKED WHERE IT IS NOT C++'S (0.277, 0.281, 0.283): a list's place is a node's
+  number and stays, as C++'s iterator of a list does. A tree's place holds the tree's count of changes and ENDS where
+  the tree takes a new entry or loses one, where C++'s iterator of a map stays: an arena's B-tree moves its entries. A
+  hash table's place is the tree's kind (0.283), and it ends at `rehash` and `reserve` too. A place that is used after
+  its end stops the program, so the difference is never silent. AND A PLACE'S END DOES NOT DEPEND ON THE CONTAINER'S
+  SIZE: one that stays at the sizes of a program's tests and ends at another would stop the program late.
 
 ### 1a, `vector.pl` (0.274)
 
@@ -555,6 +557,35 @@ the twin's tree has a block for each key. The builds are the dearest of phase 1a
 longest: the C builds take the twins' time and more memory, and cicilang++'s take 2.84 s and 3.11 s, more than three
 times the twins'. The target of phase 1 stays, and these two programs are its largest cases.
 
+### 1a, `unordered_set.pl` and `unordered_map.pl` (0.283)
+
+`unordered_set`, `unordered_multiset`, `unordered_map` and `unordered_multimap` are one text, `library/ccllib/table.pl`:
+a hash table whose slots stand in one own buffer, with no node and no link (open addressing, as this plan said). 27, 28,
+34 and 29 functions. An integer and a floating key have a hash of their own; another key names the function that hashes
+it and the one that tells whether two keys are equal, the type's last arguments. A multi container's entries of one key
+have a hash each, so equal keys make no long row, and `find(m, k, i)` gives the key's entry i. A place ends as a tree's
+does, and at `rehash` and `reserve` always; a walk has the slots' order. `test/ccllib/unordered_set.c` and
+`unordered_map.c`, their twins over the four of `std::`, eight programs of `test/ccllib/safe/`,
+`test/ccllib/alone/table_rules.c`, and 12 cases more of `stops.c`. The costs over libc++ 22, as above:
+
+| | build | peak | IR types | IR functions | IR lines | object | `unordered_set 3000000` at `-O2` | its peak |
+|---|---|---|---|---|---|---|---|---|
+| cicilang, C | 0.57 s | 160 MB | 13 | 141 | 8,510 | 60,568 B | 0.50 s | 50 MB |
+| cicilang++, C++ | 1.76 s | 160 MB | 13 | 141 | 10,305 | 70,352 B | 0.55 s | 50 MB |
+| clang++ 22, `std::` | 0.61 s | 125 MB | 102 | 549 | 20,325 | 359,208 B | 1.98 s | 100 MB |
+
+| | build | peak | IR types | IR functions | IR lines | object | `unordered_map 3000000` at `-O2` | its peak |
+|---|---|---|---|---|---|---|---|---|
+| cicilang, C | 0.63 s | 160 MB | 13 | 148 | 9,026 | 66,136 B | 0.49 s | 74 MB |
+| cicilang++, C++ | 1.78 s | 168 MB | 13 | 148 | 10,916 | 75,672 B | 0.51 s | 74 MB |
+| clang++ 22, `std::` | 1.25 s | 163 MB | 189 | 936 | 30,855 | 635,008 B | 1.53 s | 86 MB |
+
+The units hold 141 and 148 functions, each for six instances, where the twins' hold 549 and 936, and the runs of
+3,000,000 take 0.50 s and 0.49 s against 1.98 s and 1.53 s -- a quarter and a third of the twins' time -- in half and in
+six sevenths of the twins' memory: an entry stands in a slot of the one buffer, where the twin has a node for each, and
+a table's peak is its last growth, the old buffer beside the new one. The C builds take the twins' time or less;
+cicilang++'s take 1.76 s and 1.78 s, nearly three times the set's twin. The target of phase 1 stays.
+
 ### The parts of phase 1
 
 - 1a. Containers and strings: `vector`, `array`, `deque`, `list`, `forward_list`, `map`, `set`, `multimap`,
@@ -603,7 +634,8 @@ against the borrow rules first).
   as C++; what it must refuse of the reader's forms goes into `test/c/safe/`.
 - ALONE (0.281): a program that asks what C++ does not say has no twin. `test/ccllib/alone/NAME.c` prints `NAME.expect`
   as C and as C++: `stops.c`, what stops a ccllib program -- a case for each stop of each module, in a child of its own,
-  and a module's step adds its cases --, and `tree_rules.c`, the rules of the tree of a set and a map.
+  and a module's step adds its cases --, `tree_rules.c`, the rules of the tree of a set and a map, and `table_rules.c`,
+  the rules of the hash table of the unordered containers (0.283).
 - COST, for each program, of each of the three runs: the build time, the IR's types and functions and lines, the
   object's size, the peak memory, and the run's own time. Phase 1 sets its targets from the first programs. The gate
   prints them, a line a run, measured by `test/cost.c`; they are a record and no check.

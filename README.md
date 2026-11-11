@@ -490,6 +490,16 @@ and a place that is used after that stops the program. `set<int,
 later>` and `map<int, double, later>` take the name of the function
 that orders the keys. `test/ccllib/set.c` and `map.c` are the examples.
 
+`#include <unordered_set.pl>` and `#include <unordered_map.pl>` give
+`std::unordered_set`, `std::unordered_multiset`, `std::unordered_map`
+and `std::unordered_multimap` (0.283), each a hash table whose slots
+stand in one buffer: `insert(s, 7)`, `contains(s, 7)`, `m[5] += 1`,
+`at(m, 5)`. An integer and a floating key have a hash of their own;
+another key names two functions, `unordered_set<point, point_hash,
+point_eq>`. A walk by places has the table's order, which is not
+C++'s. A place ends as a set's does, and at `rehash` and `reserve`.
+`test/ccllib/unordered_set.c` and `unordered_map.c` are the examples.
+
 `format`, `print`, `println` and `clone` are global macros, there in every
 program without an include (`library/ccl_format.pl`). The format string
 has Rust's holes, each becoming the `printf` conversion of its argument's

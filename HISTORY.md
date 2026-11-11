@@ -277,6 +277,7 @@ One row per step, in version order: the step's title, what it did and its gate n
 | 0.280 | ccllib's `<stack.pl>` and `<queue.pl>`: the adaptors, and a comparison's name as a type's argument | CCLLIB.md's phase 1a goes on: library/ccllib/stack.pl and queue.pl, std::stack as a buffer, std::queue as a ring, std::priority_queue as a binary heap, 13, 14 and 11 functions; priority_queue<int, later> takes the name of the function that compares, where C++ writes the comparison's type, and the heap's text calls it by its name; the cost of a cicilang++ build looked at: the desugaring's, and no one place; no file of the compiler changed | the flow gate; the ccllib gate over libc++ 22, 21 and 18; no chain, by the owner's rule of 0.271; a commit and a push |
 | 0.281 | ccllib's `<set.pl>` and `<map.pl>`: the ordered containers, one B-tree in an arena | CCLLIB.md's phase 1a goes on: library/ccllib/set.pl and map.pl over tree.pl, std::set, std::multiset, std::map and std::multimap as ONE text, a B-tree whose nodes stand in one own buffer, 26, 26, 33 and 27 functions; an insert that finds its key and an erase that finds none change nothing; a place ends where the tree takes a new entry or loses one, where C++'s iterator stays, and a place used after that stops the program; the order is a function's name, the type's last argument; the gate's new part, the programs that stand alone: what stops a ccllib program (41 cases over every module) and the rules of the tree; no file of the compiler changed | the flow gate; the ccllib gate over libc++ 22, 21 and 18; no chain, by the owner's rule of 0.271; a commit and a push |
 | 0.282 | The files that a macro file loads are its unit's: the store and the kept IR name them | a macro file may load another by a directive, as ccllib's `<set.pl>` loads tree.pl; a unit kept in the store, its IR there and a C++ file's kept IR named the macro file alone, so a change of the loaded file did not reach a program built before it (found at the next module's tests: its C build was served the old IR); ccl_macro_loads/2 gives the loaded files at any depth, the three caches name them, and the user's file names each macro file that its includes reach; the driver gate's check, in C and in C++; reader 182 | the flow gate; the reader, compile and driver gates and the ccllib gate over libc++ 22, over one fresh HOME; no chain, by the owner's rule of 0.271; a commit and a push |
+| 0.283 | ccllib's `<unordered_set.pl>` and `<unordered_map.pl>`: the unordered containers, one hash table of open addressing | CCLLIB.md's phase 1a goes on: library/ccllib/unordered_set.pl and unordered_map.pl over table.pl, std::unordered_set, std::unordered_multiset, std::unordered_map and std::unordered_multimap as ONE text, a hash table whose slots stand in one own buffer, 27, 28, 34 and 29 functions; a key that is no number names its hash's function and its equality's, the type's last arguments; a multi container's entries of one key have a hash each; a place ends as a tree's, and always at rehash and reserve; the rules of the table read from its fields, and four copies broken on purpose, each reported; the step's proofs found two stop cases under the table's limit and a reserve and a rehash that ended a place at some sizes only; a finding: an object is for the build box's CPU, and valgrind 3.22 does not know AVX-512; no file of the compiler changed | the flow gate; the ccllib gate over libc++ 22, 21 and 18; no chain, by the owner's rule of 0.271; a commit and a push |
 
 ## M5 — the C++ mode
 
@@ -19334,3 +19335,180 @@ NO CHAIN RAN for this step (the owner's rule of 0.271), and it claims nothing GR
   cache, Not done), `CLAUDE.md`.
 
 The module 0.282, the reader 182; the lowering 156 as it was.
+
+## 0.283 — ccllib's `<unordered_set.pl>` and `<unordered_map.pl>`: the unordered containers, one hash table of open addressing
+
+**0.283: `CCLLIB.md`'s phase 1a goes on. `#include <unordered_set.pl>` gives `std::unordered_set` and
+`std::unordered_multiset`, and `#include <unordered_map.pl>` gives `std::unordered_map` and `std::unordered_multimap`:
+four containers over ONE text, a hash table whose slots stand in one own buffer, with no node and no link, as the plan
+said (open addressing). An integer and a floating key have a hash of their own; another key names the function that
+hashes it and the one that tells whether two keys are equal, the type's last arguments. A place ends where the table
+takes a new entry or loses one, as a tree's does, and always at `clear`, `swap`, `rehash` and `reserve`; a place used
+after that stops the program. The step's own proofs found two of its texts weak and one wrong before the commit: two
+stop cases stood under the table's limit, and `reserve` and `rehash` ended a place at some sizes only. No file of the
+compiler changed. Committed with its nets; the chain runs when the ccllib task is finished (the owner's rule of
+0.271).**
+
+THE TABLE. `library/ccllib/table.pl` holds it; `unordered_set.pl` and `unordered_map.pl` load it by a directive, as each
+loads `ccllib.pl`, and no program includes it. `ccllib_table_type(Opts, Items)` gives an instance's types and its drop,
+`ccllib_table_fn(Opts, Name, Items)` one function of it at its first call; `Opts` is `table(Kind, Multi, Hash, Eq, N, K,
+V)` -- `set` or `map`, `unique` or `multi`, how a key is hashed (`int`, `float` or `fn(F)`), `none` or the name of the
+function that tells whether two keys are equal, the instance's name, the key's type and the value's. The slots stand in
+ONE own buffer, as many as a power of two and 8 at least, and an entry stands in the first free slot from the one that
+its hash names on. A slot holds the entry's hash -- 0 says an empty slot and 1 the mark of an erased entry --, the key,
+and in a map the value: a slot of `unordered_set<int>` is 8 bytes, where the twin has a node for each element, in a
+block of its own, and a bucket's pointer to it. A search walks from the hash's slot to the first empty one. NO ENTRY
+MOVES but where the table is made again: an erase marks its slot, and where the slot after it is empty no search walks
+over the mark, so it and the marks before it are made empty. The table is made again where a new entry would make more
+than three slots of four hold an entry or a mark: twice as large where the entries alone would fill half of it, else as
+large, and no mark is left.
+
+THE HASH is the key as a number of 64 bits, mixed by the last step of MurmurHash3, and 32 bits of it, never 0 or 1. An
+integer goes as it is; a floating number goes by its value as a double, so that 0.0 and -0.0, which are equal, have one
+hash. Another key names its two functions, the form of 0.280: `unordered_set<point, point_hash, point_eq>` names
+`unsigned long point_hash(point p)` and `int point_eq(point a, point b)`, where C++ writes two types, and
+`unordered_map<point, int, point_hash, point_eq>` names them after the value's type. The instance is
+`unordered_set_point_point_hash_point_eq`, and its text calls the two by their names, direct calls. A key that is a
+number may name a hash alone (`unordered_set<int, weak>`). The function's result is mixed too, so one that gives the key
+itself is good enough, and one that gives four values, as the program's `weak` does, makes the table slow and not wrong.
+A struct that names no functions, or a hash alone, is refused, since C has no `==` of two structs: `an unordered_set of
+point takes the names of two functions after its types: one that hashes a key, and one that tells whether two keys are
+equal`.
+
+A MULTI CONTAINER'S EQUAL KEYS DO NOT STAND SIDE BY SIDE. The entries of one key are numbered from 0, and the entry i of
+the key k stands where the hash of (k, i) names. In a table of open addressing equal keys of one hash would make one row
+of slots, as long as the key has entries, that every search near it must walk; so they have a hash each. The key's entry
+0 counts the key's entries, so `count(m, k)` and an insert take one search. `find(m, k, i)` gives the place of the key's
+entry i, for i from 0 to the count, where C++ has `equal_range`. `erase_at` gives the erased entry's number and its slot
+to the key's last entry, and `erase(m, k)` takes the key's entries away from the last to the first.
+
+A PLACE is a `size_t` of 64 bits, the slot's number and the low 28 bits of the table's count of changes, as a tree's
+place is (0.281); `end(m)` is 0. It ENDS where the table takes a new entry or loses one, and at `clear`, `swap`,
+`rehash` and `reserve` always; at `merge` the second table's places end, and the first's where it takes an entry. C++'s
+iterator of an unordered container ends at a rehash alone, and the erased element's at its erase: the rule here is the
+tree's, one rule for every container of keys, and it does not depend on the table's size. A place used after its end
+stops the program. A call that changes no entry ends no place: `m[k] = v` for a key that is there, `insert_or_assign`,
+`set_value`, an insert that finds its key, an erase that finds none. `erase_at(m, p)` gives the place that a walk comes
+to next, so a walk that erases meets each entry once: in a multi table the key's last entry takes the erased one's slot,
+and where it came from a slot further on, the walk has not met it, and that slot is the next place. A walk by places
+gives the entries in the slots' order, which is no order of the keys, none of the inserts, and not libc++'s.
+
+WHAT THE STEP'S PROOFS FOUND IN ITS OWN TEXTS, before the commit. FIRST, THE CASES OF THE CALLS THAT CHANGE NOTHING
+STOOD UNDER THE TABLE'S LIMIT. The stop program's two new cases made a table of 4000 entries, took a place, made 4000
+inserts that find their keys and 4000 erases that find none, and used the place. A table stands at its limit, where one
+entry more makes it again, at some sizes only: at 6 entries in 8 slots, at 12, at 24 and on to 3072; a table of 4000
+entries in 8192 slots stands under it. A copy of the table broken on purpose -- it makes the table again BEFORE it looks
+for the key, so an insert that finds its key ends the places where the table stands at its limit -- passed both cases,
+and it passed the walks of chance of the two programs too: a walk made such calls at one step of 16 and for a found key
+only, and a table stays at its limit until its next insert. Three broken copies had been tried before the install, each
+for a rule of the table's form, and none for this rule: the rule of 0.281 asks for a broken text for EACH rule that the
+words state. The two cases make the calls at each size from 1 to 4000 now, and each walk of chance makes them at EVERY
+step, in whatever state the table stands; the broken copy fails both. SECOND, `reserve` AND `rehash` ENDED A PLACE ONLY
+WHERE THEY MADE A NEW TABLE, and the module's words said that they end the places. A place that stays at one size of the
+table and ends at another stops a program late, at a size that no test of it had. `reserve` counts a change where it
+makes no new table, and `rehash` makes the table again always, which leaves no mark; two stop cases hold them (`a
+reserve that makes no new table`, `after rehash`), and the text before fails both. THIRD, valgrind stopped the C build
+at `load_factor` with an instruction that it does not know (below); the text converts signed numbers now.
+
+THE RULES OF THE TABLE: `test/ccllib/alone/table_rules.c` reads them from the instance's own fields over a walk of
+chance: the slots are as many as a power of two, 8 at least; three slots of four at most hold an entry or a mark; the
+table's counts are its slots'; `first` is the first entry's slot; no empty slot stands between an entry and the slot
+that its hash names, so a search finds it; a unique table holds a key once; a multimap's key counts its entries at its
+entry 0, and they have the numbers from 0 to that count. A set and a multimap grow, shrink to nothing and grow again,
+over four ranges of keys; a clone, a cleared table that is filled again, a table made again by `rehash` and `reserve`
+and the two tables of a merge hold the rules too: 208,624 checks.
+
+FOUR COPIES OF THE TABLE BROKEN ON PURPOSE, each reported by a program of the gate. A mark is taken away where a search
+still needs it: `NOT HELD: no empty slot stands between an entry and its hash's slot`, and the two programs of the three
+runs differ from their twins. A multi table's erased entry gives its number to nobody: `NOT HELD: an entry's number is
+under its key's count`, and the two programs. The table is made again too late: `NOT HELD: three slots of four at most
+hold an entry or a mark`; the rules program alone sees it, since such a table stays right and gets slow. The table is
+made again before it looks for the key: the stop program's two cases, and the two walks of chance at a count of 5000.
+
+THE NAMES are `std::unordered_set`'s and `std::unordered_map`'s: `size`, `len`, `empty`, `max_size`, `begin`, `end`,
+`next`, `key`, `find`, `contains`, `count`, `insert`, `emplace`, `erase`, `erase_at`, `clear`, `swap`, `merge`, `clone`,
+`==` and `!=`, a literal's `from`, and the table's own numbers, its slots being C++'s buckets: `bucket_count`,
+`load_factor`, `max_load_factor`, `rehash`, `reserve`. A set has `insert_range` too, 27 functions, and a multiset
+`find(s, k, i)`, 28; a map has `value`, `set_value`, `at`, `get`, the index `m[k]`, `try_emplace`, `insert_or_assign`
+and `put`, 34; a multimap `value`, `set_value` and `find(m, k, i)`, 29: 36 names that a program calls and 13 inner
+functions, each written once for the four. `unordered_set<int> s = [3, 1, 2];` and `unordered_map<int, double> m = [1:
+2.5, 2: 0.5];` make one of a literal, by the declared type.
+
+WHAT DIFFERS FROM C++, beside the places, the order of a walk and a multi container's equal keys. `insert` and `emplace`
+give 1 for a new entry and 0 for a key that was there, where C++ gives a pair; `find` gives a place, `end(m)` for none;
+`erase(m, k)` takes a KEY and gives the count that it took away, and `erase_at(m, p)` takes a place, as a tree's. `at(m,
+k)` stops the program at a key that the map has not, where C++'s throws; `m[k]` makes the entry with a value of zero;
+`&m[k]` is a borrow of the buffer, tied to the map, and a call that may replace the buffer ends it at compile time. An
+unordered multimap has no `at` and no index, as C++'s has none. There is `==` and no `<`, as in C++, and no `prev`:
+C++'s iterator of an unordered container goes on only. `max_load_factor` is three of four and is not set. There is no
+`bucket`, no `bucket_size` and no walk of one bucket, since a slot holds one entry; no `equal_range`, no `extract`, no
+insert with a hint, and no object of the hash or of the equality. `merge` takes the other's entries one by one, and an
+entry whose key this one holds stays in the other. Two tables are equal where each key of one has as many entries in the
+other, and in a map equal values, a multimap's values of one key in any order. A key and a value are values with no
+pointer in them (the owner's decision 2): `unordered_map<int, string>` waits.
+
+THE LINES OF A TEXT BY THEIR CONDITIONS are `ccllib.pl`'s now: `ccllib_text_lines(Holds, Lines, Text)` keeps a line with
+a condition -- `multi-"..."`, `map-"..."`, `multi+map-"..."` -- where `Holds` has each word of it. The table's texts go
+by it, and the tree's, whose `ccllib_tree_lines/3` had the pattern and whose `ccllib_tree_is/2` is gone: a pattern is
+written once. The gate proves the set's and the map's programs over the changed file.
+
+A FINDING ABOUT THE HOST'S CPU AND VALGRIND. Where no `--target` is given the embedded LLVM makes code for the host's
+CPU and its features (`LLVMGetHostCPUName`, `LLVMGetHostCPUFeatures`; with a `--target` the CPU is `generic`), as
+clang's `-march=native` does and clang's default does not. On this box, whose CPU has AVX-512, `(double)` of a `size_t`
+in `load_factor` became `vcvtusi2sd`; valgrind 3.22 does not know the instruction and stopped the C build there
+(`Unrecognised instruction`, an illegal instruction's signal), with the program's blocks in use. The twin had no such
+instruction, since clang++'s default CPU is the architecture's plain one (`x86-64`). `load_factor` converts SIGNED
+numbers, which every x86-64 has an instruction for, and the gate's report of a run under valgrind names an instruction
+that valgrind does not know. So AN OBJECT IS FOR THE BUILD BOX'S CPU: a program built on a box with AVX-512 stops with
+an illegal instruction on a CPU that has none. It is recorded in Not done, and the choice of the default is the owner's.
+
+THE FIXTURES. `test/ccllib/unordered_set.c`, `unordered_set.cpp`, `unordered_set.expect`, `unordered_set.count`
+(3,000,000: that many numbers into a set, as many asked for, half as many taken away, the set walked; then a walk of
+chance of 100,000 steps over a set and a multiset, each over a few keys and over many); `test/ccllib/unordered_map.c`,
+`unordered_map.cpp`, `unordered_map.expect`, `unordered_map.count` (3,000,000: the numbers counted in a map by `m[k] +=
+1`, and the same). No line of a program depends on the order of a walk: the entries are asked for key by key, or added
+up. `test/ccllib/alone/table_rules.c` with its `.expect`; `test/ccllib/alone/stops.c` with 12 cases more, 53 in all, of
+which 48 are stopped and 5 stay in their bounds. `test/ccllib/safe/unordered_set_of_pointers.c`,
+`unordered_set_no_hash.c`, `unordered_set_no_prev.c`, `unordered_map_value_pointer.c`, `unordered_map_hash_alone.c`,
+`unordered_map_no_lt.c`, `unordered_multimap_no_at.c` and `unordered_map_after_insert.c`, each refused as C and as C++.
+
+THE COSTS over libc++ 22 on the gates' box, the twins by clang++ 22.1.8, the builds at `-O0`, the best of three; first
+`unordered_set.c`, its run `unordered_set 3000000` at `-O2`, then `unordered_map.c`, its run `unordered_map 3000000`:
+
+```
+run                       build s      MB  types  functions   lines  object B    run s      MB
+cicilang, C                 0.574   159.5     13        141    8510     60568    0.495    49.5
+cicilang++, C++             1.761   159.8     13        141   10305     70352    0.546    49.5
+clang++ 22.1.8, std::       0.609   125.2    102        549   20325    359208    1.978   100.1
+```
+
+```
+run                       build s      MB  types  functions   lines  object B    run s      MB
+cicilang, C                 0.626   159.5     13        148    9026     66136    0.491    73.5
+cicilang++, C++             1.780   167.7     13        148   10916     75672    0.505    73.5
+clang++ 22.1.8, std::       1.254   163.2    189        936   30855    635008    1.527    86.1
+```
+
+The set's program: the unit holds 141 functions for its six instances in 61 KB where the twin's holds 549 in 359 KB, and
+the count run takes 0.50 s in 50 MB against 1.98 s in 100 MB: an element stands in a slot of 8 bytes of the one buffer,
+where the twin has a node for each element, in a block of its own. The map's program: 148 functions in 66 KB against 936
+in 635 KB, and the run takes 0.49 s in 74 MB against 1.53 s in 86 MB. A table's peak is its last growth, the old buffer
+beside the new one: 16 MB and 32 MB for the set, 24 MB and 48 MB for the map. The C builds take the twins' time or less,
+0.57 s and 0.63 s against 0.61 s and 1.25 s, with 160 MB each against 125 MB and 163 MB; cicilang++'s take 1.76 s and
+1.78 s, nearly three times the set's twin and less than one and a half times the map's. The first target of phase 1
+stays open: cicilang++'s build of a ccllib program is the dearest of the three runs.
+
+THE NETS, over the work tree: the flow gate GREEN with no finding (154 s, peak 4185 MB), `library/ccllib/table.pl`,
+`unordered_set.pl` and `unordered_map.pl` charted with the eleven other files of ccllib -- its first run over the new
+files named `ccllib_table_number/2`, a helper that stood between the clauses of `ccllib_table_text/3`, and it stands
+after them now --; the ccllib gate GREEN over libc++ 22, 21 and 18, each over a fresh HOME (388 s, 393 s and 428 s; 140
+checks each, none skipped): 12 programs in three runs, 37 refused, 3 alone. No other gate reads a file that changed.
+
+NO CHAIN RAN for this step (the owner's rule of 0.271), and it claims nothing GREEN but the nets above. No CI job ran.
+
+- `library/ccllib/table.pl`, `unordered_set.pl`, `unordered_set.pl.h`, `unordered_map.pl`, `unordered_map.pl.h`;
+  `ccllib.pl` (`ccllib_text_lines/3`), `tree.pl` (its lines by it). `test/ccllib.sh`: the head's words, and valgrind's
+  unknown instruction in a report. `test/flow.sh`: `CFILES`. The fixtures. `RULES.md` (the ccllib gate, the topic of
+  ccllib, the embedded LLVM, the Findings, Not done), `CLAUDE.md`, `README.md`, `CCLLIB.md`.
+
+The module 0.283; the reader 182 and the lowering 156 as they were: no file of the compiler changed.

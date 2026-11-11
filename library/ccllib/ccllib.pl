@@ -31,3 +31,15 @@ ccllib_msort_text(Name, Param, Arg, Lt, Text) :-
     v->data[t - 1].next = a ? a : b;
     return h;
 }"], Text).
+
+%% A TEXT THAT A FEW CONTAINERS SHARE (0.283; the tree of <set.pl> and <map.pl>, the table of the unordered ones): a
+%% list of lines, where a line with a condition is kept where the condition holds -- `multi-"..."' where `multi' is one
+%% of Holds, `multi+map-"..."' where both are; the lines that are kept are joined, each with its end.
+%% ccllib_text_lines(+Holds, +Lines, -Text)
+ccllib_text_lines(_, [], []).
+ccllib_text_lines(H, [L|Ls], Text) :-
+    (   L = C-Codes -> ( ccllib_text_holds(C, H) -> Line = Codes ; Line = none ) ; Line = L ),
+    ccllib_text_lines(H, Ls, Rest),
+    (   Line == none -> Text = Rest ; append(Line, [10|Rest], Text) ).
+ccllib_text_holds(A+B, H) :- !, ccllib_text_holds(A, H), ccllib_text_holds(B, H).
+ccllib_text_holds(C, H) :- memberchk(C, H).

@@ -1,0 +1,9 @@
+keys under 40: the rules held at 120013 checks
+  the set held 38 elements at most, in 64 slots at most; the multimap 279 entries
+keys under 700: the rules held at 41521 checks
+  the set held 552 elements at most, in 1024 slots at most; the multimap 603 entries
+keys under 20000: the rules held at 24615 checks
+  the set held 8670 elements at most, in 16384 slots at most; the multimap 6854 entries
+keys under 2000000: the rules held at 22475 checks
+  the set held 16081 elements at most, in 32768 slots at most; the multimap 6806 entries
+exit 0
