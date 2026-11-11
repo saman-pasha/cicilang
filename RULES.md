@@ -693,16 +693,24 @@ that changes a rule edits the rule here, in its topic, and writes its entry in `
 - A build has a cap of `CCLLIB_SECS` (600) and a run of `CCLLIB_RUN_SECS` (120), each by `timeout -s KILL`; the gate
   runs under an outside cap, as the small gates do. Its builds are serial, so a cold summary is read safely by the
   first C++ build; the chain runs the gate last, over the summaries that the library read left. (0.273)
-- THE COSTS ARE A RECORD, NO CHECK: after the checks the gate prints a line a run -- the program's build (the best of
-  `CCLLIB_REPEAT`, 3: its seconds, and the megabytes of its largest process), the IR's types (`%N = type`), functions
-  (`define`) and lines (`-emit-llvm`), the object's bytes (`-c`), and the longer run built at `-O2` (its seconds and
-  megabytes). `test/cost.c` measures, built by cc, since a measure is not made by what it measures: `cost FILE CMD
-  ARG...` writes the wall clock and `wait4`'s `ru_maxrss` -- the largest resident size among the command's processes
-  that were waited for, kilobytes on Linux and bytes on a Mac -- and returns the command's status. The twin's command is
-  a file of the gate's own, so that `cost` runs it as it runs the two others. The store and the summaries are the
-  HOME's, warm from the checks' builds, and a C build's peak follows the store: 110 MB over a fresh HOME, 313 MB over a
-  store of many reads. `CCLLIB_COSTS=0` prints no costs; a cc that does not build `test/cost.c` is named, and nothing
-  is measured. (0.273)
+- THE COSTS ARE A RECORD, NO CHECK: after the checks the gate prints a line a run -- the program's build after a change
+  of the file (the best of `CCLLIB_REPEAT`, 3: its seconds, and the megabytes of its largest process), the IR's types
+  (`%N = type`), functions (`define`) and lines (`-emit-llvm`), the object's bytes (`-c`), and the longer run built at
+  `-O2` (its seconds and megabytes). `test/cost.c` measures, built by cc, since a measure is not made by what it
+  measures: `cost FILE CMD ARG...` writes the wall clock and `wait4`'s `ru_maxrss` -- the largest resident size among
+  the command's processes that were waited for, kilobytes on Linux and bytes on a Mac -- and returns the command's
+  status. The twin's command is a file of the gate's own, so that `cost` runs it as it runs the two others. The store
+  and the summaries are the HOME's, warm from the checks' builds, and a C build's peak follows the store: 110 MB over a
+  fresh HOME, 313 MB over a store of many reads. A BUILD IS THE BUILD AFTER A CHANGE OF THE FILE (0.289): the program is
+  a copy in the gate's directory, its own macro files beside it, and it takes a new time before each timed build
+  (`ccl_new_time`, POSIX's `touch -t`: a unit's key in the store is its file's time), so that the store serves the
+  headers and the program is read, checked and lowered again -- what a programmer meets at each edit, and what clang++
+  does at each build of the twin. Until 0.289 the C line timed a build of the file as it was, which the store serves
+  from the IR that it kept (`dr_ir/3`): a rebuild of an unchanged file, 0.23 s to 0.81 s for the thirteen programs where
+  the build after a change takes 0.31 s to 1.69 s, and each cost sentence of 0.273 to 0.286 on a C build compared that
+  with the twin's build. A fourth line, `cicilang, C, unchanged`, keeps the rebuild's cost. The C++ builds have no kept
+  IR in a gate (`CICILANG_NO_IR_CACHE`), so each reads its program as it is. `CCLLIB_COSTS=0` prints no costs; a cc that
+  does not build `test/cost.c` is named, and nothing is measured. (0.273, 0.289)
 - WHAT THE SAFE PART REFUSES OF A CCLLIB PROGRAM (0.274): each `test/ccllib/safe/NAME.c` is refused by `bin/cicilang`
   as C and by `bin/cicilang++` as C++ (`-c`, exit 1) with the words of `NAME.expect`, of `NAME.expect.cpp` where C++
   has words of its own (`no_function.c`: C names the instance, C++ says `undeclared(push_front)`). They stand there and
@@ -751,16 +759,17 @@ that changes a rule edits the rule here, in its topic, and writes its entry in `
   drop (0.262), all of it C text (0.260) -- built as C and as C++, and `first.cpp`, the same program over `std::vector`
   and `std::sort`. `at` stops the program at an index past the end (`abort`), where `std::vector::at` throws, and `push`
   where no memory is left. `sort` is `std::sort`'s kind over `<`, in place and with no function pointer: a quicksort
-  about the median of three whose partition has no branch on a comparison (a place is given always, the count goes on
-  by the comparison's value), an insertion sort for sixteen elements or less, a heap sort for a range that `2 *
-  log2(len)` partitions did not end; what equals the pivot of the range before it is passed over in one pass. The gate
-  is GREEN over libc++ 22, 21 and 18 and fresh HOMEs (21 s, 21 s, 25 s). The costs over libc++ 22, the twin by clang++
-  22.1.8, the best of seven: cicilang's C build 0.24 s and 110 MB, an IR of 2 types, 21 functions and 1,818 lines, an
-  object of 11,512 bytes; cicilang++'s C++ build 0.46 s and 135 MB, 2 types, 21 functions, 2,089 lines, 13,152 bytes;
-  the twin 0.67 s and 140 MB, 35 types, 229 functions, 5,573 lines, 126,040 bytes. `first 10000000` at `-O2`: 0.28 to
-  0.34 s and 40 MB for the two ccllib builds, 0.38 s and 67 MB for the twin (a vector that grows by `realloc` holds one
-  buffer where `std::vector` holds two). cicilang++ builds the twin itself, over libc++ 22 and warm summaries, in 9.2 s
-  and 309 MB: 224 types, 681 functions, 14,397 lines, 92,008 bytes. (0.273)
+  about the median of three whose partition has no branch on a comparison (a place is given always, the count goes on by
+  the comparison's value), an insertion sort for sixteen elements or less, a heap sort for a range that `2 * log2(len)`
+  partitions did not end; what equals the pivot of the range before it is passed over in one pass. The gate is GREEN
+  over libc++ 22, 21 and 18 and fresh HOMEs (21 s, 21 s, 25 s). The costs over libc++ 22, the twin by clang++ 22.1.8,
+  the best of seven: cicilang's C build 0.31 s and 143 MB after a change of the file (0.289's measure; 0.24 s and 110 MB
+  were a rebuild of the file unchanged, over a fresh store), an IR of 2 types, 21 functions and 1,818 lines, an object
+  of 11,512 bytes; cicilang++'s C++ build 0.46 s and 135 MB, 2 types, 21 functions, 2,089 lines, 13,152 bytes; the twin
+  0.67 s and 140 MB, 35 types, 229 functions, 5,573 lines, 126,040 bytes. `first 10000000` at `-O2`: 0.28 to 0.34 s and
+  40 MB for the two ccllib builds, 0.38 s and 67 MB for the twin (a vector that grows by `realloc` holds one buffer
+  where `std::vector` holds two). cicilang++ builds the twin itself, over libc++ 22 and warm summaries, in 9.2 s and 309
+  MB: 224 types, 681 functions, 14,397 lines, 92,008 bytes. (0.273)
 
 ### The pool: test/parlib.sh
 
@@ -9670,9 +9679,9 @@ in the first topic (The ccllib gate).
   `array_of_none.c`). (0.275)
 - `test/ccllib/array.c` over `int`, `double` and a plain struct, and its twin `array.cpp` over `std::array`. THE TWIN'S
   BUILD COSTS LESS HERE: `<array>` is a light header, and clang++ 22 builds the twin in 0.21 s and 106 MB where cicilang
-  takes 0.24 s and 113 MB and cicilang++ 0.37 s and 129 MB, the floor of a cicilang build (the first proof's cost too).
-  The unit is smaller (35 functions and 11 KB against 68 and 36 KB) and the count run faster (0.17 s against 0.54 s).
-  (0.275)
+  takes 0.39 s and 137 MB and cicilang++ 0.37 s and 129 MB, near the floor of a cicilang build (the first proof's 0.31
+  s). The unit is smaller (35 functions and 11 KB against 68 and 36 KB) and the count run faster (0.17 s against 0.54
+  s). (0.275, 0.289)
 
 ### deque.pl
 
@@ -9697,8 +9706,8 @@ in the first topic (The ccllib gate).
   place of one element and of several, a read and a write at a place, `resize`, `shrink_to_fit`, the ranges -- and what
   each step leaves is put into one number, which the three runs print the same; the list's programs have such a walk
   with a place that it keeps. Over libc++ 22 the unit holds 61 functions in 28 KB where the twin's holds 715 in 451 KB,
-  the C build takes 0.35 s against clang++'s 0.60 s, cicilang++'s 1.08 s and 166 MB against 127 MB, and the three runs
-  take the same time and memory (0.09 s, 65 MB). (0.276)
+  the C build takes clang++'s 0.60 s, cicilang++'s 1.08 s and 166 MB against 127 MB, and the three runs take the same
+  time and memory (0.09 s, 65 MB). (0.276, 0.289)
 
 ### list.pl
 
@@ -9730,8 +9739,8 @@ in the first topic (The ccllib gate).
   ends with a walk of chance that keeps a place over inserts, erases, steps both ways, `sort`, `reverse`, `unique`,
   `remove`, `resize`, `splice` and `merge`. Over libc++ 22 the unit holds 89 functions in 41 KB where the twin's holds
   327 in 202 KB, and the count run takes 0.53 s as C and 0.62 s as C++ against 0.69 s, in 25 MB against 34 MB; clang++
-  builds the twin as fast as cicilang builds the program (0.41 s and 0.43 s) and with less memory (119 MB against 138
-  MB), and cicilang++'s build is the dearest, 1.15 s and 168 MB. (0.277)
+  builds the twin in half the time that cicilang takes for the program (0.41 s against 0.78 s) and with less memory (119
+  MB against 164 MB), and cicilang++'s build is the dearest, 1.15 s and 168 MB. (0.277, 0.289)
 
 ### forward_list.pl
 
@@ -9754,9 +9763,9 @@ in the first topic (The ccllib gate).
 - `test/ccllib/forward_list.c` over `int`, `double` and a plain struct, and its twin `forward_list.cpp` over
   `std::forward_list`; its count run ends with a walk of chance that keeps a place, and the twin counts its elements by
   hand there. Over libc++ 22 the unit holds 79 functions in 38 KB where the twin's holds 313 in 202 KB, and the count
-  run takes half the twin's time and memory, 0.35 s and 17 MB against 0.72 s and 34 MB; the C build and clang++'s build
-  of the twin take the same 0.41 s, the twin's with less memory (119 MB against 134 MB), and cicilang++'s build is the
-  dearest, 1.12 s and 163 MB. (0.278)
+  run takes half the twin's time and memory, 0.35 s and 17 MB against 0.72 s and 34 MB; clang++ builds the twin in 0.41
+  s where the C build takes 0.68 s, and with less memory (119 MB against 182 MB), and cicilang++'s build is the dearest,
+  1.12 s and 163 MB. (0.278, 0.289)
 
 ### stack.pl and queue.pl
 
@@ -9785,9 +9794,9 @@ in the first topic (The ccllib gate).
 - `test/ccllib/stack.c` and `queue.c`, and their twins over `std::stack`, `std::queue` and `std::priority_queue` (the
   least first by `std::greater<int>`, a struct by a comparison's type). Over libc++ 22 the stack's unit holds 31
   functions in 13 KB where the twin's holds 527 in 298 KB, and its run takes 0.11 s against 0.19 s; the queue's holds 62
-  in 25 KB against 631 in 357 KB, and its run takes 0.93 s against 1.39 s. The C builds take 0.27 s and 0.36 s where
+  in 25 KB against 631 in 357 KB, and its run takes 0.93 s against 1.39 s. The C builds take 0.40 s and 0.56 s where
   clang++ takes 0.51 s and 1.04 s for the twins; cicilang++'s take 0.54 s and 0.86 s, the queue's under its twin's in
-  time for the first time, both over the twins' in memory. (0.280)
+  time for the first time, both over the twins' in memory. (0.280, 0.289)
 
 ### set.pl and map.pl
 
@@ -9856,8 +9865,8 @@ in the first topic (The ccllib gate).
   place is used after the calls that change no entry. Over libc++ 22 the set's unit holds 191 functions for its six
   instances in 87 KB where the twin's holds 464 in 284 KB, and its run takes 0.14 s in 5.3 MB against 0.53 s in 16.9 MB;
   the map's holds 197 in 97 KB against 683 in 437 KB, and its run takes 0.16 s in 5.0 MB against 0.41 s in 11.9 MB. The
-  builds are the dearest so far: the C builds take the twins' time, 0.84 s and 0.91 s against 0.75 s and 0.93 s, and
-  cicilang++'s take 2.84 s and 3.11 s, more than three times the twins'. (0.281)
+  builds are the dearest so far: the C builds take twice the twins' time, 1.61 s and 1.69 s against 0.75 s and 0.93 s,
+  and cicilang++'s take 2.84 s and 3.11 s, more than three times the twins'. (0.281, 0.289)
 
 ### unordered_set.pl and unordered_map.pl
 
@@ -9944,8 +9953,9 @@ in the first topic (The ccllib gate).
   a place is used after the calls that change no entry at every step. Over libc++ 22 the set's unit holds 141 functions
   for its six instances in 61 KB where the twin's holds 549 in 359 KB, and its run of 3,000,000 takes 0.50 s in 50 MB
   against 1.98 s in 100 MB; the map's holds 148 in 66 KB against 936 in 635 KB, and its run takes 0.49 s in 74 MB
-  against 1.53 s in 86 MB -- a table's peak is its last growth, the old buffer beside the new one. The C builds take the
-  twins' time or less, 0.57 s and 0.63 s against 0.61 s and 1.25 s, and cicilang++'s take 1.76 s and 1.78 s. (0.283)
+  against 1.53 s in 86 MB -- a table's peak is its last growth, the old buffer beside the new one. The C builds take
+  1.11 s and 1.15 s against the twins' 0.61 s and 1.25 s -- nearly twice the set's twin, a little less than the map's
+  --, and cicilang++'s take 1.76 s and 1.78 s. (0.283, 0.289)
 
 ### bitset.pl
 
@@ -9998,7 +10008,7 @@ in the first topic (The ccllib gate).
   whose top one holds 6 bits, four words --, and its twin `bitset.cpp` over `std::bitset`; the count run makes ten
   million steps of chance over three sets of 4096 bits. Over libc++ 22 the unit holds 106 functions for its five
   instances in 74 KB where the twin's holds 488 in 326 KB, and the run takes 0.35 s as C and 0.32 s as C++ against 0.59
-  s, each in under 4 MB. The C build takes 0.46 s against the twin's 0.53 s, and cicilang++'s 1.04 s. (0.286)
+  s, each in under 4 MB. The C build takes 0.68 s against the twin's 0.53 s, and cicilang++'s 1.04 s. (0.286, 0.289)
 
 ## The safe part
 

@@ -378,13 +378,14 @@ runs.
 ### The first proof (0.273)
 
 `test/ccllib/first.c` over its macro file `first.pl`, and its twin `first.cpp` over `std::vector` and `std::sort`: the
-three runs print the same lines, with a count of 10,000,000 too, and under valgrind each frees every block
-(`sh test/ccllib.sh`, the ccllib gate, GREEN over libc++ 22, 21 and 18). The costs over libc++ 22 on the gates' box
-(4 CPUs), the twin by clang++ 22.1.8 at `-std=c++23`, the builds at `-O0` and the best of seven:
+three runs print the same lines, with a count of 10,000,000 too, and under valgrind each frees every block (`sh
+test/ccllib.sh`, the ccllib gate, GREEN over libc++ 22, 21 and 18). The costs over libc++ 22 on the gates' box (4 CPUs),
+the twin by clang++ 22.1.8 at `-std=c++23`, the builds at `-O0` and the best of seven (in this table and in each one
+after it the C row's build and peak are 0.289's, the build after a change of the file: Tests and measures):
 
 | | build | peak | IR types | IR functions | IR lines | object | `first 10000000` at `-O2` | its peak |
 |---|---|---|---|---|---|---|---|---|
-| cicilang, C | 0.24 s | 110 MB | 2 | 21 | 1,818 | 11,512 B | 0.28 to 0.34 s | 40 MB |
+| cicilang, C | 0.31 s | 143 MB | 2 | 21 | 1,818 | 11,512 B | 0.28 to 0.34 s | 40 MB |
 | cicilang++, C++ | 0.46 s | 135 MB | 2 | 21 | 2,089 | 13,152 B | 0.28 to 0.34 s | 40 MB |
 | clang++ 22, `std::` | 0.67 s | 140 MB | 35 | 229 | 5,573 | 126,040 B | 0.38 s | 67 MB |
 | cicilang++, `std::` | 9.2 s | 309 MB | 224 | 681 | 14,397 | 92,008 B | 0.43 s | 67 MB |
@@ -447,14 +448,14 @@ The whole surface of `std::vector`, 38 functions and the drop, for an element th
 
 | | build | peak | IR types | IR functions | IR lines | object | `vector 10000000` at `-O2` | its peak |
 |---|---|---|---|---|---|---|---|---|
-| cicilang, C | 0.33 s | 126 MB | 5 | 67 | 2,597 | 23,760 B | 0.07 s | 78 MB |
+| cicilang, C | 0.61 s | 173 MB | 5 | 67 | 2,597 | 23,760 B | 0.07 s | 78 MB |
 | cicilang++, C++ | 0.77 s | 162 MB | 5 | 67 | 3,529 | 28,240 B | 0.07 s | 78 MB |
 | clang++ 22, `std::` | 0.80 s | 141 MB | 73 | 519 | 14,649 | 300,216 B | 0.14 s | 79 MB |
 
-The unit holds 67 functions for its four instances where the twin's holds 519, and an object of 24 KB where the
-twin's is 300 KB. cicilang's C build takes less than half of clang++'s time; cicilang++'s build of this program, which
-calls every function of the vector, takes as long as clang++'s build of the twin and more memory (162 MB against 141
-MB): the nearest costs, and phase 1's first target.
+The unit holds 67 functions for its four instances where the twin's holds 519, and an object of 24 KB where the twin's
+is 300 KB. cicilang's C build takes three quarters of clang++'s time, 0.61 s against 0.80 s, in more memory (173 MB
+against 141 MB); cicilang++'s build of this program, which calls every function of the vector, takes as long as
+clang++'s build of the twin and more memory (162 MB against 141 MB): the nearest costs, and phase 1's first target.
 
 DECISION 2 STANDS BEFORE THE CONTAINERS OF OWNERS: `vector<string>`, `vector<vector<int>>`, `map<int, string>` and
 every container of pointers need the owner's rule on containers of owners. `vector.pl` refuses such an element by name
@@ -469,13 +470,13 @@ elements with no pointer in them, each one a step.
 
 | | build | peak | IR types | IR functions | IR lines | object | `array 100000000` at `-O2` | its peak |
 |---|---|---|---|---|---|---|---|---|
-| cicilang, C | 0.24 s | 113 MB | 5 | 35 | 1,044 | 11,160 B | 0.17 s | 2 MB |
+| cicilang, C | 0.39 s | 137 MB | 5 | 35 | 1,044 | 11,160 B | 0.17 s | 2 MB |
 | cicilang++, C++ | 0.37 s | 129 MB | 5 | 35 | 1,147 | 11,160 B | 0.17 s | 2 MB |
 | clang++ 22, `std::` | 0.21 s | 106 MB | 12 | 68 | 1,664 | 36,072 B | 0.54 s | 3 MB |
 
-`<array>` is a light header: clang++ builds the twin for less than cicilang builds the ccllib program, the first such
-program. What a cicilang build costs here is its floor, the first proof's 0.24 s and 110 MB. The unit is a third of the
-twin's, and the count run takes a third of its time.
+`<array>` is a light header: clang++ builds the twin for less than cicilang builds the ccllib program, 0.21 s against
+0.39 s, the first such program. What a cicilang build costs here is near its floor, the first proof's 0.31 s and 143 MB.
+The unit is a third of the twin's, and the count run takes a third of its time.
 
 ### 1a, `deque.pl` (0.276)
 
@@ -487,13 +488,13 @@ run ends with a walk of chance over the operations at a place. The costs over li
 
 | | build | peak | IR types | IR functions | IR lines | object | `deque 10000000` at `-O2` | its peak |
 |---|---|---|---|---|---|---|---|---|
-| cicilang, C | 0.35 s | 124 MB | 4 | 61 | 3,723 | 27,568 B | 0.09 s | 65 MB |
+| cicilang, C | 0.60 s | 167 MB | 4 | 61 | 3,723 | 27,568 B | 0.09 s | 65 MB |
 | cicilang++, C++ | 1.08 s | 166 MB | 4 | 61 | 4,649 | 31,944 B | 0.09 s | 65 MB |
 | clang++ 22, `std::` | 0.60 s | 127 MB | 83 | 715 | 26,588 | 450,752 B | 0.09 s | 66 MB |
 
 The unit holds 61 functions where the twin's holds 715, and the three runs take the same time and memory. cicilang++'s
-build is the dearest again, 1.08 s and 166 MB against clang++'s 0.60 s and 127 MB for the twin, three times the C build:
-phase 1's first target, as the vector's program showed.
+build is the dearest again, 1.08 s and 166 MB against clang++'s 0.60 s and 127 MB for the twin; the C build takes the
+twin's time, 0.60 s, in more memory (167 MB): phase 1's first target, as the vector's program showed.
 
 ### 1a, `list.pl` (0.277)
 
@@ -506,15 +507,15 @@ above:
 
 | | build | peak | IR types | IR functions | IR lines | object | `list 1000000` at `-O2` | its peak |
 |---|---|---|---|---|---|---|---|---|
-| cicilang, C | 0.43 s | 138 MB | 7 | 89 | 4,914 | 40,816 B | 0.53 s | 25 MB |
+| cicilang, C | 0.78 s | 164 MB | 7 | 89 | 4,914 | 40,816 B | 0.53 s | 25 MB |
 | cicilang++, C++ | 1.15 s | 168 MB | 7 | 89 | 6,455 | 50,280 B | 0.62 s | 25 MB |
 | clang++ 22, `std::` | 0.41 s | 119 MB | 49 | 327 | 11,675 | 202,312 B | 0.69 s | 34 MB |
 
 The unit holds 89 functions where the twin's holds 327, and the count run is faster and smaller than the twin's: a node
 is the element and two numbers in one buffer, with no block of the allocator's for each. The builds are the other way:
-clang++ builds the twin as fast as cicilang builds the program and with less memory, and cicilang++'s build is the
-dearest again, 1.15 s and 168 MB. The run as C++ is slower than the run as C, 0.62 s against 0.53 s, from one text: a
-second thing for phase 1 to find out.
+clang++ builds the twin in half the time that cicilang takes for the program (0.41 s against 0.78 s) and with less
+memory, and cicilang++'s build is the dearest again, 1.15 s and 168 MB. The run as C++ is slower than the run as C, 0.62
+s against 0.53 s, from one text: a second thing for phase 1 to find out.
 
 ### 1a, `forward_list.pl` (0.278)
 
@@ -525,13 +526,13 @@ for both. `size` and `len` are there, which C++'s has not. `test/ccllib/forward_
 
 | | build | peak | IR types | IR functions | IR lines | object | `forward_list 1000000` at `-O2` | its peak |
 |---|---|---|---|---|---|---|---|---|
-| cicilang, C | 0.41 s | 134 MB | 7 | 79 | 4,505 | 38,064 B | 0.35 s | 17 MB |
+| cicilang, C | 0.68 s | 182 MB | 7 | 79 | 4,505 | 38,064 B | 0.35 s | 17 MB |
 | cicilang++, C++ | 1.12 s | 163 MB | 7 | 79 | 5,951 | 47,656 B | 0.34 s | 18 MB |
 | clang++ 22, `std::` | 0.41 s | 119 MB | 54 | 313 | 11,133 | 201,736 B | 0.72 s | 34 MB |
 
 The unit holds 79 functions where the twin's holds 313, and the count run takes half the twin's time and half its
-memory: a node is the element and one number in one buffer. The builds are as the list's: the C build and clang++'s
-build of the twin take the same time, and cicilang++'s build is the dearest, 1.12 s and 163 MB.
+memory: a node is the element and one number in one buffer. The builds are as the list's: clang++ builds the twin in
+0.41 s where the C build takes 0.68 s, and cicilang++'s build is the dearest, 1.12 s and 163 MB.
 
 ### 1a, `stack.pl` and `queue.pl` (0.280)
 
@@ -542,20 +543,21 @@ over libc++ 22, as above:
 
 | | build | peak | IR types | IR functions | IR lines | object | `stack 30000000` at `-O2` | its peak |
 |---|---|---|---|---|---|---|---|---|
-| cicilang, C | 0.27 s | 114 MB | 4 | 31 | 1,398 | 13,112 B | 0.11 s | 78 MB |
+| cicilang, C | 0.40 s | 150 MB | 4 | 31 | 1,398 | 13,112 B | 0.11 s | 78 MB |
 | cicilang++, C++ | 0.54 s | 136 MB | 4 | 31 | 1,867 | 16,192 B | 0.11 s | 78 MB |
 | clang++ 22, `std::` | 0.51 s | 125 MB | 65 | 527 | 14,716 | 297,608 B | 0.19 s | 79 MB |
 
 | | build | peak | IR types | IR functions | IR lines | object | `queue 3000000` at `-O2` | its peak |
 |---|---|---|---|---|---|---|---|---|
-| cicilang, C | 0.36 s | 125 MB | 6 | 62 | 3,294 | 24,544 B | 0.93 s | 21 MB |
+| cicilang, C | 0.56 s | 166 MB | 6 | 62 | 3,294 | 24,544 B | 0.93 s | 21 MB |
 | cicilang++, C++ | 0.86 s | 164 MB | 6 | 62 | 4,194 | 30,760 B | 0.97 s | 21 MB |
 | clang++ 22, `std::` | 1.04 s | 148 MB | 86 | 631 | 17,715 | 357,480 B | 1.39 s | 21 MB |
 
 The units hold 31 and 62 functions where the twins' hold 527 and 631, and the runs take 0.11 s and 0.93 s against 0.19 s
-and 1.39 s. The C builds take half the twins' time or less. cicilang++'s build of the stack's program takes the twin's
-time, and its build of the queue's program is under the twin's for the first time, 0.86 s against 1.04 s; both take more
-memory than the twins'.
+and 1.39 s. The C builds take less than the twins', 0.40 s and 0.56 s against 0.51 s and 1.04 s, in more memory (150 MB
+and 166 MB against 125 MB and 148 MB). cicilang++'s build of the stack's program takes the twin's time, and its build of
+the queue's program is under the twin's for the first time, 0.86 s against 1.04 s; both take more memory than the
+twins'.
 
 THE TARGET, LOOKED AT (0.280): for the deque's program `-fsyntax-only` takes 0.33 s as C++ and 0.38 s as C, and to the
 IR the C build takes no more where the C++ build takes 0.93 s. The time is the desugaring's, and a profile shows no one
@@ -573,21 +575,22 @@ costs over libc++ 22, as above:
 
 | | build | peak | IR types | IR functions | IR lines | object | `set 300000` at `-O2` | its peak |
 |---|---|---|---|---|---|---|---|---|
-| cicilang, C | 0.84 s | 161 MB | 13 | 191 | 16,687 | 87,024 B | 0.14 s | 5 MB |
+| cicilang, C | 1.61 s | 209 MB | 13 | 191 | 16,687 | 87,024 B | 0.14 s | 5 MB |
 | cicilang++, C++ | 2.84 s | 174 MB | 13 | 191 | 18,907 | 95,240 B | 0.14 s | 5 MB |
 | clang++ 22, `std::` | 0.75 s | 131 MB | 102 | 464 | 15,920 | 283,648 B | 0.53 s | 17 MB |
 
 | | build | peak | IR types | IR functions | IR lines | object | `map 300000` at `-O2` | its peak |
 |---|---|---|---|---|---|---|---|---|
-| cicilang, C | 0.91 s | 167 MB | 13 | 197 | 18,822 | 97,288 B | 0.16 s | 5 MB |
+| cicilang, C | 1.69 s | 226 MB | 13 | 197 | 18,822 | 97,288 B | 0.16 s | 5 MB |
 | cicilang++, C++ | 3.11 s | 196 MB | 13 | 197 | 21,117 | 104,048 B | 0.17 s | 5 MB |
 | clang++ 22, `std::` | 0.93 s | 140 MB | 150 | 683 | 21,578 | 436,528 B | 0.41 s | 12 MB |
 
 The units hold 191 and 197 functions, each for six instances, where the twins' hold 464 and 683, and the runs take 0.14
 s and 0.16 s against 0.53 s and 0.41 s, in less than half the twins' memory: 15 keys stand side by side in a node, where
 the twin's tree has a block for each key. The builds are the dearest of phase 1a so far, since the tree's text is the
-longest: the C builds take the twins' time and more memory, and cicilang++'s take 2.84 s and 3.11 s, more than three
-times the twins'. The target of phase 1 stays, and these two programs are its largest cases.
+longest: the C builds take twice the twins' time, 1.61 s and 1.69 s against 0.75 s and 0.93 s, and more memory, and
+cicilang++'s take 2.84 s and 3.11 s, more than three times the twins'. The target of phase 1 stays, and these two
+programs are its largest cases.
 
 ### 1a, `unordered_set.pl` and `unordered_map.pl` (0.283)
 
@@ -602,20 +605,21 @@ does, and at `rehash` and `reserve` always; a walk has the slots' order. `test/c
 
 | | build | peak | IR types | IR functions | IR lines | object | `unordered_set 3000000` at `-O2` | its peak |
 |---|---|---|---|---|---|---|---|---|
-| cicilang, C | 0.57 s | 160 MB | 13 | 141 | 8,510 | 60,568 B | 0.50 s | 50 MB |
+| cicilang, C | 1.11 s | 198 MB | 13 | 141 | 8,510 | 60,568 B | 0.50 s | 50 MB |
 | cicilang++, C++ | 1.76 s | 160 MB | 13 | 141 | 10,305 | 70,352 B | 0.55 s | 50 MB |
 | clang++ 22, `std::` | 0.61 s | 125 MB | 102 | 549 | 20,325 | 359,208 B | 1.98 s | 100 MB |
 
 | | build | peak | IR types | IR functions | IR lines | object | `unordered_map 3000000` at `-O2` | its peak |
 |---|---|---|---|---|---|---|---|---|
-| cicilang, C | 0.63 s | 160 MB | 13 | 148 | 9,026 | 66,136 B | 0.49 s | 74 MB |
+| cicilang, C | 1.15 s | 202 MB | 13 | 148 | 9,026 | 66,136 B | 0.49 s | 74 MB |
 | cicilang++, C++ | 1.78 s | 168 MB | 13 | 148 | 10,916 | 75,672 B | 0.51 s | 74 MB |
 | clang++ 22, `std::` | 1.25 s | 163 MB | 189 | 936 | 30,855 | 635,008 B | 1.53 s | 86 MB |
 
 The units hold 141 and 148 functions, each for six instances, where the twins' hold 549 and 936, and the runs of
 3,000,000 take 0.50 s and 0.49 s against 1.98 s and 1.53 s -- a quarter and a third of the twins' time -- in half and in
 six sevenths of the twins' memory: an entry stands in a slot of the one buffer, where the twin has a node for each, and
-a table's peak is its last growth, the old buffer beside the new one. The C builds take the twins' time or less;
+a table's peak is its last growth, the old buffer beside the new one. The C build of the set's program takes nearly
+twice its twin's time, 1.11 s against 0.61 s, and the map's a little less than its twin's, 1.15 s against 1.25 s;
 cicilang++'s take 1.76 s and 1.78 s, nearly three times the set's twin. The target of phase 1 stays.
 
 ### 1a, `bitset.pl` (0.286)
@@ -631,13 +635,13 @@ broken on purpose are each reported. The costs over libc++ 22, as above:
 
 | | build | peak | IR types | IR functions | IR lines | object | `bitset 10000000` at `-O2` | its peak |
 |---|---|---|---|---|---|---|---|---|
-| cicilang, C | 0.46 s | 147 MB | 5 | 106 | 5,146 | 73,752 B | 0.35 s | 2 MB |
+| cicilang, C | 0.68 s | 157 MB | 5 | 106 | 5,146 | 73,752 B | 0.35 s | 2 MB |
 | cicilang++, C++ | 1.04 s | 149 MB | 5 | 106 | 5,900 | 73,952 B | 0.32 s | 2 MB |
 | clang++ 22, `std::` | 0.53 s | 126 MB | 52 | 488 | 22,569 | 326,128 B | 0.59 s | 3 MB |
 
 The unit holds 106 functions for five instances where the twin's holds 488, in 74 KB against 326 KB, and the run of ten
-million steps takes 0.35 s and 0.32 s against 0.59 s. The C build takes less than the twin's; cicilang++'s takes 1.04 s,
-twice the twin's. The target of phase 1 stays.
+million steps takes 0.35 s and 0.32 s against 0.59 s. The C build takes more than the twin's, 0.68 s against 0.53 s;
+cicilang++'s takes 1.04 s, twice the twin's. The target of phase 1 stays.
 
 ### The parts of phase 1
 
@@ -691,5 +695,15 @@ against the borrow rules first).
   the rules of the hash table of the unordered containers (0.283).
 - COST, for each program, of each of the three runs: the build time, the IR's types and functions and lines, the
   object's size, the peak memory, and the run's own time. Phase 1 sets its targets from the first programs. The gate
-  prints them, a line a run, measured by `test/cost.c`; they are a record and no check.
+  prints them, a line a run, measured by `test/cost.c`; they are a record and no check. A BUILD IS THE BUILD AFTER A
+  CHANGE OF THE FILE (0.289): the gate gives its copy of the program a new time before each timed build, so that the
+  store serves the headers and the program is read, checked and lowered again -- what a programmer meets at each edit,
+  and what clang++ does at each build of the twin. UNTIL 0.289 THE C LINE WAS A REBUILD OF THE FILE UNCHANGED, which the
+  store serves from the IR that it kept: 0.23 s to 0.81 s for the thirteen programs, where the build after a change
+  takes 0.31 s to 1.69 s. The sentences under the tables of phase 1a compared that rebuild with clang++'s build of the
+  twin. Five of the nine were wrong in their direction -- the builds of the list's, the forward list's, the set's, the
+  map's, the unordered set's and the bitset's programs cost more than their twins', not the same or less -- and three in
+  their degree (the vector's, the deque's, the stack's and the queue's). THE C ROWS OF THE TABLES ARE 0.289's, one run
+  of the gate over libc++ 22 and a HOME of its own, whose store holds the thirteen programs' units; the other rows are
+  their steps'. The gate's fourth line, `cicilang, C, unchanged`, keeps the rebuild's cost.
 - The flow gate charts `library/ccllib/*.pl` with the library.

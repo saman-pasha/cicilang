@@ -12,7 +12,7 @@ the fixture that gates it, and why. The bullet ends with the version that made t
 edits the rule in `RULES.md`, in its topic, and writes its entry in `HISTORY.md`. Read the topic of `RULES.md` that
 covers the code before the code is changed.
 
-At 0.288 the versions are: the module 0.288 (`ccl_p_version` in `module/cicilang.cicili`, `bin/cicilang --version`),
+At 0.289 the versions are: the module 0.289 (`ccl_p_version` in `module/cicilang.cicili`, `bin/cicilang --version`),
 the reader 186 (`ccl_reader_version/1`, `library/ccl_syntax.pl`) and the lowering 160 (`ccl_lowering_version/1`,
 `library/ccl_ir.pl`).
 
@@ -175,6 +175,11 @@ In `RULES.md`:
   trace is written: it names the call that gave up. (0.144, 0.223, 0.230)
 - A step committed without its gates (on the owner's word), or before they finish, says so and claims nothing GREEN.
   The next commit carries the numbers. (0.91, 0.92, 0.110)
+- A COST'S WORDS NAME WHAT WAS TIMED, AND THE TIMED RUN IS SEEN TO DO IT (0.289): the ccllib gate's line of a C build
+  was the best of three builds of one file over a warm store, which serves the unit's kept IR, and thirteen tables and
+  their sentences compared that rebuild with clang++'s whole build of the twin; five of nine sentences were wrong in
+  their direction. A build is timed after a change of its file, a cache that can serve the timed run is off or is named
+  in the words, and a number that looks too good is asked what it measured before it is written.
 - Each form is cut down to a reduction of 10 to 40 lines. The reduction is built with clang or clang++ and with
   cicilang, and the outputs are compared line by line. Then it gets a fixture. (0.104, 0.108, 0.110)
 - A RULE THAT A MODULE'S WORDS STATE IS PROVED AT A SIZE WHERE IT CAN BREAK, and the proof is tried against a text that
@@ -423,7 +428,8 @@ test/cpp.pl, cpp.sh         the C++ gate
 test/libcxx.sh              the library read: the asserted headers read whole, and the C++ cache's warm
 test/ccllib.sh              the ccllib gate (0.273): each program of test/ccllib in its three runs -- cicilang as
                             C, cicilang++ as C++, its twin over std:: by clang++ --, what the safe part refuses, the
-                            programs that stand alone (0.281), and what each run costs
+                            programs that stand alone (0.281), and what each run costs, a build timed after a change
+                            of its file (0.289)
 test/cost.c                 what a command costs, for the ccllib gate: the wall clock and the largest resident size
 test/readhdr.pl             one asserted header read whole at a level, in its own process
 test/libcxx.pl              the library read's old one-process form; no gate runs it

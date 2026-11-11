@@ -33,6 +33,13 @@
 # run, built at -O2 (its seconds and megabytes). test/cost.c measures, built by cc: the wall clock, and wait4's
 # ru_maxrss. The store and the summaries are the HOME's, warm from the builds of the checks.
 #
+# A BUILD IS THE BUILD AFTER A CHANGE OF THE FILE (0.289): the program is a copy whose time changes before each timed
+# build, so that the store serves the headers and the program is read, checked and lowered again -- what a programmer
+# meets at each edit, and what clang++'s build of the twin does at each build. Until 0.289 the C line timed a build of
+# the file as it was, which the store serves from the IR that it kept (dr_ir/3): a rebuild of a file that did not
+# change, a third to a half of the build after a change. A FOURTH LINE, `cicilang, C, unchanged', keeps that number.
+# The C++ builds have no kept IR (CICILANG_NO_IR_CACHE, test/config.sh), so each reads its program as it is.
+#
 #   sh test/ccllib.sh
 #   LLVM=/usr/lib/llvm-22 sh test/ccllib.sh     # the C++ build and the twin over that tree's libc++
 #   CCLLIB_COSTS=0 sh test/ccllib.sh            # the checks alone
@@ -157,36 +164,53 @@ if ls "$T"/alone/*.c > /dev/null 2>&1; then
   done
 fi
 # ---- the costs: a record, no check ------------------------------------------------------------------------------
-# ccl_cost OUT CMD...: the best of CCLLIB_REPEAT runs of CMD -- its seconds and megabytes to OUT, `- -' for one that fails
+# ccl_cost OUT CMD...: the best of CCLLIB_REPEAT runs of CMD -- its seconds and megabytes to OUT, `- -' for one that fails.
+# Where _c_touch names a file, the file takes a new time before each run (ccl_new_time)
 ccl_cost() {
   _c_o=$1; shift; _c_s=""; _c_k=""; _c_i=0
   while [ "$_c_i" -lt "$CCLLIB_REPEAT" ]; do
-    _c_i=$((_c_i + 1))
+    _c_i=$((_c_i + 1)); [ -z "$_c_touch" ] || ccl_new_time "$_c_touch"
     "$D/cost" "$D/cost.one" "$@" > /dev/null 2>&1 < /dev/null || { echo "- -" > "$_c_o"; return 1; }
     read -r _c_s1 _c_k1 < "$D/cost.one"
     if [ -z "$_c_s" ] || awk -v a="$_c_s1" -v b="$_c_s" 'BEGIN { exit !(a < b) }'; then _c_s=$_c_s1; _c_k=$_c_k1; fi
   done
   awk -v s="$_c_s" -v k="$_c_k" 'BEGIN { printf "%.3f %.1f\n", s, k / 1024 }' > "$_c_o"
 }
+# ccl_new_time FILE: FILE takes a time that it did not have, a minute a call from the first of January 2001 (POSIX's
+# `touch -t', which a Mac's touch has too): the store's key of a unit is its file's time
+_c_n=0
+ccl_new_time() {
+  _c_n=$((_c_n + 1))
+  touch -t "200101$(printf '%02d%02d%02d' $((1 + _c_n / 1440 % 28)) $((_c_n / 60 % 24)) $((_c_n % 60)))" "$1"
+}
 ccl_ir() { [ -f "$1" ] && echo "$(grep -ac '^%[^ ]* = type' "$1") $(grep -ac '^define ' "$1") $(wc -l < "$1" | tr -d ' ')" || echo "- - -"; }
 ccl_size() { [ -f "$1" ] && wc -c < "$1" | tr -d ' ' || echo "-"; }
 if [ "$CCLLIB_COSTS" != 0 ]; then
   if cc -O1 -o "$D/cost" "$HERE/cost.c" > "$D/cost.log" 2>&1; then
+    mkdir -p "$D/edit"; for f in "$T"/*.pl "$T"/*.pl.h; do [ -f "$f" ] && cp "$f" "$D/edit/"; done   # the programs' own macro files
     for src in "$T"/*.c; do
       n=$(basename "$src" .c); cnt=""; [ -f "$T/$n.count" ] && cnt=$(cat "$T/$n.count")
-      echo "-- the costs of $n, a line a run: the program's build (the best of $CCLLIB_REPEAT: seconds, the megabytes of its largest process), the IR's types, functions and lines, the object's bytes, and \`$n${cnt:+ $cnt}' built at -O2 (seconds, megabytes)"
+      cp "$src" "$D/edit/$n.c"
+      echo "-- the costs of $n, a line a run: the program's build after a change of the file (the best of $CCLLIB_REPEAT: seconds, the megabytes of its largest process), the IR's types, functions and lines, the object's bytes, and \`$n${cnt:+ $cnt}' built at -O2 (seconds, megabytes); a fourth line, the C build of the file unchanged, which the store serves"
       printf '     %-24s %8s %7s %6s %10s %7s %9s %8s %7s\n' "run" "build s" "MB" "types" "functions" "lines" "object B" "run s" "MB"
-      for how in c cpp twin; do
+      for how in c cpp twin again; do
+        _c_touch=""; chg=""
         case $how in
-          c)    label="cicilang, C";     in="$src";      set -- timeout -s KILL "$CCLLIB_SECS" "$ROOT/bin/cicilang" ;;
-          cpp)  label="cicilang++, C++"; in="$src";      set -- timeout -s KILL "$CCLLIB_SECS" "$ROOT/bin/cicilang++" ;;
+          c)    label="cicilang, C";     in="$D/edit/$n.c"; chg=$in; set -- timeout -s KILL "$CCLLIB_SECS" "$ROOT/bin/cicilang" ;;
+          cpp)  label="cicilang++, C++"; in="$D/edit/$n.c"; chg=$in; set -- timeout -s KILL "$CCLLIB_SECS" "$ROOT/bin/cicilang++" ;;
           twin) [ "$twin" = yes ] || continue
                 label="clang++ $cv, std::"; in="$T/$n.cpp"; set -- "$D/twin" ;;
+          again) # the C build of the file as it is: the store serves its kept IR
+                "$ROOT/bin/cicilang" "$D/edit/$n.c" -o "$D/c_${n}_again" > /dev/null 2>&1 < /dev/null
+                ccl_cost "$D/c_build" timeout -s KILL "$CCLLIB_SECS" "$ROOT/bin/cicilang" "$D/edit/$n.c" -o "$D/c_${n}_again"
+                read -r bs bm < "$D/c_build"
+                printf '     %-24s %8s %7s %6s %10s %7s %9s %8s %7s\n' "cicilang, C, unchanged" "$bs" "$bm" "-" "-" "-" "-" "-" "-"
+                continue ;;
         esac
         if [ "$how" = twin ]; then "$@" -S -emit-llvm "$in" -o "$D/c_${n}_$how.ll" > /dev/null 2>&1 < /dev/null
         else "$@" -emit-llvm -c "$in" -o "$D/c_${n}_$how.ll" > /dev/null 2>&1 < /dev/null; fi
         "$@" -c "$in" -o "$D/c_${n}_$how.o" > /dev/null 2>&1 < /dev/null
-        ccl_cost "$D/c_build" "$@" "$in" -o "$D/c_${n}_$how"
+        _c_touch=$chg; ccl_cost "$D/c_build" "$@" "$in" -o "$D/c_${n}_$how"; _c_touch=""
         if "$@" -O2 "$in" -o "$D/c_${n}_$how.o2" > /dev/null 2>&1 < /dev/null; then ccl_cost "$D/c_run" timeout -s KILL "$CCLLIB_RUN_SECS" "$D/c_${n}_$how.o2" $cnt; else echo "- -" > "$D/c_run"; fi
         read -r bs bm < "$D/c_build"; read -r rs rm < "$D/c_run"; set -- $(ccl_ir "$D/c_${n}_$how.ll")
         printf '     %-24s %8s %7s %6s %10s %7s %9s %8s %7s\n' "$label" "$bs" "$bm" "$1" "$2" "$3" "$(ccl_size "$D/c_${n}_$how.o")" "$rs" "$rm"

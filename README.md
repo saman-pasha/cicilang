@@ -468,10 +468,12 @@ The first proof of the plan (0.273) is `test/ccllib/first.c`: a
 beside it. cicilang builds it as C, cicilang++ builds it as C++, and
 clang++ builds its twin over `std::vector` and `std::sort`; the three print
 the same lines, and under valgrind each frees every block
-(`sh test/ccllib.sh`). Over libc++ 22 the C build takes 0.24 s and makes an
-IR of 2 types and 21 functions and an object of 11.5 KB, where clang++'s
-build of the twin takes 0.67 s and makes 35 types, 229 functions and
-126 KB; sorting ten million numbers takes each about a third of a second.
+(`sh test/ccllib.sh`). Over libc++ 22 the C build takes 0.31 s after a
+change of the file (0.23 s for a rebuild of the file unchanged, which the
+store serves) and makes an IR of 2 types and 21 functions and an object of
+11.5 KB, where clang++'s build of the twin takes 0.67 s and makes 35 types,
+229 functions and 126 KB; sorting ten million numbers takes each about a
+third of a second.
 
 `#include <vector.pl>` is ccllib's first module (0.274), `std::vector` for
 C: `vector<int> v;`, `push_back(v, 7)`, `v[0] = 9`, `insert(v, 1, 11)`,

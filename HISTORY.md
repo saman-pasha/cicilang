@@ -283,6 +283,7 @@ One row per step, in version order: the step's title, what it did and its gate n
 | 0.286 | ccllib's `<bitset.pl>`; a record where another type is needed, and the address of an element that is a value, are refused by name | `std::bitset` for cicilang's C, the seventeenth type of phase 1a: a struct of words of 64 bits with no heap and no drop, 32 functions, the bits of its last word past the count zero after each; the rules held to a model at nine counts of bits, nineteen copies broken on purpose each reported; `&b[i]` over an element that `[]` gives as a value was the address of a temporary and is refused by name (reader 185); a struct of another type where a struct is needed, a number where one is and a unary `-` or `~` over one went to LLVM, and the lowering refuses each at its line (`no conversion from 'bitset_12' to 'bitset_8'`; lowering 158) | the flow gate; the reader, compile and driver gates and the ccllib gate over libc++ 22, over one fresh HOME; the ccllib gate over libc++ 21 and 18; a pool of the light C++ run fixtures; twelve C++ fixtures over instances by hand; no chain, by the owner's rule of 0.271; a commit and a push |
 | 0.287 | An assignment over an object that its scope drops drops the old value first; two holes of the safe part closed | the rule that ccllib's string needs: `a = x` over an object that its scope drops, named by its name, is the right side's value, the object's drop, the store (the lowering notes the marked defers, the check drops the old fields in its model; it was `owner_overwritten` where the object held memory); the value of such an assignment taken again (`b = a = make(3)`) made two owners of one buffer, freed twice at run time with no refusal, and is `dropped_copied` now; an object with own fields that hides another of its name was refused at its declaration, and is taken; lowering 159 | the flow gate; the reader, compile and driver gates and the ccllib gate over libc++ 22, over one fresh HOME; the ccllib gate over libc++ 21 and 18; the pool of the light C++ run fixtures; thirteen C++ fixtures over instances by hand; no chain, by the owner's rule of 0.271; a commit and a push |
 | 0.288 | A call by name is told by an argument's type; a call that fits no form of its name is refused by name | the last form of the reader before ccllib's string: a call by name asks the function named with the word of an argument's type before the plain one (`append(s, t)`, `append(s, "lit")`, `append(s, 2, '-')`), a name with a word a form of the call where its function takes the call's count of arguments; a typed name asks each word that its type asks, so one function serves C's string literal and C++'s; three holes of the call by name closed -- another count of arguments than the function takes, a number, and a C text or a pointer to another type where the function takes its object were built with no message; a floating value where a pointer is needed is refused by name; reader 186, lowering 160 | the flow gate; the reader, compile and driver gates and the ccllib gate over libc++ 22, over one fresh HOME; the ccllib gate over libc++ 21 and 18; the pool of the light C++ run fixtures; fourteen C++ fixtures over instances by hand; no chain, by the owner's rule of 0.271; a commit and a push |
+| 0.289 | The cost of a C build is the build after a change of the file; the records of 0.273 to 0.286 corrected | the ccllib gate timed a C build of one file three times over a warm store, which serves the unit's kept IR: its line was a rebuild of a file that did not change, and thirteen tables and their sentences compared it with clang++'s build of the twin; the gate times a copy of the program whose time changes before each build, and keeps the rebuild as a fourth line; the thirteen C rows measured again (0.31 s to 1.69 s after a change, 0.23 s to 0.81 s unchanged); five sentences that said that a C build cost its twin's or less, and three more in their degree, corrected | the ccllib gate over libc++ 22, 21 and 18, each over a fresh HOME of its own; no chain, by the owner's rule of 0.271; a commit and a push |
 
 ## M5 — the C++ mode
 
@@ -20089,3 +20090,92 @@ NO CHAIN RAN for this step (the owner's rule of 0.271), and it claims nothing GR
   fixtures. `RULES.md` (the macro files' topic, the lowering's values, Not done), `CLAUDE.md`, `README.md`, `CCLLIB.md`.
 
 The module 0.288, the reader 186 and the lowering 160.
+
+## 0.289 — the cost of a C build is the build after a change of the file; the records of 0.273 to 0.286 corrected
+
+**0.289: an error of the record, found by the cost measure of 0.288, and its correction. The ccllib gate's line of a C
+build was the best of three builds of one file over a warm store, and the store serves a file that did not change from
+the IR that it kept: the line timed a rebuild, not the reader, the check and the lowering. Thirteen tables and nine
+sentences of 0.273 to 0.286 compared that number with clang++'s whole build of the twin. The gate times a build after a
+change of the file now, the thirteen C rows are measured again, and the sentences are corrected: five were wrong in
+their direction. No source of the compiler changes. Committed with its nets; the chain runs when the ccllib task is
+finished (the owner's rule of 0.271).**
+
+HOW IT WAS FOUND. 0.288 asked what the typed names cost a build, and the sum of the gate's thirteen C build lines moved
+by less than the lines move between two runs. A measure with no store showed why: `vector.c` takes 0.9 s to build where
+the gate's line said 0.3 s. `dr_ir/3` serves a unit whose signature matches -- its file's time, the reader's version,
+each file that its AST reaches, the lowering's version --, "not read again for its check and lowering", and the gate
+built one file three times.
+
+THE ERROR IS MINE, and it is of 0.273, the step that wrote the gate's costs: the words there say that the store is warm
+from the checks' builds, and I did not ask what a warm store does with the file that is timed. Each module's step from
+0.274 to 0.286 then wrote the gate's line into a table of `CCLLIB.md` and a sentence beside it, and into `RULES.md`. The
+C++ lines were right: a gate builds with no kept IR (`CICILANG_NO_IR_CACHE`), so cicilang++ reads the program at each
+build, and clang++ has no cache.
+
+WHAT A BUILD IS NOW (`test/ccllib.sh`). The gate copies the program, and its own macro files, into its directory, and
+gives the copy a new time before each timed build (`ccl_new_time`: POSIX's `touch -t`, a minute a call, since the
+store's key of a unit is its file's time). The store serves the headers, and the program is read, checked and lowered
+again: what a programmer meets at each edit, and what clang++ does at each build of the twin. The cicilang++ line takes
+the copy too. A FOURTH LINE, `cicilang, C, unchanged`, keeps the cost of the rebuild that the store serves.
+
+THE THIRTEEN PROGRAMS, over libc++ 22 and a HOME of its own, whose store holds the units of all thirteen (the best of
+three; the megabytes of the largest process):
+
+```
+program             C, after a change    C, unchanged (served)     the twin
+first                  0.31 s   143 MB           0.23 s   120 MB       0.76 s
+vector                 0.61 s   173 MB           0.39 s   149 MB       0.83 s
+array                  0.39 s   137 MB           0.26 s   120 MB       0.23 s
+deque                  0.60 s   167 MB           0.41 s   135 MB       0.63 s
+list                   0.78 s   164 MB           0.53 s   152 MB       0.44 s
+forward_list           0.68 s   182 MB           0.43 s   146 MB       0.42 s
+stack                  0.40 s   150 MB           0.29 s   130 MB       0.56 s
+queue                  0.56 s   166 MB           0.38 s   138 MB       0.98 s
+set                    1.61 s   209 MB           0.71 s   177 MB       0.66 s
+map                    1.69 s   226 MB           0.81 s   178 MB       0.88 s
+unordered_set          1.11 s   198 MB           0.60 s   176 MB       0.49 s
+unordered_map          1.15 s   202 MB           0.55 s   175 MB       1.28 s
+bitset                 0.68 s   157 MB           0.43 s   149 MB       0.53 s
+```
+
+A build after a change takes 1.3 to 2.3 times its rebuild. The rebuild is not free either, a quarter of a second at the
+least: cicilang starts, reads the store, and LLVM compiles the kept IR again, since no object is kept.
+
+WHAT THE SENTENCES SAID, AND WHAT IS TRUE. Nine sentences of `CCLLIB.md` compared a C build with its twin's, and
+`RULES.md` repeats seven of them (a twin's seconds below are its table's, of its module's step; the table above has this
+run's). FIVE WERE WRONG IN THEIR DIRECTION: the list's ("clang++ builds the twin as fast as cicilang builds the
+program": the twin takes 0.41 s and the program 0.78 s), the forward list's ("take the same time": 0.41 s and 0.68 s),
+the set's and the map's ("the C builds take the twins' time": twice, 1.61 s and 1.69 s against 0.75 s and 0.93 s), the
+unordered containers' ("the twins' time or less": the set's program takes 1.11 s against 0.61 s, the map's 1.15 s
+against 1.25 s) and the bitset's ("less than the twin's": 0.68 s against 0.53 s). THREE WERE WRONG IN THEIR DEGREE: the
+vector's ("less than half of clang++'s time": three quarters, 0.61 s against 0.80 s), the deque's (the C build takes the
+twin's 0.60 s; cicilang++'s 1.08 s is not three times it) and the adaptors' ("half the twins' time or less": 0.40 s and
+0.56 s against 0.51 s and 1.04 s). The array's said that the twin's build costs less, and it does, by more than it said
+(0.21 s against 0.39 s). The first proof's 0.24 s is 0.31 s.
+
+WHAT STAYS TRUE: each unit's size and its count of functions beside its twin's, each run's time and memory, each
+cicilang++ line, and the plan's target -- cicilang++'s build of a ccllib program is the dearest of the three. WHAT
+CHANGES FOR THE PLAN: the C build is no cheap run to hold the others to. For the tree's and the hash table's programs it
+costs twice the twin's build, and the text of a module is read, checked and lowered at each build of a program that
+includes it; `CCLLIB.md`'s targets must name the C build too. I did not change the targets: they are the owner's.
+
+THE TABLES' OTHER ROWS ARE THEIR STEPS': the cicilang++ rows and the twins' were measured at each module's step, and
+this run's values for them lie within what two runs differ by. The C rows are this run's, so a table's rows are of two
+dates, and `CCLLIB.md` says so at its first table and in its Tests and measures.
+
+A RULE FOR THE WORK (`CLAUDE.md`): a cost's words name what was timed, and the timed run is seen to do it -- a build is
+timed after a change of its file, a cache that can serve the timed run is off or is named, and a number that looks too
+good is asked what it measured before it is written.
+
+THE NETS: the ccllib gate GREEN over libc++ 22, 21 and 18, each over a fresh HOME of its own (513 s, 492 s and 496 s;
+188 checks each, none skipped): 13 programs in three runs, 51 refused, 4 alone. The step changes the gate's script and
+no file of the library, so the flow gate did not run.
+
+NO CHAIN RAN for this step (the owner's rule of 0.271), and it claims nothing GREEN but the nets above. No CI job ran.
+
+- `test/ccllib.sh`: the cost section (`ccl_new_time`, the copy, the fourth line), its head comment. `CCLLIB.md`
+  (thirteen C rows, nine sentences, Tests and measures), `RULES.md` (the gate's costs, the first proof, eight sections
+  of ccllib), `CLAUDE.md` (a rule, the gate's line of the file list), `README.md` (the first proof's cost).
+
+The module 0.289, the reader 186 and the lowering 160 as they were.
