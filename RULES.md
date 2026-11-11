@@ -2448,10 +2448,10 @@ that changes a rule edits the rule here, in its topic, and writes its entry in `
   call. Two C++ units that both make `vector<int>` link, its functions linkonce_odr there too. The C++ gate builds
   `test/c/run/ctext.c`, `autodrop.c`, `tvector.c` (0.268: its headers `tvhdr.h` and `tvhdr2.h` read as the program's
   file is, the topic of includes), `literal.c` (0.269), `operators.c` and `unread.c` (0.270), `lazy.c` (0.274),
-  `operators2.c` (0.284), `born.c` (0.285) and `dropassign.c` (0.287) with cicilang++ and compares each with its
-  `.expect`; `elemborrow.c` is `test/cpp/run/elemborrowpp.cpp` there (0.272), its plain functions noexcept: C++'s defer
-  rule refuses a plain struct's live owner across a call that may throw. (0.267, 0.268, 0.269, 0.270, 0.272, 0.274,
-  0.284, 0.285, 0.287)
+  `operators2.c` (0.284), `born.c` (0.285), `dropassign.c` (0.287) and `typednames.c` (0.288) with cicilang++ and
+  compares each with its `.expect`; `elemborrow.c` is `test/cpp/run/elemborrowpp.cpp` there (0.272), its plain functions
+  noexcept: C++'s defer rule refuses a plain struct's live owner across a call that may throw. (0.267, 0.268, 0.269,
+  0.270, 0.272, 0.274, 0.284, 0.285, 0.287, 0.288)
 - **A READ THAT MADE OR MET AN INSTANCE IS KEPT IN NEITHER CACHE** (0.261): what it holds is its unit's -- the instance
   where the unit first used it, a later use naming it alone -- so neither the process's cache nor the store keeps such
   a header's read or such a file's (`ccl_include_read/2`, `ccl_read_file_/3`, over a count of the instances met,
@@ -2483,17 +2483,61 @@ that changes a rule edits the rule here, in its topic, and writes its entry in `
   macro is named `push_back`, is `vector_int_push_back(&v, 1)` where the instance has that function, declared or made
   now (`ccl_inst_call/4`, a clause of `ccl_call_or_macro/3` after the macros'). A name with several forms is told by the
   count of its arguments: `resize(v, n, x)` asks `<instance>_resize3` first, then `<instance>_resize`
-  (`ccl_inst_call_fn/5`). An argument that is an instance's object goes by its address where the parameter is a pointer
-  to that instance, and as it is written elsewhere, a pointer among them (`ccl_inst_call_arg/5`). A function of the
-  program's of that name whose first parameter takes the instance, or a pointer to it, is the program's own and is the
-  one called (`ccl_inst_call_own/2`: `grow(&v)` over the program's `grow(vector<int> *)`), and one for another type --
-  stdio's `remove(const char *)` beside `remove(v, x)` -- leaves the call to the instance. A name that begins with `_`
-  is no call by name: an instance's inner helpers are named so (`vector_int__grow`), and its text calls them by their
-  full names; a call by a full name is a plain call (`ccl_inst_made/1`). In C a name that neither the instance nor the
+  (`ccl_inst_call_fn/5`); since 0.288 the type of an argument tells them too, by names that go before these (the next
+  rule). An argument that is an instance's object goes by its address where the parameter is a pointer to that instance
+  (`ccl_inst_call_arg/5`); a pointer to the instance goes as it is written, and since 0.288 an argument of another type
+  there, and a call of another count of arguments, are refused (the rule after the next). A function of the program's of
+  that name whose first parameter takes the instance, or a pointer to it, is the program's own and is the one called
+  (`ccl_inst_call_own/2`: `grow(&v)` over the program's `grow(vector<int> *)`), and one for another type -- stdio's
+  `remove(const char *)` beside `remove(v, x)` -- leaves the call to the instance. A name that begins with `_` is no
+  call by name: an instance's inner helpers are named so (`vector_int__grow`), and its text calls them by their full
+  names; a call by a full name is a plain call (`ccl_inst_made/1`). In C a name that neither the instance nor the
   program has is refused at its line, `stack_int has no function pusj: its type macro defines no stack_int_pusj`; in C++
   the call is left to the desugaring, which may find it later. `clone(v)` over an instance's object is its
   `<instance>_clone` (`ccl_macro_clone/2`'s first clause). No name is listed anywhere: a function that a type macro
-  gives is called by its name. Reader `k145`, `k147`; `test/c/run/lazy.c`, `test/c/lazy_nofn.c`. (0.274)
+  gives is called by its name. Reader `k145`, `k147`; `test/c/run/lazy.c`, `test/c/lazy_nofn.c`. (0.274, 0.288)
+- **A CALL BY NAME IS TOLD BY AN ARGUMENT'S TYPE** (0.288; what `std::string`'s `append`, `insert` and `find` need, each
+  with a form for a string, for a text of C and for a character, which C++ tells by the type of an argument). THE NAMES
+  THAT A CALL ASKS, IN THEIR ORDER (`ccl_inst_call_name/6`): for each argument after the object, in its order, and each
+  word that its type asks, `<instance>_<name><count>_<word>` and then `<instance>_<name>_<word>`; then the two of 0.274,
+  `<instance>_<name><count>` and `<instance>_<name>`. The first that the instance has -- declared, or made now -- is the
+  function. So `append(a, b)` over two texts is the plain `text_char_append`, `append(a, "ef")`
+  `text_char_append_ptr_const_char`, `append(a, 2, '-')` `text_char_append3` and `append(a, "ghijk", 2)`
+  `text_char_append3_ptr_const_char`; `insert(a, 2, "<>")` is told by its third argument, and `find(a, 'x')` -- C's
+  character constant is an `int` -- is `_find_int` beside `find(a, c)`'s `_find_char`. A form that C++ tells by an
+  integer's type is told by its count: an integer's word is exact, and a program writes a count in any integer type. A
+  NAME WITH A WORD IS A FORM OF THE CALL WHERE ITS FUNCTION TAKES THE CALL'S COUNT OF ARGUMENTS
+  (`ccl_inst_call_count/3`): a word is any type's, a program's own among them, so a typed name can be the name of
+  another function -- `insert(v, 0, r)`, with r of a type that the program named `range`, met the vector's
+  `_insert_range`, a function of four parameters. THE WORDS THAT A TYPE ASKS (`ccl_arg_type_words/2`), an array's type
+  as its pointer's and a reference's as its object's: the instance's name where the type is an instance's through any
+  typedef (`string s` over `typedef basic_string<char> string;` asks `basic_string_char`), the type's own word
+  (`ccl_type_word/2`), and for a pointer to an object that is not const the pointer to const's word too, since such a
+  pointer goes where a pointer to const is taken: C's string literal is a `char *` and C++'s a `const char *`, and one
+  function named `_ptr_const_char` serves both, and a `char` buffer. An operator's typed name (`ccl_iop_typed/4`) and
+  `_of`'s ask the same words. A name that the instance has not is remembered for the unit (`nofn(F)` in
+  `'$ccl_instances'`, `ccl_inst_ensure/1`), so the second call that asks it runs no macro. Reader `k159`, `k160`;
+  `test/c/run/typednames.c` over `tnames.pl`, a text of characters with the forms of `std::string`'s, prints what
+  clang's build of its hand expansion prints, as C and, by the C++ gate, as C++. Reader 186. (0.288)
+- **A CALL BY NAME THAT FITS NO FORM OF ITS NAME IS REFUSED BY NAME** (0.288; three holes as old as the call by name,
+  each found by a probe), in C and in C++. ITS COUNT OF ARGUMENTS (C17 6.5.2.2/2): `insert(v, 7)` over a vector, the
+  place left out, and `push_back(v, 7, 8)` were built, the call made with the arguments that it had, and the function
+  read what a register held for the others. A call with another count than its function takes is `insert of vector_int
+  takes 3 argument(s), and the call has 2` (`ccl_inst_call_miscount/4`, where `ccl_inst_call_fn/5` finds the plain name;
+  a name with a word of another count is no form of the call, the rule above). AN ARGUMENT WHERE THE FUNCTION TAKES A
+  POINTER TO THE INSTANCE (`ccl_inst_call_arg/5`): the instance's object goes by its address, and any other argument
+  went as it was written -- `swap(v, 5)` built, a pointer made of the number (`inttoptr`), and `splice(l, 0, "abc")`
+  built, the text read as a list; each ended in a segmentation fault. An argument whose type the reader knows and that
+  is a number (a null pointer constant apart), a pointer to another type than the instance and void, an object of
+  another instance or, in C, another struct or union (`ccl_inst_call_other/3`, `ccl_inst_call_misfit/3`) is refused with
+  the function that would take it: `swap of vector_int takes an object of vector_int, which its argument of the type int
+  is not: its type macro defines no vector_int_swap_int`. What goes on as it is written: a pointer to the instance, a
+  pointer to void, a null pointer constant, an argument whose type the reader does not know, and in C++ an object of a
+  class of the program's, which may have a conversion of its own -- the desugaring decides. WHERE THE FUNCTION TAKES NO
+  POINTER TO THE INSTANCE -- a number, a pointer to an element -- an argument of another type is a plain call's (Not
+  done). Reader `k161` over `test/c/name_arg_ok.c` and the refusals `name_arg_num.c`, `name_arg_text.c`,
+  `name_arg_ptr.c`, `name_arg_other.c` and `name_arg_count.c`; `test/ccllib/safe/swap_number.c`, `swap_other.c`,
+  `splice_text.c`, `insert_count.c` and `push_back_count.c`, as C and as C++. (0.288)
 - **A MACRO FILE'S C HEADER** (0.274): `NAME.pl.h` beside `NAME.pl` is included with it, before it, where the directive
   stands (`ccl_external//3` gives the two includes as one splice, `ccl_include_item/5`): the declarations that the
   macro file's C text calls, so that a program includes the macro file alone -- `<vector.pl>` brings `<stdlib.h>`'s
@@ -2624,12 +2668,13 @@ that changes a rule edits the rule here, in its topic, and writes its entry in `
   alone (`2.0 * b`, the program's `operator*(double, pt<double>)`), which C refuses. An operand of a reference type is
   the object it refers to ([expr.type]/1): `p == q` over two `const pt<double> &` is `pt_double_eq(&p, &q)`. A string
   literal is `const char[N]` in C++ ([lex.string]/10), so `out << "x"` asks `<name>_shl_ptr_const_char`, which
-  `topers.pl` defines beside C's `_shl_ptr_char`. A library header's read takes no instance's operator
-  (`ccl_lib_unit/1`): it knows no instance of the program's. An operator that neither the macro nor the program defines
-  is refused by the desugaring, `a / b` with no `_div` `not lowered yet: no_operator(/)`; until 0.270 every operator
-  over an instance was C++'s own, and `a + b` over `pt<double>` was so refused, `no_operator(+)`. Reader `k143` over
-  `test/cpp/run/opcpp.cpp` (the macro's `+`, `==` and `[]` beside the program's two `operator*`), which the C++ gate
-  builds and runs; the C++ gate builds `operators.c` with cicilang++. (0.270, 0.284)
+  `topers.pl` defines beside C's `_shl_ptr_char`; since 0.288 C's literal asks the pointer to const's name after its
+  own, so one function named `_ptr_const_char` serves both languages. A library header's read takes no instance's
+  operator (`ccl_lib_unit/1`): it knows no instance of the program's. An operator that neither the macro nor the program
+  defines is refused by the desugaring, `a / b` with no `_div` `not lowered yet: no_operator(/)`; until 0.270 every
+  operator over an instance was C++'s own, and `a + b` over `pt<double>` was so refused, `no_operator(+)`. Reader `k143`
+  over `test/cpp/run/opcpp.cpp` (the macro's `+`, `==` and `[]` beside the program's two `operator*`), which the C++
+  gate builds and runs; the C++ gate builds `operators.c` with cicilang++. (0.270, 0.284, 0.288)
 - REFUSED AT THE OPERATOR (0.266), `macro_error(Message, here(File, Line))`: an operator that the instance's type macro
   does not define (`the operator * of pt_double is not defined: its type macro defines no pt_double_mul`), a `<<` of a
   type whose word names no function among them (`tbuf_char_shl_float`: a float is not promoted, as no prototype
@@ -2645,28 +2690,30 @@ that changes a rule edits the rule here, in its topic, and writes its entry in `
   `<name>_add_int(x, 3)` where the type macro defines it, else `<name>_add`; `x == 1` is `<name>_eq_int` and `x != 1`
   its `!`. `<<` and `>>` had the typed name as their one form; it is every operator's now whose function takes the right
   operand second -- all but `>` and `<=`, whose `_lt` takes it first --, and `<<` and `>>` have the plain form after it,
-  so `b << 3` is `<name>_shl(b, 3)`, a shift by a number. C has no overloads, and a call by name tells two forms by the
-  count of their arguments; an operator has two operands always, so the type of the second tells its forms. THE RIGHT
-  OPERAND OF `>>` goes by its address where the function's parameter is a pointer -- a stream reads into it, an lvalue
-  --, and by its value where it is not (`ccl_iop_right/5`). `-a` AND `~a` are `<name>_neg(a)` and `<name>_compl(a)`
-  (`ccl_iop_unary/4`). A COMPOUND ASSIGNMENT IS THE CALL OF ITS OWN FUNCTION: `a += b` is `<name>_add_assign(&a, b)`,
-  and `-= *= /= %= &= |= ^= <<= >>=` go by the words `sub`, `mul`, `div`, `mod`, `and`, `or`, `xor`, `shl` and `shr`,
-  the typed name first (`ccl_iop_assign/4`: `x += 10` is `<name>_add_assign_int`). It changes the object in its place;
-  `a = a + b` in its stead would make a second object and assign it over a live one. `v[i]` IS A VALUE where the type
-  macro defines `<name>_item` and no `_index` (`ccl_iop_index_/4`): an element that has no address, as one bit of a set
-  of bits; `v[i] = x` is then `<name>_set_item(&v, i, x)`. Each function is made at its first use, an operator's as a
-  call's (`ccl_iop_declared/2` over `ccl_inst_ensure/1`). In C++ each form is the type macro's where the macro defines
-  its function, and C++'s own operator where it does not. Each of the three hooks -- `ccl_iop_binary/4`,
-  `ccl_iop_unary/4` after a unary operator's operand, `ccl_iop_assign/4` after an assignment's right side -- begins with
-  the instance of its operand (`ccl_iop_inst/2`), which fails at once in a unit that has no instance. REFUSED BY NAME at
-  the operator's line: in C a compound assignment, a unary operator and `% & | ^` that the type macro does not define
-  (`the operator += of pt_double is not defined: its type macro defines no pt_double_add_assign`); in C and in C++ a
-  compound assignment of an element that `[]` gives as a value (`the operator |= of an element of bits_12 is not
-  defined: v[i] is a value there, and v[i] = x writes one`), and an assignment of one where the macro defines no
-  `_set_item`. Reader `k148` to `k153`, the refusals over `test/c/op_assign.c`, `op_unary.c`, `op_bit.c`, `op_item.c`
-  and `op_item_set.c`; `test/c/run/operators2.c` over `topers2.pl` -- a set of bits in a word; a number in a struct, its
-  functions made at their first use; a word whose bits `[]` reads -- prints what clang's build of its hand expansion
-  prints, as C and, by the C++ gate, as C++. Reader 183. (0.284)
+  so `b << 3` is `<name>_shl(b, 3)`, a shift by a number. C has no overloads, and a call by name told two forms by the
+  count of their arguments alone until 0.288; an operator has two operands always, so the type of the second tells its
+  forms. The typed name asks each word that the operand's type asks (0.288, `ccl_arg_type_words/2`: the instance's name
+  through a typedef, the type's own word, the pointer to const's after a pointer to an object that is not const). THE
+  RIGHT OPERAND OF `>>` goes by its address where the function's parameter is a pointer -- a stream reads into it, an
+  lvalue --, and by its value where it is not (`ccl_iop_right/5`). `-a` AND `~a` are `<name>_neg(a)` and
+  `<name>_compl(a)` (`ccl_iop_unary/4`). A COMPOUND ASSIGNMENT IS THE CALL OF ITS OWN FUNCTION: `a += b` is
+  `<name>_add_assign(&a, b)`, and `-= *= /= %= &= |= ^= <<= >>=` go by the words `sub`, `mul`, `div`, `mod`, `and`,
+  `or`, `xor`, `shl` and `shr`, the typed name first (`ccl_iop_assign/4`: `x += 10` is `<name>_add_assign_int`). It
+  changes the object in its place; `a = a + b` in its stead would make a second object and assign it over a live one.
+  `v[i]` IS A VALUE where the type macro defines `<name>_item` and no `_index` (`ccl_iop_index_/4`): an element that has
+  no address, as one bit of a set of bits; `v[i] = x` is then `<name>_set_item(&v, i, x)`. Each function is made at its
+  first use, an operator's as a call's (`ccl_iop_declared/2` over `ccl_inst_ensure/1`). In C++ each form is the type
+  macro's where the macro defines its function, and C++'s own operator where it does not. Each of the three hooks --
+  `ccl_iop_binary/4`, `ccl_iop_unary/4` after a unary operator's operand, `ccl_iop_assign/4` after an assignment's right
+  side -- begins with the instance of its operand (`ccl_iop_inst/2`), which fails at once in a unit that has no
+  instance. REFUSED BY NAME at the operator's line: in C a compound assignment, a unary operator and `% & | ^` that the
+  type macro does not define (`the operator += of pt_double is not defined: its type macro defines no
+  pt_double_add_assign`); in C and in C++ a compound assignment of an element that `[]` gives as a value (`the operator
+  |= of an element of bits_12 is not defined: v[i] is a value there, and v[i] = x writes one`), and an assignment of one
+  where the macro defines no `_set_item`. Reader `k148` to `k153`, the refusals over `test/c/op_assign.c`, `op_unary.c`,
+  `op_bit.c`, `op_item.c` and `op_item_set.c`; `test/c/run/operators2.c` over `topers2.pl` -- a set of bits in a word; a
+  number in a struct, its functions made at their first use; a word whose bits `[]` reads -- prints what clang's build
+  of its hand expansion prints, as C and, by the C++ gate, as C++. Reader 183. (0.284, 0.288)
 - **AT C++23 AN INSTANCE'S `v[i]` IS THE TYPE MACRO'S TOO** (0.284): C++23 reads a subscript's arguments as a list
   (`a[i, j]`), and that clause of the reader (`ccl_postfix_p//3`) gave `index(A, I)` for one argument with no look at
   the instance, where the clause of the levels before it asks `ccl_iop_index/3`. So `bin/cicilang++ -std=c++23` refused
@@ -2682,17 +2729,19 @@ that changes a rule edits the rule here, in its topic, and writes its entry in `
   object may have. The rule is the object's of the type itself, through any typedef, as autodrop's is. `T a = x;` AND `a
   = x`, WHERE x HAS A TYPE THAT IS NOT THE INSTANCE'S, ARE `<name>_of(x)` (`ccl_of_vars/2` at a block's declaration and
   a `for`'s, `ccl_of_value/3`, a clause of `ccl_iop_assign/4`): the function named with the word of x's type goes first,
-  as an operator's does (`ccl_iop_pick/6`: `mask_12_of_ptr_char("1010")` before the plain `mask_12_of(0x0f0)`), so a
-  type is made of values of several types, as C++'s constructors make it. C has no initializer of a struct by a value of
-  another type and no such assignment, so no program that C reads changes; a braced list, a value of the instance's own
-  type -- a copy, a call's result, a literal's `_from` -- and a value whose type the reader does not know stay as they
-  were. In C a type macro that defines no `_of` is refused by name at the line, `a pt_double is not made of a value of
-  the type int: its type macro defines no pt_double_of`; in C++ the initializer is then C++'s own. An assignment makes
-  the value and assigns it, and drops nothing first (Not done, autodrop's limits). Reader `k154` to `k157`, the refusals
-  over `test/c/born_no_of.c` and `born_assign.c`; `test/c/run/born.c` over `tborn.pl` -- a mask of bits with no drop,
-  born in a function that is called over a stack of other bytes, in `main` and in a `for`, made of a number and of a
-  text; a box that has a drop -- prints what clang's build of its hand expansion prints, as C and, by the C++ gate, as
-  C++, and frees every block. Over the tree of 0.284 the mask was born `ffffffffffffffff`. Reader 184. (0.285)
+  as an operator's does (`ccl_iop_pick/6`: `mask_12_of_ptr_char("1010")` before the plain `mask_12_of(0x0f0)`; each word
+  that the type asks, since 0.288, so C's literal is taken by a `_of_ptr_const_char` too), so a type is made of values
+  of several types, as C++'s constructors make it. C has no initializer of a struct by a value of another type and no
+  such assignment, so no program that C reads changes; a braced list, a value of the instance's own type -- a copy, a
+  call's result, a literal's `_from` -- and a value whose type the reader does not know stay as they were. In C a type
+  macro that defines no `_of` is refused by name at the line, `a pt_double is not made of a value of the type int: its
+  type macro defines no pt_double_of`; in C++ the initializer is then C++'s own. An assignment makes the value and
+  assigns it; over an object that its scope drops, named by its name, it drops the old value first (0.287: `s = "xyz"`
+  over a text frees what s held). Reader `k154` to `k157`, the refusals over `test/c/born_no_of.c` and `born_assign.c`;
+  `test/c/run/born.c` over `tborn.pl` -- a mask of bits with no drop, born in a function that is called over a stack of
+  other bytes, in `main` and in a `for`, made of a number and of a text; a box that has a drop -- prints what clang's
+  build of its hand expansion prints, as C and, by the C++ gate, as C++, and frees every block. Over the tree of 0.284
+  the mask was born `ffffffffffffffff`. Reader 184. (0.285, 0.288)
 - **THE ADDRESS OF AN ELEMENT THAT `[]` GIVES AS A VALUE IS REFUSED BY NAME** (0.286), in C and in C++: `&b[i]` over an
   instance whose `[]` is its `_item` was the address of the call's result, a temporary that held the element's value --
   `get(&b[1])` over a set of bits built and printed the bit, and a write through such a pointer could not reach the bit,
@@ -10775,9 +10824,14 @@ in the first topic (The ccllib gate).
   A'`, `no conversion from 'struct A' to 'long'`. Two instances of one type macro are two types: `a & b` over a
   `bitset<8>` and a `bitset<12>` met it, and `b == 5` over a bitset is refused by the same words. A UNARY `-` OR `~`
   OVER A RECORD (C17 6.5.3.3/1) is `invalid argument type 'struct P' to unary expression`, clang's words
-  (`ir_unary_operand/2`; it was `sub nsw %struct.P 0, ...`). A valid program changes in nothing: each such text was one
-  that LLVM refused. The driver gate holds the eight forms in C, each at its line, and one in C++;
-  `test/ccllib/safe/bitset_sizes.c` and `bitset_number.c` as C and as C++. Lowering 158. (0.286)
+  (`ir_unary_operand/2`; it was `sub nsw %struct.P 0, ...`). A FLOATING VALUE WHERE A POINTER IS NEEDED, AND A POINTER
+  WHERE A FLOATING VALUE IS (0.288; C17 6.5.4/4), by an argument, an assignment or a cast, are refused by the same
+  words, `no conversion from 'double' to 'const char *'`: `fptoui double ... to ptr` and `uitofp ptr ... to double` went
+  to LLVM's parser (a clause of `ir_convert/6` after the records'). A struct with no tag, which a typedef names, is
+  `struct <unnamed>` in the message, where its term was printed (0.288). A valid program changes in nothing: each such
+  text was one that LLVM refused. The driver gate holds the nine forms of a record in C, each at its line, one in C++,
+  and the four of a floating value and a pointer; `test/ccllib/safe/bitset_sizes.c` and `bitset_number.c` as C and as
+  C++. Lowering 158, 160. (0.286, 0.288)
 
 ### Control flow and defer
 
@@ -13984,11 +14038,12 @@ Declarations topic of the C++ reader).
   are no calls (`-a`, `~a`, the compound assignments and `% & | ^` are, since 0.284); `>` and `<=` take no function
   named with the word of their right operand, since their `_lt` takes it first; a compound assignment of an element that
   `[]` gives as a value is refused (`b[i] |= 1`), and so is its address (`&b[i]`, since 0.286); the left operand
-  decides, so `2 * a` is refused where C++ finds a free `operator*(double, pt)`; the word of `<<`'s operand is its exact
-  type's, so a `const char *` asks `_shl_ptr_const_char` beside a literal's `_shl_ptr_char`; a result tied to a struct
-  with own fields is a borrow of one of them, so a hand free of another does not end it, as none did before 0.266. In
-  C++ (0.270) the type macro's function goes first where it is defined: a program that defines its own `operator==` over
-  an instance whose macro defines `_eq` calls the macro's.
+  decides, so `2 * a` is refused where C++ finds a free `operator*(double, pt)`; the word of an operand is its type's
+  own -- with the instance's name through a typedef, and the pointer to const's after a pointer to an object that is not
+  const (0.288) --, so an `int` operand asks `_add_int` and a `long` one `_add_long`, with no conversion between them; a
+  result tied to a struct with own fields is a borrow of one of them, so a hand free of another does not end it, as none
+  did before 0.266. In C++ (0.270) the type macro's function goes first where it is defined: a program that defines its
+  own `operator==` over an instance whose macro defines `_eq` calls the macro's.
 - AN INSTANCE'S BIRTH, ITS LIMITS (0.285): an array of an instance's objects, a member of the program's own struct and
   an object that `malloc` gave are not given zero, where C++ makes each element and each member empty; a value of
   another type makes an instance in a block's declaration, a `for`'s and an assignment only -- an argument of a call and
@@ -14000,6 +14055,17 @@ Declarations topic of the C++ reader).
   is no operand of its operators (`b == 5`, `b &= 5`), which C++ takes through its constructor; `set`, `reset` and
   `flip` give nothing back; `~b[i]` is C's `~` of the int 0 or 1, where C++'s is the other bit; a list literal makes
   none, since a literal's slots have the type of the instance's first argument, which is the count here.
+- A PLAIN CALL'S COUNT OF ARGUMENTS, AND A POINTER AND AN INTEGER IN EACH OTHER'S PLACE, ARE NOT CHECKED (found at
+  0.288; C17 6.5.2.2/2 and 6.5.16.1/1, constraints): `f(1)` and `f(1, 2, 3)` over `int f(int, int)` build to an object
+  with no message -- the call is made with the arguments that it has --, where clang 22 says `too few arguments to
+  function call, expected 2, have 1`; `fp(5)` over a pointer parameter (`inttoptr`), `fi(q)` with a pointer where a
+  `long` is taken, `n = q;` and `fp(q)` with a pointer to another type build too, where clang 22 refuses each
+  (`incompatible integer to pointer conversion`, `incompatible pointer to integer conversion`, `incompatible pointer
+  types`). cicilang++ takes them all, where C++ has no such conversion and clang++ says `no matching function for call
+  to 'f'`. 0.288 closed them for a call by name, in the reader, which knows the function of the instance; a plain call's
+  are the lowering's, a rule that every program reaches -- a step of its own.
+- THE NOTE OF A MACRO'S EXPANSION PRINTS ITS TYPE ARGUMENTS AS TERMS (found at 0.288): `note: expanded from macro
+  'vector' on base([],[int])`, under an error in an instance's function.
 - A MEMBER READ OFF THE VALUE OF AN ASSIGNMENT IS NOT LOWERED (found at 0.287): `(b = x).len` over two structs is `not
   lowered yet: lvalue(assign(...))`, where C reads the member of the assignment's value.
 - THE ADDRESS OF A CALL'S RESULT IS TAKEN, IN C AND IN C++ (found at 0.286): `get(&f())` over `int f(void)` builds and
@@ -14048,8 +14114,17 @@ Declarations topic of the C++ reader).
   function of the program's that is declared after the call is not seen. `v.push_back(3)`, C++'s member call, is no call
   of the instance's function (`CCLLIB.md`'s open decision 3). In C++ a name that the instance has not is the
   desugaring's to refuse, `not lowered yet: undeclared(push_front)`, where C names the instance. Two forms of one name
-  with the same count of arguments need two names. A macro file's `NAME.pl.h` gives its declarations and not its macros:
-  a program that uses `NULL` includes its header itself.
+  with one count of arguments are told by the word of an argument's type since 0.288, and THE TYPED NAMES HAVE LIMITS OF
+  THEIR OWN: an argument is not converted -- no string is made of a literal for a parameter that takes a string, as C++
+  makes one by a constructor that is not explicit --, so a call whose argument has no form is refused, and names the
+  function to add; a typed name carries ONE argument's word; an integer's word is exact, so the forms that C++ tells by
+  integer types are told by the count; a pointer to const does not ask the name of the pointer to an object that is not
+  const; and A TYPED NAME HAS THE FORM OF ANY OTHER NAME: where a program names a type as a module names the last word
+  of a function (`range`), a call with an argument of that type and that function's count of arguments meets the
+  function (`assign(v, n, r)` with r a `range` meets the vector's `_assign_range`), and is refused in words about it --
+  a module names no function `<name>_<x>` that is no form of `<name>` for the type x, C++23's three `_range` names of
+  the vector apart. A macro file's `NAME.pl.h` gives its declarations and not its macros: a program that uses `NULL`
+  includes its header itself.
 - A C TEXT AND A HEADER'S MACROS (found at 0.273): a C text is lexed, never preprocessed (0.260), so `NULL`, `EOF`,
   `INT_MAX`, `errno` and, on a Mac, `stdout` are no names in it -- `not lowered yet: undeclared('NULL')` at the
   instance's use; `first.pl` writes `0`. ccllib's iostreams over C's stdio (phase 1d) need such names: a road for them

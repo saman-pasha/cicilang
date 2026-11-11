@@ -301,10 +301,12 @@ A type macro gives its instances operators that the reader writes as calls: `v[i
   ccllib gate builds each program at the twin's level too.
 - AT 0.286, with the bitset: THE ADDRESS OF AN ELEMENT THAT `[]` GIVES AS A VALUE IS REFUSED BY NAME (`&b[i]`); it was
   the address of a temporary that held the value, and no message said so.
+- AT 0.288, before the string: A TYPED NAME ASKS EACH WORD THAT ITS TYPE ASKS -- the instance's name through a typedef,
+  the type's own word, and the pointer to const's after a pointer to an object that is not const --, so one function
+  named `_ptr_const_char` serves C's string literal, a `char *`, and C++'s.
 - WHAT IS LEFT (Not done): `!a`, `*it`, `++it` and `it++` are no calls; `>` and `<=` take no typed name; the left
-  operand decides, so `2 * a` is refused; the word of an operand is its exact type's, so a `const char *` asks
-  `_shl_ptr_const_char`; a tied result's borrow is of one own field, so a hand free of another does not end it, as
-  before.
+  operand decides, so `2 * a` is refused; the word of an operand is its type's own, so an `int` asks `_add_int` and a
+  `long` `_add_long`; a tied result's borrow is of one own field, so a hand free of another does not end it, as before.
 
 ### 0.10 ccllib in cicilang++ (the owner's decision of 2026-11-08)
 
@@ -413,7 +415,11 @@ What the proof found for phase 1:
   that a program uses. A module is a table of C texts by name.
 - A CALL FINDS ITS FUNCTION BY THE TYPE OF ITS FIRST ARGUMENT, with no macro per name: `push_back(v, 1)` is
   `vector_int_push_back(&v, 1)`; `v` may be a pointer to the vector; the count of the arguments tells two forms of a
-  name apart (`resize(v, n, x)` is `_resize3`).
+  name apart (`resize(v, n, x)` is `_resize3`). SINCE 0.288 THE TYPE OF AN ARGUMENT TELLS THEM TOO, the name with the
+  word of an argument's type asked first: `append(s, t)`, `append(s, "lit")` and `append(s, 2, '-')` are `_append`,
+  `_append_ptr_const_char` and `_append3`, as `std::string`'s three are. AND A CALL THAT FITS NO FORM IS REFUSED BY
+  NAME: another count of arguments than its function takes, and a number, a C text or an object of another type where
+  the function takes its object -- each was built with no message until 0.288.
 - `#include <vector.pl>` ALONE: the path holds `library/ccllib/`, and `vector.pl.h` beside the macro file brings the C
   declarations that its text calls.
 - THE NAMES ARE C++'S; `push`, `pop` and `len`, the short names of this plan's examples, stand beside `push_back`,

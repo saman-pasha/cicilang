@@ -429,6 +429,17 @@ side is made first, so `v = clone(v)` is good. The value of such an
 assignment is not taken again: `b = a = make()` is refused.
 `test/c/run/dropassign.c` is the example.
 
+A call by name is told by the type of an argument too (0.288): the reader
+asks the function named with the word of an argument's type before the
+plain one, so `append(s, t)`, `append(s, "lit")` and `append(s, 2, '-')`
+are `<name>_append`, `<name>_append_ptr_const_char` and `<name>_append3`.
+A pointer to an object that is not const asks the pointer to const's name
+after its own, so one function serves C's string literal and C++'s. A call
+that fits no form of its name is refused at its line: another count of
+arguments than its function takes, and a number, a C text or an object of
+another type where the function takes its own object.
+`test/c/run/typednames.c` is the example.
+
 A struct of one type where a struct of another is needed is refused by name
 (0.286), at its line: `no conversion from 'struct B' to 'struct A'`, in an
 assignment, an initializer, an argument and a `return`, and so are a number

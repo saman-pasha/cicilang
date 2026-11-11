@@ -282,6 +282,7 @@ One row per step, in version order: the step's title, what it did and its gate n
 | 0.285 | An instance's birth: an object with no initializer is given zero, and an object is made of a value of another type | two reader rules that ccllib's bitset and string need, in C and in C++: a block's automatic object of any instance's type declared with no initializer is given zero, one of a type with no drop too (C++'s bitset is born empty; over the tree before, a mask was born with the bytes of its storage); `T a = x;` and `a = x`, where x has a type that is not the instance's, are <name>_of(x), the function named with the word of x's type first; in C a type macro with no _of is refused by name; reader 184 | the flow gate; the reader, compile and driver gates and the ccllib gate over libc++ 22, over one fresh HOME; the ccllib gate over libc++ 21 and 18; twelve C++ fixtures over instances by hand; no chain, by the owner's rule of 0.271; a commit and a push |
 | 0.286 | ccllib's `<bitset.pl>`; a record where another type is needed, and the address of an element that is a value, are refused by name | `std::bitset` for cicilang's C, the seventeenth type of phase 1a: a struct of words of 64 bits with no heap and no drop, 32 functions, the bits of its last word past the count zero after each; the rules held to a model at nine counts of bits, nineteen copies broken on purpose each reported; `&b[i]` over an element that `[]` gives as a value was the address of a temporary and is refused by name (reader 185); a struct of another type where a struct is needed, a number where one is and a unary `-` or `~` over one went to LLVM, and the lowering refuses each at its line (`no conversion from 'bitset_12' to 'bitset_8'`; lowering 158) | the flow gate; the reader, compile and driver gates and the ccllib gate over libc++ 22, over one fresh HOME; the ccllib gate over libc++ 21 and 18; a pool of the light C++ run fixtures; twelve C++ fixtures over instances by hand; no chain, by the owner's rule of 0.271; a commit and a push |
 | 0.287 | An assignment over an object that its scope drops drops the old value first; two holes of the safe part closed | the rule that ccllib's string needs: `a = x` over an object that its scope drops, named by its name, is the right side's value, the object's drop, the store (the lowering notes the marked defers, the check drops the old fields in its model; it was `owner_overwritten` where the object held memory); the value of such an assignment taken again (`b = a = make(3)`) made two owners of one buffer, freed twice at run time with no refusal, and is `dropped_copied` now; an object with own fields that hides another of its name was refused at its declaration, and is taken; lowering 159 | the flow gate; the reader, compile and driver gates and the ccllib gate over libc++ 22, over one fresh HOME; the ccllib gate over libc++ 21 and 18; the pool of the light C++ run fixtures; thirteen C++ fixtures over instances by hand; no chain, by the owner's rule of 0.271; a commit and a push |
+| 0.288 | A call by name is told by an argument's type; a call that fits no form of its name is refused by name | the last form of the reader before ccllib's string: a call by name asks the function named with the word of an argument's type before the plain one (`append(s, t)`, `append(s, "lit")`, `append(s, 2, '-')`), a name with a word a form of the call where its function takes the call's count of arguments; a typed name asks each word that its type asks, so one function serves C's string literal and C++'s; three holes of the call by name closed -- another count of arguments than the function takes, a number, and a C text or a pointer to another type where the function takes its object were built with no message; a floating value where a pointer is needed is refused by name; reader 186, lowering 160 | the flow gate; the reader, compile and driver gates and the ccllib gate over libc++ 22, over one fresh HOME; the ccllib gate over libc++ 21 and 18; the pool of the light C++ run fixtures; fourteen C++ fixtures over instances by hand; no chain, by the owner's rule of 0.271; a commit and a push |
 
 ## M5 — the C++ mode
 
@@ -19954,3 +19955,137 @@ NO CHAIN RAN for this step (the owner's rule of 0.271), and it claims nothing GR
   and of the state, the lowering's values, Not done), `CLAUDE.md`, `README.md`, `CCLLIB.md`.
 
 The module 0.287, the reader 185 as it was, the lowering 159.
+
+## 0.288 — a call by name is told by an argument's type; a call that fits no form of its name is refused by name
+
+**0.288: the last form of the reader before ccllib's string. A call by name asks the function named with the word of an
+argument's type before the plain one, as an operator does with its right operand's since 0.284: `append(s, t)`,
+`append(s, "lit")` and `append(s, 2, '-')` are three functions of one name, as `std::string`'s are. A typed name -- a
+call's, an operator's, `_of`'s -- asks each word that the type asks, so that one function named `_ptr_const_char` serves
+C's string literal and C++'s. THREE HOLES OF THE CALL BY NAME ARE CLOSED WITH IT, each found by a probe of the step and
+each as old as the call by name (0.274): a call with another count of arguments than its function takes, a number where
+the function takes its object, and a C text or a pointer to another type there were each built with no message, in C and
+in C++; each is refused by name at its line now. The lowering refuses a floating value where a pointer is needed by
+name. The reader's version is 186 and the lowering's 160. Committed with its nets; the chain runs when the ccllib task
+is finished (the owner's rule of 0.271).**
+
+WHY NOW. `std::string`'s functions have forms that C++ tells by an argument's type: `append(str)`, `append(const char
+*)` and `append(n, c)`; `find(str)`, `find(const char *)` and `find(c)`; `insert(pos, str)` and `insert(pos, const char
+*)`. The call by name of 0.274 told two forms of a name by the count of their arguments alone, and its Not done list
+said that two forms with one count need two names. A string whose `append` takes a string only, with an `append_cstr`
+beside it, would not have C++'s names.
+
+A CALL BY NAME ASKS, IN THIS ORDER (`ccl_inst_call_name/6`): for each argument after the object, in its order, and for
+each word that its type asks, `<instance>_<name><count>_<word>` and then `<instance>_<name>_<word>`; then, as before,
+`<instance>_<name><count>` and `<instance>_<name>`. So `append(a, "ef")` is `text_char_append_ptr_const_char`,
+`append(a, b)` over two texts the plain `text_char_append`, `append(a, 2, '-')` `text_char_append3`, and `append(a,
+"ghijk", 2)` `text_char_append3_ptr_const_char`, the count and the word; `insert(a, 2, "<>")` is told by its third
+argument. A form that C++ tells by an integer's type is told by its count, since an integer's word is exact (`int`,
+`ulong`, a typedef's own name) and a program writes a count in any of them.
+
+A NAME WITH A WORD IS A FORM OF THE CALL WHERE ITS FUNCTION TAKES THE CALL'S COUNT OF ARGUMENTS
+(`ccl_inst_call_count/3`). A word is any type's, a program's own among them, and a typed name has the form of any other
+name: a probe's `insert(v, 0, r)`, where r has a type that the program named `range`, met the vector's
+`vector_int_insert_range`, a function of four parameters with another meaning, and was refused in words about that
+function. With the count the call asks the plain `vector_int_insert`, and is refused for what it is, `no conversion from
+'struct <unnamed>' to 'int'`. A name with a word and the same count can still be met so (`assign(v, n, r)` meets
+`_assign_range`): the call is then refused by its arguments' types, in words about the function that it met. A module
+names no function `<name>_<x>`, where x may be a type's word, that is no form of `<name>` for that type; the vector's
+three `_range` names are C++23's, and they stay. It is in the Not done list.
+
+THE WORDS THAT A TYPE ASKS (`ccl_arg_type_words/2`), for a call's typed name, an operator's (`ccl_iop_typed/4`) and
+`_of`'s, an array's type as its pointer's and a reference's as its object's: THE INSTANCE'S NAME where the type is an
+instance's through any typedef -- `string s` over `typedef basic_string<char> string;` asks `basic_string_char`, where
+the typedef's own word came alone; THE TYPE'S OWN WORD; and FOR A POINTER TO AN OBJECT THAT IS NOT CONST THE POINTER TO
+CONST'S WORD too, since such a pointer goes where a pointer to const is taken. C's string literal is a `char *` and
+C++'s a `const char *`: one function named `_ptr_const_char` serves both, and a `char` buffer too. 0.284 and 0.285
+needed two functions there (the bitset's `_of_ptr_char` beside `_of_ptr_const_char`, which stay).
+
+THE FIRST HOLE: THE COUNT OF A CALL'S ARGUMENTS. `insert(v, 7)` over a vector -- the place left out -- and `push_back(v,
+7, 8)` were built, as C and as C++: the call was made with the arguments that it had, and the function read what a
+register held for the others. Over the tree of 0.287 the first stops at run time, at the vector's check of the place --
+7 was taken as the place --, and the second runs to its end, its third argument lost. A probe of the count rule above
+found it. The reader refuses a call by name with another count of arguments than its function takes, at its line
+(`ccl_inst_call_miscount/4`; C17 6.5.2.2/2): `insert of vector_int takes 3 argument(s), and the call has 2`.
+
+THE SECOND AND THE THIRD: AN ARGUMENT OF ANOTHER TYPE WHERE THE FUNCTION TAKES A POINTER TO THE INSTANCE. An argument
+that is the instance's object goes by its address; any other went as it was written. So `swap(v, 5)` built -- C's
+lowering makes a pointer of a number, `inttoptr` --, and `splice(l, 0, "abc")` built, the text handed as the pointer
+that it is: over the tree of 0.287 each ends in a segmentation fault at run time, as C and as C++. The typed names made
+the case a likely one: `append(s, 5)` and `find(s, n)` with a `long` n, where the type macro has no form for the
+argument's type, went to the plain function, which takes a string. The reader refuses such an argument by name, with the
+function that would take it (`ccl_inst_call_other/3`): `swap of vector_int takes an object of vector_int, which its
+argument of the type int is not: its type macro defines no vector_int_swap_int`. What goes on as it is written: a
+pointer to the instance, a pointer to void, a null pointer constant, and an argument whose type the reader does not
+know. An object of another instance (`swap(v, w)` with a `vector<double>` w) was refused by the lowering since 0.286,
+`no conversion from 'vector_double' to 'vector_int *'`, and is refused by the reader in the call's own words now. In C a
+struct of the program's is refused so too; in C++ it is left to the desugaring, since a class may have a conversion of
+its own.
+
+THE LOWERING: A FLOATING VALUE WHERE A POINTER IS NEEDED, AND A POINTER WHERE A FLOATING VALUE IS (C17 6.5.4/4), met as
+`append(a, 2.5)` before the reader refused it. `f(2.5)` over a pointer parameter and `(double)p` were lowered as `fptoui
+double ... to ptr` and `uitofp ptr ... to double`, and LLVM's parser refused each text in its own words, with no line.
+Each is `no conversion from 'double' to 'const char *'` at its line (a clause of `ir_convert/6`, by 0.286's
+`ir_no_conversion/2`), by a cast too. And a struct with no tag, which a typedef names, is `struct <unnamed>` in such a
+message: its term was printed (`ir_type_text/2`).
+
+FOUND BESIDE THE STEP, NOT CLOSED (Not done): THE SAME THREE IN A PLAIN CALL AND AN ASSIGNMENT, the constraints of C17
+6.5.2.2/2 and 6.5.16.1/1. `f(1)` and `f(1, 2, 3)` over `int f(int, int)` build to an object with no message, where clang
+22 says `too few arguments to function call, expected 2, have 1`; `fp(5)` over a pointer parameter, `fi(q)` with a
+pointer where a `long` is taken, `n = q;` and `fp(q)` with a pointer to another type build, where clang 22 refuses each
+(`incompatible integer to pointer conversion`, `incompatible pointer to integer conversion`, `incompatible pointer
+types`); cicilang++ takes them all, where C++ has no such conversion and clang++ says `no matching function for call to
+'f'`. The reader closes them for a call by name, whose function it knows. A plain call's are the lowering's, a rule that
+every program reaches: a step of its own, and the owner's word on its place in the order.
+
+WHAT IT COSTS. A call by name asks the types of its arguments now, and two names a word before the plain ones; a name
+that the instance has not is remembered for the unit (`nofn(F)` in `'$ccl_instances'`), so a second call that asks it
+runs no macro. Measured with no store, so that the reader runs at each build, twelve builds a tree by turns: the median
+build of `test/ccllib/vector.c` as C went from 0.87 s (0.287) to 0.90 s, of `unordered_map.c` from 1.50 s to 1.58 s and
+of `list.c` from 1.07 s to 1.11 s -- 0.03 s to 0.08 s a build, 3% to 5%, where one tree's own builds lie 0.14 s to 0.39
+s apart. The thirteen programs' C++ builds of the ccllib gate, which read the program at each build, sum to 16.7 s, 17.0
+s and 17.0 s over libc++ 22, 21 and 18, against 17.1 s, 16.7 s and 16.7 s at 0.287: no difference that the gate's lines
+show. THE GATE'S LINE OF A C BUILD DOES NOT MEASURE THE READER, the measure found: its builds are over a warm store,
+which serves the unit's kept IR (`dr_ir/3`), so the line is the cost of a rebuild of a file that did not change --
+`vector.c` in 0.3 s, where its build with no store takes 0.9 s. The entries and the tables of 0.273 to 0.286 compare
+that line with clang++'s build of the twin, and their sentences on the C build's time are not proved; the next step
+times a build after a change of the file and corrects them.
+
+THE FIXTURES AND THE CHECKS. `test/c/run/typednames.c` over `tnames.pl`, a text of characters whose `append`, `insert`
+and `find` have the forms of `std::string`'s: a text, a literal, an array of char, a pointer to const char, a character
+-- C's constant, an `int`, and a `char` object --, a count, a count with a word; `+=` and `==` with a literal by the
+function named for the pointer to const; an object declared through a typedef of the instance. It prints what clang's
+build of its hand expansion prints, as C, as C++ and at C++23, at `-O0` and at `-O2`, and frees every block. Reader
+checks `k159` and `k160`, and `k161` over `test/c/name_arg_ok.c` -- what goes on as it is written -- and the refusals
+`name_arg_num.c`, `name_arg_text.c`, `name_arg_ptr.c`, `name_arg_other.c` and `name_arg_count.c`. The driver gate has a
+check more, a floating value and a pointer each way, by an argument and by a cast, and the struct with no tag in the
+check of 0.286. Five programs more of `test/ccllib/safe/`, each refused as C and as C++: `swap_number.c`,
+`swap_other.c`, `splice_text.c`, `insert_count.c` and `push_back_count.c`. The C++ gate's list of the C fixtures that it
+builds as C++ has `typednames.c`.
+
+WHAT IS LEFT (Not done): an argument is not converted -- no string is made of a literal for a parameter that takes a
+string, as C++ makes one by a constructor that is not explicit --, so a call whose argument has no form is refused, and
+names the function to add; a typed name carries ONE argument's word; a pointer to const does not ask the name of the
+pointer to an object that is not const; where the function takes no pointer to the instance -- a number, a pointer to an
+element --, an argument of another type is C's own to take, as in a plain call (above).
+
+THE NETS, over the work tree: the flow gate GREEN with no finding (164 s, peak 4064 MB); over one fresh HOME the reader
+gate (162 checks, 4 s), the compile gate (261 checks, 34 s), the driver gate (69 checks, 48 s) and the ccllib gate over
+libc++ 22 (188 checks, 468 s), each GREEN; the ccllib gate GREEN over libc++ 21 and 18 too, each over a fresh HOME (452
+s and 463 s; 188 checks each, none skipped): 13 programs in three runs, 51 refused, 4 alone -- each call by name of the
+thirteen programs and the four that stand alone finds the function that it found before, and none has an argument that
+the new refusals meet. The pool of the C++ run fixtures that include no header but the small C ones, three at a time
+over a fresh HOME and libc++ 22: 361 fixtures, and each prints its expected lines (44 s, peak 398 MB). By hand, since
+the C++ gate runs with the chain: the eleven C fixtures that the C++ gate builds as C++ (`typednames` among them) and
+`test/cpp/run/opcpp.cpp`, `elemborrowpp.cpp` and `borrowkeep.cpp` print their expected lines, and its refusals over a
+macro file are refused (14 checks, 7 s).
+
+NO CHAIN RAN for this step (the owner's rule of 0.271), and it claims nothing GREEN but the nets above. No CI job ran.
+
+- `library/ccl_syntax.pl`: `ccl_inst_call/4`, `ccl_inst_call_fn/5`, `ccl_inst_call_name/6`, `ccl_inst_call_count/3`,
+  `ccl_inst_call_miscount/4`, `ccl_arg_type_words/2`, `ccl_inst_call_arg/5`, `ccl_inst_call_other/3`, `ccl_iop_typed/4`,
+  the reader's version. `library/ccl_ir.pl`: `ir_convert/6`, `ir_type_text/2`, the lowering's version. `test/reader.pl`:
+  `k159`, `k160`, `k161`. `test/driver.sh`: a check, and a form of 0.286's. `test/cpp.sh`: `typednames` in its list. The
+  fixtures. `RULES.md` (the macro files' topic, the lowering's values, Not done), `CLAUDE.md`, `README.md`, `CCLLIB.md`.
+
+The module 0.288, the reader 186 and the lowering 160.

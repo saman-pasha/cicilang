@@ -668,6 +668,44 @@ k158 :- check('the address of an element that [] gives as a place is the place\'
     ( fn_body('run/operators.c', main, B), sub_t(var(q, _, addr(deref(call(id(F), [addr(id(r)), int(2)])))), B), F == ring_int_4_index,
       op_refused('op_item_addr.c', 7, 'the address of an element of bits_12 is not taken: v[i] is a value there, with no place of its own') )).
 
+%% CALLS BY NAME TOLD BY AN ARGUMENT'S TYPE (0.288): test/c/run/typednames.c over its tnames.pl
+k159 :- check('a call by name asks the function named with the word of an argument\'s type before the plain one: a text, a literal, an array of char, a pointer to const char, a character; a form told by the count, and by the count with the word; the third argument\'s word',
+    ( fn_body('run/typednames.c', main, B), atom_codes(ef, S1),
+      sub_t(call(id(text_char_append), [addr(id(a)), addr(id(b))]), B),
+      sub_t(call(id(text_char_append_ptr_const_char), [addr(id(a)), str(S1)]), B),
+      sub_t(call(id(text_char_append_ptr_const_char), [addr(id(a)), id(buf)]), B),
+      sub_t(call(id(text_char_append_ptr_const_char), [addr(id(a)), id(q)]), B),
+      sub_t(call(id(text_char_append3), [addr(id(a)), int(2), _]), B),
+      sub_t(call(id(text_char_append3_ptr_const_char), [addr(id(a)), _, int(2)]), B),
+      sub_t(call(id(text_char_insert_ptr_const_char), [addr(id(a)), int(2), _]), B),
+      sub_t(call(id(text_char_insert), [addr(id(a)), int(0), addr(id(b))]), B),
+      sub_t(call(id(text_char_find_int), [addr(id(a)), _]), B),
+      sub_t(call(id(text_char_find_char), [addr(id(a)), id(c)]), B) )).
+
+k160 :- check('an operator\'s typed name and _of ask each word that the type asks: C\'s literal, a char *, takes the function named for the pointer to const, and a typedef of the instance asks the instance\'s names',
+    ( fn_body('run/typednames.c', main, B), atom_codes(ab, S1), atom_codes(cd, S2),
+      sub_t(var(a, _, call(id(text_char_of_ptr_const_char), [str(S1)])), B),
+      sub_t(var(b, _, call(id(text_char_of_ptr_const_char), [str(S2)])), B),
+      sub_t(call(id(text_char_add_assign_ptr_const_char), [addr(id(a)), _]), B),
+      sub_t(call(id(text_char_add_assign), [addr(id(a)), addr(id(b))]), B),
+      sub_t(call(id(text_char_add_assign_ptr_const_char), [addr(id(b)), id(buf)]), B),
+      sub_t(call(id(text_char_eq_ptr_const_char), [addr(id(a)), _]), B) )).
+
+%% A CALL BY NAME'S ARGUMENT WHERE THE FUNCTION TAKES A POINTER TO THE INSTANCE, AND ITS COUNT OF ARGUMENTS (0.288):
+%% name_arg_ok.c, and the refusals name_arg_num.c, name_arg_text.c, name_arg_ptr.c, name_arg_other.c and name_arg_count.c
+k161 :- check('where a function called by name takes a pointer to the instance, an object goes by its address and a pointer to the instance, a pointer to void and a conditional of two pointers as they are written; a number, a C text, a pointer to another type and an object of another instance are refused at their lines by name, and so is a call with another count of arguments than its function takes',
+    ( fn_body('name_arg_ok.c', main, B),
+      sub_t(call(id(text_char_append), [addr(id(a)), addr(id(b))]), B),
+      sub_t(call(id(text_char_append), [addr(id(a)), id(pb)]), B),
+      sub_t(call(id(text_char_append), [addr(id(a)), id(vp)]), B),
+      sub_t(call(id(text_char_insert), [addr(id(a)), int(1), cond(_, id(pb), addr(id(b)))]), B),
+      sub_t(call(id(text_char_find), [addr(id(a)), id(pb)]), B),
+      op_refused('name_arg_num.c', 8, 'append of text_char takes an object of text_char, which its argument of the type int is not: its type macro defines no text_char_append_int'),
+      op_refused('name_arg_text.c', 7, 'eq of stack_int takes an object of stack_int, which its argument of the type ptr_char is not: its type macro defines no stack_int_eq_ptr_char'),
+      op_refused('name_arg_ptr.c', 9, 'append of text_char takes an object of text_char, which its argument of the type ptr_long is not: its type macro defines no text_char_append_ptr_long'),
+      op_refused('name_arg_other.c', 10, 'append of text_char takes an object of text_char, which its argument of the type stack_int is not: its type macro defines no text_char_append_stack_int'),
+      op_refused('name_arg_count.c', 9, 'insert of text_char takes 3 argument(s), and the call has 2') )).
+
 k110 :- check('a type macro that fails, two instances that one name names, and a typed call of a macro with no typed form are refused at the use',
     ( c('tmacro_fail.c', P1), c('tmacro.pl', M), catch(cicilang_ast(P1, _), error(E1, here(P1, 3, in_macro(type_none, M))), true), E1 == macro_failed(none, [base([], [int])]),
       c('tmacro_same.c', P2), catch(cicilang_ast(P2, _), error(macro_error(pair, _, error(ctext_error(T2), _)), here(P2, 7, _)), true),
@@ -970,6 +1008,10 @@ t_checks :-
     k157,
     section('the address of an element: a place\'s is taken, a value\'s refused (0.286)'),
     k158,
+    section('calls by name told by an argument\'s type; each word that a type asks (0.288)'),
+    k159,
+    k160,
+    k161,
     section('the preprocessor, in cocolog: a header raw cannot take'),
     k83,
     section('the lexer, native: ccl_lex_native/6 token for token with the DCG'),

@@ -1,0 +1,1 @@
+swap of vector_int takes an object of vector_int, which its argument of the type vector_double is not: its type macro defines no vector_int_swap_vector_double
