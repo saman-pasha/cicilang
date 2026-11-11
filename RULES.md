@@ -72,14 +72,15 @@ that changes a rule edits the rule here, in its topic, and writes its entry in `
   `llvm@N`, libc++'s library under the keg's `lib/c++`, the hints are `brew install`, the SDK is a line of its own (the
   first of `ccl_sdk_dirs/1`'s directories with a `stdio.h`, with macOS's version and the SDK's for Apple's clang), and
   the cross gate is a skip line. (0.223, 0.224)
-- THE PINS (0.223). `test/toolchain.pins` holds the neighbours' commits and versions -- cocolog 3.37.0 `74183ae`, Cicili
+- THE PINS (0.223). `test/toolchain.pins` holds the neighbours' commits and versions -- cocolog 3.62.2 `7e4bac2`, Cicili
   3.3.0 `3ba2ca4`, ZiguratIP 1.0.2 `2a65f81` -- the embedded LLVM's major version (18) and the libc++ trees the C++
   gates read (18, 21 and 22, the third since 0.227). A pin moves in the step that runs the chain over it, and since
   0.259 cocolog is taken at its latest master every time (the owner's rule, `CLAUDE.md`), so that its pin moves in each
   step that finds a new one: cocolog's moved at 0.226, from 2.13.0 `7ff2a0d`, at 0.254, from 2.14.1 `1e48013`, beside
   Cicili's (from `9b825b7`, its `.gitignore` alone) and ZiguratIP's (from `90d99b8`, its Mac install alone), at 0.255,
-  from 3.16.0 `e965a6e`, at 0.256, from 3.18.0 `914e98a`, and at 0.259, from 3.19.2 `81579bd`, beside ZiguratIP's (from
-  `5f058e7`, 1.0.1) (the Findings). (0.223, 0.226, 0.227, 0.254, 0.255, 0.256, 0.259)
+  from 3.16.0 `e965a6e`, at 0.256, from 3.18.0 `914e98a`, at 0.259, from 3.19.2 `81579bd`, beside ZiguratIP's (from
+  `5f058e7`, 1.0.1), and at 0.292, from 3.37.0 `74183ae` (the Findings). (0.223, 0.226, 0.227, 0.254, 0.255, 0.256,
+  0.259, 0.292)
 - THE CI JOB (0.223). `.github/workflows/gates.yml` runs `test/ci.sh` on GitHub's machines, ON REQUEST AND ON A PULL
   REQUEST ALONE (the owner's rules, 0.271: "Do not run github CI after each change", then "disable nightly run"; from
   0.223 to 0.270 each push to main ran the smoke job, three machines a commit, and each night ran the full job and the
@@ -12221,33 +12222,56 @@ in the first topic (The ccllib gate).
   `module/build-llvm.sh`, and cocolog's `os` and `process` modules); 1.8.36 to 1.8.41 left the SDK's ABI unchanged.
   (0.46, 0.112, 0.114)
 - COCOLOG 3.62 HAS `public` AND `dynamic` AS PREFIX OPERATORS, as swipl has (reported at 0.290 by a program that runs
-  this library over cocolog 3.62.0; NOT RUN HERE, whose cocolog is 3.37.0 on the owner's word): `A \== public, ...` and
-  `K \== dynamic ; ...` are no terms there, the three clauses that had them did not load -- `cpp_check_access/4` in
-  `ccl_cpp_class.pl`, `cpp_nonpublic_data/2` in `ccl_cpp_layout.pl`, `cpp_prvalue_shape/1` in `ccl_cpp_deduce.pl` --,
-  and the load's three errors were printed after every failed build. AN OPERATOR ATOM THAT STANDS BETWEEN AN INFIX
-  OPERATOR AND A COMMA, A SEMICOLON OR AN ARROW IS WRITTEN IN PARENTHESES, `(public)`, the form that standard Prolog
-  reads as the atom (3.37.0 does; 3.62 was not run). The seven places where such an atom stands before a closing
-  parenthesis (`A0 = public )`) are as they were: the report's load took them. (0.290)
-- cocolog is at 3.37.0 since 0.259, taken at its latest master by the owner's rule ("Use latest cocolog everytime";
-  `CLAUDE.md`) -- `74183ae`, twenty-eight commits past 3.19.2 (0.258's chain ran on 3.19.4 as checked out), over
-  ZiguratIP 1.0.2 (`2a65f81`: a row's chain read inside its page's hexmap slice) beside Cicili 3.3.0 (`3ba2ca4`), which
-  did not move. Its master moved four times while the step ran (3.33.0, 3.34.0, 3.34.1, then 3.35.0 to 3.37.0), and each
-  was taken before the chain; during the chain it moved to 3.39.0 (`22fbc08`), the next step's: 3.38.0's `clause/2` of a
-  predicate written in C raises, which each of the objects layer's three calls catches, and 3.39.0 changes `repeat/0`,
-  which nothing of cicilang's calls. What reaches cicilang: 3.28.0's `retract/1` ANSWERS AGAIN on backtracking and
-  `clause/2` sees the clauses that stood when it began, as swipl's, so that `forall(retract(P), G)` takes every clause
-  of P, where through 3.27 it took the first alone -- `cpp_declare_later/1` declares every member that waited for its
-  class's friends (`autofriend2.cpp`, refused `auto_result` on 3.19.4; Friends) and `cpp_register_units/1` puts back
-  every header class's set-apart static initializations (`'$cpp_hdr_pre'`; How the library is compiled); THE LOADS'
-  WARNINGS, which 3.19.5 makes by swipl's two passes, said `Clauses of state/1 are not together in the source-file` of
-  the tutorials' objects, on 3.19.4 too: `end_object` declares the names an object took discontiguous now
-  (`'$ccl_apart'/1`; the objects gate), and every load of the library, of the eleven gate programs and macro files and
-  of the three tutorials is silent over 3.34.1 and 3.37.0; 3.35.0 READS AND WRITES NAMES PAST ASCII AS SWIPL'S (`été` an
-  atom, `Été` a variable; `writeq/1` and `term_to_atom/2` write such an atom bare, where they quoted it): the summaries,
-  the AST files and the store hold such names bare and read them back, and the fixtures with names past ASCII (ten C
-  ones in the compile gate, and `idchars.cpp`, `identutf8.cpp`, `u8lit.cpp`, `u8lit20.cpp`, `widesv.cpp`) print what
-  they printed; 3.36.0's `abolish/1` takes a predicate's declarations too, so that a later call raises
-  `existence_error`, and of a library's predicate only the program's clauses: each of the library's two calls is
+  this library over cocolog 3.62.0, and run here since 0.292, over 3.62.2): `A \== public, ...` and `K \== dynamic ;
+  ...` are no terms there, the three clauses that had them did not load -- `cpp_check_access/4` in `ccl_cpp_class.pl`,
+  `cpp_nonpublic_data/2` in `ccl_cpp_layout.pl`, `cpp_prvalue_shape/1` in `ccl_cpp_deduce.pl` --, and the load's three
+  errors were printed after every failed build. AN OPERATOR ATOM THAT STANDS BETWEEN AN INFIX OPERATOR AND A COMMA, A
+  SEMICOLON OR AN ARROW IS WRITTEN IN PARENTHESES, `(public)`, the form that standard Prolog reads as the atom (3.37.0
+  does, and 3.62.2: the chain of 0.292). The seven places where such an atom stands before a closing parenthesis (`A0 =
+  public )`) are as they were: the report's load took them. (0.290, 0.292)
+- cocolog is at 3.62.2 since 0.292, taken at its latest master on the owner's word ("pull repos and update pins") --
+  `7e4bac2`, fifty-nine commits past 3.37.0, thirty-seven versions of cocolog's own among them, from 3.38.0, and the
+  rest its reasoning library's and the merges of that library's branch --, beside ZiguratIP 1.0.2 (`2a65f81`) and Cicili
+  3.3.0 (`3ba2ca4`), which have no new commit. ITS BUILD NEEDS `ZIGURATIP` where the checkout is not `$HOME/ZiguratIP`:
+  `embed/build.sh` links ZiguratIP's engine at that path, and `make` fails in Cicili with `FILE-DOES-NOT-EXIST ...
+  embed/mvccs-lib.cicili` where the link names no checkout. AND `module/build-llvm.sh` READS `LLVM`, which the C++ gates
+  set to a libc++ tree's: the embedded LLVM is built with `LLVM=/usr/lib/llvm-18`, the pins' major version (built over
+  the shell's `LLVM=/usr/lib/llvm-22`, it was 22.1.8, and was built again). What reaches cicilang: 3.62.0's reader takes
+  `public` and `dynamic` as prefix operators (the bullet above); A LOAD NAMES A VARIABLE THAT A CLAUSE NAMES ONCE,
+  swipl's warning, which 3.37.0 did not give -- one, in `library/ccllib/bitset.pl`'s `fn_bitset/3`, `_` now --, and
+  every load of the library in one process, and of each gate program, macro file and tutorial alone, 46 in all, is
+  silent. The rest reaches nothing that a gate sees: `clause/2` of a predicate written in C raises (3.38.0), which each
+  of the objects layer's three calls catches; `repeat/0`, `numbervars/3,4`, `predicate_property/2` and
+  `current_predicate/1` as swipl's (3.39.0 to 3.42.0); the lists' sums and sets, and `nth0/3` and `nth1/3` over a
+  partial list (3.42.1, 3.42.3); the meta-calls' modules and qualifiers (3.43.0 to 3.46.0); what the builtins ask of
+  their arguments, and in what order (3.47.0); what a program sees of the system's predicates and of cocolog's own
+  helpers (3.48.0, 3.48.1); a body's `X = X` kept as `true` (3.48.3); `write_term/2`'s options and `print/1`'s
+  `portray/1` (3.49.0 to 3.56.0); `sort/4`'s key paths, `prolog_load_context/2` and `b_setval/2` (3.50.0 to 3.52.0);
+  `halt/0` in a nested search (3.57.0); a load's source encodings, and `system:G` of a name that a program took over
+  (3.58.0, 3.58.1); `sub_atom/5` (3.58.2); a write and a read too deep for the C stack (3.59.0, 3.60.0); an expression
+  evaluated from its last argument (3.61.0); `read_file_to_codes/2`'s ceiling (3.62.2). `make` took 215 s (peak 2566
+  MB), `make schema` 27 s and `make modules` 50 s, and both modules were built again over it. The chain over it GREEN
+  (What runs). The reader stays 188 and the lowering 162. (0.292)
+- cocolog was at 3.37.0 from 0.259 to 0.291, taken at its latest master by the owner's rule ("Use latest cocolog
+  everytime"; `CLAUDE.md`) -- `74183ae`, twenty-eight commits past 3.19.2 (0.258's chain ran on 3.19.4 as checked out),
+  over ZiguratIP 1.0.2 (`2a65f81`: a row's chain read inside its page's hexmap slice) beside Cicili 3.3.0 (`3ba2ca4`),
+  which did not move. Its master moved four times while the step ran (3.33.0, 3.34.0, 3.34.1, then 3.35.0 to 3.37.0),
+  and each was taken before the chain; during the chain it moved to 3.39.0 (`22fbc08`), the next step's: 3.38.0's
+  `clause/2` of a predicate written in C raises, which each of the objects layer's three calls catches, and 3.39.0
+  changes `repeat/0`, which nothing of cicilang's calls. What reaches cicilang: 3.28.0's `retract/1` ANSWERS AGAIN on
+  backtracking and `clause/2` sees the clauses that stood when it began, as swipl's, so that `forall(retract(P), G)`
+  takes every clause of P, where through 3.27 it took the first alone -- `cpp_declare_later/1` declares every member
+  that waited for its class's friends (`autofriend2.cpp`, refused `auto_result` on 3.19.4; Friends) and
+  `cpp_register_units/1` puts back every header class's set-apart static initializations (`'$cpp_hdr_pre'`; How the
+  library is compiled); THE LOADS' WARNINGS, which 3.19.5 makes by swipl's two passes, said `Clauses of state/1 are not
+  together in the source-file` of the tutorials' objects, on 3.19.4 too: `end_object` declares the names an object took
+  discontiguous now (`'$ccl_apart'/1`; the objects gate), and every load of the library, of the eleven gate programs and
+  macro files and of the three tutorials is silent over 3.34.1 and 3.37.0; 3.35.0 READS AND WRITES NAMES PAST ASCII AS
+  SWIPL'S (`été` an atom, `Été` a variable; `writeq/1` and `term_to_atom/2` write such an atom bare, where they quoted
+  it): the summaries, the AST files and the store hold such names bare and read them back, and the fixtures with names
+  past ASCII (ten C ones in the compile gate, and `idchars.cpp`, `identutf8.cpp`, `u8lit.cpp`, `u8lit20.cpp`,
+  `widesv.cpp`) print what they printed; 3.36.0's `abolish/1` takes a predicate's declarations too, so that a later call
+  raises `existence_error`, and of a library's predicate only the program's clauses: each of the library's two calls is
   followed by a declaration (`cpp_reset/1`'s `dynamic/1`, `end_object`'s `discontiguous/1`). The rest calls nothing of
   cicilang's: swipl's control constructs `$/1`, `G@M` and `$/0` (3.20.0, 3.21.0); no choice point at the last answer of
   `member/2`, `select/3`, `nth0/3`, `nth1/3`, `between/3`, `library(apply)`, `current_op/3`, `current_predicate/1`,
@@ -12258,9 +12282,9 @@ in the first topic (The ccllib gate).
   now, and neither module installs one); `op/3` of a name of any length (3.34.1); a damaged store's message (3.36.1);
   `listing/1`'s argument (3.37.0). A C store and C++ summaries that 3.19.4 wrote serve 3.37.0, at another path too since
   the fix of 0.259 (`absbase.cpp` in 7 s, no summary written again; 19 s over a fresh store). The update to 3.37.0 took
-  `make` 177 s (peak 2218 MB), `make schema` 24 s and `make modules` 42 s (to 3.34.1 175 s, peak 2079 MB, 27 s and
-  48 s); both modules were built again over each. The chain over it GREEN (What runs). The reader stays 170 and the
-  lowering 150. (0.259)
+  `make` 177 s (peak 2218 MB), `make schema` 24 s and `make modules` 42 s (to 3.34.1 175 s, peak 2079 MB, 27 s and 48
+  s); both modules were built again over each. The chain over it GREEN (What runs). The reader stays 170 and the
+  lowering 150. (0.259, 0.292)
 - cocolog was at 3.19.2 at 0.256, pulled at the owner's word ("Pull repos and run the chain over 3.19.2", then "move
   the pins, commit and push when all GREEN") -- master `81579bd`, three commits past 3.18.0, over ZiguratIP 1.0.1
   (`5f058e7`) beside Cicili 3.3.0 (`3ba2ca4`), neither moved. 3.19.0: `Head => Body` and `Head, Guard => Body` are
@@ -13065,64 +13089,66 @@ in the first topic (The ccllib gate).
 - Ubuntu 24.04 on x86_64 (clang and LLVM 18, glibc, libc++ 18, 21 and 22) is a host since 0.87. Every gate but the C++
   one is GREEN there since 0.93, and all seven since 0.95. Every step from 0.93 on is gated there, but the save points
   0.112, 0.113, 0.117, 0.122 to 0.125, 0.130, 0.131 and 0.143 (0.143's C gates and cross gate ran, its libc++ gates did
-  not; the others were gated by the steps after them). The last full run is 0.259's chain, over its work tree and
-  cocolog 3.37.0 and ZiguratIP 1.0.2 at the pins moved to them (the toolchain check strict GREEN), its two modules built
-  over them, over fresh HOMEs: over libc++ 18 all nine GREEN (the flow gate with no finding in 87 s, reader 2 s, compile
-  24 s, driver 33 s, objects 5 s, proof, the cross gate in 301 s with its C++ part for aarch64, the library read in
-  403 s, the C++ gate in 1254 s with 866 fixtures ok and 11 skipped by their needs); over libc++ 21 the library read
-  (346 s) and the C++ gate (1298 s, 874 ok, 3 skipped) GREEN, and over libc++ 22 the library read (360 s) and the C++
-  gate (1297 s, 877 ok, none skipped) GREEN. 0.258's chain, over its work tree and cocolog 3.19.4 and ZiguratIP 1.0.2 as
-  checked out (the toolchain check GREEN, 3 off the pins, which stay at 3.19.2),
+  not; the others were gated by the steps after them). The last full run is 0.292's chain, over its work tree and
+  cocolog 3.62.2, ZiguratIP 1.0.2 and Cicili 3.3.0 at the pins moved to them, its two modules built over them, over a
+  fresh HOME a part: over libc++ 22 the library read 426 s, the C++ gate 1468 s (1092 ok, none skipped) and the ccllib
+  gate 546 s (222 checks); over libc++ 21 the library read 406 s, the C++ gate 1440 s (1089 ok, 3 skipped by their
+  needs) and the ccllib gate 533 s (222 checks); over libc++ 18 all eleven GREEN, the toolchain check strict -- the flow
+  gate 162 s with no finding, reader 4 s, compile 33 s, driver 53 s, objects 5 s, the proof, the cross gate 359 s, the
+  library read 461 s, the C++ gate 1380 s (1081 ok, 11 skipped by their needs) and the ccllib gate 577 s (222 checks);
+  in 7854 s in all. The ccllib gate holds 14 programs in three runs, 64 refused and 5 alone over each tree. 0.259's
+  chain, over its work tree and cocolog 3.37.0 and ZiguratIP 1.0.2 at the pins moved to them (the toolchain check strict
+  GREEN), its two modules built over them, over fresh HOMEs: over libc++ 18 all nine GREEN (the flow gate with no
+  finding in 87 s, reader 2 s, compile 24 s, driver 33 s, objects 5 s, proof, the cross gate in 301 s with its C++ part
+  for aarch64, the library read in 403 s, the C++ gate in 1254 s with 866 fixtures ok and 11 skipped by their needs);
+  over libc++ 21 the library read (346 s) and the C++ gate (1298 s, 874 ok, 3 skipped) GREEN, and over libc++ 22 the
+  library read (360 s) and the C++ gate (1297 s, 877 ok, none skipped) GREEN. 0.258's chain, over its work tree and
+  cocolog 3.19.4 and ZiguratIP 1.0.2 as checked out (the toolchain check GREEN, 3 off the pins, which stay at 3.19.2),
   its two modules built over it, over fresh HOMEs: over libc++ 18 all nine GREEN (the flow gate's one finding in 162 s,
   reader 2 s, compile 31 s, driver 35 s, objects 5 s, proof, the cross gate in 327 s with its C++ part for aarch64, the
   library read in 421 s, the C++ gate in 1347 s with 865 fixtures ok and 11 skipped by their needs); over libc++ 21 the
   library read (373 s) and the C++ gate (1362 s, 873 ok, 3 skipped) GREEN, and over libc++ 22 the library read (503 s)
-  and the C++ gate (1379 s, 876 ok, none skipped) GREEN. 0.257's chain, over its work tree and
-  cocolog 3.19.4 and ZiguratIP 1.0.2 as checked out (the toolchain check GREEN, 3 off the pins -- cocolog's version and
-  checkout, ZiguratIP's checkout -- which stay at 3.19.2; the CI runs them), its two modules built over it, over fresh
-  HOMEs: over libc++ 18 all nine GREEN (the flow gate's one finding in 119 s, reader 3 s, compile 33 s, driver 44 s,
-  objects 6 s, proof, the cross gate in 393 s with its C++ part for aarch64, the library read in 551 s, the C++ gate in
-  1443 s with 857 fixtures ok and 11 skipped by their needs); over libc++ 21 the library read (501 s) and the C++ gate
-  (1623 s, 865 ok, 3 skipped) GREEN, and over libc++ 22 the library read (532 s) and the C++ gate (1795 s, 868 ok, none
-  skipped) GREEN. 0.256's chain, over its work tree (the library of 0.255) and cocolog 3.19.2 (the Findings), its two
-  modules built over it, over fresh HOMEs: the toolchain
-  check against 0.255's pins (cocolog 2 off them), then over libc++ 18 all nine GREEN (the flow gate's one finding in
-  157 s, reader 4 s, compile 42 s, driver 52 s, objects 7 s, proof, the cross gate in 497 s with its C++ part for
-  aarch64, the library read in 731 s, the C++ gate in 1942 s with 852 fixtures ok and 11 skipped by their needs); over
-  libc++ 21 the library read (677 s) and the C++ gate (1942 s, 860 ok, 3 skipped) GREEN, and over libc++ 22 the library
-  read (673 s) and the C++ gate (2147 s, 863 ok, 0 skipped) GREEN; with the pins moved, the toolchain check strict
-  GREEN. 0.255's chain, over cocolog 3.18.0, its work tree the library of 0.254: the toolchain check against 0.254's
-  pins (cocolog 2 off them), then over libc++ 18 all nine GREEN (the flow gate's one finding in
-  152 s, reader 4 s, compile 42 s, driver 51 s, objects 7 s, proof, the cross gate in 498 s with its C++ part for
-  aarch64, the library read in 738 s, the C++ gate in 2113 s with 852 fixtures ok and 11 skipped by their needs); over
-  libc++ 21 the library read (720 s) and the C++ gate (2034 s, 860 ok, 3 skipped) GREEN, and over libc++ 22 the library
-  read (696 s) and the C++ gate (2056 s, 863 ok, 0 skipped) GREEN; with the pins moved, the toolchain check strict
-  GREEN. 0.254's chain, over cocolog 3.16.0, its work tree the commit's: the toolchain check strict against the pins,
-  then over libc++ 18 all nine GREEN (the flow gate's one finding in 105 s, reader 2 s, compile
-  30 s, driver 39 s, objects 5 s, proof, the cross gate in 344 s with its C++ part for aarch64, the library read in
-  491 s, the C++ gate in 1384 s with 852 fixtures ok and 11 skipped by their needs); over libc++ 21 the library read
-  (445 s) and the C++ gate (1429 s, 860 ok, 3 skipped) GREEN, and over libc++ 22 the library read (432 s) and the C++
-  gate (1409 s, 863 ok, 0 skipped) GREEN. 0.227's chain, over cocolog 2.14.1, its two modules built at 0.227, over fresh
-  HOMEs: the toolchain check,
-  then over libc++ 18 all nine GREEN (the flow gate's one finding in 186 s, reader 2 s, compile 30 s, driver 26 s,
-  objects 4 s, proof, the cross gate in 327 s with its C++ part for aarch64, the library read in 522 s, the C++ gate in
-  1381 s with 829 of 839 fixtures ok, the skips are `atomicref`, `atomicrefalign`, `ftm23b`, `ftm26b`, `joinwith`,
-  `stdflatmap`, `stdoptionalref`, `tzone`, `vbaseof` and `zipadjacent`, the two units, the 30 refusals, the 35 of the
-  safe part and the eight static assertions); over libc++ 21 the library read (457 s) and the C++ gate (1401 s, 837 of
-  839 ok, the skips `stdoptionalref` and `zipadjacent`) GREEN, and over libc++ 22 the library read (461 s) and the C++
-  gate (1427 s, 839 of 839 ok, none skipped) GREEN -- the C gates do not read libc++. The headers' reads, summed, took
-  1949 s over 226 over libc++ 18, 1679 s over 226 over 21 and 1693 s over 226 over 22; the fixtures' builds 4500 s over
-  829, 4624 s over 837 and 4737 s over 839 (0.226's: 1997 s, 1723 s, 4560 s, 4728 s). The chains of 0.165 to 0.203, of
-  0.205 to 0.219, of 0.221, of 0.223, of 0.226, of 0.227, of 0.254, of 0.255, of 0.256, of 0.257 and of 0.258 are in
-  HISTORY.md, 0.166 to 0.204, 0.206 to 0.220, 0.222, 0.223, 0.226, 0.227, 0.254, 0.255, 0.256, 0.257 and 0.258. Three
-  libc++ passes are one
-  gate (0.227):
-  `LLVM=/usr/lib/llvm-18`,
-  `LLVM=/usr/lib/llvm-21` and
-  `LLVM=/usr/lib/llvm-22` choose the tree the chain reads and links, apt's one and the two unpacked beside it (the
-  link's libraries, the driver topic). 0.182 built libc++ 22's vector and its C++23 views by hand (`zipadjacent.cpp`,
-  which its `.needs` skips over 18 and 21), a gate's since 0.227. The run before 0.121's (0.118, 0.119) found, over
-  0.117, two defects and one stale check of `test/cpp.pl` (c20, above).
+  and the C++ gate (1379 s, 876 ok, none skipped) GREEN. 0.257's chain, over its work tree and cocolog 3.19.4 and
+  ZiguratIP 1.0.2 as checked out (the toolchain check GREEN, 3 off the pins -- cocolog's version and checkout,
+  ZiguratIP's checkout -- which stay at 3.19.2; the CI runs them), its two modules built over it, over fresh HOMEs: over
+  libc++ 18 all nine GREEN (the flow gate's one finding in 119 s, reader 3 s, compile 33 s, driver 44 s, objects 6 s,
+  proof, the cross gate in 393 s with its C++ part for aarch64, the library read in 551 s, the C++ gate in 1443 s with
+  857 fixtures ok and 11 skipped by their needs); over libc++ 21 the library read (501 s) and the C++ gate (1623 s, 865
+  ok, 3 skipped) GREEN, and over libc++ 22 the library read (532 s) and the C++ gate (1795 s, 868 ok, none skipped)
+  GREEN. 0.256's chain, over its work tree (the library of 0.255) and cocolog 3.19.2 (the Findings), its two modules
+  built over it, over fresh HOMEs: the toolchain check against 0.255's pins (cocolog 2 off them), then over libc++ 18
+  all nine GREEN (the flow gate's one finding in 157 s, reader 4 s, compile 42 s, driver 52 s, objects 7 s, proof, the
+  cross gate in 497 s with its C++ part for aarch64, the library read in 731 s, the C++ gate in 1942 s with 852 fixtures
+  ok and 11 skipped by their needs); over libc++ 21 the library read (677 s) and the C++ gate (1942 s, 860 ok, 3
+  skipped) GREEN, and over libc++ 22 the library read (673 s) and the C++ gate (2147 s, 863 ok, 0 skipped) GREEN; with
+  the pins moved, the toolchain check strict GREEN. 0.255's chain, over cocolog 3.18.0, its work tree the library of
+  0.254: the toolchain check against 0.254's pins (cocolog 2 off them), then over libc++ 18 all nine GREEN (the flow
+  gate's one finding in 152 s, reader 4 s, compile 42 s, driver 51 s, objects 7 s, proof, the cross gate in 498 s with
+  its C++ part for aarch64, the library read in 738 s, the C++ gate in 2113 s with 852 fixtures ok and 11 skipped by
+  their needs); over libc++ 21 the library read (720 s) and the C++ gate (2034 s, 860 ok, 3 skipped) GREEN, and over
+  libc++ 22 the library read (696 s) and the C++ gate (2056 s, 863 ok, 0 skipped) GREEN; with the pins moved, the
+  toolchain check strict GREEN. 0.254's chain, over cocolog 3.16.0, its work tree the commit's: the toolchain check
+  strict against the pins, then over libc++ 18 all nine GREEN (the flow gate's one finding in 105 s, reader 2 s, compile
+  30 s, driver 39 s, objects 5 s, proof, the cross gate in 344 s with its C++ part for aarch64, the library read in 491
+  s, the C++ gate in 1384 s with 852 fixtures ok and 11 skipped by their needs); over libc++ 21 the library read (445 s)
+  and the C++ gate (1429 s, 860 ok, 3 skipped) GREEN, and over libc++ 22 the library read (432 s) and the C++ gate (1409
+  s, 863 ok, 0 skipped) GREEN. 0.227's chain, over cocolog 2.14.1, its two modules built at 0.227, over fresh HOMEs: the
+  toolchain check, then over libc++ 18 all nine GREEN (the flow gate's one finding in 186 s, reader 2 s, compile 30 s,
+  driver 26 s, objects 4 s, proof, the cross gate in 327 s with its C++ part for aarch64, the library read in 522 s, the
+  C++ gate in 1381 s with 829 of 839 fixtures ok, the skips are `atomicref`, `atomicrefalign`, `ftm23b`, `ftm26b`,
+  `joinwith`, `stdflatmap`, `stdoptionalref`, `tzone`, `vbaseof` and `zipadjacent`, the two units, the 30 refusals, the
+  35 of the safe part and the eight static assertions); over libc++ 21 the library read (457 s) and the C++ gate (1401
+  s, 837 of 839 ok, the skips `stdoptionalref` and `zipadjacent`) GREEN, and over libc++ 22 the library read (461 s) and
+  the C++ gate (1427 s, 839 of 839 ok, none skipped) GREEN -- the C gates do not read libc++. The headers' reads,
+  summed, took 1949 s over 226 over libc++ 18, 1679 s over 226 over 21 and 1693 s over 226 over 22; the fixtures' builds
+  4500 s over 829, 4624 s over 837 and 4737 s over 839 (0.226's: 1997 s, 1723 s, 4560 s, 4728 s). The chains of 0.165 to
+  0.203, of 0.205 to 0.219, of 0.221, of 0.223, of 0.226, of 0.227, of 0.254, of 0.255, of 0.256, of 0.257 and of 0.258
+  are in HISTORY.md, 0.166 to 0.204, 0.206 to 0.220, 0.222, 0.223, 0.226, 0.227, 0.254, 0.255, 0.256, 0.257 and 0.258.
+  Three libc++ passes are one gate (0.227): `LLVM=/usr/lib/llvm-18`, `LLVM=/usr/lib/llvm-21` and `LLVM=/usr/lib/llvm-22`
+  choose the tree the chain reads and links, apt's one and the two unpacked beside it (the link's libraries, the driver
+  topic). 0.182 built libc++ 22's vector and its C++23 views by hand (`zipadjacent.cpp`, which its `.needs` skips over
+  18 and 21), a gate's since 0.227. The run before 0.121's (0.118, 0.119) found, over 0.117, two defects and one stale
+  check of `test/cpp.pl` (c20, above).
 - The host sets the predefined macros (`ccl_host_os/1` and `ccl_host_arch/1` in the module), the inclusion path
   (Debian's `/usr/lib/llvm-NN`, the multiarch directory) and the link (`-lc++` and `-lm` on Linux) (0.87, 0.93, 0.100).
 - A struct passed or returned by value crosses a call as clang's x86-64 code expects, in both directions, with the

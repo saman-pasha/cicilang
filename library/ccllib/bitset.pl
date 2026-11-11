@@ -29,7 +29,7 @@ type_bitset([int(K)], base([], [typedef(N)]), Items) :- integer(K), !,
     ccllib_bitset_holes(K, N, Hs), ccl_c_items("typedef struct @N { unsigned long long w[@w]; } @N;", Hs, Items).
 type_bitset(_, _, _) :- ccl_macro_error('a bitset takes the count of its bits, a number').
 fn_bitset(Name, [int(K)], Items) :-
-    integer(K), ccllib_bitset_fn(Name, Text), ccllib_bitset_holes(K, N, Hs), ccl_c_items(Text, Hs, Items).
+    integer(K), ccllib_bitset_fn(Name, Text), ccllib_bitset_holes(K, _, Hs), ccl_c_items(Text, Hs, Items).
 %% the holes of a text: @N the instance's name, @k the count of its bits, @w the count of its words
 ccllib_bitset_holes(K, N, ['N' = name(N), k = name(KA), w = name(WA)]) :-
     ccl_instance_name(bitset, [K], N), W is (K + 63) // 64, atom_number(KA, K), atom_number(WA, W).

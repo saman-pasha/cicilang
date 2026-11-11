@@ -34,7 +34,7 @@ reads only plain C. "Cheaper" is measured, never claimed: each phase 1 program i
   map's two types are written with a colon (2026-11-08: "Use : in map literal type section").
 - Instances are implicit: each unit that uses `vector<int>` makes it once, as `linkonce_odr`, and the linker keeps one.
 - C-text comes first: a macro author writes C text with holes, and the reader reads it.
-- cocolog is pulled and built again on the owner's word (until then it stays 3.37.0, `74183ae`).
+- cocolog is pulled and built again on the owner's word: 3.62.2, `7e4bac2`, since 0.292 ("pull repos and update pins").
 - ccllib objects have AUTODROP (2026-11-08): the compiler drops each object of an instance type at the end of its scope,
   on every way out of it, as C++ runs a destructor; a moved object is not dropped (phase 0.5). This was open decision 3.
 - Every comparison has THREE RUNS (2026-11-08): the ccllib program built by cicilang as C and by cicilang++ as C++, and

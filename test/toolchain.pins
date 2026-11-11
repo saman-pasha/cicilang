@@ -1,10 +1,10 @@
-# test/toolchain.pins -- the toolchain the gates were last GREEN on (0.259). test/toolchain.sh checks the box against it,
+# test/toolchain.pins -- the toolchain the gates were last GREEN on (0.292). test/toolchain.sh checks the box against it,
 # and test/ci.sh -- the CI job's steps, .github/workflows/gates.yml -- clones the neighbours at these commits. cocolog is
 # taken at its latest master every time (the owner's rule, 0.259), and a pin moves in the step that runs the chain over it.
 CICILI_COMMIT=3ba2ca4
 CICILI_VERSION=3.3.0
-COCOLOG_COMMIT=74183ae
-COCOLOG_VERSION=3.37.0
+COCOLOG_COMMIT=7e4bac2
+COCOLOG_VERSION=3.62.2
 ZIGURATIP_COMMIT=2a65f81
 # the embedded LLVM (module/build-llvm.sh, over llvm-c) and the C gates' clang
 LLVM_MAJOR=18

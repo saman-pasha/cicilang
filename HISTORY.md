@@ -286,6 +286,7 @@ One row per step, in version order: the step's title, what it did and its gate n
 | 0.289 | The cost of a C build is the build after a change of the file; the records of 0.273 to 0.286 corrected | the ccllib gate timed a C build of one file three times over a warm store, which serves the unit's kept IR: its line was a rebuild of a file that did not change, and thirteen tables and their sentences compared it with clang++'s build of the twin; the gate times a copy of the program whose time changes before each build, and keeps the rebuild as a fourth line; the thirteen C rows measured again (0.31 s to 1.69 s after a change, 0.23 s to 0.81 s unchanged); five sentences that said that a C build cost its twin's or less, and three more in their degree, corrected | the ccllib gate over libc++ 22, 21 and 18, each over a fresh HOME of its own; no chain, by the owner's rule of 0.271; a commit and a push |
 | 0.290 | The findings of a program of 25,000 lines: eight defects corrected, each by its reduction | thirteen findings of the Ambitious session, each reduction run on 0.289: a `continue` in a `switch` in a loop stopped the check (its loop is the nearest loop, past any switch); a value read out of a plain slot is no new memory, in a local and in a store (`names[i]` over a static table was `unconsumed` in a local and `untied` in a field); a null test refines a loose pointer (the README's `fopen` lines were refused); a raw read that does not lex goes on to the preprocessed read (`<netdb.h>` and eight more headers were dropped whole); a macro file's header is included by its absolute path; the output file's directory is asked before the build; `own` where only a name can stand is refused by name; `(public)` and `(dynamic)` for cocolog 3.62, not run here; a build that fails names each header that was not found, not read, or not read to its end; findings 9, 10 and 12 are the owner's decisions; reader 187, lowering 161 | the flow gate; the reader, compile and driver gates and the ccllib gate over libc++ 22, over one fresh HOME; the ccllib gate over libc++ 21 and 18; the pool of the light C++ run fixtures; sixteen C++ fixtures by hand; no chain, by the owner's rule of 0.271; a commit and a push |
 | 0.291 | ccllib's `<string.pl>`; an operator whose left operand is no instance; a pointer where a struct is needed is refused by name | `std::string` as `basic_string<char>`: an own pointer, a count and sixteen bytes that hold the capacity or a string of fifteen characters, which has no block of the heap; 182 functions, each made at its first use, and 11 inner ones; a change of the characters is one of two inner functions, and a source in the string itself is copied first; a place past the last character, a change past `max_size` and a number of a text where there is none stop the program; the rules program holds the string to a model at 24,414 checks, and fifty-seven copies of the tree broken on purpose are each reported; the reader writes `"abc" == s` and `"<" + s` as the instance's relation with its operands exchanged and as its `r` function; the lowering takes a raw-read header's definition from the header that holds it, and refuses a pointer where a struct is needed, which went to LLVM's parser; reader 188, lowering 162 | the flow gate; the reader, compile and driver gates and the ccllib gate over libc++ 22, over one fresh HOME; the ccllib gate over libc++ 21 and 18; the pool of the light C++ run fixtures; seventeen C++ fixtures by hand; no chain, by the owner's rule of 0.271; a commit and a push |
+| 0.292 | cocolog 3.62.2: the pins moved, every load silent over it | cocolog from 3.37.0 to its latest master, 3.62.2 (`7e4bac2`), on the owner's word: fifty-nine commits, thirty-seven versions of cocolog's own; its build needs `ZIGURATIP` where the checkout is not under `$HOME`; the embedded LLVM built against 18 again, after a build of mine over the shell's `LLVM=/usr/lib/llvm-22`; 3.62's `public` and `dynamic` operators, prepared at 0.290, run; one load warning, a singleton in `bitset.pl`, mended, and every load silent; Cicili and ZiguratIP have no new commit; reader 188 and lowering 162 stay | the toolchain check strict; the quick gates before the chain; the chain over libc++ 22, 21 and 18, GREEN; no CI job, by the owner's rule of 0.271; a commit and a push |
 
 ## M5 — the C++ mode
 
@@ -20563,3 +20564,64 @@ NO CHAIN RAN for this step (the owner's rule of 0.271), and it claims nothing GR
   values, the ccllib gate, Not done), `CLAUDE.md`, `README.md`, `CCLLIB.md`.
 
 The module 0.291, the reader 188 and the lowering 162.
+
+## 0.292 — cocolog 3.62.2: the pins moved, every load silent over it
+
+**0.292: cocolog from 3.37.0 (`74183ae`, the pin of 0.259) to its latest master, 3.62.2 (`7e4bac2`), on the owner's word
+("pull repos and update pins"): fifty-nine commits, thirty-seven versions of cocolog's own among them, from 3.38.0, and
+the rest its reasoning library's, its README's and the merges of that library's branch. Cicili (3.3.0, `3ba2ca4`) and
+ZiguratIP (1.0.2, `2a65f81`) have no new commit, and their pins stay. The chain ran over the step's tree at the moved
+pins, GREEN. One load said a warning over 3.62.2, and it is mended. What cicilang reads and emits does not change: the
+reader stays 188 and the lowering 162.**
+
+THE BUILD. cocolog's `make` failed first, `FILE-DOES-NOT-EXIST ... embed/mvccs-lib.cicili`: its embedded store links
+ZiguratIP's engine through symlinks that `embed/build.sh` makes at `$ZIGURATIP`, else at `$HOME/ZiguratIP`, and the
+build ran with no `ZIGURATIP`, so the links named `/root/ZiguratIP`, where no checkout is (cocolog's own `CLAUDE.md`
+says so of a container). With `ZIGURATIP` named, `make` took 215 s (peak 2566 MB), `make schema` 27 s and `make modules`
+50 s, and cicilang's two modules were built again over it, in 5 s and 3 s. AN ERROR OF MINE, mended before any gate ran:
+the first build of `library(ccl_llvm)` ran with `LLVM=/usr/lib/llvm-22` in the shell -- the C++ gates' variable, which
+`module/build-llvm.sh` reads too -- and made the embedded LLVM 22.1.8, where the pins hold it at 18; it was built again
+against `/usr/lib/llvm-18`, and `bin/cicilang --version` says `cicilang 0.292 (cocolog 3.62.2; LLVM 18.1.3)`.
+
+WHAT OF COCOLOG'S CHANGES REACHES CICILANG. 3.62.0's reader shifts and reduces operators as swipl's, and takes `public`
+and `dynamic` as prefix operators: 0.290 wrote the three places where such an atom stood between an infix operator and a
+comma in parentheses, from the report of a program that ran this library over 3.62.0, and did not run them over 3.62
+then; over 3.62.2 the library loads, and the chain is GREEN. THE LOADS' WARNINGS over 3.62.2 (0.259's check: the library
+in one process, then each gate program, macro file and tutorial alone, over `library(cicilang)`, each run capped): one,
+`Singleton variables: [N]` at `library/ccllib/bitset.pl:31`, a variable that a clause of `fn_bitset/3` names once and
+that 3.37.0 did not name; it is `_` now, and the 46 loads are silent. The rest -- `clause/2` of a predicate written in C
+raises (3.38.0); `repeat/0` (3.39.0); `numbervars/3,4`, `predicate_property/2`, `current_predicate/1` (3.40.0 to
+3.42.0); the lists' sums and sets (3.42.1); `nth0/3` and `nth1/3` over a partial list (3.42.3); the meta-calls' modules
+and qualifiers (3.43.0 to 3.46.0); what the builtins ask of their arguments, and in what order (3.47.0); what a program
+sees of the system's predicates and of cocolog's own helpers (3.48.0, 3.48.1); `listing/1`'s `meta_predicate` lines
+(3.48.2); a body's `X = X` kept as `true` (3.48.3); `write_term/2`'s options and `print/1`'s `portray/1` (3.49.0 to
+3.56.0); a script's `goal_expansion/2` (3.49.1); `sort/4`'s key paths (3.50.0); `prolog_load_context/2` (3.51.0);
+`b_setval/2` (3.52.0); `halt/0` in a nested search (3.57.0); a load's source encodings (3.58.0); `system:G` of a name
+that a program took over (3.58.1); `sub_atom/5` (3.58.2); a write and a read too deep for the C stack, and a green
+worker's stack (3.59.0 to 3.60.1); an expression evaluated from its last argument (3.61.0); `read_file_to_codes/2`'s
+ceiling (3.62.2) -- reaches nothing that a gate sees.
+
+THE NETS before the chain, over the step's tree and 3.62.2, over a fresh HOME: the toolchain check GREEN, cocolog off
+its old pin; the flow gate GREEN with no finding (175 s, peak 4274 MB); the reader gate (164 checks, 4 s), the compile
+gate (272 checks, 37 s), the driver gate (75 checks, 52 s), the objects gate (29 checks, 5 s) and the proof, each GREEN.
+
+THE CHAIN of 0.292, over its work tree, cocolog 3.62.2, ZiguratIP 1.0.2 and Cicili 3.3.0 at the moved pins, its two
+modules built over them, and a fresh HOME a part: over libc++ 22 the library read 426 s, the C++ gate 1468 s (1092 ok,
+none skipped) and the ccllib gate 546 s (222 checks); over libc++ 21 the library read 406 s, the C++ gate 1440 s (1089
+ok, 3 skipped by their needs) and the ccllib gate 533 s (222 checks); over libc++ 18 all eleven GREEN, the toolchain
+check strict -- the flow gate 162 s with no finding, reader 4 s, compile 33 s, driver 53 s, objects 5 s, the proof, the
+cross gate 359 s, the library read 461 s, the C++ gate 1380 s (1081 ok, 11 skipped by their needs) and the ccllib gate
+577 s (222 checks); in 7854 s in all. The ccllib gate holds 14 programs in three runs, 64 refused and 5 alone over each
+tree.
+
+THE AMBITIOUS SESSION'S MESSAGE came while the step ran (its three findings over 0.284, in its JavaScript engine). Over
+0.291: a borrow of a vector element's field handed to a call that grows the vector builds, and its write lands in the
+freed block; a parameter named `entry` breaks the IR (`unable to create block named 'entry'`); `continue` in a `switch`
+in a loop builds and prints what clang's build prints, since 0.290. The first two are the next step's.
+
+NO CI JOB RAN (the owner's rule of 0.271).
+
+- `test/toolchain.pins`: cocolog 3.62.2, `7e4bac2`. `library/ccllib/bitset.pl`: the variable of `fn_bitset/3`.
+  `RULES.md` (the pins, the Findings of the neighbours, What runs), `CLAUDE.md`, `CCLLIB.md`.
+
+The module 0.292, the reader 188 and the lowering 162.
