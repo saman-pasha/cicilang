@@ -276,6 +276,7 @@ One row per step, in version order: the step's title, what it did and its gate n
 | 0.279 | the docs of 0.278, which its commit left out | the commit of 0.278 holds the forward list and its fixtures and no doc: the script that writes a step's docs stopped at a text that it did not find, and the commands after it, joined by `;`, committed and pushed; this commit carries its rules, its entry and its lines of CLAUDE.md, README.md and CCLLIB.md, and the rule of a step's commit, which is refused where a doc is missing | none: the docs and the version; the nets of 0.278 stand for its code; a commit and a push |
 | 0.280 | ccllib's `<stack.pl>` and `<queue.pl>`: the adaptors, and a comparison's name as a type's argument | CCLLIB.md's phase 1a goes on: library/ccllib/stack.pl and queue.pl, std::stack as a buffer, std::queue as a ring, std::priority_queue as a binary heap, 13, 14 and 11 functions; priority_queue<int, later> takes the name of the function that compares, where C++ writes the comparison's type, and the heap's text calls it by its name; the cost of a cicilang++ build looked at: the desugaring's, and no one place; no file of the compiler changed | the flow gate; the ccllib gate over libc++ 22, 21 and 18; no chain, by the owner's rule of 0.271; a commit and a push |
 | 0.281 | ccllib's `<set.pl>` and `<map.pl>`: the ordered containers, one B-tree in an arena | CCLLIB.md's phase 1a goes on: library/ccllib/set.pl and map.pl over tree.pl, std::set, std::multiset, std::map and std::multimap as ONE text, a B-tree whose nodes stand in one own buffer, 26, 26, 33 and 27 functions; an insert that finds its key and an erase that finds none change nothing; a place ends where the tree takes a new entry or loses one, where C++'s iterator stays, and a place used after that stops the program; the order is a function's name, the type's last argument; the gate's new part, the programs that stand alone: what stops a ccllib program (41 cases over every module) and the rules of the tree; no file of the compiler changed | the flow gate; the ccllib gate over libc++ 22, 21 and 18; no chain, by the owner's rule of 0.271; a commit and a push |
+| 0.282 | The files that a macro file loads are its unit's: the store and the kept IR name them | a macro file may load another by a directive, as ccllib's `<set.pl>` loads tree.pl; a unit kept in the store, its IR there and a C++ file's kept IR named the macro file alone, so a change of the loaded file did not reach a program built before it (found at the next module's tests: its C build was served the old IR); ccl_macro_loads/2 gives the loaded files at any depth, the three caches name them, and the user's file names each macro file that its includes reach; the driver gate's check, in C and in C++; reader 182 | the flow gate; the reader, compile and driver gates and the ccllib gate over libc++ 22, over one fresh HOME; no chain, by the owner's rule of 0.271; a commit and a push |
 
 ## M5 — the C++ mode
 
@@ -19253,3 +19254,83 @@ NO CHAIN RAN for this step (the owner's rule of 0.271), and it claims nothing GR
   ccllib, Not done), `CLAUDE.md`, `README.md`, `CCLLIB.md`.
 
 The module 0.281; the reader 181 and the lowering 156 as they were: no file of the compiler changed.
+
+## 0.282 — the files that a macro file loads are its unit's: the store and the kept IR name them
+
+**0.282: a macro file may load another file by a directive -- ccllib's `<set.pl>` loads `tree.pl`, and each module
+`ccllib.pl` --, and what a program holds of its instances comes from that file's text. A unit kept in the store, its IR
+there and a C++ file's kept IR named the macro file alone, so a change of the loaded file did not reach a program that
+was built before it: the build was served what it had kept. They name the loaded files now, at any depth, and the user's
+file names each macro file that its includes reach. Found at the tests of the next module, whose shared file changed and
+whose C build did not. The reader's version is 182. Committed with its nets; the chain runs when the ccllib task is
+finished (the owner's rule of 0.271).**
+
+WHAT WAS FOUND. The next module of ccllib, the unordered containers, has a file that its two macro files load by a
+directive, as `<set.pl>` and `<map.pl>` have `tree.pl`. One function's text in it was changed (a conversion that
+valgrind does not know, 0.283), the program built again as C and as C++, and valgrind stopped at the same instruction in
+the C build: `objdump` showed the old text in it. The C++ build was the new one, since the gates' builds keep no C++ IR
+(`CICILANG_NO_IR_CACHE`), and a ccllib program's unit is read at every build (0.261: a read that made an instance is not
+kept). What was kept, and served, was the C build's IR in the store.
+
+THE CAUSE. A kept IR's signature folds the key -- the time and the reader's version -- of every file that the unit's AST
+reaches (`dr_unit_deps/2`): the headers, the summaries, and a macro file by its include's node, `macros(Path, Preds)`. A
+file that the macro file loads is in no node. A kept unit's deps are made the same way (`ccl_kb_flatten/4`), and a C++
+file's kept IR is keyed by the same walk (`dr_cxx_ir_file/3`). So three caches held a program over `<set.pl>` to the
+`set.pl` of its build and to no `tree.pl`.
+
+THE REPRODUCTION, on the pushed 0.281: a macro file `mouter.pl` with `:- ensure_loaded(library(mload/inner)).` and a
+macro that gives what `inner.pl`'s fact says, a program that prints it. Built as C and as C++, both print 1. `inner.pl`
+is written again with 2 and a new time; both builds are served (`served mload.c from the store`, `served mload.cpp from
+the IR cache`) and print 1.
+
+THE CORRECTION. `ccl_macro_loads(Path, Files)` (`library/ccl_include.pl`) gives each file that a macro file loads by a
+directive, at any depth: it takes the directives of the file's text -- each `:- ensure_loaded(S).`, `:- consult(S).`,
+`:- use_module(S).`, `:- include(S).` and `:- [S].` (`ccl_pl_directives/2`, `ccl_pl_loads/3`) --, finds
+`library(Dir/Name)` on `$COCOLOG_LIBRARY` and another name beside the file that loads it, and goes on into each file
+found. The answer is kept for the process. A kept unit names these files among its deps, with their keys
+(`ccl_kb_flatten/4`); the IR's signature and a C++ file's key take them among the files that the AST reaches
+(`dr_items_deps/2`). AND THE USER'S FILE NAMES EACH MACRO FILE THAT ITS INCLUDES REACH, at any depth, with what each
+loads (`ccl_kb_macro_deps/3` over `ccl_unit_macro_files/2`, the include nodes of the units read into it): a macro's call
+in it stands as its expansion, whichever header brought the macro file, and its own includes named that header alone,
+whose time a change of the macro file leaves as it was. The first form of this took every macro file that the PROCESS
+had loaded; the reader gate, which reads its fixtures in one process and holds `hello.c` to its two deps (`k15`),
+refused it.
+
+AFTER IT the reproduction prints 1 and 1, then 2 and 2 (`check and lower mload.c`, `check and lower mload.cpp`), and a
+third build with no change is served by both caches. With ccllib's own files, in a copy of the tree: `test/ccllib/set.c`
+is built and then served, as C from the store and as C++ from the IR cache; `tree.pl` is touched, and both builds are
+made again; they are served again; `ccllib.pl` is touched -- `set.pl` loads it, and `tree.pl` does -- and both are made
+again.
+
+WHAT IT COSTS. The first form read a loaded file as the load reads a macro file, split into its clauses character by
+character, to find its directives: 13 ms for `tree.pl`, which has 600 lines, at each build over `<set.pl>`. Only a line
+that begins with `:-` is read so now, with the four lines after it (`ccl_pl_directives/2`): the three files of
+`<set.pl>` take 3 ms, measured in a query. Built in turns by the tree of 0.281 and by this one, twelve builds each over
+a HOME of its own, `test/ccllib/set.c` takes the same time as C: 0.71 s to 0.94 s against 0.74 s to 0.87 s, the medians
+0.81 s and 0.80 s. A first measurement, the two trees one after the other, gave the tree of 0.282 0.05 s more for that
+build; it was the box's drift between the two rows, and no cost of the change.
+
+WHAT THE STEPS BEFORE IT CLAIMED STANDS. Each net of 0.275 to 0.281 ran over a fresh HOME and a work tree of its own,
+whose paths no store had met, so each build was its files' own. A scratch run over a warm HOME after a change of
+`ccllib.pl` or `tree.pl` may have been served an older IR in C; the proofs that were recorded were made over changed
+programs or fresh HOMEs.
+
+THE READER'S VERSION is 182: what a kept read holds of its deps changed, so each store begins again.
+
+WHAT IS LEFT (Not done): an included file's own kept read names the macro files that it includes itself, and what they
+load; a user's header that calls a macro of a macro file that ANOTHER file includes is kept with no dep on it. The
+user's file, which names every macro file that its includes reach, is read again then, and the header's kept read is
+not.
+
+THE NETS, over the work tree: the flow gate GREEN with no finding (147 s, peak 4255 MB); over one fresh HOME the reader
+gate (148 checks, 4 s), the compile gate (252 checks, 32 s), the driver gate with its new check (66 checks, 45 s) and
+the ccllib gate over libc++ 22 (112 checks, 303 s), each GREEN.
+
+NO CHAIN RAN for this step (the owner's rule of 0.271), and it claims nothing GREEN but the nets above. No CI job ran.
+
+- `library/ccl_include.pl`: `ccl_macro_loads/2` and what it stands on, `ccl_kb_flatten/4`, `ccl_kb_macro_deps/3`,
+  `ccl_kb_remember/3`, the global `'$ccl_macro_loads'`. `library/ccl_driver.pl`: `dr_items_deps/2`.
+  `library/ccl_syntax.pl`: the reader's version. `test/driver.sh`: the check. `RULES.md` (the Includes topic, the IR
+  cache, Not done), `CLAUDE.md`.
+
+The module 0.282, the reader 182; the lowering 156 as it was.

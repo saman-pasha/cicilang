@@ -167,7 +167,8 @@ dr_unit_deps(summary(F), [F]) :- !.                                             
 dr_unit_deps(_, []).
 dr_items_deps([], []).
 dr_items_deps([include(_, _, file(P, _, U))|Is], [P|Ds]) :- !, dr_unit_deps(U, D1), dr_items_deps(Is, D2), append(D1, D2, Ds).
-dr_items_deps([include(_, _, macros(P, _))|Is], [P|Ds]) :- !, dr_items_deps(Is, Ds).
+dr_items_deps([include(_, _, macros(P, _))|Is], [P|Ds]) :- !,   % ... and the files that a macro file loads by a directive (0.282, ccl_macro_loads/2)
+    ccl_macro_loads(P, Fs), dr_items_deps(Is, Ds1), append(Fs, Ds1, Ds).
 dr_items_deps([_|Is], Ds) :- dr_items_deps(Is, Ds).
 dr_ir_cached(F, Sig, IR) :-
     '$ccl_irmeta'(F, Sig, N), dr_ir_pred(F, P),

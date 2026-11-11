@@ -86,6 +86,67 @@ ccl_delete_one([X|T], X, T) :- !.
 ccl_delete_one([Y|T], X, [Y|T1]) :- ccl_delete_one(T, X, T1).
 ccl_macro_loaded(Path, Preds) :- ccl_global('$ccl_macro_files', L, []), memberchk(Path-Preds, L).
 ccl_macro_note(Path, Preds) :- ccl_global('$ccl_macro_files', L, []), nb_setval('$ccl_macro_files', [Path-Preds|L]).
+%% THE FILES THAT A MACRO FILE LOADS BY A DIRECTIVE ARE ITS UNIT'S TOO (0.282): a macro file may load another -- ccllib's
+%% <set.pl> has `:- ensure_loaded(library(ccllib/tree)).' -- and what a unit holds comes from that file's clauses as from
+%% the macro file's own. ccl_macro_loads(+Path, -Files) gives each file that Path loads so, at any depth: library(Dir/Name)
+%% is found on $COCOLOG_LIBRARY, another name beside the file that loads it. A unit kept in the store, its IR there and a
+%% C++ file's kept IR name these files with the macro file (ccl_kb_flatten/4, ccl_kb_macro_deps/3, dr_items_deps/2). Until
+%% 0.282 they named the macro file alone: tree.pl changed, and a program over <set.pl> was served its old IR. The answer
+%% is kept for the process
+ccl_macro_loads(Path, Files) :-
+    ccl_global('$ccl_macro_loads', L, []),
+    (   memberchk(Path-Fs, L) -> Files = Fs
+    ;   ccl_macro_loads_([Path], [Path], All), ccl_delete_one(All, Path, Fs0), sort(Fs0, Files),
+        nb_setval('$ccl_macro_loads', [Path-Files|L]) ).
+ccl_macro_loads_([], Seen, Seen).
+ccl_macro_loads_([P|Ps], Seen, All) :-
+    ccl_macro_loads_of(P, Fs), ccl_new_files(Fs, Seen, New), append(Seen, New, Seen1), append(Ps, New, Todo),
+    ccl_macro_loads_(Todo, Seen1, All).
+ccl_new_files([], _, []).
+ccl_new_files([F|Fs], Seen, New) :- ( memberchk(F, Seen) -> New = New1 ; New = [F|New1] ), ccl_new_files(Fs, [F|Seen], New1).
+%% what one file loads: each `:- ensure_loaded(S).', `:- consult(S).', `:- use_module(S).', `:- include(S).' and
+%% `:- [S].' of its text, S one name or a list; a name that is no file here is passed over
+ccl_macro_loads_of(P, Fs) :-
+    (   catch(read_file_to_codes(P, Codes), _, fail)
+    ->  atom_codes(A, Codes), atomic_list_concat(Lines, '\n', A), ccl_pl_directives(Lines, Texts), ccl_pl_loads(Texts, P, Fs)
+    ;   Fs = [] ).
+%% the directives of a file's text, cheaply: a line that begins with `:-', with the four lines after it, is read as the
+%% load reads a clause (ccl_pl_clauses/2), and its first clause is the directive. The file's other lines are not walked
+%% character by character: ccllib's tree.pl has 600, and its split into clauses took 13 ms of each build over <set.pl>,
+%% where the three files of <set.pl> take 3 ms so
+ccl_pl_directives([], []).
+ccl_pl_directives([L|Ls], Ts) :-
+    (   sub_atom(L, 0, 2, _, ':-'), ccl_pl_window([L|Ls], 5, W), atomic_list_concat(W, '\n', A), atom_codes(A, Cs),
+        ccl_pl_clauses(Cs, [T|_])
+    ->  Ts = [T|Ts1]
+    ;   Ts = Ts1 ),
+    ccl_pl_directives(Ls, Ts1).
+ccl_pl_window([], _, []) :- !.
+ccl_pl_window(_, 0, []) :- !.
+ccl_pl_window([L|Ls], N, [L|W]) :- N1 is N - 1, ccl_pl_window(Ls, N1, W).
+ccl_pl_loads([], _, []).
+ccl_pl_loads([Text|Ts], P, Fs) :-
+    (   sub_atom(Text, 0, 2, _, ':-'), catch(term_to_atom(Term, Text), _, fail), nonvar(Term), Term = (:- G), nonvar(G),
+        ccl_pl_load_goal(G, Specs)
+    ->  ccl_pl_load_files(Specs, P, F1), ccl_pl_loads(Ts, P, F2), append(F1, F2, Fs)
+    ;   ccl_pl_loads(Ts, P, Fs) ).
+ccl_pl_load_goal(ensure_loaded(S), Ss) :- !, ccl_pl_specs(S, Ss).
+ccl_pl_load_goal(consult(S), Ss) :- !, ccl_pl_specs(S, Ss).
+ccl_pl_load_goal(use_module(S), Ss) :- !, ccl_pl_specs(S, Ss).
+ccl_pl_load_goal(use_module(S, _), Ss) :- !, ccl_pl_specs(S, Ss).
+ccl_pl_load_goal(include(S), Ss) :- !, ccl_pl_specs(S, Ss).
+ccl_pl_load_goal([S|T], [S|T]).
+ccl_pl_specs(S, Ss) :- ( is_list(S) -> Ss = S ; Ss = [S] ).
+ccl_pl_load_files([], _, []).
+ccl_pl_load_files([S|Ss], P, Fs) :- ( ccl_pl_load_file(S, P, F) -> Fs = [F|Fs1] ; Fs = Fs1 ), ccl_pl_load_files(Ss, P, Fs1).
+ccl_pl_load_file(S, _, _) :- var(S), !, fail.
+ccl_pl_load_file(library(S), _, F) :- !, ccl_pl_spec_path(S, Rel), ccl_library_dirs(Ds), member(D, Ds), ccl_pl_file_at(D, Rel, F), !.
+ccl_pl_load_file(S, P, F) :- ccl_pl_spec_path(S, Rel), file_directory_name(P, D), ( ccl_pl_file_at(D, Rel, F) -> true ; ccl_pl_file_named(Rel, F) ), !.
+ccl_pl_spec_path(S, _) :- var(S), !, fail.
+ccl_pl_spec_path(A/B, P) :- !, ccl_pl_spec_path(A, PA), ccl_pl_spec_path(B, PB), atomic_list_concat([PA, '/', PB], P).
+ccl_pl_spec_path(A, A) :- atom(A).
+ccl_pl_file_at(D, Rel, F) :- atomic_list_concat([D, '/', Rel], F0), ccl_pl_file_named(F0, F).
+ccl_pl_file_named(F0, F) :- ( exists_file(F0) -> F = F0 ; atom_concat(F0, '.pl', F), exists_file(F) ).
 
 %% ---- the top ----------------------------------------------------------------
 %% THE CACHE, as it must be under cocolog (a finding, in RULES.md): a
@@ -157,8 +218,9 @@ ccl_kb_remember(Path, What0, Unit) :-
     ->  ccl_kb_what(What0, Unit, What, Items),
         K = key(_, V), retractall('$ccl_ast'(Path, key(_, V), _)), ccl_kb_forget_level(Path, V),
         ccl_kb_items(Path, F), ( What0 == top -> nb_setval('$ccl_kb_top', yes) ; nb_setval('$ccl_kb_top', no) ),
-        (   catch(ccl_kb_store_items(Items, F, K, 0, N, [], Deps), error(resource_error(clause_length), _), fail)
-        ->  assertz('$ccl_ast'(Path, K, meta(What, N, Deps)))
+        (   catch(ccl_kb_store_items(Items, F, K, 0, N, [], Deps0), error(resource_error(clause_length), _), fail)
+        ->  ( What0 == top -> ccl_kb_macro_deps(Items, Deps0, Deps) ; Deps = Deps0 ),
+            assertz('$ccl_ast'(Path, K, meta(What, N, Deps)))
         ;   % an item over the store's clause budget (cocolog 1.2: an error, no
             % longer a silent loss): this file is read again next time, not cached
             ccl_kb_forget_level(Path, V)
@@ -180,8 +242,28 @@ ccl_kb_flatten(include(L, S, file(P, How, _)), include(L, S, ref(P, How, Cfg)), 
 ccl_kb_flatten(include(L, S, file(P, How, _)), include(L, S, ref(P, How)), D0, D) :- !,
     ( ccl_kb_key(P, PK) -> D = [P-PK|D0] ; D = D0 ).
 ccl_kb_flatten(include(L, S, macros(P, Preds)), include(L, S, macros(P, Preds)), D0, D) :- !,
-    ( ccl_kb_key(P, PK) -> D = [P-PK|D0] ; D = D0 ).
+    ( ccl_kb_key(P, PK) -> D1 = [P-PK|D0] ; D1 = D0 ),
+    ccl_macro_loads(P, Fs), ccl_kb_file_deps(Fs, D1, D).   % ... and the files that it loads by a directive (0.282)
 ccl_kb_flatten(I, I, D, D).
+ccl_kb_file_deps([], D, D).
+ccl_kb_file_deps([F|Fs], D0, D) :- ( ccl_kb_key(F, K) -> D1 = [F-K|D0] ; D1 = D0 ), ccl_kb_file_deps(Fs, D1, D).
+%% THE USER'S FILE NAMES EACH MACRO FILE THAT ITS INCLUDES REACH (0.282), at any depth, and what each loads: a macro's
+%% call in it stands as its expansion, whichever header brought the macro file -- its own includes named that header
+%% alone, whose time a change of the macro file leaves as it was. The files are the include nodes' of the units read
+%% into it (ccl_unit_macro_files/2), so a file with no such include keeps the deps that it had
+ccl_kb_macro_deps(Items, D0, D) :-
+    ccl_items_macro_files(Items, Ps0), sort(Ps0, Ps),
+    (   Ps == [] -> D = D0
+    ;   findall(F, ( member(P, Ps), ( F = P ; ccl_macro_loads(P, Fs), member(F, Fs) ) ), Fs0), sort(Fs0, Files),
+        ccl_kb_file_deps(Files, [], D1), append(D0, D1, D2), sort(D2, D) ).
+ccl_items_macro_files([], []).
+ccl_items_macro_files([include(_, _, macros(P, _))|Is], [P|Ps]) :- !, ccl_items_macro_files(Is, Ps).
+ccl_items_macro_files([include(_, _, file(_, _, U))|Is], Ps) :- !,
+    ccl_unit_macro_files(U, P1), ccl_items_macro_files(Is, P2), append(P1, P2, Ps).
+ccl_items_macro_files([_|Is], Ps) :- ccl_items_macro_files(Is, Ps).
+ccl_unit_macro_files(unit(Is), Ps) :- !, ccl_items_macro_files(Is, Ps).
+ccl_unit_macro_files(partial(U, _, _), Ps) :- !, ccl_unit_macro_files(U, Ps).
+ccl_unit_macro_files(_, []).
 
 %% cached: the meta with the same key, every dep at its remembered key, every
 %% item present -> the unit, its includes re-linked through ccl_include_read/2
@@ -234,7 +316,7 @@ ccl_ensure_globals :-
     ; nb_setval('$ccl_file', none), ccl_env_put([]), nb_setval('$ccl_far', 0), nb_setval('$ccl_macros', []),
       nb_setval('$ccl_scope', []), ccl_tabs_reset, nb_setval('$ccl_enums', []), nb_setval('$ccl_consts', []), ccl_tables_changed,
       nb_setval('$ccl_expansions', []), nb_setval('$ccl_incpath', none), nb_setval('$ccl_kb_ready', no), nb_setval('$ccl_reading', []),
-      nb_setval('$ccl_macro_files', []), nb_setval('$ccl_std_macros', none), nb_setval('$ccl_gensym', 0), nb_setval('$ccl_unit_paths', []), nb_setval('$ccl_read_wrote', []), nb_setval('$ccl_lambda_seq', 0),
+      nb_setval('$ccl_macro_files', []), nb_setval('$ccl_macro_loads', []), nb_setval('$ccl_std_macros', none), nb_setval('$ccl_gensym', 0), nb_setval('$ccl_unit_paths', []), nb_setval('$ccl_read_wrote', []), nb_setval('$ccl_lambda_seq', 0),
       nb_setval('$ccl_lang', c), nb_setval('$ccl_lang_forced', none), ccl_fn_templates_put([]), nb_setval('$ccl_class', []), nb_setval('$ccl_inc_kind', local), nb_setval('$ccl_hash', line), nb_setval('$ccl_lib_unit', no),
       nb_setval('$ccl_targ', 0), nb_setval('$ccl_tmpl_depth', 0), nb_setval('$ccl_tt_pending', []), nb_setval('$ccl_tt_frames', []), nb_setval('$ccl_vparams', []), nb_setval('$ccl_vhead', []),
       nb_setval('$ccl_instances', []), nb_setval('$ccl_inst_making', []), nb_setval('$ccl_inst_count', 0), nb_setval('$ccl_hoist', []),

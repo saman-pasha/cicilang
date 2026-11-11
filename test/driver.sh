@@ -205,6 +205,21 @@ irthird=$(CICILANG_NO_IR_CACHE= "$ROOT/bin/cicilang++" -v ircache.cpp -o irc3 2>
 check "the C++ IR cache: a rebuild is served its IR, a changed file lowered again" "$irfirst $irsecond $irthird" "0 1
 ir 7 0
 ir 8"
+# THE FILE THAT A MACRO FILE LOADS (0.282): a macro file may load another by a directive, as ccllib's <set.pl> loads
+# tree.pl, and a change of the loaded file reaches the next build -- a unit kept in the store, its IR there and a C++
+# file's kept IR name it with the macro file (ccl_macro_loads/2). Until 0.282 they named the macro file alone, and both
+# builds were served what they had kept. A third build, with no change, is served
+mkdir -p mlib/mload && echo 'mload_inner(int(1)).' > mlib/mload/inner.pl
+printf ':- ensure_loaded(library(mload/inner)).\nmload_value(_, R) :- mload_inner(R).\n' > mouter.pl
+printf '#include <stdio.h>\n#include "mouter.pl"\nint main(void) { printf("%%d\\n", mload_value(0)); return 0; }\n' > mload.c
+cp mload.c mload.cpp; rm -f "$HOME"/.cicilang/cpp/ir/mload.cpp-*.ll
+mlc() { COCOLOG_LIBRARY="$D/mlib:$COCOLOG_LIBRARY" "$CICILI" "$@"; }
+mlp() { CICILANG_NO_IR_CACHE= COCOLOG_LIBRARY="$D/mlib:$COCOLOG_LIBRARY" "$ROOT/bin/cicilang++" "$@"; }
+ml1=$(mlc mload.c -o ml1 2>&1 && ./ml1; mlp mload.cpp -o mp1 2>&1 && ./mp1)
+echo 'mload_inner(int(2)).' > mlib/mload/inner.pl; touch -t 203001010000 mlib/mload/inner.pl
+ml2=$(mlc mload.c -o ml2 2>&1 && ./ml2; mlp mload.cpp -o mp2 2>&1 && ./mp2)
+ml3=$(mlc -v mload.c -o ml3 2>&1 | grep -ac 'served mload.c from the store'; mlp -v mload.cpp -o mp3 2>&1 | grep -ac 'served mload.cpp from the IR cache')
+check "the file that a macro file loads: its change reaches the next build, in C and in C++ (0.282)" "$(echo $ml1 / $ml2 / $ml3)" "1 1 / 2 2 / 1 1"
 # ONE BUILD AT A TIME OVER THE STORE (0.240): four builds at once over one fresh store take KB.lock in turn -- without it
 # three died of a bus error and the store was left so damaged that every later build failed -- and one more build over
 # that store after them runs; no lock is left

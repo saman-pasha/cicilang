@@ -12,8 +12,8 @@ the fixture that gates it, and why. The bullet ends with the version that made t
 edits the rule in `RULES.md`, in its topic, and writes its entry in `HISTORY.md`. Read the topic of `RULES.md` that
 covers the code before the code is changed.
 
-At 0.281 the versions are: the module 0.281 (`ccl_p_version` in `module/cicilang.cicili`, `bin/cicilang --version`),
-the reader 181 (`ccl_reader_version/1`, `library/ccl_syntax.pl`) and the lowering 156 (`ccl_lowering_version/1`,
+At 0.282 the versions are: the module 0.282 (`ccl_p_version` in `module/cicilang.cicili`, `bin/cicilang --version`),
+the reader 182 (`ccl_reader_version/1`, `library/ccl_syntax.pl`) and the lowering 156 (`ccl_lowering_version/1`,
 `library/ccl_ir.pl`).
 
 Build and prove, always in this order (or all of it, `sh test/gates.sh`):
@@ -235,6 +235,10 @@ In `RULES.md`:
   lowering emits. `dr_ir/3` serves any stored IR whose signature matches, and the signature folds this version.
   (0.103)
 - A bump puts its number, its step's version and its reason at the head of the version fact's comment. (0.82, 0.89)
+- A FILE THAT A KEPT BUILD CAME FROM IS IN ITS KEY, OR THE KEPT BUILD IS SERVED AFTER THE FILE CHANGED: the store's
+  units, the IR beside them and a C++ file's kept IR name each file by its time. A file that reaches a build by a new
+  road -- a macro file's directive, 0.282 -- joins the key in the step that opens the road. A probe after a change of a
+  library file runs over a fresh HOME, or with the caches off: a warm HOME answers with what it kept. (0.282)
 - THE NEIGHBOURS' COMMITS ARE PINNED in `test/toolchain.pins` (0.223), with the embedded LLVM's version and the libc++
   trees: a pin moves with its neighbour, on the owner's word, in the step that runs the chain over it. `sh
   test/toolchain.sh` reports a checkout off its pin, and the CI job (`.github/workflows/gates.yml`, `test/ci.sh`) clones

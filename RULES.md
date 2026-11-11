@@ -3125,6 +3125,23 @@ that changes a rule edits the rule here, in its topic, and writes its entry in `
   0.120, 0.187)
 - A `.pl` include is a macro file (owner's rule): `ccl_load_macros/2` loads it, and the node is
   `macros(Path, [macro(CName, Pred, Arity | dcg) ...])`. (M1b)
+- **THE FILES THAT A MACRO FILE LOADS BY A DIRECTIVE ARE ITS UNIT'S TOO** (0.282): a macro file may load another --
+  ccllib's `<set.pl>` has `:- ensure_loaded(library(ccllib/tree)).`, and each module loads `ccllib.pl` -- and what a
+  unit holds comes from that file's clauses as from the macro file's own. `ccl_macro_loads(Path, Files)` gives each file
+  that a macro file loads so, at any depth, by the directives of its text (`ensure_loaded/1`, `consult/1`,
+  `use_module/1,2`, `include/1`, `[F]`; `ccl_pl_loads/3` over `ccl_pl_clauses/2`): `library(Dir/Name)` is found on
+  `$COCOLOG_LIBRARY`, another name beside the file that loads it, and a name that is no file is passed over. Only a line
+  that begins with `:-` is read as a clause, with the four lines after it (`ccl_pl_directives/2`): a split of the whole
+  text took 13 ms of each build over `<set.pl>`, and the three files take 3 ms so. The answer is kept for the process
+  (`'$ccl_macro_loads'`). A unit kept in the store names these files among its deps (`ccl_kb_flatten/4`), and the IR's
+  signature and a C++ file's kept IR among the files that the AST reaches (`dr_items_deps/2`). AND THE USER'S FILE NAMES
+  EACH MACRO FILE THAT ITS INCLUDES REACH, at any depth, with what each loads (`ccl_kb_macro_deps/3` over
+  `ccl_unit_macro_files/2`, the include nodes of the units read into it): a macro's call in it stands as its expansion,
+  whichever header brought the macro file, and its own includes named that header alone. A file with no such include
+  keeps the deps that it had (reader `k15`). Until 0.282 the three named the macro file alone: `tree.pl` changed, and a
+  program over `<set.pl>` was served the IR that it had kept, in C from the store and in C++ from the IR cache. The
+  driver gate: a macro file that loads another, the loaded file written again between two builds, in C and in C++; a
+  third build is served. Reader 182. (0.282)
 - The program's own C++ header read whole gives its classes and templates to every includer (`cpp_register_header/1`),
   emitted `linkonce` (`cpp_linkonce/2`), so two units link (`test/cpp/run/bag.cpp`, `bag.h`). Its inline functions are
   emitted with the program, by `#include` and by `import` (`cpp_include_fns`, `cpp_header_fns`), unless it lies under
@@ -3390,24 +3407,26 @@ that changes a rule edits the rule here, in its topic, and writes its entry in `
 
 - `dr_ir/3` keeps a built file's IR as `'$ccl_ir:<Path>'(Index, Chunk)` (3500 characters, under the clause budget when
   quoted), indexed by `'$ccl_irmeta'(Path, Signature, Count)`. (M4)
-- The signature folds the file's key, every header, macro file and summary its AST reaches (`dr_unit_deps/2`),
+- The signature folds the file's key, every header, macro file and summary its AST reaches (`dr_unit_deps/2`) -- each
+  file that a macro file loads by a directive among them (0.282; `ccl_macro_loads/2`, the Includes topic) --,
   `ccl_lowering_version/1`, the arch and the debug option (`'$ccl_debug'`: an IR with line tables is another IR,
   0.128). `dr_fold/4` makes two folds under 2^31, since cocolog is inexact past 2^52. A match is served (`-v`: `served
-  F from the store`); a refused file stores nothing. (M4, 0.128)
+  F from the store`); a refused file stores nothing. (M4, 0.128, 0.282)
 - A C++ FILE'S IR IS A FILE BESIDE THE SUMMARIES (0.221; the owner's decision 4 of 0.190; the C++ clause of `dr_ir/3`,
   `dr_cxx_ir_file/3`): `~/.cicilang/cpp/ir/<name>-<fold>-<fold>.ll`, keyed as the store's signature is -- the lowering's
   version, the arch, `-g`'s kind and the macros' description -- and by what a C++ read is read under (the reader's
   version, the level, the command line's macros, the target, the RTTI and exceptions configuration, the program's
-  feature-test macros), the file's text, and every file its AST reaches with its time: a local header and a macro file,
-  and A LIBRARY HEADER BY THE FILES ITS SUMMARY RECORDS (`dr_cxx_key_deps/2`: `dep(P, T)`, the files its preprocessor
-  pulled) -- a cold read is the header's preprocessed unit, whose items name no file, and a warm one its summary, so the
-  key of a first build over a cold read was never met again (the driver gate's check, over a fresh HOME). A file whose
-  check fails keeps nothing, and one that names `__DATE__`, `__TIME__` or `__TIMESTAMP__` none. It is written under a
-  name of its own and renamed into place (`ccl_tmp_name/2`), so a build beside another never reads half of one. `-v`
-  says `served F from the IR cache`. A warm `stdstringstream.cpp` builds in 1.2 s served, 30.8 s lowered.
-  `CICILANG_NO_IR_CACHE` set builds uncached: `test/config.sh` sets it, so every gate's builds are its fixtures' own,
-  and the driver gate's check of the cache unsets it for its builds. The key holds the versions, not the library's code:
-  a library changed and its versions not bumped is served the old IR -- a probe of a changed library runs uncached.
+  feature-test macros), the file's text, and every file its AST reaches with its time: a local header, a macro file and
+  each file that it loads by a directive (0.282), and A LIBRARY HEADER BY THE FILES ITS SUMMARY RECORDS
+  (`dr_cxx_key_deps/2`: `dep(P, T)`, the files its preprocessor pulled) -- a cold read is the header's preprocessed
+  unit, whose items name no file, and a warm one its summary, so the key of a first build over a cold read was never met
+  again (the driver gate's check, over a fresh HOME). A file whose check fails keeps nothing, and one that names
+  `__DATE__`, `__TIME__` or `__TIMESTAMP__` none. It is written under a name of its own and renamed into place
+  (`ccl_tmp_name/2`), so a build beside another never reads half of one. `-v` says `served F from the IR cache`. A warm
+  `stdstringstream.cpp` builds in 1.2 s served, 30.8 s lowered. `CICILANG_NO_IR_CACHE` set builds uncached:
+  `test/config.sh` sets it, so every gate's builds are its fixtures' own, and the driver gate's check of the cache
+  unsets it for its builds. The key holds the versions, not the library's code: a library changed and its versions not
+  bumped is served the old IR -- a probe of a changed library runs uncached.
 - THE C++ IR STAYS A FILE A BUILD (0.240; the owner's decision 4 of 0.190 left the store until parallel writes to one
   store were measured): cocolog's store takes one writer at a time (the Findings), where a whole file renamed into place
   takes any number of builds at once, as `make -j` runs them. A C++ build runs `--local`: it holds no lock and waits on
@@ -13664,6 +13683,12 @@ Declarations topic of the C++ reader).
   or of the compiler's joins it, with one answer more for every caller. `ccl_macro_NAME` is the cure that an author
   must know; a load that names the clash, the two files of the item above among its cases, is a step of its own, with
   every fixture's macro files read against it.
+- A HEADER THAT CALLS A MACRO OF A MACRO FILE WHICH ANOTHER FILE INCLUDES (found at 0.282): an included file's kept read
+  names the macro files that it includes itself, and what they load (the Includes topic); a user's header whose macro
+  calls come from a macro file that the user's file, or another header, includes is kept with no dep on that file, and a
+  change of it leaves the header's kept read as it was. The user's file names every macro file that its includes reach
+  and is read again then; the header's items are served. No fixture has such a header: each includes the macro file that
+  it uses.
 - THE CALL BY NAME, ITS LIMITS (0.274): the program's own function is told by its FIRST parameter alone, so its
   `insert(vector<int> *, point)` takes every `insert(v, ...)` over a vector<int>, the instance's forms among them; and a
   function of the program's that is declared after the call is not seen. `v.push_back(3)`, C++'s member call, is no call
