@@ -45,8 +45,15 @@ Open decisions:
 1. The place. ccllib in cicilang as `library/ccllib/` needs an exception to the owner's rule "Nothing of the standard
    library is the compiler's own", as `library/include/` has. This plan assumes it.
 2. Containers of owners (`vector<own char *>`, `map<int, string>`): a new owner's rule for an own buffer whose bound
-   changes, or the struct's last member `own T *a[n]` that exists.
-3. Member calls (`v.push_back(3)`) beside the generic calls (`push(v, 3)`).
+   changes, or the struct's last member `own T *a[n]` that exists. EVERY CONTAINER WHOSE ELEMENT HOLDS A POINTER
+   WAITS FOR IT (0.274): `vector.pl` takes an element with no pointer in it and refuses the others by name, and the
+   other modules of phase 1a go on over such elements. A proposal: inside the C text of a type macro's instance, a
+   store of an element into the instance's own buffer is a move of it, a read of one by value a move out, and the
+   type's drop drops each element that the buffer holds -- the text of a container is trusted for its elements, as
+   libc++'s bodies are, and a program's own code is checked as before.
+3. Member calls (`v.push_back(3)`) beside the generic calls (`push_back(v, 3)`).
+5. The short names: `push`, `pop` and `len` stand beside C++'s `push_back`, `pop_back` and `size` since 0.274, as
+   this plan's examples have them; one of the two sets may go.
 4. A literal at file scope, and a global of an instance type: refused, or made before `main` and dropped after it, as
    C++ globals are.
 
@@ -78,7 +85,9 @@ int main(void) {
 - A TYPE MACRO takes types and gives the instance's type and the items that define it: `vector<int>` is the struct
   `vector_int` and its functions. The table of a unit's instances makes each one once.
 - A GENERIC CALL finds its instance by the types of its arguments, at read time: `push(v, 1)` is
-  `vector_int_push(&v, 1)`. A new element type needs no edit, where `_Generic` needs one per type.
+  `vector_int_push(&v, 1)`. A new element type needs no edit, where `_Generic` needs one per type. Since 0.274 it is
+  the reader's rule over the first argument's type, and no macro per name.
+- EACH FUNCTION OF AN INSTANCE IS MADE AT ITS FIRST CALL (0.274): a unit holds what it calls.
 - Each instance is C-TEXT with holes, read by the reader's own grammar: a macro file decides and fills holes; it
   writes no AST by hand.
 - Instance names are readable and stable: `vector_int`, `vector_ptr_point`, `map_int_string`. A public name is the
@@ -370,6 +379,43 @@ What the proof found for phase 1:
   needs a road for them (`RULES.md`, Not done).
 
 ## Phase 1: the library before C++23, the most used part first
+
+### What phase 1 stands on (0.274)
+
+- AN INSTANCE'S FUNCTIONS ARE MADE AT THEIR FIRST CALL: `fn_vector(Name, Args, Items)` gives one function's items when
+  the unit first calls it, so a unit holds the functions that it calls and no other, as C++ instantiates the members
+  that a program uses. A module is a table of C texts by name.
+- A CALL FINDS ITS FUNCTION BY THE TYPE OF ITS FIRST ARGUMENT, with no macro per name: `push_back(v, 1)` is
+  `vector_int_push_back(&v, 1)`; `v` may be a pointer to the vector; the count of the arguments tells two forms of a
+  name apart (`resize(v, n, x)` is `_resize3`).
+- `#include <vector.pl>` ALONE: the path holds `library/ccllib/`, and `vector.pl.h` beside the macro file brings the C
+  declarations that its text calls.
+- THE NAMES ARE C++'S; `push`, `pop` and `len`, the short names of this plan's examples, stand beside `push_back`,
+  `pop_back` and `size`. A place is an index where C++ takes an iterator.
+
+### 1a, `vector.pl` (0.274)
+
+The whole surface of `std::vector`, 38 functions and the drop, for an element that is a value with no pointer in it
+(`RULES.md`, the topic of ccllib, says what differs from C++). `test/ccllib/vector.c` calls each function over `int`,
+`double`, a plain struct and `bool`; its twin over `std::vector` prints the same lines; seven programs of
+`test/ccllib/safe/` are refused, as C and as C++. The costs over libc++ 22 on the gates' box, the twin by clang++
+22.1.8 at `-std=c++23`, the builds at `-O0` and the best of three:
+
+| | build | peak | IR types | IR functions | IR lines | object | `vector 10000000` at `-O2` | its peak |
+|---|---|---|---|---|---|---|---|---|
+| cicilang, C | 0.33 s | 126 MB | 5 | 67 | 2,597 | 23,760 B | 0.07 s | 78 MB |
+| cicilang++, C++ | 0.77 s | 162 MB | 5 | 67 | 3,529 | 28,240 B | 0.07 s | 78 MB |
+| clang++ 22, `std::` | 0.80 s | 141 MB | 73 | 519 | 14,649 | 300,216 B | 0.14 s | 79 MB |
+
+The unit holds 67 functions for its four instances where the twin's holds 519, and an object of 24 KB where the
+twin's is 300 KB. cicilang's C build takes less than half of clang++'s time; cicilang++'s build of this program, which
+calls every function of the vector, takes as long as clang++'s build of the twin and more memory (162 MB against 141
+MB): the nearest costs, and phase 1's first target.
+
+DECISION 2 STANDS BEFORE THE CONTAINERS OF OWNERS: `vector<string>`, `vector<vector<int>>`, `map<int, string>` and
+every container of pointers need the owner's rule on containers of owners. `vector.pl` refuses such an element by name
+until then; with functions made at their first call, nothing else would refuse it. The other modules of 1a go on over
+elements with no pointer in them, each one a step.
 
 - 1a. Containers and strings: `vector`, `array`, `deque`, `list`, `forward_list`, `map`, `set`, `multimap`,
   `multiset`, `unordered_map`, `unordered_set` and their multi forms, `stack`, `queue`, `priority_queue`, `bitset`,

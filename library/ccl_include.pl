@@ -956,9 +956,11 @@ ccl_dirs_after([_|Ds], From, Rest) :- ccl_dirs_after(Ds, From, Rest).
 
 ccl_include_path(Dirs) :-
     (   ccl_global('$ccl_incpath', D0, none), D0 \== none -> Dirs = D0
-    ;   ccl_user_dirs(U), ccl_library_dirs(Ls), ccl_toolchain_dirs(T), append(U, Ls, UL), append(UL, T, Dirs), nb_setval('$ccl_incpath', Dirs) ).
+    ;   ccl_user_dirs(U), ccl_library_dirs(Ls), ccl_ccllib_dirs(Ls, Cs), ccl_toolchain_dirs(T), append([U, Ls, Cs, T], Dirs), nb_setval('$ccl_incpath', Dirs) ).
 %% the cocolog library directories, so `#include <ccl_format.pl>' finds the
-%% macro files this repository ships beside its grammars
+%% macro files this repository ships beside its grammars; and CCLLIB'S (0.274; CCLLIB.md): each one's ccllib/, so
+%% `#include <vector.pl>' finds library/ccllib/vector.pl -- behind the user's directories and before the toolchain's
+ccl_ccllib_dirs(Ls, Cs) :- findall(D, ( member(L, Ls), atom_concat(L, '/ccllib', D), exists_directory(D) ), Cs).
 ccl_library_dirs(Ds) :-
     ( once(catch(os_env('COCOLOG_LIBRARY', V), _, fail)), V \== '' -> atom_codes(V, Cs), ccl_split(Cs, 0':, Parts), ccl_atoms(Parts, Ds) ; Ds = [] ).
 ccl_include_path_reset :- nb_setval('$ccl_incpath', none).

@@ -1900,7 +1900,7 @@ ck_expr(assign('=', call(id(G), [A0|As]), R), St0, St) :- atom(G), cpp_library_f
 ck_expr(assign('=', L, R), St0, St) :- !,
     ( ck_path(R, RK), ck_by_value(R), ck_has_array_under(St0, RK) -> ck_fail(own_array_by_value, RK, assign('=', L, R)) ; true ),
     (   ccl_type_of(L, T), T \== unknown
-    ->  (   ck_own_type(T) -> ck_into_own(none, R, assign('=', L, R), St0, St1, _)
+    ->  (   ck_own_type(T), ck_carries_type(T) -> ck_into_own(none, R, assign('=', L, R), St0, St1, _)   % AN ELEMENT OF AN OWN BUFFER THAT CARRIES NO POINTER IS A PLAIN VALUE'S SLOT (0.274): `own int *data' puts own with the pointee (ck_own_type/1), so `b->data[i]' has the type `own int', and `b->data[i] = q[i]' over a parameter q was `borrow_stored', a number taken for a borrow of q
         ;   ck_carries_type(T) -> ck_slot_name(L, Name), ck_where(L, St0, W), ck_into_plain(Name, R, assign('=', L, R), W, St0, St1)
         ;   ck_holds_lib_borrow(T) -> ck_into_lib_slot(L, R, assign('=', L, R), St0, St1)
         ;   ck_expr(R, St0, St1) )

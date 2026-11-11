@@ -1413,3 +1413,10 @@ ccl_has_own_member(T) :- ccl_members_of(T, Ms), member(member(MT, _, _), Ms), ( 
 ccl_own_quals(ptr(Q, B)) :- ( memberchk(own, Q) ; B = base(Q2, _), memberchk(own, Q2) ), !.
 ccl_own_quals(base(Q, _)) :- memberchk(own, Q), !.
 ccl_own_quals(arr(_, T)) :- ccl_own_quals(T), !.
+%% A TYPE WHOSE VALUE HOLDS A POINTER TO MEMORY (0.274), for a macro author: a pointer but to a function, an array of
+%% such, a struct or a union with such a member at any depth -- what a container of plain values does not take
+%% (ccllib's vector, CCLLIB.md's open decision 2)
+ccl_holds_pointer(T) :- catch(ccl_resolve_type(T, T1), _, fail), ccl_holds_pointer_(T1).
+ccl_holds_pointer_(ptr(_, F)) :- !, \+ catch(ccl_resolve_type(F, fn(_, _, _)), _, fail).
+ccl_holds_pointer_(arr(_, E)) :- !, ccl_holds_pointer(E).
+ccl_holds_pointer_(T) :- catch(ccl_members_of(T, Ms), _, fail), member(member(MT, _, _), Ms), ccl_holds_pointer(MT), !.

@@ -50,13 +50,14 @@ ccl_cpp_lambda ccl_cpp_concept"
 JOINED=ccl_cpp_all
 ALONE=""; for f in $FILES; do case " $(echo $PARTS) " in *" $f "*) ;; *) ALONE="$ALONE${ALONE:+ }$f" ;; esac; done   # the library's other nine, each charted alone
 TFILES="reader compile cpp readhdr census libcxx flow why prof"   # THE GATES' OWN PROLOG (0.161), charted as the library is: a mis-edit in a gate
-fg_path() { case " $TFILES " in *" $1 "*) echo "test/$1.pl" ;; *) echo "library/$1.pl" ;; esac; }
+CFILES="vector"   # CCLLIB'S MACRO FILES (0.274; CCLLIB.md's Tests), library/ccllib/NAME.pl, charted as a gate program is: over the library loaded, nothing stubbed
+fg_path() { case " $TFILES " in *" $1 "*) echo "test/$1.pl" ;; *) case " $CFILES " in *" $1 "*) echo "library/ccllib/$1.pl" ;; *) echo "library/$1.pl" ;; esac ;; esac; }
 if [ -n "$FLOW_KEEP" ]; then D=$FLOW_KEEP; rm -rf "$D"; mkdir -p "$D"; else D=$(mktemp -d "${TMPDIR:-/tmp}/cicilang-flow-XXXXXX"); trap 'rm -rf "$D"' EXIT; fi
 mkdir -p "$D/src" "$D/out" "$D/res" "$D/stub"
 start=$(date +%s)
 
 # the copies with their roots
-list=""; for f in $FILES $TFILES; do list="$list${list:+,}'$ROOT/$(fg_path $f)'"; done
+list=""; for f in $FILES $TFILES $CFILES; do list="$list${list:+,}'$ROOT/$(fg_path $f)'"; done
 plist=""; for f in $PARTS; do plist="$plist${plist:+,}'$ROOT/library/$f.pl'"; done
 out=$(cd "$ROOT" && timeout -s KILL 300 "$C" --local query "use_module(library(cicilang)), ensure_loaded('$ROOT/test/flow.pl'), fg_roots_main([$list], join('$JOINED.pl', [$plist]), '$D/src')" 2>&1 < /dev/null)
 [ -f "$D/src/roots.txt" ] || { echo "RED: the roots were not written"; printf '%s\n' "$out" | tail -10; exit 1; }
@@ -82,7 +83,7 @@ done > "$D/jobs0"
 n=$(awk -v b="$JOINED.pl" '$1 == b { print $2 }' "$D/src/roots.txt")   # the joined parts: each of the seventeen stubbed, so each is read once
 mkdir -p "$D/stub/$JOINED"; for p in $PARTS; do : > "$D/stub/$JOINED/$p.pl"; done
 echo "$JOINED COCOLOG_LIBRARY='$D/stub/$JOINED:$COCOLOG_LIBRARY' fg_job $JOINED $n" >> "$D/jobs0"
-for f in $TFILES; do   # a gate program is no library file: nothing to stub, and the flow library its own two load beside the rest
+for f in $TFILES $CFILES; do   # a gate program is no library file: nothing to stub, and the flow library its own two load beside the rest; ccllib's macro file likewise, over the library's loads
   n=$(awk -v b="$f.pl" '$1 == b { print $2 }' "$D/src/roots.txt")
   echo "$f fg_job $f $n"
 done >> "$D/jobs0"
@@ -102,7 +103,7 @@ ccl_pool "$FLOW_JOBS" "$FLOW_LAUNCH_MB" "$FLOW_HARD_MB" < "$D/jobs"; pooled=$?
 
 # the verdicts, then every finding keyed as the expect file keys it
 bad=0
-for f in $ALONE $JOINED $TFILES; do
+for f in $ALONE $JOINED $TFILES $CFILES; do
   r=$(cat "$D/res/$f" 2>/dev/null || echo "FAIL $f: no verdict")
   if [ "$f" = "$JOINED" ]; then w="library/ccl_cpp.pl and its sixteen parts, one program,"; else w=$(fg_path $f); fi
   case "$r" in
@@ -112,7 +113,7 @@ for f in $ALONE $JOINED $TFILES; do
 done
 [ "$bad" -eq 0 ] || { echo "RED: a file was not charted"; exit 1; }
 # each finding keyed at its file: the joined program's at the part whose lines hold it, its line counted from the part's first
-for f in $ALONE $JOINED $TFILES; do
+for f in $ALONE $JOINED $TFILES $CFILES; do
   if [ "$f" = "$JOINED" ]; then jm="$D/src/joined.txt"; else jm=/dev/null; fi
   awk -F '\t' -v file="$(fg_path $f)" -v root="$ROOT/" 'FILENAME != ARGV[2] { split($0, a, " "); n++; fl[n] = a[1]; lo[n] = a[2]; hi[n] = a[3]; next }
   {

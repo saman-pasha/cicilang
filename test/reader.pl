@@ -577,6 +577,30 @@ k143 :- check('in C++ an instance\'s operator is its type macro\'s where the mac
       sub_t(deref(call(id(ring_int_4_index), [addr(id(r)), int(1)])), B),
       sub_t(call(id(pt_double_eq), [addr(id(p)), addr(id(q))]), S) )).
 
+%% AN INSTANCE'S FUNCTIONS MADE AT THEIR FIRST CALL, AND ITS CALL BY NAME (0.274; CCLLIB.md's phase 1a): test/c/run/lazy.c
+%% over lazy.pl, whose fn_stack/3 gives one function at a time, and lazy.pl.h, the macro file's header
+k144 :- check('an instance\'s functions are made at their first call, each before the item that called it, and the unit holds no other: stack<int>\'s size before count, its inner helper before its push, stack_int_never and stack_double_size nowhere',
+    ( unit('run/lazy.c', unit(Is)), top_items(Is, Ts),
+      Ts == [td(11, stack_double), fn(11, linkonce, stack_double_drop), fn(11, static, size),
+             td(12, stack_int), fn(12, linkonce, stack_int_drop), fn(12, linkonce, stack_int_size), fn(12, static, count),
+             fn(15, static, stack_int__room), fn(15, linkonce, stack_int_push), fn(18, linkonce, stack_int_top), fn(19, linkonce, stack_int_fill),
+             fn(20, linkonce, stack_int_pop), fn(20, linkonce, stack_int_index), fn(21, linkonce, stack_int_fill3), fn(22, linkonce, stack_int_clone),
+             fn(23, static, stack_double__room), fn(23, linkonce, stack_double_push), fn(23, linkonce, stack_double_from),
+             fn(24, linkonce, stack_int_eq), fn(24, linkonce, stack_double_pop), fn(13, none, main)] )).
+k145 :- check('a call whose first argument is an instance\'s object or a pointer to one is the instance\'s function of that name: the object by its address, the pointer as it is, the form by the count of the arguments; clone, an operator and a literal ask for theirs; the program\'s own function of that name over the instance is the one called for it',
+    ( unit('run/lazy.c', unit(Is)),
+      sub_t(call(id(stack_int_push), [addr(id(s)), int(5)]), Is), sub_t(call(id(stack_int_size), [id(p)]), Is), sub_t(call(id(stack_int_size), [addr(id(s))]), Is),
+      sub_t(call(id(stack_int_fill), [addr(id(s)), int(7)]), Is), sub_t(call(id(stack_int_fill3), [addr(id(s)), int(4), int(1)]), Is),
+      sub_t(call(id(stack_int_clone), [addr(id(s))]), Is), sub_t(deref(call(id(stack_int_index), [addr(id(s)), int(0)])), Is),
+      sub_t(call(id(stack_int_eq), [addr(id(s)), addr(id(c))]), Is), sub_t(call(id(stack_double_from), [compound_lit(_, _), int(2)]), Is),
+      sub_t(call(id(size), [addr(id(d))]), Is), \+ sub_t(call(id(stack_double_size), _), Is),
+      \+ sub_t(call(id(push), _), Is), \+ sub_t(call(id(fill), _), Is) )).
+k146 :- check('a macro file\'s NAME.pl.h is included with it, before it: lazy.c, which names no <stdlib.h>, holds lazy.pl.h, which brings realloc and free',
+    ( unit('run/lazy.c', unit(Is)), findall(S, member(include(_, S, _), Is), Ss), Ss = [system('stdio.h'), local(H), local('lazy.pl')],
+      atom_concat(_, 'run/lazy.pl.h', H) )).
+k147 :- check('in C a name that neither the instance nor the program has is refused at its line, by name',
+    op_refused('lazy_nofn.c', 5, 'stack_int has no function pusj: its type macro defines no stack_int_pusj')).
+
 k110 :- check('a type macro that fails, two instances that one name names, and a typed call of a macro with no typed form are refused at the use',
     ( c('tmacro_fail.c', P1), c('tmacro.pl', M), catch(cicilang_ast(P1, _), error(E1, here(P1, 3, in_macro(type_none, M))), true), E1 == macro_failed(none, [base([], [int])]),
       c('tmacro_same.c', P2), catch(cicilang_ast(P2, _), error(macro_error(pair, _, error(ctext_error(T2), _)), here(P2, 7, _)), true),
@@ -860,6 +884,11 @@ t_checks :-
     k142,
     section('operators on instances in C++ (0.270)'),
     k143,
+    section('an instance\'s functions made at their first call, and its call by name (0.274)'),
+    k144,
+    k145,
+    k146,
+    k147,
     section('the preprocessor, in cocolog: a header raw cannot take'),
     k83,
     section('the lexer, native: ccl_lex_native/6 token for token with the DCG'),

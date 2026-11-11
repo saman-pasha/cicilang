@@ -1,0 +1,1 @@
+vector_int has no function push_front: its type macro defines no vector_int_push_front

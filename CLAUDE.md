@@ -12,8 +12,8 @@ the fixture that gates it, and why. The bullet ends with the version that made t
 edits the rule in `RULES.md`, in its topic, and writes its entry in `HISTORY.md`. Read the topic of `RULES.md` that
 covers the code before the code is changed.
 
-At 0.273 the versions are: the module 0.273 (`ccl_p_version` in `module/cicilang.cicili`, `bin/cicilang --version`),
-the reader 180 (`ccl_reader_version/1`, `library/ccl_syntax.pl`) and the lowering 155 (`ccl_lowering_version/1`,
+At 0.274 the versions are: the module 0.274 (`ccl_p_version` in `module/cicilang.cicili`, `bin/cicilang --version`),
+the reader 181 (`ccl_reader_version/1`, `library/ccl_syntax.pl`) and the lowering 156 (`ccl_lowering_version/1`,
 `library/ccl_ir.pl`).
 
 Build and prove, always in this order (or all of it, `sh test/gates.sh`):
@@ -56,6 +56,7 @@ In `RULES.md`:
 - Object layout and the ABI
 - Exceptions, RTTI, coroutines, modules, contracts and source locations
 - libc++: how the library is compiled
+- ccllib: the library of cicilang's C
 - The safe part
 - The lowering
 - Time and memory
@@ -339,6 +340,9 @@ library/ccl_uninames.pl     the \N{NAME} table, generated: Unicode 15.0.0's name
 library/ccl_xid.pl          an identifier's characters past ASCII by the language and its level, and the white space
                             past ASCII, generated (0.221): ccl_xid(Set, Lo, Hi), loaded on the first character past
                             ASCII
+library/ccllib/             ccllib, the standard library of cicilang's C (CCLLIB.md): a macro file a C++ header,
+                            found by #include <NAME.pl>, and NAME.pl.h, the C declarations that its text calls
+  vector.pl, vector.pl.h      std::vector (0.274): the type and its drop, and each function made at its first call
 library/cicilang.so, ccl_llvm.so
                             built by the two module scripts, never committed
 library/include/            the compiler's own freestanding headers: each COCOLOG_LIBRARY directory's include/, after
@@ -391,20 +395,24 @@ test/c/                     the reader's fixtures: hello.c, rich.c, lexer.c, mac
                             run/tvector.pl and run/literal.pl, the literals' refusals (0.263); unread_back.c and
                             unread_place.c over unread_bad.pl, the refusals of an argument taken unread, and
                             forscope.c, a for's scope (0.264); op_*.c over run/topers.pl, the operators' refusals,
-                            and op_ptr.c, C's own operators over a pointer to an instance (0.266)
+                            and op_ptr.c, C's own operators over a pointer to an instance (0.266); lazy_nofn.c
+                            over run/lazy.pl, a name that an instance has not (0.274)
 test/c/inc/                 the -I fixture: uses_box.c over box.h
 test/c/link/                two files linked into one program; the ABI against clang-built code (abi_main.c,
                             abi_helper.c), variadic calls (va_main.c, va_func.c, va.h), the decimal ABI against gcc,
                             the decimal runtime against libgcc's (decrt.c, 0.243), three machines' calling conventions
                             and layouts against clang's (abi_targets.c, 0.244); two units that both make vector<int>
-                            (inst_a.c, inst_b.c over ../run/tvector.pl, 0.261)
+                            (inst_a.c, inst_b.c over ../run/tvector.pl, 0.261); two units over <vector.pl>, each
+                            with the functions that it calls (vec_a.c, vec_b.c, 0.274)
 test/c/run/                 C programs built and run: NAME.c, NAME.expect, NAME.std, NAME.needs (0.224), NAME.ref
                             (0.225); pp_defs.h, fileconst.h, ppinclude.h, hdrdefs.h, ftmacro.h, embed.txt, empty.txt;
                             ctext.pl, the macro file of ctext.c (0.260); tvector.pl, tvhdr.h and
                             tvhdr2.h, of tvector.c (0.261); autodrop.pl, of autodrop.c (0.262); literal.pl, map<K, V>
                             beside tvector.pl's vector<T>, of literal.c (0.263); unread.pl, of unread.c (0.264);
                             elemborrow.c, what the safety rules of 0.265 let C keep; topers.pl, the type macros with
-                            operators of operators.c (0.266)
+                            operators of operators.c (0.266); lazy.pl and lazy.pl.h, of lazy.c: an instance's
+                            functions made at their first call, its calls by name, a macro file's C header (0.274);
+                            owncopy.c, a copy loop into an owned buffer (0.274)
 test/c/safe/                C programs the safe part refuses: NAME.c, NAME.expect; dropnone.pl, the macro file of
                             drop_leaks.c (0.262); borrow_after_grow.c, borrow_after_push.c, elem_after_push.c,
                             grow_through_ptr.c, const_replace.c and const_local.c, the safety rules of 0.265;
@@ -426,7 +434,10 @@ test/cpp/run/               C++ programs built and run: NAME.cpp, .expect, .flag
                             ../../c/run/tvector.pl, what the safety rules let C++ keep (0.272)
 test/ccllib/                the three runs' programs: NAME.c, a ccllib program; NAME.cpp, its twin over std::;
                             NAME.expect, what the twin prints; NAME.count, the count of the run that the costs time;
-                            first.c over first.pl, the first proof after phase 0 (0.273)
+                            first.c over first.pl, the first proof after phase 0 (0.273); vector.c, the whole
+                            surface of <vector.pl> (0.274)
+test/ccllib/safe/           ccllib programs that the safe part refuses, as C and as C++: NAME.c, NAME.expect, and
+                            NAME.expect.cpp where C++ has words of its own (0.274)
 
 proof/forty2.ll, run.sh     M0: hand-written IR through clang to a binary that prints a line and exits 42
 proof/forty2                made by proof/run.sh, never committed

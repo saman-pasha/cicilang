@@ -74,6 +74,7 @@ printf 'int twice_h(int x) { return 2 * x; }\n' > absh.h
 printf '#include <stdio.h>\n#include "%s/absh.h"\nint main(void) { printf("%%d\\n", twice_h(21)); return 0; }\n' "$(pwd)" > absinc.c
 check "an #include of an absolute path finds the file, as clang does (0.260)" "$("$CICILI" absinc.c -o absinc 2>&1 && ./absinc)" "42"   # the path was joined to the includer's directory: the header was never read, and the build failed later at undeclared(twice_h)
 check "two units that both make vector<int> link: its functions linkonce_odr, one kept (0.261)" "$("$CICILI" "$R/link/inst_a.c" "$R/link/inst_b.c" -o inst 2>&1 && ./inst)" "5 7 6"   # each unit defines vector_int_push, _at and _len; plain definitions would be duplicate symbols at the link
+check "two units over <vector.pl> link, each with the functions of vector<int> that it calls, one kept of what both made (0.274)" "$("$CICILI" "$R/link/vec_a.c" "$R/link/vec_b.c" -o vecab 2>&1 && ./vecab)" "6 9 7 6"
 lpout=$("$CICILI" "$R/lit_noplace.c" -o litnp 2>&1); lpcode=$?
 check "a list literal where no place gives it a type, a conditional's branch, is refused by name (0.263)" "$(echo "$lpout" | sed "s|$R/||g"; echo "exit $lpcode")" "lit_noplace.c:8: error: not lowered yet: list_literal_with_no_type_given (function main)
 lit_noplace.c:8: note: expanded from macro 'vector' on base([],[int])

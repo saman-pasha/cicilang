@@ -25,6 +25,7 @@ that changes a rule edits the rule here, in its topic, and writes its entry in `
 - Object layout and the ABI
 - Exceptions, RTTI, coroutines, modules, contracts and source locations
 - libc++: how the library is compiled
+- ccllib: the library of cicilang's C
 - The safe part
 - The lowering
 - Time and memory
@@ -699,6 +700,12 @@ that changes a rule edits the rule here, in its topic, and writes its entry in `
   HOME's, warm from the checks' builds, and a C build's peak follows the store: 110 MB over a fresh HOME, 313 MB over a
   store of many reads. `CCLLIB_COSTS=0` prints no costs; a cc that does not build `test/cost.c` is named, and nothing
   is measured. (0.273)
+- WHAT THE SAFE PART REFUSES OF A CCLLIB PROGRAM (0.274): each `test/ccllib/safe/NAME.c` is refused by `bin/cicilang`
+  as C and by `bin/cicilang++` as C++ (`-c`, exit 1) with the words of `NAME.expect`, of `NAME.expect.cpp` where C++
+  has words of its own (`no_function.c`: C names the instance, C++ says `undeclared(push_front)`). They stand there and
+  not in `test/c/safe/`: the compile gate reads its fixtures in one process, where the fixtures' `type_vector/3` and
+  ccllib's would be one predicate (Not done). The gate's last line counts them, `GREEN: ccllib (2 program(s) in three
+  runs, 7 refused)`. (0.274)
 - **THE FIRST PROOF AFTER PHASE 0** (0.273; `CCLLIB.md`'s Order): `test/ccllib/first.c` over its macro file `first.pl`
   -- `vector<T>` with `push`, `at`, `len` and `sort`: a type macro's instance (0.261), its literal's `from` (0.263), its
   drop (0.262), all of it C text (0.260) -- built as C and as C++, and `first.cpp`, the same program over `std::vector`
@@ -2400,10 +2407,10 @@ that changes a rule edits the rule here, in its topic, and writes its entry in `
   over an own buffer was `owner live where a call may throw, and no defer frees it`, and the lowering makes it a plain
   call. Two C++ units that both make `vector<int>` link, its functions linkonce_odr there too. The C++ gate builds
   `test/c/run/ctext.c`, `autodrop.c`, `tvector.c` (0.268: its headers `tvhdr.h` and `tvhdr2.h` read as the
-  program's file is, the topic of includes), `literal.c` (0.269), `operators.c` and `unread.c` (0.270) with cicilang++
-  and compares each with its `.expect`; `elemborrow.c`, the last of them, is `test/cpp/run/elemborrowpp.cpp` there
-  (0.272), its plain functions noexcept: C++'s defer rule refuses a plain struct's live owner across a call that may
-  throw. (0.267, 0.268, 0.269, 0.270, 0.272)
+  program's file is, the topic of includes), `literal.c` (0.269), `operators.c` and `unread.c` (0.270) and `lazy.c`
+  (0.274) with cicilang++ and compares each with its `.expect`; `elemborrow.c` is `test/cpp/run/elemborrowpp.cpp`
+  there (0.272), its plain functions noexcept: C++'s defer rule refuses a plain struct's live owner across a call that
+  may throw. (0.267, 0.268, 0.269, 0.270, 0.272, 0.274)
 - **A READ THAT MADE OR MET AN INSTANCE IS KEPT IN NEITHER CACHE** (0.261): what it holds is its unit's -- the instance
   where the unit first used it, a later use naming it alone -- so neither the process's cache nor the store keeps such
   a header's read or such a file's (`ccl_include_read/2`, `ccl_read_file_/3`, over a count of the instances met,
@@ -2416,6 +2423,46 @@ that changes a rule edits the rule here, in its topic, and writes its entry in `
   is refused: `macro: the macro twice takes no types before its 1 argument(s)`. In C++ too (0.267), outside a library
   header's read: the clause stands before the C++ qualified name's, which read `max` alone and then `<` as less-than,
   so `double` stopped the read. Reader `k108`, `k110`. (0.261, 0.267)
+- **AN INSTANCE'S FUNCTIONS ARE MADE AT THEIR FIRST CALL** (0.274; `CCLLIB.md`'s phase 1a): a macro file's `fn_N(Name,
+  Args, Items)` gives the items that define `<instance>_<Name>`, ONE function of N's instance over Args, as its
+  `type_N/3` gives the type's, so that a unit holds the functions that it calls and no other, as C++ instantiates the
+  members of a class template that a program uses. `ccl_inst_ensure(F)` makes F where F is `<instance>_<Name>` for an
+  instance of the unit, the macro answers for Name and the unit has not made it: the items are read now, marked as an
+  instance's are (`ccl_inst_linkonce/2`) and stand at file scope before the item read now (`ccl_hoist/1`). It is asked
+  by a call by name (the next rule), by a plain call of the full name -- so the text of one function calls another,
+  `@{N}_reserve(v, n)`, which is made first --, by an operator (`ccl_iop_ours/1`, `ccl_iop_fn/4`), by a literal
+  (`ccl_lit_from/3`) and by `clone`. The unit's made functions are `fn(F)` beside its instances in `'$ccl_instances'`,
+  and a name that no macro answers for is `nofn(F)`, so each is asked once and a read that gives its instances back
+  gives these back with them. The macro's failure is no error: it has no function of that name; its error names the
+  call and the macro file, as a type macro's does (`ccl_inst_fn_make/5`). The drop is the type's, made with it: an
+  object exists before any call. Reader `k144`; `test/c/run/lazy.c` over `lazy.pl`, whose `stack_int_never` no unit
+  holds, built as C and, by the C++ gate, as C++; ccllib's `vector.pl`. (0.274)
+- **A CALL OF AN INSTANCE'S FUNCTION BY ITS OWN NAME** (0.274; `CCLLIB.md`: a generic call finds its instance by the
+  type of its argument): `push_back(v, 1)`, where `v` is an object of an instance's type or a pointer to one and no
+  macro is named `push_back`, is `vector_int_push_back(&v, 1)` where the instance has that function, declared or made
+  now (`ccl_inst_call/4`, a clause of `ccl_call_or_macro/3` after the macros'). A name with several forms is told by the
+  count of its arguments: `resize(v, n, x)` asks `<instance>_resize3` first, then `<instance>_resize`
+  (`ccl_inst_call_fn/5`). An argument that is an instance's object goes by its address where the parameter is a pointer
+  to that instance, and as it is written elsewhere, a pointer among them (`ccl_inst_call_arg/5`). A function of the
+  program's of that name whose first parameter takes the instance, or a pointer to it, is the program's own and is the
+  one called (`ccl_inst_call_own/2`: `grow(&v)` over the program's `grow(vector<int> *)`), and one for another type --
+  stdio's `remove(const char *)` beside `remove(v, x)` -- leaves the call to the instance. A name that begins with `_`
+  is no call by name: an instance's inner helpers are named so (`vector_int__grow`), and its text calls them by their
+  full names; a call by a full name is a plain call (`ccl_inst_made/1`). In C a name that neither the instance nor the
+  program has is refused at its line, `stack_int has no function pusj: its type macro defines no stack_int_pusj`; in C++
+  the call is left to the desugaring, which may find it later. `clone(v)` over an instance's object is its
+  `<instance>_clone` (`ccl_macro_clone/2`'s first clause). No name is listed anywhere: a function that a type macro
+  gives is called by its name. Reader `k145`, `k147`; `test/c/run/lazy.c`, `test/c/lazy_nofn.c`. (0.274)
+- **A MACRO FILE'S C HEADER** (0.274): `NAME.pl.h` beside `NAME.pl` is included with it, before it, where the directive
+  stands (`ccl_external//3` gives the two includes as one splice, `ccl_include_item/5`): the declarations that the
+  macro file's C text calls, so that a program includes the macro file alone -- `<vector.pl>` brings `<stdlib.h>`'s
+  `realloc`, `free` and `abort`. The header's macros do not reach the program's text: the preprocessor passes a `.pl`
+  on and reads no header for it. Reader `k146`; `test/c/run/lazy.c`, which names no `<stdlib.h>`. (0.274)
+- **CCLLIB'S DIRECTORY IS ON THE PATH** (0.274): each `COCOLOG_LIBRARY` directory's `ccllib/` (`ccl_ccllib_dirs/2` in
+  `ccl_include_path/1`), behind the user's directories and the library's own, before the toolchain's, so `#include
+  <vector.pl>` finds `library/ccllib/vector.pl`. A macro author asks whether a type's value holds a pointer to memory
+  by `ccl_holds_pointer/1` (`library/ccl_infer.pl`): a pointer but to a function, an array of such, a struct or a union
+  with such a member. (0.274)
 - **AN INSTANCE'S DROP** (0.262; `CCLLIB.md`'s phase 0.5): the function `<name>_drop(<name> *)` that the instance's
   items define, `<name>` its type's name, is its drop (`ccl_inst_drop/4`); the instance's record keeps it, `inst(N,
   Args, Type, Drop)`, `none` where the items define no such function (`inplace<double, 8>`). The drop's parameter is
@@ -9363,6 +9410,57 @@ The namespaces' rules, the program's and the library's, are `library/ccl_cpp_nam
   element; a floating piece makes it partial and compares unordered on NaN ([class.spaceship]/2; `cpp_cmp_sign`).
   `std::compare_three_way` and `common_comparison_category_t` follow (`stdcompare2.cpp`). (0.101, 0.103, 0.104)
 
+## ccllib: the library of cicilang's C
+
+`CCLLIB.md` is its plan. The reader's forms that it stands on are in the topic of the C reader (type macros, C text,
+functions made at their first call, the call by name, literals, operators), the safe part's in its own, and its gate
+in the first topic (The ccllib gate).
+
+### The modules
+
+- A MODULE IS A MACRO FILE OF `library/ccllib/`, `NAME.pl`, and its C header `NAME.pl.h`: `type_NAME/3`, the type and
+  its drop; `fn_NAME/3`, one function at its first call; a table of C texts by the function's name (`ccllib_NAME_fn/2`).
+  Its predicates have the prefix `ccllib_` but the two that the reader asks by name. The flow gate charts each
+  (`CFILES` in `test/flow.sh`). A text is written in the part that C and C++ share; a null pointer is `0`, since no
+  header's macro is a name in a text. (0.274)
+- THE NAMES ARE C++'S (`push_back`, `size`, `empty`, `insert`, `erase`): a call finds its function by the type of its
+  first argument, so no macro is named as a function is. Where C++ tells two forms by their arguments' types, the
+  count tells them (`resize(v, n)` and `resize(v, n, x)`; `insert(v, i, x)` and `insert(v, i, n, x)`; `erase(v, i)` and
+  `erase(v, i, j)`) or C++23's own name does (`insert_range`, `append_range`, `assign_range`), and a place is an index
+  where C++ takes an iterator. `push`, `pop` and `len`, the short names of the plan's examples, stand beside them.
+  (0.274)
+
+### vector.pl
+
+- `vector<T>` is `vector_T`, a struct of a length, a capacity and an own buffer; `vector<int> v;` is an empty one,
+  dropped where its scope ends; `[int; 5, 3, 9]` makes one (`_from`). The whole surface of `std::vector`, 38 functions
+  and the drop: `size`, `len`, `empty`, `capacity`, `max_size`, `reserve`, `shrink_to_fit`; `at`, `v[i]` (`_index`),
+  `front`, `back`, `data`, `begin`, `end`; `push_back`, `push`, `emplace_back`, `pop_back`, `pop`, `clear`, `insert`
+  (two forms), `emplace`, `insert_range`, `append_range`, `erase` (two forms), `erase_value` (C++20's `std::erase`),
+  `resize` (two forms), `assign`, `assign_range`, `swap`; `clone`; `==` and `<` and what follows from them (`_eq`,
+  `_lt`); and `__grow`, an inner helper that no call by name reaches: it makes room for n more elements, twice the
+  capacity at least, and stops the program where the count wraps. (0.274)
+- WHAT DIFFERS FROM C++: `w = v` and `f(v)` move, as every object of an instance's type does, and `clone(v)` copies.
+  `at(v, i)`, `v[i]`, `front`, `back` and `pop_back` stop the program (`abort`) at an index past the end or on an empty
+  vector, where C++'s `at` throws and the others are undefined; a failed allocation stops it too. `pop_back` gives the
+  element that it takes away. `vector<bool>` is a vector of `bool`, a byte an element. (0.274)
+- AN ELEMENT IS A VALUE WITH NO POINTER IN IT: a scalar, an enum, a plain struct of those. A vector of vectors, of
+  owned pointers or of borrowed ones is refused where its type is written, `a vector's element is a value with no
+  pointer in it, and vector_int holds one` (`ccl_holds_pointer/1`): the owner's rule on containers of owners is open
+  (`CCLLIB.md`'s decision 2). The refusal is the module's own: with functions made at their first call the safe part
+  sees `push_back` alone, takes the move of the element into the buffer, and the drop, which frees the buffer, would
+  leak what the elements own. (0.274)
+- THE BORROWS: `begin(v)`, `end(v)`, `data(v)` and `&v[i]` are tied to the vector (`tie v`) and take it as const, so
+  they are borrows of its buffer that one another keep; each function that takes the vector not as const --
+  `push_back`, `insert`, `erase`, `resize`, `reserve`, `shrink_to_fit`, `assign`, `clear`, `pop_back`, `swap` -- may
+  replace the buffer and ends them (the safe part's rule of 0.265): iterator invalidation is found at compile time, in
+  C and in C++. `test/ccllib/safe/begin_after_push.c`, `index_after_resize.c`, `data_after_clear.c`,
+  `use_after_move.c`. (0.274)
+- `test/ccllib/vector.c` calls each function once at least, over `int`, `double`, a plain struct and `bool`, and its
+  twin `vector.cpp` over `std::vector` prints the same lines. Its unit holds 67 functions for four instances, where the
+  twin's holds 519; two units that call different functions of `vector<int>` link, one kept of what both made
+  (`test/c/link/vec_a.c`, `vec_b.c`, the driver gate). (0.274)
+
 ## The safe part
 
 ### The check in the build
@@ -9452,6 +9550,13 @@ The namespaces' rules, the program's and the library's, are `library/ccl_cpp_nam
   anchor or static storage; an anchor's borrow is held where the slot is a local's own storage and `borrow_stored` where
   the slot outlives the function since 0.217 (What a local's storage holds, below). A fresh non-static value or a loose
   pointer is `untied`. (M3, 0.217)
+- **AN ELEMENT OF AN OWN BUFFER THAT CARRIES NO POINTER IS A PLAIN VALUE'S SLOT** (0.274): `own int *data` puts `own`
+  with the pointee (`ck_own_type/1`), so `b->data[i]` has the type `own int`, and the assignment by the place's type
+  (the last clause of `ck_expr/3`'s `=`) took it for an own slot: `b->data[i] = q[i]` over a parameter `q` was `a
+  borrow stored where it cannot be followed: 'q'`, a number taken for a borrow of `q`. An own slot is one whose type
+  carries a pointer too (`ck_carries_type/1`); a number's or a plain struct's is a value's. A copy loop into an owned
+  buffer is C's most common one, and no fixture had one: `test/c/run/owncopy.c` (an `int` buffer, a local owner, a
+  buffer of plain structs), which gcc builds to the same line. Found by `vector.pl`'s `insert_range`. (0.274)
 - `ck_fill/6` gives a struct by value a whole value. The fields move over from a struct, come item by item from a list
   (`ck_init_slots/5`), or are all live from a call. (M3)
 - A struct with owners handed BY VALUE hands them to the callee's copy, as a copy does. They move at the call
@@ -13256,9 +13361,13 @@ Declarations topic of the C++ reader).
 - `bin/cicilang` accepts and ignores `-W`, `-f...` and `-pedantic` (owner's rule: clang's arguments, no new flags).
   `-D` and `-U` define and undefine (0.112), and `-fexperimental-library` turns libc++'s experimental part on (0.138); a
   run with any of them keeps no C store.
-- CCLLIB'S CONTAINERS OF OWNERS (found at 0.261: `CCLLIB.md`'s open decision 2): an element with an own field stored
-  into an instance's own buffer is no move of the field (`vector<vector<int>>`'s push is refused, `owner leaked:
-  'x.data'`). The drop that 0.260's fixture met is autodrop's since 0.262.
+- CCLLIB'S CONTAINERS OF OWNERS (found at 0.261: `CCLLIB.md`'s open decision 2): a container of elements that own or
+  borrow memory -- `vector<vector<int>>`, `vector<own char *>`, `vector<const char *>`, `map<int, string>` -- has no
+  rule: the safe part takes the move of an element with an own field into an instance's own buffer (0.262's autodrop
+  moves it) and nothing drops it there, and it refuses a stored borrow. `vector.pl` refuses such an element by name
+  where the type is written (0.274); until 0.273 a function that every instance made, an `at` that returned the
+  element, was refused for it (`a borrow leaves the function`), which functions made at their first call no longer
+  meet. The rule is the owner's: what a container's own text may do with its elements, and how its drop drops them.
 - AUTODROP'S LIMITS (0.262; `CCLLIB.md`'s phase 0.5): a temporary of a type that has a drop is not dropped -- `make(4);`
   and `make(4).len` are refused, `dropped_temporary`, where C++ destroys one at the end of its full expression; a
   member of such a type in a plain struct is not dropped with the struct (its buffer leaks unless it is dropped by
@@ -13308,12 +13417,21 @@ Declarations topic of the C++ reader).
   process's, consulted once, so a second file that defines a name the first defines is not its own there -- the reader
   gate and the compile gate read every fixture in one process, and `literal.pl`'s own `type_vector/3` was `tvector.pl`'s
   (`the type vector_double takes no literal`). A program built alone meets one file per name; the fixtures share
-  `tvector.pl`, and ccllib has one file per type.
+  `tvector.pl`, and ccllib has one file per type. ccllib's `type_vector/3` and the fixtures' are such a pair (0.274):
+  a fixture over `<vector.pl>` stands in `test/ccllib/` and `test/c/link/`, whose builds are processes of their own,
+  and in no gate that reads its fixtures in one.
 - A MACRO FILE'S CLAUSE FOR A PREDICATE THAT EXISTS IS NOT REFUSED AT THE LOAD (found at 0.273; the topic of the macro
   files): a head that names a builtin of cocolog's is never called, and one that names a predicate of cocolog's library
   or of the compiler's joins it, with one answer more for every caller. `ccl_macro_NAME` is the cure that an author
   must know; a load that names the clash, the two files of the item above among its cases, is a step of its own, with
   every fixture's macro files read against it.
+- THE CALL BY NAME, ITS LIMITS (0.274): the program's own function is told by its FIRST parameter alone, so its
+  `insert(vector<int> *, point)` takes every `insert(v, ...)` over a vector<int>, the instance's forms among them; and a
+  function of the program's that is declared after the call is not seen. `v.push_back(3)`, C++'s member call, is no call
+  of the instance's function (`CCLLIB.md`'s open decision 3). In C++ a name that the instance has not is the
+  desugaring's to refuse, `not lowered yet: undeclared(push_front)`, where C names the instance. Two forms of one name
+  with the same count of arguments need two names. A macro file's `NAME.pl.h` gives its declarations and not its macros:
+  a program that uses `NULL` includes its header itself.
 - A C TEXT AND A HEADER'S MACROS (found at 0.273): a C text is lexed, never preprocessed (0.260), so `NULL`, `EOF`,
   `INT_MAX`, `errno` and, on a Mac, `stdout` are no names in it -- `not lowered yet: undeclared('NULL')` at the
   instance's use; `first.pl` writes `0`. ccllib's iostreams over C's stdio (phase 1d) need such names: a road for them

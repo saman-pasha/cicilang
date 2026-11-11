@@ -268,6 +268,7 @@ One row per step, in version order: the step's title, what it did and its gate n
 | 0.271 | no CI job on a push or at night; the gates when the ccllib task is finished | the owner's rules: "Do not run github CI after each change" and "disable nightly run" -- gates.yml without its `push` and `schedule` events, the jobs on a pull request and on request --, and "just try to finish ccllib task then gates" -- the task's steps committed with their probes, the chain over the finished task; the CI's nightly full job over 0.270's tree, GREEN twice, carries the gates of 0.269 and 0.270; a record step, no library change | the toolchain, reader, compile, driver, objects and proof gates over this step's tree; a commit and a push |
 | 0.272 | the safety rules of 0.265 to 0.267 in C++: phase 0.10 is done | the last part of CCLLIB.md's phase 0.10: in C++ too `&a[i]` over a pointer is a borrow of what it borrows, a call that may replace an object's own fields ends the caller's borrows of them (a member function that is not const, a reference parameter, a local reference; a const member function and a reference to const keep them), a tied result is a borrow of the own fields, a null own field that such a call may fill is live, and an own field of a const object is not assigned, in clang++'s words; seven refusals, borrowkeep.cpp and elemborrowpp.cpp; the lowering 155 | the flow gate; the reader, compile, driver and objects gates; the C++ gate over libc++ 22 as the net; no chain, by the owner's rule of 0.271; a commit and a push |
 | 0.273 | the first proof after phase 0: `vector<int>` in the three runs, and the ccllib gate | CCLLIB.md's first proof: test/ccllib/first.c over first.pl (push, at, len, sort, dropped where its scope ends) built by cicilang as C and by cicilang++ as C++, and its twin over std:: by clang++, print the same lines and free every block; test/ccllib.sh, the chain's tenth gate, runs the three and prints their costs (test/cost.c); over libc++ 22: 0.24 s, 2 types, 21 functions and an 11.5 KB object against the twin's 0.67 s, 35, 229 and 126 KB | the ccllib gate over libc++ 22, 21 and 18; no chain, by the owner's rule of 0.271; a commit and a push |
+| 0.274 | ccllib's first module, `<vector.pl>`: functions made at their first call, and the call by name | CCLLIB.md's phase 1a begins: library/ccllib/vector.pl, std::vector's whole surface by C++'s names; a call finds its function by the type of its first argument (push_back(v, 1) is vector_int_push_back(&v, 1)), the count of the arguments telling two forms apart; each function of an instance is made at its first call (fn_N/3); a macro file's NAME.pl.h comes with it; the safe part takes a copy loop into an own buffer, refused before; a vector's element with a pointer in it is refused by name; the reader 181, the lowering 156 | the flow gate; the reader, compile, driver and objects gates; the ccllib gate; the library read and the C++ gate over libc++ 22; no chain, by the owner's rule of 0.271; a commit and a push |
 
 ## M5 — the C++ mode
 
@@ -18637,3 +18638,104 @@ the full job's new package and its tenth gate wait for a run on request.
   done), `CLAUDE.md`, `README.md`, `CCLLIB.md`.
 
 The module 0.273; the reader 180 and the lowering 155 stay.
+
+## 0.274 — ccllib's first module, `<vector.pl>`: functions made at their first call, and the call by name
+
+**0.274: `CCLLIB.md`'s phase 1a begins. `#include <vector.pl>` gives a C program `std::vector`: the whole surface, 38
+functions and the drop, by C++'s names. Two forms of the reader carry it and every module after it: a call finds its
+function by the type of its first argument, with no macro per name, and each function of an instance is made at its
+first call, so a unit holds the functions that it calls and no other. The vector program is built by cicilang as C and
+by cicilang++ as C++, and its twin over `std::vector` by clang++: the three print the same lines. The step found and
+corrected a false refusal of the safe part that is older than ccllib. Committed with its nets; the chain runs when the
+ccllib task is finished (the owner's rule of 0.271).**
+
+THE CALL BY NAME. `push_back(v, 1)`, where `v` is an object of an instance's type or a pointer to one and no macro is
+named `push_back`, is `vector_int_push_back(&v, 1)` (`ccl_inst_call/4`). `resize(v, n)` and `resize(v, n, x)` are two
+functions, told by the count of the arguments, `_resize` and `_resize3`. A probe showed what the first form of the rule
+cost: the program's own `grow(&v)`, a function over a `vector<int> *`, was taken for the vector's inner helper of that
+name, called with one argument of its two, and the program stopped in `abort`. A function of the program's whose first
+parameter takes the instance is the one called now (`ccl_inst_call_own/2`), and an inner helper's name begins with `_`,
+which no call by name reaches (`vector_int__grow`).
+
+FUNCTIONS MADE AT THEIR FIRST CALL. A macro file's `fn_N(Name, Args, Items)` gives one function of N's instance
+(`ccl_inst_ensure/1`): asked by a call by name, by a plain call of the full name -- so one function's text calls
+another's --, by an operator, by a literal and by `clone`; marked linkonce and put before the item read now; kept as
+`fn(F)` beside the unit's instances. The first proof's program made 10 functions an instance, each of them whether
+called or not; `vector.c`, which calls every function of a vector over `int`, 39 with the drop, holds 67 for four
+instances, since its `vector<double>`, `vector<point>` and `vector<bool>` hold what it calls of them, 10, 7 and 7.
+
+`#include <vector.pl>` ALONE. The path holds each library directory's `ccllib/`; and a macro file's `NAME.pl.h` is
+included with it, so `vector.pl.h` brings `<stdlib.h>` and `<string.h>` for the `realloc`, `free`, `abort` and `memmove`
+that the texts call.
+
+THE MODULE. `library/ccllib/vector.pl`: `type_vector/3`, the struct and its drop; `fn_vector/3` over a table of C texts
+by name. What differs from C++ is in `RULES.md`'s topic of ccllib: `w = v` moves and `clone(v)` copies; `at`, `v[i]`,
+`front`, `back` and `pop_back` stop the program past the end; `begin`, `end`, `data` and `&v[i]` are borrows tied to the
+vector, which each function that takes it not as const ends.
+
+WHAT IT FOUND.
+- A FALSE REFUSAL OF THE SAFE PART, older than ccllib: `b->data[i] = q[i]` into an `own int *` buffer over a parameter
+  `q` was `a borrow stored where it cannot be followed: 'q'`. `own` stands with the pointee, so the element's type is
+  `own int`, and the assignment took its place for an own slot and the number for a borrow. An own slot's type carries a
+  pointer too now. `test/c/run/owncopy.c`; `insert_range`'s text met it.
+- A STORED IR HID IT ONCE. The fixture built by the new tree left its IR in the store, and the tree of 0.273, at the
+  same reader and lowering versions, was served it and said nothing: the lowering's version rises with the check's
+  change, as its rule says, and each tree had a store of its own after that.
+- A VECTOR OF VECTORS WAS TAKEN AND LEAKED. Until now each instance made every function, and an `at` that returned an
+  element with an owner in it was refused, so no such vector was built. Made at their first call, `push_back` and `size`
+  alone were read: the move of the element into the buffer is taken, and the drop frees the buffer alone. `vector.pl`
+  refuses an element that holds a pointer where the type is written (`ccl_holds_pointer/1`). The owner's rule on
+  containers of owners (`CCLLIB.md`'s decision 2) stands before every container of such elements; the other modules of
+  phase 1a go on over elements with no pointer in them.
+- TWO MACRO FILES, ONE PREDICATE: ccllib's `type_vector/3` and the fixtures' are one predicate in a gate that reads its
+  fixtures in one process, so the vector's programs stand in `test/ccllib/` and `test/c/link/`, and the reader's forms
+  have a fixture of their own over another name (`stack<T>`, `test/c/run/lazy.c`).
+- `bool` IN C17 is `<stdbool.h>`'s: `vector<bool>` without it named a type that nothing defines, refused at `sizeof`,
+  far from the type's line.
+- A COUNT THAT WRAPS. `insert(v, i, n, x)` asked `__grow` for `len + n` elements, a sum that wraps for a count near the
+  greatest `size_t`: no room was made, and the move wrote past the buffer. `__grow` takes the count of the new elements
+  now and stops the program where the sum wraps; `resize` grows through it too, by twice the capacity at least, where it
+  asked for the exact count and n calls of `resize(v, size(v) + 1)` cost O(n * n). Found while the deque was written,
+  before the commit.
+
+THE FIXTURES. `test/ccllib/vector.c`, `vector.cpp`, `vector.expect`, `vector.count`; `test/ccllib/safe/`, seven programs
+refused as C and as C++ (a borrow after `push_back`, after `resize`, after `clear` through a pointer; a vector used
+after its move; a vector of vectors and one of pointers; a name that the vector has not), which the ccllib gate holds;
+`test/c/run/lazy.c` over `lazy.pl` and `lazy.pl.h`, which the compile gate runs and the C++ gate builds as C++;
+`test/c/run/owncopy.c`; `test/c/lazy_nofn.c`; `test/c/link/vec_a.c` and `vec_b.c`, two units that call different
+functions of `vector<int>` and link. Reader checks `k144` to `k147`.
+
+THE COSTS of `vector.c` over libc++ 22 on the gates' box, the twin by clang++ 22.1.8, the builds at `-O0`, the best of
+three:
+
+```
+run                       build s      MB  types  functions   lines  object B    run s      MB
+cicilang, C                 0.332   125.7      5         67    2597     23760    0.073    78.1
+cicilang++, C++             0.765   162.0      5         67    3529     28240    0.073    78.1
+clang++ 22.1.8, std::       0.803   140.5     73        519   14649    300216    0.135    79.4
+```
+
+The run is `vector 10000000` at `-O2`. cicilang++'s build of this program takes as long as clang++'s build of the twin
+and more memory; every other cost is below the twin's.
+
+THE NETS, over the work tree: the flow gate GREEN with no finding (109 s, peak 4169 MB), `library/ccllib/vector.pl`
+charted with the library; the reader gate GREEN (148 checks), the compile gate (252), the driver gate (65), the objects
+gate (29), over a fresh store; the ccllib gate GREEN over libc++ 22, 21 and 18, each over a fresh HOME (43 s, 44 s and
+48 s; 24 checks each, none skipped); the library read and the C++ gate over libc++ 22 and a fresh HOME: both GREEN, the
+read in 429 s and the gate in 1528 s -- its 881 run fixtures built and run, none skipped, and `lazy.c` among the seven
+ccllib fixtures that it builds as C++. The correction of the vector's growth came after the long nets: the flow gate,
+the ccllib gate over the three trees and the driver gate ran again over it, and they are the numbers here; no other gate
+reads `library/ccllib/vector.pl`.
+
+NO CHAIN RAN for this step (the owner's rule of 0.271), and it claims nothing GREEN but the nets above. No CI job ran.
+
+- `library/ccl_syntax.pl`: `ccl_inst_call/4` and its helpers, `ccl_inst_ensure/1`, `ccl_inst_fn_make/5`,
+  `ccl_fn_macro/2`, `ccl_inst_made/1`, `ccl_include_item/5` and the macro file's header in `ccl_external//3`, the
+  operators' and the literal's ask; the reader 181. `library/ccl_include.pl`: `ccl_ccllib_dirs/2`.
+  `library/ccl_infer.pl`: `ccl_holds_pointer/1`. `library/ccl_format.pl`: `clone` of an instance.
+  `library/ccl_check.pl`: an own slot carries a pointer. `library/ccl_ir.pl`: the lowering 156.
+  `library/ccllib/vector.pl`, `vector.pl.h`. `test/ccllib.sh`: the refusals. `test/flow.sh`: `CFILES`. `test/driver.sh`,
+  `test/cpp.sh`, `test/reader.pl`. The fixtures. `RULES.md` (the topic of ccllib, the C reader, the safe part, the
+  gates, Not done), `CLAUDE.md`, `README.md`, `CCLLIB.md`.
+
+The module 0.274; the reader 181 (what a read holds changes); the lowering 156 (the check's verdict changes).

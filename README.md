@@ -436,6 +436,17 @@ IR of 2 types and 21 functions and an object of 11.5 KB, where clang++'s
 build of the twin takes 0.67 s and makes 35 types, 229 functions and
 126 KB; sorting ten million numbers takes each about a third of a second.
 
+`#include <vector.pl>` is ccllib's first module (0.274), `std::vector` for
+C: `vector<int> v;`, `push_back(v, 7)`, `v[0] = 9`, `insert(v, 1, 11)`,
+`erase(v, 0)`, `resize(v, 5)`, `clone(v)`, `v == w`, and the rest of the
+C++ names. A call finds its function by the type of its first argument, and
+each function of an instance is made at its first call, so a program holds
+the functions that it calls and no other. `begin(v)`, `data(v)` and `&v[i]`
+are borrows of the buffer: used after a `push_back` they are refused at
+compile time. An element is a value with no pointer in it; a vector of
+vectors waits for a rule on containers of owners. `test/ccllib/vector.c` is
+the example.
+
 `format`, `print`, `println` and `clone` are global macros, there in every
 program without an include (`library/ccl_format.pl`). The format string
 has Rust's holes, each becoming the `printf` conversion of its argument's

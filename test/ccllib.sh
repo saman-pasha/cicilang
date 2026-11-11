@@ -10,6 +10,12 @@
 # 0.262, whose own fixtures every machine runs). No valgrind: the check is skipped by name, never a RED for what the box
 # lacks.
 #
+# WHAT THE SAFE PART REFUSES (0.274): each test/ccllib/safe/NAME.c is refused by cicilang as C and by cicilang++ as C++,
+# with the words of NAME.expect (NAME.expect.cpp where C++ has words of its own) -- a borrow of a vector's buffer used
+# after a call that may replace it, a vector used after its move, an element that a container does not take. They
+# stand here and not in test/c/safe: the compile gate reads its fixtures in one process, where two macro files that
+# define one predicate (the fixtures' type_vector/3 and ccllib's) are one.
+#
 # THE COSTS, a line a run, are a record and no check: the build of the program (the best of CCLLIB_REPEAT: its seconds
 # and the megabytes of its largest process), the IR's types, functions and lines, the object's bytes, and the longer
 # run, built at -O2 (its seconds and megabytes). test/cost.c measures, built by cc: the wall clock, and wait4's
@@ -102,6 +108,19 @@ for src in "$T"/*.c; do
   else echo "SKIP $n.valgrind (not here)"; fi
 done
 [ "$nprog" -gt 0 ] || { echo "RED: ccllib (no program in test/ccllib)"; exit 1; }
+nsafe=0
+if ls "$T"/safe/*.c > /dev/null 2>&1; then
+  echo "-- and the safe part refuses what a ccllib program may not do (test/ccllib/safe), as C and as C++"
+  for src in "$T"/safe/*.c; do
+    n=$(basename "$src" .c); nsafe=$((nsafe + 1))
+    for how in c cpp; do
+      w=$(cat "$T/safe/$n.expect")
+      if [ "$how" = c ]; then cmd="$ROOT/bin/cicilang"; as="C"; else cmd="$ROOT/bin/cicilang++"; as="C++"; [ -f "$T/safe/$n.expect.cpp" ] && w=$(cat "$T/safe/$n.expect.cpp"); fi
+      got=$(timeout -s KILL "$CCLLIB_SECS" "$cmd" -c "$src" -o "$D/safe_${n}_$how.o" 2>&1 < /dev/null; echo "exit $?")
+      case "$got" in *"$w"*"exit 1") ok "safe/$n.c, as $as, is refused: $w" ;; *) bad "safe/$n.c, as $as, should be refused: $w" "$got" ;; esac
+    done
+  done
+fi
 # ---- the costs: a record, no check ------------------------------------------------------------------------------
 # ccl_cost OUT CMD...: the best of CCLLIB_REPEAT runs of CMD -- its seconds and megabytes to OUT, `- -' for one that fails
 ccl_cost() {
@@ -141,4 +160,4 @@ if [ "$CCLLIB_COSTS" != 0 ]; then
   else echo "-- the costs are not measured: cc did not build test/cost.c ($(head -1 "$D/cost.log" | cut -c1-160))"; fi
 fi
 runs="three runs"; [ "$twin" = yes ] || runs="two runs: no clang++ over libc++ here builds the twins"
-if [ "$failures" -eq 0 ]; then echo "GREEN: ccllib ($nprog program(s) in $runs)"; else echo "RED: ccllib ($failures failure(s))"; exit 1; fi
+if [ "$failures" -eq 0 ]; then echo "GREEN: ccllib ($nprog program(s) in $runs, $nsafe refused)"; else echo "RED: ccllib ($failures failure(s))"; exit 1; fi

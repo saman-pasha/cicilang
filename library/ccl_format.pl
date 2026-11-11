@@ -102,6 +102,8 @@ ccl_fmt_members([member(MT, M, _)|Ms], E, C, Args) :-
     append(MC, ": ", C0), append(C0, C1, C01), append(C01, Sep, C012), append(C012, C2, C), append(A1, A2, Args).
 
 %% ---- clone --------------------------------------------------------------------
+%% an instance's object is cloned by its instance's `<name>_clone' (0.274): `w := clone(v);' over a vector<int>
+ccl_macro_clone(E, R) :- ccl_inst_call(clone, E, [], R), !.
 ccl_macro_clone(E, stmt_expr(block([declaration(0, none, Base, [var(C, ptr([own], PT), call(id(malloc), [sizeof_type(PT)]))]),
                                     expr(0, assign('=', deref(id(C)), deref(E))),
                                     expr(0, id(C))]))) :-
