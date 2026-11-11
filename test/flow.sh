@@ -50,7 +50,7 @@ ccl_cpp_lambda ccl_cpp_concept"
 JOINED=ccl_cpp_all
 ALONE=""; for f in $FILES; do case " $(echo $PARTS) " in *" $f "*) ;; *) ALONE="$ALONE${ALONE:+ }$f" ;; esac; done   # the library's other nine, each charted alone
 TFILES="reader compile cpp readhdr census libcxx flow why prof"   # THE GATES' OWN PROLOG (0.161), charted as the library is: a mis-edit in a gate
-CFILES="ccllib tree table vector array deque list forward_list stack queue set map unordered_set unordered_map bitset"   # CCLLIB'S MACRO FILES (0.274; CCLLIB.md's Tests), library/ccllib/NAME.pl, charted as a gate program is: over the library loaded, nothing stubbed
+CFILES="ccllib tree table vector array deque list forward_list stack queue set map unordered_set unordered_map bitset basic_string string"   # CCLLIB'S MACRO FILES (0.274; CCLLIB.md's Tests), library/ccllib/NAME.pl, charted as a gate program is: over the library loaded, nothing stubbed
 fg_path() { case " $TFILES " in *" $1 "*) echo "test/$1.pl" ;; *) case " $CFILES " in *" $1 "*) echo "library/ccllib/$1.pl" ;; *) echo "library/$1.pl" ;; esac ;; esac; }
 if [ -n "$FLOW_KEEP" ]; then D=$FLOW_KEEP; rm -rf "$D"; mkdir -p "$D"; else D=$(mktemp -d "${TMPDIR:-/tmp}/cicilang-flow-XXXXXX"); trap 'rm -rf "$D"' EXIT; fi
 mkdir -p "$D/src" "$D/out" "$D/res" "$D/stub"

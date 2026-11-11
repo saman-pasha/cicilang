@@ -548,7 +548,7 @@ k140 :- check('an instance\'s operator is refused at its line by name: one its t
     ( op_refused('op_undefined.c', 5, 'the operator * of pt_double is not defined: its type macro defines no pt_double_mul'),
       op_refused('op_rvalue.c', 6, 'the operator == of pt_double takes the address of its operand, which is no lvalue: name it first'),
       op_refused('op_type.c', 6, 'the operator == of pt_double takes an object of pt_double, which its operand is not'),
-      op_refused('op_left.c', 5, 'the operator + of pt_double takes the object on its left'),
+      op_refused('op_left.c', 5, 'the operator + of pt_double takes the object on its left: its type macro defines no pt_double_radd_int'),
       op_refused('op_shr.c', 9, 'the operator >> of tbuf_char reads into its right operand, which is no lvalue'),
       op_refused('op_word.c', 9, 'the operator << of tbuf_char is not defined: its type macro defines no tbuf_char_shl_float') )).
 
@@ -710,6 +710,21 @@ k161 :- check('where a function called by name takes a pointer to the instance, 
 k162 :- check('the word own where only a name can stand is refused at its line by name, and a parameter named so is not read as a name',
     ( c('own_name.c', P), catch(cicilang_ast(P, _), error(refusal(M, here(P, L)), _), true), L == 5,
       M == '`own\' is the owner\'s word and names no object: a parameter written `T *own\' is an own pointer with no name (write `T *own NAME\', or another name for a plain pointer)' )).
+
+%% OPERATORS WHOSE LEFT OPERAND IS NO INSTANCE (0.291): test/c/run/mirror.c over tmirror.pl -- a relation is the
+%% instance's own with the operands exchanged, `>' and `<=' over a text take the typed `_gt', `+' with a text or a
+%% character on its left is `_radd'; and test/c/op_mirror_none.c, where the type macro has no form for an int
+k163 :- check('an operator whose left operand is no instance is the instance\'s own relation with the operands exchanged, or its r function; > and <= take a typed _gt first; and one with no form is refused by the name of its function',
+    ( fn_body('run/mirror.c', main, B),
+      sub_t(call(id(tag_char_eq_ptr_const_char), [addr(id(t)), str([97,98,99])]), B),
+      sub_t(not(call(id(tag_char_eq_ptr_const_char), [addr(id(t)), str([97,98,99])])), B),
+      sub_t(call(id(tag_char_gt_ptr_const_char), [addr(id(t)), str([97,98,98])]), B),
+      sub_t(call(id(tag_char_lt_ptr_const_char), [addr(id(t)), str([97,98,100])]), B),
+      sub_t(not(call(id(tag_char_lt_ptr_const_char), [addr(id(t)), str([97,98,99])])), B),
+      sub_t(not(call(id(tag_char_gt_ptr_const_char), [addr(id(t)), str([97,98,99])])), B),
+      sub_t(var(u, _, call(id(tag_char_radd_ptr_const_char), [str([60]), addr(id(t))])), B),
+      sub_t(var(w, _, call(id(tag_char_radd_int), [chr(40), addr(id(v))])), B),
+      op_refused('op_mirror_none.c', 6, 'the operator == of tag_char takes the object on its left: its type macro defines no tag_char_eq_int') )).
 
 k110 :- check('a type macro that fails, two instances that one name names, and a typed call of a macro with no typed form are refused at the use',
     ( c('tmacro_fail.c', P1), c('tmacro.pl', M), catch(cicilang_ast(P1, _), error(E1, here(P1, 3, in_macro(type_none, M))), true), E1 == macro_failed(none, [base([], [int])]),
@@ -1018,6 +1033,7 @@ t_checks :-
     k160,
     k161,
     k162,
+    k163,
     section('the preprocessor, in cocolog: a header raw cannot take'),
     k83,
     section('the lexer, native: ccl_lex_native/6 token for token with the DCG'),

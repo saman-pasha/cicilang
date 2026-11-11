@@ -285,6 +285,7 @@ One row per step, in version order: the step's title, what it did and its gate n
 | 0.288 | A call by name is told by an argument's type; a call that fits no form of its name is refused by name | the last form of the reader before ccllib's string: a call by name asks the function named with the word of an argument's type before the plain one (`append(s, t)`, `append(s, "lit")`, `append(s, 2, '-')`), a name with a word a form of the call where its function takes the call's count of arguments; a typed name asks each word that its type asks, so one function serves C's string literal and C++'s; three holes of the call by name closed -- another count of arguments than the function takes, a number, and a C text or a pointer to another type where the function takes its object were built with no message; a floating value where a pointer is needed is refused by name; reader 186, lowering 160 | the flow gate; the reader, compile and driver gates and the ccllib gate over libc++ 22, over one fresh HOME; the ccllib gate over libc++ 21 and 18; the pool of the light C++ run fixtures; fourteen C++ fixtures over instances by hand; no chain, by the owner's rule of 0.271; a commit and a push |
 | 0.289 | The cost of a C build is the build after a change of the file; the records of 0.273 to 0.286 corrected | the ccllib gate timed a C build of one file three times over a warm store, which serves the unit's kept IR: its line was a rebuild of a file that did not change, and thirteen tables and their sentences compared it with clang++'s build of the twin; the gate times a copy of the program whose time changes before each build, and keeps the rebuild as a fourth line; the thirteen C rows measured again (0.31 s to 1.69 s after a change, 0.23 s to 0.81 s unchanged); five sentences that said that a C build cost its twin's or less, and three more in their degree, corrected | the ccllib gate over libc++ 22, 21 and 18, each over a fresh HOME of its own; no chain, by the owner's rule of 0.271; a commit and a push |
 | 0.290 | The findings of a program of 25,000 lines: eight defects corrected, each by its reduction | thirteen findings of the Ambitious session, each reduction run on 0.289: a `continue` in a `switch` in a loop stopped the check (its loop is the nearest loop, past any switch); a value read out of a plain slot is no new memory, in a local and in a store (`names[i]` over a static table was `unconsumed` in a local and `untied` in a field); a null test refines a loose pointer (the README's `fopen` lines were refused); a raw read that does not lex goes on to the preprocessed read (`<netdb.h>` and eight more headers were dropped whole); a macro file's header is included by its absolute path; the output file's directory is asked before the build; `own` where only a name can stand is refused by name; `(public)` and `(dynamic)` for cocolog 3.62, not run here; a build that fails names each header that was not found, not read, or not read to its end; findings 9, 10 and 12 are the owner's decisions; reader 187, lowering 161 | the flow gate; the reader, compile and driver gates and the ccllib gate over libc++ 22, over one fresh HOME; the ccllib gate over libc++ 21 and 18; the pool of the light C++ run fixtures; sixteen C++ fixtures by hand; no chain, by the owner's rule of 0.271; a commit and a push |
+| 0.291 | ccllib's `<string.pl>`; an operator whose left operand is no instance; a pointer where a struct is needed is refused by name | `std::string` as `basic_string<char>`: an own pointer, a count and sixteen bytes that hold the capacity or a string of fifteen characters, which has no block of the heap; 182 functions, each made at its first use, and 11 inner ones; a change of the characters is one of two inner functions, and a source in the string itself is copied first; a place past the last character, a change past `max_size` and a number of a text where there is none stop the program; the rules program holds the string to a model at 24,414 checks, and fifty-seven copies of the tree broken on purpose are each reported; the reader writes `"abc" == s` and `"<" + s` as the instance's relation with its operands exchanged and as its `r` function; the lowering takes a raw-read header's definition from the header that holds it, and refuses a pointer where a struct is needed, which went to LLVM's parser; reader 188, lowering 162 | the flow gate; the reader, compile and driver gates and the ccllib gate over libc++ 22, over one fresh HOME; the ccllib gate over libc++ 21 and 18; the pool of the light C++ run fixtures; seventeen C++ fixtures by hand; no chain, by the owner's rule of 0.271; a commit and a push |
 
 ## M5 — the C++ mode
 
@@ -20376,3 +20377,189 @@ No reply went to the Ambitious session: its message asks for none.
   findings, Not done), `CLAUDE.md`, `README.md`, `CCLLIB.md`.
 
 The module 0.290, the reader 187 and the lowering 161.
+
+## 0.291 — ccllib's `<string.pl>`; an operator whose left operand is no instance; a pointer where a struct is needed is refused by name
+
+**0.291: `std::string` for cicilang's C, the eighteenth type of phase 1a, and three changes beside it that the module
+needed or found. `basic_string<char>` is an own pointer, a count and sixteen bytes that hold the capacity or a short
+string, so a string of fifteen characters or fewer has no block of the heap. THE READER writes an operator whose right
+operand is an instance and whose left one is not -- `"abc" == s`, `"<" + s` -- as the instance's own relation with the
+operands exchanged, or as its `r` function. THE LOWERING takes a raw-read header's definition from the header that holds
+it where the included header's preprocessed read does not hold it, and refuses a pointer where a struct is needed, which
+went to LLVM's parser. The reader's version is 188 and the lowering's 162. Committed with its nets; the chain runs when
+the ccllib task is finished (the owner's rule of 0.271).**
+
+THE MODULE. `#include <string.pl>` gives `string`, the instance `basic_string_char` of `<basic_string.pl>` (`typedef
+basic_string<char> string;`, and `npos`, in `string.pl.h`). Its object is `{ own char *data; size_t len; union { size_t
+cap; char small[16]; } u; }`: while the string has fifteen characters or fewer, they stand in `u.small` with their NUL
+and `data` is null; a longer string has a block of its capacity and the NUL, and the drop frees it. An object declared
+with no initializer is the empty string (the rule of an instance's birth, 0.285), `string s = "abc";` makes one of a
+text of C, `t := clone(s)` copies, and `string t = s;` moves. 182 functions, which a call, an operator or `to_string`
+asks, and 11 inner ones, each made at its first use; the six forms of `append`, `assign`, `insert` and `replace`, the
+nine of each of the six searches, the four of each test of a part and the forms of the numbers of a text are rows of
+tables (`ccllib_string_change/5` and `ccllib_string_source/6`, `ccllib_string_search/4` and `ccllib_string_text/4`,
+`ccllib_string_test/2`, `ccllib_string_number/4`), so a family is one clause. The forms of a name are told by the count
+of their arguments and by the type of one (the call by name of 0.288): `append(s, t)`, `append(s, "lit")`, `append(s, t,
+2)`, `append(s, t, 2, 3)`, `append(s, "lit", 2)` and `append(s, 2, '-')` are six functions. `to_string` is
+`<string.pl>`'s macro, by its argument's type: an integer's digits, a floating number as printf's `%f`, as C++ before
+C++26 writes them.
+
+ITS FORM. Every change of the characters is one of two inner functions, `__replace` and `__fill`; a source that is in
+the string itself -- `append(s, s)`, `insert(s, 0, c_str(s) + 2)` -- is copied first, since the room for the new
+characters may move the block and the tail's move may go over the source. A NUL stands after the last character after
+every function. A growth is to twice the capacity at least; `shrink_to_fit` gives a short string its object again.
+`__cmp` compares the characters as unsigned and then the counts, as `char_traits<char>` does. The numbers of a text are
+the C library's conversions, in `basic_string.pl.h`: they read `errno` and the limits, macros, which a C text does not
+see.
+
+WHAT DIFFERS FROM C++. A place past the last character stops the program (`abort`) -- `at`; `s[i]` past the NUL
+(`s[size(s)]` is the NUL, as C++'s is); `front`, `back` and `pop_back` of an empty string; a change, `substr`, `copy`
+and `compare` from a place past the end; a part of another string from a place past its end --, and so do `reserve` and
+a change past `max_size`, and a number of a text where there is none or where it is past its type's range: C++ throws at
+each, and its `pop_back` of an empty string is undefined. `pop_back` gives the character. A place is an index, and
+`begin` and `end` give pointers. `c_str(s)`, `data(s)`, `&s[i]` and `begin(s)` are borrows of the string, which a change
+of it ends (the safety rule of 0.265). `a + b + c` is refused: the string that `a + b` makes has no name, and the
+operator takes the addresses of its operands; so is `stoi(to_string(42))`, a call of the instance's function over a
+string that a call makes, and each part is named first. A string is no text of C (`puts(s)`), a text is no value of a
+string parameter, a number makes no string, and a vector of strings waits for the containers of owners (decision 2).
+There is no stream operator, no hash, no `getline` and no `<=>`.
+
+THE THREE RUNS: `test/ccllib/string.c`, each function once at least -- the six forms of each change, a change by a part
+of the string itself, the searches in their forms, the tests of a part, the comparisons with a string and a text on
+either side, the operators that make a string, the numbers of a text and the text of a number --, and its twin
+`string.cpp` over `std::string` print the same 47 lines, as C, as C++ and at C++23. Two of the twin's lines are what C++
+leaves to the library, and the program prints what both agree on: a short string's capacity (15 here, 22 in libc++'s) as
+`capacity(e) >= 15`, and libc++'s `compare`, which gives the difference of the two characters, as the sign. The count
+run builds a text of ten million characters, puts "xyz" in the place of each "ab" by a search and appends, and reads
+numbers back from their texts: the three print `10000000 10615234 615234 17483318586485506813 49995416530 -1`.
+
+THE RULES PROGRAM, `test/ccllib/alone/string_rules.c`: five walks of chance of 4000 steps, each step one of the changes
+that the module has, its source a text, a character or a part of the string itself, and the string held after each step
+to a model, an array of bytes and its count. The characters and the count are the model's, by `c_str` and by `[]`; a NUL
+stands after the last character; the form, which the program reads in the instance's own fields: a string with no block
+holds fifteen characters at most, one with a block no more than its capacity, and the capacity is the block's or the
+object's fifteen; a growth by a change of the characters is to twice the capacity at least; after `shrink_to_fit` the
+capacity is the count, or fifteen for a short string, whose block is gone. Every eighth step the six searches, the tests
+of a part, `compare`, `==`, `<` and `>`, `substr` and `copy` are held to naive models, from places in the string and
+past it, over a part of the string itself and a text of chance whose bytes stand past 127 in four of ten. A character is
+a NUL one time in eight. The walks reach strings of 2,705 characters: 12,613 of their 20,000 steps end with more than
+fifteen characters, 2,273 steps grow the block, 879 of the 933 calls of `shrink_to_fit` meet a block, 1,398 steps end
+with a NUL inside the string, and the searches run 2,500 times (a copy of the program with counters). The rules hold at
+24,414 checks, as C and as C++.
+
+EACH RULE HAS A BROKEN TEXT OF ITS OWN (the rule of 0.283): fifty-seven copies of the tree broken on purpose -- 48 of
+`basic_string.pl`, 5 of `basic_string.pl.h`, 3 of the reader and 1 of the lowering --, each built over a HOME of its
+own, and each is reported by a program of the gate. The rules program names 32 (`NOT HELD: a NUL stands after the last
+character`): a growth to the need alone; a short string copied to its block without its NUL; `__p` that gives the
+object's bytes whatever the block; no copy of a source in the string itself; no NUL after `__splice`, `__fill`, `clear`,
+a `resize` to fewer, `pop_back`, `erase_value` and `push_back`; a short string's capacity of sixteen, and sixteen
+characters in the object; `reserve` that gives a short string no block; `shrink_to_fit` that keeps a block for a short
+string, or leaves a long one's capacity; a change that takes more characters than there are; `__cmp` by signed
+characters, or with no look at the counts; `==` with no look at the counts; `substr`, `copy` and `compare` that take
+more characters than the part has; `find` that misses a find at the end, or gives the place of an empty text past the
+end; `rfind` and `find_last_of` with no look at the place; `find_first_of` from the start; `swap` of the blocks alone;
+`erase_value` that gives the count that it keeps; `ends_with` that looks at the start; `+=` of a string that assigns it.
+A case of `stops.c` that is not stopped reports 17: `s[i]`, `at`, `front`, `back` and `pop_back` with no bound; a
+change, `substr`, `copy` and `compare` from a place past the end; a part of another string from a place past its end;
+`__splice`, `__fill` and `__set_cap` with no bound of `max_size`; `stoi` past an int and `stoul` past its range; `stoi`
+and `stod` of no number. `string.c` against its twin reports 6: `s[i]` that refuses the place of the NUL, the place
+after a number that is not written, the reader's `<` mirrored to the instance's `<`, its `!=` to `==`, its `>` with no
+typed `_gt_` (`the operator > of basic_string_char takes an object of basic_string_char, which its operand is not`), and
+the lowering that takes no definition from the header that holds it (`undeclared(errno)`). `stops.c` reports the 2 more,
+which lack a check of a place and the count's bound together (below).
+
+TWO CHECKS OF A PLACE WERE REPEATED BY THE COUNT'S BOUND, and the first run of the broken texts showed it. `substr(s,
+4)` over "abc" and `append(s, t, 3)` over a t of two characters give a count that wraps -- `len - pos` --, past
+`max_size`, which `__splice` stops: the copy that lacked the check of the place stopped all the same, and the copy that
+lacked the bound too was the one reported. A check that a later check repeats has no broken text of its own until a case
+reaches it alone: `substr(s, 4, 0)` and `append(s, t, npos)`, whose counts do not wrap, are two cases more of `stops.c`,
+and each copy is reported by its case now.
+
+`stops.c` has 22 cases more, 87 in all: 80 are stopped, and the 7 that stay in their bounds are not -- a string's place
+after its last character, and each change at that place, among them.
+
+REFUSED, as C and as C++ (`test/ccllib/safe/`, thirteen programs): `c_str(s)` after an append, and `&s[0]` after a
+`push_back` (`use of a borrow after a call that may replace its owner`); a string read after a move; `vector<string>`;
+`string s = 42;` (C++'s words, `no conversion from 'int' to 'string'`, in `.expect.cpp`); `basic_string<int>`; `find(s,
+1.5)`; `append(s, 120)`; `s == 'c'`; `to_string("abc")`; `puts(s)`; a text handed to a string parameter; `a + b + c`.
+
+THE READER: AN OPERATOR WHOSE RIGHT OPERAND IS AN INSTANCE AND WHOSE LEFT ONE IS NOT (what the string needed: C++'s
+non-member operators of `std::string`). It was refused, `the operator + of pt_double takes the object on its left`. A
+RELATION IS THE INSTANCE'S OWN, ITS OPERANDS EXCHANGED (the table `ccl_iop_mirror/4`): `x == a` is `<name>_eq_<word>(a,
+x)`, `x < a` `<name>_gt_<word>(a, x)`, `x > a` `<name>_lt_<word>(a, x)`, `x <= a` and `x >= a` the `!` of the last two,
+the word of x's type; EVERY OTHER OPERATOR IS `<name>_r<op>_<word>(x, a)`, so `"<" + s` is
+`basic_string_char_radd_ptr_const_char("<", &s)`, and a character constant asks `_radd_int` in C and `_radd_char` in
+C++. AND `>` AND `<=` OVER AN INSTANCE ON THE LEFT ASK `_gt_<word>(a, x)` FIRST (`ccl_iop_pick/7`,
+`ccl_iop_typed_form/4`), since `_lt` takes the right operand first: so a type macro gives a text's six relations with
+the object on either side in three functions. Where the macro defines no form, C refuses the operator by name (`the
+operator == of tag_char takes the object on its left: its type macro defines no tag_char_eq_int`); in C++ the operator
+is C++'s own. Reader `k163` over `test/c/op_mirror_none.c`, and `k140`'s words of the refusal; `test/c/run/mirror.c`
+over `tmirror.pl` prints what clang's build of its hand expansion prints, as C and as C++ (the C++ gate's list).
+
+THE LOWERING, ONE: A RAW-READ HEADER'S DEFINITION THROUGH THE HEADER THAT HOLDS IT. The first build of `string.c` was
+`not lowered yet: undeclared(errno) (function ccllib_sto_signed_)`. `string.pl.h` includes `<basic_string.pl>`, and the
+include layer brings `basic_string.pl.h` with the macro file; C takes a raw read's definitions from the preprocessed
+read of the header that the program includes (0.212), and the preprocessed read of `string.pl.h` does not hold
+`basic_string.pl.h`'s, so `ccllib_sto_signed_` kept its raw text, `errno` and `INT_MIN` unexpanded. `ir_hdr_resolve/2`
+takes such a definition from the preprocessed read of the header that holds it, read alone, where the included header's
+read does not hold it.
+
+THE LOWERING, TWO: A POINTER WHERE A STRUCT IS NEEDED. A probe of the module's refusals, `count("bob")` over `size_t
+count(string who)`, went to LLVM: `global variable reference must have pointer type store %struct.basic_string_char
+@.str.0`, and no line of the program. Its cause is plain C's, as the record of 0.286's was: `ir_record_mismatch/2`
+refused a record of another type, an integer and a floating value where a record is needed, by an argument and by a
+`return`, but not a pointer. The forms beside it, probed: a text and a struct's address handed to a struct parameter, of
+a struct that goes in registers and of one that goes in memory, and a pointer given back from a function whose result is
+a struct, each went to LLVM; an initializer and an assignment of a pointer were refused by name already. Each is refused
+by name now, at its line, in C and in C++: `no conversion from 'char *' to 'struct A'`, `no conversion from 'struct A *'
+to 'struct A'`, `no conversion from 'char *' to 'string'`. A string moved into such a parameter builds and runs, its
+block freed by the callee (valgrind: all heap blocks freed). The driver gate has a check more, the three forms in C.
+
+FOUND BESIDE THE STEP. The flow gate's first run over the step was RED: the table of the numbers stood between the
+clauses of `ccllib_string_fn/2`, which cocolog joins without a word; it stands with the other tables after the last
+clause now. The module's head showed `c := "<" + s + ">"`, a form that the reader refuses (`a + b + c`), and a program
+of the head's forms, built to see each, met `stoi(to_string(42))`, refused alike; the comment names each part now, and
+says why. A struct with a string member is refused at its scope's end, `owner leaked: 'r.name.data'`, where C++ destroys
+each member: the owner's decision 6 (Not done).
+
+WHAT IT COSTS, over libc++ 22, the twin by clang++ 22 (the gate's lines; a build is the build after a change of the
+file, the best of three):
+
+```
+run                       build s      MB  types  functions   lines  object B    run s      MB
+cicilang, C                 1.347   392.9      1        150    5456     62552    0.055    21.5
+cicilang++, C++             1.738   183.8      1        148    8433     98064    0.058    21.5
+clang++ 22.1.8, std::       0.423   122.9     23        210    7639    146336    0.084    30.5
+cicilang, C, unchanged      0.709   341.8      -          -       -         -        -       -
+```
+
+The unit holds 150 functions for its one instance, in 63 KB, where the twin's holds 210 in 146 KB: libc++ keeps most
+members of `std::string` in its own library (`extern template`), so the twin's unit makes few of them. The run of ten
+million characters takes 0.055 s as C and 0.058 s as C++ against 0.084 s, in 22 MB against 31 MB. The C build takes
+three times the twin's time, 1.35 s against 0.42 s, and cicilang++'s four times, 1.74 s: the twin reads the declarations
+and makes few members, where a ccllib build reads, checks and lowers each function that the program calls.
+
+THE NETS, over the work tree: the flow gate GREEN with no finding (167 s, peak 4618 MB); over one fresh HOME the reader
+gate (164 checks, 4 s), the compile gate (272 checks, 34 s), the driver gate (75 checks, 53 s) and the ccllib gate over
+libc++ 22 (222 checks, 556 s), each GREEN; the ccllib gate GREEN over libc++ 21 and 18 too, each over a fresh HOME (531
+s and 549 s; 222 checks each, none skipped): 14 programs in three runs, 64 refused, 5 alone. FOR THE LOWERING'S CHANGE,
+which every call of a struct parameter reaches (`ir_args_/5`), and the reader's, which every operator over an instance
+reaches, the pool of the light C++ run fixtures, three at a time over a fresh HOME and libc++ 22: 361 fixtures, and each
+prints its expected lines (43 s, peak 431 MB). By hand, since the C++ gate runs with the chain: the fourteen C fixtures
+that the C++ gate builds as C++ -- `mirror.c` among them -- and `test/cpp/run/opcpp.cpp`, `elemborrowpp.cpp` and
+`borrowkeep.cpp` print their expected lines (17 checks, 7 s). AFTER THE NETS the module's head comment changed (Found
+beside the step), and the flow gate ran again, GREEN with no finding (173 s, peak 4091 MB); over a fresh HOME
+`string.c`, `string_rules.c` and `stops.c` print their lines as C and as C++; and the fifty-seven broken texts were each
+reported again over the tree as it is committed (336 s, peak 218 MB).
+
+NO CHAIN RAN for this step (the owner's rule of 0.271), and it claims nothing GREEN but the nets above. No CI job ran.
+
+- `library/ccllib/basic_string.pl`, `basic_string.pl.h`, `string.pl`, `string.pl.h`. `library/ccl_syntax.pl`:
+  `ccl_iop_binary/4`'s second clause, `ccl_iop_mirror/4`, `ccl_iop_mirror_refused/4`, `ccl_iop_pick/7`,
+  `ccl_iop_typed_form/4`, the reader's version. `library/ccl_ir.pl`: `ir_hdr_resolve/2`, `ir_record_mismatch/2`, the
+  lowering's version. `test/reader.pl`: `k163`, `k140`'s words. `test/driver.sh`: a check. `test/cpp.sh`: `mirror` in
+  its list. `test/flow.sh`: `basic_string` and `string` in its list. `test/ccllib.sh`: its words. The fixtures.
+  `RULES.md` (the section of `string.pl`, the operators on instances, the definitions of a C header, the lowering's
+  values, the ccllib gate, Not done), `CLAUDE.md`, `README.md`, `CCLLIB.md`.
+
+The module 0.291, the reader 188 and the lowering 162.

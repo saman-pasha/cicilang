@@ -237,8 +237,8 @@ element  : expression  |  key ':' expression        a key is a conditional expre
   instance's function `<name>_from(const T *, size_t)`, a map's `<name>_from(const K *, const V *, size_t)`.
 - WHAT 0.263 LEAVES (Not done): a literal where no place gives its type (a conditional's branch, a macro's argument) is
   refused by name, and one at file scope is no constant; a container of plain pointers (`map<int, char *>`, `[5: "me"]`)
-  is refused by the borrow rules until ccllib's `string` (phase 1a); `set<int>` has its type macro since 0.281 and
-  `unordered_map` since 0.283.
+  is refused by the borrow rules, and ccllib's `string`, which came at 0.291, waits for decision 2 in a map; `set<int>`
+  has its type macro since 0.281 and `unordered_map` since 0.283.
 
 ### 0.7 Arguments read after the outer macro
 
@@ -647,6 +647,33 @@ broken on purpose are each reported. The costs over libc++ 22, as above:
 The unit holds 106 functions for five instances where the twin's holds 488, in 74 KB against 326 KB, and the run of ten
 million steps takes 0.35 s and 0.32 s against 0.59 s. The C build takes more than the twin's, 0.68 s against 0.53 s;
 cicilang++'s takes 1.04 s, twice the twin's. The target of phase 1 stays.
+
+### 1a, `string.pl` (0.291)
+
+`string` is `basic_string<char>`: an own pointer, a count, and sixteen bytes that hold the capacity or -- while the
+string has fifteen characters or fewer -- the characters themselves, so a short string has no block of the heap. 182
+functions, which a call, an operator or `to_string` asks: the surface of `std::string` but the stream operators,
+`getline`, the hash and `<=>`. Every change of the characters is one of two inner functions, and a source in the string
+itself is copied first; a NUL stands after the last character, and a growth is to twice the capacity at least. `==`,
+`<` and the other relations, and `+`, take a text on either side: the reader's mirrored operators, a part of phase 0.9
+that the string needed. `c_str(s)` and `&s[i]` are borrows, which a change of the string ends. A place past the last
+character, a change past `max_size`, and a number of a text where there is none, stop the program. `a + b + c` is
+refused, since the string that `a + b` makes has no name. `test/ccllib/string.c` and its twin over `std::string`,
+thirteen programs of `test/ccllib/safe/`, `test/ccllib/alone/string_rules.c`, and 22 cases more of `stops.c`;
+fifty-seven copies of the tree broken on purpose are each reported. The costs over libc++ 22, as above:
+
+| | build | peak | IR types | IR functions | IR lines | object | `string 10000000` at `-O2` | its peak |
+|---|---|---|---|---|---|---|---|---|
+| cicilang, C | 1.35 s | 393 MB | 1 | 150 | 5,456 | 62,552 B | 0.06 s | 22 MB |
+| cicilang++, C++ | 1.74 s | 184 MB | 1 | 148 | 8,433 | 98,064 B | 0.06 s | 22 MB |
+| clang++ 22, `std::` | 0.42 s | 123 MB | 23 | 210 | 7,639 | 146,336 B | 0.08 s | 31 MB |
+
+The unit holds 150 functions for its one instance, in 63 KB, where the twin's holds 210 in 146 KB: libc++ keeps most
+members of `std::string` in its own library (`extern template`), so the twin's unit makes few of them. The run of ten
+million characters takes 0.055 s as C and 0.058 s as C++ against 0.084 s, in 22 MB against 31 MB. The C build takes
+three times the twin's time, 1.35 s against 0.42 s, and cicilang++'s four times, 1.74 s: the twin reads the declarations
+and makes few members, where a ccllib build reads, checks and lowers each function that the program calls. The target of
+phase 1 stays.
 
 ### The parts of phase 1
 

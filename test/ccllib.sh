@@ -150,7 +150,7 @@ if ls "$T"/safe/*.c > /dev/null 2>&1; then
 fi
 nalone=0
 if ls "$T"/alone/*.c > /dev/null 2>&1; then
-  echo "-- and the programs that stand alone, with no twin (test/ccllib/alone): what stops a ccllib program, and the rules of the tree, of the hash table and of the bitset, as C and as C++"
+  echo "-- and the programs that stand alone, with no twin (test/ccllib/alone): what stops a ccllib program, and the rules of the tree, of the hash table, of the bitset and of the string, as C and as C++"
   for src in "$T"/alone/*.c; do
     n=$(basename "$src" .c); nalone=$((nalone + 1))
     for how in c cpp; do

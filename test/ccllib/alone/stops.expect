@@ -15,4 +15,6 @@ unordered_set: a place after inserts of elements that are there and erases of on
 unordered_map: at of no key 1, a place after a new key 1, next of the end 1; an unordered_multimap's place after a second value of its key 1
 unordered_map: a place after writes to keys that are there and erases of keys that are not 0
 bitset: test 1, [] 1, a bit written 1, set 1 and 1, reset 1, flip 1; to_ullong of a bit past its width 1, to_ulong 1; a text with a letter 1, with one past the bits taken 1; in its bounds 0
+string: at 1, [] past the NUL 1, front 1, back 1, pop_back 1, insert 1, erase 1, replace 1, substr 1, of no character 1, copy 1, compare 1, a part of another past its end 1, at npos 1, reserve past max_size 1, a text's count past it 1, a count of characters past it 1
+string: stoi of no number 1, past an int 1; stoul past its range 1; stod of no number 1; in its bounds, each change at the place after the last character 0
 exit 0

@@ -12,8 +12,8 @@ the fixture that gates it, and why. The bullet ends with the version that made t
 edits the rule in `RULES.md`, in its topic, and writes its entry in `HISTORY.md`. Read the topic of `RULES.md` that
 covers the code before the code is changed.
 
-At 0.290 the versions are: the module 0.290 (`ccl_p_version` in `module/cicilang.cicili`, `bin/cicilang --version`),
-the reader 187 (`ccl_reader_version/1`, `library/ccl_syntax.pl`) and the lowering 161 (`ccl_lowering_version/1`,
+At 0.291 the versions are: the module 0.291 (`ccl_p_version` in `module/cicilang.cicili`, `bin/cicilang --version`),
+the reader 188 (`ccl_reader_version/1`, `library/ccl_syntax.pl`) and the lowering 162 (`ccl_lowering_version/1`,
 `library/ccl_ir.pl`).
 
 Build and prove, always in this order (or all of it, `sh test/gates.sh`):
@@ -391,6 +391,11 @@ library/ccllib/             ccllib, the standard library of cicilang's C (CCLLIB
                               rehash and reserve
   bitset.pl, bitset.pl.h      std::bitset (0.286): a struct of words of 64 bits, a value with no heap and no drop;
                               the bits of its last word past the count are zero
+  basic_string.pl, basic_string.pl.h
+                              std::basic_string<char> (0.291): an own pointer, a count, and sixteen bytes that hold the
+                              capacity or a string of fifteen characters; its C header reads the numbers of a text
+  string.pl, string.pl.h      std::string (0.291): basic_string<char> by that name, npos, and to_string, a macro by its
+                              argument's type
   ccllib.pl                   what two modules need, written once (0.275): a module loads it by a directive, and no
                               program includes it; the refusal of an element with a pointer, the lists' sort (0.277),
                               the lines of a text by their conditions (0.283)
@@ -456,7 +461,8 @@ test/c/                     the reader's fixtures: hello.c, rich.c, lexer.c, mac
                             name_arg_ok.c and the refusals name_arg_num.c, name_arg_text.c, name_arg_ptr.c,
                             name_arg_other.c and name_arg_count.c over run/tnames.pl and run/lazy.pl, the arguments
                             of a call by name and their count (0.288); own_name.c, the word own where only a name
-                            can stand (0.290)
+                            can stand (0.290); op_mirror_none.c, an operator whose left operand is no instance, with no
+                            form of the type macro for it (0.291)
 test/c/inc/                 the -I fixture: uses_box.c over box.h
 test/c/link/                two files linked into one program; the ABI against clang-built code (abi_main.c,
                             abi_helper.c), variadic calls (va_main.c, va_func.c, va.h), the decimal ABI against gcc,
@@ -479,7 +485,8 @@ test/c/run/                 C programs built and run: NAME.c, NAME.expect, NAME.
                             tnames.pl, of typednames.c: a call by name told by an argument's type (0.288);
                             contswitch.c, a continue in a switch in a loop, loadedptr.c, a pointer read out of a slot
                             and a null test of a plain pointer, and netdbhdr.c and getopthdr.c, headers whose raw
-                            read is not the header's (0.290)
+                            read is not the header's (0.290); tmirror.pl, of mirror.c: the operators whose left
+                            operand is no instance (0.291)
 test/c/safe/                C programs the safe part refuses: NAME.c, NAME.expect; dropnone.pl, the macro file of
                             drop_leaks.c (0.262); borrow_after_grow.c, borrow_after_push.c, elem_after_push.c,
                             grow_through_ptr.c, const_replace.c and const_local.c, the safety rules of 0.265;
@@ -510,14 +517,16 @@ test/ccllib/                the three runs' programs: NAME.c, a ccllib program; 
                             (0.276); list.c, of <list.pl> (0.277); forward_list.c, of <forward_list.pl> (0.278);
                             stack.c and queue.c, of <stack.pl> and <queue.pl> (0.280); set.c and map.c, of
                             <set.pl> and <map.pl> (0.281); unordered_set.c and unordered_map.c, of
-                            <unordered_set.pl> and <unordered_map.pl> (0.283); bitset.c, of <bitset.pl> (0.286)
+                            <unordered_set.pl> and <unordered_map.pl> (0.283); bitset.c, of <bitset.pl> (0.286);
+                            string.c, of <string.pl> (0.291)
 test/ccllib/safe/           ccllib programs that the safe part refuses, as C and as C++: NAME.c, NAME.expect, and
                             NAME.expect.cpp where C++ has words of its own (0.274)
 test/ccllib/alone/          ccllib programs with no twin, built as C and as C++ (0.281): NAME.c, NAME.expect;
                             stops.c, what stops a ccllib program, each case in a child of its own; tree_rules.c,
                             the rules of the tree of a set and a map, read from the instance's own fields;
                             table_rules.c, the rules of the hash table of the unordered containers (0.283);
-                            bitset_rules.c, the rules of a bitset, held to a model of a byte a bit (0.286)
+                            bitset_rules.c, the rules of a bitset, held to a model of a byte a bit (0.286);
+                            string_rules.c, the rules of a string, held to a model of an array of bytes (0.291)
 
 proof/forty2.ll, run.sh     M0: hand-written IR through clang to a binary that prints a line and exits 42
 proof/forty2                made by proof/run.sh, never committed

@@ -1,0 +1,1 @@
+append of basic_string_char takes an object of basic_string_char, which its argument of the type int is not: its type macro defines no basic_string_char_append_int

@@ -3,7 +3,9 @@
    undefined. Each runs in a child of its own, and a line says for each whether abort stopped it: 1, and 0 for the
    cases that stay in their bounds, which no stop may meet (a tree's place over 4000 inserts that find their keys and
    erases that find none; a hash table's place over such calls at each of its sizes up to 4000, 0.283; a bitset's last
-   bit, read and written each way, 0.286). cicilang builds this file as C and cicilang++ as C++; both print
+   bit, read and written each way, 0.286; a string's place after its last character, and each change at that place,
+   0.291). A string's change past max_size stops, and a number of a text where there is none or where it is past its
+   type's range, where C++ throws (0.291). cicilang builds this file as C and cicilang++ as C++; both print
    stops.expect. It has no twin: C++ throws at some of these, and says nothing of what follows the others */
 #include <signal.h>
 #include <stdio.h>
@@ -22,6 +24,7 @@
 #include <unordered_set.pl>
 #include <unordered_map.pl>
 #include <bitset.pl>
+#include <string.pl>
 /* the child takes abort's signal and leaves with a status of its own: so no core is written and no crash is reported,
    and a stop by abort is told from a fault */
 static void on_abort(int sig) { (void)sig; _exit(77); }
@@ -207,6 +210,38 @@ static void bitset_ok(void) {
     w[63] = 1;
     printf("%d %d %llu %lu %llu", test(b, 69), b[69], to_ullong(b), to_ulong(b), to_ullong(w));
 }
+static void string_at(void) { string s = "abc"; printf("%c", at(s, 3)); }
+static void string_index(void) { string s = "abc"; printf("%c", s[4]); }
+static void string_front(void) { string s; printf("%c", front(s)); }
+static void string_back(void) { string s; printf("%c", back(s)); }
+static void string_pop(void) { string s; pop_back(s); }
+static void string_insert(void) { string s = "abc"; insert(s, 4, "x"); }
+static void string_erase(void) { string s = "abc"; erase(s, 4); }
+static void string_replace(void) { string s = "abc"; replace(s, 4, 1, "x"); }
+static void string_substr(void) { string s = "abc"; string t = substr(s, 4); printf("%s", c_str(t)); }
+static void string_substr_none(void) { string s = "abc"; string t = substr(s, 4, 0); printf("%zu", size(t)); }
+static void string_copy(void) { string s = "abc"; char b[4]; printf("%zu", copy(s, b, 1, 4)); }
+static void string_compare(void) { string s = "abc"; printf("%d", compare(s, 4, 1, "x")); }
+static void string_part(void) { string s = "abc", t = "de"; append(s, t, 3); }
+static void string_part_far(void) { string s = "abc", t = "de"; append(s, t, (size_t)-1); }
+static void string_reserve(void) { string s; reserve(s, (size_t)-1); }
+static void string_count(void) { string s = "abc"; append(s, "x", (size_t)-1); }
+static void string_fill(void) { string s = "abc"; append(s, (size_t)-1, 'x'); }
+static void string_stoi_none(void) { string s = "  x1"; printf("%d", stoi(s)); }
+static void string_stoi_past(void) { string s = "4294967296"; printf("%d", stoi(s)); }
+static void string_stoul_past(void) { string s = "99999999999999999999999"; printf("%lu", stoul(s)); }
+static void string_stod_none(void) { string s = "e5"; printf("%g", stod(s)); }
+static void string_ok(void) {
+    string s = "abc", t = "de";
+    char b[4] = {0};
+    insert(s, 3, "x");
+    erase(s, 4);
+    replace(s, 4, 0, "y");
+    append(s, t, 2);
+    string u = substr(s, 5);
+    printf("%d %c %zu %zu %d [%s] [%s]", s[5], at(s, 4), copy(s, b, 2, 5), size(u), compare(s, 5, 1, ""), c_str(s),
+           c_str(u));
+}
 int main(void) {
     printf("vector: at %d, index %d, front %d, pop_back %d, ", stopped(vector_at), stopped(vector_index),
            stopped(vector_front), stopped(vector_pop));
@@ -251,5 +286,16 @@ int main(void) {
     printf("to_ullong of a bit past its width %d, to_ulong %d; a text with a letter %d, with one past the bits taken ",
            stopped(bitset_wide), stopped(bitset_wide_long), stopped(bitset_text));
     printf("%d; in its bounds %d\n", stopped(bitset_text_past), stopped(bitset_ok));
+    printf("string: at %d, [] past the NUL %d, front %d, back %d, pop_back %d, insert %d, erase %d, replace %d, ",
+           stopped(string_at), stopped(string_index), stopped(string_front), stopped(string_back), stopped(string_pop),
+           stopped(string_insert), stopped(string_erase), stopped(string_replace));
+    printf("substr %d, of no character %d, copy %d, compare %d, a part of another past its end %d, at npos %d, ",
+           stopped(string_substr), stopped(string_substr_none), stopped(string_copy), stopped(string_compare),
+           stopped(string_part), stopped(string_part_far));
+    printf("reserve past max_size %d, a text's count past it %d, a count of characters past it %d\n",
+           stopped(string_reserve), stopped(string_count), stopped(string_fill));
+    printf("string: stoi of no number %d, past an int %d; stoul past its range %d; stod of no number %d; ",
+           stopped(string_stoi_none), stopped(string_stoi_past), stopped(string_stoul_past), stopped(string_stod_none));
+    printf("in its bounds, each change at the place after the last character %d\n", stopped(string_ok));
     return 0;
 }

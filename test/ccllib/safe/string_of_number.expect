@@ -1,0 +1,1 @@
+a basic_string_char is not made of a value of the type int: its type macro defines no basic_string_char_of

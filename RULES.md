@@ -719,41 +719,51 @@ that changes a rule edits the rule here, in its topic, and writes its entry in `
   runs, M refused, K alone)`. (0.274, 0.281)
 - **THE PROGRAMS THAT STAND ALONE** (0.281): each `test/ccllib/alone/NAME.c` has no twin over `std::`, since it asks
   what C++ does not say; `bin/cicilang` builds it as C and `bin/cicilang++` as C++, and both print `NAME.expect`.
-  `stops.c` is WHAT STOPS A CCLLIB PROGRAM, for every module: 65 cases -- an index past the end, the front of an empty
+  `stops.c` is WHAT STOPS A CCLLIB PROGRAM, for every module: 87 cases -- an index past the end, the front of an empty
   container, a place that is no element's, a place that a new entry of a tree or of a hash table ended, a place after
-  `reserve` and after `rehash`, a bit past a bitset's last one, a text of a bitset with a letter --, each in a child of
-  its own (`fork`), and a line says for each whether abort stopped it. 59 are stopped; the 6 that stay in their bounds
-  are not: a bitset's last bit, read and written each way (0.286), a tree's place over 4000 inserts that find their keys
-  and 4000 erases that find none among them, and a hash table's place over such calls AT EACH SIZE of the table from 1
-  to 4000 -- a table stands at its limit, where one entry more makes it again, at some sizes only, and the first form of
-  the two cases, over a table of 4000 entries, passed a table that is made again before it looks for the key (0.283).
-  The child takes abort's signal and leaves with a status of its own (77), so no core is written and no crash is
-  reported, and a stop by abort is told from a fault. A module's step adds its cases. `tree_rules.c` is THE RULES OF THE
-  TREE of `<set.pl>` and `<map.pl>`, read from the instance's own fields over a walk of chance: each node but the root
-  holds 7 to 15 entries, an inner node has one child more than its entries, the leaves stand at one depth, the entries
-  are in their order -- a multimap's equal keys in the order of their insert --, the count is the tree's, and each node
-  of the arena is in the tree or in the chain of the erased ones; they hold at 194,392 checks, over trees whose leaves
-  stand 3 below the root. A copy of the tree broken on purpose (a sibling of 7 entries gives one away) is reported: `NOT
-  HELD: a node holds 7 to 15 entries, the root 1 at least`. `table_rules.c` (0.283) is THE RULES OF THE HASH TABLE of
-  `<unordered_set.pl>` and `<unordered_map.pl>`, read so too: the slots are as many as a power of two, 8 at least; three
-  slots of four at most hold an entry or an erased entry's mark; the table's counts are its slots'; `first` is the first
-  entry's slot; no empty slot stands between an entry and the slot that its hash names, so a search finds it; a unique
-  table holds a key once; a multimap's key counts its entries at its entry 0, and they have the numbers from 0 to that
-  count. They hold at 208,624 checks, over a set and a multimap that grow, shrink to nothing and grow again, their
-  clones, tables cleared and filled again, tables made again by `rehash` and `reserve`, and the two tables of a merge.
-  FOUR COPIES OF THE TABLE BROKEN ON PURPOSE are each reported by a program of the gate: a mark taken away where a
-  search needs it (`NOT HELD: no empty slot stands between an entry and its hash's slot`, and the two programs of the
-  three runs differ from their twins); a multi table's erased entry whose number goes to nobody (`NOT HELD: an entry's
-  number is under its key's count`, and the two programs); a table made again too late (`NOT HELD: three slots of four
-  at most hold an entry or a mark`: the rules program alone sees it, since such a table stays right and gets slow); a
-  table made again before it looks for the key (the stop program's two cases at each size, and the walks of chance,
-  which use a place after the calls that change nothing at EVERY step). `bitset_rules.c` (0.286) is THE RULES OF THE
-  BITSET of `<bitset.pl>`: a walk of chance for each of nine counts of bits at which a rule can break -- 1, 12, 63, 64,
-  65, 70, 128, 129 and 200 --, the set held after each step to a model of a byte a bit: each bit by `test` and by `[]`,
-  `count`, `any`, `none` and `all`, `to_ullong` and `to_ulong` where no bit stands past their width, and the bits of the
-  last word past the count, which the program reads in the instance's own words. They hold at 68,009 checks. NINETEEN
-  COPIES OF THE MODULE BROKEN ON PURPOSE, a rule each, are each reported by a program of the gate (the section of
-  `bitset.pl`). (0.281, 0.283, 0.286)
+  `reserve` and after `rehash`, a bit past a bitset's last one, a text of a bitset with a letter, a string's place past
+  its NUL, a change of a string past `max_size`, a number of a text where there is none --, each in a child of its own
+  (`fork`), and a line says for each whether abort stopped it. 80 are stopped; the 7 that stay in their bounds are not:
+  a string's place after its last character, and each change at that place (0.291), a bitset's last bit, read and
+  written each way (0.286), a tree's place over 4000 inserts that find their keys and 4000 erases that find none among
+  them, and a hash table's place over such calls AT EACH SIZE of the table from 1 to 4000 -- a table stands at its
+  limit, where one entry more makes it again, at some sizes only, and the first form of the two cases, over a table of
+  4000 entries, passed a table that is made again before it looks for the key (0.283). The child takes abort's signal
+  and leaves with a status of its own (77), so no core is written and no crash is reported, and a stop by abort is told
+  from a fault. A module's step adds its cases. `tree_rules.c` is THE RULES OF THE TREE of `<set.pl>` and `<map.pl>`,
+  read from the instance's own fields over a walk of chance: each node but the root holds 7 to 15 entries, an inner node
+  has one child more than its entries, the leaves stand at one depth, the entries are in their order -- a multimap's
+  equal keys in the order of their insert --, the count is the tree's, and each node of the arena is in the tree or in
+  the chain of the erased ones; they hold at 194,392 checks, over trees whose leaves stand 3 below the root. A copy of
+  the tree broken on purpose (a sibling of 7 entries gives one away) is reported: `NOT HELD: a node holds 7 to 15
+  entries, the root 1 at least`. `table_rules.c` (0.283) is THE RULES OF THE HASH TABLE of `<unordered_set.pl>` and
+  `<unordered_map.pl>`, read so too: the slots are as many as a power of two, 8 at least; three slots of four at most
+  hold an entry or an erased entry's mark; the table's counts are its slots'; `first` is the first entry's slot; no
+  empty slot stands between an entry and the slot that its hash names, so a search finds it; a unique table holds a key
+  once; a multimap's key counts its entries at its entry 0, and they have the numbers from 0 to that count. They hold at
+  208,624 checks, over a set and a multimap that grow, shrink to nothing and grow again, their clones, tables cleared
+  and filled again, tables made again by `rehash` and `reserve`, and the two tables of a merge. FOUR COPIES OF THE TABLE
+  BROKEN ON PURPOSE are each reported by a program of the gate: a mark taken away where a search needs it (`NOT HELD: no
+  empty slot stands between an entry and its hash's slot`, and the two programs of the three runs differ from their
+  twins); a multi table's erased entry whose number goes to nobody (`NOT HELD: an entry's number is under its key's
+  count`, and the two programs); a table made again too late (`NOT HELD: three slots of four at most hold an entry or a
+  mark`: the rules program alone sees it, since such a table stays right and gets slow); a table made again before it
+  looks for the key (the stop program's two cases at each size, and the walks of chance, which use a place after the
+  calls that change nothing at EVERY step). `bitset_rules.c` (0.286) is THE RULES OF THE BITSET of `<bitset.pl>`: a walk
+  of chance for each of nine counts of bits at which a rule can break -- 1, 12, 63, 64, 65, 70, 128, 129 and 200 --, the
+  set held after each step to a model of a byte a bit: each bit by `test` and by `[]`, `count`, `any`, `none` and `all`,
+  `to_ullong` and `to_ulong` where no bit stands past their width, and the bits of the last word past the count, which
+  the program reads in the instance's own words. They hold at 68,009 checks. NINETEEN COPIES OF THE MODULE BROKEN ON
+  PURPOSE, a rule each, are each reported by a program of the gate (the section of `bitset.pl`). `string_rules.c`
+  (0.291) is THE RULES OF THE STRING of `<string.pl>`: five walks of chance of 4000 steps, each change that the module
+  has, its source a text, a character or a part of the string itself, the string held after each step to a model, an
+  array of bytes: the characters and the count, by `c_str` and by `[]`; a NUL after the last character; the form, read
+  in the instance's own fields -- no block and fifteen characters at most, or a block and no more than its capacity --;
+  a growth to twice the capacity at least; after `shrink_to_fit` the count as the capacity, or the object's fifteen and
+  no block. Every eighth step the searches, the tests of a part, the comparisons and the parts are held to naive models,
+  from places in the string and past it; a character is a NUL one time in eight. They hold at 24,414 checks. FIFTY-SEVEN
+  COPIES BROKEN ON PURPOSE are each reported by a program of the gate (the section of `string.pl`). (0.281, 0.283,
+  0.286, 0.291)
 - **THE FIRST PROOF AFTER PHASE 0** (0.273; `CCLLIB.md`'s Order): `test/ccllib/first.c` over its macro file `first.pl`
   -- `vector<T>` with `push`, `at`, `len` and `sort`: a type macro's instance (0.261), its literal's `from` (0.263), its
   drop (0.262), all of it C text (0.260) -- built as C and as C++, and `first.cpp`, the same program over `std::vector`
@@ -2713,7 +2723,7 @@ that changes a rule edits the rule here, in its topic, and writes its entry in `
   of its hand expansion prints, its allocations all freed. (0.266)
 - **OPERATORS ON INSTANCES IN C++** (0.270; `CCLLIB.md`'s phase 0.10): cicilang++ writes an instance's operator as
   cicilang does where the type macro defines the operator's function (`ccl_iop_declared/2`, the name by
-  `ccl_iop_pick/6`; 0.284); where it defines none, the operator is C++'s own, which the desugaring looks up -- the
+  `ccl_iop_pick/7`; 0.284); where it defines none, the operator is C++'s own, which the desugaring looks up -- the
   program's `operator*(pt<double>, double)`, or the library's -- and so is an operator whose instance is on the right
   alone (`2.0 * b`, the program's `operator*(double, pt<double>)`), which C refuses. An operand of a reference type is
   the object it refers to ([expr.type]/1): `p == q` over two `const pt<double> &` is `pt_double_eq(&p, &q)`. A string
@@ -2727,43 +2737,62 @@ that changes a rule edits the rule here, in its topic, and writes its entry in `
   gate builds and runs; the C++ gate builds `operators.c` with cicilang++. (0.270, 0.284, 0.288)
 - REFUSED AT THE OPERATOR (0.266), `macro_error(Message, here(File, Line))`: an operator that the instance's type macro
   does not define (`the operator * of pt_double is not defined: its type macro defines no pt_double_mul`), a `<<` of a
-  type whose word names no function among them (`tbuf_char_shl_float`: a float is not promoted, as no prototype
-  converts it); an operand that is no lvalue where its address goes (`(a + b) == c`, `name it first`); an operand of
-  another type there (`a == 0`, which C would take for a null pointer); an instance on the right of an operator whose
-  left operand is none (`1 + a`, which was `not lowered yet: type(unknown)`); a right operand of `>>` that is no lvalue.
-  Reader `k140`; the driver gate. In C++ (0.270) the refusals of an operator whose function the macro defines stand --
-  no lvalue or another type where the address goes, `>>` into no lvalue -- and the others are C++'s own operator, which
-  the desugaring finds or refuses. (0.266, 0.270)
+  type whose word names no function among them (`tbuf_char_shl_float`: a float is not promoted, as no prototype converts
+  it); an operand that is no lvalue where its address goes (`(a + b) == c`, `name it first`); an operand of another type
+  there (`a == 0`, which C would take for a null pointer); an instance on the right of an operator whose left operand is
+  none, where the macro defines no form of the operator for it (`1 + a`, which was `not lowered yet: type(unknown)`, and
+  since 0.291 `the operator + of pt_double takes the object on its left: its type macro defines no pt_double_radd_int`);
+  a right operand of `>>` that is no lvalue. Reader `k140`; the driver gate. In C++ (0.270) the refusals of an operator
+  whose function the macro defines stand -- no lvalue or another type where the address goes, `>>` into no lvalue -- and
+  the others are C++'s own operator, which the desugaring finds or refuses. (0.266, 0.270, 0.291)
 - **OPERATORS ON INSTANCES, PART 2** (0.284; what 0.266 left, which a set of bits and a string need): THE TABLE HAS `% &
   | ^` TOO, `<name>_mod`, `_and`, `_or` and `_xor` (`ccl_iop_word/3`). A FUNCTION NAMED WITH THE WORD OF THE RIGHT
-  OPERAND'S TYPE GOES FIRST, and the plain one after it (`ccl_iop_pick/6`, `ccl_iop_typed/4`): `x + 3` is
+  OPERAND'S TYPE GOES FIRST, and the plain one after it (`ccl_iop_pick/7`, `ccl_iop_typed/4`): `x + 3` is
   `<name>_add_int(x, 3)` where the type macro defines it, else `<name>_add`; `x == 1` is `<name>_eq_int` and `x != 1`
   its `!`. `<<` and `>>` had the typed name as their one form; it is every operator's now whose function takes the right
-  operand second -- all but `>` and `<=`, whose `_lt` takes it first --, and `<<` and `>>` have the plain form after it,
-  so `b << 3` is `<name>_shl(b, 3)`, a shift by a number. C has no overloads, and a call by name told two forms by the
-  count of their arguments alone until 0.288; an operator has two operands always, so the type of the second tells its
-  forms. The typed name asks each word that the operand's type asks (0.288, `ccl_arg_type_words/2`: the instance's name
-  through a typedef, the type's own word, the pointer to const's after a pointer to an object that is not const). THE
-  RIGHT OPERAND OF `>>` goes by its address where the function's parameter is a pointer -- a stream reads into it, an
-  lvalue --, and by its value where it is not (`ccl_iop_right/5`). `-a` AND `~a` are `<name>_neg(a)` and
-  `<name>_compl(a)` (`ccl_iop_unary/4`). A COMPOUND ASSIGNMENT IS THE CALL OF ITS OWN FUNCTION: `a += b` is
-  `<name>_add_assign(&a, b)`, and `-= *= /= %= &= |= ^= <<= >>=` go by the words `sub`, `mul`, `div`, `mod`, `and`,
-  `or`, `xor`, `shl` and `shr`, the typed name first (`ccl_iop_assign/4`: `x += 10` is `<name>_add_assign_int`). It
-  changes the object in its place; `a = a + b` in its stead would make a second object and assign it over a live one.
-  `v[i]` IS A VALUE where the type macro defines `<name>_item` and no `_index` (`ccl_iop_index_/4`): an element that has
-  no address, as one bit of a set of bits; `v[i] = x` is then `<name>_set_item(&v, i, x)`. Each function is made at its
-  first use, an operator's as a call's (`ccl_iop_declared/2` over `ccl_inst_ensure/1`). In C++ each form is the type
-  macro's where the macro defines its function, and C++'s own operator where it does not. Each of the three hooks --
-  `ccl_iop_binary/4`, `ccl_iop_unary/4` after a unary operator's operand, `ccl_iop_assign/4` after an assignment's right
-  side -- begins with the instance of its operand (`ccl_iop_inst/2`), which fails at once in a unit that has no
-  instance. REFUSED BY NAME at the operator's line: in C a compound assignment, a unary operator and `% & | ^` that the
-  type macro does not define (`the operator += of pt_double is not defined: its type macro defines no
-  pt_double_add_assign`); in C and in C++ a compound assignment of an element that `[]` gives as a value (`the operator
-  |= of an element of bits_12 is not defined: v[i] is a value there, and v[i] = x writes one`), and an assignment of one
-  where the macro defines no `_set_item`. Reader `k148` to `k153`, the refusals over `test/c/op_assign.c`, `op_unary.c`,
-  `op_bit.c`, `op_item.c` and `op_item_set.c`; `test/c/run/operators2.c` over `topers2.pl` -- a set of bits in a word; a
-  number in a struct, its functions made at their first use; a word whose bits `[]` reads -- prints what clang's build
-  of its hand expansion prints, as C and, by the C++ gate, as C++. Reader 183. (0.284, 0.288)
+  operand second -- all but `>` and `<=`, whose `_lt` takes it first, and which ask a typed `_gt_` before it since 0.291
+  --, and `<<` and `>>` have the plain form after it, so `b << 3` is `<name>_shl(b, 3)`, a shift by a number. C has no
+  overloads, and a call by name told two forms by the count of their arguments alone until 0.288; an operator has two
+  operands always, so the type of the second tells its forms. The typed name asks each word that the operand's type asks
+  (0.288, `ccl_arg_type_words/2`: the instance's name through a typedef, the type's own word, the pointer to const's
+  after a pointer to an object that is not const). THE RIGHT OPERAND OF `>>` goes by its address where the function's
+  parameter is a pointer -- a stream reads into it, an lvalue --, and by its value where it is not (`ccl_iop_right/5`).
+  `-a` AND `~a` are `<name>_neg(a)` and `<name>_compl(a)` (`ccl_iop_unary/4`). A COMPOUND ASSIGNMENT IS THE CALL OF ITS
+  OWN FUNCTION: `a += b` is `<name>_add_assign(&a, b)`, and `-= *= /= %= &= |= ^= <<= >>=` go by the words `sub`, `mul`,
+  `div`, `mod`, `and`, `or`, `xor`, `shl` and `shr`, the typed name first (`ccl_iop_assign/4`: `x += 10` is
+  `<name>_add_assign_int`). It changes the object in its place; `a = a + b` in its stead would make a second object and
+  assign it over a live one. `v[i]` IS A VALUE where the type macro defines `<name>_item` and no `_index`
+  (`ccl_iop_index_/4`): an element that has no address, as one bit of a set of bits; `v[i] = x` is then
+  `<name>_set_item(&v, i, x)`. Each function is made at its first use, an operator's as a call's (`ccl_iop_declared/2`
+  over `ccl_inst_ensure/1`). In C++ each form is the type macro's where the macro defines its function, and C++'s own
+  operator where it does not. Each of the three hooks -- `ccl_iop_binary/4`, `ccl_iop_unary/4` after a unary operator's
+  operand, `ccl_iop_assign/4` after an assignment's right side -- begins with the instance of its operand
+  (`ccl_iop_inst/2`), which fails at once in a unit that has no instance. REFUSED BY NAME at the operator's line: in C a
+  compound assignment, a unary operator and `% & | ^` that the type macro does not define (`the operator += of pt_double
+  is not defined: its type macro defines no pt_double_add_assign`); in C and in C++ a compound assignment of an element
+  that `[]` gives as a value (`the operator |= of an element of bits_12 is not defined: v[i] is a value there, and v[i]
+  = x writes one`), and an assignment of one where the macro defines no `_set_item`. Reader `k148` to `k153`, the
+  refusals over `test/c/op_assign.c`, `op_unary.c`, `op_bit.c`, `op_item.c` and `op_item_set.c`;
+  `test/c/run/operators2.c` over `topers2.pl` -- a set of bits in a word; a number in a struct, its functions made at
+  their first use; a word whose bits `[]` reads -- prints what clang's build of its hand expansion prints, as C and, by
+  the C++ gate, as C++. Reader 183. (0.284, 0.288)
+- **AN OPERATOR WHOSE RIGHT OPERAND IS AN INSTANCE AND WHOSE LEFT ONE IS NOT** (0.291; what a string needs: `"abc" ==
+  s`, `"<" + s`, `'(' + s`). A RELATION IS THE INSTANCE'S OWN, ITS OPERANDS EXCHANGED (the second clause of
+  `ccl_iop_binary/4`, the table `ccl_iop_mirror/4`): `x == a` is `<name>_eq_<word>(a, x)` and `x != a` its `!`, `x < a`
+  is `<name>_gt_<word>(a, x)`, `x > a` `<name>_lt_<word>(a, x)`, `x <= a` `!<name>_lt_<word>(a, x)` and `x >= a`
+  `!<name>_gt_<word>(a, x)`, the word of x's type. EVERY OTHER OPERATOR IS `<name>_r<op>_<word>(x, a)`, the left operand
+  first, as C++'s non-member `operator+(const char *, const string &)` takes them: `"<" + s` is
+  `basic_string_char_radd_ptr_const_char("<", &s)`. The word asks each word that x's type asks (`ccl_arg_type_words/2`),
+  so C's literal and C++'s are both `_ptr_const_char`, and a character constant is `_int` in C and `_char` in C++. A
+  RELATION OF AN INSTANCE ON THE LEFT AND A VALUE OF ANOTHER TYPE ON THE RIGHT asks the same three functions: `a > x`
+  and `a <= x` ask `<name>_gt_<word>(a, x)` and its `!` first, and `_lt(x, a)` with x of the instance's type after it
+  (`ccl_iop_pick/7`, `ccl_iop_typed_form/4`), so a type macro gives a text's six relations with the object on either
+  side in three functions, the `_eq_`, `_lt_` and `_gt_` of the text's word. Where the macro defines no such function, C
+  refuses the operator by name, `the operator == of tag_char takes the object on its left: its type macro defines no
+  tag_char_eq_int`; in C++ the operator is C++'s own then. Reader `k163` over `test/c/op_mirror_none.c`;
+  `test/c/run/mirror.c` over `tmirror.pl` -- a tag of a text, its relations with a text on either side, its `+` of a
+  text, a character and a number on the left -- prints what clang's build of its hand expansion prints, as C and, by the
+  C++ gate, as C++. Reader 188. (0.291)
 - **AT C++23 AN INSTANCE'S `v[i]` IS THE TYPE MACRO'S TOO** (0.284): C++23 reads a subscript's arguments as a list
   (`a[i, j]`), and that clause of the reader (`ccl_postfix_p//3`) gave `index(A, I)` for one argument with no look at
   the instance, where the clause of the levels before it asks `ccl_iop_index/3`. So `bin/cicilang++ -std=c++23` refused
@@ -2779,7 +2808,7 @@ that changes a rule edits the rule here, in its topic, and writes its entry in `
   object may have. The rule is the object's of the type itself, through any typedef, as autodrop's is. `T a = x;` AND `a
   = x`, WHERE x HAS A TYPE THAT IS NOT THE INSTANCE'S, ARE `<name>_of(x)` (`ccl_of_vars/2` at a block's declaration and
   a `for`'s, `ccl_of_value/3`, a clause of `ccl_iop_assign/4`): the function named with the word of x's type goes first,
-  as an operator's does (`ccl_iop_pick/6`: `mask_12_of_ptr_char("1010")` before the plain `mask_12_of(0x0f0)`; each word
+  as an operator's does (`ccl_iop_pick/7`: `mask_12_of_ptr_char("1010")` before the plain `mask_12_of(0x0f0)`; each word
   that the type asks, since 0.288, so C's literal is taken by a `_of_ptr_const_char` too), so a type is made of values
   of several types, as C++'s constructors make it. C has no initializer of a struct by a value of another type and no
   such assignment, so no program that C reads changes; a braced list, a value of the instance's own type -- a copy, a
@@ -3398,8 +3427,12 @@ that changes a rule edits the rule here, in its topic, and writes its entry in `
   alone may refuse to be (bits/byteswap.h's `#error`). The definitions go first, a unit of their own, so a header's
   object meets the program's tentative definition of it as in one unit (`ir_globals/2`); a name the program defines is
   its own. None was emitted: a call of one, and a use of such an object, was an undefined symbol at the link, and
-  `c23b.c`'s calls of `<stdbit.h>`'s functions linked to glibc 2.39's own `stdc_*`. `test/c/run/hdrdefs.c` over
-  `hdrdefs.h`. (0.212)
+  `c23b.c`'s calls of `<stdbit.h>`'s functions linked to glibc 2.39's own `stdc_*`. A DEFINITION THAT THE PREPROCESSED
+  READ OF THE INCLUDED HEADER DOES NOT HOLD is taken from the preprocessed read of the header that holds it, read alone
+  (0.291, `ir_hdr_resolve/2`): a macro file's `NAME.pl.h` that another macro file's header reaches -- `string.pl.h`
+  includes `<basic_string.pl>`, the include layer brings its `basic_string.pl.h`, and the preprocessed read of
+  `string.pl.h` does not hold it -- kept its raw text, its macros unexpanded, and `ccllib_sto_signed_` was `not lowered
+  yet: undeclared(errno)`. `test/c/run/hdrdefs.c` over `hdrdefs.h`; `test/ccllib/string.c`. (0.212, 0.291)
 
 ### Resolution and the inclusion path
 
@@ -10062,11 +10095,11 @@ in the first topic (The ccllib gate).
   COUNT: a set of another count is refused, as in C++, and a number too (`b == 5`, `b &= 5`), which C++ takes through
   its constructor -- `no conversion from 'int' to 'bitset_12'`; `bitset<12> five = 5;` makes the set first. N is one at
   least (`a bitset has one bit at least`), and a type in its place is refused (`a bitset takes the count of its bits, a
-  number`). There is no `to_string`, since ccllib's string comes later, no hash and no stream operator; a list literal
-  makes none, since a literal's slots have the type of the instance's first argument; there is no `<`, as in C++. Nine
-  programs of `test/ccllib/safe/`, as C and as C++: `bitset_literal.c`, `bitset_of_none.c`, `bitset_of_type.c`,
-  `bitset_no_lt.c`, `bitset_bit_assign.c`, `bitset_bit_address.c`, `bitset_no_to_string.c`, `bitset_sizes.c`,
-  `bitset_number.c`. (0.286)
+  number`). There is no `to_string` -- ccllib's string came at 0.291, and a bitset's text in one waits --, no hash and
+  no stream operator; a list literal makes none, since a literal's slots have the type of the instance's first argument;
+  there is no `<`, as in C++. Nine programs of `test/ccllib/safe/`, as C and as C++: `bitset_literal.c`,
+  `bitset_of_none.c`, `bitset_of_type.c`, `bitset_no_lt.c`, `bitset_bit_assign.c`, `bitset_bit_address.c`,
+  `bitset_no_to_string.c`, `bitset_sizes.c`, `bitset_number.c`. (0.286)
 - **EACH RULE OF THE MODULE HAS A BROKEN TEXT OF ITS OWN** (the rule of 0.283): nineteen copies of `bitset.pl`, each
   broken in one place, and each is reported. By `test/ccllib/alone/bitset_rules.c`, which names the rule (`NOT HELD for
   65 bits: == sees each bit`): `~`, a shift left, a set made of a number, a set of all and a flip of all that leave the
@@ -10084,6 +10117,90 @@ in the first topic (The ccllib gate).
   million steps of chance over three sets of 4096 bits. Over libc++ 22 the unit holds 106 functions for its five
   instances in 74 KB where the twin's holds 488 in 326 KB, and the run takes 0.35 s as C and 0.32 s as C++ against 0.59
   s, each in under 4 MB. The C build takes 0.68 s against the twin's 0.53 s, and cicilang++'s 1.04 s. (0.286, 0.289)
+
+### string.pl
+
+- **`string` IS `basic_string<char>`: AN OWN POINTER, A COUNT, AND SIXTEEN BYTES THAT HOLD THE CAPACITY OR A SHORT
+  STRING** (0.291): the instance `basic_string_char` of `<basic_string.pl>`, which `<string.pl>` includes and names
+  (`typedef basic_string<char> string;` and `npos`, `(size_t)-1`, in `string.pl.h`). While the string has fifteen
+  characters or fewer, they stand in the object with their NUL and `data` is null: A SHORT STRING HAS NO BLOCK OF THE
+  HEAP, as libc++'s keeps 22 characters in its object; a longer one has a block of its capacity and the NUL. Its drop
+  frees the block (`type_basic_string/3`; the texts by `ccllib_string_fn/2`). An object declared with no initializer is
+  the empty string (an instance's birth, 0.285), `string s = "abc";` makes one of a text of C -- C's literal and C++'s,
+  by `_of_ptr_const_char` --, `t := clone(s)` copies, and `string t = s;` moves, as an instance with a drop does. The
+  element is `char`: another type is refused by name, `a basic_string's element is char: the other character types
+  wait`. (0.291)
+- THE SURFACE OF `std::string`: 182 functions, which a call, an operator or `to_string` asks, and 11 inner ones, each
+  made at its first use, the forms of a name told apart by the count of their arguments and by the type of one (0.288):
+  `size`, `length`, `len`, `empty`, `capacity`, `max_size`, `reserve`, `shrink_to_fit`, `clear`, `resize`; `at`, `s[i]`,
+  `front`, `back`, `c_str`, `data`, `begin`, `end`; `push_back`, `pop_back` (which gives the character), `push`, `pop`,
+  `erase` in three forms, and C++20's `std::erase(s, c)` as `erase_value`; `append`, `assign`, `insert` and `replace`,
+  each of a string, a part of a string from a place, a part of a place and a count, a text of C, a text and its count,
+  and a count of a character (the tables `ccllib_string_change/5` and `ccllib_string_source/6`); `swap`, `copy`,
+  `substr`; the six searches -- `find`, `rfind`, `find_first_of`, `find_first_not_of`, `find_last_of`,
+  `find_last_not_of` -- of a string, a text, a text and its count, or a character, from a place or from where C++'s
+  begins (`ccllib_string_search/4`, `ccllib_string_text/4`); C++20's `starts_with` and `ends_with` and C++23's
+  `contains`; `compare` in seven forms; `==`, `!=`, `<`, `>`, `<=` and `>=` with a string or a text on either side (the
+  reader's mirrored operators, 0.291); `+` of a string, a text or a character on either side, and `+=` of each; `stoi`,
+  `stol`, `stoll`, `stoul`, `stoull`, `stof`, `stod` and `stold`, with their place and, for an integer, their base
+  (`ccllib_string_number/4`); `to_string` of each integer and floating type, `<string.pl>`'s macro, by the argument's
+  type. (0.291)
+- **EVERY CHANGE OF THE CHARACTERS IS ONE OF TWO INNER FUNCTIONS**: `__replace` puts n2 characters of a source in the
+  place of the n1 at a place, and `__fill` n2 copies of a character. A SOURCE THAT IS IN THE STRING ITSELF -- `append(s,
+  s)`, `insert(s, 0, c_str(s) + 2)` -- IS COPIED FIRST: the room for the new characters may move the block, and the
+  tail's move may go over the source. A NUL STANDS AFTER THE LAST CHARACTER after every function, so `c_str` gives the
+  block or the object as it is. A GROWTH IS TO TWICE THE CAPACITY AT LEAST (`__room`), so n push_backs cost O(n), and
+  `shrink_to_fit` gives a short string its object again. `__cmp` compares the characters as unsigned and then the
+  counts, as `char_traits<char>` does. (0.291)
+- WHAT DIFFERS FROM C++: A PLACE PAST THE LAST CHARACTER STOPS THE PROGRAM (`abort`) -- `at`, `s[i]` past the NUL
+  (`s[size(s)]` is the NUL, as C++'s is), `front`, `back` and `pop_back` of an empty string, a change, `substr`, `copy`
+  and `compare` from a place past the end, and a part of another string from a place past its end --, and so do
+  `reserve` and a change past `max_size`, and a number of a text where there is none or where it is past its type's
+  range: C++ throws at each, and its `pop_back` of an empty string is undefined. `pop_back` gives the character, where
+  C++'s gives nothing. A place is an index, as C++'s index forms have it, and `begin` and `end` give pointers.
+  `c_str(s)`, `data(s)`, `&s[i]` and `begin(s)` are borrows of the string, which a change of it ends (the safety rule of
+  0.265, `use of a borrow after a call that may replace its owner`). `a + b + c` is refused, `the operator + of
+  basic_string_char takes the address of its operand, which is no lvalue: name it first`: the string that `a + b` makes
+  has no name, and the operator takes the addresses of its operands -- `t := a + b; d := t + c;` is the form --, and so
+  is a call of the instance's function over a string that a call makes, `stoi(to_string(42))` (`stoi of
+  basic_string_char takes the address of its argument, which is no lvalue: name it first`). A string is no text of C:
+  `puts(s)` is `no conversion from 'basic_string_char' to 'const char *'`, and `c_str(s)` gives the text; a text is no
+  value of a string parameter, `no conversion from 'char *' to 'string'` (C has no conversion of a value to a record; a
+  string moved into the parameter is one). A number makes no string, `to_string(42)` does, and `to_string("abc")` is
+  refused (`to_string takes a number`). A vector of strings waits for the containers of owners (decision 2): `a vector's
+  element is a value with no pointer in it, and string holds one`. Thirteen programs of `test/ccllib/safe/`, as C and as
+  C++: `string_c_str_after_append.c`, `string_index_after_push.c`, `string_use_after_move.c`, `string_in_vector.c`,
+  `string_of_number.c`, `string_of_wide.c`, `string_find_double.c`, `string_append_int.c`, `string_eq_char.c`,
+  `string_to_string_text.c`, `string_no_text.c`, `string_text_by_value.c` and `string_add_three.c`. (0.291)
+- **EACH RULE OF THE MODULE HAS A BROKEN TEXT OF ITS OWN** (the rule of 0.283): fifty-seven copies of the tree broken on
+  purpose -- 48 of `basic_string.pl`, 5 of `basic_string.pl.h`, 3 of the reader and 1 of the lowering; each in one place
+  but two, which lack a place's check and the count's bound together --, and each is reported. By
+  `test/ccllib/alone/string_rules.c`, which names the rule: `__room` that grows to the need alone; `__set_cap` that
+  copies a short string without its NUL; `__p` that gives the object's bytes whatever the block; `__replace` that copies
+  no source in the string itself; `__splice`, `__fill`, `clear`, `resize`, `pop_back`, `erase_value` and `push_back`
+  that write no NUL; a short string's capacity of sixteen, and `__room` that takes sixteen characters in the object;
+  `reserve` that gives a short string no block; `shrink_to_fit` that keeps a block for a short string, or leaves a long
+  one's capacity; a change that takes more characters than there are; `__cmp` by signed characters, or with no look at
+  the counts; `==` with no look at the counts; `substr`, `copy` and `compare` that take more characters than the part
+  has; `find` that misses a find at the end, or gives the place of an empty text past the end; `rfind` and
+  `find_last_of` with no look at the place, and `find_first_of` from the start; `swap` of the blocks alone;
+  `erase_value` that gives the count it keeps; `ends_with` that looks at the start; `+=` of a string that assigns it. By
+  a case of `stops.c` that is not stopped: `s[i]`, `at`, `front`, `back` and `pop_back` with no bound; a change,
+  `substr`, `copy` and `compare` from a place past the end; a part of another string from a place past its end;
+  `__splice`, `__fill` and `__set_cap` with no bound of `max_size`; `stoi` past an int, `stoul` past its range, and
+  `stoi` and `stod` of no number. By `string.c` against its twin: `s[i]` that refuses the place of the NUL, the place
+  after a number that is not written, and the reader's `<` mirrored to the instance's `<`, its `!=` to `==`, its `>`
+  with no typed `_gt_`, and the lowering that takes no definition from the header that holds it (`undeclared(errno)`).
+  TWO CHECKS OF A PLACE ARE REPEATED BY THE COUNT'S BOUND: `substr(s, pos)` past the end, and `append(s, t, at)` with at
+  past t's end, give a count that wraps to past `max_size`, which `__splice` stops, so the copy that lacks the place's
+  check stopped all the same, and only a copy that lacks the bound too was reported; `substr(s, 4, 0)` and `append(s, t,
+  npos)`, whose counts do not wrap, are the two cases of `stops.c` that report each check alone. (0.291)
+- `test/ccllib/string.c`, the whole surface, and its twin `string.cpp` over `std::string`; the count run builds a text
+  of ten million characters, puts "xyz" in the place of each "ab" by a search and appends, and reads numbers back from
+  their texts. Over libc++ 22 the unit holds 150 functions for its one instance in 63 KB where the twin's holds 210 in
+  146 KB -- libc++ keeps most members of `std::string` in its own library (`extern template`) --, and the run takes
+  0.055 s as C and 0.058 s as C++ against 0.084 s, in 22 MB against 31 MB. The C build takes 1.35 s against the twin's
+  0.42 s, three times, and cicilang++'s 1.74 s, four times. (0.291)
 
 ## The safe part
 
@@ -10954,10 +11071,16 @@ in the first topic (The ccllib gate).
   WHERE A FLOATING VALUE IS (0.288; C17 6.5.4/4), by an argument, an assignment or a cast, are refused by the same
   words, `no conversion from 'double' to 'const char *'`: `fptoui double ... to ptr` and `uitofp ptr ... to double` went
   to LLVM's parser (a clause of `ir_convert/6` after the records'). A struct with no tag, which a typedef names, is
-  `struct <unnamed>` in the message, where its term was printed (0.288). A valid program changes in nothing: each such
-  text was one that LLVM refused. The driver gate holds the nine forms of a record in C, each at its line, one in C++,
-  and the four of a floating value and a pointer; `test/ccllib/safe/bitset_sizes.c` and `bitset_number.c` as C and as
-  C++. Lowering 158, 160. (0.286, 0.288)
+  `struct <unnamed>` in the message, where its term was printed (0.288). A POINTER WHERE A RECORD IS NEEDED (0.291) went
+  with no conversion to LLVM's parser by an argument and by a `return` -- `f("bob")` and `f(&t)` over a struct
+  parameter, `return p;` from a function whose result is a struct (`global variable reference must have pointer type`)
+  --: `ir_record_mismatch/2` takes a pointer too, `no conversion from 'char *' to 'struct A'` and `no conversion from
+  'struct A *' to 'struct A'`, and a text handed to a parameter of ccllib's string, `no conversion from 'char *' to
+  'string'`; an initializer and an assignment of a pointer were refused so already. A valid program changes in nothing:
+  each such text was one that LLVM refused. The driver gate holds the nine forms of a record in C, each at its line, one
+  in C++, the four of a floating value and a pointer, and the three of a pointer where a struct is needed;
+  `test/ccllib/safe/bitset_sizes.c`, `bitset_number.c` and `string_text_by_value.c` as C and as C++. Lowering 158, 160,
+  162. (0.286, 0.288, 0.291)
 
 ### Control flow and defer
 
@@ -14160,11 +14283,11 @@ Declarations topic of the C++ reader).
   a printed drop comes before the caller's next output, which ccllib in cicilang++ (phase 0.10) meets.
 - LITERALS' LIMITS (0.263; `CCLLIB.md`'s phase 0.6): a literal has its type only where a declaration, `=`, a call's
   parameter or a return gives it, and at `:=`; a conditional's branch, a comma's operand and a macro's argument that it
-  reads first hold it untaken (a macro sees `list_lit/3`), and a literal at file scope is a call that no constant initializer takes. A
-  container of plain pointers takes no literal of them: `map<int, char *>`'s put stores its parameter's pointer, a
-  borrow, `borrow_stored`, so `[5: "me"]` waits for ccllib's string (phase 1a). A map compares its keys with `==`, so a
-  key must be a scalar. `FOO([int; 1, 2])` of a `#define` macro is two arguments, as a compound literal is: written
-  `FOO(([int; 1, 2]))`.
+  reads first hold it untaken (a macro sees `list_lit/3`), and a literal at file scope is a call that no constant
+  initializer takes. A container of plain pointers takes no literal of them: `map<int, char *>`'s put stores its
+  parameter's pointer, a borrow, `borrow_stored`, so `[5: "me"]` waits: ccllib's string came at 0.291, and a map of
+  strings waits for the containers of owners (decision 2). A map compares its keys with `==`, so a key must be a scalar.
+  `FOO([int; 1, 2])` of a `#define` macro is two arguments, as a compound literal is: written `FOO(([int; 1, 2]))`.
 - THE SAFETY RULES OF 0.265 TO 0.267, THEIR LIMITS (`CCLLIB.md`'s phases 0.8 and 0.10): they hold in C and, since
   0.272, in C++. The constraint on a const lvalue is held for an own field alone: another member, an element or a
   scalar written through a const path is taken, as before -- in C++ too, where clang++ refuses `b.len = 3` over a `const
@@ -14204,11 +14327,20 @@ Declarations topic of the C++ reader).
   a `return` are not converted, where C++ converts each by a constructor that is not explicit --, and at file scope its
   `_of` is no constant; `T a(x)` and `T a{x}` are C++'s own; an assignment over an object that has a drop, named by its
   name, drops the old value first since 0.287 (the safe part's topic of autodrop).
-- A BITSET, ITS LIMITS (0.286): no `to_string` (ccllib's string comes later), no hash and no stream operator; the text
-  that makes one takes no place, no count and no other characters than 0 and 1, which C++'s constructor takes; a number
-  is no operand of its operators (`b == 5`, `b &= 5`), which C++ takes through its constructor; `set`, `reset` and
-  `flip` give nothing back; `~b[i]` is C's `~` of the int 0 or 1, where C++'s is the other bit; a list literal makes
-  none, since a literal's slots have the type of the instance's first argument, which is the count here.
+- A BITSET, ITS LIMITS (0.286): no `to_string` (a bitset's text in ccllib's string, which came at 0.291, waits), no hash
+  and no stream operator; the text that makes one takes no place, no count and no other characters than 0 and 1, which
+  C++'s constructor takes; a number is no operand of its operators (`b == 5`, `b &= 5`), which C++ takes through its
+  constructor; `set`, `reset` and `flip` give nothing back; `~b[i]` is C's `~` of the int 0 or 1, where C++'s is the
+  other bit; a list literal makes none, since a literal's slots have the type of the instance's first argument, which is
+  the count here.
+- A STRING, ITS LIMITS (0.291): its element is `char` alone -- `wchar_t`, `char8_t`, `char16_t` and `char32_t` wait --;
+  `string_view` and `span` are the next modules of 1a; `a + b + c` and `stoi(to_string(42))` are refused, since a string
+  that an operator or a call makes has no name and a function of the instance takes its object's address; a text is no
+  value of a string parameter, where C++ converts it by a constructor; a struct with a string member is refused at its
+  scope's end (`owner leaked: 'r.name.data'`), where C++ destroys each member -- the owner's decision 6, a struct's drop
+  made of its members' --; a container of strings waits for decision 2; there is no stream operator (1d), no
+  `std::hash<string>` (1b), no `getline`, no `<=>` and no literal `"abc"s`; `to_string` of a floating value writes `%f`,
+  as C++ before C++26 does, where C++26's writes the shortest text that reads back.
 - A PLAIN CALL'S COUNT OF ARGUMENTS, AND A POINTER AND AN INTEGER IN EACH OTHER'S PLACE, ARE NOT CHECKED (found at
   0.288; C17 6.5.2.2/2 and 6.5.16.1/1, constraints): `f(1)` and `f(1, 2, 3)` over `int f(int, int)` build to an object
   with no message -- the call is made with the arguments that it has --, where clang 22 says `too few arguments to

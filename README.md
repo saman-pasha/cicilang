@@ -418,6 +418,13 @@ type goes first, so `x + 3` is `<name>_add_int` where the macro defines it,
 and `v[i]` is a value where the macro defines `_item`, with `v[i] = x` its
 `_set_item`. `test/c/run/operators2.c` is the example.
 
+An operator whose right operand is an instance and whose left one is not is
+the instance's too (0.291): a relation is the instance's own with its
+operands exchanged, so `"abc" == s` is `<name>_eq_ptr_const_char(&s, "abc")`
+and `"abb" < s` is `<name>_gt_ptr_const_char(&s, "abb")`, and another
+operator is `<name>_r<op>_<word>`, so `"<" + s` is
+`<name>_radd_ptr_const_char("<", &s)`. `test/c/run/mirror.c` is the example.
+
 An object of an instance's type that is declared with no initializer is
 given zero (0.285), with a drop or with none, as C++'s `bitset` and `pair`
 are born empty. `T a = x;` and `a = x`, where `x` has another type, are the
@@ -446,8 +453,11 @@ another type where the function takes its own object.
 A struct of one type where a struct of another is needed is refused by name
 (0.286), at its line: `no conversion from 'struct B' to 'struct A'`, in an
 assignment, an initializer, an argument and a `return`, and so are a number
-where a struct is needed and a unary `-` or `~` over a struct. Two instances
-of one type macro are two types: `bitset<8>` and `bitset<12>` do not mix.
+where a struct is needed and a unary `-` or `~` over a struct. So is a
+pointer where a struct is needed (0.291): `f("bob")` and `f(&t)` over a
+struct parameter, and `return p;` from a function whose result is a struct.
+Two instances of one type macro are two types: `bitset<8>` and `bitset<12>`
+do not mix.
 
 cicilang++ reads the same macro files (0.267): `vector<int>` over a type
 macro, `max<double>(a, b)`, a macro's C text, whose functions are noexcept in
@@ -548,6 +558,15 @@ C++'s. A place ends as a set's does, and at `rehash` and `reserve`.
 `a ^= b`, `a == b`. `b[i]` is the bit's value, the int 0 or 1, and a bit
 has no address. A place past the last bit stops the program.
 `test/ccllib/bitset.c` is the example.
+
+`#include <string.pl>` gives `std::string` (0.291), `basic_string<char>`:
+`string s = "abc";`, `s += "def";`, `push_back(s, '!')`, `append(s, t)`,
+`insert(s, 0, "<")`, `find(s, "de")`, `substr(s, 1, 2)`, `"<" + s`, `s ==
+"abc"`, `"abc" < s`, `stoi(s)`, `to_string(42)`, `c_str(s)`. A string of
+fifteen characters or fewer has no block of the heap. `c_str(s)` and `&s[i]`
+are borrows of the string, which a change of it ends. A place past the last
+character, and a number of a text where there is none, stop the program.
+`test/ccllib/string.c` is the example.
 
 `format`, `print`, `println` and `clone` are global macros, there in every
 program without an include (`library/ccl_format.pl`). The format string

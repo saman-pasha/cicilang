@@ -1,0 +1,1 @@
+the operator + of basic_string_char takes the address of its operand, which is no lvalue: name it first

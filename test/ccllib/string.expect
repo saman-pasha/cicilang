@@ -1,0 +1,48 @@
+104 0 111 1 5 19 1
+fb=[buf] 3
+fp=[ptr] 3
+101 h o h 1
+append=[helloXYZ234--xy!] 16
+insert=[YZ#l#<<abchelloXYZ234--xy!] 26
+replace=[=ab01XYZ789abcdefXYZl#<<abchelloXYZ234--xy!] 43
+erase=[=ab01789abcdefXYZl#<] 20
+assign=[abcd] 4
+assign=[=ab01789abcdefXYZl#<] 20
+erase=[] 0
+self=[bcbcdefghijklmnopabcdefghijklmnopopbcdefbcbcdefghijklmnopabcdefghijklmnopopbcdef] 80
+10 16 18446744073709551615 9 10 1
+16 18446744073709551615 18446744073709551615 10 18
+0 0 18446744073709551615 18446744073709551615
+13 4 12 15
+12 14 2 17
+1 1 1 0 1 0 1 1
+1 1 0 0 0
+0 1
+0 1 1 0 1 0
+1 0 1 1 1 0
+1 0 1 1 1 0
+u=[abc] 3
+w=[XYZ] 3
+whole=[0123456789abcdefXYZ] 19
+c=[abcXYZ] 6
+d=[abcXYZ!?abc..] 13
+f=[abcXYZ!?] 8
+g=[<abc] 4
+h=[(abc] 4
+-42 -42 5 255 -42 9223372036854775807
+255 9223372036854775807 18446744073709551615
+27.5 27.5 6 27.5
+[-12345] [7] [2.500000] [1.500000] [0] [-9223372036854775808] [18446744073709551615] [0.100000]
+u=[abcXYZ!?abc..] 13
+d=[abc] 3
+a . . # 1
+1
+5 1 0 0
+4 [abcd] 3 [012d]
+6
+erase_value=[bnn bndn] 8
+longer=[] 0
+kept=[a text that is longer than fifteen characters] 45
+1 5667997909853374854
+100 a v 15841180445289275506
+exit 0
