@@ -12,7 +12,7 @@ the fixture that gates it, and why. The bullet ends with the version that made t
 edits the rule in `RULES.md`, in its topic, and writes its entry in `HISTORY.md`. Read the topic of `RULES.md` that
 covers the code before the code is changed.
 
-At 0.277 the versions are: the module 0.277 (`ccl_p_version` in `module/cicilang.cicili`, `bin/cicilang --version`),
+At 0.279 the versions are: the module 0.279 (`ccl_p_version` in `module/cicilang.cicili`, `bin/cicilang --version`),
 the reader 181 (`ccl_reader_version/1`, `library/ccl_syntax.pl`) and the lowering 156 (`ccl_lowering_version/1`,
 `library/ccl_ir.pl`).
 
@@ -247,6 +247,11 @@ In `RULES.md`:
 - EVERY FINISHED STEP IS COMMITTED AND PUSHED, then the next begins (owner's rule, 0.260: "Commit and push after every
   task finished, continue"): a step whose chain is GREEN, with its docs. Until 0.259 a commit waited for the owner's
   word. (from the start, 0.260)
+- A STEP'S COMMIT HOLDS ITS DOCS, OR IT IS REFUSED: the commands of a commit stop one another (`&&`, never `;`), and
+  before `git commit` the step checks that `HISTORY.md` has the version's row and entry, that this file and the module
+  name the version, and that each doc that the step names did change; after the push it compares the remote's head with
+  the commit. The commit of 0.278 went out without its docs: the script that writes them stopped at a text that it did
+  not find, and the shell went on to commit and push. 0.279 carried them. (0.279)
 - Every commit raises the version (owner's rule): the string in `ccl_p_version` (`module/cicilang.cicili`) becomes
   `0.N`, one more than the last commit's. Rebuild after it, because the `.so` carries it; `bin/cicilang --version`
   shows it. (from the start)
@@ -346,6 +351,8 @@ library/ccllib/             ccllib, the standard library of cicilang's C (CCLLIB
   array.pl, array.pl.h        std::array (0.275): a struct of one C array, a value with no heap and no drop
   deque.pl, deque.pl.h        std::deque (0.276): a ring, each end in constant time
   list.pl, list.pl.h          std::list (0.277): an arena of nodes; a place is a node's number, and it stays
+  forward_list.pl, forward_list.pl.h
+                              std::forward_list (0.278): the list's arena with one link a node
   ccllib.pl                   what two modules need, written once (0.275): a module loads it by a directive, and no
                               program includes it; the refusal of an element with a pointer, the lists' sort (0.277)
 library/cicilang.so, ccl_llvm.so
@@ -441,7 +448,7 @@ test/ccllib/                the three runs' programs: NAME.c, a ccllib program; 
                             NAME.expect, what the twin prints; NAME.count, the count of the run that the costs time;
                             first.c over first.pl, the first proof after phase 0 (0.273); vector.c, the whole
                             surface of <vector.pl> (0.274); array.c, of <array.pl> (0.275); deque.c, of <deque.pl>
-                            (0.276); list.c, of <list.pl> (0.277)
+                            (0.276); list.c, of <list.pl> (0.277); forward_list.c, of <forward_list.pl> (0.278)
 test/ccllib/safe/           ccllib programs that the safe part refuses, as C and as C++: NAME.c, NAME.expect, and
                             NAME.expect.cpp where C++ has words of its own (0.274)
 

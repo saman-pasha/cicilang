@@ -474,6 +474,23 @@ clang++ builds the twin as fast as cicilang builds the program and with less mem
 dearest again, 1.15 s and 168 MB. The run as C++ is slower than the run as C, 0.62 s against 0.53 s, from one text: a
 second thing for phase 1 to find out.
 
+### 1a, `forward_list.pl` (0.278)
+
+`forward_list<T>` is the list's arena with one link a node: `before_begin`, `insert_after`, `erase_after`,
+`splice_after`, `push_front`, and the list's own operations, 44 functions and the drop. Its sort is the list's, one text
+for both. `size` and `len` are there, which C++'s has not. `test/ccllib/forward_list.c`, its twin over
+`std::forward_list`, three programs of `test/ccllib/safe/`. The costs over libc++ 22, as above:
+
+| | build | peak | IR types | IR functions | IR lines | object | `forward_list 1000000` at `-O2` | its peak |
+|---|---|---|---|---|---|---|---|---|
+| cicilang, C | 0.41 s | 134 MB | 7 | 79 | 4,505 | 38,064 B | 0.35 s | 17 MB |
+| cicilang++, C++ | 1.12 s | 163 MB | 7 | 79 | 5,951 | 47,656 B | 0.34 s | 18 MB |
+| clang++ 22, `std::` | 0.41 s | 119 MB | 54 | 313 | 11,133 | 201,736 B | 0.72 s | 34 MB |
+
+The unit holds 79 functions where the twin's holds 313, and the count run takes half the twin's time and half its
+memory: a node is the element and one number in one buffer. The builds are as the list's: the C build and clang++'s
+build of the twin take the same time, and cicilang++'s build is the dearest, 1.12 s and 163 MB.
+
 ### The parts of phase 1
 
 - 1a. Containers and strings: `vector`, `array`, `deque`, `list`, `forward_list`, `map`, `set`, `multimap`,

@@ -466,6 +466,11 @@ A place stays its element's over every insert, every erase of another
 element, a `sort` and a `reverse`. `sort`, `unique`, `merge`, `splice`,
 `remove` and `reverse` are there. `test/ccllib/list.c` is the example.
 
+`#include <forward_list.pl>` gives `std::forward_list` (0.278), the list
+with one link a node: `push_front`, `insert_after(l, p, x)`,
+`erase_after(l, p)`, `before_begin(l)`, `sort`, `unique`, `merge`,
+`reverse`. `test/ccllib/forward_list.c` is the example.
+
 `format`, `print`, `println` and `clone` are global macros, there in every
 program without an include (`library/ccl_format.pl`). The format string
 has Rust's holes, each becoming the `printf` conversion of its argument's

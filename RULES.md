@@ -9548,6 +9548,31 @@ in the first topic (The ccllib gate).
   builds the twin as fast as cicilang builds the program (0.41 s and 0.43 s) and with less memory (119 MB against 138
   MB), and cicilang++'s build is the dearest, 1.15 s and 168 MB. (0.277)
 
+### forward_list.pl
+
+- `forward_list<T>` is `forward_list_T`: the list's arena with ONE LINK A NODE -- the number of the next node, and the
+  element. A place is a node's number: `begin(l)`, `end(l)`, which is 0, `before_begin(l)`, which is the greatest
+  `size_t`, and `next(l, p)`; `at(l, p)` and `l[p]` give the element, and a place stays its element's as the list's
+  does. The operations work AFTER a place, as C++'s do. 44 functions and the drop: `size`, `len`, `empty`, `max_size`;
+  `before_begin`, `begin`, `end`, `next`, `at`, `l[p]` (`_index`), `front`; `insert_after` (two forms; it gives the new
+  element's place, the last one's of several), `emplace_after`, `insert_range_after`, `prepend_range`, `push_front`,
+  `emplace_front`, `erase_after` (two forms; it gives the place after the erased ones), `pop_front`, `clear`, `resize`
+  (two forms), `assign`, `assign_range`, `swap`; `remove`, `erase_value`, `remove_if`, `unique` (two forms), `reverse`,
+  `sort` (two forms: the list's merge sort by the links, one text for both modules), `merge` (two forms), `splice_after`
+  (three forms); `clone`; `==` and `<` and what follows from them. (0.278)
+- WHAT DIFFERS FROM C++, beside what differs for the list: `size(l)` and `len(l)` are there, which `std::forward_list`
+  has not -- the arena counts its elements. An erased node's link is the complement of the next erased node's number,
+  past every node's number, so a place that is no element's is known with no word more in a node, and it stops the
+  program (`__live`). There is no `push_back`, no `back` and no `prev`, as in C++: `forward_list_int has no function
+  push_back` (`test/ccllib/safe/forward_list_no_back.c`). `merge(l, l)` does nothing, and a `splice_after` of the whole
+  list into itself stops the program. (0.278)
+- `test/ccllib/forward_list.c` over `int`, `double` and a plain struct, and its twin `forward_list.cpp` over
+  `std::forward_list`; its count run ends with a walk of chance that keeps a place, and the twin counts its elements by
+  hand there. Over libc++ 22 the unit holds 79 functions in 38 KB where the twin's holds 313 in 202 KB, and the count
+  run takes half the twin's time and memory, 0.35 s and 17 MB against 0.72 s and 34 MB; the C build and clang++'s build
+  of the twin take the same 0.41 s, the twin's with less memory (119 MB against 134 MB), and cicilang++'s build is the
+  dearest, 1.12 s and 163 MB. (0.278)
+
 ## The safe part
 
 ### The check in the build

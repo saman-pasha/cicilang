@@ -272,6 +272,8 @@ One row per step, in version order: the step's title, what it did and its gate n
 | 0.275 | ccllib's `<array.pl>`, and one file for what the modules share | CCLLIB.md's phase 1a goes on: library/ccllib/array.pl, std::array as a struct of one C array, a value with no heap and no drop, 16 functions; library/ccllib/ccllib.pl holds what two modules need, loaded by a directive of each (ccllib_plain_element/2, the refusal of an element that holds a pointer); no file of the compiler changed | the flow gate; the ccllib gate over libc++ 22, 21 and 18; no chain, by the owner's rule of 0.271; a commit and a push |
 | 0.276 | ccllib's `<deque.pl>`: a ring | CCLLIB.md's phase 1a goes on: library/ccllib/deque.pl, std::deque over a ring whose capacity is a power of two, each end in constant time, insert and erase by a move of the nearer end, 36 functions; no begin, end or data, and a push at an end ends the borrows of the buffer; the count run of its program ends with a walk of chance over the operations at a place; no file of the compiler changed | the flow gate; the ccllib gate over libc++ 22, 21 and 18; no chain, by the owner's rule of 0.271; a commit and a push |
 | 0.277 | ccllib's `<list.pl>`: an arena of nodes, and a place that stays | CCLLIB.md's phase 1a goes on: library/ccllib/list.pl, std::list as nodes in one own buffer that name one another by their numbers; a place, C++'s iterator, is a node's number and stays its element's over inserts, erases of others, a sort and a reverse; 51 functions, the list's own operations among them (sort by the links, unique, merge, splice, remove, reverse); merge of a list with itself does nothing; ccllib_msort_text/5 in ccllib.pl; no file of the compiler changed | the flow gate; the ccllib gate over libc++ 22, 21 and 18; no chain, by the owner's rule of 0.271; a commit and a push |
+| 0.278 | ccllib's `<forward_list.pl>`: the list with one link a node | CCLLIB.md's phase 1a goes on: library/ccllib/forward_list.pl, std::forward_list as the list's arena with one link a node; before_begin, insert_after, erase_after, splice_after, push_front and the list's own operations, 44 functions; the list's merge sort by the links, one text for both modules; size and len, which C++'s has not; an erase of a range of no element erased, found by reading; no file of the compiler changed | the flow gate; the ccllib gate over libc++ 22, 21 and 18; no chain, by the owner's rule of 0.271; a commit and a push |
+| 0.279 | the docs of 0.278, which its commit left out | the commit of 0.278 holds the forward list and its fixtures and no doc: the script that writes a step's docs stopped at a text that it did not find, and the commands after it, joined by `;`, committed and pushed; this commit carries its rules, its entry and its lines of CLAUDE.md, README.md and CCLLIB.md, and the rule of a step's commit, which is refused where a doc is missing | none: the docs and the version; the nets of 0.278 stand for its code; a commit and a push |
 
 ## M5 — the C++ mode
 
@@ -18935,3 +18937,88 @@ NO CHAIN RAN for this step (the owner's rule of 0.271), and it claims nothing GR
   The fixtures. `RULES.md` (the topic of ccllib), `CLAUDE.md`, `README.md`, `CCLLIB.md`.
 
 The module 0.277; the reader 181 and the lowering 156 as they were: no file of the compiler changed.
+
+## 0.278 — ccllib's `<forward_list.pl>`: the list with one link a node
+
+**0.278: `CCLLIB.md`'s phase 1a goes on. `#include <forward_list.pl>` gives a C program `std::forward_list`: the list's
+arena with one link a node, a place before the first element, and the operations after a place. 44 functions by C++'s
+names. No file of the compiler changed. Committed with its nets; the chain runs when the ccllib task is finished (the
+owner's rule of 0.271).**
+
+THE MODULE. `library/ccllib/forward_list.pl`: a node holds the number of the next node and the element, and the nodes
+stand in one own buffer, as the list's. A place is a node's number: `begin(l)`, `end(l)`, which is 0, `before_begin(l)`,
+which is the greatest `size_t`, and `next(l, p)`. The operations work after a place, as C++'s do: `insert_after(l, p,
+x)` gives the new element's place, `erase_after(l, p)` the place after the erased one, `splice_after` has its three
+forms, and `push_front`, `pop_front` and `front` are at the head. A place stays its element's as the list's does. An
+erased node's link is the complement of the next erased node's number, which is past every node's number: a place that
+is no element's is known by it and stops the program, with no word more in a node. `sort` is the list's merge sort by
+the links: `ccllib_msort_text/5` of `ccllib.pl` gives both modules their text. `size(l)` and `len(l)` are there, which
+C++'s forward list has not: the arena counts its elements.
+
+WHAT IT FOUND. AN ERASE OF NO ELEMENT ERASED. `erase_after(l, p, q)` took the element after p away and then asked
+whether the place after it was q. For a range of no element -- q the place after p -- it took q away and went on to the
+list's end, where it stopped the program. Found by reading, before the nets: the loop asks first now, and
+`forward_list.c` erases a range of no element.
+
+THE FIXTURES. `test/ccllib/forward_list.c` over `int`, `double` and a plain struct, its twin `forward_list.cpp` over
+`std::forward_list`, `forward_list.expect`, `forward_list.count` (1,000,000: a list filled at its head, a value removed,
+a part erased by a walk, sorted, the doubles taken away, turned round and walked; then a walk of chance with a place
+that it keeps; the twin counts its elements by hand there, since `std::forward_list` has no size);
+`test/ccllib/safe/forward_list_after_push.c` (`&l[p]` used after a `push_front`), `forward_list_of_pointers.c` and
+`forward_list_no_back.c` (`forward_list_int has no function push_back`), each refused as C and as C++.
+
+THE COSTS of `forward_list.c` over libc++ 22 on the gates' box, the twin by clang++ 22.1.8, the builds at `-O0`, the
+best of three:
+
+```
+run                       build s      MB  types  functions   lines  object B    run s      MB
+cicilang, C                 0.410   133.8      7         79    4505     38064    0.351    16.9
+cicilang++, C++             1.121   163.3      7         79    5951     47656    0.339    17.6
+clang++ 22.1.8, std::       0.411   118.8     54        313   11133    201736    0.722    33.6
+```
+
+The run is `forward_list 1000000` at `-O2`. cicilang's C build and clang++'s build of the twin take the same time, 0.41
+s, the twin's with less memory, 119 MB against 134 MB; cicilang++'s build is the dearest of the three again, 1.12 s and
+163 MB. The unit holds 79 functions in 38 KB where the twin's holds 313 in 202 KB. The run takes half the twin's time
+and half its memory, 0.35 s and 17 MB against 0.72 s and 34 MB: a node of the arena is the element and one number, 16
+bytes for an `int`, with no block of the allocator's for each.
+
+THE NETS, over the work tree: the flow gate GREEN with no finding (131 s, peak 4243 MB),
+`library/ccllib/forward_list.pl` charted with the five other files of ccllib; the ccllib gate GREEN over libc++ 22, 21
+and 18, each over a fresh HOME (144 s, 145 s and 145 s; 68 checks each, none skipped): 6 programs in three runs, 19
+refused. No other gate reads a file that changed.
+
+NO CHAIN RAN for this step (the owner's rule of 0.271), and it claims nothing GREEN but the nets above. No CI job ran.
+
+- `library/ccllib/forward_list.pl`, `forward_list.pl.h`. `test/flow.sh`: `CFILES`. The fixtures. `RULES.md` (the topic
+  of ccllib), `CLAUDE.md`, `README.md`, `CCLLIB.md`.
+
+The module 0.278; the reader 181 and the lowering 156 as they were: no file of the compiler changed.
+
+## 0.279 — the docs of 0.278, which its commit left out
+
+**0.279: the commit of 0.278 holds the forward list, its fixtures and its line of the flow gate, and no doc. The script
+that writes a step's docs stopped at a text that it did not find, and the commands after it committed and pushed all the
+same. This commit carries what 0.278 owed -- its rules, its entry above, its lines of `CLAUDE.md`, `README.md` and
+`CCLLIB.md` -- and changes nothing else but the version. A step's commit goes through a check now that refuses it where
+a doc of the step is missing.**
+
+WHAT HAPPENED. A step's docs are written by a script of exact replacements: each replaces a text that must stand once in
+its file, and where one does not, the script stops and writes nothing. The script of 0.278 stopped so, at a line of
+`RULES.md` that the step before had wrapped another way. The shell went on to `git commit` and `git push`, since the
+commands were joined by `;` and not by `&&`, and the message of that commit names five docs that it does not hold. The
+same join let the commit of 0.275 out with the times of its nets' first run, which 0.276 corrected.
+
+THE CURE. A step's commit is one script, each command of which stops the next. It refuses the commit where `HISTORY.md`
+has no row or no entry of the version, where `CLAUDE.md` or the module does not name the version, where the message's
+title is another version's, or where one of the five docs did not change; and after the push it compares the remote's
+head with the commit. The rule is in `CLAUDE.md`, with the commits'.
+
+NOTHING OF 0.278's CODE CHANGES: `library/ccllib/forward_list.pl` and its fixtures are as that commit has them, and its
+nets stand for them -- the flow gate and the ccllib gate over libc++ 22, 21 and 18, GREEN, with their numbers in the
+entry of 0.278. No gate ran for this commit: it changes the docs and the version.
+
+- `RULES.md`, `HISTORY.md`, `CLAUDE.md`, `README.md`, `CCLLIB.md`: what 0.278 owed; `CLAUDE.md`: the rule of a step's
+  commit. `module/cicilang.cicili`: the version.
+
+The module 0.279; the reader 181 and the lowering 156 as they were.
