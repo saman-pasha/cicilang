@@ -227,8 +227,8 @@ element  : expression  |  key ':' expression        a key is a conditional expre
   instance's function `<name>_from(const T *, size_t)`, a map's `<name>_from(const K *, const V *, size_t)`.
 - WHAT 0.263 LEAVES (Not done): a literal where no place gives its type (a conditional's branch, a macro's argument) is
   refused by name, and one at file scope is no constant; a container of plain pointers (`map<int, char *>`, `[5: "me"]`)
-  is refused by the borrow rules until ccllib's `string` (phase 1a); `set<int>` and `unordered_map` wait for their type
-  macros (phase 1a).
+  is refused by the borrow rules until ccllib's `string` (phase 1a); `unordered_map` waits for its type macro (phase
+  1a), and `set<int>` has its own since 0.281.
 
 ### 0.7 Arguments read after the outer macro
 
@@ -396,7 +396,12 @@ What the proof found for phase 1:
   program includes it, and the flow gate refuses a predicate that two modules define.
 - A COMPARISON IS A FUNCTION'S NAME, AN ARGUMENT OF THE TYPE (0.280): `priority_queue<int, later>`, where C++ writes the
   comparison's type. The instance's text calls the function by its name -- a direct call, which the optimizer puts in
-  line -- and no pointer to a function is kept. The form waits for `set`, `map` and the algorithms.
+  line -- and no pointer to a function is kept. `set<int, later>` and `map<int, double, later>` take the form too
+  (0.281); the algorithms wait for it.
+- A PLACE IS A NUMBER, AND ITS END IS CHECKED WHERE IT IS NOT C++'S (0.277, 0.281): a list's place is a node's number
+  and stays, as C++'s iterator of a list does. A tree's place holds the tree's count of changes and ENDS where the tree
+  takes a new entry or loses one, where C++'s iterator of a map stays: an arena's B-tree moves its entries. A place that
+  is used after its end stops the program, so the difference is never silent.
 
 ### 1a, `vector.pl` (0.274)
 
@@ -523,6 +528,33 @@ IR the C build takes no more where the C++ build takes 0.93 s. The time is the d
 place: each operator of an expression types its operands again, and a shortcut of that road, tried in the scratch, took
 0.11 s of 0.91 s off. The target is not one predicate's.
 
+### 1a, `set.pl` and `map.pl` (0.281)
+
+`set`, `multiset`, `map` and `multimap` are one text, `library/ccllib/tree.pl`: a B-tree whose nodes stand in one own
+buffer, 7 to 15 entries a node, the children named by their numbers. 26, 26, 33 and 27 functions. An insert that finds
+its key and an erase that finds none change nothing; a place ends where the tree takes a new entry or loses one, and a
+place used after that stops the program. `test/ccllib/set.c` and `map.c`, their twins over `std::set`, `std::multiset`,
+`std::map` and `std::multimap`, six programs of `test/ccllib/safe/`, and the two programs of `test/ccllib/alone/`. The
+costs over libc++ 22, as above:
+
+| | build | peak | IR types | IR functions | IR lines | object | `set 300000` at `-O2` | its peak |
+|---|---|---|---|---|---|---|---|---|
+| cicilang, C | 0.84 s | 161 MB | 13 | 191 | 16,687 | 87,024 B | 0.14 s | 5 MB |
+| cicilang++, C++ | 2.84 s | 174 MB | 13 | 191 | 18,907 | 95,240 B | 0.14 s | 5 MB |
+| clang++ 22, `std::` | 0.75 s | 131 MB | 102 | 464 | 15,920 | 283,648 B | 0.53 s | 17 MB |
+
+| | build | peak | IR types | IR functions | IR lines | object | `map 300000` at `-O2` | its peak |
+|---|---|---|---|---|---|---|---|---|
+| cicilang, C | 0.91 s | 167 MB | 13 | 197 | 18,822 | 97,288 B | 0.16 s | 5 MB |
+| cicilang++, C++ | 3.11 s | 196 MB | 13 | 197 | 21,117 | 104,048 B | 0.17 s | 5 MB |
+| clang++ 22, `std::` | 0.93 s | 140 MB | 150 | 683 | 21,578 | 436,528 B | 0.41 s | 12 MB |
+
+The units hold 191 and 197 functions, each for six instances, where the twins' hold 464 and 683, and the runs take 0.14
+s and 0.16 s against 0.53 s and 0.41 s, in less than half the twins' memory: 15 keys stand side by side in a node, where
+the twin's tree has a block for each key. The builds are the dearest of phase 1a so far, since the tree's text is the
+longest: the C builds take the twins' time and more memory, and cicilang++'s take 2.84 s and 3.11 s, more than three
+times the twins'. The target of phase 1 stays, and these two programs are its largest cases.
+
 ### The parts of phase 1
 
 - 1a. Containers and strings: `vector`, `array`, `deque`, `list`, `forward_list`, `map`, `set`, `multimap`,
@@ -567,7 +599,11 @@ against the borrow rules first).
   lines; the twin makes the `.expect`. THE CCLLIB GATE runs them (0.273, `sh test/ccllib.sh`, the chain's last gate):
   `test/ccllib/NAME.c`, its twin `NAME.cpp`, `NAME.expect`, and `NAME.count` for a longer run; where valgrind is, each
   run frees every block.
-- SAFETY: what the safe part must refuse goes into `test/c/safe/`.
+- SAFETY: what the safe part must refuse of a ccllib program goes into `test/ccllib/safe/` (0.274), refused as C and
+  as C++; what it must refuse of the reader's forms goes into `test/c/safe/`.
+- ALONE (0.281): a program that asks what C++ does not say has no twin. `test/ccllib/alone/NAME.c` prints `NAME.expect`
+  as C and as C++: `stops.c`, what stops a ccllib program -- a case for each stop of each module, in a child of its own,
+  and a module's step adds its cases --, and `tree_rules.c`, the rules of the tree of a set and a map.
 - COST, for each program, of each of the three runs: the build time, the IR's types and functions and lines, the
   object's size, the peak memory, and the run's own time. Phase 1 sets its targets from the first programs. The gate
   prints them, a line a run, measured by `test/cost.c`; they are a record and no check.

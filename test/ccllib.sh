@@ -16,6 +16,13 @@
 # stand here and not in test/c/safe: the compile gate reads its fixtures in one process, where two macro files that
 # define one predicate (the fixtures' type_vector/3 and ccllib's) are one.
 #
+# THE PROGRAMS THAT STAND ALONE (0.281): each test/ccllib/alone/NAME.c has no twin over std::, since it asks what C++
+# does not say. cicilang builds it as C and cicilang++ as C++, and both print NAME.expect. stops.c: WHAT STOPS A CCLLIB
+# PROGRAM -- each of its cases goes past what a container holds (an index past the end, the front of an empty one, a
+# place that a new entry of a map ended) in a child of its own, and a line says for each whether abort stopped it; C++
+# throws there, or says nothing of what follows. tree_rules.c: the rules of the tree of <set.pl> and <map.pl>, read
+# from the instance's own fields over a walk of chance.
+#
 # THE COSTS, a line a run, are a record and no check: the build of the program (the best of CCLLIB_REPEAT: its seconds
 # and the megabytes of its largest process), the IR's types, functions and lines, the object's bytes, and the longer
 # run, built at -O2 (its seconds and megabytes). test/cost.c measures, built by cc: the wall clock, and wait4's
@@ -121,6 +128,21 @@ if ls "$T"/safe/*.c > /dev/null 2>&1; then
     done
   done
 fi
+nalone=0
+if ls "$T"/alone/*.c > /dev/null 2>&1; then
+  echo "-- and the programs that stand alone, with no twin (test/ccllib/alone): what stops a ccllib program, and the rules of the tree of a set and a map, as C and as C++"
+  for src in "$T"/alone/*.c; do
+    n=$(basename "$src" .c); nalone=$((nalone + 1))
+    for how in c cpp; do
+      if [ "$how" = c ]; then cmd="$ROOT/bin/cicilang"; as="C by cicilang"; else cmd="$ROOT/bin/cicilang++"; as="C++ by cicilang++"; fi
+      if timeout -s KILL "$CCLLIB_SECS" "$cmd" "$src" -o "$D/alone_${n}_$how" > "$D/alone_${n}_$how.log" 2>&1 < /dev/null; then
+        ccl_ran "$D/alone_${n}_$how" "$D/alone_${n}_$how.out"
+        if cmp -s "$D/alone_${n}_$how.out" "$T/alone/$n.expect"; then ok "alone/$n.c, built as $as, prints $n.expect"
+        else bad "alone/$n.c, built as $as, prints $n.expect" "$(diff "$T/alone/$n.expect" "$D/alone_${n}_$how.out" 2>&1)"; fi
+      else bad "alone/$n.c builds as $as" "$(cat "$D/alone_${n}_$how.log")"; fi
+    done
+  done
+fi
 # ---- the costs: a record, no check ------------------------------------------------------------------------------
 # ccl_cost OUT CMD...: the best of CCLLIB_REPEAT runs of CMD -- its seconds and megabytes to OUT, `- -' for one that fails
 ccl_cost() {
@@ -160,4 +182,4 @@ if [ "$CCLLIB_COSTS" != 0 ]; then
   else echo "-- the costs are not measured: cc did not build test/cost.c ($(head -1 "$D/cost.log" | cut -c1-160))"; fi
 fi
 runs="three runs"; [ "$twin" = yes ] || runs="two runs: no clang++ over libc++ here builds the twins"
-if [ "$failures" -eq 0 ]; then echo "GREEN: ccllib ($nprog program(s) in $runs, $nsafe refused)"; else echo "RED: ccllib ($failures failure(s))"; exit 1; fi
+if [ "$failures" -eq 0 ]; then echo "GREEN: ccllib ($nprog program(s) in $runs, $nsafe refused, $nalone alone)"; else echo "RED: ccllib ($failures failure(s))"; exit 1; fi

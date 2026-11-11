@@ -12,7 +12,7 @@ the fixture that gates it, and why. The bullet ends with the version that made t
 edits the rule in `RULES.md`, in its topic, and writes its entry in `HISTORY.md`. Read the topic of `RULES.md` that
 covers the code before the code is changed.
 
-At 0.280 the versions are: the module 0.280 (`ccl_p_version` in `module/cicilang.cicili`, `bin/cicilang --version`),
+At 0.281 the versions are: the module 0.281 (`ccl_p_version` in `module/cicilang.cicili`, `bin/cicilang --version`),
 the reader 181 (`ccl_reader_version/1`, `library/ccl_syntax.pl`) and the lowering 156 (`ccl_lowering_version/1`,
 `library/ccl_ir.pl`).
 
@@ -177,6 +177,11 @@ In `RULES.md`:
   The next commit carries the numbers. (0.91, 0.92, 0.110)
 - Each form is cut down to a reduction of 10 to 40 lines. The reduction is built with clang or clang++ and with
   cicilang, and the outputs are compared line by line. Then it gets a fixture. (0.104, 0.108, 0.110)
+- A RULE THAT A MODULE'S WORDS STATE IS PROVED AT A SIZE WHERE IT CAN BREAK, and the proof is tried against a text that
+  breaks the rule: ccllib's tree said that a write to a key that is there ends no place, and its first cases, over trees
+  of two entries, passed a text that ended the places wherever a full node stood on the way. The cases over 4000 entries
+  and the walks of chance fail that text, and a copy of the tree broken on purpose fails the program of its rules.
+  (0.281)
 - A library module is taken at once, not function by function (owner's rule, 2026-09-13): its whole surface in one
   step, in as many fixtures as the memory cap needs. (0.78)
 - A fixture goes into `test/cpp/run/` only once it has been seen to pass. The gate globs that directory, and an
@@ -356,6 +361,11 @@ library/ccllib/             ccllib, the standard library of cicilang's C (CCLLIB
   stack.pl, stack.pl.h        std::stack (0.280): a buffer, its top at the end
   queue.pl, queue.pl.h        std::queue, a ring, and std::priority_queue, a heap, whose comparison is a function's
                               name after the element's type (0.280)
+  set.pl, set.pl.h            std::set and std::multiset (0.281)
+  map.pl, map.pl.h            std::map and std::multimap (0.281)
+  tree.pl                     the B-tree of the four, its nodes in one own buffer (0.281): set.pl and map.pl load it
+                              by a directive, and no program includes it; a place ends where the tree takes a new
+                              entry or loses one
   ccllib.pl                   what two modules need, written once (0.275): a module loads it by a directive, and no
                               program includes it; the refusal of an element with a pointer, the lists' sort (0.277)
 library/cicilang.so, ccl_llvm.so
@@ -397,7 +407,8 @@ test/cross.sh               another machine's gate: every C run fixture and the 
 test/cpp.pl, cpp.sh         the C++ gate
 test/libcxx.sh              the library read: the asserted headers read whole, and the C++ cache's warm
 test/ccllib.sh              the ccllib gate (0.273): each program of test/ccllib in its three runs -- cicilang as
-                            C, cicilang++ as C++, its twin over std:: by clang++ -- and what each run costs
+                            C, cicilang++ as C++, its twin over std:: by clang++ --, what the safe part refuses, the
+                            programs that stand alone (0.281), and what each run costs
 test/cost.c                 what a command costs, for the ccllib gate: the wall clock and the largest resident size
 test/readhdr.pl             one asserted header read whole at a level, in its own process
 test/libcxx.pl              the library read's old one-process form; no gate runs it
@@ -452,9 +463,13 @@ test/ccllib/                the three runs' programs: NAME.c, a ccllib program; 
                             first.c over first.pl, the first proof after phase 0 (0.273); vector.c, the whole
                             surface of <vector.pl> (0.274); array.c, of <array.pl> (0.275); deque.c, of <deque.pl>
                             (0.276); list.c, of <list.pl> (0.277); forward_list.c, of <forward_list.pl> (0.278);
-                            stack.c and queue.c, of <stack.pl> and <queue.pl> (0.280)
+                            stack.c and queue.c, of <stack.pl> and <queue.pl> (0.280); set.c and map.c, of
+                            <set.pl> and <map.pl> (0.281)
 test/ccllib/safe/           ccllib programs that the safe part refuses, as C and as C++: NAME.c, NAME.expect, and
                             NAME.expect.cpp where C++ has words of its own (0.274)
+test/ccllib/alone/          ccllib programs with no twin, built as C and as C++ (0.281): NAME.c, NAME.expect;
+                            stops.c, what stops a ccllib program, each case in a child of its own; tree_rules.c,
+                            the rules of the tree of a set and a map, read from the instance's own fields
 
 proof/forty2.ll, run.sh     M0: hand-written IR through clang to a binary that prints a line and exits 42
 proof/forty2                made by proof/run.sh, never committed

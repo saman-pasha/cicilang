@@ -275,6 +275,7 @@ One row per step, in version order: the step's title, what it did and its gate n
 | 0.278 | ccllib's `<forward_list.pl>`: the list with one link a node | CCLLIB.md's phase 1a goes on: library/ccllib/forward_list.pl, std::forward_list as the list's arena with one link a node; before_begin, insert_after, erase_after, splice_after, push_front and the list's own operations, 44 functions; the list's merge sort by the links, one text for both modules; size and len, which C++'s has not; an erase of a range of no element erased, found by reading; no file of the compiler changed | the flow gate; the ccllib gate over libc++ 22, 21 and 18; no chain, by the owner's rule of 0.271; a commit and a push |
 | 0.279 | the docs of 0.278, which its commit left out | the commit of 0.278 holds the forward list and its fixtures and no doc: the script that writes a step's docs stopped at a text that it did not find, and the commands after it, joined by `;`, committed and pushed; this commit carries its rules, its entry and its lines of CLAUDE.md, README.md and CCLLIB.md, and the rule of a step's commit, which is refused where a doc is missing | none: the docs and the version; the nets of 0.278 stand for its code; a commit and a push |
 | 0.280 | ccllib's `<stack.pl>` and `<queue.pl>`: the adaptors, and a comparison's name as a type's argument | CCLLIB.md's phase 1a goes on: library/ccllib/stack.pl and queue.pl, std::stack as a buffer, std::queue as a ring, std::priority_queue as a binary heap, 13, 14 and 11 functions; priority_queue<int, later> takes the name of the function that compares, where C++ writes the comparison's type, and the heap's text calls it by its name; the cost of a cicilang++ build looked at: the desugaring's, and no one place; no file of the compiler changed | the flow gate; the ccllib gate over libc++ 22, 21 and 18; no chain, by the owner's rule of 0.271; a commit and a push |
+| 0.281 | ccllib's `<set.pl>` and `<map.pl>`: the ordered containers, one B-tree in an arena | CCLLIB.md's phase 1a goes on: library/ccllib/set.pl and map.pl over tree.pl, std::set, std::multiset, std::map and std::multimap as ONE text, a B-tree whose nodes stand in one own buffer, 26, 26, 33 and 27 functions; an insert that finds its key and an erase that finds none change nothing; a place ends where the tree takes a new entry or loses one, where C++'s iterator stays, and a place used after that stops the program; the order is a function's name, the type's last argument; the gate's new part, the programs that stand alone: what stops a ccllib program (41 cases over every module) and the rules of the tree; no file of the compiler changed | the flow gate; the ccllib gate over libc++ 22, 21 and 18; no chain, by the owner's rule of 0.271; a commit and a push |
 
 ## M5 — the C++ mode
 
@@ -19103,3 +19104,152 @@ NO CHAIN RAN for this step (the owner's rule of 0.271), and it claims nothing GR
   (the topic of ccllib, Not done), `CLAUDE.md`, `README.md`, `CCLLIB.md`.
 
 The module 0.280; the reader 181 and the lowering 156 as they were: no file of the compiler changed.
+
+## 0.281 — ccllib's `<set.pl>` and `<map.pl>`: the ordered containers, one B-tree in an arena
+
+**0.281: `CCLLIB.md`'s phase 1a goes on. `#include <set.pl>` gives `std::set` and `std::multiset`, and `#include
+<map.pl>` gives `std::map` and `std::multimap`: four containers over ONE text, a B-tree whose nodes stand in one own
+buffer. An order that is not `<` is a function's name, the last argument of the type (`set<int, later>`, `map<int,
+double, later>`). A place -- C++'s iterator -- ends where the tree takes a new entry or loses one, where C++'s stays,
+and a place used after that stops the program. The gate has a new part, the programs that stand alone: what stops a
+ccllib program, for every module so far, and the rules of the tree. No file of the compiler changed. Committed with its
+nets; the chain runs when the ccllib task is finished (the owner's rule of 0.271).**
+
+THE TREE. `library/ccllib/tree.pl` holds it; `set.pl` and `map.pl` load it by a directive, as each loads `ccllib.pl`,
+and no program includes it. `ccllib_tree_type(Opts, Items)` gives an instance's types and its drop,
+`ccllib_tree_fn(Opts, Name, Items)` one function of it at its first call; `Opts` is `tree(Kind, Multi, Cmp, N, K, V)` --
+`set` or `map`, `unique` or `multi`, `none` or the name of the function that orders two keys, the instance's name, the
+key's type and the value's. The texts of the four containers are the same but for a few lines, so a text is a list of
+lines, and a line with a condition (`multi-"..."`, `unique-"..."`, `map-"..."`) is kept where the condition holds
+(`ccllib_tree_lines/3`): 34 functions that a program calls and 24 inner ones, each written once. The nodes stand in ONE
+own buffer that grows by twice, and a node names its children by their NUMBERS: no pointer goes from a node to a node
+and none goes up, as the plan said (the safe part refuses a stored borrow; `test/c/run/btree.c` was the proof of the
+form). A node holds 7 to 15 entries and an inner node 8 to 16 children; a node of `set<int>` is 128 bytes, and 15 keys
+stand side by side in it. An erased node goes to a chain and is given out again.
+
+TWO WALKS. An insert walks down once and changes nothing on its way: it finds the equal key, or the leaf of the new
+entry, which takes it where it has room. Only for a full leaf a second walk splits each full node that it meets on its
+way down. An erase is so too: the first walk finds the entry and takes it from a leaf that keeps 7 entries; only for a
+leaf of 7, or for an inner node's entry, a second walk (`__take`) fills each node of 7 entries that it meets from a
+sibling, or merges it with one. So no change goes back up, and AN INSERT THAT FINDS ITS KEY AND AN ERASE THAT FINDS NONE
+CHANGE NOTHING of the tree.
+
+A PLACE is what C++ calls an iterator: a `size_t` of 64 bits that holds a node's number, a slot in it and the low 28
+bits of the tree's count of changes. An insert or an erase moves entries from slot to slot and from node to node, so a
+place ENDS where the tree takes a new entry or loses one, and at `clear`, `swap` and `merge`; C++'s iterator of a map
+stays there, and this is what differs most. It is no silent difference: a place whose count is not the tree's stops the
+program (`__pos`), as a place that is no entry's does. A call that changes no entry -- `m[k] = v` for a key that is
+there, `insert_or_assign`, `set_value`, an insert that finds its key, an erase that finds none -- ends no place.
+`erase_at(m, p)` gives the place after the erased entry, so a loop that erases goes on. The count has 28 bits: a place
+that a program keeps over 268 million changes of its tree may pass.
+
+A MULTI CONTAINER'S ENTRY HAS A NUMBER, `seq`, that grows with each insert: the entries are in the order of (key, seq),
+all different. Equal keys stand in the order of their insert, as C++ says, and `erase_at` finds the one entry that it
+was asked for among the equal ones.
+
+WHAT THE FIRST TEXT DID, AND WHAT FOUND IT. The tree's first text had one walk: every insert split each full node on its
+way down, and every erase filled each node of 7 entries -- for a key that was there, and for a key that was not. The
+module's head said that a write to a key that is there ends no place. Over a tree of two entries, which the stop
+program's first cases had, that held; over a tree with a full node on the way it did not: the place was ended, and its
+next use stopped the program. The text was read again before its install, and written as two walks. The proofs came with
+it: the stop program's two cases over trees of 4000 entries (4000 inserts that find their keys and 4000 erases that find
+none, then the place is used), and in each walk of chance an operation that uses a place after such calls, which the
+twin does with an iterator. The first text, put back under these, fails each: the two cases are stopped, and `set 5000`
+and `map 5000` end in `Aborted`. A second defect of the kind: `swap` gave each tree the other's count plus one, so a
+place of one set passed on the other where the two counts were one apart; both take one count now, over both (the stop
+program's `after swap`).
+
+THE NAMES are `std::set`'s and `std::map`'s: `size`, `len`, `empty`, `max_size`, `begin`, `end`, `next`, `prev`, `key`,
+`find`, `contains`, `count`, `lower_bound`, `upper_bound`, `insert`, `emplace`, `erase`, `erase_at`, `clear`, `swap`,
+`merge`, `clone`, `==` and `<` and what follows from them, and a literal's `from`; a set has `insert_range` too, 26
+functions, and a multiset the same 26; a map has `value`, `set_value`, `at`, `get`, the index `m[k]`, `try_emplace`,
+`insert_or_assign` and `put`, 33 functions; a multimap has `value` and `set_value`, 27. `set<int> s = [3, 1, 2];` and `m
+:= [int:double; 1: 2.5, 2: 0.5];` make one of a literal: a literal of two types is a `map` by its form, and `<map.pl>`
+gives that map now.
+
+WHAT DIFFERS FROM C++, beside the places. `insert` and `emplace` give 1 for a new entry and 0 for a key that was there,
+where C++ gives a pair; `find` gives a place, `end(m)` for none; `key(m, p)` and `value(m, p)` give what stands at a
+place, and `set_value(m, p, v)` writes the value. `erase(m, k)` takes a KEY and gives the count that it took away, and
+`erase_at(m, p)` takes a place: C++ calls both `erase` and tells them by their types, and a place is a number as a key
+may be. `at(m, k)` stops the program at a key that the map has not, where C++'s throws; `m[k]` makes the entry with a
+value of zero, as C++'s does; `&m[k]` is a borrow of the arena, tied to the map, and a call that may replace the arena
+ends it at compile time (`map_after_insert.c`). A multimap has no `at` and no index, as C++'s has none. `find` of a
+multi container gives the FIRST of the equal entries, where C++ says any of them. `merge` takes the other's entries one
+by one; an entry whose key this one holds stays in the other, as in C++. `==` compares by the elements' `==` and `<` by
+their `<`, as C++'s do, and not by the order's function. There is no `equal_range` (`lower_bound` and `upper_bound` give
+its two places), no `extract`, no insert with a hint. A key and a value are values with no pointer in them (the owner's
+decision 2): `map<int, string>` waits.
+
+THE ORDER IS A FUNCTION'S NAME, the form of 0.280: `set<int, later>` names `int later(int a, int b)`, which answers
+whether a comes before b, as C++'s comparison type does, and `map<int, double, later>` names it after the value's type.
+The instance is `set_int_later`; its text calls `later` where the plain instance's has `<` (`ccllib_tree_text/3`'s
+`_lt`), a direct call. `set<point, by_x>` orders a struct. What is no name is refused: `a map takes its key's type and
+its value's, and after them the name of a function that orders two keys`.
+
+THE GATE'S NEW PART: THE PROGRAMS THAT STAND ALONE. `test/ccllib/alone/NAME.c` has no twin over `std::`, since it asks
+what C++ does not say; cicilang builds it as C and cicilang++ as C++, and both print `NAME.expect`. `stops.c` is WHAT
+STOPS A CCLLIB PROGRAM, for every module so far: 41 cases over the vector, the array, the deque, the two lists, the
+three adaptors and the four trees -- an index past the end, the front of an empty one, a place that is no element's, a
+place that a new entry ended. Each case runs in a child of its own (`fork`), and a line says for each whether abort
+stopped it: 38 are stopped, and 3 stay in their bounds and are not. The child takes abort's signal and leaves with a
+status of its own, so no core is written and no crash is reported, and a stop by abort is told from a fault.
+`tree_rules.c` is THE RULES OF THE TREE, read from the instance's own fields over a walk of chance: each node but the
+root holds 7 to 15 entries, an inner node has one child more than its entries, the leaves stand at one depth, the
+entries are in their order -- a multimap's equal keys in the order of their insert --, the count is the tree's, and each
+node of the arena is in the tree or in the chain of the erased ones. A set and a multimap grow, shrink to nothing from
+each end and grow again, over four ranges of keys, to trees whose leaves stand 3 below the root; the rules hold at
+194,392 checks. A copy of the tree broken on purpose (a sibling of 7 entries gives one away) is reported at once: `NOT
+HELD: a node holds 7 to 15 entries, the root 1 at least`. The gate's last line counts them: `GREEN: ccllib (N program(s)
+in three runs, M refused, K alone)`.
+
+A FINDING ABOUT THE TWIN, and none about the tree: of a multiset's equal elements, libc++ 22's `find` gives the one that
+its walk down meets (`__tree::find` over `__find_equal`), where libc++ 21's and 18's give the first of them (over
+`__lower_bound`). C++ says "an element", so each is right; ccllib's gives the first. A twin that erased what `find` gave
+took another entry than ccllib's over libc++ 22, and the two walks of chance differed. The twins use `lower_bound` where
+the one entry matters.
+
+THE FIXTURES. `test/ccllib/set.c`, `set.cpp`, `set.expect`, `set.count` (300,000: that many numbers into a set, as many
+asked for, half as many taken away, the set walked; then a walk of chance of 100,000 steps over a set and a multiset,
+each over a few keys and over many); `test/ccllib/map.c`, `map.cpp`, `map.expect`, `map.count` (300,000: the numbers
+counted in a map by `m[k] += 1`, and the same); `test/ccllib/alone/stops.c` and `tree_rules.c` with their `.expect`;
+`test/ccllib/safe/set_of_pointers.c`, `map_value_pointer.c`, `set_no_index.c` (`the operator [] of set_int is not
+defined`), `multimap_no_at.c`, `map_no_name.c` and `map_after_insert.c`, each refused as C and as C++.
+
+THE COSTS over libc++ 22 on the gates' box, the twins by clang++ 22.1.8, the builds at `-O0`, the best of three; first
+`set.c`, its run `set 300000` at `-O2`, then `map.c`, its run `map 300000`:
+
+```
+run                       build s      MB  types  functions   lines  object B    run s      MB
+cicilang, C                 0.840   161.4     13        191   16687     87024    0.141     5.3
+cicilang++, C++             2.837   174.1     13        191   18907     95240    0.143     5.3
+clang++ 22.1.8, std::       0.745   130.7    102        464   15920    283648    0.530    16.9
+```
+
+```
+run                       build s      MB  types  functions   lines  object B    run s      MB
+cicilang, C                 0.911   167.0     13        197   18822     97288    0.164     5.0
+cicilang++, C++             3.105   196.2     13        197   21117    104048    0.165     5.0
+clang++ 22.1.8, std::       0.929   139.9    150        683   21578    436528    0.410    11.9
+```
+
+The set's program: the unit holds 191 functions for its six instances in 87 KB where the twin's holds 464 in 284 KB, and
+the count run takes 0.14 s in 5.3 MB against 0.53 s in 16.9 MB: 15 keys stand side by side in a node of 128 bytes, where
+the twin's tree has a node of 32 bytes for each key, in a block of its own. The map's program: 197 functions in 97 KB
+against 683 in 437 KB, and the run takes 0.16 s in 5.0 MB against 0.41 s in 11.9 MB. THE BUILDS ARE THE DEAREST SO FAR,
+since the tree's text is the longest: the C builds take the twins' time, 0.84 s and 0.91 s against 0.75 s and 0.93 s,
+with more memory (161 MB and 167 MB against 131 MB and 140 MB); cicilang++'s take 2.84 s and 3.11 s, more than three
+times the twins', with 174 MB and 196 MB. The first target of phase 1 stays open, and these two programs are its largest
+cases.
+
+THE NETS, over the work tree: the flow gate GREEN with no finding (153 s, peak 4106 MB), `library/ccllib/tree.pl`,
+`set.pl` and `map.pl` charted with the eight other files of ccllib; the ccllib gate GREEN over libc++ 22, 21 and 18,
+each over a fresh HOME (303 s, 301 s and 315 s; 112 checks each, none skipped): 10 programs in three runs, 29 refused, 2
+alone. No other gate reads a file that changed.
+
+NO CHAIN RAN for this step (the owner's rule of 0.271), and it claims nothing GREEN but the nets above. No CI job ran.
+
+- `library/ccllib/tree.pl`, `set.pl`, `set.pl.h`, `map.pl`, `map.pl.h`. `test/ccllib.sh`: the programs that stand alone,
+  and the last line's count of them. `test/flow.sh`: `CFILES`. The fixtures. `RULES.md` (the ccllib gate, the topic of
+  ccllib, Not done), `CLAUDE.md`, `README.md`, `CCLLIB.md`.
+
+The module 0.281; the reader 181 and the lowering 156 as they were: no file of the compiler changed.

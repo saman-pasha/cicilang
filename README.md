@@ -479,6 +479,17 @@ with one link a node: `push_front`, `insert_after(l, p, x)`,
 it, where C++ writes the comparison's type. `test/ccllib/stack.c` and
 `queue.c` are the examples.
 
+`#include <set.pl>` and `#include <map.pl>` give `std::set`,
+`std::multiset`, `std::map` and `std::multimap` (0.281), each a B-tree
+whose nodes stand in one buffer: `insert(s, 7)`, `contains(s, 7)`,
+`erase(s, 7)`; `m[5] = 2.5`, `at(m, 5)`, `m := [int:double; 1: 2.5]`.
+A walk goes by places, `for (size_t p = begin(m); p != end(m); p =
+next(m, p))` with `key(m, p)` and `value(m, p)`. A place ends where the
+container takes a new entry or loses one, where C++'s iterator stays,
+and a place that is used after that stops the program. `set<int,
+later>` and `map<int, double, later>` take the name of the function
+that orders the keys. `test/ccllib/set.c` and `map.c` are the examples.
+
 `format`, `print`, `println` and `clone` are global macros, there in every
 program without an include (`library/ccl_format.pl`). The format string
 has Rust's holes, each becoming the `printf` conversion of its argument's

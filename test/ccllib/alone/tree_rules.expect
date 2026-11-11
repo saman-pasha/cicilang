@@ -1,0 +1,9 @@
+keys under 40: the rules held at 120010 checks
+  the set held 38 elements at most, its leaves 1 below the root; the multimap 301 entries, its leaves 2 below
+keys under 700: the rules held at 41584 checks
+  the set held 533 elements at most, its leaves 2 below the root; the multimap 539 entries, its leaves 2 below
+keys under 20000: the rules held at 26198 checks
+  the set held 7753 elements at most, its leaves 3 below the root; the multimap 5351 entries, its leaves 3 below
+keys under 2000000: the rules held at 6600 checks
+  the set held 13851 elements at most, its leaves 3 below the root; the multimap 5341 entries, its leaves 3 below
+exit 0

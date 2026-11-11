@@ -705,7 +705,21 @@ that changes a rule edits the rule here, in its topic, and writes its entry in `
   has words of its own (`no_function.c`: C names the instance, C++ says `undeclared(push_front)`). They stand there and
   not in `test/c/safe/`: the compile gate reads its fixtures in one process, where the fixtures' `type_vector/3` and
   ccllib's would be one predicate (Not done). The gate's last line counts them, `GREEN: ccllib (N program(s) in three
-  runs, M refused)`. (0.274)
+  runs, M refused, K alone)`. (0.274, 0.281)
+- **THE PROGRAMS THAT STAND ALONE** (0.281): each `test/ccllib/alone/NAME.c` has no twin over `std::`, since it asks
+  what C++ does not say; `bin/cicilang` builds it as C and `bin/cicilang++` as C++, and both print `NAME.expect`.
+  `stops.c` is WHAT STOPS A CCLLIB PROGRAM, for every module: 41 cases -- an index past the end, the front of an empty
+  container, a place that is no element's, a place that a new entry of a tree ended --, each in a child of its own
+  (`fork`), and a line says for each whether abort stopped it. 38 are stopped; the 3 that stay in their bounds are not,
+  a tree's place over 4000 inserts that find their keys and 4000 erases that find none among them. The child takes
+  abort's signal and leaves with a status of its own (77), so no core is written and no crash is reported, and a stop by
+  abort is told from a fault. A module's step adds its cases. `tree_rules.c` is THE RULES OF THE TREE of `<set.pl>` and
+  `<map.pl>`, read from the instance's own fields over a walk of chance: each node but the root holds 7 to 15 entries,
+  an inner node has one child more than its entries, the leaves stand at one depth, the entries are in their order -- a
+  multimap's equal keys in the order of their insert --, the count is the tree's, and each node of the arena is in the
+  tree or in the chain of the erased ones; they hold at 194,392 checks, over trees whose leaves stand 3 below the root.
+  A copy of the tree broken on purpose (a sibling of 7 entries gives one away) is reported: `NOT HELD: a node holds 7 to
+  15 entries, the root 1 at least`. (0.281)
 - **THE FIRST PROOF AFTER PHASE 0** (0.273; `CCLLIB.md`'s Order): `test/ccllib/first.c` over its macro file `first.pl`
   -- `vector<T>` with `push`, `at`, `len` and `sort`: a type macro's instance (0.261), its literal's `from` (0.263), its
   drop (0.262), all of it C text (0.260) -- built as C and as C++, and `first.cpp`, the same program over `std::vector`
@@ -9590,7 +9604,8 @@ in the first topic (The ccllib gate).
   with a call of `later` where the plain instance's have `<` (`ccllib_pq_lt/4`). The call is direct: the object holds no
   pointer to a function, and the optimizer puts the comparison in line. What is no name is refused, `a priority_queue
   takes its element's type, and after it the name of a function that compares two elements`
-  (`test/ccllib/safe/priority_queue_no_name.c`). The form waits for `set`, `map` and the algorithms. (0.280)
+  (`test/ccllib/safe/priority_queue_no_name.c`). `set` and `map` take the form too (0.281); the algorithms wait for
+  it. (0.280)
 - WHAT DIFFERS FROM C++, beside what differs for the vector: `pop` gives the element that it takes away, where C++'s
   gives nothing; `top`, `front` and `back` give the element's value, and no place to write through; they and `pop` stop
   the program on an empty one. There is no `at`, no index and no `begin` (`stack_int has no function at`,
@@ -9602,6 +9617,76 @@ in the first topic (The ccllib gate).
   in 25 KB against 631 in 357 KB, and its run takes 0.93 s against 1.39 s. The C builds take 0.27 s and 0.36 s where
   clang++ takes 0.51 s and 1.04 s for the twins; cicilang++'s take 0.54 s and 0.86 s, the queue's under its twin's in
   time for the first time, both over the twins' in memory. (0.280)
+
+### set.pl and map.pl
+
+- **THE FOUR ORDERED CONTAINERS ARE ONE TEXT, A B-TREE IN AN ARENA**: `set<K>` and `multiset<K>` of `<set.pl>`, `map<K,
+  V>` and `multimap<K, V>` of `<map.pl>`. `library/ccllib/tree.pl` holds the text; the two modules load it by a
+  directive, as each loads `ccllib.pl`, and no program includes it. `ccllib_tree_type(Opts, Items)` gives an instance's
+  types and its drop and `ccllib_tree_fn(Opts, Name, Items)` one function, with `Opts` `tree(Kind, Multi, Cmp, N, K,
+  V)`: `set` or `map`, `unique` or `multi`, `none` or the name of the function that orders two keys, the instance's
+  name, the key's type and the value's (`ccllib_set_opts/4`, `ccllib_map_opts/4`). A text is a list of lines
+  (`ccllib_tree_text/3`), and a line with a condition -- `multi-"..."`, `unique-"..."`, `map-"..."` -- is kept where the
+  condition holds (`ccllib_tree_lines/3`, `ccllib_tree_is/2`): 34 functions that a program calls and 24 inner ones, each
+  written once for the four. (0.281)
+- THE NODES STAND IN ONE OWN BUFFER that grows by twice, and a node names its children by their NUMBERS (its place in
+  the buffer, from 1; 0 is none): no pointer goes from a node to a node and none goes up, since the safe part refuses a
+  stored borrow. A node holds 7 to 15 entries -- a key, with its value in a map -- in the keys' order, and an inner node
+  8 to 16 children; the root may hold less. A node of `set<int>` is 128 bytes. An erased node goes to a chain (`free`,
+  its `leaf` 2) and is given out again (`__node`, `__free`); the drop frees the one buffer. A MULTI container's entry
+  has a number too, `seq`, that grows with each insert: the entries are in the order of (key, seq), all different, so
+  equal keys stand in the order of their insert, as C++ says, and an erase finds the one entry that it was asked for
+  (`__eb`, `__be`). (0.281)
+- **AN INSERT AND AN ERASE WALK DOWN ONCE WITH NO CHANGE**: the first walk of `__ins` finds the equal key, or the leaf
+  of the new entry, which takes it where it has room (`__put`); only for a full leaf a second walk splits each full node
+  that it meets on its way down (`__split`). The first walk of `__del` finds the entry and takes it from a leaf that
+  keeps 7 entries; only for a leaf of 7, or for an inner node's entry, `__take` walks down again and fills each node of
+  7 entries that it meets from a sibling or merges it with one (`__fill`, `__merge`). So no change goes back up, and AN
+  INSERT THAT FINDS ITS KEY AND AN ERASE THAT FINDS NONE CHANGE NOTHING. The tree's first text had one walk, which split
+  and filled on its way for every key: an insert that found its key ended the places of a tree with a full node on the
+  way, against the module's words (`HISTORY.md`, 0.281). (0.281)
+- **A PLACE OF A TREE ENDS WHERE THE TREE TAKES A NEW ENTRY OR LOSES ONE, AND A PLACE USED AFTER THAT STOPS THE
+  PROGRAM**; C++'s iterator of a map stays there, and this is what differs most. A place is a `size_t` of 64 bits: the
+  node's number, the slot in it, and the low 28 bits of the tree's count of changes, `mods` (`__place`). An insert or an
+  erase moves entries from slot to slot and from node to node, so the count grows by one at each new entry and each
+  erased one, and at `clear`; `swap` gives both trees one count over both, and `merge` ends the places of the second
+  tree, and of the first where it takes an entry. `__pos` stops the program (`abort`) at a place whose count is not the
+  tree's, as at one that is no entry's. A call that changes no entry ends no place: `m[k] = v` for a key that is there,
+  `insert_or_assign`, `set_value`, an insert that finds its key, an erase that finds none. `end(m)` is 0; `erase_at(m,
+  p)` gives the place after the erased entry, so a loop that erases goes on; `prev(m, end(m))` is the last entry.
+  (0.281)
+- THE NAMES ARE C++'S: `size`, `len`, `empty`, `max_size`, `begin`, `end`, `next`, `prev`, `key`, `find`, `contains`,
+  `count`, `lower_bound`, `upper_bound`, `insert`, `emplace`, `erase`, `erase_at`, `clear`, `swap`, `merge`, `clone`,
+  `==` and `<` and what follows from them, and a literal's `from`. A set has `insert_range` too, 26 functions, and a
+  multiset the same; a map has `value`, `set_value`, `at`, `get`, the index `m[k]` (tied to the map), `try_emplace`,
+  `insert_or_assign` and `put`, 33; a multimap `value` and `set_value`, 27. `set<int> s = [3, 1, 2];` and `m :=
+  [int:double; 1: 2.5];` make one of a literal: a literal of two types is a `map` by its form, and `<map.pl>` gives that
+  map. (0.281)
+- WHAT DIFFERS FROM C++, beside the places and what differs for the vector: `insert` and `emplace` give 1 for a new
+  entry and 0 for a key that was there, whose value stays, where C++ gives a pair; `find` gives a place, `end(m)` for
+  none; `key(m, p)` and `value(m, p)` give what stands at a place. `erase(m, k)` takes a KEY and gives the count that it
+  took away, and `erase_at(m, p)` takes a place: C++ calls both `erase` and tells them by their types, and a place is a
+  number as a key may be. `at(m, k)` and `get(m, k)` stop the program at a key that the map has not, where C++'s `at`
+  throws; `m[k]` makes the entry with a value of zero. `&m[k]` is a borrow of the arena, tied to the map: a call that
+  may replace the arena ends it at compile time (`test/ccllib/safe/map_after_insert.c`). A multimap has no `at` and no
+  index (`multimap_no_at.c`), and a set no index (`set_no_index.c`). `find` of a multi container gives the FIRST of the
+  equal entries, where C++ says any of them (the Findings). `merge` takes the other's entries one by one, and an entry
+  whose key this one holds stays in the other. `==` compares by the elements' `==` and `<` by their `<`, as C++'s do,
+  and not by the order's function. A key and a value are values with no pointer in them (`set_of_pointers.c`,
+  `map_value_pointer.c`; the owner's decision 2). (0.281)
+- THE ORDER IS A FUNCTION'S NAME, THE LAST ARGUMENT OF THE TYPE (the form of 0.280): `set<int, later>` names `int
+  later(int a, int b)`, which answers whether a comes before b, as C++'s comparison type does, and `map<int, double,
+  later>` names it after the value's type. The instance is `set_int_later`, and its `__lt` calls `later` where the plain
+  instance's has `<` -- a direct call. `set<point, by_x>` orders a struct, which has no `<` of its own. What is no name
+  is refused: `a map takes its key's type and its value's, and after them the name of a function that orders two keys`
+  (`map_no_name.c`). (0.281)
+- `test/ccllib/set.c` and `map.c`, and their twins over `std::set`, `std::multiset`, `std::map` and `std::multimap` (a
+  comparison's type where the program names a function); the count runs end in walks of chance over the four, in which a
+  place is used after the calls that change no entry. Over libc++ 22 the set's unit holds 191 functions for its six
+  instances in 87 KB where the twin's holds 464 in 284 KB, and its run takes 0.14 s in 5.3 MB against 0.53 s in 16.9 MB;
+  the map's holds 197 in 97 KB against 683 in 437 KB, and its run takes 0.16 s in 5.0 MB against 0.41 s in 11.9 MB. The
+  builds are the dearest so far: the C builds take the twins' time, 0.84 s and 0.91 s against 0.75 s and 0.93 s, and
+  cicilang++'s take 2.84 s and 3.11 s, more than three times the twins'. (0.281)
 
 ## The safe part
 
@@ -12320,6 +12405,11 @@ in the first topic (The ccllib gate).
   over libstdc++ answers as the standard does; g++ over libstdc++ never ends `std::atomic<long double>::fetch_add`, its
   loop comparing padding that the expected copy does not hold. This compiler takes gcc's layout and the standards'
   answers, and the fixtures hold those: `atomodd.c` gcc's output, `atomic208.cpp` clang++'s over libstdc++. (0.208)
+- THE REFERENCE LIBRARIES DISAGREE OVER `find` OF A MULTISET'S EQUAL ELEMENTS (0.281), and each is right: libc++ 22's
+  `__tree::find` goes by `__find_equal` and gives the equal element that its walk down meets, where libc++ 21's and 18's
+  goes by `__lower_bound` and gives the first of them; C++ says "an element". A twin that erases what `find` gave takes
+  another entry over libc++ 22 than over 21, and than ccllib's, whose `find` gives the first. The twins of
+  `test/ccllib/set.c` and `map.c` use `lower_bound` where the one entry matters. (0.281)
 
 ## What runs
 
@@ -13562,7 +13652,13 @@ Declarations topic of the C++ reader).
   `tvector.pl`, and ccllib has one file per type. ccllib's `type_vector/3` and the fixtures' are such a pair (0.274):
   a fixture over `<vector.pl>` stands in `test/ccllib/` and `test/c/link/`, whose builds are processes of their own,
   and in no gate that reads its fixtures in one. ccllib's `type_stack/3` and `test/c/run/lazy.pl`'s are such a pair
-  too (0.280): no process reads both.
+  too (0.280), and ccllib's `type_map/3` and `test/c/run/literal.pl`'s (0.281): no process reads both.
+- A TREE'S PLACE, ITS LIMITS (0.281): the count of changes in a place has 28 bits, so a place that a program keeps over
+  268,435,456 changes of its tree may pass; a place of one container that is handed to another of its type is stopped
+  only where their counts differ; a `size_t` of 32 bits holds no place, and no target of cicilang's has one. `set` and
+  `map` have no `equal_range` (`lower_bound` and `upper_bound` give its two places), no `extract`, no insert with a hint
+  and no names for a walk back but `prev`. A whole tree is not compared by its order's function: `==` and `<` are the
+  elements', as C++'s.
 - A MACRO FILE'S CLAUSE FOR A PREDICATE THAT EXISTS IS NOT REFUSED AT THE LOAD (found at 0.273; the topic of the macro
   files): a head that names a builtin of cocolog's is never called, and one that names a predicate of cocolog's library
   or of the compiler's joins it, with one answer more for every caller. `ccl_macro_NAME` is the cure that an author
