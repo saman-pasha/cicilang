@@ -9515,6 +9515,39 @@ in the first topic (The ccllib gate).
   the C build takes 0.35 s against clang++'s 0.60 s, cicilang++'s 1.08 s and 166 MB against 127 MB, and the three runs
   take the same time and memory (0.09 s, 65 MB). (0.276)
 
+### list.pl
+
+- `list<T>` is `list_T`: ITS NODES STAND IN ONE OWN BUFFER, an arena that grows by twice, and a node (`list_T_node`)
+  names the node before it and the node after it by their NUMBERS; an erased node is chained for the next insert. No
+  node holds a pointer to a node, which the safe part would refuse as a stored borrow. A PLACE -- what C++ calls an
+  iterator -- IS A NODE'S NUMBER, a `size_t`: `begin(l)` is the first node's, `end(l)` is 0, `next(l, p)` and `prev(l,
+  p)` step (`prev(l, end(l))` is the last element's place), `at(l, p)` and `l[p]` give the element. A place stays its
+  element's while the element is in the list -- over every insert, every erase of another element, a `sort`, a `reverse`
+  and the arena's growth --, as a C++ iterator of a list does; the number of an erased node is given to a later one.
+  (0.277)
+- The surface of `std::list`, 51 functions and the drop: `size`, `len`, `empty`, `max_size`; `begin`, `end`, `next`,
+  `prev`, `at`, `l[p]` (`_index`), `front`, `back`; `insert` (two forms; it gives the new element's place), `emplace`,
+  `insert_range`, `append_range`, `prepend_range`, `push_back`, `push`, `emplace_back`, `push_front`, `emplace_front`,
+  `erase` (two forms; it gives the place after), `pop_back`, `pop`, `pop_front`, `clear`, `resize` (two forms),
+  `assign`, `assign_range`, `swap`; `remove`, `erase_value`, `remove_if`, `unique` (two forms), `reverse`, `sort` (two
+  forms), `merge` (two forms), `splice` (three forms); `clone`; `==` and `<` and what follows from them. `sort` is a
+  merge sort by the nodes' links, its text `ccllib_msort_text/5` in `ccllib.pl`: no element moves, each keeps its place,
+  and equal elements keep their order. (0.277)
+- WHAT DIFFERS FROM C++, beside what differs for the vector: a place that is no element's stops the program (`__live`,
+  in `at`, `l[p]`, `next`, `prev`, `insert` and `erase`), where C++ is undefined. `&l[p]` is a borrow of the arena, tied
+  to the list, which each function that takes the list not as const ends, and the place p is a number and stays
+  (`test/ccllib/safe/list_after_insert.c`). `splice` and `merge` take the other list's elements into this list's arena
+  one by one, and the other's places end, where C++ moves the nodes and keeps the iterators; `merge(l, l)` does nothing,
+  as in C++, and a `splice` of the whole list into itself stops the program -- the safe part takes a call that hands one
+  list twice. `sort(l, lt)`, `unique(l, eq)`, `merge(l, m, lt)` and `remove_if(l, f)` take a function, where C++ takes
+  any callable. There is no `data` and no capacity (`list_no_data.c`); `clone(l)` gives new places. (0.277)
+- `test/ccllib/list.c` over `int`, `double` and a plain struct, and its twin `list.cpp` over `std::list`; its count run
+  ends with a walk of chance that keeps a place over inserts, erases, steps both ways, `sort`, `reverse`, `unique`,
+  `remove`, `resize`, `splice` and `merge`. Over libc++ 22 the unit holds 89 functions in 41 KB where the twin's holds
+  327 in 202 KB, and the count run takes 0.53 s as C and 0.62 s as C++ against 0.69 s, in 25 MB against 34 MB; clang++
+  builds the twin as fast as cicilang builds the program (0.41 s and 0.43 s) and with less memory (119 MB against 138
+  MB), and cicilang++'s build is the dearest, 1.15 s and 168 MB. (0.277)
+
 ## The safe part
 
 ### The check in the build

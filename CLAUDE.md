@@ -12,7 +12,7 @@ the fixture that gates it, and why. The bullet ends with the version that made t
 edits the rule in `RULES.md`, in its topic, and writes its entry in `HISTORY.md`. Read the topic of `RULES.md` that
 covers the code before the code is changed.
 
-At 0.276 the versions are: the module 0.276 (`ccl_p_version` in `module/cicilang.cicili`, `bin/cicilang --version`),
+At 0.277 the versions are: the module 0.277 (`ccl_p_version` in `module/cicilang.cicili`, `bin/cicilang --version`),
 the reader 181 (`ccl_reader_version/1`, `library/ccl_syntax.pl`) and the lowering 156 (`ccl_lowering_version/1`,
 `library/ccl_ir.pl`).
 
@@ -345,8 +345,9 @@ library/ccllib/             ccllib, the standard library of cicilang's C (CCLLIB
   vector.pl, vector.pl.h      std::vector (0.274): the type and its drop, and each function made at its first call
   array.pl, array.pl.h        std::array (0.275): a struct of one C array, a value with no heap and no drop
   deque.pl, deque.pl.h        std::deque (0.276): a ring, each end in constant time
+  list.pl, list.pl.h          std::list (0.277): an arena of nodes; a place is a node's number, and it stays
   ccllib.pl                   what two modules need, written once (0.275): a module loads it by a directive, and no
-                              program includes it
+                              program includes it; the refusal of an element with a pointer, the lists' sort (0.277)
 library/cicilang.so, ccl_llvm.so
                             built by the two module scripts, never committed
 library/include/            the compiler's own freestanding headers: each COCOLOG_LIBRARY directory's include/, after
@@ -440,7 +441,7 @@ test/ccllib/                the three runs' programs: NAME.c, a ccllib program; 
                             NAME.expect, what the twin prints; NAME.count, the count of the run that the costs time;
                             first.c over first.pl, the first proof after phase 0 (0.273); vector.c, the whole
                             surface of <vector.pl> (0.274); array.c, of <array.pl> (0.275); deque.c, of <deque.pl>
-                            (0.276)
+                            (0.276); list.c, of <list.pl> (0.277)
 test/ccllib/safe/           ccllib programs that the safe part refuses, as C and as C++: NAME.c, NAME.expect, and
                             NAME.expect.cpp where C++ has words of its own (0.274)
 

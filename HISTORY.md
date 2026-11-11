@@ -271,6 +271,7 @@ One row per step, in version order: the step's title, what it did and its gate n
 | 0.274 | ccllib's first module, `<vector.pl>`: functions made at their first call, and the call by name | CCLLIB.md's phase 1a begins: library/ccllib/vector.pl, std::vector's whole surface by C++'s names; a call finds its function by the type of its first argument (push_back(v, 1) is vector_int_push_back(&v, 1)), the count of the arguments telling two forms apart; each function of an instance is made at its first call (fn_N/3); a macro file's NAME.pl.h comes with it; the safe part takes a copy loop into an own buffer, refused before; a vector's element with a pointer in it is refused by name; the reader 181, the lowering 156 | the flow gate; the reader, compile, driver and objects gates; the ccllib gate; the library read and the C++ gate over libc++ 22; no chain, by the owner's rule of 0.271; a commit and a push |
 | 0.275 | ccllib's `<array.pl>`, and one file for what the modules share | CCLLIB.md's phase 1a goes on: library/ccllib/array.pl, std::array as a struct of one C array, a value with no heap and no drop, 16 functions; library/ccllib/ccllib.pl holds what two modules need, loaded by a directive of each (ccllib_plain_element/2, the refusal of an element that holds a pointer); no file of the compiler changed | the flow gate; the ccllib gate over libc++ 22, 21 and 18; no chain, by the owner's rule of 0.271; a commit and a push |
 | 0.276 | ccllib's `<deque.pl>`: a ring | CCLLIB.md's phase 1a goes on: library/ccllib/deque.pl, std::deque over a ring whose capacity is a power of two, each end in constant time, insert and erase by a move of the nearer end, 36 functions; no begin, end or data, and a push at an end ends the borrows of the buffer; the count run of its program ends with a walk of chance over the operations at a place; no file of the compiler changed | the flow gate; the ccllib gate over libc++ 22, 21 and 18; no chain, by the owner's rule of 0.271; a commit and a push |
+| 0.277 | ccllib's `<list.pl>`: an arena of nodes, and a place that stays | CCLLIB.md's phase 1a goes on: library/ccllib/list.pl, std::list as nodes in one own buffer that name one another by their numbers; a place, C++'s iterator, is a node's number and stays its element's over inserts, erases of others, a sort and a reverse; 51 functions, the list's own operations among them (sort by the links, unique, merge, splice, remove, reverse); merge of a list with itself does nothing; ccllib_msort_text/5 in ccllib.pl; no file of the compiler changed | the flow gate; the ccllib gate over libc++ 22, 21 and 18; no chain, by the owner's rule of 0.271; a commit and a push |
 
 ## M5 — the C++ mode
 
@@ -18860,3 +18861,77 @@ NO CHAIN RAN for this step (the owner's rule of 0.271), and it claims nothing GR
   `HISTORY.md` (this entry, and the times of 0.275's), `CLAUDE.md`, `README.md`, `CCLLIB.md`.
 
 The module 0.276; the reader 181 and the lowering 156 as they were: no file of the compiler changed.
+
+## 0.277 — ccllib's `<list.pl>`: an arena of nodes, and a place that stays
+
+**0.277: `CCLLIB.md`'s phase 1a goes on. `#include <list.pl>` gives a C program `std::list`: its nodes stand in one own
+buffer and name one another by their numbers, and a place -- what C++ calls an iterator -- is a node's number, which
+stays its element's as a list's iterator does. 51 functions by C++'s names. No file of the compiler changed. Committed
+with its nets; the chain runs when the ccllib task is finished (the owner's rule of 0.271).**
+
+THE MODULE. `library/ccllib/list.pl`: `type_list/3` gives `list_T` and its node's type, `list_T_node` -- the number of
+the node before, the number of the node after, the element. The nodes stand in ONE own buffer, an arena that grows by
+twice; an erased node is chained for the next insert. No node holds a pointer to a node: the safe part refuses a stored
+borrow, and `CCLLIB.md` planned the list so. A PLACE is a node's number, a `size_t`: `begin(l)` is the first node's,
+`end(l)` is 0, `next(l, p)` and `prev(l, p)` step, `at(l, p)` and `l[p]` give the element, `insert(l, p, x)` puts an
+element before the place and gives the new one's, `erase(l, p)` gives the place after. The arena moves when it grows,
+and a place is a number, so it stays its element's over every insert, over every erase of another element, over a `sort`
+and a `reverse`, as a C++ iterator of a list does. A place that is no element's stops the program (`__live`); `&l[p]` is
+a borrow of the arena, which the next insert ends.
+
+THE LIST'S OWN OPERATIONS: `remove`, `remove_if`, `unique`, `reverse`, `sort`, `merge`, and `splice` in its three forms.
+`sort` is a merge sort by the nodes' links: no element moves, each keeps its place, and equal elements keep their order.
+Its text is `ccllib_msort_text/5` in `library/ccllib/ccllib.pl`, which the forward list will share. `sort(l, lt)`,
+`unique(l, eq)`, `merge(l, m, lt)` and `remove_if(l, f)` take a function, where C++ takes any callable. `splice` and
+`merge` take the other list's elements into this list's arena one by one, where C++ moves the nodes, so the other list's
+places end.
+
+WHAT IT FOUND.
+- THE FIRST SORT WAS SLOWER THAN `std::list`'s. A merge sort of the runs of 1, 2, 4 ... nodes walks each run once to
+  find its end and once to merge it, and the count run with it took 2.6 s where the twin took 2.0 s (two million
+  numbers, in the scratch, beside a gate). The sort that halves the count of the nodes and merges on the way back walks
+  each run once: 1.5 s there.
+- `merge(l, l)` WOULD NOT END. The safe part takes a call that hands one list twice, and a merge that reads the list
+  while it puts elements into it has no end. `merge` of a list with itself does nothing now, as C++ says; `splice` of
+  the whole list into itself stops the program; `splice(l, p, l, q)` moves one element inside the list, as in C++.
+- AN ASSIGNMENT OVER A LIVE LIST IS REFUSED, `owner overwritten while live` -- `u = clone(w)` over a list that a merge
+  had emptied --, as `RULES.md`'s Not done has it since 0.262; the program makes a new object there, where C++'s
+  assignment frees the old value first.
+- A TEXT IN A MACRO FILE'S CLAUSE IS A LIST OF CODES: `atomic_list_concat/2` over the parts of a text is refused
+  (`expected a text`), and `append/2` joins them. The texts that differ by their comparison are joined so: `sort` and
+  `sort2`, `merge` and `merge3`.
+
+THE FIXTURES. `test/ccllib/list.c` over `int`, `double` and a plain struct, its twin `list.cpp` over `std::list`,
+`list.expect`, `list.count` (1,000,000: a list filled at both ends, a value removed, a part erased by a walk, sorted,
+the doubles taken away, turned round and walked; then a walk of chance with a place that it keeps -- an insert and an
+erase at the place, steps both ways, a read and a write, `reverse`, `sort`, `unique`, `remove`, `resize`, the ranges,
+`splice`, `merge`); `test/ccllib/safe/list_after_insert.c` (`&l[p]` used after an insert), `list_of_pointers.c` and
+`list_no_data.c` (`list_int has no function data`), each refused as C and as C++.
+
+THE COSTS of `list.c` over libc++ 22 on the gates' box, the twin by clang++ 22.1.8, the builds at `-O0`, the best of
+three:
+
+```
+run                       build s      MB  types  functions   lines  object B    run s      MB
+cicilang, C                 0.429   137.6      7         89    4914     40816    0.533    24.5
+cicilang++, C++             1.151   168.0      7         89    6455     50280    0.623    25.3
+clang++ 22.1.8, std::       0.413   118.6     49        327   11675    202312    0.693    33.8
+```
+
+The run is `list 1000000` at `-O2`. clang++ builds the twin as fast as cicilang builds the ccllib program, 0.41 s and
+0.43 s, and with less memory, 119 MB against 138 MB; the twins of the vector and of the deque took 0.80 s and 0.60 s.
+cicilang++'s build is the dearest of the three again, 1.15 s and 168 MB. The unit holds 89 functions in 41 KB where the
+twin's holds 327 in 202 KB. The run takes 0.53 s as C and 0.62 s as C++ where the twin takes 0.69 s, and 25 MB where the
+twin takes 34 MB: an arena's node is the element and two numbers, with no block of the allocator's for each.
+
+THE NETS, over the work tree: the flow gate GREEN with no finding (120 s, peak 4358 MB), `library/ccllib/list.pl`
+charted with the four other files of ccllib; the ccllib gate GREEN over libc++ 22, 21 and 18, each over a fresh HOME
+(109 s, 110 s and 120 s; 57 checks each, none skipped): 5 programs in three runs, 16 refused. No other gate reads a file
+that changed.
+
+NO CHAIN RAN for this step (the owner's rule of 0.271), and it claims nothing GREEN but the nets above. No CI job ran.
+
+- `library/ccllib/list.pl`, `list.pl.h`. `library/ccllib/ccllib.pl`: `ccllib_msort_text/5`. `test/flow.sh`: `CFILES`.
+  The fixtures. `RULES.md` (the topic of ccllib), `CLAUDE.md`, `README.md`, `CCLLIB.md`.
+
+The module 0.277; the reader 181 and the lowering 156 as they were: no file of the compiler changed.

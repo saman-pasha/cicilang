@@ -1,0 +1,1 @@
+a list's element is a value with no pointer in it, and ptr_const_char holds one

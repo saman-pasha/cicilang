@@ -453,6 +453,27 @@ The unit holds 61 functions where the twin's holds 715, and the three runs take 
 build is the dearest again, 1.08 s and 166 MB against clang++'s 0.60 s and 127 MB for the twin, three times the C build:
 phase 1's first target, as the vector's program showed.
 
+### 1a, `list.pl` (0.277)
+
+`list<T>` is an arena: its nodes stand in one own buffer and name one another by their numbers, as this plan had it. A
+place -- C++'s iterator -- is a node's number, and it stays its element's over every insert, every erase of another
+element, a `sort` and a `reverse`. 51 functions and the drop, `sort`, `unique`, `merge`, `splice`, `remove` and
+`reverse` among them; `splice` and `merge` take the other list's elements one by one, where C++ moves the nodes.
+`test/ccllib/list.c`, its twin over `std::list`, three programs of `test/ccllib/safe/`. The costs over libc++ 22, as
+above:
+
+| | build | peak | IR types | IR functions | IR lines | object | `list 1000000` at `-O2` | its peak |
+|---|---|---|---|---|---|---|---|---|
+| cicilang, C | 0.43 s | 138 MB | 7 | 89 | 4,914 | 40,816 B | 0.53 s | 25 MB |
+| cicilang++, C++ | 1.15 s | 168 MB | 7 | 89 | 6,455 | 50,280 B | 0.62 s | 25 MB |
+| clang++ 22, `std::` | 0.41 s | 119 MB | 49 | 327 | 11,675 | 202,312 B | 0.69 s | 34 MB |
+
+The unit holds 89 functions where the twin's holds 327, and the count run is faster and smaller than the twin's: a node
+is the element and two numbers in one buffer, with no block of the allocator's for each. The builds are the other way:
+clang++ builds the twin as fast as cicilang builds the program and with less memory, and cicilang++'s build is the
+dearest again, 1.15 s and 168 MB. The run as C++ is slower than the run as C, 0.62 s against 0.53 s, from one text: a
+second thing for phase 1 to find out.
+
 ### The parts of phase 1
 
 - 1a. Containers and strings: `vector`, `array`, `deque`, `list`, `forward_list`, `map`, `set`, `multimap`,

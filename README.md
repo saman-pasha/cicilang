@@ -459,6 +459,13 @@ a ring, so each end takes and gives an element in constant time; a loop goes
 by the index, and `&d[i]` is a borrow that the next push ends.
 `test/ccllib/deque.c` is the example.
 
+`#include <list.pl>` gives `std::list` (0.277). Its nodes stand in one
+buffer, and a place -- C++'s iterator -- is a node's number:
+`p := insert(l, begin(l), 3)`, `l[p] = 9`, `p = next(l, p)`, `erase(l, p)`.
+A place stays its element's over every insert, every erase of another
+element, a `sort` and a `reverse`. `sort`, `unique`, `merge`, `splice`,
+`remove` and `reverse` are there. `test/ccllib/list.c` is the example.
+
 `format`, `print`, `println` and `clone` are global macros, there in every
 program without an include (`library/ccl_format.pl`). The format string
 has Rust's holes, each becoming the `printf` conversion of its argument's
