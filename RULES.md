@@ -2440,10 +2440,10 @@ that changes a rule edits the rule here, in its topic, and writes its entry in `
   over an own buffer was `owner live where a call may throw, and no defer frees it`, and the lowering makes it a plain
   call. Two C++ units that both make `vector<int>` link, its functions linkonce_odr there too. The C++ gate builds
   `test/c/run/ctext.c`, `autodrop.c`, `tvector.c` (0.268: its headers `tvhdr.h` and `tvhdr2.h` read as the program's
-  file is, the topic of includes), `literal.c` (0.269), `operators.c` and `unread.c` (0.270), `lazy.c` (0.274) and
-  `operators2.c` (0.284) with cicilang++ and compares each with its `.expect`; `elemborrow.c` is
+  file is, the topic of includes), `literal.c` (0.269), `operators.c` and `unread.c` (0.270), `lazy.c` (0.274),
+  `operators2.c` (0.284) and `born.c` (0.285) with cicilang++ and compares each with its `.expect`; `elemborrow.c` is
   `test/cpp/run/elemborrowpp.cpp` there (0.272), its plain functions noexcept: C++'s defer rule refuses a plain struct's
-  live owner across a call that may throw. (0.267, 0.268, 0.269, 0.270, 0.272, 0.274, 0.284)
+  live owner across a call that may throw. (0.267, 0.268, 0.269, 0.270, 0.272, 0.274, 0.284, 0.285)
 - **A READ THAT MADE OR MET AN INSTANCE IS KEPT IN NEITHER CACHE** (0.261): what it holds is its unit's -- the instance
   where the unit first used it, a later use naming it alone -- so neither the process's cache nor the store keeps such
   a header's read or such a file's (`ccl_include_read/2`, `ccl_read_file_/3`, over a count of the instances met,
@@ -2504,17 +2504,19 @@ that changes a rule edits the rule here, in its topic, and writes its entry in `
   safe part's topic of autodrop). A macro author asks a type's drop by `ccl_autodrop_type/2` (a container's drop of its
   elements). Reader `k112`. (0.262)
 - **AUTODROP: AN OBJECT IS DROPPED WHERE ITS SCOPE ENDS** (0.262; the owner's decision of 2026-11-08: "ccllib objects
-  have autodrop"): a block's automatic object of a type that has a drop -- a declaration with no storage word, `auto`
-  or `register`, of the type itself or a typedef of it, `:=` too (`ccl_autodrop_decl/2`) -- is followed by a defer of
-  its drop, `defer(L, ['$autodrop'(V)], block([expr(L, call(id(D), [addr(id(V))]))]))`, which the lowering runs at
-  every exit of the block -- its end, `return`, `break`, `continue`, `goto` -- the last declared first, as C++ runs a
+  have autodrop"): a block's automatic object of a type that has a drop -- a declaration with no storage word, `auto` or
+  `register`, of the type itself or a typedef of it, `:=` too (`ccl_autodrop_decl/2`) -- is followed by a defer of its
+  drop, `defer(L, ['$autodrop'(V)], block([expr(L, call(id(D), [addr(id(V))]))]))`, which the lowering runs at every
+  exit of the block -- its end, `return`, `break`, `continue`, `goto` -- the last declared first, as C++ runs a
   destructor; the mark is the check's. Declared with no initializer it is given zero, `= {0}`: the empty object, as
-  C++'s default constructor makes an empty vector, so `vector<int> v;` is one. A parameter by value of such a type is
-  the callee's, a defer of its drop at the body's head (`ccl_autodrop_fn/4`); a `for`'s declaration of one is a block's
-  around the loop, dropped where the loop ends. A static, an extern, a thread-local and a global object are not
-  dropped. In C++ too (0.267): the defer runs where an exception unwinds past the scope as well, so the drop runs where
-  a destructor would (the safe part's topic of autodrop). Reader `k113`, `k114`, `k116`; `test/c/run/autodrop.c`, which
-  clang's build of its hand expansion matches line for line, and which the C++ gate builds as C++. (0.262, 0.267)
+  C++'s default constructor makes an empty vector, so `vector<int> v;` is one; since 0.285 an object of an instance's
+  type that has no drop is given zero too (the rule of an instance's birth, in the macro files' topic). A parameter by
+  value of such a type is the callee's, a defer of its drop at the body's head (`ccl_autodrop_fn/4`); a `for`'s
+  declaration of one is a block's around the loop, dropped where the loop ends. A static, an extern, a thread-local and
+  a global object are not dropped. In C++ too (0.267): the defer runs where an exception unwinds past the scope as well,
+  so the drop runs where a destructor would (the safe part's topic of autodrop). Reader `k113`, `k114`, `k116`;
+  `test/c/run/autodrop.c`, which clang's build of its hand expansion matches line for line, and which the C++ gate
+  builds as C++. (0.262, 0.267)
 - **AN OBJECT NAMED WHOLE BY VALUE MOVES** (0.262): after a function's body is read, a walk wraps each autodropped
   object named whole where its value is taken -- an initializer, the right side of `=`, a call's argument, a return's
   value, a braced list's item, a conditional's branch or a comma's right side there -- in `move(...)`
@@ -2662,6 +2664,26 @@ that changes a rule edits the rule here, in its topic, and writes its entry in `
   every ccllib program that has an index, `not lowered yet: no_operator('[]')`, since 0.270; no gate built one at that
   level. The clause asks `ccl_iop_index/3` for one argument now, and THE CCLLIB GATE BUILDS EACH PROGRAM AS C++ AT THE
   TWIN'S LEVEL TOO (the topic of the ccllib gate). (0.284)
+- **AN INSTANCE'S OBJECT IS BORN ZERO, AND IS MADE OF A VALUE OF ANOTHER TYPE BY ITS `_of`** (0.285; what a set of bits
+  and a string need). A block's automatic object of ANY instance's type declared with no initializer is given zero, `=
+  {0}` (`ccl_born_zero_vars/2` in `ccl_autodrop_decl/2`; a `for`'s declaration by `ccl_for_born/2`). 0.262 gave it to an
+  object of a type that has a drop, the empty vector; one of a type with none -- an array, a set of bits -- was born as
+  a C struct is, with what its storage held, where C++'s `bitset`, `pair`, `tuple`, `optional` and `complex` are born
+  empty or zero. `std::array` and a duration are born with no value in C++, and zero is one of the values that such an
+  object may have. The rule is the object's of the type itself, through any typedef, as autodrop's is. `T a = x;` AND `a
+  = x`, WHERE x HAS A TYPE THAT IS NOT THE INSTANCE'S, ARE `<name>_of(x)` (`ccl_of_vars/2` at a block's declaration and
+  a `for`'s, `ccl_of_value/3`, a clause of `ccl_iop_assign/4`): the function named with the word of x's type goes first,
+  as an operator's does (`ccl_iop_pick/6`: `mask_12_of_ptr_char("1010")` before the plain `mask_12_of(0x0f0)`), so a
+  type is made of values of several types, as C++'s constructors make it. C has no initializer of a struct by a value of
+  another type and no such assignment, so no program that C reads changes; a braced list, a value of the instance's own
+  type -- a copy, a call's result, a literal's `_from` -- and a value whose type the reader does not know stay as they
+  were. In C a type macro that defines no `_of` is refused by name at the line, `a pt_double is not made of a value of
+  the type int: its type macro defines no pt_double_of`; in C++ the initializer is then C++'s own. An assignment makes
+  the value and assigns it, and drops nothing first (Not done, autodrop's limits). Reader `k154` to `k157`, the refusals
+  over `test/c/born_no_of.c` and `born_assign.c`; `test/c/run/born.c` over `tborn.pl` -- a mask of bits with no drop,
+  born in a function that is called over a stack of other bytes, in `main` and in a `for`, made of a number and of a
+  text; a box that has a drop -- prints what clang's build of its hand expansion prints, as C and, by the C++ gate, as
+  C++, and frees every block. Over the tree of 0.284 the mask was born `ffffffffffffffff`. Reader 184. (0.285)
 
 ## The C++ reader
 
@@ -4334,15 +4356,23 @@ unless a path is given. (0.33, 0.41, 0.79, 0.82, 0.223)
   string -- takes as many of the items as its own members need, member by member (a union its first member alone, an
   aggregate member in turn, an unnamed bitfield none), and AN ARRAY'S ELEMENT that is a record or an array alike, from a
   designator on too (`[1] = 7, 8, 9`, `.q = 4, 5`); a designator inside ends it, being the outer list's (C 6.7.9/17,
-  /20, [dcl.init.aggr]/16; 0.194; `ccl_record_elided/2`, `ccl_elem_elided/2`, `ccl_elide_record/4`, `ccl_elide_one/5`
-  in `library/ccl_infer.pl`, which the lowering's `ir_init_items/4`, `ir_gelide/4` and `ir_garr_elide/3` ask): `struct
+  /20, [dcl.init.aggr]/16; 0.194; `ccl_record_elided/2`, `ccl_elem_elided/2`, `ccl_elide_record/4`, `ccl_elide_one/5` in
+  `library/ccl_infer.pl`, which the lowering's `ir_init_items/4`, `ir_gelide/4` and `ir_garr_elide/3` ask): `struct
   sigaction sa = {0};` (glibc's begins with a union) reached LLVM as `sext i32 0 to { i64 }`, `struct P { struct Q q;
   int c; } p = {1, 2, 3};` gave q the 1 as its value, and `int a[2][2] = {1, 2, 3, 4};` was refused. `unionelide.c`,
-  `elidenest.c`. Every `std::array` initializer needs it. `stdarray.cpp`. Why (0.164): `struct W { int a[1]; } w = {7};`,
-  `struct S { int a[2]; int b; } s = {1, 2};` and `std::array<int, 1> a = {5};` took the item for the array's value,
-  `[1 x i32] 7`, which LLVM refused -- in C as in C++, a local and a global alike; libc++'s
+  `elidenest.c`. Every `std::array` initializer needs it. `stdarray.cpp`. Why (0.164): `struct W { int a[1]; } w =
+  {7};`, `struct S { int a[2]; int b; } s = {1, 2};` and `std::array<int, 1> a = {5};` took the item for the array's
+  value, `[1 x i32] 7`, which LLVM refused -- in C as in C++, a local and a global alike; libc++'s
   `basic_format_string<char, int>` holds `std::array<__arg_t, 1> __types_{...}`. `test/c/run/braceelide.c`,
-  `arrayone.cpp`. (0.91, 0.110, 0.164)
+  `arrayone.cpp`. AN ARRAY MEMBER WHOSE ELEMENTS ARE RECORDS OR ARRAYS, given a scalar (0.285; C17 6.7.9/20), takes the
+  items that its elements need, each element in turn (a clause of `ir_init_items/4` and one of `ir_gelide/4` over
+  `ccl_elide_elems/5`, before the rule of the items that remain): `struct S { struct P a[2]; int n; } s = {0};` reached
+  LLVM as `sext i32 0 to [2 x %struct.P]` -- `{0}` is every aggregate's zero in C --, a static's flat list over such a
+  member was `not lowered yet: item(declaration(g5))`, and a flat list over a member of arrays, `struct U { int m[2][2];
+  int k; } u = {1, 2, 3, 4, 5};`, was `not lowered yet: initializer(2, ...)`: the member took two of the items, and
+  three were left for the one member after it. The rule of an instance's birth met it: `array<point, 2> p;` is `= {0}`
+  now. `test/c/run/elideagg.c`, a local's and a static's, against clang's output. Lowering 157. (0.91, 0.110, 0.164,
+  0.285)
 - `return { a, b }` builds the RESULT type's object: through its constructor, else member by member where a member
   constructs, else the compound literal (`cpp_stmt_` on `return(L, init(Items))`); it is elided. A designated list
   takes the designated road above. (0.72, 0.83, 0.112)
@@ -13826,6 +13856,12 @@ Declarations topic of the C++ reader).
   fields is a borrow of one of them, so a hand free of another does not end it, as none did before 0.266. In C++ (0.270)
   the type macro's function goes first where it is defined: a program that defines its own `operator==` over an instance
   whose macro defines `_eq` calls the macro's.
+- AN INSTANCE'S BIRTH, ITS LIMITS (0.285): an array of an instance's objects, a member of the program's own struct and
+  an object that `malloc` gave are not given zero, where C++ makes each element and each member empty; a value of
+  another type makes an instance in a block's declaration, a `for`'s and an assignment only -- an argument of a call and
+  a `return` are not converted, where C++ converts each by a constructor that is not explicit --, and at file scope its
+  `_of` is no constant; `T a(x)` and `T a{x}` are C++'s own; an assignment over an object that has a drop drops nothing
+  first (autodrop's limits).
 - IN C A UNARY `-` OR `~` OVER A PLAIN STRUCT REACHES LLVM (found at 0.284, beside the operators over instances):
   `struct P q = -p;` is lowered as `sub nsw %struct.P 0, ...`, and the embedded LLVM refuses the IR in its parser's
   words (`integer constant must have integer type`), where clang says `invalid argument type 'struct P' to unary

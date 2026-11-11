@@ -415,6 +415,13 @@ type goes first, so `x + 3` is `<name>_add_int` where the macro defines it,
 and `v[i]` is a value where the macro defines `_item`, with `v[i] = x` its
 `_set_item`. `test/c/run/operators2.c` is the example.
 
+An object of an instance's type that is declared with no initializer is
+given zero (0.285), with a drop or with none, as C++'s `bitset` and `pair`
+are born empty. `T a = x;` and `a = x`, where `x` has another type, are the
+type macro's `<name>_of(x)`, the name with the word of x's type first:
+`mask<12> c = "1010";` is `mask_12_of_ptr_char("1010")`.
+`test/c/run/born.c` is the example.
+
 cicilang++ reads the same macro files (0.267): `vector<int>` over a type
 macro, `max<double>(a, b)`, a macro's C text, whose functions are noexcept in
 C++, and autodrop, which runs where an exception unwinds past the scope too.

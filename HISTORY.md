@@ -279,6 +279,7 @@ One row per step, in version order: the step's title, what it did and its gate n
 | 0.282 | The files that a macro file loads are its unit's: the store and the kept IR name them | a macro file may load another by a directive, as ccllib's `<set.pl>` loads tree.pl; a unit kept in the store, its IR there and a C++ file's kept IR named the macro file alone, so a change of the loaded file did not reach a program built before it (found at the next module's tests: its C build was served the old IR); ccl_macro_loads/2 gives the loaded files at any depth, the three caches name them, and the user's file names each macro file that its includes reach; the driver gate's check, in C and in C++; reader 182 | the flow gate; the reader, compile and driver gates and the ccllib gate over libc++ 22, over one fresh HOME; no chain, by the owner's rule of 0.271; a commit and a push |
 | 0.283 | ccllib's `<unordered_set.pl>` and `<unordered_map.pl>`: the unordered containers, one hash table of open addressing | CCLLIB.md's phase 1a goes on: library/ccllib/unordered_set.pl and unordered_map.pl over table.pl, std::unordered_set, std::unordered_multiset, std::unordered_map and std::unordered_multimap as ONE text, a hash table whose slots stand in one own buffer, 27, 28, 34 and 29 functions; a key that is no number names its hash's function and its equality's, the type's last arguments; a multi container's entries of one key have a hash each; a place ends as a tree's, and always at rehash and reserve; the rules of the table read from its fields, and four copies broken on purpose, each reported; the step's proofs found two stop cases under the table's limit and a reserve and a rehash that ended a place at some sizes only; a finding: an object is for the build box's CPU, and valgrind 3.22 does not know AVX-512; no file of the compiler changed | the flow gate; the ccllib gate over libc++ 22, 21 and 18; no chain, by the owner's rule of 0.271; a commit and a push |
 | 0.284 | Operators on instances, part 2: `%` and the bit operators, the unary `-` and `~`, the compound assignments, the right operand's word, `[]` as a value | what 0.266 left, which ccllib's bitset and string need: the reader writes `%` and the bit operators over an instance as its type macro's _mod, _and, _or and _xor, `-a` and `~a` as _neg and _compl, a compound assignment as the call of its own function (`a += b` is <name>_add_assign(&a, b)); a function named with the word of the right operand's type goes before the plain one; `>>` takes its right operand by value where the parameter is no pointer; `v[i]` is a value where the macro defines _item, and `v[i] = x` its _set_item; in C and in C++; found on the way: at -std=c++23 an instance's `v[i]` was C++'s own and every ccllib program with an index was refused, and the ccllib gate builds each program at the twin's level too; reader 183 | the flow gate; the reader, compile and driver gates and the ccllib gate over libc++ 22, over one fresh HOME; the ccllib gate over libc++ 21 and 18; eleven C++ fixtures over instances by hand; no chain, by the owner's rule of 0.271; a commit and a push |
+| 0.285 | An instance's birth: an object with no initializer is given zero, and an object is made of a value of another type | two reader rules that ccllib's bitset and string need, in C and in C++: a block's automatic object of any instance's type declared with no initializer is given zero, one of a type with no drop too (C++'s bitset is born empty; over the tree before, a mask was born with the bytes of its storage); `T a = x;` and `a = x`, where x has a type that is not the instance's, are <name>_of(x), the function named with the word of x's type first; in C a type macro with no _of is refused by name; reader 184 | the flow gate; the reader, compile and driver gates and the ccllib gate over libc++ 22, over one fresh HOME; the ccllib gate over libc++ 21 and 18; twelve C++ fixtures over instances by hand; no chain, by the owner's rule of 0.271; a commit and a push |
 
 ## M5 — the C++ mode
 
@@ -19620,3 +19621,103 @@ NO CHAIN RAN for this step (the owner's rule of 0.271), and it claims nothing GR
   (the macro files' topic, the ccllib gate, Not done), `CLAUDE.md`, `README.md`, `CCLLIB.md`.
 
 The module 0.284, the reader 183; the lowering 156 as it was.
+
+## 0.285 — an instance's birth: an object with no initializer is given zero, and an object is made of a value of another type
+
+**0.285: two rules of the reader that the next modules of ccllib need, in C and in C++, and a defect of plain C that the
+first of them met. A block's automatic object of any instance's type declared with no initializer is given zero -- until
+now only one of a type that has a drop was, and a set of bits was born with what its storage held, where C++'s is born
+empty. And `T a = x;` and `a = x`, where x has a type that is not the instance's, are `<name>_of(x)`, the function named
+with the word of x's type first: `bitset<8> b = 0x0f;`, `string s = "abc";`. The lowering's brace elision into an array
+member whose elements are structs or arrays is corrected: `struct S s = {0};` over such a member was refused. The
+reader's version is 184 and the lowering's 157. Committed with its nets; the chain runs when the ccllib task is finished
+(the owner's rule of 0.271).**
+
+WHY NOW. `std::bitset<8> b;` has no bit set, and `std::bitset<8> b(0x0f)` and `std::string s = "abc"` make an object of
+a value of another type. In cicilang's C a set of bits is a struct with no drop, as an array is: `bitset<8> b;` would
+have held the bytes of its storage, a difference from C++ that no message tells, and `bitset<8> b = 0x0f;` is no C. The
+two rules come before the module that needs them, as the operators of 0.284 did.
+
+AN INSTANCE'S OBJECT IS BORN ZERO. 0.262 gave zero, `= {0}`, to a block's automatic object of a type that has a drop,
+declared with no initializer: the empty vector, which its drop may meet at the scope's end. `ccl_autodrop_decl/2` gives
+it to an object of ANY instance's type now (`ccl_born_zero_vars/2`), and a `for`'s declaration has it too
+(`ccl_for_born/2`). C++'s `bitset`, `pair`, `tuple`, `optional` and `complex` are born empty or zero; `std::array` and a
+duration are born with no value, and zero is one of the values that such an object may have. The rule is the object's of
+the type itself, through any typedef, as autodrop's is: an array of such objects, a member of the program's own struct
+and an object that `malloc` gave keep C's rules, and a static and a global are zero by them.
+
+THE PROOF OF IT is a function that declares `mask<12> a;` and gives back its word, called after a function that fills
+256 bytes of the stack with `0xff`. Over the tree of 0.284 it prints `ffffffffffffffff`, as C and as C++; over this tree
+`0`.
+
+AN INSTANCE IS MADE OF A VALUE OF ANOTHER TYPE BY ITS `_of`. `T a = x;` in a block and `a = x`, where the reader knows
+x's type and it is not the instance's, are `T a = <name>_of(x);` and `a = <name>_of(x)` (`ccl_of_vars/2`,
+`ccl_of_value/3`, a clause of `ccl_iop_assign/4`). The function named with the word of x's type goes first, as an
+operator's does since 0.284 (`ccl_iop_pick/6`): `mask<12> c = "1010";` is `mask_12_of_ptr_char("1010")` and `mask<12> b
+= 0x0f0;` the plain `mask_12_of(0x0f0)`, so a type is made of values of several types, as C++'s constructors make it. C
+has no initializer of a struct by a value of another type and no such assignment, so no program that C reads changes its
+meaning. A braced list, a value of the instance's own type -- a copy, a call's result --, a literal's `_from` and an
+initializer whose type the reader does not know stay as they were.
+
+IN C a type macro that defines no `_of` is refused by name, at the declaration's line or the assignment's: `a pt_double
+is not made of a value of the type int: its type macro defines no pt_double_of`. In C++ the initializer is then C++'s
+own, as an operator is that the macro does not define.
+
+AN ASSIGNMENT MAKES THE VALUE AND ASSIGNS IT, and it drops nothing first, as 0.262 left it: over an object that has a
+drop and may hold memory it is `owner_overwritten`, where C++'s assignment frees the old value. A string needs that rule
+changed, and it is the next step's.
+
+THE FIXTURE: `test/c/run/born.c` over `tborn.pl`. `mask<12>` is a set of bits in a word, with no drop: born zero in a
+function, in `main` and in a `for`; made of a number, cut to its 12 bits, and of a text of 0 and 1 (`_of_ptr_char`, and
+`_of_ptr_const_char` for C++'s literal); copied from another mask as C copies; assigned a number and a text. `box<int>`
+is one int on the heap, a type that has a drop: born the empty box, and `box<int> q = 42;` is `box_int_of(42)`;
+`box<double> s = 3;` converts its int as an argument. It prints what clang's build of its hand expansion prints, as C
+and as C++, and frees every block under valgrind. The reader gate has four checks more, `k154` to `k157`, the last over
+two refusals, `test/c/born_no_of.c` and `born_assign.c`; the C++ gate's list of the C fixtures that it builds as C++ has
+`born.c`.
+
+A DEFECT OF PLAIN C THAT THE RULE MET: BRACE ELISION INTO AN ARRAY MEMBER OF RECORDS OR ARRAYS. `test/ccllib/array.c`
+has `array<point, 2> p;`, a struct whose one member is an array of two structs, and its `= {0}` reached LLVM as `sext
+i32 0 to [2 x %struct.point]`: the ccllib gate was RED at the step's first nets. It is no defect of the rule: `struct S
+{ struct P a[2]; int n; } s = {0};`, plain C, was refused so by the pushed tree, where `{0}` is every aggregate's zero
+(C17 6.7.9/20, /21); a static's flat list over such a member was `not lowered yet: item(declaration(g5))`; and a flat
+list over a member of arrays, `struct U { int m[2][2]; int k; } u = {1, 2, 3, 4, 5};`, was `not lowered yet:
+initializer(2, ...)`: the member took two of the items, and three were left for the one member after it. The lowering
+knew three elisions -- an array member of scalars, a record member, an array's own element that is a record or an array
+-- and gave an array member of records to the rule of the items that remain, which takes as many ITEMS as the member has
+elements. A clause before it takes the items that the member's elements need, each element in turn (`ccl_elide_elems/5`,
+which the record's rule had), for a local (`ir_init_items/4`) and for a static (`ir_gelide/4`). `test/c/run/elideagg.c`
+holds it against clang's output: `{0}` over a member of structs, of arrays of structs and of arrays of arrays, flat
+lists that fill each, a part of a list, an element given a value of its own type; as C and as C++, at `-O0` and at
+`-O2`. The lowering's version is 157.
+
+WHAT CHANGES IN THE PROGRAMS THAT WERE. `test/ccllib/array.c` declares arrays with no initializer and fills them -- two
+of 64 ints, one of two points --, and each is given zero first now. Its IR has 17 lines more and its object 2,848 bytes
+more (1,061 lines and 14,008 bytes as C); no other program of the gate changes its IR. Over the ccllib gate's costs,
+libc++ 21 and a fresh HOME for each gate, the twelve C builds take 5.63 s in sum at 0.284 and 5.64 s at 0.285, and the
+twelve C++ builds 15.64 s and 15.59 s.
+
+WHAT IS LEFT (Not done): an array of an instance's objects, a member of the program's own struct and an object from
+`malloc` are not given zero; a value of another type makes an instance in a block's declaration and in an assignment
+only -- an argument of a call and a `return` are not converted, where C++ converts each by a constructor that is not
+explicit, and a global's initializer by `_of` is no constant; an assignment over an object that has a drop drops nothing
+first.
+
+THE NETS, over the work tree with the lowering's correction: the flow gate GREEN with no finding (157 s, peak 4047 MB);
+over one fresh HOME the reader gate (158 checks, 4 s), the compile gate (255 checks, 32 s), the driver gate (66 checks,
+44 s) and the ccllib gate over libc++ 22 (152 checks, 415 s), each GREEN; the ccllib gate GREEN over libc++ 21 and 18
+too, each over a fresh HOME (411 s and 421 s; 152 checks each, none skipped): 12 programs in three runs, 37 refused, 3
+alone. After them two comments of `library/ccl_ir.pl` were corrected -- they said that the flat list over a member of
+arrays was read wrongly, and the tree before refused it --, and over that file the flow gate, the reader, compile and
+driver gates and the ccllib gate over libc++ 22 ran again, each GREEN (the same counts of checks: 158, 255, 66 and 152).
+By hand, since the C++ gate runs with the chain: the nine C fixtures that the C++ gate builds as C++ (`born` among them)
+and `test/cpp/run/opcpp.cpp`, `elemborrowpp.cpp` and `borrowkeep.cpp` print their expected lines over libc++ 22.
+
+NO CHAIN RAN for this step (the owner's rule of 0.271), and it claims nothing GREEN but the nets above. No CI job ran.
+
+- `library/ccl_ir.pl`: `ir_init_items/4`, `ir_gelide/4`, the lowering's version. `library/ccl_syntax.pl`:
+  `ccl_autodrop_decl/2`, `ccl_born_zero_vars/2`, `ccl_for_born/2`, `ccl_of_vars/2`, `ccl_of_value/3`,
+  `ccl_iop_assign/4`, the reader's version. `test/reader.pl`: `k154` to `k157`. `test/cpp.sh`: `born` in its list. The
+  fixtures. `RULES.md` (the macro files' topic, the aggregates' topic, Not done), `CLAUDE.md`, `README.md`, `CCLLIB.md`.
+
+The module 0.285, the reader 184 and the lowering 157.

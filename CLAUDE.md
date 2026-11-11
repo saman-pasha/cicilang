@@ -12,8 +12,8 @@ the fixture that gates it, and why. The bullet ends with the version that made t
 edits the rule in `RULES.md`, in its topic, and writes its entry in `HISTORY.md`. Read the topic of `RULES.md` that
 covers the code before the code is changed.
 
-At 0.284 the versions are: the module 0.284 (`ccl_p_version` in `module/cicilang.cicili`, `bin/cicilang --version`),
-the reader 183 (`ccl_reader_version/1`, `library/ccl_syntax.pl`) and the lowering 156 (`ccl_lowering_version/1`,
+At 0.285 the versions are: the module 0.285 (`ccl_p_version` in `module/cicilang.cicili`, `bin/cicilang --version`),
+the reader 184 (`ccl_reader_version/1`, `library/ccl_syntax.pl`) and the lowering 157 (`ccl_lowering_version/1`,
 `library/ccl_ir.pl`).
 
 Build and prove, always in this order (or all of it, `sh test/gates.sh`):
@@ -436,7 +436,9 @@ test/c/                     the reader's fixtures: hello.c, rich.c, lexer.c, mac
                             forscope.c, a for's scope (0.264); op_*.c over run/topers.pl, the operators' refusals,
                             and op_ptr.c, C's own operators over a pointer to an instance (0.266); lazy_nofn.c
                             over run/lazy.pl, a name that an instance has not (0.274); op_assign.c, op_unary.c,
-                            op_bit.c, op_item.c and op_item_set.c, the refusals of the operators' part 2 (0.284)
+                            op_bit.c, op_item.c and op_item_set.c, the refusals of the operators' part 2 (0.284);
+                            born_no_of.c and born_assign.c, an instance that is made of no value of another type
+                            (0.285)
 test/c/inc/                 the -I fixture: uses_box.c over box.h
 test/c/link/                two files linked into one program; the ABI against clang-built code (abi_main.c,
                             abi_helper.c), variadic calls (va_main.c, va_func.c, va.h), the decimal ABI against gcc,
@@ -453,7 +455,8 @@ test/c/run/                 C programs built and run: NAME.c, NAME.expect, NAME.
                             operators of operators.c (0.266); lazy.pl and lazy.pl.h, of lazy.c: an instance's
                             functions made at their first call, its calls by name, a macro file's C header (0.274);
                             owncopy.c, a copy loop into an owned buffer (0.274); topers2.pl, of operators2.c: the
-                            operators of part 2 -- % & | ^, - and ~, the compound assignments, [] as a value (0.284)
+                            operators of part 2 -- % & | ^, - and ~, the compound assignments, [] as a value (0.284);
+                            tborn.pl, of born.c: an object born zero, and made of a value of another type (0.285)
 test/c/safe/                C programs the safe part refuses: NAME.c, NAME.expect; dropnone.pl, the macro file of
                             drop_leaks.c (0.262); borrow_after_grow.c, borrow_after_push.c, elem_after_push.c,
                             grow_through_ptr.c, const_replace.c and const_local.c, the safety rules of 0.265;

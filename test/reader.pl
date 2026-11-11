@@ -643,6 +643,26 @@ k153 :- check('refused at its line by name: a compound assignment, a unary opera
       op_refused('op_item.c', 6, 'the operator |= of an element of bits_12 is not defined: v[i] is a value there, and v[i] = x writes one'),
       op_refused('op_item_set.c', 6, 'an element of peek_8 is not assigned: its type macro defines no peek_8_set_item') )).
 
+%% AN INSTANCE'S BIRTH (0.285): test/c/run/born.c over its tborn.pl, and the refusals born_no_of.c and born_assign.c
+k154 :- check('an automatic object of an instance\'s type declared with no initializer is given zero: one of a type with no drop, a for\'s object, and one of a type with a drop, which is dropped where its scope ends',
+    ( fn_body('run/born.c', born, B0), Z = init([item([], int(0))]), sub_t(var(a, _, Z), B0),
+      fn_body('run/born.c', main, B), sub_t(var(a, _, Z), B), sub_t(for(_, decl(_, [var(m, _, Z)]), _, _, _), B),
+      sub_t(var(p, _, Z), B), sub_t(defer(_, ['$autodrop'(p)], _), B), \+ sub_t(defer(_, ['$autodrop'(a)], _), B) )).
+
+k155 :- check('T a = x, where x has another type than the instance, is its type macro\'s _of(x), the name with the word of x\'s type first; a value of the instance\'s own type is C\'s copy',
+    ( fn_body('run/born.c', main, B), atom_codes('1010', S),
+      sub_t(var(b, _, call(id(mask_12_of), [int(240)])), B), sub_t(var(c, _, call(id(mask_12_of_ptr_char), [str(S)])), B),
+      sub_t(var(d, _, id(b)), B), sub_t(var(q, _, call(id(box_int_of), [int(42)])), B),
+      sub_t(var(r, _, call(id(box_double_of), [float(2.5)])), B), sub_t(var(s, _, call(id(box_double_of), [int(3)])), B) )).
+
+k156 :- check('a = x, where x has another type than the instance, assigns the type macro\'s _of(x)',
+    ( fn_body('run/born.c', main, B), atom_codes('11', S),
+      sub_t(assign('=', id(a), call(id(mask_12_of), [int(15)])), B), sub_t(assign('=', id(d), call(id(mask_12_of_ptr_char), [str(S)])), B) )).
+
+k157 :- check('in C an instance whose type macro defines no _of is not made of a value of another type: refused at its line by name, in a declaration and in an assignment',
+    ( op_refused('born_no_of.c', 4, 'a pt_double is not made of a value of the type int: its type macro defines no pt_double_of'),
+      op_refused('born_assign.c', 5, 'a pt_double is not made of a value of the type int: its type macro defines no pt_double_of') )).
+
 k110 :- check('a type macro that fails, two instances that one name names, and a typed call of a macro with no typed form are refused at the use',
     ( c('tmacro_fail.c', P1), c('tmacro.pl', M), catch(cicilang_ast(P1, _), error(E1, here(P1, 3, in_macro(type_none, M))), true), E1 == macro_failed(none, [base([], [int])]),
       c('tmacro_same.c', P2), catch(cicilang_ast(P2, _), error(macro_error(pair, _, error(ctext_error(T2), _)), here(P2, 7, _)), true),
@@ -938,6 +958,11 @@ t_checks :-
     k151,
     k152,
     k153,
+    section('an instance\'s birth: an object with no initializer given zero, an object made of a value of another type (0.285)'),
+    k154,
+    k155,
+    k156,
+    k157,
     section('the preprocessor, in cocolog: a header raw cannot take'),
     k83,
     section('the lexer, native: ccl_lex_native/6 token for token with the DCG'),

@@ -348,6 +348,18 @@ A type macro gives its instances operators that the reader writes as calls: `v[i
 - WHAT PHASE 0.10 LEAVES (`RULES.md`, Not done): a `mutable` own member in a const member function; a member function's
   result tied to its object; a list literal's first element that is a list literal.
 
+### 0.11 An instance's birth (0.285)
+
+- AN OBJECT IS BORN ZERO: a block's automatic object of any instance's type declared with no initializer is given zero,
+  one of a type with no drop too. C++'s `bitset`, `pair`, `optional` and `complex` are born empty, and a C struct with
+  what its storage held; the difference had no message.
+- AN OBJECT IS MADE OF A VALUE OF ANOTHER TYPE BY `_of`: `T a = x;` and `a = x` are `<name>_of(x)`, the name with the
+  word of x's type first (`<name>_of_ptr_char` for a text), where C++ has constructors: `bitset<8> b = 0x0f;`, `string s
+  = "abc";`. C reads no such initializer, so nothing that C reads changes.
+- WHAT IT LEAVES (Not done): an array of objects and a member of the program's own struct are not given zero; an
+  argument of a call and a `return` are not converted; an assignment over an object that has a drop drops nothing first,
+  which a string's `s = t` needs.
+
 ### Order
 
 0.1, then 0.2 to 0.4 together (`vector<int>` needs all three), then 0.5 (autodrop), 0.6, 0.7, 0.8, 0.9 and 0.10. The
