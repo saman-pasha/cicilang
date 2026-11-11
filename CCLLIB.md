@@ -294,6 +294,8 @@ A type macro gives its instances operators that the reader writes as calls: `v[i
   macro defines `_item`, and `v[i] = x` its `_set_item`. `test/c/run/operators2.c` over `topers2.pl`. At C++23 an
   instance's `v[i]` was C++'s own, and every ccllib program with an index was refused there: the step found it, and the
   ccllib gate builds each program at the twin's level too.
+- AT 0.286, with the bitset: THE ADDRESS OF AN ELEMENT THAT `[]` GIVES AS A VALUE IS REFUSED BY NAME (`&b[i]`); it was
+  the address of a temporary that held the value, and no message said so.
 - WHAT IS LEFT (Not done): `!a`, `*it`, `++it` and `it++` are no calls; `>` and `<=` take no typed name; the left
   operand decides, so `2 * a` is refused; the word of an operand is its exact type's, so a `const char *` asks
   `_shl_ptr_const_char`; a tied result's borrow is of one own field, so a hand free of another does not end it, as
@@ -604,6 +606,27 @@ The units hold 141 and 148 functions, each for six instances, where the twins' h
 six sevenths of the twins' memory: an entry stands in a slot of the one buffer, where the twin has a node for each, and
 a table's peak is its last growth, the old buffer beside the new one. The C builds take the twins' time or less;
 cicilang++'s take 1.76 s and 1.78 s, nearly three times the set's twin. The target of phase 1 stays.
+
+### 1a, `bitset.pl` (0.286)
+
+`bitset<N>` is a struct of `(N + 63) / 64` words of 64 bits: a value with no heap and no drop, born with no bit set
+(0.11), made of a number or of a text of 0 and 1. 32 functions that a program calls, the surface of `std::bitset` but
+`to_string`, the hash and the stream operators: `count`, `any`, `none`, `all`, `test`, `b[i]` and `b[i] = x`, `set`,
+`reset`, `flip`, `to_ulong`, `to_ullong`, `& | ^ ~ << >>`, `==`, `&= |= ^= <<= >>=`. The bits of the last word past the
+count are zero after every function. `b[i]` is the bit's value, the int 0 or 1, and no reference: a bit has no address.
+A place past the last bit stops the program. `test/ccllib/bitset.c` and its twin over `std::bitset`, nine programs of
+`test/ccllib/safe/`, `test/ccllib/alone/bitset_rules.c`, and 12 cases more of `stops.c`; nineteen copies of the module
+broken on purpose are each reported. The costs over libc++ 22, as above:
+
+| | build | peak | IR types | IR functions | IR lines | object | `bitset 10000000` at `-O2` | its peak |
+|---|---|---|---|---|---|---|---|---|
+| cicilang, C | 0.46 s | 147 MB | 5 | 106 | 5,146 | 73,752 B | 0.35 s | 2 MB |
+| cicilang++, C++ | 1.04 s | 149 MB | 5 | 106 | 5,900 | 73,952 B | 0.32 s | 2 MB |
+| clang++ 22, `std::` | 0.53 s | 126 MB | 52 | 488 | 22,569 | 326,128 B | 0.59 s | 3 MB |
+
+The unit holds 106 functions for five instances where the twin's holds 488, in 74 KB against 326 KB, and the run of ten
+million steps takes 0.35 s and 0.32 s against 0.59 s. The C build takes less than the twin's; cicilang++'s takes 1.04 s,
+twice the twin's. The target of phase 1 stays.
 
 ### The parts of phase 1
 

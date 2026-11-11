@@ -280,6 +280,7 @@ One row per step, in version order: the step's title, what it did and its gate n
 | 0.283 | ccllib's `<unordered_set.pl>` and `<unordered_map.pl>`: the unordered containers, one hash table of open addressing | CCLLIB.md's phase 1a goes on: library/ccllib/unordered_set.pl and unordered_map.pl over table.pl, std::unordered_set, std::unordered_multiset, std::unordered_map and std::unordered_multimap as ONE text, a hash table whose slots stand in one own buffer, 27, 28, 34 and 29 functions; a key that is no number names its hash's function and its equality's, the type's last arguments; a multi container's entries of one key have a hash each; a place ends as a tree's, and always at rehash and reserve; the rules of the table read from its fields, and four copies broken on purpose, each reported; the step's proofs found two stop cases under the table's limit and a reserve and a rehash that ended a place at some sizes only; a finding: an object is for the build box's CPU, and valgrind 3.22 does not know AVX-512; no file of the compiler changed | the flow gate; the ccllib gate over libc++ 22, 21 and 18; no chain, by the owner's rule of 0.271; a commit and a push |
 | 0.284 | Operators on instances, part 2: `%` and the bit operators, the unary `-` and `~`, the compound assignments, the right operand's word, `[]` as a value | what 0.266 left, which ccllib's bitset and string need: the reader writes `%` and the bit operators over an instance as its type macro's _mod, _and, _or and _xor, `-a` and `~a` as _neg and _compl, a compound assignment as the call of its own function (`a += b` is <name>_add_assign(&a, b)); a function named with the word of the right operand's type goes before the plain one; `>>` takes its right operand by value where the parameter is no pointer; `v[i]` is a value where the macro defines _item, and `v[i] = x` its _set_item; in C and in C++; found on the way: at -std=c++23 an instance's `v[i]` was C++'s own and every ccllib program with an index was refused, and the ccllib gate builds each program at the twin's level too; reader 183 | the flow gate; the reader, compile and driver gates and the ccllib gate over libc++ 22, over one fresh HOME; the ccllib gate over libc++ 21 and 18; eleven C++ fixtures over instances by hand; no chain, by the owner's rule of 0.271; a commit and a push |
 | 0.285 | An instance's birth: an object with no initializer is given zero, and an object is made of a value of another type | two reader rules that ccllib's bitset and string need, in C and in C++: a block's automatic object of any instance's type declared with no initializer is given zero, one of a type with no drop too (C++'s bitset is born empty; over the tree before, a mask was born with the bytes of its storage); `T a = x;` and `a = x`, where x has a type that is not the instance's, are <name>_of(x), the function named with the word of x's type first; in C a type macro with no _of is refused by name; reader 184 | the flow gate; the reader, compile and driver gates and the ccllib gate over libc++ 22, over one fresh HOME; the ccllib gate over libc++ 21 and 18; twelve C++ fixtures over instances by hand; no chain, by the owner's rule of 0.271; a commit and a push |
+| 0.286 | ccllib's `<bitset.pl>`; a record where another type is needed, and the address of an element that is a value, are refused by name | `std::bitset` for cicilang's C, the seventeenth type of phase 1a: a struct of words of 64 bits with no heap and no drop, 32 functions, the bits of its last word past the count zero after each; the rules held to a model at nine counts of bits, nineteen copies broken on purpose each reported; `&b[i]` over an element that `[]` gives as a value was the address of a temporary and is refused by name (reader 185); a struct of another type where a struct is needed, a number where one is and a unary `-` or `~` over one went to LLVM, and the lowering refuses each at its line (`no conversion from 'bitset_12' to 'bitset_8'`; lowering 158) | the flow gate; the reader, compile and driver gates and the ccllib gate over libc++ 22, over one fresh HOME; the ccllib gate over libc++ 21 and 18; a pool of the light C++ run fixtures; twelve C++ fixtures over instances by hand; no chain, by the owner's rule of 0.271; a commit and a push |
 
 ## M5 — the C++ mode
 
@@ -19721,3 +19722,145 @@ NO CHAIN RAN for this step (the owner's rule of 0.271), and it claims nothing GR
   fixtures. `RULES.md` (the macro files' topic, the aggregates' topic, Not done), `CLAUDE.md`, `README.md`, `CCLLIB.md`.
 
 The module 0.285, the reader 184 and the lowering 157.
+
+## 0.286 — ccllib's `<bitset.pl>`; a record where another type is needed, and the address of an element that is a value, are refused by name
+
+**0.286: `std::bitset` for cicilang's C, the seventeenth type of phase 1a, and three refusals that the compiler did not
+make in words of its own, two of which the module met. `bitset<N>` is a struct of words of 64 bits, a value with no heap
+and no drop; its operators are C++'s. `&b[i]` over an element that `[]` gives as a value was the address of a temporary,
+and is refused by name now. A struct of another type where a struct is needed -- `a & b` over a `bitset<8>` and a
+`bitset<12>` -- went to LLVM, whose parser refused the text; the lowering says `no conversion from 'bitset_12' to
+'bitset_8'` at the line, and a unary `-` or `~` over a struct is refused in clang's words. The reader's version is 185
+and the lowering's 158. Committed with its nets; the chain runs when the ccllib task is finished (the owner's rule of
+0.271).**
+
+THE MODULE. `#include <bitset.pl>` gives `bitset<N>`, the instance `bitset_N`: a struct of `(N + 63) / 64` words of 64
+bits. It has no heap and no drop, so its object is a plain value, as an array's is: `b := a` and `f(a)` copy. An object
+declared with no initializer has no bit set (the rule of an instance's birth, 0.285), `bitset<12> b = 0x0f0;` makes one
+of a number, cut to its 12 bits (`_of`), and `bitset<12> c = "1010";` one of a text of 0 and 1 (`_of_ptr_char`, and
+`_of_ptr_const_char` for C++'s literal), the two forms of 0.285 that this module is the first to use. 32 functions that
+a program calls and 2 inner ones, each made at its first use: `size`, `count`, `any`, `none`, `all`, `test`; `b[i]`, a
+bit's value, and `b[i] = x` (`_item`, `_set_item`: the forms of 0.284); `set(b)`, `set(b, i)` and `set(b, i, x)`,
+`reset(b)` and `reset(b, i)`, `flip(b)` and `flip(b, i)`, told by the count of their arguments; `to_ulong` and
+`to_ullong`; `& | ^ ~ << >>` by value, so that `a & ~b | c << 2` chains; `==` and `!=`; `&= |= ^= <<= >>=`, which change
+their object in its place.
+
+ONE RULE OF ITS FORM: THE BITS OF THE LAST WORD PAST THE COUNT ARE ZERO after every function (the inner `_trim`), which
+`count`, `any`, `all`, `==` and `to_ullong` stand on. A shift left, `~`, a flip of all, a set of all and a set made of a
+number are the five that can set such a bit. A shift goes by whole words first and then by bits, each word with its
+neighbour's; C has no shift of a word by 64, so the neighbour is taken only where the count of places is no multiple of
+64.
+
+WHAT DIFFERS FROM C++. `test`, `b[i]`, `b[i] = x`, `set(b, i)`, `reset(b, i)` and `flip(b, i)` stop the program
+(`abort`) at a place past the last bit, where C++'s `test`, `set`, `reset` and `flip` throw and its `[]` is undefined;
+`to_ulong` and `to_ullong` stop it where a bit past the result's width is set, and a text where a character is no 0 and
+no 1, as C++ throws at each. `b[i]` is the int 0 or 1 and no reference to the bit: `b[i] |= x` and `&b[i]` are refused
+by name, and `~b[i]` is C's `~` of the number, where C++'s is the other bit. `set`, `reset` and `flip` give nothing
+back, so their calls do not chain. A number is no operand of an operator: `b == 5` and `b &= 5`, which C++ takes through
+its constructor, are refused by name. There is no `to_string` -- ccllib's string comes later --, no hash, and a list
+literal makes no bitset, since a literal's slots have the type of the instance's first argument.
+
+THE THREE RUNS: `test/ccllib/bitset.c`, the whole surface over sets of 12, 64, 70 and 200 bits -- one word, a full word,
+two words whose top one holds 6 bits, four words --, and its twin `bitset.cpp` over `std::bitset` print the same 42
+lines, as C, as C++ and at C++23; the count run makes ten million steps of chance over three sets of 4096 bits, and the
+three agree at each count that was tried, from 1 to ten million.
+
+THE RULES PROGRAM, `test/ccllib/alone/bitset_rules.c`: a walk of chance for each of nine counts of bits at which a rule
+can break -- 1, 12, 63, 64, 65, 70, 128, 129 and 200 --, the set held after each step to a model of a byte a bit: each
+bit by `test` and by `[]`, `count`, `any`, `none` and `all`, `to_ullong` and `to_ulong` where no bit stands past their
+width, and the bits of the last word past the count, which the program reads in the instance's own words. The steps are
+each function and each operator, a shift by 0 to the count and past it, a set made of a number and of a text up to ten
+characters longer than the count, and `==` against a copy that differs in one bit of chance. The rules hold at 68,009
+checks, as C and as C++.
+
+EACH RULE HAS A BROKEN TEXT OF ITS OWN (the rule of 0.283): nineteen copies of the module, each broken in one place, and
+each is reported by a program of the gate. `~`, a shift left, a set made of a number, a set of all and a flip of all
+that leave the bits past the count; a shift, left and right, that takes the neighbour word where the count of places is
+a multiple of 64; a shift right that takes the wrong neighbour; `==` that looks at the first word only; a text that
+gives its last characters and one whose first character is the bit 0 -- the rules program names each (`NOT HELD for 65
+bits: == sees each bit`). A text whose characters are not looked at, or not past those taken; `test`, `[]`, a write and
+a flip with no bound; `to_ullong` that gives the first word whatever the others hold -- a case of `stops.c` is not
+stopped. A bound one too small stops the case that stays in its bounds. The first form of the rules program held `==` to
+the second set of chance only: it reported the copy whose `==` looks at one word with each of eight seeds, but at 70 or
+at 128 bits and never at 65, where one bit stands past the first word; the check against a copy that differs in one bit
+of chance reports it at 65 bits.
+
+`stops.c` has 12 cases more, 65 in all: 59 are stopped, and the 6 that stay in their bounds are not -- a bitset's last
+bit read and written each way, and the number of a set whose top bit of the word is set.
+
+REFUSED, as C and as C++ (`test/ccllib/safe/`, nine programs): a list literal (`the type bitset_8 takes no literal`),
+`bitset<0>` (`a bitset has one bit at least`), `bitset<int>` (`a bitset takes the count of its bits, a number`), `a <
+b`, `b[1] |= 1`, `&b[1]`, `to_string(b)`, `a & b` over sets of two counts and `b == 5`.
+
+THE FIRST DEFECT THAT THE MODULE MET: `&b[i]` OVER AN ELEMENT THAT IS A VALUE. 0.284 made `v[i]` a value where the type
+macro defines `_item`, and its Not done list said that such an element has no address. The compiler did not refuse it:
+`&b[1]` was the address of the call's result, a temporary that held the bit's value. `get(&b[1])` built and printed 1,
+and a write through such a pointer could not reach the bit, with no message. The entry of 0.284 says that the address is
+refused; it was not, and no probe had asked. The reader refuses it by name now, in C and in C++ (`ccl_iop_address/1`,
+after the operand of a unary `&`): `the address of an element of bitset_8 is not taken: v[i] is a value there, with no
+place of its own`. The address of an element that `[]` gives as a place (`_index`) is the place's, as before. Reader
+check `k158`, over `test/c/run/operators.c` and the new `test/c/op_item_addr.c`.
+
+THE SECOND: A RECORD WHERE ANOTHER TYPE IS NEEDED. `bitset<8> c = a & b;` with b a `bitset<12>` is `bitset_8_and(a, b)`,
+a struct of one type handed to a parameter of another. It is no defect of the module's: plain C had it. `a = b` over two
+structs of two types and `struct A a = b;` went to the integer conversions (`sext %struct.B %t9 to %struct.A`), and a
+struct of another type handed to a struct parameter or given back as a struct result went with no conversion at all;
+LLVM's parser refused each text in its own words, with no line of the program. The lowering refuses each by name at its
+line (`ir_no_conversion/2`: a clause of `ir_convert/6`'s scalar rules, and `ir_record_mismatch/2` where an argument and
+a result go with no conversion): `no conversion from 'struct B' to 'struct A'`, and a number where a struct is needed
+and a struct where a number is (`no conversion from 'int' to 'struct A'`). A type is spelled as C spells it, and a
+struct that a typedef of its own tag names by that name, so an instance is `bitset_12`. It is the error of the program,
+so the driver prints it with no `not lowered yet`. `b == 5` over a bitset is refused by the same words, `no conversion
+from 'int' to 'bitset_12'`.
+
+AND ONE FROM THE NOT DONE LIST OF 0.284, by the same means: a unary `-` or `~` over a plain struct was lowered as `sub
+nsw %struct.P 0, ...`; it is `invalid argument type 'struct P' to unary expression` now, clang's words
+(`ir_unary_operand/2`). A binary operator and a compound assignment over two structs are `not lowered yet:
+type(unknown)` still. The driver gate has two checks more: the eight forms in C, each at its line, and one in C++, where
+a class has its own name (`no conversion from 'B' to 'A'`).
+
+FOUND BESIDE THE STEP, no part of it (Not done): `&f()`, the address of a call's result, builds in C and in C++, where
+clang and clang++ say `cannot take the address of an rvalue of type 'int'`; the lowering gives the address of a
+temporary.
+
+WHAT IT COSTS, over libc++ 22, the twin by clang++ 22 (the gate's lines; a build is the best of three):
+
+```
+run                       build s      MB  types  functions   lines  object B    run s      MB
+cicilang, C                 0.461   147.2      5        106    5146     73752    0.345     1.7
+cicilang++, C++             1.042   148.7      5        106    5900     73952    0.323     1.7
+clang++ 22.1.8, std::       0.525   125.9     52        488   22569    326128    0.592     3.1
+```
+
+The unit holds 106 functions for its five instances -- sets of 12, 64, 70, 200 and 4096 bits -- in 74 KB, where the
+twin's holds 488 in 326 KB, and the count run of ten million steps takes 0.35 s as C and 0.32 s as C++ against the
+twin's 0.59 s, each in under 4 MB: a set of bits has no heap. The C build takes less than the twin's, 0.46 s against
+0.53 s, with 147 MB against 126 MB; cicilang++'s takes 1.04 s, twice the twin's. The first target of phase 1 stays open:
+cicilang++'s build of a ccllib program is the dearest of the three runs.
+
+THE NETS, over the work tree: the flow gate GREEN with no finding (170 s, peak 4145 MB); over one fresh HOME the reader
+gate (159 checks, 4 s), the compile gate (255 checks, 34 s), the driver gate (68 checks, 49 s) and the ccllib gate over
+libc++ 22 (178 checks, 480 s), each GREEN; the ccllib gate GREEN over libc++ 21 and 18 too, each over a fresh HOME (459
+s and 462 s; 178 checks each, none skipped): 13 programs in three runs, 46 refused, 4 alone; and over libc++ 22 once
+more, over a HOME of its own, GREEN with the same count of checks (456 s): the cost lines above are that run's, the
+conditions of the earlier modules' costs. FOR THE LOWERING'S CHANGE, which every program reaches (`ir_convert/6`), a
+pool of the C++ run fixtures that include no header but the small C ones, three at a time over a fresh HOME and libc++
+22: 361 fixtures, and each prints its expected lines (44 s, peak 437 MB). A fixture's run is its standard output and its
+status, as the C++ gate takes it: the pool's first form joined the error stream, and `contracts.cpp` and `noexcept.cpp`,
+which abort on purpose, differed by the lines that they write there. By hand, since the C++ gate runs with the chain:
+the nine C fixtures that the C++ gate builds as C++ and `test/cpp/run/opcpp.cpp`, `elemborrowpp.cpp` and
+`borrowkeep.cpp` print their expected lines, and its refusals over a macro file are refused (12 checks, 6 s).
+
+NO CHAIN RAN for this step (the owner's rule of 0.271), and it claims nothing GREEN but the nets above. No CI job ran.
+
+A NOTE ON THE RECORD: the entry of 0.285 names the object of `test/ccllib/array.c` `array<point, 2> p;`; the program's
+object is `ps`. `RULES.md` has the right name now.
+
+- `library/ccllib/bitset.pl`, `bitset.pl.h`. `library/ccl_syntax.pl`: `ccl_iop_address/1`, the reader's version.
+  `library/ccl_ir.pl`: `ir_convert/6`, `ir_no_conversion/2`, `ir_record_mismatch/2`, `ir_unary_operand/2`, `ir_args_/5`,
+  a `return`'s two places, the lowering's version. `library/ccl_driver.pl`: two clauses of `dr_diag/3`.
+  `test/reader.pl`: `k158`. `test/driver.sh`: two checks. `test/flow.sh`: `bitset` in its list. `test/ccllib.sh`: its
+  words. The fixtures. `RULES.md` (the section of `bitset.pl`, the macro files' topic, the lowering's values, the ccllib
+  gate, Not done), `CLAUDE.md`, `README.md`, `CCLLIB.md`.
+
+The module 0.286, the reader 185 and the lowering 158.

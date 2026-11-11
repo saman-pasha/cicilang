@@ -1,0 +1,1 @@
+the address of an element of bitset_8 is not taken: v[i] is a value there, with no place of its own

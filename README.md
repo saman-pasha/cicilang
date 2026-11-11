@@ -422,6 +422,12 @@ type macro's `<name>_of(x)`, the name with the word of x's type first:
 `mask<12> c = "1010";` is `mask_12_of_ptr_char("1010")`.
 `test/c/run/born.c` is the example.
 
+A struct of one type where a struct of another is needed is refused by name
+(0.286), at its line: `no conversion from 'struct B' to 'struct A'`, in an
+assignment, an initializer, an argument and a `return`, and so are a number
+where a struct is needed and a unary `-` or `~` over a struct. Two instances
+of one type macro are two types: `bitset<8>` and `bitset<12>` do not mix.
+
 cicilang++ reads the same macro files (0.267): `vector<int>` over a type
 macro, `max<double>(a, b)`, a macro's C text, whose functions are noexcept in
 C++, and autodrop, which runs where an exception unwinds past the scope too.
@@ -512,6 +518,13 @@ another key names two functions, `unordered_set<point, point_hash,
 point_eq>`. A walk by places has the table's order, which is not
 C++'s. A place ends as a set's does, and at `rehash` and `reserve`.
 `test/ccllib/unordered_set.c` and `unordered_map.c` are the examples.
+
+`#include <bitset.pl>` gives `std::bitset` (0.286), a struct of words of
+64 bits with no heap: `bitset<12> b = 0x0f0;`, `bitset<12> c = "1010";`,
+`set(b, 3)`, `b[5] = 1`, `flip(b)`, `count(b)`, `a & ~b | c << 2`,
+`a ^= b`, `a == b`. `b[i]` is the bit's value, the int 0 or 1, and a bit
+has no address. A place past the last bit stops the program.
+`test/ccllib/bitset.c` is the example.
 
 `format`, `print`, `println` and `clone` are global macros, there in every
 program without an include (`library/ccl_format.pl`). The format string

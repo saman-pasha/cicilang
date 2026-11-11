@@ -1,0 +1,1 @@
+the operator |= of an element of bitset_8 is not defined: v[i] is a value there, and v[i] = x writes one

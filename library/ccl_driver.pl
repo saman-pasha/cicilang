@@ -287,6 +287,8 @@ dr_diag(F, ownership(assign_to_const, _, const_method(M)), where(_, line(L))) :-
 dr_diag(F, ownership(Kind, N, Form), where(Fn, line(L))) :- !, dr_kind(Kind, Text), dr_error(F, L, [Text, ' ''', N, ''' in ', Form, ' (function ', Fn, ')']).
 dr_diag(F, not_lowered(deleted_call(K, N, Why)), where(_, line(L))) :- !, dr_deleted_text(K, N, T0),   % A CALL OF A DELETED FUNCTION (0.257), in clang's words, its reason after
     ( Why == none -> T = T0 ; atomic_list_concat([T0, ': ', Why], T) ), dr_error(F, L, [T]).
+dr_diag(F, not_lowered(no_conversion(From, To)), where(_, line(L))) :- !, dr_error(F, L, ['no conversion from ''', From, ''' to ''', To, '''']).   % A RECORD WHERE ANOTHER TYPE IS NEEDED (0.286, ir_no_conversion/2): the program's error, no form that is not done
+dr_diag(F, not_lowered(unary_operand(T)), where(_, line(L))) :- !, dr_error(F, L, ['invalid argument type ''', T, ''' to unary expression']).   % a unary `-' or `~' over a record, in clang's words (0.286, ir_unary_operand/2)
 dr_diag(F, not_lowered(What), where(Fn, line(L))) :- !, dr_error(F, L, ['not lowered yet: ', What, ' (function ', Fn, ')']).
 dr_diag(F, compile_failed(Msg), _) :- !, dr_error(F, 0, ['LLVM: ', Msg]).
 dr_diag(F, unknown_target(T), _) :- !, dr_error(F, 0, ['unknown target triple \'', T, '\'']).

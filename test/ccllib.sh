@@ -24,7 +24,9 @@
 # place that a new entry of a map ended) in a child of its own, and a line says for each whether abort stopped it; C++
 # throws there, or says nothing of what follows. tree_rules.c: the rules of the tree of <set.pl> and <map.pl>, read
 # from the instance's own fields over a walk of chance; table_rules.c (0.283): the rules of the hash table of
-# <unordered_set.pl> and <unordered_map.pl>, read so too.
+# <unordered_set.pl> and <unordered_map.pl>, read so too; bitset_rules.c (0.286): the rules of <bitset.pl>'s set of
+# bits, held to a model of a byte a bit at the counts where a rule can break, the bits of its last word past the count
+# read in the instance's own words.
 #
 # THE COSTS, a line a run, are a record and no check: the build of the program (the best of CCLLIB_REPEAT: its seconds
 # and the megabytes of its largest process), the IR's types, functions and lines, the object's bytes, and the longer
@@ -141,7 +143,7 @@ if ls "$T"/safe/*.c > /dev/null 2>&1; then
 fi
 nalone=0
 if ls "$T"/alone/*.c > /dev/null 2>&1; then
-  echo "-- and the programs that stand alone, with no twin (test/ccllib/alone): what stops a ccllib program, and the rules of the tree and of the hash table, as C and as C++"
+  echo "-- and the programs that stand alone, with no twin (test/ccllib/alone): what stops a ccllib program, and the rules of the tree, of the hash table and of the bitset, as C and as C++"
   for src in "$T"/alone/*.c; do
     n=$(basename "$src" .c); nalone=$((nalone + 1))
     for how in c cpp; do

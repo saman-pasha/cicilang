@@ -14,4 +14,5 @@ unordered_set: a place after a reserve that makes a new table 1, after one that 
 unordered_set: a place after inserts of elements that are there and erases of ones that are not 0
 unordered_map: at of no key 1, a place after a new key 1, next of the end 1; an unordered_multimap's place after a second value of its key 1
 unordered_map: a place after writes to keys that are there and erases of keys that are not 0
+bitset: test 1, [] 1, a bit written 1, set 1 and 1, reset 1, flip 1; to_ullong of a bit past its width 1, to_ulong 1; a text with a letter 1, with one past the bits taken 1; in its bounds 0
 exit 0

@@ -663,6 +663,11 @@ k157 :- check('in C an instance whose type macro defines no _of is not made of a
     ( op_refused('born_no_of.c', 4, 'a pt_double is not made of a value of the type int: its type macro defines no pt_double_of'),
       op_refused('born_assign.c', 5, 'a pt_double is not made of a value of the type int: its type macro defines no pt_double_of') )).
 
+%% THE ADDRESS OF AN ELEMENT (0.286): operators.c's `&r[2]' over a place, op_item_addr.c's `&b[1]' over a value
+k158 :- check('the address of an element that [] gives as a place is the place\'s, and the address of one that [] gives as a value is refused at its line by name',
+    ( fn_body('run/operators.c', main, B), sub_t(var(q, _, addr(deref(call(id(F), [addr(id(r)), int(2)])))), B), F == ring_int_4_index,
+      op_refused('op_item_addr.c', 7, 'the address of an element of bits_12 is not taken: v[i] is a value there, with no place of its own') )).
+
 k110 :- check('a type macro that fails, two instances that one name names, and a typed call of a macro with no typed form are refused at the use',
     ( c('tmacro_fail.c', P1), c('tmacro.pl', M), catch(cicilang_ast(P1, _), error(E1, here(P1, 3, in_macro(type_none, M))), true), E1 == macro_failed(none, [base([], [int])]),
       c('tmacro_same.c', P2), catch(cicilang_ast(P2, _), error(macro_error(pair, _, error(ctext_error(T2), _)), here(P2, 7, _)), true),
@@ -963,6 +968,8 @@ t_checks :-
     k155,
     k156,
     k157,
+    section('the address of an element: a place\'s is taken, a value\'s refused (0.286)'),
+    k158,
     section('the preprocessor, in cocolog: a header raw cannot take'),
     k83,
     section('the lexer, native: ccl_lex_native/6 token for token with the DCG'),

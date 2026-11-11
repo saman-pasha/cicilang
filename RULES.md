@@ -711,12 +711,13 @@ that changes a rule edits the rule here, in its topic, and writes its entry in `
   runs, M refused, K alone)`. (0.274, 0.281)
 - **THE PROGRAMS THAT STAND ALONE** (0.281): each `test/ccllib/alone/NAME.c` has no twin over `std::`, since it asks
   what C++ does not say; `bin/cicilang` builds it as C and `bin/cicilang++` as C++, and both print `NAME.expect`.
-  `stops.c` is WHAT STOPS A CCLLIB PROGRAM, for every module: 53 cases -- an index past the end, the front of an empty
+  `stops.c` is WHAT STOPS A CCLLIB PROGRAM, for every module: 65 cases -- an index past the end, the front of an empty
   container, a place that is no element's, a place that a new entry of a tree or of a hash table ended, a place after
-  `reserve` and after `rehash` --, each in a child of its own (`fork`), and a line says for each whether abort stopped
-  it. 48 are stopped; the 5 that stay in their bounds are not: a tree's place over 4000 inserts that find their keys and
-  4000 erases that find none among them, and a hash table's place over such calls AT EACH SIZE of the table from 1 to
-  4000 -- a table stands at its limit, where one entry more makes it again, at some sizes only, and the first form of
+  `reserve` and after `rehash`, a bit past a bitset's last one, a text of a bitset with a letter --, each in a child of
+  its own (`fork`), and a line says for each whether abort stopped it. 59 are stopped; the 6 that stay in their bounds
+  are not: a bitset's last bit, read and written each way (0.286), a tree's place over 4000 inserts that find their keys
+  and 4000 erases that find none among them, and a hash table's place over such calls AT EACH SIZE of the table from 1
+  to 4000 -- a table stands at its limit, where one entry more makes it again, at some sizes only, and the first form of
   the two cases, over a table of 4000 entries, passed a table that is made again before it looks for the key (0.283).
   The child takes abort's signal and leaves with a status of its own (77), so no core is written and no crash is
   reported, and a stop by abort is told from a fault. A module's step adds its cases. `tree_rules.c` is THE RULES OF THE
@@ -738,7 +739,13 @@ that changes a rule edits the rule here, in its topic, and writes its entry in `
   number is under its key's count`, and the two programs); a table made again too late (`NOT HELD: three slots of four
   at most hold an entry or a mark`: the rules program alone sees it, since such a table stays right and gets slow); a
   table made again before it looks for the key (the stop program's two cases at each size, and the walks of chance,
-  which use a place after the calls that change nothing at EVERY step). (0.281, 0.283)
+  which use a place after the calls that change nothing at EVERY step). `bitset_rules.c` (0.286) is THE RULES OF THE
+  BITSET of `<bitset.pl>`: a walk of chance for each of nine counts of bits at which a rule can break -- 1, 12, 63, 64,
+  65, 70, 128, 129 and 200 --, the set held after each step to a model of a byte a bit: each bit by `test` and by `[]`,
+  `count`, `any`, `none` and `all`, `to_ullong` and `to_ulong` where no bit stands past their width, and the bits of the
+  last word past the count, which the program reads in the instance's own words. They hold at 68,009 checks. NINETEEN
+  COPIES OF THE MODULE BROKEN ON PURPOSE, a rule each, are each reported by a program of the gate (the section of
+  `bitset.pl`). (0.281, 0.283, 0.286)
 - **THE FIRST PROOF AFTER PHASE 0** (0.273; `CCLLIB.md`'s Order): `test/ccllib/first.c` over its macro file `first.pl`
   -- `vector<T>` with `push`, `at`, `len` and `sort`: a type macro's instance (0.261), its literal's `from` (0.263), its
   drop (0.262), all of it C text (0.260) -- built as C and as C++, and `first.cpp`, the same program over `std::vector`
@@ -2684,6 +2691,14 @@ that changes a rule edits the rule here, in its topic, and writes its entry in `
   born in a function that is called over a stack of other bytes, in `main` and in a `for`, made of a number and of a
   text; a box that has a drop -- prints what clang's build of its hand expansion prints, as C and, by the C++ gate, as
   C++, and frees every block. Over the tree of 0.284 the mask was born `ffffffffffffffff`. Reader 184. (0.285)
+- **THE ADDRESS OF AN ELEMENT THAT `[]` GIVES AS A VALUE IS REFUSED BY NAME** (0.286), in C and in C++: `&b[i]` over an
+  instance whose `[]` is its `_item` was the address of the call's result, a temporary that held the element's value --
+  `get(&b[1])` over a set of bits built and printed the bit, and a write through such a pointer could not reach the bit,
+  with no message. The reader refuses it after the operand of a unary `&` (`ccl_iop_address/1`: a call of `<name>_item`
+  with two arguments, for the name of an instance of the unit): `the address of an element of bitset_8 is not taken:
+  v[i] is a value there, with no place of its own`. The address of an element that `[]` gives as a place (`_index`) is
+  the place's, a borrow tied to the object, as before. Reader `k158`, over `test/c/run/operators.c`'s `&r[2]` and the
+  refusal `test/c/op_item_addr.c`; `test/ccllib/safe/bitset_bit_address.c` as C and as C++. Reader 185. (0.286)
 
 ## The C++ reader
 
@@ -4370,7 +4385,7 @@ unless a path is given. (0.33, 0.41, 0.79, 0.82, 0.223)
   LLVM as `sext i32 0 to [2 x %struct.P]` -- `{0}` is every aggregate's zero in C --, a static's flat list over such a
   member was `not lowered yet: item(declaration(g5))`, and a flat list over a member of arrays, `struct U { int m[2][2];
   int k; } u = {1, 2, 3, 4, 5};`, was `not lowered yet: initializer(2, ...)`: the member took two of the items, and
-  three were left for the one member after it. The rule of an instance's birth met it: `array<point, 2> p;` is `= {0}`
+  three were left for the one member after it. The rule of an instance's birth met it: `array<point, 2> ps;` is `= {0}`
   now. `test/c/run/elideagg.c`, a local's and a static's, against clang's output. Lowering 157. (0.91, 0.110, 0.164,
   0.285)
 - `return { a, b }` builds the RESULT type's object: through its constructor, else member by member where a member
@@ -9881,6 +9896,59 @@ in the first topic (The ccllib gate).
   against 1.53 s in 86 MB -- a table's peak is its last growth, the old buffer beside the new one. The C builds take the
   twins' time or less, 0.57 s and 0.63 s against 0.61 s and 1.25 s, and cicilang++'s take 1.76 s and 1.78 s. (0.283)
 
+### bitset.pl
+
+- **`bitset<N>` IS A STRUCT OF WORDS OF 64 BITS, A VALUE WITH NO HEAP AND NO DROP**: the instance `bitset_N` of
+  `<bitset.pl>` holds `(N + 63) / 64` words (`type_bitset/3`; the texts by `ccllib_bitset_fn/2`, their holes the name,
+  the count and the count of the words, `ccllib_bitset_holes/3`). Its object is a plain value, as an array's: `b := a`
+  and `f(a)` copy, and autodrop has nothing to do. An object declared with no initializer has no bit set (an instance's
+  birth, 0.285); `bitset<12> b = 0x0f0;` makes one of a number, cut to its 12 bits (`_of`), and `bitset<12> c = "1010";`
+  one of a text of 0 and 1, whose LAST character is the bit 0 and whose first N characters are taken, as C++'s
+  constructor reads it (`_of_ptr_char`, and `_of_ptr_const_char` for C++'s literal, over the inner `_text`). The surface
+  of `std::bitset`, 32 functions that a program calls and 2 inner ones, each made at its first use: `size`, `count`,
+  `any`, `none`, `all`, `test`; `b[i]`, the bit's value, and `b[i] = x` (`_item`, `_set_item`: the operators' part 2);
+  `set(b)`, `set(b, i)` and `set(b, i, x)`, `reset(b)` and `reset(b, i)`, `flip(b)` and `flip(b, i)`, told by the count
+  of their arguments (`_set`, `_set2`, `_set3` ...); `to_ulong`, `to_ullong`; `& | ^ ~ << >>` by value (`_and`, `_or`,
+  `_xor`, `_compl`, `_shl`, `_shr`), so that `a & ~b | c << 2` chains; `==` and `!=` (`_eq`); `&= |= ^= <<= >>=`, which
+  change their object in its place. (0.286)
+- **THE BITS OF THE LAST WORD PAST THE COUNT ARE ZERO AFTER EVERY FUNCTION** (the inner `_trim`), which `count` (a
+  population count a word), `any`, `all`, `==` and `to_ullong` stand on. The five that can set such a bit trim: a shift
+  left, `~`, a flip of all, a set of all, a set made of a number. A SHIFT goes by whole words, `n / 64`, and then by the
+  bits of each word and of its neighbour, `n % 64`; a shift of a word by 64 is no shift of C's, so the neighbour is
+  taken only where `n % 64` is not 0. A shift by the count of the bits or more leaves no bit. (0.286)
+- WHAT DIFFERS FROM C++: `test(b, i)`, `b[i]`, `b[i] = x`, `set(b, i)`, `reset(b, i)` and `flip(b, i)` stop the program
+  (`abort`) at a place past the last bit, where C++'s `test`, `set`, `reset` and `flip` throw and its `[]` is undefined;
+  `to_ulong` and `to_ullong` stop it where a bit past the result's width is set, and a text where a character is no 0
+  and no 1 -- one past the characters taken too --, where C++ throws at each. `b[i]` is the int 0 or 1 and no reference
+  to the bit: `b[i] |= x` and `&b[i]` are refused by name -- `flip(b, i)` and `set(b, i, x)` are the calls --, and
+  `~b[i]` is C's `~` of the number, where C++'s is the other bit, which `!b[i]` gives here. `set`, `reset` and `flip`
+  give nothing back, where C++'s give the set, so their calls do not chain. BOTH OPERANDS OF AN OPERATOR ARE SETS OF ONE
+  COUNT: a set of another count is refused, as in C++, and a number too (`b == 5`, `b &= 5`), which C++ takes through
+  its constructor -- `no conversion from 'int' to 'bitset_12'`; `bitset<12> five = 5;` makes the set first. N is one at
+  least (`a bitset has one bit at least`), and a type in its place is refused (`a bitset takes the count of its bits, a
+  number`). There is no `to_string`, since ccllib's string comes later, no hash and no stream operator; a list literal
+  makes none, since a literal's slots have the type of the instance's first argument; there is no `<`, as in C++. Nine
+  programs of `test/ccllib/safe/`, as C and as C++: `bitset_literal.c`, `bitset_of_none.c`, `bitset_of_type.c`,
+  `bitset_no_lt.c`, `bitset_bit_assign.c`, `bitset_bit_address.c`, `bitset_no_to_string.c`, `bitset_sizes.c`,
+  `bitset_number.c`. (0.286)
+- **EACH RULE OF THE MODULE HAS A BROKEN TEXT OF ITS OWN** (the rule of 0.283): nineteen copies of `bitset.pl`, each
+  broken in one place, and each is reported. By `test/ccllib/alone/bitset_rules.c`, which names the rule (`NOT HELD for
+  65 bits: == sees each bit`): `~`, a shift left, a set made of a number, a set of all and a flip of all that leave the
+  bits past the count; a shift left and a shift right that take the neighbour word where the count of places is a
+  multiple of 64; a shift right that takes the wrong neighbour; `==` that looks at the first word only; a text that
+  gives its LAST characters where it is longer than the set, and one whose first character is the bit 0. By a case of
+  `stops.c` that is not stopped: a text whose characters are not looked at, or not past those taken; `test`, `[]`, a
+  bit's write and a flip with no bound; `to_ullong` that gives the first word whatever the others hold. A bound one too
+  small stops the case that stays in its bounds. The first form of the rules program held `==` to the second set of
+  chance only: it reported the copy whose `==` looks at one word with each of eight seeds, but at 70 or at 128 bits and
+  never at 65, where one bit stands past the first word; the check against a copy that differs in one bit of chance
+  reports it at 65 bits. (0.286)
+- `test/ccllib/bitset.c`, the whole surface over sets of 12, 64, 70 and 200 bits -- one word, a full word, two words
+  whose top one holds 6 bits, four words --, and its twin `bitset.cpp` over `std::bitset`; the count run makes ten
+  million steps of chance over three sets of 4096 bits. Over libc++ 22 the unit holds 106 functions for its five
+  instances in 74 KB where the twin's holds 488 in 326 KB, and the run takes 0.35 s as C and 0.32 s as C++ against 0.59
+  s, each in under 4 MB. The C build takes 0.46 s against the twin's 0.53 s, and cicilang++'s 1.04 s. (0.286)
+
 ## The safe part
 
 ### The check in the build
@@ -10652,6 +10720,24 @@ in the first topic (The ccllib gate).
   scalar rules. (0.61, 0.72, 0.84, 0.99, 0.108, 0.167)
 - The scalar rules first convert to `bool` or `_Bool` (`ir_to_bool/4`): `icmp ne`, `fcmp une`, or a member-function
   pointer's `ptr` against null, then `zext` to `i8`. `bool` and `char8_t` are `i8`. (0.32, 0.108)
+- **A RECORD WHERE ANOTHER TYPE IS NEEDED HAS NO CONVERSION, AND IS REFUSED BY NAME** (0.286; C17 6.5.16.1/1, 6.5.2.2/7,
+  6.8.6.4/1). `a = b` over two structs of two types and `struct A a = b;` went to the integer conversions of the scalar
+  rules (`sext %struct.B %t9 to %struct.A`), and a struct of another type handed to a struct parameter or given back as
+  a struct result went with no conversion at all (`store %struct.A %t13` over a value of `%struct.B`): LLVM's parser
+  refused each text in its own words, with no line of the program. A record's LLVM type is a named one (`ir_named_ll/1`,
+  `%struct.A`). The scalar rules of `ir_convert/6` refuse a conversion between a named type and another type, after the
+  case of one type on both sides; an argument (`ir_args_/5`) and a `return`'s two places with a record's ABI refuse a
+  value of another named type, an integer or a floating number (`ir_record_mismatch/2`), where they stored the value as
+  it came. `ir_no_conversion/2` raises `not_lowered(no_conversion(From, To))`, the types spelled as C spells them
+  (`ck_c_type_text/2`), a struct that a typedef of its own tag names by that name -- an instance's `bitset_12`, and
+  every class in C++ (`ir_type_text/2`) --, and the driver prints the program's error with no `not lowered yet`
+  (`dr_diag/3`): `conv.c:4: error: no conversion from 'struct B' to 'struct A'`, `no conversion from 'int' to 'struct
+  A'`, `no conversion from 'struct A' to 'long'`. Two instances of one type macro are two types: `a & b` over a
+  `bitset<8>` and a `bitset<12>` met it, and `b == 5` over a bitset is refused by the same words. A UNARY `-` OR `~`
+  OVER A RECORD (C17 6.5.3.3/1) is `invalid argument type 'struct P' to unary expression`, clang's words
+  (`ir_unary_operand/2`; it was `sub nsw %struct.P 0, ...`). A valid program changes in nothing: each such text was one
+  that LLVM refused. The driver gate holds the eight forms in C, each at its line, and one in C++;
+  `test/ccllib/safe/bitset_sizes.c` and `bitset_number.c` as C and as C++. Lowering 158. (0.286)
 
 ### Control flow and defer
 
@@ -13850,24 +13936,31 @@ Declarations topic of the C++ reader).
 - OPERATORS ON INSTANCES, THEIR LIMITS (0.266; `CCLLIB.md`'s phase 0.9): `!a`, `*it`, `++it` and `it++` over an instance
   are no calls (`-a`, `~a`, the compound assignments and `% & | ^` are, since 0.284); `>` and `<=` take no function
   named with the word of their right operand, since their `_lt` takes it first; a compound assignment of an element that
-  `[]` gives as a value is refused (`b[i] |= 1`), and such an element has no address; the left operand decides, so `2 *
-  a` is refused where C++ finds a free `operator*(double, pt)`; the word of `<<`'s operand is its exact type's, so a
-  `const char *` asks `_shl_ptr_const_char` beside a literal's `_shl_ptr_char`; a result tied to a struct with own
-  fields is a borrow of one of them, so a hand free of another does not end it, as none did before 0.266. In C++ (0.270)
-  the type macro's function goes first where it is defined: a program that defines its own `operator==` over an instance
-  whose macro defines `_eq` calls the macro's.
+  `[]` gives as a value is refused (`b[i] |= 1`), and so is its address (`&b[i]`, since 0.286); the left operand
+  decides, so `2 * a` is refused where C++ finds a free `operator*(double, pt)`; the word of `<<`'s operand is its exact
+  type's, so a `const char *` asks `_shl_ptr_const_char` beside a literal's `_shl_ptr_char`; a result tied to a struct
+  with own fields is a borrow of one of them, so a hand free of another does not end it, as none did before 0.266. In
+  C++ (0.270) the type macro's function goes first where it is defined: a program that defines its own `operator==` over
+  an instance whose macro defines `_eq` calls the macro's.
 - AN INSTANCE'S BIRTH, ITS LIMITS (0.285): an array of an instance's objects, a member of the program's own struct and
   an object that `malloc` gave are not given zero, where C++ makes each element and each member empty; a value of
   another type makes an instance in a block's declaration, a `for`'s and an assignment only -- an argument of a call and
   a `return` are not converted, where C++ converts each by a constructor that is not explicit --, and at file scope its
   `_of` is no constant; `T a(x)` and `T a{x}` are C++'s own; an assignment over an object that has a drop drops nothing
   first (autodrop's limits).
-- IN C A UNARY `-` OR `~` OVER A PLAIN STRUCT REACHES LLVM (found at 0.284, beside the operators over instances):
-  `struct P q = -p;` is lowered as `sub nsw %struct.P 0, ...`, and the embedded LLVM refuses the IR in its parser's
-  words (`integer constant must have integer type`), where clang says `invalid argument type 'struct P' to unary
-  expression`; a compound assignment and a binary operator over two structs are `not lowered yet: type(unknown)`, where
-  clang says `invalid operands to binary expression`. The program is refused either way, by no words of this compiler's:
-  the check or the lowering is to refuse each by name.
+- A BITSET, ITS LIMITS (0.286): no `to_string` (ccllib's string comes later), no hash and no stream operator; the text
+  that makes one takes no place, no count and no other characters than 0 and 1, which C++'s constructor takes; a number
+  is no operand of its operators (`b == 5`, `b &= 5`), which C++ takes through its constructor; `set`, `reset` and
+  `flip` give nothing back; `~b[i]` is C's `~` of the int 0 or 1, where C++'s is the other bit; a list literal makes
+  none, since a literal's slots have the type of the instance's first argument, which is the count here.
+- THE ADDRESS OF A CALL'S RESULT IS TAKEN, IN C AND IN C++ (found at 0.286): `get(&f())` over `int f(void)` builds and
+  runs -- the lowering gives the address of a temporary that holds the result --, where clang and clang++ say `cannot
+  take the address of an rvalue of type 'int'`. The address of an element that an instance's `[]` gives as a value is
+  refused by name (0.286); the general form is not.
+- IN C A BINARY OPERATOR OVER TWO PLAIN STRUCTS IS REFUSED BY NO WORDS OF C'S (found at 0.284, beside the operators over
+  instances): `p + q` and `p += q` over two structs are `not lowered yet: type(unknown)`, where clang says `invalid
+  operands to binary expression`. A unary `-` or `~` over one reached LLVM until 0.286, and is refused in clang's words
+  now; a struct where another type is needed is refused by name (the lowering's values).
 - TWO MACRO FILES THAT DEFINE ONE PREDICATE, IN ONE PROCESS (found at 0.263): a macro file's predicates are the
   process's, consulted once, so a second file that defines a name the first defines is not its own there -- the reader
   gate and the compile gate read every fixture in one process, and `literal.pl`'s own `type_vector/3` was `tvector.pl`'s

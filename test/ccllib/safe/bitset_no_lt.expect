@@ -1,0 +1,1 @@
+the operator < of bitset_8 is not defined: its type macro defines no bitset_8_lt

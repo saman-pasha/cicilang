@@ -12,8 +12,8 @@ the fixture that gates it, and why. The bullet ends with the version that made t
 edits the rule in `RULES.md`, in its topic, and writes its entry in `HISTORY.md`. Read the topic of `RULES.md` that
 covers the code before the code is changed.
 
-At 0.285 the versions are: the module 0.285 (`ccl_p_version` in `module/cicilang.cicili`, `bin/cicilang --version`),
-the reader 184 (`ccl_reader_version/1`, `library/ccl_syntax.pl`) and the lowering 157 (`ccl_lowering_version/1`,
+At 0.286 the versions are: the module 0.286 (`ccl_p_version` in `module/cicilang.cicili`, `bin/cicilang --version`),
+the reader 185 (`ccl_reader_version/1`, `library/ccl_syntax.pl`) and the lowering 158 (`ccl_lowering_version/1`,
 `library/ccl_ir.pl`).
 
 Build and prove, always in this order (or all of it, `sh test/gates.sh`):
@@ -378,6 +378,8 @@ library/ccllib/             ccllib, the standard library of cicilang's C (CCLLIB
   table.pl                    the hash table of the four, its slots in one own buffer (0.283): the two modules load
                               it by a directive, and no program includes it; a place ends as a tree's does, and at
                               rehash and reserve
+  bitset.pl, bitset.pl.h      std::bitset (0.286): a struct of words of 64 bits, a value with no heap and no drop;
+                              the bits of its last word past the count are zero
   ccllib.pl                   what two modules need, written once (0.275): a module loads it by a directive, and no
                               program includes it; the refusal of an element with a pointer, the lists' sort (0.277),
                               the lines of a text by their conditions (0.283)
@@ -438,7 +440,7 @@ test/c/                     the reader's fixtures: hello.c, rich.c, lexer.c, mac
                             over run/lazy.pl, a name that an instance has not (0.274); op_assign.c, op_unary.c,
                             op_bit.c, op_item.c and op_item_set.c, the refusals of the operators' part 2 (0.284);
                             born_no_of.c and born_assign.c, an instance that is made of no value of another type
-                            (0.285)
+                            (0.285); op_item_addr.c, the address of an element that [] gives as a value (0.286)
 test/c/inc/                 the -I fixture: uses_box.c over box.h
 test/c/link/                two files linked into one program; the ABI against clang-built code (abi_main.c,
                             abi_helper.c), variadic calls (va_main.c, va_func.c, va.h), the decimal ABI against gcc,
@@ -483,13 +485,14 @@ test/ccllib/                the three runs' programs: NAME.c, a ccllib program; 
                             (0.276); list.c, of <list.pl> (0.277); forward_list.c, of <forward_list.pl> (0.278);
                             stack.c and queue.c, of <stack.pl> and <queue.pl> (0.280); set.c and map.c, of
                             <set.pl> and <map.pl> (0.281); unordered_set.c and unordered_map.c, of
-                            <unordered_set.pl> and <unordered_map.pl> (0.283)
+                            <unordered_set.pl> and <unordered_map.pl> (0.283); bitset.c, of <bitset.pl> (0.286)
 test/ccllib/safe/           ccllib programs that the safe part refuses, as C and as C++: NAME.c, NAME.expect, and
                             NAME.expect.cpp where C++ has words of its own (0.274)
 test/ccllib/alone/          ccllib programs with no twin, built as C and as C++ (0.281): NAME.c, NAME.expect;
                             stops.c, what stops a ccllib program, each case in a child of its own; tree_rules.c,
                             the rules of the tree of a set and a map, read from the instance's own fields;
-                            table_rules.c, the rules of the hash table of the unordered containers (0.283)
+                            table_rules.c, the rules of the hash table of the unordered containers (0.283);
+                            bitset_rules.c, the rules of a bitset, held to a model of a byte a bit (0.286)
 
 proof/forty2.ll, run.sh     M0: hand-written IR through clang to a binary that prints a line and exits 42
 proof/forty2                made by proof/run.sh, never committed

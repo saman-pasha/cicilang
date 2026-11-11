@@ -2,9 +2,9 @@
    front of an empty one, a place that is no element's or that a new entry of the map ended -- where C++ throws or is
    undefined. Each runs in a child of its own, and a line says for each whether abort stopped it: 1, and 0 for the
    cases that stay in their bounds, which no stop may meet (a tree's place over 4000 inserts that find their keys and
-   erases that find none; a hash table's place over such calls at each of its sizes up to 4000, 0.283). cicilang
-   builds this file as C and cicilang++ as C++; both print stops.expect. It has no twin: C++ throws at some of these,
-   and says nothing of what follows the others */
+   erases that find none; a hash table's place over such calls at each of its sizes up to 4000, 0.283; a bitset's last
+   bit, read and written each way, 0.286). cicilang builds this file as C and cicilang++ as C++; both print
+   stops.expect. It has no twin: C++ throws at some of these, and says nothing of what follows the others */
 #include <signal.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -21,6 +21,7 @@
 #include <map.pl>
 #include <unordered_set.pl>
 #include <unordered_map.pl>
+#include <bitset.pl>
 /* the child takes abort's signal and leaves with a status of its own: so no core is written and no crash is reported,
    and a stop by abort is told from a fault */
 static void on_abort(int sig) { (void)sig; _exit(77); }
@@ -180,6 +181,32 @@ static void umultimap_stale(void) {
     insert(m, 1, 11);
     printf("%d", value(m, p));
 }
+static void bitset_test(void) { bitset<12> b; printf("%d", test(b, 12)); }
+static void bitset_item(void) { bitset<70> b; printf("%d", b[70]); }
+static void bitset_write(void) { bitset<70> b; b[70] = 1; }
+static void bitset_set(void) { bitset<12> b; set(b, 12); }
+static void bitset_set_to(void) { bitset<64> b; set(b, 64, 0); }
+static void bitset_reset(void) { bitset<12> b; reset(b, 12); }
+static void bitset_flip(void) { bitset<64> b; flip(b, 64); }
+static void bitset_wide(void) { bitset<70> b; set(b, 64); printf("%llu", to_ullong(b)); }
+static void bitset_wide_long(void) { bitset<200> b; set(b, 199); printf("%lu", to_ulong(b)); }
+static void bitset_text(void) { bitset<12> b = "10x1"; printf("%d", b[0]); }
+static void bitset_text_past(void) { bitset<4> b = "10102"; printf("%d", b[0]); }
+/* in its bounds: the last bit read and written each way, and a number of a set whose top bit of the word is set */
+static void bitset_ok(void) {
+    bitset<70> b = "101";
+    bitset<64> w;
+    b[69] = 1;
+    flip(b, 69);
+    set(b, 69);
+    set(b, 69, 0);
+    reset(b, 69);
+    set(b, 63);
+    set(w, 63);
+    flip(w, 63);
+    w[63] = 1;
+    printf("%d %d %llu %lu %llu", test(b, 69), b[69], to_ullong(b), to_ulong(b), to_ullong(w));
+}
 int main(void) {
     printf("vector: at %d, index %d, front %d, pop_back %d, ", stopped(vector_at), stopped(vector_index),
            stopped(vector_front), stopped(vector_pop));
@@ -218,5 +245,11 @@ int main(void) {
     printf("an unordered_multimap's place after a second value of its key %d\n", stopped(umultimap_stale));
     printf("unordered_map: a place after writes to keys that are there and erases of keys that are not %d\n",
            stopped(umap_kept));
+    printf("bitset: test %d, [] %d, a bit written %d, set %d and %d, reset %d, flip %d; ", stopped(bitset_test),
+           stopped(bitset_item), stopped(bitset_write), stopped(bitset_set), stopped(bitset_set_to),
+           stopped(bitset_reset), stopped(bitset_flip));
+    printf("to_ullong of a bit past its width %d, to_ulong %d; a text with a letter %d, with one past the bits taken ",
+           stopped(bitset_wide), stopped(bitset_wide_long), stopped(bitset_text));
+    printf("%d; in its bounds %d\n", stopped(bitset_text_past), stopped(bitset_ok));
     return 0;
 }
