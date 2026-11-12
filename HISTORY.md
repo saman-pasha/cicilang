@@ -293,6 +293,7 @@ One row per step, in version order: the step's title, what it did and its gate n
 | 0.296 | the chain over the finished phase 1a of ccllib | the chain over 0.295's pushed commit, its numbers: over libc++ 22 and 21 the library read, the C++ gate and the ccllib gate, and over libc++ 18 all eleven gates, the toolchain check strict, GREEN; no code changes | the chain over libc++ 22, 21 and 18 over fresh HOMEs; no CI job, by the owner's rule of 0.271; a commit and a push |
 | 0.297 | the findings 15 (extended), 20 and 21 of a program over 0.284 | a row of a static array and an array member of a static object are static storage; what holds an instance's object is born zero -- a struct, an array, a C++ class, a constructor's member that no initializer names; a name that a block declares again hides the outer one's states; a fill of an object with owners writes over them; three holes and four false refusals closed | the reductions and 43 probes beside them, as C and as C++; the nets; no chain, by the owner's rule of 0.271; a commit and a push |
 | 0.298 | the findings 22 to 28 of a program over 0.284 | the program's own header read in its includer's scope where the unit has a macro file of its own, read again where its raw read is not its text, under the includer's macros that it names, its own includes under their configurations, a library header without them; the own header's directives run in the file's run, its #undef, #error and #warning met; a name of two kinds refused; a refusal in a header the build's; a long literal joined once and its IR text made in one walk; an array of wide characters at file scope | the reductions and 72 probes beside them, as C and as C++; a review that found a regression of the first form; the nets; no chain, by the owner's rule of 0.271; a commit and a push |
+| 0.299 | the finding 29 of a program over 0.284 | a pointer value that holds no memory the check follows -- a null or anchored plain local's, its sum with an integer, its cast -- is no new memory to a plain slot: `rest = end + 2` after `strtod(s, &end)` builds; an own slot takes an anchored pointer's value as new memory still | the reduction and 45 probes, 32 of them as C and as C++; a review's finding in an own slot; the nets, twice; no chain, by the owner's rule of 0.271; a commit and a push |
 
 ## M5 — the C++ mode
 
@@ -21265,3 +21266,89 @@ rule of 0.271: it runs over a finished task. NO CI JOB RAN.
   HISTORY.md, CLAUDE.md, README.md, CCLLIB.md; `module/cicilang.cicili` (0.298).
 
 The module 0.298, the reader 193 and the lowering 167.
+
+## 0.299 — the finding 29 of a program over 0.284: a pointer that a call wrote through an out-parameter
+
+**0.299: the Ambitious session's finding 29: after `strtod(s, &end)`, `char *rest = end + 2;` was refused, `plain
+pointer not consumed: 'rest'`, though `rest` points into the caller's string and owns nothing. The reduction is run, its
+cause found here and the forms beside it probed, 45 probes, 32 of them as C and as C++. The cause is wider than the
+out-parameter: a pointer value that holds no memory the check follows, copied or moved by an integer, was new memory to
+the check. The lowering goes to 168.**
+
+THE FINDING, AS GIVEN, is `static int tail(const char *s) { char *end = 0; (void)strtod(s, &end); char *rest = end + 2;
+return *rest ? 1 : 0; }` over `tail("12px")`, refused at the return. Its words say the program returns 1; clang's build
+returns 0, since `"12px"` leaves `rest` at the terminator, and so does cicilang's build now.
+
+THE CAUSE. `&end` anywhere in a function makes `end` an anchor at that statement (`ck_anchor_addrs/3`: a local whose
+address is taken is a root of the borrows of its storage), and an anchor's value is a pointer that no rule follows. A
+declaration took a plain copy only of a null local or of one with no state (`ck_plain_copy/2`, 0.99), and never a sum,
+so `end`'s value, copied or moved by an integer, fell to the test of new memory (`ck_fresh_value/1`), and `rest` was a
+loose pointer that the function had to free. A call of a program's own function that does nothing with its `char **`
+gave the same refusal, and so did `char *rest = end + 1` over a null `end` with no call at all.
+
+THE FORMS BESIDE IT, each against clang: a copy `char *rest = end;` after `strtoul`; the sum in a declaration after
+`strtod` and `strtol`, in an assignment after `strtof`, an index of the sum; a walk `char *p = end; while (*p == ' ')
+p++;` after `strtold`; a store of the sum into a local struct's field, `no owner behind: 'x.p'`; an uninitialized `char
+*end;` handed by its address; a null local's sum; `foo(&end)` over a function that does nothing; and `puts(end + 1)` and
+a `getline` buffer that is freed, which built; and the value stored where it outlives the function, each `no owner
+behind` on 0.298: `g = end + 1` into a global, `*rest = end` in a function that hands strtod's end back through its
+parameter, the same through a plain copy, and `c->at = end` into a parameter's struct. Each builds and prints clang's
+line now, in C and as C++. THE FORMS THAT STAY REFUSED, as on 0.298: the sum of a loose pointer whose memory is never
+freed (`plain pointer not consumed: 'p'`), a copy and a sum of a freed pointer, read; a sum read after its owner's free
+(`use of a borrow after its owner was consumed`); and the address of such a local returned, or stored into a global or a
+field (`a borrow leaves the function`, `a borrow stored where it cannot be followed`). A program's own function that
+writes a borrow or new memory through its out-parameter -- `*out = s + 1`, `*out = malloc(4)` -- is refused in the
+callee by the rules of 0.216 (`a borrow stored where it cannot be followed`, `no owner behind: '*out'`); that is a
+question of its own, left as it is.
+
+THE CHANGE: a pointer value that holds no memory the check follows is no new memory (`ck_plain_value/3`): the value of a
+plain local that holds none -- null or no state, `null` -- or of a pointer local whose address is taken
+(`ck_anchored_pointer/1`), `anchor`, and that value plus or minus an integer, or cast. A plain local declared or
+assigned so is null to the check (an anchored local stays one), and a plain slot of any place takes it
+(`ck_into_plain/6`), as it takes a value that a plain slot held (0.290): the anchored pointer's value is one that the
+check does not follow, as that one is. An own slot takes a value of the first kind as a null (`ck_kind/3`) and an
+anchored pointer's value as new memory, as before. An anchored array's value is a borrow of the array; a value of an
+owner, of a loose pointer or of a borrow is a borrow of what it holds, as before, and a pointer that a free left `none`
+is as it was.
+
+A REVIEW OF THE STEP'S DIFF, WHILE ITS NETS RAN, FOUND A LOSS IN AN OWN SLOT. The first form of the change took an
+anchored pointer's value as a null in every slot (`ck_kind/3`), and an own slot lost a refusal of 0.298: `own char *c =
+line;` after `getline(&line, &n, f)`, never freed, was `owner leaked: 'c'` on 0.298 and was built, and so were the same
+into an own field (`owner leaked: 'b.p'`) and `strtod`'s end, or its sum, into an own local. The nets were stopped after
+the driver gate, GREEN until there. An own slot takes an anchored pointer's value as new memory again, as 0.298 did, and
+`ck_plain_value/3` names the value it met, so that a plain slot takes both kinds and an own slot only the first;
+`test/c/safe/own_of_anchor.c` holds it. A null local's sum into an own local, `own char *c = q + 0` over a null `q`, was
+`owner leaked` on 0.298 and is a null now, as the copy `own char *c = q` has been since 0.99.
+
+THREE ANSWERS CHANGE THE OTHER WAY, AND ARE NOT DONE: a copy of a buffer that `getline` wrote through `&line`, never
+freed, was `plain pointer not consumed: 'c'` on 0.298 and is built now, and so is that copy given to an own local, `char
+*c = line; own char *o = c;` with no free, `owner leaked: 'o'` on 0.298. Each refusal was an accident of the copy: the
+same buffer with no copy, never freed, is built on 0.298 too. And after `strtod(buf, &end)` over the function's own
+`char buf[8]`, `g = end` into a global dangles at the return, and is built; 0.298 refused it, `no owner behind: 'g'`, by
+the accident that refused `g = end` over the caller's string, a right program. A rule that followed what a library
+function writes through its out-parameter -- strtod's end a place in its first argument, getline's buffer new memory --
+would refuse the leaks and this dangle by name, and it would refuse the stores of the caller's string's places where
+they outlive the function too, as 0.216 refuses `*out = s + 1`; it is left for its own step. Memory that a library
+function writes through an out-parameter is not followed (Not done).
+
+THE NETS, over the step's work tree and a fresh HOME a part: the flow gate GREEN with no finding; the reader gate (166
+checks); the compile gate (304: `outparam.c`, `sum_of_loose.c` and `own_of_anchor.c` among them); the driver gate (77);
+the ccllib gate over libc++ 22 (290 checks: 16 programs in three runs, 89 refused and 8 alone); the C++ pool of the 361
+light fixtures of `test/cpp/run` over libc++ 22, 21 and 18 (361, 361 and 361 ok); and the C++ gate's lists by hand (49:
+the run fixtures of `test/c/run` that it builds as C++, `outparam.c` among them, four of `test/cpp/run`, and eighteen
+refusals of `test/c/safe`, `sum_of_loose.c` and `own_of_anchor.c` among them), each GREEN. The nets ran twice: the first
+time over the first form of the change, stopped after the driver gate (above). The compile gate ran a third time, and
+the flow gate a second, after the second nets: `outparam.c` took the stores where the value outlives the function, and a
+comment of `library/ccl_ir.pl` its predicate's new arity. The ccllib gate ran over 22 alone: its C runs read no libc++,
+and its C++ runs read only the tree's wrappers of the C headers, so the C++ pool, which reads each tree's C++ headers,
+ran over 21 and 18 in its place (the owner's question of this step: what the ccllib gate over three trees gives). THE
+CHAIN DID NOT RUN, by the owner's rule of 0.271. NO CI JOB RAN.
+
+- `library/ccl_check.pl`: `ck_plain_value/3`, `ck_pointer_operand/1`, `ck_anchored_pointer/1`, `ck_plain_copy/3` over an
+  anchored pointer, the declaration's plain copy and the assignment to a local over `ck_plain_value/3`, `ck_kind/3` over
+  its first kind, `ck_into_plain/6` over an anchored pointer's value; `library/ccl_ir.pl`: lowering 168.
+- `test/c/run/outparam.c`, the stores where the value outlives the function among its forms;
+  `test/c/safe/sum_of_loose.c` and `own_of_anchor.c`; `test/cpp.sh`'s lists.
+- RULES.md (the safe part's copies, Not done), HISTORY.md, CLAUDE.md; `module/cicilang.cicili` (0.299).
+
+The module 0.299, the reader 193 and the lowering 168.

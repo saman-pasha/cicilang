@@ -1596,7 +1596,7 @@ ck_decls([var(N, T0, Init0)|Vs], St00, St) :-
         ;   ck_expr(Init, St5, St5a),
             (   ck_view_type(T), ck_view_copy_source(Init, St5a, P) -> ck_bind_var(N, P, var(N, Init), St5a, St6)   % A VIEW COPIED borrows what its view sees (0.295)
             ;   ck_borrowing_type(T), ck_borrows_from(Init, St5a, P) -> ck_bind_var(N, P, var(N, Init), St5a, St6)   % a closure of a reference capture is a borrow of the captured local (0.100)
-            ;   ck_is_pointer_type(T), Init = id(P), ck_plain_copy(St5a, P) -> ck_declare(St5a, N, null, St6)   % A POINTER only (0.100): `int x = n' had made x an owner in the null state, and a closure capturing x by value borrowed it                 % a COPY OF A NULL, OR OF A LOCAL WITH NO OWNERSHIP STATE, IS NULL TO THE CHECK (0.99): `int *q = p' with p null was a fresh value, and q `not consumed'
+            ;   ck_is_pointer_type(T), ck_plain_value(St5a, Init, _) -> ck_declare(St5a, N, null, St6)   % A POINTER only (0.100): `int x = n' had made x an owner in the null state, and a closure capturing x by value borrowed it                 % a COPY OF A NULL, OR OF A LOCAL WITH NO OWNERSHIP STATE, IS NULL TO THE CHECK (0.99): `int *q = p' with p null was a fresh value, and q `not consumed'; and its sum with an integer, and of an anchored pointer (0.299, ck_plain_value/3)
             ;   ck_is_pointer_type(T), \+ ck_declared_tie(N, _), ck_static_value(Init) -> ck_static_name(Init, SN), ck_bind_var(N, static(SN), var(N, Init), St5a, St6)   % STATIC STORAGE, a borrow that nothing ends (0.294)
             ;   ck_is_pointer_type(T), \+ ck_declared_tie(N, _), ck_fresh_value(Init) -> ck_declare(St5a, N, loose, St6)
             ;   ck_no_owner_behind(N, T, Init, var(N, Init)), St6 = St5a ) ) ),
@@ -1605,7 +1605,7 @@ ck_decls([var(N, T0, Init0)|Vs], St00, St) :-
 %% what a right-hand side is to a slot: an owner (moved in), a null, a borrow, or a fresh value
 ck_kind(E, _, null) :- ck_null(E), !.
 ck_kind(ccast(_, rref(_, T), E), St, K) :- catch(ccl_resolve_type(T, R), _, fail), ( R = ptr(_, _) ; ccl_is_arith(R) ), !, ck_kind(E, St, K).   % an xvalue cast of a scalar is the object it names (0.201: `std::move(p)' of a plain pointer is `static_cast<T *&&>(p)', cpp_scalar_xvalue/2)
-ck_kind(id(P), St, null) :- ck_plain_copy(St, P), !.                   % a copy of a null pointer, or of a plain local with no state (0.99)
+ck_kind(E, St, null) :- ck_plain_value(St, E, null), !.                % a copy of a null pointer, or of a plain local with no state (0.99), and its sum (0.299); an anchored pointer's value is no null: an own slot takes it as new memory
 ck_kind(move(E), _, fresh) :- ck_own_elem(E, _), !.                  % an element moved out: an owner, complete
 ck_kind(move(E), St, K) :- ck_path(E, P), ck_by_value(E), ck_own_under(St, P, Fs), Fs \== [], !, ck_kind(E, St, K).   % a struct with owners moved whole: the value's kind, the fields going in ck_expr
 ck_kind(move(E), St, K) :- !, ( ck_owner_path(St, E, P) -> K = owner(P) ; ck_moves_library(E) -> ck_kind(E, St, K) ; ck_name(E, N), ck_fail(move_of_non_owner, N, move(E)) ).   % a library class's value: the kind its own form has (ck_moves_library)
@@ -1613,7 +1613,27 @@ ck_kind(E, St, owner(P)) :- ck_owner_path(St, E, P), !.
 ck_kind(E, St, borrow(P)) :- ck_borrows_from(E, St, P), !.
 ck_kind(E, _, borrow(static(N))) :- ck_static_value(E), !, ck_static_name(E, N).   % STATIC STORAGE, a borrow that nothing ends (0.294, ck_static_name/2)
 ck_kind(_, _, fresh).
-ck_plain_copy(St, P) :- atom(P), ( ck_state(St, P, null) -> true ; ck_is_local(P), \+ ck_state(St, P, _) ).
+ck_plain_copy(St, P, How) :- atom(P), ( ck_state(St, P, S) -> ( S == null -> How = null ; S == anchor, ck_anchored_pointer(P), How = anchor ) ; ck_is_local(P), How = null ).
+%% A POINTER VALUE THAT HOLDS NO MEMORY THE CHECK FOLLOWS IS NO NEW MEMORY (0.299; C17 6.5.6/8, the sum points into the
+%% object that its pointer operand points into): the value of a plain local that holds none -- null or no state, How =
+%% null; or a pointer local whose address is taken, `anchor', whose value any write through that address gives
+%% (ck_anchor_addrs/3), How = anchor -- and that value plus or minus an integer, or cast, is no new memory, as a copy of
+%% a null is (0.99): a plain local declared or assigned so is null to the check, and a plain slot takes it. An own slot
+%% takes a value of How = null as a null (ck_kind/3), and an anchored pointer's value as new memory, as before 0.299:
+%% the memory that a library function writes through an out-parameter is not followed, and getline's is new memory.
+%% Why: after `strtod(s, &end)', `char *rest = end + 2;' was fresh memory to the check, `plain pointer not consumed:
+%% 'rest'' at the return, and so was `char *rest = end;', `rest = end + 2' and `char *p = end; while (*p == ' ') p++;'
+%% -- the Ambitious session's finding 29 -- and `char *rest = end + 1' over a null `end' with no call at all. A value of
+%% an owner, of a loose pointer or of a borrow is not this one: each is a borrow of what it holds (ck_borrows_from/3),
+%% and a pointer that a free left `none' stays as it was
+ck_plain_value(St, id(P), How) :- !, ck_plain_copy(St, P, How).
+ck_plain_value(St, bin(Op, A, B), How) :- memberchk(Op, ['+', '-']), !, ( ck_pointer_operand(A) -> ck_plain_value(St, A, How) ; Op == '+', ck_pointer_operand(B) -> ck_plain_value(St, B, How) ).
+ck_plain_value(St, cast(_, E), How) :- !, ck_plain_value(St, E, How).
+ck_plain_value(St, ccast(_, _, E), How) :- ck_plain_value(St, E, How).
+ck_pointer_operand(E) :- catch(ccl_type_of(E, T), _, fail), T \== unknown, ck_is_pointer_type(T).
+%% an anchored local that is a pointer: its value is a pointer that no rule follows (an anchored array's value is a
+%% borrow of the array, ck_borrows_from/3)
+ck_anchored_pointer(P) :- ck_local_type(P, T), ck_is_pointer_type(T).
 ck_name(E, N) :- ( ck_path(E, N) -> true ; N = E ).
 
 %% an own slot -- an owner, an own field (Key), or an untracked own place (none) --
@@ -1647,7 +1667,7 @@ ck_into_plain(Name, R, Form, W, St0, St) :-
                             ;   ck_il_slot(Name) -> ck_expr(R, St0, St)   % AN INITIALIZER LIST'S ARRAY hands its items to the library object, which holds the borrow (ck_lib_handed/4, 0.216): `std::vector<int *> v{p}' over a parameter p was borrow_stored
                             ;   ck_fail(borrow_stored, P, Form) )
     ;   Kind == null -> ck_expr(R, St0, St1), ck_unhold_at(W, St1, St)
-    ;   ( ck_static_value(R) -> true ; ck_loaded_value(R) -> true ; ck_fail(untied, Name, Form) ), ck_expr(R, St0, St1), ck_unhold_at(W, St1, St) ).   % what a plain slot held goes into a plain slot (0.290, ck_loaded_value/1)
+    ;   ( ck_static_value(R) -> true ; ck_loaded_value(R) -> true ; ck_plain_value(St0, R, anchor) -> true ; ck_fail(untied, Name, Form) ), ck_expr(R, St0, St1), ck_unhold_at(W, St1, St) ).   % what a plain slot held goes into a plain slot (0.290, ck_loaded_value/1), and an anchored pointer's value (0.299, ck_plain_value/3)
 ck_il_slot(Name) :- atom(Name), atom_concat('$il', _, Name).
 %% THE ADDRESS OF A LOCAL STORED IN A PLAIN SLOT (0.217): held where the slot is a local's own storage (ck_hold_key/6),
 %% so the local that holds it may not leave with it and dangles with it; `borrow_stored' where the slot outlives the
@@ -2106,6 +2126,7 @@ ck_expr(assign('=', id(N), R), St0, St) :- ( ck_state(St0, N, _) ; ck_is_local(N
     ( ck_state(St2, N, loose) -> ck_fail(unconsumed, N, assign('=', id(N), R)) ; true ),      % overwritten, its memory still nobody's
     (   T \== unknown, ck_borrowing_type(T), ck_borrows_from(R, St1, P) -> ck_rebind(St2, N, borrow(P), St)   % read before the parameter was unbound; a library object a trivial assignment copies (`sv = s', 0.216) as a pointer
     ;   T \== unknown, ck_is_pointer_type(T), ck_static_value(R) -> ck_static_name(R, SN), ck_rebind(St2, N, borrow(static(SN)), St)   % static storage (0.294)
+    ;   T \== unknown, ck_is_pointer_type(T), ck_plain_value(St1, R, _) -> ( ck_state(St2, N, anchor) -> St = St2 ; ck_rebind(St2, N, null, St) )   % a pointer that holds no memory the check follows (0.299, ck_plain_value/3); an anchored local stays one
     ;   T \== unknown, ck_is_pointer_type(T), ck_fresh_value(R) -> ck_rebind(St2, N, loose, St)
     ;   ck_state(St2, N, S), ( S = borrow(_) ; S = dangling(_) ; S == loose ) -> ck_rebind(St2, N, none, St), ( T \== unknown -> ck_no_owner_behind(N, T, R, assign('=', id(N), R)) ; true )
     ;   T \== unknown, \+ ck_state(St2, N, _) -> ck_no_owner_behind(N, T, R, assign('=', id(N), R)), St = St2

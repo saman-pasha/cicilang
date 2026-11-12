@@ -188,11 +188,12 @@ if [ "$got" = "exit 10" ]; then echo "ok   templates.cpp, the reader's fixture (
 # staticrows.c's rows of static arrays, used as pointers, and shadowed.c's names that a block declares again (0.297);
 # ownmacros.c's macros of the program's own headers and of their includer, hdrinst.c's own headers over a type macro's
 # instance with no macro file of their own, widearr.c's arrays of wide characters made of wide literals, longlit.c's long
-# literals in pieces, and ownundef.c's directives of the program's own headers in the file's run (0.298). elemborrow.c is
+# literals in pieces, and ownundef.c's directives of the program's own headers in the file's run (0.298); outparam.c's
+# pointers that a call wrote through an out-parameter, copied, moved and stored (0.299). elemborrow.c is
 # test/cpp/run/elemborrowpp.cpp there (0.272): its plain functions noexcept, since C++'s defer rule refuses a plain
 # struct's live owner across a call that may throw
 echo "-- ccllib in cicilang++: a ccllib run fixture of test/c/run built as C++ prints what its C build prints (CCLLIB.md's phase 0.10)"
-for n in ctext autodrop tvector literal operators operators2 born dropassign typednames contswitch loadedptr mirror unread lazy hdrvec regnames regnames23 condarr statret staticrows shadowed ownmacros hdrinst widearr longlit ownundef; do
+for n in ctext autodrop tvector literal operators operators2 born dropassign typednames contswitch loadedptr mirror unread lazy hdrvec regnames regnames23 condarr statret staticrows shadowed ownmacros hdrinst widearr longlit ownundef outparam; do
   got=$(ccl_capped "$CPP_FIXTURE_SECS" "$ROOT/bin/cicilang++" "$ROOT/test/c/run/$n.c" -o "$D/ccl_$n" && { timeout -s KILL "$CPP_RUN_SECS" "$D/ccl_$n" < /dev/null; echo "exit $?"; })
   if [ "$got" = "$(cat "$ROOT/test/c/run/$n.expect")" ]; then echo "ok   $n.c, built as C++ by cicilang++, prints what its C build prints"
   else echo "FAIL $n.c built as C++ by cicilang++"; echo "$got" | diff "$ROOT/test/c/run/$n.expect" - 2>&1 | head -6 | cut -c1-300 | sed 's/^/     /'; failures=$((failures + 1)); fi
@@ -219,9 +220,10 @@ done
 # have the C words, and test/cpp/callborrow.cpp a member function's form. Static storage freed, handed to an own
 # parameter or given to an owner, and a function's result that is new memory to the check (0.294). A row of a static
 # array and an array member of a static struct freed or given to an owner, and a pointer to a block's local that hides
-# an outer one, used after the block (0.297)
+# an outer one, used after the block (0.297). A sum of a loose pointer, a borrow of it still, and an own local that
+# takes the buffer that getline wrote through an out-parameter, new memory (0.299)
 echo "-- and the safe fixtures of test/c/safe that the same rule refuses in C++ (0.272)"
-for pair in "static_row_free:a borrow consumed" "static_row_own:a borrow stored where it cannot be followed" "static_member_free:a borrow consumed" "shadow_dangle:use of a borrow after its owner was consumed" "statret_param:plain pointer not consumed" "statret_mixed:plain pointer not consumed" "free_lit:a borrow consumed" "free_glob:a borrow consumed" "free_direct:a borrow consumed" "statret_free:a borrow consumed" "own_static:a borrow stored where it cannot be followed" "own_lit:a borrow stored where it cannot be followed" "take_own:a borrow consumed" "assign_static:a borrow consumed" "borrow_into_call:a borrow handed to a call that may replace its owner" "borrow_into_call_local:a borrow handed to a call that may replace its owner" "borrow_after_push:use of a borrow after a call that may replace its owner" "elem_after_push:use of a borrow after a call that may replace its owner" "index_after_insert:use of a borrow after a call that may replace its owner" "const_replace:cannot assign to variable 'b' with const-qualified type 'const buf *'" "const_local:cannot assign to variable 'v' with const-qualified type 'const buf'"; do
+for pair in "static_row_free:a borrow consumed" "static_row_own:a borrow stored where it cannot be followed" "static_member_free:a borrow consumed" "shadow_dangle:use of a borrow after its owner was consumed" "sum_of_loose:plain pointer not consumed" "own_of_anchor:owner leaked" "statret_param:plain pointer not consumed" "statret_mixed:plain pointer not consumed" "free_lit:a borrow consumed" "free_glob:a borrow consumed" "free_direct:a borrow consumed" "statret_free:a borrow consumed" "own_static:a borrow stored where it cannot be followed" "own_lit:a borrow stored where it cannot be followed" "take_own:a borrow consumed" "assign_static:a borrow consumed" "borrow_into_call:a borrow handed to a call that may replace its owner" "borrow_into_call_local:a borrow handed to a call that may replace its owner" "borrow_after_push:use of a borrow after a call that may replace its owner" "elem_after_push:use of a borrow after a call that may replace its owner" "index_after_insert:use of a borrow after a call that may replace its owner" "const_replace:cannot assign to variable 'b' with const-qualified type 'const buf *'" "const_local:cannot assign to variable 'v' with const-qualified type 'const buf'"; do
   n=${pair%%:*}; what=${pair#*:}
   got=$("$ROOT/bin/cicilang++" -c "$ROOT/test/c/safe/$n.c" -o "$n.o" 2>&1; echo "exit $?")
   case "$got" in *"$what"*"exit 1"*) echo "ok   $n.c, built as C++, is refused: $what" ;; *) echo "FAIL $n.c built as C++ should be refused with '$what'"; echo "     got  $got" | head -3; failures=$((failures + 1)) ;; esac

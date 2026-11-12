@@ -10679,8 +10679,24 @@ in the first topic (The ccllib gate).
   caller's (0.265, in C++ since 0.272; below). `test/c/safe/param_ptr_addr_escapes.c`, `test/c/run/paramaddrok.c`.
   (0.219, 0.265, 0.272)
 - A copy of a null pointer, or of a local with no ownership state, is `null` (`ck_plain_copy/2` in `ck_kind/3`). In a
-  declaration this holds only for a pointer-typed local, so `int x = n` makes no owner. `test/c/run/nullcopy.c`.
-  (0.99, 0.100)
+  declaration this holds only for a pointer-typed local, so `int x = n` makes no owner. `test/c/run/nullcopy.c`. A
+  POINTER VALUE THAT HOLDS NO MEMORY THE CHECK FOLLOWS IS NO NEW MEMORY (0.299; C17 6.5.6/8, the sum points into the
+  object that its pointer operand points into; `ck_plain_value/3`): the value of a plain local that holds none -- null
+  or no state -- or of a pointer local whose address is taken, an anchor (`ck_anchored_pointer/1`), whose value any
+  write through that address gives, and that value plus or minus an integer, or cast, is no new memory to a plain local,
+  declared or assigned so (`null`; an anchored local assigned such a value stays an anchor), and to a plain slot of any
+  place, as a value that a plain slot held is (0.290): a local's field, a global, the pointee of a parameter
+  (`ck_into_plain/6`). An own slot takes the value of a null or stateless local, and its sum, as a null (`ck_kind/3`),
+  and an anchored pointer's value as new memory, as before 0.299: `own char *c = line;` after `getline(&line, &n, f)`,
+  never freed, is `owner leaked: 'c'` (`test/c/safe/own_of_anchor.c`). An anchored array's value is a borrow of the
+  array. A value of an owner, of a loose pointer or of a borrow is a borrow of what it holds (`ck_borrows_from/3`), and
+  a pointer that a free left `none` is as it was. Why: after `strtod(s, &end)`, `char *rest = end + 2;` was new memory,
+  `plain pointer not consumed: 'rest'` at the return (the Ambitious session's finding 29), and so were `char *rest =
+  end;`, `rest = end + 2`, a walk `char *p = end; while (*p == ' ') p++;`, the same after `strtol`, `strtoul`, `strtof`
+  and `strtold`, and `char *rest = end + 1` over a null `end` with no call; the sum stored into a local struct's field
+  was `no owner behind`, and so were `g = end + 1` into a global, `*rest = end` through a parameter and `c->at = end`
+  into a parameter's struct. `test/c/run/outparam.c`, in C and as C++; `test/c/safe/sum_of_loose.c`, the sum of a loose
+  pointer whose memory is never freed, refused. (0.99, 0.100, 0.299)
 - A value that lives as long as the program is never fresh (`ck_static_value/1`): a narrow or wide string literal,
   `&global`, a global array or function, arithmetic on one, a conditional of two. So a vtable store is no fresh value.
   So is a pointer that the C library answers from its own static storage (C17 7.11.1.1, 7.11.2.1, 7.22.4.6, 7.24.6.2,
@@ -14788,6 +14804,17 @@ Declarations topic of the C++ reader).
   malloc(4);` -- its free is refused, `borrow_consumed`, as a free of static storage on one road must be, and the new
   memory's leak on the other road is not seen, as one of a local's address and new memory was not before. A pointer
   whose roads differ so is a decision of the language: refused as neither, the owner's.
+- MEMORY THAT A LIBRARY FUNCTION WRITES THROUGH AN OUT-PARAMETER IS NOT FOLLOWED (probed at 0.299, as on 0.298):
+  `getline(&line, &n, f)` gives new memory through the address of a plain local, which is an anchor
+  (`ck_anchor_addrs/3`), and a program that never frees `line` is built. Until 0.299 a copy of such a pointer into a
+  plain local was a loose pointer, so `char *c = line;` with no free was `plain pointer not consumed: 'c'` by accident;
+  the copy is a plain value now (the safe part's topic of copies). An own slot takes the pointer's value as new memory,
+  as before, but a plain copy of it holds none to the check, so `char *c = line; own char *o = c;` with no free is
+  built. A pointer that a library function writes into the function's own buffer is not followed either: after
+  `strtod(buf, &end)` over a local `char buf[8]`, `g = end` into a global dangles at the return and is built, where
+  0.298 refused it, `no owner behind: 'g'`, by the accident that refused `g = end` over the caller's string too. A
+  program's own function that stores new memory or a borrow through its out-parameter, `*out = malloc(4)` or `*out = s +
+  1`, is refused in the callee, `no owner behind: '*out'` and `a borrow stored where it cannot be followed` (0.216).
 
 ### Tools and performance
 

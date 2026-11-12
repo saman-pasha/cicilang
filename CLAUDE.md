@@ -12,8 +12,8 @@ the fixture that gates it, and why. The bullet ends with the version that made t
 edits the rule in `RULES.md`, in its topic, and writes its entry in `HISTORY.md`. Read the topic of `RULES.md` that
 covers the code before the code is changed.
 
-At 0.298 the versions are: the module 0.298 (`ccl_p_version` in `module/cicilang.cicili`, `bin/cicilang --version`),
-the reader 193 (`ccl_reader_version/1`, `library/ccl_syntax.pl`) and the lowering 167 (`ccl_lowering_version/1`,
+At 0.299 the versions are: the module 0.299 (`ccl_p_version` in `module/cicilang.cicili`, `bin/cicilang --version`),
+the reader 193 (`ccl_reader_version/1`, `library/ccl_syntax.pl`) and the lowering 168 (`ccl_lowering_version/1`,
 `library/ccl_ir.pl`).
 
 Build and prove, always in this order (or all of it, `sh test/gates.sh`):
@@ -510,7 +510,9 @@ test/c/run/                 C programs built and run: NAME.c, NAME.expect, NAME.
                             samenames.c, names declared again that C takes; widearr.c, arrays of wide characters made
                             of wide literals; longlit.c, long literals in pieces; ownundef.c over ownu_a.h, ownu_w.h,
                             ownu_in.h, ownu_len.h, ownu_q.h, ownu_p.h, ownu_y1.h, ownu_y2.h and ownu_min.h, the
-                            directives of the program's own headers in the file's run (0.298)
+                            directives of the program's own headers in the file's run (0.298); outparam.c, pointers
+                            that a call wrote through an out-parameter, copied, moved by an integer and stored where
+                            they outlive the function (0.299)
 test/c/safe/                C programs the safe part refuses: NAME.c, NAME.expect; dropnone.pl, the macro file of
                             drop_leaks.c (0.262); borrow_after_grow.c, borrow_after_push.c, elem_after_push.c,
                             grow_through_ptr.c, const_replace.c and const_local.c, the safety rules of 0.265;
@@ -526,7 +528,9 @@ test/c/safe/                C programs the safe part refuses: NAME.c, NAME.expec
                             freed or given to an owner (0.294); static_row_free.c, static_row_own.c and
                             static_member_free.c, a row of a static array and an array member of a static struct
                             freed or given to an owner, and shadow_dangle.c, a pointer to a block's local that hides
-                            an outer one, used after the block (0.297)
+                            an outer one, used after the block (0.297); sum_of_loose.c, the sum of a loose pointer
+                            whose memory is never freed, and own_of_anchor.c, an own local that takes the buffer
+                            that getline wrote through an out-parameter and never frees it (0.299)
 test/cpp/                   the C++ reader's fixtures and the refusals; hidem.cppm for modhidden.cpp; unread_cpp.cpp,
                             an argument taken unread in C++ (0.264, read since 0.270); lit_cpp.cpp, list and map
                             literals beside the lambdas in C++ (0.269); callreplace.cpp, refreplace.cpp,
