@@ -292,6 +292,7 @@ One row per step, in version order: the step's title, what it did and its gate n
 | 0.295 | ccllib's `<string_view.pl>` and `<span.pl>`, the last modules of phase 1a; a view is a borrow | `std::string_view` as `basic_string_view<char>` and `std::span`, the first element and the count, each a borrow of what it sees, which the safe part follows: a view used after its source ends or after a change that may replace it, a view of a local that leaves its function, a view of another source put in the caller's, a view of a string handed beside it to a change of it, refused; 118 functions of the view and 14 of the span, a string's forms over a view; a span of a C array by its type's count, the reader asking the array's own word first; in C++ an instance made of another instance's object with no `_of` refused by name; the rules program holds both to a model at 777,450 checks, and 42 copies of the tree broken on purpose are each reported; a write through a const lvalue, never refused, recorded; reader 191, lowering 165 | the flow gate; the reader, compile, driver and ccllib gates over libc++ 22 over one fresh HOME; the ccllib gate over libc++ 21 and 18; the pool of the light C++ run fixtures; the C++ net by hand; no chain, by the owner's rule of 0.271; a commit and a push |
 | 0.296 | the chain over the finished phase 1a of ccllib | the chain over 0.295's pushed commit, its numbers: over libc++ 22 and 21 the library read, the C++ gate and the ccllib gate, and over libc++ 18 all eleven gates, the toolchain check strict, GREEN; no code changes | the chain over libc++ 22, 21 and 18 over fresh HOMEs; no CI job, by the owner's rule of 0.271; a commit and a push |
 | 0.297 | the findings 15 (extended), 20 and 21 of a program over 0.284 | a row of a static array and an array member of a static object are static storage; what holds an instance's object is born zero -- a struct, an array, a C++ class, a constructor's member that no initializer names; a name that a block declares again hides the outer one's states; a fill of an object with owners writes over them; three holes and four false refusals closed | the reductions and 43 probes beside them, as C and as C++; the nets; no chain, by the owner's rule of 0.271; a commit and a push |
+| 0.298 | the findings 22 to 28 of a program over 0.284 | the program's own header read in its includer's scope where the unit has a macro file of its own, read again where its raw read is not its text, under the includer's macros that it names, its own includes under their configurations, a library header without them; the own header's directives run in the file's run, its #undef, #error and #warning met; a name of two kinds refused; a refusal in a header the build's; a long literal joined once and its IR text made in one walk; an array of wide characters at file scope | the reductions and 72 probes beside them, as C and as C++; a review that found a regression of the first form; the nets; no chain, by the owner's rule of 0.271; a commit and a push |
 
 ## M5 — the C++ mode
 
@@ -21077,3 +21078,190 @@ DID NOT RUN, by the owner's rule of 0.271: it runs over a finished task. NO CI J
   `module/cicilang.cicili` (0.297).
 
 The module 0.297, the reader 192 and the lowering 166.
+
+## 0.298 — the findings 22 to 28 of a program over 0.284: its own headers, a name of two kinds, a long literal
+
+**0.298: the Ambitious session's message after 0.297 named seven findings of its program over 0.284, the toolchain's: a
+header whose struct has a `vector<T>` member had to include `<vector.pl>` itself (23), and a prototype after such a
+struct seemed lost (22); an array member bounded by a header's own `#define` had no bytes (24); a `#define` in a
+header's enum seemed to lose the prototypes after it (25); a type macro's function called in an included header was not
+made (26); a function named as a header's static table was taken (27); and a literal of many pieces cost as the square
+of its size (28). Each is run from its reduction, its cause found here and the forms beside it probed, 72 probes as C
+and as C++; 25 and 26 build on 0.297. The probes found more forms of the program's own headers: the includer's macros
+lost to such a header, a header's macros lost to the header that it includes, a header's new definition of the file's
+macro lost to the file, a refusal in such a header lost to `could not be read`, and an array of wide characters at file
+scope refused; each is closed. The first form of the change read each system header of such a header twice, and took 35
+s for a file of 40 guarded headers that name the file's macro; both are closed too. A review of the change found a
+regression in its first form, whose nets were GREEN: it took a header's new definition of the file's macro from the
+header's table, and the table gave back the value of a guarded header inside it whose macro the file had defined again
+since. The cause, a table that stands for the text of the program's own header, lost the header's `#undef`, `#error` and
+`#warning` too, and hid a header's definition behind the file's own `#undef`; the own header's directives run in the
+file's run now, as clang has them. The reader goes to 193 and the lowering to 167.**
+
+FINDINGS 23 AND 22: A HEADER OVER AN INSTANCE, WITH NO MACRO FILE OF ITS OWN. `typedef struct bag { vector<int> items; }
+bag;` in `s.h`, under a file that includes `<vector.pl>` and then `"s.h"`, was `not lowered yet: typedef(bag)` (in C++
+`template_without_body(vector)`); it built where `s.h` included `<vector.pl>` itself. THE CAUSE: 0.293 reads the
+program's own header in its includer's scope only where the unit has an instance already. Here the header makes the
+first one, and a read alone begins with no type macro (`ccl_unit_start/1`): both of its reads stopped at its first line.
+Finding 22's form, such a struct and the prototypes of functions that the file defines after `main`, had the same cause:
+`not lowered yet: typedef(st)` on 0.297, and `template_without_body(vector)` in C++. THE FORMS BESIDE THEM, as C and as
+C++, each refused so on 0.297: a typedef of the instance's type and a prototype over it, a header that includes such a
+header, a guarded header included twice whose struct makes the first instance of `vector<double>`, and a header's
+function-like macro over an instance. THE CHANGE: the header is read in its includer's scope also where the unit has
+loaded a macro file of its own, past the global macros of every file (`ccl_user_macro_files/0` in `ccl_inst_context/1`).
+Each form builds and prints its line, as C and as C++. A header that names the type before the file's `#include` of the
+macro file stays refused, with the note of 0.290 at its line. `test/c/run/hdrinst.c`.
+
+FINDING 24: A HEADER'S OWN MACRO IN ITS OWN TEXT. `#define M 24` and `typedef struct two { int n; size_t a[M]; } two;`
+in `r.h`: `sizeof(two)` was 8, where gcc's is 200. THE CAUSE: the raw read runs no directive, so the name stayed in the
+bound, no constant folds it, and the layout gave the array no bytes. THE CHANGE: where the header's lines define a macro
+whose name an item of its raw read holds -- or an item of a header of the program's own that it includes --, or hold a
+conditional past their guard, the header is read again as the program's file is (`ccl_raw_not_its_text/2`), and that
+read is taken where it is whole. THE FORMS BESIDE IT, as C and as C++, each against clang: the includer's macros (the
+next paragraph); `#define K 5` in a header and `int k[K];` in the header that it includes, `0` where clang's is 20; a
+guarded header included twice; a macro that the file defines after the `#include`, which the header does not see, as
+clang has it; and a header that defines the file's macro again.
+
+THE INCLUDER'S MACROS, LOST TO THE PROGRAM'S OWN HEADER (found beside 24, on 0.297 too). `#define CAP 16` in the file
+and `typedef struct box { char buf[CAP]; } box;` in its header gave a struct of no bytes, and a `memset` over `buf`
+broke the program's stack; `#ifdef WIDE` took its `#else` under the file's `#define WIDE 1`; a function-like `SQ(x)` and
+a `GREETING` in the header's bodies were `undeclared`; and a header that names CAP only through a header that it
+includes printed `0 0`. THE CHANGE: each macro in force at the `#include` whose name the header's lines hold, or the
+lines of the own headers that it includes, joins the configuration at the `#include` (`pp_inc_user_macros/4`,
+`N-user(Params, Codes)`): the header is read under it, its table is made under it, and its keys fold it. THE FIRST FORM
+OF THE CHANGE READ EACH SYSTEM HEADER OF SUCH A HEADER TWICE: a library header that the own header includes was read
+under that configuration too, under a key of its own, cold. `outer2.c`'s unit had 31 header units, each of its 15 system
+headers twice, and its cold build took 1.5 s where the same file with a literal bound took 1.1 s. Now a library header
+is read, keyed, given its table and given to a process of its own without the includer's macros (`pp_sans_user/1`), as
+one that the file includes is: the unit has 16 header units, and its cold build takes 0.9 to 1.0 s, where the file with
+a literal bound takes 1.1 s. And a header read as the program's file is gives its own `#include`s the configuration at
+each (`ccl_inc_cfg_at/2`), which the form of K needs; no store keeps such a read where such a configuration is not the
+header's own. A FILE OF 40 GUARDED HEADERS, each including the next and each naming the file's `CAP` (a probe of the
+cost), TOOK 35 S, where its form with a literal bound takes 2.0 s on 0.297. Four causes, each mended and measured over a
+fresh HOME: the guard of each later header, defined by the first header's table and named by its own text, joined the
+configuration, so that each `#include` had one of its own and the chain was read again under each -- no guard of a
+header that an `#include` reaches is one of the includer's macros now, 7.7 s; a header known not to be its raw text was
+read raw first, and the headers inside it with it -- it is read as the program's file is first now, 4.5 s; each word of
+the headers that an `#include` reaches was asked again at each `#include`, through every table, each table of an own
+header under its configuration -- a word's miss is kept for the run and asked of the newer tables alone, and each
+table's kind is kept in the run's list, 4.0 to 4.2 s (2.0 to 2.1 s for the form with a literal bound); and no store kept
+the headers' reads -- the store keeps them now where each note is the header's own configuration, and a warm build takes
+1.0 to 1.1 s. A HEADER THAT DEFINES THE FILE'S MACRO AGAIN, with `#undef CAP` and `#define CAP 8`, left the file's CAP
+16 after the `#include`, where clang's is 8 (on 0.297 too): the file's own definition answered before every header's
+table. The first form of the change took such a name from the header's table again where the header's text runs at the
+`#include`; the next paragraph says what a review found in that rule, and what stands now. `test/c/run/ownmacros.c`
+prints clang's three lines, as C and as C++.
+
+A REVIEW OF THE CHANGE FOUND A REGRESSION IN ITS FIRST FORM, AND MORE FORMS OF ITS CAUSE (those on 0.297 too). The rule
+above took the header's definition from its table, which is what the header defines at its end, read apart. Where the
+own header includes a guarded header that the file included before, and the file has defined that header's macro again
+since -- `#undef X` and `#define X 5` after `#include "q.h"`, then `#include "p.h"`, which includes `q.h` --, the table
+gave `q.h`'s X back: 1, where clang and 0.297 have 5. And a table holds no `#undef`: an own header's `#undef CAP`, at
+any depth, left the file's CAP after the `#include` (`CAP defined 16`, where clang has it gone, and `MAX(3, 7)` expanded
+the file's macro over the header's function of that name, 7 where clang has 70); the file's `#undef MAXLEN` before an
+own header that defines MAXLEN hid the definition, `undeclared('MAXLEN')`; a guarded header included again after another
+had defined its macro again took its first value back (1 where clang has 2, on 0.297 too); and the own header's `#error`
+and `#warning` were never met -- a header with `#error "CFG is needed"` under a condition that held built and ran. THE
+CAUSE IS ONE: the program's own header was a table. THE CHANGE: at an `#include` of the program's own header in the
+file's run, the header's directives run in that run, in their order, under the macros in force (`pp_own_text/1`,
+`pp_run_dirs/1`): its guard, its `#pragma once`, each `#define` and `#undef`, its conditionals and its `#include`s -- an
+own header's directives in turn, a library header's table as at the file's own `#include`. Its text makes no tokens: the
+reader reads it in a read of its own, under the configuration at its `#include`. The prescan makes ready the tables of
+the library headers that the own headers include, at any depth (`pp_own_nested/3`); where the run waited for one, the
+file was run again, and the warm build of the file of 40 headers took 2.24 s where the prescan's walk gives 2.0 s,
+though the walk makes ready a header in a branch that the run does not take too. The own header's `#error` is the
+build's at its line with its words, and its `#warning` is said once: the header's read of its own, where it is read as
+the program's file is, gives the run's list back (`ccl_pp_own_parse/3`), where it said it twice. A name that an own
+header defines or undefines is the next library table's that defines it (`pp_yield_to/2`), as while the own header was a
+table: an own header's `#define MIN(a, b) 99` gives way to `<sys/param.h>`'s MIN after it. A name that the file itself
+defines or undefines stays its own, as on 0.297: a probe that let the next table take the file's undefined name took
+`INT8_MAX` back after `<inttypes.h>` had included `<stdint.h>`, where clang has it undefined. THE PROBES, as C and as
+C++, each against clang: the forms above and the forms beside them -- a `#pragma once` header's conditional `#undef`, a
+library header after an own header's `#undef` (`MAX(3, 8)` is 8), a guarded header included again with nothing between,
+a header's `#warning` in a header read as the program's file is, the file's own definition before a library header, the
+file's `#undef` before a library header --, 19 probes, each clang's but the last two, which stand as on 0.297 (Not
+done). THE COST is the first form's: on the box of the step's last measures, each build over a fresh HOME with the kept
+IR off, and a warm one over the store that the cold one wrote, after a change of the file, the file of 40 guarded
+headers takes 4.8 to 5.0 s cold and 2.0 to 2.1 s warm, and the first form took 4.7 to 4.9 s and 2.0 s; its form with a
+literal bound takes 2.75 to 2.8 s and 1.2 s, and 2.65 to 2.75 s and 1.1 s on 0.297. `test/c/run/ownundef.c`, as C and as
+C++, where 0.297 was `undeclared('LEN')`; `test/c/pperr_own.c` and `pperr_own_ok.c` (the reader gate's `k165`).
+
+FINDINGS 25 AND 26. 25 was given with no reduction; its form -- `#define BASE 10`, `enum { A = BASE, B = BASE + STEP
+};`, a prototype and a `static inline` function after it -- prints clang's `10 14 30 14` on 0.297 and on 0.298. 26,
+`push_back(out, (char)97)` over `vector<char> *out` in an included header, builds on 0.297 and prints 1: 0.293's read in
+the includer's scope and its call that meets the instance (`ccl_inst_ensure/1`) made it. Its remark that the error named
+the unit's file with the header's line holds still for an error of the check or the lowering in a header's function (Not
+done); a refusal of the reader names the header now (the next paragraph).
+
+FINDING 27: A NAME OF TWO KINDS. `static unsigned t(unsigned i)` over a header's `static const unsigned t[3]` was taken,
+and `look(t, i)` read the function's code as the table: the program printed 4294965005, and Ambitious read machine code
+as Unicode's combining classes. THE CAUSE: the reader's table took the second declaration of the name as it takes a
+compatible one. THE CHANGE: a name that C's file scope declares again as another kind of symbol is refused at its line
+with clang's words, `redefinition of 't' as different kind of symbol` (`ccl_kind_clash/2`, `ccl_typedef_clashes/1`): an
+object and a function in either order, a prototype or an `extern` among them, a K&R definition, an enumerator, and a
+typedef and an object or a function. THE FORMS BESIDE IT that C takes are read: compatible declarations of one function
+and of one object, a tentative definition, a block's object and a block's typedef, a parameter and a member named as a
+function, and a typedef declared twice. The first form of the change refused a block's typedef named as a later
+function, which clang builds: a block's typedef stays in the reader's table and in its global env after its block, so
+the names of a block's typedefs are kept apart now (`'$ccl_btds'`). AND A REFUSAL IN THE PROGRAM'S OWN HEADER, `int t;
+int t(void);`, made the header `could not be read`, and the build failed at `undeclared(t)`: such a refusal is the
+build's now, at the header's line, and the driver says it under the header's name, where it printed the refusal's line
+under the user's file's name. In C++ these clashes are not refused by these words (Not done). `test/c/kind_*.c` (the
+reader gate's `k164`), `test/c/run/samenames.c`.
+
+FINDING 28: A LONG LITERAL. 100 KB of base64 in pieces of 96 characters took 13 s and 4.5 GB, and 2 MB in literals of 48
+KB was killed at 13 GB. TWO CAUSES: the reader joined the pieces one by one, and copied the text joined so far at each
+(`ccl_strings//2`, `ccl_strings_k//4`); and the lowering made a literal's text in the IR byte by byte, each byte an atom
+of the text after it (`ir_escape/2`); each is a cost as the square of the size. THE CHANGE: the pieces are gathered and
+joined once (`ccl_append_all/2`), and the text is made in one walk (`ir_escape_codes/2`); the IR is the same, byte for
+byte. Measured as one build each, over a fresh HOME with the caches off: one literal of 60 KB, 3.2 s and 1.9 GB on
+0.297, 0.46 s and 87 MB now; 60 KB in pieces, 4.0 s and 1.9 GB, now 0.42 s and 87 MB; 100 KB in pieces, 0.67 s and 145
+MB; 2 MB in 42 literals of 48 KB, 3.2 s and 405 MB; an array of 60,000 `char` in pieces, 4.8 s and 1.9 GB, now 0.94 s
+and 152 MB, where clang's build takes 0.08 s and 82 MB; a `u8` literal and a literal given to a call of that size are
+the same. THE FORMS BESIDE IT: AN ARRAY OF WIDE CHARACTERS AT FILE SCOPE MADE OF A WIDE LITERAL WAS REFUSED,
+`global_init(wstr(...))`, on 0.297 too, for `static const wchar_t gw[] = L"abc";` as for one of 60 KB, and the refusal
+held every code of the literal. It is a constant of its units now, with zeros to its bound (`ir_gconst/3`), for
+`wchar_t`, `char16_t` and `char32_t`, and for a static local. `test/c/run/longlit.c` and `widearr.c`, as C and as C++.
+
+WHAT STAYS (Not done): in C++ a name of two kinds is built, or refused by other words; an error of the check or of the
+lowering in a header's function names the header's line under the user's file's name; an unknown type name in the
+program's own header (`foo items;`) is read as a type that the reader has not seen, so the build fails at the member's
+use, `no_member(items, ...)`, where clang names the header's line; and a library header is a table, so a name that the
+file itself defines or undefines stays the file's -- `#define EOF 7` before the first `#include <stdio.h>` stays 7,
+where clang takes -1, and `#undef NULL` before `<stddef.h>` leaves NULL undefined, where clang's `<stddef.h>` defines it
+again --, and a guarded library header included again is the newest table again.
+
+THE NETS, over the step's work tree and a fresh HOME a part: the flow gate GREEN with no finding; the reader gate (166
+checks, 4 s: `k164` and `k165` among them); the compile gate (301, 40 s: the six run fixtures of this step among them);
+the driver gate (77, 53 s); the ccllib gate over libc++ 22, 21 and 18 (290 checks each, 640 s, 598 s and 626 s: 16
+programs in three runs, 89 refused and 8 alone); the C++ pool of the 361 light fixtures of `test/cpp/run` (41 s); and
+the C++ gate's lists by hand (46: the run fixtures of `test/c/run` that it builds as C++, this step's `ownmacros.c`,
+`hdrinst.c`, `widearr.c`, `longlit.c` and `ownundef.c` among them, four of `test/cpp/run`, and sixteen refusals of
+`test/c/safe`), each GREEN; the times are the nets' own counts of seconds. The nets of the step's first form were GREEN
+too, over the same libraries: no fixture held the forms that the review found. THE CHAIN DID NOT RUN, by the owner's
+rule of 0.271: it runs over a finished task. NO CI JOB RAN.
+
+- `library/ccl_include.pl`: `ccl_user_macro_files/0`, `ccl_raw_not_its_text/2` and its helpers, `ccl_read_unit/3`'s
+  clause over `ccl_pre_not_its_text/1`, `ccl_items_name/2` over the own headers, `ccl_inc_cfg_at/2` over a header's own
+  notes, `ccl_include_read/2` (no store for such a read; a refusal of an own header thrown on), `ccl_pp_own_parse/3`'s
+  list of warnings, a library header's read and link and a cold one's process without the includer's macros;
+  `library/ccl_pp.pl`: `pp_inc_user_macros/4`, `pp_own_words/6`, `pp_own_header_info/4`, `pp_hdr_guard/2`,
+  `pp_user_macro/3`'s kept misses, `pp_sans_user/1`, `pp_cfg_sans_user/2`, `pp_ready_one/2`, `pp_outer_macro/3`'s `user`
+  entries, the run's list of headers with their tables' kinds, `pp_own_include/3`, `pp_lib_include/4`, `pp_own_text/1`,
+  `pp_run_dirs/1`, `pp_own_nested/3`, `pp_nested_walk/7`, `pp_nested_ready/1`, `pp_yield_note/1`, `pp_yield_to/2`, an
+  own header's `#error` and `#embed` in the file's run; `library/ccl_syntax.pl`: `ccl_kind_clash/2`,
+  `ccl_typedef_clashes/1`, `ccl_file_typedef/1`, `ccl_note_block_typedefs/1`, `ccl_cfg_inner/1`, the join of the pieces,
+  reader 193; `library/ccl_ir.pl`: `ir_escape/2`, the wide array's constant, lowering 167; `library/ccl_driver.pl`: a
+  refusal at its own file's line.
+- `test/c/run/ownmacros.c` over `ownm_box.h`, `ownm_inner.h`, `ownm_late.h`, `ownm_two.h` and `ownm_redef.h`;
+  `hdrinst.c` over `hdrinst_bag.h`, `hdrinst_shelf.h`, `hdrinst_st.h`, `hdrinst_ivec.h` and `hdrinst_pts.h`;
+  `samenames.c`, `widearr.c`, `longlit.c`; `ownundef.c` over `ownu_a.h`, `ownu_w.h`, `ownu_in.h`, `ownu_len.h`,
+  `ownu_q.h`, `ownu_p.h`, `ownu_y1.h`, `ownu_y2.h` and `ownu_min.h`; `test/c/kind_fn_obj.c`, `kind_ext_fn.c`,
+  `kind_proto_obj.c`, `kind_typedef_fn.c`, `kind_obj_typedef.c`, `kind_hdr.c` over `kind_hdr.h`, `kind_in_hdr.c` over
+  `kind_in_hdr.h`; `pperr_own.c` and `pperr_own_ok.c` over `pperr_own.h`; `test/reader.pl`'s `k164` and `k165`;
+  `test/cpp.sh`'s list.
+- RULES.md (the C reader's symbol table, the lexers' strings, the user's file and the headers' macros, reading an
+  include, the diagnostics, the lowering's statics, time and memory, the C++ gate's list, what runs, Not done),
+  HISTORY.md, CLAUDE.md, README.md, CCLLIB.md; `module/cicilang.cicili` (0.298).
+
+The module 0.298, the reader 193 and the lowering 167.

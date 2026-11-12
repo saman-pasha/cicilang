@@ -1126,7 +1126,9 @@ that changes a rule edits the rule here, in its topic, and writes its entry in `
   `once(dr_diag/3)`, one clause per term; `once/1` because the callers' recovery fails after the report. An error on a
   macro-expanded line gets `note: expanded from macro ...` (`dr_remember_expansions/1`); an error inside a macro gets a
   note that names the macro's file (`dr_note_macro`). The reader's own refusal, `refusal(M, here(F, L))`
-  (`ccl_refuse/1`, 0.290), is printed as `M` at its line, with no `macro:` before it. (M1b, M4, 0.290)
+  (`ccl_refuse/1`, 0.290), is printed as `M` at its line, with no `macro:` before it, under the name of its own file: a
+  header's at the header's line (0.298), where the user's file's name stood with the header's line. (M1b, M4, 0.290,
+  0.298)
 - **A HEADER THAT WAS NOT FOUND, NOT READ, OR NOT READ TO ITS END, IS NAMED WHERE THE BUILD FAILS** (0.290;
   `dr_unread_notes/2`, `dr_missing_in/3`, `dr_unread_in/3`): the include layer goes on over a file that it does not find
   (`missing`), over a header that no read takes (`unreadable`) and over one whose read stopped (`partial`), with no
@@ -1468,10 +1470,14 @@ that changes a rule edits the rule here, in its topic, and writes its entry in `
   both; `'é'` and `'\u00e9'`, which clang refuses (`character too large`), are gcc's 50089. A stringized
   multi-character constant spells its value (`#x` of `'ab'` is `"24930"`, clang's `"'ab'"`). `test/c/run/chrsign.c`
   (both machines), `test/cpp/run/chrsign.cpp`. (0.196)
-- ADJACENT STRING LITERALS ARE ONE (C 6.4.5/5, [lex.string]/12; 0.196; `ccl_strings_k//4`, `ccl_kind_join/3`): their bodies
-  joined, of the prefix one of them has -- `"a" L"b"` and `L"a" "b"` wide, `u"x" "y"` a char16_t string, `u8"x" "y"` a u8
-  one; two different prefixes are not joined. Only plain ones were: `L"ab" L"cd"` was refused, and so was a macro's `L""
-  x`. `test/c/run/u8lit23.c`, `test/cpp/run/u8lit.cpp`. (0.196)
+- ADJACENT STRING LITERALS ARE ONE (C 6.4.5/5, [lex.string]/12; 0.196; `ccl_strings_k//4`, `ccl_kind_join/3`): their
+  bodies joined, of the prefix one of them has -- `"a" L"b"` and `L"a" "b"` wide, `u"x" "y"` a char16_t string, `u8"x"
+  "y"` a u8 one; two different prefixes are not joined. Only plain ones were: `L"ab" L"cd"` was refused, and so was a
+  macro's `L"" x`. THEY ARE JOINED ONCE (0.298; `ccl_strings//2` and `ccl_strings_k//4` over `ccl_str_pieces//1`,
+  `ccl_strs_k//3` and `ccl_append_all/2`): the pieces gathered, then each copied once; the text joined so far was copied
+  again at each piece, a cost as the square of the literal's size -- 100 KB of base64 in pieces of 96 characters took 13
+  s and 4.5 GB (the Ambitious session's finding 28; with the IR's text, the Time and memory topic).
+  `test/c/run/u8lit23.c`, `test/cpp/run/u8lit.cpp`, `test/c/run/longlit.c`. (0.196, 0.298)
 - A `u"..."` literal is UTF-16 ([lex.string]/10): a code point past U+FFFF is a surrogate pair, two `i16` units
   (`ir_wide_units/3`, `ir_utf16/2`), in the constant, in an array it initializes, in that array's bound
   (`ccl_utf16_count/2`) and in `sizeof` (`ccl_literal_bytes`); it was one unit that kept the low bits.
@@ -1849,6 +1855,30 @@ that changes a rule edits the rule here, in its topic, and writes its entry in `
   clang++'s first `#include` had read `__config` already, and the program's own header's `<assert.h>` asserted under the
   file's `#define NDEBUG`. `ftmorder.c` (`-std=c17`: `0 1 3`, as clang), `ndebuglocal.c` over `ndebuglocal.h`,
   `test/cpp/run/libcppfirst.cpp` (C++20). (0.239)
+- THE INCLUDER'S MACROS THAT THE PROGRAM'S OWN HEADER NAMES JOIN THE CONFIGURATION AT ITS `#include` (0.298; C17
+  6.10.2/3, the directive replaced by the header's text, which the macros defined before it rewrite;
+  `pp_inc_user_macros/4` in `pp_do_include/6`, `pp_own_words/6`): each macro in force at a local `#include` of the
+  program's own header -- the file's, an earlier header's, the including header's own -- whose name a line of the header
+  holds, or a line of an own header that a local `#include` of one of them names, at any depth, joins the configuration
+  as `N-user(Params, Codes)`; not one that every run has, predefined, the command line's or built in
+  (`pp_user_macro/3`), and NO INCLUDE GUARD OF A HEADER THAT THE `#include` REACHES (`pp_hdr_guard/2`: its first
+  conditional `#ifndef G`, `#define G` the directive after it, `#endif` its last): a guard defined at the `#include` is
+  a second inclusion's, which the reader reads as the first, and each later header's guard, defined by an earlier
+  header's table, gave each `#include` of a chain of guarded headers a configuration of its own, the chain read again
+  under each. A header's words, the own headers that its local `#include`s name and its guard are found once a process
+  (`pp_own_header_info/4`, as its lines are, `pp_source/2`), and a word that is no macro is kept as a miss for the run
+  with the `#include` count where it was asked, and asked later of the tables that the `#include`s after it added alone
+  (`'$pp_uw:<Name>'`, `pp_newer_tables_define/3`). The header is read under it (`ccl_inc_cfg_at/2`; in its run
+  `pp_outer_macro/3` defines such a name, `'$pp_own_read'` in a run of its own), and the keys of the process and of the
+  store fold it (`ccl_read_level/1`); its directives run in the file's run (the next bullet). A LIBRARY HEADER IS READ
+  WITHOUT THEM (`pp_sans_user/1`, `pp_cfg_sans_user/2`): its read in `ccl_include/2` and in `ccl_kb_link/2`, its table
+  that the prescan makes ready (`pp_ready_one/2`) and a cold one's process of its own (`ccl_cold_headers_read/2`), as
+  one that the file includes is. Under them each set of the includer's macros read the library headers of such a header
+  again, under a key of their own, cold: `outer2.c`'s unit had 31 header units, each of its 15 system headers twice,
+  where it has 16. Why: `typedef struct box { char buf[CAP]; } box;` under the file's `#define CAP 16` was a struct of
+  no bytes and a `memset` over `buf` broke the stack, `#ifdef WIDE` in the header took its `#else` under the file's
+  `#define WIDE 1`, and `static int area(int s) { return SQ(s); }` under the file's `#define SQ(x)` was
+  `undeclared('SQ')`. `test/c/run/ownmacros.c`, in C and as C++. (0.298)
 - `<assert.h>` DEFINES `assert` BY `NDEBUG` AS IT STANDS AT EACH INCLUSION (C17 7.2/1, [cassert.syn]; 0.214;
   `pp_assert_include/1`): in the user's file an `#include <assert.h>` or `<cassert>` defines `assert` as `((void)0)`
   where `NDEBUG` is defined, glibc's `assert_perror` with it, and else as the header's table has it, which is read with
@@ -1867,6 +1897,35 @@ that changes a rule edits the rule here, in its topic, and writes its entry in `
   redefines it in clang: glibc's `libc-header-start.h` defines `__GLIBC_USE_LIB_EXT2` again at each header, and the
   first header's value had stayed; a name the file defines or undefines is its own from there (`pp_drop_hdr_name/1`).
   (M5, 0.239)
+- THE PROGRAM'S OWN HEADER'S DIRECTIVES RUN IN THE FILE'S RUN (0.298; C17 6.10.2/3, the directive replaced by the
+  header's text; 6.10.3/2 and 6.10.3.5, a definition stands to its name's next `#undef`; `pp_own_include/3` and
+  `pp_own_text/1` in `pp_do_include/6`, `pp_run_dirs/1`): at a local `#include` of the program's own header in the top
+  run, the header's `#define` and `#undef` lines, its conditionals and its `#include` lines run in the run, in their
+  order, under the macros in force -- its guard and its `#pragma once` as clang has them, the configuration noted only
+  at the file's own lines (`'$pp_own_text'`). Its text makes no tokens: the reader reads the header in a read of its
+  own, under the configuration at its `#include` (the bullet before), and a library header that it includes is a table,
+  as one that the file includes is (`pp_lib_include/4`). The prescan makes ready the tables of the library headers that
+  the own headers include, at any depth (`pp_own_nested/3`, `pp_nested_ready/1`; one in a branch that the run does not
+  take is made ready for nothing), and one that it did not make ready the run takes late. Its `#error`, under a
+  condition that holds there, is the build's at the header's line with its words (`error(refusal(M, here(Header, L)),
+  _)`); its `#warning` is said once, the read of its own giving the run's list back (`ccl_pp_own_parse/3`); its `#embed`
+  makes nothing. The own header had a table, which stood for its text: what it defined at its end, read apart. Why: an
+  `#undef` of the file's macro in the header was lost (`CAP` stood 16, and `BIG(3, 7)` expanded the file's macro over
+  the header's function `BIG`); the file's `#undef LEN` before a header that defines LEN hid the definition,
+  `undeclared('LEN')`; a guarded header included again after another had defined its macro again took its first value
+  back; a header's `#error` and `#warning` were not met; and the first form of this step, which took from its table a
+  header's new definition of a macro that the file had defined, took also the value of a guarded header that the own
+  header includes and whose text the run had passed, after the file had defined the macro again (1 where clang has 5).
+  `test/c/run/ownundef.c` and `ownmacros.c`, in C and as C++; `test/c/pperr_own.c` (the reader gate's `k165`). (0.298)
+- A NAME THAT THE PROGRAM'S OWN HEADER DEFINES OR UNDEFINES IS THE NEXT LIBRARY TABLE'S THAT DEFINES IT (0.298;
+  `pp_yield_note/1`, `pp_yield_to/2`, `'$pp_yield'`): at a library header's `#include`, the names of such a header that
+  its table defines are answered by the table from there, as the newest table answers a name that the file took from a
+  table (the bullet of 0.239 before). Why: an own header's `#define MIN(a, b) 99` gives way to `<sys/param.h>`'s MIN
+  after it, and an own header's `#undef MAX` to its MAX, as clang has them; the first stood so while the own header was
+  a table. A name that the file itself defines or undefines stays its own: a library header's definition may be `#ifndef
+  N`, and a guarded one that a header before it included runs no text at its own `#include` -- `#undef INT8_MAX` after
+  `<inttypes.h>` and before `<stdint.h>` leaves INT8_MAX undefined, as clang has it (Not done has the forms that this
+  misses). `ownundef.c`'s MIN. (0.298)
 - No table is parsed whole. `indexed(TK)` (C++): the `.mac` file beside the summary, `mnames([...])` lines of up to a
   hundred names, then `macro(N, Ps, text(A))` lines as written; `ccl_mac_lines/3` splits it, `ccl_hml_assert/3` asserts
   `'$ccl_hml'(Name, TK, raw(Line))`, TK the table's memo key, which folds the level and the configuration (0.239: under
@@ -2285,6 +2344,21 @@ that changes a rule edits the rule here, in its topic, and writes its entry in `
   entry of the name, so the one it shadowed answers again). Fixture: `blocktypedef.cpp`. Why: one table holding every
   block's `using _Tp = ...;` made `_Tp` a KNOWN name to every rule that tells a template's own parameter by the tables
   not knowing it; 0.126 had worked round it twice (`cpp_callee_param_type/2`, `cpp_lambda_params/3`). (0.108, 0.127)
+- A NAME THAT C'S FILE SCOPE DECLARES AGAIN AS ANOTHER KIND OF SYMBOL IS REFUSED (0.298; C17 6.7/3-4; `ccl_kind_clash/2`
+  in `ccl_external_rest//6`'s definitions and over a declaration's declarators, `ccl_kind_clashes/1`;
+  `ccl_typedef_clashes/1` over a typedef's): an object and a function of one name in either order, a prototype, an
+  `extern`, a K&R definition or an enumerator among them, and a typedef and an object or a function, each refused at its
+  line with clang's words, `redefinition of 't' as different kind of symbol`. The kind is the declared type's resolution
+  (`ccl_symbol_kind/2`). A block's names are its own; a block's typedef stays in the typedef table and in the global env
+  after its block (`ccl_block_items//2` syncs it), so its name is noted (`ccl_note_block_typedefs/1`, `'$ccl_btds'`,
+  made empty where the user's file's read starts) and is no typedef of the file scope's to the test
+  (`ccl_file_typedef/1`): a clash is missed where a block and the file scope both name one, and no program is refused. A
+  typedef declared twice as the same type and compatible declarations of one object or one function stay. Why: `static
+  unsigned t(unsigned i)` over a header's `static const unsigned t[3]` was taken, the name meant the function after it,
+  and `look(t, i)` read the function's code as the table (the Ambitious session's finding 27: machine code read as
+  Unicode's combining classes); in one file it was `not lowered yet: call(id(t))`, and a typedef and a function of one
+  name were built. In C++ the reader's file scope holds the overloads and the namespaces' names flattened, so the test
+  is C's (Not done). `test/c/kind_*.c` (the reader gate's `k164`), `test/c/run/samenames.c`. Reader 193. (0.298)
 - A BLOCK'S STRUCT OR UNION IS ITS BLOCK'S OWN TYPE (C17 6.2.1/4, 6.7.2.3/5, [basic.scope.block]; 0.201): in C, one that
   a block defines under a tag the unit defines otherwise too -- another block's, the file's -- is renamed `N.local_K` for
   the rest of its block (`ir_block_tags/2`, before the check, the table noted again from the renamed units): its own
@@ -2511,10 +2585,11 @@ that changes a rule edits the rule here, in its topic, and writes its entry in `
   file is, the topic of includes), `literal.c` (0.269), `operators.c` and `unread.c` (0.270), `lazy.c` (0.274),
   `operators2.c` (0.284), `born.c` (0.285), `dropassign.c` (0.287), `typednames.c` (0.288), `contswitch.c` and
   `loadedptr.c`, two programs of plain C (0.290), `mirror.c` (0.291), `hdrvec.c`, `regnames.c` and `regnames23.c`
-  (0.293), `condarr.c` and `statret.c` (0.294), and `staticrows.c` and `shadowed.c` (0.297), with cicilang++ and
-  compares each with its `.expect`; `elemborrow.c` is `test/cpp/run/elemborrowpp.cpp` there (0.272), its plain functions
-  noexcept: C++'s defer rule refuses a plain struct's live owner across a call that may throw. (0.267, 0.268, 0.269,
-  0.270, 0.272, 0.274, 0.284, 0.285, 0.287, 0.288, 0.290, 0.297)
+  (0.293), `condarr.c` and `statret.c` (0.294), `staticrows.c` and `shadowed.c` (0.297), and `ownmacros.c`, `hdrinst.c`,
+  `widearr.c`, `longlit.c` and `ownundef.c` (0.298), with cicilang++ and compares each with its `.expect`;
+  `elemborrow.c` is `test/cpp/run/elemborrowpp.cpp` there (0.272), its plain functions noexcept: C++'s defer rule
+  refuses a plain struct's live owner across a call that may throw. (0.267, 0.268, 0.269, 0.270, 0.272, 0.274, 0.284,
+  0.285, 0.287, 0.288, 0.290, 0.297, 0.298)
 - **A READ THAT MADE OR MET AN INSTANCE IS KEPT IN NEITHER CACHE** (0.261): what it holds is its unit's -- the instance
   where the unit first used it, a later use naming it alone -- so neither the process's cache nor the store keeps such a
   header's read or such a file's (`ccl_include_read/2`, `ccl_read_file_/3`, over a count of the instances met,
@@ -3500,6 +3575,44 @@ that changes a rule edits the rule here, in its topic, and writes its entry in `
   instance was met, and the cache served that read to the parse (`not_a_pointer` in C, `no_operator('[]')` in C++). The
   includer's globals are its own again after the read (`ccl_with_file/2`), and the header's items join its scope as
   every header's do (`ccl_include_scope/1`). `hdrvec.c`'s `hdrvec3.h`. (0.293)
+- THE PROGRAM'S OWN HEADER IS READ IN ITS INCLUDER'S SCOPE ALSO WHERE THE UNIT HAS LOADED A MACRO FILE OF ITS OWN
+  (0.298; `ccl_user_macro_files/0` in `ccl_inst_context/1`): a macro file past the global macros of every file
+  (`'$ccl_std_macros'`), the unit with no instance yet -- the header makes the first one. Why: `typedef struct bag {
+  vector<int> items; } bag;` in a header that includes no `<vector.pl>`, under a file that includes it before the
+  header, was read alone, where no type macro stands (`ccl_unit_start/1` begins a read with none): both of its reads
+  stopped at its first line, and the unit met `not lowered yet: typedef(bag)`, in C++ `template_without_body(vector)`
+  (the Ambitious session's findings 23 and 22). Such a struct with the prototypes of functions that the file defines
+  after `main`, a header that includes such a header, a typedef of the instance's type and a prototype over it, and a
+  guarded header included twice whose struct makes the first instance of `vector<double>` are read so too. A header that
+  names the type before the file's `#include` of the macro file stays refused, with the note of 0.290 at its line.
+  `test/c/run/hdrinst.c`, in C and as C++. (0.298)
+- A RAW READ THAT IS NOT ITS HEADER'S TEXT IS TAKEN AGAIN AS THE PROGRAM'S FILE IS (0.298; in C, the program's own
+  header; `ccl_raw_not_its_text/2` in `ccl_read_unit/3`): the raw read runs no directive, so a macro that the header
+  defines and its text names stays unexpanded in it, and it reads both arms of a conditional. Where the header's lines
+  define a macro whose name an item of its raw read holds, or an item of a header of the program's own that it includes,
+  at any depth (`ccl_items_name/2`), or hold a conditional past their include guard (`#ifndef G`, `#define G`, the last
+  `#endif`: `ccl_hdr_guard/2`), or where an item names a macro of its includer's in the configuration at its `#include`
+  (the topic of the user's file and the headers' macros), the header is read again by `ccl_pp_own_parse/3`, and that
+  read is taken where it is whole. A HEADER KNOWN TO BE NO RAW TEXT BEFORE ANY READ -- a conditional past its guard, or
+  its own words naming an includer's macro of the configuration (`ccl_pre_not_its_text/1`) -- is read so first, by
+  `ccl_read_unit/3`'s clause before the raw one: its raw read, and the reads of the headers inside it, were made for
+  nothing. Why: `#define M 24` and `typedef struct two { int n; size_t a[M]; } two;` were read with the bound `M`, which
+  no constant folds, and `sizeof(two)` was 8 where gcc's is 200 (the Ambitious session's finding 24).
+  `test/c/run/ownmacros.c` over `ownm_box.h`, in C and as C++. (0.298)
+- A HEADER READ AS THE PROGRAM'S FILE IS GIVES ITS OWN `#include`s THE CONFIGURATION AT EACH (0.298; `ccl_inc_cfg_at/2`
+  over `'$ccl_cfgs_of'`, which `ccl_pp_own_parse/3` sets for its parse): its own run notes them by its lines, as the
+  program's file's run does (0.239), and the read of a header that it includes takes the one at its line. No store keeps
+  such a read where such a configuration is not the one that the header is read under (`ccl_include_read/2` over
+  `'$ccl_cfg_inner'`, `ccl_cfg_inner/1`), since the store names its headers by reference and reads them under the
+  header's own; the process keeps it, under its own key. Why: `#define K 5` and `#include "d.h"` in a header, `int
+  k[K];` in `d.h`: `d.h` was read under the configuration at the file's `#include` of the header, where no K stood, and
+  the bound was 0. `ownmacros.c`'s `ownm_inner.h`. (0.298)
+- A REFUSAL IN THE PROGRAM'S OWN HEADER IS THE BUILD'S (0.298; `ccl_include_read/2`): a refusal by name
+  (`error(refusal(M, here(H, L)), _)`, `ccl_refuse/1`) that the read of the program's own header throws goes up, and the
+  driver says it at the header's line under the header's name (the Diagnostics topic); a library header's stays an
+  `unreadable` one, its note under the errors (0.290). Why: two kinds of one name in such a header made it `could not be
+  read`, and the build failed at a name that it declares, `undeclared(t)`. `test/c/kind_in_hdr.c` (the reader gate).
+  (0.298)
 
 ### Resolution and the inclusion path
 
@@ -11565,7 +11678,12 @@ in the first topic (The ccllib gate).
   defect of 0.202 and before). A packed struct's constant is LLVM's packed one. `test/c/run/gunion.c`, `packunion.c`.
   (0.203)
 - A wide literal, or a pointer into one, is a pointer's global constant (`ir_wide_lit`: `wstr` and `u32str` i32,
-  `u16str` i16, through `ir_wstring`); an array of wide characters is not taken here. (0.115)
+  `u16str` i16, through `ir_wstring`) (0.115). AN ARRAY OF WIDE CHARACTERS MADE OF ONE, AT FILE SCOPE OR STATIC, IS A
+  CONSTANT OF ITS UNITS (0.298; C17 6.7.9/14-15; `ir_gconst/3`): the literal's code points, UTF-16 units for `u"..."`,
+  one element each of the array's element type, then zeros to its bound -- the terminator where the literal gave the
+  bound, none where the literal fills it. Why: `static const wchar_t gw[] = L"abc";` was refused,
+  `global_init(wstr([97,98,99]))`, and a refusal of a 60 KB literal held its every code, where a block's array was made
+  so (`ir_init/3`, 0.99). `test/c/run/widearr.c`, `longlit.c`, in C and as C++. (0.115, 0.298)
 - A FLOATING global's fold (`ir_fp_value/2`) takes a cast to an integer type as the truncation and the wrap it is
   (`ir_fp_cast/3`: `(double) (int) 2.5` was 2.5, the cast passed over) and an integer past 2^60 as a double
   (`ccl_w_float/2`: `double d = (double) ((__int128) 1 << 100)` was refused); an INTEGER global from a floating initializer
@@ -12444,6 +12562,24 @@ in the first topic (The ccllib gate).
   preprocessed in turn, for ten minutes.
 - The lowering caches `ir_type/2` and `ir_abi/2` per type term; `ir_expr/4` carries the LLVM type beside the C type;
   `ir_join/3` is `atomic_list_concat/3`.
+- A LITERAL'S TEXT IN THE IR IS MADE IN ONE WALK (0.298; `ir_escape/2` over `ir_escape_codes/2`): its codes, a byte past
+  printable ASCII, a quote and a backslash as `\XX`, then one atom; each byte was an atom of the text after it, joined
+  in front of it, a cost as the square of the text's size. With the reader's join of the pieces (the lexers' topic of
+  strings), measured as one build each over a fresh HOME with the caches off: one literal of 60 KB took 3.2 s and 1.9
+  GB, and takes 0.46 s and 87 MB; 60 KB in pieces 4.0 s and 1.9 GB, now 0.42 s and 87 MB; 100 KB in pieces 0.67 s and
+  145 MB, where the Ambitious session's build on 0.284 took 13 s and 4.5 GB; 2 MB in 42 literals of 48 KB, killed at 13
+  GB there, 3.2 s and 405 MB; an array of 60,000 `char` in pieces 4.8 s and 1.9 GB, now 0.94 s and 152 MB, where clang's
+  build takes 0.08 s and 82 MB. The IR is the same, byte for byte. `test/c/run/longlit.c`. (0.298)
+- THE RUN'S LIST OF HEADERS KEEPS EACH ONE'S TABLE (0.298; `hk(H, Path, Kind)` in `'$pp_hdrs'`, `pp_header_macro_/4`): a
+  header's table is found at its `#include`, where it is asked under the configuration at the `#include`
+  (`pp_hdr_known/3`, two `nb_setval/2` a header), and a later name is asked of the table at once; a name that no table
+  defines asked each header's under its configuration. THE INCLUDER'S MACROS COST NO READ: a file of 40 guarded headers,
+  each including the next and each naming the file's `CAP`, took 35 s at the first form of 0.298, where its form with a
+  literal bound took 2.0 s on 0.297, and 4.0 to 4.2 s after the step's mends (the topic of the user's file and the
+  headers' macros). On the box of the step's last measures, each build over a fresh HOME with the kept IR off, and a
+  warm one over the store that the cold one wrote, after a change of the file: 4.8 to 5.0 s cold (each header read as
+  the program's file is) and 2.0 to 2.1 s warm, where the form with a literal bound takes 2.75 to 2.8 s and 1.2 s, and
+  2.65 to 2.75 s and 1.1 s on 0.297; the first form of 0.298 took the same there, 4.7 to 4.9 s and 2.0 s. (0.298)
 - The inference is at its floor. THE CHECK IS A SMALL PART OF A BUILD (measured at 0.241, a timer around each phase in a
   scratch copy of the library): over the 161 C run fixtures and the B-tree benchmark, built without the store, 0.43 s of
   46.1 s -- the cold read 43.0 s, the lowering 2.0 s -- and 12 ms at most (`btree_del.c`); over twelve C++ run fixtures,
@@ -13583,7 +13719,11 @@ in the first topic (The ccllib gate).
   operator, a header that includes another, and one with no `#include` -- (`hdrvec.c`, `-std=c17`), and parameters named
   as the lowering's names (`regnames.c`; `regnames23.c`, `-std=c23`). Since 0.294: conditionals whose arms are arrays
   (`condarr.c`), and functions whose every return is static storage (`statret.c`). Since 0.297: rows of static arrays
-  used as pointers (`staticrows.c`), and names that a block declares again (`shadowed.c`).
+  used as pointers (`staticrows.c`), and names that a block declares again (`shadowed.c`). Since 0.298: the macros of
+  the program's own headers and of their includer (`ownmacros.c`), own headers over a type macro's instance with no
+  macro file of their own (`hdrinst.c`), names declared again that C takes (`samenames.c`), arrays of wide characters
+  made of wide literals (`widearr.c`), long literals in pieces (`longlit.c`), and the directives of the program's own
+  headers in the file's run (`ownundef.c`).
 - The C library is the host's. The compiler's own freestanding headers are in `library/include/` (`<stdarg.h>`,
   `<stdatomic.h>`, `<complex.h>`, `<stdckdint.h>`, `<stdbit.h>`, `<limits.h>`, `<tgmath.h>` and six more).
 - The language's own additions run: `:=`, patterns, `name { }` structs and `format`, `print`, `println`
@@ -14397,9 +14537,11 @@ Declarations topic of the C++ reader).
    system `#include` counts since 0.215 where clang's headers read it, and GNU's inline assembly is read and lowered
    (the topic of the user's file and the headers' macros; the lowering's topic of inline assembly). Since 0.239 a header
    is read under the configuration at its own `#include` (`__config`'s names at the first, a local header's own names,
-   `NDEBUG` for the program's own header), and a file that defines such a name late is kept in the store. What is left:
-   a local header's own `#include`s are read under the configuration at the program's `#include` of it, not at theirs,
-   so a name the local header defines between two of them reaches both. A C++ program's own header that calls a macro
+   `NDEBUG` for the program's own header), and a file that defines such a name late is kept in the store. Since 0.298
+   the program's own header read as the program's file is gives its own `#include`s the configuration at each, and
+   the includer's macros that the header names join it (the topic of includes). What is left: a header read raw
+   reads its own `#include`s under the configuration at the program's `#include` of it, so a name it defines between
+   two of them reaches both. A C++ program's own header that calls a macro
    of a header it includes in an inline function -- `assert` -- was refused `undeclared(assert)` until 0.268, its raw
    read keeping the call: it is read as the program's file is now (the topic of includes). `asm
    goto` is lowered since 0.231; an asm output that carries a pointer is refused by the owner's rule of ownership paths,
@@ -14471,6 +14613,11 @@ Declarations topic of the C++ reader).
   definitions of one name on one line the plain one marks both. A throw caught in a constant evaluation (C++26's P3068)
   and a construction through a VTT (a class with a virtual base, which has no constexpr constructor) are refused in a
   static assertion, as clang++ 22 refuses them: no limit.
+- A NAME DECLARED AGAIN AS ANOTHER KIND OF SYMBOL IN C++ (0.298's probes): `int t(void); int t;`, `enum { t = 1 }; int
+  t(void)` and `typedef int t; int t(void)` are built, and an object and a function of one name are refused by other
+  words -- `not lowered yet: call(id(t))`, or LLVM's `redefinition of function '@t'` --, where clang++ refuses each with
+  `redefinition of 't' as different kind of symbol`: the reader's file scope in C++ holds the overloads and the
+  namespaces' names flattened, so C's test (the C reader's topic of the symbol table) is not asked there.
 
 ### libc++ modules
 
@@ -14843,6 +14990,20 @@ Declarations topic of the C++ reader).
   stops, and where they do not lex it is an empty read that stopped (0.290); the preprocessed read, which has the rule,
   then takes the header (the topic of includes). No read depends on the raw lexer's rule; a header whose raw read would
   have been whole is read twice.
+- THE PROGRAM'S OWN HEADERS, WHAT 0.298 LEAVES (its probes): an error of the check or of the lowering in a function of a
+  header names the header's line under the user's file's name (the Ambitious session's finding 26 noted it; a refusal of
+  the reader names the header since 0.298); and an unknown type name in such a header, `foo items;`, is read as a type
+  that the reader has not seen (the C reader's topic of typedef names), so the build fails at the member's use,
+  `no_member(items, ...)`, where clang names the header's line, `unknown type name 'foo'`.
+- A LIBRARY HEADER'S TEXT AGAINST THE FILE'S OWN MACROS (0.298's probes; the topic of the user's file and the headers'
+  macros): a library header is a table, what it defines at its end read apart, and a name that the file itself defines
+  or undefines stays the file's. So `#define EOF 7` before the first `#include <stdio.h>` stays 7, where clang takes
+  `<stdio.h>`'s -1, and `#undef NULL` after `<stdio.h>` and before `<stddef.h>` leaves NULL undefined,
+  `undeclared('NULL')`, where clang's `<stddef.h>` defines it again. A table holds no record of which of its files
+  defined a name, nor of whether its text runs at an `#include`: a probe of this step that let the next table answer the
+  file's undefined name took INT8_MAX back after `<inttypes.h>` had included `<stdint.h>` and the file had undefined it,
+  where clang has it undefined. Each stood so on 0.297. A library header included again, guarded, is pushed again as the
+  newest table, so a name that a header between the two defined again takes the first one's value back.
 - A BUILD OVER THE STORE THAT DID NOT END (the Ambitious session's finding 11, on 0.284 over cocolog 3.62.0; NOT SEEN
   HERE): a build ran at 100% of a CPU for ten minutes with the store's lock held, after builds between which a macro
   file was changed, and each later build over that store did the same until the store was removed (`rm -rf

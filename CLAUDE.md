@@ -12,8 +12,8 @@ the fixture that gates it, and why. The bullet ends with the version that made t
 edits the rule in `RULES.md`, in its topic, and writes its entry in `HISTORY.md`. Read the topic of `RULES.md` that
 covers the code before the code is changed.
 
-At 0.297 the versions are: the module 0.297 (`ccl_p_version` in `module/cicilang.cicili`, `bin/cicilang --version`),
-the reader 192 (`ccl_reader_version/1`, `library/ccl_syntax.pl`) and the lowering 166 (`ccl_lowering_version/1`,
+At 0.298 the versions are: the module 0.298 (`ccl_p_version` in `module/cicilang.cicili`, `bin/cicilang --version`),
+the reader 193 (`ccl_reader_version/1`, `library/ccl_syntax.pl`) and the lowering 167 (`ccl_lowering_version/1`,
 `library/ccl_ir.pl`).
 
 Build and prove, always in this order (or all of it, `sh test/gates.sh`):
@@ -470,7 +470,11 @@ test/c/                     the reader's fixtures: hello.c, rich.c, lexer.c, mac
                             name_arg_other.c and name_arg_count.c over run/tnames.pl and run/lazy.pl, the arguments
                             of a call by name and their count (0.288); own_name.c, the word own where only a name
                             can stand (0.290); op_mirror_none.c, an operator whose left operand is no instance, with no
-                            form of the type macro for it (0.291)
+                            form of the type macro for it (0.291); kind_fn_obj.c, kind_ext_fn.c, kind_proto_obj.c,
+                            kind_typedef_fn.c, kind_obj_typedef.c, kind_hdr.c over kind_hdr.h and kind_in_hdr.c over
+                            kind_in_hdr.h, a name declared again at file scope as another kind of symbol, and
+                            pperr_own.c and pperr_own_ok.c over pperr_own.h, an #error of the program's own header
+                            (0.298)
 test/c/inc/                 the -I fixture: uses_box.c over box.h
 test/c/link/                two files linked into one program; the ABI against clang-built code (abi_main.c,
                             abi_helper.c), variadic calls (va_main.c, va_func.c, va.h), the decimal ABI against gcc,
@@ -499,7 +503,14 @@ test/c/run/                 C programs built and run: NAME.c, NAME.expect, NAME.
                             parameters named as the lowering's names (0.293); condarr.c, conditionals whose arms are
                             arrays, and statret.c, functions whose every return is static storage (0.294);
                             staticrows.c, rows of static arrays used as pointers, and shadowed.c, names that a block
-                            declares again (0.297)
+                            declares again (0.297); ownmacros.c over ownm_box.h, ownm_inner.h, ownm_late.h,
+                            ownm_two.h and ownm_redef.h, the macros of the program's own headers and of their
+                            includer; hdrinst.c over hdrinst_bag.h, hdrinst_shelf.h, hdrinst_st.h, hdrinst_ivec.h and
+                            hdrinst_pts.h, own headers over a type macro's instance with no macro file of their own;
+                            samenames.c, names declared again that C takes; widearr.c, arrays of wide characters made
+                            of wide literals; longlit.c, long literals in pieces; ownundef.c over ownu_a.h, ownu_w.h,
+                            ownu_in.h, ownu_len.h, ownu_q.h, ownu_p.h, ownu_y1.h, ownu_y2.h and ownu_min.h, the
+                            directives of the program's own headers in the file's run (0.298)
 test/c/safe/                C programs the safe part refuses: NAME.c, NAME.expect; dropnone.pl, the macro file of
                             drop_leaks.c (0.262); borrow_after_grow.c, borrow_after_push.c, elem_after_push.c,
                             grow_through_ptr.c, const_replace.c and const_local.c, the safety rules of 0.265;

@@ -305,7 +305,7 @@ dr_diag(F, list_literal(M), here(_, L)) :- !, dr_error(F, L, [M]).   % a list or
 dr_diag(F, static_assert_unfolded, here(_, L)) :- !, dr_error(F, L, ['static assertion expression is not an integral constant expression']).   % a condition that does not fold, in clang's words (0.257)
 dr_diag(F, no_member(What, T), here(_, L)) :- !, dr_error(F, L, ['no member ', What, ' in ', T]).
 dr_diag(F, macro_error(M, here(_, L)), _) :- !, dr_error(F, L, ['macro: ', M]).
-dr_diag(F, refusal(M, here(_, L)), _) :- !, dr_error(F, L, [M]).   % the reader's own refusal by name (ccl_refuse/1, 0.290)
+dr_diag(F, refusal(M, here(H, L)), _) :- !, ( atom(H), H \== F -> dr_error(H, L, [M]) ; dr_error(F, L, [M]) ).   % the reader's own refusal by name (ccl_refuse/1, 0.290), at its own file's line: a header's, the header's (0.298)
 %% an error inside a macro: the call site, then where it went wrong in the macro
 dr_diag(F, macro_error(N, As, E), here(_, L, in_macro(P, MF))) :- !,
     dr_prolog_error(E, Text), dr_error(F, L, ['in the expansion of macro \'', N, '\': ', Text]), dr_note_macro(F, L, P, MF, As).

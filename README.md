@@ -231,6 +231,15 @@ optimizes and emits through `library(ccl_llvm)`, a cocolog module over
 `llvm-c`; `cicilang_link` drives the system linker, the one tool the
 compiler runs. Everything else the library defines is `ccl_`-prefixed.
 
+The program's own header is read under the macros that its includer
+defined before its `#include` (0.298), as C replaces the directive by the
+header's text: `char buf[CAP];` in a header takes the file's `#define CAP
+16`, and a header's own `#define M 24` bounds its own struct. Its
+directives run where its `#include` stands, so its `#undef` of the file's
+macro holds after it, and its `#error` stops the build at its line. A
+name that C's file scope declares again as another kind of symbol -- a
+function named as a header's table -- is refused with clang's words.
+
 ## `:=`, patterns, `name { }`, `defer`
 
 ```c

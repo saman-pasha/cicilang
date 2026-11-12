@@ -174,7 +174,7 @@ ccl_kb_items_goal(Path, K, I, It, T) :- ccl_kb_items(Path, F), T =.. [F, K, I, I
 ccl_kb_forget_items(Path) :- ccl_kb_items_goal(Path, _, _, _, T), retractall(T).
 ccl_kb_forget_file(Path) :- ccl_kb_ready, retractall('$ccl_ast'(Path, _, _)), ccl_kb_forget_items(Path), retractall('$ccl_hmeta'(Path, _, _)), ccl_kb_hm(Path, F), T =.. [F, _, _, _], retractall(T).
 
-ccl_read_file(File, AST, Rest) :- ccl_ensure_globals, ccl_set_lang(File), ( nb_current('$ccl_reading', []) -> nb_setval('$ccl_src_file', File), nb_setval('$ccl_path_cfgs', []), nb_setval('$pp_inc_cfgs', []), pp_ftm_find(File), dynamic('$ccl_plainfn'/2), retractall('$ccl_plainfn'(_, _)), ccl_inst_reset ; true ), ccl_read_file_(File, AST, Rest).   % the file as the compiler was given it: a source location's, and C's `__PRETTY_FUNCTION__' reads its text (0.166)
+ccl_read_file(File, AST, Rest) :- ccl_ensure_globals, ccl_set_lang(File), ( nb_current('$ccl_reading', []) -> nb_setval('$ccl_src_file', File), nb_setval('$ccl_path_cfgs', []), nb_setval('$pp_inc_cfgs', []), pp_ftm_find(File), dynamic('$ccl_plainfn'/2), retractall('$ccl_plainfn'(_, _)), ccl_inst_reset, ccl_set_clear('$ccl_btds') ; true ), ccl_read_file_(File, AST, Rest).   % the file as the compiler was given it: a source location's, and C's `__PRETTY_FUNCTION__' reads its text (0.166)
 %% a unit's type macro instances (0.261): none at its start, each made once in it (ccl_tmacro_instance/5)
 ccl_inst_reset :- nb_setval('$ccl_instances', []), nb_setval('$ccl_inst_making', []), nb_setval('$ccl_hoist', []).
 %% the language of the file read: C++ by its extension (or forced, cicilang++), C by .c
@@ -282,7 +282,7 @@ ccl_kb_deps_fresh([P-PK|Ds]) :- ccl_kb_key(P, PK), ccl_kb_deps_fresh(Ds).
 ccl_kb_values([], []).
 ccl_kb_values([_-V0|T], [V|Vs]) :- ccl_float_thaw(V0, V), ccl_kb_values(T, Vs).
 ccl_kb_link([], []).
-ccl_kb_link([include(L, S, ref(P, _))|T], [include(L, S, R)|Ls]) :- !, ccl_include_read(P, R), ccl_kb_link(T, Ls).
+ccl_kb_link([include(L, S, ref(P, _))|T], [include(L, S, R)|Ls]) :- !, ( ccl_own_header(P) -> ccl_include_read(P, R) ; pp_sans_user(ccl_include_read(P, R)) ), ccl_kb_link(T, Ls).
 ccl_kb_link([include(L, S, ref(P, _, Cfg))|T], [include(L, S, R)|Ls]) :- !, pp_with_cfg(Cfg, ccl_include_read(P, R)), ccl_note_path_cfg(R, Cfg), ccl_kb_link(T, Ls).   % under its own configuration (0.239)
 ccl_kb_link([I|T], [I|Ls]) :- ccl_kb_link(T, Ls).
 ccl_kb_unit(top, top, Is, unit(Is)).
@@ -349,11 +349,16 @@ ccl_rest_any --> [].
 ccl_include(Spec, R) :-
     ccl_global('$ccl_file', From, none),
     (   ccl_resolve_include(Spec, From, Path)
-    ->  ( sub_atom(Path, _, 3, 0, '.pl') -> ccl_load_macros(Path, Preds), R = macros(Path, Preds) ; ccl_inc_kind(Spec, Kind), nb_setval('$ccl_inc_kind', Kind), ccl_include_read(Path, R) )
+    ->  ( sub_atom(Path, _, 3, 0, '.pl') -> ccl_load_macros(Path, Preds), R = macros(Path, Preds) ; ccl_inc_kind(Spec, Kind), nb_setval('$ccl_inc_kind', Kind), ( ccl_own_header(Path) -> ccl_include_read(Path, R) ; pp_sans_user(ccl_include_read(Path, R)) ) )
     ;   R = missing ).
 %% THE CONFIGURATION AT AN #include OF THE USER'S FILE (0.239; pp_inc_config/2), which its top run noted by line: the
 %% reader reads the header under it; a header's own includes are read under the header's
-ccl_inc_cfg_at(L, Cfg) :- ccl_global('$ccl_reading', Rd, []), Rd == [], nb_current('$pp_inc_cfgs', Cs), memberchk(L-Cfg, Cs), !.
+ccl_inc_cfg_at(L, Cfg) :- ccl_global('$ccl_reading', Rd, []), ( Rd == [] -> true ; Rd = [P|_], nb_current('$ccl_cfgs_of', P) ), nb_current('$pp_inc_cfgs', Cs), memberchk(L-Cfg, Cs), !.
+%% ... AND AT AN #include OF THE PROGRAM'S OWN HEADER READ AS THE PROGRAM'S FILE IS (0.298; ccl_pp_own_parse/3): its own
+%% run noted them, by its lines. `#define K 5' and `#include "d.h"' in a header, `int a[K];' in d.h: d.h was read under
+%% the configuration at the file's #include of the header, where no K stood, and the bound was 0. A read that took one is
+%% kept in no store (ccl_include_read/2): the store names its headers by reference, and reads them under the configuration
+%% at the file's #include
 %% ... and kept by the header's path for the file's lowering ('$ccl_path_cfgs', made afresh at each file's read), whose
 %% preprocessed read of a raw-read header reads it under the same (ir_hdr_pp_items/2)
 ccl_note_path_cfg(file(P, _, _), Cfg) :- atom(P), !, ( nb_current('$ccl_path_cfgs', Ps) -> true ; Ps = [] ), nb_setval('$ccl_path_cfgs', [P-Cfg|Ps]).
@@ -490,15 +495,27 @@ ccl_include_read(Path, file(Path, How, Unit)) :- \+ ccl_inst_context(Path), ccl_
 ccl_include_read(Path, file(Path, How, Unit)) :- \+ ccl_inst_context(Path), ccl_kb_cached(Path, included(How), Unit), !, ccl_unit_cache(Path, How, Unit).
 ccl_include_read(Path, file(Path, How, Unit)) :-
     ccl_reading_push(Path), ccl_inst_mark(IM), ( ccl_inst_context(Path) -> Sc = yes, ccl_inscope_push(Path) ; Sc = no ),
-    ( catch(ccl_read_unit(Path, How0, Unit0), _, fail) -> How = How0, Unit = Unit0 ; How = unreadable, Unit = none ),
+    ( nb_current('$ccl_cfg_inner', CI0) -> true ; CI0 = no ), nb_setval('$ccl_cfg_inner', no),
+    (   catch(ccl_read_unit(Path, How0, Unit0), E, true)
+    ->  ( var(E) -> How = How0, Unit = Unit0 ; How = unreadable, Unit = none, ( E = error(refusal(_, _), _), ccl_own_header(Path) -> RE = E ; true ) )
+    ;   How = unreadable, Unit = none ),
+    ( nb_getval('$ccl_cfg_inner', yes) -> Inner = yes ; Inner = no ), nb_setval('$ccl_cfg_inner', CI0),
     ( Sc == yes -> ccl_inscope_pop(Path) ; true ),
     ccl_reading_pop(Path),
+    ( nonvar(RE) -> throw(RE) ; true ),   % A REFUSAL IN THE PROGRAM'S OWN HEADER IS THE BUILD'S, at the header's line (0.298): it was the header `could not be read', and the build failed at a name that the header declares, `undeclared(t)'
     (   ( ccl_inst_since(IM) ; Sc == yes ) -> true   % A READ THAT MADE OR MET A TYPE MACRO'S INSTANCE (0.261), OR ONE IN ITS INCLUDER'S SCOPE (0.293), is the unit's: kept in neither cache
     ;   ccl_unit_cache(Path, How, Unit),
-        ( How == unreadable -> true ; How == summary -> true ; ccl_lang(cpp), How == preprocessed -> true ; ccl_kb_remember(Path, included(How), Unit) ) ).
+        ( How == unreadable -> true ; How == summary -> true ; ccl_lang(cpp), How == preprocessed -> true ; Inner == yes -> true ; ccl_kb_remember(Path, included(How), Unit) ) ).   % ... or one that read a header of its own under its own run's configuration (0.298, ccl_inc_cfg_at/2): in the process only
 %% the unit has an instance where it includes the program's own header (ccl_own_header/1), and the read is not a
 %% library header's: the header is read in its includer's scope (ccl_unit/3), in each read that the include makes of it
-ccl_inst_context(Path) :- nb_current('$ccl_instances', [_|_]), \+ nb_current('$ccl_lib_unit', yes), ccl_own_header(Path).
+ccl_inst_context(Path) :- \+ nb_current('$ccl_lib_unit', yes), ccl_own_header(Path), ( nb_current('$ccl_instances', [_|_]) -> true ; ccl_user_macro_files ).
+%% ... OR A MACRO FILE OF ITS OWN, past the global macros of every file (0.298): `vector<int> items;' in a header that
+%% includes no <vector.pl>, under a unit that includes it before the header and has made no instance yet -- the header
+%% makes the first one. Read alone, the header knew no type macro (ccl_unit_start/1 begins a read with none): both of
+%% its reads stopped at its first line, and the unit met `not lowered yet: typedef(bag)' (in C++,
+%% `template_without_body(vector)') -- the finding of a program over 0.284
+ccl_user_macro_files :- nb_current('$ccl_macros', Ms), Ms \== [],
+    ( nb_current('$ccl_std_macros', P), P \== none, ccl_macro_loaded(P, Std) -> true ; Std = [] ), member(M, Ms), \+ memberchk(M, Std), !.
 ccl_inscope_push(P) :- ( nb_current('$ccl_inscope', Ps) -> true ; Ps = [] ), nb_setval('$ccl_inscope', [P|Ps]).
 ccl_inscope_pop(P) :- ( nb_current('$ccl_inscope', Ps), selectchk(P, Ps, Ps1) -> nb_setval('$ccl_inscope', Ps1) ; true ).
 %% a preprocessed C++ header stays in the process: <cstdio> alone is 2700
@@ -537,6 +554,16 @@ ccl_read_unit(Path, How, Unit) :-
     (   catch(ccl_pp_own_parse(Path, U, Info), _, fail), Info == whole -> true
     ;   nb_setval('$ccl_instances', I0), fail ), !,
     How = raw, Unit = U.
+%% ... AND IN C, ONE WHOSE TEXT A RAW READ IS KNOWN NOT TO BE IS READ SO FIRST (0.298): a header with a conditional past
+%% its guard, or whose own lines name a macro of its includer's in the configuration at its #include
+%% (`ccl_pre_not_its_text/1'). Its raw read, and the reads of the headers inside it, were made for nothing
+%% (`ccl_raw_not_its_text/2', below, took the header so): a file of 40 such headers, each including the next, took 5 s
+%% where it takes 2.6 s. A read that is not whole goes the old way
+ccl_read_unit(Path, How, Unit) :-
+    \+ ccl_lang(cpp), ccl_own_header(Path), ccl_pre_not_its_text(Path), ccl_global('$ccl_instances', I0, []),
+    (   catch(ccl_pp_own_parse(Path, U, Info), _, fail), Info == whole -> true
+    ;   nb_setval('$ccl_instances', I0), fail ), !,
+    How = preprocessed, Unit = U.
 %% THE RAW ATTEMPT'S INSTANCES GO WITH IT (0.261): a type macro's instance made by a raw read that did not read whole
 %% stands in no AST, so the preprocessed read starts from the unit's instances before the attempt, and the raw partial
 %% read that stays keeps its own.
@@ -554,7 +581,7 @@ ccl_read_unit(Path, How, Unit) :-
     ( catch(ccl_parse_file(Path, U0, Info0), _, fail) -> true ; U0 = unit([]), Info0 = stopped(1, near(1)) ),   % A RAW READ THAT THROWS GOES ON TO THE PREPROCESSED READ (0.290; below)
     ccl_global('$ccl_instances', I1, []),
     (   Info0 == whole, \+ ccl_raw_cut_inside(U0)
-    ->  (   \+ ccl_lang(cpp), ccl_own_header(Path), ccl_inst_since(IM), nb_setval('$ccl_instances', I0),
+    ->  (   \+ ccl_lang(cpp), ccl_own_header(Path), ( ccl_inst_since(IM) -> true ; ccl_raw_not_its_text(Path, U0) ), nb_setval('$ccl_instances', I0),
             catch(ccl_pp_own_parse(Path, U2, Info2), _, fail), Info2 == whole
         ->  How = preprocessed, Unit = U2
         ;   nb_setval('$ccl_instances', I1), How = raw, Unit = U0 )
@@ -564,6 +591,38 @@ ccl_read_unit(Path, How, Unit) :-
         ;   nb_setval('$ccl_instances', I1), How = raw, Unit = U0 )
     ;   nb_setval('$ccl_instances', I0), ccl_pp_parse(Path, U1, Info1, Files) -> How = preprocessed, ccl_partial(U1, Info1, Unit), ccl_pp_macros(Ms), ccl_kb_remember_macros(Path, Files, Ms)
     ;   nb_setval('$ccl_instances', I1), How = raw, ccl_partial(U0, Info0, Unit) ).
+%% A RAW READ THAT IS NOT ITS HEADER'S TEXT (0.298; in C, the program's own header): the raw read runs no directive, so a
+%% macro that the header defines and its own text names stays unexpanded in it, and it reads both arms of a
+%% conditional. `#define M 24' and `typedef struct two { int n; size_t a[M]; } two;' were read with the bound `M', which
+%% no constant folds, and `sizeof(two)' was 8 where gcc's is 200 (the finding of a program over 0.284). Where the
+%% header's lines define a macro whose name an item of the raw read holds (its includes' items aside), or hold a
+%% conditional past an include guard (`#ifndef G', `#define G', the last `#endif'), the header is read again as the
+%% program's file is, its directives run and its macros expanded; that read is taken where it is whole
+ccl_raw_not_its_text(Path, unit(Is)) :- catch(pp_source(Path, Lines), _, fail), ccl_hdr_directives(Lines, Ds),
+    (   ccl_hdr_conditional(Ds) -> true
+    ;   member(define(N), Ds), \+ ccl_hdr_guard(Ds, N), ccl_items_name(Is, N) -> true
+    ;   nb_current('$pp_ftm', F), member(N-user(_, _), F), ccl_items_name(Is, N) ), !.   % ... or a macro of the configuration at its #include: its includer's (0.298, pp_inc_user_macros/4)
+%% a header that the raw read is not, known before it runs: a conditional past its guard, or an includer's macro of the
+%% configuration (`N-user(Ps, Cs)', pp_inc_user_macros/4) that the header's own words name
+ccl_pre_not_its_text(Path) :- catch(pp_source(Path, Lines), _, fail),
+    (   ccl_hdr_directives(Lines, Ds), ccl_hdr_conditional(Ds) -> true
+    ;   nb_current('$pp_ftm', F), memberchk(_-user(_, _), F), pp_own_header_info(Path, Ws, _, _), member(N-user(_, _), F), memberchk(N, Ws) ), !.
+ccl_hdr_directives(Lines, Ds) :-
+    findall(D, ( member(line(_, A), Lines), pp_directive_line(A, Body), pp_ws(Body, B1), pp_word(B1, W, Rest), atom_codes(K, W), ccl_hdr_directive(K, Rest, D) ), Ds).
+ccl_hdr_directive(define, Rest, define(N)) :- !, pp_ws(Rest, R1), pp_word(R1, Cs, _), Cs \== [], atom_codes(N, Cs).
+ccl_hdr_directive(K, Rest, cond(K, N)) :- memberchk(K, [if, ifdef, ifndef, elif, elifdef, elifndef, else, endif]),
+    ( pp_ws(Rest, R1), pp_word(R1, Cs, _), Cs \== [] -> atom_codes(N, Cs) ; N = none ).
+ccl_hdr_conditional(Ds) :- findall(C, ( member(C, Ds), C = cond(_, _) ), Cs), Cs \== [], \+ ccl_hdr_guard(Ds, _).
+ccl_hdr_guard(Ds, G) :- findall(C, ( member(C, Ds), C = cond(_, _) ), [cond(ifndef, G), cond(endif, _)]), memberchk(define(G), Ds).
+%% an item of the header's own, no directive, that holds the name, or an item of a header of the program's own that it
+%% includes, at any depth: `#define K 5' in a header names `int a[K];' of the header that it includes (0.298)
+ccl_items_name(Is, N) :- member(I, Is), ccl_item_name(I, N), !.
+ccl_item_name(include(_, _, file(P, _, U)), N) :- !, ccl_own_header(P), ( U = unit(Js) ; U = partial(unit(Js), _, _) ), ccl_items_name(Js, N).
+ccl_item_name(include(_, _, _), _) :- !, fail.
+ccl_item_name(directive(_, _), _) :- !, fail.
+ccl_item_name(I, N) :- ccl_term_atom(I, N).
+ccl_term_atom(T, A) :- T == A, !.
+ccl_term_atom(T, A) :- compound(T), T =.. [_|As], member(X, As), ccl_term_atom(X, A), !.
 %% A RAW READ THAT THROWS (0.290). The raw read is an attempt: it runs no directive, so it reads the lines of each
 %% branch of a conditional, and its errors may be those of a branch that no build takes. TWO SUCH ERRORS WERE THE
 %% HEADER'S END. The raw lexer ends a directive at its line's end, and C ends it where a comment that began on the line
@@ -597,14 +656,18 @@ ccl_own_header(P) :- atom(P), \+ ir_hdr_lib_path(P).
 %% that includes the header of a struct with a `vector<pt>' member found the instance made by the prescan's read, which
 %% stands in no AST, and made no items: `vector_pt' was no type of the unit, and `p->pts' was `no_member(pts)' -- in
 %% C++ since 0.268, and in C since this read is C's too (ccl_read_unit/3)
+%% ITS #warning LINES ARE THE FILE'S RUN'S (0.298), which ran its directives (pp_own_text/1): the read puts the list back,
+%% where a header read so said each twice
 ccl_pp_own_parse(Path, unit(Is), Info) :-
+    ( nb_current('$pp_warnings', W0) -> true ; W0 = [] ),
     ( nb_current('$pp_inc_cfgs', C0) -> true ; C0 = [] ), ( nb_current('$pp_cfg_lib', L0) -> true ; L0 = none ),
     ccl_global('$ccl_instances', I0, []), ccl_global('$ccl_inst_making', M0, []), ccl_global('$ccl_hoist', H0, []),
-    (   catch(( ccl_pp_prescan(Path), ccl_pp_top_run(Path, [], Tokens, _), \+ memberchk(tok(other, _, _), Tokens),
-                nb_setval('$ccl_instances', I0), nb_setval('$ccl_inst_making', M0), nb_setval('$ccl_hoist', H0),
+    ( nb_current('$pp_own_read', O0) -> true ; O0 = no ), ( nb_current('$ccl_cfgs_of', F0) -> true ; F0 = none ),
+    (   catch(( ccl_pp_prescan(Path), nb_setval('$pp_own_read', yes), ccl_pp_top_run(Path, [], Tokens, _), nb_setval('$pp_own_read', O0), \+ memberchk(tok(other, _, _), Tokens),   % ITS RUN UNDER THE CONFIGURATION AT ITS #include (0.298): the macros that its includer defined before it (pp_inc_user_macros/4)
+                nb_setval('$ccl_instances', I0), nb_setval('$ccl_inst_making', M0), nb_setval('$ccl_hoist', H0), nb_setval('$ccl_cfgs_of', Path),
                 ccl_with_file(Path, ( ccl_unit(Tokens, unit(Is), Rest), ccl_rest_info(Rest, Info) )) ), E, true)
     ->  R = ok ; R = failed ),
-    nb_setval('$pp_inc_cfgs', C0), nb_setval('$pp_cfg_lib', L0),
+    nb_setval('$pp_inc_cfgs', C0), nb_setval('$pp_cfg_lib', L0), nb_setval('$pp_own_read', O0), nb_setval('$ccl_cfgs_of', F0), nb_setval('$pp_warnings', W0),
     ( nonvar(E) -> throw(E) ; R == ok ).
 
 %% A READ THAT WROTE ITS HEADER'S SUMMARY AND AST IS NOTED FOR THE PROCESS (0.218), in a global as the units read here are: the
@@ -966,7 +1029,7 @@ ccl_header_macros_ready(Spec, From) :-
 %% which reads it as before. A child runs in a session of its own (proc_spawn/2), so a build killed from outside does not
 %% take it along: `ulimit -t' holds its own CPU time to 1800 s. One cold header is read in the build's own process.
 ccl_cold_headers_read(Specs, From) :-
-    (   ccl_lang(cpp), nb_current('$ccl_children', opts(Opts0)), ( nb_current('$pp_ftm', FT), FT \== [] -> Opts = [ftm(FT)|Opts0] ; Opts = Opts0 ),   % the program's feature-test macros too (0.214)
+    (   ccl_lang(cpp), nb_current('$ccl_children', opts(Opts0)), ( nb_current('$pp_ftm', FT0), pp_cfg_sans_user(FT0, FT), FT \== [] -> Opts = [ftm(FT)|Opts0] ; Opts = Opts0 ),   % the program's feature-test macros too (0.214), no includer's macro (0.298)
         ccl_cold_headers(Specs, From, [], Cold), Cold = [_, _|_], ccl_jobs(J), J >= 2
     ->  get_time(T0), catch(ccl_kids_run(Cold, From, Opts, J), _, true), get_time(T1),
         findall(F, ( member(_-Path, Cold), ccl_sum_file(Path, F), ccl_sum_forget(F), ccl_sum_valid(F) ), Fs),   % forgotten: the check parsed it before its child wrote it

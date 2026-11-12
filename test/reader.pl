@@ -726,6 +726,27 @@ k163 :- check('an operator whose left operand is no instance is the instance\'s 
       sub_t(var(w, _, call(id(tag_char_radd_int), [chr(40), addr(id(v))])), B),
       op_refused('op_mirror_none.c', 6, 'the operator == of tag_char takes the object on its left: its type macro defines no tag_char_eq_int') )).
 
+%% A NAME THAT C'S FILE SCOPE DECLARES AGAIN AS ANOTHER KIND OF SYMBOL (0.298; C17 6.7/3-4): test/c/kind_*.c, each
+%% refused at its line with clang's words -- the finding of a program over 0.284 is kind_hdr.c, a function after a
+%% header's table of its name, whose calls read the function's code as the table -- and test/c/run/samenames.c, the
+%% names declared again that C takes, read whole
+k164 :- check('a name that C\'s file scope declares again as another kind of symbol is refused at its line with clang\'s words: an object after a function, a function after an extern object, an object after a prototype, a function after a typedef, a typedef after an object, a function after a header\'s object, two kinds in the program\'s own header; the names declared again that C takes are read',
+    ( kind_refused('kind_fn_obj.c', 3), kind_refused('kind_ext_fn.c', 3), kind_refused('kind_proto_obj.c', 3),
+      kind_refused('kind_typedef_fn.c', 3), kind_refused('kind_obj_typedef.c', 3), kind_refused('kind_hdr.c', 5),
+      kind_refused('kind_in_hdr.c', 'kind_in_hdr.h', 3),
+      c('run/samenames.c', P), cicilang_ast(P, unit(_)) )).
+kind_refused(F, L) :- kind_refused(F, F, L).
+kind_refused(F, In, L) :- c(F, P), catch(cicilang_ast(P, _), error(refusal(M, here(H, L0)), _), true), L0 == L, atom(H), sub_atom(H, _, _, 0, In),
+    M == 'redefinition of \'t\' as different kind of symbol'.
+
+%% THE PROGRAM'S OWN HEADER'S DIRECTIVES RUN IN THE FILE'S RUN (0.298): its #error under a condition that holds there
+%% is the build's, at the header's line with its words, where the build had read the header and ended `cicilang: ok';
+%% the same header under the file's `#define CFG 1' is read
+k165 :- check('the program\'s own header\'s #error is refused at the header\'s line with its words where the file\'s run meets it, and the header is read where its condition is defined',
+    ( c('pperr_own.c', P1), catch(cicilang_ast(P1, _), error(refusal(M, here(H, L)), _), true), M == '"CFG is needed"', L == 5,
+      atom(H), sub_atom(H, _, _, 0, 'pperr_own.h'),
+      c('pperr_own_ok.c', P2), cicilang_ast(P2, unit(_)) )).
+
 k110 :- check('a type macro that fails, two instances that one name names, and a typed call of a macro with no typed form are refused at the use',
     ( c('tmacro_fail.c', P1), c('tmacro.pl', M), catch(cicilang_ast(P1, _), error(E1, here(P1, 3, in_macro(type_none, M))), true), E1 == macro_failed(none, [base([], [int])]),
       c('tmacro_same.c', P2), catch(cicilang_ast(P2, _), error(macro_error(pair, _, error(ctext_error(T2), _)), here(P2, 7, _)), true),
@@ -1034,6 +1055,10 @@ t_checks :-
     k161,
     k162,
     k163,
+    section('a name declared again at file scope as another kind of symbol (0.298)'),
+    k164,
+    section('the program\'s own header\'s directives in the file\'s run (0.298)'),
+    k165,
     section('the preprocessor, in cocolog: a header raw cannot take'),
     k83,
     section('the lexer, native: ccl_lex_native/6 token for token with the DCG'),

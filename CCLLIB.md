@@ -153,6 +153,10 @@ the file reader gives, and the typedef name joins the environment.
   `k105` to `k111`, `test/c/run/tvector.c` over `tvector.pl`, `tvhdr.h` and `tvhdr2.h`. `vector<vector<int>>` reads, and
   the safe part refuses its push: an element with an own field stored into the buffer is no move of the field (open
   decision 2; autodrop, 0.5, drops the elements).
+- A HEADER OF THE PROGRAM'S OWN OVER AN INSTANCE NEEDS NO MACRO FILE OF ITS OWN (0.298): a header whose struct has a
+  `vector<int>` member, under a file that includes `<vector.pl>` before it, is read in its includer's scope, where
+  the type macro stands; it had to include `<vector.pl>` itself (the Ambitious session's findings 23 and 22).
+  `test/c/run/hdrinst.c`, as C and as C++.
 
 ### 0.3 Items at file scope from a macro
 
