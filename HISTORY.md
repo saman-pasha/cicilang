@@ -290,6 +290,7 @@ One row per step, in version order: the step's title, what it did and its gate n
 | 0.293 | the findings of a JavaScript engine over 0.284, and cocolog 3.62.3 | a borrow handed to a call that may replace its owner refused (`ck_args_alias/3`); a named parameter's register `%arg.<name>`, apart from the lowering's names; the program's own C header whose raw read met an instance read again in its place, its own read's prescan instances put back (C++'s `no_member` of 0.268 too), a header read in its includer's scope where the unit has an instance, and a read that calls an instance's function kept in no cache; the string's programs hand a part by the string; reader 189, lowering 163; cocolog from 3.62.2 to its latest master, 3.62.3 (`bf956d1`), on the owner's word, its pin moved, every load silent | the toolchain check strict; the chain over libc++ 22, 21 and 18, GREEN; no CI job, by the owner's rule of 0.271 |
 | 0.294 | the findings of the twelfth phase of a program over 0.284 | a conditional's arms decay, in its type and its value; a function of the program whose every return is static storage answers no new memory (`ck_static_results/1`); static storage a borrow that nothing ends, its free and its store into an owner refused (an older hole the probes found); a static local's debug variable its function's subprogram's (-g died of SIGSEGV on one in a block); the borrow into a call over a `vector<item> *` refused since 0.293; reader 190, a run's macro names a key each, so a unit over `<openssl/ssl.h>` builds cold in 26 s where it took 59 s; lowering 164 | the flow gate and the nets; no chain and no CI job, by the owner's rule of 0.271 |
 | 0.295 | ccllib's `<string_view.pl>` and `<span.pl>`, the last modules of phase 1a; a view is a borrow | `std::string_view` as `basic_string_view<char>` and `std::span`, the first element and the count, each a borrow of what it sees, which the safe part follows: a view used after its source ends or after a change that may replace it, a view of a local that leaves its function, a view of another source put in the caller's, a view of a string handed beside it to a change of it, refused; 118 functions of the view and 14 of the span, a string's forms over a view; a span of a C array by its type's count, the reader asking the array's own word first; in C++ an instance made of another instance's object with no `_of` refused by name; the rules program holds both to a model at 777,450 checks, and 42 copies of the tree broken on purpose are each reported; a write through a const lvalue, never refused, recorded; reader 191, lowering 165 | the flow gate; the reader, compile, driver and ccllib gates over libc++ 22 over one fresh HOME; the ccllib gate over libc++ 21 and 18; the pool of the light C++ run fixtures; the C++ net by hand; no chain, by the owner's rule of 0.271; a commit and a push |
+| 0.296 | the chain over the finished phase 1a of ccllib | the chain over 0.295's pushed commit, its numbers: over libc++ 22 and 21 the library read, the C++ gate and the ccllib gate, and over libc++ 18 all eleven gates, the toolchain check strict, GREEN; no code changes | the chain over libc++ 22, 21 and 18 over fresh HOMEs; no CI job, by the owner's rule of 0.271; a commit and a push |
 
 ## M5 — the C++ mode
 
@@ -20952,3 +20953,25 @@ the owner's rule of 0.271: it runs over the finished ccllib task, which this ste
 - RULES.md, HISTORY.md, CLAUDE.md, CCLLIB.md, README.md.
 
 The module 0.295, the reader 191 and the lowering 165.
+
+## 0.296 — the chain over the finished phase 1a of ccllib
+
+**0.296: the owner's rule of 0.271 -- "just try to finish ccllib task then gates" -- runs the chain over the finished
+task. Phase 1a of CCLLIB.md, the containers and the strings, ended with 0.295's `<string_view.pl>` and `<span.pl>`, and
+its steps, 0.273 to 0.295, were each committed with their probes, their nets and the flow gate. The chain ran over
+0.295's pushed commit, `8602b05`, GREEN. This step changes no code: its commit carries the chain's numbers and the
+module's version.**
+
+THE CHAIN, over 0.295's work tree at its pushed commit and cocolog 3.62.3 (`bf956d1`), ZiguratIP 1.0.2 and Cicili 3.3.0
+at their pins (cocolog's master has no commit past its pin), its two modules built over them, over a fresh HOME a part:
+over libc++ 22 the library read 445 s, the C++ gate 1536 s (1110 ok, none skipped) and the ccllib gate 654 s (282
+checks); over libc++ 21 the library read 446 s, the C++ gate 1506 s (1107 ok, 3 skipped by their needs) and the ccllib
+gate 665 s (282 checks); over libc++ 18 all eleven GREEN, the toolchain check strict -- the flow gate 190 s with no
+finding, reader 4 s, compile 39 s, driver 59 s, objects 5 s, the proof, the cross gate 406 s, the library read 494 s,
+the C++ gate 1492 s (1099 ok, 11 skipped by their needs) and the ccllib gate 699 s (282 checks); in 8643 s in all. The
+ccllib gate holds 16 programs in three runs, 87 refused and 6 alone over each tree. NO CI JOB RAN, by the owner's rule
+of 0.271.
+
+- RULES.md (the last full run), HISTORY.md, CLAUDE.md; `module/cicilang.cicili` (0.296).
+
+The module 0.296, the reader 191 and the lowering 165.
