@@ -295,6 +295,7 @@ One row per step, in version order: the step's title, what it did and its gate n
 | 0.298 | the findings 22 to 28 of a program over 0.284 | the program's own header read in its includer's scope where the unit has a macro file of its own, read again where its raw read is not its text, under the includer's macros that it names, its own includes under their configurations, a library header without them; the own header's directives run in the file's run, its #undef, #error and #warning met; a name of two kinds refused; a refusal in a header the build's; a long literal joined once and its IR text made in one walk; an array of wide characters at file scope | the reductions and 72 probes beside them, as C and as C++; a review that found a regression of the first form; the nets; no chain, by the owner's rule of 0.271; a commit and a push |
 | 0.299 | the finding 29 of a program over 0.284 | a pointer value that holds no memory the check follows -- a null or anchored plain local's, its sum with an integer, its cast -- is no new memory to a plain slot: `rest = end + 2` after `strtod(s, &end)` builds; an own slot takes an anchored pointer's value as new memory still | the reduction and 45 probes, 32 of them as C and as C++; a review's finding in an own slot; the nets, twice; no chain, by the owner's rule of 0.271; a commit and a push |
 | 0.300 | ccllib phase 1b, `optional.pl` | `std::optional` for cicilang's C: the value and a byte, born with no value, made of a value and of `nullopt` by its `_of`, each relation of C++ by the operators' typed names; no new form of the reader | the three runs, six refusals, the rules held to C++'s tables at 5,077,044 checks, sixteen broken copies reported; the flow gate and the ccllib gate; no chain, by the owner's rule of 0.271; a commit and a push |
+| 0.301 | ccllib phase 1b, `pair.pl` | `std::pair` for cicilang's C: a struct of `first` and `second`, `swap` and C++20's relations; a member that is an instance compares by its own functions; `<=` and `>=` over a NaN written down | the three runs, five refusals, every case held to C++20's words at 3,110 checks, seven broken copies reported; the flow gate and the ccllib gate; no chain, by the owner's rule of 0.271; a commit and a push |
 
 ## M5 — the C++ mode
 
@@ -21414,3 +21415,72 @@ owner's rule of 0.271. NO CI JOB RAN.
   HISTORY.md, CLAUDE.md; `module/cicilang.cicili` (0.300).
 
 The module 0.300, the reader 193 and the lowering 168.
+
+## 0.301 — ccllib phase 1b: `pair.pl`
+
+**0.301: `library/ccllib/pair.pl`, `std::pair` for cicilang's C, and for cicilang++ beside libc++'s: a struct of `first`
+and `second`, `swap` and C++20's relations. It came before `variant` and `tuple`, whose `get<0>(t)`,
+`holds_alternative<int>(v)` and `visit` need forms that C's reader has not. The step found that `<=` and `>=` of every
+module are true over a NaN where C++'s are false.**
+
+THE TYPE. `pair<int, double>` is the instance `pair_int_double`, a struct of `first` and `second`, so the members are
+C's own: `p.first = 3`. A value with no heap and no drop, made by braces (`pair<int, double> p = {1, 2.5};`, a pair of
+pairs by braces in braces) and born zero, as C++'s pair is made. Each member is a value with no pointer in it (decision
+2), and no array. The module has no C header: the reader includes `NAME.pl.h` only where the file is there, and a probe
+built the module's programs with none.
+
+THE RELATIONS ARE C++20'S ([pairs.spec]/1): `==` of each member, and `<` by the synthesized three-way order, the first
+members' `<` each way and then their `==` -- which a NaN fails, so that an unordered first member ends the comparison,
+false, where C++17's `<` went on to the second members -- and then the second members' `<`. A MEMBER THAT IS AN INSTANCE
+COMPARES BY ITS OWN FUNCTIONS: a probe found that the instance's operators are written in a module's C text too, so
+`a->first == b->first` over a pair of pairs is the inner pair's `_eq`, and an `optional<pair<int, int>>` compares its
+pairs so, with no word of either module for the other.
+
+A FINDING OF THE STEP: `<=` AND `>=` OVER A NaN. The reader writes `a <= b` as `!lt(b, a)` and `a >= b` as `!lt(a, b)`
+(0.266), and the typed forms so (0.291), which holds for a total order. Over a NaN -- an optional's value, a pair's
+member, a vector's element -- C++'s `<=` and `>=` are false (C++20's `(p <=> q) <= 0` of an unordered pair, `*o <= v` of
+an optional), and these are true. That is so for every module since 0.266, `optional.pl` of 0.300 too, and no doc said
+it: it is written down in the operators' Not done and in each module's words, and `pair_rules.c` holds `<=` and `>=` to
+the module's own words where it holds `==`, `!=`, `<` and `>` to C++20's. A type macro's own `_le` and `_ge`, which the
+reader would ask first, are the road; it is a change of the reader, for a step of its own.
+
+A FINDING OF THE COSTS: THE BRANCHES OF `&&` AND `||`. The first form's gate measured the count run at 0.62 s as C and
+0.72 s as C++, against the twin's 0.31 s. A text with no early return, `a < b || (a == b && a2 < b2)`, took the same
+time. The `-O2` binary had the `_lt` and `_eq` of the loop in line, and data-dependent branches, `jl` and `jne`, for
+each comparison: the lowering writes `&&` and `||` as branches, as C's semantics of order has them, and LLVM kept them,
+which over data of chance mispredict. Joined by `&` and `|` -- each comparison a 0 or a 1 with no effect, so the value
+is the same, a NaN's too -- the run took 0.21 s, faster than the twin. The module's texts are so now; its broken texts,
+its rules program and both gates ran again over them. Whether the other modules' relations, which join by `&&` and `||`,
+gain the same is a question of their own steps.
+
+WHAT DIFFERS FROM C++, besides: a pair is made by braces or of a pair of its own type (`pair<int, double> b = a;` over a
+`pair<int, int>` is refused by name, where C++ converts each member), and a relation compares two pairs of one type; no
+`make_pair`, whose arguments name no instance; `get<0>(p)` has no form in C: `p.first`.
+
+THE PROOF. `test/ccllib/pair.c` over two numbers, a character and a number, a plain struct and a number, a pair of pairs
+and an optional of a pair, each relation over five pairs and over a NaN, and its twin `pair.cpp` over `std::pair`: the
+three runs print the same lines, the count run too. Five refusals of `test/ccllib/safe/`, as C and as C++, with their
+words. `test/ccllib/alone/pair_rules.c` holds EVERY CASE, not a walk of chance: each pair of numbers from 0 to 3 against
+each, each pair of 0, 1 and a NaN against each, each pair of pairs of 0 and 1 against each, and a copy and `swap` --
+3,110 checks. SEVEN COPIES OF THE MODULE BROKEN ON PURPOSE, a rule each, were each reported by it with the rule's words;
+the end of `<` at an unordered first member was reported by the NaN's cases alone.
+
+THE COSTS over libc++ 22, the build after a change of the file, the best of three: The unit holds 18 functions for its
+eight instances in 10,648 bytes, where the twin's holds 63 in 36,112; the count run takes 0.21 s as C and 0.22 s as C++
+against the twin's 0.28 s, in 1.7 MB against 3.1 MB. The C build after a change of the file takes 0.36 s and 150 MB,
+cicilang++'s 0.42 s and 129 MB, against clang++'s 0.25 s and 108 MB.
+
+THE NETS, over the step's work tree and a fresh HOME: the flow gate GREEN with no finding, `library/ccllib/optional.pl`
+charted beside the other modules; the ccllib gate over libc++ 22, 328 checks: 18 programs in three runs, 100 refused and
+10 alone, the costs measured. The ccllib gate ran over 22 alone, as at 0.299 and 0.300: its C runs read no libc++. No
+other gate's code changed: the module is a macro file of its own, read by a program that includes it, and the rest of
+the step is words. THE CHAIN DID NOT RUN, by the owner's rule of 0.271. NO CI JOB RAN. The flow gate and the ccllib gate
+ran twice: over the first form of the relations and over the form of `&` and `|`; the numbers are the second runs'.
+
+- `library/ccllib/pair.pl`; `test/flow.sh`'s `CFILES`.
+- `test/ccllib/pair.c`, `pair.cpp`, `pair.expect`, `pair.count`; `test/ccllib/safe/pair_of_pointer.c`,
+  `pair_of_array.c`, `pair_one_type.c`, `pair_of_other.c`, `pair_other_type.c`; `test/ccllib/alone/pair_rules.c`.
+- RULES.md (the ccllib gate's programs, the modules, `optional.pl`'s differences, `pair.pl`, the operators' Not done),
+  CCLLIB.md (1b, `pair.pl`; the parts of phase 1), README.md, HISTORY.md, CLAUDE.md; `module/cicilang.cicili` (0.301).
+
+The module 0.301, the reader 193 and the lowering 168.

@@ -12,7 +12,7 @@ the fixture that gates it, and why. The bullet ends with the version that made t
 edits the rule in `RULES.md`, in its topic, and writes its entry in `HISTORY.md`. Read the topic of `RULES.md` that
 covers the code before the code is changed.
 
-At 0.300 the versions are: the module 0.300 (`ccl_p_version` in `module/cicilang.cicili`, `bin/cicilang --version`),
+At 0.301 the versions are: the module 0.301 (`ccl_p_version` in `module/cicilang.cicili`, `bin/cicilang --version`),
 the reader 193 (`ccl_reader_version/1`, `library/ccl_syntax.pl`) and the lowering 168 (`ccl_lowering_version/1`,
 `library/ccl_ir.pl`).
 
@@ -406,6 +406,8 @@ library/ccllib/             ccllib, the standard library of cicilang's C (CCLLIB
                               type's count, of a vector, of an array, of a pointer and a count by braces
   optional.pl, optional.pl.h  std::optional (0.300): the value and a byte that says that it is there, a value with
                               no heap and no drop; nullopt, of the type nullopt_t, in its C header
+  pair.pl                     std::pair (0.301): a struct of first and second, a value with no heap and no drop;
+                              no C header, since its text calls nothing that one declares
   ccllib.pl                   what two modules need, written once (0.275): a module loads it by a directive, and no
                               program includes it; the refusal of an element with a pointer, the lists' sort (0.277),
                               the lines of a text by their conditions (0.283)
@@ -558,14 +560,15 @@ test/ccllib/                the three runs' programs: NAME.c, a ccllib program; 
                             <set.pl> and <map.pl> (0.281); unordered_set.c and unordered_map.c, of
                             <unordered_set.pl> and <unordered_map.pl> (0.283); bitset.c, of <bitset.pl> (0.286);
                             string.c, of <string.pl> (0.291); string_view.c and span.c, of <string_view.pl> and
-                            <span.pl> (0.295); optional.c, of <optional.pl> (0.300)
+                            <span.pl> (0.295); optional.c, of <optional.pl> (0.300); pair.c, of <pair.pl> (0.301)
 test/ccllib/safe/           ccllib programs that the safe part refuses, as C and as C++: NAME.c, NAME.expect, and
                             NAME.expect.cpp where C++ has words of its own (0.274); borrow_into_call_vector.c and
                             string_self_c_str.c, a borrow handed to a call that may replace its owner (0.293);
                             view_*.c and span_*.c, what the safe part refuses of a view and of a span (0.295);
                             held_leak.c, a struct that holds a vector, never dropped, and memset_live.c, a memset over
                             a vector that holds memory (0.297); optional_*.c and emplace_leaves.c, what an optional
-                            may not hold or give (0.300)
+                            may not hold or give (0.300); pair_*.c, what a pair may not hold, be made of or be
+                            compared with (0.301)
 test/ccllib/alone/          ccllib programs with no twin, built as C and as C++ (0.281): NAME.c, NAME.expect;
                             stops.c, what stops a ccllib program, each case in a child of its own; tree_rules.c,
                             the rules of the tree of a set and a map, read from the instance's own fields;
@@ -575,7 +578,8 @@ test/ccllib/alone/          ccllib programs with no twin, built as C and as C++ 
                             view_rules.c, the rules of a view and of a span, held to a model (0.295); born_held.c,
                             what holds an instance's object, born zero, and shadowed.c, the names of vectors declared
                             again in a block (0.297); optional_rules.c, the rules of an optional, held to C++'s
-                            tables, and stops.c's cases of an optional (0.300)
+                            tables, and stops.c's cases of an optional (0.300); pair_rules.c, the rules of a pair,
+                            each case held to C++20's words (0.301)
 
 proof/forty2.ll, run.sh     M0: hand-written IR through clang to a binary that prints a line and exits 42
 proof/forty2                made by proof/run.sh, never committed

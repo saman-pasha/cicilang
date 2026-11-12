@@ -777,7 +777,11 @@ that changes a rule edits the rule here, in its topic, and writes its entry in `
   [optional.comp.with.t] with a number on either side and [optional.nullops] with nullopt on either side, each of the
   six operators --, the numbers from 0 to 5, so that two optionals are equal often. They hold at 5,077,044 checks.
   SIXTEEN COPIES OF THE MODULE BROKEN ON PURPOSE, a rule each, are each reported by it (the section of `optional.pl`).
-  (0.281, 0.283, 0.286, 0.291, 0.297, 0.300)
+  `pair_rules.c` (0.301) is THE RULES OF A PAIR of `<pair.pl>`, over every case and not over a walk of chance: each pair
+  of numbers from 0 to 3 against each, each pair of 0, 1 and a NaN against each, and each pair of pairs of 0 and 1
+  against each -- `==`, `!=`, `<` and `>` by C++20's words, `<=` and `>=` by the module's own (a NaN makes them differ
+  from C++'s: Not done), a copy and `swap`. They hold at 3,110 checks. SEVEN COPIES OF THE MODULE BROKEN ON PURPOSE, a
+  rule each, are each reported by it (the section of `pair.pl`). (0.281, 0.283, 0.286, 0.291, 0.297, 0.300, 0.301)
 - **THE FIRST PROOF AFTER PHASE 0** (0.273; `CCLLIB.md`'s Order): `test/ccllib/first.c` over its macro file `first.pl`
   -- `vector<T>` with `push`, `at`, `len` and `sort`: a type macro's instance (0.261), its literal's `from` (0.263), its
   drop (0.262), all of it C text (0.260) -- built as C and as C++, and `first.cpp`, the same program over `std::vector`
@@ -9917,12 +9921,14 @@ in the first topic (The ccllib gate).
 
 ### The modules
 
-- A MODULE IS A MACRO FILE OF `library/ccllib/`, `NAME.pl`, and its C header `NAME.pl.h`: `type_NAME/3`, the type and
-  its drop; `fn_NAME/3`, one function at its first call; a table of C texts by the function's name (`ccllib_NAME_fn/2`).
-  Its predicates have the prefix `ccllib_` but the two that the reader asks by name. The flow gate charts each that
-  defines a predicate of its own (`CFILES` in `test/flow.sh`): one with none gives the chart no root, and
-  `string_view.pl`, which loads `ccllib.pl` and names its instance in its header, is not charted (0.295). A text is
-  written in the part that C and C++ share; a null pointer is `0`, since no header's macro is a name in a text. (0.274)
+- A MODULE IS A MACRO FILE OF `library/ccllib/`, `NAME.pl`, and its C header `NAME.pl.h` where its text calls what a C
+  header declares -- the reader includes the header beside the macro file where the file is there, and `pair.pl` has
+  none (0.301) --: `type_NAME/3`, the type and its drop; `fn_NAME/3`, one function at its first call; a table of C texts
+  by the function's name (`ccllib_NAME_fn/2`). Its predicates have the prefix `ccllib_` but the two that the reader asks
+  by name. The flow gate charts each that defines a predicate of its own (`CFILES` in `test/flow.sh`): one with none
+  gives the chart no root, and `string_view.pl`, which loads `ccllib.pl` and names its instance in its header, is not
+  charted (0.295). A text is written in the part that C and C++ share; a null pointer is `0`, since no header's macro is
+  a name in a text. (0.274, 0.301)
 - WHAT TWO MODULES NEED IS WRITTEN ONCE, in `library/ccllib/ccllib.pl` (0.275): a module loads it by a directive, `:-
   ensure_loaded(library(ccllib/ccllib)).` -- the reader loads a macro file by cocolog's `ensure_loaded/1`, which runs
   the directive, and takes no macro from one (`ccl_pl_head/2`); no program includes the file, so its predicates are no
@@ -10539,7 +10545,9 @@ in the first topic (The ccllib gate).
   optional (`a borrow leaves the function`). `and_then`, `transform` and `or_else` are C++23's (phase 3), and
   `std::hash` of an optional comes with phase 1b's `hash`. ITS VALUE IS A VALUE WITH NO POINTER IN IT (decision 2), NO
   ARRAY AND NO `nullopt_t`, as C++ takes none of the last two: `an optional's value is a value with no pointer in it,
-  and ptr_int holds one`, `an optional's value is no array`, `an optional's value is no nullopt_t`. (0.300)
+  and ptr_int holds one`, `an optional's value is no array`, `an optional's value is no nullopt_t`. `o <= v` and `o >=
+  v` are the negations of `o > v` and `o < v` (the operators' topic): over a NaN they are true where C++'s are false
+  (Not done, found at 0.301). (0.300, 0.301)
 - `test/ccllib/optional.c` calls each function over `int`, `double`, `char` and a plain struct, and each relation over
   the pairs of an optional with no value, one with a value, a value and nullopt, on either side; its twin `optional.cpp`
   over `std::optional` prints the same lines, and the count run fills, empties, reads and compares an array of 64
@@ -10552,6 +10560,44 @@ in the first topic (The ccllib gate).
   run takes 1.24 s as C and 1.26 s as C++ against the twin's 1.20 s, in 1.7 MB against 3.2 MB. `<optional>` is a light
   header, as `<array>` is: the C build after a change of the file takes 0.60 s and 173 MB, cicilang++'s 0.52 s and 140
   MB, against clang++'s 0.26 s and 108 MB. (0.300)
+
+### pair.pl
+
+- **`pair<A, B>` IS A STRUCT OF `first` AND `second`** (0.301; `CCLLIB.md`'s phase 1b): the instance `pair_int_double`
+  of `<pair.pl>`, its members named as C++'s are, so `p.first` and `p.second` are C's own: no heap and NO DROP, so its
+  object is a plain value -- `q := p` and `f(p)` copy it, as `std::pair`'s do. `pair<int, double> q;` is {0, 0}, born
+  zero (0.285), as C++'s pair is made; `pair<int, double> p = {1, 2.5};` is C's braces, and a pair of pairs takes braces
+  in braces. The module has NO C HEADER: its text calls nothing that a header declares. (0.301)
+- THE SURFACE OF `std::pair`: `swap`, and `==` and `<` (`_eq`, `_lt`), whose others the reader writes (0.266). THE
+  RELATIONS ARE C++20'S ([pairs.spec]/1): `==` of each member, and `<` by the synthesized three-way order -- the first
+  members' `<`, else their `==` -- which a NaN fails, so that an unordered first member ends the comparison, false,
+  where C++17's `<` went on to the second members -- and the second members' `<`. A MEMBER THAT IS AN INSTANCE COMPARES
+  BY ITS OWN FUNCTIONS: the instance's operators are written in a module's C text too, so `a->first == b->first` over a
+  pair of pairs is the inner pair's `_eq`, and an `optional<pair<int, int>>` compares its pairs so. THE COMPARISONS ARE
+  JOINED BY `&` AND `|`, NOT BY `&&` AND `||`: each is a 0 or a 1 with no effect, so the value is the same, and the text
+  has no branch. The lowering writes `&&` and `||` as branches, which LLVM kept at `-O2`, and over data of chance they
+  mispredict: the count run took 0.62 s as C and 0.72 s as C++ with them, against the twin's 0.31 s, and takes 0.21 s
+  and 0.22 s with these. (0.301)
+- WHAT DIFFERS FROM C++: each member is a value with no pointer in it (decision 2), and no array -- `a pair's member is
+  a value with no pointer in it, and ptr_int holds one`, `a pair's member is no array` --; a pair takes two types, `a
+  pair takes two types, its members'`; a pair is made by braces or of a pair of its own type, so `pair<int, double> b =
+  a;` over a `pair<int, int>` is `a pair_int_double is not made of a value of the type pair_int_int: its type macro
+  defines no pair_int_double_of`, where C++ converts each member, and `a == b` of the two is `the operator == of
+  pair_int_int takes an object of pair_int_int, which its operand is not`; there is no `make_pair`, whose arguments name
+  no instance, and `get<0>(p)` has no form in C: `p.first`. `<=` and `>=` are the negations of `>` and `<` (the
+  operators' topic), which a NaN makes differ from C++20's (Not done). `std::hash` of a pair comes with phase 1b's
+  `hash`. (0.301)
+- `test/ccllib/pair.c` over two numbers, a character and a number, a plain struct and a number, a pair of pairs and an
+  optional of a pair, each relation over five pairs of pairs of numbers and over a NaN, and its twin `pair.cpp` over
+  `std::pair` print the same lines; the count run sets and compares the pairs of an array of 64 a hundred million times.
+  `test/ccllib/safe/pair_of_pointer.c`, `pair_of_array.c`, `pair_one_type.c`, `pair_of_other.c` and `pair_other_type.c`,
+  as C and as C++; `test/ccllib/alone/pair_rules.c`, every case held to C++20's words. SEVEN COPIES OF THE MODULE BROKEN
+  ON PURPOSE, a rule each -- each member of `==`, the order of the members in `<`, the end of `<` at an unordered first
+  member, `<` of the second members, and two of `swap` -- are each reported by `pair_rules.c`, `NOT HELD` with the
+  rule's words; the end at a NaN is reported by the cases of the NaN alone. The unit holds 18 functions for its eight
+  instances in 10,648 bytes, where the twin's holds 63 in 36,112; the count run takes 0.21 s as C and 0.22 s as C++
+  against the twin's 0.28 s, in 1.7 MB against 3.1 MB. The C build after a change of the file takes 0.36 s and 150 MB,
+  cicilang++'s 0.42 s and 129 MB, against clang++'s 0.25 s and 108 MB. (0.301)
 
 ## The safe part
 
@@ -14933,7 +14979,12 @@ Declarations topic of the C++ reader).
   const (0.288) --, so an `int` operand asks `_add_int` and a `long` one `_add_long`, with no conversion between them; a
   result tied to a struct with own fields is a borrow of one of them, so a hand free of another does not end it, as none
   did before 0.266. In C++ (0.270) the type macro's function goes first where it is defined: a program that defines its
-  own `operator==` over an instance whose macro defines `_eq` calls the macro's.
+  own `operator==` over an instance whose macro defines `_eq` calls the macro's. `<=` AND `>=` ARE THE NEGATIONS OF `>`
+  AND `<` -- `a <= b` is `!lt(b, a)`, `a >= b` `!lt(a, b)`, and their typed forms `!_gt_W` and `!_lt_W` (0.266, 0.291)
+  --, which holds for a total order: with a NaN -- an optional's value, a pair's member, a vector's element --, where
+  C++'s `<=` and `>=` are false (C++20's `(p <=> q) <= 0` of an unordered pair, and `*o <= v` of an optional), they are
+  true (found at 0.301: `pair_rules.c` holds them to these words). A type macro's own `_le` and `_ge`, which the reader
+  would ask first, are the road.
 - AN INSTANCE'S BIRTH, ITS LIMITS (0.285, 0.297): an object that `malloc` gave is not given zero, where C++'s `new`
   makes each element and each member empty, and an array of an instance's objects that have a drop is refused by name,
   its elements dropped by nothing (0.262) -- an array of a type with none, a struct, an array and a class that hold an

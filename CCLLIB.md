@@ -759,13 +759,38 @@ takes 1.24 s as C and 1.26 s as C++ against the twin's 1.20 s, in 1.7 MB against
 as `<array>` is: the C build after a change of the file takes 0.60 s and 173 MB, cicilang++'s 0.52 s and 140 MB, against
 clang++'s 0.26 s and 108 MB.
 
+### 1b, `pair.pl` (0.301)
+
+`pair<A, B>` is a struct of `first` and `second`, named as C++'s members are, so `p.first` is C's own member: a value
+with no heap and no drop, made by braces, `pair<int, double> p = {1, 2.5};`, and born zero, as C++'s pair is made.
+`swap`, and the relations of C++20 -- `==` of each member, `<` by the synthesized three-way order, where an unordered
+first member, a NaN, ends the comparison. A member that is an instance compares by its own functions, since the
+instance's operators are written in a module's C text too: a pair of pairs, and an optional of a pair. It came before
+`variant` and `tuple`, whose `get<0>(t)`, `holds_alternative<int>(v)` and `visit` need forms that C's reader has not.
+`test/ccllib/pair.c`, its twin over `std::pair`, five programs of `test/ccllib/safe/`, and
+`test/ccllib/alone/pair_rules.c`, which holds every case to C++20's words at 3,110 checks and reports each of seven
+copies of the module broken on purpose. Its relations join their comparisons by `&` and `|`: with `&&` and `||`, which
+the lowering writes as branches, the count run took twice the twin's time. The step found that `<=` and `>=`, the
+negations of `>` and `<` since 0.266, are true over a NaN where C++'s are false, for every module (RULES.md, Not done).
+The costs over libc++ 22, as above, the run `pair 100000000`:
+
+| | build | peak | IR types | IR functions | IR lines | object | `pair 100000000` at `-O2` | its peak |
+|---|---|---|---|---|---|---|---|---|
+| cicilang, C | 0.36 s | 150 MB | 9 | 18 | 860 | 10,648 B | 0.21 s | 2 MB |
+| cicilang++, C++ | 0.42 s | 129 MB | 10 | 18 | 947 | 10,632 B | 0.22 s | 2 MB |
+| clang++ 22, `std::` | 0.25 s | 108 MB | 22 | 63 | 1,804 | 36,112 B | 0.28 s | 3 MB |
+
+The unit holds 18 functions for its eight instances in 10,648 bytes, where the twin's holds 63 in 36,112; the count run
+takes 0.21 s as C and 0.22 s as C++ against the twin's 0.28 s, in 1.7 MB against 3.1 MB. The C build after a change of
+the file takes 0.36 s and 150 MB, cicilang++'s 0.42 s and 129 MB, against clang++'s 0.25 s and 108 MB.
+
 ### The parts of phase 1
 
 - 1a. Containers and strings: `vector`, `array`, `deque`, `list`, `forward_list`, `map`, `set`, `multimap`,
   `multiset`, `unordered_map`, `unordered_set` and their multi forms, `stack`, `queue`, `priority_queue`, `bitset`,
   `string`, `string_view`, `span` -- done at 0.295.
-- 1b. The vocabulary: `optional` (0.300), `variant` and `visit`, `tuple`, `pair`, `any`, `unique_ptr` (the own pointer),
-  `shared_ptr`, `hash`, `less` and the other function objects.
+- 1b. The vocabulary: `optional` (0.300), `pair` (0.301), `variant` and `visit`, `tuple`, `any`, `unique_ptr` (the own
+  pointer), `shared_ptr`, `hash`, `less` and the other function objects.
 - 1c. Algorithms and numbers: `<algorithm>`, `<numeric>`, the C++20 ranges views as loops, `<limits>`, `<complex>`,
   `<random>`, `<ratio>`, `<chrono>`.
 - 1d. iostreams: `ostream`, `istream`, `fstream`, `stringstream`, `<iomanip>`, `cout`, `cin`, `cerr`, over C's stdio.

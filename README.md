@@ -611,6 +611,11 @@ p = 5;`, `o = 7;`, `o = nullopt;`, `has_value(o)`, `value(o)`, `value_or(o,
 an optional that has none stops the program. `test/ccllib/optional.c` is the
 example.
 
+`#include <pair.pl>` gives `std::pair` (0.301), a struct of `first` and
+`second`: `pair<int, double> p = {1, 2.5};`, `p.first = 3;`, `swap(p, q)`,
+`p == q`, `p < q`. A pair of pairs, and an optional of a pair, compare by
+their members' own relations. `test/ccllib/pair.c` is the example.
+
 `format`, `print`, `println` and `clone` are global macros, there in every
 program without an include (`library/ccl_format.pl`). The format string
 has Rust's holes, each becoming the `printf` conversion of its argument's

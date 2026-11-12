@@ -1,0 +1,19 @@
+braces: 1 2.5
+born: 0 0
+members: 7 5
+copy: 1 2.5
+104.5 103.5
+after sum: 2 2.5
+swap p: 7 5
+swap q: 2 2.5
+a a: 1 0 0 0 1 1
+a b: 0 1 1 0 1 0
+b a: 0 1 0 1 0 1
+a c: 0 1 1 0 1 0
+c b: 0 1 0 1 0 1
+x 3
+0 9 4
+0 1 0 2
+1 2 0 1
+0 1 0 0 0
+exit 0
