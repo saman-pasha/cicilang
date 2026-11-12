@@ -197,7 +197,7 @@ ck_pointee_fields(N, T, Fs) :- ccl_resolve_type(T, ptr(_, PT)), ccl_members_of(P
 ck_is_borrowed_field(N) :- nb_getval('$ck_borrowed', Bs), memberchk(N, Bs).
 ck_complete_owners([], _).
 ck_complete_owners([N-S|Os], Form) :-
-    ( ck_is_borrowed_field(N), \+ ck_is_dying_field(N), \+ memberchk(S, [live, null, array]) -> ck_fail(borrow_incomplete, N, Form) ; true ),
+    ( S \== shadow, ck_is_borrowed_field(N),\+ ck_is_dying_field(N), \+ memberchk(S, [live, null, array]) -> ck_fail(borrow_incomplete, N, Form) ; true ),
     ( ck_is_dying_field(N), \+ ( ccl_lang(cpp), sub_atom(N, 0, _, _, 'this->') ), memberchk(S, [live, partial]) -> ck_fail(owner_leaked, N, Form) ; true ),   % a drop frees what its object owns (0.262; in C++ too, 0.267: an instance's drop, whose dying parameter is no destructor's `this')
     ck_complete_owners(Os, Form).
 %% C++ (M6): a constructor's `this' points at fresh storage -- its own fields
@@ -452,7 +452,7 @@ ck_under_states(st(Frs), Base, Ps) :-
     findall(K-S, ( member(fr(Os, _), Frs), member(K-S, Os), atom(K), ( sub_atom(K, 0, _, _, P1) ; sub_atom(K, 0, _, _, P2) ) ), Ps0),
     ck_innermost(Ps0, [], Ps).
 ck_innermost([], _, []).
-ck_innermost([K-S|Ps], Seen, Out) :- ( memberchk(K, Seen) -> Out = Out1 ; Out = [K-S|Out1] ), ck_innermost(Ps, [K|Seen], Out1).
+ck_innermost([K-S|Ps], Seen, Out) :- ( memberchk(K, Seen) -> Out = Out1 ; S == shadow -> Out = Out1 ; Out = [K-S|Out1] ), ck_innermost(Ps, [K|Seen], Out1).   % a hidden key is no key (0.297, ck_shadow_outer/3)
 ck_keys([], []).
 ck_keys([K-_|T], [K|Ks]) :- ck_keys(T, Ks).
 ck_own_keys([], []).
@@ -524,6 +524,9 @@ ck_static_value(cast(_, E)) :- !, ck_static_value(E).
 ck_static_value(ccast(_, _, E)) :- !, ck_static_value(E).
 ck_static_value(addr(E)) :- !, ck_storage_base(E, N), ck_is_global(N).
 ck_static_value(id(N)) :- !, ck_is_global(N), ccl_declared(N, T), ccl_resolve_type(T, T1), ( T1 = arr(_, _) ; T1 = fn(_, _, _) ), !.
+ck_static_value(index(E, I)) :- !, ck_static_array_place(index(E, I)).   % a row of a static array, used as a pointer (0.297, ck_static_array_place/1)
+ck_static_value(member(E, F)) :- !, ck_static_array_place(member(E, F)).   % an array member of a static object (0.297)
+ck_static_value(deref(E)) :- !, ck_array_typed(deref(E)), ck_static_value(E).   % `*table', the first row (0.297)
 ck_static_value(bin(Op, A, _)) :- memberchk(Op, ['+', '-']), !, ck_static_value(A).
 ck_static_value(cond(_, A, B)) :- !, ck_static_value(A), ck_static_value(B).
 ck_static_value(comma(_, B)) :- !, ck_static_value(B).
@@ -535,6 +538,25 @@ ck_static_value(call(id(F), As)) :- ccl_lang(cpp), atom(F), cpp_library_function
     \+ ( member(A, As), A \== nullptr, ck_pointer_arg(A) ), !.
 ck_pointer_arg(addr(_)) :- !.
 ck_pointer_arg(A) :- catch(ccl_type_of(A, T), _, fail), T \== unknown, catch(ccl_resolve_type(T, T1), _, fail), ( T1 = ptr(_, _) ; T1 = arr(_, _) ), !.
+%% A FILL OF AN OBJECT WITH OWNERS WRITES OVER THEM (0.297): `memset(&x, v, n)' over an object that holds an own pointer,
+%% or over an own pointer, is no read of it: an owner that holds memory is `owner_overwritten', what it held lost, and
+%% each other is null after a fill of zero (garbage, unset, after another value). It was a call that read x:
+%% `memset(&h, 0, sizeof h)' over a live `h.items.data' was built, and its buffer lost; and C++'s value-initialization
+%% of a member, `: items()', the desugaring's `memset' over a constructor's member not yet given anything, was
+%% `owner_unset'
+ck_fill_keys(St, K, Ks) :- ck_own_under(St, K, Fs), ( ck_is_owner(St, K) -> Ks = [K|Fs] ; Ks = Fs ).
+ck_fill_over([], St, _, _, St).
+ck_fill_over([K|Ks], St0, S, Form, St) :- ck_state(St0, K, Cur), ( memberchk(Cur, [live, partial]) -> ck_fail(owner_overwritten, K, Form) ; ck_set(St0, K, S, St1) ), ck_fill_over(Ks, St1, S, Form, St).
+%% A ROW OF A STATIC ARRAY, AND AN ARRAY MEMBER OF A STATIC OBJECT, ARE STATIC STORAGE (0.297): an lvalue of an array
+%% type, used as a pointer, is the address of its first element (C17 6.3.2.1/3), in the storage of the object it is
+%% part of -- `table[i]' of `static unsigned char table[2][3]', `words[i][1]' of a static array of three bounds, `cfg.name'
+%% of a static struct, `*table'. Each was a pointer read out of a slot (ck_loaded_value/1), which a free and an own slot
+%% take: `unsigned char *row = table[i]; free(row);' and `char *p = cfg.name; free(p);' were built and aborted in
+%% `free', and `own unsigned char *o = table[1];' was `owner leaked' where `borrow_stored' is the words. A global's object
+%% or a static local's is the storage (ck_storage_base/2 through members and array indexes, ck_is_global/1); a place
+%% behind a pointer is not, the pointer's target unknown
+ck_static_array_place(E) :- ck_array_typed(E), catch(ck_storage_base(E, N), _, fail), ck_is_global(N), !.
+ck_array_typed(E) :- catch(ccl_type_of(E, T), _, fail), T \== unknown, catch(ccl_resolve_type(T, arr(_, _)), _, fail).
 %% A POINTER THAT THE C LIBRARY ANSWERS FROM ITS OWN STATIC STORAGE (C17 7.11.1.1, 7.11.2.1, 7.22.4.6, 7.24.6.2, 7.27.3; 0.201):
 %% `getenv', `setlocale', `localeconv', `strerror', `asctime', `ctime', `gmtime' and `localtime' answer an object the library
 %% keeps for the whole run, which a later call may overwrite and the program never frees, as a string literal is; and
@@ -585,6 +607,9 @@ ck_static_root(bin(_, A, _), N) :- !, ck_static_root(A, N).
 ck_static_root(cond(_, A, B), N) :- !, ( ck_static_root(A, N) -> true ; ck_static_root(B, N) ).
 ck_static_root(comma(_, B), N) :- !, ck_static_root(B, N).
 ck_static_root(addr(E), N) :- !, ck_storage_base(E, N).
+ck_static_root(index(E, _), N) :- !, ck_static_root(E, N).   % a row of a static array: the array's name (0.297)
+ck_static_root(member(E, _), N) :- !, ck_static_root(E, N).
+ck_static_root(deref(E), N) :- !, ck_static_root(E, N).
 ck_static_root(id(N), N) :- atom(N), !.
 ck_static_root(call(id(F), _), F) :- atom(F).
 
@@ -603,9 +628,9 @@ ck_short(break(_), break) :- !.
 ck_short(continue(_), continue) :- !.
 ck_short(T, T).
 
-%% lookup and update, innermost frame first
+%% lookup and update, innermost frame first; a key that a frame hides has no state there (0.297, ck_shadow_outer/3)
 ck_state(st(Frs), N, S) :- ck_in(Frs, N, S).
-ck_in([fr(Os, _)|Frs], N, S) :- ( memberchk(N-S0, Os) -> S = S0 ; ck_in(Frs, N, S) ).
+ck_in([fr(Os, _)|Frs], N, S) :- ( memberchk(N-S0, Os) -> S0 \== shadow, S = S0 ; ck_in(Frs, N, S) ).
 ck_set(st(Frs), N, S, st(Frs1)) :- ck_set_(Frs, N, S, Frs1).
 ck_set_([fr(Os, Ds)|Frs], N, S, [fr(Os1, Ds)|Frs]) :- memberchk(N-_, Os), !, ck_put(Os, N, S, Os1).
 ck_set_([F|Frs], N, S, [F|Frs1]) :- ck_set_(Frs, N, S, Frs1).
@@ -616,12 +641,31 @@ ck_set_all(St, [], _, St).
 ck_set_all(St0, [K|Ks], S, St) :- ( ck_state(St0, K, _) -> ck_set(St0, K, S, St1) ; St1 = St0 ), ck_set_all(St1, Ks, S, St).
 ck_set_if(St0, K, S, St) :- ( ck_state(St0, K, _) -> ck_set(St0, K, S, St) ; St = St0 ).
 ck_is_owner(St, N) :- ck_state(St, N, S), ck_owner_state(S).
-%% a key declared in the innermost frame; a tie it had before is gone with it
-ck_declare(st([fr(Os, Ds)|Frs]), N, S, st([fr([N-S|Os], Ds)|Frs])) :- ck_drop_tie(N).
+%% a key declared in the innermost frame, in place of the frame's mask of an outer one; a tie it had before is gone with it
+ck_declare(st([fr(Os0, Ds)|Frs]), N, S, st([fr([N-S|Os], Ds)|Frs])) :- ck_unmask(Os0, N, Os), ck_drop_tie(N).
 ck_declare_all(St, [], St).
 ck_declare_all(St0, [K-S|Ps], St) :- ck_declare(St0, K, S, St1), ck_declare_all(St1, Ps, St).
 ck_push(st(Frs), st([fr([], [])|Frs])).
-ck_declare_borrow(st([fr(Os, Ds)|Frs]), N, P, st([fr([N-borrow(P)|Os], Ds)|Frs])).
+ck_declare_borrow(st([fr(Os0, Ds)|Frs]), N, P, st([fr([N-borrow(P)|Os], Ds)|Frs])) :- ck_unmask(Os0, N, Os).
+ck_unmask(Os0, N, Os) :- ( select(N-shadow, Os0, Os1) -> Os = Os1 ; Os = Os0 ).
+%% A NAME THAT A BLOCK DECLARES AGAIN HIDES THE OUTER ONE'S STATES (0.297): the states are keyed by names, and a
+%% plain local -- an `int', a `double', a pointer with no initializer -- declares no state of its own, so that the
+%% outer object's states answered for it: `double v; v = i;' in a block of a function whose parameter is `vector<int>
+%% *v' was `owner overwritten while live: v->data', and `int v; ... printf("%d", v)' in a block under an outer
+%% `vector<int> v' was `dropped_copied' (the Ambitious session's finding 21, which clang builds). The declaration masks,
+%% in its own frame, each key of an outer frame under the name -- the name, `N.f' and `N->f' at any depth, and the name
+%% of an outer object that a scope drops -- with the state `shadow', which is no state (ck_in/3), no key under a base
+%% (ck_innermost/3), no key whose borrows dangle at the frame's end (ck_ending_keys/3), no leak (ck_leaks/2), and gives way at a join to the state that
+%% the other side holds (ck_merge_state/3) and to a state that the frame declares for the key (ck_unmask/3); the frame's
+%% end takes the masks with it, and the outer states answer again
+ck_shadow_outer(st([fr(Os, Ds)|Frs]), N, st([fr(Os1, Ds)|Frs])) :- atom(N),
+    findall(K-shadow, ( member(fr(Os2, Ds2), Frs), ( member(K-_, Os2), atom(K), ck_key_of(K, N) ; memberchk('$autodrop'(_, N), Ds2), K = N ),
+                        \+ memberchk(K-_, Os) ), Ks0),
+    Ks0 \== [], !, sort(Ks0, Ks), append(Ks, Os, Os1).
+ck_shadow_outer(St, _, St).
+%% a key of a name's: the name itself, or a path under it
+ck_key_of(K, N) :- K == N, !.
+ck_key_of(K, N) :- atom_concat(N, Sfx, K), ( sub_atom(Sfx, 0, 1, _, '.') ; sub_atom(Sfx, 0, 2, _, '->') ), !.
 %% a plain pointer assigned again: a borrow of something else, or of nothing
 ck_rebind(St0, N, none, St) :- !, ( ck_state(St0, N, S), ( S = borrow(_) ; S = dangling(_) ; S == loose ) -> ck_set(St0, N, none, St) ; St = St0 ).
 ck_rebind(St0, N, S, St) :- ( ck_state(St0, N, _) -> ck_set(St0, N, S, St) ; ck_declare_at(St0, N, S, St) -> true ; ck_declare(St0, N, S, St) ).
@@ -676,7 +720,7 @@ ck_field_tie_ref(St0, YK, St, Kind, R) :-
 ck_anchor(St, Y, St1) :- ck_declare_at(St, Y, anchor, St1).
 ck_declare_at(st(Frs), N, S, st(Frs1)) :- ccl_locals(Ls), ( ck_frame_index(Ls, N, 0, I) -> true ; ccl_gdeclared(N, _), length(Ls, I) ), ck_insert_at(Frs, I, N-S, Frs1).   % the file scope is the LAST frame: a name in no open frame is there if it is declared at all -- asked of the table, the list of all its names no longer copied (0.119)
 ck_frame_index([F|Fs], Y, I0, I) :- ( memberchk(Y-_, F) -> I = I0 ; I1 is I0 + 1, ck_frame_index(Fs, Y, I1, I) ).
-ck_insert_at([fr(Os, Ds)|Frs], 0, P, [fr(Os1, Ds)|Frs]) :- !, append(Os, [P], Os1).
+ck_insert_at([fr(Os, Ds)|Frs], 0, P, [fr(Os1, Ds)|Frs]) :- !, P = K-_, ck_unmask(Os, K, Os0), append(Os0, [P], Os1).
 ck_insert_at([F|Frs], I, P, [F|Frs1]) :- I1 is I - 1, ck_insert_at(Frs, I1, P, Frs1).
 %% `&x' of a plain local, `&x.f', `&a[i]' of a local array, a local array used
 %% as a pointer: the local's storage is what is pointed to, so it is anchored
@@ -1334,6 +1378,8 @@ ck_only_in([K-S|T], Oa, E) :- ( memberchk(K-_, Oa) -> E = E1 ; E = [K-S|E1] ), c
 ck_merge_owners([], _, []).
 ck_merge_owners([N-Sa|T], Ob, [N-Sc|T1]) :- ( memberchk(N-Sb, Ob) -> ck_merge_state(Sa, Sb, Sc) ; Sc = Sa ), ck_merge_owners(T, Ob, T1).
 ck_merge_state(S, S, S) :- !.
+ck_merge_state(shadow, S, S) :- !.                  % a key that one side masks and the other declares: the other's (0.297)
+ck_merge_state(S, shadow, S) :- !.
 ck_merge_state(dangling(P), _, dangling(P)) :- !.
 ck_merge_state(_, dangling(P), dangling(P)) :- !.
 ck_merge_state(borrow(P), borrow(Q), borrow(R)) :- !, ck_first_to_dangle(P, Q, R).   % of two borrows, the one that can dangle first (0.216, 0.217)
@@ -1444,7 +1490,7 @@ ck_autodrop(V, St0, St) :-
 %% name, or a field of it, decides (a later object of the name in an inner block hides the outer one)
 ck_autodropped(st(Frs), R) :- atom(R), ck_autodropped_(Frs, R).
 ck_autodropped_([fr(Os, Ds)|Frs], R) :- ( memberchk('$autodrop'(_, R), Ds) -> true ; ck_frame_holds(Os, R) -> fail ; ck_autodropped_(Frs, R) ).
-ck_frame_holds(Os, R) :- member(K-_, Os), ( K == R -> true ; atom(K), atom_concat(R, Sfx, K), ( sub_atom(Sfx, 0, 1, _, '.') ; sub_atom(Sfx, 0, 2, _, '->') ) ), !.
+ck_frame_holds(Os, R) :- member(K-_, Os), atom(K), ck_key_of(K, R), !.
 %% A CALL'S VALUE THAT HAS A DROP AND NO NAME (0.262): thrown away by an expression statement or a cast to void, or a
 %% member read off it, it would leak, since nothing drops a temporary yet: refused, `dropped_temporary'
 ck_dropped_value(cast(_, E)) :- !, ck_dropped_value(E).
@@ -1529,7 +1575,8 @@ ck_case_label(E, N) :- ( E = int(V) -> true ; E = chr(V) -> true ; V = '...' ), 
 %% declared with them; then the variable's own tie; a plain pointer given an
 %% owner's value is a borrow, given a value with no owner behind it a warning
 ck_decls([], St, St).
-ck_decls([var(N, T0, Init0)|Vs], St0, St) :-
+ck_decls([var(N, T0, Init0)|Vs], St00, St) :-
+    ck_shadow_outer(St00, N, St0),   % the outer states under the name hidden in this frame (0.297)
     ck_ref_decl(N, T0, Init0, T, Init),
     ccl_declare(N, T), ck_note_arrlocal(N, T), ck_type_rules(N, T, var(N, Init)),
     ck_var_fields(N, T, Fs), ck_states(Fs, unset, FOs),
@@ -1809,7 +1856,7 @@ ck_close_since_label(st([fr(Os, Ds)|Frs]), LKeys, LDefs, St) :-
     (   St1 == dead -> St = dead
     ;   St1 = st([fr(Os1, Ds1)|Frs1]),
         findall(K-S, ( member(K-S, Os1), \+ memberchk(K, LKeys) ), Gone), findall(K-S, ( member(K-S, Os1), memberchk(K, LKeys) ), Kept),
-        ck_leaks(Gone, scope_end), ck_keys(Gone, GKs), ck_dangle_all(st([fr(Kept, Ds1)|Frs1]), GKs, St) ).
+        ck_leaks(Gone, scope_end), ck_ending_keys(Gone, Frs1, GKs), ck_dangle_all(st([fr(Kept, Ds1)|Frs1]), GKs, St) ).
 ck_add_edge(L, St, B0, [L-St2|B1]) :- ( select(L-St1, B0, B1) -> ck_merge(St1, St, St2) ; B1 = B0, St2 = St ).
 %% a label: the state that falls through, then every forward goto's, then the back edges of the last walk
 ck_label_in(L, _, St0, StL) :- ck_bpath_root(LP),
@@ -1862,7 +1909,17 @@ ck_walk_restore(snap(Ti, Sa, Ar, Al, Rf)) :- nb_setval('$ck_ties', Ti), nb_setva
 ck_scope_end(dead, dead) :- !.
 ck_scope_end(st([fr(Os, Ds)|Frs]), St) :-
     ck_run_defers(Ds, st([fr(Os, [])|Frs]), St1),
-    ( St1 == dead -> St = dead ; st([fr(Os1, _)|Frs1]) = St1, ck_leaks(Os1, scope_end), ck_keys(Os1, Ks), ck_dangle_all(st(Frs1), Ks, St) ).
+    ( St1 == dead -> St = dead ; st([fr(Os1, _)|Frs1]) = St1, ck_leaks(Os1, scope_end), ck_ending_keys(Os1, Frs1, Ks), ck_dangle_all(st(Frs1), Ks, St) ).
+%% THE KEYS WHOSE BORROWS DANGLE AT A FRAME'S END: the frame's own -- but a mask of an outer key (0.297,
+%% ck_shadow_outer/3), and a key of a name that an outer frame holds too, where the frame's state of it is a borrow or
+%% none: a pointer of the block that holds a borrow is no object that a borrow is of, and `borrow(v)' in an outer frame
+%% is the outer v's -- a pointer parameter's own, which `{ int *v; v = &x; }' in its function ended (0.297)
+ck_ending_keys([], _, []).
+ck_ending_keys([K-S|Os], Frs, Ks) :-
+    (   S == shadow -> Ks = Ks1
+    ;   ( S = borrow(_) ; S = dangling(_) ; S == none ), member(fr(Os2, _), Frs), memberchk(K-_, Os2) -> Ks = Ks1
+    ;   Ks = [K|Ks1] ),
+    ck_ending_keys(Os, Frs, Ks1).
 ck_run_defers([], St, St).
 ck_run_defers([B|Bs], St0, St) :- ck_stmt(B, St0, St1), ck_run_defers(Bs, St1, St).
 %% a return: every frame's defers run, innermost first, then no owner may be live
@@ -1891,7 +1948,7 @@ ck_leaks_frames([fr(Os, _)|Frs], Form) :- ck_leaks(Os, Form), ck_leaks_frames(Fr
 ck_leaks([], _).
 ck_leaks([N-S|Os], Form) :-
     (   S == loose -> ck_fail(unconsumed, N, Form)
-    ;   ( memberchk(S, [moved, unset, null, none, anchor, array]) ; S = borrow(_) ; S = dangling(_) ; ck_is_borrowed_field(N) ) -> true
+    ;   ( memberchk(S, [moved, unset, null, none, anchor, array, shadow]) ; S = borrow(_) ; S = dangling(_) ; ck_is_borrowed_field(N) ) -> true
     ;   ck_fail(owner_leaked, N, Form) ),
     ck_leaks(Os, Form).
 ck_any_owner(st(Frs)) :- member(fr(Os, _), Frs), member(_-S, Os), ck_owner_state(S), !.
@@ -2014,6 +2071,8 @@ ck_expr(delete_array(E), St0, St) :- !, ck_expr(call(id(free), [E]), St0, St).
 ck_expr(delete_poly(E, D, _), St0, St) :- !, ck_quiet(ck_expr(D, St0, St1)), ck_expr(call(id(free), [E]), St1, St).   % the destructor, then the free of the complete object (0.108)
 ck_expr(alloc(_, _, Call), St0, St) :- !, ( Call = call(AF, As) -> ck_exprs(As, St0, St), ck_throw_point(AF, St) ; St = St0 ).   % a new-expression's block (0.202): the allocation function's arguments read, the block fresh
 ck_expr(dealloc(D, _, X), St0, St) :- !, ( D == none -> St1 = St0 ; ck_quiet(ck_expr(D, St0, St1)) ), ck_expr(call(id(free), [X]), St1, St).   % a delete-expression (0.202): the destructor, then the block given back -- a free of the pointer to the check
+ck_expr(call(id(memset), [addr(P), V, N]), St0, St) :- ck_path(P, K), ck_fill_keys(St0, K, Ks), Ks \== [], !,   % a fill of an object with owners (0.297, ck_fill_over/5)
+    ck_expr(V, St0, St1), ck_expr(N, St1, St2), ( ck_null(V) -> S = null ; S = unset ), ck_fill_over(Ks, St2, S, call(id(memset), [addr(P), V, N]), St).
 ck_expr(call(id(F), [addr(_)]), St, St) :- ck_lib_dtor(F), !.   % a library object's destructor reads nothing it holds (0.216)
 ck_expr(call(id(F), [A0|As]), St0, St) :- ck_lib_replacing(F, A0, St0, Obj), !,   % what it held replaced: not read (0.216)
     ( A0 = addr(P0), ck_path(P0, _) -> St0a = St0 ; ck_expr(A0, St0, St0a) ), ck_args_(As, id(F), 2, St0a, St1), ck_throw_point(id(F), St1), ck_lib_replace(Obj, F, [A0|As], St0, St1, St).

@@ -406,9 +406,16 @@ itself, beside its struct, is refused too (0.293): `grow(&v, &v.data[0])`,
 "a borrow handed to a call that may replace its owner".
 
 Static storage is a borrow that nothing ends (0.294): a pointer into a
-static table, a string literal or a global's address may be kept and
-returned, and a function whose every return is such a pointer gives no
-new memory -- but a free of one, or an owner given one, is refused.
+static table, a row of one (`table[i]`, 0.297), a string literal or a
+global's address may be kept and returned, and a function whose every
+return is such a pointer gives no new memory -- but a free of one, or an
+owner given one, is refused.
+
+A name that a block declares again is the block's own (0.297): `double v;`
+in a block of a function whose parameter is `vector<int> *v` is a double
+to the safe part, and the parameter's states stand again after the block.
+A `memset` over an object whose own pointer holds memory is refused, as an
+assignment over it is.
 
 A type macro gives its instances operators (0.266): over an instance, the
 reader writes `a + b`, `a == b`, `a < b`, `v[i]`, `out << x` and `in >> x` as
@@ -434,10 +441,11 @@ operator is `<name>_r<op>_<word>`, so `"<" + s` is
 
 An object of an instance's type that is declared with no initializer is
 given zero (0.285), with a drop or with none, as C++'s `bitset` and `pair`
-are born empty. `T a = x;` and `a = x`, where `x` has another type, are the
-type macro's `<name>_of(x)`, the name with the word of x's type first:
-`mask<12> c = "1010";` is `mask_12_of_ptr_char("1010")`.
-`test/c/run/born.c` is the example.
+are born empty; since 0.297 so is a struct, an array or a class that holds
+one, and a class's member that no constructor names. `T a = x;` and
+`a = x`, where `x` has another type, are the type macro's `<name>_of(x)`,
+the name with the word of x's type first: `mask<12> c = "1010";` is
+`mask_12_of_ptr_char("1010")`. `test/c/run/born.c` is the example.
 
 An assignment over an object that its scope drops, named by its name, drops
 what the object held (0.287), as C++'s assignment frees the old value:

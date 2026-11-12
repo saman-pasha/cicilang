@@ -747,6 +747,7 @@ cpp_member_inits([member(MT, N, _)|Ds], Inits, Defaults, L, Pre, Body) :- ccl_re
     ;   memberchk(init(N, []), Inits) -> cpp_zero_fill(MT, arrow(this, N), L, Pre, Pre1)
     ;   memberchk(N-D, Defaults) -> cpp_member_from(MT, arrow(this, N), D, L, Pre, Pre1)
     ;   cpp_elem_class(ET, EC), cpp_has_ctors(EC) -> cpp_value_init(MT, arrow(this, N), L, Pre, Pre1)
+    ;   ccl_holds_instance(MT) -> cpp_zero_fill(MT, arrow(this, N), L, Pre, Pre1)   % an array of objects that hold an instance's: zero (0.297)
     ;   Pre = Pre1 ),
     cpp_member_inits(Ds, Inits, Defaults, L, Pre1, Body).
 cpp_member_inits([member(MT, N, _)|Ds], Inits, Defaults, L, Pre, Body) :- memberchk(init(N, Args), Inits), Args = [_|_], cpp_plain_aggregate(MT), cpp_aggregate_args(Args, MT), !,   % A PLAIN STRUCT OR UNION MEMBER INITIALIZED BY PARENTHESES from values that are not its own type is aggregate initialization ([dcl.init.general]/16.6.2.2, C++20): the first member from the first value, a union's the first member alone. libc++ 21's `basic_string() : __rep_(__short())' sets the union `__rep' to a short string; assigned, the value reached the lowering as `sext %struct.__short to %struct.__rep'. `unionparen.cpp'
@@ -763,6 +764,7 @@ cpp_member_inits([member(MT, N, _)|Ds], Inits, Defaults, L, Pre, Body) :-
     ;   memberchk(N-init([item([], E)]), Defaults), cpp_scalar_member_type(MT) -> Pre = [expr(L, assign('=', arrow(this, N), E))|Pre1]   % `int n{3};' on a scalar: its one item
     ;   memberchk(N-init(Items), Defaults), ( cpp_plain_aggregate(MT) ; cpp_vector_member(MT) ) -> cpp_member_from(MT, arrow(this, N), init(Items), L, Pre, Pre1)   % a plain struct or union from its braced list (0.117), a vector from its lanes (0.162): a compound literal of its type
     ;   memberchk(N-E, Defaults) -> Pre = [expr(L, assign('=', arrow(this, N), E))|Pre1]
+    ;   ccl_holds_instance(MT) -> cpp_zero_fill(MT, arrow(this, N), L, Pre, Pre1)   % A MEMBER THAT HOLDS AN INSTANCE'S OBJECT, named by no initializer, is born zero (0.297, ccl_holds_instance/1), as a block's object is: `H() : n(7) {}' over `vector<int> items;' left its garbage
     ;   Pre = Pre1 ),
     cpp_member_inits(Ds, Inits, Defaults, L, Pre1, Body).
 cpp_designated_items(Items) :- member(item(Ds, _), Items), Ds \== [], Ds \== none, !.   % a braced list with a designator (0.201)

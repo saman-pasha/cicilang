@@ -291,6 +291,7 @@ One row per step, in version order: the step's title, what it did and its gate n
 | 0.294 | the findings of the twelfth phase of a program over 0.284 | a conditional's arms decay, in its type and its value; a function of the program whose every return is static storage answers no new memory (`ck_static_results/1`); static storage a borrow that nothing ends, its free and its store into an owner refused (an older hole the probes found); a static local's debug variable its function's subprogram's (-g died of SIGSEGV on one in a block); the borrow into a call over a `vector<item> *` refused since 0.293; reader 190, a run's macro names a key each, so a unit over `<openssl/ssl.h>` builds cold in 26 s where it took 59 s; lowering 164 | the flow gate and the nets; no chain and no CI job, by the owner's rule of 0.271 |
 | 0.295 | ccllib's `<string_view.pl>` and `<span.pl>`, the last modules of phase 1a; a view is a borrow | `std::string_view` as `basic_string_view<char>` and `std::span`, the first element and the count, each a borrow of what it sees, which the safe part follows: a view used after its source ends or after a change that may replace it, a view of a local that leaves its function, a view of another source put in the caller's, a view of a string handed beside it to a change of it, refused; 118 functions of the view and 14 of the span, a string's forms over a view; a span of a C array by its type's count, the reader asking the array's own word first; in C++ an instance made of another instance's object with no `_of` refused by name; the rules program holds both to a model at 777,450 checks, and 42 copies of the tree broken on purpose are each reported; a write through a const lvalue, never refused, recorded; reader 191, lowering 165 | the flow gate; the reader, compile, driver and ccllib gates over libc++ 22 over one fresh HOME; the ccllib gate over libc++ 21 and 18; the pool of the light C++ run fixtures; the C++ net by hand; no chain, by the owner's rule of 0.271; a commit and a push |
 | 0.296 | the chain over the finished phase 1a of ccllib | the chain over 0.295's pushed commit, its numbers: over libc++ 22 and 21 the library read, the C++ gate and the ccllib gate, and over libc++ 18 all eleven gates, the toolchain check strict, GREEN; no code changes | the chain over libc++ 22, 21 and 18 over fresh HOMEs; no CI job, by the owner's rule of 0.271; a commit and a push |
+| 0.297 | the findings 15 (extended), 20 and 21 of a program over 0.284 | a row of a static array and an array member of a static object are static storage; what holds an instance's object is born zero -- a struct, an array, a C++ class, a constructor's member that no initializer names; a name that a block declares again hides the outer one's states; a fill of an object with owners writes over them; three holes and four false refusals closed | the reductions and 43 probes beside them, as C and as C++; the nets; no chain, by the owner's rule of 0.271; a commit and a push |
 
 ## M5 — the C++ mode
 
@@ -20975,3 +20976,104 @@ of 0.271.
 - RULES.md (the last full run), HISTORY.md, CLAUDE.md; `module/cicilang.cicili` (0.296).
 
 The module 0.296, the reader 191 and the lowering 165.
+
+## 0.297 — the findings 15 (extended), 20 and 21 of a program over 0.284
+
+**0.297: the Ambitious session's messages after 0.294 named three findings of its program over 0.284: a row of a static
+table taken as a pointer was refused (finding 15, extended); a struct with a vector member, declared with no
+initializer, held the garbage of its storage, and the first push wrote through it (finding 20); and a block's local that
+hides a parameter of the same name, declared with no initializer and given a value after it, was taken for the parameter
+(finding 21). Each is run from its reduction, its cause found here and the forms beside it probed, 43 probes as C and as
+C++. The probes found three older holes of the safe part, which are closed -- a free of a static row, a memset over an
+object whose own pointer holds memory, and a pointer to a block's local that hides an outer one, used after the block --
+and four false refusals of finding 21's cause, which are mended. The reader goes to 192 and the lowering to 166.**
+
+FINDING 15, EXTENDED: A ROW OF A STATIC TABLE. `const unsigned char *row = table[argc & 1]; return row[0];` over `static
+const unsigned char table[2][3]` was refused on 0.284; on 0.296 it builds -- 0.290's rule takes `table[i]` as a pointer
+read out of a slot (`ck_loaded_value/1`), no new memory -- and prints what clang's build prints. THE FORMS BESIDE IT, as
+C and as C++: a row of a row (`words[i][1]` of three bounds), `*table`, a row that a function returns, an array member
+of a static struct (`cfg.name`) and a row of a static local's array were built and printed so too; but `unsigned char
+*row = table[i]; free(row);` and `char *p = cfg.name; free(p);` were built, and each run aborted in `free`
+(`munmap_chunk(): invalid pointer`, `free(): invalid size`), and `own unsigned char *o = table[1];` was refused with the
+wrong words, `owner leaked: 'o'`. THE CAUSE: a row is no pointer that a slot holds but the address of its first element
+in the array's own storage (C17 6.3.2.1/3) -- static storage where the array is a global's or a static local's. THE
+CHANGE: an lvalue of an array type -- an index, a member, a `*` -- is static storage where its object, through members
+and indexes, is a global's or a static local's (`ck_static_array_place/1` in `ck_static_value/1`, the storage named by
+the array, `ck_static_root/2`): a borrow that nothing ends (0.294's rule), whose free is `borrow_consumed` and whose
+store into an owner is `borrow_stored`. A place behind a pointer is not, its target unknown. `test/c/run/staticrows.c`
+prints what clang's build prints, as C and as C++; `test/c/safe/static_row_free.c`, `static_row_own.c` and
+`static_member_free.c` are refused, as C and as C++.
+
+FINDING 21, A NAME THAT A BLOCK DECLARES AGAIN. `for (...) { double v; v = i; r += v; }` in `static double
+sum(vector<int> *v)` was `owner overwritten while live: 'v->data'`. THE CAUSE: the check keys its states by names, and a
+plain local -- an `int`, a `double`, a pointer with no initializer -- declares no state of its own, so the outer
+object's states answered for it: the parameter's own field `v->data`, under the name `v`, met `v = i` as an overwrite.
+0.287 hid an outer key where the inner frame holds the same key, and a plain local holds none. THE FORMS BESIDE IT, as C
+and as C++: the local given a value at its declaration and used after the block, a struct parameter's own field
+(`p->data` under `{ int p; p = 4; }`), an `int v` under an outer `vector<int> v` (`dropped_copied: 'v'` at `printf("%d",
+v)`), an `int v` under an outer own pointer (`owner overwritten while live: 'v'`), a `double v` with a goto back inside
+its block, a `vector<int> *v` of the block over a parameter of the same name, and `{ int *p = &x; }` over a pointer
+parameter `p` (`use of a borrow after its owner was consumed: 'p'`) were each refused where clang builds them; a pointer
+of the block on two roads, a `for`'s declaration, an `int g` over a global vector and a vector over a vector were built.
+AND A HOLE: `int *q = &v; { int v = 2; q = &v; } printf("%d", *q);` was BUILT -- the block's `&v` found the outer v's
+anchor, which outlives the block, and `q` was not left dangling. THE CHANGE: a declaration masks, in its own frame, each
+key of an outer frame under its name -- the name, `N.f` and `N->f` at any depth, and the name of an outer object that a
+scope drops -- with the state `shadow` (`ck_shadow_outer/3` in `ck_decls/3`), which is no state (`ck_in/3`), no key
+under a base (`ck_innermost/3`), no leak (`ck_leaks/2`), the other side's state at a join (`ck_merge_state/3`), and
+gives way to a state that the frame declares for the key (`ck_unmask/3`, in `ck_declare/4`, `ck_declare_borrow/4` and
+`ck_insert_at/4`); the frame's end takes the masks with it. And the keys whose borrows dangle at a frame's end
+(`ck_ending_keys/3`, in `ck_scope_end/2` and a goto's `ck_close_since_label/4`) are the frame's own, but a mask, and a
+key of a name that an outer frame holds too where the frame's state of it is a borrow or none: a pointer of the block
+that holds a borrow is no object that a borrow is of, and `borrow(p)` in an outer frame is the outer p's -- a pointer
+parameter's own, which `{ int *p = &x; }` ended in the first form of the change. `test/c/run/shadowed.c` prints what
+clang's build prints, as C and as C++, and `test/ccllib/alone/shadowed.c` its eleven forms over instances;
+`test/c/safe/shadow_dangle.c` is refused, `use of a borrow after its owner was consumed: 'q'`, as C and as C++.
+
+FINDING 20, A STRUCT THAT HOLDS A VECTOR, BORN WITH GARBAGE. `holder h; push_back(h.items, k);` over `typedef struct
+holder { vector<int> items; int n; } holder;` faulted, or broke the heap for the program's next allocation. THE CAUSE:
+0.285 gave zero to a block's object of an instance's type, and a struct of C that holds one is no instance's type. THE
+FORMS BESIDE IT, as C and as C++: a struct of such in an array member of another, a struct with a string member and an
+array of such structs faulted, each over storage written with garbage first, and a `for`'s declaration aborted in
+`free`; a struct never dropped was built with no message; a designated initializer and a static object were whole, as C
+has them, and an array of vectors stays refused by name (`array_of_objects_with_a_drop`, 0.262). In C++: a class whose
+constructor names no initializer of its vector member was refused (`a borrowed struct's own field not whole at the
+return: 'this->items.data'`), `: items()` too (`owner used before it was given anything`, at the desugaring's `memset`
+over the member), and so was a class with virtual functions and no constructor of its own, whose implicit constructor
+makes the member; a data-only struct named with no typedef -- a class's name is no typedef of the reader's -- and a
+class with a member function and no constructor of its own, declared with no initializer, faulted. AND A HOLE BESIDE THE
+ZERO: `memset(&h, 0, sizeof h)` over a struct whose vector holds memory was BUILT, and the buffer lost. THE CHANGE: a
+block's object of a type that holds an instance's object -- the instance's type, an array of such, a struct of C with a
+member of such at any depth (`{0}`), a class of C++ with a data member of such (`{}`, its value-initialization; a
+class's name is no typedef of the reader's, and its tag's members are asked, `ccl_class_named/1`) -- declared with no
+initializer is born zero (`ccl_holds_instance/1` in `ccl_born_zero_vars/2`); a constructor zeroes a member that holds
+one and that no initializer names (`cpp_member_inits/6`, `cpp_zero_fill/5`); and a fill of an object with owners writes
+over them (`ck_fill_keys/3`, `ck_fill_over/5`): an owner that holds memory is `owner_overwritten`, each other null after
+a fill of zero. `test/ccllib/alone/born_held.c` (seven forms) prints its line as C and as C++, and
+`test/cpp/run/ccllibclass.cpp` seven classes; `test/ccllib/safe/held_leak.c` (`owner leaked: 'h.items.data'`) and
+`memset_live.c` (`owner overwritten while live: 'h.items.data'`) are refused, as C and as C++.
+
+WHAT STAYS (Not done): a call by name in a member function's body over a data member -- `len(items)`, `len(this->items)`
+-- is read as it is written, since the reader declares neither `this` nor the class's members there, and the safe part
+refuses what it is handed; an object that `malloc` gave is born with what its storage held.
+
+THE NETS, over the step's work tree and a fresh HOME a part: the flow gate GREEN with no finding; the reader gate (164
+checks, 4 s); the compile gate (295, 38 s: the two run fixtures and the four refusals of this step among them); the
+driver gate (77, 55 s); the ccllib gate over libc++ 22, 21 and 18 (290 checks each, 648 s, 612 s and 644 s: 16 programs
+in three runs, 89 refused and 8 alone, the two programs alone and the two refusals of this step among them); the C++
+pool of the 361 light fixtures of `test/cpp/run` (43 s); and the C++ gate's lists by hand (41: the run fixtures of
+`test/c/run` that it builds as C++, `staticrows.c` and `shadowed.c` among them, four of `test/cpp/run`,
+`ccllibclass.cpp` among them, and sixteen refusals of `test/c/safe`, this step's four among them), each GREEN. THE CHAIN
+DID NOT RUN, by the owner's rule of 0.271: it runs over a finished task. NO CI JOB RAN.
+
+- `library/ccl_check.pl`: `ck_static_array_place/1`, `ck_array_typed/1`, the masks (`ck_shadow_outer/3`, `ck_key_of/2`,
+  `ck_unmask/3`), `ck_ending_keys/3`, the fill (`ck_fill_keys/3`, `ck_fill_over/5`); `library/ccl_syntax.pl`:
+  `ccl_holds_instance/1`, `ccl_class_named/1`, reader 192; `library/ccl_cpp_init.pl`: `cpp_member_inits/6`'s two
+  clauses; `library/ccl_ir.pl`: lowering 166.
+- `test/c/run/staticrows.c`, `shadowed.c`; `test/c/safe/static_row_free.c`, `static_row_own.c`, `static_member_free.c`,
+  `shadow_dangle.c`; `test/ccllib/alone/born_held.c`, `shadowed.c`; `test/ccllib/safe/held_leak.c`, `memset_live.c`;
+  `test/cpp/run/ccllibclass.cpp`; `test/cpp.sh`'s two lists, `test/ccllib.sh`'s words.
+- RULES.md (the C reader's forms, the Classes topic, the safe part's owners and moves, owners inside structs and what a
+  local's storage holds, the gates' lists, Not done), HISTORY.md, CLAUDE.md, CCLLIB.md (phase 0.11), README.md;
+  `module/cicilang.cicili` (0.297).
+
+The module 0.297, the reader 192 and the lowering 166.

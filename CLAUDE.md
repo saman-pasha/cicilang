@@ -12,8 +12,8 @@ the fixture that gates it, and why. The bullet ends with the version that made t
 edits the rule in `RULES.md`, in its topic, and writes its entry in `HISTORY.md`. Read the topic of `RULES.md` that
 covers the code before the code is changed.
 
-At 0.296 the versions are: the module 0.296 (`ccl_p_version` in `module/cicilang.cicili`, `bin/cicilang --version`),
-the reader 191 (`ccl_reader_version/1`, `library/ccl_syntax.pl`) and the lowering 165 (`ccl_lowering_version/1`,
+At 0.297 the versions are: the module 0.297 (`ccl_p_version` in `module/cicilang.cicili`, `bin/cicilang --version`),
+the reader 192 (`ccl_reader_version/1`, `library/ccl_syntax.pl`) and the lowering 166 (`ccl_lowering_version/1`,
 `library/ccl_ir.pl`).
 
 Build and prove, always in this order (or all of it, `sh test/gates.sh`):
@@ -497,7 +497,9 @@ test/c/run/                 C programs built and run: NAME.c, NAME.expect, NAME.
                             operand is no instance (0.291); hdrvec.c over hdrvec.h, hdrvec2.h and hdrvec3.h, the
                             program's own headers over a type macro's instance, and regnames.c and regnames23.c,
                             parameters named as the lowering's names (0.293); condarr.c, conditionals whose arms are
-                            arrays, and statret.c, functions whose every return is static storage (0.294)
+                            arrays, and statret.c, functions whose every return is static storage (0.294);
+                            staticrows.c, rows of static arrays used as pointers, and shadowed.c, names that a block
+                            declares again (0.297)
 test/c/safe/                C programs the safe part refuses: NAME.c, NAME.expect; dropnone.pl, the macro file of
                             drop_leaks.c (0.262); borrow_after_grow.c, borrow_after_push.c, elem_after_push.c,
                             grow_through_ptr.c, const_replace.c and const_local.c, the safety rules of 0.265;
@@ -510,7 +512,10 @@ test/c/safe/                C programs the safe part refuses: NAME.c, NAME.expec
                             that may replace its owner (0.293); statret_param.c and statret_mixed.c, a function's
                             result that is new memory still, and free_lit.c, free_glob.c, free_direct.c,
                             statret_free.c, own_static.c, own_lit.c, take_own.c and assign_static.c, static storage
-                            freed or given to an owner (0.294)
+                            freed or given to an owner (0.294); static_row_free.c, static_row_own.c and
+                            static_member_free.c, a row of a static array and an array member of a static struct
+                            freed or given to an owner, and shadow_dangle.c, a pointer to a block's local that hides
+                            an outer one, used after the block (0.297)
 test/cpp/                   the C++ reader's fixtures and the refusals; hidem.cppm for modhidden.cpp; unread_cpp.cpp,
                             an argument taken unread in C++ (0.264, read since 0.270); lit_cpp.cpp, list and map
                             literals beside the lambdas in C++ (0.269); callreplace.cpp, refreplace.cpp,
@@ -525,7 +530,8 @@ test/cpp/run/               C++ programs built and run: NAME.cpp, .expect, .flag
                             ppinclude.h, basem.cppm and mathm.cppm (for modules.cpp), embed26.txt; hdrmacro.h and
                             hdrmacro2.h, of hdrmacro.cpp (0.268); opcpp.cpp over ../../c/run/topers.pl, operators on
                             instances in C++ (0.270); borrowkeep.cpp, and elemborrowpp.cpp over
-                            ../../c/run/tvector.pl, what the safety rules let C++ keep (0.272)
+                            ../../c/run/tvector.pl, what the safety rules let C++ keep (0.272); ccllibclass.cpp over
+                            <vector.pl>, classes that hold an instance's object, born zero (0.297)
 test/ccllib/                the three runs' programs: NAME.c, a ccllib program; NAME.cpp, its twin over std::;
                             NAME.expect, what the twin prints; NAME.count, the count of the run that the costs time;
                             first.c over first.pl, the first proof after phase 0 (0.273); vector.c, the whole
@@ -539,14 +545,18 @@ test/ccllib/                the three runs' programs: NAME.c, a ccllib program; 
 test/ccllib/safe/           ccllib programs that the safe part refuses, as C and as C++: NAME.c, NAME.expect, and
                             NAME.expect.cpp where C++ has words of its own (0.274); borrow_into_call_vector.c and
                             string_self_c_str.c, a borrow handed to a call that may replace its owner (0.293);
-                            view_*.c and span_*.c, what the safe part refuses of a view and of a span (0.295)
+                            view_*.c and span_*.c, what the safe part refuses of a view and of a span (0.295);
+                            held_leak.c, a struct that holds a vector, never dropped, and memset_live.c, a memset over
+                            a vector that holds memory (0.297)
 test/ccllib/alone/          ccllib programs with no twin, built as C and as C++ (0.281): NAME.c, NAME.expect;
                             stops.c, what stops a ccllib program, each case in a child of its own; tree_rules.c,
                             the rules of the tree of a set and a map, read from the instance's own fields;
                             table_rules.c, the rules of the hash table of the unordered containers (0.283);
                             bitset_rules.c, the rules of a bitset, held to a model of a byte a bit (0.286);
                             string_rules.c, the rules of a string, held to a model of an array of bytes (0.291);
-                            view_rules.c, the rules of a view and of a span, held to a model (0.295)
+                            view_rules.c, the rules of a view and of a span, held to a model (0.295); born_held.c,
+                            what holds an instance's object, born zero, and shadowed.c, the names of vectors declared
+                            again in a block (0.297)
 
 proof/forty2.ll, run.sh     M0: hand-written IR through clang to a binary that prints a line and exits 42
 proof/forty2                made by proof/run.sh, never committed

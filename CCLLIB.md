@@ -374,9 +374,14 @@ A type macro gives its instances operators that the reader writes as calls: `v[i
 - AN OBJECT IS MADE OF A VALUE OF ANOTHER TYPE BY `_of`: `T a = x;` and `a = x` are `<name>_of(x)`, the name with the
   word of x's type first (`<name>_of_ptr_char` for a text), where C++ has constructors: `bitset<8> b = 0x0f;`, `string s
   = "abc";`. C reads no such initializer, so nothing that C reads changes.
-- WHAT IT LEAVES (Not done): an array of objects and a member of the program's own struct are not given zero; an
-  argument of a call and a `return` are not converted; an assignment over an object that has a drop dropped nothing
-  first until 0.287 (phase 0.5).
+- WHAT HOLDS AN OBJECT IS BORN ZERO TOO (0.297): a struct, an array and a class of C++ that hold an instance's object,
+  declared with no initializer, and a class's member that no initializer of its constructor names -- `holder h;
+  push_back(h.items, k);` over `struct holder { vector<int> items; int n; }` wrote through the garbage of `h.items`
+  (the Ambitious session's finding 20), where C++'s `std::vector` member is born empty.
+- WHAT IT LEAVES (Not done): an array of objects that have a drop is refused by name, and an object that `malloc`
+  gave is not given zero; an argument of a call and a `return` are not converted; an assignment over an object that
+  has a drop dropped nothing first until 0.287 (phase 0.5); a call by name in a member function over a data member,
+  `len(items)`, is read as written (0.297).
 
 ### Order
 

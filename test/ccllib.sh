@@ -26,7 +26,11 @@
 # from the instance's own fields over a walk of chance; table_rules.c (0.283): the rules of the hash table of
 # <unordered_set.pl> and <unordered_map.pl>, read so too; bitset_rules.c (0.286): the rules of <bitset.pl>'s set of
 # bits, held to a model of a byte a bit at the counts where a rule can break, the bits of its last word past the count
-# read in the instance's own words.
+# read in the instance's own words. born_held.c (0.297): a struct, an array of structs and a struct's array member that
+# hold an instance's object, born zero with no initializer -- C++ leaves such a struct's members as its storage held;
+# shadowed.c (0.297): the names of a vector, a pointer to one and a global one, declared again in a block -- the safe
+# part's rule, which no twin asks. A refusal of 0.297: a struct that holds a vector, filled and never dropped
+# (held_leak.c), and a memset over a vector that holds memory (memset_live.c).
 #
 # THE COSTS, a line a run, are a record and no check: the build of the program (the best of CCLLIB_REPEAT: its seconds
 # and the megabytes of its largest process), the IR's types, functions and lines, the object's bytes, and the longer
@@ -150,7 +154,7 @@ if ls "$T"/safe/*.c > /dev/null 2>&1; then
 fi
 nalone=0
 if ls "$T"/alone/*.c > /dev/null 2>&1; then
-  echo "-- and the programs that stand alone, with no twin (test/ccllib/alone): what stops a ccllib program, and the rules of the tree, of the hash table, of the bitset and of the string, as C and as C++"
+  echo "-- and the programs that stand alone, with no twin (test/ccllib/alone): what stops a ccllib program, the rules of the tree, of the hash table, of the bitset and of the string, the birth of what holds an instance and the names declared again, as C and as C++"
   for src in "$T"/alone/*.c; do
     n=$(basename "$src" .c); nalone=$((nalone + 1))
     for how in c cpp; do

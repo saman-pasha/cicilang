@@ -763,8 +763,12 @@ that changes a rule edits the rule here, in its topic, and writes its entry in `
   a growth to twice the capacity at least; after `shrink_to_fit` the count as the capacity, or the object's fifteen and
   no block. Every eighth step the searches, the tests of a part, the comparisons and the parts are held to naive models,
   from places in the string and past it; a character is a NUL one time in eight. They hold at 24,414 checks. FIFTY-SEVEN
-  COPIES BROKEN ON PURPOSE are each reported by a program of the gate (the section of `string.pl`). (0.281, 0.283,
-  0.286, 0.291)
+  COPIES BROKEN ON PURPOSE are each reported by a program of the gate (the section of `string.pl`). `born_held.c`
+  (0.297) holds what holds an instance's object born zero -- a struct with a vector member, a struct of such in an array
+  member of another, a struct with a string member, an array of such structs, a `for`'s declaration, a designated
+  initializer and a memset of zero --, each over storage written with garbage first, and `shadowed.c` (0.297) the names
+  of a vector, of a pointer to one and of a global one declared again in a block (the safe part's topic of owners and
+  moves). (0.281, 0.283, 0.286, 0.291, 0.297)
 - **THE FIRST PROOF AFTER PHASE 0** (0.273; `CCLLIB.md`'s Order): `test/ccllib/first.c` over its macro file `first.pl`
   -- `vector<T>` with `push`, `at`, `len` and `sort`: a type macro's instance (0.261), its literal's `from` (0.263), its
   drop (0.262), all of it C text (0.260) -- built as C and as C++, and `first.cpp`, the same program over `std::vector`
@@ -2505,11 +2509,12 @@ that changes a rule edits the rule here, in its topic, and writes its entry in `
   call. Two C++ units that both make `vector<int>` link, its functions linkonce_odr there too. The C++ gate builds
   `test/c/run/ctext.c`, `autodrop.c`, `tvector.c` (0.268: its headers `tvhdr.h` and `tvhdr2.h` read as the program's
   file is, the topic of includes), `literal.c` (0.269), `operators.c` and `unread.c` (0.270), `lazy.c` (0.274),
-  `operators2.c` (0.284), `born.c` (0.285), `dropassign.c` (0.287), `typednames.c` (0.288), and `contswitch.c` and
-  `loadedptr.c`, two programs of plain C (0.290), with cicilang++ and compares each with its `.expect`; `elemborrow.c`
-  is `test/cpp/run/elemborrowpp.cpp` there (0.272), its plain functions noexcept: C++'s defer rule refuses a plain
-  struct's live owner across a call that may throw. (0.267, 0.268, 0.269, 0.270, 0.272, 0.274, 0.284, 0.285, 0.287,
-  0.288, 0.290)
+  `operators2.c` (0.284), `born.c` (0.285), `dropassign.c` (0.287), `typednames.c` (0.288), `contswitch.c` and
+  `loadedptr.c`, two programs of plain C (0.290), `mirror.c` (0.291), `hdrvec.c`, `regnames.c` and `regnames23.c`
+  (0.293), `condarr.c` and `statret.c` (0.294), and `staticrows.c` and `shadowed.c` (0.297), with cicilang++ and
+  compares each with its `.expect`; `elemborrow.c` is `test/cpp/run/elemborrowpp.cpp` there (0.272), its plain functions
+  noexcept: C++'s defer rule refuses a plain struct's live owner across a call that may throw. (0.267, 0.268, 0.269,
+  0.270, 0.272, 0.274, 0.284, 0.285, 0.287, 0.288, 0.290, 0.297)
 - **A READ THAT MADE OR MET AN INSTANCE IS KEPT IN NEITHER CACHE** (0.261): what it holds is its unit's -- the instance
   where the unit first used it, a later use naming it alone -- so neither the process's cache nor the store keeps such a
   header's read or such a file's (`ccl_include_read/2`, `ccl_read_file_/3`, over a count of the instances met,
@@ -2827,6 +2832,24 @@ that changes a rule edits the rule here, in its topic, and writes its entry in `
   other bytes, in `main` and in a `for`, made of a number and of a text; a box that has a drop -- prints what clang's
   build of its hand expansion prints, as C and, by the C++ gate, as C++, and frees every block. Over the tree of 0.284
   the mask was born `ffffffffffffffff`. Reader 184. (0.285, 0.288)
+- **WHAT HOLDS AN INSTANCE'S OBJECT IS BORN ZERO TOO** (0.297; `ccl_holds_instance/1` in `ccl_born_zero_vars/2`): a
+  block's object of a type that holds one -- the instance's type, an array of such, a struct of C with a member of such
+  at any depth, given `{0}`, and a class of C++ with a data member of such, given `{}`, its value-initialization (zero,
+  then its implicit constructor; its own default constructor where it has one, as `T x;` calls), a class's name being no
+  typedef of the reader's, so that its tag's members are asked (`ccl_class_named/1`) -- declared with no initializer is
+  born zero, and a `for`'s declaration so too. A CONSTRUCTOR ZEROES A MEMBER THAT HOLDS ONE AND THAT NO INITIALIZER
+  NAMES (`cpp_member_inits/6`, the Classes topic). A unit with no instance answers no at once. Why: `holder h;
+  push_back(h.items, k);` over `typedef struct holder { vector<int> items; int n; } holder;` wrote through the garbage
+  of `h.items` (the Ambitious session's finding 20: a fault, or a heap that the program's next allocation found broken),
+  and so did a struct of such in an array member of another, a struct with a string member, an array of such structs and
+  a `for`'s declaration (a `free` aborted), and in C++ a data-only struct named with no typedef and a class with a
+  member function and no constructor of its own; a class whose constructor names no initializer of the member, and one
+  whose implicit constructor makes it (a class with virtual functions), were refused, `a borrowed struct's own field not
+  whole at the return`. A designated initializer and a static object were whole before, as C has them. An array of an
+  instance's objects that have a drop stays refused by name (`array_of_objects_with_a_drop`, 0.262).
+  `test/ccllib/alone/born_held.c` (seven forms, each over storage written with garbage first), as C and as C++;
+  `test/cpp/run/ccllibclass.cpp` (seven classes); `test/ccllib/safe/held_leak.c`, a struct born zero, filled and never
+  dropped: `owner leaked: 'h.items.data'`. Reader 192. (0.297)
 - **AN ARRAY OF A KNOWN COUNT IS ASKED BY ITS OWN WORD FIRST** (0.295; `ccl_of_array/4`, in `ccl_of_value/3`): where an
   instance is made of a value whose type is an array of a known count, the reader asks first the function named with the
   array's own word -- `span_int_of_arr_6_int` over `int a[6]` --, and the array goes as its pointer, so the type macro
@@ -4064,6 +4087,12 @@ unless a path is given. (0.33, 0.41, 0.79, 0.82, 0.223)
   default constructor zero-filled (`cpp_zero_fill`) and then constructed (0.127, below), an array zeroed. A member of an
   empty class is never zero-filled (`cpp_zero_fill`, `cpp_value_init`): its byte is padding or no byte at all. Why:
   pair's `second()` was garbage, and a `memset` wrote outside libc++'s string. (0.75, 0.79, 0.89, 0.127)
+- A MEMBER THAT HOLDS AN INSTANCE'S OBJECT AND THAT NO INITIALIZER NAMES IS ZEROED (0.297; the last clauses of
+  `cpp_member_inits` over `ccl_holds_instance/1`, `cpp_zero_fill/5`): no member initializer and no default member
+  initializer, the member is born zero as a block's object of its type is (the C reader's topic, `WHAT HOLDS AN
+  INSTANCE'S OBJECT IS BORN ZERO TOO`), as `std::vector`'s default constructor makes its vector empty; an array member
+  so too. Why: `H() : n(7) {}` over `vector<int> items;` left its garbage, which the safe part refused.
+  `test/cpp/run/ccllibclass.cpp`. (0.297)
 - VALUE-INITIALIZATION ZEROES THE OBJECT FIRST where its class's default constructor is not user-provided ([dcl.init]/8;
   `cpp_value_zeroes/1` over `cpp_user_default_ctor/1`: a constructor the class writes, or a constructor template, that
   takes no argument is user-provided; the implicit one and `C() = default` in the class are not), then runs that
@@ -10389,6 +10418,24 @@ in the first topic (The ccllib gate).
   refused at its declaration, `owner overwritten while live: 'v.data'`: its first value met the outer object's live
   field. `ck_innermost/3` keeps the first of each key. A plain owner and a plain struct given a braced list passed
   before, since their rules ask one key. `test/c/run/dropassign.c`'s inner `a`. (0.287)
+- A NAME THAT A BLOCK DECLARES AGAIN HIDES THE OUTER ONE'S STATES (0.297; `ck_shadow_outer/3` in `ck_decls/3`): the
+  states are keyed by names, and a plain local -- an `int`, a `double`, a pointer with no initializer -- declares no
+  state of its own, so the outer object's states answered for it. A declaration masks, in its own frame, each key of an
+  outer frame under its name -- the name, `N.f` and `N->f` at any depth, and the name of an outer object that a scope
+  drops -- with the state `shadow`, which is no state (`ck_in/3`), no key under a base (`ck_innermost/3`), no leak
+  (`ck_leaks/2`), the other side's state at a join (`ck_merge_state/3`), and gives way to a state that the frame
+  declares for the key (`ck_unmask/3`, in `ck_declare/4`, `ck_declare_borrow/4` and `ck_insert_at/4`); the frame's end
+  takes the masks with it, and the outer states answer again. THE KEYS WHOSE BORROWS DANGLE AT A FRAME'S END
+  (`ck_ending_keys/3`, in `ck_scope_end/2` and a goto's `ck_close_since_label/4`) are the frame's own, but a mask, and a
+  key of a name that an outer frame holds too where the frame's state of it is a borrow or none: a pointer of the block
+  that holds a borrow is no object that a borrow is of, and `borrow(p)` in an outer frame is the outer p's. Why: `double
+  v; v = i;` in a block of a function whose parameter is `vector<int> *v` was `owner overwritten while live: 'v->data'`
+  (the Ambitious session's finding 21), `int v; ... printf("%d", v)` under an outer `vector<int> v` was
+  `dropped_copied`, `int v; v = 3;` under an outer own pointer `owner overwritten while live`, and `{ int *p = &x; }` in
+  a function whose parameter is `int *p` ended the parameter's own borrow, `use of a borrow after its owner was
+  consumed: 'p'`, each where clang builds the program; and `int *q = &v; { int v = 2; q = &v; } *q` was built, the
+  block's `&v` anchoring the outer v. `test/c/run/shadowed.c` and `test/ccllib/alone/shadowed.c` (eleven forms over
+  instances), as C and as C++; `test/c/safe/shadow_dangle.c`. (0.297)
 - A join (`ck_merge/3`) keeps equal states. `null` beside `live` is `live`. `null` or `unset` beside `moved` is `moved`.
   `unset` beside `null` is `unset`. `dangling` wins, `borrow` beats `loose`, two borrows keep the one that dangles first
   (`ck_first_to_dangle/3`): a local's before a parameter's or static storage's (0.216; `ck_short_lived/1`: a pointer
@@ -10460,6 +10507,13 @@ in the first topic (The ccllib gate).
   opened. (M3)
 - A struct's birth sets its own fields (`ck_alloc_mode/2`, `ck_set_fields/5`). malloc and realloc give `unset`, calloc
   gives `null`, and any other call or a move gives `live`. (M3)
+- A FILL OF AN OBJECT WITH OWNERS WRITES OVER THEM (0.297; a clause of `ck_expr/3` over `ck_fill_keys/3` and
+  `ck_fill_over/5`): `memset(&x, v, n)` over an object that holds an own pointer, or over an own pointer, is no read of
+  it: an owner that holds memory is `owner_overwritten`, what it held lost, and each other is null after a fill of zero
+  (garbage, `unset`, after another value). Why: it was a call that read x, so `memset(&h, 0, sizeof h)` over a live
+  `h.items.data` was built and its buffer lost, and C++'s value-initialization of a member, `: items()` -- the
+  desugaring's `memset` over a constructor's member not yet given anything -- was `owner used before it was given
+  anything`. `test/ccllib/safe/memset_live.c`; `test/ccllib/alone/born_held.c`'s fill of zero. (0.297)
 - `ck_into_own/6` assigns an own slot. It takes an owner moved in with its fields (`ck_transfer/5`), a null or a fresh
   value. A borrow is `borrow_stored`, unless it borrows a loose pointer: the slot then takes that memory over
   (`ck_retarget/4`). A live owner assigned is `owner_overwritten`. An owner from an own FIELD has complete fields
@@ -10545,6 +10599,18 @@ in the first topic (The ccllib gate).
   memory, freed, then given a global array and freed again were each built, and each run aborted in `free`.
   `test/c/safe/free_lit.c`, `free_glob.c`, `free_direct.c`, `statret_free.c`, `own_static.c`, `own_lit.c`, `take_own.c`
   and `assign_static.c`, in C and as C++. (0.294)
+- A ROW OF A STATIC ARRAY, AND AN ARRAY MEMBER OF A STATIC OBJECT, ARE STATIC STORAGE (0.297; `ck_static_array_place/1`
+  in `ck_static_value/1`): an lvalue of an array type, used as a pointer, is the address of its first element (C17
+  6.3.2.1/3) in the storage of the object it is part of -- `table[i]` of `static unsigned char table[2][3]`,
+  `words[i][1]` of a static array of three bounds, `cfg.name` of a static struct, `*table`, a row of a static local's
+  array; the object a global's or a static local's through members and indexes (`ck_storage_base/2`, `ck_is_global/1`),
+  the storage named by the array (`ck_static_root/2`). A place behind a pointer is not, its target unknown. Why: each
+  was a pointer read out of a slot (0.290's `ck_loaded_value/1`), which a free and an owner take: `unsigned char *row =
+  table[i]; free(row);` and `char *p = cfg.name; free(p);` were built and each run aborted in `free`, and `own unsigned
+  char *o = table[1];` was `owner leaked` where `borrow_stored` is the words. The form of the Ambitious session's
+  finding 15, `const unsigned char *row = table[argc & 1]; return row[0];`, refused on 0.284, was built on 0.296 through
+  that rule. `test/c/run/staticrows.c`, as C and as C++; `test/c/safe/static_row_free.c`, `static_row_own.c` and
+  `static_member_free.c`, as C and as C++. (0.297)
 - A C LIBRARY FUNCTION WHOSE POINTER RESULT LIES IN ITS FIRST ARGUMENT'S OBJECT is a borrow of what that argument borrows,
   static where it is (C17 7.24.2, 7.24.3, 7.24.5, 7.24.6.1, 7.29.4; C23 7.26.2.2; `ck_library_borrow/1` in
   `ck_borrows_from/3` and `ck_static_value/1`): the copies, the concatenations and `memset` answer the destination, the
@@ -13516,7 +13582,8 @@ in the first topic (The ccllib gate).
   program's own headers over a type macro's instance -- a header's macros and C17's `bool` beside an instance's
   operator, a header that includes another, and one with no `#include` -- (`hdrvec.c`, `-std=c17`), and parameters named
   as the lowering's names (`regnames.c`; `regnames23.c`, `-std=c23`). Since 0.294: conditionals whose arms are arrays
-  (`condarr.c`), and functions whose every return is static storage (`statret.c`).
+  (`condarr.c`), and functions whose every return is static storage (`statret.c`). Since 0.297: rows of static arrays
+  used as pointers (`staticrows.c`), and names that a block declares again (`shadowed.c`).
 - The C library is the host's. The compiler's own freestanding headers are in `library/include/` (`<stdarg.h>`,
   `<stdatomic.h>`, `<complex.h>`, `<stdckdint.h>`, `<stdbit.h>`, `<limits.h>`, `<tgmath.h>` and six more).
 - The language's own additions run: `:=`, patterns, `name { }` structs and `format`, `print`, `println`
@@ -14639,12 +14706,19 @@ Declarations topic of the C++ reader).
   result tied to a struct with own fields is a borrow of one of them, so a hand free of another does not end it, as none
   did before 0.266. In C++ (0.270) the type macro's function goes first where it is defined: a program that defines its
   own `operator==` over an instance whose macro defines `_eq` calls the macro's.
-- AN INSTANCE'S BIRTH, ITS LIMITS (0.285): an array of an instance's objects, a member of the program's own struct and
-  an object that `malloc` gave are not given zero, where C++ makes each element and each member empty; a value of
-  another type makes an instance in a block's declaration, a `for`'s and an assignment only -- an argument of a call and
-  a `return` are not converted, where C++ converts each by a constructor that is not explicit --, and at file scope its
-  `_of` is no constant; `T a(x)` and `T a{x}` are C++'s own; an assignment over an object that has a drop, named by its
-  name, drops the old value first since 0.287 (the safe part's topic of autodrop).
+- AN INSTANCE'S BIRTH, ITS LIMITS (0.285, 0.297): an object that `malloc` gave is not given zero, where C++'s `new`
+  makes each element and each member empty, and an array of an instance's objects that have a drop is refused by name,
+  its elements dropped by nothing (0.262) -- an array of a type with none, a struct, an array and a class that hold an
+  instance's object, and a class's member that no initializer names are born zero since 0.297; a value of another type
+  makes an instance in a block's declaration, a `for`'s and an assignment only -- an argument of a call and a `return`
+  are not converted, where C++ converts each by a constructor that is not explicit --, and at file scope its `_of` is no
+  constant; `T a(x)` and `T a{x}` are C++'s own; an assignment over an object that has a drop, named by its name, drops
+  the old value first since 0.287 (the safe part's topic of autodrop). A CALL BY NAME IN A MEMBER FUNCTION OVER A DATA
+  MEMBER IS READ AS IT IS WRITTEN (0.297's probes): `int count() { return (int)len(items); }` and `len(this->items)` in
+  `struct H { vector<int> items; ... }` -- the reader expands a call by name by its argument's type, and in a member
+  function's body it declares neither `this` nor the class's members --, so the call stays `len`, and the safe part
+  refuses what it is handed, `a borrowed struct's own field not whole at the return`; the instance's own function by its
+  name, `vector_int_len(&items)`, is the way.
 - A BITSET, ITS LIMITS (0.286): no `to_string` (a bitset's text in ccllib's string, which came at 0.291, waits), no hash
   and no stream operator; the text that makes one takes no place, no count and no other characters than 0 and 1, which
   C++'s constructor takes; a number is no operand of its operators (`b == 5`, `b &= 5`), which C++ takes through its
