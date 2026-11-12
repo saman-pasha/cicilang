@@ -1,10 +1,10 @@
 /* THE RULES OF A PAIR of <pair.pl> (0.301), checked from outside over every case and not over a walk of chance: each
    pair of numbers from 0 to 3 against each, each pair of 0, 1 and a NaN against each, and each pair of pairs of 0 and
    1 against each. EACH RELATION IS C++20'S, by the standard's words and not by the module's way to them ([pairs.spec]:
-   `==' of each member; `<' and `>' by the synthesized three-way order, the first members' and then the second's, where
-   an unordered first member, a NaN, ends it with no order). `<=' and `>=' are held to the module's own words: the
-   negations of `>' and `<', which a NaN makes differ from C++'s -- C++20's `<=' of an unordered pair is false. A copy
-   and swap leave each member as the model says. cicilang builds this file as C and cicilang++ as C++; both print
+   `==' of each member; `<', `>', `<=' and `>=' by the synthesized three-way order, the first members' and then the
+   second's, where an unordered first member, a NaN, ends it with no order, and all four are false). `<=' and `>=' were
+   the negations of `>' and `<' until 0.304, true over an unordered pair, and the cases of doubles held them so.
+   A copy and swap leave each member as the model says. cicilang builds this file as C and cicilang++ as C++; both print
    pair_rules.expect. It has no twin */
 #include <stdio.h>
 #include <stdlib.h>
@@ -52,8 +52,8 @@ static void doubles(void) {
             is(p != q, !(p.first == q.first && p.second == q.second), "!= with a NaN is the negation of ==");
             is(p < q, t == -1, "< with a NaN: an unordered member ends the order");
             is(p > q, t == 1, "> with a NaN: an unordered member ends the order");
-            is(p <= q, !(p > q), "<= is the negation of >, the module's words");
-            is(p >= q, !(p < q), ">= is the negation of <, the module's words");
+            is(p <= q, t == -1 || t == 0, "<= with a NaN: an unordered member ends the order, and <= is false");
+            is(p >= q, t == 1 || t == 0, ">= with a NaN: an unordered member ends the order, and >= is false");
         }
 }
 static void nested(void) {

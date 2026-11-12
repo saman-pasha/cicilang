@@ -36,7 +36,7 @@ ccllib_optional_holes(T, N, ['N' = name(N), 'T' = type(T), w = name(W)]) :-
 %% of that type (`eq_int' over an optional<int>, the operators' typed names, 0.284 and 0.291), and is the table's
 %% `eq_value'; every other name is its own key
 ccllib_optional_key(Name, T, Key) :-
-    (   member(Op, [eq, lt, gt]), catch(ccl_type_word(T, W), _, fail), W \== nullopt_t,
+    (   member(Op, [eq, lt, gt, le, ge]), catch(ccl_type_word(T, W), _, fail), W \== nullopt_t,
         atomic_list_concat([Op, '_', W], Name)
     ->  atom_concat(Op, '_value', Key)
     ;   Key = Name ).
@@ -81,3 +81,19 @@ ccllib_optional_fn(gt_value, "int @{N}_gt_@w(const @N *a, @T x) { return a->has 
 ccllib_optional_fn(eq_nullopt_t, "int @{N}_eq_nullopt_t(const @N *a, nullopt_t n) { (void)n; return !a->has; }").
 ccllib_optional_fn(lt_nullopt_t, "int @{N}_lt_nullopt_t(const @N *a, nullopt_t n) { (void)a; (void)n; return 0; }").
 ccllib_optional_fn(gt_nullopt_t, "int @{N}_gt_nullopt_t(const @N *a, nullopt_t n) { (void)n; return a->has; }").
+%% `<=' AND `>=' BY THE STANDARD'S OWN WORDS (0.304; [optional.relops], [optional.comp.with.t], [optional.nullops]): by
+%% the values' own `<=' and `>=', where the negations of `>' and `<' were true over a NaN: `x <= y' is true where x has
+%% no value, false where y has none, else `*x <= *y'; `o <= v' is `*o <= v' or true; `o <= nullopt' is `!o', and `o >=
+%% nullopt' is true. With the optional on the right the reader asks the other one, `v <= o' as `o >= v'
+ccllib_optional_fn(le, "int @{N}_le(const @N *a, const @N *b) {
+    if (!a->has) return 1;
+    return b->has && a->value <= b->value;
+}").
+ccllib_optional_fn(ge, "int @{N}_ge(const @N *a, const @N *b) {
+    if (!b->has) return 1;
+    return a->has && a->value >= b->value;
+}").
+ccllib_optional_fn(le_value, "int @{N}_le_@w(const @N *a, @T x) { return !a->has || a->value <= x; }").
+ccllib_optional_fn(ge_value, "int @{N}_ge_@w(const @N *a, @T x) { return a->has && a->value >= x; }").
+ccllib_optional_fn(le_nullopt_t, "int @{N}_le_nullopt_t(const @N *a, nullopt_t n) { (void)n; return !a->has; }").
+ccllib_optional_fn(ge_nullopt_t, "int @{N}_ge_nullopt_t(const @N *a, nullopt_t n) { (void)a; (void)n; return 1; }").

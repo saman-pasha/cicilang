@@ -740,13 +740,13 @@ below has its module.
 
 `optional<T>` is a struct of the value and a byte that says that it is there: a value with no heap and no drop, which `q
 := o` and `f(o)` copy, as `std::optional`'s do. It is born with no value -- an instance's object is born zero (0.285) --
-and made of a value and of `nullopt` by its `_of`: `optional<int> p = 5;`, `o = 7;`, `o = nullopt;`. 8 functions, and 8
+and made of a value and of `nullopt` by its `_of`: `optional<int> p = 5;`, `o = 7;`, `o = nullopt;`. 8 functions, and 14
 more for the relations of C++ with another optional, with a value of its own type and with `nullopt`, each on either
-side, by the operators' typed names (0.284, 0.291): the module needed no new form of the reader.
-`test/ccllib/optional.c` over `int`, `double`, `char` and a plain struct, its twin over `std::optional`, six programs of
-`test/ccllib/safe/`, and `test/ccllib/alone/optional_rules.c`, which holds every relation to the standard's own tables
-at 5,077,044 checks and reports each of sixteen copies of the module broken on purpose. The costs over libc++ 22, as
-above, the run `optional 100000000`:
+side, by the operators' typed names (0.284, 0.291): the module needed no new form of the reader. Its `<=` and `>=` are
+the values' own since 0.304 (below). `test/ccllib/optional.c` over `int`, `double`, `char` and a plain struct, its twin
+over `std::optional`, six programs of `test/ccllib/safe/`, and `test/ccllib/alone/optional_rules.c`, which holds every
+relation to the standard's own tables at 5,077,288 checks, over a NaN too since 0.304, and reports each of sixteen
+copies of the module broken on purpose. The costs over libc++ 22, as above, the run `optional 100000000`:
 
 | | build | peak | IR types | IR functions | IR lines | object | `optional 100000000` at `-O2` | its peak |
 |---|---|---|---|---|---|---|---|---|
@@ -763,16 +763,16 @@ clang++'s 0.26 s and 108 MB.
 
 `pair<A, B>` is a struct of `first` and `second`, named as C++'s members are, so `p.first` is C's own member: a value
 with no heap and no drop, made by braces, `pair<int, double> p = {1, 2.5};`, and born zero, as C++'s pair is made.
-`swap`, and the relations of C++20 -- `==` of each member, `<` by the synthesized three-way order, where an unordered
-first member, a NaN, ends the comparison. A member that is an instance compares by its own functions, since the
-instance's operators are written in a module's C text too: a pair of pairs, and an optional of a pair. It came before
-`variant` and `tuple`, whose `get<0>(t)`, `holds_alternative<int>(v)` and `visit` need forms that C's reader has not.
-`test/ccllib/pair.c`, its twin over `std::pair`, five programs of `test/ccllib/safe/`, and
+`swap`, and the relations of C++20 -- `==` of each member, `<`, and `<=` and `>=` since 0.304, by the synthesized
+three-way order, where an unordered first member, a NaN, ends the comparison. A member that is an instance compares by
+its own functions, since the instance's operators are written in a module's C text too: a pair of pairs, and an optional
+of a pair. It came before `variant` and `tuple`, whose `get<0>(t)`, `holds_alternative<int>(v)` and `visit` need forms
+that C's reader has not. `test/ccllib/pair.c`, its twin over `std::pair`, five programs of `test/ccllib/safe/`, and
 `test/ccllib/alone/pair_rules.c`, which holds every case to C++20's words at 3,110 checks and reports each of seven
 copies of the module broken on purpose. Its relations join their comparisons by `&` and `|`: with `&&` and `||`, which
 the lowering writes as branches, the count run took twice the twin's time. The step found that `<=` and `>=`, the
-negations of `>` and `<` since 0.266, are true over a NaN where C++'s are false, for every module (RULES.md, Not done).
-The costs over libc++ 22, as above, the run `pair 100000000`:
+negations of `>` and `<` since 0.266, were true over a NaN where C++'s are false, for every module; 0.304 gave each
+module its own (below). The costs over libc++ 22, as above, the run `pair 100000000`:
 
 | | build | peak | IR types | IR functions | IR lines | object | `pair 100000000` at `-O2` | its peak |
 |---|---|---|---|---|---|---|---|---|
@@ -783,6 +783,18 @@ The costs over libc++ 22, as above, the run `pair 100000000`:
 The unit holds 18 functions for its eight instances in 10,648 bytes, where the twin's holds 63 in 36,112; the count run
 takes 0.21 s as C and 0.22 s as C++ against the twin's 0.28 s, in 1.7 MB against 3.1 MB. The C build after a change of
 the file takes 0.36 s and 150 MB, cicilang++'s 0.42 s and 129 MB, against clang++'s 0.25 s and 108 MB.
+
+### 1b, the relations of C++20 (0.304)
+
+Every module that has `<` -- the vector, the array, the deque, the two lists, the stack, the queue, the four ordered
+containers, the pair and the optional -- compares by C++20's words: the synthesized three-way order of the elements, in
+which the first pair that is not equal decides, and a pair that is `<` neither way and not `==`, a NaN, is unordered and
+ends the comparison, so that `<`, `>`, `<=` and `>=` are all false. Each defines `_le` and `_ge` beside `_eq` and `_lt`,
+and the reader asks them first for `<=` and `>=`, the negations of `>` and `<` after them. Over 0.303 `_lt` went on past
+an unordered pair, as C++17's `lexicographical_compare` does, and `<=` and `>=` were true over a NaN: 23 of the 50 lines
+of `test/ccllib/relations.c` differed from its twin's -- the sequences' and the map's were C++17's, and the pair's and
+the optional's no standard's. The string and the view define no `_le`: their characters are a total order. Nineteen
+copies of the modules and of the reader broken on purpose are each caught by `relations.c`.
 
 ### The parts of phase 1
 

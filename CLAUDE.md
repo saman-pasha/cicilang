@@ -12,8 +12,8 @@ the fixture that gates it, and why. The bullet ends with the version that made t
 edits the rule in `RULES.md`, in its topic, and writes its entry in `HISTORY.md`. Read the topic of `RULES.md` that
 covers the code before the code is changed.
 
-At 0.303 the versions are: the module 0.303 (`ccl_p_version` in `module/cicilang.cicili`, `bin/cicilang --version`),
-the reader 194 (`ccl_reader_version/1`, `library/ccl_syntax.pl`) and the lowering 170 (`ccl_lowering_version/1`,
+At 0.304 the versions are: the module 0.304 (`ccl_p_version` in `module/cicilang.cicili`, `bin/cicilang --version`),
+the reader 195 (`ccl_reader_version/1`, `library/ccl_syntax.pl`) and the lowering 170 (`ccl_lowering_version/1`,
 `library/ccl_ir.pl`).
 
 Build and prove, always in this order (or all of it, `sh test/gates.sh`):
@@ -478,7 +478,8 @@ test/c/                     the reader's fixtures: hello.c, rich.c, lexer.c, mac
                             kind_typedef_fn.c, kind_obj_typedef.c, kind_hdr.c over kind_hdr.h and kind_in_hdr.c over
                             kind_in_hdr.h, a name declared again at file scope as another kind of symbol, and
                             pperr_own.c and pperr_own_ok.c over pperr_own.h, an #error of the program's own header
-                            (0.298)
+                            (0.298); relops.c over <vector.pl> and <optional.pl>, `<=` and `>=` over an instance
+                            read as its type macro's own functions (0.304)
 test/c/inc/                 the -I fixture: uses_box.c over box.h
 test/c/link/                two files linked into one program; the ABI against clang-built code (abi_main.c,
                             abi_helper.c), variadic calls (va_main.c, va_func.c, va.h), the decimal ABI against gcc,
@@ -569,7 +570,8 @@ test/ccllib/                the three runs' programs: NAME.c, a ccllib program; 
                             <set.pl> and <map.pl> (0.281); unordered_set.c and unordered_map.c, of
                             <unordered_set.pl> and <unordered_map.pl> (0.283); bitset.c, of <bitset.pl> (0.286);
                             string.c, of <string.pl> (0.291); string_view.c and span.c, of <string_view.pl> and
-                            <span.pl> (0.295); optional.c, of <optional.pl> (0.300); pair.c, of <pair.pl> (0.301)
+                            <span.pl> (0.295); optional.c, of <optional.pl> (0.300); pair.c, of <pair.pl> (0.301);
+                            relations.c, the relations of every module by C++20's words, over a NaN too (0.304)
 test/ccllib/safe/           ccllib programs that the safe part refuses, as C and as C++: NAME.c, NAME.expect, and
                             NAME.expect.cpp where C++ has words of its own (0.274); borrow_into_call_vector.c and
                             string_self_c_str.c, a borrow handed to a call that may replace its owner (0.293);
@@ -591,7 +593,8 @@ test/ccllib/alone/          ccllib programs with no twin, built as C and as C++ 
                             again in a block (0.297); optional_rules.c, the rules of an optional, held to C++'s
                             tables, and stops.c's cases of an optional (0.300); pair_rules.c, the rules of a pair,
                             each case held to C++20's words (0.301); borrow_through_ok.c, what the rules of 0.303
-                            keep (0.303)
+                            keep (0.303); optional_rules.c and pair_rules.c hold `<=` and `>=` over a NaN to
+                            C++20's words (0.304)
 
 proof/forty2.ll, run.sh     M0: hand-written IR through clang to a binary that prints a line and exits 42
 proof/forty2                made by proof/run.sh, never committed

@@ -5,8 +5,10 @@
    with nullopt on either side, each of the six operators. The numbers are from 0 to 5, so that two optionals are equal
    often. The steps: a number assigned, nullopt assigned, emplace and a write through the place it gives back, reset,
    swap, a copy of another, an optional born in a block and assigned, and a copy changed by emplace, which leaves its
-   source as it was. cicilang builds this file as C and cicilang++ as C++; both print optional_rules.expect. It has no
-   twin */
+   source as it was. AND OVER A NaN (0.304): each optional of none, 0, 1 and a NaN against each, and against each number
+   of 0, 1 and a NaN on either side, held to the same words, by which `<=' and `>=' are the values' own -- false over a
+   NaN, where the negations of `>' and `<' that they were until 0.304 were true. cicilang builds this file as C and
+   cicilang++ as C++; both print optional_rules.expect. It has no twin */
 #include <stdio.h>
 #include <stdlib.h>
 #include <optional.pl>
@@ -59,7 +61,48 @@ static void held(const optional<int> *o, const int *mh, const int *mv) {
         is(nullopt >= o[i], !mh[i], "[optional.nullops] nullopt >= x");
     }
 }
+/* each relation over an optional double, by the words that held() holds an optional int to */
+static void doubles(void) {
+    volatile double zero = 0.0;
+    double n[3];
+    n[0] = 0.0;
+    n[1] = 1.0;
+    n[2] = zero / zero;
+    optional<double> o[4];
+    for (int i = 0; i < 3; i++) o[i + 1] = n[i];
+    for (int i = 0; i < 4; i++) {
+        int x = i > 0;
+        double a = x ? n[i - 1] : 0.0;
+        is(has_value(o[i]), x, "has_value of an optional double");
+        for (int j = 0; j < 4; j++) {
+            int y = j > 0;
+            double b = y ? n[j - 1] : 0.0;
+            is(o[i] == o[j], x != y ? 0 : !x ? 1 : a == b, "[optional.relops] == with a NaN");
+            is(o[i] != o[j], x != y ? 1 : !x ? 0 : a != b, "[optional.relops] != with a NaN");
+            is(o[i] < o[j], !y ? 0 : !x ? 1 : a < b, "[optional.relops] < with a NaN");
+            is(o[i] > o[j], !x ? 0 : !y ? 1 : a > b, "[optional.relops] > with a NaN");
+            is(o[i] <= o[j], !x ? 1 : !y ? 0 : a <= b, "[optional.relops] <= with a NaN");
+            is(o[i] >= o[j], !y ? 1 : !x ? 0 : a >= b, "[optional.relops] >= with a NaN");
+        }
+        for (int k = 0; k < 3; k++) {
+            double v = n[k];
+            is(o[i] == v, x ? a == v : 0, "[optional.comp.with.t] x == v with a NaN");
+            is(o[i] != v, x ? a != v : 1, "[optional.comp.with.t] x != v with a NaN");
+            is(o[i] < v, x ? a < v : 1, "[optional.comp.with.t] x < v with a NaN");
+            is(o[i] > v, x ? a > v : 0, "[optional.comp.with.t] x > v with a NaN");
+            is(o[i] <= v, x ? a <= v : 1, "[optional.comp.with.t] x <= v with a NaN");
+            is(o[i] >= v, x ? a >= v : 0, "[optional.comp.with.t] x >= v with a NaN");
+            is(v == o[i], x ? v == a : 0, "[optional.comp.with.t] v == x with a NaN");
+            is(v != o[i], x ? v != a : 1, "[optional.comp.with.t] v != x with a NaN");
+            is(v < o[i], x ? v < a : 0, "[optional.comp.with.t] v < x with a NaN");
+            is(v > o[i], x ? v > a : 1, "[optional.comp.with.t] v > x with a NaN");
+            is(v <= o[i], x ? v <= a : 0, "[optional.comp.with.t] v <= x with a NaN");
+            is(v >= o[i], x ? v >= a : 1, "[optional.comp.with.t] v >= x with a NaN");
+        }
+    }
+}
 int main(void) {
+    doubles();
     optional<int> o[K];
     int mh[K], mv[K];
     for (int i = 0; i < K; i++) { mh[i] = 0; mv[i] = 0; }
@@ -91,6 +134,6 @@ int main(void) {
         }
         held(o, mh, mv);
     }
-    printf("the rules held at %ld checks, over %d optional numbers and 4000 steps\n", checks, K);
+    printf("the rules held at %ld checks, over %d optional numbers and 4000 steps, and over a NaN\n", checks, K);
     return 0;
 }

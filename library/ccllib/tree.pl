@@ -598,14 +598,34 @@ ccllib_tree_text(eq, _, [
     "    }",
     "    return 1;",
     "}"]).
+%% THE RELATIONS ARE C++20'S (0.304; [container.reqmts]/43): the synthesized three-way order of the elements in their
+%% order -- a set's keys, a map's keys and then values, the value_type's own order and not the tree's --, where a pair
+%% that is neither `<' nor `==' either way, a NaN value, is unordered and ends the comparison, every relation false;
+%% `<=' and `>=' are _le and _ge, which the reader asks first
 ccllib_tree_text(lt, _, [
     "int @{N}_lt(const @N *a, const @N *b) {",
     "    size_t p = @{N}__first(a), q = @{N}__first(b);",
     "    for (; p && q; p = @{N}__nx(a, p), q = @{N}__nx(b, q)) {",
     "        if (a->data[(p >> 4) - 1].key[p & 15] < b->data[(q >> 4) - 1].key[q & 15]) return 1;",
     "        if (b->data[(q >> 4) - 1].key[q & 15] < a->data[(p >> 4) - 1].key[p & 15]) return 0;",
+    "        if (!(a->data[(p >> 4) - 1].key[p & 15] == b->data[(q >> 4) - 1].key[q & 15])) return 0;",
     map-"        if (a->data[(p >> 4) - 1].val[p & 15] < b->data[(q >> 4) - 1].val[q & 15]) return 1;",
     map-"        if (b->data[(q >> 4) - 1].val[q & 15] < a->data[(p >> 4) - 1].val[p & 15]) return 0;",
+    map-"        if (!(a->data[(p >> 4) - 1].val[p & 15] == b->data[(q >> 4) - 1].val[q & 15])) return 0;",
     "    }",
     "    return p == 0 && q != 0;",
     "}"]).
+ccllib_tree_text(le, _, [
+    "int @{N}_le(const @N *a, const @N *b) {",
+    "    size_t p = @{N}__first(a), q = @{N}__first(b);",
+    "    for (; p && q; p = @{N}__nx(a, p), q = @{N}__nx(b, q)) {",
+    "        if (a->data[(p >> 4) - 1].key[p & 15] < b->data[(q >> 4) - 1].key[q & 15]) return 1;",
+    "        if (b->data[(q >> 4) - 1].key[q & 15] < a->data[(p >> 4) - 1].key[p & 15]) return 0;",
+    "        if (!(a->data[(p >> 4) - 1].key[p & 15] == b->data[(q >> 4) - 1].key[q & 15])) return 0;",
+    map-"        if (a->data[(p >> 4) - 1].val[p & 15] < b->data[(q >> 4) - 1].val[q & 15]) return 1;",
+    map-"        if (b->data[(q >> 4) - 1].val[q & 15] < a->data[(p >> 4) - 1].val[p & 15]) return 0;",
+    map-"        if (!(a->data[(p >> 4) - 1].val[p & 15] == b->data[(q >> 4) - 1].val[q & 15])) return 0;",
+    "    }",
+    "    return p == 0;",
+    "}"]).
+ccllib_tree_text(ge, _, ["int @{N}_ge(const @N *a, const @N *b) { return @{N}_le(b, a); }"]).

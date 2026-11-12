@@ -45,10 +45,23 @@ ccllib_array_fn(eq, "int @{N}_eq(const @N *a, const @N *b) {
     for (size_t i = 0; i < @k; i++) if (!(a->a[i] == b->a[i])) return 0;
     return 1;
 }").
+%% THE RELATIONS ARE C++20'S (0.304): the synthesized three-way order of the elements, where a pair that is neither
+%% `<' nor `==' either way -- a NaN -- is unordered and ends the comparison, every relation false; `<=' and `>=' are
+%% _le and _ge, which the reader asks first
 ccllib_array_fn(lt, "int @{N}_lt(const @N *a, const @N *b) {
     for (size_t i = 0; i < @k; i++) {
         if (a->a[i] < b->a[i]) return 1;
         if (b->a[i] < a->a[i]) return 0;
+        if (!(a->a[i] == b->a[i])) return 0;
     }
     return 0;
 }").
+ccllib_array_fn(le, "int @{N}_le(const @N *a, const @N *b) {
+    for (size_t i = 0; i < @k; i++) {
+        if (a->a[i] < b->a[i]) return 1;
+        if (b->a[i] < a->a[i]) return 0;
+        if (!(a->a[i] == b->a[i])) return 0;
+    }
+    return 1;
+}").
+ccllib_array_fn(ge, "int @{N}_ge(const @N *a, const @N *b) { return @{N}_le(b, a); }").

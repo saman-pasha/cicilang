@@ -2825,21 +2825,22 @@ that changes a rule edits the rule here, in its topic, and writes its entry in `
   typedef: `x := at(v, 1);` was `not lowered yet: typedef(ccl_hole_1_T)` since 0.261. Where the unit read a C text, its
   items -- an included file's are its own read's -- are walked at the end, and each such name is its type, the
   qualifiers before it joining it (`ccl_unhole_items/3`). Reader `k130`. (0.264)
-- **OPERATORS ON INSTANCES** (0.266; `CCLLIB.md`'s phase 0.9): in C, where the left operand of `+ - * / == != < > <=
-  >= << >>`, or the object of `[]`, is an object of an instance's type -- the instance's struct, through any typedef
+- **OPERATORS ON INSTANCES** (0.266; `CCLLIB.md`'s phase 0.9): in C, where the left operand of `+ - * / == != < > <= >=
+  << >>`, or the object of `[]`, is an object of an instance's type -- the instance's struct, through any typedef
   (`ccl_iop_inst/2`) -- the reader writes the operator as the call of the function that the instance's items define for
   it, named as its drop and its `<name>_from` are (`ccl_iop_binary/4`, `ccl_iop_index/3`, the table `ccl_iop_word/3`):
   `v[i]` is `*<name>_index(&v, i)`, an lvalue; `a == b` is `<name>_eq(a, b)` and `a != b` its `!`; `a < b` is
-  `<name>_lt(a, b)`, `a > b` `lt(b, a)`, `a <= b` `!lt(b, a)` and `a >= b` `!lt(a, b)`; `+ - * /` are `_add`, `_sub`,
-  `_mul`, `_div`; `out << x` is `<name>_shl_<word>(out, x)` and `in >> x` `<name>_shr_<word>(in, &x)`, the word of x's
-  type decayed and unqualified (`ccl_type_word/2`: `int`, `double`, `ptr_char`), and on the left of `<<` and `>>` a
-  pointer to the instance is taken too, so that `out << a << b` chains on the pointer that `<<` answers. An operand goes
-  by its address where the function's parameter is a pointer to the instance, by its value where it is not
-  (`ccl_iop_arg/5`): the macro decides, and `a + b + c` chains by value. A pointer to an instance keeps C's pointer
-  arithmetic and comparisons, and an array member's `[]` is C's. A `[]` that answers a place in a buffer that the
-  object owns is written `tie` its object (the safe part's topic of borrows). Reader `k134` to `k139`;
-  `test/c/run/operators.c` over `topers.pl` -- a point, a ring, a dictionary, a text -- which prints what clang's build
-  of its hand expansion prints, its allocations all freed. (0.266)
+  `<name>_lt(a, b)`, `a > b` `lt(b, a)`, `a <= b` `!lt(b, a)` and `a >= b` `!lt(a, b)` where the macro defines no `_le`
+  and `_ge`, whose calls go first since 0.304 (the bullet of `<=` and `>=` below); `+ - * /` are `_add`, `_sub`, `_mul`,
+  `_div`; `out << x` is `<name>_shl_<word>(out, x)` and `in >> x` `<name>_shr_<word>(in, &x)`, the word of x's type
+  decayed and unqualified (`ccl_type_word/2`: `int`, `double`, `ptr_char`), and on the left of `<<` and `>>` a pointer
+  to the instance is taken too, so that `out << a << b` chains on the pointer that `<<` answers. An operand goes by its
+  address where the function's parameter is a pointer to the instance, by its value where it is not (`ccl_iop_arg/5`):
+  the macro decides, and `a + b + c` chains by value. A pointer to an instance keeps C's pointer arithmetic and
+  comparisons, and an array member's `[]` is C's. A `[]` that answers a place in a buffer that the object owns is
+  written `tie` its object (the safe part's topic of borrows). Reader `k134` to `k139`; `test/c/run/operators.c` over
+  `topers.pl` -- a point, a ring, a dictionary, a text -- which prints what clang's build of its hand expansion prints,
+  its allocations all freed. (0.266, 0.304)
 - **OPERATORS ON INSTANCES IN C++** (0.270; `CCLLIB.md`'s phase 0.10): cicilang++ writes an instance's operator as
   cicilang does where the type macro defines the operator's function (`ccl_iop_declared/2`, the name by
   `ccl_iop_pick/7`; 0.284); where it defines none, the operator is C++'s own, which the desugaring looks up -- the
@@ -2869,49 +2870,63 @@ that changes a rule edits the rule here, in its topic, and writes its entry in `
   OPERAND'S TYPE GOES FIRST, and the plain one after it (`ccl_iop_pick/7`, `ccl_iop_typed/4`): `x + 3` is
   `<name>_add_int(x, 3)` where the type macro defines it, else `<name>_add`; `x == 1` is `<name>_eq_int` and `x != 1`
   its `!`. `<<` and `>>` had the typed name as their one form; it is every operator's now whose function takes the right
-  operand second -- all but `>` and `<=`, whose `_lt` takes it first, and which ask a typed `_gt_` before it since 0.291
-  --, and `<<` and `>>` have the plain form after it, so `b << 3` is `<name>_shl(b, 3)`, a shift by a number. C has no
-  overloads, and a call by name told two forms by the count of their arguments alone until 0.288; an operator has two
-  operands always, so the type of the second tells its forms. The typed name asks each word that the operand's type asks
-  (0.288, `ccl_arg_type_words/2`: the instance's name through a typedef, the type's own word, the pointer to const's
-  after a pointer to an object that is not const). THE RIGHT OPERAND OF `>>` goes by its address where the function's
-  parameter is a pointer -- a stream reads into it, an lvalue --, and by its value where it is not (`ccl_iop_right/5`).
-  `-a` AND `~a` are `<name>_neg(a)` and `<name>_compl(a)` (`ccl_iop_unary/4`). A COMPOUND ASSIGNMENT IS THE CALL OF ITS
-  OWN FUNCTION: `a += b` is `<name>_add_assign(&a, b)`, and `-= *= /= %= &= |= ^= <<= >>=` go by the words `sub`, `mul`,
-  `div`, `mod`, `and`, `or`, `xor`, `shl` and `shr`, the typed name first (`ccl_iop_assign/4`: `x += 10` is
-  `<name>_add_assign_int`). It changes the object in its place; `a = a + b` in its stead would make a second object and
-  assign it over a live one. `v[i]` IS A VALUE where the type macro defines `<name>_item` and no `_index`
-  (`ccl_iop_index_/4`): an element that has no address, as one bit of a set of bits; `v[i] = x` is then
-  `<name>_set_item(&v, i, x)`. Each function is made at its first use, an operator's as a call's (`ccl_iop_declared/2`
-  over `ccl_inst_ensure/1`). In C++ each form is the type macro's where the macro defines its function, and C++'s own
-  operator where it does not. Each of the three hooks -- `ccl_iop_binary/4`, `ccl_iop_unary/4` after a unary operator's
-  operand, `ccl_iop_assign/4` after an assignment's right side -- begins with the instance of its operand
-  (`ccl_iop_inst/2`), which fails at once in a unit that has no instance. REFUSED BY NAME at the operator's line: in C a
-  compound assignment, a unary operator and `% & | ^` that the type macro does not define (`the operator += of pt_double
-  is not defined: its type macro defines no pt_double_add_assign`); in C and in C++ a compound assignment of an element
-  that `[]` gives as a value (`the operator |= of an element of bits_12 is not defined: v[i] is a value there, and v[i]
-  = x writes one`), and an assignment of one where the macro defines no `_set_item`. Reader `k148` to `k153`, the
-  refusals over `test/c/op_assign.c`, `op_unary.c`, `op_bit.c`, `op_item.c` and `op_item_set.c`;
-  `test/c/run/operators2.c` over `topers2.pl` -- a set of bits in a word; a number in a struct, its functions made at
-  their first use; a word whose bits `[]` reads -- prints what clang's build of its hand expansion prints, as C and, by
-  the C++ gate, as C++. Reader 183. (0.284, 0.288)
+  operand second -- all but `>` and `<=`, whose `_lt` takes it first, and which ask a typed `_gt_` before it since
+  0.291, and `<=` a typed `_le_` before that since 0.304 --, and `<<` and `>>` have the plain form after it, so `b << 3`
+  is `<name>_shl(b, 3)`, a shift by a number. C has no overloads, and a call by name told two forms by the count of
+  their arguments alone until 0.288; an operator has two operands always, so the type of the second tells its forms. The
+  typed name asks each word that the operand's type asks (0.288, `ccl_arg_type_words/2`: the instance's name through a
+  typedef, the type's own word, the pointer to const's after a pointer to an object that is not const). THE RIGHT
+  OPERAND OF `>>` goes by its address where the function's parameter is a pointer -- a stream reads into it, an lvalue
+  --, and by its value where it is not (`ccl_iop_right/5`). `-a` AND `~a` are `<name>_neg(a)` and `<name>_compl(a)`
+  (`ccl_iop_unary/4`). A COMPOUND ASSIGNMENT IS THE CALL OF ITS OWN FUNCTION: `a += b` is `<name>_add_assign(&a, b)`,
+  and `-= *= /= %= &= |= ^= <<= >>=` go by the words `sub`, `mul`, `div`, `mod`, `and`, `or`, `xor`, `shl` and `shr`,
+  the typed name first (`ccl_iop_assign/4`: `x += 10` is `<name>_add_assign_int`). It changes the object in its place;
+  `a = a + b` in its stead would make a second object and assign it over a live one. `v[i]` IS A VALUE where the type
+  macro defines `<name>_item` and no `_index` (`ccl_iop_index_/4`): an element that has no address, as one bit of a set
+  of bits; `v[i] = x` is then `<name>_set_item(&v, i, x)`. Each function is made at its first use, an operator's as a
+  call's (`ccl_iop_declared/2` over `ccl_inst_ensure/1`). In C++ each form is the type macro's where the macro defines
+  its function, and C++'s own operator where it does not. Each of the three hooks -- `ccl_iop_binary/4`,
+  `ccl_iop_unary/4` after a unary operator's operand, `ccl_iop_assign/4` after an assignment's right side -- begins with
+  the instance of its operand (`ccl_iop_inst/2`), which fails at once in a unit that has no instance. REFUSED BY NAME at
+  the operator's line: in C a compound assignment, a unary operator and `% & | ^` that the type macro does not define
+  (`the operator += of pt_double is not defined: its type macro defines no pt_double_add_assign`); in C and in C++ a
+  compound assignment of an element that `[]` gives as a value (`the operator |= of an element of bits_12 is not
+  defined: v[i] is a value there, and v[i] = x writes one`), and an assignment of one where the macro defines no
+  `_set_item`. Reader `k148` to `k153`, the refusals over `test/c/op_assign.c`, `op_unary.c`, `op_bit.c`, `op_item.c`
+  and `op_item_set.c`; `test/c/run/operators2.c` over `topers2.pl` -- a set of bits in a word; a number in a struct, its
+  functions made at their first use; a word whose bits `[]` reads -- prints what clang's build of its hand expansion
+  prints, as C and, by the C++ gate, as C++. Reader 183. (0.284, 0.288, 0.304)
 - **AN OPERATOR WHOSE RIGHT OPERAND IS AN INSTANCE AND WHOSE LEFT ONE IS NOT** (0.291; what a string needs: `"abc" ==
   s`, `"<" + s`, `'(' + s`). A RELATION IS THE INSTANCE'S OWN, ITS OPERANDS EXCHANGED (the second clause of
   `ccl_iop_binary/4`, the table `ccl_iop_mirror/4`): `x == a` is `<name>_eq_<word>(a, x)` and `x != a` its `!`, `x < a`
   is `<name>_gt_<word>(a, x)`, `x > a` `<name>_lt_<word>(a, x)`, `x <= a` `!<name>_lt_<word>(a, x)` and `x >= a`
-  `!<name>_gt_<word>(a, x)`, the word of x's type. EVERY OTHER OPERATOR IS `<name>_r<op>_<word>(x, a)`, the left operand
-  first, as C++'s non-member `operator+(const char *, const string &)` takes them: `"<" + s` is
+  `!<name>_gt_<word>(a, x)`, the word of x's type -- after `<name>_ge_<word>(a, x)` and `<name>_le_<word>(a, x)` where
+  the macro defines them (0.304). EVERY OTHER OPERATOR IS `<name>_r<op>_<word>(x, a)`, the left operand first, as C++'s
+  non-member `operator+(const char *, const string &)` takes them: `"<" + s` is
   `basic_string_char_radd_ptr_const_char("<", &s)`. The word asks each word that x's type asks (`ccl_arg_type_words/2`),
   so C's literal and C++'s are both `_ptr_const_char`, and a character constant is `_int` in C and `_char` in C++. A
   RELATION OF AN INSTANCE ON THE LEFT AND A VALUE OF ANOTHER TYPE ON THE RIGHT asks the same three functions: `a > x`
-  and `a <= x` ask `<name>_gt_<word>(a, x)` and its `!` first, and `_lt(x, a)` with x of the instance's type after it
-  (`ccl_iop_pick/7`, `ccl_iop_typed_form/4`), so a type macro gives a text's six relations with the object on either
-  side in three functions, the `_eq_`, `_lt_` and `_gt_` of the text's word. Where the macro defines no such function, C
-  refuses the operator by name, `the operator == of tag_char takes the object on its left: its type macro defines no
-  tag_char_eq_int`; in C++ the operator is C++'s own then. Reader `k163` over `test/c/op_mirror_none.c`;
-  `test/c/run/mirror.c` over `tmirror.pl` -- a tag of a text, its relations with a text on either side, its `+` of a
-  text, a character and a number on the left -- prints what clang's build of its hand expansion prints, as C and, by the
-  C++ gate, as C++. Reader 188. (0.291)
+  asks `<name>_gt_<word>(a, x)` first, and `a <= x` its `!` -- after `<name>_le_<word>(a, x)` since 0.304 --, and
+  `_lt(x, a)` with x of the instance's type after it (`ccl_iop_pick/7`, `ccl_iop_typed_form/4`), so a type macro gives a
+  text's six relations with the object on either side in three functions, the `_eq_`, `_lt_` and `_gt_` of the text's
+  word. Where the macro defines no such function, C refuses the operator by name, `the operator == of tag_char takes the
+  object on its left: its type macro defines no tag_char_eq_int`; in C++ the operator is C++'s own then. Reader `k163`
+  over `test/c/op_mirror_none.c`; `test/c/run/mirror.c` over `tmirror.pl` -- a tag of a text, its relations with a text
+  on either side, its `+` of a text, a character and a number on the left -- prints what clang's build of its hand
+  expansion prints, as C and, by the C++ gate, as C++. Reader 188. (0.291, 0.304)
+- **`<=` AND `>=` ASK THE TYPE MACRO'S OWN FUNCTION FIRST** (0.304; C++20's [expr.spaceship] and [container.reqmts]/43,
+  by which `<=` and `>=` of an unordered pair are false, as `<` and `>` are): `a <= b` is `<name>_le(a, b)` and `a >= b`
+  `<name>_ge(a, b)` where the macro defines them, the one named with the word of the right operand's type first
+  (`<name>_le_<word>`), the operands in their order (`ccl_iop_own/2`, asked before the table `ccl_iop_word/3` in the
+  first clause of `ccl_iop_binary/4`). WITH THE INSTANCE ON THE RIGHT ALONE, THE OTHER ONE'S, the operands exchanged
+  (`ccl_iop_mirror_own/2` in the second clause): `x <= o` is `<name>_ge_<word>(o, x)` and `x >= o` `<name>_le_<word>(o,
+  x)`. Where the macro defines neither, the negations of `>` and `<` stand, as for a string, whose characters are a
+  total order, and for a program's own macro (Not done). The negations were the one form until 0.304, true over a NaN
+  where C++20's `<=` and `>=` are false; every ccllib module that has `<` defines both now (the topic of ccllib's
+  modules). In C++ the same: the macro's function where it defines one, C++'s own operator where it does not. Reader
+  `k166` over `test/c/relops.c`, a vector's and an optional's `<=` and `>=` with an instance, a number and nullopt on
+  either side, and no negation left; `k135`'s `<=` over `topers.pl`, which defines no `_le`, is the negation still.
+  Reader 195. (0.304)
 - **AT C++23 AN INSTANCE'S `v[i]` IS THE TYPE MACRO'S TOO** (0.284): C++23 reads a subscript's arguments as a list
   (`a[i, j]`), and that clause of the reader (`ccl_postfix_p//3`) gave `index(A, I)` for one argument with no look at
   the instance, where the clause of the levels before it asks `ccl_iop_index/3`. So `bin/cicilang++ -std=c++23` refused
@@ -9980,17 +9995,38 @@ in the first topic (The ccllib gate).
   `erase(v, i, j)`) or C++23's own name does (`insert_range`, `append_range`, `assign_range`), and a place is an index
   where C++ takes an iterator. `push`, `pop` and `len`, the short names of the plan's examples, stand beside them.
   (0.274)
+- THE RELATIONS OF EVERY MODULE THAT HAS `<` ARE C++20'S (0.304; [container.reqmts]/43, [expr.spaceship],
+  [pairs.spec]/1, [optional.relops]): a vector's, an array's, a deque's, a list's, a forward list's, a stack's, a
+  queue's, a set's and a map's `<`, `>`, `<=` and `>=` go by the synthesized three-way order of their elements -- the
+  first pair that is not equal decides, by its `<` -- and A PAIR THAT IS `<` NEITHER WAY AND NOT `==`, A NaN, IS
+  UNORDERED AND ENDS THE COMPARISON, ALL FOUR FALSE; past the end of the shorter, the counts decide. Each of these
+  modules defines `_le` and `_ge` beside `_eq` and `_lt`: `_le` is the loop of `_lt` and an end by the counts, `_ge` is
+  `_le` with its operands exchanged, and a map compares an entry's key and then its value so, as C++ compares the
+  entry's pair. A pair's `_le` is the first members' `<`, else their `==` and the second members' `<` or `==`; an
+  optional's `_le` and `_ge`, and those with a value and with nullopt, are its values' own `<=` and `>=` by
+  [optional.relops], [optional.comp.with.t] and [optional.nullops]. The reader asks `_le` and `_ge` first (the C
+  reader's topic). UNTIL 0.304 `_lt` went on past an unordered pair, as C++17's `lexicographical_compare` does, and `<=`
+  and `>=` were the negations of `>` and `<`: `[n, 1] < [n, 2]` was true, and `<=` over a NaN was true, where the twin's
+  C++20 says false -- the sequences' and the map's lines were C++17's, the pair's and the optional's no standard's. A
+  string and a view define no `_le`, since their characters are a total order, and a span, a bitset and the unordered
+  containers have no `<`. `test/ccllib/relations.c` over each module -- ordered pairs, unordered ones, a NaN before a
+  pair that decides, instances in instances -- and its twin `relations.cpp` print the same 50 lines, where 23 differed
+  over 0.303. NINETEEN COPIES OF THE MODULES AND OF THE READER BROKEN ON PURPOSE -- the end of `_lt` at an unordered
+  pair, and `_le` and `_ge`, of each of the seven sequences and of the tree; `_le` and `_ge` of the pair and of the
+  optional; the reader's own functions -- are each caught by it, and the pair's, the optional's and the reader's by
+  `pair_rules.c` and `optional_rules.c` too. (0.304)
 
 ### vector.pl
 
 - `vector<T>` is `vector_T`, a struct of a length, a capacity and an own buffer; `vector<int> v;` is an empty one,
-  dropped where its scope ends; `[int; 5, 3, 9]` makes one (`_from`). The whole surface of `std::vector`, 38 functions
+  dropped where its scope ends; `[int; 5, 3, 9]` makes one (`_from`). The whole surface of `std::vector`, 40 functions
   and the drop: `size`, `len`, `empty`, `capacity`, `max_size`, `reserve`, `shrink_to_fit`; `at`, `v[i]` (`_index`),
   `front`, `back`, `data`, `begin`, `end`; `push_back`, `push`, `emplace_back`, `pop_back`, `pop`, `clear`, `insert`
   (two forms), `emplace`, `insert_range`, `append_range`, `erase` (two forms), `erase_value` (C++20's `std::erase`),
-  `resize` (two forms), `assign`, `assign_range`, `swap`; `clone`; `==` and `<` and what follows from them (`_eq`,
-  `_lt`); and `__grow`, an inner helper that no call by name reaches: it makes room for n more elements, twice the
-  capacity at least, and stops the program where the count wraps. (0.274)
+  `resize` (two forms), `assign`, `assign_range`, `swap`; `clone`; `==`, `<`, `<=` and `>=` and what follows from them
+  (`_eq`, `_lt`, `_le`, `_ge`; the last two since 0.304); and `__grow`, an inner helper that no call by name reaches: it
+  makes room for n more elements, twice the capacity at least, and stops the program where the count wraps. (0.274,
+  0.304)
 - WHAT DIFFERS FROM C++: `w = v` and `f(v)` move, as every object of an instance's type does, and `clone(v)` copies.
   `at(v, i)`, `v[i]`, `front`, `back` and `pop_back` stop the program (`abort`) at an index past the end or on an empty
   vector, where C++'s `at` throws and the others are undefined; a failed allocation stops it too. `pop_back` gives the
@@ -10018,9 +10054,9 @@ in the first topic (The ccllib gate).
 - `array<T, N>` is `array_T_N`, a struct of one C array of N elements: no heap and NO DROP, so its object is a plain
   value -- `b := a` and `f(a)` copy it, as `std::array`'s do, where an object of every other instance's type moves, and
   autodrop has nothing to do. `array<int, 4> a = [5, 3, 9];` fills the first three elements and the rest is zero
-  (`_from`). The surface of `std::array`, 16 functions: `size`, `len`, `max_size`, `empty`; `at`, `a[i]` (`_index`),
-  `front`, `back`, `data`, `begin`, `end`; `fill`, `swap`; `==` and `<` and what follows from them (`_eq`, `_lt`).
-  (0.275)
+  (`_from`). The surface of `std::array`, 18 functions: `size`, `len`, `max_size`, `empty`; `at`, `a[i]` (`_index`),
+  `front`, `back`, `data`, `begin`, `end`; `fill`, `swap`; `==`, `<`, `<=` and `>=` and what follows from them (`_eq`,
+  `_lt`, `_le`, `_ge`). (0.275, 0.304)
 - WHAT DIFFERS FROM C++: `at(a, i)` and `a[i]` stop the program (`abort`) at an index past the end, and a literal of
   more elements than N does, which C++ refuses where it is written; an element is a value with no pointer in it, as a
   vector's is; N is one at least, `an array has one element at least`, since C has no array of none. `begin(a)`,
@@ -10039,11 +10075,12 @@ in the first topic (The ccllib gate).
   capacity is a power of two and the element at the place i is `data[(head + i) & (cap - 1)]`, so each end takes and
   gives an element in constant time, no element moves for it, and `d[i]` is one mask away. The ring grows in its place
   by twice (`realloc`), and the part of it that went round the old end is put after it (`__grow`). The surface of
-  `std::deque`, 36 functions and the drop: `size`, `len`, `empty`, `max_size`, `shrink_to_fit`; `at`, `d[i]` (`_index`),
+  `std::deque`, 38 functions and the drop: `size`, `len`, `empty`, `max_size`, `shrink_to_fit`; `at`, `d[i]` (`_index`),
   `front`, `back`; `push_back`, `push`, `emplace_back`, `push_front`, `emplace_front`, `pop_back`, `pop`, `pop_front`,
   `clear`; `insert` (two forms), `emplace`, `insert_range`, `append_range`, `prepend_range`, `erase` (two forms),
-  `erase_value`, `resize` (two forms), `assign`, `assign_range`, `swap`; `clone`; `==` and `<` and what follows from
-  them. `insert` and `erase` at a place move the elements of the nearer end (`__open`), as C++'s do. (0.276)
+  `erase_value`, `resize` (two forms), `assign`, `assign_range`, `swap`; `clone`; `==`, `<`, `<=` and `>=` and what
+  follows from them. `insert` and `erase` at a place move the elements of the nearer end (`__open`), as C++'s do.
+  (0.276, 0.304)
 - WHAT DIFFERS FROM C++, beside what differs for the vector (the move, `clone`, the stop past the end, `pop_back` and
   `pop_front` that give the element): THERE IS NO `begin`, `end` OR `data` -- a ring is not one run of memory, a loop
   goes by the index, and `begin(d)` is refused by name, `deque_int has no function begin`
@@ -10069,14 +10106,14 @@ in the first topic (The ccllib gate).
   element's while the element is in the list -- over every insert, every erase of another element, a `sort`, a `reverse`
   and the arena's growth --, as a C++ iterator of a list does; the number of an erased node is given to a later one.
   (0.277)
-- The surface of `std::list`, 51 functions and the drop: `size`, `len`, `empty`, `max_size`; `begin`, `end`, `next`,
+- The surface of `std::list`, 53 functions and the drop: `size`, `len`, `empty`, `max_size`; `begin`, `end`, `next`,
   `prev`, `at`, `l[p]` (`_index`), `front`, `back`; `insert` (two forms; it gives the new element's place), `emplace`,
   `insert_range`, `append_range`, `prepend_range`, `push_back`, `push`, `emplace_back`, `push_front`, `emplace_front`,
   `erase` (two forms; it gives the place after), `pop_back`, `pop`, `pop_front`, `clear`, `resize` (two forms),
   `assign`, `assign_range`, `swap`; `remove`, `erase_value`, `remove_if`, `unique` (two forms), `reverse`, `sort` (two
-  forms), `merge` (two forms), `splice` (three forms); `clone`; `==` and `<` and what follows from them. `sort` is a
-  merge sort by the nodes' links, its text `ccllib_msort_text/5` in `ccllib.pl`: no element moves, each keeps its place,
-  and equal elements keep their order. (0.277)
+  forms), `merge` (two forms), `splice` (three forms); `clone`; `==`, `<`, `<=` and `>=` and what follows from them.
+  `sort` is a merge sort by the nodes' links, its text `ccllib_msort_text/5` in `ccllib.pl`: no element moves, each
+  keeps its place, and equal elements keep their order. (0.277, 0.304)
 - WHAT DIFFERS FROM C++, beside what differs for the vector: a place that is no element's stops the program (`__live`,
   in `at`, `l[p]`, `next`, `prev`, `insert` and `erase`), where C++ is undefined. `&l[p]` is a borrow of the arena, tied
   to the list, which each function that takes the list not as const ends, and the place p is a number and stays
@@ -10097,13 +10134,13 @@ in the first topic (The ccllib gate).
 - `forward_list<T>` is `forward_list_T`: the list's arena with ONE LINK A NODE -- the number of the next node, and the
   element. A place is a node's number: `begin(l)`, `end(l)`, which is 0, `before_begin(l)`, which is the greatest
   `size_t`, and `next(l, p)`; `at(l, p)` and `l[p]` give the element, and a place stays its element's as the list's
-  does. The operations work AFTER a place, as C++'s do. 44 functions and the drop: `size`, `len`, `empty`, `max_size`;
+  does. The operations work AFTER a place, as C++'s do. 46 functions and the drop: `size`, `len`, `empty`, `max_size`;
   `before_begin`, `begin`, `end`, `next`, `at`, `l[p]` (`_index`), `front`; `insert_after` (two forms; it gives the new
   element's place, the last one's of several), `emplace_after`, `insert_range_after`, `prepend_range`, `push_front`,
   `emplace_front`, `erase_after` (two forms; it gives the place after the erased ones), `pop_front`, `clear`, `resize`
   (two forms), `assign`, `assign_range`, `swap`; `remove`, `erase_value`, `remove_if`, `unique` (two forms), `reverse`,
   `sort` (two forms: the list's merge sort by the links, one text for both modules), `merge` (two forms), `splice_after`
-  (three forms); `clone`; `==` and `<` and what follows from them. (0.278)
+  (three forms); `clone`; `==`, `<`, `<=` and `>=` and what follows from them. (0.278, 0.304)
 - WHAT DIFFERS FROM C++, beside what differs for the list: `size(l)` and `len(l)` are there, which `std::forward_list`
   has not -- the arena counts its elements. An erased node's link is the complement of the next erased node's number,
   past every node's number, so a place that is no element's is known with no word more in a node, and it stops the
@@ -10121,12 +10158,12 @@ in the first topic (The ccllib gate).
 
 - THE ADAPTORS ARE THEIR OWN BUFFERS, and no adaptor over another container (`stack<int, vector<int>>` is not read).
   `stack<T>` is a buffer that grows by twice, its top at the buffer's end: `size`, `len`, `empty`, `top`, `push`,
-  `emplace`, `push_range`, `pop`, `swap`, `clone`, `==` and `<` and what follows from them, 13 functions and the drop.
-  `queue<T>` is a ring as the deque's, in at the back and out at the front: the same names, with `front` and `back` for
-  `top`, 14 functions. `priority_queue<T>` is a binary heap in a buffer that grows by twice, the element that comes out
-  first at its head, `push` sifting an element up and `pop` one down: `size`, `len`, `empty`, `top`, `push`, `emplace`,
-  `push_range`, `pop`, `swap`, `clone`, 11 functions, and no comparison of two heaps, as C++ has none. A literal makes
-  each, and a stack's last element is its top. (0.280)
+  `emplace`, `push_range`, `pop`, `swap`, `clone`, `==`, `<`, `<=` and `>=` and what follows from them, 15 functions and
+  the drop. `queue<T>` is a ring as the deque's, in at the back and out at the front: the same names, with `front` and
+  `back` for `top`, 16 functions. `priority_queue<T>` is a binary heap in a buffer that grows by twice, the element that
+  comes out first at its head, `push` sifting an element up and `pop` one down: `size`, `len`, `empty`, `top`, `push`,
+  `emplace`, `push_range`, `pop`, `swap`, `clone`, 11 functions, and no comparison of two heaps, as C++ has none. A
+  literal makes each, and a stack's last element is its top. (0.280, 0.304)
 - **A COMPARISON IS A FUNCTION'S NAME, AN ARGUMENT OF THE TYPE**: `priority_queue<int, later>` names `int later(int a,
   int b)`, which answers whether a comes out after b, as C++'s comparison type does (`std::greater` gives the least
   first). An argument of a type macro that is no type is read as an expression (`ccl_targ//2`), so the macro gets
@@ -10157,8 +10194,8 @@ in the first topic (The ccllib gate).
   V)`: `set` or `map`, `unique` or `multi`, `none` or the name of the function that orders two keys, the instance's
   name, the key's type and the value's (`ccllib_set_opts/4`, `ccllib_map_opts/4`). A text is a list of lines
   (`ccllib_tree_text/3`), and a line with a condition -- `multi-"..."`, `unique-"..."`, `map-"..."` -- is kept where the
-  condition holds (`ccllib_tree_lines/3` over `ccllib.pl`'s `ccllib_text_lines/3`, 0.283): 34 functions that a program
-  calls and 24 inner ones, each written once for the four. (0.281, 0.283)
+  condition holds (`ccllib_tree_lines/3` over `ccllib.pl`'s `ccllib_text_lines/3`, 0.283): 36 functions that a program
+  calls and 24 inner ones, each written once for the four. (0.281, 0.283, 0.304)
 - THE NODES STAND IN ONE OWN BUFFER that grows by twice, and a node names its children by their NUMBERS (its place in
   the buffer, from 1; 0 is none): no pointer goes from a node to a node and none goes up, since the safe part refuses a
   stored borrow. A node holds 7 to 15 entries -- a key, with its value in a map -- in the keys' order, and an inner node
@@ -10187,11 +10224,11 @@ in the first topic (The ccllib gate).
   (0.281)
 - THE NAMES ARE C++'S: `size`, `len`, `empty`, `max_size`, `begin`, `end`, `next`, `prev`, `key`, `find`, `contains`,
   `count`, `lower_bound`, `upper_bound`, `insert`, `emplace`, `erase`, `erase_at`, `clear`, `swap`, `merge`, `clone`,
-  `==` and `<` and what follows from them, and a literal's `from`. A set has `insert_range` too, 26 functions, and a
-  multiset the same; a map has `value`, `set_value`, `at`, `get`, the index `m[k]` (tied to the map), `try_emplace`,
-  `insert_or_assign` and `put`, 33; a multimap `value` and `set_value`, 27. `set<int> s = [3, 1, 2];` and `m :=
-  [int:double; 1: 2.5];` make one of a literal: a literal of two types is a `map` by its form, and `<map.pl>` gives that
-  map. (0.281)
+  `==`, `<`, `<=` and `>=` and what follows from them, and a literal's `from`. A set has `insert_range` too, 28
+  functions, and a multiset the same; a map has `value`, `set_value`, `at`, `get`, the index `m[k]` (tied to the map),
+  `try_emplace`, `insert_or_assign` and `put`, 35; a multimap `value` and `set_value`, 29. `set<int> s = [3, 1, 2];` and
+  `m := [int:double; 1: 2.5];` make one of a literal: a literal of two types is a `map` by its form, and `<map.pl>`
+  gives that map. (0.281, 0.304)
 - WHAT DIFFERS FROM C++, beside the places and what differs for the vector: `insert` and `emplace` give 1 for a new
   entry and 0 for a key that was there, whose value stays, where C++ gives a pair; `find` gives a place, `end(m)` for
   none; `key(m, p)` and `value(m, p)` give what stands at a place. `erase(m, k)` takes a KEY and gives the count that it
@@ -10559,14 +10596,16 @@ in the first topic (The ccllib gate).
   number as C++ does; `o = nullopt` is `optional_int_of_nullopt_t(nullopt)`, the function named with the word of
   nullopt's type (the reader's topic of type macros). `optional.pl.h` declares nullopt, `typedef struct nullopt_t { char
   none; } nullopt_t;` and `static const nullopt_t nullopt`, as C++'s `std::nullopt` is. (0.300)
-- THE SURFACE OF `std::optional`, 16 functions: the two above, `has_value`, `value`, `value_or`, `emplace` (the value's
-  place, tied to the optional, where `std::optional::emplace` gives a reference), `reset`, `swap`; `==` and `<` of two
-  optionals (`_eq`, `_lt`); a relation with a value of the optional's own type, by the operators' typed names (0.284):
-  `o == 5` is `optional_int_eq_int(&o, 5)`, `o < 5` `_lt_int` and `o > 5` `_gt_int`, and with the value on the left the
-  same three, the operands exchanged (0.291: `5 < o` is `_gt_int(&o, 5)`); and with nullopt on either side,
-  `_eq_nullopt_t`, `_lt_nullopt_t` and `_gt_nullopt_t`. EACH RELATION IS C++'S ([optional.relops],
+- THE SURFACE OF `std::optional`, 22 functions: the two above, `has_value`, `value`, `value_or`, `emplace` (the value's
+  place, tied to the optional, where `std::optional::emplace` gives a reference), `reset`, `swap`; `==`, `<`, `<=` and
+  `>=` of two optionals (`_eq`, `_lt`, `_le`, `_ge`); a relation with a value of the optional's own type, by the
+  operators' typed names (0.284): `o == 5` is `optional_int_eq_int(&o, 5)`, `o < 5` `_lt_int`, `o > 5` `_gt_int`, `o <=
+  5` `_le_int` and `o >= 5` `_ge_int`, and with the value on the left the same five, the operands exchanged (0.291: `5 <
+  o` is `_gt_int(&o, 5)`; 0.304: `5 <= o` is `_ge_int(&o, 5)`); and with nullopt on either side, `_eq_nullopt_t`,
+  `_lt_nullopt_t`, `_gt_nullopt_t`, `_le_nullopt_t` and `_ge_nullopt_t`. EACH RELATION IS C++'S ([optional.relops],
   [optional.comp.with.t], [optional.nullops]): an optional with no value is equal to another with none and to nullopt,
-  and less than one with a value and than every value. The module needed no new form of the reader. (0.300)
+  and less than one with a value and than every value; `<=` and `>=` are the values' own, and false over a NaN (0.304).
+  The module needed no new form of the reader at 0.300. (0.300, 0.304)
 - WHAT DIFFERS FROM C++: `value(o)` stops the program (`abort`) where o has no value, where C++ throws
   `bad_optional_access`; `*o`, `o->m` and `if (o)` have no form in C -- `value(o)`, the place that `emplace` gives back,
   and `has_value(o)`; a relation with a value takes one of the optional's own type, so `d == 2` over an
@@ -10580,21 +10619,20 @@ in the first topic (The ccllib gate).
   optional (`a borrow leaves the function`). `and_then`, `transform` and `or_else` are C++23's (phase 3), and
   `std::hash` of an optional comes with phase 1b's `hash`. ITS VALUE IS A VALUE WITH NO POINTER IN IT (decision 2), NO
   ARRAY AND NO `nullopt_t`, as C++ takes none of the last two: `an optional's value is a value with no pointer in it,
-  and ptr_int holds one`, `an optional's value is no array`, `an optional's value is no nullopt_t`. `o <= v` and `o >=
-  v` are the negations of `o > v` and `o < v` (the operators' topic): over a NaN they are true where C++'s are false
-  (Not done, found at 0.301). (0.300, 0.301)
+  and ptr_int holds one`, `an optional's value is no array`, `an optional's value is no nullopt_t`. (0.300, 0.301,
+  0.304)
 - `test/ccllib/optional.c` calls each function over `int`, `double`, `char` and a plain struct, and each relation over
   the pairs of an optional with no value, one with a value, a value and nullopt, on either side; its twin `optional.cpp`
   over `std::optional` prints the same lines, and the count run fills, empties, reads and compares an array of 64
   optional numbers a hundred million times. `test/ccllib/safe/optional_of_pointer.c`, `optional_of_array.c`,
   `optional_of_nullopt.c`, `emplace_leaves.c`, `optional_other_value.c` and `optional_of_other.c`, as C and as C++;
-  `test/ccllib/alone/optional_rules.c`, the rules held to C++'s tables, and the two cases of `stops.c`. SIXTEEN COPIES
-  OF THE MODULE BROKEN ON PURPOSE, a rule each -- each function's text and each relation's -- are each reported by
-  `optional_rules.c`: `NOT HELD` with the rule's words, or the stop of `value` where a broken `emplace` leaves no value.
-  The unit holds 50 functions for its five instances in 26,800 bytes, where the twin's holds 177 in 93,472; the count
-  run takes 1.24 s as C and 1.26 s as C++ against the twin's 1.20 s, in 1.7 MB against 3.2 MB. `<optional>` is a light
-  header, as `<array>` is: the C build after a change of the file takes 0.60 s and 173 MB, cicilang++'s 0.52 s and 140
-  MB, against clang++'s 0.26 s and 108 MB. (0.300)
+  `test/ccllib/alone/optional_rules.c`, the rules held to C++'s tables -- over a NaN too since 0.304 --, and the two
+  cases of `stops.c`. SIXTEEN COPIES OF THE MODULE BROKEN ON PURPOSE, a rule each -- each function's text and each
+  relation's -- are each reported by `optional_rules.c`: `NOT HELD` with the rule's words, or the stop of `value` where
+  a broken `emplace` leaves no value. The unit holds 50 functions for its five instances in 26,800 bytes, where the
+  twin's holds 177 in 93,472; the count run takes 1.24 s as C and 1.26 s as C++ against the twin's 1.20 s, in 1.7 MB
+  against 3.2 MB. `<optional>` is a light header, as `<array>` is: the C build after a change of the file takes 0.60 s
+  and 173 MB, cicilang++'s 0.52 s and 140 MB, against clang++'s 0.26 s and 108 MB. (0.300, 0.304)
 
 ### pair.pl
 
@@ -10603,36 +10641,37 @@ in the first topic (The ccllib gate).
   object is a plain value -- `q := p` and `f(p)` copy it, as `std::pair`'s do. `pair<int, double> q;` is {0, 0}, born
   zero (0.285), as C++'s pair is made; `pair<int, double> p = {1, 2.5};` is C's braces, and a pair of pairs takes braces
   in braces. The module has NO C HEADER: its text calls nothing that a header declares. (0.301)
-- THE SURFACE OF `std::pair`: `swap`, and `==` and `<` (`_eq`, `_lt`), whose others the reader writes (0.266). THE
-  RELATIONS ARE C++20'S ([pairs.spec]/1): `==` of each member, and `<` by the synthesized three-way order -- the first
-  members' `<`, else their `==` -- which a NaN fails, so that an unordered first member ends the comparison, false,
-  where C++17's `<` went on to the second members -- and the second members' `<`. A MEMBER THAT IS AN INSTANCE COMPARES
-  BY ITS OWN FUNCTIONS: the instance's operators are written in a module's C text too, so `a->first == b->first` over a
-  pair of pairs is the inner pair's `_eq`, and an `optional<pair<int, int>>` compares its pairs so. THE COMPARISONS ARE
-  JOINED BY `&` AND `|`, NOT BY `&&` AND `||`: each is a 0 or a 1 with no effect, so the value is the same, and the text
-  has no branch. The lowering writes `&&` and `||` as branches, which LLVM kept at `-O2`, and over data of chance they
-  mispredict: the count run took 0.62 s as C and 0.72 s as C++ with them, against the twin's 0.31 s, and takes 0.21 s
-  and 0.22 s with these. (0.301)
+- THE SURFACE OF `std::pair`: `swap`, and `==`, `<`, `<=` and `>=` (`_eq`, `_lt`, `_le`, `_ge`), whose others the reader
+  writes (0.266). THE RELATIONS ARE C++20'S ([pairs.spec]/1): `==` of each member, and `<` by the synthesized three-way
+  order -- the first members' `<`, else their `==` -- which a NaN fails, so that an unordered first member ends the
+  comparison, false, where C++17's `<` went on to the second members -- and the second members' `<`; `<=` is the first
+  members' `<`, else their `==` and the second members' `<` or `==`, and `>=` is `<=` with the operands exchanged
+  (0.304). A MEMBER THAT IS AN INSTANCE COMPARES BY ITS OWN FUNCTIONS: the instance's operators are written in a
+  module's C text too, so `a->first == b->first` over a pair of pairs is the inner pair's `_eq`, and an
+  `optional<pair<int, int>>` compares its pairs so. THE COMPARISONS ARE JOINED BY `&` AND `|`, NOT BY `&&` AND `||`:
+  each is a 0 or a 1 with no effect, so the value is the same, and the text has no branch. The lowering writes `&&` and
+  `||` as branches, which LLVM kept at `-O2`, and over data of chance they mispredict: the count run took 0.62 s as C
+  and 0.72 s as C++ with them, against the twin's 0.31 s, and takes 0.21 s and 0.22 s with these. (0.301, 0.304)
 - WHAT DIFFERS FROM C++: each member is a value with no pointer in it (decision 2), and no array -- `a pair's member is
   a value with no pointer in it, and ptr_int holds one`, `a pair's member is no array` --; a pair takes two types, `a
   pair takes two types, its members'`; a pair is made by braces or of a pair of its own type, so `pair<int, double> b =
   a;` over a `pair<int, int>` is `a pair_int_double is not made of a value of the type pair_int_int: its type macro
   defines no pair_int_double_of`, where C++ converts each member, and `a == b` of the two is `the operator == of
   pair_int_int takes an object of pair_int_int, which its operand is not`; there is no `make_pair`, whose arguments name
-  no instance, and `get<0>(p)` has no form in C: `p.first`. `<=` and `>=` are the negations of `>` and `<` (the
-  operators' topic), which a NaN makes differ from C++20's (Not done). `std::hash` of a pair comes with phase 1b's
-  `hash`. (0.301)
+  no instance, and `get<0>(p)` has no form in C: `p.first`. `std::hash` of a pair comes with phase 1b's `hash`. (0.301,
+  0.304)
 - `test/ccllib/pair.c` over two numbers, a character and a number, a plain struct and a number, a pair of pairs and an
   optional of a pair, each relation over five pairs of pairs of numbers and over a NaN, and its twin `pair.cpp` over
   `std::pair` print the same lines; the count run sets and compares the pairs of an array of 64 a hundred million times.
   `test/ccllib/safe/pair_of_pointer.c`, `pair_of_array.c`, `pair_one_type.c`, `pair_of_other.c` and `pair_other_type.c`,
-  as C and as C++; `test/ccllib/alone/pair_rules.c`, every case held to C++20's words. SEVEN COPIES OF THE MODULE BROKEN
-  ON PURPOSE, a rule each -- each member of `==`, the order of the members in `<`, the end of `<` at an unordered first
-  member, `<` of the second members, and two of `swap` -- are each reported by `pair_rules.c`, `NOT HELD` with the
-  rule's words; the end at a NaN is reported by the cases of the NaN alone. The unit holds 18 functions for its eight
-  instances in 10,648 bytes, where the twin's holds 63 in 36,112; the count run takes 0.21 s as C and 0.22 s as C++
-  against the twin's 0.28 s, in 1.7 MB against 3.1 MB. The C build after a change of the file takes 0.36 s and 150 MB,
-  cicilang++'s 0.42 s and 129 MB, against clang++'s 0.25 s and 108 MB. (0.301)
+  as C and as C++; `test/ccllib/alone/pair_rules.c`, every case held to C++20's words -- `<=` and `>=` too since 0.304,
+  where they were held to the negations of `>` and `<`. SEVEN COPIES OF THE MODULE BROKEN ON PURPOSE, a rule each --
+  each member of `==`, the order of the members in `<`, the end of `<` at an unordered first member, `<` of the second
+  members, and two of `swap` -- are each reported by `pair_rules.c`, `NOT HELD` with the rule's words; the end at a NaN
+  is reported by the cases of the NaN alone. The unit holds 18 functions for its eight instances in 10,648 bytes, where
+  the twin's holds 63 in 36,112; the count run takes 0.21 s as C and 0.22 s as C++ against the twin's 0.28 s, in 1.7 MB
+  against 3.1 MB. The C build after a change of the file takes 0.36 s and 150 MB, cicilang++'s 0.42 s and 129 MB,
+  against clang++'s 0.25 s and 108 MB. (0.301, 0.304)
 
 ## The safe part
 
@@ -15119,20 +15158,18 @@ Declarations topic of the C++ reader).
   through the preprocessor in the file's mode goes the old way (0.268): raw, its macros unexpanded, or flattened, a
   library header to the desugaring. The safety rules' limits in C++ are the item above.
 - OPERATORS ON INSTANCES, THEIR LIMITS (0.266; `CCLLIB.md`'s phase 0.9): `!a`, `*it`, `++it` and `it++` over an instance
-  are no calls (`-a`, `~a`, the compound assignments and `% & | ^` are, since 0.284); `>` and `<=` take no function
-  named with the word of their right operand, since their `_lt` takes it first; a compound assignment of an element that
-  `[]` gives as a value is refused (`b[i] |= 1`), and so is its address (`&b[i]`, since 0.286); the left operand
-  decides, so `2 * a` is refused where C++ finds a free `operator*(double, pt)`; the word of an operand is its type's
-  own -- with the instance's name through a typedef, and the pointer to const's after a pointer to an object that is not
-  const (0.288) --, so an `int` operand asks `_add_int` and a `long` one `_add_long`, with no conversion between them; a
-  result tied to a struct with own fields is a borrow of one of them, so a hand free of another does not end it, as none
-  did before 0.266. In C++ (0.270) the type macro's function goes first where it is defined: a program that defines its
-  own `operator==` over an instance whose macro defines `_eq` calls the macro's. `<=` AND `>=` ARE THE NEGATIONS OF `>`
-  AND `<` -- `a <= b` is `!lt(b, a)`, `a >= b` `!lt(a, b)`, and their typed forms `!_gt_W` and `!_lt_W` (0.266, 0.291)
-  --, which holds for a total order: with a NaN -- an optional's value, a pair's member, a vector's element --, where
-  C++'s `<=` and `>=` are false (C++20's `(p <=> q) <= 0` of an unordered pair, and `*o <= v` of an optional), they are
-  true (found at 0.301: `pair_rules.c` holds them to these words). A type macro's own `_le` and `_ge`, which the reader
-  would ask first, are the road.
+  are no calls (`-a`, `~a`, the compound assignments and `% & | ^` are, since 0.284); a compound assignment of an
+  element that `[]` gives as a value is refused (`b[i] |= 1`), and so is its address (`&b[i]`, since 0.286); the left
+  operand decides, so `2 * a` is refused where C++ finds a free `operator*(double, pt)`; the word of an operand is its
+  type's own -- with the instance's name through a typedef, and the pointer to const's after a pointer to an object that
+  is not const (0.288) --, so an `int` operand asks `_add_int` and a `long` one `_add_long`, with no conversion between
+  them; a result tied to a struct with own fields is a borrow of one of them, so a hand free of another does not end it,
+  as none did before 0.266. In C++ (0.270) the type macro's function goes first where it is defined: a program that
+  defines its own `operator==` over an instance whose macro defines `_eq` calls the macro's. WHERE A TYPE MACRO DEFINES
+  NO `_le` AND `_ge`, `<=` AND `>=` ARE THE NEGATIONS OF `>` AND `<` -- `a <= b` is `!lt(b, a)`, `a >= b` `!lt(a, b)`,
+  and their typed forms `!_gt_W` and `!_lt_W` (0.266, 0.291) --, which hold for a total order alone: over a NaN a
+  program's own macro gets C++17's `<=` and `>=`, not C++20's. Every ccllib module that has `<` defines both since
+  0.304, and the reader asks them first.
 - AN INSTANCE'S BIRTH, ITS LIMITS (0.285, 0.297): an object that `malloc` gave is not given zero, where C++'s `new`
   makes each element and each member empty, and an array of an instance's objects that have a drop is refused by name,
   its elements dropped by nothing (0.262) -- an array of a type with none, a struct, an array and a class that hold an

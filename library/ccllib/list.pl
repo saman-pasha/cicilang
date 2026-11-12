@@ -226,14 +226,28 @@ ccllib_list_fn(eq, "int @{N}_eq(const @N *a, const @N *b) {
         if (!(a->data[p - 1].x == b->data[q - 1].x)) return 0;
     return 1;
 }").
+%% THE RELATIONS ARE C++20'S (0.304): the synthesized three-way order of the elements, where a pair that is neither
+%% `<' nor `==' either way -- a NaN -- is unordered and ends the comparison, every relation false; `<=' and `>=' are
+%% _le and _ge, which the reader asks first
 ccllib_list_fn(lt, "int @{N}_lt(const @N *a, const @N *b) {
     size_t p = a->head, q = b->head;
     for (; p && q; p = a->data[p - 1].next, q = b->data[q - 1].next) {
         if (a->data[p - 1].x < b->data[q - 1].x) return 1;
         if (b->data[q - 1].x < a->data[p - 1].x) return 0;
+        if (!(a->data[p - 1].x == b->data[q - 1].x)) return 0;
     }
     return p == 0 && q != 0;
 }").
+ccllib_list_fn(le, "int @{N}_le(const @N *a, const @N *b) {
+    size_t p = a->head, q = b->head;
+    for (; p && q; p = a->data[p - 1].next, q = b->data[q - 1].next) {
+        if (a->data[p - 1].x < b->data[q - 1].x) return 1;
+        if (b->data[q - 1].x < a->data[p - 1].x) return 0;
+        if (!(a->data[p - 1].x == b->data[q - 1].x)) return 0;
+    }
+    return p == 0;
+}").
+ccllib_list_fn(ge, "int @{N}_ge(const @N *a, const @N *b) { return @{N}_le(b, a); }").
 ccllib_list_sort_text(Name, Param, Arg, Text) :-
     append(["void @{N}_", Name, "(@N *v", Param, ") {
     size_t rest, t = 0;

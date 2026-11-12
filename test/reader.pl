@@ -747,6 +747,25 @@ k165 :- check('the program\'s own header\'s #error is refused at the header\'s l
       atom(H), sub_atom(H, _, _, 0, 'pperr_own.h'),
       c('pperr_own_ok.c', P2), cicilang_ast(P2, unit(_)) )).
 
+%% `<=' AND `>=' OVER AN INSTANCE ARE ITS TYPE MACRO'S OWN FUNCTIONS (0.304; [expr.spaceship], [container.reqmts]/43,
+%% [optional.relops]): test/c/relops.c over <vector.pl> and <optional.pl>, each `<=' and `>=' the call of `_le' or `_ge',
+%% the one named with the word of the right operand's type first, and with the instance on the right the other one's --
+%% `3.0 <= o' is `o >= 3.0'; no negation is left. k135's `<=' over topers.pl, whose macro defines no `_le', is the
+%% negation of `_lt' still. test/ccllib/relations.c runs the relations of every module over a NaN
+k166 :- check('<= and >= over an instance are its type macro\'s own _le and _ge, the one named with the word of the right operand\'s type first, and with the instance on the right the other one\'s; no negation is left',
+    ( fn_body('relops.c', main, B),
+      sub_t(call(id(vector_double_le), [addr(id(a)), addr(id(b))]), B),
+      sub_t(call(id(vector_double_ge), [addr(id(a)), addr(id(b))]), B),
+      \+ sub_t(call(id(vector_double_lt), _), B), \+ sub_t(not(_), B),
+      Lv = call(id(optional_double_le_double), [addr(id(o)), float(3.0)]),
+      Gv = call(id(optional_double_ge_double), [addr(id(o)), float(3.0)]),
+      sub_t(assign(+=, id(r), bin(+, bin(+, bin(+, Lv, Gv), Gv), Lv)), B),
+      sub_t(call(id(optional_double_le), [addr(id(o)), addr(id(o))]), B),
+      sub_t(call(id(optional_double_ge), [addr(id(o)), addr(id(o))]), B),
+      Ln = call(id(optional_double_le_nullopt_t), [addr(id(o)), id(nullopt)]),
+      Gn = call(id(optional_double_ge_nullopt_t), [addr(id(o)), id(nullopt)]),
+      sub_t(assign(+=, id(r), bin(+, bin(+, bin(+, Ln, Gn), Gn), Ln)), B) )).
+
 k110 :- check('a type macro that fails, two instances that one name names, and a typed call of a macro with no typed form are refused at the use',
     ( c('tmacro_fail.c', P1), c('tmacro.pl', M), catch(cicilang_ast(P1, _), error(E1, here(P1, 3, in_macro(type_none, M))), true), E1 == macro_failed(none, [base([], [int])]),
       c('tmacro_same.c', P2), catch(cicilang_ast(P2, _), error(macro_error(pair, _, error(ctext_error(T2), _)), here(P2, 7, _)), true),
@@ -1059,6 +1078,8 @@ t_checks :-
     k164,
     section('the program\'s own header\'s directives in the file\'s run (0.298)'),
     k165,
+    section('<= and >= over an instance by its type macro\'s own functions (0.304)'),
+    k166,
     section('the preprocessor, in cocolog: a header raw cannot take'),
     k83,
     section('the lexer, native: ccl_lex_native/6 token for token with the DCG'),

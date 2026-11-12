@@ -298,6 +298,7 @@ One row per step, in version order: the step's title, what it did and its gate n
 | 0.301 | ccllib phase 1b, `pair.pl` | `std::pair` for cicilang's C: a struct of `first` and `second`, `swap` and C++20's relations; a member that is an instance compares by its own functions; `<=` and `>=` over a NaN written down | the three runs, five refusals, every case held to C++20's words at 3,110 checks, seven broken copies reported; the flow gate and the ccllib gate; no chain, by the owner's rule of 0.271; a commit and a push |
 | 0.302 | the Ambitious session's findings 33, 34 and 35 | an initializer that gives more than its object holds, a call of another count than its prototype's and an integer and a pointer as if by assignment refused in clang's words, in C and in C++; a literal that fills its array, a literal in braces, a designator's expression and a braced scalar global done; `()` no prototype before C23; the command's verdict | 9 + 2 initializer forms, 10 + 5 call forms, 7 conversion forms and the verdict in the driver gate, two run fixtures; the flow gate and the nets; no chain, by the owner's rule of 0.271; a commit and a push |
 | 0.303 | finding 36's neighbours: a borrow through a pointer to its owner | a place through a local pointer or a local reference keyed as the place it names, `(*p).f` as `p->f` and `&*p` as p, a member through a reference typed as through its pointer: the rules of 0.265, 0.266 and 0.293 through each such place, in C and in C++ | 38 probes, 23 forms that built and are refused; 5 + 3 + 4 refusals and 3 run fixtures; the flow gate and the nets; no chain, by the owner's rule of 0.271; a commit and a push |
+| 0.304 | the relations of every ccllib module by C++20's words | `_lt` ends at an unordered pair, each module's own `_le` and `_ge`, and the reader asks them first for `<=` and `>=`, where it wrote the negations of `>` and `<` | `relations.c` and its twin, 50 lines, 23 differed over 0.303; 19 copies broken on purpose, each caught; reader `k166`; the flow gate and the nets; no chain, by the owner's rule of 0.271; a commit and a push |
 
 ## M5 — the C++ mode
 
@@ -21681,3 +21682,80 @@ ones among them -- 183 checks.
   CLAUDE.md; `module/cicilang.cicili` (0.303).
 
 The module 0.303, the reader 194 and the lowering 170.
+
+## 0.304 — the relations of every ccllib module by C++20's words
+
+**0.304: every ccllib module that has `<` compares by C++20's words. The first pair of elements that is not equal
+decides, and a pair that is neither `<` nor `==` either way -- a NaN -- is unordered and ends the comparison, so that
+`<`, `>`, `<=` and `>=` are all false. Each module defines `_le` and `_ge` of its own, and the reader asks them first
+for `<=` and `>=`, where it wrote the negations of `>` and `<`.**
+
+THE STEP. RULES.md's Not done held it since 0.301: `<=` and `>=` over an instance were the negations of `>` and `<`
+(0.266), which hold for a total order alone, and `pair_rules.c` held the pair's to those words. The step ran each module
+that has `<` before it changed a text: `test/ccllib/relations.c` -- each module over ordered pairs, over pairs that a
+NaN makes unordered, over a NaN before a pair that decides, and over instances in instances -- and its twin
+`relations.cpp` over `std::`, built by clang++ 22 over libc++ 22 at C++23 and at C++20, which print the same 50 lines
+and the same exit. OVER 0.303, 23 OF THE 50 DIFFERED, as C and as C++ alike. EIGHT WERE A NaN FIRST: `[n, 1] < [n, 2]`
+of a vector, an array, a deque, a list, a forward list, a stack, a queue and a map's values was true, since `_lt` went
+on past a pair that is `<` neither way, as C++17's `lexicographical_compare` does, where C++20's synthesized three-way
+order ends there, unordered. FIFTEEN WERE `<=` AND `>=` OVER A NaN, true where C++20's are false: a vector's, a list's,
+a forward list's, a stack's, a queue's and a map's, two optionals', an optional and a value either way, a pair's two, a
+vector of pairs, an optional of a pair and a deque of optionals. A BUILD OF THE PROBE AT `-std=c++17` over libc++ prints
+0.303's lines for the sequences and the map: those were C++17's. The optional's and the pair's were no standard's:
+`std::optional`'s relations are its values' own from C++17 on ([optional.relops]), and the pair's `<` was C++20's since
+0.301, beside a `<=` and a `>=` that were neither's.
+
+THE TEXTS. The `_lt` of each sequence -- the vector's, the array's, the deque's, the list's, the forward list's, the
+stack's and the queue's -- and the tree's, which the four ordered containers share, gets one line in its loop: where the
+pair is `<` neither way and not `==`, it gives 0. Each module gets `_le`, the same loop and an end by the counts
+(`a->len <= b->len`; the lists' `p == 0`), and `_ge`, `_le` with its operands exchanged; a map compares an entry's key
+and then its value in each, as C++ compares the entry's pair. The pair's `_le` is the first members' `<`, else their
+`==` and the second members' `<` or `==`, joined by `&` and `|` as its `_lt` is (0.301). The optional gets six: `_le`
+and `_ge` of two optionals, with a value of its own type, and with nullopt, by [optional.relops], [optional.comp.with.t]
+and [optional.nullops] -- the values' own `<=` and `>=`; `o <= nullopt` is `!o`, and `o >= nullopt` is true. The strings
+and the views define no `_le` and `_ge`: their characters are a total order, and the negations hold.
+
+THE READER. `<=` and `>=` over an instance ask the type macro's own function first (`ccl_iop_own/2` in the first clause
+of `ccl_iop_binary/4`): `<name>_le_<word>` with the word of the right operand's type, then `<name>_le`, the operands in
+their order. With the instance on the right alone, the other one's, the operands exchanged (`ccl_iop_mirror_own/2`): `x
+<= o` is `<name>_ge_<word>(o, x)`. Where the macro defines neither, the negations of `>` and `<` stand, as for a
+program's own type macro and for a string. Reader `k166` over `test/c/relops.c`: a vector's and an optional's `<=` and
+`>=`, with an instance, a number and nullopt on either side, and no negation left. `k135`'s `<=` over `topers.pl`, whose
+macro defines no `_le`, is the negation still. The reader's version is 195, since a kept read of a unit over an instance
+holds the calls. RULES.md's limits of the operators said still that `>` and `<=` take no function named with the word of
+their right operand: they have asked `_gt_<word>` since 0.291, and `<=` asks `_le_<word>` first now; the words are gone.
+
+THE PROOF. `relations.c` prints its twin's 50 lines as C and as C++ over the work tree, and valgrind finds no error and
+no block left in either build. `pair_rules.c` holds the pair's `<=` and `>=` over a NaN to C++20's words now, at the
+same 3,110 checks. `optional_rules.c` holds each relation of an optional double -- none, 0, 1 and a NaN against each,
+and against each number of 0, 1 and a NaN on either side -- to the words that it holds an optional int to: 5,077,288
+checks, where it made 5,077,044. NINETEEN COPIES BROKEN ON PURPOSE, a rule each: the new line of `_lt` taken away, and
+`_le` and `_ge` taken away, of each of the seven sequences and of the tree (16); `_le` and `_ge` of the pair, and the
+six of the optional (2); and the reader's own functions (1). `relations.c` catches each copy, a line or more that
+differs from the twin's; `pair_rules.c` and `optional_rules.c` catch the pair's, the optional's and the reader's too,
+`NOT HELD` with the rule's words. THE FIRST RUN OF THE COPIES DID NOT CATCH FIVE: the `_lt` of the list, the forward
+list, the stack, the queue and the tree. No case had an unordered pair before a pair that decides, the one form where
+the line changes what `<` gives; the cases of a NaN first came then, and all nineteen were caught.
+
+WHAT IT COSTS, by the ccllib gate's lines: `relations.c` includes eleven modules, and its C build after a change of the
+file -- the best of three -- takes 2.05 s and 428 MB, cicilang++'s 3.51 s and 206 MB, against clang++'s 1.28 s and 173
+MB for the twin; the unit holds 137 functions in 79,272 bytes of object, where the twin's holds 929 in 559,040.
+
+THE NETS GREEN: the flow gate; the reader gate 167, the compile gate 310, the driver gate 83 and the ccllib gate 345
+checks over one fresh HOME, `relations.c` in its three runs and under valgrind among them; the C++ pool of the light
+fixtures 362 of 362 over libc++ 22, 362 over 21 and 362 over 18; every other C++ run fixture, 506 of 520, over libc++
+22, since the reader asks the new table at every `<=` and `>=` -- the 14 others name a need, which the net does not meet
+--; and the C++ gate's later parts by hand -- `classes.cpp`, `templates.cpp`, the C run fixtures that it builds as C++
+and every list of its refusals -- 183 checks. The first run of the nets met the ccllib gate with `optional_rules.expect`
+of 0.300, whose count line the new cases change; it was stopped there, the file written from the program's two runs,
+which print the same line, and the nets run again whole.
+
+- `library/ccllib/vector.pl`, `array.pl`, `deque.pl`, `list.pl`, `forward_list.pl`, `stack.pl`, `queue.pl` and `tree.pl`
+  (the end of each `_lt` at an unordered pair; `_le`, `_ge`), `pair.pl` (`_le`, `_ge`), `optional.pl` (the six);
+  `library/ccl_syntax.pl` (`ccl_iop_own/2` and `ccl_iop_mirror_own/2` in `ccl_iop_binary/4`; the reader's version).
+- `test/ccllib/relations.c`, `relations.cpp`, `relations.expect`; `test/c/relops.c` and the reader gate's `k166`;
+  `test/ccllib/alone/pair_rules.c` (C++20's `<=` and `>=`), `optional_rules.c` and its `.expect` (over a NaN).
+- RULES.md (the C reader: operators on instances, the mirrored ones, `<=` and `>=`; ccllib: the modules, each module's
+  surface; Not done), CCLLIB.md, README.md, HISTORY.md, CLAUDE.md; `module/cicilang.cicili` (0.304).
+
+The module 0.304, the reader 195 and the lowering 170.

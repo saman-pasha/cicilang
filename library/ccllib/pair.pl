@@ -40,3 +40,10 @@ ccllib_pair_fn(eq, "int @{N}_eq(const @N *a, const @N *b) {
 ccllib_pair_fn(lt, "int @{N}_lt(const @N *a, const @N *b) {
     return (a->first < b->first) | ((a->first == b->first) & (a->second < b->second));
 }").
+%% `<=' AND `>=' ARE C++20'S TOO (0.304): less or equal by the same order -- the first members' `<', else their `==' and
+%% then the second members' `<' or `==' -- so an unordered member, a NaN, makes them false; they were the negations of
+%% `>' and `<', true there
+ccllib_pair_fn(le, "int @{N}_le(const @N *a, const @N *b) {
+    return (a->first < b->first) | ((a->first == b->first) & ((a->second < b->second) | (a->second == b->second)));
+}").
+ccllib_pair_fn(ge, "int @{N}_ge(const @N *a, const @N *b) { return @{N}_le(b, a); }").

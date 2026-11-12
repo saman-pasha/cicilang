@@ -63,11 +63,25 @@ ccllib_stack_fn(eq, "int @{N}_eq(const @N *a, const @N *b) {
     for (size_t i = 0; i < a->len; i++) if (!(a->data[i] == b->data[i])) return 0;
     return 1;
 }").
+%% THE RELATIONS ARE C++20'S (0.304): the synthesized three-way order of the elements, where a pair that is neither
+%% `<' nor `==' either way -- a NaN -- is unordered and ends the comparison, every relation false; `<=' and `>=' are
+%% _le and _ge, which the reader asks first
 ccllib_stack_fn(lt, "int @{N}_lt(const @N *a, const @N *b) {
     size_t n = a->len < b->len ? a->len : b->len;
     for (size_t i = 0; i < n; i++) {
         if (a->data[i] < b->data[i]) return 1;
         if (b->data[i] < a->data[i]) return 0;
+        if (!(a->data[i] == b->data[i])) return 0;
     }
     return a->len < b->len;
 }").
+ccllib_stack_fn(le, "int @{N}_le(const @N *a, const @N *b) {
+    size_t n = a->len < b->len ? a->len : b->len;
+    for (size_t i = 0; i < n; i++) {
+        if (a->data[i] < b->data[i]) return 1;
+        if (b->data[i] < a->data[i]) return 0;
+        if (!(a->data[i] == b->data[i])) return 0;
+    }
+    return a->len <= b->len;
+}").
+ccllib_stack_fn(ge, "int @{N}_ge(const @N *a, const @N *b) { return @{N}_le(b, a); }").

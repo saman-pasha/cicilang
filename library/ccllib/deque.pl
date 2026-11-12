@@ -172,6 +172,9 @@ ccllib_deque_fn(eq, "int @{N}_eq(const @N *a, const @N *b) {
         if (!(a->data[(a->head + i) & (a->cap - 1)] == b->data[(b->head + i) & (b->cap - 1)])) return 0;
     return 1;
 }").
+%% THE RELATIONS ARE C++20'S (0.304): the synthesized three-way order of the elements, where a pair that is neither
+%% `<' nor `==' either way -- a NaN -- is unordered and ends the comparison, every relation false; `<=' and `>=' are
+%% _le and _ge, which the reader asks first
 ccllib_deque_fn(lt, "int @{N}_lt(const @N *a, const @N *b) {
     size_t n = a->len < b->len ? a->len : b->len;
     for (size_t i = 0; i < n; i++) {
@@ -179,6 +182,19 @@ ccllib_deque_fn(lt, "int @{N}_lt(const @N *a, const @N *b) {
         @T y = b->data[(b->head + i) & (b->cap - 1)];
         if (x < y) return 1;
         if (y < x) return 0;
+        if (!(x == y)) return 0;
     }
     return a->len < b->len;
 }").
+ccllib_deque_fn(le, "int @{N}_le(const @N *a, const @N *b) {
+    size_t n = a->len < b->len ? a->len : b->len;
+    for (size_t i = 0; i < n; i++) {
+        @T x = a->data[(a->head + i) & (a->cap - 1)];
+        @T y = b->data[(b->head + i) & (b->cap - 1)];
+        if (x < y) return 1;
+        if (y < x) return 0;
+        if (!(x == y)) return 0;
+    }
+    return a->len <= b->len;
+}").
+ccllib_deque_fn(ge, "int @{N}_ge(const @N *a, const @N *b) { return @{N}_le(b, a); }").

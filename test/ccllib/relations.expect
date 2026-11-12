@@ -1,0 +1,51 @@
+vector equal                       < 0  > 0  <= 1  >= 1  == 1
+vector less                        < 1  > 0  <= 1  >= 0  == 0
+vector prefix                      < 1  > 0  <= 1  >= 0  == 0
+vector NaN first                   < 0  > 0  <= 0  >= 0  == 0
+vector NaN after equal             < 0  > 0  <= 0  >= 0  == 0
+vector decided before NaN          < 1  > 0  <= 1  >= 0  == 0
+array less                         < 1  > 0  <= 1  >= 0  == 0
+array NaN first                    < 0  > 0  <= 0  >= 0  == 0
+array equal                        < 0  > 0  <= 1  >= 1  == 1
+deque prefix                       < 1  > 0  <= 1  >= 0  == 0
+deque NaN first                    < 0  > 0  <= 0  >= 0  == 0
+list prefix                        < 1  > 0  <= 1  >= 0  == 0
+list NaN                           < 0  > 0  <= 0  >= 0  == 0
+list NaN first                     < 0  > 0  <= 0  >= 0  == 0
+forward_list greater               < 0  > 1  <= 0  >= 1  == 0
+forward_list NaN                   < 0  > 0  <= 0  >= 0  == 0
+forward_list NaN first             < 0  > 0  <= 0  >= 0  == 0
+stack equal                        < 0  > 0  <= 1  >= 1  == 1
+stack NaN                          < 0  > 0  <= 0  >= 0  == 0
+stack NaN first                    < 0  > 0  <= 0  >= 0  == 0
+queue less                         < 1  > 0  <= 1  >= 0  == 0
+queue NaN                          < 0  > 0  <= 0  >= 0  == 0
+queue NaN first                    < 0  > 0  <= 0  >= 0  == 0
+set less                           < 1  > 0  <= 1  >= 0  == 0
+set prefix                         < 1  > 0  <= 1  >= 0  == 0
+map NaN value                      < 0  > 0  <= 0  >= 0  == 0
+map less value                     < 1  > 0  <= 1  >= 0  == 0
+map key decides before NaN         < 1  > 0  <= 1  >= 0  == 0
+map NaN value first                < 0  > 0  <= 0  >= 0  == 0
+optional less                      < 1  > 0  <= 1  >= 0  == 0
+optional NaN                       < 0  > 0  <= 0  >= 0  == 0
+optional NaN and a value           < 0  > 0  <= 0  >= 0  == 0
+optional none and NaN              < 1  > 0  <= 1  >= 0  == 0
+optional NaN and none              < 0  > 1  <= 0  >= 1  == 0
+optional and a value               < 0  > 0  <= 1  >= 1  == 1
+optional NaN and a value           < 0  > 0  <= 0  >= 0  == 0
+a value and optional NaN           < 0  > 0  <= 0  >= 0  == 0
+none and a value                   < 1  > 0  <= 1  >= 0  == 0
+a value and none                   < 0  > 1  <= 0  >= 1  == 0
+optional and nullopt               < 0  > 1  <= 0  >= 1  == 0
+nullopt and optional               < 1  > 0  <= 1  >= 0  == 0
+none and nullopt                   < 0  > 0  <= 1  >= 1  == 1
+pair less                          < 1  > 0  <= 1  >= 0  == 0
+pair NaN first                     < 0  > 0  <= 0  >= 0  == 0
+pair NaN second                    < 0  > 0  <= 0  >= 0  == 0
+vector of pairs, NaN               < 0  > 0  <= 0  >= 0  == 0
+vector of pairs, less              < 1  > 0  <= 1  >= 0  == 0
+optional of a pair, NaN            < 0  > 0  <= 0  >= 0  == 0
+deque of optionals, NaN            < 0  > 0  <= 0  >= 0  == 0
+deque of optionals, none first     < 1  > 0  <= 1  >= 0  == 0
+exit 0

@@ -625,6 +625,12 @@ example.
 `p == q`, `p < q`. A pair of pairs, and an optional of a pair, compare by
 their members' own relations. `test/ccllib/pair.c` is the example.
 
+The relations of every ccllib module are C++20's (0.304): the first pair of
+elements that is not equal decides, and a NaN, which is neither less nor
+equal, ends the comparison, so that `<`, `>`, `<=` and `>=` are all false.
+Each module gives `<=` and `>=` functions of their own, `_le` and `_ge`,
+which the reader asks first. `test/ccllib/relations.c` is the example.
+
 `format`, `print`, `println` and `clone` are global macros, there in every
 program without an include (`library/ccl_format.pl`). The format string
 has Rust's holes, each becoming the `printf` conversion of its argument's

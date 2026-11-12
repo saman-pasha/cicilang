@@ -17,7 +17,8 @@
 %%   `w = v' and `f(v)' move, as every object of an instance's type does; clone(v) copies;
 %%   at(v, i), v[i], front, back and pop_back stop the program (abort) at an index past the end or on an empty vector,
 %%     where C++'s at throws and the others are undefined; a failed allocation stops it too;
-%%   pop_back gives the element that it takes away; erase_value and the comparisons compare with `==' and `<';
+%%   pop_back gives the element that it takes away; erase_value and the comparisons compare with `==' and `<', the
+%%     relations by C++20's synthesized three-way order, `<=' and `>=' by _le and _ge (0.304);
 %%   begin(v), end(v), data(v) and &v[i] are borrows of the buffer, tied to the vector: the safe part refuses their use
 %%     after a call that may replace it -- each function that takes the vector not as const: push_back, insert, erase,
 %%     resize, reserve, shrink_to_fit, assign, clear, pop_back, swap -- and keeps them over the others, v[i] among
@@ -135,11 +136,26 @@ ccllib_vector_fn(eq, "int @{N}_eq(const @N *a, const @N *b) {
     for (size_t i = 0; i < a->len; i++) if (!(a->data[i] == b->data[i])) return 0;
     return 1;
 }").
+%% THE RELATIONS ARE C++20'S (0.304; [container.reqmts]/43, [expr.spaceship]): the synthesized three-way order of the
+%% elements, the first pair that is not equal decides, and a pair that is neither `<' nor `==' either way -- a NaN -- is
+%% unordered and ends the comparison: `<', `<=', `>' and `>=' are all false. `_lt' skipped such a pair, as C++17's
+%% lexicographical_compare does, and `<=' and `>=' were the negations of `>' and `<', true there
 ccllib_vector_fn(lt, "int @{N}_lt(const @N *a, const @N *b) {
     size_t n = a->len < b->len ? a->len : b->len;
     for (size_t i = 0; i < n; i++) {
         if (a->data[i] < b->data[i]) return 1;
         if (b->data[i] < a->data[i]) return 0;
+        if (!(a->data[i] == b->data[i])) return 0;
     }
     return a->len < b->len;
 }").
+ccllib_vector_fn(le, "int @{N}_le(const @N *a, const @N *b) {
+    size_t n = a->len < b->len ? a->len : b->len;
+    for (size_t i = 0; i < n; i++) {
+        if (a->data[i] < b->data[i]) return 1;
+        if (b->data[i] < a->data[i]) return 0;
+        if (!(a->data[i] == b->data[i])) return 0;
+    }
+    return a->len <= b->len;
+}").
+ccllib_vector_fn(ge, "int @{N}_ge(const @N *a, const @N *b) { return @{N}_le(b, a); }").
