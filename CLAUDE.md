@@ -12,8 +12,8 @@ the fixture that gates it, and why. The bullet ends with the version that made t
 edits the rule in `RULES.md`, in its topic, and writes its entry in `HISTORY.md`. Read the topic of `RULES.md` that
 covers the code before the code is changed.
 
-At 0.305 the versions are: the module 0.305 (`ccl_p_version` in `module/cicilang.cicili`, `bin/cicilang --version`),
-the reader 196 (`ccl_reader_version/1`, `library/ccl_syntax.pl`) and the lowering 170 (`ccl_lowering_version/1`,
+At 0.306 the versions are: the module 0.306 (`ccl_p_version` in `module/cicilang.cicili`, `bin/cicilang --version`),
+the reader 197 (`ccl_reader_version/1`, `library/ccl_syntax.pl`) and the lowering 170 (`ccl_lowering_version/1`,
 `library/ccl_ir.pl`).
 
 Build and prove, always in this order (or all of it, `sh test/gates.sh`):
@@ -484,7 +484,10 @@ test/c/                     the reader's fixtures: hello.c, rich.c, lexer.c, mac
                             (0.298); relops.c over <vector.pl> and <optional.pl>, `<=` and `>=` over an instance
                             read as its type macro's own functions (0.304); typedcall.c over <tuple.pl> and
                             <pair.pl>, the typed call by name, and typedcall_none.c, one that names no function
-                            (0.305)
+                            (0.305); own_decl.c, the finding's form, and own_global.c, own_member.c, own_param.c,
+                            own_fn.c, own_enum.c, own_walrus.c, own_ptr.c, own_second.c, own_typedef.c, own_label.c,
+                            own_tag.c, own_enumtag.c, own_pattern.c and own_form.c, the word own given as a name, each
+                            refused at its line (0.306)
 test/c/inc/                 the -I fixture: uses_box.c over box.h
 test/c/link/                two files linked into one program; the ABI against clang-built code (abi_main.c,
                             abi_helper.c), variadic calls (va_main.c, va_func.c, va.h), the decimal ABI against gcc,
@@ -525,7 +528,8 @@ test/c/run/                 C programs built and run: NAME.c, NAME.expect, NAME.
                             they outlive the function (0.299); initfit.c, initializers that fill their objects to
                             the bound and no further, and noproto.c, calls that C17 takes without a prototype and the
                             null pointer constants (0.302); ptrfields.c, what a call through a pointer to a struct
-                            with an own field replaces not (0.303)
+                            with an own field replaces not (0.303); ownwords.c, the word own where it is the owner's,
+                            built as C and as C++ (0.306)
 test/c/safe/                C programs the safe part refuses: NAME.c, NAME.expect; dropnone.pl, the macro file of
                             drop_leaks.c (0.262); borrow_after_grow.c, borrow_after_push.c, elem_after_push.c,
                             grow_through_ptr.c, const_replace.c and const_local.c, the safety rules of 0.265;
@@ -554,7 +558,10 @@ test/cpp/                   the C++ reader's fixtures and the refusals; hidem.cp
                             nullfilledref.cpp, the safety rules of 0.265 to 0.267 in C++ (0.272); callborrow.cpp, a
                             borrow handed to a member function that may replace its owner (0.293); callborrowptr.cpp,
                             callborrowref.cpp, callreplaceptr.cpp and callreplaceref.cpp, the same through a pointer
-                            and a local reference (0.303)
+                            and a local reference (0.303); own_class.cpp, own_alias.cpp, own_namespace.cpp,
+                            own_tparam.cpp, own_vtparam.cpp, own_binding.cpp, own_capture.cpp, own_concept.cpp,
+                            own_enumclass.cpp and own_pack.cpp, the word own given as a name at the places that C++
+                            adds, each refused at its line (0.306)
 test/cpp/link/              the C++ ABI checks of the C++ gate and the cross gate: abi_helper.cpp, memptr_helper.cpp and
                             byval_helper.cpp built by clang++, abi_main.cpp, memptr_main.cpp and byval_main.cpp by
                             cicilang++, abi.h, memptr.h, byval.h; the C++ gate's two units, units_a.cpp and units_b.cpp

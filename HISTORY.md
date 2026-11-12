@@ -300,6 +300,7 @@ One row per step, in version order: the step's title, what it did and its gate n
 | 0.303 | finding 36's neighbours: a borrow through a pointer to its owner | a place through a local pointer or a local reference keyed as the place it names, `(*p).f` as `p->f` and `&*p` as p, a member through a reference typed as through its pointer: the rules of 0.265, 0.266 and 0.293 through each such place, in C and in C++ | 38 probes, 23 forms that built and are refused; 5 + 3 + 4 refusals and 3 run fixtures; the flow gate and the nets; no chain, by the owner's rule of 0.271; a commit and a push |
 | 0.304 | the relations of every ccllib module by C++20's words | `_lt` ends at an unordered pair, each module's own `_le` and `_ge`, and the reader asks them first for `<=` and `>=`, where it wrote the negations of `>` and `<` | `relations.c` and its twin, 50 lines, 23 differed over 0.303; 19 copies broken on purpose, each caught; reader `k166`; the flow gate and the nets; no chain, by the owner's rule of 0.271; a commit and a push |
 | 0.305 | ccllib phase 1b, tuple.pl and the typed call by name | `#include <tuple.pl>`: a struct of its elements, born zero, `swap`, C++20's relations; `get<0>(t)` and `get<double>(t)` the instance's functions by the reader's typed call by name, the element's place; the pair's and the array's `get` | `tuple.c` and its twin; 13 refusals; `tuple_rules.c` at 12,024 checks, 11 copies broken on purpose, each caught; reader `k167`; the flow gate and the nets; no chain, by the owner's rule of 0.271; a commit and a push |
+| 0.306 | `own` is a keyword, and no name that a program declares | the Ambitious session's finding 37: `own` given as a name -- a variable, a parameter, a member, a function, a typedef, a tag, an enumerator, a label, a binding, and C++'s names -- refused at its line in one set of words, where 46 forms failed far from it, late or not at all | 15 C and 10 C++ refusals and `ownwords.c`; reader `k168`, `k169`; the flow gate and the nets; no chain, by the owner's rule of 0.271; a commit and a push |
 
 ## M5 — the C++ mode
 
@@ -21856,3 +21857,104 @@ C++ and every list of its refusals -- 183 checks.
   `pair.pl`, `tuple.pl`), CCLLIB.md, README.md, HISTORY.md, CLAUDE.md; `module/cicilang.cicili` (0.305).
 
 The module 0.305, the reader 196 and the lowering 170.
+
+## 0.306 — `own` is a keyword, and no name that a program declares
+
+**0.306: `own` given as a name -- to a variable, a parameter, a member, a function, a typedef, a tag, an enumerator, a
+label or a pattern's binding, and in C++ to a class, an alias, a namespace, a template's parameter, a concept, a pack or
+an init-capture -- is refused at its line, in C and in C++, in one set of words: `` `own' is a keyword, the owner's
+word, and cannot name a variable, a function, a type or any other thing that the program declares: write another name``.
+The Ambitious session's finding 37: `int own = 1;` in a function was `syntax error: could not read this item` at the
+function's first line, which took a bisection by hand to find in a case of 30 lines of a large function.**
+
+THE FINDING, run from its reduction over 0.305: `int main(void) { int own = 1; printf("%d\n", own); return 0; }` gave
+`own.c:2: error: syntax error: could not read this item (gave up near line 3)`, at the function's first line, with no
+word of the name. The report asked for an error at the name that says that `own` is a keyword and cannot name a
+variable. THE CAUSE: `own` is the owner's word in a declaration -- a specifier, `own int *p`, and a pointer's qualifier,
+`int *own p` --, and the reader takes it there wherever it stands: after `int`, `own` was a specifier, the declaration
+had no name, the `=` stood where a declarator was asked, and the function's body failed as one item. No rule asked
+whether the word stood where only a name can.
+
+WHAT THE PROBES FOUND, 46 forms that give the word as a name, each over 0.305 -- the forms of C as C, those of C++ as
+C++ -- and over the work tree as C and as C++: over 0.305 none was refused at the name in words of the name. A SYNTAX
+ERROR for fifteen, at the item's first line -- a local with an initializer, of `long`, `const` and `static`, an array
+`int own[3] = {...}`, a `for`'s `int own = 0`, `sizeof own` after `int own = 4`, `int own, x = 1`, a pointer `int *own =
+&x`, an object at file scope `int own = 1;`, a K&R parameter's declaration, a member with a default `int own = 1;` and a
+template's type parameter `template <class own>` -- or at the first use, for a class and an alias `using own = int;`.
+0.290'S WORDS OF A PARAMETER at the first use, `names no object: a parameter written T *own is an own pointer with no
+name`, for thirteen that were taken -- `int own;` and `own = 2`, `own := 5`, a parameter `int own`, an enumerator, the
+patterns `{ own, b } := p` and `{ y: own } := p`, and in C++ `auto &own = x`, a structured binding, an init-capture
+`[own = x]`, `catch (int own)`, a lambda's parameter, a value template parameter `template <int own>` and a range
+`for`'s `int own` --: true of `T *own`, not of these. `not lowered yet` for four, two of them with no line: a function
+`own`, `undeclared(own)` at its call; a member `int own;`, `phase(check)` with no line; a bit-field `unsigned own : 3;`,
+`no_member(own, ...)` at its use, and a member function `int own()`, the same with no line. TAKEN AND BUILT for eleven:
+a typedef, a second declarator `int x, own = 2`, a label, a parameter that the body does not use, a struct's, a union's
+and an enum's tag, the name of `own { int x; double y; }`, and in C++ a namespace, a concept and a scoped enumeration.
+Three more forms came with the rule's places, each an own pointer with no name where no parameter stands: a pointer to a
+function `int (*own)(void)`, a member `int *own;`, and `int *own, *p = &x`. Over the work tree each of the 46 is refused
+at its line, as C and as C++. FIVE FORMS ARE THE OWNER'S WORD, and build: `own int *p`, `int *own p`, a parameter `int
+*own` with no name in a definition, `node *own` before another parameter in a prototype, and an own array in a struct
+behind an own pointer, and a C++ program of them; `int *own p = &x` is the safe part's own refusal, `a borrow stored
+where it cannot be followed`, as it was. No header of libc++ 18, 21 or 22, nor of `/usr/include`, has `own` as a name
+outside a comment or a string, so no read of a library changes. A MACRO NAMED `own` is the preprocessor's, before the
+reader, and no rule of this step reads it: `#define own` makes the pointers after it plain, and the safe part holds them
+to its rules still -- a leak is `plain pointer not consumed` --, `#undef own` gives the word back -- the same leak is
+`owner leaked` --, and `#define own 2` makes each `own` a 2, as C and as C++.
+
+THE RULE. The words are one fact, `ccl_own_words/1`. AT A TOKEN: after the specifiers, `own` before `=`, `;`, `,`, `[`,
+`:` -- a bit-field, a label --, `)`, `>` -- a template's value parameter -- or a function's `(` (`ccl_own_name_next/2`,
+a clause of `ccl_specs//8`); after `*`, before `=`, `;`, `[`, `:` or a function's `(` (`ccl_quals//1`); and as a
+declarator's direct name (`ccl_direct//2`). AT A DECLARATOR: an object or a member whose own pointer has no name,
+outside a parameter (`ccl_own_unnamed/2`). AT A PATTERN, at its item's line: a binding of Cicili's pattern or of C++'s
+structured binding, by position, by field or nested (`ccl_own_bound/2`, in `ccl_destructure/4`, `ccl_bindings_decl/5`
+and the bindings of a condition and of a range `for`). AT A NAME THAT A RULE READS (`ccl_own_not/1`): a tag after
+`struct`, `union`, `class` or `enum`, a scoped enumeration's name, the name of `name { }`, the name before `:=`, an
+enumerator, the name after C++'s `auto`, an alias at file scope, in a class, in a block and in a `for`'s first part, a
+namespace, a nested namespace's segment and a namespace alias, a concept, a template's type parameter, constrained or
+not, and its template template parameter, a pack of values or of a function's parameters, and an init-capture. EACH
+CHECK STANDS AFTER THE CUT THAT COMMITS ITS READING: before it, the check would refuse `own int *p;` at file scope,
+which `name { }` tries first, and a block `{ own int *p = q; }`, which a pattern tries first. A use of `own` in a body
+is 0.290's refusal still: the word with no declaration behind it is a parameter's `T *own`.
+
+THE PROOF. Reader `k168` holds fifteen files of `test/c/`, each refused at its line in the one set of words:
+`own_decl.c`, the finding's form, `own_global.c`, `own_member.c`, `own_param.c`, `own_fn.c`, `own_enum.c`,
+`own_walrus.c`, `own_ptr.c`, `own_second.c`, `own_typedef.c`, `own_label.c`, `own_tag.c`, `own_enumtag.c`,
+`own_pattern.c` and `own_form.c`; and `node *own b` of `test/c/run/ownwords.c` an own pointer still. Reader `k169` holds
+ten files of `test/cpp/`, read as C++ by their extension: `own_class.cpp`, `own_alias.cpp`, `own_namespace.cpp`,
+`own_tparam.cpp`, `own_vtparam.cpp`, `own_binding.cpp`, `own_capture.cpp`, `own_concept.cpp`, `own_enumclass.cpp` and
+`own_pack.cpp`. `test/c/run/ownwords.c`, the word where it is the owner's -- a specifier, a qualifier, an own pointer
+parameter with no name before another, an own member, an own array in a struct behind an own pointer --, prints `3` and
+`4` as clang's build of it with `own` defined empty does, as C in the compile gate and as C++ in the C++ gate's list of
+C run fixtures; valgrind finds no error in it. The reader's version is 197.
+
+COCOLOG'S MASTER MOVED DURING THE STEP, by one commit, `b9c48e8`, which changes only its docs -- `CLAUDE.md`,
+`bench/README.md` and `library/async/README.md`. cocolog, its schema and its modules, built over it, are the same
+3.62.3, and this repository's two modules, built over those, are the same bytes as the ones built over `bf956d1`, the
+pin: the nets over `bf956d1` hold for it. The pin moves with the next chain, as `test/toolchain.pins` says. A first
+make, run with no cap and without ZiguratIP's paths, stopped with an error in its cocolog part before it wrote the
+binary, and its modules' part wrote cocolog's modules again from the same sources; the build above, each part capped,
+wrote them all again.
+
+THE NETS GREEN: the flow gate, over the step's last text of the library and of the gate programs; the reader gate 170,
+the compile gate 311, the driver gate 83 and the ccllib gate 379 checks over one fresh HOME -- 20 programs in three
+runs, 118 refused and 12 alone --; the C++ pool of the light fixtures 362 of 362 over libc++ 22, 362 over 21 and 362
+over 18; every other C++ run fixture, 506 of 520, over libc++ 22, since the new checks stand in the rules that read
+every declaration of a program and of each header that it reads -- the 14 others name a need, which the net does not
+meet --; and the C++ gate's later parts by hand -- `classes.cpp`, `templates.cpp`, the C run fixtures that it builds as
+C++, `ownwords.c` among them, and every list of its refusals -- 184 checks. A first run of the nets, over the step's
+first text, which refused the word at fewer places, was stopped after its C gates, GREEN, when the probes of the forms
+beside the finding called for the others.
+
+- `library/ccl_syntax.pl` (the refusal: `ccl_own_words/1`, `ccl_own_named/1`, `ccl_own_refuse/0`, `ccl_own_name_next/2`,
+  `ccl_own_not/1`, `ccl_own_unnamed/2`, `ccl_own_bound/2`, `ccl_binds_own/1`, and their calls in `ccl_specs//8`,
+  `ccl_quals//1`, `ccl_direct//2`, the declarators, the patterns and the rules that read a name; the reader's version).
+- `test/c/own_decl.c`, `own_global.c`, `own_member.c`, `own_param.c`, `own_fn.c`, `own_enum.c`, `own_walrus.c`,
+  `own_ptr.c`, `own_second.c`, `own_typedef.c`, `own_label.c`, `own_tag.c`, `own_enumtag.c`, `own_pattern.c`,
+  `own_form.c`; `test/cpp/own_class.cpp`, `own_alias.cpp`, `own_namespace.cpp`, `own_tparam.cpp`, `own_vtparam.cpp`,
+  `own_binding.cpp`, `own_capture.cpp`, `own_concept.cpp`, `own_enumclass.cpp`, `own_pack.cpp`; `test/c/run/ownwords.c`
+  and `ownwords.expect`; the reader gate's `k168` and `k169`; `test/cpp.sh` (`ownwords` in its list of C run fixtures
+  built as C++).
+- RULES.md (the C reader: `own` a keyword, and the new rule), README.md, HISTORY.md, CLAUDE.md; `module/cicilang.cicili`
+  (0.306).
+
+The module 0.306, the reader 197 and the lowering 170.

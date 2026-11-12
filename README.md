@@ -296,6 +296,10 @@ them, and the jump runs their `defer` blocks (and, in C++, their destructors).
 A jump into a block, or over a declaration, leaves each owner it skipped
 unset on its path (0.138).
 
+`own` is a keyword: no variable, function, type or other name that a program
+declares can be `own`, in C or in C++, and the reader refuses one at its
+line (0.306).
+
 Refused, each naming the statement's line:
 
 | refused as | when |

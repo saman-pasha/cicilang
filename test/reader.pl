@@ -544,6 +544,8 @@ k139 :- check('+ over a pointer to an instance is C\'s pointer arithmetic, == an
       sub_t(bin('>', id(pq), id(pp)), B), sub_t(var(k, _, bin('+', int(2), int(3))), B) )).
 
 op_refused(F, L, M) :- c(F, P), catch(cicilang_ast(P, _), error(macro_error(M0, here(P, L0)), _), true), L0 == L, M0 == M.
+%% a file refused by the reader by name (ccl_refuse/1) at its line L with the words M
+refusal_at(F, L, M) :- c(F, P), catch(cicilang_ast(P, _), error(refusal(M0, here(P, L0)), _), true), L0 == L, M0 == M.
 k140 :- check('an instance\'s operator is refused at its line by name: one its type macro does not define, an rvalue where its address goes, an operand of another type, no instance on the left, >> into no lvalue, a type whose word names no function',
     ( op_refused('op_undefined.c', 5, 'the operator * of pt_double is not defined: its type macro defines no pt_double_mul'),
       op_refused('op_rvalue.c', 6, 'the operator == of pt_double takes the address of its operand, which is no lvalue: name it first'),
@@ -778,6 +780,28 @@ k167 :- check('a typed call by name over an instance is the call of its function
       sub_t(deref(call(id(pair_int_int_get_1), [addr(deref(call(id(tuple_pair_int_int_int_get_0), [addr(id(n))])))])), B),
       sub_t(return(_, bin(>, bin(<, id(lo), int(0)), id(x))), B),
       op_refused('typedcall_none.c', 5, 'tuple_int_double has no function get<2>: its type macro defines no tuple_int_double_get_2') )).
+
+%% `own' IS A KEYWORD, AND NO NAME THAT A PROGRAM DECLARES (0.306; the Ambitious session's finding 37): test/c/own_decl.c,
+%% the finding's `int own = 1;' -- `syntax error: could not read this item' at the function's first line --, and
+%% own_*.c, each other place of a name in C: an object at file scope, a member, a parameter, a function, an enumerator,
+%% a name of `:=', a pointer after `*', a second declarator, a typedef's name, a label, a struct's tag, an enum's tag, a
+%% pattern's name and the name of `name { }', each refused at its line in one set of words; test/c/run/ownwords.c
+%% builds the word where it is the owner's, and own_name.c (k162) keeps the words of a use. k169: test/cpp/own_*.cpp,
+%% the places of a name that C++ adds, read as C++ by their extension
+k168 :- check('own, a keyword, is refused at its line wherever a C program gives it as a name: a local, an object at file scope, a member, a parameter, a function, an enumerator, a name of :=, a pointer, a second declarator, a typedef, a label, a struct\'s and an enum\'s tag, a pattern\'s name and the name of name { }; the owner\'s word reads as it did',
+    ( own_words(W),
+      forall(member(F-L, ['own_decl.c'-5, 'own_global.c'-3, 'own_member.c'-3, 'own_param.c'-3, 'own_fn.c'-3, 'own_enum.c'-3,
+                          'own_walrus.c'-4, 'own_ptr.c'-5, 'own_second.c'-4, 'own_typedef.c'-3, 'own_label.c'-5,
+                          'own_tag.c'-3, 'own_enumtag.c'-3, 'own_pattern.c'-6, 'own_form.c'-3]),
+             refusal_at(F, L, W)),
+      fn_body('run/ownwords.c', main, B), sub_t(var(b, ptr([own], _), _), B) )).
+k169 :- check('in C++ own is refused at its line as a class, an alias, a namespace, a template\'s type and value parameter, a structured binding, an init-capture, a concept, a scoped enumeration and a function parameter pack',
+    ( own_words(W),
+      forall(member(F-L, ['own_class.cpp'-3, 'own_alias.cpp'-3, 'own_namespace.cpp'-3, 'own_tparam.cpp'-3,
+                          'own_vtparam.cpp'-3, 'own_binding.cpp'-6, 'own_capture.cpp'-5, 'own_concept.cpp'-3,
+                          'own_enumclass.cpp'-3, 'own_pack.cpp'-3]),
+             ( atom_concat('../cpp/', F, P), refusal_at(P, L, W) )) )).
+own_words('`own\' is a keyword, the owner\'s word, and cannot name a variable, a function, a type or any other thing that the program declares: write another name').
 
 k110 :- check('a type macro that fails, two instances that one name names, and a typed call of a macro with no typed form are refused at the use',
     ( c('tmacro_fail.c', P1), c('tmacro.pl', M), catch(cicilang_ast(P1, _), error(E1, here(P1, 3, in_macro(type_none, M))), true), E1 == macro_failed(none, [base([], [int])]),
@@ -1095,6 +1119,9 @@ t_checks :-
     k166,
     section('a typed call by name over an instance (0.305)'),
     k167,
+    section('the word own where only a name can stand (0.306)'),
+    k168,
+    k169,
     section('the preprocessor, in cocolog: a header raw cannot take'),
     k83,
     section('the lexer, native: ccl_lex_native/6 token for token with the DCG'),

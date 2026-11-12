@@ -2499,8 +2499,9 @@ that changes a rule edits the rule here, in its topic, and writes its entry in `
   `k73`. (M2)
 - `own` is a qualifier read in the specifiers, on the pointee as C has it: `own char *p` is `ptr([], base([own],
   [char]))`. `move(E)` is a node, read at the macro door (`ccl_call_or_macro/3`). Reader `k75`, `k76`. (M3)
-- `own` is a keyword in both languages, so a C++ member or variable named `own` does not read: the qualifier takes it
-  (found when a fixture of 0.121 used it, and renamed). (0.121)
+- `own` is a keyword in both languages, so no name that a program declares can be `own`: a declaration reads the word as
+  the owner's (found when a fixture of 0.121 named a C++ member so, and renamed), and since 0.306 the reader refuses it
+  at the name's line, in C and in C++ (the bullet after the next). (0.121, 0.306)
 - **`own` WHERE ONLY A NAME CAN STAND IS REFUSED BY NAME** (0.290; `ccl_primary_//3`, `ccl_refuse/1`): `static int
   get(const v *own) { return own->a; }` declares an own pointer with no name -- `own` is the qualifier of the
   parameter's type --, and the body's `own->a` named nothing. The first error was the safe part's, `a borrow consumed:
@@ -2512,6 +2513,42 @@ that changes a rule edits the rule here, in its topic, and writes its entry in `
   own refusal: the driver prints `M` at the line with no `macro:` before it, which `ccl_iop_fail/1`'s messages have, and
   it goes out of a macro's expansion as a macro's own error does (`ccl_macro_ball/1`). Reader `k162`, over
   `test/c/own_name.c`. (0.290)
+- **`own` IS A KEYWORD, AND NO NAME THAT A PROGRAM DECLARES** (0.306; the Ambitious session's finding 37;
+  `ccl_own_words/1`, `ccl_own_named/1`, `ccl_own_not/1`, `ccl_own_unnamed/2`, `ccl_own_bound/2`): the word is the
+  owner's in a declaration -- a specifier, `own int *p`, or a pointer's qualifier, `int *own p` --, so a declaration
+  that gave it as a name had no name, and failed far from it or late: `int own = 1;` in a function was `syntax error:
+  could not read this item` at the function's first line; `int own;`, `own := 5`, a parameter, an enumerator and a
+  pattern's name were taken, and the first use was refused in 0.290's words of a parameter; a member was `not lowered
+  yet: phase(check)` and a function `undeclared(own)` at its call; a typedef, a label, a tag, a namespace and a concept
+  were taken. EACH IS REFUSED AT ITS LINE, in C and in C++, in one set of words: `` `own' is a keyword, the owner's
+  word, and cannot name a variable, a function, a type or any other thing that the program declares: write another
+  name``. The places: after the specifiers, `own` before `=`, `;`, `,`, `[`, `:` -- a bit-field, a label --, `)`, `>` --
+  a template's value parameter -- or a function's `(` (`ccl_own_name_next/2`, a clause of `ccl_specs//8`); after `*`,
+  before `=`, `;`, `[`, `:` or a function's `(` (`ccl_quals//1`); a declarator's direct name (`ccl_direct//2`: `int x,
+  own = 2`); a declarator of an object or a member whose own pointer has no name (`ccl_own_unnamed/2`: `int *own, *p`,
+  `int (*own)(void)`, `struct s { int *own; }`); a pattern's binding, by position, by field or nested, at its item's
+  line (`ccl_own_bound/2`, in `ccl_destructure/4`, `ccl_bindings_decl/5` and the bindings of a condition and of a range
+  `for`: `{ own, b } := p`, `auto [own, b] = p`); and the name that a rule reads (`ccl_own_not/1`) -- a tag after
+  `struct`, `union`, `class` or `enum`, a scoped enumeration's name, the name of `name { }`, the name before `:=`, an
+  enumerator, the name after C++'s `auto`, an alias at file scope, in a class, in a block and in a `for`'s first part, a
+  namespace, a nested namespace's segment and a namespace alias, a concept, a template's type parameter, constrained or
+  not, and its template template parameter, a pack of values or of a function's parameters, and an init-capture. EACH
+  CHECK STANDS AFTER THE CUT THAT COMMITS ITS READING: before it, the check would refuse `own int *p;` at file scope,
+  which `name { }` tries first, and a block `{ own int *p = q; }`, which a pattern tries first. A PARAMETER `T *own`
+  WITH NO NAME IS AN OWN POINTER STILL, in a definition, in a prototype and before another parameter, `int sum(node
+  *own, int n);`, and a use of `own` in a body is 0.290's refusal (above). A MACRO NAMED `own` IS THE PREPROCESSOR'S,
+  which runs first, and the reader sees no `own` where it expands: `#define own` takes the owner's word out of the text
+  after it, as clang's build with `-Down=` does, and the pointers after it are plain -- the safe part holds them to its
+  rules still, `plain pointer not consumed` where one leaks --; `#undef own` gives the word back, and `#define own 2`
+  makes each `own` after it a 2. No header of libc++ 18, 21 or 22, nor of `/usr/include`, has `own` as a name. Reader
+  `k168` over fifteen files of `test/c/` -- `own_decl.c`, the finding's form, `own_global.c`, `own_member.c`,
+  `own_param.c`, `own_fn.c`, `own_enum.c`, `own_walrus.c`, `own_ptr.c`, `own_second.c`, `own_typedef.c`, `own_label.c`,
+  `own_tag.c`, `own_enumtag.c`, `own_pattern.c` and `own_form.c` --, and `k169` over ten of `test/cpp/` --
+  `own_class.cpp`, `own_alias.cpp`, `own_namespace.cpp`, `own_tparam.cpp`, `own_vtparam.cpp`, `own_binding.cpp`,
+  `own_capture.cpp`, `own_concept.cpp`, `own_enumclass.cpp` and `own_pack.cpp` --, each refused at its line;
+  `test/c/run/ownwords.c`, the word where it is the owner's -- a specifier, a qualifier, a parameter with no name before
+  another, an own member, an own array behind an own pointer --, prints what clang's build prints with `own` defined
+  empty, as C and, in the C++ gate, as C++; reader 197. (0.306)
 - **`x tie y` is the tie** (owner's rule, and the spelling): x lives within y. `tie` is CONTEXTUAL, read only where a
   tie can stand and only before a name (`ccl_id(tie), ccl_id(Y)`), so `std::tie` and a C variable `tie` are untouched.
   `ccl_tie//2` reads it after a declarator (init-declarator, member, parameter, function definition before `{`),
