@@ -859,7 +859,8 @@ cpp_call(Ctx, member(X0, M), As, E) :- !,
         ( XT \== unknown, cpp_class_of_type(XT, XC0), cpp_obj_const(X, const), cpp_class_method(XC0, M, _, _, _, _) -> cpp_refuse(0, non_const_member_on_const(M, XC0))   % a NON-CONST member of a const object is no candidate ([over.match.funcs]/5; 0.127): `c.bump()' over a by-value capture in a lambda that is not mutable
         ; XT \== unknown, ccl_members_of(XT, XMs), \+ memberchk(member(_, M, _), XMs), \+ ccl_anon_route(XT, M, _, _), \+ ( cpp_class_of_type(XT, XC), cpp_data_member(XC, M, _) ) -> cpp_refuse(0, no_member(M, XT))   % (a PLAIN struct's own member is one, 0.168: `h.fp(k)' over `struct H { void (*fp)(int &); }' was refused no_member(fp, H)) a KNOWN type with no such member: a decltype asking for it must refuse, which is the SFINAE that rejects a detection
         ; cpp_scalar_object(XT) -> cpp_refuse(0, no_member(M, XT))                       % ... and a SCALAR has no member at all (0.127): `decltype(c.size(), 0)' over an int held, and the lowering refused the body
-        ; E = call(member(X, M), As) )                                                   % ... but a DATA member of function-pointer type is called through, as C calls one
+        ; cpp_callee_count_wrong(member(X, M), As, W) -> cpp_refuse_prog(W)               % ... and one called with another count of arguments than its type's (0.302)
+        ; E = call(member(X, M), As) )                                                % ... but a DATA member of function-pointer type is called through, as C calls one
     ;   atom(M), ccl_type_of(X, XT0), ccl_unref(XT0, XT), cpp_scalar_object(XT) -> cpp_refuse(0, no_member(M, XT))
     ;   E = call(member(X, M), As) ).
 cpp_call(Ctx, arrow(X0, M), As, E) :- !,
@@ -871,6 +872,7 @@ cpp_call(Ctx, arrow(X0, M), As, E) :- !,
         ;   Hops \== [], cpp_hops_class(C, Hops, HC), cpp_slot_call(HC, M, N, Name, Slot) -> cpp_hops(deref(X), Hops, B), cpp_dispatch(Name, addr(B), HC, Slot, As1, E)   % a virtual method of a BASE the class does not name: that base's table (a virtual base's, the diamond's final overrider behind it)
         ;   ( Hops == [] -> P = X ; cpp_hops(deref(X), Hops, B), P = addr(B) ), cpp_object_arg(Name, P, Obj), cpp_ref_args_of(Name, As1, As2), E = call(id(Name), [Obj|As2]) )
     ;   atom(M), cpp_scalar_arrow(X, XT) -> cpp_refuse(0, no_member(M, XT))   % `p->f()' over a pointer to a scalar, or over no pointer at all (0.127)
+    ;   cpp_callee_count_wrong(arrow(X, M), As, W) -> cpp_refuse_prog(W)   % a pointer member called with another count of arguments than its type's (0.302)
     ;   E = call(arrow(X, M), As) ).
 cpp_call(Ctx, id(M), As, E) :- Ctx \== none, \+ cpp_local(M), length(As, N), cpp_method_on_ptr(id(this), Ctx, M, As, Name, Hops), !,
     cpp_check_access(Ctx, Ctx, M), cpp_fill_defaults(Name, As, As1),
@@ -994,6 +996,8 @@ cpp_call(_, scoped(Path, M), As, _) :- atom(M), cpp_scope_class(Path, C), \+ cpp
 cpp_call(_, id(F), As, E) :- !, ( cpp_fn_best(F, As, Ps, D) -> cpp_free_call(F, Ps, D, As, E)   % the overload the arguments fit best; a name with one definition keeps it, as C does
     ;   cpp_deleted_hdr_fn(F) -> cpp_refuse(0, deleted_function(F))   % A HEADER'S DELETED FUNCTION, a poison pill (0.219, cpp_deleted_hdr_fn/1)
     ;   cpp_libq_elsewhere(F) -> cpp_refuse(0, no_member_of_std(F))   % ... AND A NAME THAT std DECLARES NOTHING OF HERE (0.221, cpp_object_elsewhere/2)
+    ;   cpp_no_overload_fits(F, As) -> cpp_refuse_prog(no_matching_call(F))   % ... AND A FUNCTION THAT NO OVERLOAD OF FITS BY THE COUNT, OR BY AN INTEGER AND A POINTER (0.302, cpp_no_overload_fits/2)
+    ;   cpp_callee_count_wrong(id(F), As, W) -> cpp_refuse_prog(W)   % ... and a local pointer to a function, or a C function, called with another count (0.302)
     ;   cpp_use_cdecl(F), cpp_fill_defaults(F, As, As1), cpp_ref_args(F, As1, As2), E = call(id(F), As2) ).   % a C function a header declares in C++'s words, its types resolved (0.227, cpp_use_cdecl/1)
 cpp_call(Ctx, ccast(_, R, X0), As, E) :- ( R = ref(_, T) ; R = rref(_, T) ), cpp_this_form(X0, X),   % A CALL THROUGH A CAST TO A REFERENCE CALLS THE OPERAND ([expr.static.cast]: the cast names the object, an lvalue or an xvalue; 0.93): libc++ 18's `__invoke' writes `static_cast<_Fp &&>(__f)(static_cast<_Args &&>(__args)...)', and the callee reached the lowering as the cast itself
     (   cpp_class_of_type(T, C)
@@ -1001,7 +1005,33 @@ cpp_call(Ctx, ccast(_, R, X0), As, E) :- ( R = ref(_, T) ; R = rref(_, T) ), cpp
         ( D == C -> cpp_call(Ctx, X, As, E) ; cpp_base_hops(D, C, Hops0), cpp_base_operator_call(X, C, Hops0, As, E) )
     ;   cpp_call(Ctx, X, As, E) ), !.
 cpp_call(Ctx, F, As, E) :- ( F = move(X0) -> true ; cpp_std_move_call(F, X0) ), !, cpp_call(Ctx, X0, As, E).   % ... AND THROUGH `std::move' THE OBJECT IT NAMES (0.206): libc++'s `basic_string::resize_and_overwrite' calls `std::move(__op)(data(), __n)', and the call of a `move' reached the lowering
-cpp_call(Ctx, F, As, E) :- cpp_expr(Ctx, F, F1), ( cpp_temp_call(F1, As, E0) -> E = E0 ; cpp_object_unfit(F1, As, C) -> cpp_refuse(0, no_call_operator_fits(C)) ; cpp_callee_params(F1, Ps), cpp_callee_mismatch(Ps, As) -> cpp_refuse(0, argument_mismatch) ; cpp_callee_params(F1, Ps), cpp_ref_args_(Ps, As, As1) -> E = call(F1, As1) ; E = call(F1, As) ).   % ... and A PLAIN STRUCT HANDED TO A SCALAR PARAMETER through a function pointer or reference is refused (0.127), the detection's answer; AN OBJECT WHOSE operator() NOTHING FITS too (0.221, cpp_object_unfit/3)
+cpp_call(Ctx, F, As, E) :- cpp_expr(Ctx, F, F1), ( cpp_temp_call(F1, As, E0) -> E = E0 ; cpp_object_unfit(F1, As, C) -> cpp_refuse(0, no_call_operator_fits(C)) ; cpp_callee_count_wrong(F1, As, W) -> cpp_refuse_prog(W) ; cpp_callee_params(F1, Ps), cpp_callee_mismatch(Ps, As) -> cpp_refuse(0, argument_mismatch) ; cpp_callee_params(F1, Ps), cpp_ref_args_(Ps, As, As1) -> E = call(F1, As1) ; E = call(F1, As) ).   % ... and A PLAIN STRUCT HANDED TO A SCALAR PARAMETER through a function pointer or reference is refused (0.127), the detection's answer; AN OBJECT WHOSE operator() NOTHING FITS too (0.221, cpp_object_unfit/3)
+%% A CALL THAT NO OVERLOAD OF THE NAME FITS BY THE COUNT OF ITS ARGUMENTS, OR BY AN INTEGER AND A POINTER, IS REFUSED in the
+%% program's code (0.302; [over.match.viable]/2-3, [conv.ptr]/1, clang++'s "no matching function for call to"): the name has
+%% functions noted, no local object of the name stands in for them (cpp_fn_best/4 found none that fit), and each candidate
+%% that is not hidden takes another count, or has a parameter that is a pointer for an integer argument that is no null
+%% pointer constant, or an integer (no bool) for a pointer, an array or a function (cpp_int_ptr_misfit/2). `f(1, 2, 3)' of `int
+%% f(int, int)' went on as C takes a call, its third argument a variadic tail, and `g(5)' of `int g(char *)' passed the pointer
+%% 5 -- the C beside it refuses both (ir_arg_count/4, ir_int_ptr_check/4). ANOTHER MISFIT GOES ON TO THE ROAD AFTER IT, which
+%% converts a generic lambda to a function pointer (`genericfp.cpp') and refuses a struct for a scalar in its own words, `no
+%% conversion from'; a library body's call goes on as it went
+cpp_no_overload_fits(F, As) :- nb_getval('$cpp_in_lib', no), atom(F), \+ cpp_local(F), catch('$cpp_fn'(F, _, _, _, _), _, fail), length(As, N),
+    \+ ( catch('$cpp_fn'(F, _, Ps, _, O), _, fail), \+ cpp_fn_hidden(F, O, As), cpp_fn_arity_fits(Ps, O, N), \+ cpp_int_ptr_misfit(Ps, As) ), !.
+cpp_int_ptr_misfit([P|Ps], [A|As]) :-
+    (   ( P = param(PT0, _) ; P = param(PT0, _, _) ), catch(cpp_int_ptr_pair(PT0, A), _, fail) -> true
+    ;   cpp_int_ptr_misfit(Ps, As) ).
+cpp_int_ptr_pair(PT0, A) :- cpp_param_ref(PT0, PT), \+ cpp_null_to_pointer(PT, A), ccl_resolve_type(PT, RT), cpp_arg_type(A, AT), AT \== unknown,
+    ccl_unref(AT, AT1), ccl_resolve_type(AT1, RA),
+    (   RT = base(_, S), ccl_is_integer(RT), \+ memberchk(bool, S), \+ memberchk('_Bool', S), ( RA = ptr(_, _) ; RA = arr(_, _) ; RA = fn(_, _, _) )
+    ;   ( RT = ptr(_, _) ; RT = arr(_, _) ), ccl_is_integer(RA) ), !.
+%% A CALL THROUGH A POINTER OR A REFERENCE TO A FUNCTION OF ANOTHER COUNT OF ARGUMENTS THAN ITS TYPE'S (0.302; [expr.call]/7) is
+%% refused in the program's code in clang++'s words, which are C's (ir_arg_count/4): `g(1)' of `int (*g)(int, int)' passed
+%% nothing for the second, and a struct's pointer member called with one too many passed it on
+cpp_callee_count_wrong(F1, As, W) :- nb_getval('$cpp_in_lib', no), catch(ccl_type_of(F1, T0), _, fail), T0 \== unknown, ccl_unref(T0, T1), ccl_resolve_type(T1, T2),
+    ( T2 = ptr(_, FT) -> true ; FT = T2 ), catch(ccl_resolve_type(FT, fn(_, Ps, V)), _, fail), length(Ps, N), length(As, M),
+    (   ( V == true ; nonvar(V), V = q(V0, _), V0 == true ) -> M < N, W = too_few_args_at_least(N, M)
+    ;   M > N -> W = too_many_args(N, M)
+    ;   M < N, W = too_few_args(N, M) ).
 %% A HEADER'S DELETED FUNCTION CALLED, and no overload that fits (0.219): libc++'s poison pill, `void strong_order() =
 %% delete;' inside std::__strong_order (libc++ 21; and weak_order, partial_order, iter_move kin), stands where ordinary lookup
 %% would find the object of the outer namespace, and the call is ill-formed but by argument-dependent lookup -- a refusal,

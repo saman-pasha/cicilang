@@ -1106,11 +1106,20 @@ ccl_compat_canon(T, K) :- ccl_resolve_type(T, R), ccl_strip_quals(R, R1), ccl_ty
 ccl_canon_compat(K, K) :- !.
 ccl_canon_compat(arr(N1, E1), arr(N2, E2)) :- !, ( integer(N1), integer(N2) -> N1 =:= N2 ; true ), ccl_canon_compat(E1, E2).
 ccl_canon_compat(ptr(A), ptr(B)) :- !, ccl_canon_compat(A, B).
+ccl_canon_compat(fn(R1, P1, V1), fn(R2, P2, V2)) :- ( V1 == q(false, [noproto]) ; V2 == q(false, [noproto]) ), !, ccl_canon_compat(R1, R2), ccl_noproto_compat(P1, V1, P2, V2).
 ccl_canon_compat(fn(R1, P1, V), fn(R2, P2, V)) :- !, ccl_canon_compat(R1, R2), ccl_canon_compat_list(P1, P2).
 ccl_canon_compat(base(Q, [enum(Tag)]), base(Q, S)) :- !, S \= [enum(_)], ccl_enum_compat_specs(Tag, S).
 ccl_canon_compat(base(Q, S), base(Q, [enum(Tag)])) :- S \= [enum(_)], ccl_enum_compat_specs(Tag, S).
 ccl_canon_compat_list([], []).
 ccl_canon_compat_list([A|As], [B|Bs]) :- ccl_canon_compat(A, B), ccl_canon_compat_list(As, Bs).
+%% A FUNCTION TYPE WITH NO PROTOTYPE (0.302, ccl_empty_params/1) and another of a compatible result (C17 6.7.6.3/15): two with no
+%% prototype are compatible, and one with a prototype where it has no ellipsis and each parameter keeps its type under the
+%% default promotions -- no char, short, _Bool or float; a K&R definition's parameters are the prototype's, one by one
+ccl_noproto_compat(P1, V1, P2, V2) :- V1 == V2, !, ( ( P1 == [] ; P2 == [] ) -> true ; ccl_canon_compat_list(P1, P2) ).
+ccl_noproto_compat(P1, V1, P2, V2) :- ( V1 == q(false, [noproto]) -> PK = P1, P = P2, V = V2 ; PK = P2, P = P1, V = V1 ), V \== true,
+    ( PK == [] -> forall(member(K, P), ccl_canon_promoted(K)) ; ccl_canon_compat_list(PK, P) ).
+ccl_canon_promoted(base(_, S)) :- !, \+ memberchk(float, S), \+ memberchk(char, S), \+ memberchk(short, S), \+ memberchk('_Bool', S).
+ccl_canon_promoted(_).
 ccl_enum_compat_specs(Tag, S) :- ccl_tag(Tag, Es), is_list(Es),
     (   memberchk(enum_base(B), Es) -> ccl_type_canon(B, base(_, S0))
     ;   ( member(enumerator(N, _), Es), ccl_enum_value(N, V), ( integer(V) -> V < 0 ; true ) ) -> S0 = [int]

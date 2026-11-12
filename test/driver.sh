@@ -184,6 +184,46 @@ check "a floating value where a pointer is needed, and a pointer where a floatin
 fpp2.c:3: error: no conversion from 'char *' to 'double'
 fpp3.c:3: error: no conversion from 'char *' to 'double'
 fpp4.c:3: error: no conversion from 'double' to 'char *'"
+# THE AMBITIOUS PROGRAM'S FINDINGS 33 AND 34 (0.302): an initializer that gives more than its object holds, a call of another count
+# of arguments than its prototype's, an integer and a pointer converted as if by assignment -- each refused in clang's words at its
+# line; and the command's verdict, which an error that cocolog reports past the inputs took for a success
+check "an initializer that gives more than its object holds is refused in clang's words at its line (0.302): an element past an array's bound, here and at file scope (finding 33: the count went below zero and the stack was gone), a designator past the bound and below zero, a member past a struct's last, a union's second, a scalar's second value, a literal longer than its array, here and at file scope" "$(n=0; for body in 'int main(void) { int a[2] = {1, 2, 3}; return a[1]; }' 'static const struct { const char *n; int v; } defs[2] = { {"a", 0}, {"b", 1}, {"c", 0} }; int main(void) { return defs[1].v; }' 'int main(void) { int a[2] = {[5] = 1}; return a[0]; }' 'static int g[2] = {[-1] = 1}; int main(void) { return g[0]; }' 'struct p { int a; }; int main(void) { struct p s = {1, 2}; return s.a; }' 'union u { int a; float b; }; static union u g = {1, 2}; int main(void) { return g.a; }' 'int main(void) { int x = {1, 2}; return x; }' 'int main(void) { char s[2] = "abc"; return s[0]; }' 'static char g[2] = "abc"; int main(void) { return g[0]; }'; do n=$((n + 1)); printf '%s\n' "$body" > init$n.c; "$CICILI" -fsyntax-only init$n.c 2>&1 | head -1; done)" "init1.c:1: error: excess elements in array initializer
+init2.c:1: error: excess elements in array initializer
+init3.c:1: error: array designator index (5) exceeds array bounds (2)
+init4.c:1: error: array designator value '-1' is negative
+init5.c:1: error: excess elements in struct initializer
+init6.c:1: error: excess elements in union initializer
+init7.c:1: error: excess elements in scalar initializer
+init8.c:1: error: initializer-string for char array is too long
+init9.c:1: error: initializer-string for char array is too long"
+check "... and in C++, where a literal's terminator counts (0.302)" "$(n=0; for body in 'int main() { char s[3] = "abc"; return s[0]; }' 'int main() { int a[2] = {1, 2, 3}; return a[0]; }'; do n=$((n + 1)); printf '%s\n' "$body" > initpp$n.cpp; "$ROOT/bin/cicilang++" -c initpp$n.cpp -o initpp$n.o 2>&1 | head -1; done)" "initpp1.cpp:1: error: initializer-string for char array is too long, array size is 3 but initializer has size 4 (including the null terminating character)
+initpp2.cpp:1: error: excess elements in array initializer"
+check "a call of another count of arguments than its prototype's is refused in clang's words at its line (0.302): too many, too few (finding 34), an ellipsis's named parameters, a parameter named, through a pointer, (void), a K&R definition's own words, a prototype kept by a later () declaration" "$(n=0; for body in 'static int f(int a, int b) { return a + b; } int main(void) { return f(1, 2, 3); }' 'int pick(const char *family, int bold, int italic); int main(void) { return pick("serif", 1); }' 'int printf(const char *fmt, ...); int main(void) { return printf(); }' 'static int one(int n) { return n; } int main(void) { return one(); }' 'static int one(int n) { return n; } int main(void) { return one(1, 2); }' 'static int g(int a, int b) { return a + b; } int main(void) { int (*p)(int, int) = g; return p(1); }' 'static int v(void) { return 0; } int main(void) { return v(1); }' 'int add(a, b) int a; int b; { return a + b; } int main(void) { return add(1); }' 'int f(int a, int b); int f(); int main(void) { return f(1); }' 'static int s(int a, int b, ...) { return a + b; } int main(void) { return s(1); }'; do n=$((n + 1)); printf '%s\n' "$body" > callc$n.c; "$CICILI" -std=c17 -fsyntax-only callc$n.c 2>&1 | head -1; done)" "callc1.c:1: error: too many arguments to function call, expected 2, have 3
+callc2.c:1: error: too few arguments to function call, expected 3, have 2
+callc3.c:1: error: too few arguments to function call, at least argument 'fmt' must be specified
+callc4.c:1: error: too few arguments to function call, single argument 'n' was not specified
+callc5.c:1: error: too many arguments to function call, expected single argument 'n', have 2 arguments
+callc6.c:1: error: too few arguments to function call, expected 2, have 1
+callc7.c:1: error: too many arguments to function call, expected 0, have 1
+callc8.c:1: error: too few arguments in call to 'add'
+callc9.c:1: error: too few arguments to function call, expected 2, have 1
+callc10.c:1: error: too few arguments to function call, expected at least 2, have 1"
+check "an integer and a pointer converted as if by assignment are refused in clang's words at the line (0.302): an argument each way, an initializer, an assignment, a result each way, an enum parameter" "$(n=0; for body in 'static int f(int a) { return a; } int main(void) { char *p = "x"; return f(p); }' 'static int g(char *p) { return p == 0; } int main(void) { return g(5); }' 'int main(void) { const char *p = "x"; int x = p; return x == 0; }' 'int main(void) { char *p = "x"; long x; x = p; return x == 0; }' 'static int r(char *p) { return p; } int main(void) { return r("x") == 0; }' 'static char *r(void) { return 5; } int main(void) { return r() == 0; }' 'enum e { A }; static int h(enum e v) { return v; } int main(void) { char *p = "x"; return h(p); }'; do n=$((n + 1)); printf '%s\n' "$body" > intptr$n.c; "$CICILI" -fsyntax-only intptr$n.c 2>&1 | head -1; done)" "intptr1.c:1: error: incompatible pointer to integer conversion passing 'char *' to parameter of type 'int'
+intptr2.c:1: error: incompatible integer to pointer conversion passing 'int' to parameter of type 'char *'
+intptr3.c:1: error: incompatible pointer to integer conversion initializing 'int' with an expression of type 'const char *'
+intptr4.c:1: error: incompatible pointer to integer conversion assigning to 'long' from 'char *'
+intptr5.c:1: error: incompatible pointer to integer conversion returning 'char *' from a function with result type 'int'
+intptr6.c:1: error: incompatible integer to pointer conversion returning 'int' from a function with result type 'char *'
+intptr7.c:1: error: incompatible pointer to integer conversion passing 'char *' to parameter of type 'enum e'"
+check "... and in C++, a call that no overload fits by its count or by an integer and a pointer, in clang++'s words, another misfit in the words of the road after the overloads, and a call through a pointer of another count (0.302)" "$(n=0; for body in 'static int f(int a, int b) { return a + b; } int main() { return f(1, 2, 3); }' 'static int g(char *p) { return p == 0; } int main() { return g(5); }' 'static int f(int a, int b = 2) { return a * b; } int main() { return f(); }' 'static int f(int a, int b) { return a + b; } int main() { int (*g)(int, int) = f; return g(1); }' 'struct S { int (*op)(int); }; static int one(int a) { return a; } int main() { S s = {one}; return s.op(1, 2); }' 'static int f(int a, int b) { return a + b; } static int f(char *p) { return p != 0; } int main() { return f(5); }' 'static long f(long v) { return v; } int main() { int x = 3; return (int)f(&x); }' 'struct S { int a; }; static int f(int v) { return v; } int main() { S s = {1}; return f(s); }'; do n=$((n + 1)); printf '%s\n' "$body" > callpp$n.cpp; "$ROOT/bin/cicilang++" -c callpp$n.cpp -o callpp$n.o 2>&1 | head -1; done)" "callpp1.cpp:1: error: no matching function for call to 'f'
+callpp2.cpp:1: error: no matching function for call to 'g'
+callpp3.cpp:1: error: no matching function for call to 'f'
+callpp4.cpp:1: error: too few arguments to function call, expected 2, have 1
+callpp5.cpp:1: error: too many arguments to function call, expected 1, have 2
+callpp6.cpp:1: error: no matching function for call to 'f'
+callpp7.cpp:1: error: no matching function for call to 'f'
+callpp8.cpp:1: error: no conversion from 'S' to 'int'"
+check "the verdict is the driver's own line (0.302): an error that cocolog reports past the inputs fails the build, where the verdict's text in cocolog's trace of the goals left to run made it end with exit 0, no output file and no word" "$(mkdir -p fakecoco && printf '#!/bin/sh\necho "ERROR: ?-: a report raised an error"\necho "ERROR:   then _G236=:=0->write('"'"'cicilang: ok'"'"');write('"'"'cicilang: '"'"'),write(_G236),write('"'"' error(s)'"'"')"\necho "false."\n' > fakecoco/cocolog && chmod +x fakecoco/cocolog && printf 'int main(void) { return 0; }\n' > fakeok.c && COCOLOG="$PWD/fakecoco" "$CICILI" --no-kb fakeok.c -o fakeok > /dev/null 2>&1; echo "exit $?")" "exit 1"
 # THE AMBITIOUS PROGRAM'S FINDINGS (0.290): a macro file's header under a relative -I with the program in another directory; an
 # output file whose directory is not there; a header that was not read to its end, and a file that an #include of the program
 # does not find, named under the build's error

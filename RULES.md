@@ -1136,12 +1136,13 @@ that changes a rule edits the rule here, in its topic, and writes its entry in `
 ### Diagnostics
 
 - A diagnostic is clang's `file:line: error: what` (`dr_error/3`). `dr_report/2` hands the error term to
-  `once(dr_diag/3)`, one clause per term; `once/1` because the callers' recovery fails after the report. An error on a
-  macro-expanded line gets `note: expanded from macro ...` (`dr_remember_expansions/1`); an error inside a macro gets a
-  note that names the macro's file (`dr_note_macro`). The reader's own refusal, `refusal(M, here(F, L))`
-  (`ccl_refuse/1`, 0.290), is printed as `M` at its line, with no `macro:` before it, under the name of its own file: a
-  header's at the header's line (0.298), where the user's file's name stood with the header's line. (M1b, M4, 0.290,
-  0.298)
+  `once(dr_diag/3)`, one clause per term, inside a catch: a report that raises an error of its own counts its error
+  still, both said as they are (`dr_report_failed/3`, 0.302); `once/1` because the callers' recovery fails after the
+  report. An error on a macro-expanded line gets `note: expanded from macro ...` (`dr_remember_expansions/1`); an error
+  inside a macro gets a note that names the macro's file (`dr_note_macro`). The reader's own refusal, `refusal(M,
+  here(F, L))` (`ccl_refuse/1`, 0.290), is printed as `M` at its line, with no `macro:` before it, under the name of its
+  own file: a header's at the header's line (0.298), where the user's file's name stood with the header's line. (M1b,
+  M4, 0.290, 0.298, 0.302)
 - **A HEADER THAT WAS NOT FOUND, NOT READ, OR NOT READ TO ITS END, IS NAMED WHERE THE BUILD FAILS** (0.290;
   `dr_unread_notes/2`, `dr_missing_in/3`, `dr_unread_in/3`): the include layer goes on over a file that it does not find
   (`missing`), over a header that no read takes (`unreadable`) and over one whose read stopped (`partial`), with no
@@ -1171,7 +1172,11 @@ that changes a rule edits the rule here, in its topic, and writes its entry in `
   `cicilang: ...` lines (but `cicilang: ok`) and `unit(...)` lines go to stdout. All else is DROPPED; under `-E` the
   text passes. (0.44, 0.93)
 - The exit status is 0 on `cicilang: ok` and 1 on `cicilang: N error(s)`. Else it is 1, after up to three `ERROR` or
-  `error` lines prefixed `cicilang: `. (M4)
+  `error` lines prefixed `cicilang: `. THE VERDICT IS THE DRIVER'S OWN LINE (0.302): a line that ends with it, and no
+  line of cocolog's `ERROR` report -- whose trace lists the goals that were left to run, `write('cicilang: ok')` among
+  them. The command matched the text anywhere in the answer, so an error raised past the inputs (a report that raised
+  one of its own: `atomic_list_concat/2` over a type the speller left as a term) ended the build with exit 0, no output
+  file and no word. The driver gate runs the command over a cocolog that prints such a trace. (M4, 0.302)
 - So a library debug `write` must start its line with `cicilang: `. A trace (`nb_setval('$cpp_trace', yes)`, or
   `CCL_IR_TRACE=1` for each emitted IR line) needs cocolog called directly. (0.90)
 - Under `'$ccl_why'`, which only `test/why.sh`'s program sets, the run ends at its first error: the driver's five
@@ -2265,8 +2270,23 @@ that changes a rule edits the rule here, in its topic, and writes its entry in `
   own alignment kept, as clang has it (`ccl_place_free/2`, 0.203: `__typeof__(q.i)` of `int i __attribute__((packed))`
   was aligned at one; `packlead.c`). `typeof(K)` of an object is its expression (`ccl_typeof_type/1`). (0.93)
 - A K&R definition (C 6.9.1/13) is read as its prototype (`ccl_knr_ids`, `ccl_knr_decls`, `ccl_knr_params`,
-  `ccl_knr_adjust`): an undeclared parameter is `int`, an array a pointer, a `float` a `double`.
-  `test/c/run/cforms.c`. (0.108)
+  `ccl_knr_adjust`): an undeclared parameter is `int`, an array a pointer, a `float` a `double`, and its type is marked
+  as no prototype (0.302, below): a call of another count is undefined behaviour (C17 6.5.2.2/6), not a constraint's
+  breach, and is refused in clang's words for it, `too few arguments in call to 'add'`. `test/c/run/cforms.c`. (0.108,
+  0.302)
+- **AN EMPTY LIST IS NO PROTOTYPE IN C BEFORE C23** (0.302; C17 6.7.6.3/14, 6.9.1/7; `ccl_empty_params/1`): `int f();`
+  says nothing of f's parameters, so a call of it, or through a pointer of its type, may take any arguments, where `int
+  f(void);` declares none and a call of one argument is refused (the lowering's topic of a call's count). The two were
+  one type, `fn(R, [], false)`, and a count could not be checked without refusing a valid C17 call. The function type's
+  variadic slot holds the mark, `q(false, [noproto])`, where C++'s noexcept rides (`ccl_suffix//2`), and a K&R
+  definition's type is marked so: no variadic function (`ir_variadic/1`), compatible with a prototype of a compatible
+  result whose parameters keep their types under the default promotions and end in no ellipsis (C17 6.7.6.3/15;
+  `ccl_canon_compat/2`, `ccl_noproto_compat/4`), so `__builtin_types_compatible_p(int (*)(), int (*)(int))` is 1 and
+  with `int (*)(char)` 0. A FUNCTION DECLARED AGAIN WITH NO PROTOTYPE KEEPS THE PROTOTYPE BEFORE IT (C17 6.2.7/3, the
+  composite type; `ccl_kept_proto/2` in `ccl_declare/2`): `int f(int, int); int f();` has two parameters still.
+  `__PRETTY_FUNCTION__` reads the mark for `()` against `(void)`, where the definition's line was read for it
+  (`ir_c_pretty/1`). C23 and C++ read `()` as `(void)`. `test/c/run/noproto.c`, `prettyfn.c`, `cforms.c`. Reader 194.
+  (0.302)
 - `a[static 3]`, `a[const static 3]` and `a[*]` parameters are the pointer they decay to. `_Bool` is a byte with C's
   conversion rules. (0.108)
 - A C11 anonymous struct or union member is a hidden member `$anonK` (`ccl_anon_name`, C only), its members the
@@ -6803,6 +6823,21 @@ is in `test/cpp/run/`.
   sized range. `friendclash.cpp`. (0.115)
 - The free road's resort is the same test (`cpp_fn_best/4`); an ellipsis takes any number past the named parameters
   (`cpp_fn_arity_fits/3`, `cpp_fn_variadic/1`). (0.56, 0.61, 0.100)
+- **A CALL THAT NO OVERLOAD OF THE NAME FITS BY ITS COUNT, OR BY AN INTEGER AND A POINTER, IS REFUSED IN THE PROGRAM'S
+  CODE** (0.302; [over.match.viable]/2-3, [conv.ptr]/1; `cpp_no_overload_fits/2` in `cpp_call/4`'s bare-name clause):
+  the name has functions noted, no local object of the name stands in for them, and each candidate that is not hidden
+  takes another count of arguments, or has a parameter that is a pointer for an integer argument that is no null pointer
+  constant, or an integer (no `bool`) for a pointer, an array or a function (`cpp_int_ptr_misfit/2`) -- `no matching
+  function for call to 'f'`, clang++'s words for an unqualified call. The road after `cpp_fn_best/4` took such a call as
+  C takes one: `f(1, 2, 3)` of `int f(int, int)` handed its third argument on as a variadic tail, `g(5)` of `int g(char
+  *)` passed the pointer 5, and `f()` of `int f(int a, int b = 2)` passed nothing for `a`. ANOTHER MISFIT GOES ON TO
+  THAT ROAD, as it went: it converts a generic lambda to a function pointer (`genericfp.cpp`), which the candidates'
+  filter finds no conversion operator for, and refuses a struct for a scalar in its own words, `no conversion from
+  'optional_int' to 'double'`. The rule's first form refused every call that no candidate fitted, and the C++ pool and
+  the ccllib gate found the three. A CALL THROUGH A POINTER OR A REFERENCE TO A FUNCTION OF ANOTHER COUNT THAN ITS
+  TYPE'S ([expr.call]/7; `cpp_callee_count_wrong/3`) -- a local pointer, a struct's pointer member by `.` and `->`, any
+  callee expression -- is refused in clang++'s words, which are C's, `too few arguments to function call, expected 2,
+  have 1`. A library body's call goes on as it went. The driver gate holds eight forms. (0.302)
 
 ### Constness, value category and reference binding
 
@@ -11605,6 +11640,32 @@ in the first topic (The ccllib gate).
   in C++, the four of a floating value and a pointer, and the three of a pointer where a struct is needed;
   `test/ccllib/safe/bitset_sizes.c`, `bitset_number.c` and `string_text_by_value.c` as C and as C++. Lowering 158, 160,
   162. (0.286, 0.288, 0.291)
+- **A CALL GIVES ITS PROTOTYPE'S COUNT OF ARGUMENTS** (0.302; C17 6.5.2.2/2, a constraint; `ir_arg_count/4` in
+  `ir_call/4`): as many as the parameters, or at least as many where an ellipsis ends them, refused in clang's words
+  (Sema's `ConvertArgumentsForCall`, `ir_arg_words/6`, `dr_call_text/2`): `too many arguments to function call, expected
+  2, have 3`, `too few arguments to function call, expected 3, have 2`, `expected at least 2, have 1`, and where a
+  callee by its name has one named parameter, `expected single argument 'n', have 2 arguments`, `single argument 'n' was
+  not specified`, `at least argument '__format' must be specified`. `pick("serif", 1)` of `int pick(const char *, int,
+  int)` passed nothing for the third, which the callee read from what its register held (finding 34); `f(1, 2, 3)` of
+  two parameters handed the third on as a variadic tail; `printf()` read a format from nowhere and faulted; a call
+  through a pointer of too few arguments returned what the register held. A function with NO PROTOTYPE (the reader's
+  topic of declarators) takes any count where its parameters are unknown -- `int f();` with no definition in the unit,
+  and a pointer of its type --, and a K&R definition's count is its parameters', whose breach is undefined (6.5.2.2/6),
+  `too few arguments in call to 'add'`, clang's words for it. The type a call reads is the table's last of the name, a
+  prototype that a later `()` declaration keeps (`ccl_kept_proto/2`). C alone: the desugaring chooses each C++ call (the
+  overload resolution's topic). The driver gate holds ten forms. (0.302)
+- **AN INTEGER AND A POINTER DO NOT CONVERT AS IF BY ASSIGNMENT** (0.302; C17 6.5.16.1/1, a constraint, which a call's
+  arguments (6.5.2.2/7), an initializer (6.7.9/11) and a `return` (6.8.6.4/3) take; `ir_int_ptr_check/4` in
+  `ir_args_/5`, `ir_init/3`, the assignment of `ir_expr_/4` and `ir_stmt_/1`'s `return`): a pointer to an integer other
+  than `_Bool`, an integer to a pointer unless it is a null pointer constant, an integer constant expression of 0
+  (6.3.2.3/3; `0`, `1 - 1`, `0L`, `NULL`) -- clang's errors, its `-Wint-conversion`, in its words: `incompatible pointer
+  to integer conversion passing 'char *' to parameter of type 'int'`, `incompatible integer to pointer conversion
+  initializing 'char *' with an expression of type 'int'`, `... assigning to 'long' from 'char *'`, `... returning 'int'
+  from a function with result type 'char *'`. `f(p)` of `int f(int)` passed the address's low bits, and `g(5)` of `int
+  g(char *)` the pointer 5; a cast says so where it is meant, `(int) p`. Finding 34's own form, a pointer for a
+  `double`, has been refused since 0.288. A `const int` zero is no null pointer constant in C and is refused, as clang
+  refuses it. An `enum`'s type is spelled `enum e` (`ck_c_spec_text/2`), where its term was. C alone. The driver gate
+  holds seven forms. Lowering 169. (0.302)
 
 ### Control flow and defer
 
@@ -11849,12 +11910,47 @@ in the first topic (The ccllib gate).
   global's through `ir_gelide/4`), or where a scalar item meets an array of scalars (`ccl_elided_item/2`, 0.164; the
   Aggregates topic), and a struct or union member and an array's element given a scalar (0.194, the same topic). Every
   `std::array` initializer needs it. (0.91, 0.110, 0.164, 0.194)
-- A local aggregate initializer stores `zeroinitializer`, then its items (`ir_init/3`). A braced list on a scalar is
-  its one value or the type's zero; more items are `initializer_of_a_scalar(T)`. The scalar test takes the resolver's
-  first answer, else `int arr[9] = {}` became a `sext`. An item with no member names its type, `initializer(I, ST)`.
-  An unsized array takes its size from its initializer (`ir_sized_type/4`). (0.54, 0.93, 0.99)
+- A local aggregate initializer stores `zeroinitializer`, then its items (`ir_init/3`). A braced list on a scalar is its
+  one value or the type's zero; more items are excess (below, 0.302), and a designator on a scalar
+  `initializer_of_a_scalar(T)`. The scalar test takes the resolver's first answer, else `int arr[9] = {}` became a
+  `sext`. An item past a struct's last member is excess too (0.302); one given a type with no members names it,
+  `initializer(I, ST)`. An unsized array takes its size from its initializer (`ir_sized_type/4`). (0.54, 0.93, 0.99,
+  0.302)
 - A char array from a string is zero-filled past the literal (C11 6.7.9/21; `ir_init_zero/2`). A wide one stores its
   decoded code points (`ir_init_chars/4`). `test/c/run/wstr_alignas.c`. (0.99)
+- **AN INITIALIZER THAT GIVES MORE THAN ITS OBJECT HOLDS IS REFUSED** (0.302; C17 6.7.9/2, a constraint: "No initializer
+  shall attempt to provide a value for an object not contained within the entity being initialized"; [dcl.init.aggr]/16
+  and [dcl.init.string]/2; `ir_init_refuse/1`): an element past an array's bound (`ir_init_slot/5`, a global's
+  `ir_gitems/5`), a member past a struct's last (`ir_init_slot/5`, `ir_gvalues/4`), a union's item by its place after
+  the first (C17 6.7.9/17; `ir_init_items/4`, `ir_gconst_agg/5`), a scalar's second value, a designator past the bound
+  or below zero (6.7.9/6; `ir_at_index/3`), a literal longer than its array -- in clang's words, which are a C program's
+  warnings and a C++ program's errors: `excess elements in array initializer`, `... in struct initializer`, `... in
+  union initializer`, `... in scalar initializer`, `array designator index (5) exceeds array bounds (2)`, `array
+  designator value '-1' is negative`, `initializer-string for char array is too long` (`dr_diag/3`). This compiler has
+  no warning channel, and the object it would write is not there. A local's elements were written past the array -- `int
+  a[2] = {1, 2, 3};` faulted, and so did a struct's array member and a compound literal --, a global's array counted its
+  bound down past zero and made zeros until the stack was gone (finding 33: two minutes and 1.3 GB for `static const
+  struct { const char *n; int v; } defs[2] = { {"a", 0}, {"b", 1}, {"c", 0} };`, refused `resource_error(stack)`), a
+  union's second item went over its first, a global union's was dropped, and a struct's member past its last was refused
+  by no name. A refusal at file scope is at its declaration's line (`$ir_gline`). The driver gate holds nine forms in C,
+  each at its line, and two in C++. Lowering 169. (0.302)
+- **A STRING LITERAL THAT INITIALIZES AN ARRAY FITS ITS BOUND** (0.302; C17 6.7.9/14, [dcl.init.string]/2;
+  `ir_string_bound/3`, a local's `ir_init_string/3` and wide `ir_init/3`, a global's `ir_gconst/3`): its characters, and
+  the terminator where there is room. C takes a literal that fills the bound with none, `char s[3] = "abc"`, and C++
+  counts the terminator, `initializer-string for char array is too long, array size is 3 but initializer has size 4
+  (including the null terminating character)`, clang++'s words. The whole literal and its terminator were written
+  whatever the bound: `char s[3] = "abc";` wrote a byte past the array and the valid program died, `char s[2] = "abc"`
+  two, a wide literal's units the same, and a global's longer literal went to LLVM, which refused the constant's type.
+  The units of a wide literal are its characters. `test/c/run/initfit.c`. (0.302)
+- **A STRING LITERAL IN BRACES IS THE LITERAL** (0.302; C17 6.7.9/14-15, "optionally enclosed in braces";
+  [dcl.init.string]/1; `ir_char_array_lit/2`, a local's `ir_init/3`, a global's `ir_gconst/3` and `ir_gconst_t/5`):
+  `char s[4] = {"abc"};` was an array's list of one item, and the literal's address went into `s[0]` -- the program
+  printed nothing. A narrow literal's elements are of a byte, a wide one's of its unit; an array of pointers takes its
+  literal as its first element. AN ARRAY'S DESIGNATOR IS ANY INTEGER CONSTANT EXPRESSION (`ir_at_index/3`,
+  `ccl_const_eval/2`): `int a[4] = {[1 + 1] = 5};` put the 5 where the cursor stood, a local's designator read as a
+  literal alone. A SCALAR GLOBAL'S BRACED VALUE IS ITS VALUE (C17 6.7.9/11; `ir_gconst/3`, `ir_gscalar/1`): `static int
+  g = {5};` was refused, `global_init`, where a local's was taken. `test/c/run/initfit.c`, against clang's build.
+  (0.302)
 
 ### Decimal floating types
 
@@ -14665,6 +14761,23 @@ Declarations topic of the C++ reader).
    part's topic, the lowering's topic of inline assembly). macOS is not measured: Apple's libc chooses its names by
    `_ANSI_SOURCE`, `_POSIX_C_SOURCE` and `_DARWIN_C_SOURCE`, its headers' reads under the ISO modes are no gate's, and
    `gnuasm.c` and `gnuasm.cpp` name its sections and its symbols' underscore without a run there.
+- THE CONSTRAINTS OF A CALL AND OF AN ASSIGNMENT (0.302; the lowering's topics of a call's count and of an integer and a
+  pointer): what is left. POINTERS OF INCOMPATIBLE TYPES are taken -- `int *ip = cp;` over a `char *` -- where clang 22
+  refuses them, `incompatible pointer types initializing 'int *' with an expression of type 'char *'` (C17 6.5.16.1/1;
+  its `-Wincompatible-pointer-types` is an error since clang 20), and GCC 14 too: a rule of its own, over qualifiers,
+  `void *` and the sign of a character. In C++ too: `f(c)` of `int f(int *)` over a `char` array builds and reads four
+  characters as one `int`, where clang++ says `no matching function for call to 'f'`. A C++ CALL'S MISFIT other than the
+  count and an integer and a pointer -- a struct for a scalar, a `double` for a pointer -- has the words of the road
+  after the overloads, `no conversion from 'S' to 'int'`, where clang++ says `no matching function for call to 'f'`. A
+  FUNCTION DEFINED WITH `()` and called with arguments is taken (undefined behaviour, C17 6.5.2.2/6; clang warns, `too
+  many arguments in call to 'f'`): the mark of no prototype does not tell its definition from a declaration. The type a
+  call reads is the table's last of the name, so a call before a later definition with a prototype is held to it
+  (undefined behaviour that clang does not name), and a block's declaration of an unnamed parameter gives place to a
+  later definition's named one in the words, `expected single argument 'a'` for clang's `expected 1, have 2`. WHERE THE
+  SAFE PART REFUSES FIRST its words come first: `char *q = 5; return q == 0;` is `plain pointer not consumed: 'q'`. A
+  QUALIFIED C++ call of one C function, `std::printf()`, is `no matching function for call to 'printf'`, where clang++
+  says C's words. A flexible array member's initializer at file scope, GNU's form that clang takes, is refused,
+  `global_init`.
 
 ### C++ language
 

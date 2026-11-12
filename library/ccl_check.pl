@@ -2296,6 +2296,7 @@ ck_c_type_text(base(Q, S), Text) :- ck_c_spec_text(S, B), ( memberchk(const, Q) 
 ck_c_spec_text([typedef(N)], N) :- atom(N), !.
 ck_c_spec_text([struct(Tag, _)], T) :- atom(Tag), Tag \== anon, !, atom_concat('struct ', Tag, T).
 ck_c_spec_text([union(Tag, _)], T) :- atom(Tag), Tag \== anon, !, atom_concat('union ', Tag, T).
+ck_c_spec_text([enum(Tag, _)], T) :- atom(Tag), Tag \== anon, !, atom_concat('enum ', Tag, T).   % `enum e', as clang spells it (0.302): its words were the raw term
 ck_c_spec_text(S, T) :- ck_all_atoms(S), atomic_list_concat(S, ' ', T).
 ck_all_atoms([]).
 ck_all_atoms([A|As]) :- atom(A), ck_all_atoms(As).

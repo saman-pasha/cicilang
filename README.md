@@ -239,6 +239,13 @@ directives run where its `#include` stands, so its `#undef` of the file's
 macro holds after it, and its `#error` stops the build at its line. A
 name that C's file scope declares again as another kind of symbol -- a
 function named as a header's table -- is refused with clang's words.
+An initializer that gives more than its object holds, a call of another
+count of arguments than its prototype's, and an integer and a pointer
+converted as if by assignment are refused in clang's words (0.302): `excess
+elements in array initializer`, `too few arguments to function call,
+expected 3, have 2`, `incompatible pointer to integer conversion passing
+'char *' to parameter of type 'int'`. Before C23, `int f();` declares no
+prototype, and a call of it takes any arguments.
 
 ## `:=`, patterns, `name { }`, `defer`
 

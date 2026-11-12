@@ -296,6 +296,7 @@ One row per step, in version order: the step's title, what it did and its gate n
 | 0.299 | the finding 29 of a program over 0.284 | a pointer value that holds no memory the check follows -- a null or anchored plain local's, its sum with an integer, its cast -- is no new memory to a plain slot: `rest = end + 2` after `strtod(s, &end)` builds; an own slot takes an anchored pointer's value as new memory still | the reduction and 45 probes, 32 of them as C and as C++; a review's finding in an own slot; the nets, twice; no chain, by the owner's rule of 0.271; a commit and a push |
 | 0.300 | ccllib phase 1b, `optional.pl` | `std::optional` for cicilang's C: the value and a byte, born with no value, made of a value and of `nullopt` by its `_of`, each relation of C++ by the operators' typed names; no new form of the reader | the three runs, six refusals, the rules held to C++'s tables at 5,077,044 checks, sixteen broken copies reported; the flow gate and the ccllib gate; no chain, by the owner's rule of 0.271; a commit and a push |
 | 0.301 | ccllib phase 1b, `pair.pl` | `std::pair` for cicilang's C: a struct of `first` and `second`, `swap` and C++20's relations; a member that is an instance compares by its own functions; `<=` and `>=` over a NaN written down | the three runs, five refusals, every case held to C++20's words at 3,110 checks, seven broken copies reported; the flow gate and the ccllib gate; no chain, by the owner's rule of 0.271; a commit and a push |
+| 0.302 | the Ambitious session's findings 33, 34 and 35 | an initializer that gives more than its object holds, a call of another count than its prototype's and an integer and a pointer as if by assignment refused in clang's words, in C and in C++; a literal that fills its array, a literal in braces, a designator's expression and a braced scalar global done; `()` no prototype before C23; the command's verdict | 9 + 2 initializer forms, 10 + 5 call forms, 7 conversion forms and the verdict in the driver gate, two run fixtures; the flow gate and the nets; no chain, by the owner's rule of 0.271; a commit and a push |
 
 ## M5 — the C++ mode
 
@@ -21484,3 +21485,124 @@ ran twice: over the first form of the relations and over the form of `&` and `|`
   CCLLIB.md (1b, `pair.pl`; the parts of phase 1), README.md, HISTORY.md, CLAUDE.md; `module/cicilang.cicili` (0.301).
 
 The module 0.301, the reader 193 and the lowering 168.
+
+## 0.302 — the Ambitious session's findings 33, 34 and 35
+
+**0.302: the findings 33, 34 and 35 of the Ambitious session's program, run from their reductions, and the forms beside
+them. An initializer that gives more than its object holds, a call of another count of arguments than its prototype's,
+and an integer and a pointer converted as if by assignment are refused in clang's words, in C and in C++; four forms
+that miscompiled valid programs are done; `()` before C23 is no prototype; and the command's verdict, which an error
+raised past the inputs took for a success, is the driver's own line.**
+
+THE FINDINGS, RUN FROM THEIR REDUCTIONS over 0.301 and over a tree of 0.284, the program's toolchain. 33: `static const
+struct { const char *n; int v; } defs[2] = { {"a", 0}, {"b", 1}, {"c", 0} };` was refused `resource_error(stack)` after
+112 s and 1.3 GB, on both. 34: `pick("serif", 1)` of `int pick(const char *family, int bold, int italic)` built on both
+and passed nothing for the third parameter; its second form, a pointer handed to a `double` parameter, has been refused
+since 0.288, `no conversion from 'char *' to 'double'`. 35: a conditional of a `char` array and a literal handed to a
+`const char *` parameter built and ran on 0.301, cured since 0.294 (a conditional's arms decay where its value is
+taken): it, and three forms beside it -- the arms the other way round, a global array's arm and a struct member's array
+-- run as clang's build.
+
+THE CAUSES. 33: NO INITIALIZER WAS HELD TO ITS OBJECT. A global array's constant counted its bound down item by item
+(`ir_gitems/5`), past zero for a third item of two, and the clause of the rest then made zeros, one at a time, until the
+stack was gone -- each zero a struct's constant. 34: NO CALL WAS HELD TO ITS PROTOTYPE'S COUNT: the arguments' walk
+(`ir_args_/5`) ended at the last argument whatever parameters were left, which the callee then read from what its
+registers held, and handed arguments past the parameters on as a variadic tail. And the reader gave `int f();` and `int
+f(void);` one type, `fn(R, [], false)`, so a count could not be checked without refusing a valid C17 call of a function
+that has no prototype.
+
+THE FORMS BESIDE THEM, PROBED: 29 initializer programs, 44 call and conversion programs in C and 18 C++ programs, each
+against clang's or clang++'s words, over 0.301 and over the work tree. Initializers: an element past a local array's
+bound faulted, and a struct's array member's and a compound literal's; a designator past the bound built, `{[5] = 1}`
+into `a[2]`, where clang errors, and so did one below zero; a union's second item went over its first in a block and was
+dropped at file scope; a struct's member past its last was refused by no name, `item(declaration(s))`; a scalar's second
+value was `initializer_of_a_scalar`; a literal longer than its array faulted, and at file scope LLVM refused the
+constant's type; a wide literal's units the same. FOUR FORMS MISCOMPILED VALID PROGRAMS: `char s[3] = "abc";` wrote its
+terminator past the array and the program died, as `char s[2] = "ab"` and `char s[3] = "ab" "c"` did; `char s[4] =
+{"abc"};` stored the literal's address into `s[0]` and printed nothing; `int a[4] = {[1 + 1] = 5};` put the 5 where the
+cursor stood; and `static int g = {5};` was refused, `global_init`. Calls: too many arguments, too few, `printf()` (it
+faulted), a pointer's call of too few (it returned what the register held, 153), `(void)` given an argument, an
+ellipsis's named parameters, a K&R definition's count, and the composite type of `int f(int, int); int f();` -- each
+built. In C++, `f(1, 2, 3)` and `g(5)` built through the road after the overloads, as C takes a call, and so did a
+default argument's missing parameter, a pointer's call and a struct's pointer member's. Conversions: a pointer for an
+`int`, a `long` and an `enum` parameter, an `int` and a `char` for a pointer, and the same in an initializer, an
+assignment and a `return` -- each built and passed the wrong value.
+
+THE RULES, each in its topic of RULES.md. AN INITIALIZER THAT GIVES MORE THAN ITS OBJECT HOLDS IS REFUSED (C17 6.7.9/2,
+a constraint; `ir_init_refuse/1`), in clang's words -- a C program's warnings and a C++ program's errors, where this
+compiler has no warning channel and the object it would write is not there --, at its line, a global's at its
+declaration's. A STRING LITERAL FITS ITS ARRAY'S BOUND (`ir_string_bound/3`): its terminator where there is room, none
+in C where the literal fills the bound, and C++ counts it, in clang++'s longer words. A LITERAL IN BRACES IS THE LITERAL
+(`ir_char_array_lit/2`), A DESIGNATOR IS ANY INTEGER CONSTANT EXPRESSION (`ir_at_index/3`), and A SCALAR GLOBAL'S BRACED
+VALUE IS ITS VALUE. A CALL GIVES ITS PROTOTYPE'S COUNT (C17 6.5.2.2/2; `ir_arg_count/4`), in the six shapes of clang's
+words. AN EMPTY LIST IS NO PROTOTYPE IN C BEFORE C23 (`ccl_empty_params/1`): the mark `q(false, [noproto])` in the
+type's variadic slot, where C++'s noexcept rides, compatible with a prototype as C17 6.7.6.3/15 has it, a K&R
+definition's type marked so, and a prototype kept by a later `()` declaration (6.2.7/3, `ccl_kept_proto/2`); a call of
+such a function takes any count, and a K&R definition's of another count is refused in clang's words for that undefined
+behaviour. `__PRETTY_FUNCTION__` reads the mark, where it read the definition's source line. AN INTEGER AND A POINTER DO
+NOT CONVERT AS IF BY ASSIGNMENT (C17 6.5.16.1/1; `ir_int_ptr_check/4`) but a null pointer constant, in an argument, an
+initializer, an assignment and a `return`. In C++, A CALL THAT NO OVERLOAD FITS BY ITS COUNT, OR BY AN INTEGER AND A
+POINTER, IS REFUSED in the program's code (`cpp_no_overload_fits/2`, `cpp_int_ptr_misfit/2`), `no matching function for
+call to 'f'`, and a call through a pointer or a pointer member of another count (`cpp_callee_count_wrong/3`); another
+misfit goes on to the road after the overloads, as it went, and a library body's call too.
+
+THE NETS' FINDING: THE FIRST FORM OF THE C++ RULE WAS TOO WIDE. It refused every call that `cpp_fn_best/4` found no
+candidate for, and the road after the overloads takes calls that the candidates' filter rejects. The C++ pool, over
+libc++ 22, 21 and 18, found `genericfp.cpp` refused, `no matching function for call to 'apply'`: `apply([](auto v) {
+return v * 3; }, 5)` hands a generic lambda to an `int (*)(int)` parameter, the closure has no plain conversion operator
+for the filter to find, and the road after it converts the closure, as C++ does. The ccllib gate found two refusals
+whose words changed in C++: `puts(s)` of a string and an optional<double> made of an optional<int>, which that road
+refuses `no conversion from 'basic_string_char' to 'const char *'` and `no conversion from 'optional_int' to 'double'`,
+the words that their fixtures hold. The rule is narrowed to the two misfits that the road built: each candidate takes
+another count, or has a pointer for an integer argument that is no null pointer constant, or an integer (no `bool`) for
+a pointer, an array or a function. The 18 C++ probes give what they gave, and 16 probes more: five programs -- glibc's
+`snprintf` and `sprintf`, a variadic `noexcept` function of the program's, a pointer for a `bool`, `0`, `NULL` and
+`nullptr` for a pointer, an `enum` and a character for a `long`, a function, its address and a lambda for a function
+pointer -- run as clang++'s builds; eight misfits by an integer and a pointer -- among them two calls of two overloads
+that each misfit, a pointer for an `intptr_t` and a function for a `long` -- are refused in clang++'s words; a `double`
+for a pointer and a struct for an `int` keep the road's words, `no conversion from`; and a `char` array for an `int *`
+builds still, as in C (Not done). The driver gate's C++ check holds three forms more.
+
+A FINDING OF THE STEP: THE COMMAND'S VERDICT. A probe of a pointer handed to an `enum` parameter built with exit 0 and
+made no file. The check's type speller had no `enum` form, so the refusal's words held a term, `atomic_list_concat/2`
+raised a type error inside the report, the error ran out through the driver, and cocolog's report of it listed the goals
+that were left to run -- `write('cicilang: ok')` among them --, which `bin/cicilang` matched as the verdict, anywhere in
+the answer. So an error raised past the inputs, in any report, ended a build with exit 0, no output file and no word,
+since cocolog's trace names the goals left to run. Three corrections: the speller spells `enum e`; a report that raises
+an error of its own counts its error, both said as they are (`dr_report_failed/3`); and the verdict is a line that ends
+with it, no line of the `ERROR` report. The driver gate runs the command over a cocolog that prints such a trace: the
+command of 0.301 ends with exit 0, this one with exit 1.
+
+WHAT IS LEFT (RULES.md, Not done): pointers of incompatible types are taken, where clang 22 refuses them, in C and in
+C++ -- a rule of its own; a C++ call's misfit other than the count and an integer and a pointer has the words of the
+road after the overloads, `no conversion from`, where clang++ says `no matching function for call to 'f'`; a function
+defined with `()` and called with arguments is taken, undefined behaviour that clang warns of; a call reads the table's
+last type of the name, so a call before a later definition with a prototype is held to it, and the words of a block's
+unnamed parameter give place to the definition's name; where the safe part refuses first, its words come first; a
+qualified C++ call of one C function has the words of an unqualified one; a flexible array member's initializer at file
+scope, GNU's, is refused as before.
+
+THE PROOF. The driver gate's six new checks: nine initializer forms in C and two in C++, ten call forms in C and eight
+in C++, seven conversions, and the verdict over a cocolog that prints the trace. `test/c/run/initfit.c`, the four
+miscompiled forms and their kin, and `test/c/run/noproto.c`, the calls that C17 takes without a prototype, the null
+pointer constants and the compatibility of a type with no prototype, each against clang's build -- C17 only, so no list
+of the C++ gate takes them. The probes over the work tree give clang's words for each refused form and clang's output
+for each valid one.
+
+THE NETS GREEN: the flow gate; the reader gate 166, the compile gate 306, the driver gate 83 and the ccllib gate 328
+checks over one fresh HOME; the C++ pool of the light fixtures 361 of 361 over libc++ 22, 361 over 21 and 361 over 18;
+every other C++ run fixture, 506 of 520, over libc++ 22, since the C++ rule reaches every program's calls -- the 14
+others name a need, which the net does not meet --; and the C++ gate's later parts by hand -- `classes.cpp`,
+`templates.cpp`, the C run fixtures that it builds as C++ and every list of its refusals -- 177 checks.
+
+- `library/ccl_ir.pl` (the initializers, the call's count, the integer and the pointer, the braced scalar global,
+  `__PRETTY_FUNCTION__`'s mark), `library/ccl_syntax.pl` (the mark of no prototype, the K&R definition's type, the kept
+  prototype), `library/ccl_infer.pl` (a type with no prototype's compatibility), `library/ccl_cpp_expr.pl` (C++'s call
+  that no overload fits, a pointer's call of another count), `library/ccl_check.pl` (`enum e` spelled),
+  `library/ccl_driver.pl` (clang's words, a report that raises); `bin/cicilang` (the verdict's line).
+- `test/c/run/initfit.c`, `initfit.expect`, `noproto.c`, `noproto.expect`, `noproto.std`; `test/driver.sh`'s six checks.
+- RULES.md (the declarators' K&R bullet and the mark of no prototype; the lowering's initializers, a call's count, an
+  integer and a pointer; the overload resolution's last resort; the diagnostics and the exit status; Not done),
+  README.md, HISTORY.md, CLAUDE.md; `module/cicilang.cicili` (0.302).
+
+The module 0.302, the reader 194 and the lowering 169.

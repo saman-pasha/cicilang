@@ -152,9 +152,13 @@ case "$opts" in
   *preprocess*) printf '%s\n' "$res" | awk '/: error: |: warning: |: note: / { print > "/dev/stderr"; next } /^cicilang: |^ +[0-9]+\. use_module|answer\(s\)\.$/ { next } { print }' ;;   # -E: the text itself
   *) printf '%s\n' "$res" | awk '/: error: |: warning: |: note: / { print > "/dev/stderr"; next } /^cicilang: ok$/ { next } /^cicilang: |^unit\(/ { print }' ;;
 esac
-case "$res" in
-  *"cicilang: ok"*) exit 0 ;;
-  *"cicilang: "[0-9]*" error"*) exit 1 ;;
+# THE VERDICT IS THE DRIVER'S OWN LINE (0.302): a line that ends with it, and no line of cocolog's ERROR report, whose
+# trace lists the goals that were left to run -- `write('cicilang: ok')' among them, so an error raised past the inputs
+# matched the text of the verdict, and the build ended with exit 0, no output file and no word
+verdict=$(printf '%s\n' "$res" | grep -av '^ERROR' | grep -a -e 'cicilang: ok$' -e 'cicilang: [0-9][0-9]* error(s)$' | tail -1)
+case "$verdict" in
+  *"cicilang: ok") exit 0 ;;
+  *" error(s)") exit 1 ;;
 esac
 printf '%s\n' "$res" | grep -a "ERROR\|error" | head -3 | sed 's/^/cicilang: /'
 exit 1

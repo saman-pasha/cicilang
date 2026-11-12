@@ -289,8 +289,12 @@ dr_args([A|As]) :- writeq(A), write(', '), dr_args(As).
 
 %% ---- diagnostics, clang's shape ---------------------------------------------------------
 %% once: the callers' recovery fails after reporting, and must not report twice
-dr_report(F, error(E, W)) :- !, once(dr_diag(F, E, W)).
+dr_report(F, error(E, W)) :- !, catch(once(dr_diag(F, E, W)), X, dr_report_failed(F, E, X)).
 dr_report(F, E) :- once(dr_error(F, 0, [E])).
+%% A REPORT THAT RAISES AN ERROR OF ITS OWN STILL COUNTS ITS ERROR (0.302): the error and the report's own are said as they are.
+%% It ran out through the driver, which printed no count, and the command took the text of the verdict in cocolog's trace
+%% of the goals left to run for the verdict itself (bin/cicilang): exit 0, no output file and no word
+dr_report_failed(F, E, X) :- dr_error(F, 0, ['the report of this error failed (', X, '): ', E]).
 dr_diag(_, syntax_error(cicilang_ast(File, line(L), near(N))), _) :- !, dr_error(File, L, ['syntax error: could not read this item (gave up near line ', N, ')']).
 dr_diag(_, syntax_error(cicilang_ast(File, lexical, line(L))), _) :- !, dr_error(File, L, ['lexical error']).
 %% A CHARACTER PAST ASCII THAT BEGINS NO TOKEN (0.221), named as clang names it: one that may follow in an identifier at the
@@ -320,6 +324,20 @@ dr_diag(F, not_lowered(deleted_call(K, N, Why)), where(_, line(L))) :- !, dr_del
     ( Why == none -> T = T0 ; atomic_list_concat([T0, ': ', Why], T) ), dr_error(F, L, [T]).
 dr_diag(F, not_lowered(no_conversion(From, To)), where(_, line(L))) :- !, dr_error(F, L, ['no conversion from ''', From, ''' to ''', To, '''']).   % A RECORD WHERE ANOTHER TYPE IS NEEDED (0.286, ir_no_conversion/2): the program's error, no form that is not done
 dr_diag(F, not_lowered(unary_operand(T)), where(_, line(L))) :- !, dr_error(F, L, ['invalid argument type ''', T, ''' to unary expression']).   % a unary `-' or `~' over a record, in clang's words (0.286, ir_unary_operand/2)
+%% AN INITIALIZER THAT GIVES MORE THAN ITS OBJECT HOLDS (0.302, ir_init_refuse/1), in clang's words: a C program's warnings
+%% and a C++ program's errors, and the text of C++'s literal its own
+dr_diag(F, not_lowered(excess_elements(K)), where(_, line(L))) :- !, dr_error(F, L, ['excess elements in ', K, ' initializer']).
+dr_diag(F, not_lowered(string_too_long), where(_, line(L))) :- !, dr_error(F, L, ['initializer-string for char array is too long']).
+dr_diag(F, not_lowered(string_too_long(K, N)), where(_, line(L))) :- !,
+    dr_error(F, L, ['initializer-string for char array is too long, array size is ', K, ' but initializer has size ', N, ' (including the null terminating character)']).
+dr_diag(F, not_lowered(designator_bounds(K, N)), where(_, line(L))) :- !, dr_error(F, L, ['array designator index (', K, ') exceeds array bounds (', N, ')']).
+dr_diag(F, not_lowered(designator_negative(K)), where(_, line(L))) :- !, dr_error(F, L, ['array designator value ''', K, ''' is negative']).
+%% A CALL OF ANOTHER COUNT OF ARGUMENTS THAN ITS PROTOTYPE'S (0.302, ir_arg_count/4), and an integer and a pointer converted as if
+%% by assignment (ir_int_ptr_check/4), in clang's words; C++'s call that no overload fits (cpp_call/4)
+dr_diag(F, not_lowered(W), where(_, line(L))) :- dr_call_text(W, Ps), !, dr_error(F, L, Ps).
+dr_diag(F, not_lowered(int_conversion(Dir, Site, A, B)), where(_, line(L))) :- !,
+    ( Dir == ptr_int -> K = 'incompatible pointer to integer conversion ' ; K = 'incompatible integer to pointer conversion ' ),
+    dr_int_conv_site(Site, A, B, Ps), dr_error(F, L, [K|Ps]).
 dr_diag(F, not_lowered(What), where(Fn, line(L))) :- !, dr_error(F, L, ['not lowered yet: ', What, ' (function ', Fn, ')']).
 dr_diag(F, compile_failed(Msg), _) :- !, dr_error(F, 0, ['LLVM: ', Msg]).
 dr_diag(F, unknown_target(T), _) :- !, dr_error(F, 0, ['unknown target triple \'', T, '\'']).
@@ -337,6 +355,21 @@ dr_deleted_text(implicit_copy, C, T) :- !, dr_class_spelled(C, S), atomic_list_c
 dr_deleted_text(implicit_assign, C, T) :- dr_class_spelled(C, S), atomic_list_concat(['object of type \'', S, '\' cannot be assigned because its copy assignment operator is implicitly deleted'], T).
 dr_short_name(N, S) :- atom(N), atomic_list_concat(Ps, '.', N), last(Ps, S0), S0 \== '', !, S = S0.
 dr_short_name(N, N).
+%% clang's words for a call's count of arguments (Sema's ConvertArgumentsForCall; 0.302), as the parts dr_error/3 writes
+dr_call_text(too_many_args(N, M), ['too many arguments to function call, expected ', N, ', have ', M]).
+dr_call_text(too_many_args_one(P, M), ['too many arguments to function call, expected single argument ''', P, ''', have ', M, ' arguments']).
+dr_call_text(too_few_args(N, M), ['too few arguments to function call, expected ', N, ', have ', M]).
+dr_call_text(too_few_args_one(P), ['too few arguments to function call, single argument ''', P, ''' was not specified']).
+dr_call_text(too_few_args_at_least(N, M), ['too few arguments to function call, expected at least ', N, ', have ', M]).
+dr_call_text(too_few_args_at_least_one(P), ['too few arguments to function call, at least argument ''', P, ''' must be specified']).
+dr_call_text(knr_arg_count(many, Fn), ['too many arguments in call to ''', Fn, '''']).
+dr_call_text(knr_arg_count(few, Fn), ['too few arguments in call to ''', Fn, '''']).
+dr_call_text(no_matching_call(Fn), ['no matching function for call to ''', S, '''']) :- dr_short_name(Fn, S).
+%% ... and where an integer and a pointer meet as if by assignment, the words of each place
+dr_int_conv_site(passing, A, B, ['passing ''', A, ''' to parameter of type ''', B, '''']).
+dr_int_conv_site(initializing, A, B, ['initializing ''', B, ''' with an expression of type ''', A, '''']).
+dr_int_conv_site(assigning, A, B, ['assigning to ''', B, ''' from ''', A, '''']).
+dr_int_conv_site(returning, A, B, ['returning ''', A, ''' from a function with result type ''', B, '''']).
 dr_class_spelled(C, S) :- catch(cpp_pf_class(C, S0), _, fail), !, S = S0.
 dr_class_spelled(C, C).
 %% A FAILED LINK'S LINES (0.251): the linker's message is many lines, and the command passes on only a line that holds
