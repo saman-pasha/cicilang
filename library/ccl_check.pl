@@ -137,8 +137,8 @@
 
 :- use_module(library(ccl_infer)).
 
-ccl_check_units(Units) :- ccl_ensure_globals, ccl_scope_init, catch(retractall('$ir_hlib'(_)), _, true), ck_note_units(Units), ck_flows(Units), ck_units(Units).   % no lowering's library functions (0.212)
-ccl_check_noted(Units) :- ck_flows(Units), ck_units(Units).                            % on the table the caller built
+ccl_check_units(Units) :- ccl_ensure_globals, ccl_scope_init, catch(retractall('$ir_hlib'(_)), _, true), ck_note_units(Units), ck_flows(Units), ck_static_results(Units), ck_units(Units).   % no lowering's library functions (0.212)
+ccl_check_noted(Units) :- ck_flows(Units), ck_static_results(Units), ck_units(Units).   % on the table the caller built
 ck_note_units([]).
 ck_note_units([unit(Is)|Us]) :- ccl_items_note_program(Is), ck_note_units(Us).
 ck_units([]).
@@ -529,6 +529,7 @@ ck_static_value(cond(_, A, B)) :- !, ck_static_value(A), ck_static_value(B).
 ck_static_value(comma(_, B)) :- !, ck_static_value(B).
 ck_static_value(call(id(F), _)) :- atom(F), ck_library_static(F), !.   % the C library's own static storage, and a source-location builtin's literal (0.201, ck_library_static/1)
 ck_static_value(call(id(F), [A|_])) :- atom(F), ck_library_borrow(F), !, ck_static_value(A).   % a place in its first argument's object (0.206, ck_library_borrow/1): static where that is
+ck_static_value(call(id(F), _)) :- atom(F), nb_current('$ck_static_fns', Fs), Fs \== [], memberchk(F, Fs), !.   % a function of the program whose every return is static storage (0.294, ck_static_results/1)
 ck_static_value(call(id(F), As)) :- ccl_lang(cpp), atom(F), cpp_library_function(F),   % A POINTER TO CONST THAT A C++ LIBRARY FUNCTION RETURNS FROM NO POINTER ARGUMENT is the library's storage (0.138): libc++'s `locate_zone' answers a zone of the database it keeps for the whole run; a pointer to const cannot be freed, and what the function does is the library's discipline (its functions are not checked)
     catch(ccl_declared(F, fn(R, _, _)), _, fail), catch(ccl_resolve_type(R, ptr(_, base(Q, _))), _, fail), memberchk(const, Q),
     \+ ( member(A, As), A \== nullptr, ck_pointer_arg(A) ), !.
@@ -540,6 +541,52 @@ ck_pointer_arg(A) :- catch(ccl_type_of(A, T), _, fail), T \== unknown, catch(ccl
 %% clang's `__builtin_FILE()', `__builtin_FILE_NAME()' and `__builtin_FUNCTION()' answer a literal (the lowering's
 %% ir_call/4). Each was fresh memory to the check, `plain pointer not consumed'. `cwrap.c', `srcbuiltins.c'.
 ck_library_static(F) :- memberchk(F, [getenv, setlocale, localeconv, strerror, asctime, ctime, gmtime, localtime, '__builtin_FILE', '__builtin_FILE_NAME', '__builtin_FUNCTION']).
+%% A FUNCTION OF THE PROGRAM WHOSE EVERY RETURN IS STATIC STORAGE ANSWERS NO NEW MEMORY (0.294): a pointer into a static
+%% table (`return table + i', `return &table[i]'), a string literal, a global's or a static local's address, a pointer
+%% that a global's plain slot holds, a null, a conditional of two such, or a call of another such function. Its call was
+%% fresh memory to the check, and the plain local that took it `plain pointer not consumed': `const int *p = row(2);'
+%% over `static const int *row(int i) { return table + i; }' (`f15.c' of the Ambitious session's twelfth phase), which
+%% clang builds. The functions are found before the walk, over the program's own functions with a plain pointer result
+%% and no tie: all of them at first, then each that has a return of something else taken away, until none is (a call
+%% of one that stays answers static storage, or never returns). Each return is asked as a caller's value is
+%% (ck_static_value/1, ck_loaded_value/1), in a scope over the unit's where the function's parameters and locals are
+%% declared, its static and extern locals marked static ('$ck_statics') -- a name that a block of the function declares
+%% plain is the call's own wherever another block declares it static. A function that returns a parameter's pointer or
+%% another local's, `malloc''s, or a static one on one road and new memory on another, stays fresh: its result is the
+%% caller's to give back, or the function's to tie
+ck_static_results(Units) :- nb_setval('$ck_static_fns', []),
+    findall(r(F, Ps, Es, Vs), ( member(unit(Is), Units), member(function(_, _, Ret, F, Ps, _, B), Is), atom(F), \+ ck_library_fn(F),
+        \+ ccl_tie_of(Ret, _), catch(ck_is_pointer_type(Ret), _, fail), \+ ck_own_type(Ret),
+        findall(E, ( ck_sub_term(return(L, E), B), integer(L) ), Es), Es \== [], ck_body_vars(B, Vs) ), Cs),
+    Cs = [_|_], !, findall(F, member(r(F, _, _, _), Cs), Fs0), sort(Fs0, Fs), nb_setval('$ck_static_fns', Fs), ck_static_results_close(Cs).
+ck_static_results(_).
+ck_static_results_close(Cs) :- nb_getval('$ck_static_fns', S0),
+    findall(F, ( member(r(F, Ps, Es, Vs), Cs), memberchk(F, S0), \+ ck_returns_static(Ps, Es, Vs) ), Out),
+    ( Out == [] -> true ; findall(F, ( member(F, S0), \+ memberchk(F, Out) ), S1), nb_setval('$ck_static_fns', S1), ck_static_results_close(Cs) ).
+%% the names a body declares, each with its storage class and its type: a for's own declaration too
+ck_body_vars(B, Vs) :- findall(v(N, Sto, T), ( ck_sub_term(declaration(_, Sto, _, Ds), B), member(var(N, T, _), Ds), atom(N)
+                                             ; ck_sub_term(decl(_, Ds), B), is_list(Ds), Sto = none, member(var(N, T, _), Ds), atom(N) ), Vs).
+ck_returns_static(Ps, Es, Vs) :-
+    findall(N, ( member(v(N, Sto, _), Vs), memberchk(Sto, [static, extern]), \+ ( member(v(N, Sp, _), Vs), \+ memberchk(Sp, [static, extern]) ) ), SNs0),
+    sort(SNs0, SNs), ( nb_current('$ck_statics', S0) -> true ; S0 = [] ),
+    ccl_scope_push, ( catch(ccl_declare_params(Ps), _, fail) -> true ; true ), forall(member(v(N, _, T), Vs), ccl_declare(N, T)), nb_setval('$ck_statics', SNs),
+    ( forall(member(E, Es), ck_return_static(E)) -> R = yes ; R = no ),
+    nb_setval('$ck_statics', S0), ccl_scope_pop, R == yes.
+ck_return_static(E) :- catch(( ck_null(E) ; ck_static_value(E) ; ck_loaded_value(E) ), _, fail), !.
+%% STATIC STORAGE IS A BORROW THAT NOTHING ENDS (0.294; ck_kind/3, and a plain local given it): a free of it, its hand-over
+%% to an own parameter and its store into an owner are refused, `borrow_consumed' and `borrow_stored', as a borrow's are.
+%% It was a fresh value to them: `free("abc")', `free(table)', `int *p = table + 1; free(p);', `free(row(1))' and `own int
+%% *o = &g;' were each built, and the run aborted in `free'. The storage is named by its global, the function that
+%% answers it, or `a string literal'
+ck_static_name(E, N) :- ( ck_static_root(E, N0) -> N = N0 ; N = 'a string literal' ).
+ck_static_root(cast(_, E), N) :- !, ck_static_root(E, N).
+ck_static_root(ccast(_, _, E), N) :- !, ck_static_root(E, N).
+ck_static_root(bin(_, A, _), N) :- !, ck_static_root(A, N).
+ck_static_root(cond(_, A, B), N) :- !, ( ck_static_root(A, N) -> true ; ck_static_root(B, N) ).
+ck_static_root(comma(_, B), N) :- !, ck_static_root(B, N).
+ck_static_root(addr(E), N) :- !, ck_storage_base(E, N).
+ck_static_root(id(N), N) :- atom(N), !.
+ck_static_root(call(id(F), _), F) :- atom(F).
 
 ck_line(L) :- ( integer(L), L > 0 -> nb_setval('$ck_line', L) ; true ).
 ck_fail(Kind, Name, Form) :- nb_getval('$ck_fn', F), nb_getval('$ck_line', L), ck_short(Form, Short0), ck_squash(Short0, Short), throw(error(ownership(Kind, Name, Short), where(F, line(L)))).
@@ -1466,6 +1513,7 @@ ck_decls([var(N, T0, Init0)|Vs], St0, St) :-
         ;   ck_expr(Init, St5, St5a),
             (   ck_borrowing_type(T), ck_borrows_from(Init, St5a, P) -> ck_bind_var(N, P, var(N, Init), St5a, St6)   % a closure of a reference capture is a borrow of the captured local (0.100)
             ;   ck_is_pointer_type(T), Init = id(P), ck_plain_copy(St5a, P) -> ck_declare(St5a, N, null, St6)   % A POINTER only (0.100): `int x = n' had made x an owner in the null state, and a closure capturing x by value borrowed it                 % a COPY OF A NULL, OR OF A LOCAL WITH NO OWNERSHIP STATE, IS NULL TO THE CHECK (0.99): `int *q = p' with p null was a fresh value, and q `not consumed'
+            ;   ck_is_pointer_type(T), \+ ck_declared_tie(N, _), ck_static_value(Init) -> ck_static_name(Init, SN), ck_bind_var(N, static(SN), var(N, Init), St5a, St6)   % STATIC STORAGE, a borrow that nothing ends (0.294)
             ;   ck_is_pointer_type(T), \+ ck_declared_tie(N, _), ck_fresh_value(Init) -> ck_declare(St5a, N, loose, St6)
             ;   ck_no_owner_behind(N, T, Init, var(N, Init)), St6 = St5a ) ) ),
     ck_decls(Vs, St6, St).
@@ -1479,6 +1527,7 @@ ck_kind(move(E), St, K) :- ck_path(E, P), ck_by_value(E), ck_own_under(St, P, Fs
 ck_kind(move(E), St, K) :- !, ( ck_owner_path(St, E, P) -> K = owner(P) ; ck_moves_library(E) -> ck_kind(E, St, K) ; ck_name(E, N), ck_fail(move_of_non_owner, N, move(E)) ).   % a library class's value: the kind its own form has (ck_moves_library)
 ck_kind(E, St, owner(P)) :- ck_owner_path(St, E, P), !.
 ck_kind(E, St, borrow(P)) :- ck_borrows_from(E, St, P), !.
+ck_kind(E, _, borrow(static(N))) :- ck_static_value(E), !, ck_static_name(E, N).   % STATIC STORAGE, a borrow that nothing ends (0.294, ck_static_name/2)
 ck_kind(_, _, fresh).
 ck_plain_copy(St, P) :- atom(P), ( ck_state(St, P, null) -> true ; ck_is_local(P), \+ ck_state(St, P, _) ).
 ck_name(E, N) :- ( ck_path(E, N) -> true ; N = E ).
@@ -1493,6 +1542,7 @@ ck_into_own(Key, R, Form, St0, St, Kind) :-
     (   Kind = owner(P) -> ck_strip_move(R, E), ck_base_use(E, St0, St1), ck_tie_kept(St1, P, Key, Form), ck_under_states(St1, P, Src), ck_consume(P, move, Form, St1, St2, Prior), New = Prior, ck_transfer(St2, Src, P, Key, St3a), ck_complete_rest(St3a, Key, Prior, St3)
     ;   Kind = null -> ck_expr(R, St0, St3), New = null
     ;   Kind = borrow(P) -> ( ck_state(St0, P, loose) -> ck_expr(R, St0, St3a), ck_set(St3a, P, none, St3b), ( Key == none -> St3 = St3b ; ck_retarget(St3b, P, Key, St3) ), New = live   % the owner takes loose memory over
+                              ; P = static(N) -> ck_fail(borrow_stored, N, Form)   % static storage, which no owner frees (0.294)
                               ; ck_fail(borrow_stored, P, Form) )
     ;   ck_strip_move(R, E), ( ck_call_tie(E, St0, PR) -> ( Key \== none, ck_within(St0, Key, PR) -> true ; ck_fail(tie_escapes, Key, Form) ) ; true ),
         ck_expr(R, St0, St3a), New = live,
@@ -1959,6 +2009,7 @@ ck_expr(assign('=', id(N), R), St0, St) :- ( ck_state(St0, N, _) ; ck_is_local(N
     ( ck_local_type(N, T) -> true ; T = unknown ),
     ( ck_state(St2, N, loose) -> ck_fail(unconsumed, N, assign('=', id(N), R)) ; true ),      % overwritten, its memory still nobody's
     (   T \== unknown, ck_borrowing_type(T), ck_borrows_from(R, St1, P) -> ck_rebind(St2, N, borrow(P), St)   % read before the parameter was unbound; a library object a trivial assignment copies (`sv = s', 0.216) as a pointer
+    ;   T \== unknown, ck_is_pointer_type(T), ck_static_value(R) -> ck_static_name(R, SN), ck_rebind(St2, N, borrow(static(SN)), St)   % static storage (0.294)
     ;   T \== unknown, ck_is_pointer_type(T), ck_fresh_value(R) -> ck_rebind(St2, N, loose, St)
     ;   ck_state(St2, N, S), ( S = borrow(_) ; S = dangling(_) ; S == loose ) -> ck_rebind(St2, N, none, St), ( T \== unknown -> ck_no_owner_behind(N, T, R, assign('=', id(N), R)) ; true )
     ;   T \== unknown, \+ ck_state(St2, N, _) -> ck_no_owner_behind(N, T, R, assign('=', id(N), R)), St = St2
@@ -2159,7 +2210,7 @@ ck_args_([A|As], Callee, I, St0, St) :-
         ;   A = move(_) -> ck_expr(A, St0, St1)
         ;   ck_path(A, K), ck_by_value(A), ck_own_under(St0, K, Fs), Fs \== [] -> ck_expr(A, St0, St1a), ck_move_out(St1a, Fs, Form, St1)
         ;   ck_borrows_from(A, St0, P), ck_state(St0, P, loose) -> ck_expr(A, St0, St1a), ck_consume_loose(St1a, P, St1)   % loose memory freed, or taken by an own parameter
-        ;   ck_kind(A, St0, borrow(P)), \+ ck_library_root(P) -> ( A = id(N) -> true ; N = P ), ck_fail(borrow_consumed, N, Form)   % ... unless the borrow is of a LIBRARY OBJECT (0.94): a plain pointer a library class's member answers is a borrow of it (0.91, so an array's `end()' is no loose pointer), and what the program then does with it is the library's discipline -- `delete u.release()' is how a unique_ptr hands its object out, and the check refused it as a borrow freed
+        ;   ck_kind(A, St0, borrow(P)), \+ ck_library_root(P) -> ( A = id(N) -> true ; P = static(N) -> true ; N = P ), ck_fail(borrow_consumed, N, Form)   % static storage too, freed or given to an own parameter (0.294) ... unless the borrow is of a LIBRARY OBJECT (0.94): a plain pointer a library class's member answers is a borrow of it (0.91, so an array's `end()' is no loose pointer), and what the program then does with it is the library's discipline -- `delete u.release()' is how a unique_ptr hands its object out, and the check refused it as a borrow freed
         ;   ck_expr(A, St0, St1) )
     ;   ck_strip_move(A, A1), ck_path(A1, K), ck_by_value(A1), ck_own_under(St0, K, Fs), Fs \== [], ck_param_by_value(Callee, I)   % a struct with owners handed by value: its fields go to the callee's copy
     ->  ck_expr(A1, St0, St1a), ck_move_out(St1a, Fs, call(Callee, [A|As]), St1)

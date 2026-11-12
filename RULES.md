@@ -6536,6 +6536,11 @@ is in `test/cpp/run/`.
   to void qualified by both pointees (6.5.15/6, [expr.cond]/7.3; `ccl_void_ptr_quals/2`, `ccl_cv_union/3`): glibc's
   `<tgmath.h>` chooses a type by `__typeof__ (0 ? (T *) 0 : (void *) (E))`. `+z` of a complex is the complex itself
   (6.5.3.3/2; `ccl_type_of(pos(E))`), which `__typeof__ (+(expr))` asks.
+- A CONDITIONAL'S ARMS DECAY (0.294; C17 6.5.15/3 by 6.3.2.1/3 and /4, [expr.cond]/7; `ccl_cond_decay/4` in
+  `ccl_type_of(cond)`): an array arm is a pointer to its first element and a function arm a pointer to it, before the
+  rules above -- but in C++ two arms of one type keep it ([expr.cond]/4 and /6: `c ? a : b` over two `char[8]` is an
+  lvalue `char[8]`). The array's own type was the conditional's: `c ? buf : "none"` over `char buf[8]` was the array,
+  and the lowering cast each arm's pointer to it (the Lowering's rule). `test/c/run/condarr.c`. (0.294)
 - IN C, A CONDITIONAL OF TWO OBJECT POINTERS (0.219; C17 6.5.15/6, `ccl_cond_pointers/3` in `ccl_type_of(cond)`): to
   differently qualified versions of one type it is a pointer to the type qualified by both arms (by the canonical forms
   that `_Generic` compares, `ccl_type_canon/2`); to incompatible types, a constraint violation (6.5.15/3), it is a plain
@@ -10402,6 +10407,30 @@ in the first topic (The ccllib gate).
   and `localtime` answer an object the library keeps for the whole run, which a later call may overwrite and the program
   never frees, and clang's `__builtin_FILE()`, `__builtin_FILE_NAME()` and `__builtin_FUNCTION()` a literal. Each was
   fresh memory, `plain pointer not consumed`. `cwrap.c`, `srcbuiltins.c`. (0.34, 0.93, 0.201)
+- A FUNCTION OF THE PROGRAM WHOSE EVERY RETURN IS STATIC STORAGE ANSWERS NO NEW MEMORY (0.294; the Ambitious session's
+  finding 15; `ck_static_results/1`, before the walk, and `ck_static_value/1`): a pointer into a static table (`return
+  table + i`, `return &table[i]`), a string literal, a global's or a static local's address, a pointer that a global's
+  plain slot holds (0.290's rule, below), a null, the C library's static storage, a conditional of two such, or a call
+  of another such function. All the program's functions with a plain pointer result and no tie are taken at first, and
+  each that has a return of something else is taken away until none is, so two that return each other's calls are found;
+  a return is asked as a caller's value is, in a scope over the unit's where the function's parameters and locals are
+  declared and its static and extern locals are marked static (`'$ck_statics'`; a name that a block declares plain is
+  the call's own wherever another declares it static). Why: a call's pointer result is new memory unless its function is
+  tied, and `const int *p = row(2); return *p;` over `static const int *row(int i) { return table + i; }` was `plain
+  pointer not consumed: 'p'`, where clang builds it. A function that returns a parameter's pointer (`return s + 1;` --
+  the caller's to give back, or the function's to tie, `tie s`), new memory, or a static pointer on one road and new
+  memory on another answers new memory still, and one that returns a local's address is refused in itself.
+  `test/c/run/statret.c` (thirteen functions, in C and as C++), `test/c/safe/statret_param.c` and `statret_mixed.c`.
+  (0.294)
+- STATIC STORAGE IS A BORROW THAT NOTHING ENDS (0.294; `ck_kind/3` over `ck_static_value/1`, and a plain local given it
+  by its declaration or an assignment, `borrow(static(N))`): its free, and its hand-over to an own parameter, are
+  `borrow_consumed`, and its store into an owner `borrow_stored`, named by its global, the function that answers it, or
+  `a string literal` (`ck_static_name/2`); a plain slot takes it as before, and a return gives it out. Why: it was a
+  fresh value to them -- `free((void *) s)` over `const char *s = "abc"`, `free(table)`, `int *p = table + 1; free(p);`,
+  `free(row(1))`, `own int *o = &g;`, `own char *o = "abc";`, an own parameter given a literal, and a local given new
+  memory, freed, then given a global array and freed again were each built, and each run aborted in `free`.
+  `test/c/safe/free_lit.c`, `free_glob.c`, `free_direct.c`, `statret_free.c`, `own_static.c`, `own_lit.c`, `take_own.c`
+  and `assign_static.c`, in C and as C++. (0.294)
 - A C LIBRARY FUNCTION WHOSE POINTER RESULT LIES IN ITS FIRST ARGUMENT'S OBJECT is a borrow of what that argument borrows,
   static where it is (C17 7.24.2, 7.24.3, 7.24.5, 7.24.6.1, 7.29.4; C23 7.26.2.2; `ck_library_borrow/1` in
   `ck_borrows_from/3` and `ck_static_value/1`): the copies, the concatenations and `memset` answer the destination, the
@@ -11175,6 +11204,12 @@ in the first topic (The ccllib gate).
   address went through it truncated: `deque::begin()` returned a pointer whose high half was gone.
   `test/c/run/condnull.c` (the safe part refuses a plain pointer stored in a struct, so the program keeps its pointers
   in locals). (0.117)
+- A CONDITIONAL'S VALUE IS ITS ARMS' DECAYED (0.294; `ir_expr_(cond)`, over `ccl_arm_decay/2`): an array arm a pointer
+  to its first element, a function arm a pointer to it, in C and C++ alike, where the value is taken. Why: `const char
+  *p = argc > 1 ? buf : "none";` over `char buf[8]` was LLVM's `invalid cast opcode for cast from 'ptr' to '[8 x i8]'`
+  (the Ambitious session's finding 14): the phi's type was the first arm's, the array. `test/c/run/condarr.c` -- the
+  arms swapped, two arrays of two lengths, a const local array, a global, a member, a null on either side, functions, a
+  call's argument and a variadic one, `sizeof` -- prints what clang's build prints, in C and as C++. (0.294)
 - A conditional over two lvalues is an lvalue whose address is the phi of the arms' addresses ([expr.cond]/4;
   `ir_lvalue_form/1`, `ir_lval(cond)`). Else `std::min(a, b).c_str()` read a dead temporary.
   `test/cpp/run/condlvalue.cpp`. (0.92)
@@ -11870,8 +11905,13 @@ in the first topic (The ccllib gate).
   parameter carries its number (`arg: K`, `'$ir_dbg_args'`), `this` the flags `DIFlagArtificial | DIFlagObjectPointer`.
   Every global the program defines is a `DIGlobalVariableExpression` on its definition, listed by the compile unit's
   `globals:` (`ir_dbg_global/3`; a tentative definition and its definition one variable, `'$ir_dbg_gvars'`), and a
-  static local one in its function's scope (`ir_dbg_static_local/3`; `ir_dbg_var/3` leaves an `@` slot to it). A name
-  the compiler made (`$tmp1`, `$ret`) is not described. (0.130)
+  static local one in its function's scope (`ir_dbg_static_local/3`; `ir_dbg_var/3` leaves an `@` slot to it) -- its
+  SUBPROGRAM's, in whatever block it stands (0.294), as clang's: one in a nested block was a variable of the block's
+  `DILexicalBlock`, and LLVM's DWARF writer (18's, 21's and 22's `llc` alike, in
+  `DwarfCompileUnit::getOrCreateGlobalVariableDIE`) died of SIGSEGV on it, the command with it (the Ambitious session's
+  finding 17); the driver gate builds one at a function's top, in an `if`, a loop, a `case`'s block, two of one name in
+  two blocks and an array, with -g, in C and as C++, and reads their names out of the DWARF. A name the compiler made
+  (`$tmp1`, `$ret`) is not described. (0.130, 0.294)
 - THE TYPES (0.130), DWARF's from the C types, each described once per module (`ir_dbg_type/2` over `'$ir_dbg_types'`,
   keyed by `ir_dbg_key/2`: a tag by its kind and name and a C++ class name by its tag, so `struct point` named through a
   pointer, a typedef and itself is one type): the base types by their encoding (`ir_dbg_encoding/2`: boolean, complex,
@@ -12261,6 +12301,14 @@ in the first topic (The ccllib gate).
 - Measure against a baseline: probes that differ by one line, beside one that calls nothing; a fix that breaks it is a
   wrong edit. A bad thing in a trace is not THE cost until the CPU time says so. A dominant cost hides the rest, so
   measure again after each fix. A rise can be right, where work had been skipped. (0.65, 0.68, 0.92, 0.95)
+- A RUN'S MACRO NAMES ARE A KEY EACH (0.294; `pp_note_run_name/1`, `pp_run_names/1`): the K-th name that a run of the
+  preprocessor defines is the value of `$pp_n:K`, and `$pp_nnames` their count, which `pp_reset/0` makes 0;
+  `ccl_pp_macros/1` reads them at the run's end. They were one list, the value of one global, and `nb_setval/2` copies
+  its whole value, so each `#define` copied every name before it: a run's cost grew as the square of its macros (2.2 s
+  for 12,684 names, 0.17 s for 3,338, against 0.015 s and 0.003 s a key a name). A unit that includes `<openssl/ssl.h>`
+  -- 160 headers, 12,684 macros -- took 59 s on a cold store, 56 % of it in `nb_setval/2` and 6.5 s in 319 collections,
+  and takes 26 s; one of 27 glibc headers, 3,338 macros, takes 4 s (the Ambitious session's finding 18). What stays is
+  in Not done. (0.294)
 
 ## Findings about the neighbours and the instruments
 
@@ -13320,13 +13368,14 @@ in the first topic (The ccllib gate).
   goto`, a jump by a label's number and by its name, with an output, out of a block (`asmgoto.c`). Since 0.293: the
   program's own headers over a type macro's instance -- a header's macros and C17's `bool` beside an instance's
   operator, a header that includes another, and one with no `#include` -- (`hdrvec.c`, `-std=c17`), and parameters named
-  as the lowering's names (`regnames.c`; `regnames23.c`, `-std=c23`).
+  as the lowering's names (`regnames.c`; `regnames23.c`, `-std=c23`). Since 0.294: conditionals whose arms are arrays
+  (`condarr.c`), and functions whose every return is static storage (`statret.c`).
 - The C library is the host's. The compiler's own freestanding headers are in `library/include/` (`<stdarg.h>`,
   `<stdatomic.h>`, `<complex.h>`, `<stdckdint.h>`, `<stdbit.h>`, `<limits.h>`, `<tgmath.h>` and six more).
 - The language's own additions run: `:=`, patterns, `name { }` structs and `format`, `print`, `println`
   (`surface.c`), `defer` (`defers.c`), `#cocolog` (`cocolog.c`), `tie` (`tie.c`), `clone` (`clone.c`), `own` and
   `move` (`owners.c`, `own_fields.c`, `btree.c`, `btree_del.c`).
-- The safe part refuses each of the 92 programs in `test/c/safe/` with the error that its `.expect` names.
+- The safe part refuses each of the 102 programs in `test/c/safe/` with the error that its `.expect` names.
 
 ### C++ levels
 
@@ -14367,9 +14416,17 @@ Declarations topic of the C++ reader).
   (`ck_plain_read/1`).
 - A FUNCTION THAT GIVES BACK A RECORD WITH A POINTER IN IT GIVES A VALUE WITH NO OWNER BEHIND (probed at 0.290, as it
   was before): `struct tok t = pick(i);` over `static struct tok pick(int i) { return toks[i]; }` is `no owner behind:
-  't'`. A call's result is new memory to the check, as a pointer result with no tie is, and a record cannot be consumed.
-  The program hands the record out through a pointer parameter (`*out = toks[i];`, taken since 0.290) or reads the table
+  't'`. A call's result is new memory to the check, as a pointer result with no tie is -- but one of a function whose
+  every return is static storage (0.294, which takes pointer results alone) --, and a record cannot be consumed. The
+  program hands the record out through a pointer parameter (`*out = toks[i];`, taken since 0.290) or reads the table
   where it needs the record.
+- A POINTER READ OUT OF A PLAIN SLOT, FREED, IS BUILT (found at 0.294): `char *p = names[1]; free(p);` over a global
+  table of literals runs into `free(): invalid pointer`. 0.290 made such a read no new memory, and a plain slot holds no
+  memory of nobody's, so its free is a borrow's -- but the check keeps no state of what the slot holds, and the local
+  has none. A CONDITIONAL OF STATIC STORAGE AND NEW MEMORY IS A BORROW TO THE CHECK (0.294): `char *p = c ? "a" :
+  malloc(4);` -- its free is refused, `borrow_consumed`, as a free of static storage on one road must be, and the new
+  memory's leak on the other road is not seen, as one of a local's address and new memory was not before. A pointer
+  whose roads differ so is a decision of the language: refused as neither, the owner's.
 
 ### Tools and performance
 
@@ -14606,3 +14663,9 @@ Declarations topic of the C++ reader).
   `test/` (0.161): the three generated tables (`ccl_bidrt.pl`, `ccl_uninames.pl`, `ccl_xid.pl`) are loaded, not charted.
   `test/why.sh` is no gate. The desugaring's seventeen files are one program in the chart since 0.230, as the one file
   was before 0.223, each finding at its part's line (the flow gate's topic).
+- THE COLD READ OF A TREE OF HEADERS IS ITS HEADERS' PREPROCESSED READS, EACH WITH ITS WHOLE TREE (measured at 0.294,
+  the Ambitious session's finding 18): a unit that includes `<openssl/ssl.h>` takes 26 s on a cold store, 294 million
+  steps, seven times the 41 million of a unit of 27 glibc headers for 1.4 times its text. The reads are as many in both
+  (93 and 92 of a unit, 41 and 40 preprocessed), and OpenSSL's are larger: 55,861 external declarations parsed against
+  6,611, and 76,206 uses of a header's macro against 10,986. A warm store builds it in 1 s. A preprocessed read that the
+  headers of one tree share is a change of the read's design (the Includes topic), a step of its own.

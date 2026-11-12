@@ -919,7 +919,7 @@ ccl_type_of(move(E), T) :- !, ccl_type_of(E, T).
 ccl_type_of(compound_lit(T, _), T) :- !.
 ccl_type_of(assign(_, L, _), T) :- !, ccl_type_of(L, T).
 ccl_type_of(comma(_, B), T) :- !, ccl_type_of(B, T).
-ccl_type_of(cond(_, A, B), T) :- !, ccl_type_of(A, AT), ccl_type_of(B, BT),
+ccl_type_of(cond(_, A, B), T) :- !, ccl_type_of(A, AT0), ccl_type_of(B, BT0), ccl_cond_decay(AT0, BT0, AT, BT),
     (   ccl_is_arith(AT), ccl_is_arith(BT) -> ccl_cond_arith(AT, BT, T)
     ;   A == nullptr -> T = BT          % a null pointer constant takes the OTHER arm's type ([expr.cond]), unknown included: typed `void *' by its
     ;   ccl_nullptr_type(AT), \+ ccl_nullptr_type(BT) -> T = BT   % ... and a value of `std::nullptr_t' that is no literal (0.206)
@@ -957,6 +957,14 @@ ccl_type_of(_, unknown).
 ccl_srcloc_builtin_type(B, base([], [unsigned])) :- memberchk(B, ['__builtin_LINE', '__builtin_COLUMN']), !.
 ccl_srcloc_builtin_type(B, ptr([], base([const], [char]))) :- memberchk(B, ['__builtin_FILE', '__builtin_FILE_NAME', '__builtin_FUNCTION']).
 ccl_literal_quals(Q) :- ( ccl_lang(cpp) -> Q = [const] ; Q = [] ).
+%% THE ARMS OF A CONDITIONAL DECAY (C17 6.5.15/3 by 6.3.2.1/3 and /4, [expr.cond]/7; 0.294): an array arm is a pointer to
+%% its first element and a function arm a pointer to it -- but in C++ two arms of one type are of that type ([expr.cond]/4
+%% and /6: `c ? a : b' over two `char[8]' is an lvalue `char[8]'). An array arm's own type was the conditional's: `c ? buf
+%% : "none"' and `c ? 0 : buf' over `char buf[8]' were the array, and `sizeof' of one its bytes. The lowering takes the
+%% value, each arm decayed (ir_expr_/4)
+ccl_cond_decay(AT, BT, AT, BT) :- ccl_lang(cpp), AT == BT, !.
+ccl_cond_decay(AT0, BT0, AT, BT) :- ccl_arm_decay(AT0, AT), ccl_arm_decay(BT0, BT).
+ccl_arm_decay(T0, T) :- ( catch(ccl_decay(T0, T1), _, fail) -> T = T1 ; T = T0 ).
 %% C'S CONDITIONAL OF TWO OBJECT POINTERS (0.219; C17 6.5.15/6): to differently qualified versions of one type, a pointer to
 %% the type qualified by both arms; to incompatible types, a constraint violation (6.5.15/3) that clang and GCC type as a
 %% plain `void *', with a warning ("pointer type mismatch"). It took the first arm's type, so `_Generic(c ? p : q, void *: 1,

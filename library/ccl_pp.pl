@@ -252,7 +252,7 @@ pp_import_line(A, Spec) :- atom(A), nb_getval('$ccl_lang', cpp), atom_codes(A, C
 %% the macros defined when the run ended, macro(Name, Params, text(Body)) --
 %% the run's own, not the predefined: what a header's summary or store keeps
 ccl_pp_macros(Macros) :-
-    nb_getval('$pp_names', Ns), sort(Ns, Names), nb_getval('$pp_gen', G), pp_macro_terms(Names, G, Macros).
+    pp_run_names(Ns), sort(Ns, Names), nb_getval('$pp_gen', G), pp_macro_terms(Names, G, Macros).
 pp_macro_terms([], _, []).
 pp_macro_terms([N|Ns], G, Ms) :-
     pp_macro_terms(Ns, G, Ms1),
@@ -264,13 +264,21 @@ pp_macro_terms([N|Ns], G, Ms) :-
 %% one from an earlier run is simply not this run's -- no walk undefines them
 pp_reset :-
     ( nb_current('$pp_gen', G0) -> G is G0 + 1 ; G = 1 ), nb_setval('$pp_gen', G),
-    nb_setval('$pp_names', []), nb_setval('$pp_files', []), nb_setval('$pp_once', []), nb_setval('$pp_stack', []), nb_setval('$pp_linemap', []),
+    nb_setval('$pp_nnames', 0), nb_setval('$pp_files', []), nb_setval('$pp_once', []), nb_setval('$pp_stack', []), nb_setval('$pp_linemap', []),
     nb_setval('$pp_counter', 0), nb_setval('$pp_outs', 0), nb_setval('$pp_errors', []), nb_setval('$pp_paste', no), nb_setval('$pp_top', no), nb_setval('$pp_hdrs', []), nb_setval('$pp_ninc', 0), nb_setval('$pp_late', []),
     nb_setval('$pp_ftm_defs', []), nb_setval('$pp_hdr_names', []).   % the file's own definitions of pp_ftm_each/1's names (0.215), the names its headers gave it (0.239)
 pp_key(N, K) :- atom_concat('$pp:', N, K).
 %% a macro: its parameters (obj for an object-like one; va(N) the variadic
 %% one) and its body -- the codes as defined, the tokens once used
-pp_define(N, Ps, Cs) :- pp_set_macro(N, Ps, Cs), nb_getval('$pp_names', Ns), nb_setval('$pp_names', [N|Ns]).   % a name twice is harmless: sorted where read
+pp_define(N, Ps, Cs) :- pp_set_macro(N, Ps, Cs), pp_note_run_name(N).   % a name twice is harmless: sorted where read
+%% THE RUN'S MACRO NAMES, A KEY EACH (0.294): the K-th name that the run defines is the value of `$pp_n:K', and
+%% `$pp_nnames' their count, so a #define costs the same whatever the run defined before it. They were one list, the
+%% value of one global, and `nb_setval/2' copies its whole value: each #define copied every name before it, and a run's
+%% cost grew as the square of its macros -- 2.2 s for 12,684 names, 0.17 s for 3,338. A unit that includes
+%% <openssl/ssl.h>, whose headers define 12,684, took 59 s on a cold store, 56 % of it in `nb_setval/2', and takes 26 s
+%% (the Ambitious session's finding 18); one of 27 glibc headers, 3,338 macros, takes 4 s
+pp_note_run_name(N) :- nb_getval('$pp_nnames', I0), I is I0 + 1, nb_setval('$pp_nnames', I), atom_concat('$pp_n:', I, K), nb_setval(K, N).
+pp_run_names(Ns) :- nb_getval('$pp_nnames', I), findall(N, ( between(1, I, J), atom_concat('$pp_n:', J, K), nb_getval(K, N) ), Ns).
 pp_set_macro(N, Ps, Cs) :- nb_getval('$pp_gen', G), pp_key(N, K), nb_setval(K, mac(G, Ps, codes(Cs), none)).
 pp_undefine(N) :- nb_getval('$pp_gen', G), pp_key(N, K), nb_setval(K, undef(G)).
 %% a name's macro: this run's, or, in the user's file, one of its headers'

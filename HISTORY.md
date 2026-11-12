@@ -288,6 +288,7 @@ One row per step, in version order: the step's title, what it did and its gate n
 | 0.291 | ccllib's `<string.pl>`; an operator whose left operand is no instance; a pointer where a struct is needed is refused by name | `std::string` as `basic_string<char>`: an own pointer, a count and sixteen bytes that hold the capacity or a string of fifteen characters, which has no block of the heap; 182 functions, each made at its first use, and 11 inner ones; a change of the characters is one of two inner functions, and a source in the string itself is copied first; a place past the last character, a change past `max_size` and a number of a text where there is none stop the program; the rules program holds the string to a model at 24,414 checks, and fifty-seven copies of the tree broken on purpose are each reported; the reader writes `"abc" == s` and `"<" + s` as the instance's relation with its operands exchanged and as its `r` function; the lowering takes a raw-read header's definition from the header that holds it, and refuses a pointer where a struct is needed, which went to LLVM's parser; reader 188, lowering 162 | the flow gate; the reader, compile and driver gates and the ccllib gate over libc++ 22, over one fresh HOME; the ccllib gate over libc++ 21 and 18; the pool of the light C++ run fixtures; seventeen C++ fixtures by hand; no chain, by the owner's rule of 0.271; a commit and a push |
 | 0.292 | cocolog 3.62.2: the pins moved, every load silent over it | cocolog from 3.37.0 to its latest master, 3.62.2 (`7e4bac2`), on the owner's word: fifty-nine commits, thirty-seven versions of cocolog's own; its build needs `ZIGURATIP` where the checkout is not under `$HOME`; the embedded LLVM built against 18 again, after a build of mine over the shell's `LLVM=/usr/lib/llvm-22`; 3.62's `public` and `dynamic` operators, prepared at 0.290, run; one load warning, a singleton in `bitset.pl`, mended, and every load silent; Cicili and ZiguratIP have no new commit; reader 188 and lowering 162 stay | the toolchain check strict; the quick gates before the chain; the chain over libc++ 22, 21 and 18, GREEN; no CI job, by the owner's rule of 0.271; a commit and a push |
 | 0.293 | the findings of a JavaScript engine over 0.284, and cocolog 3.62.3 | a borrow handed to a call that may replace its owner refused (`ck_args_alias/3`); a named parameter's register `%arg.<name>`, apart from the lowering's names; the program's own C header whose raw read met an instance read again in its place, its own read's prescan instances put back (C++'s `no_member` of 0.268 too), a header read in its includer's scope where the unit has an instance, and a read that calls an instance's function kept in no cache; the string's programs hand a part by the string; reader 189, lowering 163; cocolog from 3.62.2 to its latest master, 3.62.3 (`bf956d1`), on the owner's word, its pin moved, every load silent | the toolchain check strict; the chain over libc++ 22, 21 and 18, GREEN; no CI job, by the owner's rule of 0.271 |
+| 0.294 | the findings of the twelfth phase of a program over 0.284 | a conditional's arms decay, in its type and its value; a function of the program whose every return is static storage answers no new memory (`ck_static_results/1`); static storage a borrow that nothing ends, its free and its store into an owner refused (an older hole the probes found); a static local's debug variable its function's subprogram's (-g died of SIGSEGV on one in a block); the borrow into a call over a `vector<item> *` refused since 0.293; reader 190, a run's macro names a key each, so a unit over `<openssl/ssl.h>` builds cold in 26 s where it took 59 s; lowering 164 | the flow gate and the nets; no chain and no CI job, by the owner's rule of 0.271 |
 
 ## M5 — the C++ mode
 
@@ -20739,3 +20740,110 @@ let the check take it, and new syntax is the owner's rule.
   `alone/string_rules.c` and its `.expect`. `RULES.md`, `CLAUDE.md`, `CCLLIB.md`, `README.md`.
 
 The module 0.293, the reader 189 and the lowering 163.
+
+## 0.294 — the findings of the twelfth phase of a program over 0.284
+
+**0.294: the Ambitious session's third message -- the twelfth phase of its program over 0.284 -- named five findings,
+four with reductions. A conditional whose arm is an array was refused by LLVM; a function that returns a pointer into a
+static table made its caller's local a pointer that the safe part wanted given back; the borrow handed to a call that
+may replace its owner, over a `vector<item> *`, is refused since 0.293; -g died of SIGSEGV on a static local in a nested
+block; and a unit that includes `<openssl/ssl.h>` took a minute to build on a cold store, most of it in the copies of
+one global list that grew as the square of the macros. Each is mended, the last in part and the rest measured, its forms
+beside it probed, and the probes of the second found an older hole of the safe part, which is closed: a free of static
+storage, and its store into an owner, were built, and the run aborted in `free`. The reader goes to 190 and the lowering
+to 164.**
+
+FINDING 14, A CONDITIONAL WHOSE ARM IS AN ARRAY. `const char *p = argc > 1 ? buf : "none";` over `char buf[8]` was
+`LLVM: ir_parse_failed: ... invalid cast opcode for cast from 'ptr' to '[8 x i8]'`. THE CAUSE: C17 6.5.15/3 takes each
+arm through the usual conversions, an array to a pointer to its first element (6.3.2.1/3) and a function to a pointer to
+it (/4), and the lowering took the first arm's own type for the conditional's -- `[8 x i8]` -- and cast each arm's
+value, a pointer, to it; the inference typed the conditional so too (`ccl_type_of/2`). THE FORMS BESIDE IT, in C and as
+C++: the arms swapped, two arrays of two lengths, a `const char[]` local, a global array, an array member, a null on
+either side -- `c ? 0 : buf` was LLVM's cast from 'i32' to the array --, two functions, a conditional as a call's
+argument and as a variadic one, and `sizeof` of one: `sizeof(c ? big : "none")` over `char big[16]` printed 16, in C and
+as C++, where clang prints 8, with no error. The arms decay now, in the inference (`ccl_cond_decay/4` -- but in C++ two
+arms of one type keep it, [expr.cond]/4, so `c ? a : b` over two `char[8]` is an lvalue of that array) and wherever the
+lowering takes the value (`ir_expr_/4`). `test/c/run/condarr.c` prints what clang's build prints, in C and as C++, each
+arm taken; its arms are chosen by a function's value, the same in the compile gate's run, with two arguments, and the
+C++ gate's, with none (its first form chose by `argc`, and the compile net was RED on it until then).
+
+FINDING 15, A POINTER INTO A STATIC TABLE THAT A FUNCTION RETURNS. `static const int *row(int i) { return table + i; }`
+and `const int *p = row(2); return *p;` was `plain pointer not consumed: 'p'`: a call's pointer result is new memory to
+the safe part unless its function is tied (`tie`), and a plain local given new memory must give it back. THE CHANGE: a
+function of the program whose every return is static storage answers no new memory (`ck_static_results/1`, before the
+walk): a pointer into a static table, `&table[i]`, a string literal, a global's or a static local's address, a pointer
+that a global's plain slot holds (0.290's rule), a null, the C library's static storage, a conditional of two such, or a
+call of another such function -- all the program's functions with a plain pointer result and no tie are taken at first,
+and each that has a return of something else is taken away until none is, so two that return each other's calls are
+found. Each return is asked as a caller's value is, in a scope where the function's parameters and locals are declared,
+its static and extern locals marked static. THE FORMS THAT STAY: a function that returns a parameter's pointer (`skip(s)
+{ return s + 1; }`: its result is the caller's to give back, or the function's to tie), new memory (`malloc`), or a
+static pointer on one road and new memory on another, is new memory still, and a function that returns a local's address
+is refused in itself (`a borrow leaves the function`). `test/c/run/statret.c` holds thirteen functions and prints what
+clang's build prints, in C and as C++; `test/c/safe/statret_param.c` and `statret_mixed.c` stay refused.
+
+AN OLDER HOLE THAT THE PROBES FOUND: STATIC STORAGE FREED. Over 0.293, `free("abc")` through a local, `free(table)`,
+`int *p = table + 1; free(p);`, `free(row(1))` -- new memory to the check until this step --, `own int *o = &g;`, `own
+char *o = "abc";`, an own parameter given a literal and a local given new memory, freed, then given a global array and
+freed again, were each built, and each run aborted in `free` (`free(): invalid pointer`). Static storage is a borrow
+that nothing ends now (`ck_kind/3`, and a plain local given it by its declaration or an assignment): its free and its
+hand-over to an own parameter are `borrow_consumed`, its store into an owner `borrow_stored`, named by its global, the
+function that answers it, or `a string literal` (`ck_static_name/2`). `test/c/safe/free_lit.c`, `free_glob.c`,
+`free_direct.c`, `statret_free.c`, `own_static.c`, `own_lit.c`, `take_own.c` and `assign_static.c`, in C and as C++.
+WHAT STAYS OPEN, IN Not done: a pointer read out of a plain slot and freed (`char *p = names[1]; free(p);`) is built
+still -- 0.290 made such a read no new memory, and a borrow of what the slot holds is no state the check keeps --, and a
+conditional of static storage and new memory is a borrow to the check, whose new memory's leak it does not see, as one
+of a local's address and new memory was.
+
+FINDING 16, THE BORROW HANDED TO A CALL OVER A `vector<item> *`. `grow(&v, &v[0].b)`, where `grow` pushes 1000 elements
+and then writes through its second parameter, is refused since 0.293 in C and as C++, `a borrow handed to a call that
+may replace its owner: 'v.data' in call(grow)` -- the rule of 0.293's first finding, which the session's message did not
+yet know. No change.
+
+FINDING 17, -g AND A STATIC LOCAL IN A NESTED BLOCK. `int f(int n) { if (n > 0) { static int count = 0; ... } }` with
+`-g` killed the command with SIGSEGV. THE CAUSE: the static local's debug variable was a variable of its block's
+`DILexicalBlock`, and LLVM's DWARF writer -- 18's, 21's and 22's `llc` all die so on the IR, in
+`DwarfCompileUnit::getOrCreateGlobalVariableDIE` -- meets a block that has no DIE yet when the module begins; clang's is
+the function's `DISubprogram`'s. A static local's scope is its function's subprogram now, in whatever block it stands
+(`ir_dbg_static_local/3`). THE FORMS BESIDE IT, each built with -g and run, in C and as C++: one at the function's top,
+in an `if`, a loop, a `case`'s block, two of one name in two blocks, and an array; the driver gate holds them, the names
+of their variables as clang's DWARF has them.
+
+FINDING 18, A UNIT THAT INCLUDES `<openssl/ssl.h>`. `#include <openssl/ssl.h>` and an empty `main` took 59 s on a cold
+store, peak 588 MB (twice, the second 618 MB), 1 s on a warm one, and 1 s after a change of the file, whose headers'
+reads the store keeps: the cost is the first build's. Its headers are 160 (65 of OpenSSL's own), 41,714 lines and 12,684
+macros, 13,029 lines after the preprocessor; a unit of 27 glibc headers -- 195 headers, 27,281 lines, 3,338 macros,
+9,032 lines after the preprocessor -- took 4 s cold, peak 163 MB. THE PROFILE (`test/prof.sh`, three windows and the
+whole run untraced under a clock): 52.8 s, 56 % of it in `nb_setval/2`, 2.85 million calls, and 319 garbage collections
+took 6.5 s more. THE CAUSE: the preprocessor kept the names of a run's macros, for its table at the run's end
+(`ccl_pp_macros/1`), as one list, the value of one global, and `nb_setval/2` copies its whole value -- each `#define`
+copied every name before it, so a run's cost grew as the square of its macros: 0.17 s for a list of 3,338 names, 2.2 s
+for 12,684, where a key a name takes 0.003 s and 0.015 s. The names are a key each now, `$pp_n:K` and their count
+(`pp_note_run_name/1`, `pp_run_names/1`): the cold build takes 26 s, peak 487 MB; its profile 25.2 s, `nb_setval/2` 2.6
+s, 35 collections 1.0 s. WHAT STAYS (Not done, Tools and performance): 294 million steps, seven times the glibc unit's
+41 million for 1.4 times its text -- the reads are as many in both (93 and 92 of a unit, 41 and 40 preprocessed), and
+OpenSSL's are larger, each header read preprocessed alone with its whole tree of includes: 55,861 external declarations
+parsed against 6,611, and 76,206 uses of a header's macro against 10,986. A preprocessed read that a tree's headers
+share is a change of the read's design, a step of its own.
+
+THE NETS, over the step's work tree and a fresh HOME a part: the flow gate GREEN with no finding (170 s); the reader
+gate (164 checks); the compile gate (289, twelve more than 0.293's: the two run fixtures and the ten refusals) RED at
+first on one, `condarr.c`, whose first form chose its arms by `argc` -- the compile gate runs a fixture with two
+arguments and the C++ gate with none, against one `.expect` --, and GREEN once its arms were chosen by a function's
+value (35 s); the driver gate (77, the two -g checks of static locals more); the ccllib gate over libc++ 22, 21 and 18
+(226 checks each, 558 s, 525 s and 579 s); the C++ pool of the 361 light fixtures of `test/cpp/run` (41 s, each build a
+third of a second over the warm summaries); and the C++ gate's lists by hand (34: the run fixtures of `test/c/run` that
+it builds as C++, `condarr.c` and `statret.c` among them, three of `test/cpp/run`, and twelve refusals of
+`test/c/safe`), each GREEN. THE CHAIN DID NOT RUN, by the owner's rule of 0.271: it runs over the finished ccllib task.
+NO CI JOB RAN.
+
+- `library/ccl_check.pl` (`ck_static_results/1`, `ck_static_value/1`, `ck_kind/3`, `ck_static_name/2`, the declaration's
+  and the assignment's static storage, `ck_into_own/6`, the consume of `ck_args_/5`), `library/ccl_infer.pl`
+  (`ccl_type_of(cond)`, `ccl_cond_decay/4`), `library/ccl_ir.pl` (`ir_expr_(cond)`, `ir_dbg_static_local/3`, the
+  lowering 164), `library/ccl_syntax.pl` (the reader 190), `library/ccl_pp.pl` (`pp_note_run_name/1`, `pp_run_names/1`,
+  `ccl_pp_macros/1`, `pp_reset/0`). `test/c/run/condarr.c`, `statret.c`; `test/c/safe/statret_param.c`,
+  `statret_mixed.c`, `free_lit.c`, `free_glob.c`, `free_direct.c`, `statret_free.c`, `own_static.c`, `own_lit.c`,
+  `take_own.c`, `assign_static.c`; `test/cpp.sh` (the lists); `test/driver.sh` (-g's static locals). `RULES.md`,
+  `CLAUDE.md`, `CCLLIB.md`, `README.md`.
+
+The module 0.294, the reader 190 and the lowering 164.

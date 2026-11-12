@@ -405,6 +405,11 @@ its owner", where `at(v, 0)` and `len(v)`, whose pointee is const, keep `p`.
 itself, beside its struct, is refused too (0.293): `grow(&v, &v.data[0])`,
 "a borrow handed to a call that may replace its owner".
 
+Static storage is a borrow that nothing ends (0.294): a pointer into a
+static table, a string literal or a global's address may be kept and
+returned, and a function whose every return is such a pointer gives no
+new memory -- but a free of one, or an owner given one, is refused.
+
 A type macro gives its instances operators (0.266): over an instance, the
 reader writes `a + b`, `a == b`, `a < b`, `v[i]`, `out << x` and `in >> x` as
 the calls of the functions that its type macro names for them --

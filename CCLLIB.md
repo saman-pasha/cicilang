@@ -277,6 +277,10 @@ Found by three probes on 2026-11-07:
   (`const_replace.c`, `const_local.c`). The probes found a third defect, fixed with it: `int *f(int *p) { return &p[1];
   }` was `a borrow leaves the function` since 0.219.
 - WHAT 0.265 LEAVES (Not done): both rules are C's until phase 0.10; C's const constraint is held for own fields alone.
+- A BORROW HANDED TO THE CALL ITSELF, beside its struct, is refused since 0.293 (`borrow_into_call`, "a borrow handed
+  to a call that may replace its owner"): `grow(&v, &v.data[0])`. The Ambitious session's finding 16, `grow(&v,
+  &v[0].b)` over a `vector<item> *` whose `grow` pushes a thousand elements and then writes through its second
+  parameter, is refused so, in C and as C++ (0.294).
 
 ### 0.9 Operators on instances
 
