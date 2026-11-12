@@ -766,6 +766,19 @@ k166 :- check('<= and >= over an instance are its type macro\'s own _le and _ge,
       Gn = call(id(optional_double_ge_nullopt_t), [addr(id(o)), id(nullopt)]),
       sub_t(assign(+=, id(r), bin(+, bin(+, bin(+, Ln, Gn), Gn), Ln)), B) )).
 
+%% A TYPED CALL BY NAME (0.305; what std::get needs): test/c/typedcall.c over <tuple.pl> and <pair.pl> -- `get<0>(t)'
+%% and `get<double>(t)' the instance's functions `_get_0' and `_get_double', dereferenced by the module's fact
+%% place_tuple_get; a pointer to the instance as it is; one call in another; a declared name's `lo<0>(x)' C's own
+%% relations -- and test/c/typedcall_none.c, refused by the name of the function that the module has not
+k167 :- check('a typed call by name over an instance is the call of its function named with the words of its < > list, dereferenced where the module names it a place; a pointer goes as it is, one call reads in another, a declared name keeps C\'s relations, and a name that the module has not is refused by the function\'s name',
+    ( fn_body('typedcall.c', main, B),
+      sub_t(assign(=, deref(call(id(tuple_int_double_get_0), [addr(id(t))])), int(3)), B),
+      sub_t(assign(+=, deref(call(id(tuple_int_double_get_double), [addr(id(t))])), int(1)), B),
+      sub_t(deref(call(id(tuple_int_double_get_1), [id(pt)])), B),
+      sub_t(deref(call(id(pair_int_int_get_1), [addr(deref(call(id(tuple_pair_int_int_int_get_0), [addr(id(n))])))])), B),
+      sub_t(return(_, bin(>, bin(<, id(lo), int(0)), id(x))), B),
+      op_refused('typedcall_none.c', 5, 'tuple_int_double has no function get<2>: its type macro defines no tuple_int_double_get_2') )).
+
 k110 :- check('a type macro that fails, two instances that one name names, and a typed call of a macro with no typed form are refused at the use',
     ( c('tmacro_fail.c', P1), c('tmacro.pl', M), catch(cicilang_ast(P1, _), error(E1, here(P1, 3, in_macro(type_none, M))), true), E1 == macro_failed(none, [base([], [int])]),
       c('tmacro_same.c', P2), catch(cicilang_ast(P2, _), error(macro_error(pair, _, error(ctext_error(T2), _)), here(P2, 7, _)), true),
@@ -1080,6 +1093,8 @@ t_checks :-
     k165,
     section('<= and >= over an instance by its type macro\'s own functions (0.304)'),
     k166,
+    section('a typed call by name over an instance (0.305)'),
+    k167,
     section('the preprocessor, in cocolog: a header raw cannot take'),
     k83,
     section('the lexer, native: ccl_lex_native/6 token for token with the DCG'),

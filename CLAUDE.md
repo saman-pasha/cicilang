@@ -12,8 +12,8 @@ the fixture that gates it, and why. The bullet ends with the version that made t
 edits the rule in `RULES.md`, in its topic, and writes its entry in `HISTORY.md`. Read the topic of `RULES.md` that
 covers the code before the code is changed.
 
-At 0.304 the versions are: the module 0.304 (`ccl_p_version` in `module/cicilang.cicili`, `bin/cicilang --version`),
-the reader 195 (`ccl_reader_version/1`, `library/ccl_syntax.pl`) and the lowering 170 (`ccl_lowering_version/1`,
+At 0.305 the versions are: the module 0.305 (`ccl_p_version` in `module/cicilang.cicili`, `bin/cicilang --version`),
+the reader 196 (`ccl_reader_version/1`, `library/ccl_syntax.pl`) and the lowering 170 (`ccl_lowering_version/1`,
 `library/ccl_ir.pl`).
 
 Build and prove, always in this order (or all of it, `sh test/gates.sh`):
@@ -408,9 +408,12 @@ library/ccllib/             ccllib, the standard library of cicilang's C (CCLLIB
                               no heap and no drop; nullopt, of the type nullopt_t, in its C header
   pair.pl                     std::pair (0.301): a struct of first and second, a value with no heap and no drop;
                               no C header, since its text calls nothing that one declares
+  tuple.pl                    std::tuple (0.305): a struct of its elements _0, _1 ..., a value with no heap and no
+                              drop; get<I> and get<T>, the reader's typed call by name, give an element's place
   ccllib.pl                   what two modules need, written once (0.275): a module loads it by a directive, and no
                               program includes it; the refusal of an element with a pointer, the lists' sort (0.277),
-                              the lines of a text by their conditions (0.283)
+                              the lines of a text by their conditions (0.283), an index in a function's name
+                              (0.305)
 library/cicilang.so, ccl_llvm.so
                             built by the two module scripts, never committed
 library/include/            the compiler's own freestanding headers: each COCOLOG_LIBRARY directory's include/, after
@@ -479,7 +482,9 @@ test/c/                     the reader's fixtures: hello.c, rich.c, lexer.c, mac
                             kind_in_hdr.h, a name declared again at file scope as another kind of symbol, and
                             pperr_own.c and pperr_own_ok.c over pperr_own.h, an #error of the program's own header
                             (0.298); relops.c over <vector.pl> and <optional.pl>, `<=` and `>=` over an instance
-                            read as its type macro's own functions (0.304)
+                            read as its type macro's own functions (0.304); typedcall.c over <tuple.pl> and
+                            <pair.pl>, the typed call by name, and typedcall_none.c, one that names no function
+                            (0.305)
 test/c/inc/                 the -I fixture: uses_box.c over box.h
 test/c/link/                two files linked into one program; the ABI against clang-built code (abi_main.c,
                             abi_helper.c), variadic calls (va_main.c, va_func.c, va.h), the decimal ABI against gcc,
@@ -571,7 +576,8 @@ test/ccllib/                the three runs' programs: NAME.c, a ccllib program; 
                             <unordered_set.pl> and <unordered_map.pl> (0.283); bitset.c, of <bitset.pl> (0.286);
                             string.c, of <string.pl> (0.291); string_view.c and span.c, of <string_view.pl> and
                             <span.pl> (0.295); optional.c, of <optional.pl> (0.300); pair.c, of <pair.pl> (0.301);
-                            relations.c, the relations of every module by C++20's words, over a NaN too (0.304)
+                            relations.c, the relations of every module by C++20's words, over a NaN too (0.304);
+                            tuple.c, of <tuple.pl>, with the get<I> of a pair and of an array (0.305)
 test/ccllib/safe/           ccllib programs that the safe part refuses, as C and as C++: NAME.c, NAME.expect, and
                             NAME.expect.cpp where C++ has words of its own (0.274); borrow_into_call_vector.c and
                             string_self_c_str.c, a borrow handed to a call that may replace its owner (0.293);
@@ -581,7 +587,9 @@ test/ccllib/safe/           ccllib programs that the safe part refuses, as C and
                             may not hold or give (0.300); pair_*.c, what a pair may not hold, be made of or be
                             compared with (0.301); borrow_into_call_ptr.c, borrow_into_call_param.c,
                             borrow_into_call_holder.c, borrow_into_call_copy.c and push_through_ptr.c, a borrow
-                            through a pointer to the vector (0.303)
+                            through a pointer to the vector (0.303); tuple_*.c and get_*.c, what a tuple may not
+                            hold, be made of or be compared with, and the typed calls that name no function, take
+                            no lvalue or let a borrow leave (0.305)
 test/ccllib/alone/          ccllib programs with no twin, built as C and as C++ (0.281): NAME.c, NAME.expect;
                             stops.c, what stops a ccllib program, each case in a child of its own; tree_rules.c,
                             the rules of the tree of a set and a map, read from the instance's own fields;
@@ -594,7 +602,8 @@ test/ccllib/alone/          ccllib programs with no twin, built as C and as C++ 
                             tables, and stops.c's cases of an optional (0.300); pair_rules.c, the rules of a pair,
                             each case held to C++20's words (0.301); borrow_through_ok.c, what the rules of 0.303
                             keep (0.303); optional_rules.c and pair_rules.c hold `<=` and `>=` over a NaN to
-                            C++20's words (0.304)
+                            C++20's words (0.304); tuple_rules.c, the rules of a tuple, each case held to C++20's
+                            words (0.305)
 
 proof/forty2.ll, run.sh     M0: hand-written IR through clang to a binary that prints a line and exits 42
 proof/forty2                made by proof/run.sh, never committed

@@ -43,3 +43,10 @@ ccllib_text_lines(H, [L|Ls], Text) :-
     (   Line == none -> Text = Rest ; append(Line, [10|Rest], Text) ).
 ccllib_text_holds(A+B, H) :- !, ccllib_text_holds(A, H), ccllib_text_holds(B, H).
 ccllib_text_holds(C, H) :- memberchk(C, H).
+%% AN INDEX IN A FUNCTION'S NAME (0.305; the typed call `get<1>(t)', whose function is `<instance>_get_1'): the word after
+%% the name's `_' is a number written as a number -- digits, no `0' before another digit -- and I its value. A call by
+%% name asks `<name><count>' first (`get_01' for `get_0(t)', `get_11' for `get_1(t)'), so a word that is not written so
+%% is no index, and a module's table makes no function of it; nor of an index past the end, which it does not fail on
+%% with an error for the same reason. ccllib_index_word(+Word, -I)
+ccllib_index_word(W, I) :- atom(W), atom_codes(W, Cs), Cs = [C|_], C >= 0'0, C =< 0'9,
+    forall(member(D, Cs), ( D >= 0'0, D =< 0'9 )), number_codes(I, Cs), number_codes(I, Cs1), Cs1 == Cs.

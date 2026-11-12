@@ -19,7 +19,7 @@ type_array([T, int(K)], base([], [typedef(N)]), Items) :-
     atom_number(KA, K),
     ccl_c_items("typedef struct @N { @T a[@k]; } @N;", ['N' = name(N), 'T' = type(T), k = name(KA)], Items).
 fn_array(Name, [T, int(K)], Items) :-
-    ccllib_array_fn(Name, Text), ccl_instance_name(array, [T, K], N), atom_number(KA, K),
+    ( ccllib_array_get(Name, K, Text) -> true ; ccllib_array_fn(Name, Text) ), ccl_instance_name(array, [T, K], N), atom_number(KA, K),
     ccl_c_items(Text, ['N' = name(N), 'T' = type(T), k = name(KA)], Items).
 %% a function's C text by its name; @k is the count
 ccllib_array_fn(size, "size_t @{N}_size(const @N *v) { return sizeof(v->a) / sizeof(v->a[0]); }").
@@ -65,3 +65,9 @@ ccllib_array_fn(le, "int @{N}_le(const @N *a, const @N *b) {
     return 1;
 }").
 ccllib_array_fn(ge, "int @{N}_ge(const @N *a, const @N *b) { return @{N}_le(b, a); }").
+%% `get<I>(a)' IS ELEMENT I'S PLACE (0.305; the reader's typed call by name, dereferenced by the fact place_array_get):
+%% an index within the count, which the read checks, as C++'s get is checked where it is written, where `a[i]' is
+%% checked when it runs; an index past the end is no function
+ccllib_array_get(Name, K, Text) :- atom(Name), atom_concat(get_, W, Name), ccllib_index_word(W, I), I < K,
+    atomic_list_concat(['@T *@{N}_', Name, '(const @N *v) tie v { return (@T *)&v->a[', I, ']; }'], Text).
+place_array_get.

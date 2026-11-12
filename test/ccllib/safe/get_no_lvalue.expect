@@ -1,0 +1,1 @@
+get_0 of tuple_int_int takes the address of its argument, which is no lvalue: name it first

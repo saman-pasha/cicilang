@@ -299,6 +299,7 @@ One row per step, in version order: the step's title, what it did and its gate n
 | 0.302 | the Ambitious session's findings 33, 34 and 35 | an initializer that gives more than its object holds, a call of another count than its prototype's and an integer and a pointer as if by assignment refused in clang's words, in C and in C++; a literal that fills its array, a literal in braces, a designator's expression and a braced scalar global done; `()` no prototype before C23; the command's verdict | 9 + 2 initializer forms, 10 + 5 call forms, 7 conversion forms and the verdict in the driver gate, two run fixtures; the flow gate and the nets; no chain, by the owner's rule of 0.271; a commit and a push |
 | 0.303 | finding 36's neighbours: a borrow through a pointer to its owner | a place through a local pointer or a local reference keyed as the place it names, `(*p).f` as `p->f` and `&*p` as p, a member through a reference typed as through its pointer: the rules of 0.265, 0.266 and 0.293 through each such place, in C and in C++ | 38 probes, 23 forms that built and are refused; 5 + 3 + 4 refusals and 3 run fixtures; the flow gate and the nets; no chain, by the owner's rule of 0.271; a commit and a push |
 | 0.304 | the relations of every ccllib module by C++20's words | `_lt` ends at an unordered pair, each module's own `_le` and `_ge`, and the reader asks them first for `<=` and `>=`, where it wrote the negations of `>` and `<` | `relations.c` and its twin, 50 lines, 23 differed over 0.303; 19 copies broken on purpose, each caught; reader `k166`; the flow gate and the nets; no chain, by the owner's rule of 0.271; a commit and a push |
+| 0.305 | ccllib phase 1b, tuple.pl and the typed call by name | `#include <tuple.pl>`: a struct of its elements, born zero, `swap`, C++20's relations; `get<0>(t)` and `get<double>(t)` the instance's functions by the reader's typed call by name, the element's place; the pair's and the array's `get` | `tuple.c` and its twin; 13 refusals; `tuple_rules.c` at 12,024 checks, 11 copies broken on purpose, each caught; reader `k167`; the flow gate and the nets; no chain, by the owner's rule of 0.271; a commit and a push |
 
 ## M5 — the C++ mode
 
@@ -21759,3 +21760,99 @@ which print the same line, and the nets run again whole.
   surface; Not done), CCLLIB.md, README.md, HISTORY.md, CLAUDE.md; `module/cicilang.cicili` (0.304).
 
 The module 0.304, the reader 195 and the lowering 170.
+
+## 0.305 — ccllib phase 1b, tuple.pl and the typed call by name
+
+**0.305: `#include <tuple.pl>` gives std::tuple: a struct of its elements, a value with no heap and no drop, made by
+braces and born zero, with `swap` and the relations of C++20. Its elements are reached by C++'s own form, `get<0>(t)`
+and `get<double>(t)`: A TYPED CALL BY NAME, which the reader takes in a unit with an instance -- the instance's function
+`<instance>_get_0`, found by the first argument as a call by name finds its function, and dereferenced where the module
+names it a place. The pair's and the array's `get<I>` came with it.**
+
+THE FORM. C has no `get<0>(t)`: `get < 0 > (t)` is two relations over a name that nothing declares. A macro named `get`
+was the first road, and the reader takes a typed call of a macro already (`max<double>(a, b)` over `tvector.pl`); but a
+macro of that name expands every plain call of its arity too, and a failed match is an error, so the map's `get(m, k)`
+in a unit that includes `<tuple.pl>` would have failed; and two modules that define one macro are RED to the flow gate.
+THE TYPED CALL BY NAME is one rule for every module instead: in a unit with an instance, a name that is no macro, no
+type macro and no name that the read declares, its list `<...>` and `(` -- `get<0>(t)` -- is the call of
+`<instance>_<name>_<word>...`, each argument of the list by its word, a constant's value or a type's
+(`ccl_type_word/2`), of the instance whose object, or a pointer to one, is the first argument (`ccl_typed_name_call/4`
+over the call by name's `ccl_inst_call_type/2` and `ccl_inst_call_args/5`). The function is made at its first use. The
+call is dereferenced where the module names it a place by the fact `place_<macro>_<name>` beside its type macro
+(`ccl_typed_place/2`, the form of 0.295's `view_<macro>`): `get<0>(t) = 3` is `*tuple_int_double_get_0(&t) = 3`, an
+lvalue, as C++'s `get` gives a reference, and `&get<0>(t)` is a borrow of t, tied to it. Where the name is declared, it
+is C's own relations; where the first argument is no instance's object, the clause fails and C's reading stands.
+
+WHAT THE PROBES FOUND, over the work tree, each case as C and as C++. THE FIRST CLAUSE READ ITS ARGUMENTS WITH A CUT IN
+A DISJUNCTION, which committed the whole primary expression to the clause: `get<0>(x)` over an `int` in a unit with a
+tuple was `syntax error: could not read this item`, where 0.304 says `not lowered yet: undeclared(get)`; the arguments
+are read by a rule of their own now (`ccl_typed_name_args//1`), and the reading is 0.304's. THE FIRST LOOK-AHEAD OF C++
+asked the first argument's first token to be an instance's name, and a nested call, `get<1>(get<0>(n))`, was C++'s
+relations, `no_operator(>)`; the look-ahead is one for both languages, and since the clause fails where the first
+argument is no instance, a call of the program's own template is C++'s still -- `twice<int>(3)` beside a tuple, probed.
+IN C++ A BLOCK ITEM IS READ AS A DECLARATION FIRST, whose specifiers take `get<0>` for a template's name, and
+`get<0>(*pt) = 4;` declared `pt` a pointer to it: `template_without_body(get)`; a statement that begins with a typed
+call by name over an instance is read as a statement (`ccl_typed_name_stmt_ahead/2`). IN C++ A TYPED CALL THAT NAMES NO
+FUNCTION fell to C++'s reading -- `no_operator(>)`, and a syntax error for `get<int>` --; it is refused by name in both
+languages, since no C++ template takes a ccllib instance.
+
+THE MODULE. `tuple<A, B, ...>` is `tuple_A_B`, a struct of `_0`, `_1` ...; its texts are made from the count of the
+elements, a hole for each element's type (`@T0`, `@T1`): `==` of each element; `<` by the synthesized three-way order,
+the first elements' `<`, else their `==` and the rest's `<`, and `<=` the same with the last elements' `<` or `==`,
+joined by `&` and `|` with no branch, as the pair's are (0.301); `>=` is `<=` with its operands exchanged. `get_I` gives
+element I's place and `get_<word>` that of the one element whose type has the word. A NAME THAT FITS NO ELEMENT MAKES NO
+FUNCTION, and fails with no error: a call by name asks `<name><count>` first, `get_11` for a plain `get_1(t)`, and an
+error there would refuse a call that has its function. So an index past the end, and a type that the tuple holds twice
+or not at all, are refused by the reader by the name of the function that the module has not, `tuple_int_double_char has
+no function get<3>: its type macro defines no tuple_int_double_char_get_3`, where C++ fails a static assertion.
+`ccllib.pl` has `ccllib_index_word/2`, a number written as a number, which the tuple and the array share. The pair has
+`get_0`, `get_1` and `get_<word>` where its two members' types differ, and the array `get_I` within its count, the index
+checked at the read, as C++'s `get` is, where `a[i]` is checked when it runs.
+
+THE PROOF. `test/ccllib/tuple.c` -- each element by `get<I>` and `get<T>` as a value and as a place, the birth, a copy,
+a value parameter, swap, a pointer to a tuple, each relation over six pairs of four tuples of three numbers, a tuple of
+one element, of a struct, of a pair, of a tuple, an optional of a tuple, a NaN, and the pair's and the array's `get` --
+and its twin `tuple.cpp` over `std::tuple`, which clang++ 22 builds over libc++ 22 at C++23 and at C++20, print the same
+25 lines and the same exit as C and as C++. `get<0>(value(ot))` is refused, `get_0 of tuple_int_int takes the address of
+its argument, which is no lvalue: name it first`, the rule of a call by name: the program names the copy first, where
+C++ binds a temporary to its reference. Thirteen programs of `test/ccllib/safe/`, as C and as C++, hold the refusals.
+`test/ccllib/alone/tuple_rules.c` holds each relation to C++20's words over every tuple of three numbers of 0, 1 and 2,
+of three of 0, 1 and a NaN, and of a pair and a number of 0 and 1, and `get`, a copy, swap and the birth to a model:
+12,024 checks. ELEVEN COPIES OF THE MODULE BROKEN ON PURPOSE, a rule each -- the first element and the last of `==`, the
+end of the order at an unordered element, the last element's `<`, the order from the last element, the end of `<=`, `<=`
+as the negation of `>`, the operands of `>=`, `get<I>`, `get<T>` and `swap` -- are each reported by it, `NOT HELD` with
+the rule's words. The reader gate's `k167` reads `test/c/typedcall.c` -- by index and by type, a pointer as it is, one
+call in another, a declared name's `lo<0>(x)` C's own relations -- and refuses `test/c/typedcall_none.c` by the
+function's name. The flow gate charts `tuple.pl` beside the other modules (`CFILES` in `test/flow.sh`).
+
+THE DOCS OF 0.304, CORRECTED. The bullet of the programs that stand alone said still that `pair_rules.c` holds `<=` and
+`>=` to the module's negations (Not done) and that `optional_rules.c` holds at 5,077,044 checks: 0.304 changed both
+programs and not that bullet. It says C++20's words and 5,077,288 now.
+
+WHAT IT COSTS, by the ccllib gate's lines (the best of three builds after a change of the file): The unit holds 58
+functions for its instances in 23,032 bytes, where the twin's holds 211 in 117,120; the count run takes 0.24 s as C and
+0.31 s as C++ against the twin's 0.32 s, in 1.7 MB against 3.2 MB. The C build after a change of the file takes 0.63 s
+and 385 MB, cicilang++'s 0.63 s and 152 MB, against clang++'s 0.41 s and 121 MB.
+
+THE NETS GREEN: the flow gate, `tuple.pl` charted; the reader gate 168, the compile gate 310, the driver gate 83 and the
+ccllib gate 379 checks over one fresh HOME -- 20 programs in three runs, `tuple.c` among them, 118 refused and 12 alone
+--; the C++ pool of the light fixtures 362 of 362 over libc++ 22, 362 over 21 and 362 over 18; every other C++ run
+fixture, 506 of 520, over libc++ 22, since the reader asks the typed call's look-ahead at every name before `<` in a
+unit with an instance and the C++ block item at every statement -- the 14 others name a need, which the net does not
+meet --; and the C++ gate's later parts by hand -- `classes.cpp`, `templates.cpp`, the C run fixtures that it builds as
+C++ and every list of its refusals -- 183 checks.
+
+- `library/ccl_syntax.pl` (the typed call by name: `ccl_primary_//3`'s clause, `ccl_typed_name_ahead/3`,
+  `ccl_typed_name_args//1`, `ccl_typed_name_call/4`, `ccl_typed_name_words/2`, `ccl_typed_place/2`,
+  `ccl_typed_name_stmt_ahead/2` and its block item in C++; the reader's version); `library/ccllib/tuple.pl`;
+  `library/ccllib/pair.pl` and `array.pl` (`get`); `library/ccllib/ccllib.pl` (`ccllib_index_word/2`); `test/flow.sh`
+  (`CFILES`).
+- `test/ccllib/tuple.c`, `tuple.cpp`, `tuple.expect`, `tuple.count`; `test/ccllib/safe/tuple_of_pointer.c`,
+  `tuple_of_array.c`, `tuple_no_type.c`, `tuple_of_other.c`, `tuple_other_type.c`, `get_past_end.c`, `get_type_twice.c`,
+  `get_type_none.c`, `get_not_constant.c`, `get_no_lvalue.c`, `get_pair_past_end.c`, `get_array_past_end.c` and
+  `get_borrow_leaves.c`; `test/ccllib/alone/tuple_rules.c`; `test/c/typedcall.c`, `typedcall_none.c` and the reader
+  gate's `k167`.
+- RULES.md (the C reader: the typed call by name; ccllib: the modules, the programs that stand alone, `array.pl`,
+  `pair.pl`, `tuple.pl`), CCLLIB.md, README.md, HISTORY.md, CLAUDE.md; `module/cicilang.cicili` (0.305).
+
+The module 0.305, the reader 196 and the lowering 170.

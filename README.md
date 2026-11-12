@@ -631,6 +631,14 @@ equal, ends the comparison, so that `<`, `>`, `<=` and `>=` are all false.
 Each module gives `<=` and `>=` functions of their own, `_le` and `_ge`,
 which the reader asks first. `test/ccllib/relations.c` is the example.
 
+`#include <tuple.pl>` gives `std::tuple` (0.305), a struct of its elements:
+`tuple<int, double, char> t = {1, 2.5, 'c'};`, `get<0>(t) = 3;`,
+`get<double>(t) += 1;`, `swap(t, u)`, `t == u`, `t < u`. `get<0>(t)` is
+C++'s form, a typed call that the reader writes as the call of the
+instance's function, `get_0`, whose result is the element's place; the
+pair's `get<0>(p)` and the array's `get<1>(a)` are so too.
+`test/ccllib/tuple.c` is the example.
+
 `format`, `print`, `println` and `clone` are global macros, there in every
 program without an include (`library/ccl_format.pl`). The format string
 has Rust's holes, each becoming the `printf` conversion of its argument's

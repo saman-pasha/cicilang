@@ -1,0 +1,26 @@
+braces: 1 2.5 a
+born: 0 0 0
+places: 5 5 c
+by type: 1 2.5 a
+through a pointer: 3 2.5 a
+copy: 3 2.5 a
+106.5 105.5
+after sum: 4 2.5 a
+swap t: 5 5 c
+swap u: 4 2.5 a
+through *pt: 5 0.5 c
+a a: 1 0 0 0 1 1
+a b: 0 1 1 0 1 0
+b a: 0 1 0 1 0 1
+a c: 0 1 1 0 1 0
+c d: 0 1 1 0 1 0
+d a: 0 1 0 1 0 1
+one: 5 1 0 1
+struct: 0 9 4
+pair: 1 5 0 0 1
+tuple: 6 7 z
+optional: 6 7 0 1
+NaN: 0 1 0 0 0 0
+pair's get: 2 5 2 5
+array's get: 6 3 1
+exit 0

@@ -439,6 +439,11 @@ What the proof found for phase 1:
   `_append_ptr_const_char` and `_append3`, as `std::string`'s three are. AND A CALL THAT FITS NO FORM IS REFUSED BY
   NAME: another count of arguments than its function takes, and a number, a C text or an object of another type where
   the function takes its object -- each was built with no message until 0.288.
+- A TYPED CALL FINDS ITS FUNCTION SO TOO (0.305): `get<0>(t)` is `*tuple_int_double_get_0(&t)`, the function named with
+  the words of the call's `<...>` -- a constant's value, a type's word -- of the instance whose object is the first
+  argument, dereferenced where the module names it a place (the fact `place_tuple_get`). C reads no other form of
+  `name<...>(...)`, and a declared name keeps C's relations; `get<I>`, `holds_alternative<T>` and `any_cast<T>` are the
+  forms that phase 1b's vocabulary writes.
 - `#include <vector.pl>` ALONE: the path holds `library/ccllib/`, and `vector.pl.h` beside the macro file brings the C
   declarations that its text calls.
 - THE NAMES ARE C++'S; `push`, `pop` and `len`, the short names of this plan's examples, stand beside `push_back`,
@@ -766,13 +771,14 @@ with no heap and no drop, made by braces, `pair<int, double> p = {1, 2.5};`, and
 `swap`, and the relations of C++20 -- `==` of each member, `<`, and `<=` and `>=` since 0.304, by the synthesized
 three-way order, where an unordered first member, a NaN, ends the comparison. A member that is an instance compares by
 its own functions, since the instance's operators are written in a module's C text too: a pair of pairs, and an optional
-of a pair. It came before `variant` and `tuple`, whose `get<0>(t)`, `holds_alternative<int>(v)` and `visit` need forms
-that C's reader has not. `test/ccllib/pair.c`, its twin over `std::pair`, five programs of `test/ccllib/safe/`, and
-`test/ccllib/alone/pair_rules.c`, which holds every case to C++20's words at 3,110 checks and reports each of seven
-copies of the module broken on purpose. Its relations join their comparisons by `&` and `|`: with `&&` and `||`, which
-the lowering writes as branches, the count run took twice the twin's time. The step found that `<=` and `>=`, the
-negations of `>` and `<` since 0.266, were true over a NaN where C++'s are false, for every module; 0.304 gave each
-module its own (below). The costs over libc++ 22, as above, the run `pair 100000000`:
+of a pair. It came before `variant` and `tuple`: `get<0>(t)` and `holds_alternative<int>(v)` are the reader's typed call
+by name since 0.305, `get<0>(p)` the pair's own, and `visit` waits for a form of its own. `test/ccllib/pair.c`, its twin
+over `std::pair`, five programs of `test/ccllib/safe/`, and `test/ccllib/alone/pair_rules.c`, which holds every case to
+C++20's words at 3,110 checks and reports each of seven copies of the module broken on purpose. Its relations join their
+comparisons by `&` and `|`: with `&&` and `||`, which the lowering writes as branches, the count run took twice the
+twin's time. The step found that `<=` and `>=`, the negations of `>` and `<` since 0.266, were true over a NaN where
+C++'s are false, for every module; 0.304 gave each module its own (below). The costs over libc++ 22, as above, the run
+`pair 100000000`:
 
 | | build | peak | IR types | IR functions | IR lines | object | `pair 100000000` at `-O2` | its peak |
 |---|---|---|---|---|---|---|---|---|
@@ -796,13 +802,36 @@ of `test/ccllib/relations.c` differed from its twin's -- the sequences' and the 
 the optional's no standard's. The string and the view define no `_le`: their characters are a total order. Nineteen
 copies of the modules and of the reader broken on purpose are each caught by `relations.c`.
 
+### 1b, `tuple.pl` (0.305)
+
+`tuple<A, B, ...>` is a struct of its elements, `_0`, `_1` ...: a value with no heap and no drop, made by braces,
+`tuple<int, double, char> t = {1, 2.5, 'c'};`, and born zero. Its elements are C++'s `get<0>(t)` and `get<double>(t)`,
+as values and as places: THE TYPED CALL BY NAME, a new form of the reader, is the instance's function
+`tuple_int_double_char_get_0`, found by the first argument as a call by name finds its function, and dereferenced where
+the module names it a place. The pair's `get<0>(p)` and the array's `get<1>(a)` came with it. `swap` and the relations
+of C++20, by the elements' order. An index past the end and a type that the tuple holds twice or not at all make no
+function, and the reader refuses the call by the function's name. `test/ccllib/tuple.c`, its twin over `std::tuple`,
+thirteen programs of `test/ccllib/safe/`, and `test/ccllib/alone/tuple_rules.c`, which holds every case to C++20's words
+at 12,024 checks and reports each of eleven copies of the module broken on purpose. The costs over libc++ 22, as above,
+the run `tuple 100000000`:
+
+| | build | peak | IR types | IR functions | IR lines | object | `tuple 100000000` at `-O2` | its peak |
+|---|---|---|---|---|---|---|---|---|
+| cicilang, C | 0.63 s | 385 MB | 14 | 58 | 1,724 | 23,032 B | 0.24 s | 2 MB |
+| cicilang++, C++ | 0.63 s | 152 MB | 15 | 58 | 1,885 | 23,016 B | 0.31 s | 2 MB |
+| clang++ 22, `std::` | 0.41 s | 121 MB | 53 | 211 | 4,587 | 117,120 B | 0.32 s | 3 MB |
+
+The unit holds 58 functions for its instances in 23,032 bytes, where the twin's holds 211 in 117,120; the count run
+takes 0.24 s as C and 0.31 s as C++ against the twin's 0.32 s, in 1.7 MB against 3.2 MB. The C build after a change of
+the file takes 0.63 s and 385 MB, cicilang++'s 0.63 s and 152 MB, against clang++'s 0.41 s and 121 MB.
+
 ### The parts of phase 1
 
 - 1a. Containers and strings: `vector`, `array`, `deque`, `list`, `forward_list`, `map`, `set`, `multimap`,
   `multiset`, `unordered_map`, `unordered_set` and their multi forms, `stack`, `queue`, `priority_queue`, `bitset`,
   `string`, `string_view`, `span` -- done at 0.295.
-- 1b. The vocabulary: `optional` (0.300), `pair` (0.301), `variant` and `visit`, `tuple`, `any`, `unique_ptr` (the own
-  pointer), `shared_ptr`, `hash`, `less` and the other function objects.
+- 1b. The vocabulary: `optional` (0.300), `pair` (0.301), `tuple` (0.305), `variant` and `visit`, `any`, `unique_ptr`
+  (the own pointer), `shared_ptr`, `hash`, `less` and the other function objects.
 - 1c. Algorithms and numbers: `<algorithm>`, `<numeric>`, the C++20 ranges views as loops, `<limits>`, `<complex>`,
   `<random>`, `<ratio>`, `<chrono>`.
 - 1d. iostreams: `ostream`, `istream`, `fstream`, `stringstream`, `<iomanip>`, `cout`, `cin`, `cerr`, over C's stdio.

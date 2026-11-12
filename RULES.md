@@ -775,13 +775,19 @@ that changes a rule edits the rule here, in its topic, and writes its entry in `
   changes --, held after each step to a model of a flag and a number each: `has_value`, `value` and `value_or`, and EACH
   RELATION BY THE STANDARD'S OWN WORDS, not by the module's way to them -- [optional.relops] between two optionals,
   [optional.comp.with.t] with a number on either side and [optional.nullops] with nullopt on either side, each of the
-  six operators --, the numbers from 0 to 5, so that two optionals are equal often. They hold at 5,077,044 checks.
-  SIXTEEN COPIES OF THE MODULE BROKEN ON PURPOSE, a rule each, are each reported by it (the section of `optional.pl`).
-  `pair_rules.c` (0.301) is THE RULES OF A PAIR of `<pair.pl>`, over every case and not over a walk of chance: each pair
-  of numbers from 0 to 3 against each, each pair of 0, 1 and a NaN against each, and each pair of pairs of 0 and 1
-  against each -- `==`, `!=`, `<` and `>` by C++20's words, `<=` and `>=` by the module's own (a NaN makes them differ
-  from C++'s: Not done), a copy and `swap`. They hold at 3,110 checks. SEVEN COPIES OF THE MODULE BROKEN ON PURPOSE, a
-  rule each, are each reported by it (the section of `pair.pl`). (0.281, 0.283, 0.286, 0.291, 0.297, 0.300, 0.301)
+  six operators --, the numbers from 0 to 5, so that two optionals are equal often. They hold at 5,077,288 checks, over
+  a NaN too since 0.304: each optional double of none, 0, 1 and a NaN against each, and against each number of 0, 1 and
+  a NaN on either side. SIXTEEN COPIES OF THE MODULE BROKEN ON PURPOSE, a rule each, are each reported by it (the
+  section of `optional.pl`). `pair_rules.c` (0.301) is THE RULES OF A PAIR of `<pair.pl>`, over every case and not over
+  a walk of chance: each pair of numbers from 0 to 3 against each, each pair of 0, 1 and a NaN against each, and each
+  pair of pairs of 0 and 1 against each -- each relation by C++20's words, `<=` and `>=` too since 0.304, which it held
+  to the module's negations of `>` and `<` before --, a copy and `swap`. They hold at 3,110 checks. SEVEN COPIES OF THE
+  MODULE BROKEN ON PURPOSE, a rule each, are each reported by it (the section of `pair.pl`). `tuple_rules.c` (0.305) is
+  THE RULES OF A TUPLE of `<tuple.pl>`, over every case: each tuple of three numbers of 0, 1 and 2 against each, each
+  tuple of three of 0, 1 and a NaN against each, and each tuple of a pair and a number of 0 and 1 against each -- each
+  relation by C++20's words --, and `get<I>` and `get<T>` as values and as places, a copy, `swap` and the birth, held to
+  a model. They hold at 12,024 checks. ELEVEN COPIES OF THE MODULE BROKEN ON PURPOSE, a rule each, are each reported by
+  it (the section of `tuple.pl`). (0.281, 0.283, 0.286, 0.291, 0.297, 0.300, 0.301, 0.304, 0.305)
 - **THE FIRST PROOF AFTER PHASE 0** (0.273; `CCLLIB.md`'s Order): `test/ccllib/first.c` over its macro file `first.pl`
   -- `vector<T>` with `push`, `at`, `len` and `sort`: a type macro's instance (0.261), its literal's `from` (0.263), its
   drop (0.262), all of it C text (0.260) -- built as C and as C++, and `first.cpp`, the same program over `std::vector`
@@ -2927,6 +2933,28 @@ that changes a rule edits the rule here, in its topic, and writes its entry in `
   `k166` over `test/c/relops.c`, a vector's and an optional's `<=` and `>=` with an instance, a number and nullopt on
   either side, and no negation left; `k135`'s `<=` over `topers.pl`, which defines no `_le`, is the negation still.
   Reader 195. (0.304)
+- **A TYPED CALL BY NAME** (0.305; what `std::get` needs: `get<0>(t)`, `get<double>(t)`): in a unit with an instance, a
+  name that is no macro, no type macro and no name that the read declares, its list `<...>` and `(` -- `get<0>(t)` -- is
+  the call of the function `<instance>_<name>_<word>...` of the instance whose object, or a pointer to one, is the first
+  argument, as a call by name finds its function (`ccl_typed_name_call/4` over `ccl_inst_call_type/2` and
+  `ccl_inst_call_args/5`): each argument of the list by its word, a constant's value or a type's
+  (`ccl_typed_name_words/2`, `ccl_type_word/2`), so `get<0>(t)` is `tuple_int_double_get_0(&t)` and `get<double>(t)`
+  `tuple_int_double_get_double(&t)`. The function is made at its first use. THE CALL IS DEREFERENCED WHERE THE MODULE
+  NAMES THE FUNCTION A PLACE, by the fact `place_<macro>_<name>` beside its type macro (`ccl_typed_place/2`, the form of
+  `view_<macro>`): `get<0>(t) = 3` is `*tuple_int_double_get_0(&t) = 3`, an lvalue, as C++'s `get` gives a reference,
+  and its address a borrow tied to t. C READS NO OTHER FORM OF `name<...>(...)`: where the name is declared it is C's
+  own relations, and where the first argument is no instance's object the clause fails and C's reading stands -- the
+  name undeclared, and in C++ a call of one of the program's templates (`twice<int>(3)`). The arguments are read by a
+  rule of their own (`ccl_typed_name_args//1`), so that a cut in their read does not commit the primary expression to
+  the clause: the first text's did, and `get<0>(x)` over an `int` was a syntax error. IN C++ A STATEMENT THAT BEGINS
+  WITH A TYPED CALL BY NAME OVER AN INSTANCE IS NO DECLARATION (`ccl_typed_name_stmt_ahead/2` before the declaration's
+  block item): `get<0>(*pt) = 4;` declared `pt` a pointer to the template `get<0>`. REFUSED BY NAME, in C and in C++ --
+  no C++ template takes a ccllib instance --: a list that is no type or constant, `the typed call get<...> of
+  tuple_int_double takes types and constants between its < and >`, and a function that the module does not make,
+  `tuple_int_double_char has no function get<3>: its type macro defines no tuple_int_double_char_get_3`. The call takes
+  its first argument's address, as a call by name does, so a value that is no lvalue -- a call's result -- is named
+  first (`name it first`), where C++ binds a temporary to its reference. Reader `k167` over `test/c/typedcall.c` and
+  `typedcall_none.c`; reader 196. (0.305)
 - **AT C++23 AN INSTANCE'S `v[i]` IS THE TYPE MACRO'S TOO** (0.284): C++23 reads a subscript's arguments as a list
   (`a[i, j]`), and that clause of the reader (`ccl_postfix_p//3`) gave `index(A, I)` for one argument with no look at
   the instance, where the clause of the levels before it asks `ccl_iop_index/3`. So `bin/cicilang++ -std=c++23` refused
@@ -9972,13 +10000,13 @@ in the first topic (The ccllib gate).
 ### The modules
 
 - A MODULE IS A MACRO FILE OF `library/ccllib/`, `NAME.pl`, and its C header `NAME.pl.h` where its text calls what a C
-  header declares -- the reader includes the header beside the macro file where the file is there, and `pair.pl` has
-  none (0.301) --: `type_NAME/3`, the type and its drop; `fn_NAME/3`, one function at its first call; a table of C texts
-  by the function's name (`ccllib_NAME_fn/2`). Its predicates have the prefix `ccllib_` but the two that the reader asks
-  by name. The flow gate charts each that defines a predicate of its own (`CFILES` in `test/flow.sh`): one with none
-  gives the chart no root, and `string_view.pl`, which loads `ccllib.pl` and names its instance in its header, is not
-  charted (0.295). A text is written in the part that C and C++ share; a null pointer is `0`, since no header's macro is
-  a name in a text. (0.274, 0.301)
+  header declares -- the reader includes the header beside the macro file where the file is there, and `pair.pl` and
+  `tuple.pl` have none (0.301, 0.305) --: `type_NAME/3`, the type and its drop; `fn_NAME/3`, one function at its first
+  call; a table of C texts by the function's name (`ccllib_NAME_fn/2`). Its predicates have the prefix `ccllib_` but the
+  two that the reader asks by name. The flow gate charts each that defines a predicate of its own (`CFILES` in
+  `test/flow.sh`): one with none gives the chart no root, and `string_view.pl`, which loads `ccllib.pl` and names its
+  instance in its header, is not charted (0.295). A text is written in the part that C and C++ share; a null pointer is
+  `0`, since no header's macro is a name in a text. (0.274, 0.301, 0.305)
 - WHAT TWO MODULES NEED IS WRITTEN ONCE, in `library/ccllib/ccllib.pl` (0.275): a module loads it by a directive, `:-
   ensure_loaded(library(ccllib/ccllib)).` -- the reader loads a macro file by cocolog's `ensure_loaded/1`, which runs
   the directive, and takes no macro from one (`ccl_pl_head/2`); no program includes the file, so its predicates are no
@@ -10014,7 +10042,8 @@ in the first topic (The ccllib gate).
   over 0.303. NINETEEN COPIES OF THE MODULES AND OF THE READER BROKEN ON PURPOSE -- the end of `_lt` at an unordered
   pair, and `_le` and `_ge`, of each of the seven sequences and of the tree; `_le` and `_ge` of the pair and of the
   optional; the reader's own functions -- are each caught by it, and the pair's, the optional's and the reader's by
-  `pair_rules.c` and `optional_rules.c` too. (0.304)
+  `pair_rules.c` and `optional_rules.c` too. A tuple's relations are the same order over its elements (0.305, the
+  section of `tuple.pl`). (0.304, 0.305)
 
 ### vector.pl
 
@@ -10056,7 +10085,9 @@ in the first topic (The ccllib gate).
   autodrop has nothing to do. `array<int, 4> a = [5, 3, 9];` fills the first three elements and the rest is zero
   (`_from`). The surface of `std::array`, 18 functions: `size`, `len`, `max_size`, `empty`; `at`, `a[i]` (`_index`),
   `front`, `back`, `data`, `begin`, `end`; `fill`, `swap`; `==`, `<`, `<=` and `>=` and what follows from them (`_eq`,
-  `_lt`, `_le`, `_ge`). (0.275, 0.304)
+  `_lt`, `_le`, `_ge`); and `get<I>(a)`, element I's place by the reader's typed call by name, its index checked at the
+  read, as C++'s `get` is checked where it is written, where `a[i]` is checked when it runs: `get<3>(a)` of an
+  `array<int, 3>` is `array_int_3 has no function get<3>` (0.305). (0.275, 0.304, 0.305)
 - WHAT DIFFERS FROM C++: `at(a, i)` and `a[i]` stop the program (`abort`) at an index past the end, and a literal of
   more elements than N does, which C++ refuses where it is written; an element is a value with no pointer in it, as a
   vector's is; N is one at least, `an array has one element at least`, since C has no array of none. `begin(a)`,
@@ -10642,24 +10673,27 @@ in the first topic (The ccllib gate).
   zero (0.285), as C++'s pair is made; `pair<int, double> p = {1, 2.5};` is C's braces, and a pair of pairs takes braces
   in braces. The module has NO C HEADER: its text calls nothing that a header declares. (0.301)
 - THE SURFACE OF `std::pair`: `swap`, and `==`, `<`, `<=` and `>=` (`_eq`, `_lt`, `_le`, `_ge`), whose others the reader
-  writes (0.266). THE RELATIONS ARE C++20'S ([pairs.spec]/1): `==` of each member, and `<` by the synthesized three-way
-  order -- the first members' `<`, else their `==` -- which a NaN fails, so that an unordered first member ends the
-  comparison, false, where C++17's `<` went on to the second members -- and the second members' `<`; `<=` is the first
-  members' `<`, else their `==` and the second members' `<` or `==`, and `>=` is `<=` with the operands exchanged
-  (0.304). A MEMBER THAT IS AN INSTANCE COMPARES BY ITS OWN FUNCTIONS: the instance's operators are written in a
-  module's C text too, so `a->first == b->first` over a pair of pairs is the inner pair's `_eq`, and an
-  `optional<pair<int, int>>` compares its pairs so. THE COMPARISONS ARE JOINED BY `&` AND `|`, NOT BY `&&` AND `||`:
-  each is a 0 or a 1 with no effect, so the value is the same, and the text has no branch. The lowering writes `&&` and
-  `||` as branches, which LLVM kept at `-O2`, and over data of chance they mispredict: the count run took 0.62 s as C
-  and 0.72 s as C++ with them, against the twin's 0.31 s, and takes 0.21 s and 0.22 s with these. (0.301, 0.304)
+  writes (0.266); and `get<0>(p)`, `get<1>(p)` and `get<T>(p)`, the members' places by the reader's typed call by name,
+  `get<0>(p) = 3` being `p.first = 3` (0.305). THE RELATIONS ARE C++20'S ([pairs.spec]/1): `==` of each member, and `<`
+  by the synthesized three-way order -- the first members' `<`, else their `==` -- which a NaN fails, so that an
+  unordered first member ends the comparison, false, where C++17's `<` went on to the second members -- and the second
+  members' `<`; `<=` is the first members' `<`, else their `==` and the second members' `<` or `==`, and `>=` is `<=`
+  with the operands exchanged (0.304). A MEMBER THAT IS AN INSTANCE COMPARES BY ITS OWN FUNCTIONS: the instance's
+  operators are written in a module's C text too, so `a->first == b->first` over a pair of pairs is the inner pair's
+  `_eq`, and an `optional<pair<int, int>>` compares its pairs so. THE COMPARISONS ARE JOINED BY `&` AND `|`, NOT BY `&&`
+  AND `||`: each is a 0 or a 1 with no effect, so the value is the same, and the text has no branch. The lowering writes
+  `&&` and `||` as branches, which LLVM kept at `-O2`, and over data of chance they mispredict: the count run took 0.62
+  s as C and 0.72 s as C++ with them, against the twin's 0.31 s, and takes 0.21 s and 0.22 s with these. (0.301, 0.304,
+  0.305)
 - WHAT DIFFERS FROM C++: each member is a value with no pointer in it (decision 2), and no array -- `a pair's member is
   a value with no pointer in it, and ptr_int holds one`, `a pair's member is no array` --; a pair takes two types, `a
   pair takes two types, its members'`; a pair is made by braces or of a pair of its own type, so `pair<int, double> b =
   a;` over a `pair<int, int>` is `a pair_int_double is not made of a value of the type pair_int_int: its type macro
   defines no pair_int_double_of`, where C++ converts each member, and `a == b` of the two is `the operator == of
   pair_int_int takes an object of pair_int_int, which its operand is not`; there is no `make_pair`, whose arguments name
-  no instance, and `get<0>(p)` has no form in C: `p.first`. `std::hash` of a pair comes with phase 1b's `hash`. (0.301,
-  0.304)
+  no instance; a pair of two members of one type takes no `get<T>`, as C++'s does not, and `get<2>(p)` is
+  `pair_int_double has no function get<2>` (0.305). `std::hash` of a pair comes with phase 1b's `hash`. (0.301, 0.304,
+  0.305)
 - `test/ccllib/pair.c` over two numbers, a character and a number, a plain struct and a number, a pair of pairs and an
   optional of a pair, each relation over five pairs of pairs of numbers and over a NaN, and its twin `pair.cpp` over
   `std::pair` print the same lines; the count run sets and compares the pairs of an array of 64 a hundred million times.
@@ -10672,6 +10706,50 @@ in the first topic (The ccllib gate).
   the twin's holds 63 in 36,112; the count run takes 0.21 s as C and 0.22 s as C++ against the twin's 0.28 s, in 1.7 MB
   against 3.1 MB. The C build after a change of the file takes 0.36 s and 150 MB, cicilang++'s 0.42 s and 129 MB,
   against clang++'s 0.25 s and 108 MB. (0.301, 0.304)
+
+### tuple.pl
+
+- **`tuple<A, B, ...>` IS A STRUCT OF ITS ELEMENTS** (0.305; `CCLLIB.md`'s phase 1b): the instance `tuple_int_double` of
+  `<tuple.pl>`, a struct of `_0`, `_1` ...: no heap and NO DROP, so its object is a plain value -- `u := t` and `f(t)`
+  copy it, as `std::tuple`'s do. `tuple<int, double> u;` is {0, 0}, born zero (0.285), as C++'s tuple is made;
+  `tuple<int, double> t = {1, 2.5};` is C's braces, and a tuple of pairs or of tuples takes braces in braces. Its texts
+  are made from the count of the elements, a hole for each element's type (`@T0`, `@T1`, `ccllib_tuple_holes/3`). The
+  module has NO C HEADER. (0.305)
+- THE SURFACE OF `std::tuple`: `swap`; `==`, `<`, `<=` and `>=` (`_eq`, `_lt`, `_le`, `_ge`), whose others the reader
+  writes; and `get<I>(t)` and `get<T>(t)`, BY THE READER'S TYPED CALL BY NAME (the topic of the C reader): `get_I` gives
+  element I's place and `get_<word>` that of the one element whose type has the word,
+  `*tuple_int_double_get_double(&t)`, dereferenced by the fact `place_tuple_get`, so `get<0>(t) = 3`, `++get<1>(t)` and
+  `&get<0>(t)` -- a borrow tied to t, which does not leave the function that holds t -- are C++'s. THE RELATIONS ARE
+  C++20'S ([tuple.rel]): `==` of each element, and `<` by the synthesized three-way order, the first elements' `<`, else
+  their `==` and the rest's `<`, so that an element that is unordered with the other's, a NaN, ends the comparison,
+  false; `<=` the same with the last elements' `<` or `==`, and `>=` is `<=` with its operands exchanged. They are
+  joined by `&` and `|`, with no branch, as the pair's are; an element that is an instance compares by its own
+  functions. A NAME THAT FITS NO ELEMENT MAKES NO FUNCTION, and fails with no error (`ccllib_tuple_get_index/3` over
+  `ccllib.pl`'s `ccllib_index_word/2`, a number written as a number): a call by name asks `<name><count>` first --
+  `get_11` for a plain `get_1(t)` -- and an error there would refuse a call that has its function. (0.305)
+- WHAT DIFFERS FROM C++: each element is a value with no pointer in it (decision 2), and no array -- `a tuple's element
+  is a value with no pointer in it, and ptr_int holds one`, `a tuple's element is no array` --; a tuple has one element
+  at least, since C has no struct of none, `a tuple takes one type at least, its first element's`; a tuple is made by
+  braces or of a tuple of its own type, `a tuple_int_double is not made of a value of the type tuple_int_int`, and
+  compared with one of its own type; `get<I>` past the end, and `get<T>` of a type that the tuple holds twice or not at
+  all, are refused by the name of the function that the module does not make, where C++ fails a static assertion; the
+  first argument of `get` is an lvalue, so `get<0>(value(o))` is named first; there is no `make_tuple`, `tie`,
+  `forward_as_tuple`, `tuple_cat` or `apply`, whose arguments name no instance, and no `tuple_size` or `tuple_element`,
+  whose count and types are the instance's own. `std::hash` of a tuple comes with phase 1b's `hash`. (0.305)
+- `test/ccllib/tuple.c` -- each element by `get<I>` and `get<T>` as a value and as a place, the birth, a copy, a value
+  parameter, `swap`, a pointer to a tuple, each relation over four tuples of three numbers, a tuple of one element, of a
+  struct, of a pair, of a tuple, an optional of a tuple and a NaN, and the pair's and the array's `get` -- and its twin
+  `tuple.cpp` over `std::tuple` print the same lines; the count run sets and compares the tuples of an array of 64 a
+  hundred million times. Thirteen programs of `test/ccllib/safe/`, as C and as C++: `tuple_of_pointer.c`,
+  `tuple_of_array.c`, `tuple_no_type.c`, `tuple_of_other.c`, `tuple_other_type.c`, `get_past_end.c`, `get_type_twice.c`,
+  `get_type_none.c`, `get_not_constant.c`, `get_no_lvalue.c`, `get_pair_past_end.c`, `get_array_past_end.c` and
+  `get_borrow_leaves.c`; `test/ccllib/alone/tuple_rules.c`, every case held to C++20's words. ELEVEN COPIES OF THE
+  MODULE BROKEN ON PURPOSE, a rule each -- the first element and the last of `==`, the end of the order at an unordered
+  element, the last element's `<`, the order from the last element, the end of `<=`, `<=` as the negation of `>`, the
+  operands of `>=`, `get<I>`, `get<T>` and `swap` -- are each reported by `tuple_rules.c`. The unit holds 58 functions
+  for its instances in 23,032 bytes, where the twin's holds 211 in 117,120; the count run takes 0.24 s as C and 0.31 s
+  as C++ against the twin's 0.32 s, in 1.7 MB against 3.2 MB. The C build after a change of the file takes 0.63 s and
+  385 MB, cicilang++'s 0.63 s and 152 MB, against clang++'s 0.41 s and 121 MB. (0.305)
 
 ## The safe part
 
