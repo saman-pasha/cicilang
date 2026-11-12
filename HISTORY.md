@@ -297,6 +297,7 @@ One row per step, in version order: the step's title, what it did and its gate n
 | 0.300 | ccllib phase 1b, `optional.pl` | `std::optional` for cicilang's C: the value and a byte, born with no value, made of a value and of `nullopt` by its `_of`, each relation of C++ by the operators' typed names; no new form of the reader | the three runs, six refusals, the rules held to C++'s tables at 5,077,044 checks, sixteen broken copies reported; the flow gate and the ccllib gate; no chain, by the owner's rule of 0.271; a commit and a push |
 | 0.301 | ccllib phase 1b, `pair.pl` | `std::pair` for cicilang's C: a struct of `first` and `second`, `swap` and C++20's relations; a member that is an instance compares by its own functions; `<=` and `>=` over a NaN written down | the three runs, five refusals, every case held to C++20's words at 3,110 checks, seven broken copies reported; the flow gate and the ccllib gate; no chain, by the owner's rule of 0.271; a commit and a push |
 | 0.302 | the Ambitious session's findings 33, 34 and 35 | an initializer that gives more than its object holds, a call of another count than its prototype's and an integer and a pointer as if by assignment refused in clang's words, in C and in C++; a literal that fills its array, a literal in braces, a designator's expression and a braced scalar global done; `()` no prototype before C23; the command's verdict | 9 + 2 initializer forms, 10 + 5 call forms, 7 conversion forms and the verdict in the driver gate, two run fixtures; the flow gate and the nets; no chain, by the owner's rule of 0.271; a commit and a push |
+| 0.303 | finding 36's neighbours: a borrow through a pointer to its owner | a place through a local pointer or a local reference keyed as the place it names, `(*p).f` as `p->f` and `&*p` as p, a member through a reference typed as through its pointer: the rules of 0.265, 0.266 and 0.293 through each such place, in C and in C++ | 38 probes, 23 forms that built and are refused; 5 + 3 + 4 refusals and 3 run fixtures; the flow gate and the nets; no chain, by the owner's rule of 0.271; a commit and a push |
 
 ## M5 — the C++ mode
 
@@ -21606,3 +21607,77 @@ others name a need, which the net does not meet --; and the C++ gate's later par
   README.md, HISTORY.md, CLAUDE.md; `module/cicilang.cicili` (0.302).
 
 The module 0.302, the reader 194 and the lowering 169.
+
+## 0.303 — finding 36's neighbours: a borrow through a pointer to its owner
+
+**0.303: the forms beside the Ambitious session's finding 36, run from its reduction. A borrow of an owner's own field,
+written through a local pointer to the owner, a parameter, a local pointer that copies a parameter, a pointer to a
+struct that holds the owner or a C++ local reference, and handed to a call that may replace that field -- or read after
+such a call -- is refused as the same borrow written through the owner is: the check keys such a place as the place it
+names.**
+
+THE FINDING, RUN FROM ITS REDUCTION. 36: `grow(&v, data(v))` over a `vector<item>` and `int grow(vector<item> *v, const
+item *p)`, whose push_backs may replace the buffer before it reads through `p`. It has been refused since 0.293, as C
+and as C++, `a borrow handed to a call that may replace its owner: 'v.data'`: the program's author met the rule, and the
+report asked for its words. THE FORMS BESIDE IT, PROBED over 0.302 and over the work tree: 30 programs over
+`<vector.pl>` and over a plain struct with an own field, each as C and as C++, and 8 C++ programs over a class whose
+member function reallocs its buffer, whose twins, built by clang++ with `own` defined empty, ran under valgrind.
+SEVENTEEN BUILT ON 0.302 AND HANDED A BORROW TO A CALL THAT MAY REPLACE ITS OWNER, the read of the freed buffer that
+valgrind found in the finding's own form through a pointer: `vector<item> *pv = &v; grow(pv, data(*pv))`, `grow(&v,
+data(*pv))`, `grow(pv, &(*pv)[0])`, two pointers `p2 = p1`, a parameter's `grow(pv, data(*pv))`, `const item *p =
+data(*pv); grow(pv, p)` and `vector<item> *q = pv; grow(q, data(*pv))`, `holder *hp = &h; grow2(hp, data(hp->v))`, and
+`hp = h` of a parameter, twice; the plain struct's `growb(bp, &bp->data[0])`, `growb(bp, (*bp).data)` and `int *q =
+bp->data; growb(&b, q)`; C++'s `pv->grow(&pv->data[0])`, `v.grow(&pv->data[0])`, `pv->grow(&(*pv).data[0])` and
+`r.grow(&r.data[0])` over `Buf &r = v`. SIX MORE BUILT AND READ A BORROW AFTER SUCH A CALL, the rule of 0.265 through
+the same places: `const item *p = data(*pv); push_back(*pv, x); p->a`, a parameter's, a holder's, `int *q = bp->data;
+growb(bp, &b.len); *q`, and C++'s `int *p = &pv->data[0]; pv->grow(&x); *p` and the same through `r`. Two were refused
+already, a parameter's own `pv->data` and `h->v.data`, whose state the check holds.
+
+THE CAUSES. THE STATE HOLDS AN OBJECT'S OWN FIELDS UNDER THE OBJECT'S KEY, `v.data`, and a local pointer's own key holds
+none: `pv->data` over `pv = &v` had no state, so its borrow fell to the clause of a member's base and was a borrow of v
+-- which no call that replaces v's fields ends, and which the rule of 0.293 does not find among v's own fields. `(*p).f`
+HAD NO KEY AT ALL (`ck_path/2` has no `deref`), and `&*p` NO BASE (`ck_replaced_base/3`): `data(*pv)` is
+`vector_item_data(&*pv)`, so its tied result (`ck_tied_own/4`, 0.266) was a borrow of v, and `push_back(*pv, x)`
+replaced no field of anything. Through a C++ LOCAL REFERENCE, the check sees `r` as the pointer it is, and `r.data` had
+no type: `&r.data[0]` took the road of an array's element (`ck_points_into/1`) and borrowed v. And a local pointer that
+copies a pointer parameter, `hp = h`, keys `hp->v.data` where the state holds the caller's `h->v.data`.
+
+THE RULES (RULES.md, the safe part's topic). A PLACE THROUGH A LOCAL POINTER OR A LOCAL REFERENCE IS THE PLACE IT NAMES
+(`ck_resolved_key/3` over `ck_resolve/3`, 0.217's door, which follows a local pointer to the local it borrows where the
+types agree and a local reference to the place it was bound to): `pv->data` is `v.data`, `hp->v.data` is `h.v.data`,
+`r.data` is `v.data`, and through a copy of a pointer parameter the parameter's own place, `h->v.data`
+(`ck_param_copy/3`) -- in a borrow (`ck_borrows_from/3`) and in the base that a call may replace (`ck_replaced_base/3`).
+`(*p).f` IS `p->f` (C17 6.5.2.3/4) and `&*p` HANDS WHAT p HANDS. A member through a local reference is typed as through
+its pointer (`ck_lib_obj_type/2`). So the rules of 0.265, 0.266 and 0.293 hold through each such place, in their own
+words.
+
+WHAT STAYS. A pointer to another object borrows nothing that the call replaces, a callee whose pointee is const replaces
+nothing, and a borrow made again after the call is a new one: the probes' eight programs of these kinds print what they
+printed on 0.302, and `test/ccllib/alone/borrow_through_ok.c`, `test/c/run/ptrfields.c` and
+`test/cpp/run/borrowptrok.cpp` hold them -- the last two print what clang's and clang++'s builds print, and valgrind
+finds nothing in those builds. An own field of an array's element is no owner to the check, so `growb(&a[1],
+&a[1].data[0])` is refused before, `a borrow consumed: 'a'` at the free. WHAT IS LEFT (RULES.md, Not done): a pointer
+reached through a pointer to a pointer, `grow(*ppv, data(**ppv))`, a pointer kept in a struct, `ctx c = { &v };
+grow(c.v, data(*c.v))`, and `&pv[0]` for `pv` build still -- the check follows one level of a borrow, and a rule for
+these needs another.
+
+THE NETS GREEN: the flow gate; the reader gate 166, the compile gate 310, the driver gate 83 and the ccllib gate 340
+checks over one fresh HOME; the C++ pool of the light fixtures 362 of 362 over libc++ 22, 362 over 21 and 362 over 18,
+`borrowptrok.cpp` among them; every other C++ run fixture, 506 of 520, over libc++ 22, since the check reads every
+program's places -- the 14 others name a need, which the net does not meet --; and the C++ gate's later parts by hand --
+`classes.cpp`, `templates.cpp`, the C run fixtures that it builds as C++ and every list of its refusals, the six new
+ones among them -- 183 checks.
+
+- `library/ccl_check.pl` (`ck_resolved_key/3`, `ck_param_copy/3`, `ck_root_renamed/4`; `ck_path/2`'s `(*p).f`;
+  `ck_replaced_base/3`'s `&*p` and a place through a pointer; `ck_borrows_from/3`'s place through a pointer or a
+  reference; `ck_points_into/1` through a reference), `library/ccl_ir.pl` (the lowering's version).
+- `test/ccllib/safe/borrow_into_call_ptr.c`, `borrow_into_call_param.c`, `borrow_into_call_holder.c`,
+  `borrow_into_call_copy.c` and `push_through_ptr.c`, as C and as C++; `test/c/safe/borrow_into_call_arrow.c`,
+  `borrow_into_call_deref.c` and `borrow_after_call_arrow.c`, the first two in the C++ gate's list too;
+  `test/cpp/callborrowptr.cpp`, `callborrowref.cpp`, `callreplaceptr.cpp`, `callreplaceref.cpp`, in its list of
+  refusals; `test/ccllib/alone/borrow_through_ok.c`, `test/c/run/ptrfields.c`, `test/cpp/run/borrowptrok.cpp`.
+- RULES.md (the safe part: `&a[i]` over a pointer, a call that may replace a struct's own fields, a borrow handed to
+  such a call, a place through a local pointer or a local reference, a tied result; Not done), README.md, HISTORY.md,
+  CLAUDE.md; `module/cicilang.cicili` (0.303).
+
+The module 0.303, the reader 194 and the lowering 170.

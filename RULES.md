@@ -10884,26 +10884,29 @@ in the first topic (The ccllib gate).
   n)` was `plain pointer not consumed`. `stdc23.c`. (0.206)
 - A function pointer and a pointer to member are code, which the check never follows (`ck_is_pointer_type/1`,
   `ck_carries_/1`). Else `int (*f)(int) = c ? a : b` was a loose pointer. (0.100)
-- **`&a[i]` OVER A POINTER IS `a + i`** (0.265; `CCLLIB.md`'s phase 0.8; C17 6.5.2.1/2, 6.5.3.2/3): a place in what
-  the pointer points to, its borrow (`ck_borrows_from/3` over `ck_points_into/1`) -- a pointer member's, `&v.data[0]` of
-  an own buffer a borrow of `v.data`; a parameter's, a pointer or an array that C adjusts to one (6.7.6.3/7), the
-  caller's; a local pointer's, what it borrows. The address was traced as `&a`'s: `&v.data[0]` traced `&v`, a struct
-  that borrows nothing, and was fresh memory, `plain pointer not consumed`; `int *f(int *p) { return &p[1]; }` traced
-  the parameter's own storage (0.219) and was `borrow_escapes`, where `p + 1` was taken. An array, and a pointer whose
-  borrow the check does not trace, keep `&a`'s. `test/c/run/elemborrow.c`. IN C++ TOO (0.272; `CCLLIB.md`'s phase 0.10;
-  [expr.sub]/1, [expr.unary.op]/3): the desugaring leaves `[]` over a pointer alone, and the rule was C's until then --
-  `int *second(int *p) { return &p[1]; }` was `a borrow leaves the function` in a C++ build.
-  `test/cpp/run/elemborrowpp.cpp`, `borrowkeep.cpp`. (0.265, 0.272)
+- **`&a[i]` OVER A POINTER IS `a + i`** (0.265; `CCLLIB.md`'s phase 0.8; C17 6.5.2.1/2, 6.5.3.2/3): a place in what the
+  pointer points to, its borrow (`ck_borrows_from/3` over `ck_points_into/1`) -- a pointer member's, `&v.data[0]` of an
+  own buffer a borrow of `v.data`; a parameter's, a pointer or an array that C adjusts to one (6.7.6.3/7), the caller's;
+  a local pointer's, what it borrows. The address was traced as `&a`'s: `&v.data[0]` traced `&v`, a struct that borrows
+  nothing, and was fresh memory, `plain pointer not consumed`; `int *f(int *p) { return &p[1]; }` traced the parameter's
+  own storage (0.219) and was `borrow_escapes`, where `p + 1` was taken. An array, and a pointer whose borrow the check
+  does not trace, keep `&a`'s. `test/c/run/elemborrow.c`. IN C++ TOO (0.272; `CCLLIB.md`'s phase 0.10; [expr.sub]/1,
+  [expr.unary.op]/3): the desugaring leaves `[]` over a pointer alone, and the rule was C's until then -- `int
+  *second(int *p) { return &p[1]; }` was `a borrow leaves the function` in a C++ build. `test/cpp/run/elemborrowpp.cpp`,
+  `borrowkeep.cpp`. THROUGH A C++ LOCAL REFERENCE TOO (0.303): a member through one is typed as through the pointer that
+  the check sees it as (`ck_points_into/1` over `ck_lib_obj_type/2`), so `&r.data[0]` over `Buf &r = v` is a borrow of
+  `v.data` -- it had no type, took the road of an array's element and borrowed v. (0.265, 0.272, 0.303)
 - **A CALL THAT MAY REPLACE A STRUCT'S OWN FIELDS ENDS THE CALLER'S BORROWS OF THEM** (0.265; `CCLLIB.md`'s phase 0.8):
-  a struct handed by a plain pointer -- its address, or a pointer that borrows it -- to a parameter whose pointee
-  is not const may have its own fields freed and replaced by the callee (`'$ck_borrowed'` above), so after the call, all
-  its arguments read, what the caller borrowed of them dangles (`ck_replaced_args/5`), and a use is `borrow_after_call`
-  (`ck_fail_dangling/2`, which a later move or free of the field gives back to `borrow_after_move`): `int *p = v.data;
-  grow(&v); *p` read the buffer that grow's `realloc` freed, and `push(v, 1)` over a `vector<int>` likewise -- iterator
-  invalidation, found at compile time. A const pointee, a variadic argument, a constructor's and a drop's `this` end
-  none; a callee with no prototype may replace them. `test/c/safe/borrow_after_grow.c`, `borrow_after_push.c`,
-  `elem_after_push.c`, `grow_through_ptr.c`; `test/c/run/elemborrow.c` keeps a borrow across `at` and `len`, whose
-  pointee is const, and takes a new one after `push`; the driver gate's message. (0.265)
+  a struct handed by a plain pointer -- its address, a pointer that borrows it, or `&*p` and `&p->f` through such a
+  pointer (0.303, below) -- to a parameter whose pointee is not const may have its own fields freed and replaced by the
+  callee (`'$ck_borrowed'` above), so after the call, all its arguments read, what the caller borrowed of them dangles
+  (`ck_replaced_args/5`), and a use is `borrow_after_call` (`ck_fail_dangling/2`, which a later move or free of the
+  field gives back to `borrow_after_move`): `int *p = v.data; grow(&v); *p` read the buffer that grow's `realloc` freed,
+  and `push(v, 1)` over a `vector<int>` likewise -- iterator invalidation, found at compile time. A const pointee, a
+  variadic argument, a constructor's and a drop's `this` end none; a callee with no prototype may replace them.
+  `test/c/safe/borrow_after_grow.c`, `borrow_after_push.c`, `elem_after_push.c`, `grow_through_ptr.c`;
+  `test/c/run/elemborrow.c` keeps a borrow across `at` and `len`, whose pointee is const, and takes a new one after
+  `push`; the driver gate's message. (0.265, 0.303)
 - **... IN C++ TOO** (0.272; `CCLLIB.md`'s phase 0.10): a member function that is not const takes its object by a plain
   `this`, so `int *p = v.data; v.grow(); *p` is refused as C's `grow(&v)` is. AN LVALUE BOUND TO A REFERENCE PARAMETER
   IS HANDED BY ITS ADDRESS ([dcl.init.ref]/5; `ck_by_address/4`): `grow2(v)` over `void grow2(Buf &)` hands v, and a
@@ -10929,18 +10932,42 @@ in the first topic (The ccllib gate).
   `append(s, c_str(s) + 2)` over `<string.pl>` -- the part goes by the string and its place, `append(s, s, 2)`; a mark
   for such a parameter would be new syntax, the owner's decision. `test/c/safe/borrow_into_call.c` and
   `borrow_into_call_local.c`, in C and as C++, `test/cpp/callborrow.cpp`, `test/ccllib/safe/borrow_into_call_vector.c`
-  and `string_self_c_str.c`. (0.293)
-- **A RESULT TIED TO A STRUCT WITH OWN FIELDS IS A BORROW OF THEM** (0.266; `CCLLIB.md`'s phase 0.9): the result
-  of `V *f(S *s, ...) tie s` over `&x`, or over a pointer that borrows x, may be a place in a buffer that x owns --
-  `&m[k]` over a dictionary, `&*dict_int_int_index(&m, k)` -- so it is a borrow of an own field of x, the first that
-  the check's state holds (`ck_tied_own/4`), which a call that may replace x's own fields ends with the others (the rule
-  above), as a move or a drop of x ends it. It was a borrow of x, which no such call ends: `int *p = &m[3]; m[9] = 1;
-  *p` read the buffer that the insertion's `realloc` had freed, and ran. The message names that field
-  (`borrowed_from('m.vals')`). A result tied to a struct with no own fields stays a borrow of it (`ring<int, 4>`'s
-  `[]`). `test/c/safe/index_after_insert.c`,
-  `tied_after_call.c`; `test/c/run/operators.c` keeps such a place and reads it before the next call; the driver gate's
-  message. In C++ too (0.272), a result tied to a reference parameter among them (`int *at(Buf &b, size_t i) tie b`):
-  `test/cpp/tiedrefreplace.cpp`, and `index_after_insert.c` built as C++. (0.266, 0.272)
+  and `string_self_c_str.c`. THROUGH A POINTER TO THE OWNER, A PARAMETER, A COPY OF ONE AND A C++ LOCAL REFERENCE TOO
+  (0.303, the bullet below): `grow(pv, data(*pv))` over `pv = &v`, the finding's form through a pointer, built and read
+  the freed buffer. (0.293, 0.303)
+- **A PLACE THROUGH A LOCAL POINTER OR A LOCAL REFERENCE IS THE PLACE IT NAMES** (0.303; the forms beside the Ambitious
+  session's finding 36; `ck_resolved_key/3` over `ck_resolve/3`, 0.217's door): the check's state holds an object's own
+  fields under the object's key, `v.data`, and a local pointer's own key holds none, so a place written through a local
+  pointer -- `pv->data` over `vector<item> *pv = &v`, `hp->v.data` over `holder *hp = &h` -- or through a local
+  reference -- `r.data` over `Buf &r = v` -- was a borrow of the object, v or h, which no call that replaces its fields
+  ends and which the rule above does not find among them. It is keyed as the place it names, in a borrow
+  (`ck_borrows_from/3`) and in the base that a call may replace (`ck_replaced_base/3`): `v.data`, `h.v.data`, and
+  through a local pointer that copies a pointer parameter, `hp->v` over `hp = h`, the parameter's own `h->v`
+  (`ck_param_copy/3`). `(*p).f` IS `p->f` (C17 6.5.2.3/4; `ck_path/2`), and `&*p` HANDS WHAT p HANDS: `data(*pv)` over
+  C's `vector<item>` is `vector_item_data(&*pv)`, and its tied result was a borrow of v. So the three rules above, and
+  the tied result's below, hold through each such place, in their own words: `grow(pv, data(*pv))`, `grow(pv,
+  &(*pv)[0])`, a parameter's `grow(pv, data(*pv))`, `grow2(hp, data(hp->v))`, `growb(bp, &bp->data[0])` and `growb(bp,
+  (*bp).data)` over a plain struct, and C++'s `pv->grow(&pv->data[0])` and `r.grow(&r.data[0])` are `borrow_into_call`,
+  where each built and its buffer was read after the call freed it; `const item *p = data(*pv); push_back(*pv, x); p->a`
+  and C++'s `int *p = &r.data[1]; r.grow(&x); *p` are `borrow_after_call`. A pointer to another object borrows nothing
+  that the call replaces, a callee whose pointee is const replaces nothing, and a borrow made again after the call is a
+  new one. `test/ccllib/safe/borrow_into_call_ptr.c`, `borrow_into_call_param.c`, `borrow_into_call_holder.c`,
+  `borrow_into_call_copy.c` and `push_through_ptr.c`, as C and as C++; `test/c/safe/borrow_into_call_arrow.c`,
+  `borrow_into_call_deref.c` and `borrow_after_call_arrow.c`, the first two as C++ too; `test/cpp/callborrowptr.cpp`,
+  `callborrowref.cpp`, `callreplaceptr.cpp` and `callreplaceref.cpp`; `test/ccllib/alone/borrow_through_ok.c`,
+  `test/c/run/ptrfields.c` and `test/cpp/run/borrowptrok.cpp` keep what stays, the last two printing what clang's and
+  clang++'s builds print. (0.303)
+- **A RESULT TIED TO A STRUCT WITH OWN FIELDS IS A BORROW OF THEM** (0.266; `CCLLIB.md`'s phase 0.9): the result of `V
+  *f(S *s, ...) tie s` over `&x`, over a pointer that borrows x, or over `&*p` of such a pointer (0.303), may be a place
+  in a buffer that x owns -- `&m[k]` over a dictionary, `&*dict_int_int_index(&m, k)` -- so it is a borrow of an own
+  field of x, the first that the check's state holds (`ck_tied_own/4`), which a call that may replace x's own fields
+  ends with the others (the rule above), as a move or a drop of x ends it. It was a borrow of x, which no such call
+  ends: `int *p = &m[3]; m[9] = 1; *p` read the buffer that the insertion's `realloc` had freed, and ran. The message
+  names that field (`borrowed_from('m.vals')`). A result tied to a struct with no own fields stays a borrow of it
+  (`ring<int, 4>`'s `[]`). `test/c/safe/index_after_insert.c`, `tied_after_call.c`; `test/c/run/operators.c` keeps such
+  a place and reads it before the next call; the driver gate's message. In C++ too (0.272), a result tied to a reference
+  parameter among them (`int *at(Buf &b, size_t i) tie b`): `test/cpp/tiedrefreplace.cpp`, and `index_after_insert.c`
+  built as C++. (0.266, 0.272, 0.303)
 - **A NULL OWN FIELD THAT SUCH A CALL MAY FILL IS LIVE AFTER IT** (0.267; `ck_null_filled/3` in
   `ck_replaced_arg/5`): the callee returns the struct's own fields live or null (`ck_complete_owners/2`), and one that
   was null may hold a buffer now -- `realloc(NULL, n)` allocates -- so the caller holds an owner that it must free or
@@ -15028,6 +15055,14 @@ Declarations topic of the C++ reader).
   0.298 refused it, `no owner behind: 'g'`, by the accident that refused `g = end` over the caller's string too. A
   program's own function that stores new memory or a borrow through its out-parameter, `*out = malloc(4)` or `*out = s +
   1`, is refused in the callee, `no owner behind: '*out'` and `a borrow stored where it cannot be followed` (0.216).
+- A BORROW THROUGH A PLACE THAT THE CHECK DOES NOT FOLLOW (0.303; the safe part's topic of a place through a local
+  pointer): the check follows one level of a borrow, a local pointer to a local or to a parameter's pointee, and a local
+  reference. A pointer reached through a pointer to a pointer, `vector<item> **ppv = &pv; grow(*ppv, data(**ppv))`, a
+  pointer kept in a struct, `ctx c = { &v }; grow(c.v, data(*c.v))`, and `&pv[0]` for `pv`, `grow(&*pv, &pv[0][0])`,
+  build still, and the callee reads the freed buffer: a rule for them is a base of every pointer argument, what it
+  borrows, and a borrow of two levels. A pointer to a member of an object, `vector<item> *pv = &h.v`, borrows the
+  object, so what is borrowed through it is the object's first own field in the words. An own field of an array's
+  element is no owner to the check, and such programs are refused before, `a borrow consumed` at the free.
 
 ### Tools and performance
 

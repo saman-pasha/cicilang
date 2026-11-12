@@ -12,8 +12,8 @@ the fixture that gates it, and why. The bullet ends with the version that made t
 edits the rule in `RULES.md`, in its topic, and writes its entry in `HISTORY.md`. Read the topic of `RULES.md` that
 covers the code before the code is changed.
 
-At 0.302 the versions are: the module 0.302 (`ccl_p_version` in `module/cicilang.cicili`, `bin/cicilang --version`),
-the reader 194 (`ccl_reader_version/1`, `library/ccl_syntax.pl`) and the lowering 169 (`ccl_lowering_version/1`,
+At 0.303 the versions are: the module 0.303 (`ccl_p_version` in `module/cicilang.cicili`, `bin/cicilang --version`),
+the reader 194 (`ccl_reader_version/1`, `library/ccl_syntax.pl`) and the lowering 170 (`ccl_lowering_version/1`,
 `library/ccl_ir.pl`).
 
 Build and prove, always in this order (or all of it, `sh test/gates.sh`):
@@ -518,7 +518,8 @@ test/c/run/                 C programs built and run: NAME.c, NAME.expect, NAME.
                             that a call wrote through an out-parameter, copied, moved by an integer and stored where
                             they outlive the function (0.299); initfit.c, initializers that fill their objects to
                             the bound and no further, and noproto.c, calls that C17 takes without a prototype and the
-                            null pointer constants (0.302)
+                            null pointer constants (0.302); ptrfields.c, what a call through a pointer to a struct
+                            with an own field replaces not (0.303)
 test/c/safe/                C programs the safe part refuses: NAME.c, NAME.expect; dropnone.pl, the macro file of
                             drop_leaks.c (0.262); borrow_after_grow.c, borrow_after_push.c, elem_after_push.c,
                             grow_through_ptr.c, const_replace.c and const_local.c, the safety rules of 0.265;
@@ -536,13 +537,18 @@ test/c/safe/                C programs the safe part refuses: NAME.c, NAME.expec
                             freed or given to an owner, and shadow_dangle.c, a pointer to a block's local that hides
                             an outer one, used after the block (0.297); sum_of_loose.c, the sum of a loose pointer
                             whose memory is never freed, and own_of_anchor.c, an own local that takes the buffer
-                            that getline wrote through an out-parameter and never frees it (0.299)
+                            that getline wrote through an out-parameter and never frees it (0.299);
+                            borrow_into_call_arrow.c, borrow_into_call_deref.c and borrow_after_call_arrow.c, a
+                            borrow through a pointer to its owner, handed to a call that may replace it or read
+                            after it (0.303)
 test/cpp/                   the C++ reader's fixtures and the refusals; hidem.cppm for modhidden.cpp; unread_cpp.cpp,
                             an argument taken unread in C++ (0.264, read since 0.270); lit_cpp.cpp, list and map
                             literals beside the lambdas in C++ (0.269); callreplace.cpp, refreplace.cpp,
                             localrefreplace.cpp, tiedrefreplace.cpp, constmethod.cpp, constrefslot.cpp and
                             nullfilledref.cpp, the safety rules of 0.265 to 0.267 in C++ (0.272); callborrow.cpp, a
-                            borrow handed to a member function that may replace its owner (0.293)
+                            borrow handed to a member function that may replace its owner (0.293); callborrowptr.cpp,
+                            callborrowref.cpp, callreplaceptr.cpp and callreplaceref.cpp, the same through a pointer
+                            and a local reference (0.303)
 test/cpp/link/              the C++ ABI checks of the C++ gate and the cross gate: abi_helper.cpp, memptr_helper.cpp and
                             byval_helper.cpp built by clang++, abi_main.cpp, memptr_main.cpp and byval_main.cpp by
                             cicilang++, abi.h, memptr.h, byval.h; the C++ gate's two units, units_a.cpp and units_b.cpp
@@ -552,7 +558,8 @@ test/cpp/run/               C++ programs built and run: NAME.cpp, .expect, .flag
                             hdrmacro2.h, of hdrmacro.cpp (0.268); opcpp.cpp over ../../c/run/topers.pl, operators on
                             instances in C++ (0.270); borrowkeep.cpp, and elemborrowpp.cpp over
                             ../../c/run/tvector.pl, what the safety rules let C++ keep (0.272); ccllibclass.cpp over
-                            <vector.pl>, classes that hold an instance's object, born zero (0.297)
+                            <vector.pl>, classes that hold an instance's object, born zero (0.297);
+                            borrowptrok.cpp, what the rules of 0.303 keep through a pointer and a reference (0.303)
 test/ccllib/                the three runs' programs: NAME.c, a ccllib program; NAME.cpp, its twin over std::;
                             NAME.expect, what the twin prints; NAME.count, the count of the run that the costs time;
                             first.c over first.pl, the first proof after phase 0 (0.273); vector.c, the whole
@@ -570,7 +577,9 @@ test/ccllib/safe/           ccllib programs that the safe part refuses, as C and
                             held_leak.c, a struct that holds a vector, never dropped, and memset_live.c, a memset over
                             a vector that holds memory (0.297); optional_*.c and emplace_leaves.c, what an optional
                             may not hold or give (0.300); pair_*.c, what a pair may not hold, be made of or be
-                            compared with (0.301)
+                            compared with (0.301); borrow_into_call_ptr.c, borrow_into_call_param.c,
+                            borrow_into_call_holder.c, borrow_into_call_copy.c and push_through_ptr.c, a borrow
+                            through a pointer to the vector (0.303)
 test/ccllib/alone/          ccllib programs with no twin, built as C and as C++ (0.281): NAME.c, NAME.expect;
                             stops.c, what stops a ccllib program, each case in a child of its own; tree_rules.c,
                             the rules of the tree of a set and a map, read from the instance's own fields;
@@ -581,7 +590,8 @@ test/ccllib/alone/          ccllib programs with no twin, built as C and as C++ 
                             what holds an instance's object, born zero, and shadowed.c, the names of vectors declared
                             again in a block (0.297); optional_rules.c, the rules of an optional, held to C++'s
                             tables, and stops.c's cases of an optional (0.300); pair_rules.c, the rules of a pair,
-                            each case held to C++20's words (0.301)
+                            each case held to C++20's words (0.301); borrow_through_ok.c, what the rules of 0.303
+                            keep (0.303)
 
 proof/forty2.ll, run.sh     M0: hand-written IR through clang to a binary that prints a line and exits 42
 proof/forty2                made by proof/run.sh, never committed

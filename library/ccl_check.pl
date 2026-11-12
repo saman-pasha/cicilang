@@ -432,6 +432,7 @@ ck_member_ties([member(MT, F, _)|Ms], Base, Sep, Seen, Ts) :-
 %% the path an lvalue names: a, a.f, a->f, a->inner.f
 ck_path(id(N), N) :- atom(N).
 ck_path(member(id(R), F), K) :- ck_is_ref(R), !, ck_path(arrow(id(R), F), K).            % C++: r.f with r a reference is the referent's field, r->f
+ck_path(member(deref(E), F), K) :- !, ck_path(arrow(E, F), K).                           % (*p).f IS p->f (C17 6.5.2.3/4; 0.303): it had no path, and a borrow of it none
 ck_path(member(E, F), K) :- ck_path(E, B), atomic_list_concat([B, '.', F], K).
 ck_path(arrow(E, F), K) :- ck_path(E, B), atomic_list_concat([B, '->', F], K).
 ck_owner_path(St, E, K) :- ck_path(E, K), ck_is_owner(St, K).
@@ -866,6 +867,10 @@ ck_borrows_from(id(N), St, P) :- ck_holder(N), \+ ck_arrlocal(N), ck_held_borrow
 ck_borrows_from(id(N), St, P) :- ck_state(St, N, S), !, ( S == anchor -> ck_local_type(N, T), ccl_resolve_type(T, arr(_, _)), P = N ; ck_borrow_source(N, S, P) ).
 ck_borrows_from(member(E, F), St, P) :- ck_path(member(E, F), K), ck_state(St, K, S), !, ck_borrow_source(K, S, P).
 ck_borrows_from(arrow(E, F), St, P) :- ck_path(arrow(E, F), K), ck_state(St, K, S), !, ck_borrow_source(K, S, P).
+%% A PLACE THROUGH A LOCAL POINTER OR A LOCAL REFERENCE IS THE PLACE IT NAMES (0.303; ck_resolve/3, 0.217's): `bp->data' over
+%% `buf *bp = &b' is `b.data', whose state the check holds, where the pointer's own key holds none -- so it was a borrow of b,
+%% which no call that replaces b's own fields ends, and `growb(bp, &bp->data[0])' was taken
+ck_borrows_from(E, St, P) :- ( E = member(_, _) ; E = arrow(_, _) ), ck_resolved_key(E, St, K), ck_state(St, K, S), !, ck_borrow_source(K, S, P).
 ck_borrows_from(bin(Op, A, _), St, P) :- memberchk(Op, ['+', '-']), !, ck_borrows_from(A, St, P).
 ck_borrows_from(cast(_, A), St, P) :- !, ck_borrows_from(A, St, P).
 ck_borrows_from(dyncast(A, _, _, _), St, P) :- !, ck_borrows_from(A, St, P).   % the object a dynamic_cast finds is the one it was given (0.108)
@@ -954,9 +959,11 @@ ck_borrows_from(call(F, Args), St, P) :- ck_callee_sig(F, fn(R, _, _)), \+ ck_ow
 ck_tied_own(call(F, Args), St, _, P) :- ck_callee_sig(F, fn(R, Ps, _)), ccl_tie_of(R, Y), ck_param_index(Ps, Y, 1, I),
     ccl_nth(I, Args, A0), ck_by_address(A0, params(Ps), I, A), ck_replaced_base(A, St, K), ck_own_under(St, K, [P|_]), !.
 ck_tied_own(_, _, P, P).
-%% a pointer's value, not an array's storage, for `&a[i]' (0.265): a pointer-typed place, or a parameter
+%% a pointer's value, not an array's storage, for `&a[i]' (0.265): a pointer-typed place, or a parameter -- a member through a
+%% C++ local reference typed as through the pointer it is (ck_lib_obj_type/2; 0.303): `&r.data[0]' over `Buf &r = v' had no
+%% type, took the road of an array's element and borrowed v, where it borrows v.data
 ck_points_into(id(N)) :- atom(N), ck_is_param(N), \+ ck_is_ref(N), !.
-ck_points_into(A) :- catch(ccl_type_of(A, T), _, fail), T \== unknown, catch(ccl_resolve_type(T, T1), _, fail), T1 = ptr(_, _).
+ck_points_into(A) :- ck_lib_obj_type(A, T), catch(ccl_resolve_type(T, T1), _, fail), T1 = ptr(_, _).
 %% a container that holds borrows, bound to a function's lvalue reference: its result is in the container (0.217) --
 %% `std::back_inserter(dst)', `std::begin(v)' -- where a value's borrow (std::move's) is the clause before it
 ck_lib_container_arg(F, Args, A) :- catch(ccl_declared(F, fn(_, Ps, _)), _, fail), ck_ref_object(Args, Ps, E), E == A, catch(ccl_type_of(A, AT), _, fail), AT \== unknown,
@@ -2301,8 +2308,19 @@ ck_c_spec_text(S, T) :- ck_all_atoms(S), atomic_list_concat(S, ' ', T).
 ck_all_atoms([]).
 ck_all_atoms([A|As]) :- atom(A), ck_all_atoms(As).
 ck_replaced_base(addr(id(N)), St, K) :- ck_is_ref(N), ck_state(St, N, borrow(K0)), atom(K0), ck_own_under(St, K0, [_|_]), !, K = K0.   % C++: what a local reference refers to (0.272)
+ck_replaced_base(addr(deref(E)), St, K) :- !, ck_replaced_base(E, St, K).   % &*p hands what p hands (0.303): `data(*pv)', `push_back(*pv, x)'
+ck_replaced_base(addr(E), St, K) :- ( E = member(_, _) ; E = arrow(_, _) ), ck_resolved_key(E, St, K0), !, K = K0.   % &hp->v over `holder *hp = &h': h.v (0.303)
 ck_replaced_base(addr(E), _, K) :- ck_arg_base(addr(E), K), !.
 ck_replaced_base(id(N), St, K) :- atom(N), ck_state(St, N, borrow(K)), atom(K).
+%% the key of the place that a member or an element through a local pointer or a local reference names (ck_resolve/3), where
+%% that is another place than the one written; and through a local pointer that copies a pointer parameter, the parameter's
+%% place: `hp->v' over `holder *hp = h' is `h->v', whose own fields the state holds as the caller's
+ck_resolved_key(E, St, K) :- ck_resolve(E, St, E1), E1 \== E, ck_path(E1, K), !.
+ck_resolved_key(E, St, K) :- ck_path_root(E, P), ck_param_copy(P, St, R), ck_root_renamed(E, P, R, E1), ck_path(E1, K).
+ck_param_copy(P, St, R) :- atom(P), \+ ck_is_ref(P), \+ ck_is_param(P), ck_is_local(P), ck_state(St, P, borrow(R)), atom(R), R \== P,
+    ck_is_param(R), \+ ck_is_ref(R), ck_local_type(P, PT), catch(ccl_type_of(id(R), RT), _, fail), ck_same_type(PT, RT), !.
+ck_root_renamed(id(P), P, R, id(R)) :- !.
+ck_root_renamed(E, P, R, E1) :- E =.. [F, X|Xs], memberchk(F, [member, arrow, index, deref]), !, ck_root_renamed(X, P, R, X1), E1 =.. [F, X1|Xs].
 %% C++: AN LVALUE BOUND TO A REFERENCE PARAMETER IS HANDED BY ITS ADDRESS ([dcl.init.ref]/5; 0.272): `grow2(v)' over
 %% `void grow2(Buf &)' hands v as C's `grow(&v)' does, and the rules of an object handed by its address hold for it
 ck_by_address(A, Callee, I, addr(A)) :- ccl_lang(cpp), ck_lvalue_form(A), ck_callee_params(Callee, Ps), ccl_nth(I, Ps, param(PT, _)), ( PT = ref(_, _) ; PT = rref(_, _) ), !.

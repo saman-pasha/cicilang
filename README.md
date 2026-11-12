@@ -419,7 +419,9 @@ its owner", where `at(v, 0)` and `len(v)`, whose pointee is const, keep `p`.
 `&v.data[i]` is a borrow of the buffer, as `v.data + i` is.
 `test/c/run/elemborrow.c` is the example. Such a borrow handed to the call
 itself, beside its struct, is refused too (0.293): `grow(&v, &v.data[0])`,
-"a borrow handed to a call that may replace its owner".
+"a borrow handed to a call that may replace its owner". Through a pointer
+to the struct, a parameter or a C++ reference too (0.303): `grow(pv,
+data(*pv))` over `pv = &v`.
 
 Static storage is a borrow that nothing ends (0.294): a pointer into a
 static table, a row of one (`table[i]`, 0.297), a string literal or a
