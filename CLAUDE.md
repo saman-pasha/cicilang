@@ -12,8 +12,8 @@ the fixture that gates it, and why. The bullet ends with the version that made t
 edits the rule in `RULES.md`, in its topic, and writes its entry in `HISTORY.md`. Read the topic of `RULES.md` that
 covers the code before the code is changed.
 
-At 0.294 the versions are: the module 0.294 (`ccl_p_version` in `module/cicilang.cicili`, `bin/cicilang --version`),
-the reader 190 (`ccl_reader_version/1`, `library/ccl_syntax.pl`) and the lowering 164 (`ccl_lowering_version/1`,
+At 0.295 the versions are: the module 0.295 (`ccl_p_version` in `module/cicilang.cicili`, `bin/cicilang --version`),
+the reader 191 (`ccl_reader_version/1`, `library/ccl_syntax.pl`) and the lowering 165 (`ccl_lowering_version/1`,
 `library/ccl_ir.pl`).
 
 Build and prove, always in this order (or all of it, `sh test/gates.sh`):
@@ -396,6 +396,14 @@ library/ccllib/             ccllib, the standard library of cicilang's C (CCLLIB
                               capacity or a string of fifteen characters; its C header reads the numbers of a text
   string.pl, string.pl.h      std::string (0.291): basic_string<char> by that name, npos, and to_string, a macro by its
                               argument's type
+  basic_string_view.pl, basic_string_view.pl.h
+                              std::basic_string_view<char> (0.295): the first character and the count, a borrow of
+                              what it sees; the fact view_basic_string_view names it a view's
+  string_view.pl, string_view.pl.h
+                              std::string_view (0.295): basic_string_view<char> by that name, and npos; the type macro
+                              stands in a file of its own, which this file's header includes
+  span.pl, span.pl.h          std::span (0.295): the first element and the count, a view; made of a C array by its
+                              type's count, of a vector, of an array, of a pointer and a count by braces
   ccllib.pl                   what two modules need, written once (0.275): a module loads it by a directive, and no
                               program includes it; the refusal of an element with a pointer, the lists' sort (0.277),
                               the lines of a text by their conditions (0.283)
@@ -526,16 +534,19 @@ test/ccllib/                the three runs' programs: NAME.c, a ccllib program; 
                             stack.c and queue.c, of <stack.pl> and <queue.pl> (0.280); set.c and map.c, of
                             <set.pl> and <map.pl> (0.281); unordered_set.c and unordered_map.c, of
                             <unordered_set.pl> and <unordered_map.pl> (0.283); bitset.c, of <bitset.pl> (0.286);
-                            string.c, of <string.pl> (0.291)
+                            string.c, of <string.pl> (0.291); string_view.c and span.c, of <string_view.pl> and
+                            <span.pl> (0.295)
 test/ccllib/safe/           ccllib programs that the safe part refuses, as C and as C++: NAME.c, NAME.expect, and
                             NAME.expect.cpp where C++ has words of its own (0.274); borrow_into_call_vector.c and
-                            string_self_c_str.c, a borrow handed to a call that may replace its owner (0.293)
+                            string_self_c_str.c, a borrow handed to a call that may replace its owner (0.293);
+                            view_*.c and span_*.c, what the safe part refuses of a view and of a span (0.295)
 test/ccllib/alone/          ccllib programs with no twin, built as C and as C++ (0.281): NAME.c, NAME.expect;
                             stops.c, what stops a ccllib program, each case in a child of its own; tree_rules.c,
                             the rules of the tree of a set and a map, read from the instance's own fields;
                             table_rules.c, the rules of the hash table of the unordered containers (0.283);
                             bitset_rules.c, the rules of a bitset, held to a model of a byte a bit (0.286);
-                            string_rules.c, the rules of a string, held to a model of an array of bytes (0.291)
+                            string_rules.c, the rules of a string, held to a model of an array of bytes (0.291);
+                            view_rules.c, the rules of a view and of a span, held to a model (0.295)
 
 proof/forty2.ll, run.sh     M0: hand-written IR through clang to a binary that prints a line and exits 42
 proof/forty2                made by proof/run.sh, never committed

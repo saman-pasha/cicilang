@@ -1,0 +1,36 @@
+v=[hello world] 11
+b=[buffer] 6
+p=[pointer] 7
+w=[a string] 8
+t=[uff] 3
+e=[] 0
+11 6 1 0 1
+h o p r u
+1116
+b=[ffe] 3
+x=[world] 5
+y=[world] 5
+z=[hello world] 11
+hellorld 5 3
+1 1 1 1 0 1
+1 1 1 1 1 0
+1 1 1 1
+1 0 1 0
+0 -1 1 0
+0 0 1 0
+6 4 4 7 9 7
+4 7 6 1 1
+7 4 6 3 7
+6 7 1 7
+4 1 1 5
+9 3 3 7
+8 9 7 5
+1 1 1 1 1 1
+1 0 1 1 1
+word=[abc] 3
+u=[uffrldworlduffworldelworld] 26
+r=[world] q=[orrldell]
+6 11 2 19 6
+1 0 0 1 -1 0
+1 1 1
+exit 0

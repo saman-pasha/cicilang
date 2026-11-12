@@ -5,5 +5,8 @@
 #define _CICILANG_CCLLIB_STRING_PL_H
 #include <basic_string.pl>
 typedef basic_string<char> string;
+#ifndef _CICILANG_CCLLIB_NPOS
+#define _CICILANG_CCLLIB_NPOS   /* <string_view.pl> gives it too (0.295) */
 static const size_t npos = (size_t)-1;
+#endif
 #endif

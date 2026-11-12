@@ -1,0 +1,1 @@
+a span_int is not made of an array of const_int: its elements are int

@@ -1,0 +1,1 @@
+a span_int is not made of a value of the type deque_int: its type macro defines no span_int_of

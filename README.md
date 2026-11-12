@@ -575,6 +575,17 @@ are borrows of the string, which a change of it ends. A place past the last
 character, and a number of a text where there is none, stop the program.
 `test/ccllib/string.c` is the example.
 
+`#include <string_view.pl>` gives `std::string_view` (0.295), the first
+character and the count: `string_view v = "hello world";`, `string_view w =
+s;`, `string_view b = {buf, n};`, `substr(v, 6, 5)`, `find(v, "or")`,
+`starts_with(v, "he")`, `remove_prefix(v, 2)`, `v == "abc"`. A view is a
+borrow of what it sees: the safe part refuses a view used after its source
+ends or after a change of the string that it sees. `#include <span.pl>`
+gives `std::span` (0.295): `int a[6]; span<int> s = a;`, `span<int> t =
+v;` of a vector, `span<const int> c = s;`, `s[0] = 7`, `first(s, 2)`,
+`subspan(s, 1, 3)`, a borrow as a view is. A place past the end stops the
+program. `test/ccllib/string_view.c` and `span.c` are the examples.
+
 `format`, `print`, `println` and `clone` are global macros, there in every
 program without an include (`library/ccl_format.pl`). The format string
 has Rust's holes, each becoming the `printf` conversion of its argument's

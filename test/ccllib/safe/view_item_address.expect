@@ -1,0 +1,1 @@
+the address of an element of basic_string_view_char is not taken: v[i] is a value there, with no place of its own

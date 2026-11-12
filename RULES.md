@@ -2827,6 +2827,16 @@ that changes a rule edits the rule here, in its topic, and writes its entry in `
   other bytes, in `main` and in a `for`, made of a number and of a text; a box that has a drop -- prints what clang's
   build of its hand expansion prints, as C and, by the C++ gate, as C++, and frees every block. Over the tree of 0.284
   the mask was born `ffffffffffffffff`. Reader 184. (0.285, 0.288)
+- **AN ARRAY OF A KNOWN COUNT IS ASKED BY ITS OWN WORD FIRST** (0.295; `ccl_of_array/4`, in `ccl_of_value/3`): where an
+  instance is made of a value whose type is an array of a known count, the reader asks first the function named with the
+  array's own word -- `span_int_of_arr_6_int` over `int a[6]` --, and the array goes as its pointer, so the type macro
+  reads the count in the name; the words of the pointer that the array decays to follow, as before. Why: C++ makes a
+  span of an array by its type's count, and the decay lost it. A VIEW'S TYPE MACRO is one whose macro file has the fact
+  `view_N` beside its `type_N/3` -- found as each of the file's predicates is, in the unit's macros --: its instance's
+  `view(T)` stands beside its `inst/4` (`ccl_view_macro/1`), for the safe part. IN C++ AN INSTANCE MADE OF ANOTHER
+  INSTANCE'S OBJECT, where the type macro defines no `_of` for it, is refused by name as in C: such an object is a C
+  struct, which C++ converts by no constructor, and `span<int> s = d;` over a deque was the autodrop's move of d and `no
+  owner behind: 's'`. Reader 191. (0.295)
 - **THE ADDRESS OF AN ELEMENT THAT `[]` GIVES AS A VALUE IS REFUSED BY NAME** (0.286), in C and in C++: `&b[i]` over an
   instance whose `[]` is its `_item` was the address of the call's result, a temporary that held the element's value --
   `get(&b[1])` over a set of bits built and printed the bit, and a write through such a pointer could not reach the bit,
@@ -9758,9 +9768,10 @@ in the first topic (The ccllib gate).
 
 - A MODULE IS A MACRO FILE OF `library/ccllib/`, `NAME.pl`, and its C header `NAME.pl.h`: `type_NAME/3`, the type and
   its drop; `fn_NAME/3`, one function at its first call; a table of C texts by the function's name (`ccllib_NAME_fn/2`).
-  Its predicates have the prefix `ccllib_` but the two that the reader asks by name. The flow gate charts each
-  (`CFILES` in `test/flow.sh`). A text is written in the part that C and C++ share; a null pointer is `0`, since no
-  header's macro is a name in a text. (0.274)
+  Its predicates have the prefix `ccllib_` but the two that the reader asks by name. The flow gate charts each that
+  defines a predicate of its own (`CFILES` in `test/flow.sh`): one with none gives the chart no root, and
+  `string_view.pl`, which loads `ccllib.pl` and names its instance in its header, is not charted (0.295). A text is
+  written in the part that C and C++ share; a null pointer is `0`, since no header's macro is a name in a text. (0.274)
 - WHAT TWO MODULES NEED IS WRITTEN ONCE, in `library/ccllib/ccllib.pl` (0.275): a module loads it by a directive, `:-
   ensure_loaded(library(ccllib/ccllib)).` -- the reader loads a macro file by cocolog's `ensure_loaded/1`, which runs
   the directive, and takes no macro from one (`ccl_pl_head/2`); no program includes the file, so its predicates are no
@@ -10213,6 +10224,17 @@ in the first topic (The ccllib gate).
   C++: `string_c_str_after_append.c`, `string_index_after_push.c`, `string_use_after_move.c`, `string_in_vector.c`,
   `string_of_number.c`, `string_of_wide.c`, `string_find_double.c`, `string_append_int.c`, `string_eq_char.c`,
   `string_to_string_text.c`, `string_no_text.c`, `string_text_by_value.c` and `string_add_three.c`. (0.291)
+- **A STRING MEETS A VIEW** (0.295; C++17's forms over a string_view): `string s = v;` makes a string of a view's
+  characters (`_of_basic_string_view_char`, where C++ writes `std::string s(v)`), and `s = v` assigns them; `append`,
+  `assign`, `insert` and `replace` take a view whole, from a place, or a part of it (three rows of
+  `ccllib_string_source/6`), and `s += v` appends it; the six searches take a view, from a place or not (two rows of
+  `ccllib_string_text/4`), and so do `starts_with`, `ends_with` and `contains`; `==`, `!=`, `<`, `>`, `<=`, `>=` and
+  `compare` take a view, the relations and compare over a string, a text and a view one family (`ccllib_string_rel/2`,
+  where they were seven texts). A view of the string handed beside it to a change of it -- `append(s, v)` over
+  `string_view v = s;` -- is refused, as a pointer into the string is (0.293's rule, the safe part's topic of views). A
+  view born zero hands no null to the C library: `__cmp`, `__rfind`, `__first`, `__last`, `starts_with` and `ends_with`
+  call `memcmp` and `memchr` behind their counts. A compare of a part of a string with a view waits: the view of the
+  string's part does it, `compare(sv, 0, 3, v)` over `string_view sv = s;`. (0.295)
 - **EACH RULE OF THE MODULE HAS A BROKEN TEXT OF ITS OWN** (the rule of 0.283): fifty-seven copies of the tree broken on
   purpose -- 48 of `basic_string.pl`, 5 of `basic_string.pl.h`, 3 of the reader and 1 of the lowering; each in one place
   but two, which lack a place's check and the count's bound together --, and each is reported. By
@@ -10242,6 +10264,98 @@ in the first topic (The ccllib gate).
   146 KB -- libc++ keeps most members of `std::string` in its own library (`extern template`) --, and the run takes
   0.055 s as C and 0.058 s as C++ against 0.084 s, in 22 MB against 31 MB. The C build takes 1.35 s against the twin's
   0.42 s, three times, and cicilang++'s 1.74 s, four times. (0.291)
+
+### string_view.pl
+
+- **`string_view` IS `basic_string_view<char>`: THE FIRST CHARACTER AND THE COUNT, A BORROW OF WHAT IT SEES** (0.295):
+  the instance `basic_string_view_char` of `<basic_string_view.pl>`, which `<string_view.pl>` includes and names
+  (`typedef basic_string_view<char> string_view;` and `npos` in `string_view.pl.h`; `<string.pl>` gives `npos` too,
+  under one guard, `_CICILANG_CCLLIB_NPOS`). A view frees nothing and has no drop, and the safe part takes it for a
+  borrow (the safe part's topic of views). It is made of a text of C -- a literal, a char array, a pointer -- (`_of`),
+  of a string's characters (`_of_basic_string_char`: `string_view w = s;`), and of a text and its count by C's own
+  braces of a struct, `string_view b = {buf, n};`; one declared with no initializer is born zero (0.285) and sees
+  nothing, its first character null. The element is `char`: another type is refused by name, `a basic_string_view's
+  element is char: the other character types wait`. THE TYPE MACRO STANDS IN A FILE OF ITS OWN, as the string's does:
+  where it stood in `string_view.pl` and that file's own header named its instance, a program that included
+  `<string_view.pl>` alone was `not lowered yet: typedef(string_view)` in C and `not lowered yet:
+  template_without_body(basic_string_view)` in C++, and it built where `<string.pl>` came first; a header that includes
+  the type macro's file before it names the instance, as `string.pl.h` includes `<basic_string.pl>`, builds alone (Not
+  done names the read that loses it). (0.295)
+- THE SURFACE OF `std::string_view`: 118 functions, which a call or an operator asks, and 5 inner ones, each made at its
+  first use, the forms of a name told apart by the count of their arguments and by the type of one (0.288): `size`,
+  `length`, `len`, `empty`, `max_size`; `data`, `begin`, `end`, `v[i]` (`_item`, a value), `at`, `front`, `back`;
+  `remove_prefix`, `remove_suffix`; `substr` in three forms; `copy` in two; the six searches -- `find`, `rfind`,
+  `find_first_of`, `find_first_not_of`, `find_last_of`, `find_last_not_of` -- of a view, a string, a text, a text and
+  its count, or a character, from a place or from where C++'s begins (`ccllib_view_search/4`, `ccllib_view_text/4`,
+  eleven texts); C++20's `starts_with` and `ends_with` and C++23's `contains`, of a view, a string, a text or a
+  character; `compare` of a view, a string or a text, and of a part with a view, a text, a text and its count, and a
+  part of a view; `==`, `!=`, `<`, `>`, `<=` and `>=` with a view, a string or a text, the text on either side (the
+  reader's mirrored operators, 0.291) -- the relations and compare are one family, `ccllib_view_rel/2` over the texts of
+  a view, a text and a string. `__cmp` compares the characters as unsigned and then the counts, as `char_traits<char>`
+  does. A VIEW BORN ZERO HANDS NO NULL TO THE C LIBRARY: `memcmp`, `memcpy` and `memchr` take no null even for a count
+  of 0 (C17 7.24.1/2), and each call of them is behind its count. (0.295)
+- WHAT DIFFERS FROM C++: A PLACE PAST THE END STOPS THE PROGRAM (`abort`) -- `at` and `v[i]` past the last character,
+  `front` and `back` of an empty view, `remove_prefix` and `remove_suffix` of more than the count, `substr`, `copy` and
+  `compare` from a place past the end, and a part of another view from a place past its end --, where C++ throws or is
+  undefined. `v[i]` is a value, as a const view's character is: `v[i] = 'x'` is `an element of basic_string_view_char is
+  not assigned: its type macro defines no basic_string_view_char_set_item`, and `&v[i]` is the address of a value
+  (0.286's refusal); `data(v) + i` is the place. There is no `swap`: a function that puts a view of one source in
+  another's place is refused by the safe part, `basic_string_view_char has no function swap`. A string goes where a view
+  is taken in the searches, the tests, the relations and `compare` of the whole, as C++ converts it; in a compare of a
+  part it goes by a view of it. A character is no text that a view is compared with (`v == 'a'` is `the operator == of
+  basic_string_view_char takes an object of basic_string_view_char, which its operand is not`), as C++ has no such form.
+  No `<=>`, no `operator<<` (phase 1d), no `hash` (phase 1b). `test/ccllib/string_view.c` and its twin `string_view.cpp`
+  over `std::string_view` and `std::string` -- each function once at least, and the string's forms over a view --; the
+  count run reads the words of a text of ten million characters by views. The unit holds 128 functions for its instances
+  in 50 KB, where the twin's holds 142 in 101 KB. The run of ten million characters takes 0.040 s as C and 0.040 s as
+  C++ against 0.060 s, in 11 MB against 15 MB. The C build takes 1.14 s against the twin's 0.39 s, and cicilang++'s 1.55
+  s. (0.295)
+- **EACH RULE OF THE TWO MODULES HAS A BROKEN TEXT OF ITS OWN** (the rule of 0.283): 42 copies of the tree broken on
+  purpose -- 26 of `basic_string_view.pl`, 12 of `span.pl` and 4 of the string's forms over a view in `basic_string.pl`
+  --, and each is reported, by `test/ccllib/alone/view_rules.c`, by a case of `stops.c` that is not stopped, or by
+  `string_view.c`, `span.c` and `string_rules.c` against their twins and their lines. `view_rules.c` holds a view to a
+  model of an array of bytes over 300 texts of chance with NUL bytes, bytes past 127 and three letters -- each view of a
+  text and its count, of a text of C and of a string, short and long, and their parts by `substr`, `remove_prefix` and
+  `remove_suffix` --: its count, each character by `[]` and its first character's place are the source's; each search
+  from each place of the view, past it and from npos, over a part of the view itself, a text of chance, the empty text
+  and a character, in each form of the call; the tests, `compare` and the relations as unsigned bytes and then by the
+  count, a text on either side; `copy` cut at the end; a view born zero as the empty text. And a span over 300 walks --
+  of a pointer and a count, of a C array and of a vector --: its count and first element are the source's, `first`,
+  `last` and `subspan` give the model's elements and counts, a write through a span is its source's, and `size_bytes` is
+  the count by the element's size: 777,450 checks. The cases of `stops.c` are a view's and a span's places and counts
+  past the end, and the view's place after its last character, which is in its bounds. Twenty-one programs of
+  `test/ccllib/safe/`, as C and as C++, in the safe part's topic of views. (0.295)
+
+### span.pl
+
+- **`span<T>` IS THE FIRST ELEMENT AND THE COUNT, A BORROW OF WHAT IT SEES** (0.295): the instance `span_int` of
+  `<span.pl>`, of a count that its object holds (std::span's `dynamic_extent`, which `span.pl.h` gives). A span frees
+  nothing and has no drop, and the safe part takes it for a borrow, as a view (the fact `view_span`). It is made of a C
+  ARRAY OF A KNOWN COUNT -- `int a[6]; span<int> s = a;`: the reader asks the function named with the array's own word
+  first, `span_int_of_arr_6_int`, which the module makes with the count in it (the reader's topic of type macros) --, of
+  a vector (`_of_vector_int`: its buffer and its count, a borrow that a call that may replace the buffer ends), of an
+  array of `<array.pl>` (`_of_array_int_3`), and of a pointer and a count by braces, `span<int> t = {p, n};`. A span of
+  `T` takes elements of `T`, and a span of `const T` those of `T` too, a span's among them (`span<const int> c = s;`):
+  `span<int> s = a;` over a `const int a[3]` is `a span_int is not made of an array of const_int: its elements are int`.
+  A pointer alone makes no span (`a span_int is not made of a value of the type ptr_int`), nor a deque, whose elements
+  do not stand in one buffer. Its element is a value with no pointer in it, as a vector's is (decision 2). There is no
+  fixed extent: `span<int, 4>` is `a span has one type argument: its count is its object's, and a fixed extent (span<T,
+  N>) waits`. (0.295)
+- THE SURFACE OF `std::span`: `size`, `size_bytes`, `empty`, `data`, `begin`, `end`, `s[i]` (`_index`, a place: `s[i] =
+  x` writes the source's element), C++26's `at`, `front`, `back`, `first`, `last`, `subspan` from an offset and of a
+  count (`dynamic_extent` the rest), and the functions that make one of each source. WHAT DIFFERS FROM C++: a place or a
+  count past the end stops the program -- `at` and `s[i]` past the last element, `front` and `back` of an empty span,
+  `first` and `last` of more than the count, `subspan` from an offset past the end or of a count past it --, where C++
+  is undefined; `front`, `back` and `at` are values, as a vector's are; no `as_bytes` (C has no `std::byte`), no reverse
+  iterator. A FUNCTION OF THE INSTANCE TAKES ITS SPAN'S ADDRESS, so a span that a call makes is named first,
+  `first(first(s, 2), 1)` is `first of span_int takes the address of its argument, which is no lvalue: name it first`; a
+  function that takes a span takes it by its value, and a span of `T` handed where a span of `const T` is taken is `no
+  conversion from 'span_int' to 'span_const_int'` (C converts no struct at a call): the span of const elements is
+  declared first, `span<const int> c = s;`. `test/ccllib/span.c` and its twin `span.cpp` over `std::span`; the count run
+  sums ten million numbers of a vector by its halves and its windows of 64, and doubles a quarter of them through a
+  span. The unit holds 41 functions for its instances in 17 KB, where the twin's holds 153 in 88 KB. The run of ten
+  million numbers takes 0.051 s as C and 0.049 s as C++ against 0.112 s, in 40 MB against 67 MB. The C build takes 0.79
+  s against the twin's 0.76 s, and cicilang++'s 0.64 s. (0.295)
 
 ## The safe part
 
@@ -10592,6 +10706,32 @@ in the first topic (The ccllib gate).
   the state frame of Y's symbol frame (`ck_declare_at/4`). Nothing consumes it, it ends with its scope, and its
   borrows may sit in plain slots, as C has them. A static local is never anchored (`'$ck_statics'`). An array member of
   a local struct anchors the struct. `test/c/run/tie.c`, `clone.c`, the eight `test/c/safe/tie_*.c`. (M3, 0.108)
+
+### Views
+
+- **A VIEW IS A BORROW** (0.295; `ck_view_type/1`): a type macro that its macro file names a view's, by a fact `view_N`
+  of its own beside its `type_N/3`, makes instances that the reader marks `view(T)` beside their `inst/4`
+  (`ccl_view_macro/1`) -- `<basic_string_view.pl>`'s and `<span.pl>`'s --, and the check takes an object of such a type
+  for a borrow of what it sees, as a pointer is. Its source is: by braces, the first item's that borrows (`string_view b
+  = {buf, n};`, `ck_view_init/5`; a compound literal's items, `ck_view_items/3`); by a function of the instance tied to
+  its argument (`tie s`), the argument's -- and where the argument is a view's address, that view's own source, so
+  `substr(v, 6)` sees what v sees (`ck_tie_source/3`); by a copy of a view object, what that view sees, and a
+  parameter's view its caller's, which outlives the function (`string_view r = w;`, `ck_view_copy_source/3`); static
+  storage, a literal's, as 0.294's borrow that nothing ends. So a view used after its source ends -- a string of a block
+  that ends, `use of a borrow after its owner was consumed`, the view that a function returns by its tie among them --,
+  after a call that may replace a string's characters or a vector's buffer (`use of a borrow after a call that may
+  replace its owner`), a view of a local that leaves its function and a view of a parameter's view returned with no tie
+  (`a borrow leaves the function`), a view of another source put in the caller's view through its pointer (`a borrow
+  stored where it cannot be followed`), and a view of a string handed beside the string to a change of it (`a borrow
+  handed to a call that may replace its owner`: 0.293's rule takes a view's source where the view goes by its value or
+  by its address, `ck_alias_source/3`) are each refused. A function of the instance that gives the view a part of its
+  own source through its pointer -- `remove_prefix`, `*v = (@N){ v->data + n, v->len - n }` -- is taken
+  (`ck_view_self/3`). Why: a view holds a pointer into another object's storage, and to the check a struct made with a
+  borrowed pointer was a store of a borrow into a plain slot -- the module's own `return (@N){ s, strlen(s) };` was
+  `borrow_stored` --, and a result tied to a view's address borrowed the local view, not what it sees.
+  `test/ccllib/safe/view_after_end.c`, `view_after_push.c`, `view_of_local.c`, `view_param_untied.c`,
+  `view_through_tie.c`, `view_stored.c`, `view_into_append.c`, `span_after_push.c` and `span_of_local.c`, as C and as
+  C++. (0.295)
 
 ### Loose pointers: every pointer has an ownership path
 
@@ -14505,13 +14645,17 @@ Declarations topic of the C++ reader).
   other bit; a list literal makes none, since a literal's slots have the type of the instance's first argument, which is
   the count here.
 - A STRING, ITS LIMITS (0.291): its element is `char` alone -- `wchar_t`, `char8_t`, `char16_t` and `char32_t` wait --;
-  `string_view` and `span` are the next modules of 1a; `a + b + c` and `stoi(to_string(42))` are refused, since a string
-  that an operator or a call makes has no name and a function of the instance takes its object's address; a text is no
-  value of a string parameter, where C++ converts it by a constructor; a struct with a string member is refused at its
-  scope's end (`owner leaked: 'r.name.data'`), where C++ destroys each member -- the owner's decision 6, a struct's drop
-  made of its members' --; a container of strings waits for decision 2; there is no stream operator (1d), no
+  a compare of a part of a string with a view waits (0.295); `a + b + c` and `stoi(to_string(42))` are refused, since a
+  string that an operator or a call makes has no name and a function of the instance takes its object's address; a text
+  is no value of a string parameter, where C++ converts it by a constructor; a struct with a string member is refused at
+  its scope's end (`owner leaked: 'r.name.data'`), where C++ destroys each member -- the owner's decision 6, a struct's
+  drop made of its members' --; a container of strings waits for decision 2; there is no stream operator (1d), no
   `std::hash<string>` (1b), no `getline`, no `<=>` and no literal `"abc"s`; `to_string` of a floating value writes `%f`,
   as C++ before C++26 does, where C++26's writes the shortest text that reads back.
+- A VIEW AND A SPAN, THEIR LIMITS (0.295): a view of another character type than `char`; `<=>`, `hash` and `operator<<`
+  of a view; a compare of a part of a string with a view; a span of a fixed extent, `as_bytes`, reverse iterators; a
+  span of `T` handed where a span of `const T` is taken at a call -- C converts no struct at a call, and the span of
+  const elements is declared first. (0.295)
 - A PLAIN CALL'S COUNT OF ARGUMENTS, AND A POINTER AND AN INTEGER IN EACH OTHER'S PLACE, ARE NOT CHECKED (found at
   0.288; C17 6.5.2.2/2 and 6.5.16.1/1, constraints): `f(1)` and `f(1, 2, 3)` over `int f(int, int)` build to an object
   with no message -- the call is made with the arguments that it has --, where clang 22 says `too few arguments to
@@ -14521,6 +14665,12 @@ Declarations topic of the C++ reader).
   types`). cicilang++ takes them all, where C++ has no such conversion and clang++ says `no matching function for call
   to 'f'`. 0.288 closed them for a call by name, in the reader, which knows the function of the instance; a plain call's
   are the lowering's, a rule that every program reaches -- a step of its own.
+- AN ASSIGNMENT TO A CONST-QUALIFIED LVALUE IS NOT REFUSED (C17 6.5.16/2: the left operand of an assignment is a
+  modifiable lvalue; found by 0.295), in C and in C++: `const int a = 1; a = 2;`, and `*p = 3` over a `const int *p`,
+  build, where clang refuses them (`cannot assign to variable 'a' with const-qualified type 'const int'`, `read-only
+  variable is not assignable`); so does a write through a `span<const int>`, `c[0] = 7`. Since 0.265 only an own field
+  of a const object is refused (`assign_to_const`). The C++ desugaring writes a constructor's member initializers as
+  assignments, and a const member's would meet the rule: the rule waits for the desugaring to mark them. (0.295)
 - THE NOTE OF A MACRO'S EXPANSION PRINTS ITS TYPE ARGUMENTS AS TERMS (found at 0.288): `note: expanded from macro
   'vector' on base([],[int])`, under an error in an instance's function.
 - A MEMBER READ OFF THE VALUE OF AN ASSIGNMENT IS NOT LOWERED (found at 0.287): `(b = x).len` over two structs is `not
@@ -14566,6 +14716,12 @@ Declarations topic of the C++ reader).
   change of it leaves the header's kept read as it was. The user's file names every macro file that its includes reach
   and is read again then; the header's items are served. No fixture has such a header: each includes the macro file that
   it uses.
+- A MACRO FILE'S OWN HEADER THAT NAMES AN INSTANCE OF THE FILE'S OWN TYPE MACRO (found by 0.295): `typedef
+  basic_string_view<char> string_view;` in `string_view.pl.h` when the type macro stood in `string_view.pl` was `not
+  lowered yet: typedef(string_view)` in C and `template_without_body(basic_string_view)` in C++ in a program that
+  included the macro file alone, and built where another macro file's include came first. `<string_view.pl>` keeps its
+  type macro in `<basic_string_view.pl>`, which its header includes, as `<string.pl>` does. The read that loses the
+  instance is not found yet. (0.295)
 - THE CALL BY NAME, ITS LIMITS (0.274): the program's own function is told by its FIRST parameter alone, so its
   `insert(vector<int> *, point)` takes every `insert(v, ...)` over a vector<int>, the instance's forms among them; and a
   function of the program's that is declared after the call is not seen. `v.push_back(3)`, C++'s member call, is no call

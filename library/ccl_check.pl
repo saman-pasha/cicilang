@@ -875,6 +875,7 @@ ck_borrows_from(alloc(_, _, Call), St, P) :- !, ck_borrows_from(Call, St, P).   
 %% captured local (an anchor) or of the parameter, and `return f' of one that holds `&x' is borrow_escapes where a
 %% dangling reference had compiled and run -- the hole 0.59 named. A by-value capture of a plain value borrows nothing.
 ck_borrows_from(compound_lit(_, init(Items)), St, P) :- member(item(_, V), Items), ck_borrows_from(V, St, P), !.
+ck_borrows_from(compound_lit(T, init(Items)), _, static(N)) :- ck_view_type(T), member(item(_, V), Items), ck_static_value(V), !, ck_static_name(V, N).   % a view of static storage (0.295)
 %% a call whose result is tied to a parameter borrows from that argument (an
 %% own result is an owner instead: fresh, checked against the tie where it lands)
 %% A PLAIN POINTER A LIBRARY CLASS'S MEMBER ANSWERS IS A BORROW OF THE OBJECT, never fresh memory:
@@ -1249,10 +1250,44 @@ ck_held_name(HK, N) :- ( atom_concat(N0, '.$held', HK) -> N = N0 ; N = HK ).   %
 ck_key_root(K, R) :- atom(K), findall(B, ( sub_atom(K, B, _, _, '.') ; sub_atom(K, B, _, _, '->') ), Bs), ( sort(Bs, [B0|_]) -> sub_atom(K, 0, B0, _, R) ; R = K ).
 ck_call_tie(call(F, Args), St, P) :-
     ck_callee_sig(F, fn(R, Ps, _)), ccl_tie_of(R, Y),
-    (   ck_param_index(Ps, Y, 1, I) -> ccl_nth(I, Args, A0), ( ccl_nth(I, Ps, param(PT, _)), ( PT = ref(_, _) ; PT = rref(_, _) ) -> A = addr(A0) ; A = A0 ), ck_borrows_from(A, St, P)   % a result tied to a REFERENCE parameter borrows the object the reference binds, its argument (0.202): `void *operator new(std::size_t, Arena &a) tie a' over `new (ar) S' borrows `ar'
+    (   ck_param_index(Ps, Y, 1, I) -> ccl_nth(I, Args, A0), ( ccl_nth(I, Ps, param(PT, _)), ( PT = ref(_, _) ; PT = rref(_, _) ) -> A = addr(A0) ; A = A0 ), ck_tie_source(A, St, P)   % a result tied to a REFERENCE parameter borrows the object the reference binds, its argument (0.202): `void *operator new(std::size_t, Arena &a) tie a' over `new (ar) S' borrows `ar'
     ;   P = static(Y) ).
 ck_param_index([param(_, Y)|_], Y, I, I) :- !.
 ck_param_index([_|Ps], Y, I0, I) :- I1 is I0 + 1, ck_param_index(Ps, Y, I1, I).
+%% WHAT A RESULT TIED TO A PARAMETER BORROWS (0.295): what the parameter's argument borrows; static storage where the
+%% argument is static -- `sv_of("abc")' over `sv sv_of(const char *s) tie s' borrowed nothing, and its view was new
+%% memory with no owner behind --; and where the argument is a view's address, what the view borrows: a view is the
+%% borrow of its source, never a holder of it, so `substr(&a, 1, 3)' borrows a's text, not the local `a'
+ck_tie_source(addr(E), St, P) :- catch(ccl_type_of(E, T), _, fail), T \== unknown, ck_view_type(T), !,
+    ( ck_borrows_from(E, St, P0) -> P = P0 ; ck_static_value(E) -> ck_static_name(E, N), P = static(N) ; P = static(nothing) ).
+ck_tie_source(A, St, P) :- ck_borrows_from(A, St, P), !.
+ck_tie_source(A, _, static(N)) :- ck_static_value(A), ck_static_name(A, N).
+%% A VIEW (0.295; CCLLIB.md's phase 1a: `string_view', `span'): an instance of a type macro that its macro file names a
+%% view (`view_<N>', ccl_view_macro/1 in library(ccl_syntax)) is to the safe part a borrow, as a pointer is,
+%% of the characters or the elements that it sees -- its source --, and never a holder of one. A view is made by a
+%% function tied to its source, and its own functions make it of their tied parameter: a braced list or a compound
+%% literal of a view type is the borrow of what its pointer borrows, or static storage, not a store of a borrow into a
+%% plain slot (`borrow_stored', which refused `return (sv){ s, strlen(s) };'), and a local given one is that borrow
+%% (ck_bind_var/5). Where the view goes, its borrow goes: a return within the result's tie, a store as a borrow's is,
+%% and a use after its source's end refused
+ck_view_type(T) :- nb_current('$ccl_instances', Is), memberchk(view(_), Is), catch(ccl_resolve_type(T, R), _, fail), ccl_inst_type_name(R, N),
+    member(view(IT), Is), ccl_inst_type_name(IT, N), !.
+%% a view's value that is an object of a view type -- a local's, a parameter's, a field's -- is a borrow of what that
+%% view sees, and a parameter's view sees its caller's, which outlives the function: `string_view r = w;' (0.295)
+ck_view_copy_source(E, St, P) :-
+    ck_view_object(E), ( ck_borrows_from(E, St, P0) -> P = P0 ; ck_path_root(E, R), atom(R), ck_is_param(R) -> P = R ).
+ck_view_object(E) :- memberchk(E, [id(_), member(_, _), arrow(_, _), index(_, _), deref(_)]), !, ck_view_expr(E).
+ck_view_init(N, Items, Form, St0, St) :- ck_view_items(Items, St0, St1), ( ck_view_source(Items, St1, P) -> ck_bind_var(N, P, Form, St1, St) ; St = St1 ).
+ck_view_items([], St, St).
+ck_view_items([item(_, V)|Is], St0, St) :- ( V = init(Sub) -> ck_view_items(Sub, St0, St1) ; ck_expr(V, St0, St1) ), ck_view_items(Is, St1, St).
+ck_view_source(Items, St, P) :- member(item(_, V), Items), V \= init(_), ( ck_borrows_from(V, St, P0) -> P = P0 ; ck_static_value(V) -> ck_static_name(V, N), P = static(N) ), !.
+%% A VIEW GIVEN A VIEW OF ITS OWN SOURCE THROUGH ITS POINTER (0.295): `*v = (V){ v->p + n, v->n - n }' and `v->p = v->p
+%% + n', over a parameter `V *v', keep the caller's view on the source it borrowed, or put it on static storage, which
+%% nothing ends; a view of another source stored so is a borrow stored where it cannot be followed, as before
+ck_view_self(L, R, St) :- ck_view_target(L, V), ( ck_borrows_from(R, St, P) -> P == V ; ck_static_value(R) ), !.
+ck_view_target(deref(id(V)), V) :- atom(V), ck_view_ptr(V).
+ck_view_target(arrow(id(V), _), V) :- atom(V), ck_view_ptr(V).
+ck_view_ptr(V) :- catch(ccl_type_of(id(V), T), _, fail), catch(ccl_resolve_type(T, ptr(_, VT)), _, fail), ck_view_type(VT).
 ck_callee_sig(id(F), Sig) :- ccl_declared(F, T), !, ck_fn_sig(T, Sig).
 ck_callee_sig(F, Sig) :- ccl_type_of(F, T), T \== unknown, ck_fn_sig(T, Sig).
 ck_fn_sig(T, Sig) :- ccl_resolve_type(T, T1), ( T1 = fn(_, _, _) -> Sig = T1 ; T1 = ptr(_, FT), ccl_resolve_type(FT, Sig), Sig = fn(_, _, _) ).
@@ -1509,9 +1544,11 @@ ck_decls([var(N, T0, Init0)|Vs], St0, St) :-
     ->  ck_var_tie(N, T, St3, St5), ( Init == none -> St6 = St5 ; ck_fill(N, T, Init, var(N, Init), St5, St6) )
     ;   ck_var_tie(N, T, St3, St5),
         (   Init == none -> St6 = St5
+        ;   Init = init(Items), ck_view_type(T) -> ck_view_init(N, Items, var(N, Init), St5, St6)   % A VIEW is the borrow of its source (0.295)
         ;   Init = init(Items) -> ck_init_slots(Items, T, N, St5, St6)
         ;   ck_expr(Init, St5, St5a),
-            (   ck_borrowing_type(T), ck_borrows_from(Init, St5a, P) -> ck_bind_var(N, P, var(N, Init), St5a, St6)   % a closure of a reference capture is a borrow of the captured local (0.100)
+            (   ck_view_type(T), ck_view_copy_source(Init, St5a, P) -> ck_bind_var(N, P, var(N, Init), St5a, St6)   % A VIEW COPIED borrows what its view sees (0.295)
+            ;   ck_borrowing_type(T), ck_borrows_from(Init, St5a, P) -> ck_bind_var(N, P, var(N, Init), St5a, St6)   % a closure of a reference capture is a borrow of the captured local (0.100)
             ;   ck_is_pointer_type(T), Init = id(P), ck_plain_copy(St5a, P) -> ck_declare(St5a, N, null, St6)   % A POINTER only (0.100): `int x = n' had made x an owner in the null state, and a closure capturing x by value borrowed it                 % a COPY OF A NULL, OR OF A LOCAL WITH NO OWNERSHIP STATE, IS NULL TO THE CHECK (0.99): `int *q = p' with p null was a fresh value, and q `not consumed'
             ;   ck_is_pointer_type(T), \+ ck_declared_tie(N, _), ck_static_value(Init) -> ck_static_name(Init, SN), ck_bind_var(N, static(SN), var(N, Init), St5a, St6)   % STATIC STORAGE, a borrow that nothing ends (0.294)
             ;   ck_is_pointer_type(T), \+ ck_declared_tie(N, _), ck_fresh_value(Init) -> ck_declare(St5a, N, loose, St6)
@@ -2025,6 +2062,7 @@ ck_expr(assign('=', L, R), St0, St) :- !,
     ( ck_path(R, RK), ck_by_value(R), ck_has_array_under(St0, RK) -> ck_fail(own_array_by_value, RK, assign('=', L, R)) ; true ),
     (   ccl_type_of(L, T), T \== unknown
     ->  (   ck_own_type(T), ck_carries_type(T) -> ck_into_own(none, R, assign('=', L, R), St0, St1, _)   % AN ELEMENT OF AN OWN BUFFER THAT CARRIES NO POINTER IS A PLAIN VALUE'S SLOT (0.274): `own int *data' puts own with the pointee (ck_own_type/1), so `b->data[i]' has the type `own int', and `b->data[i] = q[i]' over a parameter q was `borrow_stored', a number taken for a borrow of q
+        ;   ck_view_self(L, R, St0) -> ck_expr(R, St0, St1)   % a view given a view of its own source, through its pointer (0.295)
         ;   ck_carries_type(T) -> ck_slot_name(L, Name), ck_where(L, St0, W), ck_into_plain(Name, R, assign('=', L, R), W, St0, St1)
         ;   ck_holds_lib_borrow(T) -> ck_into_lib_slot(L, R, assign('=', L, R), St0, St1)
         ;   ck_expr(R, St0, St1) )
@@ -2057,6 +2095,7 @@ ck_expr(stmt_expr(block(Is)), St0, St) :- append(Init, [expr(L, E)], Is), !,
     ( St2 == dead -> St3 = dead ; ck_anchor_addrs(E, St2, St2a), ck_consume_or_use(E, St2a, St3) ),
     ck_scope_end(St3, St), ck_bpath_pop, ccl_scope_pop.
 ck_expr(stmt_expr(B), St0, St) :- !, ck_stmt(B, St0, St).
+ck_expr(compound_lit(T, init(Items)), St0, St) :- ck_view_type(T), !, ck_view_items(Items, St0, St).   % a view's: its items read, no slot stored (0.295)
 ck_expr(compound_lit(T, init(Items)), St0, St) :- !, ck_init_slots(Items, T, none, St0, St).
 ck_expr(E, St0, St) :- compound(E), !, E =.. [_|Args], ck_exprs(Args, St0, St).
 ck_expr(_, St, St).
@@ -2126,10 +2165,17 @@ ck_args_alias(Args, Callee, St) :-
     ( Rs == [] -> true ; ck_args_alias_(Args, 1, Rs, Args, Callee, St) ).
 ck_args_alias_([], _, _, _, _, _).
 ck_args_alias_([A0|As], I, Rs, Args, Callee, St) :-
-    (   member(J-Fs, Rs), J \== I, ck_by_address(A0, Callee, I, A), ck_pointer_arg(A), ck_borrows_from(A, St, P), memberchk(P, Fs)
+    (   member(J-Fs, Rs), J \== I, ck_by_address(A0, Callee, I, A), ck_alias_source(A, St, P), memberchk(P, Fs)
     ->  ( Callee = id(F) -> ck_fail(borrow_into_call, P, call(F)) ; ck_fail(borrow_into_call, P, call(Callee)) )
     ;   true ),
     I1 is I + 1, ck_args_alias_(As, I1, Rs, Args, Callee, St).
+%% what such an argument borrows: a pointer's borrow; and A VIEW'S SOURCE (0.295), the view handed by its value or by
+%% its address -- `append(s, v)' over a string_view v of s, which a function of the string takes by its address
+ck_alias_source(A, St, P) :- ck_view_arg(A, E), !, ck_borrows_from(E, St, P).
+ck_alias_source(A, St, P) :- ck_pointer_arg(A), ck_borrows_from(A, St, P).
+ck_view_arg(addr(E), E) :- ck_view_expr(E), !.
+ck_view_arg(E, E) :- ck_view_expr(E).
+ck_view_expr(E) :- catch(ccl_type_of(E, T), _, fail), T \== unknown, ck_view_type(T).
 %% A NULL OWN FIELD THAT SUCH A CALL MAY FILL IS LIVE AFTER IT (0.267): the callee returns the field live or null
 %% (ck_complete_owners/2), so the caller holds an owner it must free or drop -- `buf v = {0, NULL}; grow(&v); return 0;'
 %% was taken, and grow's `realloc(NULL, n)' leaked, as `vector<int> v; push(v, 1);' would without autodrop

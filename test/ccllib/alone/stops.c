@@ -5,7 +5,9 @@
    erases that find none; a hash table's place over such calls at each of its sizes up to 4000, 0.283; a bitset's last
    bit, read and written each way, 0.286; a string's place after its last character, and each change at that place,
    0.291). A string's change past max_size stops, and a number of a text where there is none or where it is past its
-   type's range, where C++ throws (0.291). cicilang builds this file as C and cicilang++ as C++; both print
+   type's range, where C++ throws (0.291). A view's and a span's place or count past the end stops, and a view's place
+   after its last character, which is in its bounds, does not (0.295). cicilang builds this file as C and cicilang++ as
+   C++; both print
    stops.expect. It has no twin: C++ throws at some of these, and says nothing of what follows the others */
 #include <signal.h>
 #include <stdio.h>
@@ -25,6 +27,8 @@
 #include <unordered_map.pl>
 #include <bitset.pl>
 #include <string.pl>
+#include <string_view.pl>
+#include <span.pl>
 /* the child takes abort's signal and leaves with a status of its own: so no core is written and no crash is reported,
    and a stop by abort is told from a fault */
 static void on_abort(int sig) { (void)sig; _exit(77); }
@@ -242,6 +246,42 @@ static void string_ok(void) {
     printf("%d %c %zu %zu %d [%s] [%s]", s[5], at(s, 4), copy(s, b, 2, 5), size(u), compare(s, 5, 1, ""), c_str(s),
            c_str(u));
 }
+static void view_at(void) { string_view v = "abc"; printf("%c", at(v, 3)); }
+static void view_index(void) { string_view v = "abc"; printf("%c", v[3]); }
+static void view_front(void) { string_view v; printf("%c", front(v)); }
+static void view_back(void) { string_view v; printf("%c", back(v)); }
+static void view_prefix(void) { string_view v = "abc"; remove_prefix(v, 4); }
+static void view_suffix(void) { string_view v = "abc"; remove_suffix(v, 4); }
+static void view_substr(void) { string_view v = "abc"; string_view w = substr(v, 4); printf("%zu", size(w)); }
+static void view_copy(void) { string_view v = "abc"; char b[4]; printf("%zu", copy(v, b, 1, 4)); }
+static void view_compare(void) { string_view v = "abc"; printf("%d", compare(v, 4, 1, "x")); }
+static void view_compare_other(void) { string_view v = "abc", w = "de"; printf("%d", compare(v, 0, 1, w, 3, 1)); }
+static void view_ok(void) {
+    string_view v = "abc";
+    string_view w = substr(v, 3);
+    char b[4];
+    printf("%zu %zu %d %zu", size(w), copy(v, b, 1, 3), compare(v, 3, 1, ""), find(v, "", 3));
+    remove_suffix(v, 0);
+    remove_prefix(v, 3);
+}
+static void span_at(void) { int a[3] = {1, 2, 3}; span<int> s = a; printf("%d", at(s, 3)); }
+static void span_index(void) { int a[3] = {1, 2, 3}; span<int> s = a; s[3] = 1; }
+static void span_front(void) { span<int> s; printf("%d", front(s)); }
+static void span_back(void) { span<int> s; printf("%d", back(s)); }
+static void span_first(void) { int a[3] = {1, 2, 3}; span<int> s = a; span<int> f = first(s, 4); printf("%zu", size(f)); }
+static void span_last(void) { int a[3] = {1, 2, 3}; span<int> s = a; span<int> l = last(s, 4); printf("%zu", size(l)); }
+static void span_subspan(void) { int a[3] = {1, 2, 3}; span<int> s = a; span<int> m = subspan(s, 4); printf("%zu", size(m)); }
+static void span_count(void) { int a[3] = {1, 2, 3}; span<int> s = a; span<int> m = subspan(s, 1, 3); printf("%zu", size(m)); }
+static void span_ok(void) {
+    int a[3] = {1, 2, 3};
+    span<int> s = a;
+    span<int> e = subspan(s, 3);
+    span<int> f = first(s, 3);
+    span<int> l = last(s, 0);
+    span<int> m = subspan(s, 1, 2);
+    span<int> d = subspan(s, 3, dynamic_extent);
+    printf("%zu %zu %zu %zu %zu", size(e), size(f), size(l), size(m), size(d));
+}
 int main(void) {
     printf("vector: at %d, index %d, front %d, pop_back %d, ", stopped(vector_at), stopped(vector_index),
            stopped(vector_front), stopped(vector_pop));
@@ -297,5 +337,14 @@ int main(void) {
     printf("string: stoi of no number %d, past an int %d; stoul past its range %d; stod of no number %d; ",
            stopped(string_stoi_none), stopped(string_stoi_past), stopped(string_stoul_past), stopped(string_stod_none));
     printf("in its bounds, each change at the place after the last character %d\n", stopped(string_ok));
+    printf("string_view: at %d, [] %d, front %d, back %d, remove_prefix %d, remove_suffix %d, substr %d, copy %d, ",
+           stopped(view_at), stopped(view_index), stopped(view_front), stopped(view_back), stopped(view_prefix),
+           stopped(view_suffix), stopped(view_substr), stopped(view_copy));
+    printf("compare %d, compare of another's part %d; in its bounds, at the place after the last character %d\n",
+           stopped(view_compare), stopped(view_compare_other), stopped(view_ok));
+    printf("span: at %d, [] %d, front %d, back %d, first %d, last %d, subspan %d, a count past the end %d; ",
+           stopped(span_at), stopped(span_index), stopped(span_front), stopped(span_back), stopped(span_first),
+           stopped(span_last), stopped(span_subspan), stopped(span_count));
+    printf("in its bounds %d\n", stopped(span_ok));
     return 0;
 }

@@ -681,11 +681,57 @@ three times the twin's time, 1.35 s against 0.42 s, and cicilang++'s four times,
 and makes few members, where a ccllib build reads, checks and lowers each function that the program calls. The target of
 phase 1 stays.
 
+### 1a, `string_view.pl` (0.295)
+
+`string_view` is `basic_string_view<char>` of `<basic_string_view.pl>`, which `<string_view.pl>` includes and names: the
+first character and the count, A BORROW OF WHAT IT SEES -- a text of C, a char array, a string's characters, a text and
+its count by braces, `string_view b = {buf, n};` --, which the safe part follows as it follows a pointer: a view used
+after its source ends or after a change of a string that may replace its characters, a view of a local that leaves its
+function, a view of another source put in the caller's view, and a view of a string handed beside it to a change of it,
+are each refused. 118 functions and 5 inner ones: the size, the characters, `remove_prefix` and `remove_suffix`,
+`substr`, `copy`, the six searches of a view, a string, a text, a text and its count or a character, the three tests,
+`compare` and the relations, the text on either side. A place past the end stops the program; `v[i]` is a value; there
+is no `swap`. A string meets a view: `string s = v;`, `append(s, v)`, `s += v`, `find(s, v)`, `s == v`.
+`test/ccllib/string_view.c` and its twin over `std::string_view`, twenty-one programs of `test/ccllib/safe/` between the
+view and the span, `test/ccllib/alone/view_rules.c`, and ten cases more of `stops.c`. The costs over libc++ 22, as
+above:
+
+| | build | peak | IR types | IR functions | IR lines | object | `string_view 10000000` at `-O2` | its peak |
+|---|---|---|---|---|---|---|---|---|
+| cicilang, C | 1.14 s | 374 MB | 2 | 128 | 5,303 | 49,760 B | 0.04 s | 11 MB |
+| cicilang++, C++ | 1.55 s | 173 MB | 2 | 138 | 7,714 | 56,312 B | 0.04 s | 11 MB |
+| clang++ 22, `std::` | 0.39 s | 119 MB | 15 | 142 | 5,857 | 101,152 B | 0.06 s | 15 MB |
+
+The unit holds 128 functions for its instances in 50 KB, where the twin's holds 142 in 101 KB. The run of ten million
+characters takes 0.040 s as C and 0.040 s as C++ against 0.060 s, in 11 MB against 15 MB. The C build takes 1.14 s
+against the twin's 0.39 s, and cicilang++'s 1.55 s. The target of phase 1 stays.
+
+### 1a, `span.pl` (0.295)
+
+`span<T>` of `<span.pl>`: the first element and the count, a borrow of what it sees, as a view: made of a C array by its
+type's count (`int a[6]; span<int> s = a;` -- the reader asks the function named with the array's own word first), of a
+vector, of an array of `<array.pl>`, of a pointer and a count by braces, and a span of const elements of each and of a
+span. `size`, `size_bytes`, `empty`, `data`, `begin`, `end`, `s[i]` (a place: a write is the source's), `at`, `front`,
+`back`, `first`, `last`, `subspan`. A place or a count past the end stops the program; there is no fixed extent.
+`test/ccllib/span.c` and its twin over `std::span`, and nine cases more of `stops.c`. The costs over libc++ 22, as
+above:
+
+| | build | peak | IR types | IR functions | IR lines | object | `span 10000000` at `-O2` | its peak |
+|---|---|---|---|---|---|---|---|---|
+| cicilang, C | 0.79 s | 363 MB | 4 | 41 | 1,710 | 16,544 B | 0.05 s | 40 MB |
+| cicilang++, C++ | 0.64 s | 152 MB | 4 | 41 | 2,298 | 19,696 B | 0.05 s | 40 MB |
+| clang++ 22, `std::` | 0.76 s | 141 MB | 24 | 153 | 4,161 | 88,192 B | 0.11 s | 67 MB |
+
+The unit holds 41 functions for its instances in 17 KB, where the twin's holds 153 in 88 KB. The run of ten million
+numbers takes 0.051 s as C and 0.049 s as C++ against 0.112 s, in 40 MB against 67 MB. The C build takes 0.79 s against
+the twin's 0.76 s, and cicilang++'s 0.64 s. PHASE 1A IS DONE with this module: every container and string of the list
+below has its module.
+
 ### The parts of phase 1
 
 - 1a. Containers and strings: `vector`, `array`, `deque`, `list`, `forward_list`, `map`, `set`, `multimap`,
   `multiset`, `unordered_map`, `unordered_set` and their multi forms, `stack`, `queue`, `priority_queue`, `bitset`,
-  `string`, `string_view`, `span`.
+  `string`, `string_view`, `span` -- done at 0.295.
 - 1b. The vocabulary: `optional`, `variant` and `visit`, `tuple`, `pair`, `any`, `unique_ptr` (the own pointer),
   `shared_ptr`, `hash`, `less` and the other function objects.
 - 1c. Algorithms and numbers: `<algorithm>`, `<numeric>`, the C++20 ranges views as loops, `<limits>`, `<complex>`,

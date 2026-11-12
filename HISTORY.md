@@ -289,6 +289,7 @@ One row per step, in version order: the step's title, what it did and its gate n
 | 0.292 | cocolog 3.62.2: the pins moved, every load silent over it | cocolog from 3.37.0 to its latest master, 3.62.2 (`7e4bac2`), on the owner's word: fifty-nine commits, thirty-seven versions of cocolog's own; its build needs `ZIGURATIP` where the checkout is not under `$HOME`; the embedded LLVM built against 18 again, after a build of mine over the shell's `LLVM=/usr/lib/llvm-22`; 3.62's `public` and `dynamic` operators, prepared at 0.290, run; one load warning, a singleton in `bitset.pl`, mended, and every load silent; Cicili and ZiguratIP have no new commit; reader 188 and lowering 162 stay | the toolchain check strict; the quick gates before the chain; the chain over libc++ 22, 21 and 18, GREEN; no CI job, by the owner's rule of 0.271; a commit and a push |
 | 0.293 | the findings of a JavaScript engine over 0.284, and cocolog 3.62.3 | a borrow handed to a call that may replace its owner refused (`ck_args_alias/3`); a named parameter's register `%arg.<name>`, apart from the lowering's names; the program's own C header whose raw read met an instance read again in its place, its own read's prescan instances put back (C++'s `no_member` of 0.268 too), a header read in its includer's scope where the unit has an instance, and a read that calls an instance's function kept in no cache; the string's programs hand a part by the string; reader 189, lowering 163; cocolog from 3.62.2 to its latest master, 3.62.3 (`bf956d1`), on the owner's word, its pin moved, every load silent | the toolchain check strict; the chain over libc++ 22, 21 and 18, GREEN; no CI job, by the owner's rule of 0.271 |
 | 0.294 | the findings of the twelfth phase of a program over 0.284 | a conditional's arms decay, in its type and its value; a function of the program whose every return is static storage answers no new memory (`ck_static_results/1`); static storage a borrow that nothing ends, its free and its store into an owner refused (an older hole the probes found); a static local's debug variable its function's subprogram's (-g died of SIGSEGV on one in a block); the borrow into a call over a `vector<item> *` refused since 0.293; reader 190, a run's macro names a key each, so a unit over `<openssl/ssl.h>` builds cold in 26 s where it took 59 s; lowering 164 | the flow gate and the nets; no chain and no CI job, by the owner's rule of 0.271 |
+| 0.295 | ccllib's `<string_view.pl>` and `<span.pl>`, the last modules of phase 1a; a view is a borrow | `std::string_view` as `basic_string_view<char>` and `std::span`, the first element and the count, each a borrow of what it sees, which the safe part follows: a view used after its source ends or after a change that may replace it, a view of a local that leaves its function, a view of another source put in the caller's, a view of a string handed beside it to a change of it, refused; 118 functions of the view and 14 of the span, a string's forms over a view; a span of a C array by its type's count, the reader asking the array's own word first; in C++ an instance made of another instance's object with no `_of` refused by name; the rules program holds both to a model at 777,450 checks, and 42 copies of the tree broken on purpose are each reported; a write through a const lvalue, never refused, recorded; reader 191, lowering 165 | the flow gate; the reader, compile, driver and ccllib gates over libc++ 22 over one fresh HOME; the ccllib gate over libc++ 21 and 18; the pool of the light C++ run fixtures; the C++ net by hand; no chain, by the owner's rule of 0.271; a commit and a push |
 
 ## M5 — the C++ mode
 
@@ -20847,3 +20848,107 @@ NO CI JOB RAN.
   `CLAUDE.md`, `CCLLIB.md`, `README.md`.
 
 The module 0.294, the reader 190 and the lowering 164.
+
+## 0.295 — ccllib's `<string_view.pl>` and `<span.pl>`, the last modules of phase 1a; a view is a borrow
+
+**0.295: the last two modules of CCLLIB.md's phase 1a, `std::string_view` and `std::span`, each the first element and
+the count of another object's storage: a VIEW. The safe part follows a view as it follows a pointer. A string meets a
+view in C++17's forms. The reader makes a span of a C array by its type's count. Phase 1a is done.**
+
+THE VIEW. `<basic_string_view.pl>` gives `basic_string_view<char>`, `{ const char *data; size_t len; }`, and
+`<string_view.pl>` includes it and names it `string_view`, with `npos`. 118 functions and 5 inner ones, each made at its
+first use: the size, the characters (`v[i]` a value, by the reader's `_item`), `remove_prefix` and `remove_suffix`,
+`substr` and `copy`, the six searches in eleven forms each -- of a view, a string, a text, a text and its count, a
+character, from a place or from where C++'s begins --, the three tests, `compare` and the relations, the text on either
+side by the reader's mirrored operators. The relations and compare over a view, a text and a string are one family
+(`ccllib_view_rel/2`). A view of a text and its count is C's own braces, `string_view b = {buf, n};`: a call by name
+finds its function by the type of its first argument, and a text is none. A place past the end stops the program.
+`__cmp`, the searches and the tests hand no null to `memcmp`, `memcpy` or `memchr` for a view born zero (C17 7.24.1/2).
+
+THE SPAN. `<span.pl>` gives `span<T>`, `{ T *data; size_t len; }`, of the count that its object holds: `size`,
+`size_bytes`, `empty`, `data`, `begin`, `end`, `s[i]` a place, `at`, `front`, `back`, `first`, `last` and `subspan` in
+two forms (`dynamic_extent`, of `span.pl.h`). It is made of a vector, of an array of `<array.pl>`, of a span for a span
+of const elements, of a pointer and a count by braces, and of A C ARRAY OF A KNOWN COUNT: the reader's made-of
+conversion took an array's words after its decay to a pointer, and the count was lost, so it asks the array's own word
+first now, `span_int_of_arr_6_int` (`ccl_of_array/4`), and the module makes that function with the count in it. A span
+of `T` takes elements of `T`, and a span of `const T` of `T` too.
+
+A VIEW IS A BORROW. A macro file names its type macro a view's by a fact of its own, `view_N` beside `type_N/3`; the
+reader marks the instance `view(T)` beside its `inst/4`, and the check takes an object of such a type for a borrow of
+what it sees: by braces, the first item's source; by a function tied to its argument, the argument's -- and a view's own
+source where the argument is a view's address (`ck_tie_source/3`); by a copy, what the copied view sees, a parameter's
+view its caller's (`ck_view_copy_source/3`). The probes, as C and as C++: a view of a string of a block that ends, used
+after it; a view of a string after a change that may replace its characters, and a span of a vector after `push_back`; a
+view and a span of a local returned; a view put in the caller's view through its pointer; each refused, and a function
+of the instance that gives the view a part of its own source through its pointer taken (`ck_view_self/3`).
+
+WHAT THE PROBES FOUND, AND WHAT THE STEP CHANGED FOR IT:
+- A VIEW OF A STRING HANDED BESIDE IT TO A CHANGE OF IT, `append(s, v)` over `string_view v = s;`, was built: 0.293's
+  rule took the borrow of a pointer argument alone, and a function of the string takes the view by its address. The rule
+  takes a view's source now, by its value or its address (`ck_alias_source/3`).
+- A COPY OF A VIEW PARAMETER, `string_view r = w;`, was `no owner behind: 'r'`: a struct that holds a pointer, given the
+  value of an object that the check does not follow, was new memory with no owner. It borrows what the copied view sees
+  now; returned with no tie it is `a borrow leaves the function`, and the caller follows a tie through it to the
+  string's end.
+- IN C++, `span<int> s = d;` over a deque, whose type macro defines no `_of` for it, was the autodrop's move of d and
+  `no owner behind: 's'`: C++'s own initializer took it. It is refused by name now as in C, `a span_int is not made of a
+  value of the type deque_int`: such an object is a C struct, which C++ converts by no constructor.
+- A MACRO FILE'S OWN HEADER THAT NAMED ITS OWN TYPE MACRO'S INSTANCE -- `typedef basic_string_view<char> string_view;`
+  in `string_view.pl.h` with the type macro in `string_view.pl` -- was `not lowered yet: typedef(string_view)` in C and
+  `template_without_body(basic_string_view)` in C++ where the program included `<string_view.pl>` alone; `<string.pl>`
+  before it hid it, and every program of the first probes had it. The type macro stands in `<basic_string_view.pl>` now,
+  which the header includes, as `<string.pl>`'s header includes `<basic_string.pl>`. The read that loses the instance is
+  not found: Not done records it.
+- AN ASSIGNMENT TO A CONST-QUALIFIED LVALUE IS NEVER REFUSED, in C and in C++: `const int a = 1; a = 2;` and `*p = 3`
+  over a `const int *p` build, where clang refuses them (C17 6.5.16/2), and so does a write through a `span<const int>`.
+  Since 0.265 only an own field of a const object is. The C++ desugaring writes a constructor's member initializers as
+  assignments, so the rule needs the desugaring to mark them: Not done records it, and no fixture claims it.
+- libc++'s `compare` gives `memcmp`'s difference, -15 for `"hello world"` against `"world"`, where ccllib gives -1: C++
+  says no more of the answer than its sign, and the programs print its sign.
+
+A STRING MEETS A VIEW, in C++17's forms: `string s = v;` and `s = v`, `append`, `assign`, `insert` and `replace` of a
+view whole, from a place or a part of it, `s += v`, the six searches and the three tests of a view, `==`, `<`, `>`,
+`compare`; the relations and compare of the string are one family over a string, a text and a view
+(`ccllib_string_rel/2`), where they were seven texts. A view handed where a function of the string takes one goes by its
+address, as a string does.
+
+THE PROOF. `test/ccllib/string_view.c` and its twin over `std::string_view` and `std::string`, and `test/ccllib/span.c`
+and its twin over `std::span`, print their twins' lines as C and as C++, and their count runs too; twenty-one programs
+of `test/ccllib/safe/`, as C and as C++; `test/ccllib/alone/view_rules.c` holds a view and a span to a model at 777,450
+checks; ten cases of `stops.c` for the view and nine for the span. EACH RULE HAS A BROKEN TEXT OF ITS OWN: 42 copies of
+the tree broken on purpose -- 26 of `basic_string_view.pl`, 12 of `span.pl`, 4 of `basic_string.pl` --, and each is
+reported, by `view_rules.c`, by `stops.c`, or by `string_view.c`, `span.c` and `string_rules.c` against their lines. The
+string's fixture took parts from a place past 0 first, so that a part of a view put in a string from its start would
+show. ONE BROKEN TEXT WAS NOT REPORTED AT FIRST: a string where a view is taken, read from the object's bytes whatever
+its block -- no program asked those forms with a long string, whose characters stand in its block --, and `view_rules.c`
+asks each of them now with a string short and long, 777,450 checks; it reports that text, and four others ran again over
+the tree as it is committed.
+
+THE COSTS, over libc++ 22 (CCLLIB.md's sections): The unit holds 128 functions for its instances in 50 KB, where the
+twin's holds 142 in 101 KB. The run of ten million characters takes 0.040 s as C and 0.040 s as C++ against 0.060 s, in
+11 MB against 15 MB. The C build takes 1.14 s against the twin's 0.39 s, and cicilang++'s 1.55 s. For the span: The unit
+holds 41 functions for its instances in 17 KB, where the twin's holds 153 in 88 KB. The run of ten million numbers takes
+0.051 s as C and 0.049 s as C++ against 0.112 s, in 40 MB against 67 MB. The C build takes 0.79 s against the twin's
+0.76 s, and cicilang++'s 0.64 s.
+
+THE NETS, over the step's work tree and a fresh HOME a part: the flow gate RED at first -- `string_view.pl`, a macro
+file that defines no predicate of its own, gives the chart no root, and its chart did not finish; `test/flow.sh` charts
+it no more --, then GREEN with no finding (205 s); the reader gate (164 checks); the compile gate (289); the driver gate
+(77); the ccllib gate over libc++ 22, 21 and 18, 282 checks each, none skipped -- 16 programs in their three runs, 87
+refused and 6 alone --; the pool of the light C++ run fixtures (361, each of them printing its expected lines); and the
+C++ net by hand (34 checks: the C run fixtures and refusals that the C++ gate builds as C++). THE CHAIN DID NOT RUN, by
+the owner's rule of 0.271: it runs over the finished ccllib task, which this step finishes. NO CI JOB RAN.
+
+- `library/ccllib/basic_string_view.pl`, `basic_string_view.pl.h`, `string_view.pl`, `string_view.pl.h`, `span.pl`,
+  `span.pl.h` (new); `library/ccllib/basic_string.pl` (the forms over a view, `ccllib_string_rel/2`, no null to the C
+  library), `string.pl.h` (`npos` under one guard); `library/ccl_check.pl` (`ck_view_type/1`, `ck_view_init/5`,
+  `ck_view_items/3`, `ck_view_source/3`, `ck_view_self/3`, `ck_tie_source/3`, `ck_view_copy_source/3`,
+  `ck_alias_source/3`, the compound literal of a view, the reader's view marks), `library/ccl_syntax.pl`
+  (`ccl_view_macro/1`, `ccl_of_array/4`, the C++ refusal in `ccl_of_value/3`; the reader 191), `library/ccl_ir.pl` (the
+  lowering 165), `test/flow.sh` (the three new macro files).
+- `test/ccllib/string_view.c`, `.cpp`, `.expect`, `.count`; `span.c`, `.cpp`, `.expect`, `.count`;
+  `test/ccllib/alone/view_rules.c`, `.expect`; `stops.c` and `.expect`; twenty-one programs of `test/ccllib/safe/` and
+  their words.
+- RULES.md, HISTORY.md, CLAUDE.md, CCLLIB.md, README.md.
+
+The module 0.295, the reader 191 and the lowering 165.
