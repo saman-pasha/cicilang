@@ -359,6 +359,7 @@ dr_kind(use_after_move, 'use after move of') :- !.
 dr_kind(owner_unset, 'owner used before it was given anything:') :- !.
 dr_kind(borrow_after_move, 'use of a borrow after its owner was consumed:') :- !.
 dr_kind(borrow_after_call, 'use of a borrow after a call that may replace its owner:') :- !.   % a struct's own field, handed by a plain pointer (0.265)
+dr_kind(borrow_into_call, 'a borrow handed to a call that may replace its owner:') :- !.   % beside the struct that the call may change (0.293)
 dr_kind(borrow_escapes, 'a borrow leaves the function:') :- !.
 dr_kind(borrow_stored, 'a borrow stored where it cannot be followed:') :- !.
 dr_kind(borrow_consumed, 'a borrow consumed:') :- !.

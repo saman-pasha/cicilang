@@ -287,6 +287,7 @@ One row per step, in version order: the step's title, what it did and its gate n
 | 0.290 | The findings of a program of 25,000 lines: eight defects corrected, each by its reduction | thirteen findings of the Ambitious session, each reduction run on 0.289: a `continue` in a `switch` in a loop stopped the check (its loop is the nearest loop, past any switch); a value read out of a plain slot is no new memory, in a local and in a store (`names[i]` over a static table was `unconsumed` in a local and `untied` in a field); a null test refines a loose pointer (the README's `fopen` lines were refused); a raw read that does not lex goes on to the preprocessed read (`<netdb.h>` and eight more headers were dropped whole); a macro file's header is included by its absolute path; the output file's directory is asked before the build; `own` where only a name can stand is refused by name; `(public)` and `(dynamic)` for cocolog 3.62, not run here; a build that fails names each header that was not found, not read, or not read to its end; findings 9, 10 and 12 are the owner's decisions; reader 187, lowering 161 | the flow gate; the reader, compile and driver gates and the ccllib gate over libc++ 22, over one fresh HOME; the ccllib gate over libc++ 21 and 18; the pool of the light C++ run fixtures; sixteen C++ fixtures by hand; no chain, by the owner's rule of 0.271; a commit and a push |
 | 0.291 | ccllib's `<string.pl>`; an operator whose left operand is no instance; a pointer where a struct is needed is refused by name | `std::string` as `basic_string<char>`: an own pointer, a count and sixteen bytes that hold the capacity or a string of fifteen characters, which has no block of the heap; 182 functions, each made at its first use, and 11 inner ones; a change of the characters is one of two inner functions, and a source in the string itself is copied first; a place past the last character, a change past `max_size` and a number of a text where there is none stop the program; the rules program holds the string to a model at 24,414 checks, and fifty-seven copies of the tree broken on purpose are each reported; the reader writes `"abc" == s` and `"<" + s` as the instance's relation with its operands exchanged and as its `r` function; the lowering takes a raw-read header's definition from the header that holds it, and refuses a pointer where a struct is needed, which went to LLVM's parser; reader 188, lowering 162 | the flow gate; the reader, compile and driver gates and the ccllib gate over libc++ 22, over one fresh HOME; the ccllib gate over libc++ 21 and 18; the pool of the light C++ run fixtures; seventeen C++ fixtures by hand; no chain, by the owner's rule of 0.271; a commit and a push |
 | 0.292 | cocolog 3.62.2: the pins moved, every load silent over it | cocolog from 3.37.0 to its latest master, 3.62.2 (`7e4bac2`), on the owner's word: fifty-nine commits, thirty-seven versions of cocolog's own; its build needs `ZIGURATIP` where the checkout is not under `$HOME`; the embedded LLVM built against 18 again, after a build of mine over the shell's `LLVM=/usr/lib/llvm-22`; 3.62's `public` and `dynamic` operators, prepared at 0.290, run; one load warning, a singleton in `bitset.pl`, mended, and every load silent; Cicili and ZiguratIP have no new commit; reader 188 and lowering 162 stay | the toolchain check strict; the quick gates before the chain; the chain over libc++ 22, 21 and 18, GREEN; no CI job, by the owner's rule of 0.271; a commit and a push |
+| 0.293 | the findings of a JavaScript engine over 0.284, and cocolog 3.62.3 | a borrow handed to a call that may replace its owner refused (`ck_args_alias/3`); a named parameter's register `%arg.<name>`, apart from the lowering's names; the program's own C header whose raw read met an instance read again in its place, its own read's prescan instances put back (C++'s `no_member` of 0.268 too), a header read in its includer's scope where the unit has an instance, and a read that calls an instance's function kept in no cache; the string's programs hand a part by the string; reader 189, lowering 163; cocolog from 3.62.2 to its latest master, 3.62.3 (`bf956d1`), on the owner's word, its pin moved, every load silent | the toolchain check strict; the chain over libc++ 22, 21 and 18, GREEN; no CI job, by the owner's rule of 0.271 |
 
 ## M5 — the C++ mode
 
@@ -20625,3 +20626,116 @@ NO CI JOB RAN (the owner's rule of 0.271).
   `RULES.md` (the pins, the Findings of the neighbours, What runs), `CLAUDE.md`, `CCLLIB.md`.
 
 The module 0.292, the reader 188 and the lowering 162.
+
+## 0.293 — the findings of a JavaScript engine over 0.284, and cocolog 3.62.3
+
+**0.293: the Ambitious session's second message -- its JavaScript engine, about 7,600 lines, written over 0.284 -- named
+three findings with reductions and a fourth, not minimized. The second, `continue` in a `switch` in a loop, builds since
+0.290 (`contswitch.c`). The first was a hole in the safe part, the third an error of the lowering's names, the fourth
+three defects of the reader, one of them C++'s since 0.268. Each is mended, its forms beside it probed, and each has
+fixtures. The reader goes to 189 and the lowering to 163. While the step's nets ran, the owner asked for cocolog's
+latest master first and then the gates ("Pull latest cocolog. First pull cocolog then run gates"): cocolog went from
+3.62.2 to 3.62.3 (`bf956d1`), its pin with it, and the chain ran over the step's tree, GREEN.**
+
+FINDING 1, A BORROW HANDED TO A CALL THAT MAY REPLACE ITS OWNER. The report's reduction over `<vector.pl>` -- `grow(&t,
+&t.nodes[0].a)`, where grow pushes 4096 elements and then writes through its second parameter -- built, and its write
+went into the block that `realloc` had freed (valgrind's `Invalid write of size 4 ... inside a block free'd by
+realloc`); in the engine, a parser wrote `p_statements(cc, &cc->nodes[b].a, &cc->nodes[b].b)` while it grew `cc->nodes`,
+and function bodies came out empty. THE CAUSE: the rule of 0.265 ends the caller's borrows of a struct's own fields
+AFTER a call that may replace them (`ck_replaced_args/5`), and nothing looked at such a borrow handed INTO that call
+beside its struct. THE FORMS BESIDE IT, each built and accepted over 0.292: a plain struct's own field, `grow(&v,
+&v.data[0])` over `void grow(buf *b, int *out)`; a local that borrows it, `int *p = &v.data[1]; grow(&v, p)`, which the
+callee reads after its `realloc`; C++'s member function, `v.grow(&v.data[0])`; and `<string.pl>`'s `append(s, c_str(s) +
+1)`. The new rule (`ck_args_alias/3`, before the call's other rules) refuses an argument that hands a pointer, or a C++
+reference, into an own field of a struct that another argument of the same call may replace -- whatever the constness of
+its own parameter, a variadic one too: `a borrow handed to a call that may replace its owner: 'v.data' in call(grow)`,
+kind `borrow_into_call`. An element handed by its value borrows nothing and stays, and a library class has no own field
+to the check. `<string.pl>` copies a source that is in the string first, so `append(s, c_str(s) + 30)` was safe at run
+time, but the check does not see into the function: `test/ccllib/string.c` writes `append(self, self, 30)` now, its twin
+`self.append(self, 30)`, and `string_rules.c`'s step 19 `append(s, s, at)` (the form of a string from a place on, which
+no other step took). A mark for a module's function that takes a source in its own object would be new syntax, the
+owner's decision (below).
+
+FINDING 3, A PARAMETER NAMED `entry`. `int f(int entry)` was `LLVM: ir_parse_failed: ... unable to create block named
+'entry'`. THE CAUSE: a function's values and its blocks share one namespace, and a named parameter's register was its
+own name, `%entry`, beside the entry block `entry:`. THE FORMS BESIDE IT, each refused by LLVM over 0.292: a parameter
+named `t1` met a temporary `%t1`, one named `L2` a block `L2`, and C23's parameter with no name, `%p0`, met a parameter
+named `p0` (`redefinition of argument '%p0'`); a local and a label named `entry` were not broken (`%entry.<K>`,
+`L.entry`), nor a struct that comes in pieces beside a local of its name in an inner block. A named parameter's register
+is `%arg.<name>` now (`ir_params/5`), a spelling that no other name of the lowering has. `test/c/run/regnames.c` prints
+`2 12 103 12 5 7` and `regnames23.c` (`-std=c23`) `7 13`, as clang's builds do, in C and as C++.
+
+FINDING 4, A HEADER'S `static inline` FUNCTION OVER A `vector<T>` MEMBER. Cut down to seven lines -- a header with
+`typedef struct poly { vector<pt> pts; } poly;` and `static inline int first_x(const poly *p) { return p->pts[0].x; }`
+-- it was `not lowered yet: not_a_pointer(base([],[typedef(vector_pt)]))` in C, and C++ built it. THE CAUSE: C reads the
+program's own header raw, and the raw read in the unit made the forms of the macro file -- `p->pts[0]` the call of
+`vector_pt_index`, `size(p->pts)` the call of `vector_pt_size` -- but the lowering took each definition of a raw-read
+header from the header read preprocessed ALONE (`ir_hdr_resolve/2`), for its macros, and that read has no instance of
+the unit: `[]` stayed C's, and `size(p->pts)` took the vector by value (`a borrowed struct's own field not whole at the
+return`). THE FORMS BESIDE IT, nine programs in C and as C++: the struct and the function in one header (the report's);
+a function with a macro of the header (`TWICE`), C17's `bool` and a call by name beside the instance's `[]`; the
+function in the file (it built); two headers, one including the other (`h4g`, `h4i`: in C++ `no_member(pts)` since
+0.268, and in C once the first change below was made); and two headers in a row, the second with no `#include` (`h4h`).
+THREE DEFECTS: (a) the definition was taken from the read alone -- the program's own header whose raw read met an
+instance is read again as the program's file is, in its place, as C++ reads it since 0.268 (`ccl_pp_own_parse/3`), its
+macros expanded under the unit's instances, and that read is taken where it is whole; (b) that read's prescan read each
+header that it includes for its macros, and one that made the instance made it in a read that stands in no AST, so the
+read of the tokens found it made and made no items: `vector_pt` was no type of the unit -- the instances before the
+prescan are put back between the two, as the program's file's are (0.261), which mends C++'s `no_member(pts)` of 0.268
+too; (c) a header is read in a scope of its own, its own includes alone around it, so the second of two headers in a row
+knew no member of `poly`, made no form, met no instance, and its read was kept by the cache and served to the parse --
+where the unit has an instance, the program's own header is read in its includer's scope, as C reads an `#include`
+(`ccl_inst_context/1`, `ccl_unit_start/1`), and no cache keeps the read; and a read that calls an instance's function
+meets the instance (`ccl_inst_ensure/1`), as a read that names its type macro does, so no cache keeps that either. MY
+FIRST CHANGE BROKE A FORM THAT BUILT: with (a) alone, `h4i` (a header that includes the struct's header, with a plain
+`p->pts.len`) built over 0.292 in C and was `no_member(pts)`, C++'s defect; the forms beside the finding found it before
+any gate ran, and (b) mends it. All nine build and print what their text gives, in C and as C++. `test/c/run/hdrvec.c`
+over `hdrvec.h`, `hdrvec2.h` and `hdrvec3.h` holds the three forms in one program: it prints `1 0 6 8 3 15`, as
+clang++'s build of its twin over `std::vector` does.
+
+THE NETS, over the step's tree, cocolog 3.62.2 and a fresh HOME, before the owner's word: the flow gate GREEN with no
+finding (167 s), the reader gate (164 checks), the compile gate (277, five more than 0.291's: the three run fixtures and
+the two refusals) and the driver gate (75), each GREEN; the ccllib gate over libc++ 22 was RED on one line that the step
+had to change, `string_rules.c`'s count of checks -- `the rules held at 24409 checks`, where its `.expect` said 24414,
+since step 19 of the walk appends a part of the string by the string now -- in its C and its C++ runs; the `.expect`
+holds the new count. The nets were stopped there, on the owner's word.
+
+COCOLOG 3.62.3 (`bf956d1`), on the owner's word: six commits past 3.62.2, one version of cocolog's own and the rest its
+reasoning library's (1.0.35 to 1.0.37) and the merge of that library's branch; Cicili (3.3.0, `3ba2ca4`) and ZiguratIP
+(1.0.2, `2a65f81`) have no new commit. 3.62.3 gives a program short of memory its answer, `resource_error(memory)` or
+the end of its run, where through 3.62.2 an allocation refused in the engine or its green world could give a wrong
+answer with no error, or a SIGSEGV -- eleven fixtures of its own, every allocation refused in turn, 14,283 runs --; and
+a put into the store is a little cheaper. No gate sees it: a cap here kills a run from outside by its resident size, and
+no run met a refused allocation. THE BUILD: `make` failed at once under the probe, `Component "sha1" not found, required
+by #<SYSTEM "cicili">` -- the probe ran it with a fresh `HOME`, and Cicili's Lisp system finds its `sha1` library under
+the real one --; with `HOME=/root` and `ZIGURATIP` named, `make` took 201 s (peak 2656 MB), `make schema` 26 s and `make
+modules` 46 s, and cicilang's two modules were built again over it, in 4 s and 3 s, the embedded LLVM against 18:
+`cicilang 0.293 (cocolog 3.62.3; LLVM 18.1.3)`. The 46 loads (0.259's check: the library in one process, then each gate
+program, macro file and tutorial alone, over `library(cicilang)`) are silent. The toolchain check strict GREEN at the
+moved pin.
+
+THE CHAIN of 0.293, over its work tree, cocolog 3.62.3, ZiguratIP 1.0.2 and Cicili 3.3.0 at the pins, its two modules
+built over them, and a fresh HOME a part: over libc++ 22 the library read 407 s, the C++ gate 1435 s (1098 ok, none
+skipped) and the ccllib gate 546 s (226 checks); over libc++ 21 the library read 399 s, the C++ gate 1383 s (1095 ok, 3
+skipped by their needs) and the ccllib gate 537 s (226 checks); over libc++ 18 all eleven GREEN, the toolchain check
+strict -- the flow gate 159 s with no finding, reader 3 s, compile 33 s, driver 52 s, objects 5 s, the proof, the cross
+gate 360 s, the library read 460 s, the C++ gate 1406 s (1087 ok, 11 skipped by their needs) and the ccllib gate 585 s
+(226 checks); in 7771 s in all. The ccllib gate holds 14 programs in three runs, 66 refused and 5 alone over each tree.
+
+NO CI JOB RAN (the owner's rule of 0.271).
+
+THE OWNER'S DECISION THAT THE STEP LEAVES: a module's function that takes a source in its own object -- `append(s,
+c_str(s) + 2)` over `<string.pl>`, whose change copies such a source first -- is refused now, as every call is that
+hands a borrow of an own field beside its struct; a mark in the macro file's C text that names such a parameter would
+let the check take it, and new syntax is the owner's rule.
+
+- `library/ccl_check.pl` (`ck_args_alias/3`), `library/ccl_driver.pl` (the words), `library/ccl_ir.pl` (`ir_params/5`,
+  the lowering 163), `library/ccl_include.pl` (`ccl_read_unit/3`, `ccl_include_read/2`, `ccl_inst_context/1`,
+  `ccl_pp_own_parse/3`), `library/ccl_syntax.pl` (`ccl_unit/3`, `ccl_inst_ensure/1`, the reader 189),
+  `library/ccllib/basic_string.pl` (its comment); `test/toolchain.pins` (cocolog 3.62.3, `bf956d1`).
+  `test/c/run/hdrvec.c`, `hdrvec.h`, `hdrvec2.h`, `hdrvec3.h`, `regnames.c`, `regnames23.c`;
+  `test/c/safe/borrow_into_call.c`, `borrow_into_call_local.c`; `test/ccllib/safe/borrow_into_call_vector.c`,
+  `string_self_c_str.c`; `test/cpp/callborrow.cpp`; `test/cpp.sh` (the lists); `test/ccllib/string.c`, `string.cpp`,
+  `alone/string_rules.c` and its `.expect`. `RULES.md`, `CLAUDE.md`, `CCLLIB.md`, `README.md`.
+
+The module 0.293, the reader 189 and the lowering 163.

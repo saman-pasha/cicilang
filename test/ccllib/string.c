@@ -91,7 +91,7 @@ int main(int argc, char **argv) {
     /* a change by a part of the string itself */
     string self = "abcdefghijklmnop";
     append(self, self);
-    append(self, c_str(self) + 30);
+    append(self, self, 30);
     insert(self, 1, self, 0, 3);
     replace(self, 0, 4, self);
     assign(self, self, 2, 40);

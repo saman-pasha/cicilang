@@ -85,7 +85,7 @@ int main(int argc, char **argv) {
     show("erase", &e);
     string self = "abcdefghijklmnop";
     self.append(self);
-    self.append(self.c_str() + 30);
+    self.append(self, 30);
     self.insert(1, self, 0, 3);
     self.replace(0, 4, self);
     self.assign(self, 2, 40);

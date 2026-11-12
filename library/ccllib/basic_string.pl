@@ -49,8 +49,11 @@ ccllib_string_fn('_room', "static void @{N}__room(@N *v, size_t need) {
     @{N}__set_cap(v, need < 2 * cap ? 2 * cap : need);
 }").
 %% -- EVERY CHANGE OF THE CHARACTERS IS ONE OF TWO: `__replace' puts n2 characters of src in the place of the n1 at pos,
-%% `__fill' n2 copies of c. A source that is in the string itself -- append(s, s), insert(s, 0, c_str(s) + 2) -- is
-%% copied first: the room for the new characters may move the block, and the tail's move may go over the source
+%% `__fill' n2 copies of c. A source that is in the string itself -- append(s, s), insert(s, 0, s, 2, 3) -- is
+%% copied first: the room for the new characters may move the block, and the tail's move may go over the source. A
+%% pointer into the string's own characters handed beside it -- append(s, c_str(s) + 2) -- is refused by the safe part
+%% (0.293: a borrow handed to a call that may replace its owner), which does not see that the change copies it first:
+%% the part goes by the string and its place, append(s, s, 2)
 ccllib_string_fn('_splice', "static void @{N}__splice(@N *v, size_t pos, size_t n1, const char *src, size_t n2) {
     if (n2 > (size_t)-1 / 2 - 1 - (v->len - n1)) abort();
     size_t len = v->len - n1 + n2;

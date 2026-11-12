@@ -72,15 +72,15 @@ that changes a rule edits the rule here, in its topic, and writes its entry in `
   `llvm@N`, libc++'s library under the keg's `lib/c++`, the hints are `brew install`, the SDK is a line of its own (the
   first of `ccl_sdk_dirs/1`'s directories with a `stdio.h`, with macOS's version and the SDK's for Apple's clang), and
   the cross gate is a skip line. (0.223, 0.224)
-- THE PINS (0.223). `test/toolchain.pins` holds the neighbours' commits and versions -- cocolog 3.62.2 `7e4bac2`, Cicili
+- THE PINS (0.223). `test/toolchain.pins` holds the neighbours' commits and versions -- cocolog 3.62.3 `bf956d1`, Cicili
   3.3.0 `3ba2ca4`, ZiguratIP 1.0.2 `2a65f81` -- the embedded LLVM's major version (18) and the libc++ trees the C++
   gates read (18, 21 and 22, the third since 0.227). A pin moves in the step that runs the chain over it, and since
   0.259 cocolog is taken at its latest master every time (the owner's rule, `CLAUDE.md`), so that its pin moves in each
   step that finds a new one: cocolog's moved at 0.226, from 2.13.0 `7ff2a0d`, at 0.254, from 2.14.1 `1e48013`, beside
   Cicili's (from `9b825b7`, its `.gitignore` alone) and ZiguratIP's (from `90d99b8`, its Mac install alone), at 0.255,
   from 3.16.0 `e965a6e`, at 0.256, from 3.18.0 `914e98a`, at 0.259, from 3.19.2 `81579bd`, beside ZiguratIP's (from
-  `5f058e7`, 1.0.1), and at 0.292, from 3.37.0 `74183ae` (the Findings). (0.223, 0.226, 0.227, 0.254, 0.255, 0.256,
-  0.259, 0.292)
+  `5f058e7`, 1.0.1), at 0.292, from 3.37.0 `74183ae`, and at 0.293, from 3.62.2 `7e4bac2` (the Findings). (0.223, 0.226,
+  0.227, 0.254, 0.255, 0.256, 0.259, 0.292, 0.293)
 - THE CI JOB (0.223). `.github/workflows/gates.yml` runs `test/ci.sh` on GitHub's machines, ON REQUEST AND ON A PULL
   REQUEST ALONE (the owner's rules, 0.271: "Do not run github CI after each change", then "disable nightly run"; from
   0.223 to 0.270 each push to main ran the smoke job, three machines a commit, and each night ran the full job and the
@@ -1971,7 +1971,9 @@ that changes a rule edits the rule here, in its topic, and writes its entry in `
 - `ccl_read_file/3` sets the language (`ccl_set_lang/1`), serves the store's read (`ccl_kb_cached/3`), else runs
   `ccl_pp_top/3` and `ccl_unit/3` inside `ccl_with_file/2` and stores a whole read. (M5)
 - `ccl_unit/3` seeds the typedef names, resets `'$ccl_far'`, `'$ccl_macros'` and `'$ccl_expansions'`, registers the
-  standard macros, empties the tables (`ccl_scope_init`) and reads the items with `ccl_externals//2`. (M1b)
+  standard macros, empties the tables (`ccl_scope_init`) and reads the items with `ccl_externals//2`; a header read in
+  its includer's scope keeps the includer's typedef names, tables and macro files (`ccl_unit_start/1`,
+  `ccl_unit_scope/0`; the Includes topic). (M1b, 0.293)
 - The item loop parses EACH ITEM inside `\+ \+` (`ccl_externals/4`). The item and the count of the tokens it TOOK
   pass through `'$ccl_item'`, and `ccl_skip/3` recovers the position. Later items get the marker `genv`. A `clang -E`
   line marker `# N "file"` is dropped (`ccl_line_marker/1`). Why: cocolog reclaims the heap on backtracking only.
@@ -2509,11 +2511,14 @@ that changes a rule edits the rule here, in its topic, and writes its entry in `
   struct's live owner across a call that may throw. (0.267, 0.268, 0.269, 0.270, 0.272, 0.274, 0.284, 0.285, 0.287,
   0.288, 0.290)
 - **A READ THAT MADE OR MET AN INSTANCE IS KEPT IN NEITHER CACHE** (0.261): what it holds is its unit's -- the instance
-  where the unit first used it, a later use naming it alone -- so neither the process's cache nor the store keeps such
-  a header's read or such a file's (`ccl_include_read/2`, `ccl_read_file_/3`, over a count of the instances met,
+  where the unit first used it, a later use naming it alone -- so neither the process's cache nor the store keeps such a
+  header's read or such a file's (`ccl_include_read/2`, `ccl_read_file_/3`, over a count of the instances met,
   `ccl_inst_mark/1` and `ccl_inst_since/1`), and each unit reads it again; a header that met none is kept as before.
   Reader `k109`; `test/c/run/tvector.c` over `tvhdr.h`, a header that makes `vector<int>`, built in the compile gate's
-  one process beside every other fixture. (0.261)
+  one process beside every other fixture. A READ THAT CALLS AN INSTANCE'S FUNCTION MEETS THE INSTANCE (0.293;
+  `ccl_inst_ensure/1`), made now or before, as one that names its type macro does: a header with no type macro of its
+  own, whose function took an instance's operator, was kept, and the prescan's read of it was served to the parse
+  (`test/c/run/hdrvec.c`'s `hdrvec3.h`). (0.261, 0.293)
 - **EXPLICIT TYPES FOR A FUNCTION MACRO** (0.261; phase 0.2): `max<double>(a, b)` in C is the macro `max` called with
   `types([double])` before its arguments (`ccl_typed_call/5`, a clause of `ccl_primary_//3` before a name's own): a
   name that the registry holds as a macro, `<` types or constants `>`, then `(`. A macro with no clause of that arity
@@ -3337,18 +3342,24 @@ that changes a rule edits the rule here, in its topic, and writes its entry in `
   run, its macros expanded, each `#include` passed on to the reader, which reads that header apart (a library's from its
   summary), a `.pl` include the reader's macro file. Its unit, the header's own items and an include item for each
   header that it includes, is `raw`, which the desugaring takes for the program's (`cpp_register_header/1`,
-  `cpp_header_fns/1`, `cpp_anon_ns_items/3`). The header is read in its includer's prescan, before the includer's own run
-  (a run is a generation of the macros, `pp_reset/0`), and the includer's configurations at its includes are put back
-  after it (`'$pp_inc_cfgs'`, `'$pp_cfg_lib'`). A read that is not whole, or that throws, goes the old way, raw first;
-  the header's macros reach its includer as a raw-read header's do (`ccl_header_macros/2`). Why: read raw, a function of
-  the header kept the header's own macro unexpanded -- `TWICE(x)` a call of nothing, `not lowered yet:
+  `cpp_header_fns/1`, `cpp_anon_ns_items/3`). The header is read in its includer's prescan, before the includer's own
+  run (a run is a generation of the macros, `pp_reset/0`), and the includer's configurations at its includes are put
+  back after it (`'$pp_inc_cfgs'`, `'$pp_cfg_lib'`). A read that is not whole, or that throws, goes the old way, raw
+  first; the header's macros reach its includer as a raw-read header's do (`ccl_header_macros/2`). Why: read raw, a
+  function of the header kept the header's own macro unexpanded -- `TWICE(x)` a call of nothing, `not lowered yet:
   undeclared('TWICE')`, and `assert` of the `<cassert>` that it includes alike (Not done item 9 until 0.268); read
   flattened, a header that reads only preprocessed (`tvhdr2.h`'s `DECL(static int, hcount)`) was one token stream with
   each header that it includes in it, which the desugaring took for a library's (`cpp_index_header/1`: each function
-  defined on use, out of the safe part's walk) AND for the program's (`cpp_include_fns/1`): each of its functions defined
-  twice, `invalid redefinition of function` at LLVM. C keeps its reads: its lowering takes a raw read's definitions from
-  the header read preprocessed (`ir_hdr_resolve/2`). `test/cpp/run/hdrmacro.cpp` over `hdrmacro.h` and `hdrmacro2.h`,
-  reader check `k141`, `test/c/run/tvector.c` built as C++. (0.268)
+  defined on use, out of the safe part's walk) AND for the program's (`cpp_include_fns/1`): each of its functions
+  defined twice, `invalid redefinition of function` at LLVM. C keeps its reads -- its lowering takes a raw read's
+  definitions from the header read preprocessed (`ir_hdr_resolve/2`) -- but for a header whose raw read met an instance,
+  which it reads so too since 0.293 (below). `test/cpp/run/hdrmacro.cpp` over `hdrmacro.h` and `hdrmacro2.h`, reader
+  check `k141`, `test/c/run/tvector.c` built as C++. THE INSTANCES THAT ITS PRESCAN MADE ARE NOBODY'S (0.293), as the
+  program's file's are (0.261): the prescan reads each header that it includes for its macros, and the read of its
+  tokens reads one that met an instance again, in its place, so the unit's instances before the prescan are put back
+  between the two (`ccl_pp_own_parse/3`). A header that includes the header of a struct with a `vector<pt>` member found
+  the instance made by the prescan's read, which stands in no AST, and made no items: `vector_pt` was no type of the
+  unit, and `p->pts` was `no_member(pts)` (`hdrvec.c`'s `hdrvec2.h`). (0.268, 0.293)
 - A C++ library header (kind `system`, `next` included; `'$ccl_inc_kind'`) is never read raw. A valid summary serves it;
   else it is flattened and read once (`ccl_read_unit`). Why: raw, each of `<sstream>`'s headers failed and was
   preprocessed in turn. (M5)
@@ -3434,6 +3445,28 @@ that changes a rule edits the rule here, in its topic, and writes its entry in `
   includes `<basic_string.pl>`, the include layer brings its `basic_string.pl.h`, and the preprocessed read of
   `string.pl.h` does not hold it -- kept its raw text, its macros unexpanded, and `ccllib_sto_signed_` was `not lowered
   yet: undeclared(errno)`. `test/c/run/hdrdefs.c` over `hdrdefs.h`; `test/ccllib/string.c`. (0.212, 0.291)
+- THE PROGRAM'S OWN HEADER WHOSE RAW READ MET AN INSTANCE IS READ AGAIN AS THE PROGRAM'S FILE IS (0.293; in C; the
+  branch of `ccl_read_unit/3` after a raw read that is whole, over C++'s `ccl_pp_own_parse/3` of 0.268): its directives
+  run and its macros expanded, in its place in the unit, under the unit's instances; that read, `preprocessed`, is taken
+  where it is whole, its definitions as it reads them, and the raw one stays where it is not. Why: the raw read made the
+  forms of a macro file -- `p->pts[0]` the call of `vector_pt_index`, `size(p->pts)` the call of `vector_pt_size` -- and
+  kept the header's macros unexpanded, and the lowering took each definition from the header read preprocessed alone
+  (`ir_hdr_resolve/2`, above), where no instance of the unit is and no such form is made: `p->pts[0]` was `not lowered
+  yet: not_a_pointer(base([],[typedef(vector_pt)]))`, and `size(p->pts)` took the vector by value (`a borrowed struct's
+  own field not whole at the return`). A function of such a header has both now, a macro of the header (`TWICE(x)`,
+  C17's `bool`) and an instance's operator in one body. Such a read is the unit's (0.261): no cache keeps it. The
+  finding of a program over 0.284: a `static inline` function in a header that indexes a struct's `vector<T>` member.
+  `test/c/run/hdrvec.c` over `hdrvec.h`, in C and as C++. (0.293)
+- THE PROGRAM'S OWN HEADER IS READ IN ITS INCLUDER'S SCOPE WHERE THE UNIT HAS AN INSTANCE (0.293; in C and C++;
+  `ccl_inst_context/1`, `'$ccl_inscope'`, `ccl_unit_start/1`, `ccl_unit_scope/0`): every other read begins from the
+  seed, its own includes alone around it; this one is read as C reads an `#include`, its text in the includer's place --
+  the includer's typedefs, tags, objects and functions in force, and the macro files that the includer loaded -- and no
+  cache keeps such a read or serves one (`ccl_include_read/2`). Why: a read kept in a cache was made where the unit had
+  no instance, or none of the types around it (the prescan reads each header alone), and the second of two headers in a
+  row, with no `#include` of the first, knew no member of the first's struct: `p->pts[i]` was no instance's operator, no
+  instance was met, and the cache served that read to the parse (`not_a_pointer` in C, `no_operator('[]')` in C++). The
+  includer's globals are its own again after the read (`ccl_with_file/2`), and the header's items join its scope as
+  every header's do (`ccl_include_scope/1`). `hdrvec.c`'s `hdrvec3.h`. (0.293)
 
 ### Resolution and the inclusion path
 
@@ -10148,11 +10181,13 @@ in the first topic (The ccllib gate).
   type. (0.291)
 - **EVERY CHANGE OF THE CHARACTERS IS ONE OF TWO INNER FUNCTIONS**: `__replace` puts n2 characters of a source in the
   place of the n1 at a place, and `__fill` n2 copies of a character. A SOURCE THAT IS IN THE STRING ITSELF -- `append(s,
-  s)`, `insert(s, 0, c_str(s) + 2)` -- IS COPIED FIRST: the room for the new characters may move the block, and the
-  tail's move may go over the source. A NUL STANDS AFTER THE LAST CHARACTER after every function, so `c_str` gives the
-  block or the object as it is. A GROWTH IS TO TWICE THE CAPACITY AT LEAST (`__room`), so n push_backs cost O(n), and
-  `shrink_to_fit` gives a short string its object again. `__cmp` compares the characters as unsigned and then the
-  counts, as `char_traits<char>` does. (0.291)
+  s)`, `insert(s, 0, s, 2, 3)` -- IS COPIED FIRST: the room for the new characters may move the block, and the tail's
+  move may go over the source. A pointer into the string's own characters handed beside it -- `append(s, c_str(s) + 2)`
+  -- is refused since 0.293 (a borrow handed to a call that may replace its owner, the safe part's topic), which does
+  not see that the change copies it first: the part goes by the string and its place, `append(s, s, 2)`. A NUL STANDS
+  AFTER THE LAST CHARACTER after every function, so `c_str` gives the block or the object as it is. A GROWTH IS TO TWICE
+  THE CAPACITY AT LEAST (`__room`), so n push_backs cost O(n), and `shrink_to_fit` gives a short string its object
+  again. `__cmp` compares the characters as unsigned and then the counts, as `char_traits<char>` does. (0.291, 0.293)
 - WHAT DIFFERS FROM C++: A PLACE PAST THE LAST CHARACTER STOPS THE PROGRAM (`abort`) -- `at`, `s[i]` past the NUL
   (`s[size(s)]` is the NUL, as C++'s is), `front`, `back` and `pop_back` of an empty string, a change, `substr`, `copy`
   and `compare` from a place past the end, and a part of another string from a place past its end --, and so do
@@ -10407,6 +10442,21 @@ in the first topic (The ccllib gate).
   borrow after its owner was consumed`. `test/cpp/callreplace.cpp`, `refreplace.cpp`, `localrefreplace.cpp`;
   `test/cpp/run/borrowkeep.cpp`, which prints what clang++'s build prints; the C++ gate builds `borrow_after_push.c`
   and `elem_after_push.c` as C++, refused as their C builds are. (0.272)
+- **A BORROW HANDED TO A CALL THAT MAY REPLACE ITS OWNER** (0.293; the finding of a program over 0.284;
+  `ck_args_alias/3`, before the call's other rules): where an argument hands a struct to a call that may replace its own
+  fields (the rule above), another argument that borrows one of those fields -- a pointer into the buffer, a C++
+  reference to an element of it, a variadic one too, whatever the constness of its own parameter -- dangles in the
+  callee as soon as the field is replaced, and is refused, `borrow_into_call`, `a borrow handed to a call that may
+  replace its owner: 'v.data' in call(grow)`. `grow(&v, &v.data[0])` over `void grow(buf *b, int *out)` reallocated
+  `b->data` and wrote through `out` into the freed block, `int *p = &v.data[1]; grow(&v, p)` read it, `grow(&t,
+  &t.nodes[0].a)` grew `t.nodes`, a `vector<jn>`, in the callee, and C++'s `v.grow(&v.data[0])` alike; each was
+  accepted. An element handed by its value borrows nothing and stays (`push_back(v, v[0])` over C's `vector<int>`), and
+  a library class has no own field to the check (C++'s `v.push_back(v[0])` over `std::vector`). A module's function that
+  copies a source in its own object first is refused all the same where the source is a pointer into the object:
+  `append(s, c_str(s) + 2)` over `<string.pl>` -- the part goes by the string and its place, `append(s, s, 2)`; a mark
+  for such a parameter would be new syntax, the owner's decision. `test/c/safe/borrow_into_call.c` and
+  `borrow_into_call_local.c`, in C and as C++, `test/cpp/callborrow.cpp`, `test/ccllib/safe/borrow_into_call_vector.c`
+  and `string_self_c_str.c`. (0.293)
 - **A RESULT TIED TO A STRUCT WITH OWN FIELDS IS A BORROW OF THEM** (0.266; `CCLLIB.md`'s phase 0.9): the result
   of `V *f(S *s, ...) tie s` over `&x`, or over a pointer that borrows x, may be a place in a buffer that x owns --
   `&m[k]` over a dictionary, `&*dict_int_int_index(&m, k)` -- so it is a borrow of an own field of x, the first that
@@ -10987,6 +11037,15 @@ in the first topic (The ccllib gate).
 - Locals are allocas in the entry block, which `mem2reg` lifts. A struct or union alloca is aligned as C aligns it,
   and `aligned(E)` raises the alignment (`ir_alloca_typed/2`). `ir_ins/1` opens a dead block after a terminator, so
   every block ends once. (M2, 0.99)
+- THE NAMES OF A FUNCTION'S IR (0.293): its values and its blocks share one namespace, LLVM's local names, so each kind
+  has a spelling that no other kind has -- the entry block `entry`, a temporary `%t<N>` and a block `L<N>` (one count,
+  `'$ir_reg'`), a C label `L.<name>`, a local `%<name>.<K>`, a parameter with no name `%p<I>`, the result's slot
+  `%agg.result`, and a named parameter `%arg.<name>` (`ir_params/5`), its alloca `.addr` and its pieces `.<J>` after it;
+  a name past ASCII is `.u` and its bytes in hex (0.196). Why: a parameter's register was its own name, `%<name>`, so a
+  parameter named `entry` met the entry block (`unable to create block named 'entry'`, the finding of a program over
+  0.284), one named `t1` a temporary, one named `L2` a block, and C23's parameter with no name beside one named `p0` the
+  same register (`redefinition of argument '%p0'`). `test/c/run/regnames.c` and `regnames23.c` (`-std=c23`), in C and as
+  C++, print what clang's builds print. (0.293)
 - A function that falls off its end returns its result's zero (`ir_zero/2`); `main` returns 0. A function item with no
   body is a prototype, and its `declare` comes from the externals a call names. (M2, 0.54)
 - `ir_expr/4` gives a value, its resolved C type and its LLVM type (owner's request, 2026-09-06: the LLVM type travels
@@ -12229,7 +12288,20 @@ in the first topic (The ccllib gate).
   SEMICOLON OR AN ARROW IS WRITTEN IN PARENTHESES, `(public)`, the form that standard Prolog reads as the atom (3.37.0
   does, and 3.62.2: the chain of 0.292). The seven places where such an atom stands before a closing parenthesis (`A0 =
   public )`) are as they were: the report's load took them. (0.290, 0.292)
-- cocolog is at 3.62.2 since 0.292, taken at its latest master on the owner's word ("pull repos and update pins") --
+- cocolog is at 3.62.3 since 0.293, taken at its latest master on the owner's word ("Pull latest cocolog. First pull
+  cocolog then run gates") -- `bf956d1`, six commits past 3.62.2, one version of cocolog's own and the rest its
+  reasoning library's (1.0.35 to 1.0.37) and the merge of that library's branch --, beside ZiguratIP 1.0.2 (`2a65f81`)
+  and Cicili 3.3.0 (`3ba2ca4`), which have no new commit. 3.62.3 gives a program short of memory its answer, the error
+  `resource_error(memory)` or the end of its run, where through 3.62.2 a refused allocation in the engine or its green
+  world could give a wrong answer with no error, or a SIGSEGV; and a put into the store is a little cheaper. No gate
+  sees it: a cap here kills a run from outside by its resident size (`probe.sh`, `ccl_kill_tree`), and no run of the
+  chain met a refused allocation. Every load of the library in one process, and of each gate program, macro file and
+  tutorial alone, 46 in all, is silent over 3.62.3. Its build needs `ZIGURATIP` where the checkout is not
+  `$HOME/ZiguratIP` (above), and Cicili's Lisp system finds its `sha1` library under the real home: run with a fresh
+  `HOME`, `make` failed at once, `Component "sha1" not found, required by #<SYSTEM "cicili">`. `make` took 201 s (peak
+  2656 MB), `make schema` 26 s and `make modules` 46 s, and both modules were built again over it, in 4 s and 3 s (the
+  embedded LLVM against 18). The chain over it GREEN (What runs). (0.293)
+- cocolog was at 3.62.2 at 0.292, taken at its latest master on the owner's word ("pull repos and update pins") --
   `7e4bac2`, fifty-nine commits past 3.37.0, thirty-seven versions of cocolog's own among them, from 3.38.0, and the
   rest its reasoning library's and the merges of that library's branch --, beside ZiguratIP 1.0.2 (`2a65f81`) and Cicili
   3.3.0 (`3ba2ca4`), which have no new commit. ITS BUILD NEEDS `ZIGURATIP` where the checkout is not `$HOME/ZiguratIP`:
@@ -12251,7 +12323,7 @@ in the first topic (The ccllib gate).
   (3.58.0, 3.58.1); `sub_atom/5` (3.58.2); a write and a read too deep for the C stack (3.59.0, 3.60.0); an expression
   evaluated from its last argument (3.61.0); `read_file_to_codes/2`'s ceiling (3.62.2). `make` took 215 s (peak 2566
   MB), `make schema` 27 s and `make modules` 50 s, and both modules were built again over it. The chain over it GREEN
-  (What runs). The reader stays 188 and the lowering 162. (0.292)
+  (What runs). The reader stays 188 and the lowering 162. (0.292, 0.293)
 - cocolog was at 3.37.0 from 0.259 to 0.291, taken at its latest master by the owner's rule ("Use latest cocolog
   everytime"; `CLAUDE.md`) -- `74183ae`, twenty-eight commits past 3.19.2 (0.258's chain ran on 3.19.4 as checked out),
   over ZiguratIP 1.0.2 (`2a65f81`: a row's chain read inside its page's hexmap slice) beside Cicili 3.3.0 (`3ba2ca4`),
@@ -13089,45 +13161,52 @@ in the first topic (The ccllib gate).
 - Ubuntu 24.04 on x86_64 (clang and LLVM 18, glibc, libc++ 18, 21 and 22) is a host since 0.87. Every gate but the C++
   one is GREEN there since 0.93, and all seven since 0.95. Every step from 0.93 on is gated there, but the save points
   0.112, 0.113, 0.117, 0.122 to 0.125, 0.130, 0.131 and 0.143 (0.143's C gates and cross gate ran, its libc++ gates did
-  not; the others were gated by the steps after them). The last full run is 0.292's chain, over its work tree and
-  cocolog 3.62.2, ZiguratIP 1.0.2 and Cicili 3.3.0 at the pins moved to them, its two modules built over them, over a
-  fresh HOME a part: over libc++ 22 the library read 426 s, the C++ gate 1468 s (1092 ok, none skipped) and the ccllib
-  gate 546 s (222 checks); over libc++ 21 the library read 406 s, the C++ gate 1440 s (1089 ok, 3 skipped by their
-  needs) and the ccllib gate 533 s (222 checks); over libc++ 18 all eleven GREEN, the toolchain check strict -- the flow
-  gate 162 s with no finding, reader 4 s, compile 33 s, driver 53 s, objects 5 s, the proof, the cross gate 359 s, the
-  library read 461 s, the C++ gate 1380 s (1081 ok, 11 skipped by their needs) and the ccllib gate 577 s (222 checks);
-  in 7854 s in all. The ccllib gate holds 14 programs in three runs, 64 refused and 5 alone over each tree. 0.259's
-  chain, over its work tree and cocolog 3.37.0 and ZiguratIP 1.0.2 at the pins moved to them (the toolchain check strict
-  GREEN), its two modules built over them, over fresh HOMEs: over libc++ 18 all nine GREEN (the flow gate with no
-  finding in 87 s, reader 2 s, compile 24 s, driver 33 s, objects 5 s, proof, the cross gate in 301 s with its C++ part
-  for aarch64, the library read in 403 s, the C++ gate in 1254 s with 866 fixtures ok and 11 skipped by their needs);
-  over libc++ 21 the library read (346 s) and the C++ gate (1298 s, 874 ok, 3 skipped) GREEN, and over libc++ 22 the
-  library read (360 s) and the C++ gate (1297 s, 877 ok, none skipped) GREEN. 0.258's chain, over its work tree and
-  cocolog 3.19.4 and ZiguratIP 1.0.2 as checked out (the toolchain check GREEN, 3 off the pins, which stay at 3.19.2),
-  its two modules built over it, over fresh HOMEs: over libc++ 18 all nine GREEN (the flow gate's one finding in 162 s,
-  reader 2 s, compile 31 s, driver 35 s, objects 5 s, proof, the cross gate in 327 s with its C++ part for aarch64, the
-  library read in 421 s, the C++ gate in 1347 s with 865 fixtures ok and 11 skipped by their needs); over libc++ 21 the
-  library read (373 s) and the C++ gate (1362 s, 873 ok, 3 skipped) GREEN, and over libc++ 22 the library read (503 s)
-  and the C++ gate (1379 s, 876 ok, none skipped) GREEN. 0.257's chain, over its work tree and cocolog 3.19.4 and
-  ZiguratIP 1.0.2 as checked out (the toolchain check GREEN, 3 off the pins -- cocolog's version and checkout,
-  ZiguratIP's checkout -- which stay at 3.19.2; the CI runs them), its two modules built over it, over fresh HOMEs: over
-  libc++ 18 all nine GREEN (the flow gate's one finding in 119 s, reader 3 s, compile 33 s, driver 44 s, objects 6 s,
-  proof, the cross gate in 393 s with its C++ part for aarch64, the library read in 551 s, the C++ gate in 1443 s with
-  857 fixtures ok and 11 skipped by their needs); over libc++ 21 the library read (501 s) and the C++ gate (1623 s, 865
-  ok, 3 skipped) GREEN, and over libc++ 22 the library read (532 s) and the C++ gate (1795 s, 868 ok, none skipped)
-  GREEN. 0.256's chain, over its work tree (the library of 0.255) and cocolog 3.19.2 (the Findings), its two modules
-  built over it, over fresh HOMEs: the toolchain check against 0.255's pins (cocolog 2 off them), then over libc++ 18
-  all nine GREEN (the flow gate's one finding in 157 s, reader 4 s, compile 42 s, driver 52 s, objects 7 s, proof, the
-  cross gate in 497 s with its C++ part for aarch64, the library read in 731 s, the C++ gate in 1942 s with 852 fixtures
-  ok and 11 skipped by their needs); over libc++ 21 the library read (677 s) and the C++ gate (1942 s, 860 ok, 3
-  skipped) GREEN, and over libc++ 22 the library read (673 s) and the C++ gate (2147 s, 863 ok, 0 skipped) GREEN; with
-  the pins moved, the toolchain check strict GREEN. 0.255's chain, over cocolog 3.18.0, its work tree the library of
-  0.254: the toolchain check against 0.254's pins (cocolog 2 off them), then over libc++ 18 all nine GREEN (the flow
-  gate's one finding in 152 s, reader 4 s, compile 42 s, driver 51 s, objects 7 s, proof, the cross gate in 498 s with
-  its C++ part for aarch64, the library read in 738 s, the C++ gate in 2113 s with 852 fixtures ok and 11 skipped by
-  their needs); over libc++ 21 the library read (720 s) and the C++ gate (2034 s, 860 ok, 3 skipped) GREEN, and over
-  libc++ 22 the library read (696 s) and the C++ gate (2056 s, 863 ok, 0 skipped) GREEN; with the pins moved, the
-  toolchain check strict GREEN. 0.254's chain, over cocolog 3.16.0, its work tree the commit's: the toolchain check
+  not; the others were gated by the steps after them). The last full run is 0.293's chain, over its work tree and
+  cocolog 3.62.3, ZiguratIP 1.0.2 and Cicili 3.3.0 at the pins moved to them, its two modules built over them, over a
+  fresh HOME a part: over libc++ 22 the library read 407 s, the C++ gate 1435 s (1098 ok, none skipped) and the ccllib
+  gate 546 s (226 checks); over libc++ 21 the library read 399 s, the C++ gate 1383 s (1095 ok, 3 skipped by their
+  needs) and the ccllib gate 537 s (226 checks); over libc++ 18 all eleven GREEN, the toolchain check strict -- the flow
+  gate 159 s with no finding, reader 3 s, compile 33 s, driver 52 s, objects 5 s, the proof, the cross gate 360 s, the
+  library read 460 s, the C++ gate 1406 s (1087 ok, 11 skipped by their needs) and the ccllib gate 585 s (226 checks);
+  in 7771 s in all. The ccllib gate holds 14 programs in three runs, 66 refused and 5 alone over each tree. 0.292's
+  chain, over its work tree and cocolog 3.62.2, ZiguratIP 1.0.2 and Cicili 3.3.0 at the pins moved to them, its two
+  modules built over them, over a fresh HOME a part: over libc++ 22 the library read 426 s, the C++ gate 1468 s (1092
+  ok, none skipped) and the ccllib gate 546 s (222 checks); over libc++ 21 the library read 406 s, the C++ gate 1440 s
+  (1089 ok, 3 skipped by their needs) and the ccllib gate 533 s (222 checks); over libc++ 18 all eleven GREEN, the
+  toolchain check strict -- the flow gate 162 s with no finding, reader 4 s, compile 33 s, driver 53 s, objects 5 s, the
+  proof, the cross gate 359 s, the library read 461 s, the C++ gate 1380 s (1081 ok, 11 skipped by their needs) and the
+  ccllib gate 577 s (222 checks); in 7854 s in all. The ccllib gate holds 14 programs in three runs, 64 refused and 5
+  alone over each tree. 0.259's chain, over its work tree and cocolog 3.37.0 and ZiguratIP 1.0.2 at the pins moved to
+  them (the toolchain check strict GREEN), its two modules built over them, over fresh HOMEs: over libc++ 18 all nine
+  GREEN (the flow gate with no finding in 87 s, reader 2 s, compile 24 s, driver 33 s, objects 5 s, proof, the cross
+  gate in 301 s with its C++ part for aarch64, the library read in 403 s, the C++ gate in 1254 s with 866 fixtures ok
+  and 11 skipped by their needs); over libc++ 21 the library read (346 s) and the C++ gate (1298 s, 874 ok, 3 skipped)
+  GREEN, and over libc++ 22 the library read (360 s) and the C++ gate (1297 s, 877 ok, none skipped) GREEN. 0.258's
+  chain, over its work tree and cocolog 3.19.4 and ZiguratIP 1.0.2 as checked out (the toolchain check GREEN, 3 off the
+  pins, which stay at 3.19.2), its two modules built over it, over fresh HOMEs: over libc++ 18 all nine GREEN (the flow
+  gate's one finding in 162 s, reader 2 s, compile 31 s, driver 35 s, objects 5 s, proof, the cross gate in 327 s with
+  its C++ part for aarch64, the library read in 421 s, the C++ gate in 1347 s with 865 fixtures ok and 11 skipped by
+  their needs); over libc++ 21 the library read (373 s) and the C++ gate (1362 s, 873 ok, 3 skipped) GREEN, and over
+  libc++ 22 the library read (503 s) and the C++ gate (1379 s, 876 ok, none skipped) GREEN. 0.257's chain, over its work
+  tree and cocolog 3.19.4 and ZiguratIP 1.0.2 as checked out (the toolchain check GREEN, 3 off the pins -- cocolog's
+  version and checkout, ZiguratIP's checkout -- which stay at 3.19.2; the CI runs them), its two modules built over it,
+  over fresh HOMEs: over libc++ 18 all nine GREEN (the flow gate's one finding in 119 s, reader 3 s, compile 33 s,
+  driver 44 s, objects 6 s, proof, the cross gate in 393 s with its C++ part for aarch64, the library read in 551 s, the
+  C++ gate in 1443 s with 857 fixtures ok and 11 skipped by their needs); over libc++ 21 the library read (501 s) and
+  the C++ gate (1623 s, 865 ok, 3 skipped) GREEN, and over libc++ 22 the library read (532 s) and the C++ gate (1795 s,
+  868 ok, none skipped) GREEN. 0.256's chain, over its work tree (the library of 0.255) and cocolog 3.19.2 (the
+  Findings), its two modules built over it, over fresh HOMEs: the toolchain check against 0.255's pins (cocolog 2 off
+  them), then over libc++ 18 all nine GREEN (the flow gate's one finding in 157 s, reader 4 s, compile 42 s, driver 52
+  s, objects 7 s, proof, the cross gate in 497 s with its C++ part for aarch64, the library read in 731 s, the C++ gate
+  in 1942 s with 852 fixtures ok and 11 skipped by their needs); over libc++ 21 the library read (677 s) and the C++
+  gate (1942 s, 860 ok, 3 skipped) GREEN, and over libc++ 22 the library read (673 s) and the C++ gate (2147 s, 863 ok,
+  0 skipped) GREEN; with the pins moved, the toolchain check strict GREEN. 0.255's chain, over cocolog 3.18.0, its work
+  tree the library of 0.254: the toolchain check against 0.254's pins (cocolog 2 off them), then over libc++ 18 all nine
+  GREEN (the flow gate's one finding in 152 s, reader 4 s, compile 42 s, driver 51 s, objects 7 s, proof, the cross gate
+  in 498 s with its C++ part for aarch64, the library read in 738 s, the C++ gate in 2113 s with 852 fixtures ok and 11
+  skipped by their needs); over libc++ 21 the library read (720 s) and the C++ gate (2034 s, 860 ok, 3 skipped) GREEN,
+  and over libc++ 22 the library read (696 s) and the C++ gate (2056 s, 863 ok, 0 skipped) GREEN; with the pins moved,
+  the toolchain check strict GREEN. 0.254's chain, over cocolog 3.16.0, its work tree the commit's: the toolchain check
   strict against the pins, then over libc++ 18 all nine GREEN (the flow gate's one finding in 105 s, reader 2 s, compile
   30 s, driver 39 s, objects 5 s, proof, the cross gate in 344 s with its C++ part for aarch64, the library read in 491
   s, the C++ gate in 1384 s with 852 fixtures ok and 11 skipped by their needs); over libc++ 21 the library read (445 s)
@@ -13238,13 +13317,16 @@ in the first topic (The ccllib gate).
   register variable among them, on x86-64 and on aarch64 (`gnuasm.c`), and a feature-test macro defined after the file's
   first system `#include` where clang's headers read it (`ftlate.c`, `-std=c17`). Since 0.217: what the safe part lets C
   keep in a struct's member and an array, a pointer read from a member among it (`fieldsok.c`). Since 0.231: GNU's `asm
-  goto`, a jump by a label's number and by its name, with an output, out of a block (`asmgoto.c`).
+  goto`, a jump by a label's number and by its name, with an output, out of a block (`asmgoto.c`). Since 0.293: the
+  program's own headers over a type macro's instance -- a header's macros and C17's `bool` beside an instance's
+  operator, a header that includes another, and one with no `#include` -- (`hdrvec.c`, `-std=c17`), and parameters named
+  as the lowering's names (`regnames.c`; `regnames23.c`, `-std=c23`).
 - The C library is the host's. The compiler's own freestanding headers are in `library/include/` (`<stdarg.h>`,
   `<stdatomic.h>`, `<complex.h>`, `<stdckdint.h>`, `<stdbit.h>`, `<limits.h>`, `<tgmath.h>` and six more).
 - The language's own additions run: `:=`, patterns, `name { }` structs and `format`, `print`, `println`
   (`surface.c`), `defer` (`defers.c`), `#cocolog` (`cocolog.c`), `tie` (`tie.c`), `clone` (`clone.c`), `own` and
   `move` (`owners.c`, `own_fields.c`, `btree.c`, `btree_del.c`).
-- The safe part refuses each of the 60 programs in `test/c/safe/` with the error that its `.expect` names.
+- The safe part refuses each of the 92 programs in `test/c/safe/` with the error that its `.expect` names.
 
 ### C++ levels
 
@@ -14256,6 +14338,12 @@ Declarations topic of the C++ reader).
   key kept the borrow of an element the program had erased, so a read after the local's end was refused
   (`borrow_after_move`) where nothing dangled. Following an own pointer's pointee asks every move, return and store of
   the owner to carry what it holds.
+- A MODULE'S FUNCTION THAT TAKES A SOURCE IN ITS OWN OBJECT (0.293; the owner's decision): a borrow of an own field
+  handed beside its struct to a call that may replace it is refused, whatever the callee does with it (the safe part's
+  topic of borrows), so `append(s, c_str(s) + 2)` over `<string.pl>`, whose change copies a source in the string first,
+  is refused where it runs safely; the program writes `append(s, s, 2)`. A mark in a macro file's C text that names such
+  a parameter -- the callee reads it before it replaces the field -- would let the check take the call, and new syntax
+  is the owner's rule.
 - A `std::pmr::polymorphic_allocator`'s block and a `memory_resource`'s are borrows of the object that hands them out,
   as any library member's plain pointer result is (`ck_borrows_from`, 0.91, 0.117): only `std::allocator`'s and
   `allocator_traits`' blocks are the program's own since 0.238 (the safe part's topic).

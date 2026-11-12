@@ -401,7 +401,9 @@ fields, so a pointer into them is not used after it. `int *p = v.data;
 push(v, 1); *p` is refused, "use of a borrow after a call that may replace
 its owner", where `at(v, 0)` and `len(v)`, whose pointee is const, keep `p`.
 `&v.data[i]` is a borrow of the buffer, as `v.data + i` is.
-`test/c/run/elemborrow.c` is the example.
+`test/c/run/elemborrow.c` is the example. Such a borrow handed to the call
+itself, beside its struct, is refused too (0.293): `grow(&v, &v.data[0])`,
+"a borrow handed to a call that may replace its owner".
 
 A type macro gives its instances operators (0.266): over an instance, the
 reader writes `a + b`, `a == b`, `a < b`, `v[i]`, `out << x` and `in >> x` as

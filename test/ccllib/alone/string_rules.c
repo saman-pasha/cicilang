@@ -5,7 +5,7 @@
    GROWTH BY A CHANGE OF THE CHARACTERS IS TO TWICE THE CAPACITY AT LEAST, so that n push_backs cost O(n); AFTER
    shrink_to_fit the capacity is the count, or the object's fifteen for a short string, whose block is gone. The steps
    are each change that the module has, its source a text, a character, or a part of the string itself (append(s, s),
-   insert(s, 0, c_str(s) + 2): a source in the string that the change moves); a character is a NUL one time in eight,
+   insert(s, 0, s, 2, 3): a source in the string that the change moves); a character is a NUL one time in eight,
    and else any byte. Every eighth step, THE SEARCHES, THE COMPARISONS AND THE PARTS are the naive models': find, rfind
    and the four of a set of characters, from places in the string and past it, over a part of the string itself and a
    text of chance; starts_with, ends_with and contains; compare, ==, < and > as unsigned bytes and then by the count;
@@ -166,12 +166,7 @@ static void walk(unsigned start, long steps) {
             memset(f, c, n);
             mput(m, &mn, pos, 0, f, n);
         } break;
-        case 19: {
-            size_t z = at;
-            append(s, c_str(s) + at);
-            while (z < mn && m[z]) z++;
-            mput(m, &mn, mn, 0, m + at, z - at);
-        } break;
+        case 19: append(s, s, at); mput(m, &mn, mn, 0, m + at, mn - at); break;
         default: text(); assign(t, tx); mtn = tn; memcpy(mt, txt, tn); grows = 0; held(&t, mt, mtn); break;
         }
         held(&s, m, mn);

@@ -478,17 +478,29 @@ ccl_items_macros([include(_, _, file(_, _, U))|T], Ms) :- !, ccl_unit_macros(U, 
 ccl_items_macros([_|T], Ms) :- ccl_items_macros(T, Ms).
 
 %% in order: read already in this process; in the knowledge base with the same
-%% modification time; else read it now and remember it both ways
+%% modification time; else read it now and remember it both ways.
+%% THE PROGRAM'S OWN HEADER IS READ AGAIN WHERE THE UNIT HAS AN INSTANCE (0.293; ccl_inst_context/1): a read kept in a
+%% cache was made where the unit had none, or none of the types around it -- the prescan reads each header alone, with
+%% no declaration of the headers before it -- and a function of the header may take an instance's operator or call it
+%% by name over a struct that a header before it declares (`p->pts[0]', `pts' a member of type `vector<pt>'): the read
+%% kept made no such form, met no instance, and was served to the parse (`not_a_pointer'). Read again in its place, it
+%% makes them, meets the instance, and no cache keeps it (ccl_inst_since/1); a header that makes none is kept again
 ccl_include_read(Path, cyclic(Path)) :- ccl_reading(Path), !.
-ccl_include_read(Path, file(Path, How, Unit)) :- ccl_unit_cached(Path, How, Unit), !.
-ccl_include_read(Path, file(Path, How, Unit)) :- ccl_kb_cached(Path, included(How), Unit), !, ccl_unit_cache(Path, How, Unit).
+ccl_include_read(Path, file(Path, How, Unit)) :- \+ ccl_inst_context(Path), ccl_unit_cached(Path, How, Unit), !.
+ccl_include_read(Path, file(Path, How, Unit)) :- \+ ccl_inst_context(Path), ccl_kb_cached(Path, included(How), Unit), !, ccl_unit_cache(Path, How, Unit).
 ccl_include_read(Path, file(Path, How, Unit)) :-
-    ccl_reading_push(Path), ccl_inst_mark(IM),
+    ccl_reading_push(Path), ccl_inst_mark(IM), ( ccl_inst_context(Path) -> Sc = yes, ccl_inscope_push(Path) ; Sc = no ),
     ( catch(ccl_read_unit(Path, How0, Unit0), _, fail) -> How = How0, Unit = Unit0 ; How = unreadable, Unit = none ),
+    ( Sc == yes -> ccl_inscope_pop(Path) ; true ),
     ccl_reading_pop(Path),
-    (   ccl_inst_since(IM) -> true   % A READ THAT MADE OR MET A TYPE MACRO'S INSTANCE (0.261) is the unit's: kept in neither cache
+    (   ( ccl_inst_since(IM) ; Sc == yes ) -> true   % A READ THAT MADE OR MET A TYPE MACRO'S INSTANCE (0.261), OR ONE IN ITS INCLUDER'S SCOPE (0.293), is the unit's: kept in neither cache
     ;   ccl_unit_cache(Path, How, Unit),
         ( How == unreadable -> true ; How == summary -> true ; ccl_lang(cpp), How == preprocessed -> true ; ccl_kb_remember(Path, included(How), Unit) ) ).
+%% the unit has an instance where it includes the program's own header (ccl_own_header/1), and the read is not a
+%% library header's: the header is read in its includer's scope (ccl_unit/3), in each read that the include makes of it
+ccl_inst_context(Path) :- nb_current('$ccl_instances', [_|_]), \+ nb_current('$ccl_lib_unit', yes), ccl_own_header(Path).
+ccl_inscope_push(P) :- ( nb_current('$ccl_inscope', Ps) -> true ; Ps = [] ), nb_setval('$ccl_inscope', [P|Ps]).
+ccl_inscope_pop(P) :- ( nb_current('$ccl_inscope', Ps), selectchk(P, Ps, Ps1) -> nb_setval('$ccl_inscope', Ps1) ; true ).
 %% a preprocessed C++ header stays in the process: <cstdio> alone is 2700
 %% items, and cocolog's store takes a writing process's rows at a cost that
 %% follows their count, never reclaiming a dead one -- five minutes and 187 MB
@@ -527,12 +539,25 @@ ccl_read_unit(Path, How, Unit) :-
     How = raw, Unit = U.
 %% THE RAW ATTEMPT'S INSTANCES GO WITH IT (0.261): a type macro's instance made by a raw read that did not read whole
 %% stands in no AST, so the preprocessed read starts from the unit's instances before the attempt, and the raw partial
-%% read that stays keeps its own
+%% read that stays keeps its own.
+%% THE PROGRAM'S OWN HEADER WHOSE RAW READ MET AN INSTANCE IS READ AGAIN AS THE PROGRAM'S FILE IS (0.293; in C): its
+%% directives run and its macros expanded, in its place in the unit, as C++ reads the program's header (0.268, above),
+%% and that read is taken where it is whole. The raw read alone made the forms of a macro file -- an operator on an
+%% instance, `p->pts[0]' the call of `vector_pt_index', a call by name, `size(p->pts)' the call of `vector_pt_size' --,
+%% and kept the header's macros unexpanded; the lowering took each definition from the header read preprocessed ALONE
+%% (ir_hdr_resolve/2), where no instance of the unit is and those forms are not made: `p->pts[0]' was `not lowered yet:
+%% not_a_pointer', and `size(p->pts)' took the vector by value. A function of such a header has both now, a macro of
+%% the header and an instance's operator in one body. Such a read is the unit's (ccl_inst_since/1): no cache keeps it,
+%% so it is read where the unit includes it, under the unit's instances
 ccl_read_unit(Path, How, Unit) :-
-    ccl_global('$ccl_instances', I0, []),
+    ccl_global('$ccl_instances', I0, []), ccl_inst_mark(IM),
     ( catch(ccl_parse_file(Path, U0, Info0), _, fail) -> true ; U0 = unit([]), Info0 = stopped(1, near(1)) ),   % A RAW READ THAT THROWS GOES ON TO THE PREPROCESSED READ (0.290; below)
     ccl_global('$ccl_instances', I1, []),
-    (   Info0 == whole, \+ ccl_raw_cut_inside(U0) -> How = raw, Unit = U0
+    (   Info0 == whole, \+ ccl_raw_cut_inside(U0)
+    ->  (   \+ ccl_lang(cpp), ccl_own_header(Path), ccl_inst_since(IM), nb_setval('$ccl_instances', I0),
+            catch(ccl_pp_own_parse(Path, U2, Info2), _, fail), Info2 == whole
+        ->  How = preprocessed, Unit = U2
+        ;   nb_setval('$ccl_instances', I1), How = raw, Unit = U0 )
     ;   Info0 == whole                                                    % whole, with a header inside that was not read whole (0.290; below)
     ->  (   nb_setval('$ccl_instances', I0), catch(ccl_pp_parse(Path, U1, Info1, Files), _, fail), Info1 == whole
         ->  How = preprocessed, Unit = U1, ccl_pp_macros(Ms), ccl_kb_remember_macros(Path, Files, Ms)
@@ -565,10 +590,18 @@ ccl_own_header(P) :- atom(P), \+ ir_hdr_lib_path(P).
 %% the header through the preprocessor in the program file's mode: its includes read first and their macros made ready
 %% (ccl_pp_prescan/1), then its run and the read of its tokens. A run is a generation of the macros (pp_reset/0), so the
 %% header is read in its includer's prescan, before the includer's own run; the includer's configurations at its
-%% includes, by its lines, are put back after it ('$pp_inc_cfgs', '$pp_cfg_lib'), however it ends
+%% includes, by its lines, are put back after it ('$pp_inc_cfgs', '$pp_cfg_lib'), however it ends.
+%% THE INSTANCES THAT ITS PRESCAN MADE ARE NOBODY'S (0.293), as the program's file's are (0.261, ccl_read_file_/3): the
+%% prescan reads each header that it includes for its macros, and the read of its tokens reads one that met an instance
+%% again, in its place; the unit's instances as they were before the prescan are put back between the two. A header
+%% that includes the header of a struct with a `vector<pt>' member found the instance made by the prescan's read, which
+%% stands in no AST, and made no items: `vector_pt' was no type of the unit, and `p->pts' was `no_member(pts)' -- in
+%% C++ since 0.268, and in C since this read is C's too (ccl_read_unit/3)
 ccl_pp_own_parse(Path, unit(Is), Info) :-
     ( nb_current('$pp_inc_cfgs', C0) -> true ; C0 = [] ), ( nb_current('$pp_cfg_lib', L0) -> true ; L0 = none ),
+    ccl_global('$ccl_instances', I0, []), ccl_global('$ccl_inst_making', M0, []), ccl_global('$ccl_hoist', H0, []),
     (   catch(( ccl_pp_prescan(Path), ccl_pp_top_run(Path, [], Tokens, _), \+ memberchk(tok(other, _, _), Tokens),
+                nb_setval('$ccl_instances', I0), nb_setval('$ccl_inst_making', M0), nb_setval('$ccl_hoist', H0),
                 ccl_with_file(Path, ( ccl_unit(Tokens, unit(Is), Rest), ccl_rest_info(Rest, Info) )) ), E, true)
     ->  R = ok ; R = failed ),
     nb_setval('$pp_inc_cfgs', C0), nb_setval('$pp_cfg_lib', L0),

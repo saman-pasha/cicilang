@@ -74,6 +74,7 @@
 %%   owner_unset         an owner read, passed, freed or moved before it was given anything
 %%   borrow_after_move   a borrow used after its owner was consumed (a tied value after its tie went)
 %%   borrow_after_call   a borrow used after a call that may replace its owner, a struct's own field (0.265)
+%%   borrow_into_call    a borrow of such a field handed to the call that may replace it, beside its struct (0.293)
 %%   assign_to_const     an own field of a const object assigned (0.265; in clang's words)
 %%   borrow_escapes      a borrow returned from the function
 %%   borrow_stored       a borrow stored into a struct field, an element, a global, through a pointer, or into an own slot
@@ -2044,7 +2045,7 @@ ck_lval_use(E, St0, St) :- ck_expr(E, St0, St).
 %% an own parameter, the callee named or a function type (a pointer's) -- else
 %% used; a borrow is not the callee's to take; a tied owner goes only to a
 %% parameter tied itself
-ck_args(Args, Callee, St0, St) :- ck_arg_ties(Args, Callee, St0), ck_args_(Args, Callee, 1, St0, St1), ck_replaced_args(Args, Callee, 1, St1, St).
+ck_args(Args, Callee, St0, St) :- ck_arg_ties(Args, Callee, St0), ck_args_alias(Args, Callee, St0), ck_args_(Args, Callee, 1, St0, St1), ck_replaced_args(Args, Callee, 1, St1, St).
 %% A CALL THAT MAY REPLACE A STRUCT'S OWN FIELDS ENDS THE CALLER'S BORROWS OF THEM (0.265; CCLLIB.md's phase 0.8, in C):
 %% a struct handed by a plain pointer -- its address, or a pointer that borrows it -- to a parameter whose pointee is not
 %% const may have its own fields freed and replaced by the callee ('$ck_borrowed', ck_complete_owners/2), so after the
@@ -2060,6 +2061,24 @@ ck_replaced_args([A|As], Callee, I, St0, St) :- ck_replaced_arg(A, Callee, I, St
 ck_replaced_arg(A0, Callee, I, St0, St) :- ck_by_address(A0, Callee, I, A), ck_replaced_base(A, St0, K), ck_may_replace(Callee, I),
     ck_own_under(St0, K, Fs), Fs \== [], !, ck_dangle_all(St0, Fs, St1), ck_note_replaced(Fs), ck_null_filled(Fs, St1, St).
 ck_replaced_arg(_, _, _, St, St).
+%% A BORROW HANDED TO A CALL THAT MAY REPLACE ITS OWNER (0.293; the finding of a program over 0.284): where an argument
+%% hands a struct to a call that may replace its own fields (the rule above), another argument that borrows one of
+%% those fields -- a pointer into the buffer, or a C++ reference to an element of it -- dangles in the callee as soon as
+%% it replaces the field: `grow(&v, &v.data[0])' over `void grow(buf *b, int *out)' reallocs b->data and then writes
+%% through out into the freed block, and `int *p = &v.data[1]; grow(&v, p)' reads it, and both were taken; over a
+%% vector, `grow(&t, &t.nodes[0].a)' grew t.nodes in the callee. Such an argument is refused by name, whatever the
+%% constness of its own parameter, a variadic one too, before the call's other rules; an element handed by its value
+%% (`push_back(v, v[0])' over C's `vector<int>') borrows nothing and stays
+ck_args_alias(Args, Callee, St) :-
+    findall(I-Fs, ( nth1(I, Args, A0), ck_by_address(A0, Callee, I, A), ck_replaced_base(A, St, K), ck_may_replace(Callee, I),
+                    ck_own_under(St, K, Fs), Fs \== [] ), Rs),
+    ( Rs == [] -> true ; ck_args_alias_(Args, 1, Rs, Args, Callee, St) ).
+ck_args_alias_([], _, _, _, _, _).
+ck_args_alias_([A0|As], I, Rs, Args, Callee, St) :-
+    (   member(J-Fs, Rs), J \== I, ck_by_address(A0, Callee, I, A), ck_pointer_arg(A), ck_borrows_from(A, St, P), memberchk(P, Fs)
+    ->  ( Callee = id(F) -> ck_fail(borrow_into_call, P, call(F)) ; ck_fail(borrow_into_call, P, call(Callee)) )
+    ;   true ),
+    I1 is I + 1, ck_args_alias_(As, I1, Rs, Args, Callee, St).
 %% A NULL OWN FIELD THAT SUCH A CALL MAY FILL IS LIVE AFTER IT (0.267): the callee returns the field live or null
 %% (ck_complete_owners/2), so the caller holds an owner it must free or drop -- `buf v = {0, NULL}; grow(&v); return 0;'
 %% was taken, and grow's `realloc(NULL, n)' leaked, as `vector<int> v; push(v, 1);' would without autodrop

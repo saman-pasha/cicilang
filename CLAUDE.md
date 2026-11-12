@@ -12,8 +12,8 @@ the fixture that gates it, and why. The bullet ends with the version that made t
 edits the rule in `RULES.md`, in its topic, and writes its entry in `HISTORY.md`. Read the topic of `RULES.md` that
 covers the code before the code is changed.
 
-At 0.292 the versions are: the module 0.292 (`ccl_p_version` in `module/cicilang.cicili`, `bin/cicilang --version`),
-the reader 188 (`ccl_reader_version/1`, `library/ccl_syntax.pl`) and the lowering 162 (`ccl_lowering_version/1`,
+At 0.293 the versions are: the module 0.293 (`ccl_p_version` in `module/cicilang.cicili`, `bin/cicilang --version`),
+the reader 189 (`ccl_reader_version/1`, `library/ccl_syntax.pl`) and the lowering 163 (`ccl_lowering_version/1`,
 `library/ccl_ir.pl`).
 
 Build and prove, always in this order (or all of it, `sh test/gates.sh`):
@@ -486,7 +486,9 @@ test/c/run/                 C programs built and run: NAME.c, NAME.expect, NAME.
                             contswitch.c, a continue in a switch in a loop, loadedptr.c, a pointer read out of a slot
                             and a null test of a plain pointer, and netdbhdr.c and getopthdr.c, headers whose raw
                             read is not the header's (0.290); tmirror.pl, of mirror.c: the operators whose left
-                            operand is no instance (0.291)
+                            operand is no instance (0.291); hdrvec.c over hdrvec.h, hdrvec2.h and hdrvec3.h, the
+                            program's own headers over a type macro's instance, and regnames.c and regnames23.c,
+                            parameters named as the lowering's names (0.293)
 test/c/safe/                C programs the safe part refuses: NAME.c, NAME.expect; dropnone.pl, the macro file of
                             drop_leaks.c (0.262); borrow_after_grow.c, borrow_after_push.c, elem_after_push.c,
                             grow_through_ptr.c, const_replace.c and const_local.c, the safety rules of 0.265;
@@ -495,12 +497,14 @@ test/c/safe/                C programs the safe part refuses: NAME.c, NAME.expec
                             assign_value.c, assign_arg.c and assign_return.c, an assignment over an object that its
                             scope drops (0.287); cont_switch_leak.c, loose_null_test.c, loaded_or_new.c,
                             loaded_or_new_store.c, loaded_own_alias.c and loaded_own_record.c, what the rules of 0.290
-                            refuse still
+                            refuse still; borrow_into_call.c and borrow_into_call_local.c, a borrow handed to a call
+                            that may replace its owner (0.293)
 test/cpp/                   the C++ reader's fixtures and the refusals; hidem.cppm for modhidden.cpp; unread_cpp.cpp,
                             an argument taken unread in C++ (0.264, read since 0.270); lit_cpp.cpp, list and map
                             literals beside the lambdas in C++ (0.269); callreplace.cpp, refreplace.cpp,
                             localrefreplace.cpp, tiedrefreplace.cpp, constmethod.cpp, constrefslot.cpp and
-                            nullfilledref.cpp, the safety rules of 0.265 to 0.267 in C++ (0.272)
+                            nullfilledref.cpp, the safety rules of 0.265 to 0.267 in C++ (0.272); callborrow.cpp, a
+                            borrow handed to a member function that may replace its owner (0.293)
 test/cpp/link/              the C++ ABI checks of the C++ gate and the cross gate: abi_helper.cpp, memptr_helper.cpp and
                             byval_helper.cpp built by clang++, abi_main.cpp, memptr_main.cpp and byval_main.cpp by
                             cicilang++, abi.h, memptr.h, byval.h; the C++ gate's two units, units_a.cpp and units_b.cpp
@@ -520,7 +524,8 @@ test/ccllib/                the three runs' programs: NAME.c, a ccllib program; 
                             <unordered_set.pl> and <unordered_map.pl> (0.283); bitset.c, of <bitset.pl> (0.286);
                             string.c, of <string.pl> (0.291)
 test/ccllib/safe/           ccllib programs that the safe part refuses, as C and as C++: NAME.c, NAME.expect, and
-                            NAME.expect.cpp where C++ has words of its own (0.274)
+                            NAME.expect.cpp where C++ has words of its own (0.274); borrow_into_call_vector.c and
+                            string_self_c_str.c, a borrow handed to a call that may replace its owner (0.293)
 test/ccllib/alone/          ccllib programs with no twin, built as C and as C++ (0.281): NAME.c, NAME.expect;
                             stops.c, what stops a ccllib program, each case in a child of its own; tree_rules.c,
                             the rules of the tree of a set and a map, read from the instance's own fields;

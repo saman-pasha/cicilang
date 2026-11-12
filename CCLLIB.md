@@ -34,7 +34,7 @@ reads only plain C. "Cheaper" is measured, never claimed: each phase 1 program i
   map's two types are written with a colon (2026-11-08: "Use : in map literal type section").
 - Instances are implicit: each unit that uses `vector<int>` makes it once, as `linkonce_odr`, and the linker keeps one.
 - C-text comes first: a macro author writes C text with holes, and the reader reads it.
-- cocolog is pulled and built again on the owner's word: 3.62.2, `7e4bac2`, since 0.292 ("pull repos and update pins").
+- cocolog is pulled and built again on the owner's word: 3.62.3, `bf956d1`, since 0.293 ("Pull latest cocolog").
 - ccllib objects have AUTODROP (2026-11-08): the compiler drops each object of an instance type at the end of its scope,
   on every way out of it, as C++ runs a destructor; a moved object is not dropped (phase 0.5). This was open decision 3.
 - Every comparison has THREE RUNS (2026-11-08): the ccllib program built by cicilang as C and by cicilang++ as C++, and
@@ -654,13 +654,15 @@ cicilang++'s takes 1.04 s, twice the twin's. The target of phase 1 stays.
 string has fifteen characters or fewer -- the characters themselves, so a short string has no block of the heap. 182
 functions, which a call, an operator or `to_string` asks: the surface of `std::string` but the stream operators,
 `getline`, the hash and `<=>`. Every change of the characters is one of two inner functions, and a source in the string
-itself is copied first; a NUL stands after the last character, and a growth is to twice the capacity at least. `==`,
-`<` and the other relations, and `+`, take a text on either side: the reader's mirrored operators, a part of phase 0.9
-that the string needed. `c_str(s)` and `&s[i]` are borrows, which a change of the string ends. A place past the last
-character, a change past `max_size`, and a number of a text where there is none, stop the program. `a + b + c` is
-refused, since the string that `a + b` makes has no name. `test/ccllib/string.c` and its twin over `std::string`,
-thirteen programs of `test/ccllib/safe/`, `test/ccllib/alone/string_rules.c`, and 22 cases more of `stops.c`;
-fifty-seven copies of the tree broken on purpose are each reported. The costs over libc++ 22, as above:
+itself is copied first (a pointer into the string handed beside it, `append(s, c_str(s) + 2)`, is refused since 0.293, a
+borrow handed to a call that may replace its owner: the part goes by the string and its place, `append(s, s, 2)`); a NUL
+stands after the last character, and a growth is to twice the capacity at least. `==`, `<` and the other relations, and
+`+`, take a text on either side: the reader's mirrored operators, a part of phase 0.9 that the string needed. `c_str(s)`
+and `&s[i]` are borrows, which a change of the string ends. A place past the last character, a change past `max_size`,
+and a number of a text where there is none, stop the program. `a + b + c` is refused, since the string that `a + b`
+makes has no name. `test/ccllib/string.c` and its twin over `std::string`, thirteen programs of `test/ccllib/safe/`,
+`test/ccllib/alone/string_rules.c`, and 22 cases more of `stops.c`; fifty-seven copies of the tree broken on purpose are
+each reported. The costs over libc++ 22, as above:
 
 | | build | peak | IR types | IR functions | IR lines | object | `string 10000000` at `-O2` | its peak |
 |---|---|---|---|---|---|---|---|---|
