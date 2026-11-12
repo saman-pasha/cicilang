@@ -736,12 +736,35 @@ numbers takes 0.051 s as C and 0.049 s as C++ against 0.112 s, in 40 MB against 
 the twin's 0.76 s, and cicilang++'s 0.64 s. PHASE 1A IS DONE with this module: every container and string of the list
 below has its module.
 
+### 1b, `optional.pl` (0.300)
+
+`optional<T>` is a struct of the value and a byte that says that it is there: a value with no heap and no drop, which `q
+:= o` and `f(o)` copy, as `std::optional`'s do. It is born with no value -- an instance's object is born zero (0.285) --
+and made of a value and of `nullopt` by its `_of`: `optional<int> p = 5;`, `o = 7;`, `o = nullopt;`. 8 functions, and 8
+more for the relations of C++ with another optional, with a value of its own type and with `nullopt`, each on either
+side, by the operators' typed names (0.284, 0.291): the module needed no new form of the reader.
+`test/ccllib/optional.c` over `int`, `double`, `char` and a plain struct, its twin over `std::optional`, six programs of
+`test/ccllib/safe/`, and `test/ccllib/alone/optional_rules.c`, which holds every relation to the standard's own tables
+at 5,077,044 checks and reports each of sixteen copies of the module broken on purpose. The costs over libc++ 22, as
+above, the run `optional 100000000`:
+
+| | build | peak | IR types | IR functions | IR lines | object | `optional 100000000` at `-O2` | its peak |
+|---|---|---|---|---|---|---|---|---|
+| cicilang, C | 0.60 s | 173 MB | 7 | 50 | 1,704 | 26,800 B | 1.24 s | 2 MB |
+| cicilang++, C++ | 0.52 s | 140 MB | 7 | 50 | 1,778 | 26,752 B | 1.26 s | 2 MB |
+| clang++ 22, `std::` | 0.26 s | 108 MB | 49 | 177 | 3,916 | 93,472 B | 1.20 s | 3 MB |
+
+The unit holds 50 functions for its five instances in 26,800 bytes, where the twin's holds 177 in 93,472; the count run
+takes 1.24 s as C and 1.26 s as C++ against the twin's 1.20 s, in 1.7 MB against 3.2 MB. `<optional>` is a light header,
+as `<array>` is: the C build after a change of the file takes 0.60 s and 173 MB, cicilang++'s 0.52 s and 140 MB, against
+clang++'s 0.26 s and 108 MB.
+
 ### The parts of phase 1
 
 - 1a. Containers and strings: `vector`, `array`, `deque`, `list`, `forward_list`, `map`, `set`, `multimap`,
   `multiset`, `unordered_map`, `unordered_set` and their multi forms, `stack`, `queue`, `priority_queue`, `bitset`,
   `string`, `string_view`, `span` -- done at 0.295.
-- 1b. The vocabulary: `optional`, `variant` and `visit`, `tuple`, `pair`, `any`, `unique_ptr` (the own pointer),
+- 1b. The vocabulary: `optional` (0.300), `variant` and `visit`, `tuple`, `pair`, `any`, `unique_ptr` (the own pointer),
   `shared_ptr`, `hash`, `less` and the other function objects.
 - 1c. Algorithms and numbers: `<algorithm>`, `<numeric>`, the C++20 ranges views as loops, `<limits>`, `<complex>`,
   `<random>`, `<ratio>`, `<chrono>`.

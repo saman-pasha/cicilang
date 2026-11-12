@@ -603,6 +603,14 @@ v;` of a vector, `span<const int> c = s;`, `s[0] = 7`, `first(s, 2)`,
 `subspan(s, 1, 3)`, a borrow as a view is. A place past the end stops the
 program. `test/ccllib/string_view.c` and `span.c` are the examples.
 
+`#include <optional.pl>` gives `std::optional` (0.300), the value and a byte
+that says that it is there: `optional<int> o;` has no value, `optional<int>
+p = 5;`, `o = 7;`, `o = nullopt;`, `has_value(o)`, `value(o)`, `value_or(o,
+3)`, `*emplace(o, 4) += 1`, `reset(o)`, `swap(o, p)`, `o == p`, `o < 5`,
+`nullopt < o`. It is a value, which a copy copies, with no heap. `value` of
+an optional that has none stops the program. `test/ccllib/optional.c` is the
+example.
+
 `format`, `print`, `println` and `clone` are global macros, there in every
 program without an include (`library/ccl_format.pl`). The format string
 has Rust's holes, each becoming the `printf` conversion of its argument's

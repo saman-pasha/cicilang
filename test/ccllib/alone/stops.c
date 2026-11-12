@@ -6,9 +6,10 @@
    bit, read and written each way, 0.286; a string's place after its last character, and each change at that place,
    0.291). A string's change past max_size stops, and a number of a text where there is none or where it is past its
    type's range, where C++ throws (0.291). A view's and a span's place or count past the end stops, and a view's place
-   after its last character, which is in its bounds, does not (0.295). cicilang builds this file as C and cicilang++ as
-   C++; both print
-   stops.expect. It has no twin: C++ throws at some of these, and says nothing of what follows the others */
+   after its last character, which is in its bounds, does not (0.295). An optional's value where it has none stops,
+   where C++ throws, and its value where it has one, value_or and emplace's place do not (0.300). cicilang builds this
+   file as C and cicilang++ as C++; both print stops.expect. It has no twin: C++ throws at some of these, and says
+   nothing of what follows the others */
 #include <signal.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -29,6 +30,7 @@
 #include <string.pl>
 #include <string_view.pl>
 #include <span.pl>
+#include <optional.pl>
 /* the child takes abort's signal and leaves with a status of its own: so no core is written and no crash is reported,
    and a stop by abort is told from a fault */
 static void on_abort(int sig) { (void)sig; _exit(77); }
@@ -282,6 +284,16 @@ static void span_ok(void) {
     span<int> d = subspan(s, 3, dynamic_extent);
     printf("%zu %zu %zu %zu %zu", size(e), size(f), size(l), size(m), size(d));
 }
+static void optional_value(void) { optional<int> o; printf("%d", value(o)); }
+static void optional_ok(void) {
+    optional<int> o;
+    optional<int> p = 3;
+    int s = value_or(o, 1) + value(p);
+    *emplace(o, 4) += s;
+    reset(p);
+    p = nullopt;
+    printf("%d %d", value(o), value_or(p, 2));
+}
 int main(void) {
     printf("vector: at %d, index %d, front %d, pop_back %d, ", stopped(vector_at), stopped(vector_index),
            stopped(vector_front), stopped(vector_pop));
@@ -346,5 +358,6 @@ int main(void) {
            stopped(span_at), stopped(span_index), stopped(span_front), stopped(span_back), stopped(span_first),
            stopped(span_last), stopped(span_subspan), stopped(span_count));
     printf("in its bounds %d\n", stopped(span_ok));
+    printf("optional: value of none %d; in its bounds %d\n", stopped(optional_value), stopped(optional_ok));
     return 0;
 }

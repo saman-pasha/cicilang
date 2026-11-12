@@ -720,55 +720,64 @@ that changes a rule edits the rule here, in its topic, and writes its entry in `
   runs, M refused, K alone)`. (0.274, 0.281)
 - **THE PROGRAMS THAT STAND ALONE** (0.281): each `test/ccllib/alone/NAME.c` has no twin over `std::`, since it asks
   what C++ does not say; `bin/cicilang` builds it as C and `bin/cicilang++` as C++, and both print `NAME.expect`.
-  `stops.c` is WHAT STOPS A CCLLIB PROGRAM, for every module: 87 cases -- an index past the end, the front of an empty
+  `stops.c` is WHAT STOPS A CCLLIB PROGRAM, for every module: 89 cases -- an index past the end, the front of an empty
   container, a place that is no element's, a place that a new entry of a tree or of a hash table ended, a place after
   `reserve` and after `rehash`, a bit past a bitset's last one, a text of a bitset with a letter, a string's place past
   its NUL, a change of a string past `max_size`, a number of a text where there is none --, each in a child of its own
-  (`fork`), and a line says for each whether abort stopped it. 80 are stopped; the 7 that stay in their bounds are not:
-  a string's place after its last character, and each change at that place (0.291), a bitset's last bit, read and
-  written each way (0.286), a tree's place over 4000 inserts that find their keys and 4000 erases that find none among
-  them, and a hash table's place over such calls AT EACH SIZE of the table from 1 to 4000 -- a table stands at its
-  limit, where one entry more makes it again, at some sizes only, and the first form of the two cases, over a table of
-  4000 entries, passed a table that is made again before it looks for the key (0.283). The child takes abort's signal
-  and leaves with a status of its own (77), so no core is written and no crash is reported, and a stop by abort is told
-  from a fault. A module's step adds its cases. `tree_rules.c` is THE RULES OF THE TREE of `<set.pl>` and `<map.pl>`,
-  read from the instance's own fields over a walk of chance: each node but the root holds 7 to 15 entries, an inner node
-  has one child more than its entries, the leaves stand at one depth, the entries are in their order -- a multimap's
-  equal keys in the order of their insert --, the count is the tree's, and each node of the arena is in the tree or in
-  the chain of the erased ones; they hold at 194,392 checks, over trees whose leaves stand 3 below the root. A copy of
-  the tree broken on purpose (a sibling of 7 entries gives one away) is reported: `NOT HELD: a node holds 7 to 15
-  entries, the root 1 at least`. `table_rules.c` (0.283) is THE RULES OF THE HASH TABLE of `<unordered_set.pl>` and
-  `<unordered_map.pl>`, read so too: the slots are as many as a power of two, 8 at least; three slots of four at most
-  hold an entry or an erased entry's mark; the table's counts are its slots'; `first` is the first entry's slot; no
-  empty slot stands between an entry and the slot that its hash names, so a search finds it; a unique table holds a key
-  once; a multimap's key counts its entries at its entry 0, and they have the numbers from 0 to that count. They hold at
-  208,624 checks, over a set and a multimap that grow, shrink to nothing and grow again, their clones, tables cleared
-  and filled again, tables made again by `rehash` and `reserve`, and the two tables of a merge. FOUR COPIES OF THE TABLE
-  BROKEN ON PURPOSE are each reported by a program of the gate: a mark taken away where a search needs it (`NOT HELD: no
-  empty slot stands between an entry and its hash's slot`, and the two programs of the three runs differ from their
-  twins); a multi table's erased entry whose number goes to nobody (`NOT HELD: an entry's number is under its key's
-  count`, and the two programs); a table made again too late (`NOT HELD: three slots of four at most hold an entry or a
-  mark`: the rules program alone sees it, since such a table stays right and gets slow); a table made again before it
-  looks for the key (the stop program's two cases at each size, and the walks of chance, which use a place after the
-  calls that change nothing at EVERY step). `bitset_rules.c` (0.286) is THE RULES OF THE BITSET of `<bitset.pl>`: a walk
-  of chance for each of nine counts of bits at which a rule can break -- 1, 12, 63, 64, 65, 70, 128, 129 and 200 --, the
-  set held after each step to a model of a byte a bit: each bit by `test` and by `[]`, `count`, `any`, `none` and `all`,
-  `to_ullong` and `to_ulong` where no bit stands past their width, and the bits of the last word past the count, which
-  the program reads in the instance's own words. They hold at 68,009 checks. NINETEEN COPIES OF THE MODULE BROKEN ON
-  PURPOSE, a rule each, are each reported by a program of the gate (the section of `bitset.pl`). `string_rules.c`
-  (0.291) is THE RULES OF THE STRING of `<string.pl>`: five walks of chance of 4000 steps, each change that the module
-  has, its source a text, a character or a part of the string itself, the string held after each step to a model, an
-  array of bytes: the characters and the count, by `c_str` and by `[]`; a NUL after the last character; the form, read
-  in the instance's own fields -- no block and fifteen characters at most, or a block and no more than its capacity --;
-  a growth to twice the capacity at least; after `shrink_to_fit` the count as the capacity, or the object's fifteen and
-  no block. Every eighth step the searches, the tests of a part, the comparisons and the parts are held to naive models,
-  from places in the string and past it; a character is a NUL one time in eight. They hold at 24,414 checks. FIFTY-SEVEN
-  COPIES BROKEN ON PURPOSE are each reported by a program of the gate (the section of `string.pl`). `born_held.c`
-  (0.297) holds what holds an instance's object born zero -- a struct with a vector member, a struct of such in an array
-  member of another, a struct with a string member, an array of such structs, a `for`'s declaration, a designated
-  initializer and a memset of zero --, each over storage written with garbage first, and `shadowed.c` (0.297) the names
-  of a vector, of a pointer to one and of a global one declared again in a block (the safe part's topic of owners and
-  moves). (0.281, 0.283, 0.286, 0.291, 0.297)
+  (`fork`), and a line says for each whether abort stopped it. 81 are stopped -- an optional's value where it has none
+  among them (0.300) --; the 8 that stay in their bounds are not: an optional's value where it has one, its `value_or`
+  and the place that `emplace` gives back (0.300), a string's place after its last character, and each change at that
+  place (0.291), a bitset's last bit, read and written each way (0.286), a tree's place over 4000 inserts that find
+  their keys and 4000 erases that find none among them, and a hash table's place over such calls AT EACH SIZE of the
+  table from 1 to 4000 -- a table stands at its limit, where one entry more makes it again, at some sizes only, and the
+  first form of the two cases, over a table of 4000 entries, passed a table that is made again before it looks for the
+  key (0.283). The child takes abort's signal and leaves with a status of its own (77), so no core is written and no
+  crash is reported, and a stop by abort is told from a fault. A module's step adds its cases. `tree_rules.c` is THE
+  RULES OF THE TREE of `<set.pl>` and `<map.pl>`, read from the instance's own fields over a walk of chance: each node
+  but the root holds 7 to 15 entries, an inner node has one child more than its entries, the leaves stand at one depth,
+  the entries are in their order -- a multimap's equal keys in the order of their insert --, the count is the tree's,
+  and each node of the arena is in the tree or in the chain of the erased ones; they hold at 194,392 checks, over trees
+  whose leaves stand 3 below the root. A copy of the tree broken on purpose (a sibling of 7 entries gives one away) is
+  reported: `NOT HELD: a node holds 7 to 15 entries, the root 1 at least`. `table_rules.c` (0.283) is THE RULES OF THE
+  HASH TABLE of `<unordered_set.pl>` and `<unordered_map.pl>`, read so too: the slots are as many as a power of two, 8
+  at least; three slots of four at most hold an entry or an erased entry's mark; the table's counts are its slots';
+  `first` is the first entry's slot; no empty slot stands between an entry and the slot that its hash names, so a search
+  finds it; a unique table holds a key once; a multimap's key counts its entries at its entry 0, and they have the
+  numbers from 0 to that count. They hold at 208,624 checks, over a set and a multimap that grow, shrink to nothing and
+  grow again, their clones, tables cleared and filled again, tables made again by `rehash` and `reserve`, and the two
+  tables of a merge. FOUR COPIES OF THE TABLE BROKEN ON PURPOSE are each reported by a program of the gate: a mark taken
+  away where a search needs it (`NOT HELD: no empty slot stands between an entry and its hash's slot`, and the two
+  programs of the three runs differ from their twins); a multi table's erased entry whose number goes to nobody (`NOT
+  HELD: an entry's number is under its key's count`, and the two programs); a table made again too late (`NOT HELD:
+  three slots of four at most hold an entry or a mark`: the rules program alone sees it, since such a table stays right
+  and gets slow); a table made again before it looks for the key (the stop program's two cases at each size, and the
+  walks of chance, which use a place after the calls that change nothing at EVERY step). `bitset_rules.c` (0.286) is THE
+  RULES OF THE BITSET of `<bitset.pl>`: a walk of chance for each of nine counts of bits at which a rule can break -- 1,
+  12, 63, 64, 65, 70, 128, 129 and 200 --, the set held after each step to a model of a byte a bit: each bit by `test`
+  and by `[]`, `count`, `any`, `none` and `all`, `to_ullong` and `to_ulong` where no bit stands past their width, and
+  the bits of the last word past the count, which the program reads in the instance's own words. They hold at 68,009
+  checks. NINETEEN COPIES OF THE MODULE BROKEN ON PURPOSE, a rule each, are each reported by a program of the gate (the
+  section of `bitset.pl`). `string_rules.c` (0.291) is THE RULES OF THE STRING of `<string.pl>`: five walks of chance of
+  4000 steps, each change that the module has, its source a text, a character or a part of the string itself, the string
+  held after each step to a model, an array of bytes: the characters and the count, by `c_str` and by `[]`; a NUL after
+  the last character; the form, read in the instance's own fields -- no block and fifteen characters at most, or a block
+  and no more than its capacity --; a growth to twice the capacity at least; after `shrink_to_fit` the count as the
+  capacity, or the object's fifteen and no block. Every eighth step the searches, the tests of a part, the comparisons
+  and the parts are held to naive models, from places in the string and past it; a character is a NUL one time in eight.
+  They hold at 24,414 checks. FIFTY-SEVEN COPIES BROKEN ON PURPOSE are each reported by a program of the gate (the
+  section of `string.pl`). `born_held.c` (0.297) holds what holds an instance's object born zero -- a struct with a
+  vector member, a struct of such in an array member of another, a struct with a string member, an array of such
+  structs, a `for`'s declaration, a designated initializer and a memset of zero --, each over storage written with
+  garbage first, and `shadowed.c` (0.297) the names of a vector, of a pointer to one and of a global one declared again
+  in a block (the safe part's topic of owners and moves). `optional_rules.c` (0.300) is THE RULES OF AN OPTIONAL of
+  `<optional.pl>`: eight optional numbers over a walk of chance of 4000 steps -- a number assigned, nullopt assigned,
+  `emplace` and a write through its place, `reset`, `swap`, a copy, an optional born in a block, a copy that `emplace`
+  changes --, held after each step to a model of a flag and a number each: `has_value`, `value` and `value_or`, and EACH
+  RELATION BY THE STANDARD'S OWN WORDS, not by the module's way to them -- [optional.relops] between two optionals,
+  [optional.comp.with.t] with a number on either side and [optional.nullops] with nullopt on either side, each of the
+  six operators --, the numbers from 0 to 5, so that two optionals are equal often. They hold at 5,077,044 checks.
+  SIXTEEN COPIES OF THE MODULE BROKEN ON PURPOSE, a rule each, are each reported by it (the section of `optional.pl`).
+  (0.281, 0.283, 0.286, 0.291, 0.297, 0.300)
 - **THE FIRST PROOF AFTER PHASE 0** (0.273; `CCLLIB.md`'s Order): `test/ccllib/first.c` over its macro file `first.pl`
   -- `vector<T>` with `push`, `at`, `len` and `sort`: a type macro's instance (0.261), its literal's `from` (0.263), its
   drop (0.262), all of it C text (0.260) -- built as C and as C++, and `first.cpp`, the same program over `std::vector`
@@ -10498,6 +10507,51 @@ in the first topic (The ccllib gate).
   span. The unit holds 41 functions for its instances in 17 KB, where the twin's holds 153 in 88 KB. The run of ten
   million numbers takes 0.051 s as C and 0.049 s as C++ against 0.112 s, in 40 MB against 67 MB. The C build takes 0.79
   s against the twin's 0.76 s, and cicilang++'s 0.64 s. (0.295)
+
+### optional.pl
+
+- **`optional<T>` IS THE VALUE AND A BYTE THAT SAYS THAT IT IS THERE** (0.300; `CCLLIB.md`'s phase 1b): the instance
+  `optional_int` of `<optional.pl>`, a struct of the value and `has`: no heap and NO DROP, so its object is a plain
+  value -- `q := o` and `f(o)` copy it, as `std::optional`'s do. `optional<int> o;` HAS NO VALUE: an instance's object
+  is born zero (0.285), and zero is no value. IT IS MADE OF A VALUE AND OF `nullopt` BY ITS `_of`: `optional<int> p =
+  5;` and `o = 7` are `optional_int_of(7)`, the plain `_of`, whose parameter is the value's type, so that C converts a
+  number as C++ does; `o = nullopt` is `optional_int_of_nullopt_t(nullopt)`, the function named with the word of
+  nullopt's type (the reader's topic of type macros). `optional.pl.h` declares nullopt, `typedef struct nullopt_t { char
+  none; } nullopt_t;` and `static const nullopt_t nullopt`, as C++'s `std::nullopt` is. (0.300)
+- THE SURFACE OF `std::optional`, 16 functions: the two above, `has_value`, `value`, `value_or`, `emplace` (the value's
+  place, tied to the optional, where `std::optional::emplace` gives a reference), `reset`, `swap`; `==` and `<` of two
+  optionals (`_eq`, `_lt`); a relation with a value of the optional's own type, by the operators' typed names (0.284):
+  `o == 5` is `optional_int_eq_int(&o, 5)`, `o < 5` `_lt_int` and `o > 5` `_gt_int`, and with the value on the left the
+  same three, the operands exchanged (0.291: `5 < o` is `_gt_int(&o, 5)`); and with nullopt on either side,
+  `_eq_nullopt_t`, `_lt_nullopt_t` and `_gt_nullopt_t`. EACH RELATION IS C++'S ([optional.relops],
+  [optional.comp.with.t], [optional.nullops]): an optional with no value is equal to another with none and to nullopt,
+  and less than one with a value and than every value. The module needed no new form of the reader. (0.300)
+- WHAT DIFFERS FROM C++: `value(o)` stops the program (`abort`) where o has no value, where C++ throws
+  `bad_optional_access`; `*o`, `o->m` and `if (o)` have no form in C -- `value(o)`, the place that `emplace` gives back,
+  and `has_value(o)`; a relation with a value takes one of the optional's own type, so `d == 2` over an
+  `optional<double>` is refused by name, `the operator == of optional_double takes an object of optional_double, which
+  its operand is not`, where C++ converts 2: `d == 2.0`; a character constant is an `int` in C, so `c == (char)'x'` over
+  an `optional<char>`; an optional is made of a value or of nullopt, and `optional<double> d = i;` over an
+  `optional<int>` is `no conversion from 'optional_int' to 'double'`, where C++ converts it; no `make_optional`, whose
+  argument names no instance, and no `in_place`. THE PLACE THAT `emplace` GIVES BACK STAYS THE OPTIONAL'S OWN STORAGE:
+  after `reset(o)` it holds the old value and is read with no fault, where C++'s value is destroyed -- a borrow of the
+  object's storage, as `&a[i]` of an array is, which no call frees, and which does not leave the function that holds the
+  optional (`a borrow leaves the function`). `and_then`, `transform` and `or_else` are C++23's (phase 3), and
+  `std::hash` of an optional comes with phase 1b's `hash`. ITS VALUE IS A VALUE WITH NO POINTER IN IT (decision 2), NO
+  ARRAY AND NO `nullopt_t`, as C++ takes none of the last two: `an optional's value is a value with no pointer in it,
+  and ptr_int holds one`, `an optional's value is no array`, `an optional's value is no nullopt_t`. (0.300)
+- `test/ccllib/optional.c` calls each function over `int`, `double`, `char` and a plain struct, and each relation over
+  the pairs of an optional with no value, one with a value, a value and nullopt, on either side; its twin `optional.cpp`
+  over `std::optional` prints the same lines, and the count run fills, empties, reads and compares an array of 64
+  optional numbers a hundred million times. `test/ccllib/safe/optional_of_pointer.c`, `optional_of_array.c`,
+  `optional_of_nullopt.c`, `emplace_leaves.c`, `optional_other_value.c` and `optional_of_other.c`, as C and as C++;
+  `test/ccllib/alone/optional_rules.c`, the rules held to C++'s tables, and the two cases of `stops.c`. SIXTEEN COPIES
+  OF THE MODULE BROKEN ON PURPOSE, a rule each -- each function's text and each relation's -- are each reported by
+  `optional_rules.c`: `NOT HELD` with the rule's words, or the stop of `value` where a broken `emplace` leaves no value.
+  The unit holds 50 functions for its five instances in 26,800 bytes, where the twin's holds 177 in 93,472; the count
+  run takes 1.24 s as C and 1.26 s as C++ against the twin's 1.20 s, in 1.7 MB against 3.2 MB. `<optional>` is a light
+  header, as `<array>` is: the C build after a change of the file takes 0.60 s and 173 MB, cicilang++'s 0.52 s and 140
+  MB, against clang++'s 0.26 s and 108 MB. (0.300)
 
 ## The safe part
 

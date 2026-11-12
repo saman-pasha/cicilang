@@ -294,6 +294,7 @@ One row per step, in version order: the step's title, what it did and its gate n
 | 0.297 | the findings 15 (extended), 20 and 21 of a program over 0.284 | a row of a static array and an array member of a static object are static storage; what holds an instance's object is born zero -- a struct, an array, a C++ class, a constructor's member that no initializer names; a name that a block declares again hides the outer one's states; a fill of an object with owners writes over them; three holes and four false refusals closed | the reductions and 43 probes beside them, as C and as C++; the nets; no chain, by the owner's rule of 0.271; a commit and a push |
 | 0.298 | the findings 22 to 28 of a program over 0.284 | the program's own header read in its includer's scope where the unit has a macro file of its own, read again where its raw read is not its text, under the includer's macros that it names, its own includes under their configurations, a library header without them; the own header's directives run in the file's run, its #undef, #error and #warning met; a name of two kinds refused; a refusal in a header the build's; a long literal joined once and its IR text made in one walk; an array of wide characters at file scope | the reductions and 72 probes beside them, as C and as C++; a review that found a regression of the first form; the nets; no chain, by the owner's rule of 0.271; a commit and a push |
 | 0.299 | the finding 29 of a program over 0.284 | a pointer value that holds no memory the check follows -- a null or anchored plain local's, its sum with an integer, its cast -- is no new memory to a plain slot: `rest = end + 2` after `strtod(s, &end)` builds; an own slot takes an anchored pointer's value as new memory still | the reduction and 45 probes, 32 of them as C and as C++; a review's finding in an own slot; the nets, twice; no chain, by the owner's rule of 0.271; a commit and a push |
+| 0.300 | ccllib phase 1b, `optional.pl` | `std::optional` for cicilang's C: the value and a byte, born with no value, made of a value and of `nullopt` by its `_of`, each relation of C++ by the operators' typed names; no new form of the reader | the three runs, six refusals, the rules held to C++'s tables at 5,077,044 checks, sixteen broken copies reported; the flow gate and the ccllib gate; no chain, by the owner's rule of 0.271; a commit and a push |
 
 ## M5 — the C++ mode
 
@@ -21352,3 +21353,64 @@ CHAIN DID NOT RUN, by the owner's rule of 0.271. NO CI JOB RAN.
 - RULES.md (the safe part's copies, Not done), HISTORY.md, CLAUDE.md; `module/cicilang.cicili` (0.299).
 
 The module 0.299, the reader 193 and the lowering 168.
+
+## 0.300 — ccllib phase 1b: `optional.pl`
+
+**0.300: the first module of phase 1b, `library/ccllib/optional.pl`: `std::optional` for cicilang's C, and for
+cicilang++ beside libc++'s. No step of the Ambitious session waited, and cocolog's master was the pin; by the owner's
+rule of 0.271 the ccllib task goes on, and phase 1b, the vocabulary, is next after 1a.**
+
+THE TYPE. `optional<int>` is the instance `optional_int`, a struct of the value and a byte that says that the value is
+there: a value with no heap and no drop, which `q := o` and `f(o)` copy, as `std::optional`'s do, the way of `array.pl`
+and `bitset.pl`. Its value is a value with no pointer in it (decision 2), and no array and no `nullopt_t`, as C++ takes
+neither: each is refused by name where the type is written.
+
+WHAT THE READER HAD WAS ENOUGH. An object born with no initializer is zero (0.285), and zero is no value. `optional<int>
+p = 5;` and `o = 7` are the plain `_of`, whose parameter is the value's type, so C converts a number as C++ does; `o =
+nullopt` is `_of_nullopt_t`, named with the word of nullopt's type -- `optional.pl.h` declares `nullopt_t` and a `static
+const nullopt_t nullopt`, as C++'s `std::nullopt` is. The relations go by the operators' typed names (0.284) and their
+mirrors (0.291): `_eq` and `_lt` of two optionals, `_eq_W`, `_lt_W` and `_gt_W` with a value of the optional's own type
+W on either side, and the same three of `nullopt_t` with nullopt on either side. The module needed no new form of the
+reader, and no version moves but the module's.
+
+THE SURFACE: `has_value`, `value`, `value_or`, `emplace` (the value's place, tied to the optional), `reset`, `swap`, and
+every relation of [optional.relops], [optional.comp.with.t] and [optional.nullops]. WHAT DIFFERS FROM C++: `value` of an
+optional with none stops the program, where C++ throws; `*o`, `o->m` and `if (o)` have no form in C; a relation with a
+value takes the optional's own type (`d == 2` over an `optional<double>` is refused by name, where C++ converts 2), and
+a character constant is an `int` in C; no `make_optional`, no `in_place`, no optional made of an optional of another
+type. THE PLACE THAT `emplace` GIVES BACK STAYS THE OPTIONAL'S OWN STORAGE: a probe read it after `reset`, which the
+safe part takes, since the place is the object's storage, as `&a[i]` of an array is, and no call frees it; it holds the
+old value, where C++'s value is destroyed, and the module's words say so. A refusal of that read was the first plan, and
+the probe showed that it is no memory fault.
+
+THE PROOF. `test/ccllib/optional.c` over `int`, `double`, `char` and a plain struct, each relation over each pair of an
+optional with no value, one with a value, a value and nullopt, on either side, and its twin `optional.cpp` over
+`std::optional`: the three runs print the same lines, the count run too. Six refusals of `test/ccllib/safe/`, as C and
+as C++, with their words: an optional of a pointer, of an array, of `nullopt_t`; the place of `emplace` returned from
+the function that holds the optional, `a borrow leaves the function`; `d == 2` over an `optional<double>`; an optional
+of another type as the source. `test/ccllib/alone/optional_rules.c` holds eight optional numbers over a walk of chance
+of 4000 steps to a model, and each relation to the standard's own words, not to the module's way to them: 5,077,044
+checks. SIXTEEN COPIES OF THE MODULE BROKEN ON PURPOSE, a rule each -- each function's text and each relation's -- were
+each reported by it, fifteen by `NOT HELD` with the rule's words and the broken `emplace` by the stop of `value` on the
+copy that it left with no value. `stops.c` has two cases more: `value` of an optional with none stops, and its value
+where it has one, `value_or` and the place of `emplace` do not.
+
+THE COSTS over libc++ 22, the build after a change of the file, the best of three: The unit holds 50 functions for its
+five instances in 26,800 bytes, where the twin's holds 177 in 93,472; the count run takes 1.24 s as C and 1.26 s as C++
+against the twin's 1.20 s, in 1.7 MB against 3.2 MB. `<optional>` is a light header, as `<array>` is: the C build after
+a change of the file takes 0.60 s and 173 MB, cicilang++'s 0.52 s and 140 MB, against clang++'s 0.26 s and 108 MB.
+
+THE NETS, over the step's work tree and a fresh HOME: the flow gate GREEN with no finding, `library/ccllib/optional.pl`
+charted beside the other modules; the ccllib gate over libc++ 22, 310 checks: 17 programs in three runs, 95 refused and
+9 alone, the costs measured. The ccllib gate ran over 22 alone, as at 0.299: its C runs read no libc++. No other gate's
+code changed: the module is a macro file of its own, read by a program that includes it. THE CHAIN DID NOT RUN, by the
+owner's rule of 0.271. NO CI JOB RAN.
+
+- `library/ccllib/optional.pl`, `optional.pl.h`; `test/flow.sh`'s `CFILES`.
+- `test/ccllib/optional.c`, `optional.cpp`, `optional.expect`, `optional.count`;
+  `test/ccllib/safe/optional_of_pointer.c`, `optional_of_array.c`, `optional_of_nullopt.c`, `emplace_leaves.c`,
+  `optional_other_value.c`, `optional_of_other.c`; `test/ccllib/alone/optional_rules.c`, and `stops.c`'s two cases.
+- RULES.md (the ccllib gate's programs, `optional.pl`), CCLLIB.md (1b, `optional.pl`; the parts of phase 1), README.md,
+  HISTORY.md, CLAUDE.md; `module/cicilang.cicili` (0.300).
+
+The module 0.300, the reader 193 and the lowering 168.
