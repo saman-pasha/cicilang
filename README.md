@@ -119,6 +119,13 @@ rules of the code by topic; `HISTORY.md` is the record of every step.
   `#cocolog ... #end` block, is a set of macros that run at parse time over
   the syntax tree, with the symbol table open to them. `format`, `print`,
   `println` and `clone` are such macros.
+* **ccllib, C++'s standard library for C.** `#include <vector.pl>` gives a
+  C program `vector<int>`: twenty modules -- the containers, `string`,
+  `string_view`, `span`, `bitset`, `optional`, `pair`, `tuple`, `variant`
+  and `unique_ptr` -- written as macro files. An instance is made where the
+  program uses it, each of its functions at its first call, and the safe
+  part checks its memory. The same file builds as C and as C++, and prints
+  what its twin over `std::` prints.
 * **The small additions.** `name := expr;` declares by inference, its left
   side a pattern; `name { members }` declares a struct type; `defer(a, b)
   { body }` is a scope-bound cleanup with no runtime.
@@ -370,7 +377,8 @@ int main(void) { printf("%d %d\n", twice(21), sum(1, 2, 3, 4)); return 0; }   /*
 ```
 
 A macro can also write C text with holes (0.260, the first step of the plan in
-`CCLLIB.md`: a standard library for cicilang's C, written as macros).
+`CCLLIB.md`: a standard library for cicilang's C, written as macros, the
+section of ccllib below).
 `ccl_c_items(Text, Holes, Items)` reads the text as file-scope items,
 `ccl_c_stmts/3` as statements in the call's scope, `ccl_c_expr/3` as an
 expression and `ccl_c_type/3` as a type name, with the reader's own grammar
@@ -520,6 +528,115 @@ an own field is not assigned through a const object. The C++ gate builds
 and `unread.c` as C++ and compares their output with their C builds';
 `test/cpp/run/elemborrowpp.cpp` is `elemborrow.c` the C++ way.
 
+`format`, `print`, `println` and `clone` are global macros, there in every
+program without an include (`library/ccl_format.pl`). The format string
+has Rust's holes, each becoming the `printf` conversion of its argument's
+inferred type, a struct printed by its members. An empty hole `{}` takes the
+next argument; a named hole `{name}` takes the variable of that name in scope:
+
+```c
+n := 42;
+name := "ann";
+p := (point_t){ 1, 2.5 };
+println("n = {} name = {name} p = {p}", n);   // n = 42 name = ann p = point_t { x: 1, y: 2.5 }
+s := format("{} + {} = {}", 1, 2, 3);          // char *
+```
+
+## ccllib: the standard library of cicilang's C
+
+ccllib gives a C program what libc++ gives a C++ program: the containers,
+the strings, the views and the vocabulary types, by C++'s names. It is
+written as macro files in `library/ccllib/`, a file for each C++ header, and
+`CCLLIB.md` is its plan. `#include <vector.pl>` reads the module and its C
+header; then `vector<int>` is a type and `push_back(v, 7)` is a call. Nothing
+of libc++ is in it: a module writes C text, which the reader makes where the
+program uses it, so that a program holds the functions that it calls and no
+other. cicilang builds a ccllib program as C, and cicilang++ builds the same
+file as C++.
+
+```c
+#include <stdio.h>
+#include <vector.pl>
+#include <map.pl>
+#include <string.pl>
+#include <optional.pl>
+
+int main(void) {
+    vector<int> v = [5, 3, 9];
+    push_back(v, 7);
+    map<int, double> m;
+    m[5] = 2.5;
+    m[1] = 0.5;
+    string s = "abc";
+    s += "def";
+    optional<int> o;
+    o = v[3];
+    printf("%d %zu %.1f %zu %s %d\n", v[0], size(v), at(m, 5), size(m), c_str(s), value(o));   /* 5 4 2.5 2 abcdef 7 */
+    return 0;
+}
+```
+
+Nothing is freed by hand: the vector, the map and the string are dropped at
+the end of `main`.
+
+| `#include` | gives | its form |
+|---|---|---|
+| `<vector.pl>` | `vector` | a buffer that grows |
+| `<array.pl>` | `array` | a struct of one C array: a value, with no heap and no drop |
+| `<deque.pl>` | `deque` | a ring: each end in constant time |
+| `<list.pl>` | `list` | nodes in one buffer; a place is a node's number, and it stays |
+| `<forward_list.pl>` | `forward_list` | the list's buffer, with one link a node |
+| `<stack.pl>` | `stack` | a buffer, its top at its end |
+| `<queue.pl>` | `queue`, `priority_queue` | a ring; a heap, its order a function's name |
+| `<set.pl>` | `set`, `multiset` | a B-tree, its nodes in one buffer |
+| `<map.pl>` | `map`, `multimap` | the same B-tree |
+| `<unordered_set.pl>` | `unordered_set`, `unordered_multiset` | a hash table, its slots in one buffer |
+| `<unordered_map.pl>` | `unordered_map`, `unordered_multimap` | the same table |
+| `<bitset.pl>` | `bitset` | words of 64 bits: a value, with no heap |
+| `<string.pl>` | `string`, `to_string`, `stoi` and the rest | an own buffer, or fifteen characters in place (`<basic_string.pl>`) |
+| `<string_view.pl>` | `string_view` | the first character and the count: a borrow (`<basic_string_view.pl>`) |
+| `<span.pl>` | `span` | the first element and the count: a borrow |
+| `<optional.pl>` | `optional`, `nullopt` | the value and a byte that says that it is there |
+| `<pair.pl>` | `pair` | `first` and `second` |
+| `<tuple.pl>` | `tuple`, `get<I>`, `get<T>` | a struct of its elements |
+| `<variant.pl>` | `variant`, `visit`, `monostate` | a union and the index of the alternative that it holds |
+| `<memory.pl>` | `unique_ptr`, `make_unique` | one own pointer and a drop |
+
+What every module does:
+
+* A call has C++'s name and finds its function by the type of its first
+  argument: `push_back(v, 7)` is `vector_int_push_back(&v, 7)`, where C++
+  writes `v.push_back(7)`. Each function of an instance is made at its first
+  call, and an instance that two units make links once.
+* An object is born empty, as C++ constructs it by default, and the compiler
+  drops it where its scope ends, as C++ runs its destructor. It moves where
+  C++ writes `std::move`: by an assignment, into a call and out of one.
+  `clone(v)` copies it.
+* An element is a value with no pointer in it. A container of owners waits
+  for a rule (`CCLLIB.md`'s decision 2).
+* A borrow of a container's memory -- `data(v)`, `begin(v)`, `&v[i]`,
+  `c_str(s)`, a view, a span, `get(p)` -- ends where a call may replace that
+  memory, and a use after it is refused at compile time: C++'s iterator
+  invalidation, found before the program runs.
+* A place past the end, the value of an optional that has none, an
+  alternative that a variant does not hold and the object of an empty
+  unique_ptr stop the program, where C++ is undefined.
+* The relations are C++20's (0.304): the first pair of elements that is not
+  equal decides, and a NaN, which is neither less nor equal, ends the
+  comparison, so that `<`, `>`, `<=` and `>=` are all false. Each module
+  gives `<=` and `>=` functions of their own, `_le` and `_ge`, which the
+  reader asks first. `test/ccllib/relations.c` is the example.
+* An order or a hash is a function's name, where C++ writes a type:
+  `set<int, later>`, `unordered_set<point, point_hash, point_eq>`.
+
+Each program of `test/ccllib/` runs three ways (`sh test/ccllib.sh`):
+cicilang builds it as C, cicilang++ builds it as C++, and clang++ builds its
+twin over `std::`; the three print the same lines, and under valgrind each
+run frees every block. The gate also builds each program of
+`test/ccllib/safe/`, which the safe part refuses, as C and as C++, and each
+program of `test/ccllib/alone/`, which holds a module to a model of its
+rules, and it measures what each run costs.
+
 The first proof of the plan (0.273) is `test/ccllib/first.c`: a
 `vector<int>` with `push`, `at`, `len` and `sort`, made by the macro file
 beside it. cicilang builds it as C, cicilang++ builds it as C++, and
@@ -532,16 +649,15 @@ store serves) and makes an IR of 2 types and 21 functions and an object of
 229 functions and 126 KB; sorting ten million numbers takes each about a
 third of a second.
 
+The modules, each with its example in `test/ccllib/`:
+
 `#include <vector.pl>` is ccllib's first module (0.274), `std::vector` for
 C: `vector<int> v;`, `push_back(v, 7)`, `v[0] = 9`, `insert(v, 1, 11)`,
 `erase(v, 0)`, `resize(v, 5)`, `clone(v)`, `v == w`, and the rest of the
-C++ names. A call finds its function by the type of its first argument, and
-each function of an instance is made at its first call, so a program holds
-the functions that it calls and no other. `begin(v)`, `data(v)` and `&v[i]`
-are borrows of the buffer: used after a `push_back` they are refused at
-compile time. An element is a value with no pointer in it; a vector of
-vectors waits for a rule on containers of owners. `test/ccllib/vector.c` is
-the example.
+C++ names. `begin(v)`, `data(v)` and `&v[i]` are borrows of the buffer: used
+after a `push_back` they are refused at compile time. A vector of vectors
+waits for a rule on containers of owners. `test/ccllib/vector.c` is the
+example.
 
 `#include <array.pl>` gives `std::array` (0.275): `array<int, 4> a = [5, 3,
 9];` is a struct of four ints, a value with no heap and no drop, which
@@ -636,12 +752,6 @@ example.
 `p == q`, `p < q`. A pair of pairs, and an optional of a pair, compare by
 their members' own relations. `test/ccllib/pair.c` is the example.
 
-The relations of every ccllib module are C++20's (0.304): the first pair of
-elements that is not equal decides, and a NaN, which is neither less nor
-equal, ends the comparison, so that `<`, `>`, `<=` and `>=` are all false.
-Each module gives `<=` and `>=` functions of their own, `_le` and `_ge`,
-which the reader asks first. `test/ccllib/relations.c` is the example.
-
 `#include <tuple.pl>` gives `std::tuple` (0.305), a struct of its elements:
 `tuple<int, double, char> t = {1, 2.5, 'c'};`, `get<0>(t) = 3;`,
 `get<double>(t) += 1;`, `swap(t, u)`, `t == u`, `t < u`. `get<0>(t)` is
@@ -665,19 +775,11 @@ make_unique<point>(pt);`, `p->x = 3;`, `(*p).y += 1;`, `get(p)`,
 and `*p` of an empty one stops the program. `test/ccllib/unique_ptr.c` is
 the example.
 
-`format`, `print`, `println` and `clone` are global macros, there in every
-program without an include (`library/ccl_format.pl`). The format string
-has Rust's holes, each becoming the `printf` conversion of its argument's
-inferred type, a struct printed by its members. An empty hole `{}` takes the
-next argument; a named hole `{name}` takes the variable of that name in scope:
-
-```c
-n := 42;
-name := "ann";
-p := (point_t){ 1, 2.5 };
-println("n = {} name = {name} p = {p}", n);   // n = 42 name = ann p = point_t { x: 1, y: 2.5 }
-s := format("{} + {} = {}", 1, 2, 3);          // char *
-```
+What waits: `shared_ptr` and `any` wait for the owner's word, and `hash`,
+`less` and the other function objects come next, with the rest of phase 1b;
+then `<algorithm>`, `<numeric>` and the ranges as loops (phase 1c), and
+iostreams over C's stdio (phase 1d). `CCLLIB.md` gives the phases after
+them, to C++26.
 
 ## C++: the levels and the library
 
@@ -849,6 +951,8 @@ library/ccl_ir.pl              the lowering to LLVM IR text
 library/ccl_build.pl           cicilang_compile and cicilang_link
 library/ccl_driver.pl          what the command does: the steps, the diagnostics, the IR cache
 library/include/               the compiler's own freestanding C headers
+library/ccllib/                ccllib: a macro file and its C header for each module; tree.pl, table.pl and
+                               ccllib.pl, which the modules load
 test/reader.sh, compile.sh, driver.sh, objects.sh, proof/run.sh   the C gates
 test/cpp.sh, libcxx.sh, readhdr.pl, census.sh                     the C++ gates and their tools
 test/gates.sh, parlib.sh       every gate in one chain; the memory-gated parallel pool the C++ gates run on
@@ -860,6 +964,8 @@ test/why.sh, why.pl            where a failed build gave up: the build under lib
                                failed call named
 test/prof.sh, prof.pl          where a build's inferences and time go: windows along its run, by library(flow/debug)
 test/c/, test/cpp/             the fixtures: what runs, what is refused, what is read whole
+test/ccllib/, test/ccllib.sh   ccllib's programs and their twins over std::, what the safe part refuses, the
+                               programs that stand alone; the gate that runs them three ways and measures them
 bench/btree, bench/compile     the B-tree and the compile-time benchmarks
 tutorials/                     the objects layer's lessons
 DESIGN.md, CLAUDE.md           the architecture; how the repository is worked on, the owner's rules

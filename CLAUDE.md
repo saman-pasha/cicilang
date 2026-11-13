@@ -12,7 +12,7 @@ the fixture that gates it, and why. The bullet ends with the version that made t
 edits the rule in `RULES.md`, in its topic, and writes its entry in `HISTORY.md`. Read the topic of `RULES.md` that
 covers the code before the code is changed.
 
-At 1.1.0 the versions are: the module 1.1.0 (`ccl_p_version` in `module/cicilang.cicili`, `bin/cicilang --version`),
+At 1.1.1 the versions are: the module 1.1.1 (`ccl_p_version` in `module/cicilang.cicili`, `bin/cicilang --version`),
 the reader 200 (`ccl_reader_version/1`, `library/ccl_syntax.pl`) and the lowering 173 (`ccl_lowering_version/1`,
 `library/ccl_ir.pl`).
 
@@ -305,7 +305,8 @@ In `RULES.md`:
 CLAUDE.md                   this file: the owner's rules, how the work is done, where things are
 RULES.md                    the rules of the code as they stand, by topic
 HISTORY.md                  the record of every step, verbatim, up to 0.111, and the entries from 0.112 on
-README.md                   what cicilang is and what runs: the commands, the four predicates, the additions, C++
+README.md                   what cicilang is and what runs: the commands, the four predicates, the additions, ccllib
+                            (1.1.1), C++
 DESIGN.md                   the architecture, the neighbours' roles, the milestones M0 to M6
 CCLLIB.md                   the plan of ccllib, the standard library of cicilang's C as cocolog macros (0.260)
 .gitignore                  the build output and the scratch that are never committed

@@ -306,6 +306,7 @@ One row per step, in version order: the step's title, what it did and its gate n
 | 0.309 | ccllib phase 1b, memory.pl's unique_ptr; new memory thrown away | `#include <memory.pl>`: one own pointer and a drop, born null, made of an own pointer; `make_unique<T>(x)` by the reader's maker by name, `*p` and `p->m` by its pointer's type macro; `get`, `release`, `reset`, `swap`, the relations; the safe part refuses new memory thrown away, where `release(p);` and `malloc(10);` built and leaked; C++'s `clone` refused by name | `unique_ptr.c` and its twin; 17 ccllib refusals, 10 C ones and three C++ ones; `unique_ptr_rules.c` at 268,078 checks; 25 copies broken on purpose, each caught; the flow gate and the nets; no chain, by the owner's rule of 0.271; a commit and a push |
 | 0.310 | an #include inside an item is its file's text in place | the Ambitious session's finding over its CSS table: an `#include` inside an enum, a struct, a body or an initializer of the user's file and of its own header is the file's text, under the macros in force, at the `#include`'s line, where the reader dropped it or gave up -- an X-macro's enum lost its rows, and its table of `CSS_NPROPS` rows was longer than `CSS_NPROPS`; an array of no bound counts its list as the lowering takes it and takes an earlier declaration's bound; the safe part walks an elided table; a refusal after a function stands at its own line; the files put in place key the kept builds | `xmacro.c` as C and as C++; the driver gate's checks of the refusals and of the files put in place; 71 forms; 33 copies broken on purpose, each reported by a gate; the flow gate and the nets; no chain, by the owner's rule of 0.271; a commit and a push |
 | 1.1.0 | the version 1.1.0, a patch for each change | the owner's rule: major 1, since the programs of the Ambitious session use cicilang; minor 1, for ccllib; each commit raises the patch; until 0.310 the version was `0.N` | the driver gate and the toolchain check; no library file changed; no chain, by the owner's rule of 0.271; a commit and a push |
+| 1.1.1 | the README's section of ccllib | the owner's request: a section of ccllib in `README.md`, its example built as C and as C++, a table of the twenty modules, what every module does, the proof, the module paragraphs that stood among the macro files' forms, and what waits; a bullet of the features | the example in the three runs and under valgrind; the toolchain check; no library file changed; no chain, by the owner's rule of 0.271; a commit and a push |
 
 ## M5 — the C++ mode
 
@@ -22574,3 +22575,27 @@ phase 1a and the most of phase 1b are done. Each commit raises the patch by one.
   CI job ran.
 
 The module 1.1.0, the reader 200 and the lowering 173.
+
+## 1.1.1 — the README's section of ccllib
+
+**1.1.1: the owner's request, "Refactor README include ccllib". ccllib has a section of its own in `README.md`, after
+the section of macro files and before C++'s, where its paragraphs stood among the macro files' forms, one a step, since
+0.273. The features name it too.**
+
+- THE SECTION, `## ccllib: the standard library of cicilang's C`: what ccllib is and how a program takes a module; an
+  example over `<vector.pl>`, `<map.pl>`, `<string.pl>` and `<optional.pl>`, which cicilang builds as C and cicilang++
+  as C++, each printing the line of its comment, `5 4 2.5 2 abcdef 7`, as its twin over `std::` by clang++ 22 prints it,
+  and each freeing every block under valgrind; a table of the twenty modules a program includes, with what each gives
+  and its form; what every module does -- the call by C++'s name and the first argument's type, the birth, the drop and
+  the move, an element with no pointer, a borrow that a change ends, what stops the program, the relations of C++20 (the
+  paragraph of 0.304), an order and a hash by a function's name --; the proof in three runs and what the gate measures,
+  with the first proof of 0.273; the module paragraphs of 0.274 to 0.309, moved as they stood, but for the vector's
+  sentences that the shared rules now say; and what waits, by `CCLLIB.md`'s phases.
+- The features: a bullet of ccllib. The section of macro files points to the new section. `## What lives here`:
+  `library/ccllib/` and `test/ccllib/` with `test/ccllib.sh`.
+- `module/cicilang.cicili`: `1.1.1`. CLAUDE.md (the versions; `README.md`'s line in the list of files), README.md,
+  HISTORY.md.
+- No library file and no gate changed: the toolchain check GREEN, cocolog's checkout its master off its pin as at 1.1.0,
+  and the README's example built in the three runs. The chain did not run, by the owner's rule of 0.271. No CI job ran.
+
+The module 1.1.1, the reader 200 and the lowering 173.
