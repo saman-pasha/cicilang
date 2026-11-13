@@ -881,8 +881,9 @@ HISTORY.md                     the record of every step: what it did, what it fo
 * **Nothing of the standard library is the compiler's own.** The C
   freestanding headers are the one exception; libc++ compiles as it is.
 * **Nothing is claimed before its GREEN line.** A rule is a check in a
-  gate; every commit raises the version, and the ten gates run over
-  each finished task.
+  gate; every commit raises the version's patch -- 1.1.0 is the first
+  of the major 1, since programs use cicilang, and of the minor 1,
+  ccllib's --, and the ten gates run over each finished task.
 
 ## Not done
 

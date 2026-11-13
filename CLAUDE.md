@@ -12,7 +12,7 @@ the fixture that gates it, and why. The bullet ends with the version that made t
 edits the rule in `RULES.md`, in its topic, and writes its entry in `HISTORY.md`. Read the topic of `RULES.md` that
 covers the code before the code is changed.
 
-At 0.310 the versions are: the module 0.310 (`ccl_p_version` in `module/cicilang.cicili`, `bin/cicilang --version`),
+At 1.1.0 the versions are: the module 1.1.0 (`ccl_p_version` in `module/cicilang.cicili`, `bin/cicilang --version`),
 the reader 200 (`ccl_reader_version/1`, `library/ccl_syntax.pl`) and the lowering 173 (`ccl_lowering_version/1`,
 `library/ccl_ir.pl`).
 
@@ -273,10 +273,12 @@ In `RULES.md`:
   name the version, and that each doc that the step names did change; after the push it compares the remote's head with
   the commit. The commit of 0.278 went out without its docs: the script that writes them stopped at a text that it did
   not find, and the shell went on to commit and push. 0.279 carried them. (0.279)
-- Every commit raises the version (owner's rule): the string in `ccl_p_version` (`module/cicilang.cicili`) becomes
-  `0.N`, one more than the last commit's. Rebuild after it, because the `.so` carries it; `bin/cicilang --version`
-  shows it. (from the start)
-- The title is `0.N: ` and the step's title. Every commit ends with
+- Every commit raises the version (owner's rule): the string in `ccl_p_version` (`module/cicilang.cicili`) is
+  MAJOR.MINOR.PATCH, and each commit raises the patch by one (owner's rule, 1.1.0: "Set major version to 1 because
+  Ambitious uses cicilang, minor version to 1 because ccllib implementation and raise patch for every change"). Until
+  0.310 it was `0.N`, one more than the last commit's. Rebuild after it, because the `.so` carries it; `bin/cicilang
+  --version` shows it. (from the start, 1.1.0)
+- The title is the version and the step's title, `1.1.P: ` (`0.N: ` until 0.310). Every commit ends with
 
       Co-Authored-By: Claude Opus 5 (1M context) <noreply@anthropic.com>
       Claude-Session: https://claude.ai/code/session_01FUuQ3oBiKs3XpXAEHLCL1F

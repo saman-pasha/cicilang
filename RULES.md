@@ -1052,7 +1052,8 @@ that changes a rule edits the rule here, in its topic, and writes its entry in `
   from, by its path (0.251, Compile and link) -- and `-lc++abi` (the archive names libc++abi's symbols directly); a run
   with it keeps no C store, as with `-D`. libc++'s time zones (`tzone.cpp`, libc++ 21; libc++
   18 has none, `tzone.needs`), syncstream and the rest of its experimental part. `--version` prints the versions of
-  cicilang, cocolog and LLVM; `-h` prints the help. (M4, 0.108, 0.251)
+  cicilang, cocolog and LLVM -- cicilang's MAJOR.MINOR.PATCH since 1.1.0, `0.N` before it --; `-h` prints the help.
+  (M4, 0.108, 0.251, 1.1.0)
 - `-fno-rtti` acts (0.191), as clang++'s does: the option `no_rtti`, libc++'s no-RTTI configuration and `typeid`
   refused (the Configuration chosen through the macros topic); `-frtti`, the default, takes it back, and the last of
   the two on the line wins (`bin/cicilang`'s `rtti`).

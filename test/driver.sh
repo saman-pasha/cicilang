@@ -13,7 +13,7 @@ check() { if [ "$2" = "$3" ]; then printf 'ok   %-56s %s\n' "$1" "$(echo "$2" | 
 cd "$D"    # the store is the user's, from test/config.sh
 CICILI="$ROOT/bin/cicilang"; R="$ROOT/test/c"
 
-check "--version names cicilang, its version, cocolog's and LLVM's" "$("$CICILI" --version | sed 's/^cicilang 0\.[0-9][0-9]* (cocolog [0-9][0-9.]*; LLVM [0-9.]*)$/shape ok/')" "shape ok"
+check "--version names cicilang, its version's three numbers (1.1.0), cocolog's and LLVM's" "$("$CICILI" --version | sed 's/^cicilang [0-9][0-9]*\.[0-9][0-9]*\.[0-9][0-9]* (cocolog [0-9][0-9.]*; LLVM [0-9.]*)$/shape ok/')" "shape ok"
 s0=$(date +%s); first=$("$CICILI" "$R/run/hello.c" -o hello && ./hello); t_first=$(( $(date +%s) - s0 ))
 check "cicilang hello.c -o hello: a binary that runs" "$first" "hello, cicilang"
 check "and with no -o, a.out, as clang" "$("$CICILI" "$R/run/forty2.c"; ./a.out; echo "exit $?")" "exit 42"

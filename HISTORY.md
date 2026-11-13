@@ -305,6 +305,7 @@ One row per step, in version order: the step's title, what it did and its gate n
 | 0.308 | ccllib phase 1b, variant.pl and visit | `#include <variant.pl>`: a union of the alternatives and an index, born zero, `swap`, C++20's relations; `holds_alternative`, `get`, `get_if` and `emplace` by the typed call; `visit<f>(v)`, the typed call with a function's name, calls the program's `f_<word>`; a call by name of a name that ends in a digit asks no count after it | `variant.c` and its twin; 20 refusals; `variant_rules.c` at 3,500 checks and `digitnames.c`; 19 copies broken on purpose, each caught; the flow gate and the nets; no chain, by the owner's rule of 0.271; a commit and a push |
 | 0.309 | ccllib phase 1b, memory.pl's unique_ptr; new memory thrown away | `#include <memory.pl>`: one own pointer and a drop, born null, made of an own pointer; `make_unique<T>(x)` by the reader's maker by name, `*p` and `p->m` by its pointer's type macro; `get`, `release`, `reset`, `swap`, the relations; the safe part refuses new memory thrown away, where `release(p);` and `malloc(10);` built and leaked; C++'s `clone` refused by name | `unique_ptr.c` and its twin; 17 ccllib refusals, 10 C ones and three C++ ones; `unique_ptr_rules.c` at 268,078 checks; 25 copies broken on purpose, each caught; the flow gate and the nets; no chain, by the owner's rule of 0.271; a commit and a push |
 | 0.310 | an #include inside an item is its file's text in place | the Ambitious session's finding over its CSS table: an `#include` inside an enum, a struct, a body or an initializer of the user's file and of its own header is the file's text, under the macros in force, at the `#include`'s line, where the reader dropped it or gave up -- an X-macro's enum lost its rows, and its table of `CSS_NPROPS` rows was longer than `CSS_NPROPS`; an array of no bound counts its list as the lowering takes it and takes an earlier declaration's bound; the safe part walks an elided table; a refusal after a function stands at its own line; the files put in place key the kept builds | `xmacro.c` as C and as C++; the driver gate's checks of the refusals and of the files put in place; 71 forms; 33 copies broken on purpose, each reported by a gate; the flow gate and the nets; no chain, by the owner's rule of 0.271; a commit and a push |
+| 1.1.0 | the version 1.1.0, a patch for each change | the owner's rule: major 1, since the programs of the Ambitious session use cicilang; minor 1, for ccllib; each commit raises the patch; until 0.310 the version was `0.N` | the driver gate and the toolchain check; no library file changed; no chain, by the owner's rule of 0.271; a commit and a push |
 
 ## M5 — the C++ mode
 
@@ -22551,3 +22552,25 @@ The ccllib gate did not run again: its programs hold no namespace, which alone t
   lowering: an initializer that gives more than its object holds; Not done), HISTORY.md, CLAUDE.md.
 
 The module 0.310, the reader 200 and the lowering 173.
+
+## 1.1.0 — the version 1.1.0: major 1, minor 1, a patch for each change
+
+**1.1.0: the owner's rule, "Set major version to 1 because Ambitious uses cicilang, minor version to 1 because ccllib
+implementation and raise patch for every change". The module's version is MAJOR.MINOR.PATCH. The major is 1, since the
+programs of the Ambitious session use cicilang; the minor is 1, for ccllib, the standard library of cicilang's C, whose
+phase 1a and the most of phase 1b are done. Each commit raises the patch by one. From the start to 0.310 the version was
+`0.N`, one more each commit; 1.1.0 is the commit after 0.310.**
+
+- `module/cicilang.cicili`: `ccl_p_version` gives `1.1.0`, and `bin/cicilang --version` prints `cicilang 1.1.0 (cocolog
+  3.62.3; LLVM 18.1.3)`.
+- `test/driver.sh`: the check of `--version` takes the version's three numbers, where it took `0.N`; the check that took
+  `0.N` refuses `1.1.0`, and the new check refuses `0.310`'s form. `test/toolchain.sh` reads the version as a dotted
+  number, and takes it as it stands.
+- CLAUDE.md (the versions; the commit rules: the version and a commit's title), RULES.md (`--version`), README.md (the
+  rules of the house), HISTORY.md.
+- The driver gate 87 checks GREEN over one fresh HOME, its check of `--version` among them, and the toolchain check
+  GREEN, one off its pin: cocolog's checkout is its master, b9c48e8, where the pin is bf956d1 -- the pin moves with the
+  chain, at the end of the ccllib task. No library file changed. The chain did not run, by the owner's rule of 0.271. No
+  CI job ran.
+
+The module 1.1.0, the reader 200 and the lowering 173.
