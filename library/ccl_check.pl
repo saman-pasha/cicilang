@@ -96,6 +96,8 @@
 %%   own_array_by_value  a struct with an own array held by value
 %%   own_array_untagged  an own array in a struct without a tag
 %%   array_unset         an own array not zeroed at birth: from malloc or realloc, or a local without an initializer
+%%   elem_not_moved      an own array's element given to an owner, an own field or an element with no move (0.307)
+%%   result_untied       a borrow of an own array of static storage returned with no tie on the result (0.307)
 %% A plain pointer LOCAL given fresh memory -- malloc's result, an untied
 %% function's, anything not null, not static, not a borrow -- is LOOSE: memory
 %% with no owner behind it, that the check follows as an owner without the
@@ -137,8 +139,8 @@
 
 :- use_module(library(ccl_infer)).
 
-ccl_check_units(Units) :- ccl_ensure_globals, ccl_scope_init, catch(retractall('$ir_hlib'(_)), _, true), ck_note_units(Units), ck_flows(Units), ck_static_results(Units), ck_units(Units).   % no lowering's library functions (0.212)
-ccl_check_noted(Units) :- ck_flows(Units), ck_static_results(Units), ck_units(Units).   % on the table the caller built
+ccl_check_units(Units) :- ccl_ensure_globals, ccl_scope_init, catch(retractall('$ir_hlib'(_)), _, true), ck_note_units(Units), ck_flows(Units), ck_static_results(Units), ck_static_arrays, ck_static_writes(Units), ck_units(Units).   % no lowering's library functions (0.212)
+ccl_check_noted(Units) :- ck_flows(Units), ck_static_results(Units), ck_static_arrays, ck_static_writes(Units), ck_units(Units).   % on the table the caller built
 ck_note_units([]).
 ck_note_units([unit(Is)|Us]) :- ccl_items_note_program(Is), ck_note_units(Us).
 ck_units([]).
@@ -163,6 +165,7 @@ ck_function(L, Ret, Name, Params0, Body) :-
     (   ccl_tie_of(Ret, RY)
     ->  (   memberchk(RY, Names) -> RT = RY
         ;   ck_body_static(Body, RY) -> RT = static(RY)                   % a static local of the function's, or a global: storage nothing ends
+        ;   ck_is_global(RY), nb_current('$ck_static_arrays', SKs), memberchk(RY, SKs) -> RT = RY   % an own array of static storage: its key (0.307)
         ;   ck_is_global(RY) -> RT = static(RY)
         ;   ck_fail(tie_unknown, RY, result(Name)) ),
         nb_setval('$ck_ret_tie', RT)
@@ -170,7 +173,7 @@ ck_function(L, Ret, Name, Params0, Body) :-
     ck_borrowed_fields(Params, Borrowed), nb_setval('$ck_borrowed', Borrowed), nb_setval('$ck_replaced', []),
     ck_dying_fields(Params, Dying), nb_setval('$ck_dying_fields', Dying),
     ck_param_owners(Params, Owners),
-    ck_param_selves(Names, Selves), append(Owners, Selves, Owners1),
+    ck_param_selves(Names, Selves), append(Owners, Selves, Owners0), ck_static_array_frame(Names, SAs), append(Owners0, SAs, Owners1),
     ck_param_ties(Params, [], st([fr(Owners1, [])]), St0),
     ck_param_dtors(Params, Body, Body1),
     ck_walk_body(Body1, St0, St1),
@@ -355,8 +358,91 @@ ck_own_array_type(T) :- ccl_resolve_type(T, arr(_, ET)), ck_own_type(ET), !.
 ck_const(E, N) :- ccl_const_eval(E, N), !.                          % a literal, an enumerator, a constant expression
 ck_note_array(K) :- nb_getval('$ck_arrays', As), ( memberchk(K, As) -> true ; nb_setval('$ck_arrays', [K|As]) ).
 ck_is_array_key(K) :- nb_getval('$ck_arrays', As), memberchk(K, As).
-ck_own_elem(index(A, _), K) :- ck_path(A, K), ck_is_array_key(K).
+ck_own_elem(index(A, _), K) :- ck_path(A, K), ck_is_array_key(K), \+ ck_plain_array_named(A).
+%% A BLOCK'S ARRAY OF ANOTHER TYPE UNDER AN OWN ARRAY'S NAME IS NO OWN ARRAY (0.307): '$ck_arrays' names the function's
+%% own arrays by their keys -- those at file scope among them --, and a local that hides one, `thing *slot[1];' in a
+%% function over `static own thing *slot[2];', or in a block under a local own array's name, is known by its type: its
+%% elements are plain slots. `slot[0] = &x;' over it was `a borrow stored where it cannot be followed'
+ck_plain_array_named(A) :- catch(ccl_type_of(A, AT), _, fail), AT \== unknown, \+ ck_own_array_type(AT).
 ck_has_array_under(St, K) :- ck_under_states(St, K, Ps), member(A-_, Ps), ck_is_array_key(A), !.
+%% THE OWN ARRAYS OF STATIC STORAGE (0.307; the Ambitious session's finding 38): an own array at file scope, and an own
+%% array member of an object at file scope held by value, at any depth, are own arrays as a local one is -- each its
+%% key, the name or the path (`g.a'), listed once before the functions' walks (ck_static_arrays/0, '$ck_static_arrays')
+%% and noted in each function's first frame in state `array' (ck_static_array_frame/2), unless a parameter takes the
+%% name. An element is an own slot that its array holds: its value a borrow of the array, `move(slot[i])' the element
+%% out, the slot nulled by the lowering; a consumer's argument and a store are a local array's. The check knew none of
+%% them: an element's value was new memory (ck_kind/3's last clause), so an owner took it with no move and the store
+%% that replaced it freed what the owner held -- `own thing *out = slot[0]; slot[0] = make(2);' was a double free --, a
+%% plain local that read it was `plain pointer not consumed', and `move(slot[0])' was `move of a non-owner'
+ck_static_arrays :- ccl_tab_list('$ccl_gscope', Es),
+    findall(K, ( member(N-T, Es), atom(N), T \= fn(_, _, _), ck_static_array_keys(N, T, Ks), member(K, Ks) ), Ks0),
+    sort(Ks0, Ks), nb_setval('$ck_static_arrays', Ks).
+ck_static_array_keys(N, T, [N]) :- ck_own_array_type(T), !.
+ck_static_array_keys(N, T, Ks) :- catch(ccl_resolve_type(T, T1), _, fail), T1 = base(_, [struct(_, _)]), ck_has_own_array(T1),
+    ccl_members_of(T1, Ms), !, ck_member_array_keys(Ms, N, Ks).
+ck_static_array_keys(_, _, []).
+ck_member_array_keys([], _, []).
+ck_member_array_keys([member(MT, F, _)|Ms], Base, Ks) :- F \== anon, !, atomic_list_concat([Base, '.', F], K),
+    ck_static_array_keys(K, MT, K1), ck_member_array_keys(Ms, Base, K2), append(K1, K2, Ks).
+ck_member_array_keys([_|Ms], Base, Ks) :- ck_member_array_keys(Ms, Base, Ks).
+ck_static_array_frame(Names, SAs) :- ( nb_current('$ck_static_arrays', Ks) -> true ; Ks = [] ),
+    findall(K-array, ( member(K, Ks), ck_key_root(K, R), \+ memberchk(R, Names) ), SAs),
+    forall(member(K-_, SAs), ck_note_array(K)).
+%% AN OWN RESULT IS NO ELEMENT THAT ITS ARRAY HOLDS STILL (0.307): `return slot[0];' from a function whose result is own
+%% gave the caller an owner of what the array frees at its next store, a double free; `return move(slot[0]);' empties
+%% the slot. A result that is no owner is a borrow of the array, as it was
+ck_own_result_elem(E) :- ck_own_elem(E, _), nb_getval('$ck_ret', Ret), ck_own_type(Ret), !, ck_slot_name(E, EN), ck_fail(elem_not_moved, EN, return(E)).
+ck_own_result_elem(_).
+%% A BORROW OF AN OWN ARRAY OF STATIC STORAGE LEAVES A FUNCTION ONLY BY ITS RESULT'S TIE (0.307): the caller takes an
+%% untied pointer result for new memory -- `thing *peek(void) { return slot[0]; }' was `plain pointer not consumed' at
+%% the caller's end, a word of no cause --; with `tie slot' after the parameters it is a borrow of the array there, which
+%% a store into the array and a call that may store into it end. A result whose type carries no pointer is no borrow:
+%% `int first(void) { return slot[0]->v; }' gives an int
+ck_static_borrow_result(E, St) :- nb_getval('$ck_ret_tie', none), nb_getval('$ck_ret', Ret), \+ ck_own_type(Ret),
+    ck_ref_as_ptr(Ret, RP), ck_carries_type(RP), nb_current('$ck_static_arrays', [_|_]), ck_borrows_from(E, St, P), atom(P), ck_is_array_key(P), nb_getval('$ck_static_arrays', SKs), memberchk(P, SKs), !,
+    ck_fail(result_untied, P, return(E)).
+ck_static_borrow_result(_, _).
+%% A CALL THAT MAY STORE INTO AN OWN ARRAY OF STATIC STORAGE ENDS THE CALLER'S BORROWS OF ITS ELEMENTS (0.307): the callee
+%% may free and replace an element, so after the call, its arguments read, what the caller borrowed of the array dangles,
+%% as after a store -- `thing *b = slot[0]; refill(); b->v' read what refill's store freed, and was taken. A function
+%% of the unit writes the arrays its body stores into, moves an element out of or hands an element of, and those of
+%% the functions it calls ('$ck_static_writes', a fixpoint as the static results'); a call through a pointer writes
+%% them all, and a function with no body in the unit -- the C library's -- none. A name that a parameter or a
+%% declaration of the body hides is the function's own, not the array's: `int fill(void) { int slot[2]; slot[0] = 3;
+%% ... }' writes no `slot' of the file's (ck_writes_in/4, which walks a block's items in their order)
+ck_static_writes(Units) :- ( nb_current('$ck_static_arrays', SKs) -> true ; SKs = [] ),
+    (   SKs == [] -> nb_setval('$ck_static_writes', [])
+    ;   findall(F-w(Ds, Cs), ( member(unit(Is), Units), member(function(_, _, _, F, Ps, _, B), Is), atom(F),
+                               ck_body_writes(Ps, B, SKs, Ds), ck_body_callees(B, Cs) ), Fns),
+        findall(F-Ds, member(F-w(Ds, _), Fns), W0), ck_static_writes_close(Fns, SKs, W0, W), nb_setval('$ck_static_writes', W) ).
+ck_body_writes(Ps, B, SKs, Ds) :- ( catch(ck_param_names(Ps, Hs0), _, fail) -> Hs = Hs0 ; Hs = [] ),
+    findall(K, ck_writes_in(B, Hs, SKs, K), Ds0), sort(Ds0, Ds).
+%% a key that a term writes, whose root no name hides that the walk met before it: a parameter, a declaration earlier
+%% in the same list of items or of arguments -- a block's, a `for''s first part's -- but an `extern' one, which names
+%% the file's
+ck_writes_in(T, _, _, _) :- \+ compound(T), !, fail.
+ck_writes_in([X|Xs], Hs, SKs, K) :- !, ck_writes_seq([X|Xs], Hs, SKs, K).
+ck_writes_in(T, Hs, SKs, K) :- ck_elem_written(T, A), catch(ck_path(A, K), _, fail), memberchk(K, SKs), ck_key_root(K, R), \+ memberchk(R, Hs).
+ck_writes_in(T, Hs, SKs, K) :- T =.. [_|As], ck_writes_seq(As, Hs, SKs, K).
+ck_writes_seq([X|Xs], Hs, SKs, K) :- ( ck_writes_in(X, Hs, SKs, K) ; ck_decl_names(X, Ns), append(Ns, Hs, Hs1), ck_writes_seq(Xs, Hs1, SKs, K) ).
+ck_decl_names(declaration(_, Sto, _, Vs), Ns) :- Sto \== extern, !, findall(N, member(var(N, _, _), Vs), Ns).
+ck_decl_names(_, []).
+ck_elem_written(assign(_, index(A, _), _), A).
+ck_elem_written(move(index(A, _)), A).
+ck_elem_written(call(_, Args), A) :- member(Arg, Args), ck_strip_move(Arg, index(A, _)).
+ck_body_callees(B, Cs) :- findall(C, ( ck_sub_term(call(F, _), B), ( F = id(G), atom(G) -> C = G ; C = '$pointer' ) ), Cs0), sort(Cs0, Cs).
+ck_static_writes_close(Fns, SKs, W0, W) :-
+    findall(F-Ks, ( member(F-w(Ds, Cs), Fns), findall(K, ( member(K, Ds) ; member(C, Cs), ck_callee_writes(C, W0, SKs, K) ), Ks0), sort(Ks0, Ks) ), W1),
+    ( W1 == W0 -> W = W0 ; ck_static_writes_close(Fns, SKs, W1, W) ).
+ck_callee_writes('$pointer', _, SKs, K) :- !, member(K, SKs).
+ck_callee_writes(G, W0, _, K) :- memberchk(G-Ks, W0), !, member(K, Ks).
+ck_callee_writes(G, _, SKs, K) :- \+ ( catch(ccl_gdeclared(G, T), _, fail), catch(ccl_resolve_type(T, fn(_, _, _)), _, fail) ), member(K, SKs).   % a variable: a pointer
+ck_static_writes_of(id(F), Ks) :- atom(F), nb_current('$ck_static_writes', W), memberchk(F-Ks0, W), !, Ks = Ks0.
+ck_static_writes_of(id(F), []) :- atom(F), catch(ccl_declared(F, T), _, fail), catch(ccl_resolve_type(T, fn(_, _, _)), _, fail), !.   % no body in the unit
+ck_static_writes_of(_, Ks) :- ( nb_current('$ck_static_arrays', Ks0) -> Ks = Ks0 ; Ks = [] ).   % through a pointer
+ck_static_replaced(_, St, St) :- \+ nb_current('$ck_static_arrays', [_|_]), !.   % no own array of static storage in the unit
+ck_static_replaced(Callee, St0, St) :- ck_static_writes_of(Callee, Ks0), findall(K, ( member(K, Ks0), ck_is_array_key(K) ), Ks), Ks \== [], !, ck_dangle_all(St0, Ks, St), ck_note_replaced(Ks).
+ck_static_replaced(_, St, St).
 %% the rules a declared type must meet: an own pointer only where its owner is
 %% named (never behind a plain pointer, never in an array without a constant
 %% bound); a struct with an own array behind a pointer, never by value, and
@@ -431,6 +517,7 @@ ck_member_ties([member(MT, F, _)|Ms], Base, Sep, Seen, Ts) :-
 
 %% the path an lvalue names: a, a.f, a->f, a->inner.f
 ck_path(id(N), N) :- atom(N).
+ck_path(scoped(_, N), N) :- atom(N).   % C++: a qualified name is its bare name, as ck_expr/3 and ck_borrows_from/3 read it -- `store::slot[0]' an own element of `namespace store { own thing *slot[2]; }' (0.307)
 ck_path(member(id(R), F), K) :- ck_is_ref(R), !, ck_path(arrow(id(R), F), K).            % C++: r.f with r a reference is the referent's field, r->f
 ck_path(member(deref(E), F), K) :- !, ck_path(arrow(E, F), K).                           % (*p).f IS p->f (C17 6.5.2.3/4; 0.303): it had no path, and a borrow of it none
 ck_path(member(E, F), K) :- ck_path(E, B), atomic_list_concat([B, '.', F], K).
@@ -1302,6 +1389,7 @@ ck_key_root(K, R) :- atom(K), findall(B, ( sub_atom(K, B, _, _, '.') ; sub_atom(
 ck_call_tie(call(F, Args), St, P) :-
     ck_callee_sig(F, fn(R, Ps, _)), ccl_tie_of(R, Y),
     (   ck_param_index(Ps, Y, 1, I) -> ccl_nth(I, Args, A0), ( ccl_nth(I, Ps, param(PT, _)), ( PT = ref(_, _) ; PT = rref(_, _) ) -> A = addr(A0) ; A = A0 ), ck_tie_source(A, St, P)   % a result tied to a REFERENCE parameter borrows the object the reference binds, its argument (0.202): `void *operator new(std::size_t, Arena &a) tie a' over `new (ar) S' borrows `ar'
+    ;   ck_is_array_key(Y) -> P = Y   % an own array of static storage: a borrow of its key, which a store ends (0.307)
     ;   P = static(Y) ).
 ck_param_index([param(_, Y)|_], Y, I, I) :- !.
 ck_param_index([_|Ps], Y, I0, I) :- I1 is I0 + 1, ck_param_index(Ps, Y, I1, I).
@@ -1412,7 +1500,7 @@ ck_merge_state(_, _, partial).
 ck_stmt(S, dead, dead) :- S \= label(_, _, _), !.   % dead code is not walked -- but a LABEL is, the gotos to it may bring a state (0.133)
 ck_stmt(block(Is), St0, St) :- !, ccl_scope_push, ck_bpath_push, ck_push(St0, St1), ck_stmts(Is, St1, St2), ck_scope_end(St2, St), ck_bpath_pop, ccl_scope_pop.
 ck_stmt('$splice'(Is), St0, St) :- !, ck_stmts(Is, St0, St).
-ck_stmt(declaration(L, Sto, Base, Vs), St0, St) :- !, ck_line(L), ( Sto == static -> ck_note_statics(Vs) ; true ), ck_decls(Vs, St0, St), ccl_note_block_constants(Base, Vs).   % a C23 `constexpr' local is a constant of its block (0.195)
+ck_stmt(declaration(L, Sto, Base, Vs), St0, St) :- !, ck_line(L), ( memberchk(Sto, [static, extern]) -> ck_note_statics(Vs) ; true ), ck_decls(Vs, St0, St), ccl_note_block_constants(Base, Vs).   % a C23 `constexpr' local is a constant of its block (0.195)
 ck_stmt(typedef(_, _), St, St) :- !.
 ck_stmt(declare(_, _), St, St) :- !.
 ck_stmt(directive(_, _), St, St) :- !.
@@ -1462,7 +1550,7 @@ ck_stmt(coro_return(L), St0, dead) :- !, ck_line(L), ck_exit_all(St0, return).
 ck_stmt(coro_suspend(L, _, E, _), St0, St) :- !, ck_line(L), ck_expr(E, St0, St).
 ck_stmt(coro_done(L, _), _, dead) :- !, ck_line(L).
 ck_stmt(return(L, move(E)), St0, St) :- nb_getval('$ck_ret', Ret), ck_ref_as_ptr(Ret, RP), RP \== Ret, !, ck_stmt(return(L, E), St0, St).   % `return std::move(x);' WITH A REFERENCE RESULT IS A CAST ([expr.static.cast]; 0.132): `T &&' bound to x, which stays the caller's -- nothing moves, and the reference leaves as any other does (a parameter's referent, never a local's); it was refused `move_of_non_owner' for a reference parameter
-ck_stmt(return(L, E), St0, dead) :- !, ck_line(L), ck_dropped_assign(E, St0, return(E)), ck_anchor_addrs(E, St0, St1), ck_no_escape(E, St1), ck_consume_or_use(E, St1, St2), ck_exit_all(St2, return(E)).
+ck_stmt(return(L, E), St0, dead) :- !, ck_line(L), ck_dropped_assign(E, St0, return(E)), ck_anchor_addrs(E, St0, St1), ck_no_escape(E, St1), ck_own_result_elem(E), ck_static_borrow_result(E, St1), ck_consume_or_use(E, St1, St2), ck_exit_all(St2, return(E)).
 ck_stmt(break(L), St0, dead) :- !, ck_line(L), ck_exit_to_loop(St0, break).
 ck_stmt(continue(L), St0, dead) :- !, ck_line(L), ck_exit_to_loop(St0, continue).
 ck_stmt(goto(Ln, L), St, dead) :- !, ck_line(Ln), ck_goto(L, Ln, St).
@@ -1590,7 +1678,9 @@ ck_decls([var(N, T0, Init0)|Vs], St00, St) :-
     ck_declare_all(St0, FOs, St1), ck_field_ties(N, T, St1, St2, Ts), ck_anchor_addrs(Init, St2, St3),
     (   ck_own_array_type(T)
     ->  ck_note_array(N),
-        ( Init = init(Items) -> ck_declare(St3, N, array, St5), ck_init_slots(Items, T, N, St5, St6) ; ck_fail(array_unset, N, var(N, Init)) )
+        (   Init = init(Items) -> ck_declare(St3, N, array, St5), ck_init_slots(Items, T, N, St5, St6)
+        ;   Init == none, ck_is_static(N) -> ck_declare(St3, N, array, St6)   % static storage is zero at birth (0.307; C17 6.7.9/10)
+        ;   ck_fail(array_unset, N, var(N, Init)) )
     ;   ck_own_type(T), ck_is_pointer_type(T)
     ->  ck_declare(St3, N, unset, St4), ck_var_tie(N, T, St4, St5),
         ( Init == none -> St6 = St5 ; ck_into_own(N, Init, var(N, Init), St5, St6, _) )
@@ -1653,6 +1743,7 @@ ck_into_own(Key, R, Form, St0, St, Kind) :-
     (   Kind = owner(P) -> ck_strip_move(R, E), ck_base_use(E, St0, St1), ck_tie_kept(St1, P, Key, Form), ck_under_states(St1, P, Src), ck_consume(P, move, Form, St1, St2, Prior), New = Prior, ck_transfer(St2, Src, P, Key, St3a), ck_complete_rest(St3a, Key, Prior, St3)
     ;   Kind = null -> ck_expr(R, St0, St3), New = null
     ;   Kind = borrow(P) -> ( ck_state(St0, P, loose) -> ck_expr(R, St0, St3a), ck_set(St3a, P, none, St3b), ( Key == none -> St3 = St3b ; ck_retarget(St3b, P, Key, St3) ), New = live   % the owner takes loose memory over
+                              ; ck_own_elem(R, _) -> ck_slot_name(R, EN), ck_fail(elem_not_moved, EN, Form)   % an own array's element, its array's still (0.307)
                               ; P = static(N) -> ck_fail(borrow_stored, N, Form)   % static storage, which no owner frees (0.294)
                               ; ck_fail(borrow_stored, P, Form) )
     ;   ck_strip_move(R, E), ( ck_call_tie(E, St0, PR) -> ( Key \== none, ck_within(St0, Key, PR) -> true ; ck_fail(tie_escapes, Key, Form) ) ; true ),
@@ -2106,7 +2197,7 @@ ck_expr(call(id(F), [A0|As]), St0, St) :- ck_lib_replacing(F, A0, St0, Obj), !, 
 ck_expr(call(id(F), Args), St0, St) :- !, ck_args(Args, id(F), St0, St1), ck_throw_point(id(F), Args, St0, St1), ck_lib_store(F, Args, St1, St2), ck_flow_store(F, Args, St2, St3), ck_lib_free_store(F, Args, St3, St).   % what a library object is handed it holds (0.216), what a function of the program or a free library function stores (0.217)
 ck_expr(call(F, Args), St0, St) :- !,
     ck_expr(F, St0, St1),
-    ( ccl_type_of(F, FT), ck_fn_params(FT, Ps) -> ck_args(Args, params(Ps), St1, St) ; ck_exprs(Args, St1, St) ), ck_throw_point(F, St).
+    ( ccl_type_of(F, FT), ck_fn_params(FT, Ps) -> ck_args(Args, params(Ps), St1, St) ; ck_exprs(Args, St1, St1b), ck_static_replaced(none, St1b, St) ), ck_throw_point(F, St).
 %% assignment: to an owner or an own field; to a struct by value with own fields;
 %% to a tied slot; to a local plain pointer (a borrow, or not); to any other
 %% place, by its type
@@ -2222,7 +2313,7 @@ ck_lval_use(E, St0, St) :- ck_expr(E, St0, St).
 %% an own parameter, the callee named or a function type (a pointer's) -- else
 %% used; a borrow is not the callee's to take; a tied owner goes only to a
 %% parameter tied itself
-ck_args(Args, Callee, St0, St) :- ck_arg_ties(Args, Callee, St0), ck_args_alias(Args, Callee, St0), ck_args_(Args, Callee, 1, St0, St1), ck_replaced_args(Args, Callee, 1, St1, St).
+ck_args(Args, Callee, St0, St) :- ck_arg_ties(Args, Callee, St0), ck_args_alias(Args, Callee, St0), ck_args_(Args, Callee, 1, St0, St1), ck_replaced_args(Args, Callee, 1, St1, St2), ck_static_replaced(Callee, St2, St).
 %% A CALL THAT MAY REPLACE A STRUCT'S OWN FIELDS ENDS THE CALLER'S BORROWS OF THEM (0.265; CCLLIB.md's phase 0.8, in C):
 %% a struct handed by a plain pointer -- its address, or a pointer that borrows it -- to a parameter whose pointee is not
 %% const may have its own fields freed and replaced by the callee ('$ck_borrowed', ck_complete_owners/2), so after the

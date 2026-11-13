@@ -301,6 +301,7 @@ One row per step, in version order: the step's title, what it did and its gate n
 | 0.304 | the relations of every ccllib module by C++20's words | `_lt` ends at an unordered pair, each module's own `_le` and `_ge`, and the reader asks them first for `<=` and `>=`, where it wrote the negations of `>` and `<` | `relations.c` and its twin, 50 lines, 23 differed over 0.303; 19 copies broken on purpose, each caught; reader `k166`; the flow gate and the nets; no chain, by the owner's rule of 0.271; a commit and a push |
 | 0.305 | ccllib phase 1b, tuple.pl and the typed call by name | `#include <tuple.pl>`: a struct of its elements, born zero, `swap`, C++20's relations; `get<0>(t)` and `get<double>(t)` the instance's functions by the reader's typed call by name, the element's place; the pair's and the array's `get` | `tuple.c` and its twin; 13 refusals; `tuple_rules.c` at 12,024 checks, 11 copies broken on purpose, each caught; reader `k167`; the flow gate and the nets; no chain, by the owner's rule of 0.271; a commit and a push |
 | 0.306 | `own` is a keyword, and no name that a program declares | the Ambitious session's finding 37: `own` given as a name -- a variable, a parameter, a member, a function, a typedef, a tag, an enumerator, a label, a binding, and C++'s names -- refused at its line in one set of words, where 46 forms failed far from it, late or not at all | 15 C and 10 C++ refusals and `ownwords.c`; reader `k168`, `k169`; the flow gate and the nets; no chain, by the owner's rule of 0.271; a commit and a push |
+| 0.307 | an own array of static storage is an own array | the Ambitious session's finding 38: an own element moved out of a static array by a plain read, which the next store freed under its new owner -- the arrays at file scope, their members and the static locals followed as a local one is: an element leaves only by `move()`, a borrow ends at a store and at a call that may store, a borrow leaves only by a tie; in C++ a namespace's and a class's too | 15 C and 2 C++ refusals, `staticarrays.c`, `staticfree.c`, `statichide.c` and `staticscoped.cpp`; the flow gate and the nets; no chain, by the owner's rule of 0.271; a commit and a push |
 
 ## M5 — the C++ mode
 
@@ -21958,3 +21959,162 @@ beside the finding called for the others.
   (0.306).
 
 The module 0.306, the reader 197 and the lowering 170.
+
+## 0.307 — an own array of static storage is an own array
+
+**0.307: an own array at file scope, an own array member of a record there and a static local own array are own arrays
+to the check, as a local one is: an element leaves its array only by `move()`, which empties the slot, and one given to
+an owner with no move is refused in words that name `move()`; a borrow of an element ends at a store into the array and
+at a call that may store into it; and a borrow of the array leaves a function only by a tie on its result. The Ambitious
+session's finding 38: `own thing *out = slot[0]; slot[0] = make(2);` over `static own thing *slot[2];` was built, and
+the store freed the block that `out` held -- a read of freed memory, then a double free. The finding's second part, the
+store's `free()` whatever the element's type, is the owner's decision, and stays in Not done.**
+
+THE FINDING, run from its reduction over 0.306: the report's program of 19 lines -- `slot[0] = make(1); own thing *out =
+slot[0]; slot[0] = make(2);`, then `out->v` printed, `free(out)`, `free(slot[0])` -- was built as C, and its run stopped
+in `free(): double free detected in tcache 2`, exit 134, as the report says; as C++ it was refused by the defer rule,
+`out` live across `make`'s call, which may throw. The report asked that a move out of the array be recorded, so that the
+store does not free what the new owner holds. THE CAUSE: the check followed an own array only where a declaration in a
+function made it its key (`ck_note_array/1` in `ck_decls/3`). An own array at file scope was in no frame: an element's
+value was new memory to the check (`ck_kind/3`'s last clause), so the owner took it with no move, and nothing marked the
+slot. The lowering's store frees the old element of every own array, a global's too (`ir_elem_assign/3`), so it freed
+what `out` held. A local own array was right, by another road: its element is a borrow of its key, and an owner that
+takes a borrow is `borrow_stored`, in words that do not name the cause.
+
+WHAT THE PROBES FOUND, the finding's reduction and 58 forms beside it, each as C and as C++ -- a C form built by
+cicilang and by cicilang++, a C++ form by cicilang++ --, over 0.306 and over the work tree, valgrind run over each
+program that a tree built. A DOUBLE FREE, over 0.306, for ten: an element given to an owner with no move by an
+initializer (the finding's form), by an assignment, at an index that a variable holds, out of a member array of a static
+record (`g.a`) and out of one two records deep (`go.t.a`), into an own field, into another element and as an own result,
+as C -- as C++ the defer rule met seven of them first, `out` live across `make`'s call, and the element stored into
+another element freed its block twice there too --, and in C++ an element of a namespace's own array and of a class's
+static own array member. A READ OF FREED MEMORY for two: a result tied to the array, `thing *peek(void) tie slot`, read
+after a store into the array and after a call that stores into it -- the tie's root was `static(slot)`, which nothing
+ends. REFUSED IN WORDS THAT NAME NO CAUSE, twenty-one: `move()` of an element -- into an owner, as a result, into an own
+parameter, out of a member array and out of one two records deep, of a namespace's array and of a class's member array
+-- was `move of a non-owner`; a plain local that read an element -- kept over a call that stores into no such array and
+over a C library call, read again after a call that stores, kept over a call that stores, over a store or over a call
+through a pointer -- was `plain pointer not consumed` at the function's end, and so was a result read through an untied
+`peek`; a static local own array, used once and over two calls, and an `extern` declaration in a block were
+`array_unset`; and a local own array's element given to an owner was `borrow_stored`. TAKEN, AND RIGHT, five: an element
+handed to an own parameter, a `free` of an element and a store after it, an initializer, a static local's initializer, a
+tied result read before any store. Over the work tree each double free and each read of freed memory is refused at its
+line, by name -- an element given to an owner with no move `elem_not_moved`, a borrow used after a store
+`borrow_after_move`, after a call that may store `borrow_after_call`, an untied result `result_untied` --, as C and as
+C++; each form that the rules take builds, as C, and as C++ where the defer rule meets no plain owner live across
+`make`'s call; and valgrind finds no error in a program that the work tree builds, but in the forms that stay in Not
+done (below). A call through a pointer is taken to write every such array, so a borrow kept over one is refused where
+the callee stores nothing. THE STEP'S FIRST TEXT, probed with a local under an own array's name, refused three programs
+that 0.306 took or refused for another cause -- a function's `int slot[2];` returned as a sum, `result_untied`; a
+function's `thing *slot[1];` given a local's address, `borrow_stored`; a borrow of the file's array kept over a call of
+a function whose local hides the name, its writes taken for the array's --, and the final text's rules of the hidden
+names and of a result that carries a pointer are their cure; a block's array under a local own array's name,
+`borrow_stored` over 0.306, builds too. A borrow kept over a block that declares its name again and anchors it stays
+refused, as over 0.306 for two plain locals (Not done). AN OWN ARRAY OF A STRUCT COMPLETED AFTER ITS USE builds and
+runs; one whose `op_new` returns `&pool[used++]` is refused, `a borrow stored where it cannot be followed`, since an own
+array's element is no static storage -- over 0.306 that file's link failed, `undefined reference to 'op_new'`, and the
+same file with no own array linked and ran.
+
+THE RULE (`library/ccl_check.pl`). The own arrays of static storage are listed once, before the functions' walks
+(`ck_static_arrays/0`, `'$ck_static_arrays'`): each object at file scope that is not a function and whose type is an own
+array, and each own array member of one that is a record held by value, at any depth, by its path (`g.a`, `go.t.a`).
+Each function's first frame holds each of them in state `array` (`ck_static_array_frame/2`), unless a parameter takes
+the name, and notes it an array key; an `extern` declaration of one in a block notes the name static
+(`ck_note_statics/1`, as a `static` one), and a static local own array with no initializer is in state `array`, since
+static storage is zero at birth (C17 6.7.9/10). AN ELEMENT GIVEN TO AN OWNER WITH NO MOVE is `elem_not_moved` in
+`ck_into_own/6` -- an initializer, an assignment, an own field, another element -- and in a `return` from a function
+whose result is own (`ck_own_result_elem/1`): "an own array's element given to an owner with no move, which its array
+holds still -- write move() around it, which empties its slot". A local own array's element is refused in these words
+too, where it was `borrow_stored`. A CALL THAT MAY STORE INTO SUCH AN ARRAY ends the caller's borrows of it, as a store
+does: `ck_static_writes/1` finds the arrays that each function of the unit writes -- its body stores into an element,
+moves one out, or hands one to a call -- and those that the functions it calls write, to a fixpoint, as the static
+results of 0.294 are found; a call through a pointer, or through a variable, writes every such array, and a function
+with no body in the unit none. After a call's arguments (`ck_args/4`, and a call through a pointer with no prototype)
+the borrows of the arrays that the callee writes dangle (`ck_static_replaced/3`: `ck_dangle_all/3`,
+`ck_note_replaced/1`), so a later use is `borrow_after_call`. A RESULT TIE may name such an array (`ck_function/5`): its
+root is the array's key, not `static(Name)`, and the caller's borrow of it (`ck_call_tie/3`) ends at a store and at such
+a call. A borrow of such an array returned with no tie on a result that is no owner, and whose type carries a pointer
+(`ck_carries_type/1`), is `result_untied` (`ck_static_borrow_result/2`): "a borrow of an own array returned with no tie
+on the result -- tie the result to the array". A LOCAL ARRAY OF ANOTHER TYPE UNDER AN OWN ARRAY'S NAME IS NO OWN ARRAY:
+the check knows an element by its array's key (`ck_own_elem/2`, over `'$ck_arrays'`), and the key is the name, so `thing
+*slot[1];` or `int slot[2];` in a function over `static own thing *slot[2];` -- and a block's array under a local own
+array's name, as over 0.306 -- had own elements; an element is an own array's only where the array's type, which the
+scope knows, is an own array (`ck_plain_array_named/1`). The write set walks a body's items in their order and skips a
+name that a parameter, or a declaration before the write, hides (`ck_writes_in/4`). IN C++, a namespace's own array and
+a class's static own array member are own arrays of static storage too: the class's member is a name of the file's,
+`pool.slot`, and a qualified name is its bare name to `ck_path/2`, as it was to the walk (`ck_expr/3`,
+`ck_borrows_from/3`) -- `store::slot[0]` had no path, its element was no owner's, and `move(store::slot[0])` was `move
+of a non-owner`. The frame's arrays, the writes and the untied result ask nothing of a unit that has no own array
+outside its functions.
+
+THE LOWERING'S FREE (`library/ccl_ir.pl`). An own array's store and its drain free an element with the C library's
+`free`, which the lowering called by its name: in a C file that declares none -- one of `<stdio.h>` and `<string.h>`
+alone --, an own array of strings was `not lowered yet: undeclared(free)`, with no line. The lowering declares `free`
+where the program declares none (`ir_free_known/0`, in `drain_free`, the free that the store and the drain call), where
+C++'s build of the same file found one. A static own array is never drained, as before: it lives to the end of the run.
+
+THE PROOF. `test/c/run/staticarrays.c` holds each form that the rules take -- an element taken by `move()`, a moved
+result, a store that frees the old element, an element handed to a consumer and to an own parameter, a plain read, a
+borrow kept over a call that stores into no such array and over a C library call, a borrow taken after a call that
+stores, an `extern` declaration in a block, a parameter that hides the array's name, an initializer, an own array member
+of a static record, a static local own array over two calls and a result tied to the array --, as C, valgrind finding no
+error and nothing lost; in C++ the defer rule refuses its `out`, live across `make`'s call. `test/c/run/staticfree.c`,
+an own array of strings from `strdup` in a file with no `<stdlib.h>`, as C and as C++. `test/c/run/statichide.c`, the
+names that a local shares with an own array -- a local `int` array, a local array of pointers that holds a local's
+address, a block's array of pointers under the file's array's name, a function whose local hides the name called while a
+borrow of the file's array is kept, an `int` result read through the file's array, and a block's array under a local own
+array's name --, as C and as C++, printing what clang's build prints with `own` defined empty, valgrind finding no error
+and nothing in use at the exit. `test/cpp/run/staticscoped.cpp`, a namespace's own array and a class's static own array
+member, their elements taken by `move()` and stored over, printing what clang++'s build prints, valgrind finding no
+error and nothing in use at the exit; and `test/cpp/staticns.cpp` and `staticmember.cpp`, their elements given to an
+owner with no move -- over 0.306 each a double free --, `elem_not_moved` in the C++ gate's list of the safe part's
+refusals. Fifteen refusals in `test/c/safe/`, each in the compile gate and, built as C++, in the C++ gate's list of the
+safe fixtures that C++ refuses alike: `test/c/safe/static_elem_kept.c`, the finding's form, `static_elem_assign.c`,
+`static_elem_field.c`, `static_elem_elem.c`, `static_elem_return.c`, `static_member_elem.c`, `static_local_elem.c` and
+`local_elem_kept.c` (`elem_not_moved`), `static_borrow_store.c` and `static_tied_store.c` (`borrow_after_move`),
+`static_borrow_call.c`, `static_borrow_deep.c`, `static_borrow_pointer.c` and `static_tied_call.c`
+(`borrow_after_call`), and `static_result_untied.c` (`result_untied`). The lowering's version is 171.
+
+WHAT STAYS, in Not done (the safe part): THE RELEASE OF AN ELEMENT, the finding's second part -- an own array's store
+and its drain release an element with `free()` whatever its type, so an `SSL_SESSION` or a `FILE` in one is freed and
+not released: over `static own FILE *files[2];` and two stores of `fopen`'s result, valgrind finds 86 invalid reads and
+writes at the run's exit, where the C library walks its list of open files, as C and as C++, and over 0.306 the same in
+C++ and in a C file that includes `<stdlib.h>`. A release for each element type is a rule of the language, the owner's.
+A GLOBAL OWN POINTER is followed no more than at 0.290: a store over one frees nothing, so `g = make(1); g = make(2);`
+loses the first block, as an own field of a global record does (valgrind); `move(g)` is `move of a non-owner`; a static
+local own pointer is `owner used before it was given anything` at its first `free`. A CALL INTO ANOTHER UNIT keeps the
+borrows of an own array of static storage: two units over one `own thing *slot[2];` of external linkage, the second
+storing into `slot[0]` in a function that the first calls while it keeps a borrow of `slot[0]`, build as C and as C++,
+and the run reads the block that the store freed (valgrind: `Invalid read of size 4`); over 0.306 the borrow was `plain
+pointer not consumed` at the first unit's function's end. A BORROW OF A NAME THAT A BLOCK DECLARES AGAIN AND ANCHORS
+ends at the block's end, as over 0.306: `int x = 1; int *p = &x; { int x = 2; int *q = &x; } *p` is refused, and so is a
+borrow of an own array kept over a block whose array of pointers takes its name -- a borrow names its object's key, and
+a frame's end dangles the borrows of each key that the frame anchors.
+
+THE NETS GREEN: the flow gate, over the step's last text of the library and of the gate programs; the reader gate 170,
+the compile gate 329, the driver gate 83 and the ccllib gate 379 checks over one fresh HOME -- 20 programs in three
+runs, 118 refused and 12 alone --; the C++ pool of the light fixtures 363 of 363 over libc++ 22, 363 over 21 and 363
+over 18; every other C++ run fixture, 506 of 520, over libc++ 22, since the new rules stand in the walk of every
+function that the check reads, and the list of the own arrays of static storage reads every object at file scope of a
+program and of each header that it reads -- the 14 others name a need, which the net does not meet --; and the C++
+gate's later parts by hand -- `classes.cpp`, `templates.cpp`, the C run fixtures that it builds as C++, `staticfree.c`
+and `statichide.c` among them, and every list of its refusals, the step's seventeen among them -- 203 checks. A first
+run of the nets, over the step's first text, was stopped in its ccllib gate, after the flow gate and the C gates, GREEN,
+when the probes of a local under an own array's name found the three false refusals of that text.
+
+- `library/ccl_check.pl` (`ck_static_arrays/0`, `ck_static_array_keys/3`, `ck_member_array_keys/3`,
+  `ck_static_array_frame/2`, `ck_own_result_elem/1`, `ck_static_borrow_result/2`, `ck_static_writes/1` and its helpers,
+  `ck_static_writes_of/2`, `ck_static_replaced/3`, `ck_writes_in/4`, `ck_plain_array_named/1`, and `ck_path/2`'s clause
+  of a qualified name; their calls in `ccl_check_units/1`, `ccl_check_noted/1`, `ck_function/5`, `ck_args/4`, a call
+  through a pointer, a `return`, `ck_into_own/6`, `ck_call_tie/3`, `ck_decls/3` and a block's `extern` declaration; the
+  kinds `elem_not_moved` and `result_untied`), `library/ccl_driver.pl` (their words), `library/ccl_ir.pl`
+  (`ir_free_known/0`; the lowering's version).
+- `test/c/run/staticarrays.c`, `staticfree.c`, `statichide.c` and their `.expect`; the fifteen `test/c/safe/` files
+  above and their `.expect`; `test/cpp/staticns.cpp`, `staticmember.cpp`, `test/cpp/run/staticscoped.cpp` and
+  `staticscoped.expect`; `test/cpp.sh` (`staticfree` and `statichide` in its list of C run fixtures built as C++, the
+  fifteen in its list of the safe fixtures that C++ refuses alike, `staticns` and `staticmember` in its list of the safe
+  part's refusals).
+- RULES.md (the ties, the own arrays and their drains, the words, Not done of the safe part), README.md, HISTORY.md,
+  CLAUDE.md; `module/cicilang.cicili` (0.307).
+
+The module 0.307, the reader 197 and the lowering 171.

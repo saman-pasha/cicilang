@@ -12,8 +12,8 @@ the fixture that gates it, and why. The bullet ends with the version that made t
 edits the rule in `RULES.md`, in its topic, and writes its entry in `HISTORY.md`. Read the topic of `RULES.md` that
 covers the code before the code is changed.
 
-At 0.306 the versions are: the module 0.306 (`ccl_p_version` in `module/cicilang.cicili`, `bin/cicilang --version`),
-the reader 197 (`ccl_reader_version/1`, `library/ccl_syntax.pl`) and the lowering 170 (`ccl_lowering_version/1`,
+At 0.307 the versions are: the module 0.307 (`ccl_p_version` in `module/cicilang.cicili`, `bin/cicilang --version`),
+the reader 197 (`ccl_reader_version/1`, `library/ccl_syntax.pl`) and the lowering 171 (`ccl_lowering_version/1`,
 `library/ccl_ir.pl`).
 
 Build and prove, always in this order (or all of it, `sh test/gates.sh`):
@@ -529,7 +529,9 @@ test/c/run/                 C programs built and run: NAME.c, NAME.expect, NAME.
                             the bound and no further, and noproto.c, calls that C17 takes without a prototype and the
                             null pointer constants (0.302); ptrfields.c, what a call through a pointer to a struct
                             with an own field replaces not (0.303); ownwords.c, the word own where it is the owner's,
-                            built as C and as C++ (0.306)
+                            built as C and as C++ (0.306); staticarrays.c, own arrays of static storage, staticfree.c,
+                            an own array's store in a file with no <stdlib.h>, and statichide.c, names that a local
+                            shares with an own array (0.307)
 test/c/safe/                C programs the safe part refuses: NAME.c, NAME.expect; dropnone.pl, the macro file of
                             drop_leaks.c (0.262); borrow_after_grow.c, borrow_after_push.c, elem_after_push.c,
                             grow_through_ptr.c, const_replace.c and const_local.c, the safety rules of 0.265;
@@ -550,7 +552,13 @@ test/c/safe/                C programs the safe part refuses: NAME.c, NAME.expec
                             that getline wrote through an out-parameter and never frees it (0.299);
                             borrow_into_call_arrow.c, borrow_into_call_deref.c and borrow_after_call_arrow.c, a
                             borrow through a pointer to its owner, handed to a call that may replace it or read
-                            after it (0.303)
+                            after it (0.303); static_elem_kept.c, the finding's form, static_elem_assign.c,
+                            static_elem_field.c, static_elem_elem.c, static_elem_return.c, static_member_elem.c,
+                            static_local_elem.c and local_elem_kept.c, an own array's element given to an owner with no
+                            move, static_borrow_store.c, static_borrow_call.c, static_borrow_deep.c,
+                            static_borrow_pointer.c, static_tied_store.c and static_tied_call.c, a borrow of an own
+                            array of static storage used after a store or a call that may store into it, and
+                            static_result_untied.c, one returned with no tie (0.307)
 test/cpp/                   the C++ reader's fixtures and the refusals; hidem.cppm for modhidden.cpp; unread_cpp.cpp,
                             an argument taken unread in C++ (0.264, read since 0.270); lit_cpp.cpp, list and map
                             literals beside the lambdas in C++ (0.269); callreplace.cpp, refreplace.cpp,
@@ -561,7 +569,9 @@ test/cpp/                   the C++ reader's fixtures and the refusals; hidem.cp
                             and a local reference (0.303); own_class.cpp, own_alias.cpp, own_namespace.cpp,
                             own_tparam.cpp, own_vtparam.cpp, own_binding.cpp, own_capture.cpp, own_concept.cpp,
                             own_enumclass.cpp and own_pack.cpp, the word own given as a name at the places that C++
-                            adds, each refused at its line (0.306)
+                            adds, each refused at its line (0.306); staticns.cpp and staticmember.cpp, an element of a
+                            namespace's own array and of a class's static own array member given to an owner with no
+                            move (0.307)
 test/cpp/link/              the C++ ABI checks of the C++ gate and the cross gate: abi_helper.cpp, memptr_helper.cpp and
                             byval_helper.cpp built by clang++, abi_main.cpp, memptr_main.cpp and byval_main.cpp by
                             cicilang++, abi.h, memptr.h, byval.h; the C++ gate's two units, units_a.cpp and units_b.cpp
@@ -572,7 +582,9 @@ test/cpp/run/               C++ programs built and run: NAME.cpp, .expect, .flag
                             instances in C++ (0.270); borrowkeep.cpp, and elemborrowpp.cpp over
                             ../../c/run/tvector.pl, what the safety rules let C++ keep (0.272); ccllibclass.cpp over
                             <vector.pl>, classes that hold an instance's object, born zero (0.297);
-                            borrowptrok.cpp, what the rules of 0.303 keep through a pointer and a reference (0.303)
+                            borrowptrok.cpp, what the rules of 0.303 keep through a pointer and a reference (0.303);
+                            staticscoped.cpp, a namespace's own array and a class's static own array member, their
+                            elements taken by move() (0.307)
 test/ccllib/                the three runs' programs: NAME.c, a ccllib program; NAME.cpp, its twin over std::;
                             NAME.expect, what the twin prints; NAME.count, the count of the run that the costs time;
                             first.c over first.pl, the first proof after phase 0 (0.273); vector.c, the whole

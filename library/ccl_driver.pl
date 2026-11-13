@@ -395,6 +395,8 @@ dr_kind(borrow_after_call, 'use of a borrow after a call that may replace its ow
 dr_kind(borrow_into_call, 'a borrow handed to a call that may replace its owner:') :- !.   % beside the struct that the call may change (0.293)
 dr_kind(borrow_escapes, 'a borrow leaves the function:') :- !.
 dr_kind(borrow_stored, 'a borrow stored where it cannot be followed:') :- !.
+dr_kind(result_untied, 'a borrow of an own array returned with no tie on the result -- tie the result to the array:') :- !.   % (0.307)
+dr_kind(elem_not_moved, 'an own array''s element given to an owner with no move, which its array holds still -- write move() around it, which empties its slot:') :- !.   % (0.307)
 dr_kind(borrow_consumed, 'a borrow consumed:') :- !.
 dr_kind(borrow_incomplete, 'a borrowed struct''s own field not whole at the return:') :- !.
 dr_kind(owner_stored, 'an owner''s pointer stored into a plain slot:') :- !.

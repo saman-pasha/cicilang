@@ -300,6 +300,12 @@ unset on its path (0.138).
 declares can be `own`, in C or in C++, and the reader refuses one at its
 line (0.306).
 
+An own array of static storage -- at file scope, a member of a record there,
+a static local -- is an own array too: its element leaves it only by
+`move()`, which empties the slot, a store frees the old element, and a
+borrow of it ends at a store into the array and at a call that may store
+into it; the array lives to the end of the run (0.307).
+
 Refused, each naming the statement's line:
 
 | refused as | when |
@@ -315,6 +321,7 @@ Refused, each naming the statement's line:
 | `tie_unknown`, `tie_outlived`, `tie_escapes`, `tie_mismatch` | a tie to nothing declared, an owner outliving its tie, a tied owner moved beyond it, a value outside the slot's tie |
 | `unconsumed`, `untied` | a plain pointer holding fresh memory never consumed; a slot the check cannot follow given a value with no owner behind it |
 | `own_unbounded`, `own_array_by_value`, `own_array_untagged`, `array_unset` | an own pointer with no owner to name; an own array copied by value, untagged, or not zeroed at birth |
+| `elem_not_moved`, `result_untied` | an own array's element given to an owner with no `move()`; a borrow of an own array of static storage returned with no tie on the result (0.307) |
 | `goto_with_owners` | a `goto` over the declaration of a plain pointer holding fresh memory, or of an own array |
 | `goto_over_defer` | a `goto` over a `defer` (or, in C++, a local with a destructor) to a label in its scope |
 

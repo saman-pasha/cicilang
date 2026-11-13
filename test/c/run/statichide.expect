@@ -1,0 +1,6 @@
+block 7
+sum 3, first 5
+fill 3, kept 4, first value 4
+inner 6
+local own 8
+exit 0
