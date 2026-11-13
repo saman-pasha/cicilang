@@ -650,6 +650,14 @@ instance's function, `get_0`, whose result is the element's place; the
 pair's `get<0>(p)` and the array's `get<1>(a)` are so too.
 `test/ccllib/tuple.c` is the example.
 
+`#include <variant.pl>` gives `std::variant` (0.308), a union of its
+alternatives and the index of the one that it holds: `variant<int, double,
+char> v = 2.5;`, `holds_alternative<double>(v)`, `get<1>(v) += 1;`,
+`get_if<int>(&v)`, `emplace<0>(v, 4)`, `index(v)`, `v == w`, `v < w`.
+`visit<show>(v)` is C++'s `std::visit`: it calls the program's `show_int`,
+`show_double` or `show_char` by the alternative that v holds, and gives its
+result. `test/ccllib/variant.c` is the example.
+
 `format`, `print`, `println` and `clone` are global macros, there in every
 program without an include (`library/ccl_format.pl`). The format string
 has Rust's holes, each becoming the `printf` conversion of its argument's

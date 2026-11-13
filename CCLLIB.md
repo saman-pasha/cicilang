@@ -440,10 +440,11 @@ What the proof found for phase 1:
   NAME: another count of arguments than its function takes, and a number, a C text or an object of another type where
   the function takes its object -- each was built with no message until 0.288.
 - A TYPED CALL FINDS ITS FUNCTION SO TOO (0.305): `get<0>(t)` is `*tuple_int_double_get_0(&t)`, the function named with
-  the words of the call's `<...>` -- a constant's value, a type's word -- of the instance whose object is the first
-  argument, dereferenced where the module names it a place (the fact `place_tuple_get`). C reads no other form of
-  `name<...>(...)`, and a declared name keeps C's relations; `get<I>`, `holds_alternative<T>` and `any_cast<T>` are the
-  forms that phase 1b's vocabulary writes.
+  the words of the call's `<...>` -- a constant's value, a type's word, a function's name (0.308) -- of the instance
+  whose object is the first argument, dereferenced where the module names it a place (the fact `place_tuple_get`). C
+  reads no other form of `name<...>(...)`, and a declared name keeps C's relations; `get<I>`, `holds_alternative<T>`,
+  `visit<f>` and `any_cast<T>` are the forms that phase 1b's vocabulary writes: `visit<show>(v)` calls the program's
+  `show_int` or `show_double` by the alternative that v holds (0.308).
 - `#include <vector.pl>` ALONE: the path holds `library/ccllib/`, and `vector.pl.h` beside the macro file brings the C
   declarations that its text calls.
 - THE NAMES ARE C++'S; `push`, `pop` and `len`, the short names of this plan's examples, stand beside `push_back`,
@@ -772,13 +773,13 @@ with no heap and no drop, made by braces, `pair<int, double> p = {1, 2.5};`, and
 three-way order, where an unordered first member, a NaN, ends the comparison. A member that is an instance compares by
 its own functions, since the instance's operators are written in a module's C text too: a pair of pairs, and an optional
 of a pair. It came before `variant` and `tuple`: `get<0>(t)` and `holds_alternative<int>(v)` are the reader's typed call
-by name since 0.305, `get<0>(p)` the pair's own, and `visit` waits for a form of its own. `test/ccllib/pair.c`, its twin
-over `std::pair`, five programs of `test/ccllib/safe/`, and `test/ccllib/alone/pair_rules.c`, which holds every case to
-C++20's words at 3,110 checks and reports each of seven copies of the module broken on purpose. Its relations join their
-comparisons by `&` and `|`: with `&&` and `||`, which the lowering writes as branches, the count run took twice the
-twin's time. The step found that `<=` and `>=`, the negations of `>` and `<` since 0.266, were true over a NaN where
-C++'s are false, for every module; 0.304 gave each module its own (below). The costs over libc++ 22, as above, the run
-`pair 100000000`:
+by name since 0.305, `get<0>(p)` the pair's own, and `visit<f>(v)`, with a function's name, is so since 0.308.
+`test/ccllib/pair.c`, its twin over `std::pair`, five programs of `test/ccllib/safe/`, and
+`test/ccllib/alone/pair_rules.c`, which holds every case to C++20's words at 3,110 checks and reports each of seven
+copies of the module broken on purpose. Its relations join their comparisons by `&` and `|`: with `&&` and `||`, which
+the lowering writes as branches, the count run took twice the twin's time. The step found that `<=` and `>=`, the
+negations of `>` and `<` since 0.266, were true over a NaN where C++'s are false, for every module; 0.304 gave each
+module its own (below). The costs over libc++ 22, as above, the run `pair 100000000`:
 
 | | build | peak | IR types | IR functions | IR lines | object | `pair 100000000` at `-O2` | its peak |
 |---|---|---|---|---|---|---|---|---|
@@ -825,13 +826,39 @@ The unit holds 58 functions for its instances in 23,032 bytes, where the twin's 
 takes 0.24 s as C and 0.31 s as C++ against the twin's 0.32 s, in 1.7 MB against 3.2 MB. The C build after a change of
 the file takes 0.63 s and 385 MB, cicilang++'s 0.63 s and 152 MB, against clang++'s 0.41 s and 121 MB.
 
+### 1b, `variant.pl` (0.308)
+
+`variant<A, B, ...>` is a struct of a union of its alternatives and the index of the one that it holds, a byte: a value
+with no heap and no drop, made of a value whose type is exactly one alternative's, `variant<int, double, char> v =
+2.5;`, and born holding its first alternative's zero. `index`, `holds_alternative<T>`, `get<I>` and `get<T>`, `get_if`,
+`emplace` and `swap`, by the reader's typed call by name; `get` of an alternative that the variant does not hold stops
+the program, where C++ throws. The relations of C++20: the index where two variants hold different alternatives, else
+the alternative's own relation, so that a NaN makes all but `!=` false. `visit<show>(v)` is `std::visit`: the typed call
+takes a function's name now, and calls the program's `show_int`, `show_double` or `show_monostate` by the alternative
+that v holds, with its value or its place, and gives its result -- C has no overloaded function, and a family named by
+the alternatives' words is its overload set. The step's review found that a call by name asked a count after a name that
+ends in a digit: a tuple's plain `get_1(t)` met `_get_11`, element 11's where the tuple has twelve; such a name takes no
+count now. `test/ccllib/variant.c`, its twin over `std::variant`, twenty programs of `test/ccllib/safe/`,
+`test/ccllib/alone/variant_rules.c`, which holds every case to C++20's words at 3,500 checks, and `digitnames.c`;
+nineteen copies broken on purpose are each caught. The costs over libc++ 22, as above, the run `variant 100000000`:
+
+| | build | peak | IR types | IR functions | IR lines | object | `variant 100000000` at `-O2` | its peak |
+|---|---|---|---|---|---|---|---|---|
+| cicilang, C | 0.69 s | 401 MB | 11 | 70 | 2,241 | 34,728 B | 1.29 s | 2 MB |
+| cicilang++, C++ | 0.66 s | 160 MB | 12 | 70 | 2,614 | 36,704 B | 1.28 s | 2 MB |
+| clang++ 22, `std::` | 0.47 s | 120 MB | 143 | 698 | 12,482 | 358,288 B | 1.84 s | 3 MB |
+
+The unit holds 70 functions for its instances in 34,728 bytes, where the twin's holds 698 in 358,288; the count run
+takes 1.29 s as C and 1.28 s as C++ against the twin's 1.84 s, in 1.7 MB against 3.1 MB. The C build after a change of
+the file takes 0.69 s and 401 MB, cicilang++'s 0.66 s and 160 MB, against clang++'s 0.47 s and 120 MB.
+
 ### The parts of phase 1
 
 - 1a. Containers and strings: `vector`, `array`, `deque`, `list`, `forward_list`, `map`, `set`, `multimap`,
   `multiset`, `unordered_map`, `unordered_set` and their multi forms, `stack`, `queue`, `priority_queue`, `bitset`,
   `string`, `string_view`, `span` -- done at 0.295.
-- 1b. The vocabulary: `optional` (0.300), `pair` (0.301), `tuple` (0.305), `variant` and `visit`, `any`, `unique_ptr`
-  (the own pointer), `shared_ptr`, `hash`, `less` and the other function objects.
+- 1b. The vocabulary: `optional` (0.300), `pair` (0.301), `tuple` (0.305), `variant` and `visit` (0.308), `any`,
+  `unique_ptr` (the own pointer), `shared_ptr`, `hash`, `less` and the other function objects.
 - 1c. Algorithms and numbers: `<algorithm>`, `<numeric>`, the C++20 ranges views as loops, `<limits>`, `<complex>`,
   `<random>`, `<ratio>`, `<chrono>`.
 - 1d. iostreams: `ostream`, `istream`, `fstream`, `stringstream`, `<iomanip>`, `cout`, `cin`, `cerr`, over C's stdio.

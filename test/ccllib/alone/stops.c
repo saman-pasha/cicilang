@@ -1,15 +1,16 @@
-/* WHAT STOPS A CCLLIB PROGRAM (0.281): each case goes past what its container holds -- an index past the end, the
-   front of an empty one, a place that is no element's or that a new entry of the map ended -- where C++ throws or is
-   undefined. Each runs in a child of its own, and a line says for each whether abort stopped it: 1, and 0 for the
-   cases that stay in their bounds, which no stop may meet (a tree's place over 4000 inserts that find their keys and
-   erases that find none; a hash table's place over such calls at each of its sizes up to 4000, 0.283; a bitset's last
-   bit, read and written each way, 0.286; a string's place after its last character, and each change at that place,
-   0.291). A string's change past max_size stops, and a number of a text where there is none or where it is past its
-   type's range, where C++ throws (0.291). A view's and a span's place or count past the end stops, and a view's place
-   after its last character, which is in its bounds, does not (0.295). An optional's value where it has none stops,
-   where C++ throws, and its value where it has one, value_or and emplace's place do not (0.300). cicilang builds this
-   file as C and cicilang++ as C++; both print stops.expect. It has no twin: C++ throws at some of these, and says
-   nothing of what follows the others */
+/* WHAT STOPS A CCLLIB PROGRAM (0.281): each case goes past what its container holds -- an index past the end, the front
+   of an empty one, a place that is no element's or that a new entry of the map ended -- where C++ throws or is
+   undefined. Each runs in a child of its own, and a line says for each whether abort stopped it: 1, and 0 for the cases
+   that stay in their bounds, which no stop may meet (a tree's place over 4000 inserts that find their keys and erases
+   that find none; a hash table's place over such calls at each of its sizes up to 4000, 0.283; a bitset's last bit,
+   read and written each way, 0.286; a string's place after its last character, and each change at that place, 0.291). A
+   string's change past max_size stops, and a number of a text where there is none or where it is past its type's range,
+   where C++ throws (0.291). A view's and a span's place or count past the end stops, and a view's place after its last
+   character, which is in its bounds, does not (0.295). An optional's value where it has none stops, where C++ throws,
+   and its value where it has one, value_or and emplace's place do not (0.300). A variant's get of an alternative that
+   it does not hold stops, by an index and by a type, where C++ throws, and get_if, get and emplace of the one that it
+   holds do not (0.308). cicilang builds this file as C and cicilang++ as C++; both print stops.expect. It has no twin:
+   C++ throws at some of these, and says nothing of what follows the others */
 #include <signal.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -31,6 +32,7 @@
 #include <string_view.pl>
 #include <span.pl>
 #include <optional.pl>
+#include <variant.pl>
 /* the child takes abort's signal and leaves with a status of its own: so no core is written and no crash is reported,
    and a stop by abort is told from a fault */
 static void on_abort(int sig) { (void)sig; _exit(77); }
@@ -285,6 +287,16 @@ static void span_ok(void) {
     printf("%zu %zu %zu %zu %zu", size(e), size(f), size(l), size(m), size(d));
 }
 static void optional_value(void) { optional<int> o; printf("%d", value(o)); }
+static void variant_get_index(void) { variant<int, double> v; printf("%g", get<1>(v)); }
+static void variant_get_type(void) { variant<int, double> v = 2.5; printf("%d", get<int>(v)); }
+static void variant_ok(void) {
+    variant<int, double> v = 2.5;
+    int *q = get_if<int>(&v);
+    get<1>(v) += 1;
+    double d = get<double>(v);
+    emplace<0>(v, 3) += 1;
+    printf("%d %g %d", q != 0, d, get<int>(v));
+}
 static void optional_ok(void) {
     optional<int> o;
     optional<int> p = 3;
@@ -359,5 +371,7 @@ int main(void) {
            stopped(span_last), stopped(span_subspan), stopped(span_count));
     printf("in its bounds %d\n", stopped(span_ok));
     printf("optional: value of none %d; in its bounds %d\n", stopped(optional_value), stopped(optional_ok));
+    printf("variant: get of an index that it does not hold %d, of a type %d; in its bounds %d\n",
+           stopped(variant_get_index), stopped(variant_get_type), stopped(variant_ok));
     return 0;
 }

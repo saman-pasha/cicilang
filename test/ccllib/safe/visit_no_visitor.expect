@@ -1,0 +1,1 @@
+visit<show> calls show_double for the alternative double, and no function show_double is declared before it

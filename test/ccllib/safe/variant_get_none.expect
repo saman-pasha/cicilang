@@ -1,0 +1,1 @@
+variant_int_double has no function get<char>: its type macro defines no variant_int_double_get_char

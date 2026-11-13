@@ -302,6 +302,7 @@ One row per step, in version order: the step's title, what it did and its gate n
 | 0.305 | ccllib phase 1b, tuple.pl and the typed call by name | `#include <tuple.pl>`: a struct of its elements, born zero, `swap`, C++20's relations; `get<0>(t)` and `get<double>(t)` the instance's functions by the reader's typed call by name, the element's place; the pair's and the array's `get` | `tuple.c` and its twin; 13 refusals; `tuple_rules.c` at 12,024 checks, 11 copies broken on purpose, each caught; reader `k167`; the flow gate and the nets; no chain, by the owner's rule of 0.271; a commit and a push |
 | 0.306 | `own` is a keyword, and no name that a program declares | the Ambitious session's finding 37: `own` given as a name -- a variable, a parameter, a member, a function, a typedef, a tag, an enumerator, a label, a binding, and C++'s names -- refused at its line in one set of words, where 46 forms failed far from it, late or not at all | 15 C and 10 C++ refusals and `ownwords.c`; reader `k168`, `k169`; the flow gate and the nets; no chain, by the owner's rule of 0.271; a commit and a push |
 | 0.307 | an own array of static storage is an own array | the Ambitious session's finding 38: an own element moved out of a static array by a plain read, which the next store freed under its new owner -- the arrays at file scope, their members and the static locals followed as a local one is: an element leaves only by `move()`, a borrow ends at a store and at a call that may store, a borrow leaves only by a tie; in C++ a namespace's and a class's too | 15 C and 2 C++ refusals, `staticarrays.c`, `staticfree.c`, `statichide.c` and `staticscoped.cpp`; the flow gate and the nets; no chain, by the owner's rule of 0.271; a commit and a push |
+| 0.308 | ccllib phase 1b, variant.pl and visit | `#include <variant.pl>`: a union of the alternatives and an index, born zero, `swap`, C++20's relations; `holds_alternative`, `get`, `get_if` and `emplace` by the typed call; `visit<f>(v)`, the typed call with a function's name, calls the program's `f_<word>`; a call by name of a name that ends in a digit asks no count after it | `variant.c` and its twin; 20 refusals; `variant_rules.c` at 3,500 checks and `digitnames.c`; 19 copies broken on purpose, each caught; the flow gate and the nets; no chain, by the owner's rule of 0.271; a commit and a push |
 
 ## M5 — the C++ mode
 
@@ -22118,3 +22119,125 @@ when the probes of a local under an own array's name found the three false refus
   CLAUDE.md; `module/cicilang.cicili` (0.307).
 
 The module 0.307, the reader 197 and the lowering 171.
+
+## 0.308 — ccllib phase 1b, variant.pl and visit
+
+**0.308: `#include <variant.pl>` gives std::variant: a struct of a union of its alternatives and the index of the one
+that it holds, a value with no heap and no drop, made of a value of one alternative's type and born holding its first
+alternative's zero, with `index`, `holds_alternative`, `get`, `get_if`, `emplace`, `swap` and the relations of C++20.
+`visit<show>(v)` is std::visit: the typed call by name takes a function's name between its < and > now, and the
+instance's function calls the program's `show_int` or `show_double` by the alternative that v holds. The step's review
+found that a call by name asked a count after a name that ends in a digit -- a tuple's plain `get_1(t)` of twelve
+elements met element 11 --, and such a name takes no count now.**
+
+THE FORM OF VISIT, A DECISION OF THE STEP'S, FOR THE OWNER TO SEE. std::visit takes a callable -- in C++ a lambda over
+`auto`, or an object with an overloaded `operator()` -- and C has neither an overloaded function nor a callable that
+takes each alternative's type. The step's choice is the typed call by name of 0.305 with a function's name between its
+`<` and `>`: `visit<show>(v)`, whose word is the name, is `variant_int_double_visit_show(&v)`, and that function calls
+`show_<word>` for the alternative that v holds -- `show_int(x)`, `show_double(x)`, or `show_point(&x)` where the
+function takes a pointer to the alternative --, a family that the program declares before the visit, each function with
+one parameter and all of one result type, which the visit gives. It is C's spelling of an overload set by the words that
+name the instances already, and of the kind of the priority queue's comparison, a function's name after the element's
+type (0.280). The other forms were a macro `visit(f, v)`, which would expand every plain call named visit, and a table
+of function pointers, which C cannot type over the alternatives' types. The reader's change is one clause
+(`ccl_typed_name_word/2`): a name that the read declares a function, or does not declare, is its own word; an object's
+name is none, and the refusal of a list that is no type or constant names functions too.
+
+THE MODULE. `variant<A, B, ...>` is `variant_A_B`, a struct of `u`, a union of `_0`, `_1` ..., and `index`, an `unsigned
+char`; its texts are made from the count of the alternatives, a hole for each one's type. A variant is made of a value
+whose type is exactly one alternative's, by its `_of_<word>`, so a `long` for a variant of `int` and `double`, and an
+`int` for a variant of two `int`s, are refused by the reader's words of a birth (0.285), where C++ converts by its
+overload resolution or is ambiguous. `get_I` and `get_<word>` give the alternative's place and stop the program where
+the variant holds another, as `std::get` throws `bad_variant_access`; `get_if_...` gives the address or a null pointer;
+`emplace_...` stores the value and the index and gives the place; `get` and `emplace` are places by the facts
+`place_variant_get` and `place_variant_emplace`. THE RELATIONS ARE C++20'S ([variant.relops]): where the indices differ,
+`==` is false and `<` and `<=` go by the indices; else each is the alternative's own `==`, `<` or `<=` -- an alternative
+that is an instance compares by its own functions --, so a NaN makes all but `!=` false; two monostates are equal, and
+neither is before the other; `>=` is `<=` the other way. A name that fits no alternative makes no function and fails
+with no error -- an index past the end, a type that the variant holds twice or not at all --, and the reader refuses the
+call by that name, as the tuple's. `variant.pl.h` includes `<stdlib.h>` for `abort` and `size_t`, and declares
+`monostate`, a struct of one byte. 255 alternatives at most, since the index is a byte.
+
+WHAT THE PROBES FOUND, each case as C and as C++. A VISITOR THAT TAKES `const point *` was refused by the first text,
+which compared the parameter's type with the alternative's whole: a `const` or `volatile` of the type is no part of the
+match now (`ccllib_variant_same_type/2`). THE FIRST TEXT OF VISIT called a predicate that the library has not, to spell
+its result's type: the result is a hole of the text now, `@R`, filled with the first visitor's type.
+
+WHAT THE STEP'S REVIEW FOUND, while the nets ran; the nets were stopped and run again for it. A CALL BY NAME ASKED A
+COUNT AFTER A NAME THAT ENDS IN A DIGIT, a defect of 0.288's rule that 0.305's tuple met first: the call by name asks
+`<instance>_<name><count>` before `<instance>_<name>`, and the count after a digit is a longer number -- over 0.307 a
+plain `*get_1(t)` of a tuple of twelve `int`s printed 11, element 11's, where the step's prints 1, and a variant's
+`emplace_1(v, 5)` of thirteen alternatives met `_emplace_12`, the last alternative's. A name that ends in a digit takes
+no count now (`ccl_inst_call_counted/3`); no module names a form by its count after a digit -- `resize3`, `insert4` and
+`substr1` count after a letter. A PLAIN `visit_show(v)` MET VISIT'S REFUSAL AT ITS COUNT FORM: the call by name asked
+`visit_show1` first, and the module refused the family `show1`, which the program does not declare; a family of which
+the program declares no function makes no visit now, with no error, and the typed call `visit<none>(v)` is refused by
+the name of the function that the module does not make. THE BOUND OF 255 HAD NO FIXTURE: 256 alternatives, made by
+macros, are refused by `variant_too_many.c`, and a variant of 255 holds its last in `variant_rules.c`. A RELATION OVER
+AN ALTERNATIVE THAT IS A PLAIN STRUCT is refused by the lowering's words -- `not lowered yet: type(unknown) (function
+variant_point_int_eq)` in C, `no_operator(==)` in C++ --, and the pair's, the tuple's and the optional's are so too,
+probed; C++ refuses it too, since the struct has no `operator==`, and Not done records the words beside 0.284's record
+of a binary operator over two plain structs.
+
+THE PROOF. `test/ccllib/variant.c` -- the birth, a variant made of a value of each alternative's type, `index`,
+`holds_alternative`, `get` and `get_if` by an index and by a type, as values and as places, `emplace`, a copy, `swap`,
+`valueless_by_exception`, each relation over a NaN too, and `visit` by value, by a pointer and with a result, over
+numbers, a character, a plain struct, monostate and a pair; a variant in a pair and in an optional -- and its twin
+`variant.cpp` over `std::variant`, whose visit's callable is a lambda over overloads of one name, which clang++ 22
+builds over libc++ 22 at C++23, print the same 38 lines and the same exit as C and as C++; the count run, at a million,
+prints `470456 57930 8009396` in the three runs. Twenty programs of `test/ccllib/safe/`, as C and as C++, hold the
+refusals: `variant_no_type.c`, `variant_of_pointer.c`, `variant_of_array.c`, `variant_of_void.c`, `variant_too_many.c`,
+`variant_of_other.c`, `variant_of_twice.c` (C++'s words are its own: `no conversion from 'long' to
+'variant_int_double'`), `variant_get_none.c`, `variant_get_past.c`, `variant_get_twice.c`, `variant_holds_none.c`,
+`variant_borrow_leaves.c`, `variant_other_type.c`, `variant_with_value.c`, `visit_no_visitor.c`, `visit_no_family.c`,
+`visit_two_results.c`, `visit_parameters.c`, `visit_not_name.c` and `visit_two_variants.c`; `get_not_constant.c`'s words
+name functions now. `test/ccllib/alone/variant_rules.c` holds each relation to C++20's words over every variant of an
+int of 0, 1 and 2 or of a double of 0, 1, 2 and a NaN, and of a monostate or an int of 0 and 1, and `index`,
+`holds_alternative`, `get`, `get_if`, `emplace`, a copy, `swap`, the birth, `visit` and a variant of 255 alternatives to
+a model: 3,500 checks. `stops.c` has three cases of a variant: `get` of an index and of a type that it does not hold
+stop, and `get_if`, `get` and `emplace` of the one that it holds do not. `digitnames.c` holds the calls by name of names
+that end in a digit, over a tuple of twelve elements and a variant of thirteen alternatives, and a plain
+`visit_show(v)`. NINETEEN COPIES BROKEN ON PURPOSE, a rule each -- `==`, `<` and `<=` where the indices differ, `<=` as
+the negation of `>`, the operands of `>=`, the alternatives' `<`, the monostates' `==`, the index of a variant made of a
+value, `holds_alternative`, `get_if`, `emplace`'s index, `swap`, the alternative that `visit` calls and the place that
+it hands, the bound of 255 each way, `get`'s stop, the visit of no family, and the reader's count after a digit -- are
+each reported: fifteen by `variant_rules.c`, `NOT HELD` with the rule's words or a build refused, `get`'s stop by
+`stops.c`, the bound past 255 by `variant_too_many.c`, which builds, and the last two by `digitnames.c`. The flow gate
+charts `variant.pl` beside the other modules (`CFILES` in `test/flow.sh`): the step's first text left it out of the
+list, and the nets' flow gate ran again after it joined.
+
+THE DOCS OF 0.295, CORRECTED. The bullet of the programs that stand alone said that `stops.c` has 89 cases, 81 stopped
+and 8 in their bounds: 0.300's numbers over 0.291's, since 0.295 added the twenty cases of a view and a span, 18 stopped
+and 2 in their bounds, and not their count. It says 112, 101 and 11 now, the three of the variant among them, and it
+names the view's and the span's cases in their bounds.
+
+WHAT IT COSTS, by the ccllib gate's lines (the best of three builds after a change of the file): The unit holds 70
+functions for its instances in 34,728 bytes, where the twin's holds 698 in 358,288; the count run takes 1.29 s as C and
+1.28 s as C++ against the twin's 1.84 s, in 1.7 MB against 3.1 MB. The C build after a change of the file takes 0.69 s
+and 401 MB, cicilang++'s 0.66 s and 160 MB, against clang++'s 0.47 s and 120 MB.
+
+THE NETS GREEN: the flow gate, `variant.pl` charted, run again after it joined the list of the modules; the reader gate
+170, the compile gate 329, the driver gate 83 and the ccllib gate 429 checks over one fresh HOME -- 21 programs in three
+runs, `variant.c` among them, 138 refused and 14 alone --; the C++ pool of the light fixtures 363 of 363 over libc++ 22,
+363 over 21 and 363 over 18; every other C++ run fixture, 506 of 520, over libc++ 22, since the reader's change stands
+in the call by name and in the typed call, which the reader asks in each unit with an instance -- the 14 others name a
+need, which the net does not meet --; and the C++ gate's later parts by hand -- `classes.cpp`, `templates.cpp`, the C
+run fixtures that it builds as C++ and every list of its refusals -- 203 checks. Two first runs of the nets were stopped
+before the ccllib gate, when the step's own review found the count after a digit and the visit's count form, and then
+the bound of 255 with no fixture. The third stopped at the tool's limit of a run in the background, thirty minutes, in
+its heavy pool, after the C gates and the light pools, GREEN: the heavy pool and the C++ gate's later parts ran again
+over the light pool's HOME, the 431 files that the stopped pool had written removed -- each a whole set of a header's
+files, none beside an older one --, and the flow gate ran again with `variant` in its list.
+
+- `library/ccllib/variant.pl`, `library/ccllib/variant.pl.h`; `library/ccl_syntax.pl` (`ccl_typed_name_word/2`'s clause
+  of a function's name and the refusal's words; `ccl_inst_call_counted/3` in `ccl_inst_call_name/6`; the reader's
+  version); `test/flow.sh` (`CFILES`).
+- `test/ccllib/variant.c`, `variant.cpp`, `variant.expect`, `variant.count`; the twenty `test/ccllib/safe/` programs
+  above and their `.expect`, `variant_of_other.expect.cpp` and `variant_of_twice.expect.cpp`; `get_not_constant.expect`;
+  `test/ccllib/alone/variant_rules.c`, `digitnames.c` and their `.expect`; `stops.c` and `stops.expect` (the cases of a
+  variant).
+- RULES.md (the C reader: the typed call by name, the call by name told by an argument's type; ccllib: the programs that
+  stand alone, the relations, `variant.pl`; Not done: the operators over plain structs, a variant's limits), CCLLIB.md,
+  README.md, HISTORY.md, CLAUDE.md; `module/cicilang.cicili` (0.308).
+
+The module 0.308, the reader 198 and the lowering 171.

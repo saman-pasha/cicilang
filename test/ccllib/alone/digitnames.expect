@@ -1,0 +1,8 @@
+tuple: 1 1 11 0
+place: 21 11
+variant: 1 5
+get_if: 1 0
+variant: 12 2.5
+visit: 103 103
+visit: 15 15
+exit 0

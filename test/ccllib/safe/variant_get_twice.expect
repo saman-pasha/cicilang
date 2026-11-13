@@ -1,0 +1,1 @@
+variant_int_int has no function get<int>: its type macro defines no variant_int_int_get_int

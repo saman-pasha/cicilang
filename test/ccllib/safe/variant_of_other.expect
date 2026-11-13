@@ -1,0 +1,1 @@
+a variant_int_double is not made of a value of the type long: its type macro defines no variant_int_double_of

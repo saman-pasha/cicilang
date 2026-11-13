@@ -1,0 +1,1 @@
+a variant_int_int is not made of a value of the type int: its type macro defines no variant_int_int_of

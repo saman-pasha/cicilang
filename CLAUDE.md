@@ -12,8 +12,8 @@ the fixture that gates it, and why. The bullet ends with the version that made t
 edits the rule in `RULES.md`, in its topic, and writes its entry in `HISTORY.md`. Read the topic of `RULES.md` that
 covers the code before the code is changed.
 
-At 0.307 the versions are: the module 0.307 (`ccl_p_version` in `module/cicilang.cicili`, `bin/cicilang --version`),
-the reader 197 (`ccl_reader_version/1`, `library/ccl_syntax.pl`) and the lowering 171 (`ccl_lowering_version/1`,
+At 0.308 the versions are: the module 0.308 (`ccl_p_version` in `module/cicilang.cicili`, `bin/cicilang --version`),
+the reader 198 (`ccl_reader_version/1`, `library/ccl_syntax.pl`) and the lowering 171 (`ccl_lowering_version/1`,
 `library/ccl_ir.pl`).
 
 Build and prove, always in this order (or all of it, `sh test/gates.sh`):
@@ -410,6 +410,9 @@ library/ccllib/             ccllib, the standard library of cicilang's C (CCLLIB
                               no C header, since its text calls nothing that one declares
   tuple.pl                    std::tuple (0.305): a struct of its elements _0, _1 ..., a value with no heap and no
                               drop; get<I> and get<T>, the reader's typed call by name, give an element's place
+  variant.pl, variant.pl.h    std::variant and std::visit (0.308): a union of the alternatives and the index of the
+                              one that it holds, a value with no heap and no drop; visit<f>(v) calls the program's
+                              f_<word> by the alternative; monostate in its C header
   ccllib.pl                   what two modules need, written once (0.275): a module loads it by a directive, and no
                               program includes it; the refusal of an element with a pointer, the lists' sort (0.277),
                               the lines of a text by their conditions (0.283), an index in a function's name
@@ -596,7 +599,8 @@ test/ccllib/                the three runs' programs: NAME.c, a ccllib program; 
                             string.c, of <string.pl> (0.291); string_view.c and span.c, of <string_view.pl> and
                             <span.pl> (0.295); optional.c, of <optional.pl> (0.300); pair.c, of <pair.pl> (0.301);
                             relations.c, the relations of every module by C++20's words, over a NaN too (0.304);
-                            tuple.c, of <tuple.pl>, with the get<I> of a pair and of an array (0.305)
+                            tuple.c, of <tuple.pl>, with the get<I> of a pair and of an array (0.305);
+                            variant.c, of <variant.pl>, with visit (0.308)
 test/ccllib/safe/           ccllib programs that the safe part refuses, as C and as C++: NAME.c, NAME.expect, and
                             NAME.expect.cpp where C++ has words of its own (0.274); borrow_into_call_vector.c and
                             string_self_c_str.c, a borrow handed to a call that may replace its owner (0.293);
@@ -608,7 +612,9 @@ test/ccllib/safe/           ccllib programs that the safe part refuses, as C and
                             borrow_into_call_holder.c, borrow_into_call_copy.c and push_through_ptr.c, a borrow
                             through a pointer to the vector (0.303); tuple_*.c and get_*.c, what a tuple may not
                             hold, be made of or be compared with, and the typed calls that name no function, take
-                            no lvalue or let a borrow leave (0.305)
+                            no lvalue or let a borrow leave (0.305); variant_*.c and visit_*.c, what a variant may
+                            not hold, be made of or be compared with, the typed calls that name no alternative, and
+                            the visits whose family does not fit (0.308)
 test/ccllib/alone/          ccllib programs with no twin, built as C and as C++ (0.281): NAME.c, NAME.expect;
                             stops.c, what stops a ccllib program, each case in a child of its own; tree_rules.c,
                             the rules of the tree of a set and a map, read from the instance's own fields;
@@ -622,7 +628,9 @@ test/ccllib/alone/          ccllib programs with no twin, built as C and as C++ 
                             each case held to C++20's words (0.301); borrow_through_ok.c, what the rules of 0.303
                             keep (0.303); optional_rules.c and pair_rules.c hold `<=` and `>=` over a NaN to
                             C++20's words (0.304); tuple_rules.c, the rules of a tuple, each case held to C++20's
-                            words (0.305)
+                            words (0.305); variant_rules.c, the rules of a variant, each case held to C++20's
+                            words, stops.c's cases of a variant, and digitnames.c, the calls by name of a function
+                            whose name ends in a digit and of a visit (0.308)
 
 proof/forty2.ll, run.sh     M0: hand-written IR through clang to a binary that prints a line and exits 42
 proof/forty2                made by proof/run.sh, never committed

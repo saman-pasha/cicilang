@@ -720,74 +720,85 @@ that changes a rule edits the rule here, in its topic, and writes its entry in `
   runs, M refused, K alone)`. (0.274, 0.281)
 - **THE PROGRAMS THAT STAND ALONE** (0.281): each `test/ccllib/alone/NAME.c` has no twin over `std::`, since it asks
   what C++ does not say; `bin/cicilang` builds it as C and `bin/cicilang++` as C++, and both print `NAME.expect`.
-  `stops.c` is WHAT STOPS A CCLLIB PROGRAM, for every module: 89 cases -- an index past the end, the front of an empty
+  `stops.c` is WHAT STOPS A CCLLIB PROGRAM, for every module: 112 cases -- an index past the end, the front of an empty
   container, a place that is no element's, a place that a new entry of a tree or of a hash table ended, a place after
   `reserve` and after `rehash`, a bit past a bitset's last one, a text of a bitset with a letter, a string's place past
   its NUL, a change of a string past `max_size`, a number of a text where there is none --, each in a child of its own
-  (`fork`), and a line says for each whether abort stopped it. 81 are stopped -- an optional's value where it has none
-  among them (0.300) --; the 8 that stay in their bounds are not: an optional's value where it has one, its `value_or`
-  and the place that `emplace` gives back (0.300), a string's place after its last character, and each change at that
-  place (0.291), a bitset's last bit, read and written each way (0.286), a tree's place over 4000 inserts that find
-  their keys and 4000 erases that find none among them, and a hash table's place over such calls AT EACH SIZE of the
-  table from 1 to 4000 -- a table stands at its limit, where one entry more makes it again, at some sizes only, and the
-  first form of the two cases, over a table of 4000 entries, passed a table that is made again before it looks for the
-  key (0.283). The child takes abort's signal and leaves with a status of its own (77), so no core is written and no
-  crash is reported, and a stop by abort is told from a fault. A module's step adds its cases. `tree_rules.c` is THE
-  RULES OF THE TREE of `<set.pl>` and `<map.pl>`, read from the instance's own fields over a walk of chance: each node
-  but the root holds 7 to 15 entries, an inner node has one child more than its entries, the leaves stand at one depth,
-  the entries are in their order -- a multimap's equal keys in the order of their insert --, the count is the tree's,
-  and each node of the arena is in the tree or in the chain of the erased ones; they hold at 194,392 checks, over trees
-  whose leaves stand 3 below the root. A copy of the tree broken on purpose (a sibling of 7 entries gives one away) is
-  reported: `NOT HELD: a node holds 7 to 15 entries, the root 1 at least`. `table_rules.c` (0.283) is THE RULES OF THE
-  HASH TABLE of `<unordered_set.pl>` and `<unordered_map.pl>`, read so too: the slots are as many as a power of two, 8
-  at least; three slots of four at most hold an entry or an erased entry's mark; the table's counts are its slots';
-  `first` is the first entry's slot; no empty slot stands between an entry and the slot that its hash names, so a search
-  finds it; a unique table holds a key once; a multimap's key counts its entries at its entry 0, and they have the
-  numbers from 0 to that count. They hold at 208,624 checks, over a set and a multimap that grow, shrink to nothing and
-  grow again, their clones, tables cleared and filled again, tables made again by `rehash` and `reserve`, and the two
-  tables of a merge. FOUR COPIES OF THE TABLE BROKEN ON PURPOSE are each reported by a program of the gate: a mark taken
-  away where a search needs it (`NOT HELD: no empty slot stands between an entry and its hash's slot`, and the two
-  programs of the three runs differ from their twins); a multi table's erased entry whose number goes to nobody (`NOT
-  HELD: an entry's number is under its key's count`, and the two programs); a table made again too late (`NOT HELD:
-  three slots of four at most hold an entry or a mark`: the rules program alone sees it, since such a table stays right
-  and gets slow); a table made again before it looks for the key (the stop program's two cases at each size, and the
-  walks of chance, which use a place after the calls that change nothing at EVERY step). `bitset_rules.c` (0.286) is THE
-  RULES OF THE BITSET of `<bitset.pl>`: a walk of chance for each of nine counts of bits at which a rule can break -- 1,
-  12, 63, 64, 65, 70, 128, 129 and 200 --, the set held after each step to a model of a byte a bit: each bit by `test`
-  and by `[]`, `count`, `any`, `none` and `all`, `to_ullong` and `to_ulong` where no bit stands past their width, and
-  the bits of the last word past the count, which the program reads in the instance's own words. They hold at 68,009
-  checks. NINETEEN COPIES OF THE MODULE BROKEN ON PURPOSE, a rule each, are each reported by a program of the gate (the
-  section of `bitset.pl`). `string_rules.c` (0.291) is THE RULES OF THE STRING of `<string.pl>`: five walks of chance of
-  4000 steps, each change that the module has, its source a text, a character or a part of the string itself, the string
-  held after each step to a model, an array of bytes: the characters and the count, by `c_str` and by `[]`; a NUL after
-  the last character; the form, read in the instance's own fields -- no block and fifteen characters at most, or a block
-  and no more than its capacity --; a growth to twice the capacity at least; after `shrink_to_fit` the count as the
-  capacity, or the object's fifteen and no block. Every eighth step the searches, the tests of a part, the comparisons
-  and the parts are held to naive models, from places in the string and past it; a character is a NUL one time in eight.
-  They hold at 24,414 checks. FIFTY-SEVEN COPIES BROKEN ON PURPOSE are each reported by a program of the gate (the
-  section of `string.pl`). `born_held.c` (0.297) holds what holds an instance's object born zero -- a struct with a
-  vector member, a struct of such in an array member of another, a struct with a string member, an array of such
-  structs, a `for`'s declaration, a designated initializer and a memset of zero --, each over storage written with
-  garbage first, and `shadowed.c` (0.297) the names of a vector, of a pointer to one and of a global one declared again
-  in a block (the safe part's topic of owners and moves). `optional_rules.c` (0.300) is THE RULES OF AN OPTIONAL of
-  `<optional.pl>`: eight optional numbers over a walk of chance of 4000 steps -- a number assigned, nullopt assigned,
-  `emplace` and a write through its place, `reset`, `swap`, a copy, an optional born in a block, a copy that `emplace`
-  changes --, held after each step to a model of a flag and a number each: `has_value`, `value` and `value_or`, and EACH
-  RELATION BY THE STANDARD'S OWN WORDS, not by the module's way to them -- [optional.relops] between two optionals,
-  [optional.comp.with.t] with a number on either side and [optional.nullops] with nullopt on either side, each of the
-  six operators --, the numbers from 0 to 5, so that two optionals are equal often. They hold at 5,077,288 checks, over
-  a NaN too since 0.304: each optional double of none, 0, 1 and a NaN against each, and against each number of 0, 1 and
-  a NaN on either side. SIXTEEN COPIES OF THE MODULE BROKEN ON PURPOSE, a rule each, are each reported by it (the
-  section of `optional.pl`). `pair_rules.c` (0.301) is THE RULES OF A PAIR of `<pair.pl>`, over every case and not over
-  a walk of chance: each pair of numbers from 0 to 3 against each, each pair of 0, 1 and a NaN against each, and each
-  pair of pairs of 0 and 1 against each -- each relation by C++20's words, `<=` and `>=` too since 0.304, which it held
-  to the module's negations of `>` and `<` before --, a copy and `swap`. They hold at 3,110 checks. SEVEN COPIES OF THE
-  MODULE BROKEN ON PURPOSE, a rule each, are each reported by it (the section of `pair.pl`). `tuple_rules.c` (0.305) is
-  THE RULES OF A TUPLE of `<tuple.pl>`, over every case: each tuple of three numbers of 0, 1 and 2 against each, each
-  tuple of three of 0, 1 and a NaN against each, and each tuple of a pair and a number of 0 and 1 against each -- each
-  relation by C++20's words --, and `get<I>` and `get<T>` as values and as places, a copy, `swap` and the birth, held to
-  a model. They hold at 12,024 checks. ELEVEN COPIES OF THE MODULE BROKEN ON PURPOSE, a rule each, are each reported by
-  it (the section of `tuple.pl`). (0.281, 0.283, 0.286, 0.291, 0.297, 0.300, 0.301, 0.304, 0.305)
+  (`fork`), and a line says for each whether abort stopped it. 101 are stopped -- an optional's value where it has none
+  (0.300), and a variant's `get` of an alternative that it does not hold, by an index and by a type (0.308), among them
+  --; the 11 that stay in their bounds are not: a variant's `get_if`, `get` and `emplace` of the alternative that it
+  holds (0.308), an optional's value where it has one, its `value_or` and the place that `emplace` gives back (0.300), a
+  view's place after its last character and a span's parts up to its end (0.295), a string's place after its last
+  character, and each change at that place (0.291), a bitset's last bit, read and written each way (0.286), a tree's
+  place over 4000 inserts that find their keys and 4000 erases that find none among them, and a hash table's place over
+  such calls AT EACH SIZE of the table from 1 to 4000 -- a table stands at its limit, where one entry more makes it
+  again, at some sizes only, and the first form of the two cases, over a table of 4000 entries, passed a table that is
+  made again before it looks for the key (0.283). The child takes abort's signal and leaves with a status of its own
+  (77), so no core is written and no crash is reported, and a stop by abort is told from a fault. A module's step adds
+  its cases. `tree_rules.c` is THE RULES OF THE TREE of `<set.pl>` and `<map.pl>`, read from the instance's own fields
+  over a walk of chance: each node but the root holds 7 to 15 entries, an inner node has one child more than its
+  entries, the leaves stand at one depth, the entries are in their order -- a multimap's equal keys in the order of
+  their insert --, the count is the tree's, and each node of the arena is in the tree or in the chain of the erased
+  ones; they hold at 194,392 checks, over trees whose leaves stand 3 below the root. A copy of the tree broken on
+  purpose (a sibling of 7 entries gives one away) is reported: `NOT HELD: a node holds 7 to 15 entries, the root 1 at
+  least`. `table_rules.c` (0.283) is THE RULES OF THE HASH TABLE of `<unordered_set.pl>` and `<unordered_map.pl>`, read
+  so too: the slots are as many as a power of two, 8 at least; three slots of four at most hold an entry or an erased
+  entry's mark; the table's counts are its slots'; `first` is the first entry's slot; no empty slot stands between an
+  entry and the slot that its hash names, so a search finds it; a unique table holds a key once; a multimap's key counts
+  its entries at its entry 0, and they have the numbers from 0 to that count. They hold at 208,624 checks, over a set
+  and a multimap that grow, shrink to nothing and grow again, their clones, tables cleared and filled again, tables made
+  again by `rehash` and `reserve`, and the two tables of a merge. FOUR COPIES OF THE TABLE BROKEN ON PURPOSE are each
+  reported by a program of the gate: a mark taken away where a search needs it (`NOT HELD: no empty slot stands between
+  an entry and its hash's slot`, and the two programs of the three runs differ from their twins); a multi table's erased
+  entry whose number goes to nobody (`NOT HELD: an entry's number is under its key's count`, and the two programs); a
+  table made again too late (`NOT HELD: three slots of four at most hold an entry or a mark`: the rules program alone
+  sees it, since such a table stays right and gets slow); a table made again before it looks for the key (the stop
+  program's two cases at each size, and the walks of chance, which use a place after the calls that change nothing at
+  EVERY step). `bitset_rules.c` (0.286) is THE RULES OF THE BITSET of `<bitset.pl>`: a walk of chance for each of nine
+  counts of bits at which a rule can break -- 1, 12, 63, 64, 65, 70, 128, 129 and 200 --, the set held after each step
+  to a model of a byte a bit: each bit by `test` and by `[]`, `count`, `any`, `none` and `all`, `to_ullong` and
+  `to_ulong` where no bit stands past their width, and the bits of the last word past the count, which the program reads
+  in the instance's own words. They hold at 68,009 checks. NINETEEN COPIES OF THE MODULE BROKEN ON PURPOSE, a rule each,
+  are each reported by a program of the gate (the section of `bitset.pl`). `string_rules.c` (0.291) is THE RULES OF THE
+  STRING of `<string.pl>`: five walks of chance of 4000 steps, each change that the module has, its source a text, a
+  character or a part of the string itself, the string held after each step to a model, an array of bytes: the
+  characters and the count, by `c_str` and by `[]`; a NUL after the last character; the form, read in the instance's own
+  fields -- no block and fifteen characters at most, or a block and no more than its capacity --; a growth to twice the
+  capacity at least; after `shrink_to_fit` the count as the capacity, or the object's fifteen and no block. Every eighth
+  step the searches, the tests of a part, the comparisons and the parts are held to naive models, from places in the
+  string and past it; a character is a NUL one time in eight. They hold at 24,414 checks. FIFTY-SEVEN COPIES BROKEN ON
+  PURPOSE are each reported by a program of the gate (the section of `string.pl`). `born_held.c` (0.297) holds what
+  holds an instance's object born zero -- a struct with a vector member, a struct of such in an array member of another,
+  a struct with a string member, an array of such structs, a `for`'s declaration, a designated initializer and a memset
+  of zero --, each over storage written with garbage first, and `shadowed.c` (0.297) the names of a vector, of a pointer
+  to one and of a global one declared again in a block (the safe part's topic of owners and moves). `optional_rules.c`
+  (0.300) is THE RULES OF AN OPTIONAL of `<optional.pl>`: eight optional numbers over a walk of chance of 4000 steps --
+  a number assigned, nullopt assigned, `emplace` and a write through its place, `reset`, `swap`, a copy, an optional
+  born in a block, a copy that `emplace` changes --, held after each step to a model of a flag and a number each:
+  `has_value`, `value` and `value_or`, and EACH RELATION BY THE STANDARD'S OWN WORDS, not by the module's way to them --
+  [optional.relops] between two optionals, [optional.comp.with.t] with a number on either side and [optional.nullops]
+  with nullopt on either side, each of the six operators --, the numbers from 0 to 5, so that two optionals are equal
+  often. They hold at 5,077,288 checks, over a NaN too since 0.304: each optional double of none, 0, 1 and a NaN against
+  each, and against each number of 0, 1 and a NaN on either side. SIXTEEN COPIES OF THE MODULE BROKEN ON PURPOSE, a rule
+  each, are each reported by it (the section of `optional.pl`). `pair_rules.c` (0.301) is THE RULES OF A PAIR of
+  `<pair.pl>`, over every case and not over a walk of chance: each pair of numbers from 0 to 3 against each, each pair
+  of 0, 1 and a NaN against each, and each pair of pairs of 0 and 1 against each -- each relation by C++20's words, `<=`
+  and `>=` too since 0.304, which it held to the module's negations of `>` and `<` before --, a copy and `swap`. They
+  hold at 3,110 checks. SEVEN COPIES OF THE MODULE BROKEN ON PURPOSE, a rule each, are each reported by it (the section
+  of `pair.pl`). `tuple_rules.c` (0.305) is THE RULES OF A TUPLE of `<tuple.pl>`, over every case: each tuple of three
+  numbers of 0, 1 and 2 against each, each tuple of three of 0, 1 and a NaN against each, and each tuple of a pair and a
+  number of 0 and 1 against each -- each relation by C++20's words --, and `get<I>` and `get<T>` as values and as
+  places, a copy, `swap` and the birth, held to a model. They hold at 12,024 checks. ELEVEN COPIES OF THE MODULE BROKEN
+  ON PURPOSE, a rule each, are each reported by it (the section of `tuple.pl`). `variant_rules.c` (0.308) is THE RULES
+  OF A VARIANT of `<variant.pl>`, over every case: each variant of an int of 0, 1 and 2 or of a double of 0, 1, 2 and a
+  NaN against each, and each variant of a monostate or of an int of 0 and 1 against each -- each relation by C++20's
+  words, not by the module's way to them --; `index`, `holds_alternative`, `get` and `get_if` by an index and by a type,
+  `emplace`, a copy, `swap` and the birth, held to a model; `visit` with a value and with a place, and its result; and a
+  variant of 255 alternatives, the most, which holds its last. They hold at 3,500 checks. FIFTEEN COPIES OF THE MODULE
+  BROKEN ON PURPOSE, a rule each, are each reported by it (the section of `variant.pl`). `digitnames.c` (0.308) holds
+  the calls by name of a function whose name ends in a digit -- `get_1(t)` of a tuple of twelve elements, `emplace_1(v,
+  x)` of a variant of thirteen alternatives -- and a plain `visit_show(v)` (the C reader's call by name). (0.281, 0.283,
+  0.286, 0.291, 0.297, 0.300, 0.301, 0.304, 0.305, 0.308)
 - **THE FIRST PROOF AFTER PHASE 0** (0.273; `CCLLIB.md`'s Order): `test/ccllib/first.c` over its macro file `first.pl`
   -- `vector<T>` with `push`, `at`, `len` and `sort`: a type macro's instance (0.261), its literal's `from` (0.263), its
   drop (0.262), all of it C text (0.260) -- built as C and as C++, and `first.cpp`, the same program over `std::vector`
@@ -2733,9 +2744,14 @@ that changes a rule edits the rule here, in its topic, and writes its entry in `
   pointer goes where a pointer to const is taken: C's string literal is a `char *` and C++'s a `const char *`, and one
   function named `_ptr_const_char` serves both, and a `char` buffer. An operator's typed name (`ccl_iop_typed/4`) and
   `_of`'s ask the same words. A name that the instance has not is remembered for the unit (`nofn(F)` in
-  `'$ccl_instances'`, `ccl_inst_ensure/1`), so the second call that asks it runs no macro. Reader `k159`, `k160`;
-  `test/c/run/typednames.c` over `tnames.pl`, a text of characters with the forms of `std::string`'s, prints what
-  clang's build of its hand expansion prints, as C and, by the C++ gate, as C++. Reader 186. (0.288)
+  `'$ccl_instances'`, `ccl_inst_ensure/1`), so the second call that asks it runs no macro. A NAME THAT ENDS IN A DIGIT
+  TAKES NO COUNT (0.308; `ccl_inst_call_counted/3`): the count after a digit is a longer number, and a tuple's plain
+  `get_1(t)` asked `_get_11` first -- element 11's where the tuple has twelve -- and a variant's `emplace_1(v, x)`
+  `_emplace_12`, the last alternative's of thirteen; no module names a form by its count after a digit (`resize3`,
+  `insert4` and `substr1` count after a letter). `test/ccllib/alone/digitnames.c` holds both, and a copy of the reader
+  broken on purpose that asks the count is caught by it. Reader `k159`, `k160`; `test/c/run/typednames.c` over
+  `tnames.pl`, a text of characters with the forms of `std::string`'s, prints what clang's build of its hand expansion
+  prints, as C and, by the C++ gate, as C++. Reader 186, 198. (0.288, 0.308)
 - **A CALL BY NAME THAT FITS NO FORM OF ITS NAME IS REFUSED BY NAME** (0.288; three holes as old as the call by name,
   each found by a probe), in C and in C++. ITS COUNT OF ARGUMENTS (C17 6.5.2.2/2): `insert(v, 7)` over a vector, the
   place left out, and `push_back(v, 7, 8)` were built, the call made with the arguments that it had, and the function
@@ -2974,24 +2990,28 @@ that changes a rule edits the rule here, in its topic, and writes its entry in `
   name that is no macro, no type macro and no name that the read declares, its list `<...>` and `(` -- `get<0>(t)` -- is
   the call of the function `<instance>_<name>_<word>...` of the instance whose object, or a pointer to one, is the first
   argument, as a call by name finds its function (`ccl_typed_name_call/4` over `ccl_inst_call_type/2` and
-  `ccl_inst_call_args/5`): each argument of the list by its word, a constant's value or a type's
-  (`ccl_typed_name_words/2`, `ccl_type_word/2`), so `get<0>(t)` is `tuple_int_double_get_0(&t)` and `get<double>(t)`
-  `tuple_int_double_get_double(&t)`. The function is made at its first use. THE CALL IS DEREFERENCED WHERE THE MODULE
-  NAMES THE FUNCTION A PLACE, by the fact `place_<macro>_<name>` beside its type macro (`ccl_typed_place/2`, the form of
-  `view_<macro>`): `get<0>(t) = 3` is `*tuple_int_double_get_0(&t) = 3`, an lvalue, as C++'s `get` gives a reference,
-  and its address a borrow tied to t. C READS NO OTHER FORM OF `name<...>(...)`: where the name is declared it is C's
-  own relations, and where the first argument is no instance's object the clause fails and C's reading stands -- the
-  name undeclared, and in C++ a call of one of the program's templates (`twice<int>(3)`). The arguments are read by a
-  rule of their own (`ccl_typed_name_args//1`), so that a cut in their read does not commit the primary expression to
-  the clause: the first text's did, and `get<0>(x)` over an `int` was a syntax error. IN C++ A STATEMENT THAT BEGINS
-  WITH A TYPED CALL BY NAME OVER AN INSTANCE IS NO DECLARATION (`ccl_typed_name_stmt_ahead/2` before the declaration's
-  block item): `get<0>(*pt) = 4;` declared `pt` a pointer to the template `get<0>`. REFUSED BY NAME, in C and in C++ --
-  no C++ template takes a ccllib instance --: a list that is no type or constant, `the typed call get<...> of
-  tuple_int_double takes types and constants between its < and >`, and a function that the module does not make,
-  `tuple_int_double_char has no function get<3>: its type macro defines no tuple_int_double_char_get_3`. The call takes
-  its first argument's address, as a call by name does, so a value that is no lvalue -- a call's result -- is named
-  first (`name it first`), where C++ binds a temporary to its reference. Reader `k167` over `test/c/typedcall.c` and
-  `typedcall_none.c`; reader 196. (0.305)
+  `ccl_inst_call_args/5`): each argument of the list by its word, a constant's value, a type's or, since 0.308, a
+  function's name (`ccl_typed_name_words/2`, `ccl_type_word/2`), so `get<0>(t)` is `tuple_int_double_get_0(&t)` and
+  `get<double>(t)` `tuple_int_double_get_double(&t)`. The function is made at its first use. THE CALL IS DEREFERENCED
+  WHERE THE MODULE NAMES THE FUNCTION A PLACE, by the fact `place_<macro>_<name>` beside its type macro
+  (`ccl_typed_place/2`, the form of `view_<macro>`): `get<0>(t) = 3` is `*tuple_int_double_get_0(&t) = 3`, an lvalue, as
+  C++'s `get` gives a reference, and its address a borrow tied to t. C READS NO OTHER FORM OF `name<...>(...)`: where
+  the name is declared it is C's own relations, and where the first argument is no instance's object the clause fails
+  and C's reading stands -- the name undeclared, and in C++ a call of one of the program's templates (`twice<int>(3)`).
+  The arguments are read by a rule of their own (`ccl_typed_name_args//1`), so that a cut in their read does not commit
+  the primary expression to the clause: the first text's did, and `get<0>(x)` over an `int` was a syntax error. IN C++ A
+  STATEMENT THAT BEGINS WITH A TYPED CALL BY NAME OVER AN INSTANCE IS NO DECLARATION (`ccl_typed_name_stmt_ahead/2`
+  before the declaration's block item): `get<0>(*pt) = 4;` declared `pt` a pointer to the template `get<0>`. REFUSED BY
+  NAME, in C and in C++ -- no C++ template takes a ccllib instance --: a list that is no type, constant or function's
+  name -- an object's name is none --, `the typed call get<...> of tuple_int_double takes types, constants and the names
+  of functions between its < and >`, and a function that the module does not make, `tuple_int_double_char has no
+  function get<3>: its type macro defines no tuple_int_double_char_get_3`. The call takes its first argument's address,
+  as a call by name does, so a value that is no lvalue -- a call's result -- is named first (`name it first`), where C++
+  binds a temporary to its reference. Reader `k167` over `test/c/typedcall.c` and `typedcall_none.c`; reader 196. A
+  FUNCTION'S NAME IS ITS OWN WORD (0.308; what `std::visit` needs, whose callable C cannot spell): a name that the read
+  declares a function, or does not declare -- a family of functions, `show_int` and `show_double` --, is the list's
+  word, so `visit<show>(v)` is `variant_int_double_visit_show(&v)` (the section of `variant.pl`); reader 198. (0.305,
+  0.308)
 - **AT C++23 AN INSTANCE'S `v[i]` IS THE TYPE MACRO'S TOO** (0.284): C++23 reads a subscript's arguments as a list
   (`a[i, j]`), and that clause of the reader (`ccl_postfix_p//3`) gave `index(A, I)` for one argument with no look at
   the instance, where the clause of the levels before it asks `ccl_iop_index/3`. So `bin/cicilang++ -std=c++23` refused
@@ -10080,7 +10100,8 @@ in the first topic (The ccllib gate).
   pair, and `_le` and `_ge`, of each of the seven sequences and of the tree; `_le` and `_ge` of the pair and of the
   optional; the reader's own functions -- are each caught by it, and the pair's, the optional's and the reader's by
   `pair_rules.c` and `optional_rules.c` too. A tuple's relations are the same order over its elements (0.305, the
-  section of `tuple.pl`). (0.304, 0.305)
+  section of `tuple.pl`), and a variant's go by the index where two hold different alternatives, else by the
+  alternative's own relation (0.308, the section of `variant.pl`). (0.304, 0.305, 0.308)
 
 ### vector.pl
 
@@ -10787,6 +10808,83 @@ in the first topic (The ccllib gate).
   for its instances in 23,032 bytes, where the twin's holds 211 in 117,120; the count run takes 0.24 s as C and 0.31 s
   as C++ against the twin's 0.32 s, in 1.7 MB against 3.2 MB. The C build after a change of the file takes 0.63 s and
   385 MB, cicilang++'s 0.63 s and 152 MB, against clang++'s 0.41 s and 121 MB. (0.305)
+
+### variant.pl
+
+- **`variant<A, B, ...>` IS A STRUCT OF A UNION OF ITS ALTERNATIVES AND AN INDEX** (0.308; `CCLLIB.md`'s phase 1b): the
+  instance `variant_int_double` of `<variant.pl>`, a struct of `u`, a union of `_0`, `_1` ..., and `index`, a byte: no
+  heap and NO DROP, so its object is a plain value -- `u := v` and `f(v)` copy it, as `std::variant`'s do. `variant<int,
+  double> v;` is born zero (0.285), holding its first alternative's zero, as C++'s is made. A variant is made of a value
+  whose type is exactly one alternative's, by its `_of` of that type's word, `variant_int_double_of_double`: `v = 2.5;`
+  and `variant<int, double> w = 1;`. Its texts are made from the count of the alternatives, a hole for each one's type
+  (`@T0`, `@T1`, `ccllib_variant_holes/3`). ITS C HEADER, `variant.pl.h`, includes `<stdlib.h>` for `abort` and
+  `size_t`, and declares `monostate`, a struct of one byte, which a program names as C++'s `std::monostate`:
+  `variant<monostate, int> m;`. (0.308)
+- THE SURFACE OF `std::variant`: `index`, `valueless_by_exception` -- false: C has no exception --, `swap`;
+  `holds_alternative<T>(v)`; `get<I>(v)` and `get<T>(v)`, the alternative's place, which STOP THE PROGRAM (abort) WHERE
+  THE VARIANT HOLDS ANOTHER, where C++'s throw `bad_variant_access`; `get_if<I>(&v)` and `get_if<T>(&v)`, the
+  alternative's address or a null pointer, of a null pointer too; `emplace<I>(v, x)` and `emplace<T>(v, x)`, the value
+  stored and its place given -- each BY THE READER'S TYPED CALL BY NAME (the topic of the C reader), `get` and `emplace`
+  dereferenced by the facts `place_variant_get` and `place_variant_emplace`, so `get<1>(v) += 1` and `emplace<0>(v, 3)
+  += 1` are C++'s; the places that `get` and `get_if` give, and `&get<0>(v)`, are borrows tied to v. THE RELATIONS ARE
+  C++20'S ([variant.relops]): where two variants hold different alternatives, `==` is false and `<`, `>`, `<=` and `>=`
+  go by the indices; else each is the alternative's own relation, so that a NaN makes all but `!=` false; two
+  `monostate`s are equal, and neither is before the other; `>=` is `<=` with its operands exchanged, and the reader
+  writes `>` and `!=`. A NAME THAT FITS NO ALTERNATIVE MAKES NO FUNCTION, and fails with no error -- an index past the
+  end, a type that the variant holds twice or not at all --: the reader refuses the call by the name of the function
+  that the module does not make, `variant_int_double has no function get<2>: its type macro defines no
+  variant_int_double_get_2`, where C++ fails a static assertion. (0.308)
+- **`visit<f>(v)` IS `std::visit`** (0.308), with a function's name between the `<` and `>`, the reader's typed call by
+  name: the instance's function `variant_int_double_visit_show`, made at its first use, calls the program's function of
+  the alternative that v holds, `f_<word>` -- `show_int`, `show_double`, `show_monostate`, `show_pair_int_int` --, with
+  the alternative's value or, where that function takes a pointer to it, its place (`const point *` too: a `const` or
+  `volatile` of the type is no part of the match), and gives that function's result. Each function of the family is
+  declared before the visit, with one parameter, and all give one type, `void` among them (`ccllib_variant_visit/4`). C
+  has no overloaded function, and C++'s callable, a lambda over `auto`, has no spelling in C: a family named by the
+  alternatives' words is C's overload set, as a priority queue's comparison is a function's name (0.280). A FAMILY OF
+  WHICH THE PROGRAM DECLARES NO FUNCTION MAKES NO VISIT, and fails with no error (`ccllib_variant_family/2`): a plain
+  `visit_show(v)`, the visit's function by its own name, asks `visit_show1` first, and an error there refused it.
+  Refused by name, in C and in C++: `visit<show> calls show_double for the alternative double, and no function
+  show_double is declared before it`; `visit<show>: show_int takes one parameter, the alternative int or a pointer to
+  it`; `visit<show> gives one type, and show_double's is not show_int's`; an object's name, `the typed call visit<...>
+  of variant_int_double takes types, constants and the names of functions between its < and >`; two variants,
+  `visit_show of variant_int_double takes 1 argument(s), and the call has 2`; a family that the program does not
+  declare, `variant_int_double has no function visit<none>`. (0.308)
+- WHAT DIFFERS FROM C++: each alternative is a value with no pointer in it (decision 2), no array and no void -- `a
+  variant's alternative is a value with no pointer in it, and ptr_char holds one`, `a variant's alternative is no
+  array`, `a variant's alternative is no void` --; a variant has one alternative at least, as in C++, `a variant takes
+  one type at least, its first alternative's`, and 255 at most, since its index is a byte, `a variant holds 255
+  alternatives at most`; it is made of a value whose type is exactly one alternative's -- a `long` for a variant of
+  `int` and `double`, and an `int` for one of two `int`s, are refused, `a variant_int_double is not made of a value of
+  the type long`, where C++ converts by its overload resolution or is ambiguous --, and C's character constant is an
+  `int`, so `v = 'c'` makes the int alternative where C++ makes the char one, and `(char)'c'` makes the char one in
+  both; there is no `in_place_index` or `in_place_type`; a variant is compared with a variant of its own type, `the
+  operator == of variant_int_double takes an object of variant_int_double, which its operand is not`; `visit` takes one
+  variant and a family of functions, where C++'s takes a callable and any count of variants; there is no `variant_size`
+  or `variant_alternative`, whose count and types are the instance's own; the place that `get` or `get_if` gave stays
+  the variant's storage after a store of another alternative, where C++ ends the alternative's object. `std::hash` of a
+  variant comes with phase 1b's `hash`. (0.308)
+- `test/ccllib/variant.c` -- the birth, a variant made of a value of each alternative's type, `index`,
+  `holds_alternative`, `get` and `get_if` by an index and by a type, as values and as places, `emplace`, a copy, `swap`,
+  `valueless_by_exception`, each relation over a NaN too, and `visit` by value, by a pointer and with a result, over
+  numbers, a character, a plain struct, `monostate` and a pair; a variant in a pair and in an optional -- and its twin
+  `variant.cpp` over `std::variant`, whose visit's callable is a lambda over overloads of one name, print the same
+  lines; the count run sets, compares and visits the variants of an array of 64 a hundred million times. Twenty programs
+  of `test/ccllib/safe/`, as C and as C++: `variant_no_type.c`, `variant_of_pointer.c`, `variant_of_array.c`,
+  `variant_of_void.c`, `variant_too_many.c`, `variant_of_other.c`, `variant_of_twice.c`, `variant_get_none.c`,
+  `variant_get_past.c`, `variant_get_twice.c`, `variant_holds_none.c`, `variant_borrow_leaves.c`,
+  `variant_other_type.c`, `variant_with_value.c`, `visit_no_visitor.c`, `visit_no_family.c`, `visit_two_results.c`,
+  `visit_parameters.c`, `visit_not_name.c` and `visit_two_variants.c`; `test/ccllib/alone/variant_rules.c`, every case
+  held to C++20's words; `stops.c`'s three cases of a variant; `digitnames.c`. NINETEEN COPIES BROKEN ON PURPOSE, a rule
+  each -- `==`, `<` and `<=` where the indices differ, `<=` as the negation of `>`, the operands of `>=`, the
+  alternatives' `<`, the monostates' `==`, the index of a variant made of a value, `holds_alternative`, `get_if`,
+  `emplace`'s index, `swap`, the alternative that `visit` calls and the place that it hands, the bound of 255 each way,
+  `get`'s stop, the visit of no family, and the reader's count after a digit -- are each reported by a program of the
+  gate: fifteen by `variant_rules.c`, `get`'s stop by `stops.c`, the bound past 255 by `variant_too_many.c`, and the
+  last two by `digitnames.c`. The unit holds 70 functions for its instances in 34,728 bytes, where the twin's holds 698
+  in 358,288; the count run takes 1.29 s as C and 1.28 s as C++ against the twin's 1.84 s, in 1.7 MB against 3.1 MB. The
+  C build after a change of the file takes 0.69 s and 401 MB, cicilang++'s 0.66 s and 160 MB, against clang++'s 0.47 s
+  and 120 MB. (0.308)
 
 ## The safe part
 
@@ -15400,6 +15498,9 @@ Declarations topic of the C++ reader).
   of a view; a compare of a part of a string with a view; a span of a fixed extent, `as_bytes`, reverse iterators; a
   span of `T` handed where a span of `const T` is taken at a call -- C converts no struct at a call, and the span of
   const elements is declared first. (0.295)
+- A VARIANT, ITS LIMITS (0.308): `visit` of several variants, and of a callable -- a lambda, a function object --;
+  `in_place_index` and `in_place_type`; a variant made of a value that converts to one alternative; `variant_size`,
+  `variant_alternative` and `variant_npos`; `<=>`; `std::hash` (1b).
 - A PLAIN CALL'S COUNT OF ARGUMENTS, AND A POINTER AND AN INTEGER IN EACH OTHER'S PLACE, ARE NOT CHECKED (found at
   0.288; C17 6.5.2.2/2 and 6.5.16.1/1, constraints): `f(1)` and `f(1, 2, 3)` over `int f(int, int)` build to an object
   with no message -- the call is made with the arguments that it has --, where clang 22 says `too few arguments to
@@ -15426,7 +15527,11 @@ Declarations topic of the C++ reader).
 - IN C A BINARY OPERATOR OVER TWO PLAIN STRUCTS IS REFUSED BY NO WORDS OF C'S (found at 0.284, beside the operators over
   instances): `p + q` and `p += q` over two structs are `not lowered yet: type(unknown)`, where clang says `invalid
   operands to binary expression`. A unary `-` or `~` over one reached LLVM until 0.286, and is refused in clang's words
-  now; a struct where another type is needed is refused by name (the lowering's values).
+  now; a struct where another type is needed is refused by name (the lowering's values). A PAIR'S, A TUPLE'S, AN
+  OPTIONAL'S AND A VARIANT'S RELATIONS over a member, an element or an alternative that is a plain struct meet it in the
+  module's text (found at 0.308): `a == b` over two `variant<point, int>` is `not lowered yet: type(unknown) (function
+  variant_point_int_eq)` in C and `not lowered yet: no_operator(==)` in C++, where C++ refuses it too, in its own words,
+  since the struct has no `operator==`.
 - TWO MACRO FILES THAT DEFINE ONE PREDICATE, IN ONE PROCESS (found at 0.263): a macro file's predicates are the
   process's, consulted once, so a second file that defines a name the first defines is not its own there -- the reader
   gate and the compile gate read every fixture in one process, and `literal.pl`'s own `type_vector/3` was `tvector.pl`'s
