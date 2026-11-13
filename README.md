@@ -658,6 +658,13 @@ char> v = 2.5;`, `holds_alternative<double>(v)`, `get<1>(v) += 1;`,
 `show_double` or `show_char` by the alternative that v holds, and gives its
 result. `test/ccllib/variant.c` is the example.
 
+`#include <memory.pl>` gives `std::unique_ptr` (0.309), one own pointer that
+the compiler frees at its scope's end: `unique_ptr<point> p =
+make_unique<point>(pt);`, `p->x = 3;`, `(*p).y += 1;`, `get(p)`,
+`release(p)`, `reset(p)`, `swap(p, q)`. An assignment or a call moves it,
+and `*p` of an empty one stops the program. `test/ccllib/unique_ptr.c` is
+the example.
+
 `format`, `print`, `println` and `clone` are global macros, there in every
 program without an include (`library/ccl_format.pl`). The format string
 has Rust's holes, each becoming the `printf` conversion of its argument's

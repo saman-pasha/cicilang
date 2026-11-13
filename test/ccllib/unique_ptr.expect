@@ -1,0 +1,20 @@
+born: empty
+made of a value: 1 2
+made of none: 0 0
+places: 3 4
+values: 3 4
+released: empty
+reset to the released: 3 4
+swap p: 0 0
+swap z: 3 4
+relations: 1 0 0 1 0 1
+unequal: 0 1
+reset: empty
+moved by an assignment: 3 4
+moved out of a function: 5 6
+moved into a function: 11
+made of an own pointer: 7 8
+int: 6
+pair: 1 5
+optional: 1 4
+exit 0

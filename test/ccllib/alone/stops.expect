@@ -21,4 +21,5 @@ string_view: at 1, [] 1, front 1, back 1, remove_prefix 1, remove_suffix 1, subs
 span: at 1, [] 1, front 1, back 1, first 1, last 1, subspan 1, a count past the end 1; in its bounds 0
 optional: value of none 1; in its bounds 0
 variant: get of an index that it does not hold 1, of a type 1; in its bounds 0
+unique_ptr: *p of an empty one 1, p->m 1; in its bounds 0
 exit 0

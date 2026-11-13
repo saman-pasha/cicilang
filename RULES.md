@@ -720,24 +720,25 @@ that changes a rule edits the rule here, in its topic, and writes its entry in `
   runs, M refused, K alone)`. (0.274, 0.281)
 - **THE PROGRAMS THAT STAND ALONE** (0.281): each `test/ccllib/alone/NAME.c` has no twin over `std::`, since it asks
   what C++ does not say; `bin/cicilang` builds it as C and `bin/cicilang++` as C++, and both print `NAME.expect`.
-  `stops.c` is WHAT STOPS A CCLLIB PROGRAM, for every module: 112 cases -- an index past the end, the front of an empty
+  `stops.c` is WHAT STOPS A CCLLIB PROGRAM, for every module: 115 cases -- an index past the end, the front of an empty
   container, a place that is no element's, a place that a new entry of a tree or of a hash table ended, a place after
   `reserve` and after `rehash`, a bit past a bitset's last one, a text of a bitset with a letter, a string's place past
   its NUL, a change of a string past `max_size`, a number of a text where there is none --, each in a child of its own
-  (`fork`), and a line says for each whether abort stopped it. 101 are stopped -- an optional's value where it has none
-  (0.300), and a variant's `get` of an alternative that it does not hold, by an index and by a type (0.308), among them
-  --; the 11 that stay in their bounds are not: a variant's `get_if`, `get` and `emplace` of the alternative that it
-  holds (0.308), an optional's value where it has one, its `value_or` and the place that `emplace` gives back (0.300), a
-  view's place after its last character and a span's parts up to its end (0.295), a string's place after its last
-  character, and each change at that place (0.291), a bitset's last bit, read and written each way (0.286), a tree's
-  place over 4000 inserts that find their keys and 4000 erases that find none among them, and a hash table's place over
-  such calls AT EACH SIZE of the table from 1 to 4000 -- a table stands at its limit, where one entry more makes it
-  again, at some sizes only, and the first form of the two cases, over a table of 4000 entries, passed a table that is
-  made again before it looks for the key (0.283). The child takes abort's signal and leaves with a status of its own
-  (77), so no core is written and no crash is reported, and a stop by abort is told from a fault. A module's step adds
-  its cases. `tree_rules.c` is THE RULES OF THE TREE of `<set.pl>` and `<map.pl>`, read from the instance's own fields
-  over a walk of chance: each node but the root holds 7 to 15 entries, an inner node has one child more than its
-  entries, the leaves stand at one depth, the entries are in their order -- a multimap's equal keys in the order of
+  (`fork`), and a line says for each whether abort stopped it. 103 are stopped -- an optional's value where it has none
+  (0.300), a variant's `get` of an alternative that it does not hold, by an index and by a type (0.308), and a
+  unique_ptr's `*p` and `p->m` where it is empty (0.309), among them --; the 12 that stay in their bounds are not: a
+  unique_ptr's `get` of an empty one and `*p` of a full one (0.309), a variant's `get_if`, `get` and `emplace` of the
+  alternative that it holds (0.308), an optional's value where it has one, its `value_or` and the place that `emplace`
+  gives back (0.300), a view's place after its last character and a span's parts up to its end (0.295), a string's place
+  after its last character, and each change at that place (0.291), a bitset's last bit, read and written each way
+  (0.286), a tree's place over 4000 inserts that find their keys and 4000 erases that find none among them, and a hash
+  table's place over such calls AT EACH SIZE of the table from 1 to 4000 -- a table stands at its limit, where one entry
+  more makes it again, at some sizes only, and the first form of the two cases, over a table of 4000 entries, passed a
+  table that is made again before it looks for the key (0.283). The child takes abort's signal and leaves with a status
+  of its own (77), so no core is written and no crash is reported, and a stop by abort is told from a fault. A module's
+  step adds its cases. `tree_rules.c` is THE RULES OF THE TREE of `<set.pl>` and `<map.pl>`, read from the instance's
+  own fields over a walk of chance: each node but the root holds 7 to 15 entries, an inner node has one child more than
+  its entries, the leaves stand at one depth, the entries are in their order -- a multimap's equal keys in the order of
   their insert --, the count is the tree's, and each node of the arena is in the tree or in the chain of the erased
   ones; they hold at 194,392 checks, over trees whose leaves stand 3 below the root. A copy of the tree broken on
   purpose (a sibling of 7 entries gives one away) is reported: `NOT HELD: a node holds 7 to 15 entries, the root 1 at
@@ -797,8 +798,13 @@ that changes a rule edits the rule here, in its topic, and writes its entry in `
   variant of 255 alternatives, the most, which holds its last. They hold at 3,500 checks. FIFTEEN COPIES OF THE MODULE
   BROKEN ON PURPOSE, a rule each, are each reported by it (the section of `variant.pl`). `digitnames.c` (0.308) holds
   the calls by name of a function whose name ends in a digit -- `get_1(t)` of a tuple of twelve elements, `emplace_1(v,
-  x)` of a variant of thirteen alternatives -- and a plain `visit_show(v)` (the C reader's call by name). (0.281, 0.283,
-  0.286, 0.291, 0.297, 0.300, 0.301, 0.304, 0.305, 0.308)
+  x)` of a variant of thirteen alternatives -- and a plain `visit_show(v)` (the C reader's call by name).
+  `unique_ptr_rules.c` (0.309) is THE RULES OF A UNIQUE_PTR of `<memory.pl>`: a model holds each unique_ptr's block as a
+  number, 0 where it is empty, and its object's values, over a walk of chance of 4000 steps on three unique_ptrs --
+  make_unique of a value and of none, `reset`, `reset(p, r)`, `release`, `swap` and writes through `*p` and `p->m` --,
+  each relation held to the blocks' order after each step, then a move by an assignment, into a function and out of one.
+  They hold at 268,078 checks. TWENTY-FIVE COPIES BROKEN ON PURPOSE, a rule each, are each reported (the section of
+  `memory.pl`). (0.281, 0.283, 0.286, 0.291, 0.297, 0.300, 0.301, 0.304, 0.305, 0.308, 0.309)
 - **THE FIRST PROOF AFTER PHASE 0** (0.273; `CCLLIB.md`'s Order): `test/ccllib/first.c` over its macro file `first.pl`
   -- `vector<T>` with `push`, `at`, `len` and `sort`: a type macro's instance (0.261), its literal's `from` (0.263), its
   drop (0.262), all of it C text (0.260) -- built as C and as C++, and `first.cpp`, the same program over `std::vector`
@@ -2722,8 +2728,11 @@ that changes a rule edits the rule here, in its topic, and writes its entry in `
   names; a call by a full name is a plain call (`ccl_inst_made/1`). In C a name that neither the instance nor the
   program has is refused at its line, `stack_int has no function pusj: its type macro defines no stack_int_pusj`; in C++
   the call is left to the desugaring, which may find it later. `clone(v)` over an instance's object is its
-  `<instance>_clone` (`ccl_macro_clone/2`'s first clause). No name is listed anywhere: a function that a type macro
-  gives is called by its name. Reader `k145`, `k147`; `test/c/run/lazy.c`, `test/c/lazy_nofn.c`. (0.274, 0.288)
+  `<instance>_clone` (`ccl_macro_clone/2`'s first clause); one whose instance has no `_clone` is refused by that name in
+  C and in C++ (0.309), `unique_ptr_point has no function clone: its type macro defines no unique_ptr_point_clone`,
+  where C++, which leaves a call by name to the desugaring, named the raw term `cannot_clone(id(p))`. No name is listed
+  anywhere: a function that a type macro gives is called by its name. Reader `k145`, `k147`; `test/c/run/lazy.c`,
+  `test/c/lazy_nofn.c`. (0.274, 0.288, 0.309)
 - **A CALL BY NAME IS TOLD BY AN ARGUMENT'S TYPE** (0.288; what `std::string`'s `append`, `insert` and `find` need, each
   with a form for a string, for a text of C and for a character, which C++ tells by the type of an argument). THE NAMES
   THAT A CALL ASKS, IN THEIR ORDER (`ccl_inst_call_name/6`): for each argument after the object, in its order, and each
@@ -3012,6 +3021,23 @@ that changes a rule edits the rule here, in its topic, and writes its entry in `
   declares a function, or does not declare -- a family of functions, `show_int` and `show_double` --, is the list's
   word, so `visit<show>(v)` is `variant_int_double_visit_show(&v)` (the section of `variant.pl`); reader 198. (0.305,
   0.308)
+- **A MAKER BY NAME** (0.309; what `std::make_unique` needs: `make_unique<point>(x)`, whose arguments name no instance):
+  a name that a type macro's file names its maker -- the fact `maker_<macro>_<name>` beside its `type_<macro>/3`, found
+  as a view's and a place's are (`ccl_typed_maker/2`) --, its list `<...>` and `(` is the call of the function
+  `<instance>_<name>` of the instance that the macro makes of the list, made at its first use, the arguments as they are
+  written (`ccl_typed_maker_call/6`): `make_unique<point>(x)` is `unique_ptr_point_make_unique(x)`, and
+  `make_unique<point>()` `unique_ptr_point_make_unique0()`, the count first as a call by name asks it. A unit with no
+  instance reads it too: the typed call's look-ahead asks a maker where no instance is (`ccl_typed_name_ahead/3`). A
+  count that no form of the name takes is `make_unique of unique_ptr_point takes 1 argument(s), and the call has 2`; a
+  value of another type is C's own refusal, `no conversion from 'int' to 'point'`. Reader 199. (0.309)
+- **A POINTER'S TYPE MACRO: `*p` AND `p->m`** (0.309; what `std::unique_ptr` needs): a type macro whose file has the
+  fact `pointer_<macro>` makes instances whose `*p` is `*<instance>_deref(&p)` and whose `p->m` is
+  `<instance>_arrow(&p)->m` (`ccl_iop_deref/2` in `ccl_unary_//3`'s clause of `*`, `ccl_iop_arrow/2` in
+  `ccl_postfix_p//3`'s clause of `->`): the two functions give the object's address, and C's own `*` and `->` give its
+  place, so `*p = 3`, `(*p).y += 2` and `p->x = 3` are C++'s. They are asked only in a unit with an instance of such a
+  macro (`ccl_inst_any_pointer/0`), since C writes `*` and `->` everywhere and each ask takes the operand's type; over
+  any other operand, a pointer to an instance among them, and where the instance has not the function, C's own reading
+  stands. Reader 199. (0.309)
 - **AT C++23 AN INSTANCE'S `v[i]` IS THE TYPE MACRO'S TOO** (0.284): C++23 reads a subscript's arguments as a list
   (`a[i, j]`), and that clause of the reader (`ccl_postfix_p//3`) gave `index(A, I)` for one argument with no look at
   the instance, where the clause of the levels before it asks `ccl_iop_index/3`. So `bin/cicilang++ -std=c++23` refused
@@ -10886,6 +10912,58 @@ in the first topic (The ccllib gate).
   C build after a change of the file takes 0.69 s and 401 MB, cicilang++'s 0.66 s and 160 MB, against clang++'s 0.47 s
   and 120 MB. (0.308)
 
+### memory.pl
+
+- **`unique_ptr<T>` IS A STRUCT OF ONE OWN POINTER, WITH A DROP** (0.309; `CCLLIB.md`'s phase 1b, "the own pointer"):
+  the instance `unique_ptr_point` of `<memory.pl>`, `typedef struct unique_ptr_point { own point *p; }
+  unique_ptr_point;`, and its drop, which frees the object: the compiler drops it at its scope's end, as C++ runs the
+  destructor (autodrop, 0.262), and `w = p` and `f(p)` move it, as every object of an instance's type is moved, where
+  C++ writes `std::move`. Born null (0.285). Made of an own pointer by its birth, `unique_ptr<point> p = r;`, the
+  function of the word of r's type, `_of_ptr_own_point`, which moves r in. Its C header `memory.pl.h` includes
+  `<stdlib.h>`. The module is charted by the flow gate. (0.309)
+- THE SURFACE OF `std::unique_ptr<T>`: `make_unique<T>(x)`, a block that holds a copy of x, and `make_unique<T>()`, T's
+  zero, by the reader's maker by name (the facts `maker_unique_ptr_make_unique` and
+  `maker_unique_ptr_make_unique_for_overwrite`); `make_unique_for_overwrite<T>()`, a block whose bytes are not set;
+  `get(p)`, the object's address or the null pointer, a borrow tied to p; `*p` and `p->m`, the object's place, by the
+  reader's pointer's type macro (the fact `pointer_unique_ptr`), which STOP THE PROGRAM (abort) WHERE p IS EMPTY, where
+  C++ is undefined; `release(p)`, the own pointer, p left empty; `reset(p)`, the object freed and p empty; `reset(p,
+  r)`, the old object freed and r taken; `swap(p, q)`; and `==`, `<`, `<=` and `>=` of the pointers, as C++ compares
+  them, the reader writing `!=` and `>`. A borrow of the object ends where a call may replace it -- `reset`, `release`,
+  `swap` and a move take the unique_ptr by a pointer that is not const (the rules of 0.265 and 0.293) -- and does not
+  leave the function that holds the unique_ptr. THE MODULE'S TEXT IS THE SAFE PART'S TOO: of the copies broken on
+  purpose, six are refused in the module's own text before any program runs -- a `release` and a `reset` that keep the
+  pointer, and a `swap` of one side, `a borrowed struct's own field not whole at the return`; a `reset` and a `reset(p,
+  r)` that free nothing, `owner overwritten while live`; a drop that frees nothing, `owner leaked`. (0.309)
+- WHAT DIFFERS FROM C++: the object is a value with no pointer in it (decision 2), no array and no void -- `a
+  unique_ptr's object is a value with no pointer in it, and ptr_char holds one`, `a unique_ptr's object is no array:
+  unique_ptr<T[]> waits` (a type of no bound has no word, `ccl_type_word/2`), `a unique_ptr's object is no void` --; one
+  type, `a unique_ptr takes one type, its object's: a deleter waits` -- a deleter, and the release of an object of
+  another kind, wait for the owner's word (0.307's question of a `FILE` and an `SSL_SESSION`); make_unique takes a value
+  of T or none, where C++ passes its arguments to a constructor; a unique_ptr is made of an own pointer, and the address
+  of a local is none, `a unique_ptr_point is not made of a value of the type ptr_point`; `if (p)`, `p == nullptr` and `p
+  == 0` have no form, and `get(p)` and `get(p) == 0` are their spelling; `clone(p)` is refused by name, as C++ deletes
+  the copy; there is no `get_deleter`, and `std::hash` and `operator<<` come with phase 1b's `hash` and with 1d. (0.309)
+- `test/ccllib/unique_ptr.c` -- the birth, make_unique of a value and of none, a unique_ptr made of an own pointer, `*p`
+  and `p->m` as values and as places, `get`, `release`, `reset` of none and of an own pointer, `swap`, each relation, a
+  move by an assignment, into a function and out of one, and a unique_ptr of an int, of a struct, of a pair and of an
+  optional -- and its twin `unique_ptr.cpp` over `std::unique_ptr` print the same 19 lines; the count run makes, moves,
+  releases and frees a block a hundred million times, and valgrind sees no error and no block left in the three runs.
+  Seventeen programs of `test/ccllib/safe/`, as C and as C++: `unique_ptr_of_pointer.c`, `unique_ptr_of_array.c`,
+  `unique_ptr_of_void.c`, `unique_ptr_two_types.c`, `unique_ptr_no_type.c`, `unique_ptr_of_borrow.c`,
+  `unique_ptr_clone.c`, `make_unique_two.c`, `make_unique_int.c`, `make_unique_for_overwrite_arg.c`,
+  `unique_ptr_borrow_after_reset.c`, `unique_ptr_borrow_after_move.c`, `unique_ptr_borrow_leaves.c`,
+  `unique_ptr_use_after_move.c`, `unique_ptr_reset_borrow.c`, `unique_ptr_release_leaks.c` and
+  `unique_ptr_release_dropped.c`; `test/ccllib/alone/unique_ptr_rules.c`; `stops.c`'s three cases of a unique_ptr.
+  TWENTY-FIVE COPIES BROKEN ON PURPOSE, a rule each, are each reported: six by the safe part in the module's text
+  (above); six by `unique_ptr_rules.c`, `NOT HELD` with the rule's words -- `reset(p, r)` that frees r, make_unique that
+  does not copy, `<`, `<=`, `>=` and `==`; the reader's maker that asks no count, and its `*` and `->` taken as C's own,
+  by the rules program that no longer builds; `*p` and `p->m` that do not stop, by `stops.c`; make_unique() of garbage,
+  by valgrind; a unique_ptr made of an own pointer that does not take it, by the three runs' lines; the check's new rule
+  in each of its five places, by a refusal that builds; and the C++ words of `clone`. The unit holds 34 functions for
+  its instances in 12,744 bytes, where the twin's holds 67 in 37,032; the count run takes 0.93 s as C and 0.87 s as C++
+  against the twin's 1.23 s, in 1.7 MB against 3.1 MB. The C build after a change of the file takes 0.57 s and 387 MB,
+  cicilang++'s 0.48 s and 149 MB, against clang++'s 0.30 s and 114 MB. (0.309)
+
 ## The safe part
 
 ### The check in the build
@@ -11387,6 +11465,26 @@ in the first topic (The ccllib gate).
 - `ck_va_value/1` lists what is never fresh: a value read by `va_arg` (the caller's), a C99 compound literal (the
   block's object), a `dynamic_cast`'s result, an exception's storage, a coroutine's frame, promise or noop handle.
   (0.108)
+- **NEW MEMORY THROWN AWAY IS REFUSED** (0.309; found by the probes of `<memory.pl>`, whose `release(p);` leaked its
+  object; `ck_dropped_memory/2`): a call that gives new memory for certain -- an allocator of the C library by its name
+  (`malloc`, `calloc`, `realloc`, `aligned_alloc`, `strdup`, `strndup`, `ck_allocator/1`), C++'s new-expression through
+  the library's allocation function (`_Znwm`, `_Znam` and their nothrow and aligned forms, `ck_lib_allocation/1`), a
+  call whose declared result is an own pointer (ccllib's `release`, the program's own function), the clone macro's copy
+  (`ck_new_memory_call/1`) -- whose value an expression statement, a cast to void, a comma's left operand wherever it
+  stands, a statement's conditional or a for's first or third clause throws away, leaks its block: refused,
+  `dropped_memory`, `new memory given no owner (nothing frees it): 'malloc'`. A statement expression whose value is a
+  local made of new memory is so too: C++'s `new int(3);` and `clone(p);`. The program's own placement function and a
+  class's own `operator new` give a block that may be its arena's or its pool's, and a placement form of a pointer gives
+  none: they are not refused -- the step's first text refused `new (ar) S(-1);` over `operator new(size_t, Arena &) tie
+  a`, in a `try`, the nets' finding over `test/cpp/run/placealloc.cpp`. Until 0.309 `malloc(10);`, `(void)mk();` over
+  `own int *mk(void)` and `release(p);` built and leaked. A call that gives no new memory for certain is not refused
+  thrown away: `fgets`, `getcwd` and `strtok`, which the check takes for new memory only where a plain local holds the
+  result, since it is often the argument or the library's, `strcpy`, `memcpy`, `memset` and `strcat`, whose result is
+  the argument, and a function of a plain pointer: `test/c/run/discarded.c`, as C and as C++. Ten fixtures of
+  `test/c/safe/`, `dropped_malloc.c`, `dropped_strdup.c`, `dropped_realloc.c`, `dropped_own_result.c`,
+  `dropped_void_cast.c`, `dropped_comma.c`, `dropped_cond.c`, `dropped_for_step.c`, `dropped_for_init.c` and
+  `dropped_clone.c`, each built as C++ too, and `test/cpp/dropped_new.cpp`, `dropped_new_array.cpp` and
+  `dropped_new_nothrow.cpp`. Lowering 172. (0.309)
 
 ### Own arrays and their drains
 
@@ -11780,15 +11878,15 @@ in the first topic (The ccllib gate).
   call may throw, and no defer frees it" (0.237), `borrow_after_call` "use of a borrow after a call that may replace its
   owner" (0.265), `elem_not_moved` "an own array's element given to an owner with no move, which its array holds still
   -- write move() around it, which empties its slot" and `result_untied` "a borrow of an own array returned with no tie
-  on the result -- tie the result to the array" (0.307), and `assign_to_const` in clang's words, "cannot assign to
-  variable 'b' with const-qualified type 'const buf *'" (0.265), in C++ "... 'const Buf &'" through a reference and
-  "cannot assign to non-static data member within const member function 'bad'" through a const member function's `this`
-  (0.272). The kinds: `use_after_move`, `owner_unset`, `borrow_after_move`, `borrow_after_call`, `assign_to_const`,
-  `borrow_escapes`, `borrow_stored`, `borrow_consumed`, `borrow_incomplete`, `owner_stored`, `owner_leaked`,
-  `owner_overwritten`, `owner_across_throw`, `move_in_loop`, `move_of_non_owner`, `goto_with_owners`, `goto_over_defer`,
-  `tie_unknown`, `tie_outlived`, `tie_escapes`, `tie_mismatch`, `own_unbounded`, `own_array_by_value`,
-  `own_array_untagged`, `array_unset`, `elem_not_moved`, `result_untied`, `unconsumed`, `untied`, `not_checked`. (M3,
-  0.307)
+  on the result -- tie the result to the array" (0.307), `dropped_memory` "new memory given no owner (nothing frees it)"
+  (0.309), and `assign_to_const` in clang's words, "cannot assign to variable 'b' with const-qualified type 'const buf
+  *'" (0.265), in C++ "... 'const Buf &'" through a reference and "cannot assign to non-static data member within const
+  member function 'bad'" through a const member function's `this` (0.272). The kinds: `use_after_move`, `owner_unset`,
+  `borrow_after_move`, `borrow_after_call`, `assign_to_const`, `borrow_escapes`, `borrow_stored`, `borrow_consumed`,
+  `borrow_incomplete`, `owner_stored`, `owner_leaked`, `owner_overwritten`, `owner_across_throw`, `move_in_loop`,
+  `move_of_non_owner`, `goto_with_owners`, `goto_over_defer`, `tie_unknown`, `tie_outlived`, `tie_escapes`,
+  `tie_mismatch`, `own_unbounded`, `own_array_by_value`, `own_array_untagged`, `array_unset`, `elem_not_moved`,
+  `result_untied`, `dropped_memory`, `unconsumed`, `untied`, `not_checked`. (M3, 0.307, 0.309)
 - The kinds not met above: `use_after_move` is a consumed owner used, freed or passed again, the double free.
   `owner_unset` is an owner used before it got a value. `move_of_non_owner` is `move` of no owner and no library value.
   `goto_with_owners` is a `goto` over the declaration of a plain pointer that holds fresh memory or of an own array
@@ -15501,6 +15599,10 @@ Declarations topic of the C++ reader).
 - A VARIANT, ITS LIMITS (0.308): `visit` of several variants, and of a callable -- a lambda, a function object --;
   `in_place_index` and `in_place_type`; a variant made of a value that converts to one alternative; `variant_size`,
   `variant_alternative` and `variant_npos`; `<=>`; `std::hash` (1b).
+- A UNIQUE_PTR, ITS LIMITS (0.309): `unique_ptr<T[]>`, whose type of no bound has no word; a deleter, and the release of
+  an object of another kind (the owner's question of 0.307); a unique_ptr of an object with a pointer in it (decision
+  2); `if (p)` and `p == nullptr`; `get_deleter`; `std::hash` (1b) and `operator<<` (1d); `shared_ptr`, `weak_ptr` and
+  `make_shared`, phase 1b's next.
 - A PLAIN CALL'S COUNT OF ARGUMENTS, AND A POINTER AND AN INTEGER IN EACH OTHER'S PLACE, ARE NOT CHECKED (found at
   0.288; C17 6.5.2.2/2 and 6.5.16.1/1, constraints): `f(1)` and `f(1, 2, 3)` over `int f(int, int)` build to an object
   with no message -- the call is made with the arguments that it has --, where clang 22 says `too few arguments to
@@ -15531,7 +15633,10 @@ Declarations topic of the C++ reader).
   OPTIONAL'S AND A VARIANT'S RELATIONS over a member, an element or an alternative that is a plain struct meet it in the
   module's text (found at 0.308): `a == b` over two `variant<point, int>` is `not lowered yet: type(unknown) (function
   variant_point_int_eq)` in C and `not lowered yet: no_operator(==)` in C++, where C++ refuses it too, in its own words,
-  since the struct has no `operator==`.
+  since the struct has no `operator==`. `*s` AND `s->m` OVER A STRUCT -- an instance of a type macro that names no
+  pointer among them, `*v` and `v->len` over a vector -- are refused by the lowering's term, `not lowered yet:
+  not_a_pointer(...)`, and `*v` in C++ by `not lowered yet: no_operator(*)` (found at 0.309), where clang says
+  `indirection requires pointer operand` and `member reference type ... is not a pointer`.
 - TWO MACRO FILES THAT DEFINE ONE PREDICATE, IN ONE PROCESS (found at 0.263): a macro file's predicates are the
   process's, consulted once, so a second file that defines a name the first defines is not its own there -- the reader
   gate and the compile gate read every fixture in one process, and `literal.pl`'s own `type_vector/3` was `tvector.pl`'s

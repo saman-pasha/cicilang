@@ -1509,6 +1509,7 @@ ck_stmt(static_assert(_, _, _), St, St) :- !.
 ck_stmt(expr(_, bind_ref(_, E)), St0, St) :- !, ck_expr(E, St0, St).   % a REFERENCE MEMBER BOUND: the object outlives its holder, as a reference capture's does -- the safe part follows neither
 ck_stmt(empty, St, St) :- !.
 ck_stmt(expr(L, E), _, _) :- ck_dropped_value(E), !, ck_line(L), ck_fail(dropped_temporary, temporary, E).   % a call's value that has a drop, thrown away (0.262)
+ck_stmt(expr(L, E), _, _) :- ck_dropped_memory(E, D), !, ck_line(L), ck_dropped_name(D, N), ck_fail(dropped_memory, N, D).   % new memory thrown away (0.309)
 ck_stmt(expr(L, E), St0, St) :- !, ck_line(L), ck_anchor_addrs(E, St0, St1), ck_expr(E, St1, St).
 ck_stmt(defer(L, ['$autodrop'(V)], _), St0, St) :- !, ck_line(L), ck_defer(St0, '$autodrop'(L, V), St).   % an object's drop (0.262): its mark is the defer
 ck_stmt('$autodrop'(_, V), St0, St) :- !, ck_autodrop(V, St0, St).
@@ -1535,6 +1536,7 @@ ck_stmt(for_each(L, D, R, S), St0, St) :- !, ck_line(L),                        
     ( ccl_for_each_as_for(for_each(L, D, R, S), For) -> ck_stmt(For, St0, St) ; ck_fail(not_checked, range_for, for_each(L, D, R, S)) ).
 ck_stmt(using(_, _), St, St) :- !.
 ck_stmt(for(L, Init, C, Step, S), St0, St) :- !, ck_line(L),
+    ( member(X, [Init, Step]), X \= decl(_, _), X \== none, ck_dropped_memory(X, D) -> ck_dropped_name(D, N), ck_fail(dropped_memory, N, D) ; true ),
     ccl_scope_push, ck_bpath_push, ck_push(St0, St1),
     ( Init = decl(_, Vs) -> ck_decls(Vs, St1, St2) ; Init == none -> St2 = St1 ; ck_anchor_addrs(Init, St1, St1a), ck_expr(Init, St1a, St2) ),
     ( C == none -> St3 = St2 ; ck_expr(C, St2, St3) ),
@@ -1590,6 +1592,37 @@ ck_frame_holds(Os, R) :- member(K-_, Os), atom(K), ck_key_of(K, R), !.
 %% member read off it, it would leak, since nothing drops a temporary yet: refused, `dropped_temporary'
 ck_dropped_value(cast(_, E)) :- !, ck_dropped_value(E).
 ck_dropped_value(call(F, As)) :- catch(ccl_type_of(call(F, As), T), _, fail), T \== unknown, ck_type_drop(T, _).
+%% NEW MEMORY THROWN AWAY (0.309; found by the probes of <memory.pl>, whose `release(p);' leaked its object): a call that
+%% gives new memory for certain -- an allocator of the C library by its name, C++'s new through the library's allocation
+%% function (ck_lib_allocation/1), a call whose declared result is
+%% an own pointer (ccllib's release, the program's own function) -- whose value an expression statement, a cast to void,
+%% a comma's left operand, a statement's conditional or a for's first or third clause throws away, leaks its block:
+%% refused, `dropped_memory'. A call whose pointer the check takes for new memory only where a plain local holds it
+%% (`fgets', `getcwd', `strtok') is not refused thrown away: its result is often its argument, or the library's
+ck_dropped_memory(cast(_, E), D) :- !, ck_dropped_memory(E, D).
+ck_dropped_memory(comma(A, B), D) :- !, ( ck_dropped_memory(A, D) -> true ; ck_dropped_memory(B, D) ).
+ck_dropped_memory(cond(_, A, B), D) :- !, ( ck_dropped_memory(A, D) -> true ; ck_dropped_memory(B, D) ).
+ck_dropped_memory(stmt_expr(block(Ss)), D) :- last(Ss, expr(_, id(P))), member(declaration(_, _, _, Vs), Ss), member(var(P, _, I), Vs),
+    ck_new_memory_call(I), !, D = I.   % a statement expression whose value is a local made of new memory: C++'s new-expression that initializes, the clone macro's copy
+ck_dropped_memory(E, E) :- ck_new_memory_call(E).
+ck_new_memory_call(call(id(F), _)) :- atom(F), ck_allocator(F), !.
+ck_new_memory_call(call(F, As)) :- catch(ccl_type_of(call(F, As), T), _, fail), T \== unknown, ck_own_type(T), !.
+ck_new_memory_call(new(_, _)) :- !.
+ck_new_memory_call(new_array(_, _)) :- !.
+ck_new_memory_call(alloc(_, _, call(id(F), _))) :- atom(F), ck_lib_allocation(F).
+ck_allocator(F) :- atom_concat('__builtin_', G, F), !, ck_allocator(G).
+ck_allocator(F) :- memberchk(F, [malloc, calloc, realloc, aligned_alloc, strdup, strndup]).
+%% C++'s new-expression is new memory where its allocation function is the library's global one ([new.delete.single],
+%% [new.delete.array]): `_Znwm', `_Znam' and their nothrow and aligned forms, the placement forms of a pointer (`...Pv')
+%% apart. The program's own placement function and a class's own operator new give a block that may be its arena's or its
+%% pool's: `new (ar) S(-1);' over `operator new(size_t, Arena &) tie a' was refused, the nets' finding of 0.309 over
+%% test/cpp/run/placealloc.cpp
+ck_lib_allocation(F) :- ( sub_atom(F, 0, 4, _, '_Znw') ; sub_atom(F, 0, 4, _, '_Zna') ), \+ sub_atom(F, _, 2, 0, 'Pv').
+ck_dropped_name(call(id(F), _), F) :- atom(F), !.
+ck_dropped_name(alloc(_, _, _), new) :- !.
+ck_dropped_name(new(_, _), new) :- !.
+ck_dropped_name(new_array(_, _), 'new[]') :- !.
+ck_dropped_name(_, memory).
 ck_asm_ops([], St, St).
 ck_asm_ops([op(_, _, E)|Os], St0, St) :- ck_expr(E, St0, St1), ck_asm_ops(Os, St1, St).
 ck_asm_outs([]).
@@ -2148,6 +2181,7 @@ ck_read(K, S) :- ( memberchk(S, [live, null, none, anchor, loose, array]) -> tru
 ck_expr(_, dead, dead) :- !.
 ck_expr(E, St, St) :- \+ compound(E), !.                                          % an operator, a number, a name as a field
 ck_expr(member(C, F), _, _) :- ck_dropped_value(C), !, ck_fail(dropped_temporary, temporary, member(C, F)).   % a member of a call's value that has a drop (0.262)
+ck_expr(comma(A, _), _, _) :- ck_dropped_memory(A, D), !, ck_dropped_name(D, N), ck_fail(dropped_memory, N, D).   % a comma's left operand is thrown away wherever it stands (0.309)
 ck_expr(list_lit(L, _, _), _, _) :- !, nb_getval('$ck_fn', Fn), throw(error(not_lowered(list_literal_with_no_type_given), where(Fn, line(L)))).   % a literal where no place gives it a type (0.263)
 ck_expr(id(N), St, St) :- !, ( ck_state(St, N, S) -> ck_read(N, S) ; true ), ck_held_read(St, N).   % what a holder's storage holds is read with it (0.217)
 ck_expr(int(_), St, St) :- !.

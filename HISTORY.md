@@ -303,6 +303,7 @@ One row per step, in version order: the step's title, what it did and its gate n
 | 0.306 | `own` is a keyword, and no name that a program declares | the Ambitious session's finding 37: `own` given as a name -- a variable, a parameter, a member, a function, a typedef, a tag, an enumerator, a label, a binding, and C++'s names -- refused at its line in one set of words, where 46 forms failed far from it, late or not at all | 15 C and 10 C++ refusals and `ownwords.c`; reader `k168`, `k169`; the flow gate and the nets; no chain, by the owner's rule of 0.271; a commit and a push |
 | 0.307 | an own array of static storage is an own array | the Ambitious session's finding 38: an own element moved out of a static array by a plain read, which the next store freed under its new owner -- the arrays at file scope, their members and the static locals followed as a local one is: an element leaves only by `move()`, a borrow ends at a store and at a call that may store, a borrow leaves only by a tie; in C++ a namespace's and a class's too | 15 C and 2 C++ refusals, `staticarrays.c`, `staticfree.c`, `statichide.c` and `staticscoped.cpp`; the flow gate and the nets; no chain, by the owner's rule of 0.271; a commit and a push |
 | 0.308 | ccllib phase 1b, variant.pl and visit | `#include <variant.pl>`: a union of the alternatives and an index, born zero, `swap`, C++20's relations; `holds_alternative`, `get`, `get_if` and `emplace` by the typed call; `visit<f>(v)`, the typed call with a function's name, calls the program's `f_<word>`; a call by name of a name that ends in a digit asks no count after it | `variant.c` and its twin; 20 refusals; `variant_rules.c` at 3,500 checks and `digitnames.c`; 19 copies broken on purpose, each caught; the flow gate and the nets; no chain, by the owner's rule of 0.271; a commit and a push |
+| 0.309 | ccllib phase 1b, memory.pl's unique_ptr; new memory thrown away | `#include <memory.pl>`: one own pointer and a drop, born null, made of an own pointer; `make_unique<T>(x)` by the reader's maker by name, `*p` and `p->m` by its pointer's type macro; `get`, `release`, `reset`, `swap`, the relations; the safe part refuses new memory thrown away, where `release(p);` and `malloc(10);` built and leaked; C++'s `clone` refused by name | `unique_ptr.c` and its twin; 17 ccllib refusals, 10 C ones and three C++ ones; `unique_ptr_rules.c` at 268,078 checks; 25 copies broken on purpose, each caught; the flow gate and the nets; no chain, by the owner's rule of 0.271; a commit and a push |
 
 ## M5 — the C++ mode
 
@@ -22241,3 +22242,155 @@ files, none beside an older one --, and the flow gate ran again with `variant` i
   README.md, HISTORY.md, CLAUDE.md; `module/cicilang.cicili` (0.308).
 
 The module 0.308, the reader 198 and the lowering 171.
+
+## 0.309 — ccllib phase 1b, memory.pl's unique_ptr; new memory thrown away
+
+**0.309: `#include <memory.pl>` gives std::unique_ptr: a struct of one own pointer and a drop that frees the object,
+born empty, moved by an assignment and by a call, made of an own pointer or by `make_unique<T>(x)` and
+`make_unique<T>()`, with `*p` and `p->m`, `get`, `release`, `reset`, `swap` and the relations of the pointers. Two forms
+of the reader are new: a maker by name, whose instance is its list's, and a pointer's type macro, whose `*p` and `p->m`
+are the module's functions. The step's probes found that the safe part refused no new memory thrown away --
+`release(p);` built and leaked its object, and so did `malloc(10);` and the program's own `mk();` --, and it is refused
+now. `clone` of an instance that has no `_clone` is refused by name in C++ too.**
+
+THE FORMS, DECISIONS OF THE STEP'S, FOR THE OWNER TO SEE. MAKE_UNIQUE: `std::make_unique<T>(args...)` passes its
+arguments to T's constructor, and C has none; `make_unique<point>(pt)` takes a value of T and copies it into the new
+block, `make_unique<point>()` gives T's zero, as C++'s value-initialization does, and
+`make_unique_for_overwrite<point>()` a block whose bytes are not set, as C++20's. Its arguments name no instance, so the
+call by name of 0.288 cannot find the instance from them, and the typed call of 0.305 asks the instance of its first
+argument: A MAKER BY NAME is a third form. The fact `maker_unique_ptr_make_unique` in the module names `make_unique` a
+maker of the macro, and the reader makes the instance of the list, `unique_ptr<point>`, and calls its function
+`unique_ptr_point_make_unique`, the count first as a call by name asks it, so `make_unique<point>()` is
+`unique_ptr_point_make_unique0()`; a unit with no instance reads it too. `make_shared` will be the same form. A
+POINTER'S TYPE MACRO, FOR `*p` AND `p->m`: C's `*` and `->` take a pointer, and a unique_ptr is a struct, where C++
+overloads the two. A fact `pointer_unique_ptr` makes the reader write `*p` as `*unique_ptr_point_deref(&p)` and `p->m`
+as `unique_ptr_point_arrow(&p)->m`: the two functions give the object's address and stop the program where p is empty --
+C++ leaves that undefined, and ccllib stops, as each module stops at an access past its bounds. The place is C's own `*`
+of that address, so `*p = x`, `(*p).y += 2` and `p->x = 3` are C++'s forms. The reader asks the instance only in a unit
+that has an instance of such a macro, since C writes `*` and `->` on every pointer, and over any other operand C's own
+reading stands. WHAT C++ HAS AND THE MODULE HAS NOT: `if (p)` and `p == nullptr`, which need a conversion of a struct to
+a truth value -- `get(p)` and `get(p) == 0` are their spelling --; a deleter and `unique_ptr<T[]>`, where 0.307's
+question of the release by an element's type stands; `clone`, as C++ deletes the copy; `std::hash` and `operator<<`. THE
+NAME `any`: phase 1b's `any` waits for the owner's word. A typedef named `any`, as `std::any` would be, makes bitset's
+call by name `any(b);` a declaration of b, by C's grammar, in a unit that includes both modules: CCLLIB.md's open
+decision 7.
+
+THE MODULE. `unique_ptr<point>` is `unique_ptr_point`, `typedef struct unique_ptr_point { own point *p; }
+unique_ptr_point;`, and its drop frees the object: the compiler drops it at its scope's end (autodrop, 0.262), and `w =
+p` and `f(p)` move it, as every object of an instance's type is moved, where C++ writes `std::move`. Born null (0.285).
+`release` gives the own pointer and empties p; `reset` frees and empties; `reset(p, r)` frees the old object and takes
+r, an own pointer moved in; `swap` exchanges the two pointers. A unique_ptr is made of an own pointer by its birth,
+`unique_ptr<point> t = s;`, the function of the word of the pointer's type, `_of_ptr_own_point`, which moves s in; the
+address of a local is no own pointer, and is refused by the words of a birth. The relations compare the pointers, as
+C++'s do: `==`, `<`, `<=` and `>=`, and the reader writes `!=` and `>`. A borrow of the object -- `get(p)` -- ends where
+a call may replace it: `reset`, `release`, `swap` and a move take p by a pointer that is not const (the rules of 0.265
+and 0.293), and a borrow does not leave the function that holds p. The object is a value with no pointer in it (decision
+2), no array and no void, and the macro takes one type: a second, a deleter, is refused by name. `memory.pl.h` includes
+`<stdlib.h>` for `malloc`, `calloc`, `free` and `abort`.
+
+THE MODULE'S TEXT IS THE SAFE PART'S TOO. Of the twenty-five copies of the step broken on purpose, six are refused in
+the module's own text, in the function that the module makes, before any program runs: a `release` that keeps the
+pointer, a `reset` that keeps it and a `swap` that writes one side, `a borrowed struct's own field not whole at the
+return: 'u->p'`; a `reset` and a `reset(p, r)` that free nothing, `owner overwritten while live: 'u->p'`; a drop that
+frees nothing, `owner leaked: 'u->p'`. The C text of ccllib is checked as a program's is, so these rules of the own
+pointer hold in the module with no case of a program.
+
+NEW MEMORY THROWN AWAY. The probes of `release` found that `release(p);`, whose result is the own pointer, built and
+leaked the object: the check follows an own pointer by the name that holds it, and a value that an expression statement
+throws away has none. The check of 0.308 built and ran `malloc(10);`, and `mk();` and `(void)mk();` over the program's
+`own int *mk(void)`, too. A call that gives new memory for certain -- an allocator of the C library by its name
+(`malloc`, `calloc`, `realloc`, `aligned_alloc`, `strdup`, `strndup`), C++'s new-expression through the library's
+allocation function, a call whose declared result is an own pointer, the clone macro's copy -- is refused now where its
+value is thrown away: an expression statement, a cast to void, a comma's left operand, a conditional in a statement, a
+for's first or third clause; a statement expression whose value is a local made of new memory is so too, C++'s `new
+int(3);` and `clone(p);`. The kind is `dropped_memory`, `new memory given no owner (nothing frees it): 'malloc'`
+(`ck_dropped_memory/2`). A call whose result is often its argument or the library's storage -- `fgets`, `getcwd`,
+`strtok`, `strcpy`, `memcpy`, `memset`, `strcat` -- and a program's function of a plain pointer to static storage stay
+allowed thrown away: `test/c/run/discarded.c`, as C and as C++. The lowering 172, since the check refuses what it built.
+
+WHAT THE NETS FOUND. The C++ run fixtures over libc++ 22 had one failure, `test/cpp/run/placealloc.cpp`: `new (ar)
+S(-1);` in a `try`, a placement new-expression over the program's own `operator new(size_t, Arena &) tie a`, thrown away
+where the constructor throws, was refused, `new memory given no owner`. Its block is the arena's. The step's first text
+took every allocation of a new-expression for new memory; it takes the library's global allocation functions alone now
+(`ck_lib_allocation/1`): `_Znwm` and `_Znam` and their nothrow and aligned forms, the placement forms of a pointer
+(`...Pv`) apart. The program's own placement function and a class's own `operator new`, which may give a pool's block,
+are not taken for new memory. The narrowing takes refusals away and adds none, so no fixture that built can fail by it:
+the fixture builds and prints its `.expect`, `new int(3);`, `new int[4];` and `new (std::nothrow) int(3);` are refused
+still (`test/cpp/dropped_new.cpp`, `dropped_new_array.cpp`, `dropped_new_nothrow.cpp`, the C++ gate's refusals), and the
+flow gate and the C++ gate's later parts ran again after it.
+
+CLONE IN C++. `clone(p)` of an instance whose module has no `_clone` was refused in C by the call by name's words, and
+in C++, where the call by name leaves a name that it does not find to the desugaring, by the raw term `macro:
+cannot_clone(id(p))`; the clone macro refuses it by name now, in both, `unique_ptr_point has no function clone: its type
+macro defines no unique_ptr_point_clone` (`ccl_macro_clone/2`'s second clause).
+
+WHAT THE PROBES FOUND BESIDE IT, recorded. `*v` and `v->len` over a vector, an instance of a type macro that names no
+pointer, are refused by the lowering's term, `not lowered yet: not_a_pointer(...)`, and `*v` in C++ by `no_operator(*)`,
+where clang says `indirection requires pointer operand` and `member reference type ... is not a pointer`; Not done
+records it beside 0.284's record of a binary operator over two plain structs. C++'s defer rule (0.237) refuses an own
+pointer live across a call that may throw, so the probes and the fixtures give an own pointer to its unique_ptr at once,
+as `std::unique_ptr<point> t(new point)` does.
+
+THE PROOF. `test/ccllib/unique_ptr.c` -- the birth, make_unique of a value and of none, a unique_ptr made of an own
+pointer, `*p` and `p->m` as values and as places, `get`, `release`, `reset` of none and of an own pointer, `swap`, each
+relation, a move by an assignment, into a function and out of one, and a unique_ptr of an int, of a struct, of a pair
+and of an optional -- and its twin `unique_ptr.cpp` over `std::unique_ptr`, which clang++ 22 builds over libc++ 22 at
+C++23, print the same 19 lines and the same exit as C and as C++; the count run makes, moves, releases and frees a block
+at each step, and at a hundred million it prints `31874057760` in the three runs; under valgrind each run has no error
+and frees every block, with no count and with a count of 5000. Seventeen programs of `test/ccllib/safe/`, as C and as
+C++, hold the refusals: `unique_ptr_of_pointer.c`, `unique_ptr_of_array.c`, `unique_ptr_of_void.c`,
+`unique_ptr_two_types.c`, `unique_ptr_no_type.c`, `unique_ptr_of_borrow.c` (C++'s words are its own: `no conversion from
+'struct point *' to 'unique_ptr_point'`), `unique_ptr_clone.c`, `make_unique_two.c`, `make_unique_int.c`,
+`make_unique_for_overwrite_arg.c`, `unique_ptr_borrow_after_reset.c`, `unique_ptr_borrow_after_move.c`,
+`unique_ptr_borrow_leaves.c`, `unique_ptr_use_after_move.c`, `unique_ptr_reset_borrow.c`, `unique_ptr_release_leaks.c`
+and `unique_ptr_release_dropped.c`. `test/ccllib/alone/unique_ptr_rules.c` holds each call to a model of the blocks over
+a walk of chance of 4000 steps on three unique_ptrs -- make_unique of a value and of none, `reset`, `reset(p, r)`,
+`release`, `swap`, writes through `*p` and `p->m`, each relation to the blocks' order after each step --, then the
+moves: 268,078 checks. `stops.c` has three cases of a unique_ptr: `*p` and `p->m` of an empty one stop, and `get` of an
+empty one and `*p` of a full one do not. TWENTY-FIVE COPIES BROKEN ON PURPOSE, a rule each, are each reported: six by
+the safe part in the module's text (above); six by `unique_ptr_rules.c`, `NOT HELD` with the rule's words -- a `reset(p,
+r)` that frees r, a make_unique that does not copy, `<`, `<=`, `>=` and `==` --; three by the rules program that no
+longer builds -- the reader's maker that asks no count, `make_unique of unique_ptr_cell takes 1 argument(s), and the
+call has 0`, and its `*` and `->` taken as C's own, `not_a_pointer` --; two by `stops.c`, a `*p` and a `p->m` that do
+not stop; one by valgrind, a make_unique() of garbage; one by the lines of `unique_ptr.c`, a unique_ptr made of an own
+pointer that does not take it; five by a refusal of `test/c/safe/` that builds, the check's new rule in each of its
+places -- the expression statement, the comma, the for, the statement expression and the own result --; and one by the
+C++ words of `unique_ptr_clone.c`. The flow gate charts `memory.pl` beside the other modules (`CFILES` in
+`test/flow.sh`).
+
+WHAT IT COSTS, by the ccllib gate's lines (the best of three builds after a change of the file): The unit holds 34
+functions for its instances in 12,744 bytes, where the twin's holds 67 in 37,032; the count run takes 0.93 s as C and
+0.87 s as C++ against the twin's 1.23 s, in 1.7 MB against 3.1 MB. The C build after a change of the file takes 0.57 s
+and 387 MB, cicilang++'s 0.48 s and 149 MB, against clang++'s 0.30 s and 114 MB.
+
+THE NETS GREEN: the flow gate, `memory.pl` charted; the reader gate 170, the compile gate 340, the driver gate 83 and
+the ccllib gate 471 checks over one fresh HOME -- 22 programs in three runs, `unique_ptr.c` among them, 155 refused and
+15 alone --; the C++ pool of the light fixtures 363 of 363 over libc++ 22, 363 over 21 and 363 over 18; every other C++
+run fixture, 505 of 520, over libc++ 22, since the check's new rule stands in every expression statement of every
+function that it reads -- the 14 others name a need, which the net does not meet, and one failed, `placealloc.cpp`, the
+nets' finding above, which builds and prints its `.expect` after the rule's narrowing, a change that only takes refusals
+away --; the flow gate again after it; and the C++ gate's later parts by hand after it -- `classes.cpp`,
+`templates.cpp`, the C run fixtures that it builds as C++, `discarded.c` among them, and every list of its refusals, the
+thirteen of new memory thrown away among them -- 217 checks.
+
+- `library/ccllib/memory.pl`, `library/ccllib/memory.pl.h`; `library/ccl_syntax.pl` (`ccl_typed_maker/2`,
+  `ccl_typed_maker_call/6` and the typed call's look-ahead; `ccl_iop_deref/2`, `ccl_iop_arrow/2`, `ccl_iop_pointer/4`
+  and `ccl_inst_any_pointer/0` in the clauses of `*` and `->`; the reader's version); `library/ccl_check.pl`
+  (`ck_dropped_memory/2`, `ck_new_memory_call/1`, `ck_allocator/1`, `ck_lib_allocation/1`, `ck_dropped_name/2`, asked by
+  `ck_stmt/3`'s expression statement and for, and by `ck_expr/3`'s comma); `library/ccl_driver.pl`
+  (`dr_kind(dropped_memory, ...)`); `library/ccl_format.pl` (`ccl_macro_clone/2`'s second clause); `library/ccl_ir.pl`
+  (the lowering's version); `test/flow.sh` (`CFILES`).
+- `test/ccllib/unique_ptr.c`, `unique_ptr.cpp`, `unique_ptr.expect`, `unique_ptr.count`; the seventeen
+  `test/ccllib/safe/` programs above and their `.expect`, `unique_ptr_of_borrow.expect.cpp`;
+  `test/ccllib/alone/unique_ptr_rules.c` and its `.expect`; `stops.c` and `stops.expect` (the cases of a unique_ptr);
+  `test/c/safe/dropped_malloc.c`, `dropped_strdup.c`, `dropped_realloc.c`, `dropped_own_result.c`,
+  `dropped_void_cast.c`, `dropped_comma.c`, `dropped_cond.c`, `dropped_for_step.c`, `dropped_for_init.c`,
+  `dropped_clone.c` and their `.expect`; `test/c/run/discarded.c` and its `.expect`; `test/cpp/dropped_new.cpp`,
+  `dropped_new_array.cpp`, `dropped_new_nothrow.cpp`; `test/cpp.sh` (`discarded` in the C run list, the ten `dropped_*`
+  in the list of the C safe fixtures that C++ refuses, `dropped_new`, `dropped_new_array` and `dropped_new_nothrow` in
+  the C++ refusals).
+- RULES.md (the C reader: the maker by name, the pointer's type macro, the call by name's `clone`; ccllib: the programs
+  that stand alone, `memory.pl`; the safe part: new memory thrown away, the kinds; Not done: `*` and `->` over a struct,
+  a unique_ptr's limits), CCLLIB.md, README.md, HISTORY.md, CLAUDE.md; `module/cicilang.cicili` (0.309).
+
+The module 0.309, the reader 199 and the lowering 172.

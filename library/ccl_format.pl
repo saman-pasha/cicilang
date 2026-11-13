@@ -104,6 +104,10 @@ ccl_fmt_members([member(MT, M, _)|Ms], E, C, Args) :-
 %% ---- clone --------------------------------------------------------------------
 %% an instance's object is cloned by its instance's `<name>_clone' (0.274): `w := clone(v);' over a vector<int>
 ccl_macro_clone(E, R) :- ccl_inst_call(clone, E, [], R), !.
+%% an instance's object that has no _clone is refused by the name of the function, in C++ too (0.309), where the
+%% call by name leaves a name to the desugaring and the clone was `cannot_clone(E)' -- a unique_ptr is not copied
+ccl_macro_clone(E, _) :- catch(ccl_inst_call_type(E, TN), _, fail), !,
+    ccl_iop_fail([TN, ' has no function clone: its type macro defines no ', TN, '_clone']).
 ccl_macro_clone(E, stmt_expr(block([declaration(0, none, Base, [var(C, ptr([own], PT), call(id(malloc), [sizeof_type(PT)]))]),
                                     expr(0, assign('=', deref(id(C)), deref(E))),
                                     expr(0, id(C))]))) :-

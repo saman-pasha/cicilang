@@ -1,0 +1,1 @@
+a unique_ptr's object is no array: unique_ptr<T[]> waits

@@ -1,0 +1,1 @@
+unique_ptr_point has no function clone: its type macro defines no unique_ptr_point_clone

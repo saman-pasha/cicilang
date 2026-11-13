@@ -12,8 +12,8 @@ the fixture that gates it, and why. The bullet ends with the version that made t
 edits the rule in `RULES.md`, in its topic, and writes its entry in `HISTORY.md`. Read the topic of `RULES.md` that
 covers the code before the code is changed.
 
-At 0.308 the versions are: the module 0.308 (`ccl_p_version` in `module/cicilang.cicili`, `bin/cicilang --version`),
-the reader 198 (`ccl_reader_version/1`, `library/ccl_syntax.pl`) and the lowering 171 (`ccl_lowering_version/1`,
+At 0.309 the versions are: the module 0.309 (`ccl_p_version` in `module/cicilang.cicili`, `bin/cicilang --version`),
+the reader 199 (`ccl_reader_version/1`, `library/ccl_syntax.pl`) and the lowering 172 (`ccl_lowering_version/1`,
 `library/ccl_ir.pl`).
 
 Build and prove, always in this order (or all of it, `sh test/gates.sh`):
@@ -413,6 +413,8 @@ library/ccllib/             ccllib, the standard library of cicilang's C (CCLLIB
   variant.pl, variant.pl.h    std::variant and std::visit (0.308): a union of the alternatives and the index of the
                               one that it holds, a value with no heap and no drop; visit<f>(v) calls the program's
                               f_<word> by the alternative; monostate in its C header
+  memory.pl, memory.pl.h      std::unique_ptr (0.309): one own pointer and a drop; make_unique<T>(x) by the reader's
+                              maker by name, *p and p->m by its pointer's type macro; shared_ptr waits
   ccllib.pl                   what two modules need, written once (0.275): a module loads it by a directive, and no
                               program includes it; the refusal of an element with a pointer, the lists' sort (0.277),
                               the lines of a text by their conditions (0.283), an index in a function's name
@@ -534,7 +536,7 @@ test/c/run/                 C programs built and run: NAME.c, NAME.expect, NAME.
                             with an own field replaces not (0.303); ownwords.c, the word own where it is the owner's,
                             built as C and as C++ (0.306); staticarrays.c, own arrays of static storage, staticfree.c,
                             an own array's store in a file with no <stdlib.h>, and statichide.c, names that a local
-                            shares with an own array (0.307)
+                            shares with an own array (0.307); discarded.c, what stays allowed thrown away (0.309)
 test/c/safe/                C programs the safe part refuses: NAME.c, NAME.expect; dropnone.pl, the macro file of
                             drop_leaks.c (0.262); borrow_after_grow.c, borrow_after_push.c, elem_after_push.c,
                             grow_through_ptr.c, const_replace.c and const_local.c, the safety rules of 0.265;
@@ -561,7 +563,8 @@ test/c/safe/                C programs the safe part refuses: NAME.c, NAME.expec
                             move, static_borrow_store.c, static_borrow_call.c, static_borrow_deep.c,
                             static_borrow_pointer.c, static_tied_store.c and static_tied_call.c, a borrow of an own
                             array of static storage used after a store or a call that may store into it, and
-                            static_result_untied.c, one returned with no tie (0.307)
+                            static_result_untied.c, one returned with no tie (0.307); dropped_*.c, new memory
+                            thrown away (0.309)
 test/cpp/                   the C++ reader's fixtures and the refusals; hidem.cppm for modhidden.cpp; unread_cpp.cpp,
                             an argument taken unread in C++ (0.264, read since 0.270); lit_cpp.cpp, list and map
                             literals beside the lambdas in C++ (0.269); callreplace.cpp, refreplace.cpp,
@@ -574,7 +577,8 @@ test/cpp/                   the C++ reader's fixtures and the refusals; hidem.cp
                             own_enumclass.cpp and own_pack.cpp, the word own given as a name at the places that C++
                             adds, each refused at its line (0.306); staticns.cpp and staticmember.cpp, an element of a
                             namespace's own array and of a class's static own array member given to an owner with no
-                            move (0.307)
+                            move (0.307); dropped_new.cpp, dropped_new_array.cpp and dropped_new_nothrow.cpp, C++'s
+                            new-expressions thrown away (0.309)
 test/cpp/link/              the C++ ABI checks of the C++ gate and the cross gate: abi_helper.cpp, memptr_helper.cpp and
                             byval_helper.cpp built by clang++, abi_main.cpp, memptr_main.cpp and byval_main.cpp by
                             cicilang++, abi.h, memptr.h, byval.h; the C++ gate's two units, units_a.cpp and units_b.cpp
@@ -600,7 +604,7 @@ test/ccllib/                the three runs' programs: NAME.c, a ccllib program; 
                             <span.pl> (0.295); optional.c, of <optional.pl> (0.300); pair.c, of <pair.pl> (0.301);
                             relations.c, the relations of every module by C++20's words, over a NaN too (0.304);
                             tuple.c, of <tuple.pl>, with the get<I> of a pair and of an array (0.305);
-                            variant.c, of <variant.pl>, with visit (0.308)
+                            variant.c, of <variant.pl>, with visit (0.308); unique_ptr.c, of <memory.pl> (0.309)
 test/ccllib/safe/           ccllib programs that the safe part refuses, as C and as C++: NAME.c, NAME.expect, and
                             NAME.expect.cpp where C++ has words of its own (0.274); borrow_into_call_vector.c and
                             string_self_c_str.c, a borrow handed to a call that may replace its owner (0.293);
@@ -614,7 +618,8 @@ test/ccllib/safe/           ccllib programs that the safe part refuses, as C and
                             hold, be made of or be compared with, and the typed calls that name no function, take
                             no lvalue or let a borrow leave (0.305); variant_*.c and visit_*.c, what a variant may
                             not hold, be made of or be compared with, the typed calls that name no alternative, and
-                            the visits whose family does not fit (0.308)
+                            the visits whose family does not fit (0.308); unique_ptr_*.c and make_unique_*.c, what a
+                            unique_ptr may not hold or be made of, its borrows, its moves and its release (0.309)
 test/ccllib/alone/          ccllib programs with no twin, built as C and as C++ (0.281): NAME.c, NAME.expect;
                             stops.c, what stops a ccllib program, each case in a child of its own; tree_rules.c,
                             the rules of the tree of a set and a map, read from the instance's own fields;
@@ -630,7 +635,8 @@ test/ccllib/alone/          ccllib programs with no twin, built as C and as C++ 
                             C++20's words (0.304); tuple_rules.c, the rules of a tuple, each case held to C++20's
                             words (0.305); variant_rules.c, the rules of a variant, each case held to C++20's
                             words, stops.c's cases of a variant, and digitnames.c, the calls by name of a function
-                            whose name ends in a digit and of a visit (0.308)
+                            whose name ends in a digit and of a visit (0.308); unique_ptr_rules.c, the rules of a
+                            unique_ptr, held to a model of its blocks, and stops.c's cases of a unique_ptr (0.309)
 
 proof/forty2.ll, run.sh     M0: hand-written IR through clang to a binary that prints a line and exits 42
 proof/forty2                made by proof/run.sh, never committed

@@ -9,8 +9,9 @@
    character, which is in its bounds, does not (0.295). An optional's value where it has none stops, where C++ throws,
    and its value where it has one, value_or and emplace's place do not (0.300). A variant's get of an alternative that
    it does not hold stops, by an index and by a type, where C++ throws, and get_if, get and emplace of the one that it
-   holds do not (0.308). cicilang builds this file as C and cicilang++ as C++; both print stops.expect. It has no twin:
-   C++ throws at some of these, and says nothing of what follows the others */
+   holds do not (0.308). A unique_ptr's *p and p->m where it is empty stop, where C++ is undefined, and get of an empty
+   one and *p of a full one do not (0.309). cicilang builds this file as C and cicilang++ as C++; both print
+   stops.expect. It has no twin: C++ throws at some of these, and says nothing of what follows the others */
 #include <signal.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -33,6 +34,7 @@
 #include <span.pl>
 #include <optional.pl>
 #include <variant.pl>
+#include <memory.pl>
 /* the child takes abort's signal and leaves with a status of its own: so no core is written and no crash is reported,
    and a stop by abort is told from a fault */
 static void on_abort(int sig) { (void)sig; _exit(77); }
@@ -289,6 +291,14 @@ static void span_ok(void) {
 static void optional_value(void) { optional<int> o; printf("%d", value(o)); }
 static void variant_get_index(void) { variant<int, double> v; printf("%g", get<1>(v)); }
 static void variant_get_type(void) { variant<int, double> v = 2.5; printf("%d", get<int>(v)); }
+typedef struct spot { int x, y; } spot;
+static void unique_ptr_deref(void) { unique_ptr<int> p; printf("%d", *p); }
+static void unique_ptr_arrow(void) { unique_ptr<spot> p; printf("%d", p->x); }
+static void unique_ptr_ok(void) {
+    unique_ptr<int> p;
+    unique_ptr<int> q = make_unique<int>(3);
+    printf("%d %d", get(p) == 0, *q);
+}
 static void variant_ok(void) {
     variant<int, double> v = 2.5;
     int *q = get_if<int>(&v);
@@ -373,5 +383,7 @@ int main(void) {
     printf("optional: value of none %d; in its bounds %d\n", stopped(optional_value), stopped(optional_ok));
     printf("variant: get of an index that it does not hold %d, of a type %d; in its bounds %d\n",
            stopped(variant_get_index), stopped(variant_get_type), stopped(variant_ok));
+    printf("unique_ptr: *p of an empty one %d, p->m %d; in its bounds %d\n", stopped(unique_ptr_deref),
+           stopped(unique_ptr_arrow), stopped(unique_ptr_ok));
     return 0;
 }

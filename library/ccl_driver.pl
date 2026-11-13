@@ -421,6 +421,7 @@ dr_kind(dropped_by_hand, 'an object that its scope drops, dropped by hand:') :- 
 dr_kind(dropped_copied, 'an object that its scope drops, copied whole (move it):') :- !.
 dr_kind(dropped_field, 'an owner inside an object that its scope drops, taken out:') :- !.
 dr_kind(dropped_temporary, 'a value that has a drop, given no name (nothing drops it):') :- !.
+dr_kind(dropped_memory, 'new memory given no owner (nothing frees it):') :- !.   % (0.309)
 dr_kind(K, K).
 %% the user's file's `#warning' lines, printed after its read in clang's shape (they count as no error)
 dr_pp_warnings :-

@@ -61,6 +61,9 @@ Open decisions:
    1);` is `owner leaked: 'b.ids.data'` --, and that program drops each member by name under a `defer`. C++ makes a
    destructor that drops each member. The kin of decision 2: a drop of each member that has one, of a local, of a
    member of a member and of an array's elements, and at an assignment over the struct.
+7. The name `any` (0.309): C++'s `std::any` is a type of no arguments, and a typedef named `any` makes bitset's call by
+   name `any(b);` a declaration of b, by C's grammar, in a unit that includes both modules. The type by another name, or
+   bitset's `any` by another name: the owner's word.
 
 ## What a C developer writes
 
@@ -852,13 +855,38 @@ The unit holds 70 functions for its instances in 34,728 bytes, where the twin's 
 takes 1.29 s as C and 1.28 s as C++ against the twin's 1.84 s, in 1.7 MB against 3.1 MB. The C build after a change of
 the file takes 0.69 s and 401 MB, cicilang++'s 0.66 s and 160 MB, against clang++'s 0.47 s and 120 MB.
 
+### 1b, `memory.pl`'s `unique_ptr` (0.309)
+
+`unique_ptr<T>` is a struct of one own pointer and a drop, which frees the object: the compiler drops it at its scope's
+end, and an assignment or a call moves it, as every object of an instance's type. Born null, made of an own pointer, or
+by `make_unique<T>(x)` and `make_unique<T>()` -- a new form of the reader, A MAKER BY NAME: a typed call whose instance
+is its list's, by the fact `maker_unique_ptr_make_unique`. `*p` and `p->m` are the object's place by A POINTER'S TYPE
+MACRO, the fact `pointer_unique_ptr`, and they stop the program where p is empty; `get`, `release`, `reset`, `swap` and
+the relations of the pointers. The module's text is held to the safe part's rules as a program's is: six of its copies
+broken on purpose are refused in it before any program runs. The step's probes found that the safe part refused no new
+memory thrown away -- `release(p);`, `malloc(10);`, the program's own `mk();` built and leaked --, and it is refused now
+in each place where a value is thrown away. `test/ccllib/unique_ptr.c`, its twin over `std::unique_ptr`, seventeen
+programs of `test/ccllib/safe/`, and `test/ccllib/alone/unique_ptr_rules.c`, which holds each call to a model of the
+blocks at 268,078 checks; twenty-five copies broken on purpose are each caught. The costs over libc++ 22, as above, the
+run `unique_ptr 100000000`:
+
+| | build | peak | IR types | IR functions | IR lines | object | `unique_ptr 100000000` at `-O2` | its peak |
+|---|---|---|---|---|---|---|---|---|
+| cicilang, C | 0.57 s | 387 MB | 7 | 34 | 1,065 | 12,744 B | 0.93 s | 2 MB |
+| cicilang++, C++ | 0.48 s | 149 MB | 8 | 34 | 1,661 | 17,688 B | 0.87 s | 2 MB |
+| clang++ 22, `std::` | 0.30 s | 114 MB | 24 | 67 | 1,818 | 37,032 B | 1.23 s | 3 MB |
+
+The unit holds 34 functions for its instances in 12,744 bytes, where the twin's holds 67 in 37,032; the count run takes
+0.93 s as C and 0.87 s as C++ against the twin's 1.23 s, in 1.7 MB against 3.1 MB. The C build after a change of the
+file takes 0.57 s and 387 MB, cicilang++'s 0.48 s and 149 MB, against clang++'s 0.30 s and 114 MB.
+
 ### The parts of phase 1
 
 - 1a. Containers and strings: `vector`, `array`, `deque`, `list`, `forward_list`, `map`, `set`, `multimap`,
   `multiset`, `unordered_map`, `unordered_set` and their multi forms, `stack`, `queue`, `priority_queue`, `bitset`,
   `string`, `string_view`, `span` -- done at 0.295.
 - 1b. The vocabulary: `optional` (0.300), `pair` (0.301), `tuple` (0.305), `variant` and `visit` (0.308), `any`,
-  `unique_ptr` (the own pointer), `shared_ptr`, `hash`, `less` and the other function objects.
+  `unique_ptr` (the own pointer, 0.309), `shared_ptr`, `hash`, `less` and the other function objects.
 - 1c. Algorithms and numbers: `<algorithm>`, `<numeric>`, the C++20 ranges views as loops, `<limits>`, `<complex>`,
   `<random>`, `<ratio>`, `<chrono>`.
 - 1d. iostreams: `ostream`, `istream`, `fstream`, `stringstream`, `<iomanip>`, `cout`, `cin`, `cerr`, over C's stdio.

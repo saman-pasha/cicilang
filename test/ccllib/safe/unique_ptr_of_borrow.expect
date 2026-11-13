@@ -1,0 +1,1 @@
+a unique_ptr_point is not made of a value of the type ptr_point: its type macro defines no unique_ptr_point_of
