@@ -1834,12 +1834,35 @@ that changes a rule edits the rule here, in its topic, and writes its entry in `
 ### The user's file and the headers' macros
 
 - `ccl_pp_top/3` (from `ccl_read_file_/3`) runs the user's file in TOP mode (`'$pp_top'`). A `#define` or `#undef` is
-  done AND passed on as `tok(pp, Text, L)` (`pp_pass/4`). An `#include` is passed on for the parser (a cached unit, a
-  `.pl` macro file, or `missing`), and its header joins `'$pp_hdrs'`, the last first. A `#cocolog ... #end` block is one
-  `tok(cocolog, Text, L)` of the raw lines, read again from the file (`pp_cocolog_block/5`). The groups are decided, and
-  every macro is expanded. A character that begins no token and reaches the reader throws `lexical(L)` at its line
-  (0.210: a line that did not lex whole threw it, a character that `#` took among them; the Lexers topic). Reader `k86`,
-  `k71`; `test/c/run/macros.c`, `test/c/run/pp.c`. (M5, 0.210)
+  done AND passed on as `tok(pp, Text, L)` (`pp_pass/4`). An `#include` between items is passed on for the parser (a
+  cached unit, a `.pl` macro file, or `missing`), and its header joins `'$pp_hdrs'`, the last first; one inside an item
+  is its file's text in place (0.310, below). A `#cocolog ... #end` block is one `tok(cocolog, Text, L)` of the raw
+  lines, read again from the file (`pp_cocolog_block/5`). The groups are decided, and every macro is expanded. A
+  character that begins no token and reaches the reader throws `lexical(L)` at its line (0.210: a line that did not lex
+  whole threw it, a character that `#` took among them; the Lexers topic). Reader `k86`, `k71`; `test/c/run/macros.c`,
+  `test/c/run/pp.c`. (M5, 0.210, 0.310)
+- **AN `#include` INSIDE AN ITEM OF THE TOP RUN IS ITS FILE'S TEXT IN PLACE** (0.310; C17 6.10.2/3: the directive is
+  "replaced by the entire contents of the source file"; `pp_splice_include/4` from `pp_do_include/6`): where the run's
+  output stands inside braces, parentheses or brackets, or right after `=` (`pp_top_inner/0`), the file runs in the run,
+  as a header's run takes an `#include`, under the macros in force -- an X-macro's `#define CSS_PROP(id, name,
+  inherited) CSS_##id,` before it --, and its tokens stand at the `#include`'s line (`pp_reline_key/2`): a diagnostic of
+  a row names the program's file at that line. The depth is the run's walk of its own output, a text line at a time
+  (`pp_depth_seg/2` over `'$pp_depth'`, from each top run's start, `pp_depth_reset/0`): `{`, `(` and `[` open, `}`, `)`
+  and `]` close, a digraph as its punctuator. In C++ the braces of a linkage specification, `extern "C" {` and `extern
+  "C++" {`, hold items, and an `#include` among them is a header's, read as one (`pp_depth_outer/1`, over the first
+  tokens since the last `;`, `{` or `}`): a library header's text cannot stand in the program's, and `extern "C++" {
+  #include <vector> }` was `syntax error` so. A namespace's braces are an item's: a file included there is its text in
+  place, its names the namespace's, as clang++ has it -- `namespace ns { #include "h.h" }` over h.h's `std::size_t` was
+  `not lowered yet: typedef(scoped([std],size_t))`, over 0.309 too, where the `#include` was passed on. A file that a
+  `#pragma once` has run is not put in place again. Each file put in place is the run's (`'$pp_spliced'`), and the read
+  names it among its unit's deps (`'$spliced_files'/1`, the Includes topic). Until 0.310 the `#include` was passed on to
+  the reader, which took it for an item: among enumerators, members and a block's items it dropped it with no word --
+  `typedef enum { #define CSS_PROP(id, n, i) CSS_##id, #include "props.def" CSS_NPROPS } css_prop_id;` made `CSS_NPROPS`
+  0 where clang has 4, and a struct's fields and a body's statements were lost --, and in an initializer it gave up,
+  `syntax error: could not read this item`. THE FINDING of a program over a CSS table (the Ambitious session's): its
+  enum of properties lost its rows, and its table of `CSS_NPROPS` rows was refused as longer than its bound since 0.302
+  (the lowering's topic of initializers), `resource_error(stack)` before it. `-E` shows the rows in place, as `clang -E`
+  does. `test/c/run/xmacro.c`, as C and as C++; the driver gate. Reader 200. (0.310)
 - A run is not re-entrant, so `ccl_pp_prescan/1` first sends each literal `#include`, and each C++ header-unit `import`,
   to `ccl_header_macros_ready/2` (the header by `ccl_include_read/2`, then `ccl_header_macros/2`). The table's kind is
   memoized per level in `'$ccl_hm:<Path>@<Level>'` (`ccl_hm_key/2` over `ccl_read_level/1`, `t` appended with trigraphs
@@ -2095,8 +2118,18 @@ that changes a rule edits the rule here, in its topic, and writes its entry in `
 - `ccl_p//1`, `ccl_kw//1`, `ccl_id//1` note the farthest line (`ccl_far/1`, `'$ccl_far'`, `ccl_farthest/1`) for the
   error's `near(F)`. (M1)
 - A `#define`, `#undef` or `#include` comes from the preprocessor as `tok(pp, Text, L)`, read as the `directive/2` or
-  `include/3` item. A `tok(pp, ...)` is skipped in a struct body, between declarators, among enumerators and in a
-  block. (M5)
+  `include/3` item. A `#define`'s or an `#undef`'s `tok(pp, ...)` is skipped in a struct body, between declarators,
+  among enumerators and among an initializer's items (`ccl_init_pp//0`, 0.310: `{ #define ROW(n) {n}, ROW(1) }` was
+  `syntax error`), and kept in a block as a `directive/2` item. AN `#include`'s THERE STOPS A RAW READ (0.310;
+  `ccl_include_spec/2` in the five clauses): a raw read of the program's own header (`ccl_parse_file`) holds no file's
+  text, and the read that follows it, preprocessed, puts the text in place (`ccl_pp_parse/4`); in the user's file the
+  top run puts it in place (the Preprocessor topic). Until 0.310 the five passed it over with no word.
+  `test/c/run/xmacro.c` holds the enumerators' clause, its header's enum of properties; the driver gate holds the others
+  -- an own header's struct whose members an `#include` gives, one whose member declarators an `#include` gives, and
+  init declarators after one, which without their clauses made a struct of no member and an undeclared name; and a
+  function's body: the lowering takes an own header's bodies from its preprocessed read (`ir_hdr_resolve/2`), and a raw
+  read that went past the `#include` named no dep of the body's file, so a change of it was served the old build. (M5,
+  0.310)
 
 ### The expression grammar
 
@@ -2321,10 +2354,18 @@ that changes a rule edits the rule here, in its topic, and writes its entry in `
 
 ### Initializers and objects
 
-- An unbounded array takes its bound from its initializer at the read (`ccl_sized_by_init`, C 6.7.9/22). A
-  designator moves the position (`ccl_init_bound`). A string gives its length plus one, and a wide string its code
-  points plus one (`ccl_utf8_count`). A pack expansion sizes nothing. `(T[]){...}` is sized by its items. Why: a
-  global's `sizeof` was 0. (0.104, 0.108)
+- An unbounded array takes its bound from its initializer at the read (`ccl_sized_by_init`, C 6.7.9/22). A designator
+  moves the position (`ccl_init_bound`). A string gives its length plus one, and a wide string its code points plus one
+  (`ccl_utf8_count`). A pack expansion sizes nothing. `(T[]){...}` is sized by its items. Why: a global's `sizeof` was
+  0. THE ITEMS ARE COUNTED AS THE LOWERING TAKES THEM (0.310; C17 6.7.9/20): an element that is a record or an array
+  takes from a list with no braces of its own the items that it needs (`ccl_arr_elide/3`, the one walk of the lowering's
+  brace elision, the topic of aggregates), so `row t[] = { "color", 0, "margin", 1 };` has 2 elements and `int p[][2] =
+  { 1, 2, 3, 4, 5, 6 };` 3, where the read counted 4 and 6 and `sizeof` said so. AN ARRAY OF NO BOUND AT FILE SCOPE
+  TAKES THE BOUND OF AN EARLIER DECLARATION OF ITS NAME (C17 6.2.7/3, the composite type; `ccl_prior_bound/3` over
+  `ccl_gdeclared/2`): `extern const css_prop_def css_props[CSS_NPROPS];` in a header and `const css_prop_def css_props[]
+  = { ... };` in the file is an array of `CSS_NPROPS` elements, and a longer list is refused (the lowering's topic of
+  initializers), where the list's count was the bound, with no word -- after an `extern`, in a header or in the file,
+  and after a tentative definition. `test/c/run/xmacro.c`; the driver gate. (0.104, 0.108, 0.310)
 - Designated initializers work in arrays and nested (`[3] = x`, `.a.b = y`); a global's list is made positional
   (`ccl_init_norm`, C 6.7.9). `offsetof` folds through members, elements and anonymous members (`ccl_offsetof`).
   `test/c/run/designated.c`. (0.108)
@@ -3675,6 +3716,17 @@ that changes a rule edits the rule here, in its topic, and writes its entry in `
   program over `<set.pl>` was served the IR that it had kept, in C from the store and in C++ from the IR cache. The
   driver gate: a macro file that loads another, the loaded file written again between two builds, in C and in C++; a
   third build is served. Reader 182. (0.282)
+- **THE FILES THAT AN `#include` INSIDE AN ITEM PUTS IN PLACE ARE ITS UNIT'S TOO** (0.310; the Preprocessor's topic of
+  the user's file): the read of the user's file names the files that its top run put in place (`'$pp_spliced'`, taken
+  before the parse, since a read of an own header runs a top run of its own), and so does the read of an own header --
+  its top run's (`ccl_pp_own_parse/3`), or, where its raw read stopped, the own files that its preprocessed read took
+  (`ccl_pp_parse/4`) --, in the item `'$spliced_files'(Paths)` before `'$expansions'` (`ccl_with_spliced/3`). A unit
+  kept in the store names them among its deps (`ccl_kb_flatten/4`), and the IR's signature and a C++ file's kept IR
+  among the files that the AST reaches (`dr_items_deps/2`): a change of a `.def` file reaches the next build, where the
+  three kept the build that the old rows made. The driver gate: an own header's enum's rows put in place in the header,
+  and a table's rows put in place in the file, each file written again in a round of its own, in C and in C++, then a
+  round of no change that is served; and a function's body that an `#include` gives in an own header, its file written
+  again (the C reader's topic of the item loop). (0.310)
 - The program's own C++ header read whole gives its classes and templates to every includer (`cpp_register_header/1`),
   emitted `linkonce` (`cpp_linkonce/2`), so two units link (`test/cpp/run/bag.cpp`, `bag.h`). Its inline functions are
   emitted with the program, by `#include` and by `import` (`cpp_include_fns`, `cpp_header_fns`), unless it lies under
@@ -4005,10 +4057,11 @@ that changes a rule edits the rule here, in its topic, and writes its entry in `
 - `dr_ir/3` keeps a built file's IR as `'$ccl_ir:<Path>'(Index, Chunk)` (3500 characters, under the clause budget when
   quoted), indexed by `'$ccl_irmeta'(Path, Signature, Count)`. (M4)
 - The signature folds the file's key, every header, macro file and summary its AST reaches (`dr_unit_deps/2`) -- each
-  file that a macro file loads by a directive among them (0.282; `ccl_macro_loads/2`, the Includes topic) --,
-  `ccl_lowering_version/1`, the arch and the debug option (`'$ccl_debug'`: an IR with line tables is another IR,
-  0.128). `dr_fold/4` makes two folds under 2^31, since cocolog is inexact past 2^52. A match is served (`-v`: `served
-  F from the store`); a refused file stores nothing. (M4, 0.128, 0.282)
+  file that a macro file loads by a directive among them (0.282; `ccl_macro_loads/2`, the Includes topic), and each file
+  that an `#include` inside an item put in place (0.310; `'$spliced_files'/1`, the same topic) --,
+  `ccl_lowering_version/1`, the arch and the debug option (`'$ccl_debug'`: an IR with line tables is another IR, 0.128).
+  `dr_fold/4` makes two folds under 2^31, since cocolog is inexact past 2^52. A match is served (`-v`: `served F from
+  the store`); a refused file stores nothing. (M4, 0.128, 0.282, 0.310)
 - A C++ FILE'S IR IS A FILE BESIDE THE SUMMARIES (0.221; the owner's decision 4 of 0.190; the C++ clause of `dr_ir/3`,
   `dr_cxx_ir_file/3`): `~/.cicilang/cpp/ir/<name>-<fold>-<fold>.ll`, keyed as the store's signature is -- the lowering's
   version, the arch, `-g`'s kind and the macros' description -- and by what a C++ read is read under (the reader's
@@ -4885,22 +4938,23 @@ unless a path is given. (0.33, 0.41, 0.79, 0.82, 0.223)
   aggregate member in turn, an unnamed bitfield none), and AN ARRAY'S ELEMENT that is a record or an array alike, from a
   designator on too (`[1] = 7, 8, 9`, `.q = 4, 5`); a designator inside ends it, being the outer list's (C 6.7.9/17,
   /20, [dcl.init.aggr]/16; 0.194; `ccl_record_elided/2`, `ccl_elem_elided/2`, `ccl_elide_record/4`, `ccl_elide_one/5` in
-  `library/ccl_infer.pl`, which the lowering's `ir_init_items/4`, `ir_gelide/4` and `ir_garr_elide/3` ask): `struct
-  sigaction sa = {0};` (glibc's begins with a union) reached LLVM as `sext i32 0 to { i64 }`, `struct P { struct Q q;
-  int c; } p = {1, 2, 3};` gave q the 1 as its value, and `int a[2][2] = {1, 2, 3, 4};` was refused. `unionelide.c`,
-  `elidenest.c`. Every `std::array` initializer needs it. `stdarray.cpp`. Why (0.164): `struct W { int a[1]; } w =
-  {7};`, `struct S { int a[2]; int b; } s = {1, 2};` and `std::array<int, 1> a = {5};` took the item for the array's
-  value, `[1 x i32] 7`, which LLVM refused -- in C as in C++, a local and a global alike; libc++'s
-  `basic_format_string<char, int>` holds `std::array<__arg_t, 1> __types_{...}`. `test/c/run/braceelide.c`,
-  `arrayone.cpp`. AN ARRAY MEMBER WHOSE ELEMENTS ARE RECORDS OR ARRAYS, given a scalar (0.285; C17 6.7.9/20), takes the
-  items that its elements need, each element in turn (a clause of `ir_init_items/4` and one of `ir_gelide/4` over
-  `ccl_elide_elems/5`, before the rule of the items that remain): `struct S { struct P a[2]; int n; } s = {0};` reached
-  LLVM as `sext i32 0 to [2 x %struct.P]` -- `{0}` is every aggregate's zero in C --, a static's flat list over such a
-  member was `not lowered yet: item(declaration(g5))`, and a flat list over a member of arrays, `struct U { int m[2][2];
-  int k; } u = {1, 2, 3, 4, 5};`, was `not lowered yet: initializer(2, ...)`: the member took two of the items, and
-  three were left for the one member after it. The rule of an instance's birth met it: `array<point, 2> ps;` is `= {0}`
-  now. `test/c/run/elideagg.c`, a local's and a static's, against clang's output. Lowering 157. (0.91, 0.110, 0.164,
-  0.285)
+  `library/ccl_infer.pl`, which the lowering's `ir_init_items/4` and `ir_gelide/4` ask, and an array's list through
+  `ccl_arr_elide/3`, one walk that a global's lowering (`ir_gconst_agg/5`), the reader's bound of an array of no bound
+  and the safe part's walk of its slots ask, 0.310): `struct sigaction sa = {0};` (glibc's begins with a union) reached
+  LLVM as `sext i32 0 to { i64 }`, `struct P { struct Q q; int c; } p = {1, 2, 3};` gave q the 1 as its value, and `int
+  a[2][2] = {1, 2, 3, 4};` was refused. `unionelide.c`, `elidenest.c`. Every `std::array` initializer needs it.
+  `stdarray.cpp`. Why (0.164): `struct W { int a[1]; } w = {7};`, `struct S { int a[2]; int b; } s = {1, 2};` and
+  `std::array<int, 1> a = {5};` took the item for the array's value, `[1 x i32] 7`, which LLVM refused -- in C as in
+  C++, a local and a global alike; libc++'s `basic_format_string<char, int>` holds `std::array<__arg_t, 1>
+  __types_{...}`. `test/c/run/braceelide.c`, `arrayone.cpp`. AN ARRAY MEMBER WHOSE ELEMENTS ARE RECORDS OR ARRAYS, given
+  a scalar (0.285; C17 6.7.9/20), takes the items that its elements need, each element in turn (a clause of
+  `ir_init_items/4` and one of `ir_gelide/4` over `ccl_elide_elems/5`, before the rule of the items that remain):
+  `struct S { struct P a[2]; int n; } s = {0};` reached LLVM as `sext i32 0 to [2 x %struct.P]` -- `{0}` is every
+  aggregate's zero in C --, a static's flat list over such a member was `not lowered yet: item(declaration(g5))`, and a
+  flat list over a member of arrays, `struct U { int m[2][2]; int k; } u = {1, 2, 3, 4, 5};`, was `not lowered yet:
+  initializer(2, ...)`: the member took two of the items, and three were left for the one member after it. The rule of
+  an instance's birth met it: `array<point, 2> ps;` is `= {0}` now. `test/c/run/elideagg.c`, a local's and a static's,
+  against clang's output. Lowering 157. (0.91, 0.110, 0.164, 0.285, 0.310)
 - `return { a, b }` builds the RESULT type's object: through its constructor, else member by member where a member
   constructs, else the compound literal (`cpp_stmt_` on `return(L, init(Items))`); it is elided. A designated list
   takes the designated road above. (0.72, 0.83, 0.112)
@@ -11109,7 +11163,10 @@ in the first topic (The ccllib gate).
   buffer is C's most common one, and no fixture had one: `test/c/run/owncopy.c` (an `int` buffer, a local owner, a
   buffer of plain structs), which gcc builds to the same line. Found by `vector.pl`'s `insert_range`. (0.274)
 - `ck_fill/6` gives a struct by value a whole value. The fields move over from a struct, come item by item from a list
-  (`ck_init_slots/5`), or are all live from a call. (M3)
+  (`ck_init_slots/5`), or are all live from a call. AN ARRAY'S LIST IS WALKED AS THE LOWERING TAKES IT (0.310;
+  `ccl_arr_elide/3` in `ck_init_slots/5`): a table whose rows have no braces of their own, `row local[2] = {
+  "font-size", 3, "padding", 2 };`, was refused, `no owner behind: 'T[]' in init(int(1))`, its items taken for its
+  elements, a string for a row. `test/c/run/xmacro.c`. (M3, 0.310)
 - A struct with owners handed BY VALUE hands them to the callee's copy, as a copy does. They move at the call
   (`ck_args_/5`, `ck_param_by_value/2`). The by-value parameter owns them and must consume them (`ck_param_owners/2`).
   `move(E)` of such a struct moves its fields (`ck_expr(move)`, `ck_kind(move(E))`). `test/c/safe/by_value_move.c`,
@@ -12364,8 +12421,12 @@ in the first topic (The ccllib gate).
   bound down past zero and made zeros until the stack was gone (finding 33: two minutes and 1.3 GB for `static const
   struct { const char *n; int v; } defs[2] = { {"a", 0}, {"b", 1}, {"c", 0} };`, refused `resource_error(stack)`), a
   union's second item went over its first, a global union's was dropped, and a struct's member past its last was refused
-  by no name. A refusal at file scope is at its declaration's line (`$ir_gline`). The driver gate holds nine forms in C,
-  each at its line, and two in C++. Lowering 169. (0.302)
+  by no name. A refusal at file scope is at its declaration's line (`$ir_gline`), one after a function's definition too:
+  `'$ir_fn'` is `file` at each file-scope declaration (0.310), where it kept the last function's name and `static int
+  t[1] = {1, 2};` after a function was refused at the function's line. An array of no bound that an earlier declaration
+  bounds is held to that bound (0.310, the C reader's topic of initializers). The driver gate holds nine forms in C,
+  each at its line, and two in C++; and three of 0.310 -- a table whose rows an `#include` puts in place, one whose
+  bound an earlier declaration gives, and one after a function's definition. Lowering 169, 173. (0.302, 0.310)
 - **A STRING LITERAL THAT INITIALIZES AN ARRAY FITS ITS BOUND** (0.302; C17 6.7.9/14, [dcl.init.string]/2;
   `ir_string_bound/3`, a local's `ir_init_string/3` and wide `ir_init/3`, a global's `ir_gconst/3`): its characters, and
   the terminator where there is room. C takes a literal that fills the bound with none, `char s[3] = "abc"`, and C++
@@ -15211,6 +15272,19 @@ Declarations topic of the C++ reader).
   says C's words. A flexible array member's initializer at file scope, GNU's form that clang takes, is refused,
   `global_init`.
 
+- AN `#include` INSIDE AN ITEM, AND A TABLE'S BOUND (0.310; the Preprocessor's topic of the user's file, the C reader's
+  of initializers): what is left. A REFUSAL OF A LIST LONGER THAN ITS OBJECT NAMES THE DECLARATION'S LINE, where clang
+  names the first excess item's line and column: the items of a braced list carry no line in the AST, so a table of a
+  hundred rows is named by its first line. AN `#include` AT AN ITEM'S TOP LEVEL, after its first token and not after
+  `=`, is passed on as an item, and the reader gives up there: `static const int`, then `#include "names.inc"`, then
+  `;`, in the user's file is `syntax error: could not read this item`, where clang reads the names -- the run's depth
+  knows braces, parentheses, brackets and `=`, not a declaration's other places; in the program's own header the raw
+  read stops there and the preprocessed read takes the text. WITH `-g` the code of a file put in place stands at the
+  `#include`'s line of the program's file, where clang names the file's own lines. AN ARRAY DECLARED AGAIN WITH ANOTHER
+  BOUND IS TAKEN: `const css_prop T[] = { three rows };` and then `extern const css_prop T[2];` build, where clang says
+  `redeclaration of 'T' with a different type` (C17 6.7/4). IN C++ a const array with no initializer, defined again with
+  its rows, is refused as longer than its bound, where clang++ says `default initialization of an object of const type`
+  and `redefinition of 'T'`.
 ### C++ language
 
 - NAMES ACROSS THE HEADERS' READS AND THE PROGRAM'S, WHAT 0.221 LEFT (0.218's to 0.221's probes): a read keys apart only

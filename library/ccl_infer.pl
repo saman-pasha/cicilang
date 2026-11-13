@@ -736,6 +736,15 @@ ccl_elide_elems(0, _, Is, [], Is) :- !.
 ccl_elide_elems(_, _, [], [], []) :- !.
 ccl_elide_elems(_, _, [item(Ds, V)|Is], [], [item(Ds, V)|Is]) :- Ds \== [], !.
 ccl_elide_elems(K, E, [item([], V)|Is], [item([], W)|Sub], Rest) :- ccl_elide_one(E, V, Is, W, Is1), K1 is K - 1, ccl_elide_elems(K1, E, Is1, Sub, Rest).
+%% AN ARRAY'S ELEMENTS THAT ARE RECORDS OR ARRAYS, GIVEN ITEMS THAT ARE NO BRACED LIST (0.194; C17 6.7.9/20), braced: each
+%% element takes the items that it needs (ccl_elide_one/5) -- `int g[2][2] = {1, 2, 3, 4};', `css_prop t[2] = {"color",
+%% 0, "margin", 1};'. ONE WALK (0.310) for a global's constant (ir_gconst_agg/5), the bound of an array of no bound
+%% (ccl_sized_by_init/3) and the safe part's walk of a braced list (ck_init_slots/5): the bound counted the items as
+%% written, so `T[] = {"color", 0, "margin", 1}' had 4 elements where clang has 2, and the safe part read the items
+%% against the elements, so the list was refused, `no owner behind: 'T[]''. It was the lowering's ir_garr_elide/3
+ccl_arr_elide([], _, []).
+ccl_arr_elide([item([], V)|Is], E, [item([], W)|Out]) :- ccl_elem_elided(E, V), !, ccl_elide_one(E, V, Is, W, Rest), ccl_arr_elide(Rest, E, Out).
+ccl_arr_elide([It|Is], E, [It|Out]) :- ccl_arr_elide(Is, E, Out).
 %% C23'S DECIMAL FLOATING TYPES (6.2.5/11; 0.129): `_Decimal32', `_Decimal64' and `_Decimal128', real floating types of their own,
 %% kept apart from the standard ones (ccl_is_float/1 is false for them): their arithmetic is libgcc's BID routines (the lowering)
 ccl_is_decimal(T) :- ccl_resolve_type(T, base(_, S)), ccl_decimal_spec(S, _), !.

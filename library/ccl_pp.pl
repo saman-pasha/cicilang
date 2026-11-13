@@ -70,7 +70,7 @@ pp_mt_quoted([C|Cs], Q, [C|Out], R) :- pp_mt_quoted(Cs, Q, Out, R).
 %% does not lex whole is the lexical error it always was.
 ccl_pp_top(Path, Tokens, Files) :- nb_setval('$pp_warnings', []), ccl_pp_prescan(Path), ccl_pp_top_run(Path, [], Tokens, Files), ( memberchk(tok(other, C, L), Tokens) -> ( integer(C), C >= 128 -> throw(lexical_char(L, C)) ; throw(lexical(L)) ) ; true ).   % the warnings are the run's, read by the driver after the read (pp_reset leaves them: a nested header's run must not wipe the file's)
 ccl_pp_run(Path, Top, Tokens, Files) :-
-    ccl_ensure_globals, pp_reset, nb_setval('$pp_top', Top),
+    ccl_ensure_globals, pp_reset, nb_setval('$pp_top', Top), ( Top == yes -> pp_depth_reset ; true ),   % a top run's depth and its spliced files from its start (0.310)
     nb_setval('$ccl_hash', punct),                                                   % the run lexes in the preprocessor's mode: `#' a punctuator, a number as spelled
     ( once(catch(pp_include_file(Path, Out, []), E, true)) -> true ; E = failed ),
     nb_setval('$ccl_hash', line), nb_setval('$pp_top', no),
@@ -674,7 +674,7 @@ pp_run([line(N, A)|Ls], Out0, Out) :-
     (   pp_directive_line(A, Body) -> pp_directive(Body, N, Ls, Ls1, Out0, Out1), pp_run(Ls1, Out1, Out)
     ;   nb_getval('$pp_top', yes), pp_import_line(A, Spec), pp_current_file(From), ccl_resolve_include(Spec, From, Path), ccl_header_macros_known(Path, Kind), nb_getval('$pp_hdrs', Hs), \+ memberchk(hk(Path, _, _), Hs),
         nb_setval('$pp_hdrs', [hk(Path, Path, Kind)|Hs]), nb_getval('$pp_ninc', I0), I1 is I0 + 1, nb_setval('$pp_ninc', I1), fail
-    ;   pp_lex_line(N, A, Toks), pp_toks(top, Toks, Ls, Ls1, Out0, Out1), pp_run(Ls1, Out1, Out) ).
+    ;   pp_lex_line(N, A, Toks), pp_toks(top, Toks, Ls, Ls1, Out0, Out1), ( nb_getval('$pp_top', yes) -> pp_depth_seg(Out0, Out1) ; true ), pp_run(Ls1, Out1, Out) ).   % the top run's depth, a text line at a time (0.310, pp_top_inner/0)
 %% the stream: tokens, or h(Token, HideSet) from an expansion
 pp_unwrap(h(T, HS), T, HS) :- !.
 pp_unwrap(T, T, []).
@@ -1061,6 +1061,7 @@ pp_do_include(Rest, How, Body, L, Out0, Out) :-
     ( nb_getval('$pp_top', yes), pp_spec_system(Spec) -> pp_ftm_at_include(Spec) ; true ),   % the program's configuration at each system #include (0.214, 0.215)
     (   ccl_resolve_include(Spec, From, Path)
     ->  (   sub_atom(Path, _, 3, 0, '.pl') -> pp_inc_text(Cmp, Spec, Body, Text), Out0 = [tok(pp, Text, L)|Out]
+        ;   nb_getval('$pp_top', yes), pp_top_inner -> pp_splice_include(Path, L, Out0, Out)   % inside an item: its file's text in place (0.310)
         ;   nb_getval('$pp_top', yes) -> pp_inc_text(Cmp, Spec, Body, Text), Out0 = [tok(pp, Text, L)|Out],
                                         ( Spec = local(_), ccl_own_header(Path) -> pp_own_include(Spec, Path, L) ; pp_lib_include(Spec, Path, L, Cmp) )
         ;   nb_getval('$pp_once', O), memberchk(Path, O) -> Out0 = Out
@@ -1068,6 +1069,62 @@ pp_do_include(Rest, How, Body, L, Out0, Out) :-
     ;   nb_getval('$pp_top', yes) -> pp_inc_text(Cmp, Spec, Body, Text), Out0 = [tok(pp, Text, L)|Out]      % nowhere: the reader says `missing'
     ;   Out0 = Out ).
 pp_do_include(_, _, _, _, Out, Out).
+%% AN #include INSIDE AN ITEM OF THE TOP RUN IS ITS FILE'S TEXT IN PLACE (0.310; C17 6.10.2/3, the directive replaced by
+%% the entire contents of the file): where the run's output stands inside braces, parentheses or brackets, or after `='
+%% (pp_top_inner/0), the file is run in the run, as a header's run takes an #include, under the macros in force -- an
+%% X-macro's `#define X(id, name) CSS_##id,' before it --, and its tokens stand at the #include's line, where a
+%% diagnostic of the program's file names it. Each such file is the run's ('$pp_spliced'), and the read keeps it as its
+%% unit's dep ('$spliced_files'/1, ccl_with_spliced/3). The #include was passed on to the reader, which took it for an item:
+%% among enumerators, members and a block's items it dropped it with no word -- `enum { #include "ids.def" N };' made N
+%% 0 where clang has 2, a struct's fields and a body's statements were lost -- and in an initializer it gave up, `syntax
+%% error'. The finding of a program over a CSS table, whose enum lost its X-macro rows and whose table of CSS_NPROPS rows
+%% was longer than CSS_NPROPS: refused since 0.302, `resource_error(stack)' before it (finding 33)
+pp_splice_include(Path, L, Out0, Out) :-
+    (   nb_getval('$pp_once', O), memberchk(Path, O) -> Out0 = Out
+    ;   nb_setval('$pp_mt_line', L), pp_include_file(Path, Out0, Out),
+        ( Out0 = [pp_out(K)|_] -> pp_reline_key(K, L) ; true ),
+        ( nb_current('$pp_spliced', Sp) -> true ; Sp = [] ), ( memberchk(Path, Sp) -> true ; nb_setval('$pp_spliced', [Path|Sp]) ) ).
+pp_reline_key(K, L) :- nb_getval(K, Ts0), pp_reline_list(Ts0, L, Ts), nb_setval(K, Ts).
+pp_reline_list([], _, []).
+pp_reline_list([X|Xs], L, [Y|Ys]) :- pp_reline_el(X, L, Y), pp_reline_list(Xs, L, Ys).
+pp_reline_el(pp_out(K), L, pp_out(K)) :- !, pp_reline_key(K, L).
+pp_reline_el(h(T, HS), L, h(T1, HS)) :- !, pp_reline_el(T, L, T1).
+pp_reline_el(tok(K, V, _), L, tok(K, V, L)) :- !.
+pp_reline_el(X, _, X).
+%% THE TOP RUN'S DEPTH (0.310): the braces, parentheses and brackets open where its output stands, and its last token.
+%% A brace of C++'s linkage specification, `extern "C" {' or `extern "C++" {', holds items and is no item's
+%% (pp_depth_outer/1): a header included in it is passed on, as one at file scope is -- a library header's text cannot
+%% stand in the program's, and `extern "C++" { #include <vector> }' was `syntax error' so. A namespace's brace is an
+%% item's: a file included in it is its text in place, its names the namespace's, as clang++ has it; passed on,
+%% `namespace ns { #include "h.h" }' over h.h's `std::size_t' was `not lowered yet: typedef(scoped([std],size_t))',
+%% over 0.309 too. '$pp_depth' is d(Open, Recent, Last), set once a text line (pp_run/3): Open the stack, b(inner),
+%% b(outer), p and s; Recent the first three tokens since the last `;', `{' or `}'
+pp_depth_reset :- nb_setval('$pp_depth', d([], [], none)), nb_setval('$pp_spliced', []).
+pp_top_inner :- nb_current('$pp_depth', d(O, _, Last)), ( member(X, O), X \== b(outer) -> true ; Last == '=' ), !.
+pp_depth_seg(S, E) :- nb_getval('$pp_depth', D0), pp_depth_walk(S, E, D0, D), ( D == D0 -> true ; nb_setval('$pp_depth', D) ).
+pp_depth_walk(S, E, D, D) :- ( var(S) ; S == E ), !.
+pp_depth_walk([X|Xs], E, D0, D) :- !, pp_depth_el(X, D0, D1), pp_depth_walk(Xs, E, D1, D).
+pp_depth_walk(_, _, D, D).
+pp_depth_el(pp_out(K), D0, D) :- !, nb_getval(K, Ts), pp_depth_walk(Ts, [], D0, D).
+pp_depth_el(h(T, _), D0, D) :- !, pp_depth_el(T, D0, D).
+pp_depth_el(tok(K, V, _), d(O, R, _), D) :- !, pp_depth_tok(K, V, O, R, D).
+pp_depth_el(_, D, D).
+pp_depth_tok(dg, A, O, R, D) :- pp_digraph(A, P), !, pp_depth_tok(p, P, O, R, D).
+pp_depth_tok(p, '{', O, R, d([b(Kd)|O], [], '{')) :- !, ( ccl_lang(cpp), pp_depth_outer(R) -> Kd = outer ; Kd = inner ).
+pp_depth_tok(p, '}', O, _, d(O1, [], '}')) :- !, pp_depth_close(O, O1).
+pp_depth_tok(p, '(', O, R, d([p|O], R1, '(')) :- !, pp_depth_recent(R, p-'(', R1).
+pp_depth_tok(p, '[', O, R, d([s|O], R1, '[')) :- !, pp_depth_recent(R, p-'[', R1).
+pp_depth_tok(p, ')', O, R, d(O1, R1, ')')) :- !, ( O = [p|O1] -> true ; O1 = O ), pp_depth_recent(R, p-')', R1).
+pp_depth_tok(p, ']', O, R, d(O1, R1, ']')) :- !, ( O = [s|O1] -> true ; O1 = O ), pp_depth_recent(R, p-']', R1).
+pp_depth_tok(p, ';', O, _, d(O, [], ';')) :- !.
+pp_depth_tok(K, V, O, R, d(O, R1, V)) :- pp_depth_recent(R, K-V, R1).
+pp_depth_close([b(_)|O], O) :- !.
+pp_depth_close([_|O0], O) :- !, pp_depth_close(O0, O).
+pp_depth_close([], []).
+pp_depth_recent(R, T, R1) :- ( R = [_, _, _|_] -> R1 = R ; append(R, [T], R1) ).
+pp_depth_outer([K1-extern, lit-_]) :- pp_depth_word(K1), !.
+pp_depth_word(kw).
+pp_depth_word(id).
 %% THE PROGRAM'S OWN HEADER AT AN #include OF THE TOP RUN: the configuration at the #include noted for the reader's read
 %% of it where the #include is a line of the run's own file (pp_inc_user_macros/4), and its directives run in the run
 pp_own_include(Spec, Path, L) :-

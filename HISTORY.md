@@ -304,6 +304,7 @@ One row per step, in version order: the step's title, what it did and its gate n
 | 0.307 | an own array of static storage is an own array | the Ambitious session's finding 38: an own element moved out of a static array by a plain read, which the next store freed under its new owner -- the arrays at file scope, their members and the static locals followed as a local one is: an element leaves only by `move()`, a borrow ends at a store and at a call that may store, a borrow leaves only by a tie; in C++ a namespace's and a class's too | 15 C and 2 C++ refusals, `staticarrays.c`, `staticfree.c`, `statichide.c` and `staticscoped.cpp`; the flow gate and the nets; no chain, by the owner's rule of 0.271; a commit and a push |
 | 0.308 | ccllib phase 1b, variant.pl and visit | `#include <variant.pl>`: a union of the alternatives and an index, born zero, `swap`, C++20's relations; `holds_alternative`, `get`, `get_if` and `emplace` by the typed call; `visit<f>(v)`, the typed call with a function's name, calls the program's `f_<word>`; a call by name of a name that ends in a digit asks no count after it | `variant.c` and its twin; 20 refusals; `variant_rules.c` at 3,500 checks and `digitnames.c`; 19 copies broken on purpose, each caught; the flow gate and the nets; no chain, by the owner's rule of 0.271; a commit and a push |
 | 0.309 | ccllib phase 1b, memory.pl's unique_ptr; new memory thrown away | `#include <memory.pl>`: one own pointer and a drop, born null, made of an own pointer; `make_unique<T>(x)` by the reader's maker by name, `*p` and `p->m` by its pointer's type macro; `get`, `release`, `reset`, `swap`, the relations; the safe part refuses new memory thrown away, where `release(p);` and `malloc(10);` built and leaked; C++'s `clone` refused by name | `unique_ptr.c` and its twin; 17 ccllib refusals, 10 C ones and three C++ ones; `unique_ptr_rules.c` at 268,078 checks; 25 copies broken on purpose, each caught; the flow gate and the nets; no chain, by the owner's rule of 0.271; a commit and a push |
+| 0.310 | an #include inside an item is its file's text in place | the Ambitious session's finding over its CSS table: an `#include` inside an enum, a struct, a body or an initializer of the user's file and of its own header is the file's text, under the macros in force, at the `#include`'s line, where the reader dropped it or gave up -- an X-macro's enum lost its rows, and its table of `CSS_NPROPS` rows was longer than `CSS_NPROPS`; an array of no bound counts its list as the lowering takes it and takes an earlier declaration's bound; the safe part walks an elided table; a refusal after a function stands at its own line; the files put in place key the kept builds | `xmacro.c` as C and as C++; the driver gate's checks of the refusals and of the files put in place; 71 forms; 33 copies broken on purpose, each reported by a gate; the flow gate and the nets; no chain, by the owner's rule of 0.271; a commit and a push |
 
 ## M5 — the C++ mode
 
@@ -22394,3 +22395,159 @@ thirteen of new memory thrown away among them -- 217 checks.
   a unique_ptr's limits), CCLLIB.md, README.md, HISTORY.md, CLAUDE.md; `module/cicilang.cicili` (0.309).
 
 The module 0.309, the reader 199 and the lowering 172.
+
+## 0.310 — an #include inside an item is its file's text in place
+
+**0.310: the Ambitious session's finding over its CSS table, "the same cicilang problem as toolchain finding 33: with a
+table longer than `CSS_NPROPS`, cicilang runs out of stack instead of reporting the extra row". An `#include` inside an
+item of the user's file -- among an enum's enumerators, a struct's members, a function's statements, an initializer's
+items -- is its file's text in place, as C17 6.10.2/3 has it, and so is one inside an item of the program's own header.
+Until 0.310 the reader took it for an item, and passed it over with no word or gave up: an X-macro's enum of properties
+lost its rows, `CSS_NPROPS` was 0, and the table of `CSS_NPROPS` rows was longer than its bound -- refused since 0.302,
+`resource_error(stack)` before it. Five forms beside it are fixed, the keys of the kept builds name the files put in
+place, an own header in a namespace's braces builds, and five forms are recorded.**
+
+THE FINDING, RUN FROM ITS FORMS. The report names no version and gives no reduction, and the session is not one that
+this one can reach. Sixty-eight forms of a table and its bound were built over 0.309, as C and as C++ (`p310/f33`):
+bounds by an enum, a macro, a `sizeof`, an earlier declaration, a header; rows of structs, strings, function pointers,
+unions, arrays, designators and elided braces; at file scope, static and local. NONE RAN OUT OF STACK OVER 0.309: each
+table longer than its bound was refused, `excess elements in array initializer`, at its declaration's line, by the rule
+of 0.302 that ended finding 33 (a global array's bound counted down past zero until the stack was gone). Seven forms
+were wrong over 0.309 that are the Ambitious program's kind: AN `#include` INSIDE AN ITEM. `typedef enum { #define
+CSS_PROP(id, name, inherited) CSS_##id, #include "props.def" #undef CSS_PROP CSS_NPROPS } css_prop_id;` -- an X-macro's
+enum, made of the rows of a `.def` file -- read `CSS_NPROPS` as 0 where clang has 4, so `extern const css_prop_def
+css_props[CSS_NPROPS];` was an array of no element, and the table of the four properties was refused as longer than its
+bound, though clang takes it. The same `#include` inside the table's braces, under a `#define` of the X-macro there, was
+`syntax error: could not read this item`; one inside a function's body dropped its statements (`1` where clang prints
+`6`), and one inside a struct's braces its fields (`not lowered yet: initializer(0,base([],[struct(s,[])]))`). So the
+program's table, longer than `CSS_NPROPS` by the reader's count and not by clang's, is refused over 0.302 to 0.309, and
+runs out of stack over a toolchain older than 0.302: the report's words fit both, the Ambitious toolchain older than
+0.302 or its enum an X-macro's, and 0.310 cures both. Its version and its table are asked for, in case its form is a
+third one.
+
+THE CAUSE. The user's file runs in the preprocessor's top mode: an `#include` is passed on to the reader as a `tok(pp,
+Text, L)`, which the reader reads as an `include/3` item, the header's declarations coming from the store, the summaries
+and the caches. That is right where the `#include` stands between items. Inside an item it is wrong: C17 6.10.2/3
+replaces the directive by the entire contents of the file, wherever it stands. The reader passed over a `tok(pp, ...)`
+among enumerators, members, member declarators and init declarators -- for a `#define` there, which `clang -E -dD` keeps
+-- and kept one in a block as a `directive/2` item, which the lowering passes over; an `#include`'s went with them. An
+initializer has no such clause, so the reader gave up there. The program's own header is read raw first
+(`ccl_parse_file`), and its `#include` is a token there too.
+
+THE FIX. `pp_splice_include/4` (`library/ccl_pp.pl`): where the top run's output stands inside braces, parentheses or
+brackets, or right after `=` (`pp_top_inner/0`), an `#include` runs its file in the run, as a header's run takes one,
+under the macros in force, and its tokens stand at the `#include`'s line (`pp_reline_key/2`), so that a diagnostic of a
+row names the program's file at that line. The depth is the run's walk of its own output, a text line at a time
+(`pp_depth_seg/2`). In C++ the braces of a linkage specification, `extern "C" {` and `extern "C++" {`, hold items, and
+an `#include` among them is a header's, read as one (`pp_depth_outer/1`, over the first tokens since the last `;`, `{`
+or `}`): a library header's text cannot stand in the program's, and `extern "C++" { #include <vector> }` was `syntax
+error` so. A namespace's braces are an item's: a file included there is its text in place, its names the namespace's, as
+clang++ has it -- `namespace ns { #include "h.h" }` over h.h's `std::size_t` was `not lowered yet:
+typedef(scoped([std],size_t))`, over 0.309 too, where the `#include` was passed on. In the reader, an `#include`'s token
+among enumerators, members, declarators and a block's items stops a raw read of an own header (five clauses,
+`ccl_include_spec/2`), and the preprocessed read that follows it puts the text in place; a `#define`'s token among an
+initializer's items is passed over (`ccl_init_pp//0`). `-E` shows the rows in place, as `clang -E` does.
+
+THE FORMS BESIDE IT, FIXED. (1) An array of no bound counted a list with no braces of its own as the lowering does not
+take it: `row t[] = { "color", 0, "margin", 1 };` had 4 elements and `int p[][2] = { 1, 2, 3, 4, 5, 6 };` 6, where clang
+has 2 and 3, and `sizeof` said so. The reader counts the items as the lowering takes them now, by the lowering's own
+walk of the elision, moved to `library/ccl_infer.pl` as `ccl_arr_elide/3` (it was `ir_garr_elide/3`): one walk for the
+three that ask. (2) The safe part walked such a list item by item, a string for a row, and refused a table in a block
+that clang takes: `row local[2] = { "font-size", 3, "padding", 2 };` was `no owner behind: 'T[]' in init(int(1))`; it
+walks the elided list now (`ck_init_slots/5`). (3) An array of no bound at file scope took its list's bound, though an
+earlier declaration gave it one: `extern const css_prop T[CSS_NPROPS];` and then `const css_prop T[] = { three rows };`
+built, where the composite type (C17 6.2.7/3) has `CSS_NPROPS` elements and clang refuses the third row. The bound of
+the earlier declaration is the array's now (`ccl_prior_bound/3`), and a longer list is refused -- after an `extern` in
+the file, in a header, and after a tentative definition. (4) A refusal at file scope after a function's definition named
+the function's line: the lowering's `'$ir_fn'` kept the last function's name, and `ir_init_refuse/1` takes the
+declaration's line only at file scope. It is `file` at each file-scope declaration now. (5) A `#define` among an
+initializer's items was `syntax error` (`ccl_init_pp//0`).
+
+THE KEYS. A file put in place is the unit's, so its change must reach the next build: the store's unit, its IR beside it
+and a C++ file's kept IR were keyed by the files that the AST names, and none names a `.def` file put in place. The read
+names each one in the item `'$spliced_files'(Paths)` (`ccl_with_spliced/3`): the user's file's from its top run, taken
+before the parse, since a read of an own header runs a top run of its own; an own header's from its top run, or, where
+its raw read stopped, from its preprocessed read. The store's deps (`ccl_kb_flatten/4`) and the signatures
+(`dr_items_deps/2`) take them. The block's clause of the reader stands for the keys alone: the lowering takes an own
+header's function bodies from its preprocessed read (`ir_hdr_resolve/2`), and a raw read that went past an `#include` in
+a body named no dep of its file. The driver gate: an own header's enum's rows put in place in the header, and a table's
+rows put in place in the file, each file written again in a round of its own, in C and in C++, then a round of no change
+that is served; and a function's body that an `#include` gives in an own header, its file written again (the C reader's
+topic of the item loop).
+
+NOT DONE, recorded. The refusal names the declaration's line, where clang names the first excess row's line and column:
+the items of a braced list carry no line in the AST. AN `#include` AT AN ITEM'S TOP LEVEL, after its first token and not
+after `=`, is passed on as an item, and the reader gives up there: `static const int`, then `#include "names.inc"`, then
+`;`, in the user's file is `syntax error: could not read this item`, where clang reads the names -- the run's depth
+knows braces, parentheses, brackets and `=`, not a declaration's other places; in the program's own header the raw read
+stops there and the preprocessed read takes the text. WITH `-g` the code of a file put in place stands at the
+`#include`'s line of the program's file, where clang names the file's own lines. AN ARRAY DECLARED AGAIN WITH ANOTHER
+BOUND IS TAKEN: `const css_prop T[] = { three rows };` and then `extern const css_prop T[2];` build, where clang says
+`redeclaration of 'T' with a different type` (C17 6.7/4). IN C++ a const array with no initializer, defined again with
+its rows, is refused as longer than its bound, where clang++ says `default initialization of an object of const type`
+and `redefinition of 'T'`.
+
+THE PROOF. `test/c/run/xmacro.c` over `xmacro.h`, `xmacro_props.def`, `xmacro_fields.inc` and `xmacro_body.inc` -- an
+X-macro's enum in the program's own header and the table of its rows in the file, under a `#define` inside the table; a
+struct's fields and a function's statements from an `#include`; a table of no bound that takes the header's bound;
+tables with no braces of their own, at file scope and in a block -- prints clang's lines as C (the compile gate) and as
+C++ (the C++ gate's list of C run fixtures). `test/cpp/run/inplace.cpp` over `inplace_ns.h` prints clang++'s: a library
+header after a function, a prototype and an array, `<vector>` in `extern "C++"` braces after a declaration, and an own
+header in a namespace, whose names are the namespace's. The driver gate: three refusals at their line (a table whose
+rows an `#include` gives, one whose bound an earlier declaration gives, one after a function's definition); the files
+put in place, each changed in a round of its own, and a body's file in an own header, in C and in C++; an `#include` put
+in place after `=`, between digraphs, in a parameter list and in a bound, a `#pragma once` file once, and among an own
+header's members, member declarators and init declarators, as C and as C++; and a row's diagnostic at the `#include`'s
+line, in C and in C++.
+
+THE SIXTY-EIGHT FORMS, as C and as C++ (`p310/f33`, beside clang 22's words): OVER 0.309, 21 DIFFERED FROM CLANG --
+seven of an `#include` inside an item (an enum's rows, a struct's fields, a body's statements, a table's rows, an
+X-macro's enum in a header and its table); a `#define` in an initializer; three that took a list longer than an earlier
+declaration's bound, in the file, in a header and after a tentative definition (`t26`, `t48`, `t50`, the last printing
+`(null)` in C++); seven tables with no braces of their own -- two counted 4 for 2 (`t60`, `t66`), three in a block
+refused, `no owner behind` (`t31`, `t32`, `t63`), two longer than their bound refused in those words (`t28`, `t29`); two
+refusals at a function's line (`t04`, `t70`); and `t39`, recorded. OVER 0.310 each of the 47 that clang refuses or warns
+of is refused in clang's words at its declaration's line, 94 refusals; the 20 that clang takes build and print clang's
+lines, 40 builds; `t39` alone differs. None ran out of stack over either.
+
+THIRTY-THREE COPIES BROKEN ON PURPOSE, a rule each, are each reported by a gate's own fixture (`p310/bk`): the text in
+place itself, its tokens' line, the run's list of the files, `#pragma once`, the walk of the depth and its start, each
+of `(`, `)`, `[`, `]`, `}`, `;` and the digraphs, `=`, the linkage braces' clause and the depth without it, and a
+namespace's clause put back; the reader's five clauses of a `tok(pp, ...)`, `ccl_init_pp//0`, the elided count and the
+earlier bound; the three reads that name the files put in place, their list, and the two keys that take them; `'$ir_fn'`
+at file scope; the lowering's and the safe part's walk of an elided list. The first probes caught 27 of the first 33;
+the six others -- the block's clause, the init declarators' clause, the braces' clauses three ways and the `;` -- are
+caught by the driver gate's round of a body's file, its init declarators after an `#include`, and `inplace.cpp`'s
+`extern "C++" { #include <vector> }` after a declaration. Three copies of the depth passed `inplace.cpp` while its
+`#include <cstdio>` stood after `<vector>`, whose read had defined `<cstdio>`'s guard, so that the text in place was
+empty; it stands before `<vector>` now. THE PROBES OF THE BRACES FOUND A FORM: an own header in a namespace's braces,
+its text in place, builds as clang++ has it, where passed on it was refused, over 0.309 too; the clauses of the
+namespace's and the `export` braces went, and only a linkage specification's braces keep an `#include` a header's.
+
+THE NETS GREEN: the flow gate; the reader gate 170, the compile gate 341, the driver gate 85 and the ccllib gate 471
+checks over one fresh HOME; the C++ pool of the light fixtures 363 of 363 over libc++ 22, 363 over 21 and 363 over 18;
+every other C++ run fixture, 506 of 520, over libc++ 22, since the top run of every C++ file walks its depth now -- the
+14 others name a need, which the net does not meet --; and the C++ gate's later parts by hand, 218 checks. AFTER THE
+LIBRARY'S LAST CHANGE -- the clauses of the namespace's and the `export` braces gone -- and the fixtures' (`inplace.cpp`
+and the driver gate's checks), each net that they reach again: the flow gate; the reader gate 170, the compile gate 341
+and the driver gate 87 checks over a fresh HOME; the light pool and `inplace.cpp`, 364 of 364 over libc++ 22, 364 over
+21 and 364 over 18; the others, 506 of 520 over 22; and the C++ gate's later parts, `xmacro.c` among them, 218 checks.
+The ccllib gate did not run again: its programs hold no namespace, which alone the change reaches.
+
+- `library/ccl_pp.pl` (`pp_splice_include/4`, `pp_reline_key/2`, `pp_reline_list/3`, `pp_reline_el/3`,
+  `pp_depth_reset/0`, `pp_top_inner/0`, `pp_depth_seg/2`, `pp_depth_walk/4`, `pp_depth_el/3`, `pp_depth_tok/5`,
+  `pp_depth_close/2`, `pp_depth_recent/3`, `pp_depth_outer/1`, `pp_depth_word/1`; `pp_do_include/6`, `pp_run/3` and
+  `ccl_pp_run/4` call them); `library/ccl_syntax.pl` (the five clauses of a `tok(pp, ...)`, `ccl_init_pp//0`,
+  `ccl_sized_by_init/3`, `ccl_prior_bound/3`; the reader's version); `library/ccl_include.pl` (`ccl_read_file_/3`,
+  `ccl_pp_own_parse/3` and `ccl_pp_parse/4` name the files put in place, `ccl_with_spliced/3`, `ccl_kb_flatten/4`'s
+  clause of them); `library/ccl_driver.pl` (`dr_items_deps/2`'s clause of them); `library/ccl_infer.pl`
+  (`ccl_arr_elide/3`); `library/ccl_ir.pl` (`ir_garr_elide/3` gone for `ccl_arr_elide/3`, `'$ir_fn'` at file scope; the
+  lowering's version); `library/ccl_check.pl` (`ck_init_slots/5`); the module's version.
+- `test/c/run/xmacro.c`, `xmacro.h`, `xmacro_props.def`, `xmacro_fields.inc`, `xmacro_body.inc`, `xmacro.expect`;
+  `test/cpp/run/inplace.cpp`, `inplace_ns.h`, `inplace.expect`; `test/cpp.sh` (`xmacro` in the list of the C run
+  fixtures built as C++); `test/driver.sh` (four checks).
+- RULES.md (the preprocessor: the user's file, an `#include` inside an item; the C reader: the item loop, initializers
+  and objects; includes: the files put in place; the IR cache; classes: brace elision; the safe part: `ck_fill/6`; the
+  lowering: an initializer that gives more than its object holds; Not done), HISTORY.md, CLAUDE.md.
+
+The module 0.310, the reader 200 and the lowering 173.

@@ -198,6 +198,14 @@ init8.c:1: error: initializer-string for char array is too long
 init9.c:1: error: initializer-string for char array is too long"
 check "... and in C++, where a literal's terminator counts (0.302)" "$(n=0; for body in 'int main() { char s[3] = "abc"; return s[0]; }' 'int main() { int a[2] = {1, 2, 3}; return a[0]; }'; do n=$((n + 1)); printf '%s\n' "$body" > initpp$n.cpp; "$ROOT/bin/cicilang++" -c initpp$n.cpp -o initpp$n.o 2>&1 | head -1; done)" "initpp1.cpp:1: error: initializer-string for char array is too long, array size is 3 but initializer has size 4 (including the null terminating character)
 initpp2.cpp:1: error: excess elements in array initializer"
+# A TABLE LONGER THAN ITS BOUND (0.310; the Ambitious program's finding over its CSS table, the kin of finding 33): its rows put in
+# place by an #include inside the table, under an X-macro's #define there; its bound an earlier declaration's, which an array
+# of no bound takes (C17 6.2.7/3); and a global's refusal after a function's definition, which named the function's line --
+# each refused at the table's line, in clang's words
+printf 'R("a", 0)\nR("b", 1)\nR("c", 2)\n' > tabrows.def
+check "a table longer than its bound is refused at its line: its rows an #include's, its bound an earlier declaration's, after a function's definition (0.310)" "$(n=0; for body in '#define R(n, i) {n, i},\nstatic const struct { const char *n; int v; } t[2] = {\n#include "tabrows.def"\n};\nint main(void) { return t[1].v; }' 'extern int t[2];\nint t[] = {1, 2, 3};\nint main(void) { return t[1]; }' 'static int f(void) { return 1; }\nstatic int t[1] = {1, 2};\nint main(void) { return t[0] + f(); }'; do n=$((n + 1)); printf '%b\n' "$body" > tab$n.c; "$CICILI" -fsyntax-only tab$n.c 2>&1 | head -1; done)" "tab1.c:2: error: excess elements in array initializer
+tab2.c:2: error: excess elements in array initializer
+tab3.c:2: error: excess elements in array initializer"
 check "a call of another count of arguments than its prototype's is refused in clang's words at its line (0.302): too many, too few (finding 34), an ellipsis's named parameters, a parameter named, through a pointer, (void), a K&R definition's own words, a prototype kept by a later () declaration" "$(n=0; for body in 'static int f(int a, int b) { return a + b; } int main(void) { return f(1, 2, 3); }' 'int pick(const char *family, int bold, int italic); int main(void) { return pick("serif", 1); }' 'int printf(const char *fmt, ...); int main(void) { return printf(); }' 'static int one(int n) { return n; } int main(void) { return one(); }' 'static int one(int n) { return n; } int main(void) { return one(1, 2); }' 'static int g(int a, int b) { return a + b; } int main(void) { int (*p)(int, int) = g; return p(1); }' 'static int v(void) { return 0; } int main(void) { return v(1); }' 'int add(a, b) int a; int b; { return a + b; } int main(void) { return add(1); }' 'int f(int a, int b); int f(); int main(void) { return f(1); }' 'static int s(int a, int b, ...) { return a + b; } int main(void) { return s(1); }'; do n=$((n + 1)); printf '%s\n' "$body" > callc$n.c; "$CICILI" -std=c17 -fsyntax-only callc$n.c 2>&1 | head -1; done)" "callc1.c:1: error: too many arguments to function call, expected 2, have 3
 callc2.c:1: error: too few arguments to function call, expected 3, have 2
 callc3.c:1: error: too few arguments to function call, at least argument 'fmt' must be specified
@@ -300,6 +308,48 @@ echo 'mload_inner(int(2)).' > mlib/mload/inner.pl; touch -t 203001010000 mlib/ml
 ml2=$(mlc mload.c -o ml2 2>&1 && ./ml2; mlp mload.cpp -o mp2 2>&1 && ./mp2)
 ml3=$(mlc -v mload.c -o ml3 2>&1 | grep -ac 'served mload.c from the store'; mlp -v mload.cpp -o mp3 2>&1 | grep -ac 'served mload.cpp from the IR cache')
 check "the file that a macro file loads: its change reaches the next build, in C and in C++ (0.282)" "$(echo $ml1 / $ml2 / $ml3)" "1 1 / 2 2 / 1 1"
+# A FILE THAT AN #include INSIDE AN ITEM PUTS IN PLACE (0.310): its text is the unit's (pp_splice_include/4), and its change
+# reaches the next build -- the unit kept in the store, its IR there and a C++ file's kept IR name it ('$spliced_files'/1) --,
+# in the program's own header, whose enum's rows its own read puts in place, and in the file. A round changes one file: a
+# round that changed both was seen through the file's alone. A last build, with no change, is served. And a function's
+# body that an #include gives in the program's own header: in C its raw read stops there (the reader's clause of a block's
+# tok(pp)), and the preprocessed read that names the body's file takes the header; a raw read that went past it named no
+# such file, and the body's change was served the old build
+printf '7\n' > splv.def; printf 'A,\nB,\n' > splh.def
+printf '#ifndef SPLH_H\n#define SPLH_H\nenum {\n#include "splh.def"\nNH };\n#endif\n' > splh.h
+printf '#include <stdio.h>\n#include "splh.h"\nstatic const int v[] = {\n#include "splv.def"\n};\nint main(void) { printf("%%d %%d\\n", v[0], (int)NH); return 0; }\n' > splice.c
+cp splice.c splice.cpp; rm -f "$HOME"/.cicilang/cpp/ir/splice.cpp-*.ll "$HOME"/.cicilang/cpp/ir/splbody.cpp-*.ll
+spp() { CICILANG_NO_IR_CACHE= "$ROOT/bin/cicilang++" "$@"; }
+sp1=$("$CICILI" splice.c -o sp1 2>&1 && ./sp1; spp splice.cpp -o spq1 2>&1 && ./spq1)
+printf 'A,\nB,\nC,\n' > splh.def; touch -t 203001010000 splh.def
+sp2=$("$CICILI" splice.c -o sp2 2>&1 && ./sp2; spp splice.cpp -o spq2 2>&1 && ./spq2)
+printf '8\n' > splv.def; touch -t 203001010000 splv.def
+sp3=$("$CICILI" splice.c -o sp3 2>&1 && ./sp3; spp splice.cpp -o spq3 2>&1 && ./spq3)
+sp4=$("$CICILI" -v splice.c -o sp4 2>&1 | grep -ac 'served splice.c from the store'; spp -v splice.cpp -o spq4 2>&1 | grep -ac 'served splice.cpp from the IR cache')
+printf '#ifndef SPLB_H\n#define SPLB_H\nstatic int splb(void) {\n    int s = 0;\n#include "splb_body.inc"\n    return s;\n}\n#endif\n' > splb.h; printf 's += 1;\n' > splb_body.inc
+printf '#include <stdio.h>\n#include "splb.h"\nint main(void) { printf("%%d\\n", splb()); return 0; }\n' > splbody.c; cp splbody.c splbody.cpp
+sb1=$("$CICILI" splbody.c -o sb1 2>&1 && ./sb1; spp splbody.cpp -o sbq1 2>&1 && ./sbq1)
+printf 's += 2;\n' > splb_body.inc; touch -t 203001010000 splb_body.inc
+sb2=$("$CICILI" splbody.c -o sb2 2>&1 && ./sb2; spp splbody.cpp -o sbq2 2>&1 && ./sbq2)
+check "a file that an #include inside an item puts in place, in its own header and in the file, a body's in its own header: its change reaches the next build, in C and in C++ (0.310)" "$(echo $sp1 / $sp2 / $sp3 / $sp4 / $sb1 / $sb2)" "7 2 7 2 / 7 3 7 3 / 8 3 8 3 / 1 1 / 1 1 / 2 2"
+# AN #include PUT IN PLACE WHERE AN ITEM NEEDS IT (0.310; pp_top_inner/0): right after `=', between digraphs, in a
+# parameter list and in a bound, and a file that a #pragma once has run put in place once; and in the program's own
+# header, among a struct's members, among member declarators and among init declarators, where the raw read stops and the
+# preprocessed read puts the text in place (the reader's clauses of a tok(pp)). Each as C and as C++, each number clang's
+printf '{ 1, 2, 3 }\n' > ip_rows.inc; printf '4, 5, 6\n' > ip_flat.inc; printf 'int a, int b\n' > ip_params.inc; printf '5\n' > ip_n.inc
+printf '#pragma once\n1, 2,\n' > ip_once.inc; printf 'int x;\nint y;\n' > ip_fields.inc; printf 'a, b\n' > ip_names.inc; printf 'a3 = 1,\n' > ip_first.inc
+printf '#ifndef IP_M_H\n#define IP_M_H\nstruct im {\n#include "ip_fields.inc"\n};\n#endif\n' > ip_m.h
+printf '#ifndef IP_D_H\n#define IP_D_H\nstruct id { int\n#include "ip_names.inc"\n; };\n#endif\n' > ip_d.h
+printf '#ifndef IP_I_H\n#define IP_I_H\nstatic const int\n#include "ip_first.inc"\nb3 = 2;\n#endif\n' > ip_i.h
+printf '#include <stdio.h>\n#include "ip_m.h"\n#include "ip_d.h"\n#include "ip_i.h"\nstatic const int t[] =\n#include "ip_rows.inc"\n;\nstatic const int dg[] = <%%\n#include "ip_flat.inc"\n%%>;\nstatic int add(\n#include "ip_params.inc"\n) { return a + b; }\nstatic int arr[\n#include "ip_n.inc"\n];\nstatic const int po[] = {\n#include "ip_once.inc"\n#include "ip_once.inc"\n};\nint main(void) { printf("%%d %%d %%d %%d %%d %%d %%d %%d %%d\\n", (int)(sizeof t / sizeof t[0]), t[2], dg[2], add(2, 3), (int)(sizeof arr / sizeof arr[0]), (int)(sizeof po / sizeof po[0]), (int)sizeof(struct im), (int)sizeof(struct id), a3 + b3); return 0; }\n' > inplace.c
+cp inplace.c inplace.cpp
+check "an #include put in place after =, between digraphs, in a parameter list and a bound, once under #pragma once, and among an own header's members, member declarators and init declarators, as C and as C++ (0.310)" "$("$CICILI" inplace.c -o ipc 2>&1 && ./ipc; "$ROOT/bin/cicilang++" inplace.cpp -o ipp 2>&1 && ./ipp)" "3 3 6 5 5 2 8 8 3
+3 3 6 5 5 2 8 8 3"
+# A DIAGNOSTIC OF A ROW THAT AN #include PUTS IN PLACE NAMES THE #include'S LINE (0.310; pp_reline_key/2): the row's
+# tokens stand there, in the program's file, where they named their own file's line under the program's file's name
+printf 'int main(void) {\n    int s = 0;\n#include "ipbad.inc"\n    return s;\n}\n' > ipbad.c; printf 's += undeclared_y;\n' > ipbad.inc; cp ipbad.c ipbad.cpp
+check "a diagnostic of a row that an #include puts in place names the #include's line, in C and in C++ (0.310)" "$("$CICILI" -c ipbad.c -o ipbad.o 2>&1 | head -1 | cut -d: -f1-2; "$ROOT/bin/cicilang++" -c ipbad.cpp -o ipbadp.o 2>&1 | head -1 | cut -d: -f1-2)" "ipbad.c:3
+ipbad.cpp:3"
 # ONE BUILD AT A TIME OVER THE STORE (0.240): four builds at once over one fresh store take KB.lock in turn -- without it
 # three died of a bus error and the store was left so damaged that every later build failed -- and one more build over
 # that store after them runs; no lock is left

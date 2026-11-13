@@ -196,8 +196,9 @@ ccl_read_file_(File, AST, Rest) :-
     ( nb_current('$pp_ftm', FT0) -> true ; FT0 = [] ), ccl_inst_mark(IM),
     catch(catch(catch(ccl_pp_top(File, Tokens, _), lexical(L), throw(error(syntax_error(cicilang_ast(File, lexical, line(L))), cicilang_ast(File)))), lexical_char(LC, C), throw(error(syntax_error(cicilang_ast(File, char(C), line(LC))), cicilang_ast(File)))),   % the user's file through the preprocessor
           pp_error(PL, PM), throw(error(pp_error(PM), here(File, PL)))),                                                                     % its own #error, an #embed of nothing
+    ( nb_current('$pp_spliced', Sp) -> true ; Sp = [] ),   % the files whose text the run put in place, taken before the parse, whose reads of own headers run top runs of their own (0.310)
     ( nb_current('$ccl_reading', []) -> ccl_inst_reset ; true ),   % THE INSTANCES THAT THE PREPROCESSOR'S READS MADE ARE NOBODY'S (0.261): its run reads each header for its macros, and the parse reads one that met an instance again
-    ccl_with_file(File, ( ccl_unit(Tokens, AST, Rest), ccl_farthest(F) )),
+    ccl_with_file(File, ( ccl_unit(Tokens, AST0, Rest), ccl_farthest(F) )), ccl_with_spliced(Sp, AST0, AST),
     nb_setval('$ccl_far', F),
     ( nb_current('$pp_ftm', FT1) -> true ; FT1 = [] ),
     ( Rest == [], FT1 == FT0, \+ ccl_inst_since(IM) -> ccl_kb_remember(File, top, AST) ; true ).
@@ -244,6 +245,7 @@ ccl_kb_flatten(include(L, S, file(P, How, _)), include(L, S, ref(P, How)), D0, D
 ccl_kb_flatten(include(L, S, macros(P, Preds)), include(L, S, macros(P, Preds)), D0, D) :- !,
     ( ccl_kb_key(P, PK) -> D1 = [P-PK|D0] ; D1 = D0 ),
     ccl_macro_loads(P, Fs), ccl_kb_file_deps(Fs, D1, D).   % ... and the files that it loads by a directive (0.282)
+ccl_kb_flatten('$spliced_files'(Ps), '$spliced_files'(Ps), D0, D) :- !, ccl_kb_file_deps(Ps, D0, D).   % the files whose text the run put in place (0.310)
 ccl_kb_flatten(I, I, D, D).
 ccl_kb_file_deps([], D, D).
 ccl_kb_file_deps([F|Fs], D0, D) :- ( ccl_kb_key(F, K) -> D1 = [F-K|D0] ; D1 = D0 ), ccl_kb_file_deps(Fs, D1, D).
@@ -664,8 +666,9 @@ ccl_pp_own_parse(Path, unit(Is), Info) :-
     ccl_global('$ccl_instances', I0, []), ccl_global('$ccl_inst_making', M0, []), ccl_global('$ccl_hoist', H0, []),
     ( nb_current('$pp_own_read', O0) -> true ; O0 = no ), ( nb_current('$ccl_cfgs_of', F0) -> true ; F0 = none ),
     (   catch(( ccl_pp_prescan(Path), nb_setval('$pp_own_read', yes), ccl_pp_top_run(Path, [], Tokens, _), nb_setval('$pp_own_read', O0), \+ memberchk(tok(other, _, _), Tokens),   % ITS RUN UNDER THE CONFIGURATION AT ITS #include (0.298): the macros that its includer defined before it (pp_inc_user_macros/4)
+                ( nb_current('$pp_spliced', Sp) -> true ; Sp = [] ),   % the files whose text its run put in place (0.310)
                 nb_setval('$ccl_instances', I0), nb_setval('$ccl_inst_making', M0), nb_setval('$ccl_hoist', H0), nb_setval('$ccl_cfgs_of', Path),
-                ccl_with_file(Path, ( ccl_unit(Tokens, unit(Is), Rest), ccl_rest_info(Rest, Info) )) ), E, true)
+                ccl_with_file(Path, ( ccl_unit(Tokens, U0, Rest), ccl_rest_info(Rest, Info) )), ccl_with_spliced(Sp, U0, unit(Is)) ), E, true)
     ->  R = ok ; R = failed ),
     nb_setval('$pp_inc_cfgs', C0), nb_setval('$pp_cfg_lib', L0), nb_setval('$pp_own_read', O0), nb_setval('$ccl_cfgs_of', F0), nb_setval('$pp_warnings', W0),
     ( nonvar(E) -> throw(E) ; R == ok ).
@@ -1003,7 +1006,16 @@ ccl_rest_info([tok(_, _, L)|_], stopped(L, near(F))) :- ccl_farthest(F).
 %% the same grammar; Files are every file it pulled, the includer first
 ccl_pp_parse(Path, unit(Is), Info, Files) :-
     catch(ccl_pp_file(Path, Tokens, Files), pp_error(PL, PM), throw(error(pp_error(PM), here(Path, PL)))),   % a header's #embed of nothing
-    ccl_with_file(Path, ( ccl_unit(Tokens, unit(Is), Rest), ccl_rest_info(Rest, Info) )).
+    ccl_with_file(Path, ( ccl_unit(Tokens, U0, Rest), ccl_rest_info(Rest, Info) )),
+    ( ccl_own_header(Path) -> findall(F, ( member(F, Files), F \== Path, ccl_own_header(F) ), Own) ; Own = [] ), ccl_with_spliced(Own, U0, unit(Is)).
+%% A UNIT NAMES THE FILES WHOSE TEXT ITS RUN PUT IN PLACE (0.310): '$spliced_files'(Paths), before the '$expansions' item
+%% that the driver takes last, so that the store's deps (ccl_kb_flatten/4) and the kept IR's (dr_items_deps/2) name each
+%% file by its time -- an #include inside an item of the top run (pp_splice_include/4), and each of the program's own
+%% files that a standalone read of its own header pulled, which no include item of its unit names: a change of the
+%% header that it included served the unit kept before it
+ccl_with_spliced([], U, U) :- !.
+ccl_with_spliced(Ps0, unit(Is), unit(Is1)) :- reverse(Ps0, Ps),
+    ( append(Pre, ['$expansions'(Es)], Is) -> append(Pre, ['$spliced_files'(Ps), '$expansions'(Es)], Is1) ; append(Is, ['$spliced_files'(Ps)], Is1) ).
 
 %% ---- a header's macros, for the user's file -----------------------------------
 %% Made ready before the file's run (ccl_pp_prescan): the header read through

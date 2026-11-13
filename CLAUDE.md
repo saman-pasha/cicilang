@@ -12,8 +12,8 @@ the fixture that gates it, and why. The bullet ends with the version that made t
 edits the rule in `RULES.md`, in its topic, and writes its entry in `HISTORY.md`. Read the topic of `RULES.md` that
 covers the code before the code is changed.
 
-At 0.309 the versions are: the module 0.309 (`ccl_p_version` in `module/cicilang.cicili`, `bin/cicilang --version`),
-the reader 199 (`ccl_reader_version/1`, `library/ccl_syntax.pl`) and the lowering 172 (`ccl_lowering_version/1`,
+At 0.310 the versions are: the module 0.310 (`ccl_p_version` in `module/cicilang.cicili`, `bin/cicilang --version`),
+the reader 200 (`ccl_reader_version/1`, `library/ccl_syntax.pl`) and the lowering 173 (`ccl_lowering_version/1`,
 `library/ccl_ir.pl`).
 
 Build and prove, always in this order (or all of it, `sh test/gates.sh`):
@@ -536,7 +536,9 @@ test/c/run/                 C programs built and run: NAME.c, NAME.expect, NAME.
                             with an own field replaces not (0.303); ownwords.c, the word own where it is the owner's,
                             built as C and as C++ (0.306); staticarrays.c, own arrays of static storage, staticfree.c,
                             an own array's store in a file with no <stdlib.h>, and statichide.c, names that a local
-                            shares with an own array (0.307); discarded.c, what stays allowed thrown away (0.309)
+                            shares with an own array (0.307); discarded.c, what stays allowed thrown away (0.309);
+                            xmacro.c over xmacro.h, xmacro_props.def, xmacro_fields.inc and xmacro_body.inc, an
+                            #include inside an item, its file's text in place, and the tables beside it (0.310)
 test/c/safe/                C programs the safe part refuses: NAME.c, NAME.expect; dropnone.pl, the macro file of
                             drop_leaks.c (0.262); borrow_after_grow.c, borrow_after_push.c, elem_after_push.c,
                             grow_through_ptr.c, const_replace.c and const_local.c, the safety rules of 0.265;
@@ -591,7 +593,8 @@ test/cpp/run/               C++ programs built and run: NAME.cpp, .expect, .flag
                             <vector.pl>, classes that hold an instance's object, born zero (0.297);
                             borrowptrok.cpp, what the rules of 0.303 keep through a pointer and a reference (0.303);
                             staticscoped.cpp, a namespace's own array and a class's static own array member, their
-                            elements taken by move() (0.307)
+                            elements taken by move() (0.307); inplace.cpp over inplace_ns.h, an #include inside a
+                            namespace's braces, its file's text in place, and in a linkage specification's (0.310)
 test/ccllib/                the three runs' programs: NAME.c, a ccllib program; NAME.cpp, its twin over std::;
                             NAME.expect, what the twin prints; NAME.count, the count of the run that the costs time;
                             first.c over first.pl, the first proof after phase 0 (0.273); vector.c, the whole

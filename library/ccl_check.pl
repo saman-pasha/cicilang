@@ -1883,7 +1883,7 @@ ck_move_fields(St0, [SK-SS|Ps], P, Key, Form, St) :-
 
 %% an initializer list against its type: every slot is own, tied, or plain;
 %% under a base (a variable's key) an own or tied slot is that field
-ck_init_slots(Items, T, Base, St0, St) :- ccl_resolve_type(T, T1), ck_init_slots_(Items, T1, Base, 0, St0, St).
+ck_init_slots(Items0, T, Base, St0, St) :- ccl_resolve_type(T, T1), ( T1 = arr(_, E) -> ccl_arr_elide(Items0, E, Items) ; Items = Items0 ), ck_init_slots_(Items, T1, Base, 0, St0, St).   % an array's elements braced as the lowering takes them (0.310, ccl_arr_elide/3): `css_prop t[2] = {"color", 0, "margin", 1};' was `no owner behind: 't[]''
 ck_init_slots_([], _, _, _, St, St).
 ck_init_slots_([item(Ds, V)|Is], T, Base, I, St0, St) :-
     ck_slot(T, Ds, I, SlotT, F, I1),

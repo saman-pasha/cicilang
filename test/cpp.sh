@@ -192,11 +192,14 @@ if [ "$got" = "exit 10" ]; then echo "ok   templates.cpp, the reader's fixture (
 # pointers that a call wrote through an out-parameter, copied, moved and stored (0.299); ownwords.c's word own where
 # it is the owner's, a specifier, a qualifier, a parameter with no name (0.306); staticfree.c's own array of strings in
 # a file with no <stdlib.h>, each store freeing with the lowering's own free, and statichide.c's names that a local
-# shares with an own array (0.307). elemborrow.c is test/cpp/run/elemborrowpp.cpp there (0.272): its plain functions
+# shares with an own array (0.307); discarded.c's calls whose value a statement throws away and that give no new
+# memory (0.309); xmacro.c's #include inside an item -- an X-macro's enum and table, a struct's fields, a body's
+# statements -- and its tables whose rows have no braces of their own (0.310). elemborrow.c is
+# test/cpp/run/elemborrowpp.cpp there (0.272): its plain functions
 # noexcept, since C++'s defer rule refuses a plain struct's live owner across a call that may throw; staticarrays.c is
 # not built as C++, since that rule refuses its owner live across make's call (0.307)
 echo "-- ccllib in cicilang++: a ccllib run fixture of test/c/run built as C++ prints what its C build prints (CCLLIB.md's phase 0.10)"
-for n in ctext autodrop tvector literal operators operators2 born dropassign typednames contswitch loadedptr mirror unread lazy hdrvec regnames regnames23 condarr statret staticrows shadowed ownmacros hdrinst widearr longlit ownundef outparam ownwords staticfree statichide discarded; do
+for n in ctext autodrop tvector literal operators operators2 born dropassign typednames contswitch loadedptr mirror unread lazy hdrvec regnames regnames23 condarr statret staticrows shadowed ownmacros hdrinst widearr longlit ownundef outparam ownwords staticfree statichide discarded xmacro; do
   got=$(ccl_capped "$CPP_FIXTURE_SECS" "$ROOT/bin/cicilang++" "$ROOT/test/c/run/$n.c" -o "$D/ccl_$n" && { timeout -s KILL "$CPP_RUN_SECS" "$D/ccl_$n" < /dev/null; echo "exit $?"; })
   if [ "$got" = "$(cat "$ROOT/test/c/run/$n.expect")" ]; then echo "ok   $n.c, built as C++ by cicilang++, prints what its C build prints"
   else echo "FAIL $n.c built as C++ by cicilang++"; echo "$got" | diff "$ROOT/test/c/run/$n.expect" - 2>&1 | head -6 | cut -c1-300 | sed 's/^/     /'; failures=$((failures + 1)); fi

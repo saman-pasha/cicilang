@@ -1,0 +1,4 @@
+CSS_PROP(color, "color", 1)
+CSS_PROP(margin, "margin", 0)
+CSS_PROP(padding, "padding", 0)
+CSS_PROP(font_size, "font-size", 1)
