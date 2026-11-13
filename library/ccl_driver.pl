@@ -366,6 +366,8 @@ dr_call_text(too_few_args_at_least_one(P), ['too few arguments to function call,
 dr_call_text(knr_arg_count(many, Fn), ['too many arguments in call to ''', Fn, '''']).
 dr_call_text(knr_arg_count(few, Fn), ['too few arguments in call to ''', Fn, '''']).
 dr_call_text(no_matching_call(Fn), ['no matching function for call to ''', S, '''']) :- dr_short_name(Fn, S).
+dr_call_text(undeclared_call(N), ['call to undeclared function ''', N, '''; ISO C99 and later do not support implicit function declarations']).   % a name that nothing declares, in C (1.1.2, ir_undeclared/1)
+dr_call_text(undeclared_use(N), ['use of undeclared identifier ''', N, '''']).
 %% ... and where an integer and a pointer meet as if by assignment, the words of each place
 dr_int_conv_site(passing, A, B, ['passing ''', A, ''' to parameter of type ''', B, '''']).
 dr_int_conv_site(initializing, A, B, ['initializing ''', B, ''' with an expression of type ''', A, '''']).

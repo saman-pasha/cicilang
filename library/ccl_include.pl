@@ -198,7 +198,8 @@ ccl_read_file_(File, AST, Rest) :-
           pp_error(PL, PM), throw(error(pp_error(PM), here(File, PL)))),                                                                     % its own #error, an #embed of nothing
     ( nb_current('$pp_spliced', Sp) -> true ; Sp = [] ),   % the files whose text the run put in place, taken before the parse, whose reads of own headers run top runs of their own (0.310)
     ( nb_current('$ccl_reading', []) -> ccl_inst_reset ; true ),   % THE INSTANCES THAT THE PREPROCESSOR'S READS MADE ARE NOBODY'S (0.261): its run reads each header for its macros, and the parse reads one that met an instance again
-    ccl_with_file(File, ( ccl_unit(Tokens, AST0, Rest), ccl_farthest(F) )), ccl_with_spliced(Sp, AST0, AST),
+    ccl_uses_open(File),   % its names used before any declaration of them, asked at its end (1.1.2, ccl_uses_check/1)
+    ccl_with_file(File, ( ccl_unit(Tokens, AST0, Rest), ccl_farthest(F), ccl_uses_check(File) )), ccl_with_spliced(Sp, AST0, AST),
     nb_setval('$ccl_far', F),
     ( nb_current('$pp_ftm', FT1) -> true ; FT1 = [] ),
     ( Rest == [], FT1 == FT0, \+ ccl_inst_since(IM) -> ccl_kb_remember(File, top, AST) ; true ).

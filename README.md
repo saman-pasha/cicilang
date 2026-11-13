@@ -252,7 +252,12 @@ converted as if by assignment are refused in clang's words (0.302): `excess
 elements in array initializer`, `too few arguments to function call,
 expected 3, have 2`, `incompatible pointer to integer conversion passing
 'char *' to parameter of type 'int'`. Before C23, `int f();` declares no
-prototype, and a call of it takes any arguments.
+prototype, and a call of it takes any arguments. A name used before any
+declaration of it is refused (1.1.2), since C99 took away the implicit
+declaration of a function: a call of a function that the file defines
+further down is `call to undeclared function 'later'; ISO C99 and later do
+not support implicit function declarations`, and a name that nothing
+declares has clang's words too.
 
 ## `:=`, patterns, `name { }`, `defer`
 

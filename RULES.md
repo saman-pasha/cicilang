@@ -1171,7 +1171,8 @@ that changes a rule edits the rule here, in its topic, and writes its entry in `
   `dr_unread_notes/2`, `dr_missing_in/3`, `dr_unread_in/3`): the include layer goes on over a file that it does not find
   (`missing`), over a header that no read takes (`unreadable`) and over one whose read stopped (`partial`), with no
   message (the topic of includes), and the program then fails at the first name that the header would have declared --
-  `undeclared(getaddrinfo)`, `typedef(foo_t)`, `struct(nope)` -- with no word of why. Where the check or the lowering
+  `undeclared(getaddrinfo)` (in C since 1.1.2 `call to undeclared function 'getaddrinfo'`, the lowering's topic of a
+  name that nothing declares), `typedef(foo_t)`, `struct(nope)` -- with no word of why. Where the check or the lowering
   failed, the driver prints a note for each such include of the unit after the errors, at the line of the `#include` in
   the program's file: `m.c:2: note: 'nope.h' file not found: nothing that it declares is known` (clang's words for the
   file), `note: the header P could not be read: nothing that it declares is known`, `note: the read of the header
@@ -1183,7 +1184,7 @@ that changes a rule edits the rule here, in its topic, and writes its entry in `
   over). THE NOTE IS TRUE OF ITS HEADER, NOT OF THE ERROR: it names a header of the unit whose read was cut, whatever
   the error is. Its first runs named `<sys/cdefs.h>` under an error of a program over `<limits.h>`, and two headers of
   `<getopt.h>` -- two defects of the reads, corrected with it (the topic of includes). Three checks of the driver gate,
-  one of them that no header of the C library is named under an error that is not its own. (0.290)
+  one of them that no header of the C library is named under an error that is not its own. (0.290, 1.1.2)
 - **THE OUTPUT FILE'S DIRECTORY IS ASKED BEFORE THE BUILD** (0.290; `dr_out_dir_missing/3`, in `dr_drive/2`): `-c ok.c
   -o no/such/dir/ok.o` built the whole unit and then printed the embedded LLVM's words, `LLVM: emit_failed: No such file
   or directory`, which name no path; the run ended there, and the command printed that line a second time in place of
@@ -2491,6 +2492,41 @@ that changes a rule edits the rule here, in its topic, and writes its entry in `
   the loop's `int m` stayed in the reader's scope, so `println("{}", m)` printed the double by `%d` and `x := m` was an
   `int`; the lowering had its own scope and lowered the rest right. Reader `k131`; `test/c/run/unread.c`. (0.264)
 
+- **A NAME USED BEFORE ANY DECLARATION OF IT IS REFUSED IN C** (1.1.2; the Ambitious session's finding 43; C17 6.5.1/2,
+  whose footnote says that an undeclared identifier is a violation of the syntax, and C99's foreword, which took away
+  the implicit declaration of a function; `ccl_use_value//2`, `ccl_use_call/3`, `ccl_use_note/3`, `ccl_uses_keep/0`,
+  `ccl_uses_check/1`): an identifier is a primary expression only where a declaration of it is in scope. The lowering
+  knows every function of the unit, so a call of one that the file defines further down was lowered by the definition's
+  type, and the program ran, where clang refuses it: `call to undeclared function 'later'; ISO C99 and later do not
+  support implicit function declarations`, at `-std=c23` `use of undeclared identifier 'later'`, and the second words
+  for a name used as a value -- a function's name, an object's address, an enumerator before its enum. The finding's own
+  form, a call of another count of arguments, has been refused since 0.302 (the lowering's topic of a call's count), and
+  the toolchain that reported it was 0.301. The reader notes each name of the program's file that it reads where no
+  declaration or enumerator of it is in scope: a value at the name, a call at its `(` once the call is a call of that
+  name -- not a macro's, nor an instance's by name. At the end of the file it refuses the first noted name that a later
+  declaration at file scope -- the file's own, or a header's included later -- or an enumerator of the unit names, a
+  later block's among them, at the line of its use. A header's enumerators are in scope by the table of values alone,
+  which an include fills, and no declaration of them, so the note asks that table too. A NAME IS IN SCOPE JUST AFTER ITS
+  DECLARATOR (C17 6.2.1/7), where the reader declares a declaration's names at its end and a function's parameters at
+  its body, so each declarator's name, a parameter's among them, is the item's at once (`ccl_use_pend/1`, from
+  `ccl_declarator//4` and `ccl_abstract_or_declarator//4`), and the note asks those names too: `int x0 = 1, *px = &x0;`,
+  `int a = 1, b = a + 1;`, `int n = 2, arr[n];`, `for (int i = 0, j = i; ...)`, `int z = sizeof z;` and `void g(int n,
+  int a[n]);` were refused by the first form of the rule where a declaration at file scope named the name too
+  (`test/c/run/ptrglobal.c`'s `n1 = { 2, &n0, ... }`). A name that nothing declares is the lowering's, which knows the
+  builtins (the lowering's topic of a name that nothing declares). The notes are backtrackable, so a parse that fails
+  takes its notes with it, and an item's are kept at its end, since each item is read inside `\+ \+` (the item loop);
+  the loop of a C text's items, or of a header's, inside an item of the file keeps none. The three backtrackable globals
+  of the read hold compounds (the findings about the neighbours: cocolog answers an atomic value of a backtrackable
+  global as the global's own cell). A C text's names are no uses of the file, since a macro's text may define its
+  functions in any order, nor are the names of the member in an `offsetof` (`ccl_use_quiet/1`). A unit so refused is not
+  kept in the store, so the next build reads it again. C alone, and the program's file alone (Not done).
+  `test/c/run/declorder.c` holds what C takes: a later global's name over a parameter, a local, a member, a designator,
+  a label, a `:=` local and an `offsetof`'s member, recursion, a prototype before a mutual recursion, a block's own
+  declaration of a function defined further down, and an instance's call by name before a later function of that name (a
+  deque's, `<deque.pl>`), a header's enumerators (`declorder.h`), and the names of one declaration or one parameter list
+  in their own initializer, a later declarator and a later parameter's bound; `test/c/run/textorder.c` over
+  `textorder.pl`, a macro's C text whose first function calls the second. The driver gate holds twenty forms at C17,
+  among them a parameter's bound before the parameter, two at C23 and the store's round. Reader 201. (1.1.2)
 ### C's language levels
 
 - C's level is its own global, `'$ccl_c_std'` (`ccl_c_std/1`, default 17), since 17 and 23 are both languages'. The
@@ -12157,6 +12193,14 @@ in the first topic (The ccllib gate).
   refuses it. An `enum`'s type is spelled `enum e` (`ck_c_spec_text/2`), where its term was. C alone. The driver gate
   holds seven forms. Lowering 169. (0.302)
 
+- **A NAME THAT NOTHING DECLARES IS REFUSED IN CLANG'S WORDS IN C** (1.1.2; C17 6.5.1/2; `ir_undeclared/1`, the clause
+  of `ir_call/4` for a name that no lookup finds, `dr_call_text/2`): a call is `call to undeclared function 'nowhere';
+  ISO C99 and later do not support implicit function declarations` (`use of undeclared identifier 'nowhere'` at C23), a
+  value and the left side of an assignment `use of undeclared identifier 'nothing'`, where each was `not lowered yet:
+  undeclared(nowhere)`, the words of a form that is not done, for the program's own error. A builtin is lowered before
+  its name is looked up, and an enumerator is a value of its own: a call of one keeps the words of a call of no
+  function. C++'s names are the desugaring's, and one that it did not settle is refused by name, as before. The driver
+  gate holds six forms. Lowering 174. (1.1.2)
 ### Control flow and defer
 
 - `defer` is scope-bound and static, with no runtime (owner's rule). `ir_defer_push/1` registers a body in its scope's
@@ -14046,6 +14090,14 @@ in the first topic (The ccllib gate).
   owner and mended in cocolog 2.12.0: 0.001 s over 100 KB, 0.009 s over 1 MB; the split stays, as fast and plainer.
   (0.208, 0.209)
 
+- COCOLOG ANSWERS AN ATOMIC VALUE OF A BACKTRACKABLE GLOBAL AS THE GLOBAL'S OWN CELL (3.62.3, b9c48e8; 1.1.2): after
+  `b_setval(k, [])`, `b_getval(k, U), b_setval(k, [x|U])` stores a cyclic list, `[x|S]` whose tail S is the list itself,
+  and after `b_setval(k, no)`, `b_getval(k, Q), b_setval(k, yes)` leaves Q reading `yes`; `nb_current/2` answers so too,
+  and an integer as an atom does. A compound value is answered as a term: from `b_setval(k, u([]))`, `b_getval(k, u(U)),
+  b_setval(k, u([x|U]))` stores `u([x])`, and `b_getval(k, o(Q))` of `o(no)` keeps `no` after the next `b_setval/2`. The
+  reader's notes of 1.1.2 ran out of stack (`resource_error(stack)`) at the first note made over `[]`, and its saved
+  flag of a C text's read was the next one's. Its backtrackable globals hold compounds, `u(Notes)`, `o(Flag)` and
+  `p(Names)` (the C reader's topic of the symbol table). A finding for cocolog's owner.
 ### Measurement and the instruments
 
 - An instrument that answers without measuring the thing asked answers confidently and wrongly. The tell is an answer
@@ -15286,6 +15338,34 @@ Declarations topic of the C++ reader).
   `redeclaration of 'T' with a different type` (C17 6.7/4). IN C++ a const array with no initializer, defined again with
   its rows, is refused as longer than its bound, where clang++ says `default initialization of an object of const type`
   and `redefinition of 'T'`.
+
+- A NAME USED BEFORE ITS DECLARATION (1.1.2; the C reader's topic of the symbol table, the lowering's of a name that
+  nothing declares): what is left. THE PROGRAM'S OWN HEADER is not checked: a function of it that calls one that the
+  header defines further down builds, where clang refuses it -- the header is read raw and then preprocessed, alone or
+  in its includer's place (the topic of includes), and each read would need its own notes. IN C++ a use before the
+  declaration builds as it did in C: `return later(x);` before `int later(int)` runs, and so do an object's address, an
+  enumerator and a header included after the use, where clang++ says `use of undeclared identifier 'later'` -- C++'s
+  lookup has a member's body in its complete class, a template's dependent names looked up where it is made, and the
+  namespaces that a call's arguments bring, which the reader's scope does not hold; and a name that nothing declares is
+  `not lowered yet: undeclared(nowhere)` in C++. A LIBRARY FUNCTION THAT NOTHING DECLARES has a call's words, `call to
+  undeclared function 'printf'; ...`, where clang says `call to undeclared library function 'printf' with type 'int
+  (const char *, ...)'` and notes the header that declares it. A LATER FUNCTION CALLED IN A FORMAT MACRO'S ARGUMENT,
+  `println("{}", later(1))`, is refused in the macro's words, `macro: cannot_format(call(id(later),[int(1)]))`: the
+  macro asks the argument's type, which no declaration gives yet, before the file's end. AN EARLIER BLOCK'S ENUMERATOR,
+  used after its block, builds: `return B;` after a function whose block declares `enum { A = 1, B = 2 }` returns 2,
+  where clang says `use of undeclared identifier 'B'` -- the table of values is the unit's, and the note asks it, since
+  a header's enumerators are in scope by it alone. ONE refusal is given, the first, where clang gives each.
+
+- TWO MACRO FILES THAT DEFINE ONE PREDICATE, IN ONE PROCESS (an older behaviour, found at 1.1.2): a macro file is loaded
+  once in a process (`ccl_load_macros/2`, `ensure_loaded/1`), and its predicates are the database's, so where two files
+  define `type_vector/3` -- ccllib's `<vector.pl>` and `test/c/run/tvector.pl` -- and `<vector.pl>` is loaded first, a
+  later unit over `tvector.pl` is refused: `the type vector_int takes no literal: its instance defines no
+  vector_int_from`, or a call of `vector_int_len` that nothing declares; with `tvector.pl` first, both build. So it is
+  over 1.1.1. A build is one process for its files: `cicilang a.c b.c`, `a.c` over `<vector.pl>` and `b.c` over
+  `tvector.pl`, refuses `b.c`, `call to undeclared function 'vector_int_push'`, and `cicilang b.c a.c` builds both
+  (`p112/two`), over 1.1.1 as over 1.1.2. The compile gate builds its run fixtures in one process in their names' order:
+  `elemborrow.c`, over `tvector.pl`, sorts before `hdrinst.c`, over `<vector.pl>`, and a run fixture over `<vector.pl>`
+  that sorts before `elemborrow.c` breaks the six over `tvector.pl` (1.1.2's `declorder.c` takes `<deque.pl>` so).
 ### C++ language
 
 - NAMES ACROSS THE HEADERS' READS AND THE PROGRAM'S, WHAT 0.221 LEFT (0.218's to 0.221's probes): a read keys apart only

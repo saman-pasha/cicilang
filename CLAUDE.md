@@ -12,8 +12,8 @@ the fixture that gates it, and why. The bullet ends with the version that made t
 edits the rule in `RULES.md`, in its topic, and writes its entry in `HISTORY.md`. Read the topic of `RULES.md` that
 covers the code before the code is changed.
 
-At 1.1.1 the versions are: the module 1.1.1 (`ccl_p_version` in `module/cicilang.cicili`, `bin/cicilang --version`),
-the reader 200 (`ccl_reader_version/1`, `library/ccl_syntax.pl`) and the lowering 173 (`ccl_lowering_version/1`,
+At 1.1.2 the versions are: the module 1.1.2 (`ccl_p_version` in `module/cicilang.cicili`, `bin/cicilang --version`),
+the reader 201 (`ccl_reader_version/1`, `library/ccl_syntax.pl`) and the lowering 174 (`ccl_lowering_version/1`,
 `library/ccl_ir.pl`).
 
 Build and prove, always in this order (or all of it, `sh test/gates.sh`):
@@ -541,7 +541,10 @@ test/c/run/                 C programs built and run: NAME.c, NAME.expect, NAME.
                             an own array's store in a file with no <stdlib.h>, and statichide.c, names that a local
                             shares with an own array (0.307); discarded.c, what stays allowed thrown away (0.309);
                             xmacro.c over xmacro.h, xmacro_props.def, xmacro_fields.inc and xmacro_body.inc, an
-                            #include inside an item, its file's text in place, and the tables beside it (0.310)
+                            #include inside an item, its file's text in place, and the tables beside it (0.310);
+                            declorder.c, names used where a declaration of them is in scope, beside later
+                            declarations of the same names, with declorder.h, and textorder.c over textorder.pl, a
+                            macro's C text whose functions call one another in any order (1.1.2)
 test/c/safe/                C programs the safe part refuses: NAME.c, NAME.expect; dropnone.pl, the macro file of
                             drop_leaks.c (0.262); borrow_after_grow.c, borrow_after_push.c, elem_after_push.c,
                             grow_through_ptr.c, const_replace.c and const_local.c, the safety rules of 0.265;
