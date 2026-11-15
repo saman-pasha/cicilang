@@ -12,7 +12,7 @@ the fixture that gates it, and why. The bullet ends with the version that made t
 edits the rule in `RULES.md`, in its topic, and writes its entry in `HISTORY.md`. Read the topic of `RULES.md` that
 covers the code before the code is changed.
 
-At 1.1.5 the versions are: the module 1.1.5 (`ccl_p_version` in `module/cicilang.cicili`, `bin/cicilang --version`),
+At 1.2.0 the versions are: the module 1.2.0 (`ccl_p_version` in `module/cicilang.cicili`, `bin/cicilang --version`),
 the reader 201 (`ccl_reader_version/1`, `library/ccl_syntax.pl`) and the lowering 174 (`ccl_lowering_version/1`,
 `library/ccl_ir.pl`).
 
@@ -424,6 +424,21 @@ library/ccllib/             ccllib, the standard library of cicilang's C (CCLLIB
                               name that orders a set where C++ writes a type
   any.pl, any.pl.h            std::any (1.1.5) as `any<>`: a copy of a value with its type's number, any_cast<T>(a),
                               has_value, reset, swap, clone; a pointer or an array is refused
+  algorithm.pl, algorithm.pl.h
+                              the algorithms and the ranges views as loops (1.2.0): sort, sort_by, reverse, count,
+                              find, lower_bound, for_each, filter, take, drop and the rest, over vector, array,
+                              deque, span, basic_string and a read-only view
+  numeric.pl, numeric.pl.h    the numeric folds and scans (1.2.0): accumulate, inner_product, iota, partial_sum,
+                              adjacent_difference, gcd, lcm, midpoint
+  limits.pl, limits.pl.h      std::numeric_limits as `numeric_limits<T>` (1.2.0), its C limits carried by functions
+                              in the header because C text is not preprocessed
+  complex.pl, complex.pl.h    std::complex as a value struct (1.2.0): real, imag, abs, arg, norm, conj, exp, log,
+                              sqrt, pow, sin, cos, tan, and the operators
+  random.pl, random.pl.h      std::mt19937 as `mt19937<>` (1.2.0), the standard Mersenne Twister, and uniform_int,
+                              uniform_real, bernoulli and shuffle
+  ratio.pl, ratio.pl.h        std::ratio as `ratio<N, D>` and its four operations (1.2.0), reduced, with num and den
+  chrono.pl, chrono.pl.h      nanosecond durations and the monotonic clock (1.2.0): nanos_of, millis_of,
+                              seconds_of, now_nanos, now_millis, sleep_for_millis
   ccllib.pl                   what two modules need, written once (0.275): a module loads it by a directive, and no
                               program includes it; the refusal of an element with a pointer, the lists' sort (0.277),
                               the lines of a text by their conditions (0.283), an index in a function's name
@@ -621,7 +636,9 @@ test/ccllib/                the three runs' programs: NAME.c, a ccllib program; 
                             tuple.c, of <tuple.pl>, with the get<I> of a pair and of an array (0.305);
                             variant.c, of <variant.pl>, with visit (0.308); unique_ptr.c, of <memory.pl> (0.309);
                             shared_ptr.c, of <memory.pl> (1.1.3); functional.c, of <functional.pl> (1.1.4);
-                            any.c, of <any.pl>, and weak_ptr.c, of <memory.pl> (1.1.5)
+                            any.c, of <any.pl>, and weak_ptr.c, of <memory.pl> (1.1.5); phase1c.c, of
+                            <algorithm.pl>, <numeric.pl>, <limits.pl>, <complex.pl>, <random.pl>, <ratio.pl> and
+                            <chrono.pl> (1.2.0)
 test/ccllib/safe/           ccllib programs that the safe part refuses, as C and as C++: NAME.c, NAME.expect, and
                             NAME.expect.cpp where C++ has words of its own (0.274); borrow_into_call_vector.c and
                             string_self_c_str.c, a borrow handed to a call that may replace its owner (0.293);

@@ -10173,6 +10173,16 @@ in the first topic (The ccllib gate).
 
 ### The modules
 
+- PHASE 1c IS THE ALGORITHMS AND THE NUMBERS (1.2.0): `library/ccllib/algorithm.pl` gives the algorithms over the
+  random-access ranges (vector, array, deque, span, basic_string, and read-only basic_string_view) as macros that
+  resolve the instance and its element at read time; `numeric.pl` the folds and scans; `limits.pl` `numeric_limits<T>`
+  as a type macro whose C limits are functions in `limits.pl.h` (C text is not preprocessed, so a C macro is no
+  name); `complex.pl` `complex<T>` as a value struct with the operators and the elementary functions; `random.pl`
+  `mt19937<>`, the standard Mersenne Twister, with its distributions; `ratio.pl` `ratio<N, D>` and its four
+  operations; and `chrono.pl` a nanosecond duration and the monotonic clock. A comparison is an expression after the
+  two element names (`sort_by(v, a, b, a < b)`); a place is an index; a mutating algorithm over a view is refused by
+  name. `test/ccllib/phase1c.c`, its twin, and `safe/algorithm_view_sort.c` hold it. (1.2.0)
+
 - A MODULE IS A MACRO FILE OF `library/ccllib/`, `NAME.pl`, and its C header `NAME.pl.h` where its text calls what a C
   header declares -- the reader includes the header beside the macro file where the file is there, and `pair.pl` and
   `tuple.pl` have none (0.301, 0.305) --: `type_NAME/3`, the type and its drop; `fn_NAME/3`, one function at its first

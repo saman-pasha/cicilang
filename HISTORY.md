@@ -311,6 +311,7 @@ One row per step, in version order: the step's title, what it did and its gate n
 | 1.1.3 | ccllib phase 1b, memory.pl's shared_ptr | `#include <memory.pl>` gives `std::shared_ptr`: a block shared by the handles that hold it, its strong count read by `use_count` and `unique`, `clone` as a second owner, `make_shared<T>(x)` and `make_shared<T>()` by the reader's maker by name, `*p` and `p->m` by its pointer's type macro, `get`, `reset`, `reset(p, x)`, `swap` and the relations of the objects' addresses; the safe part has no word for a shared block, so each element type has a pool of 4096 blocks (a static own array of the instance) and a handle owns only its slot's number, the last drop frees the slot; a handle carries the pool's address, so one handed to another unit stops the program; `weak_ptr` waits | `shared_ptr.c` and its twin; 12 ccllib refusals; `shared_ptr_rules.c` at 295,091 checks; `stops.c`'s cases; 12 copies broken on purpose, each caught; the flow gate and the ccllib gate; no chain, by the owner's rule of 0.271; a commit and a push |
 | 1.1.4 | ccllib phase 1b, functional.pl | `#include <functional.pl>` gives C++'s function objects as macros -- less, greater, the comparisons, the arithmetic, the logical and bit forms, negate and identity -- so a name works where C++ passes a type, `set<int, less>` and `set<int, greater>`; `hash(x)` is one FNV-1a step of an integer's, an enum's or a pointer's bits and refuses another type by name | `functional.c` and its twin; 2 ccllib refusals; `functional_rules.c` at 84,391 checks; 12 copies broken on purpose, each caught; the flow gate and the ccllib gate; no chain, by the owner's rule of 0.271; a commit and a push |
 | 1.1.5 | ccllib phase 1b finished: any, weak_ptr, and the two names that stood in its way | `<any.pl>` gives `std::any` as `any<>` -- a copy of a value, `any_cast<T>`, `has_value`, `reset`, `swap`, `clone` -- and `<memory.pl>` gives `weak_ptr<T>` -- `lock`, `expired`, `use_count`, `reset`, `swap`, `clone`, born from a shared handle; the owner's answer to decision 7 is the compiler's: `any(b);` over a bitset is the call by name, told by b's type, beside the type `any<>`; reader 201 | `any.c`/`weak_ptr.c` and their twins; 4 refusals; `any_rules.c` at 20,011 checks and `weak_ptr_rules.c` at 16,902; stops; 6 copies broken on purpose, each caught; the reader, flow and ccllib gates; no chain, by the owner's rule of 0.271; a commit and a push |
+| 1.2.0 | ccllib phase 1c: algorithms, numbers and the clock | `<algorithm>`, `<numeric>`, `<limits>`, `<complex>`, `<random>`, `<ratio>` and `<chrono>`: the algorithms and the ranges views as macros over vector, array, deque, span, string and a read-only view, with comparisons as expressions; the folds and scans; `numeric_limits<T>`; a complex value with its operators; the standard `mt19937` and four distributions; reduced compile-time ratios; nanosecond durations and the monotonic clock | `phase1c.c`, its twin and `safe/algorithm_view_sort.c`; the ccllib gate's three runs agree; the flow gate; no chain, by the owner's rule of 0.271 |
 
 ## M5 — the C++ mode
 
@@ -22952,3 +22953,49 @@ charted in 26 s (317 s over the library); the ccllib gate GREEN -- 26 programs i
   HISTORY.md, CLAUDE.md; `module/cicilang.cicili` (1.1.5).
 
 The module 1.1.5, the reader 201 and the lowering 174.
+
+## 1.2.0 — ccllib phase 1c: algorithms, numbers and the clock
+
+**1.2.0: `CCLLIB.md`'s phase 1c. Seven headers give the algorithms and the numbers: `<algorithm.pl>` the algorithms and
+the ranges views as loops over the random-access ranges, `<numeric.pl>` the folds and scans, `<limits.pl>`
+`numeric_limits<T>`, `<complex.pl>` `complex<T>`, `<random.pl>` `mt19937<>` and four distributions, `<ratio.pl>` the
+reduced compile-time ratios, and `<chrono.pl>` nanosecond durations and the monotonic clock. Phase 1c is done.**
+
+THE ALGORITHMS. A range is an object, not a pair of iterators: `sort(v)`, `reverse(v)`, `count(v, x)`, `find(v, x)`,
+`lower_bound(v, x)`, `for_each(v, x, printf("%d", x))`, `filter`, `take`, `drop`. A place is an index and the end is
+`size(v)`. A comparison is an expression after the two element names, `sort_by(v, a, b, a < b)`, read unread and put
+into the loop with no function pointer. The ranges are `vector<T>`, `array<T, N>`, `deque<T>`, `span<T>`,
+`basic_string<char>` and read-only `basic_string_view<char>`; a mutating algorithm over a view is refused by name.
+`ccllib_alg_range/4` in `ccllib.pl` resolves the instance and its element from `$ccl_instances`; each macro emits
+calls to that instance's `_size`, `_at` and `_index`. The sorts are insertion sorts here, O(n^2), and wait for a
+measured rewrite.
+
+THE NUMBERS. `<numeric.pl>` gives `accumulate`, `accumulate_by(v, init, x, expr)`, `inner_product`, `iota`,
+`partial_sum`, `adjacent_difference`, `gcd`, `lcm` and `midpoint`. `<limits.pl>` makes `numeric_limits<T>` a type
+macro: `numeric_limits<int> n; max(n)`, `min`, `lowest`, `epsilon`, `infinity`, `quiet_NaN`, `digits`, `digits10`,
+`is_signed`, `is_integer`, `is_iec559`. C text is lexed and not preprocessed, so a C macro is no name in it: the
+integer limits and the floating limits are small functions in `limits.pl.h`. `<complex.pl>` makes `complex<T>` a value
+struct of `re` and `im`, with `real`, `imag`, `abs`, `arg`, `norm`, `conj`, `exp`, `log`, `sqrt`, `pow`, `sin`, `cos`,
+`tan`, the operators `+ - * / -` and `==`, and no drop. A function of an instance takes its object's address, so a
+temporary (`real(a * b)`) is named first, as the string's functions are.
+
+THE ENGINE AND THE CLOCK. `<random.pl>` gives `mt19937<>` -- the standard Mersenne Twister, whose values are
+`std::mt19937`'s own -- with `seed`, `next`, `discard`, `min`, `max`, and `uniform_int`, `uniform_real`, `bernoulli`,
+`shuffle`. `<ratio.pl>` gives `ratio<N, D>` and `ratio_add`, `ratio_subtract`, `ratio_multiply`, `ratio_divide`, each
+reduced as `std::ratio` reduces it, with `num` and `den`. `<chrono.pl>` gives a nanosecond count as `long long`:
+`nanos_of`, `millis_of`, `seconds_of`, `count_of`, `duration_cast_millis`, `duration_cast_seconds`, `now_nanos`,
+`now_millis`, `sleep_for_millis`; the clock is `CLOCK_MONOTONIC` through `clock_gettime`.
+
+THE PROOF. `test/ccllib/phase1c.c` calls each header and prints 29 lines; its twin `phase1c.cpp` over `std::` prints
+the same lines, and cicilang's C build and cicilang++'s C++ build do too. The random values are `std::mt19937`'s own
+(`5489` seeds the first five values `3499211612 581869302 3890346734 3586334585 545404204`). `test/ccllib/safe/algorithm_view_sort.c`
+holds the refusal of a mutating algorithm over a view. The flow gate charts the new modules.
+
+- `library/ccllib/algorithm.pl`, `algorithm.pl.h`, `numeric.pl`, `numeric.pl.h`, `limits.pl`, `limits.pl.h`,
+  `complex.pl`, `complex.pl.h`, `random.pl`, `random.pl.h`, `ratio.pl`, `ratio.pl.h`, `chrono.pl`, `chrono.pl.h`;
+  `library/ccllib/ccllib.pl` (`ccllib_alg_range/4`, `ccllib_alg_kind/3`, `ccllib_alg_mutable/1`,
+  `ccllib_alg_mut/5`); `test/ccllib/phase1c.c`, `phase1c.cpp`, `phase1c.expect`;
+  `test/ccllib/safe/algorithm_view_sort.c` and its `.expect`; CCLLIB.md, README.md, RULES.md, HISTORY.md, CLAUDE.md;
+  `module/cicilang.cicili` (1.2.0).
+
+The module 1.2.0, the reader 201 and the lowering 174.

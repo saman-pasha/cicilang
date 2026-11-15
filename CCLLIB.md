@@ -979,6 +979,32 @@ the unit makes that instance in the unit with it (type_weak_ptr calls the shared
 shared_ptr's does. `test/ccllib/weak_ptr.c` and its twin over `std::weak_ptr`; `alone/weak_ptr_rules.c` at 16,902
 checks; two programs of `safe/`; no stop of its own.
 
+### 1c, algorithms and numbers (1.2.0)
+
+`<algorithm.pl>` gives the algorithms over the random-access ranges of ccllib -- `vector<T>`, `array<T, N>`, `deque<T>`,
+`span<T>`, `basic_string<char>`, and read-only `basic_string_view<char>`: `sort`, `stable_sort`, `partial_sort`,
+`sort_by`, `reverse`, `fill`, `replace`, `replace_if`, `count`, `count_if`, `all_of`, `any_of`, `none_of`, `find`,
+`find_if`, `min_element`, `max_element`, `lower_bound`, `upper_bound`, `binary_search`, `equal`,
+`lexicographical_compare`, `for_each`, `each`, `transform`, `copy`, `filter`, `take`, `drop`, `min`, `max`, `clamp`
+and `swap_values`. A range is an object, not a pair of iterators; a place is an index and the end is `size(v)`. A
+comparison is an expression after the two element names, `sort_by(v, a, b, a < b)`, put into the loop with no function
+pointer. A view is read-only, so a mutating algorithm over one is refused by name. The sorts are insertion sorts
+here, O(n^2), and wait for a measured rewrite. `test/ccllib/phase1c.c`, its twin over `std::`, and
+`test/ccllib/safe/algorithm_view_sort.c` hold it.
+
+`<numeric.pl>` gives `accumulate`, `accumulate_by`, `reduce`, `inner_product`, `iota`, `partial_sum`,
+`adjacent_difference`, `gcd`, `lcm` and `midpoint` over the same ranges. `<limits.pl>` gives `numeric_limits<T>` as
+a type macro: `numeric_limits<int> n; max(n)`, `min`, `lowest`, `epsilon`, `infinity`, `quiet_NaN`, `digits`,
+`digits10`, `is_signed`, `is_integer` and `is_iec559`; the C limits are carried by small functions in `limits.pl.h`
+because C text is lexed and not preprocessed. `<complex.pl>` gives `complex<T>` as a value struct of a real and an
+imaginary part, with `real`, `imag`, `abs`, `arg`, `norm`, `conj`, `exp`, `log`, `sqrt`, `pow`, `sin`, `cos`, `tan`,
+the operators `+ - * / -` and `==`, and no drop. `<random.pl>` gives `mt19937<>` -- the standard Mersenne Twister,
+whose values are `std::mt19937`'s own -- with `seed`, `next`, `discard`, `min` and `max`, and `uniform_int`,
+`uniform_real`, `bernoulli` and `shuffle`. `<ratio.pl>` gives `ratio<N, D>` and `ratio_add`, `ratio_subtract`,
+`ratio_multiply` and `ratio_divide` as type macros, reduced as `std::ratio` reduces them, with `num` and `den`.
+`<chrono.pl>` gives nanosecond durations as `long long`: `nanos_of`, `millis_of`, `seconds_of`, `count_of`,
+`duration_cast_millis`, `duration_cast_seconds`, `now_nanos`, `now_millis` and `sleep_for_millis`.
+
 ### The parts of phase 1
 
 - 1a. Containers and strings: `vector`, `array`, `deque`, `list`, `forward_list`, `map`, `set`, `multimap`,
@@ -989,7 +1015,7 @@ checks; two programs of `safe/`; no stop of its own.
   (`<functional>`, 1.1.4), and `weak_ptr` (1.1.5) -- done at 1.1.5, with the owner's answer to decision 7: the compiler
   infers the type to choose the true name, so `any` and a bitset's `any(b)` stand together.
 - 1c. Algorithms and numbers: `<algorithm>`, `<numeric>`, the C++20 ranges views as loops, `<limits>`, `<complex>`,
-  `<random>`, `<ratio>`, `<chrono>`.
+  `<random>`, `<ratio>`, `<chrono>` -- done at 1.2.0.
 - 1d. iostreams: `ostream`, `istream`, `fstream`, `stringstream`, `<iomanip>`, `cout`, `cin`, `cerr`, over C's stdio.
 
 ## Phase 2: the rest before C++23

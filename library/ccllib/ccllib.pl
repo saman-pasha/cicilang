@@ -50,3 +50,25 @@ ccllib_text_holds(C, H) :- memberchk(C, H).
 %% with an error for the same reason. ccllib_index_word(+Word, -I)
 ccllib_index_word(W, I) :- atom(W), atom_codes(W, Cs), Cs = [C|_], C >= 0'0, C =< 0'9,
     forall(member(D, Cs), ( D >= 0'0, D =< 0'9 )), number_codes(I, Cs), number_codes(I, Cs1), Cs1 == Cs.
+
+%% A RANDOM-ACCESS RANGE OF AN INSTANCE, for <algorithm.pl> and <numeric.pl> (phase 1c): V is an object of
+%% vector<T>, array<T, N>, deque<T>, span<T>, basic_string<char>, or basic_string_view<char>; Kind is the type
+%% macro's name, N the instance's, T the element's. The five mutable kinds have `_index', which gives a place; a view
+%% is read-only. ccllib_alg_range(+V, -Kind, -N, -T)
+ccllib_alg_range(V, Kind, N, T) :-
+    ccl_type_of(V, VT), ccl_iop_inst_type(VT, N), nb_getval('$ccl_instances', Is),
+    member(inst(Kind, As, IT, _), Is), ccl_inst_type_name(IT, N), ccllib_alg_kind(Kind, As, T).
+ccllib_alg_kind(vector, [T], T).
+ccllib_alg_kind(array, [T, _], T).
+ccllib_alg_kind(deque, [T], T).
+ccllib_alg_kind(span, [T], T).
+ccllib_alg_kind(basic_string, [base([], [char])], base([], [char])).
+ccllib_alg_kind(basic_string_view, [base([], [char])], base([], [char])).
+%% a kind whose elements a mutating algorithm may write: all but the view
+ccllib_alg_mutable(Kind) :- memberchk(Kind, [vector, array, deque, span, basic_string]), !.
+%% the element type of a range, for a variable in a generated loop
+ccllib_alg_element_type(V, T) :- ccllib_alg_range(V, _, _, T).
+
+%% a range that a mutating algorithm may write, or the module's refusal by name
+ccllib_alg_mut(V, Kind, N, T, What) :- ccllib_alg_range(V, Kind, N, T),
+    ( ccllib_alg_mutable(Kind) -> true ; atomic_list_concat([What, ' over a view: a view is read-only'], M), ccl_macro_error(M) ).

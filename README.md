@@ -608,6 +608,13 @@ the end of `main`.
 | `<memory.pl>` | `unique_ptr`, `shared_ptr`, `weak_ptr`, `make_unique`, `make_shared` | one own pointer and a drop; a shared block with a count, and a weak observer |
 | `<functional.pl>` | `less`, `greater`, `plus`, `hash` and the other function objects | their operators as macros, and a value's hash |
 | `<any.pl>` | `any` | a copy of a value of any scalar or struct type, with `any_cast` |
+| `<algorithm.pl>` | `sort`, `sort_by`, `reverse`, `count`, `find`, `lower_bound`, `for_each`, `filter` and the rest | a macro over a range: a place is an index, a comparison an expression |
+| `<numeric.pl>` | `accumulate`, `inner_product`, `iota`, `partial_sum`, `gcd`, `lcm` | folds and scans over the same ranges |
+| `<limits.pl>` | `numeric_limits` | the instance's `max`, `min`, `epsilon`, `digits` and the rest |
+| `<complex.pl>` | `complex` | a value of a real and an imaginary part, with the operators and the elementary functions |
+| `<random.pl>` | `mt19937<>`, `uniform_int`, `uniform_real`, `bernoulli` | the standard Mersenne Twister |
+| `<ratio.pl>` | `ratio`, `ratio_add`, `ratio_subtract`, `ratio_multiply`, `ratio_divide` | compile-time rationals, with `num` and `den` |
+| `<chrono.pl>` | `nanos_of`, `millis_of`, `seconds_of`, `now_nanos` | nanosecond durations and the monotonic clock |
 
 What every module does:
 
@@ -810,8 +817,14 @@ example. `<memory.pl>` gives `weak_ptr<T>` too: `weak_ptr<int> w = p;`,
 `lock(w)`, `expired(w)`, `use_count(w)`, `reset(w)` and `swap(w, q)` --
 `test/ccllib/weak_ptr.c` is the example.
 
-What waits: phase 1c -- `<algorithm>`, `<numeric>` and the ranges as loops,
-`<limits>`, `<complex>`, `<random>`, `<ratio>` and `<chrono>` -- and phase 1d,
+Phase 1c is there (1.2.0): `#include <algorithm.pl>` gives `sort(v)`,
+`sort_by(v, a, b, a < b)`, `reverse`, `count`, `find`, `lower_bound`,
+`for_each`, `filter`, `take`, `drop` and the rest over vector, array, deque,
+span and string, with a view read-only; `<numeric.pl>` the folds and scans;
+`<limits.pl>` `numeric_limits<int> n; max(n)`; `<complex.pl>` `complex<double>`;
+`<random.pl>` `mt19937<> r; seed(r, 5489); next(r)`; `<ratio.pl>`
+`ratio<1, 2>` and its operations; and `<chrono.pl>` `millis_of(1500)` and the
+monotonic clock. `test/ccllib/phase1c.c` is the example. What waits: phase 1d,
 iostreams over C's stdio. `CCLLIB.md` gives the phases after them, to C++26.
 
 ## C++: the levels and the library

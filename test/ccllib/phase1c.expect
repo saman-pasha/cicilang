@@ -1,0 +1,29 @@
+sort: 1 3 3 5 9
+reverse: 9 5 3 3 1
+count=2 find=0 min=4 max=0 lower=0 upper=5 binary=0
+sort_by: 1 3 3 5 9
+tests 1 1 1
+clamp 9 4
+for_each: 2 6 6 10 18
+filter: 3 3 9
+take: 1 3
+drop: 5 9
+equal 1 0 lex 1 0
+partial_sort: 1 3
+accumulate 21 125 inner 81
+partial_sum: 1 4 7 12 21
+adjacent: 1 2 0 2 4
+iota: 10 11 12 13 14
+gcd=6 lcm=24 midpoint=6
+limits int 2147483647 -2147483648 31 9
+limits uint 4294967295 0 0 1
+limits double 1.79769e+308 2.22507e-308 2.22045e-16 53 15
+complex sum 4 2 prod 11 -2 quot -1 2
+complex abs 5 norm 25 conj 3 -4
+complex eq 1 0
+mt: 3499211612 581869302 3890346734 3586334585 545404204
+dice 2 6 1
+bernoulli 0 1
+ratio 1/2 1/2 5/6 1/2
+chrono 1500000000 1500 1 2000000000
+exit 0
