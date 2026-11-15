@@ -1,0 +1,6 @@
+values: 5 2.5 1 2
+clone: 5
+swap: 2.5 5
+reset: 0
+bitset: 1
+exit 0

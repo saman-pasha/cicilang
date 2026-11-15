@@ -11135,6 +11135,35 @@ in the first topic (The ccllib gate).
   `bit_and` that is `|`, a `bit_not` that is `-`, an `identity` that gives zero, a `less_equal` that is `<`), and the
   hash's prime by the rules program alone. (1.1.4)
 
+### any.pl and weak_ptr
+
+- **`any<>` IS `std::any`: ONE OWN POINTER TO A COPY, ITS SIZE AND A NUMBER FOR ITS TYPE, WITH A DROP** (1.1.5;
+  `CCLLIB.md`'s phase 1b, decision 7 answered): the type is `any<>`, ccllib's type-macro spelling with its empty list,
+  and `type_any([], base([], [typedef(any)]), Items)` gives the struct and its drop, which frees the copy. The birth is
+  `any_of_<word>` (`ccl_of_value`), the cast `any_any_cast_<word>` (the reader's typed call by name), and each
+  `fn_any/3` makes ONE of them at its first use: the word is resolved to a type (`ccllib_any_word_type/2`, the C words
+  and a program's typedefs) and the text is read with that type. `has_value`, `reset`, `swap`, `clone` and the drop are
+  the rest. `any_cast` of an empty any or of a type it does not hold stops the program (abort); an object with a pointer
+  is refused where the value is made (`a type 'ptr_int': an any holds a value with no pointer in it, and that type is a
+  pointer or an array`). `make_any<T>`, `any_cast<T>(&a)` and `type(a)` wait; `any<> a = x;` is the birth. The reader's
+  block-declaration rule (0.114) already makes `any(b)` over a bitset the call by name -- a lone name in parentheses in
+  a block is the expression -- so a unit with both modules reads it as the call. `test/ccllib/any.c` and its twin
+  over `std::any` print the same 5 lines; `alone/any_rules.c` at 20,011 checks; `safe/any_of_pointer.c` and
+  `any_of_array.c`; `stops.c`'s two cases of `any_cast`. Three copies broken on purpose -- a birth that does not copy,
+  a cast that does not compare the type's number, a clone that shares the pointer -- are each caught: the birth's and
+  the clone's by the rules program, the cast's by `stops.c`. (1.1.5)
+- **`weak_ptr<T>` OBSERVES A SHARED_PTR'S BLOCK: THE SAME OWN SLOT NUMBER AND POOL, AND THE WEAK COUNT** (1.1.5;
+  `CCLLIB.md`'s phase 1b): `type_weak_ptr/3` makes `weak_ptr<T>` and, with it, the `shared_ptr<T>` instance of the unit
+  (`ccl_tmacro_instance/2`), so both name one block and pool; the weak handle is the shared handle's shape, and its drop
+  takes the weak count and frees the slot when the strong and the weak counts are both zero. The birth `weak_ptr<int> w
+  = p;` is `_of_shared_ptr_int(const shared_ptr_int *)`, the reader's `_of` passing the shared handle's address, so p is
+  not moved; `clone` gives a second weak handle, `lock` a shared owner (or an empty shared_ptr), `expired`, `use_count`,
+  `reset` and `swap` are the rest, and each checks the pool's own address. `test/ccllib/weak_ptr.c` and its twin over
+  `std::weak_ptr` print the same 7 lines; `alone/weak_ptr_rules.c` at 16,902 checks; `safe/weak_ptr_of_pointer.c` and
+  `weak_ptr_two_types.c`; no stop is its own. Three copies broken on purpose -- a drop that frees the block under a live
+  weak, a lock that counts nothing, an expired that is always false -- are each caught by the rules program. A weak_ptr
+  of a type whose shared_ptr is not in the unit makes that instance with it. (1.1.5)
+
 ## The safe part
 
 ### The check in the build

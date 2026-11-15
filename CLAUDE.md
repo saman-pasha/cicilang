@@ -12,7 +12,7 @@ the fixture that gates it, and why. The bullet ends with the version that made t
 edits the rule in `RULES.md`, in its topic, and writes its entry in `HISTORY.md`. Read the topic of `RULES.md` that
 covers the code before the code is changed.
 
-At 1.1.4 the versions are: the module 1.1.4 (`ccl_p_version` in `module/cicilang.cicili`, `bin/cicilang --version`),
+At 1.1.5 the versions are: the module 1.1.5 (`ccl_p_version` in `module/cicilang.cicili`, `bin/cicilang --version`),
 the reader 201 (`ccl_reader_version/1`, `library/ccl_syntax.pl`) and the lowering 174 (`ccl_lowering_version/1`,
 `library/ccl_ir.pl`).
 
@@ -417,10 +417,13 @@ library/ccllib/             ccllib, the standard library of cicilang's C (CCLLIB
                               one that it holds, a value with no heap and no drop; visit<f>(v) calls the program's
                               f_<word> by the alternative; monostate in its C header
   memory.pl, memory.pl.h      std::unique_ptr (0.309): one own pointer and a drop; make_unique<T>(x) by the reader's
-                              maker by name, *p and p->m by its pointer's type macro; and std::shared_ptr (1.1.3):
-                              one own slot number into a pool of 4096 blocks, a count, clone as a copy; weak_ptr waits
+                              maker by name, *p and p->m by its pointer's type macro; std::shared_ptr (1.1.3): one own
+                              slot number into a pool of 4096 blocks, a count, clone as a copy; weak_ptr<T> (1.1.5):
+                              lock, expired, use_count, reset, swap, clone, born from a shared handle
   functional.pl               the function objects as macros (1.1.4): less, greater, plus, hash and the rest, and a
                               name that orders a set where C++ writes a type
+  any.pl, any.pl.h            std::any (1.1.5) as `any<>`: a copy of a value with its type's number, any_cast<T>(a),
+                              has_value, reset, swap, clone; a pointer or an array is refused
   ccllib.pl                   what two modules need, written once (0.275): a module loads it by a directive, and no
                               program includes it; the refusal of an element with a pointer, the lists' sort (0.277),
                               the lines of a text by their conditions (0.283), an index in a function's name
@@ -617,7 +620,8 @@ test/ccllib/                the three runs' programs: NAME.c, a ccllib program; 
                             relations.c, the relations of every module by C++20's words, over a NaN too (0.304);
                             tuple.c, of <tuple.pl>, with the get<I> of a pair and of an array (0.305);
                             variant.c, of <variant.pl>, with visit (0.308); unique_ptr.c, of <memory.pl> (0.309);
-                            shared_ptr.c, of <memory.pl> (1.1.3); functional.c, of <functional.pl> (1.1.4)
+                            shared_ptr.c, of <memory.pl> (1.1.3); functional.c, of <functional.pl> (1.1.4);
+                            any.c, of <any.pl>, and weak_ptr.c, of <memory.pl> (1.1.5)
 test/ccllib/safe/           ccllib programs that the safe part refuses, as C and as C++: NAME.c, NAME.expect, and
                             NAME.expect.cpp where C++ has words of its own (0.274); borrow_into_call_vector.c and
                             string_self_c_str.c, a borrow handed to a call that may replace its owner (0.293);
@@ -634,7 +638,8 @@ test/ccllib/safe/           ccllib programs that the safe part refuses, as C and
                             the visits whose family does not fit (0.308); unique_ptr_*.c and make_unique_*.c, what a
                             unique_ptr may not hold or be made of, its borrows, its moves and its release (0.309);
                             shared_ptr_*.c and make_shared_*.c, the same of a shared_ptr (1.1.3); hash_float.c and
-                            hash_struct.c, the types that hash refuses (1.1.4)
+                            hash_struct.c, the types that hash refuses (1.1.4); any_of_pointer.c, any_of_array.c,
+                            weak_ptr_of_pointer.c and weak_ptr_two_types.c (1.1.5)
 test/ccllib/alone/          ccllib programs with no twin, built as C and as C++ (0.281): NAME.c, NAME.expect;
                             stops.c, what stops a ccllib program, each case in a child of its own; tree_rules.c,
                             the rules of the tree of a set and a map, read from the instance's own fields;
@@ -654,7 +659,7 @@ test/ccllib/alone/          ccllib programs with no twin, built as C and as C++ 
                             unique_ptr, held to a model of its blocks, and stops.c's cases of a unique_ptr (0.309);
                             shared_ptr_rules.c, the rules of a shared_ptr, held to a model of three handles (1.1.3);
                             functional_rules.c, the function objects and the hash, and stops.c's shared_ptr cases
-                            (1.1.4)
+                            (1.1.4); any_rules.c and weak_ptr_rules.c, their rules (1.1.5)
 
 proof/forty2.ll, run.sh     M0: hand-written IR through clang to a binary that prints a line and exits 42
 proof/forty2                made by proof/run.sh, never committed

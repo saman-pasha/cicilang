@@ -1,0 +1,8 @@
+lock: 0 5 2 2
+clone: 3 3
+reset p: 0 2
+reset q: 0 1
+reset r: 1
+lock after: 1 1
+empty: 1 1
+exit 0

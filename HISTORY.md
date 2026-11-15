@@ -310,6 +310,7 @@ One row per step, in version order: the step's title, what it did and its gate n
 | 1.1.2 | a name used before any declaration of it is refused in C | the Ambitious session's finding 43: a call of a function that the file defines further down was lowered by the definition's type and ran, where C99 took away the implicit declaration; the reader notes each name of the program's file that it reads where no declaration of it is in scope, each declarator's name in scope just after it, and refuses at the file's end the first one that a later declaration or an enumerator names, in clang's words; a name that nothing declares has clang's words in the lowering; cocolog's backtrackable globals answer an atomic value as their own cell; two macro files that define one predicate meet in one process | `declorder.c` over `declorder.h` and `textorder.c` over `textorder.pl`; the driver gate's twenty forms at C17, two at C23, six of the lowering's and the store's round; 60 probes as C, 53 alike to clang's verdict and words, 26 over 1.1.1; 30 copies broken on purpose, 26 caught, four guards that no road reaches; the nets GREEN; no chain, by the owner's rule of 0.271; a commit and a push |
 | 1.1.3 | ccllib phase 1b, memory.pl's shared_ptr | `#include <memory.pl>` gives `std::shared_ptr`: a block shared by the handles that hold it, its strong count read by `use_count` and `unique`, `clone` as a second owner, `make_shared<T>(x)` and `make_shared<T>()` by the reader's maker by name, `*p` and `p->m` by its pointer's type macro, `get`, `reset`, `reset(p, x)`, `swap` and the relations of the objects' addresses; the safe part has no word for a shared block, so each element type has a pool of 4096 blocks (a static own array of the instance) and a handle owns only its slot's number, the last drop frees the slot; a handle carries the pool's address, so one handed to another unit stops the program; `weak_ptr` waits | `shared_ptr.c` and its twin; 12 ccllib refusals; `shared_ptr_rules.c` at 295,091 checks; `stops.c`'s cases; 12 copies broken on purpose, each caught; the flow gate and the ccllib gate; no chain, by the owner's rule of 0.271; a commit and a push |
 | 1.1.4 | ccllib phase 1b, functional.pl | `#include <functional.pl>` gives C++'s function objects as macros -- less, greater, the comparisons, the arithmetic, the logical and bit forms, negate and identity -- so a name works where C++ passes a type, `set<int, less>` and `set<int, greater>`; `hash(x)` is one FNV-1a step of an integer's, an enum's or a pointer's bits and refuses another type by name | `functional.c` and its twin; 2 ccllib refusals; `functional_rules.c` at 84,391 checks; 12 copies broken on purpose, each caught; the flow gate and the ccllib gate; no chain, by the owner's rule of 0.271; a commit and a push |
+| 1.1.5 | ccllib phase 1b finished: any, weak_ptr, and the two names that stood in its way | `<any.pl>` gives `std::any` as `any<>` -- a copy of a value, `any_cast<T>`, `has_value`, `reset`, `swap`, `clone` -- and `<memory.pl>` gives `weak_ptr<T>` -- `lock`, `expired`, `use_count`, `reset`, `swap`, `clone`, born from a shared handle; the owner's answer to decision 7 is the compiler's: `any(b);` over a bitset is the call by name, told by b's type, beside the type `any<>`; reader 201 | `any.c`/`weak_ptr.c` and their twins; 4 refusals; `any_rules.c` at 20,011 checks and `weak_ptr_rules.c` at 16,902; stops; 6 copies broken on purpose, each caught; the reader, flow and ccllib gates; no chain, by the owner's rule of 0.271; a commit and a push |
 
 ## M5 — the C++ mode
 
@@ -22881,3 +22882,73 @@ this box). No chain ran beyond these, no CI job ran, by the owner's rule of 0.27
   CLAUDE.md; `module/cicilang.cicili` (1.1.4).
 
 The module 1.1.4, the reader 201 and the lowering 174.
+
+## 1.1.5 — ccllib phase 1b finished: any, weak_ptr, and the two names that stood in its way
+
+**1.1.5: `<any.pl>` gives `std::any` as `any<>` -- a copy of a value, `any_cast<T>(a)`, `has_value`, `reset`, `swap`
+and `clone` -- and `<memory.pl>` gives `weak_ptr<T>`: `lock`, `expired`, `use_count`, `reset`, `swap`, `clone`, born
+from a shared handle. The owner's answer to `CCLLIB.md`'s decision 7 is the compiler's: "for any naming conflicts the
+compiler should infer type to choose true name, but each type can have its own specific name." The reader already reads
+`any(b);` over a bitset as the call by name, not as a declaration of b, when b's type has a function of that name: the
+instance's own `bitset_int_any` is chosen by b's type, and `<any.pl>` and `<bitset.pl>` stand in one unit. Phase 1b is
+done.**
+
+THE NAME (the owner's decision, and no reader change): `any(b);` in a unit with `<any.pl>` and `<bitset.pl>` is, by
+C's grammar, a declaration of b of the type any -- a typedef name and a parenthesized declarator -- and the call by name
+`any(b)` would be lost. The reader's block-declaration rule (0.114) already reads a lone name in parentheses in a block
+as the expression, so the call is read and the call by name finds the instance's own specific function by b's type; a
+manual `typedef ... any;` beside a bitset builds the same. `any<>` is the type, and a declaration `any<> a;` has no
+parenthesis.
+
+THE FORMS, DECISIONS OF THE STEP'S, FOR THE OWNER TO SEE. ANY: the type is `any<>` -- ccllib's type macros are written
+with their `<...>`, and `std::any` takes none, so its empty list is the type's -- a struct of one own pointer to a copy
+of the value, its size and a number for its type, with a drop. The birth `any<> a = 5;` is `any_of_int(5)`, from a
+value of a type that the reader knows; `any_cast<int>(a)` is `any_any_cast_int(&a)`, the reader's typed call by name;
+each function is made at its first use from the word of the type (`ccllib_any_word_type/2`: the C types, and a
+program's typedef as `typedef(W)`). `has_value`, `reset`, `swap`, `clone` and the drop are the rest. `any_cast` of an
+empty any or of a type it does not hold stops the program (abort), where C++ throws. An object with a pointer is
+refused where the value is made (`a type 'ptr_int': an any holds a value with no pointer in it, and that type is a
+pointer or an array`), and a struct is copied whole. `make_any<T>`, `any_cast<T>(&a)`, `type(a)` and `a = 5` from
+another type wait; `any<> a = 5;` is the birth and `clone` the copy. The type's number is a fold of the type's word
+(131 and a modulus), so no string is stored or compared. WEAK_PTR: `type_weak_ptr/3` makes `weak_ptr<T>` and, with it,
+the `shared_ptr<T>` instance of the unit (`ccl_tmacro_instance/2`), so both name one block and pool; the weak handle is
+the shared handle's shape (`own size_t *slot; size_t pool;`), and its drop takes the weak count and frees the slot when
+the strong and the weak counts are both zero. The birth `weak_ptr<int> w = p;` is `_of_shared_ptr_int(const
+shared_ptr_int *)`: the reader's `_of` passes the shared handle's address where the function takes a pointer to its
+instance, so p is not moved. `clone` gives a second weak handle, `lock` a shared owner (or an empty shared_ptr),
+`expired`, `use_count`, `reset` and `swap` are the rest, and each checks the pool's own address. What waits: a
+`weak_ptr<T[]>` and `owner_before`; a handle belongs to the unit that made it, as a shared_ptr's does.
+
+THE PROOF. `test/ccllib/any.c` -- an int, a double, a char and a struct born into an any, any_cast of each, clone, a
+move, swap, reset and has_value, and a bitset's `any(b)` beside it -- and its twin over `std::any` and `std::bitset`
+print the same 5 lines. `test/ccllib/weak_ptr.c` -- the birth from a shared handle, clone, lock, expired, use_count,
+reset of the shared handles and of a weak, and an empty weak -- and its twin over `std::weak_ptr` print the same 7
+lines. `test/ccllib/alone/any_rules.c` holds a value born, cast, cloned and reset over a walk of chance of 4000 values
+at 20,011 checks; `test/ccllib/alone/weak_ptr_rules.c` holds expired, use_count, lock, clone and reset over a walk of
+4000 steps on two shared and two weak pointers at 16,902 checks. Four programs of `test/ccllib/safe/`: `any_of_pointer.c`,
+`any_of_array.c`, `weak_ptr_of_pointer.c` and `weak_ptr_two_types.c`; `stops.c`'s two cases of `any_cast`. THREE COPIES
+OF `<any.pl>` BROKEN ON PURPOSE -- a birth that does not copy, a cast that does not compare the type's number, a clone
+that copies nothing -- and THREE OF `<memory.pl>`'s weak_ptr -- a drop that frees the block under a live weak, a
+lock that counts nothing, an expired that is always false -- are each reported by the rules programs (and the cast's by
+`stops.c`).
+
+WHAT IT COSTS, by the ccllib gate's lines (the best of three builds after a change of the file): `<any.pl>`'s program
+holds 15 functions in 5,528 bytes, where its twin's holds 122 in 33,816; its run takes 0.096 s as C and 0.104 s as C++
+against the twin's 0.098 s, in 1.2 MB each; its C build after a change of the file takes 1.465 s and 158.9 MB,
+cicilang++'s 1.195 s and 96.8 MB, against clang++'s 1.441 s and 68.3 MB. `weak_ptr.c` holds 15 functions in 9,624 bytes,
+where its twin's holds 79 in 23,160; its run takes 0.111 s as C and 0.124 s as C++ against 0.118 s; its C build takes
+1.712 s and 154.8 MB, cicilang++'s 1.392 s and 97.5 MB, against clang++'s 1.544 s and 63.2 MB.
+
+THE NETS GREEN: the reader gate GREEN (one process and a later process, 170 checks); the flow gate GREEN, `any.pl`
+charted in 26 s (317 s over the library); the ccllib gate GREEN -- 26 programs in three runs, 173 refused and 19 alone,
+510 checks, each `valgrind` check SKIPPED by name (no valgrind on this box). No chain ran beyond these, no CI job ran, by the owner's rule of 0.271.
+
+- `library/ccllib/any.pl`, `any.pl.h`; `library/ccllib/memory.pl` (`type_weak_ptr/3`, `fn_weak_ptr/3`,
+  `ccllib_weak_ptr_text/4`, `ccllib_weak_ptr_names/5`); `test/ccllib/any.c`, `any.cpp`,
+  `any.expect`; `test/ccllib/weak_ptr.c`, `weak_ptr.cpp`, `weak_ptr.expect`; `test/ccllib/alone/any_rules.c`,
+  `weak_ptr_rules.c` and their `.expect`; `test/ccllib/safe/any_of_pointer.c`, `any_of_array.c`,
+  `weak_ptr_of_pointer.c`, `weak_ptr_two_types.c` and their `.expect`; `stops.c` and `stops.expect` (the any's cases);
+  `test/flow.sh` (`CFILES`); RULES.md (ccllib's `any.pl` and weak_ptr), CCLLIB.md, README.md,
+  HISTORY.md, CLAUDE.md; `module/cicilang.cicili` (1.1.5).
+
+The module 1.1.5, the reader 201 and the lowering 174.

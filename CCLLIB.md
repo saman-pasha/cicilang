@@ -950,14 +950,44 @@ The unit holds 39 functions for its instances in 15,344 bytes, where the twin's 
 takes 1.732 s and 172.7 MB, cicilang++'s 1.581 s and 121.5 MB, against clang++'s 1.596 s and 72.9 MB. The macro-only
 module's object is a third of the twin's, and its build is the twin's within this box's drift.
 
+### 1b, `any.pl` (1.1.5)
+
+`<any>` gives `std::any`: `any<> a = 5;`, `any<> b = 2.5;`, `any<> c = pt;`, `any_cast<int>(a)`,
+`any_cast<double>(b)`, `any_cast<point>(c)`, `has_value(a)`, `reset(a)`, `swap(a, b)`, `clone(a)`. The type is a struct
+of one own pointer to a copy of the value, its size and a number for its type; the compiler drops it at its scope's end.
+`any<>` IS THE SPELLING: ccllib's type macros are written with their `<...>` and `std::any` takes none, so its empty
+list is the type's. The birth is `any_of_<word>` and the cast is `any_any_cast_<word>`, each made at its first use --
+no table of the types is the module's. The owner's answer to decision 7 -- the compiler infers the type to choose the
+true name -- is what the reader already does: a block's declaration of a lone name in parentheses is the expression
+(the rule of 0.114), so `any(b)` over a bitset is the call by name, not a declaration of b, and `<any.pl>` and
+`<bitset.pl>` stand in one unit. `any_cast` of an empty any or of a type it does not hold stops the program (abort),
+where C++ throws. `make_any<T>` is not there -- `any<> a = x;` is its birth -- and `any_cast<T>(&a)`, `type(a)` and an
+assignment from another type wait; the object is a value with no pointer in it (decision 2), so a pointer or an array is
+refused where the value is made. `test/ccllib/any.c` and its twin over `std::any`; `alone/any_rules.c` at 20,011 checks;
+two programs of `safe/`; `stops.c`'s cases.
+
+### 1b, `memory.pl`'s `weak_ptr` (1.1.5)
+
+`weak_ptr<T>` observes a `shared_ptr<T>`'s block without keeping the object alive: `weak_ptr<int> w = p;` is the birth
+from a shared handle (the reader's `_of` form, which takes the shared handle's address, so p is not moved), `clone(w)` a
+second weak handle, `lock(w)` a shared owner (empty where the block is gone), `expired(w)`, `use_count(w)`, `reset(w)`
+and `swap(w, q)`. The weak handle has the shared handle's own slot number and pool; its drop takes the weak count, and
+the block is freed when the strong and the weak counts are both zero. A weak_ptr of a type whose shared_ptr is not in
+the unit makes that instance in the unit with it (type_weak_ptr calls the shared type macro), so a program that names
+`weak_ptr<T>` has the block's layout and pool. What differs from C++: an assignment or a call moves a weak handle and
+`clone` copies it; there is no `weak_ptr<T[]>`, no `owner_before`; a handle belongs to the unit that made it, as a
+shared_ptr's does. `test/ccllib/weak_ptr.c` and its twin over `std::weak_ptr`; `alone/weak_ptr_rules.c` at 16,902
+checks; two programs of `safe/`; no stop of its own.
+
 ### The parts of phase 1
 
 - 1a. Containers and strings: `vector`, `array`, `deque`, `list`, `forward_list`, `map`, `set`, `multimap`,
   `multiset`, `unordered_map`, `unordered_set` and their multi forms, `stack`, `queue`, `priority_queue`, `bitset`,
   `string`, `string_view`, `span` -- done at 0.295.
-- 1b. The vocabulary: `optional` (0.300), `pair` (0.301), `tuple` (0.305), `variant` and `visit` (0.308), `any`,
-  `unique_ptr` (the own pointer, 0.309), `shared_ptr` (1.1.3), `hash`, `less` and the other function objects
-  (`<functional>`, 1.1.4). `any` waits for the owner's word (decision 7), and `weak_ptr` waits for its own step.
+- 1b. The vocabulary: `optional` (0.300), `pair` (0.301), `tuple` (0.305), `variant` and `visit` (0.308), `any`
+  (1.1.5), `unique_ptr` (the own pointer, 0.309), `shared_ptr` (1.1.3), `hash`, `less` and the other function objects
+  (`<functional>`, 1.1.4), and `weak_ptr` (1.1.5) -- done at 1.1.5, with the owner's answer to decision 7: the compiler
+  infers the type to choose the true name, so `any` and a bitset's `any(b)` stand together.
 - 1c. Algorithms and numbers: `<algorithm>`, `<numeric>`, the C++20 ranges views as loops, `<limits>`, `<complex>`,
   `<random>`, `<ratio>`, `<chrono>`.
 - 1d. iostreams: `ostream`, `istream`, `fstream`, `stringstream`, `<iomanip>`, `cout`, `cin`, `cerr`, over C's stdio.

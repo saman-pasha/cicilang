@@ -11,9 +11,10 @@
    it does not hold stops, by an index and by a type, where C++ throws, and get_if, get and emplace of the one that it
    holds do not (0.308). A unique_ptr's *p and p->m where it is empty stop, where C++ is undefined, and get of an empty
    one and *p of a full one do not (0.309). A shared_ptr's *p and p->m where it is empty stop, where C++ is undefined,
-   and get of an empty one, *p of a full one and use_count do not (1.1.3). cicilang builds this file as C and cicilang++
-   as C++; both print stops.expect. It has no twin: C++ throws at some of these, and says nothing of what follows the
-   others */
+   and get of an empty one, *p of a full one and use_count do not (1.1.3). An any's any_cast of an empty one and of a
+   type it does not hold stops, where C++ throws, and any_cast of the type it holds does not (1.1.5). cicilang builds
+   this file as C and cicilang++ as C++; both print stops.expect. It has no twin: C++ throws at some of these, and says
+   nothing of what follows the others */
 #include <signal.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -37,6 +38,7 @@
 #include <optional.pl>
 #include <variant.pl>
 #include <memory.pl>
+#include <any.pl>
 /* the child takes abort's signal and leaves with a status of its own: so no core is written and no crash is reported,
    and a stop by abort is told from a fault */
 static void on_abort(int sig) { (void)sig; _exit(77); }
@@ -309,6 +311,9 @@ static void shared_ptr_ok(void) {
     shared_ptr<int> q = make_shared<int>(3);
     printf("%d %d %zu", get(p) == 0, *q, use_count(q));
 }
+static void any_empty(void) { any<> a; printf("%d", any_cast<int>(a)); }
+static void any_wrong(void) { any<> a = 2.5; printf("%d", any_cast<int>(a)); }
+static void any_ok(void) { any<> a = 5; printf("%d", any_cast<int>(a)); }
 static void variant_ok(void) {
     variant<int, double> v = 2.5;
     int *q = get_if<int>(&v);
@@ -397,5 +402,7 @@ int main(void) {
            stopped(unique_ptr_arrow), stopped(unique_ptr_ok));
     printf("shared_ptr: *p of an empty one %d, p->m %d; in its bounds %d\n", stopped(shared_ptr_deref),
            stopped(shared_ptr_arrow), stopped(shared_ptr_ok));
+    printf("any: any_cast of an empty one %d, of a type it does not hold %d; in its bounds %d\n", stopped(any_empty),
+           stopped(any_wrong), stopped(any_ok));
     return 0;
 }

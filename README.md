@@ -605,8 +605,9 @@ the end of `main`.
 | `<pair.pl>` | `pair` | `first` and `second` |
 | `<tuple.pl>` | `tuple`, `get<I>`, `get<T>` | a struct of its elements |
 | `<variant.pl>` | `variant`, `visit`, `monostate` | a union and the index of the alternative that it holds |
-| `<memory.pl>` | `unique_ptr`, `shared_ptr`, `make_unique`, `make_shared` | one own pointer and a drop; a shared block with a count |
+| `<memory.pl>` | `unique_ptr`, `shared_ptr`, `weak_ptr`, `make_unique`, `make_shared` | one own pointer and a drop; a shared block with a count, and a weak observer |
 | `<functional.pl>` | `less`, `greater`, `plus`, `hash` and the other function objects | their operators as macros, and a value's hash |
+| `<any.pl>` | `any` | a copy of a value of any scalar or struct type, with `any_cast` |
 
 What every module does:
 
@@ -800,9 +801,18 @@ greater(a, b))` hands its comparison the expression. `hash` is one FNV-1a
 step of an integer, an enum or a pointer. `test/ccllib/functional.c` is the
 example.
 
-What waits: `any` waits for the owner's word (its name is bitset's `any`), and `weak_ptr` comes next; then
-`<algorithm>`, `<numeric>` and the ranges as loops (phase 1c), and iostreams over C's stdio (phase 1d).
-`CCLLIB.md` gives the phases after them, to C++26.
+`#include <any.pl>` gives `std::any` (1.1.5) as `any<> a = 5;`,
+`any_cast<int>(a)`, `has_value(a)`, `reset(a)`, `swap(a, b)` and `clone(a)`.
+The empty list is the type's spelling, since ccllib's type macros take their
+`<...>`. `any(b)` over a bitset beside it is the bitset's own call: the
+reader infers b's type and chooses the true name. `test/ccllib/any.c` is the
+example. `<memory.pl>` gives `weak_ptr<T>` too: `weak_ptr<int> w = p;`,
+`lock(w)`, `expired(w)`, `use_count(w)`, `reset(w)` and `swap(w, q)` --
+`test/ccllib/weak_ptr.c` is the example.
+
+What waits: phase 1c -- `<algorithm>`, `<numeric>` and the ranges as loops,
+`<limits>`, `<complex>`, `<random>`, `<ratio>` and `<chrono>` -- and phase 1d,
+iostreams over C's stdio. `CCLLIB.md` gives the phases after them, to C++26.
 
 ## C++: the levels and the library
 

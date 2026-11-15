@@ -1,5 +1,5 @@
-%% ccllib's <memory.pl> (0.309; CCLLIB.md's phase 1b): std::unique_ptr and std::shared_ptr for cicilang's C, and for
-%% cicilang++ beside libc++'s.
+%% ccllib's <memory.pl> (0.309; CCLLIB.md's phase 1b): std::unique_ptr, std::shared_ptr and std::weak_ptr for
+%% cicilang's C, and for cicilang++ beside libc++'s.
 %%
 %%   #include <memory.pl>
 %%   unique_ptr<point> p;                           born null
@@ -48,7 +48,7 @@
 %%     deleter and no aliasing constructor;
 %%   *p and p->m over an empty shared_ptr stop the program (abort), where C++ is undefined; get(p) gives the null
 %%     pointer; `if (p)', `p == nullptr' and `p == 0' have no form;
-%%   weak_ptr<T> waits: it shares the block's counts, and its own step gives it the pool and a shared_ptr<T> in the unit;
+%%   weak_ptr<T> is there (1.1.5): `weak_ptr<int> w = p;', lock, expired, use_count, reset, swap and clone, below;
 %%   the relations compare the objects' addresses, as C++'s do; use_count(p) and unique(p) read the strong count, and
 %%     a block whose last strong owner is gone but whose weak count is not stays until the weak count ends;
 %%   a shared_ptr is made and used in one unit: the pool is the unit's own, and a handle handed to another unit stops
@@ -191,3 +191,42 @@ ccllib_shared_ptr_text(ge, "int @{N}_ge(const @N *a, const @N *b) { return @{N}_
 pointer_shared_ptr.
 maker_shared_ptr_make_shared.
 maker_shared_ptr_make_shared_for_overwrite.
+%% ---- weak_ptr (1.1.5) ------------------------------------------------------
+%% the instance's names: the weak type, the shared type it observes, its block and its pool. The shared instance is
+%% made with the weak one, so that both name the same block's layout in the unit.
+ccllib_weak_ptr_names(T, W, S, B, P) :-
+    ccl_instance_name(weak_ptr, [T], W), ccl_instance_name(shared_ptr, [T], S),
+    atomic_list_concat([S, '_block'], B), atomic_list_concat([S, '_pool'], P).
+type_weak_ptr([T], base([], [typedef(W)]), Items) :- !,
+    ccllib_weak_ptr_names(T, W, S, B, P), ccllib_plain_element('a weak_ptr''s object', T),
+    ccl_tmacro_instance(shared_ptr, type_shared_ptr, [T], 0, _),
+    ccl_c_items("typedef struct @W { own size_t *slot; size_t pool; } @W;
+void @{W}_drop(@W *u) {
+    if (!u->slot) return;
+    if (u->pool != (size_t)(uintptr_t)@P) abort();
+    size_t i = *u->slot;
+    @B *b = @P[i - 1];
+    free(u->slot); u->slot = 0;
+    if (b) { if (b->weak) b->weak--; if (!b->strong && !b->weak) @P[i - 1] = 0; }
+}",
+        ['W' = name(W), 'S' = name(S), 'B' = name(B), 'P' = name(P)], Items).
+type_weak_ptr(_, _, _) :- ccl_macro_error('a weak_ptr takes one type, its object''s').
+fn_weak_ptr(Name, [T], Items) :-
+    ccllib_weak_ptr_names(T, W, S, B, P), ccllib_weak_ptr_text(Name, W, S, Text),
+    ccl_c_items(Text, ['W' = name(W), 'S' = name(S), 'B' = name(B), 'P' = name(P)], Items).
+%% a function's C text by its name; `of_shared_ptr_T` is the birth from a shared_ptr, which takes the shared handle by
+%% its address through the reader's `_of' form, so the caller's handle is not moved
+ccllib_weak_ptr_text(Name, W, S, Text) :- atomic_list_concat([of_, S], Name), !,
+    atomic_list_concat(['@W @{W}_', Name, '(const @S *s) {
+    @W v; v.slot = 0; v.pool = 0;
+    if (!s->slot) return v;
+    if (s->pool != (size_t)(uintptr_t)@P) abort();
+    @B *b = @P[*s->slot - 1]; if (!b) return v;
+    own size_t *t = malloc(sizeof *t); if (!t) abort(); *t = *s->slot; b->weak++;
+    v.slot = t; v.pool = s->pool; return v; }'], Text).
+ccllib_weak_ptr_text(clone, _, _, "@W @{W}_clone(const @W *u) { @W v; v.slot = 0; v.pool = 0; if (!u->slot) return v; if (u->pool != (size_t)(uintptr_t)@P) abort(); @B *b = @P[*u->slot - 1]; if (!b) return v; own size_t *t = malloc(sizeof *t); if (!t) abort(); *t = *u->slot; b->weak++; v.slot = t; v.pool = u->pool; return v; }") :- !.
+ccllib_weak_ptr_text(lock, _, _, "@S @{W}_lock(const @W *u) { @S s; s.slot = 0; s.pool = 0; if (!u->slot) return s; if (u->pool != (size_t)(uintptr_t)@P) abort(); @B *b = @P[*u->slot - 1]; if (!b || !b->live || !b->strong) return s; own size_t *t = malloc(sizeof *t); if (!t) abort(); *t = *u->slot; b->strong++; s.slot = t; s.pool = u->pool; return s; }") :- !.
+ccllib_weak_ptr_text(expired, _, _, "int @{W}_expired(const @W *u) { if (!u->slot) return 1; if (u->pool != (size_t)(uintptr_t)@P) abort(); @B *b = @P[*u->slot - 1]; return !b || !b->live; }") :- !.
+ccllib_weak_ptr_text(use_count, _, _, "size_t @{W}_use_count(const @W *u) { if (!u->slot) return 0; if (u->pool != (size_t)(uintptr_t)@P) abort(); @B *b = @P[*u->slot - 1]; return b ? b->strong : 0; }") :- !.
+ccllib_weak_ptr_text(reset, _, _, "void @{W}_reset(@W *u) { if (!u->slot) return; if (u->pool != (size_t)(uintptr_t)@P) abort(); size_t i = *u->slot; @B *b = @P[i - 1]; free(u->slot); u->slot = 0; if (b) { if (b->weak) b->weak--; if (!b->strong && !b->weak) @P[i - 1] = 0; } }") :- !.
+ccllib_weak_ptr_text(swap, _, _, "void @{W}_swap(@W *a, @W *b) { if (a->slot && a->pool != (size_t)(uintptr_t)@P) abort(); if (b->slot && b->pool != (size_t)(uintptr_t)@P) abort(); own size_t *t = a->slot; a->slot = b->slot; b->slot = t; size_t k = a->pool; a->pool = b->pool; b->pool = k; }") :- !.
