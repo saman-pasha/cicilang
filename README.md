@@ -606,6 +606,7 @@ the end of `main`.
 | `<tuple.pl>` | `tuple`, `get<I>`, `get<T>` | a struct of its elements |
 | `<variant.pl>` | `variant`, `visit`, `monostate` | a union and the index of the alternative that it holds |
 | `<memory.pl>` | `unique_ptr`, `shared_ptr`, `make_unique`, `make_shared` | one own pointer and a drop; a shared block with a count |
+| `<functional.pl>` | `less`, `greater`, `plus`, `hash` and the other function objects | their operators as macros, and a value's hash |
 
 What every module does:
 
@@ -790,11 +791,18 @@ that made it: handed to another unit's function, it stops the program. An
 assignment or a call moves a handle, and `clone` copies it.
 `test/ccllib/shared_ptr.c` is the example.
 
-What waits: `any` waits for the owner's word (its name is bitset's `any`),
-and `weak_ptr`, `hash`, `less` and the other function objects come next,
-with the rest of phase 1b; then `<algorithm>`, `<numeric>` and the ranges as
-loops (phase 1c), and iostreams over C's stdio (phase 1d). `CCLLIB.md` gives
-the phases after them, to C++26.
+`#include <functional.pl>` gives C++'s function objects as expressions
+(1.1.4): `less(a, b)`, `greater`, `less_equal`, `greater_equal`, `equal_to`,
+`not_equal_to`, `plus`, `minus`, `multiplies`, `divides`, `modulus`,
+`negate`, `logical_*`, `bit_*`, `identity` and `hash(x)`. A name works where
+C++ passes a type: `set<int, less>` orders by `<`, and `sort_by(v, a, b,
+greater(a, b))` hands its comparison the expression. `hash` is one FNV-1a
+step of an integer, an enum or a pointer. `test/ccllib/functional.c` is the
+example.
+
+What waits: `any` waits for the owner's word (its name is bitset's `any`), and `weak_ptr` comes next; then
+`<algorithm>`, `<numeric>` and the ranges as loops (phase 1c), and iostreams over C's stdio (phase 1d).
+`CCLLIB.md` gives the phases after them, to C++26.
 
 ## C++: the levels and the library
 

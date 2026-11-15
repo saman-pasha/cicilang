@@ -309,6 +309,7 @@ One row per step, in version order: the step's title, what it did and its gate n
 | 1.1.1 | the README's section of ccllib | the owner's request: a section of ccllib in `README.md`, its example built as C and as C++, a table of the twenty modules, what every module does, the proof, the module paragraphs that stood among the macro files' forms, and what waits; a bullet of the features | the example in the three runs and under valgrind; the toolchain check; no library file changed; no chain, by the owner's rule of 0.271; a commit and a push |
 | 1.1.2 | a name used before any declaration of it is refused in C | the Ambitious session's finding 43: a call of a function that the file defines further down was lowered by the definition's type and ran, where C99 took away the implicit declaration; the reader notes each name of the program's file that it reads where no declaration of it is in scope, each declarator's name in scope just after it, and refuses at the file's end the first one that a later declaration or an enumerator names, in clang's words; a name that nothing declares has clang's words in the lowering; cocolog's backtrackable globals answer an atomic value as their own cell; two macro files that define one predicate meet in one process | `declorder.c` over `declorder.h` and `textorder.c` over `textorder.pl`; the driver gate's twenty forms at C17, two at C23, six of the lowering's and the store's round; 60 probes as C, 53 alike to clang's verdict and words, 26 over 1.1.1; 30 copies broken on purpose, 26 caught, four guards that no road reaches; the nets GREEN; no chain, by the owner's rule of 0.271; a commit and a push |
 | 1.1.3 | ccllib phase 1b, memory.pl's shared_ptr | `#include <memory.pl>` gives `std::shared_ptr`: a block shared by the handles that hold it, its strong count read by `use_count` and `unique`, `clone` as a second owner, `make_shared<T>(x)` and `make_shared<T>()` by the reader's maker by name, `*p` and `p->m` by its pointer's type macro, `get`, `reset`, `reset(p, x)`, `swap` and the relations of the objects' addresses; the safe part has no word for a shared block, so each element type has a pool of 4096 blocks (a static own array of the instance) and a handle owns only its slot's number, the last drop frees the slot; a handle carries the pool's address, so one handed to another unit stops the program; `weak_ptr` waits | `shared_ptr.c` and its twin; 12 ccllib refusals; `shared_ptr_rules.c` at 295,091 checks; `stops.c`'s cases; 12 copies broken on purpose, each caught; the flow gate and the ccllib gate; no chain, by the owner's rule of 0.271; a commit and a push |
+| 1.1.4 | ccllib phase 1b, functional.pl | `#include <functional.pl>` gives C++'s function objects as macros -- less, greater, the comparisons, the arithmetic, the logical and bit forms, negate and identity -- so a name works where C++ passes a type, `set<int, less>` and `set<int, greater>`; `hash(x)` is one FNV-1a step of an integer's, an enum's or a pointer's bits and refuses another type by name | `functional.c` and its twin; 2 ccllib refusals; `functional_rules.c` at 84,391 checks; 12 copies broken on purpose, each caught; the flow gate and the ccllib gate; no chain, by the owner's rule of 0.271; a commit and a push |
 
 ## M5 — the C++ mode
 
@@ -22821,3 +22822,62 @@ gate holds that rule yet. No chain ran beyond these, no CI job ran, by the owner
   HISTORY.md, CLAUDE.md; `module/cicilang.cicili` (1.1.3).
 
 The module 1.1.3, the reader 201 and the lowering 174.
+
+## 1.1.4 — ccllib phase 1b, functional.pl
+
+**1.1.4: `#include <functional.pl>` gives C++'s function objects as the expressions a C program has: `less(a, b)`,
+`greater`, `less_equal`, `greater_equal`, `equal_to`, `not_equal_to`, `plus`, `minus`, `multiplies`, `divides`,
+`modulus`, `negate`, `logical_and`, `logical_or`, `logical_not`, `bit_and`, `bit_or`, `bit_xor`, `bit_not`,
+`identity` and `hash(x)`. C++'s `std::less` is a type whose call is an operator; C has no such type, so each is a macro
+that expands to the operator's expression, and a name works where C++ passes a type: `set<int, less>` orders a set by
+`<`. `hash(x)` is one FNV-1a step of an integer's, an enum's or a pointer's bits, and refuses another type by name.**
+
+THE FORMS, DECISIONS OF THE STEP'S, FOR THE OWNER TO SEE. A MACRO, NOT A TYPE: the reader's macro table takes
+`ccl_macro_less/3` and its kin, whose result is the reader's own form -- `bin('<', A, B)`, `neg(A)`, `not(A)`,
+`bitnot(A)`, `A` for `identity` -- so the expansion is the expression, and the type inference that the operators have is
+the program's own. A name is a macro only where it is called: `set<int, less>` passes the bare name to the tree, whose C
+text calls `less(a, b)`, and the reader expands it there; a program's variable or function named `less` stays a name,
+since a bare identifier is no call. The arithmetic is C's: `divides` of two integers truncates, as `std::divides<int>`
+does, and of two floating numbers is the floating division. THE HASH: one FNV-1a step, `(x ^ 2166136261) * 16777619` in
+an `unsigned long long`, over FNV-1a's 32-bit basis and prime -- `hash(0)` is `(basis ^ 0) * prime`, 36342608889142559.
+It takes an integer, an enum or a pointer: the cast is C's, so a pointer's address and an enumerator's value hash
+alike. Another type is refused by its word, `a hash of the type double is not there: hash takes an integer, an enum or a
+pointer; a floating number, a struct and a text hash by a function of the program's`. It is a value's hash, not a type,
+and a container that hashes another element takes the function's name, as `<unordered_set.pl>` does. WHAT C++ HAS AND
+THE MODULE HAS NOT: `auto f = less` and a function that takes a `std::less`, since the name is no type; `hash` as a type
+and its specializations for strings and structs; `bind`, `reference_wrapper`, `function` and `invoke`, which want a
+callable as a value; `not_fn` and `mem_fn`.
+
+THE MODULE. `library/ccllib/functional.pl` is a macro file, `:- ensure_loaded(library(ccllib/ccllib)).` at its head as
+every module has, and its predicates are `ccl_macro_<name>/<arity+1>`, so the reader registers each as a macro:
+six comparisons, five arithmetic and `negate`, three logical and four bit forms, `identity`, and `hash` with its two
+clauses -- the scalar types and the refusal. It has no C header, since its text calls no function but the operators.
+
+THE PROOF. `test/ccllib/functional.c` -- each comparison true and false, the arithmetic on ints, the floating forms of
+plus, minus, multiplies and divides, the logical and bit forms, identity, and a `set<int, less>` and a `set<int,
+greater>` walked in their names' order -- and its twin `functional.cpp` over `<functional>` and
+`std::set<int, std::less<int>>` print the same eight lines. Two programs of `test/ccllib/safe/`, as C and as C++:
+`hash_float.c` and `hash_struct.c`. `test/ccllib/alone/functional_rules.c` holds every name to its operator over a walk
+of chance of 4000 steps on two integers, every hash to a model of FNV-1a for int, char, short, long, unsigned, an enum
+and a pointer, and two sets of 200 keys to their names' order, at 84,391 checks. TWELVE COPIES BROKEN ON PURPOSE, a rule
+each, are each reported: eleven by `functional.c`'s three runs and by the rules program (a `less` and a `greater`
+exchanged, a `not_equal_to` that is `==`, a `plus` that is `-`, a `divides` and a `modulus` that are `*`, a
+`logical_not` that gives its argument, a `bit_and` that is `|`, a `bit_not` that is `-`, an `identity` that gives zero,
+a `less_equal` that is `<`), and the hash's prime by the rules program alone.
+
+WHAT IT COSTS, by the ccllib gate's lines (the best of three builds after a change of the file): the unit holds 39
+functions for its instances in 15,344 bytes, where the twin's holds 179 in 53,968; the run takes 0.110 s as C and
+0.101 s as C++ against the twin's 0.104 s, in 1.2 MB each. The C build after a change of the file takes 1.732 s and
+172.7 MB, cicilang++'s 1.581 s and 121.5 MB, against clang++'s 1.596 s and 72.9 MB. The macro-only module's object is a
+third of the twin's, and its build is the twin's within the box's drift.
+
+THE NETS GREEN: the flow gate GREEN, `functional.pl` charted in 5 s (269 s over the library); the ccllib gate GREEN --
+24 programs in three runs, 169 refused and 17 alone, 490 checks, each `valgrind` check SKIPPED by name (no valgrind on
+this box). No chain ran beyond these, no CI job ran, by the owner's rule of 0.271.
+
+- `library/ccllib/functional.pl`; `test/ccllib/functional.c`, `functional.cpp`, `functional.expect`;
+  `test/ccllib/safe/hash_float.c`, `hash_struct.c` and their `.expect`; `test/ccllib/alone/functional_rules.c` and its
+  `.expect`; `test/flow.sh` (`CFILES`); RULES.md (ccllib: `functional.pl`), CCLLIB.md, README.md, HISTORY.md,
+  CLAUDE.md; `module/cicilang.cicili` (1.1.4).
+
+The module 1.1.4, the reader 201 and the lowering 174.

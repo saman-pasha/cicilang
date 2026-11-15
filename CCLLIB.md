@@ -917,14 +917,47 @@ The unit holds 39 functions for its instances in 19,448 bytes, where the twin's 
 the count run, and the C build after a change of the file takes 1.743 s and 199.4 MB, cicilang++'s 1.794 s and 127.3 MB,
 against clang++'s 1.464 s and 68.7 MB. A later step can keep the ticket in the block and a free list of slots.
 
+### 1b, `functional.pl` (1.1.4)
+
+`<functional>` gives C++'s function objects as the expressions a C program has. C++'s `std::less` is a type whose call
+is an operator; C has no such type, so `less(a, b)`, `greater`, `less_equal`, `greater_equal`, `equal_to`,
+`not_equal_to`, `plus`, `minus`, `multiplies`, `divides`, `modulus`, `negate`, `logical_and`, `logical_or`,
+`logical_not`, `bit_and`, `bit_or`, `bit_xor`, `bit_not` and `identity` are macros that expand to the operator's
+expression. They are ordinary expressions, so a name works where C++ passes a type: `set<int, less>` orders a set by
+`<`, `set<int, greater>` by `>`, and `sort_by(v, a, b, greater(a, b))` hands its comparison the expression. A bare
+`less` stays a name for C, so a program may declare one; only a call with two arguments is the macro.
+`hash(x)` is one FNV-1a step of x's bits as an `unsigned long long`, over FNV-1a's 32-bit basis and prime
+(`hash(0)` is `(basis ^ 0) * prime`); it takes an integer, an enum or a pointer and refuses another type by its name --
+a floating number's bits, a struct's and a text's are a function of the program's, where `std::hash` has a
+specialization for each. What differs from C++: the names are macros, not types, so `auto f = less` and a function that
+takes a `std::less` are not there, and `hash` is a value's hash, not a type. `test/ccllib/functional.c`, its twin over
+`<functional>` and `std::set<int, std::less<int>>`, two programs of `test/ccllib/safe/` -- `hash_float.c` and
+`hash_struct.c` -- and `test/ccllib/alone/functional_rules.c`, which holds every name to its operator over a walk of
+chance of 4000 steps, every hash to a model of FNV-1a for int, char, short, long, unsigned, an enum and a pointer, and
+two sets of 200 keys to their names' order, at 84,391 checks. Twelve copies of the module broken on purpose are each
+caught: eleven by `functional.c`'s three runs and by the rules program, and the hash's prime by the rules program alone.
+
+The costs over libc++ 23, as above, the run the program itself:
+
+| | build | peak | IR types | IR functions | IR lines | object | run | its peak |
+|---|---|---|---|---|---|---|---|---|
+| cicilang, C | 1.732 s | 172.7 MB | 4 | 39 | 3,038 | 15,344 B | 0.110 s | 1.2 MB |
+| cicilang++, C++ | 1.581 s | 121.5 MB | 4 | 39 | 3,550 | 17,120 B | 0.101 s | 1.2 MB |
+| clang++ 23, `std::` | 1.596 s | 72.9 MB | 58 | 179 | 4,260 | 53,968 B | 0.104 s | 1.2 MB |
+
+The unit holds 39 functions for its instances in 15,344 bytes, where the twin's holds 179 in 53,968; the run takes
+0.110 s as C and 0.101 s as C++ against the twin's 0.104 s, in 1.2 MB each. The C build after a change of the file
+takes 1.732 s and 172.7 MB, cicilang++'s 1.581 s and 121.5 MB, against clang++'s 1.596 s and 72.9 MB. The macro-only
+module's object is a third of the twin's, and its build is the twin's within this box's drift.
+
 ### The parts of phase 1
 
 - 1a. Containers and strings: `vector`, `array`, `deque`, `list`, `forward_list`, `map`, `set`, `multimap`,
   `multiset`, `unordered_map`, `unordered_set` and their multi forms, `stack`, `queue`, `priority_queue`, `bitset`,
   `string`, `string_view`, `span` -- done at 0.295.
 - 1b. The vocabulary: `optional` (0.300), `pair` (0.301), `tuple` (0.305), `variant` and `visit` (0.308), `any`,
-  `unique_ptr` (the own pointer, 0.309), `shared_ptr` (1.1.3), `hash`, `less` and the other function objects. `any`
-  waits for the owner's word (decision 7), and `weak_ptr` and the function objects wait for their own step.
+  `unique_ptr` (the own pointer, 0.309), `shared_ptr` (1.1.3), `hash`, `less` and the other function objects
+  (`<functional>`, 1.1.4). `any` waits for the owner's word (decision 7), and `weak_ptr` waits for its own step.
 - 1c. Algorithms and numbers: `<algorithm>`, `<numeric>`, the C++20 ranges views as loops, `<limits>`, `<complex>`,
   `<random>`, `<ratio>`, `<chrono>`.
 - 1d. iostreams: `ostream`, `istream`, `fstream`, `stringstream`, `<iomanip>`, `cout`, `cin`, `cerr`, over C's stdio.

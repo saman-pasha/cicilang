@@ -11104,6 +11104,37 @@ in the first topic (The ccllib gate).
   `swap` of one side) and `stops.c`'s `*p` and `p->m` that do not stop; one, a `swap` that frees the other handle's
   number, by the safe part when the module is read. (1.1.3)
 
+### functional.pl
+
+- **A FUNCTION OBJECT IS A MACRO THAT EXPANDS TO ITS OPERATOR** (1.1.4; `CCLLIB.md`'s phase 1b, "the function objects"):
+  C++'s `std::less` is a type whose call is an operator, and C has no such type, so `<functional.pl>` defines
+  `ccl_macro_less/3`, `ccl_macro_greater/3`, `ccl_macro_less_equal/3`, `ccl_macro_greater_equal/3`,
+  `ccl_macro_equal_to/3` and `ccl_macro_not_equal_to/3` as the reader's binary forms `bin('<', A, B)`, `bin('>', A, B)`
+  and their kin; `plus`, `minus`, `multiplies`, `divides`, `modulus` (`bin('+')`, ..., `bin('%')`), `negate` (`neg`),
+  `logical_and`, `logical_or` (`bin('&&')`, `bin('||')`), `logical_not` (`not`), `bit_and`, `bit_or`, `bit_xor`
+  (`bin('&')`, `bin('|')`, `bin('^')`), `bit_not` (`bitnot`) and `identity` (`A` itself). THE NAME IS A MACRO, NOT A
+  TYPE: `set<int, less>` writes the name where C++ writes `std::less<int>`, and the tree's C text calls `less(a, b)`,
+  which the reader expands in the unit that has the module -- so the name orders the set. A bare `less` is an
+  identifier as C reads it, so a program's own name `less` stays; only a call of two arguments is the macro. The
+  arithmetic is C's: `divides` of two integers truncates, as `std::divides<int>` does. (1.1.4)
+- `hash(x)` is one FNV-1a step of x's bits as an `unsigned long long`: `(x ^ 2166136261) * 16777619` over FNV-1a's
+  32-bit basis and prime, `hash(0)` its `(basis ^ 0) * prime`. It takes an integer, an enum or a pointer -- the cast is
+  C's, so a pointer's address and an enumerator's value hash alike -- and refuses another type by name: `a hash of the
+  type double is not there: hash takes an integer, an enum or a pointer; a floating number, a struct and a text hash by
+  a function of the program's`. It is a value's hash, not a type: a container that hashes an element of another type
+  takes its hash function's name, as `<unordered_set.pl>` does. (1.1.4)
+- `test/ccllib/functional.c` -- each comparison, the arithmetic, the floating forms of `plus`, `minus`, `multiplies` and
+  `divides`, the logical and bit forms, `identity`, and a `set<int, less>` and a `set<int, greater>` walked in their
+  names' order -- and its twin `functional.cpp` over `<functional>` and `std::set<int, std::less<int>>` print the same
+  eight lines. Two programs of `test/ccllib/safe/`: `hash_float.c` and `hash_struct.c`, each refused with the type's
+  name. `test/ccllib/alone/functional_rules.c` holds every name to its operator over a walk of chance of 4000 steps,
+  every hash to a model of FNV-1a for int, char, short, long, unsigned, an enum and a pointer, and two sets of 200 keys
+  to their names' order, at 84,391 checks. TWELVE COPIES BROKEN ON PURPOSE, a rule each, are each reported: eleven by
+  `functional.c`'s three runs and by the rules program (a `less` and a `greater` exchanged, a `not_equal_to` that is
+  `==`, a `plus` that is `-`, a `divides` and a `modulus` that are `*`, a `logical_not` that gives its argument, a
+  `bit_and` that is `|`, a `bit_not` that is `-`, an `identity` that gives zero, a `less_equal` that is `<`), and the
+  hash's prime by the rules program alone. (1.1.4)
+
 ## The safe part
 
 ### The check in the build
