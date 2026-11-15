@@ -880,13 +880,51 @@ The unit holds 34 functions for its instances in 12,744 bytes, where the twin's 
 0.93 s as C and 0.87 s as C++ against the twin's 1.23 s, in 1.7 MB against 3.1 MB. The C build after a change of the
 file takes 0.57 s and 387 MB, cicilang++'s 0.48 s and 149 MB, against clang++'s 0.30 s and 114 MB.
 
+### 1b, `memory.pl`'s `shared_ptr` (1.1.3)
+
+`shared_ptr<T>` is `std::shared_ptr`: `shared_ptr<point> p = make_shared<point>(pt);`, `shared_ptr<point> q = clone(p);`
+is a second owner, `use_count(p)` says how many, `unique(p)` says it is one, `get(p)`, `*p`, `p->m`, `reset(p)`,
+`reset(p, x)`, `swap(p, q)` and the relations of the objects' addresses, as C++'s compare them. The object is a value with
+no pointer in it, as a `unique_ptr`'s (decision 2); `make_shared<T>(x)` takes a value of T, `make_shared<T>()` gives T's
+zero, and `make_shared_for_overwrite<T>()` a block whose bytes are not set. A `shared_ptr` is not an owner in the safe
+part's sense -- its block is shared -- so the module gives it a fixed pool of 4096 blocks to each element type (a static
+own array of the instance), and a handle owns only the number of its slot: a move empties the handle as every own field
+of a moved object is emptied, a clone gives a second number and increments the count, and the last drop frees the slot
+for the next block. A block is a pool slot, so a program has at most 4096 live blocks of one element type at once, and
+`*p`, `p->m`, `get` and the relations see the object as long as any handle holds it. A handle belongs to the unit that
+made it: the pool is the unit's own (a `static` array of the instance), and a handle handed to another unit's function
+stops the program (abort) rather than read that unit's pool. What differs from C++: `clone(p)` is the copy, where `q = p`
+moves p (as every object of an instance's type is moved); `if (p)`, `p == nullptr` and `p == 0`
+have no form, and `*p` of an empty one stops the program (abort), where C++ is undefined; there is no deleter, no
+aliasing constructor, no array and no void; and `weak_ptr<T>` and `enable_shared_from_this` wait -- a weak pointer shares
+the block's counts, and its own step gives it the pool and a `shared_ptr<T>` of the unit. `test/ccllib/shared_ptr.c`, its
+twin over `std::shared_ptr`, twelve programs of `test/ccllib/safe/`, `test/ccllib/alone/shared_ptr_rules.c` -- a model
+of three handles over a walk of chance of 4000 steps, 295,091 checks -- and `stops.c`'s cases of an empty one; twelve
+copies of the module broken on purpose are each caught, one of them by the safe part in the module's own text. The
+pool of 4096 is the step's decision, for the owner to see: it bounds a program's live blocks, never the blocks that a run
+makes in all, and a creation past it stops the program.
+
+The costs over libc++ 23, as above, the run `shared_ptr 100000000`:
+
+| | build | peak | IR types | IR functions | IR lines | object | `shared_ptr 100000000` at `-O2` | its peak |
+|---|---|---|---|---|---|---|---|---|
+| cicilang, C | 1.743 s | 199.4 MB | 11 | 39 | 2,922 | 19,448 B | 8.637 s | 1.2 MB |
+| cicilang++, C++ | 1.794 s | 127.3 MB | 12 | 39 | 4,375 | 28,880 B | 9.426 s | 1.2 MB |
+| clang++ 23, `std::` | 1.464 s | 68.7 MB | 47 | 294 | 5,376 | 90,136 B | 5.603 s | 1.2 MB |
+
+The unit holds 39 functions for its instances in 19,448 bytes, where the twin's holds 294 in 90,136; the count run takes
+8.637 s as C and 9.426 s as C++ against the twin's 5.603 s, in 1.2 MB each. The handle's ticket and the pool scan cost
+the count run, and the C build after a change of the file takes 1.743 s and 199.4 MB, cicilang++'s 1.794 s and 127.3 MB,
+against clang++'s 1.464 s and 68.7 MB. A later step can keep the ticket in the block and a free list of slots.
+
 ### The parts of phase 1
 
 - 1a. Containers and strings: `vector`, `array`, `deque`, `list`, `forward_list`, `map`, `set`, `multimap`,
   `multiset`, `unordered_map`, `unordered_set` and their multi forms, `stack`, `queue`, `priority_queue`, `bitset`,
   `string`, `string_view`, `span` -- done at 0.295.
 - 1b. The vocabulary: `optional` (0.300), `pair` (0.301), `tuple` (0.305), `variant` and `visit` (0.308), `any`,
-  `unique_ptr` (the own pointer, 0.309), `shared_ptr`, `hash`, `less` and the other function objects.
+  `unique_ptr` (the own pointer, 0.309), `shared_ptr` (1.1.3), `hash`, `less` and the other function objects. `any`
+  waits for the owner's word (decision 7), and `weak_ptr` and the function objects wait for their own step.
 - 1c. Algorithms and numbers: `<algorithm>`, `<numeric>`, the C++20 ranges views as loops, `<limits>`, `<complex>`,
   `<random>`, `<ratio>`, `<chrono>`.
 - 1d. iostreams: `ostream`, `istream`, `fstream`, `stringstream`, `<iomanip>`, `cout`, `cin`, `cerr`, over C's stdio.

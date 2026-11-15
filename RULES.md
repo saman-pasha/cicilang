@@ -11054,6 +11054,55 @@ in the first topic (The ccllib gate).
   its instances in 12,744 bytes, where the twin's holds 67 in 37,032; the count run takes 0.93 s as C and 0.87 s as C++
   against the twin's 1.23 s, in 1.7 MB against 3.1 MB. The C build after a change of the file takes 0.57 s and 387 MB,
   cicilang++'s 0.48 s and 149 MB, against clang++'s 0.30 s and 114 MB. (0.309)
+- **`shared_ptr<T>` IS ONE OWN POINTER TO A SLOT NUMBER, AND ITS BLOCK IS A POOL'S** (1.1.3; `CCLLIB.md`'s phase 1b, "the
+  shared block"): a shared block cannot be one owner's -- the safe part's linear ownership has no word for it -- so the
+  module gives each element type a pool of 4096 blocks, `static own shared_ptr_point_block
+  *shared_ptr_point_pool[4096];`, and a handle, `typedef struct shared_ptr_point { own size_t *slot; } shared_ptr_point;`,
+  owns only the number of its slot. A block holds the object's value and the two counts, strong and weak, and is made by
+  the first `make_shared` of a free slot; the last drop of the strong count frees the slot (`@P[i - 1] = 0`, which the
+  own array drains) for the next block, and the weak count keeps a block whose strong count is zero. A move empties the
+  handle's own slot as every moved object's own field is emptied, so a clone -- a second own number, the count one more
+  -- is the copy. A creation past 4096 live blocks of one instance stops the program (abort). THE POOL IS THE UNIT'S
+  OWN: the array is `static`, and a handle carries the pool's address as a number, so a handle handed to another unit's
+  function stops the program (abort) rather than read that unit's pool -- a shared_ptr is made and used in one unit. The
+  module's text is the safe part's too: a copy that frees an owner under the array's count is refused in it before any
+  program runs. (1.1.3)
+- THE SURFACE OF `std::shared_ptr<T>`: `make_shared<T>(x)`, a block that holds a copy of x, and `make_shared<T>()`, T's
+  zero, by the reader's maker by name (the facts `maker_shared_ptr_make_shared` and
+  `maker_shared_ptr_make_shared_for_overwrite`), and `make_shared_for_overwrite<T>()`, a block whose bytes are not set;
+  `clone(p)`, a second owner of the block, which increments the count; `get(p)`, the object's address or the null
+  pointer, a borrow tied to the pool; `*p` and `p->m`, the object's place, by the reader's pointer's type macro (the
+  fact `pointer_shared_ptr`), which STOP THE PROGRAM (abort) WHERE p IS EMPTY, where C++ is undefined; `use_count(p)`,
+  the strong count; `unique(p)`, whether it is one; `reset(p)`, the count one fewer and p empty; `reset(p, x)`, the same
+  and a block of x taken; `swap(p, q)`; and `==`, `<`, `<=` and `>=` of the objects' addresses, as C++ compares the
+  pointers, the reader writing `!=` and `>`. A borrow of the object -- `get(p)`, `*p`, `p->m` -- ends where a call may
+  replace the block or its handle (`reset`, `swap`, a move), and does not leave the function that holds the handle. The
+  module's header `memory.pl.h` includes `<stdlib.h>`. (1.1.3)
+- WHAT DIFFERS FROM C++: an assignment or a call MOVES a shared_ptr, as every object of an instance's type is moved, and
+  `clone(p)` is the copy, where C++ copies; `if (p)`, `p == nullptr` and `p == 0` have no form, and `get(p) == 0` is
+  their spelling; the object is a value with no pointer in it (decision 2), no array and no void -- `a shared_ptr's
+  object is a value with no pointer in it, and ptr_char holds one`, `a shared_ptr's object is no array: shared_ptr<T[]>
+  waits`, `a shared_ptr's object is no void` --; one type, `a shared_ptr takes one type, its object's: a deleter waits`;
+  make_shared takes a value of T or none, where C++ passes its arguments to a constructor; there is no deleter, no
+  aliasing constructor, no `weak_ptr<T>` and no `enable_shared_from_this` yet, and `std::hash` and `operator<<` come with
+  phase 1b's `hash` and with 1d. `weak_ptr` waits because it shares the block's counts and needs the pool and a
+  `shared_ptr<T>` of the unit. (1.1.3)
+- `test/ccllib/shared_ptr.c` -- the birth, make_shared of a value and of none, make_shared_for_overwrite, `*p` and
+  `p->m` as values and as places, `get`, `use_count`, `unique`, `clone` as a second owner, `reset` of none and of a
+  value, `swap`, each relation, a move by an assignment, into a function and out of one, and a shared_ptr of an int, of
+  a struct, of a pair and of an optional -- and its twin `shared_ptr.cpp` over `std::shared_ptr` print the same 21
+  lines; its count run makes, shares, releases and frees a block a hundred million times, and its three runs print one
+  number. Twelve programs of `test/ccllib/safe/`, as C and as C++: `shared_ptr_of_pointer.c`, `shared_ptr_of_array.c`,
+  `shared_ptr_of_void.c`, `shared_ptr_two_types.c`, `shared_ptr_no_type.c`, `shared_ptr_borrow_after_reset.c`,
+  `shared_ptr_borrow_after_move.c`, `shared_ptr_borrow_leaves.c`, `shared_ptr_use_after_move.c`, `make_shared_two.c`,
+  `make_shared_int.c` and `make_shared_for_overwrite_arg.c`; `test/ccllib/alone/shared_ptr_rules.c`, which holds each
+  call to a model of three handles over a walk of chance of 4000 steps -- make, clone, reset, reset with a value, swap,
+  writes through the object, use_count, unique and each relation -- at 295,091 checks; and `stops.c`'s cases of a
+  shared_ptr. TWELVE COPIES BROKEN ON PURPOSE, a rule each, are each reported: eleven by `shared_ptr_rules.c` (a clone
+  that counts nothing or counts weak, a reset and a drop that count nothing, a count one higher, a `unique` always true,
+  an `==` of the slot numbers, a make that counts two, a drop that frees a block another holds, a `get` always null, a
+  `swap` of one side) and `stops.c`'s `*p` and `p->m` that do not stop; one, a `swap` that frees the other handle's
+  number, by the safe part when the module is read. (1.1.3)
 
 ## The safe part
 

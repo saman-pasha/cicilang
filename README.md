@@ -605,7 +605,7 @@ the end of `main`.
 | `<pair.pl>` | `pair` | `first` and `second` |
 | `<tuple.pl>` | `tuple`, `get<I>`, `get<T>` | a struct of its elements |
 | `<variant.pl>` | `variant`, `visit`, `monostate` | a union and the index of the alternative that it holds |
-| `<memory.pl>` | `unique_ptr`, `make_unique` | one own pointer and a drop |
+| `<memory.pl>` | `unique_ptr`, `shared_ptr`, `make_unique`, `make_shared` | one own pointer and a drop; a shared block with a count |
 
 What every module does:
 
@@ -624,8 +624,8 @@ What every module does:
   memory, and a use after it is refused at compile time: C++'s iterator
   invalidation, found before the program runs.
 * A place past the end, the value of an optional that has none, an
-  alternative that a variant does not hold and the object of an empty
-  unique_ptr stop the program, where C++ is undefined.
+  alternative that a variant does not hold, and the object of an empty
+  unique_ptr or shared_ptr stop the program, where C++ is undefined.
 * The relations are C++20's (0.304): the first pair of elements that is not
   equal decides, and a NaN, which is neither less nor equal, ends the
   comparison, so that `<`, `>`, `<=` and `>=` are all false. Each module
@@ -780,11 +780,21 @@ make_unique<point>(pt);`, `p->x = 3;`, `(*p).y += 1;`, `get(p)`,
 and `*p` of an empty one stops the program. `test/ccllib/unique_ptr.c` is
 the example.
 
-What waits: `shared_ptr` and `any` wait for the owner's word, and `hash`,
-`less` and the other function objects come next, with the rest of phase 1b;
-then `<algorithm>`, `<numeric>` and the ranges as loops (phase 1c), and
-iostreams over C's stdio (phase 1d). `CCLLIB.md` gives the phases after
-them, to C++26.
+It gives `std::shared_ptr` too (1.1.3): `shared_ptr<point> p =
+make_shared<point>(pt);`, `shared_ptr<point> q = clone(p);` a second owner,
+`use_count(p)`, `unique(p)`, `get(p)`, `*p`, `p->m`, `reset(p)`, `swap(p, q)`
+and the relations of the objects' addresses. A block is one of a fixed pool
+of 4096 for each element type, so a handle owns a slot's number rather than
+the block; the last drop gives the slot back. A handle belongs to the unit
+that made it: handed to another unit's function, it stops the program. An
+assignment or a call moves a handle, and `clone` copies it.
+`test/ccllib/shared_ptr.c` is the example.
+
+What waits: `any` waits for the owner's word (its name is bitset's `any`),
+and `weak_ptr`, `hash`, `less` and the other function objects come next,
+with the rest of phase 1b; then `<algorithm>`, `<numeric>` and the ranges as
+loops (phase 1c), and iostreams over C's stdio (phase 1d). `CCLLIB.md` gives
+the phases after them, to C++26.
 
 ## C++: the levels and the library
 

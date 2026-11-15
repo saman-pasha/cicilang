@@ -10,8 +10,10 @@
    and its value where it has one, value_or and emplace's place do not (0.300). A variant's get of an alternative that
    it does not hold stops, by an index and by a type, where C++ throws, and get_if, get and emplace of the one that it
    holds do not (0.308). A unique_ptr's *p and p->m where it is empty stop, where C++ is undefined, and get of an empty
-   one and *p of a full one do not (0.309). cicilang builds this file as C and cicilang++ as C++; both print
-   stops.expect. It has no twin: C++ throws at some of these, and says nothing of what follows the others */
+   one and *p of a full one do not (0.309). A shared_ptr's *p and p->m where it is empty stop, where C++ is undefined,
+   and get of an empty one, *p of a full one and use_count do not (1.1.3). cicilang builds this file as C and cicilang++
+   as C++; both print stops.expect. It has no twin: C++ throws at some of these, and says nothing of what follows the
+   others */
 #include <signal.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -40,6 +42,7 @@
 static void on_abort(int sig) { (void)sig; _exit(77); }
 static int stopped(void (*f)(void)) {
     int st = 0;
+    fflush(stdout);                 /* a child must not flush the parent's buffer again, Darwin's abort does */
     pid_t p = fork();
     if (p == 0) { signal(SIGABRT, on_abort); f(); _exit(0); }
     if (p < 0 || waitpid(p, &st, 0) != p) return -1;
@@ -299,6 +302,13 @@ static void unique_ptr_ok(void) {
     unique_ptr<int> q = make_unique<int>(3);
     printf("%d %d", get(p) == 0, *q);
 }
+static void shared_ptr_deref(void) { shared_ptr<int> p; printf("%d", *p); }
+static void shared_ptr_arrow(void) { shared_ptr<spot> p; printf("%d", p->x); }
+static void shared_ptr_ok(void) {
+    shared_ptr<int> p;
+    shared_ptr<int> q = make_shared<int>(3);
+    printf("%d %d %zu", get(p) == 0, *q, use_count(q));
+}
 static void variant_ok(void) {
     variant<int, double> v = 2.5;
     int *q = get_if<int>(&v);
@@ -385,5 +395,7 @@ int main(void) {
            stopped(variant_get_index), stopped(variant_get_type), stopped(variant_ok));
     printf("unique_ptr: *p of an empty one %d, p->m %d; in its bounds %d\n", stopped(unique_ptr_deref),
            stopped(unique_ptr_arrow), stopped(unique_ptr_ok));
+    printf("shared_ptr: *p of an empty one %d, p->m %d; in its bounds %d\n", stopped(shared_ptr_deref),
+           stopped(shared_ptr_arrow), stopped(shared_ptr_ok));
     return 0;
 }

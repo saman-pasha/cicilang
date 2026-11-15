@@ -308,6 +308,7 @@ One row per step, in version order: the step's title, what it did and its gate n
 | 1.1.0 | the version 1.1.0, a patch for each change | the owner's rule: major 1, since the programs of the Ambitious session use cicilang; minor 1, for ccllib; each commit raises the patch; until 0.310 the version was `0.N` | the driver gate and the toolchain check; no library file changed; no chain, by the owner's rule of 0.271; a commit and a push |
 | 1.1.1 | the README's section of ccllib | the owner's request: a section of ccllib in `README.md`, its example built as C and as C++, a table of the twenty modules, what every module does, the proof, the module paragraphs that stood among the macro files' forms, and what waits; a bullet of the features | the example in the three runs and under valgrind; the toolchain check; no library file changed; no chain, by the owner's rule of 0.271; a commit and a push |
 | 1.1.2 | a name used before any declaration of it is refused in C | the Ambitious session's finding 43: a call of a function that the file defines further down was lowered by the definition's type and ran, where C99 took away the implicit declaration; the reader notes each name of the program's file that it reads where no declaration of it is in scope, each declarator's name in scope just after it, and refuses at the file's end the first one that a later declaration or an enumerator names, in clang's words; a name that nothing declares has clang's words in the lowering; cocolog's backtrackable globals answer an atomic value as their own cell; two macro files that define one predicate meet in one process | `declorder.c` over `declorder.h` and `textorder.c` over `textorder.pl`; the driver gate's twenty forms at C17, two at C23, six of the lowering's and the store's round; 60 probes as C, 53 alike to clang's verdict and words, 26 over 1.1.1; 30 copies broken on purpose, 26 caught, four guards that no road reaches; the nets GREEN; no chain, by the owner's rule of 0.271; a commit and a push |
+| 1.1.3 | ccllib phase 1b, memory.pl's shared_ptr | `#include <memory.pl>` gives `std::shared_ptr`: a block shared by the handles that hold it, its strong count read by `use_count` and `unique`, `clone` as a second owner, `make_shared<T>(x)` and `make_shared<T>()` by the reader's maker by name, `*p` and `p->m` by its pointer's type macro, `get`, `reset`, `reset(p, x)`, `swap` and the relations of the objects' addresses; the safe part has no word for a shared block, so each element type has a pool of 4096 blocks (a static own array of the instance) and a handle owns only its slot's number, the last drop frees the slot; a handle carries the pool's address, so one handed to another unit stops the program; `weak_ptr` waits | `shared_ptr.c` and its twin; 12 ccllib refusals; `shared_ptr_rules.c` at 295,091 checks; `stops.c`'s cases; 12 copies broken on purpose, each caught; the flow gate and the ccllib gate; no chain, by the owner's rule of 0.271; a commit and a push |
 
 ## M5 — the C++ mode
 
@@ -22744,3 +22745,79 @@ gate's twentieth: the compile gate, 343 ok, and the driver gate, 91 ok. The chai
   lost header's note; the findings about cocolog; Not done), README.md, HISTORY.md, CLAUDE.md.
 
 The module 1.1.2, the reader 201 and the lowering 174.
+
+## 1.1.3 — ccllib phase 1b, memory.pl's shared_ptr
+
+**1.1.3: `#include <memory.pl>` gives `std::shared_ptr`: a block shared by the handles that hold it, with a strong count
+that `use_count` and `unique` read, `clone` as a second owner and an assignment or a call as a move, `make_shared<T>(x)`
+and `make_shared<T>()` by the reader's maker by name, `*p` and `p->m` by the reader's pointer's type macro, `get`,
+`reset`, `reset(p, x)`, `swap` and the relations of the objects' addresses. The safe part has no word for a block that two
+owners share, so the module gives each element type a fixed pool of 4096 blocks (a static own array of the instance) and
+a handle owns only the number of its slot: the last drop frees the slot for the next block, and a handle carries the
+pool's own address so that another unit's function stops the program rather than read its pool.**
+
+THE FORMS, DECISIONS OF THE STEP'S, FOR THE OWNER TO SEE. THE SHARED BLOCK: a `shared_ptr` cannot be an owner in the
+safe part's linear sense -- a clone must give a second owner of one block -- and `free` of a borrow is refused. The
+module therefore keeps a pool of blocks per element type, `static own shared_ptr_point_block *shared_ptr_point_pool[4096]`,
+and a handle is `typedef struct shared_ptr_point { own size_t *slot; size_t pool; } shared_ptr_point;`: the own `slot`
+is the handle's ownership (a move empties it, as every own field of a moved object), and its number names a block of the
+pool. A block holds the object's value and the two counts, strong and weak; `clone` gives a second number and increments
+the strong count; the last drop decrements and sets the pool's element null, which frees the block through the own
+array's drain, and a weak count keeps a block whose strong count is zero. 4096 live blocks of one instance at once is the
+pool's bound, and a creation past it stops the program. `weak_ptr<T>` waits: it shares the block's counts, and its own
+step gives it the pool and a `shared_ptr<T>` of the unit. THE POOL IS THE UNIT'S: the array is static, so a handle
+carries the pool's address as a number and every function checks it; a shared_ptr handed to another unit's function
+stops the program (abort) rather than read another pool. THE COPY: `clone(p)` is the second owner, where `q = p` and
+`f(p)` move p, as every object of an instance's type is moved and C++ writes a copy. `make_shared<T>(x)` takes a value
+of T and `make_shared<T>()` T's zero, where C++ passes its arguments to a constructor;
+`make_shared_for_overwrite<T>()` is a block whose bytes are not set, as C++20's. There is no deleter, no aliasing
+constructor, no array and no void, and `if (p)`, `p == nullptr` and `p == 0` have no form -- `get(p) == 0` is their
+spelling. `*p` and `p->m` over an empty shared_ptr stop the program (abort), where C++ is undefined.
+
+THE MODULE. `type_shared_ptr/3` gives the instance's type and its drop; `fn_shared_ptr/3` gives ONE function at its
+first call, as `fn_unique_ptr/3` does. Its table `ccllib_shared_ptr_text/2` has the C text of each function:
+`make_shared`, `make_shared0` and `make_shared_for_overwrite` scan the pool for a free slot, allocate the block with
+`calloc` (or `malloc` for the overwrite) and take a ticket for the handle; `clone` takes a ticket and one more strong
+owner; `get`, `deref` and `arrow` give the object's place, tied to the pool; `use_count` and `unique` read the strong
+count; `reset` gives the block up and empties the handle, `reset(p, x)` does the same and takes a block of x; `swap`
+exchanges the tickets; `eq`, `lt`, `le` and `ge` compare the objects' addresses. The fact `pointer_shared_ptr` makes
+`*p` and `p->m` the deref and arrow, and `maker_shared_ptr_make_shared` and
+`maker_shared_ptr_make_shared_for_overwrite` make `make_shared<point>(x)` and `make_shared<point>()` its makers.
+`memory.pl.h` includes `<stdlib.h>` and `<stdint.h>` for `uintptr_t`. The module is charted by the flow gate.
+
+THE PROOF. `test/ccllib/shared_ptr.c` -- born empty, make_shared of a value and of none, make_shared_for_overwrite,
+`*p` and `p->m` as values and as places, `get`, `use_count`, `unique`, `clone` as a second owner, `reset` of none and of
+a value, `swap`, each relation, a move by an assignment, into a function and out of one, and a shared_ptr of an int, of
+a struct, of a pair and of an optional -- and its twin `shared_ptr.cpp` over `std::shared_ptr` print the same 21 lines;
+the count run makes, shares, releases and frees a block a hundred million times, and the three runs print `38251233294`
+and the same. Twelve programs of `test/ccllib/safe/`, as C and as C++: `shared_ptr_of_pointer.c`,
+`shared_ptr_of_array.c`, `shared_ptr_of_void.c`, `shared_ptr_two_types.c`, `shared_ptr_no_type.c`,
+`shared_ptr_borrow_after_reset.c`, `shared_ptr_borrow_after_move.c`, `shared_ptr_borrow_leaves.c`,
+`shared_ptr_use_after_move.c`, `make_shared_two.c`, `make_shared_int.c` and `make_shared_for_overwrite_arg.c`.
+`test/ccllib/alone/shared_ptr_rules.c` holds each call to a model of three handles over a walk of chance of 4000 steps
+-- make, clone, reset, reset with a value, swap, writes through the object, use_count, unique and each relation -- at
+295,091 checks; `stops.c` has its cases of an empty shared_ptr. TWELVE COPIES BROKEN ON PURPOSE, a rule each: eleven by
+`shared_ptr_rules.c` (a clone that counts nothing or counts weak, a reset and a drop that count nothing, a count one
+higher, a `unique` always true, an `==` of the slot numbers, a make that counts two, a drop that frees a block another
+holds, a `get` always null, a `swap` of one side) and `stops.c` (`*p` and `p->m` that do not stop); one, a `swap` that
+frees the other handle's number, by the safe part when the module is read.
+
+WHAT IT COSTS, by the ccllib gate's lines (the best of three builds after a change of the file): the unit holds 39
+functions for its instances in 19,448 bytes, where the twin's holds 294 in 90,136; the count run takes 8.637 s as C and
+9.426 s as C++ against the twin's 5.603 s, in 1.2 MB each. The C build after a change of the file takes 1.743 s and
+199.4 MB, cicilang++'s 1.794 s and 127.3 MB, against clang++'s 1.464 s and 68.7 MB. THE HANDLE'S TICKET AND THE POOL SCAN
+COST THE COUNT RUN: it is slower than the twin's, where the other modules' count runs are not, and the C build costs
+more. A later step can keep the ticket in the block and a free list of slots.
+
+THE NETS GREEN: the flow gate, `memory.pl` charted, 306 s; the ccllib gate GREEN -- 23 programs in three runs, 167
+refused and 16 alone, 480 checks, and each `valgrind` check SKIPPED by name (no valgrind on this box). A probe of two
+units, `xa.c` and `xb.c`, hands a shared_ptr from one to the other and leaves with 134 (SIGABRT), the pool's guard; no
+gate holds that rule yet. No chain ran beyond these, no CI job ran, by the owner's rule of 0.271.
+
+- `library/ccllib/memory.pl`, `library/ccllib/memory.pl.h`; `test/ccllib/shared_ptr.c`, `shared_ptr.cpp`,
+  `shared_ptr.expect`, `shared_ptr.count`; the twelve `test/ccllib/safe/` programs above and their `.expect`;
+  `test/ccllib/alone/shared_ptr_rules.c` and its `.expect`; `stops.c` and `stops.expect` (the cases of a shared_ptr, and
+  the `fflush` before a fork that a Mac's `abort` made necessary); RULES.md (ccllib: `memory.pl`), CCLLIB.md, README.md,
+  HISTORY.md, CLAUDE.md; `module/cicilang.cicili` (1.1.3).
+
+The module 1.1.3, the reader 201 and the lowering 174.

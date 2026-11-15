@@ -1,0 +1,22 @@
+born: empty 0
+made of a value: 1 2 1 1
+made of none: 0 0 1 1
+places: 3 4 1 1
+values: 3 4
+cloned q: 3 4 2 0
+cloned c: 3 4 2 0
+reset c: empty 0
+reset to a value: 1 2 1 1
+swap q: 0 0 1 1
+swap z: 1 2 1 1
+relations: 1 0 0 1 0 1
+unequal: 0 1
+reset: empty 0
+moved by an assignment: empty 0
+moved out of a function: 5 6 1 1
+moved into a function: 11
+int: 6
+for overwrite: 11
+pair: 1 5
+optional: 1 4
+exit 0
