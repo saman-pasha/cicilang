@@ -2979,6 +2979,7 @@ that changes a rule edits the rule here, in its topic, and writes its entry in `
   `<name>_lt(a, b)`, `a > b` `lt(b, a)`, `a <= b` `!lt(b, a)` and `a >= b` `!lt(a, b)` where the macro defines no `_le`
   and `_ge`, whose calls go first since 0.304 (the bullet of `<=` and `>=` below); `+ - * /` are `_add`, `_sub`, `_mul`,
   `_div`; `out << x` is `<name>_shl_<word>(out, x)` and `in >> x` `<name>_shr_<word>(in, &x)`, the word of x's type
+  (an iostream's are `<name>_write_<word>` and `<name>_read_<word>`, asked after the shift words since 1.3.1),
   decayed and unqualified (`ccl_type_word/2`: `int`, `double`, `ptr_char`), and on the left of `<<` and `>>` a pointer
   to the instance is taken too, so that `out << a << b` chains on the pointer that `<<` answers. An operand goes by its
   address where the function's parameter is a pointer to the instance, by its value where it is not (`ccl_iop_arg/5`):
@@ -10177,12 +10178,13 @@ in the first topic (The ccllib gate).
   `ostream.pl` gives `ostream<T>` and `cerrstream<>`, `istream.pl` `istream<T>`, `fstream.pl` `fstream<T>` (with
   `ofstream` and `ifstream` as header macros), and `stringstream.pl` `stringstream<>`; `iostream_impl.pl` holds the
   texts that those four share, so the flow gate finds no predicate twice. `<<` is the reader's operator over an
-  instance, naming `_shl_<word>`; `>>` takes the right operand by its address, naming `_shr_<word>`. `endl` is the
+  instance, naming `_write_<word>`; `>>` takes the right operand by its address, naming `_read_<word>`; the reader
+  asks the shift words `_shl_` and `_shr_` first, so a bitset's shifts are unchanged. `endl` is the
   header's `const char *`, because a `.pl.h` macro does not reach the program's own text. `<iomanip>`'s manipulators
   are functions of the stream (`setw(cout, 6)`), since a chained `cout << setw(6)` would need the stream's value to be
   an lvalue and the reader refuses that. A `FILE *` is held as a `long long` handle and converted by the header's
   helpers, because the safe part refuses to hand a member's borrowed `FILE *` to `fclose`. `test/ccllib/iostreams.c`,
-  its twin, and `safe/iostream_no_word.c` hold it. (1.3.0)
+  its twin, and `safe/iostream_no_word.c` hold it. The reader asks the shift words `_shl_`/`_shr_` first and then the stream words, whose typed forms only; 1.3.1 renamed the stream forms from `_shl_*`/`_shr_*` to `_write_*`/`_read_*`. (1.3.0, 1.3.1)
 
 - PHASE 1c IS THE ALGORITHMS AND THE NUMBERS (1.2.0): `library/ccllib/algorithm.pl` gives the algorithms over the
   random-access ranges (vector, array, deque, span, basic_string, and read-only basic_string_view) as macros that

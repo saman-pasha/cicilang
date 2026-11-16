@@ -5,7 +5,7 @@
 %%   i >> x;  i >> d;  n := get(i);  getline(i, buf, 64);  read(i, buf, 16);  eof(i);  good(i);
 %%
 %% `>>' is the reader's operator over an instance: the right operand is taken by its address, and the function is named
-%% with its word, `_shr_int', `_shr_double', `_shr_char'. It answers whether the read found its value, as C++'s
+%% with its word, `_read_int', `_read_double', `_read_char'. It answers whether the read found its value, as C++'s
 %% operator does through the stream's state.
 :- ensure_loaded(library(ccllib/ccllib)).
 :- ensure_loaded(library(ccllib/iostream_impl)).

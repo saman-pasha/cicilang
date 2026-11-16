@@ -313,6 +313,7 @@ One row per step, in version order: the step's title, what it did and its gate n
 | 1.1.5 | ccllib phase 1b finished: any, weak_ptr, and the two names that stood in its way | `<any.pl>` gives `std::any` as `any<>` -- a copy of a value, `any_cast<T>`, `has_value`, `reset`, `swap`, `clone` -- and `<memory.pl>` gives `weak_ptr<T>` -- `lock`, `expired`, `use_count`, `reset`, `swap`, `clone`, born from a shared handle; the owner's answer to decision 7 is the compiler's: `any(b);` over a bitset is the call by name, told by b's type, beside the type `any<>`; reader 201 | `any.c`/`weak_ptr.c` and their twins; 4 refusals; `any_rules.c` at 20,011 checks and `weak_ptr_rules.c` at 16,902; stops; 6 copies broken on purpose, each caught; the reader, flow and ccllib gates; no chain, by the owner's rule of 0.271; a commit and a push |
 | 1.2.0 | ccllib phase 1c: algorithms, numbers and the clock | `<algorithm>`, `<numeric>`, `<limits>`, `<complex>`, `<random>`, `<ratio>` and `<chrono>`: the algorithms and the ranges views as macros over vector, array, deque, span, string and a read-only view, with comparisons as expressions; the folds and scans; `numeric_limits<T>`; a complex value with its operators; the standard `mt19937` and four distributions; reduced compile-time ratios; nanosecond durations and the monotonic clock | `phase1c.c`, its twin and `safe/algorithm_view_sort.c`; the ccllib gate's three runs agree; the flow gate; no chain, by the owner's rule of 0.271 |
 | 1.3.0 | ccllib phase 1d: the iostreams | `<iostream>`, `<ostream>`, `<istream>`, `<fstream>`, `<stringstream>` and `<iomanip>`: `cout`, `cin`, `cerr`, `endl`, `<<` and `>>` through the reader's operator, the manipulators as functions of the stream, a file stream and a buffer stream, over C's stdio | `iostreams.c`, its twin and `safe/iostream_no_word.c`; the three runs agree; the flow gate; no chain, by the owner's rule of 0.271 |
+| 1.3.1 | the iostreams' operator functions are `write_` and `read_` | the owner's request: every `shl_*`/`shr_*` function of the iostream implementation is `write_*`/`read_*`; the reader asks its own shift words first and then the second word's typed form, so a bitset's shifts are unchanged and `cout << x`, `cin >> x` find `_write_<word>` and `_read_<word>`; reader 202 | the iostreams program in the three runs; `safe/iostream_no_word.c`; the flow and ccllib gates |
 
 ## M5 — the C++ mode
 
@@ -23041,3 +23042,33 @@ cicilang++'s C++ build, cicilang++ at C++23 and clang++ over libc++ 23 print `io
   RULES.md, HISTORY.md, CLAUDE.md; `module/cicilang.cicili` (1.3.0).
 
 The module 1.3.0, the reader 201 and the lowering 174.
+
+
+## 1.3.1 — the iostreams' operator functions are named write_ and read_
+
+**1.3.1: the owner's request that the iostream implementation's `shl_*` and `shr_*` functions be named `write_*` and
+`read_*`. `cout << x` now calls `ostream_char_write_int`, `cin >> x` calls `istream_char_read_int`, and the
+stringstream's forms follow.**
+
+THE NAMES. `library/ccllib/iostream_impl.pl`'s function tables name `write_char`, `write_int`, `write_double`,
+`write_ptr_char`, `write_ptr_const_char`, `write_bool` and the rest for insertion, and `read_int`, `read_double`,
+`read_char` for extraction; the plain `write(o, s, n)` and `read(o, b, n)` are still there, so the operator's forms
+are the typed ones.
+
+THE READER. `<<` and `>>` are also a bitset's shifts, whose functions are `_shl_<word>` and `_shr_<word>`. The reader
+asks the operator's own word first, unchanged, and then a second spelling -- `write` for `<<`, `read` for `>>` -- with
+its TYPED form alone, since the plain `_write` and `_read` are the stream's bytes functions. So a bitset's shifts are
+untouched, and a stream's insertion and extraction are found. A type with no form of the second word is refused by the
+name of the operator's own form, `ostream_char_shl_point`, as the safe program shows; the alias is only for
+resolution. Reader 202.
+
+THE PROOF. `test/ccllib/iostreams.c` prints `iostreams.expect` as C, as C++ by cicilang++, at C++23, and its twin over
+`std::` by clang++/libc++ 23; `test/ccllib/safe/iostream_no_word.c` is refused as C with the new name and as C++ with
+`no_operator(<<)`. The flow gate charts the modules and the ccllib gate runs the program in its three runs.
+
+- `library/ccllib/iostream_impl.pl`, `ostream.pl`, `istream.pl` (their operator tables and their comments);
+  `library/ccl_syntax.pl` (`ccl_iop_alias/2`, `ccl_iop_alias_pick/6`; reader 202);
+  `test/ccllib/safe/iostream_no_word.expect`; CCLLIB.md, README.md, RULES.md, CLAUDE.md; `module/cicilang.cicili`
+  (1.3.1).
+
+The module 1.3.1, the reader 202 and the lowering 174.

@@ -12,8 +12,8 @@ the fixture that gates it, and why. The bullet ends with the version that made t
 edits the rule in `RULES.md`, in its topic, and writes its entry in `HISTORY.md`. Read the topic of `RULES.md` that
 covers the code before the code is changed.
 
-At 1.3.0 the versions are: the module 1.3.0 (`ccl_p_version` in `module/cicilang.cicili`, `bin/cicilang --version`),
-the reader 201 (`ccl_reader_version/1`, `library/ccl_syntax.pl`) and the lowering 174 (`ccl_lowering_version/1`,
+At 1.3.1 the versions are: the module 1.3.1 (`ccl_p_version` in `module/cicilang.cicili`, `bin/cicilang --version`),
+the reader 202 (`ccl_reader_version/1`, `library/ccl_syntax.pl`) and the lowering 174 (`ccl_lowering_version/1`,
 `library/ccl_ir.pl`).
 
 Build and prove, always in this order (or all of it, `sh test/gates.sh`):
@@ -441,8 +441,10 @@ library/ccllib/             ccllib, the standard library of cicilang's C (CCLLIB
                               seconds_of, now_nanos, now_millis, sleep_for_millis
   iostream.pl, iostream.pl.h  std::cout, std::cin and std::cerr over C's stdio (1.3.0), and endl
   ostream.pl, ostream.pl.h    std::ostream (1.3.0): the integer bases, the floating formats, boolalpha, the width
-                              and the fill, the manipulators as functions of the stream
-  istream.pl, istream.pl.h    std::istream (1.3.0): cin >> x, get, getline, read, eof
+                              and the fill, the manipulators as functions of the stream; the operator functions
+                              are `_write_<word>` (1.3.1)
+  istream.pl, istream.pl.h    std::istream (1.3.0): cin >> x, get, getline, read, eof; the operator functions are
+                              `_read_<word>` (1.3.1)
   fstream.pl, fstream.pl.h    std::fstream (1.3.0): open, close, is_open, and both directions; ofstream and
                               ifstream are its names
   stringstream.pl, stringstream.pl.h

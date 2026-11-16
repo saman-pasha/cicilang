@@ -298,7 +298,8 @@ A type macro gives its instances operators that the reader writes as calls: `v[i
   of an instance's type, the reader writes the operator as the call of the function that the instance's items define
   for it, named as its drop is: `v[i]` is `*<name>_index(&v, i)`, an lvalue; `==` and `!=` are `<name>_eq` and its
   `!`; `< > <= >=` are `<name>_lt`, its operands swapped or its value negated; `+ - * /` are `_add`, `_sub`, `_mul`,
-  `_div`; `out << x` is `<name>_shl_<word>(out, x)`, `in >> x` `<name>_shr_<word>(in, &x)`, the word of x's type, and
+  `_div`; `out << x` is `<name>_shl_<word>(out, x)` (or, for an iostream, `<name>_write_<word>`, 1.3.1), `in >> x`
+  `<name>_shr_<word>(in, &x)` (or, for an iostream, `<name>_read_<word>`), the word of x's type, and
   `out << a << b` chains on the pointer that `<<` answers. An operand goes by its address where the function's
   parameter is a pointer, by value where it is not. `test/c/run/operators.c` over `topers.pl` -- a point with
   arithmetic and comparisons, a ring and a dictionary with `[]`, a text with `<<`, `>>` and `+` -- prints what clang's
@@ -1010,9 +1011,9 @@ whose values are `std::mt19937`'s own -- with `seed`, `next`, `discard`, `min` a
 `<iostream.pl>` gives the three streams over C's stdio: `cout` to stdout, `cin` from stdin, and `cerr` to stderr, an
 instance of `cerrstream<>`; `<ostream.pl>`, `<istream.pl>`, `<fstream.pl>` and `<stringstream.pl>` give the types.
 `cout << 42`, `cout << 3.5`, `cout << "text"`, `cout << true` and `cout << endl` go through the reader's operator over
-an instance, which names the function with the right operand's word: `_shl_int`, `_shl_double`, `_shl_ptr_char`,
-`_shl_ptr_const_char`, `_shl_bool`, `_shl_size_t`. `cin >> x` and `f >> x` take the right operand by its address and
-answer whether the read found its value. `endl` is the header's `const char *`, `"\n"`; a value's width and fill, an
+an instance, which names the function with the right operand's word: `_write_int`, `_write_double`, `_write_ptr_char`,
+`_write_ptr_const_char`, `_write_bool`, `_write_size_t`; `cin >> x` and `f >> x` take the right operand by its
+address and name `_read_int`, `_read_double`, `_read_char`, and the rest, answering whether the read found its value. `endl` is the header's `const char *`, `"\n"`; a value's width and fill, an
 integer's base, a floating number's format and precision, and boolalpha are the stream's state. `<iomanip.pl>`'s
 manipulators are functions of the stream -- `setw(cout, 6)`, `setfill`, `setprecision`, `fixed`, `scientific`, `hex`,
 `dec`, `oct`, `boolalpha`, `noboolalpha` -- because C has no `<<` that takes one. `<fstream.pl>`'s `fstream<T>` opens
@@ -1031,6 +1032,9 @@ where its scope ends. What differs from C++:
   `str(ss)` gives a `char *` where C++ gives a string, and a `stringstream` is written `stringstream<>`;
 
   a `fstream` has one mode of reading and writing, and `open` takes C's `fopen` modes.
+
+The reader asks the shift words `_shl_`/`_shr_` first, so a bitset's shifts are unchanged; 1.3.1 renamed the stream
+forms from `_shl_*`/`_shr_*` to `_write_*`/`_read_*`.
 
 `test/ccllib/iostreams.c` and its twin over `std::` print the same seventeen lines; `test/ccllib/safe/iostream_no_word.c`
 holds the refusal of a value whose type has no `<<`.

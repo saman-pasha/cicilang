@@ -462,7 +462,8 @@ assignment over it is.
 A type macro gives its instances operators (0.266): over an instance, the
 reader writes `a + b`, `a == b`, `a < b`, `v[i]`, `out << x` and `in >> x` as
 the calls of the functions that its type macro names for them --
-`<name>_add`, `_eq`, `_lt`, `_index`, `_shl_<word>` and `_shr_<word>` -- and
+`<name>_add`, `_eq`, `_lt`, `_index`, `_shl_<word>` and `_shr_<word>` (an iostream's
+`_write_<word>` and `_read_<word>`) -- and
 refuses an operator that the macro does not define. A `[]` that answers a
 place in the object's buffer is tied to the object, so `int *p = &m[3];
 m[9] = 1; *p` is refused, as a use after a push is.

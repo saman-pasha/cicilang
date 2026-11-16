@@ -47,25 +47,25 @@ ccllib_stream_out_fn('_flt', _, "static void @{N}__flt(@N *o, double x) {
     }
     @{N}__emit(o, b, (size_t)n);
 }").
-ccllib_stream_out_fn(shl_char, _, "int @{N}_shl_char(@N *o, char x) { char b[1]; b[0] = x; @{N}__emit(o, b, 1); return 1; }").
-ccllib_stream_out_fn(shl_schar, _, "int @{N}_shl_schar(@N *o, signed char x) { @{N}__int(o, (long long)x, 0); return 1; }").
-ccllib_stream_out_fn(shl_uchar, _, "int @{N}_shl_uchar(@N *o, unsigned char x) { @{N}__int(o, (long long)x, 1); return 1; }").
-ccllib_stream_out_fn(shl_short, _, "int @{N}_shl_short(@N *o, short x) { @{N}__int(o, (long long)x, 0); return 1; }").
-ccllib_stream_out_fn(shl_ushort, _, "int @{N}_shl_ushort(@N *o, unsigned short x) { @{N}__int(o, (long long)x, 1); return 1; }").
-ccllib_stream_out_fn(shl_int, _, "int @{N}_shl_int(@N *o, int x) { @{N}__int(o, (long long)x, 0); return 1; }").
-ccllib_stream_out_fn(shl_uint, _, "int @{N}_shl_uint(@N *o, unsigned x) { @{N}__int(o, (long long)x, 1); return 1; }").
-ccllib_stream_out_fn(shl_long, _, "int @{N}_shl_long(@N *o, long x) { @{N}__int(o, (long long)x, 0); return 1; }").
-ccllib_stream_out_fn(shl_ulong, _, "int @{N}_shl_ulong(@N *o, unsigned long x) { @{N}__int(o, (long long)x, 1); return 1; }").
-ccllib_stream_out_fn(shl_llong, _, "int @{N}_shl_llong(@N *o, long long x) { @{N}__int(o, x, 0); return 1; }").
-ccllib_stream_out_fn(shl_ullong, _, "int @{N}_shl_ullong(@N *o, unsigned long long x) { @{N}__int(o, (long long)x, 1); return 1; }").
-ccllib_stream_out_fn(shl_size_t, _, "int @{N}_shl_size_t(@N *o, size_t x) { @{N}__int(o, (long long)x, 1); return 1; }").
-ccllib_stream_out_fn(shl_double, _, "int @{N}_shl_double(@N *o, double x) { @{N}__flt(o, x); return 1; }").
-ccllib_stream_out_fn(shl_float, _, "int @{N}_shl_float(@N *o, float x) { @{N}__flt(o, (double)x); return 1; }").
-ccllib_stream_out_fn(shl_ldouble, _, "int @{N}_shl_ldouble(@N *o, long double x) { @{N}__flt(o, (double)x); return 1; }").
-ccllib_stream_out_fn(shl_bool, _, "int @{N}_shl_bool(@N *o, _Bool x) { @{N}__str(o, x ? (o->boolalpha ? \"true\" : \"1\") : (o->boolalpha ? \"false\" : \"0\")); return 1; }").
-ccllib_stream_out_fn(shl_ptr_char, _, "int @{N}_shl_ptr_char(@N *o, char *x) { @{N}__str(o, x); return 1; }").
-ccllib_stream_out_fn(shl_ptr_const_char, _, "int @{N}_shl_ptr_const_char(@N *o, const char *x) { @{N}__str(o, x); return 1; }").
-ccllib_stream_out_fn(shl_ptr_void, _, "int @{N}_shl_ptr_void(@N *o, void *x) { char b[32]; int n = snprintf(b, sizeof b, \"%p\", x); @{N}__emit(o, b, (size_t)n); return 1; }").
+ccllib_stream_out_fn(write_char, _, "int @{N}_write_char(@N *o, char x) { char b[1]; b[0] = x; @{N}__emit(o, b, 1); return 1; }").
+ccllib_stream_out_fn(write_schar, _, "int @{N}_write_schar(@N *o, signed char x) { @{N}__int(o, (long long)x, 0); return 1; }").
+ccllib_stream_out_fn(write_uchar, _, "int @{N}_write_uchar(@N *o, unsigned char x) { @{N}__int(o, (long long)x, 1); return 1; }").
+ccllib_stream_out_fn(write_short, _, "int @{N}_write_short(@N *o, short x) { @{N}__int(o, (long long)x, 0); return 1; }").
+ccllib_stream_out_fn(write_ushort, _, "int @{N}_write_ushort(@N *o, unsigned short x) { @{N}__int(o, (long long)x, 1); return 1; }").
+ccllib_stream_out_fn(write_int, _, "int @{N}_write_int(@N *o, int x) { @{N}__int(o, (long long)x, 0); return 1; }").
+ccllib_stream_out_fn(write_uint, _, "int @{N}_write_uint(@N *o, unsigned x) { @{N}__int(o, (long long)x, 1); return 1; }").
+ccllib_stream_out_fn(write_long, _, "int @{N}_write_long(@N *o, long x) { @{N}__int(o, (long long)x, 0); return 1; }").
+ccllib_stream_out_fn(write_ulong, _, "int @{N}_write_ulong(@N *o, unsigned long x) { @{N}__int(o, (long long)x, 1); return 1; }").
+ccllib_stream_out_fn(write_llong, _, "int @{N}_write_llong(@N *o, long long x) { @{N}__int(o, x, 0); return 1; }").
+ccllib_stream_out_fn(write_ullong, _, "int @{N}_write_ullong(@N *o, unsigned long long x) { @{N}__int(o, (long long)x, 1); return 1; }").
+ccllib_stream_out_fn(write_size_t, _, "int @{N}_write_size_t(@N *o, size_t x) { @{N}__int(o, (long long)x, 1); return 1; }").
+ccllib_stream_out_fn(write_double, _, "int @{N}_write_double(@N *o, double x) { @{N}__flt(o, x); return 1; }").
+ccllib_stream_out_fn(write_float, _, "int @{N}_write_float(@N *o, float x) { @{N}__flt(o, (double)x); return 1; }").
+ccllib_stream_out_fn(write_ldouble, _, "int @{N}_write_ldouble(@N *o, long double x) { @{N}__flt(o, (double)x); return 1; }").
+ccllib_stream_out_fn(write_bool, _, "int @{N}_write_bool(@N *o, _Bool x) { @{N}__str(o, x ? (o->boolalpha ? \"true\" : \"1\") : (o->boolalpha ? \"false\" : \"0\")); return 1; }").
+ccllib_stream_out_fn(write_ptr_char, _, "int @{N}_write_ptr_char(@N *o, char *x) { @{N}__str(o, x); return 1; }").
+ccllib_stream_out_fn(write_ptr_const_char, _, "int @{N}_write_ptr_const_char(@N *o, const char *x) { @{N}__str(o, x); return 1; }").
+ccllib_stream_out_fn(write_ptr_void, _, "int @{N}_write_ptr_void(@N *o, void *x) { char b[32]; int n = snprintf(b, sizeof b, \"%p\", x); @{N}__emit(o, b, (size_t)n); return 1; }").
 ccllib_stream_out_fn(put, _, "void @{N}_put(@N *o, char x) { @{N}__emit(o, &x, 1); }").
 ccllib_stream_out_fn(write, _, "void @{N}_write(@N *o, const char *s, size_t n) { @{N}__emit(o, s, n); }").
 
@@ -82,15 +82,15 @@ ccllib_stream_out_fn(boolalpha, _, "void @{N}_boolalpha(@N *o) { o->boolalpha = 
 ccllib_stream_out_fn(noboolalpha, _, "void @{N}_noboolalpha(@N *o) { o->boolalpha = 0; }").
 
 %% -- a value read. The right operand is taken by its address (ccl_iop_right/5), so each takes a pointer
-ccllib_stream_in_fn(shr_int, _, "int @{N}_shr_int(@N *o, int *x) { return fscanf(@{N}__f(o), \"%d\", x) == 1; }").
-ccllib_stream_in_fn(shr_uint, _, "int @{N}_shr_uint(@N *o, unsigned *x) { return fscanf(@{N}__f(o), \"%u\", x) == 1; }").
-ccllib_stream_in_fn(shr_long, _, "int @{N}_shr_long(@N *o, long *x) { return fscanf(@{N}__f(o), \"%ld\", x) == 1; }").
-ccllib_stream_in_fn(shr_ulong, _, "int @{N}_shr_ulong(@N *o, unsigned long *x) { return fscanf(@{N}__f(o), \"%lu\", x) == 1; }").
-ccllib_stream_in_fn(shr_llong, _, "int @{N}_shr_llong(@N *o, long long *x) { return fscanf(@{N}__f(o), \"%lld\", x) == 1; }").
-ccllib_stream_in_fn(shr_ullong, _, "int @{N}_shr_ullong(@N *o, unsigned long long *x) { return fscanf(@{N}__f(o), \"%llu\", x) == 1; }").
-ccllib_stream_in_fn(shr_double, _, "int @{N}_shr_double(@N *o, double *x) { return fscanf(@{N}__f(o), \"%lf\", x) == 1; }").
-ccllib_stream_in_fn(shr_float, _, "int @{N}_shr_float(@N *o, float *x) { return fscanf(@{N}__f(o), \"%f\", x) == 1; }").
-ccllib_stream_in_fn(shr_char, _, "int @{N}_shr_char(@N *o, char *x) { return fscanf(@{N}__f(o), \"%c\", x) == 1; }").
+ccllib_stream_in_fn(read_int, _, "int @{N}_read_int(@N *o, int *x) { return fscanf(@{N}__f(o), \"%d\", x) == 1; }").
+ccllib_stream_in_fn(read_uint, _, "int @{N}_read_uint(@N *o, unsigned *x) { return fscanf(@{N}__f(o), \"%u\", x) == 1; }").
+ccllib_stream_in_fn(read_long, _, "int @{N}_read_long(@N *o, long *x) { return fscanf(@{N}__f(o), \"%ld\", x) == 1; }").
+ccllib_stream_in_fn(read_ulong, _, "int @{N}_read_ulong(@N *o, unsigned long *x) { return fscanf(@{N}__f(o), \"%lu\", x) == 1; }").
+ccllib_stream_in_fn(read_llong, _, "int @{N}_read_llong(@N *o, long long *x) { return fscanf(@{N}__f(o), \"%lld\", x) == 1; }").
+ccllib_stream_in_fn(read_ullong, _, "int @{N}_read_ullong(@N *o, unsigned long long *x) { return fscanf(@{N}__f(o), \"%llu\", x) == 1; }").
+ccllib_stream_in_fn(read_double, _, "int @{N}_read_double(@N *o, double *x) { return fscanf(@{N}__f(o), \"%lf\", x) == 1; }").
+ccllib_stream_in_fn(read_float, _, "int @{N}_read_float(@N *o, float *x) { return fscanf(@{N}__f(o), \"%f\", x) == 1; }").
+ccllib_stream_in_fn(read_char, _, "int @{N}_read_char(@N *o, char *x) { return fscanf(@{N}__f(o), \"%c\", x) == 1; }").
 ccllib_stream_in_fn(get, _, "int @{N}_get(@N *o) { return fgetc(@{N}__f(o)); }").
 ccllib_stream_in_fn(getline, _, "char *@{N}_getline(@N *o, char *b, size_t n) {
     char *r = fgets(b, (int)n, @{N}__f(o));
@@ -146,19 +146,19 @@ ccllib_sstream_fn('_flt', "static void @{N}__flt(@N *s, double x) {
     }
     @{N}__emit(s, b, (size_t)n);
 }").
-ccllib_sstream_fn(shl_char, "int @{N}_shl_char(@N *s, char x) { @{N}__emit(s, &x, 1); return 1; }").
-ccllib_sstream_fn(shl_int, "int @{N}_shl_int(@N *s, int x) { @{N}__int(s, (long long)x, 0); return 1; }").
-ccllib_sstream_fn(shl_uint, "int @{N}_shl_uint(@N *s, unsigned x) { @{N}__int(s, (long long)x, 1); return 1; }").
-ccllib_sstream_fn(shl_long, "int @{N}_shl_long(@N *s, long x) { @{N}__int(s, (long long)x, 0); return 1; }").
-ccllib_sstream_fn(shl_ulong, "int @{N}_shl_ulong(@N *s, unsigned long x) { @{N}__int(s, (long long)x, 1); return 1; }").
-ccllib_sstream_fn(shl_llong, "int @{N}_shl_llong(@N *s, long long x) { @{N}__int(s, x, 0); return 1; }").
-ccllib_sstream_fn(shl_ullong, "int @{N}_shl_ullong(@N *s, unsigned long long x) { @{N}__int(s, (long long)x, 1); return 1; }").
-ccllib_sstream_fn(shl_size_t, "int @{N}_shl_size_t(@N *s, size_t x) { @{N}__int(s, (long long)x, 1); return 1; }").
-ccllib_sstream_fn(shl_double, "int @{N}_shl_double(@N *s, double x) { @{N}__flt(s, x); return 1; }").
-ccllib_sstream_fn(shl_float, "int @{N}_shl_float(@N *s, float x) { @{N}__flt(s, (double)x); return 1; }").
-ccllib_sstream_fn(shl_bool, "int @{N}_shl_bool(@N *s, _Bool x) { @{N}__str(s, x ? (s->boolalpha ? \"true\" : \"1\") : (s->boolalpha ? \"false\" : \"0\")); return 1; }").
-ccllib_sstream_fn(shl_ptr_char, "int @{N}_shl_ptr_char(@N *s, char *x) { @{N}__str(s, x); return 1; }").
-ccllib_sstream_fn(shl_ptr_const_char, "int @{N}_shl_ptr_const_char(@N *s, const char *x) { @{N}__str(s, x); return 1; }").
+ccllib_sstream_fn(write_char, "int @{N}_write_char(@N *s, char x) { @{N}__emit(s, &x, 1); return 1; }").
+ccllib_sstream_fn(write_int, "int @{N}_write_int(@N *s, int x) { @{N}__int(s, (long long)x, 0); return 1; }").
+ccllib_sstream_fn(write_uint, "int @{N}_write_uint(@N *s, unsigned x) { @{N}__int(s, (long long)x, 1); return 1; }").
+ccllib_sstream_fn(write_long, "int @{N}_write_long(@N *s, long x) { @{N}__int(s, (long long)x, 0); return 1; }").
+ccllib_sstream_fn(write_ulong, "int @{N}_write_ulong(@N *s, unsigned long x) { @{N}__int(s, (long long)x, 1); return 1; }").
+ccllib_sstream_fn(write_llong, "int @{N}_write_llong(@N *s, long long x) { @{N}__int(s, x, 0); return 1; }").
+ccllib_sstream_fn(write_ullong, "int @{N}_write_ullong(@N *s, unsigned long long x) { @{N}__int(s, (long long)x, 1); return 1; }").
+ccllib_sstream_fn(write_size_t, "int @{N}_write_size_t(@N *s, size_t x) { @{N}__int(s, (long long)x, 1); return 1; }").
+ccllib_sstream_fn(write_double, "int @{N}_write_double(@N *s, double x) { @{N}__flt(s, x); return 1; }").
+ccllib_sstream_fn(write_float, "int @{N}_write_float(@N *s, float x) { @{N}__flt(s, (double)x); return 1; }").
+ccllib_sstream_fn(write_bool, "int @{N}_write_bool(@N *s, _Bool x) { @{N}__str(s, x ? (s->boolalpha ? \"true\" : \"1\") : (s->boolalpha ? \"false\" : \"0\")); return 1; }").
+ccllib_sstream_fn(write_ptr_char, "int @{N}_write_ptr_char(@N *s, char *x) { @{N}__str(s, x); return 1; }").
+ccllib_sstream_fn(write_ptr_const_char, "int @{N}_write_ptr_const_char(@N *s, const char *x) { @{N}__str(s, x); return 1; }").
 ccllib_sstream_fn(put, "void @{N}_put(@N *s, char x) { @{N}__emit(s, &x, 1); }").
 ccllib_sstream_fn(write, "void @{N}_write(@N *s, const char *p, size_t n) { @{N}__emit(s, p, n); }").
 ccllib_sstream_fn(setw, "void @{N}_setw(@N *s, long n) { s->width = n; }").
@@ -177,15 +177,15 @@ ccllib_sstream_fn(rewind, "void @{N}_rewind(@N *s) { s->pos = 0; }").
 ccllib_sstream_fn(good, "int @{N}_good(const @N *s) { return s->pos <= s->len; }").
 ccllib_sstream_fn(eof, "int @{N}_eof(const @N *s) { return s->pos >= s->len; }").
 ccllib_sstream_fn(flush, "void @{N}_flush(@N *s) { (void)s; }").
-ccllib_sstream_in_fn(shr_int, "int @{N}_shr_int(@N *s, int *x) { char *e; long long v; if (s->pos > s->len) return 0; v = strtoll(s->buf + s->pos, &e, s->base == 16 ? 16 : 10); if (e == s->buf + s->pos) return 0; *x = (int)v; s->pos = (size_t)(e - s->buf); return 1; }").
-ccllib_sstream_in_fn(shr_uint, "int @{N}_shr_uint(@N *s, unsigned *x) { char *e; unsigned long long v; if (s->pos > s->len) return 0; v = strtoull(s->buf + s->pos, &e, s->base == 16 ? 16 : 10); if (e == s->buf + s->pos) return 0; *x = (unsigned)v; s->pos = (size_t)(e - s->buf); return 1; }").
-ccllib_sstream_in_fn(shr_long, "int @{N}_shr_long(@N *s, long *x) { char *e; long v; if (s->pos > s->len) return 0; v = strtol(s->buf + s->pos, &e, s->base == 16 ? 16 : 10); if (e == s->buf + s->pos) return 0; *x = v; s->pos = (size_t)(e - s->buf); return 1; }").
-ccllib_sstream_in_fn(shr_ulong, "int @{N}_shr_ulong(@N *s, unsigned long *x) { char *e; unsigned long v; if (s->pos > s->len) return 0; v = strtoul(s->buf + s->pos, &e, s->base == 16 ? 16 : 10); if (e == s->buf + s->pos) return 0; *x = v; s->pos = (size_t)(e - s->buf); return 1; }").
-ccllib_sstream_in_fn(shr_llong, "int @{N}_shr_llong(@N *s, long long *x) { char *e; long long v; if (s->pos > s->len) return 0; v = strtoll(s->buf + s->pos, &e, s->base == 16 ? 16 : 10); if (e == s->buf + s->pos) return 0; *x = v; s->pos = (size_t)(e - s->buf); return 1; }").
-ccllib_sstream_in_fn(shr_ullong, "int @{N}_shr_ullong(@N *s, unsigned long long *x) { char *e; unsigned long long v; if (s->pos > s->len) return 0; v = strtoull(s->buf + s->pos, &e, s->base == 16 ? 16 : 10); if (e == s->buf + s->pos) return 0; *x = v; s->pos = (size_t)(e - s->buf); return 1; }").
-ccllib_sstream_in_fn(shr_double, "int @{N}_shr_double(@N *s, double *x) { char *e; double v; if (s->pos > s->len) return 0; v = strtod(s->buf + s->pos, &e); if (e == s->buf + s->pos) return 0; *x = v; s->pos = (size_t)(e - s->buf); return 1; }").
-ccllib_sstream_in_fn(shr_float, "int @{N}_shr_float(@N *s, float *x) { char *e; float v; if (s->pos > s->len) return 0; v = (float)strtod(s->buf + s->pos, &e); if (e == s->buf + s->pos) return 0; *x = v; s->pos = (size_t)(e - s->buf); return 1; }").
-ccllib_sstream_in_fn(shr_char, "int @{N}_shr_char(@N *s, char *x) { if (s->pos >= s->len) return 0; *x = s->buf[s->pos++]; return 1; }").
+ccllib_sstream_in_fn(read_int, "int @{N}_read_int(@N *s, int *x) { char *e; long long v; if (s->pos > s->len) return 0; v = strtoll(s->buf + s->pos, &e, s->base == 16 ? 16 : 10); if (e == s->buf + s->pos) return 0; *x = (int)v; s->pos = (size_t)(e - s->buf); return 1; }").
+ccllib_sstream_in_fn(read_uint, "int @{N}_read_uint(@N *s, unsigned *x) { char *e; unsigned long long v; if (s->pos > s->len) return 0; v = strtoull(s->buf + s->pos, &e, s->base == 16 ? 16 : 10); if (e == s->buf + s->pos) return 0; *x = (unsigned)v; s->pos = (size_t)(e - s->buf); return 1; }").
+ccllib_sstream_in_fn(read_long, "int @{N}_read_long(@N *s, long *x) { char *e; long v; if (s->pos > s->len) return 0; v = strtol(s->buf + s->pos, &e, s->base == 16 ? 16 : 10); if (e == s->buf + s->pos) return 0; *x = v; s->pos = (size_t)(e - s->buf); return 1; }").
+ccllib_sstream_in_fn(read_ulong, "int @{N}_read_ulong(@N *s, unsigned long *x) { char *e; unsigned long v; if (s->pos > s->len) return 0; v = strtoul(s->buf + s->pos, &e, s->base == 16 ? 16 : 10); if (e == s->buf + s->pos) return 0; *x = v; s->pos = (size_t)(e - s->buf); return 1; }").
+ccllib_sstream_in_fn(read_llong, "int @{N}_read_llong(@N *s, long long *x) { char *e; long long v; if (s->pos > s->len) return 0; v = strtoll(s->buf + s->pos, &e, s->base == 16 ? 16 : 10); if (e == s->buf + s->pos) return 0; *x = v; s->pos = (size_t)(e - s->buf); return 1; }").
+ccllib_sstream_in_fn(read_ullong, "int @{N}_read_ullong(@N *s, unsigned long long *x) { char *e; unsigned long long v; if (s->pos > s->len) return 0; v = strtoull(s->buf + s->pos, &e, s->base == 16 ? 16 : 10); if (e == s->buf + s->pos) return 0; *x = v; s->pos = (size_t)(e - s->buf); return 1; }").
+ccllib_sstream_in_fn(read_double, "int @{N}_read_double(@N *s, double *x) { char *e; double v; if (s->pos > s->len) return 0; v = strtod(s->buf + s->pos, &e); if (e == s->buf + s->pos) return 0; *x = v; s->pos = (size_t)(e - s->buf); return 1; }").
+ccllib_sstream_in_fn(read_float, "int @{N}_read_float(@N *s, float *x) { char *e; float v; if (s->pos > s->len) return 0; v = (float)strtod(s->buf + s->pos, &e); if (e == s->buf + s->pos) return 0; *x = v; s->pos = (size_t)(e - s->buf); return 1; }").
+ccllib_sstream_in_fn(read_char, "int @{N}_read_char(@N *s, char *x) { if (s->pos >= s->len) return 0; *x = s->buf[s->pos++]; return 1; }").
 ccllib_sstream_in_fn(get, "int @{N}_get(@N *s) { return s->pos < s->len ? (unsigned char)s->buf[s->pos++] : -1; }").
 ccllib_sstream_in_fn(getline, "char *@{N}_getline(@N *s, char *b, size_t n) {
     size_t k = 0;
