@@ -1,0 +1,16 @@
+load0 0
+store 5
+exchange 5 7
+add 7 10
+sub 10 9
+and 9 9
+or 9 11
+xor 11 10
+cas0 0 10 10
+cas1 1 4 10
+weak 0 4
+lockfree 1
+wrap 4294967295 1
+double 2.5 2.5
+flag 0 1 0
+exit 0

@@ -621,6 +621,7 @@ the end of `main`.
 | `<stringstream.pl>` | `stringstream<>` | a stream over a buffer of its own |
 | `<iomanip.pl>` | `setw`, `setfill`, `setprecision`, `hex`, `fixed` | the stream's format, as functions of it |
 | `<charconv.pl>` | `to_chars`, `from_chars` | numbers to text and back, with a base or a floating format |
+| `<atomic.pl>` | `atomic`, `atomic_flag` | atomics with C++'s names |
 
 What every module does:
 
@@ -845,7 +846,14 @@ Phase 2 begins with `<charconv.pl>` (1.4.0): `to_chars(buf, buf + 64, 42)`,
 `from_chars(buf, buf + 6, n)` and `from_chars(buf, buf + 2, d)`. A result
 holds `pos`, the offset of the first character not written or read, where
 C++ holds `ptr`, and `r.ec == 0` is success. `test/ccllib/charconv.c` is the
-example. `CCLLIB.md` gives the phases after them, to C++26.
+example.
+
+Phase 2 continues with `<atomic.pl>` (1.5.0): `atomic<int> a; store(a, 5)`,
+`load(a)`, `exchange(a, 7)`, `fetch_add(a, 3)`, `compare_exchange_strong(a, &e, 9)`,
+and `atomic_flag<> f; test_and_set(f); clear(f)` over clang's atomic builtins. Every
+operation is seq_cst, and a struct or a pointer-holding object is refused.
+`test/ccllib/atomic.c` is the example. `CCLLIB.md` gives the phases after them,
+to C++26.
 
 ## C++: the levels and the library
 

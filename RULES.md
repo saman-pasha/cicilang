@@ -10174,6 +10174,14 @@ in the first topic (The ccllib gate).
 
 ### The modules
 
+- PHASE 2 CONTINUES WITH `<atomic.pl>` (1.5.0): `atomic<T>` is a struct of one `T` member, and `atomic_flag<>`
+  one `_Bool`; the functions are C++'s names over clang's `__atomic_*` builtins, all sequentially
+  consistent: `load`, `store`, `exchange`, `is_lock_free`, `compare_exchange_strong`, `compare_exchange_weak`, and for
+  an integer `fetch_add`, `fetch_sub`, `fetch_and`, `fetch_or`, `fetch_xor`; `test_and_set` and `clear` for a flag.
+  `compare_exchange_strong` takes the expected value's address. A struct or a pointer-holding object is refused.
+  `test/ccllib/atomic.c`, its twin, and `safe/atomic_of_struct.c` hold it, in the C build, the C++ build and the
+  C++23 build alike. (1.5.0)
+
 - PHASE 2 BEGINS WITH `<charconv.pl>` (1.4.0): `to_chars(first, last, value)` and `from_chars(first, last, value)` for
   an integer or a floating number, with a base from 2 to 36 or a floating format (`chars_general`, `chars_fixed`,
   `chars_scientific`, `chars_hex`). The result structs hold `pos`, the offset of the first character not written or

@@ -12,7 +12,7 @@ the fixture that gates it, and why. The bullet ends with the version that made t
 edits the rule in `RULES.md`, in its topic, and writes its entry in `HISTORY.md`. Read the topic of `RULES.md` that
 covers the code before the code is changed.
 
-At 1.4.0 the versions are: the module 1.4.0 (`ccl_p_version` in `module/cicilang.cicili`, `bin/cicilang --version`),
+At 1.5.0 the versions are: the module 1.5.0 (`ccl_p_version` in `module/cicilang.cicili`, `bin/cicilang --version`),
 the reader 202 (`ccl_reader_version/1`, `library/ccl_syntax.pl`) and the lowering 174 (`ccl_lowering_version/1`,
 `library/ccl_ir.pl`).
 
@@ -452,6 +452,8 @@ library/ccllib/             ccllib, the standard library of cicilang's C (CCLLIB
   iostream_impl.pl            the texts the four stream modules share (1.3.0); a module loads it by a directive
   charconv.pl, charconv.pl.h  std::charconv (1.4.0): to_chars and from_chars for integers and floating numbers,
                               with bases and chars_format; a result holds pos, the offset, where C++ holds ptr
+  atomic.pl, atomic.pl.h      std::atomic<T> and std::atomic_flag over clang's atomic builtins (1.5.0): load, store,
+                              exchange, fetch_add and the rest, compare_exchange_strong, all seq_cst
   ccllib.pl                   what two modules need, written once (0.275): a module loads it by a directive, and no
                               program includes it; the refusal of an element with a pointer, the lists' sort (0.277),
                               the lines of a text by their conditions (0.283), an index in a function's name
@@ -652,7 +654,8 @@ test/ccllib/                the three runs' programs: NAME.c, a ccllib program; 
                             any.c, of <any.pl>, and weak_ptr.c, of <memory.pl> (1.1.5); phase1c.c, of
                             <algorithm.pl>, <numeric.pl>, <limits.pl>, <complex.pl>, <random.pl>, <ratio.pl> and
                             <chrono.pl> (1.2.0); iostreams.c, of <iostream.pl>, <iomanip.pl>, <fstream.pl> and
-                            <stringstream.pl> (1.3.0); charconv.c, of <charconv.pl> (1.4.0)
+                            <stringstream.pl> (1.3.0); charconv.c, of <charconv.pl> (1.4.0); atomic.c, of
+                            <atomic.pl> (1.5.0)
 test/ccllib/safe/           ccllib programs that the safe part refuses, as C and as C++: NAME.c, NAME.expect, and
                             NAME.expect.cpp where C++ has words of its own (0.274); borrow_into_call_vector.c and
                             string_self_c_str.c, a borrow handed to a call that may replace its owner (0.293);

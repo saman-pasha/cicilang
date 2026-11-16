@@ -1055,9 +1055,9 @@ holds the refusal of a value whose type has no `<<`.
 
 ## Phase 2: the rest before C++23
 
-`<regex>`, `<filesystem>`, `<thread>`, `<mutex>`, `<condition_variable>`, `<atomic>` (over C11's), `<charconv>`
-(done at 1.4.0), `<format>` (std::format's specifications, beside the global macro that exists), a part of `<locale>`,
-`source_location`.
+`<regex>`, `<filesystem>`, `<thread>`, `<mutex>`, `<condition_variable>`, `<atomic>` (over C11's, done at 1.5.0),
+`<charconv>` (done at 1.4.0), `<format>` (std::format's specifications, beside the global macro that exists), a part of
+`<locale>`, `source_location`.
 
 ### 2a, charconv (1.4.0)
 
@@ -1082,6 +1082,31 @@ and `from_chars_result`, the format names and `ccllib_errc_value_too_large`, `cc
 
 `test/ccllib/charconv.c` and its twin over `std::charconv` print the same sixteen lines;
 `test/ccllib/safe/charconv_rvalue.c` holds the refusal.
+
+### 2b, atomic (1.5.0)
+
+`<atomic.pl>` gives `std::atomic<T>` and `std::atomic_flag` over clang's atomic builtins. The type is a struct of one `T`
+member, so `atomic<int> a;` is born zero and `atomic<int> a = {5};` makes one with a value, and every operation is
+clang's `__atomic_*` over that member (an `_Atomic` object is what `<stdatomic.h>` names it, and libc++'s C++23 one is
+no `<stdatomic.h>`, its `_Atomic(T)` a class of the library's). The functions are C++'s
+names: `load`, `store`, `exchange`, `is_lock_free`, `compare_exchange_strong`, `compare_exchange_weak`, and for an
+integer object `fetch_add`, `fetch_sub`, `fetch_and`, `fetch_or`, `fetch_xor`. `atomic_flag<> f;` gives
+`test_and_set(f)` and `clear(f)`. Every operation is sequentially consistent. What differs from C++:
+
+  `atomic<T> a = 0;` is not read, since the type is a struct of one member: write `atomic<T> a = {0};` or leave it
+  born zero;
+
+  `compare_exchange_strong(a, &e, d)` takes the address of the expected value, since C has no reference parameter;
+
+  every operation is seq_cst, and there is no explicit-order form;
+
+  the fetch forms are for an integer object; a floating object has `load`, `store` and `exchange` only;
+
+  an object that holds a pointer, or a struct, is refused: an atomic's object is an integer, a floating number or an
+  enum.
+
+`test/ccllib/atomic.c` and its twin over `std::atomic` print the same nineteen lines;
+`test/ccllib/safe/atomic_of_struct.c` holds the refusal.
 
 ## Phase 3: C++23
 

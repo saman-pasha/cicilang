@@ -315,6 +315,7 @@ One row per step, in version order: the step's title, what it did and its gate n
 | 1.3.0 | ccllib phase 1d: the iostreams | `<iostream>`, `<ostream>`, `<istream>`, `<fstream>`, `<stringstream>` and `<iomanip>`: `cout`, `cin`, `cerr`, `endl`, `<<` and `>>` through the reader's operator, the manipulators as functions of the stream, a file stream and a buffer stream, over C's stdio | `iostreams.c`, its twin and `safe/iostream_no_word.c`; the three runs agree; the flow gate; no chain, by the owner's rule of 0.271 |
 | 1.3.1 | the iostreams' operator functions are `write_` and `read_` | the owner's request: every `shl_*`/`shr_*` function of the iostream implementation is `write_*`/`read_*`; the reader asks its own shift words first and then the second word's typed form, so a bitset's shifts are unchanged and `cout << x`, `cin >> x` find `_write_<word>` and `_read_<word>`; reader 202 | the iostreams program in the three runs; `safe/iostream_no_word.c`; the flow and ccllib gates |
 | 1.4.0 | ccllib phase 2 begins: `<charconv.pl>` | `to_chars` and `from_chars` for integers and floating numbers, with bases 2 to 36 and `chars_format`; a result holds `pos`, the offset of the first character not written or read, where C++ holds `ptr`, since the safe part will not return a stored borrow | `charconv.c`, its twin and `safe/charconv_rvalue.c`; the three runs agree; the flow and ccllib gates |
+| 1.5.0 | ccllib phase 2 continues: `<atomic.pl>` | `std::atomic<T>` and `std::atomic_flag` over clang's atomic builtins: load, store, exchange, the fetch forms, compare_exchange_strong and weak, is_lock_free, test_and_set and clear, all seq_cst; a struct or a pointer-holding object is refused | `atomic.c`, its twin and `safe/atomic_of_struct.c`; the three runs agree; the flow and ccllib gates |
 
 ## M5 — the C++ mode
 
@@ -23108,3 +23109,40 @@ place to write.
   HISTORY.md, CLAUDE.md; `module/cicilang.cicili` (1.4.0).
 
 The module 1.4.0, the reader 202 and the lowering 174.
+
+
+## 1.5.0 — ccllib phase 2 continues: `<atomic.pl>`
+
+**1.5.0: `<atomic.pl>` gives `std::atomic<T>` and `std::atomic_flag` over clang's atomic builtins. `atomic<int> a;` is
+born zero; `store(a, 5)`, `load(a)`, `exchange(a, 7)`, `fetch_add(a, 3)`, `fetch_and`, `fetch_or`, `fetch_xor`,
+`compare_exchange_strong(a, &e, d)`, `is_lock_free(a)`, and `atomic_flag<> f; test_and_set(f); clear(f)`.**
+
+THE TYPE. `atomic<T>` is `typedef struct atomic_T { T a_; } atomic_T;`, so the reader's call by name finds the
+instance through its struct tag, and the member holds the value. `atomic_flag<>` is the same shape over `_Bool`. The
+functions are made at their first call, as every ccllib instance's are, and their texts call clang's `__atomic_load_n`,
+`__atomic_store_n`, `__atomic_exchange_n`, `__atomic_fetch_*` and `__atomic_compare_exchange` with the seq_cst order
+(5), since a C text is lexed and not preprocessed and `__ATOMIC_SEQ_CST` is no name in it. THE C++23 ONE: it began as a
+struct of one `_Atomic T` member, and libc++'s C++23 `<stdatomic.h>` makes `_Atomic(T)` its own `std-atomic<T>`, an
+alias of `std::atomic<T>` -- a class of the library's with no C11 atomic in it -- so `cicilang++ -std=c++23` refused
+`no_member(a_, base([const], [typedef('atomic.int')]))` of every function. The builtins need no type name, and the
+member is the object's own type.
+
+THE SEMANTICS. Every operation is sequentially consistent. `compare_exchange_strong` and `compare_exchange_weak` take
+the expected value's address, since C has no reference parameter; a failed exchange writes the object's value through
+it, as C++ does. The fetch forms are generated for an integer object only; a floating object has `load`, `store` and
+`exchange`. An object that holds a pointer, or a struct, is refused by name: an atomic's object is an integer, a
+floating number or an enum.
+
+THE PROOF. `test/ccllib/atomic.c` prints nineteen lines -- a born-zero value, store, exchange, add, sub, and, or, xor,
+two compares that fail and then succeed, a weak compare, lock-free, an unsigned wrap, a double, and the flag's
+test-and-set, test-again, clear-and-test -- and its twin `atomic.cpp` over `std::atomic` prints the same. cicilang's C
+build, cicilang++'s C++ build and clang++/libc++ 23 print `atomic.expect`. The fixture prints one operation a line,
+since C leaves the order of a call's arguments open. The program
+builds and runs as C, as C++ by cicilang++, at the twin's C++23 level, and as its twin over `std::atomic`.
+`test/ccllib/safe/atomic_of_struct.c` holds the refusal of a struct object, in C and in C++.
+
+- `library/ccllib/atomic.pl`, `atomic.pl.h`; `test/ccllib/atomic.c`, `atomic.cpp`, `atomic.expect`;
+  `test/ccllib/safe/atomic_of_struct.c` and its `.expect`; `test/flow.sh`; CCLLIB.md, README.md, RULES.md,
+  HISTORY.md, CLAUDE.md; `module/cicilang.cicili` (1.5.0).
+
+The module 1.5.0, the reader 202 and the lowering 174.
