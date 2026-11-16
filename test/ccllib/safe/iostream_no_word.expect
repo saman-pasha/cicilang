@@ -1,0 +1,1 @@
+the operator << of ostream_char is not defined: its type macro defines no ostream_char_shl_point

@@ -1005,6 +1005,36 @@ whose values are `std::mt19937`'s own -- with `seed`, `next`, `discard`, `min` a
 `<chrono.pl>` gives nanosecond durations as `long long`: `nanos_of`, `millis_of`, `seconds_of`, `count_of`,
 `duration_cast_millis`, `duration_cast_seconds`, `now_nanos`, `now_millis` and `sleep_for_millis`.
 
+### 1d, iostreams (1.3.0)
+
+`<iostream.pl>` gives the three streams over C's stdio: `cout` to stdout, `cin` from stdin, and `cerr` to stderr, an
+instance of `cerrstream<>`; `<ostream.pl>`, `<istream.pl>`, `<fstream.pl>` and `<stringstream.pl>` give the types.
+`cout << 42`, `cout << 3.5`, `cout << "text"`, `cout << true` and `cout << endl` go through the reader's operator over
+an instance, which names the function with the right operand's word: `_shl_int`, `_shl_double`, `_shl_ptr_char`,
+`_shl_ptr_const_char`, `_shl_bool`, `_shl_size_t`. `cin >> x` and `f >> x` take the right operand by its address and
+answer whether the read found its value. `endl` is the header's `const char *`, `"\n"`; a value's width and fill, an
+integer's base, a floating number's format and precision, and boolalpha are the stream's state. `<iomanip.pl>`'s
+manipulators are functions of the stream -- `setw(cout, 6)`, `setfill`, `setprecision`, `fixed`, `scientific`, `hex`,
+`dec`, `oct`, `boolalpha`, `noboolalpha` -- because C has no `<<` that takes one. `<fstream.pl>`'s `fstream<T>` opens
+and closes a file with `open(f, path, "w")`, `close`, `is_open`, and both writes and reads; `ofstream` and `ifstream`
+are names of it by the header's macros. `<stringstream.pl>`'s `stringstream<>` writes and reads a buffer of its own:
+`str(s)` gives its text as a `char *`, `clear` empties it, `rewind` puts the read place back, and a local is dropped
+where its scope ends. What differs from C++:
+
+  one `<<` a statement: the value of `cout << x` is the stream, but naming it is no lvalue, so `cout << x << y` is
+  refused by name; write `cout << x; cout << y;`;
+
+  in C a character literal is an int, so `cout << 'x'` writes its number; `put(cout, 'x')` writes the character;
+
+  `endl` writes the newline and flushes nothing; `flush(cout)` flushes;
+
+  `str(ss)` gives a `char *` where C++ gives a string, and a `stringstream` is written `stringstream<>`;
+
+  a `fstream` has one mode of reading and writing, and `open` takes C's `fopen` modes.
+
+`test/ccllib/iostreams.c` and its twin over `std::` print the same seventeen lines; `test/ccllib/safe/iostream_no_word.c`
+holds the refusal of a value whose type has no `<<`.
+
 ### The parts of phase 1
 
 - 1a. Containers and strings: `vector`, `array`, `deque`, `list`, `forward_list`, `map`, `set`, `multimap`,
@@ -1016,7 +1046,8 @@ whose values are `std::mt19937`'s own -- with `seed`, `next`, `discard`, `min` a
   infers the type to choose the true name, so `any` and a bitset's `any(b)` stand together.
 - 1c. Algorithms and numbers: `<algorithm>`, `<numeric>`, the C++20 ranges views as loops, `<limits>`, `<complex>`,
   `<random>`, `<ratio>`, `<chrono>` -- done at 1.2.0.
-- 1d. iostreams: `ostream`, `istream`, `fstream`, `stringstream`, `<iomanip>`, `cout`, `cin`, `cerr`, over C's stdio.
+- 1d. iostreams: `ostream`, `istream`, `fstream`, `stringstream`, `<iomanip>`, `cout`, `cin`, `cerr`, over C's stdio
+  -- done at 1.3.0.
 
 ## Phase 2: the rest before C++23
 

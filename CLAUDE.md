@@ -12,7 +12,7 @@ the fixture that gates it, and why. The bullet ends with the version that made t
 edits the rule in `RULES.md`, in its topic, and writes its entry in `HISTORY.md`. Read the topic of `RULES.md` that
 covers the code before the code is changed.
 
-At 1.2.0 the versions are: the module 1.2.0 (`ccl_p_version` in `module/cicilang.cicili`, `bin/cicilang --version`),
+At 1.3.0 the versions are: the module 1.3.0 (`ccl_p_version` in `module/cicilang.cicili`, `bin/cicilang --version`),
 the reader 201 (`ccl_reader_version/1`, `library/ccl_syntax.pl`) and the lowering 174 (`ccl_lowering_version/1`,
 `library/ccl_ir.pl`).
 
@@ -439,6 +439,15 @@ library/ccllib/             ccllib, the standard library of cicilang's C (CCLLIB
   ratio.pl, ratio.pl.h        std::ratio as `ratio<N, D>` and its four operations (1.2.0), reduced, with num and den
   chrono.pl, chrono.pl.h      nanosecond durations and the monotonic clock (1.2.0): nanos_of, millis_of,
                               seconds_of, now_nanos, now_millis, sleep_for_millis
+  iostream.pl, iostream.pl.h  std::cout, std::cin and std::cerr over C's stdio (1.3.0), and endl
+  ostream.pl, ostream.pl.h    std::ostream (1.3.0): the integer bases, the floating formats, boolalpha, the width
+                              and the fill, the manipulators as functions of the stream
+  istream.pl, istream.pl.h    std::istream (1.3.0): cin >> x, get, getline, read, eof
+  fstream.pl, fstream.pl.h    std::fstream (1.3.0): open, close, is_open, and both directions; ofstream and
+                              ifstream are its names
+  stringstream.pl, stringstream.pl.h
+                              std::stringstream as stringstream<> (1.3.0): a buffer of its own, str, clear, rewind
+  iostream_impl.pl            the texts the four stream modules share (1.3.0); a module loads it by a directive
   ccllib.pl                   what two modules need, written once (0.275): a module loads it by a directive, and no
                               program includes it; the refusal of an element with a pointer, the lists' sort (0.277),
                               the lines of a text by their conditions (0.283), an index in a function's name
@@ -638,7 +647,8 @@ test/ccllib/                the three runs' programs: NAME.c, a ccllib program; 
                             shared_ptr.c, of <memory.pl> (1.1.3); functional.c, of <functional.pl> (1.1.4);
                             any.c, of <any.pl>, and weak_ptr.c, of <memory.pl> (1.1.5); phase1c.c, of
                             <algorithm.pl>, <numeric.pl>, <limits.pl>, <complex.pl>, <random.pl>, <ratio.pl> and
-                            <chrono.pl> (1.2.0)
+                            <chrono.pl> (1.2.0); iostreams.c, of <iostream.pl>, <iomanip.pl>, <fstream.pl> and
+                            <stringstream.pl> (1.3.0)
 test/ccllib/safe/           ccllib programs that the safe part refuses, as C and as C++: NAME.c, NAME.expect, and
                             NAME.expect.cpp where C++ has words of its own (0.274); borrow_into_call_vector.c and
                             string_self_c_str.c, a borrow handed to a call that may replace its owner (0.293);

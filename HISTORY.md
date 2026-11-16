@@ -312,6 +312,7 @@ One row per step, in version order: the step's title, what it did and its gate n
 | 1.1.4 | ccllib phase 1b, functional.pl | `#include <functional.pl>` gives C++'s function objects as macros -- less, greater, the comparisons, the arithmetic, the logical and bit forms, negate and identity -- so a name works where C++ passes a type, `set<int, less>` and `set<int, greater>`; `hash(x)` is one FNV-1a step of an integer's, an enum's or a pointer's bits and refuses another type by name | `functional.c` and its twin; 2 ccllib refusals; `functional_rules.c` at 84,391 checks; 12 copies broken on purpose, each caught; the flow gate and the ccllib gate; no chain, by the owner's rule of 0.271; a commit and a push |
 | 1.1.5 | ccllib phase 1b finished: any, weak_ptr, and the two names that stood in its way | `<any.pl>` gives `std::any` as `any<>` -- a copy of a value, `any_cast<T>`, `has_value`, `reset`, `swap`, `clone` -- and `<memory.pl>` gives `weak_ptr<T>` -- `lock`, `expired`, `use_count`, `reset`, `swap`, `clone`, born from a shared handle; the owner's answer to decision 7 is the compiler's: `any(b);` over a bitset is the call by name, told by b's type, beside the type `any<>`; reader 201 | `any.c`/`weak_ptr.c` and their twins; 4 refusals; `any_rules.c` at 20,011 checks and `weak_ptr_rules.c` at 16,902; stops; 6 copies broken on purpose, each caught; the reader, flow and ccllib gates; no chain, by the owner's rule of 0.271; a commit and a push |
 | 1.2.0 | ccllib phase 1c: algorithms, numbers and the clock | `<algorithm>`, `<numeric>`, `<limits>`, `<complex>`, `<random>`, `<ratio>` and `<chrono>`: the algorithms and the ranges views as macros over vector, array, deque, span, string and a read-only view, with comparisons as expressions; the folds and scans; `numeric_limits<T>`; a complex value with its operators; the standard `mt19937` and four distributions; reduced compile-time ratios; nanosecond durations and the monotonic clock | `phase1c.c`, its twin and `safe/algorithm_view_sort.c`; the ccllib gate's three runs agree; the flow gate; no chain, by the owner's rule of 0.271 |
+| 1.3.0 | ccllib phase 1d: the iostreams | `<iostream>`, `<ostream>`, `<istream>`, `<fstream>`, `<stringstream>` and `<iomanip>`: `cout`, `cin`, `cerr`, `endl`, `<<` and `>>` through the reader's operator, the manipulators as functions of the stream, a file stream and a buffer stream, over C's stdio | `iostreams.c`, its twin and `safe/iostream_no_word.c`; the three runs agree; the flow gate; no chain, by the owner's rule of 0.271 |
 
 ## M5 — the C++ mode
 
@@ -22999,3 +23000,44 @@ holds the refusal of a mutating algorithm over a view. The flow gate charts the 
   `module/cicilang.cicili` (1.2.0).
 
 The module 1.2.0, the reader 201 and the lowering 174.
+
+## 1.3.0 — ccllib phase 1d: the iostreams
+
+**1.3.0: `CCLLIB.md`'s phase 1d. `<iostream.pl>` gives `cout`, `cin` and `cerr`; `<ostream.pl>` and `<istream.pl>` the
+two directions, `<fstream.pl>` a file stream that does both, `<stringstream.pl>` a buffer, and `<iomanip.pl>` the
+manipulators. Phase 1d is done, and with it phase 1.**
+
+THE OPERATOR. `cout << 42` is the reader's operator over an instance, which names the function with the right
+operand's word: `ostream_char_shl_int`, `_shl_double`, `_shl_ptr_char` and `_shl_ptr_const_char` (C's and C++'s string
+literal), `_shl_bool`, `_shl_size_t`, and the signed and unsigned widths of every integer. `cin >> x` and `f >> x` use
+the reader's `_iop_right`, which takes the right operand by its address where the function's parameter is a pointer;
+`istream_char_shr_int` answers whether the read found its value. `iostream_impl.pl` holds the C texts of the three
+kinds of stream, so no predicate is defined in two modules (the flow gate's rule).
+
+THE NAMES AND THE STATE. `endl` is the `.pl.h`'s `const char *`, `"\n"`: a `#define` in a macro file's header does not
+reach the program's own text, and a bare name cannot be a function-like macro. The manipulators -- `setw`,
+`setprecision`, `setfill`, `fixed`, `scientific`, `hex`, `dec`, `oct`, `boolalpha`, `noboolalpha` -- are functions of
+the stream, `setw(cout, 6)`, because `cout << setw(6)` would make the stream's value a left operand and the reader
+refuses its address. The width is given up after one value, as C++'s is; an integer's base, a floating number's format
+and precision, and boolalpha belong to the stream.
+
+THE FILES. A `FILE *` is held as a `long long` handle and converted by `ccllib_file_of`, `ccllib_file_open` and
+`ccllib_file_close` in `fstream.pl.h`: the safe part refused to hand the struct's borrowed `FILE *` to `fclose`, and
+a plain pointer returned by a cast is left unconsumed. `fstream<T>` opens with C's `fopen` modes and closes in its
+drop; `ofstream` and `ifstream` are its names by the header's macros. `stringstream<>` keeps its text in an own
+buffer, `str(s)` gives it as a `char *`, `clear` empties it, `rewind` puts the read place back, and its drop frees the
+buffer.
+
+THE PROOF. `test/ccllib/iostreams.c` prints seventeen lines -- text, integers, a floating number with a precision, a
+width and a fill, hexadecimal, boolalpha, a character, a file written and read, a stringstream written and parsed, and
+`cin` at end of input -- and its twin `iostreams.cpp` over `std::` prints the same. cicilang's C build,
+cicilang++'s C++ build, cicilang++ at C++23 and clang++ over libc++ 23 print `iostreams.expect`.
+`test/ccllib/safe/iostream_no_word.c` holds the refusal of a struct that has no form of `<<`, as C and as C++.
+
+- `library/ccllib/iostream.pl`, `iostream.pl.h`, `ostream.pl`, `ostream.pl.h`, `istream.pl`, `istream.pl.h`,
+  `fstream.pl`, `fstream.pl.h`, `stringstream.pl`, `stringstream.pl.h`, `iomanip.pl`, `iomanip.pl.h` and
+  `iostream_impl.pl`; `test/ccllib/iostreams.c`, `iostreams.cpp`, `iostreams.expect`;
+  `test/ccllib/safe/iostream_no_word.c` and its `.expect` and `.expect.cpp`; `test/flow.sh`; CCLLIB.md, README.md,
+  RULES.md, HISTORY.md, CLAUDE.md; `module/cicilang.cicili` (1.3.0).
+
+The module 1.3.0, the reader 201 and the lowering 174.

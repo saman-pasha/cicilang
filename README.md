@@ -615,6 +615,10 @@ the end of `main`.
 | `<random.pl>` | `mt19937<>`, `uniform_int`, `uniform_real`, `bernoulli` | the standard Mersenne Twister |
 | `<ratio.pl>` | `ratio`, `ratio_add`, `ratio_subtract`, `ratio_multiply`, `ratio_divide` | compile-time rationals, with `num` and `den` |
 | `<chrono.pl>` | `nanos_of`, `millis_of`, `seconds_of`, `now_nanos` | nanosecond durations and the monotonic clock |
+| `<iostream.pl>` | `cout`, `cin`, `cerr`, `endl` | the three streams over C's stdio |
+| `<fstream.pl>` | `fstream`, `ofstream`, `ifstream` | a file stream that reads and writes |
+| `<stringstream.pl>` | `stringstream<>` | a stream over a buffer of its own |
+| `<iomanip.pl>` | `setw`, `setfill`, `setprecision`, `hex`, `fixed` | the stream's format, as functions of it |
 
 What every module does:
 
@@ -824,8 +828,16 @@ span and string, with a view read-only; `<numeric.pl>` the folds and scans;
 `<limits.pl>` `numeric_limits<int> n; max(n)`; `<complex.pl>` `complex<double>`;
 `<random.pl>` `mt19937<> r; seed(r, 5489); next(r)`; `<ratio.pl>`
 `ratio<1, 2>` and its operations; and `<chrono.pl>` `millis_of(1500)` and the
-monotonic clock. `test/ccllib/phase1c.c` is the example. What waits: phase 1d,
-iostreams over C's stdio. `CCLLIB.md` gives the phases after them, to C++26.
+monotonic clock. `test/ccllib/phase1c.c` is the example.
+
+Phase 1d is there too (1.3.0): `#include <iostream.pl>` gives `cout`, `cin` and
+`cerr`; `cout << 42`, `cout << 3.5`, `cout << true`, `cout << endl`;
+`cin >> x`; `<iomanip.pl>`'s `setw(cout, 6)`, `setfill`, `setprecision`,
+`hex`, `fixed` and `boolalpha`, functions of the stream since C has no `<<`
+that takes one; `<fstream.pl>`'s `fstream<char> f; open(f, path, "w");` reads
+and writes a file; and `<stringstream.pl>`'s `stringstream<>` a buffer.
+`test/ccllib/iostreams.c` is the example. `CCLLIB.md` gives the phases after
+them, to C++26.
 
 ## C++: the levels and the library
 

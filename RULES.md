@@ -10173,6 +10173,17 @@ in the first topic (The ccllib gate).
 
 ### The modules
 
+- PHASE 1d IS THE IOSTREAMS (1.3.0): `library/ccllib/iostream.pl` declares `cout`, `cin`, `cerr` and `endl`;
+  `ostream.pl` gives `ostream<T>` and `cerrstream<>`, `istream.pl` `istream<T>`, `fstream.pl` `fstream<T>` (with
+  `ofstream` and `ifstream` as header macros), and `stringstream.pl` `stringstream<>`; `iostream_impl.pl` holds the
+  texts that those four share, so the flow gate finds no predicate twice. `<<` is the reader's operator over an
+  instance, naming `_shl_<word>`; `>>` takes the right operand by its address, naming `_shr_<word>`. `endl` is the
+  header's `const char *`, because a `.pl.h` macro does not reach the program's own text. `<iomanip>`'s manipulators
+  are functions of the stream (`setw(cout, 6)`), since a chained `cout << setw(6)` would need the stream's value to be
+  an lvalue and the reader refuses that. A `FILE *` is held as a `long long` handle and converted by the header's
+  helpers, because the safe part refuses to hand a member's borrowed `FILE *` to `fclose`. `test/ccllib/iostreams.c`,
+  its twin, and `safe/iostream_no_word.c` hold it. (1.3.0)
+
 - PHASE 1c IS THE ALGORITHMS AND THE NUMBERS (1.2.0): `library/ccllib/algorithm.pl` gives the algorithms over the
   random-access ranges (vector, array, deque, span, basic_string, and read-only basic_string_view) as macros that
   resolve the instance and its element at read time; `numeric.pl` the folds and scans; `limits.pl` `numeric_limits<T>`
