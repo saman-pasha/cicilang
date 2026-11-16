@@ -1036,7 +1036,7 @@ where its scope ends. What differs from C++:
 The reader asks the shift words `_shl_`/`_shr_` first, so a bitset's shifts are unchanged; 1.3.1 renamed the stream
 forms from `_shl_*`/`_shr_*` to `_write_*`/`_read_*`.
 
-`test/ccllib/iostreams.c` and its twin over `std::` print the same seventeen lines; `test/ccllib/safe/iostream_no_word.c`
+`test/ccllib/iostreams.c` and its twin over `std::` print the same sixteen lines; `test/ccllib/safe/iostream_no_word.c`
 holds the refusal of a value whose type has no `<<`.
 
 ### The parts of phase 1
@@ -1055,9 +1055,33 @@ holds the refusal of a value whose type has no `<<`.
 
 ## Phase 2: the rest before C++23
 
-`<regex>`, `<filesystem>`, `<thread>`, `<mutex>`, `<condition_variable>`, `<atomic>` (over C11's), `<charconv>`,
-`<format>` (std::format's specifications, beside the global macro that exists), a part of `<locale>`,
+`<regex>`, `<filesystem>`, `<thread>`, `<mutex>`, `<condition_variable>`, `<atomic>` (over C11's), `<charconv>`
+(done at 1.4.0), `<format>` (std::format's specifications, beside the global macro that exists), a part of `<locale>`,
 `source_location`.
+
+### 2a, charconv (1.4.0)
+
+`<charconv.pl>` gives `to_chars(first, last, value)`, `to_chars(first, last, value, base)` for an integer and
+`to_chars(first, last, value, chars_format)` for a floating number, and `from_chars(first, last, value)` and
+`from_chars(first, last, value, base or format)`. The integer forms write and read bases 2 to 36; a floating number's
+formats are `chars_general`, `chars_fixed`, `chars_scientific` and `chars_hex`. The result structs `to_chars_result`
+and `from_chars_result`, the format names and `ccllib_errc_value_too_large`, `ccllib_errc_invalid_argument` and
+`ccllib_errc_result_out_of_range` stand in `charconv.pl.h`. What differs from C++:
+
+  a result holds `pos`, the offset of the first character not written or read, where C++ holds a pointer (`ptr`); the
+  safe part will not return a stored borrow, and the offset carries the same number;
+
+  to_chars of a floating number writes snprintf's general form with 17 significant digits, or fixed/scientific/hex,
+  and trims the zeros; for a simple value it is the shortest round-trip, and not for every value (`0.1` writes more
+  digits than std::to_chars does); a text longer than 511 characters stops with value_too_large;
+
+  from_chars of a floating number reads strtod's syntax -- decimal, inf, nan, hex -- and at most 255 characters;
+  C++'s general format takes no hex float;
+
+  from_chars takes its value by name and refuses an expression with no place to write.
+
+`test/ccllib/charconv.c` and its twin over `std::charconv` print the same sixteen lines;
+`test/ccllib/safe/charconv_rvalue.c` holds the refusal.
 
 ## Phase 3: C++23
 

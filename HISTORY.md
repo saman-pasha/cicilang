@@ -314,6 +314,7 @@ One row per step, in version order: the step's title, what it did and its gate n
 | 1.2.0 | ccllib phase 1c: algorithms, numbers and the clock | `<algorithm>`, `<numeric>`, `<limits>`, `<complex>`, `<random>`, `<ratio>` and `<chrono>`: the algorithms and the ranges views as macros over vector, array, deque, span, string and a read-only view, with comparisons as expressions; the folds and scans; `numeric_limits<T>`; a complex value with its operators; the standard `mt19937` and four distributions; reduced compile-time ratios; nanosecond durations and the monotonic clock | `phase1c.c`, its twin and `safe/algorithm_view_sort.c`; the ccllib gate's three runs agree; the flow gate; no chain, by the owner's rule of 0.271 |
 | 1.3.0 | ccllib phase 1d: the iostreams | `<iostream>`, `<ostream>`, `<istream>`, `<fstream>`, `<stringstream>` and `<iomanip>`: `cout`, `cin`, `cerr`, `endl`, `<<` and `>>` through the reader's operator, the manipulators as functions of the stream, a file stream and a buffer stream, over C's stdio | `iostreams.c`, its twin and `safe/iostream_no_word.c`; the three runs agree; the flow gate; no chain, by the owner's rule of 0.271 |
 | 1.3.1 | the iostreams' operator functions are `write_` and `read_` | the owner's request: every `shl_*`/`shr_*` function of the iostream implementation is `write_*`/`read_*`; the reader asks its own shift words first and then the second word's typed form, so a bitset's shifts are unchanged and `cout << x`, `cin >> x` find `_write_<word>` and `_read_<word>`; reader 202 | the iostreams program in the three runs; `safe/iostream_no_word.c`; the flow and ccllib gates |
+| 1.4.0 | ccllib phase 2 begins: `<charconv.pl>` | `to_chars` and `from_chars` for integers and floating numbers, with bases 2 to 36 and `chars_format`; a result holds `pos`, the offset of the first character not written or read, where C++ holds `ptr`, since the safe part will not return a stored borrow | `charconv.c`, its twin and `safe/charconv_rvalue.c`; the three runs agree; the flow and ccllib gates |
 
 ## M5 — the C++ mode
 
@@ -23072,3 +23073,38 @@ THE PROOF. `test/ccllib/iostreams.c` prints `iostreams.expect` as C, as C++ by c
   (1.3.1).
 
 The module 1.3.1, the reader 202 and the lowering 174.
+
+
+## 1.4.0 — ccllib phase 2 begins: `<charconv.pl>`
+
+**1.4.0: `CCLLIB.md`'s phase 2 begins with `<charconv.pl>`. `to_chars(first, last, value)` writes an integer or a
+floating number into the buffer; `to_chars(first, last, value, base)` writes an integer in a base from 2 to 36;
+`to_chars(first, last, value, chars_format)` writes a floating number as general, fixed, scientific or hex.
+`from_chars(first, last, value)` reads one, and `from_chars(first, last, value, base or format)` reads it with a base
+or a format.**
+
+THE RESULT. `to_chars_result` and `from_chars_result` stand in `charconv.pl.h`, with `chars_general`,
+`chars_fixed`, `chars_scientific`, `chars_hex` and `ccllib_errc_value_too_large`, `ccllib_errc_invalid_argument`,
+`ccllib_errc_result_out_of_range`. A result holds `pos`, the offset of the first character not written or read,
+where C++ holds `ptr`: the safe part refuses a function that returns a struct holding a stored borrow, and the offset
+carries the same number. `r.ec == 0` is success.
+
+THE WORK. The macros cast an argument to its signed or unsigned width and call a helper in the header:
+`ccllib_charconv_to_ll`, `to_ull`, `to_d`; `ccllib_charconv_from_signed`, `from_unsigned`, `from_double`. The integer
+helpers parse and write bases 2 to 36 with the target's range (`sizeof` picks the width); the floating helper writes
+snprintf's general form with 17 significant digits, or fixed/scientific/hex, and trims the zeros as C++ trims them.
+`from_chars` of a floating number reads strtod's syntax up to 255 characters. An integer's `from_chars` returns
+`result_out_of_range` with the end offset, as C++ returns the end pointer.
+
+THE PROOF. `test/ccllib/charconv.c` prints sixteen lines -- integers in bases 10, 16 and 2, a negative, floating
+general/fixed/scientific/hex, a buffer too small, and `from_chars` of an integer, an invalid text, an out-of-range
+value, a hexadecimal value, a floating value, a leading space and an exponent -- and its twin `charconv.cpp` over
+`std::charconv` prints the same. cicilang's C build, cicilang++'s C++ build and clang++/libc++ 23 all print
+`charconv.expect`. `test/ccllib/safe/charconv_rvalue.c` holds the refusal of `from_chars` into an expression with no
+place to write.
+
+- `library/ccllib/charconv.pl`, `charconv.pl.h`; `test/ccllib/charconv.c`, `charconv.cpp`, `charconv.expect`;
+  `test/ccllib/safe/charconv_rvalue.c` and its `.expect`; `test/flow.sh`; CCLLIB.md, README.md, RULES.md,
+  HISTORY.md, CLAUDE.md; `module/cicilang.cicili` (1.4.0).
+
+The module 1.4.0, the reader 202 and the lowering 174.

@@ -620,6 +620,7 @@ the end of `main`.
 | `<fstream.pl>` | `fstream`, `ofstream`, `ifstream` | a file stream that reads and writes |
 | `<stringstream.pl>` | `stringstream<>` | a stream over a buffer of its own |
 | `<iomanip.pl>` | `setw`, `setfill`, `setprecision`, `hex`, `fixed` | the stream's format, as functions of it |
+| `<charconv.pl>` | `to_chars`, `from_chars` | numbers to text and back, with a base or a floating format |
 
 What every module does:
 
@@ -837,8 +838,14 @@ Phase 1d is there too (1.3.0): `#include <iostream.pl>` gives `cout`, `cin` and
 `hex`, `fixed` and `boolalpha`, functions of the stream since C has no `<<`
 that takes one; `<fstream.pl>`'s `fstream<char> f; open(f, path, "w");` reads
 and writes a file; and `<stringstream.pl>`'s `stringstream<>` a buffer.
-`test/ccllib/iostreams.c` is the example. `CCLLIB.md` gives the phases after
-them, to C++26.
+`test/ccllib/iostreams.c` is the example.
+
+Phase 2 begins with `<charconv.pl>` (1.4.0): `to_chars(buf, buf + 64, 42)`,
+`to_chars(buf, buf + 64, 255, 16)`, `to_chars(buf, buf + 64, 3.5, chars_fixed)`,
+`from_chars(buf, buf + 6, n)` and `from_chars(buf, buf + 2, d)`. A result
+holds `pos`, the offset of the first character not written or read, where
+C++ holds `ptr`, and `r.ec == 0` is success. `test/ccllib/charconv.c` is the
+example. `CCLLIB.md` gives the phases after them, to C++26.
 
 ## C++: the levels and the library
 

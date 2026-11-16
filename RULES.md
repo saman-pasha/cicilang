@@ -10174,6 +10174,15 @@ in the first topic (The ccllib gate).
 
 ### The modules
 
+- PHASE 2 BEGINS WITH `<charconv.pl>` (1.4.0): `to_chars(first, last, value)` and `from_chars(first, last, value)` for
+  an integer or a floating number, with a base from 2 to 36 or a floating format (`chars_general`, `chars_fixed`,
+  `chars_scientific`, `chars_hex`). The result structs hold `pos`, the offset of the first character not written or
+  read, where C++ holds `ptr`: the safe part will not return a stored borrow, and the offset carries the same number.
+  A floating number written by `to_chars` is snprintf's general form with 17 significant digits, or fixed,
+  scientific or hex, trimmed as C++ trims it; a text longer than 511 characters stops with `value_too_large`.
+  `from_chars` of a floating number reads strtod's syntax and at most 255 characters. `test/ccllib/charconv.c`, its
+  twin, and `safe/charconv_rvalue.c` hold it. (1.4.0)
+
 - PHASE 1d IS THE IOSTREAMS (1.3.0): `library/ccllib/iostream.pl` declares `cout`, `cin`, `cerr` and `endl`;
   `ostream.pl` gives `ostream<T>` and `cerrstream<>`, `istream.pl` `istream<T>`, `fstream.pl` `fstream<T>` (with
   `ofstream` and `ifstream` as header macros), and `stringstream.pl` `stringstream<>`; `iostream_impl.pl` holds the
