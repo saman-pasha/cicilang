@@ -853,6 +853,8 @@ Phase 2 continues with `<atomic.pl>` (1.5.0): `atomic<int> a; store(a, 5)`,
 and `atomic_flag<> f; test_and_set(f); clear(f)` over clang's atomic builtins. Every
 operation is seq_cst, and a struct or a pointer-holding object is refused.
 `test/ccllib/atomic.c` is the example. `CCLLIB.md` gives the phases after them,
+Phase 2 has `<mutex.pl>` too (1.6.0): `mutex<> m; lock(m);` a `lock_guard<mutex<> >` and a `unique_lock<mutex<> >`
+over pthreads, with `latch<>` and `barrier<int>`; its C, C++ and C++23 runs print what its `std::` twin prints.
 to C++26.
 
 ## C++: the levels and the library

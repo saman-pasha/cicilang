@@ -1,0 +1,1 @@
+a lock_guard's mutex is `mutex', and int is none

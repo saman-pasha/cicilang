@@ -1,0 +1,17 @@
+try 1
+lock ok
+guard
+after guard
+reusable
+owns 1
+owns 0
+owns 1
+owns 0
+utry 1
+owns 1
+owns 0
+latch 0
+latch 0
+latch 1
+waited
+barrier

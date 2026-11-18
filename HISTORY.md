@@ -315,6 +315,7 @@ One row per step, in version order: the step's title, what it did and its gate n
 | 1.3.0 | ccllib phase 1d: the iostreams | `<iostream>`, `<ostream>`, `<istream>`, `<fstream>`, `<stringstream>` and `<iomanip>`: `cout`, `cin`, `cerr`, `endl`, `<<` and `>>` through the reader's operator, the manipulators as functions of the stream, a file stream and a buffer stream, over C's stdio | `iostreams.c`, its twin and `safe/iostream_no_word.c`; the three runs agree; the flow gate; no chain, by the owner's rule of 0.271 |
 | 1.3.1 | the iostreams' operator functions are `write_` and `read_` | the owner's request: every `shl_*`/`shr_*` function of the iostream implementation is `write_*`/`read_*`; the reader asks its own shift words first and then the second word's typed form, so a bitset's shifts are unchanged and `cout << x`, `cin >> x` find `_write_<word>` and `_read_<word>`; reader 202 | the iostreams program in the three runs; `safe/iostream_no_word.c`; the flow and ccllib gates |
 | 1.4.0 | ccllib phase 2 begins: `<charconv.pl>` | `to_chars` and `from_chars` for integers and floating numbers, with bases 2 to 36 and `chars_format`; a result holds `pos`, the offset of the first character not written or read, where C++ holds `ptr`, since the safe part will not return a stored borrow | `charconv.c`, its twin and `safe/charconv_rvalue.c`; the three runs agree; the flow and ccllib gates |
+| 1.6.0 | ccllib phase 2 continues: `<mutex.pl>` | `std::mutex`, `lock_guard`, `unique_lock`, `barrier` and `latch` over POSIX's pthreads: a mutex initialized on its first lock, guards born from a mutex's address, a latch's functions by address | `mutex.c`, its twin and `safe/mutex_of_int.c`; the three runs agree at C++23; the flow and ccllib gates |
 | 1.5.0 | ccllib phase 2 continues: `<atomic.pl>` | `std::atomic<T>` and `std::atomic_flag` over clang's atomic builtins: load, store, exchange, the fetch forms, compare_exchange_strong and weak, is_lock_free, test_and_set and clear, all seq_cst; a struct or a pointer-holding object is refused | `atomic.c`, its twin and `safe/atomic_of_struct.c`; the three runs agree; the flow and ccllib gates |
 
 ## M5 — the C++ mode
@@ -23110,6 +23111,18 @@ place to write.
 
 The module 1.4.0, the reader 202 and the lowering 174.
 
+
+## 1.6.0 — ccllib phase 2 continues: `<mutex.pl>`
+
+**1.6.0: `<mutex.pl>` gives `std::mutex`, `std::lock_guard`, `std::unique_lock`, `std::barrier` and `std::latch` over
+POSIX's pthreads.** A no-argument type macro is written with its empty list -- `mutex<> m;`, `latch<> l = 2L;` -- since
+the reader makes an instance only at the `name<...>` form; a bare `mutex m;` never invokes the macro and the lowering
+says `not lowered yet: typedef(mutex)`. A guard is born from the mutex's address (`lock_guard<mutex<> > g = &m;`) and
+keeps it as an integer, the safe part following no borrow stored in a struct's field; `mutex<>` is a struct of the
+pthread mutex and a flag, born zero and initialized on its first lock (Darwin's `PTHREAD_MUTEX_INITIALIZER` is no
+zero), and a latch's functions take its address. `test/ccllib/mutex.c`, its twin over `std::`, and the refusal
+`safe/mutex_of_int.c`; the C, C++ and C++23 runs print the twin's lines. `CCLLIB.md` (2c), `RULES.md`, `README.md`,
+`HISTORY.md`; `module/cicilang.cicili` (1.6.0).
 
 ## 1.5.0 — ccllib phase 2 continues: `<atomic.pl>`
 

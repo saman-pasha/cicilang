@@ -1083,6 +1083,21 @@ and `from_chars_result`, the format names and `ccllib_errc_value_too_large`, `cc
 `test/ccllib/charconv.c` and its twin over `std::charconv` print the same sixteen lines;
 `test/ccllib/safe/charconv_rvalue.c` holds the refusal.
 
+### 2c, mutex (1.6.0)
+
+`<mutex.pl>` gives `std::mutex`, `std::lock_guard`, `std::unique_lock`, `std::barrier` and `std::latch` over POSIX's
+pthreads. A no-argument type macro is written with its empty list, `mutex<> m;`, `latch<> l = 2;` -- the reader makes an
+instance only at the `name<...>` form -- and a guard's birth takes the mutex's address: `lock_guard<mutex<> > g = &m;`,
+`unique_lock<mutex<> > u = &m;`. `mutex<>` is a struct of the pthread mutex and a flag, born zero; its first `lock`,
+`try_lock` or `unlock` initializes the pthread mutex (Darwin's `PTHREAD_MUTEX_INITIALIZER` is no zero), and the scope's
+drop destroys it. A guard keeps the mutex's address as an integer and casts it back, because the safe part follows no
+borrow kept in a struct's field; `lock_guard` locks at its birth and unlocks where its scope ends, `unique_lock` has
+`lock`, `try_lock`, `unlock`, `owns_lock` and `release`. A latch's functions take its address: `count_down(&l, 1)`,
+`wait(&l)`, `try_wait(&l)`, `latch_value(&l)`; `barrier<T>` takes its completion object's type and `arrive`,
+`arrive_and_wait`. The timeouts (`try_lock_for`), `arrive_and_drop` and a barrier's completion function are not written.
+`test/ccllib/mutex.c` and its twin over `std::` print the same lines as C, as C++ and at C++23;
+`test/ccllib/safe/mutex_of_int.c` holds the refusal.
+
 ### 2b, atomic (1.5.0)
 
 `<atomic.pl>` gives `std::atomic<T>` and `std::atomic_flag` over clang's atomic builtins. The type is a struct of one `T`

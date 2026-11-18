@@ -10174,6 +10174,13 @@ in the first topic (The ccllib gate).
 
 ### The modules
 
+- PHASE 2 CONTINUES WITH `<mutex.pl>` (1.6.0): `mutex<>`, `lock_guard<mutex<> >`, `unique_lock<mutex<> >`, `latch<>` and
+  `barrier<T>` over pthreads. A no-argument type macro is written with `<>` (`mutex<> m;`) -- a bare `mutex m;` never
+  invokes the macro and the lowering says `not lowered yet: typedef(mutex)` -- a guard is born from the address
+  (`lock_guard<mutex<> > g = &m;`), a latch's functions take its address, and a guard keeps that address as an integer
+  (the safe part follows no borrow stored in a field). The mutex is a struct with a flag and is initialized on its first
+  lock: a zeroed pthread mutex is no Darwin initializer. `mutex.c`, its twin and `safe/mutex_of_int.c`; the three runs
+  agree at C++23. (1.6.0)
 - PHASE 2 CONTINUES WITH `<atomic.pl>` (1.5.0): `atomic<T>` is a struct of one `T` member, and `atomic_flag<>`
   one `_Bool`; the functions are C++'s names over clang's `__atomic_*` builtins, all sequentially
   consistent: `load`, `store`, `exchange`, `is_lock_free`, `compare_exchange_strong`, `compare_exchange_weak`, and for
