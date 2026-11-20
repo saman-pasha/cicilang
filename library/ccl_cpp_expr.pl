@@ -167,7 +167,9 @@ cpp_expr(Ctx, co_await_raw(Op, Kind), X) :- !, ( ccl_declared('$promise', PT) ->
         if(0, not(call(member(id(N), await_ready), [])), coro_suspend(0, Kind, call(member(id(N), await_suspend), [H])), none),
         expr(0, call(member(id(N), await_resume), []))])), X).
 %% a UNARY operator on a class goes to the class's operator, as a binary one already did: `*it', `++it', `it++'
-%% (postfix takes the int C++ marks it with), `!x', `-x', `~x'; anything not a class keeps the form it had
+%% (postfix takes the int C++ marks it with), `!x', `-x', `+x', `~x'; anything not a class keeps the form it had.
+%% `+x' since 1.6.1 ([over.match.oper]/2): the form was its operand, so `+v' over a class whose `operator+()' gives
+%% another value gave v itself, with no word, and a free `operator+(W)' was never called
 cpp_expr(Ctx, deref(A), E)  :- !, cpp_expr(Ctx, A, A1), cpp_deref_operand(A1), cpp_operator('*', A1, [], deref(A1), E).
 cpp_expr(Ctx, preinc(A), E) :- !, cpp_expr(Ctx, A, A1), cpp_operator('++', A1, [], preinc(A1), E).
 cpp_expr(Ctx, predec(A), E) :- !, cpp_expr(Ctx, A, A1), cpp_operator('--', A1, [], predec(A1), E).
@@ -175,6 +177,7 @@ cpp_expr(Ctx, postinc(A), E) :- !, cpp_expr(Ctx, A, A1), ( cpp_class_of_type_of(
 cpp_expr(Ctx, postdec(A), E) :- !, cpp_expr(Ctx, A, A1), ( cpp_class_of_type_of(A1, _) -> cpp_operator('--', A1, [int(0)], postdec(A1), E) ; E = postdec(A1) ).
 cpp_expr(Ctx, not(A), E)    :- !, cpp_expr(Ctx, A, A1), cpp_to_bool(A1, A2), cpp_operator('!', A1, [], not(A2), E).
 cpp_expr(Ctx, neg(A), E)    :- !, cpp_expr(Ctx, A, A1), cpp_operator('-', A1, [], neg(A1), E).
+cpp_expr(Ctx, pos(A), E)    :- !, cpp_expr(Ctx, A, A1), cpp_operator('+', A1, [], pos(A1), E0), cpp_pos_pointer(E0, E).
 cpp_expr(Ctx, bitnot(A), E) :- !, cpp_expr(Ctx, A, A1), cpp_operator('~', A1, [], bitnot(A1), E).
 cpp_expr(Ctx, bin(Op, A, B), E) :- memberchk(Op, ['&&', '||']), !, cpp_expr(Ctx, A, A1), cpp_cond_branch(Ctx, B, B0, Tb), cpp_cond_flag(Tb, B0, B1), cpp_to_bool(A1, A2), cpp_to_bool(B1, B2), cpp_operator(Op, A1, [B1], bin(Op, A2, B2), E).   % the right operand's temporaries flagged (cpp_cond_branch, 0.201)
 cpp_expr(Ctx, bin(Op, A, B), E) :- !, cpp_expr(Ctx, A, A1), cpp_expr(Ctx, B, B1), cpp_ptr_composite(Op, A1, B1, A2, B2), cpp_operator(Op, A1, [B1], bin(Op, A2, B2), E).
@@ -1599,11 +1602,21 @@ cpp_builtin_via_conv(A, Args, Plain, E) :- Plain =.. [F, Op, _, _], memberchk(F,
     (   cpp_scalar_conv(B, B1) -> true ; \+ cpp_op_operand(B), B1 = B ),
     ( A1 \== A ; B1 \== B ), ( F == assign -> A1 == A ; true ),
     E =.. [F, Op, A1, B1].
-cpp_builtin_via_conv(A, [], Plain, E) :- Plain =.. [F, _], memberchk(F, [neg, bitnot]), cpp_scalar_conv(A, A1), E =.. [F, A1].
+cpp_builtin_via_conv(A, [], Plain, E) :- Plain =.. [F, _], memberchk(F, [neg, pos, bitnot]), cpp_scalar_conv(A, A1), E =.. [F, A1].
+cpp_builtin_via_conv(A, [], pos(_), E) :- cpp_class_of_type_of(A, C), cpp_ptr_conv_result(C, PT), cpp_conv_to(A, PT, E), E \== A.   % `T *operator+(T *)' ([over.built]/8; 1.6.1): `+[](int x) { ... }' is the closure's pointer to its function
 cpp_scalar_conv(E, E1) :- cpp_class_of_type_of(E, C), cpp_arith_conv_result(C, RCT), cpp_conv_to(E, RCT, E1), E1 \== E.
 cpp_arith_conv_result(C, RCT) :- cpp_class(C, cls(_, _, Ms, _, _, _)), member(method(_, Qs, _, operator(conv(CT0)), [], _, _), Ms), \+ cpp_is_explicit(C, Qs),
     cpp_in_class(C, cpp_type_or_self(CT0, CT)), ccl_resolve_type(CT, RCT), ccl_is_arith(RCT), !.
 cpp_arith_conv_result(C, RCT) :- cpp_base_scope(C, B), cpp_arith_conv_result(B, RCT).
+cpp_ptr_conv_result(C, RCT) :- cpp_class(C, cls(_, _, Ms, _, _, _)), member(method(_, Qs, _, operator(conv(CT0)), [], _, _), Ms), \+ cpp_is_explicit(C, Qs),
+    cpp_in_class(C, cpp_type_or_self(CT0, CT)), ccl_resolve_type(CT, RCT), RCT = ptr(_, _), !.
+cpp_ptr_conv_result(C, RCT) :- cpp_base_scope(C, B), cpp_ptr_conv_result(B, RCT).
+%% C++'S `+p' OVER A POINTER, AN ARRAY OR A FUNCTION IS THE POINTER'S VALUE ([expr.unary.op]/7, [conv.array], [conv.func];
+%% 1.6.1): a cast to the pointer's own type, which the check sees through as it sees through any cast -- `int *q = +p;'
+%% was `plain pointer not consumed' -- and which the lowering lowers, where it refuses `+' over a pointer as C does
+cpp_pos_pointer(pos(X), cast(PT, X)) :- cpp_arg_type(X, T), T \== unknown, ccl_unref(T, T1), catch(ccl_resolve_type(T1, R), _, fail),
+    ( R = ptr(_, P) -> PT = ptr([], P) ; R = arr(_, P) -> PT = ptr([], P) ; R = fn(_, _, _) -> PT = ptr([], R) ), !.
+cpp_pos_pointer(E, E).
 %% AN OPERAND OF ENUMERATION TYPE takes a free operator too ([over.match.oper]/1: a class OR AN ENUMERATION operand):
 %% `bool operator==(E, E)' written by the program is what `==' on two E means, and libc++'s std::find over such an enum
 %% compares through it -- the form stayed the built-in comparison, which found the wrong element (0.112;
@@ -1685,7 +1698,13 @@ cpp_free_operator_call(Op, A, Args, E) :-
     length(Args, N2), N3 is N2 + 1, length(Qs, N3), cpp_free_operator(Op, Qs, Name),
     (   catch(cpp_call(none, id(Name), [A|Args], E0), error(not_lowered(W), H), ( W = instance_refused(_, _) -> throw(error(not_lowered(W), H)) ; cpp_trace(free_op_refused(Name, W)), fail ))   % a held candidate's body refused: the refusal, never the plain form
     ->  true ; cpp_trace(free_op_none(Name)), fail ),
-    ( E0 = call(id(F0), _), ccl_declared(F0, fn(_, _, _)) -> E = E0 ; cpp_trace(free_op_undeclared(Name, E0)), fail ).
+    ( E0 = call(id(F0), _), ccl_declared(F0, fn(_, Ps, _)) -> true ; cpp_trace(free_op_undeclared(Name, E0)), fail ),
+    ( Args == [], \+ catch(cpp_args_fit(Ps, [A]), error(not_lowered(_), _), fail) -> cpp_trace(free_op_unfit(Name, F0)), fail ; E = E0 ).
+%% ... A UNARY ONE WHOSE PARAMETER TAKES THE OPERAND, or none ([over.match.viable]/3; 1.6.1): the call's road takes a lone
+%% candidate by its count alone, so `-m' over a class with `operator double()', beside a free `W operator-(W)', called it
+%% and was refused, `no conversion from 'M' to 'W'', and `+m' beside `int operator+(E)' over a scoped enum gave the enum's
+%% operator over the double made an enum; the built-in operator over the conversion's value is the road after this one.
+%% The binary ones are taken as before (Not done)
 %% a member operator takes its arguments EXACTLY: every parameter after `this' the argument's own type (cpp_arg_exact)
 cpp_member_exact(Name, Args) :- ccl_declared(Name, fn(_, [_|Ps], _)), cpp_args_exact(Ps, Args).
 %% ... THE FREE ONE WHERE IT FITS AT LEAST AS WELL, scored as the plain overloads are (0.127): before the promotions ranked, a member

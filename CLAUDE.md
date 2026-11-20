@@ -12,8 +12,8 @@ the fixture that gates it, and why. The bullet ends with the version that made t
 edits the rule in `RULES.md`, in its topic, and writes its entry in `HISTORY.md`. Read the topic of `RULES.md` that
 covers the code before the code is changed.
 
-At 1.5.0 the versions are: the module 1.5.0 (`ccl_p_version` in `module/cicilang.cicili`, `bin/cicilang --version`),
-the reader 202 (`ccl_reader_version/1`, `library/ccl_syntax.pl`) and the lowering 174 (`ccl_lowering_version/1`,
+At 1.6.1 the versions are: the module 1.6.1 (`ccl_p_version` in `module/cicilang.cicili`, `bin/cicilang --version`),
+the reader 202 (`ccl_reader_version/1`, `library/ccl_syntax.pl`) and the lowering 175 (`ccl_lowering_version/1`,
 `library/ccl_ir.pl`).
 
 Build and prove, always in this order (or all of it, `sh test/gates.sh`):
@@ -454,6 +454,8 @@ library/ccllib/             ccllib, the standard library of cicilang's C (CCLLIB
                               with bases and chars_format; a result holds pos, the offset, where C++ holds ptr
   atomic.pl, atomic.pl.h      std::atomic<T> and std::atomic_flag over clang's atomic builtins (1.5.0): load, store,
                               exchange, fetch_add and the rest, compare_exchange_strong, all seq_cst
+  mutex.pl, mutex.pl.h        std::mutex, lock_guard, unique_lock, barrier and latch over POSIX's pthreads (1.6.0):
+                              `mutex<>' initialized at its first lock, a guard born from a mutex's address
   ccllib.pl                   what two modules need, written once (0.275): a module loads it by a directive, and no
                               program includes it; the refusal of an element with a pointer, the lists' sort (0.277),
                               the lines of a text by their conditions (0.283), an index in a function's name
@@ -580,7 +582,8 @@ test/c/run/                 C programs built and run: NAME.c, NAME.expect, NAME.
                             #include inside an item, its file's text in place, and the tables beside it (0.310);
                             declorder.c, names used where a declaration of them is in scope, beside later
                             declarations of the same names, with declorder.h, and textorder.c over textorder.pl, a
-                            macro's C text whose functions call one another in any order (1.1.2)
+                            macro's C text whose functions call one another in any order (1.1.2); operands.c, the
+                            operands that C's operators take, and the forms beside them that C refuses not (1.6.1)
 test/c/safe/                C programs the safe part refuses: NAME.c, NAME.expect; dropnone.pl, the macro file of
                             drop_leaks.c (0.262); borrow_after_grow.c, borrow_after_push.c, elem_after_push.c,
                             grow_through_ptr.c, const_replace.c and const_local.c, the safety rules of 0.265;
@@ -636,7 +639,9 @@ test/cpp/run/               C++ programs built and run: NAME.cpp, .expect, .flag
                             borrowptrok.cpp, what the rules of 0.303 keep through a pointer and a reference (0.303);
                             staticscoped.cpp, a namespace's own array and a class's static own array member, their
                             elements taken by move() (0.307); inplace.cpp over inplace_ns.h, an #include inside a
-                            namespace's braces, its file's text in place, and in a linkage specification's (0.310)
+                            namespace's braces, its file's text in place, and in a linkage specification's (0.310);
+                            unaryplus.cpp and unarypluslambda.cpp, C++'s unary + (1.6.1); autoptrdiff.cpp, a pointer
+                            plus an auto difference of two pointers, libc++ 22's __to_buffer (1.6.1)
 test/ccllib/                the three runs' programs: NAME.c, a ccllib program; NAME.cpp, its twin over std::;
                             NAME.expect, what the twin prints; NAME.count, the count of the run that the costs time;
                             first.c over first.pl, the first proof after phase 0 (0.273); vector.c, the whole
@@ -655,7 +660,7 @@ test/ccllib/                the three runs' programs: NAME.c, a ccllib program; 
                             <algorithm.pl>, <numeric.pl>, <limits.pl>, <complex.pl>, <random.pl>, <ratio.pl> and
                             <chrono.pl> (1.2.0); iostreams.c, of <iostream.pl>, <iomanip.pl>, <fstream.pl> and
                             <stringstream.pl> (1.3.0); charconv.c, of <charconv.pl> (1.4.0); atomic.c, of
-                            <atomic.pl> (1.5.0)
+                            <atomic.pl> (1.5.0); mutex.c, of <mutex.pl> (1.6.0)
 test/ccllib/safe/           ccllib programs that the safe part refuses, as C and as C++: NAME.c, NAME.expect, and
                             NAME.expect.cpp where C++ has words of its own (0.274); borrow_into_call_vector.c and
                             string_self_c_str.c, a borrow handed to a call that may replace its owner (0.293);
@@ -673,7 +678,9 @@ test/ccllib/safe/           ccllib programs that the safe part refuses, as C and
                             unique_ptr may not hold or be made of, its borrows, its moves and its release (0.309);
                             shared_ptr_*.c and make_shared_*.c, the same of a shared_ptr (1.1.3); hash_float.c and
                             hash_struct.c, the types that hash refuses (1.1.4); any_of_pointer.c, any_of_array.c,
-                            weak_ptr_of_pointer.c and weak_ptr_two_types.c (1.1.5)
+                            weak_ptr_of_pointer.c and weak_ptr_two_types.c (1.1.5); algorithm_view_sort.c (1.2.0),
+                            iostream_no_word.c (1.3.0), charconv_rvalue.c (1.4.0), atomic_of_struct.c (1.5.0) and
+                            mutex_of_int.c (1.6.0)
 test/ccllib/alone/          ccllib programs with no twin, built as C and as C++ (0.281): NAME.c, NAME.expect;
                             stops.c, what stops a ccllib program, each case in a child of its own; tree_rules.c,
                             the rules of the tree of a set and a map, read from the instance's own fields;

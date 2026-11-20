@@ -4411,8 +4411,17 @@ unless a path is given. (0.33, 0.41, 0.79, 0.82, 0.223)
   road finds wins: `cout << "hello"`. A class or struct operand that no road answers refuses `no_operator(Op)`,
   except under `!`, `&&` and `||`, which convert contextually afterwards. Else the plain form stays. (0.94, 0.112)
 - A unary operator on a class goes to its operator through `cpp_operator/5`: `deref`, `preinc`, `predec`, `postinc`,
-  `postdec` (a postfix one passes `int(0)`), `not`, `neg`, `bitnot`. Why: libc++'s `addressof(*__first)`.
-  `unaryops.cpp`. (0.47)
+  `postdec` (a postfix one passes `int(0)`), `not`, `neg`, `pos` (1.6.1), `bitnot`. Why: libc++'s
+  `addressof(*__first)`. `unaryops.cpp`. (0.47, 1.6.1)
+- **C++'S UNARY `+`** (1.6.1; [expr.unary.op]/7, [over.match.oper]/2, [over.built]/8 and /9; `cpp_expr/3`'s `pos`
+  clause, `cpp_builtin_via_conv/4`, `cpp_ptr_conv_result/2`, `cpp_pos_pointer/2`): `+x` over a class is its
+  operator's call, a member's or a free one's; else the built-in `+` over the class's conversion -- to an arithmetic
+  type, its value promoted, or to a pointer, the pointer: `+[](int y) { ... }` is the closure's pointer to its
+  function --; and `+p` over a pointer, an array or a function is a cast to the pointer's type, which the safe part
+  sees through and the lowering lowers. Through 1.6.0 the form was its operand: `+v` over a class whose `operator+()`
+  gives another value gave v itself with no word, a free `operator+(W)` was never called, `int *q = +p;` was refused,
+  `plain pointer not consumed`, and `auto k = +[](int y) { ... };` was refused, `auto(k)`. libc++ 22's `chrono::abs`
+  returns `__d >= __d.zero() ? +__d : -__d`. `unaryplus.cpp`, `unarypluslambda.cpp`. (1.6.1)
 - `x->m` on a class object goes through its `operator->`, again until a pointer (`cpp_arrow_object`):
   `__h->__get_value()` on a `unique_ptr`. (0.79)
 - An operator function's result type is resolved at its declaration and emission, as a plain function's is
@@ -5143,7 +5152,11 @@ unless a path is given. (0.33, 0.41, 0.79, 0.82, 0.223)
   pointer, a function pointer only of an agreeing type (0.112), the same class for a class; it is found in the bases
   too (`cpp_conv_member`). A reference target is looked through with its top-level qualifiers (`cpp_conv_target`):
   the reference binds the operator's prvalue ([over.ics.user], [dcl.init.ref]/5). `convref.cpp`, `std::string_view
-  v = s;`. (0.79, 0.90, 0.112)
+  v = s;`. AN ENUMERATION TAKES AN ARITHMETIC RESULT OF ITS OWN TYPE ALONE, AND A SCOPED ENUMERATION'S RESULT FITS NO
+  OTHER TYPE (1.6.1; [conv.integral]/1 converts to an integer type, never to an enumeration; [dcl.enum]/10;
+  `cpp_conv_arith_fits/2`): `operator double()` fitted a parameter of a scoped enum, so `+m` beside a free `int
+  operator+(E)` called it over the double made an E, 20 where clang++ gives 2.5 (`unaryplus.cpp`). (0.79, 0.90, 0.112,
+  1.6.1)
 - A conversion function that yields a REFERENCE is a candidate for the referent's type ([over.match.ref]/1.1;
   `cpp_conv_result_type/2` in `cpp_conv_member_/6`): libc++'s `reference_wrapper<T>::operator T &()` where a `T &`, a
   `T` or a base of T is wanted. The result's reference was kept, and neither `cpp_bare_type/2` nor `cpp_conv_fits/2`
@@ -7253,6 +7266,12 @@ is in `test/cpp/run/`.
 - A free operator serves a class, plain struct or union on either side (`cpp_op_operand/1`) through the free road, and
   counts only where its callee comes back DECLARED; a held template's body refusal propagates. Why: `s == "abc"`,
   `"amy" < s`, a program's `operator<(const S &, const S &)`. (0.67, 0.80, 0.92)
+- **A FREE UNARY OPERATOR IS TAKEN ONLY WHERE ITS PARAMETER TAKES THE OPERAND** (1.6.1; [over.match.viable]/3;
+  `cpp_free_operator_call/4` over `cpp_args_fit/2`): the call's road takes a lone candidate by its count alone, the
+  free functions' last resort, so `-m` over a class with `operator double()`, beside a free `W operator-(W)`, called
+  it and was refused, `no conversion from 'M' to 'W'`, where clang++ gives -2.5. The built-in operator over the
+  conversion's value is the road after this one (`cpp_builtin_via_conv/4`). A binary one is taken as before (Not
+  done). `unaryplus.cpp`. (1.6.1)
 - The plain overload roads (`cpp_fn_exact/4`, `cpp_fn_best/4`) and the argument pass (`cpp_ref_args/3`, which reads the
   table's ONE type of a name) take no signature whose parameter types name free template parameters (`cpp_raw_params/1`,
   0.136): a template's raw signature among a name's noted overloads is the template's to deduce; resolved, it
@@ -12308,7 +12327,7 @@ in the first topic (The ccllib gate).
   A'`, `no conversion from 'struct A' to 'long'`. Two instances of one type macro are two types: `a & b` over a
   `bitset<8>` and a `bitset<12>` met it, and `b == 5` over a bitset is refused by the same words. A UNARY `-` OR `~`
   OVER A RECORD (C17 6.5.3.3/1) is `invalid argument type 'struct P' to unary expression`, clang's words
-  (`ir_unary_operand/2`; it was `sub nsw %struct.P 0, ...`). A FLOATING VALUE WHERE A POINTER IS NEEDED, AND A POINTER
+  (`ir_unary_operand/3` since 1.6.1; it was `sub nsw %struct.P 0, ...`). A FLOATING VALUE WHERE A POINTER IS NEEDED, AND A POINTER
   WHERE A FLOATING VALUE IS (0.288; C17 6.5.4/4), by an argument, an assignment or a cast, are refused by the same
   words, `no conversion from 'double' to 'const char *'`: `fptoui double ... to ptr` and `uitofp ptr ... to double` went
   to LLVM's parser (a clause of `ir_convert/6` after the records'). A struct with no tag, which a typedef names, is
@@ -12348,6 +12367,39 @@ in the first topic (The ccllib gate).
   `double`, has been refused since 0.288. A `const int` zero is no null pointer constant in C and is refused, as clang
   refuses it. An `enum`'s type is spelled `enum e` (`ck_c_spec_text/2`), where its term was. C alone. The driver gate
   holds seven forms. Lowering 169. (0.302)
+- **THE OPERANDS THAT AN OPERATOR TAKES** (1.6.1; C17 6.5.3.3/1, 6.5.5/2, 6.5.6/2 and /3, 6.5.7/2, 6.5.10/2 to
+  6.5.12/2; `ir_binary_operands/7` in `ir_binary/9` and `ir_assign_new/8`, `ir_unary_operand/3`): `*` and `/` take
+  arithmetic operands; `%`, `<<`, `>>`, `&`, `^` and `|` integer ones; `+` two arithmetic ones, or a pointer and an
+  integer; `-` those, a pointer less an integer, and two pointers to compatible types, their qualifiers aside
+  (`ck_same_type/2`); unary `-` and `+` an arithmetic one, `~` an integer one. Another operand is refused in clang's
+  words at the operator's line: `invalid operands to binary expression ('int' and 'const char *')`, `'int *' and 'char
+  *' are not pointers to compatible types`, `invalid argument type 'int *' to unary expression`; a compound assignment
+  by its two sides' types, a binary expression's array operand by its own type, `'int[3]'` (`ir_operand_shown/3`). An
+  operand's kind is its LLVM type's (`ir_operand_kind/3`), a decimal's its C type's; a vector's operands are its own
+  rules' (0.162), and an operand of a kind not named here (a complex value's pair) is not asked. A pointer to a
+  function plus an integer builds, as clang takes it (GNU's arithmetic). Unary `+` gives the promoted operand
+  (6.5.3.3/2), the type that `ccl_type_of/2` gives it. THE BINARY PAIRS ARE ASKED IN C ALONE: a type that C++'s
+  desugaring gives is not always the program's (Not done), and libc++ 22's `__to_buffer` adds to a pointer an `auto`
+  that the reader types as one -- asked in C++, the rule refused programs over `<format>` that clang++ builds
+  (`autoptrdiff.cpp`). The unary rules hold in C++ too, where `+` brings no class and no pointer to the lowering (the
+  Classes topic's operators). Through 1.6.0 each form was lowered over the operands' bits with no word: `1 << s` over a
+  `const char *` shifted by the pointer, `p * 2` multiplied an address, and `cout << "a" << 1 << endl` -- whose first
+  `<<` gives an int -- shifted that int by `endl`. The driver gate holds 31 forms; `test/c/run/operands.c` the forms
+  that C takes. Lowering 175. (1.6.1)
+- **A RECORD WHERE C TAKES A SCALAR** (1.6.1, the forms beside; C17 6.5.3.3/1, 6.5.13/2, 6.5.14/2, 6.5.15/2, 6.8.4.1/1,
+  6.8.5/2, 6.5.2.4/1; `ir_scalar_expr/2`, `ir_scalar_pair/2`, `ir_step/6`): a struct or a union after `!`, beside `&&`
+  or `||`, as the condition of `?:`, `if`, `while`, `do` or `for`, and under `++` or `--` is refused in clang's words:
+  `invalid argument type 'struct P' to unary expression`, `invalid operands to binary expression ('struct P' and
+  'int')`, `used type 'struct P' where arithmetic or pointer type is required`, `statement requires expression of
+  scalar type ('struct P' invalid)`, `cannot increment value of type 'struct P'`. Through 1.6.0 each was `icmp ne
+  %struct.P ..., 0` or `add nsw %struct.P ..., 1`, which LLVM's parser refused in its own words with no line. C alone:
+  a C++ class reaches a condition through its `operator bool`, which the desugaring calls. The driver gate holds 12
+  forms. (1.6.1)
+- **A TYPE IN A MESSAGE IS SPELLED AS CLANG'S TYPE PRINTER SPELLS IT** (1.6.1; `ck_c_type_text/2` over
+  `ck_c_decl_text/4`): its base, then its declarator read from the type outward -- `int **`, `int *const`, `int[3]`,
+  `int *[2]`, `int (*)[2]`, `void (*)(void)`, `int (*)(int, ...)`, `int (*)()` with no prototype --, a declarator that
+  opens with `[` taking no space after the base. Through 1.6.0 `int **` was `int * *`, and an array or a function was
+  its term. (1.6.1)
 
 - **A NAME THAT NOTHING DECLARES IS REFUSED IN CLANG'S WORDS IN C** (1.1.2; C17 6.5.1/2; `ir_undeclared/1`, the clause
   of `ir_call/4` for a name that no lookup finds, `dr_call_text/2`): a call is `call to undeclared function 'nowhere';
@@ -15590,6 +15642,18 @@ Declarations topic of the C++ reader).
   words -- `not lowered yet: call(id(t))`, or LLVM's `redefinition of function '@t'` --, where clang++ refuses each with
   `redefinition of 't' as different kind of symbol`: the reader's file scope in C++ holds the overloads and the
   namespaces' names flattened, so C's test (the C reader's topic of the symbol table) is not asked there.
+- THE OPERANDS OF C++'S BINARY OPERATORS ARE NOT ASKED (1.6.1): the pairs that C refuses in clang's words (the
+  lowering's topic) build in C++ over the operands' bits, as through 1.6.0, since a type that the desugaring gives is
+  not always the program's. The reader types `auto d = p - f()`, whose f's result is `auto`, as p's pointer --
+  `ccl_type_of/2` takes `p - x` for a pointer where x's type is not known -- and libc++ 22's `__to_buffer` writes
+  `auto __diff = __r.ptr - std::to_address(__first); return __first + __diff;`: asked, the rule refused programs over
+  `<format>` that 1.6.0 built, and that print clang++'s lines because the lowering adds the second pointer's bits, the
+  difference that they hold. A rule over the inference's type, `p - x` of no known type where x's is not known, did not
+  cure the reduction and broke another program (HISTORY.md's 1.6.1). `autoptrdiff.cpp` holds the form.
+- A BINARY FREE OPERATOR IS TAKEN BY ITS COUNT ALONE (1.6.1's probes): `M{} * 2.0` over a class with `operator
+  double()`, beside a free `W operator*(W, W)`, is refused `no conversion from 'M' to 'W'`, where clang++ gives 5.0; a
+  unary one asks its fit since 1.6.1 (the overload topic). The rule for the binary ones changes the road that every
+  program's operators take, so a step of its own measures it alone.
 
 ### libc++ modules
 

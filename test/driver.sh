@@ -268,6 +268,57 @@ nodecl6.c:3: error: use of undeclared identifier 'nowhere'"
 check "a unit so refused is not kept: a second build is refused again, and the file put right builds and runs (1.1.2)" "$(printf 'int g0;\nstatic int f(void) { return later(2); }\nstatic int later(int a) { return a; }\nint main(void) { return f(); }\n' > undeclkb.c; "$CICILI" -c undeclkb.c -o undeclkb.o 2>&1 | head -1; "$CICILI" -c undeclkb.c -o undeclkb.o 2>&1 | head -1; sleep 1; printf 'int g0;\nstatic int later(int a);\nstatic int f(void) { return later(2); }\nstatic int later(int a) { return a; }\nint main(void) { return f(); }\n' > undeclkb.c; "$CICILI" undeclkb.c -o undeclkb && ./undeclkb; echo "exit $?")" "undeclkb.c:2: error: call to undeclared function 'later'; ISO C99 and later do not support implicit function declarations
 undeclkb.c:2: error: call to undeclared function 'later'; ISO C99 and later do not support implicit function declarations
 exit 2"
+# THE OPERANDS THAT AN OPERATOR TAKES (1.6.1; C17 6.5.3.3/1, 6.5.5/2, 6.5.6/2 and /3, 6.5.7/2, 6.5.10/2 to 6.5.12/2): each
+# form that C refuses is refused in clang's words at its line -- a pointer, a floating value, a record or an array where
+# an operator takes an integer or an arithmetic value, two pointers added, an integer less a pointer, two pointers to
+# incompatible types subtracted, the compound assignments of the same pairs, and `-', `+' and `~' over a pointer and `~'
+# over a floating value. Through 1.6.0 each was lowered over the operands' bits with no word
+ops_pre='struct P { int x; };\nint main(void) { int k = 3, a[3] = { 1, 2, 3 }; double d = 2.5; char c = 1; const char *s = "x"; int *p = &k, *q = &k; char *r = 0; struct P sp = { 1 }; void (*fp)(void) = 0;'
+check "an operator over operands that C refuses is refused in clang's words at the line of the operator (1.6.1): a shift by a pointer, a pointer in a shift, a product, a quotient, a remainder and a bit operation, two pointers added, an integer less a pointer, two pointers to incompatible types subtracted, a pointer and a double, a double in a remainder, a shift and a bit operation, a unary -, ~ and + over a pointer, ~ over a double, the compound assignments, an array, a char shifted by a pointer, a function pointer and a struct" "$(n=0; for body in 'int x = 1 << s;' 'long x = (long)(p << 1);' 'long x = (long)(p >> k);' 'long x = (long)(p * 2);' 'long x = (long)(2 * p);' 'long x = (long)(p / 2);' 'long x = (long)(p % 2);' 'long x = (long)(p & 1);' 'long x = (long)(p | 1);' 'long x = (long)(p ^ 1);' 'long x = (long)(p + q);' 'long x = (long)(1 - p);' 'long x = (long)(p - r);' 'long x = (long)(p + d);' 'double x = d % 2;' 'double x = d << 1;' 'int x = 1 & d;' 'long x = (long)-p;' 'long x = (long)~p;' 'double x = ~d;' 'long x = (long)+p;' 'p *= 2;' 'p <<= 1;' 'p += q;' 'p -= d;' 'long x = (long)(a * 2);' 'long x = (long)(a % 2);' 'long x = (long)(c << s);' 'long x = (long)(fp * 2);' 'int x = sp * 2;' 'int x = sp + 1;'; do n=$((n + 1)); printf '%b\n    %s\n    return 0; }\n' "$ops_pre" "$body" > ops$n.c; "$CICILI" -std=c17 -fsyntax-only ops$n.c 2>&1 | head -1; done)" "ops1.c:3: error: invalid operands to binary expression ('int' and 'const char *')
+ops2.c:3: error: invalid operands to binary expression ('int *' and 'int')
+ops3.c:3: error: invalid operands to binary expression ('int *' and 'int')
+ops4.c:3: error: invalid operands to binary expression ('int *' and 'int')
+ops5.c:3: error: invalid operands to binary expression ('int' and 'int *')
+ops6.c:3: error: invalid operands to binary expression ('int *' and 'int')
+ops7.c:3: error: invalid operands to binary expression ('int *' and 'int')
+ops8.c:3: error: invalid operands to binary expression ('int *' and 'int')
+ops9.c:3: error: invalid operands to binary expression ('int *' and 'int')
+ops10.c:3: error: invalid operands to binary expression ('int *' and 'int')
+ops11.c:3: error: invalid operands to binary expression ('int *' and 'int *')
+ops12.c:3: error: invalid operands to binary expression ('int' and 'int *')
+ops13.c:3: error: 'int *' and 'char *' are not pointers to compatible types
+ops14.c:3: error: invalid operands to binary expression ('int *' and 'double')
+ops15.c:3: error: invalid operands to binary expression ('double' and 'int')
+ops16.c:3: error: invalid operands to binary expression ('double' and 'int')
+ops17.c:3: error: invalid operands to binary expression ('int' and 'double')
+ops18.c:3: error: invalid argument type 'int *' to unary expression
+ops19.c:3: error: invalid argument type 'int *' to unary expression
+ops20.c:3: error: invalid argument type 'double' to unary expression
+ops21.c:3: error: invalid argument type 'int *' to unary expression
+ops22.c:3: error: invalid operands to binary expression ('int *' and 'int')
+ops23.c:3: error: invalid operands to binary expression ('int *' and 'int')
+ops24.c:3: error: invalid operands to binary expression ('int *' and 'int *')
+ops25.c:3: error: invalid operands to binary expression ('int *' and 'double')
+ops26.c:3: error: invalid operands to binary expression ('int[3]' and 'int')
+ops27.c:3: error: invalid operands to binary expression ('int[3]' and 'int')
+ops28.c:3: error: invalid operands to binary expression ('char' and 'const char *')
+ops29.c:3: error: invalid operands to binary expression ('void (*)(void)' and 'int')
+ops30.c:3: error: invalid operands to binary expression ('struct P' and 'int')
+ops31.c:3: error: invalid operands to binary expression ('struct P' and 'int')"
+check "a struct or a union where C takes a scalar is refused in clang's words at its line (1.6.1, the forms beside): after !, beside && and ||, as the condition of ?:, if, while, do and for, under ++ and --, and under a unary -" "$(n=0; for body in 'int x = !sp;' 'int x = sp ? 1 : 0;' 'sp++;' 'int x = sp && 1;' 'int x = 1 || sp;' 'if (sp) return 1;' 'while (sp) { }' 'do { } while (sp);' 'for (; sp; ) { }' '--sp;' 'union U { int i; } u = { 1 }; if (u) return 1;' 'int x = -sp;'; do n=$((n + 1)); printf '%b\n    %s\n    return 0; }\n' "$ops_pre" "$body" > opr$n.c; "$CICILI" -std=c17 -fsyntax-only opr$n.c 2>&1 | head -1; done)" "opr1.c:3: error: invalid argument type 'struct P' to unary expression
+opr2.c:3: error: used type 'struct P' where arithmetic or pointer type is required
+opr3.c:3: error: cannot increment value of type 'struct P'
+opr4.c:3: error: invalid operands to binary expression ('struct P' and 'int')
+opr5.c:3: error: invalid operands to binary expression ('int' and 'struct P')
+opr6.c:3: error: statement requires expression of scalar type ('struct P' invalid)
+opr7.c:3: error: statement requires expression of scalar type ('struct P' invalid)
+opr8.c:3: error: statement requires expression of scalar type ('struct P' invalid)
+opr9.c:3: error: statement requires expression of scalar type ('struct P' invalid)
+opr10.c:3: error: cannot decrement value of type 'struct P'
+opr11.c:3: error: statement requires expression of scalar type ('union U' invalid)
+opr12.c:3: error: invalid argument type 'struct P' to unary expression"
+# ... and C's alone: C++'s pairs are not asked (ir_binary_operands/7), since a type that the desugaring gives is not
+# always the program's -- test/cpp/run/autoptrdiff.cpp holds libc++ 22's form, and unaryplus.cpp C++'s `+'
 # THE AMBITIOUS PROGRAM'S FINDINGS (0.290): a macro file's header under a relative -I with the program in another directory; an
 # output file whose directory is not there; a header that was not read to its end, and a file that an #include of the program
 # does not find, named under the build's error

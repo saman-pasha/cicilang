@@ -324,7 +324,12 @@ dr_diag(F, ownership(Kind, N, Form), where(Fn, line(L))) :- !, dr_kind(Kind, Tex
 dr_diag(F, not_lowered(deleted_call(K, N, Why)), where(_, line(L))) :- !, dr_deleted_text(K, N, T0),   % A CALL OF A DELETED FUNCTION (0.257), in clang's words, its reason after
     ( Why == none -> T = T0 ; atomic_list_concat([T0, ': ', Why], T) ), dr_error(F, L, [T]).
 dr_diag(F, not_lowered(no_conversion(From, To)), where(_, line(L))) :- !, dr_error(F, L, ['no conversion from ''', From, ''' to ''', To, '''']).   % A RECORD WHERE ANOTHER TYPE IS NEEDED (0.286, ir_no_conversion/2): the program's error, no form that is not done
-dr_diag(F, not_lowered(unary_operand(T)), where(_, line(L))) :- !, dr_error(F, L, ['invalid argument type ''', T, ''' to unary expression']).   % a unary `-' or `~' over a record, in clang's words (0.286, ir_unary_operand/2)
+dr_diag(F, not_lowered(unary_operand(T)), where(_, line(L))) :- !, dr_error(F, L, ['invalid argument type ''', T, ''' to unary expression']).   % a unary `-' or `~' over a record, in clang's words (0.286), and `-', `+' or `~' over a pointer and `~' over a floating value (1.6.1, ir_unary_operand/3)
+dr_diag(F, not_lowered(binary_operands(A, B)), where(_, line(L))) :- !, dr_error(F, L, ['invalid operands to binary expression (''', A, ''' and ''', B, ''')']).   % THE OPERANDS THAT AN OPERATOR DOES NOT TAKE (1.6.1, ir_binary_operands/5), in clang's words
+dr_diag(F, not_lowered(scalar_required(A)), where(_, line(L))) :- !, dr_error(F, L, ['used type ''', A, ''' where arithmetic or pointer type is required']).   % a record as the condition of `?:' (1.6.1, ir_scalar_expr/2)
+dr_diag(F, not_lowered(scalar_statement(A)), where(_, line(L))) :- !, dr_error(F, L, ['statement requires expression of scalar type (''', A, ''' invalid)']).   % a record as the condition of if, while, do or for (1.6.1)
+dr_diag(F, not_lowered(step_record(Op, A)), where(_, line(L))) :- !, ( Op == add -> W = increment ; W = decrement ), dr_error(F, L, ['cannot ', W, ' value of type ''', A, '''']).   % `++' or `--' over a record (1.6.1)
+dr_diag(F, not_lowered(incompatible_pointers(A, B)), where(_, line(L))) :- !, dr_error(F, L, ['''', A, ''' and ''', B, ''' are not pointers to compatible types']).   % two pointers subtracted whose targets differ (1.6.1)
 %% AN INITIALIZER THAT GIVES MORE THAN ITS OBJECT HOLDS (0.302, ir_init_refuse/1), in clang's words: a C program's warnings
 %% and a C++ program's errors, and the text of C++'s literal its own
 dr_diag(F, not_lowered(excess_elements(K)), where(_, line(L))) :- !, dr_error(F, L, ['excess elements in ', K, ' initializer']).

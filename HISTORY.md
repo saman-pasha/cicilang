@@ -315,8 +315,9 @@ One row per step, in version order: the step's title, what it did and its gate n
 | 1.3.0 | ccllib phase 1d: the iostreams | `<iostream>`, `<ostream>`, `<istream>`, `<fstream>`, `<stringstream>` and `<iomanip>`: `cout`, `cin`, `cerr`, `endl`, `<<` and `>>` through the reader's operator, the manipulators as functions of the stream, a file stream and a buffer stream, over C's stdio | `iostreams.c`, its twin and `safe/iostream_no_word.c`; the three runs agree; the flow gate; no chain, by the owner's rule of 0.271 |
 | 1.3.1 | the iostreams' operator functions are `write_` and `read_` | the owner's request: every `shl_*`/`shr_*` function of the iostream implementation is `write_*`/`read_*`; the reader asks its own shift words first and then the second word's typed form, so a bitset's shifts are unchanged and `cout << x`, `cin >> x` find `_write_<word>` and `_read_<word>`; reader 202 | the iostreams program in the three runs; `safe/iostream_no_word.c`; the flow and ccllib gates |
 | 1.4.0 | ccllib phase 2 begins: `<charconv.pl>` | `to_chars` and `from_chars` for integers and floating numbers, with bases 2 to 36 and `chars_format`; a result holds `pos`, the offset of the first character not written or read, where C++ holds `ptr`, since the safe part will not return a stored borrow | `charconv.c`, its twin and `safe/charconv_rvalue.c`; the three runs agree; the flow and ccllib gates |
-| 1.6.0 | ccllib phase 2 continues: `<mutex.pl>` | `std::mutex`, `lock_guard`, `unique_lock`, `barrier` and `latch` over POSIX's pthreads: a mutex initialized on its first lock, guards born from a mutex's address, a latch's functions by address | `mutex.c`, its twin and `safe/mutex_of_int.c`; the three runs agree at C++23; the flow and ccllib gates |
 | 1.5.0 | ccllib phase 2 continues: `<atomic.pl>` | `std::atomic<T>` and `std::atomic_flag` over clang's atomic builtins: load, store, exchange, the fetch forms, compare_exchange_strong and weak, is_lock_free, test_and_set and clear, all seq_cst; a struct or a pointer-holding object is refused | `atomic.c`, its twin and `safe/atomic_of_struct.c`; the three runs agree; the flow and ccllib gates |
+| 1.6.0 | ccllib phase 2 continues: `<mutex.pl>` | `std::mutex`, `lock_guard`, `unique_lock`, `barrier` and `latch` over POSIX's pthreads: a mutex initialized on its first lock, guards born from a mutex's address, a latch's functions by address | `mutex.c`, its twin and `safe/mutex_of_int.c`; the three runs agree at C++23; the flow and ccllib gates |
+| 1.6.1 | the operands that C's operators take, in clang's words; C++'s unary `+` by its operator | the review of 1.1.3 to 1.6.0: `cout << "a" << 1 << endl` printed `a` alone, the C check taking `1 << s` over a pointer (C17 6.5.7/2): 31 pairs of the binary and unary operators refused in clang's words, the binary ones in C alone (libc++ 22's `__to_buffer`), a record where C takes a scalar in 12 forms, the C spelling of a type; C++'s `+x` its class's operator, its conversion's value or its pointer's value, a free unary operator only where it fits, an arithmetic conversion to an enumeration of its own type alone; the docs of 1.6.0 put right | the driver gate's 43 C forms, `operands.c`, `unaryplus.cpp`, `unarypluslambda.cpp`, `autoptrdiff.cpp`; 24 copies broken on purpose, each caught; the nets |
 
 ## M5 — the C++ mode
 
@@ -23112,18 +23113,6 @@ place to write.
 The module 1.4.0, the reader 202 and the lowering 174.
 
 
-## 1.6.0 — ccllib phase 2 continues: `<mutex.pl>`
-
-**1.6.0: `<mutex.pl>` gives `std::mutex`, `std::lock_guard`, `std::unique_lock`, `std::barrier` and `std::latch` over
-POSIX's pthreads.** A no-argument type macro is written with its empty list -- `mutex<> m;`, `latch<> l = 2L;` -- since
-the reader makes an instance only at the `name<...>` form; a bare `mutex m;` never invokes the macro and the lowering
-says `not lowered yet: typedef(mutex)`. A guard is born from the mutex's address (`lock_guard<mutex<> > g = &m;`) and
-keeps it as an integer, the safe part following no borrow stored in a struct's field; `mutex<>` is a struct of the
-pthread mutex and a flag, born zero and initialized on its first lock (Darwin's `PTHREAD_MUTEX_INITIALIZER` is no
-zero), and a latch's functions take its address. `test/ccllib/mutex.c`, its twin over `std::`, and the refusal
-`safe/mutex_of_int.c`; the C, C++ and C++23 runs print the twin's lines. `CCLLIB.md` (2c), `RULES.md`, `README.md`,
-`HISTORY.md`; `module/cicilang.cicili` (1.6.0).
-
 ## 1.5.0 — ccllib phase 2 continues: `<atomic.pl>`
 
 **1.5.0: `<atomic.pl>` gives `std::atomic<T>` and `std::atomic_flag` over clang's atomic builtins. `atomic<int> a;` is
@@ -23159,3 +23148,136 @@ builds and runs as C, as C++ by cicilang++, at the twin's C++23 level, and as it
   HISTORY.md, CLAUDE.md; `module/cicilang.cicili` (1.5.0).
 
 The module 1.5.0, the reader 202 and the lowering 174.
+
+## 1.6.0 — ccllib phase 2 continues: `<mutex.pl>`
+
+**1.6.0: `<mutex.pl>` gives `std::mutex`, `std::lock_guard`, `std::unique_lock`, `std::barrier` and `std::latch` over
+POSIX's pthreads.** A no-argument type macro is written with its empty list -- `mutex<> m;`, `latch<> l = 2L;` -- since
+the reader makes an instance only at the `name<...>` form; a bare `mutex m;` never invokes the macro and the lowering
+says `not lowered yet: typedef(mutex)`. A guard is born from the mutex's address (`lock_guard<mutex<> > g = &m;`) and
+keeps it as an integer, the safe part following no borrow stored in a struct's field; `mutex<>` is a struct of the
+pthread mutex and a flag, born zero and initialized on its first lock (Darwin's `PTHREAD_MUTEX_INITIALIZER` is no
+zero), and a latch's functions take its address. `test/ccllib/mutex.c`, its twin over `std::`, and the refusal
+`safe/mutex_of_int.c`; the C, C++ and C++23 runs print the twin's lines. `CCLLIB.md` (2c), `RULES.md`, `README.md`,
+`HISTORY.md`; `module/cicilang.cicili` (1.6.0).
+
+## 1.6.1 — the operands that C's operators take, in clang's words; C++'s unary `+` by its operator
+
+**1.6.1: the first step of the review of 1.1.3 to 1.6.0, the owner's "Fix them all". The review's tenth item:
+`cout << "a" << 1 << endl;` built and printed `a` alone. Its cause is older than the iostreams: the C check took an
+operator over operands that C refuses, and `(int) << endl` -- the first `<<`'s int shifted by a `const char *` --
+was lowered over the pointer's bits; clang refuses `1 << s` with `invalid operands to binary expression ('int' and
+'const char *')` (C17 6.5.7/2). Now each pair that C's binary operators refuse is refused in clang's words at the
+operator's line in C, and each operand that the unary ones refuse in C and in C++; a struct or a union where C takes a
+scalar is refused in clang's words, where LLVM's parser refused it with no line; a type in a message is spelled as
+clang spells it; C++'s unary `+` is its class's operator, its conversion's value or its pointer's value, where it was
+its operand; and the docs that 1.6.0 left are put right. The iostreams' chain itself is 1.6.3's.**
+
+THE FINDING, RUN FROM ITS REDUCTION. Over 1.6.0 on cocolog 3.65.0, `int x = 1 << s;` builds and prints 64, where clang
+refuses it. Thirty-eight forms beside it (`p161/forms`), each beside clang 22's words: a pointer in a shift, a product,
+a quotient, a remainder and each bit operation, on either side; two pointers added; an integer less a pointer; two
+pointers to incompatible types subtracted; a pointer and a `double`; a `double` in a remainder, a shift and a bit
+operation; unary `-`, `~` and `+` over a pointer and `~` over a `double`; the compound assignments of the same pairs;
+an array; a `char` shifted by a pointer; a function pointer; a struct. All built but the struct, which reached LLVM's
+parser. Eight forms beside those, a struct where C takes a scalar -- after `!`, beside `&&`, as `?:`'s, `if`'s and
+`while`'s condition, under `++` --, reached LLVM's parser too (`integer constant must have integer type`, no line), and
+`fp + 1` builds, as clang builds it (GNU's arithmetic of function pointers).
+
+THE CAUSE. The lowering's arithmetic (`ir_binary_v/10`) took any two operands through the usual conversions: a pointer
+was `ptrtoint`, a record a named type in an `add nsw`. Only a record under unary `-` and `~` was asked (0.286), and
+unary `+` passed its operand as it came.
+
+THE RULE. `ir_binary_operands/7` asks each pair before the arithmetic, in C, in the two places that lower one: a binary
+expression (`ir_binary/9`) and a compound assignment (`ir_assign_new/8`). An operand's kind is its LLVM type's
+(`ir_operand_kind/3`: a vector, a pointer, a floating value, a record, an integer, or another kind, which is not asked),
+a decimal's its C type's. `*` and `/` refuse a pointer; `%`, the shifts and the bit operations anything but integers;
+`+` two pointers and a pointer with a floating value; `-` an integer or a floating value less a pointer, a pointer less
+a floating value, and two pointers whose targets are not compatible, their qualifiers aside. A record is refused by
+every operator. The message shows a binary expression's array operand by its own type, as clang shows it
+(`ir_operand_shown/3`).
+`ir_unary_operand/3` takes the operator, in C and in C++: `-`, `+` and `~` refuse a pointer and a record, `~` a floating
+value; `+` gives its operand promoted, the type that the inference gives it. The forms beside: `ir_scalar_expr/2` asks
+the condition of `?:`, `if`, `while`, `do` and `for` and the operand of `!`, `ir_scalar_pair/2` the operands of `&&` and
+`||`, and `ir_step/6` the object of `++` and `--`, each by its C type, in C (a C++ class reaches a condition through its
+`operator bool`). The driver's words are clang's (`dr_diag/3`'s five new clauses). A type in a message is its base and
+its declarator read outward (`ck_c_decl_text/4`): `int **` was `int * *`, and an array or a function was its term.
+
+THE HEAVY NET, AND WHAT C++'S TYPES GIVE THE RULE. The step's first form asked the binary pairs in C++ too, and the
+heavy net over libc++ 22 failed sixteen of its 520 programs, each of which 1.6.0 built and ran as clang++ does.
+Thirteen over `<format>` were refused `invalid operands to binary expression ('char *' and 'char *')` -- fmtcheck,
+fmtchrono, fmtchrono2, fmtrange, fmttuple, formatton, int128fmt, stdformat, stdformatter, stdprint, stdvformat,
+stdwformat and xreadupper --, and the three that call `std::chrono::abs` -- stdchrono, usingchrono and usingnamed --
+`invalid argument type 'duration.long_long.ratio.1l.1000l' to unary expression`; each is refused so again by the broken
+copy that gives its rule back (`p161/heavyver.sh`), the first kind by `cguard`, the second by `cpppos`.
+The first kind: libc++ 22's `__to_buffer` writes `auto __diff = __r.ptr - std::to_address(__first); return __first +
+__diff;`, and the reader types `__diff` as `char *` -- `ccl_type_of/2` takes `p - x` for a pointer where x's type is not
+known, and `std::to_address`'s result is `auto` --, so `__first + __diff` was two pointers. 1.6.0 lowered it over the
+second pointer's bits, the difference that they hold, and printed clang++'s lines by that accident. A rule over the
+inference's type, `p - x` of no known type where x's is not known, did not cure the reduction (`p161/ad/autodiff.cpp`)
+and broke `fmtchrono.cpp` another way: so the binary pairs are asked in C alone, the inference's type is Not done, and
+`autoptrdiff.cpp` is the reduction. The second kind: libc++ 22's `chrono::abs` returns `__d >= __d.zero() ? +__d :
+-__d`; the desugaring took `-__d` to duration's `operator-` and gave `+__d` as it read it -- no clause of `cpp_expr/3`
+took `pos` --, so the record reached the lowering's `+`, which the step refused.
+
+C++'S UNARY `+`, THE FORMS BESIDE. Over 1.6.0, `+v` over a class whose `operator+()` gives `V{x + 100}` printed 5 where
+clang++ prints 105; a free `W operator+(W)` was never called (1 where clang++ prints 8); `int *q = +p;` was refused,
+`plain pointer not consumed`; `auto k = +[](int y) { ... };` was refused, `auto(k)`. `+x` is `cpp_operator/5`'s now, as
+`-x` is; the built-in `+` over a class's conversion takes an arithmetic conversion's value (`cpp_builtin_via_conv/4`) or
+a pointer conversion's ([over.built]/8: a closure's pointer to its function, `cpp_ptr_conv_result/2`); and `+p` over a
+pointer, an array or a function is a cast to the pointer's type (`cpp_pos_pointer/2`), which the safe part sees through
+as any cast, so the lowering refuses `+` over a pointer in both languages, where the step's first form exempted C++. Two
+faults of the overload road beside it: a free unary operator was taken by its count alone -- `-m` over `operator
+double()` beside `W operator-(W)` was refused `no conversion from 'M' to 'W'` over 1.6.0 too --, and is taken now only
+where its parameter takes the operand (`cpp_args_fit/2`); and a class's arithmetic conversion fitted an enumeration
+parameter -- `+m` beside `int operator+(E)` over a scoped E gave 20.0, the operator over the double made an E, where
+clang++ gives 2.5 --, and fits an enumeration of its own type alone now ([conv.integral]/1, [dcl.enum]/10;
+`cpp_conv_arith_fits/2`). A binary free operator is taken by its count still: `M{} * 2.0` beside `W operator*(W, W)` is
+refused as over 1.6.0, where clang++ gives 5.0 (Not done; a step of its own measures that rule, which the operators of
+every program take).
+
+WHAT WAS FOUND ON THE WAY. `cicilang++ -fsyntax-only` only reads, as M5 has it, so its success says nothing of these
+forms; the C++ ones are built. A probe over a HOME whose store kept a file's IR answers with that IR after a change of
+the library (the owner's rule of 0.282): the six struct forms said nothing over the probes' own HOME after the second
+edit, and their errors over a fresh one.
+
+THE PROOF. The driver gate's two checks: 31 forms as C, in clang 22's words at their lines; 12 forms of a record where
+C takes a scalar. `test/c/run/operands.c` -- a pointer difference, a pointer and an integer added either way and
+subtracted, a shift by a `char`, `!p`, `p && q`, `p < q`, a pointer's compound assignments, an integer's and a
+`double`'s, unary `+`, `-` and `~` over a `char` and their `sizeof`, a call through a function pointer -- prints what
+clang's build prints. `test/cpp/run/unaryplus.cpp` -- a member `operator+()`, a free one, a scoped enum's, a conversion
+to `double`, a template's `+t`, `+p`, `+arr`, `+twice`, `f(+ch)` beside `f(char)`, and `-m` beside a free `operator-(W)`
+--, `unarypluslambda.cpp` and `autoptrdiff.cpp` print clang++'s lines. TWENTY-FOUR COPIES BROKEN ON PURPOSE, a rule each (`p161/mk161b.py`), are each caught: sixteen of C's by the driver
+gate's checks -- the shifts' and bit operations' pair, the product's, the sum's, the difference's, the targets'
+compatibility, the record's, the array's own type, the array's spelling, the compound assignment's ask, a pointer under
+a unary operator, `~` over a `double`, `!`, `&&` and `||`, `?:`, the statements' conditions, `++` and `--` --; the
+binary pairs asked in C alone by `autoptrdiff.cpp`; and seven of C++'s `+` by `unaryplus.cpp` and
+`unarypluslambda.cpp` -- `cpp_expr/3`'s `pos` clause, the cast of a pointer and of a function, the arithmetic
+conversion's road and the pointer conversion's, the free unary operator's fit, and the enumeration's.
+
+THE DOCS OF 1.6.0 PUT RIGHT. CLAUDE.md named 1.5.0's versions at 1.6.0 and had no `mutex.pl`, `mutex.pl.h`,
+`test/ccllib/mutex.c` or `safe/mutex_of_int.c`, nor the safe programs of 1.2.0 to 1.5.0; HISTORY.md had 1.6.0's row and
+entry before 1.5.0's. Each is in its place.
+
+THE NETS, over the step's final code on cocolog 3.65.0, each under the caps and over a fresh HOME: the flow gate GREEN
+(349 s, 4572 MB); the reader gate 170 ok, 5 skipped; the compile gate 344 ok; the driver gate 93 ok; the objects gate 29
+ok; the ccllib gate 566 ok and the 5 FAIL of 1.6.0 -- `mutex.c`'s four, `phase1c` under valgrind --, which 1.6.4 and
+1.6.5 take; the C++ pools of the lighter run fixtures, 367 of 367 over libc++ 22, 21 and 18, the three new ones among
+them; every heavier C++ run fixture over libc++ 22, 506 ok and 14 skipped by their `.needs`, of 520; the C++ gate's
+later parts by hand, 218 ok. The chain did not run, by the owner's rule of 0.271. No CI job ran.
+
+- `library/ccl_ir.pl` (`ir_binary_operands/7`, `ir_operand_kind/3`, `ir_operands_bad/3`, `ir_pointees_compatible/2`,
+  `ir_pointee/2`, `ir_operand_shown/3`, `ir_binary/9`, `ir_assign_new/8`, `ir_unary_operand/3`, `ir_unary_bad/3`,
+  `ir_record_expr/2`, `ir_scalar_expr/2`, `ir_scalar_fail/2`, `ir_scalar_pair/2`, `ir_step/6`; `ir_expr_/4`'s clauses of
+  `bin`, `&&`, `||`, `not`, `neg`, `pos`, `bitnot` and `cond`; `ir_stmt_/1`'s of `if`, `while`, `do` and `for`; the
+  lowering's version); `library/ccl_check.pl` (`ck_c_type_text/2`, `ck_c_decl_text/4`, `ck_c_bound_text/2`,
+  `ck_c_params_text/3`, `ck_c_variadic/1`, `ck_c_noproto/1`); `library/ccl_driver.pl` (`dr_diag/3`'s five new clauses);
+  `library/ccl_cpp_expr.pl` (`cpp_expr/3`'s `pos` clause, `cpp_builtin_via_conv/4`, `cpp_ptr_conv_result/2`,
+  `cpp_pos_pointer/2`, `cpp_free_operator_call/4`); `library/ccl_cpp_stmt.pl` (`cpp_conv_fits/2`,
+  `cpp_conv_arith_fits/2`, `cpp_conv_enum_tag/2`); the module's version.
+- `test/driver.sh` (two checks); `test/c/run/operands.c`, `operands.expect`; `test/cpp/run/unaryplus.cpp`,
+  `unarypluslambda.cpp`, `autoptrdiff.cpp` and their `.expect`.
+- RULES.md (the lowering's topic: three rules, and 0.286's predicate; the Classes topic's operators: `pos`, C++'s unary
+  `+`; the conversions: an enumeration's; the overloads' operators: a free unary one's fit; Not done: two records),
+  HISTORY.md, CLAUDE.md.
+
+The module 1.6.1, the reader 202 and the lowering 175.

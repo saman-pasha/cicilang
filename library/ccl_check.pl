@@ -2423,8 +2423,31 @@ ck_const_place(member(id(R), F)) :- ck_is_ref(R), !, ck_const_place(arrow(id(R),
 ck_const_place(member(E, _)) :- ( catch(ccl_type_of(E, T), _, fail), ck_const_type(T) -> true ; ck_const_place(E) ).
 ck_const_type(T) :- ( T = base(Q, _), memberchk(const, Q) -> true ; catch(ccl_resolve_type(T, base(Q1, _)), _, fail), memberchk(const, Q1) ).
 %% a type in C's spelling, as clang names one in a message: `const buf *', `const struct S'
-ck_c_type_text(ptr(Q, T), Text) :- !, ck_c_type_text(T, B), ( memberchk(const, Q) -> atom_concat(B, ' *const', Text) ; atom_concat(B, ' *', Text) ).
-ck_c_type_text(base(Q, S), Text) :- ck_c_spec_text(S, B), ( memberchk(const, Q) -> atom_concat('const ', B, Text) ; Text = B ).
+%% THE SPELLING IS ITS BASE AND ITS DECLARATOR, READ FROM THE TYPE OUTWARD (1.6.1), as clang's type printer writes it:
+%% `int **', `int *const', `int[3]', `int *[2]', `int (*)[2]', `void (*)(void)', `int (*)(int, ...)' -- a declarator that
+%% opens with `[' takes no space after the base, any other one a space. Through 1.6.0 `int **' was `int * *', and an array
+%% or a function was its term in the message
+ck_c_type_text(T, Text) :- ck_c_decl_text(T, '', B, D),
+    ( D == '' -> Text = B ; sub_atom(D, 0, 1, _, '[') -> atom_concat(B, D, Text) ; atomic_list_concat([B, ' ', D], Text) ).
+ck_c_decl_text(ptr(Q, T), D0, B, D) :- !, ( memberchk(const, Q) -> P = '*const' ; P = '*' ),
+    ( D0 == '' -> D1 = P ; memberchk(const, Q) -> atomic_list_concat([P, ' ', D0], D1) ; atom_concat(P, D0, D1) ),
+    ck_c_decl_text(T, D1, B, D).
+ck_c_decl_text(arr(N, T), D0, B, D) :- !, ck_c_bound_text(N, K),
+    ( sub_atom(D0, 0, 1, _, '*') -> atomic_list_concat(['(', D0, ')[', K, ']'], D1) ; atomic_list_concat([D0, '[', K, ']'], D1) ),
+    ck_c_decl_text(T, D1, B, D).
+ck_c_decl_text(fn(R, Ps, V), D0, B, D) :- !, ck_c_params_text(Ps, V, PT),
+    ( sub_atom(D0, 0, 1, _, '*') -> atomic_list_concat(['(', D0, ')(', PT, ')'], D1) ; atomic_list_concat([D0, '(', PT, ')'], D1) ),
+    ck_c_decl_text(R, D1, B, D).
+ck_c_decl_text(base(Q, S), D, B, D) :- ck_c_spec_text(S, B0), ( memberchk(const, Q) -> atom_concat('const ', B0, B) ; B = B0 ).
+ck_c_bound_text(int(K), K) :- !.
+ck_c_bound_text(_, '').
+%% a function type's parameters: `void' where it has none and a prototype, nothing where it has none and no prototype
+%% (`int (*)()'), `...' after the last where it is variadic
+ck_c_params_text([], V, T) :- !, ( ck_c_noproto(V) -> T = '' ; ck_c_variadic(V) -> T = '...' ; T = void ).
+ck_c_params_text(Ps, V, T) :- findall(PT, ( member(P, Ps), ( P = param(X, _) -> true ; P = param(X, _, _) ), ck_c_type_text(X, PT) ), Ts),
+    length(Ps, N), length(Ts, N), ( ck_c_variadic(V) -> append(Ts, ['...'], Ts1) ; Ts1 = Ts ), atomic_list_concat(Ts1, ', ', T).
+ck_c_variadic(V) :- ( V == true -> true ; nonvar(V), V = q(W, _), W == true ).
+ck_c_noproto(V) :- nonvar(V), V = q(_, Ms), is_list(Ms), memberchk(noproto, Ms).
 ck_c_spec_text([typedef(N)], N) :- atom(N), !.
 ck_c_spec_text([struct(Tag, _)], T) :- atom(Tag), Tag \== anon, !, atom_concat('struct ', Tag, T).
 ck_c_spec_text([union(Tag, _)], T) :- atom(Tag), Tag \== anon, !, atom_concat('union ', Tag, T).

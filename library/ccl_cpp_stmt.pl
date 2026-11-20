@@ -535,7 +535,14 @@ cpp_conv_member_(Mode, How, C, RT, CT0, RCT) :- cpp_base_scope(C, B), cpp_conv_m
 cpp_conv_result_type(T0, T) :- ( ( T0 = ref(_, X) ; T0 = rref(_, X) ) -> ccl_resolve_type(X, T) ; T = T0 ).
 cpp_conv_mode(exact, RT, RCT) :- catch(( cpp_bare_type(RT, B1), cpp_bare_type(RCT, B2) ), _, fail), B1 == B2.
 cpp_conv_mode(fits, RT, RCT) :- cpp_conv_fits(RT, RCT).
-cpp_conv_fits(RT, RCT) :- ( ccl_is_arith(RT), ccl_is_arith(RCT) -> true ; RCT = ptr(_, fn(_, _, _)) -> RT = ptr(_, FT1), FT1 = fn(_, _, _), RCT = ptr(_, FT2), cpp_fn_types_agree(FT1, FT2) ; RT = ptr(_, _), RCT = ptr(_, _) -> true ; cpp_class_of_type(RT, C1), cpp_class_of_type(RCT, C2) -> C1 == C2 ; RT == RCT ).   % ... or a CLASS: basic_string's `operator basic_string_view()' where a string_view is wanted (`compare(__self_view(__str))'); a POINTER TO FUNCTION converts to that function type and no other (a captureless closure's, 0.112)
+cpp_conv_fits(RT, RCT) :- ( ccl_is_arith(RT), ccl_is_arith(RCT) -> cpp_conv_arith_fits(RT, RCT) ; RCT = ptr(_, fn(_, _, _)) -> RT = ptr(_, FT1), FT1 = fn(_, _, _), RCT = ptr(_, FT2), cpp_fn_types_agree(FT1, FT2) ; RT = ptr(_, _), RCT = ptr(_, _) -> true ; cpp_class_of_type(RT, C1), cpp_class_of_type(RCT, C2) -> C1 == C2 ; RT == RCT ).   % ... or a CLASS: basic_string's `operator basic_string_view()' where a string_view is wanted (`compare(__self_view(__str))'); a POINTER TO FUNCTION converts to that function type and no other (a captureless closure's, 0.112)
+%% ... AN ARITHMETIC RESULT FITS AN ENUMERATION OF ITS OWN TYPE ALONE, AND A SCOPED ENUMERATION FITS NO OTHER TYPE
+%% ([conv.integral]/1 converts to an integer type, never to an enumeration; [dcl.enum]/10; 1.6.1): `operator double()'
+%% fitted a parameter of a scoped enum, so `+m' beside a free `int operator+(E)' called it over the double made an E
+cpp_conv_arith_fits(RT, RCT) :- cpp_conv_enum_tag(RT, _), !, catch(( cpp_bare_type(RT, B1), cpp_bare_type(RCT, B2) ), _, fail), B1 == B2.
+cpp_conv_arith_fits(_, RCT) :- cpp_conv_enum_tag(RCT, Tag), ccl_scoped_enum(Tag), !, fail.
+cpp_conv_arith_fits(_, _).
+cpp_conv_enum_tag(T, Tag) :- catch(ccl_resolve_type(T, base(_, [E])), _, fail), compound(E), ( E = enum(Tag, _) ; E = enum_class(Tag, _) ), !.
 %% THE BEGIN AND END OF A RANGE ([stmt.ranged]/1.3): the class's members where it declares both, else the free `begin(range)'
 %% and `end(range)' that ARGUMENT-DEPENDENT LOOKUP finds in the namespace of the range's class (0.134; cpp_adl_fn) -- libc++'s
 %% `std::filesystem::begin(directory_iterator)' and `end(directory_iterator)', the only begin and end a directory iterator
