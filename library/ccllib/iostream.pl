@@ -6,7 +6,8 @@
 %%   int x;  cin >> x;
 %%   cerr << "e";
 %%
-%% `endl' is the header's macro, `"\n"'. `cerr' is an instance of `cerrstream<>', whose file is stderr; `cout' writes
+%% `endl' is a value of a type of its own, whose write ends the line and flushes (1.6.3). `cerr' is an instance of
+%% `cerrstream<>', whose file is stderr; `cout' writes
 %% to stdout and `cin' reads stdin until a file is given them. What differs from C++ is CCLLIB.md's section of the
 %% iostreams.
 :- ensure_loaded(library(ccllib/ccllib)).

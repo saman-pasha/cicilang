@@ -39,6 +39,7 @@
 #include <variant.pl>
 #include <memory.pl>
 #include <any.pl>
+#include <iostream.pl>
 /* the child takes abort's signal and leaves with a status of its own: so no core is written and no crash is reported,
    and a stop by abort is told from a fault */
 static void on_abort(int sig) { (void)sig; _exit(77); }
@@ -331,6 +332,7 @@ static void optional_ok(void) {
     p = nullopt;
     printf("%d %d", value(o), value_or(p, 2));
 }
+static void iostream_endl(void) { cout << "kept" << endl; abort(); }
 int main(void) {
     printf("vector: at %d, index %d, front %d, pop_back %d, ", stopped(vector_at), stopped(vector_index),
            stopped(vector_front), stopped(vector_pop));
@@ -404,5 +406,6 @@ int main(void) {
            stopped(shared_ptr_arrow), stopped(shared_ptr_ok));
     printf("any: any_cast of an empty one %d, of a type it does not hold %d; in its bounds %d\n", stopped(any_empty),
            stopped(any_wrong), stopped(any_ok));
+    printf("iostream: endl writes its line before an abort %d\n", stopped(iostream_endl));
     return 0;
 }

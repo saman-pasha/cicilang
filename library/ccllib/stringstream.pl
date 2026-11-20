@@ -5,8 +5,9 @@
 %%   s << "abc";  s << 42;  printf("%s\n", str(s));  clear(s);
 %%   s << "12 3.5";  s >> a;  s >> b;
 %%
-%% The type macro takes no argument, as <any.pl>'s does: `stringstream<>'. `str(s)' gives the text as a `char *',
-%% where C++ gives a string; `clear(s)' empties it, `rewind(s)' puts the read place back at the start. A local
+%% The type macro takes no argument, as <any.pl>'s does: `stringstream<>'. `str(s)' gives the text as a `char *' tied
+%% to the stream, a borrow that a write after it ends, where C++ gives a string (1.6.3); `clear(s)' empties it and puts
+%% its state back, `rewind(s)' puts the read place back at the start. A local
 %% stringstream is dropped where its scope ends, and its drop frees the buffer.
 :- ensure_loaded(library(ccllib/ccllib)).
 :- ensure_loaded(library(ccllib/iostream_impl)).

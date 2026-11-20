@@ -1016,23 +1016,25 @@ instance of `cerrstream<>`; `<ostream.pl>`, `<istream.pl>`, `<fstream.pl>` and `
 `cout << 42`, `cout << 3.5`, `cout << "text"`, `cout << true` and `cout << endl` go through the reader's operator over
 an instance, which names the function with the right operand's word: `_write_int`, `_write_double`, `_write_ptr_char`,
 `_write_ptr_const_char`, `_write_bool`, `_write_size_t`; `cin >> x` and `f >> x` take the right operand by its
-address and name `_read_int`, `_read_double`, `_read_char`, and the rest, answering whether the read found its value. `endl` is the header's `const char *`, `"\n"`; a value's width and fill, an
-integer's base, a floating number's format and precision, and boolalpha are the stream's state. `<iomanip.pl>`'s
+address and name `_read_int`, `_read_double`, `_read_char`, and the rest. Each gives the stream, so `cout << "a" << 1
+<< endl` and `cin >> a >> b` chain, and a read that finds no value gives a null pointer and fails the stream, as C++'s:
+`while (cin >> x)` ends where the input does (1.6.3). `endl` and `ends` are values of types of their own, whose writes
+end the line and flush, and write a null character; a value's width and fill, an integer's base, a floating number's
+format and precision, and boolalpha are the stream's state. `<iomanip.pl>`'s
 manipulators are functions of the stream -- `setw(cout, 6)`, `setfill`, `setprecision`, `fixed`, `scientific`, `hex`,
 `dec`, `oct`, `boolalpha`, `noboolalpha` -- because C has no `<<` that takes one. `<fstream.pl>`'s `fstream<T>` opens
 and closes a file with `open(f, path, "w")`, `close`, `is_open`, and both writes and reads; `ofstream` and `ifstream`
 are names of it by the header's macros. `<stringstream.pl>`'s `stringstream<>` writes and reads a buffer of its own:
-`str(s)` gives its text as a `char *`, `clear` empties it, `rewind` puts the read place back, and a local is dropped
-where its scope ends. What differs from C++:
-
-  one `<<` a statement: the value of `cout << x` is the stream, but naming it is no lvalue, so `cout << x << y` is
-  refused by name; write `cout << x; cout << y;`;
+`str(s)` gives its text as a `char *` tied to the stream, a borrow that a write may end, `clear` empties it, `rewind`
+puts the read place back, and a local is dropped where its scope ends. What differs from C++:
 
   in C a character literal is an int, so `cout << 'x'` writes its number; `put(cout, 'x')` writes the character;
 
-  `endl` writes the newline and flushes nothing; `flush(cout)` flushes;
-
   `str(ss)` gives a `char *` where C++ gives a string, and a `stringstream` is written `stringstream<>`;
+
+  `clear(ss)` empties a stringstream and puts its state back, where C++'s puts the state back alone;
+
+  a manipulator is a function of the stream, `setw(cout, 6)`, since C has one entity a name;
 
   a `fstream` has one mode of reading and writing, and `open` takes C's `fopen` modes.
 
@@ -1040,7 +1042,10 @@ The reader asks the shift words `_shl_`/`_shr_` first, so a bitset's shifts are 
 forms from `_shl_*`/`_shr_*` to `_write_*`/`_read_*`.
 
 `test/ccllib/iostreams.c` and its twin over `std::` print the same sixteen lines; `test/ccllib/safe/iostream_no_word.c`
-holds the refusal of a value whose type has no `<<`.
+holds the refusal of a value whose type has no `<<`. `test/ccllib/streamchain.c` and its twin hold the rules of 1.6.3:
+the chains, `endl`, the bases, the precision, the reads that fail, a character read after the white space, a
+stringstream's room and its empty reads, and the lines longer than `getline`'s buffer; `safe/sstream_str_write.c` and
+`safe/sstream_str_free.c` hold `str` as a borrow.
 
 ### The parts of phase 1
 

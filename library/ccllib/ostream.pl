@@ -9,13 +9,12 @@
 %% The instance is a value with no drop: its `FILE *f' is a file that it does not own, and a function that takes it
 %% by value copies it. `<<' is the reader's operator over an instance: the function named with the right operand's
 %% word, `_write_int', `_write_double', `_write_ptr_char', `_write_ptr_const_char', `_write_bool', `_write_size_t'; a name that the
-%% instance has not is refused by name. The state -- the integer's base, the floating format, boolalpha, the width,
+%% instance has not is refused by name. Each gives the stream, tied to it, so `o << x << y' is two calls, the second on
+%% the stream that the first gave (1.6.3). The state -- the integer's base, the floating format, boolalpha, the width,
 %% the fill and the precision -- belongs to the stream, as C++'s does, and <iomanip>'s manipulators are functions of it
-%% here, `setw(o, 6)', since C has no `<<' that takes one. What differs from C++:
-%%   one `<<' a statement: the value of `o << x' is the stream, but naming it is no lvalue, so `o << x << y' is
-%%     refused by name; write `o << x; o << y;';
+%% here, `setw(o, 6)', since C has no `<<' that takes one. `endl' is a value of a type of its own, whose write is the
+%% end of a line and a flush, as C++'s (1.6.3). What differs from C++:
 %%   in C a character literal is an int, so `o << 'x'' writes its number; put(o, 'x') writes the character;
-%%   `endl' is a macro of the C header, `"\n"', and flushes nothing; flush(o) flushes;
 %%   a pointer is written by write_ptr_void only where a program names a void pointer; there is no operator for any
 %%     other pointer's word.
 :- ensure_loaded(library(ccllib/ccllib)).

@@ -10247,17 +10247,47 @@ in the first topic (The ccllib gate).
   `from_chars` of a floating number reads strtod's syntax and at most 255 characters. `test/ccllib/charconv.c`, its
   twin, and `safe/charconv_rvalue.c` hold it. (1.4.0)
 
-- PHASE 1d IS THE IOSTREAMS (1.3.0): `library/ccllib/iostream.pl` declares `cout`, `cin`, `cerr` and `endl`;
+- PHASE 1d IS THE IOSTREAMS (1.3.0): `library/ccllib/iostream.pl` declares `cout`, `cin` and `cerr`;
   `ostream.pl` gives `ostream<T>` and `cerrstream<>`, `istream.pl` `istream<T>`, `fstream.pl` `fstream<T>` (with
   `ofstream` and `ifstream` as header macros), and `stringstream.pl` `stringstream<>`; `iostream_impl.pl` holds the
   texts that those four share, so the flow gate finds no predicate twice. `<<` is the reader's operator over an
   instance, naming `_write_<word>`; `>>` takes the right operand by its address, naming `_read_<word>`; the reader
-  asks the shift words `_shl_` and `_shr_` first, so a bitset's shifts are unchanged. `endl` is the
-  header's `const char *`, because a `.pl.h` macro does not reach the program's own text. `<iomanip>`'s manipulators
-  are functions of the stream (`setw(cout, 6)`), since a chained `cout << setw(6)` would need the stream's value to be
-  an lvalue and the reader refuses that. A `FILE *` is held as a `long long` handle and converted by the header's
+  asks the shift words `_shl_` and `_shr_` first, so a bitset's shifts are unchanged. `endl` and `ends` are values of
+  the stream headers (1.6.3, the next rule). `<iomanip>`'s manipulators are functions of the stream (`setw(cout, 6)`):
+  `cout << setw(6)` needs a C function `setw` of one argument beside the call by name `setw(cout, 6)`, and C has one
+  entity a name. A `FILE *` is held as a `long long` handle and converted by the header's
   helpers, because the safe part refuses to hand a member's borrowed `FILE *` to `fclose`. `test/ccllib/iostreams.c`,
-  its twin, and `safe/iostream_no_word.c` hold it. The reader asks the shift words `_shl_`/`_shr_` first and then the stream words, whose typed forms only; 1.3.1 renamed the stream forms from `_shl_*`/`_shr_*` to `_write_*`/`_read_*`. (1.3.0, 1.3.1)
+  its twin, and `safe/iostream_no_word.c` hold it. The reader asks the shift words `_shl_`/`_shr_` first and then the
+  stream words, whose typed forms only; 1.3.1 renamed the stream forms from `_shl_*`/`_shr_*` to `_write_*`/`_read_*`.
+  (1.3.0, 1.3.1, 1.6.3)
+- **THE STREAMS ARE C++'S** (1.6.3; the review of 1.1.3 to 1.6.0, its items 2, 3, 4 and 10 to 13, and three that it
+  found by reading): each `_write_<word>` and `_read_<word>` gives the stream's address, tied to the stream (`@N *...
+  tie o`), so `cout << "a" << 1 << endl` is three calls, each on the stream that the one before it gave -- the reader
+  takes a pointer to an instance on the left of `<<` and `>>` as it is (1.6.1) -- and `cin >> a >> b` two. A READ THAT
+  FINDS NO VALUE gives a null pointer and fails the stream, as C++'s sentry: `while (cin >> x)` ends where the input
+  does, a read on a failed stream reads nothing until `clear`, a read whose characters are no value of its type writes
+  zero, and one that meets no character leaves its object ([istream.formatted.arithmetic], C++11's); `fail` and
+  `clear`, a file stream's since 1.6.3, `good` and `eof` answer by that state or put it back, and so do `open` and a
+  stringstream's `rewind`. `endl` and `ends` are values of types of their own,
+  `ccllib_endl_t` and `ccllib_ends_t` of the stream headers, whose writes end the line and flush the stream, and write
+  a null character ([ostream.manip]). `hex` and `oct` write the value's own bits, as many as its type has; a floating
+  value is written in the precision that the program set, 0 among them, else 6, and a text longer than the frame's 512
+  bytes is made in a buffer of its own length. A character is read after the white space before it (skipws). `getline`
+  keeps a carriage return, and a line of n - 1 characters or more is n - 1 of them and fails the stream, unless its end
+  comes next ([istream.unformatted], the file's end, then the line's, then the count). `put` and `write` are
+  unformatted, with no width. A `signed char` and an `unsigned char` are written as characters
+  ([ostream.inserters.character]). A STRINGSTREAM makes room for the fill and the value both, writes each type that an
+  ostream writes, reads an empty stream as its end, failed, the object as it was, and its `str` is a borrow tied to the
+  stream, which a write may end; `clear` empties it and puts its state back, as since 1.3.0, where C++'s puts the state
+  back alone. Through 1.6.0 each operator gave the int 1, so `cout << "a" << 1 << endl` wrote `a` and shifted the 1;
+  `hex` of an int's -1 wrote a long long's 64 bits, `fixed` with precision 0 six places, `cin >> c` kept a space,
+  `endl` flushed nothing (the line before an `abort` was lost), a signed char was its number, `setw(s, 100); s << 7`
+  wrote past its room, `s >> x` over an empty stream handed strtoll a null pointer, `str(s)` was new memory to the safe
+  part (refused, and with `free(p)` freed two times), `good` stayed true after a failed read -- a file stream had no
+  `fail` --, and the rest of a long line was the next line. `fstream.pl.h` defines `ccllib_file_of` in its guard (the
+  Not done topic: a second definition). `test/ccllib/streamchain.c` and its twin; `iostreams.c`, which writes a file of
+  its own run; the driver gate's `cin` check; `alone/stops.c`'s `endl` before an abort; `safe/sstream_str_write.c` and
+  `safe/sstream_str_free.c`. (1.6.3)
 
 - PHASE 1c IS THE ALGORITHMS AND THE NUMBERS (1.2.0): `library/ccllib/algorithm.pl` gives the algorithms over the
   random-access ranges (vector, array, deque, span, basic_string, and read-only basic_string_view) as macros that
@@ -15628,6 +15658,16 @@ Declarations topic of the C++ reader).
   (`p112/two`), over 1.1.1 as over 1.1.2. The compile gate builds its run fixtures in one process in their names' order:
   `elemborrow.c`, over `tvector.pl`, sorts before `hdrinst.c`, over `<vector.pl>`, and a run fixture over `<vector.pl>`
   that sorts before `elemborrow.c` breaks the six over `tvector.pl` (1.1.2's `declorder.c` takes `<deque.pl>` so).
+
+- A SECOND DEFINITION AT FILE SCOPE (found at 1.6.3): C17 6.9/3 and 6.9.2 take one external definition of a name a
+  translation unit, and clang refuses a second, `redefinition of 'x'`. cicilang builds `int x = 1; int x = 2;` and
+  prints 1; a function that the program's file defines two times is refused by the embedded LLVM's parser, `invalid
+  redefinition of function 'f'`, at no line; and a function that two headers define builds with one body: through 1.6.2
+  `fstream.pl.h` defined `ccllib_file_of` outside its guard, after `ostream.pl.h`'s, and no build said so -- 1.6.3's
+  copy broken on purpose that moves it out again is caught by no check. A struct and an enum defined again build too,
+  where clang refuses them at C17. A header's read that the store serves notes its declarations and not its
+  definitions (the topic of includes), so the rule needs a note of each definition on both roads, a cold read and a
+  served one: a step of its own (`p163/dd`'s eight forms hold clang's verdicts).
 ### C++ language
 
 - NAMES ACROSS THE HEADERS' READS AND THE PROGRAM'S, WHAT 0.221 LEFT (0.218's to 0.221's probes): a read keys apart only

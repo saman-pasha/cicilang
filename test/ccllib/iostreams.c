@@ -3,6 +3,7 @@
    iostreams.expect. */
 #include <stdio.h>
 #include <stdbool.h>
+#include <unistd.h>
 #include <iostream.pl>
 #include <iomanip.pl>
 #include <fstream.pl>
@@ -44,20 +45,23 @@ int main(void) {
     cout << 3.14159;
     cout << endl;
 
+    char path[64];
+    snprintf(path, sizeof path, "/tmp/ccllib_iostreams_%d.txt", (int)getpid());
     fstream<char> f;
-    open(f, "/tmp/ccllib_iostreams.txt", "w");
+    open(f, path, "w");
     f << "line1";
     f << endl;
     f << 7;
     f << endl;
     close(f);
-    open(f, "/tmp/ccllib_iostreams.txt", "r");
+    open(f, path, "r");
     char buf[64];
     getline(f, buf, 64);
     int file_number = 0;
     f >> file_number;
     printf("file=%s %d\n", buf, file_number);
     close(f);
+    remove(path);
 
     stringstream<> s;
     s << "abc";

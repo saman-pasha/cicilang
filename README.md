@@ -835,12 +835,13 @@ span and string, with a view read-only; `<numeric.pl>` the folds and scans;
 monotonic clock. `test/ccllib/phase1c.c` is the example.
 
 Phase 1d is there too (1.3.0): `#include <iostream.pl>` gives `cout`, `cin` and
-`cerr`; `cout << 42`, `cout << 3.5`, `cout << true`, `cout << endl`;
-`cin >> x`; `<iomanip.pl>`'s `setw(cout, 6)`, `setfill`, `setprecision`,
+`cerr`; `cout << "x = " << 42 << " " << 3.5 << endl` chains as C++'s does, and
+`endl` flushes (1.6.3); `cin >> a >> b`, and `while (cin >> x)` ends where the
+input does; `<iomanip.pl>`'s `setw(cout, 6)`, `setfill`, `setprecision`,
 `hex`, `fixed` and `boolalpha`, functions of the stream since C has no `<<`
 that takes one; `<fstream.pl>`'s `fstream<char> f; open(f, path, "w");` reads
 and writes a file; and `<stringstream.pl>`'s `stringstream<>` a buffer.
-`test/ccllib/iostreams.c` is the example.
+`test/ccllib/iostreams.c` and `streamchain.c` are the examples.
 
 Phase 2 begins with `<charconv.pl>` (1.4.0): `to_chars(buf, buf + 64, 42)`,
 `to_chars(buf, buf + 64, 255, 16)`, `to_chars(buf, buf + 64, 3.5, chars_fixed)`,

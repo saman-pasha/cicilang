@@ -24,4 +24,6 @@ variant: get of an index that it does not hold 1, of a type 1; in its bounds 0
 unique_ptr: *p of an empty one 1, p->m 1; in its bounds 0
 shared_ptr: *p of an empty one 1, p->m 1; in its bounds 0
 any: any_cast of an empty one 1, of a type it does not hold 1; in its bounds 0
+kept
+iostream: endl writes its line before an abort 1
 exit 0

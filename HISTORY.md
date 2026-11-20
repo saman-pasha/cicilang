@@ -319,6 +319,7 @@ One row per step, in version order: the step's title, what it did and its gate n
 | 1.6.0 | ccllib phase 2 continues: `<mutex.pl>` | `std::mutex`, `lock_guard`, `unique_lock`, `barrier` and `latch` over POSIX's pthreads: a mutex initialized on its first lock, guards born from a mutex's address, a latch's functions by address | `mutex.c`, its twin and `safe/mutex_of_int.c`; the three runs agree at C++23; the flow and ccllib gates |
 | 1.6.1 | the operands that C's operators take, in clang's words; C++'s unary `+` by its operator | the review of 1.1.3 to 1.6.0: `cout << "a" << 1 << endl` printed `a` alone, the C check taking `1 << s` over a pointer (C17 6.5.7/2): 31 pairs of the binary and unary operators refused in clang's words, the binary ones in C alone (libc++ 22's `__to_buffer`), a record where C takes a scalar in 12 forms, the C spelling of a type; C++'s `+x` its class's operator, its conversion's value or its pointer's value, a free unary operator only where it fits, an arithmetic conversion to an enumeration of its own type alone; the docs of 1.6.0 put right | the driver gate's 43 C forms, `operands.c`, `unaryplus.cpp`, `unarypluslambda.cpp`, `autoptrdiff.cpp`; 24 copies broken on purpose, each caught; the nets |
 | 1.6.2 | a name that the program declares is no macro's; each operand read once; a block's types its own | the review's first, eighth and ninth items -- the program's own `hash` and `less` were `<functional.pl>`'s, `min(i++, 10)` read i two times, `accumulate` summed in a char -- and, found beside them, `__typeof__` of a block's object and a block's typedef, which the passes took from another block | `ownnames.c`, `readonce.c`, `scopedtypes.c` and `.cpp`, `blocktypedef_leak.c`, two driver checks; 23 copies broken on purpose, each caught; the nets |
+| 1.6.3 | the streams as C++'s | the review's items 2, 3, 4 and 10 to 13 and three found by reading -- `cout << "a" << 1 << endl` wrote `a`, `hex` of -1 a long long's bits, `endl` flushed nothing, `cin >> c` kept a space, a stringstream wrote past its room and read a null buffer, `str` was new memory --: each operator gives the stream, a read that finds no value a null pointer and a failed stream, endl a value that flushes, and the forms beside | `streamchain.c` and its twin, the driver gate's `cin` check, `stops.c`'s endl, two refusals; 28 copies broken on purpose, 27 caught, `fstream.pl.h`'s by no check; the nets |
 
 ## M5 — the C++ mode
 
@@ -23358,3 +23359,76 @@ later parts by hand, 218 ok. The chain did not run, by the owner's rule of 0.271
   README.md, CCLLIB.md.
 
 The module 1.6.2, the reader 203 and the lowering 176.
+
+## 1.6.3 — the streams as C++'s
+
+**1.6.3: the third step of the review of 1.1.3 to 1.6.0, its items 2, 3, 4 and 10 to 13 and three that it found by
+reading. ccllib's streams of 1.3.0 gave the int 1 from each `<<` and `>>`, so `cout << "a" << 1 << endl` wrote `a`
+alone; `endl` was the text "\n"; `hex` wrote a long long's bits; a stringstream wrote past its room and read a null
+buffer. Each operator now gives the stream, and a read that finds no value a null pointer and a failed stream, as C++'s
+sentry; `endl` is a value that writes the end of the line and flushes; the bases, the precision, the reads and the
+stringstream are C++'s, and so are the forms beside them that the probes found.**
+
+THE FINDINGS, RUN FROM THEIR REDUCTIONS (`rev/r05` to `r09`, `r13`, `r14`). `cout << "a" << 1 << endl` wrote `a`
+(1.6.1 refused the shift of the int by a pointer; the chain stayed). `hex(cout); cout << -1` wrote `ffffffffffffffff`,
+C++ `ffffffff`; `fixed` with `setprecision(0)` wrote `3.700000`, C++ `4`. `cin >> c` over `a b` kept the space. The
+line before an `abort()` was lost: `endl` flushed nothing. `setw(s, 100); s << 7` made room for one character and
+wrote 100 (valgrind: an invalid write); `s >> x` over an empty stringstream handed strtoll the null buffer (SIGSEGV);
+`char *p = str(s)` was refused as new memory not consumed, and with `free(p)` it built and freed the buffer two times.
+By reading: `getline` took a carriage return away, a stringstream's `good` stayed true after a failed read, and
+`iostreams.c` wrote one fixed path that two runs at one time shared. THE FORMS BESIDE, probed against clang++ over
+libc++: `cin >> a >> b` (an int shifted, as the finding's chain); a read on a stream that a read failed (it read again:
+the stream had no state); `scientific` and `fixed` at precision 0 (six places); a floating text past the frame's 512
+bytes (`fixed` with precision 600: its 511 characters, a null character and 90 bytes of the stack past the buffer);
+`oct` of -1 and `hex` of a short (a long long's bits); `put` and `write` under a width (ccllib padded them; C++'s are
+unformatted); a signed and an unsigned char (ccllib wrote their numbers; C++ writes the characters); a stringstream's
+short, unsigned short, signed and unsigned char, long double and void pointer (refused by name; an ostream writes
+them); and a line longer than `getline`'s buffer (ccllib gave the rest of the line as the next line; C++ fails the
+stream). Each differed, and each is C++'s now; `while (cin >> x)` ended where the input did through 1.6.2 as well, its
+int 0 there. `fstream.pl.h` defined `ccllib_file_of` outside its guard, so a unit that includes it after
+`<ostream.pl>` defined it two times.
+
+THE CAUSES. The texts of 1.3.0 gave `int` from each operator; the reader, which took a pointer to an instance on the
+left of `<<` and `>>` as it is since 1.6.1, had no stream to take. `endl` was the header's `const char *`. `__int` cast
+each value to a long long and wrote its 64 bits; `__flt` asked `o->prec ? o->prec : 6`, so a precision of 0 was 6. The
+stringstream's `__emit` made room for the value and wrote the fill too; its reads called strtoll on the buffer that no
+write had made. `str` was a plain `char *`.
+
+THE RULES (RULES.md, the topic of ccllib, phase 1d). Each `_write_<word>` and `_read_<word>` gives the stream, tied to
+it; a read that finds no value gives a null pointer and fails the stream, a read on a failed stream reads nothing, a
+read whose characters are no value writes zero, and one that meets no character leaves its object; `endl` and `ends` are
+values of `ccllib_endl_t` and `ccllib_ends_t`; `hex` and `oct` write the value's own bits; the precision that the
+program set is the precision; a character is read after the white space; `getline` keeps a carriage return and fails
+on a line of n - 1 characters or more whose end does not come next; `put` and `write` have no width; a signed and an
+unsigned char are characters; a stringstream makes room for the fill and the value, writes each type that an ostream
+writes, reads an empty stream as its end, and its `str` is a borrow tied to it.
+
+THE PROOF. `test/ccllib/streamchain.c` and its twin over `std::` print the same 31 lines as C, as C++ and by clang++;
+`iostreams.c` and its twin write a file of their own run; the driver gate's `cin` check reads `3 4`, ` p\tq` and `1 2 3`
+and prints `7 [p][q] 6 3 1`, clang++'s line; `alone/stops.c` writes `kept` before its child's `abort`;
+`safe/sstream_str_write.c` (a write between `str` and the use of its text) and `safe/sstream_str_free.c` (a `free` of
+its text) are refused as C and as C++. TWENTY-EIGHT COPIES BROKEN ON PURPOSE, a rule each -- the stream that `<<` gives,
+the null pointer of a read that fails and the zero that it writes, the sentry of a file's read and of a stringstream's,
+endl's flush, a value's own bits, the precision that the program set, the frame's buffer, the white space before a
+character in a file and in a stringstream, the carriage return of a line in each, the long line in each, the empty line
+of a getline that reads none, put's width, a signed char's character, a stringstream's writes, its room, its empty read,
+str's tie, the state that rewind, clear and open put back, and good after a failed read of a file and of a stringstream
+-- are each caught by these checks but one: `fstream.pl.h`'s `ccllib_file_of` moved out of its guard again builds, since
+cicilang takes a function that two headers define with no word (RULES.md's Not done).
+
+THE NETS, over the step's final code on cocolog 3.65.0, each under the caps and over a fresh HOME: the flow gate GREEN
+(340 s, 4501 MB); the reader gate 170 ok, 5 skipped; the compile gate 346 ok; the driver gate 96 ok, the `cin` check
+among them; the objects gate 29 ok; the ccllib gate 585 ok and the 5 FAIL of 1.6.0 -- `mutex.c`'s four, `phase1c` under
+valgrind --, which 1.6.4 and 1.6.5 take; the C++ pools of the lighter run fixtures, 368 of 368 over libc++ 22, 21 and
+18; every heavier C++ run fixture over libc++ 22, 506 ok and 14 skipped by their `.needs`, of 520; the C++ gate's later
+parts by hand, 218 ok. The chain did not run, by the owner's rule of 0.271. No CI job ran.
+
+- `library/ccllib/iostream_impl.pl` (every write and read, the state, `endl` and `ends`, the stringstream);
+  `library/ccllib/ostream.pl.h`, `fstream.pl.h`, `stringstream.pl.h` (`ccllib_endl_t`, `ccllib_ends_t`, `<stdlib.h>`,
+  `ccllib_file_of` in its guard), `iostream.pl.h`; the words of `ostream.pl`, `istream.pl`, `iostream.pl` and
+  `stringstream.pl`; the module's version.
+- `test/ccllib/streamchain.c`, `.cpp`, `.expect`; `iostreams.c`, `.cpp`; `alone/stops.c`, `.expect`;
+  `safe/sstream_str_write.c`, `.expect`, `safe/sstream_str_free.c`, `.expect`; `test/driver.sh` (the `cin` check).
+- RULES.md (phase 1d), HISTORY.md, CLAUDE.md, README.md, CCLLIB.md.
+
+The module 1.6.3, the reader 203 and the lowering 176.

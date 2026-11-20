@@ -1,5 +1,6 @@
 // the twin of iostreams.c over std:: (phase 1d): clang++ builds it over libc++ and it prints iostreams.expect
 #include <cstdio>
+#include <unistd.h>
 #include <fstream>
 #include <iomanip>
 #include <iostream>
@@ -21,18 +22,21 @@ int main() {
     std::cout << 'X' << std::endl;
     std::cout << std::fixed << std::setprecision(2) << "fixed=" << 3.14159 << std::endl;
 
+    char path[64];
+    std::snprintf(path, sizeof path, "/tmp/ccllib_iostreams_%d.txt", (int)getpid());
     std::fstream f;
-    f.open("/tmp/ccllib_iostreams.txt", std::ios::out);
+    f.open(path, std::ios::out);
     f << "line1" << std::endl;
     f << 7 << std::endl;
     f.close();
-    f.open("/tmp/ccllib_iostreams.txt", std::ios::in);
+    f.open(path, std::ios::in);
     std::string line;
     std::getline(f, line);
     int file_number = 0;
     f >> file_number;
     std::printf("file=%s %d\n", line.c_str(), file_number);
     f.close();
+    std::remove(path);
 
     std::stringstream s;
     s << "abc" << 42;

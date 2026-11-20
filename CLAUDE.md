@@ -12,7 +12,7 @@ the fixture that gates it, and why. The bullet ends with the version that made t
 edits the rule in `RULES.md`, in its topic, and writes its entry in `HISTORY.md`. Read the topic of `RULES.md` that
 covers the code before the code is changed.
 
-At 1.6.2 the versions are: the module 1.6.2 (`ccl_p_version` in `module/cicilang.cicili`, `bin/cicilang --version`),
+At 1.6.3 the versions are: the module 1.6.3 (`ccl_p_version` in `module/cicilang.cicili`, `bin/cicilang --version`),
 the reader 203 (`ccl_reader_version/1`, `library/ccl_syntax.pl`) and the lowering 176 (`ccl_lowering_version/1`,
 `library/ccl_ir.pl`).
 
@@ -439,12 +439,14 @@ library/ccllib/             ccllib, the standard library of cicilang's C (CCLLIB
   ratio.pl, ratio.pl.h        std::ratio as `ratio<N, D>` and its four operations (1.2.0), reduced, with num and den
   chrono.pl, chrono.pl.h      nanosecond durations and the monotonic clock (1.2.0): nanos_of, millis_of,
                               seconds_of, now_nanos, now_millis, sleep_for_millis
-  iostream.pl, iostream.pl.h  std::cout, std::cin and std::cerr over C's stdio (1.3.0), and endl
+  iostream.pl, iostream.pl.h  std::cout, std::cin and std::cerr over C's stdio (1.3.0); endl and ends, values of types
+                              of their own, are the stream headers' (1.6.3)
   ostream.pl, ostream.pl.h    std::ostream (1.3.0): the integer bases, the floating formats, boolalpha, the width
                               and the fill, the manipulators as functions of the stream; the operator functions
-                              are `_write_<word>` (1.3.1)
+                              are `_write_<word>` (1.3.1), each giving the stream, so that `<<` chains (1.6.3)
   istream.pl, istream.pl.h    std::istream (1.3.0): cin >> x, get, getline, read, eof; the operator functions are
-                              `_read_<word>` (1.3.1)
+                              `_read_<word>` (1.3.1), each giving the stream, or a null pointer where it found no
+                              value (1.6.3)
   fstream.pl, fstream.pl.h    std::fstream (1.3.0): open, close, is_open, and both directions; ofstream and
                               ifstream are its names
   stringstream.pl, stringstream.pl.h
@@ -665,7 +667,9 @@ test/ccllib/                the three runs' programs: NAME.c, a ccllib program; 
                             <stringstream.pl> (1.3.0); charconv.c, of <charconv.pl> (1.4.0); atomic.c, of
                             <atomic.pl> (1.5.0); mutex.c, of <mutex.pl> (1.6.0); ownnames.c over ownhdr.h, the program's
                             own names beside the macros of <functional.pl> and <algorithm.pl>, and readonce.c, the
-                            operands that the value helpers, the searches and the folds read once (1.6.2)
+                            operands that the value helpers, the searches and the folds read once (1.6.2);
+                            streamchain.c, the streams as C++'s: `<<` and `>>` chained, endl, the bases, the
+                            precision, the reads that fail, a stringstream's room and its empty reads (1.6.3)
 test/ccllib/safe/           ccllib programs that the safe part refuses, as C and as C++: NAME.c, NAME.expect, and
                             NAME.expect.cpp where C++ has words of its own (0.274); borrow_into_call_vector.c and
                             string_self_c_str.c, a borrow handed to a call that may replace its owner (0.293);
@@ -685,7 +689,8 @@ test/ccllib/safe/           ccllib programs that the safe part refuses, as C and
                             hash_struct.c, the types that hash refuses (1.1.4); any_of_pointer.c, any_of_array.c,
                             weak_ptr_of_pointer.c and weak_ptr_two_types.c (1.1.5); algorithm_view_sort.c (1.2.0),
                             iostream_no_word.c (1.3.0), charconv_rvalue.c (1.4.0), atomic_of_struct.c (1.5.0) and
-                            mutex_of_int.c (1.6.0)
+                            mutex_of_int.c (1.6.0); sstream_str_write.c and sstream_str_free.c, a stringstream's str,
+                            a borrow (1.6.3)
 test/ccllib/alone/          ccllib programs with no twin, built as C and as C++ (0.281): NAME.c, NAME.expect;
                             stops.c, what stops a ccllib program, each case in a child of its own; tree_rules.c,
                             the rules of the tree of a set and a map, read from the instance's own fields;
