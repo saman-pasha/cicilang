@@ -10242,10 +10242,9 @@ in the first topic (The ccllib gate).
   an integer or a floating number, with a base from 2 to 36 or a floating format (`chars_general`, `chars_fixed`,
   `chars_scientific`, `chars_hex`). The result structs hold `pos`, the offset of the first character not written or
   read, where C++ holds `ptr`: the safe part will not return a stored borrow, and the offset carries the same number.
-  A floating number written by `to_chars` is snprintf's general form with 17 significant digits, or fixed,
-  scientific or hex, trimmed as C++ trims it; a text longer than 511 characters stops with `value_too_large`.
-  `from_chars` of a floating number reads strtod's syntax and at most 255 characters. `test/ccllib/charconv.c`, its
-  twin, and `safe/charconv_rvalue.c` hold it. (1.4.0)
+  A floating number's texts, the form of a precision and the patterns that `from_chars` reads are C++'s (1.6.4: THE
+  NUMBERS ARE C++'S, in the group of phase 1c). `test/ccllib/charconv.c`, its twin, and `safe/charconv_rvalue.c` hold
+  it. (1.4.0, 1.6.4)
 
 - PHASE 1d IS THE IOSTREAMS (1.3.0): `library/ccllib/iostream.pl` declares `cout`, `cin` and `cerr`;
   `ostream.pl` gives `ostream<T>` and `cerrstream<>`, `istream.pl` `istream<T>`, `fstream.pl` `fstream<T>` (with
@@ -10313,6 +10312,55 @@ in the first topic (The ccllib gate).
   overflow (`midpoint(INT_MIN, INT_MAX)` is -1, it was INT_MIN), of pointers `a + (b - a) / 2`, of floating values `(a +
   b) / 2` and `a / 2 + b / 2` where the sum overflows. The texts' own locals are reserved names, `__ccl_n` and its kin:
   a program's `alg_k` in `count(v, alg_k)` meant the text's own counter. `test/ccllib/readonce.c` and its twin. (1.6.2)
+- **THE NUMBERS ARE C++'S** (1.6.4; the review of 1.1.3 to 1.6.0, its items 7, 14 and 15, and five that it found by
+  reading). A RATIO OPERATION IS AN INSTANCE OF ITS OWN NAME, `ratio_add_1_2_1_3` beside `ratio_multiply_1_2_1_3`
+  (`ccllib_ratio_name/3`; through 1.6.3 the four were one name, `ratio_Op_...`, and the second of two operations over
+  the same four numbers was refused). A number is a constant integer expression, a negative one named `m1` in the
+  instance's name and a literal past 2^60 among them; `num` and `den` are `long long`, std::ratio's `intmax_t` (they
+  were an `int`). THE RESULT IS LIBC++'S, BY ITS FORMULAS: each ratio is reduced, the operation runs over the two's
+  gcds, and each product and each sum is checked as libc++'s `__ll_mul` and `__ll_add` check them, so that a zero
+  denominator, a number past `intmax_t`, a product or a sum past it and a `ratio_divide` by a numerator 0 are refused by
+  name where C++ refuses them: `ratio_add<2^62, 1, 2^62, 1>` at its product, two halves near `INTMAX_MAX` at their sum,
+  and `ratio_multiply<2^62, 3, 3, 2>` is 2^61, as in C++. cocolog's integers are 64 bits, and a product past them is an
+  error of the arithmetic, not a larger number. THE ENGINE AND THE DISTRIBUTIONS ARE LIBC++'S: an engine that no `seed`
+  seeded is seeded with 5489, std::mt19937's default (it gave 0, its words all zero); `uniform_int(r, lo, hi)` is
+  libc++'s `uniform_int_distribution` of the operands' type -- the range's bits drawn 32 a draw, as
+  `__independent_bits_engine` draws them, a draw past the range thrown away, and the type's whole range where `hi - lo +
+  1` wraps to 0 (it was a modulo in the unsigned type of the sum, so `uniform_int(r, -5, 5) < 0` was never true and the
+  whole range divided by zero); `uniform_real` is `(hi - lo) * generate_canonical + lo` in the operands' floating type,
+  a double where they are integers, two draws for a double or a long double and one for a float; `bernoulli(r, p)` is a
+  canonical double below p, and `shuffle` libc++'s, each element from the first swapped with one at it or after it. A
+  draw goes to a floating number through a signed `long long`: valgrind does not know AVX-512's conversion of an
+  unsigned one (0.283), and `phase1c` under valgrind failed on it on this box. A COMPLEX'S PRODUCT AND QUOTIENT are C's
+  own over `T _Complex`, the runtime's `__muldc3` and `__divdc3` (Annex G's, as libc++ 22's operators are the
+  compiler's): the textbook formulas made NaN of a quotient by 1e300 + 1e300i and of a quotient by zero, which is an
+  infinity. Each other function is libc++'s formula in the part type's own functions (`expf` of a float, `expl` of a
+  long double; each went through a double): `sin`, `cos` and `tan` through `sinh`, `cosh` and `tanh` of `(-im, re)`,
+  `sqrt` through the polar form, and `pow(z, y)` is `exp(y log z)`, where it was a loop of an int's count of products. A
+  text names the complex type by the part's words, `double _Complex`: a hole's type before `_Complex` is no type that
+  the reader takes. A part that is no float, double or long double is refused ([complex.numbers]/2 leaves it
+  unspecified). A bool's `numeric_limits` are C++'s, `max` 1, `min` 0, `digits` 1 and no sign (they were a signed 8-bit
+  type's, `min` true, `digits` 7 and `is_signed` 1). TO_CHARS WITH NO PRECISION writes the shortest text that reads back
+  as the value ([charconv.to.chars], libc++'s answer): the plain form is the shorter of fixed and scientific, fixed on a
+  tie; `chars_general` is fixed where the exponent is in [-4, 6); `chars_fixed` and `chars_scientific` give the fewest
+  digits that read back, the neighbour one unit away in the last digit where the nearest text of a count lies outside
+  the interval of a power of two (46 of a double's 2098 in scientific); `chars_hex` is printf's `%a` without its `0x`; a
+  float has its own digits, and a long double is written as a double, as libc++ writes it; a NaN and an infinity are
+  libc++'s words, `nan`, `-nan(ind)`, `-nan`, `nan(snan)`, `inf` and `-inf`. `to_chars(first, last, value, format,
+  precision)` is printf's text of the format at the precision. A text that does not fit gives `value_too_large` and the
+  room's offset, as C++ gives `last`. Through 1.6.3 0.1 was `0.10000000000000001`, `chars_fixed` six places, 1e-7 in
+  fixed `0`, a precision no form, and a text past 511 characters was refused. FROM_CHARS READS ITS FORMAT'S PATTERN
+  ([charconv.from.chars]): no white space and no `+`, no exponent in fixed, one needed in scientific, hex digits with no
+  `0x` in hex, no hex in general (through 1.6.3 it took the format and did not read it: `1.8p1` in hex was 1.8, `0x10`
+  16, `1e5` in fixed 100000); a float by `strtof` and a long double by `strtold`, each rounded once (a float went
+  through a double, rounded two times); a value out of range leaves the object, as C++17's words say, where libc++ 22
+  writes an infinity or a zero, and a denormal is in range (`alone/fromchars_range.c`, which has no twin). A bool is
+  refused, as C++ deletes `to_chars` of one, and so is a precision over an integer. The helpers of `limits.pl` are
+  `ccllib_limits_*` (they had the compiler's prefix, beside a dead clause and an unused predicate), and
+  `ccllib_charconv_to_float/5` names no hole of an unbound name. `test/ccllib/numbers.c` and its twin over `std::`;
+  `phase1c.cpp`, the twin of `phase1c.c`, draws its dice and its coin by `std::uniform_int_distribution` and
+  `std::bernoulli_distribution`; `safe/ratio_zero_den.c`, `safe/ratio_overflow.c`, `safe/ratio_sum_overflow.c`,
+  `safe/ratio_divide_zero.c`, `safe/complex_of_int.c`, `safe/charconv_bool.c` and `safe/charconv_prec_int.c`. (1.6.4)
 
 - A MODULE IS A MACRO FILE OF `library/ccllib/`, `NAME.pl`, and its C header `NAME.pl.h` where its text calls what a C
   header declares -- the reader includes the header beside the macro file where the file is there, and `pair.pl` and

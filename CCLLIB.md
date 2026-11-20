@@ -1000,12 +1000,19 @@ stays where the text names it, so `max(3, 4)` is a constant expression; `test/cc
 and `gcd`, `lcm` and `midpoint` are C++'s, each operand read once (1.6.2). `<limits.pl>` gives `numeric_limits<T>` as
 a type macro: `numeric_limits<int> n; max(n)`, `min`, `lowest`, `epsilon`, `infinity`, `quiet_NaN`, `digits`,
 `digits10`, `is_signed`, `is_integer` and `is_iec559`; the C limits are carried by small functions in `limits.pl.h`
-because C text is lexed and not preprocessed. `<complex.pl>` gives `complex<T>` as a value struct of a real and an
-imaginary part, with `real`, `imag`, `abs`, `arg`, `norm`, `conj`, `exp`, `log`, `sqrt`, `pow`, `sin`, `cos`, `tan`,
-the operators `+ - * / -` and `==`, and no drop. `<random.pl>` gives `mt19937<>` -- the standard Mersenne Twister,
-whose values are `std::mt19937`'s own -- with `seed`, `next`, `discard`, `min` and `max`, and `uniform_int`,
-`uniform_real`, `bernoulli` and `shuffle`. `<ratio.pl>` gives `ratio<N, D>` and `ratio_add`, `ratio_subtract`,
-`ratio_multiply` and `ratio_divide` as type macros, reduced as `std::ratio` reduces them, with `num` and `den`.
+because C text is lexed and not preprocessed; a bool's limits are C++'s, `max` 1, `min` 0 and `digits` 1 (1.6.4).
+`<complex.pl>` gives `complex<T>` as a value struct of a real and an imaginary part of a float, a double or a long
+double, with `real`, `imag`, `abs`, `arg`, `norm`, `conj`, `exp`, `log`, `sqrt`, `pow`, `sin`, `cos`, `tan`, the
+operators `+ - * / -` and `==`, and no drop; a product and a quotient are C's own over `T _Complex`, Annex G's, as
+libc++'s are the compiler's, and each other function is libc++'s formula in the part type's own functions (1.6.4).
+`<random.pl>` gives `mt19937<>` -- the standard Mersenne Twister, whose values are `std::mt19937`'s own, the seed 5489
+where the program gives none -- with `seed`, `next`, `discard`, `min` and `max`, and `uniform_int`, `uniform_real`,
+`bernoulli` and `shuffle`, each libc++'s algorithm, so that a program and its twin over libc++ draw the same values
+(1.6.4). `<ratio.pl>` gives `ratio<N, D>` and `ratio_add`, `ratio_subtract`, `ratio_multiply` and `ratio_divide` as type
+macros, reduced as `std::ratio` reduces them, with `num` and `den`, each a `long long`; each operation is an instance of
+its own name, a negative number among its numbers, and its result is libc++'s formula's, refused by name where C++
+refuses it -- a zero denominator, a product or a sum past `intmax_t`, a division by a numerator 0 (1.6.4).
+`test/ccllib/numbers.c` and its twin hold the rules of 1.6.4.
 `<chrono.pl>` gives nanosecond durations as `long long`: `nanos_of`, `millis_of`, `seconds_of`, `count_of`,
 `duration_cast_millis`, `duration_cast_seconds`, `now_nanos`, `now_millis` and `sleep_for_millis`.
 
@@ -1079,14 +1086,17 @@ and `from_chars_result`, the format names and `ccllib_errc_value_too_large`, `cc
   a result holds `pos`, the offset of the first character not written or read, where C++ holds a pointer (`ptr`); the
   safe part will not return a stored borrow, and the offset carries the same number;
 
-  to_chars of a floating number writes snprintf's general form with 17 significant digits, or fixed/scientific/hex,
-  and trims the zeros; for a simple value it is the shortest round-trip, and not for every value (`0.1` writes more
-  digits than std::to_chars does); a text longer than 511 characters stops with value_too_large;
+  from_chars takes its value by name and refuses an expression with no place to write;
 
-  from_chars of a floating number reads strtod's syntax -- decimal, inf, nan, hex -- and at most 255 characters;
-  C++'s general format takes no hex float;
+  a value out of range leaves the object as it was, as C++17's words say, where libc++ 22 writes an infinity or a
+  zero.
 
-  from_chars takes its value by name and refuses an expression with no place to write.
+The texts are C++'s (1.6.4): to_chars of a floating number with no precision writes the shortest text that reads back as
+the value -- the plain form the shorter of fixed and scientific, `chars_general` fixed where the exponent is in [-4, 6),
+a float by its own digits, a long double as a double, as libc++ writes it --, `to_chars(first, last, value, format,
+precision)` printf's text at the precision, and a NaN and an infinity libc++'s words; from_chars reads its format's
+pattern, no exponent in fixed, one needed in scientific, hex digits and no `0x` in hex, a float by `strtof`. A bool is
+refused, as C++ deletes `to_chars` of one.
 
 `test/ccllib/charconv.c` and its twin over `std::charconv` print the same sixteen lines;
 `test/ccllib/safe/charconv_rvalue.c` holds the refusal.

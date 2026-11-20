@@ -101,8 +101,10 @@ int main() {
     for (int i = 0; i < 5; i++) std::printf(" %u", r());
     std::printf("\n");
     std::mt19937 r2(1);
-    std::printf("dice %u %u %u\n", 1u + r2() % 6u, 1u + r2() % 6u, 1u + r2() % 6u);
-    std::printf("bernoulli %d %d\n", (r2() / 4294967296.0) < 0.5, (r2() / 4294967296.0) < 0.5);
+    std::uniform_int_distribution<int> die(1, 6);
+    std::printf("dice %u %u %u\n", die(r2), die(r2), die(r2));
+    std::bernoulli_distribution coin(0.5);
+    std::printf("bernoulli %d %d\n", (int)coin(r2), (int)coin(r2));
 
     using half = std::ratio<1, 2>;
     using also_half = std::ratio<2, 4>;

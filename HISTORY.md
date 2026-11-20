@@ -320,6 +320,7 @@ One row per step, in version order: the step's title, what it did and its gate n
 | 1.6.1 | the operands that C's operators take, in clang's words; C++'s unary `+` by its operator | the review of 1.1.3 to 1.6.0: `cout << "a" << 1 << endl` printed `a` alone, the C check taking `1 << s` over a pointer (C17 6.5.7/2): 31 pairs of the binary and unary operators refused in clang's words, the binary ones in C alone (libc++ 22's `__to_buffer`), a record where C takes a scalar in 12 forms, the C spelling of a type; C++'s `+x` its class's operator, its conversion's value or its pointer's value, a free unary operator only where it fits, an arithmetic conversion to an enumeration of its own type alone; the docs of 1.6.0 put right | the driver gate's 43 C forms, `operands.c`, `unaryplus.cpp`, `unarypluslambda.cpp`, `autoptrdiff.cpp`; 24 copies broken on purpose, each caught; the nets |
 | 1.6.2 | a name that the program declares is no macro's; each operand read once; a block's types its own | the review's first, eighth and ninth items -- the program's own `hash` and `less` were `<functional.pl>`'s, `min(i++, 10)` read i two times, `accumulate` summed in a char -- and, found beside them, `__typeof__` of a block's object and a block's typedef, which the passes took from another block | `ownnames.c`, `readonce.c`, `scopedtypes.c` and `.cpp`, `blocktypedef_leak.c`, two driver checks; 23 copies broken on purpose, each caught; the nets |
 | 1.6.3 | the streams as C++'s | the review's items 2, 3, 4 and 10 to 13 and three found by reading -- `cout << "a" << 1 << endl` wrote `a`, `hex` of -1 a long long's bits, `endl` flushed nothing, `cin >> c` kept a space, a stringstream wrote past its room and read a null buffer, `str` was new memory --: each operator gives the stream, a read that finds no value a null pointer and a failed stream, endl a value that flushes, and the forms beside | `streamchain.c` and its twin, the driver gate's `cin` check, `stops.c`'s endl, two refusals; 28 copies broken on purpose, 27 caught, `fstream.pl.h`'s by no check; the nets |
+| 1.6.4 | the numbers as C++'s | the review's items 7, 14 and 15 and five found by reading -- two ratio operations over one four numbers were one name, an engine that no seed seeded gave 0, `uniform_int(r, -5, 5)` was never negative, `to_chars` wrote 0.1 as `0.10000000000000001` and `from_chars` read no format, a complex quotient was the textbook formula, a bool's limits a signed 8-bit type's --: each module's values are libc++ 22's, and `phase1c` under valgrind passes | `numbers.c` and its twin, `fromchars_range.c`, `phase1c.cpp`'s distributions, seven refusals; 53 copies broken on purpose, each caught; the nets |
 
 ## M5 — the C++ mode
 
@@ -23432,3 +23433,95 @@ parts by hand, 218 ok. The chain did not run, by the owner's rule of 0.271. No C
 - RULES.md (phase 1d), HISTORY.md, CLAUDE.md, README.md, CCLLIB.md.
 
 The module 1.6.3, the reader 203 and the lowering 176.
+
+## 1.6.4 — the numbers as C++'s
+
+**1.6.4: the fourth step of the review of 1.1.3 to 1.6.0, its items 7, 14 and 15 and five that it found by reading.
+`ratio_add<1, 2, 1, 3>` and `ratio_multiply<1, 2, 1, 3>` were one instance's name, and the second was refused; an engine
+that no seed seeded gave 0, `uniform_int(r, -5, 5)` was never negative, and the whole range divided by zero; `to_chars`
+wrote 0.1 as `0.10000000000000001`, and `from_chars` took its format and did not read it; a complex quotient was the
+textbook formula; a bool's `numeric_limits` were a signed 8-bit type's. Each module's values are C++'s now, libc++ 22's
+where the standard leaves them to the library, and `phase1c` under valgrind passes on this box.**
+
+THE FINDINGS, RUN FROM THEIR REDUCTIONS (`rev/r01_ratio`, `r10_tochars`, `r11_random`). `ratio_add<1, 2, 1, 3>` and
+`ratio_multiply<1, 2, 1, 3>` in one function: the second refused, `the instance's type is the type of ratio_add<1, 2, 1,
+3>'s instance` (C++ `5/6 1/6`). `to_chars` of 0.1 wrote `0.10000000000000001`, of 0.1234567 in fixed `0.123457`, of 1e-7
+in fixed `0`, of 12345678.9 in scientific `1.234568e+07` (libc++ 22: `0.1`, `0.1234567`, `0.0000001`, `1.23456789e+07`);
+`from_chars` of `1.8p1` in hex read 3 characters, 1.8, of `0x10` 4, 16, of `1e5` in fixed 3, 100000 (libc++: `5 3`, `1
+0`, `1 1`). An `mt19937<>` that no seed seeded gave 0, and `uniform_int(q, -5, 5) < 0` was never true in 1000 draws
+(libc++: 3499211612, and true). By reading: a complex's `sqrt` and quotient took the textbook formulas and `pow(z, n)` a
+loop of n products; `uniform_int(r, 0, 4294967295u)` divided by zero; `limits.pl` had a dead clause, an unused predicate
+and helpers of the compiler's prefix; `ccllib_charconv_to_float/5` named a hole of an unbound name. And the gate's FAIL
+of 1.6.0: `phase1c` under valgrind stopped at an instruction that valgrind does not know. THE FORMS BESIDE, each held to
+libc++ 22: the other ratio operations, a negative number, a zero denominator, a number past `intmax_t`, a literal past
+2^60, the products and the sums that libc++ refuses and one that its gcds keep in range; `uniform_int` over a long
+long's range, over a type's whole range and in 64 bits, `uniform_real` of a float and of a long double, `bernoulli` and
+`shuffle` (through 1.6.3 a modulo, one draw divided by 2^32, a shuffle from the last element); a quotient by zero and by
+1e300 + 1e300i (each NaN through 1.6.3), a product of infinities, `sqrt(-4)`, `cos(0)`, `sin(1 + i)`, `tan(1 + i)`, the
+infinities of `sin`, `tan`, `exp` and `sqrt`, `norm` of an infinity and a NaN, a float's `exp` and a long double's
+`sqrt`; a bool's limits (`min` true, `digits` 7); `to_chars` at a precision, the NaNs' signs and payloads, a room too
+small; `from_chars`'s patterns, hex digits, a denormal, a value out of range, a float whose text lies near the half-way
+point of two floats. Four harnesses held the new texts, as C helpers built by clang, to libc++ 22, and none differs:
+every power of two of a double and of a float, 36 values of note and 100,000 bit patterns of chance, each in the five
+forms of `to_chars`, and texts at a precision -- 1,024,879 texts; 55 texts, each read in the four formats as a double
+and as a float, and libc++'s texts of 50,000 values of chance -- 457,384 reads; 20,000 sets of parts of chance, of every
+scale and the infinities, the NaNs and the zeros, through twelve functions in the three part types -- 720,000 values;
+the engine's default seed, the distributions of an int, an unsigned, a long long and an unsigned long long, of each
+floating type and of a coin, and shuffles of 0 to 39 elements -- 50,080 draws. The first build of the texts as macro
+files found four defects of their own: `complex.pl` split a code list where it needed an atom; a hole's type before
+`_Complex` is no type that the reader takes; `ratio.pl` reduced exactly, where cocolog's integers stop at 64 bits and a
+product past them is an error; and the refusal of a bool needs a `bool` object in C, whose `true` is the int 1.
+
+THE CAUSES. `ratio.pl` named each operation's instance `ratio_Op_` and its numbers, read a number as an `int(V)` alone,
+wrote `num` and `den` as an `int`, and multiplied in cocolog's 64 bits with no check. `random.pl`'s engine was born zero
+and seeded nothing; its draws were `lo + next % (hi - lo + 1)` in the unsigned type of the sum. `complex.pl`'s texts
+were the formulas of a textbook, in double. `limits.pl` took a bool for a signed integer of its width (`ccl_int_rank/3`
+gives `_Bool` no unsigned rank). `charconv.pl.h` wrote `%.17g` and trimmed it, and read every format by strtod.
+
+THE RULES (RULES.md, the group of phase 1c, THE NUMBERS ARE C++'S, and phase 2's charconv). Each ratio operation is an
+instance of its own name, its numbers constant integer expressions, `num` and `den` a `long long`, its result libc++'s
+formula's and its refusals C++'s; the engine is seeded with 5489 where the program seeds it not, and its distributions
+are libc++'s algorithms, a draw converted through a signed `long long`; a complex's product and quotient are C's own
+over `T _Complex`, each other function libc++'s formula in the part's type, and a part that is no floating type is
+refused; a bool's limits are C++'s; `to_chars` writes the shortest text that reads back, a precision's form is printf's,
+and `from_chars` reads its format's pattern.
+
+THE PROOF. `test/ccllib/numbers.c` and its twin over `std::` print the same 39 lines as C, as C++ and by clang++, a
+complex value's parts in the digits that tell each bit, and the infinities of four functions; `alone/fromchars_range.c`
+holds the object that a value out of range leaves, and a denormal in range, as C and as C++; `phase1c.c`'s twin draws
+its dice and its coin by libc++'s distributions, and `phase1c` under valgrind has no error; `safe/ratio_zero_den.c`,
+`safe/ratio_overflow.c`, `safe/ratio_sum_overflow.c`, `safe/ratio_divide_zero.c`, `safe/complex_of_int.c`,
+`safe/charconv_bool.c` and `safe/charconv_prec_int.c` are refused by name as C and as C++. Over 1.6.3 each fails.
+FIFTY-THREE COPIES BROKEN ON PURPOSE, a rule each -- the ratio's instance name, its negative numbers' names, its
+numbers' type, its constant expressions and its literals past 2^60, its zero denominator, libc++'s gcds, the checked
+product and the checked sum, the division by a numerator 0; the engine's seed, the draw past the range thrown away, the
+whole range, a draw's bits, the canonical value's two draws, the signed conversion of a draw, the coin's canonical
+double, the shuffle, the floating type of `uniform_real`; the complex product and quotient, the part's own functions,
+`pow`, `sqrt` by the polar form and at an infinity, `cos` at zero, `norm` at an infinity, `exp` of a NaN, `sin` and
+`tan` through `sinh` and `tanh`, the part's type; a bool's limits; `to_chars`'s shortest digits, the neighbour at a
+power of two, the plain form, `chars_general`'s range, a large integer's exact digits, hex without `0x`, a float's own
+digits, the precision, a NaN's words, the room's offset; `from_chars`'s hex digits, its general form with no hex, fixed
+with no exponent, scientific with one, no white space, a denormal, the range, a float by `strtof` and a long double by
+`strtold`; the refusals of a bool and of a precision over an integer -- are each caught by these checks, the signed
+conversion by valgrind alone.
+
+THE NETS, over the step's final code on cocolog 3.65.0, each under the caps and over a fresh HOME: the flow gate GREEN
+(327 s, 4698 MB); the reader gate 170 ok, 5 skipped; the compile gate 346 ok; the driver gate 96 ok; the objects gate 29
+ok; the ccllib gate 607 ok, `numbers.c`'s five, the seven refusals as C and as C++, `fromchars_range.c`'s two and
+`phase1c` under valgrind among them, and the 4 FAIL of 1.6.0 -- `mutex.c`'s four --, which 1.6.5 takes; the C++ pools of
+the lighter run fixtures, 368 of 368 over libc++ 22, 21 and 18; every heavier C++ run fixture over libc++ 22, 506 ok and
+14 skipped by their `.needs`, of 520; the C++ gate's later parts by hand, 218 ok. The chain did not run, by the owner's
+rule of 0.271. No CI job ran.
+
+- `library/ccllib/ratio.pl` (the names, the numbers, libc++'s formulas, the refusals); `library/ccllib/random.pl` (the
+  seed, `__bits`, `__uniform`, the canonical values, bernoulli, shuffle); `library/ccllib/complex.pl` (the product and
+  the quotient, libc++'s formulas, the part's suffix and words); `library/ccllib/limits.pl` (a bool's limits, the
+  helpers' names); `library/ccllib/charconv.pl` and `charconv.pl.h` (the shortest texts, the precision, the patterns, a
+  bool refused); the words of `complex.pl.h` and `random.pl.h`; the module's version.
+- `test/ccllib/numbers.c`, `.cpp`, `.expect`; `alone/fromchars_range.c`, `.expect`; `phase1c.c` (the ratio's numbers as
+  a `long long`), `phase1c.cpp` (the distributions), `phase1c.expect`; `safe/ratio_zero_den.c`, `safe/ratio_overflow.c`,
+  `safe/ratio_sum_overflow.c`, `safe/ratio_divide_zero.c`, `safe/complex_of_int.c`, `safe/charconv_bool.c`,
+  `safe/charconv_prec_int.c`, each with its `.expect`.
+- RULES.md (phase 1c, phase 2's charconv), HISTORY.md, CLAUDE.md, README.md, CCLLIB.md.
+
+The module 1.6.4, the reader 203 and the lowering 176.

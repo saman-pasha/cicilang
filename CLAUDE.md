@@ -12,7 +12,7 @@ the fixture that gates it, and why. The bullet ends with the version that made t
 edits the rule in `RULES.md`, in its topic, and writes its entry in `HISTORY.md`. Read the topic of `RULES.md` that
 covers the code before the code is changed.
 
-At 1.6.3 the versions are: the module 1.6.3 (`ccl_p_version` in `module/cicilang.cicili`, `bin/cicilang --version`),
+At 1.6.4 the versions are: the module 1.6.4 (`ccl_p_version` in `module/cicilang.cicili`, `bin/cicilang --version`),
 the reader 203 (`ccl_reader_version/1`, `library/ccl_syntax.pl`) and the lowering 176 (`ccl_lowering_version/1`,
 `library/ccl_ir.pl`).
 
@@ -431,12 +431,16 @@ library/ccllib/             ccllib, the standard library of cicilang's C (CCLLIB
   numeric.pl, numeric.pl.h    the numeric folds and scans (1.2.0): accumulate, inner_product, iota, partial_sum,
                               adjacent_difference, gcd, lcm, midpoint
   limits.pl, limits.pl.h      std::numeric_limits as `numeric_limits<T>` (1.2.0), its C limits carried by functions
-                              in the header because C text is not preprocessed
+                              in the header because C text is not preprocessed; a bool's are C++'s (1.6.4)
   complex.pl, complex.pl.h    std::complex as a value struct (1.2.0): real, imag, abs, arg, norm, conj, exp, log,
-                              sqrt, pow, sin, cos, tan, and the operators
+                              sqrt, pow, sin, cos, tan, and the operators; a product and a quotient by C's _Complex,
+                              each other function by libc++'s formula (1.6.4)
   random.pl, random.pl.h      std::mt19937 as `mt19937<>` (1.2.0), the standard Mersenne Twister, and uniform_int,
-                              uniform_real, bernoulli and shuffle
-  ratio.pl, ratio.pl.h        std::ratio as `ratio<N, D>` and its four operations (1.2.0), reduced, with num and den
+                              uniform_real, bernoulli and shuffle, each by libc++'s algorithm, the seed 5489 where
+                              the program gives none (1.6.4)
+  ratio.pl, ratio.pl.h        std::ratio as `ratio<N, D>` and its four operations (1.2.0), reduced, with num and den;
+                              each operation an instance of its own name, by libc++'s formulas and their checks, num
+                              and den a long long (1.6.4)
   chrono.pl, chrono.pl.h      nanosecond durations and the monotonic clock (1.2.0): nanos_of, millis_of,
                               seconds_of, now_nanos, now_millis, sleep_for_millis
   iostream.pl, iostream.pl.h  std::cout, std::cin and std::cerr over C's stdio (1.3.0); endl and ends, values of types
@@ -453,7 +457,8 @@ library/ccllib/             ccllib, the standard library of cicilang's C (CCLLIB
                               std::stringstream as stringstream<> (1.3.0): a buffer of its own, str, clear, rewind
   iostream_impl.pl            the texts the four stream modules share (1.3.0); a module loads it by a directive
   charconv.pl, charconv.pl.h  std::charconv (1.4.0): to_chars and from_chars for integers and floating numbers,
-                              with bases and chars_format; a result holds pos, the offset, where C++ holds ptr
+                              with bases and chars_format; a result holds pos, the offset, where C++ holds ptr; the
+                              shortest texts, the form of a precision and the formats' patterns (1.6.4)
   atomic.pl, atomic.pl.h      std::atomic<T> and std::atomic_flag over clang's atomic builtins (1.5.0): load, store,
                               exchange, fetch_add and the rest, compare_exchange_strong, all seq_cst
   mutex.pl, mutex.pl.h        std::mutex, lock_guard, unique_lock, barrier and latch over POSIX's pthreads (1.6.0):
@@ -669,7 +674,9 @@ test/ccllib/                the three runs' programs: NAME.c, a ccllib program; 
                             own names beside the macros of <functional.pl> and <algorithm.pl>, and readonce.c, the
                             operands that the value helpers, the searches and the folds read once (1.6.2);
                             streamchain.c, the streams as C++'s: `<<` and `>>` chained, endl, the bases, the
-                            precision, the reads that fail, a stringstream's room and its empty reads (1.6.3)
+                            precision, the reads that fail, a stringstream's room and its empty reads (1.6.3);
+                            numbers.c, the numbers as C++'s: the ratio operations, the engine and the
+                            distributions, complex, a bool's limits, to_chars and from_chars (1.6.4)
 test/ccllib/safe/           ccllib programs that the safe part refuses, as C and as C++: NAME.c, NAME.expect, and
                             NAME.expect.cpp where C++ has words of its own (0.274); borrow_into_call_vector.c and
                             string_self_c_str.c, a borrow handed to a call that may replace its owner (0.293);
@@ -690,7 +697,9 @@ test/ccllib/safe/           ccllib programs that the safe part refuses, as C and
                             weak_ptr_of_pointer.c and weak_ptr_two_types.c (1.1.5); algorithm_view_sort.c (1.2.0),
                             iostream_no_word.c (1.3.0), charconv_rvalue.c (1.4.0), atomic_of_struct.c (1.5.0) and
                             mutex_of_int.c (1.6.0); sstream_str_write.c and sstream_str_free.c, a stringstream's str,
-                            a borrow (1.6.3)
+                            a borrow (1.6.3); ratio_zero_den.c, ratio_overflow.c, ratio_sum_overflow.c,
+                            ratio_divide_zero.c, complex_of_int.c, charconv_bool.c and charconv_prec_int.c, what
+                            the numbers refuse (1.6.4)
 test/ccllib/alone/          ccllib programs with no twin, built as C and as C++ (0.281): NAME.c, NAME.expect;
                             stops.c, what stops a ccllib program, each case in a child of its own; tree_rules.c,
                             the rules of the tree of a set and a map, read from the instance's own fields;
@@ -710,7 +719,8 @@ test/ccllib/alone/          ccllib programs with no twin, built as C and as C++ 
                             unique_ptr, held to a model of its blocks, and stops.c's cases of a unique_ptr (0.309);
                             shared_ptr_rules.c, the rules of a shared_ptr, held to a model of three handles (1.1.3);
                             functional_rules.c, the function objects and the hash, and stops.c's shared_ptr cases
-                            (1.1.4); any_rules.c and weak_ptr_rules.c, their rules (1.1.5)
+                            (1.1.4); any_rules.c and weak_ptr_rules.c, their rules (1.1.5); fromchars_range.c, a value
+                            out of range that from_chars leaves, as C++17 says and libc++ 22 does not (1.6.4)
 
 proof/forty2.ll, run.sh     M0: hand-written IR through clang to a binary that prints a line and exits 42
 proof/forty2                made by proof/run.sh, never committed

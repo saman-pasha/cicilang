@@ -832,7 +832,12 @@ span and string, with a view read-only; `<numeric.pl>` the folds and scans;
 `<limits.pl>` `numeric_limits<int> n; max(n)`; `<complex.pl>` `complex<double>`;
 `<random.pl>` `mt19937<> r; seed(r, 5489); next(r)`; `<ratio.pl>`
 `ratio<1, 2>` and its operations; and `<chrono.pl>` `millis_of(1500)` and the
-monotonic clock. `test/ccllib/phase1c.c` is the example.
+monotonic clock. `test/ccllib/phase1c.c` is the example. The numbers are C++'s
+(1.6.4): an engine that no seed seeded is std::mt19937's,
+`uniform_int(r, -5, 5)` and the other distributions draw as libc++'s do, a
+complex quotient is C's own `_Complex` one, and `ratio_add<1, 2, 1, 3>` and
+`ratio_multiply<1, 2, 1, 3>` are two instances; `test/ccllib/numbers.c` holds
+them.
 
 Phase 1d is there too (1.3.0): `#include <iostream.pl>` gives `cout`, `cin` and
 `cerr`; `cout << "x = " << 42 << " " << 3.5 << endl` chains as C++'s does, and
@@ -848,7 +853,10 @@ Phase 2 begins with `<charconv.pl>` (1.4.0): `to_chars(buf, buf + 64, 42)`,
 `from_chars(buf, buf + 6, n)` and `from_chars(buf, buf + 2, d)`. A result
 holds `pos`, the offset of the first character not written or read, where
 C++ holds `ptr`, and `r.ec == 0` is success. `test/ccllib/charconv.c` is the
-example.
+example. Since 1.6.4 `to_chars(buf, buf + 64, 0.1)` writes `0.1`, the shortest
+text that reads back, as C++'s does; `to_chars(buf, buf + 64, 3.14159,
+chars_fixed, 2)` writes `3.14`; and `from_chars` reads the pattern of its
+format.
 
 Phase 2 continues with `<atomic.pl>` (1.5.0): `atomic<int> a; store(a, 5)`,
 `load(a)`, `exchange(a, 7)`, `fetch_add(a, 3)`, `compare_exchange_strong(a, &e, 9)`,

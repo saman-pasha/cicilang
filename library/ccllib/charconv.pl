@@ -7,6 +7,7 @@
 %%   to_chars(buf, buf + 64, 255, 16); // an integer's base
 %%   to_chars(buf, buf + 64, 3.5);     // general
 %%   to_chars(buf, buf + 64, 3.5, chars_fixed);
+%%   to_chars(buf, buf + 64, 3.14159, chars_fixed, 2);
 %%   from_chars_result f = from_chars(buf, buf + 6, n);
 %%   if (f.ec == 0) ...                f.pos is the first character not read
 %%
@@ -16,48 +17,63 @@
 %% `r.ec == 0` and `r.ec == ccllib_errc_invalid_argument`, where C++ compares `r.ec == std::errc()` and
 %% `r.ec == std::errc::invalid_argument`.
 %%
-%% What differs from C++:
-%%   to_chars of a floating number writes snprintf's general form with 17 significant digits, or its fixed or
-%%     scientific form, and then trims the zeros that C++ trims; it is the shortest round-trip for a simple value, and
-%%     not for every value (`0.1` writes more digits than std::to_chars does);
-%%   to_chars of a floating number whose text is longer than 511 characters stops with value_too_large, even where the
-%%     destination is larger;
-%%   from_chars of a floating number reads strtod's syntax -- a decimal, inf, nan, or a hex float -- and at most 255
-%%     characters; C++'s general format takes no hex float, and `chars_hex` takes nothing else;
+%% THE TEXTS ARE C++'S (1.6.4; the helpers of charconv.pl.h): to_chars of a floating number with no precision writes the
+%% shortest text that reads back as the value, the plain form the shorter of fixed and scientific, chars_general fixed
+%% where the exponent is in [-4, 6), a float by its own digits; with a precision, printf's text at it; a NaN and an
+%% infinity in libc++'s words; a write that does not fit gives value_too_large and the room's offset. from_chars reads the
+%% pattern of its format -- no exponent in fixed, one needed in scientific, hex digits and no 0x in hex, no hex in general
+%% --, a float by strtof and a long double by strtold. Through 1.6.3 0.1 was 0.10000000000000001, fixed was six places,
+%% from_chars took no format, and a float went through a double. What differs from C++:
 %%   the result holds `pos', the offset of the first character not written or read, where C++ holds a pointer (`ptr');
-%%   from_chars takes its value by name, `from_chars(first, last, n)', and refuses anything with no place to write.
+%%   from_chars takes its value by name, `from_chars(first, last, n)', and refuses anything with no place to write;
+%%   a value out of range leaves the object as it was, as C++17's words say, where libc++ 22 writes the infinity or zero;
+%%   a long double is written as a double, as libc++'s to_chars writes it.
 :- ensure_loaded(library(ccllib/ccllib)).
 
-%% to_chars(first, last, value): the general form of an integer or a floating number
+%% to_chars(first, last, value): an integer, or a floating number's plain form (style 4)
 ccl_macro_to_chars(F, L, X, R) :-
-    ccl_type_of(X, T),
+    ccl_type_of(X, T), ccllib_charconv_no_bool(T),
     (   ccl_is_integer(T) -> ccllib_charconv_to_int(F, L, X, T, 10, R)
-    ;   ccl_is_float(T) -> ccllib_charconv_to_float(F, L, X, 0, R)
+    ;   ccl_is_float(T) -> ccllib_charconv_to_float(F, L, X, T, 4, R)
     ;   ccl_macro_error('to_chars takes an integer or a floating number') ).
 
 %% to_chars(first, last, value, base or format)
 ccl_macro_to_chars(F, L, X, A, R) :-
-    ccl_type_of(X, T),
+    ccl_type_of(X, T), ccllib_charconv_no_bool(T),
     (   ccl_is_integer(T) -> ccllib_charconv_base(A, B), ccllib_charconv_to_int(F, L, X, T, B, R)
-    ;   ccl_is_float(T) -> ccllib_charconv_style(A, S), ccllib_charconv_to_float(F, L, X, S, R)
+    ;   ccl_is_float(T) -> ccllib_charconv_style(A, S), ccllib_charconv_to_float(F, L, X, T, S, R)
     ;   ccl_macro_error('to_chars takes an integer or a floating number') ).
 
-%% from_chars(first, last, value): the general form
+%% to_chars(first, last, value, format, precision): a floating number at a precision (1.6.4)
+ccl_macro_to_chars(F, L, X, A, P, R) :-
+    ccl_type_of(X, T),
+    (   ccl_is_float(T) -> ccllib_charconv_style(A, S), ccllib_charconv_int_text(S, ST),
+        ( ccllib_charconv_is_float(T) -> Fn = ccllib_charconv_to_prec_f, Cast = '(float)(@X)' ; Fn = ccllib_charconv_to_prec_d, Cast = '(double)(@X)' ),
+        atomic_list_concat([Fn, '((@F), (@L), ', Cast, ', ', ST, ', (int)(@P))'], Text),
+        ccl_c_expr(Text, ['F' = expr(F), 'L' = expr(L), 'X' = expr(X), 'P' = expr(P)], R)
+    ;   ccl_macro_error('to_chars with a precision takes a floating number') ).
+
+%% from_chars(first, last, value): an integer in base 10, a floating number's general pattern
 ccl_macro_from_chars(F, L, X, R) :-
-    ccl_type_of(X, T), ccllib_charconv_lvalue(X),
+    ccl_type_of(X, T), ccllib_charconv_lvalue(X), ccllib_charconv_no_bool(T),
     (   ccl_is_integer(T) -> ccllib_charconv_from_int(F, L, X, T, 10, R)
-    ;   ccl_is_float(T) -> ccllib_charconv_from_float(F, L, X, R)
+    ;   ccl_is_float(T) -> ccllib_charconv_from_float(F, L, X, 0, R)
     ;   ccl_macro_error('from_chars takes an integer or a floating number') ).
 
-%% from_chars(first, last, value, base or format)
+%% from_chars(first, last, value, base or format): the format's pattern (1.6.4: the format was taken and not read)
 ccl_macro_from_chars(F, L, X, A, R) :-
-    ccl_type_of(X, T), ccllib_charconv_lvalue(X),
+    ccl_type_of(X, T), ccllib_charconv_lvalue(X), ccllib_charconv_no_bool(T),
     (   ccl_is_integer(T) -> ccllib_charconv_base(A, B), ccllib_charconv_from_int(F, L, X, T, B, R)
-    ;   ccl_is_float(T) -> ccllib_charconv_style(A, _), ccllib_charconv_from_float(F, L, X, R)
+    ;   ccl_is_float(T) -> ccllib_charconv_style(A, S), ccllib_charconv_from_float(F, L, X, S, R)
     ;   ccl_macro_error('from_chars takes an integer or a floating number') ).
 
 ccllib_charconv_lvalue(X) :- ccl_iop_lvalue(X), !.
 ccllib_charconv_lvalue(_) :- ccl_macro_error('from_chars takes a value with a place: name the value it reads into').
+%% a bool is none of them: C++ deletes to_chars of a bool, and from_chars takes an integer type other than bool
+ccllib_charconv_no_bool(T) :- catch(ccl_resolve_type(T, base(_, W)), _, fail), ( memberchk('_Bool', W) ; memberchk(bool, W) ), !,
+    ccl_macro_error('to_chars and from_chars take no bool, as C++ deletes them').
+ccllib_charconv_no_bool(_).
+ccllib_charconv_is_float(T) :- catch(ccl_resolve_type(T, base(_, W)), _, fail), msort(W, [float]), !.
 
 %% a base is a constant from 2 to 36; a base that is no constant is left to the call, as C++ leaves it
 ccllib_charconv_base(A, B) :-
@@ -92,11 +108,12 @@ ccllib_charconv_to_int(F, L, X, T, B, R) :-
     atomic_list_concat([Fn, '((@F), (@L), ', Cast, ', (int)(', BT, '))'], Text),
     ccl_c_expr(Text, ['F' = expr(F), 'L' = expr(L), 'X' = expr(X), 'B' = expr(B)], R).
 
-%% -- the floating numbers written
-ccllib_charconv_to_float(F, L, X, S, R) :-
+%% -- the floating numbers written: a float by its own digits, a double and a long double as a double, as libc++'s
+ccllib_charconv_to_float(F, L, X, T, S, R) :-
     ccllib_charconv_int_text(S, ST),
-    atomic_list_concat(['ccllib_charconv_to_d((@F), (@L), (double)(@X), ', ST, ')'], Text),
-    ccl_c_expr(Text, ['F' = expr(F), 'L' = expr(L), 'X' = expr(X), 'B' = expr(B)], R).
+    ( ccllib_charconv_is_float(T) -> Fn = ccllib_charconv_to_f, Cast = '(float)(@X)' ; Fn = ccllib_charconv_to_d, Cast = '(double)(@X)' ),
+    atomic_list_concat([Fn, '((@F), (@L), ', Cast, ', ', ST, ')'], Text),
+    ccl_c_expr(Text, ['F' = expr(F), 'L' = expr(L), 'X' = expr(X)], R).
 
 %% -- the integers read: a signed one and an unsigned one call their own helper
 ccllib_charconv_from_int(F, L, X, T, B, R) :-
@@ -105,7 +122,7 @@ ccllib_charconv_from_int(F, L, X, T, B, R) :-
     atomic_list_concat([Fn, '((@F), (@L), &(@X), (int)(', BT, '), (int)sizeof(@T))'], Text),
     ccl_c_expr(Text, ['F' = expr(F), 'L' = expr(L), 'X' = expr(X), 'T' = type(T), 'B' = expr(B)], R).
 
-%% -- the floating numbers read
-ccllib_charconv_from_float(F, L, X, R) :- ccl_type_of(X, T),
-    ccl_c_expr("ccllib_charconv_from_double((@F), (@L), &(@X), (int)sizeof(@T))",
-               ['F' = expr(F), 'L' = expr(L), 'X' = expr(X), 'T' = type(T)], R).
+%% -- the floating numbers read: the format's pattern, by the width of the value's type
+ccllib_charconv_from_float(F, L, X, S, R) :- ccl_type_of(X, T), ccllib_charconv_int_text(S, ST),
+    atomic_list_concat(['ccllib_charconv_from_fp((@F), (@L), &(@X), (int)sizeof(@T), ', ST, ')'], Text),
+    ccl_c_expr(Text, ['F' = expr(F), 'L' = expr(L), 'X' = expr(X), 'T' = type(T)], R).

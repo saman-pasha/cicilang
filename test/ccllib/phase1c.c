@@ -98,7 +98,7 @@ int main(void) {
     ratio<2, 4> also_half;
     ratio_add<1, 2, 1, 3> five_sixths;
     ratio_multiply<2, 3, 3, 4> one_half;
-    printf("ratio %d/%d %d/%d %d/%d %d/%d\n", num(half), den(half), num(also_half), den(also_half),
+    printf("ratio %lld/%lld %lld/%lld %lld/%lld %lld/%lld\n", num(half), den(half), num(also_half), den(also_half),
            num(five_sixths), den(five_sixths), num(one_half), den(one_half));
 
     long long d = millis_of(1500);

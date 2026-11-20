@@ -22,8 +22,8 @@ complex sum 4 2 prod 11 -2 quot -1 2
 complex abs 5 norm 25 conj 3 -4
 complex eq 1 0
 mt: 3499211612 581869302 3890346734 3586334585 545404204
-dice 2 6 1
-bernoulli 0 1
+dice 6 4 5
+bernoulli 1 1
 ratio 1/2 1/2 5/6 1/2
 chrono 1500000000 1500 1 2000000000
 exit 0
