@@ -878,7 +878,7 @@ k87 :- check('C23 (-std=c23): constexpr a constant that folds, enum : unsigned c
       member(static_assert(_, bin('==', id('K'), int(7)), str(_)), Is),
       member(static_assert(_, bin('>', id('K'), int(0)), none), Is),
       member(static_assert(_, bin('==', sizeof_type(_), int(4)), str(_)), Is),
-      member(typedef(_, [var(kint, base([], [typeof(id('K'))]), none)]), Is) )).
+      member(typedef(_, [var(kint, base([], [typeof(base(KQ, [int]))]), none)]), Is), memberchk(const, KQ) )).   % typeof(K) is K's type where it stands (1.6.2)
 k89 :- check('C23: __VA_OPT__ keeps or drops its group, #embed puts the resource\'s bytes where it stood (limit, prefix, suffix, if_empty), __has_embed and __has_c_attribute answer',
     ( unit_c('run/c23pp.c', 23, unit(Is)),
       member(declaration(_, static, _, [var(data, _, init([item(_, int(104)), item(_, int(101)), item(_, int(108)), item(_, int(108)), item(_, int(111))]))]), Is),

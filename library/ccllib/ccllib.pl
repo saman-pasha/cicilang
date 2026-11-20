@@ -10,6 +10,57 @@ ccllib_plain_element(What, T) :-
         atomic_list_concat([What, ' is a value with no pointer in it, and ', W, ' holds one'], M), ccl_macro_error(M)
     ;   true ).
 
+%% AN OPERAND READ ONCE (1.6.2; the review of 1.1.3 to 1.6.0, its ninth item): C++ reads each argument of min, max,
+%% clamp, count, find, lower_bound, upper_bound and binary_search once, where a text that named an operand at each of
+%% its uses read `min(i++, 10)' two times and `count(v, f())' once an element. ccllib_once(+Kind, +Text, +Ops, +Holes,
+%% -Out) reads Text, a C text of Kind expr or stmts whose hole @K is the operand K = E of Ops: an operand with no effect
+%% of its own (ccllib_pure/1) stands where the text names it, so that a constant stays a constant -- `int a[max(3, 4)]'
+%% --, and each other operand is read once, in the order of Ops, into a fresh local of its own type, which the text
+%% names in its place. The locals' names are fresh and reserved (`__ccl_once_N', C17 7.1.3), so that no name of the
+%% program's in an operand means one of them
+ccllib_once(Kind, Text0, Ops, Hs0, Out) :-
+    ( is_list(Text0) -> atom_codes(Text, Text0) ; Text = Text0 ),
+    ccllib_once_bind(Ops, Ds, Hs1), append(Hs1, Hs0, Hs),
+    (   Ds == [] -> T1 = Text
+    ;   atomic_list_concat(Ds, D), ccllib_once_wrap(Kind, D, Text, T1) ),
+    ccllib_once_read(Kind, T1, Hs, Out).
+ccllib_once_bind([], [], []).
+ccllib_once_bind([K = E|Ops], Ds, [K = expr(E)|Hs]) :- ccllib_pure(E), !, ccllib_once_bind(Ops, Ds, Hs).
+ccllib_once_bind([K = E|Ops], [D|Ds], [KV = expr(E), K = name(G)|Hs]) :-
+    (   catch(ccl_type_of(E, ET), _, fail), ET \== unknown -> true
+    ;   ccl_macro_error('an operand with an effect of its own is read once, into a local of its type, and the read knows no type of it: name it first') ),
+    ccl_gensym('__ccl_once', G), atom_concat(K, '_value', KV),
+    atomic_list_concat(['__typeof__(@', KV, ') ', G, ' = @', KV, '; '], D), ccllib_once_bind(Ops, Ds, Hs).
+ccllib_once_wrap(expr, D, Text, T) :- atomic_list_concat(['({ ', D, Text, '; })'], T).
+ccllib_once_wrap(stmts, D, Text, T) :- atomic_list_concat(['{ ', D, Text, ' }'], T).
+ccllib_once_read(expr, T, Hs, E) :- ccl_c_expr(T, Hs, E).
+ccllib_once_read(stmts, T, Hs, S) :- ccl_c_stmts(T, Hs, S).
+%% an operand with no effect of its own: a name, a constant, a string, sizeof, alignof and offsetof, and a member, an
+%% element, a dereference, an address, a cast or an operator over such -- not a call, an assignment, `++' or `--', a
+%% statement expression, a compound literal, a lambda, a move, va_arg, new or delete
+ccllib_pure(E) :- var(E), !, fail.
+ccllib_pure(E) :- atomic(E), !.
+ccllib_pure(E) :- functor(E, F, _), memberchk(F, [id, int, long, uint, ulong, chr, wchr, str, wstr, float, ldbl, bool, wb, uwb,
+    imag, imagf, imagi, imagl, sizeof, sizeof_type, alignof_type, alignof_expr, offsetof, scoped]), !.
+ccllib_pure(E) :- ccllib_pure_parts(E, Ps), !, ccllib_pure_all(Ps).
+ccllib_pure_parts(member(E, _), [E]).
+ccllib_pure_parts(arrow(E, _), [E]).
+ccllib_pure_parts(deref(E), [E]).
+ccllib_pure_parts(addr(E), [E]).
+ccllib_pure_parts(not(E), [E]).
+ccllib_pure_parts(neg(E), [E]).
+ccllib_pure_parts(pos(E), [E]).
+ccllib_pure_parts(bitnot(E), [E]).
+ccllib_pure_parts(real_part(E), [E]).
+ccllib_pure_parts(imag_part(E), [E]).
+ccllib_pure_parts(cast(_, E), [E]).
+ccllib_pure_parts(index(A, B), [A, B]).
+ccllib_pure_parts(bin(_, A, B), [A, B]).
+ccllib_pure_parts(comma(A, B), [A, B]).
+ccllib_pure_parts(cond(C, A, B), [C, A, B]).
+ccllib_pure_all([]).
+ccllib_pure_all([E|Es]) :- ccllib_pure(E), ccllib_pure_all(Es).
+
 %% A MERGE SORT BY THE LINKS OF AN ARENA'S NODES (<list.pl>, <forward_list.pl>): the text of `@{N}__NAME', which sorts
 %% the n nodes from the place p on by their `next' and gives the run's first node, the node after the run in *rest. No
 %% element moves, each keeps its place, and equal elements keep their order. Param and Arg are the comparison's

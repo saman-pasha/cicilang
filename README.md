@@ -812,8 +812,9 @@ assignment or a call moves a handle, and `clone` copies it.
 `negate`, `logical_*`, `bit_*`, `identity` and `hash(x)`. A name works where
 C++ passes a type: `set<int, less>` orders by `<`, and `sort_by(v, a, b,
 greater(a, b))` hands its comparison the expression. `hash` is one FNV-1a
-step of an integer, an enum or a pointer. `test/ccllib/functional.c` is the
-example.
+step of an integer, an enum or a pointer. A name that the program declares
+itself -- a function, an object, a parameter -- stays the program's (1.6.2).
+`test/ccllib/functional.c` is the example.
 
 `#include <any.pl>` gives `std::any` (1.1.5) as `any<> a = 5;`,
 `any_cast<int>(a)`, `has_value(a)`, `reset(a)`, `swap(a, b)` and `clone(a)`.

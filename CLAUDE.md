@@ -12,8 +12,8 @@ the fixture that gates it, and why. The bullet ends with the version that made t
 edits the rule in `RULES.md`, in its topic, and writes its entry in `HISTORY.md`. Read the topic of `RULES.md` that
 covers the code before the code is changed.
 
-At 1.6.1 the versions are: the module 1.6.1 (`ccl_p_version` in `module/cicilang.cicili`, `bin/cicilang --version`),
-the reader 202 (`ccl_reader_version/1`, `library/ccl_syntax.pl`) and the lowering 175 (`ccl_lowering_version/1`,
+At 1.6.2 the versions are: the module 1.6.2 (`ccl_p_version` in `module/cicilang.cicili`, `bin/cicilang --version`),
+the reader 203 (`ccl_reader_version/1`, `library/ccl_syntax.pl`) and the lowering 176 (`ccl_lowering_version/1`,
 `library/ccl_ir.pl`).
 
 Build and prove, always in this order (or all of it, `sh test/gates.sh`):
@@ -583,7 +583,8 @@ test/c/run/                 C programs built and run: NAME.c, NAME.expect, NAME.
                             declorder.c, names used where a declaration of them is in scope, beside later
                             declarations of the same names, with declorder.h, and textorder.c over textorder.pl, a
                             macro's C text whose functions call one another in any order (1.1.2); operands.c, the
-                            operands that C's operators take, and the forms beside them that C refuses not (1.6.1)
+                            operands that C's operators take, and the forms beside them that C refuses not (1.6.1);
+                            scopedtypes.c, the types that a block's object and a block's typedef give (1.6.2)
 test/c/safe/                C programs the safe part refuses: NAME.c, NAME.expect; dropnone.pl, the macro file of
                             drop_leaks.c (0.262); borrow_after_grow.c, borrow_after_push.c, elem_after_push.c,
                             grow_through_ptr.c, const_replace.c and const_local.c, the safety rules of 0.265;
@@ -611,7 +612,8 @@ test/c/safe/                C programs the safe part refuses: NAME.c, NAME.expec
                             static_borrow_pointer.c, static_tied_store.c and static_tied_call.c, a borrow of an own
                             array of static storage used after a store or a call that may store into it, and
                             static_result_untied.c, one returned with no tie (0.307); dropped_*.c, new memory
-                            thrown away (0.309)
+                            thrown away (0.309); blocktypedef_leak.c, a block's typedef of a pointer whose new memory
+                            a local holds (1.6.2)
 test/cpp/                   the C++ reader's fixtures and the refusals; hidem.cppm for modhidden.cpp; unread_cpp.cpp,
                             an argument taken unread in C++ (0.264, read since 0.270); lit_cpp.cpp, list and map
                             literals beside the lambdas in C++ (0.269); callreplace.cpp, refreplace.cpp,
@@ -641,7 +643,8 @@ test/cpp/run/               C++ programs built and run: NAME.cpp, .expect, .flag
                             elements taken by move() (0.307); inplace.cpp over inplace_ns.h, an #include inside a
                             namespace's braces, its file's text in place, and in a linkage specification's (0.310);
                             unaryplus.cpp and unarypluslambda.cpp, C++'s unary + (1.6.1); autoptrdiff.cpp, a pointer
-                            plus an auto difference of two pointers, libc++ 22's __to_buffer (1.6.1)
+                            plus an auto difference of two pointers, libc++ 22's __to_buffer (1.6.1);
+                            scopedtypes.cpp, GNU's __typeof__ of a block's object (1.6.2)
 test/ccllib/                the three runs' programs: NAME.c, a ccllib program; NAME.cpp, its twin over std::;
                             NAME.expect, what the twin prints; NAME.count, the count of the run that the costs time;
                             first.c over first.pl, the first proof after phase 0 (0.273); vector.c, the whole
@@ -660,7 +663,9 @@ test/ccllib/                the three runs' programs: NAME.c, a ccllib program; 
                             <algorithm.pl>, <numeric.pl>, <limits.pl>, <complex.pl>, <random.pl>, <ratio.pl> and
                             <chrono.pl> (1.2.0); iostreams.c, of <iostream.pl>, <iomanip.pl>, <fstream.pl> and
                             <stringstream.pl> (1.3.0); charconv.c, of <charconv.pl> (1.4.0); atomic.c, of
-                            <atomic.pl> (1.5.0); mutex.c, of <mutex.pl> (1.6.0)
+                            <atomic.pl> (1.5.0); mutex.c, of <mutex.pl> (1.6.0); ownnames.c over ownhdr.h, the program's
+                            own names beside the macros of <functional.pl> and <algorithm.pl>, and readonce.c, the
+                            operands that the value helpers, the searches and the folds read once (1.6.2)
 test/ccllib/safe/           ccllib programs that the safe part refuses, as C and as C++: NAME.c, NAME.expect, and
                             NAME.expect.cpp where C++ has words of its own (0.274); borrow_into_call_vector.c and
                             string_self_c_str.c, a borrow handed to a call that may replace its owner (0.293);

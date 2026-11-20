@@ -174,7 +174,7 @@ ccl_kb_items_goal(Path, K, I, It, T) :- ccl_kb_items(Path, F), T =.. [F, K, I, I
 ccl_kb_forget_items(Path) :- ccl_kb_items_goal(Path, _, _, _, T), retractall(T).
 ccl_kb_forget_file(Path) :- ccl_kb_ready, retractall('$ccl_ast'(Path, _, _)), ccl_kb_forget_items(Path), retractall('$ccl_hmeta'(Path, _, _)), ccl_kb_hm(Path, F), T =.. [F, _, _, _], retractall(T).
 
-ccl_read_file(File, AST, Rest) :- ccl_ensure_globals, ccl_set_lang(File), ( nb_current('$ccl_reading', []) -> nb_setval('$ccl_src_file', File), nb_setval('$ccl_path_cfgs', []), nb_setval('$pp_inc_cfgs', []), pp_ftm_find(File), dynamic('$ccl_plainfn'/2), retractall('$ccl_plainfn'(_, _)), ccl_inst_reset, ccl_set_clear('$ccl_btds') ; true ), ccl_read_file_(File, AST, Rest).   % the file as the compiler was given it: a source location's, and C's `__PRETTY_FUNCTION__' reads its text (0.166)
+ccl_read_file(File, AST, Rest) :- ccl_ensure_globals, ccl_set_lang(File), ( nb_current('$ccl_reading', []) -> nb_setval('$ccl_src_file', File), nb_setval('$ccl_prog_names', []), nb_setval('$ccl_path_cfgs', []), nb_setval('$pp_inc_cfgs', []), pp_ftm_find(File), dynamic('$ccl_plainfn'/2), retractall('$ccl_plainfn'(_, _)), ccl_inst_reset, ccl_set_clear('$ccl_btds') ; true ), ccl_read_file_(File, AST, Rest).   % the file as the compiler was given it: a source location's, and C's `__PRETTY_FUNCTION__' reads its text (0.166)
 %% a unit's type macro instances (0.261): none at its start, each made once in it (ccl_tmacro_instance/5)
 ccl_inst_reset :- nb_setval('$ccl_instances', []), nb_setval('$ccl_inst_making', []), nb_setval('$ccl_hoist', []).
 %% the language of the file read: C++ by its extension (or forced, cicilang++), C by .c
@@ -461,8 +461,23 @@ ccl_standard_macros :-
 
 %% what an include brings into scope: its declarations, typedef definitions and
 %% struct tags (for ccl_type_of/2 and friends, library(ccl_infer)) ...
-ccl_include_scope(file(_, _, Unit)) :- !, ccl_unit_note(Unit).
+ccl_include_scope(file(P, _, Unit)) :- !, ccl_unit_note(Unit), ccl_prog_unit(P, Unit).
 ccl_include_scope(_).
+%% THE NAMES OF A HEADER OF THE PROGRAM'S OWN ARE THE PROGRAM'S (1.6.2, ccl_prog_named/1 in library(ccl_syntax)): its
+%% functions and objects, and those of the headers of its own that it includes, as its unit holds them -- a read that
+%% the store kept declares nothing as it is read
+ccl_prog_unit(P, Unit) :- ( ccl_prog_file(P) -> ccl_prog_unit_items(Unit) ; true ).
+ccl_prog_unit_items(unit(Is)) :- !, ccl_prog_items(Is).
+ccl_prog_unit_items(partial(U, _, _)) :- !, ccl_prog_unit_items(U).
+ccl_prog_unit_items(_).
+ccl_prog_items([]).
+ccl_prog_items([I|Is]) :- ccl_prog_item(I), ccl_prog_items(Is).
+ccl_prog_item(function(_, _, _, N, _, _, _)) :- atom(N), !, ccl_prog_add(N).
+ccl_prog_item(declaration(_, _, _, Ds)) :- !, forall(( member(var(N, _, _), Ds), atom(N) ), ccl_prog_add(N)).
+ccl_prog_item(include(_, _, file(P, _, U))) :- !, ccl_prog_unit(P, U).
+ccl_prog_item('$splice'(Is)) :- !, ccl_prog_items(Is).
+ccl_prog_item(extern_c(_, Is)) :- !, ccl_prog_items(Is).
+ccl_prog_item(_).
 ccl_unit_note(unit(Is)) :- !, ccl_items_note(Is).                     % the bulk noter, library(ccl_syntax)
 ccl_unit_note(partial(U, _, _)) :- !, ccl_unit_note(U).
 ccl_unit_note(summary(F)) :- !, ccl_sum_note(F).

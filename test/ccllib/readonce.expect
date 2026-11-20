@@ -1,0 +1,18 @@
+min 0 1 max 3 clamp 9 calls 2
+const 5 4 4
+nan 1 1 1 1
+count 2 4 find 3 6 calls 1
+lower 1 upper 3 3 search 1 0 j 6
+names 2 3 5
+replace 2 5 2
+swap 99 20 30 10 1
+accumulate 532 33
+gcd 6 19 6 lcm 12 0 12
+gcd min -2147483648 2
+midpoint -1 1 2 -2 -1
+midpoint unsigned 2147483647 2147483648
+midpoint double 1.5 1.3e+308 -1.35e+308 0.15000000000000002
+midpoint float 3.1e+38
+midpoint pointer 4 5
+midpoint once 5 2
+exit 0

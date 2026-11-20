@@ -319,6 +319,14 @@ opr11.c:3: error: statement requires expression of scalar type ('union U' invali
 opr12.c:3: error: invalid argument type 'struct P' to unary expression"
 # ... and C's alone: C++'s pairs are not asked (ir_binary_operands/7), since a type that the desugaring gives is not
 # always the program's -- test/cpp/run/autoptrdiff.cpp holds libc++ 22's form, and unaryplus.cpp C++'s `+'
+# A NAME THAT THE PROGRAM DECLARES IS NO MACRO'S (1.6.2): a header of the program's own, included before <functional.pl>,
+# whose function is named as one of its macros, names the program's function at the build that reads the header and at
+# the build that the store serves the header's read to -- the store serves a header of the program's own only where no
+# macro file came before it (ccl_inst_context/1), and the file gets a newer time between the two builds -- and the
+# global macros stay the language's
+check "a function of a header of the program's own, included before <functional.pl> and named as one of its macros, is the program's, at the build that reads the header and at the build that the store serves its read to (1.6.2)" "$(printf 'static int greater(int a, int b) { return a - b; }\n' > pn_hdr.h; printf '#include <stdio.h>\n#include "pn_hdr.h"\n#include <functional.pl>\nint main(void) { printf("%%d %%d\\n", greater(7, 3), less(1, 2)); return 0; }\n' > pn_main.c; "$CICILI" pn_main.c -o pn1 && ./pn1; touch -d "@$(( $(date +%s) + 5 ))" pn_main.c; "$CICILI" pn_main.c -o pn2 && ./pn2)" "4 1
+4 1"
+check "... and a program's own function named as a global macro (println) is the global macro still, the owner's rule (1.6.2)" "$(printf '#include <stdio.h>\nstatic void println(const char *s) { printf("mine %%s\\n", s); }\nint main(void) { println("x"); return 0; }\n' > pn_std.c; "$CICILI" pn_std.c -o pn3 2>&1 && ./pn3)" "x"
 # THE AMBITIOUS PROGRAM'S FINDINGS (0.290): a macro file's header under a relative -I with the program in another directory; an
 # output file whose directory is not there; a header that was not read to its end, and a file that an #include of the program
 # does not find, named under the build's error

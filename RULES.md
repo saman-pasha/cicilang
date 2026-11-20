@@ -2327,6 +2327,14 @@ that changes a rule edits the rule here, in its topic, and writes its entry in `
   manual, Typeof): a packed member's `packed`, an object's `aligned(E)` and a place's `ualign(K)` are off, a typedef's
   own alignment kept, as clang has it (`ccl_place_free/2`, 0.203: `__typeof__(q.i)` of `int i __attribute__((packed))`
   was aligned at one; `packlead.c`). `typeof(K)` of an object is its expression (`ccl_typeof_type/1`). (0.93)
+- **A typeof OF AN EXPRESSION IS ITS TYPE WHERE IT STANDS** (1.6.2; C23 6.7.3.6/4, GCC's manual, Typeof): the reader
+  resolves the operand's type in the scope that it reads, place-free, and the specifier holds that type,
+  `typeof(base([], [int]))` (`ccl_typeof_here/2` in `ccl_typeof//1`), in C and in a macro's C text in C++; an operand
+  that the read cannot type, or whose type is no type term (a vector's), keeps its expression for the passes. A
+  `typeof(b)` that the passes resolved named the b that they met: a statement expression's value `(__typeof__(m))x` was
+  asked its type after the block that declares m, `not lowered yet: specs([typeof(id('__ccl_m'))])`, and a block's
+  `__typeof__(b)` took the first b's type through the lowering's cache (the lowering's topic). Reader `k87` holds a
+  file-scope `typedef typeof(K) kint` as `typeof` of K's `const int`. `test/c/run/scopedtypes.c`. Reader 203. (1.6.2)
 - A K&R definition (C 6.9.1/13) is read as its prototype (`ccl_knr_ids`, `ccl_knr_decls`, `ccl_knr_params`,
   `ccl_knr_adjust`): an undeclared parameter is `int`, an array a pointer, a `float` a `double`, and its type is marked
   as no prototype (0.302, below): a call of another count is undefined behaviour (C17 6.5.2.2/6), not a constraint's
@@ -2435,9 +2443,16 @@ that changes a rule edits the rule here, in its topic, and writes its entry in `
   before it put in as their values, and kept as the literal -- a block's `constexpr` is no name the passes know. C++'s
   unfolded ones are the desugaring's (`cpp_fold_enumerators/5`). `enumcross.c`, `enumcross.cpp`. (0.195)
 - `ccl_type_of/2` of a statement expression puts its declarations in scope for its last expression. (M1b)
-- A typedef, tag or enum declared in a block joins the unit's one table in C (`ccl_collect_item(function)` through
-  `ccl_stmt_typedefs`, by statement shape; two blocks that typedef one name must agree; `test/c/run/typedef_block.c`).
-  In C++ a block's TYPEDEF does not (0.127): the bulk noter takes only the tags and enumerators of its type
+- A tag or an enum declared in a block joins the unit's one table (`ccl_collect_item(function)` through
+  `ccl_stmt_typedefs`, by statement shape). A block's TYPEDEF IS ITS BLOCK'S IN C (1.6.2; C17 6.2.1/4, 6.7.8/3): the
+  reader, the check and the lowering each note it as they walk its block, its type taken there, as the newest of its
+  name and in the block's frame, which takes it away at the block's end (`ccl_block_typedefs/1`, `ccl_frame_leave/1`),
+  and the bulk noter takes only its type's tags and enumerators, as in C++. Through 1.6.1 one table held every block's
+  typedef, the first block's first: `{ typedef int T; } { typedef double T; T b = 2.5; }` read b's double as an int's
+  bits (3.37669e-319), a file-scope `typedef int T` after a function whose block gave T another type lost to it (main's
+  `T z = 3` a double), and the check met the first block's `int` where a block's `typedef char *P` holds new memory.
+  `test/c/run/typedef_block.c`, `scopedtypes.c`, `test/c/safe/blocktypedef_leak.c`. (1.6.2) In C++ a block's TYPEDEF
+  does not join the table either (0.127): the bulk noter takes only the tags and enumerators of its type
   (`ccl_collect_typedef_types/5`), and the desugaring notes it for the statements of its own block and takes it out at
   the block's end, on success, failure and throw (`cpp_scoped_typedefs/2` over `ccl_tab_del/2`, which removes the NEWEST
   entry of the name, so the one it shadowed answers again). Fixture: `blocktypedef.cpp`. Why: one table holding every
@@ -2689,6 +2704,21 @@ that changes a rule edits the rule here, in its topic, and writes its entry in `
   })`, a fresh owner, so an own parameter takes the copy and `p` stays the caller's. It refuses a non-pointer
   (`cannot_clone`), a pointee with an own member (`cannot_clone_own_members`, `ccl_has_own_member/1`) and a file with
   no `malloc` (`clone_needs_malloc`). `test/c/run/clone.c`. (M3)
+- **A NAME THAT THE PROGRAM DECLARES IS NO MACRO'S** (1.6.2; the review of 1.1.3 to 1.6.0, its first item): a macro
+  file's macro -- ccllib's `hash` and `less`, a `.pl` of the program's own -- is a name of that file, as C++'s
+  `std::hash` is std's, and a call of a name that the program's own text declares is that declaration's call, at any
+  count of arguments, as C has one name one entity (`ccl_prog_named/1` in `ccl_call_or_macro/3`, and in
+  `ccl_unread_ahead/7` for a macro that takes an argument unread). The program's text is its file and a header of its
+  own -- not a header of the system, of the compiler's own or of ccllib (a `NAME.pl.h`, `ccl_library_file/1`), and
+  never a macro's C text (`ccl_prog_text/0`); a name is noted where the reader declares it at file scope there
+  (`ccl_prog_note/1` in `ccl_declare/2`) and where a header of the program's own comes in scope, whose read the store
+  may serve -- it does where no macro file came before the header (`ccl_inst_context/1`) -- (`ccl_prog_unit/2` in
+  `ccl_include_scope/1`); a local or a parameter in scope is the program's too. The
+  global macros, `format`, `print`, `println` and `clone`, are the language's and stay macros (`ccl_std_macro_name/1`).
+  Through 1.6.0 `static unsigned hash(const char *s)` and `static int less(...)` beside `<functional.pl>` were the
+  module's macros: `1869612755 1` where the program means `96354 0`. `test/ccllib/ownnames.c` over `ownhdr.h` and its
+  twin; the driver gate's two checks, the second build of a file whose own header, before `<functional.pl>`, the store
+  serves, and a program's own `println`. Reader 203. (1.6.2)
 - **A MACRO WRITES C TEXT WITH HOLES** (0.260; `CCLLIB.md`'s phase 0.1, the first step of ccllib on the owner's word):
   `ccl_c_items(Text, Holes, Items)` reads the text as file-scope items, `ccl_c_stmts/3` as block items in the call's
   scope, `ccl_c_expr/3` as one expression and `ccl_c_type/3` as a type name (`ccl_ctext/4`, `library/ccl_syntax.pl`).
@@ -10238,6 +10268,21 @@ in the first topic (The ccllib gate).
   operations; and `chrono.pl` a nanosecond duration and the monotonic clock. A comparison is an expression after the
   two element names (`sort_by(v, a, b, a < b)`); a place is an index; a mutating algorithm over a view is refused by
   name. `test/ccllib/phase1c.c`, its twin, and `safe/algorithm_view_sort.c` hold it. (1.2.0)
+- **AN OPERAND IS READ ONCE, AS C++ READS AN ARGUMENT** (1.6.2; the review's eighth and ninth items): `min`, `max`,
+  `clamp`, `count`, `find`, `lower_bound`, `upper_bound` and `binary_search` give their operands to `ccllib_once/5`
+  (`ccllib.pl`): an operand with no effect of its own (`ccllib_pure/1`: a name, a constant, a member, an element, a
+  dereference, a cast or an operator over such) stands where the text names it, so that a constant stays one -- `enum {
+  K = max(2, 5) }`, `int t[max(3, 4)]` --, and each other one is read once, in order, into a local of its own type whose
+  name is fresh and reserved (`__ccl_once_N`). Through 1.6.0 `min(i++, 10)` read i two times and `count(v, f())` once an
+  element. THE FORMULAS ARE C++'S: min gives a where neither is less ([alg.min.max], `b < a ? b : a`, so `min(NaN, 1.0)`
+  is NaN), max a where neither is greater, clamp v in its bounds; binary_search is lower_bound's loop and `!(value <
+  *first)`; `replace` compares in its old value's type, as `std::replace`'s `const T&`; `swap_values` takes each place
+  once, by its address. `accumulate` and `reduce` sum in their first value's type ([accumulate], `T init`: "hello"
+  summed in a char was 20, C++'s 532); `gcd` and `lcm` read each operand once, in the two's common type, their
+  magnitudes an `unsigned long long`; `midpoint` is C++20's -- of integers `a + (b - a) / 2` rounded towards a with no
+  overflow (`midpoint(INT_MIN, INT_MAX)` is -1, it was INT_MIN), of pointers `a + (b - a) / 2`, of floating values `(a +
+  b) / 2` and `a / 2 + b / 2` where the sum overflows. The texts' own locals are reserved names, `__ccl_n` and its kin:
+  a program's `alg_k` in `count(v, alg_k)` meant the text's own counter. `test/ccllib/readonce.c` and its twin. (1.6.2)
 
 - A MODULE IS A MACRO FILE OF `library/ccllib/`, `NAME.pl`, and its C header `NAME.pl.h` where its text calls what a C
   header declares -- the reader includes the header beside the macro file where the file is there, and `pair.pl` and
@@ -11181,7 +11226,8 @@ in the first topic (The ccllib gate).
   (`bin('&')`, `bin('|')`, `bin('^')`), `bit_not` (`bitnot`) and `identity` (`A` itself). THE NAME IS A MACRO, NOT A
   TYPE: `set<int, less>` writes the name where C++ writes `std::less<int>`, and the tree's C text calls `less(a, b)`,
   which the reader expands in the unit that has the module -- so the name orders the set. A bare `less` is an
-  identifier as C reads it, so a program's own name `less` stays; only a call of two arguments is the macro. The
+  identifier as C reads it, and a call of a name that the program declares is the program's (1.6.2, the macro topic's
+  rule); any other call of two arguments is the macro. The
   arithmetic is C's: `divides` of two integers truncates, as `std::divides<int>` does. (1.1.4)
 - `hash(x)` is one FNV-1a step of x's bits as an `unsigned long long`: `(x ^ 2166136261) * 16777619` over FNV-1a's
   32-bit basis and prime, `hash(0)` its `(basis ^ 0) * prime`. It takes an integer, an enum or a pointer -- the cast is
@@ -12255,6 +12301,14 @@ in the first topic (The ccllib gate).
   wrappers. (2026-09-06)
 - `ir_type/2` is cached per type term (`'$ir_tcache'`). A pointer, a reference and a function are `ptr`; an array is
   `[N x T]`, or `[0 x T]` without a constant bound. (M2)
+- **A TYPE THAT AN OBJECT OF A SCOPE GIVES IS NO CACHE'S** (1.6.2; the forms beside the review's ninth item): a type
+  term that holds a typeof of an expression -- in its specifiers, an array's element or a function's parts -- is
+  resolved again at each ask (`ir_scoped_type/1`), since `base([], [typeof(id(b))])` is one term for each block's b.
+  The cache kept its first answer: `{ int b = 1; __typeof__(b) u = b; } { double b = 2.5; __typeof__(b) u = b; }` made
+  the second u an i32 read as a double (9.88131e-324), and ccllib's gcd over a long, whose text declared
+  `__typeof__(alg_a) alg_t` in each expansion, stored an i32 and loaded an i64 and looped for ever. The reader resolves
+  every typeof whose operand it can type in C (the Declarators topic), so the ask is C++'s GNU `__typeof__`, and C's
+  where the read could not type the operand. `test/cpp/run/scopedtypes.cpp`. Lowering 176. (1.6.2)
 - Signed integer arithmetic is `nsw`, and every address is `getelementptr inbounds` (`ir_arith_op/4`, `ir_step/6`). C
   leaves signed overflow and addresses past the object undefined. So LLVM widens loop counters and drops the sign
   extensions before an index. (2026-09-05)

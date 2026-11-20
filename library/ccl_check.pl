@@ -1501,7 +1501,7 @@ ck_stmt(S, dead, dead) :- S \= label(_, _, _), !.   % dead code is not walked --
 ck_stmt(block(Is), St0, St) :- !, ccl_scope_push, ck_bpath_push, ck_push(St0, St1), ck_stmts(Is, St1, St2), ck_scope_end(St2, St), ck_bpath_pop, ccl_scope_pop.
 ck_stmt('$splice'(Is), St0, St) :- !, ck_stmts(Is, St0, St).
 ck_stmt(declaration(L, Sto, Base, Vs), St0, St) :- !, ck_line(L), ( memberchk(Sto, [static, extern]) -> ck_note_statics(Vs) ; true ), ck_decls(Vs, St0, St), ccl_note_block_constants(Base, Vs).   % a C23 `constexpr' local is a constant of its block (0.195)
-ck_stmt(typedef(_, _), St, St) :- !.
+ck_stmt(typedef(_, Vs), St, St) :- !, ( ccl_lang(c) -> ccl_block_typedefs(Vs) ; true ).   % a C block's typedef is its block's (1.6.2)
 ck_stmt(declare(_, _), St, St) :- !.
 ck_stmt(directive(_, _), St, St) :- !.
 ck_stmt(include(_, _, _), St, St) :- !.

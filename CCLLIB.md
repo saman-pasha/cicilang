@@ -991,10 +991,13 @@ and `swap_values`. A range is an object, not a pair of iterators; a place is an 
 comparison is an expression after the two element names, `sort_by(v, a, b, a < b)`, put into the loop with no function
 pointer. A view is read-only, so a mutating algorithm over one is refused by name. The sorts are insertion sorts
 here, O(n^2), and wait for a measured rewrite. `test/ccllib/phase1c.c`, its twin over `std::`, and
-`test/ccllib/safe/algorithm_view_sort.c` hold it.
+`test/ccllib/safe/algorithm_view_sort.c` hold it. Each operand of `min`, `max`, `clamp` and the searches is read once,
+as C++ reads an argument, and the formulas are C++'s (1.6.2): `min(a, b)` is `b < a ? b : a`; a constant operand
+stays where the text names it, so `max(3, 4)` is a constant expression; `test/ccllib/readonce.c`.
 
 `<numeric.pl>` gives `accumulate`, `accumulate_by`, `reduce`, `inner_product`, `iota`, `partial_sum`,
-`adjacent_difference`, `gcd`, `lcm` and `midpoint` over the same ranges. `<limits.pl>` gives `numeric_limits<T>` as
+`adjacent_difference`, `gcd`, `lcm` and `midpoint` over the same ranges; `accumulate` sums in its first value's type,
+and `gcd`, `lcm` and `midpoint` are C++'s, each operand read once (1.6.2). `<limits.pl>` gives `numeric_limits<T>` as
 a type macro: `numeric_limits<int> n; max(n)`, `min`, `lowest`, `epsilon`, `infinity`, `quiet_NaN`, `digits`,
 `digits10`, `is_signed`, `is_integer` and `is_iec559`; the C limits are carried by small functions in `limits.pl.h`
 because C text is lexed and not preprocessed. `<complex.pl>` gives `complex<T>` as a value struct of a real and an

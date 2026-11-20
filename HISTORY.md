@@ -318,6 +318,7 @@ One row per step, in version order: the step's title, what it did and its gate n
 | 1.5.0 | ccllib phase 2 continues: `<atomic.pl>` | `std::atomic<T>` and `std::atomic_flag` over clang's atomic builtins: load, store, exchange, the fetch forms, compare_exchange_strong and weak, is_lock_free, test_and_set and clear, all seq_cst; a struct or a pointer-holding object is refused | `atomic.c`, its twin and `safe/atomic_of_struct.c`; the three runs agree; the flow and ccllib gates |
 | 1.6.0 | ccllib phase 2 continues: `<mutex.pl>` | `std::mutex`, `lock_guard`, `unique_lock`, `barrier` and `latch` over POSIX's pthreads: a mutex initialized on its first lock, guards born from a mutex's address, a latch's functions by address | `mutex.c`, its twin and `safe/mutex_of_int.c`; the three runs agree at C++23; the flow and ccllib gates |
 | 1.6.1 | the operands that C's operators take, in clang's words; C++'s unary `+` by its operator | the review of 1.1.3 to 1.6.0: `cout << "a" << 1 << endl` printed `a` alone, the C check taking `1 << s` over a pointer (C17 6.5.7/2): 31 pairs of the binary and unary operators refused in clang's words, the binary ones in C alone (libc++ 22's `__to_buffer`), a record where C takes a scalar in 12 forms, the C spelling of a type; C++'s `+x` its class's operator, its conversion's value or its pointer's value, a free unary operator only where it fits, an arithmetic conversion to an enumeration of its own type alone; the docs of 1.6.0 put right | the driver gate's 43 C forms, `operands.c`, `unaryplus.cpp`, `unarypluslambda.cpp`, `autoptrdiff.cpp`; 24 copies broken on purpose, each caught; the nets |
+| 1.6.2 | a name that the program declares is no macro's; each operand read once; a block's types its own | the review's first, eighth and ninth items -- the program's own `hash` and `less` were `<functional.pl>`'s, `min(i++, 10)` read i two times, `accumulate` summed in a char -- and, found beside them, `__typeof__` of a block's object and a block's typedef, which the passes took from another block | `ownnames.c`, `readonce.c`, `scopedtypes.c` and `.cpp`, `blocktypedef_leak.c`, two driver checks; 23 copies broken on purpose, each caught; the nets |
 
 ## M5 — the C++ mode
 
@@ -23281,3 +23282,79 @@ later parts by hand, 218 ok. The chain did not run, by the owner's rule of 0.271
   HISTORY.md, CLAUDE.md.
 
 The module 1.6.1, the reader 202 and the lowering 175.
+
+## 1.6.2 — a name that the program declares is no macro's; each operand read once; a block's types its own
+
+**1.6.2: the second step of the review of 1.1.3 to 1.6.0. Its first item: a program's own `hash` and `less` beside
+`<functional.pl>` were the module's macros. Its eighth and ninth: `accumulate` summed in the element's type, and `min`,
+`max` and `clamp` read their operands two times. A call of a name that the program declares is now the program's call;
+each operand of the value helpers, the searches and the folds is read once, by C++'s formulas. The probes of the folds
+found two defects of the passes beside them, older than ccllib, and both are fixed: GNU's `__typeof__` of a block's
+object, and a C block's typedef, took their types from another block, so that a local of the second block was stored
+with one width and read with another -- ccllib's gcd over a long looped for ever.**
+
+THE FINDINGS, RUN FROM THEIR REDUCTIONS. `static unsigned hash(const char *s)` and `static int less(const char *a,
+const char *b)` beside `<functional.pl>` printed `1869612755 1` where the program means `96354 0`, and the forms
+beside -- a function of a header of the program's own named `greater`, a parameter named `plus`, a local function
+pointer named `minus`, a function named `count_if` beside `<algorithm.pl>`, whose macro takes an argument unread --
+were each the macro. `min(i++, 10)`, `max(f(), 1)` and `clamp(g(12), 0, 9)` read their operands two times, and the
+forms beside read theirs more: `count(v, j++)` and `find(v, g(5))` once an element, `lower_bound`, `upper_bound` and
+`binary_search` once a step of the search, `swap_values(a[k++], b)` k three times, `gcd(p++, 24)` p three times.
+`accumulate(s, 0)` over "hello" summed in a char (20; C++ 532), `midpoint(INT_MIN, INT_MAX)` overflowed (INT_MIN;
+C++ -1), `min(NaN, 1.0)` was 1 where C++'s is NaN, `replace(v, 2.5, 9.0)` replaced the 2s, and `count(v, alg_k)` over a
+program's `alg_k` counted with the text's own counter. The probe of the folds, built over 1.6.1, stopped at its gcd
+line: the IR stored an i32 into `%alg_t` and loaded an i64 from it. Its reduction is plain C: `{ int b = 1;
+__typeof__(b) u = b; } { double b = 2.5; __typeof__(b) u = b; printf("%g", u); }` printed 9.88131e-324 (clang 2.5),
+the same in C++; an array, a pointer and a statement expression of such a type were wrong alike, and so was a typedef:
+`{ typedef int T; } { typedef double T; T b = 2.5; }` printed 3.37669e-319, a file-scope `typedef int T` after a
+function whose block typedefs T as a double made main's `T z = 3` a double (1.6.1: `2.5 7 8 0`, clang `2.5 7 3 4`), and
+the check met the first block's `int` where a block's `typedef char *P` holds new memory.
+
+THE CAUSES. The reader expanded any call of a macro's name and count (`ccl_call_or_macro/3`). The value helpers'
+texts named an operand at each use. The lowering cached `ir_type/2` by the type term, and `base([], [typeof(id(b))])`
+is one term for each block's b; the C passes kept one table of typedefs, every block's in it, the first block's first.
+
+THE RULES. A call of a name that the program's text declares -- its file, a header of its own, a local or a parameter
+in scope -- is that declaration's call (`ccl_prog_named/1`); the global macros stay the language's. `ccllib_once/5`
+gives an operand with no effect of its own where the text names it and reads each other one once into a fresh
+reserved local; the formulas are C++'s; the texts' locals are reserved names. The reader resolves a typeof of an
+expression where it stands (`ccl_typeof_here/2`); the lowering asks a type that holds a typeof of an expression afresh
+(`ir_scoped_type/1`); a C block's typedef is noted by the reader, the check and the lowering in its block and taken away
+at its end (`ccl_block_typedefs/1`, `ccl_frame_leave/1`), and no table of the passes holds it.
+
+THE PROOF. `test/ccllib/ownnames.c` over `ownhdr.h` and `readonce.c`, each with its twin over `std::`, print the twin's
+lines as C and as C++. `test/c/run/scopedtypes.c` prints clang's lines, `test/cpp/run/scopedtypes.cpp` clang++'s, and
+`test/c/safe/blocktypedef_leak.c` is refused as `plain pointer not consumed: 's'` (1.6.1: as an integer's initializer).
+The driver gate's two checks: a header of the program's own, included before `<functional.pl>`, whose function is named
+`greater`, at the build that reads it and at the build that the store serves it to -- the store serves a header of the
+program's own only where no macro file came before it --, and a program's own `println`, which stays the global macro.
+Over 1.6.1 each fails but the check of `println`, which holds a rule that the step keeps (`readonce.c` loops for ever
+in its gcd). TWENTY-THREE COPIES BROKEN ON PURPOSE, a rule each -- the macro's yield, the unread
+macro's, the locals' and parameters', the file's names, an own header's from the store, the global macros', min's
+formula, the operand read once, swap's, accumulate's type, replace's, gcd's, midpoint's, count's, the searches', the
+texts' reserved names, the lowering's cache, the reader's typeof, the block typedefs in the reader, in the check, in the
+lowering, in the bulk noter, and their end with the block -- are each caught by these checks.
+
+THE NETS, over the step's final code on cocolog 3.65.0, each under the caps and over a fresh HOME: the flow gate GREEN
+(355 s, 4546 MB); the reader gate 170 ok, 5 skipped; the compile gate 346 ok; the driver gate 95 ok; the objects gate 29
+ok; the ccllib gate 576 ok and the 5 FAIL of 1.6.0 -- `mutex.c`'s four, `phase1c` under valgrind --, which 1.6.4 and
+1.6.5 take; the C++ pools of the lighter run fixtures, 368 of 368 over libc++ 22, 21 and 18, `scopedtypes.cpp` among
+them; every heavier C++ run fixture over libc++ 22, 506 ok and 14 skipped by their `.needs`, of 520; the C++ gate's
+later parts by hand, 218 ok. The chain did not run, by the owner's rule of 0.271. No CI job ran.
+
+- `library/ccl_syntax.pl` (`ccl_prog_named/1`, `ccl_std_macro_name/1`, `ccl_prog_note/1`, `ccl_prog_add/1`,
+  `ccl_prog_text/0`, `ccl_prog_file/1`, `ccl_library_file/1`, `ccl_call_or_macro/3`, `ccl_unread_ahead/7`,
+  `ccl_declare/2`, `ccl_typeof_here/2`, `ccl_typeof//1`, `ccl_block_typedefs/1`, `ccl_frame_leave/1`, `ccl_scope_pop/0`,
+  `ccl_note_item/1`, `ccl_stmt_typedefs/7`; the reader's version); `library/ccl_include.pl` (`ccl_prog_unit/2`,
+  `ccl_prog_unit_items/1`, `ccl_prog_items/1`, `ccl_prog_item/1`, `ccl_include_scope/1`, `ccl_read_file/3`);
+  `library/ccl_ir.pl` (`ir_type/2`, `ir_scoped_type/1`, `ir_stmt_/1`'s typedef; the lowering's version);
+  `library/ccl_check.pl` (`ck_stmt/3`'s typedef); `library/ccllib/ccllib.pl` (`ccllib_once/5` and its helpers,
+  `ccllib_pure/1`); `library/ccllib/algorithm.pl` (min, max, clamp, swap_values, replace, count, find, the searches, the
+  texts' locals); `library/ccllib/numeric.pl` (accumulate, gcd, lcm, midpoint, the texts' locals); the module's version.
+- `test/ccllib/ownnames.c`, `.cpp`, `.expect`, `ownhdr.h`, `readonce.c`, `.cpp`, `.expect`; `test/c/run/scopedtypes.c`,
+  `.expect`; `test/c/safe/blocktypedef_leak.c`, `.expect`; `test/cpp/run/scopedtypes.cpp`, `.expect`; `test/driver.sh`
+  (two checks); `test/reader.pl` (`k87`).
+- RULES.md (the macro topic, Declarators, Typedef names, the lowering, functional.pl, phase 1c), HISTORY.md, CLAUDE.md,
+  README.md, CCLLIB.md.
+
+The module 1.6.2, the reader 203 and the lowering 176.
