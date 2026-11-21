@@ -10171,6 +10171,8 @@ The namespaces' rules, the program's and the library's, are `library/ccl_cpp_nam
     `__builtin_addressof(X)` is `addr(X)`;
   - `__builtin_assume`, `__builtin_assume_dereferenceable`, `__builtin_unreachable` and `__builtin_prefetch` are
     nothing;
+  - the traps, `__builtin_trap`, `__builtin_verbose_trap` and `__builtin_debugtrap`, are no answer of it: the call goes
+    to the lowering as it stands, which lowers it and refuses a misuse in clang's words (1.6.10, the lowering's topic);
   - `__builtin_source_location()` is the place of the call whose default argument it is (0.166, the topic Function
     names and source locations);
   - `__builtin_invoke(f, args...)` is the call, through `cpp_memptr_call` for a member pointer (`stdinvoke.cpp`); a pointer to
@@ -12774,6 +12776,13 @@ in the first topic (The ccllib gate).
   `test/cpp/run/condlvalue.cpp`. (0.92)
 - `&&` and `||` branch and join in a `phi i1`. A comparison, `!`, `&&` and `||` give C's `int` (`ir_bool/2`) and C++'s
   `bool`, an `i8` (`ir_truth/4`, the inference's `ccl_truth_type/1`; 0.127). (M2, 0.127)
+- AN ARM THAT DOES NOT REACH ITS JOIN IS NO ENTRY OF THE JOIN'S PHI (1.6.10; `ir_arm_join/3`, `ir_phi/3`): a trap or
+  `__builtin_unreachable()` ends its arm's block, which then branches nowhere, and the phi of a conditional's value, of
+  `&&` and `||`, of a conditional lvalue's address and of a conditional of two temporaries handed by invisible reference
+  lists only the blocks that branch to the join. Why: `x ? 5 : (__builtin_trap(), 7)` and `(__builtin_trap(), 0) && y`
+  named the dead arm's block, and LLVM refused the text, `PHINode should have one entry for each predecessor of its
+  parent basic block`. Of one arm that reaches the join the value is that arm's, of none `poison`, in a block that
+  nothing reaches. `test/c/run/traps.c`, `test/cpp/run/trapscpp.cpp` (a constexpr function's arm). (1.6.10)
 - An ENUMERATOR is a prvalue (`ir_lvalue_form(id(N))` over `ir_enumerator/1`): bound to `const Color &` it takes the
   temporary C++ materializes. Why: `v.push_back(Green)` bound it through `ir_lval` and it was `undeclared`. (0.127)
 - A `switch` COMPARES AT ITS CONDITION'S PROMOTED TYPE (C 6.8.4.2/5, [stmt.switch]/2; 0.201; `ir_switch_type/3`,
@@ -13331,6 +13340,35 @@ in the first topic (The ccllib gate).
   `i128` over operands widened by their own signedness (`ir_widen128/4`). They store the truncated result and answer
   whether it lost anything. C23's `<stdckdint.h>` is written on them. (0.93)
 - `__builtin_unreachable()` is `unreachable`, and `[[assume(e)]]` calls `llvm.assume`. (0.93)
+- THE TRAPS ARE LOWERED (1.6.10; `ccl_trap_builtin/4`, one table, which the inference and the lowering's `ir_call/4`
+  read): `__builtin_trap()` is LLVM's `llvm.trap`, which does not return, and its block ends in `unreachable` after it;
+  clang 19's `__builtin_verbose_trap(category, message)` is the same trap, its two arguments never read at run time;
+  `__builtin_debugtrap()` is `llvm.debugtrap`, a breakpoint after which the program goes on. Each is a call of no value,
+  in C and in C++, where the desugaring leaves the call as it stands. WHERE CLANG REFUSES, THE LOWERING REFUSES IN
+  CLANG'S WORDS AT THE LINE: a call of another count (`ir_arg_count/4` of a builtin, in C++ too: `too many arguments to
+  function call, expected 0, have 1`); a trap or `__builtin_unreachable` taken as a value (`ir_undeclared/1`: `builtin
+  functions must be directly called`); a verbose trap's argument that is no constant string -- a value of no pointer to
+  characters, the name of an object that is no constant -- (`argument to __builtin_verbose_trap must be a pointer to a
+  constant string`) or one that holds a `$`, the separator of the frame's name below (`... must not contain $`; clang's
+  `checkBuiltinVerboseTrap`; `ir_trap_strings/2`, `ir_trap_no_string/1`). The strings read are a literal, a cast of one
+  to a pointer, one moved by a constant (`"abc" + 1`, `&"abc"[1]`), a conditional whose condition folds and the
+  function's own name (`__func__`), each up to its first null character; any other form -- a constant object's name,
+  which clang's evaluator reads, a call -- is refused by name, `not lowered yet: verbose_trap_string(N)` (Not done).
+  UNDER `-g` A VERBOSE TRAP'S CALL IS IN AN ARTIFICIAL FUNCTION, `__clang_trap_msg$CATEGORY$MESSAGE`, inlined at the
+  call's line and column, as clang's debug information makes it (`CreateTrapFailureMessageFor`; `ir_trap_call/2`,
+  `ir_dbg_trap_sp/3`): a `DISubprogram` made once a name in the unit, its quotes, its backslashes and its bytes past
+  ASCII's printable ones spelled `\XX` (`ir_dbg_mesc/2`), and the call's location line 0 of it. A debugger shows it
+  where the program stopped: lldb 18 names the frame `check [inlined] __clang_trap_msg$probe$too big`, for clang 22's
+  build and for this compiler's alike, and gdb 15 shows the call's line alone, for both. LIBC++'S HARDENING MODES ARE
+  WRITTEN ON THEM: an assertion of the fast and the extensive mode is `__builtin_verbose_trap("libc++", "FILE:LINE:
+  assertion ... failed: ...\n")` in libc++ 21 and 22, and `((void)message, __builtin_trap())` in libc++ 18; both were
+  `undeclared`, so `-D_LIBCPP_HARDENING_MODE=_LIBCPP_HARDENING_MODE_FAST` refused every program that indexes a vector
+  (Not done since 0.250). The mode is a `_LIBCPP_` name of the configuration (`pp_cfg_names/1`, the preprocessor's
+  topic), so a header read in one mode is served to no file of another: three programs built in one HOME, with no mode,
+  in the fast mode and with none again, trap in the second alone. `test/c/run/traps.c` (each trap stops a child of its
+  own, whose handler of the trap's signal leaves with a status of its own; on aarch64 too, the cross gate),
+  `test/cpp/run/hardening.cpp` (the fast mode over libc++ 18, 21 and 22: an access in bounds works, nine out of bounds
+  stop), `trapscpp.cpp`; the driver gate's checks of the refusals, of the block's end and of `-g`. (1.6.10)
 - `__builtin_expect(e, c)` and `__builtin_expect_with_probability(e, c, p)` answer e's value as a `long`, through LLVM's
   `llvm.expect.i64` over c, as clang has them (the probability dropped). Apple's `<assert.h>` writes `assert` over
   `__builtin_expect`, so every program of a Mac that asserted met `undeclared(__builtin_expect)`; glibc's does not. In
@@ -16101,11 +16139,45 @@ Declarations topic of the C++ reader).
   (`llvm@21`, `llvm`), and the C++ gates do not run on Apple silicon, whose 7 GB holds the smoke job: a C++ rule is
   gated on Linux over libc++ 18, 21 and 22 (the full job: The CI job), on the Intel Mac over libc++ 18 (the C++ job,
   GREEN on 0.252, its first: The Mac's job), and on Apple's arm64 by the driver gate's C++ checks alone.
-- `__builtin_trap()` is not lowered (`undeclared('__builtin_trap')`), nor clang 19's `__builtin_verbose_trap(category,
-  message)`, while `__has_builtin` answers 1 for both: a program built with one of libc++'s hardening modes, whose
-  assertions call them (`-D_LIBCPP_HARDENING_MODE=_LIBCPP_HARDENING_MODE_FAST`), is refused; the debug mode's go through
-  `__libcpp_verbose_abort` and build. Found at 0.250: the libc++ trees here ship with hardening off, and on the Intel
-  Mac 813 fixtures built, which a hardened tree's assertions would have refused.
+- THE VERBOSE TRAP'S LIMITS (1.6.10, the lowering's topic): a string by a constant object's name -- `static const char
+  m[] = "x"`, a `const char *const`, C++'s `constexpr const char *m` -- and a call that folds to one (`v.data()` of a
+  constexpr `string_view`), which clang's evaluator reads, are refused by name, `not lowered yet:
+  verbose_trap_string(m)` and `verbose_trap_string(call)`: the lowering reads no object's initializer. A wide or a UTF-8
+  literal is refused in clang 21's words, `must be a pointer to a constant string`, where clang 22 names the types
+  (`incompatible pointer types passing 'int[5]' to parameter of type 'const char *'`; in C++ `cannot initialize a
+  parameter of type 'const char *' with an lvalue of type 'const char8_t[2]'`). In C++ `auto f = __builtin_trap;` is
+  `not lowered yet: auto(f)`, where clang says `builtin functions must be directly called`, as `void (*f)() =
+  __builtin_trap;` says here; and C++'s `-fsyntax-only`, which stops after the reader, refuses no misuse of a trap,
+  where a build does.
+- A CONSTEXPR VARIABLE WHOSE INITIALIZER IS NO CONSTANT EXPRESSION IS NOT REFUSED (found at 1.6.10; C++20
+  [dcl.constexpr]: the full-expression of its initialization is a constant expression): `int h() { return 3; } constexpr
+  int g = h();` builds and prints 3, where clang refuses it, `constexpr variable 'g' must be initialized by a constant
+  expression`; so does one whose evaluation reaches a trap -- `constexpr int g = f(-1);` over `constexpr int f(int x) {
+  return x > 0 ? x : (__builtin_trap(), 0); }` builds and stops at run time -- and one that reaches
+  `__builtin_unreachable()`, which the desugaring answers as nothing (`cpp_builtin_call/3`), so `f(-1)` of `if (x < 0)
+  __builtin_unreachable(); return x;` is -1. A static assertion over such a call is refused, as clang refuses it
+  (0.257).
+- IN C++ A COMMA WHOSE RIGHT OPERAND IS AN LVALUE IS NO LVALUE HERE (found at 1.6.10; [expr.comma]/1: the result is of
+  the value category of its right operand): `int &r = (g(), b); r = 9;` binds the reference to a temporary, and b stays
+  2 where clang's build prints 9; a conditional with such an arm is no lvalue either -- `int &r = c ? a : (g(), b); r =
+  7;` leaves a as it was, `1 2` where clang's prints `7 2` --; and `(g(), b) = 5` is refused by name, `not lowered yet:
+  lvalue(comma(...))`. The first two are wrong output with no word.
+- A VOID EXPRESSION USED AS A VALUE IS NOT REFUSED AT ITS LINE (found at 1.6.10; C17 6.3.2.2/1: the nonexistent value of
+  a void expression is not used): `int z = f();`, `z = f();`, `g(f())` and `return f();` over `void f(void)` go to
+  LLVM's parser, which refuses the text `%t2 = sext void none to i32` (`void type only allowed for function results`) at
+  a line of the IR, none of the program's, and `f() + 1` is `not lowered yet: type(unknown)`, where clang refuses each
+  at its line (`initializing 'int' with an expression of incompatible type 'void'`, `assigning to 'int' from
+  incompatible type 'void'`, `passing 'void' to parameter of incompatible type 'int'`, `returning 'void' from a function
+  with incompatible result type 'int'`, `invalid operands to binary expression ('void' and 'int')`); a trap's call is
+  such an expression.
+- A LIBRARY HEADER'S `__FILE__` IS ITS PATH UNDER `$LLVM` (found at 1.6.10): clang++ finds libc++'s headers through its
+  binary's directory and names them so, `/usr/lib/llvm-22/bin/../include/c++/v1/__vector/vector.h`, where this
+  compiler names `/usr/lib/llvm-22/include/c++/v1/__vector/vector.h`; the two name one file, and a message that prints
+  the name differs, the debug hardening mode's of a failed assertion among them.
+- A CALL THAT DOES NOT RETURN ENDS NO PATH OF THE SAFE PART (found at 1.6.10): a block that ends in a trap, `abort()` or
+  `exit()` with new memory live in it is refused, `plain pointer not consumed`, where the program ends at the call and
+  clang builds it; the path goes on after the call to the block's end. A null test before such a call refines as it does
+  before a `return` (`if (!p) __builtin_trap();` over `malloc`'s p builds).
 - `-g` on a Mac (0.245) keeps the objects the debug map names in `~/.cicilang/objects` and makes no `.dSYM` (`dsymutil`
   is an LLVM binary): a program copied to another machine is debugged there without its DWARF, and the cache keeps an
   object until it is cleared. The rule is proven on this box as far as the object (a Mach-O one, under `--target`), and
@@ -16353,7 +16425,10 @@ Declarations topic of the C++ reader).
   build, where clang refuses them (`cannot assign to variable 'a' with const-qualified type 'const int'`, `read-only
   variable is not assignable`); so does a write through a `span<const int>`, `c[0] = 7`. Since 0.265 only an own field
   of a const object is refused (`assign_to_const`). The C++ desugaring writes a constructor's member initializers as
-  assignments, and a const member's would meet the rule: the rule waits for the desugaring to mark them. (0.295)
+  assignments, and a const member's would meet the rule: the rule waits for the desugaring to mark them. A CONSTEXPR
+  POINTER IS NO CONST POINTER HERE (found at 1.6.10): the desugaring holds its `const` on what it points to, `const
+  const char` for `constexpr const char *m`, so `m = "y"` and `p = &g` over `constexpr int *p = nullptr` build, where
+  clang refuses them (`cannot assign to variable 'm' with const-qualified type 'const char *const'`). (0.295, 1.6.10)
 - THE NOTE OF A MACRO'S EXPANSION PRINTS ITS TYPE ARGUMENTS AS TERMS (found at 0.288): `note: expanded from macro
   'vector' on base([],[int])`, under an error in an instance's function.
 - A MEMBER READ OFF THE VALUE OF AN ASSIGNMENT IS NOT LOWERED (found at 0.287): `(b = x).len` over two structs is `not

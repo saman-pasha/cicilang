@@ -326,6 +326,7 @@ One row per step, in version order: the step's title, what it did and its gate n
 | 1.6.7 | a second definition at file scope | the Not done record of 1.6.3, a second definition built with no word -- `int x = 1; int x = 2;` printed 1, a function of two headers had the first one's body, a function of the file two times went to LLVM's parser --: each refused in clang's words at its line in C, a function, an object, a tag at C17 or of other content at C23, an enumerator, a typedef of another type, over the file and the live lines of its own headers; an `extern` object's initializer its definition; ccllib's shared guards held by its gate | `k170` over 15 refusals; `redefok.c`, `redefok23.c`; 41 forms; eighteen copies broken on purpose, each caught; the nets |
 | 1.6.8 | GCC's cleanup, constructor, destructor and mode attributes | the user's task, "Refuse or implement the GNU cleanup attribute": `cleanup` read and dropped, its call never run; the cleanup the defer of its call, the function refused in clang's words where none fits; `constructor` and `destructor` the unit's lists, in C and in C++, where C++ dropped a leading attribute's notes; `mode`, dropped with wrong sizes, refused by name | `k171` over 12 refusals; `cleanup.c`, `cleanup23.c`, `ctordtor.c`, `ctordtor_exit.c`, `cleanupcpp.cpp`, `ctordtorcpp.cpp`, `cleanup_overload.cpp`; 62 forms; eighteen copies broken on purpose, each caught; the nets |
 | 1.6.9 | A program's own format, print, println and clone win over the global macros | the owner's rule, "Yes user implemented should win over ccllib's macros": the four the language's in every scope through 1.6.8 -- a program's own `println` not called, its `print`, `format` and `clone` refused in the macros' words; in C++ a class's members no names of its scope, for every macro; a macro's call before the program's own declaration of the name taken with no word | `ownglobal.c`, `ownglobalcpp.cpp`, `k172`, the driver gate's two checks; 42 forms; sixteen copies broken on purpose, each caught; the nets |
+| 1.6.10 | The traps are lowered | an item of Not done (0.250), at the user's word "Do one item from the not done list": `__builtin_trap()`, clang 19's `__builtin_verbose_trap(category, message)` and `__builtin_debugtrap()` undeclared while `__has_builtin` answered 1 for each, so every program in libc++'s fast or extensive hardening mode was refused: each lowered to LLVM's trap or debug trap, a misuse refused in clang's words, the verbose trap's strings in clang's artificial function under `-g`; an arm that ends in a trap or in `__builtin_unreachable()` no entry of its join's phi | `traps.c`, `hardening.cpp`, `trapscpp.cpp`, the driver gate's three checks; 95 forms; twenty-two copies broken on purpose, each caught; the nets |
 
 ## M5 — the C++ mode
 
@@ -23974,3 +23975,116 @@ the owner's rule of 0.271. No CI job ran.
   owner's rule, the versions, the fixtures), README.md (the global macros' paragraph).
 
 The module 1.6.9, the reader 207 and the lowering 180.
+
+## 1.6.10 — The traps are lowered
+
+**1.6.10: an item of Not done, at the user's word "Do one item from the not done list": `__builtin_trap()` and clang
+19's `__builtin_verbose_trap(category, message)` are LLVM's `llvm.trap`, and `__builtin_debugtrap()` is
+`llvm.debugtrap`, where each was `undeclared`; so a program built in one of libc++'s hardening modes builds, and stops
+where an assertion fails, as clang++'s build stops. Beside them, a phi lists no arm that ends in a trap or in
+`__builtin_unreachable()`.**
+
+THE ITEM. Not done's record of 0.250: `__has_builtin` answered 1 for both traps, so libc++ wrote its assertions on them,
+and the lowering had no clause for either -- in C a call of one was 1.1.2's `call to undeclared function
+'__builtin_trap'`, in C++ `not lowered yet: undeclared('__builtin_verbose_trap')`. libc++ 21 and 22 write an assertion
+of the fast and the extensive mode as `__builtin_verbose_trap("libc++", "FILE:LINE: assertion ... failed: ...\n")`
+(`_LIBCPP_VERBOSE_TRAP` of `<__verbose_trap>`), and libc++ 18 as `((void)message, __builtin_trap())`
+(`_LIBCPP_ASSERTION_HANDLER` of `<__assertion_handler>`); the debug mode's call `__libcpp_verbose_abort` and built. So
+`-D_LIBCPP_HARDENING_MODE=_LIBCPP_HARDENING_MODE_FAST` refused every program that indexes a vector, at
+`__vector/vector.h:412`, and the extensive mode every program that destroys a vector's element, at
+`__memory/construct_at.h:59`, the assertion of `__destroy_at` that its pointer is not null.
+
+THE FORMS (95 programs in `p1610/forms`, `forms2`, `named`, `forms3` and `forms4`, each built and run by clang 22 or
+clang++ 22 over libc++ and by cicilang, `p1610/runforms.sh`; the verdicts side by side in `p1610/all_table.txt`, by
+`p1610/table.py`): a verdict is clang's where both builds run and print the same lines, or where both refuse. Over
+1.6.9, 38 of them gave clang's verdict, 1 in clang's words; over 1.6.10, 76, 16 in clang's words. Each of the 19 left is
+a record of Not done: six verbose traps whose string is a constant object's name or a call (a `static const char m[]`, a
+`const char *const`, a local `const char m[]`, a `constexpr char m[]`, a `constexpr const char *`, `v.data()` of a
+constexpr `string_view`), refused by name where clang's evaluator reads them; four constexpr variables whose initializer
+is no constant expression, built where clang refuses them -- two over a call that is not constexpr and over
+`__builtin_unreachable()`, which 1.6.9 built too, and two that reach a trap, which 1.6.9 refused as undeclared, as clang
+refuses them, and 1.6.10 builds, so that the program stops at run time where clang's build stops at compile time --;
+four C++ commas whose right operand is an lvalue, three of them 1.6.9's too, the fourth a conditional whose arm is
+`(__builtin_trap(), b)`; two assignments to a constexpr object, 1.6.9's too; two blocks that end in a trap or in
+`abort()` with new memory live, which the safe part refuses, 1.6.9 in the same words; and the debug mode's message,
+whose file is the header's path as this compiler names it, 1.6.9's too.
+
+THE CAUSES. No clause of the lowering's `ir_call/4` took the three, and no clause of the inference's `ccl_type_of/2`; a
+call of a name that nothing declares went to 1.1.2's refusal in C and to `ir_undeclared/1` in C++. AND ONE BESIDE THEM,
+OF THE PHI: a conditional's value, `&&`, `||`, a conditional lvalue's address and a conditional of two temporaries
+handed by invisible reference each phi their arms' values by the label of the block where each arm ends, and an arm that
+ends in `unreachable` branches nowhere: `x ? 5 : (__builtin_trap(), 7)` named the dead arm's block, and LLVM refused the
+text, `PHINode should have one entry for each predecessor of its parent basic block`. The same defect stood under
+`__builtin_unreachable()`, whose block ends in `unreachable` too: over 1.6.9 `argc > 0 ? 5 : (__builtin_unreachable(),
+7)` was refused in LLVM's same words, at -O0 and at -O1, and `argc > 5 && (__builtin_unreachable(), 1)` built -- `&&`
+tests its arm's value with an instruction, and an instruction after `unreachable` opens a block that nothing reaches but
+that branches to the join, where the conditional's arm `7` is a constant and opens none (`p1610/unr`). Both print
+clang's 5 and 0 now.
+
+THE RULES (RULES.md: the lowering's topic, the traps and the arms that do not reach their join; the libc++ topic's
+builtins; Not done, the item gone and six records new, and the const-assignment record's constexpr pointer). One table,
+`ccl_trap_builtin/4` in `library/ccl_infer.pl`, names the three, their prototypes' parameters, their intrinsics and
+whether the program goes on after them; the inference answers `void` for each, and the lowering emits the intrinsic's
+call, then `unreachable` after a trap. The verbose trap's arguments are read as clang's Sema reads them
+(`checkBuiltinVerboseTrap`): a pointer to a constant string with no `$`, refused in clang's words where clang refuses
+for certain, by name where the lowering cannot read the string. Under `-g` the verbose trap's call is in clang's
+artificial function (`CreateTrapFailureMessageFor`). The lowering is 181; the reader stays 207, since no read that the
+store keeps changes.
+
+THE PROOF. `test/c/run/traps.c`: each trap stops a child of its own -- a statement, a check macro's arm, a function's
+end, a switch's default, a conditional's arm, both arms of one, a verbose trap in a function and its string forms -- and
+the traps not reached cost nothing, in a loop, in the arms of a conditional, of `&&` and of `||`, and beside
+`__builtin_unreachable()` in an arm; clang 22's build prints its lines at -O0 and -O1, and so does the cross gate's
+aarch64 build under qemu. `test/cpp/run/hardening.cpp` (the fast mode over libc++ 18, 21 and 22: an access in bounds
+works, and nine out of bounds stop a child -- a vector's, a string's, a string_view's, an array's and a span's index, an
+empty vector's front and pop_back, an empty list's back, an empty optional's value) and `trapscpp.cpp` (a try, a
+noexcept function, a template whose message is a conditional over its argument, a lambda, a constexpr function's arm in
+a static assertion and at run time) print clang++ 22's lines, and 21's. The driver gate's three checks: the refusals in
+clang's words at their line, eleven in C and three in C++, a constant array and a constexpr pointer by name (C++'s built
+with `-c`, since its `-fsyntax-only` stops after the reader); the block that a trap ends and a debug trap's that goes
+on, and no phi of no entry; and under `-g` the artificial function's name, the call's line and column, one function for
+two calls of its strings, a quote of the message in its name, as clang 22's DWARF has them. Under lldb 18 the program
+stops at a verbose trap in the frame `check [inlined] __clang_trap_msg$probe$too big`, for clang 22's build and for this
+compiler's alike, and gdb 15 shows the call's line alone, for both (`p1610/dbgv`).
+
+TWENTY-TWO COPIES BROKEN ON PURPOSE, a clause each (`p1610/mk1610.py`), over the compile and driver gates and the two
+C++ fixtures (`hardening.cpp` over libc++ 22 and 18, `trapscpp.cpp` over 22), the unbroken work tree first with no check
+RED: each copy turns a check RED. A trap that does nothing (`trap`, `verbose`, `debug`: LLVM's `llvm.donothing` in the
+intrinsic's place) turns `traps.c`, the driver gate's check of the block's end and `trapscpp.cpp` RED, `hardening.cpp`
+over libc++ 18 for the plain trap and over 22 for the verbose one, and the verbose one the `-g` check too; a trap whose
+block goes on (`noend`) and a debug trap whose block ends (`dbgends`) turn the check of the block's end RED. A trap's
+call of no type (`void`), and a verbose trap's string with no cut at its null character (`nul`), no cast (`cast`), no
+sum (`plus`), no index (`index`) or no `__func__` (`func`), turn `traps.c` RED, and no conditional (`cond`)
+`trapscpp.cpp`; no count of the arguments in C (`countc`) or in C++ (`countcpp`), a `$` taken (`dollar`), no refusal of
+a value that is no constant string (`nostring`) and a trap taken as a value (`value`) the check of the refusals; under
+`-g` no artificial function (`dbg`), one for each call (`dbgonce`) and its name escaped as the other names of the debug
+information are, a quote as `\"` (`dbgesc`), the `-g` check; and a phi that lists an arm that ends (`phi`) `traps.c` and
+`trapscpp.cpp`. THE FIRST RUN OF THE COPIES taught one thing: a phi of no entry in the place of `poison`, the value of
+two arms that both end (`poison`), passed every check -- LLVM takes a phi of no entry in a block that nothing reaches,
+so no program tells them apart --; the driver gate's check of the block's end counts the phis of no entry now, and the
+copy turns it RED.
+
+THE NETS, over the step's code on cocolog 3.65.0, each under the caps and over a fresh HOME: the flow gate GREEN (401 s,
+3960 MB); the reader gate 173 ok, 5 skipped; the compile gate 355 ok, `traps.c` among them; the driver gate 103 ok and 1
+skipped, the three checks of 1.6.10 among them; the objects gate 29 ok; the cross gate 223 ok and 1 skipped, `traps.c`
+among them on aarch64; the ccllib gate 621 ok and no FAIL, 36 programs in three runs, 187 refused and 21 alone; the C++
+pools of the lighter run fixtures, 375 of 375 over libc++ 22, 21 and 18, `hardening.cpp` and `trapscpp.cpp` among them;
+every heavier C++ run fixture over libc++ 22, 506 ok and 14 skipped by their `.needs`, of 520, in 1700 s; the C++ gate's
+later parts by hand, 221 ok. The compile, driver and cross gates ran a second time, with the same counts, after
+`traps.c` took its last cases, for the copies above, and the driver gate's checks their last forms, the quote under `-g`
+and the count of the phis of no entry. cocolog's master took one commit during the step, 6af52f8, of `COMPAT.md` alone,
+cocolog 3.65.0 still: the checkout is at it, and no build changed. The chain did not run, by the owner's rule of 0.271.
+No CI job ran.
+
+- `library/ccl_infer.pl` (`ccl_trap_builtin/4`, the traps' `void` in `ccl_type_of/2`); `library/ccl_ir.pl` (the traps'
+  clause of `ir_call/4`, `ir_trap_strings/2`, `ir_trap_string/2`, `ir_trap_from/3`, `ir_trap_no_string/1`,
+  `ir_trap_chars/1`, `ir_trap_const_obj/1`, `ir_own_name/2`, `ir_trap_call/2`, `ir_dbg_trap_sp/3`, `ir_ins_at/2`,
+  `ir_live_block/0`; `ir_arg_count/4` of a builtin in C++; `ir_undeclared/1` of a builtin taken as a value;
+  `ir_arm_join/3`, `ir_phi/3`, `ir_live_ins/2`, `ir_phi_parts/2` at the five phis of two arms; the lowering 181);
+  `library/ccl_driver.pl` (the refusals' words); the module's version.
+- `test/c/run/traps.c` and `traps.expect`; `test/cpp/run/hardening.cpp`, `.flags`, `.expect`;
+  `test/cpp/run/trapscpp.cpp`, `.flags`, `.expect`; `test/driver.sh`'s three checks of 1.6.10.
+- RULES.md (the lowering's two rules, the libc++ topic's builtins, Not done), HISTORY.md, CLAUDE.md (the versions, the
+  fixtures), README.md (the traps among C's forms, the hardening modes in C++).
+
+The module 1.6.10, the reader 207 and the lowering 181.

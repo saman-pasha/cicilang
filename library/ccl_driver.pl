@@ -374,6 +374,9 @@ dr_call_text(no_matching_call(Fn), ['no matching function for call to ''', S, ''
 dr_call_text(undeclared_call(N), ['call to undeclared function ''', N, '''; ISO C99 and later do not support implicit function declarations']).   % a name that nothing declares, in C (1.1.2, ir_undeclared/1)
 dr_call_text(undeclared_use(N), ['use of undeclared identifier ''', N, '''']).
 dr_call_text(cleanup_not_single(F), ['''cleanup'' argument ''', F, ''' is not a single function']).   % C++'s overloads named by a cleanup (1.6.8, cpp_cleanup_single/2)
+dr_call_text(builtin_value(_), ['builtin functions must be directly called']).   % a trap or __builtin_unreachable taken as a value (1.6.10, ir_undeclared/1)
+dr_call_text(verbose_trap_arg(string), ['argument to __builtin_verbose_trap must be a pointer to a constant string']).   % (1.6.10, ir_trap_strings/2, ir_trap_no_string/1)
+dr_call_text(verbose_trap_arg(dollar), ['argument to __builtin_verbose_trap must not contain $']).
 %% ... and where an integer and a pointer meet as if by assignment, the words of each place
 dr_int_conv_site(passing, A, B, ['passing ''', A, ''' to parameter of type ''', B, '''']).
 dr_int_conv_site(initializing, A, B, ['initializing ''', B, ''' with an expression of type ''', A, '''']).

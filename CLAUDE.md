@@ -12,8 +12,8 @@ the fixture that gates it, and why. The bullet ends with the version that made t
 edits the rule in `RULES.md`, in its topic, and writes its entry in `HISTORY.md`. Read the topic of `RULES.md` that
 covers the code before the code is changed.
 
-At 1.6.9 the versions are: the module 1.6.9 (`ccl_p_version` in `module/cicilang.cicili`, `bin/cicilang --version`),
-the reader 207 (`ccl_reader_version/1`, `library/ccl_syntax.pl`) and the lowering 180 (`ccl_lowering_version/1`,
+At 1.6.10 the versions are: the module 1.6.10 (`ccl_p_version` in `module/cicilang.cicili`, `bin/cicilang --version`),
+the reader 207 (`ccl_reader_version/1`, `library/ccl_syntax.pl`) and the lowering 181 (`ccl_lowering_version/1`,
 `library/ccl_ir.pl`).
 
 Build and prove, always in this order (or all of it, `sh test/gates.sh`):
@@ -609,7 +609,8 @@ test/c/run/                 C programs built and run: NAME.c, NAME.expect, NAME.
                             redefok23.c, what C and C23 take again at file scope (1.6.7); cleanup.c, cleanup23.c,
                             ctordtor.c and ctordtor_exit.c, GCC's cleanup, constructor and destructor attributes
                             (1.6.8); ownglobal.c over ownglobal.h, a program's own format, print, println and clone
-                            (1.6.9)
+                            (1.6.9); traps.c, the three traps, each in a child of its own, and in the arms of the
+                            conditionals (1.6.10)
 test/c/safe/                C programs the safe part refuses: NAME.c, NAME.expect; dropnone.pl, the macro file of
                             drop_leaks.c (0.262); borrow_after_grow.c, borrow_after_push.c, elem_after_push.c,
                             grow_through_ptr.c, const_replace.c and const_local.c, the safety rules of 0.265;
@@ -676,7 +677,9 @@ test/cpp/run/               C++ programs built and run: NAME.cpp, .expect, .flag
                             freeopenum.cpp, a free operator taken only where its parameters take the operands, over a
                             class and over an enumeration (1.6.6); cleanupcpp.cpp and ctordtorcpp.cpp, GCC's cleanup,
                             constructor and destructor attributes in C++ (1.6.8); ownglobalcpp.cpp, a program's own
-                            format, print, println and clone in C++, its classes' members among them (1.6.9)
+                            format, print, println and clone in C++, its classes' members among them (1.6.9);
+                            hardening.cpp, libc++'s fast hardening mode over its three trees, and trapscpp.cpp, the
+                            traps in C++ (1.6.10)
 test/ccllib/                the three runs' programs: NAME.c, a ccllib program; NAME.cpp, its twin over std::;
                             NAME.expect, what the twin prints; NAME.count, the count of the run that the costs time;
                             first.c over first.pl, the first proof after phase 0 (0.273); vector.c, the whole

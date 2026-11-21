@@ -38,7 +38,9 @@ rules of the code by topic; `HISTORY.md` is the record of every step.
   arithmetic, an integer operation in its own type), GCC's and clang's
   vector types (`vector_size`, `ext_vector_type`: their operators lane by
   lane, their lanes, masks, conversions and builtins, crossing a call as
-  clang passes them), GCC's `__builtin_types_compatible_p`, and trigraphs
+  clang passes them), GCC's `__builtin_types_compatible_p`, clang's traps
+  (`__builtin_trap`, `__builtin_verbose_trap`, whose message a debugger
+  shows under `-g`, and `__builtin_debugtrap`), and trigraphs
   and `__STRICT_ANSI__` in the ISO modes,
   and GNU's inline assembly (a file-scope `asm`, and `asm` statements with
   outputs, inputs, clobbers, named operands and register variables, and
@@ -880,7 +882,11 @@ level, whose predefined macros the preprocessor answers first, so a header
 flattens as clang would flatten it for that level. libc++ is built with
 RTTI, as clang++ builds it (`std::any::type()`, `std::function::target`,
 `std::get_deleter`), and `-fno-rtti` gives libc++'s no-RTTI configuration
-and refuses `typeid`, as clang++ `-fno-rtti` does. The compiler runs no
+and refuses `typeid`, as clang++ `-fno-rtti` does. libc++'s hardening
+modes run (`-D_LIBCPP_HARDENING_MODE=_LIBCPP_HARDENING_MODE_FAST`, and the
+extensive and the debug mode): an access out of bounds stops the program
+as clang++'s build stops it, at a trap in the fast and the extensive mode
+and with the library's message in the debug mode. The compiler runs no
 exceptions inside libc++, which compiles its own configuration for that
 (`-fno-exceptions`), and libc++ 21's vectorized algorithms over vector
 types as clang builds them; the program's own `throw`, `try`, `typeid`

@@ -172,6 +172,18 @@ check "-g: ... and in C++ (0.294)" "$(printf '#include <stdio.h>\nstatic int f(i
 check "the last -std wins, its level and its mode, as clang: -std=c17 -std=gnu17 builds GNU's, -std=gnu17 -std=c17 ISO's, each its own IR in the store (0.214)" "$(printf '#ifdef __STRICT_ANSI__\nint main(void) { return 3; }\n#elif defined(__APPLE__)\nint main(void) { return 2; }\n#else\nint main(void) { return linux + unix; }\n#endif\n' > lastd.c; { "$CICILI" -std=c17 -std=gnu17 lastd.c -o lastd1 && ./lastd1; echo "$?"; "$CICILI" -std=gnu17 -std=c17 lastd.c -o lastd2 && ./lastd2; echo "$?"; } | tr '\n' ' ')" "2 3 "   # a Mac's GNU mode predefines neither linux nor unix, as clang's Darwin (0.224)
 check "-g: a C++ static data member is declared in its class" "$(printf 'struct S {\n  static int count;\n  int v;\n};\nint S::count = 7;\nint main() {\n  S s{2};\n  return s.v + S::count - 9;\n}\n' > dbgs.cpp; "$ROOT/bin/cicilang++" -g -c dbgs.cpp -o dbgs.o && "$DD" --debug-info dbgs.o | awk '/DW_TAG_structure_type/ { s = index($0, "DW_TAG_"); next } /DW_TAG_/ { i = index($0, "DW_TAG_"); if (s && i <= s) s = 0; if (s && /DW_TAG_variable/) v++ } /DW_AT_specification/ { sp++ } END { print v + 0, sp + 0 }')" "1 1"
 check "-g: a destructor at its scope's closing brace, as clang's" "$(printf 'struct T {\n  int v;\n  ~T() { v = 0; }\n};\nint f(int k) {\n  T a{1};\n  if (k) {\n    T b{2};\n    return 5;\n  }\n  return 0;\n}\nint main() { return f(0) + f(1) - 5; }\n' > dbgd.cpp; "$ROOT/bin/cicilang++" -g -c dbgd.cpp -o dbgd.o && "$DD" --debug-line dbgd.o | awk '$1 ~ /^0x/ { if ($2 == 10) t = 1; if ($2 == 12) w = 1 } END { print (t ? "10" : "-"), (w ? "12" : "-") }')" "10 12"
+# A VERBOSE TRAP UNDER -g (1.6.10): the trap's place is in an artificial function named by its two strings, inlined at the
+# call's line and column, the function made once a name in the unit, as clang 22's DWARF has it (clang 19 is the first to know
+# the builtin; the gates' clang is older)
+check "-g: a verbose trap's place is in its artificial function __clang_trap_msg\$CATEGORY\$MESSAGE, inlined at the call's line and column, one function for two calls of its strings, a quote of the message in its name, as clang 22's (1.6.10)" "$(printf 'static int check(int v) {\n  if (v > 9) __builtin_verbose_trap("probe", "too big");\n  return v + 1;\n}\nstatic int again(int v) { if (v < 0) __builtin_verbose_trap("probe", "too big"); return v; }\nstatic int quote(int v) { if (v > 99) __builtin_verbose_trap("probe", "say \\"hi\\""); return v; }\nint main(int argc, char **argv) { (void)argv; return check(argc) + again(argc) + quote(argc) - 5; }\n' > dbgtrap.c; "$CICILI" -g -c dbgtrap.c -o dbgtrap.o && "$DD" --debug-info dbgtrap.o | awk '/DW_TAG_inlined_subroutine/ { s = 1; next } /DW_TAG_subprogram/ { p = 1; next } p && /DW_AT_name/ && /__clang_trap_msg/ { k++ } /DW_TAG_/ { p = 0 } s && /DW_AT_abstract_origin/ { n = $0; sub(/^[^"]*"/, "", n); sub(/"\)[^)]*$/, "", n) } s && /DW_AT_call_line/ { l = $2; gsub(/[()]/, "", l) } s && /DW_AT_call_column/ { c = $2; gsub(/[()]/, "", c); print n, l, c; s = 0 } END { print k + 0, "subprogram" }')" "__clang_trap_msg\$probe\$too big 2 14
+__clang_trap_msg\$probe\$too big 5 38
+__clang_trap_msg\$probe\$say \"hi\" 6 39
+2 subprogram"
+# A TRAP ENDS ITS BLOCK, A DEBUG TRAP DOES NOT (1.6.10): `llvm.trap' does not return, and the lowering's block ends in
+# `unreachable' after it, as after `__builtin_unreachable()', so a phi takes no arm that ends there; after `llvm.debugtrap' the
+# program goes on. Of two arms that both end, the value is `poison', in a block that nothing reaches: a phi of no entry is
+# LLVM's too, so the program alone does not tell them apart
+check "a trap's call ends its block in unreachable, a verbose trap's too; a debug trap's goes on; a conditional whose two arms trap makes no phi of no entry (1.6.10)" "$(printf 'int main(int argc, char **argv) {\n  (void)argv;\n  if (argc > 5) __builtin_trap();\n  if (argc > 6) __builtin_verbose_trap("c", "m");\n  if (argc > 7) __builtin_debugtrap();\n  int z = argc > 8 ? (__builtin_trap(), 1) : (__builtin_trap(), 2);\n  return z;\n}\n' > irtrap.c; "$CICILI" -S -emit-llvm irtrap.c -o irtrap.ll && awk '/call void @llvm\.trap\(\)/ { getline n; print "trap", (n ~ /^ *unreachable/ ? "ends" : "goes on") } /call void @llvm\.debugtrap\(\)/ { getline n; print "debugtrap", (n ~ /^ *unreachable/ ? "ends" : "goes on") } / = phi [^ ]+ *$/ { e++ } END { print "empty phi", e + 0 }' irtrap.ll | tr '\n' ' ')" "trap ends trap ends debugtrap goes on trap ends trap ends empty phi 0 "
 check "an unknown argument is an error, as clang says it" "$("$CICILI" --frobnicate x.c 2>&1)" "cicilang: error: unknown argument: '--frobnicate'"
 check "no input files is an error" "$("$CICILI" -c 2>&1)" "cicilang: error: no input files"
 check "the tie: a broken tie is refused in clang's shape" "$("$CICILI" -fsyntax-only "$R/safe/tie_arg.c" 2>&1 | head -1 | sed "s|$R/||")" "safe/tie_arg.c:4: error: value not within its tie: 'b' in call(id(gap),[id(a),id(b)]) (function main)"
@@ -352,6 +364,24 @@ check "... and a call of a global macro by a name that the program's own text de
 pn_late.c:2: error: use of undeclared identifier 'println'
 pn_unread.c:3: error: call to undeclared function 'loop'; ISO C99 and later do not support implicit function declarations
 4"
+# THE TRAPS' REFUSALS (1.6.10): a trap's call of another count, an argument of the verbose trap that is no constant string
+# or holds a `$', and a trap or __builtin_unreachable taken as a value are refused in clang's words at their line, in C and in
+# C++ -- each was `undeclared'; a constant object's name, which clang's evaluator reads, is refused by name. C++'s are built
+# with -c: its -fsyntax-only stops after the reader
+check "the traps' refusals in clang's words at their line (1.6.10): __builtin_trap and __builtin_debugtrap of an argument, __builtin_verbose_trap of one and of three, of an integer, of a plain array and of a \$, a trap and __builtin_unreachable taken as a value; a constant array by name; in C++ an argument, a value and a constexpr pointer" "$(n=0; for body in 'int main(void) { __builtin_trap(1); return 0; }' 'int main(void) { __builtin_debugtrap(2); return 0; }' 'int main(void) { __builtin_verbose_trap("m"); return 0; }' 'int main(void) { __builtin_verbose_trap("c", "m", "x"); return 0; }' 'int main(void) { __builtin_verbose_trap("c", 0); return 0; }' 'static char m[] = "x";\nint main(void) { __builtin_verbose_trap("c", m); return 0; }' 'int main(void) { __builtin_verbose_trap("c", "costs $5"); return 0; }' 'int main(void) { void (*f)(void) = __builtin_trap; (void)f; return 0; }' 'int main(void) { void (*f)(void) = &__builtin_debugtrap; (void)f; return 0; }' 'int main(void) { void (*f)(void) = __builtin_unreachable; (void)f; return 0; }' 'static const char m[] = "x";\nint main(void) { __builtin_verbose_trap("c", m); return 0; }'; do n=$((n + 1)); printf '%b\n' "$body" > trapr$n.c; "$CICILI" -std=c17 -fsyntax-only trapr$n.c 2>&1 | head -1; done; n=0; for body in 'int main() { __builtin_trap(1); }' 'int main() { void (*f)() = __builtin_trap; (void)f; }' 'constexpr const char *m = "x";\nint main() { __builtin_verbose_trap("c", m); }'; do n=$((n + 1)); printf '%b\n' "$body" > trapp$n.cpp; "$ROOT/bin/cicilang++" -std=c++20 -c trapp$n.cpp -o trapp$n.o 2>&1 | head -1; done)" "trapr1.c:1: error: too many arguments to function call, expected 0, have 1
+trapr2.c:1: error: too many arguments to function call, expected 0, have 1
+trapr3.c:1: error: too few arguments to function call, expected 2, have 1
+trapr4.c:1: error: too many arguments to function call, expected 2, have 3
+trapr5.c:1: error: argument to __builtin_verbose_trap must be a pointer to a constant string
+trapr6.c:2: error: argument to __builtin_verbose_trap must be a pointer to a constant string
+trapr7.c:1: error: argument to __builtin_verbose_trap must not contain \$
+trapr8.c:1: error: builtin functions must be directly called
+trapr9.c:1: error: builtin functions must be directly called
+trapr10.c:1: error: builtin functions must be directly called
+trapr11.c:2: error: not lowered yet: verbose_trap_string(m) (function main)
+trapp1.cpp:1: error: too many arguments to function call, expected 0, have 1
+trapp2.cpp:1: error: builtin functions must be directly called
+trapp3.cpp:2: error: not lowered yet: verbose_trap_string(m) (function main)"
 # THE STREAMS AS C++'S (1.6.3): `cin >> a >> b' chains, a character is read after the white space before it, as C++'s
 # skipws, and `while (cin >> x)' ends where the input does, the stream failed after it -- the ccllib gate's programs
 # read no input, so this check gives cin its own; clang++'s build of the same program over std::cin prints the line

@@ -802,6 +802,12 @@ ccl_bswap_builtin('__builtin_bswap64', 64, base([], [unsigned, long])).   ccl_bs
 %% integers, which libc++ 22 writes std::add_sat and std::sub_sat on (from `_LIBCPP_CLANG_VER >= 2101'): each answers its first
 %% operand's type, the exact value clamped to that type's range (the lowering's ir_call/4 reads this table: `llvm.sadd.sat' and kin)
 ccl_sat_builtin('__builtin_elementwise_add_sat', add).  ccl_sat_builtin('__builtin_elementwise_sub_sat', sub).
+%% THE TRAPS (1.6.10): `__builtin_trap()', clang 19's `__builtin_verbose_trap(category, message)' and `__builtin_debugtrap()',
+%% each a call of no value, its prototype's parameters here (the lowering's ir_call/4 reads this table: the LLVM intrinsic, and
+%% whether the program goes on after it -- a trap does not return, a debug trap is a breakpoint)
+ccl_trap_builtin('__builtin_trap', [], 'llvm.trap', ends).
+ccl_trap_builtin('__builtin_verbose_trap', [P, P], 'llvm.trap', ends) :- P = param(ptr([], base([const], [char])), anon).
+ccl_trap_builtin('__builtin_debugtrap', [], 'llvm.debugtrap', goes_on).
 ccl_size_type(T) :- ( ccl_typedef_of(size_t, _) -> T = base([], [typedef(size_t)]) ; T = base([], [unsigned, long]) ).
 ccl_sizeof_expr(sizeof(_)).
 ccl_sizeof_expr(sizeof_type(_)).
@@ -854,6 +860,7 @@ ccl_type_of(call(id(B), [_, _]), base([], [bool])) :- memberchk(B, ['__atomic_al
 ccl_type_of(call(id(B), _), base([], [void])) :- memberchk(B, ['__atomic_load', '__atomic_store', '__atomic_exchange']), !.   % GCC's generic atomic builtins (0.194): through pointers, no value
 ccl_type_of(call(id('__atomic_compare_exchange'), _), base([], [bool])) :- !.
 ccl_type_of(call(id('__builtin_classify_type'), [_]), base([], [int])) :- !.   % a type's class (0.194)
+ccl_type_of(call(id(B), _), base([], [void])) :- atom(B), ccl_trap_builtin(B, _, _, _), !.   % the traps, of no value (1.6.10): `c ? (void)0 : __builtin_verbose_trap(...)'
 ccl_type_of(call(id(B), [_, _|_]), base([], [long])) :- memberchk(B, ['__builtin_expect', '__builtin_expect_with_probability']), !.   % its first operand's value as a long (0.225): Apple's <assert.h> writes assert over __builtin_expect
 ccl_type_of(call(id(B), []), T) :- ccl_srcloc_builtin_type(B, T), !.   % clang's source-location builtins (0.201)
 ccl_type_of(call(id(B), _), base([], [int])) :- ccl_bit_builtin(B, _), !.   % the bit counts answer an int (0.129): `c ? 64 + __builtin_clzll(x) : __builtin_clzll(y)' had no type, in C as in C++ (libc++'s `__libcpp_clz(__uint128_t)')
