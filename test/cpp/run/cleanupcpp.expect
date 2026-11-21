@@ -1,0 +1,24 @@
+bye 10
+10
+bye 11
+caught 1
+body
+~R 4
+close 3
+~R 3
+bye 2
+~R 1
+bye 6
+bye 3
+6 3
+bye 4
+5
+body 20
+bye 20
+bye 21
+bye 22
+bye 9
+out 5 6
+bye 6
+S::bye 5
+exit 0

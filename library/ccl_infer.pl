@@ -1428,6 +1428,13 @@ ccl_asm_of(base(Q, _), N, S) :- memberchk(asm(N, S), Q), !.
 ccl_asm_of(ptr(Q, _), N, S) :- memberchk(asm(N, S), Q), !.
 ccl_asm_of(arr(_, T), N, S) :- !, ccl_asm_of(T, N, S).
 ccl_asm_of(fn(R, _, _), N, S) :- !, ccl_asm_of(R, N, S).
+%% GCC'S `constructor' AND `destructor' (1.6.8): a function's mark, the qualifier gnu_init(K, Prio) where a tie is kept, on its
+%% result, once each
+ccl_add_init(K, P, base(Q, B), base(Q1, B)) :- !, ( memberchk(gnu_init(K, P), Q) -> Q1 = Q ; Q1 = [gnu_init(K, P)|Q] ).
+ccl_add_init(K, P, ptr(Q, T), ptr(Q1, T)) :- !, ( memberchk(gnu_init(K, P), Q) -> Q1 = Q ; Q1 = [gnu_init(K, P)|Q] ).
+ccl_add_init(_, _, T, T).
+ccl_init_of(T, Is) :- ( T = base(Q, _) ; T = ptr(Q, _) ), !, findall(K-P, member(gnu_init(K, P), Q), Is).
+ccl_init_of(_, []).
 %% the label of a name at file scope, from ANY of its declarations: a prototype's is its definition's (`int f(int)
 %% __asm__("g"); int f(int x) { ... }' defines @g) and an extern's its definition's, as GCC and clang have it. The answer,
 %% a miss among them, is kept per name, since the lowering asks it of every global it names

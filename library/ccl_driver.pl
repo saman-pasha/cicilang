@@ -373,6 +373,7 @@ dr_call_text(knr_arg_count(few, Fn), ['too few arguments in call to ''', Fn, '''
 dr_call_text(no_matching_call(Fn), ['no matching function for call to ''', S, '''']) :- dr_short_name(Fn, S).
 dr_call_text(undeclared_call(N), ['call to undeclared function ''', N, '''; ISO C99 and later do not support implicit function declarations']).   % a name that nothing declares, in C (1.1.2, ir_undeclared/1)
 dr_call_text(undeclared_use(N), ['use of undeclared identifier ''', N, '''']).
+dr_call_text(cleanup_not_single(F), ['''cleanup'' argument ''', F, ''' is not a single function']).   % C++'s overloads named by a cleanup (1.6.8, cpp_cleanup_single/2)
 %% ... and where an integer and a pointer meet as if by assignment, the words of each place
 dr_int_conv_site(passing, A, B, ['passing ''', A, ''' to parameter of type ''', B, '''']).
 dr_int_conv_site(initializing, A, B, ['initializing ''', B, ''' with an expression of type ''', A, '''']).

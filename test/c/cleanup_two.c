@@ -1,0 +1,4 @@
+/* GCC's cleanup attribute refused in clang's words (1.6.8): a function of two parameters */
+#include <stdio.h>
+static void two(int *p, int q) { printf("bye %d %d\n", *p, q); }
+int main(void) { int a __attribute__((cleanup(two))) = 1; printf("%d\n", a); return 0; }

@@ -1,0 +1,4 @@
+main
+atexit
+fini
+exit 3

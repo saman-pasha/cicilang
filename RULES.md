@@ -1733,18 +1733,18 @@ that changes a rule edits the rule here, in its topic, and writes its entry in `
 - A SCOPED ATTRIBUTE IS ANSWERED BY ITS VENDOR'S LIST (0.205; `pp_cpp_attr_value/2`, `pp_attr_vendor/2`,
   `pp_vendor_attribute/2`): `__has_cpp_attribute(gnu::N)` and `__has_cpp_attribute(clang::N)` -- `__gnu__::` and
   `_Clang::` too, the spellings libc++ writes, the name with or without its underscores, and `__has_c_attribute(gnu::N)`
-  in C -- answer 1 for an attribute the compiler honours in that spelling (gnu's `packed` and `aligned`, the C reader's
-  topic of GCC's attributes) or that changes nothing a program can see (gnu's `always_inline`, `noinline`, `cold`,
-  `hot`, `deprecated`, `format`, `nonnull`, `pure`, `const`, `noreturn`, `malloc`, `nothrow`, `fallthrough`, `may_alias`
-  ...; clang's `lifetimebound`, `preferred_name`, `no_specializations`, `standalone_debug`, the capability attributes,
-  `ptrauth_vtable_pointer`, `fallthrough`, `assume` ...), as clang 21 answers them, and 0 for one that would change a
-  layout, a linkage or a call that this compiler does not model from that spelling (gnu's `vector_size`, `weak`,
-  `section`, `constructor`, `cleanup`, `used`, `visibility`; clang's `trivial_abi`, `no_destroy`, `musttail`,
-  `internal_linkage`), where clang answers 1, since a program asks such an attribute to build otherwise. Each scoped one
-  was 0, so a program and a header took the branch no clang build takes: libc++ 21 asks `_Clang::__lifetimebound__`,
-  `__preferred_name__`, `__no_specializations__` and the capabilities, and writes them into its declarations, which the
-  reader drops; `__no_destroy__` stays its fallback. `protoreq.cpp`, `vendorattr.cpp` (C++20), `gnuattr.cpp`,
-  `test/c/run/gnuattrc.c` (C23).
+  in C -- answer 1 for an attribute the compiler honours in that spelling (gnu's `packed` and `aligned`, and since 1.6.8
+  `cleanup`, `constructor` and `destructor`, the C reader's topic of GCC's attributes) or that changes nothing a program
+  can see (gnu's `always_inline`, `noinline`, `cold`, `hot`, `deprecated`, `format`, `nonnull`, `pure`, `const`,
+  `noreturn`, `malloc`, `nothrow`, `fallthrough`, `may_alias` ...; clang's `lifetimebound`, `preferred_name`,
+  `no_specializations`, `standalone_debug`, the capability attributes, `ptrauth_vtable_pointer`, `fallthrough`, `assume`
+  ...), as clang 21 answers them, and 0 for one that would change a layout, a linkage or a call that this compiler does
+  not model from that spelling (gnu's `vector_size`, `weak`, `section`, `used`, `visibility`; clang's `trivial_abi`,
+  `no_destroy`, `musttail`, `internal_linkage`), where clang answers 1, since a program asks such an attribute to build
+  otherwise. Each scoped one was 0, so a program and a header took the branch no clang build takes: libc++ 21 asks
+  `_Clang::__lifetimebound__`, `__preferred_name__`, `__no_specializations__` and the capabilities, and writes them into
+  its declarations, which the reader drops; `__no_destroy__` stays its fallback. `protoreq.cpp`, `vendorattr.cpp`
+  (C++20), `gnuattr.cpp`, `test/c/run/gnuattrc.c` (C23).
 
 ### The predefined macros
 
@@ -1841,7 +1841,8 @@ that changes a rule edits the rule here, in its topic, and writes its entry in `
   `__attribute__((x))` FORM (0.221; `pp_gnu_attribute/1`): one it honours -- `packed`, `aligned`, `vector_size`,
   `ext_vector_type` -- and one whose meaning is a diagnostic, an optimization's hint or the debug information, which
   reading and dropping implements (the `gnu` list of `__has_cpp_attribute`, 0.205), with or without its underscores; 0
-  for any other, `weak`, `section`, `constructor`, `cleanup`, `visibility` and `nodebug` among them, which clang answers
+  for any other, `weak`, `section`, `visibility` and `nodebug` among them (`cleanup`, `constructor` and `destructor`
+  answer 1 since 1.6.8, which the reader honours), which clang answers
   1 and the reader drops. It was 0 for every attribute: a program's `#if __has_attribute(packed)` laid its struct
   unpacked, 8 bytes for clang's 5 (`hasattr.c`), and libc++ wrote no `_LIBCPP_PACKED`, `_LIBCPP_NOALIAS`,
   `_LIBCPP_NOINLINE` or `__attribute__((__deprecated__))`, which clang++'s build writes; std::string's size words and
@@ -2296,7 +2297,47 @@ that changes a rule edits the rule here, in its topic, and writes its entry in `
   note set aside at a class's key never reaches the class (`ccl_layout_saved/1`). In C++ `__has_attribute(abi_tag)` and
   `__has_cpp_attribute(gnu::abi_tag)` are 1, as clang answers them (`pp_gnu_attribute/1`). The Itanium mangler's topic
   spells the tags. `abitagnames.cpp`. (0.236)
-- `__attribute__((...))` and every other `__asm("...")` are read and dropped (`ccl_gnu_attr`). `__typeof__` and
+- GCC'S `cleanup` ON A BLOCK'S AUTOMATIC OBJECT IS THE DEFER OF ITS CALL (1.6.8, reader 206; GCC's manual, Common
+  Variable Attributes; clang's Sema, handleCleanupAttr; `ccl_cleanup_decl/2`, `ccl_cleanup_take/1`): `int x
+  __attribute__((cleanup(done))) = 1;` was read and dropped, and `done(&x)` never ran. The attribute's argument is noted
+  as it goes past, in both spellings, `__attribute__((cleanup(f)))` and `[[gnu::cleanup(f)]]`, with or without its
+  underscores; the specifiers' note is every declarator's, a declarator's own its own. A block's declaration with a
+  cleanup is a declaration a declarator, each followed by its objects' drops and the defer `defer(L, ['$cleanup'(N)],
+  block([expr(L, call(F, [addr(id(N))]))]))`, which the lowering runs at every exit of the object's scope, the last
+  declared first: the block's end, a return after its value, break, continue, a goto out of the scope and back over the
+  object, a statement expression's end, a for's end for its declaration, and in C++ while an exception unwinds, before
+  the object's destructor. Where no function fits, the attribute is refused at the object's line in clang's words
+  (`ccl_cleanup_fn/4`, `ccl_cleanup_check/3`): no argument or two, a name that nothing declares before the object, a
+  name of no function, a function of other than one parameter, a parameter that points to no type compatible with the
+  object's, its qualifiers aside, and no `void *`; in C++, a name of two overloads, `'cleanup' argument 'bye' is not a
+  single function` (`cpp_cleanup_single/2`). A static, an extern or a thread's object, a parameter, a member, a typedef
+  and a function keep none, as clang drops the attribute there with a warning. The safe part walks the call where the
+  defer runs, as any defer's. `cleanup.c`, `cleanup23.c` (C23), `cleanupcpp.cpp`; reader `k171`; the C++ gate's
+  `cleanup_overload.cpp`. (1.6.8)
+- GCC'S `constructor` AND `destructor` (1.6.8, lowering 180; GCC's manual, Common Function Attributes; clang's
+  CodeGenModule; `ccl_init_take/2`, `ir_inits_note/3`, `ir_inits_emit/0`): the mark `gnu_init(K, Prio)` on a function's
+  result; a function defined with it, or with a declaration of its name that has it, is an entry of the unit's
+  `@llvm.global_ctors` or `@llvm.global_dtors` at its priority (none is 65535; two arguments, or one that is no integer
+  constant, are refused in clang's words). The constructors run before main, by their priorities from the lowest, C++'s
+  initialization of the unit's globals after those of its own priority; the destructors after main's return or `exit`,
+  after the atexit handlers, the highest priority first; on a Mac clang registers each priority's destructors with
+  `__cxa_atexit` in a constructor of that priority, and so does the lowering. In C++ an attribute before an item is read
+  before the item's specifiers (`ccl_external/3`), which began the notes again: its notes are the item's now
+  (`'$ccl_run_lead'`, `ccl_run_notes_start/1`), where a C++ constructor was dropped. `__has_attribute` and
+  `__has_cpp_attribute(gnu::...)` answer 1 of `cleanup`, `constructor` and `destructor` (`pp_vendor_attribute/2`).
+  `ctordtor.c`, `ctordtor_exit.c`, `ctordtorcpp.cpp`. (1.6.8)
+- GCC'S `mode` IS REFUSED BY NAME IN THE PROGRAM'S TEXT (1.6.8; `ccl_mode_refuse/2`, `ccl_prog_text/0`): `typedef int i8
+  __attribute__((mode(QI)));` was read and dropped, so `sizeof(i8)` was 4 where clang has 1, and an `i8` of 127 plus one
+  128 where clang has -128. It is refused `not lowered yet: the 'mode' attribute, a type of a machine mode's size`, in
+  both spellings, where the read is no flattened one (`ccl_mode_here/0`, `ccl_flat_read/1`): a preprocessed read of an
+  own header (`ccl_pp_parse/4`) stands each included header's text under the header's own name, glibc's `register_t` of
+  mode word from `<sys/types.h>` among them. A library header's `mode`, glibc's `__cfloat128` of mode TC, is read as
+  before. Reader `k171`'s `mode_attr.c`. (1.6.8)
+- ONE REFUSAL AT A PLACE (1.6.8; `ccl_refuse_at/3`): the reader refuses a form by name at a file and a line given,
+  `ccl_refuse/1` at the farthest line it reached, `ccl_refuse_line/2` at a line of the file that it reads; 1.6.7's walk
+  wrote the pattern again, `ccl_redef_refuse/3`, which is this one now. (1.6.8)
+- `__attribute__((...))` and every other `__asm("...")` are read and dropped (`ccl_gnu_attr`), but for the attributes
+  that the bullets above keep or refuse. `__typeof__` and
   `__typeof` are type specifiers at every level, `typeof` in C23 and in a GNU mode, and `typeof_unqual` in C23 alone, as
   clang has them (`ccl_typeof//1` over `ccl_typeof_word/1`, 0.214: under `-std=c17` and `-std=c++20` `typeof` is a name
   of the program's, and in C17 and C++ `typeof_unqual` is; both were keywords everywhere, and `int typeof = 1;` was
@@ -15830,6 +15871,16 @@ Declarations topic of the C++ reader).
   `elemborrow.c`, over `tvector.pl`, sorts before `hdrinst.c`, over `<vector.pl>`, and a run fixture over `<vector.pl>`
   that sorts before `elemborrow.c` breaks the six over `tvector.pl` (1.1.2's `declorder.c` takes `<deque.pl>` so).
 
+- GCC'S ATTRIBUTES, WHAT 1.6.8 LEAVES (the C reader's topic): A JUMP INTO A CLEANUP'S SCOPE is refused in the defer
+  rule's words, `goto over a defer (or a local with a destructor) to label 'in'`, where clang says `cannot jump from
+  this goto statement to its label`, and of a case label `cannot jump from switch statement to this case label`: the
+  check keeps a defer's body alone, and a cleanup's is a call like a defer's by hand. A CLEANUP THAT FREES THROUGH ITS
+  PARAMETER, `void free_str(char **p) { free(*p); }`, is refused by the safe part, `a borrow consumed`, as the same
+  defer written by hand is. THE OTHER ATTRIBUTES that the probes took (`p113/forms`, s02 to s08) are read and dropped as
+  before: `section`, `weak` and `alias` fail at the link, `transparent_union` in LLVM's parser, `error` and
+  `unavailable` build a call that clang refuses, and C++'s `init_priority` orders nothing. A `mode` IN AN OWN HEADER
+  READ PREPROCESSED is dropped as before, and so is glibc's `register_t`, an `int` of four bytes where clang's is a
+  `long`.
 - A SECOND DEFINITION AT FILE SCOPE, WHAT 1.6.7 LEAVES (the C reader's topic): GNU'S `extern inline` WITH
   `__attribute__((gnu_inline))`, then the function's external definition, is refused `redefinition of 'k'`, where clang
   builds it and calls the second: the reader keeps the first storage word alone (`ccl_sto_pick/2`), `extern`, and drops

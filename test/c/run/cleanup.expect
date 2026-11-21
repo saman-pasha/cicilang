@@ -1,0 +1,46 @@
+sees 1
+1
+sees 5
+10
+sees 7
+7
+body 0
+bye 0
+bye 1
+body 2
+bye 2
+bye 3
+bye 10
+bye 11
+bye 12
+out 3
+case
+bye 30
+bye 43
+bye 44
+bye 50
+bye 0
+bye 1
+end 2
+bye 2
+1 2 3 4 5 6 7 8 9 10 1 2
+close 2 1
+close 1 1
+bye 10
+void 9
+bye 8
+bye 7
+ret 6
+bye 4
+bye 3
+bye 2
+bye 1
+bye 5
+i 0
+i 1
+bye 2
+inner
+bye 60
+r 10
+has 1 1 1
+exit 0

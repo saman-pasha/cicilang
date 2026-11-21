@@ -833,6 +833,22 @@ k170 :- check('a second definition at file scope is refused at its line with cla
 redef_refused(F, In, L, Std, M) :- c(F, P), redef_read(P, Std, R), nonvar(R), R = error(refusal(M0, here(H, L0)), _), M0 == M, L0 == L, atom(H), sub_atom(H, _, _, 0, In).
 %% a read at C's level Std, the level set back to C17 whatever the read does; R the error it threw, unbound where it read
 redef_read(P, Std, R) :- nb_setval('$ccl_c_std', Std), ( catch(cicilang_ast(P, _), E, true) -> R = E ; R = failed ), nb_setval('$ccl_c_std', 17).
+%% GCC's cleanup and mode attributes (1.6.8): each refusal at its object's line, read two times as k170's
+k171 :- check('GCC\'s cleanup attribute is refused at its object\'s line with clang\'s words, on the cold road and the served one: the name of an object or of a pointer to a function, a name that nothing declares or a function declared after the object, a function of two parameters or of none, a parameter that points to another type, that is no pointer or that is no pointer to the array, no argument and two; and GCC\'s mode attribute, by name',
+    forall(member(r(F, L, M), [
+          r('cleanup_not_fn.c', 3, '\'cleanup\' argument \'k\' is not a function'),
+          r('cleanup_fnptr.c', 4, '\'cleanup\' argument \'fp\' is not a function'),
+          r('cleanup_undeclared.c', 3, 'use of undeclared identifier \'nowhere\''),
+          r('cleanup_later.c', 3, 'use of undeclared identifier \'later\''),
+          r('cleanup_two.c', 4, '\'cleanup\' function \'two\' must take 1 parameter'),
+          r('cleanup_none.c', 4, '\'cleanup\' function \'none\' must take 1 parameter'),
+          r('cleanup_type.c', 4, '\'cleanup\' function \'byed\' parameter has type \'double *\' which is incompatible with type \'int *\''),
+          r('cleanup_value.c', 4, '\'cleanup\' function \'val\' parameter has type \'int\' which is incompatible with type \'int *\''),
+          r('cleanup_array.c', 5, '\'cleanup\' function \'bye\' parameter has type \'int *\' which is incompatible with type \'int (*)[2]\''),
+          r('cleanup_noarg.c', 3, '\'cleanup\' attribute takes one argument'),
+          r('cleanup_twoargs.c', 4, '\'cleanup\' attribute takes one argument'),
+          r('mode_attr.c', 3, 'not lowered yet: the \'mode\' attribute, a type of a machine mode\'s size')]),
+        ( redef_refused(F, F, L, 17, M), redef_refused(F, F, L, 17, M) ))).
 
 k110 :- check('a type macro that fails, two instances that one name names, and a typed call of a macro with no typed form are refused at the use',
     ( c('tmacro_fail.c', P1), c('tmacro.pl', M), catch(cicilang_ast(P1, _), error(E1, here(P1, 3, in_macro(type_none, M))), true), E1 == macro_failed(none, [base([], [int])]),
@@ -1155,6 +1171,8 @@ t_checks :-
     k169,
     section('a second definition at file scope (1.6.7)'),
     k170,
+    section('GCC\'s cleanup and mode attributes (1.6.8)'),
+    k171,
     section('the preprocessor, in cocolog: a header raw cannot take'),
     k83,
     section('the lexer, native: ccl_lex_native/6 token for token with the DCG'),

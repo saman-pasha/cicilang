@@ -1,0 +1,14 @@
+c101 0
+c102 1
+c103 2
+c-none 3
+proto ctor
+both 4
+main 4
+atexit
+both 4
+proto dtor
+d-none 4
+d102 4
+d101 4
+exit 0

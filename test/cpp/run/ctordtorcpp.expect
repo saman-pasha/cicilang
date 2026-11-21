@@ -1,0 +1,5 @@
+init 0
+G() 7
+main 7
+fini 7
+exit 0

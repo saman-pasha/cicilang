@@ -188,6 +188,7 @@ cpp_stmt_(Ctx, expr(L, E), expr(L, E1)) :- !, cpp_expr(Ctx, E, E1).
 cpp_stmt_(Ctx, gnu_asm(L, ext(Qs, T, Os, Is, Cs, Ls)), gnu_asm(L, ext(Qs, T, Os1, Is1, Cs, Ls))) :- !, cpp_asm_ops(Ctx, Os, Os1), cpp_asm_ops(Ctx, Is, Is1).   % GNU's asm statement (0.215): its operands desugared
 cpp_stmt_(Ctx, assume(L, E), assume(L, E1)) :- !, cpp_expr(Ctx, E, E1).                       % C++23's [[assume(e)]]
 cpp_stmt_(_, using(_, enum(_)), empty) :- !.                                                    % C++20: the enumerators are in scope already (a namespace flattens)
+cpp_stmt_(Ctx, defer(L, ['$cleanup'(V)], Body), defer(L, ['$cleanup'(V)], Body1)) :- !, cpp_cleanup_single(Body, L), cpp_stmt(Ctx, Body, Body1).   % a cleanup's call (1.6.8)
 cpp_stmt_(Ctx, defer(L, Vs, Body), defer(L, Vs, Body1)) :- !, cpp_stmt(Ctx, Body, Body1).
 cpp_stmt_(Ctx, eh_cleanup(L, Body), eh_cleanup(L, Body1)) :- !, cpp_stmt(Ctx, Body, Body1).   % a constructor's cleanup of a base or a member it built (cpp_member_cleanup/4, 0.201)
 cpp_stmt_(Ctx, if_constexpr(L, C, T, E), Out) :- !,                                          % C++17: decided here when the condition is a constant, else a plain if
@@ -320,6 +321,11 @@ cpp_stmt_(Ctx, case(L, E, S), case(L, E2, S1)) :- !, cpp_expr(Ctx, E, E1),   % A
 cpp_stmt_(Ctx, default(L, S), default(L, S1)) :- !, cpp_stmt(Ctx, S, S1).
 cpp_stmt_(Ctx, static_assert(L, E, M), static_assert(L, E, M)) :- !, cpp_static_assert(Ctx, L, E, M).
 cpp_stmt_(_, S, S).
+%% A CLEANUP'S FUNCTION IS ONE FUNCTION (1.6.8; clang's Sema, handleCleanupAttr): a name of more than one of the program's
+%% functions ('$cpp_fn'/5, a key a set of parameters) is refused in clang's words, where the call took the overload that
+%% fits the object's address
+cpp_cleanup_single(block([expr(_, call(id(F), _))]), L) :- atom(F), findall(K, '$cpp_fn'(F, K, _, _, _), Ks0), sort(Ks0, [_, _|_]), !, cpp_refuse(L, cleanup_not_single(F)).
+cpp_cleanup_single(_, _).
 cpp_asm_ops(_, [], []).
 cpp_asm_ops(Ctx, [op(N, C, E)|Os], [op(N, C, E1)|Os1]) :- cpp_expr(Ctx, E, E1), cpp_asm_ops(Ctx, Os, Os1).
 %% A C++ STATIC ASSERTION IS CHECKED (0.198; [dcl.pre]/10): the program's own, where its condition folds -- at file scope, in a block and in

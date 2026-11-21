@@ -1370,7 +1370,7 @@ pp_cpp_attribute(unlikely, 201803).
 %% `clang::lifetimebound', the thread-safety analysis' -- which reading and dropping implements, in its `gnu' or `__gnu__'
 %% and its `clang' or `_Clang' spellings, its name with or without its underscores, and `gnu::packed' and `gnu::aligned',
 %% which the reader honours in that form as in GCC's (ccl_skip_attr//0). One that changes what a program does and that
-%% the reader drops in that form (`gnu::vector_size', `gnu::weak', `gnu::section', `gnu::constructor', `gnu::cleanup',
+%% the reader drops in that form (`gnu::vector_size', `gnu::weak', `gnu::section',
 %% `gnu::used', `gnu::visibility', `clang::trivial_abi', `clang::no_destroy', `clang::musttail', `clang::internal_linkage')
 %% stays 0. A scoped attribute was 0 for every vendor: a program's
 %% `#if __has_cpp_attribute(clang::fallthrough)' took its other branch where clang++'s build takes the first. libc++ 21 asks
@@ -1383,7 +1383,8 @@ pp_attr_vendor(gnu, gnu).
 pp_attr_vendor(clang, clang).
 pp_attr_vendor('_Clang', clang).
 pp_vendor_attribute(gnu, A) :- memberchk(A, [unused, always_inline, noinline, cold, hot, deprecated, warn_unused_result, format, format_arg, nonnull,
-    returns_nonnull, pure, const, noreturn, malloc, flatten, artificial, nothrow, fallthrough, leaf, error, warning, may_alias, packed, aligned]).
+    returns_nonnull, pure, const, noreturn, malloc, flatten, artificial, nothrow, fallthrough, leaf, error, warning, may_alias, packed, aligned,
+    cleanup, constructor, destructor]).   % the three the reader honours since 1.6.8 (the C reader's topic of GCC's attributes)
 pp_vendor_attribute(clang, A) :- memberchk(A, [always_inline, noinline, warn_unused_result, fallthrough, lifetimebound, noescape, preferred_name,
     standalone_debug, no_specializations, capability, scoped_lockable, acquire_capability, acquire_shared_capability, release_capability,
     release_shared_capability, try_acquire_capability, try_acquire_shared_capability, requires_capability, ptrauth_vtable_pointer, assume,

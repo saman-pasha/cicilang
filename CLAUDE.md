@@ -12,8 +12,8 @@ the fixture that gates it, and why. The bullet ends with the version that made t
 edits the rule in `RULES.md`, in its topic, and writes its entry in `HISTORY.md`. Read the topic of `RULES.md` that
 covers the code before the code is changed.
 
-At 1.6.7 the versions are: the module 1.6.7 (`ccl_p_version` in `module/cicilang.cicili`, `bin/cicilang --version`),
-the reader 205 (`ccl_reader_version/1`, `library/ccl_syntax.pl`) and the lowering 179 (`ccl_lowering_version/1`,
+At 1.6.8 the versions are: the module 1.6.8 (`ccl_p_version` in `module/cicilang.cicili`, `bin/cicilang --version`),
+the reader 206 (`ccl_reader_version/1`, `library/ccl_syntax.pl`) and the lowering 180 (`ccl_lowering_version/1`,
 `library/ccl_ir.pl`).
 
 Build and prove, always in this order (or all of it, `sh test/gates.sh`):
@@ -546,7 +546,8 @@ test/c/                     the reader's fixtures: hello.c, rich.c, lexer.c, mac
                             own_tag.c, own_enumtag.c, own_pattern.c and own_form.c, the word own given as a name, each
                             refused at its line (0.306); redef_*.c over redef_h1.h, redef_h2.h, redef_noguard.h,
                             redef_hobj.h and redef_late.h, a second definition at file scope, each refused at its
-                            line (1.6.7)
+                            line (1.6.7); cleanup_*.c and mode_attr.c, GCC's cleanup and mode attributes refused,
+                            each at its line (1.6.8)
 test/c/inc/                 the -I fixture: uses_box.c over box.h
 test/c/link/                two files linked into one program; the ABI against clang-built code (abi_main.c,
                             abi_helper.c), variadic calls (va_main.c, va_func.c, va.h), the decimal ABI against gcc,
@@ -601,7 +602,9 @@ test/c/run/                 C programs built and run: NAME.c, NAME.expect, NAME.
                             scopedtypes.c, the types that a block's object and a block's typedef give (1.6.2);
                             ownparams.c, own parameters that their callee stores, built as C and as C++ (1.6.5);
                             redefok.c over redefok_g.h, redefok_c.h, redefok_sa.h, redefok_sb.h and redefok_t.h, and
-                            redefok23.c, what C and C23 take again at file scope (1.6.7)
+                            redefok23.c, what C and C23 take again at file scope (1.6.7); cleanup.c, cleanup23.c,
+                            ctordtor.c and ctordtor_exit.c, GCC's cleanup, constructor and destructor attributes
+                            (1.6.8)
 test/c/safe/                C programs the safe part refuses: NAME.c, NAME.expect; dropnone.pl, the macro file of
                             drop_leaks.c (0.262); borrow_after_grow.c, borrow_after_push.c, elem_after_push.c,
                             grow_through_ptr.c, const_replace.c and const_local.c, the safety rules of 0.265;
@@ -645,7 +648,8 @@ test/cpp/                   the C++ reader's fixtures and the refusals; hidem.cp
                             namespace's own array and of a class's static own array member given to an owner with no
                             move (0.307); dropped_new.cpp, dropped_new_array.cpp and dropped_new_nothrow.cpp, C++'s
                             new-expressions thrown away (0.309); freeoprval.cpp, an rvalue for a free operator's
-                            W & parameter, refused (1.6.6)
+                            W & parameter, refused (1.6.6); cleanup_overload.cpp, a cleanup that names two
+                            overloads, refused (1.6.8)
 test/cpp/link/              the C++ ABI checks of the C++ gate and the cross gate: abi_helper.cpp, memptr_helper.cpp and
                             byval_helper.cpp built by clang++, abi_main.cpp, memptr_main.cpp and byval_main.cpp by
                             cicilang++, abi.h, memptr.h, byval.h; the C++ gate's two units, units_a.cpp and units_b.cpp
@@ -664,7 +668,8 @@ test/cpp/run/               C++ programs built and run: NAME.cpp, .expect, .flag
                             plus an auto difference of two pointers, libc++ 22's __to_buffer (1.6.1);
                             scopedtypes.cpp, GNU's __typeof__ of a block's object (1.6.2); freeopbin.cpp and
                             freeopenum.cpp, a free operator taken only where its parameters take the operands, over a
-                            class and over an enumeration (1.6.6)
+                            class and over an enumeration (1.6.6); cleanupcpp.cpp and ctordtorcpp.cpp, GCC's cleanup,
+                            constructor and destructor attributes in C++ (1.6.8)
 test/ccllib/                the three runs' programs: NAME.c, a ccllib program; NAME.cpp, its twin over std::;
                             NAME.expect, what the twin prints; NAME.count, the count of the run that the costs time;
                             first.c over first.pl, the first proof after phase 0 (0.273); vector.c, the whole

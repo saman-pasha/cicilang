@@ -324,6 +324,7 @@ One row per step, in version order: the step's title, what it did and its gate n
 | 1.6.5 | shared_ptr over units and threads; the mutex's first use | the review's items 5 and 6 and the ccllib gate's four FAIL of 1.6.0 -- two units over `<memory.pl>` had a pool each, and a handle that one made stopped the program in the other; the counts had no lock; a mutex's first lock was two threads', and a latch that held glibc's mutex was refused on Linux --: one pool and lock a program, the counts under a spin lock, the first use one thread's, the latch's objects in words; an own parameter's store no borrow in C++; ThreadSanitizer in the ccllib gate | `sp_a.c` and `sp_b.c`, `sharedthreads.c` and its twin, `mutex.c`'s threads, `alone/mutex_rules.c`, `ownparams.c`; 23 copies broken on purpose, each caught; the nets |
 | 1.6.6 | a free operator only where its parameters take the operands | 1.6.1's Not done, a binary free operator taken by its count alone -- `M{} * 2.0` refused beside `W operator*(W, W)`, `M{} == 2.5` and `i += N{}` built and printed wrong values, `W{} += 1` built --, and every free operator over an enumeration operand: each asked, unary or binary, over a class or an enumeration, by its parameters' fit or a converting constructor, else the built-in operator | `freeopbin.cpp`, `freeopenum.cpp`, `freeoprval.cpp`; twelve probes; six copies broken on purpose, five caught and one whose path no run reaches; the nets |
 | 1.6.7 | a second definition at file scope | the Not done record of 1.6.3, a second definition built with no word -- `int x = 1; int x = 2;` printed 1, a function of two headers had the first one's body, a function of the file two times went to LLVM's parser --: each refused in clang's words at its line in C, a function, an object, a tag at C17 or of other content at C23, an enumerator, a typedef of another type, over the file and the live lines of its own headers; an `extern` object's initializer its definition; ccllib's shared guards held by its gate | `k170` over 15 refusals; `redefok.c`, `redefok23.c`; 41 forms; eighteen copies broken on purpose, each caught; the nets |
+| 1.6.8 | GCC's cleanup, constructor, destructor and mode attributes | the user's task, "Refuse or implement the GNU cleanup attribute": `cleanup` read and dropped, its call never run; the cleanup the defer of its call, the function refused in clang's words where none fits; `constructor` and `destructor` the unit's lists, in C and in C++, where C++ dropped a leading attribute's notes; `mode`, dropped with wrong sizes, refused by name | `k171` over 12 refusals; `cleanup.c`, `cleanup23.c`, `ctordtor.c`, `ctordtor_exit.c`, `cleanupcpp.cpp`, `ctordtorcpp.cpp`, `cleanup_overload.cpp`; 62 forms; eighteen copies broken on purpose, each caught; the nets |
 
 ## M5 — the C++ mode
 
@@ -23792,3 +23793,80 @@ chain did not run, by the owner's rule of 0.271. No CI job ran.
   CLAUDE.md.
 
 The module 1.6.7, the reader 205 and the lowering 179.
+
+## 1.6.8 — GCC's cleanup, constructor, destructor and mode attributes
+
+**1.6.8: the user's task, "Refuse or implement the GNU cleanup attribute": GCC's `cleanup` was read and dropped, so `int
+x __attribute__((cleanup(done))) = 1;` never called `done(&x)`. It is implemented now, as the defer of its call, and so
+are the attributes beside it that change what a program does, `constructor` and `destructor`; `mode`, which the reader
+dropped with wrong sizes, is refused by name.**
+
+THE FINDING AND THE FORMS BESIDE IT (`p113/forms`, 62 programs, each built and run by clang 22 and by cicilang,
+`p168/runforms168.sh`; the old runner, `p113/clangrun.sh`, wrote the exit code of `tr` and not the program's): over
+1.6.7, every cleanup ran nowhere -- at a block's end, a return, a break, a goto, a statement expression's end --, every
+refusal that clang gives the attribute was a build, `constructor` and `destructor` never ran, in C and in C++, and
+`mode(QI)` gave an `i8` of four bytes. The work was done at 1.1.3 over 1.1.2 and kept apart while the review's steps
+went first; over 1.6.7 it applied with four conflicts: the three versions, and `ck_c_type_text/2`, which 1.6.1 had
+written as the work had and better (`int[3]`, a function's type), and which stays.
+
+THE CAUSES. The reader read GCC's attributes and dropped them (`ccl_gnu_attr//0`, `ccl_skip_attr//0`), the three among
+them. AND ONE IN C++: an attribute before an item is read by its own rule (`ccl_external/3`, as the hidden mark is), and
+the item's specifiers began the notes again (`ccl_run_notes_start/1`), so a C++ constructor and destructor were dropped
+though the C ones ran. The desugaring keeps the mark, as a probe of `cpp_type/2` showed, and a change that the step
+first made there was taken out again. AND ONE OF THE STEP'S OWN: the first refusal of `mode` asked the read's file alone
+(`ccl_prog_text/0`), and the reader gate's eight checks of `tvector.pl` and the compile gate's `tvector.c` were refused
+at `tvhdr2.h:164` -- the line of glibc's `register_t` in `<sys/types.h>`, which the preprocessed read of the five lines
+of `tvhdr2.h` holds under its name; a flattened read is marked now.
+
+THE RULES (RULES.md, the C reader's topic: GCC's `cleanup`, GCC's `constructor` and `destructor`, GCC's `mode`, and one
+refusal at a place; the preprocessor's answers of `__has_attribute`; Not done's record, what 1.6.8 leaves). The cleanup
+is a defer of its call, which the lowering already runs at every exit, on a goto's road, in a statement expression and
+in C++'s landing pads: nothing of the lowering's defers changed. The reader is 206, since a read that the store kept
+before dropped the attributes, and the lowering 180, since a constructor and a destructor are entries of the unit's
+lists now. THE REFUSAL AT A PLACE is one predicate, `ccl_refuse_at/3`: the work wrote a `ccl_refuse_at/2` of the same
+two goals as 1.6.7's `ccl_redef_refuse/3` and 0.290's `ccl_refuse/1`.
+
+THE PROOF. Reader `k171`: eleven refusals of the cleanup attribute, each at clang's line with clang's words, and
+`mode_attr.c` by name, each read two times, the second over what the store keeps. `test/c/run/cleanup.c` (each exit of a
+scope, the order, a for's declaration, a statement expression, a goto back over the object, a struct, a register object,
+a `void *` parameter, and `__has_attribute` of the three), `cleanup23.c` (C23's `[[gnu::cleanup]]` in its three places),
+`ctordtor.c` (the priorities, a prototype's mark, an atexit handler) and `ctordtor_exit.c` (a destructor at `exit(3)`)
+print clang's lines, and so do `test/cpp/run/cleanupcpp.cpp` (an exception, a destructor after the cleanup, a function
+template, a lambda, a static member function by its qualified name) and `ctordtorcpp.cpp` (before and after the unit's
+initialization); `test/cpp/cleanup_overload.cpp` is refused in clang's words. Over 1.6.7 each of them fails. Of the 62
+forms, each gives clang's verdict but those that Not done records: two jumps into a cleanup's scope refused in other
+words, two cleanups that free through their parameter refused by the safe part, `mode` refused by name, and seven other
+attributes. EIGHTEEN COPIES BROKEN ON PURPOSE, a clause each (`p168/mk168.py`), over the reader gate, the compile gate,
+the three C++ fixtures and the 62 forms, the unbroken work tree first with no check RED: each copy turns a check RED.
+The reader gate's `k171` catches seven -- two arguments, a name that nothing declares, a name of no function, a function
+of two parameters, a parameter's type that does not fit, no defer made, and `mode` not refused --, and its checks of
+`tvector.pl` two more, `mode` refused in a flattened read and in a library header; the compile gate's `cleanup.c`,
+`cleanup23.c`, `ctordtor.c` and `ctordtor_exit.c` catch the specifiers' cleanup not every declarator's, a for's
+declaration, the constructor's mark not taken, every priority the last, no list of the destructors, and
+`__has_attribute` of the three 0, the last by `cleanup.c`'s one line alone; the C++ fixtures catch the leading
+attribute's notes lost and C++'s initialization before the constructors, by `ctordtorcpp.cpp`, and an overloaded name
+taken, by `cleanup_overload.cpp`. The forms catch fifteen of the eighteen. A FIRST COPY of `__has_attribute`'s list was
+wrong: it left a comma before `]`, so the whole clause did not load, and `gnuattrc.c` and `hasattr.c` failed for that;
+the copy above takes out the three words alone. THE RUNNER'S FORMS of `section`, `weak` and `alias` name a temporary
+object of the build's process in their link errors, so their lines differ in each run; a copy is the forms' only where
+more lines differ.
+
+THE NETS, over the step's final code on cocolog 3.65.0, each under the caps and over a fresh HOME: the flow gate GREEN
+(360 s, 4041 MB); the reader gate 172 ok, 5 skipped, `k171` among them; the compile gate 353 ok, `cleanup.c`,
+`cleanup23.c`, `ctordtor.c` and `ctordtor_exit.c` among them; the driver gate 99 ok; the objects gate 29 ok; the ccllib
+gate 621 ok and no FAIL, 36 programs in three runs, 187 refused and 21 alone; the C++ pools of the lighter run
+fixtures, 372 of 372 over libc++ 22, 21 and 18, `cleanupcpp.cpp` and `ctordtorcpp.cpp` among them; every heavier C++ run
+fixture over libc++ 22, 506 ok and 14 skipped by their `.needs`, of 520; the C++ gate's later parts by hand, 221 ok, the
+refusal of `cleanup_overload.cpp` among them. The chain did not run, by the owner's rule of 0.271. No CI job ran.
+
+- `library/ccl_syntax.pl` (the notes of the three attributes, `ccl_cleanup_*`, `ccl_init_*`, `ccl_run_notes_*` and the
+  C++ lead, `ccl_mode_refuse/2`, `ccl_refuse_at/3`; the reader 206); `library/ccl_ir.pl` (`ir_inits_note/3`,
+  `ir_inits_emit/0`; the lowering 180); `library/ccl_infer.pl` (`ccl_add_init/4`, `ccl_init_of/2`);
+  `library/ccl_include.pl` (`ccl_flat_read/1`); `library/ccl_cpp_stmt.pl` (`cpp_cleanup_single/2`);
+  `library/ccl_driver.pl` (its words); `library/ccl_pp.pl` (the three in `pp_vendor_attribute/2`); the module's version.
+- `test/c/cleanup_*.c`, `test/c/mode_attr.c` and `test/reader.pl`'s `k171`; `test/c/run/cleanup.c`, `cleanup23.c`,
+  `ctordtor.c`, `ctordtor_exit.c` and their `.expect`, `cleanup23.std`; `test/cpp/run/cleanupcpp.cpp`, `ctordtorcpp.cpp`
+  and their `.expect`; `test/cpp/cleanup_overload.cpp` and its list in `test/cpp.sh`.
+- RULES.md (the C reader's four rules, the answers of `__has_attribute`, Not done's record), HISTORY.md, CLAUDE.md.
+
+The module 1.6.8, the reader 206 and the lowering 180.

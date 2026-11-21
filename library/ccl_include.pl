@@ -1032,8 +1032,13 @@ ccl_rest_info([tok(_, _, L)|_], stopped(L, near(F))) :- ccl_farthest(F).
 %% the same grammar; Files are every file it pulled, the includer first
 ccl_pp_parse(Path, unit(Is), Info, Files) :-
     catch(ccl_pp_file(Path, Tokens, Files), pp_error(PL, PM), throw(error(pp_error(PM), here(Path, PL)))),   % a header's #embed of nothing
-    ccl_with_file(Path, ( ccl_unit(Tokens, U0, Rest), ccl_rest_info(Rest, Info) )),
+    ccl_flat_read(ccl_with_file(Path, ( ccl_unit(Tokens, U0, Rest), ccl_rest_info(Rest, Info) ))),
     ( ccl_own_header(Path) -> findall(F, ( member(F, Files), F \== Path, ccl_own_header(F) ), Own) ; Own = [] ), ccl_with_spliced(Own, U0, unit(Is)).
+%% A FLATTENED READ (1.6.8): the text of each header that its run included stands under the read's own file -- glibc's
+%% `register_t' of mode word, from <sys/types.h>, in a read of the program's header `tvhdr2.h' -- so a rule of the
+%% program's own text that the read's file cannot tell from a library's asks '$ccl_flat' (ccl_mode_here/0)
+ccl_flat_read(G) :- ( nb_current('$ccl_flat', F0) -> true ; F0 = no ), nb_setval('$ccl_flat', yes),
+    (   catch(G, E, ( nb_setval('$ccl_flat', F0), throw(E) )) -> nb_setval('$ccl_flat', F0) ; nb_setval('$ccl_flat', F0), fail ).
 %% A UNIT NAMES THE FILES WHOSE TEXT ITS RUN PUT IN PLACE (0.310): '$spliced_files'(Paths), before the '$expansions' item
 %% that the driver takes last, so that the store's deps (ccl_kb_flatten/4) and the kept IR's (dr_items_deps/2) name each
 %% file by its time -- an #include inside an item of the top run (pp_splice_include/4), and each of the program's own
