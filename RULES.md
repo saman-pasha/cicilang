@@ -376,17 +376,24 @@ that changes a rule edits the rule here, in its topic, and writes its entry in `
   (`cpp_dbg_op_spell/2`, whose W `atomic_list_concat/3`'s split binds), and the call under the catch was the warning
   above. (0.144, 0.146, 0.160, 0.259)
 
-### cocolint: the dialect linter, by hand
+### cocolint: the dialect linter, in the flow gate
 
-- COCOLOG'S LINTER, COCOLINT, READS THE REPOSITORY'S PROLOG CLEAN BUT FOR ONE WARN (1.6.11; `sh
-  $COCOLOG/tools/cocolint/lint.sh FILE`, cocolog's `SKILL.md`, section 11, and `tools/cocolint/GUIDE.md`): the 104 `.pl`
-  files -- the 73 of `library/` and `library/ccllib/`, the twelve of `test/` and `tutorials/`, the nineteen macro files
-  of the fixtures -- each in a capped run of its own (2800 MB, 900 s, a fresh HOME; 18 s and 338 MB at most,
-  `ccl_uninames.pl`). It reads a file with a scanner of its own and runs nothing: a head that joins a library's clauses
-  (N1: one namespace), a stream predicate in a file that loads no `library(stream)` (S1's row X2), the other forms of
-  cocolog's dialect card, a clause too long for a page of an old store (Z1, a WARN). The shell scripts' Prolog goals,
-  which it does not read, call no stream predicate. No gate runs it; what it writes in cocolog's checkout,
-  `blocklist.pl` and `traps.pl`, is its build output, which cocolog's `.gitignore` names. (1.6.11)
+- THE FLOW GATE LINTS EVERY PROLOG FILE OF THE REPOSITORY WITH COCOLOG'S LINTER, COCOLINT, AND IS RED ON ANY FINDING,
+  HARD OR WARN (1.6.12, at the user's word "Add cocolint to flow gate"; `sh $COCOLOG/tools/cocolint/lint.sh FILE ...`,
+  cocolog's `SKILL.md`, section 11, and `tools/cocolint/GUIDE.md`; `fg_lint` in `test/flow.sh`): the 104 `.pl` files --
+  the 73 of `library/` and `library/ccllib/`, the twelve of `test/` and `tutorials/`, the nineteen macro files of the
+  fixtures, `module/`'s three being Perl -- in ONE run, one job of the gate's pool beside the charts, under its caps and
+  `FLOW_SECS` (45 s and 294 MB alone at 1.6.12; the gate 427 s over a fresh HOME, where 1.6.11's took 383 s). It reads a
+  file with a scanner of its own and runs nothing: a head that joins a library's clauses (N1: one namespace), a stream
+  predicate in a file that loads no `library(stream)` (S1's row X2), the other forms of cocolog's dialect card, a clause
+  too long for a page of an old store (Z1, a WARN). A form committed on purpose carries cocolint's acknowledgement where
+  it stands, `% cocolint: ID -- why`, alone on the line before or after the code on its line, and an acknowledgement
+  that excuses nothing is a WARN of its own (U1). The gate's line is `ok   cocolint over the 104 Prolog files in N s: no
+  finding, 1 acknowledged`; a count of files other than the ones given is RED too. Seeded in a copy of the tree --
+  `append/3` in a lesson, the table's acknowledgement taken away, an acknowledgement over a clause with no finding --
+  the gate was RED, `1 HARD, 2 WARN`, each named at its file, line and column, and the charts said nothing new. What it
+  writes in cocolog's checkout, `blocklist.pl` and `traps.pl`, is its build output, which cocolog's `.gitignore` names.
+  Its first run, by hand, found the two defects below (1.6.11). (1.6.11, 1.6.12)
 - A GATE PROGRAM NAMES NO PREDICATE OF A LIBRARY IT LOADS (1.6.11, cocolint's N1): `test/reader.pl` defined `sh/2`, and
   library(process), which it loads, defines `sh(Cmd, Out) :- proc_run(Cmd, 600000, Out, 0).`, so the two were one
   predicate, the library's clause first. Each `copy/2`, `touch/1` and `mkdir` of the gate ran its command bare before it
@@ -403,8 +410,12 @@ that changes a rule edits the rule here, in its topic, and writes its entry in `
   no clause in the store: a copy of the compile gate's store, after its three decimal fixtures, has no
   `ccl_bidrt_text/2`, and a copy of the reader gate's none of `test/reader.pl`'s clauses --, and the store's pages are
   65,536 bytes (`~/.cicilang/KB/pagesize`), a store that `kb_prepare` makes again when the versions change. The
-  generated file stays as `module/gen-bidrt.sh` writes it. (1.6.11)
-
+  generator writes cocolint's acknowledgement on the line before each fact whose line is longer than 7,800 bytes
+  (`module/gen-bidrt.pl`, 1.6.12), cocolint's measure to the byte for a fact of one line: a clause of 7,801 bytes is a
+  WARN and one of 7,800 none, and an acknowledgement over the clause of 7,800 bytes is a WARN of its own. The committed
+  table holds 0.243's IR text, with the one acknowledgement added as the generator adds it: a run of the generator over
+  today's lowering changes every one of its 171 facts, the IR of every decimal program, a step of its own. (1.6.11,
+  1.6.12)
 ### The C gates
 
 - The reader gate. `test/reader.pl` runs 94 numbered checks, `k1` to `k94`, in one process over the user's store. It
@@ -14020,6 +14031,14 @@ in the first topic (The ccllib gate).
   at 2882 MB, 1.8.38 at 591 MB. After a cocolog update the modules are rebuilt (`module/build.sh`,
   `module/build-llvm.sh`, and cocolog's `os` and `process` modules); 1.8.36 to 1.8.41 left the SDK's ABI unchanged.
   (0.46, 0.112, 0.114)
+- COCOLINT'S STREAM PATTERN NAMES EIGHT PREDICATES, NOT `nl/1` OR `write/2` (found at 1.6.12, cocolog 3.65.0 at 6af52f8;
+  `sh tools/cocolint/tool.sh card --patterns`): its row X2 names `open`, `close`, `current_output`, `current_input`,
+  `set_output`, `set_input`, `read_term` and `with_output_to_stream`, and `seeded :- nl(user_error).` in a file that
+  loads no `library(stream)` lints clean, where cocolog's `SKILL.md` lists `nl/1`, `write/2`, `tab/2` and `read/1` among
+  the predicates that are unknown without it (`open(x, write, S), close(S)` in the same file is two HARD findings). Nor
+  does a chart name it: `library(flow/chart)` over `t :- nl(user_error).` with no library loaded says nothing, where the
+  call raises `Unknown procedure: nl/1` at run time and runs once `library(stream)` is loaded (probed at 1.6.12). Such a
+  call is seen when it runs, alone. For cocolog's owner. (1.6.12)
 - COCOLOG 3.62 HAS `public` AND `dynamic` AS PREFIX OPERATORS, as swipl has (reported at 0.290 by a program that runs
   this library over cocolog 3.62.0, and run here since 0.292, over 3.62.2): `A \== public, ...` and `K \== dynamic ;
   ...` are no terms there, the three clauses that had them did not load -- `cpp_check_access/4` in `ccl_cpp_class.pl`,
@@ -16624,7 +16643,8 @@ Declarations topic of the C++ reader).
   million calls), `pp_word/3` 3.0 %, `nb_getval/2` 2.5 % -- and offers no cut. (0.120, 0.184, 0.187, 0.188, 0.189,
   0.241)
 - The flow gate charts the twenty-six hand-written files of `library/` (ten until 0.223) and the nine gate programs of
-  `test/` (0.161): the three generated tables (`ccl_bidrt.pl`, `ccl_uninames.pl`, `ccl_xid.pl`) are loaded, not charted.
+  `test/` (0.161): the three generated tables (`ccl_bidrt.pl`, `ccl_uninames.pl`, `ccl_xid.pl`) are loaded, not charted;
+  cocolint reads them, and every other Prolog file of the repository, since 1.6.12.
   `test/why.sh` is no gate. The desugaring's seventeen files are one program in the chart since 0.230, as the one file
   was before 0.223, each finding at its part's line (the flow gate's topic).
 - THE COLD READ OF A TREE OF HEADERS IS ITS HEADERS' PREPROCESSED READS, EACH WITH ITS WHOLE TREE (measured at 0.294,

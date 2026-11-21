@@ -12,7 +12,7 @@ the fixture that gates it, and why. The bullet ends with the version that made t
 edits the rule in `RULES.md`, in its topic, and writes its entry in `HISTORY.md`. Read the topic of `RULES.md` that
 covers the code before the code is changed.
 
-At 1.6.11 the versions are: the module 1.6.11 (`ccl_p_version` in `module/cicilang.cicili`, `bin/cicilang --version`),
+At 1.6.12 the versions are: the module 1.6.12 (`ccl_p_version` in `module/cicilang.cicili`, `bin/cicilang --version`),
 the reader 207 (`ccl_reader_version/1`, `library/ccl_syntax.pl`) and the lowering 181 (`ccl_lowering_version/1`,
 `library/ccl_ir.pl`).
 
@@ -176,7 +176,9 @@ In `RULES.md`:
   were charted apart, 0.223 to 0.229), before anything longer runs: a call to a name that a rename left behind, a helper
   given a name already taken, a clause that a cut above it makes dead, a predicate in two files -- each named at its
   line, where the chain met it an hour later or never. A fixture that fails is asked `sh test/why.sh FILE` before any
-  trace is written: it names the call that gave up. (0.144, 0.223, 0.230)
+  trace is written: it names the call that gave up. Since 1.6.12 the gate lints every Prolog file of the repository
+  with cocolog's cocolint too, so an edit to a gate program, a lesson or a macro file is followed by it as well. (0.144,
+  0.223, 0.230, 1.6.12)
 - A step committed without its gates (on the owner's word), or before they finish, says so and claims nothing GREEN.
   The next commit carries the numbers. (0.91, 0.92, 0.110)
 - A COST'S WORDS NAME WHAT WAS TIMED, AND THE TIMED RUN IS SEEN TO DO IT (0.289): the ccllib gate's line of a C build
@@ -499,7 +501,8 @@ test/ci.sh                  the CI jobs' steps, on Linux or a Mac: the neighbour
 test/gates.sh               every gate in one chain
 test/parlib.sh              the memory-gated pool: ccl_pool, ccl_cocolog_rss, ccl_lpt_order, ccl_time_record,
                             ccl_pool_said (0.249)
-test/flow.pl, flow.sh       the flow gate: every library file charted by cocolog's library(flow/chart), nothing run
+test/flow.pl, flow.sh       the flow gate: every library file charted by cocolog's library(flow/chart), nothing run;
+                            every Prolog file of the repository linted by cocolog's cocolint, one run (1.6.12)
 test/flow.expect            the findings the flow gate holds the library to, a key a line
 test/why.pl, why.sh         where a build gave up: the build run under library(flow/debug), the failed call named
 test/prof.pl, prof.sh       where a build's steps and time go: windows along its run, by library(flow/debug)

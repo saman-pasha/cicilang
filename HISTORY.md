@@ -328,6 +328,7 @@ One row per step, in version order: the step's title, what it did and its gate n
 | 1.6.9 | A program's own format, print, println and clone win over the global macros | the owner's rule, "Yes user implemented should win over ccllib's macros": the four the language's in every scope through 1.6.8 -- a program's own `println` not called, its `print`, `format` and `clone` refused in the macros' words; in C++ a class's members no names of its scope, for every macro; a macro's call before the program's own declaration of the name taken with no word | `ownglobal.c`, `ownglobalcpp.cpp`, `k172`, the driver gate's two checks; 42 forms; sixteen copies broken on purpose, each caught; the nets |
 | 1.6.10 | The traps are lowered | an item of Not done (0.250), at the user's word "Do one item from the not done list": `__builtin_trap()`, clang 19's `__builtin_verbose_trap(category, message)` and `__builtin_debugtrap()` undeclared while `__has_builtin` answered 1 for each, so every program in libc++'s fast or extensive hardening mode was refused: each lowered to LLVM's trap or debug trap, a misuse refused in clang's words, the verbose trap's strings in clang's artificial function under `-g`; an arm that ends in a trap or in `__builtin_unreachable()` no entry of its join's phi | `traps.c`, `hardening.cpp`, `trapscpp.cpp`, the driver gate's three checks; 95 forms; twenty-two copies broken on purpose, each caught; the nets |
 | 1.6.11 | The repository's Prolog under cocolint | the user's word "Yes lint it": cocolog's linter over the 104 `.pl` files, a capped run each, 101 clean: `test/reader.pl`'s `sh/2` one predicate with library(process)'s, each command of the gate run bare before it ran with its words, and `test/prof.pl`'s streams loaded only by library(flow/debug), both mended; `ccl_bidrt.pl`'s clause of 12 KB, the one WARN, held by no store | cocolint 0 HARD over the two files; the probes of `sh/2` and of `cp`; the reader gate, `test/prof.sh`, the flow gate |
+| 1.6.12 | cocolint in the flow gate | the user's word "Add cocolint to flow gate": the flow gate lints the repository's 104 Prolog files in one run, a job of its pool, RED on any finding, HARD or WARN; the decimal runtime's clause of 12 KB acknowledged where it stands, by its generator; cocolint's stream pattern names no `nl/1` or `write/2`, a finding for cocolog | the flow gate GREEN, `no finding, 1 acknowledged`; a copy of the tree with three seeds RED, each at its line |
 
 ## M5 — the C++ mode
 
@@ -24136,3 +24137,50 @@ error, and the lint 3 HARD. The chain did not run, by the owner's rule of 0.271.
 - RULES.md (Build, prove and the gates: cocolint, by hand), HISTORY.md, CLAUDE.md (the versions).
 
 The module 1.6.11, the reader 207 and the lowering 181.
+
+## 1.6.12 — cocolint in the flow gate
+
+**1.6.12: at the user's word "Add cocolint to flow gate, do some not done items", its first half: the flow gate lints
+every Prolog file of the repository with cocolog's cocolint, one job of its pool, and is RED on any finding, HARD or
+WARN; the one WARN of 1.6.11, a clause of 12 KB in the decimal runtime's table, carries cocolint's acknowledgement,
+which the table's generator writes.**
+
+THE JOB. `fg_lint` in `test/flow.sh`: one run of `$COCOLOG/tools/cocolint/lint.sh` over the 104 `.pl` files --
+`library/*.pl`, `library/ccllib/*.pl`, `test/*.pl`, `tutorials/*.pl` and the fixtures' macro files of `test/c/`,
+`test/c/run/`, `test/c/safe/` and `test/ccllib/`; `module/`'s three are Perl, the generators -- from the repository's
+root, its library path cocolog's own, under the pool's caps and `FLOW_SECS`. One run, since the 104 files took 45 s and
+294 MB in one (`lint/allone.sh`) where they took 2 min 17 s in 104, each of which starts cocolog three times and loads
+the linter afresh. The verdict: the run finished, its count line names every file given, and it says `0 HARD, 0 WARN`;
+else each finding is printed at its file, line and column, and the gate's last line is RED. A form committed on purpose
+carries cocolint's acknowledgement where it stands, and an acknowledgement that excuses nothing is a WARN of its own
+(U1). A cocolog with no `tools/cocolint/lint.sh` is a SKIP, as the gate skips for its other tools; the pinned bf956d1
+has it, with its acknowledgements.
+
+THE ACKNOWLEDGEMENT. `module/gen-bidrt.pl` writes `% cocolint: Z1 -- never in a store: ir_bidrt_ready/0 loads this file
+by ensure_loaded/1 inside a goal` on the line before each fact whose line is longer than 7,800 bytes: cocolint's measure
+of a fact of one line is its length, to the byte -- a clause of 7,801 bytes is a WARN and one of 7,800 none, and the
+acknowledgement over the clause of 7,800 bytes is U1's WARN (`lint/z1/`). The generator's run over today's lowering
+changes every one of the table's 171 facts: their IR text is 0.243's lowering's, and every decimal program's IR would
+change, a step of its own. So the committed table keeps its IR text, and its one acknowledgement stands before its one
+long fact as the generator puts it (the generator's test applied to the committed lines); the generator's next run
+writes it itself.
+
+THE PROOF. The flow gate over the tree, GREEN: `ok   cocolint over the 104 Prolog files in 48 s: no finding, 1
+acknowledged`, and the charts' 0 findings, in 427 s and 4313 MB over a fresh HOME, where 1.6.11's took 383 s (a fresh
+HOME has no `flow-times`, so the pool ordered the new job among the others unknown). A copy of the tree with three seeds
+-- `append([], L, L).` in a lesson, the table's acknowledgement taken away, an acknowledgement over a clause with no
+finding in `ccl_format.pl` --: RED, `1 HARD, 2 WARN over 104 file(s)`, each at its file, line and column
+(`tutorials/01-objects.pl:47:1 HARD N1`, `library/ccl_bidrt.pl:39:1 WARN Z1`, `library/ccl_format.pl:35:1 WARN U1`), and
+the charts said nothing new (440 s). A fourth seed, `seeded_x2 :- nl(user_error).`, was named by nothing: cocolint's X2
+pattern names eight predicates, `open/3` and `close/1` among them and `nl/1` and `write/2` not, and a chart over `t :-
+nl(user_error).` with no library says nothing, where the call raises `Unknown procedure: nl/1` -- a finding for
+cocolog's owner (RULES.md, the findings about the neighbours); `open(x, write, S), close(S)` in the same lesson is two
+HARD X2 findings. No Prolog file of the repository calls a stream predicate on a stream without `library(stream)`
+(searched). The chain did not run, by the owner's rule of 0.271. No CI job ran.
+
+- `test/flow.sh` (`fg_lint`, `LFILES`, the job in the pool, its verdict, the SKIP); `module/gen-bidrt.pl` (the
+  acknowledgement); `library/ccl_bidrt.pl` (its one acknowledgement); the module's version.
+- RULES.md (the flow gate's cocolint subsection, the table's bullet, the flow gate's record in Not done, the finding of
+  cocolint's stream pattern), HISTORY.md, CLAUDE.md (the versions, the flow gate's lines).
+
+The module 1.6.12, the reader 207 and the lowering 181.

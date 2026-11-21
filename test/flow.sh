@@ -23,6 +23,13 @@
 # unseen. The severity is part of the key: a call nothing answers is a warning where a catch/3 takes its error, and
 # the same call without the catch is an error again.
 #
+# COCOLINT (1.6.12): cocolog's dialect linter, tools/cocolint/lint.sh, reads every Prolog file of the repository -- the
+# library, ccllib's macro files, the gates' and the lessons' Prolog, the fixtures' macro files -- with a scanner of its
+# own and runs nothing: a head that joins a library's clauses (one namespace), a stream predicate in a file that loads no
+# library(stream), the other forms of cocolog's dialect card, a clause too long for a page of an old store. One job of
+# the pool, one run over all the files, RED on any finding, HARD or WARN: a form committed on purpose carries cocolint's
+# acknowledgement where it stands (`% cocolint: ID -- why'), and an acknowledgement that excuses nothing is a WARN.
+#
 #   sh test/flow.sh                      # the gate
 #   FLOW_UPDATE=1 sh test/flow.sh        # the expect file written from this run (after reading every new line)
 #   FLOW_KEEP=DIR sh test/flow.sh        # the copies, the logs and each file's findings kept in DIR
@@ -34,6 +41,7 @@ HERE=$(cd "$(dirname "$0")" && pwd)
 [ -f "$COCOLOG/library/flow/chart.pl" ] || { echo "SKIP (cocolog has no library(flow/chart): 1.10.8 or later)"; exit 0; }
 [ -f "$COCOLOG/library/flow/tables.pl" ] || { echo "SKIP (no library/flow/tables.pl in cocolog -- make modules writes it)"; exit 0; }
 grep -q 'flow_module_portals' "$COCOLOG/library/flow/read.pl" 2>/dev/null || { echo "SKIP (cocolog's library(flow/chart) has no modules(Files): 1.11.4 or later)"; exit 0; }
+[ -f "$COCOLOG/tools/cocolint/lint.sh" ] || { echo "SKIP (cocolog has no tools/cocolint/lint.sh)"; exit 0; }
 FLOW_SECS=${FLOW_SECS:-900}
 FLOW_JOBS=${FLOW_JOBS:-4}; FLOW_LAUNCH_MB=${FLOW_LAUNCH_MB:-9000}; FLOW_HARD_MB=${FLOW_HARD_MB:-14000}
 FLOW_TIMES=${FLOW_TIMES:-$HOME/.cicilang/flow-times}
@@ -89,6 +97,9 @@ for f in $TFILES $CFILES; do   # a gate program is no library file: nothing to s
   n=$(awk -v b="$f.pl" '$1 == b { print $2 }' "$D/src/roots.txt")
   echo "$f fg_job $f $n"
 done >> "$D/jobs0"
+# EVERY PROLOG FILE OF THE REPOSITORY, for cocolint (1.6.12): module/'s three .pl files are Perl, the generators
+LFILES=$(cd "$ROOT" && ls library/*.pl library/ccllib/*.pl test/*.pl tutorials/*.pl test/c/*.pl test/c/run/*.pl test/c/safe/*.pl test/ccllib/*.pl 2>/dev/null)
+echo "cocolint fg_lint" >> "$D/jobs0"
 ccl_lpt_order "$FLOW_TIMES" < "$D/jobs0" | sed 's/^[^ ]* //' > "$D/jobs"
 fg_job() {   # fg_job FILE ARITY: chart the copy, write the verdict line; its own variable names (sh has no locals, 0.107)
   _fj_s=$(date +%s)
@@ -99,6 +110,15 @@ fg_job() {   # fg_job FILE ARITY: chart the copy, write the verdict line; its ow
     echo "ok $1 $_fj_t" > "$D/res/$1"; ccl_time_record "$FLOW_TIMES" "$1" "$_fj_t"
   elif [ "$_fj_rc" -eq 137 ]; then echo "FAIL $1: TIMEOUT after $_fj_t s" > "$D/res/$1"
   else echo "FAIL $1: the chart did not finish (exit $_fj_rc)" > "$D/res/$1"; fi
+}
+fg_lint() {   # cocolint over every Prolog file in one run, from the repository's root, its library path cocolog's own; its own variable names
+  _fl_s=$(date +%s)
+  ( cd "$ROOT" && env -u COCOLOG_LIBRARY timeout -s KILL "$FLOW_SECS" sh "$COCOLOG/tools/cocolint/lint.sh" $LFILES ) > "$D/out/cocolint.log" 2>&1 < /dev/null
+  _fl_rc=$?; _fl_t=$(( $(date +%s) - _fl_s ))
+  if [ "$_fl_rc" -le 1 ] && grep -aq '^cocolint: [0-9]* HARD, [0-9]* WARN over [0-9]* file(s)' "$D/out/cocolint.log"; then
+    echo "ok cocolint $_fl_t" > "$D/res/cocolint"; ccl_time_record "$FLOW_TIMES" cocolint "$_fl_t"
+  elif [ "$_fl_rc" -eq 137 ]; then echo "FAIL cocolint: TIMEOUT after $_fl_t s" > "$D/res/cocolint"
+  else echo "FAIL cocolint: the lint did not finish (exit $_fl_rc)" > "$D/res/cocolint"; fi
 }
 ccl_pool "$FLOW_JOBS" "$FLOW_LAUNCH_MB" "$FLOW_HARD_MB" < "$D/jobs"; pooled=$?
 [ "$pooled" -eq 0 ] || { echo "RED: the pool was killed at its hard cap ($FLOW_HARD_MB MB)"; exit 1; }
@@ -114,6 +134,16 @@ for f in $ALONE $JOINED $TFILES $CFILES; do
   esac
 done
 [ "$bad" -eq 0 ] || { echo "RED: a file was not charted"; exit 1; }
+# COCOLINT'S VERDICT (1.6.12): its run finished over every file given, with no finding, HARD or WARN; each finding
+# printed at its file, line and column
+r=$(cat "$D/res/cocolint" 2>/dev/null || echo "FAIL cocolint: no verdict")
+case "$r" in ok*) ;; *) echo "$r"; tail -5 "$D/out/cocolint.log" 2>/dev/null | sed 's/^/     /'; echo "RED: cocolint did not lint the Prolog files"; exit 1 ;; esac
+set -- $r; lt=$3; ln=$(echo $LFILES | wc -w | tr -d ' '); lc=$(grep -a '^cocolint: ' "$D/out/cocolint.log" | tail -1); lintbad=0
+case "$lc" in
+  "cocolint: 0 HARD, 0 WARN over $ln file(s)"|"cocolint: 0 HARD, 0 WARN over $ln file(s),"*) echo "ok   cocolint over the $ln Prolog files in $lt s: no finding${lc#*"file(s)"}" ;;
+  *) echo "-- cocolint's findings, each at its file, line and column (${lc#cocolint: }; $ln files given):"
+     grep -a '^[^ ]*:[0-9]*:[0-9]* \(HARD\|WARN\) ' "$D/out/cocolint.log" | sed "s|^$ROOT/||" | cut -c1-220 | sed 's/^/     /'; lintbad=1 ;;
+esac
 # each finding keyed at its file: the joined program's at the part whose lines hold it, its line counted from the part's first
 for f in $ALONE $JOINED $TFILES $CFILES; do
   if [ "$f" = "$JOINED" ]; then jm="$D/src/joined.txt"; else jm=/dev/null; fi
@@ -143,4 +173,5 @@ if [ -s "$D/gone" ]; then
   sed 's/^/     /' "$D/gone"
 fi
 if [ -s "$D/new" ] || [ -s "$D/gone" ]; then echo "RED: $(wc -l < "$D/keys" | tr -d ' ') findings, not test/flow.expect's ($e s)"; exit 1; fi
+[ "$lintbad" -eq 0 ] || { echo "RED: cocolint's findings over the Prolog files ($e s)"; exit 1; }
 echo "GREEN: $(wc -l < "$D/keys" | tr -d ' ') findings, all of them test/flow.expect's ($e s)"
