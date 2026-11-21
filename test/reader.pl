@@ -803,6 +803,37 @@ k169 :- check('in C++ own is refused at its line as a class, an alias, a namespa
              ( atom_concat('../cpp/', F, P), refusal_at(P, L, W) )) )).
 own_words('`own\' is a keyword, the owner\'s word, and cannot name a variable, a function, a type or any other thing that the program declares: write another name').
 
+%% A SECOND DEFINITION AT FILE SCOPE IS REFUSED IN C (1.6.7; C17 6.9/5, 6.9.2/1, 6.7/3, 6.7.2.3/1, 6.7.2.2/3; C23
+%% 6.7.2.3/1): test/c/redef_*.c, each refused at the second definition's line with clang's words -- a function, an
+%% object, an extern object's initializer, a struct at C17 and one of other content at C23, an enum of other values at
+%% C23, a tag of another kind, a struct defined in a member, an enumerator, a typedef of another type, a struct of no tag
+%% under one typedef name, a function that two headers define, a header with no guard included two times, a header's
+%% object defined in the file, and one in a header's arm that only the file's second run keeps, after a late header.
+%% Each is read two times, the second over the reads of its headers that the store keeps:
+%% both roads refuse it. A struct defined again with the same content reads whole at C23, as clang takes it
+k170 :- check('a second definition at file scope is refused at its line with clang\'s words, on the cold road and the served one: a function, an object, an extern object\'s initializer, a struct at C17 and one of other content at C23, an enum of other values at C23, a tag of another kind, a struct defined in a member, an enumerator, a typedef of another type, a struct of no tag under one typedef name, a function of two headers, a header of no guard included two times, a header\'s object defined in the file, one in an arm that only the second run of the file keeps; a struct of the same content reads whole at C23',
+    ( forall(member(r(F, In, L, Std, M), [
+          r('redef_fn.c', 'redef_fn.c', 4, 17, 'redefinition of \'f\''),
+          r('redef_obj.c', 'redef_obj.c', 4, 17, 'redefinition of \'x\''),
+          r('redef_extern.c', 'redef_extern.c', 4, 17, 'redefinition of \'w\''),
+          r('redef_tag.c', 'redef_tag.c', 3, 17, 'redefinition of \'s\''),
+          r('redef_tag23.c', 'redef_tag23.c', 4, 23, 'type \'struct s\' has incompatible definitions'),
+          r('redef_enum23.c', 'redef_enum23.c', 3, 23, 'type \'enum e\' has incompatible definitions'),
+          r('redef_kind.c', 'redef_kind.c', 3, 17, 'use of \'s\' with tag type that does not match previous declaration'),
+          r('redef_nested.c', 'redef_nested.c', 4, 17, 'redefinition of \'in\''),
+          r('redef_enumerator.c', 'redef_enumerator.c', 4, 17, 'redefinition of enumerator \'X\''),
+          r('redef_typedef.c', 'redef_typedef.c', 3, 17, 'typedef redefinition with different types (\'long\' vs \'int\')'),
+          r('redef_anon.c', 'redef_anon.c', 4, 17, 'typedef redefinition with different types (\'struct S\' vs \'struct S\')'),
+          r('redef_hdr.c', 'redef_h2.h', 1, 17, 'redefinition of \'twice\''),
+          r('redef_noguard.c', 'redef_noguard.h', 1, 17, 'redefinition of \'once_only\''),
+          r('redef_hobj.c', 'redef_hobj.c', 4, 17, 'redefinition of \'shared\''),
+          r('redef_late.c', 'redef_late.c', 7, 17, 'redefinition of \'f\'')]),
+             ( redef_refused(F, In, L, Std, M), redef_refused(F, In, L, Std, M) )),
+      c('redef_tag.c', P), redef_read(P, 23, R), var(R) )).
+redef_refused(F, In, L, Std, M) :- c(F, P), redef_read(P, Std, R), nonvar(R), R = error(refusal(M0, here(H, L0)), _), M0 == M, L0 == L, atom(H), sub_atom(H, _, _, 0, In).
+%% a read at C's level Std, the level set back to C17 whatever the read does; R the error it threw, unbound where it read
+redef_read(P, Std, R) :- nb_setval('$ccl_c_std', Std), ( catch(cicilang_ast(P, _), E, true) -> R = E ; R = failed ), nb_setval('$ccl_c_std', 17).
+
 k110 :- check('a type macro that fails, two instances that one name names, and a typed call of a macro with no typed form are refused at the use',
     ( c('tmacro_fail.c', P1), c('tmacro.pl', M), catch(cicilang_ast(P1, _), error(E1, here(P1, 3, in_macro(type_none, M))), true), E1 == macro_failed(none, [base([], [int])]),
       c('tmacro_same.c', P2), catch(cicilang_ast(P2, _), error(macro_error(pair, _, error(ctext_error(T2), _)), here(P2, 7, _)), true),
@@ -1122,6 +1153,8 @@ t_checks :-
     section('the word own where only a name can stand (0.306)'),
     k168,
     k169,
+    section('a second definition at file scope (1.6.7)'),
+    k170,
     section('the preprocessor, in cocolog: a header raw cannot take'),
     k83,
     section('the lexer, native: ccl_lex_native/6 token for token with the DCG'),

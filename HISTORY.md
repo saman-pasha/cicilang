@@ -323,6 +323,7 @@ One row per step, in version order: the step's title, what it did and its gate n
 | 1.6.4 | the numbers as C++'s | the review's items 7, 14 and 15 and five found by reading -- two ratio operations over one four numbers were one name, an engine that no seed seeded gave 0, `uniform_int(r, -5, 5)` was never negative, `to_chars` wrote 0.1 as `0.10000000000000001` and `from_chars` read no format, a complex quotient was the textbook formula, a bool's limits a signed 8-bit type's --: each module's values are libc++ 22's, and `phase1c` under valgrind passes | `numbers.c` and its twin, `fromchars_range.c`, `phase1c.cpp`'s distributions, seven refusals; 53 copies broken on purpose, each caught; the nets |
 | 1.6.5 | shared_ptr over units and threads; the mutex's first use | the review's items 5 and 6 and the ccllib gate's four FAIL of 1.6.0 -- two units over `<memory.pl>` had a pool each, and a handle that one made stopped the program in the other; the counts had no lock; a mutex's first lock was two threads', and a latch that held glibc's mutex was refused on Linux --: one pool and lock a program, the counts under a spin lock, the first use one thread's, the latch's objects in words; an own parameter's store no borrow in C++; ThreadSanitizer in the ccllib gate | `sp_a.c` and `sp_b.c`, `sharedthreads.c` and its twin, `mutex.c`'s threads, `alone/mutex_rules.c`, `ownparams.c`; 23 copies broken on purpose, each caught; the nets |
 | 1.6.6 | a free operator only where its parameters take the operands | 1.6.1's Not done, a binary free operator taken by its count alone -- `M{} * 2.0` refused beside `W operator*(W, W)`, `M{} == 2.5` and `i += N{}` built and printed wrong values, `W{} += 1` built --, and every free operator over an enumeration operand: each asked, unary or binary, over a class or an enumeration, by its parameters' fit or a converting constructor, else the built-in operator | `freeopbin.cpp`, `freeopenum.cpp`, `freeoprval.cpp`; twelve probes; six copies broken on purpose, five caught and one whose path no run reaches; the nets |
+| 1.6.7 | a second definition at file scope | the Not done record of 1.6.3, a second definition built with no word -- `int x = 1; int x = 2;` printed 1, a function of two headers had the first one's body, a function of the file two times went to LLVM's parser --: each refused in clang's words at its line in C, a function, an object, a tag at C17 or of other content at C23, an enumerator, a typedef of another type, over the file and the live lines of its own headers; an `extern` object's initializer its definition; ccllib's shared guards held by its gate | `k170` over 15 refusals; `redefok.c`, `redefok23.c`; 41 forms; eighteen copies broken on purpose, each caught; the nets |
 
 ## M5 — the C++ mode
 
@@ -23699,3 +23700,95 @@ which the same net failed over the step's first code; the C++ gate's later parts
   removed), HISTORY.md, CLAUDE.md.
 
 The module 1.6.6, the reader 204 and the lowering 178.
+
+## 1.6.7 — a second definition at file scope
+
+**1.6.7: a step that 1.6.3 found and left as Not done: a second definition at file scope. C takes one external
+definition of a name a translation unit (C17 6.9/3), and clang refuses a second, `redefinition of 'x'`; cicilang built
+`int x = 1; int x = 2;` and printed 1, built a function that two of the program's headers define with the first one's
+body, and gave a function that the file defines two times to LLVM's parser, which refused it at no line. Each second
+definition is refused in clang's words at its line now, in C, on the cold road and the served one.**
+
+THE FINDING, RUN FROM ITS FORMS (`p167/dd`, 24 programs at C17 and at C23, each built two times over one HOME, the
+second build served by the store, beside clang 22's verdicts): over 1.6.6, ten forms built with no word that clang
+refuses -- two initializers of one object (`int x = 1; int x = 2;` printed 1, `extern int w = 4; int w = 5;` 5, two
+`static` initializers 3), a header's object defined again in the file, a function that two headers define or that an
+unguarded header defines two times, a struct, a union and an enum defined again at C17, a typedef of another type, an
+enumerator again --, and five went to LLVM's parser at no line, `invalid redefinition of function 'f'`, a K&R definition
+beside a prototype one among them. THE FORMS BESIDE IT (`p167/own`, `p167/cl`, 17 more): at C23 a struct, a union and an
+enum of other content (`type 'struct s' has incompatible definitions`), a tag of another kind, a struct defined in a
+member and again at file scope, two structs of no tag under one typedef name, a typedef of an array whose bound is
+another constant of the same value, and a member's type spelled another way (`int`, `signed int`, a typedef of int),
+which C23 takes; a guarded header included two times, one with a conditional past its guard, two headers that share a
+guarded helper, and one whose guard the file defines first, which clang takes. AND ONE OF THE LOWERING'S: `extern int w
+= 4;` alone was no global, and a use of it an undefined symbol at the link, where clang defines it. The road made no
+difference: each form gave one verdict cold and served.
+
+THE CAUSE. Nothing asked a second definition: the reader notes each declaration in its tables, a later one over an
+earlier one, and the lowering keeps the first global of a name (`ir_globals/2`), the first function of a header's
+(`ir_hdr_incs/7`) and a header once by its path. A note of each definition while the file is read could not tell the
+truth either: the reader reads an own header in a read of its own at each `#include`, under its configuration and with
+no guard of the run's -- a guarded header included two times stood two times among the unit's items (`p167/dd/dd11.c`),
+and both arms of a raw read's conditional with it --, the store serves a header's read with its declarations noted and
+its definitions not, and ccllib's C headers, read alone, each hold `ccllib_file_of`, seven times in `iostreams.c`'s
+unit. Only the top run of the preprocessor holds the unit's order: it runs each own header's directives in the file's
+run (0.298, `pp_own_text/1`), its guard and its `#pragma once` as clang has them.
+
+THE RULES (RULES.md: the C reader's A SECOND DEFINITION AT FILE SCOPE IS REFUSED IN C; the Includes topic's lines that
+the file's run keeps of an own header; the lowering's `extern` object; the gates topic's check of ccllib's C headers;
+Not done's record, what 1.6.7 leaves). The top run records, at each `#include` of an own header, the lines that it keeps
+of that inclusion, as ranges (`pp_live_end/1`). At the end of the file's whole read, inside it, the walk takes the
+program's text -- the file's items and each own header's at its live lines -- and refuses, in clang's words at the
+second one's line, a function's second body, an object's second initializer, a tag defined again at C17 or with other
+content at C23 (the types compared in `_Generic`'s canonical forms), a tag of another kind, an enumerator again and a
+typedef of another type; an instance's `linkonce` items are the type macros' and not walked. The walk runs before the
+store keeps the read, so a file that the store serves was walked. The reader is 205, since a read that the store kept
+before the rule must not be served, and the lowering 179, since an `extern` object with an initializer is its global
+now. A FIRST PLACE OF THE WALK, after the read, met tables that the read had given back (`ccl_with_file/2` restores
+them): `typedef I` resolved to nothing, and a C23 struct of `int` beside one of `I` was refused; it runs inside the read
+now. THE FIRST NET found two more: the reader gate's `relops.c` and the compile gate's `hdrinst.c` were refused
+`redefinition of 'vector_double_from'` and `'vector_int_len'` -- in a process that had loaded `tvector.pl`, the instance
+made its function in an own header and again in the file (Not done: two macro files that define one predicate); an
+instance's `linkonce` items are not walked now. AND CCLLIB'S HEADERS, which the walk does not take, are held by the
+ccllib gate: a name that two of them define stands in each in one shared guard (`test/cclhdrs.awk`).
+
+THE PROOF. Reader `k170`: fifteen programs of `test/c/redef_*.c`, each refused at its line with clang's words, each read
+two times, the second over the headers that the store keeps; and `redef_tag.c`, refused at C17, reads whole at C23.
+`test/c/run/redefok.c` (tentative definitions, a typedef again, a prototype beside a definition, the four shapes of own
+headers, two `extern` objects with initializers) and `redefok23.c` (at C23: a struct, a union and an enum again with the
+same content, a member's type spelled another way, a bit-field's width another constant, a struct of a member again)
+print clang's lines. Over 1.6.6, `k170` fails, `redefok.c` does not link and `redefok23.c` builds. The 41 forms give
+clang's verdict but two, which Not done records: GNU's `extern inline` with `gnu_inline` beside the function's external
+definition is refused, where clang builds it, and a K&R definition at C23 beside a prototype definition is refused
+`redefinition of 'f'`, where clang says `unknown type name 'a'`. EIGHTEEN COPIES BROKEN ON PURPOSE, a clause each
+(`p167/mk167.py`), over the reader gate, the compile gate, the ccllib gate's check of its C headers and the 41 forms at
+C17 and at C23 on both roads, the unbroken work tree first with no check RED: each copy turns a check RED. The reader
+gate's `k170` catches twelve -- a function's second body not asked, an object's second initializer not asked, a tag at
+C17 taken, C23's same content refused, C23's other content taken, a tag of another kind in other words, an enumerator
+not asked, a typedef not asked, a struct of no tag the same at each definition, a member's tag not the file's, the live
+lines not noted, and the records not begun again at each run of the file, which `redef_late.c` alone catches --; the
+compile gate's `redefok.c`, `redefok23.c`, `hdrinst.c` and `ownmacros.c` catch four, the types compared as terms, the
+walk after the read, an `extern` object's initializer no definition and every line of a header live; the reader gate's
+`relops.c` and the compile gate's `hdrinst.c` catch an instance's `linkonce` items walked; and the ccllib gate's check
+alone catches 1.6.3's `ccllib_file_of` out of its shared guard. The forms catch fifteen of the eighteen.
+
+THE NETS, over the step's final code on cocolog 3.65.0, each under the caps and over a fresh HOME: the flow gate GREEN
+(308 s, 4096 MB); the reader gate 171 ok, 5 skipped, `k170` among them; the compile gate 349 ok, `redefok.c` and
+`redefok23.c` among them; the driver gate 99 ok; the objects gate 29 ok; the ccllib gate 621 ok and no FAIL, 36 programs
+in three runs, 187 refused and 21 alone, its check of ccllib's C headers among them, 6 names of two headers in 80
+definitions; the C++ pools of the lighter run fixtures, 370 of 370 over libc++ 22, 21 and 18; every heavier C++ run
+fixture over libc++ 22, 506 ok and 14 skipped by their `.needs`, of 520; the C++ gate's later parts by hand, 220 ok. The
+chain did not run, by the owner's rule of 0.271. No CI job ran.
+
+- `library/ccl_syntax.pl` (`ccl_redefinitions/3` and its walk, `ccl_redef_*`; the reader 205); `library/ccl_pp.pl` (the
+  live lines, `pp_live_*`, in `pp_own_include/3`, `pp_run_dirs/1` and `ccl_pp_run/4`); `library/ccl_include.pl`
+  (`ccl_live_top/2`, the walk inside the file's read); `library/ccl_ir.pl` (the `extern` object's definition in
+  `ir_globals/2`; the lowering 179); the module's version.
+- `test/c/redef_*.c`, `redef_h1.h`, `redef_h2.h`, `redef_noguard.h`, `redef_hobj.h`, `redef_late.h` and
+  `test/reader.pl`'s `k170`; `test/c/run/redefok.c`, `.expect`, its five headers, `redefok23.c`, `.expect`, `.std`;
+  `test/cclhdrs.awk` and its check in `test/ccllib.sh`.
+- RULES.md (the C reader's rule, the Includes topic's live lines, the lowering's `extern` object, the gates topic's
+  check of ccllib's C headers, the streams' mention of it, and Not done's record, what 1.6.7 leaves), HISTORY.md,
+  CLAUDE.md.
+
+The module 1.6.7, the reader 205 and the lowering 179.

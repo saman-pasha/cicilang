@@ -700,6 +700,15 @@ that changes a rule edits the rule here, in its topic, and writes its entry in `
   read and written by two threads, and a mutex initialized two times, and over 1.6.5's nothing. The C++ build lowers the
   same texts and is not held to it. No clang with ThreadSanitizer: `SKIP NAME.tsan (no clang with ThreadSanitizer
   here)`. (1.6.5)
+- A NAME THAT TWO OF CCLLIB'S C HEADERS DEFINE STANDS IN EACH IN ONE SHARED GUARD (1.6.7; `test/cclhdrs.awk`): the gate
+  reads each definition of `library/ccllib/*.pl.h` -- a function's body, a struct's or a union's members -- with the
+  innermost `#ifndef M` whose next directive is `#define M` around it, the header's own include guard aside, and is RED
+  where a name of two headers stands in another guard or in none. The four stream functions of `ostream.pl.h`,
+  `istream.pl.h` and `fstream.pl.h` stand in `_CICILANG_CCLLIB_FILE_DEFAULTS`, and the end markers' two structs in
+  `_CICILANG_CCLLIB_ENDL`. Why: the reader includes such a header at each `#include <NAME.pl>`, and the preprocessor
+  never runs its lines (the reader's topic of a macro file's C header), so the walk of a second definition takes no
+  header of the library's: through 1.6.2 `fstream.pl.h` defined `ccllib_file_of` outside its guard, and 1.6.3's copy
+  broken on purpose that moved it out again was caught by no check. (1.6.7)
 - A build has a cap of `CCLLIB_SECS` (600) and a run of `CCLLIB_RUN_SECS` (120), each by `timeout -s KILL`; the gate
   runs under an outside cap, as the small gates do. Its builds are serial, so a cold summary is read safely by the
   first C++ build; the chain runs the gate last, over the summaries that the library read left. (0.273)
@@ -1992,6 +2001,17 @@ that changes a rule edits the rule here, in its topic, and writes its entry in `
   header's new definition of a macro that the file had defined, took also the value of a guarded header that the own
   header includes and whose text the run had passed, after the file had defined the macro again (1 where clang has 5).
   `test/c/run/ownundef.c` and `ownmacros.c`, in C and as C++; `test/c/pperr_own.c` (the reader gate's `k165`). (0.298)
+- THE LINES THAT THE FILE'S RUN KEEPS OF EACH INCLUSION OF AN OWN HEADER ARE RECORDED (1.6.7; C17 6.10.1/6;
+  `pp_live_open/2`, `pp_live_note/1` in `pp_run_dirs/1`, `pp_live_close/0`, `pp_live_end/1`): in a read of the program's
+  file in C (`ccl_live_top/2`), each `#include` of an own header that the top run runs is an entry, `e(Path, Line,
+  Ranges)`, in the run's order -- the lines that the run visits, as ranges: none where its guard, its `#pragma once` or
+  the depth stops it, none of the guard's body where the file defined the guard first, the live arm of a conditional --,
+  and each run of the file starts them again (`ccl_pp_run/4`), since the file is run again for its late headers: in
+  `redef_late.c` only the second run, after a computed `#include` of `<limits.h>`, keeps the header's `#ifdef INT_MAX`
+  arm. The walk of a second definition takes a header's item only at a line of its entry's ranges (the C reader's
+  topic). Why: the reader reads an own header in a read of its own at each `#include`, under its configuration and with
+  no guard of the run's, so `redefok.c`'s guarded header, included two times, stood two times among the unit's items,
+  and a function of a header whose guard the file had defined stood beside the file's own. (1.6.7)
 - A NAME THAT THE PROGRAM'S OWN HEADER DEFINES OR UNDEFINES IS THE NEXT LIBRARY TABLE'S THAT DEFINES IT (0.298;
   `pp_yield_note/1`, `pp_yield_to/2`, `'$pp_yield'`): at a library header's `#include`, the names of such a header that
   its table defines are answered by the table from there, as the newest table answers a name that the file took from a
@@ -2482,6 +2502,34 @@ that changes a rule edits the rule here, in its topic, and writes its entry in `
   Unicode's combining classes); in one file it was `not lowered yet: call(id(t))`, and a typedef and a function of one
   name were built. In C++ the reader's file scope holds the overloads and the namespaces' names flattened, so the test
   is C's (Not done). `test/c/kind_*.c` (the reader gate's `k164`), `test/c/run/samenames.c`. Reader 193. (0.298)
+- A SECOND DEFINITION AT FILE SCOPE IS REFUSED IN C (1.6.7; C17 6.9/3 and /5, 6.9.2/1, 6.7/3, 6.7.2.3/1 and /2,
+  6.7.2.2/3; C23 6.7.2.3/1 and 6.2.7/1; `ccl_redefinitions/3` at the end of the file's read, `ccl_redef_check/5`), in
+  clang's words at the second one's line. A FUNCTION'S SECOND BODY AND AN OBJECT'S SECOND INITIALIZER, `redefinition of
+  'x'`: `int x = 1; int x = 2;` built and printed 1, `extern int w = 4; int w = 5;` printed 5, a function that the file
+  defines two times was LLVM's `invalid redefinition of function 'f'` at no line, and one that two of the program's
+  headers define, or a header with no guard included two times, built with the first one's body. A STRUCT, A UNION OR AN
+  ENUM DEFINED AGAIN at C17, `redefinition of 's'`, and at C23 one of other content, `type 'struct s' has incompatible
+  definitions` -- the members in their order, each of the same name and width and of a compatible type, the types
+  compared in their canonical forms (`ccl_type_canon/2`, `_Generic`'s: `int`, `signed int` and a typedef of int are one,
+  an array's bound folded), an enum's enumerators by their names and values; a tag defined in a member is the file's
+  (6.2.1/4). A TAG OF ANOTHER KIND under the name, `use of 's' with tag type that does not match previous declaration`.
+  AN ENUMERATOR AGAIN, `redefinition of enumerator 'X'`, but the enumerators of a C23 enum defined again with the same
+  content. A TYPEDEF OF ANOTHER TYPE, `typedef redefinition with different types ('long' vs 'int')` (`ir_type_text/2`'s
+  words), the same canonical forms compared; a struct of no tag is a type of its own at each definition, spelled by the
+  typedef's name, `('struct S' vs 'struct S')`. Tentative definitions, a typedef of the same type, a prototype beside a
+  definition and C23's tag of the same content stay. THE PROGRAM'S TEXT IS WALKED: the file's items, and the items of
+  each `#include` of a header of its own at the lines that the file's run keeps of that inclusion (`pp_live_end/1`, the
+  Includes topic's bullet of an own header's directives) -- the reader reads such a header at each `#include`, so a
+  guarded header's second inclusion, both arms of a raw read's conditional and the items of a header whose guard the
+  file defined first stood among the unit's items. A header of the library (the system's, the compiler's, ccllib's) and
+  a macro file's C header, which the preprocessor never runs, are not walked; ccllib's own are held by its gate (the
+  gates topic). AN INSTANCE'S FUNCTION OR OBJECT, `linkonce` (`ccl_inst_linkonce/2`), is not walked: the type macro
+  makes it, no program writes the word, and the lowering keeps one -- in a process that loaded two macro files of one
+  predicate (Not done), `hdrinst.c` made `vector_int_len` in its own header and again in its file. The walk runs inside
+  the file's whole read, where the read's tables are, and before the store keeps the read, so a file that the store
+  serves was walked, and a header that the store serves is walked as a cold one is. Why: a second definition built with
+  no word and printed the first one's value, or went to LLVM's parser. Reader `k170`; `test/c/run/redefok.c` and
+  `redefok23.c`. In C alone, where a file scope is one namespace of the reader's. (1.6.7)
 - A BLOCK'S STRUCT OR UNION IS ITS BLOCK'S OWN TYPE (C17 6.2.1/4, 6.7.2.3/5, [basic.scope.block]; 0.201): in C, one that
   a block defines under a tag the unit defines otherwise too -- another block's, the file's -- is renamed `N.local_K` for
   the rest of its block (`ir_block_tags/2`, before the check, the table noted again from the renamed units): its own
@@ -10309,28 +10357,27 @@ in the first topic (The ccllib gate).
   takes a pointer to an instance on the left of `<<` and `>>` as it is (1.6.1) -- and `cin >> a >> b` two. A READ THAT
   FINDS NO VALUE gives a null pointer and fails the stream, as C++'s sentry: `while (cin >> x)` ends where the input
   does, a read on a failed stream reads nothing until `clear`, a read whose characters are no value of its type writes
-  zero, and one that meets no character leaves its object ([istream.formatted.arithmetic], C++11's); `fail` and
-  `clear`, a file stream's since 1.6.3, `good` and `eof` answer by that state or put it back, and so do `open` and a
-  stringstream's `rewind`. `endl` and `ends` are values of types of their own,
-  `ccllib_endl_t` and `ccllib_ends_t` of the stream headers, whose writes end the line and flush the stream, and write
-  a null character ([ostream.manip]). `hex` and `oct` write the value's own bits, as many as its type has; a floating
-  value is written in the precision that the program set, 0 among them, else 6, and a text longer than the frame's 512
-  bytes is made in a buffer of its own length. A character is read after the white space before it (skipws). `getline`
-  keeps a carriage return, and a line of n - 1 characters or more is n - 1 of them and fails the stream, unless its end
-  comes next ([istream.unformatted], the file's end, then the line's, then the count). `put` and `write` are
-  unformatted, with no width. A `signed char` and an `unsigned char` are written as characters
-  ([ostream.inserters.character]). A STRINGSTREAM makes room for the fill and the value both, writes each type that an
-  ostream writes, reads an empty stream as its end, failed, the object as it was, and its `str` is a borrow tied to the
-  stream, which a write may end; `clear` empties it and puts its state back, as since 1.3.0, where C++'s puts the state
-  back alone. Through 1.6.0 each operator gave the int 1, so `cout << "a" << 1 << endl` wrote `a` and shifted the 1;
-  `hex` of an int's -1 wrote a long long's 64 bits, `fixed` with precision 0 six places, `cin >> c` kept a space,
-  `endl` flushed nothing (the line before an `abort` was lost), a signed char was its number, `setw(s, 100); s << 7`
-  wrote past its room, `s >> x` over an empty stream handed strtoll a null pointer, `str(s)` was new memory to the safe
-  part (refused, and with `free(p)` freed two times), `good` stayed true after a failed read -- a file stream had no
-  `fail` --, and the rest of a long line was the next line. `fstream.pl.h` defines `ccllib_file_of` in its guard (the
-  Not done topic: a second definition). `test/ccllib/streamchain.c` and its twin; `iostreams.c`, which writes a file of
-  its own run; the driver gate's `cin` check; `alone/stops.c`'s `endl` before an abort; `safe/sstream_str_write.c` and
-  `safe/sstream_str_free.c`. (1.6.3)
+  zero, and one that meets no character leaves its object ([istream.formatted.arithmetic], C++11's); `fail` and `clear`,
+  a file stream's since 1.6.3, `good` and `eof` answer by that state or put it back, and so do `open` and a
+  stringstream's `rewind`. `endl` and `ends` are values of types of their own, `ccllib_endl_t` and `ccllib_ends_t` of
+  the stream headers, whose writes end the line and flush the stream, and write a null character ([ostream.manip]).
+  `hex` and `oct` write the value's own bits, as many as its type has; a floating value is written in the precision that
+  the program set, 0 among them, else 6, and a text longer than the frame's 512 bytes is made in a buffer of its own
+  length. A character is read after the white space before it (skipws). `getline` keeps a carriage return, and a line of
+  n - 1 characters or more is n - 1 of them and fails the stream, unless its end comes next ([istream.unformatted], the
+  file's end, then the line's, then the count). `put` and `write` are unformatted, with no width. A `signed char` and an
+  `unsigned char` are written as characters ([ostream.inserters.character]). A STRINGSTREAM makes room for the fill and
+  the value both, writes each type that an ostream writes, reads an empty stream as its end, failed, the object as it
+  was, and its `str` is a borrow tied to the stream, which a write may end; `clear` empties it and puts its state back,
+  as since 1.3.0, where C++'s puts the state back alone. Through 1.6.0 each operator gave the int 1, so `cout << "a" <<
+  1 << endl` wrote `a` and shifted the 1; `hex` of an int's -1 wrote a long long's 64 bits, `fixed` with precision 0 six
+  places, `cin >> c` kept a space, `endl` flushed nothing (the line before an `abort` was lost), a signed char was its
+  number, `setw(s, 100); s << 7` wrote past its room, `s >> x` over an empty stream handed strtoll a null pointer,
+  `str(s)` was new memory to the safe part (refused, and with `free(p)` freed two times), `good` stayed true after a
+  failed read -- a file stream had no `fail` --, and the rest of a long line was the next line. `fstream.pl.h` defines
+  `ccllib_file_of` in its shared guard, which the ccllib gate holds (1.6.7, `test/cclhdrs.awk`).
+  `test/ccllib/streamchain.c` and its twin; `iostreams.c`, which writes a file of its own run; the driver gate's `cin`
+  check; `alone/stops.c`'s `endl` before an abort; `safe/sstream_str_write.c` and `safe/sstream_str_free.c`. (1.6.3)
 
 - PHASE 1c IS THE ALGORITHMS AND THE NUMBERS (1.2.0): `library/ccllib/algorithm.pl` gives the algorithms over the
   random-access ranges (vector, array, deque, span, basic_string, and read-only basic_string_view) as macros that
@@ -12785,6 +12832,10 @@ in the first topic (The ccllib gate).
 - A static local is `@fn.name.K = internal global` (`ir_static_locals/1`), or `internal thread_local global`. A
   `thread_local` global is `thread_local global` (`ir_tls/1`). `linkonce` storage is `linkonce_odr global` for a
   global and `define linkonce_odr` for a function. (M2b, 0.35, 0.93)
+- AN `extern` OBJECT WITH AN INITIALIZER AT FILE SCOPE IS ITS DEFINITION (1.6.7; C17 6.9.2/1, [basic.def]/2;
+  `ir_globals/2`): `extern int w = 4;` is `@w = global i32 4`, as clang has it -- it was no global, and a use of it an
+  undefined symbol at the link; an `extern` declaration with no initializer names another unit's object still.
+  `test/c/run/redefok.c`. (1.6.7)
 - A global's constant (`ir_gconst/3`): a struct over its shape, with bitfield runs packed into `c"..."` bytes
   (`ir_gstruct/3`); a union in its given member's literal type, padded (`ir_gunion/4`); a designated list made
   positional (`ccl_init_norm`), a hole `init([])`. A bitfield's value is read by `ir_gbit_value/2`: a hole is 0 and a
@@ -15779,15 +15830,17 @@ Declarations topic of the C++ reader).
   `elemborrow.c`, over `tvector.pl`, sorts before `hdrinst.c`, over `<vector.pl>`, and a run fixture over `<vector.pl>`
   that sorts before `elemborrow.c` breaks the six over `tvector.pl` (1.1.2's `declorder.c` takes `<deque.pl>` so).
 
-- A SECOND DEFINITION AT FILE SCOPE (found at 1.6.3): C17 6.9/3 and 6.9.2 take one external definition of a name a
-  translation unit, and clang refuses a second, `redefinition of 'x'`. cicilang builds `int x = 1; int x = 2;` and
-  prints 1; a function that the program's file defines two times is refused by the embedded LLVM's parser, `invalid
-  redefinition of function 'f'`, at no line; and a function that two headers define builds with one body: through 1.6.2
-  `fstream.pl.h` defined `ccllib_file_of` outside its guard, after `ostream.pl.h`'s, and no build said so -- 1.6.3's
-  copy broken on purpose that moves it out again is caught by no check. A struct and an enum defined again build too,
-  where clang refuses them at C17. A header's read that the store serves notes its declarations and not its
-  definitions (the topic of includes), so the rule needs a note of each definition on both roads, a cold read and a
-  served one: a step of its own (`p163/dd`'s eight forms hold clang's verdicts).
+- A SECOND DEFINITION AT FILE SCOPE, WHAT 1.6.7 LEAVES (the C reader's topic): GNU'S `extern inline` WITH
+  `__attribute__((gnu_inline))`, then the function's external definition, is refused `redefinition of 'k'`, where clang
+  builds it and calls the second: the reader keeps the first storage word alone (`ccl_sto_pick/2`), `extern`, and drops
+  `inline` and the attribute, so neither the walk nor the lowering tells it from an external definition -- 1.6.6 refused
+  it too, in LLVM's words. A K&R DEFINITION AT C23, which C23 removed, is read, and one beside a prototype definition is
+  refused `redefinition of 'f'`, where clang says `unknown type name 'a'`. A HEADER OF THE LIBRARY AND A MACRO FILE'S C
+  HEADER are not walked: a function of the program's under the name of a function that such a header defines builds with
+  one body, and two of the program's own macro files' C headers that define one helper with no shared guard build with
+  the first one's -- ccllib's own are held by its gate. AN INSTANCE'S `linkonce` FUNCTION is not walked, so the two
+  macro files of one predicate that a process loaded (the bullet below) still make one function two times with no word.
+  IN C++ the walk does not run: a second definition is the desugaring's and LLVM's to meet.
 ### C++ language
 
 - NAMES ACROSS THE HEADERS' READS AND THE PROGRAM'S, WHAT 0.221 LEFT (0.218's to 0.221's probes): a read keys apart only

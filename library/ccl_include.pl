@@ -194,15 +194,25 @@ ccl_read_file_(File, AST, Rest) :-
 %% unit first used it, and a later use names it alone (ccl_tmacro_instance/5) -- so it is read again in each unit
 ccl_read_file_(File, AST, Rest) :-
     ( nb_current('$pp_ftm', FT0) -> true ; FT0 = [] ), ccl_inst_mark(IM),
-    catch(catch(catch(ccl_pp_top(File, Tokens, _), lexical(L), throw(error(syntax_error(cicilang_ast(File, lexical, line(L))), cicilang_ast(File)))), lexical_char(LC, C), throw(error(syntax_error(cicilang_ast(File, char(C), line(LC))), cicilang_ast(File)))),   % the user's file through the preprocessor
+    catch(catch(catch(ccl_live_top(File, Tokens), lexical(L), throw(error(syntax_error(cicilang_ast(File, lexical, line(L))), cicilang_ast(File)))), lexical_char(LC, C), throw(error(syntax_error(cicilang_ast(File, char(C), line(LC))), cicilang_ast(File)))),   % the user's file through the preprocessor
           pp_error(PL, PM), throw(error(pp_error(PM), here(File, PL)))),                                                                     % its own #error, an #embed of nothing
     ( nb_current('$pp_spliced', Sp) -> true ; Sp = [] ),   % the files whose text the run put in place, taken before the parse, whose reads of own headers run top runs of their own (0.310)
     ( nb_current('$ccl_reading', []) -> ccl_inst_reset ; true ),   % THE INSTANCES THAT THE PREPROCESSOR'S READS MADE ARE NOBODY'S (0.261): its run reads each header for its macros, and the parse reads one that met an instance again
     ccl_uses_open(File),   % its names used before any declaration of them, asked at its end (1.1.2, ccl_uses_check/1)
-    ccl_with_file(File, ( ccl_unit(Tokens, AST0, Rest), ccl_farthest(F), ccl_uses_check(File) )), ccl_with_spliced(Sp, AST0, AST),
+    ccl_with_file(File, ( ccl_unit(Tokens, AST0, Rest), ccl_farthest(F), ccl_uses_check(File), ccl_redefinitions(File, Rest, AST0) )), ccl_with_spliced(Sp, AST0, AST),
     nb_setval('$ccl_far', F),
     ( nb_current('$pp_ftm', FT1) -> true ; FT1 = [] ),
     ( Rest == [], FT1 == FT0, \+ ccl_inst_since(IM) -> ccl_kb_remember(File, top, AST) ; true ).
+%% THE TOP RUN OF THE PROGRAM'S FILE IN C RECORDS THE LIVE LINES OF ITS OWN HEADERS (1.6.7; pp_live_end/1), for the walk of
+%% a second definition ('$ccl_live', ccl_redefinitions/3); a run that throws or fails records nothing, and no other run
+ccl_live_top(File, Tokens) :-
+    nb_setval('$ccl_live', none),
+    (   ccl_lang(c), nb_current('$ccl_reading', [])
+    ->  pp_live_begin,
+        (   catch(ccl_pp_top(File, Tokens, _), E, ( pp_live_end(_), throw(E) ))
+        ->  pp_live_end(Es), nb_setval('$ccl_live', Es)
+        ;   pp_live_end(_), fail )
+    ;   ccl_pp_top(File, Tokens, _) ).
 
 ccl_kb_key(Path, key(T, V)) :- once(catch(time_file(Path, T), _, fail)), ccl_reader_version(V0), ccl_read_level(L), ( ccl_lang(cpp) -> V = cpp(V0, L) ; L == '17' -> V = V0 ; V = c(V0, L) ).   % a C read at -std=c23 is not the C17 read: <stddef.h> declares nullptr_t and unreachable() at that level only, and the store serves a header's macros and items by this key
 ccl_std(S) :- ( nb_current('$ccl_std', S0) -> S = S0 ; S = 17 ).   % a C++ read is not the C read; the time asked every time (0.4 ms): the gate touches a file mid-process and expects the miss

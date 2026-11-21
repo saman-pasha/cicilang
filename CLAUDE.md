@@ -12,8 +12,8 @@ the fixture that gates it, and why. The bullet ends with the version that made t
 edits the rule in `RULES.md`, in its topic, and writes its entry in `HISTORY.md`. Read the topic of `RULES.md` that
 covers the code before the code is changed.
 
-At 1.6.6 the versions are: the module 1.6.6 (`ccl_p_version` in `module/cicilang.cicili`, `bin/cicilang --version`),
-the reader 204 (`ccl_reader_version/1`, `library/ccl_syntax.pl`) and the lowering 178 (`ccl_lowering_version/1`,
+At 1.6.7 the versions are: the module 1.6.7 (`ccl_p_version` in `module/cicilang.cicili`, `bin/cicilang --version`),
+the reader 205 (`ccl_reader_version/1`, `library/ccl_syntax.pl`) and the lowering 179 (`ccl_lowering_version/1`,
 `library/ccl_ir.pl`).
 
 Build and prove, always in this order (or all of it, `sh test/gates.sh`):
@@ -503,6 +503,7 @@ test/reader.pl, reader.sh   the reader's gate
 test/compile.pl, compile.sh the compiler's gate
 test/driver.sh              the command's gate
 test/abisig.awk             an IR text's calling conventions, a line a function, for the driver gate (0.244)
+test/cclhdrs.awk            each definition of ccllib's C headers and its guard, for the ccllib gate (1.6.7)
 test/objects.sh             the objects layer's gate
 test/cross.sh               another machine's gate: every C run fixture and the ABI on aarch64 Linux, under qemu
 test/cpp.pl, cpp.sh         the C++ gate
@@ -511,7 +512,7 @@ test/ccllib.sh              the ccllib gate (0.273): each program of test/ccllib
                             C, cicilang++ as C++, its twin over std:: by clang++ --, what the safe part refuses, the
                             programs that stand alone (0.281), and what each run costs, a build timed after a change
                             of its file (0.289); the C IR of a program that makes threads under ThreadSanitizer
-                            (1.6.5)
+                            (1.6.5); a name that two of ccllib's C headers define, in one shared guard (1.6.7)
 test/cost.c                 what a command costs, for the ccllib gate: the wall clock and the largest resident size
 test/readhdr.pl             one asserted header read whole at a level, in its own process
 test/libcxx.pl              the library read's old one-process form; no gate runs it
@@ -543,7 +544,9 @@ test/c/                     the reader's fixtures: hello.c, rich.c, lexer.c, mac
                             (0.305); own_decl.c, the finding's form, and own_global.c, own_member.c, own_param.c,
                             own_fn.c, own_enum.c, own_walrus.c, own_ptr.c, own_second.c, own_typedef.c, own_label.c,
                             own_tag.c, own_enumtag.c, own_pattern.c and own_form.c, the word own given as a name, each
-                            refused at its line (0.306)
+                            refused at its line (0.306); redef_*.c over redef_h1.h, redef_h2.h, redef_noguard.h,
+                            redef_hobj.h and redef_late.h, a second definition at file scope, each refused at its
+                            line (1.6.7)
 test/c/inc/                 the -I fixture: uses_box.c over box.h
 test/c/link/                two files linked into one program; the ABI against clang-built code (abi_main.c,
                             abi_helper.c), variadic calls (va_main.c, va_func.c, va.h), the decimal ABI against gcc,
@@ -596,7 +599,9 @@ test/c/run/                 C programs built and run: NAME.c, NAME.expect, NAME.
                             macro's C text whose functions call one another in any order (1.1.2); operands.c, the
                             operands that C's operators take, and the forms beside them that C refuses not (1.6.1);
                             scopedtypes.c, the types that a block's object and a block's typedef give (1.6.2);
-                            ownparams.c, own parameters that their callee stores, built as C and as C++ (1.6.5)
+                            ownparams.c, own parameters that their callee stores, built as C and as C++ (1.6.5);
+                            redefok.c over redefok_g.h, redefok_c.h, redefok_sa.h, redefok_sb.h and redefok_t.h, and
+                            redefok23.c, what C and C23 take again at file scope (1.6.7)
 test/c/safe/                C programs the safe part refuses: NAME.c, NAME.expect; dropnone.pl, the macro file of
                             drop_leaks.c (0.262); borrow_after_grow.c, borrow_after_push.c, elem_after_push.c,
                             grow_through_ptr.c, const_replace.c and const_local.c, the safety rules of 0.265;

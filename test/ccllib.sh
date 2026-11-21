@@ -98,6 +98,12 @@ ccl_freed() {
   timeout -s KILL "$CCLLIB_RUN_SECS" valgrind --leak-check=full --error-exitcode=99 "$_f_b" "$@" > /dev/null 2> "$_f_l" < /dev/null || return 1
   grep -aq 'All heap blocks were freed' "$_f_l" && grep -aq 'ERROR SUMMARY: 0 errors' "$_f_l"
 }
+echo "-- and a name that two of ccllib's C headers define stands in each in one shared guard (1.6.7, test/cclhdrs.awk): the reader includes such a header at each #include <NAME.pl>, and the preprocessor never runs its lines"
+awk -f "$ROOT/test/cclhdrs.awk" "$ROOT"/library/ccllib/*.pl.h > "$D/cclhdrs.txt"
+_h_bad=$(awk '{ c[$1]++; g[$1] = g[$1] " " $2; f[$1] = f[$1] " " $3 } END { for (k in c) if (c[k] > 1) { split(g[k], a, " "); ok = (a[1] != "-"); for (i in a) if (a[i] != a[1]) ok = 0; if (!ok) print k ":" g[k] " in" f[k] } }' "$D/cclhdrs.txt")
+_h_n=$(awk '{ c[$1]++ } END { for (k in c) if (c[k] > 1) n++; print n + 0 }' "$D/cclhdrs.txt")
+if [ -z "$_h_bad" ] && [ "$_h_n" -gt 0 ]; then ok "the $_h_n names that two of ccllib's C headers define stand in each in one shared guard ($(wc -l < "$D/cclhdrs.txt" | tr -d ' ') definitions read)"
+else bad "a name that two of ccllib's C headers define stands in each in one shared guard" "${_h_bad:-no name of two headers read}"; fi
 echo "-- the three runs (CCLLIB.md, Tests and measures): a ccllib program built by cicilang as C and by cicilang++ as C++, and its twin over std:: built by ${who:-clang++}, print the same lines"
 for src in "$T"/*.c; do
   [ -f "$src" ] || continue

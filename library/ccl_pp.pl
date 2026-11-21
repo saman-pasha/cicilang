@@ -70,7 +70,7 @@ pp_mt_quoted([C|Cs], Q, [C|Out], R) :- pp_mt_quoted(Cs, Q, Out, R).
 %% does not lex whole is the lexical error it always was.
 ccl_pp_top(Path, Tokens, Files) :- nb_setval('$pp_warnings', []), ccl_pp_prescan(Path), ccl_pp_top_run(Path, [], Tokens, Files), ( memberchk(tok(other, C, L), Tokens) -> ( integer(C), C >= 128 -> throw(lexical_char(L, C)) ; throw(lexical(L)) ) ; true ).   % the warnings are the run's, read by the driver after the read (pp_reset leaves them: a nested header's run must not wipe the file's)
 ccl_pp_run(Path, Top, Tokens, Files) :-
-    ccl_ensure_globals, pp_reset, nb_setval('$pp_top', Top), ( Top == yes -> pp_depth_reset ; true ),   % a top run's depth and its spliced files from its start (0.310)
+    ccl_ensure_globals, pp_reset, nb_setval('$pp_top', Top), ( Top == yes -> pp_depth_reset, pp_live_reset ; true ),   % a top run's depth and its spliced files from its start (0.310), and the live lines of its own headers (1.6.7)
     nb_setval('$ccl_hash', punct),                                                   % the run lexes in the preprocessor's mode: `#' a punctuator, a number as spelled
     ( once(catch(pp_include_file(Path, Out, []), E, true)) -> true ; E = failed ),
     nb_setval('$ccl_hash', line), nb_setval('$pp_top', no),
@@ -1130,7 +1130,7 @@ pp_depth_word(id).
 pp_own_include(Spec, Path, L) :-
     (   nb_current('$pp_own_text', yes) -> true
     ;   pp_inc_config(Spec, Cfg1), pp_inc_user_macros(Spec, Path, Cfg1, Cfg), pp_note_inc_cfg(L, Cfg) ),
-    pp_own_text(Path).
+    pp_live_open(Path, L), pp_own_text(Path), pp_live_close.
 %% A LIBRARY HEADER AT AN #include OF THE TOP RUN: its table under the configuration at the #include (0.239), the newest
 %% first (pp_header_macro/3), or the file run again with it made ready ('$pp_late')
 pp_lib_include(Spec, Path, L, Cmp) :-
@@ -1163,7 +1163,36 @@ pp_own_text(Path) :-
         nb_setval('$pp_own_text', T0), nb_setval('$pp_stack', St),
         ( var(E) -> true ; throw(E) ) ).
 pp_run_dirs([]).
-pp_run_dirs([line(N, A)|Ls]) :- ( pp_directive_line(A, Body) -> pp_directive(Body, N, Ls, Ls1, _, []), pp_run_dirs(Ls1) ; pp_run_dirs(Ls) ).
+pp_run_dirs([line(N, A)|Ls]) :- pp_live_note(N), ( pp_directive_line(A, Body) -> pp_directive(Body, N, Ls, Ls1, _, []), pp_run_dirs(Ls1) ; pp_run_dirs(Ls) ).
+%% THE LIVE LINES OF THE PROGRAM'S OWN HEADERS IN THE FILE'S RUN (1.6.7; C17 6.10.1/6, a group whose condition is false
+%% is skipped, and 6.10.2/3): at each #include of a header of the program's own that the run runs (pp_own_include/3),
+%% the lines that the run keeps -- none where its guard or its `#pragma once' stops it, the guard's body where the guard
+%% is not defined yet, a conditional's live arm -- as ranges of line numbers, e(Path, Line, Ranges), in the run's order,
+%% the #include's line in its includer beside the header's path (pp_live_end/1). A read of the program's file in C
+%% records them (ccl_live_top/2), and each run of the file starts them again (ccl_pp_run/4), since the file is run
+%% again for its late headers. The reader reads such a header in a read of its own at each #include, so a guarded
+%% header's second inclusion and both arms of a raw read's conditional stand among the unit's items: the walk of a
+%% second definition takes a header's item only where a range holds its line (ccl_redefinitions/3)
+pp_live_begin :- nb_setval('$pp_live_on', yes), pp_live_reset.
+pp_live_reset :- ( nb_current('$pp_live_on', yes) -> nb_setval('$pp_live_n', 0), nb_setval('$pp_live_stack', []), nb_setval('$pp_live_ents', []) ; true ).
+pp_live_end(Es) :- nb_setval('$pp_live_on', no), ( nb_current('$pp_live_ents', Es0) -> true ; Es0 = [] ), reverse(Es0, Es1), pp_live_collect(Es1, Es).
+pp_live_collect([], []).
+pp_live_collect([e(E, P, L)|Es0], [e(P, L, Rs)|Es]) :- atom_concat('$pp_live_rs:', E, K), nb_getval(K, Rs0), reverse(Rs0, Rs), pp_live_collect(Es0, Es).
+pp_live_open(Path, L) :- nb_current('$pp_live_on', yes), !, nb_getval('$pp_live_n', N0), E is N0 + 1, nb_setval('$pp_live_n', E),
+    nb_getval('$pp_live_stack', St), nb_setval('$pp_live_stack', [E|St]),
+    atom_concat('$pp_live_rs:', E, K), nb_setval(K, []), atom_concat('$pp_live_cur:', E, KC), nb_setval(KC, none),
+    nb_getval('$pp_live_ents', Es), nb_setval('$pp_live_ents', [e(E, Path, L)|Es]).
+pp_live_open(_, _).
+pp_live_close :- nb_current('$pp_live_on', yes), nb_getval('$pp_live_stack', [E|St]), !, nb_setval('$pp_live_stack', St), pp_live_flush(E).
+pp_live_close.
+%% a line that the run keeps, of the header whose run is the innermost: the range that it continues, or a new one
+pp_live_note(N) :- nb_current('$pp_live_on', yes), nb_getval('$pp_live_stack', [E|_]), !, atom_concat('$pp_live_cur:', E, KC), nb_getval(KC, C),
+    (   C = F-T, N =:= T + 1 -> nb_setval(KC, F-N)
+    ;   C = F-T -> pp_live_put(E, F-T), nb_setval(KC, N-N)
+    ;   nb_setval(KC, N-N) ).
+pp_live_note(_).
+pp_live_flush(E) :- atom_concat('$pp_live_cur:', E, KC), nb_getval(KC, C), ( C = F-T -> pp_live_put(E, F-T), nb_setval(KC, none) ; true ).
+pp_live_put(E, R) :- atom_concat('$pp_live_rs:', E, K), nb_getval(K, Rs), nb_setval(K, [R|Rs]).
 pp_spec_system(system(_)).
 pp_spec_system(next(_)).
 %% <assert.h> DEFINES assert BY NDEBUG AS IT STANDS AT EACH INCLUSION (C17 7.2/1, [cassert]; 0.214): in the user's file an
