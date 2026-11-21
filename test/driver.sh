@@ -327,6 +327,30 @@ ops28.c:3: error: invalid operands to binary expression ('char' and 'const char 
 ops29.c:3: error: invalid operands to binary expression ('void (*)(void)' and 'int')
 ops30.c:3: error: invalid operands to binary expression ('struct P' and 'int')
 ops31.c:3: error: invalid operands to binary expression ('struct P' and 'int')"
+# A COMMA, A CONDITIONAL, AN ASSIGNMENT, A STEP AND A MEMBER OF A VALUE ARE NO LVALUES IN C (1.6.13; C17 6.5.2.3/3,
+# 6.5.15, 6.5.16/3, 6.5.17, 6.5.2.4 and 6.5.3.1; ccl_c_no_lvalue/1): an assignment to one, a step of one and its address
+# are refused in clang's words at the line, by the lowering and by the check's address. Through 1.6.12 the lowering
+# took `(c ? a : b) = 5' -- the conditional's place is C++'s -- the check refused `int *p = &(c ? a : b);' as a plain
+# pointer never consumed, and the rest were refused by name, `not lowered yet: lvalue(comma(...))'
+nlv_pre='struct S { int m; }; struct S h(void) { struct S s = { 1 }; return s; }\nint main(int argc, char **argv) { (void)argv; int a = 1, b = 2; struct S s1 = { 1 }, s2 = { 2 }; (void)s1; (void)b;'
+check "a comma, a conditional, an assignment, a step and a member of a value are no lvalues in C (1.6.13): an assignment to one, a step of one and its address are refused in clang's words at the line" "$(n=0; for body in '(argc > 0 ? a : b) = 5;' '(a, b) = 5;' '(a = 1) = 2;' '++(++a);' '(argc > 0 ? a : b)++;' '(a, b) += 1;' '--(a = 1);' '(a++)--;' '(argc > 0 ? s1 : s2).m = 5;' '(a, s2).m = 5;' 'h().m = 5;' 'int *p = &(argc > 0 ? a : b); (void)p;' 'int *p = &(a, b); (void)p;' 'int *p = &(a = 1); (void)p;' 'int *p = &++a; (void)p;' 'int *p = &(a++); (void)p;' 'int *p = &(a, s2).m; (void)p;' 'int *p = &h().m; (void)p;'; do n=$((n + 1)); printf '%b\n    %s\n    return 0; }\n' "$nlv_pre" "$body" > nlv$n.c; "$CICILI" -std=c17 -fsyntax-only nlv$n.c 2>&1 | head -1; done)" "nlv1.c:3: error: expression is not assignable
+nlv2.c:3: error: expression is not assignable
+nlv3.c:3: error: expression is not assignable
+nlv4.c:3: error: expression is not assignable
+nlv5.c:3: error: expression is not assignable
+nlv6.c:3: error: expression is not assignable
+nlv7.c:3: error: expression is not assignable
+nlv8.c:3: error: expression is not assignable
+nlv9.c:3: error: expression is not assignable
+nlv10.c:3: error: expression is not assignable
+nlv11.c:3: error: expression is not assignable
+nlv12.c:3: error: cannot take the address of an rvalue of type 'int'
+nlv13.c:3: error: cannot take the address of an rvalue of type 'int'
+nlv14.c:3: error: cannot take the address of an rvalue of type 'int'
+nlv15.c:3: error: cannot take the address of an rvalue of type 'int'
+nlv16.c:3: error: cannot take the address of an rvalue of type 'int'
+nlv17.c:3: error: cannot take the address of an rvalue of type 'int'
+nlv18.c:3: error: cannot take the address of an rvalue of type 'int'"
 check "a struct or a union where C takes a scalar is refused in clang's words at its line (1.6.1, the forms beside): after !, beside && and ||, as the condition of ?:, if, while, do and for, under ++ and --, and under a unary -" "$(n=0; for body in 'int x = !sp;' 'int x = sp ? 1 : 0;' 'sp++;' 'int x = sp && 1;' 'int x = 1 || sp;' 'if (sp) return 1;' 'while (sp) { }' 'do { } while (sp);' 'for (; sp; ) { }' '--sp;' 'union U { int i; } u = { 1 }; if (u) return 1;' 'int x = -sp;'; do n=$((n + 1)); printf '%b\n    %s\n    return 0; }\n' "$ops_pre" "$body" > opr$n.c; "$CICILI" -std=c17 -fsyntax-only opr$n.c 2>&1 | head -1; done)" "opr1.c:3: error: invalid argument type 'struct P' to unary expression
 opr2.c:3: error: used type 'struct P' where arithmetic or pointer type is required
 opr3.c:3: error: cannot increment value of type 'struct P'

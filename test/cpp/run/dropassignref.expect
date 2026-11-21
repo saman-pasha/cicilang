@@ -1,0 +1,6 @@
+make a.2
+drop a.1
+r a.2 2
+a a.2 7
+drop a.2
+exit 0

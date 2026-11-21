@@ -329,6 +329,7 @@ One row per step, in version order: the step's title, what it did and its gate n
 | 1.6.10 | The traps are lowered | an item of Not done (0.250), at the user's word "Do one item from the not done list": `__builtin_trap()`, clang 19's `__builtin_verbose_trap(category, message)` and `__builtin_debugtrap()` undeclared while `__has_builtin` answered 1 for each, so every program in libc++'s fast or extensive hardening mode was refused: each lowered to LLVM's trap or debug trap, a misuse refused in clang's words, the verbose trap's strings in clang's artificial function under `-g`; an arm that ends in a trap or in `__builtin_unreachable()` no entry of its join's phi | `traps.c`, `hardening.cpp`, `trapscpp.cpp`, the driver gate's three checks; 95 forms; twenty-two copies broken on purpose, each caught; the nets |
 | 1.6.11 | The repository's Prolog under cocolint | the user's word "Yes lint it": cocolog's linter over the 104 `.pl` files, a capped run each, 101 clean: `test/reader.pl`'s `sh/2` one predicate with library(process)'s, each command of the gate run bare before it ran with its words, and `test/prof.pl`'s streams loaded only by library(flow/debug), both mended; `ccl_bidrt.pl`'s clause of 12 KB, the one WARN, held by no store | cocolint 0 HARD over the two files; the probes of `sh/2` and of `cp`; the reader gate, `test/prof.sh`, the flow gate |
 | 1.6.12 | cocolint in the flow gate | the user's word "Add cocolint to flow gate": the flow gate lints the repository's 104 Prolog files in one run, a job of its pool, RED on any finding, HARD or WARN; the decimal runtime's clause of 12 KB acknowledged where it stands, by its generator; cocolint's stream pattern names no `nl/1` or `write/2`, a finding for cocolog | the flow gate GREEN, `no finding, 1 acknowledged`; a copy of the tree with three seeds RED, each at its line |
+| 1.6.13 | A comma, an assignment and a prefix step as C++'s lvalues | the first item of the user's "do some not done items": in C++ a comma over an lvalue, an assignment and a prefix `++` or `--` are lvalues -- the desugaring takes them (overloads, forwarding, copies, `decltype`), the lowering takes their places once, the safe part borrows the places; beside them C took `(c ? a : b) = 5` and refused `(g(), s).m`, now in clang's words and taken, the check walked no initializer of a reference bound to a value (a double free), and the largest chart passed cocolog's default stack, 2 GB in the flow gate and a finding for cocolog | the twenty forms as clang++'s build, the probes as clang's and g++'s but one recorded limit; 32 broken copies, 30 caught and the two others' rules taken out; the flow gate, the C gates, ccllib, the C++ pools over 22, 21 and 18, the heavier fixtures and the gate's later parts GREEN |
 
 ## M5 — the C++ mode
 
@@ -24184,3 +24185,84 @@ HARD X2 findings. No Prolog file of the repository calls a stream predicate on a
   cocolint's stream pattern), HISTORY.md, CLAUDE.md (the versions, the flow gate's lines).
 
 The module 1.6.12, the reader 207 and the lowering 181.
+
+## 1.6.13 — A comma, an assignment and a prefix step as C++'s lvalues
+
+**1.6.13: at the user's word "Add cocolint to flow gate, do some not done items", its second half, the first item: in
+C++ a comma whose right operand is an lvalue is one ([expr.comma]/1), and so are an assignment ([expr.ass]/1) and a
+prefix `++` or `--` ([expr.pre.incr]/1) -- the desugaring takes them for lvalues, the lowering takes their places, and
+the safe part borrows the places; the forms beside them were probed in both languages and four more were mended: C
+took `(c ? a : b) = 5` and refused `(g(), s).m`, the check walked no initializer of a reference bound to a value, and
+the flow gate's largest chart passed cocolog's default stack.**
+
+THE ITEM. Not done's record of 1.6.10: `int &r = (g(), b); r = 9;` bound the reference to a temporary of the comma's
+value, and b stayed 2 where clang's build prints 9; `int &r = c ? a : (g(), b);` the same through the arm; `(g(), b) =
+5` refused by name, `not lowered yet: lvalue(comma(...))`. Twenty forms over the comma, the assignment, the compound
+one and the prefix steps (`p1613/forms`), built by clang++ 22 and by cicilang++ 1.6.12: thirteen gave wrong output with
+no word -- the bound forms, a reference parameter, `auto &`, `return (g(), b);` from `int &h()` (a dead temporary's
+address), `decltype((g(), b))`, a const reference, `int &r = (arr[i++] = 5);` -- five were refused by name, `(g(), b) =
+5`, `(a = 1) = 2`, `++(++a)`, `(g(), s.m) = 4`, `(a += 2) = 21`, and `int *p = &(g(), b);` by the check, `plain pointer
+not consumed`.
+
+THE CHANGE. The desugaring: `cpp_lvalue/1` takes a comma of an lvalue, an assignment and a prefix step, and
+`cpp_decltype_of/2` gives `T &` of each where it gave `T`. The lowering: `ir_lval_/4` takes the three places in C++ --
+the comma's after its left operand, the assignment's through `ir_assign/7`, the one helper that makes the store for
+the value and for the place (the right operand first, as before), the step's through `ir_step/7` --, each place taken
+once; `ir_effect_lvalue/1` makes them lvalue forms, so a reference binds the place and a conditional takes one as an
+arm; a bit-field's value goes to a temporary, as before (`ir_effect_ref/4`); an object that its scope drops is dropped
+first (`ir_assign_place/6`), and an own array's element so assigned is refused by name. The lowering 182. The check:
+`ck_effect_place/2` names the inner place, and `ck_lvalue_form/1`, `ck_storage_base/2`, `ck_borrows_from/3` and
+`ck_replaced_base/3` read through it.
+
+THE FORMS BESIDE IT. Twenty-eight more C++ forms (`p1613/forms2`) -- `std::move` of a conditional whose condition
+calls, of an index whose index calls, overloads, forwarding, a copy constructor, `decltype`, the range-for over a
+comma, the address of each form, a compound over a comma, a reference to a pointer -- and thirteen of the safe part
+(`forms3`), fourteen of C (`forms5`) and six of a reference to a pointer (`forms4`). They found:
+- C TOOK `(c ? a : b) = 5`, the conditional's place, C++'s, and refused `(a, b) = 5`, `(a = 1) = 2` and `++(++a)` by
+  name, where clang refuses each, `expression is not assignable`; `int *p = &(c ? a : b);` was `plain pointer not
+  consumed`, where clang's words are `cannot take the address of an rvalue of type 'int'`; and `(g(), s2).m`, a member
+  of a value that C takes, was refused by name. `ccl_c_no_lvalue/1` (the inference) names C's forms that are no
+  lvalues -- a comma, a conditional, an assignment, the four steps, and a member of one of them or of a call's value --
+  the lowering refuses an assignment to one and a step of one (`ir_c_assignable/1`), the check the address of one
+  (`ck_expr/3`), each in clang's words at the line, and a member of one is read from the value's temporary. The driver
+  gate's eighteen bodies, clang's words at clang's lines; `test/c/run/cvalues.c`.
+- THE CHECK WALKED NO INITIALIZER OF A REFERENCE BOUND TO A VALUE: `const int &r = consume(move(p)); free(p);` and its
+  conditional form ran and freed p twice (`free(): double free detected in tcache 2`). `ck_ref_value_init/6` walks it;
+  each is a use after the move now (`test/cpp/refvalue_move.cpp`, `refcond_move.cpp`).
+- A REFERENCE TO A POINTER: a store through it is refused, `no owner behind: '*q'`, the plain form `int *&q = p;
+  *q = 9;` too -- the old limit, recorded in Not done; a step through it runs as clang's build does.
+- `std::move` of a place that an effect makes reaches no lowering: the check refuses it first, `move of a non-owner`,
+  as before 1.6.13 (`p1613/forms7`); the rule written for it in the lowering was taken out, and so was the lowering's
+  refusal of a C address, which the check meets first.
+
+THE FLOW GATE. Its first run over the new text was RED: the chart of `library/ccl_ir.pl` stopped, `Stack limit (1.0Gb)
+exceeded`, in the `findall/3` of cocolog's `flow_findings/2` that copies the graph's panels. HEAD's chart needs 0.8 to
+1.0 GB (RED under 0.5 and 0.8 GB), the new text's 1.0 to 1.25 GB (GREEN under 1.25, 1.5 and 2 GB; 1883 MB at most
+under 2 GB). The gate sets the charts' stack to 2 GB (`FLOW_STACK`), and the finding is for cocolog's owner.
+
+THE PROOF. The twenty forms, as clang++ 22's build; of the twenty-eight, twenty-seven as clang's, `n17` the recorded
+limit; the fourteen C forms as clang's; the thirteen of the safe part each refused or run as its plain form. The
+fixtures: `test/cpp/run/lvalues.cpp`, 43 lines that clang++ 22, 21 and 18 and g++ print; `dropassignref.cpp` over
+`autodrop.pl`, the old value's drop printed; nine refusals in the C++ gate's lists (`refvalue_move`, `refcond_move`,
+`refassign_escape`, `refstep_escape`, `callborrowcomma`, `callreplacecomma`, `callreplacerefcomma`, `itercomma`, the
+safe part's; `refownelem`, by name); `test/c/run/cvalues.c`; the driver gate's check of eighteen C bodies. 32 copies
+of the tree, each with one rule broken (`p1613/breaks.py`), under a battery of those fixtures: 30 caught at once; the
+two that were not -- the root of a path through an effect place and a reference's binding to the inner place -- were
+taken out, no test telling them apart. The nets, over the main checkout and a fresh HOME a part: the flow gate GREEN,
+no finding, 353 s; the reader 173 ok and 5 skipped, compile 356, driver 104 and 1 skipped, objects 29, cross 224 and 1
+skipped, each GREEN; the ccllib gate 621, GREEN, 1673 s; the C++ pools of the 378 lighter run fixtures over libc++ 22,
+21 and 18, 378 ok each; the 520 heavier over libc++ 22, 506 ok and 14 skipped by their needs; the C++ gate's later
+parts by hand, 230 ok. The chain did not run, by the owner's rule of 0.271. No CI job ran.
+
+- `library/ccl_cpp_stmt.pl` (`cpp_lvalue/1`), `library/ccl_cpp_template.pl` (`cpp_decltype_of/2`), `library/ccl_ir.pl`
+  (`ir_lval_/4`, `ir_assign/7`, `ir_assign_place/6`, `ir_step/7`, `ir_effect_lvalue/1`, `ir_effect_ref/4`,
+  `ir_c_assignable/1`, the member's value road; the lowering 182), `library/ccl_check.pl` (`ck_effect_place/2`,
+  `ck_ref_value_init/6`, the C address), `library/ccl_infer.pl` (`ccl_c_no_lvalue/1`), `library/ccl_driver.pl` (two
+  diagnostics), `test/flow.sh` (`FLOW_STACK`), `test/cpp.sh` (nine fixtures in its lists), `test/driver.sh` (the
+  eighteen bodies); the fixtures; the module's version.
+- RULES.md (the value category in Overload resolution; the effect places and C's non-lvalues in The lowering; the
+  reference's initializer, the effect places and C's address in The safe part; the charts' stack in the flow gate; the
+  chart's finding for cocolog; the comma's record out of Not done, the reference to a pointer's in), HISTORY.md,
+  CLAUDE.md (the versions, the fixtures, the flow gate's line).
+
+The module 1.6.13, the reader 207 and the lowering 182.

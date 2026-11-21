@@ -43,6 +43,10 @@ HERE=$(cd "$(dirname "$0")" && pwd)
 grep -q 'flow_module_portals' "$COCOLOG/library/flow/read.pl" 2>/dev/null || { echo "SKIP (cocolog's library(flow/chart) has no modules(Files): 1.11.4 or later)"; exit 0; }
 [ -f "$COCOLOG/tools/cocolint/lint.sh" ] || { echo "SKIP (cocolog has no tools/cocolint/lint.sh)"; exit 0; }
 FLOW_SECS=${FLOW_SECS:-900}
+# A CHART'S STACK LIMIT IS 2 GB (1.6.13), cocolog's flag stack_limit, 1 GB by default: library/ccl_ir.pl's chart needs
+# more since 1.6.13 -- 0.8 to 1.0 GB at 1.6.12, 1.0 to 1.25 GB at 1.6.13, in the findall/3 of flow_findings/2 that copies
+# the graph's panels -- and a search past the limit is an error, the chart unfinished. The pool's caps stay
+FLOW_STACK=${FLOW_STACK:-2147483648}
 FLOW_JOBS=${FLOW_JOBS:-4}; FLOW_LAUNCH_MB=${FLOW_LAUNCH_MB:-9000}; FLOW_HARD_MB=${FLOW_HARD_MB:-14000}
 FLOW_TIMES=${FLOW_TIMES:-$HOME/.cicilang/flow-times}
 FILES="ccl_syntax ccl_pp ccl_include ccl_infer ccl_format ccl_cpp ccl_cpp_namespace ccl_cpp_mangle ccl_cpp_library
@@ -104,7 +108,7 @@ ccl_lpt_order "$FLOW_TIMES" < "$D/jobs0" | sed 's/^[^ ]* //' > "$D/jobs"
 fg_job() {   # fg_job FILE ARITY: chart the copy, write the verdict line; its own variable names (sh has no locals, 0.107)
   _fj_s=$(date +%s)
   case " $TFILES " in *" $1 "*) _fj_l=$tloads ;; *) _fj_l=$loads ;; esac
-  timeout -s KILL "$FLOW_SECS" "$C" --local query "use_module(library(flow/chart)), ensure_loaded('$ROOT/test/flow.pl'), fg_findings_main('$D/src/$1.pl', $2, $_fj_l, $mods, '$D/out/$1.txt')" > "$D/out/$1.log" 2>&1 < /dev/null
+  timeout -s KILL "$FLOW_SECS" "$C" --local query "set_prolog_flag(stack_limit, $FLOW_STACK), use_module(library(flow/chart)), ensure_loaded('$ROOT/test/flow.pl'), fg_findings_main('$D/src/$1.pl', $2, $_fj_l, $mods, '$D/out/$1.txt')" > "$D/out/$1.log" 2>&1 < /dev/null
   _fj_rc=$?; _fj_t=$(( $(date +%s) - _fj_s ))
   if [ "$_fj_rc" -eq 0 ] && [ -f "$D/out/$1.txt" ] && grep -aq '^1 answer' "$D/out/$1.log"; then
     echo "ok $1 $_fj_t" > "$D/res/$1"; ccl_time_record "$FLOW_TIMES" "$1" "$_fj_t"

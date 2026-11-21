@@ -1,0 +1,44 @@
+comma bound: 1 9
+conditional arm: 7 9
+comma assigned: 7 5
+assignment bound: 6 5
+prefix ++ bound: 8
+prefix -- bound: 14
+compound bound: 30
+assignment assigned: 2
+prefix ++ stepped: 4
+compound assigned: 21
+nested comma: 11
+three operands: 41 11
+reference parameter: 40
+auto &: 12
+auto &&: 38
+member: 4
+member assigned, bound: 8
+returned comma: 13
+returned assignment: 6
+comma over a call: 37
+address of comma: 15
+address of assignment: 39
+address of prefix ++: 40
+compound over comma: 43
+decltype((comma)): 16
+decltype(comma): 35
+decltype(assignment): 35 33
+decltype(prefix ++): 35 34
+conditional assigned: 18 34 18
+index stepped once: 19 0 1
+prefix ++ of an index: 42 0 1
+compound of an index: 43 6 1
+const reference: 20 20
+bit-field's value: 5 6
+pointer stepped, bound: 2 3
+range over comma: 1 1 1
+moved comma: 36
+moved conditional: 18 1
+overloads: lvalue lvalue lvalue rvalue rvalue
+forwarded: 1 1 1 0
+copy constructor: 101
+local borrows: 5 5
+values still: 5 5 10
+exit 0

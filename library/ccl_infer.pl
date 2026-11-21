@@ -1460,3 +1460,18 @@ ccl_holds_pointer(T) :- catch(ccl_resolve_type(T, T1), _, fail), ccl_holds_point
 ccl_holds_pointer_(ptr(_, F)) :- !, \+ catch(ccl_resolve_type(F, fn(_, _, _)), _, fail).
 ccl_holds_pointer_(arr(_, E)) :- !, ccl_holds_pointer(E).
 ccl_holds_pointer_(T) :- catch(ccl_members_of(T, Ms), _, fail), member(member(MT, _, _), Ms), ccl_holds_pointer(MT), !.
+%% C: A COMMA, A CONDITIONAL, AN ASSIGNMENT AND A STEP ARE NO LVALUES (C17 6.5.15, 6.5.16/3, 6.5.17, 6.5.2.4 and
+%% 6.5.3.1; 1.6.13): an assignment to one, a step of one and its address are refused in clang's words, by the
+%% lowering's assignment and step (ir_c_assignable/1) and by the check's address (ck_expr/3). C++ takes three of them for
+%% lvalues, and a conditional of two (ir_effect_lvalue/1, ir_cond_arm/1). A MEMBER OF ONE IS NONE EITHER, nor a member
+%% of a call's value (C17 6.5.2.3/3: the member of an lvalue is one): `(g(), s).m', `(c ? s : t).m' and `f().m' are
+%% values, taken by the member's value road (ir_lval_/4), and an assignment to one is refused
+ccl_c_no_lvalue(E) :- ccl_lang(c), ccl_c_rvalue_form(E), !.
+ccl_c_rvalue_form(comma(_, _)).
+ccl_c_rvalue_form(cond(_, _, _)).
+ccl_c_rvalue_form(assign(_, _, _)).
+ccl_c_rvalue_form(preinc(_)).
+ccl_c_rvalue_form(predec(_)).
+ccl_c_rvalue_form(postinc(_)).
+ccl_c_rvalue_form(postdec(_)).
+ccl_c_rvalue_form(member(E, _)) :- ( E = call(_, _) -> true ; ccl_c_rvalue_form(E) ).

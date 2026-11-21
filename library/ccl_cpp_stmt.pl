@@ -581,6 +581,10 @@ cpp_lvalue(deref(_)).
 cpp_lvalue(index(_, _)).
 cpp_lvalue(stmt_expr(block(Ss))) :- append(_, [expr(_, E)], Ss), E = call(_, _), cpp_lvalue(E).   % A CALL MADE IN A STATEMENT EXPRESSION is the call's value category (0.132): a lambda called where it is made is its closure's temporary, then the call; never the block's last NAME, which is a temporary the block built (a prvalue)
 cpp_lvalue(cond(_, A, B)) :- cpp_lvalue(A), cpp_lvalue(B).   % A CONDITIONAL OF TWO LVALUES IS AN LVALUE ([expr.cond]/4; 0.201): `const T &r = c ? a : b;' and a copy constructor over it take the arm's object, never a temporary of it (the lowering's address phi, ir_lval/4 of a conditional)
+cpp_lvalue(comma(_, B)) :- cpp_lvalue(B).   % A COMMA IS OF ITS RIGHT OPERAND'S VALUE CATEGORY ([expr.comma]/1; 1.6.13): `int &r = (g(), b);' binds b, where a temporary was bound and b kept its value
+cpp_lvalue(assign(_, _, _)).   % ... AN ASSIGNMENT IS AN LVALUE, its left operand ([expr.ass]/1), a compound one too; a class's written operator= is a call by here, its result's category the call's
+cpp_lvalue(preinc(_)).         % ... AND SO IS A PREFIX ++ OR -- ([expr.pre.incr]/1); a postfix one is a prvalue
+cpp_lvalue(predec(_)).
 cpp_xvalue_object(move(_)).
 cpp_xvalue_object(call(scoped(_, move), _)).
 cpp_xvalue_object(ccast(_, rref(_, _), _)).

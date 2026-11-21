@@ -375,6 +375,11 @@ that changes a rule edits the rule here, in its topic, and writes its entry in `
   `format(atom(A), ...)` binds A (`ir_fp_nan/1`, `ir_neg_zero/1`), text made from text binds every argument
   (`cpp_dbg_op_spell/2`, whose W `atomic_list_concat/3`'s split binds), and the call under the catch was the warning
   above. (0.144, 0.146, 0.160, 0.259)
+- A CHART'S STACK LIMIT IS 2 GB (1.6.13; `FLOW_STACK`, cocolog's flag `stack_limit`, 1 GB by default):
+  `library/ccl_ir.pl`'s chart needed 0.8 to 1.0 GB at 1.6.12 and needs 1.0 to 1.25 GB at 1.6.13, in the `findall/3` of
+  `flow_findings/2` that copies the graph's panels, and past the limit the search is an error: the chart did not
+  finish, `RED: a file was not charted`, the first run of 1.6.13's text. Under 2 GB its peak is 1883 MB, below a run's
+  2800 MB, and the pool's caps stay. (1.6.13)
 
 ### cocolint: the dialect linter, in the flow gate
 
@@ -7307,6 +7312,15 @@ is in `test/cpp/run/`.
   `tuple(const _Tp &...)` tied with `tuple(_Up &&...)` and, declared first, COPIED a moved value (`fwdtuple.cpp`).
   `refrank.cpp` (both declaration orders), `commafold.cpp`. (0.91, 0.93, 0.94, 0.201)
 
+- A COMMA, AN ASSIGNMENT AND A PREFIX `++` OR `--` ARE LVALUES IN C++ (1.6.13; [expr.comma]/1, [expr.ass]/1,
+  [expr.pre.incr]/1; `cpp_lvalue/1`): a comma is of its right operand's value category, an assignment, a compound one
+  too, names its left operand, and a prefix step its operand; a postfix step stays a prvalue, and a class's written
+  `operator=` is a call by then, its result's category the call's. So `f((g(), b))`, `f(a = 1)` and `f(++a)` over
+  `f(int &)` and `f(int &&)` take `int &`, a forwarding reference deduces `T &` of each, and `C c2 = (g(), c1);`
+  copies c1 through C's copy constructor, where the comma was taken for a prvalue and the copy was elided.
+  `decltype(g(), b)`, `decltype((g(), b))`, `decltype(a = 5)` and `decltype(++a)` are `int &` (`cpp_decltype_of/2`),
+  where each was `int`. `test/cpp/run/lvalues.cpp`, whose 43 lines clang++ 22, 21 and 18 and g++ print. (1.6.13)
+
 ### Ranking the template candidates: Conversions-Demerits
 
 - A holding template candidate costs `Conversions-Demerits` (`cpp_conversions/1` over `'$cpp_conversions'` and
@@ -12272,9 +12286,26 @@ in the first topic (The ccllib gate).
   { free(v->data); }`, noexcept as a C text's function is in C++, left `v->data` live there, `owner_leaked`. The try's
   clause said so already; the handler's clause now does it. (0.267)
 - A reference is the pointer it is (`ck_ref_params/2`, `ck_ref_decl/5`). A reference parameter is a borrow. A local
-  bound to an lvalue borrows `addr(Init)`; one bound to a call has no state. The place a local reference is bound to is
+  bound to an lvalue borrows `addr(Init)`; one bound to a value has no state, and since 1.6.13 its initializer is walked
+  for what it does (`ck_ref_value_init/6`). The place a local reference is bound to is
   kept for the function (`ck_ref_bind/2`, `ck_ref_bound/2`; 0.216): a store through it lands in the place (What a
   local's storage holds), and since 0.217 every binding is kept, a call's result among them. (0.32, 0.216, 0.217)
+- A REFERENCE BOUND TO A VALUE HAS ITS INITIALIZER WALKED (1.6.13; `ck_ref_value_init/6`): the temporary C++ makes for
+  a call's value, a conditional's or a literal's has no place to borrow, and until 1.6.13 the walk of the initializer
+  was left out with the borrow, so `const int &r = consume(move(p)); free(p);` and `const int &r = consume(move(p)) ?
+  b : b; free(p);` moved p unseen and freed it twice. Each is a use after the move now (`test/cpp/refvalue_move.cpp`,
+  `refcond_move.cpp`). (1.6.13)
+- IN C++ A COMMA, AN ASSIGNMENT AND A PREFIX STEP NAME THE PLACE OF THEIR INNER OPERAND (1.6.13; `ck_effect_place/2`):
+  a reference bound to one and the address of one borrow that place (`ck_lvalue_form/1`, `ck_storage_base/2`,
+  `ck_borrows_from/3`), the effect walked with the initializer, and a call's object through one is that place
+  (`ck_replaced_base/3`). So `return (x = 5);` and `return ++x;` from a function that returns `int &` are a borrow
+  that leaves the function (`test/cpp/refassign_escape.cpp`, `refstep_escape.cpp`); callborrow.cpp's and
+  callreplace.cpp's refusals and a dangling iterator's hold through `(g(), v)` (`callborrowcomma.cpp`,
+  `callreplacecomma.cpp`, `callreplacerefcomma.cpp`, `itercomma.cpp`); and `int *p = &(g(), b);` over a global b is
+  static storage, where it was a plain pointer never consumed. (1.6.13)
+- IN C THE ADDRESS OF A FORM THAT IS NO LVALUE IS REFUSED IN CLANG'S WORDS (1.6.13; `ccl_c_no_lvalue/1`, `ck_expr/3`):
+  `cannot take the address of an rvalue of type 'int'`, at the line, before the lowering meets it -- `int *p = &(c ? a
+  : b);` was `plain pointer not consumed`. The driver gate's eighteen bodies. (1.6.13)
 - A BY-VALUE PARAMETER OF A CLASS WITH A DESTRUCTOR IS THE CALLEE'S OBJECT TO THE CHECK (0.207; `ck_param_dtors/3` in
   `ck_function/5`): the caller destroys it since 0.207 (the Classes topic), and the callee's code has no defer of its
   destructor; the walk takes one at the body's head all the same, as the desugaring's own defer was before, so its
@@ -12814,6 +12845,25 @@ in the first topic (The ccllib gate).
 - A conditional over two lvalues is an lvalue whose address is the phi of the arms' addresses ([expr.cond]/4;
   `ir_lvalue_form/1`, `ir_lval(cond)`). Else `std::min(a, b).c_str()` read a dead temporary.
   `test/cpp/run/condlvalue.cpp`. (0.92)
+- IN C++ A COMMA OVER A PLACE, AN ASSIGNMENT AND A PREFIX `++` OR `--` ARE PLACES (1.6.13; `ir_lval_/4`,
+  `ir_effect_lvalue/1`): the comma's place is its right operand's, after its left operand is made and thrown away; the
+  assignment's is its left operand's, the store made, the right operand first -- one helper makes the store for the
+  value and for the place (`ir_assign/7`); the step's is its operand's, the step made (`ir_step/7`). Each place is
+  taken once: `(a = 1) = 2` and `++(++a)` store twice into one place, and `int &r = (v[i++] = 5);` steps i once. A
+  reference bound to one binds the place (`ir_ref_of/2`), a bit-field's value in a temporary, as before
+  (`ir_effect_ref/4`); a conditional takes one as an arm (`ir_cond_arm/1`); `&` of one is the place's address. An
+  object that its scope drops is dropped first and its name is the place (`test/cpp/run/dropassignref.cpp`); an own
+  array's element, freed in a block of its own, has no place and is refused by name (`ir_assign_place/6`;
+  `test/cpp/refownelem.cpp`). Why: a reference bound to one took a temporary of its value -- `int &r = (g(), b); r =
+  9;` left b as it was, and `return (g(), b);` from `int &h()` returned a dead temporary's address, with no word --
+  and an assignment to one was refused by name, `lvalue(comma(...))`. `test/cpp/run/lvalues.cpp`. (1.6.13)
+- IN C AN ASSIGNMENT TO A FORM THAT IS NO LVALUE, AND A STEP OF ONE, ARE REFUSED IN CLANG'S WORDS (1.6.13; C17
+  6.5.2.3/3, 6.5.15, 6.5.16/3, 6.5.17, 6.5.2.4 and 6.5.3.1; `ccl_c_no_lvalue/1`, `ir_c_assignable/1`): a comma, a
+  conditional, an assignment, a step, and a member of one of them or of a call's value are `expression is not
+  assignable`, at the line; the check refuses the address of one first (The safe part). A member of a value is read
+  from the value's temporary (`ir_lval_/4` of a member): `(g(), s).m` was refused by name. Through 1.6.12 the lowering
+  took `(c ? a : b) = 5`, the conditional's place, which is C++'s. `test/c/run/cvalues.c`, the driver gate's eighteen
+  bodies. (1.6.13)
 - `&&` and `||` branch and join in a `phi i1`. A comparison, `!`, `&&` and `||` give C's `int` (`ir_bool/2`) and C++'s
   `bool`, an `i8` (`ir_truth/4`, the inference's `ccl_truth_type/1`; 0.127). (M2, 0.127)
 - AN ARM THAT DOES NOT REACH ITS JOIN IS NO ENTRY OF THE JOIN'S PHI (1.6.10; `ir_arm_join/3`, `ir_phi/3`): a trap or
@@ -14039,6 +14089,13 @@ in the first topic (The ccllib gate).
   does a chart name it: `library(flow/chart)` over `t :- nl(user_error).` with no library loaded says nothing, where the
   call raises `Unknown procedure: nl/1` at run time and runs once `library(stream)` is loaded (probed at 1.6.12). Such a
   call is seen when it runs, alone. For cocolog's owner. (1.6.12)
+- COCOLOG'S CHART COPIES ITS WHOLE GRAPH, AND THE COPY OF THE LARGEST FILE'S IS AT ITS DEFAULT STACK LIMIT (found at
+  1.6.13, cocolog 3.65.0 at 6af52f8): the first goal of `flow_findings/2` is a `findall/3` over every panel of the
+  graph, and its copy of `library/ccl_ir.pl`'s graph needed more than 0.8 GB and less than 1.0 GB at 1.6.12 --
+  measured by the flag `stack_limit` set to 0.5 and 0.8 GB, each `Stack limit exceeded` -- and needs more than 1.0 GB
+  and less than 1.25 GB since 1.6.13, whose text adds forty lines. A chart past the limit is no finding but an error,
+  which names `flow_graph_lanes/2` as the goal left to run, not the copy. The flow gate sets 2 GB (Build, prove and
+  the gates). For cocolog's owner. (1.6.13)
 - COCOLOG 3.62 HAS `public` AND `dynamic` AS PREFIX OPERATORS, as swipl has (reported at 0.290 by a program that runs
   this library over cocolog 3.62.0, and run here since 0.292, over 3.62.2): `A \== public, ...` and `K \== dynamic ;
   ...` are no terms there, the three clauses that had them did not load -- `cpp_check_access/4` in `ccl_cpp_class.pl`,
@@ -16205,11 +16262,10 @@ Declarations topic of the C++ reader).
   `__builtin_unreachable()`, which the desugaring answers as nothing (`cpp_builtin_call/3`), so `f(-1)` of `if (x < 0)
   __builtin_unreachable(); return x;` is -1. A static assertion over such a call is refused, as clang refuses it
   (0.257).
-- IN C++ A COMMA WHOSE RIGHT OPERAND IS AN LVALUE IS NO LVALUE HERE (found at 1.6.10; [expr.comma]/1: the result is of
-  the value category of its right operand): `int &r = (g(), b); r = 9;` binds the reference to a temporary, and b stays
-  2 where clang's build prints 9; a conditional with such an arm is no lvalue either -- `int &r = c ? a : (g(), b); r =
-  7;` leaves a as it was, `1 2` where clang's prints `7 2` --; and `(g(), b) = 5` is refused by name, `not lowered yet:
-  lvalue(comma(...))`. The first two are wrong output with no word.
+- A STORE THROUGH A REFERENCE TO A POINTER IS REFUSED (found at 1.6.13): `int *p = arr; int *&q = p; *q = 9;` is `no
+  owner behind: '*q'`, where clang's build stores into `arr[0]`, and so through an effect, `int *&q = (p += 1);`; a
+  step of q and a read through p are taken (`q += 1;`, `*p`). The check models a reference as the pointer it is, and a
+  store through the pointer the reference holds has no owner behind it.
 - A VOID EXPRESSION USED AS A VALUE IS NOT REFUSED AT ITS LINE (found at 1.6.10; C17 6.3.2.2/1: the nonexistent value of
   a void expression is not used): `int z = f();`, `z = f();`, `g(f())` and `return f();` over `void f(void)` go to
   LLVM's parser, which refuses the text `%t2 = sext void none to i32` (`void type only allowed for function results`) at

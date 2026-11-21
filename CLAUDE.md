@@ -12,8 +12,8 @@ the fixture that gates it, and why. The bullet ends with the version that made t
 edits the rule in `RULES.md`, in its topic, and writes its entry in `HISTORY.md`. Read the topic of `RULES.md` that
 covers the code before the code is changed.
 
-At 1.6.12 the versions are: the module 1.6.12 (`ccl_p_version` in `module/cicilang.cicili`, `bin/cicilang --version`),
-the reader 207 (`ccl_reader_version/1`, `library/ccl_syntax.pl`) and the lowering 181 (`ccl_lowering_version/1`,
+At 1.6.13 the versions are: the module 1.6.13 (`ccl_p_version` in `module/cicilang.cicili`, `bin/cicilang --version`),
+the reader 207 (`ccl_reader_version/1`, `library/ccl_syntax.pl`) and the lowering 182 (`ccl_lowering_version/1`,
 `library/ccl_ir.pl`).
 
 Build and prove, always in this order (or all of it, `sh test/gates.sh`):
@@ -501,8 +501,9 @@ test/ci.sh                  the CI jobs' steps, on Linux or a Mac: the neighbour
 test/gates.sh               every gate in one chain
 test/parlib.sh              the memory-gated pool: ccl_pool, ccl_cocolog_rss, ccl_lpt_order, ccl_time_record,
                             ccl_pool_said (0.249)
-test/flow.pl, flow.sh       the flow gate: every library file charted by cocolog's library(flow/chart), nothing run;
-                            every Prolog file of the repository linted by cocolog's cocolint, one run (1.6.12)
+test/flow.pl, flow.sh       the flow gate: every library file charted by cocolog's library(flow/chart), nothing run,
+                            a chart's stack 2 GB (1.6.13); every Prolog file of the repository linted by cocolog's
+                            cocolint, one run (1.6.12)
 test/flow.expect            the findings the flow gate holds the library to, a key a line
 test/why.pl, why.sh         where a build gave up: the build run under library(flow/debug), the failed call named
 test/prof.pl, prof.sh       where a build's steps and time go: windows along its run, by library(flow/debug)
@@ -613,7 +614,8 @@ test/c/run/                 C programs built and run: NAME.c, NAME.expect, NAME.
                             ctordtor.c and ctordtor_exit.c, GCC's cleanup, constructor and destructor attributes
                             (1.6.8); ownglobal.c over ownglobal.h, a program's own format, print, println and clone
                             (1.6.9); traps.c, the three traps, each in a child of its own, and in the arms of the
-                            conditionals (1.6.10)
+                            conditionals (1.6.10); cvalues.c, members of C's values and the values of assignments,
+                            steps and commas (1.6.13)
 test/c/safe/                C programs the safe part refuses: NAME.c, NAME.expect; dropnone.pl, the macro file of
                             drop_leaks.c (0.262); borrow_after_grow.c, borrow_after_push.c, elem_after_push.c,
                             grow_through_ptr.c, const_replace.c and const_local.c, the safety rules of 0.265;
@@ -659,7 +661,12 @@ test/cpp/                   the C++ reader's fixtures and the refusals; hidem.cp
                             new-expressions thrown away (0.309); freeoprval.cpp, an rvalue for a free operator's
                             W & parameter, refused (1.6.6); cleanup_overload.cpp, a cleanup that names two
                             overloads, refused (1.6.8); ownglobal_left.cpp, a read that a macro's refusal stops in a
-                            class, and ownglobal_next.cpp, the read after it, of the reader gate's k172 (1.6.9)
+                            class, and ownglobal_next.cpp, the read after it, of the reader gate's k172 (1.6.9);
+                            refvalue_move.cpp and refcond_move.cpp, a reference bound to a value whose initializer
+                            moves an owner, refassign_escape.cpp and refstep_escape.cpp, a local returned through an
+                            assignment or a prefix ++, callborrowcomma.cpp, callreplacecomma.cpp,
+                            callreplacerefcomma.cpp and itercomma.cpp, the borrow rules through a comma, and
+                            refownelem.cpp, an own array's element assigned as a place, refused by name (1.6.13)
 test/cpp/link/              the C++ ABI checks of the C++ gate and the cross gate: abi_helper.cpp, memptr_helper.cpp and
                             byval_helper.cpp built by clang++, abi_main.cpp, memptr_main.cpp and byval_main.cpp by
                             cicilang++, abi.h, memptr.h, byval.h; the C++ gate's two units, units_a.cpp and units_b.cpp
@@ -682,7 +689,9 @@ test/cpp/run/               C++ programs built and run: NAME.cpp, .expect, .flag
                             constructor and destructor attributes in C++ (1.6.8); ownglobalcpp.cpp, a program's own
                             format, print, println and clone in C++, its classes' members among them (1.6.9);
                             hardening.cpp, libc++'s fast hardening mode over its three trees, and trapscpp.cpp, the
-                            traps in C++ (1.6.10)
+                            traps in C++ (1.6.10); lvalues.cpp, a comma, an assignment and a prefix step as lvalues,
+                            and dropassignref.cpp over ../../c/run/autodrop.pl, an assignment over an object that
+                            its scope drops, as a place (1.6.13)
 test/ccllib/                the three runs' programs: NAME.c, a ccllib program; NAME.cpp, its twin over std::;
                             NAME.expect, what the twin prints; NAME.count, the count of the run that the costs time;
                             first.c over first.pl, the first proof after phase 0 (0.273); vector.c, the whole

@@ -601,6 +601,17 @@ ck_lvalue_form(index(_, _)).
 ck_lvalue_form(member(_, _)).
 ck_lvalue_form(arrow(_, _)).
 ck_lvalue_form(deref(_)).
+ck_lvalue_form(E) :- ck_effect_place(E, P), ck_lvalue_form(P).   % C++: a comma over a place, an assignment, a prefix ++ or -- (1.6.13)
+%% C++: THE PLACE THAT A COMMA, AN ASSIGNMENT OR A PREFIX ++ OR -- NAMES (1.6.13): the comma's right operand
+%% ([expr.comma]/1), the assignment's left one ([expr.ass]/1), the step's operand ([expr.pre.incr]/1), through nested
+%% ones. A reference bound to one, and an address taken of one, borrow that place, and the effect is walked with the
+%% initializer; until 1.6.13 a reference bound to one had no initializer here (none), and `&(g(), b)' no source
+ck_effect_place(comma(_, B), P) :- ccl_lang(cpp), ck_effect_inner(B, P).
+ck_effect_place(assign(_, L, _), P) :- ccl_lang(cpp), ck_effect_inner(L, P).
+ck_effect_place(preinc(E), P) :- ccl_lang(cpp), ck_effect_inner(E, P).
+ck_effect_place(predec(E), P) :- ccl_lang(cpp), ck_effect_inner(E, P).
+ck_effect_inner(E, P) :- ck_effect_place(E, P0), !, P = P0.
+ck_effect_inner(E, E).
 %% a value that lives as long as the program: a string literal, a global's
 %% address, a global array or function used as a pointer
 ck_static_value(str(_)) :- !.
@@ -837,6 +848,7 @@ ck_anchor_local(N, St0, St) :- ( ck_state(St0, N, _) -> St = St0 ; ck_is_local(N
 ck_storage_base(id(N), N).
 ck_storage_base(member(E, _), N) :- ck_storage_base(E, N).
 ck_storage_base(index(E, _), N) :- ccl_type_of(E, T), ccl_resolve_type(T, arr(_, _)), ck_storage_base(E, N).
+ck_storage_base(E, N) :- ck_effect_place(E, P), !, ck_storage_base(P, N).   % C++: the place an effect names (1.6.13)
 %% the tie a variable declares for itself: an owner (or a struct by value with
 %% own fields) keeps its state and the tie is noted; anything else becomes a
 %% borrow of the root, whatever its type
@@ -969,6 +981,7 @@ ck_borrows_from(dyncast_ref(A, _, _, _), St, P) :- !, ck_borrows_from(A, St, P).
 %% traced the parameter's own storage (0.219) and was `a borrow leaves the function', where `p + 1' was taken. An array,
 %% and a pointer whose borrow the check does not trace, keep the clause below. In C++ too (0.272; [expr.sub]/1,
 %% [expr.unary.op]/3): the desugaring leaves `[]' over a pointer alone
+ck_borrows_from(addr(E), St, P) :- ck_effect_place(E, X), !, ck_borrows_from(addr(X), St, P).   % C++: the address of the place an effect names (1.6.13): `&(g(), b)', `int &r = (a = 1);'
 ck_borrows_from(addr(index(A, _)), St, P) :- ck_points_into(A), ck_borrows_from(A, St, P0), !, P = P0.
 ck_borrows_from(addr(index(A, _)), St, P) :- !, ck_borrows_from(addr(A), St, P).             % &a[i], &c.f: what &a, &c borrow (an anchor, an owner's slot)
 ck_borrows_from(addr(member(A, _)), St, P) :- !, ck_borrows_from(addr(A), St, P).
@@ -1707,10 +1720,10 @@ ck_case_label(E, N) :- ( E = int(V) -> true ; E = chr(V) -> true ; V = '...' ), 
 ck_decls([], St, St).
 ck_decls([var(N, T0, Init0)|Vs], St00, St) :-
     ck_shadow_outer(St00, N, St0),   % the outer states under the name hidden in this frame (0.297)
-    ck_ref_decl(N, T0, Init0, T, Init),
+    ck_ref_decl(N, T0, Init0, T, Init), ck_ref_value_init(T0, T, Init0, Init, St0, St0w),
     ccl_declare(N, T), ck_note_arrlocal(N, T), ck_type_rules(N, T, var(N, Init)),
     ck_var_fields(N, T, Fs), ck_states(Fs, unset, FOs),
-    ck_declare_all(St0, FOs, St1), ck_field_ties(N, T, St1, St2, Ts), ck_anchor_addrs(Init, St2, St3),
+    ck_declare_all(St0w, FOs, St1), ck_field_ties(N, T, St1, St2, Ts), ck_anchor_addrs(Init, St2, St3),
     (   ck_own_array_type(T)
     ->  ck_note_array(N),
         (   Init = init(Items) -> ck_declare(St3, N, array, St5), ck_init_slots(Items, T, N, St5, St6)
@@ -1733,6 +1746,11 @@ ck_decls([var(N, T0, Init0)|Vs], St00, St) :-
             ;   ck_is_pointer_type(T), \+ ck_declared_tie(N, _), ck_fresh_value(Init) -> ck_declare(St5a, N, loose, St6)
             ;   ck_no_owner_behind(N, T, Init, var(N, Init)), St6 = St5a ) ) ),
     ck_decls(Vs, St6, St).
+%% C++: A REFERENCE BOUND TO A VALUE -- the temporary C++ makes for it, no place to borrow -- has its initializer walked
+%% for what it does (1.6.13): until 1.6.13 the walk was left out with the borrow, so `const int &r = consume(move(p));'
+%% and `const int &r = c(move(p)) ? b : b;' moved p unseen, and the `free(p)' after each was taken, a double free
+ck_ref_value_init(T0, T, Init0, none, St0, St) :- T \== T0, Init0 \== none, !, ck_expr(Init0, St0, St).
+ck_ref_value_init(_, _, _, _, St, St).
 
 %% what a right-hand side is to a slot: an owner (moved in), a null, a borrow, or a fresh value
 ck_kind(E, _, null) :- ck_null(E), !.
@@ -2184,6 +2202,7 @@ ck_expr(_, dead, dead) :- !.
 ck_expr(E, St, St) :- \+ compound(E), !.                                          % an operator, a number, a name as a field
 ck_expr(member(C, F), _, _) :- ck_dropped_value(C), !, ck_fail(dropped_temporary, temporary, member(C, F)).   % a member of a call's value that has a drop (0.262)
 ck_expr(comma(A, _), _, _) :- ck_dropped_memory(A, D), !, ck_dropped_name(D, N), ck_fail(dropped_memory, N, D).   % a comma's left operand is thrown away wherever it stands (0.309)
+ck_expr(addr(E), _, _) :- ccl_c_no_lvalue(E), !, ( catch(ccl_type_of(E, T0), _, fail), T0 \== unknown, catch(ck_c_type_text(T0, A0), _, fail) -> A = A0 ; A = '?' ), nb_getval('$ck_fn', Fn), nb_getval('$ck_line', L), throw(error(not_lowered(address_of_rvalue(A)), where(Fn, line(L)))).   % C: THE ADDRESS OF A FORM THAT IS NO LVALUE (1.6.13, ccl_c_no_lvalue/1), in clang's words, before the lowering meets it: `int *p = &(c ? a : b);' was `plain pointer not consumed'
 ck_expr(list_lit(L, _, _), _, _) :- !, nb_getval('$ck_fn', Fn), throw(error(not_lowered(list_literal_with_no_type_given), where(Fn, line(L)))).   % a literal where no place gives it a type (0.263)
 ck_expr(id(N), St, St) :- !, ( ck_state(St, N, S) -> ck_read(N, S) ; true ), ck_held_read(St, N).   % what a holder's storage holds is read with it (0.217)
 ck_expr(int(_), St, St) :- !.
@@ -2457,6 +2476,7 @@ ck_c_spec_text([enum(Tag, _)], T) :- atom(Tag), Tag \== anon, !, atom_concat('en
 ck_c_spec_text(S, T) :- ck_all_atoms(S), atomic_list_concat(S, ' ', T).
 ck_all_atoms([]).
 ck_all_atoms([A|As]) :- atom(A), ck_all_atoms(As).
+ck_replaced_base(addr(E), St, K) :- ck_effect_place(E, X), !, ck_replaced_base(addr(X), St, K).   % C++: the place an effect names, handed by its address (1.6.13)
 ck_replaced_base(addr(id(N)), St, K) :- ck_is_ref(N), ck_state(St, N, borrow(K0)), atom(K0), ck_own_under(St, K0, [_|_]), !, K = K0.   % C++: what a local reference refers to (0.272)
 ck_replaced_base(addr(deref(E)), St, K) :- !, ck_replaced_base(E, St, K).   % &*p hands what p hands (0.303): `data(*pv)', `push_back(*pv, x)'
 ck_replaced_base(addr(E), St, K) :- ( E = member(_, _) ; E = arrow(_, _) ), ck_resolved_key(E, St, K0), !, K = K0.   % &hp->v over `holder *hp = &h': h.v (0.303)
