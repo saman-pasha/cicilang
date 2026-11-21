@@ -376,6 +376,35 @@ that changes a rule edits the rule here, in its topic, and writes its entry in `
   (`cpp_dbg_op_spell/2`, whose W `atomic_list_concat/3`'s split binds), and the call under the catch was the warning
   above. (0.144, 0.146, 0.160, 0.259)
 
+### cocolint: the dialect linter, by hand
+
+- COCOLOG'S LINTER, COCOLINT, READS THE REPOSITORY'S PROLOG CLEAN BUT FOR ONE WARN (1.6.11; `sh
+  $COCOLOG/tools/cocolint/lint.sh FILE`, cocolog's `SKILL.md`, section 11, and `tools/cocolint/GUIDE.md`): the 104 `.pl`
+  files -- the 73 of `library/` and `library/ccllib/`, the twelve of `test/` and `tutorials/`, the nineteen macro files
+  of the fixtures -- each in a capped run of its own (2800 MB, 900 s, a fresh HOME; 18 s and 338 MB at most,
+  `ccl_uninames.pl`). It reads a file with a scanner of its own and runs nothing: a head that joins a library's clauses
+  (N1: one namespace), a stream predicate in a file that loads no `library(stream)` (S1's row X2), the other forms of
+  cocolog's dialect card, a clause too long for a page of an old store (Z1, a WARN). The shell scripts' Prolog goals,
+  which it does not read, call no stream predicate. No gate runs it; what it writes in cocolog's checkout,
+  `blocklist.pl` and `traps.pl`, is its build output, which cocolog's `.gitignore` names. (1.6.11)
+- A GATE PROGRAM NAMES NO PREDICATE OF A LIBRARY IT LOADS (1.6.11, cocolint's N1): `test/reader.pl` defined `sh/2`, and
+  library(process), which it loads, defines `sh(Cmd, Out) :- proc_run(Cmd, 600000, Out, 0).`, so the two were one
+  predicate, the library's clause first. Each `copy/2`, `touch/1` and `mkdir` of the gate ran its command bare before it
+  ran it with its words -- a `cp` that logs its calls, first on the path, saw one `copy/2` as a call with no operand and
+  then the call with the two paths -- and the library's `sh_atom/2` met the gate's clause on backtracking, which ran
+  `'echo hi'` as one word and raised an instantiation error; the gate's output hid it, since `proc_run/4` takes the
+  command's. They are `t_sh/2` and `t_sh_line/2`. (1.6.11)
+- A FILE LOADS THE LIBRARY OF EACH PREDICATE IT CALLS (1.6.11, cocolint's X2): `test/prof.pl` called `open/3`, `write/2`
+  and `close/1` for its report and loaded no `library(stream)`, which `library(flow/debug)` loaded on its way
+  (`library/flow/debug.pl:248`); it loads it itself. (1.6.11)
+- `library/ccl_bidrt.pl:39`, A CLAUSE OF 12,028 BYTES, IS cocolint's ONE WARN (Z1) AND NO DEFECT: cocolint warns past
+  7,800 bytes, the budget of an 8,192-byte page, the page of a store made before ZiguratIP 1.0.0. No store holds the
+  clause -- `ir_bidrt_ready/0` loads the file with `ensure_loaded/1` inside a goal, and a file that a goal loads leaves
+  no clause in the store: a copy of the compile gate's store, after its three decimal fixtures, has no
+  `ccl_bidrt_text/2`, and a copy of the reader gate's none of `test/reader.pl`'s clauses --, and the store's pages are
+  65,536 bytes (`~/.cicilang/KB/pagesize`), a store that `kb_prepare` makes again when the versions change. The
+  generated file stays as `module/gen-bidrt.sh` writes it. (1.6.11)
+
 ### The C gates
 
 - The reader gate. `test/reader.pl` runs 94 numbered checks, `k1` to `k94`, in one process over the user's store. It

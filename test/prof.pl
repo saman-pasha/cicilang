@@ -42,6 +42,9 @@
 %%       1.13.6 calls them steps, and each view says how many of them were inferences.
 
 :- use_module(library(flow/debug)).
+%% the streams of cp_main/9's report, open/3, write/2 and close/1 (1.6.11, cocolint's X2): loaded by this file, not
+%% only by library(flow/debug) on its way
+:- use_module(library(stream)).
 
 cp_main(Top, Base, N, W, J, K, Time, Run, Secs) :-
     (   Time == yes -> TO = [time(_)] ; TO = [] ),

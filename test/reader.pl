@@ -23,7 +23,7 @@ reader_main :-
 setup :-
     nb_setval('$t_fails', 0), nb_setval('$t_err', none),
     os_env('CCL_TEST_ROOT', Root), atom_concat(Root, '/test/c/', C), nb_setval('$t_cdir', C),
-    ( once(catch(os_env('CCL_TEST_TMP', T), _, fail)), T \== '' -> true ; T = '/tmp/cicilang-reader-scratch', sh(mkdir, ['-p', T]) ),
+    ( once(catch(os_env('CCL_TEST_TMP', T), _, fail)), T \== '' -> true ; T = '/tmp/cicilang-reader-scratch', t_sh(mkdir, ['-p', T]) ),
     nb_setval('$t_tmp', T).
 
 %% ---- the harness ------------------------------------------------------------
@@ -39,11 +39,13 @@ c(Name, Path) :- nb_getval('$t_cdir', C), atom_concat(C, Name, Path).
 tmp(D) :- nb_getval('$t_tmp', D).                       % the wrapper's scratch directory, writable
 %% a copy of a fixture, and a touch 50 ms later: time_file/2 answers a file's time to the nanosecond since cocolog
 %% 2.12.2 (whole seconds before, and the wait was 1.1 s), and Linux stamps a file from its coarse clock, a tick a few ms
-copy(From, To) :- sh(cp, [From, To]).
-touch(F) :- proc_sleep(50), sh(touch, [F]).
-sh(Cmd, Args) :- sh_line([Cmd|Args], Line), once(catch(proc_run(Line, 20000, _, 0), _, fail)).
-sh_line([], '').
-sh_line([A|As], L) :- sh_line(As, L0), atomic_list_concat(['\'', A, '\' ', L0], L).
+copy(From, To) :- t_sh(cp, [From, To]).
+touch(F) :- proc_sleep(50), t_sh(touch, [F]).
+%% a command's run, its words quoted: t_sh/2, never sh/2, which library(process) defines (1.6.11, cocolint's N1): one
+%% namespace, so the two were one predicate, the library's clause first, and each call ran its command bare before it
+t_sh(Cmd, Args) :- t_sh_line([Cmd|Args], Line), once(catch(proc_run(Line, 20000, _, 0), _, fail)).
+t_sh_line([], '').
+t_sh_line([A|As], L) :- t_sh_line(As, L0), atomic_list_concat(['\'', A, '\' ', L0], L).
 %% a sample's unit, read once per process
 %% a fixture read at C's own level (-std=c23), the read kept apart from the C17 one
 unit_c(Name, Std, U) :-

@@ -327,6 +327,7 @@ One row per step, in version order: the step's title, what it did and its gate n
 | 1.6.8 | GCC's cleanup, constructor, destructor and mode attributes | the user's task, "Refuse or implement the GNU cleanup attribute": `cleanup` read and dropped, its call never run; the cleanup the defer of its call, the function refused in clang's words where none fits; `constructor` and `destructor` the unit's lists, in C and in C++, where C++ dropped a leading attribute's notes; `mode`, dropped with wrong sizes, refused by name | `k171` over 12 refusals; `cleanup.c`, `cleanup23.c`, `ctordtor.c`, `ctordtor_exit.c`, `cleanupcpp.cpp`, `ctordtorcpp.cpp`, `cleanup_overload.cpp`; 62 forms; eighteen copies broken on purpose, each caught; the nets |
 | 1.6.9 | A program's own format, print, println and clone win over the global macros | the owner's rule, "Yes user implemented should win over ccllib's macros": the four the language's in every scope through 1.6.8 -- a program's own `println` not called, its `print`, `format` and `clone` refused in the macros' words; in C++ a class's members no names of its scope, for every macro; a macro's call before the program's own declaration of the name taken with no word | `ownglobal.c`, `ownglobalcpp.cpp`, `k172`, the driver gate's two checks; 42 forms; sixteen copies broken on purpose, each caught; the nets |
 | 1.6.10 | The traps are lowered | an item of Not done (0.250), at the user's word "Do one item from the not done list": `__builtin_trap()`, clang 19's `__builtin_verbose_trap(category, message)` and `__builtin_debugtrap()` undeclared while `__has_builtin` answered 1 for each, so every program in libc++'s fast or extensive hardening mode was refused: each lowered to LLVM's trap or debug trap, a misuse refused in clang's words, the verbose trap's strings in clang's artificial function under `-g`; an arm that ends in a trap or in `__builtin_unreachable()` no entry of its join's phi | `traps.c`, `hardening.cpp`, `trapscpp.cpp`, the driver gate's three checks; 95 forms; twenty-two copies broken on purpose, each caught; the nets |
+| 1.6.11 | The repository's Prolog under cocolint | the user's word "Yes lint it": cocolog's linter over the 104 `.pl` files, a capped run each, 101 clean: `test/reader.pl`'s `sh/2` one predicate with library(process)'s, each command of the gate run bare before it ran with its words, and `test/prof.pl`'s streams loaded only by library(flow/debug), both mended; `ccl_bidrt.pl`'s clause of 12 KB, the one WARN, held by no store | cocolint 0 HARD over the two files; the probes of `sh/2` and of `cp`; the reader gate, `test/prof.sh`, the flow gate |
 
 ## M5 — the C++ mode
 
@@ -24088,3 +24089,50 @@ No CI job ran.
   fixtures), README.md (the traps among C's forms, the hardening modes in C++).
 
 The module 1.6.10, the reader 207 and the lowering 181.
+
+## 1.6.11 — The repository's Prolog under cocolint
+
+**1.6.11: at the user's word "Yes lint it", after "Read cocolog SKILL to know how to use cocolog": cocolog's linter,
+cocolint, over every `.pl` file of the repository, 104 of them, one capped run a file: three HARD findings in two gate
+programs, each a defect, mended, and one WARN in a generated table, which no store holds.**
+
+THE RUN. `sh $COCOLOG/tools/cocolint/lint.sh FILE` (cocolog's `SKILL.md`, section 11, and `tools/cocolint/GUIDE.md`),
+over cocolog 3.65.0 at 6af52f8: the 73 files of `library/` and `library/ccllib/`, the twelve of `test/` and
+`tutorials/`, the nineteen macro files of `test/c/`, `test/c/run/`, `test/c/safe/` and `test/ccllib/`, a file a run
+under the caps (2800 MB, 900 s, a fresh HOME; `lint/all.sh`): 2 min 17 s in all, 18 s and 338 MB at most
+(`ccl_uninames.pl`). The linter wrote its `traps.pl` in cocolog's checkout, its build output, which cocolog's
+`.gitignore` names, and the checkout stayed clean. 101 files are clean: the library but `ccl_bidrt.pl`, the fixtures'
+macro files, the gates' Prolog but two. The shell scripts' Prolog goals, which no linter reads, were searched for the
+stream predicates, and call none.
+
+THE FINDINGS. `test/reader.pl:44`, N1: `sh/2` is library(process)'s too, `sh(Cmd, Out) :- proc_run(Cmd, 600000, Out,
+0).`, and the file loads library(process): one namespace, so the two were one predicate, the library's clause first in
+`listing(sh/2)`. Each call of the gate's ran its command bare first: a `cp` that logs its calls, first on the path, saw
+one call of `copy/2` as two -- no operand, then the two paths -- where the library's clause ran `cp` alone and failed
+(`lint/cpprobe.sh`); and library(process)'s `sh_atom/2` met the gate's clause on backtracking, which ran `'echo hi'` as
+one word (`sh: 1: echo hi: not found`) and raised an instantiation error (`lint/shprobe.sh`). The gate's output hid it,
+since `proc_run/4` takes the command's. `test/prof.pl:84`, X2 twice: `open/3` and `close/1`, and `write/2` between them,
+in a file that loads no `library(stream)`; it worked because `library(flow/debug)` loads it
+(`library/flow/debug.pl:248`). `library/ccl_bidrt.pl:39`, Z1, a WARN: a clause of 12,028 bytes stored, over the 7,800
+that cocolint allows for an 8,192-byte page, the page of a store made before ZiguratIP 1.0.0. No store holds it: a file
+that `ensure_loaded/1` loads inside a goal, as `ir_bidrt_ready/0` loads this one, leaves no clause in the store -- a
+copy of the compile gate's store, after its three decimal fixtures, has no `ccl_bidrt_text/2`, and a copy of the reader
+gate's none of `test/reader.pl`'s clauses (`lint/kbprobe.sh`, `kbprobe2.sh`) --, and the store's pages are 65,536 bytes
+(`~/.cicilang/KB/pagesize`), a store that `kb_prepare` makes again when the versions change.
+
+THE CHANGE. `test/reader.pl`'s `sh/2` and `sh_line/2` are `t_sh/2` and `t_sh_line/2`; `test/prof.pl` loads
+`library(stream)` itself; `ccl_bidrt.pl` stays as `module/gen-bidrt.sh` writes it. RULES.md's gates topic has cocolint's
+subsection, its run and the three findings. The module 1.6.11; the reader 207 and the lowering 181 stay, since nothing
+of the library changes.
+
+THE PROOF. cocolint over the two files, 0 HARD and 0 WARN each; `listing(sh/2)` the library's clause alone, and
+`sh_atom('echo hi', A)` one answer, `'hi\n'`, with no error; the logged `cp` called once, with the two paths; the reader
+gate 173 ok and 5 skipped, GREEN (6 s, 131 MB); `test/prof.sh test/c/hello.c` over two windows wrote its report, 233,744
+bytes, in 61 s and 1781 MB; the flow gate GREEN, 0 findings over its 6605 predicates, the two gate programs' among them,
+none in two files (383 s, 4113 MB). Over 1.6.10's text the same probes gave the two clauses, the two calls and the
+error, and the lint 3 HARD. The chain did not run, by the owner's rule of 0.271. No CI job ran.
+
+- `test/reader.pl` (`t_sh/2`, `t_sh_line/2`); `test/prof.pl` (`library(stream)`); the module's version.
+- RULES.md (Build, prove and the gates: cocolint, by hand), HISTORY.md, CLAUDE.md (the versions).
+
+The module 1.6.11, the reader 207 and the lowering 181.
