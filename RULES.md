@@ -6955,8 +6955,12 @@ is in `test/cpp/run/`.
   both spellings); else an lvalue of a plain struct or of a scalar is the xvalue cast `static_cast<T &&>(x)` (0.122,
   0.201), and any other is its operand. `stdnodehandle.cpp`. Why: `t.insert(std::move(nh))` found no
   `insert(node_type &&)`. (0.83)
-- An lvalue is an `id`, `member`, `arrow`, `deref`, `index`, a call declared to return `T &`, or a cast to `T &`
-  (`cpp_lvalue/1`). A cast to a reference is typed as its object (`ccl_type_of(ccast)`). (0.79)
+- An lvalue is an `id`, `member`, `arrow`, `deref`, `index`, a call declared to return `T &`, a named cast to `T &`
+  (`const_cast<T &>(x)`), or A C-STYLE CAST TO `T &` ([expr.cast]/1; 1.6.6) (`cpp_lvalue/1`): libc++'s
+  `operator>>(basic_istream<char, _Traits> &, unsigned char &)` is `__is >> (char &)__c`, whose operand, taken for an
+  rvalue, misfit the `char &` of the free operator that 1.6.6 asks (`cpp_operands_misfit/2`), so `cin >> uc` read
+  nothing and each read after it failed (`stdistream.cpp` over libc++ 22, the heavy net of 1.6.6). A cast to a reference
+  is typed as its object (`ccl_type_of(ccast)`). `freeopbin.cpp`. (0.79, 1.6.6)
 - AN ARGUMENT IS AN LVALUE ([basic.lval]) judged on its DESUGARED form where the raw one cannot tell, and an xvalue
   never (`cpp_arg_lvalue/1` over `cpp_deep_form/2` and `cpp_lvalue_deep`; 0.121): a member initializer's
   `std::forward<_Args>(__args)` is raw when the constructor is chosen, and read as no lvalue it took the MOVE
@@ -7308,12 +7312,23 @@ is in `test/cpp/run/`.
 - A free operator serves a class, plain struct or union on either side (`cpp_op_operand/1`) through the free road, and
   counts only where its callee comes back DECLARED; a held template's body refusal propagates. Why: `s == "abc"`,
   `"amy" < s`, a program's `operator<(const S &, const S &)`. (0.67, 0.80, 0.92)
-- **A FREE UNARY OPERATOR IS TAKEN ONLY WHERE ITS PARAMETER TAKES THE OPERAND** (1.6.1; [over.match.viable]/3;
-  `cpp_free_operator_call/4` over `cpp_args_fit/2`): the call's road takes a lone candidate by its count alone, the
-  free functions' last resort, so `-m` over a class with `operator double()`, beside a free `W operator-(W)`, called
-  it and was refused, `no conversion from 'M' to 'W'`, where clang++ gives -2.5. The built-in operator over the
-  conversion's value is the road after this one (`cpp_builtin_via_conv/4`). A binary one is taken as before (Not
-  done). `unaryplus.cpp`. (1.6.1)
+- **A FREE OPERATOR IS TAKEN ONLY WHERE ITS PARAMETERS TAKE THE OPERANDS** (1.6.1 for a unary one, 1.6.6 for a binary
+  one; [over.match.viable]/3; `cpp_free_operator_call/4` over `cpp_operands_misfit/2`): the call's road takes a lone
+  candidate by its count alone, the free functions' last resort, so `-m` over a class with `operator double()`, beside a
+  free `W operator-(W)`, called it and was refused, `no conversion from 'M' to 'W'`, where clang++ gives -2.5; `M{} *
+  2.0` beside `W operator*(W, W)` was refused so until 1.6.6, where clang++ gives 5.0; and where the call's argument
+  pass took the operand, the program printed a wrong value with no word -- `M{} == 2.5` beside `bool operator==(const W
+  &, const W &)` was false, and `i += N{}` of an int beside `A &operator+=(A &, const A &)` wrote the int as an A,
+  655370 where clang++ gives 14. AN OPERAND MISFITS where the parameter does not take it (`cpp_arg_fit/3` scores it 0:
+  an rvalue for a `W &` among them, and an operand of no known type scores 1) and no converting constructor of the
+  parameter's class takes it ([over.ics.user]; `cpp_converting_ctor/2`: `V(1) + 2` over `V operator+(V, V)` and a
+  `V(int)`, `~M3{5}` over `int operator~(W3)` and a `W3(M3)`). A fit test that refuses keeps the operator, as the binary
+  road kept it, where 1.6.5's unary road took the refusal for a misfit: no fixture tells the two apart -- a copy that
+  wrote down each such refusal met none over the light and the heavy C++ pools, and an operand that nothing declares is
+  refused by its name before the operator is asked -- so this clause has no copy broken on purpose that a check catches.
+  The built-in operator over the conversion's value is the road after this one (`cpp_builtin_via_conv/4`); with none,
+  `no_operator(Op)`: `W{} += 1` beside `W &operator+=(W &, int)` is refused so, as clang++ refuses it, where 1.6.5 built
+  it. `unaryplus.cpp`, `freeopbin.cpp`, `freeoprval.cpp`. (1.6.1, 1.6.6)
 - The plain overload roads (`cpp_fn_exact/4`, `cpp_fn_best/4`) and the argument pass (`cpp_ref_args/3`, which reads the
   table's ONE type of a name) take no signature whose parameter types name free template parameters (`cpp_raw_params/1`,
   0.136): a template's raw signature among a name's noted overloads is the template's to deduce; resolved, it
@@ -7324,12 +7339,15 @@ is in `test/cpp/run/`.
 - An enumeration operand takes a free operator whose parameter takes that enum ([over.match.oper]/1;
   `cpp_enum_operator_call/4`), else the built-in stays. The program's operators are registered before anything is
   walked; a header's are loaded by the operator's name, templates among them, but for a comparison, which every enum has
-  built in and whose overload set is the library's biggest (0.127). A template is asked only where a parameter names
-  a type by its bare name (`cpp_enum_op_param/2`): resolving `const duration<_Rep1, _Period1> &` instantiated the class
-  over its free names, and `<ratio>`'s `__static_gcd<_Yp, _Xp % _Yp>` recursed on spellings that never fold.
-  `enumeq.cpp`, `byteops.cpp`. Why: `std::find` over an enum compared with the built-in `==` (0.112); a SCOPED enum has
-  no built-in arithmetic, and `~b` of a `std::byte`, promoted to `int`, gave -16 where libc++'s `operator~(byte)` gives
-  the byte 0xF0 (0.127). (0.112, 0.127)
+  built in and whose overload set is the library's biggest (0.127). A template is asked only where a parameter names a
+  type by its bare name (`cpp_enum_op_param/2`): resolving `const duration<_Rep1, _Period1> &` instantiated the class
+  over its free names, and `<ratio>`'s `__static_gcd<_Yp, _Xp % _Yp>` recursed on spellings that never fold. THE
+  OPERATOR IS TAKEN ONLY WHERE ITS PARAMETERS TAKE THE OPERANDS, as over a class (1.6.6; `cpp_operands_misfit/2`): `a.m
+  | c` of an int and a Color, in the body of `Mask operator|(Mask, Color)`, and `i | Green` and `Blue & 5` beside it
+  were refused `no conversion from 'int' to 'Mask'` and `from 'enum Color' to 'Mask'`, where clang++ takes the built-in
+  operator. `enumeq.cpp`, `byteops.cpp`, `freeopenum.cpp`. Why: `std::find` over an enum compared with the built-in `==`
+  (0.112); a SCOPED enum has no built-in arithmetic, and `~b` of a `std::byte`, promoted to `int`, gave -16 where
+  libc++'s `operator~(byte)` gives the byte 0xF0 (0.127). (0.112, 0.127, 1.6.6)
 - An operator over a class operand that no road answers refuses `no_operator(Op)`, never for `!`, `&&`, `||` (their
   operand converts through `operator bool` afterwards) nor under `Plain = none` (the rewritten `!=`'s ask).
   `stdoptional2.cpp`. Why: raw, `int == nullopt_t` typed `int` in a constraint's `decltype`. (0.94)
@@ -15846,10 +15864,6 @@ Declarations topic of the C++ reader).
   `<format>` that 1.6.0 built, and that print clang++'s lines because the lowering adds the second pointer's bits, the
   difference that they hold. A rule over the inference's type, `p - x` of no known type where x's is not known, did not
   cure the reduction and broke another program (HISTORY.md's 1.6.1). `autoptrdiff.cpp` holds the form.
-- A BINARY FREE OPERATOR IS TAKEN BY ITS COUNT ALONE (1.6.1's probes): `M{} * 2.0` over a class with `operator
-  double()`, beside a free `W operator*(W, W)`, is refused `no conversion from 'M' to 'W'`, where clang++ gives 5.0; a
-  unary one asks its fit since 1.6.1 (the overload topic). The rule for the binary ones changes the road that every
-  program's operators take, so a step of its own measures it alone.
 
 ### libc++ modules
 

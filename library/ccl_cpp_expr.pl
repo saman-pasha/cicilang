@@ -1630,7 +1630,8 @@ cpp_enum_operator_call(Op, A, Args, E) :-
     findall(En0, ( cpp_enum_op_param(Name, PT), cpp_names_enum(PT, En0) ), Ens0), sort(Ens0, Ens),
     member(En, Ens), ( cpp_enum_operand(A, En) -> true ; Args = [B], cpp_enum_operand(B, En) ), !,
     cpp_enum_args([A|Args], En, As1),
-    catch(cpp_call(none, id(Name), As1, E), error(not_lowered(_), _), fail), E = call(id(F), _), atom(F), ccl_declared(F, fn(_, _, _)), !.
+    catch(cpp_call(none, id(Name), As1, E), error(not_lowered(_), _), fail), E = call(id(F), _), atom(F), ccl_declared(F, fn(_, Ps, _)),
+    \+ catch(cpp_operands_misfit(Ps, As1), error(not_lowered(_), _), fail), !.   % ... and only where its parameters take the operands (1.6.6), as a free operator over a class: `a.m | c' of an int and a Color, beside `Mask operator|(Mask, Color)', is the built-in operator, where the free one was called and refused, `no conversion from 'int' to 'Mask''
 %% ... AND A HEADER'S OPERATORS JOIN, its templates among them (0.127): a SCOPED enum has no built-in arithmetic, `~b' of a
 %% `std::byte' is libc++'s `operator~(byte)' and `b << 1' its `operator<<(byte, _Integer)' template; with the enum promoted
 %% to its underlying type (0.127) the built-in gave `~15', -16, where the operator gives the byte 0xF0. A comparison keeps
@@ -1699,12 +1700,17 @@ cpp_free_operator_call(Op, A, Args, E) :-
     (   catch(cpp_call(none, id(Name), [A|Args], E0), error(not_lowered(W), H), ( W = instance_refused(_, _) -> throw(error(not_lowered(W), H)) ; cpp_trace(free_op_refused(Name, W)), fail ))   % a held candidate's body refused: the refusal, never the plain form
     ->  true ; cpp_trace(free_op_none(Name)), fail ),
     ( E0 = call(id(F0), _), ccl_declared(F0, fn(_, Ps, _)) -> true ; cpp_trace(free_op_undeclared(Name, E0)), fail ),
-    ( Args == [], \+ catch(cpp_args_fit(Ps, [A]), error(not_lowered(_), _), fail) -> cpp_trace(free_op_unfit(Name, F0)), fail ; E = E0 ).
-%% ... A UNARY ONE WHOSE PARAMETER TAKES THE OPERAND, or none ([over.match.viable]/3; 1.6.1): the call's road takes a lone
-%% candidate by its count alone, so `-m' over a class with `operator double()', beside a free `W operator-(W)', called it
-%% and was refused, `no conversion from 'M' to 'W'', and `+m' beside `int operator+(E)' over a scoped enum gave the enum's
-%% operator over the double made an enum; the built-in operator over the conversion's value is the road after this one.
-%% The binary ones are taken as before (Not done)
+    ( catch(cpp_operands_misfit(Ps, [A|Args]), error(not_lowered(_), _), fail) -> cpp_trace(free_op_unfit(Name, F0)), fail ; E = E0 ).
+%% ... ONE WHOSE PARAMETERS TAKE THE OPERANDS, or none ([over.match.viable]/3; 1.6.1, a binary one since 1.6.6): the call's
+%% road takes a lone candidate by its count alone, so `-m' over a class with `operator double()', beside a free `W
+%% operator-(W)', called it and was refused, `no conversion from 'M' to 'W'', and `+m' beside `int operator+(E)' over a
+%% scoped enum gave the enum's operator over the double made an enum; `M{} * 2.0' beside `W operator*(W, W)' was refused
+%% so until 1.6.6, where clang++ gives 5.0. The built-in operator over the conversion's value is the road after this one.
+%% AN OPERAND MISFITS where the parameter does not take it (cpp_arg_fit/3 scores it 0; an operand of no known type scores
+%% 1) and no converting constructor of the parameter's class takes it ([over.ics.user]: `V{1} + 2' over `V operator+(V,
+%% V)' and a `V(int)'); a misfit is proved, so a fit test that refuses keeps the operator, as the road kept it before
+cpp_operands_misfit([P|Ps], [A|As]) :- ( cpp_param_type_of(P, PT), cpp_operand_misfit(PT, A) -> true ; cpp_operands_misfit(Ps, As) ).
+cpp_operand_misfit(PT, A) :- cpp_arg_fit(PT, A, S), !, S =:= 0, \+ ( cpp_param_takes_class(PT, C), cpp_converting_ctor(C, A) ).
 %% a member operator takes its arguments EXACTLY: every parameter after `this' the argument's own type (cpp_arg_exact)
 cpp_member_exact(Name, Args) :- ccl_declared(Name, fn(_, [_|Ps], _)), cpp_args_exact(Ps, Args).
 %% ... THE FREE ONE WHERE IT FITS AT LEAST AS WELL, scored as the plain overloads are (0.127): before the promotions ranked, a member

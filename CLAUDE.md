@@ -12,8 +12,8 @@ the fixture that gates it, and why. The bullet ends with the version that made t
 edits the rule in `RULES.md`, in its topic, and writes its entry in `HISTORY.md`. Read the topic of `RULES.md` that
 covers the code before the code is changed.
 
-At 1.6.5 the versions are: the module 1.6.5 (`ccl_p_version` in `module/cicilang.cicili`, `bin/cicilang --version`),
-the reader 204 (`ccl_reader_version/1`, `library/ccl_syntax.pl`) and the lowering 177 (`ccl_lowering_version/1`,
+At 1.6.6 the versions are: the module 1.6.6 (`ccl_p_version` in `module/cicilang.cicili`, `bin/cicilang --version`),
+the reader 204 (`ccl_reader_version/1`, `library/ccl_syntax.pl`) and the lowering 178 (`ccl_lowering_version/1`,
 `library/ccl_ir.pl`).
 
 Build and prove, always in this order (or all of it, `sh test/gates.sh`):
@@ -639,7 +639,8 @@ test/cpp/                   the C++ reader's fixtures and the refusals; hidem.cp
                             adds, each refused at its line (0.306); staticns.cpp and staticmember.cpp, an element of a
                             namespace's own array and of a class's static own array member given to an owner with no
                             move (0.307); dropped_new.cpp, dropped_new_array.cpp and dropped_new_nothrow.cpp, C++'s
-                            new-expressions thrown away (0.309)
+                            new-expressions thrown away (0.309); freeoprval.cpp, an rvalue for a free operator's
+                            W & parameter, refused (1.6.6)
 test/cpp/link/              the C++ ABI checks of the C++ gate and the cross gate: abi_helper.cpp, memptr_helper.cpp and
                             byval_helper.cpp built by clang++, abi_main.cpp, memptr_main.cpp and byval_main.cpp by
                             cicilang++, abi.h, memptr.h, byval.h; the C++ gate's two units, units_a.cpp and units_b.cpp
@@ -656,7 +657,9 @@ test/cpp/run/               C++ programs built and run: NAME.cpp, .expect, .flag
                             namespace's braces, its file's text in place, and in a linkage specification's (0.310);
                             unaryplus.cpp and unarypluslambda.cpp, C++'s unary + (1.6.1); autoptrdiff.cpp, a pointer
                             plus an auto difference of two pointers, libc++ 22's __to_buffer (1.6.1);
-                            scopedtypes.cpp, GNU's __typeof__ of a block's object (1.6.2)
+                            scopedtypes.cpp, GNU's __typeof__ of a block's object (1.6.2); freeopbin.cpp and
+                            freeopenum.cpp, a free operator taken only where its parameters take the operands, over a
+                            class and over an enumeration (1.6.6)
 test/ccllib/                the three runs' programs: NAME.c, a ccllib program; NAME.cpp, its twin over std::;
                             NAME.expect, what the twin prints; NAME.count, the count of the run that the costs time;
                             first.c over first.pl, the first proof after phase 0 (0.273); vector.c, the whole

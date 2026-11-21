@@ -1,0 +1,8 @@
+class and conversion: -2.5 5.0 5.00 6.25 -3 9
+converting constructors: 3 7 1 1 0 2
+derived, conversion to the class, member: 42 21 -1 105
+standard conversion, built-in: 3 1 1
+compound assignment: 3 14
+unary by a converting constructor: -5
+a C-style cast to a reference, an lvalue: Q 1
+exit 0

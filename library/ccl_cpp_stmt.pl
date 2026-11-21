@@ -569,6 +569,7 @@ cpp_lvalue(id(_)).
 cpp_lvalue(call(id(F), _)) :- atom(F), ccl_declared(F, fn(R, _, _)), R = ref(_, _).   % a call returning an lvalue REFERENCE is an lvalue: `cout << a << b' hands the first insertion's result on as one
 cpp_lvalue(member(_, _)).
 cpp_lvalue(ccast(_, ref(_, _), _)).                                       % a cast to an lvalue reference is an lvalue (`const_cast<T &>(x)'); to `T &&' an xvalue, which forwards as a temporary does
+cpp_lvalue(cast(ref(_, _), _)).   % ... AND SO IS A C-STYLE CAST TO ONE ([expr.cast]/1; 1.6.6): libc++'s `operator>>(basic_istream<char, _Traits> &, unsigned char &)' is `__is >> (char &)__c', and its operand, taken for an rvalue, misfit the free operator's `char &' (cpp_operands_misfit/2) -- `cin >> uc' read nothing
 cpp_lvalue(arrow(_, _)).
 cpp_lvalue(deref(_)).
 cpp_lvalue(index(_, _)).

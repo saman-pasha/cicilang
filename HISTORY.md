@@ -322,6 +322,7 @@ One row per step, in version order: the step's title, what it did and its gate n
 | 1.6.3 | the streams as C++'s | the review's items 2, 3, 4 and 10 to 13 and three found by reading -- `cout << "a" << 1 << endl` wrote `a`, `hex` of -1 a long long's bits, `endl` flushed nothing, `cin >> c` kept a space, a stringstream wrote past its room and read a null buffer, `str` was new memory --: each operator gives the stream, a read that finds no value a null pointer and a failed stream, endl a value that flushes, and the forms beside | `streamchain.c` and its twin, the driver gate's `cin` check, `stops.c`'s endl, two refusals; 28 copies broken on purpose, 27 caught, `fstream.pl.h`'s by no check; the nets |
 | 1.6.4 | the numbers as C++'s | the review's items 7, 14 and 15 and five found by reading -- two ratio operations over one four numbers were one name, an engine that no seed seeded gave 0, `uniform_int(r, -5, 5)` was never negative, `to_chars` wrote 0.1 as `0.10000000000000001` and `from_chars` read no format, a complex quotient was the textbook formula, a bool's limits a signed 8-bit type's --: each module's values are libc++ 22's, and `phase1c` under valgrind passes | `numbers.c` and its twin, `fromchars_range.c`, `phase1c.cpp`'s distributions, seven refusals; 53 copies broken on purpose, each caught; the nets |
 | 1.6.5 | shared_ptr over units and threads; the mutex's first use | the review's items 5 and 6 and the ccllib gate's four FAIL of 1.6.0 -- two units over `<memory.pl>` had a pool each, and a handle that one made stopped the program in the other; the counts had no lock; a mutex's first lock was two threads', and a latch that held glibc's mutex was refused on Linux --: one pool and lock a program, the counts under a spin lock, the first use one thread's, the latch's objects in words; an own parameter's store no borrow in C++; ThreadSanitizer in the ccllib gate | `sp_a.c` and `sp_b.c`, `sharedthreads.c` and its twin, `mutex.c`'s threads, `alone/mutex_rules.c`, `ownparams.c`; 23 copies broken on purpose, each caught; the nets |
+| 1.6.6 | a free operator only where its parameters take the operands | 1.6.1's Not done, a binary free operator taken by its count alone -- `M{} * 2.0` refused beside `W operator*(W, W)`, `M{} == 2.5` and `i += N{}` built and printed wrong values, `W{} += 1` built --, and every free operator over an enumeration operand: each asked, unary or binary, over a class or an enumeration, by its parameters' fit or a converting constructor, else the built-in operator | `freeopbin.cpp`, `freeopenum.cpp`, `freeoprval.cpp`; twelve probes; six copies broken on purpose, five caught and one whose path no run reaches; the nets |
 
 ## M5 — the C++ mode
 
@@ -23617,3 +23618,84 @@ not run, by the owner's rule of 0.271. No CI job ran.
   HISTORY.md, CLAUDE.md, README.md, CCLLIB.md.
 
 The module 1.6.5, the reader 204 and the lowering 177.
+
+## 1.6.6 — a free operator only where its parameters take the operands
+
+**1.6.6: the sixth step of the review of 1.1.3 to 1.6.0, the defect that 1.6.1's probes found and left as Not done. A
+binary free operator was taken by its count alone: `M{} * 2.0` over a class with `operator double()`, beside a free `W
+operator*(W, W)`, was refused `no conversion from 'M' to 'W'`, where clang++ gives 5.0, and where the call's argument
+pass took the operand, the program built and printed a wrong value. A free operator, unary or binary, over a class or
+over an enumeration, is a candidate now only where its parameters take the operands, else the built-in operator over the
+conversion's value is the road, as [over.match.oper] has it.**
+
+THE FINDING, RUN FROM ITS REDUCTION (`p161/up/freeop2.cpp`): over 1.6.5, `M{} * 2.0` is refused `no conversion from 'M'
+to 'W'`, where clang++ prints `5.0`. THE FORMS BESIDE IT (`p166/fo`, twelve programs, each beside clang++ 22's output):
+`2.0 * M{}` and `M{} * M{}` the same; `M{} == 2.5` beside `bool operator==(const W &, const W &)` built and printed
+false, and `i += N{}` of an int beside `A &operator+=(A &, const A &)` built and printed 655370, where clang++ prints
+true and 14 -- the call's argument pass took the operand for the parameter's type, with no word; `W{} += 1` beside `W
+&operator+=(W &, int)` built, where clang++ refuses `no viable overloaded '+='`; `-M{5}` beside `int operator-(W)` and a
+`W(M)` was refused `no_operator(-)`, where clang++ converts the operand through the constructor; and over an enumeration
+operand -- the same defect in the road beside it -- `a.m | c` of an int and a Color in the body of `Mask operator|(Mask,
+Color)`, `i | Green` and `Blue & 5` were refused `no conversion from 'int' to 'Mask'` and `from 'enum Color' to 'Mask'`.
+What 1.6.5 took and 1.6.6 keeps: a converting constructor (`V(1) + 2`, `3 + V(4)`, `6 == V(6)`, `X{7} % 4` through a
+`Y(X)`), a derived operand, a conversion function to the parameter's class, a member that beats a free one, a double for
+an int parameter, an explicit constructor (refused, as clang++ refuses it), hidden friends of a class template, the
+library's operators of string, string_view, optional, pair and vector, and a program's stream inserter in a chain.
+
+THE CAUSE. The call's road takes a lone candidate by its count alone, the free functions' last resort, and the free
+operator road took its answer as it came: 1.6.1 asked a unary one's fit (`cpp_args_fit/2`), and the binary ones, and
+every one over an enumeration operand (`cpp_enum_operator_call/4`), were taken by their count. Where the argument pass
+took the operand -- an int for an `A &`, a class for a `const W &` -- the call was lowered over the wrong type; where it
+did not, the conversion's words refused it. THE STEP'S OWN FINDING, BY THE HEAVY NET: over the rule, `stdistream.cpp`
+read an `unsigned char` as a NUL and failed each read after it. libc++ writes `operator>>(basic_istream<char, _Traits>
+&, unsigned char &)` as `__is >> (char &)__c`, and `cpp_lvalue/1` knew a named cast to a reference (`const_cast<T
+&>(x)`) and not a C-style one: the operand was an rvalue to the fit, the `char &` of the free operator a misfit, and the
+read went to another road. A C-style cast to `T &` is an lvalue now ([expr.cast]/1).
+
+THE RULE (RULES.md's operators topic: A FREE OPERATOR IS TAKEN ONLY WHERE ITS PARAMETERS TAKE THE OPERANDS, and the
+enumeration operand's rule). A free operator's answer counts only where no operand misfits (`cpp_operands_misfit/2`,
+[over.match.viable]/3): an operand misfits where the parameter does not take it (`cpp_arg_fit/3` scores it 0, an rvalue
+for a `W &` among them; an operand of no known type scores 1) and no converting constructor of the parameter's class
+takes it ([over.ics.user], `cpp_converting_ctor/2`). A unary one, a binary one and one over an enumeration operand are
+asked alike. A fit test that refuses keeps the operator, as the binary road kept it; 1.6.5's unary road took such a
+refusal for a misfit, and no run reaches one (the copies, below). The road after it is the built-in operator over the
+conversion's value (`cpp_builtin_via_conv/4`), else `no_operator(Op)`. The lowering is 178, since the IR of a program
+whose operator the rule turns changes. AN LVALUE (RULES.md's value categories): a C-style cast to `T &` is one
+(`cpp_lvalue/1`), as a named cast to one is.
+
+THE PROOF. `test/cpp/run/freeopbin.cpp` (the class operands: the finding and its mirror, the converting constructors, a
+derived operand, a conversion to the class, a member beside a free one, a double for an int parameter, the built-in
+operator where the free one misfits, a compound assignment, a unary operand through a converting constructor, libc++'s
+`unsigned char` read through a C-style cast to `char &`) and `freeopenum.cpp` (the enumeration operands, a scoped enum's
+own operator, hidden friends of a class template) print clang++'s lines, at C++17 and at C++23, and
+`test/cpp/freeoprval.cpp` is refused `no_operator(+=)`. Over 1.6.5 each fails: `freeopbin.cpp` is refused
+`no_operator(~)`, `freeopenum.cpp` `no conversion from 'enum Color' to 'Mask'`, and `freeoprval.cpp` builds. The twelve
+probes pass over 1.6.6, and over 1.6.5 seven fail. SIX COPIES BROKEN ON PURPOSE, a clause each (`p166/mk166.py`) -- a
+binary operator's operands not asked, the first operand asked alone, no converting constructor asked, the enumeration
+road's operands not asked, a C-style cast to `T &` no lvalue, and a fit test's refusal taken for a misfit -- over
+`freeopbin.cpp`, `freeopenum.cpp`, `freeoprval.cpp`, 1.6.1's `unaryplus.cpp` and the light C++ pool over libc++ 22, the
+unbroken work tree first with no check RED: the binary operator's copy turns `freeopbin.cpp`, `freeoprval.cpp` and the
+pool RED, the first operand's `freeopenum.cpp` and the pool, the constructor's and the cast's `freeopbin.cpp` and the
+pool, the enumeration road's `freeopenum.cpp` and the pool. THE SIXTH IS CAUGHT BY NO CHECK, since no run reaches its
+path: a copy that wrote down each fit test that refused met none over the light pool's 370 fixtures and the heavy pool's
+506, and an operand that nothing declares -- the form that makes the inference refuse -- is refused by its name before
+the operator is asked, `undeclared(nothere)` over both copies, where clang++ says `use of undeclared identifier
+'nothere'` (`p166/rf`, three programs, a binary, a unary and an enumeration operator).
+
+THE NETS, over the step's final code on cocolog 3.65.0, each under the caps and over a fresh HOME: the flow gate GREEN
+(324 s, 4485 MB); the reader gate 170 ok, 5 skipped; the compile gate 347 ok; the driver gate 99 ok; the objects gate 29
+ok; the ccllib gate 620 ok and no FAIL, 36 programs in three runs, 187 refused and 21 alone; the C++ pools of the
+lighter run fixtures, 370 of 370 over libc++ 22, 21 and 18, `freeopbin.cpp` and `freeopenum.cpp` among them; every
+heavier C++ run fixture over libc++ 22, 506 ok and 14 skipped by their `.needs`, of 520, `stdistream.cpp` among them,
+which the same net failed over the step's first code; the C++ gate's later parts by hand, 220 ok, the refusal of
+`freeoprval.cpp` among them. The chain did not run, by the owner's rule of 0.271. No CI job ran.
+
+- `library/ccl_cpp_expr.pl` (`cpp_operands_misfit/2` and `cpp_operand_misfit/2`, which the free road and the enumeration
+  road ask); `library/ccl_cpp_stmt.pl` (a C-style cast to `T &` an lvalue, `cpp_lvalue/1`); `library/ccl_ir.pl` (the
+  lowering 178); the module's version.
+- `test/cpp/run/freeopbin.cpp`, `.expect`, `freeopenum.cpp`, `.expect`; `test/cpp/freeoprval.cpp`, in `test/cpp.sh`'s
+  list of refusals.
+- RULES.md (the operators topic, the enumeration operand's rule, the value categories, and Not done's record of 1.6.1
+  removed), HISTORY.md, CLAUDE.md.
+
+The module 1.6.6, the reader 204 and the lowering 178.
